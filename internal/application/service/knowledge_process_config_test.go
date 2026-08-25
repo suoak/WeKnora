@@ -179,6 +179,39 @@ func TestApplyParserRuleOverrides_XLSXFirstRowAsHeader(t *testing.T) {
 	}
 }
 
+func TestApplyParserRuleOverrides_XLSXSemanticChunkOptions(t *testing.T) {
+	t.Parallel()
+	contextColumns := 3
+	config := types.ChunkingConfig{
+		ParserEngineRules: []types.ParserEngineRule{{
+			FileTypes:              []string{"xlsx", "xls"},
+			Engine:                 "builtin",
+			XLSXChunkingMode:       "row-aware",
+			XLSXContextColumnCount: &contextColumns,
+		}},
+	}
+	overrides := map[string]string{}
+
+	applyParserRuleOverrides(overrides, config, "xlsx")
+
+	require.Equal(t, "row-aware", overrides[xlsxChunkingModeOverride])
+	require.Equal(t, "3", overrides[xlsxContextColumnCountOverride])
+}
+
+func TestResolveProcessConfig_OverridesParserSemanticHardLimit(t *testing.T) {
+	t.Parallel()
+	kb := &types.KnowledgeBase{ChunkingConfig: types.ChunkingConfig{
+		ParserSemanticChunkMaxChars: 7500,
+	}}
+	overrides := &types.KnowledgeProcessOverrides{ChunkingConfig: &types.ChunkingConfig{
+		ParserSemanticChunkMaxChars: 6200,
+	}}
+
+	eff := ResolveProcessConfig(kb, overrides)
+
+	require.Equal(t, 6200, eff.ChunkingConfig.ParserSemanticChunkMaxChars)
+}
+
 func TestApplyParserRuleOverrides_XLSFileType(t *testing.T) {
 	t.Parallel()
 

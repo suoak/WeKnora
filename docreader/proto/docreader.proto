@@ -22,6 +22,32 @@ message ReadConfig {
   // image_storage removed: image persistence is now handled entirely by the Go App.
   // Field number 3 is reserved for backward compatibility.
   reserved 3;
+  // Hard safety ceiling for a parser-defined semantic chunk. This is
+  // intentionally separate from the application's ordinary chunk_size.
+  uint32 parser_semantic_chunk_max_chars = 4;
+}
+
+enum ChunkingPolicy {
+  CHUNKING_POLICY_DEFAULT = 0;
+  CHUNKING_POLICY_PRESERVE_PARSER_CHUNKS = 1;
+}
+
+message ParsedTextSpan {
+  uint32 seq = 1;
+  uint32 start = 2;
+  uint32 end = 3;
+  map<string, string> metadata = 4;
+}
+
+// A parser-defined document region. Segment offsets are document-relative;
+// parsed_chunks offsets are relative to the start of this segment.
+message ParsedSegment {
+  uint32 seq = 1;
+  uint32 start = 2;
+  uint32 end = 3;
+  ChunkingPolicy chunking_policy = 4;
+  repeated ParsedTextSpan parsed_chunks = 5;
+  map<string, string> metadata = 6;
 }
 
 // Unified read request: set file_content for file mode, url for URL mode.
@@ -49,6 +75,9 @@ message ReadResponse {
   string image_dir_path = 3;
   map<string, string> metadata = 4;
   string error = 5;
+  ChunkingPolicy chunking_policy = 6;
+  repeated ParsedTextSpan parsed_chunks = 7;
+  repeated ParsedSegment parsed_segments = 8;
 }
 
 // Metadata header for a streamed read. Sent exactly once, before any image.
@@ -58,6 +87,9 @@ message ReadStreamMeta {
   map<string, string> metadata = 3;
   string error = 4;
   uint32 image_count = 5; // best-effort total image count (0 if unknown)
+  ChunkingPolicy chunking_policy = 6;
+  repeated ParsedTextSpan parsed_chunks = 7;
+  repeated ParsedSegment parsed_segments = 8;
 }
 
 // One frame of a ReadStream. The first frame carries `meta`; every subsequent

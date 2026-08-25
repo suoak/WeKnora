@@ -4,11 +4,14 @@ export interface ParserEngineRule {
   file_types: string[]
   engine: string
   xlsx_first_row_as_header?: boolean
+  xlsx_chunking_mode?: 'auto' | 'row-aware' | 'legacy'
+  xlsx_context_column_count?: number
 }
 
 export interface ChunkingConfigOverride {
   chunk_size?: number
   chunk_overlap?: number
+  parser_semantic_chunk_max_chars?: number
   separators?: string[]
   parser_engine_rules?: ParserEngineRule[]
   enable_parent_child?: boolean

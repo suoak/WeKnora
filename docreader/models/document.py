@@ -1,9 +1,17 @@
 """Chunk document schema."""
 
 import json
+from enum import Enum
 from typing import Any, Dict, List
 
 from pydantic import BaseModel, Field
+
+
+class ChunkingPolicy(str, Enum):
+    """Controls whether the application may re-split parser chunks."""
+
+    DEFAULT = "default"
+    PRESERVE_PARSER_CHUNKS = "preserve_parser_chunks"
 
 
 class Chunk(BaseModel):
@@ -59,6 +67,22 @@ class Chunk(BaseModel):
         return cls.from_dict(data, **kwargs)
 
 
+class ParsedSegment(BaseModel):
+    """A parser-defined region with an independently selected chunking policy.
+
+    Segment offsets address ``Document.content``. Chunk offsets address the
+    segment itself, allowing every region to be materialized before any
+    length-changing normalization is applied.
+    """
+
+    seq: int = Field(default=0, description="Segment sequence number")
+    start: int = Field(default=0, description="Document-relative start position")
+    end: int = Field(description="Document-relative end position")
+    chunking_policy: ChunkingPolicy = Field(default=ChunkingPolicy.DEFAULT)
+    chunks: List[Chunk] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
 class Document(BaseModel):
     """Document including document content, document metadata."""
 
@@ -70,6 +94,14 @@ class Document(BaseModel):
     )
 
     chunks: List[Chunk] = Field(default_factory=list, description="document chunks")
+    segments: List[ParsedSegment] = Field(
+        default_factory=list,
+        description="Parser-defined regions with independent chunking policies",
+    )
+    chunking_policy: ChunkingPolicy = Field(
+        default=ChunkingPolicy.DEFAULT,
+        description="How downstream consumers should treat parser-defined chunks",
+    )
     metadata: Dict[str, Any] = Field(
         default_factory=dict,
         description="metadata fields",

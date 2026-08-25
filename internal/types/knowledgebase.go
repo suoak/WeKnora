@@ -238,6 +238,12 @@ type ParserEngineRule struct {
 	// XLSXFirstRowAsHeader restores row-1 column context for flat XLSX tables.
 	// nil preserves the parser default; an explicit false disables the mode.
 	XLSXFirstRowAsHeader *bool `yaml:"xlsx_first_row_as_header,omitempty" json:"xlsx_first_row_as_header,omitempty"`
+	// XLSXChunkingMode controls whether the builtin Excel parser may declare
+	// parser-defined semantic chunks: auto, row-aware, or legacy.
+	XLSXChunkingMode string `yaml:"xlsx_chunking_mode,omitempty" json:"xlsx_chunking_mode,omitempty"`
+	// XLSXContextColumnCount is required before an oversized Excel record may
+	// be split into repeated context columns plus payload column groups.
+	XLSXContextColumnCount *int `yaml:"xlsx_context_column_count,omitempty" json:"xlsx_context_column_count,omitempty"`
 }
 
 // ChunkingConfig represents the document splitting configuration
@@ -246,6 +252,9 @@ type ChunkingConfig struct {
 	ChunkSize int `yaml:"chunk_size"    json:"chunk_size"`
 	// Chunk overlap
 	ChunkOverlap int `yaml:"chunk_overlap" json:"chunk_overlap"`
+	// ParserSemanticChunkMaxChars is a hard safety ceiling for parser-defined
+	// semantic chunks. It is independent of the ordinary ChunkSize target.
+	ParserSemanticChunkMaxChars int `yaml:"parser_semantic_chunk_max_chars,omitempty" json:"parser_semantic_chunk_max_chars,omitempty"`
 	// Separators
 	Separators []string `yaml:"separators"    json:"separators"`
 	// ParserEngineRules configures which parser engine to use for each file type.

@@ -1,4 +1,5 @@
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from collections.abc import Iterable as _Iterable, Mapping as _Mapping
@@ -6,8 +7,15 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class ChunkingPolicy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    CHUNKING_POLICY_DEFAULT: _ClassVar[ChunkingPolicy]
+    CHUNKING_POLICY_PRESERVE_PARSER_CHUNKS: _ClassVar[ChunkingPolicy]
+CHUNKING_POLICY_DEFAULT: ChunkingPolicy
+CHUNKING_POLICY_PRESERVE_PARSER_CHUNKS: ChunkingPolicy
+
 class ReadConfig(_message.Message):
-    __slots__ = ("parser_engine", "parser_engine_overrides")
+    __slots__ = ("parser_engine", "parser_engine_overrides", "parser_semantic_chunk_max_chars")
     class ParserEngineOverridesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -17,9 +25,53 @@ class ReadConfig(_message.Message):
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
     PARSER_ENGINE_FIELD_NUMBER: _ClassVar[int]
     PARSER_ENGINE_OVERRIDES_FIELD_NUMBER: _ClassVar[int]
+    PARSER_SEMANTIC_CHUNK_MAX_CHARS_FIELD_NUMBER: _ClassVar[int]
     parser_engine: str
     parser_engine_overrides: _containers.ScalarMap[str, str]
-    def __init__(self, parser_engine: _Optional[str] = ..., parser_engine_overrides: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    parser_semantic_chunk_max_chars: int
+    def __init__(self, parser_engine: _Optional[str] = ..., parser_engine_overrides: _Optional[_Mapping[str, str]] = ..., parser_semantic_chunk_max_chars: _Optional[int] = ...) -> None: ...
+
+class ParsedTextSpan(_message.Message):
+    __slots__ = ("seq", "start", "end", "metadata")
+    class MetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    SEQ_FIELD_NUMBER: _ClassVar[int]
+    START_FIELD_NUMBER: _ClassVar[int]
+    END_FIELD_NUMBER: _ClassVar[int]
+    METADATA_FIELD_NUMBER: _ClassVar[int]
+    seq: int
+    start: int
+    end: int
+    metadata: _containers.ScalarMap[str, str]
+    def __init__(self, seq: _Optional[int] = ..., start: _Optional[int] = ..., end: _Optional[int] = ..., metadata: _Optional[_Mapping[str, str]] = ...) -> None: ...
+
+class ParsedSegment(_message.Message):
+    __slots__ = ("seq", "start", "end", "chunking_policy", "parsed_chunks", "metadata")
+    class MetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    SEQ_FIELD_NUMBER: _ClassVar[int]
+    START_FIELD_NUMBER: _ClassVar[int]
+    END_FIELD_NUMBER: _ClassVar[int]
+    CHUNKING_POLICY_FIELD_NUMBER: _ClassVar[int]
+    PARSED_CHUNKS_FIELD_NUMBER: _ClassVar[int]
+    METADATA_FIELD_NUMBER: _ClassVar[int]
+    seq: int
+    start: int
+    end: int
+    chunking_policy: ChunkingPolicy
+    parsed_chunks: _containers.RepeatedCompositeFieldContainer[ParsedTextSpan]
+    metadata: _containers.ScalarMap[str, str]
+    def __init__(self, seq: _Optional[int] = ..., start: _Optional[int] = ..., end: _Optional[int] = ..., chunking_policy: _Optional[_Union[ChunkingPolicy, str]] = ..., parsed_chunks: _Optional[_Iterable[_Union[ParsedTextSpan, _Mapping]]] = ..., metadata: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class ReadRequest(_message.Message):
     __slots__ = ("file_content", "file_name", "file_type", "url", "title", "config", "request_id")
@@ -54,7 +106,7 @@ class ImageRef(_message.Message):
     def __init__(self, filename: _Optional[str] = ..., original_ref: _Optional[str] = ..., mime_type: _Optional[str] = ..., storage_key: _Optional[str] = ..., image_data: _Optional[bytes] = ...) -> None: ...
 
 class ReadResponse(_message.Message):
-    __slots__ = ("markdown_content", "image_refs", "image_dir_path", "metadata", "error")
+    __slots__ = ("markdown_content", "image_refs", "image_dir_path", "metadata", "error", "chunking_policy", "parsed_chunks", "parsed_segments")
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -67,15 +119,21 @@ class ReadResponse(_message.Message):
     IMAGE_DIR_PATH_FIELD_NUMBER: _ClassVar[int]
     METADATA_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
+    CHUNKING_POLICY_FIELD_NUMBER: _ClassVar[int]
+    PARSED_CHUNKS_FIELD_NUMBER: _ClassVar[int]
+    PARSED_SEGMENTS_FIELD_NUMBER: _ClassVar[int]
     markdown_content: str
     image_refs: _containers.RepeatedCompositeFieldContainer[ImageRef]
     image_dir_path: str
     metadata: _containers.ScalarMap[str, str]
     error: str
-    def __init__(self, markdown_content: _Optional[str] = ..., image_refs: _Optional[_Iterable[_Union[ImageRef, _Mapping]]] = ..., image_dir_path: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., error: _Optional[str] = ...) -> None: ...
+    chunking_policy: ChunkingPolicy
+    parsed_chunks: _containers.RepeatedCompositeFieldContainer[ParsedTextSpan]
+    parsed_segments: _containers.RepeatedCompositeFieldContainer[ParsedSegment]
+    def __init__(self, markdown_content: _Optional[str] = ..., image_refs: _Optional[_Iterable[_Union[ImageRef, _Mapping]]] = ..., image_dir_path: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., error: _Optional[str] = ..., chunking_policy: _Optional[_Union[ChunkingPolicy, str]] = ..., parsed_chunks: _Optional[_Iterable[_Union[ParsedTextSpan, _Mapping]]] = ..., parsed_segments: _Optional[_Iterable[_Union[ParsedSegment, _Mapping]]] = ...) -> None: ...
 
 class ReadStreamMeta(_message.Message):
-    __slots__ = ("markdown_content", "image_dir_path", "metadata", "error", "image_count")
+    __slots__ = ("markdown_content", "image_dir_path", "metadata", "error", "image_count", "chunking_policy", "parsed_chunks", "parsed_segments")
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -88,12 +146,18 @@ class ReadStreamMeta(_message.Message):
     METADATA_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
     IMAGE_COUNT_FIELD_NUMBER: _ClassVar[int]
+    CHUNKING_POLICY_FIELD_NUMBER: _ClassVar[int]
+    PARSED_CHUNKS_FIELD_NUMBER: _ClassVar[int]
+    PARSED_SEGMENTS_FIELD_NUMBER: _ClassVar[int]
     markdown_content: str
     image_dir_path: str
     metadata: _containers.ScalarMap[str, str]
     error: str
     image_count: int
-    def __init__(self, markdown_content: _Optional[str] = ..., image_dir_path: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., error: _Optional[str] = ..., image_count: _Optional[int] = ...) -> None: ...
+    chunking_policy: ChunkingPolicy
+    parsed_chunks: _containers.RepeatedCompositeFieldContainer[ParsedTextSpan]
+    parsed_segments: _containers.RepeatedCompositeFieldContainer[ParsedSegment]
+    def __init__(self, markdown_content: _Optional[str] = ..., image_dir_path: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., error: _Optional[str] = ..., image_count: _Optional[int] = ..., chunking_policy: _Optional[_Union[ChunkingPolicy, str]] = ..., parsed_chunks: _Optional[_Iterable[_Union[ParsedTextSpan, _Mapping]]] = ..., parsed_segments: _Optional[_Iterable[_Union[ParsedSegment, _Mapping]]] = ...) -> None: ...
 
 class ReadStreamResponse(_message.Message):
     __slots__ = ("meta", "image")

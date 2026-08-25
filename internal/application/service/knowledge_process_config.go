@@ -10,7 +10,11 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
-const xlsxFirstRowAsHeaderOverride = "xlsx_first_row_as_header"
+const (
+	xlsxFirstRowAsHeaderOverride   = "xlsx_first_row_as_header"
+	xlsxChunkingModeOverride       = "xlsx_chunking_mode"
+	xlsxContextColumnCountOverride = "xlsx_context_column_count"
+)
 
 func applyParserRuleOverrides(
 	overrides map[string]string,
@@ -22,14 +26,22 @@ func applyParserRuleOverrides(
 		return
 	}
 	rule := config.ResolveParserEngineRule(fileType)
-	if rule == nil || rule.XLSXFirstRowAsHeader == nil {
+	if rule == nil {
 		return
 	}
 	engine := strings.TrimSpace(rule.Engine)
 	if engine != "" && engine != "builtin" {
 		return
 	}
-	overrides[xlsxFirstRowAsHeaderOverride] = strconv.FormatBool(*rule.XLSXFirstRowAsHeader)
+	if rule.XLSXFirstRowAsHeader != nil {
+		overrides[xlsxFirstRowAsHeaderOverride] = strconv.FormatBool(*rule.XLSXFirstRowAsHeader)
+	}
+	if mode := strings.TrimSpace(rule.XLSXChunkingMode); mode != "" {
+		overrides[xlsxChunkingModeOverride] = mode
+	}
+	if rule.XLSXContextColumnCount != nil {
+		overrides[xlsxContextColumnCountOverride] = strconv.Itoa(*rule.XLSXContextColumnCount)
+	}
 }
 
 func normalizeParserFileType(fileType string) string {
@@ -256,6 +268,9 @@ func mergeChunkingConfig(base types.ChunkingConfig, override *types.ChunkingConf
 	}
 	if override.ChunkOverlap != 0 {
 		result.ChunkOverlap = override.ChunkOverlap
+	}
+	if override.ParserSemanticChunkMaxChars != 0 {
+		result.ParserSemanticChunkMaxChars = override.ParserSemanticChunkMaxChars
 	}
 	if len(override.Separators) > 0 {
 		result.Separators = override.Separators

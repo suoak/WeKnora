@@ -115,6 +115,10 @@ func (p *GRPCDocumentReader) Read(ctx context.Context, req *types.ReadRequest) (
 		return nil, errNotConnected
 	}
 
+	semanticMaxChars := uint32(0)
+	if req.ParserSemanticChunkMaxChars > 0 {
+		semanticMaxChars = uint32(req.ParserSemanticChunkMaxChars)
+	}
 	protoReq := &proto.ReadRequest{
 		FileContent: req.FileContent,
 		FileName:    req.FileName,
@@ -123,8 +127,9 @@ func (p *GRPCDocumentReader) Read(ctx context.Context, req *types.ReadRequest) (
 		Title:       req.Title,
 		RequestId:   req.RequestID,
 		Config: &proto.ReadConfig{
-			ParserEngine:          req.ParserEngine,
-			ParserEngineOverrides: req.ParserEngineOverrides,
+			ParserEngine:                req.ParserEngine,
+			ParserEngineOverrides:       req.ParserEngineOverrides,
+			ParserSemanticChunkMaxChars: semanticMaxChars,
 		},
 	}
 
@@ -174,6 +179,9 @@ func (p *GRPCDocumentReader) readStream(
 			result.ImageDirPath = meta.GetImageDirPath()
 			result.Metadata = meta.GetMetadata()
 			result.Error = meta.GetError()
+			result.ChunkingPolicy = chunkingPolicyFromProto(meta.GetChunkingPolicy())
+			result.ParsedChunks = parserChunkSpansFromProto(meta.GetParsedChunks())
+			result.ParsedSegments = parserSegmentsFromProto(meta.GetParsedSegments())
 			if n := meta.GetImageCount(); n > 0 {
 				result.ImageRefs = make([]types.ImageRef, 0, n)
 			}
@@ -212,6 +220,9 @@ func (p *GRPCDocumentReader) readUnary(
 		ImageDirPath:    resp.GetImageDirPath(),
 		Metadata:        resp.GetMetadata(),
 		Error:           resp.GetError(),
+		ChunkingPolicy:  chunkingPolicyFromProto(resp.GetChunkingPolicy()),
+		ParsedChunks:    parserChunkSpansFromProto(resp.GetParsedChunks()),
+		ParsedSegments:  parserSegmentsFromProto(resp.GetParsedSegments()),
 	}
 	if refs := resp.GetImageRefs(); len(refs) > 0 {
 		result.ImageRefs = make([]types.ImageRef, 0, len(refs))
@@ -226,6 +237,55 @@ func (p *GRPCDocumentReader) readUnary(
 		}
 	}
 	return result, nil
+}
+
+func chunkingPolicyFromProto(policy proto.ChunkingPolicy) types.ChunkingPolicy {
+	switch policy {
+	case proto.ChunkingPolicy_CHUNKING_POLICY_DEFAULT:
+		return types.ChunkingPolicyDefault
+	case proto.ChunkingPolicy_CHUNKING_POLICY_PRESERVE_PARSER_CHUNKS:
+		return types.ChunkingPolicyPreserveParserChunks
+	default:
+		return types.ChunkingPolicy(fmt.Sprintf("unknown:%d", policy))
+	}
+}
+
+func parserChunkSpansFromProto(spans []*proto.ParsedTextSpan) []types.ParserChunkSpan {
+	if len(spans) == 0 {
+		return nil
+	}
+	out := make([]types.ParserChunkSpan, 0, len(spans))
+	for _, span := range spans {
+		if span == nil {
+			continue
+		}
+		out = append(out, types.ParserChunkSpan{
+			Seq: int(span.GetSeq()), Start: int(span.GetStart()), End: int(span.GetEnd()),
+			Metadata: span.GetMetadata(),
+		})
+	}
+	return out
+}
+
+func parserSegmentsFromProto(segments []*proto.ParsedSegment) []types.ParserDefinedSegment {
+	if len(segments) == 0 {
+		return nil
+	}
+	out := make([]types.ParserDefinedSegment, 0, len(segments))
+	for _, segment := range segments {
+		if segment == nil {
+			continue
+		}
+		out = append(out, types.ParserDefinedSegment{
+			Seq:            int(segment.GetSeq()),
+			Start:          int(segment.GetStart()),
+			End:            int(segment.GetEnd()),
+			ChunkingPolicy: chunkingPolicyFromProto(segment.GetChunkingPolicy()),
+			ParsedChunks:   parserChunkSpansFromProto(segment.GetParsedChunks()),
+			Metadata:       segment.GetMetadata(),
+		})
+	}
+	return out
 }
 
 func (p *GRPCDocumentReader) ListEngines(ctx context.Context, overrides map[string]string) ([]types.ParserEngineInfo, error) {

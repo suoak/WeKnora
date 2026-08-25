@@ -386,6 +386,7 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 				StartAt:         pc.Start,
 				EndAt:           pc.End,
 				ChunkType:       types.ChunkTypeParentText,
+				Metadata:        mergeParserChunkMetadata(nil, pc.Metadata),
 			}
 		}
 		// Set prev/next links for parent chunks
@@ -426,6 +427,7 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 			StartAt:         int(chunkData.Start),
 			EndAt:           int(chunkData.End),
 			ChunkType:       types.ChunkTypeText,
+			Metadata:        mergeParserChunkMetadata(nil, chunkData.Metadata),
 		}
 
 		// Wire up ParentChunkID for child chunks
@@ -3430,6 +3432,39 @@ func (s *knowledgeService) ProcessDocument(ctx context.Context, t *asynq.Task) e
 		}
 	}
 
+	parserSegments, segmented, parserChunkErr := materializeParserDefinedSegments(
+		convertResult, eff.ChunkingConfig.ParserSemanticChunkMaxChars,
+	)
+	var parserDefinedChunks []types.ParsedChunk
+	parserDefined := false
+	if parserChunkErr == nil && !segmented {
+		parserDefinedChunks, parserDefined, parserChunkErr = materializeParserDefinedChunks(
+			convertResult, eff.ChunkingConfig.ParserSemanticChunkMaxChars,
+		)
+	}
+	if parserChunkErr != nil {
+		s.failStage(ctx, knowledge.ID, types.StageChunking,
+			werrors.ErrCodeChunkingFailed, "invalid parser-defined chunks", parserChunkErr)
+		_, failErr := s.failKnowledge(
+			ctx, knowledge, isLastRetry, "invalid parser-defined chunks: %v", parserChunkErr,
+		)
+		return failErr
+	}
+	preservedCanonicalContent := ""
+	parserControlled := segmented || parserDefined
+	if parserControlled {
+		preservedCanonicalContent = convertResult.MarkdownContent
+		if segmented {
+			logger.Infof(ctx,
+				"parser-defined segments accepted: knowledge=%s segments=%d parser_defined_segments=true",
+				knowledge.ID, len(parserSegments))
+		} else {
+			logger.Infof(ctx,
+				"parser-defined chunks accepted: knowledge=%s chunks=%d parser_defined_chunks=true",
+				knowledge.ID, len(parserDefinedChunks))
+		}
+	}
+
 	// Step 1.5: ASR transcription for audio files
 	if convertResult != nil && convertResult.IsAudio && len(convertResult.AudioData) > 0 {
 		if !eff.ASRConfig.IsASREnabled() {
@@ -3512,11 +3547,23 @@ func (s *knowledgeService) ProcessDocument(ctx context.Context, t *asynq.Task) e
 
 		logger.Infof(ctx, "Resolved %d total images for knowledge %s", len(storedImages), knowledge.ID)
 	}
+	if rewriteErr := validateParserDefinedContentUnchanged(
+		parserControlled, preservedCanonicalContent, convertResult.MarkdownContent,
+	); rewriteErr != nil {
+		s.failStage(ctx, knowledge.ID, types.StageChunking,
+			werrors.ErrCodeChunkingFailed, "parser-defined content rewrite is unsupported", rewriteErr)
+		_, failErr := s.failKnowledge(
+			ctx, knowledge, isLastRetry, "invalid parser-defined chunks: %v", rewriteErr,
+		)
+		return failErr
+	}
 
 	// Step 3: Split into chunks using Go chunker. Browser textareas normalize
 	// pasted content to LF, so normalize uploaded source text before calculating
 	// chunk boundaries as well.
-	convertResult.MarkdownContent = chunker.NormalizeLineEndings(convertResult.MarkdownContent)
+	if !parserControlled {
+		convertResult.MarkdownContent = chunker.NormalizeLineEndings(convertResult.MarkdownContent)
+	}
 	chunkCfg := buildSplitterConfigFromChunking(eff.ChunkingConfig)
 
 	processOpts := ProcessChunksOptions{
@@ -3530,7 +3577,37 @@ func (s *knowledgeService) ProcessDocument(ctx context.Context, t *asynq.Task) e
 		processOpts.Metadata = convertResult.Metadata
 	}
 
-	if eff.ChunkingConfig.EnableParentChild {
+	if segmented {
+		var parentCfg, childCfg chunker.SplitterConfig
+		if eff.ChunkingConfig.EnableParentChild {
+			parentCfg, childCfg = buildParentChildConfigs(eff.ChunkingConfig, chunkCfg)
+		}
+		segmentChunks, parentChunks, splitErr := splitMaterializedParserSegments(
+			parserSegments,
+			chunkCfg,
+			eff.ChunkingConfig.EnableParentChild,
+			parentCfg,
+			childCfg,
+		)
+		if splitErr != nil {
+			s.failStage(ctx, knowledge.ID, types.StageChunking,
+				werrors.ErrCodeChunkingFailed, "invalid parser-defined segments", splitErr)
+			_, failErr := s.failKnowledge(
+				ctx, knowledge, isLastRetry, "invalid parser-defined segments: %v", splitErr,
+			)
+			return failErr
+		}
+		chunks = segmentChunks
+		processOpts.ParentChunks = parentChunks
+		logger.Infof(ctx,
+			"Using %d chunks from %d parser-defined segments for knowledge %s: parser_defined_segments=true cross_segment_split_skipped=true",
+			len(chunks), len(parserSegments), knowledge.ID)
+	} else if parserDefined {
+		chunks = parserDefinedChunks
+		logger.Infof(ctx,
+			"Using %d parser-defined chunks for knowledge %s: parser_defined_chunks=true generic_parent_child_skipped=true",
+			len(chunks), knowledge.ID)
+	} else if eff.ChunkingConfig.EnableParentChild {
 		parentCfg, childCfg := buildParentChildConfigs(eff.ChunkingConfig, chunkCfg)
 		pcResult := chunker.SplitParentChild(convertResult.MarkdownContent, parentCfg, childCfg)
 		chunks = make([]types.ParsedChunk, len(pcResult.Children))
@@ -3655,6 +3732,10 @@ func (s *knowledgeService) convert(
 		ParserEngine:          parserEngine,
 		RequestID:             payload.RequestId,
 		ParserEngineOverrides: mergedOverrides,
+	}
+	req.ParserSemanticChunkMaxChars = eff.ChunkingConfig.ParserSemanticChunkMaxChars
+	if req.ParserSemanticChunkMaxChars <= 0 {
+		req.ParserSemanticChunkMaxChars = types.DefaultParserSemanticChunkMaxChars
 	}
 
 	if !isURL {

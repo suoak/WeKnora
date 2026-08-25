@@ -5,26 +5,34 @@ import sys
 import traceback
 import uuid
 from concurrent import futures
+from types import SimpleNamespace
 from typing import Optional
 
 import grpc
 from grpc_health.v1 import health_pb2_grpc
 from grpc_health.v1.health import HealthServicer
 
-from docreader.auth import AuthInterceptor, TLSConfigError, load_tls_credentials
 from docreader import config
+from docreader.auth import AuthInterceptor, TLSConfigError, load_tls_credentials
 from docreader.config import CONFIG
+from docreader.models.document import ChunkingPolicy
 from docreader.parser import Parser
-from docreader.proto import docreader_pb2_grpc
 from docreader.parser.registry import registry
+from docreader.proto import docreader_pb2_grpc
 from docreader.proto.docreader_pb2 import (
+    CHUNKING_POLICY_DEFAULT,
+    CHUNKING_POLICY_PRESERVE_PARSER_CHUNKS,
+    ImageRef,
+    ListEnginesResponse,
+    ParsedTextSpan,
+    ParserEngineInfo,
     ReadRequest,
     ReadResponse,
-    ImageRef,
     ReadStreamMeta,
     ReadStreamResponse,
-    ListEnginesResponse,
-    ParserEngineInfo,
+)
+from docreader.proto.docreader_pb2 import (
+    ParsedSegment as ProtoParsedSegment,
 )
 from docreader.utils.request import init_logging_request_id, request_id_context
 
@@ -36,6 +44,143 @@ def to_valid_utf8_text(s: Optional[str]) -> str:
         return ""
     s = _SURROGATE_RE.sub("\ufffd", s)
     return s.encode("utf-8", errors="replace").decode("utf-8")
+
+
+def _prepare_wire_chunks(result):
+    """Return UTF-8-safe content and spans that address that exact content."""
+    if result.chunking_policy == ChunkingPolicy.DEFAULT:
+        return to_valid_utf8_text(result.content), CHUNKING_POLICY_DEFAULT, []
+    if result.chunking_policy != ChunkingPolicy.PRESERVE_PARSER_CHUNKS:
+        raise ValueError(f"unknown parser chunking policy: {result.chunking_policy!r}")
+    if not result.chunks:
+        raise ValueError("preserve_parser_chunks requires non-empty parsed chunks")
+
+    raw_content = result.content
+    cursor = 0
+    wire_parts = []
+    wire_spans = []
+    wire_cursor = 0
+    for expected_seq, chunk in enumerate(result.chunks):
+        if chunk.seq != expected_seq:
+            raise ValueError(
+                f"parser chunk seq must be contiguous: got {chunk.seq}, "
+                f"expected {expected_seq}"
+            )
+        if (
+            chunk.start != cursor
+            or chunk.end <= chunk.start
+            or chunk.end > len(raw_content)
+        ):
+            raise ValueError(
+                "parser chunks must form a contiguous, non-empty partition of content"
+            )
+        if raw_content[chunk.start : chunk.end] != chunk.content:
+            raise ValueError("parser chunk content does not match its source span")
+
+        clean_content = to_valid_utf8_text(chunk.content)
+        if not clean_content.strip():
+            raise ValueError("parser semantic chunk must not be blank")
+        wire_end = wire_cursor + len(clean_content)
+        wire_parts.append(clean_content)
+        wire_spans.append(
+            ParsedTextSpan(
+                seq=expected_seq,
+                start=wire_cursor,
+                end=wire_end,
+                metadata={
+                    to_valid_utf8_text(str(k)): to_valid_utf8_text(str(v))
+                    for k, v in chunk.metadata.items()
+                },
+            )
+        )
+        cursor = chunk.end
+        wire_cursor = wire_end
+
+    if cursor != len(raw_content):
+        raise ValueError("parser chunks do not cover the complete content")
+    return (
+        "".join(wire_parts),
+        CHUNKING_POLICY_PRESERVE_PARSER_CHUNKS,
+        wire_spans,
+    )
+
+
+def _prepare_wire_segments(result):
+    """Build UTF-8-safe wire content and a complete segment partition.
+
+    Segment offsets are validated against the raw document. Preserve child
+    offsets are then validated against the raw segment, before either layer is
+    cleaned or normalized downstream.
+    """
+    if not result.segments:
+        content, policy, chunks = _prepare_wire_chunks(result)
+        return content, policy, chunks, []
+
+    raw_content = result.content
+    document_cursor = 0
+    wire_cursor = 0
+    wire_parts = []
+    wire_segments = []
+    for expected_seq, segment in enumerate(result.segments):
+        if segment.seq != expected_seq:
+            raise ValueError(
+                f"parser segment seq must be contiguous: got {segment.seq}, "
+                f"expected {expected_seq}"
+            )
+        if (
+            segment.start != document_cursor
+            or segment.end <= segment.start
+            or segment.end > len(raw_content)
+        ):
+            raise ValueError(
+                "parser segments must form a contiguous, non-empty partition of content"
+            )
+
+        raw_segment = raw_content[segment.start : segment.end]
+        if segment.chunking_policy == ChunkingPolicy.DEFAULT:
+            clean_segment = to_valid_utf8_text(raw_segment)
+            child_spans = []
+        elif segment.chunking_policy == ChunkingPolicy.PRESERVE_PARSER_CHUNKS:
+            # Reuse the document-level validator with segment-relative chunks.
+            clean_segment, _, child_spans = _prepare_wire_chunks(
+                SimpleNamespace(
+                    content=raw_segment,
+                    chunks=segment.chunks,
+                    chunking_policy=ChunkingPolicy.PRESERVE_PARSER_CHUNKS,
+                )
+            )
+        else:
+            raise ValueError(
+                f"unknown parser segment chunking policy: {segment.chunking_policy!r}"
+            )
+        if not clean_segment.strip():
+            raise ValueError("parser segment must not be blank")
+
+        wire_end = wire_cursor + len(clean_segment)
+        wire_segments.append(
+            ProtoParsedSegment(
+                seq=expected_seq,
+                start=wire_cursor,
+                end=wire_end,
+                chunking_policy=(
+                    CHUNKING_POLICY_PRESERVE_PARSER_CHUNKS
+                    if segment.chunking_policy == ChunkingPolicy.PRESERVE_PARSER_CHUNKS
+                    else CHUNKING_POLICY_DEFAULT
+                ),
+                parsed_chunks=child_spans,
+                metadata={
+                    to_valid_utf8_text(str(k)): to_valid_utf8_text(str(v))
+                    for k, v in segment.metadata.items()
+                },
+            )
+        )
+        wire_parts.append(clean_segment)
+        document_cursor = segment.end
+        wire_cursor = wire_end
+
+    if document_cursor != len(raw_content):
+        raise ValueError("parser segments do not cover the complete content")
+    return "".join(wire_parts), CHUNKING_POLICY_DEFAULT, [], wire_segments
 
 
 for handler in logging.root.handlers[:]:
@@ -159,6 +304,11 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
         cfg = request.config
         parser_engine = cfg.parser_engine if cfg else ""
         engine_overrides = dict(cfg.parser_engine_overrides) if cfg else {}
+        if cfg and cfg.parser_semantic_chunk_max_chars:
+            engine_overrides.setdefault(
+                "parser_semantic_chunk_max_chars",
+                str(cfg.parser_semantic_chunk_max_chars),
+            )
 
         if request.url:
             logger.info("Read(URL): url=%s", request.url)
@@ -200,15 +350,21 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
                     return ReadResponse(error=error_msg)
 
                 _c = to_valid_utf8_text
+                wire_content, chunking_policy, parsed_chunks, parsed_segments = (
+                    _prepare_wire_segments(result)
+                )
                 image_dir, image_refs = _resolve_images(result.images, request_id)
 
                 response = ReadResponse(
-                    markdown_content=_c(result.content),
+                    markdown_content=wire_content,
                     image_refs=image_refs,
                     image_dir_path=image_dir,
                     metadata={k: _c(str(v)) for k, v in result.metadata.items()}
                     if result.metadata
                     else {},
+                    chunking_policy=chunking_policy,
+                    parsed_chunks=parsed_chunks,
+                    parsed_segments=parsed_segments,
                 )
                 logger.info(
                     "Read response: content_len=%d, images=%d",
@@ -250,14 +406,26 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
 
             images = result.images or {}
             image_count = len(images)
+            try:
+                wire_content, chunking_policy, parsed_chunks, parsed_segments = (
+                    _prepare_wire_segments(result)
+                )
+            except Exception as e:
+                logger.error("Invalid parser-defined chunks: %s", e)
+                logger.info("Traceback: %s", traceback.format_exc())
+                yield ReadStreamResponse(meta=ReadStreamMeta(error=str(e)))
+                return
             yield ReadStreamResponse(
                 meta=ReadStreamMeta(
-                    markdown_content=_c(result.content),
+                    markdown_content=wire_content,
                     image_dir_path="",
                     metadata={k: _c(str(v)) for k, v in result.metadata.items()}
                     if result.metadata
                     else {},
                     image_count=image_count,
+                    chunking_policy=chunking_policy,
+                    parsed_chunks=parsed_chunks,
+                    parsed_segments=parsed_segments,
                 )
             )
 

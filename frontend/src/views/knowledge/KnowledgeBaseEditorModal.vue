@@ -727,6 +727,7 @@ const initFormData = (type: 'document' | 'faq' = 'document') => {
       // 80 ≈ 15% of chunkSize — community-recommended sweet spot.
       // Aligned with chunker.DefaultChunkOverlap on the backend.
       chunkOverlap: 80,
+      parserSemanticChunkMaxChars: undefined as number | undefined,
       separators: ['\n\n', '\n', '。', '！', '？', ';', '；'],
       parserEngineRules: undefined as any,
       enableParentChild: true,
@@ -856,6 +857,7 @@ const loadKBData = async (kbIdOverride?: string) => {
         // Fallback only used when the loaded KB has no chunk_overlap stored.
         // Aligned with chunker.DefaultChunkOverlap on the backend.
         chunkOverlap: kb.chunking_config?.chunk_overlap || 80,
+        parserSemanticChunkMaxChars: kb.chunking_config?.parser_semantic_chunk_max_chars || undefined,
         separators: kb.chunking_config?.separators || ['\n\n', '\n', '。', '！', '？', ';', '；'],
         parserEngineRules: kb.chunking_config?.parser_engine_rules || undefined,
         enableParentChild: kb.chunking_config?.enable_parent_child || false,
@@ -1181,6 +1183,9 @@ const buildSubmitData = () => {
     chunking_config: {
       chunk_size: formData.value.chunkingConfig.chunkSize,
       chunk_overlap: formData.value.chunkingConfig.chunkOverlap,
+      ...(formData.value.chunkingConfig.parserSemanticChunkMaxChars
+        ? { parser_semantic_chunk_max_chars: formData.value.chunkingConfig.parserSemanticChunkMaxChars }
+        : {}),
       separators: formData.value.chunkingConfig.separators,
       enable_parent_child: formData.value.chunkingConfig.enableParentChild,
       parent_chunk_size: formData.value.chunkingConfig.parentChunkSize,

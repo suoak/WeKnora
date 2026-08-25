@@ -25,8 +25,9 @@ const (
 // --- JSON DTOs ---
 
 type httpReadConfig struct {
-	ParserEngine          string            `json:"parser_engine,omitempty"`
-	ParserEngineOverrides map[string]string `json:"parser_engine_overrides,omitempty"`
+	ParserEngine                string            `json:"parser_engine,omitempty"`
+	ParserEngineOverrides       map[string]string `json:"parser_engine_overrides,omitempty"`
+	ParserSemanticChunkMaxChars int               `json:"parser_semantic_chunk_max_chars,omitempty"`
 }
 
 type httpReadRequest struct {
@@ -48,11 +49,30 @@ type httpImageRef struct {
 }
 
 type httpReadResponse struct {
-	MarkdownContent string            `json:"markdown_content"`
-	ImageRefs       []httpImageRef    `json:"image_refs,omitempty"`
-	ImageDirPath    string            `json:"image_dir_path,omitempty"`
-	Metadata        map[string]string `json:"metadata,omitempty"`
-	Error           string            `json:"error,omitempty"`
+	MarkdownContent string               `json:"markdown_content"`
+	ImageRefs       []httpImageRef       `json:"image_refs,omitempty"`
+	ImageDirPath    string               `json:"image_dir_path,omitempty"`
+	Metadata        map[string]string    `json:"metadata,omitempty"`
+	Error           string               `json:"error,omitempty"`
+	ChunkingPolicy  string               `json:"chunking_policy,omitempty"`
+	ParsedChunks    []httpParsedTextSpan `json:"parsed_chunks,omitempty"`
+	ParsedSegments  []httpParsedSegment  `json:"parsed_segments,omitempty"`
+}
+
+type httpParsedTextSpan struct {
+	Seq      int               `json:"seq"`
+	Start    int               `json:"start"`
+	End      int               `json:"end"`
+	Metadata map[string]string `json:"metadata,omitempty"`
+}
+
+type httpParsedSegment struct {
+	Seq            int                  `json:"seq"`
+	Start          int                  `json:"start"`
+	End            int                  `json:"end"`
+	ChunkingPolicy string               `json:"chunking_policy"`
+	ParsedChunks   []httpParsedTextSpan `json:"parsed_chunks,omitempty"`
+	Metadata       map[string]string    `json:"metadata,omitempty"`
 }
 
 // HTTPDocumentReader implements DocumentReader over HTTP/JSON.
@@ -180,6 +200,34 @@ func fromHTTPReadResponse(resp *httpReadResponse) *types.ReadResult {
 		ImageDirPath:    resp.ImageDirPath,
 		Metadata:        resp.Metadata,
 		Error:           resp.Error,
+		ChunkingPolicy:  types.ChunkingPolicy(resp.ChunkingPolicy),
+	}
+	if result.ChunkingPolicy == "" {
+		result.ChunkingPolicy = types.ChunkingPolicyDefault
+	}
+	for _, chunk := range resp.ParsedChunks {
+		result.ParsedChunks = append(result.ParsedChunks, types.ParserChunkSpan{
+			Seq: chunk.Seq, Start: chunk.Start, End: chunk.End, Metadata: chunk.Metadata,
+		})
+	}
+	for _, segment := range resp.ParsedSegments {
+		parsedSegment := types.ParserDefinedSegment{
+			Seq:            segment.Seq,
+			Start:          segment.Start,
+			End:            segment.End,
+			ChunkingPolicy: types.ChunkingPolicy(segment.ChunkingPolicy),
+			Metadata:       segment.Metadata,
+		}
+		for _, chunk := range segment.ParsedChunks {
+			parsedSegment.ParsedChunks = append(
+				parsedSegment.ParsedChunks,
+				types.ParserChunkSpan{
+					Seq: chunk.Seq, Start: chunk.Start, End: chunk.End,
+					Metadata: chunk.Metadata,
+				},
+			)
+		}
+		result.ParsedSegments = append(result.ParsedSegments, parsedSegment)
 	}
 	for _, ref := range resp.ImageRefs {
 		result.ImageRefs = append(result.ImageRefs, types.ImageRef{
@@ -209,8 +257,9 @@ func (p *HTTPDocumentReader) Read(ctx context.Context, req *types.ReadRequest) (
 		Title:     req.Title,
 		RequestID: req.RequestID,
 		Config: &httpReadConfig{
-			ParserEngine:          req.ParserEngine,
-			ParserEngineOverrides: req.ParserEngineOverrides,
+			ParserEngine:                req.ParserEngine,
+			ParserEngineOverrides:       req.ParserEngineOverrides,
+			ParserSemanticChunkMaxChars: req.ParserSemanticChunkMaxChars,
 		},
 	}
 	if len(req.FileContent) > 0 {

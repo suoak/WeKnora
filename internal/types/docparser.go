@@ -2,17 +2,45 @@ package types
 
 import "strings"
 
+const DefaultParserSemanticChunkMaxChars = 7500
+
 // ReadRequest is the unified transport-agnostic request for document reading.
 // Set FileContent for file mode, URL for URL mode.
 type ReadRequest struct {
-	FileContent           []byte
-	FileName              string
-	FileType              string
-	URL                   string
-	Title                 string
-	ParserEngine          string
-	RequestID             string
-	ParserEngineOverrides map[string]string
+	FileContent                 []byte
+	FileName                    string
+	FileType                    string
+	URL                         string
+	Title                       string
+	ParserEngine                string
+	RequestID                   string
+	ParserEngineOverrides       map[string]string
+	ParserSemanticChunkMaxChars int
+}
+
+type ChunkingPolicy string
+
+const (
+	ChunkingPolicyDefault              ChunkingPolicy = "default"
+	ChunkingPolicyPreserveParserChunks ChunkingPolicy = "preserve_parser_chunks"
+)
+
+type ParserChunkSpan struct {
+	Seq      int
+	Start    int
+	End      int
+	Metadata map[string]string
+}
+
+// ParserDefinedSegment is a parser-defined document region. Start/End are
+// document-relative rune offsets; ParsedChunks offsets are segment-relative.
+type ParserDefinedSegment struct {
+	Seq            int
+	Start          int
+	End            int
+	ChunkingPolicy ChunkingPolicy
+	ParsedChunks   []ParserChunkSpan
+	Metadata       map[string]string
 }
 
 // ReadResult is the transport-agnostic result of document reading.
@@ -24,6 +52,9 @@ type ReadResult struct {
 	Error           string
 	IsAudio         bool   // true when the result contains raw audio data needing ASR transcription
 	AudioData       []byte // raw audio bytes for ASR processing
+	ChunkingPolicy  ChunkingPolicy
+	ParsedChunks    []ParserChunkSpan
+	ParsedSegments  []ParserDefinedSegment
 }
 
 // ImageRef represents an image reference extracted from the document.
@@ -81,6 +112,7 @@ type ParsedChunk struct {
 	End           int
 	Images        []ParsedImage
 	ChunkID       string // populated by processChunks with the actual DB UUID
+	Metadata      map[string]string
 
 	// ParentIndex is set when using parent-child chunking strategy.
 	// -1 (or unset/0 for flat chunks) means this is a top-level chunk.
@@ -106,10 +138,11 @@ func (c ParsedChunk) EmbeddingContent() string {
 // ParsedParentChunk represents a parent chunk in the parent-child strategy.
 // Parent chunks are stored in DB for context retrieval but NOT vector-indexed.
 type ParsedParentChunk struct {
-	Content string
-	Seq     int
-	Start   int
-	End     int
+	Content  string
+	Seq      int
+	Start    int
+	End      int
+	Metadata map[string]string
 }
 
 type ParsedImage struct {

@@ -11,6 +11,7 @@ import openpyxl
 import pandas as pd
 from openpyxl.chart import BarChart, Reference
 
+from docreader.models.document import ChunkingPolicy
 from docreader.parser.excel_convert import detect_excel_format, engine_for_format
 from docreader.parser.excel_parser import ExcelParser
 from docreader.parser.xlsx_merge import fill_merged_cells_xlsx
@@ -416,6 +417,11 @@ class ExcelParserTest(unittest.TestCase):
             ],
         )
         self.assertNotIn("A: Name", document.content)
+        self.assertEqual(
+            document.chunking_policy, ChunkingPolicy.PRESERVE_PARSER_CHUNKS
+        )
+        self.assertEqual(document.chunks[0].metadata["parser.sheet"], "Sheet")
+        self.assertEqual(document.chunks[0].metadata["parser.row"], "2")
 
     def test_xlsx_keeps_first_row_as_data_by_default(self):
         content = self._workbook_bytes(
@@ -425,14 +431,15 @@ class ExcelParserTest(unittest.TestCase):
             ]
         )
 
-        document = ExcelParser(file_name="people.xlsx", file_type="xlsx").parse_into_text(
-            content
-        )
+        document = ExcelParser(
+            file_name="people.xlsx", file_type="xlsx"
+        ).parse_into_text(content)
 
         chunks = [chunk.content.strip() for chunk in document.chunks]
         self.assertEqual(len(chunks), 2)
         self.assertEqual(chunks[0], "A: Name,B: City")
         self.assertEqual(chunks[1], "A: Alice,B: Shenzhen")
+        self.assertEqual(document.chunking_policy, ChunkingPolicy.DEFAULT)
 
     def test_single_row_xlsx_is_not_consumed_in_header_mode(self):
         content = self._workbook_bytes([["Name", "Age", "City"]])
@@ -464,8 +471,22 @@ class ExcelParserTest(unittest.TestCase):
 
         self.assertEqual(
             [chunk.content.strip() for chunk in document.chunks],
-            ["Name: Alice,Name_2: Alias,C: Shenzhen"],
+            ["Name: Alice,Name__2: Alias,__column_C: Shenzhen"],
         )
+
+    def test_empty_header_fallback_avoids_real_header_collision(self):
+        content = self._workbook_bytes(
+            [
+                [None, "__column_A", "Name", "City", "IP"],
+                ["fallback-value", "real-value", "Alice", "SZ", "10.0.0.1"],
+            ]
+        )
+        document = ExcelParser(
+            xlsx_first_row_as_header=True,
+            xlsx_chunking_mode="row-aware",
+        ).parse_into_text(content)
+        self.assertIn("__column_A__2: fallback-value", document.chunks[0].content)
+        self.assertIn("__column_A: real-value", document.chunks[0].content)
 
     def test_xlsx_explicit_false_override_keeps_first_row_as_data(self):
         content = self._workbook_bytes(
@@ -484,6 +505,287 @@ class ExcelParserTest(unittest.TestCase):
         chunks = [chunk.content.strip() for chunk in document.chunks]
         self.assertEqual(chunks[0], "A: Name,B: Age")
         self.assertEqual(chunks[1], "A: Alice,B: 30")
+
+    def test_legacy_mode_never_declares_parser_chunks(self):
+        content = self._workbook_bytes([["Name", "Age"], ["Alice", 30]])
+        document = ExcelParser(
+            xlsx_first_row_as_header=True, xlsx_chunking_mode="legacy"
+        ).parse_into_text(content)
+        self.assertEqual(document.chunking_policy, ChunkingPolicy.DEFAULT)
+        self.assertEqual(document.segments, [])
+
+    def test_mixed_workbook_produces_one_policy_segment_per_nonempty_sheet(self):
+        wb = openpyxl.Workbook()
+        wb.remove(wb.active)
+
+        assets = wb.create_sheet("Assets")
+        assets.append(["Asset ID", "Device", "IP"])
+        assets.append(["A-1", "server-1", "10.0.0.1"])
+        assets.append(["A-2", "server-2", "10.0.0.2"])
+
+        notes = wb.create_sheet("Notes")
+        notes.append(["Instructions"])
+        notes.append(["Read this page first"])
+
+        products = wb.create_sheet("Products")
+        products.append(["Metric ID", "Metric", None, "MODEL-B", "MODEL-C"])
+        products.append(["2024", "Connections", "50W", "50W", "100W"])
+        products.append(["793", "Static ARP", "1024", "1024", "2048"])
+
+        matrix = wb.create_sheet("Matrix")
+        matrix.append(["Identity", "Network", None])
+        matrix.merge_cells("B1:C1")
+        matrix.append(["Asset ID", "IPv4", "IPv6"])
+        matrix.append(["A-1", "10.0.0.1", "::1"])
+
+        bio = io.BytesIO()
+        wb.save(bio)
+        document = ExcelParser(
+            xlsx_first_row_as_header=True,
+            xlsx_chunking_mode="auto",
+        ).parse_into_text(bio.getvalue())
+
+        self.assertEqual(len(document.segments), 4)
+        self.assertEqual(
+            [segment.metadata["parser.sheet"] for segment in document.segments],
+            ["Assets", "Notes", "Products", "Matrix"],
+        )
+        self.assertEqual(
+            [segment.chunking_policy for segment in document.segments],
+            [
+                ChunkingPolicy.PRESERVE_PARSER_CHUNKS,
+                ChunkingPolicy.DEFAULT,
+                ChunkingPolicy.PRESERVE_PARSER_CHUNKS,
+                ChunkingPolicy.DEFAULT,
+            ],
+        )
+        cursor = 0
+        for segment in document.segments:
+            self.assertEqual(segment.start, cursor)
+            self.assertGreater(segment.end, segment.start)
+            cursor = segment.end
+        self.assertEqual(cursor, len(document.content))
+        self.assertIn("__column_C: 50W", document.segments[2].chunks[0].content)
+        self.assertEqual(len(document.segments[0].chunks), 2)
+        self.assertEqual(len(document.segments[2].chunks), 2)
+        self.assertEqual(document.segments[1].chunks, [])
+        self.assertEqual(document.segments[3].chunks, [])
+
+    def test_row_aware_mode_implies_first_row_header(self):
+        content = self._workbook_bytes([["Name", "Age"], ["Alice", 30]])
+        document = ExcelParser(xlsx_chunking_mode="row-aware").parse_into_text(content)
+        self.assertEqual(
+            document.chunking_policy, ChunkingPolicy.PRESERVE_PARSER_CHUNKS
+        )
+        self.assertEqual(document.chunks[0].content.strip(), "Name: Alice,Age: 30")
+
+    def test_auto_rejects_single_column_text_sheet(self):
+        content = self._workbook_bytes([["Notes"], ["first paragraph"], ["second"]])
+        document = ExcelParser(
+            xlsx_first_row_as_header=True, xlsx_chunking_mode="auto"
+        ).parse_into_text(content)
+        self.assertEqual(document.chunking_policy, ChunkingPolicy.DEFAULT)
+
+    def test_auto_rejects_repeated_header_inside_data(self):
+        content = self._workbook_bytes(
+            [["ID", "Name"], ["1", "alpha"], ["ID", "Name"], ["2", "beta"]]
+        )
+        document = ExcelParser(xlsx_first_row_as_header=True).parse_into_text(content)
+        self.assertEqual(document.chunking_policy, ChunkingPolicy.DEFAULT)
+
+    def test_auto_allows_small_number_of_missing_active_headers(self):
+        content = self._workbook_bytes(
+            [
+                [
+                    "ID",
+                    "Metric",
+                    None,
+                    "MODEL-B",
+                    "MODEL-C",
+                    "MODEL-D",
+                    None,
+                    "MODEL-F",
+                    "MODEL-G",
+                    "MODEL-H",
+                ],
+                [
+                    "2024",
+                    "Connections",
+                    "50W",
+                    "50W",
+                    "100W",
+                    "100W",
+                    "200W",
+                    "200W",
+                    "300W",
+                    "300W",
+                ],
+            ]
+        )
+        document = ExcelParser(xlsx_first_row_as_header=True).parse_into_text(content)
+        self.assertEqual(
+            document.segments[0].chunking_policy,
+            ChunkingPolicy.PRESERVE_PARSER_CHUNKS,
+        )
+        self.assertIn("__column_C: 50W", document.chunks[0].content)
+        self.assertIn("__column_G: 200W", document.chunks[0].content)
+
+    def test_auto_rejects_missing_header_coverage_below_eighty_percent(self):
+        content = self._workbook_bytes(
+            [
+                ["ID", None, None, "MODEL-C", "MODEL-D"],
+                ["2024", "Connections", "50W", "50W", "100W"],
+            ]
+        )
+        document = ExcelParser(xlsx_first_row_as_header=True).parse_into_text(content)
+        self.assertEqual(
+            document.segments[0].chunking_policy,
+            ChunkingPolicy.DEFAULT,
+        )
+
+    def test_auto_rejects_merged_multi_row_header(self):
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(["Identity", "Network", None])
+        ws.merge_cells("B1:C1")
+        ws.append(["Asset ID", "IPv4", "IPv6"])
+        ws.append(["A-1", "10.0.0.1", "::1"])
+        bio = io.BytesIO()
+        wb.save(bio)
+
+        document = ExcelParser(xlsx_first_row_as_header=True).parse_into_text(
+            bio.getvalue()
+        )
+        self.assertEqual(document.chunking_policy, ChunkingPolicy.DEFAULT)
+
+    def test_semantic_row_larger_than_normal_chunk_size_is_preserved(self):
+        # The parser semantic limit is independent of the KB's ordinary 4000
+        # character chunk target. This record is intentionally above 4000.
+        headers = ["指标ID", "分类", "指标名称"] + [
+            f"MODEL-{i:03d}" for i in range(220)
+        ]
+        values = ["2024", "系统性能容量", "最大并发连接数（IPv4+IPv6）"] + [
+            "50W-value-padding" for _ in range(220)
+        ]
+        content = self._workbook_bytes([headers, values])
+        document = ExcelParser(
+            xlsx_first_row_as_header=True,
+            xlsx_chunking_mode="auto",
+            parser_semantic_chunk_max_chars=7500,
+        ).parse_into_text(content)
+        self.assertEqual(
+            document.chunking_policy, ChunkingPolicy.PRESERVE_PARSER_CHUNKS
+        )
+        self.assertEqual(len(document.chunks), 1)
+        self.assertGreater(len(document.chunks[0].content), 4000)
+        self.assertIn("最大并发连接数（IPv4+IPv6）", document.chunks[0].content)
+        self.assertIn("MODEL-219: 50W-value-padding", document.chunks[0].content)
+
+    def test_oversized_semantic_row_requires_explicit_context_columns(self):
+        content = self._workbook_bytes(
+            [["ID", "Name", "A", "B"], ["1", "metric", "x" * 40, "y" * 40]]
+        )
+        with self.assertRaisesRegex(
+            ValueError,
+            r"parser semantic chunk too large.*sheet='Sheet'.*row=2.*size=",
+        ):
+            ExcelParser(
+                xlsx_first_row_as_header=True,
+                parser_semantic_chunk_max_chars=50,
+            ).parse_into_text(content)
+
+    def test_oversized_row_splits_at_cells_and_repeats_explicit_context(self):
+        content = self._workbook_bytes(
+            [
+                ["ID", "Metric", "MODEL-A", "MODEL-B", "MODEL-C"],
+                ["2024", "连接数: IPv4,IPv6\n总计", "A,1", "B:2", "C\n3"],
+            ]
+        )
+        document = ExcelParser(
+            xlsx_first_row_as_header=True,
+            parser_semantic_chunk_max_chars=65,
+            xlsx_context_column_count=2,
+        ).parse_into_text(content)
+        self.assertGreater(len(document.chunks), 1)
+        for chunk in document.chunks:
+            self.assertIn("ID: 2024", chunk.content)
+            self.assertIn("Metric: 连接数: IPv4,IPv6\n总计", chunk.content)
+            self.assertLessEqual(len(chunk.content), 65)
+        joined = "".join(chunk.content for chunk in document.chunks)
+        self.assertIn("MODEL-A: A,1", joined)
+        self.assertIn("MODEL-B: B:2", joined)
+        self.assertIn("MODEL-C: C\n3", joined)
+
+    def test_single_cell_over_hard_limit_fails_closed(self):
+        content = self._workbook_bytes([["ID", "Payload"], ["1", "x" * 100]])
+        with self.assertRaisesRegex(
+            ValueError, r"single Excel cell exceeds.*column='Payload'"
+        ):
+            ExcelParser(
+                xlsx_first_row_as_header=True,
+                parser_semantic_chunk_max_chars=40,
+                xlsx_context_column_count=1,
+            ).parse_into_text(content)
+
+    def test_asset_rows_are_independent_semantic_chunks(self):
+        content = self._workbook_bytes(
+            [
+                ["资产编号", "设备名称", "IP", "负责人", "位置", "状态"],
+                ["A-1", "server-1", "10.0.0.1", "Alice", "SZ", "online"],
+                ["A-2", "server-2", "10.0.0.2", "Bob", "SH", "offline"],
+            ]
+        )
+        document = ExcelParser(xlsx_first_row_as_header=True).parse_into_text(content)
+        self.assertEqual(len(document.chunks), 2)
+        self.assertIn("资产编号: A-1", document.chunks[0].content)
+        self.assertNotIn("A-2", document.chunks[0].content)
+        self.assertIn("资产编号: A-2", document.chunks[1].content)
+
+    def test_blank_rows_are_skipped_without_merging_neighbor_records(self):
+        content = self._workbook_bytes(
+            [["ID", "Name"], ["1", "alpha"], [None, None], ["2", "beta"]]
+        )
+        document = ExcelParser(xlsx_first_row_as_header=True).parse_into_text(content)
+        self.assertEqual(len(document.chunks), 2)
+        self.assertIn("ID: 1", document.chunks[0].content)
+        self.assertNotIn("ID: 2", document.chunks[0].content)
+        self.assertEqual(document.chunks[1].metadata["parser.row"], "4")
+
+    def test_formula_cells_follow_existing_data_only_behavior(self):
+        content = self._workbook_bytes(
+            [["ID", "Name", "Calculated"], ["1", "alpha", "=1+1"]]
+        )
+        document = ExcelParser(xlsx_first_row_as_header=True).parse_into_text(content)
+        self.assertEqual(
+            document.chunking_policy, ChunkingPolicy.PRESERVE_PARSER_CHUNKS
+        )
+        self.assertEqual(document.chunks[0].content.strip(), "ID: 1,Name: alpha")
+        self.assertNotIn("=1+1", document.content)
+
+    def test_multi_sheet_rows_keep_provenance_and_never_mix(self):
+        wb = openpyxl.Workbook()
+        wb.remove(wb.active)
+        for sheet_name, device in [
+            ("服务器", "server-1"),
+            ("交换机", "switch-1"),
+            ("防火墙", "firewall-1"),
+        ]:
+            ws = wb.create_sheet(sheet_name)
+            ws.append(["资产编号", "设备名称"])
+            ws.append([f"{sheet_name}-001", device])
+        bio = io.BytesIO()
+        wb.save(bio)
+
+        document = ExcelParser(xlsx_first_row_as_header=True).parse_into_text(
+            bio.getvalue()
+        )
+        self.assertEqual(len(document.chunks), 3)
+        self.assertEqual(
+            [chunk.metadata["parser.sheet"] for chunk in document.chunks],
+            ["服务器", "交换机", "防火墙"],
+        )
+        for chunk in document.chunks:
+            self.assertEqual(chunk.content.count("资产编号:"), 1)
 
     def test_parse_phantom_shared_strings_workbook(self):
         document = ExcelParser().parse_into_text(_xlsx_with_phantom_shared_strings())

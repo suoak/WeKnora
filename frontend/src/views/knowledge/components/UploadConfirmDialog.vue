@@ -582,11 +582,14 @@ type IssueSectionKey = 'multimodal' | 'asr'
 interface ChunkingUIConfig {
   chunkSize: number
   chunkOverlap: number
+  parserSemanticChunkMaxChars?: number
   separators: string[]
   parserEngineRules?: Array<{
     file_types: string[]
     engine: string
     xlsx_first_row_as_header?: boolean
+    xlsx_chunking_mode?: 'auto' | 'row-aware' | 'legacy'
+    xlsx_context_column_count?: number
   }>
   enableParentChild: boolean
   parentChunkSize: number
@@ -1059,6 +1062,7 @@ function createDefaultUIState(): UploadUIState {
     chunkingConfig: {
       chunkSize: 512,
       chunkOverlap: 80,
+      parserSemanticChunkMaxChars: undefined,
       separators: ['\n\n', '\n', '。', '！', '？', ';', '；'],
       parserEngineRules: undefined,
       enableParentChild: true,
@@ -1095,6 +1099,7 @@ function initFromKbInfo(kb: any) {
     chunkingConfig: {
       chunkSize: kb.chunking_config?.chunk_size || 512,
       chunkOverlap: kb.chunking_config?.chunk_overlap || 80,
+      parserSemanticChunkMaxChars: kb.chunking_config?.parser_semantic_chunk_max_chars || undefined,
       separators: kb.chunking_config?.separators || ['\n\n', '\n', '。', '！', '？', ';', '；'],
       parserEngineRules: kb.chunking_config?.parser_engine_rules || undefined,
       enableParentChild: kb.chunking_config?.enable_parent_child ?? false,
@@ -1146,6 +1151,7 @@ function buildProcessOverrides(): KnowledgeProcessOverrides {
     chunking_config: {
       chunk_size: chunking.chunkSize,
       chunk_overlap: chunking.chunkOverlap,
+      parser_semantic_chunk_max_chars: chunking.parserSemanticChunkMaxChars,
       separators: chunking.separators,
       enable_parent_child: chunking.enableParentChild,
       parent_chunk_size: chunking.parentChunkSize,
@@ -1356,6 +1362,8 @@ const handleParserEngineRulesUpdate = (rules: Array<{
   file_types: string[]
   engine: string
   xlsx_first_row_as_header?: boolean
+  xlsx_chunking_mode?: 'auto' | 'row-aware' | 'legacy'
+  xlsx_context_column_count?: number
 }>) => {
   uiState.value.chunkingConfig.parserEngineRules = rules
 }

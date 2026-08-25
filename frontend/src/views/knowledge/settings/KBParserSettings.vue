@@ -86,6 +86,8 @@ export interface ParserEngineRule {
   file_types: string[]
   engine: string
   xlsx_first_row_as_header?: boolean
+  xlsx_chunking_mode?: 'auto' | 'row-aware' | 'legacy'
+  xlsx_context_column_count?: number
 }
 
 interface EngineOption {
@@ -234,11 +236,9 @@ function handleEngineChange(extensions: string[], engine: string) {
   )
   if (engine) {
     otherRules.push({
+      ...currentRule,
       file_types: [...extensions],
       engine,
-      ...(currentRule?.xlsx_first_row_as_header !== undefined
-        ? { xlsx_first_row_as_header: currentRule.xlsx_first_row_as_header }
-        : {}),
     })
   }
   localEngineRules.value = otherRules
@@ -272,11 +272,9 @@ function buildCompleteRules(): ParserEngineRule[] {
     if (engine) {
       const currentRule = getRuleForGroup(group.extensions)
       rules.push({
+        ...currentRule,
         file_types: [...group.extensions],
         engine,
-        ...(currentRule?.xlsx_first_row_as_header !== undefined
-          ? { xlsx_first_row_as_header: currentRule.xlsx_first_row_as_header }
-          : {}),
       })
     }
   }

@@ -2,8 +2,11 @@ package service
 
 import (
 	"context"
+	"strings"
 	"testing"
+	"unicode/utf8"
 
+	"github.com/Tencent/WeKnora/internal/infrastructure/chunker"
 	"github.com/Tencent/WeKnora/internal/models/embedding"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
@@ -185,16 +188,157 @@ func TestProcessChunksIndexesEveryTextChild(t *testing.T) {
 	})
 
 	var textChunkIDs []string
+	var linkedParentID string
+	var standaloneParentID string
 	for _, chunk := range chunkService.created {
 		if chunk.ChunkType == types.ChunkTypeText {
 			textChunkIDs = append(textChunkIDs, chunk.ID)
+			if chunk.Content == "linked child" {
+				linkedParentID = chunk.ParentChunkID
+			}
+			if chunk.Content == "standalone child" {
+				standaloneParentID = chunk.ParentChunkID
+			}
 		}
 	}
 	require.Len(t, textChunkIDs, 2)
+	require.NotEmpty(t, linkedParentID)
+	require.Empty(t, standaloneParentID)
 
 	indexedSourceIDs := make([]string, 0, len(retrieveEngine.indexed))
 	for _, info := range retrieveEngine.indexed {
 		indexedSourceIDs = append(indexedSourceIDs, info.SourceID)
 	}
 	require.ElementsMatch(t, textChunkIDs, indexedSourceIDs)
+}
+
+func TestProcessChunksPersistsWideParserRecordWithoutGenericSplitOrParent(t *testing.T) {
+	row1 := "编号: 2024,三级规格: 最大并发连接数（IPv4+IPv6）," +
+		strings.Repeat("MODEL-X: 50W,", 360) + "RG-NBR-N7204-E: 50W\n"
+	row2 := "编号: 793,三级规格: 静态ARP数量\n"
+	require.Greater(t, utf8.RuneCountInString(row1), 4000)
+	readResult := preserveResult([]string{row1, row2})
+	readResult.ParsedChunks[0].Metadata = map[string]string{
+		"parser.source_kind": "excel_row",
+		"parser.sheet":       "SPEC",
+		"parser.row":         "2",
+	}
+	parsed, preserved, err := materializeParserDefinedChunks(readResult, 7500)
+	require.NoError(t, err)
+	require.True(t, preserved)
+
+	knowledge := &types.Knowledge{
+		ID: "knowledge-semantic", TenantID: 1, KnowledgeBaseID: "kb-1",
+		ParseStatus: types.ParseStatusProcessing,
+	}
+	chunkService := &parentChildChunkService{}
+	retrieveEngine := &parentChildRetrieveEngine{}
+	tenant := &types.Tenant{ID: 1}
+	ctx := context.WithValue(context.Background(), types.TenantInfoContextKey, tenant)
+	svc := &knowledgeService{
+		repo:           &parentChildKnowledgeRepo{knowledge: knowledge},
+		chunkService:   chunkService,
+		retrieveEngine: parentChildRetrieveRegistry{engine: retrieveEngine},
+		graphEngine:    parentChildGraphRepo{},
+		tenantRepo:     parentChildTenantRepo{},
+		task:           parentChildTaskEnqueuer{},
+	}
+	kb := &types.KnowledgeBase{ID: "kb-1", TenantID: 1}
+
+	svc.processChunks(ctx, kb, knowledge, parsed, ProcessChunksOptions{})
+
+	var target *types.Chunk
+	for _, chunk := range chunkService.created {
+		if strings.Contains(chunk.Content, "RG-NBR-N7204-E: 50W") {
+			target = chunk
+			break
+		}
+	}
+	require.NotNil(t, target)
+	require.Contains(t, target.Content, "最大并发连接数（IPv4+IPv6）")
+	require.NotContains(t, target.Content, "静态ARP数量")
+	require.Empty(t, target.ParentChunkID)
+	metadata, err := target.Metadata.Map()
+	require.NoError(t, err)
+	require.Equal(t, "excel_row", metadata["parser.source_kind"])
+	require.Equal(t, "SPEC", metadata["parser.sheet"])
+	require.Equal(t, "2", metadata["parser.row"])
+}
+
+func TestProcessChunksMixedSegmentsNeverLinksPreservedChunkToGenericParent(t *testing.T) {
+	partA := strings.Repeat("alpha beta gamma delta ", 12)
+	partB := "metric: complete semantic row\n"
+	partC := strings.Repeat("one two three four five ", 12)
+	content := partA + partB + partC
+	startB := utf8.RuneCountInString(partA)
+	startC := startB + utf8.RuneCountInString(partB)
+	readResult := &types.ReadResult{
+		MarkdownContent: content,
+		ParsedSegments: []types.ParserDefinedSegment{
+			{Seq: 0, Start: 0, End: startB, ChunkingPolicy: types.ChunkingPolicyDefault, Metadata: map[string]string{"parser.sheet": "A"}},
+			{Seq: 1, Start: startB, End: startC, ChunkingPolicy: types.ChunkingPolicyPreserveParserChunks, Metadata: map[string]string{"parser.sheet": "B"}, ParsedChunks: []types.ParserChunkSpan{{Seq: 0, Start: 0, End: utf8.RuneCountInString(partB), Metadata: map[string]string{"parser.sheet": "B", "parser.row": "2"}}}},
+			{Seq: 2, Start: startC, End: utf8.RuneCountInString(content), ChunkingPolicy: types.ChunkingPolicyDefault, Metadata: map[string]string{"parser.sheet": "C"}},
+		},
+	}
+	segments, segmented, err := materializeParserDefinedSegments(readResult, 1000)
+	require.NoError(t, err)
+	require.True(t, segmented)
+	base := chunker.NormalizeSplitterConfig(chunker.SplitterConfig{
+		ChunkSize: 30, ChunkOverlap: 5,
+		Separators: []string{" "}, Strategy: chunker.StrategyLegacy,
+	})
+	parentCfg, childCfg := chunker.DeriveParentChildConfigs(base, 80, 25)
+	parsed, parents, err := splitMaterializedParserSegments(
+		segments, base, true, parentCfg, childCfg,
+	)
+	require.NoError(t, err)
+	require.NotEmpty(t, parents)
+
+	knowledge := &types.Knowledge{
+		ID: "knowledge-mixed", TenantID: 1, KnowledgeBaseID: "kb-1",
+		ParseStatus: types.ParseStatusProcessing,
+	}
+	chunkService := &parentChildChunkService{}
+	ctx := context.WithValue(context.Background(), types.TenantInfoContextKey, &types.Tenant{ID: 1})
+	svc := &knowledgeService{
+		repo:           &parentChildKnowledgeRepo{knowledge: knowledge},
+		chunkService:   chunkService,
+		retrieveEngine: parentChildRetrieveRegistry{engine: &parentChildRetrieveEngine{}},
+		graphEngine:    parentChildGraphRepo{},
+		tenantRepo:     parentChildTenantRepo{},
+		task:           parentChildTaskEnqueuer{},
+	}
+	svc.processChunks(ctx, &types.KnowledgeBase{ID: "kb-1", TenantID: 1}, knowledge, parsed,
+		ProcessChunksOptions{ParentChunks: parents})
+
+	parentSheetByID := make(map[string]string)
+	for _, stored := range chunkService.created {
+		if stored.ChunkType == types.ChunkTypeParentText {
+			metadata, mapErr := stored.Metadata.Map()
+			require.NoError(t, mapErr)
+			parentSheetByID[stored.ID], _ = metadata["parser.sheet"].(string)
+		}
+	}
+	seenB := false
+	seenCLinked := false
+	for _, stored := range chunkService.created {
+		if stored.ChunkType != types.ChunkTypeText {
+			continue
+		}
+		metadata, mapErr := stored.Metadata.Map()
+		require.NoError(t, mapErr)
+		sheet, _ := metadata["parser.sheet"].(string)
+		switch sheet {
+		case "B":
+			seenB = true
+			require.Empty(t, stored.ParentChunkID)
+		case "C":
+			if stored.ParentChunkID != "" {
+				seenCLinked = true
+				require.Equal(t, "C", parentSheetByID[stored.ParentChunkID])
+			}
+		}
+	}
+	require.True(t, seenB)
+	require.True(t, seenCLinked)
 }

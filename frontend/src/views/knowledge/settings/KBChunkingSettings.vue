@@ -221,6 +221,8 @@ interface ParserEngineRule {
   file_types: string[]
   engine: string
   xlsx_first_row_as_header?: boolean
+  xlsx_chunking_mode?: 'auto' | 'row-aware' | 'legacy'
+  xlsx_context_column_count?: number
 }
 
 // Slider ranges defined in this file (min/max props on t-slider) mirror
@@ -239,6 +241,7 @@ interface ParserEngineRule {
 interface ChunkingConfig {
   chunkSize: number
   chunkOverlap: number
+  parserSemanticChunkMaxChars?: number
   separators: string[]
   parserEngineRules?: ParserEngineRule[]
   enableParentChild: boolean
