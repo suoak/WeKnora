@@ -108,3 +108,42 @@ test('retrieval retention is offered to agents that actually have a knowledge ba
   const guard = settingRowGuard('agent.editor.retainRetrievalHistory')
   assert.match(guard, /isAgentMode && hasKnowledgeBase/)
 })
+
+test('skills and sandbox share one editor section', () => {
+  const navItems = source.match(/const navItems = computed\(\(\) => \{([\s\S]*?)^\}\);/m)?.[1]
+  assert.ok(navItems, 'expected to find the nav items computed')
+  assert.match(navItems, /key: 'skills'/)
+  assert.match(navItems, /icon: SKILL_ICON/)
+  assert.doesNotMatch(navItems, /key: 'sandbox'/)
+
+  const capabilityGroup = source.match(/pickItems\(\['multimodal', 'tools', 'mcp', 'skills'\]\)/)
+  assert.ok(capabilityGroup, 'expected the capability group to list skills without a separate sandbox tab')
+
+  assert.match(source, /v-show="currentSection === 'skills' && isAgentMode"/)
+  assert.doesNotMatch(source, /currentSection === 'sandbox' && isAgentMode/)
+  assert.match(source, /sandbox: 'skills'/)
+  assert.match(source, /formData\.config\.sandbox_config_id/)
+  assert.match(source, /:disabled="!canEnableSkills"/)
+  assert.match(source, /sandbox-option/)
+  assert.doesNotMatch(source, /skill-info-box/)
+})
+
+test('agent skill picker uses the catalog and only enables ready installs', () => {
+  assert.match(source, /function autoBindSoleSandbox\(/)
+  assert.match(source, /canEnableSkills/)
+  assert.match(source, /catalogSkillRows/)
+  assert.match(source, /showCatalogSkillList/)
+  assert.match(source, /skillsSelectionMode\.value !== 'none'/)
+  assert.match(source, /:disabled="!skill\.selectable"/)
+  assert.match(source, /catalogPendingCount/)
+  assert.match(source, /installPartial/)
+  assert.match(source, /installCatalogToCurrent/)
+  assert.match(source, /agent\.editor\.installToThisSandbox/)
+  assert.match(source, /skill-pick-list/)
+  assert.match(source, /skill-ready-stat/)
+  assert.match(source, /skillsListSummaryReadyOnly/)
+  assert.match(source, /selectedSandboxSummary/)
+  assert.match(source, /line-clamp: 2/)
+  assert.doesNotMatch(source, /skillsSelectionMode === 'selected' && catalogSkillRows/)
+  assert.doesNotMatch(source, /skill-list-summary/)
+})

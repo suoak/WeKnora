@@ -50,6 +50,10 @@ type TenantSkillEntity struct {
 	ID              string `gorm:"type:varchar(36);primaryKey"`
 	TenantID        uint64
 	SandboxConfigID string `gorm:"type:varchar(36)"`
+	// CatalogID points at the tenant-level skill definition this install
+	// was created from. Empty on rows that predate the catalog migration
+	// and have not been backfilled yet.
+	CatalogID string `gorm:"type:varchar(36);index"`
 
 	// Name is the SKILL.md frontmatter name and the directory under
 	// /opt/weknora/tenant/skills. Same-name reinstalls keep this value so the
@@ -79,6 +83,10 @@ type TenantSkillEntity struct {
 	InstallSessionID string `gorm:"type:varchar(36)"`
 	InstallMessageID string `gorm:"type:varchar(36)"`
 
+	// Envs is the installer agent's declaration of the environment variables
+	// this skill needs, each optionally carrying a workspace-wide admin value.
+	Envs SkillEnvVars `json:"envs,omitempty" gorm:"type:jsonb"`
+
 	Status string `gorm:"type:varchar(32);not null"`
 	Error  string `gorm:"type:text"`
 	// InstallingSince drives the stuck-run reaper for both install and remove.
@@ -107,6 +115,15 @@ type TenantSkillSnapshotEntity struct {
 	ParentSnapshotID string `gorm:"type:varchar(255)"`
 	Generation       int
 
+	// PlannedName is the name handed to CreateSnapshot. It is written before
+	// the provider call, which is what makes an abandoned build identifiable:
+	// SnapshotID can only be recorded once the provider has answered, so a
+	// process that died in between left a snapshot the ledger could not name
+	// and therefore could never reclaim. Matching is by name because only
+	// Docker's ID is derivable from it; Cube and E2B mint their own and echo
+	// the name back in the listing.
+	PlannedName string `gorm:"type:varchar(255)"`
+
 	Trigger string `gorm:"type:varchar(16)"`
 	State   string `gorm:"type:varchar(16);index"`
 
@@ -117,3 +134,23 @@ type TenantSkillSnapshotEntity struct {
 
 // TableName pins the table so GORM's pluralizer cannot drift.
 func (e *TenantSkillSnapshotEntity) TableName() string { return "tenant_skill_snapshots" }
+
+// TenantSkillCatalogEntity is one workspace skill definition. It does not
+// belong to a sandbox: installations onto a config's image are TenantSkillEntity
+// rows that point back here.
+type TenantSkillCatalogEntity struct {
+	ID           string `gorm:"type:varchar(36);primaryKey"`
+	TenantID     uint64
+	Name         string `gorm:"type:varchar(255);not null"`
+	Version      string `gorm:"type:varchar(64)"`
+	Description  string `gorm:"type:text"`
+	Instructions string `gorm:"type:text"`
+	BundleRef    string `gorm:"type:varchar(1024)"`
+	BundleSHA256 string `gorm:"type:varchar(64)"`
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	DeletedAt    gorm.DeletedAt
+}
+
+// TableName pins the table so GORM's pluralizer cannot drift.
+func (e *TenantSkillCatalogEntity) TableName() string { return "tenant_skill_catalog" }

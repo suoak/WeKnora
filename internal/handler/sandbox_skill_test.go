@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Tencent/WeKnora/internal/application/service"
+	apperrors "github.com/Tencent/WeKnora/internal/errors"
 	"github.com/Tencent/WeKnora/internal/middleware"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
@@ -39,7 +40,14 @@ type fakeSandboxSkillService struct {
 	installErr    error
 	installSource string
 	sourceErr     error
+	reinstallErr  error
 	removeErr     error
+
+	files    []service.SkillFileEntry
+	file     *service.SkillFileContent
+	filesErr error
+	fileErr  error
+	filePath string
 
 	last      service.SkillProgress
 	hasLast   bool
@@ -54,11 +62,22 @@ type fakeSandboxSkillService struct {
 	installTenant uint64
 	installConfig string
 	installBytes  []byte
-	removeTenant  uint64
-	removeConfig  string
-	removeSkill   string
-	patchEnabled  bool
-	closed        bool
+
+	reinstallTenant uint64
+	reinstallConfig string
+	reinstallSkill  string
+
+	removeTenant uint64
+	removeConfig string
+	removeSkill  string
+	patchEnabled bool
+	// patchEnvs is nil until a request actually carried the field, so a test
+	// can tell "did not mention envs" from "sent an empty object".
+	patchEnvs map[string]string
+	// patchCalls counts service calls per request, so a handler that split
+	// one PATCH back into two read-modify-write cycles fails the test.
+	patchCalls int
+	closed     bool
 	// onGet runs on every read, so a test can model a row that disappears
 	// while the client is streaming.
 	onGet func(calls int)
@@ -100,19 +119,70 @@ func (f *fakeSandboxSkillService) GetSkill(
 	return skill, nil
 }
 
-func (f *fakeSandboxSkillService) SetSkillEnabled(
-	_ context.Context, tenantID uint64, configID, skillID string, enabled bool,
+// UpdateSkillAdmin mirrors the real service: only declared names are written,
+// and an unreachable skill is reported as nil rather than as an error. A fake
+// that accepted any name would let the handler stop being the layer that keeps
+// the declaration meaningful.
+func (f *fakeSandboxSkillService) UpdateSkillAdmin(
+	_ context.Context, tenantID uint64, configID, skillID string,
+	update service.SkillAdminUpdate,
 ) (*types.TenantSkillEntity, error) {
+	f.patchCalls++
 	if f.patchErr != nil {
 		return nil, f.patchErr
 	}
-	f.patchEnabled = enabled
+	if update.Enabled != nil {
+		f.patchEnabled = *update.Enabled
+	}
+	if update.EnvValues != nil {
+		f.patchEnvs = update.EnvValues
+	}
 	skill := f.skills[skillID]
 	if skill == nil || tenantID != testSkillTenantID || skill.SandboxConfigID != configID {
 		return nil, nil
 	}
-	skill.Enabled = enabled
+	if update.Enabled != nil {
+		skill.Enabled = *update.Enabled
+	}
+	for i := range skill.Envs {
+		if value, sent := update.EnvValues[skill.Envs[i].Name]; sent {
+			skill.Envs[i].Value = value
+		}
+	}
 	return skill, nil
+}
+
+func (f *fakeSandboxSkillService) ListSkillFiles(
+	_ context.Context, tenantID uint64, configID, skillID string,
+) ([]service.SkillFileEntry, error) {
+	if f.filesErr != nil {
+		return nil, f.filesErr
+	}
+	skill, err := f.GetSkill(context.Background(), tenantID, configID, skillID)
+	if err != nil {
+		return nil, err
+	}
+	if skill == nil {
+		return nil, apperrors.NewNotFoundError("skill not found")
+	}
+	return f.files, nil
+}
+
+func (f *fakeSandboxSkillService) ReadSkillFile(
+	_ context.Context, tenantID uint64, configID, skillID, relativePath string,
+) (*service.SkillFileContent, error) {
+	f.filePath = relativePath
+	if f.fileErr != nil {
+		return nil, f.fileErr
+	}
+	skill, err := f.GetSkill(context.Background(), tenantID, configID, skillID)
+	if err != nil {
+		return nil, err
+	}
+	if skill == nil {
+		return nil, apperrors.NewNotFoundError("skill not found")
+	}
+	return f.file, nil
 }
 
 func (f *fakeSandboxSkillService) InstallSkill(
@@ -128,6 +198,13 @@ func (f *fakeSandboxSkillService) InstallSkillFromSource(
 	f.installTenant, f.installConfig = tenantID, configID
 	f.installSource = source
 	return f.installID, f.sourceErr
+}
+
+func (f *fakeSandboxSkillService) ReinstallSkill(
+	_ context.Context, tenantID uint64, configID, skillID string,
+) (string, error) {
+	f.reinstallTenant, f.reinstallConfig, f.reinstallSkill = tenantID, configID, skillID
+	return f.installID, f.reinstallErr
 }
 
 func (f *fakeSandboxSkillService) RemoveSkill(
@@ -198,6 +275,9 @@ func newSkillTestRouter(h *SandboxSkillHandler) *gin.Engine {
 	r.GET("/sandbox-configs/:id/skills", h.List)
 	r.POST("/sandbox-configs/:id/skills", h.Upload)
 	r.GET("/sandbox-configs/:id/skills/:skillId", h.Get)
+	r.GET("/sandbox-configs/:id/skills/:skillId/files", h.ListFiles)
+	r.GET("/sandbox-configs/:id/skills/:skillId/files/content", h.GetFile)
+	r.POST("/sandbox-configs/:id/skills/:skillId/reinstall", h.Reinstall)
 	r.PATCH("/sandbox-configs/:id/skills/:skillId", h.Patch)
 	r.DELETE("/sandbox-configs/:id/skills/:skillId", h.Delete)
 	r.GET("/sandbox-configs/:id/skills/:skillId/install-events", h.InstallEvents)
@@ -494,6 +574,37 @@ func TestSandboxSkillDeleteIsAccepted(t *testing.T) {
 	require.Equal(t, testSkillTenantID, svc.removeTenant)
 	require.Equal(t, "cfg-a", svc.removeConfig)
 	require.Equal(t, "skill-1", svc.removeSkill)
+}
+
+// A retry boots a sandbox and runs for minutes, exactly like the upload it
+// stands in for, so it is accepted and followed rather than awaited.
+func TestSandboxSkillReinstallIsAccepted(t *testing.T) {
+	svc := &fakeSandboxSkillService{installID: "skill-1"}
+	router := newSkillTestRouter(NewSandboxSkillHandler(svc, nil))
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodPost,
+		"/sandbox-configs/cfg-a/skills/skill-1/reinstall", nil))
+
+	require.Equal(t, http.StatusAccepted, w.Code)
+	require.Equal(t, testSkillTenantID, svc.reinstallTenant,
+		"a retry must be scoped to the caller's workspace")
+	require.Equal(t, "cfg-a", svc.reinstallConfig)
+	require.Equal(t, "skill-1", svc.reinstallSkill)
+	require.Contains(t, w.Body.String(), `"skill_id":"skill-1"`)
+}
+
+func TestSandboxSkillReinstallReportsAMissingSkill(t *testing.T) {
+	svc := &fakeSandboxSkillService{
+		reinstallErr: apperrors.NewNotFoundError("skill not found"),
+	}
+	router := newSkillTestRouter(NewSandboxSkillHandler(svc, nil))
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodPost,
+		"/sandbox-configs/cfg-a/skills/nope/reinstall", nil))
+
+	require.Equal(t, http.StatusNotFound, w.Code)
 }
 
 func decodeSSEEvents(t *testing.T, body string) []map[string]any {
@@ -936,4 +1047,89 @@ func transcriptTypes(frames []types.StreamResponse) []string {
 		out = append(out, string(frame.ResponseType))
 	}
 	return out
+}
+
+func TestSandboxSkillListFilesReturnsTheArchive(t *testing.T) {
+	svc := &fakeSandboxSkillService{
+		skills: map[string]*types.TenantSkillEntity{
+			"skill-1": {ID: "skill-1", SandboxConfigID: "cfg-a", Name: "pdf"},
+		},
+		files: []service.SkillFileEntry{
+			{Path: "SKILL.md", Size: 12},
+			{Path: "scripts/run.py", Size: 20},
+		},
+	}
+	router := newSkillTestRouter(NewSandboxSkillHandler(svc, nil))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/sandbox-configs/cfg-a/skills/skill-1/files", nil)
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code, "body=%s", w.Body.String())
+	var body struct {
+		Success bool                     `json:"success"`
+		Data    []service.SkillFileEntry `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	require.True(t, body.Success)
+	require.Equal(t, svc.files, body.Data)
+}
+
+func TestSandboxSkillListFilesMissingSkillReturns404(t *testing.T) {
+	router := newSkillTestRouter(NewSandboxSkillHandler(&fakeSandboxSkillService{}, nil))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/sandbox-configs/cfg-a/skills/missing/files", nil)
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusNotFound, w.Code, "body=%s", w.Body.String())
+}
+
+func TestSandboxSkillGetFileReturnsContent(t *testing.T) {
+	svc := &fakeSandboxSkillService{
+		skills: map[string]*types.TenantSkillEntity{
+			"skill-1": {ID: "skill-1", SandboxConfigID: "cfg-a", Name: "pdf"},
+		},
+		file: &service.SkillFileContent{
+			Path:     "scripts/run.py",
+			Size:     11,
+			Encoding: "utf-8",
+			Content:  "print('hi')",
+		},
+	}
+	router := newSkillTestRouter(NewSandboxSkillHandler(svc, nil))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(
+		http.MethodGet, "/sandbox-configs/cfg-a/skills/skill-1/files/content?path=scripts/run.py", nil,
+	)
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code, "body=%s", w.Body.String())
+	require.Equal(t, "scripts/run.py", svc.filePath)
+	var body struct {
+		Success bool                     `json:"success"`
+		Data    service.SkillFileContent `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	require.Equal(t, "print('hi')", body.Data.Content)
+}
+
+func TestSandboxSkillGetFileInvalidPathReturns400(t *testing.T) {
+	svc := &fakeSandboxSkillService{
+		skills: map[string]*types.TenantSkillEntity{
+			"skill-1": {ID: "skill-1", SandboxConfigID: "cfg-a"},
+		},
+		fileErr: apperrors.NewBadRequestError("invalid skill file path: ../secret"),
+	}
+	router := newSkillTestRouter(NewSandboxSkillHandler(svc, nil))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(
+		http.MethodGet, "/sandbox-configs/cfg-a/skills/skill-1/files/content?path=../secret", nil,
+	)
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusBadRequest, w.Code, "body=%s", w.Body.String())
+	require.Equal(t, "../secret", svc.filePath)
 }

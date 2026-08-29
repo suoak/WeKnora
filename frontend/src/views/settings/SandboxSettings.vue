@@ -78,8 +78,13 @@
                 {{ $t('settings.sandbox.legacyConfig') }}
               </t-tag>
               <div class="sandbox-card__actions" @click.stop>
-                <t-dropdown :options="cardMenu(record)" trigger="click" attach="body"
-                  placement="bottom-right" @click="(data: any) => onMenuAction(data.value, record)">
+                <t-dropdown
+                  :options="cardMenu(record)"
+                  placement="bottom-right"
+                  attach="body"
+                  trigger="click"
+                  @click="(data: any) => onMenuAction(data.value, record)"
+                >
                   <t-button variant="text" shape="square" size="small" class="sandbox-card__more">
                     <t-icon name="ellipsis" />
                   </t-button>
@@ -95,30 +100,6 @@
             </div>
             <div v-if="targetSummary(record)" class="sandbox-card__url" :title="targetSummary(record)">
               {{ targetSummary(record) }}
-            </div>
-            <div
-              v-if="supportsSkills(record) && (skillsOf(record) || skillsFailed(record))"
-              class="sandbox-card__skills"
-            >
-              <template v-if="(skillsOf(record) || []).length">
-                <t-tag
-                  v-for="skill in visibleSkills(record)"
-                  :key="skill.id"
-                  size="small"
-                  variant="light"
-                  :theme="skillTagTheme(skill)"
-                  :title="skill.name"
-                >{{ skill.name }}</t-tag>
-                <span v-if="extraSkillCount(record)" class="sandbox-card__skills-more">
-                  {{ $t('settings.sandbox.cardSkillsMore', { count: extraSkillCount(record) }) }}
-                </span>
-              </template>
-              <span v-else-if="skillsFailed(record)" class="sandbox-card__skills-empty">
-                {{ $t('settings.sandbox.skillLoadFailed') }}
-              </span>
-              <span v-else class="sandbox-card__skills-empty">
-                {{ $t('settings.sandbox.cardSkillsNone') }}
-              </span>
             </div>
             <ul v-if="cardWarnings[record.id]?.length" class="sandbox-card__warnings">
               <li v-for="item in cardWarnings[record.id]" :key="item.key">
@@ -139,66 +120,75 @@
     </t-loading>
 
     <SandboxConfigEditorDrawer v-model:visible="showEditor" :record="editingRecord"
-      :preset-type="activeType === 'all' ? '' : activeType" :initial-step="editorStep" @saved="load" />
+      :preset-type="activeType === 'all' ? '' : activeType"
+      @saved="load" />
 
     <!--
-      Occupancy is a list of sessions and agents, not a one-line status, and it
-      is also what explains a refused delete — so it gets a drawer rather than a
-      toast or a cramped dialog.
+      Same SettingDrawer chrome as the skill editor. The list is chat sessions
+      that still hold a live sandbox for this config — their titles often look
+      like skill names, so the section label has to say "session".
     -->
-    <SettingDrawer v-model:visible="showInventory" :title="$t('settings.sandbox.inventoryTitle')"
-      :description="$t('settings.sandbox.inventoryDrawerDesc')" icon="code"
-      width="480px" storage-key="setting-drawer:width:sandbox-inventory" hide-footer>
+    <SettingDrawer
+      v-model:visible="showInventory"
+      :title="$t('settings.sandbox.inventoryTitle')"
+      :description="inventorySubtitle"
+      width="400px"
+      :resizable="false"
+      storage-key="setting-drawer:width:sandbox-inventory"
+      :hide-footer="inventoryNotice !== 'unverifiable'"
+    >
       <t-loading :loading="inventoryLoading" size="small">
-        <section class="setting-drawer__section">
-          <t-alert v-if="inventoryNotice === 'blocked'" theme="warning"
+        <div v-if="inventoryNotice === 'blocked'" class="inventory-banner">
+          <t-alert theme="warning"
             :message="$t('settings.sandbox.sandboxesStillLive', { count: inventory?.sandbox_count ?? 0 })">
             <template #description>
               <p>{{ $t('settings.sandbox.blockedHint') }}</p>
             </template>
           </t-alert>
-          <t-alert v-else-if="inventory?.unverifiable" theme="warning"
-            :message="$t('settings.sandbox.inventoryUnverifiableHint')" />
+        </div>
+        <div v-else-if="inventory?.unverifiable" class="inventory-banner">
+          <t-alert theme="warning" :message="$t('settings.sandbox.inventoryUnverifiableHint')" />
+        </div>
 
-          <ul v-if="inventory" class="inventory-list">
-            <li v-if="inventoryRecord">
-              <span class="inventory-label">{{ $t('settings.sandbox.configName') }}</span>
-              <span class="inventory-value">{{ inventoryRecord.name }}</span>
-            </li>
-            <li>
-              <span class="inventory-label">{{ $t('settings.sandbox.sandboxCount') }}</span>
-              <span class="inventory-value">{{ inventory.unverifiable
-                ? $t('settings.sandbox.sandboxCountUnknown')
-                : inventory.sandbox_count }}</span>
-            </li>
-            <li v-if="inventory.session_ids?.length">
-              <span class="inventory-label">{{ $t('settings.sandbox.affectedSessions', {
-                count: inventory.session_ids.length }) }}</span>
-            </li>
-            <li v-if="inventory.agent_names?.length">
-              <span class="inventory-label">{{ $t('settings.sandbox.affectedAgents', {
-                names: inventory.agent_names.join('、') }) }}</span>
+        <section class="setting-drawer__section inventory-section">
+          <h4 class="setting-drawer__section-title">{{ $t('settings.sandbox.inventorySessions') }}</h4>
+          <ul v-if="inventorySessions.length" class="inventory-list">
+            <li v-for="id in inventorySessions" :key="id">
+              <button type="button" class="inventory-row" @click="openSession(id)">
+                <span class="inventory-row__text">
+                  <span class="inventory-row__title" :title="id">{{ sessionTitle(id) }}</span>
+                  <span class="inventory-row__meta">{{ $t('settings.sandbox.inventorySessionKind') }}</span>
+                </span>
+                <t-icon name="chevron-right" size="16px" />
+              </button>
             </li>
           </ul>
+          <p v-else-if="!inventoryLoading" class="inventory-empty">
+            {{ $t('settings.sandbox.inventoryEmpty') }}
+          </p>
         </section>
 
-        <!--
-          Force delete only surfaces where its justification is on screen: the
-          occupancy could not be verified, so the admin decides with the
-          unverifiable warning right above the button.
-        -->
-        <section v-if="inventoryNotice === 'unverifiable' && inventoryRecord" class="setting-drawer__section">
-          <h4 class="setting-drawer__section-title">{{ $t('settings.sandbox.forceDeleteTitle') }}</h4>
-          <t-popconfirm theme="warning" :content="$t('settings.sandbox.forceDeleteConfirm')"
-            :confirm-btn="{ content: $t('settings.sandbox.forceDelete'), theme: 'danger' }"
-            :cancel-btn="{ content: $t('common.cancel') }" placement="top"
-            @confirm="forceRemove(inventoryRecord)">
-            <t-button theme="danger" variant="outline" size="small">
-              {{ $t('settings.sandbox.forceDelete') }}
-            </t-button>
-          </t-popconfirm>
+        <section v-if="inventoryAgents.length" class="setting-drawer__section inventory-section">
+          <h4 class="setting-drawer__section-title">{{ $t('settings.sandbox.inventoryAgentsTitle') }}</h4>
+          <p class="inventory-agents">{{ inventoryAgents.join('、') }}</p>
         </section>
       </t-loading>
+
+      <!--
+        Force delete only surfaces where its justification is on screen: the
+        occupancy could not be verified, so the admin decides with the
+        unverifiable warning above the button.
+      -->
+      <template v-if="inventoryNotice === 'unverifiable' && inventoryRecord" #footer-right>
+        <t-popconfirm theme="warning" :content="$t('settings.sandbox.forceDeleteConfirm')"
+          :confirm-btn="{ content: $t('settings.sandbox.forceDelete'), theme: 'danger' }"
+          :cancel-btn="{ content: $t('common.cancel') }" placement="top"
+          @confirm="forceRemove(inventoryRecord)">
+          <t-button theme="danger">
+            {{ $t('settings.sandbox.forceDelete') }}
+          </t-button>
+        </t-popconfirm>
+      </template>
     </SettingDrawer>
   </div>
 </template>
@@ -207,26 +197,26 @@
 import { computed, onMounted, ref } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import SandboxConfigEditorDrawer from '@/components/SandboxConfigEditorDrawer.vue'
 import SandboxBackendBadge from '@/components/settings/SandboxBackendBadge.vue'
 import SettingDrawer from '@/components/settings/SettingDrawer.vue'
 import { useConfirmDelete } from '@/components/settings/useConfirmDelete'
+import { getSession } from '@/api/chat/index'
 import {
-  checkSandboxConfig,
   deleteSandboxConfig,
   getSandboxConfigInventory,
   isNamedSandboxBackend,
-  listConfigSkills,
   listSandboxConfigs,
   NAMED_SANDBOX_BACKEND_TYPES,
   parseSandboxConflict,
   setSandboxWorkspacePolicy,
-  type ConfigSkill,
   type SandboxConfigRecord,
   type SandboxInventory,
 } from '@/api/system'
 
 const { t } = useI18n()
+const router = useRouter()
 const confirmDelete = useConfirmDelete()
 
 const sandboxGuideUrl = 'https://github.com/Tencent/WeKnora/blob/main/docs/sandbox-cluster.md'
@@ -238,18 +228,9 @@ const policySaving = ref(false)
 const workspaceScriptsDisabled = ref(false)
 const records = ref<SandboxConfigRecord[]>([])
 const activeType = ref<string>('all')
-// Skill names on cube/e2b cards. Missing until the per-config list returns, so
-// the empty hint does not flash on first paint. A failed fetch is tracked
-// separately so it is not shown as "no skills installed".
-const skillsByConfig = ref<Record<string, ConfigSkill[]>>({})
-const skillsLoadFailed = ref<Record<string, boolean>>({})
-const SKILL_TAG_LIMIT = 3
 
 const showEditor = ref(false)
 const editingRecord = ref<SandboxConfigRecord | null>(null)
-// Which page of the editor to open on. Skills live there as the last step, so
-// "管理技能" is the same drawer opened further along.
-const editorStep = ref<'skills' | undefined>(undefined)
 
 const showInventory = ref(false)
 const inventoryLoading = ref(false)
@@ -264,34 +245,6 @@ const backendLabel = (value: string) => t(`settings.sandbox.backends.${value}`)
 
 const isLegacyRecord = (record: SandboxConfigRecord) => !isNamedSandboxBackend(record.sandbox_type)
 
-// Skills are baked into the remote snapshot image. Docker and local configs
-// have no skills step, so their cards stay a connection summary.
-function supportsSkills(record: SandboxConfigRecord) {
-  return record.sandbox_type === 'cube' || record.sandbox_type === 'e2b'
-}
-
-function skillsOf(record: SandboxConfigRecord): ConfigSkill[] | undefined {
-  return skillsByConfig.value[record.id]
-}
-
-function skillsFailed(record: SandboxConfigRecord): boolean {
-  return skillsLoadFailed.value[record.id] === true
-}
-
-function visibleSkills(record: SandboxConfigRecord): ConfigSkill[] {
-  return (skillsOf(record) || []).slice(0, SKILL_TAG_LIMIT)
-}
-
-function extraSkillCount(record: SandboxConfigRecord): number {
-  return Math.max(0, (skillsOf(record) || []).length - SKILL_TAG_LIMIT)
-}
-
-function skillTagTheme(skill: ConfigSkill): 'default' | 'warning' | 'primary' {
-  if (skill.status === 'failed') return 'warning'
-  if (skill.status === 'installing' || skill.status === 'removing') return 'primary'
-  return 'default'
-}
-
 const filteredRecords = computed(() => {
   const base = activeType.value === 'all'
     ? records.value
@@ -304,20 +257,59 @@ const countByType = (type: string) =>
 
 type CardMenuOption = { content: string; value: string; theme?: 'error' }
 
+// Card click opens the connection editor. Skills live on their own settings page.
 const cardMenu = (record: SandboxConfigRecord): CardMenuOption[] => {
   if (isLegacyRecord(record)) {
     return [{ content: t('common.delete'), value: 'delete', theme: 'error' }]
   }
   const options: CardMenuOption[] = [
     { content: t('common.edit'), value: 'edit' },
-    { content: t('settings.sandbox.testConnection'), value: 'check' },
   ]
   if (record.sandbox_type === 'cube' || record.sandbox_type === 'e2b') {
     options.push({ content: t('settings.sandbox.viewSandboxes'), value: 'inventory' })
-    options.push({ content: t('settings.sandbox.manageSkills'), value: 'skills' })
   }
   options.push({ content: t('common.delete'), value: 'delete', theme: 'error' })
   return options
+}
+
+const inventorySubtitle = computed(() => {
+  const record = inventoryRecord.value
+  if (!record) return ''
+  return `${record.name} · ${backendLabel(record.sandbox_type)}`
+})
+
+const inventorySessions = computed(() => inventory.value?.session_ids || [])
+const inventoryAgents = computed(() => inventory.value?.agent_names || [])
+
+const sessionTitles = ref<Record<string, string>>({})
+
+function sessionTitle(id: string) {
+  const title = sessionTitles.value[id]
+  if (title) return title
+  return t('settings.sandbox.inventoryUntitledSession')
+}
+
+async function loadSessionTitles(ids: string[]) {
+  const unique = [...new Set(ids.filter(Boolean))]
+  if (!unique.length) {
+    sessionTitles.value = {}
+    return
+  }
+  const next: Record<string, string> = {}
+  await Promise.all(unique.map(async (id) => {
+    try {
+      const res: any = await getSession(id)
+      next[id] = String(res?.data?.title || '').trim()
+    } catch {
+      next[id] = ''
+    }
+  }))
+  sessionTitles.value = next
+}
+
+function openSession(id: string) {
+  showInventory.value = false
+  router.push(`/platform/chat/${encodeURIComponent(id)}`)
 }
 
 // The endpoint host is what tells two configs of the same backend apart at a
@@ -359,42 +351,24 @@ async function onDeleteConfirmOpen(visible: boolean, record: SandboxConfigRecord
 
 function openCreate() {
   editingRecord.value = null
-  editorStep.value = undefined
   showEditor.value = true
 }
 
 function openEdit(record: SandboxConfigRecord) {
   if (isLegacyRecord(record)) return
   editingRecord.value = record
-  editorStep.value = undefined
   showEditor.value = true
 }
 
-function openSkills(record: SandboxConfigRecord) {
-  if (isLegacyRecord(record) || !supportsSkills(record)) return
-  editingRecord.value = record
-  editorStep.value = 'skills'
-  showEditor.value = true
-}
-
-// Cube/e2b cards now lead with installed skills, so a click lands on that
-// step. Connection and runtime stay behind the card menu's edit action.
 function openCard(record: SandboxConfigRecord) {
-  if (supportsSkills(record)) {
-    openSkills(record)
-    return
-  }
   openEdit(record)
 }
 
-// What this config actually points at: the remote host, the container image, or
-// the local runtime. Two configs of the same backend are told apart by it.
+// What this config actually points at: the remote host or the container image.
+// Two configs of the same backend are told apart by it.
 function targetSummary(record: SandboxConfigRecord): string {
   if (record.sandbox_type === 'docker') {
     return record.config?.docker?.image || ''
-  }
-  if (record.sandbox_type === 'local') {
-    return t('settings.sandbox.localRuntimeSummary')
   }
   return endpointHost(record)
 }
@@ -446,28 +420,6 @@ function buildCardWarnings(record: SandboxConfigRecord): CardWarning[] {
   return warnings
 }
 
-async function loadSkills(configs: SandboxConfigRecord[]) {
-  const remotes = configs.filter(supportsSkills)
-  const remoteIDs = new Set(remotes.map((record) => record.id))
-  const next: Record<string, ConfigSkill[]> = {}
-  for (const [id, skills] of Object.entries(skillsByConfig.value)) {
-    if (remoteIDs.has(id)) next[id] = skills
-  }
-  const failed: Record<string, boolean> = {}
-  await Promise.all(remotes.map(async (record) => {
-    try {
-      const res = await listConfigSkills(record.id)
-      next[record.id] = (res?.data || []).filter((skill) => skill.status !== 'removed')
-    } catch {
-      // Keep a previous successful list. Only the first-load miss is an error
-      // row; replacing it with [] would read as "no skills installed".
-      if (next[record.id] === undefined) failed[record.id] = true
-    }
-  }))
-  skillsByConfig.value = next
-  skillsLoadFailed.value = failed
-}
-
 async function load() {
   loading.value = true
   try {
@@ -479,7 +431,6 @@ async function load() {
   } finally {
     loading.value = false
   }
-  await loadSkills(records.value)
 }
 
 async function setScriptsDisabled(disabled: boolean) {
@@ -502,16 +453,8 @@ async function onMenuAction(action: string, record: SandboxConfigRecord) {
     openEdit(record)
     return
   }
-  if (action === 'check') {
-    await runQuickCheck(record)
-    return
-  }
   if (action === 'inventory') {
     await openInventory(record)
-    return
-  }
-  if (action === 'skills') {
-    openSkills(record)
     return
   }
   if (action === 'delete') {
@@ -527,33 +470,17 @@ async function confirmRemove(record: SandboxConfigRecord) {
   })
 }
 
-// A card-level probe answers "is this backend still alive" without opening the
-// form; the per-probe breakdown and the sandbox-consuming deep check stay in the
-// editor, where the config being probed is on screen.
-async function runQuickCheck(record: SandboxConfigRecord) {
-  try {
-    const res = await checkSandboxConfig({ config_id: record.id })
-    const result = res?.data
-    if (result?.ok) {
-      MessagePlugin.success(t('settings.sandbox.checkPassed'))
-      return
-    }
-    const failed = result?.checks?.find((item) => item.ok === false)
-    MessagePlugin.error(failed?.message || t('settings.sandbox.checkFailed'))
-  } catch (e: any) {
-    MessagePlugin.error(e?.message || t('settings.sandbox.checkFailed'))
-  }
-}
-
 async function openInventory(record: SandboxConfigRecord) {
   inventoryRecord.value = record
   inventoryNotice.value = ''
   showInventory.value = true
   inventoryLoading.value = true
   inventory.value = null
+  sessionTitles.value = {}
   try {
     const res = await getSandboxConfigInventory(record.id)
     inventory.value = res?.data || null
+    await loadSessionTitles(inventory.value?.session_ids || [])
   } catch (e: any) {
     MessagePlugin.error(e?.message || t('settings.sandbox.inventoryFailed'))
     showInventory.value = false
@@ -597,6 +524,7 @@ function showRefusal(
   inventory.value = inv || { sandbox_count: 0, unverifiable: notice === 'unverifiable' }
   inventoryLoading.value = false
   showInventory.value = true
+  void loadSessionTitles(inventory.value.session_ids || [])
 }
 
 async function forceRemove(record: SandboxConfigRecord) {
@@ -940,33 +868,6 @@ onMounted(load)
   min-width: 0;
 }
 
-.sandbox-card__skills {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  margin-top: 2px;
-  min-width: 0;
-
-  :deep(.t-tag) {
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-}
-
-.sandbox-card__skills-empty,
-.sandbox-card__skills-more {
-  color: var(--td-text-color-placeholder);
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-.sandbox-card__skills-empty:hover,
-.sandbox-card__skills:hover .sandbox-card__skills-more {
-  color: var(--td-brand-color);
-}
-
 .sandbox-card__warnings {
   display: flex;
   flex-wrap: wrap;
@@ -1015,29 +916,84 @@ onMounted(load)
   color: var(--td-text-color-placeholder);
 }
 
+.inventory-banner {
+  margin-bottom: 4px;
+}
+
 .inventory-list {
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.inventory-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--td-bg-color-container-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--td-brand-color);
+    outline-offset: 2px;
+  }
+}
+
+.inventory-row__text {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  font-size: 13px;
+  gap: 1px;
 }
 
-.inventory-list li {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  line-height: 1.55;
-}
-
-.inventory-label {
-  color: var(--td-text-color-secondary);
-}
-
-.inventory-value {
+.inventory-row__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--td-text-color-primary);
-  font-weight: 500;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.inventory-row__meta {
+  color: var(--td-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.inventory-row .t-icon {
+  flex-shrink: 0;
+  color: var(--td-text-color-placeholder);
+}
+
+.inventory-empty,
+.inventory-agents {
+  margin: 0;
+  color: var(--td-text-color-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+</style>
+
+<style lang="less">
+.setting-drawer .inventory-section.setting-drawer__section {
+  padding: 0;
+  gap: 8px;
+  border-bottom: none;
+  animation: none;
 }
 </style>

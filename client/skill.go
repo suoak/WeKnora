@@ -118,3 +118,199 @@ func (c *Client) UploadSandboxSkill(
 	}
 	return response.Data.SkillID, nil
 }
+
+// ReinstallSandboxSkill runs the install of one skill again from the archive
+// the server already stores, so a failure that had nothing to do with the
+// bundle can be retried without re-uploading it. Like the install it is
+// accepted asynchronously. A skill already serving the current image is left
+// alone rather than rebuilt.
+func (c *Client) ReinstallSandboxSkill(
+	ctx context.Context, configID, skillID string,
+) (string, error) {
+	if configID == "" {
+		return "", fmt.Errorf("sandbox config ID is required")
+	}
+	if skillID == "" {
+		return "", fmt.Errorf("skill ID is required")
+	}
+	path := "/api/v1/sandbox-configs/" + url.PathEscape(configID) +
+		"/skills/" + url.PathEscape(skillID) + "/reinstall"
+	resp, err := c.doRequest(ctx, http.MethodPost, path, nil, nil)
+	if err != nil {
+		return "", err
+	}
+	var response SandboxSkillInstallResponse
+	if err := parseResponse(resp, &response); err != nil {
+		return "", err
+	}
+	return response.Data.SkillID, nil
+}
+
+// SandboxSkillEnv is one environment variable an installed skill declared. It
+// reports whether a workspace-wide value exists and never what it is.
+type SandboxSkillEnv struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Required    bool   `json:"required,omitempty"`
+	IsSet       bool   `json:"is_set"`
+}
+
+// SandboxSkill is one installed skill of a sandbox config.
+type SandboxSkill struct {
+	ID                  string            `json:"id"`
+	Name                string            `json:"name"`
+	Version             string            `json:"version,omitempty"`
+	Description         string            `json:"description,omitempty"`
+	Enabled             bool              `json:"enabled"`
+	Status              string            `json:"status"`
+	Error               string            `json:"error,omitempty"`
+	BundleSHA256        string            `json:"bundle_sha256,omitempty"`
+	InstalledSnapshotID string            `json:"installed_snapshot_id,omitempty"`
+	InstallSessionID    string            `json:"install_session_id,omitempty"`
+	InstallMessageID    string            `json:"install_message_id,omitempty"`
+	Envs                []SandboxSkillEnv `json:"envs,omitempty"`
+}
+
+type sandboxSkillResponse struct {
+	Success bool         `json:"success"`
+	Data    SandboxSkill `json:"data"`
+}
+
+// SandboxSkillUpdate is what one PATCH may change. Both fields are optional,
+// but a request carrying neither is refused: a nil Enabled is not a request to
+// hide the skill, and a nil Envs must leave every stored value alone.
+type SandboxSkillUpdate struct {
+	Enabled *bool              `json:"enabled,omitempty"`
+	Envs    *map[string]string `json:"envs,omitempty"`
+}
+
+// UpdateSandboxSkill shows or hides an installed skill and sets the
+// workspace-wide values of the environment variables it declared. Visibility is
+// metadata only: the files stay in the image either way.
+//
+// Only declared names are written; a name outside the declaration is ignored
+// rather than refused, so a stale form cannot fail an otherwise valid save. An
+// empty string clears a value and keeps the declaration, because "nobody filled
+// this in" and "this is not needed" are different states.
+//
+// A stored value is never read back: the returned Envs report IsSet only.
+func (c *Client) UpdateSandboxSkill(
+	ctx context.Context, configID, skillID string, update SandboxSkillUpdate,
+) (*SandboxSkill, error) {
+	if configID == "" {
+		return nil, fmt.Errorf("sandbox config ID is required")
+	}
+	if skillID == "" {
+		return nil, fmt.Errorf("skill ID is required")
+	}
+	if update.Enabled == nil && update.Envs == nil {
+		return nil, fmt.Errorf("enabled or envs is required")
+	}
+	path := "/api/v1/sandbox-configs/" + url.PathEscape(configID) +
+		"/skills/" + url.PathEscape(skillID)
+	resp, err := c.doRequest(ctx, http.MethodPatch, path, update, nil)
+	if err != nil {
+		return nil, err
+	}
+	var response sandboxSkillResponse
+	if err := parseResponse(resp, &response); err != nil {
+		return nil, err
+	}
+	return &response.Data, nil
+}
+
+// SetSandboxSkillEnabled is the visibility half of UpdateSandboxSkill.
+func (c *Client) SetSandboxSkillEnabled(
+	ctx context.Context, configID, skillID string, enabled bool,
+) (*SandboxSkill, error) {
+	return c.UpdateSandboxSkill(ctx, configID, skillID,
+		SandboxSkillUpdate{Enabled: &enabled})
+}
+
+// SetSandboxSkillEnvValues is the credentials half of UpdateSandboxSkill: it
+// stores values that apply to everybody in the workspace. For a value that
+// applies to the calling identity alone, use SetMySkillEnvVar.
+func (c *Client) SetSandboxSkillEnvValues(
+	ctx context.Context, configID, skillID string, values map[string]string,
+) (*SandboxSkill, error) {
+	return c.UpdateSandboxSkill(ctx, configID, skillID,
+		SandboxSkillUpdate{Envs: &values})
+}
+
+// SandboxSkillFile is one path in an installed skill's stored archive.
+type SandboxSkillFile struct {
+	Path string `json:"path"`
+	Size int64  `json:"size"`
+}
+
+// SandboxSkillFileContent is one file opened from an installed skill.
+type SandboxSkillFileContent struct {
+	Path      string `json:"path"`
+	Size      int64  `json:"size"`
+	Encoding  string `json:"encoding"`
+	Content   string `json:"content,omitempty"`
+	MediaType string `json:"media_type,omitempty"`
+	Truncated bool   `json:"truncated,omitempty"`
+	Binary    bool   `json:"binary,omitempty"`
+}
+
+type sandboxSkillFilesResponse struct {
+	Success bool               `json:"success"`
+	Data    []SandboxSkillFile `json:"data"`
+}
+
+type sandboxSkillFileContentResponse struct {
+	Success bool                    `json:"success"`
+	Data    SandboxSkillFileContent `json:"data"`
+}
+
+// ListSandboxSkillFiles lists the stored archive of one installed skill.
+func (c *Client) ListSandboxSkillFiles(
+	ctx context.Context, configID, skillID string,
+) ([]SandboxSkillFile, error) {
+	if configID == "" {
+		return nil, fmt.Errorf("sandbox config ID is required")
+	}
+	if skillID == "" {
+		return nil, fmt.Errorf("skill ID is required")
+	}
+	path := "/api/v1/sandbox-configs/" + url.PathEscape(configID) +
+		"/skills/" + url.PathEscape(skillID) + "/files"
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	var response sandboxSkillFilesResponse
+	if err := parseResponse(resp, &response); err != nil {
+		return nil, err
+	}
+	return response.Data, nil
+}
+
+// GetSandboxSkillFile reads one skill-root-relative file from an installed skill.
+func (c *Client) GetSandboxSkillFile(
+	ctx context.Context, configID, skillID, filePath string,
+) (*SandboxSkillFileContent, error) {
+	if configID == "" {
+		return nil, fmt.Errorf("sandbox config ID is required")
+	}
+	if skillID == "" {
+		return nil, fmt.Errorf("skill ID is required")
+	}
+	if filePath == "" {
+		return nil, fmt.Errorf("skill file path is required")
+	}
+	path := "/api/v1/sandbox-configs/" + url.PathEscape(configID) +
+		"/skills/" + url.PathEscape(skillID) + "/files/content"
+	query := url.Values{}
+	query.Set("path", filePath)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, query)
+	if err != nil {
+		return nil, err
+	}
+	var response sandboxSkillFileContentResponse
+	if err := parseResponse(resp, &response); err != nil {
+		return nil, err
+	}
+	return &response.Data, nil
+}

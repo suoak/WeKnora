@@ -4928,6 +4928,17 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.SearchParams"
                         }
+                    },
+                    {
+                        "enum": [
+                            "handle",
+                            "public"
+                        ],
+                        "type": "string",
+                        "default": "handle",
+                        "description": "文件引用形式，public 返回可加载直链",
+                        "name": "resource_urls",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4982,6 +4993,17 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.SearchParams"
                         }
+                    },
+                    {
+                        "enum": [
+                            "handle",
+                            "public"
+                        ],
+                        "type": "string",
+                        "default": "handle",
+                        "description": "文件引用形式，public 返回可加载直链",
+                        "name": "resource_urls",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -8938,6 +8960,219 @@ const docTemplate = `{
                 }
             }
         },
+        "/me/env-vars": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "List every sandbox config of this workspace with the caller's own config-wide variables and the credentials its skills declared, each reporting whether it is unset, filled in workspace-wide, or filled in by the caller. Values are never returned.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Me"
+                ],
+                "summary": "List my environment variables",
+                "responses": {
+                    "200": {
+                        "description": "One group per sandbox config",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/me/env-vars/sandbox": {
+            "put": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Store the caller's own value for one variable on a sandbox config. It is injected into every skill script and shell command this caller's turns run on that config.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Me"
+                ],
+                "summary": "Set one of my sandbox environment variables",
+                "parameters": [
+                    {
+                        "description": "Sandbox config, variable name and value",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.meEnvVarRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Stored",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Remove the caller's own value for one variable on a sandbox config.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Me"
+                ],
+                "summary": "Delete one of my sandbox environment variables",
+                "parameters": [
+                    {
+                        "description": "Sandbox config and variable name",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.meEnvVarRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not set",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/me/env-vars/skill": {
+            "put": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Store the caller's own value for one variable the skill declared. It overrides the workspace-wide value for this caller only, and is injected only into executions that name this skill.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Me"
+                ],
+                "summary": "Set one of my skill credentials",
+                "parameters": [
+                    {
+                        "description": "Skill, variable name and value",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.meEnvVarRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Stored",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Remove the caller's own value. The workspace-wide value, if there is one, applies again afterwards.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Me"
+                ],
+                "summary": "Delete one of my skill credentials",
+                "parameters": [
+                    {
+                        "description": "Skill and variable name",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.meEnvVarRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not set",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/me/invitations": {
             "get": {
                 "security": [
@@ -11819,7 +12054,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Show or hide an installed skill. The files stay in the image either way; removal is a separate flow.",
+                "description": "Show or hide an installed skill and set the workspace-wide values of the environment variables it declared. Either field may be sent, or both. The files stay in the image either way; removal is a separate flow.",
                 "consumes": [
                     "application/json"
                 ],
@@ -11885,6 +12120,135 @@ const docTemplate = `{
                 }
             }
         },
+        "/sandbox-configs/{id}/skills/{skillId}/files": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "List files in the stored skill bundle without starting a sandbox.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SandboxConfig"
+                ],
+                "summary": "List files of an installed skill",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sandbox config ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Skill ID",
+                        "name": "skillId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Skill files",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Skill or files not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/sandbox-configs/{id}/skills/{skillId}/files/content": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Read one skill file as UTF-8, a small base64 image, or binary.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SandboxConfig"
+                ],
+                "summary": "Read one file of an installed skill",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sandbox config ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Skill ID",
+                        "name": "skillId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Skill-root-relative file path",
+                        "name": "path",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Skill file",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid path",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Skill or file not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/sandbox-configs/{id}/skills/{skillId}/install-events": {
             "get": {
                 "security": [
@@ -11942,6 +12306,70 @@ const docTemplate = `{
                 }
             }
         },
+        "/sandbox-configs/{id}/skills/{skillId}/reinstall": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retry a failed install from the stored archive; does not re-upload.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SandboxConfig"
+                ],
+                "summary": "Retry a skill install",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sandbox config ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Skill ID",
+                        "name": "skillId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Reinstall accepted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "The stored archive is gone",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Skill not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/sandbox-configs/{id}/skills/{skillId}/transcript": {
             "get": {
                 "security": [
@@ -11979,6 +12407,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "SSE stream of transcript events",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "204": {
+                        "description": "Install is still preparing; retry once locators exist",
                         "schema": {
                             "type": "string"
                         }
@@ -12899,7 +13333,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "返回指定沙盒配置镜像内、智能体实际能调用的已安装技能（ready 且启用）。不传 sandbox_config_id 时列表为空。",
+                "description": "返回指定沙箱配置镜像内、智能体实际能调用的已安装技能（ready 且启用）。不传 sandbox_config_id 时列表为空。",
                 "consumes": [
                     "application/json"
                 ],
@@ -12909,7 +13343,7 @@ const docTemplate = `{
                 "tags": [
                     "Skills"
                 ],
-                "summary": "获取当前沙盒配置上可执行的 Skills",
+                "summary": "获取当前沙箱配置上可执行的 Skills",
                 "parameters": [
                     {
                         "type": "string",
@@ -17308,6 +17742,13 @@ const docTemplate = `{
                 "cube_sandbox_ttl_seconds": {
                     "type": "integer"
                 },
+                "dns_servers": {
+                    "description": "DNSServers are Cube template nameserver IPs. Empty uses Cubelet's default.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "http_timeout_sec": {
                     "description": "HTTPTimeoutSec bounds each HTTP call to the sandbox control plane.\n0 means use the built-in default (30s), never the deployment's value.",
                     "type": "integer"
@@ -21254,7 +21695,7 @@ const docTemplate = `{
                     }
                 },
                 "sandbox_type": {
-                    "description": "SandboxType selects the sandbox backend. Named configs may use \"cube\",\n\"e2b\", \"docker\", or \"local\". \"disabled\" is reserved for the hidden\nworkspace policy row.",
+                    "description": "SandboxType is cube, e2b, or docker; disabled is the hidden policy row.",
                     "type": "string"
                 },
                 "skill_image": {
@@ -24161,6 +24602,24 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_handler.meEnvVarRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "sandbox_config_id": {
+                    "type": "string"
+                },
+                "skill_id": {
+                    "type": "string"
+                },
+                "value": {
+                    "description": "Value is unused by the delete endpoints. Clearing a value is a delete\nrather than a write of \"\", so a member always has one unambiguous way to\nrevoke.",
+                    "type": "string"
+                }
+            }
+        },
         "internal_handler.platformAPIKeyCreateRequest": {
             "type": "object",
             "properties": {
@@ -24234,8 +24693,15 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "enabled": {
-                    "description": "Enabled is a pointer because its absence is a bad request rather than a\nrequest to disable the skill.",
+                    "description": "Enabled is a pointer because its absence is not a request to disable the\nskill; a body may carry envs instead.",
                     "type": "boolean"
+                },
+                "envs": {
+                    "description": "Envs is a pointer to a map because \"sent an empty object\" and \"did not\nmention envs\" are different requests: the first clears what it names,\nthe second must leave every stored value alone.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 }
             }
         },

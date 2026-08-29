@@ -760,9 +760,10 @@ export function useChatStreamHandler(options: UseChatStreamHandlerOptions) {
           if (toolCallEvent) {
             toolCallEvent.pending = false
             toolCallEvent.success = success
-            toolCallEvent.output = success
-              ? dataPayload.output || data.content
-              : dataPayload.error || data.content
+            // Keep stdout/markdown on failure. The error field is often just
+            // "exited with code 1" plus a retry hint; the streams live on
+            // output / tool_data and are what the terminal card should show.
+            toolCallEvent.output = dataPayload.output || data.content
             toolCallEvent.error = !success ? dataPayload.error || data.content : undefined
             const duration =
               dataPayload.duration_ms !== undefined ? dataPayload.duration_ms : dataPayload.duration
@@ -836,6 +837,14 @@ export function useChatStreamHandler(options: UseChatStreamHandlerOptions) {
         }
         break
       }
+      case 'artifacts_pending': {
+        const pendingCount = Number((dataPayload as any)?.count)
+        message.artifactsCollecting = true
+        if (Number.isFinite(pendingCount) && pendingCount > 0) {
+          message.artifactsPendingCount = pendingCount
+        }
+        break
+      }
       case 'complete': {
         log('[Agent] Complete event received')
         loading.value = false
@@ -855,6 +864,7 @@ export function useChatStreamHandler(options: UseChatStreamHandlerOptions) {
         if (Array.isArray(streamedArtifacts) && streamedArtifacts.length) {
           message.artifacts = streamedArtifacts
         }
+        message.artifactsCollecting = false
         if (message.agentEventStream) {
           ;(message.agentEventStream as ChatMessage[]).push({
             type: 'agent_complete',
@@ -877,6 +887,7 @@ export function useChatStreamHandler(options: UseChatStreamHandlerOptions) {
         isReplying.value = false
         fullContent.value = ''
         currentAssistantMessageId.value = ''
+        message.artifactsCollecting = false
         break
       }
     }
@@ -958,7 +969,8 @@ export function useChatStreamHandler(options: UseChatStreamHandlerOptions) {
       data.response_type === 'thinking' ||
       data.response_type === 'tool_call' ||
       data.response_type === 'tool_result' ||
-      data.response_type === 'reflection'
+      data.response_type === 'reflection' ||
+      data.response_type === 'artifacts_pending'
 
     const lastMessage = messagesList[messagesList.length - 1]
     const isCurrentlyAgentMode = lastMessage?.isAgentMode === true
