@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -206,6 +207,120 @@ func (h *ModelHandler) ListModels(c *gin.Context) {
 }
 
 const modelDebugMaxInputBytes = 64 * 1024
+const modelDebugMaxEmbeddingTexts = 32
+
+// ModelDebugEmbeddingsRequest is intentionally limited to text inputs. Model
+// configuration and credentials are always resolved server-side from :id.
+type ModelDebugEmbeddingsRequest struct {
+	Texts []string `json:"texts"`
+}
+
+// DebugEmbeddings runs a bounded, read-only embedding batch through the same
+// saved-model factory and pooler used by production indexing. It is intended
+// only for authenticated admin diagnostics and offline benchmarks.
+func (h *ModelHandler) DebugEmbeddings(c *gin.Context) {
+	ctx := c.Request.Context()
+	started := time.Now()
+	id := secutils.SanitizeForLog(c.Param("id"))
+	if id == "" {
+		c.Error(errors.NewBadRequestError("Model ID cannot be empty"))
+		return
+	}
+
+	if c.Request.ContentLength > modelDebugMaxInputBytes {
+		c.Error(errors.NewBadRequestError("request body exceeds 64 KiB"))
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(c.Request.Body, modelDebugMaxInputBytes+1))
+	if err != nil {
+		c.Error(errors.NewBadRequestError("failed to read request body"))
+		return
+	}
+	if len(body) > modelDebugMaxInputBytes {
+		c.Error(errors.NewBadRequestError("request body exceeds 64 KiB"))
+		return
+	}
+
+	var req ModelDebugEmbeddingsRequest
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
+		c.Error(errors.NewBadRequestError("invalid request body"))
+		return
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		c.Error(errors.NewBadRequestError("invalid request body"))
+		return
+	}
+	if len(req.Texts) == 0 {
+		c.Error(errors.NewBadRequestError("texts must not be empty"))
+		return
+	}
+	if len(req.Texts) > modelDebugMaxEmbeddingTexts {
+		c.Error(errors.NewBadRequestError("texts cannot exceed 32 items"))
+		return
+	}
+	for _, text := range req.Texts {
+		if strings.TrimSpace(text) == "" {
+			c.Error(errors.NewBadRequestError("each text must not be empty"))
+			return
+		}
+	}
+
+	// GetEmbeddingModel performs the tenant-scoped saved-model lookup and
+	// reconstructs the production embedder from its server-side credentials.
+	instance, err := h.service.GetEmbeddingModel(ctx, id)
+	if err != nil {
+		logger.Infof(ctx, "embedding benchmark failed: model_id=%s count=%d elapsed_ms=%d error_type=%T",
+			id, len(req.Texts), time.Since(started).Milliseconds(), err)
+		if err == service.ErrModelNotFound {
+			c.Error(errors.NewNotFoundError("Model not found"))
+			return
+		}
+		c.Error(errors.NewInternalServerError("failed to initialize embedding model"))
+		return
+	}
+	vectors, err := instance.BatchEmbedWithPool(ctx, instance, req.Texts)
+	if err != nil {
+		logger.Infof(ctx, "embedding benchmark failed: model_id=%s count=%d elapsed_ms=%d error_type=%T",
+			id, len(req.Texts), time.Since(started).Milliseconds(), err)
+		c.Error(errors.NewInternalServerError("batch embedding failed"))
+		return
+	}
+	if len(vectors) != len(req.Texts) {
+		err := fmt.Errorf("vector count mismatch")
+		logger.Infof(ctx, "embedding benchmark failed: model_id=%s count=%d elapsed_ms=%d error_type=%T",
+			id, len(req.Texts), time.Since(started).Milliseconds(), err)
+		c.Error(errors.NewInternalServerError("embedding vector count mismatch"))
+		return
+	}
+	dimension := 0
+	for index, vector := range vectors {
+		if index == 0 {
+			dimension = len(vector)
+		}
+		if len(vector) == 0 || len(vector) != dimension {
+			err := fmt.Errorf("vector dimension mismatch")
+			logger.Infof(ctx, "embedding benchmark failed: model_id=%s count=%d elapsed_ms=%d error_type=%T",
+				id, len(req.Texts), time.Since(started).Milliseconds(), err)
+			c.Error(errors.NewInternalServerError("embedding vector dimension mismatch"))
+			return
+		}
+	}
+
+	elapsed := time.Since(started).Milliseconds()
+	logger.Infof(ctx, "embedding benchmark completed: model_id=%s count=%d dimension=%d elapsed_ms=%d",
+		id, len(req.Texts), dimension, elapsed)
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"model_id":  id,
+			"count":     len(vectors),
+			"dimension": dimension,
+			"vectors":   vectors,
+		},
+	})
+}
 
 // ModelDebugOptions contains the cross-provider parameters exposed by the
 // model debugger. Pointer fields preserve explicit zero/false values.

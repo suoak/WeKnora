@@ -28,6 +28,8 @@ func RegisterModelRoutes(
 		models.GET("", g.Viewer(), handler.ListModels)
 		// 调试已保存模型会发起真实上游调用并产生费用 — Admin+
 		models.POST("/:id/debug", g.Admin(), handler.DebugModel)
+		// Bounded batch embedding adapter for admin diagnostics/benchmarks only.
+		models.POST("/:id/debug/embeddings", g.Admin(), handler.DebugEmbeddings)
 		// 获取单个模型 — Viewer+
 		models.GET("/:id", g.Viewer(), handler.GetModel)
 		// 更新模型 — Admin+；内置模型仍由服务层额外限定为 SystemAdmin。

@@ -1,13 +1,59 @@
 package handler
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/Tencent/WeKnora/internal/models/embedding"
 	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type debugBatchModelService struct {
+	interfaces.ModelService
+	embedder   embedding.Embedder
+	embedderID string
+}
+
+func (s *debugBatchModelService) GetEmbeddingModel(_ context.Context, id string) (embedding.Embedder, error) {
+	s.embedderID = id
+	return s.embedder, nil
+}
+
+type debugBatchEmbedder struct {
+	embedding.Embedder
+	vectors     [][]float32
+	texts       []string
+	passedModel embedding.Embedder
+}
+
+func (e *debugBatchEmbedder) BatchEmbedWithPool(
+	_ context.Context, model embedding.Embedder, texts []string,
+) ([][]float32, error) {
+	e.passedModel = model
+	e.texts = append([]string(nil), texts...)
+	return e.vectors, nil
+}
+
+func runDebugEmbeddingsHandler(t *testing.T, service interfaces.ModelService, body []byte) (*httptest.ResponseRecorder, *gin.Context) {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/v1/models/model-1/debug/embeddings", bytes.NewReader(body))
+	ctx.Request.Header.Set("Content-Type", "application/json")
+	ctx.Params = gin.Params{{Key: "id", Value: "model-1"}}
+	NewModelHandler(service).DebugEmbeddings(ctx)
+	return recorder, ctx
+}
 
 func TestModelUpdateRequestDisplayNamePresence(t *testing.T) {
 	var omitted UpdateModelRequest
@@ -69,4 +115,68 @@ func TestConsumeModelDebugChatStream(t *testing.T) {
 	require.NotNil(t, got.Usage)
 	assert.Equal(t, 7, got.Usage.TotalTokens)
 	assert.Len(t, got.StreamEvents, 5)
+}
+
+func TestDebugEmbeddingsUsesSavedModelBatchPathWithoutEchoingInputs(t *testing.T) {
+	embedder := &debugBatchEmbedder{vectors: [][]float32{{1, 2, 3}, {4, 5, 6}}}
+	service := &debugBatchModelService{
+		embedder: embedder,
+	}
+	body := []byte(`{"texts":["secret-input-marker","second"]}`)
+	recorder, ctx := runDebugEmbeddingsHandler(t, service, body)
+
+	require.Empty(t, ctx.Errors)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, "model-1", service.embedderID)
+	assert.Equal(t, []string{"secret-input-marker", "second"}, embedder.texts)
+	assert.Same(t, embedder, embedder.passedModel)
+	assert.NotContains(t, recorder.Body.String(), "secret-input-marker")
+	assert.NotContains(t, recorder.Body.String(), "api_key")
+	assert.NotContains(t, recorder.Body.String(), "base_url")
+	assert.JSONEq(t, `{"success":true,"data":{"model_id":"model-1","count":2,"dimension":3,"vectors":[[1,2,3],[4,5,6]]}}`, recorder.Body.String())
+}
+
+func TestDebugEmbeddingsValidatesRequestBounds(t *testing.T) {
+	service := &debugBatchModelService{}
+	tests := []struct {
+		name string
+		body []byte
+		want string
+	}{
+		{"empty", []byte(`{"texts":[]}`), "texts must not be empty"},
+		{"blank item", []byte(`{"texts":["  "]}`), "each text must not be empty"},
+		{"model configuration override", []byte(`{"texts":["safe"],"api_key":"must-not-be-accepted"}`), "invalid request body"},
+		{"trailing JSON", []byte(`{"texts":["safe"]}{}`), "invalid request body"},
+		{"too many", []byte(`{"texts":["x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x"]}`), "texts cannot exceed 32 items"},
+		{"too large", []byte(`{"texts":["` + strings.Repeat("x", modelDebugMaxInputBytes) + `"]}`), "request body exceeds 64 KiB"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, ctx := runDebugEmbeddingsHandler(t, service, test.body)
+			require.Len(t, ctx.Errors, 1)
+			assert.ErrorContains(t, ctx.Errors.Last().Err, test.want)
+		})
+	}
+}
+
+func TestDebugEmbeddingsRejectsCountAndDimensionMismatch(t *testing.T) {
+	tests := []struct {
+		name    string
+		vectors [][]float32
+		want    string
+	}{
+		{"count", [][]float32{{1, 2}}, "count mismatch"},
+		{"dimension", [][]float32{{1, 2}, {3}}, "dimension mismatch"},
+		{"empty vector", [][]float32{{}, {}}, "dimension mismatch"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			service := &debugBatchModelService{
+				embedder: &debugBatchEmbedder{vectors: test.vectors},
+			}
+			_, ctx := runDebugEmbeddingsHandler(t, service, []byte(`{"texts":["one","two"]}`))
+			require.Len(t, ctx.Errors, 1)
+			assert.ErrorContains(t, ctx.Errors.Last().Err, test.want)
+		})
+	}
 }
