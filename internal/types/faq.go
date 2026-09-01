@@ -99,11 +99,33 @@ func (c *Chunk) SetDocumentMetadata(meta *DocumentChunkMetadata) error {
 	if c == nil {
 		return nil
 	}
-	if meta == nil {
-		c.Metadata = nil
-		return nil
+	// Chunk.Metadata is shared by parser provenance and post-processing
+	// enrichment.  Preserve unknown/parser-owned keys and update only the
+	// DocumentChunkMetadata fields; replacing the JSON object here used to erase
+	// parser.sheet, parser.row, and spreadsheet schema references.
+	merged := make(map[string]json.RawMessage)
+	if len(c.Metadata) > 0 {
+		if err := json.Unmarshal(c.Metadata, &merged); err != nil {
+			return err
+		}
 	}
-	bytes, err := json.Marshal(meta)
+	if meta == nil {
+		delete(merged, "generated_questions")
+		delete(merged, "generated_questions_revision")
+	} else {
+		encoded, err := json.Marshal(meta)
+		if err != nil {
+			return err
+		}
+		var documentFields map[string]json.RawMessage
+		if err := json.Unmarshal(encoded, &documentFields); err != nil {
+			return err
+		}
+		for key, value := range documentFields {
+			merged[key] = value
+		}
+	}
+	bytes, err := json.Marshal(merged)
 	if err != nil {
 		return err
 	}

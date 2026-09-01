@@ -439,6 +439,15 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 		insertChunks = append(insertChunks, textChunk)
 	}
 
+	// Spreadsheet collection queries use a parser-owned entity index stored
+	// beside, but independently from, the ordinary row chunks.
+	spreadsheetChunks, schemaErr := buildSpreadsheetEntityChunks(knowledge, options.Metadata, maxSeq+1)
+	if schemaErr != nil {
+		logger.Warnf(ctx, "Ignoring invalid spreadsheet schema metadata: %v", schemaErr)
+	} else {
+		insertChunks = append(insertChunks, spreadsheetChunks...)
+	}
+
 	// Sort chunks by index for proper ordering
 	sort.Slice(insertChunks, func(i, j int) bool {
 		return insertChunks[i].ChunkIndex < insertChunks[j].ChunkIndex

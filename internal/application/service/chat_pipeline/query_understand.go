@@ -62,6 +62,10 @@ func (p *PluginQueryUnderstand) OnEvent(ctx context.Context,
 	eventType types.EventType, chatManage *types.ChatManage, next func() *PluginError,
 ) *PluginError {
 	chatManage.RewriteQuery = chatManage.Query
+	// Collection semantics are rule-classified for every request. This must not
+	// depend on rewrite being enabled or on an LLM call succeeding.
+	chatManage.RetrievalQueryType = types.DetectRetrievalQueryType(chatManage.Query)
+	chatManage.RetrievalCompleteness = types.PartialRetrievalCompleteness()
 
 	hasImages := len(chatManage.Images) > 0
 	needRewrite := chatManage.EnableRewrite

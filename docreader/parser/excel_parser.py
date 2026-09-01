@@ -6,6 +6,7 @@ structured Document objects with text content and chunks. It supports multiple
 sheets and handles various Excel formats using pandas.
 """
 
+import json
 import logging
 import re
 from io import BytesIO
@@ -124,6 +125,7 @@ class ExcelParser(BaseParser):
 
         excel_file = _open_excel_file(content, file_type=self.file_type)
         sheets: List[Tuple[str, pd.DataFrame, ChunkingPolicy]] = []
+        spreadsheet_schemas: List[dict[str, Any]] = []
 
         # Inspect every sheet before rendering. In non-legacy modes each
         # non-empty sheet becomes an independent parser-defined segment.
@@ -141,6 +143,24 @@ class ExcelParser(BaseParser):
             if df.empty:
                 continue
             saw_nonempty_sheet = True
+
+            # Schema detection is independent from row chunking.  When row 1 is
+            # intentionally retained as data for legacy chunk output, inspect a
+            # second dataframe with row 1 interpreted as headers; this preserves
+            # existing chunks while allowing a wide SPEC matrix to expose its
+            # complete entity axis.
+            schema_df = df
+            if not header_applied:
+                schema_df, _, _ = _read_sheet_dataframe(
+                    excel_file, excel_sheet_name, xlsx_first_row_as_header=True
+                )
+                schema_df.dropna(how="all", inplace=True)
+            if not schema_df.empty:
+                from docreader.parser.spreadsheet_schema import detect_sheet_schema
+
+                spreadsheet_schemas.append(
+                    detect_sheet_schema(schema_df, excel_sheet_name).to_dict()
+                )
 
             sheet_policy = ChunkingPolicy.DEFAULT
             if self.xlsx_chunking_mode == XLSX_CHUNKING_MODE_ROW_AWARE:
@@ -243,11 +263,18 @@ class ExcelParser(BaseParser):
             and all_sheets_preserved
         ):
             policy = ChunkingPolicy.PRESERVE_PARSER_CHUNKS
+        document_metadata = {
+            "parser.type": "xlsx",
+            "spreadsheet.schemas": json.dumps(
+                spreadsheet_schemas, ensure_ascii=False, separators=(",", ":")
+            ),
+        }
         return Document(
             content="".join(text),
             chunks=chunks,
             segments=segments,
             chunking_policy=policy,
+            metadata=document_metadata,
         )
 
 

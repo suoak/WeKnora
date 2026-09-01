@@ -111,9 +111,11 @@ func (i QueryIntent) NeedsKBRetrieval() bool {
 // PipelineState holds mutable intermediate data that plugins read and write
 // as the pipeline progresses.
 type PipelineState struct {
-	RewriteQuery string      `json:"rewrite_query,omitempty"`
-	Intent       QueryIntent `json:"intent,omitempty"`
-	History      []*History  `json:"history,omitempty"`
+	RewriteQuery          string                `json:"rewrite_query,omitempty"`
+	Intent                QueryIntent           `json:"intent,omitempty"`
+	RetrievalQueryType    RetrievalQueryType    `json:"retrieval_query_type,omitempty"`
+	RetrievalCompleteness RetrievalCompleteness `json:"retrieval_completeness"`
+	History               []*History            `json:"history,omitempty"`
 
 	SearchResult         []*SearchResult   `json:"-"`
 	RerankResult         []*SearchResult   `json:"-"`
@@ -249,17 +251,19 @@ func (c *ChatManage) Clone() *ChatManage {
 			IntentPromptOverrides:    maps.Clone(c.IntentPromptOverrides),
 		},
 		PipelineState: PipelineState{
-			RewriteQuery:         c.RewriteQuery,
-			Intent:               c.Intent,
-			ImageDescription:     c.ImageDescription,
-			QuotedContext:        c.QuotedContext,
-			SystemPromptOverride: c.SystemPromptOverride,
-			MemoryPrompt:         c.MemoryPrompt,
-			UsedMemories:         append(UsedMemories(nil), c.UsedMemories...),
-			RenderedContexts:     c.RenderedContexts,
-			Entity:               entity,
-			EntityKBIDs:          entityKBIDs,
-			EntityKnowledge:      entityKnowledge,
+			RewriteQuery:          c.RewriteQuery,
+			Intent:                c.Intent,
+			RetrievalQueryType:    c.RetrievalQueryType,
+			RetrievalCompleteness: c.RetrievalCompleteness,
+			ImageDescription:      c.ImageDescription,
+			QuotedContext:         c.QuotedContext,
+			SystemPromptOverride:  c.SystemPromptOverride,
+			MemoryPrompt:          c.MemoryPrompt,
+			UsedMemories:          append(UsedMemories(nil), c.UsedMemories...),
+			RenderedContexts:      c.RenderedContexts,
+			Entity:                entity,
+			EntityKBIDs:           entityKBIDs,
+			EntityKnowledge:       entityKnowledge,
 		},
 	}
 }
@@ -282,6 +286,7 @@ const (
 	CHAT_COMPLETION        EventType = "chat_completion"
 	CHAT_COMPLETION_STREAM EventType = "chat_completion_stream"
 	FILTER_TOP_K           EventType = "filter_top_k"
+	SPREADSHEET_QUERY      EventType = "spreadsheet_query"
 )
 
 // PipelineBuilder dynamically assembles a pipeline as an ordered list of EventTypes.
@@ -332,6 +337,7 @@ var Pipeline = map[string][]EventType{
 		CHUNK_SEARCH,
 		CHUNK_RERANK,
 		CHUNK_MERGE,
+		SPREADSHEET_QUERY,
 		INTO_CHAT_MESSAGE,
 		CHAT_COMPLETION,
 	},
@@ -343,6 +349,7 @@ var Pipeline = map[string][]EventType{
 		CHUNK_MERGE,
 		FILTER_TOP_K,
 		DATA_ANALYSIS,
+		SPREADSHEET_QUERY,
 		INTO_CHAT_MESSAGE,
 		CHAT_COMPLETION_STREAM,
 	},

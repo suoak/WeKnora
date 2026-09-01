@@ -201,6 +201,7 @@ func (s *sessionService) KnowledgeQA(
 			Add(types.CHUNK_MERGE).
 			Add(types.FILTER_TOP_K).
 			AddIf(chatManage.DataAnalysisEnabled, types.DATA_ANALYSIS).
+			Add(types.SPREADSHEET_QUERY).
 			Add(types.INTO_CHAT_MESSAGE).
 			Add(types.CHAT_COMPLETION_STREAM).
 			Build()

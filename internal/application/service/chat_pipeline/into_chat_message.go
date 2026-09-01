@@ -183,6 +183,7 @@ func (p *PluginIntoChatMessage) OnEvent(ctx context.Context,
 	if len(chatManage.Attachments) > 0 {
 		userContent += chatManage.Attachments.BuildPrompt()
 	}
+	userContent += retrievalCompletenessGuard(chatManage)
 
 	// Set formatted content back to chat management
 	chatManage.UserContent = userContent
@@ -197,6 +198,25 @@ func (p *PluginIntoChatMessage) OnEvent(ctx context.Context,
 
 	p.persistRenderedContent(ctx, chatManage)
 	return next()
+}
+
+func retrievalCompletenessGuard(chatManage *types.ChatManage) string {
+	switch chatManage.RetrievalQueryType {
+	case types.RetrievalQueryExhaustiveList, types.RetrievalQueryCount, types.RetrievalQueryFilter:
+	default:
+		return ""
+	}
+	completeness := chatManage.RetrievalCompleteness
+	if completeness.IsExhaustive {
+		return fmt.Sprintf(
+			"\n\n<retrieval_completeness scope=\"%s\" exhaustive=\"true\" expected=\"%d\" observed=\"%d\" entity_axis=\"%s\">"+
+				"The spreadsheet result was produced from a complete parser-owned entity index. Preserve its source scope and counts.</retrieval_completeness>",
+			completeness.Scope, completeness.ExpectedEntityCount, completeness.ObservedEntityCount, completeness.EntityAxis,
+		)
+	}
+	return "\n\n<retrieval_completeness scope=\"partial\" exhaustive=\"false\">" +
+		"You only have partial retrieval results. You MUST explicitly say: \u5f53\u524d\u4ec5\u83b7\u5f97\u90e8\u5206\u7ed3\u679c\uff0c\u65e0\u6cd5\u4fdd\u8bc1\u5b8c\u6574\u6027\u3002 " +
+		"Do not claim this is all, complete, exhaustive, or a total count.</retrieval_completeness>"
 }
 
 // persistRenderedContent asynchronously writes the RAG-augmented UserContent back

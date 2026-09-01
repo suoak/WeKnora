@@ -35,6 +35,9 @@ const (
 	ChunkTypeTableSummary ChunkType = "table_summary"
 	// ChunkTypeTableColumn 表示数据表列描述的 Chunk
 	ChunkTypeTableColumn ChunkType = "table_column"
+	// ChunkTypeSheetEntityIndex stores a deterministic per-sheet entity axis.
+	// It is persisted for exhaustive spreadsheet queries but is not vector indexed.
+	ChunkTypeSheetEntityIndex ChunkType = "sheet_entity_index"
 	// ChunkTypeWikiPage 表示 Wiki 页面同步的 Chunk，用于将 wiki 页面接入现有检索管线
 	ChunkTypeWikiPage ChunkType = "wiki_page"
 )
