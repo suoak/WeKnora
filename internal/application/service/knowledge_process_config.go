@@ -22,19 +22,21 @@ func applyParserRuleOverrides(
 	fileType string,
 ) {
 	fileType = normalizeParserFileType(fileType)
-	if fileType != "xlsx" && fileType != "xls" {
+	if fileType != "xlsx" && fileType != "xls" && fileType != "xlsm" {
 		return
 	}
 	rule := config.ResolveParserEngineRule(fileType)
-	if rule == nil {
-		return
-	}
-	engine := strings.TrimSpace(rule.Engine)
+	engine := strings.TrimSpace(config.ResolveParserEngine(fileType))
 	if engine != "" && engine != "builtin" {
 		return
 	}
-	if rule.XLSXFirstRowAsHeader != nil {
+	if rule != nil && rule.XLSXFirstRowAsHeader != nil {
 		overrides[xlsxFirstRowAsHeaderOverride] = strconv.FormatBool(*rule.XLSXFirstRowAsHeader)
+	} else if _, explicitlyConfigured := overrides[xlsxFirstRowAsHeaderOverride]; !explicitlyConfigured {
+		overrides[xlsxFirstRowAsHeaderOverride] = "true"
+	}
+	if rule == nil {
+		return
 	}
 	if mode := strings.TrimSpace(rule.XLSXChunkingMode); mode != "" {
 		overrides[xlsxChunkingModeOverride] = mode

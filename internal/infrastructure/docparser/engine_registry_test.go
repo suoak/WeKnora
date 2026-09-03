@@ -21,7 +21,7 @@ func TestListAllEnginesBuiltinIncludesDocumentFormats(t *testing.T) {
 		for _, fileType := range engine.FileTypes {
 			fileTypes[fileType] = true
 		}
-		for _, want := range []string{"html", "htm", "xmind", "ppt", "pptx"} {
+		for _, want := range []string{"html", "htm", "xmind", "ppt", "pptx", "xlsx", "xls", "xlsm"} {
 			if !fileTypes[want] {
 				t.Errorf("builtin engine file types do not include %q: %v", want, engine.FileTypes)
 			}
@@ -53,5 +53,13 @@ func TestDefaultParserEnginePrefersAnydocWhenLinked(t *testing.T) {
 	}
 	if got := types.DefaultParserEngine("docx"); got != "" {
 		t.Fatalf("DefaultParserEngine(docx) = %q, want empty when anydoc is unavailable", got)
+	}
+}
+
+func TestDefaultParserEngineKeepsExcelOnBuiltin(t *testing.T) {
+	for _, fileType := range []string{"xlsx", "xls", "xlsm"} {
+		if got := types.DefaultParserEngine(fileType); got != BuiltinEngineName {
+			t.Errorf("DefaultParserEngine(%s) = %q, want builtin", fileType, got)
+		}
 	}
 }

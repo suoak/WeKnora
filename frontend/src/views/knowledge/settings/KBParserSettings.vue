@@ -48,7 +48,7 @@
               />
             </t-select>
             <t-checkbox
-              v-if="group.extensions.includes('xlsx') && getEngineForGroup(group.extensions) === 'builtin'"
+              v-if="group.extensions.some(isExcelFileType) && getEngineForGroup(group.extensions) === 'builtin'"
               class="xlsx-header-option"
               :checked="getXLSXFirstRowAsHeader(group.extensions)"
               @change="(checked: boolean) => handleXLSXFirstRowAsHeaderChange(group.extensions, checked)"
@@ -72,6 +72,11 @@ import { type ParserEngineInfo } from '@/api/system'
 import { useEditorResourcesStore } from '@/stores/editorResources'
 import { useUIStore } from '@/stores/ui'
 import { storeToRefs } from 'pinia'
+import {
+  excelFirstRowAsHeaderValue,
+  isExcelFileType,
+  pickDefaultParserEngineName,
+} from './parserDefaults'
 
 const { t } = useI18n()
 const editorResources = useEditorResourcesStore()
@@ -141,7 +146,7 @@ const fileTypeGroups = computed(() => {
   const pdfExts = ['pdf'].filter(e => ft.has(e))
   const officeExts = ['docx', 'doc'].filter(e => ft.has(e))
   const pptExts = ['pptx', 'ppt'].filter(e => ft.has(e))
-  const excelExts = ['xlsx', 'xls'].filter(e => ft.has(e))
+  const excelExts = ['xlsx', 'xls', 'xlsm'].filter(e => ft.has(e))
   const ebookExts = ['epub'].filter(e => ft.has(e))
   const webArchiveExts = ['mhtml'].filter(e => ft.has(e))
   const csvExts = ['csv'].filter(e => ft.has(e))
@@ -215,14 +220,7 @@ function pickDefaultEngineName(
   engines: { name: string; available: boolean }[],
   extensions: string[],
 ): string {
-  const available = engines.filter(e => e.available)
-  const simpleExts = new Set(['md', 'markdown', 'txt', 'csv', 'json'])
-  const allSimple = extensions.length > 0 && extensions.every(ext => simpleExts.has(ext))
-  if (!allSimple) {
-    const anydoc = available.find(e => e.name === 'anydoc')
-    if (anydoc) return anydoc.name
-  }
-  return available[0]?.name ?? ''
+  return pickDefaultParserEngineName(engines, extensions)
 }
 
 function hasAvailableEngine(extensions: string[]): boolean {
@@ -266,7 +264,9 @@ function getRuleForGroup(extensions: string[]): ParserEngineRule | undefined {
 }
 
 function getXLSXFirstRowAsHeader(extensions: string[]): boolean {
-  return getRuleForGroup(extensions)?.xlsx_first_row_as_header === true
+  return excelFirstRowAsHeaderValue(
+    getRuleForGroup(extensions)?.xlsx_first_row_as_header,
+  )
 }
 
 function handleXLSXFirstRowAsHeaderChange(extensions: string[], checked: boolean) {
@@ -285,11 +285,17 @@ function buildCompleteRules(): ParserEngineRule[] {
     const engine = getEngineForGroup(group.extensions)
     if (engine) {
       const currentRule = getRuleForGroup(group.extensions)
-      rules.push({
+      const rule: ParserEngineRule = {
         ...currentRule,
         file_types: [...group.extensions],
         engine,
-      })
+      }
+      if (engine === 'builtin' && group.extensions.some(isExcelFileType)) {
+        rule.xlsx_first_row_as_header = excelFirstRowAsHeaderValue(
+          currentRule?.xlsx_first_row_as_header,
+        )
+      }
+      rules.push(rule)
     }
   }
   return rules

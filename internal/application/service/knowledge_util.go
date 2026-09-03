@@ -31,14 +31,14 @@ var supportedImportFileExtensions = map[string]struct{}{
 	"pdf": {}, "txt": {}, "docx": {}, "doc": {}, "epub": {},
 	"html": {}, "htm": {}, "mhtml": {}, "md": {}, "markdown": {},
 	"png": {}, "jpg": {}, "jpeg": {}, "gif": {},
-	"csv": {}, "xlsx": {}, "xls": {}, "pptx": {}, "ppt": {}, "json": {},
+	"csv": {}, "xlsx": {}, "xls": {}, "xlsm": {}, "pptx": {}, "ppt": {}, "json": {},
 	"mp3": {}, "wav": {}, "m4a": {}, "flac": {}, "ogg": {},
 }
 
 // dataTableFileExtensions are the spreadsheet formats that get an extra
 // table-summary task after their document-process task.
 var dataTableFileExtensions = map[string]struct{}{
-	"csv": {}, "xlsx": {}, "xls": {},
+	"csv": {}, "xlsx": {}, "xls": {}, "xlsm": {},
 }
 
 // normalizeFileExtension lowercases an extension and strips a leading dot so

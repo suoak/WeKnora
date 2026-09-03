@@ -31,6 +31,7 @@ func TestIsSupportedImportExtension(t *testing.T) {
 	}{
 		{name: "xlsx", ext: "xlsx", want: true},
 		{name: "xls", ext: "xls", want: true},
+		{name: "xlsm", ext: "xlsm", want: true},
 		{name: "csv", ext: "csv", want: true},
 		{name: "dot prefix", ext: ".xlsx", want: true},
 		{name: "uppercase", ext: "XLSX", want: true},
@@ -65,7 +66,7 @@ func TestImportExtensionSetIsSharedAcrossPaths(t *testing.T) {
 }
 
 func TestIsDataTableFileType(t *testing.T) {
-	for _, ext := range []string{"csv", "xlsx", "xls", ".XLSX"} {
+	for _, ext := range []string{"csv", "xlsx", "xls", "xlsm", ".XLSX"} {
 		if !isDataTableFileType(ext) {
 			t.Errorf("isDataTableFileType(%q) = false, want true", ext)
 		}

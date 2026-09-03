@@ -319,6 +319,7 @@ func TestEffectiveStorageProvider_CrossBackendDetection(t *testing.T) {
 func TestDefaultParserEngine(t *testing.T) {
 	for input, want := range map[string]string{
 		"pptx": "markitdown", ".PPT": "markitdown", "ppt": "markitdown",
+		"xlsx": "builtin", ".XLS": "builtin", "xls": "builtin", "xlsm": "builtin",
 		"pdf": "", "csv": "", "docx": "", "": "",
 	} {
 		if got := DefaultParserEngine(input); got != want {
@@ -330,7 +331,8 @@ func TestDefaultParserEngine(t *testing.T) {
 func TestDefaultParserEnginePrefersRegisteredEngineForFallbackTypes(t *testing.T) {
 	t.Cleanup(func() { SetPreferParserEngine(nil) })
 	SetPreferParserEngine(func(fileType string) string {
-		if fileType == "pptx" || fileType == "ppt" || fileType == "pdf" || fileType == "docx" {
+		if fileType == "pptx" || fileType == "ppt" || fileType == "pdf" || fileType == "docx" ||
+			fileType == "xlsx" || fileType == "xls" || fileType == "xlsm" {
 			return "anydoc"
 		}
 		return ""
@@ -350,6 +352,11 @@ func TestDefaultParserEnginePrefersRegisteredEngineForFallbackTypes(t *testing.T
 	if got := DefaultParserEngine("txt"); got != "" {
 		t.Fatalf("DefaultParserEngine(txt) = %q, want empty", got)
 	}
+	for _, fileType := range []string{"xlsx", "xls", "xlsm"} {
+		if got := DefaultParserEngine(fileType); got != "builtin" {
+			t.Errorf("DefaultParserEngine(%s) = %q, want builtin even when a preferred engine is registered", fileType, got)
+		}
+	}
 }
 
 func TestDefaultParserEngineIgnoresEmptyPreference(t *testing.T) {
@@ -368,11 +375,18 @@ func TestChunkingConfigResolveParserEngineDefaults(t *testing.T) {
 	if got := empty.ResolveParserEngine("pdf"); got != "" {
 		t.Fatalf("empty rules ResolveParserEngine(pdf) = %q, want empty", got)
 	}
+	if got := empty.ResolveParserEngine("xlsx"); got != "builtin" {
+		t.Fatalf("empty rules ResolveParserEngine(xlsx) = %q, want builtin", got)
+	}
 
 	configured := ChunkingConfig{ParserEngineRules: []ParserEngineRule{
 		{FileTypes: []string{"pptx"}, Engine: "mineru"},
+		{FileTypes: []string{"xlsx"}, Engine: "anydoc"},
 	}}
 	if got := configured.ResolveParserEngine(".PPTX"); got != "mineru" {
 		t.Fatalf("configured ResolveParserEngine(pptx) = %q, want mineru", got)
+	}
+	if got := configured.ResolveParserEngine(".XLSX"); got != "anydoc" {
+		t.Fatalf("configured ResolveParserEngine(xlsx) = %q, want explicit anydoc", got)
 	}
 }

@@ -260,8 +260,8 @@ type ChunkingConfig struct {
 	// ParserEngineRules configures which parser engine to use for each file type.
 	// When empty, DefaultParserEngine is used (builtin/simple routing, except
 	// types that only a specific engine can parse: ppt/pptx fall back to
-	// markitdown). A linked anydoc binding is preferred for every type it
-	// converts.
+	// markitdown). Excel stays on builtin for structured spreadsheet semantics;
+	// a linked anydoc binding is preferred for other types it converts.
 	ParserEngineRules []ParserEngineRule `yaml:"parser_engine_rules,omitempty" json:"parser_engine_rules,omitempty"`
 	// EnableParentChild enables two-level parent-child chunking strategy.
 	// When enabled, large parent chunks provide context while small child chunks
@@ -295,6 +295,9 @@ type ChunkingConfig struct {
 // routing (Go simple formats, otherwise docreader builtin) unless
 // SetPreferParserEngine selects a linked in-process engine such as anydoc.
 var defaultParserEngineByType = map[string]string{
+	"xls":  "builtin",
+	"xlsm": "builtin",
+	"xlsx": "builtin",
 	"ppt":  "markitdown",
 	"pptx": "markitdown",
 }
@@ -312,11 +315,18 @@ func SetPreferParserEngine(fn func(fileType string) string) {
 
 // DefaultParserEngine returns the engine used when no parser_engine_rules
 // match. Empty string means builtin (docreader) or Go simple-format routing.
-// When the anydoc binding is linked it is preferred for every type it
-// converts (except Go simple formats). ppt/pptx otherwise fall back to
+// Excel types explicitly default to builtin so their structured metadata is
+// preserved. When the anydoc binding is linked it is preferred for other types
+// it converts (except Go simple formats). ppt/pptx otherwise fall back to
 // markitdown.
 func DefaultParserEngine(fileType string) string {
 	ft := normalizeParserFileType(fileType)
+	// Structured spreadsheet parsing is a WeKnora capability, not just a
+	// document-to-Markdown conversion. Keep Excel on the builtin DocReader so
+	// row metadata, schemas, and parser-defined chunks remain available.
+	if engine := defaultParserEngineByType[ft]; engine == "builtin" {
+		return engine
+	}
 	if preferParserEngine != nil {
 		if engine := preferParserEngine(ft); engine != "" {
 			return engine

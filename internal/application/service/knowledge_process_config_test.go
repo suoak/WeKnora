@@ -179,6 +179,45 @@ func TestApplyParserRuleOverrides_XLSXFirstRowAsHeader(t *testing.T) {
 	}
 }
 
+func TestApplyParserRuleOverrides_DefaultsBuiltinExcelHeaderToTrue(t *testing.T) {
+	t.Parallel()
+
+	for _, fileType := range []string{"xlsx", "xls", "xlsm"} {
+		fileType := fileType
+		t.Run(fileType, func(t *testing.T) {
+			overrides := map[string]string{}
+
+			applyParserRuleOverrides(overrides, types.ChunkingConfig{}, fileType)
+
+			require.Equal(t, "true", overrides[xlsxFirstRowAsHeaderOverride])
+		})
+	}
+}
+
+func TestApplyParserRuleOverrides_ExplicitAnydocSkipsBuiltinExcelDefaults(t *testing.T) {
+	t.Parallel()
+
+	config := types.ChunkingConfig{ParserEngineRules: []types.ParserEngineRule{{
+		FileTypes: []string{"xlsx", "xls"},
+		Engine:    "anydoc",
+	}}}
+	overrides := map[string]string{}
+
+	applyParserRuleOverrides(overrides, config, "xlsx")
+
+	require.NotContains(t, overrides, xlsxFirstRowAsHeaderOverride)
+}
+
+func TestApplyParserRuleOverrides_PreservesExplicitHeaderOverride(t *testing.T) {
+	t.Parallel()
+
+	overrides := map[string]string{xlsxFirstRowAsHeaderOverride: "false"}
+
+	applyParserRuleOverrides(overrides, types.ChunkingConfig{}, "xlsx")
+
+	require.Equal(t, "false", overrides[xlsxFirstRowAsHeaderOverride])
+}
+
 func TestApplyParserRuleOverrides_XLSXSemanticChunkOptions(t *testing.T) {
 	t.Parallel()
 	contextColumns := 3

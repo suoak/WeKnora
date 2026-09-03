@@ -79,7 +79,7 @@ class ExcelParser(BaseParser):
         self,
         file_name: str = "",
         file_type: str | None = None,
-        xlsx_first_row_as_header: Any = False,
+        xlsx_first_row_as_header: Any = True,
         xlsx_chunking_mode: str = XLSX_CHUNKING_MODE_AUTO,
         xlsx_context_column_count: Any = None,
         parser_semantic_chunk_max_chars: Any = DEFAULT_PARSER_SEMANTIC_CHUNK_MAX_CHARS,
@@ -286,9 +286,8 @@ def _read_sheet_dataframe(
     """Read a worksheet into a DataFrame with stable column labels."""
     from openpyxl.utils import get_column_letter
 
-    # Keep row 1 as data by default for both XLSX and legacy XLS. Users can
-    # explicitly restore the historical behavior where row 1 supplies semantic
-    # labels for every row.
+    # Use row 1 as semantic column context by default for both XLSX and legacy
+    # XLS. Callers can explicitly disable the mode when row 1 is data.
     df = excel_file.parse(sheet_name=sheet_name, header=None)
     if xlsx_first_row_as_header and len(df.index) >= 2:
         header_values = df.iloc[0].tolist()

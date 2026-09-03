@@ -9,7 +9,7 @@ func TestParserEngineConfigResolveChatParserEngine(t *testing.T) {
 	}}
 	for input, expected := range map[string]string{
 		"PDF": "mineru", ".docx": "mineru", "xlsx": "markitdown",
-		"txt": "", "pptx": "markitdown", ".PPT": "markitdown",
+		"txt": "", "pptx": "markitdown", ".PPT": "markitdown", "xls": "builtin",
 	} {
 		if actual := config.ResolveChatParserEngine(input); actual != expected {
 			t.Fatalf("ResolveChatParserEngine(%q) = %q, want %q", input, actual, expected)
@@ -21,5 +21,8 @@ func TestParserEngineConfigResolveChatParserEngine(t *testing.T) {
 	}
 	if actual := nilConfig.ResolveChatParserEngine("pptx"); actual != "markitdown" {
 		t.Fatalf("nil config pptx resolved %q, want markitdown", actual)
+	}
+	if actual := nilConfig.ResolveChatParserEngine("xlsm"); actual != "builtin" {
+		t.Fatalf("nil config xlsm resolved %q, want builtin", actual)
 	}
 }

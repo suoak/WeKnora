@@ -201,9 +201,9 @@ class XlsxMergeFillTest(unittest.TestCase):
             self._workbook_with_merged_cells_and_chart()
         )
 
-        self.assertIn("A: title,B: title", document.content)
-        self.assertIn("A: one,B: 1", document.content)
-        self.assertIn("A: two,B: 2", document.content)
+        self.assertIn("title: category,title__2: value", document.content)
+        self.assertIn("title: one,title__2: 1", document.content)
+        self.assertIn("title: two,title__2: 2", document.content)
 
     def test_chart_workbook_without_merges_passes_through_unchanged(self):
         content = self._workbook_with_merged_cells_and_chart()
@@ -423,7 +423,7 @@ class ExcelParserTest(unittest.TestCase):
         self.assertEqual(document.chunks[0].metadata["parser.sheet"], "Sheet")
         self.assertEqual(document.chunks[0].metadata["parser.row"], "2")
 
-    def test_xlsx_keeps_first_row_as_data_by_default(self):
+    def test_xlsx_uses_first_row_as_header_by_default(self):
         content = self._workbook_bytes(
             [
                 ["Name", "City"],
@@ -436,10 +436,30 @@ class ExcelParserTest(unittest.TestCase):
         ).parse_into_text(content)
 
         chunks = [chunk.content.strip() for chunk in document.chunks]
-        self.assertEqual(len(chunks), 2)
-        self.assertEqual(chunks[0], "A: Name,B: City")
-        self.assertEqual(chunks[1], "A: Alice,B: Shenzhen")
-        self.assertEqual(document.chunking_policy, ChunkingPolicy.DEFAULT)
+        self.assertEqual(chunks, ["Name: Alice,City: Shenzhen"])
+        self.assertEqual(
+            document.chunking_policy, ChunkingPolicy.PRESERVE_PARSER_CHUNKS
+        )
+        self.assertEqual(document.chunks[0].metadata["parser.sheet"], "Sheet")
+        self.assertEqual(document.chunks[0].metadata["parser.row"], "2")
+        self.assertIn("spreadsheet.schemas", document.metadata)
+
+    def test_xlsm_uses_builtin_excel_semantics(self):
+        content = self._workbook_bytes(
+            [["Name", "City"], ["Alice", "Shenzhen"]]
+        )
+
+        document = ExcelParser(
+            file_name="people.xlsm", file_type="xlsm"
+        ).parse_into_text(content)
+
+        self.assertEqual(
+            [chunk.content.strip() for chunk in document.chunks],
+            ["Name: Alice,City: Shenzhen"],
+        )
+        self.assertEqual(document.chunks[0].metadata["parser.sheet"], "Sheet")
+        self.assertEqual(document.chunks[0].metadata["parser.row"], "2")
+        self.assertIn("spreadsheet.schemas", document.metadata)
 
     def test_single_row_xlsx_is_not_consumed_in_header_mode(self):
         content = self._workbook_bytes([["Name", "Age", "City"]])

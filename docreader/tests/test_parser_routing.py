@@ -2,6 +2,7 @@ import unittest
 
 from docreader.models.document import Document
 from docreader.parser.base_parser import BaseParser
+from docreader.parser.excel_parser import ExcelParser
 from docreader.parser.parser import Parser, detect_effective_file_type
 from docreader.parser.markitdown_parser import MarkitdownParser
 from docreader.parser.pdf_parser import PDFParser
@@ -33,6 +34,13 @@ class _RecordingRegistry:
 
 
 class ParserRoutingTest(unittest.TestCase):
+    def test_builtin_registry_routes_all_excel_formats_to_excel_parser(self):
+        for file_type in ("xlsx", "xls", "xlsm"):
+            with self.subTest(file_type=file_type):
+                self.assertIs(
+                    registry.get_parser_class(BUILTIN_ENGINE, file_type), ExcelParser
+                )
+
     def test_builtin_registry_routes_xmind_to_xmind_parser(self):
         parser_class = registry.get_parser_class(BUILTIN_ENGINE, "xmind")
 

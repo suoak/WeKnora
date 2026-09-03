@@ -14,6 +14,9 @@ func TestDetectRetrievalQueryType(t *testing.T) {
 		{"\u54ea\u4e9b\u578b\u53f7\u652f\u6301 WLAN\uff1f", RetrievalQueryFilter},
 		{"\u54ea\u4e9b\u578b\u53f7\u4e0d\u652f\u6301 WLAN\uff1f", RetrievalQueryFilter},
 		{"Model-A WLAN \u662f\u5426\u652f\u6301\uff1f", RetrievalQueryFactLookup},
+		{"RG-NBR-N7204-E \u6700\u5927\u5e76\u53d1\u8fde\u63a5\u6570\uff08IPv4+IPv6\uff09\u662f\u591a\u5c11\uff1f", RetrievalQueryFactLookup},
+		{"RG-NBR-N7204-E \u529f\u8017\u662f\u591a\u5c11\uff1f", RetrievalQueryFactLookup},
+		{"RG-NBR-N7204-E WLAN \u662f\u5426\u652f\u6301\uff1f", RetrievalQueryFactLookup},
 	}
 	for _, test := range tests {
 		t.Run(test.query, func(t *testing.T) {

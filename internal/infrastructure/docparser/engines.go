@@ -48,6 +48,13 @@ func preferAnydocWhenAvailable(fileType string) string {
 	if IsSimpleFormat(fileType) {
 		return ""
 	}
+	// Excel defaults to the builtin parser because downstream spreadsheet
+	// querying depends on its structured row and schema metadata. An explicit
+	// parser rule can still select anydoc.
+	switch strings.ToLower(strings.TrimPrefix(strings.TrimSpace(fileType), ".")) {
+	case "xlsx", "xls", "xlsm":
+		return ""
+	}
 	if anydoc.Available() && anydoc.Supports(fileType, "") {
 		return AnydocEngineName
 	}
@@ -66,7 +73,7 @@ func (e *builtinEngine) Description() string { return "DocReader built-in parser
 
 func (e *builtinEngine) FileTypes(_ bool) []string {
 	return []string{
-		"docx", "doc", "pdf", "md", "markdown", "xlsx", "xls",
+		"docx", "doc", "pdf", "md", "markdown", "xlsx", "xls", "xlsm",
 		"pptx", "ppt", "epub",
 		"html", "htm", "mhtml", "xmind",
 		"jpg", "jpeg", "png", "gif", "bmp", "tiff", "webp",
