@@ -1,3 +1,5 @@
+import { branding } from '../../config/branding'
+
 export default {
   platformApiKeys: {
     title: 'Платформенные API-ключи',
@@ -269,8 +271,8 @@ export default {
     filterByAgentWithName: 'Фильтр по агенту: {name}',
     filterAllAgents: 'Все агенты',
     claw: {
-      title: 'WeKnora Skill',
-      subtitle: 'Импорт документов и гибридный поиск (вектор + ключевые слова) через REST API WeKnora — загрузки, URL, Markdown и поиск.',
+      title: `${branding.productName} Skill`,
+      subtitle: `Импорт документов и гибридный поиск (вектор + ключевые слова) через REST API ${branding.productName} — загрузки, URL, Markdown и поиск.`,
       capabilitiesTitle: 'Возможности Skill',
       stepsTitle: 'Шаги настройки',
       openApiSettings: 'Открыть API-информацию',
@@ -279,7 +281,7 @@ export default {
       copyCmdSuccess: 'Команда установки скопирована',
       ecosystemNote: 'Skill размещён на ClawHub ({\'@\'}lyingbug/weknora). Полная документация API — на странице ClawHub.',
       installCta: 'Открыть ClawHub',
-      installCtaHint: 'Установка WeKnora Skill · откроется в новой вкладке',
+      installCtaHint: `Установка ${branding.productName} Skill · откроется в новой вкладке`,
       hubMeta: 'ClawHub · {\'@\'}lyingbug/weknora · MIT-0',
       steps: {
         verify: {
@@ -324,7 +326,7 @@ export default {
     },
     chrome: {
       title: 'Помощник по знаниям',
-      subtitle: 'Для self-hosted WeKnora: вопросы в боковой панели, клиппинг страниц и Markdown-заметки в базы знаний прямо при просмотре.',
+      subtitle: `Для self-hosted ${branding.productName}: вопросы в боковой панели, клиппинг страниц и Markdown-заметки в базы знаний прямо при просмотре.`,
       capabilitiesTitle: 'Возможности',
       stepsTitle: 'Шаги настройки',
       openApiSettings: 'Открыть API-информацию',
@@ -344,7 +346,7 @@ export default {
         },
         port: {
           title: 'Десктоп: фиксированный порт',
-          desc: 'В WeKnora Desktop задайте фиксированный порт API (например 37841) в API-информации.'
+          desc: `В ${branding.productName} Desktop задайте фиксированный порт API (например 37841) в API-информации.`
         },
         api: {
           title: 'Получите API-учётные данные',
@@ -480,14 +482,14 @@ export default {
       directWarning: 'Прямой ID доверяет заголовку вызывающей стороны. Используйте только для доверенных server-to-server вызовов.',
       directWarningDetail: 'Любой, у кого есть API key, может подменить заголовок ID пользователя, выдать себя за другого внешнего пользователя и переиспользовать или перехватить его авторизацию MCP OAuth. Не используйте в браузере или ненадёжных клиентах; для пользовательских приложений выбирайте подписанный token.',
       signedRecommended: 'Рекомендуется для пользовательских приложений: ваш backend подписывает краткоживущий HS256 JWT для внешнего пользователя.',
-      signedFlowDetail: 'HMAC secret храните только в WeKnora и на доверенном backend — не передавайте в запросах и не отдавайте браузеру. В заголовке запроса передаётся JWT, подписанный этим secret (меняется при каждой выдаче или после истечения), а не сам secret. JWT должен содержать sub (ID внешнего пользователя), tenant_id, aud=weknora и exp (не более 24 ч).',
+      signedFlowDetail: `HMAC secret храните только в ${branding.productName} и на доверенном backend — не передавайте в запросах и не отдавайте браузеру. В заголовке запроса передаётся JWT, подписанный этим secret (меняется при каждой выдаче или после истечения), а не сам secret. JWT должен содержать sub (ID внешнего пользователя), tenant_id, aud=weknora и exp (не более 24 ч).`,
       directHeader: 'Заголовок ID пользователя',
       requireDirectHeader: 'Требовать заголовок ID пользователя',
       requireDirectHeaderDesc: 'Если включено, запросы без заголовка ID пользователя отклоняются; иначе все запросы обрабатываются как единое пространство без различия конечных пользователей.',
       tokenHeader: 'Заголовок token',
       tokenHeaderDesc: 'Клиент передаёт JWT, подписанный backend, в этом фиксированном заголовке.',
       hmacSecret: 'HMAC secret',
-      hmacSecretDesc: 'Тот же secret, что в WeKnora; только для подписи JWT на backend — не отправляйте его в заголовке запроса.',
+      hmacSecretDesc: `Тот же secret, что в ${branding.productName}; только для подписи JWT на backend — не отправляйте его в заголовке запроса.`,
       secretConfigured: 'Secret настроен (повторно не показывается); введите новое значение для ротации',
       secretSavedCopyHint: 'Secret сохранён. Скопируйте его в backend сейчас — после ухода со страницы просмотреть его будет нельзя.',
       generateSecret: 'Сгенерировать secret',
@@ -4153,7 +4155,7 @@ export default {
     allowFileUploadDesc: 'При включении посетители видят кнопку загрузки изображений в поле ввода. Кнопка появляется только если у привязанного агента включена загрузка изображений.',
     webhookUrl: 'Webhook URL',
     webhookUrlPlaceholder: 'https://your-server.example.com/weknora/embed-events',
-    webhookUrlDesc: 'Optional. WeKnora POSTs message_sent / message_received events to this HTTPS endpoint.',
+    webhookUrlDesc: `Optional. ${branding.productName} POSTs message_sent / message_received events to this HTTPS endpoint.`,
     webhookSecret: 'Webhook secret',
     webhookSecretPlaceholder: 'HMAC-SHA256 secret (X-WeKnora-Signature header)',
     webhookSecretKeep: 'Leave blank to keep the saved secret',
@@ -4266,7 +4268,7 @@ export default {
     }
   },
   createChat: {
-    title: 'Привет, я WeKnora — ваши знания всегда под рукой',
+    title: `Привет, я ${branding.productName} — ваши знания всегда под рукой`,
     newSessionTitle: 'Новая сессия',
     messages: {
       createFailed: 'Не удалось создать сессию',
@@ -4517,11 +4519,11 @@ export default {
     haveAccount: 'Уже есть аккаунт?',
     backToLogin: 'Вернуться ко входу',
     loginHint: 'Войдите, чтобы продолжить, или создайте аккаунт ниже, если вы впервые здесь.',
-    firstTime: 'Впервые в WeKnora?',
+    firstTime: `Впервые в ${branding.productName}?`,
     registerSuccess: 'Регистрация завершена. Войдите в систему',
     registerFailed: 'Ошибка регистрации',
     subtitle: 'RAG, ReAct-агент и Wiki — корпоративный фреймворк знаний на основе больших моделей',
-    registerSubtitle: 'Создайте аккаунт и начните работу с WeKnora',
+    registerSubtitle: `Создайте аккаунт и начните работу с ${branding.productName}`,
     emailPlaceholder: 'Введите адрес электронной почты',
     passwordPlaceholder: 'Введите пароль',
     confirmPasswordPlaceholder: 'Введите пароль ещё раз',
@@ -4799,7 +4801,7 @@ export default {
   },
   envVarSettings: {
     title: 'Ключи песочницы',
-    description: 'Личные ключи для навыков и песочниц, а не системные или деплой-настройки WeKnora.',
+    description: `Личные ключи для навыков и песочниц, а не системные или деплой-настройки ${branding.productName}.`,
     helpAria: 'Справка по ключам песочницы',
     introPersonalTitle: 'Только ваши',
     introPersonalBody: 'Подставляются только в ваши диалоги и запуски. Другие участники их не видят, и их значения не заменяют ваши.',
@@ -5013,7 +5015,7 @@ export default {
       backendDescriptions: {
         cube: 'Self-hosted MicroVM cluster for private or on-premises deployments',
         e2b: 'Managed MicroVM service or an E2B-compatible deployment',
-        docker: 'Держит долгоживущий контейнер на каждую сессию на этом хосте WeKnora; скрипты и файлы остаются в том же контейнере',
+        docker: `Держит долгоживущий контейнер на каждую сессию на этом хосте ${branding.productName}; скрипты и файлы остаются в том же контейнере`,
       },
       addConfig: 'Добавить песочницу',
       viewClusterGuide: 'Cluster setup guide',
@@ -5068,11 +5070,11 @@ export default {
       policySaveFailed: 'Failed to update sandbox execution policy',
       legacyConfig: 'Deprecated',
       namedBackendHint: 'Workspace configuration is the only runtime source. Agents without one cannot execute skill scripts.',
-      weknoraTemplateTitle: 'WeKnora standard template',
-      weknoraDockerImage: 'WeKnora standard image',
+      weknoraTemplateTitle: `${branding.productName} standard template`,
+      weknoraDockerImage: `${branding.productName} standard image`,
       weknoraDockerImageHint: 'Each session gets its own long-lived container. Scripts, shell commands and files all share it until the session ends or the idle timeout reclaims it.',
-      weknoraTemplateOverview: 'WeKnora provides the standard runtime. Templates are discovered after connecting and the standard one is created when missing.',
-      weknoraTemplateDescription: 'Includes the Python, Node.js, CLI tools, workspace path, and non-root execution user expected by WeKnora skills.',
+      weknoraTemplateOverview: `${branding.productName} provides the standard runtime. Templates are discovered after connecting and the standard one is created when missing.`,
+      weknoraTemplateDescription: `Includes the Python, Node.js, CLI tools, workspace path, and non-root execution user expected by ${branding.productName} skills.`,
       recommendedTag: 'Recommended',
       templateNotConfigured: 'Template not configured',
       cardTemplateConfigured: 'Шаблон настроен',
@@ -5087,24 +5089,24 @@ export default {
       refreshTemplates: 'Refresh templates',
       templateSelectHelp: 'Templates are loaded from this cluster. The saved configuration stores the ID automatically.',
       templateSelectPlaceholder: 'Connect to the cluster to load templates',
-      templateLoadHint: 'Введите подключение к кластеру и обновите список. Если стандартного шаблона WeKnora нет, нажмите «Создать»; после смены DNS или образа — «Удалить и пересобрать».',
+      templateLoadHint: `Введите подключение к кластеру и обновите список. Если стандартного шаблона ${branding.productName} нет, нажмите «Создать»; после смены DNS или образа — «Удалить и пересобрать».`,
       templateLoadFailed: 'Failed to load templates',
-      standardTemplateProvisioning: 'The WeKnora standard template is being created. Refresh shortly to see its status.',
+      standardTemplateProvisioning: `The ${branding.productName} standard template is being created. Refresh shortly to see its status.`,
       standardTemplateReplaced: 'Предыдущий стандартный шаблон удалён, начата пересборка. Дождитесь готовности.',
       templateNotReady: 'The selected template is not ready. Refresh and wait for the build to finish.',
       connectionPassed: 'Connection verified. Templates below are loaded from this cluster.',
       connectionPassedTitle: 'Cluster connected',
-      templateStepHint: 'На этом шаге только перечисляются шаблоны, уже есть в кластере; ничего не создаётся автоматически. Если стандартного шаблона нет, нажмите «Создать стандартный шаблон WeKnora»; после смены DNS или образа — «Удалить и пересобрать». Продолжить можно, когда шаблон готов.',
+      templateStepHint: `На этом шаге только перечисляются шаблоны, уже есть в кластере; ничего не создаётся автоматически. Если стандартного шаблона нет, нажмите «Создать стандартный шаблон ${branding.productName}»; после смены DNS или образа — «Удалить и пересобрать». Продолжить можно, когда шаблон готов.`,
       loadingTemplates: 'Loading templates from the cluster...',
       templateBuildingHint: 'Стандартный шаблон собирается. Список обновится автоматически.',
-      templateUntaggedHint: 'Сборки завершены, но ни одна не имеет тега default, поэтому при создании песочницы шаблон не находится. Удалите его в E2B и обновите список — WeKnora пересоберёт шаблон.',
+      templateUntaggedHint: `Сборки завершены, но ни одна не имеет тега default, поэтому при создании песочницы шаблон не находится. Удалите его в E2B и обновите список — ${branding.productName} пересоберёт шаблон.`,
       templateFailedReason: 'Сборка не удалась: {reason}',
       noTemplates: 'No templates were returned by this cluster.',
-      weknoraStandardTemplate: 'Стандартный шаблон WeKnora',
+      weknoraStandardTemplate: `Стандартный шаблон ${branding.productName}`,
       createStandardTemplate: 'Создать',
       createStandardTemplateHint: 'Собирается с текущими настройками подключения, включая DNS. После их изменения пересоберите шаблон на карточке.',
       replaceStandardTemplate: 'Пересобрать',
-      replaceStandardTemplateConfirm: 'Стандартный шаблон WeKnora будет собран заново с текущими настройками, включая DNS. Предыдущий готовый шаблон не удаляется, пока замена не станет готовой к запуску.',
+      replaceStandardTemplateConfirm: `Стандартный шаблон ${branding.productName} будет собран заново с текущими настройками, включая DNS. Предыдущий готовый шаблон не удаляется, пока замена не станет готовой к запуску.`,
       templateLockedBySkills: 'В этой песочнице уже установлены навыки. Среда навыков привязана к текущему снимку, поэтому шаблон нельзя сменить или пересобрать. Создайте новую песочницу и установите навыки с нового шаблона.',
       templateLockedByInFlight: 'Навык ещё устанавливается или удаляется. Шаблон нельзя сменить или пересобрать, пока это не закончится.',
       templateUnnamed: 'Шаблон без имени',
@@ -5134,7 +5136,7 @@ export default {
       cubeApiKeyOptional: 'Optional — leave empty for an unauthenticated self-hosted CubeSandbox',
       cubeApiKeyWhere: 'Как включить аутентификацию в собственном кластере',
       cubeDnsServers: 'DNS-серверы',
-      cubeDnsServersHelp: 'Необязательно. IP nameserver, которые записываются в стандартный шаблон WeKnora. Пустое значение оставляет значение кластера по умолчанию (обычно 119.29.29.29). Если UDP/53 до публичных резолверов недоступен, укажите достижимые адреса из /etc/resolv.conf хоста Cube, исключая 10/8, 172.16/12 и 192.168/16. Чтобы изменение вступило в силу, на карточке шаблона нажмите «Пересобрать».',
+      cubeDnsServersHelp: `Необязательно. IP nameserver, которые записываются в стандартный шаблон ${branding.productName}. Пустое значение оставляет значение кластера по умолчанию (обычно 119.29.29.29). Если UDP/53 до публичных резолверов недоступен, укажите достижимые адреса из /etc/resolv.conf хоста Cube, исключая 10/8, 172.16/12 и 192.168/16. Чтобы изменение вступило в силу, на карточке шаблона нажмите «Пересобрать».`,
       cubeDnsServersPlaceholder: 'например 8.8.8.8, Enter чтобы добавить',
       e2bApiKeyHelp: 'Создайте ключ на странице API Keys в консоли E2B; обычно он начинается с e2b_.',
       e2bApiKeyWhere: 'Получить API-ключ в консоли E2B',
@@ -5164,9 +5166,9 @@ export default {
       dockerHost: 'Docker daemon endpoint',
       dockerHostHelp: 'Empty follows the local docker CLI (DOCKER_HOST or the current docker context), so you do not have to type /var/run/docker.sock. For a remote daemon use tcp://host:2376, fill in the TLS certificate directory, and turn on "allow private endpoints" for RFC1918 addresses.',
       dockerTlsCertPath: 'TLS certificate directory',
-      dockerTlsCertPathHelp: 'Directory on the WeKnora host holding ca.pem, cert.pem and key.pem. Required for a remote daemon; certificates are mounted by the deployment, never stored here.',
+      dockerTlsCertPathHelp: `Directory on the ${branding.productName} host holding ca.pem, cert.pem and key.pem. Required for a remote daemon; certificates are mounted by the deployment, never stored here.`,
       dockerIdleTtl: 'Idle reclaim (seconds)',
-      dockerIdleTtlHelp: 'The Docker daemon has no idle timeout of its own. A container that runs no command for this long is reclaimed by WeKnora and rebuilt when the session continues. Empty means 1800 seconds.',
+      dockerIdleTtlHelp: `The Docker daemon has no idle timeout of its own. A container that runs no command for this long is reclaimed by ${branding.productName} and rebuilt when the session continues. Empty means 1800 seconds.`,
       dockerCpuLimit: 'CPU cores',
       dockerMemoryLimit: 'Memory limit (MB)',
       dockerPidsLimit: 'Process limit',
@@ -6595,10 +6597,10 @@ export default {
       },
       knowledge: {
         title: 'Создайте базу знаний',
-        desc: 'С этого всё начинается: загружайте документы, веб-страницы или FAQ, и WeKnora автоматически разберёт и проиндексирует их. Нажмите здесь, чтобы открыть базы знаний.'
+        desc: `С этого всё начинается: загружайте документы, веб-страницы или FAQ, и ${branding.productName} автоматически разберёт и проиндексирует их. Нажмите здесь, чтобы открыть базы знаний.`
       },
       welcome: {
-        title: 'Добро пожаловать в WeKnora',
+        title: `Добро пожаловать в ${branding.productName}`,
         desc: 'Несколько простых шагов познакомят вас с базами знаний, чатом и агентами. Нажмите «Далее», чтобы начать.'
       }
     }

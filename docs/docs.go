@@ -11,7 +11,7 @@ const docTemplate = `{
         "title": "{{.Title}}",
         "termsOfService": "http://swagger.io/terms/",
         "contact": {
-            "name": "WeKnora Github",
+            "name": "Tencent WeKnora upstream",
             "url": "https://github.com/Tencent/WeKnora"
         },
         "version": "{{.Version}}"
@@ -25069,8 +25069,8 @@ var SwaggerInfo = &swag.Spec{
 	Host:             "",
 	BasePath:         "/api/v1",
 	Schemes:          []string{},
-	Title:            "WeKnora API",
-	Description:      "WeKnora 知识库管理系统 API 文档",
+	Title:            "WorkMate Knowledge API",
+	Description:      "WorkMate Knowledge 研发统一知识库 API 文档",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",
