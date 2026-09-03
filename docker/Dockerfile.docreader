@@ -137,6 +137,7 @@ RUN if [ -z "$TARGETARCH" ]; then \
 
 # 从构建阶段复制已安装的依赖和生成的代码
 ENV VIRTUAL_ENV=/app/.venv
+ENV UV_OFFLINE=1
 COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
@@ -156,4 +157,4 @@ RUN mkdir -p /tmp/docreader
 EXPOSE 50051
 
 # 直接运行 Python 服务（日志输出到 stdout/stderr）
-CMD ["uv", "run", "-m", "docreader.main"]
+CMD ["/app/.venv/bin/python", "-m", "docreader.main"]

@@ -376,7 +376,7 @@ gRPC 响应中不再返回 chunks（`ReadResponse` 没有 chunk 字段）；`Exc
 
 ### 7.1 镜像与系统依赖（docker/Dockerfile.docreader）
 
-基础镜像 `python:3.10.18-bookworm`，双阶段构建（builder 用 `uv sync --locked` 装依赖 + `scripts/generate_proto.sh` 生成 pb 代码；runner 拷贝 venv），`EXPOSE 50051`，`CMD ["uv", "run", "-m", "docreader.main"]`。运行阶段系统依赖：
+基础镜像 `python:3.10.18-bookworm`，双阶段构建（builder 用 `uv sync --locked` 装依赖 + `scripts/generate_proto.sh` 生成 pb 代码；runner 拷贝 venv）。运行阶段设置 `UV_OFFLINE=1`，并通过 `CMD ["/app/.venv/bin/python", "-m", "docreader.main"]` 直接使用镜像内已安装完成的虚拟环境，启动时不再经过 uv 解析依赖；镜像 `EXPOSE 50051`。运行阶段系统依赖：
 
 - **LibreOffice**（doc→docx、ppt→pptx、异常表格→xlsx 转换）+ 一串 X/字体库（libxinerama1、libfontconfig1、libcairo2、libcups2 等）；
 - **antiword**（.doc 纯文本兜底）；
