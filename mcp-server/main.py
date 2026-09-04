@@ -31,8 +31,8 @@ def setup_environment():
 def check_dependencies():
     """检查依赖是否已安装"""
     try:
-        import mcp
-        import requests
+        import mcp  # noqa: F401
+        import requests  # noqa: F401
 
         return True
     except ImportError as e:
@@ -45,15 +45,26 @@ def check_environment_variables():
     """检查环境变量配置"""
     base_url = os.getenv("WEKNORA_BASE_URL")
     api_key = os.getenv("WEKNORA_API_KEY")
+    auth_mode = os.getenv("MCP_AUTH_MODE", "shared").strip().lower()
 
     print("=== WeKnora MCP Server 环境检查 ===", file=sys.stderr)
-    print(f"Base URL: {base_url or 'http://localhost:8080/api/v1 (默认)'}", file=sys.stderr)
-    print(f"API Key: {'已设置' if api_key else '未设置 (警告)'}", file=sys.stderr)
+    print(
+        f"Base URL: {base_url or 'http://localhost:8080/api/v1 (默认)'}",
+        file=sys.stderr,
+    )
+    if api_key:
+        api_key_status = "已设置"
+    elif auth_mode == "weknora_api_key":
+        api_key_status = "由 MCP 调用者提供"
+    else:
+        api_key_status = "未设置 (警告)"
+    print(f"API Key: {api_key_status}", file=sys.stderr)
+    print(f"MCP Auth Mode: {auth_mode}", file=sys.stderr)
 
     if not base_url:
         print("提示: 可以设置 WEKNORA_BASE_URL 环境变量", file=sys.stderr)
 
-    if not api_key:
+    if not api_key and auth_mode != "weknora_api_key":
         print("警告: 建议设置 WEKNORA_API_KEY 环境变量", file=sys.stderr)
 
     print("=" * 40, file=sys.stderr)
@@ -70,11 +81,12 @@ def parse_arguments():
   python main.py                    # 使用默认配置启动
   python main.py --check-only       # 仅检查环境，不启动服务器
   python main.py --verbose          # 启用详细日志
-  
+
 环境变量:
   WEKNORA_BASE_URL       WeKnora API 基础 URL (默认: http://localhost:8080/api/v1)
-  WEKNORA_API_KEY        WeKnora API 密钥
-  MCP_SERVER_AUTH_TOKEN  SSE/HTTP 传输必填，客户端通过 Authorization: Bearer 传递
+  WEKNORA_API_KEY        shared/stdio 模式使用的 WeKnora API 密钥
+  MCP_AUTH_MODE          shared（默认）或 weknora_api_key（多人独立 Key）
+  MCP_SERVER_AUTH_TOKEN  SSE/HTTP 的 shared 模式必填
         """,
     )
 
@@ -136,7 +148,10 @@ async def main():
         print("已启用详细日志模式", file=sys.stderr)
 
     try:
-        print(f"正在启动 WeKnora MCP Server (transport={args.transport})...", file=sys.stderr)
+        print(
+            f"正在启动 WeKnora MCP Server (transport={args.transport})...",
+            file=sys.stderr,
+        )
 
         from weknora_mcp_server import run_stdio, run_sse, run_http
 

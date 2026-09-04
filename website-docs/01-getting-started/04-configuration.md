@@ -281,8 +281,9 @@ AWS S3 的 `S3_ACCESS_KEY` / `S3_SECRET_KEY` 可以**同时留空**，此时走 
 
 | 名称 | 默认值 | 说明 |
 | --- | --- | --- |
-| `WEKNORA_API_KEY` | 空 | mcp-server 反过来调 WeKnora REST 用的 Key，在「设置 → API Keys」生成 |
-| `MCP_SERVER_AUTH_TOKEN` | 空 | **HTTP/SSE 传输必填**，缺失时进程直接拒绝启动；客户端以 `Authorization: Bearer` 携带 |
+| `WEKNORA_API_KEY` | 空 | mcp-server 反过来调 WeKnora REST 用的 Key；`shared` 模式使用，`weknora_api_key` 模式由调用者 Key 覆盖 |
+| `MCP_AUTH_MODE` | `shared` | MCP 入站鉴权模式：`shared` 使用单一网关密钥；`weknora_api_key` 让每位调用者携带独立的租户 API Key，并复用其能力与知识库范围 |
+| `MCP_SERVER_AUTH_TOKEN` | 空 | **HTTP/SSE 的 `shared` 模式必填**；客户端以 `Authorization: Bearer` 携带 |
 | `WEKNORA_CHAT_TIMEOUT` | 300 | 调 WeKnora REST 的读超时（秒） |
 | `WEKNORA_VERIFY_SSL` | true | 是否校验后端 TLS 证书，自签证书可设 false |
 | `MCP_ALLOWED_UPLOAD_DIRS` | 空 | 允许上传的目录白名单（逗号分隔），留空即禁用文件上传工具 |

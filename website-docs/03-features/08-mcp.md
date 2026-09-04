@@ -371,7 +371,7 @@ EXPOSE 8000
 CMD ["weknora-mcp-server", "--transport", "http", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
-运行容器时必须注入 `MCP_SERVER_AUTH_TOKEN`（HTTP 传输没有它会拒绝启动，见 2.3）。
+默认 `shared` 模式运行容器时必须注入 `MCP_SERVER_AUTH_TOKEN`；多人部署可设置 `MCP_AUTH_MODE=weknora_api_key`（见 2.3）。
 
 三个入口脚本的分工：`main.py` 是功能最全的主入口（`--check-only` 环境检查、`--verbose`、`--transport/--host/--port`）；`run.py` 是转调 `main.sync_main` 的简化脚本；`run_server.py` 走 `weknora_mcp_server.run`（stdio 别名）。
 
@@ -386,13 +386,14 @@ stdio 传输把 stdout 当作协议通道，任何多余的 `print` 都会污染
 | 环境变量 | 默认值 | 说明 |
 |---|---|---|
 | `WEKNORA_BASE_URL` | `http://localhost:8080/api/v1` | WeKnora API 基础 URL |
-| `WEKNORA_API_KEY` | 空 | 租户 API Key，以 `X-API-Key` header 发送 |
+| `WEKNORA_API_KEY` | 空 | `shared`/stdio 模式使用的租户 API Key，以 `X-API-Key` header 发送 |
 | `WEKNORA_CHAT_TIMEOUT` | `300` | chat / agent_chat 的 SSE 读超时（秒），非法值回退 300 |
 | `WEKNORA_VERIFY_SSL` | `true` | 设为 `false` 关闭 SSL 证书校验（仅限自签名证书的开发环境） |
 | `MCP_TRANSPORT` | `stdio` | 传输方式：`stdio` / `sse` / `http`（CLI `--transport` 优先） |
 | `MCP_HOST` | `127.0.0.1` | 网络传输绑定地址 |
 | `MCP_PORT` | `8000` | 网络传输绑定端口 |
-| `MCP_SERVER_AUTH_TOKEN` | 空 | **SSE/HTTP 传输必填**的共享密钥；未配置时进程直接 `sys.exit(1)` |
+| `MCP_AUTH_MODE` | `shared` | `shared` 使用单一网关密钥；`weknora_api_key` 使用每位调用者自己的租户 API Key |
+| `MCP_SERVER_AUTH_TOKEN` | 空 | **SSE/HTTP 的 `shared` 模式必填**；`weknora_api_key` 模式不使用 |
 | `MCP_ALLOWED_UPLOAD_DIRS` | 空 | 逗号分隔的目录白名单，限制 `create_knowledge_from_file` 可读取的本地路径 |
 
 ### 2.3 传输方式与网络鉴权
@@ -407,7 +408,12 @@ stdio 传输把 stdout 当作协议通道，任何多余的 `print` 都会污染
 
 SSE 的消息回传路径由 `SSE_MESSAGE_PATH = "/sse/messages/"` 显式指定：迁移到 mcp 2.x 后默认路径与实际挂载点不一致，会让客户端初始化超时。
 
-SSE 与 HTTP 传输由 `MCPAuthMiddleware`（ASGI 中间件）统一鉴权：客户端必须携带 `Authorization: Bearer <MCP_SERVER_AUTH_TOKEN>` 或 `X-MCP-Auth-Token` header，比较使用 `secrets.compare_digest` 防时序攻击，失败返回 401；`require_network_transport_auth` 确保网络传输在无 token 时根本起不来。
+SSE 与 HTTP 传输由 `MCPAuthMiddleware`（ASGI 中间件）统一鉴权，支持 `Authorization: Bearer` 或 `X-MCP-Auth-Token` header：
+
+- `shared`（默认）：与 `MCP_SERVER_AUTH_TOKEN` 使用 `secrets.compare_digest` 比较，并由进程级 `WEKNORA_API_KEY` 调用后端；
+- `weknora_api_key`：Bearer 值就是调用者自己的租户 API Key。中间件先通过 `/auth/me` 校验，再在请求上下文中隔离并转发为 `X-API-Key`。Key 的撤销、过期、capabilities 和 `knowledge_base_ids` 白名单均由 WeKnora 后端执行。
+
+两种模式鉴权失败均返回 401；`shared` 模式缺少网关 token 时进程拒绝启动。
 
 ### 2.4 暴露的 MCP 工具清单
 
@@ -520,7 +526,7 @@ stdio 传输（Claude Desktop 的 `claude_desktop_config.json`）：
 }
 ```
 
-远程部署（Docker / `--transport http`）时，客户端连接 `http://<host>:8000/mcp` 并携带 `Authorization: Bearer <MCP_SERVER_AUTH_TOKEN>`。
+远程部署（Docker / `--transport http`）时，客户端连接 `http://<host>:8000/mcp`。`shared` 模式携带 `Authorization: Bearer <MCP_SERVER_AUTH_TOKEN>`；`weknora_api_key` 模式则携带个人租户 API Key。
 
 顺带一提：WeKnora 主程序（第一部分）也可以作为 MCP 客户端接入这个 mcp-server——在「MCP 服务」中新建 Streamable HTTP 服务指向 `/mcp` 端点、认证方式选 Bearer 即可，从而让 WeKnora Agent 操作另一套 WeKnora 实例。
 
@@ -541,6 +547,6 @@ stdio 传输（Claude Desktop 的 `claude_desktop_config.json`）：
 | 代码位置 | `internal/mcp/` + handler/service/repository + `internal/agent/tools/` | `mcp-server/`（Python） |
 | 协议库 | `github.com/mark3labs/mcp-go` | `mcp`（官方 Python SDK，2.x 高层 `MCPServer` API） |
 | 传输 | SSE、Streamable HTTP（stdio 因安全禁用） | stdio（默认）、SSE、Streamable HTTP |
-| 认证 | API Key / Bearer / OAuth 2.0（DCR + PKCE，token AES 加密、按 principal 隔离） | 出站 `X-API-Key`（WeKnora API Key）；入站网络传输 `MCP_SERVER_AUTH_TOKEN` |
+| 认证 | API Key / Bearer / OAuth 2.0（DCR + PKCE，token AES 加密、按 principal 隔离） | 出站 `X-API-Key`；入站支持共享网关 Key 或请求级个人 WeKnora API Key |
 | 安全控制 | 工具级人工审批、SSRF 校验、不可信输出前缀、DTO 级密钥隔离 | 上传目录白名单、网络传输强制鉴权、SSL 校验默认开启 |
 | 消费者 | WeKnora Agent（对话中自动调用） | Claude Desktop / VS Code Copilot 等任意 MCP 客户端 |

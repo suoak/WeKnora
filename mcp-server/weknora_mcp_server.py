@@ -7,7 +7,9 @@ A Model Context Protocol server that provides access to the WeKnora knowledge ma
 
 import argparse
 import asyncio
+import contextvars
 import functools
+import hashlib
 import json
 import logging
 import os
@@ -20,6 +22,8 @@ from typing import Any, Dict
 import urllib3
 import requests
 from mcp.server import MCPServer
+from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
+from mcp.server.auth.provider import AccessToken
 from requests.exceptions import RequestException
 from upload_paths import resolve_upload_file_path, set_active_transport
 
@@ -41,6 +45,23 @@ except ValueError:
 SSE_MESSAGE_PATH = "/sse/messages/"
 STREAMABLE_HTTP_STATELESS = True
 
+# The API key selected for the current network request.  Context variables are
+# copied into the worker thread used by MCPServer for synchronous tools, which
+# keeps concurrent users isolated without changing every tool signature.
+_request_api_key: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "weknora_mcp_request_api_key", default=""
+)
+
+
+def network_auth_mode() -> str:
+    """Return the configured network authentication mode.
+
+    ``shared`` preserves the legacy gateway secret and uses the process-wide
+    WEKNORA_API_KEY. ``weknora_api_key`` treats each caller's bearer token as
+    its own scoped WeKnora tenant API key and forwards it to the REST API.
+    """
+    return os.getenv("MCP_AUTH_MODE", "shared").strip().lower()
+
 
 def network_transport_auth_token() -> str:
     """Shared secret clients must present for SSE/HTTP transports."""
@@ -49,6 +70,16 @@ def network_transport_auth_token() -> str:
 
 def require_network_transport_auth(transport: str) -> str:
     """SSE/HTTP must not start without a configured auth token."""
+    mode = network_auth_mode()
+    if mode not in ("shared", "weknora_api_key"):
+        logger.error(
+            "Unsupported MCP_AUTH_MODE=%r; expected 'shared' or " "'weknora_api_key'.",
+            mode,
+        )
+        sys.exit(1)
+    if mode == "weknora_api_key":
+        return ""
+
     token = network_transport_auth_token()
     if transport in ("sse", "http") and not token:
         logger.error(
@@ -61,12 +92,40 @@ def require_network_transport_auth(transport: str) -> str:
     return token
 
 
-class MCPAuthMiddleware:
-    """ASGI middleware that gates network MCP transports behind a shared secret."""
+async def validate_weknora_api_key(api_key: str) -> bool:
+    """Validate a passthrough key before exposing the MCP protocol surface."""
 
-    def __init__(self, app, token: str):
+    def _validate() -> bool:
+        verify_ssl = os.getenv("WEKNORA_VERIFY_SSL", "true").lower() != "false"
+        try:
+            response = requests.get(
+                f"{WEKNORA_BASE_URL}/auth/me",
+                headers={"X-API-Key": api_key},
+                timeout=10,
+                verify=verify_ssl,
+            )
+            return response.ok
+        except RequestException as exc:
+            logger.warning("Unable to validate MCP caller API key: %s", exc)
+            return False
+
+    return await asyncio.to_thread(_validate)
+
+
+class MCPAuthMiddleware:
+    """Authenticate network MCP requests and select their WeKnora identity."""
+
+    def __init__(
+        self,
+        app,
+        token: str,
+        auth_mode: str | None = None,
+        api_key_validator=None,
+    ):
         self.app = app
         self.token = token
+        self.auth_mode = auth_mode or network_auth_mode()
+        self.api_key_validator = api_key_validator or validate_weknora_api_key
 
     async def __call__(self, scope, receive, send):
         if scope.get("type") != "http":
@@ -84,7 +143,13 @@ class MCPAuthMiddleware:
         elif "x-mcp-auth-token" in headers:
             provided = headers["x-mcp-auth-token"]
 
-        if not provided or not secrets.compare_digest(provided, self.token):
+        authorized = bool(provided)
+        if self.auth_mode == "shared":
+            authorized = authorized and secrets.compare_digest(provided, self.token)
+        elif authorized:
+            authorized = await self.api_key_validator(provided)
+
+        if not authorized:
             body = b'{"error":"unauthorized"}'
             await send(
                 {
@@ -96,7 +161,26 @@ class MCPAuthMiddleware:
             await send({"type": "http.response.body", "body": body})
             return
 
-        await self.app(scope, receive, send)
+        request_key_token = None
+        if self.auth_mode == "weknora_api_key":
+            # MCP's legacy SSE transport binds message POSTs to the principal
+            # that opened the stream by comparing scope["user"].  Use only a
+            # one-way digest as the identity so the plaintext key never enters
+            # transport logs or session metadata.
+            principal_id = hashlib.sha256(provided.encode("utf-8")).hexdigest()
+            scope["user"] = AuthenticatedUser(
+                AccessToken(
+                    token="",
+                    client_id=f"weknora-api-key:{principal_id}",
+                    scopes=["mcp"],
+                )
+            )
+            request_key_token = _request_api_key.set(provided)
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            if request_key_token is not None:
+                _request_api_key.reset(request_key_token)
 
 
 def _normalize_kb_entries(resp: object) -> list[Dict]:
@@ -112,7 +196,7 @@ def _normalize_kb_entries(resp: object) -> list[Dict]:
     if isinstance(data, dict):
         data = data.get("list", data.get("items", []))
     out: list[Dict] = []
-    for item in (data or []):
+    for item in data or []:
         if not isinstance(item, dict):
             continue
         nested = item.get("knowledge_base")
@@ -146,13 +230,17 @@ class WeKnoraClient:
     def _new_session(self) -> requests.Session:
         session = requests.Session()
         session.verify = self.verify_ssl
-        session.headers.update(
-            {
-                "X-API-Key": self.api_key,
-                "Content-Type": "application/json",
-            }
-        )
+        session.headers.update({"Content-Type": "application/json"})
         return session
+
+    def _auth_headers(self) -> Dict[str, str]:
+        """Build auth headers for the current MCP caller.
+
+        Network passthrough mode resolves the key from request-local context;
+        stdio and legacy shared-secret mode continue using WEKNORA_API_KEY.
+        """
+        api_key = _request_api_key.get() or self.api_key
+        return {"X-API-Key": api_key}
 
     @property
     def session(self) -> requests.Session:
@@ -173,8 +261,10 @@ class WeKnoraClient:
         """
         url = f"{self.base_url}{endpoint}"
         try:
+            headers = dict(kwargs.pop("headers", {}) or {})
+            headers.update(self._auth_headers())
             # Execute HTTP request with the specified method
-            response = self.session.request(method, url, **kwargs)
+            response = self.session.request(method, url, headers=headers, **kwargs)
             # Raise exception for HTTP error status codes (4xx, 5xx)
             response.raise_for_status()
             # Parse and return JSON response
@@ -256,7 +346,7 @@ class WeKnoraClient:
         if isinstance(agents, dict):
             agents = agents.get("list", agents.get("items", []))
         needle = agent_id_or_name.lower()
-        for agent in (agents or []):
+        for agent in agents or []:
             if not isinstance(agent, dict):
                 continue
             if agent.get("id") == agent_id_or_name:
@@ -312,6 +402,7 @@ class WeKnoraClient:
             # (requests will set it automatically with boundary)
             headers = self.session.headers.copy()
             del headers["Content-Type"]
+            headers.update(self._auth_headers())
             # Use requests.post directly instead of session to avoid header conflicts
             response = requests.post(
                 f"{self.base_url}/knowledge-bases/{kb_id}/knowledge/file",
@@ -455,19 +546,22 @@ class WeKnoraClient:
 
         Centralised helper used by both chat() and agent_chat().
         Timeout: (10s connect, WEKNORA_CHAT_TIMEOUT read) — configurable via env var.
-        
+
         Server-Sent Events (SSE) stream format:
           data: {"response_type": "answer", "content": "..."}
           data: {"response_type": "references", "knowledge_references": [...]}
           data: {"response_type": "complete"}
-        
+
         We accumulate answer chunks and extract references, returning them as a dict.
         """
         try:
             # POST with stream=True to receive server-sent events incrementally
             # Timeout: 10s to establish connection, WEKNORA_CHAT_TIMEOUT for reading response
             response = self.session.post(
-                url, json=body, stream=True,
+                url,
+                json=body,
+                stream=True,
+                headers=self._auth_headers(),
                 timeout=(10, WEKNORA_CHAT_TIMEOUT),
             )
             response.raise_for_status()
@@ -494,7 +588,12 @@ class WeKnoraClient:
                         continue
 
                     response_type = event_data.get("response_type", "")
-                    debug_events.append({"type": response_type, "content": event_data.get("content", "")[:80]})
+                    debug_events.append(
+                        {
+                            "type": response_type,
+                            "content": event_data.get("content", "")[:80],
+                        }
+                    )
 
                     # Parse different SSE event types: answer chunks, references, errors, completion
                     if response_type == "answer":
@@ -569,7 +668,9 @@ class WeKnoraClient:
 
     def list_agents(self, page: int = 1, page_size: int = 50) -> Dict:
         """List all custom agents available to the current tenant."""
-        return self._request("GET", "/agents", params={"page": page, "page_size": page_size})
+        return self._request(
+            "GET", "/agents", params={"page": page, "page_size": page_size}
+        )
 
     def get_agent(self, agent_id: str) -> Dict:
         """Get full config of a single agent by UUID."""
@@ -1037,6 +1138,7 @@ async def run_sse(host: str, port: int):
     starlette_app = MCPAuthMiddleware(
         mcp.sse_app(host=host, message_path=SSE_MESSAGE_PATH),
         auth_token,
+        network_auth_mode(),
     )
 
     logger.info("Starting SSE MCP server on %s:%d", host, port)
@@ -1061,6 +1163,7 @@ async def run_http(host: str, port: int):
     starlette_app = MCPAuthMiddleware(
         mcp.streamable_http_app(host=host, stateless_http=STREAMABLE_HTTP_STATELESS),
         auth_token,
+        network_auth_mode(),
     )
 
     logger.info("Starting Streamable HTTP MCP server on %s:%d", host, port)
@@ -1072,7 +1175,6 @@ async def run_http(host: str, port: int):
 
 # Backward-compatible alias used by run_server.py
 run = run_stdio
-
 
 
 def main():

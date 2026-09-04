@@ -7,6 +7,7 @@ import subprocess
 import sys
 import threading
 import unittest
+from unittest import mock
 from pathlib import Path
 
 MCP_SERVER_DIR = Path(__file__).resolve().parent
@@ -31,9 +32,7 @@ class TransportRegressionTest(unittest.TestCase):
         probe = MCPServer("probe")
         app = probe.sse_app(host="127.0.0.1", message_path=srv.SSE_MESSAGE_PATH)
         mount_paths = [
-            route.path
-            for route in app.routes
-            if isinstance(route, (Mount, Route))
+            route.path for route in app.routes if isinstance(route, (Mount, Route))
         ]
         self.assertIn("/sse", mount_paths)
         self.assertIn(
@@ -52,10 +51,7 @@ class TransportRegressionTest(unittest.TestCase):
             barrier.wait()
             sessions[name] = client.session
 
-        threads = [
-            threading.Thread(target=worker, args=(name,))
-            for name in ("a", "b")
-        ]
+        threads = [threading.Thread(target=worker, args=(name,)) for name in ("a", "b")]
         for thread in threads:
             thread.start()
         for thread in threads:
@@ -63,6 +59,96 @@ class TransportRegressionTest(unittest.TestCase):
 
         self.assertEqual(len(sessions), 2)
         self.assertIsNot(sessions["a"], sessions["b"])
+
+    def test_client_auth_header_uses_request_scoped_key(self):
+        import weknora_mcp_server as srv
+
+        client = srv.WeKnoraClient("http://localhost:8080/api/v1", "static-key")
+        self.assertEqual(client._auth_headers()["X-API-Key"], "static-key")
+
+        marker = srv._request_api_key.set("person-a-key")
+        try:
+            self.assertEqual(client._auth_headers()["X-API-Key"], "person-a-key")
+        finally:
+            srv._request_api_key.reset(marker)
+
+        self.assertEqual(client._auth_headers()["X-API-Key"], "static-key")
+
+    def test_passthrough_mode_does_not_require_shared_secret(self):
+        import weknora_mcp_server as srv
+
+        with mock.patch.dict(
+            os.environ, {"MCP_AUTH_MODE": "weknora_api_key"}, clear=False
+        ):
+            self.assertEqual(srv.require_network_transport_auth("http"), "")
+
+    def test_passthrough_key_validation_uses_auth_me(self):
+        import weknora_mcp_server as srv
+
+        response = mock.Mock(ok=True)
+        with mock.patch.object(srv.requests, "get", return_value=response) as get:
+            self.assertTrue(asyncio.run(srv.validate_weknora_api_key("person-a-key")))
+
+        get.assert_called_once()
+        self.assertEqual(get.call_args.args[0], f"{srv.WEKNORA_BASE_URL}/auth/me")
+        self.assertEqual(get.call_args.kwargs["headers"], {"X-API-Key": "person-a-key"})
+
+
+class MCPAuthMiddlewareTest(unittest.TestCase):
+    @staticmethod
+    async def _call(headers: list[tuple[bytes, bytes]]):
+        import weknora_mcp_server as srv
+
+        observed: list[tuple[str, str]] = []
+        sent: list[dict] = []
+
+        async def app(scope, receive, send):
+            observed.append(
+                (srv._request_api_key.get(), scope["user"].access_token.client_id)
+            )
+            await send({"type": "http.response.start", "status": 204, "headers": []})
+            await send({"type": "http.response.body", "body": b""})
+
+        async def validate(api_key: str) -> bool:
+            return api_key == "person-a-key"
+
+        middleware = srv.MCPAuthMiddleware(
+            app,
+            token="",
+            auth_mode="weknora_api_key",
+            api_key_validator=validate,
+        )
+        scope = {"type": "http", "headers": headers}
+
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        async def send(message):
+            sent.append(message)
+
+        await middleware(scope, receive, send)
+        return observed, sent
+
+    def test_passthrough_mode_isolates_bearer_key_in_request_context(self):
+        observed, sent = asyncio.run(
+            self._call([(b"authorization", b"Bearer person-a-key")])
+        )
+        self.assertEqual(observed[0][0], "person-a-key")
+        self.assertTrue(observed[0][1].startswith("weknora-api-key:"))
+        self.assertNotIn("person-a-key", observed[0][1])
+        self.assertEqual(sent[0]["status"], 204)
+
+    def test_passthrough_mode_rejects_missing_key(self):
+        observed, sent = asyncio.run(self._call([]))
+        self.assertEqual(observed, [])
+        self.assertEqual(sent[0]["status"], 401)
+
+    def test_passthrough_mode_rejects_invalid_key(self):
+        observed, sent = asyncio.run(
+            self._call([(b"x-mcp-auth-token", b"not-a-weknora-key")])
+        )
+        self.assertEqual(observed, [])
+        self.assertEqual(sent[0]["status"], 401)
 
 
 class StdioToolsListTest(unittest.TestCase):
@@ -121,6 +207,8 @@ class HttpStatelessSmokeTest(unittest.TestCase):
                 probe = subprocess.run(
                     [
                         "curl",
+                        "--noproxy",
+                        "*",
                         "-s",
                         "-D",
                         "-",

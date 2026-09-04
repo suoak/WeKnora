@@ -1001,7 +1001,9 @@ services:
     environment:
       - WEKNORA_BASE_URL=http://app:8080/api/v1
       - WEKNORA_API_KEY=${WEKNORA_API_KEY:-}
-      # HTTP/SSE 传输必填：mcp-server 启动时若缺少此项会拒绝启动（客户端以 Authorization: Bearer 携带）
+      # shared（默认）使用单一网关密钥；weknora_api_key 允许每位调用者携带独立租户 API Key
+      - MCP_AUTH_MODE=${MCP_AUTH_MODE:-shared}
+      # HTTP/SSE 的 shared 模式必填；weknora_api_key 模式不使用
       - MCP_SERVER_AUTH_TOKEN=${MCP_SERVER_AUTH_TOKEN:-}
       # 调用 WeKnora REST 的读超时（秒，默认 300）
       - WEKNORA_CHAT_TIMEOUT=${WEKNORA_CHAT_TIMEOUT:-300}
