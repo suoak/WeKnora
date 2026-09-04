@@ -4,6 +4,7 @@ import test from 'node:test'
 
 const source = readFileSync(
   new URL('./SandboxConfigEditorDrawer.vue', import.meta.url), 'utf8')
+  .replace(/\r\n/g, '\n')
 
 test('network policy lives in the runtime step, right below the runtime config', () => {
   const runtimeSections = source.indexOf("currentStepKey === 'runtime'")
