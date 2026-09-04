@@ -1,3 +1,5 @@
+> **KnowHub (知汇)** is a unified knowledge hub for R&D that provides knowledge services for WorkMate, Codex, Claude Code, and other AI tools. KnowHub is based on the open-source [WeKnora](https://github.com/Tencent/WeKnora) project. The upstream project documentation is retained below for technical compatibility and attribution.
+
 <p align="center">
   <picture>
     <img src="./docs/images/logo.png" alt="WeKnora Logo" height="120"/>

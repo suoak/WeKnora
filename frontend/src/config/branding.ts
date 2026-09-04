@@ -1,9 +1,9 @@
 export const branding = {
-  productName: 'WorkMate Knowledge',
-  productNameZh: 'WorkMate 知识库',
-  tagline: 'Unified R&D Knowledge Base',
+  productName: 'KnowHub',
+  productNameZh: '知汇',
+  tagline: 'Unified Knowledge Hub for R&D',
   taglineZh: '研发统一知识库',
-  capabilityLine: 'Unified Search · Intelligent Q&A · Knowledge Governance',
+  capabilityLine: 'Unified Search · AI Q&A · Knowledge Governance',
   capabilityLineZh: '统一检索 · 智能问答 · 知识治理',
   faviconPath: '/favicon.ico',
   websiteUrl: null as string | null,

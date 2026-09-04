@@ -1,9 +1,9 @@
 // Package main is the main package for the WeKnora server
 // It contains the main function and the entry point for the server
 //
-// @title           WorkMate Knowledge API
+// @title           KnowHub API
 // @version         1.0
-// @description     WorkMate Knowledge 研发统一知识库 API 文档
+// @description     KnowHub（知汇）研发统一知识库 API 文档。KnowHub is based on the open-source WeKnora project.
 // @termsOfService  http://swagger.io/terms/
 //
 // @contact.name   Tencent WeKnora upstream

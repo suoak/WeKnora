@@ -1,8 +1,8 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "WorkMate Knowledge 研发统一知识库 API 文档",
-        "title": "WorkMate Knowledge API",
+        "description": "KnowHub（知汇）研发统一知识库 API 文档。KnowHub is based on the open-source WeKnora project.",
+        "title": "KnowHub API",
         "termsOfService": "http://swagger.io/terms/",
         "contact": {
             "name": "Tencent WeKnora upstream",

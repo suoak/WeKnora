@@ -6431,9 +6431,9 @@ info:
   contact:
     name: Tencent WeKnora upstream
     url: https://github.com/Tencent/WeKnora
-  description: WorkMate Knowledge 研发统一知识库 API 文档
+  description: KnowHub（知汇）研发统一知识库 API 文档。KnowHub is based on the open-source WeKnora project.
   termsOfService: http://swagger.io/terms/
-  title: WorkMate Knowledge API
+  title: KnowHub API
   version: "1.0"
 paths:
   /agent-chat/{session_id}:

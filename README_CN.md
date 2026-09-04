@@ -1,3 +1,5 @@
+> **KnowHub（知汇）**是研发统一知识库，为 WorkMate、Codex、Claude Code 及其他 AI 工具提供统一知识服务。KnowHub 基于开源项目 [WeKnora](https://github.com/Tencent/WeKnora) 构建；下方保留上游项目文档，以便技术兼容与来源说明。
+
 <p align="center">
   <picture>
     <img src="./docs/images/logo.png" alt="WeKnora Logo" height="120"/>
