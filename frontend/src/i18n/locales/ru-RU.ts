@@ -1116,7 +1116,7 @@ export default {
       rewriteSystemPrompt: 'Системный промпт для перефразирования вопросов (пустое = по умолчанию)',
       rewriteUserPrompt: 'Шаблон пользовательского промпта для перефразирования (пустое = по умолчанию)',
       selectTools: 'Выберите инструменты, доступные агенту',
-      maxIterations: 'Максимальное количество шагов рассуждения при выполнении задач',
+      maxIterations: 'Ограничивает число шагов рассуждения за одну задачу. «Без ограничения» — цикл идёт, пока модель не остановится сама или вы не остановите её.',
       kbScope: 'Выберите область баз знаний, доступных агенту',
       webSearch: 'При включении агент может искать информацию в интернете',
       webSearchProvider: 'Укажите поисковый движок для этого агента. Если оставить пустым, будет использоваться движок по умолчанию',
@@ -1331,7 +1331,8 @@ export default {
       truncated: 'Список обрезан',
       wrote: 'Записано',
       edited: 'Изменено',
-      replacements: 'Замен: {count}'
+      replacements: 'Замен: {count}',
+      moreLines: 'ещё {count} строк'
     },
     shellExec: {
       workDir: 'Каталог',
@@ -1978,6 +1979,29 @@ export default {
     copySuffix: ' копия',
     builtinTag: 'Встроенная',
     confirmDelete: 'Удалить модель «{name}»?',
+    usage: {
+      title: 'Модель нельзя удалить',
+      description: 'Модель «{name}» используется в следующих настройках. Откройте каждую конфигурацию и выберите другую модель, затем повторите удаление.',
+      knowledgeBases: 'Базы знаний ({count})',
+      agents: 'Агенты ({count})',
+      longTermMemory: 'Долговременная память',
+      openConfiguration: 'Открыть настройки',
+      truncated: 'Показаны первые {shown} из {total}',
+      bindings: {
+        embedding_model: 'Модель эмбеддингов',
+        summary_model: 'Модель суммаризации',
+        image_processing_model: 'Модель обработки изображений',
+        vlm_model: 'Модель компьютерного зрения',
+        asr_model: 'Модель распознавания речи',
+        wiki_synthesis_model: 'Модель синтеза Wiki',
+        chat_model: 'Диалоговая модель',
+        rerank_model: 'Модель реранжирования',
+        query_understand_model: 'Модель понимания запроса',
+        follow_up_model: 'Модель уточняющих вопросов',
+        extract_model: 'Модель извлечения памяти',
+        unknown: 'Другая настройка модели'
+      }
+    },
     debug: {
       title: 'Тест модели',
       description: 'Отправьте реальный запрос к настроенной модели и проверьте ответ и время выполнения',
@@ -2195,7 +2219,7 @@ export default {
       desc: 'LLM для рассуждений и планирования'
     },
     maxIterations: {
-      desc: 'Максимальное число шагов рассуждений при выполнении задач'
+      desc: 'Ограничивает число шагов рассуждения за одну задачу. «Без ограничения» — цикл идёт, пока модель не остановится сама или вы не остановите её.'
     },
     modelRecommendation: {
       title: 'Model Recommendation'
@@ -2350,6 +2374,11 @@ export default {
       dimensionOverrideDesc: 'Включайте только если документация провайдера подтверждает поддержку параметра dimensions.',
       supportsVisionLabel: 'Поддержка визуального / мультимодального ввода',
       supportsVisionDesc: 'Поддерживает ли модель изображения и другой мультимодальный ввод',
+      contextWindowLabel: 'Контекстное окно',
+      contextWindowPlaceholder: 'По умолчанию {value}',
+      contextWindowDesc: 'Сколько токенов модель принимает за один запрос. Сжатие истории агента использует этот лимит. Пустое значение — по умолчанию 200000 (200K). Укажите реальное окно провайдера: завышенное значение не запускает сжатие, и провайдер отклоняет запрос.',
+      contextWindowDefaultHint: 'Не задано, используется значение по умолчанию {value}',
+      contextWindowTokens: '{count} токенов',
       maxConcurrencyLabel: 'Лимит фоновой параллельности',
       maxConcurrencyPlaceholder: '0 — использовать глобальное значение',
       maxConcurrencyDesc: 'Ограничивает число одновременных фоновых вызовов (индексация/обогащение) к этой модели, общее для модели по всем репликам. 0 или пусто — используется глобальное значение по умолчанию; интерактивный чат не затрагивается.',
@@ -2788,7 +2817,8 @@ export default {
         confirmBtn: 'Подтвердить сохранение',
         cancelBtn: 'Отмена',
         emptyValue: '(пусто)',
-        bodyAuthRegistrationMode: 'Вы собираетесь изменить «{label}» на: {value}\n\nЕсли переключить на self_serve, любой пользователь публичного интернета сможет создать аккаунт — убедитесь, что это ожидаемое поведение.'
+        bodyAuthRegistrationMode: 'Вы собираетесь изменить «{label}» на: {value}\n\nЕсли переключить на self_serve, любой пользователь публичного интернета сможет создать аккаунт — убедитесь, что это ожидаемое поведение.',
+        bodySandboxDockerEnabled: 'После включения администраторы пространства смогут направить песочницу на локальный демон Docker. Локальный docker.sock равносилен root на хосте. Только для частной одноузловой установки с примонтированным демоном или удалённым tcp:// с TLS.'
       },
       enumLabels: {
         auth: {
@@ -2818,10 +2848,14 @@ export default {
           max_owned_per_user: 'Максимальное число пространств, которыми может владеть обычный (не супер) пользователь через самостоятельное создание. Читается при каждом создании пространства и вступает в силу сразу после сохранения. 0 — встроенное значение по умолчанию 10; отрицательное значение полностью снимает ограничение (не рекомендуется для публичных развёртываний).',
           self_service_creation_enabled: 'Разрешает обычным пользователям самостоятельно создавать пространства. Если отключено, они могут только присоединяться по приглашению; межпространственные суперпользователи не ограничены.',
           default_storage_quota_gb: 'Квота хранилища по умолчанию (ГБ) для нового пространства: векторы, оригиналы, текст, индексы и т.д. Читается только при создании — изменения применяются только к новым пространствам и не перезаписывают существующие. 0 или отрицательное значение — встроенное значение по умолчанию 10 ГБ.',
-          auto_create_api_key: 'Автоматически создаёт API-ключ full_access и возвращает его открытый токен при создании пространства. Включайте только для старых интеграций; по умолчанию отключено.'
+          auto_create_api_key: 'Автоматически создаёт API-ключ full_access и возвращает его открытый токен при создании пространства. Включайте только для старых интеграций; по умолчанию отключено.',
+          auto_accept_invitation: 'Если включено, приглашение зарегистрированного пользователя по email сразу добавляет его в пространство без подтверждения во входящих. Если выключено, сохраняется схема «отправка приглашения → подтверждение». Вступает в силу сразу после сохранения.'
         },
         ssrf: {
           whitelist: 'Белый список SSRF-защиты. Можно указать example.com / *.foo.com / 10.0.0.0/8 / 2001:db8::1. Вступает в силу сразу после сохранения. Переменная окружения SSRF_WHITELIST_EXTRA по-прежнему задаётся при развёртывании и здесь не переопределяется.'
+        },
+        sandbox: {
+          docker_enabled: 'Разрешить бэкенд песочницы Docker. Локальный docker.sock равносилен root на хосте, поэтому по умолчанию выключено. Включить может только системный администратор; изменение действует сразу. Включайте только на частной одноузловой установке с примонтированным сокетом демона или удалённым tcp:// с TLS.'
         },
         auth: {
           registration_mode: 'Режим самостоятельной регистрации. self_serve = любой может создать аккаунт; invite_only = открытая регистрация отключена, приглашать могут только Owner/Admin. Вступает в силу сразу после сохранения; используйте self_serve осторожно (в публичном интернете появятся спам-регистрации).',
@@ -2845,10 +2879,14 @@ export default {
           max_owned_per_user: 'Максимум пространств на пользователя',
           self_service_creation_enabled: 'Разрешить самостоятельное создание пространств',
           default_storage_quota_gb: 'Квота хранилища для новых пространств по умолчанию (ГБ)',
-          auto_create_api_key: 'Автоматически создавать API-ключ для новых пространств'
+          auto_create_api_key: 'Автоматически создавать API-ключ для новых пространств',
+          auto_accept_invitation: 'Автоматически принимать приглашённых зарегистрированных пользователей'
         },
         ssrf: {
           whitelist: 'Белый список SSRF-защиты'
+        },
+        sandbox: {
+          docker_enabled: 'Включить песочницу Docker'
         },
         auth: {
           registration_mode: 'Режим самостоятельной регистрации',
@@ -3076,7 +3114,7 @@ export default {
         security: {
           tab: 'Сетевая безопасность {count}',
           title: 'Сетевая безопасность',
-          description: 'Доверенные хосты, IP-адреса и сети, обходящие SSRF-защиту.'
+          description: 'Белый список SSRF и разрешение песочницы Docker (локальный docker.sock равносилен root на хосте).'
         },
         runtime: {
           tab: 'Среда и параллелизм {count}',
@@ -5017,6 +5055,10 @@ export default {
         e2b: 'Managed MicroVM service or an E2B-compatible deployment',
         docker: `Держит долгоживущий контейнер на каждую сессию на этом хосте ${branding.productName}; скрипты и файлы остаются в том же контейнере`,
       },
+      dockerDisabledAlert: 'Песочница Docker на этом развёртывании не включена',
+      dockerDisabledHint: 'Локальный docker.sock равносилен root на хосте. Для частной одноузловой установки системный администратор может включить это в «Настройки → Системные настройки → Сетевая безопасность».',
+      dockerDisabledCard: 'Песочница Docker отключена на этом развёртывании; эта конфигурация больше не создаёт контейнеры',
+      dockerHostRisk: 'Пустое значение или unix:// использует демон Docker на машине WeKnora — это равносильно root на этой машине. Только для частной одноузловой установки. Если несколько пространств делят один хост, используйте Cube или E2B. Удалённый tcp:// требует каталог TLS-сертификатов.',
       addConfig: 'Добавить песочницу',
       viewClusterGuide: 'Cluster setup guide',
       configName: 'Config name',
@@ -5031,7 +5073,46 @@ export default {
       sectionRuntimeEnvironment: 'Runtime environment',
       sectionTemplate: 'Runtime template',
       sectionRuntime: 'Execution settings',
+      sectionNetwork: 'Network policy',
       sectionEnvironment: 'Environment variables',
+      networkHint: 'Controls outbound networking for every sandbox using this configuration. Changes affect only newly created sandboxes; existing sandboxes keep their policy until reclaimed.',
+      egressDefault: 'Default egress',
+      egressAllowAll: 'Allow public network (default)',
+      egressDenyAll: 'Deny by default',
+      egressPrecedence: 'Evaluation order: allow, deny, then the default. Allow rules take precedence over deny rules.',
+      allowOut: 'Allowed destinations',
+      allowOutPlaceholder: 'Domain / IP / CIDR, for example *.example.com',
+      allowOutHelp: 'Supports IPv4, CIDR, domains, and single-label wildcards such as *.example.com (which do not match the root domain).',
+      denyOut: 'Denied destinations',
+      denyOutPlaceholder: 'IP / CIDR only, for example 169.254.169.254/32',
+      denyOutHelp: 'Deny rules match destination IP only, so domains are not supported.',
+      domainAllowNeedsDenyAll: 'When allowed destinations contain a domain, also choose “Deny by default” or add 0.0.0.0/0 to denied destinations; otherwise the allowlist is ineffective.',
+      cubeL7Rules: 'HTTP access rules (L7)',
+      cubeL7RulesHelp: 'Every rule requires host or sni; the network layer derives allowed targets only from those fields. Fields are AND-ed and methods are OR-ed. Applies only to HTTP 80 / HTTPS 443. Rules are first-match-wins from top to bottom.',
+      e2bHostRules: 'Host request transforms',
+      e2bHostRulesHelp: 'Inject headers by host. A rule does not authorize egress; its host must also appear in allowed destinations.',
+      ruleUntitled: 'Untitled rule',
+      expandRule: 'Expand rule',
+      collapseRule: 'Collapse rule',
+      moveRuleUp: 'Move rule up',
+      moveRuleDown: 'Move rule down',
+      ruleName: 'Rule name',
+      ruleScheme: 'Scheme',
+      ruleSni: 'SNI',
+      ruleHost: 'Host',
+      ruleMethods: 'HTTP methods',
+      rulePath: 'Path',
+      ruleAction: 'Action',
+      ruleAllow: 'Allow',
+      ruleDeny: 'Deny',
+      ruleAudit: 'Audit level',
+      ruleInject: 'Inject headers',
+      headerName: 'Header name',
+      headerValue: 'Header value',
+      addTarget: 'Add destination',
+      addRule: 'Add rule',
+      addHeader: 'Add header',
+      removeRule: 'Remove rule',
       noConfigs: 'Песочниц пока нет. Агенты без конфигурации пространства не выполняют скрипты навыков.',
       identityFieldHint: 'While this config owns sandboxes, these cannot be changed: backend type, API endpoint, API key, sandbox domain, proxy endpoint.',
       connectionLockedBySkills: 'В этой песочнице уже установлены навыки. Смена подключения, учётных данных или DNS меняет среду снимка, а DNS применяется только после пересборки шаблона. Создайте новую песочницу.',
@@ -5161,7 +5242,7 @@ export default {
       httpTimeout: 'HTTP timeout (s)',
       httpTimeoutHelp: 'Сколько ждать ответа от управляющего API бэкенда, прежде чем считать эндпоинт недоступным. Пусто — 30 секунд.',
       sandboxTtl: 'Sandbox TTL (s)',
-      sandboxTtlHelp: 'Сколько простаивающая песочница живёт до освобождения провайдером. Слишком мало — при продолжении сессии её придётся создавать заново, слишком много — простаивающие экземпляры продолжают тарифицироваться. Пусто — значение бэкенда по умолчанию.',
+      sandboxTtlHelp: 'Через сколько песочница будет приостановлена',
       dockerImage: 'Docker image',
       dockerHost: 'Docker daemon endpoint',
       dockerHostHelp: 'Empty follows the local docker CLI (DOCKER_HOST or the current docker context), so you do not have to type /var/run/docker.sock. For a remote daemon use tcp://host:2376, fill in the TLS certificate directory, and turn on "allow private endpoints" for RFC1918 addresses.',
@@ -5170,9 +5251,11 @@ export default {
       dockerIdleTtl: 'Idle reclaim (seconds)',
       dockerIdleTtlHelp: `The Docker daemon has no idle timeout of its own. A container that runs no command for this long is reclaimed by ${branding.productName} and rebuilt when the session continues. Empty means 1800 seconds.`,
       dockerCpuLimit: 'CPU cores',
+      dockerCpuLimitHelp: 'CPU cores available to one sandbox; 0 uses the built-in default.',
       dockerMemoryLimit: 'Memory limit (MB)',
+      dockerMemoryLimitHelp: 'Memory limit in MB for one sandbox; 0 uses the built-in default.',
       dockerPidsLimit: 'Process limit',
-      dockerResourceHelp: 'Caps for one sandbox container. Empty means 2 cores / 2048 MB / 512 processes.',
+      dockerPidsLimitHelp: 'Maximum processes one sandbox can create; 0 uses the built-in default.',
       dockerNetworkMode: 'Network mode',
       dockerNetworkModeHelp: 'Defaults to bridge, which skills need to install packages. Choose none for no egress at all. Docker filters by network only; per-domain rules are not possible here.',
       dockerNetworkBridge: 'bridge (egress allowed)',
@@ -5198,14 +5281,15 @@ export default {
       checkFailed: 'Some checks failed',
       checkScopeConnection: 'Проверена только плоскость управления: эндпоинт отвечает, ключ действителен. Запустится ли скрипт на самом деле — пока не проверено.',
       checkScopeFull: 'Эндпоинт, ключ, шаблон, выполнение внутри песочницы и исходящая сеть проверены по-настоящему.',
+      checkScopePolicyRestricted: 'Исходящий доступ ограничен политикой, поэтому исходящая сеть не зондировалась. Эндпоинт, ключ, шаблон и выполнение внутри песочницы проверены.',
       checkPendingHint: '{names} можно подтвердить только полной проверкой: она создаёт временную песочницу, запускает один скрипт и удаляет её.',
       skipReasons: {
         needs_deep_check: 'Нужна полная проверка',
         control_plane_unreachable: 'Пропущено: плоскость управления недоступна',
         sandbox_not_created: 'Пропущено: песочница не создана',
         sandbox_exec_failed: 'Пропущено: выполнение в песочнице не удалось',
+        egress_restricted_by_policy: 'Ограничено сетевой политикой (эта конфигурация по умолчанию запрещает исходящий трафик)',
       },
-      noVolumeSupport: 'This backend does not support volume mounts; skills relying on a shared volume will be unavailable.',
       checks: {
         client_build: 'Client construction',
         api_url_reachable: 'Endpoint reachability',
@@ -5233,14 +5317,17 @@ export default {
       skillUploadHint: 'Установка записывает навык в текущий образ и создаёт новый снимок. Это может занять несколько минут. Текущий ход диалога не прерывается; открытые сессии пересоздадут песочницу при следующем сообщении, и тогда черновики рабочей области сессии будут очищены.',
       skillUploadHintNewSession: 'Установка записывает навык в текущий образ и создаёт новый снимок. Это может занять несколько минут. Уже открытые сессии продолжают использовать текущую песочницу до своего завершения; этот навык появится только у новых сессий.',
       skillSourceSection: 'Установить из источника',
-      skillSourceSectionHint: 'Вставьте ссылку ClawHub, GitHub или SkillHub, либо {\'@\'}owner/slug.',
+      skillSourceSectionHint: 'Вставьте ссылку ClawHub, GitHub или SkillHub, либо {\'@\'}owner/slug. Архив не может превышать {size} МБ.',
       skillUploadSection: 'Загрузить локальный пакет',
-      skillUploadSectionHint: 'Перетащите zip с файлом SKILL.md ниже или нажмите, чтобы выбрать файл.',
+      skillUploadSectionHint: 'Перетащите zip с файлом SKILL.md ниже или нажмите, чтобы выбрать файл. Архив не может превышать {size} МБ.',
       skillSourcePlaceholder: 'ClawHub: {\'@\'}owner/slug. GitHub/SkillHub: вставьте полный URL',
       skillSourceInstall: 'Установить',
       skillInstallOr: 'или',
       skillSourceFailed: 'Не удалось установить навык из реестра',
       skillUploadFailed: 'Failed to upload the skill',
+      skillBundleTooLarge: 'Архив навыка не может превышать {size} МБ.',
+      skillBundleTooManyFiles: 'В каталоге навыка не может быть больше {count} файлов.',
+      skillBundleTooManyZipEntries: 'В архиве не может быть больше {count} записей.',
       skillUploading: 'Uploading {percent}%',
       skillUploadAccepted: 'Skill install started',
       skillStatusInstalling: 'Installing',
@@ -5251,6 +5338,16 @@ export default {
       skillDisableHint: 'Disable = the skill is invisible to the agent, files stay in the image. Changes take effect on the session\'s next execution.',
       skillDeleteHint: 'Удаление убирает каталог навыка из образа и создаёт новый снимок. Текущий ход диалога не прерывается; открытые сессии пересоздадут песочницу при следующем сообщении, и тогда черновики рабочей области сессии будут очищены.',
       skillDeleteHintNewSession: 'Удаление убирает каталог навыка из образа и создаёт новый снимок. Уже открытые сессии продолжают использовать текущую песочницу до своего завершения; этот навык исчезнет только у новых сессий.',
+      skillRemoveInProgress: 'Удаление',
+      skillRemoveWaiting: 'Удаление из образа началось. Ожидание хода выполнения…',
+      skillRemoveDone: '«{name}» удалён из этой песочницы. Навык остаётся в каталоге, его можно установить снова.',
+      skillRemoveStage: {
+        accepted: 'Запрос на удаление принят',
+        sandbox_ready: 'Открывается служебная песочница',
+        removed: 'Файлы удалены, создаётся новый образ',
+        done: 'Удаление завершено',
+        failed: 'Не удалось удалить',
+      },
       imageInfoTitle: 'Current image',
       imageInfoSnapshot: 'Snapshot ID',
       imageInfoGeneration: 'Version',
@@ -5284,6 +5381,10 @@ export default {
       skillRetryHint: 'Повторить с сохранённым пакетом — загружать заново не нужно',
       skillRetryAccepted: 'Переустановка запущена',
       skillRetryFailed: 'Не удалось запустить переустановку',
+      skillStop: 'Остановить установку',
+      skillStopHint: 'Прервать установку, затем повторить или удалить',
+      skillStopAccepted: 'Остановлено',
+      skillStopFailed: 'Не удалось остановить',
       skillEmpty: 'Навыки ещё не установлены. Вставьте URL реестра или загрузите zip.',
       skillVersion: 'Version',
       skillVersionEmpty: 'Not specified',
@@ -5341,10 +5442,13 @@ export default {
       installedOnName: 'Установлен в {name}',
       installedCount: 'Установлен в {count} песочницах',
       installPanelGroup: 'Установлено',
+      installPanelAvailable: 'Не установлено',
+      viewInstallProgress: 'Смотреть ход',
       manageOnSandbox: 'Управление в песочнице «{name}»',
       manageDrawerDesc: 'В песочнице «{name}» можно включать навык, править переменные и удалять установку.',
       manageEnable: 'Включить',
       manageUninstall: 'Удалить из песочницы',
+      manageUninstallConfirm: 'Удалить «{name}» из этой песочницы?',
       deleteCatalog: 'Удалить из каталога',
       deleteCatalogConfirm: 'Удалить «{name}» из каталога? Сначала снимите установку со всех песочниц.',
       deleteCatalogBlocked: 'Сначала снимите этот навык со всех песочниц.',
@@ -5620,6 +5724,9 @@ export default {
     toolCalls: '<strong>{tools}</strong> вызов(ов) инструментов',
     durationSuffix: '<strong>{duration}</strong>',
     stepSummarySeparator: ' · ',
+    contextCompacted: 'Контекст сжат',
+    contextCompactedSummary: '{before} → {after} токенов',
+    contextCompactedDegraded: 'Сводка недоступна, сохранена исходная запись',
     title: 'Agents',
     subtitle: 'Configure and manage your agents to customize conversation behavior and capabilities',
     createAgent: 'Create Agent',
@@ -5719,6 +5826,8 @@ export default {
       rerankModelPlaceholder: 'Select ReRank Model',
       rerankModelOptionalHint: 'В текущей области нет RAG-базы знаний, поэтому поле необязательное. Если RAG-база будет добавлена позже, будет использоваться модель ReRank по умолчанию для пространства; всё же рекомендуется настроить её явно.',
       maxIterations: 'Max Iterations',
+      maxIterationsLimit: 'Лимит',
+      maxIterationsUnlimited: 'Без ограничения',
       allowedTools: 'Allowed Tools',
       multiTurn: 'Multi-turn Conversation',
       historyTurns: 'History Turns',
