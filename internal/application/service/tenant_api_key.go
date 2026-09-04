@@ -41,7 +41,21 @@ func (s *tenantAPIKeyService) CreateAPIKey(
 	if scopeType == types.APIKeyScopePlatform && req.FullAccess {
 		return nil, errors.New("platform API keys require explicit capabilities")
 	}
+	if scopeType == types.APIKeyScopeUserMCP && (strings.TrimSpace(req.OwnerUserID) == "" || len(req.TenantScopes) == 0) {
+		return nil, errors.New("user_mcp keys require owner and tenant scopes")
+	}
 	capabilities := types.NormalizeAPIKeyCapabilities(types.StringArray(req.Capabilities))
+	if scopeType == types.APIKeyScopeUserMCP {
+		// This persona is deliberately read-only. Keep the invariant here as
+		// well as in the HTTP handler so future callers cannot elevate it.
+		req.FullAccess = false
+		req.KnowledgeBaseIDs = nil
+		capabilities = types.StringArray{
+			string(types.APIKeyCapabilityRetrieve),
+			string(types.APIKeyCapabilityChat),
+			string(types.APIKeyCapabilityReadAgents),
+		}
+	}
 	if scopeType == types.APIKeyScopePlatform && len(capabilities) == 0 {
 		return nil, errors.New("platform API keys require at least one capability")
 	}
@@ -62,6 +76,11 @@ func (s *tenantAPIKeyService) CreateAPIKey(
 	if scopeType == types.APIKeyScopeTenant {
 		tenantID = &req.TenantID
 	}
+	var ownerUserID *string
+	if scopeType == types.APIKeyScopeUserMCP {
+		v := strings.TrimSpace(req.OwnerUserID)
+		ownerUserID = &v
+	}
 	key := &types.TenantAPIKey{
 		TenantID:         tenantID,
 		ScopeType:        scopeType,
@@ -72,6 +91,8 @@ func (s *tenantAPIKeyService) CreateAPIKey(
 		KnowledgeBaseIDs: normalizeAPIKeyIDs(req.KnowledgeBaseIDs),
 		Capabilities:     capabilities,
 		ExpiresAt:        expiresAt,
+		OwnerUserID:      ownerUserID,
+		TenantScopes:     req.TenantScopes,
 	}
 	if key.FullAccess {
 		key.KnowledgeBaseIDs = nil
@@ -81,6 +102,19 @@ func (s *tenantAPIKeyService) CreateAPIKey(
 		return nil, err
 	}
 	return &interfaces.TenantAPIKeyCreateResult{APIKey: key, Token: token}, nil
+}
+
+func (s *tenantAPIKeyService) ListUserMCPAPIKeys(ctx context.Context, userID string) ([]*types.TenantAPIKey, error) {
+	return s.repo.(interfaces.UserMCPAPIKeyRepository).ListUserMCPAPIKeys(ctx, userID)
+}
+func (s *tenantAPIKeyService) GetUserMCPTenantScope(ctx context.Context, keyID, tenantID uint64) (*types.APIKeyTenantScope, error) {
+	return s.repo.(interfaces.UserMCPAPIKeyRepository).GetUserMCPTenantScope(ctx, keyID, tenantID)
+}
+func (s *tenantAPIKeyService) ReplaceUserMCPAPIKey(ctx context.Context, userID string, key *types.TenantAPIKey) (*types.TenantAPIKey, error) {
+	return s.repo.(interfaces.UserMCPAPIKeyRepository).ReplaceUserMCPAPIKey(ctx, userID, key)
+}
+func (s *tenantAPIKeyService) RevokeUserMCPAPIKey(ctx context.Context, userID string, id uint64) error {
+	return s.repo.(interfaces.UserMCPAPIKeyRepository).RevokeUserMCPAPIKey(ctx, userID, id)
 }
 
 func (s *tenantAPIKeyService) AuthenticateAPIKey(ctx context.Context, token string) (*types.TenantAPIKey, error) {

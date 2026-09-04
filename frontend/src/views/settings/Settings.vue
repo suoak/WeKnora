@@ -211,6 +211,9 @@
                   <div v-if="currentSection === 'mcp'" class="section">
                     <McpSettings />
                   </div>
+                  <div v-if="currentSection === 'mcp-access-keys'" class="section">
+                    <MCPAccessKeys />
+                  </div>
                 </template>
               </div>
             </div>
@@ -237,6 +240,7 @@ import GeneralSettings from './GeneralSettings.vue'
 import ModelSettings from './ModelSettings.vue'
 import OllamaSettings from './OllamaSettings.vue'
 import McpSettings from './McpSettings.vue'
+import MCPAccessKeys from '@/views/integrations/MCPAccessKeys.vue'
 import WebSearchSettings from './WebSearchSettings.vue'
 import ChatHistorySettings from './ChatHistorySettings.vue'
 import MemorySettings from './MemorySettings.vue'
@@ -380,6 +384,7 @@ const navItems = computed(() => {
     { key: 'sandbox', icon: 'code', label: t('settings.sandbox.title') },
     { key: 'skills', icon: SKILL_ICON, label: t('settings.skills.title') },
     { key: 'mcp', icon: 'tools', label: t('settings.mcpService') },
+    { key: 'mcp-access-keys', icon: 'key', label: 'MCP Access Keys' },
     { key: 'system', icon: 'info-circle', label: t('settings.versionInfo') },
     { key: 'system-global', icon: 'server', label: t('settings.system') },
     { key: 'runtime-queues', icon: 'queue', label: t('settings.taskQueue') },
@@ -433,6 +438,7 @@ const navGroups = computed<NavGroup[]>(() => {
         integrationSectionKey('api'),
         integrationSectionKey('chrome'),
         integrationSectionKey('claw'),
+        'mcp-access-keys',
       ]),
     },
     {

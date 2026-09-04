@@ -25,6 +25,22 @@ func TestAuthorizeTenantAPIKeyKnowledgeTargetsAllowsUnspecifiedTargets(t *testin
 	}
 }
 
+func TestExplicitEmptyKnowledgeBaseRestrictionDeniesEveryKB(t *testing.T) {
+	ctx := WithTenantAPIKeyScope(context.Background(), TenantAPIKeyScope{
+		KeyID: 1, KnowledgeBaseRestricted: true,
+	})
+	if err := AuthorizeTenantAPIKeyKnowledgeBases(ctx, "kb-1"); err == nil {
+		t.Fatal("explicit empty restriction allowed a knowledge base")
+	}
+	filtered, err := FilterKnowledgeBasesForTenantAPIKeyScope(ctx, nil, []string{"kb-1"})
+	if err != nil {
+		t.Fatalf("filter returned error: %v", err)
+	}
+	if len(filtered) != 0 {
+		t.Fatalf("filtered = %#v, want empty", filtered)
+	}
+}
+
 func TestAuthorizeTenantAPIKeyOptionalTagIDsRejectsTags(t *testing.T) {
 	ctx := WithTenantAPIKeyScope(context.Background(), TenantAPIKeyScope{
 		KnowledgeBaseIDs: StringArray{"kb-1"},

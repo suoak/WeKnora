@@ -387,6 +387,7 @@ stdio 传输把 stdout 当作协议通道，任何多余的 `print` 都会污染
 |---|---|---|
 | `WEKNORA_BASE_URL` | `http://localhost:8080/api/v1` | WeKnora API 基础 URL |
 | `WEKNORA_API_KEY` | 空 | `shared`/stdio 模式使用的租户 API Key，以 `X-API-Key` header 发送 |
+| `WEKNORA_TENANT_ID` | 空 | stdio 使用用户级多空间 MCP Key 时指定目标工作空间；随请求转发为 `X-Tenant-ID` |
 | `WEKNORA_CHAT_TIMEOUT` | `300` | chat / agent_chat 的 SSE 读超时（秒），非法值回退 300 |
 | `WEKNORA_VERIFY_SSL` | `true` | 设为 `false` 关闭 SSL 证书校验（仅限自签名证书的开发环境） |
 | `MCP_TRANSPORT` | `stdio` | 传输方式：`stdio` / `sse` / `http`（CLI `--transport` 优先） |
@@ -394,6 +395,7 @@ stdio 传输把 stdout 当作协议通道，任何多余的 `print` 都会污染
 | `MCP_PORT` | `8000` | 网络传输绑定端口 |
 | `MCP_AUTH_MODE` | `shared` | `shared` 使用单一网关密钥；`weknora_api_key` 使用每位调用者自己的租户 API Key |
 | `MCP_SERVER_AUTH_TOKEN` | 空 | **SSE/HTTP 的 `shared` 模式必填**；`weknora_api_key` 模式不使用 |
+| `MCP_PUBLIC_URL` | 空 | 设置页生成客户端配置时使用的公开 Streamable HTTP 地址；生产环境必须使用 HTTPS |
 | `MCP_ALLOWED_UPLOAD_DIRS` | 空 | 逗号分隔的目录白名单，限制 `create_knowledge_from_file` 可读取的本地路径 |
 
 ### 2.3 传输方式与网络鉴权
@@ -411,7 +413,33 @@ SSE 的消息回传路径由 `SSE_MESSAGE_PATH = "/sse/messages/"` 显式指定�
 SSE 与 HTTP 传输由 `MCPAuthMiddleware`（ASGI 中间件）统一鉴权，支持 `Authorization: Bearer` 或 `X-MCP-Auth-Token` header：
 
 - `shared`（默认）：与 `MCP_SERVER_AUTH_TOKEN` 使用 `secrets.compare_digest` 比较，并由进程级 `WEKNORA_API_KEY` 调用后端；
-- `weknora_api_key`：Bearer 值就是调用者自己的租户 API Key。中间件先通过 `/auth/me` 校验，再在请求上下文中隔离并转发为 `X-API-Key`。Key 的撤销、过期、capabilities 和 `knowledge_base_ids` 白名单均由 WeKnora 后端执行。
+- `weknora_api_key`：Bearer 值就是调用者自己的租户 Key 或用户级多空间 MCP Key。中间件先通过 `/auth/me` 校验，再在请求上下文中隔离并转发 `X-API-Key` 与 `X-Tenant-ID`。Key 的撤销、过期、capabilities 和知识库范围均由 WeKnora 后端执行。用户级 Key 必须携带 `X-Tenant-ID`，缺失时返回 `409 TENANT_REQUIRED`。
+
+#### 用户级多空间 Key
+
+登录用户可在“设置 → MCP Access Keys”创建多把个人 Key。每把 Key 可选择多个本人仍为 active 成员的工作空间；每个空间可单独设置：
+
+- **动态全部 KB**：运行时包含该空间当前可访问的自有和共享 KB，未来新增的 KB 自动纳入；
+- **指定 KB**：只允许勾选的自有或共享 KB。共享 KB 会绑定创建时的精确 `share_id`，分享撤销后立即失效，重新分享不会恢复旧 Key。
+
+同一 Key 不在协议内保存“当前空间”。HTTP/SSE 的每个请求都必须显式发送目标空间，不同空间应配置成独立 MCP 连接项：
+
+```json
+{
+  "mcpServers": {
+    "weknora-product-1001": {
+      "type": "http",
+      "url": "https://knowledge.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer sk-example",
+        "X-Tenant-ID": "1001"
+      }
+    }
+  }
+}
+```
+
+创建成功页只显示一次明文 Key，并提供通用 JSON、Claude Code、Cursor、Cherry Studio 配置、按空间复制和 JSON 下载。后续只能复制带 `<YOUR_MCP_KEY>` 的模板；遗失后应撤销旧 Key 并创建新 Key。配置不会写入浏览器持久化存储。
 
 两种模式鉴权失败均返回 401；`shared` 模式缺少网关 token 时进程拒绝启动。
 

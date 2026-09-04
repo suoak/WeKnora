@@ -22,6 +22,7 @@ export const SETTINGS_SECTION_MIN_ROLE: Record<string, SettingsRoleKey> = {
   // that config boots. Same Admin+ bar as the sandbox editor itself.
   skills: 'admin',
   mcp: 'admin',
+  'mcp-access-keys': 'viewer',
   system: 'viewer',
   userprofile: 'viewer',
   tenant: 'viewer',

@@ -25,12 +25,14 @@ import (
 // Provides functionality for creating, retrieving, updating, and deleting tenants
 // through the REST API endpoints
 type TenantHandler struct {
-	service       interfaces.TenantService
-	apiKeyService interfaces.TenantAPIKeyService
-	userService   interfaces.UserService
-	memberService interfaces.TenantMemberService
-	kbService     interfaces.KnowledgeBaseService
-	config        *config.Config
+	service        interfaces.TenantService
+	apiKeyService  interfaces.TenantAPIKeyService
+	userService    interfaces.UserService
+	memberService  interfaces.TenantMemberService
+	kbService      interfaces.KnowledgeBaseService
+	kbShareService interfaces.KBShareService
+	auditService   interfaces.AuditLogService
+	config         *config.Config
 	// systemSettingSvc resolves runtime tenant policies and limits.
 	// Reading goes DB > ENV >
 	// in-code default, so a SystemAdmin's UI override applies on the
@@ -61,6 +63,8 @@ func NewTenantHandler(
 	userService interfaces.UserService,
 	memberService interfaces.TenantMemberService,
 	kbService interfaces.KnowledgeBaseService,
+	kbShareService interfaces.KBShareService,
+	auditService interfaces.AuditLogService,
 	config *config.Config,
 	systemSettingSvc interfaces.SystemSettingService,
 ) *TenantHandler {
@@ -70,6 +74,8 @@ func NewTenantHandler(
 		userService:      userService,
 		memberService:    memberService,
 		kbService:        kbService,
+		kbShareService:   kbShareService,
+		auditService:     auditService,
 		config:           config,
 		systemSettingSvc: systemSettingSvc,
 	}

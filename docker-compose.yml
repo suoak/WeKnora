@@ -1003,6 +1003,7 @@ services:
       - WEKNORA_API_KEY=${WEKNORA_API_KEY:-}
       # shared（默认）使用单一网关密钥；weknora_api_key 允许每位调用者携带独立租户 API Key
       - MCP_AUTH_MODE=${MCP_AUTH_MODE:-shared}
+      - MCP_PUBLIC_URL=${MCP_PUBLIC_URL:-}
       # HTTP/SSE 的 shared 模式必填；weknora_api_key 模式不使用
       - MCP_SERVER_AUTH_TOKEN=${MCP_SERVER_AUTH_TOKEN:-}
       # 调用 WeKnora REST 的读超时（秒，默认 300）

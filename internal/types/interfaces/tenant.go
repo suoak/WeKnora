@@ -70,6 +70,8 @@ type TenantAPIKeyCreateRequest struct {
 	KnowledgeBaseIDs []string
 	Capabilities     []string
 	ExpiresAt        *time.Time
+	OwnerUserID      string
+	TenantScopes     []types.APIKeyTenantScope
 }
 
 type TenantAPIKeyCreateResult struct {
@@ -120,4 +122,18 @@ type TenantAPIKeyService interface {
 	// for legacy keys still carrying the migration placeholder.
 	// Returns the number of keys backfilled.
 	BackfillMissingKeyHashes(ctx context.Context) (int, error)
+}
+
+type UserMCPAPIKeyRepository interface {
+	ListUserMCPAPIKeys(ctx context.Context, userID string) ([]*types.TenantAPIKey, error)
+	GetUserMCPTenantScope(ctx context.Context, keyID, tenantID uint64) (*types.APIKeyTenantScope, error)
+	ReplaceUserMCPAPIKey(ctx context.Context, userID string, key *types.TenantAPIKey) (*types.TenantAPIKey, error)
+	RevokeUserMCPAPIKey(ctx context.Context, userID string, id uint64) error
+}
+
+type UserMCPAPIKeyService interface {
+	ListUserMCPAPIKeys(ctx context.Context, userID string) ([]*types.TenantAPIKey, error)
+	GetUserMCPTenantScope(ctx context.Context, keyID, tenantID uint64) (*types.APIKeyTenantScope, error)
+	ReplaceUserMCPAPIKey(ctx context.Context, userID string, key *types.TenantAPIKey) (*types.TenantAPIKey, error)
+	RevokeUserMCPAPIKey(ctx context.Context, userID string, id uint64) error
 }

@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 # Configuration - Load from environment variables with defaults
 WEKNORA_BASE_URL = os.getenv("WEKNORA_BASE_URL", "http://localhost:8080/api/v1")
 WEKNORA_API_KEY = os.getenv("WEKNORA_API_KEY", "")
+WEKNORA_TENANT_ID = os.getenv("WEKNORA_TENANT_ID", "").strip()
 # Chat SSE read timeout in seconds. LLM responses can be slow; default 300s.
 try:
     WEKNORA_CHAT_TIMEOUT = int(os.getenv("WEKNORA_CHAT_TIMEOUT", "300"))
@@ -50,6 +51,9 @@ STREAMABLE_HTTP_STATELESS = True
 # keeps concurrent users isolated without changing every tool signature.
 _request_api_key: contextvars.ContextVar[str] = contextvars.ContextVar(
     "weknora_mcp_request_api_key", default=""
+)
+_request_tenant_id: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "weknora_mcp_request_tenant_id", default=""
 )
 
 
@@ -92,7 +96,11 @@ def require_network_transport_auth(transport: str) -> str:
     return token
 
 
-async def validate_weknora_api_key(api_key: str) -> bool:
+class WorkspaceRequiredError(Exception):
+    """The supplied key is valid only when a target workspace is selected."""
+
+
+async def validate_weknora_api_key(api_key: str, tenant_id: str = "") -> bool:
     """Validate a passthrough key before exposing the MCP protocol surface."""
 
     def _validate() -> bool:
@@ -100,10 +108,12 @@ async def validate_weknora_api_key(api_key: str) -> bool:
         try:
             response = requests.get(
                 f"{WEKNORA_BASE_URL}/auth/me",
-                headers={"X-API-Key": api_key},
+                headers={"X-API-Key": api_key, **({"X-Tenant-ID": tenant_id} if tenant_id else {})},
                 timeout=10,
                 verify=verify_ssl,
             )
+            if response.status_code == 409:
+                raise WorkspaceRequiredError()
             return response.ok
         except RequestException as exc:
             logger.warning("Unable to validate MCP caller API key: %s", exc)
@@ -142,12 +152,24 @@ class MCPAuthMiddleware:
             provided = auth[7:].strip()
         elif "x-mcp-auth-token" in headers:
             provided = headers["x-mcp-auth-token"]
+        tenant_id = headers.get("x-tenant-id", "").strip()
 
         authorized = bool(provided)
         if self.auth_mode == "shared":
             authorized = authorized and secrets.compare_digest(provided, self.token)
         elif authorized:
-            authorized = await self.api_key_validator(provided)
+            try:
+                # The optional one-argument fallback keeps injected validators
+                # and older tenant-key integrations compatible.
+                try:
+                    authorized = await self.api_key_validator(provided, tenant_id)
+                except TypeError:
+                    authorized = await self.api_key_validator(provided)
+            except WorkspaceRequiredError:
+                body = b'{"error":"workspace required","code":"TENANT_REQUIRED"}'
+                await send({"type":"http.response.start","status":409,"headers":[[b"content-type",b"application/json"]]})
+                await send({"type":"http.response.body","body":body})
+                return
 
         if not authorized:
             body = b'{"error":"unauthorized"}'
@@ -167,7 +189,7 @@ class MCPAuthMiddleware:
             # that opened the stream by comparing scope["user"].  Use only a
             # one-way digest as the identity so the plaintext key never enters
             # transport logs or session metadata.
-            principal_id = hashlib.sha256(provided.encode("utf-8")).hexdigest()
+            principal_id = hashlib.sha256(f"{provided}:{tenant_id}".encode("utf-8")).hexdigest()
             scope["user"] = AuthenticatedUser(
                 AccessToken(
                     token="",
@@ -176,11 +198,13 @@ class MCPAuthMiddleware:
                 )
             )
             request_key_token = _request_api_key.set(provided)
+            request_tenant_token = _request_tenant_id.set(tenant_id)
         try:
             await self.app(scope, receive, send)
         finally:
             if request_key_token is not None:
                 _request_api_key.reset(request_key_token)
+                _request_tenant_id.reset(request_tenant_token)
 
 
 def _normalize_kb_entries(resp: object) -> list[Dict]:
@@ -240,7 +264,8 @@ class WeKnoraClient:
         stdio and legacy shared-secret mode continue using WEKNORA_API_KEY.
         """
         api_key = _request_api_key.get() or self.api_key
-        return {"X-API-Key": api_key}
+        tenant_id = _request_tenant_id.get() or WEKNORA_TENANT_ID
+        return {"X-API-Key": api_key, **({"X-Tenant-ID": tenant_id} if tenant_id else {})}
 
     @property
     def session(self) -> requests.Session:

@@ -18,6 +18,7 @@ import (
 type TenantAPIKey struct {
 	ID               uint64          `json:"id" gorm:"primaryKey;autoIncrement"`
 	TenantID         *uint64         `json:"tenant_id,omitempty" gorm:"index"`
+	OwnerUserID      *string         `json:"owner_user_id,omitempty" gorm:"type:varchar(36);index"`
 	ScopeType        APIKeyScopeType `json:"scope_type" gorm:"type:varchar(16);not null;default:tenant;index"`
 	Name             string          `json:"name" gorm:"type:varchar(128);not null"`
 	KeyHash          string          `json:"-" gorm:"type:varchar(64);not null;uniqueIndex"`
@@ -29,12 +30,13 @@ type TenantAPIKey struct {
 	// tenant infrastructure management, and history access). KB scoping
 	// (KnowledgeBaseIDs) still applies on top where a route targets knowledge
 	// bases.
-	Capabilities StringArray `json:"capabilities" gorm:"type:jsonb;not null;default:'[]'"`
-	LastUsedAt   *time.Time  `json:"last_used_at,omitempty"`
-	ExpiresAt    *time.Time  `json:"expires_at,omitempty"`
-	RevokedAt    *time.Time  `json:"revoked_at,omitempty" gorm:"index"`
-	CreatedAt    time.Time   `json:"created_at"`
-	UpdatedAt    time.Time   `json:"updated_at"`
+	Capabilities StringArray         `json:"capabilities" gorm:"type:jsonb;not null;default:'[]'"`
+	LastUsedAt   *time.Time          `json:"last_used_at,omitempty"`
+	ExpiresAt    *time.Time          `json:"expires_at,omitempty"`
+	RevokedAt    *time.Time          `json:"revoked_at,omitempty" gorm:"index"`
+	CreatedAt    time.Time           `json:"created_at"`
+	UpdatedAt    time.Time           `json:"updated_at"`
+	TenantScopes []APIKeyTenantScope `json:"tenant_scopes,omitempty" gorm:"foreignKey:APIKeyID"`
 }
 
 type APIKeyScopeType string
@@ -42,16 +44,59 @@ type APIKeyScopeType string
 const (
 	APIKeyScopeTenant   APIKeyScopeType = "tenant"
 	APIKeyScopePlatform APIKeyScopeType = "platform"
+	APIKeyScopeUserMCP  APIKeyScopeType = "user_mcp"
 )
 
 func NormalizeAPIKeyScopeType(scope APIKeyScopeType) APIKeyScopeType {
 	switch APIKeyScopeType(strings.ToLower(strings.TrimSpace(string(scope)))) {
 	case APIKeyScopePlatform:
 		return APIKeyScopePlatform
+	case APIKeyScopeUserMCP:
+		return APIKeyScopeUserMCP
 	default:
 		return APIKeyScopeTenant
 	}
 }
+
+func (k *TenantAPIKey) IsUserMCP() bool {
+	return k != nil && NormalizeAPIKeyScopeType(k.ScopeType) == APIKeyScopeUserMCP
+}
+
+type APIKeyKBScopeMode string
+
+const (
+	APIKeyKBScopeAll      APIKeyKBScopeMode = "all"
+	APIKeyKBScopeSelected APIKeyKBScopeMode = "selected"
+)
+
+type APIKeyKBSourceType string
+
+const (
+	APIKeyKBSourceOwned  APIKeyKBSourceType = "owned"
+	APIKeyKBSourceShared APIKeyKBSourceType = "shared"
+)
+
+type APIKeyTenantScope struct {
+	ID             uint64                     `json:"id" gorm:"primaryKey;autoIncrement"`
+	APIKeyID       uint64                     `json:"api_key_id" gorm:"not null;uniqueIndex:idx_api_key_tenant"`
+	TenantID       uint64                     `json:"tenant_id" gorm:"not null;uniqueIndex:idx_api_key_tenant;index"`
+	KBScopeMode    APIKeyKBScopeMode          `json:"kb_scope_mode" gorm:"type:varchar(16);not null"`
+	KnowledgeBases []APIKeyKnowledgeBaseScope `json:"knowledge_bases,omitempty" gorm:"foreignKey:APIKeyTenantScopeID"`
+}
+
+func (APIKeyTenantScope) TableName() string { return "api_key_tenant_scopes" }
+
+type APIKeyKnowledgeBaseScope struct {
+	ID                  uint64             `json:"id" gorm:"primaryKey;autoIncrement"`
+	APIKeyTenantScopeID uint64             `json:"-" gorm:"not null;index"`
+	APIKeyID            uint64             `json:"api_key_id" gorm:"not null;index"`
+	TenantID            uint64             `json:"tenant_id" gorm:"not null;index"`
+	KnowledgeBaseID     string             `json:"knowledge_base_id" gorm:"type:varchar(36);not null;index"`
+	SourceType          APIKeyKBSourceType `json:"source_type" gorm:"type:varchar(16);not null"`
+	KBShareID           *string            `json:"kb_share_id,omitempty" gorm:"type:varchar(36);index"`
+}
+
+func (APIKeyKnowledgeBaseScope) TableName() string { return "api_key_kb_scopes" }
 
 func (k *TenantAPIKey) IsPlatform() bool {
 	return k != nil && NormalizeAPIKeyScopeType(k.ScopeType) == APIKeyScopePlatform
@@ -267,11 +312,12 @@ func (k *TenantAPIKey) AfterFind(tx *gorm.DB) error {
 
 // TenantAPIKeyScope is the request-context projection used by middleware.
 type TenantAPIKeyScope struct {
-	KeyID            uint64
-	ScopeType        APIKeyScopeType
-	FullAccess       bool
-	KnowledgeBaseIDs StringArray
-	Capabilities     StringArray
+	KeyID                   uint64
+	ScopeType               APIKeyScopeType
+	FullAccess              bool
+	KnowledgeBaseRestricted bool
+	KnowledgeBaseIDs        StringArray
+	Capabilities            StringArray
 }
 
 func WithTenantAPIKeyScope(ctx context.Context, scope TenantAPIKeyScope) context.Context {
@@ -291,11 +337,12 @@ func TenantAPIKeyScopeFromContext(ctx context.Context) (TenantAPIKeyScope, bool)
 
 func (s TenantAPIKeyScope) Normalize() TenantAPIKeyScope {
 	return TenantAPIKeyScope{
-		KeyID:            s.KeyID,
-		ScopeType:        NormalizeAPIKeyScopeType(s.ScopeType),
-		FullAccess:       s.FullAccess,
-		KnowledgeBaseIDs: normalizeIDArray(s.KnowledgeBaseIDs),
-		Capabilities:     NormalizeAPIKeyCapabilities(s.Capabilities),
+		KeyID:                   s.KeyID,
+		ScopeType:               NormalizeAPIKeyScopeType(s.ScopeType),
+		FullAccess:              s.FullAccess,
+		KnowledgeBaseRestricted: s.KnowledgeBaseRestricted,
+		KnowledgeBaseIDs:        normalizeIDArray(s.KnowledgeBaseIDs),
+		Capabilities:            NormalizeAPIKeyCapabilities(s.Capabilities),
 	}
 }
 
@@ -323,7 +370,7 @@ func (s TenantAPIKeyScope) AllowsKnowledgeBase(kbID string) bool {
 		return false
 	}
 	s = s.Normalize()
-	if len(s.KnowledgeBaseIDs) == 0 {
+	if !s.KnowledgeBaseRestricted && len(s.KnowledgeBaseIDs) == 0 {
 		return true
 	}
 	for _, allowed := range s.KnowledgeBaseIDs {
@@ -335,12 +382,13 @@ func (s TenantAPIKeyScope) AllowsKnowledgeBase(kbID string) bool {
 }
 
 func (s TenantAPIKeyScope) IsKnowledgeBaseRestricted() bool {
-	return len(s.Normalize().KnowledgeBaseIDs) > 0
+	s = s.Normalize()
+	return s.KnowledgeBaseRestricted || len(s.KnowledgeBaseIDs) > 0
 }
 
 func (s TenantAPIKeyScope) AllowsKnowledgeBases(kbIDs []string) bool {
 	s = s.Normalize()
-	if len(s.KnowledgeBaseIDs) == 0 {
+	if !s.KnowledgeBaseRestricted && len(s.KnowledgeBaseIDs) == 0 {
 		return true
 	}
 	if len(kbIDs) == 0 {

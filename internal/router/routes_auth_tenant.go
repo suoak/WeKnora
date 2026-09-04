@@ -148,6 +148,15 @@ func RegisterTenantRoutes(
 	}
 }
 
+func RegisterUserMCPAPIKeyRoutes(r *gin.RouterGroup, handler *handler.TenantHandler) {
+	g := r.Group("/mcp-api-keys")
+	g.GET("", handler.ListUserMCPAPIKeys)
+	g.GET("/scope-options", handler.UserMCPAPIKeyScopeOptions)
+	g.POST("", handler.CreateUserMCPAPIKey)
+	g.PUT("/:id", handler.UpdateUserMCPAPIKey)
+	g.DELETE("/:id", handler.RevokeUserMCPAPIKey)
+}
+
 // RegisterMyInvitationRoutes wires the per-user invitation inbox under
 // /me/invitations. The v1 group already applies middleware.Auth so we
 // don't need a role gate here — the service enforces "only the invitee

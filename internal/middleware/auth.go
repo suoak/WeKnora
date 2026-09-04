@@ -164,7 +164,7 @@ func Auth(
 				c.Abort()
 				return
 			}
-			if authenticateAPIKeyRequest(c, tenantService, userService, apiKeyService, apiKey) {
+			if authenticateAPIKeyRequest(c, tenantService, userService, memberService, apiKeyService, apiKey) {
 				c.Next()
 			}
 			return
@@ -372,6 +372,7 @@ func authenticateAPIKeyRequest(
 	c *gin.Context,
 	tenantService interfaces.TenantService,
 	userService interfaces.UserService,
+	memberService interfaces.TenantMemberService,
 	apiKeyService interfaces.TenantAPIKeyService,
 	apiKey string,
 ) bool {
@@ -385,7 +386,45 @@ func authenticateAPIKeyRequest(
 		return false
 	}
 
-	if key.IsPlatform() {
+	if key.IsUserMCP() {
+		tenantHeader := strings.TrimSpace(c.GetHeader("X-Tenant-ID"))
+		if tenantHeader == "" {
+			c.JSON(http.StatusConflict, gin.H{"error": "Workspace required: user MCP keys must send X-Tenant-ID", "code": "TENANT_REQUIRED"})
+			c.Abort()
+			return false
+		}
+		tenantID, parseErr := strconv.ParseUint(tenantHeader, 10, 64)
+		if parseErr != nil || tenantID == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid X-Tenant-ID header"})
+			c.Abort()
+			return false
+		}
+		userMCPService, supported := apiKeyService.(interfaces.UserMCPAPIKeyService)
+		if !supported {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "User MCP key service is not configured"})
+			c.Abort()
+			return false
+		}
+		scope, scopeErr := userMCPService.GetUserMCPTenantScope(ctx, key.ID, tenantID)
+		if scopeErr != nil {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: API key does not allow target workspace"})
+			c.Abort()
+			return false
+		}
+		if key.OwnerUserID == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized: invalid API key owner"})
+			c.Abort()
+			return false
+		}
+		owner, ownerErr := userService.GetUserByID(ctx, *key.OwnerUserID)
+		member, memberErr := memberService.GetMembership(ctx, *key.OwnerUserID, tenantID)
+		if ownerErr != nil || owner == nil || !owner.IsActive || memberErr != nil || member == nil || member.Status != types.TenantMemberStatusActive {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: owner is not an active workspace member"})
+			c.Abort()
+			return false
+		}
+		attachUserMCPAuthContext(c, tenantService, owner, member.Role, tenantID, key, scope)
+	} else if key.IsPlatform() {
 		tenantHeader := strings.TrimSpace(c.GetHeader("X-Tenant-ID"))
 		if tenantHeader == "" {
 			if !isPlatformTenantOptionalAPI(c.Request.URL.Path, c.Request.Method) {
@@ -437,6 +476,24 @@ func authenticateAPIKeyRequest(
 	// is enforced by middleware.APIKeyRouteAuthorizer on the /api/v1 group.
 	// Key-management and any other undeclared route is denied there.
 	return true
+}
+
+func attachUserMCPAuthContext(c *gin.Context, tenantService interfaces.TenantService, user *types.User, role types.TenantRole, tenantID uint64, key *types.TenantAPIKey, tenantScope *types.APIKeyTenantScope) {
+	t, err := tenantService.GetTenantByID(c.Request.Context(), tenantID)
+	if err != nil || t == nil || !strings.EqualFold(strings.TrimSpace(t.Status), "active") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target workspace ID"})
+		c.Abort()
+		return
+	}
+	kbIDs := types.StringArray(nil)
+	if tenantScope.KBScopeMode == types.APIKeyKBScopeSelected {
+		kbIDs = make(types.StringArray, 0, len(tenantScope.KnowledgeBases))
+		for _, item := range tenantScope.KnowledgeBases {
+			kbIDs = append(kbIDs, item.KnowledgeBaseID)
+		}
+	}
+	applyAuthSession(c, authSession{User: user, Principal: types.Principal{Type: types.PrincipalWebUser, ID: user.ID}, TenantID: tenantID, Tenant: t, Role: role,
+		APIKeyScope: &types.TenantAPIKeyScope{KeyID: key.ID, ScopeType: key.ScopeType, KnowledgeBaseRestricted: tenantScope.KBScopeMode == types.APIKeyKBScopeSelected, KnowledgeBaseIDs: kbIDs, Capabilities: key.Capabilities}})
 }
 
 func isPlatformTenantOptionalAPI(path, method string) bool {

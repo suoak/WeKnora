@@ -38,6 +38,32 @@ func TestTenantAPIKeyServiceCreateAPIKeyUsesSKPrefix(t *testing.T) {
 	}
 }
 
+func TestTenantAPIKeyServiceUserMCPForcesReadOnlyCapabilities(t *testing.T) {
+	repo := newFakeTenantAPIKeyRepo()
+	svc := NewTenantAPIKeyService(repo)
+	result, err := svc.CreateAPIKey(context.Background(), interfaces.TenantAPIKeyCreateRequest{
+		ScopeType:        types.APIKeyScopeUserMCP,
+		OwnerUserID:      "user-1",
+		Name:             "assistant",
+		FullAccess:       true,
+		Capabilities:     []string{"manage_kbs", "system.audit.read"},
+		KnowledgeBaseIDs: []string{"bypass"},
+		TenantScopes: []types.APIKeyTenantScope{{
+			TenantID: 7, KBScopeMode: types.APIKeyKBScopeAll,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("CreateAPIKey returned error: %v", err)
+	}
+	if result.APIKey.FullAccess || len(result.APIKey.KnowledgeBaseIDs) != 0 {
+		t.Fatalf("user MCP key retained elevated scope: %#v", result.APIKey)
+	}
+	want := types.StringArray{"retrieve", "chat", "read_agents"}
+	if strings.Join(result.APIKey.Capabilities, ",") != strings.Join(want, ",") {
+		t.Fatalf("capabilities = %#v, want %#v", result.APIKey.Capabilities, want)
+	}
+}
+
 func newFakeTenantAPIKeyRepo() *fakeTenantAPIKeyRepo {
 	return &fakeTenantAPIKeyRepo{byHash: map[string]*types.TenantAPIKey{}, nextID: 1}
 }

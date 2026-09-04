@@ -1317,6 +1317,10 @@ func (h *OrganizationHandler) ListSharedKnowledgeBases(c *gin.Context) {
 	// metadata (share_id, organization_id, etc.) is preserved as-is.
 	rows := make([]map[string]interface{}, 0, len(sharedKBs))
 	for _, info := range sharedKBs {
+		if scope, ok := types.TenantAPIKeyScopeFromContext(ctx); ok && scope.IsKnowledgeBaseRestricted() &&
+			(info == nil || info.KnowledgeBase == nil || !scope.AllowsKnowledgeBases([]string{info.KnowledgeBase.ID})) {
+			continue
+		}
 		rows = append(rows, sharedKBRow(info, nil))
 	}
 

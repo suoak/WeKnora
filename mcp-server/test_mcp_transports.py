@@ -93,18 +93,42 @@ class TransportRegressionTest(unittest.TestCase):
         self.assertEqual(get.call_args.args[0], f"{srv.WEKNORA_BASE_URL}/auth/me")
         self.assertEqual(get.call_args.kwargs["headers"], {"X-API-Key": "person-a-key"})
 
+    def test_passthrough_key_validation_forwards_workspace(self):
+        import weknora_mcp_server as srv
+
+        response = mock.Mock(ok=True, status_code=200)
+        with mock.patch.object(srv.requests, "get", return_value=response) as get:
+            self.assertTrue(asyncio.run(srv.validate_weknora_api_key("person-a-key", "42")))
+
+        self.assertEqual(
+            get.call_args.kwargs["headers"],
+            {"X-API-Key": "person-a-key", "X-Tenant-ID": "42"},
+        )
+
+    def test_passthrough_validation_preserves_tenant_required(self):
+        import weknora_mcp_server as srv
+
+        response = mock.Mock(ok=False, status_code=409)
+        with mock.patch.object(srv.requests, "get", return_value=response):
+            with self.assertRaises(srv.WorkspaceRequiredError):
+                asyncio.run(srv.validate_weknora_api_key("person-a-key"))
+
 
 class MCPAuthMiddlewareTest(unittest.TestCase):
     @staticmethod
     async def _call(headers: list[tuple[bytes, bytes]]):
         import weknora_mcp_server as srv
 
-        observed: list[tuple[str, str]] = []
+        observed: list[tuple[str, str, str]] = []
         sent: list[dict] = []
 
         async def app(scope, receive, send):
             observed.append(
-                (srv._request_api_key.get(), scope["user"].access_token.client_id)
+                (
+                    srv._request_api_key.get(),
+                    scope["user"].access_token.client_id,
+                    srv._request_tenant_id.get(),
+                )
             )
             await send({"type": "http.response.start", "status": 204, "headers": []})
             await send({"type": "http.response.body", "body": b""})
@@ -149,6 +173,16 @@ class MCPAuthMiddlewareTest(unittest.TestCase):
         )
         self.assertEqual(observed, [])
         self.assertEqual(sent[0]["status"], 401)
+
+    def test_passthrough_mode_isolates_workspace_in_request_context(self):
+        observed, sent = asyncio.run(
+            self._call([
+                (b"authorization", b"Bearer person-a-key"),
+                (b"x-tenant-id", b"42"),
+            ])
+        )
+        self.assertEqual(observed[0][2], "42")
+        self.assertEqual(sent[0]["status"], 204)
 
 
 class StdioToolsListTest(unittest.TestCase):
