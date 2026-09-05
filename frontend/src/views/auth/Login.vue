@@ -177,7 +177,7 @@
       <div class="form-panel">
         <!-- Login Card -->
         <div class="form-card" v-if="!isRegisterMode">
-          <!-- invite_only 模式下共享链接停在登录卡，同样需要邀请上下文。 -->
+          <!-- 有效邀请用户可从注册卡返回登录，因此登录卡同样保留邀请上下文。 -->
           <div v-if="inviteLookup" class="invite-banner">
             <t-icon name="link" class="invite-banner__icon" />
             <div class="invite-banner__text">
@@ -215,7 +215,7 @@
                 {{ loading ? $t('auth.loggingIn') : $t('auth.login') }}
               </t-button>
 
-              <div class="register-cta" v-if="registrationEnabled">
+              <div class="register-cta" v-if="registrationEnabled || inviteLookup">
                 <div class="register-cta__divider">
                   <span>{{ $t('auth.firstTime') }}</span>
                 </div>
@@ -366,6 +366,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
 import BrandLogo from '@/components/BrandLogo.vue'
 import { branding } from '@/config/branding'
+import { resolveInviteRegistrationState } from './inviteRegistrationState'
 
 // Import screenshot images
 import screenshot1 from '@/assets/img/screenshot-1.svg'
@@ -421,7 +422,8 @@ const oidcEnabled = ref(false)
 const oidcProviderName = ref('')
 // registrationEnabled defaults to true so that on first paint the Register
 // link is visible; the actual mode is fetched from /auth/config in onMounted.
-// In invite_only mode the link/card are hidden.
+// In invite_only mode the ordinary link/card are hidden unless a validated
+// invitation is present.
 const registrationEnabled = ref(true)
 const complexPasswordEnabled = ref(false)
 
@@ -802,11 +804,22 @@ onMounted(async () => {
       return
     }
 
-    // 3. 未登录：按注册模式决定界面。invite_only 停在登录页、登录后再兑换；self_serve 保持注册流程。
-    const cfg = await getAuthConfig()
-    const inviteOnly = cfg.registration_mode === 'invite_only'
-    registrationEnabled.value = !inviteOnly
-    isRegisterMode.value = !inviteOnly
+    // 3. 未登录且邀请有效：邀请 token 本身就是注册授权。无论是否关闭
+    // 自助注册都进入邀请注册页；已有账号仍可从注册卡返回登录并兑换 token。
+    try {
+      const cfg = await getAuthConfig()
+      const inviteState = resolveInviteRegistrationState(cfg.registration_mode)
+      registrationEnabled.value = inviteState.registrationEnabled
+      isRegisterMode.value = inviteState.isRegisterMode
+      complexPasswordEnabled.value = cfg.complex_password_enabled
+    } catch {
+      // The invitation was already validated. A transient config failure must
+      // not strand a new invitee on the login card.
+      const inviteState = resolveInviteRegistrationState('self_serve')
+      registrationEnabled.value = inviteState.registrationEnabled
+      isRegisterMode.value = inviteState.isRegisterMode
+      complexPasswordEnabled.value = false
+    }
     loadOIDCConfig()
     return
   }
