@@ -97,7 +97,7 @@
 
     <!-- Logo - Top Left -->
     <div class="header-logo">
-      <BrandLogo />
+      <BrandLogo inverse />
     </div>
 
     <!-- Header Links - Top Right -->

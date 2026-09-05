@@ -2,7 +2,7 @@
 
 <p align="center">
   <picture>
-    <img src="./docs/images/logo.png" alt="WeKnora Logo" height="120"/>
+    <img src="./docs/brand/knowhub-logo.svg" alt="KnowHub 知汇" height="96"/>
   </picture>
 </p>
 

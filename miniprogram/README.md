@@ -1,12 +1,12 @@
-# WeKnora Mini Program
+# 知汇 KnowHub 微信小程序
 
-This directory contains a WeChat Mini Program plugin for WeKnora. It gives mobile users a lightweight entry point to:
+This directory contains the WeChat Mini Program client for KnowHub（知汇）, based on WeKnora-compatible APIs. It gives mobile users a lightweight entry point to:
 
-- configure a WeKnora API endpoint and tenant API key;
+- configure a KnowHub API endpoint and tenant API key;
 - switch UI language between Chinese and English;
 - list available knowledge bases;
 - import a URL into a selected knowledge base;
-- ask a selected knowledge base through WeKnora knowledge chat.
+- ask a selected knowledge base through KnowHub knowledge chat.
 
 ## Getting started
 
@@ -14,7 +14,7 @@ This directory contains a WeChat Mini Program plugin for WeKnora. It gives mobil
 2. Copy `project.private.config.json.example` to `project.private.config.json` and set your real Mini Program AppID. The shared `project.config.json` intentionally does not include an AppID to avoid forcing maintainers into a placeholder project.
 3. Open the **Settings** tab and fill in:
    - API Base URL, for example `https://weknora.example.com`;
-   - API Key from the WeKnora tenant settings page;
+   - API Key from the KnowHub tenant settings page;
    - Language (`中文` / `English`, default `中文`).
 4. Open the **Knowledge** tab, refresh knowledge bases, and select the target knowledge base.
 5. Import a URL or switch to **Chat** to ask questions.
@@ -27,8 +27,8 @@ This directory contains a WeChat Mini Program plugin for WeKnora. It gives mobil
 
 ## Local development notes
 
-- WeChat DevTools may block `localhost` requests when URL validation is enabled. For local testing, either disable domain validation in DevTools or expose WeKnora through a HTTPS development domain.
-- In production Mini Programs, add the WeKnora API domain to the Mini Program request domain allowlist.
+- WeChat DevTools may block `localhost` requests when URL validation is enabled. For local testing, either disable domain validation in DevTools or expose KnowHub through a HTTPS development domain.
+- In production Mini Programs, add the KnowHub API domain to the Mini Program request domain allowlist.
 - The chat endpoint returns Server-Sent Events. The Mini Program client parses completed SSE text responses and displays accumulated `answer` chunks.
 
 ## Test

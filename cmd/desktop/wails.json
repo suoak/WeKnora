@@ -5,15 +5,15 @@
   "frontend:dir": "../../frontend",
   "wailsjsdir": "../../frontend/src",
   "author": {
-    "name": "WeKnora Team",
+    "name": "KnowHub Contributors",
     "email": ""
   },
   "info": {
-    "companyName": "Tencent",
-    "productName": "WeKnora Lite",
+    "companyName": "KnowHub Contributors",
+    "productName": "知汇 KnowHub",
     "productVersion": "1.0.0",
-    "copyright": "Copyright 2026 Tencent",
-    "comments": "WeKnora Desktop Edition"
+    "copyright": "Copyright 2026 KnowHub Contributors",
+    "comments": "KnowHub Desktop Edition, based on WeKnora"
   },
   "mac": {
     "category": "public.app-category.productivity",

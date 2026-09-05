@@ -346,7 +346,7 @@ curl -X POST $BASE/api/v1/agent/mcp-oauth-resolutions/p-1/cancel -H "Authorizati
 curl $BASE/api/v1/skills -H "Authorization: Bearer $TOKEN"
 ```
 
-安装、停用、文件浏览与环境变量走沙箱配置前缀 `/api/v1/sandbox-configs/{id}/skills*` 以及 `/api/v1/me/env-vars*`，完整示例见仓库 [`docs/api/skill.md`](../../docs/api/skill.md)。
+安装、停用、文件浏览与环境变量走沙箱配置前缀 `/api/v1/sandbox-configs/{id}/skills*` 以及 `/api/v1/me/env-vars*`，完整示例见仓库 [`docs/api/skill.md`](https://github.com/suoak/WeKnora/blob/main/docs/api/skill.md)。
 
 ## 长期记忆（/api/v1/memory）
 
@@ -362,7 +362,7 @@ curl $BASE/api/v1/skills -H "Authorization: Bearer $TOKEN"
 | GET | `/memory/export` | JSON 导出 |
 | POST | `/memory/consolidate` | 立刻整理 |
 
-完整字段与 curl 见仓库 [`docs/api/memory.md`](../../docs/api/memory.md)。
+完整字段与 curl 见仓库 [`docs/api/memory.md`](https://github.com/suoak/WeKnora/blob/main/docs/api/memory.md)。
 
 ## 用户收藏（/api/v1/user/favorites）
 

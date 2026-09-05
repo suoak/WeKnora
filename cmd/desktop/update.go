@@ -50,14 +50,14 @@ func checkUpdate(ctx context.Context, currentVersion string, showUpToDate bool, 
 		}
 
 		client := &http.Client{Timeout: 10 * time.Second}
-		req, err := http.NewRequest("GET", "https://api.github.com/repos/Tencent/WeKnora/releases/latest", nil)
+		req, err := http.NewRequest("GET", "https://api.github.com/repos/suoak/WeKnora/releases/latest", nil)
 		if err != nil {
 			logger.Warnf(context.Background(), "Check update failed: %v", err)
 			return
 		}
 
 		// Add User-Agent header which is required/recommended by GitHub API
-		req.Header.Set("User-Agent", "WeKnora-Lite-Desktop-App")
+		req.Header.Set("User-Agent", "KnowHub-Desktop-App")
 
 		// Add Authorization header if GITHUB_TOKEN is present to increase rate limit
 		if token := os.Getenv("GITHUB_TOKEN"); token != "" {
@@ -119,7 +119,7 @@ func checkUpdate(ctx context.Context, currentVersion string, showUpToDate bool, 
 					return
 				}
 
-				msg := fmt.Sprintf("A new version of WeKnora Lite is available!\n\nCurrent version: %s\nLatest version: %s\n\nWould you like to download it now?", currentVersion, latestVersion)
+				msg := fmt.Sprintf("A new version of KnowHub is available!\n\nCurrent version: %s\nLatest version: %s\n\nWould you like to download it now?", currentVersion, latestVersion)
 				choice, _ := wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
 					Type:          wailsruntime.InfoDialog,
 					Title:         "Update Available",
@@ -143,7 +143,7 @@ func checkUpdate(ctx context.Context, currentVersion string, showUpToDate bool, 
 			wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
 				Type:          wailsruntime.InfoDialog,
 				Title:         "Up to Date",
-				Message:       fmt.Sprintf("You are using the latest version of WeKnora Lite.\n\nCurrent version: %s", currentVersion),
+				Message:       fmt.Sprintf("You are using the latest version of KnowHub.\n\nCurrent version: %s", currentVersion),
 				Buttons:       []string{"OK"},
 				DefaultButton: "OK",
 			})
@@ -280,7 +280,7 @@ func downloadAndInstall(ctx context.Context, url string, filename string, curren
 		choice, _ := wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
 			Type:          wailsruntime.InfoDialog,
 			Title:         "Update Ready",
-			Message:       fmt.Sprintf("WeKnora Lite %s has been downloaded successfully.\n\nWould you like to restart and install the new version now?", latestVersion),
+			Message:       fmt.Sprintf("KnowHub %s has been downloaded successfully.\n\nWould you like to restart and install the new version now?", latestVersion),
 			Buttons:       []string{"Restart Now", "Later"},
 			DefaultButton: "Restart Now",
 		})

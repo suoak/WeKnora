@@ -1,6 +1,6 @@
 /* ==========================================================================
-   WeKnora 文档站主题
-   墨蓝（logo 主色）· 纸白 · 鎏金（帆浪点缀）
+   知汇 KnowHub 文档站主题
+   汇聚绿（品牌主色）· 深墨 · 纸白 · 节点金
    ========================================================================== */
 
 :root {
@@ -10,6 +10,8 @@
   --wk-ink-mute: #6d7d94;
   --wk-gold: #b8863b;
   --wk-gold-light: #d9a94f;
+  --kh-green: #07c05f;
+  --kh-green-deep: #049b38;
   --wk-paper: #fdfcfa;
   --wk-paper-2: #f5f3ee;
   --wk-paper-3: #edeae2;
@@ -28,10 +30,10 @@
   --vp-font-family-base: var(--wk-font-sans);
   --vp-font-family-mono: var(--wk-font-mono);
 
-  --vp-c-brand-1: var(--wk-ink);
-  --vp-c-brand-2: #24395a;
-  --vp-c-brand-3: var(--wk-gold);
-  --vp-c-brand-soft: rgba(184, 134, 59, 0.14);
+  --vp-c-brand-1: var(--kh-green-deep);
+  --vp-c-brand-2: var(--kh-green);
+  --vp-c-brand-3: #038626;
+  --vp-c-brand-soft: rgba(7, 192, 95, 0.14);
 
   --vp-c-bg: var(--wk-paper);
   --vp-c-bg-alt: var(--wk-paper-2);
@@ -71,9 +73,9 @@
   --wk-rule: rgba(190, 208, 232, 0.14);
   --wk-rule-soft: rgba(190, 208, 232, 0.08);
 
-  --vp-c-brand-1: #e6ecf5;
-  --vp-c-brand-2: #c3d0e2;
-  --vp-c-brand-3: var(--wk-gold);
+  --vp-c-brand-1: #7df0ad;
+  --vp-c-brand-2: #4cdb8a;
+  --vp-c-brand-3: var(--kh-green);
   --vp-c-bg-elv: #101a2b;
   --vp-code-block-bg: #0d1626;
 }
@@ -89,7 +91,7 @@ body {
 }
 
 ::selection {
-  background: rgba(184, 134, 59, 0.22);
+  background: rgba(7, 192, 95, 0.22);
 }
 
 /* --------------------------------------------------------------------------

@@ -57,14 +57,14 @@ function tokenize(text: string): string[] {
   return tokens
 }
 
-const repo = 'https://github.com/Tencent/WeKnora'
+const repo = 'https://github.com/suoak/WeKnora'
 const site = 'https://weknora.weixin.qq.com'
 
 export default withMermaid(
   defineConfig({
-    title: 'WeKnora',
-    titleTemplate: ':title · WeKnora 文档',
-    description: 'WeKnora（维娜拉）官方文档：部署、配置、功能说明、API 参考与二次开发',
+    title: 'KnowHub',
+    titleTemplate: ':title · 知汇文档',
+    description: '知汇 KnowHub 文档：部署、配置、功能说明、API 参考与二次开发',
     lang: 'zh-CN',
     base: '/docs/',
     cleanUrls: true,
@@ -76,7 +76,8 @@ export default withMermaid(
       ['link', { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' }],
       ['meta', { name: 'theme-color', content: '#101f38' }],
       ['meta', { property: 'og:type', content: 'website' }],
-      ['meta', { property: 'og:title', content: 'WeKnora 文档' }],
+      ['meta', { property: 'og:title', content: '知汇 KnowHub 文档' }],
+      ['meta', { property: 'og:image', content: '/knowhub-og.png' }],
       [
         'meta',
         {
@@ -100,8 +101,8 @@ export default withMermaid(
     },
 
     themeConfig: {
-      logo: { light: '/logo-mark.svg', dark: '/logo-mark-dark.svg', alt: 'WeKnora' },
-      siteTitle: 'WeKnora',
+      logo: { light: '/logo-mark.svg', dark: '/logo-mark-dark.svg', alt: '知汇 KnowHub' },
+      siteTitle: '知汇 KnowHub',
 
       nav: [
         { text: '快速开始', link: '/01-getting-started/01-introduction', activeMatch: '/01-getting-started/' },
@@ -110,7 +111,7 @@ export default withMermaid(
         { text: 'API', link: '/04-api/01-api-overview', activeMatch: '/04-api/' },
         { text: '客户端', link: '/05-clients/01-frontend', activeMatch: '/05-clients/' },
         { text: '开发', link: '/06-development/01-dev-guide', activeMatch: '/06-development/' },
-        { text: '官网', link: site },
+        { text: '上游官网', link: site },
       ],
 
       weknoraVersion: repoVersionLabel,
@@ -167,8 +168,8 @@ export default withMermaid(
       },
 
       footer: {
-        message: `基于 WeKnora ${repoVersionLabel} 源码整理 · MIT License`,
-        copyright: '© Tencent WeKnora',
+        message: `知汇 KnowHub · 基于 WeKnora ${repoVersionLabel} 构建 · MIT License`,
+        copyright: 'KnowHub contributors · upstream © Tencent WeKnora',
       },
     },
 

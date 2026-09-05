@@ -425,7 +425,7 @@ Agent 侧的启停在 `configureSkillsFromAgent`（`internal/application/service
 3. **stdin**：内嵌 shell 命令检测；
 4. 合并入口 `ValidateAll`。
 
-**Docker 沙箱**（会话级长驻容器，`internal/sandbox/docker_engine.go` / `docker_remote_client.go`）：一个会话一个容器，PID 1 为 `sleep infinity`，脚本、`shell_exec`、附件暂存与产物收集都在同一容器里 exec。默认**关闭**（`WEKNORA_SANDBOX_DOCKER_ENABLED` 或系统设置「网络安全」打开）。exec 一律以沙箱账号 `user`(uid 1000) 运行；超时由容器内 `timeout(1)` 执行，空闲回收读活跃标记 mtime。详细能力、网络策略与安全边界见 [`docs/sandbox-docker-backend.md`](../../docs/sandbox-docker-backend.md)。旧的 `docker run --rm` + 只读 bind mount 模型已移除。
+**Docker 沙箱**（会话级长驻容器，`internal/sandbox/docker_engine.go` / `docker_remote_client.go`）：一个会话一个容器，PID 1 为 `sleep infinity`，脚本、`shell_exec`、附件暂存与产物收集都在同一容器里 exec。默认**关闭**（`WEKNORA_SANDBOX_DOCKER_ENABLED` 或系统设置「网络安全」打开）。exec 一律以沙箱账号 `user`(uid 1000) 运行；超时由容器内 `timeout(1)` 执行，空闲回收读活跃标记 mtime。详细能力、网络策略与安全边界见 [`docs/sandbox-docker-backend.md`](https://github.com/suoak/WeKnora/blob/main/docs/sandbox-docker-backend.md)。旧的 `docker run --rm` + 只读 bind mount 模型已移除。
 
 Manager 初始化时：`disabled` 模式的 `disabledSandbox` 拒绝一切执行。
 

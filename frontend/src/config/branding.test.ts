@@ -11,6 +11,9 @@ test('KnowHub release branding is centralized', () => {
   assert.equal(branding.taglineZh, '研发统一知识库')
   assert.equal(branding.capabilityLine, 'Unified Search · AI Q&A · Knowledge Governance')
   assert.equal(branding.capabilityLineZh, '统一检索 · 智能问答 · 知识治理')
+  assert.equal(branding.logoMarkPath, '/brand/knowhub-mark.svg')
+  assert.equal(branding.logoMarkDarkPath, '/brand/knowhub-mark-dark.svg')
+  assert.equal(branding.logoMarkInversePath, '/brand/knowhub-mark-inverse.svg')
 })
 
 test('upstream identity remains explicit for compatibility and attribution', () => {
@@ -24,15 +27,56 @@ test('primary web surfaces consume the KnowHub brand', () => {
   const login = readFileSync(new URL('../views/auth/Login.vue', import.meta.url), 'utf8')
   const menu = readFileSync(new URL('../components/menu.vue', import.meta.url), 'utf8')
   const brandLogo = readFileSync(new URL('../components/BrandLogo.vue', import.meta.url), 'utf8')
+  const manifest = readFileSync(new URL('../../public/site.webmanifest', import.meta.url), 'utf8')
 
   assert.match(indexHtml, /<title>KnowHub<\/title>/)
   assert.match(embedHtml, /<title>KnowHub<\/title>/)
   assert.doesNotMatch(login, /assets\/img\/weknora\.png/)
   assert.doesNotMatch(menu, /assets\/img\/weknora\.png/)
-  assert.match(login, /<BrandLogo\s*\/>/)
+  assert.match(login, /<BrandLogo inverse\s*\/>/)
   assert.match(menu, /<BrandLogo class="logo"\s*\/>/)
   assert.match(brandLogo, /branding\.productNameZh/)
   assert.match(brandLogo, /branding\.productName/)
+  assert.match(brandLogo, /branding\.logoMarkPath/)
+  assert.match(brandLogo, /branding\.logoMarkDarkPath/)
+  assert.match(brandLogo, /branding\.logoMarkInversePath/)
   assert.match(brandLogo, /locale\.value === 'zh-CN'/)
   assert.doesNotMatch(brandLogo, />KnowHub</)
+  assert.deepEqual(JSON.parse(manifest), {
+    name: 'KnowHub 知汇',
+    short_name: '知汇',
+    description: '研发统一知识库：统一检索、智能问答与知识治理',
+    start_url: '/',
+    display: 'standalone',
+    background_color: '#F3F3F3',
+    theme_color: '#101F38',
+    icons: [
+      { src: '/brand/knowhub-app-icon-192.png', sizes: '192x192', type: 'image/png' },
+      { src: '/brand/knowhub-app-icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+  })
+})
+
+test('release surfaces keep product branding separate from compatibility identifiers', () => {
+  const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8')
+  const readBinary = (path: string) => readFileSync(new URL(path, import.meta.url))
+  const readme = read('../../../README.md')
+  const docsConfig = read('../../../website-docs/.vitepress/config.mts')
+  const docsLanding = read('../../../website-docs/.vitepress/theme/Landing.vue')
+  const miniApp = JSON.parse(read('../../../miniprogram/app.json'))
+  const miniProject = JSON.parse(read('../../../miniprogram/project.config.json'))
+  const desktop = JSON.parse(read('../../../cmd/desktop/wails.json'))
+  const desktopUpdater = read('../../../cmd/desktop/update.go')
+
+  assert.match(readme, /docs\/brand\/knowhub-logo\.svg/)
+  assert.match(docsConfig, /siteTitle: '知汇 KnowHub'/)
+  assert.match(docsLanding, /知汇 KnowHub · 基于 WeKnora/)
+  assert.match(docsLanding, /github\.com\/suoak\/WeKnora/)
+  assert.equal(miniApp.window.navigationBarTitleText, '知汇')
+  assert.equal(miniProject.projectname, '知汇 KnowHub')
+  assert.equal(desktop.info.productName, '知汇 KnowHub')
+  assert.equal(desktop.name, 'WeKnora Lite', 'desktop technical identity stays upgrade-compatible')
+  assert.match(desktopUpdater, /repos\/suoak\/WeKnora\/releases\/latest/)
+  assert.ok(readBinary('../../public/favicon.ico').byteLength > 1000)
+  assert.ok(readBinary('../../../cmd/desktop/build/appicon.png').byteLength > 1000)
 })
