@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/errors"
+	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/gin-gonic/gin"
@@ -305,10 +306,26 @@ func (h *TenantHandler) UserMCPAPIKeyScopeOptions(c *gin.Context) {
 		if e != nil || t == nil || !strings.EqualFold(strings.TrimSpace(t.Status), "active") {
 			continue
 		}
-		owned, _ := h.kbService.ListKnowledgeBasesByTenantID(c.Request.Context(), m.TenantID)
+		owned, ownedErr := h.kbService.ListKnowledgeBasesByTenantID(c.Request.Context(), m.TenantID)
+		if ownedErr != nil {
+			logger.ErrorWithFields(c.Request.Context(), ownedErr, map[string]interface{}{
+				"tenant_id": m.TenantID,
+				"operation": "list_user_mcp_scope_owned_knowledge_bases",
+			})
+			c.Error(errors.NewInternalServerError("failed to load workspace knowledge bases"))
+			return
+		}
 		shared := []*types.SharedKnowledgeBaseInfo{}
 		if h.kbShareService != nil {
-			shared, _ = h.kbShareService.ListSharedKnowledgeBases(c.Request.Context(), m.TenantID, m.Role)
+			shared, e = h.kbShareService.ListSharedKnowledgeBases(c.Request.Context(), m.TenantID, m.Role)
+			if e != nil {
+				logger.ErrorWithFields(c.Request.Context(), e, map[string]interface{}{
+					"tenant_id": m.TenantID,
+					"operation": "list_user_mcp_scope_shared_knowledge_bases",
+				})
+				c.Error(errors.NewInternalServerError("failed to load shared knowledge bases"))
+				return
+			}
 		}
 		sharedSpaces := map[string]gin.H{}
 		for _, item := range shared {

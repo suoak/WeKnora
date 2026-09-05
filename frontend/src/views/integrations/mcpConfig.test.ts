@@ -1,6 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { buildMCPServers, claudeCommands, serverName, stringifyMCPConfig } from './mcpConfig.ts'
+
+const accessKeysSource = readFileSync(new URL('./MCPAccessKeys.vue', import.meta.url), 'utf8')
 
 test('builds isolated entries for duplicate and unicode workspace names', () => {
   const spaces = [
@@ -30,4 +33,10 @@ test('generates one Claude Code HTTP command per workspace', () => {
   assert.equal(commands.split('\n').length, 2)
   assert.match(commands, /--transport http/)
   assert.match(commands, /X-Tenant-ID: 2/)
+})
+
+test('keeps full JSON copy separate from Claude command copy', () => {
+  assert.match(accessKeysSource, /copySensitive\(jsonConfig\)[^>]*>复制全部 JSON/)
+  assert.match(accessKeysSource, /copySensitive\(commands\)[^>]*>复制 Claude 命令/)
+  assert.doesNotMatch(accessKeysSource, /copySensitive\(activeText\)/)
 })

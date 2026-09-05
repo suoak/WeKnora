@@ -124,7 +124,8 @@
       </div>
       <p class="hint">验证时请确认客户端显示连接成功，并尝试列出一个已授权知识库。配置包含敏感凭证，请仅保存到可信设备。</p>
       <template #footer>
-        <t-button :disabled="!publicUrl" @click="copySensitive(activeText)">复制全部</t-button>
+        <t-button :disabled="!publicUrl" @click="copySensitive(jsonConfig)">复制全部 JSON</t-button>
+        <t-button v-if="tab === 'claude'" variant="outline" :disabled="!publicUrl" @click="copySensitive(commands)">复制 Claude 命令</t-button>
         <t-button variant="outline" :disabled="!publicUrl" @click="download">下载 JSON</t-button>
       </template>
     </t-dialog>
@@ -175,7 +176,6 @@ const columns = [
 
 const jsonConfig = computed(() => stringifyMCPConfig(publicUrl.value, token.value, configSpaces.value))
 const commands = computed(() => claudeCommands(publicUrl.value, token.value, configSpaces.value))
-const activeText = computed(() => tab.value === 'claude' ? commands.value : jsonConfig.value)
 
 const ownedRef = (kbID: string) => `owned:${kbID}`
 const sharedRef = (kbID: string, shareID: string) => `shared:${kbID}:${shareID}`

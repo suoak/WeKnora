@@ -82,3 +82,35 @@ func TestTenantAPIKeyRepositoryUpdateIsTenantScoped(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, full.FullAccess)
 }
+
+func TestGetUserMCPTenantScopeDropsRevokedSharedGrant(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	statements := []string{
+		`CREATE TABLE api_key_tenant_scopes (id INTEGER PRIMARY KEY, api_key_id INTEGER, tenant_id INTEGER, kb_scope_mode TEXT)`,
+		`CREATE TABLE api_key_kb_scopes (id INTEGER PRIMARY KEY, api_key_tenant_scope_id INTEGER, api_key_id INTEGER, tenant_id INTEGER, knowledge_base_id TEXT, source_type TEXT, kb_share_id TEXT)`,
+		`CREATE TABLE kb_shares (id TEXT PRIMARY KEY, knowledge_base_id TEXT, organization_id TEXT, deleted_at DATETIME)`,
+		`CREATE TABLE organization_tenant_members (organization_id TEXT, tenant_id INTEGER)`,
+		`CREATE TABLE organizations (id TEXT PRIMARY KEY, deleted_at DATETIME)`,
+		`CREATE TABLE knowledge_bases (id TEXT PRIMARY KEY, deleted_at DATETIME)`,
+		`INSERT INTO api_key_tenant_scopes VALUES (1, 9, 42, 'selected')`,
+		`INSERT INTO api_key_kb_scopes VALUES (1, 1, 9, 42, 'kb-shared', 'shared', 'share-1')`,
+		`INSERT INTO kb_shares VALUES ('share-1', 'kb-shared', 'org-1', NULL)`,
+		`INSERT INTO organization_tenant_members VALUES ('org-1', 42)`,
+		`INSERT INTO organizations VALUES ('org-1', NULL)`,
+		`INSERT INTO knowledge_bases VALUES ('kb-shared', NULL)`,
+	}
+	for _, statement := range statements {
+		require.NoError(t, db.Exec(statement).Error)
+	}
+	repo := &tenantAPIKeyRepository{db: db}
+
+	scope, err := repo.GetUserMCPTenantScope(context.Background(), 9, 42)
+	require.NoError(t, err)
+	require.Len(t, scope.KnowledgeBases, 1)
+
+	require.NoError(t, db.Exec(`UPDATE kb_shares SET deleted_at = CURRENT_TIMESTAMP WHERE id = 'share-1'`).Error)
+	scope, err = repo.GetUserMCPTenantScope(context.Background(), 9, 42)
+	require.NoError(t, err)
+	require.Empty(t, scope.KnowledgeBases, "revoked exact share must leave an explicitly empty restriction")
+}
