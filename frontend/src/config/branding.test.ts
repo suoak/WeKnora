@@ -26,6 +26,7 @@ test('primary web surfaces consume the KnowHub brand', () => {
   const embedHtml = readFileSync(new URL('../../embed.html', import.meta.url), 'utf8')
   const login = readFileSync(new URL('../views/auth/Login.vue', import.meta.url), 'utf8')
   const menu = readFileSync(new URL('../components/menu.vue', import.meta.url), 'utf8')
+  const userMenu = readFileSync(new URL('../components/UserMenu.vue', import.meta.url), 'utf8')
   const brandLogo = readFileSync(new URL('../components/BrandLogo.vue', import.meta.url), 'utf8')
   const manifest = readFileSync(new URL('../../public/site.webmanifest', import.meta.url), 'utf8')
 
@@ -35,6 +36,8 @@ test('primary web surfaces consume the KnowHub brand', () => {
   assert.doesNotMatch(menu, /assets\/img\/weknora\.png/)
   assert.match(login, /<BrandLogo inverse\s*\/>/)
   assert.match(menu, /<BrandLogo class="logo"\s*\/>/)
+  assert.doesNotMatch(userMenu, /general\.helpAndDocs/)
+  assert.doesNotMatch(userMenu, /common\.github/)
   assert.match(brandLogo, /branding\.productNameZh/)
   assert.match(brandLogo, /branding\.productName/)
   assert.match(brandLogo, /branding\.logoMarkPath/)

@@ -1314,6 +1314,7 @@ export default {
       readSkill: '读取技能',
       executeSkillScript: '执行技能脚本',
       listSandboxFiles: '列出沙箱文件',
+      readFile: '读取文件',
       readSandboxFile: '读取沙箱文件',
       writeSandboxFile: '写入沙箱文件',
       editSandboxFile: '编辑沙箱文件',
@@ -2624,7 +2625,10 @@ export default {
       emptyDescription: '该服务未提供工具或资源',
       requireApproval: '需人工审核',
       requireApprovalTip: '开启后，Agent 调用该工具前会暂停并等待确认，适用于可能改库/删文件等高危操作',
-      approvalSaveFailed: '保存审核设置失败'
+      approvalSaveFailed: '保存审核设置失败',
+      toolEnabled: '启用工具',
+      toolEnabledTip: '关闭后，Agent 不会再看到或调用该工具',
+      toolEnabledSaveFailed: '保存工具开关失败'
     }
   },
   system: {
@@ -2721,6 +2725,7 @@ export default {
           'system.api_key_revoked': '吊销平台 API Key',
           'system.admin_revoked': '回收系统管理员',
           'system.user_password_reset': '重置用户密码',
+          'system.user_created': '创建用户',
           'system.queue_task_retried': '重新执行失败任务',
           'system.queue_task_deleted': '清除失败任务记录',
           'system.queue_task_run_now': '立即执行队列任务',
@@ -2765,6 +2770,49 @@ export default {
         confirmBtn: '确认重置',
         success: '密码已重置，该用户的现有会话已失效',
         failed: '重置密码失败',
+      },
+      createUser: {
+        label: '创建用户',
+        description: '开通一个新的本地用户账号。如果平台的默认空间模式设置为「自动创建个人空间」，该用户会像自助注册的用户一样，同时获得一个个人空间。',
+        action: '创建用户',
+        dialogTitle: '创建新用户',
+        warning: '这是高风险操作。请仔细核对用户名和邮箱——它们将作为该用户登录的唯一凭据。',
+        usernameLabel: '用户名',
+        usernamePlaceholder: '2-50 个字符',
+        emailLabel: '邮箱',
+        emailPlaceholder: '请输入有效的邮箱地址',
+        autoGenerateLabel: '自动生成随机密码',
+        newPasswordLabel: '新密码',
+        newPasswordPlaceholder: '8-32 个字符，包含字母和数字',
+        confirmPasswordLabel: '确认新密码',
+        confirmPasswordPlaceholder: '再次输入新密码',
+        confirmBtn: '创建用户',
+        success: '用户已创建',
+        successIdempotent: '用户已存在，未做任何更改',
+        missingPassword: '用户已创建，但未返回生成的密码。请使用重置密码来恢复访问。',
+        failed: '创建用户失败',
+        validation: {
+          usernameRequired: '请输入用户名',
+          usernameLength: '用户名长度必须为 2-50 个字符',
+          emailRequired: '请输入邮箱',
+          emailInvalid: '请输入有效的邮箱地址',
+          passwordRequired: '请输入新密码',
+          passwordLength: '密码长度必须为 8-32 个字符',
+          passwordLetter: '密码必须包含字母',
+          passwordNumber: '密码必须包含数字',
+          confirmRequired: '请再次输入新密码',
+          passwordMismatch: '两次输入的密码不一致'
+        },
+        generated: {
+          successTitle: '用户已创建',
+          successBody: '已为该用户生成一个随机密码。此密码只会显示一次。',
+          usernameLabel: '用户名',
+          emailLabel: '邮箱',
+          passwordLabel: '生成的密码',
+          copyBtn: '复制账号信息',
+          copySuccess: '账号信息已复制到剪贴板',
+          acknowledgeBtn: '我已保存密码'
+        }
       },
       admins: {
         label: '系统管理员',
@@ -6745,6 +6793,7 @@ export default {
     }
   },
   menu: {
+    sessionInProgress: '会话进行中',
     knowledgeBase: '知识库',
     agents: '智能体',
     organizations: '共享空间',

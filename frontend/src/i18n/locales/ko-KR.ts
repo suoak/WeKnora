@@ -1312,6 +1312,7 @@ export default {
       readSkill: '스킬 읽기',
       executeSkillScript: '스킬 스크립트 실행',
       listSandboxFiles: '샌드박스 파일 목록',
+      readFile: '파일 읽기',
       readSandboxFile: '샌드박스 파일 읽기',
       writeSandboxFile: '샌드박스 파일 쓰기',
       editSandboxFile: '샌드박스 파일 편집',
@@ -2622,7 +2623,10 @@ export default {
       emptyDescription: '이 서비스에서 제공하는 도구 또는 리소스가 없습니다',
       requireApproval: '수동 승인 필요',
       requireApprovalTip: '활성화 시 에이전트가 이 도구를 호출하기 전에 승인을 기다립니다.',
-      approvalSaveFailed: '승인 설정 저장 실패'
+      approvalSaveFailed: '승인 설정 저장 실패',
+      toolEnabled: '도구 활성화',
+      toolEnabledTip: '비활성화하면 에이전트가 이 도구를 보거나 호출하지 않습니다.',
+      toolEnabledSaveFailed: '도구 설정 저장 실패'
     }
   },
   system: {
@@ -2719,6 +2723,7 @@ export default {
           'system.api_key_revoked': '플랫폼 API 키 폐기',
           'system.admin_revoked': '시스템 관리자 회수',
           'system.user_password_reset': '사용자 비밀번호 재설정',
+          'system.user_created': '사용자 생성',
           'system.queue_task_retried': '실패 작업 다시 실행',
           'system.queue_task_deleted': '실패 작업 기록 삭제',
           'system.queue_task_run_now': '큐 작업 즉시 실행',
@@ -2763,6 +2768,49 @@ export default {
         confirmBtn: '재설정 확인',
         success: '비밀번호가 재설정되고 기존 세션이 만료되었습니다',
         failed: '비밀번호 재설정 실패',
+      },
+      createUser: {
+        label: '사용자 생성',
+        description: '새 로컬 사용자 계정을 개설합니다. 플랫폼의 기본 공간 모드가 "개인 공간 자동 생성"으로 설정된 경우, 스스로 가입한 사용자와 마찬가지로 개인 공간도 함께 만들어집니다.',
+        action: '사용자 생성',
+        dialogTitle: '새 사용자 생성',
+        warning: '보안에 민감한 작업입니다. 새 사용자가 로그인할 때 사용할 사용자 이름과 이메일을 신중히 확인하세요.',
+        usernameLabel: '사용자 이름',
+        usernamePlaceholder: '2~50자',
+        emailLabel: '이메일',
+        emailPlaceholder: '올바른 이메일 주소를 입력하세요',
+        autoGenerateLabel: '무작위 비밀번호 자동 생성',
+        newPasswordLabel: '새 비밀번호',
+        newPasswordPlaceholder: '8~32자, 문자와 숫자 포함',
+        confirmPasswordLabel: '새 비밀번호 확인',
+        confirmPasswordPlaceholder: '새 비밀번호를 다시 입력',
+        confirmBtn: '사용자 생성',
+        success: '사용자가 생성되었습니다',
+        successIdempotent: '이미 존재하는 사용자입니다. 변경 사항이 없습니다',
+        missingPassword: '사용자는 생성되었지만 생성된 비밀번호가 반환되지 않았습니다. 비밀번호를 재설정해 접근을 복구하세요.',
+        failed: '사용자 생성 실패',
+        validation: {
+          usernameRequired: '사용자 이름을 입력하세요',
+          usernameLength: '사용자 이름은 2~50자여야 합니다',
+          emailRequired: '이메일을 입력하세요',
+          emailInvalid: '올바른 이메일 주소를 입력하세요',
+          passwordRequired: '새 비밀번호를 입력하세요',
+          passwordLength: '비밀번호는 8~32자여야 합니다',
+          passwordLetter: '비밀번호에 문자가 포함되어야 합니다',
+          passwordNumber: '비밀번호에 숫자가 포함되어야 합니다',
+          confirmRequired: '새 비밀번호를 다시 입력하세요',
+          passwordMismatch: '비밀번호가 일치하지 않습니다'
+        },
+        generated: {
+          successTitle: '사용자가 생성되었습니다',
+          successBody: '이 사용자를 위한 무작위 비밀번호가 생성되었습니다. 이 비밀번호는 한 번만 표시됩니다.',
+          usernameLabel: '사용자 이름',
+          emailLabel: '이메일',
+          passwordLabel: '생성된 비밀번호',
+          copyBtn: '계정 정보 복사',
+          copySuccess: '계정 정보가 클립보드에 복사되었습니다',
+          acknowledgeBtn: '비밀번호를 저장했습니다'
+        }
       },
       admins: {
         label: '시스템 관리자',
@@ -6743,6 +6791,7 @@ export default {
     }
   },
   menu: {
+    sessionInProgress: '대화 진행 중',
     knowledgeBase: '지식베이스',
     agents: '에이전트',
     organizations: '공유 공간',
