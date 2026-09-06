@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/golang-migrate/migrate/v4"
+	sqlite3migrate "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -34,10 +36,10 @@ var versionedSQLiteColumns = map[string][]string{
 	"embed_channels":     {"allow_memory"},                   // 000060
 	"mcp_oauth_tokens":   {"principal_type", "principal_id"}, // 000064
 	"tenant_api_keys":    {"owner_user_id"},                  // 000091
-	"mcp_tool_approvals": {"enabled"},                        // 000091
+	"mcp_tool_approvals": {"enabled"},                        // 000092
 }
 
-const expectedSQLiteMigrationVersion = 13
+const expectedSQLiteMigrationVersion = 14
 
 func TestSQLiteMigrationsCreateVersionedSchema(t *testing.T) {
 	repoRoot := sqliteRepoRoot(t)
@@ -132,6 +134,42 @@ func TestSQLiteMigrationsUpgradeV4PreservesData(t *testing.T) {
 	).Scan(&relationCount))
 	require.Equal(t, 1, relationCount)
 	require.False(t, sqliteColumnExists(t, db, "knowledges", "tag_id"))
+}
+
+func TestSQLiteMigrationsUpgradeV13ToV14(t *testing.T) {
+	repoRoot := sqliteRepoRoot(t)
+	legacyRoot := copySQLiteMigrationsThroughV13(t, repoRoot)
+	chdirAndRestore(t, legacyRoot)
+
+	dbPath := filepath.Join(t.TempDir(), "upgrade-v13.db")
+	require.NoError(t, RunMigrationsWithOptions("sqlite3://unused", MigrationOptions{SQLiteDBPath: dbPath}))
+
+	db := openSQLiteDB(t, dbPath)
+	versionBefore, dirtyBefore := sqliteMigrationState(t, db)
+	require.Equal(t, 13, versionBefore)
+	require.False(t, dirtyBefore)
+	require.True(t, sqliteColumnExists(t, db, "tenant_api_keys", "owner_user_id"))
+	require.False(t, sqliteColumnExists(t, db, "mcp_tool_approvals", "enabled"))
+
+	chdirAndRestore(t, repoRoot)
+	require.NoError(t, RunMigrationsWithOptions("sqlite3://unused", MigrationOptions{SQLiteDBPath: dbPath}))
+
+	versionAfter, dirtyAfter := sqliteMigrationState(t, db)
+	require.Equal(t, expectedSQLiteMigrationVersion, versionAfter)
+	require.False(t, dirtyAfter)
+	require.True(t, sqliteColumnExists(t, db, "tenant_api_keys", "owner_user_id"))
+	require.True(t, sqliteColumnExists(t, db, "mcp_tool_approvals", "enabled"))
+
+	driver, err := sqlite3migrate.WithInstance(db, &sqlite3migrate.Config{})
+	require.NoError(t, err)
+	migrator, err := migrate.NewWithDatabaseInstance("file://migrations/sqlite", "sqlite3", driver)
+	require.NoError(t, err)
+	require.NoError(t, migrator.Steps(-1))
+	versionDowngraded, dirtyDowngraded := sqliteMigrationState(t, db)
+	require.Equal(t, 13, versionDowngraded)
+	require.False(t, dirtyDowngraded)
+	require.True(t, sqliteColumnExists(t, db, "tenant_api_keys", "owner_user_id"))
+	require.False(t, sqliteColumnExists(t, db, "mcp_tool_approvals", "enabled"))
 }
 
 func sqliteRepoRoot(t *testing.T) string {
@@ -259,6 +297,27 @@ func copySQLiteMigrationsV4(t *testing.T, repoRoot string) string {
 		"000004_memory.up.sql",
 	}
 	for _, name := range legacy {
+		data, err := os.ReadFile(filepath.Join(srcDir, name))
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(filepath.Join(destDir, name), data, 0o600))
+	}
+	return dest
+}
+
+func copySQLiteMigrationsThroughV13(t *testing.T, repoRoot string) string {
+	t.Helper()
+	dest := t.TempDir()
+	srcDir := filepath.Join(repoRoot, "migrations", "sqlite")
+	destDir := filepath.Join(dest, "migrations", "sqlite")
+	require.NoError(t, os.MkdirAll(destDir, 0o755))
+
+	entries, err := os.ReadDir(srcDir)
+	require.NoError(t, err)
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || len(name) < 6 || name[:6] > "000013" {
+			continue
+		}
 		data, err := os.ReadFile(filepath.Join(srcDir, name))
 		require.NoError(t, err)
 		require.NoError(t, os.WriteFile(filepath.Join(destDir, name), data, 0o600))
