@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -39,6 +40,11 @@ type Config struct {
 	// against window.location.origin — fine for typical single-origin
 	// deployments. Sourced from FRONTEND_BASE_URL env at startup.
 	FrontendBaseURL string `yaml:"frontend_base_url" json:"frontend_base_url"`
+	// MCPPublicURL is the externally reachable MCP HTTP endpoint returned to
+	// clients when they create or configure a user MCP access key. It is loaded
+	// exclusively from MCP_PUBLIC_URL at startup; an empty or invalid value
+	// disables copy-ready client configuration without exposing other settings.
+	MCPPublicURL string `yaml:"-" json:"-"`
 }
 
 // AgentConfig represents the global agent settings.
@@ -536,6 +542,7 @@ func LoadConfig() (*Config, error) {
 	}); err != nil {
 		return nil, fmt.Errorf("unable to decode config into struct: %w", err)
 	}
+	applyMCPPublicURLEnv(&cfg)
 	fmt.Printf("Using configuration file: %s\n", viper.ConfigFileUsed())
 
 	// 加载提示词模板（从目录或配置文件）
@@ -608,6 +615,22 @@ func LoadConfig() (*Config, error) {
 	)
 
 	return &cfg, nil
+}
+
+// applyMCPPublicURLEnv loads the public MCP endpoint from its sole source of
+// truth. Both HTTP and HTTPS are valid because private/offline deployments
+// commonly expose MCP on an internal HTTP address. TLS policy belongs at the
+// deployment boundary, not in response serialization.
+func applyMCPPublicURLEnv(cfg *Config) {
+	value := strings.TrimSpace(os.Getenv("MCP_PUBLIC_URL"))
+	parsed, err := url.Parse(value)
+	if value == "" || err != nil || parsed.Host == "" || parsed.User != nil ||
+		parsed.RawQuery != "" || parsed.Fragment != "" ||
+		(parsed.Scheme != "http" && parsed.Scheme != "https") {
+		cfg.MCPPublicURL = ""
+		return
+	}
+	cfg.MCPPublicURL = strings.TrimRight(value, "/")
 }
 
 // ValidateConfig performs basic validation of the loaded configuration.

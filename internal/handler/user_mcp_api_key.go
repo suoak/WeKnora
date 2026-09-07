@@ -3,8 +3,6 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
-	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -31,6 +29,17 @@ type userMCPKeyRequest struct {
 	ExpiresAt    *int64                      `json:"expires_at_unix"`
 	NeverExpires bool                        `json:"never_expires"`
 	TenantScopes []userMCPTenantScopeRequest `json:"tenant_scopes"`
+}
+
+type userMCPAPIResponse[T any] struct {
+	Success      bool   `json:"success"`
+	Data         T      `json:"data"`
+	MCPPublicURL string `json:"mcp_public_url"`
+}
+
+type userMCPCreateAPIResponse struct {
+	Success bool  `json:"success"`
+	Data    gin.H `json:"data"`
 }
 
 func (h *TenantHandler) userMCPKeyService() (interfaces.UserMCPAPIKeyService, bool) {
@@ -123,20 +132,24 @@ func userMCPExpiry(req userMCPKeyRequest) (*time.Time, error) {
 	return &v, nil
 }
 
-func mcpPublicURL() string {
-	value := strings.TrimSpace(os.Getenv("MCP_PUBLIC_URL"))
-	if value == "" {
+func (h *TenantHandler) mcpPublicURL() string {
+	if h.config == nil {
 		return ""
 	}
-	parsed, err := url.Parse(value)
-	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
-		return ""
-	}
-	if strings.EqualFold(os.Getenv("GIN_MODE"), "release") && parsed.Scheme != "https" {
-		return ""
-	}
-	return strings.TrimRight(value, "/")
+	return h.config.MCPPublicURL
 }
+
+func (h *TenantHandler) userMCPCollectionResponse(data []gin.H) userMCPAPIResponse[[]gin.H] {
+	return userMCPAPIResponse[[]gin.H]{Success: true, Data: data, MCPPublicURL: h.mcpPublicURL()}
+}
+
+func (h *TenantHandler) userMCPCreateResponse(k *types.TenantAPIKey, token string) userMCPCreateAPIResponse {
+	data := userMCPResponse(k)
+	data["token"] = token
+	data["mcp_public_url"] = h.mcpPublicURL()
+	return userMCPCreateAPIResponse{Success: true, Data: data}
+}
+
 func userMCPResponse(k *types.TenantAPIKey) gin.H {
 	return gin.H{"id": k.ID, "scope_type": k.ScopeType, "name": k.Name, "api_key": maskManagedAPIKey(k.APIKey), "tenant_scopes": k.TenantScopes, "last_used_at": k.LastUsedAt, "expires_at": k.ExpiresAt, "created_at": k.CreatedAt}
 }
@@ -188,7 +201,7 @@ func (h *TenantHandler) ListUserMCPAPIKeys(c *gin.Context) {
 	for _, k := range rows {
 		data = append(data, userMCPResponse(k))
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": data, "mcp_public_url": mcpPublicURL()})
+	c.JSON(http.StatusOK, h.userMCPCollectionResponse(data))
 }
 func (h *TenantHandler) CreateUserMCPAPIKey(c *gin.Context) {
 	var req userMCPKeyRequest
@@ -212,11 +225,8 @@ func (h *TenantHandler) CreateUserMCPAPIKey(c *gin.Context) {
 		c.Error(errors.NewValidationError(e.Error()))
 		return
 	}
-	resp := userMCPResponse(result.APIKey)
-	resp["token"] = result.Token
-	resp["mcp_public_url"] = mcpPublicURL()
 	h.auditUserMCPKey(c, types.AuditActionUserMCPKeyCreated, uid, result.APIKey.ID, result.APIKey.Name, result.APIKey.TenantScopes)
-	c.JSON(http.StatusCreated, gin.H{"success": true, "data": resp})
+	c.JSON(http.StatusCreated, h.userMCPCreateResponse(result.APIKey, result.Token))
 }
 func (h *TenantHandler) UpdateUserMCPAPIKey(c *gin.Context) {
 	id, e := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -341,5 +351,5 @@ func (h *TenantHandler) UserMCPAPIKeyScopeOptions(c *gin.Context) {
 		}
 		items = append(items, gin.H{"tenant_id": m.TenantID, "tenant_name": t.Name, "role": m.Role, "owned_knowledge_bases": owned, "shared_knowledge_bases": shared, "shared_spaces": sharedSpaces})
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": items, "mcp_public_url": mcpPublicURL()})
+	c.JSON(http.StatusOK, h.userMCPCollectionResponse(items))
 }
