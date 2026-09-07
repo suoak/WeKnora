@@ -186,7 +186,7 @@ class MCPAuthMiddlewareTest(unittest.TestCase):
 
 
 class StdioToolsListTest(unittest.TestCase):
-    def test_tools_list_returns_30_tools(self):
+    def test_tools_list_returns_31_tools(self):
         async def _run() -> int:
             from mcp import ClientSession, StdioServerParameters
             from mcp.client.stdio import stdio_client
@@ -206,7 +206,7 @@ class StdioToolsListTest(unittest.TestCase):
                     return len(tools.tools)
 
         count = asyncio.run(_run())
-        self.assertEqual(count, 30)
+        self.assertEqual(count, 31)
 
 
 class HttpStatelessSmokeTest(unittest.TestCase):

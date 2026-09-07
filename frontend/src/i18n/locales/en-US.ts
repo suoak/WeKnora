@@ -197,7 +197,7 @@ export default {
         },
         submit: {
           title: 'Create the knowledge base',
-          desc: 'When type, name, and models look correct, click the highlighted Create button. You will then be guided to upload your first document.'
+          desc: 'Click Got it to finish the guide without creating a knowledge base. When ready, enter a name, confirm the type and models, then click Create.'
         }
       }
     },
@@ -595,6 +595,10 @@ export default {
     clearSelection: 'Deselect all',
     batchDelete: 'Delete selected',
     confirmBatchDeleteDocument: 'Delete {count} selected documents? This action cannot be undone.',
+    deleteSubmitted: 'Delete request submitted. Waiting for completion.',
+    deletePending: 'Deletion is still pending. Refresh later to check the result.',
+    deleteTaskFailed: 'Deletion failed. Check the document error details and try again.',
+    deleteStatusUnavailable: 'Could not confirm the deletion result. Refresh later to check the document status.',
     batchDeleteSuccess: 'Deleted {count} documents',
     batchDeleteFailed: 'Batch delete failed',
     batchTag: 'Batch Tag',
@@ -6267,12 +6271,32 @@ export default {
     }
   },
   integrations: {
+    cli: {
+      title: 'WeKnora CLI',
+      subtitle: 'Manage knowledge bases and documents, search content, and ask questions from your terminal. Connect scripts and AI tools through the CLI or MCP.',
+      docs: 'CLI documentation',
+      docsHint: 'Installation and complete command reference',
+      quickstart: 'Quick start',
+      installTitle: 'Install the CLI',
+      installDesc: 'Build from source with Git and Go 1.26+. This macOS / Linux example updates PATH for the current terminal only. For regular use, place the binary in a directory on PATH.',
+      connectTitle: 'Connect to this server',
+      connectDesc: 'Create and activate a profile named weknora, then sign in with your email and password. If that profile already exists, choose another name and update the MCP example to match.',
+      verifyTitle: 'Verify the connection',
+      verifyDesc: 'Check server and authentication status, then list the knowledge bases your account can access.',
+      commandsTitle: 'Common commands',
+      commandsDesc: 'Replace KB_ID with a knowledge base ID and adapt the file path, query, and question. Uploaded documents must finish processing before they can be searched.',
+      mcpTitle: 'Connect an MCP client',
+      mcpDesc: 'After signing in, add this configuration to an MCP client that supports stdio. If the client cannot find weknora, set command to the absolute path of the binary.',
+      copy: 'Copy',
+      copied: 'Copied',
+    },
     title: 'Publish & Integrations',
     tabs: {
       im: 'IM Integration',
       embed: 'Web Embed',
       api: 'API Integration',
       chrome: 'Chrome Extension',
+      cli: 'CLI',
       claw: 'Claw Skill'
     },
     api: {
