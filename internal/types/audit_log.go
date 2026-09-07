@@ -51,6 +51,15 @@ const (
 	// an overdue pending row to expired. Actor is empty (system).
 	AuditActionInvitationExpired AuditAction = "rbac.invitation_expired"
 
+	AuditActionPortalPublished              AuditAction = "portal.space_published"
+	AuditActionPortalUnpublished            AuditAction = "portal.space_unpublished"
+	AuditActionPortalArchived               AuditAction = "portal.space_archived"
+	AuditActionPortalConfigUpdated          AuditAction = "portal.config_updated"
+	AuditActionTenantAccessRequested        AuditAction = "tenant.access_requested"
+	AuditActionTenantAccessRequestApproved  AuditAction = "tenant.access_request_approved"
+	AuditActionTenantAccessRequestRejected  AuditAction = "tenant.access_request_rejected"
+	AuditActionTenantAccessRequestCancelled AuditAction = "tenant.access_request_cancelled"
+
 	// VectorStore lifecycle actions. Emitted by VectorStoreService.
 	// Cover both env-store-derived (__env_*) and DB store create /
 	// update / delete paths. Details payload identifies the store_id

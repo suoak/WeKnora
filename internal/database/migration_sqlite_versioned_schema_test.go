@@ -23,6 +23,9 @@ var versionedSQLiteTables = []string{
 	"knowledge_tag_relations",
 	"api_key_tenant_scopes",
 	"api_key_kb_scopes",
+	"tenant_portal_configs",
+	"tenant_portal_stages",
+	"tenant_access_requests",
 }
 
 // versionedSQLiteColumns maps each existing table to the columns that the
@@ -39,7 +42,7 @@ var versionedSQLiteColumns = map[string][]string{
 	"mcp_tool_approvals": {"enabled"},                        // 000092
 }
 
-const expectedSQLiteMigrationVersion = 14
+const expectedSQLiteMigrationVersion = 15
 
 func TestSQLiteMigrationsCreateVersionedSchema(t *testing.T) {
 	repoRoot := sqliteRepoRoot(t)
@@ -136,7 +139,7 @@ func TestSQLiteMigrationsUpgradeV4PreservesData(t *testing.T) {
 	require.False(t, sqliteColumnExists(t, db, "knowledges", "tag_id"))
 }
 
-func TestSQLiteMigrationsUpgradeV13ToV14(t *testing.T) {
+func TestSQLiteMigrationsUpgradeV13ToLatest(t *testing.T) {
 	repoRoot := sqliteRepoRoot(t)
 	legacyRoot := copySQLiteMigrationsThroughV13(t, repoRoot)
 	chdirAndRestore(t, legacyRoot)
@@ -166,10 +169,89 @@ func TestSQLiteMigrationsUpgradeV13ToV14(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, migrator.Steps(-1))
 	versionDowngraded, dirtyDowngraded := sqliteMigrationState(t, db)
-	require.Equal(t, 13, versionDowngraded)
+	require.Equal(t, 14, versionDowngraded)
 	require.False(t, dirtyDowngraded)
 	require.True(t, sqliteColumnExists(t, db, "tenant_api_keys", "owner_user_id"))
-	require.False(t, sqliteColumnExists(t, db, "mcp_tool_approvals", "enabled"))
+	require.True(t, sqliteColumnExists(t, db, "mcp_tool_approvals", "enabled"))
+	require.False(t, sqliteTableExists(t, db, "tenant_portal_configs"))
+}
+
+func TestSQLiteKnowledgePortalMigrationUpgradeConstraintsAndDown(t *testing.T) {
+	repoRoot := sqliteRepoRoot(t)
+	legacyRoot := copySQLiteMigrationsThrough(t, repoRoot, "000014")
+	chdirAndRestore(t, legacyRoot)
+
+	dbPath := filepath.Join(t.TempDir(), "portal-v14.db")
+	require.NoError(t, RunMigrationsWithOptions("sqlite3://unused", MigrationOptions{SQLiteDBPath: dbPath}))
+	db := openSQLiteDBWithForeignKeys(t, dbPath)
+	version, dirty := sqliteMigrationState(t, db)
+	require.Equal(t, 14, version)
+	require.False(t, dirty)
+	_, err := db.Exec("INSERT INTO tenants (id, name, business) VALUES (101, 'portal-space', 'migration-test')")
+	require.NoError(t, err)
+	_, err = db.Exec("INSERT INTO organizations (id, name, owner_id, owner_tenant_id) VALUES ('org-portal', 'Portal Org', 'owner', 101)")
+	require.NoError(t, err)
+
+	chdirAndRestore(t, repoRoot)
+	require.NoError(t, RunMigrationsWithOptions("sqlite3://unused", MigrationOptions{SQLiteDBPath: dbPath}))
+	version, dirty = sqliteMigrationState(t, db)
+	require.Equal(t, expectedSQLiteMigrationVersion, version)
+	require.False(t, dirty)
+
+	_, err = db.Exec(`INSERT INTO tenant_portal_configs
+		(tenant_id, status, display_name, category, interaction_organization_id, created_by, updated_by)
+		VALUES (101, 'published', 'Portal Space', 'hardware', 'org-portal', 'admin', 'admin')`)
+	require.NoError(t, err)
+	_, err = db.Exec("UPDATE tenant_portal_configs SET category = 'architecture' WHERE tenant_id = 101")
+	require.Error(t, err, "category must not reuse an IPD stage key")
+	_, err = db.Exec("UPDATE tenant_portal_configs SET category = ' Hardware ' WHERE tenant_id = 101")
+	require.Error(t, err, "category must be stored in canonical trim/lowercase form")
+	_, err = db.Exec("INSERT INTO tenant_portal_stages (tenant_id, stage_key) VALUES (101, 'architecture')")
+	require.NoError(t, err)
+	_, err = db.Exec("INSERT INTO tenant_portal_stages (tenant_id, stage_key) VALUES (101, 'architecture')")
+	require.Error(t, err, "a stage may occur only once per workspace")
+	_, err = db.Exec("INSERT INTO tenant_portal_stages (tenant_id, stage_key) VALUES (101, 'all_process')")
+	require.NoError(t, err, "the database must allow future catalog stages without a migration")
+
+	insertRequest := `INSERT INTO tenant_access_requests
+		(id, tenant_id, applicant_user_id, source, status, reason, requested_role)
+		VALUES (?, 101, 'applicant', ?, ?, 'request access', ?)`
+	_, err = db.Exec(insertRequest, "req-1", "portal", "pending", "viewer")
+	require.NoError(t, err)
+	_, err = db.Exec(insertRequest, "req-2", "portal", "pending", "viewer")
+	require.Error(t, err, "only one pending request is allowed per workspace/applicant")
+	_, err = db.Exec(insertRequest, "req-3", "portal", "rejected", "viewer")
+	require.NoError(t, err, "historical non-pending requests remain allowed")
+	_, err = db.Exec(insertRequest, "req-bad-source", "api", "rejected", "viewer")
+	require.Error(t, err)
+	_, err = db.Exec(insertRequest, "req-bad-role", "portal", "rejected", "admin")
+	require.Error(t, err)
+
+	_, err = db.Exec("DELETE FROM organizations WHERE id = 'org-portal'")
+	require.NoError(t, err)
+	var orgID sql.NullString
+	require.NoError(t, db.QueryRow("SELECT interaction_organization_id FROM tenant_portal_configs WHERE tenant_id = 101").Scan(&orgID))
+	require.False(t, orgID.Valid, "organization hard delete must SET NULL")
+
+	_, err = db.Exec("DELETE FROM tenants WHERE id = 101")
+	require.NoError(t, err)
+	for _, table := range []string{"tenant_portal_configs", "tenant_portal_stages", "tenant_access_requests"} {
+		var count int
+		require.NoError(t, db.QueryRow("SELECT COUNT(*) FROM "+table).Scan(&count))
+		require.Zero(t, count, "%s must cascade on tenant hard delete", table)
+	}
+
+	driver, err := sqlite3migrate.WithInstance(db, &sqlite3migrate.Config{})
+	require.NoError(t, err)
+	migrator, err := migrate.NewWithDatabaseInstance("file://migrations/sqlite", "sqlite3", driver)
+	require.NoError(t, err)
+	require.NoError(t, migrator.Steps(-1))
+	version, dirty = sqliteMigrationState(t, db)
+	require.Equal(t, 14, version)
+	require.False(t, dirty)
+	for _, table := range []string{"tenant_portal_configs", "tenant_portal_stages", "tenant_access_requests"} {
+		require.False(t, sqliteTableExists(t, db, table))
+	}
 }
 
 func sqliteRepoRoot(t *testing.T) string {
@@ -191,6 +273,15 @@ func openSQLiteDB(t *testing.T, dbPath string) *sql.DB {
 	t.Helper()
 	db, err := sql.Open("sqlite3", dbPath)
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	return db
+}
+
+func openSQLiteDBWithForeignKeys(t *testing.T, dbPath string) *sql.DB {
+	t.Helper()
+	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on")
+	require.NoError(t, err)
+	db.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = db.Close() })
 	return db
 }
@@ -305,6 +396,10 @@ func copySQLiteMigrationsV4(t *testing.T, repoRoot string) string {
 }
 
 func copySQLiteMigrationsThroughV13(t *testing.T, repoRoot string) string {
+	return copySQLiteMigrationsThrough(t, repoRoot, "000013")
+}
+
+func copySQLiteMigrationsThrough(t *testing.T, repoRoot, latest string) string {
 	t.Helper()
 	dest := t.TempDir()
 	srcDir := filepath.Join(repoRoot, "migrations", "sqlite")
@@ -315,7 +410,7 @@ func copySQLiteMigrationsThroughV13(t *testing.T, repoRoot string) string {
 	require.NoError(t, err)
 	for _, entry := range entries {
 		name := entry.Name()
-		if entry.IsDir() || len(name) < 6 || name[:6] > "000013" {
+		if entry.IsDir() || len(name) < 6 || name[:6] > latest {
 			continue
 		}
 		data, err := os.ReadFile(filepath.Join(srcDir, name))
