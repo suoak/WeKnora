@@ -349,6 +349,10 @@ func (s *portalService) ListAdminSpaces(ctx context.Context) ([]*types.PortalAdm
 	return s.repo.ListAdminSpaces(ctx)
 }
 
+func (s *portalService) ListOrganizationOptions(ctx context.Context) ([]*types.PortalOrganizationOption, error) {
+	return s.repo.ListOrganizationOptions(ctx)
+}
+
 func (s *portalService) GetAdminSpace(ctx context.Context, tenantID uint64) (*types.PortalAdminSpaceResponse, error) {
 	item, err := s.repo.GetAdminSpace(ctx, tenantID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {

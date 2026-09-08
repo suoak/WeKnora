@@ -221,6 +221,13 @@ func (r *portalRepository) ListAdminSpaces(ctx context.Context) ([]*types.Portal
 	return out, nil
 }
 
+func (r *portalRepository) ListOrganizationOptions(ctx context.Context) ([]*types.PortalOrganizationOption, error) {
+	var rows []*types.PortalOrganizationOption
+	err := r.db.WithContext(ctx).Model(&types.Organization{}).
+		Select("id", "name").Order("name ASC, id ASC").Scan(&rows).Error
+	return rows, err
+}
+
 func (r *portalRepository) GetAdminSpace(ctx context.Context, tenantID uint64) (*types.PortalAdminSpaceResponse, error) {
 	var tenant types.Tenant
 	if err := r.db.WithContext(ctx).Select("id", "name").First(&tenant, tenantID).Error; err != nil {

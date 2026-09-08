@@ -27,6 +27,7 @@ func TestPortalRoutesAreJWTOnlyAndDoNotDeclareAPIKeyScope(t *testing.T) {
 		{http.MethodPost, "/api/v1/tenants/:id/access-requests/:request_id/approve"},
 		{http.MethodPost, "/api/v1/tenants/:id/access-requests/:request_id/reject"},
 		{http.MethodGet, "/api/v1/system/admin/portal/spaces"},
+		{http.MethodGet, "/api/v1/system/admin/portal/organization-options"},
 		{http.MethodGet, "/api/v1/system/admin/portal/spaces/:tenant_id"},
 		{http.MethodPut, "/api/v1/system/admin/portal/spaces/:tenant_id"},
 		{http.MethodPost, "/api/v1/system/admin/portal/spaces/:tenant_id/publish"},

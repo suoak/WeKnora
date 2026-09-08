@@ -75,6 +75,18 @@ const router = createRouter({
       meta: { requiresAuth: true, requiresInit: false, requiresTenant: false }
     },
     {
+      path: "/portal",
+      name: "portalHome",
+      component: () => import("../views/portal/PortalHome.vue"),
+      meta: { requiresAuth: true, requiresInit: true, requiresTenant: false }
+    },
+    {
+      path: "/portal/admin",
+      name: "portalAdmin",
+      component: () => import("../views/portal/SystemPortalSettings.vue"),
+      meta: { requiresAuth: true, requiresInit: true, requiresTenant: false, requiresSystemAdmin: true }
+    },
+    {
       path: "/join",
       name: "joinOrganization",
       // 重定向到组织列表页，并将 code 参数转换为 invite_code

@@ -34,6 +34,7 @@ func RegisterPortalRoutes(r *gin.RouterGroup, h *handler.PortalHandler, g *rbacG
 	// therefore default-denies them; only JWT SystemAdmin reaches this group.
 	admin := r.Group("/system/admin/portal", g.SystemAdmin())
 	{
+		admin.GET("/organization-options", h.ListOrganizationOptions)
 		admin.GET("/spaces", h.ListAdminSpaces)
 		admin.GET("/spaces/:tenant_id", h.GetAdminSpace)
 		admin.PUT("/spaces/:tenant_id", h.UpdateConfig)

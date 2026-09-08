@@ -7,6 +7,8 @@
 // 用一次 full navigation 把所有 store / SSE / 请求都重置一遍。
 
 import { updateMyPreferences } from '@/api/auth'
+import { useAuthStore } from '@/stores/auth'
+import { usePortalStore } from '@/stores/portal'
 
 const SAFE_FALLBACK_PATH = '/platform/knowledge-bases'
 
@@ -23,6 +25,29 @@ export function tenantSwitchTargetPath(_currentPath: string): string {
  */
 export function navigateAfterTenantSwitch(): void {
   window.location.href = tenantSwitchTargetPath(window.location.pathname)
+}
+
+export interface WorkspaceSwitchTarget {
+  tenantId: number
+  tenantName: string
+  role?: string
+  roleLabel?: string
+}
+
+/** Shared tenant-switch workflow used by the existing switcher and Portal. */
+export function switchWorkspaceAndNavigate(target: WorkspaceSwitchTarget): void {
+  const authStore = useAuthStore()
+  const homeTenantId = Number(authStore.user?.tenant_id ?? 0)
+  authStore.setSelectedTenant(target.tenantId, target.tenantName)
+  usePortalStore().invalidate()
+  stashTenantSwitchToast({
+    name: target.tenantName || `#${target.tenantId}`,
+    role: target.roleLabel,
+    roleEnum: target.role,
+  })
+  const persist = persistLastActiveTenantPreference(target.tenantId === homeTenantId ? null : target.tenantId)
+  Promise.race([persist, new Promise((resolve) => setTimeout(resolve, 500))])
+    .finally(() => navigateAfterTenantSwitch())
 }
 
 // 切换成功后的 toast 跨 hard reload 传递：调用方在 reload 前把信息塞进

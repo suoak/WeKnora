@@ -147,6 +147,11 @@ type PortalAdminSpaceResponse struct {
 	UpdatedAt                 *time.Time   `json:"updated_at,omitempty"`
 }
 
+type PortalOrganizationOption struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 type PortalConfigUpdateRequest struct {
 	DisplayName               string   `json:"display_name"`
 	Description               string   `json:"description"`

@@ -112,6 +112,20 @@ func TestPortalAccessStatePrecedence(t *testing.T) {
 	}
 }
 
+func TestPortalOrganizationOptionsExcludeSoftDeletedAndExposeOnlyIDName(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:portal-org-options?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.Exec(`CREATE TABLE organizations (id TEXT PRIMARY KEY, name TEXT, description TEXT, owner_id TEXT, deleted_at DATETIME)`).Error)
+	require.NoError(t, db.Exec(`INSERT INTO organizations VALUES ('active', 'Active Org', 'private description', 'owner', NULL), ('deleted', 'Deleted Org', '', 'owner', CURRENT_TIMESTAMP)`).Error)
+	rows, err := NewPortalRepository(db).ListOrganizationOptions(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []*types.PortalOrganizationOption{{ID: "active", Name: "Active Org"}}, rows)
+	payload, err := json.Marshal(rows)
+	require.NoError(t, err)
+	require.NotContains(t, string(payload), "description")
+	require.NotContains(t, string(payload), "owner")
+}
+
 func portalForbiddenResponseFields() []string {
 	return []string{
 		"knowledge_base_count", "knowledge_bases", "knowledge_name", "document_count",

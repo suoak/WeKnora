@@ -97,6 +97,10 @@
           <span>{{ $t('settings.skills.title') }}</span>
         </div>
         <div class="menu-divider"></div>
+        <div class="menu-item" @click="handlePortal">
+          <t-icon name="browse" class="menu-icon" />
+          <span>KnowHub 知汇</span>
+        </div>
         <div class="menu-item" @click="handleSettings">
           <t-icon name="setting" class="menu-icon" />
           <span>{{ $t('general.allSettings') }}</span>
@@ -110,6 +114,10 @@
         <div v-if="authStore.isSystemAdmin" class="menu-item" @click="handleSystemAdmin">
           <t-icon name="server" class="menu-icon" />
           <span>{{ $t('settings.navGroups.systemAdministration') }}</span>
+        </div>
+        <div v-if="authStore.isSystemAdmin" class="menu-item" @click="handlePortalAdmin">
+          <t-icon name="catalog" class="menu-icon" />
+          <span>平台管理 · 知识门户</span>
         </div>
         <template v-if="!authStore.isLiteMode">
           <div class="menu-divider"></div>
@@ -187,11 +195,7 @@ import { MessagePlugin } from 'tdesign-vue-next'
 import { getCurrentUser, logout as logoutApi, userInfoFromApi } from '@/api/auth'
 import { useI18n } from 'vue-i18n'
 import CreateTenantDialog from '@/components/CreateTenantDialog.vue'
-import {
-  navigateAfterTenantSwitch,
-  persistLastActiveTenantPreference,
-  stashTenantSwitchToast,
-} from '@/utils/tenantSwitch'
+import { switchWorkspaceAndNavigate } from '@/utils/tenantSwitch'
 import type { TenantInfo } from '@/api/tenant'
 import { useRoleLabel, useHomeTenant } from '@/composables/useRoleLabel'
 import { getRootZoom, rectToCssPx, cssViewportSize } from '@/utils/zoom'
@@ -205,7 +209,7 @@ const router = useRouter()
 const uiStore = useUIStore()
 const authStore = useAuthStore()
 const { formatRole, roleIcon } = useRoleLabel()
-const { homeTenantId, isHomeTenantActive, isHomeTenant } = useHomeTenant()
+const { isHomeTenant } = useHomeTenant()
 
 // 顶部用户卡片展示的空间名 / 当前角色：跟着 tenant 切换器实时变。
 // activeTenantName 优先用切换器选中的名字（含 fallback 到 home tenant 名字），
@@ -287,6 +291,16 @@ const handleSettings = () => {
   router.push('/platform/settings')
 }
 
+const handlePortal = () => {
+  menuVisible.value = false
+  router.push('/portal')
+}
+
+const handlePortalAdmin = () => {
+  menuVisible.value = false
+  router.push('/portal/admin')
+}
+
 // Open the platform administration group inside the standard Settings
 // modal. Global settings is the group's landing page; task queues, platform
 // API keys and the audit log remain available beside it in the settings nav.
@@ -321,10 +335,12 @@ const openCreateTenantDialog = () => {
 
 const onTenantCreated = async (newTenant: TenantInfo) => {
   await authStore.refreshFromAuthMe()
-  authStore.setSelectedTenant(newTenant.id, newTenant.name)
-  const persist = persistLastActiveTenantPreference(newTenant.id)
-  Promise.race([persist, new Promise((r) => setTimeout(r, 300))])
-    .finally(() => navigateAfterTenantSwitch())
+  switchWorkspaceAndNavigate({
+    tenantId: newTenant.id,
+    tenantName: newTenant.name,
+    role: 'owner',
+    roleLabel: formatRole('owner'),
+  })
 }
 
 // ---------- Tenant switcher submenu ----------
@@ -383,25 +399,13 @@ const switchToTenant = (m: Membership) => {
   // userService.resolveLoginTenantID），结果切回 home 反而原地不动。
   // 服务端持久化偏好仍然按 home/peer 区分：home 时清空 last_active，
   // 让下次干净重登能正确回到 home。
-  const home = homeTenantId.value
-  const switchingToHome = home !== null && home === m.tenant_id
-  authStore.setSelectedTenant(m.tenant_id, tenantDisplayName(m))
   closeAll()
-  // Toast 在 reload 后由 App.vue 弹出（直接在这里弹会被 hard reload 干掉）。
-  stashTenantSwitchToast({
-    name: tenantDisplayName(m),
-    role: formatRole(m.role) || undefined,
-    roleEnum: m.role || undefined,
+  switchWorkspaceAndNavigate({
+    tenantId: m.tenant_id,
+    tenantName: tenantDisplayName(m),
+    role: m.role,
+    roleLabel: formatRole(m.role) || undefined,
   })
-  // Persist "last active tenant" preference (switching to home clears
-  // it). Hard reload so every cached store / open SSE stream / in-flight
-  // request gets re-keyed under the new tenant; navigateAfterTenantSwitch
-  // redirects to the platform home so tenant-scoped resource paths don't
-  // white-screen. Race the persist against the existing 400ms grace
-  // window so most writes complete before the page tears down.
-  const persist = persistLastActiveTenantPreference(switchingToHome ? null : m.tenant_id)
-  Promise.race([persist, new Promise((r) => setTimeout(r, 400))])
-    .finally(() => navigateAfterTenantSwitch())
 }
 
 let lastTenantSubmenuMembershipRefresh = 0

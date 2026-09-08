@@ -221,6 +221,15 @@ func (h *PortalHandler) ListAdminSpaces(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": rows, "total": len(rows)})
 }
 
+func (h *PortalHandler) ListOrganizationOptions(c *gin.Context) {
+	rows, err := h.service.ListOrganizationOptions(c.Request.Context())
+	if err != nil {
+		portalError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": rows, "total": len(rows)})
+}
+
 func (h *PortalHandler) GetAdminSpace(c *gin.Context) {
 	tenantID, ok := portalTenantID(c)
 	if !ok {
