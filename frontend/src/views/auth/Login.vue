@@ -368,6 +368,13 @@ import { useI18n } from 'vue-i18n'
 import BrandLogo from '@/components/BrandLogo.vue'
 import { branding } from '@/config/branding'
 import { resolveInviteRegistrationState } from './inviteRegistrationState'
+import {
+  LITE_LAST_PATH_KEY,
+  clearAuthReturnTarget,
+  consumeAuthReturnTarget,
+  rememberAuthReturnTarget,
+  resolvePostAuthLanding,
+} from '@/utils/authRedirect'
 
 // Import screenshot images
 import screenshot1 from '@/assets/img/screenshot-1.svg'
@@ -380,6 +387,12 @@ const route = useRoute()
 const authStore = useAuthStore()
 const { t, tm, locale } = useI18n()
 const { formatRole, roleIcon } = useRoleLabel()
+const resolveLoginLanding = () => resolvePostAuthLanding({
+  explicitTarget: route.query.returnUrl || route.query.redirect,
+  storedTarget: consumeAuthReturnTarget(),
+  liteMode: authStore.isLiteMode,
+  liteRecentTarget: sessionStorage.getItem(LITE_LAST_PATH_KEY),
+})
 const brandTagline = computed(() => locale.value === 'zh-CN' ? branding.taglineZh : branding.tagline)
 const brandCapabilityLine = computed(() => locale.value === 'zh-CN' ? branding.capabilityLineZh : branding.capabilityLine)
 
@@ -601,7 +614,7 @@ const persistLoginResponse = async (response: any, skipRedirect = false) => {
   await authStore.refreshFromAuthMe()
   await nextTick()
   if (skipRedirect) return
-  router.replace(authStore.hasValidTenant ? '/platform/knowledge-bases' : '/onboarding/workspace')
+  router.replace(resolveLoginLanding())
 }
 
 const getBackendOIDCRedirectURI = () => `${window.location.origin}/api/v1/auth/oidc/callback`
@@ -642,6 +655,7 @@ const handleOIDCLogin = async () => {
       return
     }
 
+    rememberAuthReturnTarget(route.query.returnUrl || route.query.redirect)
     // 跳转 IdP 会丢失 URL 中的 token，暂存到 sessionStorage，回调后由 App.vue 兑换。
     if (inviteToken.value) {
       sessionStorage.setItem('weknora_pending_invite_token', inviteToken.value)
@@ -657,6 +671,7 @@ const handleOIDCLogin = async () => {
 
 // 用 token 加入空间并进入应用。会话此时已有效，故即便 token 失效也照常进入（避免困在登录页）。
 const acceptAndEnter = async (token: string) => {
+  clearAuthReturnTarget()
   loading.value = true
   try {
     const result = await authStore.acceptInvitationByTokenAndRefresh(token)
@@ -733,7 +748,9 @@ const handleRegister = async () => {
       // register-by-invite returns the same shape as login (token +
       // active_tenant + memberships), so reuse the login persistence
       // path — same store writes, same redirect target.
-      await persistLoginResponse(response)
+      await persistLoginResponse(response, true)
+      clearAuthReturnTarget()
+      await router.replace('/platform/knowledge-bases')
       return
     }
 
@@ -826,7 +843,7 @@ onMounted(async () => {
   }
 
   if (authStore.isLoggedIn) {
-    router.replace('/platform/knowledge-bases')
+    router.replace(resolveLoginLanding())
     return
   }
 

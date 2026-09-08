@@ -1,5 +1,6 @@
 // src/utils/request.js
 import axios from "axios";
+import { rememberAuthReturnTarget } from './authRedirect';
 import { generateRandomString, MAX_FILE_SIZE_MB, MAX_SKILL_BUNDLE_SIZE_MB } from "./index";
 import i18n from '@/i18n'
 import { getApiBaseUrl } from './api-base';
@@ -141,6 +142,7 @@ function redirectToLogin() {
   if (window.location.pathname === '/login') return;
   // Embed 渠道用 Embed token 鉴权，匿名访问不应被踢到登录页
   if (isEmbedPage()) return;
+  rememberAuthReturnTarget(`${window.location.pathname}${window.location.search}${window.location.hash}`);
   window.location.href = '/login';
 }
 
