@@ -25,6 +25,14 @@ func TestAuditAction_DotNamespaceConvention(t *testing.T) {
 		AuditActionInvitationDeclined,
 		AuditActionInvitationRevoked,
 		AuditActionInvitationExpired,
+		AuditActionPortalPublished,
+		AuditActionPortalUnpublished,
+		AuditActionPortalArchived,
+		AuditActionPortalConfigUpdated,
+		AuditActionTenantAccessRequested,
+		AuditActionTenantAccessRequestApproved,
+		AuditActionTenantAccessRequestRejected,
+		AuditActionTenantAccessRequestCancelled,
 		// VectorStore namespace (Phase 3 PR 1 / #1440)
 		AuditActionVectorStoreCreated,
 		AuditActionVectorStoreUpdated,
@@ -115,6 +123,14 @@ func TestAuditAction_NoCollisionsAcrossNamespaces(t *testing.T) {
 	register("AuditActionInvitationDeclined", AuditActionInvitationDeclined)
 	register("AuditActionInvitationRevoked", AuditActionInvitationRevoked)
 	register("AuditActionInvitationExpired", AuditActionInvitationExpired)
+	register("AuditActionPortalPublished", AuditActionPortalPublished)
+	register("AuditActionPortalUnpublished", AuditActionPortalUnpublished)
+	register("AuditActionPortalArchived", AuditActionPortalArchived)
+	register("AuditActionPortalConfigUpdated", AuditActionPortalConfigUpdated)
+	register("AuditActionTenantAccessRequested", AuditActionTenantAccessRequested)
+	register("AuditActionTenantAccessRequestApproved", AuditActionTenantAccessRequestApproved)
+	register("AuditActionTenantAccessRequestRejected", AuditActionTenantAccessRequestRejected)
+	register("AuditActionTenantAccessRequestCancelled", AuditActionTenantAccessRequestCancelled)
 	register("AuditActionVectorStoreCreated", AuditActionVectorStoreCreated)
 	register("AuditActionVectorStoreUpdated", AuditActionVectorStoreUpdated)
 	register("AuditActionVectorStoreDeleted", AuditActionVectorStoreDeleted)
@@ -131,6 +147,22 @@ func TestAuditAction_NoCollisionsAcrossNamespaces(t *testing.T) {
 	register("AuditActionSystemQueueTaskRunNow", AuditActionSystemQueueTaskRunNow)
 	register("AuditActionSystemQueueTaskCancelled", AuditActionSystemQueueTaskCancelled)
 	register("AuditActionSystemQueueArchivedPurged", AuditActionSystemQueueArchivedPurged)
+}
+
+func TestAuditAction_PortalWireValues(t *testing.T) {
+	cases := map[AuditAction]string{
+		AuditActionPortalPublished:              "portal.space_published",
+		AuditActionPortalUnpublished:            "portal.space_unpublished",
+		AuditActionPortalArchived:               "portal.space_archived",
+		AuditActionPortalConfigUpdated:          "portal.config_updated",
+		AuditActionTenantAccessRequested:        "tenant.access_requested",
+		AuditActionTenantAccessRequestApproved:  "tenant.access_request_approved",
+		AuditActionTenantAccessRequestRejected:  "tenant.access_request_rejected",
+		AuditActionTenantAccessRequestCancelled: "tenant.access_request_cancelled",
+	}
+	for action, wire := range cases {
+		assert.Equal(t, wire, string(action))
+	}
 }
 
 // TestAuditAction_SystemNamespacePrefix pins the system.* actions

@@ -13,6 +13,12 @@ import { consumePendingTenantSwitchToast } from '@/utils/tenantSwitch'
 import { useRoleLabel } from '@/composables/useRoleLabel'
 import { notifyLoginSuccess } from '@/utils/loginNotify'
 import { renderWorkspaceNotifyContent } from '@/utils/workspaceNotifyContent'
+import {
+  LITE_LAST_PATH_KEY,
+  clearAuthReturnTarget,
+  consumeAuthReturnTarget,
+  resolvePostAuthLanding,
+} from '@/utils/authRedirect'
 
 // TDesign locale configs
 import enUSConfig from 'tdesign-vue-next/esm/locale/en_US'
@@ -109,6 +115,7 @@ const persistOIDCLoginResponse = async (response: any) => {
   // OIDC 跳转前暂存的邀请 token：拿到会话后兑换并进入对应空间。
   const pendingInviteToken = sessionStorage.getItem('weknora_pending_invite_token')
   if (pendingInviteToken) {
+    clearAuthReturnTarget()
     sessionStorage.removeItem('weknora_pending_invite_token')
     const result = await authStore.acceptInvitationByTokenAndRefresh(pendingInviteToken)
     await nextTick()
@@ -120,7 +127,11 @@ const persistOIDCLoginResponse = async (response: any) => {
   }
 
   await nextTick()
-  router.replace(authStore.hasValidTenant ? '/platform/knowledge-bases' : '/onboarding/workspace')
+  router.replace(resolvePostAuthLanding({
+    storedTarget: consumeAuthReturnTarget(),
+    liteMode: authStore.isLiteMode,
+    liteRecentTarget: sessionStorage.getItem(LITE_LAST_PATH_KEY),
+  }))
 }
 
 const handleGlobalOIDCCallback = async () => {

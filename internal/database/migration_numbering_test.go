@@ -13,8 +13,8 @@ import (
 
 func TestMigrationNumbersAreUniqueAndPaired(t *testing.T) {
 	repoRoot := sqliteRepoRoot(t)
-	assertMigrationNumbers(t, filepath.Join(repoRoot, "migrations", "versioned"), "000092")
-	assertMigrationNumbers(t, filepath.Join(repoRoot, "migrations", "sqlite"), "000014")
+	assertMigrationNumbers(t, filepath.Join(repoRoot, "migrations", "versioned"), "000093")
+	assertMigrationNumbers(t, filepath.Join(repoRoot, "migrations", "sqlite"), "000015")
 }
 
 func TestMCPToolEnabledFollowsUserMCPAPIKeys(t *testing.T) {

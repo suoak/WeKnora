@@ -64,7 +64,14 @@
       </p>
     </div>
 
-    <div class="members-tab-layout">
+    <t-tabs v-if="canReviewAccessRequests" v-model="activeView" class="member-mode-tabs">
+      <t-tab-panel value="members" label="空间成员" />
+      <t-tab-panel value="access-requests" label="访问申请" />
+    </t-tabs>
+
+    <AccessRequestsPanel v-if="canReviewAccessRequests && activeView === 'access-requests'" :tenant-id="activeTenantId" />
+
+    <div v-else class="members-tab-layout">
       <!-- Toolbar 已被并入「空间成员」列表头：搜索框紧贴列表头右
            侧，邀请按钮再往右一个图标位，所有「针对这张列表」的控
            件聚到同一行，独立 toolbar 不复存在。 -->
@@ -517,9 +524,11 @@ import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { MessagePlugin } from 'tdesign-vue-next'
 import SettingDrawer from '@/components/settings/SettingDrawer.vue'
+import AccessRequestsPanel from '@/components/portal/AccessRequestsPanel.vue'
 import { copyWithToast } from '@/utils/clipboard'
 import { useAuthStore } from '@/stores/auth'
 import { AUDIT_ACTION_I18N_ROOTS } from '@/i18n/auditActionRegistry'
+import { canReviewPortalRequests } from '@/stores/portalState'
 import { auditActionLabel } from '@/i18n/auditActionLabel'
 import {
   listMembers,
@@ -544,6 +553,7 @@ import {
 
 const { t, tm, locale } = useI18n()
 const authStore = useAuthStore()
+const activeView = ref<'members' | 'access-requests'>('members')
 
 /** 悬停层限制在视口内，内容由内部滚动 */
 const permissionsPopupInnerStyle = {
@@ -651,6 +661,10 @@ const currentRole = computed<TenantRole | ''>(() => (authStore.currentTenantRole
 const canManage = computed(
   () => currentRole.value === 'owner' || authStore.canAccessAllTenants === true,
 )
+// Portal access approvals are deliberately stricter than general member
+// management: only a real active Owner sees the surface; Admin and a
+// platform-wide superuser without target Owner membership do not.
+const canReviewAccessRequests = computed(() => canReviewPortalRequests(currentRole.value))
 // Admin+ (and cross-tenant superusers) can view the audit log. Mirrors
 // the server's g.Admin() guard on /tenants/:id/audit-log so we don't
 // render a tab that would just 403.
@@ -1469,6 +1483,8 @@ watch(
 .tenant-members {
   width: 100%;
 }
+
+.member-mode-tabs { margin-bottom: 16px; }
 
 .member-cell {
   display: flex;

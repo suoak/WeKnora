@@ -1073,7 +1073,9 @@ const getIcon = (path: string) => {
 }
 getIcon(typeof route.name === 'string' ? route.name as string : (route.name ? String(route.name) : ''))
 const handleMenuClick = async (path: string) => {
-    if (path === 'knowledge-bases') {
+    if (path === 'portal') {
+        router.push('/portal')
+    } else if (path === 'knowledge-bases') {
         // 知识库菜单项：如果在知识库内部，跳转到当前知识库文件页；否则跳转到知识库列表
         const kbId = await getCurrentKbId()
         if (kbId) {

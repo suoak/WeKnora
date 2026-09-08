@@ -7,9 +7,16 @@ import type { DeploymentCapabilityKey } from '@/config/deploymentCapabilities'
 import { MessagePlugin } from 'tdesign-vue-next'
 import i18n from '@/i18n'
 import { normalizeSettingsSection } from '@/config/settingsRoute'
+import {
+  LITE_LAST_PATH_KEY,
+  consumeAuthReturnTarget,
+  isSafeLiteRestoreTarget,
+  rememberAuthReturnTarget,
+  resolvePostAuthLanding,
+  resolveRootLanding,
+} from '@/utils/authRedirect'
 
 /** Lite /桌面 WebView 硬刷新时可能只打开 `/`，用 session 记住上次页面以便恢复 */
-const LITE_LAST_PATH_KEY = 'weknora_lite_last_path'
 const AUTO_SETUP_FAILED_KEY = 'weknora_auto_setup_failed'
 
 function shouldTryAutoSetup() {
@@ -33,10 +40,6 @@ function isLiteSpaDefaultEntry(to: RouteLocationNormalized) {
   )
 }
 
-function isSafeLiteRestoreTarget(path: string) {
-  return path.startsWith('/platform/') && !path.startsWith('/platform/organizations')
-}
-
 function hasPendingOIDCCallback() {
   if (typeof window === 'undefined') return false
   const hash = window.location.hash || ''
@@ -48,7 +51,10 @@ const router = createRouter({
   routes: [
     {
       path: "/",
-      redirect: "/platform/knowledge-bases",
+      redirect: () => resolveRootLanding(
+        localStorage.getItem('weknora_lite_mode') === 'true',
+        sessionStorage.getItem(LITE_LAST_PATH_KEY),
+      ),
     },
     {
       path: "/login",
@@ -73,6 +79,18 @@ const router = createRouter({
       name: "workspaceOnboarding",
       component: () => import("../views/auth/WorkspaceOnboarding.vue"),
       meta: { requiresAuth: true, requiresInit: false, requiresTenant: false }
+    },
+    {
+      path: "/portal",
+      name: "portalHome",
+      component: () => import("../views/portal/PortalHome.vue"),
+      meta: { requiresAuth: true, requiresInit: true, requiresTenant: false }
+    },
+    {
+      path: "/portal/admin",
+      name: "portalAdmin",
+      component: () => import("../views/portal/SystemPortalSettings.vue"),
+      meta: { requiresAuth: true, requiresInit: true, requiresTenant: false, requiresSystemAdmin: true }
     },
     {
       path: "/join",
@@ -336,6 +354,7 @@ router.beforeEach(async (to, from, next) => {
     if (!authStore.isLoggedIn) {
       const restored = await hydrateSessionFromToken(authStore)
       if (!restored) {
+        rememberAuthReturnTarget(to.fullPath)
         next('/login')
         return
       }
@@ -350,9 +369,14 @@ router.beforeEach(async (to, from, next) => {
 
   // 如果访问的是登录页面或初始化页面，直接放行
   if (to.meta.requiresAuth === false || to.meta.requiresInit === false) {
-    // 如果已登录用户访问登录页面，重定向到知识库列表页面
+    // 已登录用户访问登录页时，也遵循显式目标 / Lite 恢复 / Portal 的统一优先级。
     if (to.path === '/login' && authStore.isLoggedIn) {
-      next(authStore.hasValidTenant ? '/platform/knowledge-bases' : '/onboarding/workspace')
+      next(resolvePostAuthLanding({
+        explicitTarget: to.query.returnUrl || to.query.redirect,
+        storedTarget: consumeAuthReturnTarget(),
+        liteMode: isLiteEdition(authStore),
+        liteRecentTarget: sessionStorage.getItem(LITE_LAST_PATH_KEY),
+      }))
       return
     }
     next()
@@ -388,6 +412,7 @@ router.beforeEach(async (to, from, next) => {
           markAutoSetupFailed()
         }
       }
+      rememberAuthReturnTarget(to.fullPath)
       next('/login')
       return
     }
