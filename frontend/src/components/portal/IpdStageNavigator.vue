@@ -1,19 +1,21 @@
 <template>
-  <nav class="stage-nav" aria-label="IPD 流程阶段">
+  <nav class="stage-nav" :aria-label="t('portal.stageNavigationLabel')">
     <button :class="{ active: modelValue === 'all' }" @click="$emit('update:modelValue', 'all')">
-      <strong>全部</strong><small>所有已发布空间</small>
+      <strong>{{ t('portal.allStages') }}</strong><small>{{ t('portal.allStagesDescription') }}</small>
     </button>
     <button v-for="stage in stages" :key="stage.key" :class="{ active: modelValue === stage.key }"
       @click="$emit('update:modelValue', stage.key)">
-      <strong>{{ stage.name || stage.key }}</strong><small>{{ stage.description }}</small>
+      <strong>{{ t(`portal.stages.${stage.key}.name`) }}</strong><small>{{ t(`portal.stages.${stage.key}.description`) }}</small>
     </button>
   </nav>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import type { PortalStage } from '@/api/portal'
 defineProps<{ modelValue: string; stages: PortalStage[] }>()
 defineEmits<{ 'update:modelValue': [value: string] }>()
+const { t } = useI18n()
 </script>
 
 <style scoped lang="less">

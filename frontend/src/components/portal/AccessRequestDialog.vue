@@ -1,14 +1,16 @@
 <template>
-  <t-dialog :visible="visible" header="申请只读访问" :confirm-btn="{content:'提交申请',loading:submitting,disabled:!valid}" @confirm="submit" @close="close">
-    <div v-if="space" class="dialog-body"><p><strong>{{ space.display_name }}</strong></p><div class="permission">权限固定：Viewer / 只读访问</div><t-textarea v-model="reason" placeholder="请说明您需要访问该空间的原因" :maxlength="1000" :autosize="{minRows:4,maxRows:8}" /><small>{{ [...reason.trim()].length }}/1000</small></div>
+  <t-dialog :visible="visible" :header="t('portal.requestTitle')" :confirm-btn="{content:t('portal.submitRequest'),loading:submitting,disabled:!valid}" @confirm="submit" @close="close">
+    <div v-if="space" class="dialog-body"><p><strong>{{ space.display_name }}</strong></p><div class="permission">{{ t('portal.viewerOnly') }}</div><t-textarea v-model="reason" :placeholder="t('portal.reasonPlaceholder')" :maxlength="1000" :autosize="{minRows:4,maxRows:8}" /><small>{{ [...reason.trim()].length }}/1000</small></div>
   </t-dialog>
 </template>
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { PortalSpace } from '@/api/portal'
 import { validAccessReason } from '@/stores/portalState'
 const props=defineProps<{visible:boolean;space:PortalSpace|null;submitting:boolean}>()
 const emit=defineEmits<{close:[];submit:[reason:string]}>()
+const { t }=useI18n()
 const reason=ref('')
 const valid=computed(()=>validAccessReason(reason.value))
 watch(()=>props.visible,(open)=>{if(open)reason.value=''})

@@ -19,11 +19,23 @@ func TestNormalizePortalCategoryAndStages(t *testing.T) {
 	require.Equal(t, "hardware platforms", category)
 	_, err = normalizePortalCategory(" Architecture ")
 	require.ErrorIs(t, err, ErrPortalInvalidCategory)
+	_, err = normalizePortalCategory("lmt")
+	require.ErrorIs(t, err, ErrPortalInvalidCategory)
 	stage, err := normalizePortalStage(" DESIGN ")
 	require.NoError(t, err)
 	require.Equal(t, "design", stage)
 	_, err = normalizePortalStage("hardware")
 	require.ErrorIs(t, err, ErrPortalInvalidStage)
+	stage, err = normalizePortalStage("lmt")
+	require.NoError(t, err)
+	require.Equal(t, "lmt", stage)
+}
+
+func TestPortalStageCatalogContainsOnlyConfiguredIPDStages(t *testing.T) {
+	svc := &portalService{}
+	stages := svc.ListStages()
+	require.Len(t, stages, 7)
+	require.Equal(t, "lmt", stages[len(stages)-1].Key)
 }
 
 func TestCreateAccessRequestAllowsTenantlessUserAndLocksPortalViewer(t *testing.T) {

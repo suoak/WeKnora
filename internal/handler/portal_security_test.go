@@ -37,7 +37,8 @@ func TestPortalHandlerSerializationExcludesPrivateFields(t *testing.T) {
 	h := NewPortalHandler(portalHandlerServiceStub{spaces: []*types.PortalSpaceResponse{{
 		TenantID: 8, DisplayName: "Platform Hub", Description: "Discovery only",
 		Category: "hardware", ResponsibleTeam: "Platform", Contact: "portal@example.com",
-		Stages: []string{"design", "testing"}, Featured: true, AccessState: types.PortalAccessMember,
+		Stages: []string{"design", "testing"}, Featured: true, KnowledgeBaseCount: 3, FileCount: 27,
+		AccessState: types.PortalAccessMember,
 		CurrentRole: &role, CanRequestAccess: false, InteractionAction: types.PortalInteractionEnter,
 	}}})
 	r := gin.New()
@@ -47,12 +48,14 @@ func TestPortalHandlerSerializationExcludesPrivateFields(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	body := strings.ToLower(w.Body.String())
 	for _, forbidden := range []string{
-		"knowledge_base_count", "knowledge_bases", "knowledge_name", "document_count",
-		"document_title", "preview", "chunk", "agent", "mcp", "datasource", "storage",
+		"knowledge_bases", "knowledge_name", "document_count", "document_title", "file_name",
+		"preview", "chunk", "agent", "mcp", "datasource", "storage",
 		"members", "tenant_config", "api_key", "model_config", "interaction_organization_id",
 	} {
 		require.NotContains(t, body, forbidden)
 	}
+	require.Contains(t, body, `"knowledge_base_count":3`)
+	require.Contains(t, body, `"file_count":27`)
 	require.Contains(t, body, `"interaction_action":"enter"`)
 }
 

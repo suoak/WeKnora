@@ -21,6 +21,8 @@ export interface PortalSpace {
   contact: string
   stages: string[]
   featured: boolean
+  knowledge_base_count: number
+  file_count: number
   access_state: PortalAccessState
   current_role: 'owner' | 'admin' | 'contributor' | 'viewer' | null
   can_request_access: boolean

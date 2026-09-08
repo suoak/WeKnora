@@ -84,7 +84,8 @@
                         :class="['menu_item', item.childrenPath && item.childrenPath == currentpath ? 'menu_item_c_active' : isMenuItemActive(item.path) ? 'menu_item_active' : '']">
                         <div class="menu_item-box">
                             <div class="menu_icon">
-                                <img class="icon"
+                                <t-icon v-if="item.icon === 'portal'" name="browse" class="icon menu-portal-icon" />
+                                <img v-else class="icon"
                                     :src="getImgSrc(item.icon == 'zhishiku' ? knowledgeIcon : item.icon == 'agent' ? agentIcon : item.icon == 'organization' ? organizationIcon : item.icon == 'logout' ? logoutIcon : item.icon == 'setting' ? settingIcon : prefixIcon)"
                                     alt="">
                             </div>
@@ -409,6 +410,8 @@ const isMenuItemActive = (itemPath: string): boolean => {
             return currentRoute === 'knowledgeBaseList' ||
                 currentRoute === 'knowledgeBaseDetail' ||
                 currentRoute === 'knowledgeBaseSettings';
+        case 'portal':
+            return currentRoute === 'portalHome';
         case 'agents':
             return currentRoute === 'agentList';
         case 'organizations':
@@ -441,13 +444,13 @@ const getIconActiveState = (itemPath: string) => {
 // 分离上下两部分菜单（使用 visibleMenuArr 以便 lite 模式过滤 logout）
 const topMenuItems = computed<MenuItem[]>(() => {
     return (visibleMenuArr.value as unknown as MenuItem[]).filter((item: MenuItem) =>
-        item.path === 'knowledge-bases' || item.path === 'agents' || item.path === 'organizations' || item.path === 'creatChat'
+        item.path === 'portal' || item.path === 'knowledge-bases' || item.path === 'agents' || item.path === 'organizations' || item.path === 'creatChat'
     );
 });
 
 const bottomMenuItems = computed<MenuItem[]>(() => {
     return (visibleMenuArr.value as unknown as MenuItem[]).filter((item: MenuItem) => {
-        if (item.path === 'knowledge-bases' || item.path === 'agents' || item.path === 'organizations' || item.path === 'creatChat') {
+        if (item.path === 'portal' || item.path === 'knowledge-bases' || item.path === 'agents' || item.path === 'organizations' || item.path === 'creatChat') {
             return false;
         }
         return true;

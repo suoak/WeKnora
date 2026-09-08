@@ -1,9 +1,9 @@
 <template>
   <div class="admin-page">
-    <header><router-link to="/portal" class="back"><t-icon name="chevron-left" />返回知识门户</router-link><div><strong>KnowHub 知汇</strong><small>平台管理 · 知识门户</small></div><UserMenu /></header>
-    <main><div class="title"><div><span>PLATFORM GOVERNANCE</span><h1>知识门户配置</h1><p>维护发现层 metadata；Workspace 内容权限仍由 Tenant RBAC 决定。</p></div><t-button variant="outline" :loading="loading" @click="load">刷新</t-button></div>
+    <header><router-link to="/portal" class="back"><t-icon name="chevron-left" />{{ t('portal.admin.back') }}</router-link><div><strong>KnowHub 知汇</strong><small>{{ t('portal.admin.menuEntry') }}</small></div><UserMenu /></header>
+    <main><div class="title"><div><span>{{ t('portal.admin.eyebrow') }}</span><h1>{{ t('portal.admin.title') }}</h1><p>{{ t('portal.admin.description') }}</p></div><t-button variant="outline" :loading="loading" @click="load">{{ t('portal.admin.refresh') }}</t-button></div>
       <div class="layout">
-        <aside><button v-for="space in spaces" :key="space.tenant_id" :class="{active:space.tenant_id===selectedId}" @click="selectedId=space.tenant_id"><span><strong>{{ space.tenant_name }}</strong><small>{{ space.display_name||'尚未配置' }}</small></span><t-tag size="small" :theme="space.status==='published'?'success':'default'">{{ space.status }}</t-tag></button></aside>
+        <aside><button v-for="space in spaces" :key="space.tenant_id" :class="{active:space.tenant_id===selectedId}" @click="selectedId=space.tenant_id"><span><strong>{{ space.tenant_name }}</strong><small>{{ space.display_name||t('portal.admin.unconfigured') }}</small></span><t-tag size="small" :theme="space.status==='published'?'success':'default'">{{ t(`portal.admin.statuses.${space.status}`) }}</t-tag></button></aside>
         <PortalConfigEditor :config="selected" :stages="stages" :organizations="organizations" :saving="saving" :transitioning="transitioning" @save="save" @status="setStatus" />
       </div>
     </main>
@@ -11,16 +11,18 @@
 </template>
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { MessagePlugin } from 'tdesign-vue-next'
 import UserMenu from '@/components/UserMenu.vue'
 import PortalConfigEditor from '@/components/portal/PortalConfigEditor.vue'
 import { listAdminPortalSpaces,listPortalOrganizationOptions,listPortalStages,transitionAdminPortalStatus,updateAdminPortalConfig,type PortalAdminSpace,type PortalConfigPayload,type PortalOrganizationOption,type PortalStage } from '@/api/portal'
 const spaces=ref<PortalAdminSpace[]>([]),stages=ref<PortalStage[]>([]),organizations=ref<PortalOrganizationOption[]>([])
+const { t }=useI18n()
 const selectedId=ref<number|null>(null),loading=ref(false),saving=ref(false),transitioning=ref(false)
 const selected=computed(()=>spaces.value.find(item=>item.tenant_id===selectedId.value)||null)
-async function load(){loading.value=true;try{const [spaceRes,stageRes,orgRes]=await Promise.all([listAdminPortalSpaces(),listPortalStages(),listPortalOrganizationOptions()]);spaces.value=spaceRes.data||[];stages.value=stageRes.data||[];organizations.value=orgRes.data||[];if(!spaces.value.some(item=>item.tenant_id===selectedId.value))selectedId.value=spaces.value[0]?.tenant_id||null}catch(error:any){MessagePlugin.error(error?.message||'门户配置加载失败')}finally{loading.value=false}}
-async function save(payload:PortalConfigPayload){if(!selectedId.value)return;saving.value=true;try{const response=await updateAdminPortalConfig(selectedId.value,payload);replace(response.data);MessagePlugin.success('门户配置已保存')}catch(error:any){MessagePlugin.error(error?.message||'保存失败')}finally{saving.value=false}}
-async function setStatus(action:'publish'|'unpublish'|'archive'){if(!selectedId.value)return;transitioning.value=true;try{const response=await transitionAdminPortalStatus(selectedId.value,action);replace(response.data);MessagePlugin.success('发布状态已更新')}catch(error:any){MessagePlugin.error(error?.message||'状态更新失败')}finally{transitioning.value=false}}
+async function load(){loading.value=true;try{const [spaceRes,stageRes,orgRes]=await Promise.all([listAdminPortalSpaces(),listPortalStages(),listPortalOrganizationOptions()]);spaces.value=spaceRes.data||[];stages.value=stageRes.data||[];organizations.value=orgRes.data||[];if(!spaces.value.some(item=>item.tenant_id===selectedId.value))selectedId.value=spaces.value[0]?.tenant_id||null}catch(error:any){MessagePlugin.error(error?.message||t('portal.admin.loadFailed'))}finally{loading.value=false}}
+async function save(payload:PortalConfigPayload){if(!selectedId.value)return;saving.value=true;try{const response=await updateAdminPortalConfig(selectedId.value,payload);replace(response.data);MessagePlugin.success(t('portal.admin.saveSuccess'))}catch(error:any){MessagePlugin.error(error?.message||t('portal.admin.saveFailed'))}finally{saving.value=false}}
+async function setStatus(action:'publish'|'unpublish'|'archive'){if(!selectedId.value)return;transitioning.value=true;try{const response=await transitionAdminPortalStatus(selectedId.value,action);replace(response.data);MessagePlugin.success(t('portal.admin.statusSuccess'))}catch(error:any){MessagePlugin.error(error?.message||t('portal.admin.statusFailed'))}finally{transitioning.value=false}}
 function replace(item:PortalAdminSpace){const index=spaces.value.findIndex(space=>space.tenant_id===item.tenant_id);if(index>=0)spaces.value.splice(index,1,item)}
 onMounted(load)
 </script>

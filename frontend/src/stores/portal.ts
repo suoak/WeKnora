@@ -14,6 +14,7 @@ import { displayPortalStage, portalCategories, PORTAL_ALL_STAGE, uniquePortalSpa
 export const usePortalStore = defineStore('portal', () => {
   const stages = ref<PortalStage[]>([])
   const spaces = ref<PortalSpace[]>([])
+  const overviewSpaces = ref<PortalSpace[]>([])
   const mySpaces = ref<PortalMySpace[]>([])
   const search = ref('')
   const selectedStage = ref(PORTAL_ALL_STAGE)
@@ -45,6 +46,11 @@ export const usePortalStore = defineStore('portal', () => {
     }
   }
 
+  async function loadOverviewSpaces() {
+    const response = await listPortalSpaces()
+    overviewSpaces.value = uniquePortalSpaces(response.data || [])
+  }
+
   async function loadMySpaces() {
     const response = await listMyPortalSpaces()
     mySpaces.value = response.data || []
@@ -53,11 +59,19 @@ export const usePortalStore = defineStore('portal', () => {
   async function initialize() {
     if (initialized.value) return
     initialized.value = true
+    loading.value = true
     try {
-      await Promise.all([loadStages(), loadMySpaces(), loadSpaces()])
+      await Promise.all([loadStages(), loadMySpaces(), loadOverviewSpaces()])
+      if (!search.value.trim() && selectedStage.value === PORTAL_ALL_STAGE && !selectedCategory.value) {
+        spaces.value = overviewSpaces.value
+      } else {
+        await loadSpaces()
+      }
     } catch (error) {
       initialized.value = false
       throw error
+    } finally {
+      loading.value = false
     }
   }
 
@@ -75,13 +89,13 @@ export const usePortalStore = defineStore('portal', () => {
     initialized.value = false
     loadVersion++
     if (typeof window !== 'undefined' && window.location.pathname === '/portal') {
-      void loadSpaces()
+      void Promise.all([loadOverviewSpaces(), loadSpaces()])
     }
   }
 
   return {
-    stages, spaces, mySpaces, search, selectedStage, selectedCategory,
+    stages, spaces, overviewSpaces, mySpaces, search, selectedStage, selectedCategory,
     loading, requestState, categories, initialize, loadStages, loadSpaces,
-    loadMySpaces, requestAccess, invalidate,
+    loadOverviewSpaces, loadMySpaces, requestAccess, invalidate,
   }
 })

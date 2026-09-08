@@ -78,6 +78,10 @@ func (r *portalRepository) ListPublished(ctx context.Context, userID string, act
 	if err != nil {
 		return nil, err
 	}
+	knowledgeBaseCounts, fileCounts, err := r.resourceCountMaps(ctx, tenantIDs)
+	if err != nil {
+		return nil, err
+	}
 
 	interaction := map[string]bool{}
 	if activeTenantID != 0 {
@@ -144,7 +148,9 @@ func (r *portalRepository) ListPublished(ctx context.Context, userID string, act
 		out = append(out, &types.PortalSpaceResponse{
 			TenantID: row.TenantID, DisplayName: row.DisplayName, Description: row.Description,
 			Category: row.Category, ResponsibleTeam: row.ResponsibleTeam, Contact: row.Contact,
-			Stages: stages[row.TenantID], Featured: row.Featured, AccessState: state,
+			Stages: stages[row.TenantID], Featured: row.Featured,
+			KnowledgeBaseCount: knowledgeBaseCounts[row.TenantID], FileCount: fileCounts[row.TenantID],
+			AccessState:       state,
 			CurrentRole:       currentRole,
 			CanRequestAccess:  row.AllowAccessRequest && state == types.PortalAccessNotMember,
 			InteractionAction: action,
@@ -153,9 +159,53 @@ func (r *portalRepository) ListPublished(ctx context.Context, userID string, act
 	return out, nil
 }
 
+// resourceCountMaps returns aggregate discovery metadata only. It deliberately
+// selects no knowledge-base IDs, names, document titles, paths, or content.
+// Soft-deleted and temporary knowledge bases, and knowledge rows under them,
+// are excluded so Portal counts match resources visible in the workspace UI.
+func (r *portalRepository) resourceCountMaps(ctx context.Context, tenantIDs []uint64) (map[uint64]int64, map[uint64]int64, error) {
+	type countRow struct {
+		TenantID uint64
+		Count    int64
+	}
+
+	knowledgeBaseCounts := make(map[uint64]int64, len(tenantIDs))
+	fileCounts := make(map[uint64]int64, len(tenantIDs))
+	for _, tenantID := range tenantIDs {
+		knowledgeBaseCounts[tenantID] = 0
+		fileCounts[tenantID] = 0
+	}
+
+	var knowledgeBaseRows []countRow
+	if err := r.db.WithContext(ctx).Table("knowledge_bases").
+		Select("tenant_id, COUNT(*) AS count").
+		Where("tenant_id IN ? AND deleted_at IS NULL AND is_temporary = ?", tenantIDs, false).
+		Group("tenant_id").Scan(&knowledgeBaseRows).Error; err != nil {
+		return nil, nil, err
+	}
+	for _, row := range knowledgeBaseRows {
+		knowledgeBaseCounts[row.TenantID] = row.Count
+	}
+
+	var fileRows []countRow
+	if err := r.db.WithContext(ctx).Table("knowledges AS k").
+		Select("k.tenant_id, COUNT(k.id) AS count").
+		Joins(`JOIN knowledge_bases AS kb ON kb.id = k.knowledge_base_id
+			AND kb.tenant_id = k.tenant_id AND kb.deleted_at IS NULL AND kb.is_temporary = ?`, false).
+		Where("k.tenant_id IN ? AND k.deleted_at IS NULL", tenantIDs).
+		Group("k.tenant_id").Scan(&fileRows).Error; err != nil {
+		return nil, nil, err
+	}
+	for _, row := range fileRows {
+		fileCounts[row.TenantID] = row.Count
+	}
+
+	return knowledgeBaseCounts, fileCounts, nil
+}
+
 func (r *portalRepository) stageMap(ctx context.Context, tenantIDs []uint64) (map[uint64][]string, error) {
 	var rows []types.TenantPortalStage
-	if err := r.db.WithContext(ctx).Where("tenant_id IN ?", tenantIDs).
+	if err := r.db.WithContext(ctx).Where("tenant_id IN ? AND stage_key IN ?", tenantIDs, types.BuiltinPortalStages).
 		Order("display_order ASC, stage_key ASC").Find(&rows).Error; err != nil {
 		return nil, err
 	}
