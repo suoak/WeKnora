@@ -1173,6 +1173,10 @@ func (h *Handler) executeQA(reqCtx *qaRequestContext, mode qaMode, generateTitle
 			if data.IsFallback {
 				streamCtx.assistantMessage.IsFallback = true
 			}
+			if data.Usage != nil {
+				usage := *data.Usage
+				streamCtx.assistantMessage.Usage = &usage
+			}
 			if data.Done {
 				if completionHandled {
 					return nil
@@ -1667,7 +1671,20 @@ func (h *Handler) completeAssistantMessage(
 ) {
 	assistantMessage.UpdatedAt = time.Now()
 	assistantMessage.IsCompleted = true
-	_ = h.messageService.UpdateMessage(ctx, assistantMessage)
+	if err := h.messageService.UpdateMessage(ctx, assistantMessage); err != nil {
+		logger.Warnf(ctx, "complete assistant message %s: persist failed: %v", assistantMessage.ID, err)
+		return
+	}
+	if h.usageAnalytics != nil && assistantMessage.Usage != nil {
+		tenantID, _ := types.SessionTenantIDFromContext(ctx)
+		if err := h.usageAnalytics.RecordAssistantTurn(ctx, tenantID, assistantMessage); err != nil {
+			logger.WarnWithFields(ctx, logger.Fields{
+				"message_id": assistantMessage.ID,
+				"tenant_id":  tenantID,
+				"error":      err.Error(),
+			}, "usage analytics record failed")
+		}
+	}
 
 	// Asynchronously index the Q&A pair into the chat history knowledge base for vector search.
 	// Use WithoutCancel so the goroutine survives after the HTTP request context is done.

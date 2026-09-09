@@ -153,3 +153,29 @@ func TestStreamIgnoresDuplicateTerminalAnswer(t *testing.T) {
 	}
 	require.Equal(t, []event.AgentFinalAnswerData{{Content: "hello"}, {Done: true}}, answerEvents)
 }
+
+func TestStreamPropagatesProviderUsageOnTerminalAnswer(t *testing.T) {
+	bus := &syncEventBus{}
+	usage := &types.TokenUsage{PromptTokens: 10, CompletionTokens: 5, TotalTokens: 20, CacheReadTokens: 7}
+	model := &openStreamChat{closeStream: true, chunks: []types.StreamResponse{
+		{ResponseType: types.ResponseTypeAnswer, Content: "answer"},
+		{ResponseType: types.ResponseTypeAnswer, Done: true, Usage: usage},
+	}}
+	chatManage := &types.ChatManage{
+		PipelineRequest: types.PipelineRequest{SessionID: "sess-usage"},
+		PipelineContext: types.PipelineContext{EventBus: bus},
+	}
+	plugin := &PluginChatCompletionStream{modelService: &stubModelService{model: model}}
+	require.Nil(t, plugin.OnEvent(context.Background(), types.CHAT_COMPLETION_STREAM, chatManage, func() *PluginError { return nil }))
+	require.Eventually(t, func() bool {
+		bus.mu.Lock()
+		defer bus.mu.Unlock()
+		return len(bus.events) == 2
+	}, 2*time.Second, 5*time.Millisecond)
+	bus.mu.Lock()
+	defer bus.mu.Unlock()
+	terminal := bus.events[1].Data.(event.AgentFinalAnswerData)
+	require.True(t, terminal.Done)
+	require.Equal(t, usage, terminal.Usage)
+	require.Equal(t, 20, terminal.Usage.TotalTokens, "provider total must be preserved")
+}

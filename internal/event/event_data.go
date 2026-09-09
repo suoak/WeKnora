@@ -1,5 +1,7 @@
 package event
 
+import "github.com/Tencent/WeKnora/internal/types"
+
 // EventData contains common event data structures for different stages
 
 // QueryData represents query-related event data
@@ -192,9 +194,10 @@ type MemoryRecalledData struct {
 
 // AgentFinalAnswerData represents final answer streaming data
 type AgentFinalAnswerData struct {
-	Content    string `json:"content"`
-	Done       bool   `json:"done"`
-	IsFallback bool   `json:"is_fallback,omitempty"` // True when response is a fallback (no knowledge base match)
+	Content    string            `json:"content"`
+	Done       bool              `json:"done"`
+	IsFallback bool              `json:"is_fallback,omitempty"` // True when response is a fallback (no knowledge base match)
+	Usage      *types.TokenUsage `json:"usage,omitempty"`
 }
 
 // ContextCompactedData reports that older conversation was replaced by a

@@ -1170,6 +1170,7 @@ func (s *sessionService) consumeFallbackStream(
 					Content:    response.Content,
 					Done:       response.Done,
 					IsFallback: true,
+					Usage:      response.Usage,
 				},
 			}); err != nil {
 				logger.Errorf(ctx, "Failed to emit fallback answer chunk event: %v", err)
@@ -1178,6 +1179,9 @@ func (s *sessionService) consumeFallbackStream(
 			// Update ChatResponse with final content when done
 			if response.Done {
 				chatManage.ChatResponse = &types.ChatResponse{Content: finalContent}
+				if response.Usage != nil {
+					chatManage.ChatResponse.Usage = *response.Usage
+				}
 				streamCompleted = true
 				logger.Infof(ctx, "Fallback streaming response completed")
 				break

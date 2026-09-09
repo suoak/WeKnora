@@ -47,6 +47,7 @@ type Handler struct {
 	// selected agent so the sandbox is created with the same config a
 	// conversation turn would use.
 	terminalService *service.SandboxTerminalService
+	usageAnalytics  interfaces.UsageAnalyticsService
 }
 
 // NewHandler creates a new instance of Handler with all necessary dependencies
@@ -73,6 +74,7 @@ func NewHandler(
 	userService interfaces.UserService,
 	memberService interfaces.TenantMemberService,
 	terminalService *service.SandboxTerminalService,
+	usageAnalytics interfaces.UsageAnalyticsService,
 ) *Handler {
 	return &Handler{
 		sessionService:       sessionService,
@@ -95,6 +97,7 @@ func NewHandler(
 		userService:          userService,
 		memberService:        memberService,
 		terminalService:      terminalService,
+		usageAnalytics:       usageAnalytics,
 		attachmentProcessor: NewAttachmentProcessor(
 			fileService,
 			documentReader,

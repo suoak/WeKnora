@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/event"
+	"github.com/Tencent/WeKnora/internal/modelcontext"
 	"github.com/Tencent/WeKnora/internal/models/asr"
 	"github.com/Tencent/WeKnora/internal/models/chat"
 	"github.com/Tencent/WeKnora/internal/models/embedding"
@@ -14,6 +15,28 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestFallbackStreamPropagatesProviderUsage(t *testing.T) {
+	bus := event.NewEventBus()
+	var final event.AgentFinalAnswerData
+	bus.On(event.EventAgentFinalAnswer, func(_ context.Context, evt event.Event) error {
+		final = evt.Data.(event.AgentFinalAnswerData)
+		return nil
+	})
+	usage := &types.TokenUsage{PromptTokens: 12, CompletionTokens: 3, TotalTokens: 19, CacheReadTokens: 6}
+	responses := make(chan types.StreamResponse, 1)
+	responses <- types.StreamResponse{ResponseType: types.ResponseTypeAnswer, Content: "fallback", Done: true, Usage: usage}
+	close(responses)
+	manage := &types.ChatManage{
+		PipelineRequest: types.PipelineRequest{SessionID: "fallback-usage"},
+		PipelineContext: types.PipelineContext{EventBus: bus.AsEventBusInterface()},
+	}
+	(&sessionService{}).consumeFallbackStream(context.Background(), manage, responses, modelcontext.NewRegistry(false))
+	require.True(t, final.Done)
+	require.True(t, final.IsFallback)
+	require.Equal(t, usage, final.Usage)
+	require.Equal(t, 19, manage.ChatResponse.Usage.TotalTokens)
+}
 
 type captureChatModel struct {
 	lastMessages []chat.Message

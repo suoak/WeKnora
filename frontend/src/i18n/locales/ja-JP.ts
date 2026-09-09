@@ -6935,6 +6935,12 @@ export default {
       generic: '問題が発生しました。もう一度お試しください。'
     }
   },
+  usageAnalytics: {
+    title: '使用状況分析', description: 'Assistant Turn Token と受信 MCP の使用状況。', range: '期間', sort: 'スペースの並び順', days: '日', refresh: '更新', loading: '読み込み中…', empty: 'この期間のデータはありません。', loadFailed: '使用状況を読み込めませんでした。', collectingSince: '統計は {date} から収集されています。', unattributed: '共有ゲートウェイ / 未帰属', tokenScope: '現在の Token 統計は、ユーザーに表示される Knowledge QA と Agent assistant turn を対象とします。一部のバックグラウンド呼び出しは将来対応します。', mcpScope: '共有ゲートウェイでは実際の外部ユーザーやワークスペースを特定できないため、未帰属として表示されます。', tokenBreakdown: 'Token 内訳', trend: '使用傾向',
+    tabs: { overview: '概要', spaces: 'スペース', token: 'Token', mcp: 'MCP', knowledgeBases: 'ナレッジベース' }, metrics: { tokens: '集計済み Token', mcpCalls: 'MCP 呼び出し', activeTenants: 'アクティブスペース', activePrincipals: 'アクティブ主体', totalCalls: '総呼び出し', unattributed: '未帰属 MCP 呼び出し' },
+    sorts: { tokens: 'Token', mcpCalls: 'MCP Calls', activePrincipals: 'Active Principals', lastActive: 'Last Active' },
+    columns: { tenant_name: 'スペース', active_principals: 'アクティブ主体', assistant_turns: 'Assistant Turns', agent_turns: 'Agent Turns', input_tokens: 'Input Token', output_tokens: 'Output Token', total_tokens: 'Total Token', mcp_calls: 'MCP Calls', mcp_success_rate: 'MCP Success Rate', mcp_avg_latency_ms: 'MCP Avg Latency', last_active: '最終利用', model_id: 'モデル', model_type: 'モデル種別', cache_read_tokens: 'Cache Read', cache_write_tokens: 'Cache Write', tool_name: 'ツール', calls: 'Calls', successful_calls: 'Successful Calls', success_rate: 'Success Rate', average_latency_ms: 'Average Latency', unattributed_calls: 'Unattributed Calls', knowledge_base_name: 'ナレッジベース', owner_tenant_name: '所有スペース', caller_tenant_name: '呼び出し元スペース', input: 'Input', output: 'Output', cacheRead: 'Cache Read', cacheWrite: 'Cache Write', successRate: 'Success Rate', avgLatency: 'Average Latency' },
+  },
   platformApiKeys: {
     title: 'プラットフォームAPIキー',
     description: 'ワークスペース横断の自動化のためのプラットフォーム認証情報を作成します。ワークスペースAPIを呼び出す際は、X-Tenant-IDで対象のワークスペースを指定します。',
