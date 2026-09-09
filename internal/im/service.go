@@ -297,6 +297,7 @@ type Service struct {
 	messageService interfaces.MessageService
 	tenantService  interfaces.TenantService
 	agentService   interfaces.CustomAgentService
+	usageAnalytics interfaces.UsageAnalyticsService
 
 	// knowledgeService is used for saving IM file messages to knowledge bases.
 	knowledgeService interfaces.KnowledgeService
@@ -853,6 +854,7 @@ func NewService(
 	redisClient *redis.Client,
 	appCfg *config.Config,
 	storageResolver interfaces.StorageBackendResolver,
+	usageAnalytics interfaces.UsageAnalyticsService,
 ) *Service {
 	// Resolve IM configuration with defaults.
 	workers, maxQueue, maxPerUser, globalMaxWorkers, rlWindow, rlMax := resolveIMConfig(appCfg)
@@ -872,6 +874,7 @@ func NewService(
 		messageService:   messageService,
 		tenantService:    tenantService,
 		agentService:     agentService,
+		usageAnalytics:   usageAnalytics,
 		knowledgeService: knowledgeService,
 		kbService:        kbService,
 		streamManager:    streamManager,
@@ -2899,6 +2902,8 @@ loop:
 	assistantMsg.IsCompleted = true
 	if err := s.messageService.UpdateMessage(ctx, assistantMsg); err != nil {
 		logger.Warnf(ctx, "[IM] Failed to update assistant message: %v", err)
+	} else {
+		s.recordIMUsage(ctx, session.TenantID, assistantMsg)
 	}
 
 	logger.Infof(ctx, "[IM] Stream reply sent: platform=%s user=%s answer_len=%d", msg.Platform, msg.UserID, len(answer))
@@ -3080,6 +3085,8 @@ func (s *Service) runQA(ctx context.Context, session *types.Session, query strin
 		// Use a fresh context since the original is cancelled
 		if updateErr := s.messageService.UpdateMessage(context.WithoutCancel(ctx), assistantMsg); updateErr != nil {
 			logger.Warnf(ctx, "[IM] Failed to update cancelled assistant message: %v", updateErr)
+		} else {
+			s.recordIMUsage(context.WithoutCancel(ctx), session.TenantID, assistantMsg)
 		}
 		return "", fmt.Errorf("QA cancelled: %w", ctx.Err())
 	}
@@ -3105,10 +3112,26 @@ func (s *Service) runQA(ctx context.Context, session *types.Session, query strin
 	assistantMsg.IsCompleted = true
 	if err := s.messageService.UpdateMessage(ctx, assistantMsg); err != nil {
 		logger.Warnf(ctx, "[IM] Failed to update assistant message: %v", err)
+	} else {
+		s.recordIMUsage(ctx, session.TenantID, assistantMsg)
 	}
 
 	// Return raw answer — callers apply cleanIMContent with the appropriate FileService.
 	return answer, nil
+}
+
+func (s *Service) recordIMUsage(ctx context.Context, tenantID uint64, message *types.Message) {
+	if s.usageAnalytics == nil || message == nil || message.Usage == nil {
+		return
+	}
+	if err := s.usageAnalytics.RecordAssistantTurn(ctx, tenantID, message); err != nil {
+		logger.WarnWithFields(ctx, logger.Fields{
+			"channel":    "im",
+			"message_id": message.ID,
+			"tenant_id":  tenantID,
+			"error":      err.Error(),
+		}, "usage analytics record failed")
+	}
 }
 
 // ── CRUD operations for IM channels ──

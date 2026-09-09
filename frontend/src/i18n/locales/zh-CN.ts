@@ -83,6 +83,13 @@ export default {
       loadFailed: '门户配置加载失败', saveSuccess: '门户配置已保存', saveFailed: '保存失败', statusSuccess: '发布状态已更新', statusFailed: '状态更新失败'
     }
   },
+  usageAnalytics: {
+    title: '使用统计', description: '平台范围内的 Assistant Turn Token 与入站 MCP 使用情况。', range: '时间范围', sort: '空间排序', days: '天', refresh: '刷新', loading: '正在加载使用数据…', empty: '该时间段暂无使用数据。', loadFailed: '使用统计加载失败。', collectingSince: '统计数据从 {date} 开始采集。', unattributed: '共享网关 / 未归属', tokenScope: '当前 Token 统计覆盖用户可见的 Knowledge QA 和 Agent assistant turn。部分后台模型调用将在后续版本纳入。', mcpScope: '共享网关调用无法可靠识别实际外部用户或空间，因此显示为未归属。', tokenBreakdown: 'Token 明细', trend: '使用趋势',
+    tabs: { overview: '概览', spaces: '空间', token: 'Token', mcp: 'MCP', knowledgeBases: '知识库' },
+    sorts: { tokens: 'Token', mcpCalls: 'MCP 调用', activePrincipals: '活跃主体', lastActive: '最后活跃' },
+    metrics: { tokens: '已统计 Token', mcpCalls: 'MCP 调用', activeTenants: '活跃空间', activePrincipals: '活跃主体', totalCalls: '总调用数', unattributed: '未归属 MCP 调用' },
+    columns: { tenant_name: '空间', active_principals: '活跃主体', assistant_turns: 'Assistant Turn', agent_turns: 'Agent Turn', input_tokens: '输入 Token', output_tokens: '输出 Token', total_tokens: '总 Token', mcp_calls: 'MCP 调用', mcp_success_rate: 'MCP 成功率', mcp_avg_latency_ms: 'MCP 平均延迟', last_active: '最后活跃', model_id: '模型', model_type: '模型类型', cache_read_tokens: '缓存读取', cache_write_tokens: '缓存写入', tool_name: '工具', calls: '调用数', successful_calls: '成功调用', success_rate: '成功率', average_latency_ms: '平均延迟', unattributed_calls: '未归属调用', knowledge_base_name: '知识库', owner_tenant_name: '所属空间', caller_tenant_name: '调用空间', input: '输入', output: '输出', cacheRead: '缓存读取', cacheWrite: '缓存写入', successRate: '成功率', avgLatency: '平均延迟' },
+  },
   platformApiKeys: {
     title: '平台 API Key',
     description: '为跨空间自动化创建平台级凭据；调用空间接口时通过 X-Tenant-ID 指定目标空间。',

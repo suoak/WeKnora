@@ -10,6 +10,7 @@ import asyncio
 import contextvars
 import functools
 import hashlib
+import inspect
 import json
 import logging
 import os
@@ -17,6 +18,8 @@ import re
 import secrets
 import sys
 import threading
+import time
+import uuid
 from typing import Any, Dict
 
 import urllib3
@@ -55,6 +58,10 @@ _request_api_key: contextvars.ContextVar[str] = contextvars.ContextVar(
 _request_tenant_id: contextvars.ContextVar[str] = contextvars.ContextVar(
     "weknora_mcp_request_tenant_id", default=""
 )
+_request_invocation_id: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "weknora_mcp_request_invocation_id", default=""
+)
+_active_mcp_transport = "stdio"
 
 
 def network_auth_mode() -> str:
@@ -154,6 +161,36 @@ class MCPAuthMiddleware:
             provided = headers["x-mcp-auth-token"]
         tenant_id = headers.get("x-tenant-id", "").strip()
 
+        body_parts: list[bytes] = []
+        invocation_token = None
+        original_receive = receive
+
+        async def receive_with_invocation_id():
+            nonlocal invocation_token
+            message = await original_receive()
+            if message.get("type") == "http.request":
+                body_parts.append(message.get("body", b""))
+                if not message.get("more_body", False):
+                    try:
+                        rpc = json.loads(b"".join(body_parts))
+                        if rpc.get("method") == "tools/call":
+                            rpc_id = str(rpc.get("id", ""))
+                            session_id = headers.get("mcp-session-id", "")
+                            request_identity = (
+                                headers.get("x-request-id")
+                                or (f"{session_id}:{rpc_id}" if session_id and rpc_id else "")
+                                or rpc_id
+                            )
+                            if request_identity:
+                                tool_name = rpc.get("params", {}).get("name", "")
+                                digest = hashlib.sha256(
+                                    f"{provided}:{tenant_id}:{request_identity}:{tool_name}".encode("utf-8")
+                                ).hexdigest()
+                                invocation_token = _request_invocation_id.set("mcp:" + digest)
+                    except (ValueError, TypeError, AttributeError):
+                        pass
+            return message
+
         authorized = bool(provided)
         if self.auth_mode == "shared":
             authorized = authorized and secrets.compare_digest(provided, self.token)
@@ -200,8 +237,10 @@ class MCPAuthMiddleware:
             request_key_token = _request_api_key.set(provided)
             request_tenant_token = _request_tenant_id.set(tenant_id)
         try:
-            await self.app(scope, receive, send)
+            await self.app(scope, receive_with_invocation_id, send)
         finally:
+            if invocation_token is not None:
+                _request_invocation_id.reset(invocation_token)
             if request_key_token is not None:
                 _request_api_key.reset(request_key_token)
                 _request_tenant_id.reset(request_tenant_token)
@@ -297,6 +336,20 @@ class WeKnoraClient:
         except RequestException as e:
             logger.error(f"API request failed: {e}")
             raise
+
+    def report_mcp_usage(self, payload: Dict[str, Any], shared_gateway: bool = False) -> None:
+        """Best-effort reporting for one logical MCP tool invocation."""
+        response = self.session.post(
+            f"{self.base_url}/usage/mcp-events",
+            headers={
+                "Content-Type": "application/json",
+                "X-WeKnora-MCP-Shared-Gateway": "true" if shared_gateway else "false",
+                **self._auth_headers(),
+            },
+            json=payload,
+            timeout=5,
+        )
+        response.raise_for_status()
 
     # Tenant Management - Methods for managing multi-tenant configurations
     def create_tenant(
@@ -763,6 +816,95 @@ mcp = MCPServer("weknora-server", version="1.1.1")
 client = WeKnoraClient(WEKNORA_BASE_URL, WEKNORA_API_KEY)
 
 
+def _safe_resource_ids(arguments: Dict[str, Any]) -> tuple[list[str], list[str]]:
+    """Extract bounded resource IDs without copying arbitrary tool arguments."""
+
+    def values(*names: str) -> list[str]:
+        result: list[str] = []
+        for name in names:
+            value = arguments.get(name)
+            candidates = value if isinstance(value, list) else [value]
+            for candidate in candidates:
+                if isinstance(candidate, str) and 0 < len(candidate.strip()) <= 64:
+                    result.append(candidate.strip())
+        return list(dict.fromkeys(result))
+
+    return (
+        values("knowledge_base_id", "knowledge_base_ids"),
+        values("knowledge_id", "knowledge_ids"),
+    )
+
+
+def tracked_tool(function):
+    """Record one best-effort event around one logical MCP tool call."""
+    signature = inspect.signature(function)
+
+    def report(started: float, succeeded: bool, exc: Exception | None, args, kwargs):
+        try:
+            bound = signature.bind_partial(*args, **kwargs)
+            kb_ids, knowledge_ids = _safe_resource_ids(dict(bound.arguments))
+            event_key = _request_invocation_id.get() or f"mcp:{uuid.uuid4()}"
+            client.report_mcp_usage(
+                {
+                    "event_key": event_key,
+                    "tool_name": function.__name__,
+                    "transport": _active_mcp_transport,
+                    "success": succeeded,
+                    "error_code": "" if exc is None else type(exc).__name__[:64],
+                    "latency_ms": max(0, int((time.monotonic() - started) * 1000)),
+                    "request_id": event_key,
+                    "knowledge_base_ids": kb_ids,
+                    "knowledge_ids": knowledge_ids,
+                },
+                shared_gateway=network_auth_mode() == "shared",
+            )
+        except Exception as report_error:
+            logger.warning(
+                "MCP usage report failed tool=%s error_type=%s",
+                function.__name__,
+                type(report_error).__name__,
+            )
+
+    if inspect.iscoroutinefunction(function):
+        @functools.wraps(function)
+        async def async_wrapper(*args, **kwargs):
+            started = time.monotonic()
+            try:
+                result = await function(*args, **kwargs)
+            except Exception as exc:
+                report(started, False, exc, args, kwargs)
+                raise
+            report(started, True, None, args, kwargs)
+            return result
+
+        return async_wrapper
+
+    @functools.wraps(function)
+    def sync_wrapper(*args, **kwargs):
+        started = time.monotonic()
+        try:
+            result = function(*args, **kwargs)
+        except Exception as exc:
+            report(started, False, exc, args, kwargs)
+            raise
+        report(started, True, None, args, kwargs)
+        return result
+
+    return sync_wrapper
+
+
+# Wrap registration once so all tools share the same instrumentation path.
+_mcp_tool_decorator = mcp.tool
+
+
+def _tracked_tool_registration(*args, **kwargs):
+    register = _mcp_tool_decorator(*args, **kwargs)
+    return lambda function: register(tracked_tool(function))
+
+
+mcp.tool = _tracked_tool_registration
+
+
 # ---------------------------------------------------------------------------
 # Tool registrations
 #
@@ -1184,12 +1326,16 @@ def wiki_index_view(kb_id: str, limit: int = 50) -> dict:
 
 async def run_stdio():
     """Run the MCP server using stdio transport."""
+    global _active_mcp_transport
+    _active_mcp_transport = "stdio"
     set_active_transport("stdio")
     await mcp.run_stdio_async()
 
 
 async def run_sse(host: str, port: int):
     """Run the MCP server using SSE transport (legacy MCP clients)."""
+    global _active_mcp_transport
+    _active_mcp_transport = "sse"
     set_active_transport("sse")
     auth_token = require_network_transport_auth("sse")
     try:
@@ -1215,6 +1361,8 @@ async def run_sse(host: str, port: int):
 
 async def run_http(host: str, port: int):
     """Run the MCP server using Streamable HTTP transport (MCP 2025-03-26 spec)."""
+    global _active_mcp_transport
+    _active_mcp_transport = "http"
     set_active_transport("http")
     auth_token = require_network_transport_auth("http")
     try:

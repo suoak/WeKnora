@@ -7016,6 +7016,13 @@ export default {
       generic: 'Something went wrong. Please try again.'
     }
   },
+  usageAnalytics: {
+    title: 'Usage Analytics', description: 'Assistant turn token and inbound MCP usage across the platform.', range: 'Time range', sort: 'Sort spaces', days: 'days', refresh: 'Refresh', loading: 'Loading usage data…', empty: 'No usage data in this period.', loadFailed: 'Failed to load usage analytics.', collectingSince: 'Statistics have been collected since {date}.', unattributed: 'Shared gateway / Unattributed', tokenScope: 'Current token statistics cover user-visible Knowledge QA and Agent assistant turns. Some background model calls will be included in a future version.', mcpScope: 'Shared gateway calls cannot reliably identify the actual external user or workspace, so they are shown as unattributed.', tokenBreakdown: 'Token breakdown', trend: 'Usage trend',
+    tabs: { overview: 'Overview', spaces: 'Spaces', token: 'Token', mcp: 'MCP', knowledgeBases: 'Knowledge Bases' },
+    sorts: { tokens: 'Token', mcpCalls: 'MCP Calls', activePrincipals: 'Active Principals', lastActive: 'Last Active' },
+    metrics: { tokens: 'Tracked Token', mcpCalls: 'MCP Calls', activeTenants: 'Active Workspaces', activePrincipals: 'Active Principals', totalCalls: 'Total Calls', unattributed: 'Unattributed MCP Calls' },
+    columns: { tenant_name: 'Workspace', active_principals: 'Active Principals', assistant_turns: 'Assistant Turns', agent_turns: 'Agent Turns', input_tokens: 'Input Token', output_tokens: 'Output Token', total_tokens: 'Total Token', mcp_calls: 'MCP Calls', mcp_success_rate: 'MCP Success Rate', mcp_avg_latency_ms: 'MCP Avg Latency', last_active: 'Last Active', model_id: 'Model', model_type: 'Model Type', cache_read_tokens: 'Cache Read', cache_write_tokens: 'Cache Write', tool_name: 'Tool', calls: 'Calls', successful_calls: 'Successful Calls', success_rate: 'Success Rate', average_latency_ms: 'Average Latency', unattributed_calls: 'Unattributed Calls', knowledge_base_name: 'Knowledge Base', owner_tenant_name: 'Owner Workspace', caller_tenant_name: 'Caller Workspace', input: 'Input', output: 'Output', cacheRead: 'Cache Read', cacheWrite: 'Cache Write', successRate: 'Success Rate', avgLatency: 'Average Latency' },
+  },
   platformApiKeys: {
     title: 'Platform API Keys',
     description: 'Create platform credentials for cross-workspace automation. Use X-Tenant-ID for workspace APIs.',

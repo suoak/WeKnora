@@ -237,6 +237,7 @@ func (p *PluginChatCompletionStream) OnEvent(ctx context.Context,
 						Data: event.AgentFinalAnswerData{
 							Content: response.Content,
 							Done:    response.Done,
+							Usage:   response.Usage,
 						},
 					})
 				}

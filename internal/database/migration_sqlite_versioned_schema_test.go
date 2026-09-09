@@ -26,6 +26,9 @@ var versionedSQLiteTables = []string{
 	"tenant_portal_configs",
 	"tenant_portal_stages",
 	"tenant_access_requests",
+	"model_usage_events",
+	"mcp_usage_events",
+	"usage_resource_links",
 }
 
 // versionedSQLiteColumns maps each existing table to the columns that the
@@ -42,7 +45,7 @@ var versionedSQLiteColumns = map[string][]string{
 	"mcp_tool_approvals": {"enabled"},                        // 000092
 }
 
-const expectedSQLiteMigrationVersion = 15
+const expectedSQLiteMigrationVersion = 16
 
 func TestSQLiteMigrationsCreateVersionedSchema(t *testing.T) {
 	repoRoot := sqliteRepoRoot(t)
@@ -167,7 +170,7 @@ func TestSQLiteMigrationsUpgradeV13ToLatest(t *testing.T) {
 	require.NoError(t, err)
 	migrator, err := migrate.NewWithDatabaseInstance("file://migrations/sqlite", "sqlite3", driver)
 	require.NoError(t, err)
-	require.NoError(t, migrator.Steps(-1))
+	require.NoError(t, migrator.Steps(-2))
 	versionDowngraded, dirtyDowngraded := sqliteMigrationState(t, db)
 	require.Equal(t, 14, versionDowngraded)
 	require.False(t, dirtyDowngraded)
@@ -245,12 +248,57 @@ func TestSQLiteKnowledgePortalMigrationUpgradeConstraintsAndDown(t *testing.T) {
 	require.NoError(t, err)
 	migrator, err := migrate.NewWithDatabaseInstance("file://migrations/sqlite", "sqlite3", driver)
 	require.NoError(t, err)
-	require.NoError(t, migrator.Steps(-1))
+	require.NoError(t, migrator.Steps(-2))
 	version, dirty = sqliteMigrationState(t, db)
 	require.Equal(t, 14, version)
 	require.False(t, dirty)
 	for _, table := range []string{"tenant_portal_configs", "tenant_portal_stages", "tenant_access_requests"} {
 		require.False(t, sqliteTableExists(t, db, table))
+	}
+}
+
+func TestSQLiteUsageAnalyticsMigrationUpgradeV15AndDown(t *testing.T) {
+	repoRoot := sqliteRepoRoot(t)
+	legacyRoot := copySQLiteMigrationsThrough(t, repoRoot, "000015")
+	chdirAndRestore(t, legacyRoot)
+
+	dbPath := filepath.Join(t.TempDir(), "usage-v15.db")
+	require.NoError(t, RunMigrationsWithOptions("sqlite3://unused", MigrationOptions{SQLiteDBPath: dbPath}))
+	db := openSQLiteDB(t, dbPath)
+	version, dirty := sqliteMigrationState(t, db)
+	require.Equal(t, 15, version)
+	require.False(t, dirty)
+
+	chdirAndRestore(t, repoRoot)
+	require.NoError(t, RunMigrationsWithOptions("sqlite3://unused", MigrationOptions{SQLiteDBPath: dbPath}))
+	version, dirty = sqliteMigrationState(t, db)
+	require.Equal(t, expectedSQLiteMigrationVersion, version)
+	require.False(t, dirty)
+	for _, table := range []string{"model_usage_events", "mcp_usage_events", "usage_resource_links"} {
+		require.True(t, sqliteTableExists(t, db, table), table)
+	}
+
+	_, err := db.Exec(`INSERT INTO model_usage_events
+		(event_key, tenant_id, principal_type, channel, operation, input_tokens, output_tokens, total_tokens,
+		 cache_read_tokens, cache_write_tokens, reasoning_tokens, usage_source, status, occurred_at)
+		VALUES ('message:kept-after-delete', 999, 'web_user', 'web', 'knowledge_qa_turn', 10, 5, 15, 4, 0, 0, 'provider', 'completed', CURRENT_TIMESTAMP)`)
+	require.NoError(t, err, "analytics ledger must not require a live tenant or message foreign key")
+	_, err = db.Exec(`INSERT INTO model_usage_events
+		(event_key, tenant_id, principal_type, channel, operation, input_tokens, output_tokens, total_tokens,
+		 cache_read_tokens, cache_write_tokens, reasoning_tokens, usage_source, status, occurred_at)
+		VALUES ('message:kept-after-delete', 999, 'web_user', 'web', 'knowledge_qa_turn', 10, 5, 15, 4, 0, 0, 'provider', 'completed', CURRENT_TIMESTAMP)`)
+	require.Error(t, err, "event_key must make retries idempotent")
+
+	driver, err := sqlite3migrate.WithInstance(db, &sqlite3migrate.Config{})
+	require.NoError(t, err)
+	migrator, err := migrate.NewWithDatabaseInstance("file://migrations/sqlite", "sqlite3", driver)
+	require.NoError(t, err)
+	require.NoError(t, migrator.Steps(-1))
+	version, dirty = sqliteMigrationState(t, db)
+	require.Equal(t, 15, version)
+	require.False(t, dirty)
+	for _, table := range []string{"model_usage_events", "mcp_usage_events", "usage_resource_links"} {
+		require.False(t, sqliteTableExists(t, db, table), table)
 	}
 }
 
