@@ -32,11 +32,11 @@ func (r *parentChildKnowledgeRepo) UpdateKnowledge(
 }
 
 type parentChildChunkService struct {
-	interfaces.ChunkService
+	interfaces.ChunkRepository
 	created []*types.Chunk
 }
 
-func (s *parentChildChunkService) DeleteChunksByKnowledgeID(context.Context, string) error {
+func (s *parentChildChunkService) DeleteChunksByKnowledgeID(context.Context, uint64, string) error {
 	return nil
 }
 
@@ -163,7 +163,7 @@ func TestProcessChunksIndexesEveryTextChild(t *testing.T) {
 	ctx := context.WithValue(context.Background(), types.TenantInfoContextKey, tenant)
 	svc := &knowledgeService{
 		repo:           &parentChildKnowledgeRepo{knowledge: knowledge},
-		chunkService:   chunkService,
+		chunkRepo:      chunkService,
 		modelService:   parentChildModelService{embedder: parentChildEmbedder{}},
 		retrieveEngine: parentChildRetrieveRegistry{engine: retrieveEngine},
 		graphEngine:    parentChildGraphRepo{},
