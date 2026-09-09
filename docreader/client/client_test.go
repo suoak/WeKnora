@@ -23,7 +23,7 @@ func requireLiveDocReaderClient(t *testing.T) *Client {
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
-	t.Cleanup(func() { client.Close() })
+	t.Cleanup(func() { _ = client.Close() })
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
