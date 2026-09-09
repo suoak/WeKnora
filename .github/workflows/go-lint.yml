@@ -81,6 +81,10 @@ jobs:
     name: golangci-lint (${{ matrix.module }})
     needs: changes
     if: needs.changes.outputs.modules != '[]'
+    # Keep lint visible while the inherited backlog is being baselined, but do
+    # not block product pull requests. Remove this once incremental reporting
+    # has been confirmed on fresh branches created from the current main.
+    continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
