@@ -32,20 +32,22 @@ func (r *parentChildKnowledgeRepo) UpdateKnowledge(
 }
 
 type parentChildChunkService struct {
-	interfaces.ChunkRepository
+	interfaces.ChunkService
 	created []*types.Chunk
-}
-
-func (s *parentChildChunkService) DeleteChunksByKnowledgeID(context.Context, string) error {
-	return nil
-}
-
-func (s *parentChildChunkService) DeleteByKnowledgeList(context.Context, []string) error {
-	return nil
 }
 
 func (s *parentChildChunkService) CreateChunks(_ context.Context, chunks []*types.Chunk) error {
 	s.created = append([]*types.Chunk(nil), chunks...)
+	return nil
+}
+
+type parentChildChunkRepository struct {
+	interfaces.ChunkRepository
+	created []*types.Chunk
+}
+
+func (r *parentChildChunkRepository) CreateChunks(_ context.Context, chunks []*types.Chunk) error {
+	r.created = append([]*types.Chunk(nil), chunks...)
 	return nil
 }
 
@@ -153,7 +155,7 @@ func TestProcessChunksIndexesEveryTextChild(t *testing.T) {
 		KnowledgeBaseID: "kb-1",
 		ParseStatus:     types.ParseStatusProcessing,
 	}
-	chunkService := &parentChildChunkService{}
+	chunkService := &parentChildChunkRepository{}
 	retrieveEngine := &parentChildRetrieveEngine{}
 	tenant := &types.Tenant{
 		ID: 1,
