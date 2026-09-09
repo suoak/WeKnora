@@ -17,9 +17,9 @@ test('root, login, password login, and OIDC share the Portal landing policy', ()
 
 test('protected routes are captured before login and 401 redirects preserve the current URL', () => {
   const router = source('../router/index.ts')
-  const request = source('./request.ts')
+  const authRefresh = source('./authRefresh.ts')
   assert.match(router, /rememberAuthReturnTarget\(to\.fullPath\)[\s\S]*?next\(['"]\/login['"]\)/)
-  assert.match(request, /rememberAuthReturnTarget\(`\$\{window\.location\.pathname\}\$\{window\.location\.search\}\$\{window\.location\.hash\}`\)/)
+  assert.match(authRefresh, /rememberAuthReturnTarget\(`\$\{window\.location\.pathname\}\$\{window\.location\.search\}\$\{window\.location\.hash\}`\)/)
 })
 
 test('workspace invites keep their explicit workspace landing for password, registration, and OIDC', () => {

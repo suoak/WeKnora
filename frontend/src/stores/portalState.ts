@@ -9,7 +9,7 @@ const STAGE_FALLBACK: Record<string, { name: string; description: string }> = {
   design: { name: '设计', description: '方案与详细设计' },
   development: { name: '开发', description: '研发实现与构建' },
   testing: { name: '测试', description: '验证、测试与质量保障' },
-  lmt: { name: 'LMT', description: '生命周期管理' },
+  lmt: { name: 'LMT', description: '上市与生命周期管理' },
 }
 
 export function displayPortalStage(stage: PortalStage) {

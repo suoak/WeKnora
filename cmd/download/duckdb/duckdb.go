@@ -21,7 +21,7 @@ func downloadExtensions() {
 	if err != nil {
 		panic(err)
 	}
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 
 	for _, ext := range duckdbExtensions {
 		if _, err := sqlDB.ExecContext(ctx, fmt.Sprintf("INSTALL %s;", ext)); err != nil {

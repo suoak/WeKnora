@@ -26,15 +26,24 @@ func TestPortalRepositorySearchesMetadataOnlyAndReturnsSafeProjection(t *testing
 		`CREATE TABLE tenant_access_requests (id TEXT, tenant_id INTEGER, applicant_user_id TEXT, status TEXT)`,
 		`CREATE TABLE organizations (id TEXT PRIMARY KEY, deleted_at DATETIME)`,
 		`CREATE TABLE organization_tenant_members (organization_id TEXT, tenant_id INTEGER)`,
-		`CREATE TABLE knowledge_bases (id TEXT, tenant_id INTEGER, name TEXT)`,
+		`CREATE TABLE knowledge_bases (id TEXT, tenant_id INTEGER, name TEXT, is_temporary BOOLEAN, deleted_at DATETIME)`,
+		`CREATE TABLE knowledges (id TEXT, tenant_id INTEGER, knowledge_base_id TEXT, title TEXT, deleted_at DATETIME)`,
 		`INSERT INTO tenants(id, name, status) VALUES (1, 'private-tenant-name', 'active'), (2, 'deleted', 'active'), (3, 'inactive', 'inactive'), (99, 'active-context', 'active')`,
 		`INSERT INTO tenant_portal_configs VALUES
 			(1, 'published', 'Hardware Hub', 'Reusable platform knowledge', 'hardware', 'Platform', 'team@example.com', 1, 10, 1, 'org-1'),
 			(2, 'published', 'Deleted Hub', '', 'hardware', '', '', 0, 0, 1, NULL),
 			(3, 'published', 'Inactive Hub', '', 'hardware', '', '', 0, 0, 1, NULL)`,
 		`UPDATE tenants SET deleted_at = CURRENT_TIMESTAMP WHERE id = 2`,
-		`INSERT INTO tenant_portal_stages VALUES (1, 'architecture', 0, CURRENT_TIMESTAMP)`,
-		`INSERT INTO knowledge_bases VALUES ('kb-secret', 1, 'classified quantum roadmap')`,
+		`INSERT INTO tenant_portal_stages VALUES (1, 'architecture', 0, CURRENT_TIMESTAMP), (1, 'lmt', 1, CURRENT_TIMESTAMP), (1, 'retired_legacy', 2, CURRENT_TIMESTAMP)`,
+		`INSERT INTO knowledge_bases VALUES
+			('kb-secret', 1, 'classified quantum roadmap', 0, NULL),
+			('kb-deleted', 1, 'deleted knowledge base', 0, CURRENT_TIMESTAMP),
+			('kb-temporary', 1, 'temporary knowledge base', 1, NULL)`,
+		`INSERT INTO knowledges VALUES
+			('file-secret', 1, 'kb-secret', 'confidential launch plan', NULL),
+			('file-deleted', 1, 'kb-secret', 'deleted file', CURRENT_TIMESTAMP),
+			('file-hidden-kb', 1, 'kb-deleted', 'file in deleted kb', NULL),
+			('file-temporary', 1, 'kb-temporary', 'temporary file', NULL)`,
 		`INSERT INTO organizations VALUES ('org-1', NULL)`,
 		`INSERT INTO organization_tenant_members VALUES ('org-1', 99)`,
 		`INSERT INTO tenant_members(id, tenant_id, user_id, role, status) VALUES ('99', 99, 'tenantless-user', 'viewer', 'active')`,
@@ -53,10 +62,16 @@ func TestPortalRepositorySearchesMetadataOnlyAndReturnsSafeProjection(t *testing
 	require.Equal(t, types.PortalAccessNotMember, rows[0].AccessState)
 	require.True(t, rows[0].CanRequestAccess)
 	require.Equal(t, types.PortalInteractionNone, rows[0].InteractionAction)
+	require.Equal(t, int64(1), rows[0].KnowledgeBaseCount)
+	require.Equal(t, int64(1), rows[0].FileCount)
+	require.Equal(t, []string{"architecture", "lmt"}, rows[0].Stages, "unknown stage associations must not be exposed")
 
 	rows, err = repo.ListPublished(ctx, "tenantless-user", 0, interfaces.PortalListQuery{Query: "classified quantum roadmap"})
 	require.NoError(t, err)
 	require.Empty(t, rows, "knowledge-base content must never participate in portal search")
+	rows, err = repo.ListPublished(ctx, "tenantless-user", 0, interfaces.PortalListQuery{Query: "confidential launch plan"})
+	require.NoError(t, err)
+	require.Empty(t, rows, "knowledge titles must never participate in portal search")
 	rows, err = repo.ListPublished(ctx, "tenantless-user", 0, interfaces.PortalListQuery{Query: "%"})
 	require.NoError(t, err)
 	require.Empty(t, rows, "search wildcards must be treated as metadata literals")
@@ -86,6 +101,8 @@ func TestPortalAccessStatePrecedence(t *testing.T) {
 		`CREATE TABLE tenant_access_requests (id TEXT, tenant_id INTEGER, applicant_user_id TEXT, status TEXT)`,
 		`CREATE TABLE organizations (id TEXT PRIMARY KEY, deleted_at DATETIME)`,
 		`CREATE TABLE organization_tenant_members (organization_id TEXT, tenant_id INTEGER)`,
+		`CREATE TABLE knowledge_bases (id TEXT, tenant_id INTEGER, is_temporary BOOLEAN, deleted_at DATETIME)`,
+		`CREATE TABLE knowledges (id TEXT, tenant_id INTEGER, knowledge_base_id TEXT, deleted_at DATETIME)`,
 		`INSERT INTO tenants(id, status) VALUES (1, 'active'), (2, 'active'), (3, 'active')`,
 		`INSERT INTO tenant_portal_configs VALUES
 			(1, 'published', 'one', '', '', '', '', 0, 0, 1, NULL),
@@ -128,8 +145,8 @@ func TestPortalOrganizationOptionsExcludeSoftDeletedAndExposeOnlyIDName(t *testi
 
 func portalForbiddenResponseFields() []string {
 	return []string{
-		"knowledge_base_count", "knowledge_bases", "knowledge_name", "document_count",
-		"document_title", "preview", "chunk", "agent", "mcp", "datasource", "storage",
+		"knowledge_bases", "knowledge_name", "document_count", "document_title", "file_name",
+		"preview", "chunk", "agent", "mcp", "datasource", "storage",
 		"members", "tenant_config", "api_key", "model_config", "interaction_organization_id",
 	}
 }

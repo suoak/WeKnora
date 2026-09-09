@@ -1,6 +1,33 @@
 import { branding } from '../../config/branding'
 
 export default {
+  portal: {
+    brandSubtitle: 'Портал знаний CSBU IPD', heroEyebrow: 'ПОИСК ЗНАНИЙ', heroTitle: 'Поиск управляемых пространств знаний организации',
+    heroDescription: 'Изучайте профессиональные знания по процессу IPD и запрашивайте доступ Viewer только для чтения.', viewSwitcherLabel: 'Представления портала знаний',
+    views: { ipd: 'Поток знаний IPD', ipdDescription: 'Навигация по этапам разработки', public: 'Зона общих знаний', publicDescription: 'Стандарты, шаблоны, обучение и практики' },
+    publicZone: { eyebrow: 'ОБЩИЕ АКТИВЫ ЗНАНИЙ', title: 'Зона общих знаний', description: 'Поиск общих стандартов, шаблонов, учебных материалов и проверенных практик. Доступ к содержимому по-прежнему регулируется RBAC пространства.', empty: 'Общие пространства знаний пока не опубликованы.', types: { standards: 'Стандарты', templates: 'Шаблоны', training: 'Обучение', practices: 'Лучшие практики' } }, navigationTitle: 'Навигация по знаниям IPD',
+    flowOverview: { eyebrow: 'РАЗВИТИЕ ЗНАНИЙ IPD', title: 'Карта знаний IPD', description: 'Обзор управляемых пространств знаний для каждого этапа IPD. Выберите этап для полного списка ниже.', coverageMetric: 'охват этапов', spacesMetric: 'связанные пространства', knowledgeBasesMetric: 'базы знаний', filesMetric: 'файлы', coveredStagesMetric: 'этапы с охватом', stageSpaceCount: 'Пространств: {count}', inventory: 'БЗ: {kb} · файлов: {files}', noSpaces: 'Нет опубликованных пространств', moreSpaces: 'Ещё {count}; выберите этап', viewAll: 'Все пространства' },
+    navigationDescription: 'Этапы фильтруют процесс, категории группируют области знаний; каждое пространство показывается один раз.', spaceCount: 'Пространств: {count}',
+    mySpacesTitle: 'Мои пространства знаний', mySpacesDescription: 'Пространства с активным членством, включая не опубликованные на портале.', noMySpaces: 'Вы пока не присоединились к пространствам знаний. Найдите и запросите нужное ниже.',
+    stageNavigationLabel: 'Этапы процесса IPD', allStages: 'Все', allStagesDescription: 'Все опубликованные пространства', searchPlaceholder: 'Поиск по названию, описанию, категории или этапу', allCategories: 'Все области знаний',
+    emptySearch: 'Подходящие пространства знаний не найдены.', emptyStage: 'На этом этапе нет опубликованных пространств.', emptyAll: 'Сейчас нет доступных для поиска пространств.', loadingSpaces: 'Загрузка пространств знаний…', resultsShowing: 'Показано {visible} из {total}', loadMoreSpaces: 'Показать ещё', collapseSpaces: 'Свернуть список',
+    featured: 'Рекомендуемое', noDescription: 'Описание пространства пока не заполнено.', categoryTag: 'Область · {category}', responsibleTeam: 'Ответственная команда', contact: 'Контакт', knowledgeBaseCount: 'Баз знаний: {count}', fileCount: 'Файлов: {count}',
+    joined: 'Участник · {role}', pending: 'Запрос рассматривается', suspended: 'Доступ приостановлен', noAccess: 'Доступа пока нет', restricted: 'Ограниченное пространство', enterWorkspace: 'Открыть пространство', requestAccess: 'Запросить доступ', enterInteraction: 'Открыть интерактивное пространство',
+    requestTitle: 'Запрос доступа для чтения', submitRequest: 'Отправить запрос', viewerOnly: 'Фиксированное право: Viewer / только чтение', reasonPlaceholder: 'Объясните, зачем вам нужен доступ', requestSuccess: 'Запрос отправлен владельцу на рассмотрение.', requestFailed: 'Не удалось отправить запрос', permissionChanged: 'Состояние доступа изменилось. Проверьте доступные права снова.', interactionFailed: 'Не удалось открыть интерактивное пространство', loadFailed: 'Не удалось загрузить портал знаний',
+    roles: { owner: 'Владелец', admin: 'Администратор', contributor: 'Участник', viewer: 'Наблюдатель' },
+    stageDetail: { current: 'ТЕКУЩИЙ ЭТАП IPD', resultTitle: 'Пространства знаний этапа', resultCount: 'Найдено пространств: {count}' },
+    categories: { market_customer: 'Рынок и клиенты', requirements_management: 'Управление требованиями', architecture_design: 'Архитектура и дизайн', development_assets: 'Активы разработки', test_quality: 'Тестирование и качество', operations_lifecycle: 'Эксплуатация и жизненный цикл', process_governance: 'Процессы и управление', public_knowledge: 'Общие знания' },
+    stages: {
+      concept_market: { name: 'Концепция / рынок', description: 'Возможности и анализ рынка' }, concept_product: { name: 'Концепция / продукт', description: 'Концепция продукта и требования' },
+      architecture: { name: 'Архитектура', description: 'Системная и техническая архитектура' }, design: { name: 'Проектирование', description: 'Детальное проектирование решения' }, development: { name: 'Разработка', description: 'Реализация и сборка' }, testing: { name: 'Тестирование', description: 'Проверка и обеспечение качества' }, lmt: { name: 'LMT', description: 'Вывод на рынок и управление жизненным циклом' }
+    },
+    requests: {
+      title: 'Запросы доступа', description: 'Только владельцы пространства могут рассматривать запросы. При одобрении всегда выдаётся Viewer.', loading: 'Загрузка запросов…', empty: 'Нет ожидающих запросов доступа к порталу.', applicant: 'Заявитель {id}', approve: 'Одобрить', reject: 'Отклонить', approveSuccess: 'Доступ Viewer предоставлен', rejectSuccess: 'Запрос отклонён', applicantUnavailable: 'Учётная запись заявителя недоступна; предоставить доступ нельзя.', loadFailed: 'Не удалось загрузить запросы', reviewFailed: 'Не удалось обработать запрос'
+    },
+    admin: {
+      menuEntry: 'Управление платформой · Портал знаний', back: 'Назад к порталу знаний', eyebrow: 'УПРАВЛЕНИЕ ПЛАТФОРМОЙ', title: 'Настройки портала знаний', description: 'Управление метаданными поиска. Доступ к содержимому по-прежнему регулируется RBAC рабочего пространства.', refresh: 'Обновить', unconfigured: 'Не настроено', workspaceNumber: 'Пространство №{id}', displayName: 'Отображаемое имя', category: 'Категория (область знаний / организация)', categoryPlaceholder: 'Выберите или создайте область знаний', categoryHelp: 'Выберите область знаний. Можно создать своё значение, но нельзя использовать ключи этапов IPD, например architecture, design или testing.', groups: { basicTitle: 'Основная информация', basicDescription: 'Название и описание на карточке портала.', positioningTitle: 'Позиционирование знаний', positioningDescription: 'Категория задаёт область знаний, этапы — поддерживаемые части процесса IPD.', displayTitle: 'Настройки отображения', displayDescription: 'Настройка рекомендации и порядка без изменения прав.', accessTitle: 'Доступ и взаимодействие', accessDescription: 'Запросы Viewer и необязательный вход в организацию; действующие права сохраняются.' }, descriptionLabel: 'Описание', responsibleTeam: 'Ответственная команда', contact: 'Контакт', ipdStages: 'Этапы IPD', displayOrder: 'Порядок показа', interactionOrganization: 'Интерактивная организация', noInteractionOrganization: 'Без интерактивного пространства', featured: 'Рекомендуемое', allowAccessRequest: 'Разрешить запросы Viewer', save: 'Сохранить настройки', saveHint: 'Сохранение не изменяет статус публикации.', publishStatus: 'Статус публикации', publish: 'Опубликовать', unpublish: 'Снять с публикации', archive: 'Архивировать', statuses: { draft: 'Черновик', published: 'Опубликовано', archived: 'В архиве' }, loadFailed: 'Не удалось загрузить настройки портала', saveSuccess: 'Настройки портала сохранены', saveFailed: 'Не удалось сохранить настройки', statusSuccess: 'Статус публикации обновлён', statusFailed: 'Не удалось обновить статус'
+    }
+  },
   platformApiKeys: {
     title: 'Платформенные API-ключи',
     description: 'Учетные данные для автоматизации между рабочими пространствами. Для API пространства используйте X-Tenant-ID.',
@@ -1233,6 +1260,29 @@ export default {
       success: 'Скопировано в буфер обмена',
       failed: 'Ошибка копирования, скопируйте вручную'
     },
+    mcp: {
+      discoverTools: "Поиск инструментов MCP",
+      listServers: "Сервисы MCP",
+      listTools: "Инструменты MCP",
+      searchTools: "Поиск инструментов MCP",
+      describeTool: "Чтение определения инструмента",
+      callTool: "Вызов инструмента MCP",
+      showing: "Показано {count} из {total}",
+      moreAvailable: "Есть другие результаты",
+      required: "Обязательно",
+      fullSchema: "Полное описание параметров",
+      failed: "Ошибка операции MCP",
+      result: "Результат",
+      status: {
+        not_loaded: "Не загружено",
+        loading: "Загрузка",
+        ready: "Доступно",
+        needs_auth: "Требуется авторизация",
+        error: "Ошибка подключения",
+        disabled: "Отключено",
+        unavailable: "Недоступно",
+      },
+    },
     toolStatus: {
       calling: 'Вызов {name}...',
       searchKb: 'Поиск по базе знаний',
@@ -2343,6 +2393,7 @@ export default {
     enUS: 'English',
     ruRU: 'Русский',
     koKR: '한국어',
+    jaJP: '日本語',
     selectLanguage: 'Выбрать язык',
     language: 'Язык',
     languageDescription: 'Выберите язык отображения интерфейса',
@@ -3374,6 +3425,26 @@ export default {
     referencesDrawerDocsSection: 'Документы базы знаний',
     referencesDrawerToolsSection: 'Инструменты',
     referencesDrawerEmpty: 'Источники отсутствуют',
+    sandbox: {
+        panelTitle: 'Песочница',
+        tabArtifacts: 'Файлы',
+        tabTerminal: 'Терминал',
+        tabDesktop: 'Рабочий стол',
+        artifactsEmpty: 'В этом диалоге пока нет созданных файлов',
+        desktopPlaceholder: 'Визуализация рабочего стола скоро появится',
+        notStarted: 'Терминал ещё не запущен. Запуск подключит его к песочнице этого диалога, создав или возобновив её при необходимости.',
+        start: 'Запустить терминал',
+        connecting: 'Подключение к песочнице…',
+        needsProvision: 'В этом диалоге нет работающей песочницы. Создание запустит новую песочницу — она тарифицируется согласно настройкам рабочего пространства.',
+        createAndStart: 'Создать и запустить',
+        noSandbox: 'Песочницы ещё нет, а у текущего агента не настроен бэкенд песочницы — непонятно, где её создавать. Переключитесь на агента с настроенной песочницей или отправьте сообщение с выполнением кода.',
+        unsupported: 'Текущий бэкенд песочницы не поддерживает интерактивный терминал',
+        disconnected: 'Соединение потеряно',
+        retry: 'Переподключиться',
+        sessionEnded: 'Сеанс терминала завершён',
+        idleDisconnected: 'Терминал отключён из‑за простоя. Песочница приостановится по своему TTL. Можно подключиться снова.',
+        authRevoked: 'Сессия больше не действительна, терминал отключён. Войдите снова и переподключитесь.',
+    },
     questionMinimapTitle: 'Вопросы',
     questionMinimapAriaLabel: 'Содержание вопросов',
     questionMinimapAttachmentPlaceholder: '(Вложение)',
@@ -3430,6 +3501,8 @@ export default {
     webFetchStatusSkipped: 'Skipped',
     webFetchErrorCode: 'Error code',
     webFetchRetryable: 'Retryable',
+    webFetchContentRange: 'Символы {start}–{end} из {total}',
+    webFetchPartialContent: 'Часть страницы',
     webFetchSummaryFailed: 'Summary failed',
     lengthChars: '{value} символов',
     lengthThousands: '{value} тыс. символов',
@@ -5330,6 +5403,8 @@ export default {
       dockerNetworkNone: 'none (no egress)',
       defaultTimeout: 'Execution timeout (s)',
       defaultTimeoutHelp: 'Максимальное время одного запуска скрипта навыка; по истечении он прерывается. Пусто — 60 секунд.',
+      terminalIdleDisconnect: 'Отключение простоя терминала (с)',
+      terminalIdleDisconnectHelp: 'После открытия терминала соединение закрывается, если столько времени нет ввода с клавиатуры и вывода PTY, чтобы песочница могла приостановиться по TTL. Пусто — 900 секунд; минимум 60 секунд, максимум 24 часа.',
       envVars: 'Environment variables',
       envKey: 'Name',
       envValue: 'Value',
@@ -6788,6 +6863,7 @@ export default {
   },
   chatHeader: {
     moreActions: 'Другие действия с диалогом',
+    toggleSandboxPanel: 'Терминал песочницы',
     copySessionId: 'Копировать ID сессии',
     copyLink: 'Копировать ссылку на диалог',
     copyMarkdown: 'Копировать как Markdown',
@@ -6817,6 +6893,7 @@ export default {
   menu: {
     sessionInProgress: 'Диалог выполняется',
     knowledgeBase: 'База знаний',
+    portal: 'Портал знаний',
     agents: 'Агенты',
     organizations: 'Общие пространства',
     newChat: 'Новый диалог',

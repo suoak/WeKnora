@@ -175,7 +175,7 @@ func TestLoaderDiscoverSkills(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create a test skill directory
 	skillDir := filepath.Join(tmpDir, "test-skill")
@@ -220,7 +220,7 @@ func TestLoaderLoadSkillInstructions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create a test skill directory
 	skillDir := filepath.Join(tmpDir, "test-skill")
@@ -273,7 +273,7 @@ func TestLoaderLoadSkillFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create a test skill directory with additional files
 	skillDir := filepath.Join(tmpDir, "test-skill")

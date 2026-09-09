@@ -90,7 +90,9 @@ func (m *Manager) stageShellSkill(ctx context.Context, sessionID, name string) (
 		if total > maxStagedSkillBytes {
 			return "", fmt.Errorf("skill %q exceeds the %d-byte staging limit; install it into the sandbox image", name, maxStagedSkillBytes)
 		}
-		fmt.Fprintf(digest, "%d:%s:%d:", len(rel), rel, len(file.Content))
+		if _, err := fmt.Fprintf(digest, "%d:%s:%d:", len(rel), rel, len(file.Content)); err != nil {
+			return "", fmt.Errorf("hash skill resource %q: %w", rel, err)
+		}
 		digest.Write([]byte(file.Content))
 		resources = append(resources, resource{rel, []byte(file.Content)})
 	}

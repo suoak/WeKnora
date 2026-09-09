@@ -439,7 +439,7 @@ func TestKeywordsRetrieve_SQLShape(t *testing.T) {
 func TestBatchUpdateChunkEnabledStatus_RewritesRows(t *testing.T) {
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	repo := &dorisRepository{
 		db:            db,
@@ -490,7 +490,7 @@ func TestBatchUpdateChunkEnabledStatus_LegacyModeUsesPartialUpdate(t *testing.T)
 func TestEnsureTable_DDLShape(t *testing.T) {
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	repo := &dorisRepository{
 		db:             db,

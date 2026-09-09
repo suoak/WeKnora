@@ -1,6 +1,33 @@
 import { branding } from '../../config/branding'
 
 export default {
+  portal: {
+    brandSubtitle: 'CSBU IPD 지식 포털', heroEyebrow: '지식 탐색', heroTitle: '조직의 관리된 지식 공간 탐색',
+    heroDescription: 'IPD 프로세스를 따라 전문 지식을 탐색하고 Viewer 읽기 전용 권한을 요청하세요.', viewSwitcherLabel: '지식 포털 보기',
+    views: { ipd: 'IPD 지식 흐름', ipdDescription: '제품 개발 단계별 탐색', public: '공용 지식 구역', publicDescription: '표준, 템플릿, 교육 및 모범 사례' },
+    publicZone: { eyebrow: '조직 공유 지식 자산', title: '공용 지식 구역', description: '재사용 가능한 조직 표준, 템플릿, 교육 자료 및 검증된 사례를 찾습니다. 실제 콘텐츠 접근에는 워크스페이스 RBAC가 계속 적용됩니다.', empty: '게시된 공용 지식 공간이 없습니다.', types: { standards: '표준', templates: '템플릿', training: '교육', practices: '모범 사례' } }, navigationTitle: 'IPD 지식 탐색',
+    flowOverview: { eyebrow: 'IPD 지식 구축', title: 'IPD 지식 현황', description: '각 IPD 단계를 지원하는 관리된 지식 공간을 한눈에 확인하고 단계를 선택해 전체 목록을 봅니다.', coverageMetric: '단계 범위', spacesMetric: '연결된 공간', knowledgeBasesMetric: '지식베이스', filesMetric: '파일', coveredStagesMetric: '지원 단계', stageSpaceCount: '공간 {count}개', inventory: 'KB {kb}개 · 파일 {files}개', noSpaces: '게시된 공간 없음', moreSpaces: '외 {count}개, 선택하여 보기', viewAll: '모든 공간 보기' },
+    navigationDescription: '단계는 프로세스를 필터링하고 카테고리는 지식 분야를 구성합니다. 각 공간은 한 번만 표시됩니다.', spaceCount: '{count}개 공간',
+    mySpacesTitle: '내 지식 공간', mySpacesDescription: '포털에 게시되지 않은 공간을 포함하여 활성 멤버십이 있는 워크스페이스입니다.', noMySpaces: '참여한 지식 공간이 없습니다. 아래에서 필요한 공간을 찾아 요청하세요.',
+    stageNavigationLabel: 'IPD 프로세스 단계', allStages: '전체', allStagesDescription: '게시된 모든 공간', searchPlaceholder: '공간 이름, 설명, 분야 또는 단계 검색', allCategories: '모든 지식 분야',
+    emptySearch: '일치하는 지식 공간이 없습니다.', emptyStage: '현재 단계에 게시된 지식 공간이 없습니다.', emptyAll: '현재 탐색 가능한 지식 공간이 없습니다.', loadingSpaces: '지식 공간 불러오는 중…', resultsShowing: '공간 {total}개 중 {visible}개 표시', loadMoreSpaces: '더 보기', collapseSpaces: '목록 접기',
+    featured: '추천', noDescription: '이 공간에는 아직 설명이 없습니다.', categoryTag: '분야 · {category}', responsibleTeam: '담당 팀', contact: '연락처', knowledgeBaseCount: '지식베이스 {count}개', fileCount: '파일 {count}개',
+    joined: '참여함 · {role}', pending: '요청 검토 중', suspended: '접근 중지됨', noAccess: '아직 접근 권한 없음', restricted: '제한된 공간', enterWorkspace: '공간 열기', requestAccess: '접근 요청', enterInteraction: '상호작용 공간 열기',
+    requestTitle: '읽기 전용 접근 요청', submitRequest: '요청 제출', viewerOnly: '고정 권한: Viewer / 읽기 전용', reasonPlaceholder: '이 공간에 접근해야 하는 이유를 입력하세요', requestSuccess: 'Owner 검토를 위해 접근 요청을 제출했습니다.', requestFailed: '접근 요청 제출 실패', permissionChanged: '권한 상태가 변경되었습니다. 접근 범위를 다시 확인하세요.', interactionFailed: '상호작용 공간에 들어갈 수 없습니다', loadFailed: '지식 포털 로드 실패',
+    roles: { owner: 'Owner', admin: 'Admin', contributor: 'Contributor', viewer: 'Viewer' },
+    stageDetail: { current: '현재 IPD 단계', resultTitle: '이 단계의 지식 공간', resultCount: '일치하는 공간 {count}개' },
+    categories: { market_customer: '시장 및 고객', requirements_management: '요구사항 관리', architecture_design: '아키텍처 및 설계', development_assets: '개발 자산', test_quality: '테스트 및 품질', operations_lifecycle: '운영 및 수명주기', process_governance: '프로세스 거버넌스', public_knowledge: '공용 지식' },
+    stages: {
+      concept_market: { name: '컨셉 / 시장', description: '기회 및 시장 통찰' }, concept_product: { name: '컨셉 / 제품', description: '제품 컨셉 및 요구사항' },
+      architecture: { name: '아키텍처', description: '시스템 및 기술 아키텍처' }, design: { name: '설계', description: '상세 솔루션 설계' }, development: { name: '개발', description: '구현 및 빌드' }, testing: { name: '테스트', description: '검증 및 품질 보증' }, lmt: { name: 'LMT', description: '출시 및 수명주기 관리' }
+    },
+    requests: {
+      title: '접근 요청', description: '워크스페이스 Owner만 검토할 수 있으며 승인 시 항상 Viewer 읽기 전용 권한이 부여됩니다.', loading: '접근 요청 불러오는 중…', empty: '대기 중인 포털 접근 요청이 없습니다.', applicant: '신청자 {id}', approve: '승인', reject: '거부', approveSuccess: 'Viewer 권한이 부여되었습니다', rejectSuccess: '요청이 거부되었습니다', applicantUnavailable: '신청자 계정을 사용할 수 없어 권한을 부여할 수 없습니다.', loadFailed: '접근 요청 로드 실패', reviewFailed: '접근 요청 처리 실패'
+    },
+    admin: {
+      menuEntry: '플랫폼 관리 · 지식 포털', back: '지식 포털로 돌아가기', eyebrow: '플랫폼 거버넌스', title: '지식 포털 설정', description: '탐색 메타데이터를 관리합니다. 콘텐츠 접근은 워크스페이스 RBAC가 계속 제어합니다.', refresh: '새로 고침', unconfigured: '설정되지 않음', workspaceNumber: '워크스페이스 #{id}', displayName: '포털 표시 이름', category: '카테고리 (지식 분야 / 조직)', categoryPlaceholder: '지식 분야 선택 또는 생성', categoryHelp: '지식 분야를 선택하세요. 사용자 정의 값은 가능하지만 architecture, design, testing 같은 IPD 단계 키는 사용할 수 없습니다.', groups: { basicTitle: '기본 정보', basicDescription: '포털 카드에 표시할 이름과 설명입니다.', positioningTitle: '지식 분류', positioningDescription: 'Category는 지식 분야, IPD 단계는 지원하는 개발 구간입니다.', displayTitle: '표시 설정', displayDescription: '접근 권한을 바꾸지 않고 추천과 순서를 설정합니다.', accessTitle: '접근 및 상호작용', accessDescription: 'Viewer 요청과 선택적 조직 상호작용 진입점을 설정하며 기존 권한을 유지합니다.' }, descriptionLabel: '설명', responsibleTeam: '담당 팀', contact: '연락처', ipdStages: 'IPD 단계', displayOrder: '표시 순서', interactionOrganization: '상호작용 조직', noInteractionOrganization: '상호작용 공간 없음', featured: '추천', allowAccessRequest: 'Viewer 접근 요청 허용', save: '설정 저장', saveHint: '설정을 저장해도 게시 상태는 변경되지 않습니다.', publishStatus: '게시 상태', publish: '게시', unpublish: '게시 취소', archive: '보관', statuses: { draft: '초안', published: '게시됨', archived: '보관됨' }, loadFailed: '포털 설정 로드 실패', saveSuccess: '포털 설정이 저장되었습니다', saveFailed: '설정 저장 실패', statusSuccess: '게시 상태가 업데이트되었습니다', statusFailed: '상태 업데이트 실패'
+    }
+  },
   platformApiKeys: {
     title: '플랫폼 API 키',
     description: '워크스페이스 간 자동화를 위한 플랫폼 자격 증명입니다. 워크스페이스 API에는 X-Tenant-ID를 사용하세요.',
@@ -1233,6 +1260,29 @@ export default {
       success: '클립보드에 복사되었습니다',
       failed: '복사 실패, 수동으로 복사하세요'
     },
+    mcp: {
+      discoverTools: "MCP 도구 탐색",
+      listServers: "MCP 서비스 목록",
+      listTools: "MCP 도구 목록",
+      searchTools: "MCP 도구 검색",
+      describeTool: "도구 정의 읽기",
+      callTool: "MCP 도구 호출",
+      showing: "{total}개 중 {count}개 표시",
+      moreAvailable: "결과가 더 있습니다",
+      required: "필수",
+      fullSchema: "전체 매개변수 정의",
+      failed: "MCP 작업 실패",
+      result: "실행 결과",
+      status: {
+        not_loaded: "로드되지 않음",
+        loading: "로드 중",
+        ready: "사용 가능",
+        needs_auth: "인증 필요",
+        error: "연결 실패",
+        disabled: "비활성화됨",
+        unavailable: "사용 불가",
+      },
+    },
     toolStatus: {
       calling: '{name} 호출 중...',
       searchKb: '지식베이스 검색',
@@ -2343,6 +2393,7 @@ export default {
     enUS: 'English',
     ruRU: 'Русский',
     koKR: '한국어',
+    jaJP: '日本語',
     selectLanguage: '언어 선택',
     language: '언어',
     languageDescription: '인터페이스 표시 언어 선택',
@@ -3374,6 +3425,26 @@ export default {
     referencesDrawerDocsSection: '지식베이스 문서',
     referencesDrawerToolsSection: '도구',
     referencesDrawerEmpty: '참고 출처가 없습니다',
+    sandbox: {
+        panelTitle: '샌드박스',
+        tabArtifacts: '파일',
+        tabTerminal: '터미널',
+        tabDesktop: '데스크톱',
+        artifactsEmpty: '이 대화에서 생성된 파일이 없습니다',
+        desktopPlaceholder: '데스크톱 시각화는 곧 지원될 예정입니다',
+        notStarted: '터미널이 아직 실행되지 않았습니다. 시작하면 이 대화의 샌드박스에 연결하며, 샌드박스가 없거나 일시 중지된 경우 생성하거나 다시 시작합니다.',
+        start: '터미널 시작',
+        connecting: '샌드박스에 연결하는 중…',
+        needsProvision: '이 대화에는 실행 중인 샌드박스가 없습니다. 생성하고 시작하면 새 샌드박스가 만들어지며 워크스페이스 설정에 따라 요금이 부과됩니다.',
+        createAndStart: '생성 후 시작',
+        noSandbox: '아직 샌드박스가 없고 현재 에이전트에 샌드박스 백엔드가 구성되지 않아 만들 위치를 정할 수 없습니다. 샌드박스가 구성된 에이전트로 전환하거나 코드 실행이 필요한 메시지를 보내세요.',
+        unsupported: '현재 샌드박스 백엔드는 대화형 터미널을 지원하지 않습니다',
+        disconnected: '연결이 끊어졌습니다',
+        retry: '다시 연결',
+        sessionEnded: '터미널 세션이 종료되었습니다',
+        idleDisconnected: '터미널이 유휴 상태로 연결이 끊어졌습니다. 샌드박스는 TTL에 따라 일시 중지됩니다. 다시 연결할 수 있습니다.',
+        authRevoked: '로그인 상태가 더 이상 유효하지 않아 터미널 연결이 끊어졌습니다. 다시 로그인한 뒤 재연결하세요.',
+    },
     questionMinimapTitle: '질문',
     questionMinimapAriaLabel: '질문 목차',
     questionMinimapAttachmentPlaceholder: '(첨부)',
@@ -3430,6 +3501,8 @@ export default {
     webFetchStatusSkipped: 'Skipped',
     webFetchErrorCode: 'Error code',
     webFetchRetryable: 'Retryable',
+    webFetchContentRange: '문자 {start}–{end} / 전체 {total}',
+    webFetchPartialContent: '페이지 일부',
     webFetchSummaryFailed: 'Summary failed',
     lengthChars: '{value}자',
     lengthThousands: '{value}천 자',
@@ -5330,6 +5403,8 @@ export default {
       dockerNetworkNone: 'none (no egress)',
       defaultTimeout: 'Execution timeout (s)',
       defaultTimeoutHelp: '스킬 스크립트 한 번이 실행될 수 있는 최대 시간이며, 초과하면 강제 종료됩니다. 비워 두면 60초입니다.',
+      terminalIdleDisconnect: '터미널 유휴 해제 (초)',
+      terminalIdleDisconnectHelp: '터미널을 연 뒤 키보드 입력이나 PTY 출력이 이 시간 동안 없으면 연결을 끊어 샌드박스가 TTL에 따라 일시 중지되도록 합니다. 비워 두면 900초이며, 최소 60초, 최대 24시간입니다.',
       envVars: 'Environment variables',
       envKey: 'Name',
       envValue: 'Value',
@@ -6788,6 +6863,7 @@ export default {
   },
   chatHeader: {
     moreActions: '대화 추가 작업',
+    toggleSandboxPanel: '샌드박스 터미널',
     copySessionId: '세션 ID 복사',
     copyLink: '대화 링크 복사',
     copyMarkdown: 'Markdown으로 복사',
@@ -6817,6 +6893,7 @@ export default {
   menu: {
     sessionInProgress: '대화 진행 중',
     knowledgeBase: '지식베이스',
+    portal: '지식 포털',
     agents: '에이전트',
     organizations: '공유 공간',
     newChat: '새 대화',

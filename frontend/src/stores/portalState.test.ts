@@ -6,7 +6,8 @@ import type { PortalSpace } from '@/api/portal'
 
 const space = (tenant_id: number, category = 'ntos'): PortalSpace => ({
   tenant_id, category, display_name: `space-${tenant_id}`, description: '', responsible_team: '', contact: '',
-  stages: ['design', 'testing'], featured: false, access_state: 'not_member', current_role: null,
+  stages: ['design', 'testing'], featured: false, knowledge_base_count: 0, file_count: 0,
+  access_state: 'not_member', current_role: null,
   can_request_access: true, interaction_action: 'none',
 })
 

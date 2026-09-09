@@ -97,10 +97,6 @@
           <span>{{ $t('settings.skills.title') }}</span>
         </div>
         <div class="menu-divider"></div>
-        <div class="menu-item" @click="handlePortal">
-          <t-icon name="browse" class="menu-icon" />
-          <span>KnowHub 知汇</span>
-        </div>
         <div class="menu-item" @click="handleSettings">
           <t-icon name="setting" class="menu-icon" />
           <span>{{ $t('general.allSettings') }}</span>
@@ -117,7 +113,7 @@
         </div>
         <div v-if="authStore.isSystemAdmin" class="menu-item" @click="handlePortalAdmin">
           <t-icon name="catalog" class="menu-icon" />
-          <span>平台管理 · 知识门户</span>
+          <span>{{ $t('portal.admin.menuEntry') }}</span>
         </div>
         <template v-if="!authStore.isLiteMode">
           <div class="menu-divider"></div>
@@ -289,11 +285,6 @@ const handleSettings = () => {
   menuVisible.value = false
   uiStore.openSettings()
   router.push('/platform/settings')
-}
-
-const handlePortal = () => {
-  menuVisible.value = false
-  router.push('/portal')
 }
 
 const handlePortalAdmin = () => {

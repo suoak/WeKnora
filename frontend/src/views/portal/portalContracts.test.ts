@@ -30,9 +30,9 @@ test('interaction and status APIs use fixed routes and safe bodies', () => {
 
 test('Owner approval surface is fixed Viewer and has no role selector', () => {
   const panel = source('../../components/portal/AccessRequestsPanel.vue')
-  assert.match(panel, /固定授予 Viewer/)
+  assert.match(panel, /portal\.requests\.description/)
   assert.doesNotMatch(panel, /roleOptions|t-select|requested_role/)
-  assert.match(panel, /当前申请人账号不可用，无法授予空间权限/)
+  assert.match(panel, /portal\.requests\.applicantUnavailable/)
 })
 
 test('cards cover member, requestable, restricted, pending, suspended, and interaction states', () => {
@@ -40,14 +40,17 @@ test('cards cover member, requestable, restricted, pending, suspended, and inter
   for (const marker of ["access_state==='member'", "access_state==='pending'", "access_state==='suspended'", 'can_request_access', "interaction_action==='enter'"]) {
     assert.match(card, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   }
-  assert.match(card, /受限空间/)
+  assert.match(card, /portal\.restricted/)
   assert.match(card, /current_role/)
+  assert.match(card, /knowledge_base_count/)
+  assert.match(card, /file_count/)
 })
 
 test('my spaces are loaded independently of published portal results and requests refresh state', () => {
   const store = source('../../stores/portal.ts')
   assert.match(store, /listMyPortalSpaces\(\)/)
-  assert.match(store, /Promise\.all\(\[loadStages\(\), loadMySpaces\(\), loadSpaces\(\)\]\)/)
+  assert.match(store, /Promise\.all\(\[loadStages\(\), loadMySpaces\(\), loadOverviewSpaces\(\)\]\)/)
+  assert.match(store, /overviewSpaces\.value = uniquePortalSpaces/)
   assert.match(store, /createPortalAccessRequest\(tenantId, reason\.trim\(\)\)[\s\S]*await loadSpaces\(\)/)
 })
 
@@ -55,5 +58,69 @@ test('admin config uses system-only organization options and explicit transition
   const admin = source('./SystemPortalSettings.vue')
   assert.match(admin, /listPortalOrganizationOptions\(\)/)
   assert.match(admin, /transitionAdminPortalStatus\(selectedId\.value,action\)/)
-  assert.match(source('../../components/UserMenu.vue'), /平台管理 · 知识门户/)
+  assert.match(source('../../components/UserMenu.vue'), /portal\.admin\.menuEntry/)
+})
+
+test('portal is a primary sidebar item instead of a personal-menu shortcut', () => {
+  const menuStore = source('../../stores/menu.ts')
+  const sidebar = source('../../components/menu.vue')
+  const userMenu = source('../../components/UserMenu.vue')
+  assert.match(
+    menuStore,
+    /titleKey:\s*['"]menu\.portal['"][^\n]*path:\s*['"]portal['"]/,
+  )
+  assert.match(
+    sidebar,
+    /item\.path === ['"]portal['"] \|\| item\.path === ['"]knowledge-bases['"]/,
+  )
+  assert.doesNotMatch(userMenu, /handlePortal\s*=|@click="handlePortal"/)
+})
+
+test('portal always uses the primary workspace sidebar, including for tenantless users', () => {
+  const home = source('./PortalHome.vue')
+  assert.match(home, /<Menu\s*\/>/)
+  assert.match(home, /import Menu from ['"]@\/components\/menu\.vue['"]/)
+  assert.doesNotMatch(home, /portal-header|brand-mark|<UserMenu/)
+})
+
+test('portal provides separate IPD and public-knowledge discovery views', () => {
+  const home = source('./PortalHome.vue')
+  const stageDetail = source('../../components/portal/IpdStageDetail.vue')
+  const flow = source('../../components/portal/IpdFlowOverview.vue')
+  assert.match(home, /viewMode==='ipd'/)
+  assert.match(home, /viewMode==='public'/)
+  assert.match(home, /PUBLIC_CATEGORY='public_knowledge'/)
+  assert.match(home, /<IpdStageDetail/)
+  assert.match(home, /<IpdFlowOverview[^>]*portal\.overviewSpaces/)
+  assert.match(home, /portal\.publicZone\.title/)
+  assert.match(stageDetail, /portal\.stageDetail\.resultCount/)
+  assert.doesNotMatch(stageDetail, /activities|deliverables|recommended skills/i)
+  assert.match(flow, /space\.stages\.includes\(stage\)/)
+  assert.match(flow, /space\.knowledge_base_count/)
+  assert.match(flow, /space\.file_count/)
+  assert.match(flow, /slice\(0,4\)/)
+  assert.doesNotMatch(flow, /knowledge-base|document|chunk|agent|datasource|mcp/i)
+  assert.match(home, /const PAGE_SIZE=12/)
+  assert.match(home, /portal\.spaces\.slice\(0,visibleLimit\.value\)/)
+  assert.match(home, /portal\.loadMoreSpaces/)
+})
+
+test('admin settings group fields and use a creatable category selector', () => {
+  const editor = source('../../components/portal/PortalConfigEditor.vue')
+  for (const group of ['basicTitle', 'positioningTitle', 'displayTitle', 'accessTitle']) {
+    assert.match(editor, new RegExp(`portal\\.admin\\.groups\\.${group}`))
+  }
+  assert.match(editor, /<t-select v-model="form\.category"[^>]*creatable/)
+  assert.match(editor, /'public_knowledge'/)
+  assert.match(editor, /portal\.categories\./)
+})
+
+test('default landing remains portal after higher-priority redirect cases', () => {
+  const redirect = source('../../utils/authRedirect.ts')
+  assert.match(redirect, /DEFAULT_AUTHENTICATED_LANDING = ['"]\/portal['"]/)
+  const explicit = redirect.indexOf('if (explicitTarget) return explicitTarget')
+  const captured = redirect.indexOf('if (storedTarget) return storedTarget')
+  const lite = redirect.indexOf('if (options.liteMode')
+  const fallback = redirect.lastIndexOf('return DEFAULT_AUTHENTICATED_LANDING')
+  assert.ok(explicit >= 0 && explicit < captured && captured < lite && lite < fallback)
 })

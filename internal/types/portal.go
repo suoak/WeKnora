@@ -103,18 +103,20 @@ const (
 // PortalSpaceResponse is deliberately independent from Tenant and
 // TenantPortalConfig. Keep this allow-list projection small.
 type PortalSpaceResponse struct {
-	TenantID          uint64                  `json:"tenant_id"`
-	DisplayName       string                  `json:"display_name"`
-	Description       string                  `json:"description"`
-	Category          string                  `json:"category"`
-	ResponsibleTeam   string                  `json:"responsible_team"`
-	Contact           string                  `json:"contact"`
-	Stages            []string                `json:"stages"`
-	Featured          bool                    `json:"featured"`
-	AccessState       PortalAccessState       `json:"access_state"`
-	CurrentRole       *TenantRole             `json:"current_role"`
-	CanRequestAccess  bool                    `json:"can_request_access"`
-	InteractionAction PortalInteractionAction `json:"interaction_action"`
+	TenantID           uint64                  `json:"tenant_id"`
+	DisplayName        string                  `json:"display_name"`
+	Description        string                  `json:"description"`
+	Category           string                  `json:"category"`
+	ResponsibleTeam    string                  `json:"responsible_team"`
+	Contact            string                  `json:"contact"`
+	Stages             []string                `json:"stages"`
+	Featured           bool                    `json:"featured"`
+	KnowledgeBaseCount int64                   `json:"knowledge_base_count"`
+	FileCount          int64                   `json:"file_count"`
+	AccessState        PortalAccessState       `json:"access_state"`
+	CurrentRole        *TenantRole             `json:"current_role"`
+	CanRequestAccess   bool                    `json:"can_request_access"`
+	InteractionAction  PortalInteractionAction `json:"interaction_action"`
 }
 
 type PortalMySpaceResponse struct {

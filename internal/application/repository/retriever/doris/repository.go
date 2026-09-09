@@ -349,7 +349,7 @@ func (r *dorisRepository) VectorRetrieve(ctx context.Context,
 	if err != nil {
 		return nil, r.wrapVectorRetrieveError(table, compatMode, err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	results, err := scanRetrieveRows(rows, types.MatchTypeEmbedding)
 	if err != nil {

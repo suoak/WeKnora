@@ -31,17 +31,19 @@ func (r *parentChildKnowledgeRepo) UpdateKnowledge(
 	return nil
 }
 
-type parentChildChunkService struct {
-	interfaces.ChunkService
+type parentChildChunkRepository struct {
+	interfaces.ChunkRepository
 	created []*types.Chunk
 }
 
-func (s *parentChildChunkService) DeleteChunksByKnowledgeID(context.Context, string) error {
+func (r *parentChildChunkRepository) DeleteChunksByKnowledgeID(
+	context.Context, uint64, string,
+) error {
 	return nil
 }
 
-func (s *parentChildChunkService) CreateChunks(_ context.Context, chunks []*types.Chunk) error {
-	s.created = append([]*types.Chunk(nil), chunks...)
+func (r *parentChildChunkRepository) CreateChunks(_ context.Context, chunks []*types.Chunk) error {
+	r.created = append([]*types.Chunk(nil), chunks...)
 	return nil
 }
 
@@ -149,7 +151,7 @@ func TestProcessChunksIndexesEveryTextChild(t *testing.T) {
 		KnowledgeBaseID: "kb-1",
 		ParseStatus:     types.ParseStatusProcessing,
 	}
-	chunkService := &parentChildChunkService{}
+	chunkService := &parentChildChunkRepository{}
 	retrieveEngine := &parentChildRetrieveEngine{}
 	tenant := &types.Tenant{
 		ID: 1,
@@ -163,7 +165,7 @@ func TestProcessChunksIndexesEveryTextChild(t *testing.T) {
 	ctx := context.WithValue(context.Background(), types.TenantInfoContextKey, tenant)
 	svc := &knowledgeService{
 		repo:           &parentChildKnowledgeRepo{knowledge: knowledge},
-		chunkService:   chunkService,
+		chunkRepo:      chunkService,
 		modelService:   parentChildModelService{embedder: parentChildEmbedder{}},
 		retrieveEngine: parentChildRetrieveRegistry{engine: retrieveEngine},
 		graphEngine:    parentChildGraphRepo{},
@@ -231,13 +233,13 @@ func TestProcessChunksPersistsWideParserRecordWithoutGenericSplitOrParent(t *tes
 		ID: "knowledge-semantic", TenantID: 1, KnowledgeBaseID: "kb-1",
 		ParseStatus: types.ParseStatusProcessing,
 	}
-	chunkService := &parentChildChunkService{}
+	chunkService := &parentChildChunkRepository{}
 	retrieveEngine := &parentChildRetrieveEngine{}
 	tenant := &types.Tenant{ID: 1}
 	ctx := context.WithValue(context.Background(), types.TenantInfoContextKey, tenant)
 	svc := &knowledgeService{
 		repo:           &parentChildKnowledgeRepo{knowledge: knowledge},
-		chunkService:   chunkService,
+		chunkRepo:      chunkService,
 		retrieveEngine: parentChildRetrieveRegistry{engine: retrieveEngine},
 		graphEngine:    parentChildGraphRepo{},
 		tenantRepo:     parentChildTenantRepo{},
@@ -298,11 +300,11 @@ func TestProcessChunksMixedSegmentsNeverLinksPreservedChunkToGenericParent(t *te
 		ID: "knowledge-mixed", TenantID: 1, KnowledgeBaseID: "kb-1",
 		ParseStatus: types.ParseStatusProcessing,
 	}
-	chunkService := &parentChildChunkService{}
+	chunkService := &parentChildChunkRepository{}
 	ctx := context.WithValue(context.Background(), types.TenantInfoContextKey, &types.Tenant{ID: 1})
 	svc := &knowledgeService{
 		repo:           &parentChildKnowledgeRepo{knowledge: knowledge},
-		chunkService:   chunkService,
+		chunkRepo:      chunkService,
 		retrieveEngine: parentChildRetrieveRegistry{engine: &parentChildRetrieveEngine{}},
 		graphEngine:    parentChildGraphRepo{},
 		tenantRepo:     parentChildTenantRepo{},

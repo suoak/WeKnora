@@ -1,34 +1,48 @@
 <template>
-  <div class="portal-page">
-    <header class="portal-header">
-      <router-link to="/portal" class="brand"><span class="brand-mark">K</span><span><strong>KnowHub 知汇</strong><small>CSBU IPD 知识门户</small></span></router-link>
-      <div class="header-actions">
-        <router-link v-if="authStore.isSystemAdmin" to="/portal/admin"><t-button variant="text">平台管理 · 知识门户</t-button></router-link>
-        <UserMenu />
-      </div>
-    </header>
-
+  <div class="portal-shell">
+    <Menu />
+    <div class="portal-page">
     <main>
-      <section class="hero"><span class="eyebrow">KNOWLEDGE DISCOVERY</span><h1>发现组织中经过治理的知识空间</h1><p>沿 IPD 流程浏览专业知识，申请所需空间的 Viewer 只读权限。</p></section>
+      <section class="hero"><div><span class="eyebrow">{{ t('portal.heroEyebrow') }}</span><h1>{{ t('portal.heroTitle') }}</h1><p>{{ t('portal.heroDescription') }}</p></div><router-link v-if="authStore.isSystemAdmin" to="/portal/admin"><t-button variant="outline">{{ t('portal.admin.menuEntry') }}</t-button></router-link></section>
       <MySpacesSection :spaces="portal.mySpaces" @enter="enterMySpace" />
       <section class="discovery">
-        <div class="section-title"><div><h2>IPD 知识导航</h2><p>阶段用于流程筛选，知识领域用于组织分类；同一空间只展示一次。</p></div><span>{{ portal.spaces.length }} 个空间</span></div>
-        <IpdStageNavigator v-model="portal.selectedStage" :stages="portal.stages" />
-        <PortalFilters v-model:search="portal.search" v-model:category="portal.selectedCategory" :categories="portal.categories" />
-        <PortalSpaceGrid :spaces="portal.spaces" :loading="portal.loading" :empty-text="emptyText" :stage-labels="stageLabels"
+        <div class="portal-tabs" role="tablist" :aria-label="t('portal.viewSwitcherLabel')">
+          <button :class="{ active: viewMode==='ipd' }" @click="selectView('ipd')"><t-icon name="git-branch" /><span><strong>{{ t('portal.views.ipd') }}</strong><small>{{ t('portal.views.ipdDescription') }}</small></span></button>
+          <button :class="{ active: viewMode==='public' }" @click="selectView('public')"><t-icon name="browse" /><span><strong>{{ t('portal.views.public') }}</strong><small>{{ t('portal.views.publicDescription') }}</small></span></button>
+        </div>
+        <template v-if="viewMode==='ipd'">
+          <div class="section-title"><div><h2>{{ t('portal.navigationTitle') }}</h2><p>{{ t('portal.navigationDescription') }}</p></div><span>{{ t('portal.spaceCount', { count: portal.spaces.length }) }}</span></div>
+          <IpdFlowOverview :stages="portal.stages" :spaces="portal.overviewSpaces" :selected-stage="portal.selectedStage" @select="selectStage" />
+          <IpdStageDetail :selected-stage="portal.selectedStage" :stages="portal.stages" :space-count="portal.spaces.length" />
+        </template>
+        <section v-else class="public-overview">
+          <div class="public-mark"><t-icon name="browse" /></div>
+          <div><span>{{ t('portal.publicZone.eyebrow') }}</span><h2>{{ t('portal.publicZone.title') }}</h2><p>{{ t('portal.publicZone.description') }}</p></div>
+          <div class="public-types"><span v-for="item in publicTypes" :key="item">{{ item }}</span></div>
+        </section>
+        <PortalFilters v-model:search="portal.search" v-model:category="portal.selectedCategory" :categories="portal.categories" :show-category="viewMode==='ipd'" />
+        <PortalSpaceGrid :spaces="visibleSpaces" :loading="portal.loading" :empty-text="emptyText" :stage-labels="stageLabels"
           @request="openRequest" @enter="enterPortalSpace" @interaction="enterInteraction" />
+        <div v-if="portal.spaces.length>PAGE_SIZE" class="result-pagination">
+          <span>{{ t('portal.resultsShowing',{visible:visibleSpaces.length,total:portal.spaces.length}) }}</span>
+          <t-button v-if="hasMoreSpaces" variant="outline" @click="visibleLimit+=PAGE_SIZE">{{ t('portal.loadMoreSpaces') }}</t-button>
+          <t-button v-else variant="text" @click="visibleLimit=PAGE_SIZE">{{ t('portal.collapseSpaces') }}</t-button>
+        </div>
       </section>
     </main>
     <AccessRequestDialog :visible="Boolean(requestSpace)" :space="requestSpace" :submitting="requestSubmitting" @close="requestSpace=null" @submit="submitRequest" />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { MessagePlugin } from 'tdesign-vue-next'
-import UserMenu from '@/components/UserMenu.vue'
+import Menu from '@/components/menu.vue'
 import MySpacesSection from '@/components/portal/MySpacesSection.vue'
-import IpdStageNavigator from '@/components/portal/IpdStageNavigator.vue'
+import IpdFlowOverview from '@/components/portal/IpdFlowOverview.vue'
+import IpdStageDetail from '@/components/portal/IpdStageDetail.vue'
 import PortalFilters from '@/components/portal/PortalFilters.vue'
 import PortalSpaceGrid from '@/components/portal/PortalSpaceGrid.vue'
 import AccessRequestDialog from '@/components/portal/AccessRequestDialog.vue'
@@ -39,23 +53,38 @@ import { switchWorkspaceAndNavigate } from '@/utils/tenantSwitch'
 
 const portal=usePortalStore()
 const authStore=useAuthStore()
+const { t }=useI18n()
+const PUBLIC_CATEGORY='public_knowledge'
+const PAGE_SIZE=12
+const viewMode=ref<'ipd'|'public'>(portal.selectedCategory===PUBLIC_CATEGORY?'public':'ipd')
+const visibleLimit=ref(PAGE_SIZE)
 const requestSpace=ref<PortalSpace|null>(null)
 const requestSubmitting=computed(()=>requestSpace.value ? portal.requestState[requestSpace.value.tenant_id]==='submitting' : false)
 let searchTimer:number|undefined
 
-const stageLabels=computed(()=>Object.fromEntries(portal.stages.map(stage=>[stage.key,stage.name||stage.key])))
+const stageLabels=computed(()=>Object.fromEntries(portal.stages.map(stage=>[stage.key,t(`portal.stages.${stage.key}.name`)])))
 const emptyText=computed(()=>{
-  if(portal.search.trim()||portal.selectedCategory) return '未找到匹配的知识空间。'
-  if(portal.selectedStage!=='all') return '当前阶段暂无已发布知识空间。'
-  return '当前暂无可发现的知识空间。'
+  if(viewMode.value==='public'&&!portal.search.trim()) return t('portal.publicZone.empty')
+  if(portal.search.trim()||portal.selectedCategory) return t('portal.emptySearch')
+  if(portal.selectedStage!=='all') return t('portal.emptyStage')
+  return t('portal.emptyAll')
 })
+const publicTypes=computed(()=>['standards','templates','training','practices'].map(key=>t(`portal.publicZone.types.${key}`)))
+const visibleSpaces=computed(()=>portal.spaces.slice(0,visibleLimit.value))
+const hasMoreSpaces=computed(()=>visibleSpaces.value.length<portal.spaces.length)
 
-watch(()=>portal.search,()=>{window.clearTimeout(searchTimer);searchTimer=window.setTimeout(()=>void portal.loadSpaces(),320)})
-watch([()=>portal.selectedStage,()=>portal.selectedCategory],()=>void portal.loadSpaces())
+watch(()=>portal.search,()=>{visibleLimit.value=PAGE_SIZE;window.clearTimeout(searchTimer);searchTimer=window.setTimeout(()=>void portal.loadSpaces(),320)})
+watch([()=>portal.selectedStage,()=>portal.selectedCategory],()=>{visibleLimit.value=PAGE_SIZE;void portal.loadSpaces()})
+
+function selectView(mode:'ipd'|'public'){
+  viewMode.value=mode
+  portal.selectedStage='all'
+  portal.selectedCategory=mode==='public'?PUBLIC_CATEGORY:''
+}
+function selectStage(stage:string){portal.selectedStage=portal.selectedStage===stage?'all':stage}
 
 function switchTo(tenantId:number,tenantName:string,role?:string){
-  const labels:Record<string,string>={owner:'Owner',admin:'Admin',contributor:'Contributor',viewer:'Viewer'}
-  switchWorkspaceAndNavigate({tenantId,tenantName,role,roleLabel:role?labels[role]:undefined})
+  switchWorkspaceAndNavigate({tenantId,tenantName,role,roleLabel:role?t(`portal.roles.${role}`):undefined})
 }
 const enterMySpace=(space:PortalMySpace)=>switchTo(space.tenant_id,space.tenant_name,space.role)
 const enterPortalSpace=(space:PortalSpace)=>switchTo(space.tenant_id,space.display_name,space.current_role||undefined)
@@ -63,8 +92,8 @@ const openRequest=(space:PortalSpace)=>{requestSpace.value=space}
 
 async function submitRequest(reason:string){
   if(!requestSpace.value)return
-  try{await portal.requestAccess(requestSpace.value.tenant_id,reason);requestSpace.value=null;MessagePlugin.success('访问申请已提交，等待空间 Owner 审核。')}
-  catch(error:any){MessagePlugin.error(error?.message||'提交访问申请失败')}
+  try{await portal.requestAccess(requestSpace.value.tenant_id,reason);requestSpace.value=null;MessagePlugin.success(t('portal.requestSuccess'))}
+  catch(error:any){MessagePlugin.error(error?.message||t('portal.requestFailed'))}
 }
 
 async function enterInteraction(space:PortalSpace){
@@ -73,14 +102,14 @@ async function enterInteraction(space:PortalSpace){
     if(response.data?.action==='navigate'&&response.data.path) window.location.assign(response.data.path)
   }catch(error:any){
     const status=Number(error?.$httpStatus||error?.status||0)
-    if(status===403||status===409){MessagePlugin.warning('权限状态已经变化，请重新确认可访问范围。');await portal.loadSpaces();return}
-    MessagePlugin.error(error?.message||'无法进入交互空间')
+    if(status===403||status===409){MessagePlugin.warning(t('portal.permissionChanged'));await portal.loadSpaces();return}
+    MessagePlugin.error(error?.message||t('portal.interactionFailed'))
   }
 }
 
-onMounted(async()=>{try{await portal.initialize()}catch(error:any){MessagePlugin.error(error?.message||'知识门户加载失败')}})
+onMounted(async()=>{try{await portal.initialize()}catch(error:any){MessagePlugin.error(error?.message||t('portal.loadFailed'))}})
 </script>
 
 <style scoped lang="less">
-.portal-page{min-height:100vh;background:radial-gradient(circle at 15% 0,rgba(13,148,136,.12),transparent 32%),var(--td-bg-color-page);color:var(--td-text-color-primary)}.portal-header{height:68px;padding:0 clamp(20px,5vw,72px);display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--td-component-stroke);background:color-mix(in srgb,var(--td-bg-color-container) 92%,transparent);position:sticky;top:0;z-index:10;backdrop-filter:blur(16px)}.brand{display:flex;align-items:center;gap:11px;color:inherit;text-decoration:none}.brand-mark{width:38px;height:38px;display:grid;place-items:center;border-radius:11px;color:#fff;font-weight:800;background:linear-gradient(135deg,#0f766e,#2563eb)}.brand strong,.brand small{display:block}.brand small{color:var(--td-text-color-secondary);margin-top:2px}.header-actions{display:flex;align-items:center;gap:8px}main{max-width:1280px;margin:auto;padding:0 clamp(20px,5vw,56px) 70px}.hero{padding:70px 0 42px;max-width:760px}.eyebrow{font-size:12px;letter-spacing:.18em;color:var(--td-brand-color);font-weight:700}.hero h1{font-size:clamp(34px,5vw,56px);line-height:1.08;margin:12px 0 18px;letter-spacing:-.035em}.hero p,.section-title p{color:var(--td-text-color-secondary);line-height:1.7}.discovery{margin-top:52px;display:flex;flex-direction:column;gap:20px}.section-title{display:flex;align-items:end;justify-content:space-between}.section-title h2{margin:0;font-size:24px}.section-title p{margin:6px 0 0}.section-title>span{color:var(--td-text-color-placeholder);font-size:13px}@media(max-width:680px){.portal-header{padding:0 14px}.brand small{display:none}.hero{padding-top:44px}.header-actions>a{display:none}.section-title{align-items:start;flex-direction:column;gap:8px}}
+.portal-shell{width:100%;height:100%;min-height:100vh;display:flex;overflow:hidden;background:var(--td-bg-color-page)}.portal-page{flex:1;min-width:0;min-height:0;overflow-y:auto;background:radial-gradient(circle at 15% 0,rgba(13,148,136,.12),transparent 32%),var(--td-bg-color-page);color:var(--td-text-color-primary)}main{max-width:1380px;margin:auto;padding:0 clamp(20px,5vw,56px) 70px}.hero{padding:52px 0 34px;display:flex;align-items:flex-start;justify-content:space-between;gap:24px}.hero>div{max-width:820px}.eyebrow{font-size:12px;letter-spacing:.18em;color:var(--td-brand-color);font-weight:700}.hero h1{font-size:clamp(34px,5vw,54px);line-height:1.08;margin:12px 0 18px;letter-spacing:-.035em}.hero p,.section-title p{color:var(--td-text-color-secondary);line-height:1.7}.discovery{margin-top:38px;display:flex;flex-direction:column;gap:20px}.portal-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.portal-tabs button{display:flex;align-items:center;gap:13px;padding:15px 18px;border:1px solid var(--td-component-border);border-radius:14px;background:var(--td-bg-color-container);color:var(--td-text-color-primary);cursor:pointer;text-align:left}.portal-tabs button>.t-icon{font-size:24px;color:var(--td-text-color-placeholder)}.portal-tabs button span,.portal-tabs button strong,.portal-tabs button small{display:block}.portal-tabs button small{margin-top:3px;color:var(--td-text-color-secondary)}.portal-tabs button.active{border-color:var(--td-brand-color);box-shadow:inset 3px 0 var(--td-brand-color)}.portal-tabs button.active>.t-icon{color:var(--td-brand-color)}.section-title{display:flex;align-items:end;justify-content:space-between}.section-title h2{margin:0;font-size:24px}.section-title p{margin:6px 0 0}.section-title>span{color:var(--td-text-color-placeholder);font-size:13px}.public-overview{display:grid;grid-template-columns:auto minmax(280px,1fr) auto;align-items:center;gap:18px;padding:23px;border:1px solid color-mix(in srgb,var(--td-brand-color) 28%,var(--td-component-border));border-radius:16px;background:linear-gradient(135deg,var(--td-brand-color-light),var(--td-bg-color-container) 60%)}.public-mark{width:52px;height:52px;display:grid;place-items:center;border-radius:15px;background:var(--td-brand-color);color:#fff;font-size:25px}.public-overview>div>span{color:var(--td-brand-color);font-size:12px;font-weight:700}.public-overview h2{margin:5px 0 6px}.public-overview p{margin:0;color:var(--td-text-color-secondary);line-height:1.6}.public-types{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:7px}.public-types span{padding:6px 9px;border-radius:999px;background:var(--td-bg-color-container);border:1px solid var(--td-component-stroke);color:var(--td-text-color-secondary);font-size:12px}.result-pagination{display:flex;align-items:center;justify-content:center;gap:14px;padding:8px;color:var(--td-text-color-secondary);font-size:13px}@media(max-width:800px){.public-overview{grid-template-columns:auto 1fr}.public-types{grid-column:1/-1;justify-content:flex-start}}@media(max-width:680px){.hero{padding-top:38px;flex-direction:column}.portal-tabs{grid-template-columns:1fr}.section-title{align-items:start;flex-direction:column;gap:8px}}
 </style>
