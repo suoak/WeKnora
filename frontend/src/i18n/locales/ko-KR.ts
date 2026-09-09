@@ -10,7 +10,7 @@ export default {
     navigationDescription: '단계는 프로세스를 필터링하고 카테고리는 지식 분야를 구성합니다. 각 공간은 한 번만 표시됩니다.', spaceCount: '{count}개 공간',
     mySpacesTitle: '내 지식 공간', mySpacesDescription: '포털에 게시되지 않은 공간을 포함하여 활성 멤버십이 있는 워크스페이스입니다.', noMySpaces: '참여한 지식 공간이 없습니다. 아래에서 필요한 공간을 찾아 요청하세요.',
     stageNavigationLabel: 'IPD 프로세스 단계', allStages: '전체', allStagesDescription: '게시된 모든 공간', searchPlaceholder: '공간 이름, 설명, 분야 또는 단계 검색', allCategories: '모든 지식 분야',
-    emptySearch: '일치하는 지식 공간이 없습니다.', emptyStage: '현재 단계에 게시된 지식 공간이 없습니다.', emptyAll: '현재 탐색 가능한 지식 공간이 없습니다.', loadingSpaces: '지식 공간 불러오는 중…',
+    emptySearch: '일치하는 지식 공간이 없습니다.', emptyStage: '현재 단계에 게시된 지식 공간이 없습니다.', emptyAll: '현재 탐색 가능한 지식 공간이 없습니다.', loadingSpaces: '지식 공간 불러오는 중…', resultsShowing: '공간 {total}개 중 {visible}개 표시', loadMoreSpaces: '더 보기', collapseSpaces: '목록 접기',
     featured: '추천', noDescription: '이 공간에는 아직 설명이 없습니다.', categoryTag: '분야 · {category}', responsibleTeam: '담당 팀', contact: '연락처', knowledgeBaseCount: '지식베이스 {count}개', fileCount: '파일 {count}개',
     joined: '참여함 · {role}', pending: '요청 검토 중', suspended: '접근 중지됨', noAccess: '아직 접근 권한 없음', restricted: '제한된 공간', enterWorkspace: '공간 열기', requestAccess: '접근 요청', enterInteraction: '상호작용 공간 열기',
     requestTitle: '읽기 전용 접근 요청', submitRequest: '요청 제출', viewerOnly: '고정 권한: Viewer / 읽기 전용', reasonPlaceholder: '이 공간에 접근해야 하는 이유를 입력하세요', requestSuccess: 'Owner 검토를 위해 접근 요청을 제출했습니다.', requestFailed: '접근 요청 제출 실패', permissionChanged: '권한 상태가 변경되었습니다. 접근 범위를 다시 확인하세요.', interactionFailed: '상호작용 공간에 들어갈 수 없습니다', loadFailed: '지식 포털 로드 실패',

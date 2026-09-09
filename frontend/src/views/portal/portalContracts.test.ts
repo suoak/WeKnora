@@ -76,6 +76,13 @@ test('portal is a primary sidebar item instead of a personal-menu shortcut', () 
   assert.doesNotMatch(userMenu, /handlePortal\s*=|@click="handlePortal"/)
 })
 
+test('portal always uses the primary workspace sidebar, including for tenantless users', () => {
+  const home = source('./PortalHome.vue')
+  assert.match(home, /<Menu\s*\/>/)
+  assert.match(home, /import Menu from ['"]@\/components\/menu\.vue['"]/)
+  assert.doesNotMatch(home, /portal-header|brand-mark|<UserMenu/)
+})
+
 test('portal provides separate IPD and public-knowledge discovery views', () => {
   const home = source('./PortalHome.vue')
   const stageDetail = source('../../components/portal/IpdStageDetail.vue')
@@ -91,7 +98,11 @@ test('portal provides separate IPD and public-knowledge discovery views', () => 
   assert.match(flow, /space\.stages\.includes\(stage\)/)
   assert.match(flow, /space\.knowledge_base_count/)
   assert.match(flow, /space\.file_count/)
+  assert.match(flow, /slice\(0,4\)/)
   assert.doesNotMatch(flow, /knowledge-base|document|chunk|agent|datasource|mcp/i)
+  assert.match(home, /const PAGE_SIZE=12/)
+  assert.match(home, /portal\.spaces\.slice\(0,visibleLimit\.value\)/)
+  assert.match(home, /portal\.loadMoreSpaces/)
 })
 
 test('admin settings group fields and use a creatable category selector', () => {
