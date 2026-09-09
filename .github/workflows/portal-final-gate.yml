@@ -80,7 +80,7 @@ jobs:
       - name: Reject conflict markers and committed build artifacts
         shell: bash
         run: |
-          if git grep -nE '^(<<<<<<< |=======|>>>>>>> )' -- .; then
+          if git grep -nE '^(<<<<<<< .+|=======|>>>>>>> .+)$' -- .; then
             echo 'Git conflict markers are committed.'
             exit 1
           fi
