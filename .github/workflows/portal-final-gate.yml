@@ -91,7 +91,7 @@ jobs:
           git diff --check
 
   postgres-migrations:
-    name: PostgreSQL clean install and 92 to 93 upgrade
+    name: PostgreSQL clean install and previous-to-latest upgrade
     if: github.repository == 'suoak/WeKnora'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -112,7 +112,7 @@ jobs:
     env:
       PGPASSWORD: postgres
       CLEAN_DB_URL: postgres://postgres:postgres@localhost:5432/portal_clean?sslmode=disable
-      UPGRADE_DB_URL: postgres://postgres:postgres@localhost:5432/portal_upgrade?sslmode=disable
+      UPGRADE_DB_URL: postgres://postgres:postgres@localhost:5432/migration_upgrade?sslmode=disable
     steps:
       - uses: actions/checkout@v6
 
@@ -124,12 +124,31 @@ jobs:
       - name: Install migration CLI
         run: go install -tags postgres github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.1
 
+      - name: Discover the migration upgrade window
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t versions < <(
+            find migrations/versioned -maxdepth 1 -type f -name '*.up.sql' -printf '%f\n' |
+              sed -E 's/^0*([0-9]+)_.*/\1/' |
+              sort -n -u
+          )
+          if [ "${#versions[@]}" -lt 2 ]; then
+            echo 'At least two versioned migrations are required.'
+            exit 1
+          fi
+          previous_version="${versions[${#versions[@]}-2]}"
+          latest_version="${versions[${#versions[@]}-1]}"
+          echo "PREVIOUS_VERSION=$previous_version" >> "$GITHUB_ENV"
+          echo "LATEST_VERSION=$latest_version" >> "$GITHUB_ENV"
+          echo "Testing migration upgrade ${previous_version} -> ${latest_version}"
+
       - name: Create isolated test databases
         run: |
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -c 'CREATE DATABASE portal_clean TEMPLATE template0;'
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 \
-            -c 'CREATE DATABASE portal_upgrade TEMPLATE template0;'
+            -c 'CREATE DATABASE migration_upgrade TEMPLATE template0;'
 
       - name: Validate clean migration, idempotency, and down-up symmetry
         shell: bash
@@ -150,30 +169,27 @@ jobs:
           END $$;
           SQL
 
-          "$migrate_bin" -path migrations/versioned -database "$CLEAN_DB_URL" goto 92
-          psql "$CLEAN_DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
-          DO $$
-          BEGIN
-            IF to_regclass('public.tenant_portal_configs') IS NOT NULL
-               OR to_regclass('public.tenant_portal_stages') IS NOT NULL
-               OR to_regclass('public.tenant_access_requests') IS NOT NULL THEN
-              RAISE EXCEPTION 'Portal down migration did not remove every Portal table';
-            END IF;
-          END $$;
-          SQL
+          "$migrate_bin" -path migrations/versioned -database "$CLEAN_DB_URL" goto "$PREVIOUS_VERSION"
+          current_version=$("$migrate_bin" -path migrations/versioned -database "$CLEAN_DB_URL" version 2>&1 | awk '{print $1}')
+          test "$current_version" = "$PREVIOUS_VERSION"
           "$migrate_bin" -path migrations/versioned -database "$CLEAN_DB_URL" up
 
-      - name: Validate 92 to 93 upgrade and preserve old data
+          current_version=$("$migrate_bin" -path migrations/versioned -database "$CLEAN_DB_URL" version 2>&1 | awk '{print $1}')
+          test "$current_version" = "$LATEST_VERSION"
+
+      - name: Validate previous-to-latest upgrade and preserve old data
         shell: bash
         run: |
           set -euo pipefail
           migrate_bin="$(go env GOPATH)/bin/migrate"
-          "$migrate_bin" -path migrations/versioned -database "$UPGRADE_DB_URL" goto 92
+          "$migrate_bin" -path migrations/versioned -database "$UPGRADE_DB_URL" goto "$PREVIOUS_VERSION"
           psql "$UPGRADE_DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
           INSERT INTO tenants (id, name, business, status)
           VALUES (91001, 'portal-upgrade-sentinel', 'ci', 'active');
           SQL
-          "$migrate_bin" -path migrations/versioned -database "$UPGRADE_DB_URL" up 1
+          "$migrate_bin" -path migrations/versioned -database "$UPGRADE_DB_URL" up
+          current_version=$("$migrate_bin" -path migrations/versioned -database "$UPGRADE_DB_URL" version 2>&1 | awk '{print $1}')
+          test "$current_version" = "$LATEST_VERSION"
           psql "$UPGRADE_DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
           DO $$
           BEGIN

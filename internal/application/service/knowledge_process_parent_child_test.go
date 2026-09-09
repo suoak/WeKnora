@@ -36,7 +36,11 @@ type parentChildChunkService struct {
 	created []*types.Chunk
 }
 
-func (s *parentChildChunkService) DeleteChunksByKnowledgeID(context.Context, uint64, string) error {
+func (s *parentChildChunkService) DeleteChunksByKnowledgeID(context.Context, string) error {
+	return nil
+}
+
+func (s *parentChildChunkService) DeleteByKnowledgeList(context.Context, []string) error {
 	return nil
 }
 
