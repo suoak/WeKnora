@@ -24,7 +24,8 @@ import (
 // ModelHandler handles HTTP requests for model-related operations
 // It implements the necessary methods to create, retrieve, update, and delete models
 type ModelHandler struct {
-	service interfaces.ModelService
+	service     interfaces.ModelService
+	modelPolicy interfaces.ModelPolicyService
 }
 
 // NewModelHandler creates a new instance of ModelHandler
@@ -33,8 +34,8 @@ type ModelHandler struct {
 //   - service: An implementation of the ModelService interface
 //
 // Returns a pointer to the newly created ModelHandler
-func NewModelHandler(service interfaces.ModelService) *ModelHandler {
-	return &ModelHandler{service: service}
+func NewModelHandler(service interfaces.ModelService, modelPolicy interfaces.ModelPolicyService) *ModelHandler {
+	return &ModelHandler{service: service, modelPolicy: modelPolicy}
 }
 
 // Per-response redaction/stripping for Model now lives in
@@ -204,6 +205,47 @@ func (h *ModelHandler) ListModels(c *gin.Context) {
 		"success": true,
 		"data":    dto.NewModelResponses(ctx, models),
 	})
+}
+
+type effectiveDefaultModel struct {
+	ID   string          `json:"id"`
+	Name string          `json:"name"`
+	Type types.ModelType `json:"type"`
+}
+
+// GetDefaultPolicy returns the effective, validated deployment defaults to
+// ordinary workspace viewers. It deliberately exposes only identity and type;
+// credentials, endpoints, and model parameters are never included.
+func (h *ModelHandler) GetDefaultPolicy(c *gin.Context) {
+	ctx := c.Request.Context()
+	result := map[string]*effectiveDefaultModel{
+		"chat": nil, "summary": nil, "embedding": nil,
+		"rerank": nil, "vlm": nil, "asr": nil,
+	}
+	if h.modelPolicy == nil {
+		c.JSON(http.StatusOK, result)
+		return
+	}
+	ids := map[string]string{
+		"chat": h.modelPolicy.ResolveChatModelID(ctx), "summary": h.modelPolicy.ResolveSummaryModelID(ctx),
+		"embedding": h.modelPolicy.ResolveEmbeddingModelID(ctx), "rerank": h.modelPolicy.ResolveRerankModelID(ctx),
+		"vlm": h.modelPolicy.ResolveVLMModelID(ctx), "asr": h.modelPolicy.ResolveASRModelID(ctx),
+	}
+	for role, id := range ids {
+		if id == "" {
+			continue
+		}
+		model, err := h.service.GetModelByID(ctx, id)
+		if err != nil || model == nil {
+			continue
+		}
+		name := model.DisplayName
+		if name == "" {
+			name = model.Name
+		}
+		result[role] = &effectiveDefaultModel{ID: model.ID, Name: name, Type: model.Type}
+	}
+	c.JSON(http.StatusOK, result)
 }
 
 const modelDebugMaxInputBytes = 64 * 1024

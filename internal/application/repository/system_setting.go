@@ -58,7 +58,11 @@ func (r *systemSettingRepository) List(ctx context.Context) ([]*types.SystemSett
 // the mutable columns prevents the migration's seeded id/created_at
 // from being overwritten.
 func (r *systemSettingRepository) Upsert(ctx context.Context, s *types.SystemSetting) error {
-	return r.db.WithContext(ctx).
+	return upsertSystemSetting(r.db.WithContext(ctx), s)
+}
+
+func upsertSystemSetting(db *gorm.DB, s *types.SystemSetting) error {
+	return db.
 		Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "key"}},
 			DoUpdates: clause.AssignmentColumns([]string{
@@ -73,6 +77,18 @@ func (r *systemSettingRepository) Upsert(ctx context.Context, s *types.SystemSet
 			}),
 		}).
 		Create(s).Error
+}
+
+// UpsertBatch commits all supplied rows atomically.
+func (r *systemSettingRepository) UpsertBatch(ctx context.Context, settings []*types.SystemSetting) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, setting := range settings {
+			if err := upsertSystemSetting(tx, setting); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // Delete removes the row by key. The boolean return indicates whether

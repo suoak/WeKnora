@@ -244,6 +244,8 @@ func (s *sessionService) KnowledgeQA(
 // 2. First knowledge base with a Remote model (from knowledgeBaseIDs or derived from knowledgeIDs)
 // 3. Session's SummaryModelID (if not Remote)
 // 4. First knowledge base's SummaryModelID
+// 5. System default chat model
+// 6. First available KnowledgeQA model (legacy fallback)
 func (s *sessionService) selectChatModelID(
 	ctx context.Context,
 	session *types.Session,
@@ -306,7 +308,17 @@ func (s *sessionService) selectChatModelID(
 		}
 	}
 
-	// No knowledge bases - try to find any available chat model
+	// Explicit > Tenant > System > Legacy fallback. Request/agent/KB choices
+	// have already been considered above; insert the deployment policy only
+	// before the historical first-available behavior.
+	if s.modelPolicy != nil {
+		if modelID := s.modelPolicy.ResolveChatModelID(ctx); modelID != "" {
+			logger.Infof(ctx, "Using system default chat model: %s", modelID)
+			return modelID, nil
+		}
+	}
+
+	// Legacy fallback: try to find any available chat model.
 	models, err := s.modelService.ListModels(ctx)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to list models: %v", err)
@@ -869,20 +881,7 @@ func (s *sessionService) SearchKnowledge(ctx context.Context,
 		return nil, err
 	}
 
-	// Use rerank model from RetrievalConfig if set, otherwise auto-select the first available
-	if rc != nil && rc.RerankModelID != "" {
-		chatManage.RerankModelID = rc.RerankModelID
-	} else {
-		for _, model := range models {
-			if model == nil {
-				continue
-			}
-			if model.Type == types.ModelTypeRerank {
-				chatManage.RerankModelID = model.ID
-				break
-			}
-		}
-	}
+	chatManage.RerankModelID = s.resolveRerankModelID(ctx, "", rc, models)
 
 	// Use specific event list, only including retrieval-related events, not LLM summarization
 	searchEvents := []types.EventType{

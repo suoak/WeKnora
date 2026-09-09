@@ -35,6 +35,33 @@
       </div>
     </div>
 
+    <section v-if="authStore.isSystemAdmin" class="default-policy-card">
+      <div class="default-policy-card__header">
+        <div>
+          <h3>{{ $t('modelSettings.defaultPolicy.title') }}</h3>
+          <p>{{ $t('modelSettings.defaultPolicy.description') }}</p>
+        </div>
+        <t-button theme="primary" :loading="savingPolicy" @click="saveDefaultPolicy">
+          {{ $t('common.save') }}
+        </t-button>
+      </div>
+      <div class="default-policy-grid">
+        <label v-for="row in policyRows" :key="row.key" class="default-policy-field">
+          <span>{{ $t(`modelSettings.defaultPolicy.${row.role}`) }}</span>
+          <t-select
+            v-model="defaultPolicy[row.key]"
+            :options="policyOptions(row.type)"
+            :placeholder="$t('modelSettings.defaultPolicy.unconfigured')"
+            clearable
+          />
+          <span v-if="isConfiguredPolicyInvalid(row)" class="default-policy-field__warning">
+            {{ $t('modelSettings.defaultPolicy.invalidConfigured') }}
+          </span>
+        </label>
+      </div>
+      <p class="default-policy-card__note">{{ $t('modelSettings.defaultPolicy.embeddingSafety') }}</p>
+    </section>
+
     <t-tabs v-model="activeTypeFilter" class="model-type-tabs" data-guide="settings-models">
       <t-tab-panel value="all" :label="`${$t('common.all')}(${allLegacyModels.length})`" />
       <t-tab-panel value="chat" :label="`${$t('modelSettings.typeShort.chat')}(${countByType('chat')})`" />
@@ -70,6 +97,10 @@
                 :aria-label="$t('modelSettings.builtinTag')">
                 <t-icon :name="authStore.isSystemAdmin ? 'edit-1' : 'lock-on'" />
               </span>
+              <t-tag v-for="role in defaultRolesForModel(model.id)" :key="role" size="small" theme="success"
+                variant="light" class="model-card__default-tag">
+                {{ $t(`modelSettings.defaultPolicy.badges.${role}`) }}
+              </t-tag>
               <div v-if="canManageModel(model)" class="model-card__actions" @click.stop>
                 <t-dropdown :options="getModelOptions(model._modelType, model)" placement="bottom-right" attach="body"
                   trigger="click"
@@ -276,6 +307,9 @@ import ModelEditorDialog from '@/components/ModelEditorDialog.vue'
 import ModelDebugDrawer from '@/components/ModelDebugDrawer.vue'
 import {
   listModels,
+  getDefaultModelPolicy,
+  getEffectiveDefaultModelPolicy,
+  updateDefaultModelPolicy,
   createModel,
   updateModel as updateModelAPI,
   deleteModel as deleteModelAPI,
@@ -286,6 +320,8 @@ import {
   modelUsageResourceCount,
   modelUsageResourceRoute,
   type ModelConfig,
+  type DefaultModelPolicy,
+  type EffectiveDefaultModelPolicy,
   type ModelUsageDetails,
   type ModelUsageResourceKind,
 } from '@/api/model'
@@ -316,6 +352,22 @@ const currentModelType = ref<ModelType>('chat')
 const editingModel = ref<any>(null)
 const loading = ref(true)
 const activeTypeFilter = ref<FilterType>('all')
+const savingPolicy = ref(false)
+const emptyPolicy = (): DefaultModelPolicy => ({
+  chat_model_id: '', summary_model_id: '', embedding_model_id: '',
+  rerank_model_id: '', vlm_model_id: '', asr_model_id: '',
+})
+const defaultPolicy = ref<DefaultModelPolicy>(emptyPolicy())
+const effectivePolicy = ref<EffectiveDefaultModelPolicy | null>(null)
+type PolicyKey = keyof DefaultModelPolicy
+const policyRows: Array<{ key: PolicyKey; role: string; type: ModelConfig['type'] }> = [
+  { key: 'chat_model_id', role: 'chat', type: 'KnowledgeQA' },
+  { key: 'summary_model_id', role: 'summary', type: 'KnowledgeQA' },
+  { key: 'embedding_model_id', role: 'embedding', type: 'Embedding' },
+  { key: 'rerank_model_id', role: 'rerank', type: 'Rerank' },
+  { key: 'vlm_model_id', role: 'vlm', type: 'VLLM' },
+  { key: 'asr_model_id', role: 'asr', type: 'ASR' },
+]
 
 const MODEL_TAB_TYPES: FilterType[] = ['chat', 'embedding', 'rerank', 'vllm', 'asr']
 const KNOWLEDGE_BASE_EDITOR_HOST_ROUTES = new Set([
@@ -338,6 +390,50 @@ watch(
 
 // 模型列表数据
 const allModels = ref<ModelConfig[]>([])
+
+const policyOptions = (type: ModelConfig['type']) => allModels.value
+  .filter(model => model.is_builtin && model.status === 'active' && model.type === type)
+  .map(model => ({ label: model.display_name || model.name, value: model.id! }))
+
+const isConfiguredPolicyInvalid = (row: { key: PolicyKey; type: ModelConfig['type'] }) => {
+  const configuredId = defaultPolicy.value[row.key]
+  return Boolean(configuredId && !policyOptions(row.type).some(option => option.value === configuredId))
+}
+
+const defaultRolesForModel = (modelId: string) => {
+  if (!effectivePolicy.value) return []
+  return Object.entries(effectivePolicy.value)
+    .filter(([, model]) => model?.id === modelId)
+    .map(([role]) => role)
+}
+
+const loadDefaultPolicies = async () => {
+	try {
+		effectivePolicy.value = await getEffectiveDefaultModelPolicy()
+		if (authStore.isSystemAdmin) {
+			defaultPolicy.value = await getDefaultModelPolicy()
+		}
+	} catch (error) {
+		console.warn('Failed to load default model policy:', error)
+		effectivePolicy.value = null
+	}
+}
+
+const saveDefaultPolicy = async () => {
+  savingPolicy.value = true
+  try {
+		const normalized = Object.fromEntries(
+			Object.entries(defaultPolicy.value).map(([key, value]) => [key, value || '']),
+		) as unknown as DefaultModelPolicy
+		defaultPolicy.value = await updateDefaultModelPolicy(normalized)
+    effectivePolicy.value = await getEffectiveDefaultModelPolicy()
+    MessagePlugin.success(t('modelSettings.defaultPolicy.saved'))
+  } catch (error: any) {
+    MessagePlugin.error(error?.message || t('modelSettings.defaultPolicy.saveFailed'))
+  } finally {
+    savingPolicy.value = false
+  }
+}
 
 // 后端 type → 前端分组 type 的映射
 const backendTypeToModelType: Record<string, ModelType> = {
@@ -482,6 +578,7 @@ const loadModels = async () => {
   try {
     const models = await listModels()
     allModels.value = models
+		await loadDefaultPolicies()
     // 设置页自己 listModels 之后立刻写回空间级缓存。否则对话输入栏 /
     // 智能体编辑器会继续拿 60s TTL 里的旧 context_window，刷新页面才对。
     chatResources.replaceModels(models)
@@ -868,6 +965,54 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+}
+
+.default-policy-card {
+  margin-bottom: 24px;
+  padding: 18px;
+  border: 1px solid var(--td-component-stroke);
+  border-radius: 8px;
+  background: var(--td-bg-color-container);
+}
+
+.default-policy-card__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 16px;
+
+  h3 { margin: 0 0 4px; font-size: 16px; }
+  p { margin: 0; color: var(--td-text-color-secondary); font-size: 13px; }
+}
+
+.default-policy-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 18px;
+}
+
+.default-policy-field {
+  display: grid;
+  gap: 6px;
+  color: var(--td-text-color-secondary);
+  font-size: 13px;
+}
+
+.default-policy-field__warning {
+  color: var(--td-error-color);
+  font-size: 12px;
+}
+
+.default-policy-card__note {
+  margin: 14px 0 0;
+  color: var(--td-text-color-placeholder);
+  font-size: 12px;
+}
+
+.model-card__default-tag { flex-shrink: 0; }
+
+@media (max-width: 760px) {
+  .default-policy-grid { grid-template-columns: 1fr; }
 }
 
 .model-test-trigger {

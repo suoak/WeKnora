@@ -115,6 +115,7 @@ type sessionService struct {
 	messageRepo           interfaces.MessageRepository           // Repository for message data
 	knowledgeBaseService  interfaces.KnowledgeBaseService        // Service for knowledge base operations
 	modelService          interfaces.ModelService                // Service for model operations
+	modelPolicy           interfaces.ModelPolicyService          // System-wide fallback policy
 	tenantService         interfaces.TenantService               // Service for tenant operations
 	eventManager          *chatpipeline.EventManager             // Event manager for chat pipeline
 	agentService          interfaces.AgentService                // Service for agent operations
@@ -144,6 +145,7 @@ func NewSessionService(cfg *config.Config,
 	knowledgeService interfaces.KnowledgeService,
 	chunkService interfaces.ChunkService,
 	modelService interfaces.ModelService,
+	modelPolicy interfaces.ModelPolicyService,
 	tenantService interfaces.TenantService,
 	eventManager *chatpipeline.EventManager,
 	agentService interfaces.AgentService,
@@ -167,6 +169,7 @@ func NewSessionService(cfg *config.Config,
 		knowledgeService:      knowledgeService,
 		chunkService:          chunkService,
 		modelService:          modelService,
+		modelPolicy:           modelPolicy,
 		tenantService:         tenantService,
 		eventManager:          eventManager,
 		agentService:          agentService,

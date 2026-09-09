@@ -55,6 +55,38 @@ export interface ModelConfig {
   deleted_at?: string | null;
 }
 
+export interface DefaultModelPolicy {
+  chat_model_id: string
+  summary_model_id: string
+  embedding_model_id: string
+  rerank_model_id: string
+  vlm_model_id: string
+  asr_model_id: string
+}
+
+export interface EffectiveDefaultModel {
+  id: string
+  name: string
+  type: ModelConfig['type']
+}
+
+export type EffectiveDefaultModelPolicy = Record<
+  'chat' | 'summary' | 'embedding' | 'rerank' | 'vlm' | 'asr',
+  EffectiveDefaultModel | null
+>
+
+export async function getDefaultModelPolicy(): Promise<DefaultModelPolicy> {
+  return await get('/api/v1/system/admin/model-policy') as DefaultModelPolicy
+}
+
+export async function updateDefaultModelPolicy(policy: DefaultModelPolicy): Promise<DefaultModelPolicy> {
+  return await put('/api/v1/system/admin/model-policy', policy) as DefaultModelPolicy
+}
+
+export async function getEffectiveDefaultModelPolicy(): Promise<EffectiveDefaultModelPolicy> {
+  return await get('/api/v1/models/default-policy') as EffectiveDefaultModelPolicy
+}
+
 // 创建模型
 export function createModel(data: ModelConfig): Promise<ModelConfig> {
   return new Promise((resolve, reject) => {

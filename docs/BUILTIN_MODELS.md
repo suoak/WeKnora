@@ -127,7 +127,7 @@ LLM_PROVIDER=openai
 builtin_models:
   - id: builtin-llm-default
     type: KnowledgeQA
-    is_default: true
+    is_default: false  # 兼容字段；系统默认策略不读取它
     name: ${LLM_MODEL_NAME}
     parameters:
       base_url: ${LLM_BASE_URL}
@@ -275,8 +275,31 @@ DELETE FROM models WHERE id = '模型ID';
 1. **ID 命名规范**：建议使用 `builtin-{type}-{slug}` 的格式，例如 `builtin-openai-chat`、`builtin-rerank`
 2. **空间ID**：内置模型可以属于任意空间，默认 `10000`（与 `tenants_id_seq` 起点一致）
 3. **YAML 与 SQL 并存**：两种方式可以同时使用，loader 只动 `managed_by='yaml'` 的行；通过 SQL 插入的 builtin 行对 loader 完全不可见
-4. **`is_default` 单一保证**：YAML 中将某条 entry 标记 `is_default: true` 时，loader 会先把同 `(tenant_id, type)` 下的其它默认模型置为 `false`，避免 API 路径维护的"每类型一个默认模型"语义被破坏
+4. **`is_default` 仅为兼容字段**：系统默认解析不读取该字段；请使用下文的系统默认模型策略。新配置建议保持 `false`
 5. **重启即生效**：修改 YAML 后 `docker compose restart app` 即可让新配置生效
 6. **加密**：API Key 在 `parameters` JSONB 中以加密形式存储（若 `SYSTEM_AES_KEY` 已配置），未配置时降级为明文兼容路径
 7. **安全性**：前端会自动隐藏内置模型的 API Key 和 Base URL，但数据库中的原始数据仍然存在，请妥善保管数据库访问权限
 8. **解析错误自我保护**：YAML 解析失败时 loader 仅打 warning 并跳过 reconcile，**不会**执行 drift sweep，确保一个手抖的 YAML 改动不会大规模软删既有内置模型
+
+## 系统默认模型策略
+
+`is_builtin` 只表示模型对所有空间可见；它不表示该模型会被默认选中。系统默认选择是独立的 `system_settings` policy 层，不依赖 `models.is_default`。
+
+系统管理员可在「设置 → 模型配置 → 系统默认模型策略」或 `GET/PUT /api/v1/system/admin/model-policy` 配置对话、摘要、Embedding、Rerank、VLM 与 ASR 默认模型。每个非空值必须是启用中的同类型内置模型。普通空间可通过 `GET /api/v1/models/default-policy` 读取不含凭据和参数的 effective policy。
+
+解析优先级为：**显式资源/请求配置 > 空间配置 > 系统默认 > 旧版首个可用模型 fallback > 错误**。VLM 与 ASR 默认值不会自动开启功能，只会在功能已开启但 model ID 为空时继承。
+
+也可用以下环境变量提供 DB 行缺失时的 fallback：
+
+```text
+WEKNORA_DEFAULT_CHAT_MODEL_ID
+WEKNORA_DEFAULT_SUMMARY_MODEL_ID
+WEKNORA_DEFAULT_EMBEDDING_MODEL_ID
+WEKNORA_DEFAULT_RERANK_MODEL_ID
+WEKNORA_DEFAULT_VLM_MODEL_ID
+WEKNORA_DEFAULT_ASR_MODEL_ID
+```
+
+修改系统默认 Embedding 只影响之后新建且未显式选择模型的知识库，**不会更新已有 `knowledge_bases.embedding_model_id`，不会迁移向量，也不会触发重新解析**。
+
+知识库创建页在打开时读取一次 effective policy 并将预选结果作为显式 ID 提交；因此页面保持打开期间发生的策略变更不会改变本次创建，重新打开后才使用新策略。后端仍会独立解析空 ID，是最终的正确性来源。

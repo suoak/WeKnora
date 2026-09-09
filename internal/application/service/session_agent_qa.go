@@ -114,19 +114,15 @@ func (s *sessionService) AgentQA(
 	// must not force users to configure an otherwise-unused rerank model.
 	var rerankModel rerank.Reranker
 	if agentRequiresRerankModel(req.CustomAgent) {
-		// Rerank model is resolved purely from the agent config now.
-		// We used to fall back to ConversationConfig.RerankModelID at
-		// the tenant level, but that path encouraged "leave rerank
-		// blank on the agent and inherit silently" which made debugging
-		// retrieval quality a guessing game across tenant settings vs
-		// agent settings. Forcing the agent to declare its own rerank
-		// model puts the configuration where the user actually edits
-		// the agent. If a Wiki-only agent doesn't need reranking,
-		// agentRequiresRerankModel() below already lets it pass.
-		rerankModelID := req.CustomAgent.Config.RerankModelID
+		// Explicit > Tenant > System > Legacy fallback.
+		models, listErr := s.modelService.ListModels(ctx)
+		if listErr != nil {
+			logger.Warnf(ctx, "Failed to list models while resolving agent reranker: %v", listErr)
+		}
+		rerankModelID := s.resolveRerankModelID(ctx, req.CustomAgent.Config.RerankModelID, tenantInfo.RetrievalConfig, models)
 		if rerankModelID == "" {
-			logger.Warnf(ctx, "No rerank model configured for custom agent %s, but knowledge_search tool is enabled", req.CustomAgent.ID)
-			return errors.New("rerank model is not configured: please set rerank_model_id on the agent")
+			logger.Warnf(ctx, "No rerank model available for custom agent %s, but knowledge_search tool is enabled", req.CustomAgent.ID)
+			return errors.New("rerank model is unavailable: configure the agent, workspace, or system default")
 		}
 
 		rerankModel, err = s.modelService.GetRerankModel(ctx, rerankModelID)

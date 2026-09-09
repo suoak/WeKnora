@@ -2104,6 +2104,15 @@ export default {
   modelSettings: {
     title: '模型配置',
     description: '管理不同类型的 AI 模型，支持 Ollama 本地模型和远程 API',
+    defaultPolicy: {
+      invalidConfigured: '已配置的模型当前不可用，请重新选择或清空此项。',
+      title: '系统默认模型策略', description: '当空间或资源未明确指定模型时使用，修改后立即生效。',
+      chat: '默认对话模型', summary: '默认摘要模型', embedding: '默认 Embedding',
+      rerank: '默认 Rerank', vlm: '默认 VLM', asr: '默认 ASR', unconfigured: '未配置',
+      embeddingSafety: '修改默认 Embedding 只影响之后新建的知识库，不会迁移或重建已有知识库。',
+      saved: '系统默认模型策略已保存', saveFailed: '保存系统默认模型策略失败',
+      badges: { chat: '默认对话', summary: '默认摘要', embedding: '默认向量', rerank: '默认重排', vlm: '默认视觉', asr: '默认语音' }
+    },
     copySuffix: ' 副本',
     builtinTag: '内置',
     confirmDelete: '确定删除模型「{name}」吗？',

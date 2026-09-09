@@ -5,12 +5,23 @@ import (
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestResolveChatModelIDRequiresConfiguredAgentModel(t *testing.T) {
+type stubModelPolicy struct {
+	interfaces.ModelPolicyService
+	chatID   string
+	rerankID string
+}
+
+func (s *stubModelPolicy) ResolveChatModelID(context.Context) string   { return s.chatID }
+func (s *stubModelPolicy) ResolveRerankModelID(context.Context) string { return s.rerankID }
+
+func TestResolveChatModelIDUnconfiguredAgentUsesSystemFallback(t *testing.T) {
 	svc := &sessionService{
+		modelPolicy: &stubModelPolicy{chatID: "builtin-chat"},
 		modelService: &stubModelService{
 			modelsByID: map[string]*types.Model{
 				"builtin-chat": {
@@ -25,15 +36,13 @@ func TestResolveChatModelIDRequiresConfiguredAgentModel(t *testing.T) {
 		CustomAgent: &types.CustomAgent{
 			ID: "agent-1",
 		},
-		// Even a valid request-level model must not hide incomplete agent config.
-		SummaryModelID: "builtin-chat",
+		SummaryModelID: "",
 	}
 
 	modelID, err := svc.resolveChatModelID(context.Background(), req, nil, nil)
 
-	require.Error(t, err)
-	assert.Empty(t, modelID)
-	assert.Contains(t, err.Error(), "model_id")
+	require.NoError(t, err)
+	assert.Equal(t, "builtin-chat", modelID)
 }
 
 func TestResolveChatModelIDRejectsUnavailableConfiguredAgentModel(t *testing.T) {
@@ -200,4 +209,30 @@ func TestResolveChatModelIDWikiFixerFallsBackToAvailableModel(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "system-chat", modelID)
+}
+
+func TestResolveChatModelIDSystemDefaultPrecedesFirstAvailable(t *testing.T) {
+	svc := &sessionService{
+		modelPolicy: &stubModelPolicy{chatID: "system-default"},
+		modelService: &stubModelService{availableModels: []*types.Model{{
+			ID: "legacy-first", Type: types.ModelTypeKnowledgeQA,
+		}}},
+	}
+	req := &types.QARequest{Session: &types.Session{}}
+	modelID, err := svc.resolveChatModelID(context.Background(), req, nil, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "system-default", modelID)
+}
+
+func TestResolveRerankModelIDPriority(t *testing.T) {
+	legacy := []*types.Model{{ID: "legacy", Type: types.ModelTypeRerank, Status: types.ModelStatusActive}}
+	svc := &sessionService{modelPolicy: &stubModelPolicy{rerankID: "system"}}
+	ctx := context.Background()
+
+	assert.Equal(t, "explicit", svc.resolveRerankModelID(ctx, "explicit", &types.RetrievalConfig{RerankModelID: "tenant"}, legacy))
+	assert.Equal(t, "tenant", svc.resolveRerankModelID(ctx, "", &types.RetrievalConfig{RerankModelID: "tenant"}, legacy))
+	assert.Equal(t, "system", svc.resolveRerankModelID(ctx, "", nil, legacy))
+	svc.modelPolicy = &stubModelPolicy{}
+	assert.Equal(t, "legacy", svc.resolveRerankModelID(ctx, "", nil, legacy))
+	assert.Empty(t, svc.resolveRerankModelID(ctx, "", nil, nil))
 }

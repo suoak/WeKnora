@@ -37,6 +37,7 @@ type knowledgeBaseService struct {
 	shareRepo       interfaces.KBShareRepository
 	kbShareService  interfaces.KBShareService
 	modelService    interfaces.ModelService
+	modelPolicy     interfaces.ModelPolicyService
 	retrieveEngine  interfaces.RetrieveEngineRegistry
 	ownership       retriever.TenantStoreOwnership
 	tenantRepo      interfaces.TenantRepository
@@ -60,6 +61,7 @@ func NewKnowledgeBaseService(repo interfaces.KnowledgeBaseRepository,
 	shareRepo interfaces.KBShareRepository,
 	kbShareService interfaces.KBShareService,
 	modelService interfaces.ModelService,
+	modelPolicy interfaces.ModelPolicyService,
 	retrieveEngine interfaces.RetrieveEngineRegistry,
 	ownership retriever.TenantStoreOwnership,
 	tenantRepo interfaces.TenantRepository,
@@ -82,6 +84,7 @@ func NewKnowledgeBaseService(repo interfaces.KnowledgeBaseRepository,
 		shareRepo:       shareRepo,
 		kbShareService:  kbShareService,
 		modelService:    modelService,
+		modelPolicy:     modelPolicy,
 		retrieveEngine:  retrieveEngine,
 		ownership:       ownership,
 		tenantRepo:      tenantRepo,
@@ -137,6 +140,13 @@ func (s *knowledgeBaseService) CreateKnowledgeBase(ctx context.Context,
 		kb.CreatorID = uid
 	}
 	kb.EnsureDefaults()
+	if s.modelPolicy != nil {
+		// Defaults are resolved only for this newly-created row. Changing the
+		// system default embedding model does NOT migrate existing knowledge bases.
+		if err := s.modelPolicy.ApplyKnowledgeBaseDefaults(ctx, kb); err != nil {
+			return nil, err
+		}
+	}
 	applyTenantDefaultStorageProvider(ctx, kb)
 	if err := s.applyAndValidateStorageBackend(ctx, kb); err != nil {
 		return nil, err

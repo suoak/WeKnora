@@ -86,11 +86,10 @@ func (s *sessionService) restrictTagScopesToAgentScope(
 
 // resolveChatModelID resolves the effective chat model ID for a QA request.
 //
-// When a user-configured agent is selected, its model configuration must be
-// complete and valid. The internal wiki fixer is the one exception: it is not
-// exposed in the agent UI, so an empty model_id falls back to KB/system model
-// selection. A request-level override may choose another valid model for this
-// request, but it must not make an unconfigured or stale agent appear usable.
+// When a user-configured agent specifies a model, it must be valid. An empty
+// model_id inherits from KB/system selection; a stale non-empty model never
+// silently falls through. A request-level override may choose another valid
+// model for this request.
 //
 // Without an agent, the legacy KB / session / system fallback remains
 // available for non-agent callers.
@@ -107,20 +106,15 @@ func (s *sessionService) resolveChatModelID(
 
 	if customAgent != nil {
 		configuredAgentModelID = strings.TrimSpace(customAgent.Config.ModelID)
-		if configuredAgentModelID == "" && customAgent.ID != types.BuiltinWikiFixerID {
-			return "", fmt.Errorf("chat model is not configured: please set model_id on agent %s", customAgent.ID)
-		}
 		if configuredAgentModelID != "" {
 			model, err := s.modelService.GetModelByID(ctx, configuredAgentModelID)
 			if err != nil || model == nil || model.Type != types.ModelTypeKnowledgeQA {
 				return "", fmt.Errorf("configured chat model %s is unavailable for agent %s", configuredAgentModelID, customAgent.ID)
 			}
 		} else {
-			// The wiki fixer is an internal agent and is intentionally omitted
-			// from the agent-management list. It therefore cannot receive a
-			// user-configured model_id; resolve it from the current Wiki KB or
-			// the normal system KnowledgeQA fallback below instead.
-			logger.Infof(ctx, "No model_id configured for internal wiki fixer %s, using KB/system fallback", customAgent.ID)
+			// An unconfigured agent inherits from its KB and then the system
+			// policy. Explicit agent and request choices still win below.
+			logger.Infof(ctx, "No model_id configured for agent %s, using KB/system fallback", customAgent.ID)
 		}
 	}
 
@@ -138,6 +132,35 @@ func (s *sessionService) resolveChatModelID(
 		return configuredAgentModelID, nil
 	}
 	return s.selectChatModelID(ctx, session, knowledgeBaseIDs, knowledgeIDs)
+}
+
+// resolveRerankModelID applies the shared model precedence used by both RAG
+// and AgentQA: Explicit > Tenant > System > Legacy fallback.
+func (s *sessionService) resolveRerankModelID(
+	ctx context.Context,
+	explicit string,
+	tenantConfig *types.RetrievalConfig,
+	models []*types.Model,
+) string {
+	if id := strings.TrimSpace(explicit); id != "" {
+		return id
+	}
+	if tenantConfig != nil {
+		if id := strings.TrimSpace(tenantConfig.RerankModelID); id != "" {
+			return id
+		}
+	}
+	if s.modelPolicy != nil {
+		if id := s.modelPolicy.ResolveRerankModelID(ctx); id != "" {
+			return id
+		}
+	}
+	for _, model := range models {
+		if model != nil && model.Type == types.ModelTypeRerank && model.Status == types.ModelStatusActive {
+			return model.ID
+		}
+	}
+	return ""
 }
 
 // resolveRetrievalTenantID determines the tenant ID to use for retrieval scope.
