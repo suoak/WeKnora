@@ -101,6 +101,34 @@ type settingSpec struct {
 // the new value, no in-memory state bound at init time we cannot
 // re-derive)".
 var registry = map[string]settingSpec{
+	// System-wide model inheritance policy. These values are read at request
+	// time and therefore take effect without a restart. The model policy
+	// service validates that every non-empty ID is a live builtin model of the
+	// required type before it can be persisted.
+	"model.default.chat_id": {
+		Type: "string", EnvName: "WEKNORA_DEFAULT_CHAT_MODEL_ID", Default: "", Category: "model",
+		Description: "未显式配置时使用的系统默认对话模型（仅限启用中的内置 KnowledgeQA 模型）。",
+	},
+	"model.default.summary_id": {
+		Type: "string", EnvName: "WEKNORA_DEFAULT_SUMMARY_MODEL_ID", Default: "", Category: "model",
+		Description: "新建知识库未指定摘要模型时使用的系统默认模型（仅限启用中的内置 KnowledgeQA 模型）。",
+	},
+	"model.default.embedding_id": {
+		Type: "string", EnvName: "WEKNORA_DEFAULT_EMBEDDING_MODEL_ID", Default: "", Category: "model",
+		Description: "新建知识库未指定向量模型时使用的系统默认 Embedding；修改不会迁移已有知识库。",
+	},
+	"model.default.rerank_id": {
+		Type: "string", EnvName: "WEKNORA_DEFAULT_RERANK_MODEL_ID", Default: "", Category: "model",
+		Description: "空间未配置重排模型时使用的系统默认 Rerank 模型。",
+	},
+	"model.default.vlm_id": {
+		Type: "string", EnvName: "WEKNORA_DEFAULT_VLM_MODEL_ID", Default: "", Category: "model",
+		Description: "已启用多模态但未指定模型时使用的系统默认 VLM；不会自动开启多模态。",
+	},
+	"model.default.asr_id": {
+		Type: "string", EnvName: "WEKNORA_DEFAULT_ASR_MODEL_ID", Default: "", Category: "model",
+		Description: "已启用语音识别但未指定模型时使用的系统默认 ASR；不会自动开启语音识别。",
+	},
 	// NOTE: file.max_size_mb is intentionally NOT registered. Although
 	// the Go upload handlers accept a runtime override via
 	// systemSettingSvc.GetInt, the actual upload limit is gated end-to-end
@@ -330,6 +358,11 @@ type systemSettingService struct {
 	// pubsub stream. Generated once at construction; never changes.
 	instanceID string
 
+	// cacheSyncMu serializes DB-to-cache refreshes with successful writes.
+	// Without it, an in-flight startup preload (or peer reload) could publish an
+	// older DB snapshot into cache after a local write had already committed.
+	cacheSyncMu sync.Mutex
+
 	// cache holds every known setting indexed by key. Populated by
 	// loadCache (preload + after every pubsub message). All access
 	// goes through `mu`. A nil entry means "we know there's no row
@@ -381,6 +414,9 @@ func NewSystemSettingService(
 // values (just slower). Logging the count gives operators a single line
 // in the startup log they can grep for ("how many keys did P2 load?").
 func (s *systemSettingService) preload(ctx context.Context) {
+	s.cacheSyncMu.Lock()
+	defer s.cacheSyncMu.Unlock()
+
 	rows, err := s.repo.List(ctx)
 	if err != nil {
 		logger.Warnf(ctx, "[system_settings] preload failed, falling back to per-request DB reads: %v", err)
@@ -468,6 +504,9 @@ func encodeDefault(spec settingSpec) (types.JSON, error) {
 // been deleted by an out-of-band tool (P1 has no Delete endpoint, but
 // hand-edits still work).
 func (s *systemSettingService) reload(ctx context.Context, key string) {
+	s.cacheSyncMu.Lock()
+	defer s.cacheSyncMu.Unlock()
+
 	row, err := s.repo.Get(ctx, key)
 	if err != nil {
 		logger.Warnf(ctx, "[system_settings] reload %q failed: %v", key, err)
@@ -998,7 +1037,9 @@ func (s *systemSettingService) Update(ctx context.Context, key string, rawValue 
 		RequiresRestart: requiresRestart,
 		LastModifiedBy:  auditActor(ctx),
 	}
+	s.cacheSyncMu.Lock()
 	if err := s.repo.Upsert(ctx, row); err != nil {
+		s.cacheSyncMu.Unlock()
 		return nil, fmt.Errorf("upsert system setting %q: %w", key, err)
 	}
 
@@ -1025,6 +1066,7 @@ func (s *systemSettingService) Update(ctx context.Context, key string, rawValue 
 	s.mu.Lock()
 	s.cache[key] = persisted
 	s.mu.Unlock()
+	s.cacheSyncMu.Unlock()
 
 	// Push to side-effect bridges (e.g. utils.SetSSRFWhitelistFromRaw).
 	s.dispatchSideEffects(ctx, key)
@@ -1032,6 +1074,87 @@ func (s *systemSettingService) Update(ctx context.Context, key string, rawValue 
 	s.publishChange(ctx, key)
 	s.emitChangeAudit(ctx, key, spec.Type, oldValue, encoded)
 	return persisted, nil
+}
+
+// UpdateBatch is the transactional counterpart to Update for small compound
+// policies. Validation and pre-image collection finish before the transaction;
+// cache/pubsub/audit effects run only after every row commits successfully.
+func (s *systemSettingService) UpdateBatch(ctx context.Context, values map[string]any) ([]*types.SystemSetting, error) {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	rows := make([]*types.SystemSetting, 0, len(keys))
+	oldValues := make(map[string]types.JSON, len(keys))
+	for _, key := range keys {
+		rawValue := values[key]
+		spec, ok := registry[key]
+		if !ok {
+			return nil, fmt.Errorf("unknown setting key %q", key)
+		}
+		encoded, err := encodeForType(spec.Type, rawValue)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for %q (expected %s): %w", key, spec.Type, err)
+		}
+		if err := validateRegistryEntry(key, rawValue); err != nil {
+			return nil, fmt.Errorf("invalid value for %q: %w", key, err)
+		}
+		if len(spec.Enum) > 0 && spec.Type == "string" {
+			str, _ := rawValue.(string)
+			allowed := false
+			for _, option := range spec.Enum {
+				if str == option {
+					allowed = true
+					break
+				}
+			}
+			if !allowed {
+				return nil, fmt.Errorf("invalid value for %q: %q not in %v", key, str, spec.Enum)
+			}
+		}
+		prev, err := s.repo.Get(ctx, key)
+		if err != nil {
+			return nil, fmt.Errorf("read system setting %q: %w", key, err)
+		}
+		category, description := spec.Category, spec.Description
+		var isSecret, requiresRestart bool
+		if prev != nil {
+			oldValues[key] = prev.Value
+			category, description = prev.Category, prev.Description
+			isSecret, requiresRestart = prev.IsSecret, prev.RequiresRestart
+		} else {
+			requiresRestart = spec.RequiresRestart
+			if category == "" {
+				category = "general"
+			}
+		}
+		rows = append(rows, &types.SystemSetting{
+			Key: key, Value: encoded, ValueType: spec.Type, Category: category,
+			Description: description, IsSecret: isSecret, RequiresRestart: requiresRestart,
+			LastModifiedBy: auditActor(ctx), Enum: spec.Enum,
+		})
+	}
+	s.cacheSyncMu.Lock()
+	if err := s.repo.UpsertBatch(ctx, rows); err != nil {
+		s.cacheSyncMu.Unlock()
+		return nil, fmt.Errorf("batch upsert system settings: %w", err)
+	}
+	// Publish the complete committed document to the local cache under one
+	// lock, so readers never observe a partially updated policy.
+	s.mu.Lock()
+	for _, row := range rows {
+		s.cache[row.Key] = row
+	}
+	s.mu.Unlock()
+	s.cacheSyncMu.Unlock()
+	for _, row := range rows {
+		s.dispatchSideEffects(ctx, row.Key)
+		s.publishChange(ctx, row.Key)
+		s.emitChangeAudit(ctx, row.Key, row.ValueType, oldValues[row.Key], row.Value)
+	}
+	return rows, nil
 }
 
 // Reset deletes the DB override for `key` so the resolver falls back
@@ -1049,11 +1172,13 @@ func (s *systemSettingService) Reset(ctx context.Context, key string) error {
 		return fmt.Errorf("unknown setting key %q", key)
 	}
 
+	s.cacheSyncMu.Lock()
 	// Capture pre-image for the audit log before the row vanishes.
 	prev, _ := s.repo.Get(ctx, key)
 
 	deleted, err := s.repo.Delete(ctx, key)
 	if err != nil {
+		s.cacheSyncMu.Unlock()
 		return fmt.Errorf("delete system setting %q: %w", key, err)
 	}
 
@@ -1063,6 +1188,7 @@ func (s *systemSettingService) Reset(ctx context.Context, key string) error {
 	s.mu.Lock()
 	delete(s.cache, key)
 	s.mu.Unlock()
+	s.cacheSyncMu.Unlock()
 
 	// Side-effect bridges and pubsub fire even for no-op resets so
 	// peers that may have a stale cached row converge. publishChange

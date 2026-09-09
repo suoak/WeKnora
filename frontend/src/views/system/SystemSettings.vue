@@ -694,7 +694,9 @@ function minimumFor(item: SystemSettingItem): number {
 async function loadSettings() {
   loading.value = true
   try {
-    const list = await listSystemSettings()
+    // Model defaults have a typed, validated editor in Model Settings. Do not
+    // duplicate their raw system_setting keys in this generic control plane.
+    const list = (await listSystemSettings()).filter(item => item.category !== 'model')
     settings.value = list
     // Reset edit values to the canonical state on every load — no
     // partial drafts survive a refresh, which avoids the "I came back

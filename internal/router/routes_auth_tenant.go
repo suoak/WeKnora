@@ -317,6 +317,11 @@ func RegisterSystemAdminRoutes(
 			apiKeyPlatform(types.APIKeyCapabilitySystemSettingsManage), handler.UpdateSystemSetting)
 		g.apiKeyRoute(adminRoutes, http.MethodDelete, "/settings/:key",
 			apiKeyPlatform(types.APIKeyCapabilitySystemSettingsManage), handler.ResetSystemSetting)
+		g.apiKeyRoute(adminRoutes, http.MethodGet, "/model-policy",
+			apiKeyPlatform(types.APIKeyCapabilitySystemSettingsRead, types.APIKeyCapabilitySystemSettingsManage),
+			handler.GetModelPolicy)
+		g.apiKeyRoute(adminRoutes, http.MethodPut, "/model-policy",
+			apiKeyPlatform(types.APIKeyCapabilitySystemSettingsManage), handler.UpdateModelPolicy)
 
 		// Runtime operations: live asynq queue depths, safe task projections,
 		// and state-checked task actions for the SystemAdmin dashboard. Lite

@@ -52,6 +52,10 @@ type ModelRepository interface {
 	Create(ctx context.Context, model *types.Model) error
 	// GetByID gets a model by ID
 	GetByID(ctx context.Context, tenantID uint64, id string) (*types.Model, error)
+	// GetBuiltinByID performs a platform-scoped lookup used by global model
+	// policy validation. It never exposes a tenant-private model and does not
+	// depend on the tenant currently attached to ctx.
+	GetBuiltinByID(ctx context.Context, id string) (*types.Model, error)
 	// List lists all models
 	List(
 		ctx context.Context,

@@ -474,6 +474,7 @@ import { createKnowledgeBase, getKnowledgeBaseById, listKnowledgeFiles, updateKn
 import { updateKBConfig, type KBModelConfigRequest } from '@/api/initialization'
 import { useChatResourcesStore } from '@/stores/chatResources'
 import { selectInitialModelId } from '@/utils/modelDefaults'
+import { getEffectiveDefaultModelPolicy, type EffectiveDefaultModelPolicy } from '@/api/model'
 import { copyWithToast } from '@/utils/clipboard'
 import { useEditorResourcesStore } from '@/stores/editorResources'
 import { useUIStore } from '@/stores/ui'
@@ -545,6 +546,7 @@ onBeforeUnmount(() => {
 const saving = ref(false)
 const loading = ref(false)
 const allModels = ref<any[]>([])
+const effectiveDefaultPolicy = ref<EffectiveDefaultModelPolicy | null>(null)
 const hasFiles = ref(false)
 const initialStorageProvider = ref<string>('')
 /** Tenant-wide default from Settings → Storage engine (used when creating a KB). */
@@ -683,9 +685,15 @@ const kbCreateNeedsEmbedding = computed(() => {
 })
 
 const applyDefaultModelsIfEmpty = () => {
-  if (!formData.value || editorMode.value !== 'create') return
-  const chatModelId = selectInitialModelId(allModels.value, 'KnowledgeQA')
-  const embeddingModelId = selectInitialModelId(allModels.value, 'Embedding')
+	if (!formData.value || editorMode.value !== 'create') return
+	// Creation keeps the policy snapshot loaded when the editor opened and
+	// submits it as an explicit ID. The backend still resolves empty IDs on its
+	// own; a policy change while this modal remains open affects the next open.
+	const chatModelId = effectiveDefaultPolicy.value?.summary?.id
+		|| effectiveDefaultPolicy.value?.chat?.id
+		|| selectInitialModelId(allModels.value, 'KnowledgeQA')
+	const embeddingModelId = effectiveDefaultPolicy.value?.embedding?.id
+		|| selectInitialModelId(allModels.value, 'Embedding')
   if (!formData.value.modelConfig.llmModelId && chatModelId) {
     formData.value.modelConfig.llmModelId = chatModelId
   }
@@ -693,6 +701,24 @@ const applyDefaultModelsIfEmpty = () => {
     formData.value.modelConfig.embeddingModelId = embeddingModelId
   }
 }
+
+watch(
+	() => formData.value?.multimodalConfig?.enabled,
+	(enabled) => {
+		if (enabled && editorMode.value === 'create' && !formData.value.multimodalConfig.vllmModelId) {
+			formData.value.multimodalConfig.vllmModelId = effectiveDefaultPolicy.value?.vlm?.id || ''
+		}
+	},
+)
+
+watch(
+	() => formData.value?.asrConfig?.enabled,
+	(enabled) => {
+		if (enabled && editorMode.value === 'create' && !formData.value.asrConfig.modelId) {
+			formData.value.asrConfig.modelId = effectiveDefaultPolicy.value?.asr?.id || ''
+		}
+	},
+)
 
 watch(
   () => formData.value?.type,
@@ -818,6 +844,17 @@ const loadAllModels = async (force = false) => {
     MessagePlugin.error(t('knowledgeEditor.messages.loadModelsFailed'))
     allModels.value = []
   }
+}
+
+const loadEffectiveDefaultPolicy = async () => {
+	try {
+		effectiveDefaultPolicy.value = await getEffectiveDefaultModelPolicy()
+	} catch (error) {
+		// This is a UX enhancement only. The backend independently applies the
+		// policy when creating a KB, so a transient read failure is safe.
+		console.warn('Failed to load effective default model policy:', error)
+		effectiveDefaultPolicy.value = null
+	}
 }
 
 let kbEditorLoadGeneration = 0
@@ -1575,7 +1612,7 @@ watch(() => props.visible, async (newVal) => {
     }
     
     // 加载模型列表与空间默认存储引擎（创建 KB 时即使用，不依赖是否打开「存储引擎」Tab）
-    await Promise.all([loadAllModels(), loadTenantDefaultStorageProvider()])
+		await Promise.all([loadAllModels(), loadEffectiveDefaultPolicy(), loadTenantDefaultStorageProvider()])
 
     if (generation !== kbEditorLoadGeneration || !props.visible) return
     

@@ -23,6 +23,28 @@ type debugBatchModelService struct {
 	embedderID string
 }
 
+type effectivePolicyModelService struct{ interfaces.ModelService }
+
+func (*effectivePolicyModelService) GetModelByID(context.Context, string) (*types.Model, error) {
+	return &types.Model{
+		ID: "builtin-chat", Name: "provider-name", DisplayName: "Safe name",
+		Type: types.ModelTypeKnowledgeQA, IsBuiltin: true, Status: types.ModelStatusActive,
+		Parameters: types.ModelParameters{
+			BaseURL: "https://secret.example", APIKey: "secret-api-key",
+			AppSecret: "secret-app-value", CustomHeaders: map[string]string{"Authorization": "secret-header"},
+		},
+	}, nil
+}
+
+type effectivePolicyStub struct{ interfaces.ModelPolicyService }
+
+func (*effectivePolicyStub) ResolveChatModelID(context.Context) string      { return "builtin-chat" }
+func (*effectivePolicyStub) ResolveSummaryModelID(context.Context) string   { return "" }
+func (*effectivePolicyStub) ResolveEmbeddingModelID(context.Context) string { return "" }
+func (*effectivePolicyStub) ResolveRerankModelID(context.Context) string    { return "" }
+func (*effectivePolicyStub) ResolveVLMModelID(context.Context) string       { return "" }
+func (*effectivePolicyStub) ResolveASRModelID(context.Context) string       { return "" }
+
 func (s *debugBatchModelService) GetEmbeddingModel(_ context.Context, id string) (embedding.Embedder, error) {
 	s.embedderID = id
 	return s.embedder, nil
@@ -51,8 +73,25 @@ func runDebugEmbeddingsHandler(t *testing.T, service interfaces.ModelService, bo
 	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/v1/models/model-1/debug/embeddings", bytes.NewReader(body))
 	ctx.Request.Header.Set("Content-Type", "application/json")
 	ctx.Params = gin.Params{{Key: "id", Value: "model-1"}}
-	NewModelHandler(service).DebugEmbeddings(ctx)
+	NewModelHandler(service, nil).DebugEmbeddings(ctx)
 	return recorder, ctx
+}
+
+func TestGetDefaultPolicyReturnsCredentialFreeProjection(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/v1/models/default-policy", nil)
+	NewModelHandler(&effectivePolicyModelService{}, &effectivePolicyStub{}).GetDefaultPolicy(ctx)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	assert.JSONEq(t, `{
+		"chat":{"id":"builtin-chat","name":"Safe name","type":"KnowledgeQA"},
+		"summary":null,"embedding":null,"rerank":null,"vlm":null,"asr":null
+	}`, recorder.Body.String())
+	for _, secret := range []string{"secret.example", "secret-api-key", "secret-app-value", "secret-header", "parameters", "base_url", "api_key"} {
+		assert.NotContains(t, recorder.Body.String(), secret)
+	}
 }
 
 func TestModelUpdateRequestDisplayNamePresence(t *testing.T) {

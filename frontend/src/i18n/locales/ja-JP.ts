@@ -4735,6 +4735,15 @@ export default {
     builtin: '組み込み'
   },
   modelSettings: {
+    defaultPolicy: {
+      invalidConfigured: '設定済みのモデルは現在利用できません。別のモデルを選択するか、設定をクリアしてください。',
+      title: 'システム既定モデルポリシー', description: '明示的なモデル指定がない場合に使用され、変更はすぐに反映されます。',
+      chat: '既定チャットモデル', summary: '既定要約モデル', embedding: '既定 Embedding',
+      rerank: '既定 Rerank', vlm: '既定 VLM', asr: '既定 ASR', unconfigured: '未設定',
+      embeddingSafety: '既定 Embedding の変更は新規ナレッジベースだけに影響し、既存インデックスは移行・再構築されません。',
+      saved: 'システム既定モデルポリシーを保存しました', saveFailed: 'システム既定モデルポリシーの保存に失敗しました',
+      badges: { chat: '既定チャット', summary: '既定要約', embedding: '既定ベクトル', rerank: '既定再順位', vlm: '既定画像', asr: '既定音声' }
+    },
     title: 'モデル設定',
     description: 'ローカルのOllamaやリモートAPIなど、さまざまな種類のAIモデルを管理します',
     typeShort: {

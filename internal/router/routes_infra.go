@@ -26,6 +26,8 @@ func RegisterModelRoutes(
 		models.POST("", g.Admin(), handler.CreateModel)
 		// 获取模型列表 — Viewer+
 		models.GET("", g.Viewer(), handler.ListModels)
+		// Read-only, credential-free effective system defaults — Viewer+
+		models.GET("/default-policy", g.Viewer(), handler.GetDefaultPolicy)
 		// 调试已保存模型会发起真实上游调用并产生费用 — Admin+
 		models.POST("/:id/debug", g.Admin(), handler.DebugModel)
 		// Bounded batch embedding adapter for admin diagnostics/benchmarks only.

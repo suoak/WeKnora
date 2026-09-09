@@ -38,6 +38,21 @@ func (r *modelRepository) GetByID(ctx context.Context, tenantID uint64, id strin
 	return &m, nil
 }
 
+// GetBuiltinByID retrieves a live builtin model without relying on tenant
+// context. GORM's default scope excludes soft-deleted rows.
+func (r *modelRepository) GetBuiltinByID(ctx context.Context, id string) (*types.Model, error) {
+	var m types.Model
+	if err := r.db.WithContext(ctx).
+		Where("id = ? AND is_builtin = ?", id, true).
+		First(&m).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &m, nil
+}
+
 // List lists models with optional filtering
 func (r *modelRepository) List(
 	ctx context.Context, tenantID uint64, modelType types.ModelType, source types.ModelSource,

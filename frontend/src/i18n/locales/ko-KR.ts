@@ -2045,6 +2045,15 @@ export default {
     }
   },
   modelSettings: {
+    defaultPolicy: {
+      invalidConfigured: '설정된 모델을 현재 사용할 수 없습니다. 다른 모델을 선택하거나 이 설정을 지우세요.',
+      title: '시스템 기본 모델 정책', description: '명시적으로 모델을 지정하지 않았을 때 사용되며 변경 사항은 즉시 적용됩니다.',
+      chat: '기본 채팅 모델', summary: '기본 요약 모델', embedding: '기본 Embedding',
+      rerank: '기본 Rerank', vlm: '기본 VLM', asr: '기본 ASR', unconfigured: '설정 안 함',
+      embeddingSafety: '기본 Embedding 변경은 새 지식 베이스에만 적용되며 기존 인덱스를 이전하거나 재구축하지 않습니다.',
+      saved: '시스템 기본 모델 정책을 저장했습니다', saveFailed: '시스템 기본 모델 정책 저장에 실패했습니다',
+      badges: { chat: '기본 채팅', summary: '기본 요약', embedding: '기본 벡터', rerank: '기본 재순위', vlm: '기본 비전', asr: '기본 음성' }
+    },
     title: '모델 설정',
     description: '다양한 유형의 AI 모델을 관리합니다. Ollama 로컬 모델과 원격 API를 지원합니다',
     copySuffix: ' 사본',

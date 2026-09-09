@@ -44,6 +44,7 @@ type SystemHandler struct {
 	tenantSvc        interfaces.TenantService
 	userSvc          interfaces.UserService
 	systemSettingSvc interfaces.SystemSettingService
+	modelPolicySvc   interfaces.ModelPolicyService
 	apiKeySvc        interfaces.TenantAPIKeyService
 	// auditSvc is optional — when nil, emitAdminAudit no-ops so unit
 	// tests that wire a partial container still compile. In production
@@ -75,6 +76,7 @@ func NewSystemHandler(cfg *config.Config,
 	tenantSvc interfaces.TenantService,
 	userSvc interfaces.UserService,
 	systemSettingSvc interfaces.SystemSettingService,
+	modelPolicySvc interfaces.ModelPolicyService,
 	apiKeySvc interfaces.TenantAPIKeyService,
 	auditSvc interfaces.AuditLogService,
 	taskInspector interfaces.TaskInspector,
@@ -89,6 +91,7 @@ func NewSystemHandler(cfg *config.Config,
 		tenantSvc:          tenantSvc,
 		userSvc:            userSvc,
 		systemSettingSvc:   systemSettingSvc,
+		modelPolicySvc:     modelPolicySvc,
 		apiKeySvc:          apiKeySvc,
 		auditSvc:           auditSvc,
 		taskInspector:      taskInspector,
@@ -2173,6 +2176,40 @@ func (h *SystemHandler) ListSystemSettings(c *gin.Context) {
 	c.JSON(http.StatusOK, rows)
 }
 
+// GetModelPolicy returns the platform-wide model inheritance document.
+func (h *SystemHandler) GetModelPolicy(c *gin.Context) {
+	if h.modelPolicySvc == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Model policy service is unavailable"})
+		return
+	}
+	policy, err := h.modelPolicySvc.GetPolicy(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read model policy"})
+		return
+	}
+	c.JSON(http.StatusOK, policy)
+}
+
+// UpdateModelPolicy validates every non-empty ID before saving the complete
+// platform-wide model inheritance document.
+func (h *SystemHandler) UpdateModelPolicy(c *gin.Context) {
+	if h.modelPolicySvc == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Model policy service is unavailable"})
+		return
+	}
+	var policy types.DefaultModelPolicy
+	if err := c.ShouldBindJSON(&policy); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+	updated, err := h.modelPolicySvc.UpdatePolicy(c.Request.Context(), &policy)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, updated)
+}
+
 // enrichSettingsModifiedBy resolves LastModifiedBy (UUID) → display name
 // in a single batch lookup. Failures degrade silently: the UI already
 // falls back to the UUID prefix when the name is empty, so a transient
@@ -2287,6 +2324,26 @@ func (h *SystemHandler) UpdateSystemSetting(c *gin.Context) {
 	if req.Value == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "value is required"})
 		return
+	}
+	modelPolicyRoles := map[string]types.ModelPolicyRole{
+		"model.default.chat_id": types.ModelPolicyRoleChat, "model.default.summary_id": types.ModelPolicyRoleSummary,
+		"model.default.embedding_id": types.ModelPolicyRoleEmbedding, "model.default.rerank_id": types.ModelPolicyRoleRerank,
+		"model.default.vlm_id": types.ModelPolicyRoleVLM, "model.default.asr_id": types.ModelPolicyRoleASR,
+	}
+	if role, ok := modelPolicyRoles[key]; ok {
+		value, isString := req.Value.(string)
+		if !isString {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "model policy value must be a string"})
+			return
+		}
+		if h.modelPolicySvc == nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Model policy service is unavailable"})
+			return
+		}
+		if err := h.modelPolicySvc.ValidateModelForRole(ctx, role, value); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	row, err := h.systemSettingSvc.Update(ctx, key, req.Value)

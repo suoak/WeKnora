@@ -4818,6 +4818,15 @@ export default {
   modelSettings: {
     title: 'Model Settings',
     description: 'Manage different types of AI models, including local Ollama and remote APIs',
+    defaultPolicy: {
+      invalidConfigured: 'The configured model is no longer available. Choose another model or clear this setting.',
+      title: 'System Default Model Policy', description: 'Used when a workspace or resource has no explicit model. Changes take effect immediately.',
+      chat: 'Default chat model', summary: 'Default summary model', embedding: 'Default embedding',
+      rerank: 'Default rerank', vlm: 'Default VLM', asr: 'Default ASR', unconfigured: 'Not configured',
+      embeddingSafety: 'Changing the default embedding only affects newly created knowledge bases; existing indexes are never migrated or rebuilt.',
+      saved: 'System default model policy saved', saveFailed: 'Failed to save system default model policy',
+      badges: { chat: 'Default chat', summary: 'Default summary', embedding: 'Default vector', rerank: 'Default rerank', vlm: 'Default vision', asr: 'Default speech' }
+    },
     typeShort: {
       chat: 'Chat',
       embedding: 'Embedding',

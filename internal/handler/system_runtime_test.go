@@ -45,6 +45,9 @@ func (runtimeTestSettings) Get(context.Context, string) (*types.SystemSetting, e
 func (runtimeTestSettings) Update(context.Context, string, any) (*types.SystemSetting, error) {
 	return nil, nil
 }
+func (runtimeTestSettings) UpdateBatch(context.Context, map[string]any) ([]*types.SystemSetting, error) {
+	return nil, nil
+}
 func (runtimeTestSettings) Reset(context.Context, string) error  { return nil }
 func (runtimeTestSettings) SubscribeRedis(context.Context) error { return nil }
 

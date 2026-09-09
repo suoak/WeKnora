@@ -114,6 +114,12 @@ func (s *stubModelRepoForDelete) GetByID(_ context.Context, _ uint64, id string)
 	}
 	return nil, nil
 }
+func (s *stubModelRepoForDelete) GetBuiltinByID(_ context.Context, id string) (*types.Model, error) {
+	if s.model != nil && s.model.ID == id && s.model.IsBuiltin {
+		return s.model, nil
+	}
+	return nil, nil
+}
 func (s *stubModelRepoForDelete) List(context.Context, uint64, types.ModelType, types.ModelSource) ([]*types.Model, error) {
 	return nil, nil
 }

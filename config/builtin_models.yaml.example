@@ -9,7 +9,7 @@
 # Any string field can reference an env var with ${NAME}. Unset env vars are
 # left as the literal ${NAME} so misconfiguration surfaces clearly in upstream
 # API calls instead of producing a silent empty token. Non-string fields
-# (type, source, is_default, dimension, truncate_prompt_tokens) must stay
+# (type, source, dimension, truncate_prompt_tokens) must stay
 # literal because YAML parses them as their target type.
 #
 # How env vars reach the container
@@ -33,7 +33,7 @@ builtin_models: []
 #   - id: builtin-llm-default
 #     type: KnowledgeQA          # KnowledgeQA | Embedding | Rerank | VLLM | ASR
 #     source: remote             # remote (default) | local | ...
-#     is_default: true
+#     is_default: false          # compatibility field; model policy does not read it
 #     name: ${LLM_MODEL_NAME}
 #     parameters:
 #       base_url: ${LLM_BASE_URL}
@@ -44,7 +44,7 @@ builtin_models: []
 #   - id: builtin-embedding-default
 #     type: Embedding
 #     source: remote
-#     is_default: true
+#     is_default: false          # compatibility field; model policy does not read it
 #     name: ${EMBEDDING_MODEL_NAME}
 #     parameters:
 #       base_url: ${EMBEDDING_BASE_URL}

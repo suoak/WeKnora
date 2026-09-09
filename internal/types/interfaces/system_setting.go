@@ -20,6 +20,9 @@ type SystemSettingRepository interface {
 	// Upsert writes a row keyed by Key. Insert if missing, update if
 	// present. Used by SystemSettingService.Update on every save.
 	Upsert(ctx context.Context, s *types.SystemSetting) error
+	// UpsertBatch atomically writes a small set of settings. It is used by
+	// compound policies whose fields must never be partially applied.
+	UpsertBatch(ctx context.Context, settings []*types.SystemSetting) error
 	// Delete removes the row by key. Returns (true, nil) if a row was
 	// deleted, (false, nil) if no row matched (idempotent — service
 	// layer treats this as a no-op for audit purposes). Real DB errors
@@ -75,6 +78,9 @@ type SystemSettingService interface {
 	//      written to last_modified_by + the audit log.
 	// Returns the persisted row on success.
 	Update(ctx context.Context, key string, rawValue any) (*types.SystemSetting, error)
+	// UpdateBatch validates every value and commits all rows in one database
+	// transaction before updating caches and publishing invalidations.
+	UpdateBatch(ctx context.Context, values map[string]any) ([]*types.SystemSetting, error)
 	// Reset removes the DB override for `key` so the resolver falls
 	// back to ENV / built-in default. Idempotent: deleting a key that
 	// was never persisted returns nil. Emits an audit row on actual
