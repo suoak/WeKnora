@@ -13,7 +13,7 @@ import (
 
 func TestMigrationNumbersAreUniqueAndPaired(t *testing.T) {
 	repoRoot := sqliteRepoRoot(t)
-	assertMigrationNumbers(t, filepath.Join(repoRoot, "migrations", "versioned"), "000093")
+	assertMigrationNumbers(t, filepath.Join(repoRoot, "migrations", "versioned"), "000094")
 	assertMigrationNumbers(t, filepath.Join(repoRoot, "migrations", "sqlite"), "000015")
 }
 
