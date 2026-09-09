@@ -38,7 +38,11 @@ class TestSSRFValidation(unittest.TestCase):
         self.assertTrue(reason)
 
     def test_blocks_invalid_port(self):
-        safe, reason = is_ssrf_safe_url("https://example.com:99999/path")
+        with patch(
+            "docreader.utils.ssrf._resolve_host_ips",
+            return_value=((ipaddress.ip_address("93.184.216.34"),), None),
+        ):
+            safe, reason = is_ssrf_safe_url("https://example.com:99999/path")
         self.assertFalse(safe)
         self.assertIn("invalid port", reason)
 
@@ -52,7 +56,11 @@ class TestSSRFValidation(unittest.TestCase):
         self.assertIn("restricted", reason)
 
     def test_allows_public_https(self):
-        safe, reason = is_ssrf_safe_url("https://example.com/article")
+        with patch(
+            "docreader.utils.ssrf._resolve_host_ips",
+            return_value=((ipaddress.ip_address("93.184.216.34"),), None),
+        ):
+            safe, reason = is_ssrf_safe_url("https://example.com/article")
         self.assertTrue(safe, reason)
         self.assertEqual(reason, "")
 

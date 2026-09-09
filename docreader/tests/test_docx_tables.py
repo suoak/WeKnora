@@ -18,20 +18,32 @@ def _load_docx_parser():
     namespaces lets us import only the modules docx_parser actually needs.
     """
     root = Path(__file__).resolve().parents[2]
-    docreader_pkg = types.ModuleType("docreader")
-    docreader_pkg.__path__ = [str(root / "docreader")]
-    sys.modules.setdefault("docreader", docreader_pkg)
-    parser_pkg = types.ModuleType("docreader.parser")
-    parser_pkg.__path__ = [str(root / "docreader" / "parser")]
-    sys.modules["docreader.parser"] = parser_pkg
+    module_names = ("docreader", "docreader.parser", "docreader.parser.docx_parser")
+    previous_modules = {name: sys.modules.get(name) for name in module_names}
+    try:
+        docreader_pkg = types.ModuleType("docreader")
+        docreader_pkg.__path__ = [str(root / "docreader")]
+        sys.modules.setdefault("docreader", docreader_pkg)
+        parser_pkg = types.ModuleType("docreader.parser")
+        parser_pkg.__path__ = [str(root / "docreader" / "parser")]
+        sys.modules["docreader.parser"] = parser_pkg
 
-    spec = importlib.util.spec_from_file_location(
-        "docreader.parser.docx_parser", root / "docreader" / "parser" / "docx_parser.py"
-    )
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["docreader.parser.docx_parser"] = module
-    spec.loader.exec_module(module)
-    return module
+        spec = importlib.util.spec_from_file_location(
+            "docreader.parser.docx_parser",
+            root / "docreader" / "parser" / "docx_parser.py",
+        )
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["docreader.parser.docx_parser"] = module
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        # This lightweight import must not replace the real parser package for
+        # test modules discovered later in the same Python process.
+        for name, previous in previous_modules.items():
+            if previous is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = previous
 
 
 docx_parser = _load_docx_parser()
