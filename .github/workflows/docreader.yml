@@ -2,7 +2,7 @@ name: DocReader
 
 on:
   push:
-    branches: [main]
+    branches: [main, "feat/**"]
     paths:
       - "docreader/**"
       - "go.mod"
@@ -105,3 +105,33 @@ jobs:
           if [ -f /tmp/docreader.pid ]; then
             kill "$(cat /tmp/docreader.pid)" 2>/dev/null || true
           fi
+
+  docker-images:
+    name: Docker image (${{ matrix.name }}, no push)
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: docreader
+            dockerfile: docker/Dockerfile.docreader
+            cache_scope: verify-docreader-amd64
+          - name: odl-hybrid
+            dockerfile: docker/Dockerfile.odl-hybrid
+            cache_scope: verify-odl-hybrid-amd64
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build ${{ matrix.name }} image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: false
+          outputs: type=cacheonly
+          cache-from: type=gha,scope=${{ matrix.cache_scope }}
+          cache-to: type=gha,scope=${{ matrix.cache_scope }},mode=max

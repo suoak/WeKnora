@@ -14,7 +14,7 @@ name: Build & Publish (mcp-server)
 
 on:
   push:
-    branches: [main]
+    branches: [main, "feat/**"]
     tags:
       - "mcp-server-v*"
     paths:
@@ -61,8 +61,8 @@ jobs:
     name: Build sdist + wheel
     needs: test
     runs-on: ubuntu-latest
-    # Build on push to main, manual runs, and release tags — but never on PRs.
-    if: github.event_name != 'pull_request'
+    # Always package after tests, including PRs. This validates the distributable;
+    # only the protected publish job below can release it to PyPI.
     defaults:
       run:
         working-directory: mcp-server

@@ -5,7 +5,7 @@ name: App
 
 on:
   push:
-    branches: [main]
+    branches: [main, "feat/**"]
     paths:
       - "**/*.go"
       - "!cli/**"
@@ -120,3 +120,31 @@ jobs:
 
       - name: Build server
         run: go build ./cmd/server
+
+  docker-image:
+    name: Docker image (no push)
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build application image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile.app
+          push: false
+          outputs: type=cacheonly
+          build-args: |
+            GOPROXY_ARG=https://proxy.golang.org,direct
+            GOSUMDB_ARG=sum.golang.org
+            WITH_ANYDOC=0
+            VERSION_ARG=ci
+            COMMIT_ID_ARG=${{ github.sha }}
+            BUILD_TIME_ARG=ci
+            GO_VERSION_ARG=${{ env.GO_VERSION }}
+          cache-from: type=gha,scope=verify-app-amd64
+          cache-to: type=gha,scope=verify-app-amd64,mode=max
