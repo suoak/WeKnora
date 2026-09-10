@@ -108,7 +108,10 @@ func (h *MCPServiceHandler) GenerateMCPUsageInstructions(c *gin.Context) {
 		language = "Simplified Chinese"
 	}
 	thinking := false
-	result, err := model.Chat(ctx, []chat.Message{
+	requestID, _ := types.RequestIDFromContext(ctx)
+	modelCtx := types.WithBackgroundModelUsage(ctx, types.ModelUsageOperationMCPInstruction,
+		[]string{service.ID, req.Language, requestID}, nil, nil)
+	result, err := model.Chat(modelCtx, []chat.Message{
 		{Role: "system", Content: mcpUsagePrompt + "\nOutput language: " + language + "."},
 		{Role: "user", Content: input},
 	}, &chat.ChatOptions{Temperature: 0.2, MaxTokens: 512, Thinking: &thinking})

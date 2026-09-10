@@ -122,6 +122,8 @@ func (p *PluginQueryUnderstand) OnEvent(ctx context.Context,
 	// --- Call model ---
 	thinking := false
 	modelCtx := types.WithLLMCallMetadata(ctx, "query_rewrite", "")
+	modelCtx = types.WithBackgroundModelUsage(modelCtx, types.ModelUsageOperationQueryRewrite,
+		[]string{chatManage.SessionID, chatManage.UserMessageID}, chatManage.KnowledgeBaseIDs, nil)
 	response, err := rewriteModel.Chat(modelCtx, []chat.Message{
 		{Role: "system", Content: systemContent},
 		userMsg,

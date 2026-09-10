@@ -409,6 +409,7 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	must(container.Provide(handler.NewPortalHandler))
 	must(container.Provide(handler.NewAuditLogHandler))
 	must(container.Provide(service.NewUsageAnalyticsService))
+	must(container.Invoke(service.AttachModelUsageAnalytics))
 	must(container.Provide(handler.NewUsageAnalyticsHandler))
 	must(container.Provide(handler.NewKnowledgeBaseHandler))
 	must(container.Provide(handler.NewKnowledgeHandler))

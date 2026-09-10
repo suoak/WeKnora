@@ -668,7 +668,10 @@ func (s *DataTableSummaryService) processTableData(ctx context.Context, resource
 		}
 		customInstructions = ResolveProcessConfig(resources.knowledgeBase, processOverrides).ChunkingConfig.TableMetadataInstructions
 	}
-	tableDescription, err := s.generateTableDescription(ctx, resources.chatModel, tableSchema.TableName,
+	tableCtx := types.WithBackgroundModelUsage(ctx, types.ModelUsageOperationSpreadsheetMetadata,
+		[]string{resources.knowledge.ID, "table", schemaDesc, sampleDesc},
+		[]string{resources.knowledge.KnowledgeBaseID}, []string{resources.knowledge.ID})
+	tableDescription, err := s.generateTableDescription(tableCtx, resources.chatModel, tableSchema.TableName,
 		schemaDesc, sampleDesc, customInstructions)
 	if err != nil {
 		logger.Errorf(ctx, "failed to generate table description: %v", err)
@@ -676,7 +679,10 @@ func (s *DataTableSummaryService) processTableData(ctx context.Context, resource
 	}
 	logger.Debugf(ctx, "table describe of knowledge %s: %s", resources.knowledge.ID, tableDescription)
 
-	columnDescription, err := s.generateColumnDescriptions(ctx, resources.chatModel, tableSchema.TableName,
+	columnCtx := types.WithBackgroundModelUsage(ctx, types.ModelUsageOperationSpreadsheetMetadata,
+		[]string{resources.knowledge.ID, "columns", schemaDesc, sampleDesc},
+		[]string{resources.knowledge.KnowledgeBaseID}, []string{resources.knowledge.ID})
+	columnDescription, err := s.generateColumnDescriptions(columnCtx, resources.chatModel, tableSchema.TableName,
 		schemaDesc, sampleDesc, customInstructions)
 	if err != nil {
 		logger.Errorf(ctx, "failed to generate column descriptions: %v", err)

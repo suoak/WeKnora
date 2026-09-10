@@ -18,6 +18,7 @@ func RegisterUsageAnalyticsRoutes(r *gin.RouterGroup, h *handler.UsageAnalyticsH
 	admin.GET("/tenants", h.Tenants)
 	admin.GET("/timeseries", h.TimeSeries)
 	admin.GET("/models", h.Models)
+	admin.GET("/operations", h.Operations)
 	admin.GET("/mcp", h.MCP)
 	admin.GET("/knowledge-bases", h.KnowledgeBases)
 }

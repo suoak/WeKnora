@@ -120,7 +120,10 @@ func (b *graphBuilder) extractEntities(ctx context.Context, chunk *types.Chunk) 
 
 	// Call LLM to extract entities
 	log.Debug("Calling LLM to extract entities")
-	resp, err := b.chatModel.Chat(ctx, messages, &chat.ChatOptions{
+	modelCtx := types.WithBackgroundModelUsage(ctx, types.ModelUsageOperationGraphExtraction,
+		[]string{"entities", chunk.ID, fmt.Sprint(chunk.ContentRevision)},
+		[]string{chunk.KnowledgeBaseID}, []string{chunk.KnowledgeID})
+	resp, err := b.chatModel.Chat(modelCtx, messages, &chat.ChatOptions{
 		Temperature: DefaultLLMTemperature,
 		Thinking:    &thinking,
 	})
@@ -231,7 +234,20 @@ func (b *graphBuilder) extractRelationships(ctx context.Context,
 
 	// Call LLM to extract relationships
 	log.Debug("Calling LLM to extract relationships")
-	resp, err := b.chatModel.Chat(ctx, messages, &chat.ChatOptions{
+	chunkIDs := make([]string, 0, len(chunks)+1)
+	kbIDs := make([]string, 0, len(chunks))
+	knowledgeIDs := make([]string, 0, len(chunks))
+	chunkIDs = append(chunkIDs, "relationships")
+	for _, chunk := range chunks {
+		if chunk != nil {
+			chunkIDs = append(chunkIDs, chunk.ID, fmt.Sprint(chunk.ContentRevision))
+			kbIDs = append(kbIDs, chunk.KnowledgeBaseID)
+			knowledgeIDs = append(knowledgeIDs, chunk.KnowledgeID)
+		}
+	}
+	modelCtx := types.WithBackgroundModelUsage(ctx, types.ModelUsageOperationGraphExtraction,
+		chunkIDs, kbIDs, knowledgeIDs)
+	resp, err := b.chatModel.Chat(modelCtx, messages, &chat.ChatOptions{
 		Temperature: DefaultLLMTemperature,
 		Thinking:    &thinking,
 	})

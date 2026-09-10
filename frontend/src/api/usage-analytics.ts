@@ -8,10 +8,17 @@ export interface UsageQuery {
   page?: number
   page_size?: number
   sort?: string
+	operation?: string
+	usage_class?: 'foreground' | 'background'
+	channel?: string
+	model_type?: string
+	direction?: 'inbound' | 'outbound'
 }
 
 export interface UsageOverview {
   total_tokens: number
+	foreground_tokens: number
+	background_tokens: number
   input_tokens: number
   output_tokens: number
   cache_read_tokens: number
@@ -70,6 +77,14 @@ export interface ModelUsageRow {
   last_active?: string
 }
 
+export interface OperationUsageRow {
+	operation: string
+	usage_class: 'foreground' | 'background'
+	invocations: number
+	total_tokens: number
+	percentage: number
+}
+
 export interface MCPUsageRow {
   tool_name: string
   calls: number
@@ -107,5 +122,6 @@ export const getUsageOverview = (query: UsageQuery) => get(`${base}/overview${pa
 export const getUsageTenants = (query: UsageQuery) => get(`${base}/tenants${params(query)}`) as Promise<UsagePage<TenantUsageRow>>
 export const getUsageTimeSeries = (query: UsageQuery) => get(`${base}/timeseries${params(query)}`) as Promise<UsagePage<UsageTimeSeriesPoint>>
 export const getUsageModels = (query: UsageQuery) => get(`${base}/models${params(query)}`) as Promise<UsagePage<ModelUsageRow>>
+export const getUsageOperations = (query: UsageQuery) => get(`${base}/operations${params(query)}`) as Promise<UsagePage<OperationUsageRow>>
 export const getMCPUsage = (query: UsageQuery) => get(`${base}/mcp${params(query)}`) as Promise<UsagePage<MCPUsageRow>>
 export const getKnowledgeBaseUsage = (query: UsageQuery) => get(`${base}/knowledge-bases${params(query)}`) as Promise<UsagePage<KnowledgeBaseUsageRow>>

@@ -114,6 +114,7 @@ type agentService struct {
 	sandboxResolver      sandbox.TenantSandboxResolver
 	sandboxPinner        *SessionSandboxPinner
 	sandboxPolicy        WorkspaceSandboxPolicy
+	usageAnalytics       interfaces.UsageAnalyticsService
 }
 
 // NewAgentService creates a new agent service
@@ -140,6 +141,7 @@ func NewAgentService(
 	sandboxResolver sandbox.TenantSandboxResolver,
 	sandboxPinner *SessionSandboxPinner,
 	sandboxPolicy WorkspaceSandboxPolicy,
+	usageAnalytics interfaces.UsageAnalyticsService,
 ) interfaces.AgentService {
 	return &agentService{
 		cfg:                  cfg,
@@ -164,6 +166,7 @@ func NewAgentService(
 		sandboxResolver:      sandboxResolver,
 		sandboxPinner:        sandboxPinner,
 		sandboxPolicy:        sandboxPolicy,
+		usageAnalytics:       usageAnalytics,
 	}
 }
 
@@ -224,6 +227,9 @@ func (s *agentService) CreateAgentEngine(
 		systemPromptTemplate,
 	)
 	engine.SetAppConfig(s.cfg)
+	if s.usageAnalytics != nil {
+		engine.SetMCPUsageRecorder(s.usageAnalytics.RecordOutboundMCP)
+	}
 	pinnedMCP := s.resolvePinnedMCPServiceInfos(ctx, config)
 	s.attachPinnedMCPToolNames(toolRegistry, pinnedMCP)
 	engine.SetPinnedMentions(

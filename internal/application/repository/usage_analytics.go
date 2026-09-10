@@ -120,6 +120,25 @@ func usageWhere(column, tenantColumn string, q types.UsageTimeRange) (string, []
 		where += " AND " + tenantColumn + " = ?"
 		args = append(args, *q.TenantID)
 	}
+	if q.Operation != "" {
+		where += " AND operation = ?"
+		args = append(args, q.Operation)
+	}
+	if q.UsageClass == types.UsageClassForeground {
+		where += " AND operation IN (?, ?)"
+		args = append(args, types.ModelUsageOperationKnowledgeQA, types.ModelUsageOperationAgent)
+	} else if q.UsageClass == types.UsageClassBackground {
+		where += " AND operation NOT IN (?, ?)"
+		args = append(args, types.ModelUsageOperationKnowledgeQA, types.ModelUsageOperationAgent)
+	}
+	if q.Channel != "" {
+		where += " AND channel = ?"
+		args = append(args, q.Channel)
+	}
+	if q.ModelType != "" {
+		where += " AND model_type = ?"
+		args = append(args, q.ModelType)
+	}
 	return where, args
 }
 
@@ -129,26 +148,43 @@ func mcpUsageWhere(q types.UsageTimeRange) (string, []any) {
 		where += " AND caller_tenant_id = ?"
 		args = append(args, *q.TenantID)
 	}
+	if q.Direction != "" {
+		where += " AND direction = ?"
+		args = append(args, q.Direction)
+	}
 	return where, args
 }
 
 func (r *usageAnalyticsRepository) Overview(ctx context.Context, q types.UsageTimeRange) (*types.UsageOverview, error) {
 	out := &types.UsageOverview{}
 	mw, ma := usageWhere("occurred_at", "tenant_id", q)
-	if err := r.db.WithContext(ctx).Raw(`SELECT COALESCE(SUM(total_tokens),0) total_tokens, COALESCE(SUM(input_tokens),0) input_tokens,
+	if err := r.db.WithContext(ctx).Raw(`SELECT COALESCE(SUM(total_tokens),0) total_tokens,
+		COALESCE(SUM(CASE WHEN operation IN ('knowledge_qa_turn','agent_turn') THEN total_tokens ELSE 0 END),0) foreground_tokens,
+		COALESCE(SUM(CASE WHEN operation NOT IN ('knowledge_qa_turn','agent_turn') THEN total_tokens ELSE 0 END),0) background_tokens,
+		COALESCE(SUM(input_tokens),0) input_tokens,
 		COALESCE(SUM(output_tokens),0) output_tokens, COALESCE(SUM(cache_read_tokens),0) cache_read_tokens,
 		COALESCE(SUM(cache_write_tokens),0) cache_write_tokens, COUNT(*) assistant_turns,
 		COUNT(DISTINCT tenant_id) active_tenants FROM model_usage_events WHERE `+mw, ma...).Scan(out).Error; err != nil {
 		return nil, err
 	}
 	mcpw, mcpa := mcpUsageWhere(q)
+	var mcp struct {
+		MCPCalls             int64
+		MCPSuccessRate       float64
+		MCPAverageLatencyMs  float64
+		UnattributedMCPCalls int64
+	}
 	if err := r.db.WithContext(ctx).Raw(`SELECT COUNT(*) mcp_calls,
 		COALESCE(100.0 * SUM(CASE WHEN success THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0),0) mcp_success_rate,
 		COALESCE(AVG(latency_ms),0) mcp_average_latency_ms,
 		SUM(CASE WHEN caller_tenant_id IS NULL THEN 1 ELSE 0 END) unattributed_mcp_calls
-		FROM mcp_usage_events WHERE `+mcpw, mcpa...).Scan(out).Error; err != nil {
+		FROM mcp_usage_events WHERE `+mcpw, mcpa...).Scan(&mcp).Error; err != nil {
 		return nil, err
 	}
+	out.MCPCalls = mcp.MCPCalls
+	out.MCPSuccessRate = mcp.MCPSuccessRate
+	out.MCPAverageLatencyMs = mcp.MCPAverageLatencyMs
+	out.UnattributedMCPCalls = mcp.UnattributedMCPCalls
 	args := append(append([]any{}, ma...), mcpa...)
 	activeSQL := `SELECT COUNT(*) active_principals FROM (
 		SELECT tenant_id, principal_type, principal_id FROM model_usage_events WHERE ` + mw + ` GROUP BY tenant_id, principal_type, principal_id
@@ -268,6 +304,20 @@ func (r *usageAnalyticsRepository) Models(ctx context.Context, q types.UsageTime
 		total = rows[0].TotalCount
 	}
 	return rows, total, err
+}
+
+func (r *usageAnalyticsRepository) Operations(ctx context.Context, q types.UsageTimeRange) ([]types.OperationUsageRow, error) {
+	w, args := usageWhere("occurred_at", "tenant_id", q)
+	var rows []types.OperationUsageRow
+	err := r.db.WithContext(ctx).Raw(`WITH grouped AS (
+		SELECT operation, COUNT(*) invocations, SUM(total_tokens) total_tokens
+		FROM model_usage_events WHERE `+w+` GROUP BY operation), totals AS (
+		SELECT COALESCE(SUM(total_tokens),0) total_tokens FROM grouped)
+		SELECT operation, CASE WHEN operation IN ('knowledge_qa_turn','agent_turn') THEN 'foreground' ELSE 'background' END usage_class,
+		invocations, grouped.total_tokens,
+		CASE WHEN totals.total_tokens=0 THEN 0 ELSE 100.0*grouped.total_tokens/totals.total_tokens END percentage
+		FROM grouped CROSS JOIN totals ORDER BY grouped.total_tokens DESC, operation`, args...).Scan(&rows).Error
+	return rows, err
 }
 
 func (r *usageAnalyticsRepository) MCP(ctx context.Context, q types.UsageTimeRange) ([]types.MCPUsageRow, int64, error) {

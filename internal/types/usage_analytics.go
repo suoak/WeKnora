@@ -1,6 +1,11 @@
 package types
 
-import "time"
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"strings"
+	"time"
+)
 
 const (
 	UsageEventKindModel   = "model"
@@ -8,8 +13,111 @@ const (
 	UsagePrincipalUnknown = "system/unknown"
 )
 
-// ModelUsageEvent is the append-only analytics representation of one visible
-// assistant turn. It intentionally contains no prompt or response content.
+const (
+	UsageClassForeground = "foreground"
+	UsageClassBackground = "background"
+
+	ModelUsageOperationKnowledgeQA           = "knowledge_qa_turn"
+	ModelUsageOperationAgent                 = "agent_turn"
+	ModelUsageOperationAgentCompaction       = "agent_compaction"
+	ModelUsageOperationQueryRewrite          = "query_rewrite"
+	ModelUsageOperationEntityExtraction      = "entity_extraction"
+	ModelUsageOperationDataAnalysisPlanning  = "data_analysis_planning"
+	ModelUsageOperationDocumentSummary       = "document_summary"
+	ModelUsageOperationGeneratedQuestions    = "generated_questions"
+	ModelUsageOperationAutoTag               = "auto_tag"
+	ModelUsageOperationGraphExtraction       = "graph_extraction"
+	ModelUsageOperationSpreadsheetMetadata   = "spreadsheet_metadata"
+	ModelUsageOperationSessionTitle          = "session_title"
+	ModelUsageOperationMemoryExtraction      = "memory_extraction"
+	ModelUsageOperationMemoryConsolidation   = "memory_consolidation"
+	ModelUsageOperationMemoryTopicResolution = "memory_topic_resolution"
+	ModelUsageOperationWiki                  = "wiki"
+	ModelUsageOperationMCPInstruction        = "mcp_instruction_generation"
+	ModelUsageOperationEmbedding             = "embedding"
+	ModelUsageOperationRerank                = "rerank"
+	ModelUsageOperationVLM                   = "vlm"
+	ModelUsageOperationASR                   = "asr"
+)
+
+var foregroundModelUsageOperations = map[string]struct{}{
+	ModelUsageOperationKnowledgeQA: {},
+	ModelUsageOperationAgent:       {},
+}
+
+var supportedModelUsageOperations = map[string]struct{}{
+	ModelUsageOperationKnowledgeQA: {}, ModelUsageOperationAgent: {},
+	ModelUsageOperationAgentCompaction: {}, ModelUsageOperationQueryRewrite: {},
+	ModelUsageOperationEntityExtraction: {}, ModelUsageOperationDataAnalysisPlanning: {},
+	ModelUsageOperationDocumentSummary: {}, ModelUsageOperationGeneratedQuestions: {},
+	ModelUsageOperationAutoTag: {}, ModelUsageOperationGraphExtraction: {},
+	ModelUsageOperationSpreadsheetMetadata: {}, ModelUsageOperationSessionTitle: {},
+	ModelUsageOperationMemoryExtraction: {}, ModelUsageOperationMemoryConsolidation: {},
+	ModelUsageOperationMemoryTopicResolution: {}, ModelUsageOperationWiki: {},
+	ModelUsageOperationMCPInstruction: {}, ModelUsageOperationEmbedding: {},
+	ModelUsageOperationRerank: {}, ModelUsageOperationVLM: {}, ModelUsageOperationASR: {},
+}
+
+func IsModelUsageOperation(operation string) bool {
+	_, ok := supportedModelUsageOperations[operation]
+	return ok
+}
+
+func ModelUsageClass(operation string) string {
+	if _, ok := foregroundModelUsageOperations[operation]; ok {
+		return UsageClassForeground
+	}
+	return UsageClassBackground
+}
+
+// UsageEventKey returns a deterministic, bounded key without retaining prompt
+// or response content. Callers provide stable business IDs or safe hashes.
+func UsageEventKey(operation string, parts ...string) string {
+	operation = strings.TrimSpace(operation)
+	h := sha256.New()
+	for _, part := range parts {
+		h.Write([]byte{0})
+		h.Write([]byte(strings.TrimSpace(part)))
+	}
+	return operation + ":" + hex.EncodeToString(h.Sum(nil))
+}
+
+// ModelUsageRecordRequest is the privacy-filtered input to the centralized
+// model ledger recorder. It deliberately cannot carry prompts or responses.
+type ModelUsageRecordRequest struct {
+	EventKey         string
+	TenantID         uint64
+	Channel          string
+	Operation        string
+	ModelID          string
+	ModelType        string
+	Usage            TokenUsage
+	SessionID        string
+	MessageID        string
+	RequestID        string
+	TraceID          string
+	Status           string
+	UsageSource      string
+	KnowledgeBaseIDs []string
+	KnowledgeIDs     []string
+}
+
+type MCPUsageRecordRequest struct {
+	EventKey         string
+	MCPServiceID     string
+	ToolName         string
+	Transport        string
+	Success          bool
+	ErrorCode        string
+	LatencyMs        int64
+	RequestID        string
+	TraceID          string
+	KnowledgeBaseIDs []string
+	KnowledgeIDs     []string
+}
+
+// ModelUsageEvent is the append-only analytics representation of one model
+// invocation. It intentionally contains no prompt or response content.
 type ModelUsageEvent struct {
 	ID               uint64    `json:"id" gorm:"primaryKey;autoIncrement"`
 	EventKey         string    `json:"event_key" gorm:"type:varchar(255);not null;uniqueIndex"`
@@ -47,6 +155,7 @@ type MCPUsageEvent struct {
 	PrincipalID    string    `json:"principal_id,omitempty" gorm:"type:varchar(512)"`
 	APIKeyID       *uint64   `json:"api_key_id,omitempty"`
 	Direction      string    `json:"direction" gorm:"type:varchar(16);not null"`
+	MCPServiceID   string    `json:"mcp_service_id,omitempty" gorm:"type:varchar(64)"`
 	ToolName       string    `json:"tool_name" gorm:"type:varchar(255);not null"`
 	ClientName     string    `json:"client_name,omitempty" gorm:"type:varchar(128)"`
 	ClientVersion  string    `json:"client_version,omitempty" gorm:"type:varchar(64)"`
@@ -92,17 +201,24 @@ type MCPUsageReport struct {
 }
 
 type UsageTimeRange struct {
-	From     time.Time
-	To       time.Time
-	TenantID *uint64
-	Interval string
-	Page     int
-	PageSize int
-	Sort     string
+	From       time.Time
+	To         time.Time
+	TenantID   *uint64
+	Interval   string
+	Page       int
+	PageSize   int
+	Sort       string
+	Operation  string
+	UsageClass string
+	Channel    string
+	ModelType  string
+	Direction  string
 }
 
 type UsageOverview struct {
 	TotalTokens          int64      `json:"total_tokens"`
+	ForegroundTokens     int64      `json:"foreground_tokens"`
+	BackgroundTokens     int64      `json:"background_tokens"`
 	InputTokens          int64      `json:"input_tokens"`
 	OutputTokens         int64      `json:"output_tokens"`
 	CacheReadTokens      int64      `json:"cache_read_tokens"`
@@ -153,6 +269,14 @@ type ModelUsageRow struct {
 	CacheWriteTokens int64      `json:"cache_write_tokens"`
 	LastActive       *time.Time `json:"last_active,omitempty"`
 	TotalCount       int64      `json:"-"`
+}
+
+type OperationUsageRow struct {
+	Operation   string  `json:"operation"`
+	UsageClass  string  `json:"usage_class"`
+	Invocations int64   `json:"invocations"`
+	TotalTokens int64   `json:"total_tokens"`
+	Percentage  float64 `json:"percentage"`
 }
 
 type MCPUsageRow struct {

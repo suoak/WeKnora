@@ -72,6 +72,20 @@ func parseUsageQuery(c *gin.Context) (types.UsageTimeRange, error) {
 	if raw := c.Query("page_size"); raw != "" {
 		q.PageSize, _ = strconv.Atoi(raw)
 	}
+	q.Operation = strings.TrimSpace(c.Query("operation"))
+	q.UsageClass = strings.ToLower(strings.TrimSpace(c.Query("usage_class")))
+	q.Channel = strings.TrimSpace(c.Query("channel"))
+	q.ModelType = strings.TrimSpace(c.Query("model_type"))
+	q.Direction = strings.ToLower(strings.TrimSpace(c.Query("direction")))
+	if q.Operation != "" && !types.IsModelUsageOperation(q.Operation) {
+		return q, errors.NewBadRequestError("invalid operation")
+	}
+	if q.UsageClass != "" && q.UsageClass != types.UsageClassForeground && q.UsageClass != types.UsageClassBackground {
+		return q, errors.NewBadRequestError("invalid usage_class")
+	}
+	if q.Direction != "" && q.Direction != "inbound" && q.Direction != "outbound" {
+		return q, errors.NewBadRequestError("invalid direction")
+	}
 	allowed := map[string]bool{"hour": true, "day": true, "week": true, "month": true}
 	if !allowed[q.Interval] {
 		return q, errors.NewBadRequestError("invalid interval")
@@ -105,6 +119,9 @@ func (h *UsageAnalyticsHandler) TimeSeries(c *gin.Context) {
 }
 func (h *UsageAnalyticsHandler) Models(c *gin.Context) {
 	usageQuery(c, func(q types.UsageTimeRange) (any, error) { return h.service.Models(c.Request.Context(), q) })
+}
+func (h *UsageAnalyticsHandler) Operations(c *gin.Context) {
+	usageQuery(c, func(q types.UsageTimeRange) (any, error) { return h.service.Operations(c.Request.Context(), q) })
 }
 func (h *UsageAnalyticsHandler) MCP(c *gin.Context) {
 	usageQuery(c, func(q types.UsageTimeRange) (any, error) { return h.service.MCP(c.Request.Context(), q) })

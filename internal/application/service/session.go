@@ -834,7 +834,9 @@ func (s *sessionService) GenerateTitle(ctx context.Context,
 
 	// Call model to generate title
 	thinking := false
-	response, err := chatModel.Chat(ctx, chatMessages, &chat.ChatOptions{
+	modelCtx := types.WithBackgroundModelUsage(ctx, types.ModelUsageOperationSessionTitle,
+		[]string{session.ID, message.ID}, nil, nil)
+	response, err := chatModel.Chat(modelCtx, chatMessages, &chat.ChatOptions{
 		Temperature: 0.3,
 		Thinking:    &thinking,
 	})

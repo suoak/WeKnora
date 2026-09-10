@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -9,15 +10,25 @@ import (
 )
 
 type usageRepoStub struct {
-	model    *types.ModelUsageEvent
-	mcp      *types.MCPUsageEvent
-	modelHit int
-	mcpHit   int
-	links    []types.UsageResourceLink
+	model              *types.ModelUsageEvent
+	mcp                *types.MCPUsageEvent
+	modelHit           int
+	mcpHit             int
+	links              []types.UsageResourceLink
+	resolvedKBs        []string
+	resolvedKnowledges []string
+	modelErr           error
+}
+
+func (r *usageRepoStub) Operations(context.Context, types.UsageTimeRange) ([]types.OperationUsageRow, error) {
+	return nil, nil
 }
 
 func (r *usageRepoStub) RecordModelUsage(_ context.Context, event *types.ModelUsageEvent, links []types.UsageResourceLink) (bool, error) {
 	r.modelHit++
+	if r.modelErr != nil {
+		return false, r.modelErr
+	}
 	copy := *event
 	r.model, r.links = &copy, links
 	return r.modelHit == 1, nil
@@ -28,7 +39,9 @@ func (r *usageRepoStub) RecordMCPUsage(_ context.Context, event *types.MCPUsageE
 	r.mcp, r.links = &copy, links
 	return r.mcpHit == 1, nil
 }
-func (r *usageRepoStub) ResolveUsageResources(_ context.Context, _, _ []string) ([]types.UsageResourceLink, error) {
+func (r *usageRepoStub) ResolveUsageResources(_ context.Context, kbIDs, knowledgeIDs []string) ([]types.UsageResourceLink, error) {
+	r.resolvedKBs = append([]string(nil), kbIDs...)
+	r.resolvedKnowledges = append([]string(nil), knowledgeIDs...)
 	return nil, nil
 }
 func (r *usageRepoStub) Overview(context.Context, types.UsageTimeRange) (*types.UsageOverview, error) {
@@ -116,5 +129,79 @@ func TestRecordInboundMCPUsesAuthenticatedCallerAndSharedIsUnattributed(t *testi
 	}
 	if repo.mcp.CallerTenantID != nil || repo.mcp.PrincipalType != types.UsagePrincipalUnknown || repo.mcp.PrincipalID != "" {
 		t.Fatalf("shared call must be unattributed: %#v", repo.mcp)
+	}
+}
+
+func TestRecordModelInvocationUsesFrozenCallerAndProviderUsage(t *testing.T) {
+	repo := &usageRepoStub{}
+	svc := NewUsageAnalyticsService(repo)
+	ctx := types.WithCaller(context.Background(), types.Caller{TenantID: 17, UserID: "caller"})
+	ctx = types.WithExecutionTenant(ctx, 99)
+	err := svc.RecordModelInvocation(ctx, types.ModelUsageRecordRequest{
+		EventKey: "query_rewrite:stable", Operation: types.ModelUsageOperationQueryRewrite,
+		ModelID: "chat-1", ModelType: string(types.ModelTypeKnowledgeQA),
+		Usage:            types.TokenUsage{PromptTokens: 13, CompletionTokens: 5, TotalTokens: 18, CacheReadTokens: 4},
+		KnowledgeBaseIDs: []string{"kb-1"}, KnowledgeIDs: []string{"doc-1"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if repo.model.TenantID != 17 || repo.model.Operation != types.ModelUsageOperationQueryRewrite {
+		t.Fatalf("bad background attribution: %#v", repo.model)
+	}
+	if repo.model.TotalTokens != 18 || repo.model.CacheReadTokens != 4 {
+		t.Fatalf("provider usage changed: %#v", repo.model)
+	}
+	if len(repo.resolvedKBs) != 1 || len(repo.resolvedKnowledges) != 1 {
+		t.Fatalf("resource links not resolved: kb=%v knowledge=%v", repo.resolvedKBs, repo.resolvedKnowledges)
+	}
+}
+
+func TestRecordModelInvocationSkipsMissingProviderUsage(t *testing.T) {
+	repo := &usageRepoStub{}
+	svc := NewUsageAnalyticsService(repo)
+	ctx := types.WithCaller(context.Background(), types.Caller{TenantID: 17})
+	if err := svc.RecordModelInvocation(ctx, types.ModelUsageRecordRequest{
+		EventKey: "summary:stable", Operation: types.ModelUsageOperationDocumentSummary,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if repo.modelHit != 0 {
+		t.Fatal("missing provider usage must not be represented as zero tokens")
+	}
+}
+
+func TestRecordOutboundMCPUsesSafeLogicalInvocationFields(t *testing.T) {
+	repo := &usageRepoStub{}
+	svc := NewUsageAnalyticsService(repo)
+	ctx := types.WithCaller(context.Background(), types.Caller{TenantID: 23})
+	err := svc.RecordOutboundMCP(ctx, types.MCPUsageRecordRequest{
+		EventKey: "mcp-outbound:stable", MCPServiceID: "service-1", ToolName: "search",
+		Transport: "http", Success: false, ErrorCode: "tool_error", LatencyMs: 44,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if repo.mcp.Direction != "outbound" || repo.mcp.MCPServiceID != "service-1" || repo.mcp.Success {
+		t.Fatalf("bad outbound event: %#v", repo.mcp)
+	}
+	if repo.mcp.CallerTenantID == nil || *repo.mcp.CallerTenantID != 23 {
+		t.Fatalf("bad outbound caller: %#v", repo.mcp)
+	}
+	if repo.mcp.ErrorCode != "tool_error" || repo.mcp.LatencyMs != 44 {
+		t.Fatalf("bad outbound result: %#v", repo.mcp)
+	}
+}
+
+func TestUsageRecorderErrorCanBeIgnoredByCallBoundary(t *testing.T) {
+	repo := &usageRepoStub{modelErr: errors.New("ledger unavailable")}
+	svc := NewUsageAnalyticsService(repo)
+	ctx := types.WithCaller(context.Background(), types.Caller{TenantID: 1})
+	err := svc.RecordModelInvocation(ctx, types.ModelUsageRecordRequest{
+		EventKey: "query_rewrite:stable", Operation: types.ModelUsageOperationQueryRewrite,
+		Usage: types.TokenUsage{TotalTokens: 1},
+	})
+	if err == nil {
+		t.Fatal("recorder must surface persistence errors to its best-effort caller")
 	}
 }

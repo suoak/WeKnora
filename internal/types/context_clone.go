@@ -103,6 +103,7 @@ var contextCloneAcrossDetach = map[ContextKey]bool{
 	// would be filed under whatever its parent was doing.
 	LLMCallPurposeContextKey:             false,
 	LLMPromptPrefixFingerprintContextKey: false,
+	ModelUsageMetadataContextKey:         false,
 	// Who is authoring one wiki page write. Absent deliberately means the wiki
 	// ingest pipeline, which is what detached work should look like; an
 	// inherited "user" would attribute a background rewrite to a person.

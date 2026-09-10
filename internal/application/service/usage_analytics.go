@@ -36,9 +36,9 @@ func (s *usageAnalyticsService) RecordAssistantTurn(ctx context.Context, tenantI
 	if principal, ok := types.PrincipalFromContext(ctx); ok {
 		principalType, principalID = principal.Type, principal.ID
 	}
-	operation, source := "knowledge_qa_turn", "provider"
+	operation, source := types.ModelUsageOperationKnowledgeQA, "provider"
 	if message.AgentID != "" {
-		operation, source = "agent_turn", "aggregated"
+		operation, source = types.ModelUsageOperationAgent, "aggregated"
 	}
 	channel := strings.TrimSpace(message.Channel)
 	if channel == "" {
@@ -68,6 +68,65 @@ func (s *usageAnalyticsService) RecordAssistantTurn(ctx context.Context, tenantI
 		knowledgeIDs = append(knowledgeIDs, ref.KnowledgeID)
 	}
 	resources, err := s.repo.ResolveUsageResources(ctx, kbIDs, knowledgeIDs)
+	if err != nil {
+		return err
+	}
+	_, err = s.repo.RecordModelUsage(ctx, event, resources)
+	return err
+}
+
+func (s *usageAnalyticsService) RecordModelInvocation(ctx context.Context, request types.ModelUsageRecordRequest) error {
+	request.EventKey = strings.TrimSpace(request.EventKey)
+	request.Operation = strings.TrimSpace(request.Operation)
+	if request.EventKey == "" || len(request.EventKey) > maxUsageIdentifierLength || request.Operation == "" || len(request.Operation) > 64 {
+		return errors.New("invalid model usage identity")
+	}
+	tenantID := request.TenantID
+	if tenantID == 0 {
+		tenantID = types.CallerFromContext(ctx).TenantID
+	}
+	if tenantID == 0 {
+		return nil
+	}
+	u := request.Usage
+	total := int64(u.TotalTokens)
+	if total <= 0 {
+		total = int64(u.PromptTokens + u.CompletionTokens)
+	}
+	if total <= 0 {
+		return nil
+	}
+	principalType, principalID := types.UsagePrincipalUnknown, ""
+	if principal, ok := types.PrincipalFromContext(ctx); ok {
+		principalType, principalID = principal.Type, principal.ID
+	}
+	channel := strings.TrimSpace(request.Channel)
+	if channel == "" {
+		channel = types.UsageClassBackground
+	}
+	status := strings.TrimSpace(request.Status)
+	if status == "" {
+		status = "completed"
+	}
+	source := strings.TrimSpace(request.UsageSource)
+	if source == "" {
+		source = "provider"
+	}
+	requestID := request.RequestID
+	if requestID == "" {
+		requestID, _ = types.RequestIDFromContext(ctx)
+	}
+	now := time.Now()
+	event := &types.ModelUsageEvent{
+		EventKey: request.EventKey, TenantID: tenantID, PrincipalType: principalType, PrincipalID: principalID,
+		Channel: channel, Operation: request.Operation, ModelID: request.ModelID, ModelType: request.ModelType,
+		SessionID: request.SessionID, MessageID: request.MessageID,
+		InputTokens: int64(max(0, u.PromptTokens)), OutputTokens: int64(max(0, u.CompletionTokens)), TotalTokens: total,
+		CacheReadTokens: int64(max(0, u.CacheReadTokens)), CacheWriteTokens: int64(max(0, u.CacheWriteTokens)),
+		UsageSource: source, Status: status, RequestID: requestID, TraceID: request.TraceID,
+		OccurredAt: now, CreatedAt: now,
+	}
+	resources, err := s.repo.ResolveUsageResources(ctx, request.KnowledgeBaseIDs, request.KnowledgeIDs)
 	if err != nil {
 		return err
 	}
@@ -107,6 +166,41 @@ func (s *usageAnalyticsService) RecordInboundMCP(ctx context.Context, report typ
 		RequestID: requestID, OccurredAt: now, CreatedAt: now,
 	}
 	resources, err := s.repo.ResolveUsageResources(ctx, report.KnowledgeBaseIDs, report.KnowledgeIDs)
+	if err != nil {
+		return err
+	}
+	_, err = s.repo.RecordMCPUsage(ctx, event, resources)
+	return err
+}
+
+func (s *usageAnalyticsService) RecordOutboundMCP(ctx context.Context, request types.MCPUsageRecordRequest) error {
+	report := types.MCPUsageReport{EventKey: request.EventKey, ToolName: request.ToolName, Transport: request.Transport,
+		Success: request.Success, ErrorCode: request.ErrorCode, LatencyMs: request.LatencyMs, RequestID: request.RequestID}
+	if err := validateMCPUsageReport(report); err != nil {
+		return err
+	}
+	principalType, principalID := types.UsagePrincipalUnknown, ""
+	caller := types.CallerFromContext(ctx)
+	var tenantID *uint64
+	if caller.TenantID > 0 {
+		value := caller.TenantID
+		tenantID = &value
+	}
+	if principal, ok := types.PrincipalFromContext(ctx); ok {
+		principalType, principalID = principal.Type, principal.ID
+	}
+	requestID := request.RequestID
+	if requestID == "" {
+		requestID, _ = types.RequestIDFromContext(ctx)
+	}
+	now := time.Now()
+	event := &types.MCPUsageEvent{
+		EventKey: request.EventKey, CallerTenantID: tenantID, PrincipalType: principalType, PrincipalID: principalID,
+		Direction: "outbound", MCPServiceID: request.MCPServiceID, ToolName: request.ToolName, Transport: request.Transport,
+		Success: request.Success, ErrorCode: request.ErrorCode, LatencyMs: request.LatencyMs,
+		RequestID: requestID, TraceID: request.TraceID, OccurredAt: now, CreatedAt: now,
+	}
+	resources, err := s.repo.ResolveUsageResources(ctx, request.KnowledgeBaseIDs, request.KnowledgeIDs)
 	if err != nil {
 		return err
 	}
@@ -191,6 +285,15 @@ func (s *usageAnalyticsService) Models(ctx context.Context, q types.UsageTimeRan
 	}
 	since, _ := s.repo.CollectingSince(ctx)
 	return &types.UsagePage[types.ModelUsageRow]{Data: rows, Page: q.Page, PageSize: q.PageSize, Total: total, CollectingSince: since}, nil
+}
+func (s *usageAnalyticsService) Operations(ctx context.Context, q types.UsageTimeRange) (*types.UsagePage[types.OperationUsageRow], error) {
+	q = normalizeUsageQuery(q)
+	rows, err := s.repo.Operations(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	since, _ := s.repo.CollectingSince(ctx)
+	return &types.UsagePage[types.OperationUsageRow]{Data: rows, Page: 1, PageSize: len(rows), Total: int64(len(rows)), CollectingSince: since}, nil
 }
 func (s *usageAnalyticsService) MCP(ctx context.Context, q types.UsageTimeRange) (*types.UsagePage[types.MCPUsageRow], error) {
 	q = normalizeUsageQuery(q)

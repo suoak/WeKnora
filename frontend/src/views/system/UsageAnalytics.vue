@@ -6,6 +6,16 @@
         <p>{{ t('usageAnalytics.description') }}</p>
       </div>
       <div class="usage-range">
+        <select v-if="activeTab === 'token'" v-model="usageClass" :aria-label="t('usageAnalytics.tokenType')" @change="reload">
+          <option value="">{{ t('usageAnalytics.filters.all') }}</option>
+          <option value="foreground">{{ t('usageAnalytics.filters.foreground') }}</option>
+          <option value="background">{{ t('usageAnalytics.filters.background') }}</option>
+        </select>
+        <select v-if="activeTab === 'mcp'" v-model="direction" :aria-label="t('usageAnalytics.direction')" @change="reload">
+          <option value="">{{ t('usageAnalytics.filters.all') }}</option>
+          <option value="inbound">{{ t('usageAnalytics.filters.inbound') }}</option>
+          <option value="outbound">{{ t('usageAnalytics.filters.outbound') }}</option>
+        </select>
         <select v-if="activeTab === 'spaces'" v-model="sort" :aria-label="t('usageAnalytics.sort')" @change="reload">
           <option value="tokens">{{ t('usageAnalytics.sorts.tokens') }}</option>
           <option value="mcp_calls">{{ t('usageAnalytics.sorts.mcpCalls') }}</option>
@@ -37,6 +47,8 @@
     <template v-else-if="activeTab === 'overview'">
       <div class="kpi-grid">
         <article><span>{{ t('usageAnalytics.metrics.tokens') }}</span><strong>{{ number(overview?.total_tokens) }}</strong></article>
+        <article><span>{{ t('usageAnalytics.foregroundTokens') }}</span><strong>{{ number(overview?.foreground_tokens) }}</strong></article>
+        <article><span>{{ t('usageAnalytics.backgroundTokens') }}</span><strong>{{ number(overview?.background_tokens) }}</strong></article>
         <article><span>{{ t('usageAnalytics.metrics.mcpCalls') }}</span><strong>{{ number(overview?.mcp_calls) }}</strong></article>
         <article><span>{{ t('usageAnalytics.metrics.activeTenants') }}</span><strong>{{ number(overview?.active_tenants) }}</strong></article>
         <article><span>{{ t('usageAnalytics.metrics.activePrincipals') }}</span><strong>{{ number(overview?.active_principals) }}</strong></article>
@@ -72,10 +84,19 @@
           </div>
         </div>
       </section>
+      <section class="usage-card">
+        <h3>{{ t('usageAnalytics.operationDistribution') }}</h3>
+        <div v-if="!operations.length" class="usage-state">{{ t('usageAnalytics.empty') }}</div>
+        <div v-else class="operation-list">
+          <div v-for="item in operations" :key="item.operation">
+            <span>{{ operationLabel(item.operation) }}</span><strong>{{ percent(item.percentage) }}</strong>
+          </div>
+        </div>
+      </section>
     </template>
 
     <section v-else class="usage-card table-card">
-      <div v-if="activeTab === 'token'" class="scope-note">{{ t('usageAnalytics.tokenScope') }}</div>
+      <div v-if="activeTab === 'token'" class="scope-note">{{ t('usageAnalytics.tokenScopePhase2') }}</div>
       <div v-if="activeTab === 'mcp'" class="scope-note">{{ t('usageAnalytics.mcpScope') }}</div>
       <div class="table-scroll">
         <table v-if="rows.length">
@@ -101,9 +122,9 @@
 import { computed, ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
-  getKnowledgeBaseUsage, getMCPUsage, getUsageModels, getUsageOverview,
+  getKnowledgeBaseUsage, getMCPUsage, getUsageModels, getUsageOperations, getUsageOverview,
   getUsageTenants, getUsageTimeSeries,
-  type UsageOverview, type UsageTimeSeriesPoint,
+  type OperationUsageRow, type UsageOverview, type UsageTimeSeriesPoint,
 } from '@/api/usage-analytics'
 
 type Tab = 'overview' | 'spaces' | 'token' | 'mcp' | 'knowledgeBases'
@@ -113,10 +134,13 @@ const tabs: Tab[] = ['overview', 'spaces', 'token', 'mcp', 'knowledgeBases']
 const activeTab = ref<Tab>('overview')
 const rangeDays = ref(30)
 const sort = ref('tokens')
+const usageClass = ref<'' | 'foreground' | 'background'>('')
+const direction = ref<'' | 'inbound' | 'outbound'>('')
 const loading = ref(false)
 const error = ref('')
 const overview = ref<UsageOverview>()
 const timeseries = ref<UsageTimeSeriesPoint[]>([])
+const operations = ref<OperationUsageRow[]>([])
 const rows = ref<Row[]>([])
 const total = ref(0)
 const page = ref(1)
@@ -130,6 +154,8 @@ const query = computed(() => ({
   page: page.value,
   page_size: pageSize,
   sort: activeTab.value === 'spaces' ? sort.value : undefined,
+  usage_class: activeTab.value === 'token' && usageClass.value ? usageClass.value : undefined,
+  direction: activeTab.value === 'mcp' && direction.value ? direction.value : undefined,
 }))
 
 const columnKeys: Record<Exclude<Tab, 'overview'>, string[]> = {
@@ -142,6 +168,11 @@ const columns = computed(() => activeTab.value === 'overview' ? [] : columnKeys[
 
 function number(value?: number) { return new Intl.NumberFormat().format(value ?? 0) }
 function percent(value?: number) { return `${(value ?? 0).toFixed(1)}%` }
+function operationLabel(value: string) {
+  const key = `usageAnalytics.operations.${value}`
+  const translated = t(key)
+  return translated === key ? value.replaceAll('_', ' ') : translated
+}
 function formatDate(value?: string) { return value ? new Date(value).toLocaleString() : '—' }
 function trendWidth(value: number) { const max = Math.max(...timeseries.value.map(item => item.total_tokens), 1); return Math.max(2, value / max * 100) }
 function rowKey(row: Row, index: number) {
@@ -161,9 +192,12 @@ async function load() {
   error.value = ''
   try {
     if (activeTab.value === 'overview') {
-      const [summary, trend] = await Promise.all([getUsageOverview(query.value), getUsageTimeSeries(query.value)])
+      const [summary, trend, distribution] = await Promise.all([
+        getUsageOverview(query.value), getUsageTimeSeries(query.value), getUsageOperations(query.value),
+      ])
       overview.value = summary
       timeseries.value = trend.data || []
+      operations.value = distribution.data || []
       collectingSince.value = summary.collecting_since || trend.collecting_since
       return
     }
@@ -196,6 +230,7 @@ onMounted(load)
 .usage-card { border:1px solid var(--td-component-stroke);border-radius:8px;background:var(--td-bg-color-container);padding:18px;h3{margin:0 0 14px}dl{margin:0}dl div{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--td-component-stroke)}dt{color:var(--td-text-color-secondary)}dd{margin:0;font-weight:600} }
 .table-card { padding:0;overflow:hidden;.scope-note{margin:16px}.table-scroll{overflow:auto}table{border-collapse:collapse;width:100%;font-size:13px}th,td{text-align:left;white-space:nowrap;padding:12px 14px;border-bottom:1px solid var(--td-component-stroke)}th{background:var(--td-bg-color-secondarycontainer);font-weight:600} }
 .trend-list>div { display:grid;grid-template-columns:170px 1fr 100px;gap:12px;align-items:center;margin:8px 0}.trend-bar{height:8px;background:var(--td-bg-color-component);border-radius:5px;overflow:hidden}.trend-bar i{display:block;height:100%;background:var(--td-brand-color);border-radius:5px}.trend-list strong{text-align:right}
+.operation-list>div { display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--td-component-stroke);text-transform:capitalize }
 .usage-state { padding:48px;text-align:center;color:var(--td-text-color-placeholder) }.pager{display:flex;justify-content:flex-end;align-items:center;gap:10px;padding:12px 16px;button{width:32px;height:30px}}
 @media(max-width:900px){.kpi-grid{grid-template-columns:1fr 1fr}.summary-grid{grid-template-columns:1fr}.usage-header{flex-direction:column}.trend-list>div{grid-template-columns:120px 1fr 80px}}
 </style>

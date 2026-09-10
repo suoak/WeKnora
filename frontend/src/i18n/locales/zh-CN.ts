@@ -84,6 +84,10 @@ export default {
     }
   },
   usageAnalytics: {
+	tokenType: 'Token 类型', direction: '调用方向', operationDistribution: '操作分布', foregroundTokens: '前台 Token', backgroundTokens: '后台 Token',
+	tokenScopePhase2: '已包含：知识问答、Agent、上下文压缩、查询改写、实体提取、文档摘要、生成问题、自动标签、图谱与表格元数据、会话标题和 MCP 使用说明生成。暂未包含：Embedding、Rerank、VLM、ASR、Memory 与 Wiki 的 provider usage。',
+	filters: { all: '全部', foreground: '前台交互', background: '后台处理', inbound: '入站', outbound: '出站' },
+	operations: { knowledge_qa_turn: '知识问答', agent_turn: 'Agent', agent_compaction: 'Agent 上下文压缩', query_rewrite: '查询改写', entity_extraction: '实体提取', data_analysis_planning: '数据分析规划', document_summary: '文档摘要', generated_questions: '生成问题', auto_tag: '自动标签', graph_extraction: '知识图谱提取', spreadsheet_metadata: '表格元数据', session_title: '会话标题', mcp_instruction_generation: 'MCP 使用说明生成' },
     title: '使用统计', description: '平台范围内的 Assistant Turn Token 与入站 MCP 使用情况。', range: '时间范围', sort: '空间排序', days: '天', refresh: '刷新', loading: '正在加载使用数据…', empty: '该时间段暂无使用数据。', loadFailed: '使用统计加载失败。', collectingSince: '统计数据从 {date} 开始采集。', unattributed: '共享网关 / 未归属', tokenScope: '当前 Token 统计覆盖用户可见的 Knowledge QA 和 Agent assistant turn。部分后台模型调用将在后续版本纳入。', mcpScope: '共享网关调用无法可靠识别实际外部用户或空间，因此显示为未归属。', tokenBreakdown: 'Token 明细', trend: '使用趋势',
     tabs: { overview: '概览', spaces: '空间', token: 'Token', mcp: 'MCP', knowledgeBases: '知识库' },
     sorts: { tokens: 'Token', mcpCalls: 'MCP 调用', activePrincipals: '活跃主体', lastActive: '最后活跃' },

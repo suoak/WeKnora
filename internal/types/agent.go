@@ -375,8 +375,10 @@ type ToolCall struct {
 type ToolCallTarget struct {
 	Name        string                 `json:"name"`
 	Args        map[string]interface{} `json:"args"`
+	ServiceID   string                 `json:"service_id"`
 	ServiceName string                 `json:"service_name"`
 	ToolName    string                 `json:"tool_name"`
+	Transport   string                 `json:"transport"`
 }
 
 // ExecutionName returns the resolved target name for presentation and tracing.

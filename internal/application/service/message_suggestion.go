@@ -353,6 +353,9 @@ func (s *messageSuggestionService) generateWithModel(
 		return nil, types.TokenUsage{}, err
 	}
 	modelCtx = types.WithLLMCallMetadata(modelCtx, "follow_up.suggestions", "")
+	requestID, _ := types.RequestIDFromContext(modelCtx)
+	modelCtx = types.WithBackgroundModelUsage(modelCtx, types.ModelUsageOperationGeneratedQuestions,
+		[]string{"follow_up", message.ID, requestID}, message.ExecutionContext.KnowledgeBaseIDs, message.ExecutionContext.KnowledgeIDs)
 	categories := strings.Join(config.Categories, ", ")
 	if categories == "" {
 		categories = "clarify, deepen, action"

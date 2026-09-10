@@ -66,6 +66,13 @@ type AgentEngine struct {
 	steerSink         types.SteerSink
 	allowSteerOverrun bool // one extra ReAct round after a loop-end inject past MaxIterations
 	steerOverruns     int  // how many times this turn has already used the extra round
+	mcpUsageRecorder  func(context.Context, types.MCPUsageRecordRequest) error
+}
+
+// SetMCPUsageRecorder installs a best-effort hook at the logical Agent -> MCP
+// invocation boundary. Internal transport/OAuth retries remain one event.
+func (e *AgentEngine) SetMCPUsageRecorder(recorder func(context.Context, types.MCPUsageRecordRequest) error) {
+	e.mcpUsageRecorder = recorder
 }
 
 // maxSteerOverruns caps loop-end injects past MaxIterations. One extra round

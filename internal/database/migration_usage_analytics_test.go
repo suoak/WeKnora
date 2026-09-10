@@ -29,3 +29,19 @@ func TestPostgresUsageAnalyticsMigrationContract(t *testing.T) {
 	require.NotContains(t, up, "references tenants")
 	require.NotContains(t, up, "cascade")
 }
+
+func TestUsageAnalyticsPhase2MigrationContract(t *testing.T) {
+	root := sqliteRepoRoot(t)
+	for _, path := range []string{
+		filepath.Join(root, "migrations", "versioned", "000096_usage_analytics_phase2.up.sql"),
+		filepath.Join(root, "migrations", "sqlite", "000017_usage_analytics_phase2.up.sql"),
+	} {
+		contents, err := os.ReadFile(path)
+		require.NoError(t, err)
+		sql := strings.ToLower(string(contents))
+		require.Contains(t, sql, "mcp_service_id")
+		require.Contains(t, sql, "'outbound'")
+		require.Contains(t, sql, "idx_model_usage_channel_time")
+		require.Contains(t, sql, "idx_mcp_usage_direction_time")
+	}
+}
