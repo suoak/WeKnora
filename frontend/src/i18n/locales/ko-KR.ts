@@ -29,6 +29,10 @@ export default {
     }
   },
   usageAnalytics: {
+	tokenType: 'Token 유형', direction: '방향', operationDistribution: '작업 분포', foregroundTokens: '포그라운드 Token', backgroundTokens: '백그라운드 Token',
+	tokenScopePhase2: 'Chat, Agent 및 주요 백그라운드 Chat 처리가 포함됩니다. Embedding, Rerank, VLM, ASR, Memory, Wiki provider usage는 아직 포함되지 않습니다.',
+	filters: { all: '전체', foreground: '포그라운드', background: '백그라운드', inbound: '인바운드', outbound: '아웃바운드' },
+	operations: { knowledge_qa_turn: 'Knowledge QA', agent_turn: 'Agent', agent_compaction: 'Agent compaction', query_rewrite: 'Query rewrite', entity_extraction: 'Entity extraction', data_analysis_planning: 'Data analysis planning', document_summary: 'Document summary', generated_questions: 'Generated questions', auto_tag: 'Automatic tags', graph_extraction: 'Graph extraction', spreadsheet_metadata: 'Spreadsheet metadata', session_title: 'Session title', mcp_instruction_generation: 'MCP instruction generation' },
     title: '사용량 분석', description: 'Assistant Turn Token 및 인바운드 MCP 사용량입니다.', range: '기간', sort: '공간 정렬', days: '일', refresh: '새로고침', loading: '불러오는 중…', empty: '이 기간에는 데이터가 없습니다.', loadFailed: '사용량 분석을 불러오지 못했습니다.', collectingSince: '통계는 {date}부터 수집되었습니다.', unattributed: '공유 게이트웨이 / 미귀속', tokenScope: '현재 Token 통계는 사용자에게 표시되는 Knowledge QA 및 Agent assistant turn을 포함합니다. 일부 백그라운드 모델 호출은 향후 포함됩니다.', mcpScope: '공유 게이트웨이 호출은 실제 외부 사용자 또는 공간을 안정적으로 식별할 수 없어 미귀속으로 표시됩니다.', tokenBreakdown: 'Token 내역', trend: '사용 추세',
     tabs: { overview: '개요', spaces: '공간', token: 'Token', mcp: 'MCP', knowledgeBases: '지식 베이스' }, metrics: { tokens: '집계 Token', mcpCalls: 'MCP 호출', activeTenants: '활성 공간', activePrincipals: '활성 주체', totalCalls: '총 호출', unattributed: '미귀속 MCP 호출' },
     sorts: { tokens: 'Token', mcpCalls: 'MCP Calls', activePrincipals: 'Active Principals', lastActive: 'Last Active' },

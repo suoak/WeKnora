@@ -15,6 +15,7 @@ type UsageAnalyticsRepository interface {
 	Tenants(ctx context.Context, q types.UsageTimeRange) ([]types.TenantUsageRow, int64, error)
 	TimeSeries(ctx context.Context, q types.UsageTimeRange) ([]types.UsageTimeSeriesPoint, error)
 	Models(ctx context.Context, q types.UsageTimeRange) ([]types.ModelUsageRow, int64, error)
+	Operations(ctx context.Context, q types.UsageTimeRange) ([]types.OperationUsageRow, error)
 	MCP(ctx context.Context, q types.UsageTimeRange) ([]types.MCPUsageRow, int64, error)
 	KnowledgeBases(ctx context.Context, q types.UsageTimeRange) ([]types.KnowledgeBaseUsageRow, int64, error)
 	CollectingSince(ctx context.Context) (*time.Time, error)
@@ -22,11 +23,14 @@ type UsageAnalyticsRepository interface {
 
 type UsageAnalyticsService interface {
 	RecordAssistantTurn(ctx context.Context, tenantID uint64, message *types.Message) error
+	RecordModelInvocation(ctx context.Context, request types.ModelUsageRecordRequest) error
 	RecordInboundMCP(ctx context.Context, report types.MCPUsageReport) error
+	RecordOutboundMCP(ctx context.Context, request types.MCPUsageRecordRequest) error
 	Overview(ctx context.Context, q types.UsageTimeRange) (*types.UsageOverview, error)
 	Tenants(ctx context.Context, q types.UsageTimeRange) (*types.UsagePage[types.TenantUsageRow], error)
 	TimeSeries(ctx context.Context, q types.UsageTimeRange) (*types.UsagePage[types.UsageTimeSeriesPoint], error)
 	Models(ctx context.Context, q types.UsageTimeRange) (*types.UsagePage[types.ModelUsageRow], error)
+	Operations(ctx context.Context, q types.UsageTimeRange) (*types.UsagePage[types.OperationUsageRow], error)
 	MCP(ctx context.Context, q types.UsageTimeRange) (*types.UsagePage[types.MCPUsageRow], error)
 	KnowledgeBases(ctx context.Context, q types.UsageTimeRange) (*types.UsagePage[types.KnowledgeBaseUsageRow], error)
 }

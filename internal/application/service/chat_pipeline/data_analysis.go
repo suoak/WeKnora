@@ -120,6 +120,9 @@ If NO, leave the sql field empty.
 Return your response in the specified JSON format.`, chatManage.Query, knowledge.ID, schema.Description())
 
 	modelCtx := types.WithLLMCallMetadata(ctx, "data_analysis_plan", "")
+	modelCtx = types.WithBackgroundModelUsage(modelCtx, types.ModelUsageOperationDataAnalysisPlanning,
+		[]string{chatManage.SessionID, chatManage.UserMessageID, knowledge.ID},
+		[]string{knowledge.KnowledgeBaseID}, []string{knowledge.ID})
 	response, err := chatModel.Chat(modelCtx, []chat.Message{
 		{Role: "user", Content: analysisPrompt},
 	}, &chat.ChatOptions{

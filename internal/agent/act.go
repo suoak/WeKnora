@@ -580,6 +580,24 @@ func (e *AgentEngine) runToolCall(
 		logger.Infof(ctx, "%s Completed in %dms: success=%v, output=%d chars",
 			toolTag, duration, success, outputLen)
 	}
+	if target != nil && e.mcpUsageRecorder != nil {
+		errorCode := ""
+		if err != nil {
+			errorCode = "execution_error"
+		} else if toolCall.Result == nil || !toolCall.Result.Success {
+			errorCode = "tool_error"
+		}
+		request := types.MCPUsageRecordRequest{
+			EventKey:     types.UsageEventKey("mcp-outbound", assistantMessageID, tc.ID, target.ServiceID),
+			MCPServiceID: target.ServiceID, ToolName: target.ToolName, Transport: target.Transport,
+			Success: toolCall.Result != nil && toolCall.Result.Success, ErrorCode: errorCode, LatencyMs: duration,
+		}
+		if recordErr := e.mcpUsageRecorder(ctx, request); recordErr != nil {
+			logger.ErrorWithFields(ctx, recordErr, map[string]interface{}{
+				"mcp_service_id": target.ServiceID, "tool_name": target.ToolName,
+			})
+		}
+	}
 
 	finishToolSpan(toolSpan, toolCall, err, duration)
 

@@ -6936,6 +6936,10 @@ export default {
     }
   },
   usageAnalytics: {
+	tokenType: 'Token 種別', direction: '方向', operationDistribution: '操作別分布', foregroundTokens: 'フォアグラウンド Token', backgroundTokens: 'バックグラウンド Token',
+	tokenScopePhase2: 'Chat、Agent、および主要なバックグラウンド Chat 処理を含みます。Embedding、Rerank、VLM、ASR、Memory、Wiki の provider usage はまだ含まれません。',
+	filters: { all: 'すべて', foreground: 'フォアグラウンド', background: 'バックグラウンド', inbound: 'インバウンド', outbound: 'アウトバウンド' },
+	operations: { knowledge_qa_turn: 'Knowledge QA', agent_turn: 'Agent', agent_compaction: 'Agent compaction', query_rewrite: 'Query rewrite', entity_extraction: 'Entity extraction', data_analysis_planning: 'Data analysis planning', document_summary: 'Document summary', generated_questions: 'Generated questions', auto_tag: 'Automatic tags', graph_extraction: 'Graph extraction', spreadsheet_metadata: 'Spreadsheet metadata', session_title: 'Session title', mcp_instruction_generation: 'MCP instruction generation' },
     title: '使用状況分析', description: 'Assistant Turn Token と受信 MCP の使用状況。', range: '期間', sort: 'スペースの並び順', days: '日', refresh: '更新', loading: '読み込み中…', empty: 'この期間のデータはありません。', loadFailed: '使用状況を読み込めませんでした。', collectingSince: '統計は {date} から収集されています。', unattributed: '共有ゲートウェイ / 未帰属', tokenScope: '現在の Token 統計は、ユーザーに表示される Knowledge QA と Agent assistant turn を対象とします。一部のバックグラウンド呼び出しは将来対応します。', mcpScope: '共有ゲートウェイでは実際の外部ユーザーやワークスペースを特定できないため、未帰属として表示されます。', tokenBreakdown: 'Token 内訳', trend: '使用傾向',
     tabs: { overview: '概要', spaces: 'スペース', token: 'Token', mcp: 'MCP', knowledgeBases: 'ナレッジベース' }, metrics: { tokens: '集計済み Token', mcpCalls: 'MCP 呼び出し', activeTenants: 'アクティブスペース', activePrincipals: 'アクティブ主体', totalCalls: '総呼び出し', unattributed: '未帰属 MCP 呼び出し' },
     sorts: { tokens: 'Token', mcpCalls: 'MCP Calls', activePrincipals: 'Active Principals', lastActive: 'Last Active' },

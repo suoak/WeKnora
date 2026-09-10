@@ -232,7 +232,10 @@ func (s *KnowledgeAutoTagService) Handle(ctx context.Context, task *asynq.Task) 
 		s.tracker().FailSpan(ctx, span, "AUTO_TAG_MODEL_LOAD_FAILED", err.Error(), err)
 		return fmt.Errorf("get auto tag model: %w", err)
 	}
-	response, err := classifyExistingTags(ctx, chatModel, tags, content, config.MaxTags)
+	modelCtx := types.WithBackgroundModelUsage(ctx, types.ModelUsageOperationAutoTag,
+		[]string{payload.KnowledgeID, fmt.Sprint(payload.Attempt), content},
+		[]string{payload.KnowledgeBaseID}, []string{payload.KnowledgeID})
+	response, err := classifyExistingTags(modelCtx, chatModel, tags, content, config.MaxTags)
 	if err != nil {
 		s.tracker().FailSpan(ctx, span, "AUTO_TAG_MODEL_CALL_FAILED", err.Error(), err)
 		return err

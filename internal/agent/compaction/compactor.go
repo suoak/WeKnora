@@ -171,10 +171,13 @@ func (c *Compactor) summarize(
 	maxTokens int,
 ) (string, error) {
 	prompt := buildSummarizationPrompt(messages, previousSummary, instructions)
+	sessionID, _ := types.SessionIDFromContext(ctx)
+	usageCtx := types.WithBackgroundModelUsage(ctx, types.ModelUsageOperationAgentCompaction,
+		[]string{sessionID, prompt}, nil, nil)
 	var lastErr error
 
 	for attempt := 1; attempt <= maxSummarizationAttempts; attempt++ {
-		callCtx, cancel := context.WithTimeout(ctx, summarizationTimeout)
+		callCtx, cancel := context.WithTimeout(usageCtx, summarizationTimeout)
 		callCtx = types.WithLLMCallMetadata(callCtx, llmCallLabel, "")
 		resp, err := c.chatModel.Chat(callCtx, []chat.Message{
 			{Role: "system", Content: summarizationSystemPrompt},

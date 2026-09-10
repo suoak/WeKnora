@@ -980,6 +980,13 @@ func (s *knowledgeService) getSummary(ctx context.Context,
 	})
 	thinking := false
 	modelCtx := types.WithLLMCallMetadata(ctx, "document_summary", "")
+	summaryIdentity := append([]string{knowledge.ID}, chunkIDs...)
+	for _, chunk := range sortedChunks {
+		summaryIdentity = append(summaryIdentity, fmt.Sprint(chunk.ContentRevision))
+	}
+	modelCtx = types.WithBackgroundModelUsage(modelCtx, types.ModelUsageOperationDocumentSummary,
+		summaryIdentity,
+		[]string{knowledge.KnowledgeBaseID}, []string{knowledge.ID})
 	summary, err := summaryModel.Chat(modelCtx, []chat.Message{
 		{
 			Role:    "system",
@@ -1730,7 +1737,9 @@ func (s *knowledgeService) processQuestionGenerationForKnowledge(ctx context.Con
 
 		generationRevision := chunk.ContentRevision
 		llmCallAttempts++
-		questions, err := s.generateQuestionsWithContext(ctx, chatModel, enrichContent(chunk), prevContent, nextContent,
+		modelCtx := types.WithBackgroundModelUsage(ctx, types.ModelUsageOperationGeneratedQuestions,
+			[]string{chunk.ID, fmt.Sprint(generationRevision)}, []string{chunk.KnowledgeBaseID}, []string{chunk.KnowledgeID})
+		questions, err := s.generateQuestionsWithContext(modelCtx, chatModel, enrichContent(chunk), prevContent, nextContent,
 			knowledge.Title, questionCount, customInstructions)
 		if err != nil {
 			llmCallFailed++
@@ -2069,8 +2078,10 @@ func (s *knowledgeService) processQuestionGenerationForChunks(ctx context.Contex
 		}
 
 		generationRevision := chunk.ContentRevision
+		modelCtx := types.WithBackgroundModelUsage(ctx, types.ModelUsageOperationGeneratedQuestions,
+			[]string{chunk.ID, fmt.Sprint(generationRevision)}, []string{chunk.KnowledgeBaseID}, []string{chunk.KnowledgeID})
 		questions, gerr := s.generateQuestionsWithContext(
-			ctx, chatModel, enrich(chunk), prevContentAt(i), nextContentAt(i), knowledge.Title, questionCount,
+			modelCtx, chatModel, enrich(chunk), prevContentAt(i), nextContentAt(i), knowledge.Title, questionCount,
 			customInstructions)
 		if gerr != nil {
 			llmCallFailed++
@@ -2262,8 +2273,10 @@ func (s *knowledgeService) RegenerateChunkQuestions(
 	if count > 10 {
 		count = 10
 	}
+	modelCtx := types.WithBackgroundModelUsage(ctx, types.ModelUsageOperationGeneratedQuestions,
+		[]string{chunk.ID, fmt.Sprint(generationRevision)}, []string{chunk.KnowledgeBaseID}, []string{chunk.KnowledgeID})
 	questions, err := s.generateQuestionsWithContext(
-		ctx, chatModel, chunk.Content, resolveNeighbor(chunk.PreChunkID),
+		modelCtx, chatModel, chunk.Content, resolveNeighbor(chunk.PreChunkID),
 		resolveNeighbor(chunk.NextChunkID), knowledge.Title, count, config.CustomInstructions,
 	)
 	if err != nil {

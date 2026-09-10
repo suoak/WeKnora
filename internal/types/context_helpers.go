@@ -294,6 +294,38 @@ func LLMCallMetadataFromContext(ctx context.Context) (purpose, prefixFingerprint
 	return purpose, prefixFingerprint
 }
 
+// WithModelUsageMetadata marks exactly one model invocation for ledger
+// recording. Metadata is intentionally not cloned into detached contexts.
+func WithModelUsageMetadata(ctx context.Context, metadata ModelUsageRecordRequest) context.Context {
+	return context.WithValue(ctx, ModelUsageMetadataContextKey, metadata)
+}
+
+func ModelUsageMetadataFromContext(ctx context.Context) (ModelUsageRecordRequest, bool) {
+	if ctx == nil {
+		return ModelUsageRecordRequest{}, false
+	}
+	metadata, ok := ctx.Value(ModelUsageMetadataContextKey).(ModelUsageRecordRequest)
+	return metadata, ok && metadata.EventKey != "" && metadata.Operation != ""
+}
+
+// WithBackgroundModelUsage builds the common attribution envelope from the
+// frozen caller and request context. stableIDs must identify the logical call
+// across retries; they are hashed before being stored.
+func WithBackgroundModelUsage(ctx context.Context, operation string, stableIDs, knowledgeBaseIDs, knowledgeIDs []string) context.Context {
+	requestID, _ := RequestIDFromContext(ctx)
+	sessionID, _ := SessionIDFromContext(ctx)
+	tenantID := CallerFromContext(ctx).TenantID
+	if tenantID == 0 {
+		tenantID, _ = TenantIDFromContext(ctx)
+	}
+	metadata := ModelUsageRecordRequest{
+		EventKey: UsageEventKey(operation, stableIDs...), TenantID: tenantID,
+		Channel: UsageClassBackground, Operation: operation, SessionID: sessionID, RequestID: requestID,
+		KnowledgeBaseIDs: append([]string(nil), knowledgeBaseIDs...), KnowledgeIDs: append([]string(nil), knowledgeIDs...),
+	}
+	return WithModelUsageMetadata(ctx, metadata)
+}
+
 // LanguageFromContext extracts the language locale string from ctx (e.g. "zh-CN", "en-US").
 // Returns ("zh-CN", false) when the key is absent.
 func LanguageFromContext(ctx context.Context) (string, bool) {

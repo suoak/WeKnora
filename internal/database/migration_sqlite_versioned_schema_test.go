@@ -45,7 +45,7 @@ var versionedSQLiteColumns = map[string][]string{
 	"mcp_tool_approvals": {"enabled"},                        // 000092
 }
 
-const expectedSQLiteMigrationVersion = 16
+const expectedSQLiteMigrationVersion = 17
 
 func TestSQLiteMigrationsCreateVersionedSchema(t *testing.T) {
 	repoRoot := sqliteRepoRoot(t)
@@ -170,7 +170,7 @@ func TestSQLiteMigrationsUpgradeV13ToLatest(t *testing.T) {
 	require.NoError(t, err)
 	migrator, err := migrate.NewWithDatabaseInstance("file://migrations/sqlite", "sqlite3", driver)
 	require.NoError(t, err)
-	require.NoError(t, migrator.Steps(-2))
+	require.NoError(t, migrator.Steps(-3))
 	versionDowngraded, dirtyDowngraded := sqliteMigrationState(t, db)
 	require.Equal(t, 14, versionDowngraded)
 	require.False(t, dirtyDowngraded)
@@ -248,7 +248,7 @@ func TestSQLiteKnowledgePortalMigrationUpgradeConstraintsAndDown(t *testing.T) {
 	require.NoError(t, err)
 	migrator, err := migrate.NewWithDatabaseInstance("file://migrations/sqlite", "sqlite3", driver)
 	require.NoError(t, err)
-	require.NoError(t, migrator.Steps(-2))
+	require.NoError(t, migrator.Steps(-3))
 	version, dirty = sqliteMigrationState(t, db)
 	require.Equal(t, 14, version)
 	require.False(t, dirty)
@@ -293,7 +293,7 @@ func TestSQLiteUsageAnalyticsMigrationUpgradeV15AndDown(t *testing.T) {
 	require.NoError(t, err)
 	migrator, err := migrate.NewWithDatabaseInstance("file://migrations/sqlite", "sqlite3", driver)
 	require.NoError(t, err)
-	require.NoError(t, migrator.Steps(-1))
+	require.NoError(t, migrator.Steps(-2))
 	version, dirty = sqliteMigrationState(t, db)
 	require.Equal(t, 15, version)
 	require.False(t, dirty)

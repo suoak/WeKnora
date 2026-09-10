@@ -60,3 +60,38 @@ func TestUsageOverviewCountsMCPOnlyTenantInActiveTenantUnion(t *testing.T) {
 	require.Equal(t, int64(1), overview.ActivePrincipals)
 	require.Equal(t, int64(1), overview.MCPCalls)
 }
+
+func TestUsageAnalyticsPhase2FiltersAndOperationDistribution(t *testing.T) {
+	db := usageAnalyticsTestDB(t)
+	repo := NewUsageAnalyticsRepository(db)
+	now := time.Now()
+	for _, event := range []*types.ModelUsageEvent{
+		{EventKey: "message:foreground", TenantID: 1, PrincipalType: "web_user", Channel: "web", Operation: types.ModelUsageOperationKnowledgeQA, ModelType: "knowledge_qa", TotalTokens: 10, UsageSource: "provider", Status: "completed", OccurredAt: now, CreatedAt: now},
+		{EventKey: "rewrite:background", TenantID: 1, PrincipalType: "web_user", Channel: "background", Operation: types.ModelUsageOperationQueryRewrite, ModelType: "knowledge_qa", TotalTokens: 5, UsageSource: "provider", Status: "completed", OccurredAt: now, CreatedAt: now},
+	} {
+		require.NoError(t, db.Create(event).Error)
+	}
+	base := types.UsageTimeRange{From: now.Add(-time.Hour), To: now.Add(time.Hour)}
+	background := base
+	background.UsageClass = types.UsageClassBackground
+	overview, err := repo.Overview(context.Background(), background)
+	require.NoError(t, err)
+	require.Equal(t, int64(5), overview.TotalTokens)
+	require.Equal(t, int64(0), overview.ForegroundTokens)
+	require.Equal(t, int64(5), overview.BackgroundTokens)
+
+	rows, err := repo.Operations(context.Background(), base)
+	require.NoError(t, err)
+	require.Len(t, rows, 2)
+	require.Equal(t, types.ModelUsageOperationKnowledgeQA, rows[0].Operation)
+	require.InDelta(t, 66.666, rows[0].Percentage, 0.01)
+	require.Equal(t, types.UsageClassForeground, rows[0].UsageClass)
+
+	require.NoError(t, db.Create(&types.MCPUsageEvent{EventKey: "inbound:1", PrincipalType: "api", Direction: "inbound", ToolName: "search", Success: true, OccurredAt: now, CreatedAt: now}).Error)
+	require.NoError(t, db.Create(&types.MCPUsageEvent{EventKey: "outbound:1", PrincipalType: "web", Direction: "outbound", ToolName: "search", Success: true, OccurredAt: now, CreatedAt: now}).Error)
+	outbound := base
+	outbound.Direction = "outbound"
+	mcpOverview, err := repo.Overview(context.Background(), outbound)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), mcpOverview.MCPCalls)
+}

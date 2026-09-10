@@ -87,6 +87,9 @@ const (
 	// LLMPromptPrefixFingerprintContextKey carries a non-sensitive hash of the
 	// intended reusable prompt prefix for cache diagnostics.
 	LLMPromptPrefixFingerprintContextKey ContextKey = "LLMPromptPrefixFingerprint"
+	// ModelUsageMetadataContextKey carries privacy-filtered analytics labels for
+	// one non-streaming background model invocation.
+	ModelUsageMetadataContextKey ContextKey = "ModelUsageMetadata"
 	// MCPOAuthNonInteractiveContextKey marks a request whose channel cannot
 	// resolve an in-conversation MCP OAuth prompt (e.g. an IM bot: there is no
 	// live client to click "Authorize" and call the resolve endpoint). When set,

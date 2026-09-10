@@ -924,7 +924,8 @@ func (r *ToolRegistry) MCPCallTarget(ctx context.Context, name string, raw json.
 			return nil
 		}
 		return &types.ToolCallTarget{
-			Name: name, Args: args, ServiceName: direct.service.Name, ToolName: direct.mcpTool.Name,
+			Name: name, Args: args, ServiceID: direct.service.ID, ServiceName: direct.service.Name,
+			ToolName: direct.mcpTool.Name, Transport: string(direct.service.TransportType),
 		}
 	}
 	proxy, ok := registered.(*MCPCallTool)
@@ -953,8 +954,10 @@ func (r *ToolRegistry) MCPCallTarget(ctx context.Context, name string, raw json.
 	return &types.ToolCallTarget{
 		Name:        tool.Name(),
 		Args:        input,
+		ServiceID:   tool.service.ID,
 		ServiceName: tool.service.Name,
 		ToolName:    tool.mcpTool.Name,
+		Transport:   string(tool.service.TransportType),
 	}
 }
 

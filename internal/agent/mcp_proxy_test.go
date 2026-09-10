@@ -55,6 +55,11 @@ func TestAgentMCPProxyKeepsTargetEventsAndProtocolHistory(t *testing.T) {
 	require.NoError(t, err)
 	engine := newTestEngine(t, &mockChat{})
 	engine.toolRegistry = registry
+	var usage []types.MCPUsageRecordRequest
+	engine.SetMCPUsageRecorder(func(_ context.Context, request types.MCPUsageRecordRequest) error {
+		usage = append(usage, request)
+		return nil
+	})
 	var starts []event.AgentToolCallData
 	var outcomes []event.AgentToolResultData
 	engine.eventBus.On(event.EventAgentToolCall, func(_ context.Context, evt event.Event) error {
@@ -101,6 +106,12 @@ func TestAgentMCPProxyKeepsTargetEventsAndProtocolHistory(t *testing.T) {
 	require.Equal(t, agenttools.ToolCallMCPTool, call.Name)
 	require.NotNil(t, call.Target)
 	require.Equal(t, "get_order", call.Target.ToolName)
+	require.Equal(t, "orders", call.Target.ServiceID)
+	require.Len(t, usage, 1, "discovery calls and internal transport work must not become outbound tool events")
+	require.Equal(t, "orders", usage[0].MCPServiceID)
+	require.Equal(t, "get_order", usage[0].ToolName)
+	require.True(t, usage[0].Success)
+	require.NotEmpty(t, usage[0].EventKey)
 	require.Equal(t, "mcp_orders_get_order", starts[len(starts)-1].ToolName)
 	require.Equal(t, map[string]any{"id": "42"}, starts[len(starts)-1].Arguments)
 	engine.emitToolOutcome(ctx, call, 1, "session")

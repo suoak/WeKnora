@@ -25,12 +25,13 @@ var ErrModelNotFound = errors.New("model not found")
 
 // modelService implements the model service interface
 type modelService struct {
-	repo          interfaces.ModelRepository
-	kbRepo        interfaces.KnowledgeBaseRepository
-	agentRepo     interfaces.CustomAgentRepository
-	ollamaService *ollama.OllamaService
-	pooler        embedding.EmbedderPooler
-	tenantService interfaces.TenantService
+	repo           interfaces.ModelRepository
+	kbRepo         interfaces.KnowledgeBaseRepository
+	agentRepo      interfaces.CustomAgentRepository
+	ollamaService  *ollama.OllamaService
+	pooler         embedding.EmbedderPooler
+	tenantService  interfaces.TenantService
+	usageAnalytics interfaces.UsageAnalyticsService
 }
 
 // NewModelService creates a new model service instance
@@ -48,6 +49,14 @@ func NewModelService(repo interfaces.ModelRepository,
 		ollamaService: ollamaService,
 		pooler:        pooler,
 		tenantService: tenantService,
+	}
+}
+
+// AttachModelUsageAnalytics wires the optional analytics decorator without
+// widening the long-lived ModelService interface or its constructor surface.
+func AttachModelUsageAnalytics(model interfaces.ModelService, analytics interfaces.UsageAnalyticsService) {
+	if service, ok := model.(*modelService); ok {
+		service.usageAnalytics = analytics
 	}
 }
 
@@ -625,7 +634,7 @@ func (s *modelService) GetChatModel(ctx context.Context, modelId string) (chat.C
 		return nil, err
 	}
 
-	return chatModel, nil
+	return &usageRecordingChat{inner: chatModel, recorder: s.usageAnalytics, modelID: model.ID, modelType: string(model.Type)}, nil
 }
 
 // GetVLMModel retrieves and initializes a vision language model instance.
