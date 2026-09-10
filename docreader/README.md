@@ -60,7 +60,7 @@ docreader:
 #### 4. MAX_FILE_SIZE_MB
 
 - **说明**: 允许上传的最大文件大小（单位：MB）
-- **默认值**: `50` MB
+- **默认值**: `100` MiB；gRPC 消息上限默认额外保留 25%（至少 32 MiB）余量
 - **用途**: 限制 gRPC 服务接收的文件大小，防止过大的文件导致服务崩溃或性能问题
 - **配置示例**:
   ```bash
@@ -143,7 +143,7 @@ docreader:
   environment:
     - MINIO_ENDPOINT=minio:9000
     - MINIO_PUBLIC_ENDPOINT=http://localhost:9000
-    - MAX_FILE_SIZE_MB=50
+    - MAX_FILE_SIZE_MB=100
 ```
 
 ### 高级配置（启用 MinerU）
@@ -168,7 +168,7 @@ docreader:
     - COS_REGION=ap-guangzhou
     - COS_BUCKET_NAME=your-bucket
     - COS_APP_ID=your_app_id
-    - MAX_FILE_SIZE_MB=50
+    - MAX_FILE_SIZE_MB=100
 ```
 
 ### 使用阿里云 OSS
@@ -182,7 +182,7 @@ docreader:
     - OSS_ENDPOINT=oss-cn-hangzhou.aliyuncs.com
     - OSS_BUCKET_NAME=your-bucket
     - OSS_REGION=cn-hangzhou
-    - MAX_FILE_SIZE_MB=50
+    - MAX_FILE_SIZE_MB=100
 ```
 
 ## 常见问题

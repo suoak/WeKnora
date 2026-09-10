@@ -64,7 +64,12 @@
 import { ref, computed, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { MessagePlugin, Icon as TIcon } from 'tdesign-vue-next'
-import { filterUploadFiles } from '../utils/uploadSources'
+import { MAX_FILE_SIZE_MB } from '@/utils/uploadLimits'
+import {
+  filterUploadFiles,
+  getUploadRejectionNotice,
+  summarizeUploadRejections,
+} from '../utils/uploadSources'
 
 const props = withDefaults(defineProps<{
   acceptFileTypes?: string
@@ -149,21 +154,19 @@ const handleActionSelect = (data: { value: string }) => {
   }
 }
 
-const notifyFilterResult = (result: ReturnType<typeof filterUploadFiles>, emptyAllSkippedKey: string) => {
-  const { validFiles, skippedCount, videoFilteredCount } = result
-  if (validFiles.length === 0) {
-    if (skippedCount > 0) {
-      MessagePlugin.warning(t(emptyAllSkippedKey))
-    }
-    return false
-  }
-  if (videoFilteredCount > 0) {
+const notifyFilterResult = (result: ReturnType<typeof filterUploadFiles>) => {
+  const { validFiles, rejectedFiles } = result
+  const summary = summarizeUploadRejections(rejectedFiles)
+  const { videoFilteredCount } = summary
+
+  if (validFiles.length > 0 && videoFilteredCount > 0) {
     MessagePlugin.warning(t('knowledgeBase.videosFilteredNoVLM', { count: videoFilteredCount }))
   }
-  if (skippedCount > 0) {
-    MessagePlugin.warning(t('knowledgeBase.filesSkippedNoEngine', { count: skippedCount }))
+  const rejectionNotice = getUploadRejectionNotice(summary, MAX_FILE_SIZE_MB)
+  if (rejectionNotice) {
+    MessagePlugin.warning(t(rejectionNotice.key, rejectionNotice.params))
   }
-  return true
+  return validFiles.length > 0
 }
 
 const handleFilesChange = (event: Event, fromFolder: boolean) => {
@@ -174,10 +177,9 @@ const handleFilesChange = (event: Event, fromFolder: boolean) => {
   const result = filterUploadFiles(files, {
     supportedFileTypes: props.supportedFileTypes,
     fromFolder,
-    multiFile: files.length > 1,
   })
 
-  if (!notifyFilterResult(result, 'knowledgeBase.allFilesSkippedNoEngine')) {
+  if (!notifyFilterResult(result)) {
     input.value = ''
     return
   }

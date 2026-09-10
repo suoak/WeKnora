@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -18,15 +16,6 @@ import (
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/status"
 )
-
-func getMaxMessageSize() int {
-	if sizeStr := os.Getenv("MAX_FILE_SIZE_MB"); sizeStr != "" {
-		if size, err := strconv.Atoi(sizeStr); err == nil && size > 0 {
-			return size * 1024 * 1024
-		}
-	}
-	return 50 * 1024 * 1024
-}
 
 // GRPCDocumentReader implements DocumentReader over gRPC.
 type GRPCDocumentReader struct {
@@ -48,7 +37,7 @@ func NewGRPCDocumentReader(addr string) (*GRPCDocumentReader, error) {
 
 func (p *GRPCDocumentReader) connect(addr string) error {
 	authConfig := docclient.LoadAuthConfigFromEnv()
-	opts, err := authConfig.BuildDialOptions(getMaxMessageSize())
+	opts, err := authConfig.BuildDialOptions(docclient.GetMaxMessageSize())
 	if err != nil {
 		return fmt.Errorf("failed to build docreader dial options: %w", err)
 	}

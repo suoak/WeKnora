@@ -6776,6 +6776,8 @@ export default {
     operationNotSupportedForType: '当前知识库类型不支持该操作',
     allFilesSkippedNoEngine: '所选文件类型暂无可用解析引擎，已全部跳过',
     filesSkippedNoEngine: '{count} 个文件因无可用解析引擎被跳过',
+    filesSkippedOversize: '{count} 个文件超过 {size} MiB，已跳过',
+    filesSkippedMixed: '{count} 个文件无法上传：{oversize} 个超过 {size} MiB，{unsupported} 个无可用解析引擎',
     allUploadSuccess: '所有文件上传成功（{count}个）',
     partialUploadSuccess: '部分文件上传成功（成功：{success}，失败：{fail}）',
     allUploadFailed: '所有文件上传失败（{count}个）',

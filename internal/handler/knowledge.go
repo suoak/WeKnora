@@ -269,7 +269,7 @@ func (h *KnowledgeHandler) CreateKnowledgeFromFile(c *gin.Context) {
 		return
 	}
 
-	// Validate file size — read MAX_FILE_SIZE_MB env (50MB default).
+	// Validate file size — read MAX_FILE_SIZE_MB env (100MB default).
 	// Deliberately not a runtime system_setting; see filesize.go for the
 	// rationale (nginx / docreader / browser bundle all cache this at
 	// container startup, so a UI knob would silently mismatch).

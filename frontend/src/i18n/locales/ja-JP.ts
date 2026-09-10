@@ -668,6 +668,8 @@ export default {
     operationNotSupportedForType: 'この操作は現在のナレッジベースのタイプでは利用できません',
     allFilesSkippedNoEngine: '利用可能な解析エンジンがないため、選択したすべてのファイルをスキップしました',
     filesSkippedNoEngine: '利用可能な解析エンジンがないため、{count}件のファイルをスキップしました',
+    filesSkippedOversize: '{count}件のファイルが{size} MiBを超えているためスキップしました',
+    filesSkippedMixed: '{count}件のファイルをアップロードできません：{oversize}件が{size} MiBを超過、{unsupported}件は利用可能な解析エンジンがありません',
     allUploadSuccess: 'すべてのファイルをアップロードしました（{count}件）',
     partialUploadSuccess: '一部のファイルをアップロードしました（成功: {success}件、失敗: {fail}件）',
     allUploadFailed: 'すべてのファイルのアップロードに失敗しました（{count}件）',

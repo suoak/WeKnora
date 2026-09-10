@@ -301,8 +301,8 @@ RAG 流水线的可视化进度（`views/chat/components/RagPipelineProgress.vue
 
 `frontend/docker-entrypoint.sh`（运行时配置注入）：
 
-1. 生成 `/usr/share/nginx/html/config.js`，把 `MAX_FILE_SIZE_MB`（默认 50）与 `DEFAULT_LOCALE`（可选，默认空）写入 `window.__RUNTIME_CONFIG__` 供前端运行时读取；entrypoint 仅允许 `zh-CN|en-US|ru-RU|ko-KR|ja-JP`，非法值会被丢弃；
-2. 用 `envsubst` 渲染 nginx 模板，可配置环境变量：`MAX_FILE_SIZE_MB`、`DEFAULT_LOCALE`、`APP_HOST`（默认 `app`）、`APP_PORT`（默认 `8080`）、`APP_SCHEME`（默认 `http`，远程 HTTPS 后端可设 `https`）；
+1. 生成 `/usr/share/nginx/html/config.js`，把 `MAX_FILE_SIZE_MB`（默认 100）与 `DEFAULT_LOCALE`（可选，默认空）写入 `window.__RUNTIME_CONFIG__` 供前端运行时读取；entrypoint 仅允许 `zh-CN|en-US|ru-RU|ko-KR|ja-JP`，非法值会被丢弃；
+2. 用 `envsubst` 渲染 nginx 模板；`MAX_FILE_SIZE_MB` 是文件上限，nginx 请求体上限会额外增加 1 MiB 以容纳 multipart 边界和请求头。另可配置 `DEFAULT_LOCALE`、`APP_HOST`（默认 `app`）、`APP_PORT`（默认 `8080`）、`APP_SCHEME`（默认 `http`，远程 HTTPS 后端可设 `https`）；
 3. 前台启动 nginx。
 
 `frontend/nginx.conf` 关键行为：

@@ -6,6 +6,14 @@ from typing import Any, Dict, Iterable, Optional, Tuple
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+DEFAULT_MAX_FILE_SIZE_MB = 100
+MINIMUM_GRPC_HEADROOM_MB = 32
+
+
+def default_grpc_message_size_mb(upload_limit_mb: int) -> int:
+    """Add transport headroom above the accepted upload size."""
+    return upload_limit_mb + max(MINIMUM_GRPC_HEADROOM_MB, (upload_limit_mb + 3) // 4)
+
 
 def _get_first_env(keys: Iterable[str]) -> Tuple[Optional[str], Optional[str]]:
     """Return (value, key) for the first existing env var in keys."""
@@ -79,11 +87,11 @@ def load_config() -> DocReaderConfig:
     """Load config from environment variables (lightweight version)."""
 
     grpc_max_workers = _get_int(["DOCREADER_GRPC_MAX_WORKERS", "GRPC_MAX_WORKERS"], 4)
-    grpc_max_file_size_mb = (
-        _get_int(["DOCREADER_GRPC_MAX_FILE_SIZE_MB", "MAX_FILE_SIZE_MB"], 50)
-        * 1024
-        * 1024
-    )
+    upload_limit_mb = _get_int(["MAX_FILE_SIZE_MB"], DEFAULT_MAX_FILE_SIZE_MB)
+    grpc_limit_mb = _get_int(["DOCREADER_GRPC_MAX_FILE_SIZE_MB"], 0)
+    if grpc_limit_mb <= 0:
+        grpc_limit_mb = default_grpc_message_size_mb(upload_limit_mb)
+    grpc_max_file_size_mb = grpc_limit_mb * 1024 * 1024
     grpc_port = _get_int(["DOCREADER_GRPC_PORT", "PORT"], 50051)
     docx_max_pages = _get_int(["DOCREADER_DOCX_MAX_PAGES"], 0)
     markitdown_max_workers = _get_int(["DOCREADER_MARKITDOWN_MAX_WORKERS"], 1)

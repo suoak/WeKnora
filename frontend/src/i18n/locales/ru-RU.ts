@@ -6710,6 +6710,8 @@ export default {
     operationNotSupportedForType: 'Эта операция не поддерживается для текущего типа базы знаний',
     allFilesSkippedNoEngine: 'Все выбранные файлы были пропущены из-за отсутствия парсера',
     filesSkippedNoEngine: '{count} файл(ов) пропущено из-за отсутствия парсера',
+    filesSkippedOversize: '{count} файл(ов) превышают {size} МиБ и были пропущены',
+    filesSkippedMixed: 'Невозможно загрузить {count} файл(ов): {oversize} превышают {size} МиБ, для {unsupported} нет доступного парсера',
     allUploadSuccess: 'Все файлы загружены ({count})',
     partialUploadSuccess: 'Частичная загрузка (успешно: {success}, ошибки: {fail})',
     allUploadFailed: 'Все файлы не удалось загрузить ({count})',

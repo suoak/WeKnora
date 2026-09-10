@@ -7,7 +7,14 @@ case "${DEFAULT_LOCALE:-}" in
 esac
 
 # 生成运行时配置文件，注入环境变量到前端
-FILE_MB=${MAX_FILE_SIZE_MB:-50}
+FILE_MB=${MAX_FILE_SIZE_MB:-100}
+case "$FILE_MB" in
+  ''|*[!0-9]*) FILE_MB=100 ;;
+esac
+if [ "$FILE_MB" -le 0 ]; then
+  FILE_MB=100
+fi
+HTTP_BODY_MB=$(expr "$FILE_MB" + 1)
 SKILL_MB=${MAX_SKILL_BUNDLE_SIZE_MB:-256}
 if [ "$SKILL_MB" -lt "$FILE_MB" ] 2>/dev/null; then
   SKILL_MB=$FILE_MB
@@ -28,7 +35,10 @@ EOF
 # 两个上限分开注入：全站保持知识库的 MAX_FILE_SIZE，只有技能 zip 上传的两条
 # 集合路由放宽到 MAX_SKILL_BUNDLE_SIZE（不含 /install、PATCH 等子路径）。
 # 合成一个全站上限会让每个上传端点都能收到技能包那么大的 body。
-export MAX_FILE_SIZE=${FILE_MB}M
+# Multipart boundaries and headers sit outside the file bytes. Keep the
+# product limit at FILE_MB while giving nginx the same 1 MiB envelope slack
+# as the app's http.MaxBytesReader guard.
+export MAX_FILE_SIZE=${HTTP_BODY_MB}M
 export MAX_SKILL_BUNDLE_SIZE=${SKILL_MB}M
 export APP_HOST=${APP_HOST:-app}
 export APP_PORT=${APP_PORT:-8080}

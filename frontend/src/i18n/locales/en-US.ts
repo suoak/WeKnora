@@ -749,6 +749,8 @@ export default {
     operationNotSupportedForType: 'This operation is not supported for the current knowledge base type',
     allFilesSkippedNoEngine: 'All selected files were skipped due to no available parser engine',
     filesSkippedNoEngine: '{count} file(s) skipped due to no available parser engine',
+    filesSkippedOversize: '{count} file(s) exceed {size} MiB and were skipped',
+    filesSkippedMixed: '{count} file(s) cannot be uploaded: {oversize} exceed {size} MiB and {unsupported} have no available parser engine',
     allUploadSuccess: 'All files uploaded successfully ({count} files)',
     partialUploadSuccess: 'Partial upload success (success: {success}, failed: {fail})',
     allUploadFailed: 'All files failed to upload ({count} files)',

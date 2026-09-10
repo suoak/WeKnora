@@ -6710,6 +6710,8 @@ export default {
     operationNotSupportedForType: '현재 지식베이스 유형에서는 이 작업을 지원하지 않습니다',
     allFilesSkippedNoEngine: '선택한 모든 파일이 사용 가능한 파싱 엔진이 없어 건너뛰었습니다',
     filesSkippedNoEngine: '{count}개 파일이 사용 가능한 파싱 엔진이 없어 건너뛰었습니다',
+    filesSkippedOversize: '{count}개 파일이 {size} MiB를 초과하여 건너뛰었습니다',
+    filesSkippedMixed: '{count}개 파일을 업로드할 수 없습니다: {oversize}개는 {size} MiB 초과, {unsupported}개는 사용 가능한 파싱 엔진 없음',
     allUploadSuccess: '모든 파일 업로드 성공 ({count}개)',
     partialUploadSuccess: '일부 파일 업로드 성공 (성공: {success}, 실패: {fail})',
     allUploadFailed: '모든 파일 업로드 실패 ({count}개)',
