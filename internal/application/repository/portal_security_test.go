@@ -27,7 +27,8 @@ func TestPortalRepositorySearchesMetadataOnlyAndReturnsSafeProjection(t *testing
 		`CREATE TABLE organizations (id TEXT PRIMARY KEY, deleted_at DATETIME)`,
 		`CREATE TABLE organization_tenant_members (organization_id TEXT, tenant_id INTEGER)`,
 		`CREATE TABLE knowledge_bases (id TEXT, tenant_id INTEGER, name TEXT, is_temporary BOOLEAN, deleted_at DATETIME)`,
-		`CREATE TABLE knowledges (id TEXT, tenant_id INTEGER, knowledge_base_id TEXT, title TEXT, deleted_at DATETIME)`,
+		`CREATE TABLE knowledges (id TEXT, tenant_id INTEGER, knowledge_base_id TEXT, type TEXT, parse_status TEXT, title TEXT, deleted_at DATETIME)`,
+		`CREATE TABLE chunks (id TEXT, knowledge_id TEXT)`,
 		`INSERT INTO tenants(id, name, status) VALUES (1, 'private-tenant-name', 'active'), (2, 'deleted', 'active'), (3, 'inactive', 'inactive'), (99, 'active-context', 'active')`,
 		`INSERT INTO tenant_portal_configs VALUES
 			(1, 'published', 'Hardware Hub', 'Reusable platform knowledge', 'hardware', 'Platform', 'team@example.com', 1, 10, 1, 'org-1'),
@@ -40,10 +41,18 @@ func TestPortalRepositorySearchesMetadataOnlyAndReturnsSafeProjection(t *testing
 			('kb-deleted', 1, 'deleted knowledge base', 0, CURRENT_TIMESTAMP),
 			('kb-temporary', 1, 'temporary knowledge base', 1, NULL)`,
 		`INSERT INTO knowledges VALUES
-			('file-secret', 1, 'kb-secret', 'confidential launch plan', NULL),
-			('file-deleted', 1, 'kb-secret', 'deleted file', CURRENT_TIMESTAMP),
-			('file-hidden-kb', 1, 'kb-deleted', 'file in deleted kb', NULL),
-			('file-temporary', 1, 'kb-temporary', 'temporary file', NULL)`,
+			('file-secret', 1, 'kb-secret', 'file', 'completed', 'confidential launch plan', NULL),
+			('file-processing', 1, 'kb-secret', 'file_url', 'processing', 'downloaded specification', NULL),
+			('file-failed', 1, 'kb-secret', 'file', 'failed', 'failed file', NULL),
+			('file-cancelled', 1, 'kb-secret', 'file', 'cancelled', 'cancelled file', NULL),
+			('url-source', 1, 'kb-secret', 'url', 'completed', 'web page', NULL),
+			('manual-source', 1, 'kb-secret', 'manual', 'completed', 'manual page', NULL),
+			('faq-source', 1, 'kb-secret', 'faq', 'completed', 'faq collection', NULL),
+			('file-deleted', 1, 'kb-secret', 'file', 'completed', 'deleted file', CURRENT_TIMESTAMP),
+			('file-hidden-kb', 1, 'kb-deleted', 'file', 'completed', 'file in deleted kb', NULL),
+			('file-temporary', 1, 'kb-temporary', 'file', 'completed', 'temporary file', NULL)`,
+		`WITH RECURSIVE sequence(value) AS (SELECT 1 UNION ALL SELECT value + 1 FROM sequence WHERE value < 100)
+			INSERT INTO chunks SELECT printf('chunk-%d', value), 'file-secret' FROM sequence`,
 		`INSERT INTO organizations VALUES ('org-1', NULL)`,
 		`INSERT INTO organization_tenant_members VALUES ('org-1', 99)`,
 		`INSERT INTO tenant_members(id, tenant_id, user_id, role, status) VALUES ('99', 99, 'tenantless-user', 'viewer', 'active')`,
@@ -63,7 +72,7 @@ func TestPortalRepositorySearchesMetadataOnlyAndReturnsSafeProjection(t *testing
 	require.True(t, rows[0].CanRequestAccess)
 	require.Equal(t, types.PortalInteractionNone, rows[0].InteractionAction)
 	require.Equal(t, int64(1), rows[0].KnowledgeBaseCount)
-	require.Equal(t, int64(1), rows[0].FileCount)
+	require.Equal(t, int64(2), rows[0].FileCount, "only active file and downloaded-file knowledge records count as files")
 	require.Equal(t, []string{"architecture", "lmt"}, rows[0].Stages, "unknown stage associations must not be exposed")
 
 	rows, err = repo.ListPublished(ctx, "tenantless-user", 0, interfaces.PortalListQuery{Query: "classified quantum roadmap"})
@@ -102,7 +111,7 @@ func TestPortalAccessStatePrecedence(t *testing.T) {
 		`CREATE TABLE organizations (id TEXT PRIMARY KEY, deleted_at DATETIME)`,
 		`CREATE TABLE organization_tenant_members (organization_id TEXT, tenant_id INTEGER)`,
 		`CREATE TABLE knowledge_bases (id TEXT, tenant_id INTEGER, is_temporary BOOLEAN, deleted_at DATETIME)`,
-		`CREATE TABLE knowledges (id TEXT, tenant_id INTEGER, knowledge_base_id TEXT, deleted_at DATETIME)`,
+		`CREATE TABLE knowledges (id TEXT, tenant_id INTEGER, knowledge_base_id TEXT, type TEXT, parse_status TEXT, deleted_at DATETIME)`,
 		`INSERT INTO tenants(id, status) VALUES (1, 'active'), (2, 'active'), (3, 'active')`,
 		`INSERT INTO tenant_portal_configs VALUES
 			(1, 'published', 'one', '', '', '', '', 0, 0, 1, NULL),

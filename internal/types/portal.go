@@ -101,7 +101,8 @@ const (
 )
 
 // PortalSpaceResponse is deliberately independent from Tenant and
-// TenantPortalConfig. Keep this allow-list projection small.
+// TenantPortalConfig. Keep this allow-list projection small. FileCount means
+// active file/file_url Knowledge records, never chunks or non-file sources.
 type PortalSpaceResponse struct {
 	TenantID           uint64                  `json:"tenant_id"`
 	DisplayName        string                  `json:"display_name"`
