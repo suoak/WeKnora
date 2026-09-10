@@ -1357,6 +1357,9 @@ type SlugUpdate struct {
 	Item        extractedItem // For entity/concept
 	DocTitle    string
 	KnowledgeID string
+	// OperationID is the durable pending-row identifier for this revision.
+	// It never reaches analytics verbatim; it only contributes to event_key.
+	OperationID int64
 	SourceRef   string
 	// Language is the already-resolved, human-readable language name the
 	// Reduce phase interpolates into the editor prompt (e.g. "Chinese
@@ -2160,7 +2163,9 @@ func (s *wikiIngestService) rebuildIndexPage(ctx context.Context, chatModel chat
 		if docSummaries.Len() == 0 {
 			docSummaries.WriteString("(no documents yet)")
 		}
-		generatedIntro, genErr := s.generateWithTemplate(ctx, chatModel, agent.WikiIndexIntroPrompt, map[string]string{
+		usageCtx := withWikiModelUsage(ctx, types.ModelUsageOperationWikiGeneration, "index_intro",
+			payload.KnowledgeBaseID, []string{indexPage.ID, fmt.Sprint(indexPage.Version)}, nil)
+		generatedIntro, genErr := s.generateWithTemplate(usageCtx, chatModel, agent.WikiIndexIntroPrompt, map[string]string{
 			"DocumentSummaries":  framing + docSummaries.String(),
 			"Language":           lang,
 			"CustomInstructions": customInstructions,
@@ -2178,7 +2183,9 @@ func (s *wikiIngestService) rebuildIndexPage(ctx context.Context, chatModel chat
 		// would re-flood the context every batch, and the
 		// change-description block already encodes the "what just
 		// changed" signal the prompt is asking for.
-		updatedIntro, genErr := s.generateWithTemplate(ctx, chatModel, agent.WikiIndexIntroUpdatePrompt, map[string]string{
+		usageCtx := withWikiModelUsage(ctx, types.ModelUsageOperationWikiGeneration, "index_intro_update",
+			payload.KnowledgeBaseID, []string{indexPage.ID, fmt.Sprint(indexPage.Version)}, nil)
+		updatedIntro, genErr := s.generateWithTemplate(usageCtx, chatModel, agent.WikiIndexIntroUpdatePrompt, map[string]string{
 			"ExistingIntro":      existingIntro,
 			"ChangeDescription":  changeDesc,
 			"DocumentSummaries":  "",
@@ -2306,7 +2313,7 @@ func xmlEscape(s string) string {
 func (s *wikiIngestService) deduplicateExtractedBatch(
 	ctx context.Context,
 	chatModel chat.Chat,
-	kbID string,
+	kbID, knowledgeID, operationID string,
 	entities, concepts []extractedItem,
 	batchCtx *WikiBatchContext,
 ) ([]extractedItem, []extractedItem) {
@@ -2453,7 +2460,16 @@ func (s *wikiIngestService) deduplicateExtractedBatch(
 		return stabilize()
 	}
 
-	dedupeJSON, err := s.generateWithTemplate(ctx, chatModel, agent.WikiDeduplicationPrompt, map[string]string{
+	stableIDs := []string{knowledgeID, operationID}
+	for _, item := range entities {
+		stableIDs = append(stableIDs, item.Slug)
+	}
+	for _, item := range concepts {
+		stableIDs = append(stableIDs, item.Slug)
+	}
+	usageCtx := withWikiModelUsage(ctx, types.ModelUsageOperationWikiIngestion, "deduplication",
+		kbID, stableIDs, []string{knowledgeID})
+	dedupeJSON, err := s.generateWithTemplate(usageCtx, chatModel, agent.WikiDeduplicationPrompt, map[string]string{
 		"Candidates": candBuf.String(),
 	})
 	if err != nil {
@@ -2499,6 +2515,28 @@ func (s *wikiIngestService) deduplicateExtractedBatch(
 	}
 
 	return stabilize()
+}
+
+// withWikiModelUsage attaches privacy-safe attribution to exactly one logical
+// wiki provider call. Raw titles, slugs, prompts, and generated content are
+// never persisted: stable identifiers are sorted and hashed into event_key.
+func withWikiModelUsage(
+	ctx context.Context,
+	operation, purpose, kbID string,
+	stableIDs, knowledgeIDs []string,
+) context.Context {
+	ids := make([]string, 0, len(stableIDs)+2)
+	ids = append(ids, purpose, kbID)
+	ids = append(ids, stableIDs...)
+	sort.Strings(ids[2:])
+
+	linkedKnowledgeIDs := append([]string(nil), knowledgeIDs...)
+	sort.Strings(linkedKnowledgeIDs)
+	var kbIDs []string
+	if kbID != "" {
+		kbIDs = []string{kbID}
+	}
+	return types.WithBackgroundModelUsage(ctx, operation, ids, kbIDs, linkedKnowledgeIDs)
 }
 
 // generateWithTemplate executes a prompt template and calls the LLM with

@@ -32,7 +32,9 @@ const (
 	ModelUsageOperationMemoryExtraction      = "memory_extraction"
 	ModelUsageOperationMemoryConsolidation   = "memory_consolidation"
 	ModelUsageOperationMemoryTopicResolution = "memory_topic_resolution"
-	ModelUsageOperationWiki                  = "wiki"
+	ModelUsageOperationWikiIngestion         = "wiki_ingestion"
+	ModelUsageOperationWikiGeneration        = "wiki_generation"
+	ModelUsageOperationWikiModification      = "wiki_modification"
 	ModelUsageOperationMCPInstruction        = "mcp_instruction_generation"
 	ModelUsageOperationEmbedding             = "embedding"
 	ModelUsageOperationRerank                = "rerank"
@@ -53,7 +55,8 @@ var supportedModelUsageOperations = map[string]struct{}{
 	ModelUsageOperationAutoTag: {}, ModelUsageOperationGraphExtraction: {},
 	ModelUsageOperationSpreadsheetMetadata: {}, ModelUsageOperationSessionTitle: {},
 	ModelUsageOperationMemoryExtraction: {}, ModelUsageOperationMemoryConsolidation: {},
-	ModelUsageOperationMemoryTopicResolution: {}, ModelUsageOperationWiki: {},
+	ModelUsageOperationMemoryTopicResolution: {}, ModelUsageOperationWikiIngestion: {},
+	ModelUsageOperationWikiGeneration: {}, ModelUsageOperationWikiModification: {},
 	ModelUsageOperationMCPInstruction: {}, ModelUsageOperationEmbedding: {},
 	ModelUsageOperationRerank: {}, ModelUsageOperationVLM: {}, ModelUsageOperationASR: {},
 }

@@ -496,6 +496,7 @@ func (s *wikiIngestService) ProcessWikiIngest(ctx context.Context, t *asynq.Task
 						RetractDocContent: op.DocSummary,
 						DocTitle:          op.DocTitle,
 						KnowledgeID:       op.KnowledgeID,
+						OperationID:       op.dbID,
 						Language:          types.ResolveLanguageName(ctx, op.Language),
 					})
 				}
@@ -1162,6 +1163,7 @@ func (s *wikiIngestService) mapOneDocument(
 ) (*docIngestResult, []SlugUpdate, error) {
 	docStartedAt := time.Now()
 	knowledgeID := op.KnowledgeID
+	operationID := fmt.Sprint(op.dbID)
 	lang := types.ResolveLanguageName(ctx, op.Language)
 
 	// Open a postprocess.wiki subspan under the parent attempt's
@@ -1252,11 +1254,11 @@ func (s *wikiIngestService) mapOneDocument(
 		"content_chars": utf8.RuneCountInString(content),
 		"old_pages":     len(oldPageSlugs),
 	})
-	extractedEntities, extractedConcepts, slugItems, err = s.extractCandidateSlugs(ctx, chatModel, payload.KnowledgeBaseID, content, lang, oldPageSlugs, batchCtx)
+	extractedEntities, extractedConcepts, slugItems, err = s.extractCandidateSlugs(ctx, chatModel, payload.KnowledgeBaseID, knowledgeID, operationID, content, lang, oldPageSlugs, batchCtx)
 	if err != nil {
 		logger.Warnf(ctx, "wiki ingest: pass 0 failed for %s (%v) — falling back to legacy extractor", knowledgeID, err)
 		pass0Failed = true
-		extractedEntities, extractedConcepts, slugItems, err = s.extractEntitiesAndConceptsNoUpsert(ctx, chatModel, payload.KnowledgeBaseID, content, lang, oldPageSlugs, batchCtx)
+		extractedEntities, extractedConcepts, slugItems, err = s.extractEntitiesAndConceptsNoUpsert(ctx, chatModel, payload.KnowledgeBaseID, knowledgeID, operationID, content, lang, oldPageSlugs, batchCtx)
 		if err != nil {
 			logger.Warnf(ctx, "wiki ingest: legacy fallback also failed for %s: %v", knowledgeID, err)
 			s.tracker().FailSpan(ctx, extractSpan, "EXTRACT_FAILED", err.Error(), err)
@@ -1326,7 +1328,9 @@ func (s *wikiIngestService) mapOneDocument(
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		summaryContent, summaryErr = s.generateWithTemplate(ctx, chatModel, agent.WikiSummaryPrompt, map[string]string{
+		usageCtx := withWikiModelUsage(ctx, types.ModelUsageOperationWikiGeneration, "summary",
+			payload.KnowledgeBaseID, []string{knowledgeID, operationID}, []string{knowledgeID})
+		summaryContent, summaryErr = s.generateWithTemplate(usageCtx, chatModel, agent.WikiSummaryPrompt, map[string]string{
 			"Content":            content,
 			"Language":           lang,
 			"ExtractedSlugs":     slugListing,
@@ -1354,7 +1358,7 @@ func (s *wikiIngestService) mapOneDocument(
 			return
 		}
 		candidatesXML := renderCandidateSlugsXML(extractedEntities, extractedConcepts)
-		citations, newSlugs, batchCount = s.classifyChunkCitations(ctx, chatModel, candidatesXML, chunks, lang, batchCtx)
+		citations, newSlugs, batchCount = s.classifyChunkCitations(ctx, chatModel, payload.KnowledgeBaseID, knowledgeID, operationID, candidatesXML, chunks, lang, batchCtx)
 		s.tracker().EndSpan(ctx, classifySpan, types.JSONMap{
 			"cited_slugs":      len(citations),
 			"new_slugs":        len(newSlugs),
@@ -1451,6 +1455,7 @@ func (s *wikiIngestService) mapOneDocument(
 		Type:        types.WikiPageTypeSummary,
 		DocTitle:    docTitle,
 		KnowledgeID: knowledgeID,
+		OperationID: op.dbID,
 		SourceRef:   sourceRef,
 		Language:    lang,
 		SummaryLine: sumLine,
@@ -1467,6 +1472,7 @@ func (s *wikiIngestService) mapOneDocument(
 				Item:         item,
 				DocTitle:     docTitle,
 				KnowledgeID:  knowledgeID,
+				OperationID:  op.dbID,
 				SourceRef:    sourceRef,
 				Language:     lang,
 				SourceChunks: item.SourceChunks,
@@ -1484,6 +1490,7 @@ func (s *wikiIngestService) mapOneDocument(
 				Item:         item,
 				DocTitle:     docTitle,
 				KnowledgeID:  knowledgeID,
+				OperationID:  op.dbID,
 				SourceRef:    sourceRef,
 				Language:     lang,
 				SourceChunks: item.SourceChunks,
@@ -1543,6 +1550,7 @@ func (s *wikiIngestService) mapOneDocument(
 				RetractDocContent: priorContribution,
 				DocTitle:          docTitle,
 				KnowledgeID:       knowledgeID,
+				OperationID:       op.dbID,
 				Language:          lang,
 			})
 			continue
@@ -1554,6 +1562,7 @@ func (s *wikiIngestService) mapOneDocument(
 			RetractDocContent: content,
 			DocTitle:          docTitle,
 			KnowledgeID:       knowledgeID,
+			OperationID:       op.dbID,
 			Language:          lang,
 		})
 	}
@@ -1603,7 +1612,7 @@ func (s *wikiIngestService) mapOneDocument(
 func (s *wikiIngestService) extractEntitiesAndConceptsNoUpsert(
 	ctx context.Context,
 	chatModel chat.Chat,
-	kbID string,
+	kbID, knowledgeID, operationID string,
 	content, lang string,
 	oldPageSlugs map[string]bool,
 	batchCtx *WikiBatchContext,
@@ -1627,7 +1636,9 @@ func (s *wikiIngestService) extractEntitiesAndConceptsNoUpsert(
 		prevSlugsText = "(none — this is a new document)"
 	}
 
-	extractionJSON, err := s.generateWithTemplate(ctx, chatModel, agent.WikiKnowledgeExtractPrompt, map[string]string{
+	usageCtx := withWikiModelUsage(ctx, types.ModelUsageOperationWikiIngestion, "knowledge_extract",
+		kbID, []string{knowledgeID, operationID}, []string{knowledgeID})
+	extractionJSON, err := s.generateWithTemplate(usageCtx, chatModel, agent.WikiKnowledgeExtractPrompt, map[string]string{
 		"Content":            content,
 		"Language":           lang,
 		"PreviousSlugs":      prevSlugsText,
@@ -1652,7 +1663,7 @@ func (s *wikiIngestService) extractEntitiesAndConceptsNoUpsert(
 	// safe default — the LLM merge call simply doesn't get a candidate
 	// list and the items pass through unchanged.
 	result.Entities, result.Concepts = s.deduplicateExtractedBatch(
-		ctx, chatModel, kbID, result.Entities, result.Concepts, batchCtx,
+		ctx, chatModel, kbID, knowledgeID, operationID, result.Entities, result.Concepts, batchCtx,
 	)
 
 	slugItems := make(map[string]extractedItem)
@@ -2044,7 +2055,14 @@ func (s *wikiIngestService) reduceSlugUpdates(
 		pageAliases := strings.Join(page.Aliases, ", ")
 
 		var updatedContent string
-		updatedContent, err = s.generateWithTemplate(ctx, chatModel, agent.WikiPageModifyUserPrompt, map[string]string{
+		stableIDs := []string{slug, page.ID, fmt.Sprint(page.Version)}
+		for _, update := range updates {
+			stableIDs = append(stableIDs, fmt.Sprint(update.OperationID))
+		}
+		stableIDs = append(stableIDs, contributors...)
+		usageCtx := withWikiModelUsage(ctx, types.ModelUsageOperationWikiModification, "page_modify",
+			kbID, stableIDs, contributors)
+		updatedContent, err = s.generateWithTemplate(usageCtx, chatModel, agent.WikiPageModifyUserPrompt, map[string]string{
 			"HasAdditions":            hasAdditionsStr,
 			"HasRetractions":          hasRetractionsStr,
 			"PageSlug":                slug,

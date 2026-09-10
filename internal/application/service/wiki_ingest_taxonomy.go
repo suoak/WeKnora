@@ -80,7 +80,13 @@ func (s *wikiIngestService) planBatchTaxonomy(
 				it.slug, it.title, it.pageType, previewText(it.about, 120))
 		}
 
-		raw, err := s.generateWithTemplate(ctx, chatModel, agent.WikiTaxonomyPlanPrompt, map[string]string{
+		stableIDs := make([]string, 0, len(chunk))
+		for _, item := range chunk {
+			stableIDs = append(stableIDs, item.slug)
+		}
+		usageCtx := withWikiModelUsage(ctx, types.ModelUsageOperationWikiGeneration, "taxonomy_plan",
+			kb.ID, stableIDs, nil)
+		raw, err := s.generateWithTemplate(usageCtx, chatModel, agent.WikiTaxonomyPlanPrompt, map[string]string{
 			"ExistingTaxonomy": tree,
 			"Items":            itemsBlock.String(),
 			"Language":         lang,

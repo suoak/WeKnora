@@ -69,6 +69,12 @@ func TestExtractionRebuildsScopeFromPayload(t *testing.T) {
 	// point the memory manager at an unrelated conversation.
 	require.Equal(t, "session-1", items[0].SourceSessionID, "every memory must be traceable to a message")
 	require.Equal(t, "msg-db", items[0].SourceMessageID)
+	usage := models.recordedUsageMetadata()
+	require.Len(t, usage, 1)
+	require.Equal(t, types.ModelUsageOperationMemoryExtraction, usage[0].Operation)
+	require.Equal(t, uint64(7), usage[0].TenantID)
+	require.Equal(t, types.UsageClassBackground, usage[0].Channel)
+	require.NotContains(t, usage[0].EventKey, "PostgreSQL")
 }
 
 // TestExtractionFallsBackToTheConversationModel pins the promise the settings

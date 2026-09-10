@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/Tencent/WeKnora/internal/logger"
@@ -71,6 +72,7 @@ func (s *Service) resolveTopics(
 	scope interfaces.MemoryScope,
 	modelID string,
 	surfaces []string,
+	stableSourceIDs []string,
 ) []topicResolution {
 	if len(surfaces) == 0 {
 		return nil
@@ -108,7 +110,7 @@ func (s *Service) resolveTopics(
 	}
 
 	if len(unresolved) > 0 && len(existing) > 0 {
-		s.adjudicateTopics(ctx, modelID, existing, resolutions, unresolved)
+		s.adjudicateTopics(ctx, scope, modelID, existing, resolutions, unresolved, stableSourceIDs)
 	}
 
 	// Two labels in the same run can be the same new subject. Without this the
@@ -215,10 +217,12 @@ var topicAdjudicationSchema = json.RawMessage(`{
 // the decision is the same shape for all of them.
 func (s *Service) adjudicateTopics(
 	ctx context.Context,
+	scope interfaces.MemoryScope,
 	modelID string,
 	existing []*types.MemoryTopicStat,
 	resolutions []topicResolution,
 	unresolved []int,
+	stableSourceIDs []string,
 ) {
 	if modelID == "" {
 		// Nothing to fall back on. Every label here becomes its own subject,
@@ -250,7 +254,16 @@ func (s *Service) adjudicateTopics(
 	// Thinking off, for the reason given on completeExtraction. Silently
 	// getting nothing back here would send every rephrasing to its own row.
 	thinking := false
-	response, err := chatModel.Chat(ctx, []chat.Message{
+	stableIDs := append([]string{scope.SubjectID}, stableSourceIDs...)
+	for _, stat := range existing {
+		if stat != nil {
+			stableIDs = append(stableIDs, stat.ID)
+		}
+	}
+	sort.Strings(stableIDs[1:])
+	modelCtx := types.WithBackgroundModelUsage(ctx, types.ModelUsageOperationMemoryTopicResolution,
+		stableIDs, nil, nil)
+	response, err := chatModel.Chat(modelCtx, []chat.Message{
 		{Role: "system", Content: topicAdjudicationPrompt},
 		{Role: "user", Content: b.String()},
 	}, &chat.ChatOptions{

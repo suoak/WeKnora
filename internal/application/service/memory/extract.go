@@ -350,7 +350,11 @@ func (s *Service) Handle(ctx context.Context, task *asynq.Task) error {
 		s.applyDecisions(ctx, scope, cfg, segment, existing, parsed.Memories)
 		// Subjects are counted separately from memories: one question is noise,
 		// the same subject across conversations is an interest.
-		s.observeTopics(ctx, scope, cfg, s.extractionModelID(ctx, cfg, payload), parsed.Topics)
+		topicSourceIDs := []string{segment.sessionID}
+		for _, line := range segment.lines {
+			topicSourceIDs = append(topicSourceIDs, line.messageID)
+		}
+		s.observeTopics(ctx, scope, cfg, s.extractionModelID(ctx, cfg, payload), parsed.Topics, topicSourceIDs)
 		if segment.end.After(newCursor) {
 			newCursor = segment.end
 		}
@@ -956,7 +960,13 @@ func (s *Service) callExtractionModel(
 
 	userPrompt := buildExtractionPrompt(segment, existing, forgotten, knownTopics, cfg.ExtractInstructions)
 
-	response, err := s.completeExtraction(ctx, chatModel, userPrompt, extractBudgetTokens)
+	stableIDs := []string{payload.SubjectID, segment.sessionID}
+	for _, line := range segment.lines {
+		stableIDs = append(stableIDs, line.messageID)
+	}
+	modelCtx := types.WithBackgroundModelUsage(ctx, types.ModelUsageOperationMemoryExtraction,
+		stableIDs, nil, nil)
+	response, err := s.completeExtraction(modelCtx, chatModel, userPrompt, extractBudgetTokens)
 	if err != nil {
 		return extractionResponse{}, err
 	}
@@ -972,7 +982,7 @@ func (s *Service) callExtractionModel(
 		logger.Warnf(ctx,
 			"memory: extraction hit the token ceiling with %d chars of content, retrying with %d tokens",
 			len(strings.TrimSpace(response.Content)), extractBudgetRetryTokens)
-		response, err = s.completeExtraction(ctx, chatModel, userPrompt, extractBudgetRetryTokens)
+		response, err = s.completeExtraction(modelCtx, chatModel, userPrompt, extractBudgetRetryTokens)
 		if err != nil {
 			return extractionResponse{}, err
 		}
