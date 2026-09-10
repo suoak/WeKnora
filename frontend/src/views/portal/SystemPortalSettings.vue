@@ -16,14 +16,16 @@ import { MessagePlugin } from 'tdesign-vue-next'
 import UserMenu from '@/components/UserMenu.vue'
 import PortalConfigEditor from '@/components/portal/PortalConfigEditor.vue'
 import { listAdminPortalSpaces,listPortalOrganizationOptions,listPortalStages,transitionAdminPortalStatus,updateAdminPortalConfig,type PortalAdminSpace,type PortalConfigPayload,type PortalOrganizationOption,type PortalStage } from '@/api/portal'
+import { usePortalStore } from '@/stores/portal'
 const spaces=ref<PortalAdminSpace[]>([]),stages=ref<PortalStage[]>([]),organizations=ref<PortalOrganizationOption[]>([])
 const { t }=useI18n()
+const portalStore=usePortalStore()
 const selectedId=ref<number|null>(null),loading=ref(false),saving=ref(false),transitioning=ref(false)
 const selected=computed(()=>spaces.value.find(item=>item.tenant_id===selectedId.value)||null)
 async function load(){loading.value=true;try{const [spaceRes,stageRes,orgRes]=await Promise.all([listAdminPortalSpaces(),listPortalStages(),listPortalOrganizationOptions()]);spaces.value=spaceRes.data||[];stages.value=stageRes.data||[];organizations.value=orgRes.data||[];if(!spaces.value.some(item=>item.tenant_id===selectedId.value))selectedId.value=spaces.value[0]?.tenant_id||null}catch(error:any){MessagePlugin.error(error?.message||t('portal.admin.loadFailed'))}finally{loading.value=false}}
 async function save(payload:PortalConfigPayload){if(!selectedId.value)return;saving.value=true;try{const response=await updateAdminPortalConfig(selectedId.value,payload);replace(response.data);MessagePlugin.success(t('portal.admin.saveSuccess'))}catch(error:any){MessagePlugin.error(error?.message||t('portal.admin.saveFailed'))}finally{saving.value=false}}
 async function setStatus(action:'publish'|'unpublish'|'archive'){if(!selectedId.value)return;transitioning.value=true;try{const response=await transitionAdminPortalStatus(selectedId.value,action);replace(response.data);MessagePlugin.success(t('portal.admin.statusSuccess'))}catch(error:any){MessagePlugin.error(error?.message||t('portal.admin.statusFailed'))}finally{transitioning.value=false}}
-function replace(item:PortalAdminSpace){const index=spaces.value.findIndex(space=>space.tenant_id===item.tenant_id);if(index>=0)spaces.value.splice(index,1,item)}
+function replace(item:PortalAdminSpace){const index=spaces.value.findIndex(space=>space.tenant_id===item.tenant_id);if(index>=0)spaces.value.splice(index,1,item);portalStore.invalidate()}
 onMounted(load)
 </script>
 <style scoped lang="less">
