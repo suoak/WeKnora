@@ -66,6 +66,13 @@ func parseUsageQuery(c *gin.Context) (types.UsageTimeRange, error) {
 		}
 		q.TenantID = &id
 	}
+	if raw := strings.TrimSpace(c.Query("owner_tenant_id")); raw != "" {
+		id, e := strconv.ParseUint(raw, 10, 64)
+		if e != nil || id == 0 {
+			return q, errors.NewBadRequestError("invalid owner_tenant_id")
+		}
+		q.OwnerTenantID = &id
+	}
 	if raw := c.Query("page"); raw != "" {
 		q.Page, _ = strconv.Atoi(raw)
 	}
@@ -77,6 +84,19 @@ func parseUsageQuery(c *gin.Context) (types.UsageTimeRange, error) {
 	q.Channel = strings.TrimSpace(c.Query("channel"))
 	q.ModelType = strings.TrimSpace(c.Query("model_type"))
 	q.Direction = strings.ToLower(strings.TrimSpace(c.Query("direction")))
+	q.GroupBy = strings.ToLower(strings.TrimSpace(c.Query("group_by")))
+	q.Status = strings.ToLower(strings.TrimSpace(c.Query("status")))
+	q.MCPAdoption = strings.ToLower(strings.TrimSpace(c.Query("mcp_adoption")))
+	q.CrossTenant = strings.ToLower(strings.TrimSpace(c.Query("cross_tenant")))
+	q.KnowledgeBaseID = strings.TrimSpace(c.Query("knowledge_base_id"))
+	q.Metric = strings.ToLower(strings.TrimSpace(c.Query("metric")))
+	q.Dimension = strings.ToLower(strings.TrimSpace(c.Query("dimension")))
+	if raw := strings.TrimSpace(c.Query("include_inactive")); raw != "" {
+		q.IncludeInactive, err = strconv.ParseBool(raw)
+		if err != nil {
+			return q, errors.NewBadRequestError("invalid include_inactive")
+		}
+	}
 	if q.Operation != "" && !types.IsModelUsageOperation(q.Operation) {
 		return q, errors.NewBadRequestError("invalid operation")
 	}
@@ -85,6 +105,31 @@ func parseUsageQuery(c *gin.Context) (types.UsageTimeRange, error) {
 	}
 	if q.Direction != "" && q.Direction != "inbound" && q.Direction != "outbound" {
 		return q, errors.NewBadRequestError("invalid direction")
+	}
+	if q.GroupBy != "" && !map[string]bool{"caller": true, "knowledge_base": true, "tool": true, "client": true}[q.GroupBy] {
+		return q, errors.NewBadRequestError("invalid group_by")
+	}
+	if q.Status != "" && !map[string]bool{
+		types.UsageGovernanceActive: true, types.UsageGovernanceLowActivity: true,
+		types.UsageGovernanceInactive: true, types.UsageGovernanceNeverUsed: true,
+		types.UsageGovernanceInsufficientData: true,
+	}[q.Status] {
+		return q, errors.NewBadRequestError("invalid status")
+	}
+	if q.MCPAdoption != "" && q.MCPAdoption != "adopted" && q.MCPAdoption != "not_adopted" {
+		return q, errors.NewBadRequestError("invalid mcp_adoption")
+	}
+	if q.CrossTenant != "" && q.CrossTenant != "with" && q.CrossTenant != "without" {
+		return q, errors.NewBadRequestError("invalid cross_tenant")
+	}
+	if q.Metric != "" && q.Metric != "tokens" && q.Metric != "accesses" {
+		return q, errors.NewBadRequestError("invalid metric")
+	}
+	if q.Dimension != "" && q.Dimension != "total" && q.Dimension != "source" && q.Dimension != "scope" {
+		return q, errors.NewBadRequestError("invalid dimension")
+	}
+	if len(q.KnowledgeBaseID) > 64 || strings.ContainsAny(q.KnowledgeBaseID, "\r\n\x00") {
+		return q, errors.NewBadRequestError("invalid knowledge_base_id")
 	}
 	allowed := map[string]bool{"hour": true, "day": true, "week": true, "month": true}
 	if !allowed[q.Interval] {
