@@ -7014,6 +7014,7 @@ export default {
     done: '完成',
     reopen: '新手引导',
     steps: {
+      portal: { title: 'KnowHub 首页', desc: '首页集中提供知识发现、空间入口和最常用的开始方式。' }, quickAsk: { title: '立即提问', desc: '在这里输入问题，继续使用现有知识问答流程。' }, space: { title: '当前空间', desc: '空间上下文会持续可见；切换时不会带入旧空间的资源状态。' }, mcp: { title: '在 AI 工具中使用 KnowHub', desc: '查看 Codex、WorkMate、Claude Code 等 MCP 客户端的接入方式。' }, contributor: { title: '贡献知识', desc: '进入知识库创建内容、上传文件并维护团队知识。' }, members: { title: '管理成员', desc: '空间管理员可以从工作空间分组管理成员。' }, integrations: { title: '管理集成', desc: '空间集成集中在这里，与日常知识任务分离。' }, systemAdmin: { title: '系统管理可用', desc: '需要时可从独立分组进入平台级管理工具。' },
       done: {
         title: '一切就绪',
         desc: '你已经了解了核心功能，现在就开始构建你的知识助手吧！随时可点击菜单顶部昵称旁的帮助按钮重新查看引导。'
@@ -7073,6 +7074,9 @@ export default {
       references: '引用'
     }
   },
+  navigation: { main: '主导航', openMenu: '打开导航', portalHome: '首页', newChat: '新对话', recentChats: '最近对话', knowledgeBases: '知识库', agents: 'Agent', members: '成员', integrations: '集成', workspaceSettings: '空间设置', usageAnalytics: '用量分析', modelsDefaults: '模型与默认值', runtime: '运行状态', audit: '审计', systemSettings: '系统设置', platformApiKeys: '平台 API Keys', groups: { knowledge: '知识', ai: 'AI', workspace: '工作空间', system: '系统管理' } },
+  spaceSwitcher: { currentSpace: '当前空间', search: '搜索空间', current: '当前', unknown: '未知空间' },
+  portalHome: { brandZh: '知汇', title: '统一知识，智能问答', description: '查找可信的团队知识、立即提问，或进入一个知识空间。', askPlaceholder: '有什么想了解的？', askAction: '立即提问', useTitle: '你可以这样使用 KnowHub', useDescription: '从当前任务开始，快速找到合适入口。', knowledgeTitle: '常用知识入口', knowledgeDescription: '当前空间中可用的知识库。', agentTitle: '可用 Agent', agentDescription: '使用专业 Agent 开始对话。', viewAll: '查看全部', noDescription: '暂无描述', noKnowledge: '当前还没有可用知识库。', browseKnowledge: '浏览知识', noAgents: '当前还没有可用 Agent。', exploreAgents: '查看 Agent', useAgent: '使用', tasks: { ask: { title: '问一个技术问题', description: '开始一次智能知识问答。' }, knowledge: { title: '浏览部门知识', description: '探索空间与共享知识。' }, agent: { title: '使用 Agent', description: '使用面向特定任务的智能助手。' }, mcp: { title: '接入 AI 工具', description: '在 Codex、WorkMate 或 Claude Code 中使用 KnowHub。' } } },
   menu: {
     sessionInProgress: '会话进行中',
     knowledgeBase: '知识库',

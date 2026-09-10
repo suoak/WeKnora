@@ -10,9 +10,11 @@ test('portal routes allow tenantless auth and admin route requires system admin'
   assert.match(router, /path:\s*["']\/portal\/admin["'][\s\S]*?requiresTenant:\s*false[\s\S]*?requiresSystemAdmin:\s*true/)
 })
 
-test('portal discovery does not import content APIs and tenant switch invalidates portal state', () => {
+test('portal homepage reuses only the approved lightweight content APIs and tenant switch invalidates portal state', () => {
   const combined = [source('./PortalHome.vue'), source('../../stores/portal.ts'), source('../../components/portal/PortalSpaceCard.vue')].join('\n')
-  for (const forbidden of ['knowledge-base', '@/api/agent', '@/stores/knowledge', '@/stores/chat', '@/api/datasource', '@/api/mcp']) {
+  assert.match(combined, /listKnowledgeBases/)
+  assert.match(combined, /listAgents/)
+  for (const forbidden of ['@/stores/knowledge', '@/stores/chat', '@/api/datasource', '@/api/mcp']) {
     assert.doesNotMatch(combined, new RegExp(forbidden.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))
   }
   assert.match(source('../../utils/tenantSwitch.ts'), /usePortalStore\(\)\.invalidate\(\)/)
@@ -62,17 +64,9 @@ test('admin config uses system-only organization options and explicit transition
 })
 
 test('portal is a primary sidebar item instead of a personal-menu shortcut', () => {
-  const menuStore = source('../../stores/menu.ts')
-  const sidebar = source('../../components/menu.vue')
+  const registry = source('../../config/navigation.ts')
   const userMenu = source('../../components/UserMenu.vue')
-  assert.match(
-    menuStore,
-    /titleKey:\s*['"]menu\.portal['"][^\n]*path:\s*['"]portal['"]/,
-  )
-  assert.match(
-    sidebar,
-    /item\.path === ['"]portal['"] \|\| item\.path === ['"]knowledge-bases['"]/,
-  )
+  assert.match(registry, /id:\s*['"]portal['"][^\n]*route:\s*['"]\/portal['"]/)
   assert.doesNotMatch(userMenu, /handlePortal\s*=|@click="handlePortal"/)
 })
 
