@@ -202,6 +202,11 @@ jobs:
           END $$;
           SQL
 
+      - name: Validate Usage Governance PostgreSQL aggregation
+        env:
+          USAGE_ANALYTICS_POSTGRES_DSN: ${{ env.CLEAN_DB_URL }}
+        run: go test -v ./internal/application/repository -run '^TestUsageGovernance(PostgresAggregation|SQLiteExplain)$' -count=1
+
       - name: Validate Portal constraints and foreign-key actions
         shell: bash
         run: |

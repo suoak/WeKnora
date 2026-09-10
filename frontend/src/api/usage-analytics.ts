@@ -8,17 +8,36 @@ export interface UsageQuery {
   page?: number
   page_size?: number
   sort?: string
-	operation?: string
-	usage_class?: 'foreground' | 'background'
-	channel?: string
-	model_type?: string
-	direction?: 'inbound' | 'outbound'
+  operation?: string
+  usage_class?: 'foreground' | 'background'
+  channel?: string
+  model_type?: string
+  direction?: 'inbound' | 'outbound'
+  group_by?: 'caller' | 'knowledge_base' | 'tool' | 'client'
+  status?: UsageGovernanceStatus
+  include_inactive?: boolean
+  mcp_adoption?: 'adopted' | 'not_adopted'
+  cross_tenant?: 'with' | 'without'
+  owner_tenant_id?: number
+  knowledge_base_id?: string
+  metric?: 'tokens' | 'accesses'
+  dimension?: 'total' | 'source' | 'scope'
+}
+
+export type UsageGovernanceStatus = 'active' | 'low_activity' | 'inactive' | 'never_used' | 'insufficient_data'
+
+export interface UsageAttention {
+  code: string
+  entity_type?: string
+  entity_id?: string
+  entity_name?: string
+  value?: number
 }
 
 export interface UsageOverview {
   total_tokens: number
-	foreground_tokens: number
-	background_tokens: number
+  foreground_tokens: number
+  background_tokens: number
   input_tokens: number
   output_tokens: number
   cache_read_tokens: number
@@ -30,6 +49,16 @@ export interface UsageOverview {
   unattributed_mcp_calls: number
   active_tenants: number
   active_principals: number
+  active_knowledge_bases: number
+  cross_tenant_usage: number
+  unattributed_mcp_ratio: number
+  inactive_knowledge_bases: number
+  mcp_active_tenants: number
+  mcp_platform_penetration: number
+  mcp_adoption_among_active_spaces: number
+  token_growth_percent: number
+  top_knowledge_bases: KnowledgeBaseUsageRow[]
+  attention_needed: UsageAttention[]
   collecting_since?: string
 }
 
@@ -54,6 +83,13 @@ export interface TenantUsageRow {
   mcp_success_rate: number
   mcp_avg_latency_ms: number
   last_active?: string
+  usage_status: UsageGovernanceStatus
+  kb_used_count: number
+  kb_owned_count: number
+  external_kb_used_count: number
+  cross_tenant_accesses: number
+  owned_kb_cross_tenant_accesses: number
+  mcp_adopted: boolean
 }
 
 export interface UsageTimeSeriesPoint {
@@ -63,6 +99,9 @@ export interface UsageTimeSeriesPoint {
   total_tokens: number
   assistant_turns: number
   mcp_calls: number
+  model_accesses: number
+  internal_accesses: number
+  external_accesses: number
 }
 
 export interface ModelUsageRow {
@@ -78,11 +117,11 @@ export interface ModelUsageRow {
 }
 
 export interface OperationUsageRow {
-	operation: string
-	usage_class: 'foreground' | 'background'
-	invocations: number
-	total_tokens: number
-	percentage: number
+  operation: string
+  usage_class: 'foreground' | 'background'
+  invocations: number
+  total_tokens: number
+  percentage: number
 }
 
 export interface MCPUsageRow {
@@ -93,6 +132,10 @@ export interface MCPUsageRow {
   average_latency_ms: number
   unattributed_calls: number
   last_active?: string
+  client_name?: string
+  client_version?: string
+  knowledge_base_id?: string
+  knowledge_base_name?: string
 }
 
 export interface KnowledgeBaseUsageRow {
@@ -105,6 +148,15 @@ export interface KnowledgeBaseUsageRow {
   assistant_turns: number
   mcp_calls: number
   last_active?: string
+  usage_status: UsageGovernanceStatus
+  total_accesses: number
+  model_accesses: number
+  unique_tenants: number
+  unique_principals: number
+  external_tenants: number
+  cross_tenant_accesses: number
+  cross_tenant_share: number
+  recent_growth: number
 }
 
 function params(query: UsageQuery): string {
@@ -119,9 +171,14 @@ function params(query: UsageQuery): string {
 const base = '/api/v1/system/admin/usage'
 
 export const getUsageOverview = (query: UsageQuery) => get(`${base}/overview${params(query)}`) as Promise<UsageOverview>
-export const getUsageTenants = (query: UsageQuery) => get(`${base}/tenants${params(query)}`) as Promise<UsagePage<TenantUsageRow>>
-export const getUsageTimeSeries = (query: UsageQuery) => get(`${base}/timeseries${params(query)}`) as Promise<UsagePage<UsageTimeSeriesPoint>>
-export const getUsageModels = (query: UsageQuery) => get(`${base}/models${params(query)}`) as Promise<UsagePage<ModelUsageRow>>
-export const getUsageOperations = (query: UsageQuery) => get(`${base}/operations${params(query)}`) as Promise<UsagePage<OperationUsageRow>>
+export const getUsageTenants = (query: UsageQuery) =>
+  get(`${base}/tenants${params(query)}`) as Promise<UsagePage<TenantUsageRow>>
+export const getUsageTimeSeries = (query: UsageQuery) =>
+  get(`${base}/timeseries${params(query)}`) as Promise<UsagePage<UsageTimeSeriesPoint>>
+export const getUsageModels = (query: UsageQuery) =>
+  get(`${base}/models${params(query)}`) as Promise<UsagePage<ModelUsageRow>>
+export const getUsageOperations = (query: UsageQuery) =>
+  get(`${base}/operations${params(query)}`) as Promise<UsagePage<OperationUsageRow>>
 export const getMCPUsage = (query: UsageQuery) => get(`${base}/mcp${params(query)}`) as Promise<UsagePage<MCPUsageRow>>
-export const getKnowledgeBaseUsage = (query: UsageQuery) => get(`${base}/knowledge-bases${params(query)}`) as Promise<UsagePage<KnowledgeBaseUsageRow>>
+export const getKnowledgeBaseUsage = (query: UsageQuery) =>
+  get(`${base}/knowledge-bases${params(query)}`) as Promise<UsagePage<KnowledgeBaseUsageRow>>

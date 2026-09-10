@@ -17,6 +17,12 @@ const (
 	UsageClassForeground = "foreground"
 	UsageClassBackground = "background"
 
+	UsageGovernanceActive           = "active"
+	UsageGovernanceLowActivity      = "low_activity"
+	UsageGovernanceInactive         = "inactive"
+	UsageGovernanceNeverUsed        = "never_used"
+	UsageGovernanceInsufficientData = "insufficient_data"
+
 	ModelUsageOperationKnowledgeQA           = "knowledge_qa_turn"
 	ModelUsageOperationAgent                 = "agent_turn"
 	ModelUsageOperationAgentCompaction       = "agent_compaction"
@@ -204,61 +210,100 @@ type MCPUsageReport struct {
 }
 
 type UsageTimeRange struct {
-	From       time.Time
-	To         time.Time
-	TenantID   *uint64
-	Interval   string
-	Page       int
-	PageSize   int
-	Sort       string
-	Operation  string
-	UsageClass string
-	Channel    string
-	ModelType  string
-	Direction  string
+	From            time.Time
+	To              time.Time
+	TenantID        *uint64
+	Interval        string
+	Page            int
+	PageSize        int
+	Sort            string
+	Operation       string
+	UsageClass      string
+	Channel         string
+	ModelType       string
+	Direction       string
+	GroupBy         string
+	Status          string
+	MCPAdoption     string
+	CrossTenant     string
+	KnowledgeBaseID string
+	OwnerTenantID   *uint64
+	Metric          string
+	Dimension       string
+	IncludeInactive bool
+	CollectingSince *time.Time
 }
 
 type UsageOverview struct {
-	TotalTokens          int64      `json:"total_tokens"`
-	ForegroundTokens     int64      `json:"foreground_tokens"`
-	BackgroundTokens     int64      `json:"background_tokens"`
-	InputTokens          int64      `json:"input_tokens"`
-	OutputTokens         int64      `json:"output_tokens"`
-	CacheReadTokens      int64      `json:"cache_read_tokens"`
-	CacheWriteTokens     int64      `json:"cache_write_tokens"`
-	AssistantTurns       int64      `json:"assistant_turns"`
-	MCPCalls             int64      `json:"mcp_calls"`
-	MCPSuccessRate       float64    `json:"mcp_success_rate"`
-	MCPAverageLatencyMs  float64    `json:"mcp_average_latency_ms"`
-	UnattributedMCPCalls int64      `json:"unattributed_mcp_calls"`
-	ActiveTenants        int64      `json:"active_tenants"`
-	ActivePrincipals     int64      `json:"active_principals"`
-	CollectingSince      *time.Time `json:"collecting_since,omitempty"`
+	TotalTokens            int64                   `json:"total_tokens"`
+	ForegroundTokens       int64                   `json:"foreground_tokens"`
+	BackgroundTokens       int64                   `json:"background_tokens"`
+	InputTokens            int64                   `json:"input_tokens"`
+	OutputTokens           int64                   `json:"output_tokens"`
+	CacheReadTokens        int64                   `json:"cache_read_tokens"`
+	CacheWriteTokens       int64                   `json:"cache_write_tokens"`
+	AssistantTurns         int64                   `json:"assistant_turns"`
+	MCPCalls               int64                   `json:"mcp_calls"`
+	MCPSuccessRate         float64                 `json:"mcp_success_rate"`
+	MCPAverageLatencyMs    float64                 `json:"mcp_average_latency_ms"`
+	UnattributedMCPCalls   int64                   `json:"unattributed_mcp_calls"`
+	ActiveTenants          int64                   `json:"active_tenants"`
+	ActivePrincipals       int64                   `json:"active_principals"`
+	ActiveKnowledgeBases   int64                   `json:"active_knowledge_bases"`
+	CrossTenantUsage       int64                   `json:"cross_tenant_usage"`
+	UnattributedMCPRatio   float64                 `json:"unattributed_mcp_ratio"`
+	InactiveKnowledgeBases int64                   `json:"inactive_knowledge_bases"`
+	MCPActiveTenants       int64                   `json:"mcp_active_tenants"`
+	MCPPlatformPenetration float64                 `json:"mcp_platform_penetration"`
+	MCPAdoptionAmongActive float64                 `json:"mcp_adoption_among_active_spaces"`
+	TokenGrowthPercent     float64                 `json:"token_growth_percent"`
+	TopKnowledgeBases      []KnowledgeBaseUsageRow `json:"top_knowledge_bases" gorm:"-"`
+	AttentionNeeded        []UsageAttention        `json:"attention_needed" gorm:"-"`
+	CollectingSince        *time.Time              `json:"collecting_since,omitempty"`
+}
+
+type UsageAttention struct {
+	Code       string  `json:"code"`
+	EntityType string  `json:"entity_type,omitempty"`
+	EntityID   string  `json:"entity_id,omitempty"`
+	EntityName string  `json:"entity_name,omitempty"`
+	Value      float64 `json:"value,omitempty"`
 }
 
 type TenantUsageRow struct {
-	TenantID         uint64     `json:"tenant_id"`
-	TenantName       string     `json:"tenant_name"`
-	ActivePrincipals int64      `json:"active_principals"`
-	AssistantTurns   int64      `json:"assistant_turns"`
-	AgentTurns       int64      `json:"agent_turns"`
-	InputTokens      int64      `json:"input_tokens"`
-	OutputTokens     int64      `json:"output_tokens"`
-	TotalTokens      int64      `json:"total_tokens"`
-	MCPCalls         int64      `json:"mcp_calls"`
-	MCPSuccessRate   float64    `json:"mcp_success_rate"`
-	MCPAvgLatencyMs  float64    `json:"mcp_avg_latency_ms"`
-	LastActive       *time.Time `json:"last_active,omitempty"`
-	TotalCount       int64      `json:"-"`
+	TenantID                   uint64     `json:"tenant_id"`
+	TenantName                 string     `json:"tenant_name"`
+	ActivePrincipals           int64      `json:"active_principals"`
+	AssistantTurns             int64      `json:"assistant_turns"`
+	AgentTurns                 int64      `json:"agent_turns"`
+	InputTokens                int64      `json:"input_tokens"`
+	OutputTokens               int64      `json:"output_tokens"`
+	TotalTokens                int64      `json:"total_tokens"`
+	MCPCalls                   int64      `json:"mcp_calls"`
+	MCPSuccessRate             float64    `json:"mcp_success_rate"`
+	MCPAvgLatencyMs            float64    `json:"mcp_avg_latency_ms"`
+	LastActive                 *time.Time `json:"last_active,omitempty"`
+	LastActiveUnix             int64      `json:"-" gorm:"column:last_active_unix"`
+	UsageStatus                string     `json:"usage_status"`
+	KnowledgeBasesUsed         int64      `json:"kb_used_count" gorm:"column:kb_used_count"`
+	KnowledgeBasesOwned        int64      `json:"kb_owned_count" gorm:"column:kb_owned_count"`
+	ExternalKnowledgeBasesUsed int64      `json:"external_kb_used_count" gorm:"column:external_kb_used_count"`
+	CrossTenantAccesses        int64      `json:"cross_tenant_accesses"`
+	OwnedKBCrossTenantAccesses int64      `json:"owned_kb_cross_tenant_accesses" gorm:"column:owned_kb_cross_tenant_accesses"`
+	MCPAdopted                 bool       `json:"mcp_adopted"`
+	TotalCount                 int64      `json:"-"`
 }
 
 type UsageTimeSeriesPoint struct {
-	Bucket         time.Time `json:"bucket"`
-	InputTokens    int64     `json:"input_tokens"`
-	OutputTokens   int64     `json:"output_tokens"`
-	TotalTokens    int64     `json:"total_tokens"`
-	AssistantTurns int64     `json:"assistant_turns"`
-	MCPCalls       int64     `json:"mcp_calls"`
+	Bucket           time.Time `json:"bucket"`
+	InputTokens      int64     `json:"input_tokens"`
+	OutputTokens     int64     `json:"output_tokens"`
+	TotalTokens      int64     `json:"total_tokens"`
+	AssistantTurns   int64     `json:"assistant_turns"`
+	MCPCalls         int64     `json:"mcp_calls"`
+	ModelAccesses    int64     `json:"model_accesses"`
+	InternalAccesses int64     `json:"internal_accesses"`
+	ExternalAccesses int64     `json:"external_accesses"`
 }
 
 type ModelUsageRow struct {
@@ -290,20 +335,34 @@ type MCPUsageRow struct {
 	AverageLatencyMs  float64    `json:"average_latency_ms"`
 	UnattributedCalls int64      `json:"unattributed_calls"`
 	LastActive        *time.Time `json:"last_active,omitempty"`
+	ClientName        string     `json:"client_name,omitempty"`
+	ClientVersion     string     `json:"client_version,omitempty"`
+	KnowledgeBaseID   string     `json:"knowledge_base_id,omitempty"`
+	KnowledgeBaseName string     `json:"knowledge_base_name,omitempty"`
 	TotalCount        int64      `json:"-"`
 }
 
 type KnowledgeBaseUsageRow struct {
-	KnowledgeBaseID   string     `json:"knowledge_base_id"`
-	KnowledgeBaseName string     `json:"knowledge_base_name"`
-	OwnerTenantID     uint64     `json:"owner_tenant_id"`
-	OwnerTenantName   string     `json:"owner_tenant_name"`
-	CallerTenantID    *uint64    `json:"caller_tenant_id,omitempty"`
-	CallerTenantName  string     `json:"caller_tenant_name,omitempty"`
-	AssistantTurns    int64      `json:"assistant_turns"`
-	MCPCalls          int64      `json:"mcp_calls"`
-	LastActive        *time.Time `json:"last_active,omitempty"`
-	TotalCount        int64      `json:"-"`
+	KnowledgeBaseID     string     `json:"knowledge_base_id"`
+	KnowledgeBaseName   string     `json:"knowledge_base_name"`
+	OwnerTenantID       uint64     `json:"owner_tenant_id"`
+	OwnerTenantName     string     `json:"owner_tenant_name"`
+	CallerTenantID      *uint64    `json:"caller_tenant_id,omitempty"`
+	CallerTenantName    string     `json:"caller_tenant_name,omitempty"`
+	AssistantTurns      int64      `json:"assistant_turns"`
+	MCPCalls            int64      `json:"mcp_calls"`
+	LastActive          *time.Time `json:"last_active,omitempty"`
+	LastActiveUnix      int64      `json:"-" gorm:"column:last_active_unix"`
+	UsageStatus         string     `json:"usage_status,omitempty"`
+	TotalAccesses       int64      `json:"total_accesses"`
+	ModelAccesses       int64      `json:"model_accesses"`
+	UniqueTenants       int64      `json:"unique_tenants"`
+	UniquePrincipals    int64      `json:"unique_principals"`
+	ExternalTenants     int64      `json:"external_tenants"`
+	CrossTenantAccesses int64      `json:"cross_tenant_accesses"`
+	CrossTenantShare    float64    `json:"cross_tenant_share"`
+	RecentGrowth        float64    `json:"recent_growth"`
+	TotalCount          int64      `json:"-"`
 }
 
 type UsagePage[T any] struct {

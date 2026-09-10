@@ -20,6 +20,13 @@ func NewUsageAnalyticsService(repo interfaces.UsageAnalyticsRepository) interfac
 	return &usageAnalyticsService{repo: repo}
 }
 
+// InitializeUsageAnalytics persists the collection epoch once. The value is
+// intentionally independent from the first business event, which may arrive
+// long after collection became available.
+func InitializeUsageAnalytics(repo interfaces.UsageAnalyticsRepository) error {
+	return repo.EnsureCollectingSince(context.Background(), time.Now())
+}
+
 func (s *usageAnalyticsService) RecordAssistantTurn(ctx context.Context, tenantID uint64, message *types.Message) error {
 	if message == nil || message.Usage == nil || message.ID == "" || tenantID == 0 {
 		return nil
@@ -252,66 +259,92 @@ func normalizeUsageQuery(q types.UsageTimeRange) types.UsageTimeRange {
 	return q
 }
 
+func (s *usageAnalyticsService) prepareUsageQuery(ctx context.Context, q types.UsageTimeRange) (types.UsageTimeRange, error) {
+	q = normalizeUsageQuery(q)
+	since, err := s.repo.CollectingSince(ctx)
+	if err != nil {
+		return q, err
+	}
+	q.CollectingSince = since
+	return q, nil
+}
+
 func (s *usageAnalyticsService) Overview(ctx context.Context, q types.UsageTimeRange) (*types.UsageOverview, error) {
-	out, err := s.repo.Overview(ctx, normalizeUsageQuery(q))
+	q, err := s.prepareUsageQuery(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	out, err := s.repo.Overview(ctx, q)
 	if err == nil {
-		out.CollectingSince, _ = s.repo.CollectingSince(ctx)
+		out.CollectingSince = q.CollectingSince
 	}
 	return out, err
 }
 func (s *usageAnalyticsService) Tenants(ctx context.Context, q types.UsageTimeRange) (*types.UsagePage[types.TenantUsageRow], error) {
-	q = normalizeUsageQuery(q)
+	q, err := s.prepareUsageQuery(ctx, q)
+	if err != nil {
+		return nil, err
+	}
 	rows, total, err := s.repo.Tenants(ctx, q)
 	if err != nil {
 		return nil, err
 	}
-	since, _ := s.repo.CollectingSince(ctx)
-	return &types.UsagePage[types.TenantUsageRow]{Data: rows, Page: q.Page, PageSize: q.PageSize, Total: total, CollectingSince: since}, nil
+	return &types.UsagePage[types.TenantUsageRow]{Data: rows, Page: q.Page, PageSize: q.PageSize, Total: total, CollectingSince: q.CollectingSince}, nil
 }
 func (s *usageAnalyticsService) TimeSeries(ctx context.Context, q types.UsageTimeRange) (*types.UsagePage[types.UsageTimeSeriesPoint], error) {
-	q = normalizeUsageQuery(q)
+	q, err := s.prepareUsageQuery(ctx, q)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := s.repo.TimeSeries(ctx, q)
 	if err != nil {
 		return nil, err
 	}
-	since, _ := s.repo.CollectingSince(ctx)
-	return &types.UsagePage[types.UsageTimeSeriesPoint]{Data: rows, Page: 1, PageSize: len(rows), Total: int64(len(rows)), CollectingSince: since}, nil
+	return &types.UsagePage[types.UsageTimeSeriesPoint]{Data: rows, Page: 1, PageSize: len(rows), Total: int64(len(rows)), CollectingSince: q.CollectingSince}, nil
 }
 func (s *usageAnalyticsService) Models(ctx context.Context, q types.UsageTimeRange) (*types.UsagePage[types.ModelUsageRow], error) {
-	q = normalizeUsageQuery(q)
+	q, err := s.prepareUsageQuery(ctx, q)
+	if err != nil {
+		return nil, err
+	}
 	rows, total, err := s.repo.Models(ctx, q)
 	if err != nil {
 		return nil, err
 	}
-	since, _ := s.repo.CollectingSince(ctx)
-	return &types.UsagePage[types.ModelUsageRow]{Data: rows, Page: q.Page, PageSize: q.PageSize, Total: total, CollectingSince: since}, nil
+	return &types.UsagePage[types.ModelUsageRow]{Data: rows, Page: q.Page, PageSize: q.PageSize, Total: total, CollectingSince: q.CollectingSince}, nil
 }
 func (s *usageAnalyticsService) Operations(ctx context.Context, q types.UsageTimeRange) (*types.UsagePage[types.OperationUsageRow], error) {
-	q = normalizeUsageQuery(q)
+	q, err := s.prepareUsageQuery(ctx, q)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := s.repo.Operations(ctx, q)
 	if err != nil {
 		return nil, err
 	}
-	since, _ := s.repo.CollectingSince(ctx)
-	return &types.UsagePage[types.OperationUsageRow]{Data: rows, Page: 1, PageSize: len(rows), Total: int64(len(rows)), CollectingSince: since}, nil
+	return &types.UsagePage[types.OperationUsageRow]{Data: rows, Page: 1, PageSize: len(rows), Total: int64(len(rows)), CollectingSince: q.CollectingSince}, nil
 }
 func (s *usageAnalyticsService) MCP(ctx context.Context, q types.UsageTimeRange) (*types.UsagePage[types.MCPUsageRow], error) {
-	q = normalizeUsageQuery(q)
+	q, err := s.prepareUsageQuery(ctx, q)
+	if err != nil {
+		return nil, err
+	}
 	rows, total, err := s.repo.MCP(ctx, q)
 	if err != nil {
 		return nil, err
 	}
-	since, _ := s.repo.CollectingSince(ctx)
-	return &types.UsagePage[types.MCPUsageRow]{Data: rows, Page: q.Page, PageSize: q.PageSize, Total: total, CollectingSince: since}, nil
+	return &types.UsagePage[types.MCPUsageRow]{Data: rows, Page: q.Page, PageSize: q.PageSize, Total: total, CollectingSince: q.CollectingSince}, nil
 }
 func (s *usageAnalyticsService) KnowledgeBases(ctx context.Context, q types.UsageTimeRange) (*types.UsagePage[types.KnowledgeBaseUsageRow], error) {
-	q = normalizeUsageQuery(q)
+	q, err := s.prepareUsageQuery(ctx, q)
+	if err != nil {
+		return nil, err
+	}
 	rows, total, err := s.repo.KnowledgeBases(ctx, q)
 	if err != nil {
 		return nil, err
 	}
-	since, _ := s.repo.CollectingSince(ctx)
-	return &types.UsagePage[types.KnowledgeBaseUsageRow]{Data: rows, Page: q.Page, PageSize: q.PageSize, Total: total, CollectingSince: since}, nil
+	return &types.UsagePage[types.KnowledgeBaseUsageRow]{Data: rows, Page: q.Page, PageSize: q.PageSize, Total: total, CollectingSince: q.CollectingSince}, nil
 }
 
 var _ interfaces.UsageAnalyticsService = (*usageAnalyticsService)(nil)

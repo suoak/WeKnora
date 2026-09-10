@@ -8,6 +8,7 @@ import (
 )
 
 type UsageAnalyticsRepository interface {
+	EnsureCollectingSince(ctx context.Context, startedAt time.Time) error
 	RecordModelUsage(ctx context.Context, event *types.ModelUsageEvent, resources []types.UsageResourceLink) (bool, error)
 	RecordMCPUsage(ctx context.Context, event *types.MCPUsageEvent, resources []types.UsageResourceLink) (bool, error)
 	ResolveUsageResources(ctx context.Context, knowledgeBaseIDs, knowledgeIDs []string) ([]types.UsageResourceLink, error)

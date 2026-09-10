@@ -6946,6 +6946,19 @@ export default {
     }
   },
   usageAnalytics: {
+    governance: {
+      description: 'Turn usage data into transparent workspace and knowledge governance signals.',
+      coverage: 'Statuses are based only on the recorded collection window; insufficient history is never reported as inactivity.',
+      usageStatus: 'Usage status', mcpAdoption: 'MCP adoption', crossSpaceUsage: 'Cross-space reuse', groupBy: 'Group by',
+      filters: { allStatuses: 'All statuses', allMCP: 'All MCP adoption', adopted: 'Adopted', notAdopted: 'Not adopted', allReuse: 'All reuse', withReuse: 'With cross-space reuse', withoutReuse: 'No cross-space reuse' },
+      groups: { tool: 'Tool', client: 'Client', knowledgeBase: 'Knowledge Base' },
+      status: { active: 'Active', low_activity: 'Low activity', inactive: 'Inactive', never_used: 'Never used', insufficient_data: 'Insufficient data' },
+      sorts: { last_active: 'Last active', tokens: 'Token', mcp_calls: 'MCP calls', active_principals: 'Active principals', cross_tenant: 'Cross-space usage', unique_tenants: 'Unique spaces', accesses: 'Total accesses', model_accesses: 'Model accesses', mcp_accesses: 'MCP accesses', recent_growth: 'Recent growth' },
+      metrics: { activeKnowledgeBases: 'Active Knowledge Bases', crossSpaceUsage: 'Cross-Space Knowledge Usage', unattributedRatio: 'Unattributed MCP Ratio', inactiveKnowledgeBases: 'Inactive Knowledge Bases', mcpActiveSpaces: 'MCP Active Spaces', platformPenetration: 'Platform Penetration', activeSpaceAdoption: 'Adoption Among Active Spaces' },
+      columns: { tenant_name: 'Space', usage_status: 'Usage Status', last_active: 'Last Active', total_tokens: 'Recorded Token', mcp_calls: 'MCP Calls', mcp_success_rate: 'MCP Success Rate', active_principals: 'Active Principals', kb_used_count: 'KBs Used', kb_owned_count: 'KBs Owned', external_kb_used_count: 'External KBs Used', cross_tenant_accesses: 'Cross-Space Usage', knowledge_base_name: 'Knowledge Base', owner_tenant_name: 'Owner Space', total_accesses: 'Total Accesses', model_accesses: 'Model Accesses', unique_tenants: 'Unique Spaces', unique_principals: 'Unique Principals', external_tenants: 'External Spaces', recent_growth: 'Recent Growth' },
+      attentionNeeded: 'Attention Needed', noAttention: 'No attention needed in this window.', topKnowledgeBases: 'Top Knowledge Bases by Unique Spaces', callerDistribution: 'Caller Space Distribution', usageTrend: 'Model / MCP · Internal / External', usedBySpaces: 'Used by {count} spaces', externalSpaces: '{count} external',
+      attention: { inactive_spaces: '{value} inactive spaces', inactive_knowledge_bases: '{value} inactive knowledge bases', mcp_high_failure_rate: 'MCP failure rate is {value}%', mcp_high_unattributed_ratio: 'Unattributed MCP ratio is {value}%', mcp_high_latency: 'Average MCP latency is {value} ms', significant_token_growth: '7-day token growth is {value}%' },
+    },
 	tokenType: 'Token 種別', direction: '方向', operationDistribution: '操作別分布', foregroundTokens: 'フォアグラウンド Token', backgroundTokens: 'バックグラウンド Token',
 	tokenScopePhase2: 'Chat、Agent、主要なバックグラウンド Chat 処理、Memory、Wiki の provider usage を含みます。Embedding、Rerank、VLM、ASR はまだ含まれません。',
 	filters: { all: 'すべて', foreground: 'フォアグラウンド', background: 'バックグラウンド', inbound: 'インバウンド', outbound: 'アウトバウンド' },

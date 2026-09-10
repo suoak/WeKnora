@@ -20,6 +20,8 @@ type usageRepoStub struct {
 	modelErr           error
 }
 
+func (r *usageRepoStub) EnsureCollectingSince(context.Context, time.Time) error { return nil }
+
 func (r *usageRepoStub) Operations(context.Context, types.UsageTimeRange) ([]types.OperationUsageRow, error) {
 	return nil, nil
 }
