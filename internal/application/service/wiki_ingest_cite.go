@@ -72,7 +72,7 @@ type citationPipelineOutcome struct {
 func (s *wikiIngestService) extractCandidateSlugs(
 	ctx context.Context,
 	chatModel chat.Chat,
-	kbID string,
+	kbID, knowledgeID, operationID string,
 	content, lang string,
 	oldPageSlugs map[string]bool,
 	batchCtx *WikiBatchContext,
@@ -93,7 +93,9 @@ func (s *wikiIngestService) extractCandidateSlugs(
 	}
 
 	granularity := batchCtx.ExtractionGranularity.Normalize()
-	raw, err := s.generateWithTemplate(ctx, chatModel, agent.WikiCandidateSlugPrompt, map[string]string{
+	usageCtx := withWikiModelUsage(ctx, types.ModelUsageOperationWikiIngestion, "candidate_slug",
+		kbID, []string{knowledgeID, operationID}, []string{knowledgeID})
+	raw, err := s.generateWithTemplate(usageCtx, chatModel, agent.WikiCandidateSlugPrompt, map[string]string{
 		"Content":             content,
 		"Language":            lang,
 		"PreviousSlugs":       prevSlugsText,
@@ -115,7 +117,7 @@ func (s *wikiIngestService) extractCandidateSlugs(
 	}
 
 	result.Entities, result.Concepts = s.deduplicateExtractedBatch(
-		ctx, chatModel, kbID, result.Entities, result.Concepts, batchCtx,
+		ctx, chatModel, kbID, knowledgeID, operationID, result.Entities, result.Concepts, batchCtx,
 	)
 
 	slugItems := make(map[string]extractedItem, len(result.Entities)+len(result.Concepts))
@@ -256,6 +258,7 @@ func renderChunksXML(batch chunkBatch) string {
 func (s *wikiIngestService) classifyChunkCitations(
 	ctx context.Context,
 	chatModel chat.Chat,
+	kbID, knowledgeID, operationID string,
 	candidatesXML string,
 	chunks []*types.Chunk,
 	lang string,
@@ -280,7 +283,14 @@ func (s *wikiIngestService) classifyChunkCitations(
 		batchIdx := bi
 		eg.Go(func() error {
 			chunksXML := renderChunksXML(batch)
-			raw, err := s.generateWithTemplate(ectx, chatModel, agent.WikiChunkCitationPrompt, map[string]string{
+			stableIDs := make([]string, 0, len(batch.chunks)+1)
+			stableIDs = append(stableIDs, knowledgeID, operationID)
+			for _, chunk := range batch.chunks {
+				stableIDs = append(stableIDs, chunk.ID)
+			}
+			usageCtx := withWikiModelUsage(ectx, types.ModelUsageOperationWikiIngestion, "chunk_citation",
+				kbID, stableIDs, []string{knowledgeID})
+			raw, err := s.generateWithTemplate(usageCtx, chatModel, agent.WikiChunkCitationPrompt, map[string]string{
 				"CandidateSlugs": candidatesXML,
 				"ChunksXML":      chunksXML,
 				"Language":       lang,

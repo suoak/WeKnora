@@ -160,6 +160,10 @@ func TestASynonymIsResolvedByTheModelAndThenRemembered(t *testing.T) {
 	svc.ObserveQuestionTopics(ctx, []string{"店员班次安排"})
 	require.Greater(t, models.callCount(), callsBefore,
 		"nothing cheaper could have decided this, so the model must have been asked")
+	usage := models.recordedUsageMetadata()
+	require.Len(t, usage, 1)
+	require.Equal(t, types.ModelUsageOperationMemoryTopicResolution, usage[0].Operation)
+	require.Equal(t, uint64(1), usage[0].TenantID)
 
 	stats, err := svc.repo.TopTopics(context.Background(), scope, 10)
 	require.NoError(t, err)

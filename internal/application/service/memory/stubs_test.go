@@ -152,6 +152,8 @@ type stubModelService struct {
 	failNext bool
 	// lastFormat records the response schema the caller asked for.
 	lastFormat json.RawMessage
+	// usageMetadata records the privacy-safe analytics envelope on each call.
+	usageMetadata []types.ModelUsageRecordRequest
 }
 
 // workspaceModels is what ListModels returns, so a test can reproduce a
@@ -224,12 +226,18 @@ func (s *stubModelService) seenTranscripts() string {
 	return strings.Join(s.prompts, "\n---\n")
 }
 
+func (s *stubModelService) recordedUsageMetadata() []types.ModelUsageRecordRequest {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]types.ModelUsageRecordRequest(nil), s.usageMetadata...)
+}
+
 type stubChatModel struct {
 	owner *stubModelService
 }
 
 func (m *stubChatModel) Chat(
-	_ context.Context, messages []chat.Message, opts *chat.ChatOptions,
+	ctx context.Context, messages []chat.Message, opts *chat.ChatOptions,
 ) (*types.ChatResponse, error) {
 	var prompt strings.Builder
 	for _, message := range messages {
@@ -246,6 +254,9 @@ func (m *stubChatModel) Chat(
 		m.owner.lastThinking = opts.Thinking
 	}
 	m.owner.prompts = append(m.owner.prompts, prompt.String())
+	if metadata, ok := types.ModelUsageMetadataFromContext(ctx); ok {
+		m.owner.usageMetadata = append(m.owner.usageMetadata, metadata)
+	}
 	if m.owner.failNext {
 		m.owner.failNext = false
 		return nil, errors.New("stub model outage")

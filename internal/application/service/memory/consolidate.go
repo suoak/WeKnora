@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -244,7 +245,7 @@ func (s *Service) mergeRedundant(
 
 	declined := 0
 	for _, cluster := range clusters {
-		statement, unavailable := s.callConsolidationModel(ctx, modelID, cluster)
+		statement, unavailable := s.callConsolidationModel(ctx, scope, modelID, cluster)
 		if unavailable {
 			// Only the model may decide that two memories say the same thing.
 			// Merging on token overlap alone would supersede wordings the user
@@ -458,7 +459,7 @@ var consolidationSchema = json.RawMessage(`{
 
 // callConsolidationModel asks the model to merge one cluster.
 func (s *Service) callConsolidationModel(
-	ctx context.Context, modelID string, cluster []*types.MemoryItem,
+	ctx context.Context, scope interfaces.MemoryScope, modelID string, cluster []*types.MemoryItem,
 ) (statement string, unavailable bool) {
 	if modelID == "" || s.modelService == nil {
 		return "", true
@@ -479,7 +480,16 @@ func (s *Service) callConsolidationModel(
 	// model spends this whole budget on its own deliberation and returns
 	// nothing, which here would silently skip every merge.
 	thinking := false
-	response, err := chatModel.Chat(ctx, []chat.Message{
+	stableIDs := []string{scope.SubjectID}
+	for _, item := range cluster {
+		if item != nil {
+			stableIDs = append(stableIDs, item.ID)
+		}
+	}
+	sort.Strings(stableIDs[1:])
+	modelCtx := types.WithBackgroundModelUsage(ctx, types.ModelUsageOperationMemoryConsolidation,
+		stableIDs, nil, nil)
+	response, err := chatModel.Chat(modelCtx, []chat.Message{
 		{Role: "system", Content: consolidationSystemPrompt},
 		{Role: "user", Content: b.String()},
 	}, &chat.ChatOptions{

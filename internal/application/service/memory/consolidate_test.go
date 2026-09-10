@@ -46,7 +46,7 @@ func seedSimilarPreferences(t *testing.T, svc *Service, ctx context.Context, sco
 }
 
 func TestConsolidateNowMergesNearDuplicatesWithoutWaiting(t *testing.T) {
-	svc, tenantRepo, _ := newConsolidationHarness(t)
+	svc, tenantRepo, models := newConsolidationHarness(t)
 	ctx := enabledCtx(t, tenantRepo, 1, "alice")
 	scope := scopeFor(t, ctx)
 	_, err := svc.repo.EnsureSubject(ctx, scope)
@@ -66,6 +66,11 @@ func TestConsolidateNowMergesNearDuplicatesWithoutWaiting(t *testing.T) {
 	_, superseded, err := svc.ListItems(ctx, types.MemoryStatusSuperseded, 10, 0)
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, superseded, int64(1))
+
+	usage := models.recordedUsageMetadata()
+	require.Len(t, usage, 1)
+	require.Equal(t, types.ModelUsageOperationMemoryConsolidation, usage[0].Operation)
+	require.Equal(t, uint64(1), usage[0].TenantID)
 }
 
 // The pair that prompted this: two profiles that contradict each other share

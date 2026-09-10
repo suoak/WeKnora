@@ -341,6 +341,8 @@ type templateCaptureChatModel struct {
 	options  chat.ChatOptions
 	purpose  string
 	prefix   string
+	usage    types.ModelUsageRecordRequest
+	hasUsage bool
 }
 
 func (m *templateCaptureChatModel) Chat(
@@ -356,7 +358,49 @@ func (m *templateCaptureChatModel) Chat(
 		m.options = *opts
 	}
 	m.purpose, m.prefix = types.LLMCallMetadataFromContext(ctx)
+	m.usage, m.hasUsage = types.ModelUsageMetadataFromContext(ctx)
 	return &types.ChatResponse{Content: m.response}, nil
+}
+
+func TestWithWikiModelUsageUsesStablePrivateAttribution(t *testing.T) {
+	ctx := context.WithValue(context.Background(), types.TenantIDContextKey, uint64(7))
+	ctx = withWikiModelUsage(ctx, types.ModelUsageOperationWikiModification, "page_modify",
+		"kb-1", []string{"page-1", "2"}, []string{"knowledge-2", "knowledge-1"})
+	metadata, ok := types.ModelUsageMetadataFromContext(ctx)
+	if !ok {
+		t.Fatal("expected wiki model usage metadata")
+	}
+	if metadata.Operation != types.ModelUsageOperationWikiModification || metadata.TenantID != 7 {
+		t.Fatalf("unexpected metadata: %#v", metadata)
+	}
+	if len(metadata.KnowledgeBaseIDs) != 1 || metadata.KnowledgeBaseIDs[0] != "kb-1" {
+		t.Fatalf("unexpected knowledge base links: %#v", metadata.KnowledgeBaseIDs)
+	}
+	if strings.Join(metadata.KnowledgeIDs, ",") != "knowledge-1,knowledge-2" {
+		t.Fatalf("knowledge links must be stable: %#v", metadata.KnowledgeIDs)
+	}
+	if strings.Contains(metadata.EventKey, "page-1") || strings.Contains(metadata.EventKey, "knowledge-1") {
+		t.Fatalf("event key leaked source identifiers: %q", metadata.EventKey)
+	}
+
+	second := withWikiModelUsage(context.WithValue(context.Background(), types.TenantIDContextKey, uint64(7)),
+		types.ModelUsageOperationWikiModification, "page_modify", "kb-1",
+		[]string{"2", "page-1"}, []string{"knowledge-1", "knowledge-2"})
+	secondMetadata, _ := types.ModelUsageMetadataFromContext(second)
+	if metadata.EventKey != secondMetadata.EventKey {
+		t.Fatalf("stable IDs produced different event keys: %q != %q", metadata.EventKey, secondMetadata.EventKey)
+	}
+
+	model := &templateCaptureChatModel{response: "generated"}
+	if _, err := (&wikiIngestService{}).generateWithTemplate(ctx, model, "{{.Value}}", map[string]string{"Value": "private wiki content"}); err != nil {
+		t.Fatal(err)
+	}
+	if !model.hasUsage || model.usage.EventKey != metadata.EventKey {
+		t.Fatalf("generation lost usage attribution: %#v", model.usage)
+	}
+	if strings.Contains(model.usage.EventKey, "private wiki content") {
+		t.Fatalf("event key leaked prompt content: %q", model.usage.EventKey)
+	}
 }
 
 func (m *templateCaptureChatModel) ChatStream(

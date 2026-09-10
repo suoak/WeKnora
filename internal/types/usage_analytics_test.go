@@ -20,3 +20,32 @@ func TestMCPUsageReportJSONCannotCarryAttributionOrSecrets(t *testing.T) {
 		}
 	}
 }
+
+func TestMemoryAndWikiUsageOperationsAreBackground(t *testing.T) {
+	operations := []string{
+		ModelUsageOperationMemoryExtraction,
+		ModelUsageOperationMemoryConsolidation,
+		ModelUsageOperationMemoryTopicResolution,
+		ModelUsageOperationWikiIngestion,
+		ModelUsageOperationWikiGeneration,
+		ModelUsageOperationWikiModification,
+	}
+	for _, operation := range operations {
+		if !IsModelUsageOperation(operation) {
+			t.Fatalf("operation %q is not registered", operation)
+		}
+		if class := ModelUsageClass(operation); class != UsageClassBackground {
+			t.Fatalf("operation %q class = %q, want background", operation, class)
+		}
+	}
+}
+
+func TestUsageEventKeyHashesSensitiveStableIDs(t *testing.T) {
+	key := UsageEventKey(ModelUsageOperationMemoryExtraction, "session-secret", "message-secret")
+	if !strings.HasPrefix(key, ModelUsageOperationMemoryExtraction+":") {
+		t.Fatalf("unexpected event key: %q", key)
+	}
+	if strings.Contains(key, "session-secret") || strings.Contains(key, "message-secret") {
+		t.Fatalf("event key leaked source identifiers: %q", key)
+	}
+}

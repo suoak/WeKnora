@@ -1059,7 +1059,9 @@ func (s *Service) ObserveQuestionTopics(ctx context.Context, topics []string) []
 	if !ok {
 		return nil
 	}
-	return s.observeTopics(ctx, scope, cfg, cfg.ExtractModelID, topics)
+	requestID, _ := types.RequestIDFromContext(ctx)
+	sessionID, _ := types.SessionIDFromContext(ctx)
+	return s.observeTopics(ctx, scope, cfg, cfg.ExtractModelID, topics, []string{sessionID, requestID})
 }
 
 // observeTopics is the scope-explicit form.
@@ -1073,6 +1075,7 @@ func (s *Service) observeTopics(
 	cfg *types.MemoryConfig,
 	modelID string,
 	topics []string,
+	stableSourceIDs []string,
 ) []string {
 	if len(topics) == 0 || cfg == nil || !cfg.AutoExtractEnabled() {
 		return nil
@@ -1095,7 +1098,7 @@ func (s *Service) observeTopics(
 	if len(surfaces) == 0 {
 		return nil
 	}
-	resolutions := s.resolveTopics(ctx, scope, modelID, surfaces)
+	resolutions := s.resolveTopics(ctx, scope, modelID, surfaces, stableSourceIDs)
 
 	threshold := cfg.EffectiveInterestThreshold()
 	var promoted []string

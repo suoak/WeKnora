@@ -398,6 +398,10 @@ func TestTruncationIsRetriedWithMoreRoom(t *testing.T) {
 
 	require.Greater(t, models.lastBudgetAsked(), extractBudgetTokens,
 		"the retry has to offer more room than the attempt that ran out of it")
+	usage := models.recordedUsageMetadata()
+	require.Len(t, usage, 2)
+	require.Equal(t, usage[0].EventKey, usage[1].EventKey,
+		"provider retries must remain one logical analytics event")
 
 	_, total, err := svc.ListItems(ctx, types.MemoryStatusActive, 10, 0)
 	require.NoError(t, err)
