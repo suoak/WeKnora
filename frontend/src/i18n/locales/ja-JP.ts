@@ -1,6 +1,7 @@
 import enUS from './en-US'
 
 export default {
+  loadState: { retry: '再試行', networkTitle: '接続に問題があります', networkDescription: 'ネットワーク接続を確認して再試行してください。', forbiddenTitle: 'アクセス権限がありません', forbiddenDescription: '現在のロールではこのリソースにアクセスできません。', notFoundTitle: 'リソースが見つかりません', notFoundDescription: '削除されたか、リンクが古い可能性があります。', genericTitle: 'コンテンツを読み込めませんでした', genericDescription: '再試行し、問題が続く場合は管理者に連絡してください。' },
   portal: enUS.portal,
   navigation: { main: 'Main navigation', openMenu: 'Open navigation', portalHome: 'Home', newChat: 'New chat', recentChats: 'Recent chats', knowledgeBases: 'Knowledge Bases', agents: 'Agents', members: 'Members', integrations: 'Integrations', workspaceSettings: 'Workspace Settings', usageAnalytics: 'Usage Analytics', modelsDefaults: 'Models & Defaults', runtime: 'Runtime', audit: 'Audit', systemSettings: 'System Settings', platformApiKeys: 'Platform API Keys', groups: { knowledge: 'Knowledge', ai: 'AI', workspace: 'Workspace', system: 'System Administration' } },
   spaceSwitcher: { currentSpace: 'Current space', search: 'Search spaces', current: 'Current', unknown: 'Unknown space' },
@@ -335,6 +336,7 @@ export default {
     sharedTooltip: '共有スペース経由で外部ワークスペースからアクセス'
   },
   knowledgeBase: {
+    processingSummary: { title: '{total} 件のファイル', hint: '現在の処理状況', completed: '{count} 件完了', processing: '{count} 件処理中', failed: '{count} 件失敗', cancelled: '{count} 件キャンセル' },
     title: 'ナレッジベース',
     fileContent: 'ファイル内容',
     accessInfo: {
@@ -622,9 +624,10 @@ export default {
     batchReparseFailed: '一括再構築に失敗しました',
     batchReparseSkippedInFlight: '解析中の{count}件のドキュメントをスキップしました',
     statusCompleted: '完了',
+    statusPending: '処理待ち',
     statusProcessing: '処理中',
-    statusFinalizing: '最適化中',
-    statusFailed: '失敗',
+    statusFinalizing: 'まもなく完了',
+    statusFailed: '処理に失敗',
     statusCancelled: 'キャンセル済み',
     statusDraft: '下書き',
     noDescription: '説明なし',
@@ -804,11 +807,11 @@ export default {
       postprocess: '後処理'
     },
     status: {
-      pending: '保留中',
-      running: '実行中',
-      finalizing: '最適化中',
+      pending: '処理待ち',
+      running: '処理中',
+      finalizing: 'まもなく完了',
       done: '完了',
-      failed: '失敗',
+      failed: '処理に失敗',
       skipped: 'スキップ済み',
       cancelled: 'キャンセル済み'
     },
@@ -845,6 +848,9 @@ export default {
     contextCompactedSummary: '{before} → {after}トークン',
     contextCompactedDegraded: '要約を利用できないため、元の記録を保持しました',
     title: 'エージェント',
+    run: '実行',
+    available: '利用可能',
+    updatedAt: '{time} に更新',
     subtitle: 'エージェントを設定・管理して、会話の動作と機能をカスタマイズします',
     createAgent: 'エージェントを作成',
     builtin: '組み込み',
@@ -890,8 +896,8 @@ export default {
       sharedReadonly: '共有された項目 · 閲覧のみ'
     },
     empty: {
-      title: 'カスタムエージェントがありません',
-      description: '右上のボタンをクリックして最初のエージェントを作成してください',
+      title: '利用可能なエージェントはまだありません',
+      description: '権限がある場合は作成し、それ以外の場合はワークスペースの共同編集者に依頼してください。',
       sharedTitle: '共有されたエージェントはありません',
       sharedDescription: 'スペースに参加するか、他のユーザにエージェントの共有を依頼してください',
       favoritesTitle: 'お気に入りはありません',
@@ -3005,6 +3011,11 @@ export default {
       pageActions: 'ページ操作',
       tabDocuments: 'ドキュメント',
       tabGraph: 'グラフ',
+      contextNavigation: 'ナレッジ表示',
+      documentsContext: '元のナレッジと処理状況を確認します',
+      wikiContext: '元の文書から整理された構造化ナレッジを読みます',
+      graphContext: 'Wikiページ間の関係を探索します',
+      graphMobileHint: 'ナレッジグラフは大きな画面での閲覧を推奨します。ここでも検索とページ詳細は利用できます。',
       tabGraphTip: 'Wikiページ間のリンクを表したグラフ（ページリンクグラフ）です。「ナレッジベース設定 → ナレッジグラフ」で設定する、LLMが抽出するエンティティ・リレーションのナレッジグラフとは異なります。',
       searchPlaceholder: 'Wikiページを検索...',
       searchNoResults: '一致するページが見つかりません',
@@ -5804,6 +5815,7 @@ export default {
       basic: '基本',
       knowledge: 'ナレッジと検索',
       capability: '拡張機能',
+      runtime: '実行とモデル',
       integration: '公開と連携'
     },
     questionSuggestions: {

@@ -1,6 +1,7 @@
 import { branding } from '../../config/branding'
 
 export default {
+  loadState: { retry: 'Try again', networkTitle: 'Connection problem', networkDescription: 'Check your network connection and try again.', forbiddenTitle: 'Access denied', forbiddenDescription: 'Your current role cannot access this resource.', notFoundTitle: 'Resource not found', notFoundDescription: 'It may have been removed or the link may be outdated.', genericTitle: 'Could not load this content', genericDescription: 'Try again. If the problem continues, contact an administrator.' },
   portal: {
     brandSubtitle: 'CSBU IPD Knowledge Portal',
     heroEyebrow: 'KNOWLEDGE DISCOVERY',
@@ -416,6 +417,7 @@ export default {
     sharedTooltip: 'Accessed from an external workspace via a shared space'
   },
   knowledgeBase: {
+    processingSummary: { title: '{total} files', hint: 'Current processing progress', completed: '{count} completed', processing: '{count} processing', failed: '{count} failed', cancelled: '{count} cancelled' },
     title: 'Knowledge Base',
     fileContent: 'File Content',
     accessInfo: {
@@ -703,9 +705,10 @@ export default {
     batchReparseFailed: 'Batch rebuild failed',
     batchReparseSkippedInFlight: 'Skipped {count} document(s) still being parsed',
     statusCompleted: 'Completed',
+    statusPending: 'Waiting to process',
     statusProcessing: 'Processing',
-    statusFinalizing: 'Optimizing',
-    statusFailed: 'Failed',
+    statusFinalizing: 'Almost done',
+    statusFailed: 'Processing failed',
     statusCancelled: 'Cancelled',
     statusDraft: 'Draft',
     noDescription: 'No description',
@@ -885,11 +888,11 @@ export default {
       postprocess: 'Post-processing'
     },
     status: {
-      pending: 'Pending',
-      running: 'Running',
-      finalizing: 'Finalizing',
-      done: 'Done',
-      failed: 'Failed',
+      pending: 'Waiting to process',
+      running: 'Processing',
+      finalizing: 'Almost done',
+      done: 'Completed',
+      failed: 'Processing failed',
       skipped: 'Skipped',
       cancelled: 'Cancelled'
     },
@@ -926,6 +929,9 @@ export default {
     contextCompactedSummary: '{before} → {after} tokens',
     contextCompactedDegraded: 'Summary unavailable, raw transcript kept',
     title: 'Agents',
+    run: 'Run',
+    available: 'Available',
+    updatedAt: 'Updated {time}',
     subtitle: 'Configure and manage your agents to customize conversation behavior and capabilities',
     createAgent: 'Create Agent',
     builtin: 'Built-in',
@@ -971,8 +977,8 @@ export default {
       sharedReadonly: 'Shared with me · View only'
     },
     empty: {
-      title: 'No Custom Agents',
-      description: 'Click the button in the top right to create your first agent',
+      title: 'No Agents available yet',
+      description: 'Create an Agent if you have permission, or ask a workspace contributor to make one available.',
       sharedTitle: 'No shared agents yet',
       sharedDescription: 'You can join a space or ask others to share agents with you',
       favoritesTitle: 'No favorites yet',
@@ -3094,6 +3100,11 @@ export default {
       pageActions: 'Page actions',
       tabDocuments: 'Documents',
       tabGraph: 'Graph',
+      contextNavigation: 'Knowledge view',
+      documentsContext: 'Original sources and their processing status',
+      wikiContext: 'Structured knowledge distilled from the source documents',
+      graphContext: 'Relationships between Wiki pages',
+      graphMobileHint: 'The knowledge graph is easier to explore on a larger screen. Search and page details remain available here.',
       tabGraphTip: 'A graph of links between Wiki pages (page-link graph). This is NOT the same as the LLM-extracted entity-relationship Knowledge Graph configured under "KB Settings → Knowledge Graph".',
       searchPlaceholder: 'Search wiki pages...',
       searchNoResults: 'No matching pages found',
@@ -5893,6 +5904,7 @@ export default {
       basic: 'Basics',
       knowledge: 'Knowledge & Retrieval',
       capability: 'Extensions',
+      runtime: 'Runtime & Models',
       integration: 'Publish & Integrations'
     },
     questionSuggestions: {

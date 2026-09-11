@@ -6,6 +6,7 @@ import { useTagChipsOverflow } from '@/composables/useTagChipsOverflow';
 import DocumentActionMenu from './DocumentActionMenu.vue';
 import FolderPickerMenu, { type FolderOption } from './FolderPickerMenu.vue';
 import KnowledgeProcessingTimeline from '@/components/knowledge-processing-timeline.vue';
+import { conciseProcessingError } from '@/utils/knowledgeProcessingPresentation';
 
 interface Tag {
   id: string;
@@ -118,13 +119,14 @@ const isTraceMenuVisible = (item: KnowledgeCard): boolean => {
 };
 
 const inFlightCardStatusText = (item: KnowledgeCard): string => {
+  if (item.parse_status === 'pending') return t('knowledgeBase.statusPending');
   if (item.parse_status === 'finalizing') {
     if (item.summary_status === 'pending' || item.summary_status === 'processing') {
       return t('knowledgeBase.generatingSummary');
     }
     return t('knowledgeBase.statusFinalizing');
   }
-  return t('knowledgeBase.parsingInProgress');
+  return t('knowledgeBase.statusProcessing');
 };
 
 // --- Display helpers ---
@@ -511,6 +513,10 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
             @keydown.enter.stop="handleAction('view-trace', item)"
             @keydown.space.prevent.stop="handleAction('view-trace', item)"
           >{{ $t('knowledgeBase.parsingFailed') }}</span>
+          <span v-if="conciseProcessingError(item.error_message)" class="card-analyze-reason"
+            :title="conciseProcessingError(item.error_message)">
+            {{ conciseProcessingError(item.error_message) }}
+          </span>
           <button
             type="button"
             class="card-analyze-trace-btn"
@@ -856,6 +862,17 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
   .card-analyze-trace-link {
     cursor: pointer;
     &:hover { text-decoration: underline; }
+  }
+
+  .card-analyze-reason {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--td-text-color-secondary);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &::before { content: '·'; margin-right: 4px; }
   }
 
   .card-analyze-trace-btn {

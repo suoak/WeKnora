@@ -1,6 +1,7 @@
 import { branding } from '../../config/branding'
 
 export default {
+  loadState: { retry: '다시 시도', networkTitle: '연결 문제', networkDescription: '네트워크 연결을 확인하고 다시 시도하세요.', forbiddenTitle: '접근 권한 없음', forbiddenDescription: '현재 역할로는 이 리소스에 접근할 수 없습니다.', notFoundTitle: '리소스를 찾을 수 없음', notFoundDescription: '삭제되었거나 링크가 오래되었을 수 있습니다.', genericTitle: '콘텐츠를 불러오지 못했습니다', genericDescription: '다시 시도하고 문제가 계속되면 관리자에게 문의하세요.' },
   portal: {
     brandSubtitle: 'CSBU IPD 지식 포털', heroEyebrow: '지식 탐색', heroTitle: '조직의 관리된 지식 공간 탐색',
     heroDescription: 'IPD 프로세스를 따라 전문 지식을 탐색하고 Viewer 읽기 전용 권한을 요청하세요.', viewSwitcherLabel: '지식 포털 보기',
@@ -1270,6 +1271,7 @@ export default {
       basic: '기본',
       knowledge: '지식 검색',
       capability: '기능 확장',
+      runtime: '실행 및 모델',
       integration: '게시 및 통합'
     }
   },
@@ -4035,6 +4037,11 @@ export default {
       pageActions: '페이지 작업',
       tabDocuments: '문서',
       tabGraph: '그래프',
+      contextNavigation: '지식 보기',
+      documentsContext: '원본 지식과 처리 상태를 확인합니다',
+      wikiContext: '원본 문서에서 정리된 구조화 지식을 읽습니다',
+      graphContext: 'Wiki 페이지 간 관계를 탐색합니다',
+      graphMobileHint: '지식 그래프는 더 큰 화면에서 탐색하는 것이 좋습니다. 여기서도 검색과 페이지 상세 보기는 사용할 수 있습니다.',
       tabGraphTip: 'Wiki 페이지 간의 링크 관계 그래프(페이지 링크 그래프)입니다. \'지식 베이스 설정 → 지식 그래프\'에서 구성하는 LLM 기반 엔티티-관계 지식 그래프와는 다른 개념입니다.',
       searchPlaceholder: 'Wiki 페이지 검색...',
       searchNoResults: '일치하는 페이지가 없습니다',
@@ -6013,6 +6020,9 @@ export default {
     contextCompactedSummary: '{before} → {after} 토큰',
     contextCompactedDegraded: '요약을 사용할 수 없어 원본 기록을 유지했습니다',
     title: '에이전트',
+    run: '실행',
+    available: '사용 가능',
+    updatedAt: '{time} 업데이트',
     subtitle: '에이전트 구성 및 관리, 대화 동작 및 기능 맞춤화',
     createAgent: '에이전트 만들기',
     builtin: '내장',
@@ -6213,8 +6223,8 @@ export default {
       useInChat: '대화에 사용'
     },
     empty: {
-      title: '아직 맞춤 에이전트가 없습니다.',
-      description: '첫 번째 에이전트를 생성하려면 오른쪽 상단에 있는 버튼을 클릭하세요.',
+      title: '사용 가능한 에이전트가 아직 없습니다',
+      description: '권한이 있으면 에이전트를 만들고, 그렇지 않으면 공간 Contributor에게 요청하세요.',
       sharedTitle: '아직 공유 에이전트가 없습니다.',
       sharedDescription: '스페이스에 참여하거나 다른 사람에게 에이전트를 공유하도록 요청할 수 있습니다.',
       favoritesTitle: '즐겨찾기 없음',
@@ -6284,11 +6294,11 @@ export default {
       UNKNOWN_SUGGESTION: '자세한 내용은 애플리케이션 로그를 확인하세요.'
     },
     status: {
-      pending: '대기 중',
-      running: '진행 중',
-      finalizing: '최적화 중',
+      pending: '처리 대기 중',
+      running: '처리 중',
+      finalizing: '곧 완료',
       done: '완료',
-      failed: '실패',
+      failed: '처리 실패',
       skipped: '건너뜀',
       cancelled: '취소됨'
     },
@@ -6401,6 +6411,7 @@ export default {
     }
   },
   knowledgeBase: {
+    processingSummary: { title: '파일 {total}개', hint: '현재 처리 진행률', completed: '{count}개 완료', processing: '{count}개 처리 중', failed: '{count}개 실패', cancelled: '{count}개 취소' },
     title: '지식베이스',
     fileContent: '파일 내용',
     name: '이름',
@@ -6655,9 +6666,10 @@ export default {
     batchReparseFailed: '일괄 재구축 실패',
     batchReparseSkippedInFlight: '파싱 중인 문서 {count}개를 건너뛰었습니다',
     statusCompleted: '완료',
+    statusPending: '처리 대기 중',
     statusProcessing: '처리 중',
-    statusFinalizing: '최적화 중',
-    statusFailed: '실패',
+    statusFinalizing: '곧 완료',
+    statusFailed: '처리 실패',
     statusCancelled: '취소됨',
     statusDraft: '초안',
     noDescription: '설명 없음',

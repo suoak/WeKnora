@@ -38,7 +38,14 @@
 
             <!-- 右侧内容区域 -->
             <div class="settings-content">
-              <div ref="contentWrapperRef" class="content-wrapper" :class="{ 'content-wrapper--prompts': currentSection === 'prompts' }">
+              <div ref="contentWrapperRef" class="content-wrapper" :class="{
+                'content-wrapper--prompts': currentSection === 'prompts',
+                'content-wrapper--readonly': props.readOnly,
+              }">
+                <div v-if="props.readOnly" class="editor-readonly-banner" role="note">
+                  <t-icon name="lock-on" />
+                  <span>{{ $t('organization.share.permissionReadonly') }}</span>
+                </div>
                 <!-- 基础设置 -->
                 <div v-show="currentSection === 'basic'" class="section">
                   <div class="section-header">
@@ -2692,7 +2699,7 @@ const navGroups = computed(() => {
     {
       key: 'basic',
       label: t('agentEditor.navGroups.basic'),
-      items: pickItems(['basic', 'prompts', 'model', 'conversation', 'suggestions']),
+      items: pickItems(['basic', 'prompts', 'suggestions', 'conversation']),
     },
     {
       key: 'knowledge',
@@ -2702,7 +2709,12 @@ const navGroups = computed(() => {
     {
       key: 'capability',
       label: t('agentEditor.navGroups.capability'),
-      items: pickItems(['multimodal', 'tools', 'mcp', 'skills']),
+      items: pickItems(['tools', 'mcp', 'skills', 'multimodal']),
+    },
+    {
+      key: 'runtime',
+      label: t('agentEditor.navGroups.runtime'),
+      items: pickItems(['model']),
     },
     {
       key: 'integration',
@@ -6700,6 +6712,99 @@ const handleSave = async () => {
 .tag-wiki {
   color: #00b42a;
   background: rgba(0, 180, 42, 0.1);
+}
+
+.editor-readonly-banner {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: -8px 0 16px;
+  padding: 8px 10px;
+  border: 1px solid var(--td-component-stroke);
+  border-radius: 6px;
+  background: var(--td-bg-color-secondarycontainer);
+  color: var(--td-text-color-secondary);
+  font-size: 13px;
+}
+
+.content-wrapper--readonly {
+  .setting-control,
+  .prompts-panel__pane,
+  .suggestion-tabs,
+  .tool-grid,
+  .skills-catalog {
+    pointer-events: none;
+    user-select: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .settings-overlay {
+    align-items: stretch;
+    justify-content: stretch;
+    padding: 0;
+  }
+
+  .settings-modal {
+    width: 100vw;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    border-radius: 0;
+  }
+
+  .settings-container { flex-direction: column; }
+
+  .settings-sidebar {
+    width: 100%;
+    max-height: 132px;
+    border-right: 0;
+    border-bottom: 1px solid var(--td-component-stroke);
+  }
+
+  .sidebar-header { padding: 14px 52px 8px 14px; }
+
+  .settings-nav {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .nav-group-title { display: none; }
+
+  .nav-item {
+    min-height: 34px;
+    padding: 7px 10px;
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .content-wrapper,
+  .content-wrapper--prompts { padding: 20px 16px 32px; }
+
+  .setting-row,
+  .setting-row.setting-row-vertical {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .setting-info,
+  .setting-control {
+    width: 100%;
+    max-width: 100%;
+    flex-basis: auto;
+  }
+
+  .setting-control { justify-content: flex-start; }
+  .agent-type-select { min-width: 0; max-width: none; }
+  .settings-footer { padding: 10px 16px; gap: 8px; }
+  .settings-footer-note { display: none; }
 }
 
 </style>

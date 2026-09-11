@@ -60,6 +60,16 @@
           </div>
         </div>
 
+        <div v-else-if="loadError && agents.length === 0" class="agent-load-error" role="alert">
+          <t-icon name="error-circle" size="32px" />
+          <strong>{{ $t(`loadState.${loadError}Title`) }}</strong>
+          <span>{{ $t(`loadState.${loadError}Description`) }}</span>
+          <t-button size="small" variant="outline" @click="fetchList(true)">
+            <template #icon><t-icon name="refresh" /></template>
+            {{ $t('loadState.retry') }}
+          </t-button>
+        </div>
+
         <!-- 全部 / 收藏 / 最近：共用同一份卡片模板 -->
         <div
           v-if="(spaceSelection === 'all' || spaceSelection === 'favorites' || spaceSelection === 'recents') && filteredAgents.length > 0"
@@ -244,6 +254,12 @@
               </div>
               <div class="card-bottom">
                 <div class="bottom-left">
+                  <div class="agent-card-meta">
+                    <span class="agent-status" :class="{ 'is-disabled': agent.disabled_by_me }">
+                      <i aria-hidden="true" />{{ agent.disabled_by_me ? $t('agent.disabled') : $t('agent.available') }}
+                    </span>
+                    <span v-if="agent.updated_at" class="agent-updated-at">{{ $t('agent.updatedAt', { time: formatDate(agent.updated_at) }) }}</span>
+                  </div>
                   <div class="feature-badges">
                     <t-tag v-if="agent.isMine && agent.disabled_by_me" theme="default" size="small"
                       class="disabled-badge">{{
@@ -302,6 +318,11 @@
                 </div>
                 <ResourceOriginBadge v-else-if="showAgentOriginBadge(agent)" :variant="agentOriginVariant(agent)"
                   :creator-name="(agent as any).creator_name" />
+                <t-button class="agent-run-btn" theme="primary" size="small" :disabled="agent.disabled_by_me"
+                  @click.stop="startAgentChat(agent.id, agent.isMine ? undefined : String(agent.source_tenant_id))">
+                  <template #icon><t-icon name="play-circle" /></template>
+                  {{ $t('agent.run') }}
+                </t-button>
               </div>
             </div>
           </template>
@@ -439,6 +460,12 @@
               <!-- 卡片底部 -->
               <div class="card-bottom">
                 <div class="bottom-left">
+                  <div class="agent-card-meta">
+                    <span class="agent-status" :class="{ 'is-disabled': agent.disabled_by_me }">
+                      <i aria-hidden="true" />{{ agent.disabled_by_me ? $t('agent.disabled') : $t('agent.available') }}
+                    </span>
+                    <span v-if="agent.updated_at" class="agent-updated-at">{{ $t('agent.updatedAt', { time: formatDate(agent.updated_at) }) }}</span>
+                  </div>
                   <div class="feature-badges">
                     <t-tag v-if="agent.disabled_by_me" theme="default" size="small" class="disabled-badge">{{
                       $t('agent.disabled') }}</t-tag>
@@ -489,6 +516,11 @@
                 </div>
                 <ResourceOriginBadge v-else-if="showAgentOriginBadge(agent)" :variant="agentOriginVariant(agent)"
                   :creator-name="(agent as any).creator_name" />
+                <t-button class="agent-run-btn" theme="primary" size="small" :disabled="agent.disabled_by_me"
+                  @click.stop="startAgentChat(agent.id)">
+                  <template #icon><t-icon name="play-circle" /></template>
+                  {{ $t('agent.run') }}
+                </t-button>
               </div>
             </div>
           </template>
@@ -592,6 +624,12 @@
               </div>
               <div class="card-bottom">
                 <div class="bottom-left">
+                  <div class="agent-card-meta">
+                    <span class="agent-status" :class="{ 'is-disabled': shared.disabled_by_me }">
+                      <i aria-hidden="true" />{{ shared.disabled_by_me ? $t('agent.disabled') : $t('agent.available') }}
+                    </span>
+                    <span v-if="shared.agent?.updated_at" class="agent-updated-at">{{ $t('agent.updatedAt', { time: formatDate(shared.agent.updated_at) }) }}</span>
+                  </div>
                   <div class="feature-badges">
                     <t-tag v-if="shared.disabled_by_me" theme="default" size="small" class="disabled-badge">{{
                       $t('agent.disabled') }}</t-tag>
@@ -631,13 +669,18 @@
                     </t-tooltip>
                   </div>
                 </div>
+                <t-button class="agent-run-btn" theme="primary" size="small" :disabled="shared.disabled_by_me || !shared.agent?.id"
+                  @click.stop="shared.agent?.id && startAgentChat(shared.agent.id, String(shared.source_tenant_id))">
+                  <template #icon><t-icon name="play-circle" /></template>
+                  {{ $t('agent.run') }}
+                </t-button>
               </div>
             </div>
           </template>
         </div>
 
         <!-- 空状态：全部（保留创建 CTA） -->
-        <div v-if="spaceSelection === 'all' && filteredAgents.length === 0 && !loading" class="empty-state">
+        <div v-if="spaceSelection === 'all' && filteredAgents.length === 0 && !loading && !loadError" class="empty-state">
           <img class="empty-img" src="@/assets/img/upload.svg" alt="">
           <span class="empty-txt">{{ $t('agent.empty.title') }}</span>
           <span class="empty-desc">{{ $t('agent.empty.description') }}</span>
@@ -667,18 +710,18 @@
         </div>
 
         <!-- 空状态：收藏 / 最近 — 不放创建按钮，参见 KnowledgeBaseList 的同处理由 -->
-        <div v-if="spaceSelection === 'favorites' && filteredAgents.length === 0 && !loading" class="empty-state">
+        <div v-if="spaceSelection === 'favorites' && filteredAgents.length === 0 && !loading && !loadError" class="empty-state">
           <t-icon name="star" size="48px" class="empty-icon" />
           <span class="empty-txt">{{ $t('agent.empty.favoritesTitle') }}</span>
           <span class="empty-desc">{{ $t('agent.empty.favoritesDescription') }}</span>
         </div>
-        <div v-if="spaceSelection === 'recents' && filteredAgents.length === 0 && !loading" class="empty-state">
+        <div v-if="spaceSelection === 'recents' && filteredAgents.length === 0 && !loading && !loadError" class="empty-state">
           <t-icon name="history" size="48px" class="empty-icon" />
           <span class="empty-txt">{{ $t('agent.empty.recentsTitle') }}</span>
           <span class="empty-desc">{{ $t('agent.empty.recentsDescription') }}</span>
         </div>
         <!-- 空状态：我的 -->
-        <div v-if="spaceSelection === 'mine' && agents.length === 0 && !loading" class="empty-state">
+        <div v-if="spaceSelection === 'mine' && agents.length === 0 && !loading && !loadError" class="empty-state">
           <img class="empty-img" src="@/assets/img/upload.svg" alt="">
           <span class="empty-txt">{{ $t('agent.empty.title') }}</span>
           <span class="empty-desc">{{ $t('agent.empty.description') }}</span>
@@ -707,7 +750,7 @@
           </t-button>
         </div>
         <!-- 空状态：空间下 -->
-        <div v-if="spaceSelectionOrgId && !spaceAgentsLoading && spaceAgentsList.length === 0" class="empty-state">
+        <div v-if="spaceSelectionOrgId && !spaceAgentsLoading && spaceAgentsList.length === 0 && !loadError" class="empty-state">
           <img class="empty-img" src="@/assets/img/upload.svg" alt="">
           <span class="empty-txt">{{ $t('agent.empty.sharedTitle') }}</span>
           <span class="empty-desc">{{ $t('agent.empty.sharedDescription') }}</span>
@@ -839,6 +882,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useListUrlState } from '@/composables/useListUrlState'
 import { useResourcePins } from '@/composables/useResourcePins'
 import { integrationSectionKey } from '@/config/settingsRoute'
+import { classifyLoadError, type LoadErrorKind } from '@/utils/loadErrorPresentation'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -1054,6 +1098,7 @@ const sortedSpaceAgentsList = computed(() => {
   })
 })
 const loading = ref(false)
+const loadError = ref<LoadErrorKind | null>(null)
 const deleteVisible = ref(false)
 const deletingAgent = ref<AgentWithUI | null>(null)
 const sharedDetailVisible = ref(false)
@@ -1113,15 +1158,21 @@ const applyAgentListData = (res: { data: CustomAgent[]; disabled_own_agent_ids: 
 
 const fetchList = (force = false) => {
   loading.value = true
+  loadError.value = null
   return Promise.all([
     chatResources.fetchAgentsForList({ creator: creatorFilter.value }, force).then(applyAgentListData),
     orgStore.fetchOrganizations({ force }),
     orgStore.fetchSharedAgents({ force }),
-  ]).finally(() => { loading.value = false }).then(() => {
+  ]).then(() => {
     void checkAndOpenEditModal()
     // 各空间智能体数量已由 GET /organizations 的 resource_counts 带回，存于 orgStore.resourceCounts
     const counts = orgStore.resourceCounts?.agents?.by_organization
     if (counts) spaceAgentCountByOrg.value = { ...counts }
+  }).catch((error) => {
+    console.error('Failed to load agents', error)
+    loadError.value = classifyLoadError(error)
+  }).finally(() => {
+    loading.value = false
   })
 }
 
@@ -1296,13 +1347,13 @@ function closeSharedAgentDetail() {
   currentSharedAgent.value = null
 }
 
-/** 在对话中使用共享智能体：创建新会话并跳转 */
-async function handleUseSharedAgentInChat(shared: SharedAgentInfo) {
-  if (!shared.agent?.id) return
-  closeSharedAgentDetail()
+/** 以 Agent 启动新会话。共享来源必须透传，避免错误归属到当前空间。 */
+async function startAgentChat(agentId: string, sourceTenantId?: string) {
+  if (!agentId) return
+  pins.touchRecent('agent', agentId)
   const settingsStore = useSettingsStore()
   const menuStore = useMenuStore()
-  settingsStore.selectAgent(shared.agent.id, String(shared.source_tenant_id))
+  settingsStore.selectAgent(agentId, sourceTenantId)
   try {
     const res = await createSessions({})
     if (res?.data?.id) {
@@ -1320,15 +1371,25 @@ async function handleUseSharedAgentInChat(shared: SharedAgentInfo) {
       menuStore.changeIsFirstSession(false)
       router.push({
         path: `/platform/chat/${sessionId}`,
-        query: { agent_id: shared.agent.id, source_tenant_id: String(shared.source_tenant_id) }
+        query: {
+          agent_id: agentId,
+          ...(sourceTenantId ? { source_tenant_id: sourceTenantId } : {}),
+        }
       })
     } else {
       MessagePlugin.error(t('createChat.messages.createFailed'))
     }
   } catch (e) {
-    console.error('Create session for shared agent failed', e)
+    console.error('Create session for agent failed', e)
     MessagePlugin.error(t('createChat.messages.createError'))
   }
+}
+
+/** 在对话中使用共享智能体：创建新会话并跳转 */
+async function handleUseSharedAgentInChat(shared: SharedAgentInfo) {
+  if (!shared.agent?.id) return
+  closeSharedAgentDetail()
+  await startAgentChat(shared.agent.id, String(shared.source_tenant_id))
 }
 
 const handleEdit = (agent: AgentWithUI) => {
@@ -1647,6 +1708,26 @@ defineExpose({
   min-height: 200px;
   padding: 12px;
   background: var(--td-bg-color-container);
+}
+
+.agent-load-error {
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  border: 1px dashed var(--td-component-border);
+  border-radius: 8px;
+  background: var(--td-bg-color-secondarycontainer);
+  color: var(--td-text-color-secondary);
+  text-align: center;
+
+  strong {
+    color: var(--td-text-color-primary);
+    font-size: 15px;
+  }
 }
 
 .shared-by-me-badge {
@@ -2301,6 +2382,7 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   margin-top: auto;
   padding-top: 8px;
   border-top: .5px solid var(--td-component-stroke);
@@ -2310,12 +2392,46 @@ defineExpose({
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .feature-badges {
+  display: none;
+}
+
+.agent-card-meta {
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
+  color: var(--td-text-color-secondary);
+  font-size: 11px;
+}
+
+.agent-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+
+  i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--td-success-color);
+  }
+
+  &.is-disabled i { background: var(--td-text-color-placeholder); }
+}
+
+.agent-updated-at {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-run-btn {
+  flex-shrink: 0;
 }
 
 .feature-badge {
@@ -2456,6 +2572,24 @@ defineExpose({
   .agent-card-wrap {
     grid-template-columns: repeat(6, 1fr);
   }
+}
+
+@media (max-width: 768px) {
+  .agent-list-content { padding: 14px 0 0 14px; }
+  .header { margin-bottom: 12px; padding-right: 14px; }
+  .header-subtitle { display: none; }
+  .agent-list-main { padding-right: 14px; }
+  .agent-card { height: 148px; min-height: 148px; padding: 12px; }
+  .card-bottom-source,
+  .builtin-badge,
+  :deep(.resource-origin-badge) { display: none; }
+  .agent-updated-at { max-width: 100px; }
+  .agent-run-btn :deep(.t-button__text) { display: inline; }
+}
+
+@media (max-width: 420px) {
+  .agent-updated-at { display: none; }
+  .agent-run-btn { min-width: 72px; }
 }
 
 // 删除确认对话框样式
