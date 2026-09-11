@@ -18,9 +18,6 @@
                 t(`usageAnalytics.governance.status.${row.usage_status}`)
               }}</span>
             </td>
-            <td>{{ number(row.total_accesses) }}</td>
-            <td>{{ number(row.model_accesses) }}</td>
-            <td>{{ number(row.mcp_calls) }}</td>
             <td>
               <strong>{{
                 t('usageAnalytics.governance.usedBySpaces', {
@@ -28,7 +25,6 @@
                 })
               }}</strong>
             </td>
-            <td>{{ number(row.unique_principals) }}</td>
             <td>
               {{
                 t('usageAnalytics.governance.externalSpaces', {
@@ -36,12 +32,12 @@
                 })
               }}
             </td>
-            <td>{{ number(row.cross_tenant_accesses) }} ({{ percent(row.cross_tenant_share) }})</td>
             <td>{{ date(row.last_active) }}</td>
-            <td>{{ signedPercent(row.recent_growth) }}</td>
+            <td>{{ number(row.total_accesses) }}</td>
+            <td>{{ number(row.mcp_calls) }}</td>
           </tr>
           <tr v-if="expanded === row.knowledge_base_id" class="detail">
-            <td colspan="12">
+            <td colspan="8">
               <div v-if="loading === row.knowledge_base_id">
                 {{ t('usageAnalytics.loading') }}
               </div>
@@ -104,19 +100,13 @@ const keys = [
   'knowledge_base_name',
   'owner_tenant_name',
   'usage_status',
-  'total_accesses',
-  'model_accesses',
-  'mcp_calls',
   'unique_tenants',
-  'unique_principals',
   'external_tenants',
-  'cross_tenant_accesses',
   'last_active',
-  'recent_growth',
+  'total_accesses',
+  'mcp_calls',
 ]
 const number = (value?: number) => new Intl.NumberFormat().format(value ?? 0)
-const percent = (value?: number) => `${(value ?? 0).toFixed(1)}%`
-const signedPercent = (value?: number) => `${(value ?? 0) > 0 ? '+' : ''}${(value ?? 0).toFixed(1)}%`
 const date = (value?: string) => (value ? new Date(value).toLocaleString() : '—')
 async function toggle(row: KnowledgeBaseUsageRow) {
   const id = row.knowledge_base_id

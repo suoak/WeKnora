@@ -76,8 +76,17 @@
       <div v-if="!loading && filteredModels.length === 0 && !authStore.hasRole('admin')" class="empty-state">
         <t-empty :description="emptyHint" />
       </div>
-      <div v-else-if="!loading" class="model-grid">
-        <div v-for="model in filteredModels" :key="`${model._modelType}-${model.id}`" class="model-card" :class="[
+      <div v-else-if="!loading" class="model-inventory">
+        <section v-for="group in modelGroups" :key="group.key" class="model-scope-section">
+          <header class="model-scope-section__header">
+            <div>
+              <h3>{{ modelGroupTitle(group.key) }}</h3>
+              <p>{{ modelGroupDescription(group.key) }}</p>
+            </div>
+            <span class="model-scope-section__count">{{ group.models.length }}</span>
+          </header>
+          <div class="model-grid">
+        <div v-for="model in group.models" :key="`${model._modelType}-${model.id}`" class="model-card" :class="[
           `model-card--${model._modelType}`,
           {
             'model-card--builtin': model.isBuiltin,
@@ -157,7 +166,7 @@
           </div>
         </div>
         <button
-          v-if="authStore.hasRole('admin')"
+          v-if="group.key === 'workspace' && authStore.hasRole('admin')"
           type="button"
           class="model-card model-card--add"
           data-guide="settings-add-model"
@@ -168,6 +177,8 @@
           </span>
           <span class="model-card--add__label">{{ $t('modelSettings.actions.addModel') }}</span>
         </button>
+          </div>
+        </section>
       </div>
     </t-loading>
 
@@ -484,6 +495,24 @@ const filteredModels = computed(() => {
   if (activeTypeFilter.value === 'all') return allLegacyModels.value
   return allLegacyModels.value.filter(m => m._modelType === activeTypeFilter.value)
 })
+const modelGroups = computed(() => [
+  {
+    key: 'builtin' as const,
+    models: filteredModels.value.filter(model => model.isBuiltin),
+  },
+  {
+    key: 'workspace' as const,
+    models: filteredModels.value.filter(model => !model.isBuiltin),
+  },
+].filter(group => group.models.length > 0 || group.key === 'workspace'))
+const modelGroupTitle = (key: 'builtin' | 'workspace') => key === 'builtin'
+  ? t('modelSettings.builtinModels.title')
+  : `${authStore.currentTenantName || t('settings.tenantInfo')} · ${t('settings.modelManagement')}`
+const modelGroupDescription = (key: 'builtin' | 'workspace') => key === 'builtin'
+  ? t(authStore.isSystemAdmin
+      ? 'modelSettings.builtinModels.descriptionAdmin'
+      : 'modelSettings.builtinModels.description')
+  : t('modelSettings.defaultPolicy.description')
 
 const countByType = (type: ModelType) => allLegacyModels.value.filter(m => m._modelType === type).length
 
@@ -1094,6 +1123,42 @@ onMounted(() => {
   :deep(.t-tabs__content) {
     display: none;
   }
+}
+
+.model-inventory {
+  display: grid;
+  gap: 26px;
+}
+
+.model-scope-section__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+
+  h3 {
+    margin: 0 0 4px;
+    color: var(--td-text-color-primary);
+    font-size: 15px;
+  }
+
+  p {
+    margin: 0;
+    color: var(--td-text-color-secondary);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+}
+
+.model-scope-section__count {
+  min-width: 26px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--td-bg-color-component);
+  color: var(--td-text-color-secondary);
+  font-size: 12px;
+  text-align: center;
 }
 
 .model-grid {
