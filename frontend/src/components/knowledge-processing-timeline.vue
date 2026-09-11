@@ -3312,4 +3312,20 @@ const processConfigLines = computed<string[]>(() => {
   color: var(--td-text-color-secondary);
   word-break: break-word;
 }
+
+@media (max-width: 768px) {
+  .kp-head { padding: 12px 14px 9px; }
+  .kp-head-toolbar { align-items: flex-start; flex-wrap: wrap; }
+  .kp-head-doc-title { width: calc(100% - 96px); }
+  .kp-head-actions { margin-left: 0; }
+  .kp-head-meta-part { display: block; }
+  .kp-head-meta-sep { display: none; }
+  .kp-attempts { padding-inline: 14px; overflow-x: auto; }
+  .kp-ruler { min-width: 560px; padding-inline: 14px; }
+  .kp-row { min-width: 560px; padding-inline: 14px; }
+  .kp-detail-open { height: 58%; min-height: 260px; }
+  .kp-detail-head { padding: 10px 14px; }
+  .kp-tabs { padding-inline: 8px; overflow-x: auto; }
+  .kp-detail-body { padding: 14px; }
+}
 </style>

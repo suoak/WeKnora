@@ -3,6 +3,10 @@
     <!-- Graph view (full screen) -->
     <template v-if="view === 'graph'">
       <div class="wiki-graph">
+        <div class="wiki-graph-mobile-note" role="note">
+          <t-icon name="desktop" />
+          <span>{{ $t('knowledgeEditor.wikiBrowser.graphMobileHint') }}</span>
+        </div>
         <div ref="graphRef" class="wiki-graph-canvas"></div>
 
         <!-- Graph Search Overlay -->
@@ -118,7 +122,13 @@
         </div>
 
         <div v-if="!graphReady" class="wiki-reader-empty wiki-graph-empty">
-          <t-loading v-if="graphLoading" />
+          <template v-if="graphLoadError">
+            <div class="wiki-empty-icon"><t-icon name="error-circle" size="42px" /></div>
+            <p class="wiki-empty-title">{{ $t(`loadState.${graphLoadError}Title`) }}</p>
+            <p class="wiki-empty-desc">{{ $t(`loadState.${graphLoadError}Description`) }}</p>
+            <t-button size="small" variant="outline" @click="loadGraph">{{ $t('loadState.retry') }}</t-button>
+          </template>
+          <t-loading v-else-if="graphLoading" />
           <div v-else class="wiki-empty-icon">
             <t-icon name="chart-bubble" size="48px" />
           </div>
@@ -188,9 +198,15 @@
         </div>
 
         <div class="wiki-page-list" ref="pageListRef">
+          <div v-if="pageLoadError" class="wiki-empty-state" role="alert">
+            <div class="wiki-empty-icon"><t-icon name="error-circle" size="36px" /></div>
+            <p class="wiki-empty-title">{{ $t(`loadState.${pageLoadError}Title`) }}</p>
+            <p class="wiki-empty-desc">{{ $t(`loadState.${pageLoadError}Description`) }}</p>
+            <t-button size="small" variant="outline" @click="loadPages">{{ $t('loadState.retry') }}</t-button>
+          </div>
           <!-- Search mode: flat list of hits, no group chrome. Clearing
                the search snaps back to the bucketed view below. -->
-          <template v-if="searchResults !== null">
+          <template v-if="!pageLoadError && searchResults !== null">
             <div v-for="page in searchResults" :key="page.id"
               :class="['wiki-page-item', { active: selectedPage?.id === page.id }]" @click="selectPage(page)">
               <div class="wiki-page-item-title">{{ page.title }}</div>
@@ -204,7 +220,7 @@
             </div>
           </template>
 
-          <template v-else>
+          <template v-else-if="!pageLoadError">
             <!-- Index overview (pinned at top). Rendered lazily from a
                  structured API response — never loads the full directory
                  as markdown. -->
@@ -801,6 +817,7 @@ import { MessagePlugin } from 'tdesign-vue-next'
 import { RecycleScroller } from 'vue-virtual-scroller'
 import { hydrateProtectedFileImages, sanitizeMarkdownHTML } from '@/utils/security'
 import type { ProtectedFileAccessContext } from '@/utils/protectedFileAccess'
+import { classifyLoadError, type LoadErrorKind } from '@/utils/loadErrorPresentation'
 import picturePreview from '@/components/picture-preview.vue'
 import WikiFolderActions from './WikiFolderActions.vue'
 import WikiRevisionDrawer from './WikiRevisionDrawer.vue'
@@ -991,8 +1008,11 @@ const readerBodyRef = ref<HTMLElement | null>(null)
 const drawerBodyRef = ref<HTMLElement | null>(null)
 const loading = ref(false)
 const graphLoading = ref(false)
+const pageLoadError = ref<LoadErrorKind | null>(null)
+const graphLoadError = ref<LoadErrorKind | null>(null)
 const graphReady = ref(false)
 const showArrows = ref(true)
+let latestPageLoadFailure: unknown = null
 
 // Graph filtering
 const graphFilterTypes = ref<Set<string>>(new Set(['summary', 'entity', 'concept', 'synthesis', 'comparison', 'index']))
@@ -2578,6 +2598,7 @@ async function loadPagesForType(
     }
   } catch (e) {
     console.error(`Failed to load wiki pages of type ${type}:`, e)
+    latestPageLoadFailure = e
   } finally {
     if (scopedState) {
       const latest = bucket.directoryPages[scopedPathKey]
@@ -2813,6 +2834,8 @@ onUnmounted(() => {
 // computation before the user saw anything.
 async function loadPages() {
   loading.value = true
+  pageLoadError.value = null
+  latestPageLoadFailure = null
   try {
     searchResults.value = null
     for (const tab of CONTENT_TABS) ensureBucket(tab)
@@ -2821,6 +2844,9 @@ async function loadPages() {
       await loadPagesForType(tab, { reset: true })
       await loadCategoriesForType(tab, { reset: true })
     }))
+    if (CONTENT_TABS.every(tab => !ensureBucket(tab).initialized) && latestPageLoadFailure) {
+      throw latestPageLoadFailure
+    }
 
     // Default to the knowledge tab (first in CONTENT_TABS) once every
     // bucket has had a chance to load. On later reloads (e.g. after
@@ -2848,6 +2874,9 @@ async function loadPages() {
         openIndexView()
       }
     }
+  } catch (error) {
+    console.error('Failed to load wiki pages:', error)
+    pageLoadError.value = classifyLoadError(error)
   } finally {
     loading.value = false
   }
@@ -3153,6 +3182,7 @@ function graphFilterSelectsNothing(): boolean {
 
 async function loadGraph() {
   graphLoading.value = true
+  graphLoadError.value = null
   graphReady.value = false
   graphMode.value = 'overview'
   graphCenter.value = ''
@@ -3192,6 +3222,7 @@ async function loadGraph() {
     }
   } catch (e) {
     console.error('Failed to load graph:', e)
+    graphLoadError.value = classifyLoadError(e)
   } finally {
     graphLoading.value = false
   }
@@ -6547,6 +6578,55 @@ onUnmounted(() => {
   &:hover {
     opacity: 0.8;
   }
+}
+
+.wiki-graph-mobile-note { display: none; }
+
+@media (max-width: 768px) {
+  .wiki-browser { flex-direction: column; }
+
+  .wiki-sidebar {
+    width: 100%;
+    min-width: 0;
+    height: 38%;
+    min-height: 180px;
+    max-height: 38vh;
+    border-right: 0;
+    border-bottom: 1px solid var(--td-component-stroke);
+  }
+
+  .wiki-sidebar-header { padding: 8px 12px; margin-left: 0; }
+  .wiki-page-list { padding: 0 12px 10px; }
+  .wiki-reader { padding: 16px; }
+  .wiki-reader-header { margin-bottom: 16px; }
+  .wiki-reader-title-row { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .wiki-reader-actions { width: 100%; overflow-x: auto; }
+  .wiki-reader-aside { width: 100%; align-items: flex-start; }
+  .wiki-tab-bar { gap: 8px; }
+
+  .wiki-graph-mobile-note {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    z-index: 4;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 9px 10px;
+    border: 1px solid var(--td-component-stroke);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--td-bg-color-container) 94%, transparent);
+    color: var(--td-text-color-secondary);
+    font-size: 12px;
+    line-height: 1.45;
+    box-shadow: var(--td-shadow-1);
+  }
+
+  .wiki-graph-search-container { top: 76px; left: 10px; right: 10px; }
+  .wiki-graph-search { width: auto; flex: 1; }
+  .wiki-graph-legend { display: none; }
+  :deep(.wiki-graph-drawer) { width: min(100vw, 480px) !important; }
 }
 </style>
 

@@ -133,7 +133,10 @@ interface StatusInfo {
   spin?: boolean;
 }
 const computeStatus = (item: KnowledgeItem): StatusInfo => {
-  if (item.parse_status === 'pending' || item.parse_status === 'processing') {
+  if (item.parse_status === 'pending') {
+    return { label: t('knowledgeBase.statusPending'), theme: 'primary', icon: 'time' };
+  }
+  if (item.parse_status === 'processing') {
     return { label: t('knowledgeBase.statusProcessing'), theme: 'primary', icon: 'loading', spin: true };
   }
   // finalizing = primary parse done, enrichment subtasks still running.

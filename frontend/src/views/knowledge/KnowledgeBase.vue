@@ -48,6 +48,7 @@ import FAQEntryManager from './components/FAQEntryManager.vue';
 import DocumentListView from './components/DocumentListView.vue';
 import DocumentCardView from './components/DocumentCardView.vue';
 import DocumentBatchBar from './components/DocumentBatchBar.vue';
+import KnowledgeProcessingSummary from './components/KnowledgeProcessingSummary.vue';
 import KbUploadSourceDropdown from './components/KbUploadSourceDropdown.vue';
 import KbFolderTree from './components/KbFolderTree.vue';
 import TagEditDialog from './components/TagEditDialog.vue';
@@ -91,6 +92,11 @@ const validTabs = ['documents', 'wiki', 'graph'] as const
 type KbTab = typeof validTabs[number]
 const initTab = validTabs.includes(route.query.tab as any) ? (route.query.tab as KbTab) : 'documents'
 const activeKbTab = ref<KbTab>(initTab);
+const kbContextDescription = computed(() => {
+  if (!isWiki.value || activeKbTab.value === 'documents') return t('knowledgeEditor.wikiBrowser.documentsContext');
+  if (activeKbTab.value === 'graph') return t('knowledgeEditor.wikiBrowser.graphContext');
+  return t('knowledgeEditor.wikiBrowser.wikiContext');
+});
 
 // Wiki 状态用于面包屑上的索引中指示。父组件自行拉取，避免依赖 WikiBrowser 挂载状态
 // （用户切到"文档" tab 时 WikiBrowser 会卸载，这里仍需持续反映后台索引进度）。
@@ -2357,26 +2363,32 @@ async function createNewSession(value: string): Promise<void> {
               </button>
               <t-icon name="chevron-right" class="breadcrumb-separator" />
               <template v-if="isWiki">
-                <span :class="['breadcrumb-tab', { active: activeKbTab === 'documents' }]"
-                  @click="activeKbTab = 'documents'">{{ $t('knowledgeEditor.wikiBrowser.tabDocuments') }}</span>
-                <span class="breadcrumb-tab-sep">/</span>
-                <span :class="['breadcrumb-tab', { active: activeKbTab === 'wiki', indexing: wikiIsIndexing }]"
-                  @click="activeKbTab = 'wiki'">
-                  Wiki
+                <span class="kb-context-tabs" role="tablist" :aria-label="$t('knowledgeEditor.wikiBrowser.contextNavigation')">
+                  <button type="button" role="tab" :aria-selected="activeKbTab === 'documents'"
+                    :class="['breadcrumb-tab', { active: activeKbTab === 'documents' }]"
+                    @click="activeKbTab = 'documents'">
+                    <t-icon name="file" />{{ $t('knowledgeEditor.wikiBrowser.tabDocuments') }}
+                  </button>
+                  <button type="button" role="tab" :aria-selected="activeKbTab === 'wiki'"
+                    :class="['breadcrumb-tab', { active: activeKbTab === 'wiki', indexing: wikiIsIndexing }]"
+                    @click="activeKbTab = 'wiki'">
+                    <t-icon name="book" />Wiki
                   <t-tooltip v-if="wikiIsIndexing" :content="wikiIndexingTip" placement="bottom">
                     <t-loading size="small" class="breadcrumb-tab-indicator" />
                   </t-tooltip>
-                </span>
-                <span class="breadcrumb-tab-sep">/</span>
-                <t-tooltip :content="$t('knowledgeEditor.wikiBrowser.tabGraphTip')" placement="bottom">
-                  <span :class="['breadcrumb-tab', { active: activeKbTab === 'graph', indexing: wikiIsIndexing }]"
+                  </button>
+                  <t-tooltip :content="$t('knowledgeEditor.wikiBrowser.tabGraphTip')" placement="bottom">
+                    <button type="button" role="tab" :aria-selected="activeKbTab === 'graph'"
+                      :class="['breadcrumb-tab', { active: activeKbTab === 'graph', indexing: wikiIsIndexing }]"
                     @click="activeKbTab = 'graph'">
+                      <t-icon name="chart-bubble" />
                     {{ $t('knowledgeEditor.wikiBrowser.tabGraph') }}
                     <t-tooltip v-if="wikiIsIndexing" :content="wikiIndexingTip" placement="bottom">
                       <t-loading size="small" class="breadcrumb-tab-indicator" />
                     </t-tooltip>
-                  </span>
-                </t-tooltip>
+                    </button>
+                  </t-tooltip>
+                </span>
               </template>
               <span v-else class="breadcrumb-current">{{ $t('knowledgeEditor.document.title') }}</span>
             </h2>
@@ -2391,7 +2403,7 @@ async function createNewSession(value: string): Promise<void> {
               </t-tooltip>
             </div>
           </div>
-          <p class="document-subtitle">{{ $t('knowledgeEditor.document.subtitle') }}</p>
+          <p class="document-subtitle">{{ kbContextDescription }}</p>
           <p v-if="unsupportedFileTypes.length" class="parser-hint" @click="goToParserSettings">
             <t-icon name="info-circle" class="parser-hint-icon" />
             <span>{{$t('knowledgeBase.unsupportedTypesHint', {
@@ -2616,6 +2628,7 @@ async function createNewSession(value: string): Promise<void> {
                   </div>
                 </div>
               </div>
+              <KnowledgeProcessingSummary v-if="cardList.length" :items="cardList" />
               <div class="doc-scroll-container"
                 :class="{
                   'is-empty': !cardList.length && !currentChildFolders.length && !docListLoading,
@@ -2824,8 +2837,24 @@ async function createNewSession(value: string): Promise<void> {
   box-sizing: border-box;
 }
 
-// Breadcrumb tab switch (文档/Wiki in breadcrumb)
+.kb-context-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 2px;
+  padding: 3px;
+  border: 1px solid var(--td-component-stroke);
+  border-radius: 8px;
+  background: var(--td-bg-color-secondarycontainer);
+}
+
+// Knowledge context switch: original documents / distilled Wiki / link graph.
 .breadcrumb-tab {
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  padding: 4px 8px;
+  font: inherit;
   cursor: pointer;
   color: var(--td-text-color-placeholder);
   font-weight: 400;
@@ -2841,6 +2870,8 @@ async function createNewSession(value: string): Promise<void> {
   &.active {
     color: var(--td-brand-color);
     font-weight: 600;
+    background: var(--td-bg-color-container);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
   }
 
   &.indexing {
@@ -2854,12 +2885,6 @@ async function createNewSession(value: string): Promise<void> {
   color: var(--td-brand-color);
   font-size: 12px;
   line-height: 1;
-}
-
-.breadcrumb-tab-sep {
-  margin: 0 6px;
-  color: var(--td-text-color-disabled);
-  font-weight: 400;
 }
 
 .wiki-main-area {
@@ -3841,6 +3866,22 @@ async function createNewSession(value: string): Promise<void> {
 }
 
 @media (max-width: 750px) {
+  .knowledge-layout { padding: 16px 14px 0; gap: 14px; }
+
+  .document-header .document-header-title { width: 100%; min-width: 0; }
+  .document-header .document-title-row { align-items: flex-start; }
+  .document-header .document-breadcrumb { width: 100%; flex-wrap: wrap; font-size: 17px; }
+
+  .kb-context-tabs {
+    width: 100%;
+    margin: 6px 0 0;
+
+    .breadcrumb-tab { flex: 1; justify-content: center; }
+  }
+
+  .document-header .kb-title-actions { margin-left: auto; }
+  .wiki-main-area { margin-inline: -2px; }
+
   .answers-input {
     transform: translateX(-182px);
   }

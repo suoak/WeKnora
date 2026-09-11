@@ -1,6 +1,7 @@
 import { branding } from '../../config/branding'
 
 export default {
+  loadState: { retry: 'Повторить', networkTitle: 'Проблема подключения', networkDescription: 'Проверьте сеть и повторите попытку.', forbiddenTitle: 'Доступ запрещён', forbiddenDescription: 'Текущая роль не позволяет открыть этот ресурс.', notFoundTitle: 'Ресурс не найден', notFoundDescription: 'Возможно, ресурс удалён или ссылка устарела.', genericTitle: 'Не удалось загрузить содержимое', genericDescription: 'Повторите попытку. Если проблема сохраняется, обратитесь к администратору.' },
   portal: {
     brandSubtitle: 'Портал знаний CSBU IPD', heroEyebrow: 'ПОИСК ЗНАНИЙ', heroTitle: 'Поиск управляемых пространств знаний организации',
     heroDescription: 'Изучайте профессиональные знания по процессу IPD и запрашивайте доступ Viewer только для чтения.', viewSwitcherLabel: 'Представления портала знаний',
@@ -1270,6 +1271,7 @@ export default {
       basic: 'Основное',
       knowledge: 'Знания и поиск',
       capability: 'Расширения',
+      runtime: 'Запуск и модели',
       integration: 'Публикация и интеграция'
     }
   },
@@ -4035,6 +4037,11 @@ export default {
       pageActions: 'Действия со страницей',
       tabDocuments: 'Документы',
       tabGraph: 'Граф',
+      contextNavigation: 'Представление знаний',
+      documentsContext: 'Исходные материалы и статус их обработки',
+      wikiContext: 'Структурированные знания, собранные из исходных документов',
+      graphContext: 'Связи между страницами Wiki',
+      graphMobileHint: 'Граф знаний удобнее изучать на большом экране. Поиск и сведения о страницах доступны и здесь.',
       tabGraphTip: 'Граф связей между Wiki-страницами (граф ссылок страниц). Это НЕ то же самое, что граф знаний на основе сущностей и отношений, настраиваемый в «Настройки БЗ → Граф знаний».',
       searchPlaceholder: 'Поиск Wiki-страниц...',
       searchNoResults: 'Страницы не найдены',
@@ -6013,6 +6020,9 @@ export default {
     contextCompactedSummary: '{before} → {after} токенов',
     contextCompactedDegraded: 'Сводка недоступна, сохранена исходная запись',
     title: 'Agents',
+    run: 'Запустить',
+    available: 'Доступен',
+    updatedAt: 'Обновлено {time}',
     subtitle: 'Configure and manage your agents to customize conversation behavior and capabilities',
     createAgent: 'Create Agent',
     builtin: 'Built-in',
@@ -6213,8 +6223,8 @@ export default {
       useInChat: 'Use in Chat'
     },
     empty: {
-      title: 'No Custom Agents',
-      description: 'Click the button in the top right to create your first agent',
+      title: 'Доступных агентов пока нет',
+      description: 'Создайте агента при наличии прав или обратитесь к участнику пространства с ролью Contributor.',
       sharedTitle: 'No shared agents yet',
       sharedDescription: 'You can join a space or ask others to share agents with you',
       favoritesTitle: 'No favorites yet',
@@ -6284,11 +6294,11 @@ export default {
       UNKNOWN_SUGGESTION: 'Проверьте логи приложения для подробностей.'
     },
     status: {
-      pending: 'Ожидание',
-      running: 'Выполняется',
-      finalizing: 'Оптимизация',
+      pending: 'Ожидает обработки',
+      running: 'Обработка',
+      finalizing: 'Почти готово',
       done: 'Готово',
-      failed: 'Ошибка',
+      failed: 'Ошибка обработки',
       skipped: 'Пропущено',
       cancelled: 'Отменено'
     },
@@ -6401,6 +6411,7 @@ export default {
     }
   },
   knowledgeBase: {
+    processingSummary: { title: 'Файлов: {total}', hint: 'Текущий прогресс обработки', completed: 'Готово: {count}', processing: 'В обработке: {count}', failed: 'Ошибок: {count}', cancelled: 'Отменено: {count}' },
     title: 'База знаний',
     fileContent: 'Содержимое файла',
     name: 'Название',
@@ -6655,9 +6666,10 @@ export default {
     batchReparseFailed: 'Ошибка пакетной пересборки',
     batchReparseSkippedInFlight: 'Пропущено документов, которые ещё обрабатываются: {count}',
     statusCompleted: 'Завершено',
+    statusPending: 'Ожидает обработки',
     statusProcessing: 'Обработка',
-    statusFinalizing: 'Оптимизация',
-    statusFailed: 'Ошибка',
+    statusFinalizing: 'Почти готово',
+    statusFailed: 'Ошибка обработки',
     statusCancelled: 'Отменено',
     statusDraft: 'Черновик',
     noDescription: 'Нет описания',

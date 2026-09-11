@@ -1,6 +1,7 @@
 import { branding } from '../../config/branding'
 
 export default {
+  loadState: { retry: '重试', networkTitle: '网络连接异常', networkDescription: '请检查网络连接后重试。', forbiddenTitle: '没有访问权限', forbiddenDescription: '当前角色无权访问此资源。', notFoundTitle: '资源不存在', notFoundDescription: '资源可能已被删除，或当前链接已经失效。', genericTitle: '内容加载失败', genericDescription: '请重试；如果问题持续，请联系管理员。' },
   portal: {
     brandSubtitle: 'CSBU IPD 知识门户',
     heroEyebrow: '知识发现',
@@ -1328,6 +1329,7 @@ export default {
       basic: '基础',
       knowledge: '知识检索',
       capability: '能力扩展',
+      runtime: '运行与模型',
       integration: '发布集成'
     }
   },
@@ -4094,6 +4096,11 @@ export default {
       pageActions: '页面操作',
       tabDocuments: '文档',
       tabGraph: '图谱',
+      contextNavigation: '知识视图',
+      documentsContext: '查看原始知识及其处理状态',
+      wikiContext: '阅读从原始文档提炼出的结构化知识',
+      graphContext: '探索 Wiki 页面之间的关联',
+      graphMobileHint: '知识图谱建议在更大的屏幕上探索；当前仍可使用搜索并查看页面详情。',
       tabGraphTip: 'Wiki 页面之间的引用关系图（即页面链接图谱），与「知识库设置 → 知识图谱」中基于 LLM 抽取的实体-关系图谱不是同一个概念',
       searchPlaceholder: '搜索 Wiki 页面...',
       searchNoResults: '没有找到匹配的页面',
@@ -6079,6 +6086,9 @@ export default {
     contextCompactedSummary: '{before} → {after} tokens',
     contextCompactedDegraded: '摘要不可用，已保留原始记录',
     title: '智能体',
+    run: '运行',
+    available: '可使用',
+    updatedAt: '{time} 更新',
     subtitle: '配置和管理您的智能体，自定义对话行为和能力',
     createAgent: '创建智能体',
     builtin: '内置',
@@ -6279,8 +6289,8 @@ export default {
       useInChat: '在对话中使用'
     },
     empty: {
-      title: '暂无自定义智能体',
-      description: '点击右上角按钮创建您的第一个智能体',
+      title: '当前还没有可用 Agent',
+      description: '有权限的成员可以创建 Agent；其他成员可联系空间 Contributor。',
       sharedTitle: '暂无共享智能体',
       sharedDescription: '您可以加入空间或请求他人将智能体共享给您',
       favoritesTitle: '暂无收藏',
@@ -6350,11 +6360,11 @@ export default {
       UNKNOWN_SUGGESTION: '请查看应用日志获取详细信息。'
     },
     status: {
-      pending: '等待中',
-      running: '进行中',
-      finalizing: '优化中',
+      pending: '等待处理',
+      running: '处理中',
+      finalizing: '即将完成',
       done: '已完成',
-      failed: '失败',
+      failed: '处理失败',
       skipped: '已跳过',
       cancelled: '已取消'
     },
@@ -6467,6 +6477,7 @@ export default {
     }
   },
   knowledgeBase: {
+    processingSummary: { title: '共 {total} 个文件', hint: '当前处理进度', completed: '{count} 已完成', processing: '{count} 处理中', failed: '{count} 失败', cancelled: '{count} 已取消' },
     title: '知识库',
     fileContent: '文件内容',
     name: '名称',
@@ -6721,9 +6732,10 @@ export default {
     batchReparseFailed: '批量重建失败',
     batchReparseSkippedInFlight: '已跳过 {count} 个正在解析中的文档',
     statusCompleted: '已完成',
-    statusProcessing: '解析中',
-    statusFinalizing: '优化中',
-    statusFailed: '失败',
+    statusPending: '等待处理',
+    statusProcessing: '处理中',
+    statusFinalizing: '即将完成',
+    statusFailed: '处理失败',
     statusCancelled: '已取消',
     statusDraft: '草稿',
     noDescription: '无描述',
