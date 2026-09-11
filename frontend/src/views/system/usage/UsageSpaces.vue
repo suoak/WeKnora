@@ -4,7 +4,9 @@
       <thead>
         <tr>
           <th v-for="key in keys" :key="key">
-            {{ t(`usageAnalytics.governance.columns.${key}`) }}
+            {{ key === 'mcp_adopted'
+              ? t('usageAnalytics.governance.mcpAdoption')
+              : t(`usageAnalytics.governance.columns.${key}`) }}
           </th>
         </tr>
       </thead>
@@ -17,16 +19,17 @@
             }}</span>
           </td>
           <td>{{ date(row.last_active) }}</td>
-          <td>{{ number(row.total_tokens) }}</td>
-          <td>{{ number(row.mcp_calls) }}</td>
-          <td>{{ percent(row.mcp_success_rate) }}</td>
-          <td>{{ number(row.active_principals) }}</td>
+          <td>
+            <span class="adoption" :data-adopted="row.mcp_adopted">
+              {{ t(`usageAnalytics.governance.filters.${row.mcp_adopted ? 'adopted' : 'notAdopted'}`) }}
+            </span>
+          </td>
           <td>{{ number(row.kb_used_count) }}</td>
-          <td>{{ number(row.kb_owned_count) }}</td>
-          <td>{{ number(row.external_kb_used_count) }}</td>
           <td>
             {{ number(row.cross_tenant_accesses + row.owned_kb_cross_tenant_accesses) }}
           </td>
+          <td>{{ number(row.total_tokens) }}</td>
+          <td>{{ number(row.mcp_calls) }}</td>
         </tr>
       </tbody>
     </table>
@@ -42,17 +45,13 @@ const keys = [
   'tenant_name',
   'usage_status',
   'last_active',
+  'mcp_adopted',
+  'kb_used_count',
+  'cross_tenant_accesses',
   'total_tokens',
   'mcp_calls',
-  'mcp_success_rate',
-  'active_principals',
-  'kb_used_count',
-  'kb_owned_count',
-  'external_kb_used_count',
-  'cross_tenant_accesses',
 ]
 const number = (value?: number) => new Intl.NumberFormat().format(value ?? 0)
-const percent = (value?: number) => `${(value ?? 0).toFixed(1)}%`
 const date = (value?: string) => (value ? new Date(value).toLocaleString() : '—')
 </script>
 <style scoped lang="less">
@@ -89,6 +88,13 @@ th {
 }
 .status[data-status='insufficient_data'] {
   color: var(--td-warning-color);
+}
+.adoption {
+  color: var(--td-text-color-placeholder);
+}
+.adoption[data-adopted='true'] {
+  color: var(--td-success-color);
+  font-weight: 600;
 }
 .empty {
   padding: 48px;

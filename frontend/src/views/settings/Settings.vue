@@ -93,6 +93,9 @@
                   <div class="role-denied-desc">{{ $t('settings.roleDenied.desc') }}</div>
                 </div>
                 <template v-else>
+                  <div v-if="currentSection === 'system-admin'" class="section">
+                    <SystemAdminHome @navigate="handleSystemAdminNavigate" />
+                  </div>
                   <!-- 常规设置 -->
                   <div v-if="currentSection === 'general'" class="section">
                     <GeneralSettings />
@@ -262,6 +265,7 @@ import RuntimeQueues from '@/views/system/RuntimeQueues.vue'
 import PlatformAPIKeys from '@/views/system/PlatformAPIKeys.vue'
 import SystemAuditLog from '@/views/system/SystemAuditLog.vue'
 import UsageAnalytics from '@/views/system/UsageAnalytics.vue'
+import SystemAdminHome from '@/views/system/SystemAdminHome.vue'
 import IntegrationSettingsSection from '@/views/integrations/IntegrationSettingsSection.vue'
 import {
   INTEGRATION_PREVIEW_ITEMS,
@@ -391,6 +395,7 @@ const navItems = computed(() => {
     { key: 'mcp', icon: 'tools', label: t('settings.mcpService') },
     { key: 'mcp-access-keys', icon: 'key', label: 'MCP Access Keys' },
     { key: 'system', icon: 'info-circle', label: t('settings.versionInfo') },
+    { key: 'system-admin', icon: 'dashboard', label: t('settings.navGroups.systemAdministration') },
     { key: 'system-global', icon: 'server', label: t('settings.system') },
     { key: 'runtime-queues', icon: 'queue', label: t('settings.taskQueue') },
     { key: 'platform-api-keys', icon: 'secured', label: t('platformApiKeys.title') },
@@ -459,7 +464,7 @@ const navGroups = computed<NavGroup[]>(() => {
     {
       key: 'system_administration',
       label: t('settings.navGroups.systemAdministration'),
-      items: pickItems(['system-global', 'runtime-queues', 'usage-analytics', 'platform-api-keys', 'system-audit-log']),
+      items: pickItems(['system-admin', 'usage-analytics', 'runtime-queues', 'system-audit-log', 'platform-api-keys', 'system-global']),
     },
     {
       key: 'platform',
@@ -470,6 +475,13 @@ const navGroups = computed<NavGroup[]>(() => {
 })
 
 // 导航项点击处理
+const handleSystemAdminNavigate = (section: string) => {
+  if (!SYSTEM_ADMIN_SECTIONS.has(section) && section !== 'models') return
+  currentSection.value = section
+  currentSubSection.value = ''
+  syncSettingsRoute(section)
+}
+
 const handleNavClick = (item: any) => {
   if (item.children && item.children.length > 0) {
     // 有子菜单，切换展开状态

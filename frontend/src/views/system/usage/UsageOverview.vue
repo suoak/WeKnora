@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="kpi-grid">
+    <div class="kpi-grid kpi-grid--primary">
       <article>
         <span>{{ t('usageAnalytics.metrics.activeTenants') }} (30d)</span
         ><strong>{{ number(overview?.active_tenants) }}</strong>
@@ -10,20 +10,23 @@
         ><strong>{{ number(overview?.active_knowledge_bases) }}</strong>
       </article>
       <article>
+        <span>{{ t('usageAnalytics.governance.metrics.crossSpaceUsage') }}</span
+        ><strong>{{ number(overview?.cross_tenant_usage) }}</strong>
+      </article>
+      <article>
+        <span>{{ t('usageAnalytics.governance.mcpAdoption') }}</span
+        ><strong>{{ percent(overview?.mcp_platform_penetration) }}</strong>
+      </article>
+    </div>
+
+    <div class="kpi-grid kpi-grid--secondary">
+      <article>
         <span>{{ t('usageAnalytics.metrics.tokens') }}</span
         ><strong>{{ number(overview?.total_tokens) }}</strong>
       </article>
       <article>
         <span>{{ t('usageAnalytics.metrics.mcpCalls') }}</span
         ><strong>{{ number(overview?.mcp_calls) }}</strong>
-      </article>
-      <article>
-        <span>{{ t('usageAnalytics.governance.metrics.crossSpaceUsage') }}</span
-        ><strong>{{ number(overview?.cross_tenant_usage) }}</strong>
-      </article>
-      <article>
-        <span>{{ t('usageAnalytics.governance.metrics.unattributedRatio') }}</span
-        ><strong>{{ percent(overview?.unattributed_mcp_ratio) }}</strong>
       </article>
       <article>
         <span>{{ t('usageAnalytics.governance.metrics.inactiveKnowledgeBases') }} (90d)</span
@@ -152,6 +155,15 @@ function attentionLabel(item: UsageAttention) {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 14px;
+}
+.kpi-grid--primary article {
+  border-top: 2px solid var(--td-brand-color);
+}
+.kpi-grid--secondary article {
+  padding: 14px 18px;
+}
+.kpi-grid--secondary article strong {
+  font-size: 20px;
 }
 article,
 .usage-card {
