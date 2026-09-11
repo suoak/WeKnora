@@ -3663,6 +3663,14 @@ export default {
   knowledgeEditor: {
     titleCreate: '지식베이스 생성',
     titleEdit: '지식베이스 설정',
+    createFlow: {
+      basicDescription: '이름과 설명을 입력하면 나머지 설정은 자동으로 상속됩니다.',
+      defaultsTitle: '시스템 기본 설정 사용',
+      defaultsDescription: '모델, 파싱, 청킹, 저장소 및 벡터 저장소는 시스템 기본값을 상속합니다.',
+      showAdvanced: '고급 설정', hideAdvanced: '고급 설정 접기',
+      missingEmbedding: '기본 Embedding 모델이 구성되지 않았습니다. 시스템 관리자에게 문의하세요.',
+      configureModel: '모델 설정',
+    },
     advanced: {
       title: '고급 설정',
       description: '질문 생성, 멀티모달 등 고급 기능 설정',
@@ -4467,6 +4475,15 @@ export default {
   },
   knowledgeList: {
     create: '지식베이스 생성',
+    filters: {
+      searchPlaceholder: '이름 또는 설명 검색',
+      allPermissions: '모든 권한', editable: '편집 가능', readonly: '읽기 전용',
+      shared: '나와 공유됨',
+      allStatuses: '모든 상태', ready: '사용 가능', processing: '처리 중', setup: '설정 필요',
+      noResults: '일치하는 지식베이스가 없습니다', noResultsHint: '검색어, 권한 또는 상태 필터를 변경해 보세요.', clear: '필터 지우기',
+    },
+    favorite: { add: '즐겨찾기에 추가', remove: '즐겨찾기에서 제거' },
+    access: { currentSpace: '현재 스페이스', private: '스페이스 전용', shared: '공유됨' },
     subtitle: '지식베이스를 관리하고 구성합니다. 문서형과 Q&A형 지식베이스를 지원합니다',
     sharedToOrgs: '{count} 스페이스에 공유됨',
     uninitializedBanner: '일부 지식베이스가 아직 초기화되지 않았습니다. 지식 문서를 추가하려면 먼저 설정에서 모델 정보를 구성해야 합니다',
@@ -6645,6 +6662,10 @@ export default {
     statusDraft: '초안',
     noDescription: '설명 없음',
     emptyKnowledgeDragDrop: '지식이 비어 있음, 드래그 앤 드롭으로 업로드',
+    emptyCreated: '지식베이스가 생성되었습니다',
+    emptyAddFirst: '첫 번째 지식을 추가하세요',
+    emptyUploadHint: '파일을 업로드하면 시스템이 파싱 및 권장 청킹 설정을 자동으로 선택합니다.',
+    emptyUploadFile: '파일 업로드',
     pdfDocFormat: 'pdf, doc 형식 파일, 최대 10MB',
     textMarkdownFormat: 'text, markdown 형식 파일, 최대 200KB',
     dragFileNotText: '텍스트나 링크가 아닌 파일을 드래그하세요',

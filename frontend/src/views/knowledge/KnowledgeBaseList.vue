@@ -25,7 +25,22 @@
              The backend `?creator=mine|others` param and the URL-state
              field are kept so a future "filter by member" entry point
              (e.g. clicking an avatar) can deep-link without re-plumbing. -->
-
+        <div class="kb-discovery-bar">
+          <t-input v-model="kbSearchQuery" clearable class="kb-search-input"
+            :placeholder="$t('knowledgeList.filters.searchPlaceholder')">
+            <template #prefixIcon><t-icon name="search" /></template>
+          </t-input>
+          <t-select v-model="kbAccessFilter" class="kb-filter-select" :options="kbAccessOptions" />
+          <t-select v-model="kbStatusFilter" class="kb-filter-select" :options="kbStatusOptions" />
+        </div>
+        <div v-if="showNoFilterResults" class="empty-state filter-empty-state">
+          <t-icon name="search" size="42px" class="empty-icon" />
+          <span class="empty-txt">{{ $t('knowledgeList.filters.noResults') }}</span>
+          <span class="empty-desc">{{ $t('knowledgeList.filters.noResultsHint') }}</span>
+          <t-button variant="text" theme="primary" @click="clearDiscoveryFilters">
+            {{ $t('knowledgeList.filters.clear') }}
+          </t-button>
+        </div>
 
         <!-- 未初始化知识库提示 -->
         <div v-if="hasUninitializedKbs" class="warning-banner">
@@ -192,12 +207,6 @@
             }"
               :ref="el => { if (highlightedKbId !== null && highlightedKbId === kb.id && el) highlightedCardRef = el as HTMLElement }"
               @click="handleCardClick(kb)">
-              <!-- 收藏按钮：右上角浮动；通过 .card-header 的 padding-right
-                   给「更多」按钮腾出空间，避免两个按钮叠在一起。 -->
-              <button type="button" class="kb-favorite-star" :class="{ 'is-favorited': isKbFavorited(kb.id) }"
-                @click.stop="toggleFavoriteKb(kb.id, $event)">
-                <t-icon :name="isKbFavorited(kb.id) ? 'star-filled' : 'star'" size="14px" />
-              </button>
               <!-- 卡片头部 -->
               <div class="card-header">
                 <span class="card-title" :title="kb.name">
@@ -218,6 +227,10 @@
                       <div class="popup-menu-item" @click.stop="handleTogglePinById(kb.id)">
                         <t-icon class="menu-icon" :name="kb.is_pinned ? 'pin-filled' : 'pin'" />
                         <span>{{ kb.is_pinned ? $t('knowledgeList.pin.unpin') : $t('knowledgeList.pin.pin') }}</span>
+                      </div>
+                      <div class="popup-menu-item" @click.stop="toggleFavoriteKb(kb.id, $event)">
+                        <t-icon class="menu-icon" :name="isKbFavorited(kb.id) ? 'star-filled' : 'star'" />
+                        <span>{{ isKbFavorited(kb.id) ? $t('knowledgeList.favorite.remove') : $t('knowledgeList.favorite.add') }}</span>
                       </div>
                       <div v-if="canDuplicateKBCard(kb)" class="popup-menu-item"
                         @click.stop="handleDuplicateById(kb.id)">
@@ -244,6 +257,11 @@
                 <div class="card-description">
                   {{ kb.description || $t('knowledgeBase.noDescription') }}
                 </div>
+                <div class="card-meta-line">
+                  <span>{{ kbOwnerSpaceName(kb) }}</span>
+                  <span>{{ kbAccessLabel(kb) }}</span>
+                  <span v-if="kb.updated_at">{{ kb.updated_at }}</span>
+                </div>
               </div>
 
               <!-- 卡片底部 -->
@@ -259,24 +277,6 @@
                         <span class="badge-count">{{ kb.type === 'faq' ? (kb.chunk_count || 0) : (kb.knowledge_count ||
                           0) }}</span>
                         <t-icon v-if="kb.isProcessing" name="loading" size="12px" class="processing-icon" />
-                      </div>
-                    </t-tooltip>
-                    <t-tooltip v-if="kb.extract_config?.enabled" :content="$t('knowledgeList.features.knowledgeGraph')"
-                      placement="top">
-                      <div class="feature-badge kg">
-                        <t-icon name="relation" size="14px" />
-                      </div>
-                    </t-tooltip>
-                    <t-tooltip v-if="kb.vlm_config?.enabled" :content="$t('knowledgeList.features.multimodal')"
-                      placement="top">
-                      <div class="feature-badge multimodal">
-                        <t-icon name="image" size="14px" />
-                      </div>
-                    </t-tooltip>
-                    <t-tooltip v-if="kb.question_generation_config?.enabled"
-                      :content="$t('knowledgeList.features.questionGeneration')" placement="top">
-                      <div class="feature-badge question">
-                        <t-icon name="help-circle" size="14px" />
                       </div>
                     </t-tooltip>
                     <t-tooltip v-if="kb.share_count && kb.share_count > 0"
@@ -298,28 +298,38 @@
               'kb-type-document': (kb.type || 'document') === 'document',
               'kb-type-faq': kb.type === 'faq'
             }" @click="handleSharedKbClickFromAll(kb)">
-              <button type="button" class="kb-favorite-star" :class="{ 'is-favorited': isKbFavorited(kb.id) }"
-                @click.stop="toggleFavoriteKb(kb.id, $event)">
-                <t-icon :name="isKbFavorited(kb.id) ? 'star-filled' : 'star'" size="14px" />
-              </button>
               <!-- 卡片头部 -->
               <div class="card-header">
                 <span class="card-title" :title="kb.name">
                   <KbWikiBadge v-if="isWikiKb(kb)" />
                   <span class="card-title-text">{{ kb.name }}</span>
                 </span>
-                <t-tooltip :content="$t('knowledgeList.menu.viewDetails')" placement="top">
-                  <button type="button" class="shared-detail-trigger" @click.stop="openSharedDetailFromAll(kb)"
-                    :aria-label="$t('knowledgeList.menu.viewDetails')">
-                    <t-icon name="info-circle" size="16px" />
-                  </button>
-                </t-tooltip>
+                <t-popup overlayClassName="card-more-popup" trigger="click" destroy-on-close placement="bottom-right">
+                  <div class="more-wrap" @click.stop><img class="more-icon" src="@/assets/img/more.png" alt="" /></div>
+                  <template #content>
+                    <div class="popup-menu" @click.stop>
+                      <div class="popup-menu-item" @click.stop="toggleFavoriteKb(kb.id, $event)">
+                        <t-icon class="menu-icon" :name="isKbFavorited(kb.id) ? 'star-filled' : 'star'" />
+                        <span>{{ isKbFavorited(kb.id) ? $t('knowledgeList.favorite.remove') : $t('knowledgeList.favorite.add') }}</span>
+                      </div>
+                      <div class="popup-menu-item" @click.stop="openSharedDetailFromAll(kb)">
+                        <t-icon class="menu-icon" name="info-circle" />
+                        <span>{{ $t('knowledgeList.menu.viewDetails') }}</span>
+                      </div>
+                    </div>
+                  </template>
+                </t-popup>
               </div>
 
               <!-- 卡片内容 -->
               <div class="card-content">
                 <div class="card-description">
                   {{ kb.description || $t('knowledgeBase.noDescription') }}
+                </div>
+                <div class="card-meta-line">
+                  <span>{{ kbOwnerSpaceName(kb) }}</span>
+                  <span>{{ kbAccessLabel(kb) }}</span>
+                  <span v-if="kb.updated_at">{{ formatKbUpdatedAt(kb.updated_at) }}</span>
                 </div>
               </div>
 
@@ -336,25 +346,6 @@
                         <span class="badge-count">{{ kb.type === 'faq' ? (kb.chunk_count || '-') : (kb.knowledge_count
                           || '-')
                         }}</span>
-                      </div>
-                    </t-tooltip>
-                    <t-tooltip v-if="kb.extract_config?.enabled" :content="$t('knowledgeList.features.knowledgeGraph')"
-                      placement="top">
-                      <div class="feature-badge kg">
-                        <t-icon name="relation" size="14px" />
-                      </div>
-                    </t-tooltip>
-                    <t-tooltip
-                      v-if="kb.vlm_config?.enabled || (kb.storage_provider_config?.provider && kb.storage_provider_config.provider !== 'local')"
-                      :content="$t('knowledgeList.features.multimodal')" placement="top">
-                      <div class="feature-badge multimodal">
-                        <t-icon name="image" size="14px" />
-                      </div>
-                    </t-tooltip>
-                    <t-tooltip v-if="kb.question_generation_config?.enabled"
-                      :content="$t('knowledgeList.features.questionGeneration')" placement="top">
-                      <div class="feature-badge question">
-                        <t-icon name="help-circle" size="14px" />
                       </div>
                     </t-tooltip>
                   </div>
@@ -429,10 +420,6 @@
             }"
               :ref="el => { if (highlightedKbId !== null && highlightedKbId === kb.id && el) highlightedCardRef = el as HTMLElement }"
               @click="handleCardClick(kb)">
-              <button type="button" class="kb-favorite-star" :class="{ 'is-favorited': isKbFavorited(kb.id) }"
-                @click.stop="toggleFavoriteKb(kb.id, $event)">
-                <t-icon :name="isKbFavorited(kb.id) ? 'star-filled' : 'star'" size="14px" />
-              </button>
               <!-- 卡片头部 -->
               <div class="card-header">
                 <span class="card-title" :title="kb.name">
@@ -452,6 +439,10 @@
                       <div class="popup-menu-item" @click.stop="handleTogglePin(kb)">
                         <t-icon class="menu-icon" :name="kb.is_pinned ? 'pin-filled' : 'pin'" />
                         <span>{{ kb.is_pinned ? $t('knowledgeList.pin.unpin') : $t('knowledgeList.pin.pin') }}</span>
+                      </div>
+                      <div class="popup-menu-item" @click.stop="toggleFavoriteKb(kb.id, $event)">
+                        <t-icon class="menu-icon" :name="isKbFavorited(kb.id) ? 'star-filled' : 'star'" />
+                        <span>{{ isKbFavorited(kb.id) ? $t('knowledgeList.favorite.remove') : $t('knowledgeList.favorite.add') }}</span>
                       </div>
                       <div v-if="canDuplicateKBCard(kb)" class="popup-menu-item" @click.stop="handleDuplicate(kb)">
                         <t-icon class="menu-icon" name="file-copy" />
@@ -477,6 +468,11 @@
                 <div class="card-description">
                   {{ kb.description || $t('knowledgeBase.noDescription') }}
                 </div>
+                <div class="card-meta-line">
+                  <span>{{ kbOwnerSpaceName(kb) }}</span>
+                  <span>{{ kbAccessLabel(kb) }}</span>
+                  <span v-if="kb.updated_at">{{ kb.updated_at }}</span>
+                </div>
               </div>
 
               <!-- 卡片底部 -->
@@ -492,25 +488,6 @@
                         <span class="badge-count">{{ kb.type === 'faq' ? (kb.chunk_count || 0) : (kb.knowledge_count ||
                           0) }}</span>
                         <t-icon v-if="kb.isProcessing" name="loading" size="12px" class="processing-icon" />
-                      </div>
-                    </t-tooltip>
-                    <t-tooltip v-if="kb.extract_config?.enabled" :content="$t('knowledgeList.features.knowledgeGraph')"
-                      placement="top">
-                      <div class="feature-badge kg">
-                        <t-icon name="relation" size="14px" />
-                      </div>
-                    </t-tooltip>
-                    <t-tooltip
-                      v-if="kb.vlm_config?.enabled || (kb.storage_provider_config?.provider && kb.storage_provider_config.provider !== 'local')"
-                      :content="$t('knowledgeList.features.multimodal')" placement="top">
-                      <div class="feature-badge multimodal">
-                        <t-icon name="image" size="14px" />
-                      </div>
-                    </t-tooltip>
-                    <t-tooltip v-if="kb.question_generation_config?.enabled"
-                      :content="$t('knowledgeList.features.questionGeneration')" placement="top">
-                      <div class="feature-badge question">
-                        <t-icon name="help-circle" size="14px" />
                       </div>
                     </t-tooltip>
                     <!-- 共享状态图标 -->
@@ -592,18 +569,32 @@
                   <KbWikiBadge v-if="isWikiKb(shared.knowledge_base)" />
                   <span class="card-title-text">{{ shared.knowledge_base.name }}</span>
                 </span>
-                <t-tooltip v-if="!shared.is_mine" :content="$t('knowledgeList.menu.viewDetails')" placement="top">
-                  <button type="button" class="shared-detail-trigger" @click.stop="openSharedDetail(shared)"
-                    :aria-label="$t('knowledgeList.menu.viewDetails')">
-                    <t-icon name="info-circle" size="16px" />
-                  </button>
-                </t-tooltip>
+                <t-popup overlayClassName="card-more-popup" trigger="click" destroy-on-close placement="bottom-right">
+                  <div class="more-wrap" @click.stop><img class="more-icon" src="@/assets/img/more.png" alt="" /></div>
+                  <template #content>
+                    <div class="popup-menu" @click.stop>
+                      <div class="popup-menu-item" @click.stop="toggleFavoriteKb(shared.knowledge_base.id, $event)">
+                        <t-icon class="menu-icon" :name="isKbFavorited(shared.knowledge_base.id) ? 'star-filled' : 'star'" />
+                        <span>{{ isKbFavorited(shared.knowledge_base.id) ? $t('knowledgeList.favorite.remove') : $t('knowledgeList.favorite.add') }}</span>
+                      </div>
+                      <div v-if="!shared.is_mine" class="popup-menu-item" @click.stop="openSharedDetail(shared)">
+                        <t-icon class="menu-icon" name="info-circle" />
+                        <span>{{ $t('knowledgeList.menu.viewDetails') }}</span>
+                      </div>
+                    </div>
+                  </template>
+                </t-popup>
               </div>
 
               <!-- 卡片内容 -->
               <div class="card-content">
                 <div class="card-description">
                   {{ shared.knowledge_base.description || $t('knowledgeBase.noDescription') }}
+                </div>
+                <div class="card-meta-line">
+                  <span>{{ shared.org_name || kbOwnerSpaceName(shared.knowledge_base) }}</span>
+                  <span>{{ shared.is_mine ? $t('knowledgeList.access.shared') : $t(`organization.role.${shared.permission}`) }}</span>
+                  <span v-if="shared.knowledge_base.updated_at">{{ formatKbUpdatedAt(shared.knowledge_base.updated_at) }}</span>
                 </div>
               </div>
 
@@ -631,7 +622,7 @@
         </div>
 
         <!-- 全部空状态：保留「新建知识库」CTA，因为是空间没有任何 KB 的真空场景 -->
-        <div v-if="spaceSelection === 'all' && filteredKnowledgeBases.length === 0 && !loading" class="empty-state">
+        <div v-if="spaceSelection === 'all' && filteredKnowledgeBases.length === 0 && !loading && !hasDiscoveryFilter" class="empty-state">
           <img class="empty-img" src="@/assets/img/upload.svg" alt="">
           <span class="empty-txt">{{ $t('knowledgeList.empty.title') }}</span>
           <span class="empty-desc">{{ $t('knowledgeList.empty.description') }}</span>
@@ -644,7 +635,7 @@
 
         <!-- 收藏空状态：不放创建按钮——「没有收藏」 ≠ 「没有知识库」，
              正确引导是「去星标一下」，不是「再建一个」。 -->
-        <div v-if="spaceSelection === 'favorites' && filteredKnowledgeBases.length === 0 && !loading"
+        <div v-if="spaceSelection === 'favorites' && filteredKnowledgeBases.length === 0 && !loading && !hasDiscoveryFilter"
           class="empty-state">
           <t-icon name="star" size="48px" class="empty-icon" />
           <span class="empty-txt">{{ $t('knowledgeList.empty.favoritesTitle') }}</span>
@@ -652,14 +643,14 @@
         </div>
 
         <!-- 最近空状态：同理，引导是「去打开一个」。 -->
-        <div v-if="spaceSelection === 'recents' && filteredKnowledgeBases.length === 0 && !loading" class="empty-state">
+        <div v-if="spaceSelection === 'recents' && filteredKnowledgeBases.length === 0 && !loading && !hasDiscoveryFilter" class="empty-state">
           <t-icon name="history" size="48px" class="empty-icon" />
           <span class="empty-txt">{{ $t('knowledgeList.empty.recentsTitle') }}</span>
           <span class="empty-desc">{{ $t('knowledgeList.empty.recentsDescription') }}</span>
         </div>
 
         <!-- 我的知识库空状态 -->
-        <div v-if="spaceSelection === 'mine' && kbs.length === 0 && !loading" class="empty-state">
+        <div v-if="spaceSelection === 'mine' && kbs.length === 0 && !loading && !hasDiscoveryFilter" class="empty-state">
           <img class="empty-img" src="@/assets/img/upload.svg" alt="">
           <span class="empty-txt">{{ $t('knowledgeList.empty.title') }}</span>
           <span class="empty-desc">{{ $t('knowledgeList.empty.description') }}</span>
@@ -671,7 +662,7 @@
         </div>
 
         <!-- 空间下知识库空状态 -->
-        <div v-if="spaceSelectionOrgId && !spaceKbsLoading && spaceKbsList.length === 0" class="empty-state">
+        <div v-if="spaceSelectionOrgId && !spaceKbsLoading && spaceKbsList.length === 0 && !hasDiscoveryFilter" class="empty-state">
           <img class="empty-img" src="@/assets/img/upload.svg" alt="">
           <span class="empty-txt">{{ $t('knowledgeList.empty.sharedTitle') }}</span>
           <span class="empty-desc">{{ $t('knowledgeList.empty.sharedDescription') }}</span>
@@ -799,19 +790,73 @@ import ResourceOriginBadge from '@/components/ResourceOriginBadge.vue'
 import { shouldShowResourceOriginBadge } from '@/utils/card-list-badge'
 import ContextualGuide from '@/components/ContextualGuide.vue'
 import { isContextualGuideDone, markContextualGuideDone } from '@/config/contextualGuides'
-import { useTenantModelReadiness } from '@/composables/useTenantModelReadiness'
 import { useI18n } from 'vue-i18n'
 import { useListUrlState } from '@/composables/useListUrlState'
 import { useResourcePins } from '@/composables/useResourcePins'
+import {
+  matchesKnowledgeBaseFilters,
+  type KnowledgeBaseAccessFilter,
+  type KnowledgeBaseStatusFilter,
+} from './kbExperience'
 
 const router = useRouter()
 const route = useRoute()
 const uiStore = useUIStore()
 const authStore = useAuthStore()
-const { loaded: modelsReadyLoaded, isReadyForDocumentKb } = useTenantModelReadiness()
 const orgStore = useOrganizationStore()
 const chatResources = useChatResourcesStore()
 const { t } = useI18n()
+const kbSearchQuery = ref('')
+const kbAccessFilter = ref<KnowledgeBaseAccessFilter>('all')
+const kbStatusFilter = ref<KnowledgeBaseStatusFilter>('all')
+const kbAccessOptions = computed(() => [
+  { label: t('knowledgeList.filters.allPermissions'), value: 'all' },
+  { label: t('knowledgeList.filters.shared'), value: 'shared' },
+  { label: t('knowledgeList.filters.editable'), value: 'editable' },
+  { label: t('knowledgeList.filters.readonly'), value: 'readonly' },
+])
+const hasDiscoveryFilter = computed(() => Boolean(
+  kbSearchQuery.value.trim() || kbAccessFilter.value !== 'all' || kbStatusFilter.value !== 'all'
+))
+const clearDiscoveryFilters = () => {
+  kbSearchQuery.value = ''
+  kbAccessFilter.value = 'all'
+  kbStatusFilter.value = 'all'
+}
+const kbStatusOptions = computed(() => [
+  { label: t('knowledgeList.filters.allStatuses'), value: 'all' },
+  { label: t('knowledgeList.filters.ready'), value: 'ready' },
+  { label: t('knowledgeList.filters.processing'), value: 'processing' },
+  { label: t('knowledgeList.filters.setup'), value: 'setup' },
+])
+const matchesCurrentFilters = (kb: any) => matchesKnowledgeBaseFilters(
+  kb?.knowledge_base
+    ? {
+        ...kb.knowledge_base,
+        ...kb,
+        editable: kb.is_mine === true || isSharedKbEditable(kb.permission),
+        sharedWithMe: kb.is_mine !== true,
+      }
+    : {
+        ...kb,
+        editable: kb.isMine === false ? isSharedKbEditable(kb.permission) : canManageKBCard(kb),
+        sharedWithMe: kb.isMine === false,
+      },
+  kbSearchQuery.value,
+  kbAccessFilter.value,
+  kbStatusFilter.value,
+)
+const kbOwnerSpaceName = (kb: any) => kb?.org_name || authStore.currentTenantName || t('knowledgeList.access.currentSpace')
+const kbAccessLabel = (kb: any) => {
+  if (kb?.isMine === false && kb?.permission) return t(`organization.role.${kb.permission}`)
+  return Number(kb?.share_count || 0) > 0
+    ? t('knowledgeList.access.shared')
+    : t('knowledgeList.access.private')
+}
+const formatKbUpdatedAt = (value: string) => {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : formatStringDate(date)
+}
 
 // 左侧空间选择：默认根据当前角色决定。
 // Viewer 在该空间里通常 0 KB owned，"我的"会显示空状态、又把共享 KB 藏起来，
@@ -823,7 +868,7 @@ const { t } = useI18n()
 // stored value (not "workspace") for back-compat with any external link
 // that might point at the old query — its display label is rebranded
 // via ListSpaceSidebar's workspaceLabel computed.
-const defaultScope: 'all' | 'mine' = authStore.hasRole('contributor') ? 'mine' : 'all'
+const defaultScope: 'all' | 'mine' = 'all'
 const { scope: spaceSelection, creator: creatorFilter } = useListUrlState({
   defaultScope,
   defaultCreator: 'all',
@@ -930,7 +975,7 @@ const spaceKbsLoading = ref(false)
 // previous version only bucketed by isMyKb and silently demoted these
 // pinned-but-teammate KBs.
 const sortedMineKbs = computed<KB[]>(() => {
-  return [...kbs.value].sort((a, b) => {
+  return [...kbs.value].filter(matchesCurrentFilters).sort((a, b) => {
     const ap = a.is_pinned ? 0 : 1
     const bp = b.is_pinned ? 0 : 1
     if (ap !== bp) return ap - bp
@@ -951,7 +996,7 @@ const sortedMineKbs = computed<KB[]>(() => {
 // 空间视角下的稳定排序：我创建的（is_mine）放在前面，剩下的共享部分再按
 // 可编辑 / 仅查看 排序——这样空间列表跟「全部」视图的视觉顺序一致。
 const sortedSpaceKbsList = computed(() => {
-  return [...spaceKbsList.value].sort((a, b) => {
+  return [...spaceKbsList.value].filter(matchesCurrentFilters).sort((a, b) => {
     const aMine = a.is_mine ? 0 : 1
     const bMine = b.is_mine ? 0 : 1
     if (aMine !== bMine) return aMine - bMine
@@ -1071,7 +1116,7 @@ function isSharedKbEditable(perm: string | undefined): boolean {
 // 暗示——但实际上 admin/owner 也会想区分自己创建 vs 同事创建的卡片，所以
 // 现在统一打开。如果哪天需要把权限色彩从标题里拿掉，就改 i18n 文案即可，
 // 不需要再回头碰这个 computed。
-const showShareGroupHeaders = computed(() => true)
+const showShareGroupHeaders = computed(() => false)
 
 // 同空间、非当前用户创建的 KB 分组标题。
 // contributor / viewer 在本空间里对这些 KB 没有写权限，所以打"仅查看"；
@@ -1159,13 +1204,13 @@ const spaceKbSectionCounts = computed<Record<KbSectionKey, number>>(() => {
 // preserved via the upstream array (pins order is ts-desc).
 const filteredKnowledgeBases = computed(() => {
   if (spaceSelection.value === 'favorites') {
-    return favoritesList.value
+    return favoritesList.value.filter(matchesCurrentFilters)
   }
   if (spaceSelection.value === 'recents') {
-    return recentsList.value
+    return recentsList.value.filter(matchesCurrentFilters)
   }
   if (spaceSelection.value === 'mine') {
-    return kbs.value.map(kb => ({ ...kb, isMine: true as const }))
+    return kbs.value.map(kb => ({ ...kb, isMine: true as const })).filter(matchesCurrentFilters)
   }
   if (spaceSelection.value !== 'all') {
     return []
@@ -1181,7 +1226,14 @@ const filteredKnowledgeBases = computed(() => {
     kbs.value as unknown as OwnedKnowledgeBase[],
     sharedKbs.value as unknown as SharedKnowledgeBaseLike[],
     authStore.user?.id,
-  ) as unknown as Array<(KB & { isMine: true }) | (SharedKnowledgeBase['knowledge_base'] & { isMine: false; permission: string; shared_at: string; share_id: string } & any)>
+  ).filter(matchesCurrentFilters) as unknown as Array<(KB & { isMine: true }) | (SharedKnowledgeBase['knowledge_base'] & { isMine: false; permission: string; shared_at: string; share_id: string } & any)>
+})
+
+const showNoFilterResults = computed(() => {
+  if (!hasDiscoveryFilter.value || loading.value || spaceKbsLoading.value) return false
+  if (spaceSelectionOrgId.value) return sortedSpaceKbsList.value.length === 0
+  if (spaceSelection.value === 'mine') return sortedMineKbs.value.length === 0
+  return filteredKnowledgeBases.value.length === 0
 })
 
 const showKbListEmpty = computed(() => {
@@ -1666,11 +1718,7 @@ const handleCardClick = (kb: KB) => {
   // Track this open in the per-user "recent" list before navigating —
   // matches the user mental model "this is what I last worked on".
   pins.touchRecent('kb', kb.id)
-  if (isInitialized(kb)) {
-    goDetail(kb.id)
-  } else {
-    goSettings(kb.id)
-  }
+  goDetail(kb.id)
 }
 
 // toggleFavoriteKb is the click handler for the star icon rendered on
@@ -1694,20 +1742,19 @@ const goSettings = (id: string) => {
 // 创建知识库
 const handleCreateKnowledgeBase = () => {
   markContextualGuideDone('kbList')
-  // 无模型时仍打开创建向导，并定位到模型配置页；用户可在向导内添加模型，无需先跳转系统设置
-  const initialSection =
-    modelsReadyLoaded.value && !isReadyForDocumentKb.value ? 'models' : undefined
-  uiStore.openCreateKB('document', initialSection)
+  // Basic creation inherits backend defaults. Missing-model guidance is kept
+  // inside the dialog so ordinary users are not dropped into model settings.
+  uiStore.openCreateKB('document')
 }
 
 // 知识库编辑器成功回调（创建或编辑成功）
-const handleKBEditorSuccess = (kbId: string) => {
+const handleKBEditorSuccess = (kbId: string, created = false) => {
   console.log('[KnowledgeBaseList] knowledge operation success:', kbId)
   const shouldOpenDetailForUploadGuide = !isContextualGuideDone('kbDetail')
   // 列表页编辑同样要让单 KB 详情缓存失效，否则侧栏 / 详情页 60s 内仍显示旧信息
   chatResources.invalidateKnowledgeBaseDetail(kbId)
   fetchList(true).then(() => {
-    if (shouldOpenDetailForUploadGuide && kbId && !uiStore.showKBEditorModal) {
+    if ((created || shouldOpenDetailForUploadGuide) && kbId && !uiStore.showKBEditorModal) {
       goDetail(kbId)
     }
     // 如果是从路由参数中获取的高亮ID，触发闪烁效果
@@ -1855,6 +1902,45 @@ const handleUploadFinishedEvent = (event: Event) => {
   padding: 0 28px 8px 0;
   scrollbar-width: auto;
   scrollbar-color: auto;
+}
+
+.kb-discovery-bar {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 0 14px;
+  background: var(--td-bg-color-page);
+}
+
+.kb-search-input {
+  flex: 1;
+  min-width: 220px;
+  max-width: 520px;
+}
+
+.kb-filter-select {
+  width: 150px;
+  flex: 0 0 auto;
+}
+
+.card-meta-line {
+  display: flex;
+  align-items: center;
+  gap: 6px 12px;
+  margin-top: 12px;
+  color: var(--td-text-color-placeholder);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 .kb-list-main-loading {
@@ -2809,6 +2895,29 @@ const handleUploadFinishedEvent = (event: Event) => {
 }
 
 // 响应式布局
+@media (max-width: 700px) {
+  .kb-list-main {
+    padding-right: 16px;
+  }
+
+  .kb-discovery-bar {
+    flex-wrap: wrap;
+  }
+
+  .kb-search-input {
+    flex-basis: 100%;
+    max-width: none;
+  }
+
+  .kb-filter-select {
+    width: calc(50% - 5px);
+  }
+
+  .kb-card-wrap {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (min-width: 900px) {
   .kb-card-wrap {
     grid-template-columns: repeat(2, 1fr);

@@ -2,7 +2,7 @@
   <Teleport to="body">
     <Transition name="modal">
       <div v-if="visible" class="settings-overlay" @click.self="handleClose">
-        <div class="settings-modal">
+        <div class="settings-modal" :class="{ 'is-create-basic': editorMode === 'create' && !advancedCreateOpen }">
           <div v-if="loading" class="editor-initializing" role="status" :aria-label="$t('common.loading')">
             <t-loading size="medium" :text="$t('common.loading')" />
           </div>
@@ -13,9 +13,9 @@
             </svg>
           </button>
 
-          <div class="settings-container">
+          <div class="settings-container" :class="{ 'create-basic-layout': editorMode === 'create' && !advancedCreateOpen }">
             <!-- 左侧导航 -->
-            <div class="settings-sidebar">
+            <div v-if="editorMode === 'edit' || advancedCreateOpen" class="settings-sidebar">
               <div class="sidebar-header">
                 <h2 class="sidebar-title">{{ editorMode === 'create' ? $t('knowledgeEditor.titleCreate') : $t('knowledgeEditor.titleEdit') }}</h2>
               </div>
@@ -44,8 +44,8 @@
                 <div v-show="currentSection === 'basic'" class="section">
                   <div v-if="formData" class="section-content">
                     <div class="section-header">
-                      <h3 class="section-title">{{ $t('knowledgeEditor.basic.title') }}</h3>
-                      <p class="section-desc">{{ $t('knowledgeEditor.basic.description') }}</p>
+                      <h3 class="section-title">{{ editorMode === 'create' ? $t('knowledgeEditor.titleCreate') : $t('knowledgeEditor.basic.title') }}</h3>
+                      <p class="section-desc">{{ editorMode === 'create' ? $t('knowledgeEditor.createFlow.basicDescription') : $t('knowledgeEditor.basic.description') }}</p>
                     </div>
                     <div class="section-body">
                       <div v-if="editorMode === 'edit' && activeKbId" class="form-item">
@@ -76,7 +76,7 @@
                       </div>
 
                       <!-- 索引策略 (紧跟类型选择) -->
-                      <div v-if="!isFAQ" class="form-item">
+                      <div v-if="!isFAQ && (editorMode === 'edit' || advancedCreateOpen)" class="form-item">
                         <label class="form-label required">{{ $t('knowledgeEditor.indexing.title') }}</label>
                         <p class="form-tip">{{ $t('knowledgeEditor.indexing.description') }}</p>
                         <div class="indexing-checks" :class="{ 'is-locked': isIndexingLocked }"
@@ -117,7 +117,7 @@
                       </div>
 
                       <!-- Wiki 提取粒度 (仅当 Wiki 启用时显示) -->
-                      <div v-if="!isFAQ && formData.indexingStrategy.wikiEnabled" class="form-item">
+                      <div v-if="!isFAQ && formData.indexingStrategy.wikiEnabled && (editorMode === 'edit' || advancedCreateOpen)" class="form-item">
                         <label class="form-label">{{ $t('knowledgeEditor.wiki.extractionGranularityLabel') }}</label>
                         <p class="form-tip">{{ $t('knowledgeEditor.wiki.extractionGranularityTip') }}</p>
                         <t-radio-group
@@ -138,7 +138,7 @@
                         <p class="form-tip granularity-hint">{{ granularityHint }}</p>
                       </div>
 
-                      <div v-if="!isFAQ && formData.indexingStrategy.wikiEnabled" class="form-item">
+                      <div v-if="!isFAQ && formData.indexingStrategy.wikiEnabled && (editorMode === 'edit' || advancedCreateOpen)" class="form-item">
                         <label class="form-label">{{ $t('knowledgeEditor.wiki.contentInstructionsLabel') }}</label>
                         <p class="form-tip">{{ $t('knowledgeEditor.wiki.contentInstructionsTip') }}</p>
                         <t-textarea
@@ -149,7 +149,7 @@
                         />
                       </div>
 
-                      <div v-if="!isFAQ && formData.indexingStrategy.wikiEnabled" class="form-item">
+                      <div v-if="!isFAQ && formData.indexingStrategy.wikiEnabled && (editorMode === 'edit' || advancedCreateOpen)" class="form-item">
                         <label class="form-label">{{ $t('knowledgeEditor.wiki.extractionInstructionsLabel') }}</label>
                         <p class="form-tip">{{ $t('knowledgeEditor.wiki.extractionInstructionsTip') }}</p>
                         <t-textarea
@@ -176,6 +176,25 @@
                           :maxlength="200"
                           :autosize="{ minRows: 3, maxRows: 6 }"
                         />
+                      </div>
+
+                      <div v-if="editorMode === 'create' && !advancedCreateOpen" class="create-default-note">
+                        <t-icon name="check-circle" size="18px" />
+                        <div>
+                          <strong>{{ $t('knowledgeEditor.createFlow.defaultsTitle') }}</strong>
+                          <p>{{ $t('knowledgeEditor.createFlow.defaultsDescription') }}</p>
+                        </div>
+                      </div>
+
+                      <div v-if="basicCreateMissingEmbedding" class="create-model-warning" role="alert">
+                        <t-icon name="error-circle" size="18px" />
+                        <div>
+                          <span>{{ $t('knowledgeEditor.createFlow.missingEmbedding') }}</span>
+                          <t-button v-if="authStore.isSystemAdmin" variant="text" theme="primary" size="small"
+                            @click="openEmbeddingSettings">
+                            {{ $t('knowledgeEditor.createFlow.configureModel') }}
+                          </t-button>
+                        </div>
                       </div>
 
                       <!-- Wiki 合成模型移至模型配置页 -->
@@ -445,6 +464,11 @@
                   </span>
                 </p>
                 <div class="settings-footer-actions">
+                  <t-button v-if="editorMode === 'create'" theme="default" variant="text"
+                    class="advanced-create-toggle" @click="toggleAdvancedCreate">
+                    <template #icon><t-icon :name="advancedCreateOpen ? 'chevron-up' : 'chevron-down'" /></template>
+                    {{ advancedCreateOpen ? $t('knowledgeEditor.createFlow.hideAdvanced') : $t('knowledgeEditor.createFlow.showAdvanced') }}
+                  </t-button>
                   <t-button theme="default" variant="outline" @click="handleClose">
                     {{ $t('common.cancel') }}
                   </t-button>
@@ -461,7 +485,7 @@
     </Transition>
   </Teleport>
 
-  <KbCreateContextualGuide :when="visible && editorMode === 'create'" :is-faq="isFAQ"
+  <KbCreateContextualGuide :when="visible && editorMode === 'create' && advancedCreateOpen" :is-faq="isFAQ"
     :needs-embedding="kbCreateNeedsEmbedding" />
 </template>
 
@@ -509,7 +533,7 @@ const props = defineProps<{
 // Emits
 const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void
-  (e: 'success', kbId: string): void
+  (e: 'success', kbId: string, created?: boolean): void
 }>()
 
 /** 首次保存创建成功后留在弹窗内，继续配置共享等设置 */
@@ -528,6 +552,12 @@ const copyKbId = async () => {
 }
 
 const currentSection = ref<string>('basic')
+const advancedCreateOpen = ref(false)
+
+const toggleAdvancedCreate = () => {
+  advancedCreateOpen.value = !advancedCreateOpen.value
+  currentSection.value = 'basic'
+}
 
 const onKbEditorFocusSection = (event: Event) => {
   const section = (event as CustomEvent<{ section?: string }>).detail?.section
@@ -683,6 +713,23 @@ const kbCreateNeedsEmbedding = computed(() => {
   const s = formData.value.indexingStrategy
   return Boolean(s?.vectorEnabled || s?.keywordEnabled)
 })
+
+const resolvedDefaultEmbeddingModelId = computed(() => (
+  effectiveDefaultPolicy.value?.embedding?.id
+  || selectInitialModelId(allModels.value, 'Embedding')
+  || ''
+))
+
+const basicCreateMissingEmbedding = computed(() => (
+  editorMode.value === 'create'
+  && !advancedCreateOpen.value
+  && kbCreateNeedsEmbedding.value
+  && !resolvedDefaultEmbeddingModelId.value
+))
+
+const openEmbeddingSettings = () => {
+  uiStore.openSettings('models', 'embedding')
+}
 
 const applyDefaultModelsIfEmpty = () => {
 	if (!formData.value || editorMode.value !== 'create') return
@@ -1189,6 +1236,14 @@ const validateForm = (): boolean => {
     return false
   }
 
+  if (editorMode.value === 'create' && !advancedCreateOpen.value) {
+    if (basicCreateMissingEmbedding.value) {
+      MessagePlugin.error(t('knowledgeEditor.createFlow.missingEmbedding'))
+      return false
+    }
+    return true
+  }
+
   // 验证索引策略 — 文档类型至少需要开启一种
   if (formData.value.type !== 'faq') {
     const s = formData.value.indexingStrategy
@@ -1232,6 +1287,18 @@ const validateForm = (): boolean => {
 // 构建提交数据
 const buildSubmitData = () => {
   if (!formData.value) return null
+
+  // The ordinary create path deliberately omits technical fields. Their
+  // source of truth is the backend (KB defaults, model policy, storage and
+  // vector-store resolution), so opening this UI cannot freeze a duplicate
+  // frontend default snapshot into a new KB.
+  if (editorMode.value === 'create' && !advancedCreateOpen.value) {
+    return {
+      name: formData.value.name.trim(),
+      description: formData.value.description?.trim() || '',
+      type: formData.value.type,
+    }
+  }
 
   const data: any = {
     name: formData.value.name,
@@ -1421,12 +1488,10 @@ const doSubmit = async () => {
         throw new Error(result.message || t('knowledgeEditor.messages.createFailed'))
       }
       const createdKbId = result.data.id as string
-      savedKbId.value = createdKbId
-      currentSection.value = 'basic'
-      await loadKBData(createdKbId)
       MessagePlugin.success(t('knowledgeEditor.messages.createSuccess'))
       markContextualGuideDone('kbCreate')
-      emit('success', createdKbId)
+      emit('success', createdKbId, true)
+      handleClose()
     } else {
       // 编辑模式：分别更新基本信息和配置
       const kbId = activeKbId.value
@@ -1564,6 +1629,9 @@ const doSubmit = async () => {
     } else if (code === 2201) {
       MessagePlugin.error(t('knowledgeEditor.errors.vectorStoreUnavailable'))
       currentSection.value = 'vectorStore'
+    } else if (String(error?.message || '').toLowerCase().includes('embedding model is required')) {
+      MessagePlugin.error(t('knowledgeEditor.createFlow.missingEmbedding'))
+      currentSection.value = 'basic'
     } else {
       MessagePlugin.error(error?.message || t('common.operationFailed'))
     }
@@ -1584,6 +1652,7 @@ const resetState = () => {
   saving.value = false
   loading.value = false
   chunkingDirty.value = false
+  advancedCreateOpen.value = false
   kbCreatorId.value = ''
   kbTenantId.value = 0
 }
@@ -1722,6 +1791,61 @@ watch(() => chatResources.allModels, (list) => {
   height: 100%;
   width: 100%;
   overflow: hidden;
+}
+
+.settings-modal.is-create-basic {
+  height: auto;
+  min-height: 540px;
+  max-width: 680px;
+}
+
+.settings-container.create-basic-layout {
+  .settings-content {
+    max-width: 680px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .content-wrapper {
+    padding: 56px 56px 24px;
+  }
+}
+
+.create-default-note,
+.create-model-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 20px;
+
+  p {
+    margin: 2px 0 0;
+    color: var(--td-text-color-secondary);
+  }
+}
+
+.create-default-note {
+  color: var(--td-success-color);
+  background: var(--td-success-color-1);
+
+  strong {
+    color: var(--td-text-color-primary);
+  }
+}
+
+.create-model-warning {
+  margin-top: 12px;
+  color: var(--td-error-color);
+  background: var(--td-error-color-1);
+
+  :deep(.t-button) {
+    display: block;
+    margin: 4px 0 0;
+    padding-left: 0;
+  }
 }
 
 /* 左侧导航：与 AgentEditorModal 对齐 */
@@ -2083,6 +2207,62 @@ watch(() => chatResources.allModels, (list) => {
   display: flex;
   gap: 12px;
   flex-shrink: 0;
+}
+
+@media (max-width: 720px) {
+  .settings-modal {
+    width: calc(100vw - 24px);
+    height: calc(100vh - 24px);
+    max-height: none;
+  }
+
+  .settings-container:not(.create-basic-layout) {
+    flex-direction: column;
+
+    .settings-sidebar {
+      width: 100%;
+      max-height: 180px;
+      border-right: 0;
+      border-bottom: 1px solid var(--td-component-stroke);
+    }
+
+    .settings-nav {
+      display: flex;
+      overflow-x: auto;
+      gap: 4px;
+    }
+
+    .nav-group-title {
+      display: none;
+    }
+
+    .nav-item {
+      flex: 0 0 auto;
+    }
+  }
+
+  .settings-container.create-basic-layout .content-wrapper,
+  .content-wrapper {
+    padding: 56px 20px 20px;
+  }
+
+  .settings-footer {
+    align-items: stretch;
+    padding: 12px 16px;
+  }
+
+  .settings-footer-actions {
+    width: 100%;
+    flex-wrap: wrap;
+
+    .advanced-create-toggle {
+      width: 100%;
+    }
+
+    :deep(.t-button:not(.advanced-create-toggle)) {
+      flex: 1;
+    }
+  }
 }
 
 // 过渡动画
