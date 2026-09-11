@@ -3663,6 +3663,14 @@ export default {
   knowledgeEditor: {
     titleCreate: 'Создать базу знаний',
     titleEdit: 'Настройки базы знаний',
+    createFlow: {
+      basicDescription: 'Укажите название и описание. Остальные настройки наследуются автоматически.',
+      defaultsTitle: 'Используются системные настройки',
+      defaultsDescription: 'Модели, разбор, фрагментация, хранилище и векторная база наследуют системные значения.',
+      showAdvanced: 'Расширенные настройки', hideAdvanced: 'Скрыть расширенные настройки',
+      missingEmbedding: 'Модель Embedding по умолчанию не настроена. Обратитесь к системному администратору.',
+      configureModel: 'Настроить модели',
+    },
     advanced: {
       title: 'Расширенные настройки',
       description: 'Настройте генерацию вопросов и мультимодальные возможности',
@@ -4467,6 +4475,15 @@ export default {
   },
   knowledgeList: {
     create: 'Создать базу знаний',
+    filters: {
+      searchPlaceholder: 'Поиск по названию или описанию',
+      allPermissions: 'Все права', editable: 'Можно редактировать', readonly: 'Только просмотр',
+      shared: 'Доступные мне',
+      allStatuses: 'Все статусы', ready: 'Готово', processing: 'Обработка', setup: 'Требует настройки',
+      noResults: 'Подходящие базы знаний не найдены', noResultsHint: 'Измените поиск, права или статус.', clear: 'Сбросить фильтры',
+    },
+    favorite: { add: 'Добавить в избранное', remove: 'Удалить из избранного' },
+    access: { currentSpace: 'Текущее пространство', private: 'Только пространство', shared: 'Общий доступ' },
     subtitle: 'Управляйте и организуйте свои базы знаний, поддерживаются документные и FAQ-базы знаний',
     sharedToOrgs: 'Shared to {count} space(s)',
     uninitializedBanner: 'Некоторые базы знаний не инициализированы. Сначала настройте модели в разделе настроек, чтобы добавлять документы.',
@@ -6645,6 +6662,10 @@ export default {
     statusDraft: 'Черновик',
     noDescription: 'Нет описания',
     emptyKnowledgeDragDrop: 'База знаний пуста, перетащите файлы для загрузки',
+    emptyCreated: 'База знаний создана',
+    emptyAddFirst: 'Добавьте первый источник знаний',
+    emptyUploadHint: 'Загрузите файл — система автоматически выберет разбор и рекомендуемую фрагментацию.',
+    emptyUploadFile: 'Загрузить файл',
     pdfDocFormat: 'Файлы pdf, doc формата, не более 10 МБ',
     textMarkdownFormat: 'Файлы text, markdown формата, не более 200 КБ',
     dragFileNotText: 'Пожалуйста, перетащите файлы, а не текст или ссылки',

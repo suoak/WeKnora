@@ -710,6 +710,10 @@ export default {
     statusDraft: 'Draft',
     noDescription: 'No description',
     emptyKnowledgeDragDrop: 'Knowledge is empty, drag and drop to upload',
+    emptyCreated: 'Knowledge base created',
+    emptyAddFirst: 'Add your first knowledge source',
+    emptyUploadHint: 'Upload a file directly. The system will select parsing and recommended chunking automatically.',
+    emptyUploadFile: 'Upload file',
     pdfDocFormat: 'pdf, doc format files, max 10M',
     textMarkdownFormat: 'text, markdown format files, max 200K',
     dragFileNotText: 'Please drag files instead of text or links',
@@ -2591,6 +2595,22 @@ export default {
   knowledgeList: {
     create: 'Create Knowledge Base',
     subtitle: 'Manage and organize your knowledge bases, supporting document-based and FAQ-based knowledge bases',
+    filters: {
+      searchPlaceholder: 'Search name or description',
+      allPermissions: 'All permissions',
+      shared: 'Shared with me',
+      editable: 'Editable',
+      readonly: 'View only',
+      allStatuses: 'All statuses',
+      ready: 'Ready',
+      processing: 'Processing',
+      setup: 'Needs setup',
+      noResults: 'No matching knowledge bases',
+      noResultsHint: 'Try changing the search, permission, or status filter.',
+      clear: 'Clear filters',
+    },
+    favorite: { add: 'Add to favorites', remove: 'Remove from favorites' },
+    access: { currentSpace: 'Current space', private: 'Space only', shared: 'Shared' },
     sharedToOrgs: 'Shared to {count} space(s)',
     uninitializedBanner: 'Some knowledge bases are not initialized. Configure model information in settings before adding documents.',
     empty: {
@@ -2794,6 +2814,15 @@ export default {
     defaultLocaleBrowser: 'Browser / host default'
   },
   knowledgeEditor: {
+    createFlow: {
+      basicDescription: 'Enter a name and description. The remaining settings are inherited automatically.',
+      defaultsTitle: 'System defaults are ready',
+      defaultsDescription: 'Models, parsing, chunking, storage, and vector store settings will inherit the system defaults.',
+      showAdvanced: 'Advanced settings',
+      hideAdvanced: 'Hide advanced settings',
+      missingEmbedding: 'No default Embedding model is configured. Contact your system administrator.',
+      configureModel: 'Configure models',
+    },
     activity: {
       title: 'Activity',
       description: 'Important changes and background-task entry points for this knowledge base. Retention follows the audit-log policy.',

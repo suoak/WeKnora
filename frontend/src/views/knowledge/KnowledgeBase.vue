@@ -2703,7 +2703,10 @@ async function createNewSession(value: string): Promise<void> {
                         ? $t('knowledgeBase.folderTree.emptySearch')
                         : $t('knowledgeBase.folderTree.emptyFolder') }}
                     </p>
-                    <EmptyKnowledge v-else />
+                    <EmptyKnowledge v-else :can-edit="canEdit"
+                      @upload="uploadSourceRef?.openFilePicker()"
+                      @url="uploadSourceRef?.openUrlDialog()"
+                      @manual="handleManualCreate" />
                   </div>
                 </template>
               </div>
