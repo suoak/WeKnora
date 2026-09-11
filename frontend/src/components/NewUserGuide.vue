@@ -1,6 +1,6 @@
 <template>
   <SpotlightGuide v-model:active="active" :steps="steps" step-i18n-prefix="newUserGuide.steps"
-    labels-prefix="newUserGuide" @finish="onFinish" @step-change="onStepChange" />
+    labels-prefix="newUserGuide" @finish="onFinish" />
 </template>
 
 <script setup lang="ts">
@@ -8,68 +8,33 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import SpotlightGuide from '@/components/SpotlightGuide.vue'
 import { GLOBAL_USER_GUIDE_KEY, OPEN_NEW_USER_GUIDE_EVENT } from '@/config/contextualGuides'
 import { useUIStore } from '@/stores/ui'
+import { useAuthStore } from '@/stores/auth'
+import { useDeploymentCapabilitiesStore } from '@/stores/deploymentCapabilities'
+import { buildUserGuideFlow } from '@/config/userGuideFlow'
 import type { SpotlightGuideStep } from '@/types/spotlightGuide'
 
 const uiStore = useUIStore()
-let settingsOpenedByGuide = false
+const authStore = useAuthStore()
+const capabilities = useDeploymentCapabilitiesStore()
 
-const steps = computed<SpotlightGuideStep[]>(() => [
-  { key: 'welcome' },
-  {
-    key: 'knowledge',
-    target: '[data-guide="nav-knowledge-bases"]',
-    placement: 'right',
-    before: () => uiStore.expandSidebar(),
-  },
-  {
-    key: 'agents',
-    target: '[data-guide="nav-agents"]',
-    placement: 'right',
-    optional: true,
-    before: () => uiStore.expandSidebar(),
-  },
-  {
-    key: 'chat',
-    target: '[data-guide="nav-creatChat"]',
-    placement: 'right',
-    before: () => uiStore.expandSidebar(),
-  },
-  {
-    key: 'settings',
-    target: '[data-guide="user-menu"]',
-    placement: 'right',
-    before: () => uiStore.expandSidebar(),
-  },
-  {
-    key: 'models',
-    target: '[data-guide="settings-add-model"], [data-guide="settings-models"]',
-    placement: 'left',
-    before: () => {
-      uiStore.openSettings('models')
-      settingsOpenedByGuide = true
-    },
-  },
-  { key: 'done' },
-])
+const steps = computed<SpotlightGuideStep[]>(() => buildUserGuideFlow({
+  role: authStore.currentTenantRole,
+  isSystemAdmin: authStore.isSystemAdmin,
+  agentsSupported: capabilities.isSupported('agents'),
+  mcpSupported: capabilities.isSupported('settings.mcp'),
+}).map((step) => ({
+  ...step,
+  placement: step.target?.includes('nav-') || step.key === 'space' ? 'right' : 'bottom',
+  before: step.target?.includes('nav-') || step.key === 'space' ? () => {
+    uiStore.expandSidebar()
+    window.dispatchEvent(new Event('weknora:open-mobile-navigation'))
+  } : undefined,
+})))
 
 const active = ref(false)
 
-const closeGuideSettings = () => {
-  if (settingsOpenedByGuide) {
-    uiStore.closeSettings()
-    settingsOpenedByGuide = false
-  }
-}
-
 const onFinish = () => {
   localStorage.setItem(GLOBAL_USER_GUIDE_KEY, '1')
-  closeGuideSettings()
-}
-
-const onStepChange = ({ toKey }: { toKey: string }) => {
-  if (toKey !== 'models') {
-    closeGuideSettings()
-  }
 }
 
 const open = () => {
@@ -94,6 +59,5 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener(OPEN_NEW_USER_GUIDE_EVENT, handleOpenEvent)
-  closeGuideSettings()
 })
 </script>

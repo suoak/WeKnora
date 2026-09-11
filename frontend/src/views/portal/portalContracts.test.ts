@@ -10,9 +10,11 @@ test('portal routes allow tenantless auth and admin route requires system admin'
   assert.match(router, /path:\s*["']\/portal\/admin["'][\s\S]*?requiresTenant:\s*false[\s\S]*?requiresSystemAdmin:\s*true/)
 })
 
-test('portal discovery does not import content APIs and tenant switch invalidates portal state', () => {
+test('portal homepage reuses only the approved lightweight content APIs and tenant switch invalidates portal state', () => {
   const combined = [source('./PortalHome.vue'), source('../../stores/portal.ts'), source('../../components/portal/PortalSpaceCard.vue')].join('\n')
-  for (const forbidden of ['knowledge-base', '@/api/agent', '@/stores/knowledge', '@/stores/chat', '@/api/datasource', '@/api/mcp']) {
+  assert.match(combined, /listKnowledgeBases/)
+  assert.match(combined, /listAgents/)
+  for (const forbidden of ['@/stores/knowledge', '@/stores/chat', '@/api/datasource', '@/api/mcp']) {
     assert.doesNotMatch(combined, new RegExp(forbidden.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))
   }
   assert.match(source('../../utils/tenantSwitch.ts'), /usePortalStore\(\)\.invalidate\(\)/)
@@ -58,21 +60,14 @@ test('admin config uses system-only organization options and explicit transition
   const admin = source('./SystemPortalSettings.vue')
   assert.match(admin, /listPortalOrganizationOptions\(\)/)
   assert.match(admin, /transitionAdminPortalStatus\(selectedId\.value,action\)/)
+  assert.match(admin, /portalStore\.invalidate\(\)/)
   assert.match(source('../../components/UserMenu.vue'), /portal\.admin\.menuEntry/)
 })
 
 test('portal is a primary sidebar item instead of a personal-menu shortcut', () => {
-  const menuStore = source('../../stores/menu.ts')
-  const sidebar = source('../../components/menu.vue')
+  const registry = source('../../config/navigation.ts')
   const userMenu = source('../../components/UserMenu.vue')
-  assert.match(
-    menuStore,
-    /titleKey:\s*['"]menu\.portal['"][^\n]*path:\s*['"]portal['"]/,
-  )
-  assert.match(
-    sidebar,
-    /item\.path === ['"]portal['"] \|\| item\.path === ['"]knowledge-bases['"]/,
-  )
+  assert.match(registry, /id:\s*['"]portal['"][^\n]*route:\s*['"]\/portal['"]/)
   assert.doesNotMatch(userMenu, /handlePortal\s*=|@click="handlePortal"/)
 })
 
@@ -85,22 +80,42 @@ test('portal always uses the primary workspace sidebar, including for tenantless
 
 test('portal provides separate IPD and public-knowledge discovery views', () => {
   const home = source('./PortalHome.vue')
+  const publicCard = source('../../components/portal/PublicKnowledgeSpaceCard.vue')
+  const publicPolicy = source('../../config/publicKnowledgeSpaces.ts')
   const stageDetail = source('../../components/portal/IpdStageDetail.vue')
   const flow = source('../../components/portal/IpdFlowOverview.vue')
+  const scale = source('../../components/portal/KnowledgeScaleSummary.vue')
+  const hierarchy = source('../../config/portalKnowledgeSummary.ts')
   assert.match(home, /viewMode==='ipd'/)
   assert.match(home, /viewMode==='public'/)
-  assert.match(home, /PUBLIC_CATEGORY='public_knowledge'/)
+  assert.match(home, /PUBLIC_CATEGORY=PUBLIC_KNOWLEDGE_CATEGORY/)
   assert.match(home, /<IpdStageDetail/)
   assert.match(home, /<IpdFlowOverview[^>]*portal\.overviewSpaces/)
   assert.match(home, /portal\.publicZone\.title/)
+  assert.match(home, /knowledgeSummary\.overall/)
+  assert.match(home, /knowledgeSummary\.publicArea/)
   assert.match(stageDetail, /portal\.stageDetail\.resultCount/)
   assert.doesNotMatch(stageDetail, /activities|deliverables|recommended skills/i)
   assert.match(flow, /space\.stages\.includes\(stage\)/)
   assert.match(flow, /space\.knowledge_base_count/)
   assert.match(flow, /space\.file_count/)
   assert.match(flow, /slice\(0,4\)/)
+  assert.match(flow, /summary\.ipd/)
+  assert.match(flow, /summary\.phases\[stage\.key\]/)
   assert.doesNotMatch(flow, /knowledge-base|document|chunk|agent|datasource|mcp/i)
-  assert.match(home, /const PAGE_SIZE=12/)
+  assert.match(publicPolicy, /PUBLIC_KNOWLEDGE_CATEGORY = ['"]public_knowledge['"]/)
+  assert.match(publicPolicy, /PUBLIC_KNOWLEDGE_PREVIEW_LIMIT = 6/)
+  assert.match(publicPolicy, /space\.category === PUBLIC_KNOWLEDGE_CATEGORY/)
+  assert.doesNotMatch(publicPolicy, /项目库空间|公共库空间|名词库空间/)
+  assert.match(home, /visiblePublicKnowledgeSpaces\(portal\.spaces/)
+  assert.match(home, /PublicKnowledgeSpaceCard v-for="space in visibleSpaces"/)
+  assert.match(publicCard, /space\.display_name/)
+  assert.match(publicCard, /space\.description/)
+  assert.match(publicCard, /space\.knowledge_base_count/)
+  assert.match(publicCard, /space\.file_count/)
+  assert.match(scale, /Intl\.NumberFormat/)
+  assert.match(hierarchy, /uniqueSpaces\(\[\.\.\.ipdSpaces, \.\.\.publicSpaces\]\)/)
+  assert.doesNotMatch(home, /publicTypes|portal\.publicZone\.types/)
   assert.match(home, /portal\.spaces\.slice\(0,visibleLimit\.value\)/)
   assert.match(home, /portal\.loadMoreSpaces/)
 })

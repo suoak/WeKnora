@@ -1,8 +1,12 @@
 <template>
-    <div class="aside_box" :class="{ 'aside_box--collapsed': uiStore.sidebarCollapsed }">
+    <button type="button" class="mobile-nav-trigger" :aria-label="t('navigation.openMenu')" @click="mobileOpen = true">
+        <t-icon name="menu" />
+    </button>
+    <div v-if="mobileOpen" class="mobile-nav-backdrop" @click="mobileOpen = false" />
+    <div class="aside_box" :class="{ 'aside_box--collapsed': sidebarCollapsed, 'aside_box--mobile-open': mobileOpen }">
         <!-- 展开时：Logo + 搜索/折叠按钮同行 -->
-        <div class="logo_row" v-if="!uiStore.sidebarCollapsed">
-            <div class="logo_box" @click="router.push('/platform/knowledge-bases')" style="cursor: pointer;">
+        <div class="logo_row" v-if="!sidebarCollapsed">
+            <div class="logo_box" @click="router.push('/portal')" style="cursor: pointer;">
                 <BrandLogo class="logo" />
                 <sup v-if="isLiteEdition" class="lite-badge">Lite</sup>
             </div>
@@ -50,16 +54,18 @@
         </t-tooltip>
 
         <!-- 空间选择器：仅在用户可切换空间时显示 -->
-        <TenantSelector v-if="canAccessAllTenants && !uiStore.sidebarCollapsed" />
+        <SpaceSwitcher v-if="!sidebarCollapsed" />
+        <TenantSelector v-if="canAccessAllTenants && !sidebarCollapsed" />
 
         <!-- 折叠时右侧拖拽展开手柄 -->
-        <div v-if="uiStore.sidebarCollapsed" class="sidebar-drag-handle" @mousedown="onDragHandleMouseDown" />
+        <div v-if="sidebarCollapsed" class="sidebar-drag-handle" @mousedown="onDragHandleMouseDown" />
 
         <!-- 上半部分：新对话吸顶 + 知识库/智能体/共享空间/历史会话随滚动一起滚走 -->
         <div class="menu_top" ref="scrollContainer" @scroll="handleScroll">
+            <SidebarNavigation :collapsed="sidebarCollapsed" @navigate="mobileOpen = false" />
             <!-- 全局搜索入口：点击打开命令面板（⌘K）。展开态移至顶部 logo_row 的图标按钮；
                  折叠态在此处保留为图标项 + 深色 tooltip。 -->
-            <div class="menu_box menu_box--cmdk" v-if="uiStore.sidebarCollapsed">
+            <div class="menu_box menu_box--cmdk" v-if="sidebarCollapsed">
                 <t-tooltip placement="right">
                     <template #content>
                         <span class="cmdk-tip">
@@ -76,33 +82,9 @@
                     </div>
                 </t-tooltip>
             </div>
-            <div class="menu_box" :class="{ 'menu_box--sticky': item.children && !uiStore.sidebarCollapsed }"
-                v-for="(item, index) in topMenuItems" :key="index">
-                <t-tooltip :content="item.title" placement="right" :disabled="!uiStore.sidebarCollapsed">
-                    <div @click="handleMenuClick(item.path)" @mouseenter="mouseenteMenu(item.path)"
-                        @mouseleave="mouseleaveMenu(item.path)" :data-guide="`nav-${item.path}`"
-                        :class="['menu_item', item.childrenPath && item.childrenPath == currentpath ? 'menu_item_c_active' : isMenuItemActive(item.path) ? 'menu_item_active' : '']">
-                        <div class="menu_item-box">
-                            <div class="menu_icon">
-                                <t-icon v-if="item.icon === 'portal'" name="browse" class="icon menu-portal-icon" />
-                                <img v-else class="icon"
-                                    :src="getImgSrc(item.icon == 'zhishiku' ? knowledgeIcon : item.icon == 'agent' ? agentIcon : item.icon == 'organization' ? organizationIcon : item.icon == 'logout' ? logoutIcon : item.icon == 'setting' ? settingIcon : prefixIcon)"
-                                    alt="">
-                            </div>
-                            <template v-if="!uiStore.sidebarCollapsed">
-                                <span class="menu_title" :title="item.title">{{ item.title }}</span>
-                                <span v-if="item.path === 'organizations' && orgStore.totalPendingJoinRequestCount > 0"
-                                    class="menu-pending-badge"
-                                    :title="t('organization.settings.pendingJoinRequestsBadge')">{{
-                                        orgStore.totalPendingJoinRequestCount }}</span>
-                            </template>
-                        </div>
-                    </div>
-                </t-tooltip>
-            </div>
-
             <!-- 历史会话：按来源筛选后统一按日期分组展示 -->
-            <div class="submenu" v-if="!uiStore.sidebarCollapsed">
+            <div class="submenu" v-if="!sidebarCollapsed">
+                <div class="recent-chats-label">{{ t('navigation.recentChats') }}</div>
                 <!-- Stable, always-mounted source filter: reserving its row here
                      (instead of embedding it in the first date group, which
                      appears/disappears while a bucket loads) prevents the
@@ -172,7 +154,7 @@
         </div>
 
         <!-- 批量管理底部操作条：固定在侧栏底部、用户头像上方 -->
-        <div v-if="batchMode && !uiStore.sidebarCollapsed" class="batch-inline-footer">
+        <div v-if="batchMode && !sidebarCollapsed" class="batch-inline-footer">
             <div class="batch-footer-left">
                 <t-checkbox :checked="isAllBatchSelected" :indeterminate="isBatchIndeterminate"
                     @change="toggleBatchSelectAll">
@@ -258,6 +240,8 @@ import { MessagePlugin, DialogPlugin, Icon as TIcon } from "tdesign-vue-next";
 import UserMenu from '@/components/UserMenu.vue';
 import BrandLogo from '@/components/BrandLogo.vue';
 import TenantSelector from '@/components/TenantSelector.vue';
+import SpaceSwitcher from '@/components/SpaceSwitcher.vue';
+import SidebarNavigation from '@/components/SidebarNavigation.vue';
 import { useI18n } from 'vue-i18n';
 import { getSystemInfo } from '@/api/system';
 
@@ -298,6 +282,12 @@ const deploymentCapabilities = useDeploymentCapabilitiesStore();
 const orgStore = useOrganizationStore();
 const uiStore = useUIStore();
 const commandPaletteStore = useCommandPaletteStore();
+const mobileOpen = ref(false);
+const mobileViewport = ref(false);
+const sidebarCollapsed = computed(() => uiStore.sidebarCollapsed && !mobileViewport.value);
+let mobileMedia: MediaQueryList | undefined;
+const syncMobileViewport = () => { mobileViewport.value = mobileMedia?.matches === true; };
+const openMobileNavigation = () => { if (mobileViewport.value) mobileOpen.value = true; };
 
 // Platform-aware label for the ⌘K hint. navigator.platform is deprecated but
 // the alternatives (userAgentData.platform) aren't universally available yet;
@@ -978,6 +968,10 @@ const handleSessionMutation = (event: Event) => {
 };
 
 onMounted(async () => {
+    mobileMedia = window.matchMedia('(max-width: 768px)');
+    syncMobileViewport();
+    mobileMedia.addEventListener('change', syncMobileViewport);
+    window.addEventListener('weknora:open-mobile-navigation', openMobileNavigation);
     sessionActivityTimer = setInterval(() => { void sessionActivity.refresh(); }, 5000);
     const routeName = typeof route.name === 'string' ? route.name : (route.name ? String(route.name) : '')
     currentpath.value = routeName;
@@ -1011,12 +1005,15 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+    mobileMedia?.removeEventListener('change', syncMobileViewport);
+    window.removeEventListener('weknora:open-mobile-navigation', openMobileNavigation);
     clearInterval(sessionActivityTimer);
     sessionActivity.clear();
     window.removeEventListener(SESSION_MUTATION_EVENT, handleSessionMutation);
 });
 
 watch([() => route.name, () => route.params], (newvalue, oldvalue) => {
+    mobileOpen.value = false;
     const nameStr = typeof newvalue[0] === 'string' ? (newvalue[0] as string) : (newvalue[0] ? String(newvalue[0]) : '')
     currentpath.value = nameStr;
     if (newvalue[1].chatid) {
@@ -1177,6 +1174,7 @@ const onDragHandleMouseDown = (e: MouseEvent) => {
 
 </script>
 <style lang="less" scoped>
+.mobile-nav-trigger,.mobile-nav-backdrop{display:none}.recent-chats-label{padding:7px var(--sidebar-inset-x) 3px;color:var(--td-text-color-placeholder);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
 .aside_box {
     // 侧栏水平栅格：图标列与文案列统一对齐（Logo / 菜单 / 会话分组 / 会话行）
     --sidebar-inset-x: 14px;
@@ -1722,6 +1720,13 @@ const onDragHandleMouseDown = (e: MouseEvent) => {
         flex-shrink: 0;
     }
 
+}
+
+@media (max-width: 768px) {
+    .mobile-nav-trigger{position:fixed;z-index:1090;top:10px;left:10px;width:38px;height:38px;display:grid;place-items:center;border:1px solid var(--td-component-stroke);border-radius:9px;background:var(--td-bg-color-container);color:var(--td-text-color-primary);box-shadow:var(--td-shadow-1);font-size:20px}
+    .mobile-nav-backdrop{position:fixed;z-index:1095;inset:0;display:block;background:rgba(0,0,0,.38)}
+    .aside_box{position:fixed;z-index:1100;inset:0 auto 0 0;height:100dvh;transform:translateX(-102%);box-shadow:var(--td-shadow-3);transition:transform .2s ease}
+    .aside_box--mobile-open{transform:translateX(0)}
 }
 
 .batch-inline-footer {

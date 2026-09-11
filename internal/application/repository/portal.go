@@ -163,6 +163,8 @@ func (r *portalRepository) ListPublished(ctx context.Context, userID string, act
 // selects no knowledge-base IDs, names, document titles, paths, or content.
 // Soft-deleted and temporary knowledge bases, and knowledge rows under them,
 // are excluded so Portal counts match resources visible in the workspace UI.
+// File count means active file-backed Knowledge records (file/file_url), not
+// chunks, vectors, FAQ entries, URLs, manual pages, or failed/cancelled work.
 func (r *portalRepository) resourceCountMaps(ctx context.Context, tenantIDs []uint64) (map[uint64]int64, map[uint64]int64, error) {
 	type countRow struct {
 		TenantID uint64
@@ -178,7 +180,7 @@ func (r *portalRepository) resourceCountMaps(ctx context.Context, tenantIDs []ui
 
 	var knowledgeBaseRows []countRow
 	if err := r.db.WithContext(ctx).Table("knowledge_bases").
-		Select("tenant_id, COUNT(*) AS count").
+		Select("tenant_id, COUNT(DISTINCT id) AS count").
 		Where("tenant_id IN ? AND deleted_at IS NULL AND is_temporary = ?", tenantIDs, false).
 		Group("tenant_id").Scan(&knowledgeBaseRows).Error; err != nil {
 		return nil, nil, err
@@ -189,10 +191,17 @@ func (r *portalRepository) resourceCountMaps(ctx context.Context, tenantIDs []ui
 
 	var fileRows []countRow
 	if err := r.db.WithContext(ctx).Table("knowledges AS k").
-		Select("k.tenant_id, COUNT(k.id) AS count").
+		Select("k.tenant_id, COUNT(DISTINCT k.id) AS count").
 		Joins(`JOIN knowledge_bases AS kb ON kb.id = k.knowledge_base_id
 			AND kb.tenant_id = k.tenant_id AND kb.deleted_at IS NULL AND kb.is_temporary = ?`, false).
 		Where("k.tenant_id IN ? AND k.deleted_at IS NULL", tenantIDs).
+		Where("k.type IN ?", []string{"file", "file_url"}).
+		Where("k.parse_status IN ?", []string{
+			types.ParseStatusPending,
+			types.ParseStatusProcessing,
+			types.ParseStatusFinalizing,
+			types.ParseStatusCompleted,
+		}).
 		Group("k.tenant_id").Scan(&fileRows).Error; err != nil {
 		return nil, nil, err
 	}

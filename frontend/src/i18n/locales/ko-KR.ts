@@ -6956,6 +6956,7 @@ export default {
     done: '완료',
     reopen: '사용 가이드',
     steps: {
+      portal: { title: 'Your KnowHub home', desc: 'Home brings together knowledge discovery, spaces and the fastest ways to start.' }, quickAsk: { title: 'Ask right away', desc: 'Enter a question here to continue in the existing knowledge chat flow.' }, space: { title: 'Your current space', desc: 'This context stays visible. Switch spaces here without carrying over stale resource data.' }, mcp: { title: 'Use KnowHub in AI tools', desc: 'Open the integration guide for Codex, WorkMate, Claude Code and other MCP clients.' }, contributor: { title: 'Contribute knowledge', desc: 'Open Knowledge Bases to create a base, upload files and maintain team knowledge.' }, members: { title: 'Manage members', desc: 'Space administrators can manage membership from the Workspace group.' }, integrations: { title: 'Manage integrations', desc: 'Space integrations are grouped here, separate from everyday knowledge tasks.' }, systemAdmin: { title: 'System Administration available', desc: 'Platform-wide tools are available in this separate group when you need them.' },
       done: {
         title: '준비 완료',
         desc: '핵심 기능을 모두 익혔습니다. 이제 나만의 지식 어시스턴트를 만들어 보세요! 메뉴 상단 닉네임 옆 도움말 버튼에서 언제든 가이드를 다시 볼 수 있습니다.'
@@ -7015,6 +7016,9 @@ export default {
       references: '참조'
     }
   },
+  navigation: { main: 'Main navigation', openMenu: 'Open navigation', portalHome: 'Home', newChat: 'New chat', recentChats: 'Recent chats', knowledgeBases: 'Knowledge Bases', agents: 'Agents', members: 'Members', integrations: 'Integrations', workspaceSettings: 'Workspace Settings', usageAnalytics: 'Usage Analytics', modelsDefaults: 'Models & Defaults', runtime: 'Runtime', audit: 'Audit', systemSettings: 'System Settings', platformApiKeys: 'Platform API Keys', groups: { knowledge: 'Knowledge', ai: 'AI', workspace: 'Workspace', system: 'System Administration' } },
+  spaceSwitcher: { currentSpace: 'Current space', search: 'Search spaces', current: 'Current', unknown: 'Unknown space' },
+  portalHome: { brandZh: 'Knowledge Hub', title: 'Unified knowledge, intelligent answers', description: 'Find trusted team knowledge, ask a question, or enter a knowledge space.', askPlaceholder: 'What would you like to know?', askAction: 'Ask now', useTitle: 'Use KnowHub your way', useDescription: 'Start with a task and keep your work moving.', knowledgeTitle: 'Knowledge at hand', knowledgeDescription: 'Available knowledge bases in the current space.', agentTitle: 'Available Agents', agentDescription: 'Start a conversation with a specialist Agent.', viewAll: 'View all', noDescription: 'No description', noKnowledge: 'No knowledge bases are available yet.', browseKnowledge: 'Browse knowledge', noAgents: 'No Agents are available yet.', exploreAgents: 'Explore Agents', useAgent: 'Use', tasks: { ask: { title: 'Ask a technical question', description: 'Start an intelligent knowledge conversation.' }, knowledge: { title: 'Browse team knowledge', description: 'Explore spaces and shared knowledge.' }, agent: { title: 'Use an Agent', description: 'Work with a purpose-built assistant.' }, mcp: { title: 'Connect an AI tool', description: 'Use KnowHub from Codex, WorkMate or Claude Code.' } } },
   menu: {
     sessionInProgress: '대화 진행 중',
     knowledgeBase: '지식베이스',

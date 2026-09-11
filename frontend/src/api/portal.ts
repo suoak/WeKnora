@@ -22,6 +22,7 @@ export interface PortalSpace {
   stages: string[]
   featured: boolean
   knowledge_base_count: number
+  /** Active file/file_url Knowledge records; excludes chunks and non-file sources. */
   file_count: number
   access_state: PortalAccessState
   current_role: 'owner' | 'admin' | 'contributor' | 'viewer' | null
