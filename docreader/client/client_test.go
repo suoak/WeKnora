@@ -16,6 +16,41 @@ func init() {
 	log.Println("INFO: Initializing DocReader client tests")
 }
 
+func TestDefaultMaxMessageSizeMBAddsTransportHeadroom(t *testing.T) {
+	tests := []struct {
+		uploadMB int
+		wantMB   int
+	}{
+		{uploadMB: 100, wantMB: 132},
+		{uploadMB: 200, wantMB: 250},
+		{uploadMB: 20, wantMB: 52},
+	}
+
+	for _, tt := range tests {
+		if got := DefaultMaxMessageSizeMB(tt.uploadMB); got != tt.wantMB {
+			t.Errorf("DefaultMaxMessageSizeMB(%d) = %d, want %d", tt.uploadMB, got, tt.wantMB)
+		}
+	}
+}
+
+func TestGetMaxMessageSizeUsesDerivedTransportHeadroom(t *testing.T) {
+	t.Setenv("MAX_FILE_SIZE_MB", "100")
+	t.Setenv("DOCREADER_GRPC_MAX_FILE_SIZE_MB", "")
+
+	if got, want := GetMaxMessageSize(), 132*1024*1024; got != want {
+		t.Fatalf("GetMaxMessageSize() = %d, want %d", got, want)
+	}
+}
+
+func TestGetMaxMessageSizeHonorsExplicitTransportLimit(t *testing.T) {
+	t.Setenv("MAX_FILE_SIZE_MB", "100")
+	t.Setenv("DOCREADER_GRPC_MAX_FILE_SIZE_MB", "180")
+
+	if got, want := GetMaxMessageSize(), 180*1024*1024; got != want {
+		t.Fatalf("GetMaxMessageSize() = %d, want %d", got, want)
+	}
+}
+
 func requireLiveDocReaderClient(t *testing.T) *Client {
 	t.Helper()
 

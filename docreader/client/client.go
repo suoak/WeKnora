@@ -12,13 +12,41 @@ import (
 	"google.golang.org/grpc/resolver"
 )
 
-func getMaxMessageSize() int {
-	if sizeStr := os.Getenv("MAX_FILE_SIZE_MB"); sizeStr != "" {
+const (
+	defaultMaxFileSizeMB  = 100
+	minimumGRPCHeadroomMB = 32
+)
+
+func positiveEnvMegabytes(key string, fallback int) int {
+	if sizeStr := os.Getenv(key); sizeStr != "" {
 		if size, err := strconv.Atoi(sizeStr); err == nil && size > 0 {
-			return size * 1024 * 1024
+			return size
 		}
 	}
-	return 50 * 1024 * 1024
+	return fallback
+}
+
+// DefaultMaxMessageSizeMB leaves room above the accepted file size for the
+// protobuf envelope, request metadata, and parser responses. The 25% margin is
+// never smaller than 32 MiB, so the default 100 MiB upload cap gets a 132 MiB
+// transport cap. Operators can override it with
+// DOCREADER_GRPC_MAX_FILE_SIZE_MB when parser output needs more room.
+func DefaultMaxMessageSizeMB(uploadLimitMB int) int {
+	headroomMB := (uploadLimitMB + 3) / 4
+	if headroomMB < minimumGRPCHeadroomMB {
+		headroomMB = minimumGRPCHeadroomMB
+	}
+	return uploadLimitMB + headroomMB
+}
+
+// GetMaxMessageSize returns the gRPC send/receive cap in bytes.
+func GetMaxMessageSize() int {
+	uploadLimitMB := positiveEnvMegabytes("MAX_FILE_SIZE_MB", defaultMaxFileSizeMB)
+	transportLimitMB := positiveEnvMegabytes(
+		"DOCREADER_GRPC_MAX_FILE_SIZE_MB",
+		DefaultMaxMessageSizeMB(uploadLimitMB),
+	)
+	return transportLimitMB * 1024 * 1024
 }
 
 var Logger = log.New(os.Stdout, "[DocReader] ", log.LstdFlags|log.Lmicroseconds)
@@ -46,7 +74,7 @@ func NewClient(addr string) (*Client, error) {
 func NewClientWithAuth(addr string, authConfig *AuthConfig) (*Client, error) {
 	Logger.Printf("INFO: Creating new DocReader client connecting to %s", addr)
 
-	maxMsgSize := getMaxMessageSize()
+	maxMsgSize := GetMaxMessageSize()
 
 	if authConfig == nil {
 		authConfig = &AuthConfig{}
