@@ -122,10 +122,10 @@ jobs:
         run: go build ./cmd/server
 
   docker-image:
-    name: Docker image (no push)
+    name: Docker image and production startup smoke
     needs: verify
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
 
@@ -137,7 +137,8 @@ jobs:
           context: .
           file: docker/Dockerfile.app
           push: false
-          outputs: type=cacheonly
+          load: true
+          tags: weknora-app:ci
           build-args: |
             GOPROXY_ARG=https://proxy.golang.org,direct
             GOSUMDB_ARG=sum.golang.org
@@ -148,3 +149,77 @@ jobs:
             GO_VERSION_ARG=${{ env.GO_VERSION }}
           cache-from: type=gha,scope=verify-app-amd64
           cache-to: type=gha,scope=verify-app-amd64,mode=max
+
+      - name: Start APP from schema 93 and verify migration and health
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cleanup() {
+            docker logs weknora-app-smoke 2>/dev/null || true
+            docker rm -f weknora-app-smoke weknora-postgres-smoke 2>/dev/null || true
+            docker network rm weknora-app-smoke 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          docker network create weknora-app-smoke
+          docker run -d --name weknora-postgres-smoke \
+            --network weknora-app-smoke \
+            -e POSTGRES_USER=postgres \
+            -e POSTGRES_PASSWORD=postgres \
+            -e POSTGRES_DB=weknora \
+            paradedb/paradedb:v0.22.2-pg17
+
+          for attempt in $(seq 1 60); do
+            if docker exec weknora-postgres-smoke \
+              pg_isready -h 127.0.0.1 -p 5432 -U postgres -d weknora; then
+              break
+            fi
+            if [ "$attempt" -eq 60 ]; then
+              echo "PostgreSQL did not become ready"
+              exit 1
+            fi
+            sleep 2
+          done
+
+          migration_url='postgres://postgres:postgres@weknora-postgres-smoke:5432/weknora?sslmode=disable&options=-c%20app.skip_embedding=false'
+          docker run --rm --network weknora-app-smoke \
+            --entrypoint migrate weknora-app:ci \
+            -path /app/migrations/versioned -database "$migration_url" goto 93
+
+          docker run -d --name weknora-app-smoke \
+            --network weknora-app-smoke \
+            -p 127.0.0.1:8080:8080 \
+            -e GIN_MODE=release \
+            -e DB_DRIVER=postgres \
+            -e DB_HOST=weknora-postgres-smoke \
+            -e DB_PORT=5432 \
+            -e DB_USER=postgres \
+            -e DB_PASSWORD=postgres \
+            -e DB_NAME=weknora \
+            -e RETRIEVE_DRIVER=postgres \
+            -e AUTO_MIGRATE=true \
+            -e REDIS_ADDR= \
+            -e DOCREADER_ADDR=127.0.0.1:50051 \
+            weknora-app:ci
+
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:8080/health | grep -q '"status":"ok"'; then
+              break
+            fi
+            if ! docker inspect --format '{{.State.Running}}' weknora-app-smoke | grep -q true; then
+              echo "APP exited before becoming healthy"
+              exit 1
+            fi
+            if [ "$attempt" -eq 90 ]; then
+              echo "APP did not become healthy"
+              exit 1
+            fi
+            sleep 2
+          done
+
+          current_version=$(docker run --rm --network weknora-app-smoke \
+            --entrypoint migrate weknora-app:ci \
+            -path /app/migrations/versioned -database "$migration_url" version 2>&1 | awk '{print $1}')
+          test "$current_version" = "96"
+          curl --fail --silent http://127.0.0.1:8080/health | grep -q '"status":"ok"'
