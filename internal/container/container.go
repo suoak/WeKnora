@@ -208,6 +208,10 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	must(container.Provide(service.NewPortalService))
 	must(container.Provide(service.NewAuditLogService))
 	must(container.Provide(service.NewAuditLogRetentionRunner))
+	// Usage analytics is a cross-cutting service used by AgentService, the chat
+	// handlers, MCP recording, IM, and model decorators. Register its single
+	// production implementation before any Invoke can construct those graphs.
+	must(container.Provide(service.NewUsageAnalyticsService))
 	must(container.Provide(service.NewKnowledgeBaseService))
 	must(container.Provide(service.NewOrganizationService))
 	must(container.Provide(service.NewKBShareService)) // KBShareService must be registered before KnowledgeService and KnowledgeTagService
@@ -408,7 +412,6 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	must(container.Provide(handler.NewTenantInvitationHandler))
 	must(container.Provide(handler.NewPortalHandler))
 	must(container.Provide(handler.NewAuditLogHandler))
-	must(container.Provide(service.NewUsageAnalyticsService))
 	must(container.Invoke(service.InitializeUsageAnalytics))
 	must(container.Invoke(service.AttachModelUsageAnalytics))
 	must(container.Provide(handler.NewUsageAnalyticsHandler))
