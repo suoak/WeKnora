@@ -87,10 +87,14 @@ func (TenantAccessRequest) TableName() string { return "tenant_access_requests" 
 type PortalAccessState string
 
 const (
-	PortalAccessMember    PortalAccessState = "member"
-	PortalAccessSuspended PortalAccessState = "suspended"
-	PortalAccessPending   PortalAccessState = "pending"
-	PortalAccessNotMember PortalAccessState = "not_member"
+	// PortalAccessAccessible means the caller may enter the workspace through
+	// the normal tenant authorization path. Portal access is presentation
+	// metadata only; it never replaces tenant/KB/document authorization.
+	PortalAccessAccessible PortalAccessState = "accessible"
+	// PortalAccessDiscoverable means the published workspace may appear in the
+	// enterprise knowledge map. Aggregate KB/file counts are public Portal
+	// metadata, but resource identities, metadata, and content remain protected.
+	PortalAccessDiscoverable PortalAccessState = "discoverable"
 )
 
 type PortalInteractionAction string
@@ -104,20 +108,22 @@ const (
 // TenantPortalConfig. Keep this allow-list projection small. FileCount means
 // active file/file_url Knowledge records, never chunks or non-file sources.
 type PortalSpaceResponse struct {
-	TenantID           uint64                  `json:"tenant_id"`
-	DisplayName        string                  `json:"display_name"`
-	Description        string                  `json:"description"`
-	Category           string                  `json:"category"`
-	ResponsibleTeam    string                  `json:"responsible_team"`
-	Contact            string                  `json:"contact"`
-	Stages             []string                `json:"stages"`
-	Featured           bool                    `json:"featured"`
-	KnowledgeBaseCount int64                   `json:"knowledge_base_count"`
-	FileCount          int64                   `json:"file_count"`
-	AccessState        PortalAccessState       `json:"access_state"`
-	CurrentRole        *TenantRole             `json:"current_role"`
-	CanRequestAccess   bool                    `json:"can_request_access"`
-	InteractionAction  PortalInteractionAction `json:"interaction_action"`
+	TenantID             uint64                  `json:"tenant_id"`
+	DisplayName          string                  `json:"display_name"`
+	Description          string                  `json:"description"`
+	Category             string                  `json:"category"`
+	ResponsibleTeam      string                  `json:"responsible_team"`
+	Contact              string                  `json:"contact"`
+	Stages               []string                `json:"stages"`
+	Featured             bool                    `json:"featured"`
+	KnowledgeBaseCount   int64                   `json:"knowledge_base_count"`
+	FileCount            int64                   `json:"file_count"`
+	AccessState          PortalAccessState       `json:"access_state"`
+	CurrentRole          *TenantRole             `json:"current_role"`
+	AccessRequestPending bool                    `json:"access_request_pending"`
+	MembershipSuspended  bool                    `json:"membership_suspended"`
+	CanRequestAccess     bool                    `json:"can_request_access"`
+	InteractionAction    PortalInteractionAction `json:"interaction_action"`
 }
 
 type PortalMySpaceResponse struct {

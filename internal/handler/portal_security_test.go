@@ -38,7 +38,7 @@ func TestPortalHandlerSerializationExcludesPrivateFields(t *testing.T) {
 		TenantID: 8, DisplayName: "Platform Hub", Description: "Discovery only",
 		Category: "hardware", ResponsibleTeam: "Platform", Contact: "portal@example.com",
 		Stages: []string{"design", "testing"}, Featured: true, KnowledgeBaseCount: 3, FileCount: 27,
-		AccessState: types.PortalAccessMember,
+		AccessState: types.PortalAccessAccessible,
 		CurrentRole: &role, CanRequestAccess: false, InteractionAction: types.PortalInteractionEnter,
 	}}})
 	r := gin.New()
@@ -50,13 +50,35 @@ func TestPortalHandlerSerializationExcludesPrivateFields(t *testing.T) {
 	for _, forbidden := range []string{
 		"knowledge_bases", "knowledge_name", "document_count", "document_title", "file_name",
 		"preview", "chunk", "agent", "mcp", "datasource", "storage",
-		"members", "tenant_config", "api_key", "model_config", "interaction_organization_id",
+		`"members":`, "tenant_config", "api_key", "model_config", "interaction_organization_id",
 	} {
 		require.NotContains(t, body, forbidden)
 	}
 	require.Contains(t, body, `"knowledge_base_count":3`)
 	require.Contains(t, body, `"file_count":27`)
 	require.Contains(t, body, `"interaction_action":"enter"`)
+}
+
+func TestPortalHandlerDiscoverableSpaceSerializesCountsWithoutResourceDetails(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := NewPortalHandler(portalHandlerServiceStub{spaces: []*types.PortalSpaceResponse{{
+		TenantID: 9, DisplayName: "Discoverable Hub", Description: "Published map entry",
+		Category: "hardware", Stages: []string{"development"},
+		KnowledgeBaseCount: 4, FileCount: 302,
+		AccessState: types.PortalAccessDiscoverable, CanRequestAccess: true,
+	}}})
+	r := gin.New()
+	r.GET("/portal/spaces", h.ListSpaces)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/portal/spaces", nil))
+	require.Equal(t, http.StatusOK, w.Code)
+	body := strings.ToLower(w.Body.String())
+	require.Contains(t, body, `"access_state":"discoverable"`)
+	require.Contains(t, body, `"knowledge_base_count":4`)
+	require.Contains(t, body, `"file_count":302`)
+	for _, forbidden := range []string{"knowledge_bases", "documents", "kb_name", "document_name", "document_metadata", "document_content"} {
+		require.NotContains(t, body, forbidden)
+	}
 }
 
 func TestPortalAccessRequestBodyRejectsRoleInjection(t *testing.T) {

@@ -20,6 +20,7 @@
           <span v-for="space in spacesFor(stage.key).slice(0,4)" v-else :key="space.tenant_id" class="space-pill">
             <strong>{{ space.display_name }}</strong>
             <small>{{ t('portal.flowOverview.inventory',{kb:space.knowledge_base_count,files:space.file_count}) }}</small>
+            <small v-if="space.access_state === 'discoverable'" class="restricted"><t-icon name="lock-on" /> {{ t('portal.restricted') }}</small>
           </span>
           <span v-if="spacesFor(stage.key).length>4" class="more">{{ t('portal.flowOverview.moreSpaces',{count:spacesFor(stage.key).length-4}) }}</span>
         </button>

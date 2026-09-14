@@ -7,15 +7,15 @@
     <div class="resource-counts"><span><t-icon name="folder" />{{ t('portal.knowledgeBaseCount', { count: space.knowledge_base_count }) }}</span><span><t-icon name="file" />{{ t('portal.fileCount', { count: space.file_count }) }}</span></div>
     <dl v-if="space.responsible_team || space.contact"><div v-if="space.responsible_team"><dt>{{ t('portal.responsibleTeam') }}</dt><dd>{{ space.responsible_team }}</dd></div><div v-if="space.contact"><dt>{{ t('portal.contact') }}</dt><dd>{{ space.contact }}</dd></div></dl>
     <div class="footer">
-      <span v-if="space.access_state==='member'" class="state ok">✓ {{ t('portal.joined', { role: roleName(space.current_role) }) }}</span>
-      <span v-else-if="space.access_state==='pending'" class="state pending">◷ {{ t('portal.pending') }}</span>
-      <span v-else-if="space.access_state==='suspended'" class="state suspended">⚠ {{ t('portal.suspended') }}</span>
+      <span v-if="space.access_state==='accessible'" class="state ok">✓ {{ t('portal.joined', { role: roleName(space.current_role) }) }}</span>
+      <span v-else-if="space.access_request_pending" class="state pending">◷ {{ t('portal.pending') }}</span>
+      <span v-else-if="space.membership_suspended" class="state suspended">⚠ {{ t('portal.suspended') }}</span>
       <span v-else-if="space.can_request_access" class="state">🔒 {{ t('portal.noAccess') }}</span>
       <span v-else class="state">🔒 {{ t('portal.restricted') }}</span>
       <div class="actions">
-        <t-button v-if="space.access_state==='member'" size="small" @click="$emit('enter', space)">{{ t('portal.enterWorkspace') }}</t-button>
+        <t-button v-if="space.access_state==='accessible'" size="small" @click="$emit('enter', space)">{{ t('portal.enterWorkspace') }}</t-button>
         <t-button v-else-if="space.can_request_access" size="small" variant="outline" @click="$emit('request', space)">{{ t('portal.requestAccess') }}</t-button>
-        <t-button v-if="space.interaction_action==='enter'" size="small" variant="text" @click="$emit('interaction', space)">{{ t('portal.enterInteraction') }}</t-button>
+        <t-button v-if="space.access_state==='accessible' && space.interaction_action==='enter'" size="small" variant="text" @click="$emit('interaction', space)">{{ t('portal.enterInteraction') }}</t-button>
       </div>
     </div>
   </article>

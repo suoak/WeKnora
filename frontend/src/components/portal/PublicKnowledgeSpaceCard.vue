@@ -27,31 +27,27 @@ const props = defineProps<{ space: PortalSpace }>()
 const emit = defineEmits<{
   request: [space: PortalSpace]
   enter: [space: PortalSpace]
-  interaction: [space: PortalSpace]
 }>()
 const { t } = useI18n()
 
 const stateLabel = computed(() => {
-  if (props.space.access_state === 'member') {
+  if (props.space.access_state === 'accessible') {
     const role = props.space.current_role ? t(`portal.roles.${props.space.current_role}`) : ''
     return t('portal.joined', { role })
   }
-  if (props.space.access_state === 'pending') return t('portal.pending')
-  if (props.space.access_state === 'suspended') return t('portal.suspended')
-  if (props.space.interaction_action === 'enter') return t('portal.enterInteraction')
+  if (props.space.access_request_pending) return t('portal.pending')
+  if (props.space.membership_suspended) return t('portal.suspended')
   return props.space.can_request_access ? t('portal.noAccess') : t('portal.restricted')
 })
 
 const action = computed(() => {
-  if (props.space.access_state === 'member') return { event: 'enter' as const, label: t('portal.enterWorkspace') }
-  if (props.space.interaction_action === 'enter') return { event: 'interaction' as const, label: t('portal.enterInteraction') }
+  if (props.space.access_state === 'accessible') return { event: 'enter' as const, label: t('portal.enterWorkspace') }
   if (props.space.can_request_access) return { event: 'request' as const, label: t('portal.requestAccess') }
   return null
 })
 
 function activate() {
   if (action.value?.event === 'enter') emit('enter', props.space)
-  else if (action.value?.event === 'interaction') emit('interaction', props.space)
   else if (action.value?.event === 'request') emit('request', props.space)
 }
 </script>

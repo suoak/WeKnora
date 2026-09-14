@@ -11,18 +11,6 @@
                 <sup v-if="isLiteEdition" class="lite-badge">Lite</sup>
             </div>
             <div class="logo_actions">
-                <t-tooltip placement="bottom">
-                    <template #content>
-                        <span class="cmdk-tip">
-                            <span class="cmdk-tip-label">{{ t('menu.search') }}</span>
-                            <span class="cmdk-tip-keys">{{ cmdModKeyLabel }}K</span>
-                        </span>
-                    </template>
-                    <div class="header-icon-btn" @click="commandPaletteStore.openPalette('')"
-                        :aria-label="t('menu.search')">
-                        <img class="header-icon-img" :src="getImgSrc('search.svg')" alt="">
-                    </div>
-                </t-tooltip>
                 <div class="sidebar-toggle" @click="uiStore.toggleSidebar" :title="t('menu.collapseSidebar')">
                     <svg viewBox="0 0 20 20" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <rect x="1.5" y="1.5" width="17" height="17" rx="3" stroke="currentColor" stroke-width="1.2" />
@@ -53,18 +41,19 @@
             </div>
         </t-tooltip>
 
-        <!-- 空间选择器：仅在用户可切换空间时显示 -->
-        <SpaceSwitcher v-if="!sidebarCollapsed" />
-        <TenantSelector v-if="canAccessAllTenants && !sidebarCollapsed" />
+        <button v-if="!sidebarCollapsed" type="button" class="global-search-trigger"
+            @click="commandPaletteStore.openPalette('')">
+            <img class="header-icon-img" :src="getImgSrc('search.svg')" alt="">
+            <span>{{ t('menu.search') }}</span>
+            <kbd>{{ cmdModKeyLabel }}K</kbd>
+        </button>
 
         <!-- 折叠时右侧拖拽展开手柄 -->
         <div v-if="sidebarCollapsed" class="sidebar-drag-handle" @mousedown="onDragHandleMouseDown" />
 
-        <!-- 上半部分：新对话吸顶 + 知识库/智能体/共享空间/历史会话随滚动一起滚走 -->
+        <!-- 主导航与低干扰的最近会话区域 -->
         <div class="menu_top" ref="scrollContainer" @scroll="handleScroll">
-            <SidebarNavigation :collapsed="sidebarCollapsed" @navigate="mobileOpen = false" />
-            <!-- 全局搜索入口：点击打开命令面板（⌘K）。展开态移至顶部 logo_row 的图标按钮；
-                 折叠态在此处保留为图标项 + 深色 tooltip。 -->
+            <!-- 折叠态全局搜索入口：点击打开命令面板（⌘K）。 -->
             <div class="menu_box menu_box--cmdk" v-if="sidebarCollapsed">
                 <t-tooltip placement="right">
                     <template #content>
@@ -82,9 +71,14 @@
                     </div>
                 </t-tooltip>
             </div>
+            <SidebarNavigation :collapsed="sidebarCollapsed" @navigate="mobileOpen = false" />
             <!-- 历史会话：按来源筛选后统一按日期分组展示 -->
-            <div class="submenu" v-if="!sidebarCollapsed">
-                <div class="recent-chats-label">{{ t('navigation.recentChats') }}</div>
+            <button v-if="!sidebarCollapsed" type="button" class="recent-chats-toggle"
+                :aria-expanded="recentChatsExpanded" @click="recentChatsExpanded = !recentChatsExpanded">
+                <span>{{ t('navigation.recentChats') }}</span>
+                <t-icon :name="recentChatsExpanded ? 'chevron-down' : 'chevron-right'" />
+            </button>
+            <div class="submenu" v-if="!sidebarCollapsed && recentChatsExpanded">
                 <!-- Stable, always-mounted source filter: reserving its row here
                      (instead of embedding it in the first date group, which
                      appears/disappears while a bucket loads) prevents the
@@ -239,8 +233,6 @@ import { useCommandPaletteStore } from '@/stores/commandPalette';
 import { MessagePlugin, DialogPlugin, Icon as TIcon } from "tdesign-vue-next";
 import UserMenu from '@/components/UserMenu.vue';
 import BrandLogo from '@/components/BrandLogo.vue';
-import TenantSelector from '@/components/TenantSelector.vue';
-import SpaceSwitcher from '@/components/SpaceSwitcher.vue';
 import SidebarNavigation from '@/components/SidebarNavigation.vue';
 import { useI18n } from 'vue-i18n';
 import { getSystemInfo } from '@/api/system';
@@ -283,6 +275,7 @@ const orgStore = useOrganizationStore();
 const uiStore = useUIStore();
 const commandPaletteStore = useCommandPaletteStore();
 const mobileOpen = ref(false);
+const recentChatsExpanded = ref(false);
 const mobileViewport = ref(false);
 const sidebarCollapsed = computed(() => uiStore.sidebarCollapsed && !mobileViewport.value);
 let mobileMedia: MediaQueryList | undefined;
@@ -361,9 +354,6 @@ const isBatchIndeterminate = computed(() =>
 const batchDisplayCount = computed(() =>
     isAllBatchSelected.value ? total.value : batchSelectedIds.value.length
 )
-
-// 是否可以访问所有空间
-const canAccessAllTenants = computed(() => authStore.canAccessAllTenants);
 
 // 是否处于知识库详情页（不包括全局聊天）
 const isInKnowledgeBase = computed<boolean>(() => {
@@ -1174,7 +1164,9 @@ const onDragHandleMouseDown = (e: MouseEvent) => {
 
 </script>
 <style lang="less" scoped>
-.mobile-nav-trigger,.mobile-nav-backdrop{display:none}.recent-chats-label{padding:7px var(--sidebar-inset-x) 3px;color:var(--td-text-color-placeholder);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.mobile-nav-trigger,.mobile-nav-backdrop{display:none}
+.global-search-trigger{height:38px;display:flex;align-items:center;gap:9px;flex:none;margin:0 4px 8px;padding:0 10px;border:1px solid var(--td-component-stroke);border-radius:7px;background:var(--td-bg-color-container);color:var(--td-text-color-secondary);cursor:pointer;font:inherit;text-align:left}.global-search-trigger:hover{border-color:var(--td-component-border);background:var(--td-bg-color-container-hover);color:var(--td-text-color-primary)}.global-search-trigger .header-icon-img{width:18px;height:18px}.global-search-trigger span{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.global-search-trigger kbd{padding:1px 5px;border:1px solid var(--td-component-stroke);border-radius:4px;background:var(--td-bg-color-secondarycontainer);color:var(--td-text-color-placeholder);font:10px/16px var(--td-font-family)}
+.recent-chats-toggle{width:100%;height:30px;display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding:0 var(--sidebar-inset-x);border:0;background:transparent;color:var(--td-text-color-placeholder);cursor:pointer;font:600 11px/1 var(--td-font-family);text-align:left}.recent-chats-toggle:hover{color:var(--td-text-color-secondary)}
 .aside_box {
     // 侧栏水平栅格：图标列与文案列统一对齐（Logo / 菜单 / 会话分组 / 会话行）
     --sidebar-inset-x: 14px;

@@ -37,15 +37,24 @@ test('Owner approval surface is fixed Viewer and has no role selector', () => {
   assert.match(panel, /portal\.requests\.applicantUnavailable/)
 })
 
-test('cards cover member, requestable, restricted, pending, suspended, and interaction states', () => {
+test('cards show public asset scale while content actions remain accessible-only', () => {
   const card = source('../../components/portal/PortalSpaceCard.vue')
-  for (const marker of ["access_state==='member'", "access_state==='pending'", "access_state==='suspended'", 'can_request_access', "interaction_action==='enter'"]) {
+  for (const marker of ["access_state==='accessible'", 'access_request_pending', 'membership_suspended', 'can_request_access', "interaction_action==='enter'"]) {
     assert.match(card, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   }
   assert.match(card, /portal\.restricted/)
   assert.match(card, /current_role/)
   assert.match(card, /knowledge_base_count/)
   assert.match(card, /file_count/)
+  assert.match(card, /v-if="space\.access_state==='accessible'"[^>]*@click="\$emit\('enter'/)
+  assert.doesNotMatch(card, /v-if="space\.access_state==='accessible'" class="resource-counts"/)
+})
+
+test('sidebar selector is sourced from authorized spaces and not Portal discovery results', () => {
+  const sidebar = source('../../components/SidebarNavigation.vue')
+  assert.match(sidebar, /<SpaceSwitcher/)
+  assert.match(sidebar, /<TenantSelector/)
+  assert.doesNotMatch(sidebar, /portal\.spaces|overviewSpaces|listPortalSpaces/)
 })
 
 test('my spaces are loaded independently of published portal results and requests refresh state', () => {

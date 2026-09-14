@@ -2,7 +2,7 @@ import { get, post, put } from '@/utils/request'
 import { buildPortalSpacesPath, portalAccessRequestBody } from './portalContracts'
 export { buildPortalSpacesPath, portalAccessRequestBody } from './portalContracts'
 
-export type PortalAccessState = 'member' | 'not_member' | 'pending' | 'suspended'
+export type PortalAccessState = 'accessible' | 'discoverable'
 export type PortalStatus = 'draft' | 'published' | 'archived'
 
 export interface PortalStage {
@@ -27,6 +27,8 @@ export interface PortalSpace {
   access_state: PortalAccessState
   current_role: 'owner' | 'admin' | 'contributor' | 'viewer' | null
   can_request_access: boolean
+  access_request_pending: boolean
+  membership_suspended: boolean
   interaction_action: 'enter' | 'none'
 }
 

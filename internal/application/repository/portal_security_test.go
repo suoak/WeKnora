@@ -29,11 +29,12 @@ func TestPortalRepositorySearchesMetadataOnlyAndReturnsSafeProjection(t *testing
 		`CREATE TABLE knowledge_bases (id TEXT, tenant_id INTEGER, name TEXT, is_temporary BOOLEAN, deleted_at DATETIME)`,
 		`CREATE TABLE knowledges (id TEXT, tenant_id INTEGER, knowledge_base_id TEXT, type TEXT, parse_status TEXT, title TEXT, deleted_at DATETIME)`,
 		`CREATE TABLE chunks (id TEXT, knowledge_id TEXT)`,
-		`INSERT INTO tenants(id, name, status) VALUES (1, 'private-tenant-name', 'active'), (2, 'deleted', 'active'), (3, 'inactive', 'inactive'), (99, 'active-context', 'active')`,
+		`INSERT INTO tenants(id, name, status) VALUES (1, 'private-tenant-name', 'active'), (2, 'deleted', 'active'), (3, 'inactive', 'inactive'), (4, 'hidden', 'active'), (99, 'active-context', 'active')`,
 		`INSERT INTO tenant_portal_configs VALUES
 			(1, 'published', 'Hardware Hub', 'Reusable platform knowledge', 'hardware', 'Platform', 'team@example.com', 1, 10, 1, 'org-1'),
 			(2, 'published', 'Deleted Hub', '', 'hardware', '', '', 0, 0, 1, NULL),
-			(3, 'published', 'Inactive Hub', '', 'hardware', '', '', 0, 0, 1, NULL)`,
+			(3, 'published', 'Inactive Hub', '', 'hardware', '', '', 0, 0, 1, NULL),
+			(4, 'draft', 'Hidden Hub', '', 'hardware', '', '', 0, 0, 1, NULL)`,
 		`UPDATE tenants SET deleted_at = CURRENT_TIMESTAMP WHERE id = 2`,
 		`INSERT INTO tenant_portal_stages VALUES (1, 'architecture', 0, CURRENT_TIMESTAMP), (1, 'lmt', 1, CURRENT_TIMESTAMP), (1, 'retired_legacy', 2, CURRENT_TIMESTAMP)`,
 		`INSERT INTO knowledge_bases VALUES
@@ -68,12 +69,20 @@ func TestPortalRepositorySearchesMetadataOnlyAndReturnsSafeProjection(t *testing
 	var retainedConfigCount int64
 	require.NoError(t, db.Table("tenant_portal_configs").Where("tenant_id = ?", 2).Count(&retainedConfigCount).Error)
 	require.Equal(t, int64(1), retainedConfigCount, "soft delete must retain portal config for audit")
-	require.Equal(t, types.PortalAccessNotMember, rows[0].AccessState)
+	require.Equal(t, types.PortalAccessDiscoverable, rows[0].AccessState)
 	require.True(t, rows[0].CanRequestAccess)
 	require.Equal(t, types.PortalInteractionNone, rows[0].InteractionAction)
+	require.Equal(t, int64(1), rows[0].KnowledgeBaseCount, "discoverable spaces expose aggregate asset scale")
+	require.Equal(t, int64(2), rows[0].FileCount, "discoverable spaces expose aggregate asset scale")
+	require.Equal(t, []string{"architecture", "lmt"}, rows[0].Stages, "unknown stage associations must not be exposed")
+
+	require.NoError(t, db.Exec(`INSERT INTO tenant_members(id, tenant_id, user_id, role, status) VALUES ('1', 1, 'tenantless-user', 'viewer', 'active')`).Error)
+	rows, err = repo.ListPublished(ctx, "tenantless-user", 0, interfaces.PortalListQuery{})
+	require.NoError(t, err)
+	require.Len(t, rows, 1, "draft spaces must remain hidden")
+	require.Equal(t, types.PortalAccessAccessible, rows[0].AccessState)
 	require.Equal(t, int64(1), rows[0].KnowledgeBaseCount)
 	require.Equal(t, int64(2), rows[0].FileCount, "only active file and downloaded-file knowledge records count as files")
-	require.Equal(t, []string{"architecture", "lmt"}, rows[0].Stages, "unknown stage associations must not be exposed")
 
 	rows, err = repo.ListPublished(ctx, "tenantless-user", 0, interfaces.PortalListQuery{Query: "classified quantum roadmap"})
 	require.NoError(t, err)
@@ -128,11 +137,16 @@ func TestPortalAccessStatePrecedence(t *testing.T) {
 	rows, err := NewPortalRepository(db).ListPublished(context.Background(), "u", 0, interfaces.PortalListQuery{})
 	require.NoError(t, err)
 	require.Len(t, rows, 3)
-	require.Equal(t, types.PortalAccessMember, rows[0].AccessState)
+	require.Equal(t, types.PortalAccessAccessible, rows[0].AccessState)
 	require.NotNil(t, rows[0].CurrentRole)
-	require.Equal(t, types.PortalAccessSuspended, rows[1].AccessState)
+	require.Equal(t, int64(0), rows[0].KnowledgeBaseCount)
+	require.Equal(t, types.PortalAccessDiscoverable, rows[1].AccessState)
+	require.True(t, rows[1].MembershipSuspended)
 	require.Nil(t, rows[1].CurrentRole)
-	require.Equal(t, types.PortalAccessPending, rows[2].AccessState)
+	require.Equal(t, int64(0), rows[1].KnowledgeBaseCount)
+	require.Equal(t, types.PortalAccessDiscoverable, rows[2].AccessState)
+	require.True(t, rows[2].AccessRequestPending)
+	require.Equal(t, int64(0), rows[2].FileCount)
 	for _, row := range rows {
 		require.False(t, row.CanRequestAccess)
 	}
@@ -156,6 +170,6 @@ func portalForbiddenResponseFields() []string {
 	return []string{
 		"knowledge_bases", "knowledge_name", "document_count", "document_title", "file_name",
 		"preview", "chunk", "agent", "mcp", "datasource", "storage",
-		"members", "tenant_config", "api_key", "model_config", "interaction_organization_id",
+		`"members":`, "tenant_config", "api_key", "model_config", "interaction_organization_id",
 	}
 }

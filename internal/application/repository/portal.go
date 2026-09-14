@@ -78,6 +78,10 @@ func (r *portalRepository) ListPublished(ctx context.Context, userID string, act
 	if err != nil {
 		return nil, err
 	}
+	canAccessAll := types.IsSystemAdminFromContext(ctx)
+	if user, ok := ctx.Value(types.UserContextKey).(*types.User); ok && user != nil && user.CanAccessAllTenants {
+		canAccessAll = true
+	}
 	knowledgeBaseCounts, fileCounts, err := r.resourceCountMaps(ctx, tenantIDs)
 	if err != nil {
 		return nil, err
@@ -124,25 +128,24 @@ func (r *portalRepository) ListPublished(ctx context.Context, userID string, act
 
 	out := make([]*types.PortalSpaceResponse, 0, len(rows))
 	for _, row := range rows {
-		state := types.PortalAccessNotMember
+		state := types.PortalAccessDiscoverable
 		var currentRole *types.TenantRole
+		membershipSuspended := false
 		if member := memberships[row.TenantID]; member != nil {
 			switch member.Status {
 			case types.TenantMemberStatusActive:
-				state = types.PortalAccessMember
+				state = types.PortalAccessAccessible
 				role := member.Role
 				currentRole = &role
 			case types.TenantMemberStatusSuspended:
-				state = types.PortalAccessSuspended
+				membershipSuspended = true
 			}
 		}
-		// Invitations and any future non-authorizing membership states do not
-		// outrank a pending portal request. Only active/suspended membership does.
-		if state == types.PortalAccessNotMember && pending[row.TenantID] {
-			state = types.PortalAccessPending
+		if canAccessAll {
+			state = types.PortalAccessAccessible
 		}
 		action := types.PortalInteractionNone
-		if row.InteractionOrgID != nil && interaction[*row.InteractionOrgID] {
+		if state == types.PortalAccessAccessible && row.InteractionOrgID != nil && interaction[*row.InteractionOrgID] {
 			action = types.PortalInteractionEnter
 		}
 		out = append(out, &types.PortalSpaceResponse{
@@ -150,10 +153,12 @@ func (r *portalRepository) ListPublished(ctx context.Context, userID string, act
 			Category: row.Category, ResponsibleTeam: row.ResponsibleTeam, Contact: row.Contact,
 			Stages: stages[row.TenantID], Featured: row.Featured,
 			KnowledgeBaseCount: knowledgeBaseCounts[row.TenantID], FileCount: fileCounts[row.TenantID],
-			AccessState:       state,
-			CurrentRole:       currentRole,
-			CanRequestAccess:  row.AllowAccessRequest && state == types.PortalAccessNotMember,
-			InteractionAction: action,
+			AccessState:          state,
+			CurrentRole:          currentRole,
+			AccessRequestPending: pending[row.TenantID],
+			MembershipSuspended:  membershipSuspended,
+			CanRequestAccess:     row.AllowAccessRequest && state == types.PortalAccessDiscoverable && !pending[row.TenantID] && !membershipSuspended,
+			InteractionAction:    action,
 		})
 	}
 	return out, nil
@@ -173,6 +178,9 @@ func (r *portalRepository) resourceCountMaps(ctx context.Context, tenantIDs []ui
 
 	knowledgeBaseCounts := make(map[uint64]int64, len(tenantIDs))
 	fileCounts := make(map[uint64]int64, len(tenantIDs))
+	if len(tenantIDs) == 0 {
+		return knowledgeBaseCounts, fileCounts, nil
+	}
 	for _, tenantID := range tenantIDs {
 		knowledgeBaseCounts[tenantID] = 0
 		fileCounts[tenantID] = 0
