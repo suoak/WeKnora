@@ -33,11 +33,15 @@ test('space summary separates accessible entry from discoverable dialog behavior
   assert.match(home, /if\(space\.access_state==='discoverable'\)accessSpace\.value=space/)
 })
 
-test('search and ask are offered only for the already-active space', () => {
+test('search and ask are offered for every accessible space with keyboard metadata', () => {
   const summary = source('./SpaceSummary.vue')
-  assert.match(summary, /v-if="isActiveSpace"/)
+  assert.doesNotMatch(summary, /v-if="isActiveSpace"/)
   assert.match(summary, /@click="\$emit\('search', space\)"/)
   assert.match(summary, /@click="\$emit\('ask', space\)"/)
+  assert.match(summary, /<t-tooltip :content="actionLabel\('search'\)"/)
+  assert.match(summary, /:aria-label="actionLabel\('ask'\)"/)
+  assert.match(summary, /props\.space\.display_name/)
+  assert.match(summary, /button:focus-visible/)
 })
 
 test('access dialog exposes summary, existing request state, and contact fallback only', () => {

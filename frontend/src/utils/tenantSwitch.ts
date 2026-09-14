@@ -12,8 +12,8 @@ import { tenantSwitchTargetPath } from './tenantSwitchPolicy'
 export { tenantSwitchTargetPath } from './tenantSwitchPolicy'
 
 /** Perform a hard navigation after changing the active tenant. */
-export function navigateAfterTenantSwitch(): void {
-  window.location.href = tenantSwitchTargetPath(window.location.pathname)
+export function navigateAfterTenantSwitch(targetPath?: string): void {
+  window.location.href = targetPath || tenantSwitchTargetPath(window.location.pathname)
 }
 
 export interface WorkspaceSwitchTarget {
@@ -21,6 +21,9 @@ export interface WorkspaceSwitchTarget {
   tenantName: string
   role?: string
   roleLabel?: string
+  /** Optional caller-owned safe landing page; default switch policy stays unchanged. */
+  targetPath?: string
+  onNavigationFailure?: () => void
 }
 
 /** Shared tenant-switch workflow used by the existing switcher and Portal. */
@@ -36,7 +39,13 @@ export function switchWorkspaceAndNavigate(target: WorkspaceSwitchTarget): void 
   })
   const persist = persistLastActiveTenantPreference(target.tenantId === homeTenantId ? null : target.tenantId)
   Promise.race([persist, new Promise((resolve) => setTimeout(resolve, 500))])
-    .finally(() => navigateAfterTenantSwitch())
+    .finally(() => {
+      try {
+        navigateAfterTenantSwitch(target.targetPath)
+      } catch {
+        target.onNavigationFailure?.()
+      }
+    })
 }
 
 // 切换成功后的 toast 跨 hard reload 传递：调用方在 reload 前把信息塞进

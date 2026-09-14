@@ -44,5 +44,6 @@ test('tenant switch applies the safe route policy with a hard reload', () => {
   assert.match(policy, /currentPath === ['"]\/platform\/knowledge-bases['"]/)
   assert.match(policy, /currentPath === ['"]\/platform\/agents['"]/)
   assert.match(policy, /TENANT_SWITCH_FALLBACK = ['"]\/portal['"]/)
-  assert.match(tenantSwitch, /window\.location\.href\s*=\s*tenantSwitchTargetPath/)
+  assert.match(tenantSwitch, /window\.location\.href\s*=\s*targetPath \|\| tenantSwitchTargetPath/)
+  assert.match(tenantSwitch, /navigateAfterTenantSwitch\(target\.targetPath\)/)
 })

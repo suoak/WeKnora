@@ -11,15 +11,16 @@
 
         <IpdKnowledgeMap :stages="portal.stages" :spaces="ipdSpaces" :loading="portal.overviewLoading"
           :active-tenant-id="activeTenantId" @enter="enterPortalSpace" @restricted="openAccessDialog"
-          @search="openScopedSearch" @ask="openScopedAsk" />
+          @search="searchPortalSpace" @ask="askPortalSpace" />
 
         <PublicKnowledgeSection :spaces="portal.overviewSpaces" :loading="portal.overviewLoading"
           :active-tenant-id="activeTenantId" @enter="enterPortalSpace" @restricted="openAccessDialog"
-          @search="openScopedSearch" @ask="openScopedAsk" />
+          @search="searchPortalSpace" @ask="askPortalSpace" />
       </main>
       <SpaceAccessDialog :visible="Boolean(accessSpace)" :space="accessSpace" :submitting="requestSubmitting"
         @close="accessSpace=null" @request="submitRequest" />
     </div>
+    <GlobalCommandPalette />
     <NewUserGuide />
   </div>
 </template>
@@ -31,6 +32,7 @@ import { useRouter } from 'vue-router'
 import { MessagePlugin } from 'tdesign-vue-next'
 import Menu from '@/components/menu.vue'
 import NewUserGuide from '@/components/NewUserGuide.vue'
+import GlobalCommandPalette from '@/components/GlobalCommandPalette.vue'
 import PortalHero from '@/components/portal/PortalHero.vue'
 import IpdKnowledgeMap from '@/components/portal/IpdKnowledgeMap.vue'
 import PublicKnowledgeSection from '@/components/portal/PublicKnowledgeSection.vue'
@@ -42,6 +44,7 @@ import { useCommandPaletteStore } from '@/stores/commandPalette'
 import { useDeploymentCapabilitiesStore } from '@/stores/deploymentCapabilities'
 import type { PortalSpace } from '@/api/portal'
 import { switchWorkspaceAndNavigate } from '@/utils/tenantSwitch'
+import { clearPortalIntent, createPortalIntent, type PortalIntentAction } from '@/utils/portalIntent'
 import { PUBLIC_KNOWLEDGE_CATEGORY } from '@/config/publicKnowledgeSpaces'
 import { buildKnowledgeHierarchySummary } from '@/config/portalKnowledgeSummary'
 
@@ -66,10 +69,34 @@ function requireActiveSpace(){
 }
 function openScopedSearch(){if(requireActiveSpace())commandPalette.openPalette('')}
 function openScopedRoute(path:string){if(requireActiveSpace())void router.push(path)}
-function openScopedAsk(){if(requireActiveSpace()){menuStore.setPrefillQuery('');void router.push('/platform/creatChat')}}
+function isActiveSpace(space:PortalSpace){return space.tenant_id===activeTenantId.value}
+function continueSpaceAction(space:PortalSpace,action:PortalIntentAction){
+  if(space.access_state!=='accessible'){openAccessDialog(space);return}
+  if(isActiveSpace(space)){
+    clearPortalIntent()
+    if(action==='search')commandPalette.openPalette('')
+    else{menuStore.setPrefillQuery('');void router.push('/platform/creatChat')}
+    return
+  }
+  if(!createPortalIntent(action,space.tenant_id)){
+    MessagePlugin.error(t('portal.loadFailed'))
+    return
+  }
+  try{
+    switchWorkspaceAndNavigate({tenantId:space.tenant_id,tenantName:space.display_name,role:space.current_role||undefined,roleLabel:space.current_role?t(`portal.roles.${space.current_role}`):undefined,targetPath:'/platform/knowledge-bases',onNavigationFailure:handlePortalSwitchFailure})
+  }catch(error){
+    clearPortalIntent()
+    MessagePlugin.error(error instanceof Error?error.message:t('portal.loadFailed'))
+  }
+}
+function handlePortalSwitchFailure(){clearPortalIntent();MessagePlugin.error(t('portal.loadFailed'))}
+function searchPortalSpace(space:PortalSpace){continueSpaceAction(space,'search')}
+function askPortalSpace(space:PortalSpace){continueSpaceAction(space,'ask')}
 function enterPortalSpace(space:PortalSpace){
   if(space.access_state!=='accessible'){openAccessDialog(space);return}
-  switchWorkspaceAndNavigate({tenantId:space.tenant_id,tenantName:space.display_name,role:space.current_role||undefined,roleLabel:space.current_role?t(`portal.roles.${space.current_role}`):undefined})
+  clearPortalIntent()
+  if(isActiveSpace(space)){void router.push('/platform/knowledge-bases');return}
+  switchWorkspaceAndNavigate({tenantId:space.tenant_id,tenantName:space.display_name,role:space.current_role||undefined,roleLabel:space.current_role?t(`portal.roles.${space.current_role}`):undefined,targetPath:'/platform/knowledge-bases'})
 }
 function openAccessDialog(space:PortalSpace){if(space.access_state==='discoverable')accessSpace.value=space}
 async function submitRequest(reason:string){

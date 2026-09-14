@@ -11,6 +11,7 @@ import { BUILTIN_QUICK_ANSWER_ID } from '@/api/agent'
 import { useChatResourcesStore } from '@/stores/chatResources'
 import { useEditorResourcesStore } from '@/stores/editorResources'
 import { useOrganizationStore } from '@/stores/organization'
+import { clearPortalIntent } from '@/utils/portalIntent'
 
 /** 登出时丢弃 Pinia 内的空间级资源缓存，避免 SPA 重登复用上一账号数据。 */
 function clearSessionResourceCaches() {
@@ -448,6 +449,7 @@ export const useAuthStore = defineStore('auth', () => {
     isLiteMode.value = false
     try {
       sessionStorage.removeItem('weknora_lite_last_path')
+      clearPortalIntent(sessionStorage)
     } catch {
       /* ignore */
     }

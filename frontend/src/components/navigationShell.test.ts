@@ -26,7 +26,7 @@ test('space context is first-class and searchable while platform shell has no fi
 
 test('Portal quick ask reuses the existing chat prefill and route', () => {
   const portal = source('../views/portal/PortalHome.vue')
-  assert.match(portal, /menuStore\.setPrefillQuery\(question\)/)
+  assert.match(portal, /menuStore\.setPrefillQuery\(['"]['"]\)/)
   assert.match(portal, /router\.push\(['"]\/platform\/creatChat['"]\)/)
   assert.doesNotMatch(portal, /createSessions|\/home\/dashboard/)
 })

@@ -49,7 +49,9 @@ test('discoverable space cannot switch tenant or expose content actions', () => 
   assert.match(home, /if\(space\.access_state!=='accessible'\)\{openAccessDialog\(space\);return\}/)
   assert.match(home, /if\(space\.access_state==='discoverable'\)accessSpace\.value=space/)
   assert.match(summary, /v-if="space\.access_state === 'accessible'"/)
-  assert.match(summary, /v-if="isActiveSpace"/)
+  assert.doesNotMatch(summary, /v-if="isActiveSpace"/)
+  assert.match(summary, /@click="\$emit\('search', space\)"/)
+  assert.match(summary, /@click="\$emit\('ask', space\)"/)
 })
 
 test('sidebar selector is sourced from authorized spaces and not Portal discovery results', () => {

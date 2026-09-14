@@ -10,12 +10,10 @@
       <small>{{ t('portalMap.spaceInventory', { kb: numberFormatter.format(space.knowledge_base_count), files: numberFormatter.format(space.file_count) }) }}</small>
       <span v-if="space.access_state === 'discoverable'" class="permission"><t-icon name="lock-on" />{{ t('portalMap.noAccess') }}</span>
     </div>
-    <div v-if="space.access_state === 'accessible'" class="accessible-actions" @click.stop>
-      <button type="button" :aria-label="t('portalMap.enterSpace')" @click="$emit('enter', space)"><t-icon name="chevron-right" /></button>
-      <template v-if="isActiveSpace">
-        <button type="button" :aria-label="t('portalExperience.quickActions.search')" @click="$emit('search', space)"><t-icon name="search" /></button>
-        <button type="button" :aria-label="t('portalMap.ask')" @click="$emit('ask', space)"><t-icon name="chat" /></button>
-      </template>
+    <div v-if="space.access_state === 'accessible'" class="accessible-actions" @click.stop @keydown.stop>
+      <t-tooltip :content="actionLabel('enter')"><button type="button" :aria-label="actionLabel('enter')" @click="$emit('enter', space)"><t-icon name="chevron-right" /></button></t-tooltip>
+      <t-tooltip :content="actionLabel('search')"><button class="space-action--secondary" type="button" :aria-label="actionLabel('search')" @click="$emit('search', space)"><t-icon name="search" /></button></t-tooltip>
+      <t-tooltip :content="actionLabel('ask')"><button class="space-action--secondary" type="button" :aria-label="actionLabel('ask')" @click="$emit('ask', space)"><t-icon name="chat" /></button></t-tooltip>
     </div>
     <t-icon v-else class="lock" name="lock-on" />
   </article>
@@ -34,6 +32,11 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{ enter: [space: PortalSpace]; restricted: [space: PortalSpace]; search: [space: PortalSpace]; ask: [space: PortalSpace] }>()
 const { t } = useI18n()
 const numberFormatter = new Intl.NumberFormat()
+function actionLabel(action:'enter'|'search'|'ask'){
+  if(!props.space)return ''
+  const actionKey=action==='enter'?'portalMap.enterSpace':action==='search'?'portalExperience.quickActions.search':'portalMap.ask'
+  return `${props.space.display_name} · ${t(actionKey)}`
+}
 function activate(){
   if(!props.space)return
   if(props.space.access_state === 'accessible')emit('enter',props.space)
@@ -42,5 +45,5 @@ function activate(){
 </script>
 
 <style scoped lang="less">
-.space-summary{position:relative;display:flex;min-width:0;align-items:flex-start;gap:8px;padding:12px;border:1px solid var(--td-component-stroke);border-radius:10px;background:var(--td-bg-color-container);color:var(--td-text-color-primary);cursor:pointer;transition:border-color .16s ease,background .16s ease}.space-summary:hover,.space-summary:focus-visible{border-color:var(--td-component-border);background:var(--td-bg-color-container-hover);outline:none}.space-summary.normal{min-height:132px;padding:16px}.space-summary.discoverable{color:var(--td-text-color-secondary)}.summary-main{min-width:0;flex:1}.summary-main strong{display:block;overflow:hidden;font-size:13px;font-weight:600;text-overflow:ellipsis;white-space:nowrap}.normal .summary-main strong{font-size:15px}.summary-main p{display:-webkit-box;min-height:38px;margin:7px 0 12px;overflow:hidden;color:var(--td-text-color-secondary);font-size:12px;line-height:1.55;-webkit-box-orient:vertical;-webkit-line-clamp:2}.summary-main small{display:block;margin-top:5px;color:var(--td-text-color-placeholder);font-size:11px;white-space:nowrap}.permission{display:flex;align-items:center;gap:4px;margin-top:6px;color:var(--td-text-color-placeholder);font-size:11px}.lock{flex:none;color:var(--td-text-color-placeholder)}.accessible-actions{display:flex;flex-direction:row-reverse;gap:2px}.accessible-actions button{width:25px;height:25px;display:grid;place-items:center;padding:0;border:0;border-radius:6px;background:transparent;color:var(--td-text-color-placeholder);cursor:pointer}.accessible-actions button:not(:first-child){display:none}.space-summary:hover .accessible-actions button,.space-summary:focus-within .accessible-actions button{display:grid}.accessible-actions button:hover{background:var(--td-brand-color-light);color:var(--td-brand-color)}.is-loading{cursor:default}
+.space-summary{position:relative;display:flex;min-width:0;align-items:flex-start;gap:8px;padding:12px;border:1px solid var(--td-component-stroke);border-radius:10px;background:var(--td-bg-color-container);color:var(--td-text-color-primary);cursor:pointer;transition:border-color .16s ease,background .16s ease}.space-summary:hover,.space-summary:focus-visible{border-color:var(--td-component-border);background:var(--td-bg-color-container-hover);outline:2px solid var(--td-brand-color-focus);outline-offset:1px}.space-summary.normal{min-height:132px;padding:16px}.space-summary.discoverable{color:var(--td-text-color-secondary)}.summary-main{min-width:0;flex:1}.summary-main strong{display:block;overflow:hidden;font-size:13px;font-weight:600;text-overflow:ellipsis;white-space:nowrap}.normal .summary-main strong{font-size:15px}.summary-main p{display:-webkit-box;min-height:38px;margin:7px 0 12px;overflow:hidden;color:var(--td-text-color-secondary);font-size:12px;line-height:1.55;-webkit-box-orient:vertical;-webkit-line-clamp:2}.summary-main small{display:block;margin-top:5px;color:var(--td-text-color-placeholder);font-size:11px;white-space:nowrap}.permission{display:flex;align-items:center;gap:4px;margin-top:6px;color:var(--td-text-color-placeholder);font-size:11px}.lock{flex:none;color:var(--td-text-color-placeholder)}.accessible-actions{display:flex;flex-direction:row-reverse;gap:2px}.accessible-actions button{width:25px;height:25px;display:grid;place-items:center;padding:0;border:0;border-radius:6px;background:transparent;color:var(--td-text-color-placeholder);cursor:pointer}.accessible-actions .space-action--secondary{display:none}.space-summary:hover .space-action--secondary,.space-summary:focus-within .space-action--secondary{display:grid}.accessible-actions button:hover,.accessible-actions button:focus-visible{background:var(--td-brand-color-light);color:var(--td-brand-color);outline:2px solid var(--td-brand-color-focus);outline-offset:1px}.is-loading{cursor:default}
 </style>

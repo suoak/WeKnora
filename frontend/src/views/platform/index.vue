@@ -28,6 +28,9 @@ import GlobalCommandPalette from '@/components/GlobalCommandPalette.vue'
 import GlobalInvitationBell from '@/components/GlobalInvitationBell.vue'
 import NewUserGuide from '@/components/NewUserGuide.vue'
 import { useCommandPaletteStore } from '@/stores/commandPalette'
+import { useMenuStore } from '@/stores/menu'
+import { useAuthStore } from '@/stores/auth'
+import { clearPortalIntent, consumePortalIntent, readPortalIntent } from '@/utils/portalIntent'
 import { useChatResourcesStore } from '@/stores/chatResources'
 import { getKnowledgeBaseById } from '@/api/knowledge-base/index'
 import { MessagePlugin } from 'tdesign-vue-next'
@@ -37,6 +40,8 @@ import { collectDroppedFiles } from './collectDroppedFiles'
 const route = useRoute();
 const router = useRouter();
 const commandPaletteStore = useCommandPaletteStore();
+const menuStore = useMenuStore();
+const authStore = useAuthStore();
 let ismask = ref(false)
 const { t } = useI18n();
 
@@ -178,7 +183,7 @@ const handleGlobalDrop = async (event: DragEvent) => {
 }
 
 // 组件挂载时添加全局事件监听器
-onMounted(() => {
+onMounted(async () => {
     document.addEventListener('dragenter', handleGlobalDragEnter, true);
     document.addEventListener('dragover', handleGlobalDragOver, true);
     document.addEventListener('dragleave', handleGlobalDragLeave, true);
@@ -193,9 +198,34 @@ onMounted(() => {
     // 支持通过 URL 查询参数打开全局命令面板，例如旧路径
     // /platform/knowledge-search?q=foo 重定向后携带 ?cmdk=foo
     maybeOpenCmdkFromRoute()
+    await continuePendingPortalAction()
     // 后台预取对话输入栏资源，进入 creatChat / chat 时复用缓存
     void useChatResourcesStore().prefetchChatInput()
 });
+
+async function continuePendingPortalAction() {
+    if (!readPortalIntent()) return
+    if (!await authStore.refreshFromAuthMe()) {
+        clearPortalIntent()
+        MessagePlugin.warning(t('portal.permissionChanged'))
+        return
+    }
+    const result = consumePortalIntent({
+        activeTenantId: authStore.effectiveTenantId,
+        isTargetAccessible: (tenantId) => authStore.canAccessAllTenants
+            || authStore.memberships.some((membership) => Number(membership.tenant_id) === tenantId),
+        actions: {
+            search: () => commandPaletteStore.openPalette(''),
+            ask: () => {
+                menuStore.setPrefillQuery('')
+                void router.push('/platform/creatChat')
+            },
+        },
+    })
+    if (result !== 'executed' && result !== 'none') {
+        MessagePlugin.warning(t('portal.permissionChanged'))
+    }
+}
 
 // 监听路由变化，兼容 SPA 内部跳转时的 ?cmdk= 参数
 watch(() => route.query.cmdk, () => {
