@@ -20,6 +20,7 @@ export const usePortalStore = defineStore('portal', () => {
   const selectedStage = ref(PORTAL_ALL_STAGE)
   const selectedCategory = ref('')
   const loading = ref(false)
+  const overviewLoading = ref(false)
   const requestState = ref<Record<number, 'idle' | 'submitting'>>({})
   const initialized = ref(false)
   let loadVersion = 0
@@ -47,8 +48,13 @@ export const usePortalStore = defineStore('portal', () => {
   }
 
   async function loadOverviewSpaces() {
-    const response = await listPortalSpaces()
-    overviewSpaces.value = uniquePortalSpaces(response.data || [])
+    overviewLoading.value = true
+    try {
+      const response = await listPortalSpaces()
+      overviewSpaces.value = uniquePortalSpaces(response.data || [])
+    } finally {
+      overviewLoading.value = false
+    }
   }
 
   async function loadMySpaces() {
@@ -61,7 +67,9 @@ export const usePortalStore = defineStore('portal', () => {
     initialized.value = true
     loading.value = true
     try {
-      await Promise.all([loadStages(), loadMySpaces(), loadOverviewSpaces()])
+      const [stageResult, overviewResult] = await Promise.allSettled([loadStages(), loadOverviewSpaces()])
+      if (stageResult.status === 'rejected') console.warn('Portal stages failed to load', stageResult.reason)
+      if (overviewResult.status === 'rejected') throw overviewResult.reason
       if (!search.value.trim() && selectedStage.value === PORTAL_ALL_STAGE && !selectedCategory.value) {
         spaces.value = overviewSpaces.value
       } else {
@@ -79,7 +87,7 @@ export const usePortalStore = defineStore('portal', () => {
     requestState.value[tenantId] = 'submitting'
     try {
       await createPortalAccessRequest(tenantId, reason.trim())
-      await loadSpaces()
+      await Promise.all([loadOverviewSpaces(), loadSpaces()])
     } finally {
       requestState.value[tenantId] = 'idle'
     }
@@ -95,7 +103,7 @@ export const usePortalStore = defineStore('portal', () => {
 
   return {
     stages, spaces, overviewSpaces, mySpaces, search, selectedStage, selectedCategory,
-    loading, requestState, categories, initialize, loadStages, loadSpaces,
+    loading, overviewLoading, requestState, categories, initialize, loadStages, loadSpaces,
     loadOverviewSpaces, loadMySpaces, requestAccess, invalidate,
   }
 })
