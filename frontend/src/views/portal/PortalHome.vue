@@ -3,38 +3,11 @@
     <Menu />
     <div class="portal-page">
     <main>
-      <section class="hero" data-guide="portal-home">
-        <div class="hero-copy"><span class="eyebrow">KnowHub / {{ t('portalHome.brandZh') }}</span><h1>CSBU {{ t('navigation.knowledgeBases') }}</h1><p>{{ t('portalHome.description') }}</p><KnowledgeScaleSummary class="overall-scale" :stats="knowledgeSummary.overall" /></div>
-        <router-link v-if="authStore.isSystemAdmin" to="/portal/admin"><t-button variant="outline">{{ t('portal.admin.menuEntry') }}</t-button></router-link>
-        <form class="quick-ask" data-guide="portal-quick-ask" @submit.prevent="startAsk">
-          <t-input v-model="quickQuestion" size="large" :placeholder="t('portalHome.askPlaceholder')" clearable />
-          <t-button type="submit" size="large" :disabled="!quickQuestion.trim()">{{ t('portalHome.askAction') }}</t-button>
-        </form>
-      </section>
-
-      <section class="getting-started">
-        <div class="section-title"><div><h2>{{ t('portalHome.useTitle') }}</h2><p>{{ t('portalHome.useDescription') }}</p></div></div>
-        <div class="task-grid">
-          <button v-for="task in usageTasks" :key="task.id" type="button" class="task-card" :data-guide="`portal-task-${task.id}`" @click="openTask(task.id)">
-            <t-icon :name="task.icon" /><span><strong>{{ t(task.titleKey) }}</strong><small>{{ t(task.descriptionKey) }}</small></span><t-icon name="chevron-right" />
-          </button>
-        </div>
-      </section>
-
-      <section class="resource-overview">
-        <div class="resource-column">
-          <div class="section-title"><div><h2>{{ t('portalHome.knowledgeTitle') }}</h2><p>{{ t('portalHome.knowledgeDescription') }}</p></div><router-link to="/platform/knowledge-bases">{{ t('portalHome.viewAll') }}</router-link></div>
-          <t-skeleton v-if="resourcesLoading" animation="gradient" :row-col="[1, 1, 1]" />
-          <div v-else-if="knowledgeBases.length" class="compact-list"><button v-for="kb in knowledgeBases" :key="kb.id" @click="router.push(`/platform/knowledge-bases/${kb.id}`)"><t-icon name="folder" /><span><strong>{{ kb.name }}</strong><small>{{ kb.description || t('portalHome.noDescription') }}</small></span></button></div>
-          <t-empty v-else :description="t('portalHome.noKnowledge')"><t-button variant="outline" @click="router.push('/platform/knowledge-bases')">{{ t('portalHome.browseKnowledge') }}</t-button></t-empty>
-        </div>
-        <div v-if="capabilities.isSupported('agents')" class="resource-column" data-guide="portal-agents">
-          <div class="section-title"><div><h2>{{ t('portalHome.agentTitle') }}</h2><p>{{ t('portalHome.agentDescription') }}</p></div><router-link to="/platform/agents">{{ t('portalHome.viewAll') }}</router-link></div>
-          <t-skeleton v-if="resourcesLoading" animation="gradient" :row-col="[1, 1, 1]" />
-          <div v-else-if="agents.length" class="compact-list"><button v-for="agent in agents" :key="agent.id" @click="useAgent(agent.id)"><t-icon name="robot" /><span><strong>{{ agent.name }}</strong><small>{{ agent.description || t('portalHome.noDescription') }}</small></span><em>{{ t('portalHome.useAgent') }}</em></button></div>
-          <t-empty v-else :description="t('portalHome.noAgents')"><t-button variant="outline" @click="router.push('/platform/agents')">{{ t('portalHome.exploreAgents') }}</t-button></t-empty>
-        </div>
-      </section>
+      <PortalHero :stats="knowledgeSummary.overall" :loading="portal.loading && !portal.overviewSpaces.length"
+        :active-space-name="authStore.currentTenantName" :has-active-space="hasActiveSpace"
+        :supports-agent="capabilities.isSupported('agents')" :supports-tools="capabilities.isSupported('settings.mcp')"
+        @search="openScopedSearch" @browse="openScopedRoute('/platform/knowledge-bases')"
+        @agent="openScopedRoute('/platform/agents')" @tools="router.push('/platform/settings?section=mcp-access-keys')" />
       <MySpacesSection :spaces="portal.mySpaces" @enter="enterMySpace" />
       <section class="discovery">
         <div class="portal-tabs" role="tablist" :aria-label="t('portal.viewSwitcherLabel')">
@@ -79,6 +52,7 @@ import { useRouter } from 'vue-router'
 import { MessagePlugin } from 'tdesign-vue-next'
 import Menu from '@/components/menu.vue'
 import NewUserGuide from '@/components/NewUserGuide.vue'
+import PortalHero from '@/components/portal/PortalHero.vue'
 import MySpacesSection from '@/components/portal/MySpacesSection.vue'
 import IpdFlowOverview from '@/components/portal/IpdFlowOverview.vue'
 import IpdStageDetail from '@/components/portal/IpdStageDetail.vue'
@@ -89,12 +63,8 @@ import KnowledgeScaleSummary from '@/components/portal/KnowledgeScaleSummary.vue
 import AccessRequestDialog from '@/components/portal/AccessRequestDialog.vue'
 import { usePortalStore } from '@/stores/portal'
 import { useAuthStore } from '@/stores/auth'
-import { useMenuStore } from '@/stores/menu'
-import { useSettingsStore } from '@/stores/settings'
+import { useCommandPaletteStore } from '@/stores/commandPalette'
 import { useDeploymentCapabilitiesStore } from '@/stores/deploymentCapabilities'
-import { listKnowledgeBases } from '@/api/knowledge-base'
-import { listAgents, type CustomAgent } from '@/api/agent'
-import type { KnowledgeBaseInfo } from '@/api/auth'
 import { resolvePortalInteraction, type PortalMySpace, type PortalSpace } from '@/api/portal'
 import { switchWorkspaceAndNavigate } from '@/utils/tenantSwitch'
 import { PUBLIC_KNOWLEDGE_CATEGORY, PUBLIC_KNOWLEDGE_PREVIEW_LIMIT, visiblePublicKnowledgeSpaces } from '@/config/publicKnowledgeSpaces'
@@ -102,8 +72,7 @@ import { buildKnowledgeHierarchySummary } from '@/config/portalKnowledgeSummary'
 
 const portal=usePortalStore()
 const authStore=useAuthStore()
-const menuStore=useMenuStore()
-const settingsStore=useSettingsStore()
+const commandPalette=useCommandPaletteStore()
 const capabilities=useDeploymentCapabilitiesStore()
 const router=useRouter()
 const { t }=useI18n()
@@ -113,46 +82,17 @@ const viewMode=ref<'ipd'|'public'>(portal.selectedCategory===PUBLIC_CATEGORY?'pu
 const PAGE_SIZE=computed(()=>viewMode.value==='public'?PUBLIC_KNOWLEDGE_PREVIEW_LIMIT:IPD_PAGE_SIZE)
 const visibleLimit=ref(viewMode.value==='public'?PUBLIC_KNOWLEDGE_PREVIEW_LIMIT:IPD_PAGE_SIZE)
 const requestSpace=ref<PortalSpace|null>(null)
-const quickQuestion=ref('')
-const knowledgeBases=ref<KnowledgeBaseInfo[]>([])
-const agents=ref<CustomAgent[]>([])
-const resourcesLoading=ref(true)
 const requestSubmitting=computed(()=>requestSpace.value ? portal.requestState[requestSpace.value.tenant_id]==='submitting' : false)
 let searchTimer:number|undefined
 
-const usageTasks = computed(() => [
-  { id: 'ask', icon: 'chat', titleKey: 'portalHome.tasks.ask.title', descriptionKey: 'portalHome.tasks.ask.description' },
-  { id: 'knowledge', icon: 'folder', titleKey: 'portalHome.tasks.knowledge.title', descriptionKey: 'portalHome.tasks.knowledge.description' },
-  ...(capabilities.isSupported('agents') ? [{ id: 'agent', icon: 'robot', titleKey: 'portalHome.tasks.agent.title', descriptionKey: 'portalHome.tasks.agent.description' }] : []),
-  ...(capabilities.isSupported('settings.mcp') ? [{ id: 'mcp', icon: 'connection', titleKey: 'portalHome.tasks.mcp.title', descriptionKey: 'portalHome.tasks.mcp.description' }] : []),
-])
-
-function startAsk(){
-  const question=quickQuestion.value.trim()
-  if(!question)return
-  menuStore.setPrefillQuery(question)
-  void router.push('/platform/creatChat')
+const hasActiveSpace=computed(()=>Boolean(authStore.effectiveTenantId))
+function requireActiveSpace(){
+  if(hasActiveSpace.value)return true
+  MessagePlugin.warning(t('portalExperience.selectSpaceFirst'))
+  return false
 }
-function openTask(id:string){
-  if(id==='ask'){void router.push('/platform/creatChat');return}
-  if(id==='knowledge'){document.querySelector('.discovery')?.scrollIntoView({behavior:'smooth'});return}
-  if(id==='agent'){void router.push('/platform/agents');return}
-  void router.push('/platform/settings?section=mcp-access-keys')
-}
-function useAgent(id:string){settingsStore.selectAgent(id);void router.push('/platform/creatChat')}
-
-async function loadResourceOverview(){
-  resourcesLoading.value=true
-  try{
-    const [kbResponse,agentResponse]=await Promise.all([
-      listKnowledgeBases(),
-      capabilities.isSupported('agents')?listAgents():Promise.resolve({data:[]}),
-    ]) as any[]
-    knowledgeBases.value=(kbResponse?.data||[]).slice(0,4)
-    agents.value=(agentResponse?.data||[]).slice(0,4)
-  }catch{knowledgeBases.value=[];agents.value=[]}
-  finally{resourcesLoading.value=false}
-}
+function openScopedSearch(){if(requireActiveSpace())commandPalette.openPalette('')}
+function openScopedRoute(path:string){if(requireActiveSpace())void router.push(path)}
 
 const stageLabels=computed(()=>Object.fromEntries(portal.stages.map(stage=>[stage.key,t(`portal.stages.${stage.key}.name`)])))
 const emptyText=computed(()=>{
@@ -206,7 +146,7 @@ async function enterInteraction(space:PortalSpace){
   }
 }
 
-onMounted(async()=>{void loadResourceOverview();try{await portal.initialize()}catch(error:any){MessagePlugin.error(error?.message||t('portal.loadFailed'))}})
+onMounted(async()=>{try{await portal.initialize()}catch(error:any){MessagePlugin.error(error?.message||t('portal.loadFailed'))}})
 </script>
 
 <style scoped lang="less">
