@@ -38,10 +38,11 @@ export function buildKnowledgeHierarchySummary(
   const stageSet = new Set(stageKeys)
   const ipdSpaces = unique.filter((space) => space.stages.some((stage) => stageSet.has(stage)))
   const publicSpaces = unique.filter((space) => space.category === PUBLIC_KNOWLEDGE_CATEGORY)
-  const overallSpaces = uniqueSpaces([...ipdSpaces, ...publicSpaces])
 
   return {
-    overall: summarizeKnowledgeSpaces(overallSpaces),
+    // The Portal headline covers every published space returned by the
+    // overview endpoint and must not depend on stage metadata loading first.
+    overall: summarizeKnowledgeSpaces(unique),
     ipd: summarizeKnowledgeSpaces(ipdSpaces),
     publicArea: summarizeKnowledgeSpaces(publicSpaces),
     phases: Object.fromEntries(stageKeys.map((stage) => [

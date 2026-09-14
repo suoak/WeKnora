@@ -3,19 +3,21 @@
     <Menu />
     <div class="portal-page">
       <main>
-        <PortalHero :stats="knowledgeSummary.overall" :loading="portal.overviewLoading"
+        <PortalHero :stats="knowledgeSummary.overall" :loading="portal.overviewLoading" :error="portal.overviewError"
           :active-space-name="authStore.currentTenantName" :has-active-space="hasActiveSpace"
           :supports-agent="capabilities.isSupported('agents')" :supports-tools="capabilities.isSupported('settings.mcp')"
           @search="openScopedSearch" @browse="openScopedRoute('/platform/knowledge-bases')"
-          @agent="openScopedRoute('/platform/agents')" @tools="openScopedRoute('/platform/settings?section=mcp-access-keys')" />
+          @agent="openScopedRoute('/platform/agents')" @tools="openScopedRoute('/platform/settings?section=mcp-access-keys')"
+          @retry="retryOverview" />
 
-        <IpdKnowledgeMap :stages="portal.stages" :spaces="ipdSpaces" :loading="portal.overviewLoading"
+        <IpdKnowledgeMap :stages="portal.stages" :spaces="ipdSpaces"
+          :loading="portal.stagesLoading || portal.overviewLoading" :error="portal.stagesError || portal.overviewError"
           :active-tenant-id="activeTenantId" @enter="enterPortalSpace" @restricted="openAccessDialog"
-          @search="searchPortalSpace" @ask="askPortalSpace" />
+          @search="searchPortalSpace" @ask="askPortalSpace" @retry="retryIpd" />
 
-        <PublicKnowledgeSection :spaces="portal.overviewSpaces" :loading="portal.overviewLoading"
+        <PublicKnowledgeSection :spaces="portal.overviewSpaces" :loading="portal.overviewLoading" :error="portal.overviewError"
           :active-tenant-id="activeTenantId" @enter="enterPortalSpace" @restricted="openAccessDialog"
-          @search="searchPortalSpace" @ask="askPortalSpace" />
+          @search="searchPortalSpace" @ask="askPortalSpace" @retry="retryOverview" />
       </main>
       <SpaceAccessDialog :visible="Boolean(accessSpace)" :space="accessSpace" :submitting="requestSubmitting"
         @close="accessSpace=null" @request="submitRequest" />
@@ -104,10 +106,17 @@ async function submitRequest(reason:string){
   try{await portal.requestAccess(accessSpace.value.tenant_id,reason);accessSpace.value=null;MessagePlugin.success(t('portal.requestSuccess'))}
   catch(error:any){MessagePlugin.error(error?.message||t('portal.requestFailed'))}
 }
+async function retryOverview(){try{await portal.loadOverviewSpaces()}catch{/* section owns the error state */}}
+async function retryIpd(){
+  const tasks:Promise<unknown>[]=[]
+  if(portal.stagesError)tasks.push(portal.loadStages())
+  if(portal.overviewError)tasks.push(portal.loadOverviewSpaces())
+  await Promise.allSettled(tasks)
+}
 
-onMounted(async()=>{try{await portal.initialize()}catch(error:any){MessagePlugin.error(error?.message||t('portal.loadFailed'))}})
+onMounted(()=>{void portal.initialize()})
 </script>
 
 <style scoped lang="less">
-.portal-shell{width:100%;height:100%;min-height:100vh;display:flex;overflow:hidden;background:var(--td-bg-color-page)}.portal-page{min-width:0;min-height:0;flex:1;overflow-y:auto;color:var(--td-text-color-primary)}main{max-width:1600px;margin:0 auto;padding:0 clamp(20px,3.2vw,48px) 56px}@media(max-width:800px){main{padding-left:58px}}@media(max-width:680px){main{padding:0 14px 40px 58px}}
+.portal-shell{width:100%;height:100%;min-height:100vh;display:flex;overflow:hidden;background:var(--td-bg-color-page)}.portal-page{min-width:0;min-height:0;flex:1;overflow-y:auto;color:var(--td-text-color-primary)}main{box-sizing:border-box;width:100%;max-width:1600px;margin:0 auto;padding:0 clamp(18px,2vw,36px) 48px}@media(max-width:800px){main{padding-left:58px}}@media(max-width:680px){main{padding:0 14px 36px 58px}}
 </style>

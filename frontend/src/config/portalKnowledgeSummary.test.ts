@@ -42,6 +42,16 @@ test('overall and stage totals include accessible and discoverable asset counts'
   assert.deepEqual(summary.phases.development, { spaces: 2, knowledgeBases: 9, files: 982 })
 })
 
+test('overall totals remain available when stage metadata has not loaded', () => {
+  const summary = buildKnowledgeHierarchySummary([
+    space(1, ['development'], 'development_assets', 5, 680),
+    space(2, [], 'uncategorized', 2, 20),
+  ], [])
+
+  assert.deepEqual(summary.overall, { spaces: 2, knowledgeBases: 7, files: 700 })
+  assert.deepEqual(summary.ipd, { spaces: 0, knowledgeBases: 0, files: 0 })
+})
+
 test('phase totals include a multi-phase space in each phase but once in IPD', () => {
   const summary = buildKnowledgeHierarchySummary([
     space(1, ['architecture', 'design'], 'development_assets', 3, 100),

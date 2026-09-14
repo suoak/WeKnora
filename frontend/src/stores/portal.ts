@@ -20,7 +20,10 @@ export const usePortalStore = defineStore('portal', () => {
   const selectedStage = ref(PORTAL_ALL_STAGE)
   const selectedCategory = ref('')
   const loading = ref(false)
+  const stagesLoading = ref(false)
   const overviewLoading = ref(false)
+  const stagesError = ref(false)
+  const overviewError = ref(false)
   const requestState = ref<Record<number, 'idle' | 'submitting'>>({})
   const initialized = ref(false)
   let loadVersion = 0
@@ -28,8 +31,17 @@ export const usePortalStore = defineStore('portal', () => {
   const categories = computed(() => portalCategories(spaces.value))
 
   async function loadStages() {
-    const response = await listPortalStages()
-    stages.value = (response.data || []).map(displayPortalStage)
+    stagesLoading.value = true
+    stagesError.value = false
+    try {
+      const response = await listPortalStages()
+      stages.value = (response.data || []).map(displayPortalStage)
+    } catch (error) {
+      stagesError.value = true
+      throw error
+    } finally {
+      stagesLoading.value = false
+    }
   }
 
   async function loadSpaces() {
@@ -49,9 +61,16 @@ export const usePortalStore = defineStore('portal', () => {
 
   async function loadOverviewSpaces() {
     overviewLoading.value = true
+    overviewError.value = false
     try {
       const response = await listPortalSpaces()
       overviewSpaces.value = uniquePortalSpaces(response.data || [])
+      if (!search.value.trim() && selectedStage.value === PORTAL_ALL_STAGE && !selectedCategory.value) {
+        spaces.value = overviewSpaces.value
+      }
+    } catch (error) {
+      overviewError.value = true
+      throw error
     } finally {
       overviewLoading.value = false
     }
@@ -69,15 +88,11 @@ export const usePortalStore = defineStore('portal', () => {
     try {
       const [stageResult, overviewResult] = await Promise.allSettled([loadStages(), loadOverviewSpaces()])
       if (stageResult.status === 'rejected') console.warn('Portal stages failed to load', stageResult.reason)
-      if (overviewResult.status === 'rejected') throw overviewResult.reason
-      if (!search.value.trim() && selectedStage.value === PORTAL_ALL_STAGE && !selectedCategory.value) {
-        spaces.value = overviewSpaces.value
-      } else {
-        await loadSpaces()
+      if (overviewResult.status === 'rejected') console.warn('Portal overview failed to load', overviewResult.reason)
+      if (overviewResult.status === 'fulfilled'
+        && (search.value.trim() || selectedStage.value !== PORTAL_ALL_STAGE || selectedCategory.value)) {
+        await loadSpaces().catch((error) => console.warn('Portal filtered spaces failed to load', error))
       }
-    } catch (error) {
-      initialized.value = false
-      throw error
     } finally {
       loading.value = false
     }
@@ -87,7 +102,17 @@ export const usePortalStore = defineStore('portal', () => {
     requestState.value[tenantId] = 'submitting'
     try {
       await createPortalAccessRequest(tenantId, reason.trim())
-      await Promise.all([loadOverviewSpaces(), loadSpaces()])
+      // The write succeeded even if the follow-up refresh has a transient
+      // failure. Mark both cached collections immediately so the dialog can
+      // never offer a duplicate submission for an already-pending request.
+      for (const collection of [overviewSpaces.value, spaces.value]) {
+        const target = collection.find((space) => space.tenant_id === tenantId)
+        if (target) {
+          target.access_request_pending = true
+          target.can_request_access = false
+        }
+      }
+      await Promise.allSettled([loadOverviewSpaces(), loadSpaces()])
     } finally {
       requestState.value[tenantId] = 'idle'
     }
@@ -97,13 +122,14 @@ export const usePortalStore = defineStore('portal', () => {
     initialized.value = false
     loadVersion++
     if (typeof window !== 'undefined' && window.location.pathname === '/portal') {
-      void Promise.all([loadOverviewSpaces(), loadSpaces()])
+      void Promise.allSettled([loadOverviewSpaces(), loadSpaces()])
     }
   }
 
   return {
     stages, spaces, overviewSpaces, mySpaces, search, selectedStage, selectedCategory,
-    loading, overviewLoading, requestState, categories, initialize, loadStages, loadSpaces,
+    loading, stagesLoading, overviewLoading, stagesError, overviewError,
+    requestState, categories, initialize, loadStages, loadSpaces,
     loadOverviewSpaces, loadMySpaces, requestAccess, invalidate,
   }
 })

@@ -23,7 +23,7 @@ test('stage and overview loading are isolated and access requests refresh overvi
   const store = source('../../stores/portal.ts')
   assert.match(store, /Promise\.allSettled\(\[loadStages\(\), loadOverviewSpaces\(\)\]\)/)
   assert.match(store, /overviewSpaces\.value = uniquePortalSpaces/)
-  assert.match(store, /createPortalAccessRequest\(tenantId, reason\.trim\(\)\)[\s\S]*loadOverviewSpaces\(\)/)
+  assert.match(store, /createPortalAccessRequest\(tenantId, reason\.trim\(\)\)[\s\S]*access_request_pending = true[\s\S]*Promise\.allSettled\(\[loadOverviewSpaces\(\), loadSpaces\(\)\]\)/)
 })
 
 test('portal renders one panorama tree and removes legacy duplicated discovery surfaces', () => {

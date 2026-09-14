@@ -15,8 +15,8 @@
         <div class="pending"><t-icon name="time" />{{ t('portalMap.accessDialog.pending') }}</div>
       </template>
       <template v-else-if="space.can_request_access">
-        <t-textarea v-model="reason" :placeholder="t('portal.reasonPlaceholder')" :maxlength="1000" :autosize="{ minRows: 3, maxRows: 6 }" />
-        <div class="dialog-actions"><t-button variant="text" @click="$emit('close')">{{ t('common.cancel') }}</t-button><t-button :loading="submitting" :disabled="!valid" @click="submit">{{ t('portal.requestAccess') }}</t-button></div>
+        <t-textarea v-model="reason" :aria-label="t('portal.reasonPlaceholder')" :placeholder="t('portal.reasonPlaceholder')" :maxlength="1000" :autosize="{ minRows: 3, maxRows: 6 }" />
+        <div class="dialog-actions"><t-button type="button" variant="text" @click="$emit('close')">{{ t('common.cancel') }}</t-button><t-button type="button" :loading="submitting" :disabled="submitting || !valid" @click="submit">{{ t('portal.requestAccess') }}</t-button></div>
       </template>
       <p v-else class="contact-admin">{{ t('portalMap.accessDialog.contactAdmin') }}</p>
     </div>

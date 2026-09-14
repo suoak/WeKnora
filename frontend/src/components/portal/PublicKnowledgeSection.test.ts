@@ -21,7 +21,8 @@ test('public section reuses normal SpaceSummary for accessible and discoverable 
 
 test('public section has independent loading and empty states', () => {
   const section = source('./PublicKnowledgeSection.vue')
-  assert.match(section, /v-if="loading"/)
+  assert.match(section, /PortalSectionState v-if="error"/)
+  assert.match(section, /v-else-if="loading"/)
   assert.match(section, /v-else-if="publicSpaces\.length"/)
   assert.match(section, /portal\.publicZone\.empty/)
 })
