@@ -7,9 +7,13 @@
           :active-space-name="authStore.currentTenantName" :has-active-space="hasActiveSpace"
           :supports-agent="capabilities.isSupported('agents')" :supports-tools="capabilities.isSupported('settings.mcp')"
           @search="openScopedSearch" @browse="openScopedRoute('/platform/knowledge-bases')"
-          @agent="openScopedRoute('/platform/agents')" @tools="router.push('/platform/settings?section=mcp-access-keys')" />
+          @agent="openScopedRoute('/platform/agents')" @tools="openScopedRoute('/platform/settings?section=mcp-access-keys')" />
 
         <IpdKnowledgeMap :stages="portal.stages" :spaces="ipdSpaces" :loading="portal.overviewLoading"
+          :active-tenant-id="activeTenantId" @enter="enterPortalSpace" @restricted="openAccessDialog"
+          @search="openScopedSearch" @ask="openScopedAsk" />
+
+        <PublicKnowledgeSection :spaces="portal.overviewSpaces" :loading="portal.overviewLoading"
           :active-tenant-id="activeTenantId" @enter="enterPortalSpace" @restricted="openAccessDialog"
           @search="openScopedSearch" @ask="openScopedAsk" />
       </main>
@@ -29,6 +33,7 @@ import Menu from '@/components/menu.vue'
 import NewUserGuide from '@/components/NewUserGuide.vue'
 import PortalHero from '@/components/portal/PortalHero.vue'
 import IpdKnowledgeMap from '@/components/portal/IpdKnowledgeMap.vue'
+import PublicKnowledgeSection from '@/components/portal/PublicKnowledgeSection.vue'
 import SpaceAccessDialog from '@/components/portal/SpaceAccessDialog.vue'
 import { usePortalStore } from '@/stores/portal'
 import { useAuthStore } from '@/stores/auth'

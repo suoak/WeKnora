@@ -24,7 +24,8 @@ test('multi-stage association is preserved while header summary uses raw spaces'
 test('space summary separates accessible entry from discoverable dialog behavior', () => {
   const summary = source('./SpaceSummary.vue')
   const home = source('../../views/portal/PortalHome.vue')
-  assert.match(summary, /access_state === 'accessible' \? 'enter' : 'restricted'/)
+  assert.match(summary, /if\(props\.space\.access_state === 'accessible'\)emit\('enter',props\.space\)/)
+  assert.match(summary, /else emit\('restricted',props\.space\)/)
   assert.match(summary, /space\.knowledge_base_count/)
   assert.match(summary, /space\.file_count/)
   assert.match(home, /if\(space\.access_state!=='accessible'\)\{openAccessDialog\(space\);return\}/)

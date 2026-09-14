@@ -28,6 +28,6 @@ test('quick actions remain lightweight and route through existing capabilities',
   for (const action of ['search', 'browse', 'agent', 'tools']) assert.match(hero, new RegExp(`quickActions\\.${action}`))
   assert.match(home, /openScopedRoute\('\/platform\/knowledge-bases'\)/)
   assert.match(home, /openScopedRoute\('\/platform\/agents'\)/)
-  assert.match(home, /section=mcp-access-keys/)
+  assert.match(home, /openScopedRoute\('\/platform\/settings\?section=mcp-access-keys'\)/)
   assert.doesNotMatch(home, /class="task-card"|loadResourceOverview|listKnowledgeBases|listAgents/)
 })
