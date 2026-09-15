@@ -9,7 +9,7 @@ test('Portal defines a system-font typography hierarchy without content scaling'
   const files = ['PortalHero.vue','IpdKnowledgeMap.vue','IpdStageCard.vue','SpaceSummary.vue','PublicKnowledgeSection.vue','SpaceAccessDialog.vue']
     .map((name)=>source(`../../components/portal/${name}`)).join('\n')
   assert.match(home, /--portal-font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif/)
-  assert.match(home, /--portal-page-title:28px/)
+  assert.match(home, /--portal-page-title:30px/)
   assert.match(home, /--portal-section-title:20px/)
   assert.doesNotMatch(files, /font-size:(?:9|10|11)px/)
   assert.doesNotMatch(files, /transform:|translate3d|scale\(|zoom\s*:/)
@@ -18,7 +18,10 @@ test('Portal defines a system-font typography hierarchy without content scaling'
 test('hero is a compact branded portal surface with legible KPI and search sizing', () => {
   const hero = source('../../components/portal/PortalHero.vue')
   assert.match(hero, /class="hero-surface"/)
-  assert.match(hero, /background:var\(--portal-brand-surface\)/)
+  assert.match(hero, /min-height:174px/)
+  assert.match(hero, /radial-gradient/)
+  assert.match(hero, /background-size:24px 24px/)
+  assert.match(hero, /opacity:\.025/)
   assert.match(hero, /font-size:var\(--portal-page-title\)/)
   assert.match(hero, /hero-stats strong\{[^}]*font-size:28px/)
   assert.match(hero, /hero-search\{[^}]*height:46px/)
@@ -38,22 +41,21 @@ test('lifecycle rail keeps seven readable steps and removes nested stage cards',
   assert.doesNotMatch(stage, /SpaceSummary/)
 })
 
-test('active stage knowledge panel has four, three, two and one column tiers', () => {
+test('all-stage knowledge matrix has four, three, two and one column tiers', () => {
   const map = source('../../components/portal/IpdKnowledgeMap.vue')
-  assert.match(map, /stage-space-grid\{[^}]*repeat\(4,minmax\(0,1fr\)\)/)
+  assert.match(map, /space-matrix\{[^}]*repeat\(4,minmax\(0,1fr\)\)/)
   assert.match(map, /@media\(max-width:1599px\).*repeat\(3,minmax\(0,1fr\)\)/)
-  assert.match(map, /@media\(max-width:1100px\).*repeat\(2,minmax\(0,1fr\)\)/)
-  assert.match(map, /@media\(max-width:900px\)[\s\S]*stage-space-grid\{grid-template-columns:1fr\}/)
+  assert.match(map, /@media\(max-width:1199px\).*repeat\(2,minmax\(0,1fr\)\)/)
+  assert.match(map, /@media\(max-width:900px\)[\s\S]*space-matrix\{grid-template-columns:1fr\}/)
+  assert.doesNotMatch(map, /activeStageSpaces|stage-panel|role="tabpanel"/)
 })
 
-test('public knowledge balances real cards with explanatory space and responsive layout', () => {
+test('public knowledge uses the shared direct grid without explanatory filler', () => {
   const section = source('../../components/portal/PublicKnowledgeSection.vue')
-  assert.match(section, /class="public-surface"/)
-  assert.match(section, /repeat\(auto-fit,minmax\(280px,360px\)\)/)
-  assert.match(section, /<aside>/)
-  assert.match(section, /portal\.publicZone\.description/)
+  assert.match(section, /repeat\(4,minmax\(0,1fr\)\)/)
+  assert.match(section, /@media\(max-width:1399px\).*repeat\(2,minmax\(0,1fr\)\)/)
   assert.match(section, /<SpaceSummary v-for="space in publicSpaces"/)
-  assert.doesNotMatch(section, /moreSpaces|fake|placeholderSpace/)
+  assert.doesNotMatch(section, /<aside>|publicZone\.description|moreSpaces|fake|placeholderSpace/)
 })
 
 test('loading, empty, and error states remain distinct and retry only failed sources', () => {
@@ -65,7 +67,7 @@ test('loading, empty, and error states remain distinct and retry only failed sou
   assert.match(home, /function retryIpd\(\)/)
   assert.match(map, /PortalSectionState v-if="error"/)
   assert.match(map, /v-if="loading" class="lifecycle-rail is-loading"/)
-  assert.match(publicSection, /v-else class="public-surface"/)
+  assert.match(publicSection, /v-else-if="loading" class="public-grid"/)
   assert.match(publicSection, /v-else class="public-empty"/)
 })
 

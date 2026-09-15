@@ -1154,6 +1154,7 @@ const applyAgentListData = (res: { data: CustomAgent[]; disabled_own_agent_ids: 
     disabled_by_me: disabledOwnIds.includes(agent.id)
   }))
   void checkAndOpenEditModal()
+  void runRequestedAgent()
 }
 
 const fetchList = (force = false) => {
@@ -1384,6 +1385,27 @@ async function startAgentChat(agentId: string, sourceTenantId?: string) {
     MessagePlugin.error(t('createChat.messages.createError'))
   }
 }
+
+let runningShortcutId = ''
+async function runRequestedAgent() {
+  const requestedId = typeof route.query.runAgent === 'string' ? route.query.runAgent : ''
+  if (!requestedId || runningShortcutId === requestedId) return
+  const agent = agents.value.find((item) => item.id === requestedId)
+  if (!agent) return
+  runningShortcutId = requestedId
+  const query = { ...route.query }
+  delete query.runAgent
+  await router.replace({ path: route.path, query })
+  if (agent.disabled_by_me) {
+    MessagePlugin.warning(t('agent.disabled'))
+    runningShortcutId = ''
+    return
+  }
+  await startAgentChat(agent.id)
+  runningShortcutId = ''
+}
+
+watch(() => route.query.runAgent, () => { void runRequestedAgent() })
 
 /** 在对话中使用共享智能体：创建新会话并跳转 */
 async function handleUseSharedAgentInChat(shared: SharedAgentInfo) {

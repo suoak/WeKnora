@@ -73,11 +73,16 @@
             </div>
             <SidebarNavigation :collapsed="sidebarCollapsed" @navigate="mobileOpen = false" />
             <!-- 历史会话：按来源筛选后统一按日期分组展示 -->
-            <button v-if="!sidebarCollapsed" type="button" class="recent-chats-toggle"
-                :aria-expanded="recentChatsExpanded" @click="recentChatsExpanded = !recentChatsExpanded">
-                <span>{{ t('navigation.recentChats') }}</span>
-                <t-icon :name="recentChatsExpanded ? 'chevron-down' : 'chevron-right'" />
-            </button>
+            <div v-if="!sidebarCollapsed" class="recent-chats-header">
+                <button type="button" class="recent-chats-toggle" :aria-expanded="recentChatsExpanded"
+                    @click="recentChatsExpanded = !recentChatsExpanded">
+                    <span>{{ t('navigation.recentChats') }}</span>
+                    <t-icon :name="recentChatsExpanded ? 'chevron-down' : 'chevron-right'" />
+                </button>
+                <button type="button" class="recent-chats-all" @click="showAllRecent = !showAllRecent">
+                    {{ showAllRecent ? t('navigation.recentCollapse') : t('navigation.recentAll') }}
+                </button>
+            </div>
             <div class="submenu" v-if="!sidebarCollapsed && recentChatsExpanded">
                 <!-- Stable, always-mounted source filter: reserving its row here
                      (instead of embedding it in the first date group, which
@@ -106,37 +111,30 @@
                             </div>
                         </div>
                     </template>
-                    <template v-else-if="activeBucket?.loaded && filteredGroupedSessions.length === 0">
+                    <template v-else-if="activeBucket?.loaded && visibleRecentSessions.length === 0">
                         <div class="submenu_empty">{{ t('menu.noSessions') }}</div>
                     </template>
                     <template v-else>
-                        <template v-for="group in filteredGroupedSessions" :key="group.key">
-                            <div v-if="group.label" class="timeline_header session-list-row session-list-row--flat">
-                                <span class="session-list-row__body">
-                                    <span class="timeline_header-label">{{ group.label }}</span>
-                                </span>
-                            </div>
-                            <div v-for="subitem in group.items" :key="subitem.id"
-                                class="submenu_item_p session-chat-row" :class="{
-                                    'session-chat-row--active': !batchMode && subitem.path === currentSecondpath,
-                                    'session-chat-row--selected': batchMode && batchSelectedIds.includes(subitem.id),
-                                }">
-                                <div class="session-list-row session-list-row--flat">
-                                    <div class="session-list-row__body">
-                                        <SessionSidebarRow :item="subitem" :batch-mode="batchMode"
-                                            :running="Boolean(sessionActivityEntries[subitem.id])"
-                                            :active-path="currentSecondpath" :selected-ids="batchSelectedIds"
-                                            :menu-options="buildSessionMenuOptions(subitem)"
-                                            @navigate="gotopage(subitem.path)"
-                                            @toggle-select="toggleBatchSelect(subitem.id)"
-                                            @menu-click="handleSessionMenuClick($event, subitem)"
-                                            @rename-submit="renameSessionTitle(subitem, $event.title)"
-                                            @hover-in="mouseenteBotDownr(subitem.id)" @hover-out="mouseleaveBotDown" />
-                                    </div>
+                        <div v-for="subitem in visibleRecentSessions" :key="subitem.id"
+                            class="submenu_item_p session-chat-row" :class="{
+                                'session-chat-row--active': !batchMode && subitem.path === currentSecondpath,
+                                'session-chat-row--selected': batchMode && batchSelectedIds.includes(subitem.id),
+                            }">
+                            <div class="session-list-row session-list-row--flat">
+                                <div class="session-list-row__body">
+                                    <SessionSidebarRow :item="subitem" :batch-mode="batchMode"
+                                        :running="Boolean(sessionActivityEntries[subitem.id])"
+                                        :active-path="currentSecondpath" :selected-ids="batchSelectedIds"
+                                        :menu-options="buildSessionMenuOptions(subitem)"
+                                        @navigate="gotopage(subitem.path)"
+                                        @toggle-select="toggleBatchSelect(subitem.id)"
+                                        @menu-click="handleSessionMenuClick($event, subitem)"
+                                        @rename-submit="renameSessionTitle(subitem, $event.title)"
+                                        @hover-in="mouseenteBotDownr(subitem.id)" @hover-out="mouseleaveBotDown" />
                                 </div>
                             </div>
-                        </template>
-                        <div v-if="activeBucket?.loading && filteredGroupedSessions.length > 0"
+                        </div>
+                        <div v-if="activeBucket?.loading && visibleRecentSessions.length > 0"
                             class="session-list-loading session-list-row session-list-row--flat">
                             <span class="session-list-row__body">
                                 <t-loading size="small" />
@@ -275,7 +273,8 @@ const orgStore = useOrganizationStore();
 const uiStore = useUIStore();
 const commandPaletteStore = useCommandPaletteStore();
 const mobileOpen = ref(false);
-const recentChatsExpanded = ref(false);
+const recentChatsExpanded = ref(true);
+const showAllRecent = ref(false);
 const mobileViewport = ref(false);
 const sidebarCollapsed = computed(() => uiStore.sidebarCollapsed && !mobileViewport.value);
 let mobileMedia: MediaQueryList | undefined;
@@ -469,6 +468,11 @@ const filteredGroupedSessions = computed(() => {
     );
 });
 
+const visibleRecentSessions = computed(() => {
+    const sessions = filteredGroupedSessions.value.flatMap((group) => group.items);
+    return showAllRecent.value ? sessions : sessions.slice(0, 5);
+});
+
 const refreshSessionListScrollability = async () => {
     await nextTick();
     const container = scrollContainer.value;
@@ -477,6 +481,7 @@ const refreshSessionListScrollability = async () => {
 
 /** 列表未撑满滚动区时自动续页（按当前可见 DOM 测量，避免折叠导致误判） */
 const ensureBucketFillsViewport = async (key: string) => {
+    if (!showAllRecent.value) return;
     const MAX_ITERATIONS = 20;
     for (let i = 0; i < MAX_ITERATIONS; i++) {
         await nextTick();
@@ -884,6 +889,7 @@ const getMessageList = async () => {
 
 // 滚动到底时为当前筛选来源加载下一页
 const checkScrollBottom = async () => {
+    if (!recentChatsExpanded.value || !showAllRecent.value) return;
     const container = scrollContainer.value;
     const key = activeSessionBucketKey.value;
     const bucket = sessionBuckets.value[key];
@@ -1165,8 +1171,8 @@ const onDragHandleMouseDown = (e: MouseEvent) => {
 </script>
 <style lang="less" scoped>
 .mobile-nav-trigger,.mobile-nav-backdrop{display:none}
-.global-search-trigger{height:38px;display:flex;align-items:center;gap:9px;flex:none;margin:0 4px 8px;padding:0 10px;border:1px solid var(--td-component-stroke);border-radius:7px;background:var(--td-bg-color-container);color:var(--td-text-color-secondary);cursor:pointer;font:inherit;text-align:left}.global-search-trigger:hover{border-color:var(--td-component-border);background:var(--td-bg-color-container-hover);color:var(--td-text-color-primary)}.global-search-trigger .header-icon-img{width:18px;height:18px}.global-search-trigger span{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.global-search-trigger kbd{padding:1px 5px;border:1px solid var(--td-component-stroke);border-radius:4px;background:var(--td-bg-color-secondarycontainer);color:var(--td-text-color-placeholder);font:10px/16px var(--td-font-family)}
-.recent-chats-toggle{width:100%;height:30px;display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding:0 var(--sidebar-inset-x);border:0;background:transparent;color:var(--td-text-color-placeholder);cursor:pointer;font:600 11px/1 var(--td-font-family);text-align:left}.recent-chats-toggle:hover{color:var(--td-text-color-secondary)}
+.global-search-trigger{height:40px;display:flex;align-items:center;gap:9px;flex:none;margin:0 4px 8px;padding:0 10px;border:1px solid var(--td-component-stroke);border-radius:7px;background:var(--td-bg-color-container);color:var(--td-text-color-secondary);cursor:pointer;font:inherit;text-align:left}.global-search-trigger:hover{border-color:var(--td-component-border);background:var(--td-bg-color-container-hover);color:var(--td-text-color-primary)}.global-search-trigger .header-icon-img{width:18px;height:18px}.global-search-trigger span{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.global-search-trigger kbd{padding:1px 5px;border:1px solid var(--td-component-stroke);border-radius:4px;background:var(--td-bg-color-secondarycontainer);color:var(--td-text-color-placeholder);font:11px/16px var(--td-font-family)}
+.recent-chats-header{height:32px;display:flex;align-items:center;margin-top:8px;padding:0 var(--sidebar-inset-x)}.recent-chats-toggle,.recent-chats-all{border:0;background:transparent;cursor:pointer;font:600 12px/1 var(--td-font-family)}.recent-chats-toggle{min-width:0;display:flex;flex:1;align-items:center;gap:5px;padding:0;color:var(--td-text-color-secondary);text-align:left}.recent-chats-toggle:hover{color:var(--td-text-color-primary)}.recent-chats-all{padding:5px 0 5px 8px;color:var(--td-text-color-placeholder)}.recent-chats-all:hover{color:var(--td-brand-color)}
 .aside_box {
     // 侧栏水平栅格：图标列与文案列统一对齐（Logo / 菜单 / 会话分组 / 会话行）
     --sidebar-inset-x: 14px;
@@ -1175,8 +1181,8 @@ const onDragHandleMouseDown = (e: MouseEvent) => {
     --sidebar-icon-gap: 8px;
     --sidebar-text-inset: calc(var(--sidebar-inset-x) + var(--sidebar-icon-size) + var(--sidebar-icon-gap)); // 40px
 
-    min-width: 260px;
-    width: 260px;
+    min-width: 250px;
+    width: 250px;
     padding: 8px 6px 6px;
     background: var(--td-bg-color-sidebar);
     box-sizing: border-box;

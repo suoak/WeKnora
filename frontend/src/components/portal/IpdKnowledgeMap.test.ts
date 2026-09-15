@@ -4,25 +4,41 @@ import test from 'node:test'
 
 const source = (name: string) => readFileSync(new URL(name, import.meta.url), 'utf8')
 
-test('knowledge map renders one seven-stage lifecycle rail and one active-stage panel', () => {
+test('knowledge map renders the complete seven-stage rail and every IPD space in one matrix', () => {
   const map = source('./IpdKnowledgeMap.vue')
   const stage = source('./IpdStageCard.vue')
-  assert.match(map, /class="lifecycle-rail" role="tablist"/)
+  assert.match(map, /<nav v-else class="lifecycle-rail">/)
   assert.match(map, /v-for="\(stage,index\) in stages"/)
   assert.match(map, /:space-count="spacesFor\(stage\.key\)\.length"/)
-  assert.match(map, /v-else-if="activeStage" class="stage-panel" role="tabpanel"/)
-  assert.match(map, /v-for="space in activeStageSpaces"/)
-  assert.match(stage, /role="tab"/)
-  assert.doesNotMatch(stage, /<SpaceSummary|stage-body|stage-spaces/)
+  assert.match(map, /class="knowledge-matrix"/)
+  assert.match(map, /v-for="space in sortedSpaces"/)
+  assert.match(map, /space\.stages\.map\(stage=>stageOrder\.value\.get\(stage\)/)
+  assert.doesNotMatch(map, /activeStageSpaces|role="tabpanel"|class="stage-panel"/)
+  assert.doesNotMatch(stage, /role="tab"|aria-selected/)
 })
 
-test('active stage selection uses loaded data and preserves multi-stage overview counts', () => {
+test('rail activation scrolls to a stage and highlights it without filtering the matrix', () => {
   const map = source('./IpdKnowledgeMap.vue')
-  assert.match(map, /defaultPortalStageKey\(props\.stages,props\.spaces,props\.activeTenantId\)/)
-  assert.match(map, /function selectStage\(stageKey:string\)/)
-  assert.match(map, /selectionTouched\.value=true/)
-  assert.match(map, /props\.spaces\.filter\(space=>space\.stages\.includes\(stage\)\)/)
-  assert.match(map, /buildKnowledgeHierarchySummary\(props\.spaces/)
+  const stage = source('./IpdStageCard.vue')
+  assert.match(stage, /@click="\$emit\('navigate', stage\.key\)"/)
+  assert.match(map, /function navigateToStage\(stageKey:string\)/)
+  assert.match(map, /querySelectorAll<HTMLElement>\('\.matrix-item'\)/)
+  assert.match(map, /scrollIntoView\(\{behavior:'smooth',block:'center'\}\)/)
+  assert.match(map, /highlightedStageKey\.value=stageKey/)
+  assert.match(map, /space\.stages\.includes\(highlightedStageKey\)/)
+  assert.match(map, /setTimeout\(\(\)=>\{highlightedStageKey\.value='';focusedStageKey\.value=''\},1400\)/)
+  assert.doesNotMatch(map, /filter\([^\n]*focusedStageKey|filter\([^\n]*highlightedStageKey/)
+})
+
+test('matrix cards expose stage identity while keeping current-space treatment lightweight', () => {
+  const map = source('./IpdKnowledgeMap.vue')
+  const summary = source('./SpaceSummary.vue')
+  assert.match(map, /:stage-number="stageIdentity\(space\)\.number"/)
+  assert.match(map, /:stage-name="stageIdentity\(space\)\.name"/)
+  assert.match(summary, /class="stage-identity"/)
+  assert.match(summary, /v-show="isActiveSpace"/)
+  assert.match(summary, /\.space-summary\.current\{border-color:/)
+  assert.doesNotMatch(summary, /\.space-summary\.current\{[^}]*background:/)
 })
 
 test('space summary separates accessible entry from discoverable dialog behavior', () => {
@@ -44,7 +60,6 @@ test('accessible cards expose lightweight ask/search icons and one primary entry
   assert.match(summary, /@click="\$emit\('ask', space\)"/)
   assert.match(summary, /<t-tooltip :content="actionLabel\('search'\)"/)
   assert.match(summary, /:aria-label="actionLabel\('ask'\)"/)
-  assert.doesNotMatch(summary, /v-if="isActiveSpace"[^>]+accessible-actions/)
 })
 
 test('restricted cards show one state-aware CTA and always activate the gate', () => {
