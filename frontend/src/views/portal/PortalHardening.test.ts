@@ -9,7 +9,7 @@ test('desktop panorama uses seven natural-height columns and narrow layouts expo
   const stage = source('../../components/portal/IpdStageCard.vue')
   assert.match(map, /grid-template-columns:repeat\(7,minmax\(0,1fr\)\)/)
   assert.match(map, /align-items:start/)
-  assert.match(map, /@media\(max-width:1319px\)/)
+  assert.match(map, /@media\(max-width:1399px\)/)
   assert.match(map, /grid-auto-columns:minmax\(172px,1fr\)/)
   assert.match(map, /mask-image:linear-gradient/)
   assert.match(map, /scrollbar-width:thin/)
@@ -19,8 +19,8 @@ test('desktop panorama uses seven natural-height columns and narrow layouts expo
 
 test('hero stays compact while preserving scoped search and visible focus', () => {
   const hero = source('../../components/portal/PortalHero.vue')
-  assert.match(hero, /class="hero-overview"/)
-  assert.match(hero, /\.portal-hero\{padding:20px 0 18px/)
+  assert.match(hero, /class="hero-surface"/)
+  assert.match(hero, /\.portal-hero\{padding:14px 0 0/)
   assert.match(hero, /\.hero-search\{[^}]*height:42px/)
   assert.match(hero, /hero-search:focus-visible/)
   assert.match(hero, /quick-actions button:focus-visible/)
@@ -29,10 +29,21 @@ test('hero stays compact while preserving scoped search and visible focus', () =
 
 test('public cards use three, two, and one column tiers without changing card vocabulary', () => {
   const section = source('../../components/portal/PublicKnowledgeSection.vue')
-  assert.match(section, /grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/)
-  assert.match(section, /@media\(max-width:1599px\).*repeat\(2,minmax\(0,1fr\)\)/)
+  assert.match(section, /grid-template-columns:repeat\(3,minmax\(0,360px\)\)/)
+  assert.match(section, /@media\(max-width:1599px\).*repeat\(2,minmax\(0,480px\)\)/)
   assert.match(section, /@media\(max-width:900px\).*grid-template-columns:1fr/)
   assert.match(section, /<SpaceSummary/)
+})
+
+test('lifecycle rail and content-driven stage bodies stay separate', () => {
+  const map = source('../../components/portal/IpdKnowledgeMap.vue')
+  const stage = source('../../components/portal/IpdStageCard.vue')
+  assert.match(map, /:is-last="index === stages\.length - 1"/)
+  assert.match(stage, /class="stage-node"/)
+  assert.match(stage, /\.stage-card::after/)
+  assert.match(stage, /\.stage-card\.is-last::after\{display:none\}/)
+  assert.match(stage, /class="stage-body"/)
+  assert.doesNotMatch(stage, /min-height:\d+px[^}]*\.stage-body/)
 })
 
 test('loading, empty, and error states are distinct and retry only their failed source', () => {
@@ -64,12 +75,31 @@ test('access controls expose labels, focus, dialog input naming, and duplicate-s
   const dialog = source('../../components/portal/SpaceAccessDialog.vue')
   const store = source('../../stores/portal.ts')
   assert.match(summary, /@keydown\.space\.prevent="activate"/)
+  assert.match(summary, /<span>\{\{ t\('portalMap\.ask'\) \}\}<\/span>/)
+  assert.match(summary, /<span>\{\{ t\('portalMap\.search'\) \}\}<\/span>/)
+  assert.match(summary, /class="enter-action"/)
   assert.match(summary, /:aria-label="actionLabel\('search'\)"/)
   assert.match(summary, /button:focus-visible/)
   assert.match(dialog, /:aria-label="t\('portal\.reasonPlaceholder'\)"/)
   assert.match(dialog, /:disabled="submitting \|\| !valid"/)
+  assert.match(dialog, /portalMap\.accessDialog\.afterAccess/)
+  assert.match(dialog, /stageLabel/)
   assert.match(store, /access_request_pending = true/)
   assert.match(store, /can_request_access = false/)
+})
+
+test('restricted actions all route to the gate and a success can only follow the real request API', () => {
+  const summary = source('../../components/portal/SpaceSummary.vue')
+  const home = source('./PortalHome.vue')
+  const store = source('../../stores/portal.ts')
+  const api = source('../../api/portal.ts')
+  assert.match(summary, /else emit\('restricted',props\.space\)/)
+  assert.doesNotMatch(summary, /discoverable[\s\S]{0,220}\$emit\('(enter|search|ask)'/)
+  assert.match(home, /if\(space\.access_state!=='accessible'\)\{openAccessDialog\(space\);return\}/)
+  assert.match(home, /await portal\.requestAccess\(accessSpace\.value\.tenant_id,reason\)/)
+  assert.match(home, /MessagePlugin\.success\(t\('portal\.requestSuccess'\)\)/)
+  assert.match(store, /await createPortalAccessRequest\(tenantId, reason\.trim\(\)\)/)
+  assert.match(api, /\/api\/v1\/portal\/spaces\/\$\{tenantId\}\/access-requests/)
 })
 
 test('new-user guidance remains an overlay shown once rather than layout content', () => {

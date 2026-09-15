@@ -51,6 +51,15 @@ test('access dialog exposes summary, existing request state, and contact fallbac
   assert.match(dialog, /space\.file_count/)
   assert.match(dialog, /space\.access_request_pending/)
   assert.match(dialog, /space\.can_request_access/)
+  assert.match(dialog, /portalMap\.accessDialog\.titleWithSpace/)
+  assert.match(dialog, /portalMap\.accessDialog\.explanation/)
+  assert.match(dialog, /String\(index\+1\)\.padStart\(2,'0'\)/)
   assert.match(dialog, /space\.responsible_team|space\.contact/)
   assert.doesNotMatch(dialog, /knowledge_bases|documents|approve|reject/i)
+})
+
+test('hidden spaces are absent from the Portal response contract', () => {
+  const api = source('../../api/portal.ts')
+  assert.match(api, /PortalAccessState = 'accessible' \| 'discoverable'/)
+  assert.doesNotMatch(api, /PortalAccessState[^\n]*hidden/)
 })

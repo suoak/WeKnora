@@ -19,7 +19,7 @@
           :active-tenant-id="activeTenantId" @enter="enterPortalSpace" @restricted="openAccessDialog"
           @search="searchPortalSpace" @ask="askPortalSpace" @retry="retryOverview" />
       </main>
-      <SpaceAccessDialog :visible="Boolean(accessSpace)" :space="accessSpace" :submitting="requestSubmitting"
+      <SpaceAccessDialog :visible="Boolean(accessSpace)" :space="accessSpace" :stages="portal.stages" :submitting="requestSubmitting"
         @close="accessSpace=null" @request="submitRequest" />
     </div>
     <GlobalCommandPalette />
@@ -118,5 +118,5 @@ onMounted(()=>{void portal.initialize()})
 </script>
 
 <style scoped lang="less">
-.portal-shell{width:100%;height:100%;min-height:100vh;display:flex;overflow:hidden;background:var(--td-bg-color-page)}.portal-page{min-width:0;min-height:0;flex:1;overflow-y:auto;color:var(--td-text-color-primary)}main{box-sizing:border-box;width:100%;max-width:1600px;margin:0 auto;padding:0 clamp(18px,2vw,36px) 48px}@media(max-width:800px){main{padding-left:58px}}@media(max-width:680px){main{padding:0 14px 36px 58px}}
+.portal-shell{width:100%;height:100%;min-height:100vh;display:flex;overflow:hidden;background:var(--td-bg-color-page)}.portal-page{min-width:0;min-height:0;flex:1;overflow-y:auto;color:var(--td-text-color-primary)}main{box-sizing:border-box;width:100%;max-width:1560px;margin:0 auto;padding:0 clamp(18px,2vw,32px) 42px}@media(max-width:800px){main{padding-left:58px}}@media(max-width:680px){main{padding:0 14px 32px 58px}}
 </style>
