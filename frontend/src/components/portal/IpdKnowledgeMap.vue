@@ -32,7 +32,8 @@
             :class="{ highlighted: highlightedStageKey && space.stages.includes(highlightedStageKey) }"
             :data-stages="space.stages.join('|')">
             <SpaceSummary :space="space" variant="normal" :stage-number="stageIdentity(space).number"
-              :stage-name="stageIdentity(space).name" :is-active-space="space.tenant_id === activeTenantId"
+              :stage-name="stageIdentity(space).name" :fallback-description="stageFallbackDescription(space)"
+              :is-active-space="space.tenant_id === activeTenantId"
               @enter="$emit('enter', $event)" @restricted="$emit('restricted', $event)"
               @search="$emit('search', $event)" @ask="$emit('ask', $event)" />
           </div>
@@ -63,6 +64,8 @@ const stageShortDescriptions=computed(()=>[
   t('portalMap.stageShort.concept1'),t('portalMap.stageShort.concept2'),t('portalMap.stageShort.architecture'),
   t('portalMap.stageShort.design'),t('portalMap.stageShort.development'),t('portalMap.stageShort.testing'),t('portalMap.stageShort.lmt'),
 ])
+// Presentation-only fallback: reuse stable localized stage metadata without mutating Space data.
+const stageFallbackDescriptions=stageShortDescriptions
 const spacesFor=(stage:string)=>props.spaces.filter(space=>space.stages.includes(stage))
 const summary=computed(()=>buildKnowledgeHierarchySummary(props.spaces,props.stages.map(stage=>stage.key)))
 const coveredStages=computed(()=>props.stages.filter(stage=>spacesFor(stage.key).length>0).length)
@@ -79,6 +82,10 @@ function stageIdentity(space:PortalSpace){
   const stage=index>=0?props.stages[index]:undefined
   return {number:index>=0?String(index+1).padStart(2,'0'):'',name:stage?.name||''}
 }
+function stageFallbackDescription(space:PortalSpace){
+  const index=props.stages.findIndex(stage=>space.stages.includes(stage.key))
+  return index>=0?stageFallbackDescriptions.value[index]||'':''
+}
 function navigateToStage(stageKey:string){
   focusedStageKey.value=stageKey
   highlightedStageKey.value=stageKey
@@ -94,7 +101,7 @@ onBeforeUnmount(()=>{if(highlightTimer)clearTimeout(highlightTimer)})
 </script>
 
 <style scoped lang="less">
-.ipd-map{margin-top:26px}.section-header{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:12px}.section-header h2{margin:0;color:var(--portal-text-primary);font-size:var(--portal-section-title);font-weight:700;line-height:1.35}.map-summary{display:flex;flex:none;gap:8px;color:var(--portal-text-muted);font-size:12px;font-weight:500}.map-summary span{padding:4px 8px;border-radius:999px;background:var(--portal-surface-soft)}.summary-loading{width:220px;flex:none}.lifecycle-scroll{min-width:0;overflow-x:auto;padding:2px 0 5px;scrollbar-width:thin;scrollbar-color:var(--portal-line-strong) transparent}.lifecycle-rail{display:grid;min-width:980px;grid-template-columns:repeat(7,minmax(132px,1fr));gap:0}.lifecycle-rail.is-loading{gap:18px;padding:12px}.knowledge-matrix{margin-top:13px}.knowledge-matrix>header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.knowledge-matrix h3{margin:0;color:var(--portal-text-primary);font-size:15px;font-weight:650;line-height:22px}.knowledge-matrix header span{color:var(--portal-text-muted);font-size:12px;font-weight:500}.space-matrix{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.matrix-item{min-width:0;border-radius:11px;transition:background-color .2s ease,box-shadow .2s ease}.matrix-item.highlighted{background:var(--portal-brand-surface);box-shadow:0 0 0 3px var(--td-brand-color-focus)}.portal-empty{min-height:92px;display:grid;place-items:center;color:var(--portal-text-muted);font-size:13px}
+.ipd-map{margin-top:28px}.section-header{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:14px}.section-header h2{margin:0;color:var(--portal-text-primary);font-size:var(--portal-section-title);font-weight:700;line-height:1.35}.map-summary{display:flex;flex:none;gap:8px;color:var(--portal-text-muted);font-size:12.5px;font-weight:500}.map-summary span{padding:4px 9px;border-radius:999px;background:var(--portal-surface-soft)}.summary-loading{width:220px;flex:none}.lifecycle-scroll{min-width:0;overflow-x:auto;padding:3px 0 7px;scrollbar-width:thin;scrollbar-color:var(--portal-line-strong) transparent}.lifecycle-rail{display:grid;min-width:980px;grid-template-columns:repeat(7,minmax(132px,1fr));gap:0}.lifecycle-rail.is-loading{gap:18px;padding:12px}.knowledge-matrix{margin-top:16px}.knowledge-matrix>header{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}.knowledge-matrix h3{margin:0;color:var(--portal-text-primary);font-size:17px;font-weight:650;line-height:24px}.knowledge-matrix header span{color:var(--portal-text-muted);font-size:12.5px;font-weight:500}.space-matrix{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.matrix-item{min-width:0;border-radius:11px;transition:background-color .2s ease,box-shadow .2s ease}.matrix-item.highlighted{background:var(--portal-brand-surface);box-shadow:0 0 0 3px var(--td-brand-color-focus)}.portal-empty{min-height:92px;display:grid;place-items:center;color:var(--portal-text-muted);font-size:13px}
 @media(max-width:1599px){.space-matrix{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:1399px){.lifecycle-rail{grid-template-columns:repeat(7,150px)}}
 @media(max-width:1199px){.space-matrix{grid-template-columns:repeat(2,minmax(0,1fr))}}

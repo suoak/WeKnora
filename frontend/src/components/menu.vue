@@ -470,7 +470,14 @@ const filteredGroupedSessions = computed(() => {
 
 const visibleRecentSessions = computed(() => {
     const sessions = filteredGroupedSessions.value.flatMap((group) => group.items);
-    return showAllRecent.value ? sessions : sessions.slice(0, 5);
+    const isDefaultTitle = (session: any) => {
+        const title = String(session.title || '').trim();
+        return Boolean(session.isNoTitle) || !title || title === t('menu.newSession');
+    };
+    const compacted = sessions.filter((session, index) => (
+        !isDefaultTitle(session) || index === 0 || !isDefaultTitle(sessions[index - 1])
+    ));
+    return showAllRecent.value ? compacted : compacted.slice(0, 5);
 });
 
 const refreshSessionListScrollability = async () => {
@@ -1172,7 +1179,7 @@ const onDragHandleMouseDown = (e: MouseEvent) => {
 <style lang="less" scoped>
 .mobile-nav-trigger,.mobile-nav-backdrop{display:none}
 .global-search-trigger{height:40px;display:flex;align-items:center;gap:9px;flex:none;margin:0 4px 8px;padding:0 10px;border:1px solid var(--td-component-stroke);border-radius:7px;background:var(--td-bg-color-container);color:var(--td-text-color-secondary);cursor:pointer;font:inherit;text-align:left}.global-search-trigger:hover{border-color:var(--td-component-border);background:var(--td-bg-color-container-hover);color:var(--td-text-color-primary)}.global-search-trigger .header-icon-img{width:18px;height:18px}.global-search-trigger span{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.global-search-trigger kbd{padding:1px 5px;border:1px solid var(--td-component-stroke);border-radius:4px;background:var(--td-bg-color-secondarycontainer);color:var(--td-text-color-placeholder);font:11px/16px var(--td-font-family)}
-.recent-chats-header{height:32px;display:flex;align-items:center;margin-top:8px;padding:0 var(--sidebar-inset-x)}.recent-chats-toggle,.recent-chats-all{border:0;background:transparent;cursor:pointer;font:600 12px/1 var(--td-font-family)}.recent-chats-toggle{min-width:0;display:flex;flex:1;align-items:center;gap:5px;padding:0;color:var(--td-text-color-secondary);text-align:left}.recent-chats-toggle:hover{color:var(--td-text-color-primary)}.recent-chats-all{padding:5px 0 5px 8px;color:var(--td-text-color-placeholder)}.recent-chats-all:hover{color:var(--td-brand-color)}
+.recent-chats-header{height:32px;display:flex;align-items:center;margin-top:8px;padding:0 var(--sidebar-inset-x)}.recent-chats-toggle,.recent-chats-all{border:0;background:transparent;cursor:pointer;font:600 13px/1 var(--td-font-family)}.recent-chats-toggle{min-width:0;display:flex;flex:1;align-items:center;gap:5px;padding:0;color:var(--td-text-color-secondary);text-align:left}.recent-chats-toggle:hover{color:var(--td-text-color-primary)}.recent-chats-all{padding:5px 0 5px 8px;color:var(--td-text-color-placeholder);font-weight:500}.recent-chats-all:hover{color:var(--td-brand-color)}
 .aside_box {
     // 侧栏水平栅格：图标列与文案列统一对齐（Logo / 菜单 / 会话分组 / 会话行）
     --sidebar-inset-x: 14px;
@@ -1619,7 +1626,7 @@ const onDragHandleMouseDown = (e: MouseEvent) => {
         }
 
         &.session-chat-row:hover .session-list-row {
-            background: var(--td-bg-color-container-hover);
+            background: rgba(15, 23, 42, 0.04);
 
             :deep(.menu-more) {
                 color: var(--td-text-color-primary);
@@ -1631,10 +1638,11 @@ const onDragHandleMouseDown = (e: MouseEvent) => {
         }
 
         &.session-chat-row--active .session-list-row {
-            background: var(--td-bg-color-container-hover);
+            background: rgba(16, 185, 129, 0.07);
 
             :deep(.submenu_item) {
-                color: var(--td-brand-color);
+                color: var(--td-text-color-primary);
+                font-weight: 500;
             }
 
             :deep(.menu-more) {
