@@ -34,6 +34,14 @@ export function portalCategories(spaces: PortalSpace[]): string[] {
   return [...new Set(spaces.map((space) => space.category.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b))
 }
 
+export function defaultPortalStageKey(stages: PortalStage[], spaces: PortalSpace[], activeTenantId: number): string {
+  const currentStage = stages.find((stage) => spaces.some((space) =>
+    space.tenant_id === activeTenantId && space.stages.includes(stage.key),
+  ))
+  if (currentStage) return currentStage.key
+  return stages.find((stage) => spaces.some((space) => space.stages.includes(stage.key)))?.key || stages[0]?.key || ''
+}
+
 export function validAccessReason(reason: string): boolean {
   const length = [...reason.trim()].length
   return length > 0 && length <= 1000

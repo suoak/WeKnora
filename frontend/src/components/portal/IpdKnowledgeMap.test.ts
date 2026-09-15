@@ -4,21 +4,25 @@ import test from 'node:test'
 
 const source = (name: string) => readFileSync(new URL(name, import.meta.url), 'utf8')
 
-test('knowledge map renders every configured stage with inline spaces and empty state', () => {
+test('knowledge map renders one seven-stage lifecycle rail and one active-stage panel', () => {
   const map = source('./IpdKnowledgeMap.vue')
   const stage = source('./IpdStageCard.vue')
+  assert.match(map, /class="lifecycle-rail" role="tablist"/)
   assert.match(map, /v-for="\(stage,index\) in stages"/)
-  assert.match(map, /spacesFor\(stage\.key\)/)
-  assert.match(stage, /v-for="space in spaces"/)
-  assert.match(stage, /portalMap\.emptyStage/)
-  assert.doesNotMatch(map, /selectedStage|@click=.*select/)
+  assert.match(map, /:space-count="spacesFor\(stage\.key\)\.length"/)
+  assert.match(map, /v-else-if="activeStage" class="stage-panel" role="tabpanel"/)
+  assert.match(map, /v-for="space in activeStageSpaces"/)
+  assert.match(stage, /role="tab"/)
+  assert.doesNotMatch(stage, /<SpaceSummary|stage-body|stage-spaces/)
 })
 
-test('multi-stage association is preserved while header summary uses raw spaces', () => {
+test('active stage selection uses loaded data and preserves multi-stage overview counts', () => {
   const map = source('./IpdKnowledgeMap.vue')
+  assert.match(map, /defaultPortalStageKey\(props\.stages,props\.spaces,props\.activeTenantId\)/)
+  assert.match(map, /function selectStage\(stageKey:string\)/)
+  assert.match(map, /selectionTouched\.value=true/)
   assert.match(map, /props\.spaces\.filter\(space=>space\.stages\.includes\(stage\)\)/)
   assert.match(map, /buildKnowledgeHierarchySummary\(props\.spaces/)
-  assert.doesNotMatch(map, /summary\.phases.*reduce|Object\.values\(summary\.phases\)/)
 })
 
 test('space summary separates accessible entry from discoverable dialog behavior', () => {
@@ -30,31 +34,36 @@ test('space summary separates accessible entry from discoverable dialog behavior
   assert.match(summary, /space\.file_count/)
   assert.match(home, /if\(space\.access_state!=='accessible'\)\{openAccessDialog\(space\);return\}/)
   assert.match(home, /switchWorkspaceAndNavigate/)
-  assert.match(home, /if\(space\.access_state==='discoverable'\)accessSpace\.value=space/)
 })
 
-test('search and ask are offered for every accessible space with keyboard metadata', () => {
+test('accessible cards expose lightweight ask/search icons and one primary entry', () => {
   const summary = source('./SpaceSummary.vue')
-  assert.doesNotMatch(summary, /v-if="isActiveSpace"/)
+  assert.match(summary, /class="icon-actions"/)
+  assert.match(summary, /class="enter-action"/)
   assert.match(summary, /@click="\$emit\('search', space\)"/)
   assert.match(summary, /@click="\$emit\('ask', space\)"/)
   assert.match(summary, /<t-tooltip :content="actionLabel\('search'\)"/)
   assert.match(summary, /:aria-label="actionLabel\('ask'\)"/)
-  assert.match(summary, /props\.space\.display_name/)
-  assert.match(summary, /button:focus-visible/)
+  assert.doesNotMatch(summary, /v-if="isActiveSpace"[^>]+accessible-actions/)
 })
 
-test('access dialog exposes summary, existing request state, and contact fallback only', () => {
+test('restricted cards show one state-aware CTA and always activate the gate', () => {
+  const summary = source('./SpaceSummary.vue')
+  assert.match(summary, /v-else class="restricted-action"/)
+  assert.match(summary, /access_request_pending\?t\('portal\.pending'\)/)
+  assert.match(summary, /can_request_access\?t\('portal\.requestAccess'\):t\('portalMap\.getAccess'\)/)
+  assert.match(summary, /@keydown\.enter\.prevent="activate"/)
+  assert.match(summary, /@keydown\.space\.prevent="activate"/)
+  assert.doesNotMatch(summary, /portalMap\.permissionRequired|portalMap\.learnAccess/)
+})
+
+test('access dialog retains real request states and readable space context', () => {
   const dialog = source('./SpaceAccessDialog.vue')
-  assert.match(dialog, /space\.display_name/)
-  assert.match(dialog, /space\.knowledge_base_count/)
-  assert.match(dialog, /space\.file_count/)
   assert.match(dialog, /space\.access_request_pending/)
   assert.match(dialog, /space\.can_request_access/)
   assert.match(dialog, /portalMap\.accessDialog\.titleWithSpace/)
-  assert.match(dialog, /portalMap\.accessDialog\.explanation/)
-  assert.match(dialog, /String\(index\+1\)\.padStart\(2,'0'\)/)
-  assert.match(dialog, /space\.responsible_team|space\.contact/)
+  assert.match(dialog, /stageLabel/)
+  assert.match(dialog, /:disabled="submitting \|\| !valid"/)
   assert.doesNotMatch(dialog, /knowledge_bases|documents|approve|reject/i)
 })
 

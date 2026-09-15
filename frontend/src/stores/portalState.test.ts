@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { canReviewPortalRequests, portalCategories, PORTAL_ALL_STAGE, uniquePortalSpaces, validAccessReason } from './portalState'
+import { canReviewPortalRequests, defaultPortalStageKey, portalCategories, PORTAL_ALL_STAGE, uniquePortalSpaces, validAccessReason } from './portalState'
 import { buildPortalSpacesPath, portalAccessRequestBody } from '../api/portalContracts'
 import type { PortalSpace } from '@/api/portal'
 
@@ -33,4 +33,18 @@ test('portal categories remain independent metadata and reason validation trims 
   assert.equal(validAccessReason('  '), false)
   assert.equal(validAccessReason('需要只读权限'), true)
   assert.equal(validAccessReason('x'.repeat(1001)), false)
+})
+
+test('lifecycle defaults to the current space, then first populated stage, then stage 01', () => {
+  const stages = [
+    { key: 'concept', display_order: 1 },
+    { key: 'design', display_order: 2 },
+    { key: 'testing', display_order: 3 },
+  ]
+  const design = { ...space(1), stages: ['design'] }
+  const testing = { ...space(2), stages: ['testing'] }
+  assert.equal(defaultPortalStageKey(stages, [design, testing], 2), 'testing')
+  assert.equal(defaultPortalStageKey(stages, [design, testing], 99), 'design')
+  assert.equal(defaultPortalStageKey(stages, [], 99), 'concept')
+  assert.equal(defaultPortalStageKey([], [], 99), '')
 })

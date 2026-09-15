@@ -1,29 +1,24 @@
 <template>
-  <section class="stage-card" :class="{ 'is-last': isLast, 'has-active': hasActiveSpace }">
-    <header><span class="stage-node">{{ String(index + 1).padStart(2, '0') }}</span><div><h3 :title="stage.name">{{ stage.name }}</h3><p>{{ stage.description }}</p></div></header>
-    <div class="stage-body">
-      <div class="stage-stats">{{ t('portalMap.stageInventoryCompact', { spaces: stats.spaces, kb: stats.knowledgeBases, files: numberFormatter.format(stats.files) }) }}</div>
-      <div v-if="spaces.length" class="stage-spaces">
-        <SpaceSummary v-for="space in spaces" :key="space.tenant_id" :space="space" variant="compact"
-          :is-active-space="space.tenant_id === activeTenantId" @enter="$emit('enter', $event)" @restricted="$emit('restricted', $event)"
-          @search="$emit('search', $event)" @ask="$emit('ask', $event)" />
-      </div>
-      <div v-else class="stage-empty">{{ t('portalMap.emptyStage') }}</div>
-    </div>
-  </section>
+  <button type="button" class="stage-step" :class="{ active, current }" role="tab" :aria-selected="active"
+    :aria-label="`${stage.name} · ${t('portal.flowOverview.stageSpaceCount', { count: spaceCount })}`" @click="$emit('select', stage.key)">
+    <span class="stage-marker"><b>{{ String(index + 1).padStart(2, '0') }}</b><i aria-hidden="true"></i></span>
+    <span class="stage-copy">
+      <strong :title="stage.name">{{ stage.name }}</strong>
+      <small :title="stage.description">{{ stage.description }}</small>
+      <em>{{ t('portal.flowOverview.stageSpaceCount', { count: spaceCount }) }}</em>
+    </span>
+  </button>
 </template>
+
 <script setup lang="ts">
-import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { PortalSpace, PortalStage } from '@/api/portal'
-import type { KnowledgeScale } from '@/config/portalKnowledgeSummary'
-import SpaceSummary from './SpaceSummary.vue'
-const props=defineProps<{stage:PortalStage;index:number;spaces:PortalSpace[];stats:KnowledgeScale;activeTenantId:number;isLast:boolean}>()
-defineEmits<{enter:[space:PortalSpace];restricted:[space:PortalSpace];search:[space:PortalSpace];ask:[space:PortalSpace]}>()
-const {t}=useI18n()
-const numberFormatter=new Intl.NumberFormat()
-const hasActiveSpace=computed(()=>props.spaces.some(space=>space.tenant_id===props.activeTenantId))
+import type { PortalStage } from '@/api/portal'
+
+defineProps<{ stage: PortalStage; index: number; spaceCount: number; active: boolean; current: boolean }>()
+defineEmits<{ select: [stageKey: string] }>()
+const { t } = useI18n()
 </script>
+
 <style scoped lang="less">
-.stage-card{position:relative;min-width:0}.stage-card::after{position:absolute;z-index:0;top:12px;left:23px;width:calc(100% + 8px);height:1px;background:var(--td-component-border);content:''}.stage-card.is-last::after{display:none}header{position:relative;z-index:1;display:flex;min-width:0;gap:7px;align-items:flex-start}header>div{min-width:0;padding-right:4px;background:var(--td-bg-color-page)}.stage-node{width:24px;height:24px;display:grid;flex:none;place-items:center;border:1px solid color-mix(in srgb,var(--td-brand-color) 45%,var(--td-component-border));border-radius:50%;background:var(--td-bg-color-page);color:var(--td-brand-color);font-size:9px;font-weight:700}.has-active .stage-node{background:var(--td-brand-color);color:var(--td-text-color-anti)}h3{margin:0;font-size:12px;font-weight:650;line-height:1.3;overflow-wrap:break-word}header p{min-height:28px;margin:2px 0 0;color:var(--td-text-color-secondary);font-size:9px;line-height:1.4}.stage-body{margin-top:7px;padding:8px;border:1px solid var(--td-component-stroke);border-radius:9px;background:color-mix(in srgb,var(--td-bg-color-secondarycontainer) 45%,var(--td-bg-color-container))}.has-active .stage-body{border-color:color-mix(in srgb,var(--td-brand-color) 34%,var(--td-component-stroke))}.stage-stats{margin:0 0 6px;color:var(--td-text-color-placeholder);font-size:9px;line-height:1.4}.stage-spaces{display:flex;flex-direction:column;gap:6px}.stage-empty{min-height:34px;display:grid;place-items:center;border:1px dashed var(--td-component-border);border-radius:7px;color:var(--td-text-color-placeholder);font-size:9px;text-align:center}
+.stage-step{position:relative;display:grid;min-width:0;grid-template-columns:34px minmax(0,1fr);gap:9px;padding:8px 10px 10px;border:0;border-radius:9px;background:transparent;color:var(--portal-text-primary);cursor:pointer;font-family:var(--portal-font-family);text-align:left}.stage-step::before{position:absolute;top:25px;right:calc(100% - 17px);width:calc(100% - 34px);height:2px;background:var(--portal-line);content:''}.stage-step:first-child::before{display:none}.stage-marker{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:4px}.stage-marker b{font-size:12px;font-weight:700;line-height:16px}.stage-marker i{width:10px;height:10px;border:2px solid var(--portal-line-strong);border-radius:50%;background:var(--portal-page-surface)}.stage-copy{display:flex;min-width:0;flex-direction:column}.stage-copy strong{overflow:hidden;font-size:15px;font-weight:650;line-height:20px;text-overflow:ellipsis;white-space:nowrap}.stage-copy small{overflow:hidden;color:var(--portal-text-secondary);font-size:12px;font-weight:400;line-height:18px;text-overflow:ellipsis;white-space:nowrap}.stage-copy em{margin-top:3px;color:var(--portal-text-muted);font-size:12px;font-style:normal;font-weight:500;line-height:18px}.stage-step:hover{background:var(--portal-surface-hover)}.stage-step:focus-visible{outline:2px solid var(--td-brand-color-focus);outline-offset:1px}.stage-step.active{background:var(--portal-brand-surface)}.stage-step.active .stage-marker b,.stage-step.active .stage-copy strong{color:var(--td-brand-color-active)}.stage-step.active .stage-marker i{border-color:var(--td-brand-color);background:var(--td-brand-color);box-shadow:0 0 0 3px var(--td-brand-color-focus)}.stage-step.current:not(.active) .stage-marker i{border-color:var(--td-brand-color);background:var(--portal-page-surface)}
 </style>
