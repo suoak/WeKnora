@@ -1,6 +1,6 @@
 import { branding } from '../../config/branding'
 
-export default {
+const messages = {
   loadState: { retry: '다시 시도', networkTitle: '연결 문제', networkDescription: '네트워크 연결을 확인하고 다시 시도하세요.', forbiddenTitle: '접근 권한 없음', forbiddenDescription: '현재 역할로는 이 리소스에 접근할 수 없습니다.', notFoundTitle: '리소스를 찾을 수 없음', notFoundDescription: '삭제되었거나 링크가 오래되었을 수 있습니다.', genericTitle: '콘텐츠를 불러오지 못했습니다', genericDescription: '다시 시도하고 문제가 계속되면 관리자에게 문의하세요.' },
   portal: {
     brandSubtitle: 'CSBU IPD 지식 포털', heroEyebrow: '지식 탐색', heroTitle: '조직의 관리된 지식 공간 탐색',
@@ -7086,3 +7086,28 @@ export default {
     noSessions: '대화가 없습니다'
   }
 }
+
+Object.assign(messages.portalMap, {
+  stageIdentity: '{name} 단계', stageCount: 'IPD {count}개 단계', coverage: '지식 커버리지 {covered} / {total}',
+  stageShort: { insight: '시장 통찰', concept1: '기회 식별', concept2: '요구사항 정의', architecture: '기술 아키텍처', design: '솔루션 설계', development: 'R&D 구현', testing: '품질 검증', lmt: '수명주기' },
+  stageFallback: {
+    insight: '시장 통찰 및 기회 신호',
+    concept1: '시장 기회 및 개념 탐색',
+    concept2: '제품 개념 및 요구사항 정의',
+    architecture: '시스템 및 기술 아키텍처',
+    design: '솔루션 및 상세 설계',
+    development: '연구개발 구현 및 빌드',
+    testing: '검증 및 품질 보증',
+    lmt: '출시 및 수명주기 관리',
+  },
+})
+
+Object.assign(messages.portal.stages, {
+  insight: { name: '통찰', description: '시장 통찰' }, concept_market: { name: '개념 1', description: '기회 식별' },
+  concept_product: { name: '개념 2', description: '요구사항 정의' }, architecture: { name: '아키텍처', description: '기술 아키텍처' },
+  design: { name: '설계', description: '솔루션 설계' }, development: { name: '개발', description: 'R&D 구현' },
+  testing: { name: '테스트', description: '품질 검증' }, lmt: { name: 'LMT', description: '수명주기' },
+})
+messages.portalExperience.heroDescription = '시장 통찰, R&D 및 수명주기 관리를 연결하여 지식을 지속적으로 축적, 연결, 검색, 질의 및 재사용합니다.'
+
+export default messages

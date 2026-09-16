@@ -30,6 +30,6 @@ test('public section has independent loading and empty states', () => {
 test('public section is a direct four-space grid without explanatory filler', () => {
   const section = source('./PublicKnowledgeSection.vue')
   assert.match(section, /portal\.spaceCount/)
-  assert.match(section, /grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/)
+  assert.match(section, /grid-template-columns:repeat\(4,minmax\(240px,1fr\)\)/)
   assert.doesNotMatch(section, /<aside>|publicZone\.description|section-kicker|public-surface/)
 })

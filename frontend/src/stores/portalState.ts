@@ -3,21 +3,24 @@ import type { PortalSpace, PortalStage } from '@/api/portal'
 export const PORTAL_ALL_STAGE = 'all'
 
 const STAGE_FALLBACK: Record<string, { name: string; description: string }> = {
-  concept_market: { name: '概念1', description: '市场机会与概念探索' },
-  concept_product: { name: '概念2', description: '产品概念与需求定义' },
-  architecture: { name: '架构', description: '系统与技术架构' },
-  design: { name: '设计', description: '方案与详细设计' },
-  development: { name: '开发', description: '研发实现与构建' },
-  testing: { name: '测试', description: '验证、测试与质量保障' },
-  lmt: { name: 'LMT', description: '上市与生命周期管理' },
+  insight: { name: 'Insight', description: 'Market insight' },
+  concept_market: { name: 'Concept 1', description: 'Opportunity identification' },
+  concept_product: { name: 'Concept 2', description: 'Requirements definition' },
+  architecture: { name: 'Architecture', description: 'Technical architecture' },
+  design: { name: 'Design', description: 'Solution design' },
+  development: { name: 'Development', description: 'R&D implementation' },
+  testing: { name: 'Testing', description: 'Quality validation' },
+  lmt: { name: 'LMT', description: 'Lifecycle' },
 }
 
-export function displayPortalStage(stage: PortalStage) {
+export function displayPortalStage(stage: PortalStage, translate?: (key: string) => string) {
   const fallback = STAGE_FALLBACK[stage.key]
+  const localizedName=translate?.(`portal.stages.${stage.key}.name`)
+  const localizedDescription=translate?.(`portal.stages.${stage.key}.description`)
   return {
     ...stage,
-    name: stage.name?.trim() || fallback?.name || stage.key,
-    description: stage.description?.trim() || fallback?.description || '',
+    name: stage.name?.trim() || (localizedName && localizedName !== `portal.stages.${stage.key}.name` ? localizedName : '') || fallback?.name || stage.key,
+    description: stage.description?.trim() || (localizedDescription && localizedDescription !== `portal.stages.${stage.key}.description` ? localizedDescription : '') || fallback?.description || '',
   }
 }
 

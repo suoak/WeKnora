@@ -36,7 +36,16 @@ func TestPortalRepositorySearchesMetadataOnlyAndReturnsSafeProjection(t *testing
 			(3, 'published', 'Inactive Hub', '', 'hardware', '', '', 0, 0, 1, NULL),
 			(4, 'draft', 'Hidden Hub', '', 'hardware', '', '', 0, 0, 1, NULL)`,
 		`UPDATE tenants SET deleted_at = CURRENT_TIMESTAMP WHERE id = 2`,
-		`INSERT INTO tenant_portal_stages VALUES (1, 'architecture', 0, CURRENT_TIMESTAMP), (1, 'lmt', 1, CURRENT_TIMESTAMP), (1, 'retired_legacy', 2, CURRENT_TIMESTAMP)`,
+		`INSERT INTO tenant_portal_stages VALUES
+			(1, 'insight', 10, CURRENT_TIMESTAMP),
+			(1, 'concept_market', 20, CURRENT_TIMESTAMP),
+			(1, 'concept_product', 30, CURRENT_TIMESTAMP),
+			(1, 'architecture', 40, CURRENT_TIMESTAMP),
+			(1, 'design', 50, CURRENT_TIMESTAMP),
+			(1, 'development', 60, CURRENT_TIMESTAMP),
+			(1, 'testing', 70, CURRENT_TIMESTAMP),
+			(1, 'lmt', 80, CURRENT_TIMESTAMP),
+			(1, 'retired_legacy', 90, CURRENT_TIMESTAMP)`,
 		`INSERT INTO knowledge_bases VALUES
 			('kb-secret', 1, 'classified quantum roadmap', 0, NULL),
 			('kb-deleted', 1, 'deleted knowledge base', 0, CURRENT_TIMESTAMP),
@@ -74,7 +83,7 @@ func TestPortalRepositorySearchesMetadataOnlyAndReturnsSafeProjection(t *testing
 	require.Equal(t, types.PortalInteractionNone, rows[0].InteractionAction)
 	require.Equal(t, int64(1), rows[0].KnowledgeBaseCount, "discoverable spaces expose aggregate asset scale")
 	require.Equal(t, int64(2), rows[0].FileCount, "discoverable spaces expose aggregate asset scale")
-	require.Equal(t, []string{"architecture", "lmt"}, rows[0].Stages, "unknown stage associations must not be exposed")
+	require.Equal(t, types.BuiltinPortalStages, rows[0].Stages, "all stable stage associations must be preserved and unknown associations excluded")
 
 	require.NoError(t, db.Exec(`INSERT INTO tenant_members(id, tenant_id, user_id, role, status) VALUES ('1', 1, 'tenantless-user', 'viewer', 'active')`).Error)
 	rows, err = repo.ListPublished(ctx, "tenantless-user", 0, interfaces.PortalListQuery{})

@@ -7,7 +7,7 @@
         <!-- 展开时：Logo + 搜索/折叠按钮同行 -->
         <div class="logo_row" v-if="!sidebarCollapsed">
             <div class="logo_box" @click="router.push('/portal')" style="cursor: pointer;">
-                <BrandLogo class="logo" />
+                <BrandLogo class="logo" portal-lockup inverse />
                 <sup v-if="isLiteEdition" class="lite-badge">Lite</sup>
             </div>
             <div class="logo_actions">
@@ -1245,9 +1245,23 @@ const onDragHandleMouseDown = (e: MouseEvent) => {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        height: 50px;
+        height: 56px;
         flex-shrink: 0;
-        padding: 0 10px 0 var(--sidebar-inset-x);
+        margin: 0 2px 8px;
+        padding: 0 10px 0 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 11px;
+        background: linear-gradient(118deg, #103c36, #174f48 58%, #1f655b);
+        box-shadow: 0 5px 16px rgba(10, 53, 47, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+        .sidebar-toggle {
+            color: rgba(255, 255, 255, 0.72);
+
+            &:hover {
+                background: rgba(255, 255, 255, 0.1);
+                color: #fff;
+            }
+        }
     }
 
     .sidebar-toggle {
@@ -1290,9 +1304,7 @@ const onDragHandleMouseDown = (e: MouseEvent) => {
         min-width: 0;
         overflow: hidden;
 
-        .logo {
-            font-size: 16px;
-        }
+        .logo { min-width: 0; }
 
         .lite-badge {
             margin-left: 2px;
@@ -1842,7 +1854,7 @@ const onDragHandleMouseDown = (e: MouseEvent) => {
 
 /* Empty state when there are no sessions. */
 .submenu_empty {
-    padding: 24px 14px;
+    padding: 9px 14px;
     text-align: center;
     font-size: 12px;
     color: var(--td-text-color-placeholder);

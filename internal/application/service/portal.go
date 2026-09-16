@@ -57,7 +57,7 @@ func NewPortalService(
 func (s *portalService) ListStages() []*types.PortalStageResponse {
 	out := make([]*types.PortalStageResponse, 0, len(types.BuiltinPortalStages))
 	for i, key := range types.BuiltinPortalStages {
-		out = append(out, &types.PortalStageResponse{Key: key, DisplayOrder: i})
+		out = append(out, &types.PortalStageResponse{Key: key, DisplayOrder: (i + 1) * 10})
 	}
 	return out
 }

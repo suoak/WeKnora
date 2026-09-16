@@ -1,6 +1,6 @@
 {
-  "name": "KnowHub 知汇",
-  "short_name": "知汇",
+  "name": "KnowHub · CSBU研发知识库",
+  "short_name": "CSBU研发知识库",
   "description": "研发统一知识库：统一检索、智能问答与知识治理",
   "start_url": "/",
   "display": "standalone",

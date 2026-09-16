@@ -34,8 +34,13 @@ func TestNormalizePortalCategoryAndStages(t *testing.T) {
 func TestPortalStageCatalogContainsOnlyConfiguredIPDStages(t *testing.T) {
 	svc := &portalService{}
 	stages := svc.ListStages()
-	require.Len(t, stages, 7)
+	require.Len(t, stages, 8)
+	require.Equal(t, "insight", stages[0].Key)
+	require.Equal(t, 10, stages[0].DisplayOrder)
+	require.Equal(t, "concept_market", stages[1].Key)
+	require.Equal(t, "development", stages[5].Key)
 	require.Equal(t, "lmt", stages[len(stages)-1].Key)
+	require.Equal(t, 80, stages[len(stages)-1].DisplayOrder)
 }
 
 func TestCreateAccessRequestAllowsTenantlessUserAndLocksPortalViewer(t *testing.T) {

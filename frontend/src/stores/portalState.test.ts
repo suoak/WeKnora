@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { canReviewPortalRequests, defaultPortalStageKey, portalCategories, PORTAL_ALL_STAGE, uniquePortalSpaces, validAccessReason } from './portalState'
+import { canReviewPortalRequests, defaultPortalStageKey, displayPortalStage, portalCategories, PORTAL_ALL_STAGE, uniquePortalSpaces, validAccessReason } from './portalState'
 import { buildPortalSpacesPath, portalAccessRequestBody } from '../api/portalContracts'
 import type { PortalSpace } from '@/api/portal'
 
@@ -47,4 +47,12 @@ test('lifecycle defaults to the current space, then first populated stage, then 
   assert.equal(defaultPortalStageKey(stages, [design, testing], 99), 'design')
   assert.equal(defaultPortalStageKey(stages, [], 99), 'concept')
   assert.equal(defaultPortalStageKey([], [], 99), '')
+})
+
+test('insight is a stable stage identity independent from its UI ordinal', () => {
+  const stage=displayPortalStage({key:'insight',display_order:10},(key)=>key.endsWith('.name')?'洞察':'市场洞察')
+  assert.equal(stage.key,'insight')
+  assert.equal(stage.display_order,10)
+  assert.equal(stage.name,'洞察')
+  assert.equal(stage.description,'市场洞察')
 })

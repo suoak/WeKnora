@@ -57,13 +57,14 @@ export default {
     stageDetail: { current: '当前 IPD 阶段', resultTitle: '本阶段知识空间', resultCount: '共 {count} 个匹配空间' },
     categories: { market_customer: '市场与客户', requirements_management: '需求管理', architecture_design: '架构与设计', development_assets: '研发资产', test_quality: '测试与质量', operations_lifecycle: '运营与生命周期', process_governance: '流程与治理', public_knowledge: '公共知识' },
     stages: {
-      concept_market: { name: '概念 / 市场', description: '机会识别与市场洞察' },
-      concept_product: { name: '概念 / 产品', description: '产品概念与需求定义' },
-      architecture: { name: '架构', description: '系统与技术架构' },
-      design: { name: '设计', description: '方案与详细设计' },
-      development: { name: '开发', description: '研发实现与构建' },
-      testing: { name: '测试', description: '验证与质量保障' },
-      lmt: { name: 'LMT', description: '上市与生命周期管理' }
+      insight: { name: '洞察', description: '市场洞察' },
+      concept_market: { name: '概念1', description: '机会识别' },
+      concept_product: { name: '概念2', description: '需求定义' },
+      architecture: { name: '架构', description: '技术架构' },
+      design: { name: '设计', description: '方案设计' },
+      development: { name: '开发', description: '研发实现' },
+      testing: { name: '测试', description: '验证质量' },
+      lmt: { name: 'LMT', description: '生命周期' }
     },
     requests: {
       title: '访问申请', description: '仅工作空间所有者可审批；通过后固定授予 Viewer 只读权限。',
@@ -7119,9 +7120,9 @@ export default {
   },
   navigation: { main: '主导航', openMenu: '打开导航', portalHome: '首页', newChat: '新对话', recentChats: '最近对话', recentAll: '全部', recentCollapse: '收起', knowledgeBases: '知识库', agents: '智能体', allAgents: '全部智能体', members: '成员', managementCenter: '管理中心', integrations: '集成', workspaceSettings: '空间设置', usageAnalytics: '用量分析', modelsDefaults: '模型与默认值', runtime: '运行状态', audit: '审计', systemSettings: '系统设置', platformApiKeys: '平台 API Keys', groups: { global: '全局', workspace: '知识空间', management: '管理', knowledge: '知识', ai: 'AI', system: '系统管理' } },
   spaceSwitcher: { currentSpace: '当前空间', search: '搜索空间', current: '当前', unknown: '未知空间' },
-  portalExperience: { eyebrow: 'CSBU 研发知识门户', heroTitle: 'CSBU 全流程知识支撑平台', heroDescription: '让研发知识围绕 IPD 生命周期持续沉淀、连接、检索、问答与复用。', scaleLabel: '已发布知识资产规模', scaleTooltip: '统计已发布到 CSBU 知识门户的知识空间及知识资产规模，具体内容访问受空间权限控制。', spaces: '知识空间', knowledgeBases: '知识库', files: '文件', searchPlaceholder: '搜索知识、文档，或直接输入研发问题', currentScope: '当前空间：{space}', noActiveScope: '请先选择知识空间', quickActionsLabel: '快捷入口', selectSpaceFirst: '请先选择一个可访问的知识空间。', quickActions: { search: '知识检索', browse: '浏览知识', agent: '智能体', tools: 'AI 工具接入' } },
-  portalHome: { brandZh: '知汇', title: '统一知识，智能问答', description: '查找可信的团队知识、立即提问，或进入一个知识空间。', askPlaceholder: '有什么想了解的？', askAction: '立即提问', useTitle: '你可以这样使用 KnowHub', useDescription: '从当前任务开始，快速找到合适入口。', knowledgeTitle: '常用知识入口', knowledgeDescription: '当前空间中可用的知识库。', agentTitle: '可用 Agent', agentDescription: '使用专业 Agent 开始对话。', viewAll: '查看全部', noDescription: '暂无描述', noKnowledge: '当前还没有可用知识库。', browseKnowledge: '浏览知识', noAgents: '当前还没有可用 Agent。', exploreAgents: '查看 Agent', useAgent: '使用', tasks: { ask: { title: '问一个技术问题', description: '开始一次智能知识问答。' }, knowledge: { title: '浏览部门知识', description: '探索空间与共享知识。' }, agent: { title: '使用 Agent', description: '使用面向特定任务的智能助手。' }, mcp: { title: '接入 AI 工具', description: '在 Codex、WorkMate 或 Claude Code 中使用 KnowHub。' } } },
-  portalMap: { ipdTitle: 'IPD 全生命周期知识地图', ipdDescription: '查看 IPD 全生命周期各阶段已建设的知识空间与知识资产规模。', allStageSpaces: '全阶段知识空间', stageShort: { concept1: '机会识别', concept2: '需求定义', architecture: '技术架构', design: '方案设计', development: '研发实现', testing: '验证质量', lmt: '生命周期' }, coverage: '覆盖 {covered}/{total} 阶段', stageInventory: '{spaces} 个知识空间 · {kb} 个知识库 · {files} 个文件', stageInventoryCompact: '{spaces} 空间 · {kb} 库 · {files} 文件', spaceInventory: '{kb} 个知识库 · {files} 个文件', spaceInventoryCompact: '{kb} 库 · {files} 文件', emptyStage: '暂无知识空间', noAccess: '暂无访问权限', permissionRequired: '需要权限', getAccess: '获取访问权限', learnAccess: '了解获取权限', enterSpace: '进入空间', enter: '进入', search: '搜索', ask: '提问', accessDialog: { title: '知识空间访问', titleWithSpace: '访问“{space}”', notice: '你可以发现该知识空间', explanation: '但当前账号尚未获得内容访问权限。', spaceLabel: '知识空间', stageLabel: '所属阶段', afterAccess: '获得权限后，可以：', browse: '浏览知识库', search: '搜索内容', ask: '使用知识问答', pending: '申请处理中', contactAdmin: '请联系该知识空间管理员获取访问权限。' } },
+  portalExperience: { eyebrow: 'CSBU研发知识库', heroTitle: 'CSBU 全流程研发知识支撑平台', heroDescription: '贯通市场洞察、研发与生命周期管理，让知识持续沉淀、连接、检索、问答与复用。', scaleLabel: '已发布知识资产规模', scaleTooltip: '统计已发布到 CSBU 研发知识门户的知识空间及知识资产规模，具体内容访问受空间权限控制。', spaces: '知识空间', knowledgeBases: '知识库', files: '文件', searchPlaceholder: '搜索知识、文档，或直接输入研发问题', currentScope: '当前空间：{space}', noActiveScope: '请先选择知识空间', quickActionsLabel: '快捷入口', selectSpaceFirst: '请先选择一个可访问的知识空间。', quickActions: { search: '知识搜索', browse: '浏览知识', agent: '智能体', tools: 'AI 工具接入' } },
+  portalHome: { brandZh: 'CSBU研发知识库', title: '统一知识，智能问答', description: '查找可信的团队知识、立即提问，或进入一个知识空间。', askPlaceholder: '有什么想了解的？', askAction: '立即提问', useTitle: '你可以这样使用 KnowHub', useDescription: '从当前任务开始，快速找到合适入口。', knowledgeTitle: '常用知识入口', knowledgeDescription: '当前空间中可用的知识库。', agentTitle: '可用 Agent', agentDescription: '使用专业 Agent 开始对话。', viewAll: '查看全部', noDescription: '暂无描述', noKnowledge: '当前还没有可用知识库。', browseKnowledge: '浏览知识', noAgents: '当前还没有可用 Agent。', exploreAgents: '查看 Agent', useAgent: '使用', tasks: { ask: { title: '问一个技术问题', description: '开始一次智能知识问答。' }, knowledge: { title: '浏览部门知识', description: '探索空间与共享知识。' }, agent: { title: '使用 Agent', description: '使用面向特定任务的智能助手。' }, mcp: { title: '接入 AI 工具', description: '在 Codex、WorkMate 或 Claude Code 中使用 KnowHub。' } } },
+  portalMap: { ipdTitle: 'IPD 全生命周期知识地图', ipdDescription: '研发知识按 IPD 生命周期持续沉淀与复用。', allStageSpaces: 'IPD 知识空间', stageIdentity: '{name}阶段', stageShort: { insight: '市场洞察', concept1: '机会识别', concept2: '需求定义', architecture: '技术架构', design: '方案设计', development: '研发实现', testing: '验证质量', lmt: '生命周期' }, stageFallback: { insight: '市场洞察与机会线索', concept1: '市场机会与概念探索', concept2: '产品概念与需求定义', architecture: '系统与技术架构', design: '方案与详细设计', development: '研发实现与构建', testing: '验证与质量保障', lmt: '上市与生命周期管理' }, stageCount: 'IPD {count} 个阶段', coverage: '知识覆盖 {covered} / {total}', stageInventory: '{spaces} 个知识空间 · {kb} 个知识库 · {files} 个文件', stageInventoryCompact: '{spaces} 空间 · {kb} 库 · {files} 文件', spaceInventory: '{kb} 个知识库 · {files} 个文件', spaceInventoryCompact: '{kb} 库 · {files} 文件', emptyStage: '暂无知识空间', noAccess: '暂无访问权限', permissionRequired: '需要权限', getAccess: '获取访问权限', learnAccess: '了解获取权限', enterSpace: '进入空间', enter: '进入', search: '搜索', ask: '提问', accessDialog: { title: '知识空间访问', titleWithSpace: '访问“{space}”', notice: '你可以发现该知识空间', explanation: '但当前账号尚未获得内容访问权限。', spaceLabel: '知识空间', stageLabel: '所属阶段', afterAccess: '获得权限后，可以：', browse: '浏览知识库', search: '搜索内容', ask: '使用知识问答', pending: '申请处理中', contactAdmin: '请联系该知识空间管理员获取访问权限。' } },
   menu: {
     sessionInProgress: '会话进行中',
     knowledgeBase: '知识库',

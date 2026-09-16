@@ -10,6 +10,8 @@ test('workspace sidebar keeps fixed top and footer around one scroll area', () =
   assert.ok(menu.indexOf('class="menu_top"') < menu.indexOf('class="menu_bottom"'))
   assert.match(menu, /min-width: 250px;\s*width: 250px/)
   assert.match(menu, /&--collapsed \{[\s\S]*?min-width: 60px;\s*width: 60px/)
+  assert.match(menu, /<BrandLogo class="logo" portal-lockup inverse/)
+  assert.match(menu, /background: linear-gradient\(118deg, #103c36, #174f48 58%, #1f655b\)/)
 })
 
 test('agents are expanded by default and shortcuts come from the existing agent store', () => {

@@ -4,41 +4,53 @@ import test from 'node:test'
 
 const source = (name: string) => readFileSync(new URL(name, import.meta.url), 'utf8')
 
-test('knowledge map renders the complete seven-stage rail and every IPD space in one matrix', () => {
+test('knowledge map renders every API stage in the lifecycle rail and stage groups', () => {
   const map = source('./IpdKnowledgeMap.vue')
   const stage = source('./IpdStageCard.vue')
-  assert.match(map, /<nav v-else class="lifecycle-rail">/)
+  assert.match(map, /<nav v-else class="lifecycle-rail"/)
   assert.match(map, /v-for="\(stage,index\) in stages"/)
   assert.match(map, /:space-count="spacesFor\(stage\.key\)\.length"/)
-  assert.match(map, /class="knowledge-matrix"/)
-  assert.match(map, /v-for="space in sortedSpaces"/)
-  assert.match(map, /space\.stages\.map\(stage=>stageOrder\.value\.get\(stage\)/)
+  assert.match(map, /class="stage-groups"/)
+  assert.match(map, /v-for="\(stage,index\) in stages"/)
+  assert.match(map, /v-for="space in spacesFor\(stage\.key\)"/)
   assert.doesNotMatch(map, /activeStageSpaces|role="tabpanel"|class="stage-panel"/)
   assert.doesNotMatch(stage, /role="tab"|aria-selected/)
+  assert.match(map, /class="ipd-map"/)
+  assert.match(map, /border-radius:16px/)
 })
 
-test('rail activation scrolls to a stage and highlights it without filtering the matrix', () => {
+test('insight remains visible with zero spaces and the rail is dynamically sized', () => {
+  const map = source('./IpdKnowledgeMap.vue')
+  assert.match(map, /v-for="\(stage,index\) in stages"/)
+  assert.match(map, /v-if="spacesFor\(stage\.key\)\.length"/)
+  assert.match(map, /v-else class="stage-empty"/)
+  assert.match(map, /repeat\(\$\{Math\.max\(stages\.length, 1\)\}/)
+  assert.doesNotMatch(map, /repeat\(7|item in 7|stages\.length === 7/)
+})
+
+test('rail activation scrolls to a stage group and highlights it without filtering', () => {
   const map = source('./IpdKnowledgeMap.vue')
   const stage = source('./IpdStageCard.vue')
   assert.match(stage, /@click="\$emit\('navigate', stage\.key\)"/)
+  assert.match(stage, /<button type="button"/)
   assert.match(map, /function navigateToStage\(stageKey:string\)/)
-  assert.match(map, /querySelectorAll<HTMLElement>\('\.matrix-item'\)/)
+  assert.match(map, /querySelector<HTMLElement>\(`\[data-stage-group=/)
   assert.match(map, /scrollIntoView\(\{behavior:'smooth',block:'center'\}\)/)
   assert.match(map, /highlightedStageKey\.value=stageKey/)
-  assert.match(map, /space\.stages\.includes\(highlightedStageKey\)/)
-  assert.match(map, /setTimeout\(\(\)=>\{highlightedStageKey\.value='';focusedStageKey\.value=''\},1400\)/)
+  assert.match(map, /highlightedStageKey === stage\.key/)
+  assert.match(map, /setTimeout\(\(\)=>\{highlightedStageKey\.value='';focusedStageKey\.value=''\},800\)/)
   assert.doesNotMatch(map, /filter\([^\n]*focusedStageKey|filter\([^\n]*highlightedStageKey/)
 })
 
 test('matrix cards expose stage identity while keeping current-space treatment lightweight', () => {
   const map = source('./IpdKnowledgeMap.vue')
   const summary = source('./SpaceSummary.vue')
-  assert.match(map, /:stage-number="stageIdentity\(space\)\.number"/)
-  assert.match(map, /:stage-name="stageIdentity\(space\)\.name"/)
+  assert.match(map, /:stage-number="String\(index \+ 1\)\.padStart\(2, '0'\)"/)
+  assert.match(map, /:stage-name="stage\.name"/)
   assert.match(summary, /class="stage-identity"/)
   assert.match(summary, /v-show="isActiveSpace"/)
   assert.match(summary, /\.space-summary\.current\{border-color:/)
-  assert.doesNotMatch(summary, /\.space-summary\.current\{[^}]*background:/)
+  assert.match(summary, /\.space-summary\.current\{[^}]*background:/)
 })
 
 test('space summary separates accessible entry from discoverable dialog behavior', () => {
@@ -60,6 +72,8 @@ test('accessible cards expose lightweight ask/search icons and one primary entry
   assert.match(summary, /@click="\$emit\('ask', space\)"/)
   assert.match(summary, /<t-tooltip :content="actionLabel\('search'\)"/)
   assert.match(summary, /:aria-label="actionLabel\('ask'\)"/)
+  assert.match(summary, /class="space-icon"/)
+  assert.match(summary, /accessible-actions\{[^}]*border-top:1px solid/)
 })
 
 test('restricted cards show one state-aware CTA and always activate the gate', () => {

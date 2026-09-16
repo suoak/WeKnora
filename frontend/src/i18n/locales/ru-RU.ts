@@ -1,6 +1,6 @@
 import { branding } from '../../config/branding'
 
-export default {
+const messages = {
   loadState: { retry: 'Повторить', networkTitle: 'Проблема подключения', networkDescription: 'Проверьте сеть и повторите попытку.', forbiddenTitle: 'Доступ запрещён', forbiddenDescription: 'Текущая роль не позволяет открыть этот ресурс.', notFoundTitle: 'Ресурс не найден', notFoundDescription: 'Возможно, ресурс удалён или ссылка устарела.', genericTitle: 'Не удалось загрузить содержимое', genericDescription: 'Повторите попытку. Если проблема сохраняется, обратитесь к администратору.' },
   portal: {
     brandSubtitle: 'Портал знаний CSBU IPD', heroEyebrow: 'ПОИСК ЗНАНИЙ', heroTitle: 'Поиск управляемых пространств знаний организации',
@@ -7086,3 +7086,28 @@ export default {
     noSessions: 'Пока нет диалогов'
   }
 }
+
+Object.assign(messages.portalMap, {
+  stageIdentity: 'Этап «{name}»', stageCount: 'Этапов IPD: {count}', coverage: 'Покрытие знаниями: {covered} / {total}',
+  stageShort: { insight: 'Анализ рынка', concept1: 'Выявление возможностей', concept2: 'Определение требований', architecture: 'Техническая архитектура', design: 'Проектирование решения', development: 'Реализация R&D', testing: 'Проверка качества', lmt: 'Жизненный цикл' },
+  stageFallback: {
+    insight: 'Анализ рынка и сигналы возможностей',
+    concept1: 'Рыночные возможности и исследование концепции',
+    concept2: 'Концепция продукта и определение требований',
+    architecture: 'Системная и техническая архитектура',
+    design: 'Проектирование решения и деталей',
+    development: 'Реализация и сборка',
+    testing: 'Проверка и обеспечение качества',
+    lmt: 'Запуск и управление жизненным циклом',
+  },
+})
+
+Object.assign(messages.portal.stages, {
+  insight: { name: 'Аналитика', description: 'Анализ рынка' }, concept_market: { name: 'Концепция 1', description: 'Выявление возможностей' },
+  concept_product: { name: 'Концепция 2', description: 'Определение требований' }, architecture: { name: 'Архитектура', description: 'Техническая архитектура' },
+  design: { name: 'Проектирование', description: 'Проектирование решения' }, development: { name: 'Разработка', description: 'Реализация R&D' },
+  testing: { name: 'Тестирование', description: 'Проверка качества' }, lmt: { name: 'LMT', description: 'Жизненный цикл' },
+})
+messages.portalExperience.heroDescription = 'Связывает анализ рынка, разработку и управление жизненным циклом, обеспечивая накопление, поиск, вопросы и повторное использование знаний.'
+
+export default messages

@@ -6,7 +6,7 @@ import { branding } from './branding'
 
 test('KnowHub release branding is centralized', () => {
   assert.equal(branding.productName, 'KnowHub')
-  assert.equal(branding.productNameZh, '知汇')
+  assert.equal(branding.productNameZh, 'CSBU研发知识库')
   assert.equal(branding.tagline, 'Unified Knowledge Hub for R&D')
   assert.equal(branding.taglineZh, '研发统一知识库')
   assert.equal(branding.capabilityLine, 'Unified Search · AI Q&A · Knowledge Governance')
@@ -30,12 +30,12 @@ test('primary web surfaces consume the KnowHub brand', () => {
   const brandLogo = readFileSync(new URL('../components/BrandLogo.vue', import.meta.url), 'utf8')
   const manifest = readFileSync(new URL('../../public/site.webmanifest', import.meta.url), 'utf8')
 
-  assert.match(indexHtml, /<title>KnowHub<\/title>/)
-  assert.match(embedHtml, /<title>KnowHub<\/title>/)
+  assert.match(indexHtml, /<title>CSBU研发知识库<\/title>/)
+  assert.match(embedHtml, /<title>CSBU研发知识库<\/title>/)
   assert.doesNotMatch(login, /assets\/img\/weknora\.png/)
   assert.doesNotMatch(menu, /assets\/img\/weknora\.png/)
   assert.match(login, /<BrandLogo inverse\s*\/>/)
-  assert.match(menu, /<BrandLogo class="logo"\s*\/>/)
+  assert.match(menu, /<BrandLogo class="logo" portal-lockup inverse\s*\/>/)
   assert.doesNotMatch(userMenu, /general\.helpAndDocs/)
   assert.doesNotMatch(userMenu, /common\.github/)
   assert.match(brandLogo, /branding\.productNameZh/)
@@ -46,8 +46,8 @@ test('primary web surfaces consume the KnowHub brand', () => {
   assert.match(brandLogo, /locale\.value === 'zh-CN'/)
   assert.doesNotMatch(brandLogo, />KnowHub</)
   assert.deepEqual(JSON.parse(manifest), {
-    name: 'KnowHub 知汇',
-    short_name: '知汇',
+    name: 'KnowHub · CSBU研发知识库',
+    short_name: 'CSBU研发知识库',
     description: '研发统一知识库：统一检索、智能问答与知识治理',
     start_url: '/',
     display: 'standalone',

@@ -10,6 +10,7 @@ import {
   type PortalStage,
 } from '@/api/portal'
 import { displayPortalStage, portalCategories, PORTAL_ALL_STAGE, uniquePortalSpaces } from './portalState'
+import i18n from '@/i18n'
 
 export const usePortalStore = defineStore('portal', () => {
   const stages = ref<PortalStage[]>([])
@@ -35,7 +36,7 @@ export const usePortalStore = defineStore('portal', () => {
     stagesError.value = false
     try {
       const response = await listPortalStages()
-      stages.value = (response.data || []).map(displayPortalStage)
+      stages.value = (response.data || []).map((stage)=>displayPortalStage(stage,(key)=>i18n.global.t(key)))
     } catch (error) {
       stagesError.value = true
       throw error

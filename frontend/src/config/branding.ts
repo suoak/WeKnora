@@ -1,6 +1,6 @@
 export const branding = {
   productName: 'KnowHub',
-  productNameZh: '知汇',
+  productNameZh: 'CSBU研发知识库',
   tagline: 'Unified Knowledge Hub for R&D',
   taglineZh: '研发统一知识库',
   capabilityLine: 'Unified Search · AI Q&A · Knowledge Governance',

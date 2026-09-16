@@ -1,6 +1,6 @@
 <template>
   <div class="admin-page">
-    <header><router-link to="/portal" class="back"><t-icon name="chevron-left" />{{ t('portal.admin.back') }}</router-link><div><strong>KnowHub 知汇</strong><small>{{ t('portal.admin.menuEntry') }}</small></div><UserMenu /></header>
+    <header><router-link to="/portal" class="back"><t-icon name="chevron-left" />{{ t('portal.admin.back') }}</router-link><div><strong>KnowHub · CSBU研发知识库</strong><small>{{ t('portal.admin.menuEntry') }}</small></div><UserMenu /></header>
     <main><div class="title"><div><span>{{ t('portal.admin.eyebrow') }}</span><h1>{{ t('portal.admin.title') }}</h1><p>{{ t('portal.admin.description') }}</p></div><t-button variant="outline" :loading="loading" @click="load">{{ t('portal.admin.refresh') }}</t-button></div>
       <div class="layout">
         <aside><button v-for="space in spaces" :key="space.tenant_id" :class="{active:space.tenant_id===selectedId}" @click="selectedId=space.tenant_id"><span><strong>{{ space.tenant_name }}</strong><small>{{ space.display_name||t('portal.admin.unconfigured') }}</small></span><t-tag size="small" :theme="space.status==='published'?'success':'default'">{{ t(`portal.admin.statuses.${space.status}`) }}</t-tag></button></aside>

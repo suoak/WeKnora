@@ -1,6 +1,6 @@
 import enUS from './en-US'
 
-export default {
+const messages = {
   loadState: { retry: '再試行', networkTitle: '接続に問題があります', networkDescription: 'ネットワーク接続を確認して再試行してください。', forbiddenTitle: 'アクセス権限がありません', forbiddenDescription: '現在のロールではこのリソースにアクセスできません。', notFoundTitle: 'リソースが見つかりません', notFoundDescription: '削除されたか、リンクが古い可能性があります。', genericTitle: 'コンテンツを読み込めませんでした', genericDescription: '再試行し、問題が続く場合は管理者に連絡してください。' },
   portal: enUS.portal,
   navigation: { main: 'Main navigation', openMenu: 'Open navigation', portalHome: 'Home', newChat: 'New chat', recentChats: 'Recent chats', recentAll: 'All', recentCollapse: 'Collapse', knowledgeBases: 'Knowledge Bases', agents: 'Agents', allAgents: 'All agents', members: 'Members', managementCenter: '管理センター', integrations: 'Integrations', workspaceSettings: 'Workspace Settings', usageAnalytics: 'Usage Analytics', modelsDefaults: 'Models & Defaults', runtime: 'Runtime', audit: 'Audit', systemSettings: 'System Settings', platformApiKeys: 'Platform API Keys', groups: { global: 'グローバル', workspace: 'ナレッジスペース', management: '管理', knowledge: 'Knowledge', ai: 'AI', system: 'System Administration' } },
@@ -7060,3 +7060,18 @@ export default {
     createFailed: 'プラットフォームAPIキーの作成に失敗しました'
   }
 }
+
+Object.assign(messages.portal.stages, {
+  insight: { name: '洞察', description: '市場洞察' }, concept_market: { name: 'コンセプト1', description: '機会の特定' },
+  concept_product: { name: 'コンセプト2', description: '要件定義' }, architecture: { name: 'アーキテクチャ', description: '技術アーキテクチャ' },
+  design: { name: '設計', description: 'ソリューション設計' }, development: { name: '開発', description: '研究開発の実装' },
+  testing: { name: 'テスト', description: '品質検証' }, lmt: { name: 'LMT', description: 'ライフサイクル' },
+})
+Object.assign(messages.portalMap, {
+  stageIdentity: '{name}ステージ', stageCount: 'IPD {count}ステージ', coverage: '知識カバレッジ {covered} / {total}',
+  stageShort: { insight: '市場洞察', concept1: '機会の特定', concept2: '要件定義', architecture: '技術アーキテクチャ', design: 'ソリューション設計', development: '研究開発の実装', testing: '品質検証', lmt: 'ライフサイクル' },
+  stageFallback: { insight: '市場洞察と機会の兆候', concept1: '市場機会とコンセプト探索', concept2: '製品コンセプトと要件定義', architecture: 'システムと技術アーキテクチャ', design: 'ソリューションと詳細設計', development: '研究開発の実装とビルド', testing: '検証と品質保証', lmt: '市場投入とライフサイクル管理' },
+})
+messages.portalExperience.heroDescription = '市場洞察、研究開発、ライフサイクル管理をつなぎ、知識の蓄積・連携・検索・質問・再利用を促進します。'
+
+export default messages

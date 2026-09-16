@@ -15,7 +15,7 @@ func (s PortalStatus) IsValid() bool {
 }
 
 var BuiltinPortalStages = []string{
-	"concept_market", "concept_product", "architecture", "design",
+	"insight", "concept_market", "concept_product", "architecture", "design",
 	"development", "testing", "lmt",
 }
 
