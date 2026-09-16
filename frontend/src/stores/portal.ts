@@ -36,7 +36,9 @@ export const usePortalStore = defineStore('portal', () => {
     stagesError.value = false
     try {
       const response = await listPortalStages()
-      stages.value = (response.data || []).map((stage)=>displayPortalStage(stage,(key)=>i18n.global.t(key)))
+      stages.value = (response.data || [])
+        .map((stage)=>displayPortalStage(stage,(key)=>i18n.global.t(key)))
+        .sort((left,right)=>left.display_order-right.display_order)
     } catch (error) {
       stagesError.value = true
       throw error

@@ -4,9 +4,11 @@ import test from 'node:test'
 
 const source = (name: string) => readFileSync(new URL(name, import.meta.url), 'utf8')
 
-test('public knowledge is driven only by the configured Portal category', () => {
+test('public knowledge contains published spaces without a lifecycle mapping', () => {
   const section = source('./PublicKnowledgeSection.vue')
-  assert.match(section, /space\.category===PUBLIC_KNOWLEDGE_CATEGORY/)
+  assert.match(section, /new Set\(props\.stageKeys\)/)
+  assert.match(section, /!space\.stages\.some\(stage=>lifecycleStages\.has\(stage\)\)/)
+  assert.doesNotMatch(section, /PUBLIC_KNOWLEDGE_CATEGORY/)
   assert.doesNotMatch(section, /includes\(.*name|公共库|项目库|standards|templates/i)
 })
 
@@ -27,9 +29,10 @@ test('public section has independent loading and empty states', () => {
   assert.match(section, /portal\.publicZone\.empty/)
 })
 
-test('public section is a direct four-space grid without explanatory filler', () => {
+test('public section is a separate four-space surface with concise guidance', () => {
   const section = source('./PublicKnowledgeSection.vue')
   assert.match(section, /portal\.spaceCount/)
   assert.match(section, /grid-template-columns:repeat\(4,minmax\(240px,1fr\)\)/)
-  assert.doesNotMatch(section, /<aside>|publicZone\.description|section-kicker|public-surface/)
+  assert.match(section, /portal\.views\.publicDescription/)
+  assert.doesNotMatch(section, /<aside>|section-kicker/)
 })

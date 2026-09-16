@@ -4,19 +4,19 @@ import test from 'node:test'
 
 const source = (name: string) => readFileSync(new URL(name, import.meta.url), 'utf8')
 
-test('knowledge map renders every API stage in the lifecycle rail and stage groups', () => {
+test('knowledge map renders every API stage in the lifecycle rail and dense card grid', () => {
   const map = source('./IpdKnowledgeMap.vue')
   const stage = source('./IpdStageCard.vue')
   assert.match(map, /<nav v-else class="lifecycle-rail"/)
   assert.match(map, /v-for="\(stage,index\) in stages"/)
   assert.match(map, /:space-count="spacesFor\(stage\.key\)\.length"/)
-  assert.match(map, /class="stage-groups"/)
+  assert.match(map, /class="stage-card-grid"/)
   assert.match(map, /v-for="\(stage,index\) in stages"/)
   assert.match(map, /v-for="space in spacesFor\(stage\.key\)"/)
   assert.doesNotMatch(map, /activeStageSpaces|role="tabpanel"|class="stage-panel"/)
   assert.doesNotMatch(stage, /role="tab"|aria-selected/)
   assert.match(map, /class="ipd-map"/)
-  assert.match(map, /border-radius:16px/)
+  assert.match(map, /border-radius:14px/)
 })
 
 test('insight remains visible with zero spaces and the rail is dynamically sized', () => {
@@ -42,12 +42,14 @@ test('rail activation scrolls to a stage group and highlights it without filteri
   assert.doesNotMatch(map, /filter\([^\n]*focusedStageKey|filter\([^\n]*highlightedStageKey/)
 })
 
-test('matrix cards expose stage identity while keeping current-space treatment lightweight', () => {
+test('stage cards own stage identity while space cards stay compact', () => {
   const map = source('./IpdKnowledgeMap.vue')
   const summary = source('./SpaceSummary.vue')
-  assert.match(map, /:stage-number="String\(index \+ 1\)\.padStart\(2, '0'\)"/)
-  assert.match(map, /:stage-name="stage\.name"/)
-  assert.match(summary, /class="stage-identity"/)
+  assert.match(map, /class="stage-card__number"/)
+  assert.match(map, /String\(index \+ 1\)\.padStart\(2, '0'\)/)
+  assert.match(map, /variant="compact"/)
+  assert.match(map, /stage\.key === 'development'/)
+  assert.doesNotMatch(map, /:stage-name=/)
   assert.match(summary, /v-show="isActiveSpace"/)
   assert.match(summary, /\.space-summary\.current\{border-color:/)
   assert.match(summary, /\.space-summary\.current\{[^}]*background:/)

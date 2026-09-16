@@ -26,20 +26,20 @@ test('stage and overview loading are isolated and access requests refresh overvi
   assert.match(store, /createPortalAccessRequest\(tenantId, reason\.trim\(\)\)[\s\S]*access_request_pending = true[\s\S]*Promise\.allSettled\(\[loadOverviewSpaces\(\), loadSpaces\(\)\]\)/)
 })
 
-test('portal renders one panorama tree and removes legacy duplicated discovery surfaces', () => {
+test('portal renders the IPD and public surfaces without the legacy hero', () => {
   const home = source('./PortalHome.vue')
   const map = source('../../components/portal/IpdKnowledgeMap.vue')
   const publicSection = source('../../components/portal/PublicKnowledgeSection.vue')
   const summary = source('../../components/portal/SpaceSummary.vue')
-  assert.match(home, /<PortalHero/)
+  assert.doesNotMatch(home, /<PortalHero/)
   assert.match(home, /<IpdKnowledgeMap/)
   assert.match(home, /<PublicKnowledgeSection/)
-  assert.match(home, /knowledgeSummary\.overall/)
+  assert.doesNotMatch(home, /knowledgeSummary\.overall/)
   assert.doesNotMatch(home, /IpdStageDetail|IpdFlowOverview|PortalSpaceGrid|MySpacesSection|PortalFilters|PublicKnowledgeSpaceCard|viewMode|visibleLimit/)
   assert.match(map, /space\.stages\.includes\(stage\)/)
   assert.match(summary, /space\.knowledge_base_count/)
   assert.match(summary, /space\.file_count/)
-  assert.match(publicSection, /space\.category===PUBLIC_KNOWLEDGE_CATEGORY/)
+  assert.match(publicSection, /!space\.stages\.some\(stage=>lifecycleStages\.has\(stage\)\)/)
   assert.match(publicSection, /variant="normal"/)
 })
 

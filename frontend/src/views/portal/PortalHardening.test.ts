@@ -12,7 +12,7 @@ test('Portal defines a system-font typography hierarchy without content scaling'
   assert.match(home, /--portal-page-title:32px/)
   assert.match(home, /--portal-section-title:21px/)
   assert.match(home, /max-width:1500px/)
-  assert.match(home, /padding:0 clamp\(28px,2vw,40px\) 56px/)
+  assert.match(home, /padding:24px clamp\(28px,2vw,40px\) 56px/)
   assert.doesNotMatch(files, /font-size:(?:9|10|11)px/)
   assert.doesNotMatch(files, /transform:|translate3d|scale\(|zoom\s*:/)
 })
@@ -39,8 +39,7 @@ test('lifecycle rail dynamically keeps eight readable steps and removes nested s
   assert.match(map, /overflow-x:auto/)
   assert.match(stage, /font-size:15px/)
   assert.match(stage, /font-size:13px/)
-  assert.match(map, /border-radius:16px/)
-  assert.match(map, /background-size:32px 32px,32px 32px,auto/)
+  assert.match(map, /border-radius:14px/)
   assert.match(stage, /width:34px;height:34px/)
   assert.match(stage, /height:2px/)
   assert.doesNotMatch(stage, /content:'→'/)
@@ -48,12 +47,14 @@ test('lifecycle rail dynamically keeps eight readable steps and removes nested s
   assert.doesNotMatch(stage, /SpaceSummary/)
 })
 
-test('stage groups have four, three, two and one column tiers', () => {
+test('stage grid has four, three, two and one column tiers with dynamic development span', () => {
   const map = source('../../components/portal/IpdKnowledgeMap.vue')
-  assert.match(map, /stage-space-grid\{[^}]*repeat\(4,minmax\(240px,340px\)\)/)
-  assert.match(map, /@media\(max-width:1599px\).*repeat\(3,minmax\(240px,340px\)\)/)
-  assert.match(map, /@media\(max-width:1199px\).*repeat\(2,minmax\(240px,340px\)\)/)
-  assert.match(map, /@media\(max-width:900px\)[\s\S]*stage-space-grid\{grid-template-columns:minmax\(240px,340px\)\}/)
+  assert.match(map, /stage-card-grid\{[^}]*repeat\(4,minmax\(0,1fr\)\)/)
+  assert.match(map, /@media\(max-width:1599px\).*repeat\(3,minmax\(0,1fr\)\)/)
+  assert.match(map, /@media\(max-width:1199px\).*repeat\(2,minmax\(0,1fr\)\)/)
+  assert.match(map, /@media\(max-width:900px\)[\s\S]*stage-card-grid\{grid-template-columns:minmax\(0,1fr\)\}/)
+  assert.match(map, /stage-card--wide\{grid-column:span 2\}/)
+  assert.match(map, /stage-card--wide \.stage-spaces\{grid-template-columns:repeat\(2/)
   assert.doesNotMatch(map, /activeStageSpaces|stage-panel|role="tabpanel"/)
 })
 
