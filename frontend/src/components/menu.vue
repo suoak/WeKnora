@@ -7,7 +7,7 @@
         <!-- 展开时：Logo + 搜索/折叠按钮同行 -->
         <div class="logo_row" v-if="!sidebarCollapsed">
             <div class="logo_box" @click="router.push('/portal')" style="cursor: pointer;">
-                <BrandLogo class="logo" portal-lockup inverse />
+                <BrandLogo class="logo" portal-lockup />
                 <sup v-if="isLiteEdition" class="lite-badge">Lite</sup>
             </div>
             <div class="logo_actions">
@@ -1247,19 +1247,31 @@ const onDragHandleMouseDown = (e: MouseEvent) => {
         justify-content: space-between;
         height: 56px;
         flex-shrink: 0;
-        margin: 0 2px 8px;
-        padding: 0 10px 0 12px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 11px;
-        background: linear-gradient(118deg, #103c36, #174f48 58%, #1f655b);
-        box-shadow: 0 5px 16px rgba(10, 53, 47, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        margin: 0 4px 8px;
+        padding: 0 8px 0 10px;
+        border: 0;
+        border-bottom: 1px solid var(--td-component-stroke);
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+
+        :deep(.brand-logo__mark) {
+            width: 30px;
+            height: 30px;
+            flex-basis: 30px;
+            padding: 4px;
+            border: 1px solid color-mix(in srgb, var(--td-brand-color) 16%, var(--td-component-stroke));
+            border-radius: 8px;
+            background: var(--td-brand-color-light);
+            box-sizing: border-box;
+        }
 
         .sidebar-toggle {
-            color: rgba(255, 255, 255, 0.72);
+            color: var(--td-text-color-placeholder);
 
             &:hover {
-                background: rgba(255, 255, 255, 0.1);
-                color: #fff;
+                background: var(--td-bg-color-container-hover);
+                color: var(--td-text-color-primary);
             }
         }
     }

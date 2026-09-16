@@ -1,8 +1,9 @@
 <template>
   <div class="tenant-selector" ref="selectorRef">
     <div class="tenant-trigger" @click="toggleDropdown">
+      <span class="tenant-context-mark"><t-icon name="folder" /></span>
       <div class="tenant-info">
-        <div class="tenant-label">{{ $t('tenant.currentTenant') }}</div>
+        <div class="tenant-label">{{ $t('spaceSwitcher.currentSpace') }}</div>
         <div class="tenant-name-row">
           <span class="tenant-name">{{ currentTenantName }}</span>
           <t-icon name="swap" class="tenant-switch-icon" />
@@ -303,17 +304,30 @@ onUnmounted(() => {
 .tenant-trigger {
   display: flex;
   align-items: center;
-  padding: 10px 12px;
+  gap: 10px;
+  padding: 9px 10px;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
-  background: var(--td-bg-color-secondarycontainer);
-  border: .5px solid var(--td-component-stroke);
+  background: color-mix(in srgb, var(--td-brand-color-light) 35%, var(--td-bg-color-container));
+  border: 1px solid color-mix(in srgb, var(--td-brand-color) 12%, var(--td-component-stroke));
 
   &:hover {
     background: var(--td-bg-color-container-hover);
     border-color: var(--td-component-border);
   }
+}
+
+.tenant-context-mark {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 28px;
+  border-radius: 7px;
+  background: var(--td-brand-color-light);
+  color: var(--td-brand-color);
+  font-size: 16px;
 }
 
 .tenant-info {
@@ -322,7 +336,7 @@ onUnmounted(() => {
 }
 
 .tenant-label {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--td-text-color-placeholder);
   margin-bottom: 2px;
   font-weight: 500;

@@ -9,6 +9,8 @@ test('public knowledge contains published spaces without a lifecycle mapping', (
   assert.match(section, /new Set\(props\.stageKeys\)/)
   assert.match(section, /!space\.stages\.some\(stage=>lifecycleStages\.has\(stage\)\)/)
   assert.doesNotMatch(section, /PUBLIC_KNOWLEDGE_CATEGORY/)
+  assert.match(section, /resolvePublicSpaceIcon\(space\)/)
+  assert.match(section, /<t-icon name="earth"/)
   assert.doesNotMatch(section, /includes\(.*name|公共库|项目库|standards|templates/i)
 })
 

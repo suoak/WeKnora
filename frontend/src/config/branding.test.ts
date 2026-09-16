@@ -35,7 +35,7 @@ test('primary web surfaces consume the KnowHub brand', () => {
   assert.doesNotMatch(login, /assets\/img\/weknora\.png/)
   assert.doesNotMatch(menu, /assets\/img\/weknora\.png/)
   assert.match(login, /<BrandLogo inverse\s*\/>/)
-  assert.match(menu, /<BrandLogo class="logo" portal-lockup inverse\s*\/>/)
+  assert.match(menu, /<BrandLogo class="logo" portal-lockup\s*\/>/)
   assert.doesNotMatch(userMenu, /general\.helpAndDocs/)
   assert.doesNotMatch(userMenu, /common\.github/)
   assert.match(brandLogo, /branding\.productNameZh/)
