@@ -7,7 +7,7 @@
       <div class="header" style="--wails-draggable: drag">
         <div class="header-title" style="--wails-draggable: drag">
           <div class="title-row" style="--wails-draggable: drag">
-            <h2 style="--wails-draggable: drag">{{ $t('knowledgeBase.title') }}</h2>
+            <h2 style="--wails-draggable: drag">{{ knowledgeBasePageTitle }}</h2>
             <t-tooltip v-if="authStore.hasRole('contributor')" :content="$t('knowledgeList.create')" placement="bottom">
               <t-button variant="text" theme="default" size="small" class="header-action-btn"
                 data-guide="kb-list-create" style="--wails-draggable: no-drag" @click="handleCreateKnowledgeBase">
@@ -254,7 +254,7 @@
 
               <!-- 卡片内容 -->
               <div class="card-content">
-                <div class="card-description">
+                <div class="card-description" :title="kb.description || $t('knowledgeBase.noDescription')">
                   {{ kb.description || $t('knowledgeBase.noDescription') }}
                 </div>
                 <div class="card-meta-line">
@@ -323,7 +323,7 @@
 
               <!-- 卡片内容 -->
               <div class="card-content">
-                <div class="card-description">
+                <div class="card-description" :title="kb.description || $t('knowledgeBase.noDescription')">
                   {{ kb.description || $t('knowledgeBase.noDescription') }}
                 </div>
                 <div class="card-meta-line">
@@ -465,7 +465,7 @@
 
               <!-- 卡片内容 -->
               <div class="card-content">
-                <div class="card-description">
+                <div class="card-description" :title="kb.description || $t('knowledgeBase.noDescription')">
                   {{ kb.description || $t('knowledgeBase.noDescription') }}
                 </div>
                 <div class="card-meta-line">
@@ -588,7 +588,7 @@
 
               <!-- 卡片内容 -->
               <div class="card-content">
-                <div class="card-description">
+                <div class="card-description" :title="shared.knowledge_base.description || $t('knowledgeBase.noDescription')">
                   {{ shared.knowledge_base.description || $t('knowledgeBase.noDescription') }}
                 </div>
                 <div class="card-meta-line">
@@ -806,6 +806,10 @@ const authStore = useAuthStore()
 const orgStore = useOrganizationStore()
 const chatResources = useChatResourcesStore()
 const { t } = useI18n()
+const knowledgeBasePageTitle = computed(() => {
+  const spaceName = authStore.currentTenantName?.trim()
+  return spaceName ? t('knowledgeList.workspaceTitle', { spaceName }) : t('knowledgeBase.title')
+})
 const kbSearchQuery = ref('')
 const kbAccessFilter = ref<KnowledgeBaseAccessFilter>('all')
 const kbStatusFilter = ref<KnowledgeBaseStatusFilter>('all')

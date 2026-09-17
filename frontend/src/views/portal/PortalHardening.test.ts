@@ -66,14 +66,14 @@ test('public knowledge uses the shared direct grid without explanatory filler', 
   assert.doesNotMatch(section, /<aside>|publicZone\.description|moreSpaces|fake|placeholderSpace/)
 })
 
-test('empty descriptions use presentation-only stage fallback and never render generic filler', () => {
+test('empty descriptions use presentation-only stage fallback and a safe generic fallback', () => {
   const map = source('../../components/portal/IpdKnowledgeMap.vue')
   const summary = source('../../components/portal/SpaceSummary.vue')
   assert.match(map, /:fallback-description="stageFallbackDescription\(stage\.key\)"/)
   assert.match(map, /stageLocaleSuffix:\s*Record<string,\s*string>\s*=\s*\{insight:\s*'insight',concept_market:\s*'concept1'/)
   assert.match(summary, /space\?\.description\?\.trim\(\)\|\|props\.fallbackDescription\.trim\(\)/)
-  assert.match(summary, /<p v-if="displayDescription">/)
-  assert.doesNotMatch(summary, /portal\.noDescription/)
+  assert.match(summary, /<p :title="displayDescription">/)
+  assert.match(summary, /portalCard\.noSpaceDescription/)
   assert.match(summary, /'is-redundant': repeatsSpaceName/)
 })
 

@@ -63,3 +63,14 @@ test('knowledge base list and create dialog have mobile breakpoints', () => {
   assert.match(list, /@media \(max-width: 700px\)[\s\S]*?grid-template-columns: 1fr/)
   assert.match(editor, /@media \(max-width: 720px\)[\s\S]*?width: calc\(100vw - 24px\)/)
 })
+
+test('knowledge base cards expose clamped descriptions and the header follows current space context', () => {
+  const source = readFileSync(new URL('./KnowledgeBaseList.vue', import.meta.url), 'utf8')
+  assert.match(source, /\.card-description\s*\{[\s\S]*?-webkit-line-clamp: 2/)
+  assert.match(source, /class="card-description" :title="kb\.description \|\| \$t\('knowledgeBase\.noDescription'\)"/)
+  assert.match(source, /:title="shared\.knowledge_base\.description \|\| \$t\('knowledgeBase\.noDescription'\)"/)
+  assert.match(source, /const knowledgeBasePageTitle = computed/)
+  assert.match(source, /authStore\.currentTenantName\?\.trim\(\)/)
+  assert.match(source, /knowledgeList\.workspaceTitle/)
+  assert.match(source, /: t\('knowledgeBase\.title'\)/)
+})

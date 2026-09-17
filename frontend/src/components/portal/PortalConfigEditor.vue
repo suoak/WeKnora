@@ -5,11 +5,11 @@
       <section class="config-group">
         <div class="group-heading"><h3>{{ t('portal.admin.groups.basicTitle') }}</h3><p>{{ t('portal.admin.groups.basicDescription') }}</p></div>
         <t-form-item :label="t('portal.admin.displayName')" required><t-input v-model="form.display_name" :maxlength="128" /></t-form-item>
-        <t-form-item :label="t('portal.admin.descriptionLabel')"><t-textarea v-model="form.description" :maxlength="4000" :autosize="{minRows:3,maxRows:7}" /></t-form-item>
         <div class="form-grid">
           <t-form-item :label="t('portal.admin.responsibleTeam')"><t-input v-model="form.responsible_team" :maxlength="128" /></t-form-item>
           <t-form-item :label="t('portal.admin.contact')"><t-input v-model="form.contact" :maxlength="256" /></t-form-item>
         </div>
+        <t-form-item :label="t('portal.admin.descriptionLabel')"><t-textarea v-model="form.description" :maxlength="4000" :autosize="{minRows:3,maxRows:7}" /></t-form-item>
       </section>
       <section class="config-group">
         <div class="group-heading"><h3>{{ t('portal.admin.groups.positioningTitle') }}</h3><p>{{ t('portal.admin.groups.positioningDescription') }}</p></div>
@@ -48,7 +48,7 @@ const { t }=useI18n()
 const form=reactive<PortalConfigPayload>({display_name:'',description:'',category:'',responsible_team:'',contact:'',stages:[],featured:false,display_order:0,allow_access_request:false,interaction_organization_id:null})
 watch(()=>props.config,(config)=>{if(!config)return;Object.assign(form,{display_name:config.display_name||config.tenant_name,description:config.description||'',category:config.category||'',responsible_team:config.responsible_team||'',contact:config.contact||'',stages:[...(config.stages||[])],featured:Boolean(config.featured),display_order:Number(config.display_order||0),allow_access_request:Boolean(config.allow_access_request),interaction_organization_id:config.interaction_organization_id||null})},{immediate:true})
 const stageOptions=computed(()=>props.stages.map(stage=>({label:t(`portal.stages.${stage.key}.name`),value:stage.key})))
-const categoryOptions=computed(()=>['market_customer','requirements_management','architecture_design','development_assets','test_quality','operations_lifecycle','process_governance','public_knowledge'].map(value=>({value,label:t(`portal.categories.${value}`)})))
+const categoryOptions=computed(()=>['insight_domain','market_customer','requirements_management','architecture_design','development_assets','test_quality','operations_lifecycle','process_governance','public_knowledge'].map(value=>({value,label:t(`portal.categories.${value}`)})))
 const statusLabel=computed(()=>t(`portal.admin.statuses.${props.config?.status||'draft'}`))
 const statusTheme=computed(()=>props.config?.status==='published'?'success':props.config?.status==='archived'?'danger':'default')
 function save(){if(!form.display_name.trim())return;emit('save',{...form,display_name:form.display_name.trim(),description:form.description.trim(),category:form.category.trim().toLowerCase(),responsible_team:form.responsible_team.trim(),contact:form.contact.trim(),stages:[...form.stages],interaction_organization_id:form.interaction_organization_id||null})}

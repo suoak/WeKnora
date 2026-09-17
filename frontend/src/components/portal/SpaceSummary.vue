@@ -7,13 +7,15 @@
     <div class="summary-main">
       <div v-if="stageNumber && stageName" class="stage-identity" :class="{ 'is-redundant': repeatsSpaceName }"><b>{{ stageNumber }}</b><span aria-hidden="true">·</span>{{ displayStageName }}</div>
       <div class="space-title" :class="{ 'is-title-hidden': hideTitle }"><span v-if="variant !== 'flat'" class="space-icon"><t-icon :name="visualIcon" /><i v-if="space.access_state === 'discoverable'"><t-icon name="lock-on" /></i></span><strong v-if="!hideTitle" :title="space.display_name">{{ space.display_name }}</strong><span v-show="isActiveSpace">{{ t('spaceSwitcher.current') }}</span></div>
-      <p v-if="displayDescription">{{ displayDescription }}</p>
+      <p :title="displayDescription">{{ displayDescription }}</p>
+      <t-tooltip v-if="variant === 'compact'" :content="responsibleLabel"><span class="space-responsible is-compact"><t-icon name="user" />{{ displayResponsible }}</span></t-tooltip>
+      <span v-else class="space-responsible"><t-icon name="user" />{{ responsibleLabel }}</span>
       <small>{{ t('portalMap.spaceInventory', { kb: formatCount(space.knowledge_base_count), files: formatCount(space.file_count) }) }}</small>
     </div>
     <div v-if="space.access_state === 'accessible'" class="accessible-actions" @click.stop @keydown.stop>
       <div class="icon-actions">
-        <t-tooltip :content="actionLabel('ask')"><button type="button" :title="actionLabel('ask')" :aria-label="actionLabel('ask')" @click="$emit('ask', space)"><t-icon name="chat" /><span v-if="variant !== 'compact'">{{ t('portalMap.ask') }}</span></button></t-tooltip>
-        <t-tooltip :content="actionLabel('search')"><button type="button" :title="actionLabel('search')" :aria-label="actionLabel('search')" @click="$emit('search', space)"><t-icon name="search" /><span v-if="variant !== 'compact'">{{ t('portalExperience.quickActions.search') }}</span></button></t-tooltip>
+        <t-tooltip :content="actionLabel('ask')"><button type="button" :title="actionLabel('ask')" :aria-label="actionLabel('ask')" @click="$emit('ask', space)"><t-icon name="chat" /></button></t-tooltip>
+        <t-tooltip :content="actionLabel('search')"><button type="button" :title="actionLabel('search')" :aria-label="actionLabel('search')" @click="$emit('search', space)"><t-icon name="search" /></button></t-tooltip>
       </div>
       <t-tooltip :content="actionLabel('enter')"><button class="enter-action" type="button" :title="actionLabel('enter')" :aria-label="actionLabel('enter')" @click="$emit('enter', space)"><span>{{ t('portalMap.enter') }}</span><t-icon name="chevron-right" /></button></t-tooltip>
     </div>
@@ -42,15 +44,17 @@ const emit = defineEmits<{ enter: [space: PortalSpace]; restricted: [space: Port
 const { t } = useI18n()
 const numberFormatter = new Intl.NumberFormat()
 const formatCount=(value:unknown)=>numberFormatter.format(typeof value==='number'&&Number.isFinite(value)&&value>0?value:0)
-const displayDescription=computed(()=>props.suppressDescription?'':props.space?.description?.trim()||props.fallbackDescription.trim())
+const displayDescription=computed(()=>props.suppressDescription?props.fallbackDescription.trim()||t('portalCard.noSpaceDescription'):props.space?.description?.trim()||props.fallbackDescription.trim()||t('portalCard.noSpaceDescription'))
+const displayResponsible=computed(()=>props.space?.responsible_team?.trim()||t('portalCard.unconfigured'))
+const responsibleLabel=computed(()=>t('portalCard.responsible',{name:displayResponsible.value}))
 const repeatsSpaceName=computed(()=>props.stageName.trim().toLocaleLowerCase()===props.space?.display_name?.trim().toLocaleLowerCase())
 const displayStageName=computed(()=>repeatsSpaceName.value?t('portalMap.stageIdentity',{name:props.stageName}):props.stageName)
 const cardLabel=computed(()=>props.space?`${props.space.display_name} · ${props.space.access_state==='accessible'?t('portalMap.enterSpace'):restrictedAction.value}`:'')
 const restrictedAction=computed(()=>props.space?.access_request_pending?t('portal.pending'):props.space?.can_request_access?t('portal.requestAccess'):t('portalMap.getAccess'))
 function actionLabel(action:'enter'|'search'|'ask'){
   if(!props.space)return ''
-  const actionKey=action==='enter'?'portalMap.enterSpace':action==='search'?'portalExperience.quickActions.search':'portalMap.ask'
-  return `${props.space.display_name} · ${t(actionKey)}`
+  const actionKey=action==='enter'?'portalMap.enterSpace':action==='search'?'portalCard.search':'portalCard.ask'
+  return action==='enter'?`${props.space.display_name} · ${t(actionKey)}`:t(actionKey)
 }
 function activate(){
   if(!props.space)return
@@ -64,4 +68,6 @@ function activate(){
 .space-summary.compact{min-height:138px;padding:13px 14px 11px;border-radius:10px}.space-summary.compact .space-title{align-items:flex-start}.space-summary.compact .space-title strong{display:-webkit-box;overflow:hidden;white-space:normal;text-overflow:clip;-webkit-box-orient:vertical;-webkit-line-clamp:2}.space-summary.compact .summary-main p{display:-webkit-box;overflow:hidden;margin-top:6px;white-space:normal;text-overflow:clip;-webkit-box-orient:vertical;-webkit-line-clamp:2}.space-summary.compact .accessible-actions,.space-summary.compact .restricted-action{margin-top:8px;padding-top:7px}
 .space-icon{position:relative}.space-icon i{position:absolute;right:-5px;bottom:-5px;width:16px;height:16px;display:grid;place-items:center;border:1px solid var(--portal-line);border-radius:50%;background:var(--td-bg-color-container);color:var(--portal-text-secondary);font-size:12px;font-style:normal}.space-summary.normal .icon-actions button{width:auto;gap:5px;padding:0 7px;font-size:13px}.space-summary.normal .icon-actions button>.t-icon{font-size:16px}
 .space-summary.flat{min-height:112px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}.space-summary.flat:hover,.space-summary.flat:focus-within{border-color:transparent;background:transparent;box-shadow:none}.space-summary.flat:focus-visible{border-color:transparent;box-shadow:none}.space-summary.flat .space-title.is-title-hidden{justify-content:flex-end}.space-summary.flat .icon-actions button{width:auto;gap:5px;padding:0 7px;font-size:13px}.space-summary.flat .icon-actions button>.t-icon{font-size:16px}
+.space-summary{min-height:166px}.summary-main p{display:-webkit-box;overflow:hidden;white-space:normal;text-overflow:clip;-webkit-box-orient:vertical;-webkit-line-clamp:2}.space-responsible{display:flex;min-width:0;align-items:center;gap:5px;margin-top:4px;overflow:hidden;color:var(--portal-text-muted);font-size:12.5px;line-height:18px;text-overflow:ellipsis;white-space:nowrap}.space-responsible>.t-icon{flex:none;font-size:14px}.summary-main small{margin-top:3px}.accessible-actions,.space-summary.compact .accessible-actions,.restricted-action,.space-summary.compact .restricted-action{margin-top:auto}.icon-actions{opacity:0;pointer-events:none;transition:opacity .15s ease}.space-summary:hover .icon-actions,.space-summary:focus-within .icon-actions{opacity:1;pointer-events:auto}.space-summary.normal .icon-actions button,.space-summary.flat .icon-actions button{width:28px;gap:0;padding:0;font-size:16px}.space-summary.flat{height:100%;min-height:130px}
+@media(pointer:coarse){.icon-actions{opacity:1;pointer-events:auto}}
 </style>

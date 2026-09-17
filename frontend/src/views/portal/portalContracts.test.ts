@@ -73,6 +73,10 @@ test('admin interaction and configuration APIs remain constrained', () => {
   for (const group of ['basicTitle', 'positioningTitle', 'displayTitle', 'accessTitle']) {
     assert.match(editor, new RegExp(`portal\\.admin\\.groups\\.${group}`))
   }
+  assert.match(editor, /'insight_domain'/)
+  assert.match(editor, /responsible_team:form\.responsible_team\.trim\(\)/)
+  assert.match(editor, /description:form\.description\.trim\(\)/)
+  assert.doesNotMatch(editor, /\['insight',/)
 })
 
 test('portal remains primary navigation and default authenticated landing', () => {

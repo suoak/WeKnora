@@ -83,10 +83,32 @@ test('accessible cards expose lightweight ask/search icons and one primary entry
   assert.match(summary, /<t-tooltip :content="actionLabel\('search'\)"/)
   assert.match(summary, /:aria-label="actionLabel\('ask'\)"/)
   assert.match(summary, /:title="actionLabel\('ask'\)"/)
-  assert.match(summary, /v-if="variant !== 'compact'">\{\{ t\('portalMap\.ask'\) \}\}/)
-  assert.match(summary, /v-if="variant !== 'compact'">\{\{ t\('portalExperience\.quickActions\.search'\) \}\}/)
+  assert.match(summary, /action==='search'\?'portalCard\.search':'portalCard\.ask'/)
+  assert.doesNotMatch(summary, /<span[^>]*>\{\{ t\('portalMap\.ask'\)/)
+  assert.match(summary, /\.icon-actions\{opacity:0;pointer-events:none/)
+  assert.match(summary, /\.space-summary:hover \.icon-actions,\.space-summary:focus-within \.icon-actions\{opacity:1;pointer-events:auto\}/)
+  assert.match(summary, /@media\(pointer:coarse\)\{\.icon-actions\{opacity:1;pointer-events:auto\}\}/)
   assert.match(summary, /class="space-icon"/)
   assert.match(summary, /accessible-actions\{[^}]*border-top:1px solid/)
+})
+
+test('space metadata uses configured description and responsible team with safe fallbacks', () => {
+  const summary = source('./SpaceSummary.vue')
+  assert.match(summary, /props\.space\?\.description\?\.trim\(\)/)
+  assert.match(summary, /props\.space\?\.responsible_team\?\.trim\(\)/)
+  assert.match(summary, /portalCard\.noSpaceDescription/)
+  assert.match(summary, /portalCard\.unconfigured/)
+  assert.match(summary, /portalCard\.responsible/)
+  assert.match(summary, /:title="displayDescription"/)
+})
+
+test('all single-space and empty stages share the same bottom-aligned layout contract', () => {
+  const map = source('./IpdKnowledgeMap.vue')
+  const summary = source('./SpaceSummary.vue')
+  assert.match(map, /\.stage-card\{display:flex;box-sizing:border-box;height:100%;flex-direction:column\}/)
+  assert.match(map, /\.stage-spaces--single,\.stage-empty\{flex:1\}/)
+  assert.match(summary, /\.accessible-actions,[^}]+\{margin-top:auto\}/)
+  assert.doesNotMatch(map, /stage\.key === ['"](?:design|testing)['"]/)
 })
 
 test('restricted cards show one state-aware CTA and always activate the gate', () => {
