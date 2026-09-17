@@ -37,13 +37,11 @@ test('Portal remains tenantless-capable and admin is never the default landing',
   assert.doesNotMatch(source('./authRedirect.ts'), /\/portal\/admin/)
 })
 
-test('tenant switch applies the safe route policy with a hard reload', () => {
+test('tenant switch applies the unified knowledge-base landing with a hard reload', () => {
   const tenantSwitch = source('./tenantSwitch.ts')
   const policy = source('./tenantSwitchPolicy.ts')
-  assert.match(policy, /currentPath === ['"]\/portal['"]/)
-  assert.match(policy, /currentPath === ['"]\/platform\/knowledge-bases['"]/)
-  assert.match(policy, /currentPath === ['"]\/platform\/agents['"]/)
-  assert.match(policy, /TENANT_SWITCH_FALLBACK = ['"]\/portal['"]/)
+  assert.match(policy, /TENANT_SWITCH_FALLBACK = ['"]\/platform\/knowledge-bases['"]/)
+  assert.doesNotMatch(policy, /return ['"]\/portal['"]/)
   assert.match(tenantSwitch, /window\.location\.href\s*=\s*targetPath \|\| tenantSwitchTargetPath/)
   assert.match(tenantSwitch, /navigateAfterTenantSwitch\(target\.targetPath\)/)
 })

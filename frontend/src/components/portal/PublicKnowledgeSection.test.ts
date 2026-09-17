@@ -33,7 +33,7 @@ test('public section has independent loading and empty states', () => {
 
 test('public section is a separate four-space surface with concise guidance', () => {
   const section = source('./PublicKnowledgeSection.vue')
-  assert.match(section, /portal\.spaceCount/)
+  assert.match(section, /portalMap\.stageInventory/)
   assert.match(section, /grid-template-columns:repeat\(4,minmax\(240px,1fr\)\)/)
   assert.match(section, /portal\.views\.publicDescription/)
   assert.doesNotMatch(section, /<aside>|section-kicker/)

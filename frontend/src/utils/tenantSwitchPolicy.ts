@@ -1,10 +1,6 @@
-export const TENANT_SWITCH_FALLBACK = '/portal'
+export const TENANT_SWITCH_FALLBACK = '/platform/knowledge-bases'
 
-/** Resource-free pages that are safe to reload under another tenant. */
-export function tenantSwitchTargetPath(currentPath: string): string {
-  if (currentPath === '/portal') return '/portal'
-  if (currentPath === '/platform/knowledge-bases') return currentPath
-  if (currentPath === '/platform/agents') return currentPath
-  if (/^\/platform\/knowledge-bases\/[^/]+/.test(currentPath)) return '/platform/knowledge-bases'
+/** Active workspace switches always land on the target workspace's knowledge base list. */
+export function tenantSwitchTargetPath(_currentPath: string): string {
   return TENANT_SWITCH_FALLBACK
 }

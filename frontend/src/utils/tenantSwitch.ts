@@ -1,8 +1,7 @@
 // Tenant-switch navigation helper.
 //
-// Resource-free list pages are preserved across a switch. Resource-bound
-// contexts fall back to their list or Portal. A full navigation then resets
-// tenant-scoped stores, SSE connections, and in-flight requests.
+// Active workspace switches use one stable landing page. A full navigation
+// then resets tenant-scoped stores, SSE connections, and in-flight requests.
 
 import { updateMyPreferences } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
@@ -30,19 +29,30 @@ export interface WorkspaceSwitchTarget {
 export function switchWorkspaceAndNavigate(target: WorkspaceSwitchTarget): void {
   const authStore = useAuthStore()
   const homeTenantId = Number(authStore.user?.tenant_id ?? 0)
-  authStore.setSelectedTenant(target.tenantId, target.tenantName)
-  usePortalStore().invalidate()
-  stashTenantSwitchToast({
-    name: target.tenantName || `#${target.tenantId}`,
-    role: target.roleLabel,
-    roleEnum: target.role,
-  })
+  const previousTenantId = authStore.selectedTenantId == null ? null : Number(authStore.selectedTenantId)
+  const previousTenantName = authStore.selectedTenantName || null
+  const restorePreviousTenant = () => authStore.setSelectedTenant(previousTenantId, previousTenantName)
+  try {
+    authStore.setSelectedTenant(target.tenantId, target.tenantName)
+    usePortalStore().invalidate()
+    stashTenantSwitchToast({
+      name: target.tenantName || `#${target.tenantId}`,
+      role: target.roleLabel,
+      roleEnum: target.role,
+    })
+  } catch {
+    restorePreviousTenant()
+    target.onNavigationFailure?.()
+    return
+  }
   const persist = persistLastActiveTenantPreference(target.tenantId === homeTenantId ? null : target.tenantId)
   Promise.race([persist, new Promise((resolve) => setTimeout(resolve, 500))])
     .finally(() => {
       try {
         navigateAfterTenantSwitch(target.targetPath)
       } catch {
+        restorePreviousTenant()
+        consumePendingTenantSwitchToast()
         target.onNavigationFailure?.()
       }
     })

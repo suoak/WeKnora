@@ -1,17 +1,8 @@
 <template>
   <nav class="sidebar-navigation" :aria-label="t('navigation.main')">
-    <section v-for="group in groups" :key="group.id" class="nav-group">
-      <template v-for="entry in group.entries" :key="entry.id">
-        <template v-if="group.id === 'workspace' && entry.id === 'knowledge-bases'">
-          <TenantSelector v-if="authStore.canAccessAllTenants && !collapsed" />
-          <SpaceSwitcher v-else-if="!collapsed" />
-          <t-tooltip v-else :content="authStore.currentTenantName || t('spaceSwitcher.unknown')" placement="right">
-            <button type="button" class="space-context-compact" @click="uiStore.expandSidebar">
-              {{ (authStore.currentTenantName || 'K').trim().slice(0, 1).toUpperCase() }}
-            </button>
-          </t-tooltip>
-        </template>
-
+    <template v-for="group in groups" :key="group.id">
+      <section class="nav-group">
+        <template v-for="entry in group.entries" :key="entry.id">
         <div v-if="entry.id === 'agents' && !collapsed" class="agent-shortcuts">
           <button type="button" class="nav-entry agent-shortcuts__toggle"
             :class="{ 'is-active': isNavigationEntryActive(entry, route.path, route.query.section) }"
@@ -40,8 +31,18 @@
             <t-icon :name="entry.icon" /><span v-if="!collapsed">{{ t(entry.labelKey) }}</span>
           </button>
         </t-tooltip>
-      </template>
-    </section>
+        </template>
+      </section>
+      <section v-if="group.id === 'global' && authStore.effectiveTenantId" class="nav-group space-context">
+        <TenantSelector v-if="authStore.canAccessAllTenants && !collapsed" />
+        <SpaceSwitcher v-else-if="!collapsed" />
+        <t-tooltip v-else :content="authStore.currentTenantName || t('spaceSwitcher.unknown')" placement="right">
+          <button type="button" class="space-context-compact" @click="uiStore.expandSidebar">
+            {{ (authStore.currentTenantName || 'K').trim().slice(0, 1).toUpperCase() }}
+          </button>
+        </t-tooltip>
+      </section>
+    </template>
   </nav>
 </template>
 
@@ -75,7 +76,9 @@ const entries=computed(()=>visibleNavigationEntries({
   supports:(key)=>capabilities.isSupported(key),
 }))
 const order:NavigationGroup[]=['global','workspace','management']
-const groups=computed(()=>order.map((id)=>({id,entries:entries.value.filter((entry)=>entry.group===id)})).filter((group)=>group.entries.length))
+const groups=computed(()=>order
+  .map((id)=>({id,entries:entries.value.filter((entry)=>entry.group===id)}))
+  .filter((group)=>group.entries.length || (group.id==='global' && Boolean(authStore.effectiveTenantId))))
 const shortcutAgents=computed(()=>[...chatResources.agents]
   .sort((left,right)=>Number(right.is_builtin)-Number(left.is_builtin))
   .slice(0,4))

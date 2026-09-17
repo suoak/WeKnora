@@ -19,7 +19,7 @@ const space = (
   file_count: files,
 }) as PortalSpace
 
-test('overall totals distinct an overlapping IPD and public space', () => {
+test('overall totals distinct spaces while public excludes every valid lifecycle mapping', () => {
   const summary = buildKnowledgeHierarchySummary([
     space(1, ['architecture'], 'public_knowledge', 3, 100),
     space(2, ['design'], 'development_assets', 2, 20),
@@ -27,8 +27,19 @@ test('overall totals distinct an overlapping IPD and public space', () => {
   ], ['architecture', 'design'])
 
   assert.deepEqual(summary.ipd, { spaces: 2, knowledgeBases: 5, files: 120 })
-  assert.deepEqual(summary.publicArea, { spaces: 2, knowledgeBases: 7, files: 140 })
+  assert.deepEqual(summary.publicArea, { spaces: 1, knowledgeBases: 4, files: 40 })
   assert.deepEqual(summary.overall, { spaces: 3, knowledgeBases: 9, files: 160 })
+})
+
+test('null, non-finite, and negative asset counts are normalized to zero', () => {
+  const rows = [
+    space(20, [], 'uncategorized', null as unknown as number, Number.NaN),
+    space(21, [], 'uncategorized', -2, -9, 'discoverable'),
+  ]
+  const summary = buildKnowledgeHierarchySummary(rows, ['insight'])
+
+  assert.deepEqual(summary.overall, { spaces: 2, knowledgeBases: 0, files: 0 })
+  assert.deepEqual(summary.publicArea, { spaces: 2, knowledgeBases: 0, files: 0 })
 })
 
 test('overall and stage totals include accessible and discoverable asset counts', () => {

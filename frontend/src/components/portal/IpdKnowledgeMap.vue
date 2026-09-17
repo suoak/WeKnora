@@ -5,7 +5,7 @@
       <div v-if="!loading && !error" class="map-summary">
         <span>{{ t('portalMap.stageCount', { count: stages.length }) }}</span>
         <span>{{ t('portalMap.coverage', { covered: coveredStages, total: stages.length }) }}</span>
-        <span>{{ t('portal.spaceCount', { count: summary.ipd.spaces }) }}</span>
+        <span>{{ t('portalMap.stageInventory', { spaces: summary.ipd.spaces, kb: numberFormatter.format(summary.ipd.knowledgeBases), files: numberFormatter.format(summary.ipd.files) }) }}</span>
       </div>
       <t-skeleton v-else-if="loading" class="summary-loading" animation="gradient" :row-col="[{ width: '220px', height: '18px' }]" />
     </header>
@@ -19,7 +19,7 @@
         <nav v-else class="lifecycle-rail" :style="{ gridTemplateColumns: `repeat(${Math.max(stages.length, 1)}, minmax(118px, 1fr))` }">
           <IpdStageCard v-for="(stage,index) in stages" :key="stage.key" :stage="stage" :index="index"
             :short-description="stage.description || ''" :space-count="spacesFor(stage.key).length"
-            :current="stage.key === currentStageKey" :focused="stage.key === focusedStageKey" @navigate="navigateToStage" />
+            :focused="stage.key === focusedStageKey" @navigate="navigateToStage" />
         </nav>
       </div>
 
@@ -31,7 +31,7 @@
           </section>
         </template>
         <section v-for="(stage,index) in stages" v-else :key="stage.key" class="stage-card"
-          :class="[`stage-card--${stage.key}`, { highlighted: highlightedStageKey === stage.key, 'stage-card--wide': stage.key === 'development' }]"
+          :class="[`stage-card--${stage.key}`, { highlighted: highlightedStageKey === stage.key, 'stage-card--wide': spacesFor(stage.key).length > 1, 'stage-card--single': spacesFor(stage.key).length === 1 }]"
           :data-stage-group="stage.key">
           <header class="stage-card__header">
             <div class="stage-card__identity">
@@ -41,7 +41,16 @@
             <span>{{ t('portal.spaceCount', { count: spacesFor(stage.key).length }) }}</span>
           </header>
           <b class="stage-card__number">{{ String(index + 1).padStart(2, '0') }}</b>
-          <div v-if="spacesFor(stage.key).length" class="stage-spaces">
+          <div v-if="spacesFor(stage.key).length === 1" class="stage-spaces stage-spaces--single">
+            <SpaceSummary :space="spacesFor(stage.key)[0]" variant="flat"
+              :hide-title="sameNormalizedText(stage.name, spacesFor(stage.key)[0].display_name)"
+              :suppress-description="sameNormalizedText(stage.description, spacesFor(stage.key)[0].description)"
+              :fallback-description="stageFallbackDescription(stage.key)"
+              :is-active-space="spacesFor(stage.key)[0].tenant_id === activeTenantId"
+              @enter="$emit('enter', $event)" @restricted="$emit('restricted', $event)"
+              @search="$emit('search', $event)" @ask="$emit('ask', $event)" />
+          </div>
+          <div v-else-if="spacesFor(stage.key).length > 1" class="stage-spaces">
             <SpaceSummary v-for="space in spacesFor(stage.key)" :key="space.tenant_id" :space="space" variant="compact"
               :visual-icon="resolveStageSpaceIcon(stage.key, space)"
               :fallback-description="stageFallbackDescription(stage.key)"
@@ -70,6 +79,7 @@ import PortalSectionState from './PortalSectionState.vue'
 const props=defineProps<{stages:PortalStage[];spaces:PortalSpace[];loading:boolean;error:boolean;activeTenantId:number}>()
 defineEmits<{enter:[space:PortalSpace];restricted:[space:PortalSpace];search:[space:PortalSpace];ask:[space:PortalSpace];retry:[]}>()
 const {t}=useI18n()
+const numberFormatter=new Intl.NumberFormat()
 const groupsRef=ref<HTMLElement|null>(null)
 const focusedStageKey=ref('')
 const highlightedStageKey=ref('')
@@ -80,7 +90,8 @@ const stageFallbackDescription=(stageKey:string)=>t(`portalMap.stageFallback.${s
 const spacesFor=(stage:string)=>props.spaces.filter(space=>space.stages.includes(stage))
 const summary=computed(()=>buildKnowledgeHierarchySummary(props.spaces,props.stages.map(stage=>stage.key)))
 const coveredStages=computed(()=>props.stages.filter(stage=>spacesFor(stage.key).length>0).length)
-const currentStageKey=computed(()=>props.stages.find(stage=>props.spaces.some(space=>space.tenant_id===props.activeTenantId&&space.stages.includes(stage.key)))?.key||'')
+const normalizedText=(value?:string)=>value?.trim().replace(/\s+/g,' ').toLocaleLowerCase()||''
+const sameNormalizedText=(left?:string,right?:string)=>Boolean(normalizedText(left))&&normalizedText(left)===normalizedText(right)
 function navigateToStage(stageKey:string){
   focusedStageKey.value=stageKey
   highlightedStageKey.value=stageKey

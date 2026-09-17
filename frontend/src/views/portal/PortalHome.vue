@@ -3,6 +3,7 @@
     <Menu />
     <div class="portal-page">
       <main>
+        <PortalOverviewStrip v-if="!portal.overviewError" :metrics="knowledgeSummary.overall" :loading="portal.overviewLoading" />
         <IpdKnowledgeMap :stages="portal.stages" :spaces="ipdSpaces"
           :loading="portal.stagesLoading || portal.overviewLoading" :error="portal.stagesError || portal.overviewError"
           :active-tenant-id="activeTenantId" @enter="enterPortalSpace" @restricted="openAccessDialog"
@@ -30,6 +31,7 @@ import Menu from '@/components/menu.vue'
 import NewUserGuide from '@/components/NewUserGuide.vue'
 import GlobalCommandPalette from '@/components/GlobalCommandPalette.vue'
 import IpdKnowledgeMap from '@/components/portal/IpdKnowledgeMap.vue'
+import PortalOverviewStrip from '@/components/portal/PortalOverviewStrip.vue'
 import PublicKnowledgeSection from '@/components/portal/PublicKnowledgeSection.vue'
 import SpaceAccessDialog from '@/components/portal/SpaceAccessDialog.vue'
 import { usePortalStore } from '@/stores/portal'
@@ -39,6 +41,7 @@ import { useCommandPaletteStore } from '@/stores/commandPalette'
 import type { PortalSpace } from '@/api/portal'
 import { switchWorkspaceAndNavigate } from '@/utils/tenantSwitch'
 import { clearPortalIntent, createPortalIntent, type PortalIntentAction } from '@/utils/portalIntent'
+import { buildKnowledgeHierarchySummary } from '@/config/portalKnowledgeSummary'
 
 const portal=usePortalStore()
 const authStore=useAuthStore()
@@ -49,6 +52,7 @@ const {t}=useI18n()
 const accessSpace=ref<PortalSpace|null>(null)
 const activeTenantId=computed(()=>Number(authStore.effectiveTenantId||0))
 const stageKeys=computed(()=>portal.stages.map(stage=>stage.key))
+const knowledgeSummary=computed(()=>buildKnowledgeHierarchySummary(portal.overviewSpaces,stageKeys.value))
 const ipdSpaces=computed(()=>{
   const validStages=new Set(stageKeys.value)
   return portal.overviewSpaces.filter(space=>space.stages.some(stage=>validStages.has(stage)))

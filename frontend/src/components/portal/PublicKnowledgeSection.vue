@@ -2,7 +2,7 @@
   <section class="public-knowledge">
     <header>
       <div class="public-title"><span class="public-title__icon"><t-icon name="earth" /></span><div><h2>{{ t('portal.publicZone.title') }}</h2><p>{{ t('portal.views.publicDescription') }}</p></div></div>
-      <span v-if="!loading && !error">{{ t('portal.spaceCount', { count: publicSpaces.length }) }}</span>
+      <span v-if="!loading && !error">{{ t('portalMap.stageInventory', { spaces: summary.publicArea.spaces, kb: numberFormatter.format(summary.publicArea.knowledgeBases), files: numberFormatter.format(summary.publicArea.files) }) }}</span>
       <t-skeleton v-else-if="loading" class="summary-loading" animation="gradient" :row-col="[{ width: '120px', height: '16px' }]" />
     </header>
     <PortalSectionState v-if="error" @retry="$emit('retry')" />
@@ -23,6 +23,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { PortalSpace } from '@/api/portal'
+import { buildKnowledgeHierarchySummary } from '@/config/portalKnowledgeSummary'
 import { resolvePublicSpaceIcon } from '@/config/portalVisualIcons'
 import SpaceSummary from './SpaceSummary.vue'
 import PortalSectionState from './PortalSectionState.vue'
@@ -30,10 +31,12 @@ import PortalSectionState from './PortalSectionState.vue'
 const props=defineProps<{spaces:PortalSpace[];stageKeys:string[];loading:boolean;error:boolean;activeTenantId:number}>()
 defineEmits<{enter:[space:PortalSpace];restricted:[space:PortalSpace];search:[space:PortalSpace];ask:[space:PortalSpace];retry:[]}>()
 const {t}=useI18n()
+const numberFormatter=new Intl.NumberFormat()
 const publicSpaces=computed(()=>{
   const lifecycleStages=new Set(props.stageKeys)
   return props.spaces.filter(space=>!space.stages.some(stage=>lifecycleStages.has(stage)))
 })
+const summary=computed(()=>buildKnowledgeHierarchySummary(props.spaces,props.stageKeys))
 </script>
 
 <style scoped lang="less">

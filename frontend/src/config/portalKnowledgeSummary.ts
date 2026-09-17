@@ -1,5 +1,4 @@
 import type { PortalSpace } from '@/api/portal'
-import { PUBLIC_KNOWLEDGE_CATEGORY } from './publicKnowledgeSpaces'
 
 export interface KnowledgeScale {
   spaces: number
@@ -14,7 +13,7 @@ export interface KnowledgeHierarchySummary {
   phases: Record<string, KnowledgeScale>
 }
 
-function uniqueSpaces(spaces: readonly PortalSpace[]): PortalSpace[] {
+export function uniquePortalSpaces(spaces: readonly PortalSpace[]): PortalSpace[] {
   const unique = new Map<number, PortalSpace>()
   for (const space of spaces) {
     if (!unique.has(space.tenant_id)) unique.set(space.tenant_id, space)
@@ -22,11 +21,15 @@ function uniqueSpaces(spaces: readonly PortalSpace[]): PortalSpace[] {
   return [...unique.values()]
 }
 
+function safeCount(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0
+}
+
 export function summarizeKnowledgeSpaces(spaces: readonly PortalSpace[]): KnowledgeScale {
-  return uniqueSpaces(spaces).reduce<KnowledgeScale>((summary, space) => ({
+  return uniquePortalSpaces(spaces).reduce<KnowledgeScale>((summary, space) => ({
     spaces: summary.spaces + 1,
-    knowledgeBases: summary.knowledgeBases + space.knowledge_base_count,
-    files: summary.files + space.file_count,
+    knowledgeBases: summary.knowledgeBases + safeCount(space.knowledge_base_count),
+    files: summary.files + safeCount(space.file_count),
   }), { spaces: 0, knowledgeBases: 0, files: 0 })
 }
 
@@ -34,14 +37,14 @@ export function buildKnowledgeHierarchySummary(
   spaces: readonly PortalSpace[],
   stageKeys: readonly string[],
 ): KnowledgeHierarchySummary {
-  const unique = uniqueSpaces(spaces)
+  const unique = uniquePortalSpaces(spaces)
   const stageSet = new Set(stageKeys)
-  const ipdSpaces = unique.filter((space) => space.stages.some((stage) => stageSet.has(stage)))
-  const publicSpaces = unique.filter((space) => space.category === PUBLIC_KNOWLEDGE_CATEGORY)
+  const hasLifecycleStage = (space: PortalSpace) => space.stages.some((stage) => stageSet.has(stage))
+  const ipdSpaces = unique.filter(hasLifecycleStage)
+  const publicSpaces = unique.filter((space) => !hasLifecycleStage(space))
 
   return {
-    // The Portal headline covers every published space returned by the
-    // overview endpoint and must not depend on stage metadata loading first.
+    // Overall describes the unique published Portal spaces visible to this user.
     overall: summarizeKnowledgeSpaces(unique),
     ipd: summarizeKnowledgeSpaces(ipdSpaces),
     publicArea: summarizeKnowledgeSpaces(publicSpaces),

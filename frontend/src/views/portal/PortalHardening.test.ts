@@ -47,7 +47,7 @@ test('lifecycle rail dynamically keeps eight readable steps and removes nested s
   assert.doesNotMatch(stage, /SpaceSummary/)
 })
 
-test('stage grid has four, three, two and one column tiers with dynamic development span', () => {
+test('stage grid has four, three, two and one column tiers with dynamic multi-space span', () => {
   const map = source('../../components/portal/IpdKnowledgeMap.vue')
   assert.match(map, /stage-card-grid\{[^}]*repeat\(4,minmax\(0,1fr\)\)/)
   assert.match(map, /@media\(max-width:1599px\).*repeat\(3,minmax\(0,1fr\)\)/)
