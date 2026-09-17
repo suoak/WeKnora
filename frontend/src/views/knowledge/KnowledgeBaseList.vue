@@ -8,15 +8,13 @@
         <div class="header-title" style="--wails-draggable: drag">
           <div class="title-row" style="--wails-draggable: drag">
             <h2 style="--wails-draggable: drag">{{ knowledgeBasePageTitle }}</h2>
-            <t-tooltip v-if="authStore.hasRole('contributor')" :content="$t('knowledgeList.create')" placement="bottom">
-              <t-button variant="text" theme="default" size="small" class="header-action-btn"
-                data-guide="kb-list-create" style="--wails-draggable: no-drag" @click="handleCreateKnowledgeBase">
-                <template #icon><t-icon name="folder-add" size="16px" /></template>
-              </t-button>
-            </t-tooltip>
           </div>
           <p class="header-subtitle" style="--wails-draggable: drag">{{ $t('knowledgeList.subtitle') }}</p>
         </div>
+        <t-button v-if="authStore.hasRole('contributor')" theme="primary" class="kb-create-btn header-create-btn"
+          data-guide="kb-list-create" style="--wails-draggable: no-drag" @click="handleCreateKnowledgeBase">
+          <template #icon><t-icon name="folder-add" /></template>{{ $t('knowledgeList.create') }}
+        </t-button>
       </div>
       <div class="kb-list-main">
         <!-- creator filter intentionally removed from chrome: every card
@@ -210,6 +208,7 @@
               <!-- 卡片头部 -->
               <div class="card-header">
                 <span class="card-title" :title="kb.name">
+                  <span v-if="!isWikiKb(kb)" class="kb-title-icon"><t-icon name="book-open" /></span>
                   <KbWikiBadge v-if="isWikiKb(kb)" />
                   <span class="card-title-text">{{ kb.name }}</span>
                 </span>
@@ -258,9 +257,9 @@
                   {{ kb.description || $t('knowledgeBase.noDescription') }}
                 </div>
                 <div class="card-meta-line">
-                  <span>{{ kbOwnerSpaceName(kb) }}</span>
-                  <span>{{ kbAccessLabel(kb) }}</span>
-                  <span v-if="kb.updated_at">{{ kb.updated_at }}</span>
+                  <span><t-icon name="home" />{{ kbOwnerSpaceName(kb) }}</span>
+                  <span><t-icon name="secured" />{{ kbAccessLabel(kb) }}</span>
+                  <span v-if="kb.updated_at" class="meta-updated"><t-icon name="time" />{{ kb.updated_at }}</span>
                 </div>
               </div>
 
@@ -301,6 +300,7 @@
               <!-- 卡片头部 -->
               <div class="card-header">
                 <span class="card-title" :title="kb.name">
+                  <span v-if="!isWikiKb(kb)" class="kb-title-icon"><t-icon name="book-open" /></span>
                   <KbWikiBadge v-if="isWikiKb(kb)" />
                   <span class="card-title-text">{{ kb.name }}</span>
                 </span>
@@ -327,9 +327,9 @@
                   {{ kb.description || $t('knowledgeBase.noDescription') }}
                 </div>
                 <div class="card-meta-line">
-                  <span>{{ kbOwnerSpaceName(kb) }}</span>
-                  <span>{{ kbAccessLabel(kb) }}</span>
-                  <span v-if="kb.updated_at">{{ formatKbUpdatedAt(kb.updated_at) }}</span>
+                  <span><t-icon name="home" />{{ kbOwnerSpaceName(kb) }}</span>
+                  <span><t-icon name="secured" />{{ kbAccessLabel(kb) }}</span>
+                  <span v-if="kb.updated_at" class="meta-updated"><t-icon name="time" />{{ formatKbUpdatedAt(kb.updated_at) }}</span>
                 </div>
               </div>
 
@@ -423,6 +423,7 @@
               <!-- 卡片头部 -->
               <div class="card-header">
                 <span class="card-title" :title="kb.name">
+                  <span v-if="!isWikiKb(kb)" class="kb-title-icon"><t-icon name="book-open" /></span>
                   <KbWikiBadge v-if="isWikiKb(kb)" />
                   <span class="card-title-text">{{ kb.name }}</span>
                 </span>
@@ -469,9 +470,9 @@
                   {{ kb.description || $t('knowledgeBase.noDescription') }}
                 </div>
                 <div class="card-meta-line">
-                  <span>{{ kbOwnerSpaceName(kb) }}</span>
-                  <span>{{ kbAccessLabel(kb) }}</span>
-                  <span v-if="kb.updated_at">{{ kb.updated_at }}</span>
+                  <span><t-icon name="home" />{{ kbOwnerSpaceName(kb) }}</span>
+                  <span><t-icon name="secured" />{{ kbAccessLabel(kb) }}</span>
+                  <span v-if="kb.updated_at" class="meta-updated"><t-icon name="time" />{{ kb.updated_at }}</span>
                 </div>
               </div>
 
@@ -566,6 +567,7 @@
               <!-- 卡片头部 -->
               <div class="card-header">
                 <span class="card-title" :title="shared.knowledge_base.name">
+                  <span v-if="!isWikiKb(shared.knowledge_base)" class="kb-title-icon"><t-icon name="book-open" /></span>
                   <KbWikiBadge v-if="isWikiKb(shared.knowledge_base)" />
                   <span class="card-title-text">{{ shared.knowledge_base.name }}</span>
                 </span>
@@ -592,9 +594,9 @@
                   {{ shared.knowledge_base.description || $t('knowledgeBase.noDescription') }}
                 </div>
                 <div class="card-meta-line">
-                  <span>{{ shared.org_name || kbOwnerSpaceName(shared.knowledge_base) }}</span>
-                  <span>{{ shared.is_mine ? $t('knowledgeList.access.shared') : $t(`organization.role.${shared.permission}`) }}</span>
-                  <span v-if="shared.knowledge_base.updated_at">{{ formatKbUpdatedAt(shared.knowledge_base.updated_at) }}</span>
+                  <span><t-icon name="home" />{{ shared.org_name || kbOwnerSpaceName(shared.knowledge_base) }}</span>
+                  <span><t-icon name="secured" />{{ shared.is_mine ? $t('knowledgeList.access.shared') : $t(`organization.role.${shared.permission}`) }}</span>
+                  <span v-if="shared.knowledge_base.updated_at" class="meta-updated"><t-icon name="time" />{{ formatKbUpdatedAt(shared.knowledge_base.updated_at) }}</span>
                 </div>
               </div>
 
@@ -1854,6 +1856,7 @@ const handleUploadFinishedEvent = (event: Event) => {
   flex-direction: column;
   min-width: 0;
   padding: 20px 0 0 28px;
+  background: var(--td-bg-color-page);
 }
 
 .header {
@@ -1915,8 +1918,12 @@ const handleUploadFinishedEvent = (event: Event) => {
   display: flex;
   gap: 10px;
   align-items: center;
-  padding: 12px 0 14px;
-  background: var(--td-bg-color-page);
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--td-component-stroke);
+  border-radius: 10px;
+  background: var(--td-bg-color-container);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.025);
 }
 
 .kb-search-input {
@@ -1934,16 +1941,30 @@ const handleUploadFinishedEvent = (event: Event) => {
   display: flex;
   align-items: center;
   gap: 6px 12px;
-  margin-top: 12px;
-  color: var(--td-text-color-placeholder);
+  margin-top: 7px;
+  color: var(--td-text-color-secondary);
   font-size: 12px;
   line-height: 18px;
   white-space: nowrap;
   overflow: hidden;
 
   span {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 4px;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .meta-updated {
+    margin-left: auto;
+  }
+
+  .t-icon {
+    flex: none;
+    color: var(--td-text-color-placeholder);
+    font-size: 13px;
   }
 }
 
@@ -1969,11 +1990,20 @@ const handleUploadFinishedEvent = (event: Event) => {
 
 .header-subtitle {
   margin: 0;
-  color: var(--td-text-color-placeholder);
+  color: var(--td-text-color-secondary);
   font-family: var(--app-font-family);
   font-size: 14px;
   font-weight: 400;
   line-height: 20px;
+}
+
+.header-create-btn {
+  flex: none;
+  height: 34px;
+  margin-left: 20px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-weight: 600;
 }
 
 .header-action-btn {
@@ -2286,7 +2316,9 @@ const handleUploadFinishedEvent = (event: Event) => {
 .kb-card-wrap {
   display: grid;
   gap: 12px;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 360px));
+  align-content: start;
+  justify-content: start;
   animation: contentFadeIn 0.32s ease-out;
 }
 
@@ -2381,12 +2413,12 @@ const handleUploadFinishedEvent = (event: Event) => {
   background: var(--td-bg-color-container);
   position: relative;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  height: 136px;
-  min-height: 136px;
+  height: 168px;
+  min-height: 168px;
 
   &.kb-card-skeleton {
     cursor: default;
@@ -2405,8 +2437,8 @@ const handleUploadFinishedEvent = (event: Event) => {
   }
 
   &:hover {
-    border-color: var(--td-brand-color);
-    box-shadow: 0 4px 12px rgba(7, 192, 95, 0.12);
+    border-color: color-mix(in srgb, var(--td-brand-color) 32%, var(--td-component-stroke));
+    box-shadow: 0 5px 14px rgba(15, 23, 42, 0.065);
   }
 
   &.uninitialized {
@@ -2521,7 +2553,7 @@ const handleUploadFinishedEvent = (event: Event) => {
 
   .card-description {
     font-size: 12px;
-    line-height: 17px;
+    line-height: 18px;
   }
 
   .card-bottom {
@@ -2610,6 +2642,18 @@ const handleUploadFinishedEvent = (event: Event) => {
   min-width: 0;
 }
 
+.kb-title-icon {
+  width: 26px;
+  height: 26px;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--td-brand-color) 9%, var(--td-bg-color-container));
+  color: var(--td-brand-color-active);
+  font-size: 14px;
+}
+
 .more-wrap {
   display: flex;
   width: 24px;
@@ -2664,6 +2708,7 @@ const handleUploadFinishedEvent = (event: Event) => {
   font-size: 12px;
   font-weight: 400;
   line-height: 18px;
+  min-height: 36px;
 }
 
 .card-bottom {
@@ -2712,8 +2757,8 @@ const handleUploadFinishedEvent = (event: Event) => {
   transition: background 0.2s ease;
 
   &.type-document {
-    background: rgba(7, 192, 95, 0.08);
-    color: var(--td-brand-color-active);
+    background: transparent;
+    color: var(--td-text-color-secondary);
     width: auto;
     padding: 0 6px;
     gap: 3px;
@@ -2733,8 +2778,8 @@ const handleUploadFinishedEvent = (event: Event) => {
   }
 
   &.type-faq {
-    background: rgba(0, 82, 217, 0.08);
-    color: var(--td-brand-color);
+    background: transparent;
+    color: var(--td-text-color-secondary);
     width: auto;
     padding: 0 6px;
     gap: 3px;
@@ -2860,6 +2905,27 @@ const handleUploadFinishedEvent = (event: Event) => {
   font-weight: 400;
 }
 
+// Product surface contract: cards remain white and use the same restrained
+// hover language as Portal cards, independent of document/FAQ ownership.
+.kb-card,
+.shared-kb-card,
+.kb-card.kb-type-document,
+.kb-card.kb-type-faq,
+.shared-kb-card.kb-type-document,
+.shared-kb-card.kb-type-faq {
+  background: var(--td-bg-color-container) !important;
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--td-brand-color) 32%, var(--td-component-stroke)) !important;
+    background: color-mix(in srgb, var(--td-brand-color) 2%, var(--td-bg-color-container)) !important;
+    box-shadow: 0 5px 14px rgba(15, 23, 42, 0.065) !important;
+  }
+
+  &::after {
+    opacity: 0.35;
+  }
+}
+
 
 .empty-state {
   flex: 1;
@@ -2919,36 +2985,6 @@ const handleUploadFinishedEvent = (event: Event) => {
 
   .kb-card-wrap {
     grid-template-columns: 1fr;
-  }
-}
-
-@media (min-width: 900px) {
-  .kb-card-wrap {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (min-width: 1250px) {
-  .kb-card-wrap {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-@media (min-width: 1600px) {
-  .kb-card-wrap {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-
-@media (min-width: 1900px) {
-  .kb-card-wrap {
-    grid-template-columns: repeat(5, 1fr);
-  }
-}
-
-@media (min-width: 2200px) {
-  .kb-card-wrap {
-    grid-template-columns: repeat(6, 1fr);
   }
 }
 

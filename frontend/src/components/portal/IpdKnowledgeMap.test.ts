@@ -111,6 +111,25 @@ test('all single-space and empty stages share the same bottom-aligned layout con
   assert.doesNotMatch(map, /stage\.key === ['"](?:design|testing)['"]/)
 })
 
+test('single and current stage hover activates one surface without a nested action ring', () => {
+  const map = source('./IpdKnowledgeMap.vue')
+  const summary = source('./SpaceSummary.vue')
+  assert.match(map, /'stage-card--current': spacesFor\(stage\.key\)\.length === 1/)
+  assert.match(map, /\.stage-card--current\{[^}]*border-color:[^}]*background:/)
+  assert.match(summary, /\.space-summary:hover,\.space-summary:focus-within\{outline:0;outline-offset:0\}/)
+  assert.match(summary, /\.space-summary\.flat\.current,\.space-summary\.flat\.current:hover\{background:transparent\}/)
+  assert.match(summary, /\.accessible-actions button:focus-visible\{outline:2px solid/)
+  assert.doesNotMatch(map, /stage\.key === ['"](?:design|testing)['"]/)
+})
+
+test('IPD metrics separate lifecycle, coverage, and asset visual roles without changing aggregation', () => {
+  const map = source('./IpdKnowledgeMap.vue')
+  assert.match(map, /class="lifecycle-metric"/)
+  assert.match(map, /class="lifecycle-metric coverage-metric"/)
+  assert.match(map, /class="asset-metric"/)
+  assert.match(map, /buildKnowledgeHierarchySummary\(props\.spaces,props\.stages\.map\(stage=>stage\.key\)\)/)
+})
+
 test('restricted cards show one state-aware CTA and always activate the gate', () => {
   const summary = source('./SpaceSummary.vue')
   assert.match(summary, /v-else class="restricted-action"/)
