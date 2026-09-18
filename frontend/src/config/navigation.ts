@@ -26,7 +26,7 @@ export interface NavigationContext {
 
 export const NAVIGATION_REGISTRY: readonly NavigationEntry[] = [
   { id: 'portal', labelKey: 'navigation.portalHome', icon: 'home', route: '/portal', group: 'global', order: 10 },
-  { id: 'knowledge-bases', labelKey: 'navigation.knowledgeBases', icon: 'folder', route: '/platform/knowledge-bases', group: 'workspace', order: 20 },
+  { id: 'knowledge-bases', labelKey: 'navigation.knowledgeBases', icon: 'knowledge-base', route: '/platform/knowledge-bases', group: 'workspace', order: 20 },
   { id: 'agents', labelKey: 'navigation.agents', icon: 'robot', route: '/platform/agents', group: 'workspace', requiredCapabilities: ['agents'], order: 30 },
   { id: 'members', labelKey: 'navigation.members', icon: 'usergroup', route: '/platform/settings?section=members', settingsSection: 'members', group: 'workspace', order: 40 },
   { id: 'management-center', labelKey: 'navigation.managementCenter', icon: 'setting', route: '/platform/settings?section=tenant', group: 'management', visibility: 'management', order: 50 },

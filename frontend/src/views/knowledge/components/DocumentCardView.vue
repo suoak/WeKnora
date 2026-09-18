@@ -1272,4 +1272,56 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
     color: var(--td-text-color-secondary);
   }
 }
+
+// A brighter document surface with neutral hover emphasis keeps dense content
+// readable without changing card actions or selection behavior.
+.doc-card-list {
+  gap: 14px;
+}
+
+.folder-card,
+.knowledge-card {
+  height: 144px;
+  border-color: var(--td-component-border);
+  border-radius: 10px;
+  background: var(--td-bg-color-container);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.055);
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--td-component-border) 78%, var(--td-text-color-secondary));
+    background: color-mix(in srgb, var(--td-bg-color-container) 98%, var(--td-bg-color-page));
+    box-shadow: 0 7px 18px rgba(15, 23, 42, 0.08);
+  }
+}
+
+.knowledge-card {
+  .card-content {
+    padding: 12px 15px 9px;
+  }
+
+  .card-content-title {
+    font-size: 14px;
+    font-weight: 650;
+  }
+
+  .card-content-txt {
+    color: color-mix(in srgb, var(--td-text-color-secondary) 90%, var(--td-text-color-primary));
+    font-size: 12.5px;
+    line-height: 19px;
+  }
+
+  .card-bottom {
+    height: 34px;
+    padding: 0 15px;
+    border-top-color: var(--td-component-stroke);
+  }
+
+  .card-time {
+    color: var(--td-text-color-secondary);
+  }
+
+  .card-type {
+    color: var(--td-text-color-secondary);
+  }
+}
 </style>

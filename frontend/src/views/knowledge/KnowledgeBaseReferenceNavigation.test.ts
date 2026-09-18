@@ -18,3 +18,9 @@ test('a newer referenced-document navigation supersedes an older request', () =>
   assert.match(source, /const request = \+\+autoOpenRequest/)
   assert.match(source, /if \(request !== autoOpenRequest\) return;/)
 })
+
+test('knowledge base header exposes the active space with a safe empty fallback', () => {
+  assert.match(source, /const knowledgeSpaceName = computed\(\(\) => authStore\.currentTenantName\?\.trim\(\) \|\| ''\)/)
+  assert.match(source, /<template v-if="knowledgeSpaceName">[\s\S]*class="breadcrumb-space"[\s\S]*\{\{ knowledgeSpaceName \}\}/)
+  assert.match(source, /<button type="button" class="breadcrumb-link" @click="handleNavigateToKbList">/)
+})

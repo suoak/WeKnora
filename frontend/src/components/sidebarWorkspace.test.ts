@@ -29,6 +29,7 @@ test('sidebar IA distinguishes Portal home, current space, and space-scoped reso
   assert.match(en, /knowledgeBases: 'Space Knowledge Bases'/)
   assert.match(en, /members: 'Space Members'/)
   assert.match(navigation, /id: 'knowledge-bases'[\s\S]*route: '\/platform\/knowledge-bases'/)
+  assert.match(navigation, /id: 'knowledge-bases'[\s\S]*icon: 'knowledge-base'/)
   assert.match(switcher, /authStore\.currentTenantName/)
   assert.match(switcher, /spaceSwitcher\.currentSpace/)
   assert.match(switcher, /switchWorkspaceAndNavigate/)
@@ -40,6 +41,8 @@ test('sidebar IA distinguishes Portal home, current space, and space-scoped reso
   assert.match(sidebar, /v-if="group\.id === 'global' && authStore\.effectiveTenantId" class="nav-group space-context"/)
   assert.match(sidebar, /TenantSelector v-if="authStore\.canAccessAllTenants && !collapsed"/)
   assert.match(sidebar, /SpaceSwitcher v-else-if="!collapsed"/)
+  assert.match(sidebar, /entry\.id === 'knowledge-bases'[\s\S]*nav-entry__knowledge-icon/)
+  assert.match(sidebar, /zhishiku\.svg/)
   assert.doesNotMatch(sidebar, /currentTenantRole[^\n]*(SpaceSwitcher|TenantSelector)|(SpaceSwitcher|TenantSelector)[^\n]*currentTenantRole/)
 })
 

@@ -97,6 +97,7 @@ const kbContextDescription = computed(() => {
   if (activeKbTab.value === 'graph') return t('knowledgeEditor.wikiBrowser.graphContext');
   return t('knowledgeEditor.wikiBrowser.wikiContext');
 });
+const knowledgeSpaceName = computed(() => authStore.currentTenantName?.trim() || '')
 
 // Wiki 状态用于面包屑上的索引中指示。父组件自行拉取，避免依赖 WikiBrowser 挂载状态
 // （用户切到"文档" tab 时 WikiBrowser 会卸载，这里仍需持续反映后台索引进度）。
@@ -2337,6 +2338,13 @@ async function createNewSession(value: string): Promise<void> {
         <div class="document-header-title">
           <div class="document-title-row">
             <h2 class="document-breadcrumb">
+              <template v-if="knowledgeSpaceName">
+                <span class="breadcrumb-space" :title="knowledgeSpaceName">
+                  <t-icon name="home" />
+                  <span>{{ knowledgeSpaceName }}</span>
+                </span>
+                <t-icon name="chevron-right" class="breadcrumb-separator" />
+              </template>
               <button type="button" class="breadcrumb-link" @click="handleNavigateToKbList">
                 {{ $t('menu.knowledgeBase') }}
               </button>
@@ -4622,5 +4630,120 @@ async function createNewSession(value: string): Promise<void> {
 
 .del-card {
   vertical-align: middle;
+}
+
+// Knowledge content surface polish. These rules only strengthen hierarchy;
+// the existing tabs, filters, pagination and document actions remain intact.
+.knowledge-layout {
+  margin: 0;
+  padding: 22px 28px 0;
+  gap: 18px;
+  background: color-mix(in srgb, var(--td-bg-color-page) 94%, var(--td-bg-color-container));
+}
+
+.document-header {
+  padding: 18px 20px;
+  border: 1px solid var(--td-component-border);
+  border-radius: 14px;
+  background: var(--td-bg-color-container);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.055);
+
+  .document-breadcrumb {
+    gap: 8px;
+    font-size: 21px;
+    font-weight: 650;
+    line-height: 30px;
+  }
+
+  .breadcrumb-space {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    max-width: 220px;
+    color: var(--td-text-color-secondary);
+    font-size: 14px;
+    font-weight: 550;
+
+    span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .t-icon {
+      flex: none;
+      color: var(--td-brand-color);
+      font-size: 16px;
+    }
+  }
+
+  .breadcrumb-link {
+    color: color-mix(in srgb, var(--td-text-color-secondary) 86%, var(--td-text-color-primary));
+  }
+
+  .document-subtitle {
+    color: var(--td-text-color-secondary);
+  }
+}
+
+.kb-context-tabs {
+  padding: 4px;
+  border-color: var(--td-component-border);
+  border-radius: 10px;
+  background: var(--td-bg-color-page);
+}
+
+.breadcrumb-tab {
+  min-height: 30px;
+  padding: 5px 10px;
+  color: var(--td-text-color-secondary);
+
+  &.active {
+    color: var(--td-brand-color-active);
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+  }
+}
+
+.doc-filter-bar {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--td-component-border);
+  border-radius: 12px;
+  background: var(--td-bg-color-container);
+  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.045);
+
+  .doc-tag-filter-trigger {
+    height: 34px;
+    border-color: var(--td-component-stroke);
+    background: var(--td-bg-color-container);
+
+    &:hover,
+    &.open {
+      border-color: color-mix(in srgb, var(--td-component-border) 65%, var(--td-brand-color));
+      background: var(--td-bg-color-container);
+    }
+  }
+
+  :deep(.t-input) {
+    min-height: 34px;
+    border-color: var(--td-component-stroke);
+    background: var(--td-bg-color-container);
+
+    &:hover,
+    &:focus,
+    &.t-is-focused {
+      background: var(--td-bg-color-container);
+    }
+  }
+
+  :deep(.t-select .t-input) {
+    border-color: var(--td-component-stroke);
+    background: var(--td-bg-color-container);
+  }
+}
+
+.doc-scroll-container {
+  padding: 2px 4px 12px 2px;
 }
 </style>

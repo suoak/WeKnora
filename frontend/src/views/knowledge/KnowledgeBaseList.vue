@@ -3255,4 +3255,91 @@ const handleUploadFinishedEvent = (event: Event) => {
   }
 
 }
+
+// Product surface polish: keep the list mechanics intact while restoring a
+// crisp, content-first hierarchy across the header, discovery bar and cards.
+.kb-list-content {
+  background: color-mix(in srgb, var(--td-bg-color-page) 94%, var(--td-bg-color-container));
+}
+
+.header {
+  margin-bottom: 20px;
+
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 34px;
+    letter-spacing: -0.01em;
+  }
+}
+
+.header-subtitle {
+  color: color-mix(in srgb, var(--td-text-color-secondary) 88%, var(--td-text-color-primary));
+  line-height: 21px;
+}
+
+.kb-discovery-bar {
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border-color: var(--td-component-border);
+  border-radius: 12px;
+  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.045);
+
+  :deep(.t-input) {
+    min-height: 36px;
+    border-color: var(--td-component-stroke);
+    background: var(--td-bg-color-container);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.025);
+  }
+}
+
+.kb-card-wrap {
+  gap: 16px;
+}
+
+.kb-card,
+.shared-kb-card {
+  height: 176px;
+  min-height: 176px;
+  padding: 15px 16px;
+  border-color: var(--td-component-border);
+  border-radius: 12px;
+  background: var(--td-bg-color-container) !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.055);
+
+  &.kb-type-document,
+  &.kb-type-faq {
+    background: var(--td-bg-color-container) !important;
+
+    &::after {
+      opacity: 0.45;
+    }
+  }
+
+  &:hover,
+  &.kb-type-document:hover,
+  &.kb-type-faq:hover {
+    border-color: color-mix(in srgb, var(--td-component-border) 72%, var(--td-brand-color)) !important;
+    background: color-mix(in srgb, var(--td-bg-color-container) 98%, var(--td-brand-color)) !important;
+    box-shadow: 0 7px 20px rgba(15, 23, 42, 0.08) !important;
+  }
+
+  .card-title {
+    font-size: 16px;
+    font-weight: 650;
+    line-height: 23px;
+  }
+
+  .card-description {
+    color: color-mix(in srgb, var(--td-text-color-secondary) 90%, var(--td-text-color-primary));
+    font-size: 13px;
+    line-height: 19px;
+    min-height: 38px;
+  }
+
+  .card-bottom {
+    border-top-color: var(--td-component-stroke);
+  }
+}
 </style>
