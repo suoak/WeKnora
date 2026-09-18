@@ -38,7 +38,7 @@ test('lifecycle rail dynamically keeps eight readable steps and removes nested s
   assert.match(map, /min-width:1040px/)
   assert.match(map, /overflow-x:auto/)
   assert.match(stage, /font-size:15px/)
-  assert.match(stage, /font-size:13px/)
+  assert.doesNotMatch(stage, /<small>|<em>|shortDescription|spaceCount/)
   assert.match(map, /border-radius:14px/)
   assert.match(stage, /width:34px;height:34px/)
   assert.match(stage, /height:2px/)

@@ -4,17 +4,11 @@ import test from 'node:test'
 
 const source = readFileSync(new URL('./PortalOverviewStrip.vue', import.meta.url), 'utf8')
 
-test('overview strip is compact and renders the three centralized asset totals', () => {
+test('overview strip removes the redundant subtitle and renders one centralized asset summary', () => {
   assert.match(source, /class="overview-strip"/)
-  assert.match(source, /metrics\.spaces/)
-  assert.match(source, /metrics\.knowledgeBases/)
-  assert.match(source, /metrics\.files/)
-  assert.match(source, /portalExperience\.scaleLabel/)
-  assert.match(source, /class="kpi-icon"><t-icon name="folder"/)
-  assert.match(source, /class="kpi-icon"><t-icon name="book-open"/)
-  assert.match(source, /class="kpi-icon"><t-icon name="file"/)
-  assert.match(source, /font-size:21px;font-weight:740/)
-  assert.match(source, /border-left:1px solid var\(--portal-line\)/)
-  assert.match(source, /min-height:74px/)
+  assert.match(source, /formatAssetSummary\(metrics, t, numberFormatter\)/)
+  assert.doesNotMatch(source, /portalExperience\.scaleLabel/)
+  assert.doesNotMatch(source, /class="kpi-icon"|<dl|<dt|<dd/)
+  assert.match(source, /class="asset-summary"/)
   assert.doesNotMatch(source, /searchPlaceholder|quickActions|heroTitle/)
 })

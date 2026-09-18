@@ -9,7 +9,7 @@ test('knowledge map renders every API stage in the lifecycle rail and dense card
   const stage = source('./IpdStageCard.vue')
   assert.match(map, /<nav v-else class="lifecycle-rail"/)
   assert.match(map, /v-for="\(stage,index\) in stages"/)
-  assert.match(map, /:space-count="spacesFor\(stage\.key\)\.length"/)
+  assert.doesNotMatch(map, /:space-count=|:short-description=/)
   assert.match(map, /class="stage-card-grid"/)
   assert.match(map, /v-for="\(stage,index\) in stages"/)
   assert.match(map, /v-for="space in spacesFor\(stage\.key\)"/)
@@ -85,9 +85,8 @@ test('accessible cards expose lightweight ask/search icons and one primary entry
   assert.match(summary, /:title="actionLabel\('ask'\)"/)
   assert.match(summary, /action==='search'\?'portalCard\.search':'portalCard\.ask'/)
   assert.doesNotMatch(summary, /<span[^>]*>\{\{ t\('portalMap\.ask'\)/)
-  assert.match(summary, /\.icon-actions\{opacity:0;pointer-events:none/)
-  assert.match(summary, /\.space-summary:hover \.icon-actions,\.space-summary:focus-within \.icon-actions\{opacity:1;pointer-events:auto\}/)
-  assert.match(summary, /@media\(pointer:coarse\)\{\.icon-actions\{opacity:1;pointer-events:auto\}\}/)
+  assert.match(summary, /\.icon-actions\{opacity:1;pointer-events:auto\}/)
+  assert.doesNotMatch(summary, /\.icon-actions\{opacity:0|\.space-summary:hover \.icon-actions|@media\(pointer:coarse\)/)
   assert.match(summary, /class="space-icon"/)
   assert.match(summary, /accessible-actions\{[^}]*border-top:1px solid/)
 })
@@ -122,12 +121,26 @@ test('single and current stage hover activates one surface without a nested acti
   assert.doesNotMatch(map, /stage\.key === ['"](?:design|testing)['"]/)
 })
 
-test('IPD metrics separate lifecycle, coverage, and asset visual roles without changing aggregation', () => {
+test('IPD header renders only the shared asset summary without changing aggregation', () => {
   const map = source('./IpdKnowledgeMap.vue')
-  assert.match(map, /class="lifecycle-metric"/)
-  assert.match(map, /class="lifecycle-metric coverage-metric"/)
+  const template = map.slice(0, map.indexOf('<script setup'))
+  assert.doesNotMatch(template, /portalMap\.stageCount|portalMap\.coverage|class="lifecycle-metric"|coverage-metric/)
   assert.match(map, /class="asset-metric"/)
+  assert.match(map, /formatAssetSummary\(summary\.ipd, t, numberFormatter\)/)
   assert.match(map, /buildKnowledgeHierarchySummary\(props\.spaces,props\.stages\.map\(stage=>stage\.key\)\)/)
+})
+
+test('rail is navigation-only and single-stage ownership is shown once in the header', () => {
+  const map = source('./IpdKnowledgeMap.vue')
+  const stage = source('./IpdStageCard.vue')
+  assert.match(stage, /String\(index \+ 1\)\.padStart\(2, '0'\)/)
+  assert.match(stage, /\{\{ stage\.name \}\}/)
+  assert.doesNotMatch(stage, /shortDescription|spaceCount|stageSpaceCount|<small>|<em>/)
+  assert.match(map, /v-if="spacesFor\(stage\.key\)\.length === 1" :content="stageOwner\(stage\.key\)"/)
+  assert.match(map, /class="stage-card__owner"><t-icon name="user"/)
+  assert.match(map, /suppress-responsible/)
+  assert.match(map, /portalMap\.stageSpaceCountCompact/)
+  assert.match(map, /\.stage-card__owner\{[^}]*max-width:52%[^}]*text-overflow:ellipsis[^}]*white-space:nowrap/)
 })
 
 test('restricted cards show one state-aware CTA and always activate the gate', () => {

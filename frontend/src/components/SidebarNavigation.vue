@@ -4,12 +4,17 @@
       <section class="nav-group">
         <template v-for="entry in group.entries" :key="entry.id">
         <div v-if="entry.id === 'agents' && !collapsed" class="agent-shortcuts">
-          <button type="button" class="nav-entry agent-shortcuts__toggle"
-            :class="{ 'is-active': isNavigationEntryActive(entry, route.path, route.query.section) }"
-            :aria-expanded="agentsExpanded" @click="toggleAgents">
-            <t-icon :name="entry.icon" /><span>{{ t(entry.labelKey) }}</span>
-            <t-icon class="nav-entry__trail" :name="agentsExpanded ? 'chevron-down' : 'chevron-right'" />
-          </button>
+          <div class="nav-entry agent-shortcuts__header" :class="{ 'is-active': isNavigationEntryActive(entry, route.path, route.query.section) }">
+            <button type="button" class="agent-shortcuts__toggle" data-guide="nav-agents"
+              :aria-expanded="agentsExpanded" @click="toggleAgents">
+              <t-icon :name="entry.icon" /><span>{{ t(entry.labelKey) }}</span>
+              <t-icon class="nav-entry__trail" :name="agentsExpanded ? 'chevron-down' : 'chevron-right'" />
+            </button>
+            <button type="button" class="agent-shortcuts__all" :title="t('navigation.allAgents')"
+              :aria-label="t('navigation.allAgents')" @click="openAllAgents">
+              <t-icon name="view-module" />
+            </button>
+          </div>
           <div v-show="agentsExpanded" class="agent-shortcuts__list">
             <t-skeleton v-if="agentsLoading && !shortcutAgents.length" animation="gradient"
               :row-col="[{ width: '78%', height: '14px' }, { width: '70%', height: '14px' }]" />
@@ -17,9 +22,6 @@
               :class="{ 'is-disabled': isAgentDisabled(agent.id) }" :disabled="isAgentDisabled(agent.id)"
               :title="agent.name" :data-agent-shortcut="agent.id" @click="openAgent(agent.id)">
               <t-icon :name="agentIcon(agent)" /><span>{{ agent.name }}</span>
-            </button>
-            <button type="button" class="agent-shortcut agent-shortcut--all" @click="openAllAgents">
-              <t-icon name="view-list" /><span>{{ t('navigation.allAgents') }}</span><t-icon class="nav-entry__trail" name="chevron-right" />
             </button>
           </div>
         </div>
@@ -115,6 +117,7 @@ onMounted(async()=>{
 </script>
 
 <style scoped lang="less">
-.sidebar-navigation{display:flex;flex-direction:column;gap:2px;padding:2px 4px 8px}.nav-group{display:flex;flex-direction:column;gap:2px}.nav-group+.nav-group{margin-top:6px}.nav-entry,.space-context-compact{width:100%;height:38px;display:flex;align-items:center;gap:9px;padding:0 10px;border:0;border-radius:9px;cursor:pointer;font:inherit;text-align:left}.nav-entry{background:transparent;color:var(--td-text-color-primary)}.nav-entry:hover{background:rgba(15,23,42,.045)}.nav-entry.is-active{background:rgba(16,185,129,.07);color:var(--td-text-color-primary);font-weight:600}.nav-entry.is-active>.t-icon:first-child{color:var(--td-brand-color)}.nav-entry .t-icon{font-size:18px;flex:0 0 18px}.nav-entry span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.nav-entry__trail{margin-left:auto!important;color:var(--td-text-color-placeholder);font-size:14px!important}.space-context-compact{justify-content:center;padding:0;background:var(--td-brand-color-light);color:var(--td-brand-color);font-weight:700}.agent-shortcuts__toggle span{flex:1}.agent-shortcuts__list{padding:3px 0 4px 27px}.agent-shortcuts__list>.t-skeleton{padding:6px 10px}.agent-shortcut{width:100%;height:35px;display:flex;align-items:center;gap:8px;padding:0 9px;border:0;border-radius:8px;background:transparent;color:var(--td-text-color-secondary);cursor:pointer;font:13px var(--app-font-family);text-align:left}.agent-shortcut:hover{background:rgba(15,23,42,.04);color:var(--td-text-color-primary)}.agent-shortcut:focus-visible{outline:2px solid var(--td-brand-color-focus);outline-offset:0}.agent-shortcut>.t-icon{flex:0 0 16px;font-size:16px}.agent-shortcut span{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.agent-shortcut.is-disabled{cursor:not-allowed;opacity:.48}.agent-shortcut--all{margin-top:2px;color:var(--td-text-color-placeholder);font-weight:500}.agent-shortcut--all:hover{color:var(--td-text-color-secondary)}
+.sidebar-navigation{display:flex;flex-direction:column;gap:2px;padding:2px 4px 8px}.nav-group{display:flex;flex-direction:column;gap:2px}.nav-group+.nav-group{margin-top:6px}.nav-entry,.space-context-compact{width:100%;height:38px;display:flex;align-items:center;gap:9px;padding:0 10px;border:0;border-radius:9px;cursor:pointer;font:inherit;text-align:left}.nav-entry{background:transparent;color:var(--td-text-color-primary)}.nav-entry:hover{background:rgba(15,23,42,.045)}.nav-entry.is-active{background:rgba(16,185,129,.07);color:var(--td-text-color-primary);font-weight:600}.nav-entry.is-active>.t-icon:first-child{color:var(--td-brand-color)}.nav-entry .t-icon{font-size:18px;flex:0 0 18px}.nav-entry span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.nav-entry__trail{margin-left:auto!important;color:var(--td-text-color-placeholder);font-size:14px!important}.space-context-compact{justify-content:center;padding:0;background:var(--td-brand-color-light);color:var(--td-brand-color);font-weight:700}.agent-shortcuts__header{gap:2px;padding:0 5px 0 0}.agent-shortcuts__toggle{height:38px;display:flex;min-width:0;flex:1;align-items:center;gap:9px;padding:0 5px 0 10px;border:0;background:transparent;color:inherit;cursor:pointer;font:inherit;text-align:left}.agent-shortcuts__toggle span{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.agent-shortcuts__toggle>.t-icon:first-child{flex:0 0 18px;font-size:18px}.agent-shortcuts__all{width:28px;height:28px;display:grid;flex:none;place-items:center;padding:0;border:0;border-radius:7px;background:transparent;color:var(--td-text-color-placeholder);cursor:pointer}.agent-shortcuts__all:hover{background:rgba(15,23,42,.055);color:var(--td-text-color-secondary)}.agent-shortcuts__all:focus-visible,.agent-shortcuts__toggle:focus-visible{outline:2px solid var(--td-brand-color-focus);outline-offset:0}.agent-shortcuts__all>.t-icon{font-size:16px}.agent-shortcuts__list{padding:3px 0 4px 27px}.agent-shortcuts__list>.t-skeleton{padding:6px 10px}.agent-shortcut{width:100%;height:35px;display:flex;align-items:center;gap:8px;padding:0 9px;border:0;border-radius:8px;background:transparent;color:var(--td-text-color-secondary);cursor:pointer;font:13px var(--app-font-family);text-align:left}.agent-shortcut:hover{background:rgba(15,23,42,.04);color:var(--td-text-color-primary)}.agent-shortcut:focus-visible{outline:2px solid var(--td-brand-color-focus);outline-offset:0}.agent-shortcut>.t-icon{flex:0 0 16px;font-size:16px}.agent-shortcut span{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.agent-shortcut.is-disabled{cursor:not-allowed;opacity:.48}
+.agent-shortcuts__header{cursor:default}.agent-shortcuts__header.is-active .agent-shortcuts__toggle>.t-icon:first-child{color:var(--td-brand-color)}
 :global([theme-mode="dark"]) .nav-entry:hover,:global([theme-mode="dark"]) .agent-shortcut:hover{background:rgba(255,255,255,.06)}
 </style>

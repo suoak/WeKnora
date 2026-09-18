@@ -99,6 +99,11 @@ test('agent shortcut reuses Agent Center run flow and cannot bypass disabled sta
   assert.match(agentList, /if \(agent\.disabled_by_me\)/)
   assert.match(agentList, /await startAgentChat\(agent\.id\)/)
   assert.match(navigation, /openAllAgents[\s\S]*router\.push\('\/platform\/agents'\)/)
+  assert.doesNotMatch(navigation, /agent-shortcut--all/)
+  assert.match(navigation, /class="agent-shortcuts__all" :title="t\('navigation\.allAgents'\)"/)
+  assert.match(navigation, /:aria-label="t\('navigation\.allAgents'\)" @click="openAllAgents"/)
+  assert.match(navigation, /class="agent-shortcuts__toggle"[\s\S]*@click="toggleAgents"/)
+  assert.match(navigation, /v-if="entry\.id === 'agents' && !collapsed"/)
 })
 
 test('recent conversations default open, preserve API order, and show five until expanded', () => {

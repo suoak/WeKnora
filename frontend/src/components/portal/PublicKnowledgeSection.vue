@@ -2,7 +2,7 @@
   <section class="public-knowledge">
     <header>
       <div class="public-title"><span class="public-title__icon"><t-icon name="earth" /></span><div><h2>{{ t('portal.publicZone.title') }}</h2><p>{{ t('portal.views.publicDescription') }}</p></div></div>
-      <span v-if="!loading && !error" class="asset-metric">{{ t('portalMap.stageInventory', { spaces: summary.publicArea.spaces, kb: numberFormatter.format(summary.publicArea.knowledgeBases), files: numberFormatter.format(summary.publicArea.files) }) }}</span>
+      <span v-if="!loading && !error" class="asset-metric">{{ formatAssetSummary(summary.publicArea, t, numberFormatter) }}</span>
       <t-skeleton v-else-if="loading" class="summary-loading" animation="gradient" :row-col="[{ width: '120px', height: '16px' }]" />
     </header>
     <PortalSectionState v-if="error" @retry="$emit('retry')" />
@@ -24,6 +24,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { PortalSpace } from '@/api/portal'
 import { buildKnowledgeHierarchySummary } from '@/config/portalKnowledgeSummary'
+import { formatAssetSummary } from '@/config/portalAssetSummary'
 import { resolvePublicSpaceIcon } from '@/config/portalVisualIcons'
 import SpaceSummary from './SpaceSummary.vue'
 import PortalSectionState from './PortalSectionState.vue'
