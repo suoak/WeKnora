@@ -74,7 +74,7 @@ test('space summary separates accessible entry from discoverable dialog behavior
   assert.match(home, /switchWorkspaceAndNavigate/)
 })
 
-test('accessible cards expose lightweight ask/search icons and one primary entry', () => {
+test('accessible cards expose always-visible ask/search icon labels and one primary entry', () => {
   const summary = source('./SpaceSummary.vue')
   assert.match(summary, /class="icon-actions"/)
   assert.match(summary, /class="enter-action"/)
@@ -84,7 +84,8 @@ test('accessible cards expose lightweight ask/search icons and one primary entry
   assert.match(summary, /:aria-label="actionLabel\('ask'\)"/)
   assert.match(summary, /:title="actionLabel\('ask'\)"/)
   assert.match(summary, /action==='search'\?'portalCard\.search':'portalCard\.ask'/)
-  assert.doesNotMatch(summary, /<span[^>]*>\{\{ t\('portalMap\.ask'\)/)
+  assert.match(summary, /<t-icon name="chat" \/><span>\{\{ actionLabel\('ask'\) \}\}<\/span>/)
+  assert.match(summary, /<t-icon name="search" \/><span>\{\{ actionLabel\('search'\) \}\}<\/span>/)
   assert.match(summary, /\.icon-actions\{opacity:1;pointer-events:auto\}/)
   assert.doesNotMatch(summary, /\.icon-actions\{opacity:0|\.space-summary:hover \.icon-actions|@media\(pointer:coarse\)/)
   assert.match(summary, /class="space-icon"/)
@@ -94,11 +95,22 @@ test('accessible cards expose lightweight ask/search icons and one primary entry
 test('space metadata uses configured description and responsible team with safe fallbacks', () => {
   const summary = source('./SpaceSummary.vue')
   assert.match(summary, /props\.space\?\.description\?\.trim\(\)/)
-  assert.match(summary, /props\.space\?\.responsible_team\?\.trim\(\)/)
+  assert.match(summary, /resolvePortalResponsibleTeam\(props\.space,t\('portalCard\.unconfigured'\)\)/)
   assert.match(summary, /portalCard\.noSpaceDescription/)
   assert.match(summary, /portalCard\.unconfigured/)
-  assert.match(summary, /portalCard\.responsible/)
+  assert.match(summary, /class="space-owner" :title="displayResponsible"/)
+  assert.doesNotMatch(summary, /contact|creator|currentTenantName/)
   assert.match(summary, /:title="displayDescription"/)
+})
+
+test('single stage and child cards bind owner presentation to the intended space record', () => {
+  const map = source('./IpdKnowledgeMap.vue')
+  const summary = source('./SpaceSummary.vue')
+  assert.match(map, /resolvePortalResponsibleTeam\(spacesFor\(stageKey\)\[0\],t\('portalCard\.unconfigured'\)\)/)
+  assert.match(map, /v-if="spacesFor\(stage\.key\)\.length === 1" :content="stageOwner\(stage\.key\)"/)
+  assert.match(map, /v-for="space in spacesFor\(stage\.key\)" :key="space\.tenant_id" :space="space" variant="compact"/)
+  assert.match(summary, /v-if="!suppressResponsible" :content="displayResponsible"/)
+  assert.doesNotMatch(map, /v-else[^>]*stage-card__owner/)
 })
 
 test('all single-space and empty stages share the same bottom-aligned layout contract', () => {

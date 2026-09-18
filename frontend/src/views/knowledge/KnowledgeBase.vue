@@ -92,11 +92,6 @@ const validTabs = ['documents', 'wiki', 'graph'] as const
 type KbTab = typeof validTabs[number]
 const initTab = validTabs.includes(route.query.tab as any) ? (route.query.tab as KbTab) : 'documents'
 const activeKbTab = ref<KbTab>(initTab);
-const kbContextDescription = computed(() => {
-  if (!isWiki.value || activeKbTab.value === 'documents') return t('knowledgeEditor.wikiBrowser.documentsContext');
-  if (activeKbTab.value === 'graph') return t('knowledgeEditor.wikiBrowser.graphContext');
-  return t('knowledgeEditor.wikiBrowser.wikiContext');
-});
 const knowledgeSpaceName = computed(() => authStore.currentTenantName?.trim() || '')
 
 // Wiki 状态用于面包屑上的索引中指示。父组件自行拉取，避免依赖 WikiBrowser 挂载状态
@@ -2351,7 +2346,7 @@ async function createNewSession(value: string): Promise<void> {
               <t-icon name="chevron-right" class="breadcrumb-separator" />
               <KBSwitcherDropdown v-if="knowledgeList.length" :kb-list="knowledgeList" :current-kb-id="kbId"
                 @select="(id) => handleKnowledgeDropdownSelect({ value: id })">
-                <button type="button" class="breadcrumb-link dropdown" :disabled="!kbId">
+                <button type="button" class="breadcrumb-link dropdown kb-name" :disabled="!kbId">
                   <template v-if="!kbInfo">
                     <t-skeleton animation="gradient" :row-col="[{ width: '120px', height: '20px' }]" />
                   </template>
@@ -2361,7 +2356,7 @@ async function createNewSession(value: string): Promise<void> {
                   </template>
                 </button>
               </KBSwitcherDropdown>
-              <button v-else type="button" class="breadcrumb-link" :disabled="!kbId" @click="handleNavigateToCurrentKB">
+              <button v-else type="button" class="breadcrumb-link kb-name" :disabled="!kbId" @click="handleNavigateToCurrentKB">
                 <template v-if="!kbInfo">
                   <t-skeleton animation="gradient" :row-col="[{ width: '120px', height: '20px' }]" />
                 </template>
@@ -2411,7 +2406,6 @@ async function createNewSession(value: string): Promise<void> {
               </t-tooltip>
             </div>
           </div>
-          <p class="document-subtitle">{{ kbContextDescription }}</p>
           <p v-if="unsupportedFileTypes.length" class="parser-hint" @click="goToParserSettings">
             <t-icon name="info-circle" class="parser-hint-icon" />
             <span>{{$t('knowledgeBase.unsupportedTypesHint', {
@@ -4638,21 +4632,21 @@ async function createNewSession(value: string): Promise<void> {
   margin: 0;
   padding: 22px 28px 0;
   gap: 18px;
-  background: color-mix(in srgb, var(--td-bg-color-page) 94%, var(--td-bg-color-container));
+  background: var(--td-bg-color-container);
 }
 
 .document-header {
-  padding: 18px 20px;
+  padding: 12px 16px;
   border: 1px solid var(--td-component-border);
   border-radius: 14px;
   background: var(--td-bg-color-container);
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.055);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
 
   .document-breadcrumb {
     gap: 8px;
-    font-size: 21px;
-    font-weight: 650;
-    line-height: 30px;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 24px;
   }
 
   .breadcrumb-space {
@@ -4680,10 +4674,19 @@ async function createNewSession(value: string): Promise<void> {
 
   .breadcrumb-link {
     color: color-mix(in srgb, var(--td-text-color-secondary) 86%, var(--td-text-color-primary));
+    font-size: 14px;
+    font-weight: 500;
   }
 
-  .document-subtitle {
-    color: var(--td-text-color-secondary);
+  .breadcrumb-link.kb-name {
+    color: var(--td-text-color-primary);
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .breadcrumb-current {
+    font-size: 16px;
+    font-weight: 650;
   }
 }
 
@@ -4695,9 +4698,10 @@ async function createNewSession(value: string): Promise<void> {
 }
 
 .breadcrumb-tab {
-  min-height: 30px;
-  padding: 5px 10px;
+  min-height: 28px;
+  padding: 4px 9px;
   color: var(--td-text-color-secondary);
+  font-size: 14px;
 
   &.active {
     color: var(--td-brand-color-active);
@@ -4706,15 +4710,15 @@ async function createNewSession(value: string): Promise<void> {
 }
 
 .doc-filter-bar {
-  margin-bottom: 14px;
-  padding: 12px 14px;
-  border: 1px solid var(--td-component-border);
-  border-radius: 12px;
+  margin-bottom: 12px;
+  padding: 9px 10px;
+  border: 1px solid var(--td-component-stroke);
+  border-radius: 10px;
   background: var(--td-bg-color-container);
-  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.045);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.035);
 
   .doc-tag-filter-trigger {
-    height: 34px;
+    height: 32px;
     border-color: var(--td-component-stroke);
     background: var(--td-bg-color-container);
 
@@ -4726,7 +4730,7 @@ async function createNewSession(value: string): Promise<void> {
   }
 
   :deep(.t-input) {
-    min-height: 34px;
+    min-height: 32px;
     border-color: var(--td-component-stroke);
     background: var(--td-bg-color-container);
 

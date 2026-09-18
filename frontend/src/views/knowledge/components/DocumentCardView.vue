@@ -1281,16 +1281,16 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
 
 .folder-card,
 .knowledge-card {
-  height: 144px;
+  height: 140px;
   border-color: var(--td-component-border);
   border-radius: 10px;
   background: var(--td-bg-color-container);
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.055);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.045);
 
   &:hover {
     border-color: color-mix(in srgb, var(--td-component-border) 78%, var(--td-text-color-secondary));
     background: color-mix(in srgb, var(--td-bg-color-container) 98%, var(--td-bg-color-page));
-    box-shadow: 0 7px 18px rgba(15, 23, 42, 0.08);
+    box-shadow: 0 5px 14px rgba(15, 23, 42, 0.07);
   }
 }
 

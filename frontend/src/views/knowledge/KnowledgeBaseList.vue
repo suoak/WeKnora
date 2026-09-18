@@ -3259,7 +3259,7 @@ const handleUploadFinishedEvent = (event: Event) => {
 // Product surface polish: keep the list mechanics intact while restoring a
 // crisp, content-first hierarchy across the header, discovery bar and cards.
 .kb-list-content {
-  background: color-mix(in srgb, var(--td-bg-color-page) 94%, var(--td-bg-color-container));
+  background: var(--td-bg-color-container);
 }
 
 .header {
@@ -3281,13 +3281,13 @@ const handleUploadFinishedEvent = (event: Event) => {
 .kb-discovery-bar {
   gap: 12px;
   margin-bottom: 18px;
-  padding: 12px 14px;
-  border-color: var(--td-component-border);
-  border-radius: 12px;
-  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.045);
+  padding: 9px 11px;
+  border-color: var(--td-component-stroke);
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.035);
 
   :deep(.t-input) {
-    min-height: 36px;
+    min-height: 34px;
     border-color: var(--td-component-stroke);
     background: var(--td-bg-color-container);
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.025);
@@ -3295,7 +3295,7 @@ const handleUploadFinishedEvent = (event: Event) => {
 }
 
 .kb-card-wrap {
-  gap: 16px;
+  gap: 14px;
 }
 
 .kb-card,
@@ -3306,14 +3306,14 @@ const handleUploadFinishedEvent = (event: Event) => {
   border-color: var(--td-component-border);
   border-radius: 12px;
   background: var(--td-bg-color-container) !important;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.055);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.045);
 
   &.kb-type-document,
   &.kb-type-faq {
     background: var(--td-bg-color-container) !important;
 
     &::after {
-      opacity: 0.45;
+      opacity: 0.18;
     }
   }
 
@@ -3322,7 +3322,7 @@ const handleUploadFinishedEvent = (event: Event) => {
   &.kb-type-faq:hover {
     border-color: color-mix(in srgb, var(--td-component-border) 72%, var(--td-brand-color)) !important;
     background: color-mix(in srgb, var(--td-bg-color-container) 98%, var(--td-brand-color)) !important;
-    box-shadow: 0 7px 20px rgba(15, 23, 42, 0.08) !important;
+    box-shadow: 0 5px 14px rgba(15, 23, 42, 0.07) !important;
   }
 
   .card-title {

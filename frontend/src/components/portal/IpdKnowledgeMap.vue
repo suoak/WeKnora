@@ -74,6 +74,7 @@ import type { PortalSpace, PortalStage } from '@/api/portal'
 import { buildKnowledgeHierarchySummary } from '@/config/portalKnowledgeSummary'
 import { formatAssetSummary } from '@/config/portalAssetSummary'
 import { resolveStageIcon, resolveStageSpaceIcon } from '@/config/portalVisualIcons'
+import { resolvePortalResponsibleTeam } from '@/config/portalSpacePresentation'
 import IpdStageCard from './IpdStageCard.vue'
 import SpaceSummary from './SpaceSummary.vue'
 import PortalSectionState from './PortalSectionState.vue'
@@ -91,7 +92,7 @@ const stageLocaleSuffix:Record<string,string>={insight:'insight',concept_market:
 const stageFallbackDescription=(stageKey:string)=>t(`portalMap.stageFallback.${stageLocaleSuffix[stageKey]||stageKey}`)
 const spacesFor=(stage:string)=>props.spaces.filter(space=>space.stages.includes(stage))
 const summary=computed(()=>buildKnowledgeHierarchySummary(props.spaces,props.stages.map(stage=>stage.key)))
-const stageOwner=(stageKey:string)=>spacesFor(stageKey)[0]?.responsible_team?.trim()||t('portalCard.unconfigured')
+const stageOwner=(stageKey:string)=>resolvePortalResponsibleTeam(spacesFor(stageKey)[0],t('portalCard.unconfigured'))
 const normalizedText=(value?:string)=>value?.trim().replace(/\s+/g,' ').toLocaleLowerCase()||''
 const sameNormalizedText=(left?:string,right?:string)=>Boolean(normalizedText(left))&&normalizedText(left)===normalizedText(right)
 function navigateToStage(stageKey:string){

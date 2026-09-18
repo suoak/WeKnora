@@ -18,6 +18,8 @@ test('public section reuses normal SpaceSummary for accessible and discoverable 
   const section = source('./PublicKnowledgeSection.vue')
   assert.match(section, /<SpaceSummary v-for="space in publicSpaces"/)
   assert.match(section, /variant="normal"/)
+  assert.match(section, /:space="space"/)
+  assert.match(section, /:key="space\.tenant_id"/)
   assert.match(section, /@enter="\$emit\('enter',\$event\)"/)
   assert.match(section, /@restricted="\$emit\('restricted',\$event\)"/)
   assert.doesNotMatch(section, /PortalSpaceCard|PublicKnowledgeSpaceCard/)

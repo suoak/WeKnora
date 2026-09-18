@@ -1,6 +1,15 @@
 <template>
   <nav class="sidebar-navigation" :aria-label="t('navigation.main')">
     <template v-for="group in groups" :key="group.id">
+      <section v-if="group.id === 'global' && authStore.effectiveTenantId" class="nav-group space-context">
+        <TenantSelector v-if="authStore.canAccessAllTenants && !collapsed" />
+        <SpaceSwitcher v-else-if="!collapsed" />
+        <t-tooltip v-else :content="authStore.currentTenantName || t('spaceSwitcher.unknown')" placement="right">
+          <button type="button" class="space-context-compact" @click="uiStore.expandSidebar">
+            {{ (authStore.currentTenantName || 'K').trim().slice(0, 1).toUpperCase() }}
+          </button>
+        </t-tooltip>
+      </section>
       <section class="nav-group">
         <template v-for="entry in group.entries" :key="entry.id">
         <div v-if="entry.id === 'agents' && !collapsed" class="agent-shortcuts">
@@ -35,15 +44,6 @@
           </button>
         </t-tooltip>
         </template>
-      </section>
-      <section v-if="group.id === 'global' && authStore.effectiveTenantId" class="nav-group space-context">
-        <TenantSelector v-if="authStore.canAccessAllTenants && !collapsed" />
-        <SpaceSwitcher v-else-if="!collapsed" />
-        <t-tooltip v-else :content="authStore.currentTenantName || t('spaceSwitcher.unknown')" placement="right">
-          <button type="button" class="space-context-compact" @click="uiStore.expandSidebar">
-            {{ (authStore.currentTenantName || 'K').trim().slice(0, 1).toUpperCase() }}
-          </button>
-        </t-tooltip>
       </section>
     </template>
   </nav>

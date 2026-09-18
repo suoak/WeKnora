@@ -29,7 +29,7 @@ test('Knowledge views preserve context and offer a bounded mobile graph experien
   const knowledgeBase = read('../knowledge/KnowledgeBase.vue')
   const wiki = read('../knowledge/wiki/WikiBrowser.vue')
   assert.match(knowledgeBase, /class="kb-context-tabs" role="tablist"/)
-  assert.match(knowledgeBase, /documentsContext/)
+  assert.doesNotMatch(knowledgeBase, /class="document-subtitle"|kbContextDescription/)
   assert.match(knowledgeBase, /KnowledgeProcessingSummary/)
   assert.match(wiki, /class="wiki-graph-mobile-note" role="note"/)
   assert.match(wiki, /pageLoadError/)

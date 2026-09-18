@@ -39,6 +39,10 @@ test('sidebar IA distinguishes Portal home, current space, and space-scoped reso
   assert.match(adminSwitcher, /spaceSwitcher\.currentSpace/)
   const sidebar = source('./SidebarNavigation.vue')
   assert.match(sidebar, /v-if="group\.id === 'global' && authStore\.effectiveTenantId" class="nav-group space-context"/)
+  assert.ok(
+    sidebar.indexOf("group.id === 'global' && authStore.effectiveTenantId") < sidebar.indexOf('<section class="nav-group">'),
+    'current-space context should render before the Home navigation group',
+  )
   assert.match(sidebar, /TenantSelector v-if="authStore\.canAccessAllTenants && !collapsed"/)
   assert.match(sidebar, /SpaceSwitcher v-else-if="!collapsed"/)
   assert.match(sidebar, /entry\.id === 'knowledge-bases'[\s\S]*nav-entry__knowledge-icon/)
