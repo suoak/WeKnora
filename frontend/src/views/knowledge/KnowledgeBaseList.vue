@@ -3259,87 +3259,124 @@ const handleUploadFinishedEvent = (event: Event) => {
 // Product surface polish: keep the list mechanics intact while restoring a
 // crisp, content-first hierarchy across the header, discovery bar and cards.
 .kb-list-content {
-  background: var(--td-bg-color-container);
+  padding: 26px 0 0 32px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--td-bg-color-container) 97%, var(--td-bg-color-page)) 0,
+    var(--td-bg-color-container) 260px
+  );
 }
 
 .header {
-  margin-bottom: 20px;
+  margin-bottom: 22px;
+  padding-right: 32px;
 
   h2 {
-    font-size: 26px;
-    font-weight: 700;
-    line-height: 34px;
-    letter-spacing: -0.01em;
+    font-size: 28px;
+    font-weight: 720;
+    line-height: 36px;
+    letter-spacing: -0.015em;
   }
 }
 
 .header-subtitle {
-  color: color-mix(in srgb, var(--td-text-color-secondary) 88%, var(--td-text-color-primary));
-  line-height: 21px;
+  color: color-mix(in srgb, var(--td-text-color-secondary) 82%, var(--td-text-color-primary));
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.header-create-btn {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 9px;
+  box-shadow: 0 3px 9px color-mix(in srgb, var(--td-brand-color) 16%, transparent);
+}
+
+.kb-list-main {
+  padding-right: 32px;
 }
 
 .kb-discovery-bar {
-  gap: 12px;
-  margin-bottom: 18px;
-  padding: 9px 11px;
-  border-color: var(--td-component-stroke);
-  border-radius: 10px;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.035);
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 11px 12px;
+  border-color: var(--td-component-border);
+  border-radius: 12px;
+  background: var(--td-bg-color-container);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.045);
 
   :deep(.t-input) {
-    min-height: 34px;
+    min-height: 36px;
     border-color: var(--td-component-stroke);
     background: var(--td-bg-color-container);
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.025);
+    border-radius: 8px;
+    box-shadow: none;
+
+    &:hover,
+    &.t-is-focused {
+      border-color: color-mix(in srgb, var(--td-component-border) 68%, var(--td-brand-color));
+      background: var(--td-bg-color-container);
+    }
   }
 }
 
 .kb-card-wrap {
-  gap: 14px;
+  gap: 18px;
 }
 
 .kb-card,
 .shared-kb-card {
-  height: 176px;
-  min-height: 176px;
-  padding: 15px 16px;
+  height: 182px;
+  min-height: 182px;
+  padding: 17px 18px;
   border-color: var(--td-component-border);
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--td-bg-color-container) !important;
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.045);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.055);
 
   &.kb-type-document,
   &.kb-type-faq {
     background: var(--td-bg-color-container) !important;
 
     &::after {
-      opacity: 0.18;
+      opacity: 0.12;
     }
   }
 
   &:hover,
   &.kb-type-document:hover,
   &.kb-type-faq:hover {
-    border-color: color-mix(in srgb, var(--td-component-border) 72%, var(--td-brand-color)) !important;
-    background: color-mix(in srgb, var(--td-bg-color-container) 98%, var(--td-brand-color)) !important;
-    box-shadow: 0 5px 14px rgba(15, 23, 42, 0.07) !important;
+    border-color: color-mix(in srgb, var(--td-component-border) 84%, var(--td-text-color-secondary)) !important;
+    background: color-mix(in srgb, var(--td-bg-color-container) 99%, var(--td-bg-color-page)) !important;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.075) !important;
   }
 
   .card-title {
-    font-size: 16px;
-    font-weight: 650;
-    line-height: 23px;
+    font-size: 17px;
+    font-weight: 680;
+    line-height: 24px;
   }
 
   .card-description {
-    color: color-mix(in srgb, var(--td-text-color-secondary) 90%, var(--td-text-color-primary));
-    font-size: 13px;
-    line-height: 19px;
-    min-height: 38px;
+    color: color-mix(in srgb, var(--td-text-color-secondary) 84%, var(--td-text-color-primary));
+    font-size: 13.5px;
+    line-height: 20px;
+    min-height: 40px;
   }
 
   .card-bottom {
     border-top-color: var(--td-component-stroke);
   }
+}
+
+.kb-section-header {
+  color: color-mix(in srgb, var(--td-text-color-secondary) 78%, var(--td-text-color-primary));
+}
+
+@media (max-width: 700px) {
+  .kb-list-content { padding: 18px 0 0 16px; }
+  .header, .kb-list-main { padding-right: 16px; }
+  .header h2 { font-size: 24px; line-height: 32px; }
+  .kb-discovery-bar { padding: 10px; }
 }
 </style>

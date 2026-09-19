@@ -37,17 +37,24 @@ test('sidebar IA distinguishes Portal home, current space, and space-scoped reso
   assert.match(switcher, /v-if="canSwitch" name="chevron-down"/)
   assert.match(switcher, /v-if="open && canSwitch"/)
   assert.match(adminSwitcher, /spaceSwitcher\.currentSpace/)
+  const menu = source('./menu.vue')
   const sidebar = source('./SidebarNavigation.vue')
-  assert.match(sidebar, /v-if="group\.id === 'global' && authStore\.effectiveTenantId" class="nav-group space-context"/)
+  assert.match(menu, /v-if="authStore\.effectiveTenantId" class="sidebar-workspace-context"/)
   assert.ok(
-    sidebar.indexOf("group.id === 'global' && authStore.effectiveTenantId") < sidebar.indexOf('<section class="nav-group">'),
-    'current-space context should render before the Home navigation group',
+    menu.indexOf('class="logo_row"') < menu.indexOf('class="sidebar-workspace-context"')
+      && menu.indexOf('class="sidebar-workspace-context"') < menu.indexOf('class="global-search-trigger"')
+      && menu.indexOf('class="global-search-trigger"') < menu.indexOf('<SidebarNavigation'),
+    'current-space context should render between the logo and global search, before Home navigation',
   )
-  assert.match(sidebar, /TenantSelector v-if="authStore\.canAccessAllTenants && !collapsed"/)
-  assert.match(sidebar, /SpaceSwitcher v-else-if="!collapsed"/)
+  assert.match(menu, /TenantSelector v-if="authStore\.canAccessAllTenants && !sidebarCollapsed"/)
+  assert.match(menu, /SpaceSwitcher v-else-if="!sidebarCollapsed"/)
+  assert.match(menu, /class="space-context-compact"[\s\S]*?<t-icon name="layers"/)
+  assert.doesNotMatch(sidebar, /SpaceSwitcher|TenantSelector|space-context/)
+  assert.match(switcher, /space-switcher__mark"><t-icon name="layers"/)
+  assert.match(adminSwitcher, /tenant-context-mark"><t-icon name="layers"/)
   assert.match(sidebar, /entry\.id === 'knowledge-bases'[\s\S]*nav-entry__knowledge-icon/)
   assert.match(sidebar, /zhishiku\.svg/)
-  assert.doesNotMatch(sidebar, /currentTenantRole[^\n]*(SpaceSwitcher|TenantSelector)|(SpaceSwitcher|TenantSelector)[^\n]*currentTenantRole/)
+  assert.doesNotMatch(menu, /currentTenantRole[^\n]*(SpaceSwitcher|TenantSelector)|(SpaceSwitcher|TenantSelector)[^\n]*currentTenantRole/)
 })
 
 test('Portal browsing is visual-only while Enter uses the shared current-space workflow', () => {

@@ -56,10 +56,10 @@ test('discoverable space cannot switch tenant or expose content actions', () => 
 })
 
 test('sidebar selector is sourced from authorized spaces and not Portal discovery results', () => {
-  const sidebar = source('../../components/SidebarNavigation.vue')
-  assert.match(sidebar, /<SpaceSwitcher/)
-  assert.match(sidebar, /<TenantSelector/)
-  assert.doesNotMatch(sidebar, /portal\.spaces|overviewSpaces|listPortalSpaces/)
+  const menu = source('../../components/menu.vue')
+  assert.match(menu, /<SpaceSwitcher/)
+  assert.match(menu, /<TenantSelector/)
+  assert.doesNotMatch(menu, /portal\.spaces|overviewSpaces|listPortalSpaces/)
 })
 
 test('admin interaction and configuration APIs remain constrained', () => {

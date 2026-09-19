@@ -2,7 +2,7 @@
   <div ref="root" class="space-switcher" data-guide="space-switcher">
     <button type="button" class="space-switcher__trigger" :class="{ 'is-readonly': !canSwitch }"
       :aria-expanded="canSwitch ? open : undefined" @click="toggle">
-      <span class="space-switcher__mark"><t-icon name="folder" /></span>
+      <span class="space-switcher__mark"><t-icon name="layers" /></span>
       <span class="space-switcher__copy">
         <small>{{ t('spaceSwitcher.currentSpace') }}</small>
         <strong :title="currentName">{{ currentName }}</strong>

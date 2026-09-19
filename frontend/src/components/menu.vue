@@ -41,6 +41,16 @@
             </div>
         </t-tooltip>
 
+        <div v-if="authStore.effectiveTenantId" class="sidebar-workspace-context">
+            <TenantSelector v-if="authStore.canAccessAllTenants && !sidebarCollapsed" />
+            <SpaceSwitcher v-else-if="!sidebarCollapsed" />
+            <t-tooltip v-else :content="authStore.currentTenantName || t('spaceSwitcher.unknown')" placement="right">
+                <button type="button" class="space-context-compact" @click="uiStore.expandSidebar">
+                    <t-icon name="layers" />
+                </button>
+            </t-tooltip>
+        </div>
+
         <button v-if="!sidebarCollapsed" type="button" class="global-search-trigger"
             @click="commandPaletteStore.openPalette('')">
             <img class="header-icon-img" :src="getImgSrc('search.svg')" alt="">
@@ -232,6 +242,8 @@ import { MessagePlugin, DialogPlugin, Icon as TIcon } from "tdesign-vue-next";
 import UserMenu from '@/components/UserMenu.vue';
 import BrandLogo from '@/components/BrandLogo.vue';
 import SidebarNavigation from '@/components/SidebarNavigation.vue';
+import SpaceSwitcher from '@/components/SpaceSwitcher.vue';
+import TenantSelector from '@/components/TenantSelector.vue';
 import { useI18n } from 'vue-i18n';
 import { getSystemInfo } from '@/api/system';
 
@@ -1178,6 +1190,7 @@ const onDragHandleMouseDown = (e: MouseEvent) => {
 </script>
 <style lang="less" scoped>
 .mobile-nav-trigger,.mobile-nav-backdrop{display:none}
+.sidebar-workspace-context{position:relative;z-index:9;flex:none;padding:2px 4px 0}.sidebar-workspace-context :deep(.space-switcher){margin:0 4px 10px}.sidebar-workspace-context :deep(.tenant-selector){margin:0 4px 10px}.space-context-compact{width:38px;height:38px;display:grid;place-items:center;margin:0 auto 8px;padding:0;border:1px solid color-mix(in srgb,var(--td-brand-color) 18%,var(--td-component-stroke));border-radius:9px;background:color-mix(in srgb,var(--td-brand-color-light) 48%,var(--td-bg-color-container));color:var(--td-brand-color);cursor:pointer}.space-context-compact:hover{border-color:color-mix(in srgb,var(--td-brand-color) 40%,var(--td-component-border));background:var(--td-brand-color-light)}.space-context-compact>.t-icon{font-size:18px}
 .global-search-trigger{height:40px;display:flex;align-items:center;gap:9px;flex:none;margin:0 4px 8px;padding:0 10px;border:1px solid var(--td-component-stroke);border-radius:7px;background:var(--td-bg-color-container);color:var(--td-text-color-secondary);cursor:pointer;font:inherit;text-align:left}.global-search-trigger:hover{border-color:var(--td-component-border);background:var(--td-bg-color-container-hover);color:var(--td-text-color-primary)}.global-search-trigger .header-icon-img{width:18px;height:18px}.global-search-trigger span{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.global-search-trigger kbd{padding:1px 5px;border:1px solid var(--td-component-stroke);border-radius:4px;background:var(--td-bg-color-secondarycontainer);color:var(--td-text-color-placeholder);font:11px/16px var(--td-font-family)}
 .recent-chats-header{height:32px;display:flex;align-items:center;margin-top:8px;padding:0 var(--sidebar-inset-x)}.recent-chats-toggle,.recent-chats-all{border:0;background:transparent;cursor:pointer;font:600 13px/1 var(--td-font-family)}.recent-chats-toggle{min-width:0;display:flex;flex:1;align-items:center;gap:5px;padding:0;color:var(--td-text-color-secondary);text-align:left}.recent-chats-toggle:hover{color:var(--td-text-color-primary)}.recent-chats-all{padding:5px 0 5px 8px;color:var(--td-text-color-placeholder);font-weight:500}.recent-chats-all:hover{color:var(--td-brand-color)}
 .aside_box {

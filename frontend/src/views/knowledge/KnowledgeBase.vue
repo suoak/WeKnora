@@ -4630,17 +4630,21 @@ async function createNewSession(value: string): Promise<void> {
 // the existing tabs, filters, pagination and document actions remain intact.
 .knowledge-layout {
   margin: 0;
-  padding: 22px 28px 0;
-  gap: 18px;
-  background: var(--td-bg-color-container);
+  padding: 24px 30px 20px;
+  gap: 16px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--td-bg-color-container) 96%, var(--td-bg-color-page)) 0,
+    var(--td-bg-color-container) 300px
+  );
 }
 
 .document-header {
-  padding: 12px 16px;
+  padding: 14px 18px;
   border: 1px solid var(--td-component-border);
-  border-radius: 14px;
+  border-radius: 15px;
   background: var(--td-bg-color-container);
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
 
   .document-breadcrumb {
     gap: 8px;
@@ -4694,7 +4698,7 @@ async function createNewSession(value: string): Promise<void> {
   padding: 4px;
   border-color: var(--td-component-border);
   border-radius: 10px;
-  background: var(--td-bg-color-page);
+  background: color-mix(in srgb, var(--td-bg-color-page) 62%, var(--td-bg-color-container));
 }
 
 .breadcrumb-tab {
@@ -4705,21 +4709,33 @@ async function createNewSession(value: string): Promise<void> {
 
   &.active {
     color: var(--td-brand-color-active);
-    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+    background: var(--td-bg-color-container);
+    box-shadow: 0 2px 7px rgba(15, 23, 42, 0.075);
   }
 }
 
-.doc-filter-bar {
-  margin-bottom: 12px;
-  padding: 9px 10px;
-  border: 1px solid var(--td-component-stroke);
-  border-radius: 10px;
+.knowledge-main {
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--td-component-border);
+  border-radius: 15px;
   background: var(--td-bg-color-container);
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.035);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.045);
+}
+
+.doc-filter-bar {
+  margin-bottom: 14px;
+  padding: 11px 12px;
+  border: 1px solid var(--td-component-border);
+  border-radius: 12px;
+  background: var(--td-bg-color-container);
+  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.04);
 
   .doc-tag-filter-trigger {
-    height: 32px;
+    height: 34px;
+    padding: 0 9px;
     border-color: var(--td-component-stroke);
+    border-radius: 8px;
     background: var(--td-bg-color-container);
 
     &:hover,
@@ -4730,8 +4746,9 @@ async function createNewSession(value: string): Promise<void> {
   }
 
   :deep(.t-input) {
-    min-height: 32px;
+    min-height: 34px;
     border-color: var(--td-component-stroke);
+    border-radius: 8px;
     background: var(--td-bg-color-container);
 
     &:hover,
@@ -4743,11 +4760,78 @@ async function createNewSession(value: string): Promise<void> {
 
   :deep(.t-select .t-input) {
     border-color: var(--td-component-stroke);
+    border-radius: 8px;
     background: var(--td-bg-color-container);
+  }
+
+  .doc-filter-field--wide {
+    width: 300px;
+  }
+
+  .doc-date-range {
+    :deep(.t-range-input) {
+      height: 34px;
+      padding: 0 9px;
+      border: 1px solid var(--td-component-stroke);
+      border-radius: 8px;
+      background: var(--td-bg-color-container);
+      color: var(--td-text-color-primary);
+      box-shadow: none;
+
+      &:hover,
+      &.t-is-focused {
+        border-color: color-mix(in srgb, var(--td-component-border) 65%, var(--td-brand-color));
+        background: var(--td-bg-color-container);
+      }
+    }
+
+    :deep(.t-range-input__inner) {
+      gap: 4px;
+    }
+
+    :deep(.t-range-input__inner .t-input) {
+      min-width: 0;
+      min-height: 0;
+      height: 32px;
+      padding: 0 4px;
+      border: 0;
+      border-radius: 5px;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    :deep(.t-range-input__inner .t-input__inner) {
+      color: var(--td-text-color-primary);
+      font-size: 13px;
+    }
+
+    :deep(.t-range-input__inner .t-input__inner::placeholder) {
+      color: var(--td-text-color-placeholder);
+    }
+
+    :deep(.t-range-input__inner-separator) {
+      flex: none;
+      padding: 0 2px;
+      color: var(--td-text-color-placeholder);
+      font-size: 12px;
+    }
+
+    :deep(.t-range-input__prefix),
+    :deep(.t-range-input__suffix) {
+      display: inline-flex;
+      align-items: center;
+      color: var(--td-text-color-placeholder);
+    }
   }
 }
 
 .doc-scroll-container {
-  padding: 2px 4px 12px 2px;
+  padding: 4px 5px 14px 3px;
+}
+
+@media (max-width: 750px) {
+  .knowledge-layout { padding: 16px 14px; }
+  .knowledge-main { padding: 12px; }
+  .doc-filter-bar .doc-filter-field--wide { width: 280px; }
 }
 </style>

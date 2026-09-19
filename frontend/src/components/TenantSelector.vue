@@ -1,7 +1,7 @@
 <template>
   <div class="tenant-selector" ref="selectorRef">
     <div class="tenant-trigger" @click="toggleDropdown">
-      <span class="tenant-context-mark"><t-icon name="folder" /></span>
+      <span class="tenant-context-mark"><t-icon name="layers" /></span>
       <div class="tenant-info">
         <div class="tenant-label">{{ $t('spaceSwitcher.currentSpace') }}</div>
         <div class="tenant-name-row">

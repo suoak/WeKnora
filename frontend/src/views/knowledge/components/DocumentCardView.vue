@@ -1281,26 +1281,26 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
 
 .folder-card,
 .knowledge-card {
-  height: 140px;
+  height: 148px;
   border-color: var(--td-component-border);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--td-bg-color-container);
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.045);
+  box-shadow: 0 2px 7px rgba(15, 23, 42, 0.05);
 
   &:hover {
-    border-color: color-mix(in srgb, var(--td-component-border) 78%, var(--td-text-color-secondary));
-    background: color-mix(in srgb, var(--td-bg-color-container) 98%, var(--td-bg-color-page));
-    box-shadow: 0 5px 14px rgba(15, 23, 42, 0.07);
+    border-color: color-mix(in srgb, var(--td-component-border) 84%, var(--td-text-color-secondary));
+    background: color-mix(in srgb, var(--td-bg-color-container) 99%, var(--td-bg-color-page));
+    box-shadow: 0 7px 18px rgba(15, 23, 42, 0.075);
   }
 }
 
 .knowledge-card {
   .card-content {
-    padding: 12px 15px 9px;
+    padding: 13px 16px 10px;
   }
 
   .card-content-title {
-    font-size: 14px;
+    font-size: 14.5px;
     font-weight: 650;
   }
 
@@ -1311,8 +1311,8 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
   }
 
   .card-bottom {
-    height: 34px;
-    padding: 0 15px;
+    height: 36px;
+    padding: 0 16px;
     border-top-color: var(--td-component-stroke);
   }
 

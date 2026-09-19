@@ -35,9 +35,7 @@
               <span class="stage-card__icon"><t-icon :name="resolveStageIcon(stage.key)" /></span>
               <div><h3>{{ stage.name }}</h3><p v-if="spacesFor(stage.key).length > 1">{{ stage.description }}</p></div>
             </div>
-            <t-tooltip v-if="spacesFor(stage.key).length === 1" :content="stageOwner(stage.key)">
-              <span class="stage-card__owner"><t-icon name="user" />{{ stageOwner(stage.key) }}</span>
-            </t-tooltip>
+            <PortalSpaceOwner v-if="spacesFor(stage.key).length === 1" :space="spacesFor(stage.key)[0]" />
             <span v-else>{{ t('portalMap.stageSpaceCountCompact', { count: spacesFor(stage.key).length }) }}</span>
           </header>
           <b class="stage-card__number">{{ String(index + 1).padStart(2, '0') }}</b>
@@ -74,8 +72,8 @@ import type { PortalSpace, PortalStage } from '@/api/portal'
 import { buildKnowledgeHierarchySummary } from '@/config/portalKnowledgeSummary'
 import { formatAssetSummary } from '@/config/portalAssetSummary'
 import { resolveStageIcon, resolveStageSpaceIcon } from '@/config/portalVisualIcons'
-import { resolvePortalResponsibleTeam } from '@/config/portalSpacePresentation'
 import IpdStageCard from './IpdStageCard.vue'
+import PortalSpaceOwner from './PortalSpaceOwner.vue'
 import SpaceSummary from './SpaceSummary.vue'
 import PortalSectionState from './PortalSectionState.vue'
 
@@ -92,7 +90,6 @@ const stageLocaleSuffix:Record<string,string>={insight:'insight',concept_market:
 const stageFallbackDescription=(stageKey:string)=>t(`portalMap.stageFallback.${stageLocaleSuffix[stageKey]||stageKey}`)
 const spacesFor=(stage:string)=>props.spaces.filter(space=>space.stages.includes(stage))
 const summary=computed(()=>buildKnowledgeHierarchySummary(props.spaces,props.stages.map(stage=>stage.key)))
-const stageOwner=(stageKey:string)=>resolvePortalResponsibleTeam(spacesFor(stageKey)[0],t('portalCard.unconfigured'))
 const normalizedText=(value?:string)=>value?.trim().replace(/\s+/g,' ').toLocaleLowerCase()||''
 const sameNormalizedText=(left?:string,right?:string)=>Boolean(normalizedText(left))&&normalizedText(left)===normalizedText(right)
 function navigateToStage(stageKey:string){
@@ -113,7 +110,7 @@ onBeforeUnmount(()=>{if(highlightTimer)clearTimeout(highlightTimer)})
 .section-title{display:flex;align-items:center;gap:11px}.section-title__icon{width:34px;height:34px;display:grid;flex:none;place-items:center;border:1px solid color-mix(in srgb,var(--td-brand-color) 18%,var(--portal-line));border-radius:9px;background:var(--portal-brand-surface);color:var(--td-brand-color-active);font-size:18px}.stage-card:hover{border-color:color-mix(in srgb,var(--stage-accent,var(--td-brand-color)) 27%,var(--portal-line-strong));box-shadow:0 5px 15px rgba(15,23,42,.045)}.stage-card__identity{display:flex;min-width:0;align-items:flex-start;gap:10px}.stage-card__icon{width:30px;height:30px;display:grid;flex:none;place-items:center;border:1px solid color-mix(in srgb,var(--stage-accent,var(--td-brand-color)) 18%,var(--portal-line));border-radius:8px;background:color-mix(in srgb,var(--stage-accent,var(--td-brand-color)) 9%,var(--td-bg-color-container));color:var(--stage-accent,var(--td-brand-color-active));font-size:17px}.stage-empty{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:7px}.stage-empty>.t-icon{font-size:21px;color:var(--stage-accent,var(--portal-text-muted));opacity:.72}.stage-card--insight{--stage-accent:#7c6ee6}.stage-card--concept_market{--stage-accent:#b7791f}.stage-card--concept_product{--stage-accent:#a16207}.stage-card--architecture{--stage-accent:#3978b8}.stage-card--design{--stage-accent:#1687a7}.stage-card--development{--stage-accent:#0f8b68}.stage-card--testing{--stage-accent:#c66a22}.stage-card--lmt{--stage-accent:#64748b}
 .stage-card{display:flex;box-sizing:border-box;height:100%;flex-direction:column}.stage-spaces--single,.stage-empty{flex:1}.stage-spaces--single{align-content:stretch}
 .section-title p,.stage-card__identity p{color:var(--portal-text-secondary)}.map-summary span{color:var(--portal-text-metadata);font-weight:600}.map-summary .asset-metric{background:var(--td-bg-color-container);color:var(--portal-text-secondary)}.stage-card{background:var(--td-bg-color-container);box-shadow:none}.stage-card:hover{border-color:color-mix(in srgb,var(--stage-accent,var(--td-brand-color)) 30%,var(--portal-line-strong));background:color-mix(in srgb,var(--stage-accent,var(--td-brand-color)) 2.5%,var(--td-bg-color-container));box-shadow:0 4px 12px rgba(15,23,42,.045)}.stage-card--current{border-color:color-mix(in srgb,var(--td-brand-color) 44%,var(--portal-line));background:color-mix(in srgb,var(--portal-brand-surface) 32%,var(--td-bg-color-container))}.stage-card--current:hover{border-color:color-mix(in srgb,var(--td-brand-color) 52%,var(--portal-line));box-shadow:0 4px 12px rgba(15,118,110,.06)}
-.stage-card__owner{display:flex;min-width:0;max-width:52%;align-items:center;gap:5px;overflow:hidden;color:var(--portal-text-metadata);font-size:12.5px;font-weight:550;line-height:20px;text-overflow:ellipsis;white-space:nowrap}.stage-card__owner>.t-icon{flex:none;font-size:14px}.stage-card--single .stage-card__identity{flex:none}.stage-card--single .stage-card__header{align-items:center}
+.stage-card--single .stage-card__identity{min-width:0;flex:1}.stage-card--single .stage-card__header{align-items:center}
 @media(max-width:1599px){.stage-card-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:1399px){.lifecycle-rail{min-width:1024px}}
 @media(max-width:1199px){.stage-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}

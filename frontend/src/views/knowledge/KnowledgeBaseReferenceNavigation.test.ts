@@ -26,3 +26,12 @@ test('knowledge base header exposes the active space with a safe empty fallback'
   assert.doesNotMatch(source, /class="document-subtitle"|kbContextDescription/)
   assert.match(source, /class="breadcrumb-link dropdown kb-name"/)
 })
+
+test('document date range shares the compact toolbar control contract', () => {
+  assert.match(source, /<t-date-range-picker v-model="updatedTimeRange"/)
+  assert.match(source, /class="doc-date-range doc-filter-field__control"/)
+  assert.match(source, /\.doc-date-range\s*\{[\s\S]*?:deep\(\.t-range-input\)\s*\{[\s\S]*?height: 34px;/)
+  assert.match(source, /:deep\(\.t-range-input__inner-separator\)/)
+  assert.match(source, /:deep\(\.t-range-input__inner \.t-input__inner::placeholder\)/)
+  assert.match(source, /watch\(\[selectedParseStatus, selectedSource, updatedTimeRange\]/)
+})

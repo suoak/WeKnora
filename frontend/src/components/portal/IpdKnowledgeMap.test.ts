@@ -94,23 +94,26 @@ test('accessible cards expose always-visible ask/search icon labels and one prim
 
 test('space metadata uses configured description and responsible team with safe fallbacks', () => {
   const summary = source('./SpaceSummary.vue')
+  const owner = source('./PortalSpaceOwner.vue')
   assert.match(summary, /props\.space\?\.description\?\.trim\(\)/)
-  assert.match(summary, /resolvePortalResponsibleTeam\(props\.space,t\('portalCard\.unconfigured'\)\)/)
+  assert.match(summary, /<PortalSpaceOwner v-if="!suppressResponsible" :space="space"/)
+  assert.match(owner, /resolvePortalResponsibleTeam\(props\.space, t\('portalCard\.unconfigured'\)\)/)
   assert.match(summary, /portalCard\.noSpaceDescription/)
-  assert.match(summary, /portalCard\.unconfigured/)
-  assert.match(summary, /class="space-owner" :title="displayResponsible"/)
-  assert.doesNotMatch(summary, /contact|creator|currentTenantName/)
+  assert.match(owner, /class="portal-space-owner" :title="ownerName"/)
+  assert.doesNotMatch(summary + owner, /contact|creator|currentTenantName/)
   assert.match(summary, /:title="displayDescription"/)
 })
 
 test('single stage and child cards bind owner presentation to the intended space record', () => {
   const map = source('./IpdKnowledgeMap.vue')
   const summary = source('./SpaceSummary.vue')
-  assert.match(map, /resolvePortalResponsibleTeam\(spacesFor\(stageKey\)\[0\],t\('portalCard\.unconfigured'\)\)/)
-  assert.match(map, /v-if="spacesFor\(stage\.key\)\.length === 1" :content="stageOwner\(stage\.key\)"/)
+  const owner = source('./PortalSpaceOwner.vue')
+  assert.match(map, /<PortalSpaceOwner v-if="spacesFor\(stage\.key\)\.length === 1" :space="spacesFor\(stage\.key\)\[0\]"/)
   assert.match(map, /v-for="space in spacesFor\(stage\.key\)" :key="space\.tenant_id" :space="space" variant="compact"/)
-  assert.match(summary, /v-if="!suppressResponsible" :content="displayResponsible"/)
-  assert.doesNotMatch(map, /v-else[^>]*stage-card__owner/)
+  assert.match(summary, /<PortalSpaceOwner v-if="!suppressResponsible" :space="space"/)
+  assert.match(owner, /max-width: min\(44%, 180px\)/)
+  assert.match(owner, /text-overflow: ellipsis/)
+  assert.doesNotMatch(map, /stageOwner|stage-card__owner|v-else[^>]*PortalSpaceOwner/)
 })
 
 test('all single-space and empty stages share the same bottom-aligned layout contract', () => {
@@ -148,11 +151,10 @@ test('rail is navigation-only and single-stage ownership is shown once in the he
   assert.match(stage, /String\(index \+ 1\)\.padStart\(2, '0'\)/)
   assert.match(stage, /\{\{ stage\.name \}\}/)
   assert.doesNotMatch(stage, /shortDescription|spaceCount|stageSpaceCount|<small>|<em>/)
-  assert.match(map, /v-if="spacesFor\(stage\.key\)\.length === 1" :content="stageOwner\(stage\.key\)"/)
-  assert.match(map, /class="stage-card__owner"><t-icon name="user"/)
+  assert.match(map, /<PortalSpaceOwner v-if="spacesFor\(stage\.key\)\.length === 1" :space="spacesFor\(stage\.key\)\[0\]"/)
   assert.match(map, /suppress-responsible/)
   assert.match(map, /portalMap\.stageSpaceCountCompact/)
-  assert.match(map, /\.stage-card__owner\{[^}]*max-width:52%[^}]*text-overflow:ellipsis[^}]*white-space:nowrap/)
+  assert.doesNotMatch(map, /stage-card__owner|stageOwner/)
 })
 
 test('restricted cards show one state-aware CTA and always activate the gate', () => {
