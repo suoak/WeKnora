@@ -49,6 +49,12 @@ jobs:
             -run 'Portal|KnowledgePortal' \
             -count=1
 
+      - name: Validate migration governance manifest and SQLite upgrade paths
+        run: |
+          go test ./internal/database \
+            -run 'Test(MigrationGovernanceManifest|MigrationRunnerSupportsSparseHighVersions|MigrationNumbersAreUniqueAndPaired|SQLiteMigrationGovernanceFreshAndExistingKnowHubConverge)$' \
+            -count=1
+
       - name: Run access approval race test
         run: |
           go test -race ./internal/application/service \
@@ -91,7 +97,7 @@ jobs:
           git diff --check
 
   postgres-migrations:
-    name: PostgreSQL clean install and previous-to-latest upgrade
+    name: PostgreSQL fresh and existing KnowHub upgrade governance
     if: github.repository == 'suoak/WeKnora'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -124,24 +130,16 @@ jobs:
       - name: Install migration CLI
         run: go install -tags postgres github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.1
 
-      - name: Discover the migration upgrade window
+      - name: Read the governed migration upgrade window
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t versions < <(
-            find migrations/versioned -maxdepth 1 -type f -name '*.up.sql' -printf '%f\n' |
-              sed -E 's/^0*([0-9]+)_.*/\1/' |
-              sort -n -u
-          )
-          if [ "${#versions[@]}" -lt 2 ]; then
-            echo 'At least two versioned migrations are required.'
-            exit 1
-          fi
-          previous_version="${versions[${#versions[@]}-2]}"
-          latest_version="${versions[${#versions[@]}-1]}"
-          echo "PREVIOUS_VERSION=$previous_version" >> "$GITHUB_ENV"
+          baseline_version="$(jq -er '.dialects.versioned.existing_knowhub_baseline' migrations/migration-map.json)"
+          latest_version="$(jq -er '.dialects.versioned.current_latest' migrations/migration-map.json)"
+          test "$baseline_version" -lt "$latest_version"
+          echo "KNOWHUB_BASELINE_VERSION=$baseline_version" >> "$GITHUB_ENV"
           echo "LATEST_VERSION=$latest_version" >> "$GITHUB_ENV"
-          echo "Testing migration upgrade ${previous_version} -> ${latest_version}"
+          echo "Testing existing KnowHub migration upgrade ${baseline_version} -> ${latest_version}"
 
       - name: Create isolated test databases
         run: |
@@ -150,7 +148,7 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -c 'CREATE DATABASE migration_upgrade TEMPLATE template0;'
 
-      - name: Validate clean migration, idempotency, and down-up symmetry
+      - name: Validate fresh migration and idempotency
         shell: bash
         run: |
           set -euo pipefail
@@ -169,26 +167,21 @@ jobs:
           END $$;
           SQL
 
-          "$migrate_bin" -path migrations/versioned -database "$CLEAN_DB_URL" goto "$PREVIOUS_VERSION"
-          current_version=$("$migrate_bin" -path migrations/versioned -database "$CLEAN_DB_URL" version 2>&1 | awk '{print $1}')
-          test "$current_version" = "$PREVIOUS_VERSION"
-          "$migrate_bin" -path migrations/versioned -database "$CLEAN_DB_URL" up
-
-          current_version=$("$migrate_bin" -path migrations/versioned -database "$CLEAN_DB_URL" version 2>&1 | awk '{print $1}')
+          current_version=$("$migrate_bin" -path migrations/versioned -database "$CLEAN_DB_URL" version 2>&1)
           test "$current_version" = "$LATEST_VERSION"
 
-      - name: Validate previous-to-latest upgrade and preserve old data
+      - name: Validate existing KnowHub upgrade and preserve sentinel data
         shell: bash
         run: |
           set -euo pipefail
           migrate_bin="$(go env GOPATH)/bin/migrate"
-          "$migrate_bin" -path migrations/versioned -database "$UPGRADE_DB_URL" goto "$PREVIOUS_VERSION"
+          "$migrate_bin" -path migrations/versioned -database "$UPGRADE_DB_URL" goto "$KNOWHUB_BASELINE_VERSION"
           psql "$UPGRADE_DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
           INSERT INTO tenants (id, name, business, status)
           VALUES (91001, 'portal-upgrade-sentinel', 'ci', 'active');
           SQL
           "$migrate_bin" -path migrations/versioned -database "$UPGRADE_DB_URL" up
-          current_version=$("$migrate_bin" -path migrations/versioned -database "$UPGRADE_DB_URL" version 2>&1 | awk '{print $1}')
+          current_version=$("$migrate_bin" -path migrations/versioned -database "$UPGRADE_DB_URL" version 2>&1)
           test "$current_version" = "$LATEST_VERSION"
           psql "$UPGRADE_DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
           DO $$
@@ -201,6 +194,74 @@ jobs:
             END IF;
           END $$;
           SQL
+
+      - name: Compare fresh and upgraded PostgreSQL schema fingerprints
+        shell: bash
+        run: |
+          set -euo pipefail
+          normalize_schema() {
+            psql "$1" -X -A -t -F $'\t' -v ON_ERROR_STOP=1 <<'SQL'
+          WITH schema_objects AS (
+            SELECT 'relation' AS kind, c.relname AS object_name,
+                   c.relkind::text AS object_subtype, '' AS definition
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p', 'S', 'v', 'm')
+            UNION ALL
+            SELECT 'column', c.relname || '.' || a.attname, a.attnum::text,
+                   format_type(a.atttypid, a.atttypmod) || '|' || a.attnotnull::text || '|' ||
+                   a.attidentity::text || '|' || COALESCE(pg_get_expr(d.adbin, d.adrelid), '')
+            FROM pg_attribute a
+            JOIN pg_class c ON c.oid = a.attrelid
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+            WHERE n.nspname = 'public' AND a.attnum > 0 AND NOT a.attisdropped
+              AND c.relkind IN ('r', 'p', 'v', 'm')
+            UNION ALL
+            SELECT 'constraint', c.relname || '.' || con.conname, con.contype::text,
+                   pg_get_constraintdef(con.oid, true)
+            FROM pg_constraint con
+            JOIN pg_class c ON c.oid = con.conrelid
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'public'
+            UNION ALL
+            SELECT 'index', tbl.relname, i.indisunique::text,
+                   regexp_replace(
+                     pg_get_indexdef(i.indexrelid),
+                     '^CREATE (UNIQUE )?INDEX [^ ]+ ',
+                     'CREATE \1INDEX '
+                   )
+            FROM pg_index i
+            JOIN pg_class tbl ON tbl.oid = i.indrelid
+            JOIN pg_class idx ON idx.oid = i.indexrelid
+            JOIN pg_namespace n ON n.oid = tbl.relnamespace
+            WHERE n.nspname = 'public'
+            UNION ALL
+            SELECT 'trigger', c.relname || '.' || t.tgname, '', pg_get_triggerdef(t.oid, true)
+            FROM pg_trigger t
+            JOIN pg_class c ON c.oid = t.tgrelid
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'public' AND NOT t.tgisinternal
+            UNION ALL
+            SELECT 'enum', typ.typname || '.' || enum.enumlabel, enum.enumsortorder::text, ''
+            FROM pg_type typ
+            JOIN pg_namespace n ON n.oid = typ.typnamespace
+            JOIN pg_enum enum ON enum.enumtypid = typ.oid
+            WHERE n.nspname = 'public'
+          )
+          SELECT kind, object_name, object_subtype, definition
+          FROM schema_objects
+          ORDER BY kind, object_name, object_subtype, definition;
+          SQL
+          }
+          normalize_schema "$CLEAN_DB_URL" > "$RUNNER_TEMP/clean-schema.sql"
+          normalize_schema "$UPGRADE_DB_URL" > "$RUNNER_TEMP/upgrade-schema.sql"
+          clean_fingerprint="$(sha256sum "$RUNNER_TEMP/clean-schema.sql" | awk '{print $1}')"
+          upgrade_fingerprint="$(sha256sum "$RUNNER_TEMP/upgrade-schema.sql" | awk '{print $1}')"
+          echo "Fresh schema fingerprint:    $clean_fingerprint"
+          echo "KnowHub schema fingerprint:  $upgrade_fingerprint"
+          diff -u "$RUNNER_TEMP/clean-schema.sql" "$RUNNER_TEMP/upgrade-schema.sql"
+          test "$clean_fingerprint" = "$upgrade_fingerprint"
 
       - name: Validate Usage Governance PostgreSQL aggregation
         env:

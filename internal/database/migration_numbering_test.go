@@ -13,8 +13,9 @@ import (
 
 func TestMigrationNumbersAreUniqueAndPaired(t *testing.T) {
 	repoRoot := sqliteRepoRoot(t)
-	assertMigrationNumbers(t, filepath.Join(repoRoot, "migrations", "versioned"), "000096")
-	assertMigrationNumbers(t, filepath.Join(repoRoot, "migrations", "sqlite"), "000017")
+	manifest := loadMigrationManifest(t, repoRoot)
+	assertMigrationNumbers(t, filepath.Join(repoRoot, manifest.Dialects.Versioned.Directory), manifest.Dialects.Versioned)
+	assertMigrationNumbers(t, filepath.Join(repoRoot, manifest.Dialects.SQLite.Directory), manifest.Dialects.SQLite)
 }
 
 func TestMCPToolEnabledFollowsUserMCPAPIKeys(t *testing.T) {
@@ -30,7 +31,7 @@ func TestMCPToolEnabledFollowsUserMCPAPIKeys(t *testing.T) {
 	require.FileExists(t, filepath.Join(repoRoot, "migrations", "sqlite", "000014_mcp_tool_enabled.down.sql"))
 }
 
-func assertMigrationNumbers(t *testing.T, dir, expectedLatest string) {
+func assertMigrationNumbers(t *testing.T, dir string, policy migrationDialectPolicy) {
 	t.Helper()
 	entries, err := os.ReadDir(dir)
 	require.NoError(t, err)
@@ -70,11 +71,16 @@ func assertMigrationNumbers(t *testing.T, dir, expectedLatest string) {
 			"migration %s up/down names do not match", version,
 		)
 	}
-	require.Equal(t, expectedLatest, latest)
-	latestNumber, err := strconv.Atoi(expectedLatest)
-	require.NoError(t, err)
-	for version := 0; version <= latestNumber; version++ {
+	require.Equal(t, fmt.Sprintf("%06d", policy.CurrentLatest), latest)
+	for version := 0; version <= policy.ImmutableThrough; version++ {
 		_, ok := versions[fmt.Sprintf("%06d", version)]
-		require.Truef(t, ok, "missing migration version %06d in %s", version, dir)
+		require.Truef(t, ok, "missing immutable historical migration version %06d in %s", version, dir)
+	}
+	for version := range versions {
+		n, err := strconv.Atoi(version)
+		require.NoError(t, err)
+		if n > policy.ImmutableThrough {
+			require.GreaterOrEqualf(t, n, 1000, "future migration %s must use a governed high-number namespace", version)
+		}
 	}
 }

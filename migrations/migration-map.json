@@ -1,0 +1,174 @@
+{
+  "format_version": 1,
+  "execution": {
+    "runtime_order": "numeric_filename_prefix",
+    "manifest_role": "validation_and_provenance",
+    "runtime_manifest_ordering": false,
+    "phase1_release_gates": [
+      "fresh_install_to_latest",
+      "existing_knowhub_to_latest"
+    ],
+    "deferred_paths": [
+      "existing_upstream_to_knowhub"
+    ]
+  },
+  "namespaces": [
+    {
+      "range": "000000-000999",
+      "owner": "historical",
+      "rule": "frozen; never renumber or edit an applied migration"
+    },
+    {
+      "range": "001000-001999",
+      "owner": "knowhub-reconciliation",
+      "rule": "lineage and reconciliation migrations"
+    },
+    {
+      "range": "002000-002999",
+      "owner": "upstream-port",
+      "rule": "reviewed ports from upstream; never copy a colliding upstream number"
+    },
+    {
+      "range": "003000-899999",
+      "owner": "knowhub-product",
+      "rule": "new KnowHub migrations after governance adoption"
+    },
+    {
+      "range": "900000-999999",
+      "owner": "emergency-recovery",
+      "rule": "reserved for exceptional recovery migrations; not for normal product development"
+    }
+  ],
+  "dialects": {
+    "versioned": {
+      "directory": "migrations/versioned",
+      "database": "postgresql",
+      "current_latest": 96,
+      "existing_knowhub_baseline": 90,
+      "immutable_through": 96,
+      "immutable_file_count": 194,
+      "immutable_history_sha256": "ec8edbfd59afcfe9c133f0aabbaa803ab2a00a86146dc798e733ea7850d59cdf"
+    },
+    "sqlite": {
+      "directory": "migrations/sqlite",
+      "database": "sqlite",
+      "current_latest": 17,
+      "existing_knowhub_baseline": 12,
+      "immutable_through": 17,
+      "immutable_file_count": 36,
+      "immutable_history_sha256": "19223066c468a8f70edd2044b76172bac6ab3e4edcad075f0e4d452c8e9d8b8a"
+    }
+  },
+  "logical_parity": [
+    {
+      "logical_id": "user_mcp_api_keys",
+      "versioned": 91,
+      "sqlite": 13
+    },
+    {
+      "logical_id": "mcp_tool_enabled",
+      "versioned": 92,
+      "sqlite": 14
+    },
+    {
+      "logical_id": "knowledge_portal",
+      "versioned": 93,
+      "sqlite": 15
+    },
+    {
+      "logical_id": "mcp_metadata",
+      "versioned": 94,
+      "sqlite": null,
+      "sqlite_note": "No standalone SQLite migration; metadata columns are not part of the current SQLite delta."
+    },
+    {
+      "logical_id": "usage_analytics",
+      "versioned": 95,
+      "sqlite": 16
+    },
+    {
+      "logical_id": "usage_analytics_phase2",
+      "versioned": 96,
+      "sqlite": 17
+    }
+  ],
+  "lineage_mapping": [
+    {
+      "lineage": "knowhub",
+      "dialect": "versioned",
+      "source_range": "000091-000096",
+      "governed_identity_range": "001091-001096",
+      "action": "record-only; installed files remain immutable at original numbers"
+    },
+    {
+      "lineage": "knowhub",
+      "dialect": "sqlite",
+      "source_range": "000013-000017",
+      "governed_identity_range": "001013-001017",
+      "action": "record-only; installed files remain immutable at original numbers"
+    },
+    {
+      "lineage": "upstream",
+      "dialect": "versioned",
+      "source_range": "000091-000092",
+      "governed_identity_range": "equivalent-to-knowhub",
+      "action": "manual equivalence review; do not port as new migrations"
+    },
+    {
+      "lineage": "upstream",
+      "dialect": "versioned",
+      "source_range": "000093-000106",
+      "governed_identity_range": "002093-002106",
+      "action": "reserved for reviewed ports"
+    },
+    {
+      "lineage": "upstream",
+      "dialect": "sqlite",
+      "source_range": "000013",
+      "governed_identity_range": "equivalent-to-knowhub-000014",
+      "action": "manual equivalence review; do not port as a new migration"
+    },
+    {
+      "lineage": "upstream",
+      "dialect": "sqlite",
+      "source_range": "000014-000025",
+      "governed_identity_range": "002014-002025",
+      "action": "reserved for reviewed ports"
+    }
+  ],
+  "upstream_inventory": {
+    "versioned": [
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 91, "canonical_migration_number": "000092", "dialect": "versioned", "name": "mcp_tool_enabled", "source_checksum": "a18f0b03748e6728182d3299e2052f25732552b1:969518cf44139775d3d4ff99b3b0f91d03ebe931", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "equivalence-review-no-new-migration" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 92, "canonical_migration_number": "000094", "dialect": "versioned", "name": "mcp_metadata", "source_checksum": "392075ee52ac82ef1a0dfbf4c719bf7e9a90f2da:b1e9f90224795b7760d7d4037a9d53dca1542ed4", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "equivalence-review-no-new-migration" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 93, "canonical_migration_number": "002093", "dialect": "versioned", "name": "browser_authorization", "source_checksum": "195af5aae49de353a23258b48e0cbe56156d1077:3cb6151e69eb464ae51c99ee8e82c32c355c9b87", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 94, "canonical_migration_number": "002094", "dialect": "versioned", "name": "memory_consistency", "source_checksum": "78f71100aecfd622da37b13f458ff029c3d123f8:a83f1f63abc3cc56b15561363daff61ee2083ff1", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 95, "canonical_migration_number": "002095", "dialect": "versioned", "name": "memory_vector_search", "source_checksum": "4eb196a6bd61ca07fc338102da0e6bf0b0cdae1e:ba25a9c0a5968b50043fc70656aa895aeda6e0ad", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 96, "canonical_migration_number": "002096", "dialect": "versioned", "name": "dingtalk_stream_only", "source_checksum": "9949e70291af108068b79111470493295acb31dc:4319bf574bad5689723e6d7159629830f60af017", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 97, "canonical_migration_number": "002097", "dialect": "versioned", "name": "session_fork", "source_checksum": "a29424c3945ac88e124759568dd03f2f0b39c208:8c83f2f40d84349a6a77b706662c3231066ccbff", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 98, "canonical_migration_number": "002098", "dialect": "versioned", "name": "fork_snapshot_lease", "source_checksum": "20ac0b8988e90c9240981a94de44f8db41cdee9a:ac56ebe6492962b068ae770fdd8795016ca8eb23", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 99, "canonical_migration_number": "002099", "dialect": "versioned", "name": "pg_search_0226", "source_checksum": "c1a257d2a328d0fe2a03712febe57e3ef6dc958a:689c5068dbd723a60bdad02b51cb56f1d7a18c32", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 100, "canonical_migration_number": "002100", "dialect": "versioned", "name": "chunks_index_diet", "source_checksum": "0773155ae9899c5b60903eaef2c811e23b4828c7:78393f8070a8107c3e634f0b3a9828f94a263e07", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 101, "canonical_migration_number": "002101", "dialect": "versioned", "name": "knowledge_profiles", "source_checksum": "2cf677396b26d52a5c454fece457836f27c5ca28:ea8efde95e3773fde7d227d830aafc20cf1691c5", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 102, "canonical_migration_number": "002102", "dialect": "versioned", "name": "mcp_endpoints", "source_checksum": "8a3a9f8dce93a0862c06e481c4e43235402f167d:efa1146c2e8787f4e88a1aab54b6285f89fe74a9", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 103, "canonical_migration_number": "002103", "dialect": "versioned", "name": "message_artifacts_table", "source_checksum": "1edfd1fbc42ec91c057c8962f1d0fefc3549ef18:108bb99a15ac67a1547e036b427d6d8ce8aeef5e", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 104, "canonical_migration_number": "002104", "dialect": "versioned", "name": "skill_served_version", "source_checksum": "4fb7c7744ad2f76d488f9fd43d1baf3e198298f9:0a6c2d394245374d1a93d5ea7db8a4b2b102c192", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 105, "canonical_migration_number": "002105", "dialect": "versioned", "name": "message_context_checkpoint", "source_checksum": "da6d30a70e91c87c184d228c4c5b20fcc888c77e:7f173f6c2ab922b152447ad356304036811e64be", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 106, "canonical_migration_number": "002106", "dialect": "versioned", "name": "messages_session_created_index", "source_checksum": "9f71b3350f8666f930cc4ef132bbd831663eba6b:6dfa8bd2938ecdd00dad0d8d7cc85ba084b26305", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" }
+    ],
+    "sqlite": [
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 13, "canonical_migration_number": "000014", "dialect": "sqlite", "name": "mcp_tool_enabled", "source_checksum": "62bf6b69bf97e97c4987a47b99bb2af3705169ad:cecbb5d900247f83bbb24d96f09233aec02d935b", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "equivalence-review-no-new-migration" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 14, "canonical_migration_number": "002014", "dialect": "sqlite", "name": "browser_authorization", "source_checksum": "8bfe18e23069cf7e61731d94327d11c76f465f59:3cb6151e69eb464ae51c99ee8e82c32c355c9b87", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 15, "canonical_migration_number": "002015", "dialect": "sqlite", "name": "memory_consistency", "source_checksum": "e57002dcdbd369dcbd388c8d11e6ad37a41f4c85:a83f1f63abc3cc56b15561363daff61ee2083ff1", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 16, "canonical_migration_number": "002016", "dialect": "sqlite", "name": "memory_vector_search", "source_checksum": "6f8e5c83c5e57954b599dc3890d750798905bcca:37e37f853a878883cf382276475c0fe53868f2bb", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 17, "canonical_migration_number": "002017", "dialect": "sqlite", "name": "dingtalk_stream_only", "source_checksum": "9949e70291af108068b79111470493295acb31dc:4319bf574bad5689723e6d7159629830f60af017", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 18, "canonical_migration_number": "002018", "dialect": "sqlite", "name": "session_fork", "source_checksum": "793f613fbb5942153b155aa551e26da81b6a4c51:e955c05e1f8889031d68a5954c6c1d1d15ba03d1", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 19, "canonical_migration_number": "002019", "dialect": "sqlite", "name": "fork_snapshot_lease", "source_checksum": "df4c4d293b482d2c1d6a11b55a079bd7acb46762:ac56ebe6492962b068ae770fdd8795016ca8eb23", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 20, "canonical_migration_number": "002020", "dialect": "sqlite", "name": "chunks_index_diet", "source_checksum": "36a7f54ad0a40ba31a48f2203bca0906ecedc427:9b5f7f749d6bdb6714cc881b2e4c11c1228aca3d", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 21, "canonical_migration_number": "002021", "dialect": "sqlite", "name": "knowledge_profiles", "source_checksum": "c26389202473c4680a6a7785997dd236586586cd:582d4c950042727ded0eb2d66838f3c121db639e", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 22, "canonical_migration_number": "002022", "dialect": "sqlite", "name": "mcp_endpoints", "source_checksum": "ac1b53ee67ef10b779b4bcf005169b54541b406a:efa1146c2e8787f4e88a1aab54b6285f89fe74a9", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 23, "canonical_migration_number": "002023", "dialect": "sqlite", "name": "message_artifacts_table", "source_checksum": "e337712ebc13045e0c1c3aa96770139165cabaa4:83bfa6e288e3ee78457d298fed5fa1ee050c34a9", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 24, "canonical_migration_number": "002024", "dialect": "sqlite", "name": "message_context_checkpoint", "source_checksum": "343dc0b23a784c88ce3d77368b48bd125c88838f:fa0921c4b8c10c7479f876acda62132ce775bafc", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" },
+      { "source_repo": "https://github.com/Tencent/WeKnora.git", "source_commit": "2a6a9c251734d12bf65bf17d8f3412689ebed4e1", "source_migration_number": 25, "canonical_migration_number": "002025", "dialect": "sqlite", "name": "messages_session_created_index", "source_checksum": "5c20acbeeaea8b43e6f846e55239b9fc97fc395d:5f63d0501610526d02ae0cb2fbbc1b4b7e63446d", "checksum_algorithm": "git-blob-sha1-up-down", "adoption_strategy": "manual-port" }
+    ]
+  }
+}
