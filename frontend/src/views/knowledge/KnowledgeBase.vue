@@ -2341,7 +2341,7 @@ async function createNewSession(value: string): Promise<void> {
                 <t-icon name="chevron-right" class="breadcrumb-separator" />
               </template>
               <button type="button" class="breadcrumb-link" @click="handleNavigateToKbList">
-                {{ $t('menu.knowledgeBase') }}
+                {{ $t('navigation.knowledgeBases') }}
               </button>
               <t-icon name="chevron-right" class="breadcrumb-separator" />
               <KBSwitcherDropdown v-if="knowledgeList.length" :kb-list="knowledgeList" :current-kb-id="kbId"
@@ -4648,8 +4648,8 @@ async function createNewSession(value: string): Promise<void> {
 
   .document-breadcrumb {
     gap: 8px;
-    font-size: 15px;
-    font-weight: 500;
+    font-size: 16px;
+    font-weight: 600;
     line-height: 24px;
   }
 
@@ -4660,8 +4660,8 @@ async function createNewSession(value: string): Promise<void> {
     min-width: 0;
     max-width: 220px;
     color: var(--td-text-color-secondary);
-    font-size: 14px;
-    font-weight: 550;
+    font-size: 16px;
+    font-weight: 600;
 
     span {
       overflow: hidden;
@@ -4678,8 +4678,8 @@ async function createNewSession(value: string): Promise<void> {
 
   .breadcrumb-link {
     color: color-mix(in srgb, var(--td-text-color-secondary) 86%, var(--td-text-color-primary));
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 16px;
+    font-weight: 600;
   }
 
   .breadcrumb-link.kb-name {
@@ -4690,7 +4690,7 @@ async function createNewSession(value: string): Promise<void> {
 
   .breadcrumb-current {
     font-size: 16px;
-    font-weight: 650;
+    font-weight: 600;
   }
 }
 
@@ -4705,7 +4705,8 @@ async function createNewSession(value: string): Promise<void> {
   min-height: 28px;
   padding: 4px 9px;
   color: var(--td-text-color-secondary);
-  font-size: 14px;
+  font-size: 16px;
+  font-weight: 600;
 
   &.active {
     color: var(--td-brand-color-active);

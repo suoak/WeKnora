@@ -22,9 +22,18 @@ test('a newer referenced-document navigation supersedes an older request', () =>
 test('knowledge base header exposes the active space with a safe empty fallback', () => {
   assert.match(source, /const knowledgeSpaceName = computed\(\(\) => authStore\.currentTenantName\?\.trim\(\) \|\| ''\)/)
   assert.match(source, /<template v-if="knowledgeSpaceName">[\s\S]*class="breadcrumb-space"[\s\S]*\{\{ knowledgeSpaceName \}\}/)
-  assert.match(source, /<button type="button" class="breadcrumb-link" @click="handleNavigateToKbList">/)
+  assert.match(source, /<button type="button" class="breadcrumb-link" @click="handleNavigateToKbList">[\s\S]*navigation\.knowledgeBases/)
   assert.doesNotMatch(source, /class="document-subtitle"|kbContextDescription/)
   assert.match(source, /class="breadcrumb-link dropdown kb-name"/)
+})
+
+test('knowledge base breadcrumb uses one visual level while separators stay neutral', () => {
+  assert.match(source, /\.document-breadcrumb\s*\{[\s\S]*?font-size: 16px;[\s\S]*?font-weight: 600;/)
+  assert.match(source, /\.breadcrumb-space\s*\{[\s\S]*?font-size: 16px;[\s\S]*?font-weight: 600;/)
+  assert.match(source, /\.breadcrumb-link\s*\{[\s\S]*?font-size: 16px;[\s\S]*?font-weight: 600;/)
+  assert.match(source, /\.breadcrumb-current\s*\{[\s\S]*?font-size: 16px;[\s\S]*?font-weight: 600;/)
+  assert.match(source, /\.breadcrumb-tab\s*\{[\s\S]*?font-size: 16px;[\s\S]*?font-weight: 600;/)
+  assert.match(source, /\.breadcrumb-separator\s*\{[\s\S]*?color: var\(--td-text-color-placeholder\)/)
 })
 
 test('document date range shares the compact toolbar control contract', () => {
