@@ -152,8 +152,11 @@ func RegisterUserMCPAPIKeyRoutes(r *gin.RouterGroup, handler *handler.TenantHand
 	g := r.Group("/mcp-api-keys")
 	g.GET("", handler.ListUserMCPAPIKeys)
 	g.GET("/scope-options", handler.UserMCPAPIKeyScopeOptions)
+	g.GET("/:id", handler.GetUserMCPAPIKey)
 	g.POST("", handler.CreateUserMCPAPIKey)
 	g.PUT("/:id", handler.UpdateUserMCPAPIKey)
+	g.PATCH("/:id", handler.PatchUserMCPAPIKey)
+	g.POST("/:id/rotate", handler.RotateUserMCPAPIKey)
 	g.DELETE("/:id", handler.RevokeUserMCPAPIKey)
 }
 

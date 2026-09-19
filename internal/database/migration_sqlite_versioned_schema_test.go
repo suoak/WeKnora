@@ -34,18 +34,18 @@ var versionedSQLiteTables = []string{
 // versionedSQLiteColumns maps each existing table to the columns that the
 // versioned migrations add and the SQLite baseline was missing.
 var versionedSQLiteColumns = map[string][]string{
-	"tenants":            {"api_principal_config"},           // 000064
-	"users":              {"is_system_admin"},                // 000053
-	"knowledges":         {"pending_subtasks_count"},         // 000056
-	"messages":           {"attachments", "usage"},           // 000034, 000085
-	"tenant_invitations": {"token", "accepted_count"},        // 000054
-	"embed_channels":     {"allow_memory"},                   // 000060
-	"mcp_oauth_tokens":   {"principal_type", "principal_id"}, // 000064
-	"tenant_api_keys":    {"owner_user_id"},                  // 000091
-	"mcp_tool_approvals": {"enabled"},                        // 000092
+	"tenants":            {"api_principal_config"},                       // 000064
+	"users":              {"is_system_admin"},                            // 000053
+	"knowledges":         {"pending_subtasks_count"},                     // 000056
+	"messages":           {"attachments", "usage"},                       // 000034, 000085
+	"tenant_invitations": {"token", "accepted_count"},                    // 000054
+	"embed_channels":     {"allow_memory"},                               // 000060
+	"mcp_oauth_tokens":   {"principal_type", "principal_id"},             // 000064
+	"tenant_api_keys":    {"owner_user_id", "client_type", "token_hint"}, // 000091, 003000
+	"mcp_tool_approvals": {"enabled"},                                    // 000092
 }
 
-const expectedSQLiteMigrationVersion = 17
+const expectedSQLiteMigrationVersion = 3000
 
 func TestSQLiteMigrationsCreateVersionedSchema(t *testing.T) {
 	repoRoot := sqliteRepoRoot(t)
@@ -170,13 +170,62 @@ func TestSQLiteMigrationsUpgradeV13ToLatest(t *testing.T) {
 	require.NoError(t, err)
 	migrator, err := migrate.NewWithDatabaseInstance("file://migrations/sqlite", "sqlite3", driver)
 	require.NoError(t, err)
-	require.NoError(t, migrator.Steps(-3))
+	require.NoError(t, migrator.Steps(-4))
 	versionDowngraded, dirtyDowngraded := sqliteMigrationState(t, db)
 	require.Equal(t, 14, versionDowngraded)
 	require.False(t, dirtyDowngraded)
 	require.True(t, sqliteColumnExists(t, db, "tenant_api_keys", "owner_user_id"))
 	require.True(t, sqliteColumnExists(t, db, "mcp_tool_approvals", "enabled"))
 	require.False(t, sqliteTableExists(t, db, "tenant_portal_configs"))
+}
+
+func TestSQLiteUserMCPCredentialLifecycleUpgradePreservesLegacySecret(t *testing.T) {
+	repoRoot := sqliteRepoRoot(t)
+	legacyRoot := copySQLiteMigrationsThrough(t, repoRoot, "000017")
+	chdirAndRestore(t, legacyRoot)
+
+	dbPath := filepath.Join(t.TempDir(), "user-mcp-v17.db")
+	require.NoError(t, RunMigrationsWithOptions("sqlite3://unused", MigrationOptions{SQLiteDBPath: dbPath}))
+	db := openSQLiteDB(t, dbPath)
+	legacyHash := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	_, err := db.Exec(`INSERT INTO tenant_api_keys
+		(scope_type, owner_user_id, name, key_hash, api_key, full_access)
+		VALUES ('user_mcp', 'legacy-owner', 'legacy-mcp', ?, 'synthetic-legacy-secret', 0)`, legacyHash)
+	require.NoError(t, err)
+
+	chdirAndRestore(t, repoRoot)
+	require.NoError(t, RunMigrationsWithOptions("sqlite3://unused", MigrationOptions{SQLiteDBPath: dbPath}))
+	version, dirty := sqliteMigrationState(t, db)
+	require.Equal(t, expectedSQLiteMigrationVersion, version)
+	require.False(t, dirty)
+
+	var clientType, tokenHint, apiKey, keyHash string
+	require.NoError(t, db.QueryRow(`SELECT client_type, token_hint, api_key, key_hash
+		FROM tenant_api_keys WHERE name='legacy-mcp'`).Scan(&clientType, &tokenHint, &apiKey, &keyHash))
+	require.Equal(t, "generic", clientType)
+	require.Empty(t, tokenHint)
+	require.Equal(t, "synthetic-legacy-secret", apiKey, "DDL migration must not irreversibly clear legacy credentials")
+	require.Equal(t, legacyHash, keyHash)
+	_, err = db.Exec(`UPDATE tenant_api_keys SET client_type='future-client' WHERE name='legacy-mcp'`)
+	require.NoError(t, err, "client_type must remain schema-extensible without an enum-style DB CHECK")
+	var tableSQL string
+	require.NoError(t, db.QueryRow(`SELECT sql FROM sqlite_master WHERE type='table' AND name='tenant_api_keys'`).Scan(&tableSQL))
+	require.NotContains(t, tableSQL, "workbuddy", "client allow-list belongs in application validation, not the DB schema")
+}
+
+func TestUserMCPCredentialLifecycleClientTypeHasNoDatabaseEnumCheck(t *testing.T) {
+	repoRoot := sqliteRepoRoot(t)
+	for _, path := range []string{
+		filepath.Join(repoRoot, "migrations", "versioned", "003000_user_mcp_credential_lifecycle.up.sql"),
+		filepath.Join(repoRoot, "migrations", "sqlite", "003000_user_mcp_credential_lifecycle.up.sql"),
+	} {
+		contents, err := os.ReadFile(path)
+		require.NoError(t, err)
+		sqlText := string(contents)
+		require.Contains(t, sqlText, "client_type")
+		require.NotContains(t, sqlText, "workbuddy", "client allow-list must not be encoded in migration SQL")
+		require.NotContains(t, sqlText, "CHECK", "client_type must not require a migration for future client values")
+	}
 }
 
 func TestSQLiteKnowledgePortalMigrationUpgradeConstraintsAndDown(t *testing.T) {
@@ -248,7 +297,7 @@ func TestSQLiteKnowledgePortalMigrationUpgradeConstraintsAndDown(t *testing.T) {
 	require.NoError(t, err)
 	migrator, err := migrate.NewWithDatabaseInstance("file://migrations/sqlite", "sqlite3", driver)
 	require.NoError(t, err)
-	require.NoError(t, migrator.Steps(-3))
+	require.NoError(t, migrator.Steps(-4))
 	version, dirty = sqliteMigrationState(t, db)
 	require.Equal(t, 14, version)
 	require.False(t, dirty)
@@ -293,7 +342,7 @@ func TestSQLiteUsageAnalyticsMigrationUpgradeV15AndDown(t *testing.T) {
 	require.NoError(t, err)
 	migrator, err := migrate.NewWithDatabaseInstance("file://migrations/sqlite", "sqlite3", driver)
 	require.NoError(t, err)
-	require.NoError(t, migrator.Steps(-2))
+	require.NoError(t, migrator.Steps(-3))
 	version, dirty = sqliteMigrationState(t, db)
 	require.Equal(t, 15, version)
 	require.False(t, dirty)

@@ -66,6 +66,7 @@ type TenantAPIKeyCreateRequest struct {
 	TenantID         uint64
 	ScopeType        types.APIKeyScopeType
 	Name             string
+	ClientType       types.MCPClientType
 	FullAccess       bool
 	KnowledgeBaseIDs []string
 	Capabilities     []string
@@ -124,16 +125,34 @@ type TenantAPIKeyService interface {
 	BackfillMissingKeyHashes(ctx context.Context) (int, error)
 }
 
+// TenantAPIKeyUsageRecorder is kept separate from TenantAPIKeyService so
+// authentication only records usage after middleware has completed live
+// workspace/member validation.
+type TenantAPIKeyUsageRecorder interface {
+	RecordAPIKeyUsed(keyID uint64)
+}
+
 type UserMCPAPIKeyRepository interface {
 	ListUserMCPAPIKeys(ctx context.Context, userID string) ([]*types.TenantAPIKey, error)
+	GetUserMCPAPIKey(ctx context.Context, userID string, id uint64) (*types.TenantAPIKey, error)
 	GetUserMCPTenantScope(ctx context.Context, keyID, tenantID uint64) (*types.APIKeyTenantScope, error)
 	ReplaceUserMCPAPIKey(ctx context.Context, userID string, key *types.TenantAPIKey) (*types.TenantAPIKey, error)
+	RotateUserMCPAPIKey(ctx context.Context, userID string, id uint64, expectedHash, newHash, tokenHint string, expiresAt *time.Time) (*types.TenantAPIKey, error)
 	RevokeUserMCPAPIKey(ctx context.Context, userID string, id uint64) error
+}
+
+type UserMCPAPIKeyRotateRequest struct {
+	// ExpirySpecified distinguishes preserving the current policy from an
+	// explicit never-expires request, whose ExpiresAt value is nil.
+	ExpirySpecified bool
+	ExpiresAt       *time.Time
 }
 
 type UserMCPAPIKeyService interface {
 	ListUserMCPAPIKeys(ctx context.Context, userID string) ([]*types.TenantAPIKey, error)
+	GetUserMCPAPIKey(ctx context.Context, userID string, id uint64) (*types.TenantAPIKey, error)
 	GetUserMCPTenantScope(ctx context.Context, keyID, tenantID uint64) (*types.APIKeyTenantScope, error)
 	ReplaceUserMCPAPIKey(ctx context.Context, userID string, key *types.TenantAPIKey) (*types.TenantAPIKey, error)
+	RotateUserMCPAPIKey(ctx context.Context, userID string, id uint64, req UserMCPAPIKeyRotateRequest) (*TenantAPIKeyCreateResult, error)
 	RevokeUserMCPAPIKey(ctx context.Context, userID string, id uint64) error
 }

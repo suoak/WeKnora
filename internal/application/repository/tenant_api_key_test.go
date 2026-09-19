@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -113,4 +114,102 @@ func TestGetUserMCPTenantScopeDropsRevokedSharedGrant(t *testing.T) {
 	scope, err = repo.GetUserMCPTenantScope(context.Background(), 9, 42)
 	require.NoError(t, err)
 	require.Empty(t, scope.KnowledgeBases, "revoked exact share must leave an explicitly empty restriction")
+}
+
+func TestUserMCPCredentialRotateIsOwnerScopedAndCompareAndSwap(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&types.TenantAPIKey{}, &types.APIKeyTenantScope{}, &types.APIKeyKnowledgeBaseScope{}))
+	repo := &tenantAPIKeyRepository{db: db}
+	owner := "owner-1"
+	key := &types.TenantAPIKey{
+		ScopeType: types.APIKeyScopeUserMCP, OwnerUserID: &owner, Name: "cursor",
+		ClientType: types.MCPClientCursor, KeyHash: "old-hash", APIKey: "", TokenHint: "••••OLD1",
+		Capabilities: types.StringArray{"retrieve", "chat"},
+	}
+	require.NoError(t, repo.CreateAPIKey(context.Background(), key))
+
+	_, err = repo.RotateUserMCPAPIKey(context.Background(), "other-owner", key.ID, "old-hash", "blocked", "••••NOPE", nil)
+	require.ErrorIs(t, err, ErrTenantAPIKeyNotFound)
+
+	rotated, err := repo.RotateUserMCPAPIKey(context.Background(), owner, key.ID, "old-hash", "new-hash", "••••NEW1", nil)
+	require.NoError(t, err)
+	require.Equal(t, "new-hash", rotated.KeyHash)
+	require.Equal(t, "••••NEW1", rotated.TokenHint)
+	require.Empty(t, rotated.APIKey)
+
+	_, err = repo.RotateUserMCPAPIKey(context.Background(), owner, key.ID, "old-hash", "second-hash", "••••NEW2", nil)
+	require.ErrorIs(t, err, ErrTenantAPIKeyNotFound, "stale concurrent rotation must lose the CAS")
+}
+
+func TestListUserMCPCredentialsRetainsRevokedHistory(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&types.TenantAPIKey{}, &types.APIKeyTenantScope{}, &types.APIKeyKnowledgeBaseScope{}))
+	repo := &tenantAPIKeyRepository{db: db}
+	owner := "owner-1"
+	key := &types.TenantAPIKey{ScopeType: types.APIKeyScopeUserMCP, OwnerUserID: &owner, Name: "history", KeyHash: "history-hash"}
+	require.NoError(t, repo.CreateAPIKey(context.Background(), key))
+	require.NoError(t, repo.RevokeUserMCPAPIKey(context.Background(), owner, key.ID))
+
+	rows, err := repo.ListUserMCPAPIKeys(context.Background(), owner)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	require.NotNil(t, rows[0].RevokedAt)
+	otherRows, err := repo.ListUserMCPAPIKeys(context.Background(), "other-owner")
+	require.NoError(t, err)
+	require.Empty(t, otherRows)
+
+	_, err = repo.ReplaceUserMCPAPIKey(context.Background(), "other-owner", &types.TenantAPIKey{
+		ID: key.ID, Name: "stolen", ClientType: types.MCPClientGeneric,
+		Capabilities: types.StringArray{"retrieve"},
+	})
+	require.ErrorIs(t, err, ErrTenantAPIKeyNotFound)
+	require.ErrorIs(t, repo.RevokeUserMCPAPIKey(context.Background(), "other-owner", key.ID), ErrTenantAPIKeyNotFound)
+
+	_, err = repo.ReplaceUserMCPAPIKey(context.Background(), owner, &types.TenantAPIKey{
+		ID: key.ID, Name: "revived", ClientType: types.MCPClientGeneric,
+		Capabilities: types.StringArray{"retrieve"},
+	})
+	require.ErrorIs(t, err, ErrTenantAPIKeyNotFound, "revoked credentials must not be updated")
+	_, err = repo.RotateUserMCPAPIKey(context.Background(), owner, key.ID, key.KeyHash, "revived", "••••NOPE", nil)
+	require.ErrorIs(t, err, ErrTenantAPIKeyNotFound, "revoked credentials must not be rotated")
+}
+
+func TestConcurrentUserMCPRotateHasSingleCASWinner(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared&_busy_timeout=5000"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	require.NoError(t, db.AutoMigrate(&types.TenantAPIKey{}, &types.APIKeyTenantScope{}, &types.APIKeyKnowledgeBaseScope{}))
+	repo := &tenantAPIKeyRepository{db: db}
+	owner := "owner-1"
+	key := &types.TenantAPIKey{ScopeType: types.APIKeyScopeUserMCP, OwnerUserID: &owner, Name: "race", KeyHash: "race-old"}
+	require.NoError(t, repo.CreateAPIKey(context.Background(), key))
+
+	start := make(chan struct{})
+	results := make(chan error, 2)
+	var wg sync.WaitGroup
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			_, rotateErr := repo.RotateUserMCPAPIKey(context.Background(), owner, key.ID, "race-old", "race-new-"+string(rune('a'+i)), "••••RACE", nil)
+			results <- rotateErr
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+	close(results)
+	successes := 0
+	for rotateErr := range results {
+		if rotateErr == nil {
+			successes++
+		} else {
+			require.ErrorIs(t, rotateErr, ErrTenantAPIKeyNotFound)
+		}
+	}
+	require.Equal(t, 1, successes)
 }

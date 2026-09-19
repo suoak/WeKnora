@@ -45,15 +45,16 @@ func (s *tenantAPIKeyService) CreateAPIKey(
 		return nil, errors.New("user_mcp keys require owner and tenant scopes")
 	}
 	capabilities := types.NormalizeAPIKeyCapabilities(types.StringArray(req.Capabilities))
+	var err error
 	if scopeType == types.APIKeyScopeUserMCP {
-		// This persona is deliberately read-only. Keep the invariant here as
-		// well as in the HTTP handler so future callers cannot elevate it.
+		// User-owned MCP credentials remain bounded to the Phase 1 read-only
+		// capability set. Keep this invariant below the HTTP handler so future
+		// callers cannot elevate it.
 		req.FullAccess = false
 		req.KnowledgeBaseIDs = nil
-		capabilities = types.StringArray{
-			string(types.APIKeyCapabilityRetrieve),
-			string(types.APIKeyCapabilityChat),
-			string(types.APIKeyCapabilityReadAgents),
+		capabilities, err = normalizeUserMCPCapabilities(req.Capabilities, true)
+		if err != nil {
+			return nil, err
 		}
 	}
 	if scopeType == types.APIKeyScopePlatform && len(capabilities) == 0 {
@@ -62,6 +63,10 @@ func (s *tenantAPIKeyService) CreateAPIKey(
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
 		return nil, errors.New("name is required")
+	}
+	clientType, err := normalizeMCPClientTypeStrict(req.ClientType)
+	if err != nil {
+		return nil, err
 	}
 	token, err := generateTenantAPIKeyToken()
 	if err != nil {
@@ -85,6 +90,7 @@ func (s *tenantAPIKeyService) CreateAPIKey(
 		TenantID:         tenantID,
 		ScopeType:        scopeType,
 		Name:             name,
+		ClientType:       clientType,
 		KeyHash:          hashTenantAPIKey(token),
 		APIKey:           token,
 		FullAccess:       req.FullAccess,
@@ -93,6 +99,10 @@ func (s *tenantAPIKeyService) CreateAPIKey(
 		ExpiresAt:        expiresAt,
 		OwnerUserID:      ownerUserID,
 		TenantScopes:     req.TenantScopes,
+	}
+	if scopeType == types.APIKeyScopeUserMCP {
+		key.APIKey = ""
+		key.TokenHint = tenantAPIKeyTokenHint(token)
 	}
 	if key.FullAccess {
 		key.KnowledgeBaseIDs = nil
@@ -107,11 +117,60 @@ func (s *tenantAPIKeyService) CreateAPIKey(
 func (s *tenantAPIKeyService) ListUserMCPAPIKeys(ctx context.Context, userID string) ([]*types.TenantAPIKey, error) {
 	return s.repo.(interfaces.UserMCPAPIKeyRepository).ListUserMCPAPIKeys(ctx, userID)
 }
+func (s *tenantAPIKeyService) GetUserMCPAPIKey(ctx context.Context, userID string, id uint64) (*types.TenantAPIKey, error) {
+	return s.repo.(interfaces.UserMCPAPIKeyRepository).GetUserMCPAPIKey(ctx, userID, id)
+}
 func (s *tenantAPIKeyService) GetUserMCPTenantScope(ctx context.Context, keyID, tenantID uint64) (*types.APIKeyTenantScope, error) {
 	return s.repo.(interfaces.UserMCPAPIKeyRepository).GetUserMCPTenantScope(ctx, keyID, tenantID)
 }
 func (s *tenantAPIKeyService) ReplaceUserMCPAPIKey(ctx context.Context, userID string, key *types.TenantAPIKey) (*types.TenantAPIKey, error) {
+	key.Name = strings.TrimSpace(key.Name)
+	if key.Name == "" {
+		return nil, errors.New("name is required")
+	}
+	clientType, err := normalizeMCPClientTypeStrict(key.ClientType)
+	if err != nil {
+		return nil, err
+	}
+	key.ClientType = clientType
+	capabilities, err := normalizeUserMCPCapabilities([]string(key.Capabilities), false)
+	if err != nil {
+		return nil, err
+	}
+	key.Capabilities = capabilities
+	if key.ExpiresAt != nil {
+		utc := key.ExpiresAt.UTC()
+		key.ExpiresAt = &utc
+	}
 	return s.repo.(interfaces.UserMCPAPIKeyRepository).ReplaceUserMCPAPIKey(ctx, userID, key)
+}
+func (s *tenantAPIKeyService) RotateUserMCPAPIKey(ctx context.Context, userID string, id uint64, req interfaces.UserMCPAPIKeyRotateRequest) (*interfaces.TenantAPIKeyCreateResult, error) {
+	repo := s.repo.(interfaces.UserMCPAPIKeyRepository)
+	current, err := repo.GetUserMCPAPIKey(ctx, userID, id)
+	if err != nil || current == nil || current.RevokedAt != nil {
+		return nil, apprepo.ErrTenantAPIKeyNotFound
+	}
+	now := time.Now().UTC()
+	expiresAt := current.ExpiresAt
+	if req.ExpirySpecified {
+		expiresAt = req.ExpiresAt
+	}
+	if expiresAt != nil {
+		utc := expiresAt.UTC()
+		expiresAt = &utc
+		if !expiresAt.After(now) {
+			return nil, errors.New("expired credentials require a new future expiry or never_expires=true")
+		}
+	}
+	token, err := generateTenantAPIKeyToken()
+	if err != nil {
+		return nil, err
+	}
+	rotated, err := repo.RotateUserMCPAPIKey(ctx, userID, id, current.KeyHash, hashTenantAPIKey(token), tenantAPIKeyTokenHint(token), expiresAt)
+	if err != nil {
+		return nil, err
+	}
+	return &interfaces.TenantAPIKeyCreateResult{APIKey: rotated, Token: token}, nil
 }
 func (s *tenantAPIKeyService) RevokeUserMCPAPIKey(ctx context.Context, userID string, id uint64) error {
 	return s.repo.(interfaces.UserMCPAPIKeyRepository).RevokeUserMCPAPIKey(ctx, userID, id)
@@ -132,8 +191,11 @@ func (s *tenantAPIKeyService) AuthenticateAPIKey(ctx context.Context, token stri
 	if key.ExpiresAt != nil && time.Now().UTC().After(key.ExpiresAt.UTC()) {
 		return nil, apprepo.ErrTenantAPIKeyNotFound
 	}
-	s.touchAPIKeyLastUsedAsync(key.ID)
 	return key, nil
+}
+
+func (s *tenantAPIKeyService) RecordAPIKeyUsed(keyID uint64) {
+	s.touchAPIKeyLastUsedAsync(keyID)
 }
 
 // touchAPIKeyLastUsedAsync persists last_used_at at most once per key per
@@ -250,6 +312,58 @@ func generateTenantAPIKeyToken() (string, error) {
 func hashTenantAPIKey(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])
+}
+
+func tenantAPIKeyTokenHint(token string) string {
+	token = strings.TrimSpace(token)
+	if len(token) > 4 {
+		token = token[len(token)-4:]
+	}
+	return "••••" + token
+}
+
+func normalizeMCPClientTypeStrict(clientType types.MCPClientType) (types.MCPClientType, error) {
+	raw := strings.ToLower(strings.TrimSpace(string(clientType)))
+	if raw == "" {
+		return types.MCPClientGeneric, nil
+	}
+	normalized := types.NormalizeMCPClientType(clientType)
+	if normalized == types.MCPClientGeneric && raw != string(types.MCPClientGeneric) {
+		return "", errors.New("unsupported client_type")
+	}
+	return normalized, nil
+}
+
+func normalizeUserMCPCapabilities(in []string, useDefault bool) (types.StringArray, error) {
+	if len(in) == 0 && useDefault {
+		return types.StringArray{string(types.APIKeyCapabilityRetrieve), string(types.APIKeyCapabilityChat)}, nil
+	}
+	normalized := types.NormalizeAPIKeyCapabilities(types.StringArray(in))
+	if len(normalized) != len(uniqueNonEmptyUserMCPCapabilities(in)) {
+		return nil, errors.New("unsupported user_mcp capability")
+	}
+	for _, capability := range normalized {
+		switch types.APIKeyCapability(capability) {
+		case types.APIKeyCapabilityRetrieve, types.APIKeyCapabilityChat, types.APIKeyCapabilityReadAgents:
+		default:
+			return nil, errors.New("unsupported user_mcp capability")
+		}
+	}
+	if len(normalized) == 0 {
+		return nil, errors.New("at least one capability is required")
+	}
+	return normalized, nil
+}
+
+func uniqueNonEmptyUserMCPCapabilities(in []string) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, item := range in {
+		item = strings.ToLower(strings.TrimSpace(item))
+		if item != "" {
+			out[item] = struct{}{}
+		}
+	}
+	return out
 }
 
 func normalizeAPIKeyIDs(in []string) types.StringArray {

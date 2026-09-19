@@ -96,6 +96,41 @@ jobs:
           fi
           git diff --check
 
+  m1-linux-backend:
+    name: M1 Linux backend and MCP compatibility
+    if: github.repository == 'suoak/WeKnora'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install native test dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential libsqlite3-dev
+
+      - name: Download Go modules
+        run: go mod download
+
+      - name: Run complete internal backend suite
+        run: go test -p 1 ./internal/... -count=1
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Run Python MCP tests when dependency is available
+        shell: bash
+        run: |
+          if python -c 'import mcp' 2>/dev/null; then
+            (cd mcp-server && python -m unittest test_mcp_transports.py)
+          else
+            echo 'Python MCP tests not run: the mcp dependency is not installed in this CI environment.'
+          fi
+
   postgres-migrations:
     name: PostgreSQL fresh and existing KnowHub upgrade governance
     if: github.repository == 'suoak/WeKnora'
@@ -179,6 +214,16 @@ jobs:
           psql "$UPGRADE_DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
           INSERT INTO tenants (id, name, business, status)
           VALUES (91001, 'portal-upgrade-sentinel', 'ci', 'active');
+          INSERT INTO users (id, username, email, password_hash, is_active)
+          VALUES ('m1-legacy-owner', 'm1-legacy-owner', 'm1-legacy@example.invalid', 'synthetic-hash', true);
+          INSERT INTO tenant_api_keys (
+            scope_type, owner_user_id, name, key_hash, api_key,
+            full_access, capabilities
+          ) VALUES (
+            'user_mcp', 'm1-legacy-owner', 'm1-legacy-credential',
+            '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+            'synthetic-legacy-secret', false, '["retrieve","chat"]'::jsonb
+          );
           SQL
           "$migrate_bin" -path migrations/versioned -database "$UPGRADE_DB_URL" up
           current_version=$("$migrate_bin" -path migrations/versioned -database "$UPGRADE_DB_URL" version 2>&1)
@@ -191,6 +236,43 @@ jobs:
               WHERE id = 91001 AND name = 'portal-upgrade-sentinel'
             ) THEN
               RAISE EXCEPTION 'Pre-existing tenant data was not preserved';
+            END IF;
+            IF NOT EXISTS (
+              SELECT 1 FROM tenant_api_keys
+              WHERE name = 'm1-legacy-credential'
+                AND client_type = 'generic'
+                AND token_hint = ''
+                AND api_key = 'synthetic-legacy-secret'
+            ) THEN
+              RAISE EXCEPTION 'Legacy user_mcp credential compatibility was not preserved';
+            END IF;
+            IF EXISTS (
+              SELECT 1
+              FROM pg_constraint con
+              JOIN pg_class rel ON rel.oid = con.conrelid
+              WHERE rel.relname = 'tenant_api_keys'
+                AND pg_get_constraintdef(con.oid) ILIKE '%client_type%'
+            ) THEN
+              RAISE EXCEPTION 'client_type must not use a database enum-style CHECK';
+            END IF;
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_schema = 'public'
+                AND table_name = 'tenant_api_keys'
+                AND column_name = 'client_type'
+                AND is_nullable = 'NO'
+                AND column_default LIKE '%generic%'
+            ) OR NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_schema = 'public'
+                AND table_name = 'tenant_api_keys'
+                AND column_name = 'token_hint'
+                AND is_nullable = 'NO'
+            ) THEN
+              RAISE EXCEPTION 'M1 credential lifecycle columns are invalid';
+            END IF;
+            IF EXISTS (SELECT 1 FROM schema_migrations WHERE dirty) THEN
+              RAISE EXCEPTION 'Migration state is dirty';
             END IF;
           END $$;
           SQL

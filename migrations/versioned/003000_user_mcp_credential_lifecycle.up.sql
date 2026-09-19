@@ -1,0 +1,5 @@
+ALTER TABLE tenant_api_keys
+    ADD COLUMN IF NOT EXISTS client_type VARCHAR(32) NOT NULL DEFAULT 'generic';
+
+ALTER TABLE tenant_api_keys
+    ADD COLUMN IF NOT EXISTS token_hint VARCHAR(16) NOT NULL DEFAULT '';

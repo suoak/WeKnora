@@ -43,8 +43,8 @@
     "versioned": {
       "directory": "migrations/versioned",
       "database": "postgresql",
-      "current_latest": 96,
-      "existing_knowhub_baseline": 90,
+      "current_latest": 3000,
+      "existing_knowhub_baseline": 96,
       "immutable_through": 96,
       "immutable_file_count": 194,
       "immutable_history_sha256": "ec8edbfd59afcfe9c133f0aabbaa803ab2a00a86146dc798e733ea7850d59cdf"
@@ -52,8 +52,8 @@
     "sqlite": {
       "directory": "migrations/sqlite",
       "database": "sqlite",
-      "current_latest": 17,
-      "existing_knowhub_baseline": 12,
+      "current_latest": 3000,
+      "existing_knowhub_baseline": 17,
       "immutable_through": 17,
       "immutable_file_count": 36,
       "immutable_history_sha256": "19223066c468a8f70edd2044b76172bac6ab3e4edcad075f0e4d452c8e9d8b8a"
@@ -90,6 +90,11 @@
       "logical_id": "usage_analytics_phase2",
       "versioned": 96,
       "sqlite": 17
+    },
+    {
+      "logical_id": "user_mcp_credential_lifecycle",
+      "versioned": 3000,
+      "sqlite": 3000
     }
   ],
   "lineage_mapping": [

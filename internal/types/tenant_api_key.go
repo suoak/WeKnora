@@ -21,8 +21,10 @@ type TenantAPIKey struct {
 	OwnerUserID      *string         `json:"owner_user_id,omitempty" gorm:"type:varchar(36);index"`
 	ScopeType        APIKeyScopeType `json:"scope_type" gorm:"type:varchar(16);not null;default:tenant;index"`
 	Name             string          `json:"name" gorm:"type:varchar(128);not null"`
+	ClientType       MCPClientType   `json:"client_type" gorm:"type:varchar(32);not null;default:generic"`
 	KeyHash          string          `json:"-" gorm:"type:varchar(64);not null;uniqueIndex"`
 	APIKey           string          `json:"api_key" gorm:"column:api_key;type:text;not null;default:''"`
+	TokenHint        string          `json:"token_hint" gorm:"type:varchar(16);not null;default:''"`
 	FullAccess       bool            `json:"full_access" gorm:"not null;default:false"`
 	KnowledgeBaseIDs StringArray     `json:"knowledge_base_ids" gorm:"type:jsonb;not null;default:'[]'"`
 	// Capabilities are bounded grants for non-full-access keys. Each
@@ -37,6 +39,31 @@ type TenantAPIKey struct {
 	CreatedAt    time.Time           `json:"created_at"`
 	UpdatedAt    time.Time           `json:"updated_at"`
 	TenantScopes []APIKeyTenantScope `json:"tenant_scopes,omitempty" gorm:"foreignKey:APIKeyID"`
+}
+
+type MCPClientType string
+
+const (
+	MCPClientWorkBuddy MCPClientType = "workbuddy"
+	MCPClientWorkMate  MCPClientType = "workmate"
+	MCPClientCursor    MCPClientType = "cursor"
+	MCPClientCodeBuddy MCPClientType = "codebuddy"
+	MCPClientGeneric   MCPClientType = "generic"
+)
+
+func NormalizeMCPClientType(clientType MCPClientType) MCPClientType {
+	switch MCPClientType(strings.ToLower(strings.TrimSpace(string(clientType)))) {
+	case MCPClientWorkBuddy:
+		return MCPClientWorkBuddy
+	case MCPClientWorkMate:
+		return MCPClientWorkMate
+	case MCPClientCursor:
+		return MCPClientCursor
+	case MCPClientCodeBuddy:
+		return MCPClientCodeBuddy
+	default:
+		return MCPClientGeneric
+	}
 }
 
 type APIKeyScopeType string

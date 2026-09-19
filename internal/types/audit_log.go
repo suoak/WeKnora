@@ -137,12 +137,15 @@ const (
 	// password_generated=true only on the create path, idempotent=true
 	// marks a no-op hit on an already-existing identity.
 	// TenantID=0 (system-scope).
-	AuditActionSystemUserCreated   AuditAction = "system.user_created"
-	AuditActionSystemAPIKeyCreated AuditAction = "system.api_key_created"
-	AuditActionSystemAPIKeyRevoked AuditAction = "system.api_key_revoked"
-	AuditActionUserMCPKeyCreated   AuditAction = "mcp.user_key_created"
-	AuditActionUserMCPKeyUpdated   AuditAction = "mcp.user_key_updated"
-	AuditActionUserMCPKeyRevoked   AuditAction = "mcp.user_key_revoked"
+	AuditActionSystemUserCreated             AuditAction = "system.user_created"
+	AuditActionSystemAPIKeyCreated           AuditAction = "system.api_key_created"
+	AuditActionSystemAPIKeyRevoked           AuditAction = "system.api_key_revoked"
+	AuditActionUserMCPKeyCreated             AuditAction = "mcp.user_key_created"
+	AuditActionUserMCPKeyUpdated             AuditAction = "mcp.user_key_updated"
+	AuditActionUserMCPKeyScopeChanged        AuditAction = "mcp.user_key_scope_changed"
+	AuditActionUserMCPKeyCapabilitiesChanged AuditAction = "mcp.user_key_capabilities_changed"
+	AuditActionUserMCPKeyRotated             AuditAction = "mcp.user_key_rotated"
+	AuditActionUserMCPKeyRevoked             AuditAction = "mcp.user_key_revoked"
 
 	// Runtime queue mutations are privileged SystemAdmin actions. Retrying an
 	// archived task can repeat its original side effects; deleting one removes

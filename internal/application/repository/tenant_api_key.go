@@ -29,6 +29,7 @@ func (r *tenantAPIKeyRepository) CreateAPIKey(ctx context.Context, key *types.Te
 				return err
 			}
 			for i := range scopes {
+				scopes[i].ID = 0
 				scopes[i].APIKeyID = key.ID
 				children := scopes[i].KnowledgeBases
 				scopes[i].KnowledgeBases = nil
@@ -36,6 +37,7 @@ func (r *tenantAPIKeyRepository) CreateAPIKey(ctx context.Context, key *types.Te
 					return err
 				}
 				for j := range children {
+					children[j].ID = 0
 					children[j].APIKeyID = key.ID
 					children[j].TenantID = scopes[i].TenantID
 					children[j].APIKeyTenantScopeID = scopes[i].ID
@@ -76,9 +78,23 @@ func (r *tenantAPIKeyRepository) GetAPIKeyByHash(ctx context.Context, hash strin
 func (r *tenantAPIKeyRepository) ListUserMCPAPIKeys(ctx context.Context, userID string) ([]*types.TenantAPIKey, error) {
 	var keys []*types.TenantAPIKey
 	err := r.db.WithContext(ctx).Preload("TenantScopes.KnowledgeBases").
-		Where("scope_type = ? AND owner_user_id = ? AND revoked_at IS NULL", types.APIKeyScopeUserMCP, userID).
+		Where("scope_type = ? AND owner_user_id = ?", types.APIKeyScopeUserMCP, userID).
 		Order("created_at DESC").Find(&keys).Error
 	return keys, err
+}
+
+func (r *tenantAPIKeyRepository) GetUserMCPAPIKey(ctx context.Context, userID string, id uint64) (*types.TenantAPIKey, error) {
+	var key types.TenantAPIKey
+	err := r.db.WithContext(ctx).Preload("TenantScopes.KnowledgeBases").
+		Where("id=? AND owner_user_id=? AND scope_type=?", id, userID, types.APIKeyScopeUserMCP).
+		First(&key).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrTenantAPIKeyNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &key, nil
 }
 
 func (r *tenantAPIKeyRepository) GetUserMCPTenantScope(ctx context.Context, keyID, tenantID uint64) (*types.APIKeyTenantScope, error) {
@@ -125,7 +141,12 @@ func (r *tenantAPIKeyRepository) GetUserMCPTenantScope(ctx context.Context, keyI
 func (r *tenantAPIKeyRepository) ReplaceUserMCPAPIKey(ctx context.Context, userID string, key *types.TenantAPIKey) (*types.TenantAPIKey, error) {
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		res := tx.Model(&types.TenantAPIKey{}).Where("id=? AND owner_user_id=? AND scope_type=? AND revoked_at IS NULL", key.ID, userID, types.APIKeyScopeUserMCP).
-			Updates(map[string]any{"name": key.Name, "expires_at": key.ExpiresAt})
+			Updates(map[string]any{
+				"name":         key.Name,
+				"client_type":  key.ClientType,
+				"capabilities": key.Capabilities,
+				"expires_at":   key.ExpiresAt,
+			})
 		if res.Error != nil {
 			return res.Error
 		}
@@ -136,6 +157,7 @@ func (r *tenantAPIKeyRepository) ReplaceUserMCPAPIKey(ctx context.Context, userI
 			return err
 		}
 		for i := range key.TenantScopes {
+			key.TenantScopes[i].ID = 0
 			key.TenantScopes[i].APIKeyID = key.ID
 			children := key.TenantScopes[i].KnowledgeBases
 			key.TenantScopes[i].KnowledgeBases = nil
@@ -143,6 +165,7 @@ func (r *tenantAPIKeyRepository) ReplaceUserMCPAPIKey(ctx context.Context, userI
 				return err
 			}
 			for j := range children {
+				children[j].ID = 0
 				children[j].APIKeyID = key.ID
 				children[j].TenantID = key.TenantScopes[i].TenantID
 				children[j].APIKeyTenantScopeID = key.TenantScopes[i].ID
@@ -168,6 +191,31 @@ func (r *tenantAPIKeyRepository) ReplaceUserMCPAPIKey(ctx context.Context, userI
 		}
 	}
 	return nil, ErrTenantAPIKeyNotFound
+}
+
+func (r *tenantAPIKeyRepository) RotateUserMCPAPIKey(
+	ctx context.Context,
+	userID string,
+	id uint64,
+	expectedHash, newHash, tokenHint string,
+	expiresAt *time.Time,
+) (*types.TenantAPIKey, error) {
+	res := r.db.WithContext(ctx).Model(&types.TenantAPIKey{}).
+		Where("id=? AND owner_user_id=? AND scope_type=? AND revoked_at IS NULL AND key_hash=?",
+			id, userID, types.APIKeyScopeUserMCP, expectedHash).
+		Updates(map[string]any{
+			"key_hash":   newHash,
+			"token_hint": tokenHint,
+			"api_key":    "",
+			"expires_at": expiresAt,
+		})
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	if res.RowsAffected != 1 {
+		return nil, ErrTenantAPIKeyNotFound
+	}
+	return r.GetUserMCPAPIKey(ctx, userID, id)
 }
 
 func (r *tenantAPIKeyRepository) RevokeUserMCPAPIKey(ctx context.Context, userID string, id uint64) error {

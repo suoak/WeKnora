@@ -450,6 +450,9 @@ func authenticateAPIKeyRequest(
 	if c.IsAborted() {
 		return false
 	}
+	if recorder, ok := apiKeyService.(interfaces.TenantAPIKeyUsageRecorder); ok {
+		recorder.RecordAPIKeyUsed(key.ID)
+	}
 	// Per-route API-key authorization (full access + capabilities + KB scope)
 	// is enforced by middleware.APIKeyRouteAuthorizer on the /api/v1 group.
 	// Key-management and any other undeclared route is denied there.

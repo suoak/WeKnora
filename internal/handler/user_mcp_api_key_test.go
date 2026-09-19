@@ -31,6 +31,42 @@ func TestUserMCPExpiryAllowsNeverAndRejectsPast(t *testing.T) {
 	}
 }
 
+func TestUserMCPExpiryRejectsConflictingPolicy(t *testing.T) {
+	future := time.Now().Add(time.Hour).Unix()
+	if _, err := userMCPExpiry(userMCPKeyRequest{NeverExpires: true, ExpiresAt: &future}); err == nil {
+		t.Fatal("create accepted never_expires and expires_at_unix together")
+	}
+}
+
+func TestUserMCPExpiryChangeContract(t *testing.T) {
+	truth := true
+	falsity := false
+	futureUnix := time.Now().Add(24 * time.Hour).Unix()
+	pastUnix := time.Now().Add(-time.Hour).Unix()
+
+	specified, expiry, err := userMCPExpiryChange(nil, nil)
+	if err != nil || specified || expiry != nil {
+		t.Fatalf("omitted expiry = specified:%v expiry:%v err:%v; want unchanged", specified, expiry, err)
+	}
+	specified, expiry, err = userMCPExpiryChange(nil, &truth)
+	if err != nil || !specified || expiry != nil {
+		t.Fatalf("never expiry = specified:%v expiry:%v err:%v", specified, expiry, err)
+	}
+	specified, expiry, err = userMCPExpiryChange(&futureUnix, nil)
+	if err != nil || !specified || expiry == nil || expiry.Unix() != futureUnix {
+		t.Fatalf("dated expiry = specified:%v expiry:%v err:%v", specified, expiry, err)
+	}
+	if _, _, err = userMCPExpiryChange(&futureUnix, &truth); err == nil {
+		t.Fatal("PATCH accepted mutually exclusive expiry fields")
+	}
+	if _, _, err = userMCPExpiryChange(&pastUnix, nil); err == nil {
+		t.Fatal("PATCH accepted past expiry")
+	}
+	if _, _, err = userMCPExpiryChange(nil, &falsity); err == nil {
+		t.Fatal("PATCH accepted never_expires=false without an expiry")
+	}
+}
+
 func TestMCPPublicURLComesFromApplicationConfig(t *testing.T) {
 	h := &TenantHandler{config: &config.Config{MCPPublicURL: "http://10.51.134.114:8082/mcp"}}
 	if got := h.mcpPublicURL(); got != "http://10.51.134.114:8082/mcp" {
@@ -73,5 +109,48 @@ func TestMCPAPIKeyResponsesExposeOnlyPublicURL(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestUserMCPCredentialResponsesNeverExposeStoredSecret(t *testing.T) {
+	now := time.Now().UTC()
+	key := &types.TenantAPIKey{
+		ID: 42, ScopeType: types.APIKeyScopeUserMCP, Name: "WorkBuddy",
+		ClientType: types.MCPClientWorkBuddy, APIKey: "synthetic-stored-secret-never-return",
+		TokenHint: "••••92AF", Capabilities: types.StringArray{"retrieve", "chat"}, CreatedAt: now,
+	}
+	for name, response := range map[string]any{
+		"list-detail-patch": userMCPResponse(key),
+		"create-rotate":     (&TenantHandler{}).userMCPCreateResponse(key, "synthetic-one-time-token"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			body, err := json.Marshal(response)
+			if err != nil {
+				t.Fatal(err)
+			}
+			serialized := string(body)
+			if strings.Contains(serialized, key.APIKey) || strings.Contains(serialized, `"api_key"`) {
+				t.Fatalf("response exposed stored api_key: %s", serialized)
+			}
+			if name == "create-rotate" && !strings.Contains(serialized, "synthetic-one-time-token") {
+				t.Fatalf("one-time response omitted generated token: %s", serialized)
+			}
+		})
+	}
+}
+
+func TestUserMCPAuditDetailsContainHintButNoSecret(t *testing.T) {
+	key := &types.TenantAPIKey{
+		ID: 7, Name: "Cursor", ClientType: types.MCPClientCursor,
+		APIKey: "synthetic-audit-secret-never-log", TokenHint: "••••ABCD",
+		Capabilities: types.StringArray{"retrieve"},
+	}
+	details := userMCPAuditDetails(key, []types.APIKeyTenantScope{{
+		TenantID: 11, KBScopeMode: types.APIKeyKBScopeSelected,
+		KnowledgeBases: []types.APIKeyKnowledgeBaseScope{{KnowledgeBaseID: "kb-1"}},
+	}})
+	serialized := string(details)
+	if strings.Contains(serialized, key.APIKey) || !strings.Contains(serialized, key.TokenHint) {
+		t.Fatalf("unsafe audit details: %s", serialized)
 	}
 }

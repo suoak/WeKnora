@@ -51,7 +51,7 @@ the same logical feature identity but do not need the same physical number.
 
 ## Current inventories and conflicts
 
-KnowHub PostgreSQL currently ends at `000096`:
+KnowHub's frozen historical PostgreSQL sequence ends at `000096`:
 
 | Version | Logical change |
 |---|---|
@@ -62,7 +62,7 @@ KnowHub PostgreSQL currently ends at `000096`:
 | 95 | usage analytics |
 | 96 | usage analytics phase 2 |
 
-KnowHub SQLite currently ends at `000017`:
+KnowHub's frozen historical SQLite sequence ends at `000017`:
 
 | Version | Logical change |
 |---|---|
@@ -71,6 +71,10 @@ KnowHub SQLite currently ends at `000017`:
 | 15 | Knowledge Portal |
 | 16 | usage analytics |
 | 17 | usage analytics phase 2 |
+
+Governed product migrations begin after that frozen history. The current
+latest version in both dialects is `003000`, `user_mcp_credential_lifecycle`,
+which adds only `client_type` and `token_hint` to `tenant_api_keys`.
 
 Upstream PostgreSQL versions 91–106 and SQLite versions 13–25 overlap or pass
 through KnowHub's occupied ranges. All of them are treated as lineage conflicts,
@@ -128,8 +132,9 @@ M0 provides these gates:
 - PostgreSQL fresh install and KnowHub-baseline upgrade in CI;
 - PostgreSQL schema-only dump fingerprint equality and sentinel preservation.
 
-The Existing KnowHub baseline is version 90 for PostgreSQL and version 12 for
-SQLite, immediately before the fork-specific migration sequences.
+The M1 release gate upgrades the latest frozen KnowHub histories: PostgreSQL
+version 96 and SQLite version 17. Earlier installations traverse the same
+immutable sequence before applying governed product migrations.
 
 ## Recovery and rollback
 

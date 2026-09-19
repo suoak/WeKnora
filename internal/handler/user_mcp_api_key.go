@@ -2,11 +2,15 @@ package handler
 
 import (
 	"encoding/json"
+	stderrors "errors"
+	"io"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	apprepo "github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/errors"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -26,9 +30,25 @@ type userMCPTenantScopeRequest struct {
 }
 type userMCPKeyRequest struct {
 	Name         string                      `json:"name"`
+	ClientType   types.MCPClientType         `json:"client_type"`
+	Capabilities []string                    `json:"capabilities"`
 	ExpiresAt    *int64                      `json:"expires_at_unix"`
 	NeverExpires bool                        `json:"never_expires"`
 	TenantScopes []userMCPTenantScopeRequest `json:"tenant_scopes"`
+}
+
+type userMCPKeyPatchRequest struct {
+	Name         *string                      `json:"name"`
+	ClientType   *types.MCPClientType         `json:"client_type"`
+	Capabilities *[]string                    `json:"capabilities"`
+	ExpiresAt    *int64                       `json:"expires_at_unix"`
+	NeverExpires *bool                        `json:"never_expires"`
+	TenantScopes *[]userMCPTenantScopeRequest `json:"tenant_scopes"`
+}
+
+type userMCPRotateRequest struct {
+	ExpiresAt    *int64 `json:"expires_at_unix"`
+	NeverExpires *bool  `json:"never_expires"`
 }
 
 type userMCPAPIResponse[T any] struct {
@@ -118,6 +138,9 @@ func (h *TenantHandler) validateUserMCPScopes(c *gin.Context, userID string, inp
 }
 
 func userMCPExpiry(req userMCPKeyRequest) (*time.Time, error) {
+	if req.NeverExpires && req.ExpiresAt != nil {
+		return nil, errors.NewValidationError("never_expires and expires_at_unix are mutually exclusive")
+	}
 	if req.NeverExpires {
 		return nil, nil
 	}
@@ -130,6 +153,26 @@ func userMCPExpiry(req userMCPKeyRequest) (*time.Time, error) {
 		return nil, errors.NewValidationError("expires_at_unix must be in the future")
 	}
 	return &v, nil
+}
+
+func userMCPExpiryChange(expiresAt *int64, neverExpires *bool) (bool, *time.Time, error) {
+	if neverExpires != nil && *neverExpires && expiresAt != nil {
+		return false, nil, errors.NewValidationError("never_expires and expires_at_unix are mutually exclusive")
+	}
+	if neverExpires != nil && *neverExpires {
+		return true, nil, nil
+	}
+	if expiresAt != nil {
+		v := time.Unix(*expiresAt, 0).UTC()
+		if !v.After(time.Now().UTC()) {
+			return false, nil, errors.NewValidationError("expires_at_unix must be in the future")
+		}
+		return true, &v, nil
+	}
+	if neverExpires != nil {
+		return false, nil, errors.NewValidationError("never_expires=false requires expires_at_unix")
+	}
+	return false, nil, nil
 }
 
 func (h *TenantHandler) mcpPublicURL() string {
@@ -145,35 +188,78 @@ func (h *TenantHandler) userMCPCollectionResponse(data []gin.H) userMCPAPIRespon
 
 func (h *TenantHandler) userMCPCreateResponse(k *types.TenantAPIKey, token string) userMCPCreateAPIResponse {
 	data := userMCPResponse(k)
+	data["credential"] = userMCPResponse(k)
 	data["token"] = token
 	data["mcp_public_url"] = h.mcpPublicURL()
 	return userMCPCreateAPIResponse{Success: true, Data: data}
 }
 
 func userMCPResponse(k *types.TenantAPIKey) gin.H {
-	return gin.H{"id": k.ID, "scope_type": k.ScopeType, "name": k.Name, "api_key": maskManagedAPIKey(k.APIKey), "tenant_scopes": k.TenantScopes, "last_used_at": k.LastUsedAt, "expires_at": k.ExpiresAt, "created_at": k.CreatedAt}
+	status := "active"
+	if k.RevokedAt != nil {
+		status = "revoked"
+	} else if k.ExpiresAt != nil && !k.ExpiresAt.After(time.Now().UTC()) {
+		status = "expired"
+	}
+	return gin.H{
+		"id": k.ID, "scope_type": k.ScopeType, "name": k.Name,
+		"client_type": types.NormalizeMCPClientType(k.ClientType), "status": status,
+		"token_hint": k.TokenHint, "capabilities": k.Capabilities,
+		"tenant_scopes": k.TenantScopes, "last_used_at": k.LastUsedAt,
+		"expires_at": k.ExpiresAt, "revoked_at": k.RevokedAt,
+		"created_at": k.CreatedAt, "updated_at": k.UpdatedAt,
+	}
 }
 
-func (h *TenantHandler) auditUserMCPKey(c *gin.Context, action types.AuditAction, userID string, keyID uint64, name string, scopes []types.APIKeyTenantScope) {
+func (h *TenantHandler) auditUserMCPKey(c *gin.Context, action types.AuditAction, userID string, key *types.TenantAPIKey, scopes []types.APIKeyTenantScope) {
 	if h.auditService == nil {
 		return
 	}
-	details, _ := json.Marshal(gin.H{"key_name": name, "workspace_count": len(scopes)})
+	details := userMCPAuditDetails(key, scopes)
 	for _, scope := range scopes {
 		_ = h.auditService.Log(c.Request.Context(), &types.AuditLog{
 			TenantID:      scope.TenantID,
 			ActorUserID:   userID,
 			Action:        action,
 			ScopeType:     "api_key",
-			ScopeID:       strconv.FormatUint(keyID, 10),
+			ScopeID:       strconv.FormatUint(key.ID, 10),
 			TargetType:    "user_mcp_key",
-			TargetID:      strconv.FormatUint(keyID, 10),
+			TargetID:      strconv.FormatUint(key.ID, 10),
 			RequestPath:   c.Request.URL.Path,
 			RequestMethod: c.Request.Method,
 			Outcome:       types.AuditOutcomeSuccess,
-			Details:       types.JSON(details),
+			Details:       details,
 		})
 	}
+}
+
+func userMCPAuditDetails(key *types.TenantAPIKey, scopes []types.APIKeyTenantScope) types.JSON {
+	tenantIDs := make([]uint64, 0, len(scopes))
+	kbIDs := make([]string, 0)
+	for _, scope := range scopes {
+		tenantIDs = append(tenantIDs, scope.TenantID)
+		for _, kb := range scope.KnowledgeBases {
+			kbIDs = append(kbIDs, kb.KnowledgeBaseID)
+		}
+	}
+	details, _ := json.Marshal(gin.H{
+		"credential_id": key.ID, "key_name": key.Name,
+		"client_type": types.NormalizeMCPClientType(key.ClientType), "token_hint": key.TokenHint,
+		"tenant_ids": tenantIDs, "knowledge_base_ids": kbIDs, "capabilities": key.Capabilities,
+	})
+	return types.JSON(details)
+}
+
+func validateUserMCPClientType(clientType types.MCPClientType) error {
+	raw := strings.ToLower(strings.TrimSpace(string(clientType)))
+	if raw == "" {
+		return nil
+	}
+	normalized := types.NormalizeMCPClientType(clientType)
+	if normalized == types.MCPClientGeneric && raw != string(types.MCPClientGeneric) {
+		return errors.NewValidationError("unsupported client_type")
+	}
+	return nil
 }
 
 func findUserMCPKey(rows []*types.TenantAPIKey, id uint64) *types.TenantAPIKey {
@@ -203,6 +289,24 @@ func (h *TenantHandler) ListUserMCPAPIKeys(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, h.userMCPCollectionResponse(data))
 }
+func (h *TenantHandler) GetUserMCPAPIKey(c *gin.Context) {
+	id, e := strconv.ParseUint(c.Param("id"), 10, 64)
+	if e != nil {
+		c.Error(errors.NewValidationError("invalid key id"))
+		return
+	}
+	svc, ok := h.userMCPKeyService()
+	if !ok {
+		c.Error(errors.NewInternalServerError("MCP API key service unavailable"))
+		return
+	}
+	row, e := svc.GetUserMCPAPIKey(c.Request.Context(), c.GetString(types.UserIDContextKey.String()), id)
+	if e != nil {
+		c.Error(errors.NewNotFoundError("MCP API key not found"))
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": userMCPResponse(row)})
+}
 func (h *TenantHandler) CreateUserMCPAPIKey(c *gin.Context) {
 	var req userMCPKeyRequest
 	if e := c.ShouldBindJSON(&req); e != nil {
@@ -210,6 +314,10 @@ func (h *TenantHandler) CreateUserMCPAPIKey(c *gin.Context) {
 		return
 	}
 	uid := c.GetString(types.UserIDContextKey.String())
+	if e := validateUserMCPClientType(req.ClientType); e != nil {
+		c.Error(e)
+		return
+	}
 	scopes, e := h.validateUserMCPScopes(c, uid, req.TenantScopes)
 	if e != nil {
 		c.Error(e)
@@ -220,12 +328,12 @@ func (h *TenantHandler) CreateUserMCPAPIKey(c *gin.Context) {
 		c.Error(e)
 		return
 	}
-	result, e := h.apiKeyService.CreateAPIKey(c.Request.Context(), interfaces.TenantAPIKeyCreateRequest{ScopeType: types.APIKeyScopeUserMCP, OwnerUserID: uid, Name: req.Name, Capabilities: []string{"retrieve", "chat", "read_agents"}, ExpiresAt: exp, TenantScopes: scopes})
+	result, e := h.apiKeyService.CreateAPIKey(c.Request.Context(), interfaces.TenantAPIKeyCreateRequest{ScopeType: types.APIKeyScopeUserMCP, OwnerUserID: uid, Name: req.Name, ClientType: req.ClientType, Capabilities: req.Capabilities, ExpiresAt: exp, TenantScopes: scopes})
 	if e != nil {
 		c.Error(errors.NewValidationError(e.Error()))
 		return
 	}
-	h.auditUserMCPKey(c, types.AuditActionUserMCPKeyCreated, uid, result.APIKey.ID, result.APIKey.Name, result.APIKey.TenantScopes)
+	h.auditUserMCPKey(c, types.AuditActionUserMCPKeyCreated, uid, result.APIKey, result.APIKey.TenantScopes)
 	c.JSON(http.StatusCreated, h.userMCPCreateResponse(result.APIKey, result.Token))
 }
 func (h *TenantHandler) UpdateUserMCPAPIKey(c *gin.Context) {
@@ -240,6 +348,10 @@ func (h *TenantHandler) UpdateUserMCPAPIKey(c *gin.Context) {
 		return
 	}
 	uid := c.GetString(types.UserIDContextKey.String())
+	if e := validateUserMCPClientType(req.ClientType); e != nil {
+		c.Error(e)
+		return
+	}
 	svc, ok := h.userMCPKeyService()
 	if !ok {
 		c.Error(errors.NewInternalServerError("MCP API key service unavailable"))
@@ -247,6 +359,16 @@ func (h *TenantHandler) UpdateUserMCPAPIKey(c *gin.Context) {
 	}
 	oldRows, _ := svc.ListUserMCPAPIKeys(c.Request.Context(), uid)
 	oldKey := findUserMCPKey(oldRows, id)
+	clientType := req.ClientType
+	capabilities := req.Capabilities
+	if oldKey != nil {
+		if strings.TrimSpace(string(clientType)) == "" {
+			clientType = oldKey.ClientType
+		}
+		if len(capabilities) == 0 {
+			capabilities = append([]string(nil), oldKey.Capabilities...)
+		}
+	}
 	scopes, e := h.validateUserMCPScopes(c, uid, req.TenantScopes)
 	if e != nil {
 		c.Error(e)
@@ -257,7 +379,7 @@ func (h *TenantHandler) UpdateUserMCPAPIKey(c *gin.Context) {
 		c.Error(e)
 		return
 	}
-	row, e := svc.ReplaceUserMCPAPIKey(c.Request.Context(), uid, &types.TenantAPIKey{ID: id, Name: strings.TrimSpace(req.Name), ExpiresAt: exp, TenantScopes: scopes})
+	row, e := svc.ReplaceUserMCPAPIKey(c.Request.Context(), uid, &types.TenantAPIKey{ID: id, Name: strings.TrimSpace(req.Name), ClientType: clientType, Capabilities: capabilities, ExpiresAt: exp, TenantScopes: scopes})
 	if e != nil {
 		c.Error(errors.NewNotFoundError("MCP API key not found"))
 		return
@@ -274,7 +396,83 @@ func (h *TenantHandler) UpdateUserMCPAPIKey(c *gin.Context) {
 			}
 		}
 	}
-	h.auditUserMCPKey(c, types.AuditActionUserMCPKeyUpdated, uid, row.ID, row.Name, auditScopes)
+	h.auditUserMCPKey(c, types.AuditActionUserMCPKeyUpdated, uid, row, auditScopes)
+	if oldKey != nil && !sameUserMCPScopes(oldKey.TenantScopes, row.TenantScopes) {
+		h.auditUserMCPKey(c, types.AuditActionUserMCPKeyScopeChanged, uid, row, auditScopes)
+	}
+	if oldKey != nil && strings.Join(oldKey.Capabilities, ",") != strings.Join(row.Capabilities, ",") {
+		h.auditUserMCPKey(c, types.AuditActionUserMCPKeyCapabilitiesChanged, uid, row, auditScopes)
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": userMCPResponse(row)})
+}
+
+func (h *TenantHandler) PatchUserMCPAPIKey(c *gin.Context) {
+	id, e := strconv.ParseUint(c.Param("id"), 10, 64)
+	if e != nil {
+		c.Error(errors.NewValidationError("invalid key id"))
+		return
+	}
+	var req userMCPKeyPatchRequest
+	if e = c.ShouldBindJSON(&req); e != nil {
+		c.Error(errors.NewValidationError("invalid request"))
+		return
+	}
+	uid := c.GetString(types.UserIDContextKey.String())
+	svc, ok := h.userMCPKeyService()
+	if !ok {
+		c.Error(errors.NewInternalServerError("MCP API key service unavailable"))
+		return
+	}
+	oldKey, e := svc.GetUserMCPAPIKey(c.Request.Context(), uid, id)
+	if e != nil || oldKey == nil || oldKey.RevokedAt != nil {
+		c.Error(errors.NewNotFoundError("MCP API key not found"))
+		return
+	}
+	updated := &types.TenantAPIKey{
+		ID: id, Name: oldKey.Name, ClientType: oldKey.ClientType,
+		Capabilities: append(types.StringArray(nil), oldKey.Capabilities...),
+		ExpiresAt:    oldKey.ExpiresAt, TenantScopes: oldKey.TenantScopes,
+	}
+	if req.Name != nil {
+		updated.Name = strings.TrimSpace(*req.Name)
+	}
+	if req.ClientType != nil {
+		if e = validateUserMCPClientType(*req.ClientType); e != nil {
+			c.Error(e)
+			return
+		}
+		updated.ClientType = *req.ClientType
+	}
+	if req.Capabilities != nil {
+		updated.Capabilities = append(types.StringArray(nil), (*req.Capabilities)...)
+	}
+	if req.TenantScopes != nil {
+		updated.TenantScopes, e = h.validateUserMCPScopes(c, uid, *req.TenantScopes)
+		if e != nil {
+			c.Error(e)
+			return
+		}
+	}
+	if req.NeverExpires != nil || req.ExpiresAt != nil {
+		_, updated.ExpiresAt, e = userMCPExpiryChange(req.ExpiresAt, req.NeverExpires)
+		if e != nil {
+			c.Error(e)
+			return
+		}
+	}
+	row, e := svc.ReplaceUserMCPAPIKey(c.Request.Context(), uid, updated)
+	if e != nil {
+		c.Error(errors.NewValidationError(e.Error()))
+		return
+	}
+	auditScopes := mergeUserMCPAuditScopes(oldKey.TenantScopes, row.TenantScopes)
+	h.auditUserMCPKey(c, types.AuditActionUserMCPKeyUpdated, uid, row, auditScopes)
+	if !sameUserMCPScopes(oldKey.TenantScopes, row.TenantScopes) {
+		h.auditUserMCPKey(c, types.AuditActionUserMCPKeyScopeChanged, uid, row, auditScopes)
+	}
+	if strings.Join(oldKey.Capabilities, ",") != strings.Join(row.Capabilities, ",") {
+		h.auditUserMCPKey(c, types.AuditActionUserMCPKeyCapabilitiesChanged, uid, row, auditScopes)
+	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": userMCPResponse(row)})
 }
 func (h *TenantHandler) RevokeUserMCPAPIKey(c *gin.Context) {
@@ -296,9 +494,83 @@ func (h *TenantHandler) RevokeUserMCPAPIKey(c *gin.Context) {
 		return
 	}
 	if key != nil {
-		h.auditUserMCPKey(c, types.AuditActionUserMCPKeyRevoked, uid, key.ID, key.Name, key.TenantScopes)
+		h.auditUserMCPKey(c, types.AuditActionUserMCPKeyRevoked, uid, key, key.TenantScopes)
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+func (h *TenantHandler) RotateUserMCPAPIKey(c *gin.Context) {
+	id, e := strconv.ParseUint(c.Param("id"), 10, 64)
+	if e != nil {
+		c.Error(errors.NewValidationError("invalid key id"))
+		return
+	}
+	var req userMCPRotateRequest
+	if e = c.ShouldBindJSON(&req); e != nil && e != io.EOF {
+		c.Error(errors.NewValidationError("invalid request"))
+		return
+	}
+	expirySpecified, exp, e := userMCPExpiryChange(req.ExpiresAt, req.NeverExpires)
+	if e != nil {
+		c.Error(e)
+		return
+	}
+	uid := c.GetString(types.UserIDContextKey.String())
+	svc, ok := h.userMCPKeyService()
+	if !ok {
+		c.Error(errors.NewInternalServerError("MCP API key service unavailable"))
+		return
+	}
+	result, e := svc.RotateUserMCPAPIKey(c.Request.Context(), uid, id, interfaces.UserMCPAPIKeyRotateRequest{
+		ExpirySpecified: expirySpecified,
+		ExpiresAt:       exp,
+	})
+	if e != nil {
+		if stderrors.Is(e, apprepo.ErrTenantAPIKeyNotFound) {
+			c.Error(errors.NewNotFoundError("MCP API key not found or changed concurrently"))
+		} else {
+			c.Error(errors.NewValidationError(e.Error()))
+		}
+		return
+	}
+	h.auditUserMCPKey(c, types.AuditActionUserMCPKeyRotated, uid, result.APIKey, result.APIKey.TenantScopes)
+	c.JSON(http.StatusOK, h.userMCPCreateResponse(result.APIKey, result.Token))
+}
+
+func sameUserMCPScopes(a, b []types.APIKeyTenantScope) bool {
+	return strings.Join(userMCPscopeSignature(a), "|") == strings.Join(userMCPscopeSignature(b), "|")
+}
+
+func userMCPscopeSignature(scopes []types.APIKeyTenantScope) []string {
+	out := make([]string, 0, len(scopes))
+	for _, scope := range scopes {
+		parts := make([]string, 0, len(scope.KnowledgeBases))
+		for _, kb := range scope.KnowledgeBases {
+			shareID := ""
+			if kb.KBShareID != nil {
+				shareID = *kb.KBShareID
+			}
+			parts = append(parts, string(kb.SourceType)+":"+kb.KnowledgeBaseID+":"+shareID)
+		}
+		sort.Strings(parts)
+		out = append(out, strconv.FormatUint(scope.TenantID, 10)+":"+string(scope.KBScopeMode)+":"+strings.Join(parts, ","))
+	}
+	sort.Strings(out)
+	return out
+}
+
+func mergeUserMCPAuditScopes(a, b []types.APIKeyTenantScope) []types.APIKeyTenantScope {
+	out := append([]types.APIKeyTenantScope{}, b...)
+	seen := map[uint64]bool{}
+	for _, scope := range out {
+		seen[scope.TenantID] = true
+	}
+	for _, scope := range a {
+		if !seen[scope.TenantID] {
+			out = append(out, scope)
+		}
+	}
+	return out
 }
 func (h *TenantHandler) UserMCPAPIKeyScopeOptions(c *gin.Context) {
 	uid := c.GetString(types.UserIDContextKey.String())

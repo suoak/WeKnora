@@ -10,6 +10,8 @@ import (
 	apprepo "github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 type fakeTenantAPIKeyRepo struct {
@@ -46,7 +48,6 @@ func TestTenantAPIKeyServiceUserMCPForcesReadOnlyCapabilities(t *testing.T) {
 		OwnerUserID:      "user-1",
 		Name:             "assistant",
 		FullAccess:       true,
-		Capabilities:     []string{"manage_kbs", "system.audit.read"},
 		KnowledgeBaseIDs: []string{"bypass"},
 		TenantScopes: []types.APIKeyTenantScope{{
 			TenantID: 7, KBScopeMode: types.APIKeyKBScopeAll,
@@ -58,9 +59,79 @@ func TestTenantAPIKeyServiceUserMCPForcesReadOnlyCapabilities(t *testing.T) {
 	if result.APIKey.FullAccess || len(result.APIKey.KnowledgeBaseIDs) != 0 {
 		t.Fatalf("user MCP key retained elevated scope: %#v", result.APIKey)
 	}
-	want := types.StringArray{"retrieve", "chat", "read_agents"}
+	want := types.StringArray{"retrieve", "chat"}
 	if strings.Join(result.APIKey.Capabilities, ",") != strings.Join(want, ",") {
 		t.Fatalf("capabilities = %#v, want %#v", result.APIKey.Capabilities, want)
+	}
+	if result.APIKey.APIKey != "" || result.APIKey.TokenHint == "" || result.Token == "" {
+		t.Fatalf("user MCP secret storage = api_key:%q hint:%q token-present:%v, want hash-only with one-time token",
+			result.APIKey.APIKey, result.APIKey.TokenHint, result.Token != "")
+	}
+	if result.APIKey.ClientType != types.MCPClientGeneric {
+		t.Fatalf("default client type = %q, want generic", result.APIKey.ClientType)
+	}
+	if len(result.APIKey.KeyHash) != 64 || result.APIKey.KeyHash != hashTenantAPIKey(result.Token) {
+		t.Fatalf("stored key hash is not the generated token SHA-256: %q", result.APIKey.KeyHash)
+	}
+	if wantHint := tenantAPIKeyTokenHint(result.Token); result.APIKey.TokenHint != wantHint {
+		t.Fatalf("token hint = %q, want %q", result.APIKey.TokenHint, wantHint)
+	}
+}
+
+func TestTenantAPIKeyServiceUserMCPRejectsElevatedCapabilities(t *testing.T) {
+	svc := NewTenantAPIKeyService(newFakeTenantAPIKeyRepo())
+	_, err := svc.CreateAPIKey(context.Background(), interfaces.TenantAPIKeyCreateRequest{
+		ScopeType: types.APIKeyScopeUserMCP, OwnerUserID: "user-1", Name: "unsafe",
+		Capabilities: []string{"retrieve", "manage_kbs"},
+		TenantScopes: []types.APIKeyTenantScope{{TenantID: 7, KBScopeMode: types.APIKeyKBScopeAll}},
+	})
+	if err == nil {
+		t.Fatal("elevated user MCP capability was accepted")
+	}
+}
+
+func TestTenantAPIKeyServicePersistsNewUserMCPHashOnly(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = db.AutoMigrate(&types.TenantAPIKey{}, &types.APIKeyTenantScope{}, &types.APIKeyKnowledgeBaseScope{}); err != nil {
+		t.Fatal(err)
+	}
+	svc := NewTenantAPIKeyService(apprepo.NewTenantAPIKeyRepository(db))
+	created, err := svc.CreateAPIKey(context.Background(), interfaces.TenantAPIKeyCreateRequest{
+		ScopeType: types.APIKeyScopeUserMCP, OwnerUserID: "owner-1", Name: "hash-only",
+		ClientType:   types.MCPClientWorkBuddy,
+		TenantScopes: []types.APIKeyTenantScope{{TenantID: 7, KBScopeMode: types.APIKeyKBScopeAll}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stored struct {
+		KeyHash   string
+		APIKey    string
+		TokenHint string
+	}
+	if err = db.Table("tenant_api_keys").Select("key_hash, api_key, token_hint").Where("id=?", created.APIKey.ID).Scan(&stored).Error; err != nil {
+		t.Fatal(err)
+	}
+	if stored.APIKey != "" || stored.KeyHash != hashTenantAPIKey(created.Token) || stored.TokenHint != tenantAPIKeyTokenHint(created.Token) {
+		t.Fatalf("stored credential is not hash-only: api_key=%q hash=%q hint=%q", stored.APIKey, stored.KeyHash, stored.TokenHint)
+	}
+	if created.APIKey.ClientType != types.MCPClientWorkBuddy {
+		t.Fatalf("client type = %q, want workbuddy", created.APIKey.ClientType)
+	}
+}
+
+func TestTenantAPIKeyServiceRejectsUnknownUserMCPClientType(t *testing.T) {
+	svc := NewTenantAPIKeyService(newFakeTenantAPIKeyRepo())
+	_, err := svc.CreateAPIKey(context.Background(), interfaces.TenantAPIKeyCreateRequest{
+		ScopeType: types.APIKeyScopeUserMCP, OwnerUserID: "user-1", Name: "future-client",
+		ClientType:   types.MCPClientType("not-yet-supported"),
+		TenantScopes: []types.APIKeyTenantScope{{TenantID: 7, KBScopeMode: types.APIKeyKBScopeAll}},
+	})
+	if err == nil {
+		t.Fatal("unknown client_type was accepted by application validation")
 	}
 }
 
@@ -255,6 +326,252 @@ func (r *fakeTenantAPIKeyRepo) UpdateAPIKeyLastUsed(_ context.Context, id uint64
 	return nil
 }
 
+func (r *fakeTenantAPIKeyRepo) ListUserMCPAPIKeys(_ context.Context, userID string) ([]*types.TenantAPIKey, error) {
+	out := []*types.TenantAPIKey{}
+	for _, key := range r.byHash {
+		if key.IsUserMCP() && key.OwnerUserID != nil && *key.OwnerUserID == userID {
+			cp := *key
+			out = append(out, &cp)
+		}
+	}
+	return out, nil
+}
+
+func (r *fakeTenantAPIKeyRepo) GetUserMCPAPIKey(_ context.Context, userID string, id uint64) (*types.TenantAPIKey, error) {
+	rows, _ := r.ListUserMCPAPIKeys(context.Background(), userID)
+	for _, key := range rows {
+		if key.ID == id {
+			return key, nil
+		}
+	}
+	return nil, apprepo.ErrTenantAPIKeyNotFound
+}
+
+func (r *fakeTenantAPIKeyRepo) GetUserMCPTenantScope(_ context.Context, keyID, tenantID uint64) (*types.APIKeyTenantScope, error) {
+	for _, key := range r.byHash {
+		if key.ID != keyID {
+			continue
+		}
+		for _, scope := range key.TenantScopes {
+			if scope.TenantID == tenantID {
+				cp := scope
+				return &cp, nil
+			}
+		}
+	}
+	return nil, apprepo.ErrTenantAPIKeyNotFound
+}
+
+func (r *fakeTenantAPIKeyRepo) ReplaceUserMCPAPIKey(_ context.Context, userID string, update *types.TenantAPIKey) (*types.TenantAPIKey, error) {
+	for _, key := range r.byHash {
+		if key.ID == update.ID && key.IsUserMCP() && key.OwnerUserID != nil && *key.OwnerUserID == userID && key.RevokedAt == nil {
+			key.Name, key.ClientType, key.Capabilities, key.ExpiresAt = update.Name, update.ClientType, update.Capabilities, update.ExpiresAt
+			key.TenantScopes = update.TenantScopes
+			cp := *key
+			return &cp, nil
+		}
+	}
+	return nil, apprepo.ErrTenantAPIKeyNotFound
+}
+
+func (r *fakeTenantAPIKeyRepo) RotateUserMCPAPIKey(_ context.Context, userID string, id uint64, expectedHash, newHash, tokenHint string, expiresAt *time.Time) (*types.TenantAPIKey, error) {
+	key, ok := r.byHash[expectedHash]
+	if !ok || key.ID != id || !key.IsUserMCP() || key.OwnerUserID == nil || *key.OwnerUserID != userID || key.RevokedAt != nil {
+		return nil, apprepo.ErrTenantAPIKeyNotFound
+	}
+	delete(r.byHash, expectedHash)
+	key.KeyHash, key.TokenHint, key.APIKey, key.ExpiresAt = newHash, tokenHint, "", expiresAt
+	r.byHash[newHash] = key
+	cp := *key
+	return &cp, nil
+}
+
+func (r *fakeTenantAPIKeyRepo) RevokeUserMCPAPIKey(_ context.Context, userID string, id uint64) error {
+	for _, key := range r.byHash {
+		if key.ID == id && key.IsUserMCP() && key.OwnerUserID != nil && *key.OwnerUserID == userID && key.RevokedAt == nil {
+			now := time.Now().UTC()
+			key.RevokedAt = &now
+			return nil
+		}
+	}
+	return apprepo.ErrTenantAPIKeyNotFound
+}
+
+func TestTenantAPIKeyServiceRotateUserMCPInvalidatesOldToken(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeTenantAPIKeyRepo()
+	svc := NewTenantAPIKeyService(repo)
+	created, err := svc.CreateAPIKey(ctx, interfaces.TenantAPIKeyCreateRequest{
+		ScopeType: types.APIKeyScopeUserMCP, OwnerUserID: "user-1", Name: "rotate",
+		TenantScopes: []types.APIKeyTenantScope{{TenantID: 7, KBScopeMode: types.APIKeyKBScopeAll}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rotated, err := svc.(interfaces.UserMCPAPIKeyService).RotateUserMCPAPIKey(ctx, "user-1", created.APIKey.ID, interfaces.UserMCPAPIKeyRotateRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rotated.Token == created.Token || rotated.APIKey.APIKey != "" || rotated.APIKey.TokenHint == "" {
+		t.Fatalf("invalid rotation result: %#v", rotated.APIKey)
+	}
+	if _, err = svc.AuthenticateAPIKey(ctx, created.Token); err == nil {
+		t.Fatal("old token authenticated after rotation")
+	}
+	if _, err = svc.AuthenticateAPIKey(ctx, rotated.Token); err != nil {
+		t.Fatalf("new token did not authenticate: %v", err)
+	}
+}
+
+func TestTenantAPIKeyServiceUpdatesUserMCPCapabilitiesWithinAllowList(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeTenantAPIKeyRepo()
+	svc := NewTenantAPIKeyService(repo)
+	created, err := svc.CreateAPIKey(ctx, interfaces.TenantAPIKeyCreateRequest{
+		ScopeType: types.APIKeyScopeUserMCP, OwnerUserID: "user-1", Name: "caps",
+		TenantScopes: []types.APIKeyTenantScope{{TenantID: 7, KBScopeMode: types.APIKeyKBScopeAll}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	userSvc := svc.(interfaces.UserMCPAPIKeyService)
+	updated, err := userSvc.ReplaceUserMCPAPIKey(ctx, "user-1", &types.TenantAPIKey{
+		ID: created.APIKey.ID, Name: "caps", ClientType: types.MCPClientWorkMate,
+		Capabilities: types.StringArray{"retrieve", "read_agents"}, TenantScopes: created.APIKey.TenantScopes,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(updated.Capabilities, ","); got != "retrieve,read_agents" {
+		t.Fatalf("capabilities = %s", got)
+	}
+	_, err = userSvc.ReplaceUserMCPAPIKey(ctx, "user-1", &types.TenantAPIKey{
+		ID: created.APIKey.ID, Name: "caps", Capabilities: types.StringArray{"manage_kbs"}, TenantScopes: created.APIKey.TenantScopes,
+	})
+	if err == nil {
+		t.Fatal("manage_kbs update was accepted")
+	}
+}
+
+func TestTenantAPIKeyServiceAllowsExpiredUserMCPRotationWithNewExpiry(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeTenantAPIKeyRepo()
+	svc := NewTenantAPIKeyService(repo)
+	expired := time.Now().UTC().Add(-time.Hour)
+	created, err := svc.CreateAPIKey(ctx, interfaces.TenantAPIKeyCreateRequest{
+		ScopeType: types.APIKeyScopeUserMCP, OwnerUserID: "user-1", Name: "expired",
+		ExpiresAt: &expired, TenantScopes: []types.APIKeyTenantScope{{TenantID: 7, KBScopeMode: types.APIKeyKBScopeAll}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	future := time.Now().UTC().Add(24 * time.Hour)
+	rotated, err := svc.(interfaces.UserMCPAPIKeyService).RotateUserMCPAPIKey(ctx, "user-1", created.APIKey.ID, interfaces.UserMCPAPIKeyRotateRequest{
+		ExpirySpecified: true,
+		ExpiresAt:       &future,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = svc.AuthenticateAPIKey(ctx, rotated.Token); err != nil {
+		t.Fatalf("rotated expired credential did not authenticate: %v", err)
+	}
+	requireTime := rotated.APIKey.ExpiresAt
+	if requireTime == nil || !requireTime.Equal(future) {
+		t.Fatalf("rotated expiry = %v, want %v", requireTime, future)
+	}
+}
+
+func TestTenantAPIKeyTokenHintPreservesMixedCaseSuffix(t *testing.T) {
+	if got := tenantAPIKeyTokenHint("wk_synthetic_aB3x"); got != "••••aB3x" {
+		t.Fatalf("token hint = %q, want %q", got, "••••aB3x")
+	}
+}
+
+func TestTenantAPIKeyServiceRotatePreservesExpirationPolicy(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("long-lived remains long-lived", func(t *testing.T) {
+		repo := newFakeTenantAPIKeyRepo()
+		svc := NewTenantAPIKeyService(repo)
+		created, err := svc.CreateAPIKey(ctx, interfaces.TenantAPIKeyCreateRequest{
+			ScopeType: types.APIKeyScopeUserMCP, OwnerUserID: "user-1", Name: "long-lived",
+			TenantScopes: []types.APIKeyTenantScope{{TenantID: 7, KBScopeMode: types.APIKeyKBScopeAll}},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		rotated, err := svc.(interfaces.UserMCPAPIKeyService).RotateUserMCPAPIKey(ctx, "user-1", created.APIKey.ID, interfaces.UserMCPAPIKeyRotateRequest{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rotated.APIKey.ExpiresAt != nil {
+			t.Fatalf("long-lived expiry changed to %v", rotated.APIKey.ExpiresAt)
+		}
+	})
+
+	t.Run("existing expiry remains unchanged", func(t *testing.T) {
+		repo := newFakeTenantAPIKeyRepo()
+		svc := NewTenantAPIKeyService(repo)
+		original := time.Now().UTC().Add(48 * time.Hour).Truncate(time.Second)
+		created, err := svc.CreateAPIKey(ctx, interfaces.TenantAPIKeyCreateRequest{
+			ScopeType: types.APIKeyScopeUserMCP, OwnerUserID: "user-1", Name: "dated",
+			ExpiresAt: &original, TenantScopes: []types.APIKeyTenantScope{{TenantID: 7, KBScopeMode: types.APIKeyKBScopeAll}},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		rotated, err := svc.(interfaces.UserMCPAPIKeyService).RotateUserMCPAPIKey(ctx, "user-1", created.APIKey.ID, interfaces.UserMCPAPIKeyRotateRequest{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rotated.APIKey.ExpiresAt == nil || !rotated.APIKey.ExpiresAt.Equal(original) {
+			t.Fatalf("rotated expiry = %v, want %v", rotated.APIKey.ExpiresAt, original)
+		}
+	})
+}
+
+func TestTenantAPIKeyServiceExpiredRotateRequiresExplicitPolicy(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeTenantAPIKeyRepo()
+	svc := NewTenantAPIKeyService(repo)
+	expired := time.Now().UTC().Add(-time.Hour)
+	created, err := svc.CreateAPIKey(ctx, interfaces.TenantAPIKeyCreateRequest{
+		ScopeType: types.APIKeyScopeUserMCP, OwnerUserID: "user-1", Name: "expired-policy",
+		ExpiresAt: &expired, TenantScopes: []types.APIKeyTenantScope{{TenantID: 7, KBScopeMode: types.APIKeyKBScopeAll}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = svc.(interfaces.UserMCPAPIKeyService).RotateUserMCPAPIKey(ctx, "user-1", created.APIKey.ID, interfaces.UserMCPAPIKeyRotateRequest{}); err == nil {
+		t.Fatal("expired credential rotated without an explicit new expiry policy")
+	}
+	rotated, err := svc.(interfaces.UserMCPAPIKeyService).RotateUserMCPAPIKey(ctx, "user-1", created.APIKey.ID, interfaces.UserMCPAPIKeyRotateRequest{ExpirySpecified: true})
+	if err != nil {
+		t.Fatalf("expired credential with explicit never-expires policy failed: %v", err)
+	}
+	if rotated.APIKey.ExpiresAt != nil {
+		t.Fatalf("explicit never-expires resulted in %v", rotated.APIKey.ExpiresAt)
+	}
+}
+
+func TestTenantAPIKeyServiceAuthenticateDoesNotTouchUsageBeforeMiddlewareSuccess(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeTenantAPIKeyRepo()
+	svc := NewTenantAPIKeyService(repo)
+	created, err := svc.CreateAPIKey(ctx, interfaces.TenantAPIKeyCreateRequest{TenantID: 42, Name: "usage"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = svc.AuthenticateAPIKey(ctx, created.Token); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(25 * time.Millisecond)
+	if repo.lastUsedUpdateCount != 0 {
+		t.Fatalf("authentication lookup touched usage before middleware validation: %d", repo.lastUsedUpdateCount)
+	}
+}
+
 func TestTenantAPIKeyServiceBackfillMissingKeyHashes(t *testing.T) {
 	ctx := context.Background()
 	repo := newFakeTenantAPIKeyRepo()
@@ -356,6 +673,7 @@ func TestTenantAPIKeyServiceAuthenticateThrottlesLastUsedUpdates(t *testing.T) {
 		if _, err := svc.AuthenticateAPIKey(ctx, created.Token); err != nil {
 			t.Fatalf("AuthenticateAPIKey #%d returned error: %v", i+1, err)
 		}
+		svc.(interfaces.TenantAPIKeyUsageRecorder).RecordAPIKeyUsed(created.APIKey.ID)
 	}
 
 	deadline := time.Now().Add(500 * time.Millisecond)
