@@ -28,6 +28,9 @@ export const NAVIGATION_REGISTRY: readonly NavigationEntry[] = [
   { id: 'portal', labelKey: 'navigation.portalHome', icon: 'home', route: '/portal', group: 'global', order: 10 },
   { id: 'knowledge-bases', labelKey: 'navigation.knowledgeBases', icon: 'knowledge-base', route: '/platform/knowledge-bases', group: 'workspace', order: 20 },
   { id: 'agents', labelKey: 'navigation.agents', icon: 'robot', route: '/platform/agents', group: 'workspace', requiredCapabilities: ['agents'], order: 30 },
+  // User-scoped multi-space credentials: visibility and data scope must never
+  // depend on the currently selected workspace.
+  { id: 'mcp-access', labelKey: 'navigation.mcpAccess', icon: 'link', route: '/platform/mcp-access', group: 'workspace', order: 35 },
   { id: 'members', labelKey: 'navigation.members', icon: 'usergroup', route: '/platform/settings?section=members', settingsSection: 'members', group: 'workspace', order: 40 },
   { id: 'management-center', labelKey: 'navigation.managementCenter', icon: 'setting', route: '/platform/settings?section=tenant', group: 'management', visibility: 'management', order: 50 },
 ] as const
@@ -48,5 +51,6 @@ export function isNavigationEntryActive(entry: NavigationEntry, path: string, se
   if (entry.id === 'management-center') return path === '/platform/settings'
   if (entry.settingsSection) return path === '/platform/settings' && section === entry.settingsSection
   if (entry.id === 'knowledge-bases') return path.startsWith('/platform/knowledge-bases')
+  if (entry.id === 'mcp-access') return path === '/platform/mcp-access'
   return path === entry.route
 }

@@ -3,6 +3,12 @@ export interface MCPConfigSpace {
   tenantName: string
 }
 
+export type MCPConfigClient = 'workbuddy' | 'workmate' | 'cursor' | 'codebuddy' | 'generic'
+
+// Branded presets are only promoted after a real client import test. Generic is
+// the portable baseline and does not claim client-specific compatibility.
+export const verifiedConfigPreset = (client: MCPConfigClient) => client === 'generic'
+
 const slug = (value: string) => value
   .normalize('NFKD')
   .replace(/[^\p{L}\p{N}]+/gu, '-')
@@ -13,10 +19,11 @@ export function serverName(space: MCPConfigSpace) {
   return `knowhub-${slug(space.tenantName)}-${space.tenantId}`
 }
 
-export function buildMCPServers(url: string, token: string, spaces: MCPConfigSpace[]) {
+export function buildMCPServers(url: string, token: string, spaces: MCPConfigSpace[], client: MCPConfigClient = 'generic') {
+  const transport = client === 'workbuddy' ? 'streamableHttp' : 'http'
   return {
     mcpServers: Object.fromEntries(spaces.map(space => [serverName(space), {
-      type: 'http',
+      type: transport,
       url,
       headers: {
         Authorization: `Bearer ${token}`,
@@ -26,8 +33,8 @@ export function buildMCPServers(url: string, token: string, spaces: MCPConfigSpa
   }
 }
 
-export const stringifyMCPConfig = (url: string, token: string, spaces: MCPConfigSpace[]) =>
-  JSON.stringify(buildMCPServers(url, token, spaces), null, 2)
+export const stringifyMCPConfig = (url: string, token: string, spaces: MCPConfigSpace[], client: MCPConfigClient = 'generic') =>
+  JSON.stringify(buildMCPServers(url, token, spaces, client), null, 2)
 
 export function claudeCommands(url: string, token: string, spaces: MCPConfigSpace[]) {
   return spaces.map(space =>

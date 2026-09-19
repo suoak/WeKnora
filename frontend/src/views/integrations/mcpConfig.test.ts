@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { buildMCPServers, claudeCommands, serverName, stringifyMCPConfig } from './mcpConfig.ts'
+import { buildMCPServers, claudeCommands, serverName, stringifyMCPConfig, verifiedConfigPreset } from './mcpConfig.ts'
 
 const accessKeysSource = readFileSync(new URL('./MCPAccessKeys.vue', import.meta.url), 'utf8')
 
@@ -35,8 +35,22 @@ test('generates one Claude Code HTTP command per workspace', () => {
   assert.match(commands, /X-Tenant-ID: 2/)
 })
 
-test('keeps full JSON copy separate from Claude command copy', () => {
-  assert.match(accessKeysSource, /copySensitive\(jsonConfig\)[^>]*>复制全部 JSON/)
-  assert.match(accessKeysSource, /copySensitive\(commands\)[^>]*>复制 Claude 命令/)
-  assert.doesNotMatch(accessKeysSource, /copySensitive\(activeText\)/)
+test('uses verified client transport names and downgrades unverified presets', () => {
+  const spaces = [{ tenantId: 1, tenantName: '公共库' }]
+  const workbuddy = buildMCPServers('https://x/mcp', 'secret', spaces, 'workbuddy')
+  const cursor = buildMCPServers('https://x/mcp', 'secret', spaces, 'cursor')
+  assert.equal((Object.values(workbuddy.mcpServers)[0] as any).type, 'streamableHttp')
+  assert.equal((Object.values(cursor.mcpServers)[0] as any).type, 'http')
+  assert.equal(verifiedConfigPreset('workbuddy'), false)
+  assert.equal(verifiedConfigPreset('cursor'), false)
+  assert.equal(verifiedConfigPreset('workmate'), false)
+  assert.equal(verifiedConfigPreset('codebuddy'), false)
+})
+
+test('copies generated configuration without revealing an existing secret', () => {
+  assert.match(accessKeysSource, />复制配置模板</)
+  assert.match(accessKeysSource, />复制全部配置</)
+  assert.match(accessKeysSource, /YOUR_MCP_KEY/)
+  assert.match(accessKeysSource, /完整 Secret 只显示这一次/)
+  assert.doesNotMatch(accessKeysSource, /reveal/i)
 })

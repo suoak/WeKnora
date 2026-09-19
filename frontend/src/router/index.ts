@@ -158,6 +158,12 @@ const router = createRouter({
           meta: { requiresInit: true, requiresAuth: true, requiredCapability: 'agents' }
         },
         {
+          path: "mcp-access",
+          name: "mcpAccessCenter",
+          component: () => import("../views/integrations/MCPAccessKeys.vue"),
+          meta: { requiresInit: true, requiresAuth: true }
+        },
+        {
           path: "integrations",
           redirect: (to) => {
             const tab = typeof to.query.tab === 'string' ? to.query.tab : undefined

@@ -140,6 +140,18 @@ test('collapsed sidebar hides agent children and expands from the agent icon', (
   assert.match(navigation, /entry\.id==='agents'&&props\.collapsed\)\{uiStore\.expandSidebar\(\);return\}/)
 })
 
+test('MCP Access is a primary user-scoped route after Agents', () => {
+  const navigation = source('../config/navigation.ts')
+  const router = source('../router/index.ts')
+  const settings = source('../views/settings/Settings.vue')
+  assert.match(navigation, /id: 'mcp-access'[\s\S]*icon: 'link'[\s\S]*route: '\/platform\/mcp-access'/)
+  assert.ok(navigation.indexOf("id: 'agents'") < navigation.indexOf("id: 'mcp-access'")
+    && navigation.indexOf("id: 'mcp-access'") < navigation.indexOf("id: 'members'"))
+  assert.doesNotMatch(navigation.match(/id: 'mcp-access'[^\n]*/)?.[0] || '', /requiredCapabilities|minimumRole|settingsSection/)
+  assert.match(router, /path: "mcp-access"[\s\S]*name: "mcpAccessCenter"[\s\S]*MCPAccessKeys\.vue/)
+  assert.match(settings, /<MCPAccessKeys embedded/)
+})
+
 test('user footer displays account identity instead of repeating current space', () => {
   const userMenu = source('./UserMenu.vue')
   const info = userMenu.match(/<div class="user-info">([\s\S]*?)<\/div>\s*<t-icon/)?.[1] || ''

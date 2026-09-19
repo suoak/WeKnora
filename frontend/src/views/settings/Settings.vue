@@ -219,7 +219,7 @@
                     <McpSettings />
                   </div>
                   <div v-if="currentSection === 'mcp-access-keys'" class="section">
-                    <MCPAccessKeys />
+                    <MCPAccessKeys embedded />
                   </div>
                 </template>
               </div>
