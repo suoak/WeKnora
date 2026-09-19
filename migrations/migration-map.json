@@ -47,7 +47,7 @@
       "existing_knowhub_baseline": 90,
       "immutable_through": 96,
       "immutable_file_count": 194,
-      "immutable_history_sha256": "68cbf978544612ff2780d381d8340bb3615641551ca0ff87dfdeb9c068fe57ba"
+      "immutable_history_sha256": "ec8edbfd59afcfe9c133f0aabbaa803ab2a00a86146dc798e733ea7850d59cdf"
     },
     "sqlite": {
       "directory": "migrations/sqlite",
@@ -56,7 +56,7 @@
       "existing_knowhub_baseline": 12,
       "immutable_through": 17,
       "immutable_file_count": 36,
-      "immutable_history_sha256": "d0a9db3c9e8f2785dc9faebeb0f61fe304fdab28db509030a010570296f2b94b"
+      "immutable_history_sha256": "19223066c468a8f70edd2044b76172bac6ab3e4edcad075f0e4d452c8e9d8b8a"
     }
   },
   "logical_parity": [

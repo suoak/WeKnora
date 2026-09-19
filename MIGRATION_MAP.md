@@ -95,11 +95,13 @@ Existing KnowHub fork migrations retain their original installed numbers. Their
 ## Immutability and checksums
 
 The manifest pins an aggregate SHA-256 for every `.up.sql` and `.down.sql` file
-through PostgreSQL 96 and SQLite 17. The aggregate is computed from files sorted
-by basename, appending for each file:
+through PostgreSQL 96 and SQLite 17. To make the checksum independent of Git's
+checkout settings, each file's CRLF line endings are normalized to LF before
+hashing. The aggregate is computed from files sorted by basename, appending for
+each file:
 
 ```text
-<basename>\n<sha256-of-raw-file-bytes>\n
+<basename>\n<sha256-of-LF-normalized-file-bytes>\n
 ```
 
 CI fails if a historical file is edited, removed, renamed, duplicated, or loses

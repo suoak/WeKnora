@@ -196,6 +196,7 @@ func validateImmutableMigrationHistory(t *testing.T, repoRoot string, policy mig
 	for _, name := range names {
 		data, err := os.ReadFile(filepath.Join(dir, name))
 		require.NoError(t, err)
+		data = []byte(strings.ReplaceAll(string(data), "\r\n", "\n"))
 		fileHash := sha256.Sum256(data)
 		_, _ = fmt.Fprintf(aggregate, "%s\n%s\n", name, hex.EncodeToString(fileHash[:]))
 	}
