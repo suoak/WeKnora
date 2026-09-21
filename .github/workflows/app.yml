@@ -221,5 +221,5 @@ jobs:
           current_version=$(docker run --rm --network weknora-app-smoke \
             --entrypoint migrate weknora-app:ci \
             -path /app/migrations/versioned -database "$migration_url" version 2>&1 | awk '{print $1}')
-          test "$current_version" = "96"
+          test "$current_version" = "3000"
           curl --fail --silent http://127.0.0.1:8080/health | grep -q '"status":"ok"'
