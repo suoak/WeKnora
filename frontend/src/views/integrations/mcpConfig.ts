@@ -26,7 +26,7 @@ export function buildMCPServers(url: string, token: string, spaces: MCPConfigSpa
       type: transport,
       url,
       headers: {
-        Authorization: `Bearer ${token}`,
+        'X-API-Key': token,
         'X-Tenant-ID': String(space.tenantId),
       },
     }])),
@@ -38,6 +38,6 @@ export const stringifyMCPConfig = (url: string, token: string, spaces: MCPConfig
 
 export function claudeCommands(url: string, token: string, spaces: MCPConfigSpace[]) {
   return spaces.map(space =>
-    `claude mcp add --transport http ${serverName(space)} ${JSON.stringify(url)} --header ${JSON.stringify(`Authorization: Bearer ${token}`)} --header ${JSON.stringify(`X-Tenant-ID: ${space.tenantId}`)}`,
+    `claude mcp add --transport http ${serverName(space)} ${JSON.stringify(url)} --header ${JSON.stringify(`X-API-Key: ${token}`)} --header ${JSON.stringify(`X-Tenant-ID: ${space.tenantId}`)}`,
   ).join('\n')
 }

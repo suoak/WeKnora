@@ -12,7 +12,14 @@ test('builds isolated entries for duplicate and unicode workspace names', () => 
   ]
   const config = buildMCPServers('https://x/mcp', 'sk-secret', spaces)
   assert.equal(Object.keys(config.mcpServers).length, 2)
-  assert.equal((config.mcpServers as any)[serverName(spaces[1])].headers['X-Tenant-ID'], '2')
+  const first = (config.mcpServers as any)[serverName(spaces[0])]
+  const second = (config.mcpServers as any)[serverName(spaces[1])]
+  assert.equal(first.headers['X-API-Key'], 'sk-secret')
+  assert.equal(second.headers['X-API-Key'], 'sk-secret')
+  assert.equal(first.headers['X-Tenant-ID'], '1')
+  assert.equal(second.headers['X-Tenant-ID'], '2')
+  assert.equal(first.headers.Authorization, undefined)
+  assert.equal(second.headers.Authorization, undefined)
 })
 
 test('serializes quotes and non-ASCII names as valid JSON', () => {
@@ -21,7 +28,9 @@ test('serializes quotes and non-ASCII names as valid JSON', () => {
   ])
   const parsed = JSON.parse(json)
   const connection = Object.values(parsed.mcpServers)[0] as any
-  assert.equal(connection.headers.Authorization, 'Bearer sk-"secret')
+  assert.equal(connection.headers['X-API-Key'], 'sk-"secret')
+  assert.equal(connection.headers['X-Tenant-ID'], '7')
+  assert.equal(connection.headers.Authorization, undefined)
   assert.equal(connection.url, 'https://x.example/mcp?q="ok"')
 })
 
@@ -32,7 +41,10 @@ test('generates one Claude Code HTTP command per workspace', () => {
   ])
   assert.equal(commands.split('\n').length, 2)
   assert.match(commands, /--transport http/)
+  assert.equal(commands.match(/X-API-Key: sk-secret/g)?.length, 2)
+  assert.match(commands, /X-Tenant-ID: 1/)
   assert.match(commands, /X-Tenant-ID: 2/)
+  assert.doesNotMatch(commands, /Authorization|Bearer/)
 })
 
 test('uses verified client transport names and downgrades unverified presets', () => {
@@ -45,6 +57,17 @@ test('uses verified client transport names and downgrades unverified presets', (
   assert.equal(verifiedConfigPreset('cursor'), false)
   assert.equal(verifiedConfigPreset('workmate'), false)
   assert.equal(verifiedConfigPreset('codebuddy'), false)
+})
+
+test('all user MCP HTTP client presets use API-key authentication', () => {
+  const spaces = [{ tenantId: 9, tenantName: 'Space 9' }]
+  for (const client of ['workbuddy', 'workmate', 'cursor', 'codebuddy', 'generic'] as const) {
+    const config = buildMCPServers('https://x/mcp', 'shared-token', spaces, client)
+    const connection = Object.values(config.mcpServers)[0]
+    assert.equal(connection.headers['X-API-Key'], 'shared-token', client)
+    assert.equal(connection.headers['X-Tenant-ID'], '9', client)
+    assert.equal('Authorization' in connection.headers, false, client)
+  }
 })
 
 test('copies generated configuration without revealing an existing secret', () => {
