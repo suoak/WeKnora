@@ -56,6 +56,17 @@ test('selecting an agent leaves web search off until the user enables it', () =>
   assert.doesNotMatch(handleSelectAgent, /settingsStore\.toggleWebSearch/)
 })
 
+test('composer never persists quick-answer as a synthetic fallback', () => {
+  assert.doesNotMatch(
+    inputField,
+    /settingsStore\.selectAgent\([^\n]*BUILTIN_QUICK_ANSWER_ID/,
+  )
+  assert.match(
+    inputField,
+    /agents\.value\.find\(a => a\.id === BUILTIN_SMART_REASONING_ID\) \|\| agents\.value\[0\]/,
+  )
+})
+
 test('shared-agent web search button waits for source readiness metadata', () => {
   const showWebSearchStart = inputField.indexOf('const showWebSearchButton = computed')
   const showWebSearchEnd = inputField.indexOf('const showImageUploadButton', showWebSearchStart)

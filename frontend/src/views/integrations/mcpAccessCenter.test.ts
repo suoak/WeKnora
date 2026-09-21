@@ -33,13 +33,23 @@ test('frontend adapter uses M1 PATCH, rotate, revoke and scope-options contracts
 })
 
 test('secret is one-time only and forgotten credentials require rotation', () => {
-  assert.match(view, /完整 Secret 只显示这一次/)
-  assert.match(view, /完整密钥不会再次显示。如密钥遗失，请轮换/)
+  assert.match(view, /Secret 创建后可持续使用，直至过期、被撤销或重新生成/)
+  assert.match(view, /完整 Secret 仅在创建或重新生成时显示一次/)
+  assert.match(view, /服务端不会保存可再次查看的明文 Secret/)
+  assert.match(view, /重新生成 Secret/)
+  assert.match(view, /旧 Secret 将立即失效/)
   assert.match(view, /rotateMCPAccessKey/)
   assert.doesNotMatch(api, /reveal/i)
   assert.doesNotMatch(view, /localStorage|sessionStorage|indexedDB|console\./)
   assert.match(view, /clearPlaintextToken/)
   assert.match(view, /onBeforeUnmount\(clearPlaintextToken\)/)
+})
+
+test('edit flow normalizes the nullable API response before opening the wizard', () => {
+  assert.match(view, /credentialToEditDraft\(key\)/)
+  assert.match(view, /editorVisible\.value = true/)
+  assert.match(view, /updateMCPAccessKey\(editingID\.value, payload\)/)
+  assert.match(view, /await load\(\)/)
 })
 
 test('expired rotate requires an explicit future date or never-expires choice', () => {

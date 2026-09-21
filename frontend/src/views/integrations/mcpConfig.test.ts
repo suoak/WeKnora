@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { buildMCPServers, claudeCommands, serverName, stringifyMCPConfig, verifiedConfigPreset } from './mcpConfig.ts'
+import { buildMcpHttpHeaders, buildMCPServers, buildRestApiHeaders, claudeCommands, serverName, stringifyMCPConfig, verifiedConfigPreset } from './mcpConfig.ts'
 
 const accessKeysSource = readFileSync(new URL('./MCPAccessKeys.vue', import.meta.url), 'utf8')
 
@@ -14,12 +14,12 @@ test('builds isolated entries for duplicate and unicode workspace names', () => 
   assert.equal(Object.keys(config.mcpServers).length, 2)
   const first = (config.mcpServers as any)[serverName(spaces[0])]
   const second = (config.mcpServers as any)[serverName(spaces[1])]
-  assert.equal(first.headers['X-API-Key'], 'sk-secret')
-  assert.equal(second.headers['X-API-Key'], 'sk-secret')
+  assert.equal(first.headers.Authorization, 'Bearer sk-secret')
+  assert.equal(second.headers.Authorization, 'Bearer sk-secret')
   assert.equal(first.headers['X-Tenant-ID'], '1')
   assert.equal(second.headers['X-Tenant-ID'], '2')
-  assert.equal(first.headers.Authorization, undefined)
-  assert.equal(second.headers.Authorization, undefined)
+  assert.equal(first.headers['X-API-Key'], undefined)
+  assert.equal(second.headers['X-API-Key'], undefined)
 })
 
 test('serializes quotes and non-ASCII names as valid JSON', () => {
@@ -28,9 +28,9 @@ test('serializes quotes and non-ASCII names as valid JSON', () => {
   ])
   const parsed = JSON.parse(json)
   const connection = Object.values(parsed.mcpServers)[0] as any
-  assert.equal(connection.headers['X-API-Key'], 'sk-"secret')
+  assert.equal(connection.headers.Authorization, 'Bearer sk-"secret')
   assert.equal(connection.headers['X-Tenant-ID'], '7')
-  assert.equal(connection.headers.Authorization, undefined)
+  assert.equal(connection.headers['X-API-Key'], undefined)
   assert.equal(connection.url, 'https://x.example/mcp?q="ok"')
 })
 
@@ -41,10 +41,10 @@ test('generates one Claude Code HTTP command per workspace', () => {
   ])
   assert.equal(commands.split('\n').length, 2)
   assert.match(commands, /--transport http/)
-  assert.equal(commands.match(/X-API-Key: sk-secret/g)?.length, 2)
+  assert.equal(commands.match(/Authorization: Bearer sk-secret/g)?.length, 2)
   assert.match(commands, /X-Tenant-ID: 1/)
   assert.match(commands, /X-Tenant-ID: 2/)
-  assert.doesNotMatch(commands, /Authorization|Bearer/)
+  assert.doesNotMatch(commands, /X-API-Key/)
 })
 
 test('uses verified client transport names and downgrades unverified presets', () => {
@@ -59,21 +59,32 @@ test('uses verified client transport names and downgrades unverified presets', (
   assert.equal(verifiedConfigPreset('codebuddy'), false)
 })
 
-test('all user MCP HTTP client presets use API-key authentication', () => {
+test('all user MCP HTTP client presets use bearer ingress authentication', () => {
   const spaces = [{ tenantId: 9, tenantName: 'Space 9' }]
   for (const client of ['workbuddy', 'workmate', 'cursor', 'codebuddy', 'generic'] as const) {
     const config = buildMCPServers('https://x/mcp', 'shared-token', spaces, client)
     const connection = Object.values(config.mcpServers)[0]
-    assert.equal(connection.headers['X-API-Key'], 'shared-token', client)
+    assert.equal(connection.headers.Authorization, 'Bearer shared-token', client)
     assert.equal(connection.headers['X-Tenant-ID'], '9', client)
-    assert.equal('Authorization' in connection.headers, false, client)
+    assert.equal('X-API-Key' in connection.headers, false, client)
   }
+})
+
+test('keeps MCP ingress and REST API authentication contracts separate', () => {
+  assert.deepEqual(buildMcpHttpHeaders('secret', 12), {
+    Authorization: 'Bearer secret',
+    'X-Tenant-ID': '12',
+  })
+  assert.deepEqual(buildRestApiHeaders('secret', 12), {
+    'X-API-Key': 'secret',
+    'X-Tenant-ID': '12',
+  })
 })
 
 test('copies generated configuration without revealing an existing secret', () => {
   assert.match(accessKeysSource, />复制配置模板</)
   assert.match(accessKeysSource, />复制全部配置</)
   assert.match(accessKeysSource, /YOUR_MCP_KEY/)
-  assert.match(accessKeysSource, /完整 Secret 只显示这一次/)
+  assert.match(accessKeysSource, /完整 Secret 仅在创建或重新生成时显示一次/)
   assert.doesNotMatch(accessKeysSource, /reveal/i)
 })

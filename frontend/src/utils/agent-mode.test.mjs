@@ -16,9 +16,10 @@ function isAgentStreamAgentId(agentId, isAgentEnabled) {
 }
 
 function reconcileBuiltinAgentMode(settings) {
-  const agentId = settings.selectedAgentId || BUILTIN_QUICK_ANSWER_ID
-  if (agentId === BUILTIN_QUICK_ANSWER_ID && settings.isAgentEnabled) {
-    settings.isAgentEnabled = false
+  const agentId = settings.selectedAgentId
+  if (!agentId || agentId === BUILTIN_QUICK_ANSWER_ID) {
+    settings.selectedAgentId = BUILTIN_SMART_REASONING_ID
+    settings.isAgentEnabled = true
     return true
   }
   if (agentId === BUILTIN_SMART_REASONING_ID && !settings.isAgentEnabled) {
@@ -45,10 +46,16 @@ test('isAgentStreamAgentId prefers selectedAgentId for builtins', () => {
   assert.equal(isAgentStreamAgentId('custom-agent', false), false)
 })
 
-test('reconcileBuiltinAgentMode repairs drifted localStorage flags', () => {
+test('reconcileBuiltinAgentMode retires persisted quick-answer selections', () => {
   const quick = { selectedAgentId: 'builtin-quick-answer', isAgentEnabled: true }
   assert.equal(reconcileBuiltinAgentMode(quick), true)
-  assert.equal(quick.isAgentEnabled, false)
+  assert.equal(quick.selectedAgentId, BUILTIN_SMART_REASONING_ID)
+  assert.equal(quick.isAgentEnabled, true)
+
+  const missing = { isAgentEnabled: false }
+  assert.equal(reconcileBuiltinAgentMode(missing), true)
+  assert.equal(missing.selectedAgentId, BUILTIN_SMART_REASONING_ID)
+  assert.equal(missing.isAgentEnabled, true)
 
   const reasoning = { selectedAgentId: 'builtin-smart-reasoning', isAgentEnabled: false }
   assert.equal(reconcileBuiltinAgentMode(reasoning), true)

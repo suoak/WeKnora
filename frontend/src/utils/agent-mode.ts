@@ -24,9 +24,14 @@ export function reconcileBuiltinAgentMode(settings: {
   selectedAgentId?: string
   isAgentEnabled: boolean
 }): boolean {
-  const agentId = settings.selectedAgentId || BUILTIN_QUICK_ANSWER_ID
-  if (agentId === BUILTIN_QUICK_ANSWER_ID && settings.isAgentEnabled) {
-    settings.isAgentEnabled = false
+  const agentId = settings.selectedAgentId
+  // Quick Answer is temporarily not selectable. Migrate both the historical
+  // default and a missing persisted selection to Smart Reasoning. Explicit
+  // quick-answer IDs restored from historical session state are applied later
+  // and remain resolvable by the backend.
+  if (!agentId || agentId === BUILTIN_QUICK_ANSWER_ID) {
+    settings.selectedAgentId = BUILTIN_SMART_REASONING_ID
+    settings.isAgentEnabled = true
     return true
   }
   if (agentId === BUILTIN_SMART_REASONING_ID && !settings.isAgentEnabled) {

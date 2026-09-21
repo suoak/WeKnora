@@ -215,7 +215,7 @@ func (s *customAgentService) ListAgents(ctx context.Context) ([]*types.CustomAge
 	}
 
 	// Build result: built-in agents first, then custom agents
-	builtinIDs := types.GetBuiltinAgentIDs()
+	builtinIDs := types.GetSelectableBuiltinAgentIDs()
 	result := make([]*types.CustomAgent, 0, len(allAgents)+len(builtinIDs))
 
 	// Add built-in agents in order

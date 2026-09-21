@@ -156,7 +156,7 @@ const agentModeButtonRef = ref<HTMLElement>();
 const agentModeDropdownStyle = ref<Record<string, string>>({});
 
 const selectedAgentId = computed({
-  get: () => settingsStore.selectedAgentId || BUILTIN_QUICK_ANSWER_ID,
+  get: () => settingsStore.selectedAgentId || BUILTIN_SMART_REASONING_ID,
   set: (val: string) => settingsStore.selectAgent(val)
 });
 const selectedAgent = computed(() => {
@@ -173,11 +173,13 @@ const selectedAgent = computed(() => {
   }
   const mine = agents.value.find(a => a.id === selectedAgentId.value);
   if (mine) return mine;
+  const fallback = agents.value.find(a => a.id === BUILTIN_SMART_REASONING_ID) || agents.value[0];
+  if (fallback) return fallback;
   return {
-    id: BUILTIN_QUICK_ANSWER_ID,
-    name: t('input.normalMode'),
+    id: BUILTIN_SMART_REASONING_ID,
+    name: t('input.agentMode'),
     is_builtin: true,
-    config: { agent_mode: 'quick-answer' as const }
+    config: { agent_mode: 'smart-reasoning' as const }
   } as CustomAgent;
 });
 const selectedSharedAgent = computed(() => {
@@ -879,15 +881,13 @@ const loadAgents = async (force = false) => {
   }
 };
 
-// 默认选中的 builtin（builtin-quick-answer）也可能被当前空间管理员停用。
-// 列表加载完后做一次纠偏：若当前选中的是本空间停用的 agent（仅限「我的/builtin」，
-// 共享智能体由源空间决定，本地停用列表不适用），按 智能推理 → 快速问答 →
-// 第一个可用 的顺序兜底切换。全部都被停用时保持原选择不动（极端场景，UI 仍会
-// 在 enabledAgents 过滤后显示空，由用户在智能体页恢复任意一个）。
+// 列表加载后纠偏已下架、已删除或由当前空间管理员停用的选择。共享智能体由源空间
+// 决定，本地列表不参与纠偏。优先切换到智能推理，再回退到第一个可用智能体。
 const ensureSelectedAgentNotDisabled = () => {
   if (settingsStore.selectedAgentSourceTenantId) return
-  const currentId = settingsStore.selectedAgentId || BUILTIN_QUICK_ANSWER_ID
-  if (!disabledOwnAgentIds.value.includes(currentId)) return
+  const currentId = settingsStore.selectedAgentId || BUILTIN_SMART_REASONING_ID
+  const currentAvailable = agents.value.some(a => a.id === currentId)
+  if (currentAvailable && !disabledOwnAgentIds.value.includes(currentId)) return
 
   const isEnabled = (id: string) =>
     agents.value.some(a => a.id === id) && !disabledOwnAgentIds.value.includes(id)
@@ -895,8 +895,6 @@ const ensureSelectedAgentNotDisabled = () => {
   let fallback: CustomAgent | undefined
   if (isEnabled(BUILTIN_SMART_REASONING_ID)) {
     fallback = agents.value.find(a => a.id === BUILTIN_SMART_REASONING_ID)
-  } else if (isEnabled(BUILTIN_QUICK_ANSWER_ID)) {
-    fallback = agents.value.find(a => a.id === BUILTIN_QUICK_ANSWER_ID)
   } else {
     fallback = agents.value.find(a => !disabledOwnAgentIds.value.includes(a.id))
   }
@@ -2197,7 +2195,7 @@ const selectAgentMode = async (mode: 'quick-answer' | 'smart-reasoning') => {
   if (shouldEnableAgent !== isAgentEnabled.value) {
     settingsStore.toggleAgent(shouldEnableAgent);
     // 同时更新选中的智能体
-    settingsStore.selectAgent(shouldEnableAgent ? BUILTIN_SMART_REASONING_ID : BUILTIN_QUICK_ANSWER_ID);
+    settingsStore.selectAgent(BUILTIN_SMART_REASONING_ID);
     MessagePlugin.success(shouldEnableAgent ? t('input.messages.agentSwitchedOn') : t('input.messages.agentSwitchedOff'));
   }
   showAgentModeSelector.value = false;

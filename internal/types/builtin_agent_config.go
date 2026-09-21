@@ -23,11 +23,20 @@ type BuiltinAgentI18n struct {
 
 // BuiltinAgentEntry is one entry in the builtin_agents list in YAML.
 type BuiltinAgentEntry struct {
-	ID        string                      `yaml:"id"`
-	Avatar    string                      `yaml:"avatar"`
-	IsBuiltin bool                        `yaml:"is_builtin"`
-	I18n      map[string]BuiltinAgentI18n `yaml:"i18n"`
-	Config    CustomAgentConfig           `yaml:"config"`
+	ID        string `yaml:"id"`
+	Avatar    string `yaml:"avatar"`
+	IsBuiltin bool   `yaml:"is_builtin"`
+	// Selectable controls whether the agent appears in user-facing lists. A
+	// pointer preserves backward compatibility: omitted means enabled.
+	Selectable *bool                       `yaml:"selectable,omitempty"`
+	I18n       map[string]BuiltinAgentI18n `yaml:"i18n"`
+	Config     CustomAgentConfig           `yaml:"config"`
+}
+
+// IsSelectable treats an omitted setting as enabled so existing builtin agent
+// configuration files keep their historical behaviour.
+func (e *BuiltinAgentEntry) IsSelectable() bool {
+	return e == nil || e.Selectable == nil || *e.Selectable
 }
 
 // builtinAgentsFile is the top-level YAML structure.
@@ -123,6 +132,32 @@ func GetBuiltinAgentWithContext(ctx context.Context, id string, tenantID uint64)
 	}
 
 	return buildAgentFromEntry(id, tenantID, locale)
+}
+
+// IsBuiltinAgentSelectable reports whether a registered builtin should appear
+// in user-facing agent lists. It does not affect registry lookup, allowing
+// historical sessions to keep resolving a temporarily hidden builtin.
+func IsBuiltinAgentSelectable(id string) bool {
+	builtinAgentEntriesMu.RLock()
+	entry, configured := builtinAgentEntries[id]
+	builtinAgentEntriesMu.RUnlock()
+	if !configured {
+		return true
+	}
+	return entry.IsSelectable()
+}
+
+// GetSelectableBuiltinAgentIDs returns the user-facing subset without
+// mutating the registry used by direct lookup and historical sessions.
+func GetSelectableBuiltinAgentIDs() []string {
+	all := GetBuiltinAgentIDs()
+	result := make([]string, 0, len(all))
+	for _, id := range all {
+		if IsBuiltinAgentSelectable(id) {
+			result = append(result, id)
+		}
+	}
+	return result
 }
 
 // ApplyBuiltinAgentLocalization overlays the locale-specific name, description,

@@ -6,6 +6,9 @@ builtin_agents:
   - id: "builtin-quick-answer"
     avatar: ""
     is_builtin: true
+    # Temporarily keep the definition resolvable for historical sessions while
+    # removing it from user-facing agent selection surfaces.
+    selectable: false
     i18n:
       default:
         name: "Quick Answer"

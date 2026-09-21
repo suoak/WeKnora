@@ -53,3 +53,37 @@ func TestApplyBuiltinAgentLocalizationLeavesUnknownAgents(t *testing.T) {
 		t.Fatalf("custom agent was rewritten: %+v", agent)
 	}
 }
+
+func TestBuiltinAgentSelectableDefaultsToTrue(t *testing.T) {
+	restore := OverrideBuiltinAgentEntriesForTest(map[string]*BuiltinAgentEntry{
+		"legacy": {ID: "legacy"},
+	})
+	defer restore()
+
+	if !IsBuiltinAgentSelectable("legacy") {
+		t.Fatal("omitted selectable must remain enabled for backward compatibility")
+	}
+	if !IsBuiltinAgentSelectable("hard-coded-fallback") {
+		t.Fatal("unconfigured builtins must remain selectable")
+	}
+}
+
+func TestBuiltinAgentSelectableCanHideWithoutRemovingDefinition(t *testing.T) {
+	disabled := false
+	restore := OverrideBuiltinAgentEntriesForTest(map[string]*BuiltinAgentEntry{
+		BuiltinQuickAnswerID: {ID: BuiltinQuickAnswerID, Selectable: &disabled},
+	})
+	defer restore()
+
+	if IsBuiltinAgentSelectable(BuiltinQuickAnswerID) {
+		t.Fatal("explicit selectable=false must hide the builtin from lists")
+	}
+	for _, id := range GetSelectableBuiltinAgentIDs() {
+		if id == BuiltinQuickAnswerID {
+			t.Fatal("hidden builtin must not be returned by the user-facing builtin list")
+		}
+	}
+	if agent := GetBuiltinAgentWithContext(context.Background(), BuiltinQuickAnswerID, 7); agent == nil {
+		t.Fatal("hidden builtin definition must remain resolvable for historical sessions")
+	}
+}

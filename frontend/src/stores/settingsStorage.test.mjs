@@ -6,9 +6,10 @@ const BUILTIN_QUICK_ANSWER_ID = "builtin-quick-answer";
 const BUILTIN_SMART_REASONING_ID = "builtin-smart-reasoning";
 
 function reconcileBuiltinAgentMode(settings) {
-  const agentId = settings.selectedAgentId || BUILTIN_QUICK_ANSWER_ID;
-  if (agentId === BUILTIN_QUICK_ANSWER_ID && settings.isAgentEnabled) {
-    settings.isAgentEnabled = false;
+  const agentId = settings.selectedAgentId;
+  if (!agentId || agentId === BUILTIN_QUICK_ANSWER_ID) {
+    settings.selectedAgentId = BUILTIN_SMART_REASONING_ID;
+    settings.isAgentEnabled = true;
     return true;
   }
   if (agentId === BUILTIN_SMART_REASONING_ID && !settings.isAgentEnabled) {
@@ -63,8 +64,8 @@ function loadAndReconcileSettings(defaultSettings) {
 
 function makeDefaults() {
   return {
-    isAgentEnabled: false,
-    selectedAgentId: BUILTIN_QUICK_ANSWER_ID,
+    isAgentEnabled: true,
+    selectedAgentId: BUILTIN_SMART_REASONING_ID,
     selectedTags: [],
     selectedMCPServices: [],
     selectedSkills: [],
@@ -136,7 +137,7 @@ test("loadAndReconcileSettings resets non-object JSON such as null", () => {
   assert.deepEqual(loaded.selectedTags, []);
 });
 
-test("loadAndReconcileSettings keeps valid stored settings", () => {
+test("loadAndReconcileSettings migrates the retired quick-answer selection", () => {
   const store = installMockLocalStorage();
   const stored = {
     isAgentEnabled: true,
@@ -147,7 +148,8 @@ test("loadAndReconcileSettings keeps valid stored settings", () => {
 
   const loaded = loadAndReconcileSettings(makeDefaults());
 
-  assert.equal(loaded.isAgentEnabled, false);
+  assert.equal(loaded.selectedAgentId, BUILTIN_SMART_REASONING_ID);
+  assert.equal(loaded.isAgentEnabled, true);
   assert.equal(loaded.selectedTags.length, 1);
   assert.equal(loaded.selectedTags[0].id, "t1");
 });
