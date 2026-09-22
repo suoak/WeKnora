@@ -86,5 +86,5 @@ test('copies generated configuration without revealing an existing secret', () =
   assert.match(accessKeysSource, />复制全部配置</)
   assert.match(accessKeysSource, /YOUR_MCP_KEY/)
   assert.match(accessKeysSource, /完整 Secret 仅在创建或重新生成时显示一次/)
-  assert.doesNotMatch(accessKeysSource, /reveal/i)
+  assert.doesNotMatch(accessKeysSource, /\/reveal|revealMCPAccessKey/i)
 })

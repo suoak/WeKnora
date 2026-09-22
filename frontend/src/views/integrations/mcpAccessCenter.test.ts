@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 
 const view = readFileSync(new URL('./MCPAccessKeys.vue', import.meta.url), 'utf8')
 const api = readFileSync(new URL('../../api/mcpAccessKeys.ts', import.meta.url), 'utf8')
+const lifecycle = readFileSync(new URL('./mcpAccessLifecycle.ts', import.meta.url), 'utf8')
 
 test('Access Center presents credentials as integrations rather than plaintext API keys', () => {
   assert.match(view, /我的接入配置/)
@@ -53,15 +54,36 @@ test('edit flow normalizes the nullable API response before opening the wizard',
 })
 
 test('expired rotate requires an explicit future date or never-expires choice', () => {
-  assert.match(view, /rotateKey\?\.status === 'expired'/)
+  assert.match(view, /lifecycleState\(rotateKey\) === 'expired'/)
   assert.match(view, /必须明确选择未来有效期或永不过期/)
   assert.match(view, /rotateExpiryMode\.value === 'custom'/)
   assert.doesNotMatch(view, /key\.status === 'expired' \? \{ expires_at_unix: Math\.floor\(Date\.now\(\) \/ 1000\) \+ 90/)
 })
 
-test('revoked credentials keep history but do not expose edit or rotate actions', () => {
-  assert.match(view, /selectedKey\.status !== 'revoked'/)
-  assert.match(view, /key\.status === 'revoked' \? \[\]/)
+test('revoked credentials keep history and only expose reconnect plus details', () => {
+  assert.match(view, /credentialLifecycleActions\(key\)/)
+  assert.match(view, /action === 'reconnect'/)
+  assert.match(view, /lifecycleState\(selectedKey\) !== 'revoked'/)
+  assert.match(view, /v-else theme="primary" @click="requestReconnect\(selectedKey\)"/)
+  assert.doesNotMatch(view, /已撤销|撤销接入/)
+})
+
+test('reconnect uses the existing create API, reveals first, and preserves exact scope for backend validation', () => {
+  assert.match(view, /credentialToReconnectPayload\(reconnectKey\.value\)/)
+  assert.match(view, /createReconnectAndReveal\(payload, createMCPAccessKey/)
+  assert.match(view, /showSecret\(data\); reconnectVisible\.value = false/)
+  assert.match(view, /不会缩减授权范围/)
+  assert.match(lifecycle, /tenant_scopes: cloneTenantScopes\(credential\.tenant_scopes\)/)
+  assert.doesNotMatch(lifecycle, /availableKBRefs|scopeOptions/)
+})
+
+test('status filters and all UI state decisions use the lifecycle helper', () => {
+  assert.match(view, /statusFilter = ref<CredentialStatusFilter>\('all'\)/)
+  assert.match(view, /credentialMatchesStatusFilter/)
+  assert.match(view, /getCredentialLifecycleState/)
+  assert.match(view, /全部/)
+  assert.match(view, /已启用/)
+  assert.match(view, /已停用/)
 })
 
 test('standalone access center has responsive desktop and compact layouts without embedded mode', () => {

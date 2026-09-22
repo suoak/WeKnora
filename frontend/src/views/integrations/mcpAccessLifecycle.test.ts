@@ -6,6 +6,7 @@ import {
   credentialLifecycleActions,
   credentialMatchesStatusFilter,
   credentialToReconnectPayload,
+  createReconnectAndReveal,
   getCredentialLifecycleState,
 } from './mcpAccessLifecycle.ts'
 
@@ -98,4 +99,24 @@ test('nullable scopes stay invalid instead of being silently reduced to currentl
   }, NOW)
   assert.deepEqual(payload.capabilities, [])
   assert.deepEqual(payload.tenant_scopes, [])
+})
+
+test('reconnect reveals the one-time secret before reload and keeps it visible if reload fails', async () => {
+  const events: string[] = []
+  const source = credential({ token: 'new-secret' })
+  await createReconnectAndReveal(
+    credentialToReconnectPayload(source, NOW),
+    async () => {
+      events.push('create')
+      return { success: true, data: source as MCPAccessKey & { token: string } }
+    },
+    result => {
+      events.push(`reveal:${result.token}`)
+    },
+    async () => {
+      events.push('reload')
+      throw new Error('network unavailable')
+    },
+  )
+  assert.deepEqual(events, ['create', 'reveal:new-secret', 'reload'])
 })
