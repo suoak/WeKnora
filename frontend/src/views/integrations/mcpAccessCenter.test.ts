@@ -63,3 +63,12 @@ test('revoked credentials keep history but do not expose edit or rotate actions'
   assert.match(view, /selectedKey\.status !== 'revoked'/)
   assert.match(view, /key\.status === 'revoked' \? \[\]/)
 })
+
+test('standalone access center has responsive desktop and compact layouts without embedded mode', () => {
+  assert.match(view, /<main class="mcp-access-center">/)
+  assert.doesNotMatch(view, /embedded/)
+  assert.match(view, /@media\(max-width:1480px\)/)
+  assert.match(view, /grid-template-areas:"identity scope capabilities" "meta meta actions"/)
+  assert.match(view, /@media\(max-width:980px\)/)
+  assert.match(view, /@media\(max-width:760px\)/)
+})
