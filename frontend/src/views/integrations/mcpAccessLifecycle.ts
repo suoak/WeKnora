@@ -2,6 +2,8 @@ import type {
   MCPAccessKey,
   MCPAccessStatus,
   MCPKeyPayload,
+  MCPKeyResponse,
+  MCPSecretResult,
   MCPCapability,
   MCPTenantScope,
 } from '@/api/mcpAccessKeys'
@@ -87,4 +89,22 @@ export function credentialToReconnectPayload(
   }
 
   return payload
+}
+
+export async function createReconnectAndReveal(
+  payload: MCPKeyPayload,
+  create: (value: MCPKeyPayload) => Promise<MCPKeyResponse<MCPSecretResult>>,
+  reveal: (value: MCPSecretResult) => void,
+  reload: () => Promise<unknown>,
+): Promise<void> {
+  const response = await create(payload)
+  if (!response.data?.token) throw new Error('服务端未返回一次性 Secret')
+
+  // The plaintext must reach component-local state before any fallible reload.
+  reveal(response.data)
+  try {
+    await reload()
+  } catch {
+    // A list refresh failure must never hide or discard the one-time Secret.
+  }
 }
