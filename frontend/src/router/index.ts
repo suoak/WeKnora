@@ -2,11 +2,12 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteLocationNormalized } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useDeploymentCapabilitiesStore } from '@/stores/deploymentCapabilities'
+import { useUIStore } from '@/stores/ui'
 import { autoSetup, getCurrentUser, userInfoFromApi } from '@/api/auth'
 import type { DeploymentCapabilityKey } from '@/config/deploymentCapabilities'
 import { MessagePlugin } from 'tdesign-vue-next'
 import i18n from '@/i18n'
-import { normalizeSettingsSection } from '@/config/settingsRoute'
+import { normalizeSettingsSection, standaloneSettingsRoute } from '@/config/settingsRoute'
 import {
   LITE_LAST_PATH_KEY,
   consumeAuthReturnTarget,
@@ -332,6 +333,15 @@ let liteDeepLinkRestoreDone = false
 // 路由守卫：检查认证状态和系统初始化状态
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
+
+  const standaloneSettingsTarget = to.path === '/platform/settings'
+    ? standaloneSettingsRoute(typeof to.query.section === 'string' ? to.query.section : null)
+    : null
+  if (standaloneSettingsTarget) {
+    useUIStore().closeSettings()
+    next({ path: standaloneSettingsTarget, replace: true })
+    return
+  }
 
   // OIDC 回跳登录结果依赖 App.vue 在挂载后消费 URL hash。
   // 如果这里先按“未登录”拦截到 /login，会导致回调结果没有机会落盘。

@@ -1,6 +1,8 @@
 import { INTEGRATION_TABS, type IntegrationTab } from './integrations'
 
 export const INTEGRATION_SECTION_PREFIX = 'integration-'
+export const MCP_ACCESS_SETTINGS_SECTION = 'mcp-access-keys'
+export const MCP_ACCESS_ROUTE = '/platform/mcp-access'
 
 type QueryValue = string | number | null | undefined | Array<string | number | null>
 export type SettingsRouteQuery = Record<string, QueryValue>
@@ -42,6 +44,11 @@ export function normalizeSettingsSection(section: string, tab?: string | null): 
     return integrationSectionKey(section)
   }
   return section
+}
+
+/** Settings entries that are now standalone product pages. */
+export function standaloneSettingsRoute(section?: string | null): string | null {
+  return section === MCP_ACCESS_SETTINGS_SECTION ? MCP_ACCESS_ROUTE : null
 }
 
 /**

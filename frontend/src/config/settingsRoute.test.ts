@@ -7,6 +7,7 @@ import {
   isIntegrationSection,
   normalizeSettingsSection,
   settingsQueryUnchanged,
+  standaloneSettingsRoute,
 } from './settingsRoute'
 
 test('every settings nav item writes only section', () => {
@@ -73,4 +74,10 @@ test('canonical settings query skips a redundant replace', () => {
     ),
     false,
   )
+})
+
+test('legacy MCP settings section resolves to the standalone access center', () => {
+  assert.equal(standaloneSettingsRoute('mcp-access-keys'), '/platform/mcp-access')
+  assert.equal(standaloneSettingsRoute('general'), null)
+  assert.equal(standaloneSettingsRoute(), null)
 })

@@ -149,7 +149,10 @@ test('MCP Access is a primary user-scoped route after Agents', () => {
     && navigation.indexOf("id: 'mcp-access'") < navigation.indexOf("id: 'members'"))
   assert.doesNotMatch(navigation.match(/id: 'mcp-access'[^\n]*/)?.[0] || '', /requiredCapabilities|minimumRole|settingsSection/)
   assert.match(router, /path: "mcp-access"[\s\S]*name: "mcpAccessCenter"[\s\S]*MCPAccessKeys\.vue/)
-  assert.match(settings, /<MCPAccessKeys embedded/)
+  assert.match(settings, /key: 'mcp-access-keys', icon: 'link', label: 'MCP 接入'/)
+  assert.match(settings, /standaloneSettingsRoute\(item\.key\)[\s\S]*uiStore\.closeSettings\(\)[\s\S]*router\.push\(standaloneRoute\)/)
+  assert.doesNotMatch(settings, /<MCPAccessKeys|import MCPAccessKeys/)
+  assert.match(router, /standaloneSettingsRoute[\s\S]*useUIStore\(\)\.closeSettings\(\)[\s\S]*replace: true/)
 })
 
 test('user footer displays account identity instead of repeating current space', () => {

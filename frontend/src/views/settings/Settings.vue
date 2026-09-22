@@ -218,9 +218,6 @@
                   <div v-if="currentSection === 'mcp'" class="section">
                     <McpSettings />
                   </div>
-                  <div v-if="currentSection === 'mcp-access-keys'" class="section">
-                    <MCPAccessKeys embedded />
-                  </div>
                 </template>
               </div>
             </div>
@@ -247,7 +244,6 @@ import GeneralSettings from './GeneralSettings.vue'
 import ModelSettings from './ModelSettings.vue'
 import OllamaSettings from './OllamaSettings.vue'
 import McpSettings from './McpSettings.vue'
-import MCPAccessKeys from '@/views/integrations/MCPAccessKeys.vue'
 import WebSearchSettings from './WebSearchSettings.vue'
 import ChatHistorySettings from './ChatHistorySettings.vue'
 import MemorySettings from './MemorySettings.vue'
@@ -285,6 +281,7 @@ import {
   isIntegrationSection,
   normalizeSettingsSection as normalizeSettingsSectionFromQuery,
   settingsQueryUnchanged,
+  standaloneSettingsRoute,
 } from '@/config/settingsRoute'
 
 const route = useRoute()
@@ -393,7 +390,7 @@ const navItems = computed(() => {
     { key: 'sandbox', icon: 'code', label: t('settings.sandbox.title') },
     { key: 'skills', icon: SKILL_ICON, label: t('settings.skills.title') },
     { key: 'mcp', icon: 'tools', label: t('settings.mcpService') },
-    { key: 'mcp-access-keys', icon: 'key', label: 'MCP Access Keys' },
+    { key: 'mcp-access-keys', icon: 'link', label: 'MCP 接入' },
     { key: 'system', icon: 'info-circle', label: t('settings.versionInfo') },
     { key: 'system-admin', icon: 'dashboard', label: t('settings.navGroups.systemAdministration') },
     { key: 'system-global', icon: 'server', label: t('settings.system') },
@@ -483,6 +480,12 @@ const handleSystemAdminNavigate = (section: string) => {
 }
 
 const handleNavClick = (item: any) => {
+  const standaloneRoute = standaloneSettingsRoute(item.key)
+  if (standaloneRoute) {
+    uiStore.closeSettings()
+    void router.push(standaloneRoute)
+    return
+  }
   if (item.children && item.children.length > 0) {
     // 有子菜单，切换展开状态
     const index = expandedMenus.value.indexOf(item.key)
