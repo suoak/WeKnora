@@ -70,7 +70,7 @@ func NewClient(config *Config) *Client {
 		appID:      config.AppID,
 		appSecret:  config.AppSecret,
 		location:   resolveLocation(config.Timezone),
-		httpClient: datasource.NewConnectorHTTPClient(30 * time.Second),
+		httpClient: datasource.NewConnectorHTTPClientWithTLSFallback(30 * time.Second),
 	}
 }
 

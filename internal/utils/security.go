@@ -672,6 +672,7 @@ type SSRFSafeHTTPClientConfig struct {
 	MaxRedirects       int
 	DisableKeepAlives  bool
 	DisableCompression bool
+	EnableTLSFallback  bool
 }
 
 // DefaultSSRFSafeHTTPClientConfig returns the default configuration
@@ -705,17 +706,13 @@ func stripRedirectSensitiveHeaders(req *http.Request) {
 	req.Header.Del("Api-Key")
 }
 
-// NewSSRFSafeTransport builds an *http.Transport whose connections are guarded
-// by SSRFSafeDialContext. The transport carries no per-request timeout and no
-// redirect policy — those live on the *http.Client — so a single transport can
-// be shared across many clients to pool keep-alive connections globally.
+// NewSSRFSafeTransport builds an *http.Transport whose connections use pinned
+// SSRF-safe dialing. When EnableTLSFallback is set, non-proxied HTTPS uses a
+// TLS-aware candidate fallback. It is opt-in because some callers replace the
+// returned DialContext with their own already-pinned dialer. The transport
+// carries no per-request timeout or redirect policy; those live on the client.
 func NewSSRFSafeTransport(config SSRFSafeHTTPClientConfig) *http.Transport {
-	return &http.Transport{
-		DisableKeepAlives:  config.DisableKeepAlives,
-		DisableCompression: config.DisableCompression,
-		// Dial with SSRF protection - validates resolved IPs before connecting
-		DialContext: SSRFSafeDialContext,
-	}
+	return newSSRFSafeTransportWithDependencies(config, defaultSSRFTransportDependencies())
 }
 
 // newSSRFCheckRedirect returns a CheckRedirect policy that enforces the redirect
@@ -849,44 +846,9 @@ func SSRFSafeDialContext(ctx context.Context, network, addr string) (net.Conn, e
 func ssrfSafeDialContextWithDeps(
 	ctx context.Context, network, addr string, deps ssrfDialDependencies,
 ) (net.Conn, error) {
-	host, port, err := net.SplitHostPort(addr)
+	target, err := resolveAndValidateSSRFTarget(ctx, addr, deps.lookupIPAddr)
 	if err != nil {
-		return nil, fmt.Errorf("invalid address %s: %w", addr, err)
-	}
-	if restrictedPorts[port] {
-		return nil, fmt.Errorf("connection blocked: port %s is restricted", port)
-	}
-
-	// Check if the host is a restricted hostname
-	hostLower := strings.ToLower(host)
-	for _, restricted := range restrictedHostnames {
-		if hostLower == restricted {
-			return nil, fmt.Errorf("connection blocked: hostname %s is restricted", host)
-		}
-	}
-	for _, suffix := range restrictedHostSuffixes {
-		if strings.HasSuffix(hostLower, suffix) {
-			return nil, fmt.Errorf("connection blocked: hostname suffix %s is restricted", suffix)
-		}
-	}
-
-	// Resolve the hostname once, validate every answer, and then dial one of
-	// those exact IPs. Dialing the original hostname here would make the
-	// standard dialer resolve it a second time, leaving a DNS-rebinding window
-	// between validation and connection establishment.
-	ips, err := deps.lookupIPAddr(ctx, host)
-	if err != nil {
-		return nil, fmt.Errorf("DNS resolution failed for %s: %w", host, err)
-	}
-	if len(ips) == 0 {
-		return nil, fmt.Errorf("DNS resolution returned no addresses for %s", host)
-	}
-
-	// Validate all resolved IPs
-	for _, ipAddr := range ips {
-		if restricted, reason := isRestrictedIP(ipAddr.IP); restricted {
-			return nil, fmt.Errorf("connection blocked: %s resolves to restricted IP %s (%s)", host, ipAddr.IP.String(), reason)
-		}
+		return nil, err
 	}
 
 	// If we get here, all IPs are safe. Pin the connection to the validated DNS
@@ -896,8 +858,8 @@ func ssrfSafeDialContextWithDeps(
 		perIPTimeout = ssrfDialAttemptTimeout
 	}
 	var lastErr error
-	for _, ipAddr := range ips {
-		pinnedAddr := net.JoinHostPort(ipAddr.IP.String(), port)
+	for _, ipAddr := range target.ips {
+		pinnedAddr := net.JoinHostPort(ipAddr.IP.String(), target.port)
 		attemptCtx, cancel := context.WithTimeout(ctx, perIPTimeout)
 		conn, dialErr := deps.dialContext(attemptCtx, network, pinnedAddr)
 		cancel()
@@ -906,10 +868,63 @@ func ssrfSafeDialContextWithDeps(
 		}
 		lastErr = dialErr
 		if err := ctx.Err(); err != nil {
-			return nil, fmt.Errorf("failed to connect to validated addresses for %s: %w", host, err)
+			return nil, fmt.Errorf("failed to connect to validated addresses for %s: %w", target.host, err)
 		}
 	}
-	return nil, fmt.Errorf("failed to connect to validated addresses for %s: %w", host, lastErr)
+	return nil, fmt.Errorf("failed to connect to validated addresses for %s: %w", target.host, lastErr)
+}
+
+type ssrfValidatedTarget struct {
+	host string
+	port string
+	ips  []net.IPAddr
+}
+
+// resolveAndValidateSSRFTarget resolves a hostname exactly once and validates
+// every answer before returning any candidate. Callers must only connect to the
+// returned IPs; dialing the hostname again would reopen a DNS-rebinding window.
+func resolveAndValidateSSRFTarget(
+	ctx context.Context,
+	addr string,
+	lookupIPAddr func(context.Context, string) ([]net.IPAddr, error),
+) (ssrfValidatedTarget, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return ssrfValidatedTarget{}, fmt.Errorf("invalid address %s: %w", addr, err)
+	}
+	if restrictedPorts[port] {
+		return ssrfValidatedTarget{}, fmt.Errorf("connection blocked: port %s is restricted", port)
+	}
+
+	hostLower := strings.ToLower(host)
+	for _, restricted := range restrictedHostnames {
+		if hostLower == restricted {
+			return ssrfValidatedTarget{}, fmt.Errorf("connection blocked: hostname %s is restricted", host)
+		}
+	}
+	for _, suffix := range restrictedHostSuffixes {
+		if strings.HasSuffix(hostLower, suffix) {
+			return ssrfValidatedTarget{}, fmt.Errorf("connection blocked: hostname suffix %s is restricted", suffix)
+		}
+	}
+
+	ips, err := lookupIPAddr(ctx, host)
+	if err != nil {
+		return ssrfValidatedTarget{}, fmt.Errorf("DNS resolution failed for %s: %w", host, err)
+	}
+	if len(ips) == 0 {
+		return ssrfValidatedTarget{}, fmt.Errorf("DNS resolution returned no addresses for %s", host)
+	}
+	for _, ipAddr := range ips {
+		if restricted, reason := isRestrictedIP(ipAddr.IP); restricted {
+			return ssrfValidatedTarget{}, fmt.Errorf(
+				"connection blocked: %s resolves to restricted IP %s (%s)",
+				host, ipAddr.IP.String(), reason,
+			)
+		}
+	}
+
+	return ssrfValidatedTarget{host: host, port: port, ips: ips}, nil
 }
 
 // ---------------------------------------------------------------------------

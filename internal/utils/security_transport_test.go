@@ -246,3 +246,17 @@ func TestNewSSRFSafeHTTPClient_HasDedicatedTransport(t *testing.T) {
 		t.Fatal("expected SSRF redirect policy to be set")
 	}
 }
+
+func TestNewSSRFSafeTransport_TLSFallbackIsOptIn(t *testing.T) {
+	transport := NewSSRFSafeTransport(DefaultSSRFSafeHTTPClientConfig())
+	if transport.DialTLSContext != nil {
+		t.Fatal("default transport must preserve callers that replace DialContext")
+	}
+
+	config := DefaultSSRFSafeHTTPClientConfig()
+	config.EnableTLSFallback = true
+	transport = NewSSRFSafeTransport(config)
+	if transport.DialTLSContext == nil {
+		t.Fatal("TLS-aware fallback must be enabled when explicitly requested")
+	}
+}
