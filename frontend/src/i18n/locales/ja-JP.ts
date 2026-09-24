@@ -4317,6 +4317,8 @@ const messages = {
   },
   error: {
     networkError: 'ネットワークエラーです。接続を確認してください',
+    requestTimeout: 'リクエストがタイムアウトしました。もう一度お試しください',
+    requestCanceled: 'リクエストはキャンセルされました',
     invalidCredentials: 'ユーザ名またはパスワードが正しくありません',
     tokenRefreshFailed: 'トークンの更新に失敗しました',
     pleaseRelogin: '再度ログインしてください',

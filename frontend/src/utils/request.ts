@@ -4,6 +4,7 @@ import { generateRandomString, MAX_FILE_SIZE_MB, MAX_SKILL_BUNDLE_SIZE_MB } from
 import i18n from '@/i18n'
 import { getApiBaseUrl } from './api-base';
 import { isSkillBundleUploadUrl } from './uploadLimit';
+import { classifyAxiosTransportError } from './requestError';
 import {
   forceReloginRedirect,
   isEmbedPage,
@@ -135,7 +136,13 @@ instance.interceptors.response.use(
     const originalRequest = error.config;
     
     if (!error.response) {
-      return Promise.reject({ message: t('error.networkError') });
+      const kind = classifyAxiosTransportError(error)
+      const messageKey = kind === 'timeout'
+        ? 'error.requestTimeout'
+        : kind === 'canceled'
+          ? 'error.requestCanceled'
+          : 'error.networkError'
+      return Promise.reject({ message: t(messageKey), code: error.code, kind });
     }
     
     // 公开接口（auto-setup / login / register / oidc）的 401 不走 refresh 逻辑，直接返回错误

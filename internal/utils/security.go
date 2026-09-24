@@ -805,12 +805,20 @@ func SSRFSafeGRPCDialer(ctx context.Context, addr string) (net.Conn, error) {
 	return SSRFSafeDialContext(ctx, "tcp", addr)
 }
 
+const ssrfDialAttemptTimeout = 5 * time.Second
+
+type ssrfDialDependencies struct {
+	lookupIPAddr func(context.Context, string) ([]net.IPAddr, error)
+	dialContext  func(context.Context, string, string) (net.Conn, error)
+	perIPTimeout time.Duration
+}
+
 // SSRFSafeDialContext is a custom dial function that validates the resolved IP addresses
 // before establishing a connection. This provides an additional layer of SSRF protection
 // against DNS rebinding attacks during the connection phase.
 func SSRFSafeDialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	// Parse host and port
-	host, port, err := net.SplitHostPort(addr)
+	host, _, err := net.SplitHostPort(addr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid address %s: %w", addr, err)
 	}
@@ -825,6 +833,25 @@ func SSRFSafeDialContext(ctx context.Context, network, addr string) (net.Conn, e
 			KeepAlive: 30 * time.Second,
 		}
 		return dialer.DialContext(ctx, network, addr)
+	}
+
+	dialer := &net.Dialer{KeepAlive: 30 * time.Second}
+	return ssrfSafeDialContextWithDeps(ctx, network, addr, ssrfDialDependencies{
+		lookupIPAddr: net.DefaultResolver.LookupIPAddr,
+		dialContext:  dialer.DialContext,
+		perIPTimeout: ssrfDialAttemptTimeout,
+	})
+}
+
+// ssrfSafeDialContextWithDeps keeps resolution and dialing injectable so the
+// fallback path can be tested without depending on public DNS or unroutable
+// addresses. Every resolved address is validated before the first dial.
+func ssrfSafeDialContextWithDeps(
+	ctx context.Context, network, addr string, deps ssrfDialDependencies,
+) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid address %s: %w", addr, err)
 	}
 	if restrictedPorts[port] {
 		return nil, fmt.Errorf("connection blocked: port %s is restricted", port)
@@ -847,7 +874,7 @@ func SSRFSafeDialContext(ctx context.Context, network, addr string) (net.Conn, e
 	// those exact IPs. Dialing the original hostname here would make the
 	// standard dialer resolve it a second time, leaving a DNS-rebinding window
 	// between validation and connection establishment.
-	ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	ips, err := deps.lookupIPAddr(ctx, host)
 	if err != nil {
 		return nil, fmt.Errorf("DNS resolution failed for %s: %w", host, err)
 	}
@@ -864,18 +891,23 @@ func SSRFSafeDialContext(ctx context.Context, network, addr string) (net.Conn, e
 
 	// If we get here, all IPs are safe. Pin the connection to the validated DNS
 	// answers; TLS still uses the request hostname for SNI/certificate checks.
-	dialer := &net.Dialer{
-		Timeout:   30 * time.Second,
-		KeepAlive: 30 * time.Second,
+	perIPTimeout := deps.perIPTimeout
+	if perIPTimeout <= 0 {
+		perIPTimeout = ssrfDialAttemptTimeout
 	}
 	var lastErr error
 	for _, ipAddr := range ips {
 		pinnedAddr := net.JoinHostPort(ipAddr.IP.String(), port)
-		conn, dialErr := dialer.DialContext(ctx, network, pinnedAddr)
+		attemptCtx, cancel := context.WithTimeout(ctx, perIPTimeout)
+		conn, dialErr := deps.dialContext(attemptCtx, network, pinnedAddr)
+		cancel()
 		if dialErr == nil {
 			return conn, nil
 		}
 		lastErr = dialErr
+		if err := ctx.Err(); err != nil {
+			return nil, fmt.Errorf("failed to connect to validated addresses for %s: %w", host, err)
+		}
 	}
 	return nil, fmt.Errorf("failed to connect to validated addresses for %s: %w", host, lastErr)
 }

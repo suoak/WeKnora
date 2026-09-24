@@ -4407,6 +4407,8 @@ export default {
   },
   error: {
     networkError: 'Network error, please check your connection',
+    requestTimeout: 'Request timed out, please try again',
+    requestCanceled: 'Request canceled',
     invalidCredentials: 'Invalid username or password',
     tokenRefreshFailed: 'Token refresh failed',
     pleaseRelogin: 'Please log in again',

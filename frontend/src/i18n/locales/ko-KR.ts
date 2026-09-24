@@ -2735,6 +2735,8 @@ const messages = {
   },
   error: {
     networkError: '네트워크 오류, 연결을 확인해 주세요',
+    requestTimeout: '요청 시간이 초과되었습니다. 다시 시도해 주세요',
+    requestCanceled: '요청이 취소되었습니다',
     invalidCredentials: '사용자 이름 또는 비밀번호가 올바르지 않습니다',
     tokenRefreshFailed: '토큰 갱신 실패',
     pleaseRelogin: '다시 로그인해 주세요',

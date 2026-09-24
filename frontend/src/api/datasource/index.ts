@@ -1,4 +1,5 @@
 import { get, post, put, del } from '../../utils/request'
+import { VALIDATE_CREDENTIALS_TIMEOUT_MS } from './requestPolicy'
 
 // --- Types ---
 
@@ -116,7 +117,11 @@ export function validateConnection(id: string) {
 
 // Validate credentials without persisting (for "Test Connection" during creation)
 export function validateCredentials(type: string, credentials: Record<string, any>) {
-  return post('/api/v1/datasource/validate-credentials', { type, credentials })
+  return post(
+    '/api/v1/datasource/validate-credentials',
+    { type, credentials },
+    { timeout: VALIDATE_CREDENTIALS_TIMEOUT_MS },
+  )
 }
 
 // listResources lists selectable resources for a data source. Pass parentId to

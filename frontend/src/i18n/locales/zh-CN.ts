@@ -2794,6 +2794,8 @@ export default {
   },
   error: {
     networkError: '网络错误，请检查您的网络连接',
+    requestTimeout: '请求超时，请重试',
+    requestCanceled: '请求已取消',
     invalidCredentials: '用户名或密码错误',
     tokenRefreshFailed: 'Token刷新失败',
     pleaseRelogin: '请重新登录',

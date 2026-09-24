@@ -2,7 +2,9 @@ package utils
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"testing"
@@ -38,6 +40,153 @@ func TestSSRFSafeDialContextRejectsRestrictedPortAtFinalSink(t *testing.T) {
 	_, err := SSRFSafeDialContext(context.Background(), "tcp", "example.com:6379")
 	if err == nil || !strings.Contains(err.Error(), "port 6379") {
 		t.Fatalf("expected restricted-port error, got %v", err)
+	}
+}
+
+func TestSSRFSafeDialContextFallsBackAfterPerIPTimeout(t *testing.T) {
+	if ssrfDialAttemptTimeout != 5*time.Second {
+		t.Fatalf("per-IP dial budget = %v, want 5s", ssrfDialAttemptTimeout)
+	}
+
+	firstIP := "8.8.8.8"
+	secondIP := "1.1.1.1"
+	var attempted []string
+	peerClosed := make(chan struct{})
+
+	conn, err := ssrfSafeDialContextWithDeps(
+		context.Background(),
+		"tcp",
+		"open.feishu.cn:443",
+		ssrfDialDependencies{
+			lookupIPAddr: func(context.Context, string) ([]net.IPAddr, error) {
+				return []net.IPAddr{{IP: net.ParseIP(firstIP)}, {IP: net.ParseIP(secondIP)}}, nil
+			},
+			dialContext: func(ctx context.Context, _, addr string) (net.Conn, error) {
+				attempted = append(attempted, addr)
+				if strings.HasPrefix(addr, firstIP) {
+					<-ctx.Done()
+					return nil, ctx.Err()
+				}
+				client, peer := net.Pipe()
+				go func() {
+					_ = peer.Close()
+					close(peerClosed)
+				}()
+				return client, nil
+			},
+			perIPTimeout: 10 * time.Millisecond,
+		},
+	)
+	if err != nil {
+		t.Fatalf("expected second IP to connect, got %v", err)
+	}
+	defer conn.Close()
+	<-peerClosed
+
+	want := []string{net.JoinHostPort(firstIP, "443"), net.JoinHostPort(secondIP, "443")}
+	if fmt.Sprint(attempted) != fmt.Sprint(want) {
+		t.Fatalf("dial attempts = %v, want %v", attempted, want)
+	}
+}
+
+func TestSSRFSafeDialContextValidatesAllIPsBeforeDialing(t *testing.T) {
+	dialCalls := 0
+	_, err := ssrfSafeDialContextWithDeps(
+		context.Background(),
+		"tcp",
+		"open.feishu.cn:443",
+		ssrfDialDependencies{
+			lookupIPAddr: func(context.Context, string) ([]net.IPAddr, error) {
+				return []net.IPAddr{
+					{IP: net.ParseIP("8.8.8.8")},
+					{IP: net.ParseIP("127.0.0.1")},
+				}, nil
+			},
+			dialContext: func(context.Context, string, string) (net.Conn, error) {
+				dialCalls++
+				return nil, fmt.Errorf("must not dial")
+			},
+			perIPTimeout: time.Millisecond,
+		},
+	)
+	if err == nil || !strings.Contains(err.Error(), "restricted IP") {
+		t.Fatalf("expected restricted-IP rejection, got %v", err)
+	}
+	if dialCalls != 0 {
+		t.Fatalf("dial called %d times before every IP was validated", dialCalls)
+	}
+}
+
+func TestSSRFSafeDialContextReturnsLastErrorWhenAllIPsFail(t *testing.T) {
+	lastErr := errors.New("second address refused connection")
+	var attempted []string
+
+	_, err := ssrfSafeDialContextWithDeps(
+		context.Background(),
+		"tcp",
+		"open.feishu.cn:443",
+		ssrfDialDependencies{
+			lookupIPAddr: func(context.Context, string) ([]net.IPAddr, error) {
+				return []net.IPAddr{
+					{IP: net.ParseIP("8.8.8.8")},
+					{IP: net.ParseIP("1.1.1.1")},
+				}, nil
+			},
+			dialContext: func(_ context.Context, _, addr string) (net.Conn, error) {
+				attempted = append(attempted, addr)
+				if len(attempted) == 2 {
+					return nil, lastErr
+				}
+				return nil, errors.New("first address timed out")
+			},
+			perIPTimeout: time.Millisecond,
+		},
+	)
+	if !errors.Is(err, lastErr) {
+		t.Fatalf("error = %v, want wrapped last dial error", err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "failed to connect to validated addresses for open.feishu.cn") {
+		t.Fatalf("error lacks safe connection context: %v", err)
+	}
+	if len(attempted) != 2 {
+		t.Fatalf("dial attempts = %d, want 2", len(attempted))
+	}
+}
+
+func TestSSRFSafeDialContextStopsFallbackWhenContextCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	dialCalls := 0
+	started := time.Now()
+
+	_, err := ssrfSafeDialContextWithDeps(
+		ctx,
+		"tcp",
+		"open.feishu.cn:443",
+		ssrfDialDependencies{
+			lookupIPAddr: func(context.Context, string) ([]net.IPAddr, error) {
+				return []net.IPAddr{
+					{IP: net.ParseIP("8.8.8.8")},
+					{IP: net.ParseIP("1.1.1.1")},
+				}, nil
+			},
+			dialContext: func(attemptCtx context.Context, _, _ string) (net.Conn, error) {
+				dialCalls++
+				cancel()
+				<-attemptCtx.Done()
+				return nil, attemptCtx.Err()
+			},
+			perIPTimeout: time.Second,
+		},
+	)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("error = %v, want context canceled", err)
+	}
+	if dialCalls != 1 {
+		t.Fatalf("dial calls after cancellation = %d, want 1", dialCalls)
+	}
+	if elapsed := time.Since(started); elapsed > 250*time.Millisecond {
+		t.Fatalf("canceled dial returned too slowly: %v", elapsed)
 	}
 }
 

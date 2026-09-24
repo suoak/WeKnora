@@ -2735,6 +2735,8 @@ const messages = {
   },
   error: {
     networkError: 'Ошибка сети, проверьте подключение',
+    requestTimeout: 'Время ожидания запроса истекло. Повторите попытку',
+    requestCanceled: 'Запрос отменён',
     invalidCredentials: 'Неверное имя пользователя или пароль',
     tokenRefreshFailed: 'Не удалось обновить токен',
     pleaseRelogin: 'Пожалуйста, войдите снова',
