@@ -43,6 +43,7 @@ type SystemHandler struct {
 	documentReader   interfaces.DocumentReader
 	tenantSvc        interfaces.TenantService
 	userSvc          interfaces.UserService
+	modelCatalogSvc  *service.ModelCatalogService
 	systemSettingSvc interfaces.SystemSettingService
 	modelPolicySvc   interfaces.ModelPolicyService
 	apiKeySvc        interfaces.TenantAPIKeyService

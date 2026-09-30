@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -79,7 +80,8 @@ const (
 // getJwtSecret retrieves the JWT secret from the environment, falling back to a securely generated random secret.
 func getJwtSecret() string {
 	jwtSecretOnce.Do(func() {
-		if envSecret := strings.TrimSpace(os.Getenv("JWT_SECRET")); envSecret != "" {
+		envSecret := strings.TrimSpace(os.Getenv("JWT_SECRET"))
+		if envSecret != "" && envSecret != "weknora-jwt-secret" && envSecret != "CHANGE-ME-jwt-secret" {
 			jwtSecret = envSecret
 			return
 		}
@@ -626,6 +628,19 @@ func (s *userService) UpdateUserPreferences(
 	}
 
 	merged := user.Preferences
+	if patch.BrowserSearchInstructions != nil {
+		value := strings.TrimSpace(*patch.BrowserSearchInstructions)
+		if utf8.RuneCountInString(value) > types.MaxBrowserSearchInstructionsLength {
+			return types.UserPreferences{}, fmt.Errorf(
+				"browser search instructions must not exceed %d characters",
+				types.MaxBrowserSearchInstructionsLength,
+			)
+		}
+		merged.BrowserSearchInstructions = nil
+		if value != "" && value != types.DefaultBrowserSearchInstructions {
+			merged.BrowserSearchInstructions = &value
+		}
+	}
 	if patch.LastActiveTenantID != nil {
 		// *0 = "forget my preference, fall back to home on next login";
 		// any positive value = set/replace. We do not validate membership
@@ -637,6 +652,31 @@ func (s *userService) UpdateUserPreferences(
 			v := *patch.LastActiveTenantID
 			merged.LastActiveTenantID = &v
 		}
+	}
+	if patch.Gallery != nil {
+		// Whole-object replace per key: the gallery sends its complete
+		// current state (mode + full status map) on every change, so there
+		// is no meaningful partial-merge within the block. Values are
+		// clamped so a stray client cannot bloat the column or poison the
+		// mode.
+		g := merged.Gallery
+		if g == nil {
+			g = &types.GalleryUserPrefs{}
+		}
+		if patch.Gallery.Mode == types.GalleryModeAll || patch.Gallery.Mode == types.GalleryModeCustom {
+			g.Mode = patch.Gallery.Mode
+		}
+		if patch.Gallery.Status != nil {
+			status := make(map[string]string, len(patch.Gallery.Status))
+			for id, v := range patch.Gallery.Status {
+				if (v == types.GalleryStatusOn || v == types.GalleryStatusOff) &&
+					len(id) <= 128 && len(status) < 200 {
+					status[id] = v
+				}
+			}
+			g.Status = status
+		}
+		merged.Gallery = g
 	}
 
 	user.Preferences = merged

@@ -44,6 +44,21 @@ func (b *syncEventBus) finalAnswerContents() []string {
 	return out
 }
 
+func (b *syncEventBus) finalAnswerEvents() []event.AgentFinalAnswerData {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	var out []event.AgentFinalAnswerData
+	for _, evt := range b.events {
+		if evt.Type != types.EventType(event.EventAgentFinalAnswer) {
+			continue
+		}
+		if data, ok := evt.Data.(event.AgentFinalAnswerData); ok {
+			out = append(out, data)
+		}
+	}
+	return out
+}
+
 // openStreamChat returns a buffered channel preloaded with chunks and never
 // closes it, so the stream plugin blocks on the channel until ctx is cancelled
 // — deterministically exercising the ctx.Done() branch.

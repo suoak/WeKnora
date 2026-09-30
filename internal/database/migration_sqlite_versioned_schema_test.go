@@ -2,8 +2,10 @@ package database
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -14,11 +16,15 @@ import (
 // versionedSQLiteTables is the set of tables that SQLite migrations must
 // create to stay in sync with the versioned (PostgreSQL) migrations:
 // 000041 task queue, 000053 system settings, 000055 processing spans,
-// 000063 knowledge multi-tags.
+// 000063 knowledge multi-tags, 000093 browser authorization, 000103 message
+// artifacts.
 var versionedSQLiteTables = []string{
+	"memory_extraction_sessions",
 	"task_pending_ops",
 	"task_dead_letters",
 	"system_settings",
+	"model_catalog_configs",
+	"chunk_images",
 	"knowledge_processing_spans",
 	"knowledge_tag_relations",
 	"api_key_tenant_scopes",
@@ -45,7 +51,7 @@ var versionedSQLiteColumns = map[string][]string{
 	"mcp_tool_approvals": {"enabled"},                                    // 000092
 }
 
-const expectedSQLiteMigrationVersion = 3000
+const expectedSQLiteMigrationVersion = 3020
 
 func TestSQLiteMigrationsCreateVersionedSchema(t *testing.T) {
 	repoRoot := sqliteRepoRoot(t)
@@ -73,6 +79,17 @@ func TestSQLiteMigrationsCreateVersionedSchema(t *testing.T) {
 			)
 		}
 	}
+
+	require.True(t, sqliteIndexExists(t, db, "idx_messages_session_created_id"),
+		"SQLite migrations must add the session/created_at index") // 000106
+	assertSQLiteAgentHistoryQueriesUseTheIndex(t, db)
+
+	var catalogVersion int
+	var catalogOverlay string
+	catalogRow := db.QueryRow("SELECT version, overlay FROM model_catalog_configs WHERE id = 1")
+	require.NoError(t, catalogRow.Scan(&catalogVersion, &catalogOverlay))
+	require.Zero(t, catalogVersion)
+	require.JSONEq(t, `{"providers":{}}`, catalogOverlay)
 
 	assertSQLiteShareLinkInvitationsWork(t, db)
 	assertSQLiteMCPOAuthPrincipalUpsertWorks(t, db)
@@ -399,6 +416,45 @@ func sqliteTableExists(t *testing.T, db *sql.DB, table string) bool {
 	return n == 1
 }
 
+// assertSQLiteAgentHistoryQueriesUseTheIndex checks the two per-turn agent
+// history queries walk idx_messages_session_created_id in order instead of
+// sorting every message of the session.
+func assertSQLiteAgentHistoryQueriesUseTheIndex(t *testing.T, db *sql.DB) {
+	t.Helper()
+	for name, query := range map[string]string{
+		"backwards page": `SELECT * FROM messages WHERE session_id = 's'
+			AND (created_at < '2026-01-01' OR (created_at = '2026-01-01' AND id < 'x'))
+			AND deleted_at IS NULL ORDER BY created_at DESC, id DESC LIMIT 200`,
+		"newest checkpoint": `SELECT id FROM messages WHERE session_id = 's' AND role = 'assistant'
+			AND context_checkpoint IS NOT NULL AND deleted_at IS NULL
+			ORDER BY created_at DESC, id DESC LIMIT 1`,
+	} {
+		rows, err := db.Query("EXPLAIN QUERY PLAN " + query)
+		require.NoError(t, err, name)
+		var plan strings.Builder
+		for rows.Next() {
+			var id, parent, unused int
+			var detail string
+			require.NoError(t, rows.Scan(&id, &parent, &unused, &detail), name)
+			plan.WriteString(detail + "\n")
+		}
+		require.NoError(t, rows.Err(), name)
+		require.NoError(t, rows.Close(), name)
+		require.Contains(t, plan.String(), "idx_messages_session_created_id", "%s plan:\n%s", name, plan.String())
+		require.NotContains(t, plan.String(), "TEMP B-TREE", "%s must not sort:\n%s", name, plan.String())
+	}
+}
+
+func sqliteIndexExists(t *testing.T, db *sql.DB, index string) bool {
+	t.Helper()
+	var n int
+	require.NoError(t, db.QueryRow(
+		"SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = ?",
+		index,
+	).Scan(&n))
+	return n == 1
+}
+
 func sqliteColumnExists(t *testing.T, db *sql.DB, table, column string) bool {
 	t.Helper()
 	var n int
@@ -472,23 +528,36 @@ func assertSQLiteMCPOAuthPrincipalUpsertWorks(t *testing.T, db *sql.DB) {
 
 func copySQLiteMigrationsV4(t *testing.T, repoRoot string) string {
 	t.Helper()
+	return copySQLiteMigrationsThrough(t, repoRoot, 4)
+}
+
+func copySQLiteMigrationsThrough(t *testing.T, repoRoot string, maxVersion int) string {
+	t.Helper()
 	dest := t.TempDir()
 	srcDir := filepath.Join(repoRoot, "migrations", "sqlite")
 	destDir := filepath.Join(dest, "migrations", "sqlite")
 	require.NoError(t, os.MkdirAll(destDir, 0o755))
 
-	legacy := []string{
-		"000000_init.up.sql",
-		"000001_remove_wiki_log.up.sql",
-		"000002_knowledge_folder_path.up.sql",
-		"000003_knowledge_base_auto_tag_config.up.sql",
-		"000004_memory.up.sql",
-	}
-	for _, name := range legacy {
-		data, err := os.ReadFile(filepath.Join(srcDir, name))
-		require.NoError(t, err)
+	entries, err := os.ReadDir(srcDir)
+	require.NoError(t, err)
+	copied := 0
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".up.sql") {
+			continue
+		}
+		var version int
+		_, scanErr := fmt.Sscanf(name, "%d_", &version)
+		require.NoError(t, scanErr, "sqlite migration filename %s", name)
+		if version > maxVersion {
+			continue
+		}
+		data, readErr := os.ReadFile(filepath.Join(srcDir, name))
+		require.NoError(t, readErr)
 		require.NoError(t, os.WriteFile(filepath.Join(destDir, name), data, 0o600))
+		copied++
 	}
+	require.Greater(t, copied, 0)
 	return dest
 }
 

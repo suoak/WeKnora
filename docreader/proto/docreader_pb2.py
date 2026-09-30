@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0f\x64ocreader.proto\x12\tdocreader\"\xe3\x01\n\nReadConfig\x12\x15\n\rparser_engine\x18\x01 \x01(\t\x12Q\n\x17parser_engine_overrides\x18\x02 \x03(\x0b\x32\x30.docreader.ReadConfig.ParserEngineOverridesEntry\x12\'\n\x1fparser_semantic_chunk_max_chars\x18\x04 \x01(\r\x1a<\n\x1aParserEngineOverridesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01J\x04\x08\x03\x10\x04\"\xa5\x01\n\x0eParsedTextSpan\x12\x0b\n\x03seq\x18\x01 \x01(\r\x12\r\n\x05start\x18\x02 \x01(\r\x12\x0b\n\x03\x65nd\x18\x03 \x01(\r\x12\x39\n\x08metadata\x18\x04 \x03(\x0b\x32\'.docreader.ParsedTextSpan.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x89\x02\n\rParsedSegment\x12\x0b\n\x03seq\x18\x01 \x01(\r\x12\r\n\x05start\x18\x02 \x01(\r\x12\x0b\n\x03\x65nd\x18\x03 \x01(\r\x12\x32\n\x0f\x63hunking_policy\x18\x04 \x01(\x0e\x32\x19.docreader.ChunkingPolicy\x12\x30\n\rparsed_chunks\x18\x05 \x03(\x0b\x32\x19.docreader.ParsedTextSpan\x12\x38\n\x08metadata\x18\x06 \x03(\x0b\x32&.docreader.ParsedSegment.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xa0\x01\n\x0bReadRequest\x12\x14\n\x0c\x66ile_content\x18\x01 \x01(\x0c\x12\x11\n\tfile_name\x18\x02 \x01(\t\x12\x11\n\tfile_type\x18\x03 \x01(\t\x12\x0b\n\x03url\x18\x04 \x01(\t\x12\r\n\x05title\x18\x05 \x01(\t\x12%\n\x06\x63onfig\x18\x06 \x01(\x0b\x32\x15.docreader.ReadConfig\x12\x12\n\nrequest_id\x18\x07 \x01(\t\"n\n\x08ImageRef\x12\x10\n\x08\x66ilename\x18\x01 \x01(\t\x12\x14\n\x0coriginal_ref\x18\x02 \x01(\t\x12\x11\n\tmime_type\x18\x03 \x01(\t\x12\x13\n\x0bstorage_key\x18\x04 \x01(\t\x12\x12\n\nimage_data\x18\x05 \x01(\x0c\"\xfb\x02\n\x0cReadResponse\x12\x18\n\x10markdown_content\x18\x01 \x01(\t\x12\'\n\nimage_refs\x18\x02 \x03(\x0b\x32\x13.docreader.ImageRef\x12\x16\n\x0eimage_dir_path\x18\x03 \x01(\t\x12\x37\n\x08metadata\x18\x04 \x03(\x0b\x32%.docreader.ReadResponse.MetadataEntry\x12\r\n\x05\x65rror\x18\x05 \x01(\t\x12\x32\n\x0f\x63hunking_policy\x18\x06 \x01(\x0e\x32\x19.docreader.ChunkingPolicy\x12\x30\n\rparsed_chunks\x18\x07 \x03(\x0b\x32\x19.docreader.ParsedTextSpan\x12\x31\n\x0fparsed_segments\x18\x08 \x03(\x0b\x32\x18.docreader.ParsedSegment\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xeb\x02\n\x0eReadStreamMeta\x12\x18\n\x10markdown_content\x18\x01 \x01(\t\x12\x16\n\x0eimage_dir_path\x18\x02 \x01(\t\x12\x39\n\x08metadata\x18\x03 \x03(\x0b\x32\'.docreader.ReadStreamMeta.MetadataEntry\x12\r\n\x05\x65rror\x18\x04 \x01(\t\x12\x13\n\x0bimage_count\x18\x05 \x01(\r\x12\x32\n\x0f\x63hunking_policy\x18\x06 \x01(\x0e\x32\x19.docreader.ChunkingPolicy\x12\x30\n\rparsed_chunks\x18\x07 \x03(\x0b\x32\x19.docreader.ParsedTextSpan\x12\x31\n\x0fparsed_segments\x18\x08 \x03(\x0b\x32\x18.docreader.ParsedSegment\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"p\n\x12ReadStreamResponse\x12)\n\x04meta\x18\x01 \x01(\x0b\x32\x19.docreader.ReadStreamMetaH\x00\x12$\n\x05image\x18\x02 \x01(\x0b\x32\x13.docreader.ImageRefH\x00\x42\t\n\x07payload\"\x9a\x01\n\x12ListEnginesRequest\x12L\n\x10\x63onfig_overrides\x18\x01 \x03(\x0b\x32\x32.docreader.ListEnginesRequest.ConfigOverridesEntry\x1a\x36\n\x14\x43onfigOverridesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"x\n\x10ParserEngineInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12\x12\n\nfile_types\x18\x03 \x03(\t\x12\x11\n\tavailable\x18\x04 \x01(\x08\x12\x1a\n\x12unavailable_reason\x18\x05 \x01(\t\"C\n\x13ListEnginesResponse\x12,\n\x07\x65ngines\x18\x01 \x03(\x0b\x32\x1b.docreader.ParserEngineInfo*Y\n\x0e\x43hunkingPolicy\x12\x1b\n\x17\x43HUNKING_POLICY_DEFAULT\x10\x00\x12*\n&CHUNKING_POLICY_PRESERVE_PARSER_CHUNKS\x10\x01\x32\xdf\x01\n\tDocReader\x12\x39\n\x04Read\x12\x16.docreader.ReadRequest\x1a\x17.docreader.ReadResponse\"\x00\x12G\n\nReadStream\x12\x16.docreader.ReadRequest\x1a\x1d.docreader.ReadStreamResponse\"\x00\x30\x01\x12N\n\x0bListEngines\x12\x1d.docreader.ListEnginesRequest\x1a\x1e.docreader.ListEnginesResponse\"\x00\x42\x35Z3github.com/Tencent/WeKnora/internal/docreader/protob\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0f\x64ocreader.proto\x12\tdocreader\"\xe3\x01\n\nReadConfig\x12\x15\n\rparser_engine\x18\x01 \x01(\t\x12Q\n\x17parser_engine_overrides\x18\x02 \x03(\x0b\x32\x30.docreader.ReadConfig.ParserEngineOverridesEntry\x12\'\n\x1fparser_semantic_chunk_max_chars\x18\x04 \x01(\r\x1a<\n\x1aParserEngineOverridesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01J\x04\x08\x03\x10\x04\"\xa5\x01\n\x0eParsedTextSpan\x12\x0b\n\x03seq\x18\x01 \x01(\r\x12\r\n\x05start\x18\x02 \x01(\r\x12\x0b\n\x03\x65nd\x18\x03 \x01(\r\x12\x39\n\x08metadata\x18\x04 \x03(\x0b\x32\'.docreader.ParsedTextSpan.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x89\x02\n\rParsedSegment\x12\x0b\n\x03seq\x18\x01 \x01(\r\x12\r\n\x05start\x18\x02 \x01(\r\x12\x0b\n\x03\x65nd\x18\x03 \x01(\r\x12\x32\n\x0f\x63hunking_policy\x18\x04 \x01(\x0e\x32\x19.docreader.ChunkingPolicy\x12\x30\n\rparsed_chunks\x18\x05 \x03(\x0b\x32\x19.docreader.ParsedTextSpan\x12\x38\n\x08metadata\x18\x06 \x03(\x0b\x32&.docreader.ParsedSegment.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xa0\x01\n\x0bReadRequest\x12\x14\n\x0c\x66ile_content\x18\x01 \x01(\x0c\x12\x11\n\tfile_name\x18\x02 \x01(\t\x12\x11\n\tfile_type\x18\x03 \x01(\t\x12\x0b\n\x03url\x18\x04 \x01(\t\x12\r\n\x05title\x18\x05 \x01(\t\x12%\n\x06\x63onfig\x18\x06 \x01(\x0b\x32\x15.docreader.ReadConfig\x12\x12\n\nrequest_id\x18\x07 \x01(\t\"n\n\x08ImageRef\x12\x10\n\x08\x66ilename\x18\x01 \x01(\t\x12\x14\n\x0coriginal_ref\x18\x02 \x01(\t\x12\x11\n\tmime_type\x18\x03 \x01(\t\x12\x13\n\x0bstorage_key\x18\x04 \x01(\t\x12\x12\n\nimage_data\x18\x05 \x01(\x0c\"?\n\x0bSourceBlock\x12\r\n\x05start\x18\x01 \x01(\r\x12\x0b\n\x03\x65nd\x18\x02 \x01(\r\x12\x14\n\x0clocator_json\x18\x03 \x01(\t\"\xaa\x03\n\x0cReadResponse\x12\x18\n\x10markdown_content\x18\x01 \x01(\t\x12\'\n\nimage_refs\x18\x02 \x03(\x0b\x32\x13.docreader.ImageRef\x12\x16\n\x0eimage_dir_path\x18\x03 \x01(\t\x12\x37\n\x08metadata\x18\x04 \x03(\x0b\x32%.docreader.ReadResponse.MetadataEntry\x12\r\n\x05\x65rror\x18\x05 \x01(\t\x12\x32\n\x0f\x63hunking_policy\x18\x06 \x01(\x0e\x32\x19.docreader.ChunkingPolicy\x12\x30\n\rparsed_chunks\x18\x07 \x03(\x0b\x32\x19.docreader.ParsedTextSpan\x12\x31\n\x0fparsed_segments\x18\x08 \x03(\x0b\x32\x18.docreader.ParsedSegment\x12-\n\rsource_blocks\x18\t \x03(\x0b\x32\x16.docreader.SourceBlock\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x9a\x03\n\x0eReadStreamMeta\x12\x18\n\x10markdown_content\x18\x01 \x01(\t\x12\x16\n\x0eimage_dir_path\x18\x02 \x01(\t\x12\x39\n\x08metadata\x18\x03 \x03(\x0b\x32\'.docreader.ReadStreamMeta.MetadataEntry\x12\r\n\x05\x65rror\x18\x04 \x01(\t\x12\x13\n\x0bimage_count\x18\x05 \x01(\r\x12\x32\n\x0f\x63hunking_policy\x18\x06 \x01(\x0e\x32\x19.docreader.ChunkingPolicy\x12\x30\n\rparsed_chunks\x18\x07 \x03(\x0b\x32\x19.docreader.ParsedTextSpan\x12\x31\n\x0fparsed_segments\x18\x08 \x03(\x0b\x32\x18.docreader.ParsedSegment\x12-\n\rsource_blocks\x18\t \x03(\x0b\x32\x16.docreader.SourceBlock\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"p\n\x12ReadStreamResponse\x12)\n\x04meta\x18\x01 \x01(\x0b\x32\x19.docreader.ReadStreamMetaH\x00\x12$\n\x05image\x18\x02 \x01(\x0b\x32\x13.docreader.ImageRefH\x00\x42\t\n\x07payload\"\x9a\x01\n\x12ListEnginesRequest\x12L\n\x10\x63onfig_overrides\x18\x01 \x03(\x0b\x32\x32.docreader.ListEnginesRequest.ConfigOverridesEntry\x1a\x36\n\x14\x43onfigOverridesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"x\n\x10ParserEngineInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12\x12\n\nfile_types\x18\x03 \x03(\t\x12\x11\n\tavailable\x18\x04 \x01(\x08\x12\x1a\n\x12unavailable_reason\x18\x05 \x01(\t\"C\n\x13ListEnginesResponse\x12,\n\x07\x65ngines\x18\x01 \x03(\x0b\x32\x1b.docreader.ParserEngineInfo*Y\n\x0e\x43hunkingPolicy\x12\x1b\n\x17\x43HUNKING_POLICY_DEFAULT\x10\x00\x12*\n&CHUNKING_POLICY_PRESERVE_PARSER_CHUNKS\x10\x01\x32\xdf\x01\n\tDocReader\x12\x39\n\x04Read\x12\x16.docreader.ReadRequest\x1a\x17.docreader.ReadResponse\"\x00\x12G\n\nReadStream\x12\x16.docreader.ReadRequest\x1a\x1d.docreader.ReadStreamResponse\"\x00\x30\x01\x12N\n\x0bListEngines\x12\x1d.docreader.ListEnginesRequest\x1a\x1e.docreader.ListEnginesResponse\"\x00\x42\x35Z3github.com/Tencent/WeKnora/internal/docreader/protob\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -44,8 +44,8 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_READSTREAMMETA_METADATAENTRY']._serialized_options = b'8\001'
   _globals['_LISTENGINESREQUEST_CONFIGOVERRIDESENTRY']._loaded_options = None
   _globals['_LISTENGINESREQUEST_CONFIGOVERRIDESENTRY']._serialized_options = b'8\001'
-  _globals['_CHUNKINGPOLICY']._serialized_start=2181
-  _globals['_CHUNKINGPOLICY']._serialized_end=2270
+  _globals['_CHUNKINGPOLICY']._serialized_start=2340
+  _globals['_CHUNKINGPOLICY']._serialized_end=2429
   _globals['_READCONFIG']._serialized_start=31
   _globals['_READCONFIG']._serialized_end=258
   _globals['_READCONFIG_PARSERENGINEOVERRIDESENTRY']._serialized_start=192
@@ -62,24 +62,26 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_READREQUEST']._serialized_end=857
   _globals['_IMAGEREF']._serialized_start=859
   _globals['_IMAGEREF']._serialized_end=969
-  _globals['_READRESPONSE']._serialized_start=972
-  _globals['_READRESPONSE']._serialized_end=1351
+  _globals['_SOURCEBLOCK']._serialized_start=971
+  _globals['_SOURCEBLOCK']._serialized_end=1034
+  _globals['_READRESPONSE']._serialized_start=1037
+  _globals['_READRESPONSE']._serialized_end=1463
   _globals['_READRESPONSE_METADATAENTRY']._serialized_start=379
   _globals['_READRESPONSE_METADATAENTRY']._serialized_end=426
-  _globals['_READSTREAMMETA']._serialized_start=1354
-  _globals['_READSTREAMMETA']._serialized_end=1717
+  _globals['_READSTREAMMETA']._serialized_start=1466
+  _globals['_READSTREAMMETA']._serialized_end=1876
   _globals['_READSTREAMMETA_METADATAENTRY']._serialized_start=379
   _globals['_READSTREAMMETA_METADATAENTRY']._serialized_end=426
-  _globals['_READSTREAMRESPONSE']._serialized_start=1719
-  _globals['_READSTREAMRESPONSE']._serialized_end=1831
-  _globals['_LISTENGINESREQUEST']._serialized_start=1834
-  _globals['_LISTENGINESREQUEST']._serialized_end=1988
-  _globals['_LISTENGINESREQUEST_CONFIGOVERRIDESENTRY']._serialized_start=1934
-  _globals['_LISTENGINESREQUEST_CONFIGOVERRIDESENTRY']._serialized_end=1988
-  _globals['_PARSERENGINEINFO']._serialized_start=1990
-  _globals['_PARSERENGINEINFO']._serialized_end=2110
-  _globals['_LISTENGINESRESPONSE']._serialized_start=2112
-  _globals['_LISTENGINESRESPONSE']._serialized_end=2179
-  _globals['_DOCREADER']._serialized_start=2273
-  _globals['_DOCREADER']._serialized_end=2496
+  _globals['_READSTREAMRESPONSE']._serialized_start=1878
+  _globals['_READSTREAMRESPONSE']._serialized_end=1990
+  _globals['_LISTENGINESREQUEST']._serialized_start=1993
+  _globals['_LISTENGINESREQUEST']._serialized_end=2147
+  _globals['_LISTENGINESREQUEST_CONFIGOVERRIDESENTRY']._serialized_start=2093
+  _globals['_LISTENGINESREQUEST_CONFIGOVERRIDESENTRY']._serialized_end=2147
+  _globals['_PARSERENGINEINFO']._serialized_start=2149
+  _globals['_PARSERENGINEINFO']._serialized_end=2269
+  _globals['_LISTENGINESRESPONSE']._serialized_start=2271
+  _globals['_LISTENGINESRESPONSE']._serialized_end=2338
+  _globals['_DOCREADER']._serialized_start=2432
+  _globals['_DOCREADER']._serialized_end=2655
 # @@protoc_insertion_point(module_scope)

@@ -25,6 +25,7 @@ export const SETTINGS_SECTION_MIN_ROLE: Record<string, SettingsRoleKey> = {
   'mcp-access-keys': 'viewer',
   system: 'viewer',
   userprofile: 'viewer',
+  browserconnection: 'viewer',
   tenant: 'viewer',
   members: 'viewer',
   mymemory: 'viewer',
@@ -41,12 +42,12 @@ export const SETTINGS_SECTION_MIN_ROLE: Record<string, SettingsRoleKey> = {
 export const SETTINGS_MANAGEMENT_SHORTCUT_MIN_ROLE = {
   members: 'owner',
   models: 'admin',
-  skills: 'admin',
 } as const satisfies Record<string, SettingsRoleKey>
 
 export const SYSTEM_ADMIN_SETTINGS_SECTIONS = new Set([
   'system-admin',
   'system-global',
+  'model-catalog',
   'runtime-queues',
   'usage-analytics',
   'platform-api-keys',

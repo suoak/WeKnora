@@ -340,6 +340,7 @@ func (k *TenantAPIKey) AfterFind(tx *gorm.DB) error {
 // TenantAPIKeyScope is the request-context projection used by middleware.
 type TenantAPIKeyScope struct {
 	KeyID                   uint64
+	Name                    string
 	ScopeType               APIKeyScopeType
 	FullAccess              bool
 	KnowledgeBaseRestricted bool
@@ -365,6 +366,7 @@ func TenantAPIKeyScopeFromContext(ctx context.Context) (TenantAPIKeyScope, bool)
 func (s TenantAPIKeyScope) Normalize() TenantAPIKeyScope {
 	return TenantAPIKeyScope{
 		KeyID:                   s.KeyID,
+		Name:                    s.Name,
 		ScopeType:               NormalizeAPIKeyScopeType(s.ScopeType),
 		FullAccess:              s.FullAccess,
 		KnowledgeBaseRestricted: s.KnowledgeBaseRestricted,

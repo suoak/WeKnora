@@ -119,6 +119,9 @@ type ParsedChunk struct {
 	// >= 0 means this is a child chunk referencing the parent at this index
 	// in the ParentChunks slice of ProcessChunksOptions.
 	ParentIndex int
+
+	// SourceLocators point back into the original file.
+	SourceLocators SourceLocators
 }
 
 // EmbeddingContent returns the text that should be sent to the embedding

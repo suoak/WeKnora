@@ -149,9 +149,9 @@ func TestInstallTranscriptProjectsTheAgentsWork(t *testing.T) {
 }
 
 // A failed command is the single most useful thing in an install transcript,
-// so it must reach the stream as an error the console already knows how to
-// render, not be dropped for having Success=false.
-func TestInstallTranscriptReportsAFailedCommandAsAnError(t *testing.T) {
+// so it must reach the stream as a tool result carrying success=false —
+// response_type=error is reserved for internal failures, not tool outcomes.
+func TestInstallTranscriptReportsAFailedCommandAsAToolResult(t *testing.T) {
 	_, bus, streams, _ := newTranscriptForTest(t)
 
 	require.NoError(t, bus.Emit(context.Background(), event.Event{
@@ -162,7 +162,7 @@ func TestInstallTranscriptReportsAFailedCommandAsAnError(t *testing.T) {
 		},
 	}))
 
-	require.Equal(t, []types.ResponseType{types.ResponseTypeError}, streams.types())
+	require.Equal(t, []types.ResponseType{types.ResponseTypeToolResult}, streams.types())
 	require.Equal(t, "exit status 1", streams.events[0].Content)
 	require.Equal(t, false, streams.events[0].Data["success"])
 }
@@ -452,4 +452,25 @@ func TestInstallTranscriptWithoutActivityPublisherStaysSilent(t *testing.T) {
 	require.NotPanics(t, func() { tr.Finish(context.Background(), nil) })
 	require.Equal(t, []types.ResponseType{types.ResponseTypeToolCall, types.ResponseTypeComplete},
 		streams.types(), "the transcript itself is unchanged by progress being unwired")
+}
+
+func TestInstallTranscriptProjectsOutputWithoutCompletingTool(t *testing.T) {
+	streams := &transcriptStreams{}
+	bus := event.NewEventBus()
+	tr := newInstallTranscript(context.Background(), bus, streams, nil, "session", "message", nil)
+	tr.Subscribe()
+	require.NoError(t, bus.Emit(context.Background(), event.Event{
+		ID: "chunk", Type: event.EventAgentCommandOutput,
+		Data: event.CommandOutputData{ToolCallID: "tool", Output: "Downloading polars", Done: false},
+	}))
+	require.Len(t, streams.events, 1)
+	require.Equal(t, types.ResponseTypeInstallOutput, streams.events[0].Type)
+	require.Equal(t, "tool", streams.events[0].Data["tool_call_id"])
+	require.Equal(t, "Downloading polars", streams.events[0].Data["output"])
+	require.False(t, streams.events[0].Done)
+	tr.closed = true
+	require.NoError(t, tr.onInstallOutput(context.Background(), event.Event{
+		Data: event.CommandOutputData{Output: "late"},
+	}))
+	require.Len(t, streams.events, 1)
 }

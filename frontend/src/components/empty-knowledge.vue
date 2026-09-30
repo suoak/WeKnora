@@ -32,7 +32,7 @@ defineEmits<{ upload: []; url: []; manual: [] }>()
 .empty-txt {
     color: var(--td-text-color-placeholder);
     font-family: var(--app-font-family);
-    font-size: 16px;
+    font-size: var(--app-text-xl);
     font-weight: 600;
     line-height: 26px;
     margin: 6px 0 8px;
@@ -48,7 +48,7 @@ defineEmits<{ upload: []; url: []; manual: [] }>()
     color: var(--td-text-color-disabled);
     text-align: center;
     font-family: var(--app-font-family);
-    font-size: 12px;
+    font-size: var(--app-text-sm);
     font-weight: 400;
     width: 217px;
 }

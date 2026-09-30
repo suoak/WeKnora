@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/Tencent/WeKnora/internal/application/service"
+	"github.com/Tencent/WeKnora/internal/browserskill"
 	"github.com/Tencent/WeKnora/internal/config"
 	"github.com/Tencent/WeKnora/internal/errors"
 	"github.com/Tencent/WeKnora/internal/infrastructure/docparser"
@@ -13,10 +14,12 @@ import (
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	secutils "github.com/Tencent/WeKnora/internal/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
 // Handler handles all HTTP requests related to conversation sessions
 type Handler struct {
+	browserSkill         *browserskill.Manager
 	messageService       interfaces.MessageService // Service for managing messages
 	suggestionService    interfaces.MessageSuggestionService
 	sessionService       interfaces.SessionService       // Service for managing sessions
@@ -37,7 +40,13 @@ type Handler struct {
 	// after an agent turn completes. May be nil when the sandbox backend does
 	// not support artifact collection; handlers must check before using.
 	artifactCollector *service.ArtifactCollector
-	memoryService     interfaces.MemoryService // Service for cross-session long-term memory
+	// workspaceCheckpointer commits the sandbox /workspace at the end of each
+	// agent turn so session fork can roll back to a specific message. May be
+	// nil when the deployment has no sandbox backend.
+	workspaceCheckpointer *service.WorkspaceCheckpointer
+	// sandboxIDLookup resolves a session's bound sandbox without provisioning.
+	sandboxIDLookup SandboxIDLookup
+	memoryService   interfaces.MemoryService // Service for cross-session long-term memory
 	// userService / memberService back the sandbox terminal's self-contained
 	// handshake (browser WebSocket upgrades cannot send Authorization).
 	userService   interfaces.UserService
@@ -70,6 +79,8 @@ func NewHandler(
 	imageResolver *docparser.ImageResolver,
 	temporaryDocuments interfaces.TemporaryDocumentService,
 	artifactCollector *service.ArtifactCollector,
+	workspaceCheckpointer *service.WorkspaceCheckpointer,
+	sandboxIDLookup SandboxIDLookup,
 	memoryService interfaces.MemoryService,
 	userService interfaces.UserService,
 	memberService interfaces.TenantMemberService,
@@ -105,6 +116,13 @@ func NewHandler(
 			modelService,
 		),
 	}
+	if forkService != nil {
+		h.forkService = forkService
+	}
+	if rewindService != nil {
+		h.rewindService = rewindService
+	}
+	return h
 }
 
 // CreateSession godoc
@@ -146,11 +164,18 @@ func (h *Handler) CreateSession(c *gin.Context) {
 		tenantID,
 	)
 
+	hostDir, ok := bindHostWorkspaceDir(request.ProjectDir, h.approvedDirs())
+	if !ok {
+		_ = c.Error(errors.NewBadRequestError("project_dir is not an approved project directory"))
+		return
+	}
+
 	// Create session object with base properties
 	createdSession := &types.Session{
-		TenantID:    tenantID.(uint64),
-		Title:       request.Title,
-		Description: types.SanitizeClientSessionDescription(request.Description, ""),
+		TenantID:         tenantID.(uint64),
+		Title:            request.Title,
+		Description:      types.SanitizeClientSessionDescription(request.Description, ""),
+		HostWorkspaceDir: hostDir,
 	}
 	// Attach the calling user as the session owner when available.
 	// API-key callers scope sessions per external user when configured;
@@ -381,6 +406,8 @@ func (h *Handler) DeleteSession(c *gin.Context) {
 		return
 	}
 
+	h.browserSkill.Forget(browserSkillScope(ctx), []string{id})
+
 	// Return success message
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
@@ -465,6 +492,7 @@ func (h *Handler) BatchDeleteSessions(c *gin.Context) {
 			c.Error(errors.NewInternalServerError(err.Error()))
 			return
 		}
+		h.browserSkill.ForgetAll(browserSkillScope(ctx))
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
 			"message": "All sessions deleted successfully",
@@ -502,6 +530,7 @@ func (h *Handler) BatchDeleteSessions(c *gin.Context) {
 		return
 	}
 
+	h.browserSkill.Forget(browserSkillScope(ctx), sanitizedIDs)
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Sessions deleted successfully",

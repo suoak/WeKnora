@@ -560,6 +560,7 @@ func attachPlatformAPIKeyAuthContext(c *gin.Context, key *types.TenantAPIKey) {
 		Role: types.TenantRoleViewer,
 		APIKeyScope: &types.TenantAPIKeyScope{
 			KeyID:        key.ID,
+			Name:         key.Name,
 			ScopeType:    types.APIKeyScopePlatform,
 			FullAccess:   false,
 			Capabilities: key.Capabilities,
@@ -646,6 +647,7 @@ func attachAPIKeyAuthContext(
 	if key != nil {
 		session.APIKeyScope = &types.TenantAPIKeyScope{
 			KeyID:            key.ID,
+			Name:             key.Name,
 			ScopeType:        key.ScopeType,
 			FullAccess:       fullAccess,
 			KnowledgeBaseIDs: key.KnowledgeBaseIDs,

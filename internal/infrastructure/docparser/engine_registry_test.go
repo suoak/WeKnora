@@ -33,7 +33,7 @@ func TestListAllEnginesBuiltinIncludesDocumentFormats(t *testing.T) {
 }
 
 func TestDefaultParserEnginePrefersAnydocWhenLinked(t *testing.T) {
-	cases := []string{"pptx", "ppt", "pdf", "docx"}
+	cases := []string{"pptx", "ppt", "docx"}
 	if anydoc.Available() {
 		for _, ft := range cases {
 			if got := types.DefaultParserEngine(ft); got != AnydocEngineName {
@@ -43,13 +43,17 @@ func TestDefaultParserEnginePrefersAnydocWhenLinked(t *testing.T) {
 		if got := types.DefaultParserEngine("csv"); got != "" {
 			t.Errorf("DefaultParserEngine(csv) = %q, want empty so the Go simple reader stays default", got)
 		}
+		// anydoc claims pdf but cannot model one, so linking the binding must
+		// not move PDFs off builtin. This branch is where that is observable.
+		for _, ft := range []string{"pdf", ".PDF"} {
+			if got := types.DefaultParserEngine(ft); got != "" {
+				t.Errorf("DefaultParserEngine(%q) = %q, want empty so PDFs stay on builtin", ft, got)
+			}
+		}
 		return
 	}
 	if got := types.DefaultParserEngine("pptx"); got != "markitdown" {
 		t.Fatalf("DefaultParserEngine(pptx) = %q, want markitdown when anydoc is unavailable", got)
-	}
-	if got := types.DefaultParserEngine("pdf"); got != "" {
-		t.Fatalf("DefaultParserEngine(pdf) = %q, want empty when anydoc is unavailable", got)
 	}
 	if got := types.DefaultParserEngine("docx"); got != "" {
 		t.Fatalf("DefaultParserEngine(docx) = %q, want empty when anydoc is unavailable", got)

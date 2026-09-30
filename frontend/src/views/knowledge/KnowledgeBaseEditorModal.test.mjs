@@ -32,3 +32,23 @@ test('basic create omits technical defaults while advanced remains available', (
   assert.match(source, /knowledgeEditor\.createFlow\.showAdvanced/)
   assert.match(source, /knowledgeEditor\.createFlow\.missingEmbedding/)
 })
+
+test('create mode seeds the full default image actions table', () => {
+  // Regression: an empty imageActions in initFormData made the attribute panel
+  // read `undefined.ocr.on_unobserved` the moment the attribute switch was turned
+  // on in the create dialog, crashing the modal.
+  const initBlock = source.match(/const initFormData[\s\S]*?imageActions: ([^,]+),/)?.[1]
+  assert.ok(initBlock, 'expected to find imageActions in initFormData')
+  assert.match(initBlock, /mergeImageActions\(\)/)
+})
+
+test('edit mode forwards image_processing_config in the update payload', () => {
+  // Regression: the edit branch built data.image_processing_config but never
+  // put it into updateConfig, so KB-editor changes to the image classification
+  // settings were silently dropped (create worked, later edits did not).
+  const editBranch = source.match(
+    /(\/\/ 编辑模式：分别更新基本信息[\s\S]*?await updateKnowledgeBase\(kbId, \{)/
+  )?.[1]
+  assert.ok(editBranch, 'expected to find the edit-mode update block')
+  assert.match(editBranch, /if \(data\.image_processing_config\) \{\s*updateConfig\.image_processing_config = data\.image_processing_config\s*\}/)
+})

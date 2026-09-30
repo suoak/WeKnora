@@ -23,7 +23,11 @@ from docreader.parser.excel_convert import (
     normalize_excel_bytes,
 )
 from docreader.parser.xlsx_merge import fill_merged_cells_xlsx
-from docreader.parser.xlsx_repair import repair_xlsx_bytes
+from docreader.parser.xlsx_repair import (
+    repair_xlsx_bytes,
+    sanitize_xlsx_styles,
+    strip_unreadable_ranges_xlsx,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +124,7 @@ class ExcelParser(BaseParser):
         """
         chunks: List[Chunk] = []
         text: List[str] = []
+        source_blocks: List[dict] = []
         start, end = 0, 0
         saw_nonempty_sheet = False
 
@@ -224,6 +229,18 @@ class ExcelParser(BaseParser):
                         metadata=row_metadata,
                     )
                     chunks.append(document_chunk)
+                    source_blocks.append(
+                        {
+                            "start": start,
+                            "end": end,
+                            "locator": {
+                                "type": "sheet",
+                                "sheet": str(excel_sheet_name),
+                                "row_start": excel_row_number,
+                                "row_end": excel_row_number,
+                            },
+                        }
+                    )
                     if preserve_sheet:
                         segment_end = segment_cursor + len(content_row)
                         segment_chunks.append(
@@ -255,7 +272,6 @@ class ExcelParser(BaseParser):
                         },
                     )
                 )
-
         # Combine all text and return as Document
         policy = ChunkingPolicy.DEFAULT
         if (
@@ -274,6 +290,7 @@ class ExcelParser(BaseParser):
             chunks=chunks,
             segments=segments,
             chunking_policy=policy,
+            source_blocks=source_blocks,
             metadata=document_metadata,
         )
 
@@ -486,7 +503,20 @@ def _prepare_xlsx_bytes(data: bytes) -> bytes:
     repaired = repair_xlsx_bytes(data)
     if repaired is not None:
         data = repaired
-    return fill_merged_cells_xlsx(data)
+    readable = strip_unreadable_ranges_xlsx(data)
+    if readable is not None:
+        data = readable
+    try:
+        return fill_merged_cells_xlsx(data)
+    except TypeError:
+        # A non-conforming styles.xml (empty/malformed fills) makes openpyxl's
+        # load_workbook raise before pandas ever sees the file (#3637).
+        # sanitize_xlsx_styles returns None when the fills are clean, in which
+        # case the TypeError has a different cause and must propagate.
+        sanitized = sanitize_xlsx_styles(data)
+        if sanitized is None:
+            raise
+        return fill_merged_cells_xlsx(sanitized)
 
 
 def _open_excel_file(content: bytes, file_type: str | None = None) -> pd.ExcelFile:

@@ -134,8 +134,8 @@ func TestMigrationGovernanceManifest(t *testing.T) {
 		}
 	}
 
-	requireSequentialInventory(t, 91, 106, "versioned", manifest.UpstreamInventory.Versioned)
-	requireSequentialInventory(t, 13, 25, "sqlite", manifest.UpstreamInventory.SQLite)
+	requireSequentialInventory(t, 91, 114, "versioned", manifest.UpstreamInventory.Versioned)
+	requireSequentialInventory(t, 13, 33, "sqlite", manifest.UpstreamInventory.SQLite)
 }
 
 func requireMigrationPair(t *testing.T, repoRoot, directory string, version int, logicalID string) {
@@ -161,8 +161,9 @@ func requireSequentialInventory(t *testing.T, first, last int, dialect string, i
 		require.NoError(t, err)
 		switch item.AdoptionStrategy {
 		case "manual-port":
-			require.GreaterOrEqual(t, canonical, 2000)
-			require.Less(t, canonical, 3000)
+			// The deployed KnowHub lineage is already at 003000, so newly
+			// adopted upstream migrations must sort after that baseline.
+			require.Greater(t, canonical, 3000)
 		case "equivalence-review-no-new-migration":
 			require.Less(t, canonical, 1000)
 		default:

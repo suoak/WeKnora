@@ -29,9 +29,14 @@
           theme="default"
           :class="['kb-upload-source-trigger', triggerClass]"
           :data-guide="dataGuide || undefined"
+          :aria-label="tooltipText"
           size="small"
         >
-          <template #icon><t-icon :name="triggerIcon" size="16px" /></template>
+          <template #icon>
+            <component v-if="triggerIconComponent" :is="triggerIconComponent" size="18px" :stroke-width="1.7" class="kb-source-icon" />
+            <t-icon v-else :name="triggerIcon" size="18px" />
+          </template>
+          <span v-if="triggerLabel">{{ triggerLabel }}</span>
         </t-button>
       </t-dropdown>
     </t-tooltip>
@@ -76,6 +81,7 @@ const props = withDefaults(defineProps<{
   supportedFileTypes?: string[]
   includeManual?: boolean
   triggerIcon?: string
+  triggerLabel?: string
   triggerClass?: string
   dataGuide?: string
   tooltip?: string
@@ -106,29 +112,37 @@ const urlInputValue = ref('')
 
 const tooltipText = computed(() => props.tooltip || t('knowledgeBase.addDocument'))
 
+const triggerIconComponent = computed(() => ({
+  add: AddIcon,
+  'file-add': FileAddIcon,
+  upload: UploadIcon,
+}[props.triggerIcon]));
+
+const sourceIconProps = { size: '18px', strokeWidth: 1.7, class: 'kb-source-icon' };
+
 const dropdownOptions = computed(() => {
   const options = [
     {
       content: t('upload.uploadDocument'),
       value: 'upload',
-      prefixIcon: () => h(TIcon, { name: 'upload', size: '16px' }),
+      prefixIcon: () => h(FileAddIcon, sourceIconProps),
     },
     {
       content: t('upload.uploadFolder'),
       value: 'uploadFolder',
-      prefixIcon: () => h(TIcon, { name: 'folder-add', size: '16px' }),
+      prefixIcon: () => h(FolderAddIcon, sourceIconProps),
     },
     {
       content: t('knowledgeBase.importURL'),
       value: 'importURL',
-      prefixIcon: () => h(TIcon, { name: 'link', size: '16px' }),
+      prefixIcon: () => h(LinkIcon, sourceIconProps),
     },
   ]
   if (props.includeManual) {
     options.push({
       content: t('upload.onlineEdit'),
       value: 'manualCreate',
-      prefixIcon: () => h(TIcon, { name: 'edit', size: '16px' }),
+      prefixIcon: () => h(EditIcon, sourceIconProps),
     })
   }
   return options
@@ -240,16 +254,24 @@ defineExpose({ openUrlDialog, openFilePicker })
 .url-import-form {
   .url-input-label {
     margin-bottom: 8px;
-    font-size: 14px;
+    font-size: var(--app-text-base);
     font-weight: 500;
     color: var(--td-text-color-primary);
   }
 
   .url-input-tip {
     margin-top: 8px;
-    font-size: 12px;
+    font-size: var(--app-text-sm);
     line-height: 1.5;
     color: var(--td-text-color-placeholder);
   }
+}
+</style>
+
+<style lang="less">
+// Use consistent rounded strokes for this small family of document-source actions.
+.kb-source-icon path {
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 </style>

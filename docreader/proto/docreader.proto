@@ -69,6 +69,17 @@ message ImageRef {
   bytes  image_data = 5;     // inline bytes fallback
 }
 
+// SourceBlock ties a range of markdown_content to the place in the original
+// file it was parsed from, so a citation can open the file there.
+message SourceBlock {
+  // Unicode code point offsets into markdown_content, end exclusive.
+  uint32 start = 1;
+  uint32 end = 2;
+  // JSON-encoded locator: {"type":"pdf","page":3,"bbox":[x0,y0,x1,y1]}
+  // with ordinals 1-based and bbox as fractions of the page, origin top-left.
+  string locator_json = 3;
+}
+
 message ReadResponse {
   string markdown_content = 1;
   repeated ImageRef image_refs = 2;
@@ -78,6 +89,7 @@ message ReadResponse {
   ChunkingPolicy chunking_policy = 6;
   repeated ParsedTextSpan parsed_chunks = 7;
   repeated ParsedSegment parsed_segments = 8;
+  repeated SourceBlock source_blocks = 9;
 }
 
 // Metadata header for a streamed read. Sent exactly once, before any image.
@@ -90,6 +102,7 @@ message ReadStreamMeta {
   ChunkingPolicy chunking_policy = 6;
   repeated ParsedTextSpan parsed_chunks = 7;
   repeated ParsedSegment parsed_segments = 8;
+  repeated SourceBlock source_blocks = 9;
 }
 
 // One frame of a ReadStream. The first frame carries `meta`; every subsequent

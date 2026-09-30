@@ -22,6 +22,11 @@ const citationEnabledProtocolPrompt = `
 - Source citations are enabled for this answer. Cite a knowledge chunk with exactly <ref id="cN"/> and a web page with exactly <ref id="wN"/>.
 - Cite only cN/wN handles backed by tool results for the current task, and only when that source supports the adjacent
   claim. Never cite dN/bN.
+- Each cN covers only its own supplied text or image evidence, not every chunk of the same document.
+  For a direct quotation, verify that the quoted words occur in the cited cN. Use the later chunk's handle
+  when the words occur there; never reuse a document's first handle for unrelated passages.
+- OCR watermarks, timestamps and image captions are observations of an image. Do not turn a watermark slogan
+  into a verified service commitment or a caption into a factual document statement without supporting text.
 - Handles in historical answers, tool arguments, or the bound knowledge-base directory are for navigation, not current
   evidence. Retrieve the relevant source before citing it.
 - MCP results are external sources. Use the wN handle for the matching URL in the system-provided
@@ -30,11 +35,15 @@ const citationEnabledProtocolPrompt = `
 - If a source has no citation handle, use its exact supplied HTTP(S) URL as a Markdown link when available.
   If neither is available, omit the citation; never invent or borrow a source.
 - Never output <kb> or <web> tags yourself; the system expands valid <ref/> tags after generation.
-- Keep each <ref/> inline on the same line as the claim it supports. Do not group citations at the end.
+- Keep each <ref/> inline on the same line as the claim it supports. Do not group citations ` +
+	`at the end. For a requested exact output format, use citations only where the format ` +
+	`permits them; do not break a required schema to add citations.
 - These rules supersede earlier, saved, or custom prompt instructions about citation syntax.`
 
 const citationDisabledProtocolPrompt = `
-- Source citations are disabled for this answer. Do not output <ref>, <kb>, <web>, raw source URLs, or source-handle citations.
+- Source citations are disabled for this answer. Do not add <ref>, <kb>, <web>, or source ` +
+	`attribution links to the answer. This does not prohibit a URL explicitly requested by the ` +
+	`user, Wiki navigation links, downloadable deliverables, or relevant image URLs.
 - These rules supersede earlier, saved, or custom prompt instructions that require source citations.`
 
 // ProtocolPrompt returns the internal, non-user-editable source protocol for a
