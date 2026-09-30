@@ -1,6 +1,20 @@
 import { branding } from '../../config/branding'
 
 export default {
+  localBrowser: {
+    settingsTitle: '浏览器连接', settingsDescription: '通过 BrowserSkill 连接本机 Chrome 或 Edge，配对后即可在对话中操作真实网页。',
+    openSettings: '前往浏览器连接', settingsHint: '在工具箱中连接 BrowserSkill，即可在对话里使用本机浏览器。', unavailable: '服务端尚未启用本机浏览器，请联系管理员。',
+    source: '浏览器来源', sandbox: '沙箱浏览器', local: '本机浏览器', browserAction: '浏览器操作',
+    openPage: '打开网页', switchPage: '切换网页', readPage: '查看网页', listTabs: '查看标签页', clickPage: '点击元素', fillPage: '填写内容', waitPage: '等待页面',
+    pressKey: '按键', hoverPage: '悬停元素', scrollPage: '滚动页面', focusElement: '聚焦元素', blurElement: '移开焦点', selectOption: '选择选项',
+    closeTab: '关闭标签页', runScript: '执行网页脚本', readConsole: '查看控制台', readNetwork: '查看网络请求', resizeWindow: '调整窗口大小', emulateDevice: '模拟设备',
+    openTab: '新建任务标签', switchTab: '切换任务标签', authorizeTab: '请求标签授权', returnTab: '归还标签', captureScreenshot: '截取网页画面',
+    actionPending: '正在操作浏览器…', actionRecorded: '已记录浏览器操作', actionCompleted: '操作已完成', actionFailed: '未完成', actionFailedHint: '浏览器操作未完成，请检查当前页面后重试。',
+    commandBusy: '上一条浏览器操作尚未结束，请等待完成后继续。', invalidArguments: '浏览器工具参数格式错误或不完整，智能体需要修正后再执行。',
+    commandInterrupted: '浏览器操作已中断，请先确认页面状态，再从小预览继续任务。', navigationIncomplete: '导航未达到目标加载阶段，请检查当前页面。',
+    preview: '本机浏览器任务预览', previewStale: '画面暂未更新', previewIdle: '已保留最后画面', previewLive: '画面同步中', previewLoading: '正在获取画面',
+    noEntries: '没有返回记录。', untitledTab: '未命名标签页', contentTruncated: '仅显示部分网页内容。', elapsedSeconds: '{seconds} 秒',
+  },
   loadState: { retry: '重试', networkTitle: '网络连接异常', networkDescription: '请检查网络连接后重试。', forbiddenTitle: '没有访问权限', forbiddenDescription: '当前角色无权访问此资源。', notFoundTitle: '资源不存在', notFoundDescription: '资源可能已被删除，或当前链接已经失效。', genericTitle: '内容加载失败', genericDescription: '请重试；如果问题持续，请联系管理员。' },
   portal: {
     brandSubtitle: 'CSBU IPD 知识门户',
@@ -5509,6 +5523,13 @@ export default {
     }
   },
   envVarSettings: {
+    host: {
+      title: '环境变量', description: '给本机技能使用的个人密钥，不是系统或部署配置。',
+      helpAria: '环境变量说明', introRuntimeBody: '仅在技能于本机运行时注入；保存后不再显示明文。',
+      loadFailed: '环境变量加载失败。', sandboxTitle: '在本机始终携带的值',
+      sandboxHint: '只传给在本机运行的命令。', nameInvalid: '该环境变量名称无效或属于保留名称。',
+      deleteConfirm: '删除 {name}？本机命令将不再收到该变量。',
+    },
     title: '沙箱密钥',
     description: `给技能和沙箱用的个人密钥，不是 ${branding.productNameZh} 的系统或部署配置。`,
     helpAria: '沙箱密钥说明',
@@ -5721,6 +5742,10 @@ export default {
       backendTypePlaceholder: '选择沙箱类型',
       scriptPolicyLabel: '允许在沙箱中执行技能脚本',
       scriptPolicyDesc: '关闭后本空间所有智能体只能阅读技能内容，不再执行脚本；已在运行的远端沙箱需结束会话后才释放。',
+      desktopTemplateProvisioning: '正在创建桌面沙箱模板，请稍后刷新查看状态。',
+      desktopTemplateReplaced: '已开始重建桌面模板；CLI 模板不受影响。',
+      desktopTemplateTag: '桌面',
+      replaceDesktopTemplateConfirm: '使用当前配置（包括 DNS）重建桌面模板。新模板就绪前保留现有可用模板。',
       backendDescriptions: {
         cube: '适合私有化或内网部署的自建 MicroVM 集群',
         e2b: 'E2B 托管服务或兼容 E2B 的集群',

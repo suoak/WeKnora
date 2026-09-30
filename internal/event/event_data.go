@@ -1,6 +1,10 @@
 package event
 
-import "github.com/Tencent/WeKnora/internal/types"
+import (
+	"time"
+
+	"github.com/Tencent/WeKnora/internal/types"
+)
 
 // EventData contains common event data structures for different stages
 

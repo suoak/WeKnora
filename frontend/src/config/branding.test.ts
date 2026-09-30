@@ -65,7 +65,6 @@ test('release surfaces keep product branding separate from compatibility identif
   const readBinary = (path: string) => readFileSync(new URL(path, import.meta.url))
   const readme = read('../../../README.md')
   const docsConfig = read('../../../website-docs/.vitepress/config.mts')
-  const docsLanding = read('../../../website-docs/.vitepress/theme/Landing.vue')
   const miniApp = JSON.parse(read('../../../miniprogram/app.json'))
   const miniProject = JSON.parse(read('../../../miniprogram/project.config.json'))
   const desktop = JSON.parse(read('../../../cmd/desktop/wails.json'))
@@ -73,8 +72,8 @@ test('release surfaces keep product branding separate from compatibility identif
 
   assert.match(readme, /docs\/brand\/knowhub-logo\.svg/)
   assert.match(docsConfig, /siteTitle: '知汇 KnowHub'/)
-  assert.match(docsLanding, /知汇 KnowHub · 基于 WeKnora/)
-  assert.match(docsLanding, /github\.com\/suoak\/WeKnora/)
+  assert.match(docsConfig, /知汇 KnowHub · 基于 WeKnora/)
+  assert.match(docsConfig, /github\.com\/suoak\/WeKnora/)
   assert.equal(miniApp.window.navigationBarTitleText, '知汇')
   assert.equal(miniProject.projectname, '知汇 KnowHub')
   assert.equal(desktop.info.productName, '知汇 KnowHub')

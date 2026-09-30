@@ -56,7 +56,9 @@ func TestSavedModelFactoryPreservesBenchmarkTruncatePromptTokens(t *testing.T) {
 	secutils.ResetSSRFWhitelistForTest()
 	t.Cleanup(secutils.ResetSSRFWhitelistForTest)
 
-	var request OpenAIEmbedRequest
+	var request struct {
+		TruncatePromptTokens int `json:"truncate_prompt_tokens"`
+	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Errorf("decode embedding request: %v", err)

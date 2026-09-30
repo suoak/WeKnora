@@ -1052,7 +1052,6 @@ onUnmounted(() => {
     mobileMedia?.removeEventListener('change', syncMobileViewport);
     window.removeEventListener('weknora:open-mobile-navigation', openMobileNavigation);
     clearInterval(sessionActivityTimer);
-    clearTimeout(forkRevealTimer);
     sessionActivity.clear();
     window.removeEventListener(SESSION_MUTATION_EVENT, handleSessionMutation);
 });
@@ -1202,6 +1201,25 @@ const getImgSrc = (url: string) => {
 const mouseenteMenu = (path: string) => {
 }
 const mouseleaveMenu = (path: string) => {
+}
+
+const onDragHandleMouseDown = (e: MouseEvent) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const expandThreshold = 40
+
+    const cleanup = () => {
+        document.removeEventListener('mousemove', onMouseMove)
+        document.removeEventListener('mouseup', cleanup)
+    }
+    const onMouseMove = (event: MouseEvent) => {
+        if (event.clientX - startX > expandThreshold) {
+            uiStore.expandSidebar()
+            cleanup()
+        }
+    }
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', cleanup)
 }
 
 let sidebarResizeStartWidth = 0

@@ -659,7 +659,7 @@
             </template>
             <span>{{ $t('agent.createAgent') }}</span>
           </t-button>
-        </EmptyState>
+        </div>
 
         <!-- 空状态：收藏 / 最近 — 不放创建按钮，参见 KnowledgeBaseList 的同处理由 -->
         <div v-if="spaceSelection === 'favorites' && filteredAgents.length === 0 && !loading && !loadError" class="empty-state">
@@ -700,7 +700,7 @@
             </template>
             <span>{{ $t('agent.createAgent') }}</span>
           </t-button>
-        </EmptyState>
+        </div>
         <!-- 空状态：空间下 -->
         <div v-if="spaceSelectionOrgId && !spaceAgentsLoading && spaceAgentsList.length === 0 && !loadError" class="empty-state">
           <img class="empty-img" src="@/assets/img/upload.svg" alt="">
@@ -821,6 +821,13 @@ import { useListUrlState } from '@/composables/useListUrlState'
 import { useResourcePins } from '@/composables/useResourcePins'
 import { integrationSectionKey } from '@/config/settingsRoute'
 import { classifyLoadError, type LoadErrorKind } from '@/utils/loadErrorPresentation'
+import {
+  DEFAULT_RESOURCE_SORT,
+  sortResourcesWithinGroups,
+  type ResourceSortAccessors,
+  type ResourceSortValue,
+} from '@/utils/resourceSorting'
+import { formatStringDate } from '@/utils/index'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -831,6 +838,12 @@ const orgStore = useOrganizationStore()
 const chatResources = useChatResourcesStore()
 const { loaded: modelsReadyLoaded, isReadyForAgent } = useTenantModelReadiness()
 const selectedResourceSort = ref<ResourceSortValue>(DEFAULT_RESOURCE_SORT)
+const confirmDelete = useConfirmDelete()
+
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return ''
+  return formatStringDate(new Date(dateStr))
+}
 
 interface AgentWithUI extends CustomAgent {
   showMore?: boolean
@@ -1679,7 +1692,7 @@ watch(keyword, () => { collapsedAgentSections.value = new Set() })
   display: inline-flex;
   align-items: center;
   padding: 2px 6px;
-  background: rgba(7, 192, 95, 0.1);
+  background: color-mix(in srgb, var(--td-brand-color) 10%, transparent);
   border-radius: 4px;
   font-size: 12px;
   color: var(--td-brand-color);

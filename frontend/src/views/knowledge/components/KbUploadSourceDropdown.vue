@@ -69,6 +69,7 @@
 import { ref, computed, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { MessagePlugin, Icon as TIcon } from 'tdesign-vue-next'
+import { AddIcon, FileAddIcon, UploadIcon, FolderAddIcon, LinkIcon, EditIcon } from 'tdesign-icons-vue-next'
 import { MAX_FILE_SIZE_MB } from '@/utils/uploadLimits'
 import {
   filterUploadFiles,

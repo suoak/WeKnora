@@ -528,10 +528,10 @@ func assertSQLiteMCPOAuthPrincipalUpsertWorks(t *testing.T, db *sql.DB) {
 
 func copySQLiteMigrationsV4(t *testing.T, repoRoot string) string {
 	t.Helper()
-	return copySQLiteMigrationsThrough(t, repoRoot, 4)
+	return copySQLiteMigrationsThroughVersion(t, repoRoot, 4)
 }
 
-func copySQLiteMigrationsThrough(t *testing.T, repoRoot string, maxVersion int) string {
+func copySQLiteMigrationsThroughVersion(t *testing.T, repoRoot string, maxVersion int) string {
 	t.Helper()
 	dest := t.TempDir()
 	srcDir := filepath.Join(repoRoot, "migrations", "sqlite")

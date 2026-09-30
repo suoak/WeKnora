@@ -1,6 +1,8 @@
 import { branding } from '../../config/branding'
+import enUS from './en-US'
 
 const messages = {
+  localBrowser: enUS.localBrowser,
   loadState: { retry: '다시 시도', networkTitle: '연결 문제', networkDescription: '네트워크 연결을 확인하고 다시 시도하세요.', forbiddenTitle: '접근 권한 없음', forbiddenDescription: '현재 역할로는 이 리소스에 접근할 수 없습니다.', notFoundTitle: '리소스를 찾을 수 없음', notFoundDescription: '삭제되었거나 링크가 오래되었을 수 있습니다.', genericTitle: '콘텐츠를 불러오지 못했습니다', genericDescription: '다시 시도하고 문제가 계속되면 관리자에게 문의하세요.' },
   portal: {
     brandSubtitle: 'CSBU IPD 지식 포털', heroEyebrow: '지식 탐색', heroTitle: '조직의 관리된 지식 공간 탐색',
@@ -5442,6 +5444,7 @@ const messages = {
     }
   },
   envVarSettings: {
+    host: enUS.envVarSettings.host,
     title: '샌드박스 키',
     description: `스킬과 샌드박스에 쓰는 개인 키이며, ${branding.productName} 시스템이나 배포 설정이 아닙니다.`,
     helpAria: '샌드박스 키 설명',
@@ -5654,6 +5657,10 @@ const messages = {
       backendTypePlaceholder: '샌드박스 유형 선택',
       scriptPolicyLabel: '샌드박스에서 스킬 스크립트 실행 허용',
       scriptPolicyDesc: '끄면 이 워크스페이스의 에이전트는 스킬 내용만 읽을 수 있습니다. 이미 실행 중인 원격 샌드박스는 해당 세션이 종료된 후 해제됩니다.',
+      desktopTemplateProvisioning: enUS.settings.sandbox.desktopTemplateProvisioning,
+      desktopTemplateReplaced: enUS.settings.sandbox.desktopTemplateReplaced,
+      desktopTemplateTag: enUS.settings.sandbox.desktopTemplateTag,
+      replaceDesktopTemplateConfirm: enUS.settings.sandbox.replaceDesktopTemplateConfirm,
       backendDescriptions: {
         cube: 'Self-hosted MicroVM cluster for private or on-premises deployments',
         e2b: 'Managed MicroVM service or an E2B-compatible deployment',

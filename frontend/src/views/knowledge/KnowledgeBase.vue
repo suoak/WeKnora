@@ -2434,7 +2434,7 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
                           </div>
                           <div class="doc-filter-field">
                             <span>{{ $t('knowledgeBase.columnUpdatedAt') }}</span>
-                            <t-date-range-picker v-model="updatedTimeRange"
+                            <t-date-range-picker v-model="updatedTimeRange" class="doc-date-range doc-filter-field__control"
                               :placeholder="[$t('knowledgeBase.updatedTimeFrom'), $t('knowledgeBase.updatedTimeTo')]"
                               :disable-date="disableFutureDate" clearable allow-input />
                           </div>

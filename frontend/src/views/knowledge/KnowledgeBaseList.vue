@@ -589,7 +589,7 @@
             <template #icon><t-icon name="folder-add" /></template>
             {{ $t('knowledgeList.create') }}
           </t-button>
-        </EmptyState>
+        </div>
 
         <!-- 收藏空状态：不放创建按钮——「没有收藏」 ≠ 「没有知识库」，
              正确引导是「去星标一下」，不是「再建一个」。 -->
@@ -617,7 +617,7 @@
             <template #icon><t-icon name="folder-add" /></template>
             {{ $t('knowledgeList.create') }}
           </t-button>
-        </EmptyState>
+        </div>
 
         <!-- 空间下知识库空状态 -->
         <div v-if="spaceSelectionOrgId && !spaceKbsLoading && spaceKbsList.length === 0 && !hasDiscoveryFilter" class="empty-state">
@@ -728,7 +728,6 @@ import ResourceOriginBadge from '@/components/ResourceOriginBadge.vue'
 import { shouldShowResourceOriginBadge } from '@/utils/card-list-badge'
 import { permissionCanManageKB } from '@/utils/kbPermission'
 import ContextualGuide from '@/components/ContextualGuide.vue'
-import ResourceSortControl from '@/components/ResourceSortControl.vue'
 import { isContextualGuideDone, markContextualGuideDone } from '@/config/contextualGuides'
 import { useI18n } from 'vue-i18n'
 import { useListUrlState } from '@/composables/useListUrlState'
@@ -813,7 +812,7 @@ const formatKbUpdatedAt = (value: string) => {
 // that might point at the old query — its display label is rebranded
 // via ListSpaceSidebar's workspaceLabel computed.
 const defaultScope: 'all' | 'mine' = 'all'
-const { scope: spaceSelection, creator: creatorFilter } = useListUrlState({
+const { scope: spaceSelection, creator: creatorFilter, query: keyword } = useListUrlState({
   defaultScope,
   defaultCreator: 'all',
 })
@@ -856,18 +855,6 @@ interface KB {
   creator_id?: string;
   // creator_name 由后端 list 接口回填，仅用于卡片右下角来源徽章的 tooltip。
   creator_name?: string;
-}
-
-const flatKnowledgeBaseSortAccessors: ResourceSortAccessors<any> = {
-  getName: item => item?.name,
-  getUpdatedAt: item => item?.updated_at ?? item?.shared_at,
-  getCreatedAt: item => item?.created_at ?? item?.shared_at,
-}
-
-const sharedKnowledgeBaseSortAccessors: ResourceSortAccessors<OrganizationSharedKnowledgeBaseItem> = {
-  getName: item => item.knowledge_base?.name,
-  getUpdatedAt: item => item.knowledge_base?.updated_at ?? item.shared_at,
-  getCreatedAt: item => item.knowledge_base?.created_at ?? item.shared_at,
 }
 
 const kbs = ref<KB[]>([])
@@ -914,7 +901,7 @@ const spaceKbsLoading = ref(false)
 // even though it would otherwise live in the teammate sub-group. The
 // previous version only bucketed by isMyKb and silently demoted these
 // pinned-but-teammate KBs.
-const sortedMineKbs = computed<KB[]>(() => {
+const unsearchedSortedMineKbs = computed<KB[]>(() => {
   return [...kbs.value].filter(matchesCurrentFilters).sort((a, b) => {
     const ap = a.is_pinned ? 0 : 1
     const bp = b.is_pinned ? 0 : 1
@@ -936,7 +923,7 @@ const sortedMineKbs = computed(() => unsearchedSortedMineKbs.value.filter(item =
 
 // 空间视角下的稳定排序：我创建的（is_mine）放在前面，剩下的共享部分再按
 // 可编辑 / 仅查看 排序——这样空间列表跟「全部」视图的视觉顺序一致。
-const sortedSpaceKbsList = computed(() => {
+const unsearchedSortedSpaceKbsList = computed(() => {
   return [...spaceKbsList.value].filter(matchesCurrentFilters).sort((a, b) => {
     const aMine = a.is_mine ? 0 : 1
     const bMine = b.is_mine ? 0 : 1
@@ -1164,6 +1151,7 @@ const unsearchedFilteredKnowledgeBases = computed(() => {
     sharedKbs.value as unknown as SharedKnowledgeBaseLike[],
     authStore.user?.id,
   ).filter(matchesCurrentFilters) as unknown as Array<(KB & { isMine: true }) | (SharedKnowledgeBase['knowledge_base'] & { isMine: false; permission: string; shared_at: string; share_id: string } & any)>
+  return merged
 })
 
 const showNoFilterResults = computed(() => {
@@ -1911,9 +1899,10 @@ watch(keyword, () => { collapsedKbSections.value = new Set() })
 
   .kb-favorite-star { .resource-favorite-button(); }
 
+  &.kb-type-document {
     &:hover {
       border-color: var(--td-brand-color);
-      background: linear-gradient(135deg, var(--td-bg-color-container) 0%, rgba(7, 192, 95, 0.08) 100%);
+      background: linear-gradient(135deg, var(--td-bg-color-container) 0%, color-mix(in srgb, var(--td-brand-color) 8%, transparent) 100%);
     }
 
     // 右上角装饰
@@ -1924,7 +1913,7 @@ watch(keyword, () => { collapsedKbSections.value = new Set() })
       right: 0;
       width: 60px;
       height: 60px;
-      background: linear-gradient(135deg, rgba(7, 192, 95, 0.08) 0%, transparent 100%);
+      background: linear-gradient(135deg, color-mix(in srgb, var(--td-brand-color) 8%, transparent) 0%, transparent 100%);
       border-radius: 0 12px 0 100%;
       pointer-events: none;
       z-index: 0;
@@ -1978,12 +1967,12 @@ watch(keyword, () => { collapsedKbSections.value = new Set() })
 
     &:hover {
       background: var(--td-bg-color-secondarycontainer);
-      color: var(--td-warning-color, #e37318);
+      color: var(--td-warning-color);
     }
 
     &.is-favorited {
       opacity: 1;
-      color: var(--td-warning-color, #e37318);
+      color: var(--td-warning-color);
     }
   }
 
@@ -2334,7 +2323,7 @@ watch(keyword, () => { collapsedKbSections.value = new Set() })
 .kb-card.highlight-flash {
   animation: highlightFlash 0.6s ease-in-out 3;
   border-color: var(--td-brand-color) !important;
-  box-shadow: 0 0 12px rgba(7, 192, 95, 0.3) !important;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--td-brand-color) 30%, transparent) !important;
 }
 
 .card-time {

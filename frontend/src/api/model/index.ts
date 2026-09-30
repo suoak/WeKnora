@@ -192,6 +192,23 @@ export function getModel(id: string): Promise<ModelConfig> {
 }
 
 // 更新模型
+export function copyModelConfig(id: string, displayName: string): Promise<ModelConfig> {
+  return new Promise((resolve, reject) => {
+    post(`/api/v1/models/${id}/copy`, { display_name: displayName })
+      .then((response: any) => {
+        if (response.success && response.data) {
+          resolve(response.data)
+        } else {
+          reject(new Error(response.message || ''))
+        }
+      })
+      .catch((error: any) => {
+        console.error('Failed to copy model:', error)
+        reject(error)
+      })
+  })
+}
+
 export function updateModel(id: string, data: Partial<ModelConfig>): Promise<ModelConfig> {
   return new Promise((resolve, reject) => {
     put(`/api/v1/models/${id}`, data)

@@ -9,6 +9,7 @@ import DocumentActionMenu from './DocumentActionMenu.vue';
 import FolderPickerMenu, { type FolderOption } from './FolderPickerMenu.vue';
 import KnowledgeProcessingTimeline from '@/components/knowledge-processing-timeline.vue';
 import { conciseProcessingError } from '@/utils/knowledgeProcessingPresentation';
+import { shownStall } from '@/utils/knowledgeProcessingStall';
 
 interface Tag {
   id: string;

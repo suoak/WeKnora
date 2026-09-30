@@ -1,6 +1,8 @@
 import { branding } from '../../config/branding'
+import enUS from './en-US'
 
 const messages = {
+  localBrowser: enUS.localBrowser,
   loadState: { retry: 'Повторить', networkTitle: 'Проблема подключения', networkDescription: 'Проверьте сеть и повторите попытку.', forbiddenTitle: 'Доступ запрещён', forbiddenDescription: 'Текущая роль не позволяет открыть этот ресурс.', notFoundTitle: 'Ресурс не найден', notFoundDescription: 'Возможно, ресурс удалён или ссылка устарела.', genericTitle: 'Не удалось загрузить содержимое', genericDescription: 'Повторите попытку. Если проблема сохраняется, обратитесь к администратору.' },
   portal: {
     brandSubtitle: 'Портал знаний CSBU IPD', heroEyebrow: 'ПОИСК ЗНАНИЙ', heroTitle: 'Поиск управляемых пространств знаний организации',
@@ -5442,6 +5444,7 @@ const messages = {
     }
   },
   envVarSettings: {
+    host: enUS.envVarSettings.host,
     title: 'Ключи песочницы',
     description: `Личные ключи для навыков и песочниц, а не системные или деплой-настройки ${branding.productName}.`,
     helpAria: 'Справка по ключам песочницы',
@@ -5654,6 +5657,10 @@ const messages = {
       backendTypePlaceholder: 'Выберите тип песочницы',
       scriptPolicyLabel: 'Разрешить выполнение скриптов навыков в песочницах',
       scriptPolicyDesc: 'Если выключено, агенты этого пространства смогут только читать содержимое навыков. Уже запущенные удалённые песочницы освободятся после завершения их сессий.',
+      desktopTemplateProvisioning: enUS.settings.sandbox.desktopTemplateProvisioning,
+      desktopTemplateReplaced: enUS.settings.sandbox.desktopTemplateReplaced,
+      desktopTemplateTag: enUS.settings.sandbox.desktopTemplateTag,
+      replaceDesktopTemplateConfirm: enUS.settings.sandbox.replaceDesktopTemplateConfirm,
       backendDescriptions: {
         cube: 'Self-hosted MicroVM cluster for private or on-premises deployments',
         e2b: 'Managed MicroVM service or an E2B-compatible deployment',

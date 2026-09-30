@@ -31,7 +31,7 @@ const ariaName = computed(() => brandSubtitle.value ? `${brandName.value} · ${b
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--td-text-color-primary, #101f38);
+  color: var(--td-text-color-primary);
   font-size: 18px;
   font-weight: 700;
   line-height: 1;
@@ -60,7 +60,7 @@ const ariaName = computed(() => brandSubtitle.value ? `${brandName.value} · ${b
 }
 
 .brand-logo__subtitle {
-  color: var(--td-text-color-secondary, #526071);
+  color: var(--td-text-color-secondary);
   font-size: 11.5px;
   font-weight: 500;
   letter-spacing: 0;

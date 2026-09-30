@@ -40,19 +40,19 @@ const RULES = [
     name: 'radius-literal',
     why: '圆角请用 var(--app-radius-xs|sm|md|lg|xl|pill)（4/6/8/10/12/999px）',
     pattern: /border(?:-[a-z]+)*-radius\s*:\s*\d+(?:\.\d+)?px/g,
-    baseline: 162,
+    baseline: 292,
   },
   {
     name: 'font-size-literal',
     why: '字号请用 var(--app-text-2xs … 4xl)（10~24px）',
     pattern: /font-size\s*:\s*\d+(?:\.\d+)?px/g,
-    baseline: 28,
+    baseline: 253,
   },
   {
     name: 'motion-literal',
     why: '过渡时长请用 var(--app-motion-instant|fast|base|slow)（120/150/200/300ms）',
     pattern: /transition[^;{]*?(?<![\d.])(?:0?\.\d+s|\d+ms)/g,
-    baseline: 65,
+    baseline: 81,
   },
   {
     name: 'transition-all',

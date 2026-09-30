@@ -1,6 +1,7 @@
 import enUS from './en-US'
 
 const messages = {
+  localBrowser: enUS.localBrowser,
   loadState: { retry: '再試行', networkTitle: '接続に問題があります', networkDescription: 'ネットワーク接続を確認して再試行してください。', forbiddenTitle: 'アクセス権限がありません', forbiddenDescription: '現在のロールではこのリソースにアクセスできません。', notFoundTitle: 'リソースが見つかりません', notFoundDescription: '削除されたか、リンクが古い可能性があります。', genericTitle: 'コンテンツを読み込めませんでした', genericDescription: '再試行し、問題が続く場合は管理者に連絡してください。' },
   portal: { ...enUS.portal, categories: { ...enUS.portal.categories, insight_domain: 'インサイト' } },
   navigation: { main: 'Main navigation', openMenu: 'Open navigation', portalHome: 'Home', newChat: 'New chat', recentChats: 'Recent chats', recentAll: 'All', recentCollapse: 'Collapse', knowledgeBases: 'スペースのナレッジベース', agents: 'Agents', allAgents: 'All agents', mcpAccess: 'MCP 接続', members: 'スペースメンバー', managementCenter: '管理センター', integrations: 'Integrations', workspaceSettings: 'Workspace Settings', usageAnalytics: 'Usage Analytics', modelsDefaults: 'Models & Defaults', runtime: 'Runtime', audit: 'Audit', systemSettings: 'System Settings', platformApiKeys: 'Platform API Keys', groups: { global: 'グローバル', workspace: 'ナレッジスペース', management: '管理', knowledge: 'Knowledge', ai: 'AI', system: 'System Administration' } },

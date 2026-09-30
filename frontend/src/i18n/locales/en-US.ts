@@ -1,6 +1,20 @@
 import { branding } from '../../config/branding'
 
 export default {
+  localBrowser: {
+    settingsTitle: 'Browser connection', settingsDescription: 'Pair BrowserSkill with your local Chrome or Edge to operate real web pages from conversations.',
+    openSettings: 'Open browser settings', settingsHint: 'Connect BrowserSkill in Toolbox to use your local browser here.', unavailable: 'Local browsing is not enabled on this server. Contact your administrator.',
+    source: 'Browser source', sandbox: 'Sandbox browser', local: 'Local browser', browserAction: 'Browser action',
+    openPage: 'Open page', switchPage: 'Switch page', readPage: 'Read page', listTabs: 'List tabs', clickPage: 'Click element', fillPage: 'Fill content', waitPage: 'Wait for page',
+    pressKey: 'Press key', hoverPage: 'Hover over element', scrollPage: 'Scroll page', focusElement: 'Focus element', blurElement: 'Remove focus', selectOption: 'Select option',
+    closeTab: 'Close tab', runScript: 'Run page script', readConsole: 'Read console', readNetwork: 'Inspect network requests', resizeWindow: 'Resize window', emulateDevice: 'Emulate device',
+    openTab: 'Create task tab', switchTab: 'Switch task tab', authorizeTab: 'Request tab permission', returnTab: 'Return tab', captureScreenshot: 'Capture screenshot',
+    actionPending: 'Operating browser…', actionRecorded: 'Browser action recorded', actionCompleted: 'Action completed', actionFailed: 'Incomplete', actionFailedHint: 'The browser action did not finish. Check the page and try again.',
+    commandBusy: 'The previous browser command is still running. Wait before continuing.', invalidArguments: 'Browser tool arguments are invalid or incomplete. The agent must correct them before proceeding.',
+    commandInterrupted: 'The browser action was interrupted. Check the page before resuming from the preview.', navigationIncomplete: 'Navigation did not reach the requested loading phase. Check the current page.',
+    preview: 'Local browser task preview', previewStale: 'Preview has not updated', previewIdle: 'Last preview retained', previewLive: 'Preview syncing', previewLoading: 'Fetching preview',
+    noEntries: 'No entries returned.', untitledTab: 'Untitled tab', contentTruncated: 'Only part of the page content is shown.', elapsedSeconds: '{seconds} s',
+  },
   loadState: { retry: 'Try again', networkTitle: 'Connection problem', networkDescription: 'Check your network connection and try again.', forbiddenTitle: 'Access denied', forbiddenDescription: 'Your current role cannot access this resource.', notFoundTitle: 'Resource not found', notFoundDescription: 'It may have been removed or the link may be outdated.', genericTitle: 'Could not load this content', genericDescription: 'Try again. If the problem continues, contact an administrator.' },
   portal: {
     brandSubtitle: 'CSBU IPD Knowledge Portal',
@@ -1278,6 +1292,10 @@ export default {
       backendTypePlaceholder: 'Select a sandbox type',
       scriptPolicyLabel: 'Allow skill scripts to run in sandboxes',
       scriptPolicyDesc: 'When off, agents in this workspace can only read skill content. Remote sandboxes already running are released once their sessions end.',
+      desktopTemplateProvisioning: 'Creating the desktop sandbox template. Refresh shortly to check its status.',
+      desktopTemplateReplaced: 'The previous desktop template was removed and a rebuild has started. The CLI template is unchanged.',
+      desktopTemplateTag: 'Desktop',
+      replaceDesktopTemplateConfirm: 'Rebuild the desktop template with the current settings, including DNS. The existing usable template remains until the replacement is ready.',
       backendDescriptions: {
         cube: 'Self-hosted MicroVM cluster for private or on-premises deployments',
         e2b: 'Managed MicroVM service or an E2B-compatible deployment',
@@ -2211,6 +2229,13 @@ export default {
   },
   envVarSettings: {
     title: 'Sandbox secrets',
+    host: {
+      title: 'Environment variables', description: 'Personal keys for skills running on this host, not system or deployment configuration.',
+      helpAria: 'About environment variables', introRuntimeBody: 'Injected only when skills run on this host. Saved values are never shown again.',
+      loadFailed: 'Could not load environment variables.', sandboxTitle: 'Values always available on this host',
+      sandboxHint: 'Only passed to commands running on this host.', nameInvalid: 'This environment variable name is reserved or invalid.',
+      deleteConfirm: 'Delete {name}? Commands on this host will no longer receive it.',
+    },
     description: `Personal keys for skills and sandboxes, not ${branding.productName} system or deployment settings.`,
     helpAria: 'About sandbox secrets',
     introPersonalTitle: 'Yours only',

@@ -20,219 +20,29 @@
               <line x1="2.94" y1="12.5" x2="15.06" y2="12.5" stroke="currentColor" stroke-width="1.2"
                 stroke-linecap="round" />
             </svg>
-          </button>
-
-          <div class="settings-container">
-            <!-- 左侧导航 -->
-            <div class="settings-sidebar">
-              <div class="sidebar-header">
-                <h2 class="sidebar-title">{{ $t('general.settings') }}</h2>
-              </div>
-              <div class="settings-nav">
-                <template v-for="group in navGroups" :key="group.key">
-                  <div class="nav-group-title">{{ group.label }}</div>
-                  <template v-for="item in group.items" :key="item.key">
-                    <div :class="['nav-item', {
-                      'active': currentSection === item.key,
-                      'has-submenu': item.children && item.children.length > 0,
-                      'expanded': expandedMenus.includes(item.key)
-                    }]" @click="handleNavClick(item)">
-                      <!-- 网络搜索使用自定义 SVG 图标 -->
-                      <svg v-if="item.key === 'websearch'" width="17" height="17" viewBox="0 0 18 18" fill="none"
-                        xmlns="http://www.w3.org/2000/svg" class="nav-icon">
-                        <circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.2" fill="none" />
-                        <path d="M 9 2 A 3.5 7 0 0 0 9 16" stroke="currentColor" stroke-width="1.2" fill="none" />
-                        <path d="M 9 2 A 3.5 7 0 0 1 9 16" stroke="currentColor" stroke-width="1.2" fill="none" />
-                        <line x1="2.94" y1="5.5" x2="15.06" y2="5.5" stroke="currentColor" stroke-width="1.2"
-                          stroke-linecap="round" />
-                        <line x1="2.94" y1="12.5" x2="15.06" y2="12.5" stroke="currentColor" stroke-width="1.2"
-                          stroke-linecap="round" />
-                      </svg>
-                      <!-- WeKnora Cloud 使用自定义 W 图标 -->
-                      <svg v-else-if="item.key === 'weknoracloud'" width="17" height="17" viewBox="0 0 18 18"
-                        fill="none" xmlns="http://www.w3.org/2000/svg" class="nav-icon">
-                        <rect x="1.5" y="1.5" width="15" height="15" rx="3.5" stroke="currentColor" stroke-width="1.2"
-                          fill="none" />
-                        <path d="M4.5 5.5L6.5 12.5L9 7.5L11.5 12.5L13.5 5.5" stroke="currentColor" stroke-width="1.3"
-                          stroke-linecap="round" stroke-linejoin="round" fill="none" />
-                      </svg>
-                      <!-- 沙箱：隔离运行窗口，避免和 Ollama / 系统设置共用 server -->
-                      <svg v-else-if="item.key === 'sandbox'" width="17" height="17" viewBox="0 0 18 18" fill="none"
-                        xmlns="http://www.w3.org/2000/svg" class="nav-icon">
-                        <rect x="2.5" y="3" width="13" height="12" rx="2" stroke="currentColor" stroke-width="1.2"
-                          fill="none" />
-                        <path d="M2.5 6.5h13" stroke="currentColor" stroke-width="1.2" />
-                        <path d="M5.5 10h4M5.5 12.5h2.5" stroke="currentColor" stroke-width="1.2"
-                          stroke-linecap="round" />
-                      </svg>
-                      <span v-else-if="item.emoji" class="nav-icon nav-icon-emoji">{{ item.emoji }}</span>
-                      <t-icon v-else :name="item.icon" class="nav-icon" />
-                      <span class="nav-label">{{ item.label }}</span>
-                      <t-icon v-if="item.children && item.children.length > 0"
-                        :name="expandedMenus.includes(item.key) ? 'chevron-down' : 'chevron-right'"
-                        class="expand-icon" />
-                    </div>
-
-                    <!-- 子菜单 -->
-                    <Transition name="submenu">
-                      <div v-if="item.children && expandedMenus.includes(item.key)" class="submenu">
-                        <div v-for="(child, childIndex) in item.children" :key="childIndex"
-                          :class="['submenu-item', { 'active': currentSubSection === child.key }]"
-                          @click.stop="handleSubMenuClick(item.key, child.key)">
-                          <span class="submenu-label">{{ child.label }}</span>
-                        </div>
-                      </div>
-                    </Transition>
-                  </template>
-                </template>
-              </div>
-            </div>
-
-            <!-- 右侧内容区域 -->
-            <div class="settings-content">
-              <div class="content-wrapper" :class="{
-                'content-wrapper--wide': currentSection === 'members',
-                'content-wrapper--full': SYSTEM_ADMIN_SECTIONS.has(currentSection) || isIntegrationSection(currentSection),
-              }">
-                <!-- 角色不允许访问当前 section（deep-link 进来 / 跨空间切换后角色降级）—— 优先于具体 section 渲染。
-                     正常导航走 navItems filter 不会到这里，但 watch(navItems) 的 fallback 会在角色降级
-                     的瞬间触发；这一段做兜底兼容旧 URL。 -->
-                <div v-if="!canSeeSection(currentSection)" class="section role-denied">
-                  <div class="role-denied-icon">
-                    <t-icon name="lock-on" size="48px" />
-                  </div>
-                  <div class="role-denied-title">{{ $t('settings.roleDenied.title') }}</div>
-                  <div class="role-denied-desc">{{ $t('settings.roleDenied.desc') }}</div>
-                </div>
-                <template v-else>
-                  <div v-if="currentSection === 'system-admin'" class="section">
-                    <SystemAdminHome @navigate="handleSystemAdminNavigate" />
-                  </div>
-                  <!-- 常规设置 -->
-                  <div v-if="currentSection === 'general'" class="section">
-                    <GeneralSettings />
-                  </div>
-
-                  <!-- Ollama 设置 -->
-                  <div v-if="currentSection === 'ollama'" class="section">
-                    <OllamaSettings />
-                  </div>
-
-                  <!-- WeKnora Cloud -->
-                  <div v-if="currentSection === 'weknoracloud'" class="section">
-                    <WeKnoraCloudSettings />
-                  </div>
-
-                  <!-- 模型配置 -->
-                  <div v-if="currentSection === 'models'" class="section">
-                    <ModelSettings />
-                  </div>
-
-                  <!-- 网络搜索配置 -->
-                  <div v-if="currentSection === 'websearch'" class="section">
-                    <WebSearchSettings />
-                  </div>
-
-                  <!-- 消息管理 -->
-                  <div v-if="currentSection === 'chathistory'" class="section">
-                    <ChatHistorySettings />
-                  </div>
-
-                  <!-- 长期记忆（空间级开关） -->
-                  <div v-if="currentSection === 'memory'" class="section">
-                    <MemoryWorkspaceSettings />
-                  </div>
-
-                  <!-- 我的记忆（个人记忆管理） -->
-                  <div v-if="currentSection === 'mymemory'" class="section">
-                    <MemorySettings />
-                  </div>
-
-                  <!-- 沙箱密钥（成员自己的技能 / 沙箱密钥） -->
-                  <div v-if="currentSection === 'envvars'" class="section">
-                    <EnvVarSettings />
-                  </div>
-
-                  <!-- 向量数据库引擎 -->
-                  <div v-if="currentSection === 'vectorstore'" class="section">
-                    <VectorStoreSettings />
-                  </div>
-
-                  <!-- 解析引擎 -->
-                  <div v-if="currentSection === 'parser'" class="section">
-                    <ParserEngineSettings />
-                  </div>
-
-                  <!-- 存储引擎 -->
-                  <div v-if="currentSection === 'storage'" class="section">
-                    <StorageEngineSettings />
-                  </div>
-
-                  <!-- 沙箱 -->
-                  <div v-if="currentSection === 'sandbox'" class="section">
-                    <SandboxSettings />
-                  </div>
-
-                  <!-- 技能目录：登记后可装到多份沙箱，智能体只从当前沙箱的就绪集合选用 -->
-                  <div v-if="currentSection === 'skills'" class="section">
-                    <SkillSettings :initial-sandbox-id="currentSubSection" />
-                  </div>
-
-                  <!-- 系统信息 -->
-                  <div v-if="currentSection === 'system'" class="section">
-                    <SystemInfo />
-                  </div>
-
-                  <!-- 系统管理员可见的全局运行时设置 -->
-                  <div v-if="currentSection === 'system-global'" class="section">
-                    <SystemSettings />
-                  </div>
-
-                  <!-- 系统管理员可见的任务队列运行状态 -->
-                  <div v-if="currentSection === 'runtime-queues'" class="section">
-                    <RuntimeQueues />
-                  </div>
-
-                  <div v-if="currentSection === 'platform-api-keys'" class="section">
-                    <PlatformAPIKeys />
-                  </div>
-
-                  <div v-if="currentSection === 'system-audit-log'" class="section">
-                    <SystemAuditLog />
-                  </div>
-
-                  <div v-if="currentSection === 'usage-analytics'" class="section">
-                    <UsageAnalytics />
-                  </div>
-
-                  <!-- 用户信息（账户基础信息：ID / 用户名 / 邮箱 / 注册时间）。
-                     用户的基本信息不该跟 owner 权限绑定。 -->
-                  <div v-if="currentSection === 'userprofile'" class="section">
-                    <UserProfile />
-                  </div>
-
-                  <!-- 空间信息 -->
-                  <div v-if="currentSection === 'tenant'" class="section">
-                    <TenantInfo />
-                  </div>
-
-                  <!-- 成员管理 (#1303 PR 3) -->
-                  <div v-if="currentSection === 'members'" class="section">
-                    <TenantMembers />
-                  </div>
-
-                  <!-- 发布集成 -->
-                  <div v-if="isIntegrationSection(currentSection)" class="section">
-                    <IntegrationSettingsSection :tab="integrationTabFromSection(currentSection)" />
-                  </div>
-
-                  <!-- MCP 服务 -->
-                  <div v-if="currentSection === 'mcp'" class="section">
-                    <McpSettings />
-                  </div>
-                </template>
-              </div>
-            </div>
+            <!-- WeKnora Cloud 使用自定义 W 图标 -->
+            <svg v-else-if="item.key === 'weknoracloud'" width="17" height="17" viewBox="0 0 18 18"
+              fill="none" xmlns="http://www.w3.org/2000/svg" class="nav-icon">
+              <rect x="1.5" y="1.5" width="15" height="15" rx="3.5" stroke="currentColor" stroke-width="1.2"
+                fill="none" />
+              <path d="M4.5 5.5L6.5 12.5L9 7.5L11.5 12.5L13.5 5.5" stroke="currentColor" stroke-width="1.3"
+                stroke-linecap="round" stroke-linejoin="round" fill="none" />
+            </svg>
+            <!-- 沙箱：隔离运行窗口，避免和 Ollama / 系统设置共用 server -->
+            <svg v-else-if="item.key === 'sandbox'" width="17" height="17" viewBox="0 0 18 18" fill="none"
+              xmlns="http://www.w3.org/2000/svg" class="nav-icon">
+              <rect x="2.5" y="3" width="13" height="12" rx="2" stroke="currentColor" stroke-width="1.2"
+                fill="none" />
+              <path d="M2.5 6.5h13" stroke="currentColor" stroke-width="1.2" />
+              <path d="M5.5 10h4M5.5 12.5h2.5" stroke="currentColor" stroke-width="1.2"
+                stroke-linecap="round" />
+            </svg>
+            <span v-else-if="item.emoji" class="nav-icon nav-icon-emoji">{{ item.emoji }}</span>
+            <t-icon v-else :name="item.icon" class="nav-icon" />
+            <span class="nav-label">{{ item.label }}</span>
+            <t-icon v-if="item.children && item.children.length > 0"
+              :name="expandedMenus.includes(item.key) ? 'chevron-down' : 'chevron-right'"
+              class="expand-icon" />
           </div>
 
           <!-- 子菜单 -->
@@ -263,6 +73,10 @@
         <div class="role-denied-desc">{{ $t('settings.roleDenied.desc') }}</div>
       </div>
       <template v-else>
+        <div v-if="currentSection === 'system-admin'" class="section">
+          <SystemAdminHome @navigate="handleSystemAdminNavigate" />
+        </div>
+
         <!-- 常规设置 -->
         <div v-if="currentSection === 'general'" class="section">
           <GeneralSettings />
@@ -353,6 +167,10 @@
 
         <div v-if="currentSection === 'system-audit-log'" class="section">
           <SystemAuditLog />
+        </div>
+
+        <div v-if="currentSection === 'usage-analytics'" class="section">
+          <UsageAnalytics />
         </div>
 
         <!-- 用户信息（账户基础信息：ID / 用户名 / 邮箱 / 注册时间）。
@@ -554,8 +372,6 @@ const navItems = computed(() => {
     { key: 'parser', icon: 'file-search', label: t('settings.parserEngine') },
     { key: 'storage', icon: 'cloud', label: t('settings.storageEngine') },
     { key: 'sandbox', icon: 'code', label: t('settings.sandbox.title') },
-    { key: 'skills', icon: SKILL_ICON, label: t('settings.skills.title') },
-    { key: 'mcp', icon: 'tools', label: t('settings.mcpService') },
     { key: 'mcp-access-keys', icon: 'link', label: 'MCP 接入' },
     { key: 'system', icon: 'info-circle', label: t('settings.versionInfo') },
     { key: 'system-admin', icon: 'dashboard', label: t('settings.navGroups.systemAdministration') },
