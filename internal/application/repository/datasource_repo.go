@@ -8,6 +8,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // DataSourceRepository provides data access for data sources
@@ -244,6 +245,39 @@ func (r *SyncLogRepository) HasRunningSync(ctx context.Context, dsID string) (bo
 		return false, err
 	}
 	return count > 0, nil
+}
+
+// CreateIfNoRunning serializes claims on the owning data-source row, then
+// checks and inserts the running log in the same transaction. This makes the
+// existing running-log mechanism safe for manual/scheduled races across app
+// instances without introducing a separate distributed lock.
+func (r *SyncLogRepository) CreateIfNoRunning(ctx context.Context, log *types.SyncLog) (bool, error) {
+	if log == nil || log.DataSourceID == "" {
+		return false, errors.New("sync log data source id is empty")
+	}
+	created := false
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var owner types.DataSource
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Select("id").Where("id = ?", log.DataSourceID).Take(&owner).Error; err != nil {
+			return err
+		}
+		var count int64
+		if err := tx.Model(&types.SyncLog{}).
+			Where("data_source_id = ? AND status = ?", log.DataSourceID, types.SyncLogStatusRunning).
+			Count(&count).Error; err != nil {
+			return err
+		}
+		if count > 0 {
+			return nil
+		}
+		if err := tx.Create(log).Error; err != nil {
+			return err
+		}
+		created = true
+		return nil
+	})
+	return created, err
 }
 
 // Update updates an existing sync log entry

@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -200,4 +202,49 @@ func TestSyncLogRepositoryUpdateResultClearsErrorMessage(t *testing.T) {
 	assert.Zero(t, stored.ItemsFailed)
 	assert.Equal(t, result.ToString(), stored.Result.ToString())
 	require.NotNil(t, stored.FinishedAt)
+}
+
+func TestSyncLogRepositoryCreateIfNoRunningAllowsSingleWorkflow(t *testing.T) {
+	db := setupDataSourceRepoTestDB(t)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	// SQLite has no row-level FOR UPDATE; one connection models its serialized
+	// writer semantics while production MySQL/Postgres use the row lock clause.
+	sqlDB.SetMaxOpenConns(1)
+	dsRepo := NewDataSourceRepository(db)
+	syncRepo := NewSyncLogRepository(db)
+	ctx := context.Background()
+	require.NoError(t, dsRepo.Create(ctx, &types.DataSource{
+		ID: "ds-claim", TenantID: 1, KnowledgeBaseID: "kb-1", Name: "Feishu", Type: types.ConnectorTypeFeishu,
+	}))
+
+	const contenders = 10
+	results := make(chan bool, contenders)
+	errs := make(chan error, contenders)
+	var wg sync.WaitGroup
+	for i := 0; i < contenders; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			claimed, claimErr := syncRepo.CreateIfNoRunning(ctx, &types.SyncLog{
+				ID: fmt.Sprintf("claim-%d", i), DataSourceID: "ds-claim", TenantID: 1,
+				Status: types.SyncLogStatusRunning, StartedAt: time.Now().UTC(),
+			})
+			results <- claimed
+			errs <- claimErr
+		}(i)
+	}
+	wg.Wait()
+	close(results)
+	close(errs)
+	for claimErr := range errs {
+		require.NoError(t, claimErr)
+	}
+	winners := 0
+	for claimed := range results {
+		if claimed {
+			winners++
+		}
+	}
+	assert.Equal(t, 1, winners)
 }

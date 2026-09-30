@@ -96,6 +96,21 @@ func (r *fakeSyncLogRepo) Create(_ context.Context, log *types.SyncLog) error {
 	return nil
 }
 
+func (r *fakeSyncLogRepo) CreateIfNoRunning(_ context.Context, log *types.SyncLog) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, existing := range r.logs {
+		if existing.DataSourceID == log.DataSourceID && existing.Status == types.SyncLogStatusRunning {
+			return false, nil
+		}
+	}
+	if log.ID == "" {
+		log.ID = "log-" + time.Now().Format("150405.000")
+	}
+	r.logs[log.ID] = log
+	return true, nil
+}
+
 func (r *fakeSyncLogRepo) FindByID(_ context.Context, id string) (*types.SyncLog, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

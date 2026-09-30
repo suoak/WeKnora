@@ -101,6 +101,10 @@ type SyncLogRepository interface {
 	// Create inserts a new sync log entry
 	Create(ctx context.Context, log *types.SyncLog) error
 
+	// CreateIfNoRunning atomically claims the per-data-source sync workflow.
+	// It returns false without inserting when another running log already owns it.
+	CreateIfNoRunning(ctx context.Context, log *types.SyncLog) (bool, error)
+
 	// FindByID retrieves a sync log by ID
 	FindByID(ctx context.Context, id string) (*types.SyncLog, error)
 

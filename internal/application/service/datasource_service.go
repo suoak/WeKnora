@@ -473,9 +473,13 @@ func (s *DataSourceService) ManualSync(ctx context.Context, dsID string) (*types
 		StartedAt:    time.Now().UTC(),
 	}
 
-	if err := s.syncLogRepo.Create(ctx, syncLog); err != nil {
+	claimed, err := s.syncLogRepo.CreateIfNoRunning(ctx, syncLog)
+	if err != nil {
 		logger.Errorf(ctx, "failed to create sync log: %v", err)
 		return nil, err
+	}
+	if !claimed {
+		return nil, datasource.ErrSyncAlreadyRunning
 	}
 
 	// Enqueue sync task

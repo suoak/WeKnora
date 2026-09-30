@@ -21,7 +21,7 @@ import (
 // at the top of every hour regardless of when the process started). So multiple
 // instances will fire at the same moment. Dedup is handled by two layers:
 //
-//  1. HasRunningSync — if a previous sync is still running, skip (prevent overlap).
+//  1. CreateIfNoRunning — atomically claims the datasource workflow in the DB.
 //  2. asynq.TaskID  — deterministic ID per (dataSourceID, minute). Redis ensures
 //     only one task with a given ID is enqueued. Losers get ErrTaskIDConflict.
 type Scheduler struct {
@@ -146,20 +146,19 @@ func (s *Scheduler) triggerSync(dataSourceID string, tenantID uint64) {
 		return
 	}
 
-	// Layer 1: prevent overlap with a still-running sync
-	if running, _ := s.syncLogRepo.HasRunningSync(ctx, dataSourceID); running {
-		logger.Infof(ctx, "[Scheduler] skipping sync for ds=%s (previous sync still running)", dataSourceID)
-		return
-	}
-
 	syncLog := &types.SyncLog{
 		DataSourceID: dataSourceID,
 		TenantID:     tenantID,
 		Status:       types.SyncLogStatusRunning,
 		StartedAt:    time.Now().UTC(),
 	}
-	if err := s.syncLogRepo.Create(ctx, syncLog); err != nil {
+	claimed, err := s.syncLogRepo.CreateIfNoRunning(ctx, syncLog)
+	if err != nil {
 		logger.Errorf(ctx, "[Scheduler] failed to create sync log for ds=%s: %v", dataSourceID, err)
+		return
+	}
+	if !claimed {
+		logger.Infof(ctx, "[Scheduler] skipping sync for ds=%s (previous sync still running)", dataSourceID)
 		return
 	}
 

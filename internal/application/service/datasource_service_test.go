@@ -136,6 +136,15 @@ func (r *processSyncSyncLogRepo) Create(_ context.Context, log *types.SyncLog) e
 	return nil
 }
 
+func (r *processSyncSyncLogRepo) CreateIfNoRunning(ctx context.Context, log *types.SyncLog) (bool, error) {
+	for _, existing := range r.logs {
+		if existing.DataSourceID == log.DataSourceID && existing.Status == types.SyncLogStatusRunning {
+			return false, nil
+		}
+	}
+	return true, r.Create(ctx, log)
+}
+
 func (r *processSyncSyncLogRepo) FindByID(_ context.Context, id string) (*types.SyncLog, error) {
 	log, ok := r.logs[id]
 	if !ok {
