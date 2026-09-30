@@ -133,11 +133,8 @@ func (c *Client) listDocumentBlocks(ctx context.Context, documentID string) ([]D
 			path += "&page_token=" + url.QueryEscape(pageToken)
 		}
 		var resp DocxBlocksResponse
-		if err := c.DoRequest(ctx, http.MethodGet, path, nil, &resp); err != nil {
+		if err := c.doRequest(ctx, "list_document_blocks", http.MethodGet, path, nil, &resp); err != nil {
 			return nil, fmt.Errorf("list document blocks: %w", err)
-		}
-		if resp.Code != 0 {
-			return nil, fmt.Errorf("list document blocks error: code=%d msg=%s", resp.Code, resp.Msg)
 		}
 		all = append(all, resp.Data.Items...)
 		if len(resp.Data.Items) == 0 {
@@ -192,11 +189,8 @@ func (c *Client) readSheetRange(ctx context.Context, embedToken string) ([][]str
 	path := fmt.Sprintf("/open-apis/sheets/v2/spreadsheets/%s/values/%s?valueRenderOption=ToString",
 		url.PathEscape(spreadsheetToken), url.PathEscape(sheetID))
 	var resp sheetValuesResponse
-	if err := c.DoRequest(ctx, http.MethodGet, path, nil, &resp); err != nil {
+	if err := c.doRequest(ctx, "read_sheet_range", http.MethodGet, path, nil, &resp); err != nil {
 		return nil, false, fmt.Errorf("read sheet range: %w", err)
-	}
-	if resp.Code != 0 {
-		return nil, false, fmt.Errorf("read sheet range error: code=%d msg=%s", resp.Code, resp.Msg)
 	}
 	raw, truncated := capRows(resp.Data.ValueRange.Values)
 	return stringifyMatrix(raw), truncated, nil
@@ -382,11 +376,8 @@ func (c *Client) readBitableRecords(ctx context.Context, embedToken string) ([][
 			fpath += "&page_token=" + url.QueryEscape(fieldPageToken)
 		}
 		var fieldsResp bitableFieldsResponse
-		if err := c.DoRequest(ctx, http.MethodGet, fpath, nil, &fieldsResp); err != nil {
+		if err := c.doRequest(ctx, "list_bitable_fields", http.MethodGet, fpath, nil, &fieldsResp); err != nil {
 			return nil, false, fmt.Errorf("read bitable fields: %w", err)
-		}
-		if fieldsResp.Code != 0 {
-			return nil, false, fmt.Errorf("read bitable fields error: code=%d msg=%s", fieldsResp.Code, fieldsResp.Msg)
 		}
 		for _, f := range fieldsResp.Data.Items {
 			formatter := ""
@@ -428,11 +419,8 @@ func (c *Client) readBitableRecords(ctx context.Context, embedToken string) ([][
 			rpath += "&page_token=" + url.QueryEscape(pageToken)
 		}
 		var rec bitableRecordsResponse
-		if err := c.DoRequest(ctx, http.MethodPost, rpath, map[string]any{}, &rec); err != nil {
+		if err := c.doRequest(ctx, "search_bitable_records", http.MethodPost, rpath, map[string]any{}, &rec); err != nil {
 			return nil, false, fmt.Errorf("search bitable records: %w", err)
-		}
-		if rec.Code != 0 {
-			return nil, false, fmt.Errorf("read bitable records error: code=%d msg=%s", rec.Code, rec.Msg)
 		}
 		for _, item := range rec.Data.Items {
 			row := make([]string, len(cols))

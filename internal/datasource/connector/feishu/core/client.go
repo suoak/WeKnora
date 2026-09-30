@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -27,12 +28,18 @@ type Client struct {
 	location *time.Location
 
 	httpClient *http.Client
-
-	// Token cache (thread-safe)
-	tokenMu    sync.Mutex
-	tokenCache string
-	tokenExpAt time.Time
+	policy     *appPolicy
+	retry      retryPolicy
+	token      *tokenState
 }
+
+type tokenState struct {
+	mu    sync.Mutex
+	cache string
+	expAt time.Time
+}
+
+var tokenStateRegistry sync.Map
 
 type WikiNodeListFailure struct {
 	Node WikiNode
@@ -65,23 +72,49 @@ func (c *Client) tz() *time.Location {
 
 // NewClient creates a new Feishu API client.
 func NewClient(config *Config) *Client {
-	return &Client{
+	rp := defaultRetryPolicy()
+	c := &Client{
 		baseURL:    config.GetBaseURL(),
 		appID:      config.AppID,
 		appSecret:  config.AppSecret,
 		location:   resolveLocation(config.Timezone),
 		httpClient: datasource.NewConnectorHTTPClientWithTLSFallback(30 * time.Second),
+		retry:      rp,
+	}
+	c.policy = sharedAppPolicy(c.baseURL, c.appID, rp)
+	key := tokenScopeKey(c.baseURL, c.appID, c.appSecret)
+	state, _ := tokenStateRegistry.LoadOrStore(key, &tokenState{})
+	c.token = state.(*tokenState)
+	return c
+}
+
+func (c *Client) ensureRuntime() {
+	if c.retry.now == nil || c.retry.sleep == nil {
+		c.retry = defaultRetryPolicy()
+	}
+	if c.policy == nil {
+		c.policy = sharedAppPolicy(c.baseURL, c.appID, c.retry)
+	}
+	if c.token == nil {
+		// Clients assembled directly by tests receive an isolated cache. Normal
+		// production clients are constructed by NewClient and share by the
+		// secret-aware tokenScopeKey.
+		c.token = &tokenState{}
+	}
+	if c.httpClient == nil {
+		c.httpClient = datasource.NewConnectorHTTPClientWithTLSFallback(30 * time.Second)
 	}
 }
 
 // GetTenantAccessToken retrieves (or returns cached) tenant access token.
 // Feishu tokens expire in 2 hours; we cache with a 5-minute safety margin.
 func (c *Client) GetTenantAccessToken(ctx context.Context) (string, error) {
-	c.tokenMu.Lock()
-	defer c.tokenMu.Unlock()
+	c.ensureRuntime()
+	c.token.mu.Lock()
+	defer c.token.mu.Unlock()
 
-	if c.tokenCache != "" && time.Now().Before(c.tokenExpAt) {
-		return c.tokenCache, nil
+	if c.token.cache != "" && c.retry.now().Before(c.token.expAt) {
+		return c.token.cache, nil
 	}
 
 	payload, _ := json.Marshal(map[string]string{
@@ -89,73 +122,42 @@ func (c *Client) GetTenantAccessToken(ctx context.Context) (string, error) {
 		"app_secret": c.appSecret,
 	})
 
-	url := c.baseURL + "/open-apis/auth/v3/tenant_access_token/internal"
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
-	if err != nil {
-		return "", fmt.Errorf("create token request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json; charset=utf-8")
-
-	resp, err := c.httpClient.Do(req)
+	data, err := c.doRequestBytes(ctx, "get_tenant_access_token", http.MethodPost,
+		"/open-apis/auth/v3/tenant_access_token/internal", payload, false, false, 0)
 	if err != nil {
 		return "", fmt.Errorf("request token: %w", err)
 	}
-	defer resp.Body.Close()
-
 	var result TokenResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.Unmarshal(data, &result); err != nil {
 		return "", fmt.Errorf("decode token response: %w", err)
 	}
-	if result.Code != 0 {
-		return "", fmt.Errorf("feishu auth error: code=%d msg=%s", result.Code, result.Msg)
-	}
 
-	c.tokenCache = result.TenantAccessToken
+	c.token.cache = result.TenantAccessToken
 	ttl := time.Duration(result.Expire) * time.Second
 	if ttl > 5*time.Minute {
 		ttl -= 5 * time.Minute
 	}
-	c.tokenExpAt = time.Now().Add(ttl)
+	c.token.expAt = c.retry.now().Add(ttl)
 
 	logger.Infof(ctx, "[Feishu] tenant access token acquired; expire=%ds", result.Expire)
 
-	return c.tokenCache, nil
+	return c.token.cache, nil
 }
-
-// Retry policy shared by DoRequest (JSON API calls) and downloadRawBytes (file
-// downloads): 429 honours Retry-After, 5xx retries once, transport errors back off.
-const (
-	feishuMaxRetries    = 3
-	feishuMax5xxRetries = 1
-	feishuRetry5xxDelay = 2 * time.Second
-)
 
 // maxFeishuDownloadBytes bounds a single file download to protect the sync
 // worker from adversarial or pathological oversized responses.
 const maxFeishuDownloadBytes = 512 * 1024 * 1024 // 512 MB
 
-var feishuRetryBackoff = []time.Duration{2 * time.Second, 4 * time.Second, 8 * time.Second}
-
-// DoRequest executes an authenticated API request and decodes the JSON response,
-// retrying transient failures (transport errors, HTTP 429, 5xx). Feishu's drive
-// export/wiki APIs are aggressively rate limited, and a thousand-document sync
-// issues tens of thousands of calls; without backoff a single 429 burst used to
-// fail whole swathes of documents silently. 429 responses honour Retry-After;
-// 5xx is retried once; other non-2xx statuses fail fast (no point retrying 4xx).
+// DoRequest executes an authenticated JSON API request. It is kept as the
+// compatibility entry point used by integration helpers; connector operations
+// call doRequest with an explicit operation name for structured logs.
 func (c *Client) DoRequest(ctx context.Context, method, path string, body interface{}, result interface{}) error {
-	const (
-		maxRetries    = feishuMaxRetries
-		max5xxRetries = feishuMax5xxRetries
-		retry5xxDelay = feishuRetry5xxDelay
-	)
-	backoff := feishuRetryBackoff
+	return c.doRequest(ctx, requestOperation(method, path), method, path, body, result)
+}
 
-	token, err := c.GetTenantAccessToken(ctx)
-	if err != nil {
-		return err
-	}
-
+func (c *Client) doRequest(ctx context.Context, operation, method, path string, body interface{}, result interface{}) error {
 	var bodyBytes []byte
+	var err error
 	if body != nil {
 		bodyBytes, err = json.Marshal(body)
 		if err != nil {
@@ -163,108 +165,161 @@ func (c *Client) DoRequest(ctx context.Context, method, path string, body interf
 		}
 	}
 
-	url := c.baseURL + path
-	var lastErr error
+	respBody, err := c.doRequestBytes(ctx, operation, method, path, bodyBytes, true, false, 0)
+	if err != nil {
+		return err
+	}
+	if result != nil {
+		if err := json.Unmarshal(respBody, result); err != nil {
+			return fmt.Errorf("decode response: %w", err)
+		}
+	}
+	return nil
+}
 
-	for attempt := 0; attempt <= maxRetries; attempt++ {
+func (c *Client) doRequestBytes(
+	ctx context.Context, operation, method, path string, bodyBytes []byte,
+	authenticated, binary bool, maxBytes int64,
+) ([]byte, error) {
+	c.ensureRuntime()
+	var token string
+	var err error
+	if authenticated {
+		token, err = c.GetTenantAccessToken(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	requestURL := c.baseURL + path
+	for attempt := 0; attempt <= c.retry.maxRetries; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		release, err := c.policy.beforeRequest(ctx)
+		if err != nil {
+			return nil, err
+		}
+
 		var bodyReader io.Reader
 		if bodyBytes != nil {
 			bodyReader = bytes.NewReader(bodyBytes)
 		}
-		req, err := http.NewRequestWithContext(ctx, method, url, bodyReader)
-		if err != nil {
-			return fmt.Errorf("create request: %w", err)
+		req, reqErr := http.NewRequestWithContext(ctx, method, requestURL, bodyReader)
+		if reqErr != nil {
+			release()
+			return nil, fmt.Errorf("create feishu request: %w", reqErr)
 		}
-		req.Header.Set("Content-Type", "application/json; charset=utf-8")
-		req.Header.Set("Authorization", "Bearer "+token)
+		if bodyBytes != nil || !binary {
+			req.Header.Set("Content-Type", "application/json; charset=utf-8")
+		}
+		if authenticated {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
 
-		if attempt == 0 {
-			logger.Infof(ctx, "[Feishu] %s %s", method, path)
+		resp, requestErr := c.httpClient.Do(req)
+		if requestErr != nil {
+			release()
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return nil, ctxErr
+			}
+			err = &APIError{Category: ErrorCategoryTransient, Operation: operation, Cause: requestErr}
 		} else {
-			logger.Infof(ctx, "[Feishu] %s %s (retry %d/%d)", method, path, attempt, maxRetries)
-		}
-
-		resp, err := c.httpClient.Do(req)
-		if err != nil {
-			lastErr = fmt.Errorf("execute request: %w", err)
-			if attempt < maxRetries {
-				if sErr := sleepCtx(ctx, backoff[attempt]); sErr != nil {
-					return sErr
+			var responseBody []byte
+			if maxBytes > 0 {
+				responseBody, requestErr = io.ReadAll(io.LimitReader(resp.Body, maxBytes+1))
+			} else {
+				responseBody, requestErr = io.ReadAll(resp.Body)
+			}
+			resp.Body.Close()
+			release()
+			if requestErr != nil {
+				if ctxErr := ctx.Err(); ctxErr != nil {
+					return nil, ctxErr
 				}
-				continue
-			}
-			return lastErr
-		}
-
-		respBody, readErr := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		if readErr != nil {
-			lastErr = fmt.Errorf("read response body: %w", readErr)
-			if attempt < maxRetries {
-				if sErr := sleepCtx(ctx, backoff[attempt]); sErr != nil {
-					return sErr
+				err = &APIError{Category: ErrorCategoryTransient, HTTPStatus: resp.StatusCode, Operation: operation, Cause: requestErr}
+			} else if maxBytes > 0 && int64(len(responseBody)) > maxBytes {
+				return nil, fmt.Errorf("feishu download exceeds max size (%d bytes): operation=%s", maxBytes, operation)
+			} else {
+				var envelope ApiResponse
+				if !binary || resp.StatusCode < 200 || resp.StatusCode >= 300 {
+					_ = json.Unmarshal(responseBody, &envelope)
 				}
-				continue
-			}
-			return lastErr
-		}
-
-		logger.Infof(ctx, "[Feishu] %s %s → status=%d bodyLen=%d body=%s",
-			method, path, resp.StatusCode, len(respBody), truncate(string(respBody), 1000))
-
-		if resp.StatusCode == http.StatusTooManyRequests {
-			wait := parseRetryAfter(resp.Header.Get("Retry-After"), backoff[min(attempt, len(backoff)-1)])
-			lastErr = fmt.Errorf("feishu rate limited: status=429 body=%s", truncate(string(respBody), 500))
-			if attempt < maxRetries {
-				if sErr := sleepCtx(ctx, wait); sErr != nil {
-					return sErr
+				if resp.StatusCode >= 200 && resp.StatusCode < 300 && (binary || envelope.Code == 0) {
+					logger.Infof(ctx, "[Feishu] API request succeeded operation=%s status=%d bytes=%d",
+						operation, resp.StatusCode, len(responseBody))
+					return responseBody, nil
 				}
-				continue
-			}
-			return lastErr
-		}
-
-		if resp.StatusCode >= 500 && resp.StatusCode < 600 {
-			lastErr = fmt.Errorf("feishu server error: status=%d body=%s", resp.StatusCode, truncate(string(respBody), 500))
-			if attempt < max5xxRetries {
-				if sErr := sleepCtx(ctx, retry5xxDelay); sErr != nil {
-					return sErr
+				retryAfter := parseRetryAfterAt(resp.Header.Get("Retry-After"), 0, c.retry.now())
+				err = &APIError{
+					Category:   classifyAPIError(resp.StatusCode, envelope.Code),
+					Code:       envelope.Code,
+					Message:    envelope.Msg,
+					HTTPStatus: resp.StatusCode,
+					Operation:  operation,
+					RetryAfter: retryAfter,
 				}
-				continue
-			}
-			return lastErr
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("feishu api error: status=%d body=%s", resp.StatusCode, string(respBody))
-		}
-
-		if result != nil {
-			if err := json.Unmarshal(respBody, result); err != nil {
-				return fmt.Errorf("decode response: %w", err)
 			}
 		}
-		return nil
+
+		apiErr, _ := asAPIError(err)
+		if !isRetryableAPIError(err) {
+			return nil, err
+		}
+		delay := c.retry.delay(attempt, apiErr.RetryAfter)
+		if errors.Is(err, ErrRateLimited) {
+			// Install the cooldown even on the final failed attempt. The next item
+			// in runSync must not immediately hit the same exhausted quota.
+			c.policy.extendCooldown(delay)
+		}
+		if attempt >= c.retry.maxRetries {
+			logger.Errorf(ctx, "[Feishu] API retry exhausted operation=%s category=%s code=%d status=%d attempts=%d",
+				operation, apiErr.Category, apiErr.Code, apiErr.HTTPStatus, attempt+1)
+			return nil, err
+		}
+
+		c.policy.retryCount.Add(1)
+		logger.Warnf(ctx, "[Feishu] API request retry operation=%s category=%s code=%d status=%d attempt=%d max_attempts=%d backoff=%s",
+			operation, apiErr.Category, apiErr.Code, apiErr.HTTPStatus, attempt+1, c.retry.maxRetries+1, delay)
+		if !errors.Is(err, ErrRateLimited) {
+			if sleepErr := c.retry.sleep(ctx, delay); sleepErr != nil {
+				return nil, sleepErr
+			}
+		}
 	}
-
-	return lastErr
+	return nil, err
 }
 
-// parseRetryAfter interprets a Retry-After header value (seconds) into a wait
-// duration, coercing 0/negative to a short delay and falling back when absent
-// or unparseable.
-func parseRetryAfter(header string, fallback time.Duration) time.Duration {
+func requestOperation(method, path string) string {
+	cleanPath := path
+	if idx := strings.IndexByte(cleanPath, '?'); idx >= 0 {
+		cleanPath = cleanPath[:idx]
+	}
+	return strings.ToLower(method) + " " + cleanPath
+}
+
+func parseRetryAfterAt(header string, fallback time.Duration, now time.Time) time.Duration {
 	if header == "" {
 		return fallback
 	}
-	secs, err := strconv.ParseFloat(strings.TrimSpace(header), 64)
-	if err != nil {
-		return fallback
+	trimmed := strings.TrimSpace(header)
+	if secs, err := strconv.ParseFloat(trimmed, 64); err == nil {
+		if secs <= 0 {
+			return 100 * time.Millisecond
+		}
+		return time.Duration(secs * float64(time.Second))
 	}
-	if secs <= 0 {
+	if when, err := http.ParseTime(trimmed); err == nil {
+		if delay := when.Sub(now); delay > 0 {
+			return delay
+		}
 		return 100 * time.Millisecond
 	}
-	return time.Duration(secs * float64(time.Second))
+	return fallback
+}
+
+func parseRetryAfter(header string, fallback time.Duration) time.Duration {
+	return parseRetryAfterAt(header, fallback, time.Now())
 }
 
 // sleepCtx waits for d or until ctx is cancelled, returning ctx.Err() if the
@@ -304,12 +359,8 @@ func (c *Client) ListWikiSpaces(ctx context.Context) ([]WikiSpace, error) {
 		}
 
 		var resp WikiSpaceListResponse
-		if err := c.DoRequest(ctx, http.MethodGet, path, nil, &resp); err != nil {
+		if err := c.doRequest(ctx, "list_wiki_spaces", http.MethodGet, path, nil, &resp); err != nil {
 			return nil, fmt.Errorf("list wiki spaces: %w", err)
-		}
-		if resp.Code != 0 {
-			logger.Errorf(ctx, "[Feishu] ListWikiSpaces error: code=%d msg=%s", resp.Code, resp.Msg)
-			return nil, fmt.Errorf("list wiki spaces error: code=%d msg=%s", resp.Code, resp.Msg)
 		}
 
 		logger.Infof(ctx, "[Feishu] ListWikiSpaces: got %d spaces, has_more=%v", len(resp.Data.Items), resp.Data.HasMore)
@@ -350,11 +401,8 @@ func (c *Client) ListWikiNodes(ctx context.Context, spaceID string, parentNodeTo
 		}
 
 		var resp WikiNodeListResponse
-		if err := c.DoRequest(ctx, http.MethodGet, path, nil, &resp); err != nil {
+		if err := c.doRequest(ctx, "list_wiki_nodes", http.MethodGet, path, nil, &resp); err != nil {
 			return nil, fmt.Errorf("list wiki nodes: %w", err)
-		}
-		if resp.Code != 0 {
-			return nil, fmt.Errorf("list wiki nodes error: code=%d msg=%s", resp.Code, resp.Msg)
 		}
 
 		for _, node := range resp.Data.Items {
@@ -385,11 +433,8 @@ func (c *Client) GetWikiNode(ctx context.Context, spaceID string, nodeToken stri
 	path := fmt.Sprintf("/open-apis/wiki/v2/spaces/get_node?token=%s", url.QueryEscape(nodeToken))
 
 	var resp WikiNodeInfoResponse
-	if err := c.DoRequest(ctx, http.MethodGet, path, nil, &resp); err != nil {
+	if err := c.doRequest(ctx, "get_wiki_node", http.MethodGet, path, nil, &resp); err != nil {
 		return WikiNode{}, fmt.Errorf("get wiki node: %w", err)
-	}
-	if resp.Code != 0 {
-		return WikiNode{}, fmt.Errorf("get wiki node error: code=%d msg=%s", resp.Code, resp.Msg)
 	}
 
 	node := resp.Data.Node
@@ -518,11 +563,8 @@ func (c *Client) getDocumentRawContent(ctx context.Context, documentID string) (
 	path := fmt.Sprintf("/open-apis/docx/v1/documents/%s/raw_content", documentID)
 
 	var resp docRawContentResponse
-	if err := c.DoRequest(ctx, http.MethodGet, path, nil, &resp); err != nil {
+	if err := c.doRequest(ctx, "get_document_raw_content", http.MethodGet, path, nil, &resp); err != nil {
 		return "", fmt.Errorf("get document raw content: %w", err)
-	}
-	if resp.Code != 0 {
-		return "", fmt.Errorf("get document raw content error: code=%d msg=%s", resp.Code, resp.Msg)
 	}
 
 	return resp.Data.Content, nil
@@ -555,11 +597,8 @@ func (c *Client) createExportTask(ctx context.Context, token, objType, fileExten
 	}
 
 	var resp ExportTaskCreateResponse
-	if err := c.DoRequest(ctx, http.MethodPost, "/open-apis/drive/v1/export_tasks", body, &resp); err != nil {
+	if err := c.doRequest(ctx, "create_export_task", http.MethodPost, "/open-apis/drive/v1/export_tasks", body, &resp); err != nil {
 		return "", fmt.Errorf("create export task: %w", err)
-	}
-	if resp.Code != 0 {
-		return "", fmt.Errorf("create export task error: code=%d msg=%s", resp.Code, resp.Msg)
 	}
 
 	return resp.Data.Ticket, nil
@@ -572,11 +611,8 @@ func (c *Client) getExportTaskStatus(ctx context.Context, ticket string, token s
 	path := fmt.Sprintf("/open-apis/drive/v1/export_tasks/%s?token=%s", ticket, token)
 
 	var resp ExportTaskStatusResponse
-	if err := c.DoRequest(ctx, http.MethodGet, path, nil, &resp); err != nil {
+	if err := c.doRequest(ctx, "get_export_task_status", http.MethodGet, path, nil, &resp); err != nil {
 		return "", "", fmt.Errorf("get export task status: %w", err)
-	}
-	if resp.Code != 0 {
-		return "", "", fmt.Errorf("get export task status error: code=%d msg=%s", resp.Code, resp.Msg)
 	}
 
 	r := resp.Data.Result
@@ -595,7 +631,7 @@ func (c *Client) getExportTaskStatus(ctx context.Context, ticket string, token s
 // The file must be downloaded within 10 minutes of export completion.
 func (c *Client) downloadExportFile(ctx context.Context, fileToken string) ([]byte, error) {
 	path := fmt.Sprintf("/open-apis/drive/v1/export_tasks/file/%s/download", fileToken)
-	return c.downloadRawBytes(ctx, path)
+	return c.downloadRawBytesOperation(ctx, "download_export_file", path)
 }
 
 // ExportAndDownload is a high-level helper that creates an export task, polls until
@@ -665,7 +701,7 @@ func (c *Client) ExportAndDownload(ctx context.Context, objToken, objType string
 // Used for wiki nodes with obj_type="file" (user-uploaded PDF, Word, images, etc.).
 func (c *Client) DownloadDriveFile(ctx context.Context, fileToken string) ([]byte, error) {
 	path := fmt.Sprintf("/open-apis/drive/v1/files/%s/download", fileToken)
-	return c.downloadRawBytes(ctx, path)
+	return c.downloadRawBytesOperation(ctx, "download_drive_file", path)
 }
 
 // downloadMediaFile downloads embedded media (attachments/images referenced by
@@ -674,100 +710,16 @@ func (c *Client) DownloadDriveFile(ctx context.Context, fileToken string) ([]byt
 // endpoint rather than /files/.
 func (c *Client) downloadMediaFile(ctx context.Context, fileToken string) ([]byte, error) {
 	path := fmt.Sprintf("/open-apis/drive/v1/medias/%s/download", url.PathEscape(fileToken))
-	return c.downloadRawBytes(ctx, path)
+	return c.downloadRawBytesOperation(ctx, "download_media_file", path)
 }
 
 // downloadRawBytes performs an authenticated GET and returns the raw response body.
 func (c *Client) downloadRawBytes(ctx context.Context, path string) ([]byte, error) {
-	token, err := c.GetTenantAccessToken(ctx)
-	if err != nil {
-		return nil, err
-	}
+	return c.downloadRawBytesOperation(ctx, requestOperation(http.MethodGet, path), path)
+}
 
-	url := c.baseURL + path
-	var lastErr error
-
-	for attempt := 0; attempt <= feishuMaxRetries; attempt++ {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-		if err != nil {
-			return nil, fmt.Errorf("create download request: %w", err)
-		}
-		req.Header.Set("Authorization", "Bearer "+token)
-
-		if attempt == 0 {
-			logger.Infof(ctx, "[Feishu] download GET %s", path)
-		} else {
-			logger.Infof(ctx, "[Feishu] download GET %s (retry %d/%d)", path, attempt, feishuMaxRetries)
-		}
-
-		resp, err := c.httpClient.Do(req)
-		if err != nil {
-			lastErr = fmt.Errorf("download request: %w", err)
-			if attempt < feishuMaxRetries {
-				if sErr := sleepCtx(ctx, feishuRetryBackoff[attempt]); sErr != nil {
-					return nil, sErr
-				}
-				continue
-			}
-			return nil, lastErr
-		}
-
-		if resp.StatusCode == http.StatusTooManyRequests {
-			body, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
-			wait := parseRetryAfter(resp.Header.Get("Retry-After"), feishuRetryBackoff[min(attempt, len(feishuRetryBackoff)-1)])
-			lastErr = fmt.Errorf("download rate limited: status=429 body=%s", truncate(string(body), 500))
-			if attempt < feishuMaxRetries {
-				if sErr := sleepCtx(ctx, wait); sErr != nil {
-					return nil, sErr
-				}
-				continue
-			}
-			return nil, lastErr
-		}
-
-		if resp.StatusCode >= 500 && resp.StatusCode < 600 {
-			body, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
-			lastErr = fmt.Errorf("download server error: status=%d body=%s", resp.StatusCode, truncate(string(body), 500))
-			if attempt < feishuMax5xxRetries {
-				if sErr := sleepCtx(ctx, feishuRetry5xxDelay); sErr != nil {
-					return nil, sErr
-				}
-				continue
-			}
-			return nil, lastErr
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
-			logger.Errorf(ctx, "[Feishu] download GET %s → status=%d body=%s", path, resp.StatusCode, truncate(string(body), 500))
-			return nil, fmt.Errorf("download failed: status=%d body=%s", resp.StatusCode, string(body))
-		}
-
-		data, readErr := io.ReadAll(io.LimitReader(resp.Body, maxFeishuDownloadBytes+1))
-		if readErr == nil && int64(len(data)) > maxFeishuDownloadBytes {
-			resp.Body.Close()
-			return nil, fmt.Errorf("download exceeds max size (%d bytes): %s", maxFeishuDownloadBytes, path)
-		}
-		resp.Body.Close()
-		if readErr != nil {
-			lastErr = fmt.Errorf("read download body: %w", readErr)
-			if attempt < feishuMaxRetries {
-				if sErr := sleepCtx(ctx, feishuRetryBackoff[attempt]); sErr != nil {
-					return nil, sErr
-				}
-				continue
-			}
-			return nil, lastErr
-		}
-
-		logger.Infof(ctx, "[Feishu] download GET %s → OK, %d bytes", path, len(data))
-		return data, nil
-	}
-
-	return nil, lastErr
+func (c *Client) downloadRawBytesOperation(ctx context.Context, operation, path string) ([]byte, error) {
+	return c.doRequestBytes(ctx, operation, http.MethodGet, path, nil, true, true, maxFeishuDownloadBytes)
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -801,11 +753,8 @@ func (c *Client) listDriveFiles(
 	}
 
 	var resp DriveFileListResponse
-	if err := c.DoRequest(ctx, http.MethodGet, path, nil, &resp); err != nil {
+	if err := c.doRequest(ctx, "list_drive_files", http.MethodGet, path, nil, &resp); err != nil {
 		return nil, "", false, fmt.Errorf("list drive files: %w", err)
-	}
-	if resp.Code != 0 {
-		return nil, "", false, fmt.Errorf("list drive files error: code=%d msg=%s", resp.Code, resp.Msg)
 	}
 
 	logger.Infof(ctx, "[FeishuDrive] listDriveFiles: folder=%s got %d files, has_more=%v",
@@ -824,11 +773,8 @@ func (c *Client) GetDriveFolderMeta(ctx context.Context, folderToken string) (dr
 		return resp, fmt.Errorf("root folder not supported; specify a concrete folder_token")
 	}
 	path := "/open-apis/drive/explorer/v2/folder/" + url.QueryEscape(folderToken) + "/meta"
-	if err := c.DoRequest(ctx, http.MethodGet, path, nil, &resp); err != nil {
+	if err := c.doRequest(ctx, "get_drive_folder_meta", http.MethodGet, path, nil, &resp); err != nil {
 		return resp, fmt.Errorf("get drive folder meta: %w", err)
-	}
-	if resp.Code != 0 {
-		return resp, fmt.Errorf("get drive folder meta error: code=%d msg=%s", resp.Code, resp.Msg)
 	}
 	return resp, nil
 }
