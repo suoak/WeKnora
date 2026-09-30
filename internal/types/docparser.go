@@ -145,11 +145,12 @@ func (c ParsedChunk) EmbeddingContent() string {
 // ParsedParentChunk represents a parent chunk in the parent-child strategy.
 // Parent chunks are stored in DB for context retrieval but NOT vector-indexed.
 type ParsedParentChunk struct {
-	Content  string
-	Seq      int
-	Start    int
-	End      int
-	Metadata map[string]string
+	Content        string
+	Seq            int
+	Start          int
+	End            int
+	Metadata       map[string]string
+	SourceLocators SourceLocators
 }
 
 type ParsedImage struct {

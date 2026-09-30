@@ -30,6 +30,10 @@ func (s *stubCopyModelRepo) GetByID(_ context.Context, _ uint64, id string) (*ty
 	return nil, nil
 }
 
+func (s *stubCopyModelRepo) GetBuiltinByID(context.Context, string) (*types.Model, error) {
+	return nil, nil
+}
+
 func (s *stubCopyModelRepo) List(context.Context, uint64, types.ModelType, types.ModelSource) ([]*types.Model, error) {
 	return nil, nil
 }

@@ -235,7 +235,7 @@ func TestProcessChunksSkipsEmbeddingModelWhenIndexingDisabled(t *testing.T) {
 		KnowledgeBaseID: "kb-1",
 		ParseStatus:     types.ParseStatusProcessing,
 	}
-	chunkRepo := &parentChildChunkService{}
+	chunkRepo := &parentChildChunkRepository{}
 	tenant := &types.Tenant{ID: 1}
 	ctx := context.WithValue(context.Background(), types.TenantInfoContextKey, tenant)
 	svc := &knowledgeService{

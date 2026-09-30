@@ -937,16 +937,78 @@ func (s *sessionService) SearchKnowledge(ctx context.Context,
 		return nil, err
 	}
 
-	chatManage.RerankModelID = s.resolveRerankModelID(ctx, "", rc, models)
+	diag := chatManage.RerankDiagnostics
+	switch {
+	case rerankDisabled:
+		diag = &types.RerankDiagnostics{Outcome: types.RerankOutcomeDisabled}
+	case unavailable != nil:
+		diag = unavailable
+		diag.Threshold, diag.EffectiveThreshold = chatManage.RerankThreshold, chatManage.RerankThreshold
+	case diag == nil:
+		// Retrieval found nothing, so the rerank stage never ran.
+		diag = &types.RerankDiagnostics{
+			Outcome:            types.RerankOutcomeNoCandidates,
+			ModelID:            rerankModelID,
+			Threshold:          chatManage.RerankThreshold,
+			EffectiveThreshold: chatManage.RerankThreshold,
+		}
+	}
+	diag.ModelSource = rerankModelSource
+	if rerankDisabled {
+		diag.ModelSource = ""
+	}
+	if rerankDisabled || unavailable != nil {
+		// The rerank stage did not run; the results are the retrieval order.
+		diag.CandidateCount = len(results)
+	}
+	diag.ResultCount = len(results)
 
-	// Use specific event list, only including retrieval-related events, not LLM summarization
-	searchEvents := []types.EventType{
-		types.CHUNK_SEARCH, // Vector search
-		types.CHUNK_RERANK, // Rerank search results
-		types.CHUNK_MERGE,  // Merge search results
-		types.FILTER_TOP_K, // Filter top K results
+	logger.Infof(ctx, "Knowledge base search completed, found %d results, rerank outcome: %s",
+		len(results), diag.Outcome)
+	return &types.RetrievalResult{Results: results, Meta: types.RetrievalMeta{Rerank: diag}}, nil
+}
+
+// applyKnowledgeSearchOverrides applies caller-specific retrieval settings on
+// top of the tenant defaults already copied into chatManage.
+func applyKnowledgeSearchOverrides(chatManage *types.ChatManage, opts *types.KnowledgeSearchOptions) {
+	if opts.VectorThreshold != nil {
+		chatManage.VectorThreshold = *opts.VectorThreshold
+	}
+	if opts.KeywordThreshold != nil {
+		chatManage.KeywordThreshold = *opts.KeywordThreshold
+	}
+	if opts.MatchCount > 0 {
+		chatManage.RerankTopK = opts.MatchCount
+	}
+	if opts.Rerank != nil {
+		if opts.Rerank.TopK > 0 {
+			chatManage.RerankTopK = opts.Rerank.TopK
+		}
+		if opts.Rerank.Threshold != nil {
+			chatManage.RerankThreshold = *opts.Rerank.Threshold
+		}
+	}
+	chatManage.EmbeddingTopK = max(chatManage.EmbeddingTopK, chatManage.RerankTopK)
+}
+
+// runKnowledgeSearchPipeline runs retrieval-only stages. No targets or no
+// matches is a successful empty result, not a request failure.
+func (s *sessionService) runKnowledgeSearchPipeline(
+	ctx context.Context,
+	chatManage *types.ChatManage,
+	targetCount int,
+) ([]*types.SearchResult, error) {
+	if targetCount == 0 {
+		logger.Warn(ctx, "No search targets available, returning empty results")
+		return []*types.SearchResult{}, nil
 	}
 
+	searchEvents := []types.EventType{
+		types.CHUNK_SEARCH,
+		types.CHUNK_RERANK,
+		types.CHUNK_MERGE,
+		types.FILTER_TOP_K,
+	}
 	logger.Infof(ctx, "Trigger search event list: %v", searchEvents)
 
 	for _, event := range searchEvents {
@@ -969,7 +1031,6 @@ func (s *sessionService) SearchKnowledge(ctx context.Context,
 			logger.Warnf(ctx, "Event %v triggered, search result is empty", event)
 			return []*types.SearchResult{}, nil
 		}
-
 		if err != nil {
 			logger.Errorf(ctx, "Event triggering failed, event: %v, error type: %s, description: %s, error: %v",
 				event, err.ErrorType, err.Description, err.Err)

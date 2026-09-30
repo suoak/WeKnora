@@ -210,7 +210,7 @@ func TestProcessChunksSkipsSupersededAttemptBeforeTouchingChunks(t *testing.T) {
 }
 
 type chunkWriteCountingRepo struct {
-	parentChildChunkService
+	parentChildChunkRepository
 	deletes int
 }
 

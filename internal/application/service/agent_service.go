@@ -93,29 +93,37 @@ func knowledgeBaseScopesForPrompt(config *types.AgentConfig) ([]string, map[stri
 
 // agentService implements agent-related business logic
 type agentService struct {
-	cfg                  *config.Config
-	modelService         interfaces.ModelService
-	mcpServiceService    interfaces.MCPServiceService
-	mcpManager           *mcp.MCPManager
-	eventBus             *event.EventBus
-	db                   *gorm.DB
-	webSearchService     interfaces.WebSearchService
-	knowledgeBaseService interfaces.KnowledgeBaseService
-	knowledgeService     interfaces.KnowledgeService
-	fileService          interfaces.FileService
-	chunkService         interfaces.ChunkService
-	duckdb               *sql.DB
-	wikiPageService      interfaces.WikiPageService
-	tenantService        interfaces.TenantService
-	messageService       interfaces.MessageService
-	memoryService        interfaces.MemoryService
-	storageResolver      interfaces.StorageBackendResolver
-	toolApprovalGate     approval.MCPApproval
-	sandboxMgr           sandbox.Manager
-	sandboxResolver      sandbox.TenantSandboxResolver
-	sandboxPinner        *SessionSandboxPinner
-	sandboxPolicy        WorkspaceSandboxPolicy
-	usageAnalytics       interfaces.UsageAnalyticsService
+	browserSkill          *browserskill.Manager
+	userRepo              interfaces.UserRepository
+	graphRepo             interfaces.RetrieveGraphRepository
+	cfg                   *config.Config
+	modelService          interfaces.ModelService
+	mcpServiceService     interfaces.MCPServiceService
+	mcpManager            *mcp.MCPManager
+	eventBus              *event.EventBus
+	db                    *gorm.DB
+	webSearchService      interfaces.WebSearchService
+	knowledgeBaseService  interfaces.KnowledgeBaseService
+	knowledgeService      interfaces.KnowledgeService
+	fileService           interfaces.FileService
+	chunkService          interfaces.ChunkService
+	duckdb                *sql.DB
+	wikiPageService       interfaces.WikiPageService
+	tenantService         interfaces.TenantService
+	messageService        interfaces.MessageService
+	memoryService         interfaces.MemoryService
+	storageResolver       interfaces.StorageBackendResolver
+	toolApprovalGate      approval.MCPApproval
+	sandboxMgr            sandbox.Manager
+	sandboxResolver       sandbox.TenantSandboxResolver
+	sandboxPinner         *SessionSandboxPinner
+	sandboxPolicy         WorkspaceSandboxPolicy
+	hostSandbox           sandbox.Manager
+	hostDesktop           bool
+	hostSkillInstaller    sandbox.Manager
+	hostSkillsRoot        string
+	hostSkillVersionsRoot string
+	usageAnalytics        interfaces.UsageAnalyticsService
 }
 
 // NewAgentService creates a new agent service
@@ -142,6 +150,10 @@ func NewAgentService(
 	sandboxResolver sandbox.TenantSandboxResolver,
 	sandboxPinner *SessionSandboxPinner,
 	sandboxPolicy WorkspaceSandboxPolicy,
+	hostSandbox HostSandboxManager,
+	browserSkill *browserskill.Manager,
+	userRepo interfaces.UserRepository,
+	graphRepo interfaces.RetrieveGraphRepository,
 	usageAnalytics interfaces.UsageAnalyticsService,
 ) interfaces.AgentService {
 	svc := &agentService{
@@ -170,6 +182,8 @@ func NewAgentService(
 		sandboxResolver:      sandboxResolver,
 		sandboxPinner:        sandboxPinner,
 		sandboxPolicy:        sandboxPolicy,
+		hostSandbox:          hostSandbox.Manager,
+		hostDesktop:          hostSandbox.Desktop,
 		usageAnalytics:       usageAnalytics,
 	}
 	if hostSandbox.SkillsAvailable() {
