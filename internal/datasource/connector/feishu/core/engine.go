@@ -92,6 +92,13 @@ func runSync[N any](
 	resourceIDs []string, cursor *types.SyncCursor, h datasource.StreamHandler,
 	ops NodeOps[N],
 ) (*types.SyncCursor, error) {
+	client.ensureRuntime()
+	releaseWorkflow, err := client.policy.acquireWorkflow(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer releaseWorkflow()
+
 	var prevTimes map[string]map[string]string
 	if cursor != nil && cursor.ConnectorCursor != nil {
 		prevTimes = ops.DecodeCursorTimes(cursor.ConnectorCursor)
