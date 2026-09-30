@@ -189,7 +189,7 @@ func TestSQLiteMigrationsUpgradeV13ToLatest(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, migrator.Steps(-4))
 	versionDowngraded, dirtyDowngraded := sqliteMigrationState(t, db)
-	require.Equal(t, 14, versionDowngraded)
+	require.Equal(t, 3016, versionDowngraded)
 	require.False(t, dirtyDowngraded)
 	require.True(t, sqliteColumnExists(t, db, "tenant_api_keys", "owner_user_id"))
 	require.True(t, sqliteColumnExists(t, db, "mcp_tool_approvals", "enabled"))
@@ -316,7 +316,7 @@ func TestSQLiteKnowledgePortalMigrationUpgradeConstraintsAndDown(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, migrator.Steps(-4))
 	version, dirty = sqliteMigrationState(t, db)
-	require.Equal(t, 14, version)
+	require.Equal(t, 3016, version)
 	require.False(t, dirty)
 	for _, table := range []string{"tenant_portal_configs", "tenant_portal_stages", "tenant_access_requests"} {
 		require.False(t, sqliteTableExists(t, db, table))
@@ -361,7 +361,7 @@ func TestSQLiteUsageAnalyticsMigrationUpgradeV15AndDown(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, migrator.Steps(-3))
 	version, dirty = sqliteMigrationState(t, db)
-	require.Equal(t, 15, version)
+	require.Equal(t, 3017, version)
 	require.False(t, dirty)
 	for _, table := range []string{"model_usage_events", "mcp_usage_events", "usage_resource_links"} {
 		require.False(t, sqliteTableExists(t, db, table), table)
