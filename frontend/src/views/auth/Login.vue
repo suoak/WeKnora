@@ -177,7 +177,7 @@
       <div class="form-panel">
         <!-- Login Card -->
         <div class="form-card" v-if="!isRegisterMode">
-          <!-- 有效邀请用户可从注册卡返回登录，因此登录卡同样保留邀请上下文。 -->
+          <!-- 登录已有账号时保留邀请上下文。 -->
           <div v-if="inviteLookup" class="invite-banner">
             <t-icon name="link" class="invite-banner__icon" />
             <div class="invite-banner__text">
@@ -215,7 +215,7 @@
                 {{ loading ? $t('auth.loggingIn') : $t('auth.login') }}
               </t-button>
 
-              <div class="register-cta" v-if="registrationEnabled || inviteLookup">
+              <div class="register-cta" v-if="registrationEnabled">
                 <div class="register-cta__divider">
                   <span>{{ $t('auth.firstTime') }}</span>
                 </div>
@@ -253,11 +253,8 @@
           </div>
         </div>
 
-        <!-- Register Card. Renders when the user is in register mode
-             AND either self-service registration is enabled OR they
-             arrived with a valid share-link token (which bypasses the
-             invite_only gate). -->
-        <div class="form-card" v-if="isRegisterMode && (registrationEnabled || inviteLookup)">
+        <!-- Registration must be allowed for this mode and invitation. -->
+        <div class="form-card" v-if="isRegisterMode && registrationEnabled">
           <!-- Share-link banner: shown only when ?token= resolved to a
                real invitation row. Sits above the form header so the
                invitee instantly sees who invited them and into which
@@ -345,6 +342,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { useRoleLabel } from '@/composables/useRoleLabel'
 import { notifyLoginSuccess } from '@/utils/loginNotify'
+import { canRegister } from './registrationPolicy'
 import { newPasswordRules } from '@/utils/passwordPolicy'
 import { Swiper, SwiperSlide } from 'swiper/vue'
 import { Autoplay, EffectFade, Pagination } from 'swiper/modules'
@@ -367,7 +365,6 @@ import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
 import BrandLogo from '@/components/BrandLogo.vue'
 import { branding } from '@/config/branding'
-import { resolveInviteRegistrationState } from './inviteRegistrationState'
 import {
   LITE_LAST_PATH_KEY,
   clearAuthReturnTarget,
@@ -434,17 +431,14 @@ const isRegisterMode = ref(false)
 const showLanguageMenu = ref(false)
 const oidcEnabled = ref(false)
 const oidcProviderName = ref('')
-// registrationEnabled defaults to true so that on first paint the Register
-// link is visible; the actual mode is fetched from /auth/config in onMounted.
-// In invite_only mode the ordinary link/card are hidden unless a validated
-// invitation is present.
-const registrationEnabled = ref(true)
+// Wait for configuration before showing a registration entry.
+const registrationMode = ref('')
+const registrationEnabled = computed(() => canRegister(registrationMode.value, !!inviteLookup.value))
 const complexPasswordEnabled = ref(false)
 
 // invite-link state. When the URL carries ?token=xxx we resolve it to
 // the originating tenant + role and switch the form into a "register
-// via invitation" mode. The token bypasses the normal invite_only
-// gate — possessing it IS the authorisation. Submitting the register
+// via invitation" mode when invitation registration is enabled. Submitting the register
 // form with this set hits /auth/register-by-invite (auto-login on
 // success) instead of /auth/register.
 const inviteToken = ref('')
@@ -526,7 +520,7 @@ const registerRules = computed(() => ({
 
 // Toggle login/register mode
 const toggleMode = () => {
-  isRegisterMode.value = !isRegisterMode.value
+  isRegisterMode.value = !isRegisterMode.value && registrationEnabled.value
 
   Object.keys(registerData).forEach(key => {
     (registerData as any)[key] = ''
@@ -631,16 +625,14 @@ const loadOIDCConfig = async () => {
   }
 }
 
-// loadAuthConfig fetches /auth/config and caches whether self-service
-// registration is allowed. Failures fall back to "enabled" so a transient
-// network glitch doesn't lock new users out of an open deployment.
+// Registration stays hidden if configuration cannot be loaded.
 const loadAuthConfig = async () => {
   try {
     const response = await getAuthConfig()
-    registrationEnabled.value = response.registration_mode !== 'invite_only'
+    registrationMode.value = response.success ? response.registration_mode : ''
     complexPasswordEnabled.value = response.complex_password_enabled
   } catch {
-    registrationEnabled.value = true
+    registrationMode.value = ''
     complexPasswordEnabled.value = false
   }
 }
@@ -728,6 +720,7 @@ const handleLogin = async () => {
 // login on success); without -> the normal self-service register
 // (drops back to the login form for the user to sign in).
 const handleRegister = async () => {
+  if (!registrationEnabled.value) return
   try {
     const valid = await registerFormRef.value?.validate()
     if (valid !== true) return
@@ -817,28 +810,15 @@ onMounted(async () => {
       inviteLookupLoading.value = false
     }
 
-    // 2. 已登录则直接兑换 token 进入空间（两种模式通用）。
+    // 2. 已登录则直接兑换 token 进入空间（三种模式通用）。
     if (authStore.isLoggedIn && (await authStore.refreshFromAuthMe())) {
       await acceptAndEnter(tokenFromQuery)
       return
     }
 
-    // 3. 未登录且邀请有效：邀请 token 本身就是注册授权。无论是否关闭
-    // 自助注册都进入邀请注册页；已有账号仍可从注册卡返回登录并兑换 token。
-    try {
-      const cfg = await getAuthConfig()
-      const inviteState = resolveInviteRegistrationState(cfg.registration_mode)
-      registrationEnabled.value = inviteState.registrationEnabled
-      isRegisterMode.value = inviteState.isRegisterMode
-      complexPasswordEnabled.value = cfg.complex_password_enabled
-    } catch {
-      // The invitation was already validated. A transient config failure must
-      // not strand a new invitee on the login card.
-      const inviteState = resolveInviteRegistrationState('self_serve')
-      registrationEnabled.value = inviteState.registrationEnabled
-      isRegisterMode.value = inviteState.isRegisterMode
-      complexPasswordEnabled.value = false
-    }
+    // 3. Only enabled registration modes may create an invited account.
+    await loadAuthConfig()
+    isRegisterMode.value = registrationEnabled.value
     loadOIDCConfig()
     return
   }
