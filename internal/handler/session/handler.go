@@ -56,7 +56,23 @@ type Handler struct {
 	// selected agent so the sandbox is created with the same config a
 	// conversation turn would use.
 	terminalService *service.SandboxTerminalService
-	usageAnalytics  interfaces.UsageAnalyticsService
+	desktopService  *service.SandboxDesktopService
+	desktopTickets  service.SandboxDesktopTicketStore
+	desktopLast     service.SandboxDesktopLastStore
+	// redis backs the distributed desktop slot. Nil in Lite mode, where the
+	// in-process limiter is the correct degradation.
+	redis *redis.Client
+	// forkService branches a session at a chosen user message. May be nil in
+	// deployments where fork is not wired; ForkSession checks.
+	forkService sessionForker
+	// rewindService truncates the current session at a chosen message. May be
+	// nil in deployments where rewind is not wired; RewindSession checks.
+	rewindService sessionRewinder
+	// approvedProjectDirs is the user-approved ProjectDirs list used to
+	// validate CreateSession's optional project_dir. Nil means none are
+	// approved, so a non-empty project_dir is rejected.
+	approvedProjectDirs HostProjectDirsLoader
+	usageAnalytics      interfaces.UsageAnalyticsService
 }
 
 // NewHandler creates a new instance of Handler with all necessary dependencies
@@ -85,9 +101,18 @@ func NewHandler(
 	userService interfaces.UserService,
 	memberService interfaces.TenantMemberService,
 	terminalService *service.SandboxTerminalService,
+	browserSkill *browserskill.Manager,
+	desktopService *service.SandboxDesktopService,
+	desktopTickets service.SandboxDesktopTicketStore,
+	desktopLast service.SandboxDesktopLastStore,
+	rdb *redis.Client,
+	forkService *service.SessionForkService,
+	rewindService *service.SessionRewindService,
+	approvedProjectDirs HostProjectDirsLoader,
 	usageAnalytics interfaces.UsageAnalyticsService,
 ) *Handler {
-	return &Handler{
+	h := &Handler{
+		browserSkill:         browserSkill,
 		sessionService:       sessionService,
 		messageService:       messageService,
 		suggestionService:    suggestionService,
@@ -108,6 +133,11 @@ func NewHandler(
 		userService:          userService,
 		memberService:        memberService,
 		terminalService:      terminalService,
+		desktopService:       desktopService,
+		desktopTickets:       desktopTickets,
+		desktopLast:          desktopLast,
+		redis:                rdb,
+		approvedProjectDirs:  approvedProjectDirs,
 		usageAnalytics:       usageAnalytics,
 		attachmentProcessor: NewAttachmentProcessor(
 			fileService,

@@ -1338,6 +1338,9 @@ func (h *Handler) executeQA(reqCtx *qaRequestContext, mode qaMode, generateTitle
 			if data.IsFallback {
 				streamCtx.assistantMessage.IsFallback = true
 			}
+			if data.Truncated {
+				markQuickAnswerTruncated(streamCtx.assistantMessage)
+			}
 			if data.Usage != nil {
 				usage := *data.Usage
 				streamCtx.assistantMessage.Usage = &usage
@@ -1924,7 +1927,7 @@ func (h *Handler) completeAssistantMessage(
 	assistantMessage.IsCompleted = true
 	if err := h.messageService.UpdateMessage(ctx, assistantMessage); err != nil {
 		logger.Warnf(ctx, "complete assistant message %s: persist failed: %v", assistantMessage.ID, err)
-		return
+		return err
 	}
 	if h.usageAnalytics != nil && assistantMessage.Usage != nil {
 		tenantID, _ := types.SessionTenantIDFromContext(ctx)
