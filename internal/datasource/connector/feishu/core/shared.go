@@ -49,15 +49,26 @@ type fetchTally struct {
 	discovered    int
 	fetched       int
 	failed        int
+	failedByKind  map[ErrorCategory]int
 	skippedByType map[string]int
 }
 
 func newFetchTally(discovered int) *fetchTally {
-	return &fetchTally{discovered: discovered, skippedByType: map[string]int{}}
+	return &fetchTally{
+		discovered: discovered, failedByKind: map[ErrorCategory]int{},
+		skippedByType: map[string]int{},
+	}
 }
 
-func (t *fetchTally) fetch()              { t.fetched++ }
-func (t *fetchTally) fail()               { t.failed++ }
+func (t *fetchTally) fetch() { t.fetched++ }
+func (t *fetchTally) fail(errs ...error) {
+	t.failed++
+	if len(errs) > 0 {
+		if apiErr, ok := asAPIError(errs[0]); ok {
+			t.failedByKind[apiErr.Category]++
+		}
+	}
+}
 func (t *fetchTally) Skip(objType string) { t.skippedByType[objType]++ }
 
 func (t *fetchTally) skipped() int {
@@ -69,8 +80,8 @@ func (t *fetchTally) skipped() int {
 }
 
 func (t *fetchTally) summary() string {
-	return fmt.Sprintf("discovered=%d fetched=%d failed=%d skipped_unsupported=%d by_type=%v",
-		t.discovered, t.fetched, t.failed, t.skipped(), t.skippedByType)
+	return fmt.Sprintf("discovered=%d fetched=%d failed=%d failed_by_category=%v skipped_unsupported=%d by_type=%v",
+		t.discovered, t.fetched, t.failed, t.failedByKind, t.skipped(), t.skippedByType)
 }
 
 var reFeishuErrorCode = regexp.MustCompile(`code["\s]*[:=]\s*(\d+)`)

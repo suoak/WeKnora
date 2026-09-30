@@ -98,6 +98,12 @@ func runSync[N any](
 		return nil, err
 	}
 	defer releaseWorkflow()
+	startedAt := time.Now()
+	retriesAtStart := client.policy.retryCount.Load()
+	defer func() {
+		logger.Infof(ctx, "%s sync API summary resources=%d retries=%d duration=%s",
+			ops.LogTag(), len(resourceIDs), client.policy.retryCount.Load()-retriesAtStart, time.Since(startedAt))
+	}()
 
 	var prevTimes map[string]map[string]string
 	if cursor != nil && cursor.ConnectorCursor != nil {
@@ -158,7 +164,7 @@ func runSync[N any](
 
 			items, ferr := ops.Fetch(ctx, client, node, resourceID, config.MultimodalEnabled)
 			if ferr != nil {
-				tally.fail()
+				tally.fail(ferr)
 				// Do NOT advance the cursor: the content was never fetched.
 				// Retain the prior edit time (if any) so prev != current next
 				// run and the node is retried, instead of being permanently

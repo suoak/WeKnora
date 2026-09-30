@@ -933,7 +933,8 @@ func (s *DataSourceService) applyFetchedItem(
 	if len(item.Content) == 0 && item.URL == "" {
 		// Check if this is an error item from the connector (failed to fetch content)
 		if errMsg, hasErr := item.Metadata["error"]; hasErr {
-			logger.Warnf(ctx, "item %q (external_id=%s) fetch failed: %s", item.Title, item.ExternalID, errMsg)
+			logger.Warnf(ctx, "item %q (external_id=%s datasource_id=%s) fetch failed: %s",
+				item.Title, item.ExternalID, ds.ID, errMsg)
 			result.Failed++
 			recordSyncError(result, fetchFailureSyncError(item, errMsg))
 		} else {
