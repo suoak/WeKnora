@@ -55,6 +55,10 @@ type ReadResult struct {
 	ChunkingPolicy  ChunkingPolicy
 	ParsedChunks    []ParserChunkSpan
 	ParsedSegments  []ParserDefinedSegment
+	// SourceBlocks map rune ranges of MarkdownContent back to positions in
+	// the original file. Optional: engines that know no positions leave it
+	// empty.
+	SourceBlocks []SourceBlock
 }
 
 // ImageRef represents an image reference extracted from the document.

@@ -104,30 +104,11 @@ func (p *PluginDataAnalysis) OnEvent(
 		return ErrGetChatModel.WithError(err)
 	}
 
-	// Use utils.GenerateSchema to generate format schema for DataAnalysisInput
-	formatSchema := utils.GenerateSchema[tools.DataAnalysisInput]()
-
-	analysisPrompt := fmt.Sprintf(`
-User Question: %s
-Knowledge ID: %s
-Table Schema: %s
-
-Determine if the user's question requires data analysis (e.g., statistics, aggregation, filtering) on this table.
-If YES, generate a DuckDB SQL query to answer the user's question and fill in the knowledge_id and sql fields.
-If NO, leave the sql field empty.
-
-Return your response in the specified JSON format.`, chatManage.Query, knowledge.ID, schema.Description())
-
 	modelCtx := types.WithLLMCallMetadata(ctx, "data_analysis_plan", "")
 	modelCtx = types.WithBackgroundModelUsage(modelCtx, types.ModelUsageOperationDataAnalysisPlanning,
 		[]string{chatManage.SessionID, chatManage.UserMessageID, knowledge.ID},
 		[]string{knowledge.KnowledgeBaseID}, []string{knowledge.ID})
-	response, err := chatModel.Chat(modelCtx, []chat.Message{
-		{Role: "user", Content: analysisPrompt},
-	}, &chat.ChatOptions{
-		Temperature: 0.1,
-		Format:      formatSchema,
-	})
+	toolResult, err := runDataAnalysis(modelCtx, chatModel, tool, knowledge.ID, chatManage.Query, schema)
 	if err != nil {
 		// The analysis is optional for the answer, so the pipeline continues,
 		// but a failed plan is a real signal (bad SQL contract, model drift,

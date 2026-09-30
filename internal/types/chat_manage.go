@@ -123,6 +123,7 @@ type PipelineState struct {
 	RetrievalQueryType    RetrievalQueryType    `json:"retrieval_query_type,omitempty"`
 	RetrievalCompleteness RetrievalCompleteness `json:"retrieval_completeness"`
 	History               []*History            `json:"history,omitempty"`
+	HistoryLoaded         bool                  `json:"-"`
 
 	SearchResult         []*SearchResult   `json:"-"`
 	RerankResult         []*SearchResult   `json:"-"`
@@ -285,6 +286,7 @@ func (c *ChatManage) Clone() *ChatManage {
 			Intent:                c.Intent,
 			RetrievalQueryType:    c.RetrievalQueryType,
 			RetrievalCompleteness: c.RetrievalCompleteness,
+			HistoryLoaded:         c.HistoryLoaded,
 			ImageDescription:      c.ImageDescription,
 			QuotedContext:         c.QuotedContext,
 			SystemPromptOverride:  c.SystemPromptOverride,

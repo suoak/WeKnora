@@ -73,9 +73,11 @@ func TestSavedModelFactoryPreservesBenchmarkTruncatePromptTokens(t *testing.T) {
 		Name:   "text-embedding-v4",
 		Source: types.ModelSourceRemote,
 		Parameters: types.ModelParameters{
-			BaseURL:  server.URL,
-			APIKey:   "server-side-only",
-			Provider: "openai",
+			BaseURL: server.URL,
+			APIKey:  "server-side-only",
+			// truncate_prompt_tokens is a vLLM-class extension. The generic
+			// provider preserves it; managed OpenAI intentionally drops it.
+			Provider: "generic",
 			EmbeddingParameters: types.EmbeddingParameters{
 				Dimension:            2,
 				TruncatePromptTokens: 2048,

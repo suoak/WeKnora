@@ -201,6 +201,7 @@ type AgentFinalAnswerData struct {
 	Content    string            `json:"content"`
 	Done       bool              `json:"done"`
 	IsFallback bool              `json:"is_fallback,omitempty"` // True when response is a fallback (no knowledge base match)
+	Truncated  bool              `json:"truncated,omitempty"`
 	Usage      *types.TokenUsage `json:"usage,omitempty"`
 }
 

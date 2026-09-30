@@ -25,7 +25,7 @@ func testStore(t *testing.T) *Store {
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	migration, err := os.ReadFile("../../migrations/sqlite/000014_browser_authorization.up.sql")
+	migration, err := os.ReadFile("../../migrations/sqlite/003001_browser_authorization.up.sql")
 	require.NoError(t, err)
 	require.NoError(t, db.Exec(string(migration)).Error)
 	return &Store{db: db}

@@ -11,14 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestSQLiteMessageArtifactsBackfillAndRollback upgrades a v22 database that
-// still keeps artifacts on messages.artifacts, checks 000023 copies them into
+// TestSQLiteMessageArtifactsBackfillAndRollback upgrades a pre-003010 database that
+// still keeps artifacts on messages.artifacts, checks 003010 copies them into
 // message_artifacts, then replays the down migration and checks the JSON
 // column is rebuilt from the table in a shape Go can decode.
 func TestSQLiteMessageArtifactsBackfillAndRollback(t *testing.T) {
 	repoRoot := sqliteRepoRoot(t)
 
-	legacyRoot := copySQLiteMigrationsThrough(t, repoRoot, 22)
+	legacyRoot := copySQLiteMigrationsThrough(t, repoRoot, "003009")
 	chdirAndRestore(t, legacyRoot)
 	dbPath := filepath.Join(t.TempDir(), "artifacts.db")
 	require.NoError(t, RunMigrationsWithOptions("sqlite3://unused", MigrationOptions{SQLiteDBPath: dbPath}))
@@ -110,7 +110,7 @@ func TestSQLiteMessageArtifactsBackfillAndRollback(t *testing.T) {
 	require.Equal(t, "[]", legacy2.String)
 
 	// Rollback rebuilds the legacy column from the table.
-	down, err := os.ReadFile(filepath.Join(repoRoot, "migrations", "sqlite", "000023_message_artifacts_table.down.sql"))
+	down, err := os.ReadFile(filepath.Join(repoRoot, "migrations", "sqlite", "003010_message_artifacts_table.down.sql"))
 	require.NoError(t, err)
 	_, err = db.Exec(string(down))
 	require.NoError(t, err)

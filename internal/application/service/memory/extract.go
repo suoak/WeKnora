@@ -328,16 +328,46 @@ func (s *Service) Handle(ctx context.Context, task *asynq.Task) error {
 		if err != nil {
 			return err
 		}
-		s.applyDecisions(ctx, scope, cfg, segment, existing, parsed.Memories)
-		// Subjects are counted separately from memories: one question is noise,
-		// the same subject across conversations is an interest.
-		topicSourceIDs := []string{segment.sessionID}
-		for _, line := range segment.lines {
-			topicSourceIDs = append(topicSourceIDs, line.messageID)
+		if len(segments) == 0 {
+			if err := s.repo.CheckpointExtraction(ctx, scope, leaseID, session, session.Cursor, true); err != nil {
+				return err
+			}
+			continue
 		}
-		s.observeTopics(ctx, scope, cfg, s.extractionModelID(ctx, cfg, payload), parsed.Topics, topicSourceIDs)
-		if segment.end.After(newCursor) {
-			newCursor = segment.end
+		for i, segment := range segments {
+			cursor := types.MemoryMessageCursor{At: segment.end, ID: segment.endID}
+			if len(segment.lines) > 0 {
+				if err := s.extractSegment(ctx, scope, cfg, payload, segment); err != nil {
+					if !errors.Is(err, errInvalidExtractionOutput) {
+						return err
+					}
+					failure := interfaces.MemoryExtractionFailure{
+						Session: session, End: cursor, Code: "invalid_model_output",
+					}
+					skip, recordErr := s.repo.RecordExtractionFailure(ctx, scope, leaseID, failure)
+					if recordErr != nil {
+						return recordErr
+					}
+					if !skip {
+						retryErr = err
+						processed++
+						break
+					}
+					logger.Warnf(ctx, "memory: skipping invalid segment; failure recorded for session %s",
+						session.SessionID)
+				}
+			}
+			if err := s.repo.CheckpointExtraction(ctx, scope, leaseID, session, cursor, !more && i == len(segments)-1); err != nil {
+				return err
+			}
+			session.Cursor = cursor
+			processed++
+			if processed >= extractMaxSegmentsPerRun {
+				break
+			}
+		}
+		if processed >= extractMaxSegmentsPerRun {
+			break
 		}
 	}
 	if err := s.repo.FinishExtraction(ctx, scope, leaseID); err != nil {
@@ -373,7 +403,11 @@ func (s *Service) extractSegment(ctx context.Context, scope interfaces.MemorySco
 	if err := s.applyDecisions(ctx, scope, cfg, segment, existing, parsed.Memories); err != nil {
 		return err
 	}
-	s.observeTopics(ctx, scope, cfg, s.extractionModelID(ctx, cfg, payload), parsed.Topics)
+	topicSourceIDs := []string{segment.sessionID}
+	for _, line := range segment.lines {
+		topicSourceIDs = append(topicSourceIDs, line.messageID)
+	}
+	s.observeTopics(ctx, scope, cfg, s.extractionModelID(ctx, cfg, payload), parsed.Topics, topicSourceIDs)
 	return nil
 }
 

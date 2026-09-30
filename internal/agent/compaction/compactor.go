@@ -198,28 +198,25 @@ func (c *Compactor) summarize(
 	previousSummary, instructions string,
 	maxTokens int,
 ) (string, error) {
-	prompt := buildSummarizationPrompt(messages, previousSummary, instructions)
+	prompt := buildSummarizationPrompt(messages, omitted, previousSummary, instructions)
 	sessionID, _ := types.SessionIDFromContext(ctx)
 	usageCtx := types.WithBackgroundModelUsage(ctx, types.ModelUsageOperationAgentCompaction,
 		[]string{sessionID, prompt}, nil, nil)
+	request := []chat.Message{
+		{Role: "system", Content: summarizationSystemPrompt},
+		{Role: "user", Content: prompt},
+	}
+	opts := &chat.ChatOptions{
+		Temperature:    0.3,
+		MaxTokens:      maxTokens,
+		CacheRetention: chat.CacheRetentionNone,
+	}
 	var lastErr error
 
 	for attempt := 1; attempt <= maxSummarizationAttempts; attempt++ {
-		callCtx, cancel := context.WithTimeout(usageCtx, summarizationTimeout)
-		callCtx = types.WithLLMCallMetadata(callCtx, llmCallLabel, "")
-		resp, err := c.chatModel.Chat(callCtx, []chat.Message{
-			{Role: "system", Content: summarizationSystemPrompt},
-			{Role: "user", Content: prompt},
-		}, &chat.ChatOptions{
-			Temperature:    0.3, // low temperature for factual summarization
-			MaxTokens:      maxTokens,
-			CacheRetention: chat.CacheRetentionNone,
-		})
-		cancel()
-
-		if err != nil {
-			lastErr = err
-			continue
+		content, finishReason, err := c.streamSummary(usageCtx, request, opts)
+		if err == nil {
+			err = validateSummary(content, finishReason)
 		}
 		if err == nil {
 			return strings.TrimSpace(content), nil

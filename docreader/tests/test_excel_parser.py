@@ -964,4 +964,9 @@ class ExcelSourceBlocksTest(unittest.TestCase):
         rows = [(b["locator"]["sheet"], b["locator"]["row_start"]) for b in doc.source_blocks]
         self.assertEqual(rows, [("明细", 3), ("明细", 5)])
         first = doc.source_blocks[0]
-        self.assertEqual(doc.content[first["start"]:first["end"]], "B: 螺栓\n")
+        # KnowHub treats the first worksheet row as the header by default.
+        # A blank header therefore receives the stable placeholder used by
+        # the row-aware parser rather than the raw Excel column letter.
+        self.assertEqual(
+            doc.content[first["start"]:first["end"]], "__column_B: 螺栓\n"
+        )
