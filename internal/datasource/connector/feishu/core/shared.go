@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"net/http"
@@ -93,6 +94,28 @@ func feishuErrorCode(raw string) string {
 func feishuFailure(err error) (code, codeValue, fallback string) {
 	if err == nil {
 		return "sync_failed", "", "Sync failed; will retry on the next sync"
+	}
+	if apiErr, ok := asAPIError(err); ok {
+		value := ""
+		if apiErr.Code != 0 {
+			value = strconv.Itoa(apiErr.Code)
+		}
+		switch {
+		case errors.Is(err, ErrRateLimited):
+			return "feishu_rate_limited", value, "Feishu API rate limited after retries were exhausted"
+		case errors.Is(err, ErrAuth):
+			return "feishu_auth", value, "Authentication failed; check Feishu app credentials"
+		case errors.Is(err, ErrPermission):
+			return "feishu_permission", value, "Permission denied; check Feishu app scopes and resource access"
+		case errors.Is(err, ErrNotFound):
+			return "feishu_not_found", value, "The Feishu resource no longer exists or is unavailable"
+		case errors.Is(err, ErrTransient):
+			return "feishu_server_unavailable", value, "Feishu service remained unavailable after retries"
+		case errors.Is(err, ErrPermanent):
+			return "feishu_permanent_error", value, "Feishu rejected the request; check the resource configuration"
+		default:
+			return "feishu_api_error", value, "Feishu returned an unclassified API error"
+		}
 	}
 	s := strings.ToLower(err.Error())
 
