@@ -50,11 +50,11 @@ func TestVectorSearchRanksInPostgres(t *testing.T) {
 	require.NoError(t, db.Exec("CREATE TABLE tenants (id BIGINT PRIMARY KEY)").Error)
 	require.NoError(t, db.Exec("CREATE TABLE messages (id VARCHAR(36) PRIMARY KEY)").Error)
 	execMemoryMigration(t, db, "../../../../migrations/versioned/000084_memory.up.sql")
-	execMemoryMigration(t, db, "../../../../migrations/versioned/000094_memory_consistency.up.sql")
+	execMemoryMigration(t, db, "../../../../migrations/versioned/003002_memory_consistency.up.sql")
 	// Whole-file exec: the migration is one DO block, so splitting it on
 	// semicolons the way execMemoryMigration does would cut it apart.
 	vectorSearchMigration, err := os.ReadFile(
-		"../../../../migrations/versioned/000095_memory_vector_search.up.sql")
+		"../../../../migrations/versioned/003003_memory_vector_search.up.sql")
 	require.NoError(t, err)
 	require.NoError(t, db.Exec(string(vectorSearchMigration)).Error)
 	require.True(t, db.Migrator().HasColumn(&types.MemoryItemEmbedding{}, "embedding"),

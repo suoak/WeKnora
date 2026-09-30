@@ -49,9 +49,9 @@ func imageAssetBackends(t *testing.T, fn func(t *testing.T, db *gorm.DB)) {
 // backfill.
 func applyChunkImagesMigration(t *testing.T, db *gorm.DB) {
 	t.Helper()
-	path := "../../../migrations/sqlite/000032_chunk_images.up.sql"
+	path := "../../../migrations/sqlite/003019_chunk_images.up.sql"
 	if db.Name() == "postgres" {
-		path = "../../../migrations/versioned/000113_chunk_images.up.sql"
+		path = "../../../migrations/versioned/003021_chunk_images.up.sql"
 	}
 	sql, err := os.ReadFile(path)
 	require.NoError(t, err)

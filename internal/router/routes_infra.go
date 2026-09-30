@@ -35,6 +35,8 @@ func RegisterModelRoutes(
 		models.POST("/:id/debug", g.Admin(), handler.DebugModel)
 		// Bounded batch embedding adapter for admin diagnostics/benchmarks only.
 		models.POST("/:id/debug/embeddings", g.Admin(), handler.DebugEmbeddings)
+		// Copy model configuration (including stored credentials) — Admin+.
+		models.POST("/:id/copy", g.Admin(), handler.CopyModel)
 		// 获取单个模型 — Viewer+
 		models.GET("/:id", g.Viewer(), handler.GetModel)
 		// 更新模型 — Admin+；内置模型仍由服务层额外限定为 SystemAdmin。

@@ -39,7 +39,7 @@ func TestMemoryConsistencyPostgres(t *testing.T) {
 	defer func() { require.NoError(t, sqlDB.Close()) }()
 
 	testMemoryConsistencyMigration(t, db, "postgres")
-	execMemoryMigration(t, db, "../../../../migrations/versioned/000094_memory_consistency.up.sql")
+	execMemoryMigration(t, db, "../../../../migrations/versioned/003002_memory_consistency.up.sql")
 	repo := repository.NewMemoryRepository(db)
 	ctx := context.Background()
 	scope := interfaces.MemoryScope{TenantID: 7, SubjectID: "alice"}

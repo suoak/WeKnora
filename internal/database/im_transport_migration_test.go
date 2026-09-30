@@ -11,8 +11,8 @@ import (
 
 func TestDingtalkStreamMigrationPreservesOtherChannels(t *testing.T) {
 	for _, migration := range []string{
-		"sqlite/000017_dingtalk_stream_only.up.sql",
-		"versioned/000096_dingtalk_stream_only.up.sql",
+		"sqlite/003004_dingtalk_stream_only.up.sql",
+		"versioned/003004_dingtalk_stream_only.up.sql",
 	} {
 		t.Run(migration, func(t *testing.T) {
 			db := openSQLiteDB(t, filepath.Join(t.TempDir(), "channels.db"))

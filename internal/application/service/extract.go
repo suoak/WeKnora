@@ -682,7 +682,9 @@ func (s *DataTableSummaryService) processTableData(ctx context.Context, resource
 	tableCtx := types.WithBackgroundModelUsage(ctx, types.ModelUsageOperationSpreadsheetMetadata,
 		[]string{resources.knowledge.ID, "table", schemaDesc, sampleDesc},
 		[]string{resources.knowledge.KnowledgeBaseID}, []string{resources.knowledge.ID})
-	tableDescription, err := s.generateTableDescription(tableCtx, resources.chatModel, tableSchema.TableName,
+	// The stored summary is later shown to the model by data_schema, so it
+	// must name the model-facing table, never the physical knowledge-ID table.
+	tableDescription, err := s.generateTableDescription(tableCtx, resources.chatModel, tools.DataAnalysisTableName,
 		schemaDesc, sampleDesc, customInstructions)
 	if err != nil {
 		logger.Errorf(ctx, "failed to generate table description: %v", err)
@@ -693,7 +695,7 @@ func (s *DataTableSummaryService) processTableData(ctx context.Context, resource
 	columnCtx := types.WithBackgroundModelUsage(ctx, types.ModelUsageOperationSpreadsheetMetadata,
 		[]string{resources.knowledge.ID, "columns", schemaDesc, sampleDesc},
 		[]string{resources.knowledge.KnowledgeBaseID}, []string{resources.knowledge.ID})
-	columnDescription, err := s.generateColumnDescriptions(columnCtx, resources.chatModel, tableSchema.TableName,
+	columnDescription, err := s.generateColumnDescriptions(columnCtx, resources.chatModel, tools.DataAnalysisTableName,
 		schemaDesc, sampleDesc, customInstructions)
 	if err != nil {
 		logger.Errorf(ctx, "failed to generate column descriptions: %v", err)

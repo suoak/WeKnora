@@ -1297,6 +1297,7 @@ func (s *sessionService) consumeFallbackStream(
 					Content:    response.Content,
 					Done:       response.Done,
 					IsFallback: true,
+					Truncated:  truncated,
 					Usage:      response.Usage,
 				},
 			}); err != nil {

@@ -141,7 +141,7 @@ func testMemoryConsistencyMigration(t *testing.T, db *gorm.DB, dialect string) {
 	require.NoError(t, db.Exec("CREATE TABLE IF NOT EXISTS tenants (id BIGINT PRIMARY KEY)").Error)
 	require.NoError(t, db.Exec("CREATE TABLE IF NOT EXISTS messages (id VARCHAR(36) PRIMARY KEY)").Error)
 	baseline := "sqlite/000004_memory"
-	migration := "sqlite/000015_memory_consistency"
+	migration := "sqlite/003002_memory_consistency"
 	if dialect == "postgres" {
 		baseline = "versioned/000084_memory"
 		migration = "versioned/000094_memory_consistency"
