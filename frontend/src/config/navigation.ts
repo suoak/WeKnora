@@ -7,7 +7,8 @@ export interface NavigationEntry {
   id: string
   labelKey: string
   icon: string
-  route: string
+  route?: string
+  externalUrl?: string
   group: NavigationGroup
   requiredCapabilities?: DeploymentCapabilityKey[]
   requiredAnyCapabilities?: DeploymentCapabilityKey[]
@@ -16,6 +17,8 @@ export interface NavigationEntry {
   order: number
   settingsSection?: string
 }
+
+export const FEEDBACK_URL = 'https://ruijie.feishu.cn/wiki/GC4AwjoNUicPyEkyv9fcrC3Wnlb'
 
 export interface NavigationContext {
   role: string
@@ -32,6 +35,7 @@ export const NAVIGATION_REGISTRY: readonly NavigationEntry[] = [
   // depend on the currently selected workspace.
   { id: 'mcp-access', labelKey: 'navigation.mcpAccess', icon: 'link', route: '/platform/mcp-access', group: 'workspace', order: 35 },
   { id: 'members', labelKey: 'navigation.members', icon: 'usergroup', route: '/platform/settings?section=members', settingsSection: 'members', group: 'workspace', order: 40 },
+  { id: 'feedback', labelKey: 'navigation.feedback', icon: 'chat-message', externalUrl: FEEDBACK_URL, group: 'workspace', order: 45 },
   { id: 'management-center', labelKey: 'navigation.managementCenter', icon: 'setting', route: '/platform/settings?section=tenant', group: 'management', visibility: 'management', order: 50 },
 ] as const
 
@@ -48,6 +52,7 @@ export function visibleNavigationEntries(context: NavigationContext): Navigation
 }
 
 export function isNavigationEntryActive(entry: NavigationEntry, path: string, section?: unknown): boolean {
+  if (entry.externalUrl) return false
   if (entry.id === 'management-center') return path === '/platform/settings'
   if (entry.settingsSection) return path === '/platform/settings' && section === entry.settingsSection
   if (entry.id === 'knowledge-bases') return path.startsWith('/platform/knowledge-bases')
