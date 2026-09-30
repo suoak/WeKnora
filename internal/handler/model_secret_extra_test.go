@@ -85,7 +85,7 @@ func putModelAs(t *testing.T, provider string, extraConfig map[string]string) (*
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	svc := &stubUpdateModelService{stored: storedSecretExtraModel()}
-	h := NewModelHandler(svc)
+	h := NewModelHandler(svc, nil)
 
 	body, err := json.Marshal(UpdateModelRequest{
 		Name:   "rerank-v1",
