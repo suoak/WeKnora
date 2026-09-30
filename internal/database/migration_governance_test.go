@@ -111,10 +111,10 @@ func TestMigrationGovernanceManifest(t *testing.T) {
 		},
 	)
 	require.Len(t, manifest.LineageMapping, 6)
-	require.Equal(t, 96, manifest.Dialects.Versioned.ExistingKnowHubBaseline)
-	require.Equal(t, 17, manifest.Dialects.SQLite.ExistingKnowHubBaseline)
-	require.Equal(t, manifest.Dialects.Versioned.ImmutableThrough, manifest.Dialects.Versioned.ExistingKnowHubBaseline)
-	require.Equal(t, manifest.Dialects.SQLite.ImmutableThrough, manifest.Dialects.SQLite.ExistingKnowHubBaseline)
+	require.Equal(t, 3000, manifest.Dialects.Versioned.ExistingKnowHubBaseline)
+	require.Equal(t, 3000, manifest.Dialects.SQLite.ExistingKnowHubBaseline)
+	require.Equal(t, 96, manifest.Dialects.Versioned.ImmutableThrough)
+	require.Equal(t, 17, manifest.Dialects.SQLite.ImmutableThrough)
 
 	validateImmutableMigrationHistory(t, repoRoot, manifest.Dialects.Versioned)
 	validateImmutableMigrationHistory(t, repoRoot, manifest.Dialects.SQLite)
