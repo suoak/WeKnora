@@ -13,13 +13,19 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	os.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost")
-	os.Setenv("FEISHU_API_RATE_LIMIT_RPS", "10000")
-	os.Setenv("FEISHU_API_RATE_LIMIT_BURST", "10000")
-	os.Setenv("FEISHU_API_RETRY_INITIAL_BACKOFF_MS", "1")
-	os.Setenv("FEISHU_API_RETRY_MAX_BACKOFF_MS", "5")
+	mustSetenv("SSRF_WHITELIST", "127.0.0.1,localhost")
+	mustSetenv("FEISHU_API_RATE_LIMIT_RPS", "10000")
+	mustSetenv("FEISHU_API_RATE_LIMIT_BURST", "10000")
+	mustSetenv("FEISHU_API_RETRY_INITIAL_BACKOFF_MS", "1")
+	mustSetenv("FEISHU_API_RETRY_MAX_BACKOFF_MS", "5")
 	secutils.ResetSSRFWhitelistForTest()
 	os.Exit(m.Run())
+}
+
+func mustSetenv(key, value string) {
+	if err := os.Setenv(key, value); err != nil {
+		panic(err)
+	}
 }
 
 func writeJSON(w http.ResponseWriter, v interface{}) {

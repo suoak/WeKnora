@@ -38,10 +38,18 @@ type retryPolicy struct {
 }
 
 func defaultRetryPolicy() retryPolicy {
+	initialBackoffMS := envPositiveInt(
+		"FEISHU_API_RETRY_INITIAL_BACKOFF_MS",
+		int(defaultFeishuInitialBackoff/time.Millisecond),
+	)
+	maximumBackoffMS := envPositiveInt(
+		"FEISHU_API_RETRY_MAX_BACKOFF_MS",
+		int(defaultFeishuMaximumBackoff/time.Millisecond),
+	)
 	return retryPolicy{
 		maxRetries: envNonNegativeInt("FEISHU_API_RETRY_MAX", defaultFeishuRetryMax),
-		initial:    time.Duration(envPositiveInt("FEISHU_API_RETRY_INITIAL_BACKOFF_MS", int(defaultFeishuInitialBackoff/time.Millisecond))) * time.Millisecond,
-		maximum:    time.Duration(envPositiveInt("FEISHU_API_RETRY_MAX_BACKOFF_MS", int(defaultFeishuMaximumBackoff/time.Millisecond))) * time.Millisecond,
+		initial:    time.Duration(initialBackoffMS) * time.Millisecond,
+		maximum:    time.Duration(maximumBackoffMS) * time.Millisecond,
 		sleep:      sleepCtx,
 		now:        time.Now,
 		jitter: func(base time.Duration) time.Duration {
@@ -117,8 +125,10 @@ func sharedAppPolicy(baseURL, appID string, rp retryPolicy) *appPolicy {
 	if existing, ok := appPolicyRegistry.Load(key); ok {
 		return existing.(*appPolicy)
 	}
+	rateLimit := envPositiveFloat("FEISHU_API_RATE_LIMIT_RPS", defaultFeishuRPS)
+	burst := envPositiveInt("FEISHU_API_RATE_LIMIT_BURST", defaultFeishuBurst)
 	p := &appPolicy{
-		limiter:      rate.NewLimiter(rate.Limit(envPositiveFloat("FEISHU_API_RATE_LIMIT_RPS", defaultFeishuRPS)), envPositiveInt("FEISHU_API_RATE_LIMIT_BURST", defaultFeishuBurst)),
+		limiter:      rate.NewLimiter(rate.Limit(rateLimit), burst),
 		workflowGate: make(chan struct{}, envPositiveInt("FEISHU_SYNC_CONCURRENCY", defaultFeishuSyncConcurrency)),
 		requestGate:  make(chan struct{}, envPositiveInt("FEISHU_API_MAX_INFLIGHT", defaultFeishuHTTPConcurrency)),
 		now:          rp.now,

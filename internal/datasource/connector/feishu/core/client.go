@@ -155,7 +155,9 @@ func (c *Client) DoRequest(ctx context.Context, method, path string, body interf
 	return c.doRequest(ctx, requestOperation(method, path), method, path, body, result)
 }
 
-func (c *Client) doRequest(ctx context.Context, operation, method, path string, body interface{}, result interface{}) error {
+func (c *Client) doRequest(
+	ctx context.Context, operation, method, path string, body interface{}, result interface{},
+) error {
 	var bodyBytes []byte
 	var err error
 	if body != nil {
@@ -231,13 +233,19 @@ func (c *Client) doRequestBytes(
 			} else {
 				responseBody, requestErr = io.ReadAll(resp.Body)
 			}
-			resp.Body.Close()
+			closeErr := resp.Body.Close()
+			if requestErr == nil {
+				requestErr = closeErr
+			}
 			release()
 			if requestErr != nil {
 				if ctxErr := ctx.Err(); ctxErr != nil {
 					return nil, ctxErr
 				}
-				err = &APIError{Category: ErrorCategoryTransient, HTTPStatus: resp.StatusCode, Operation: operation, Cause: requestErr}
+				err = &APIError{
+					Category: ErrorCategoryTransient, HTTPStatus: resp.StatusCode,
+					Operation: operation, Cause: requestErr,
+				}
 			} else if maxBytes > 0 && int64(len(responseBody)) > maxBytes {
 				return nil, fmt.Errorf("feishu download exceeds max size (%d bytes): operation=%s", maxBytes, operation)
 			} else {
@@ -279,7 +287,9 @@ func (c *Client) doRequestBytes(
 		}
 
 		c.policy.retryCount.Add(1)
-		logger.Warnf(ctx, "[Feishu] API request retry operation=%s category=%s code=%d status=%d attempt=%d max_attempts=%d backoff=%s",
+		logger.Warnf(ctx,
+			"[Feishu] API request retry operation=%s category=%s code=%d "+
+				"status=%d attempt=%d max_attempts=%d backoff=%s",
 			operation, apiErr.Category, apiErr.Code, apiErr.HTTPStatus, attempt+1, c.retry.maxRetries+1, delay)
 		if !errors.Is(err, ErrRateLimited) {
 			if sleepErr := c.retry.sleep(ctx, delay); sleepErr != nil {
@@ -597,7 +607,9 @@ func (c *Client) createExportTask(ctx context.Context, token, objType, fileExten
 	}
 
 	var resp ExportTaskCreateResponse
-	if err := c.doRequest(ctx, "create_export_task", http.MethodPost, "/open-apis/drive/v1/export_tasks", body, &resp); err != nil {
+	if err := c.doRequest(
+		ctx, "create_export_task", http.MethodPost, "/open-apis/drive/v1/export_tasks", body, &resp,
+	); err != nil {
 		return "", fmt.Errorf("create export task: %w", err)
 	}
 

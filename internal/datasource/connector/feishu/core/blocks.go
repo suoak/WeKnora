@@ -419,7 +419,9 @@ func (c *Client) readBitableRecords(ctx context.Context, embedToken string) ([][
 			rpath += "&page_token=" + url.QueryEscape(pageToken)
 		}
 		var rec bitableRecordsResponse
-		if err := c.doRequest(ctx, "search_bitable_records", http.MethodPost, rpath, map[string]any{}, &rec); err != nil {
+		if err := c.doRequest(
+			ctx, "search_bitable_records", http.MethodPost, rpath, map[string]any{}, &rec,
+		); err != nil {
 			return nil, false, fmt.Errorf("search bitable records: %w", err)
 		}
 		for _, item := range rec.Data.Items {
