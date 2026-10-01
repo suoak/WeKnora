@@ -198,7 +198,7 @@ jobs:
           grep -F "v${MIGRATE_VERSION}" /tmp/migrate-build-info.txt
           docker run --rm --entrypoint /home/appuser/.local/bin/uv "$IMAGE" --version \
             | tee /tmp/uv-version.txt
-          grep -Fx "uv ${UV_VERSION}" /tmp/uv-version.txt
+          grep -F "uv ${UV_VERSION} " /tmp/uv-version.txt
           echo "APP_IMAGE_IDENTITY_GATE=PASS"
 
       - name: Verify migration artifact identity
