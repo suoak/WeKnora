@@ -159,6 +159,9 @@ jobs:
       - name: Build production-shaped runtime and validation images
         run: |
           set -euo pipefail
+          overlay=source/internal/infrastructure/docparser/anydoc/baseline_multi_asset_linked_test.go
+          cp baseline/.github/anydoc-baseline/multi_asset_linked_test.go "$overlay"
+          trap 'rm -f "$overlay"' EXIT
           created=$(git -C source show -s --format=%cI "$SOURCE_SHA")
           common=(
             --platform linux/amd64
@@ -174,6 +177,8 @@ jobs:
           )
           docker build "${common[@]}" --target runtime -t "$IMAGE" source
           docker build "${common[@]}" --target validation -t "${IMAGE}-validation" source
+          rm -f "$overlay"
+          test -z "$(git -C source status --porcelain)"
           echo "DOCKER_BUILD_WITH_ANYDOC_GATE=PASS"
 
       - name: Verify image identity and pinned tools
@@ -220,7 +225,7 @@ jobs:
         run: |
           set -euo pipefail
           docker run --rm "${IMAGE}-validation" \
-            -test.v -test.run 'TestConvertDocxWithEmbeddedImage|TestConvertAllBenchmarkFormats|TestCombinedConversionPreservesModelAndMarkdown|TestConvertPDFReportsScannedPages'
+            -test.v -test.run 'TestBaselineMultiImageAssetLinks|TestConvertDocxWithEmbeddedImage|TestConvertAllBenchmarkFormats|TestCombinedConversionPreservesModelAndMarkdown|TestConvertPDFReportsScannedPages'
           echo "DOCX_RUNTIME_GATE=PASS"
           echo "PPTX_RUNTIME_GATE=PASS"
           echo "XLSX_RUNTIME_GATE=PASS"
