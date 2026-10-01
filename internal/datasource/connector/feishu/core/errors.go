@@ -12,6 +12,7 @@ import (
 // failed Feishu request before it leaves the HTTP client layer.
 type ErrorCategory string
 
+// Stable Feishu API error categories used by retry and presentation policy.
 const (
 	ErrorCategoryRateLimit  ErrorCategory = "rate_limit"
 	ErrorCategoryAuth       ErrorCategory = "auth"
@@ -22,6 +23,7 @@ const (
 	ErrorCategoryUnknownAPI ErrorCategory = "unknown_api"
 )
 
+// Sentinel errors support errors.Is checks without exposing response bodies.
 var (
 	ErrRateLimited = errors.New("feishu rate limited")
 	ErrAuth        = errors.New("feishu authentication failed")
@@ -66,6 +68,7 @@ func (e *APIError) Error() string {
 
 func (e *APIError) Unwrap() error { return e.Cause }
 
+// Is matches APIError categories to their stable sentinel errors.
 func (e *APIError) Is(target error) bool {
 	if e == nil {
 		return false

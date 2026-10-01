@@ -493,14 +493,19 @@ func TestFetchStream_RetriesApplicationRateLimitInCurrentJob(t *testing.T) {
 	t.Setenv("FEISHU_DOCX_PARSE_MODE", "export")
 	var createAttempts int
 	mux := http.NewServeMux()
-	mux.HandleFunc("/open-apis/auth/v3/tenant_access_token/internal", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, core.TokenResponse{ApiResponse: core.ApiResponse{Code: 0}, TenantAccessToken: "fake-token", Expire: 7200})
+	mux.HandleFunc("/open-apis/auth/v3/tenant_access_token/internal", func(
+		w http.ResponseWriter, _ *http.Request,
+	) {
+		writeJSON(w, core.TokenResponse{
+			ApiResponse: core.ApiResponse{Code: 0}, TenantAccessToken: "fake-token", Expire: 7200,
+		})
 	})
 	mux.HandleFunc("/open-apis/wiki/v2/spaces/space1/nodes", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, core.WikiNodeListResponse{
 			ApiResponse: core.ApiResponse{Code: 0},
 			Data: core.WikiNodeListData{Items: []core.WikiNode{{
-				NodeToken: "node-rate", ObjToken: "obj-rate", ObjType: "docx", Title: "Rate limited doc", ObjEditTime: "100",
+				NodeToken: "node-rate", ObjToken: "obj-rate", ObjType: "docx",
+				Title: "Rate limited doc", ObjEditTime: "100",
 			}}},
 		})
 	})
@@ -510,15 +515,24 @@ func TestFetchStream_RetriesApplicationRateLimitInCurrentJob(t *testing.T) {
 			writeJSON(w, core.ApiResponse{Code: 99991400, Msg: "too many requests"})
 			return
 		}
-		writeJSON(w, core.ExportTaskCreateResponse{ApiResponse: core.ApiResponse{Code: 0}, Data: core.ExportTaskCreateData{Ticket: "ticket-rate"}})
-	})
-	mux.HandleFunc("/open-apis/drive/v1/export_tasks/ticket-rate", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, core.ExportTaskStatusResponse{
+		writeJSON(w, core.ExportTaskCreateResponse{
 			ApiResponse: core.ApiResponse{Code: 0},
-			Data:        core.ExportTaskStatusData{Result: core.ExportTaskResult{FileToken: "file-rate", FileName: "rate.docx", JobStatus: 0}},
+			Data:        core.ExportTaskCreateData{Ticket: "ticket-rate"},
 		})
 	})
-	mux.HandleFunc("/open-apis/drive/v1/export_tasks/file/file-rate/download", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/open-apis/drive/v1/export_tasks/ticket-rate", func(
+		w http.ResponseWriter, _ *http.Request,
+	) {
+		writeJSON(w, core.ExportTaskStatusResponse{
+			ApiResponse: core.ApiResponse{Code: 0},
+			Data: core.ExportTaskStatusData{Result: core.ExportTaskResult{
+				FileToken: "file-rate", FileName: "rate.docx", JobStatus: 0,
+			}},
+		})
+	})
+	mux.HandleFunc("/open-apis/drive/v1/export_tasks/file/file-rate/download", func(
+		w http.ResponseWriter, _ *http.Request,
+	) {
 		_, _ = w.Write([]byte("exported-content"))
 	})
 	ts := httptest.NewServer(mux)

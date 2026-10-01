@@ -17,7 +17,9 @@ func TestLimiterAndTokenScopeKeysAreSeparated(t *testing.T) {
 	if appOld != appNew {
 		t.Fatal("trailing slash must not split one app limiter scope")
 	}
-	if tokenScopeKey("https://open.feishu.cn", "app-a", "old") == tokenScopeKey("https://open.feishu.cn", "app-a", "new") {
+	oldTokenScope := tokenScopeKey("https://open.feishu.cn", "app-a", "old")
+	newTokenScope := tokenScopeKey("https://open.feishu.cn", "app-a", "new")
+	if oldTokenScope == newTokenScope {
 		t.Fatal("rotated secrets must use distinct token caches")
 	}
 	if appOld == tokenScopeKey("https://open.feishu.cn", "app-a", "old") {
@@ -31,7 +33,10 @@ func TestRetryBackoffIsDeterministicWhenInjected(t *testing.T) {
 		maximum: 30 * time.Second,
 		jitter:  func(base time.Duration) time.Duration { return base / 4 },
 	}
-	wants := []time.Duration{1250 * time.Millisecond, 2500 * time.Millisecond, 5 * time.Second, 10 * time.Second, 20 * time.Second, 30 * time.Second}
+	wants := []time.Duration{
+		1250 * time.Millisecond, 2500 * time.Millisecond, 5 * time.Second,
+		10 * time.Second, 20 * time.Second, 30 * time.Second,
+	}
 	for attempt, want := range wants {
 		if got := p.delay(attempt, 0); got != want {
 			t.Fatalf("delay(%d) = %s, want %s", attempt, got, want)
