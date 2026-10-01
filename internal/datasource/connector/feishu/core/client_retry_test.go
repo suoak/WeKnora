@@ -14,6 +14,12 @@ import (
 	"golang.org/x/time/rate"
 )
 
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
 // retryTestServer builds a server that always answers the auth-token call and
 // routes the given target path to h, so tests can drive DoRequest's retry loop.
 func retryTestServer(target string, h http.HandlerFunc) (*httptest.Server, *Config) {
@@ -141,6 +147,47 @@ func TestRetryOnApplicationRateLimit(t *testing.T) {
 	}
 }
 
+func TestRetryOnApplicationRateLimitOnceThenSuccess(t *testing.T) {
+	var attempts int
+	ts, cfg := retryTestServer("/target", func(w http.ResponseWriter, _ *http.Request) {
+		attempts++
+		if attempts == 1 {
+			writeJSON(w, ApiResponse{Code: 99991400, Msg: "too many requests"})
+			return
+		}
+		writeJSON(w, ApiResponse{Code: 0})
+	})
+	defer ts.Close()
+
+	if err := fastRetryClient(cfg, 2).DoRequest(context.Background(), http.MethodGet, "/target", nil, nil); err != nil {
+		t.Fatalf("DoRequest() error = %v", err)
+	}
+	if attempts != 2 {
+		t.Fatalf("attempts = %d, want 2", attempts)
+	}
+}
+
+func TestApplicationRateLimitExhaustsSingleRetryBudget(t *testing.T) {
+	var attempts int
+	ts, cfg := retryTestServer("/target", func(w http.ResponseWriter, _ *http.Request) {
+		attempts++
+		writeJSON(w, ApiResponse{Code: 99991400, Msg: "too many requests"})
+	})
+	defer ts.Close()
+
+	c := fastRetryClient(cfg, 2)
+	err := c.DoRequest(context.Background(), http.MethodGet, "/target", nil, nil)
+	if !errors.Is(err, ErrRateLimited) {
+		t.Fatalf("error = %v, want ErrRateLimited", err)
+	}
+	if attempts != 3 {
+		t.Fatalf("attempts = %d, want exactly 3 (one request plus one retry layer)", attempts)
+	}
+	if retries := c.policy.retryCount.Load(); retries != 2 {
+		t.Fatalf("retry count = %d, want 2", retries)
+	}
+}
+
 func TestNoRetryOnPermissionError(t *testing.T) {
 	var attempts int
 	ts, cfg := retryTestServer("/target", func(w http.ResponseWriter, _ *http.Request) {
@@ -193,6 +240,114 @@ func TestRetryOnTransientServerError(t *testing.T) {
 	}
 	if attempts != 3 {
 		t.Fatalf("attempts = %d, want 3", attempts)
+	}
+}
+
+func TestRetryOnTransientTransportError(t *testing.T) {
+	ts, cfg := retryTestServer("/target", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, ApiResponse{Code: 0})
+	})
+	defer ts.Close()
+
+	c := fastRetryClient(cfg, 2)
+	if _, err := c.GetTenantAccessToken(context.Background()); err != nil {
+		t.Fatalf("GetTenantAccessToken() error = %v", err)
+	}
+	base := c.httpClient.Transport
+	var attempts int
+	c.httpClient.Transport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		attempts++
+		if attempts == 1 {
+			return nil, errors.New("temporary transport failure")
+		}
+		return base.RoundTrip(req)
+	})
+
+	if err := c.DoRequest(context.Background(), http.MethodGet, "/target", nil, nil); err != nil {
+		t.Fatalf("DoRequest() error = %v", err)
+	}
+	if attempts != 2 {
+		t.Fatalf("transport attempts = %d, want 2", attempts)
+	}
+}
+
+func TestRetryCancellationReturnsContextCanceled(t *testing.T) {
+	ts, cfg := retryTestServer("/target", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = io.WriteString(w, `{"code":1,"msg":"temporary"}`)
+	})
+	defer ts.Close()
+
+	c := fastRetryClient(cfg, 3)
+	c.retry.initial = time.Hour
+	c.retry.maximum = time.Hour
+	ctx, cancel := context.WithCancel(context.Background())
+	c.retry.sleep = func(ctx context.Context, _ time.Duration) error {
+		cancel()
+		<-ctx.Done()
+		return ctx.Err()
+	}
+	err := c.DoRequest(ctx, http.MethodGet, "/target", nil, nil)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("error = %v, want context.Canceled", err)
+	}
+}
+
+func TestRetryDeadlineReturnsDeadlineExceeded(t *testing.T) {
+	ts, cfg := retryTestServer("/target", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = io.WriteString(w, `{"code":1,"msg":"temporary"}`)
+	})
+	defer ts.Close()
+
+	c := fastRetryClient(cfg, 3)
+	c.retry.initial = time.Hour
+	c.retry.maximum = time.Hour
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	err := c.DoRequest(ctx, http.MethodGet, "/target", nil, nil)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("error = %v, want context.DeadlineExceeded", err)
+	}
+}
+
+func TestUnknownApplicationErrorIsNotRetried(t *testing.T) {
+	var attempts int
+	ts, cfg := retryTestServer("/target", func(w http.ResponseWriter, _ *http.Request) {
+		attempts++
+		writeJSON(w, ApiResponse{Code: 123456, Msg: "ordinary application error"})
+	})
+	defer ts.Close()
+
+	err := fastRetryClient(cfg, 3).DoRequest(context.Background(), http.MethodGet, "/target", nil, nil)
+	if !errors.Is(err, ErrUnknownAPI) {
+		t.Fatalf("error = %v, want ErrUnknownAPI", err)
+	}
+	if attempts != 1 {
+		t.Fatalf("attempts = %d, want 1", attempts)
+	}
+}
+
+func TestSuccessfulApplicationResponseDoesNotBackOff(t *testing.T) {
+	var attempts int
+	ts, cfg := retryTestServer("/target", func(w http.ResponseWriter, _ *http.Request) {
+		attempts++
+		writeJSON(w, ApiResponse{Code: 0})
+	})
+	defer ts.Close()
+
+	c := fastRetryClient(cfg, 3)
+	var sleeps atomic.Int64
+	c.retry.sleep = func(context.Context, time.Duration) error {
+		sleeps.Add(1)
+		return nil
+	}
+	c.policy.sleep = c.retry.sleep
+	if err := c.DoRequest(context.Background(), http.MethodGet, "/target", nil, nil); err != nil {
+		t.Fatalf("DoRequest() error = %v", err)
+	}
+	if attempts != 1 || sleeps.Load() != 0 {
+		t.Fatalf("attempts=%d sleeps=%d, want attempts=1 sleeps=0", attempts, sleeps.Load())
 	}
 }
 
