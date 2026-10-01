@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"math/rand"
 	"os"
 	"strconv"
@@ -141,6 +142,12 @@ func (p *appPolicy) beforeRequest(ctx context.Context) (func(), error) {
 		return nil, err
 	}
 	if err := p.limiter.Wait(ctx); err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
+		if _, hasDeadline := ctx.Deadline(); hasDeadline {
+			return nil, fmt.Errorf("%w: rate limiter wait: %v", context.DeadlineExceeded, err)
+		}
 		return nil, err
 	}
 	// A different request may have installed a cooldown while this caller was

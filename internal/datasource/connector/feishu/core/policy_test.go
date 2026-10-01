@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -95,5 +96,27 @@ func TestPolicyWaitHonorsContextCancellation(t *testing.T) {
 	cancel()
 	if _, err := p.beforeRequest(ctx); err != context.Canceled {
 		t.Fatalf("beforeRequest() error = %v, want context.Canceled", err)
+	}
+}
+
+func TestPolicyRateWaitPreservesDeadlineSemantics(t *testing.T) {
+	p := &appPolicy{
+		limiter:      rate.NewLimiter(rate.Every(time.Hour), 1),
+		workflowGate: make(chan struct{}, 1),
+		requestGate:  make(chan struct{}, 1),
+		now:          time.Now,
+		sleep:        sleepCtx,
+	}
+	if release, err := p.beforeRequest(context.Background()); err != nil {
+		t.Fatalf("consume initial token: %v", err)
+	} else {
+		release()
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	_, err := p.beforeRequest(ctx)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("beforeRequest() error = %v, want context.DeadlineExceeded", err)
 	}
 }
