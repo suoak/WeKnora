@@ -80,7 +80,13 @@ RUN go install -tags postgres github.com/golang-migrate/migrate/v4/cmd/migrate@v
 
 COPY go.mod go.sum ./
 COPY third_party/anydoc-go/go.mod third_party/anydoc-go/go.mod
-RUN --mount=type=cache,target=/go/pkg/mod go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    set -eu; \
+    for attempt in 1 2 3; do \
+        if go mod download; then exit 0; fi; \
+        test "$attempt" -lt 3; \
+        sleep $((attempt * 5)); \
+    done
 COPY cmd/download cmd/download
 RUN --mount=type=cache,target=/go/pkg/mod go run cmd/download/duckdb/duckdb.go
 COPY . .
