@@ -1,0 +1,184 @@
+# syntax=docker/dockerfile:1.7
+
+# KnowHub Release Build Baseline v2.
+# This recipe is intentionally independent from the unavailable historical
+# /tmp/Dockerfile.app.rc22. All release-sensitive toolchain versions used by
+# this baseline are explicit and the build is restricted to linux/amd64.
+FROM rust:1.98.1-bookworm@sha256:93ce27a88655056a51dbdd8f5f2d7ddc071c7b0070fb288a37b5a285fc83971e AS rust-toolchain
+
+FROM --platform=$TARGETPLATFORM node:24-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS browserskill
+ARG TARGETOS
+ARG TARGETARCH
+ARG APT_MIRROR_ARG=mirrors.ustc.edu.cn
+COPY --from=rust-toolchain /usr/local/cargo /usr/local/cargo
+COPY --from=rust-toolchain /usr/local/rustup /usr/local/rustup
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    RUSTUP_TOOLCHAIN=1.98.1 \
+    PATH=/usr/local/cargo/bin:$PATH
+WORKDIR /build
+RUN test "$TARGETOS/$TARGETARCH" = "linux/amd64" && \
+    sed -i "s@deb.debian.org@${APT_MIRROR_ARG}@g" /etc/apt/sources.list.d/debian.sources && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        git python3 ca-certificates curl build-essential cmake pkg-config && \
+    rm -rf /var/lib/apt/lists/* && \
+    rustc --version | grep -F 'rustc 1.98.1 '
+RUN mkdir -p /usr/local/cargo && printf '%s\n' \
+      '[source.crates-io]' \
+      'replace-with = "ustc"' \
+      '[source.ustc]' \
+      'registry = "sparse+https://mirrors.ustc.edu.cn/crates.io-index/"' \
+      > /usr/local/cargo/config.toml
+COPY scripts/build_browserskill.sh scripts/browserskill-release.json ./scripts/
+RUN bash scripts/build_browserskill.sh /opt/weknora/browserskill "${TARGETOS}/${TARGETARCH}"
+
+FROM golang:1.26.7-bookworm@sha256:e8c859f5632dcfde7b32d2012b4351728f6437930887c2f6a91ea242459e5514 AS builder
+ARG TARGETARCH
+ARG APT_MIRROR_ARG=mirrors.ustc.edu.cn
+ARG GOPRIVATE_ARG
+ARG GOPROXY_ARG=https://goproxy.cn,direct
+ARG GOSUMDB_ARG=sum.golang.org
+ARG VERSION_ARG=0.8.0-baseline-test
+ARG COMMIT_ID_ARG
+ARG REVISION_ARG
+ARG BUILD_TIME_ARG
+ARG GO_VERSION_ARG=1.26.7
+ARG WITH_ANYDOC=1
+ARG ANYDOC_VERSION=0.2.4
+ARG ANYDOC_SHA256=cf0d78e4cfe3654eb3ea04422ec5a94352000ee56e97902125e68e51f7527062
+
+ENV GOPRIVATE=${GOPRIVATE_ARG} \
+    GOPROXY=${GOPROXY_ARG} \
+    GOSUMDB=${GOSUMDB_ARG} \
+    RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    RUSTUP_TOOLCHAIN=1.98.1 \
+    PATH=/usr/local/cargo/bin:$PATH
+COPY --from=rust-toolchain /usr/local/cargo /usr/local/cargo
+COPY --from=rust-toolchain /usr/local/rustup /usr/local/rustup
+WORKDIR /app
+RUN test "$TARGETARCH" = "amd64" && test "$WITH_ANYDOC" = "1" && \
+    sed -i "s@deb.debian.org@${APT_MIRROR_ARG}@g" /etc/apt/sources.list.d/debian.sources && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        git build-essential libsqlite3-dev curl ca-certificates file binutils && \
+    rm -rf /var/lib/apt/lists/* && \
+    rustc --version | grep -F 'rustc 1.98.1 ' && \
+    go version | grep -F 'go1.26.7'
+
+# Cargo uses the established USTC sparse mirror. The AnyDoc crate itself is
+# fetched and verified separately below before it can enter the build.
+RUN mkdir -p /usr/local/cargo && printf '%s\n' \
+      '[source.crates-io]' \
+      'replace-with = "ustc"' \
+      '[source.ustc]' \
+      'registry = "sparse+https://mirrors.ustc.edu.cn/crates.io-index/"' \
+      > /usr/local/cargo/config.toml
+
+RUN go install -tags postgres github.com/golang-migrate/migrate/v4/cmd/migrate@v4.20.1
+
+COPY go.mod go.sum ./
+COPY third_party/anydoc-go/go.mod third_party/anydoc-go/go.mod
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+COPY cmd/download cmd/download
+RUN --mount=type=cache,target=/go/pkg/mod go run cmd/download/duckdb/duckdb.go
+COPY . .
+RUN --mount=type=cache,target=/go/pkg/mod bash ./scripts/copy-licenses.sh /license-bundle
+
+# The source archive is admitted only after its crates.io checksum matches.
+# build-anydoc-lib.sh then finds this verified source and never re-downloads it.
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    set -eu; \
+    test "$ANYDOC_VERSION" = "0.2.4"; \
+    test "$ANYDOC_SHA256" = "cf0d78e4cfe3654eb3ea04422ec5a94352000ee56e97902125e68e51f7527062"; \
+    crate=/tmp/anydoc-${ANYDOC_VERSION}.crate; \
+    curl --fail --location --silent --show-error \
+      "https://static.crates.io/crates/anydoc/anydoc-${ANYDOC_VERSION}.crate" \
+      --output "$crate"; \
+    echo "${ANYDOC_SHA256}  $crate" | sha256sum --check --strict; \
+    rm -rf /usr/local/cargo/registry/src/verified; \
+    mkdir -p /usr/local/cargo/registry/src/verified; \
+    tar -xzf "$crate" -C /usr/local/cargo/registry/src/verified; \
+    test -f "/usr/local/cargo/registry/src/verified/anydoc-${ANYDOC_VERSION}/Cargo.toml"; \
+    rm -f "$crate"; \
+    ./scripts/build-anydoc-lib.sh; \
+    test -s third_party/anydoc-go/lib/linux_amd64_gnu/libanydoc_go.a; \
+    nm -g --defined-only third_party/anydoc-go/lib/linux_amd64_gnu/libanydoc_go.a \
+      | grep -q ' anydoc_to_document$'; \
+    nm -g --defined-only third_party/anydoc-go/lib/linux_amd64_gnu/libanydoc_go.a \
+      | grep -q ' anydoc_to_document_with_asset_links$'
+
+ENV VERSION=${VERSION_ARG} \
+    COMMIT_ID=${COMMIT_ID_ARG} \
+    BUILD_TIME=${BUILD_TIME_ARG} \
+    GO_VERSION=${GO_VERSION_ARG}
+RUN --mount=type=cache,target=/go/pkg/mod make build-prod GO_BUILD_TAGS=anydoc
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go test -tags anydoc -c -o /anydoc-runtime-tests ./internal/infrastructure/docparser/anydoc
+RUN --mount=type=cache,target=/go/pkg/mod cp -r /go/pkg/mod/github.com/yanyiwu/ /app/yanyiwu/
+
+FROM debian:12.12-slim@sha256:d5d3f9c23164ea16f31852f95bd5959aad1c5e854332fe00f7b3a20fcc9f635c AS runtime
+ARG APT_MIRROR_ARG=mirrors.ustc.edu.cn
+ARG VERSION_ARG=0.8.0-baseline-test
+ARG COMMIT_ID_ARG
+ARG REVISION_ARG
+ARG BUILD_TIME_ARG
+ARG SOURCE_URL_ARG=https://github.com/suoak/WeKnora
+ARG UV_VERSION=0.12.15
+ARG UV_SHA256=f97935763c04be3e692460a7aaeaaab8fc3b78fcf8b389da820b38ae7423a638
+LABEL org.opencontainers.image.version=${VERSION_ARG} \
+      org.opencontainers.image.revision=${REVISION_ARG} \
+      org.opencontainers.image.source=${SOURCE_URL_ARG} \
+      org.opencontainers.image.created=${BUILD_TIME_ARG}
+WORKDIR /app
+ENV BROWSERSKILL_BINARY=/opt/weknora/browserskill/bsk \
+    BROWSERSKILL_EXTENSION_PATH=/opt/weknora/browserskill/browser-skill-weknora-0.3.1.zip \
+    PIP_INDEX_URL=https://pypi.mirrors.ustc.edu.cn/simple \
+    PATH=/home/appuser/.local/bin:$PATH
+COPY --from=browserskill /opt/weknora/browserskill /opt/weknora/browserskill
+RUN useradd -m -s /bin/bash appuser && \
+    test "$UV_VERSION" = "0.12.15" && \
+    test "$UV_SHA256" = "f97935763c04be3e692460a7aaeaaab8fc3b78fcf8b389da820b38ae7423a638" && \
+    sed -i "s@deb.debian.org@${APT_MIRROR_ARG}@g" /etc/apt/sources.list.d/debian.sources && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        ca-certificates build-essential postgresql-client default-mysql-client \
+        tzdata sed curl bash vim wget libsqlite3-0 python3 python3-pip \
+        python3-dev libffi-dev libssl-dev nodejs npm gosu ffmpeg && \
+    rm -rf /var/lib/apt/lists/* && \
+    uv_archive=/tmp/uv.tar.gz && \
+    curl --fail --location --silent --show-error \
+      "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-x86_64-unknown-linux-gnu.tar.gz" \
+      --output "$uv_archive" && \
+    echo "${UV_SHA256}  $uv_archive" | sha256sum --check --strict && \
+    mkdir -p /tmp/uv-extract /home/appuser/.local/bin && \
+    tar -xzf "$uv_archive" -C /tmp/uv-extract && \
+    install -m 0755 /tmp/uv-extract/uv-x86_64-unknown-linux-gnu/uv /home/appuser/.local/bin/uv && \
+    install -m 0755 /tmp/uv-extract/uv-x86_64-unknown-linux-gnu/uvx /home/appuser/.local/bin/uvx && \
+    rm -rf "$uv_archive" /tmp/uv-extract && \
+    /home/appuser/.local/bin/uv --version | grep -F "uv ${UV_VERSION}" && \
+    chown -R appuser:appuser /home/appuser
+RUN mkdir -p /data/files && chown -R appuser:appuser /app /data/files
+COPY --from=builder /go/bin/migrate /usr/local/bin/migrate
+COPY --from=builder /app/yanyiwu/ /go/pkg/mod/github.com/yanyiwu/
+COPY --from=builder /app/config ./config
+COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/migrations ./migrations
+COPY --from=builder /app/dataset/samples ./dataset/samples
+COPY --from=builder /root/.duckdb /home/appuser/.duckdb
+COPY --from=builder /app/WeKnora ./WeKnora
+COPY --from=builder /license-bundle/ ./
+RUN chmod +x ./scripts/*.sh && chown -R appuser:appuser /home/appuser/.duckdb
+EXPOSE 8080
+ENTRYPOINT ["./scripts/docker-entrypoint.sh"]
+CMD ["./WeKnora"]
+
+# CI-only target. The production-shaped runtime target above remains free of
+# test binaries; this target proves the same archive works inside that runtime.
+FROM runtime AS validation
+COPY --from=builder /anydoc-runtime-tests /usr/local/bin/anydoc-runtime-tests
+COPY --from=builder /app/internal/infrastructure/docparser/anydoc/testdata \
+    /app/internal/infrastructure/docparser/anydoc/testdata
+WORKDIR /app/internal/infrastructure/docparser/anydoc
+ENTRYPOINT ["/usr/local/bin/anydoc-runtime-tests"]
