@@ -122,7 +122,7 @@ func (c *Client) GetTenantAccessToken(ctx context.Context) (string, error) {
 		"app_secret": c.appSecret,
 	})
 
-	data, err := c.doRequestBytes(ctx, "get_tenant_access_token", http.MethodPost,
+	data, err := c.doRequestBytes(ctx, "refresh_app_token", http.MethodPost,
 		"/open-apis/auth/v3/tenant_access_token/internal", payload, false, false, 0)
 	if err != nil {
 		return "", fmt.Errorf("request token: %w", err)
