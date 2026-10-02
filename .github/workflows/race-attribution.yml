@@ -1,0 +1,120 @@
+name: Exact SHA Full Race Attribution
+
+on:
+  push:
+    branches: [ci/race-attribution-20261002]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.26.8"
+  GOPROXY: https://proxy.golang.org,direct
+  LOG_FORMAT: ""
+
+jobs:
+  full-race:
+    name: full-race (${{ matrix.source }}, ${{ matrix.repetition }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        source: [main, resilience]
+        repetition: [1, 2, 3]
+        include:
+          - source: main
+            source_sha: edb2ce93398d1c2bd5412da25d764a3d8c875b15
+          - source: resilience
+            source_sha: 7f41c4fd998eda822162ee81527a78936a589f4f
+    # The original failing race job has NO PostgreSQL service/DSN. Its
+    # separate postgres job is not the environment being reproduced here.
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ matrix.source_sha }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Record exact source and runner environment
+        env:
+          SOURCE_SHA: ${{ matrix.source_sha }}
+          SOURCE: ${{ matrix.source }}
+          REPETITION: ${{ matrix.repetition }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          {
+            echo "SOURCE_SHA=$SOURCE_SHA SOURCE=$SOURCE REPETITION=$REPETITION"
+            echo "WORKFLOW_SHA=$GITHUB_SHA RUN_ID=$GITHUB_RUN_ID"
+            echo "ImageOS=$ImageOS ImageVersion=$ImageVersion"
+            uname -a
+            go version
+            go env CGO_ENABLED GOOS GOARCH GOVERSION GOTOOLCHAIN
+            gcc --version
+            sha256sum go.mod go.sum
+          } | tee "$RUNNER_TEMP/environment.txt"
+          test "$(go env CGO_ENABLED)" = 1
+      - name: Same preceding SQLite suite x50
+        run: |
+          set -euo pipefail
+          go test ./internal/application/repository ./internal/application/service ./internal/datasource ./internal/container \
+            -run 'TestSync(Execution|Service|Scheduler|Recovery)SQLite$' -count=50 -timeout=20m \
+            2>&1 | tee "$RUNNER_TEMP/preceding-sqlite.log"
+      - name: Identical complete race command (no selective tests or retries)
+        id: race
+        continue-on-error: true
+        run: |
+          set +e
+          set -o pipefail
+          go test -race ./internal/application/repository ./internal/application/service ./internal/datasource \
+            ./internal/datasource/connector/feishu/... ./internal/utils ./internal/container -count=1 -timeout=25m \
+            2>&1 | tee "$RUNNER_TEMP/full-race.log"
+          result=${PIPESTATUS[0]}
+          printf '%s\n' "$result" > "$RUNNER_TEMP/race-exit-code.txt"
+          exit "$result"
+      - name: Preserve every outcome and detector stack
+        if: always()
+        env:
+          SOURCE_SHA: ${{ matrix.source_sha }}
+          SOURCE: ${{ matrix.source }}
+          REPETITION: ${{ matrix.repetition }}
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib, re
+          root = pathlib.Path(os.environ['RUNNER_TEMP'])
+          log = root / 'full-race.log'
+          text = log.read_text(errors='replace') if log.exists() else ''
+          code = root / 'race-exit-code.txt'
+          result = {
+              'run_id': os.environ['GITHUB_RUN_ID'],
+              'source': os.environ['SOURCE'],
+              'source_sha': os.environ['SOURCE_SHA'],
+              'repetition': int(os.environ['REPETITION']),
+              'exit_code': int(code.read_text()) if code.exists() else None,
+              'failed_tests': re.findall(r'^\s*--- FAIL: (\S+)', text, re.M),
+              'data_race_count': text.count('WARNING: DATA RACE'),
+              'timeout_count': len(re.findall(r'panic: test timed out|fatal error: all goroutines are asleep', text)),
+          }
+          (root / 'full-race-summary.json').write_text(json.dumps(result, indent=2))
+          print(json.dumps(result, indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: race-${{ matrix.source }}-${{ matrix.repetition }}-${{ matrix.source_sha }}
+          path: |
+            ${{ runner.temp }}/environment.txt
+            ${{ runner.temp }}/preceding-sqlite.log
+            ${{ runner.temp }}/full-race.log
+            ${{ runner.temp }}/race-exit-code.txt
+            ${{ runner.temp }}/full-race-summary.json
+          retention-days: 90
+      - name: Reflect the actual full race outcome
+        if: always()
+        env:
+          RACE_OUTCOME: ${{ steps.race.outcome }}
+        run: test "$RACE_OUTCOME" = success
