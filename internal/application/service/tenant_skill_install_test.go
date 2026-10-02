@@ -1558,9 +1558,9 @@ func TestRunInstallDoesNotFailASkillThatIsAlreadyServing(t *testing.T) {
 	fx := newInstallFixture(t)
 	// The pointer has moved: the skill is installed, snapshotted and serving
 	// every new session. Only the row that says so is missing.
-	fx.skillRepo.updateFailsWhen = func(e *types.TenantSkillEntity) bool {
+	fx.skillRepo.setUpdateFailure(func(e *types.TenantSkillEntity) bool {
 		return e.Status == types.SkillStatusReady
-	}
+	})
 
 	err := fx.svc.runInstall(context.Background(), 7, "cfg-1", "sk-1", fx.bundle)
 
@@ -1935,6 +1935,8 @@ type staleMark struct {
 }
 
 type installFixture struct {
+	filesMu    sync.Mutex
+	eventsMu   sync.Mutex
 	t          *testing.T
 	svc        *TenantSkillService
 	bundle     *SkillBundle
@@ -2103,7 +2105,15 @@ func newInstallFixture(t *testing.T) *installFixture {
 }
 
 func (f *installFixture) record(event string) {
+	f.eventsMu.Lock()
+	defer f.eventsMu.Unlock()
 	f.events = append(f.events, event)
+}
+
+func (f *installFixture) deletedBundleRefs() []string {
+	f.filesMu.Lock()
+	defer f.filesMu.Unlock()
+	return append([]string(nil), f.deletedBundles...)
 }
 
 // nextLoadCheckExit returns the code for this verification pass, repeating the
@@ -2191,6 +2201,7 @@ func (f *installFixture) seedReadySkillWithSHA(sha256, snapshotID string) {
 }
 
 type installConfigRepo struct {
+	mu        sync.Mutex
 	fx        *installFixture
 	entity    *types.TenantSandboxConfigEntity
 	saved     *types.TenantSandboxConfigEntity
@@ -2210,26 +2221,12 @@ func (r *installConfigRepo) Create(context.Context, *types.TenantSandboxConfigEn
 func (r *installConfigRepo) GetByID(
 	_ context.Context, tenantID uint64, id string,
 ) (*types.TenantSandboxConfigEntity, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if r.entity == nil || r.entity.TenantID != tenantID || r.entity.ID != id {
 		return nil, nil
 	}
-	cp := *r.entity
-	if r.entity.Config != nil {
-		cfg := *r.entity.Config
-		if r.entity.Config.E2B != nil {
-			e2b := *r.entity.Config.E2B
-			cfg.E2B = &e2b
-		}
-		if r.entity.Config.Cube != nil {
-			cube := *r.entity.Config.Cube
-			cfg.Cube = &cube
-		}
-		if r.entity.Config.SkillImage != nil {
-			image := *r.entity.Config.SkillImage
-			cfg.SkillImage = &image
-		}
-		cp.Config = &cfg
-	}
+	cp := cloneSandboxEntityForTest(r.entity)
 	r.reads++
 	if r.reads == 1 && r.editAfterFirstRead != nil {
 		r.editAfterFirstRead(r.entity)
@@ -2237,7 +2234,7 @@ func (r *installConfigRepo) GetByID(
 	if r.reads == 1 && r.fx != nil && r.fx.cancelDuringConfigRead != nil {
 		r.fx.cancelDuringConfigRead()
 	}
-	return &cp, nil
+	return cp, nil
 }
 
 func (r *installConfigRepo) ListByTenant(context.Context, uint64) ([]*types.TenantSandboxConfigEntity, error) {
@@ -2247,16 +2244,19 @@ func (r *installConfigRepo) ListByTenant(context.Context, uint64) ([]*types.Tena
 // ListAll returns the one config this fixture holds, so a housekeeping scan
 // sees the same config the install and removal tests act on.
 func (r *installConfigRepo) ListAll(context.Context) ([]*types.TenantSandboxConfigEntity, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if r.entity == nil {
 		return nil, nil
 	}
-	cp := *r.entity
-	return []*types.TenantSandboxConfigEntity{&cp}, nil
+	return []*types.TenantSandboxConfigEntity{cloneSandboxEntityForTest(r.entity)}, nil
 }
 
 // Update honours the context because the real gorm repository does: the
 // pointer switch is the one write a lost lock must not be able to complete.
 func (r *installConfigRepo) Update(ctx context.Context, e *types.TenantSandboxConfigEntity) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -2267,9 +2267,8 @@ func (r *installConfigRepo) Update(ctx context.Context, e *types.TenantSandboxCo
 	if r.fx != nil {
 		r.fx.record("switch-pointer")
 	}
-	cp := *e
-	r.saved = &cp
-	r.entity = &cp
+	r.saved = cloneSandboxEntityForTest(e)
+	r.entity = cloneSandboxEntityForTest(e)
 	return nil
 }
 
@@ -2281,6 +2280,7 @@ func (r *installConfigRepo) ClearCordon(context.Context, uint64, string) error {
 
 type installSkillRepo struct {
 	mu        sync.Mutex
+	changed   chan struct{}
 	skills    map[string]*types.TenantSkillEntity
 	snapshots map[string]*types.TenantSkillSnapshotEntity
 	catalogs  map[string]*types.TenantSkillCatalogEntity
@@ -2320,10 +2320,24 @@ type installSkillRepo struct {
 
 func newInstallSkillRepo() *installSkillRepo {
 	return &installSkillRepo{
+		changed:   make(chan struct{}),
 		skills:    map[string]*types.TenantSkillEntity{},
 		snapshots: map[string]*types.TenantSkillSnapshotEntity{},
 		catalogs:  map[string]*types.TenantSkillCatalogEntity{},
 	}
+}
+
+func (r *installSkillRepo) setUpdateFailure(hook func(*types.TenantSkillEntity) bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.updateFailsWhen = hook
+}
+
+// Signal while holding mu so a waiter can snapshot row + notification together
+// without losing the transition between checking state and starting its wait.
+func (r *installSkillRepo) signalChangeLocked() {
+	close(r.changed)
+	r.changed = make(chan struct{})
 }
 
 func skillKey(tenantID uint64, configID, skillID string) string {
@@ -2338,6 +2352,7 @@ func (r *installSkillRepo) CreateSkill(_ context.Context, e *types.TenantSkillEn
 	}
 	cp := *e
 	r.skills[skillKey(e.TenantID, e.SandboxConfigID, e.ID)] = &cp
+	r.signalChangeLocked()
 	return nil
 }
 
@@ -2423,6 +2438,7 @@ func (r *installSkillRepo) UpdateSkill(ctx context.Context, e *types.TenantSkill
 		cp.Envs = nil
 	}
 	r.skills[key] = &cp
+	r.signalChangeLocked()
 	return nil
 }
 
@@ -3406,6 +3422,8 @@ func (installFileService) SaveFile(context.Context, *multipart.FileHeader, uint6
 
 func (s installFileService) SaveBytes(_ context.Context, data []byte, _ uint64, _ string, _ bool) (string, error) {
 	if s.fx != nil {
+		s.fx.filesMu.Lock()
+		defer s.fx.filesMu.Unlock()
 		s.fx.savedBundles++
 		if s.fx.saveErr != nil {
 			return "", s.fx.saveErr
@@ -3423,6 +3441,8 @@ func (s installFileService) SaveBytes(_ context.Context, data []byte, _ uint64, 
 }
 func (s installFileService) GetFile(_ context.Context, ref string) (io.ReadCloser, error) {
 	if s.fx != nil {
+		s.fx.filesMu.Lock()
+		defer s.fx.filesMu.Unlock()
 		s.fx.getFileCalls.Add(1)
 		if data, ok := s.fx.storedBundles[ref]; ok {
 			return io.NopCloser(bytes.NewReader(data)), nil
@@ -3433,6 +3453,8 @@ func (s installFileService) GetFile(_ context.Context, ref string) (io.ReadClose
 func (installFileService) GetFileURL(context.Context, string) (string, error) { return "", nil }
 func (s installFileService) DeleteFile(_ context.Context, ref string) error {
 	if s.fx != nil {
+		s.fx.filesMu.Lock()
+		defer s.fx.filesMu.Unlock()
 		s.fx.deletedBundles = append(s.fx.deletedBundles, ref)
 	}
 	return nil
