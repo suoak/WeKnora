@@ -34,6 +34,21 @@ binaries. PostgreSQL upgrade adds migration 3023; SQLite adds 3021. The forward
 migration terminates pre-upgrade active logs. Existing queue deliveries for
 those terminal logs safely no-op; operators can start a new sync after upgrade.
 
+This is a mandatory deployment gate, not a rolling-upgrade suggestion:
+
+1. Stop new datasource sync admission (both manual and scheduled).
+2. Drain/stop every old APP worker, across all replicas.
+3. Verify that no old sync execution remains in flight, including retries.
+4. Keep old-version workers stopped; a terminal database row alone does not
+   prove that an old process has stopped sending requests or ingesting documents.
+5. Apply PostgreSQL migration 3000 -> 3023 (SQLite latest 3021 where applicable).
+6. Start only the new APP/workers with the generation/claim fencing protocol.
+7. Verify migration version, dirty=false and application health.
+8. Resume datasource admission and sync.
+
+Old workers + the new schema/generation protocol + new workers must never run
+together. Do not freeze a release candidate until resilience is promoted to main.
+
 New protocol logs contain only datasource/run IDs, phase and category. Never
 log credentials, authorization headers or request bodies. Shared Feishu request
 rate limits remain process-scoped; datasource single-flight is database-scoped.

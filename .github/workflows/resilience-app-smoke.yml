@@ -1,0 +1,117 @@
+name: Resilience AnyDoc APP Smoke
+
+on:
+  push:
+    branches: [fix/feishu-sync-resilience]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: resilience-anydoc-app-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  SOURCE_SHA: ${{ github.sha }}
+  IMAGE: weknora-app:resilience-anydoc-ci
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.8"
+          cache: true
+      - name: Record exact source, pinned recipe and AnyDoc identity
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          echo "VALIDATION_HEAD_SHA=$SOURCE_SHA WITH_ANYDOC=1"
+          grep -Fx 'anydoc = "=0.2.4"' third_party/anydoc-go/Cargo.toml
+          grep -Fx 'const Version = "0.2.4"' third_party/anydoc-go/version.go
+          sha256sum docker/Dockerfile.app.knowhub-release
+          echo "BUILD_CREATED=$(git show -s --format=%cI HEAD)" >> "$GITHUB_ENV"
+      - uses: docker/setup-buildx-action@v4
+      - name: Build CI-only runtime using the verified AnyDoc 0.2.4 recipe
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile.app.knowhub-release
+          platforms: linux/amd64
+          target: runtime
+          push: false
+          load: true
+          tags: ${{ env.IMAGE }}
+          build-args: |
+            WITH_ANYDOC=1
+            VERSION_ARG=resilience-ci
+            COMMIT_ID_ARG=${{ env.SOURCE_SHA }}
+            REVISION_ARG=${{ env.SOURCE_SHA }}
+            BUILD_TIME_ARG=${{ env.BUILD_CREATED }}
+            GO_VERSION_ARG=1.26.7
+          cache-from: type=gha,scope=resilience-anydoc-app-amd64
+          cache-to: type=gha,scope=resilience-anydoc-app-amd64,mode=max
+      - name: Verify exact image source and linked AnyDoc build
+        run: |
+          set -euo pipefail
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$IMAGE")" = "$SOURCE_SHA"
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$IMAGE")" = resilience-ci
+          container=$(docker create "$IMAGE")
+          trap 'docker rm "$container" >/dev/null' EXIT
+          docker cp "$container:/app/WeKnora" "$RUNNER_TEMP/WeKnora"
+          go version -m "$RUNNER_TEMP/WeKnora" | tee "$RUNNER_TEMP/server-build-info.txt"
+          grep -E 'build[[:space:]]+-tags=anydoc' "$RUNNER_TEMP/server-build-info.txt"
+          docker image inspect --format 'IMAGE_ID={{.Id}} OCI_REVISION={{ index .Config.Labels "org.opencontainers.image.revision" }} OCI_VERSION={{ index .Config.Labels "org.opencontainers.image.version" }}' "$IMAGE"
+          echo 'APP_LINKED_ANYDOC_GATE=PASS'
+      - name: Verify PostgreSQL and SQLite source/image migration checksum identity
+        run: bash scripts/check-app-migration-identity.sh "$IMAGE"
+      - name: Production-baseline migration and healthy APP with AnyDoc enabled
+        run: |
+          set -euo pipefail
+          cleanup() {
+            docker logs resilience-app-smoke 2>/dev/null || true
+            docker rm -f resilience-app-smoke resilience-postgres-smoke 2>/dev/null || true
+            docker network rm resilience-app-smoke 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          docker network create resilience-app-smoke
+          docker run -d --name resilience-postgres-smoke --network resilience-app-smoke \
+            -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=weknora \
+            paradedb/paradedb:v0.22.2-pg17
+          for attempt in $(seq 1 60); do
+            if docker exec resilience-postgres-smoke pg_isready -h 127.0.0.1 -U postgres -d weknora; then break; fi
+            test "$attempt" -lt 60 || { echo 'CI PostgreSQL not ready'; exit 1; }
+            sleep 2
+          done
+          migration_url='postgres://postgres:postgres@resilience-postgres-smoke:5432/weknora?sslmode=disable&options=-c%20app.skip_embedding=false'
+          baseline=$(jq -er '.dialects.versioned.existing_knowhub_baseline' migrations/migration-map.json)
+          docker run --rm --network resilience-app-smoke --entrypoint migrate "$IMAGE" \
+            -path /app/migrations/versioned -database "$migration_url" goto "$baseline"
+          docker run -d --name resilience-app-smoke --network resilience-app-smoke \
+            -p 127.0.0.1:8080:8080 -e GIN_MODE=release -e DB_DRIVER=postgres \
+            -e DB_HOST=resilience-postgres-smoke -e DB_PORT=5432 -e DB_USER=postgres \
+            -e DB_PASSWORD=postgres -e DB_NAME=weknora -e RETRIEVE_DRIVER=postgres \
+            -e AUTO_MIGRATE=true -e REDIS_ADDR= -e DOCREADER_ADDR=127.0.0.1:50051 "$IMAGE"
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:8080/health | grep -q '"status":"ok"'; then break; fi
+            docker inspect --format '{{.State.Running}}' resilience-app-smoke | grep -q true
+            test "$attempt" -lt 90 || { echo 'CI APP not healthy'; exit 1; }
+            sleep 2
+          done
+          state=$(docker exec resilience-postgres-smoke psql -U postgres -d weknora -Atqc \
+            "SELECT version::text || '|' || dirty::text FROM schema_migrations")
+          test "$state" = "${EXPECTED_VERSIONED_LATEST}|false"
+          curl --fail --silent http://127.0.0.1:8080/health | grep -q '"status":"ok"'
+          echo "APP_DOCKER_SMOKE_GATE=PASS SOURCE_SHA=$SOURCE_SHA WITH_ANYDOC=1 migration=$baseline->$state health=ok"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: resilience-linked-app-${{ env.SOURCE_SHA }}
+          path: ${{ runner.temp }}/server-build-info.txt
+          retention-days: 90

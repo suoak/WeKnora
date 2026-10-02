@@ -3,28 +3,32 @@ name: Datasource Sync Execution Gate
 on:
   push:
     branches: [fix/feishu-sync-resilience]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: sync-execution-${{ github.sha }}
+  group: sync-execution-${{ github.event_name }}-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: false
 
 env:
-  GO_VERSION: "1.26"
+  GO_VERSION: "1.26.8"
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   GOPROXY: https://proxy.golang.org,direct
   LOG_FORMAT: ""
 
 jobs:
   verify:
+    if: github.event_name != 'pull_request' || github.head_ref == 'fix/feishu-sync-resilience'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ env.SOURCE_SHA }}
       - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
@@ -32,18 +36,21 @@ jobs:
       - name: Record exact validation identity and format
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          echo "VALIDATION_HEAD_SHA=$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          echo "VALIDATION_HEAD_SHA=$SOURCE_SHA"
           test -z "$(gofmt -l internal/application/repository/datasource*.go internal/application/service/datasource*.go internal/datasource/*.go internal/types/sync_execution.go internal/testutil/syncdb/*.go internal/container/*sync*go)"
           git diff --check
       - name: Linux full vet and tests
         run: |
           set -euo pipefail
+          bash -n scripts/check-app-migration-identity.sh scripts/check-app-migration-identity_test.sh
+          bash scripts/check-app-migration-identity_test.sh
           mapfile -t packages < <(go list ./... | grep -v '/docreader/')
           go vet "${packages[@]}"
           go test "${packages[@]}"
 
   postgres:
+    if: github.event_name != 'pull_request' || github.head_ref == 'fix/feishu-sync-resilience'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     services:
@@ -63,11 +70,15 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ env.SOURCE_SHA }}
       - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
+      - name: Record exact PostgreSQL source identity
+        run: |
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          echo "VALIDATION_HEAD_SHA=$SOURCE_SHA"
       - name: Real PostgreSQL admission, claim, fencing and startup recovery x50
         run: |
           go test ./internal/application/repository ./internal/application/service ./internal/datasource ./internal/container \
@@ -82,16 +93,31 @@ jobs:
             -run 'TestSync(Execution|Service|Scheduler|Recovery)Postgres$' -count=1 -timeout=20m
 
   race:
-    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.head_ref == 'fix/feishu-sync-resilience'
+    name: Complete resilience race (${{ matrix.repetition }})
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        repetition: [1, 2, 3]
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ env.SOURCE_SHA }}
       - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
+      - name: Record exact race source and attribution environment
+        run: |
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          echo "VALIDATION_HEAD_SHA=$SOURCE_SHA ImageOS=$ImageOS ImageVersion=$ImageVersion"
+          go version
+          test "$(go env CGO_ENABLED)" = 1
+          test "$ImageVersion" = 20260927.320.1
+          sha256sum go.mod go.sum
       - name: SQLite concurrency x50
         run: |
           go test ./internal/application/repository ./internal/application/service ./internal/datasource ./internal/container \

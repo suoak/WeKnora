@@ -169,6 +169,9 @@ jobs:
           cache-from: type=gha,scope=verify-app-amd64
           cache-to: type=gha,scope=verify-app-amd64,mode=max
 
+      - name: Derive source latest and verify complete image migration identity
+        run: bash scripts/check-app-migration-identity.sh weknora-app:ci
+
       - name: Start APP from schema 93 and verify migration and health
         shell: bash
         run: |
@@ -240,5 +243,9 @@ jobs:
           current_version=$(docker run --rm --network weknora-app-smoke \
             --entrypoint migrate weknora-app:ci \
             -path /app/migrations/versioned -database "$migration_url" version 2>&1 | awk '{print $1}')
-          test "$current_version" = "3022"
+          test "$current_version" = "$EXPECTED_VERSIONED_LATEST"
+          migration_state=$(docker exec weknora-postgres-smoke \
+            psql -U postgres -d weknora -Atqc "SELECT version::text || '|' || dirty::text FROM schema_migrations")
+          test "$migration_state" = "${EXPECTED_VERSIONED_LATEST}|false"
+          echo "APP_MIGRATION_ASSERTION_GATE=PASS source=image=runtime=$current_version dirty=false"
           curl --fail --silent http://127.0.0.1:8080/health | grep -q '"status":"ok"'
