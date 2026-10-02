@@ -1,0 +1,102 @@
+name: Datasource Sync Execution Gate
+
+on:
+  push:
+    branches: [fix/feishu-sync-resilience]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-execution-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  GO_VERSION: "1.26"
+  GOPROXY: https://proxy.golang.org,direct
+  LOG_FORMAT: ""
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Record exact validation identity and format
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          echo "VALIDATION_HEAD_SHA=$GITHUB_SHA"
+          test -z "$(gofmt -l internal/application/repository/datasource*.go internal/application/service/datasource*.go internal/datasource/*.go internal/types/sync_execution.go internal/testutil/syncdb/*.go internal/container/*sync*go)"
+          git diff --check
+      - name: Linux full vet and tests
+        run: |
+          set -euo pipefail
+          mapfile -t packages < <(go list ./... | grep -v '/docreader/')
+          go vet "${packages[@]}"
+          go test "${packages[@]}"
+
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: paradedb/paradedb:v0.22.2-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sync_gate
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d sync_gate"
+          --health-interval 10s --health-timeout 5s --health-retries 12
+    env:
+      SYNC_EXECUTION_POSTGRES_DSN: postgres://postgres:postgres@localhost:5432/sync_gate?sslmode=disable
+      REQUIRE_SYNC_EXECUTION_POSTGRES: "1"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Real PostgreSQL admission, claim, fencing and startup recovery x50
+        run: |
+          go test ./internal/application/repository ./internal/application/service ./internal/datasource ./internal/container \
+            -run 'TestSync(Execution|Service|Scheduler|Recovery)Postgres$' -count=50 -timeout=20m
+      - name: Repeat real PostgreSQL concurrency x100
+        run: |
+          go test ./internal/application/repository ./internal/application/service ./internal/datasource ./internal/container \
+            -run 'TestSync(Execution|Service|Scheduler|Recovery)Postgres$' -count=100 -timeout=20m
+      - name: Real PostgreSQL race
+        run: |
+          go test -race ./internal/application/repository ./internal/application/service ./internal/datasource ./internal/container \
+            -run 'TestSync(Execution|Service|Scheduler|Recovery)Postgres$' -count=1 -timeout=20m
+
+  race:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: SQLite concurrency x50
+        run: |
+          go test ./internal/application/repository ./internal/application/service ./internal/datasource ./internal/container \
+            -run 'TestSync(Execution|Service|Scheduler|Recovery)SQLite$' -count=50 -timeout=20m
+      - name: Linux race and TLS, SSRF, Feishu credential regressions
+        run: |
+          go test -race ./internal/application/repository ./internal/application/service ./internal/datasource \
+            ./internal/datasource/connector/feishu/... ./internal/utils ./internal/container -count=1 -timeout=25m

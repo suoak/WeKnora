@@ -168,8 +168,9 @@ func (s *Scheduler) addEntryLocked(ds *types.DataSource) error {
 
 // triggerSync is called by the cron runner on each tick.
 //
-// Layer 1 — DB: if a previous sync is still running, skip. This prevents
-// overlap when a sync takes longer than the cron interval.
+// Layer 1 — DB: atomically admit a running sync log, shared with ManualSync.
+// This prevents duplicate admission while that log remains non-terminal;
+// it is not an execution lease and does not fence retries of failed tasks.
 //
 // Layer 2 — Redis: deterministic asynq.TaskID = "dssync:<dsID>:<minute>".
 // Since robfig/cron fires at absolute wall-clock times, all instances trigger
@@ -183,20 +184,19 @@ func (s *Scheduler) triggerSync(dataSourceID string, tenantID uint64) {
 		return
 	}
 
-	// Layer 1: prevent overlap with a still-running sync
-	if running, _ := s.syncLogRepo.HasRunningSync(ctx, dataSourceID); running {
-		logger.Infof(ctx, "[Scheduler] skipping sync for ds=%s (previous sync still running)", dataSourceID)
-		return
-	}
-
 	syncLog := &types.SyncLog{
 		DataSourceID: dataSourceID,
 		TenantID:     tenantID,
 		Status:       types.SyncLogStatusRunning,
 		StartedAt:    time.Now().UTC(),
 	}
-	if err := s.syncLogRepo.Create(ctx, syncLog); err != nil {
+	created, err := s.syncLogRepo.CreateIfNoRunning(ctx, syncLog)
+	if err != nil {
 		logger.Errorf(ctx, "[Scheduler] failed to create sync log for ds=%s: %v", dataSourceID, err)
+		return
+	}
+	if !created {
+		logger.Infof(ctx, "[Scheduler] skipping sync for ds=%s (sync already queued or running)", dataSourceID)
 		return
 	}
 

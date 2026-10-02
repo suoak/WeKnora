@@ -2,6 +2,7 @@ package datasource
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -78,8 +79,9 @@ func (r *fakeDataSourceRepo) FindActive(_ context.Context) ([]*types.DataSource,
 
 // fakeSyncLogRepo is an in-memory SyncLogRepository.
 type fakeSyncLogRepo struct {
-	mu   sync.Mutex
-	logs map[string]*types.SyncLog
+	mu       sync.Mutex
+	logs     map[string]*types.SyncLog
+	claimErr error
 }
 
 func newFakeSyncLogRepo() *fakeSyncLogRepo {
@@ -94,6 +96,57 @@ func (r *fakeSyncLogRepo) Create(_ context.Context, log *types.SyncLog) error {
 	}
 	r.logs[log.ID] = log
 	return nil
+}
+
+func (r *fakeSyncLogRepo) CreateIfNoRunning(_ context.Context, log *types.SyncLog) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.claimErr != nil {
+		return false, r.claimErr
+	}
+	for _, existing := range r.logs {
+		if existing.DataSourceID == log.DataSourceID && existing.Status == types.SyncLogStatusRunning {
+			return false, nil
+		}
+	}
+	log.ID = fmt.Sprintf("log-%d", len(r.logs)+1)
+	r.logs[log.ID] = log
+	return true, nil
+}
+
+func TestSchedulerAtomicAdmission(t *testing.T) {
+	repo := newFakeDataSourceRepo()
+	for _, id := range []string{"same", "other"} {
+		_ = repo.Create(context.Background(), &types.DataSource{ID: id, TenantID: 1, Status: types.DataSourceStatusActive})
+	}
+	logs := newFakeSyncLogRepo()
+	queue := &fakeTaskEnqueuer{}
+	s := NewScheduler(repo, logs, queue)
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func() { defer wg.Done(); s.triggerSync("same", 1) }()
+	}
+	wg.Wait()
+	if got := queue.count.Load(); got != 1 {
+		t.Fatalf("same datasource enqueued %d tasks, want 1", got)
+	}
+	s.triggerSync("other", 1)
+	if got := queue.count.Load(); got != 2 {
+		t.Fatalf("unrelated datasource blocked: enqueued %d tasks", got)
+	}
+}
+
+func TestSchedulerAdmissionFailsClosed(t *testing.T) {
+	repo := newFakeDataSourceRepo()
+	_ = repo.Create(context.Background(), &types.DataSource{ID: "same", TenantID: 1, Status: types.DataSourceStatusActive})
+	logs := newFakeSyncLogRepo()
+	logs.claimErr = fmt.Errorf("database unavailable")
+	queue := &fakeTaskEnqueuer{}
+	NewScheduler(repo, logs, queue).triggerSync("same", 1)
+	if got := queue.count.Load(); got != 0 {
+		t.Fatalf("admission error enqueued %d tasks", got)
+	}
 }
 
 func (r *fakeSyncLogRepo) FindByID(_ context.Context, id string) (*types.SyncLog, error) {

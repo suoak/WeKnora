@@ -174,7 +174,49 @@ func (r *SyncLogRepository) Create(ctx context.Context, log *types.SyncLog) erro
 	return nil
 }
 
-// FindByID retrieves a sync log by ID
+// CreateIfNoRunning serializes admission on the owning datasource row. The
+// no-op UPDATE acquires a write lock on SQLite before the running-log query;
+// server databases use FOR UPDATE (SQLite does not support it).
+// The transaction ends before enqueue/network work; unrelated datasources
+// have independent row locks on server databases. SQLite serializes short writes.
+func (r *SyncLogRepository) CreateIfNoRunning(ctx context.Context, log *types.SyncLog) (bool, error) {
+	if log == nil || log.DataSourceID == "" || log.Status != types.SyncLogStatusRunning {
+		return false, errors.New("running sync log with datasource id is required")
+	}
+	created := false
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if _, err := lockSyncDataSource(tx, log.DataSourceID, log.TenantID); err != nil {
+			return err
+		}
+		// Reuse startup's stale-heartbeat policy at admission as well: a worker
+		// crash must not wedge this datasource until another process restart.
+		if err := tx.Model(&types.SyncLog{}).
+			Where("data_source_id = ? AND status = ? AND "+staleSyncHeartbeatSQL(tx),
+				log.DataSourceID, types.SyncLogStatusRunning, time.Now().UTC().Add(-types.SyncExecutionStaleAfter)).
+			Updates(map[string]interface{}{"status": types.SyncLogStatusFailed, "execution_claimed": false,
+				"execution_generation": gorm.Expr("execution_generation + 1"), "finished_at": time.Now().UTC(),
+				"error_message": "Sync interrupted after stale execution"}).Error; err != nil {
+			return err
+		}
+		var count int64
+		if err := tx.Model(&types.SyncLog{}).
+			Where("data_source_id = ? AND status IN ?", log.DataSourceID, []string{types.SyncLogStatusRunning, "pending"}).
+			Count(&count).Error; err != nil {
+			return err
+		}
+		if count != 0 {
+			return nil
+		}
+		if err := tx.Create(log).Error; err != nil {
+			return err
+		}
+		created = true
+		return nil
+	})
+	return created && err == nil, err
+}
+
+// FindByID retrieves a sync log by ID.
 func (r *SyncLogRepository) FindByID(ctx context.Context, id string) (*types.SyncLog, error) {
 	if id == "" {
 		return nil, errors.New("id is empty")
@@ -259,6 +301,8 @@ func (r *SyncLogRepository) Update(ctx context.Context, log *types.SyncLog) erro
 	}
 	if err := r.db.WithContext(ctx).
 		Model(log).
+		Where("execution_claimed = ? AND execution_generation = ?", false, log.ExecutionGeneration).
+		Omit("ExecutionClaimed", "ExecutionGeneration").
 		Updates(log).Error; err != nil {
 		return err
 	}
@@ -277,6 +321,7 @@ func (r *SyncLogRepository) UpdateResult(ctx context.Context, log *types.SyncLog
 	if err := r.db.WithContext(ctx).
 		Model(&types.SyncLog{}).
 		Where("id = ?", log.ID).
+		Where("execution_claimed = ? AND execution_generation = ?", false, log.ExecutionGeneration).
 		Updates(map[string]interface{}{
 			"status":        log.Status,
 			"finished_at":   log.FinishedAt,
@@ -306,9 +351,11 @@ func (r *SyncLogRepository) CancelPendingByDataSource(ctx context.Context, dsID 
 		Where("data_source_id = ?", dsID).
 		Where("status IN ?", []string{types.SyncLogStatusRunning, "pending"}).
 		Updates(map[string]interface{}{
-			"status":        types.SyncLogStatusCanceled,
-			"finished_at":   &now,
-			"error_message": "data source deleted",
+			"status":               types.SyncLogStatusCanceled,
+			"execution_claimed":    false,
+			"execution_generation": gorm.Expr("execution_generation + 1"),
+			"finished_at":          &now,
+			"error_message":        "data source deleted",
 		}).Error
 }
 

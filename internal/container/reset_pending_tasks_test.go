@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS sync_logs (
     data_source_id  VARCHAR(64) NOT NULL DEFAULT '',
     tenant_id       INTEGER NOT NULL DEFAULT 0,
     status          VARCHAR(32) NOT NULL,
+	 execution_generation INTEGER NOT NULL DEFAULT 0,
+	 execution_claimed BOOLEAN NOT NULL DEFAULT FALSE,
     started_at      DATETIME,
     finished_at     DATETIME,
     error_message   TEXT,
@@ -258,8 +260,8 @@ func TestResetPendingTasks_SyncLogStaleRunning(t *testing.T) {
 	db := setupResetPendingDB(t)
 	stale := time.Now().Add(-2 * time.Hour)
 	require.NoError(t, db.Exec(
-		`INSERT INTO sync_logs (id, status, started_at) VALUES (?, ?, ?)`,
-		"sync-1", types.SyncLogStatusRunning, stale,
+		`INSERT INTO sync_logs (id, status, started_at, updated_at) VALUES (?, ?, ?, ?)`,
+		"sync-1", types.SyncLogStatusRunning, stale, stale,
 	).Error)
 
 	t.Setenv("REDIS_ADDR", "redis:6379")

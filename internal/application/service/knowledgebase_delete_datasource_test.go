@@ -79,6 +79,9 @@ type kbDeleteSyncLogRepo struct {
 }
 
 func (r *kbDeleteSyncLogRepo) Create(_ context.Context, _ *types.SyncLog) error { return nil }
+func (r *kbDeleteSyncLogRepo) CreateIfNoRunning(_ context.Context, _ *types.SyncLog) (bool, error) {
+	return true, nil
+}
 func (r *kbDeleteSyncLogRepo) FindByID(_ context.Context, _ string) (*types.SyncLog, error) {
 	return nil, errors.New("not found")
 }

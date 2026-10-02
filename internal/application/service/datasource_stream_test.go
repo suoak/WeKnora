@@ -109,16 +109,20 @@ func TestStreamHandler_EmitAbortsOnCanceledContext(t *testing.T) {
 // after it keeps the progress made so far.
 func TestStreamHandler_CheckpointPersistsCursor(t *testing.T) {
 	dsRepo := &recordingDSRepo{}
-	svc := &DataSourceService{dsRepo: dsRepo, syncLogRepo: &processSyncSyncLogRepo{logs: map[string]*types.SyncLog{}}}
-	ds := &types.DataSource{ID: "ds-1"}
+	syncLog := &types.SyncLog{ID: "log-1", DataSourceID: "ds-1", TenantID: 1, Status: types.SyncLogStatusRunning}
+	logs := &processSyncSyncLogRepo{logs: map[string]*types.SyncLog{syncLog.ID: syncLog}, dsRepo: dsRepo}
+	svc := &DataSourceService{dsRepo: dsRepo, syncLogRepo: logs}
+	ds := &types.DataSource{ID: "ds-1", TenantID: 1}
 	result := &types.SyncResult{Created: 3}
-	syncLog := &types.SyncLog{ID: "log-1"}
+	e, claimed, err := logs.ClaimExecution(context.Background(), ds.ID, syncLog.ID, ds.TenantID)
+	require.NoError(t, err)
+	require.True(t, claimed)
 	h := newStreamHandler(svc, ds, result, syncLog)
 
 	cursor := &types.SyncCursor{ConnectorCursor: map[string]interface{}{
 		"space_node_times": map[string]map[string]string{"space1": {"nt1": "100"}},
 	}}
-	require.NoError(t, h.Checkpoint(context.Background(), cursor))
+	require.NoError(t, h.Checkpoint(types.WithSyncExecution(context.Background(), e), cursor))
 
 	require.Len(t, dsRepo.updated, 1)
 	assert.NotEmpty(t, dsRepo.updated[0].LastSyncCursor, "checkpoint must persist the cursor JSON")

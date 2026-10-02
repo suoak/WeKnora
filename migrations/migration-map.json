@@ -43,7 +43,7 @@
                      "versioned":  {
                                        "directory":  "migrations/versioned",
                                        "database":  "postgresql",
-                                       "current_latest":  3022,
+                                       "current_latest":  3023,
                                        "existing_knowhub_baseline":  3000,
                                        "immutable_through":  96,
                                        "immutable_file_count":  194,
@@ -52,7 +52,7 @@
                      "sqlite":  {
                                     "directory":  "migrations/sqlite",
                                     "database":  "sqlite",
-                                    "current_latest":  3020,
+                                    "current_latest":  3021,
                                     "existing_knowhub_baseline":  3000,
                                     "immutable_through":  17,
                                     "immutable_file_count":  36,
@@ -202,6 +202,11 @@
                                "logical_id":  "chunk_source_locators",
                                "versioned":  3022,
                                "sqlite":  3020
+                           },
+                           {
+                               "logical_id":  "datasource_execution_fencing",
+                               "versioned":  3023,
+                               "sqlite":  3021
                            }
                        ],
     "lineage_mapping":  [

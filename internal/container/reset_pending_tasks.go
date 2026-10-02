@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const resetPendingStaleWindow = 30 * time.Minute
+const resetPendingStaleWindow = types.SyncExecutionStaleAfter
 
 const restartInterruptedMessage = "Task interrupted due to application restart"
 
@@ -123,9 +123,11 @@ func resetPendingTasks(db *gorm.DB) {
 	// 3. Reset data source sync tasks
 	now := time.Now()
 	resultSync := stuckSyncLogQuery(db, distributed, staleCutoff).Updates(map[string]interface{}{
-		"status":        types.SyncLogStatusFailed,
-		"error_message": "Sync interrupted due to application restart",
-		"finished_at":   &now,
+		"status":               types.SyncLogStatusFailed,
+		"error_message":        "Sync interrupted due to application restart",
+		"finished_at":          &now,
+		"execution_generation": gorm.Expr("execution_generation + 1"),
+		"execution_claimed":    false,
 	})
 	if resultSync.Error != nil {
 		logger.Warnf(context.Background(), "Failed to reset pending data source sync tasks: %v", resultSync.Error)
@@ -163,7 +165,13 @@ func stuckSyncLogQuery(db *gorm.DB, distributed bool, staleCutoff time.Time) *go
 	q := db.Model(&types.SyncLog{}).
 		Where("status = ?", types.SyncLogStatusRunning)
 	if distributed {
-		q = q.Where("started_at < ?", staleCutoff)
+		// Heartbeats/checkpoints distinguish a live long-running worker from
+		// an abandoned attempt. Legacy NULL timestamps fall back to started_at.
+		if db.Dialector.Name() == "sqlite" {
+			q = q.Where("julianday(COALESCE(updated_at, started_at)) < julianday(?)", staleCutoff)
+		} else {
+			q = q.Where("COALESCE(updated_at, started_at) < ?", staleCutoff)
+		}
 	}
 	return q
 }

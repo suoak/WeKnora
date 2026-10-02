@@ -97,9 +97,21 @@ type DataSourceRepository interface {
 }
 
 // SyncLogRepository defines database access patterns for sync logs
+// SyncExecutionRepository is the atomic execution protocol. All execution
+// metadata writes must use WriteExecution, never the unfenced CRUD methods.
+type SyncExecutionRepository interface {
+	ClaimExecution(ctx context.Context, dsID, logID string, tenantID uint64) (types.SyncExecution, bool, error)
+	WriteExecution(ctx context.Context, execution types.SyncExecution, ds *types.DataSource, log *types.SyncLog, release bool) (bool, error)
+	HeartbeatExecution(ctx context.Context, execution types.SyncExecution) (bool, error)
+}
+
 type SyncLogRepository interface {
 	// Create inserts a new sync log entry
 	Create(ctx context.Context, log *types.SyncLog) error
+
+	// CreateIfNoRunning atomically admits one queued/running sync per datasource.
+	// This is an admission guard, not an execution lease for task redelivery.
+	CreateIfNoRunning(ctx context.Context, log *types.SyncLog) (bool, error)
 
 	// FindByID retrieves a sync log by ID
 	FindByID(ctx context.Context, id string) (*types.SyncLog, error)
@@ -111,7 +123,7 @@ type SyncLogRepository interface {
 	FindLatest(ctx context.Context, dsID string) (*types.SyncLog, error)
 
 	// HasRunningSync checks if a data source has any sync currently in "running" status.
-	// Used to prevent overlapping sync executions.
+	// Diagnostic only: admission must use CreateIfNoRunning, not check-then-create.
 	HasRunningSync(ctx context.Context, dsID string) (bool, error)
 
 	// Update updates an existing sync log entry

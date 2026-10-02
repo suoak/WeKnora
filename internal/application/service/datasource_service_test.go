@@ -136,7 +136,8 @@ func (s *processSyncKBService) ProcessKBDelete(context.Context, *asynq.Task) err
 var _ interfaces.KnowledgeBaseService = (*processSyncKBService)(nil)
 
 type processSyncSyncLogRepo struct {
-	logs map[string]*types.SyncLog
+	logs   map[string]*types.SyncLog
+	dsRepo interfaces.DataSourceRepository
 }
 
 func (r *processSyncSyncLogRepo) Create(_ context.Context, log *types.SyncLog) error {
@@ -144,12 +145,53 @@ func (r *processSyncSyncLogRepo) Create(_ context.Context, log *types.SyncLog) e
 	return nil
 }
 
+func (r *processSyncSyncLogRepo) CreateIfNoRunning(ctx context.Context, log *types.SyncLog) (bool, error) {
+	for _, existing := range r.logs {
+		if existing.DataSourceID == log.DataSourceID && existing.Status == types.SyncLogStatusRunning {
+			return false, nil
+		}
+	}
+	return true, r.Create(ctx, log)
+}
+
 func (r *processSyncSyncLogRepo) FindByID(_ context.Context, id string) (*types.SyncLog, error) {
 	log, ok := r.logs[id]
 	if !ok {
 		return nil, errors.New("sync log not found")
 	}
-	return log, nil
+	copy := *log
+	return &copy, nil
+}
+
+func (r *processSyncSyncLogRepo) ClaimExecution(_ context.Context, dsID, logID string, tenantID uint64) (types.SyncExecution, bool, error) {
+	e := types.SyncExecution{DataSourceID: dsID, SyncLogID: logID, TenantID: tenantID}
+	log := r.logs[logID]
+	if log == nil || log.Status != types.SyncLogStatusRunning || log.ExecutionClaimed {
+		return e, false, nil
+	}
+	log.ExecutionGeneration++
+	log.ExecutionClaimed = true
+	e.Generation = log.ExecutionGeneration
+	return e, true, nil
+}
+
+func (r *processSyncSyncLogRepo) WriteExecution(ctx context.Context, e types.SyncExecution, ds *types.DataSource, log *types.SyncLog, release bool) (bool, error) {
+	current := r.logs[e.SyncLogID]
+	if current == nil || current.Status != types.SyncLogStatusRunning || !current.ExecutionClaimed || current.ExecutionGeneration != e.Generation {
+		return false, nil
+	}
+	copy := *log
+	copy.ExecutionClaimed = !release
+	r.logs[log.ID] = &copy
+	if r.dsRepo != nil {
+		return true, r.dsRepo.UpdateSyncState(ctx, ds)
+	}
+	return true, nil
+}
+
+func (r *processSyncSyncLogRepo) HeartbeatExecution(_ context.Context, e types.SyncExecution) (bool, error) {
+	log := r.logs[e.SyncLogID]
+	return log != nil && log.ExecutionClaimed && log.ExecutionGeneration == e.Generation && log.Status == types.SyncLogStatusRunning, nil
 }
 
 func (r *processSyncSyncLogRepo) FindByDataSource(context.Context, string, int, int) ([]*types.SyncLog, error) {

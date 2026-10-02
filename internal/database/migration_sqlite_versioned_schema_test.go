@@ -49,9 +49,10 @@ var versionedSQLiteColumns = map[string][]string{
 	"mcp_oauth_tokens":   {"principal_type", "principal_id"},             // 000064
 	"tenant_api_keys":    {"owner_user_id", "client_type", "token_hint"}, // 000091, 003000
 	"mcp_tool_approvals": {"enabled"},                                    // 000092
+	"sync_logs":          {"execution_generation", "execution_claimed"},  // 003021
 }
 
-const expectedSQLiteMigrationVersion = 3020
+const expectedSQLiteMigrationVersion = 3021
 
 func TestSQLiteMigrationsCreateVersionedSchema(t *testing.T) {
 	repoRoot := sqliteRepoRoot(t)

@@ -146,6 +146,11 @@ type SyncLog struct {
 	// Unique identifier
 	ID string `json:"id" gorm:"type:varchar(36);primaryKey"`
 
+	// Generation distinguishes attempts of one logical run. Claimed distinguishes
+	// queued/retry-waiting from executing without changing public status values.
+	ExecutionGeneration int64 `json:"-" gorm:"not null;default:0"`
+	ExecutionClaimed    bool  `json:"-" gorm:"not null;default:false"`
+
 	// Reference to the data source
 	DataSourceID string `json:"data_source_id" gorm:"index"`
 
