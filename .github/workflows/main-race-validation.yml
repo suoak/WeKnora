@@ -1,0 +1,125 @@
+name: Main Race Baseline Validation
+
+on:
+  push:
+    branches: [ci/main-race-validation-20261002]
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact source commit to validate
+        required: true
+        default: deace3f63e03e713f6f529c85ea5709a720b65c5
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.26.8"
+  CGO_ENABLED: "1"
+  GOPROXY: https://proxy.golang.org,direct
+  LOG_FORMAT: ""
+  SOURCE_SHA: ${{ inputs.source_sha || 'deace3f63e03e713f6f529c85ea5709a720b65c5' }}
+  TARGETED: Test(TenantAPIKeyServiceAuthenticateThrottlesLastUsedUpdates|QueryTemplatesEnsureAndReplaceDoNotShareSingleflight|RegisterCatalogDoesNotMoveTheDefinitionWhenPinFails|ReinstallOfAnInstallStillOnTheReplacedArchiveLeavesTheCatalogAlone|UpgradeKeepsThePreviousVersionServingWhileItRuns|FailedUpgradeLeavesThePreviousVersionServing|InstallCatalogToConfigsUpgradesAnInstallStillOnTheReplacedArchive)$
+
+jobs:
+  targeted:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Record exact source and dependency identity
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          echo "SOURCE_SHA=$SOURCE_SHA WORKFLOW_SHA=$GITHUB_SHA ImageOS=$ImageOS ImageVersion=$ImageVersion"
+          go version
+          go env CGO_ENABLED
+          sha256sum go.mod go.sum
+      - name: Vet and non-race service tests
+        run: |
+          go vet ./internal/application/service
+          go test ./internal/application/service -count=1 -timeout=25m
+      - name: Targeted race once
+        run: go test -race ./internal/application/service -run "$TARGETED" -count=1 -timeout=25m
+      - name: Targeted race x50
+        run: go test -race ./internal/application/service -run "$TARGETED" -count=50 -timeout=25m
+      - name: Targeted race x100 (all seven root groups)
+        run: go test -race ./internal/application/service -run "$TARGETED" -count=100 -timeout=25m
+
+  full:
+    name: service and full race (${{ matrix.repetition }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        repetition: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Record exact source and attribution environment
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          {
+            echo "SOURCE_SHA=$SOURCE_SHA WORKFLOW_SHA=$GITHUB_SHA RUN_ID=$GITHUB_RUN_ID"
+            echo "ImageOS=$ImageOS ImageVersion=$ImageVersion"
+            uname -a
+            go version
+            go env CGO_ENABLED GOOS GOARCH GOVERSION GOTOOLCHAIN
+            gcc --version
+            sha256sum go.mod go.sum
+          } | tee "$RUNNER_TEMP/environment.txt"
+          test "$(go env CGO_ENABLED)" = 1
+          test "$ImageVersion" = 20260927.320.1
+      - name: Same preceding SQLite suite x50
+        run: |
+          set -euo pipefail
+          go test ./internal/application/repository ./internal/application/service ./internal/datasource ./internal/container \
+            -run 'TestSync(Execution|Service|Scheduler|Recovery)SQLite$' -count=50 -timeout=20m \
+            2>&1 | tee "$RUNNER_TEMP/preceding-sqlite.log"
+      - name: Complete service package race
+        id: service
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          go test -race ./internal/application/service -count=1 -timeout=25m \
+            2>&1 | tee "$RUNNER_TEMP/service-race.log"
+      - name: Identical full race scope and timeout
+        id: race
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          go test -race ./internal/application/repository ./internal/application/service ./internal/datasource \
+            ./internal/datasource/connector/feishu/... ./internal/utils ./internal/container -count=1 -timeout=25m \
+            2>&1 | tee "$RUNNER_TEMP/full-race.log"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: main-fixed-race-${{ matrix.repetition }}-${{ env.SOURCE_SHA }}
+          path: |
+            ${{ runner.temp }}/environment.txt
+            ${{ runner.temp }}/preceding-sqlite.log
+            ${{ runner.temp }}/service-race.log
+            ${{ runner.temp }}/full-race.log
+          retention-days: 90
+      - name: Enforce both actual race outcomes
+        if: always()
+        env:
+          SERVICE_OUTCOME: ${{ steps.service.outcome }}
+          RACE_OUTCOME: ${{ steps.race.outcome }}
+        run: |
+          test "$SERVICE_OUTCOME" = success
+          test "$RACE_OUTCOME" = success
