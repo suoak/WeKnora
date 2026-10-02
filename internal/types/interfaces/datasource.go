@@ -101,7 +101,9 @@ type DataSourceRepository interface {
 // metadata writes must use WriteExecution, never the unfenced CRUD methods.
 type SyncExecutionRepository interface {
 	ClaimExecution(ctx context.Context, dsID, logID string, tenantID uint64) (types.SyncExecution, bool, error)
-	WriteExecution(ctx context.Context, execution types.SyncExecution, ds *types.DataSource, log *types.SyncLog, release bool) (bool, error)
+	WriteExecution(
+		ctx context.Context, execution types.SyncExecution, ds *types.DataSource, log *types.SyncLog, release bool,
+	) (bool, error)
 	HeartbeatExecution(ctx context.Context, execution types.SyncExecution) (bool, error)
 }
 

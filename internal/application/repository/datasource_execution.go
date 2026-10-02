@@ -14,7 +14,7 @@ import (
 var _ interfaces.SyncExecutionRepository = (*SyncLogRepository)(nil)
 
 func staleSyncHeartbeatSQL(db *gorm.DB) string {
-	if db.Dialector.Name() == "sqlite" {
+	if db.Name() == "sqlite" {
 		// SQLite stores timestamps as text. Compare instants, not mixed UTC/
 		// local-time representations from legacy rows or driver defaults.
 		return "julianday(COALESCE(updated_at, started_at)) < julianday(?)"
@@ -26,7 +26,7 @@ func staleSyncHeartbeatSQL(db *gorm.DB) string {
 // SQLite must acquire its writer lock BEFORE reading, not upgrade a snapshot.
 func lockSyncDataSource(tx *gorm.DB, dsID string, tenantID uint64) (*types.DataSource, error) {
 	q := tx.Model(&types.DataSource{}).Where("id = ? AND tenant_id = ?", dsID, tenantID)
-	if tx.Dialector.Name() == "sqlite" {
+	if tx.Name() == "sqlite" {
 		locked := q.UpdateColumn("id", gorm.Expr("id"))
 		if locked.Error != nil {
 			return nil, locked.Error
@@ -44,7 +44,10 @@ func lockSyncDataSource(tx *gorm.DB, dsID string, tenantID uint64) (*types.DataS
 	return &ds, nil
 }
 
-func (r *SyncLogRepository) ClaimExecution(ctx context.Context, dsID, logID string, tenantID uint64) (types.SyncExecution, bool, error) {
+// ClaimExecution atomically assigns a new generation to an eligible sync attempt.
+func (r *SyncLogRepository) ClaimExecution(
+	ctx context.Context, dsID, logID string, tenantID uint64,
+) (types.SyncExecution, bool, error) {
 	owner := types.SyncExecution{DataSourceID: dsID, SyncLogID: logID, TenantID: tenantID}
 	if dsID == "" || logID == "" || tenantID == 0 {
 		return owner, false, errors.New("invalid sync execution identity")
@@ -60,9 +63,12 @@ func (r *SyncLogRepository) ClaimExecution(ctx context.Context, dsID, logID stri
 		result := tx.Model(&types.SyncLog{}).
 			Where("id = ? AND data_source_id = ? AND tenant_id = ? AND status = ?",
 				logID, dsID, tenantID, types.SyncLogStatusRunning).
-			Where("execution_claimed = ? OR "+staleSyncHeartbeatSQL(tx), false, time.Now().UTC().Add(-types.SyncExecutionStaleAfter)).
-			Updates(map[string]interface{}{"execution_generation": gorm.Expr("execution_generation + 1"),
-				"execution_claimed": true, "finished_at": nil, "updated_at": time.Now().UTC()})
+			Where("execution_claimed = ? OR "+staleSyncHeartbeatSQL(tx),
+				false, time.Now().UTC().Add(-types.SyncExecutionStaleAfter)).
+			Updates(map[string]interface{}{
+				"execution_generation": gorm.Expr("execution_generation + 1"),
+				"execution_claimed":    true, "finished_at": nil, "updated_at": time.Now().UTC(),
+			})
 		if result.Error != nil {
 			return result.Error
 		}
@@ -82,7 +88,8 @@ func (r *SyncLogRepository) ClaimExecution(ctx context.Context, dsID, logID stri
 
 func ownedSyncLog(tx *gorm.DB, e types.SyncExecution) *gorm.DB {
 	return tx.Model(&types.SyncLog{}).
-		Where("id = ? AND data_source_id = ? AND tenant_id = ? AND status = ? AND execution_generation = ? AND execution_claimed = ?",
+		Where("id = ? AND data_source_id = ? AND tenant_id = ? AND status = ? "+
+			"AND execution_generation = ? AND execution_claimed = ?",
 			e.SyncLogID, e.DataSourceID, e.TenantID, types.SyncLogStatusRunning, e.Generation, true)
 }
 
@@ -90,7 +97,9 @@ func ownedSyncLog(tx *gorm.DB, e types.SyncExecution) *gorm.DB {
 // failed CAS is a no-op. Database errors roll back both writes. No callback or
 // external API runs here. A retry release keeps status=running but clears claim;
 // its next claim increments generation. Terminal runs cannot be reclaimed.
-func (r *SyncLogRepository) WriteExecution(ctx context.Context, e types.SyncExecution, ds *types.DataSource, log *types.SyncLog, release bool) (bool, error) {
+func (r *SyncLogRepository) WriteExecution(
+	ctx context.Context, e types.SyncExecution, ds *types.DataSource, log *types.SyncLog, release bool,
+) (bool, error) {
 	if ds == nil || log == nil || e.Generation <= 0 || ds.ID != e.DataSourceID || log.ID != e.SyncLogID ||
 		ds.TenantID != e.TenantID || log.TenantID != e.TenantID || log.DataSourceID != e.DataSourceID {
 		return false, errors.New("invalid sync execution write")
@@ -111,7 +120,8 @@ func (r *SyncLogRepository) WriteExecution(ctx context.Context, e types.SyncExec
 			"status": log.Status, "finished_at": log.FinishedAt, "items_total": log.ItemsTotal,
 			"items_created": log.ItemsCreated, "items_updated": log.ItemsUpdated,
 			"items_deleted": log.ItemsDeleted, "items_skipped": log.ItemsSkipped, "items_failed": log.ItemsFailed,
-			"error_message": log.ErrorMessage, "result": log.Result, "execution_claimed": !release, "updated_at": time.Now().UTC(),
+			"error_message": log.ErrorMessage, "result": log.Result,
+			"execution_claimed": !release, "updated_at": time.Now().UTC(),
 		})
 		if updated.Error != nil {
 			return updated.Error
@@ -136,7 +146,7 @@ func (r *SyncLogRepository) WriteExecution(ctx context.Context, e types.SyncExec
 	return written && err == nil, err
 }
 
-// Heartbeat only locks the sync-log row, never subsequently the datasource.
+// HeartbeatExecution only locks the sync-log row, never subsequently the datasource.
 // It cannot revive a released, recovered, deleted or superseded attempt.
 func (r *SyncLogRepository) HeartbeatExecution(ctx context.Context, e types.SyncExecution) (bool, error) {
 	if e.Generation <= 0 {

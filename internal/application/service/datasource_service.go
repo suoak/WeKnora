@@ -757,7 +757,8 @@ func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.
 	resultJSON, _ := result.ToJSON()
 	if err := allFetchedItemsFailedError(result); err != nil {
 		logger.Errorf(ctx, "data source sync failed while processing fetched items: %v", err)
-		if writeErr := s.updateSyncRunResult(ctx, ds, syncLog, result, resultJSON, types.SyncLogStatusFailed, err.Error(), wasPaused); writeErr != nil {
+		if writeErr := s.updateSyncRunResult(ctx, ds, syncLog, result, resultJSON,
+			types.SyncLogStatusFailed, err.Error(), wasPaused); writeErr != nil {
 			return writeErr
 		}
 		return errors.Join(asynq.SkipRetry, err)
@@ -794,7 +795,8 @@ func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.
 				"; %d deletion failure(s) will only retry on the next full sync", result.DeletionFailed)
 		}
 	}
-	if err := s.updateSyncRunResult(ctx, ds, syncLog, result, resultJSON, syncStatus, syncErrorMessage, wasPaused); err != nil {
+	if err := s.updateSyncRunResult(ctx, ds, syncLog, result, resultJSON,
+		syncStatus, syncErrorMessage, wasPaused); err != nil {
 		return err
 	}
 
@@ -1122,7 +1124,8 @@ func (s *DataSourceService) processSyncStreaming(
 	resultJSON, _ := result.ToJSON()
 	if err := allFetchedItemsFailedError(result); err != nil {
 		logger.Errorf(ctx, "streaming sync failed while processing fetched items: %v", err)
-		if writeErr := s.updateSyncRunResult(ctx, ds, syncLog, result, resultJSON, types.SyncLogStatusFailed, err.Error(), wasPaused); writeErr != nil {
+		if writeErr := s.updateSyncRunResult(ctx, ds, syncLog, result, resultJSON,
+			types.SyncLogStatusFailed, err.Error(), wasPaused); writeErr != nil {
 			return writeErr
 		}
 		return errors.Join(asynq.SkipRetry, err)

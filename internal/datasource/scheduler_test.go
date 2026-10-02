@@ -117,7 +117,9 @@ func (r *fakeSyncLogRepo) CreateIfNoRunning(_ context.Context, log *types.SyncLo
 func TestSchedulerAtomicAdmission(t *testing.T) {
 	repo := newFakeDataSourceRepo()
 	for _, id := range []string{"same", "other"} {
-		_ = repo.Create(context.Background(), &types.DataSource{ID: id, TenantID: 1, Status: types.DataSourceStatusActive})
+		_ = repo.Create(context.Background(), &types.DataSource{
+			ID: id, TenantID: 1, Status: types.DataSourceStatusActive,
+		})
 	}
 	logs := newFakeSyncLogRepo()
 	queue := &fakeTaskEnqueuer{}
@@ -139,7 +141,9 @@ func TestSchedulerAtomicAdmission(t *testing.T) {
 
 func TestSchedulerAdmissionFailsClosed(t *testing.T) {
 	repo := newFakeDataSourceRepo()
-	_ = repo.Create(context.Background(), &types.DataSource{ID: "same", TenantID: 1, Status: types.DataSourceStatusActive})
+	_ = repo.Create(context.Background(), &types.DataSource{
+		ID: "same", TenantID: 1, Status: types.DataSourceStatusActive,
+	})
 	logs := newFakeSyncLogRepo()
 	logs.claimErr = fmt.Errorf("database unavailable")
 	queue := &fakeTaskEnqueuer{}

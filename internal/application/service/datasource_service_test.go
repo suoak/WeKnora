@@ -159,11 +159,13 @@ func (r *processSyncSyncLogRepo) FindByID(_ context.Context, id string) (*types.
 	if !ok {
 		return nil, errors.New("sync log not found")
 	}
-	copy := *log
-	return &copy, nil
+	snapshot := *log
+	return &snapshot, nil
 }
 
-func (r *processSyncSyncLogRepo) ClaimExecution(_ context.Context, dsID, logID string, tenantID uint64) (types.SyncExecution, bool, error) {
+func (r *processSyncSyncLogRepo) ClaimExecution(
+	_ context.Context, dsID, logID string, tenantID uint64,
+) (types.SyncExecution, bool, error) {
 	e := types.SyncExecution{DataSourceID: dsID, SyncLogID: logID, TenantID: tenantID}
 	log := r.logs[logID]
 	if log == nil || log.Status != types.SyncLogStatusRunning || log.ExecutionClaimed {
@@ -175,14 +177,17 @@ func (r *processSyncSyncLogRepo) ClaimExecution(_ context.Context, dsID, logID s
 	return e, true, nil
 }
 
-func (r *processSyncSyncLogRepo) WriteExecution(ctx context.Context, e types.SyncExecution, ds *types.DataSource, log *types.SyncLog, release bool) (bool, error) {
+func (r *processSyncSyncLogRepo) WriteExecution(
+	ctx context.Context, e types.SyncExecution, ds *types.DataSource, log *types.SyncLog, release bool,
+) (bool, error) {
 	current := r.logs[e.SyncLogID]
-	if current == nil || current.Status != types.SyncLogStatusRunning || !current.ExecutionClaimed || current.ExecutionGeneration != e.Generation {
+	if current == nil || current.Status != types.SyncLogStatusRunning || !current.ExecutionClaimed ||
+		current.ExecutionGeneration != e.Generation {
 		return false, nil
 	}
-	copy := *log
-	copy.ExecutionClaimed = !release
-	r.logs[log.ID] = &copy
+	snapshot := *log
+	snapshot.ExecutionClaimed = !release
+	r.logs[log.ID] = &snapshot
 	if r.dsRepo != nil {
 		return true, r.dsRepo.UpdateSyncState(ctx, ds)
 	}
@@ -191,7 +196,8 @@ func (r *processSyncSyncLogRepo) WriteExecution(ctx context.Context, e types.Syn
 
 func (r *processSyncSyncLogRepo) HeartbeatExecution(_ context.Context, e types.SyncExecution) (bool, error) {
 	log := r.logs[e.SyncLogID]
-	return log != nil && log.ExecutionClaimed && log.ExecutionGeneration == e.Generation && log.Status == types.SyncLogStatusRunning, nil
+	return log != nil && log.ExecutionClaimed && log.ExecutionGeneration == e.Generation &&
+		log.Status == types.SyncLogStatusRunning, nil
 }
 
 func (r *processSyncSyncLogRepo) FindByDataSource(context.Context, string, int, int) ([]*types.SyncLog, error) {

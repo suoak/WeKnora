@@ -20,7 +20,10 @@ func syncSchedulerSuite(t *testing.T, dialect string) {
 	dsRepo := repository.NewDataSourceRepository(db)
 	logs := repository.NewSyncLogRepository(db)
 	for _, mixed := range []bool{false, true} {
-		ds := &types.DataSource{ID: uuid.NewString(), TenantID: 1, KnowledgeBaseID: "kb", Name: "sync", Type: types.ConnectorTypeFeishu, Status: types.DataSourceStatusActive}
+		ds := &types.DataSource{
+			ID: uuid.NewString(), TenantID: 1, KnowledgeBaseID: "kb", Name: "sync",
+			Type: types.ConnectorTypeFeishu, Status: types.DataSourceStatusActive,
+		}
 		require.NoError(t, dsRepo.Create(context.Background(), ds))
 		queue := &fakeTaskEnqueuer{}
 		scheduler := NewScheduler(dsRepo, logs, queue)
@@ -32,7 +35,9 @@ func syncSchedulerSuite(t *testing.T, dialect string) {
 				defer wg.Done()
 				if mixed && i%2 == 0 {
 					// Exact shared admission primitive called by ManualSync.
-					_, err := logs.CreateIfNoRunning(context.Background(), &types.SyncLog{DataSourceID: ds.ID, TenantID: 1, Status: types.SyncLogStatusRunning})
+					_, err := logs.CreateIfNoRunning(context.Background(), &types.SyncLog{
+						DataSourceID: ds.ID, TenantID: 1, Status: types.SyncLogStatusRunning,
+					})
 					errors <- err
 				} else {
 					scheduler.triggerSync(ds.ID, 1)

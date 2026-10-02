@@ -23,7 +23,10 @@ func syncExecutionSuite(t *testing.T, dialect string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	makeDS := func() *types.DataSource {
-		ds := &types.DataSource{ID: uuid.NewString(), TenantID: 1, KnowledgeBaseID: "kb", Name: "sync", Type: types.ConnectorTypeFeishu, Status: types.DataSourceStatusActive}
+		ds := &types.DataSource{
+			ID: uuid.NewString(), TenantID: 1, KnowledgeBaseID: "kb", Name: "sync",
+			Type: types.ConnectorTypeFeishu, Status: types.DataSourceStatusActive,
+		}
 		require.NoError(t, db.Create(ds).Error)
 		return ds
 	}
@@ -62,7 +65,9 @@ func syncExecutionSuite(t *testing.T, dialect string) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				ok, err := r.CreateIfNoRunning(ctx, &types.SyncLog{DataSourceID: ds.ID, TenantID: 1, Status: types.SyncLogStatusRunning})
+				ok, err := r.CreateIfNoRunning(ctx, &types.SyncLog{
+					DataSourceID: ds.ID, TenantID: 1, Status: types.SyncLogStatusRunning,
+				})
 				results <- err
 				winners <- ok
 			}()
@@ -128,7 +133,9 @@ func syncExecutionSuite(t *testing.T, dialect string) {
 		ok, err := r.WriteExecution(ctx, old, ds, log, true)
 		require.NoError(t, err)
 		require.True(t, ok)
-		busy, err := r.CreateIfNoRunning(ctx, &types.SyncLog{DataSourceID: ds.ID, TenantID: 1, Status: types.SyncLogStatusRunning})
+		busy, err := r.CreateIfNoRunning(ctx, &types.SyncLog{
+			DataSourceID: ds.ID, TenantID: 1, Status: types.SyncLogStatusRunning,
+		})
 		require.NoError(t, err)
 		require.False(t, busy, "retry wait is still one active logical run")
 		current := claim(ds, log)
@@ -150,7 +157,8 @@ func syncExecutionSuite(t *testing.T, dialect string) {
 		old := claim(ds, oldLog)
 		// Exact ownership invalidation performed by startup recovery.
 		require.NoError(t, db.Model(&types.SyncLog{}).Where("id = ?", oldLog.ID).Updates(map[string]interface{}{
-			"status": types.SyncLogStatusFailed, "execution_claimed": false, "execution_generation": gorm.Expr("execution_generation + 1"),
+			"status": types.SyncLogStatusFailed, "execution_claimed": false,
+			"execution_generation": gorm.Expr("execution_generation + 1"),
 		}).Error)
 		newLog := admit(ds)
 		current := claim(ds, newLog)
@@ -173,7 +181,8 @@ func syncExecutionSuite(t *testing.T, dialect string) {
 		log := admit(ds)
 		old := claim(ds, log)
 		// Legacy/local-time and UTC representations must compare as instants.
-		require.NoError(t, db.Model(&types.SyncLog{}).Where("id = ?", log.ID).UpdateColumn("updated_at", time.Now().In(time.FixedZone("legacy", 8*60*60)).Add(-2*time.Hour)).Error)
+		require.NoError(t, db.Model(&types.SyncLog{}).Where("id = ?", log.ID).
+			UpdateColumn("updated_at", time.Now().In(time.FixedZone("legacy", 8*60*60)).Add(-2*time.Hour)).Error)
 		current := claim(ds, log)
 		require.Greater(t, current.Generation, old.Generation)
 		assertStale(old, ds, log)
@@ -185,11 +194,14 @@ func syncExecutionSuite(t *testing.T, dialect string) {
 		// A DS update failure must roll back the preceding log write, including
 		// its terminal transition/release. Real DB trigger, not a fake repo.
 		if dialect == "sqlite" {
-			require.NoError(t, db.Exec(fmt.Sprintf("CREATE TRIGGER fail_ds BEFORE UPDATE OF last_sync_cursor ON data_sources WHEN NEW.id = '%s' BEGIN SELECT RAISE(FAIL, 'test rollback'); END", ds.ID)).Error)
+			require.NoError(t, db.Exec(fmt.Sprintf("CREATE TRIGGER fail_ds BEFORE UPDATE OF last_sync_cursor "+
+				"ON data_sources WHEN NEW.id = '%s' BEGIN SELECT RAISE(FAIL, 'test rollback'); END", ds.ID)).Error)
 			t.Cleanup(func() { _ = db.Exec("DROP TRIGGER fail_ds").Error })
 		} else {
-			require.NoError(t, db.Exec("CREATE FUNCTION fail_ds_update() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'test rollback'; END $$ LANGUAGE plpgsql").Error)
-			require.NoError(t, db.Exec(fmt.Sprintf("CREATE TRIGGER fail_ds BEFORE UPDATE OF last_sync_cursor ON data_sources FOR EACH ROW WHEN (NEW.id = '%s') EXECUTE FUNCTION fail_ds_update()", ds.ID)).Error)
+			require.NoError(t, db.Exec("CREATE FUNCTION fail_ds_update() RETURNS trigger "+
+				"AS $$ BEGIN RAISE EXCEPTION 'test rollback'; END $$ LANGUAGE plpgsql").Error)
+			require.NoError(t, db.Exec(fmt.Sprintf("CREATE TRIGGER fail_ds BEFORE UPDATE OF last_sync_cursor "+
+				"ON data_sources FOR EACH ROW WHEN (NEW.id = '%s') EXECUTE FUNCTION fail_ds_update()", ds.ID)).Error)
 			t.Cleanup(func() { _ = db.Exec("DROP TRIGGER fail_ds ON data_sources").Error })
 		}
 		log.Status = types.SyncLogStatusSuccess

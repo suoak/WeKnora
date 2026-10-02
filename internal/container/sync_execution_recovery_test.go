@@ -25,7 +25,10 @@ func syncRecoverySuite(t *testing.T, dialect string) {
 		ClaimExecution(context.Context, string, string, uint64) (types.SyncExecution, bool, error)
 		WriteExecution(context.Context, types.SyncExecution, *types.DataSource, *types.SyncLog, bool) (bool, error)
 	})
-	ds := &types.DataSource{ID: uuid.NewString(), TenantID: 1, KnowledgeBaseID: "kb", Name: "recovery", Type: types.ConnectorTypeFeishu, Status: types.DataSourceStatusActive}
+	ds := &types.DataSource{
+		ID: uuid.NewString(), TenantID: 1, KnowledgeBaseID: "kb", Name: "recovery",
+		Type: types.ConnectorTypeFeishu, Status: types.DataSourceStatusActive,
+	}
 	require.NoError(t, dsRepo.Create(ctx, ds))
 	log := &types.SyncLog{DataSourceID: ds.ID, TenantID: 1, Status: types.SyncLogStatusRunning}
 	ok, err := logs.CreateIfNoRunning(ctx, log)
@@ -35,13 +38,15 @@ func syncRecoverySuite(t *testing.T, dialect string) {
 	require.NoError(t, err)
 	require.True(t, ok)
 	// A live two-hour job must not be recovered just because its start is old.
-	require.NoError(t, db.Model(&types.SyncLog{}).Where("id = ?", log.ID).UpdateColumn("started_at", time.Now().Add(-2*time.Hour)).Error)
+	require.NoError(t, db.Model(&types.SyncLog{}).Where("id = ?", log.ID).
+		UpdateColumn("started_at", time.Now().Add(-2*time.Hour)).Error)
 	resetPendingTasks(db)
 	live, err := logs.FindByID(ctx, log.ID)
 	require.NoError(t, err)
 	require.True(t, live.ExecutionClaimed)
 	// Simulate crashed worker heartbeat, then run the REAL startup hook.
-	require.NoError(t, db.Model(&types.SyncLog{}).Where("id = ?", log.ID).UpdateColumn("updated_at", time.Now().Add(-2*time.Hour)).Error)
+	require.NoError(t, db.Model(&types.SyncLog{}).Where("id = ?", log.ID).
+		UpdateColumn("updated_at", time.Now().Add(-2*time.Hour)).Error)
 	resetPendingTasks(db)
 	recovered, err := logs.FindByID(ctx, log.ID)
 	require.NoError(t, err)

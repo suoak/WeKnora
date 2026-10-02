@@ -18,6 +18,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// Open creates an isolated test database for the requested dialect and registers cleanup.
 func Open(t *testing.T, dialect string) *gorm.DB {
 	t.Helper()
 	config := &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)}

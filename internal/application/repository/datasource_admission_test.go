@@ -53,7 +53,9 @@ func TestSyncAdmissionAcrossConnections(t *testing.T) {
 	db := repos[0].db
 	require.NoError(t, db.AutoMigrate(&types.DataSource{}, &types.SyncLog{}))
 	for _, id := range []string{"same", "other"} {
-		require.NoError(t, db.Create(&types.DataSource{ID: id, TenantID: 1, KnowledgeBaseID: "kb", Name: id, Type: types.ConnectorTypeFeishu}).Error)
+		require.NoError(t, db.Create(&types.DataSource{
+			ID: id, TenantID: 1, KnowledgeBaseID: "kb", Name: id, Type: types.ConnectorTypeFeishu,
+		}).Error)
 	}
 	type outcome struct {
 		created bool
@@ -88,13 +90,18 @@ func TestSyncAdmissionAcrossConnections(t *testing.T) {
 	var stored int64
 	require.NoError(t, db.Model(&types.SyncLog{}).Where("data_source_id = ?", "same").Count(&stored).Error)
 	require.EqualValues(t, 1, stored)
-	ok, err := repos[1].CreateIfNoRunning(context.Background(), &types.SyncLog{DataSourceID: "other", TenantID: 1, Status: types.SyncLogStatusRunning})
+	ok, err := repos[1].CreateIfNoRunning(context.Background(), &types.SyncLog{
+		DataSourceID: "other", TenantID: 1, Status: types.SyncLogStatusRunning,
+	})
 	require.NoError(t, err)
 	require.True(t, ok, "different datasource must not share admission")
 	// A terminal run releases admission. This does NOT fence its queue retry;
 	// execution-level retry fencing remains a separate release blocker.
-	require.NoError(t, db.Model(&types.SyncLog{}).Where("data_source_id = ?", "same").Update("status", types.SyncLogStatusSuccess).Error)
-	ok, err = repos[1].CreateIfNoRunning(context.Background(), &types.SyncLog{DataSourceID: "same", TenantID: 1, Status: types.SyncLogStatusRunning})
+	require.NoError(t, db.Model(&types.SyncLog{}).Where("data_source_id = ?", "same").
+		Update("status", types.SyncLogStatusSuccess).Error)
+	ok, err = repos[1].CreateIfNoRunning(context.Background(), &types.SyncLog{
+		DataSourceID: "same", TenantID: 1, Status: types.SyncLogStatusRunning,
+	})
 	require.NoError(t, err)
 	require.True(t, ok)
 }
@@ -102,17 +109,24 @@ func TestSyncAdmissionAcrossConnections(t *testing.T) {
 func TestSyncAdmissionRejectsInvalidOwnerAndCancellation(t *testing.T) {
 	db := setupDataSourceRepoTestDB(t)
 	r := &SyncLogRepository{db: db}
-	require.NoError(t, db.Create(&types.DataSource{ID: "ds", TenantID: 1, KnowledgeBaseID: "kb", Name: "ds", Type: types.ConnectorTypeFeishu}).Error)
-	for _, log := range []*types.SyncLog{nil, {DataSourceID: "ds", TenantID: 1, Status: types.SyncLogStatusSuccess},
+	require.NoError(t, db.Create(&types.DataSource{
+		ID: "ds", TenantID: 1, KnowledgeBaseID: "kb", Name: "ds", Type: types.ConnectorTypeFeishu,
+	}).Error)
+	for _, log := range []*types.SyncLog{
+		nil,
+		{DataSourceID: "ds", TenantID: 1, Status: types.SyncLogStatusSuccess},
 		{DataSourceID: "missing", TenantID: 1, Status: types.SyncLogStatusRunning},
-		{DataSourceID: "ds", TenantID: 2, Status: types.SyncLogStatusRunning}} {
+		{DataSourceID: "ds", TenantID: 2, Status: types.SyncLogStatusRunning},
+	} {
 		ok, err := r.CreateIfNoRunning(context.Background(), log)
 		require.Error(t, err)
 		require.False(t, ok)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	ok, err := r.CreateIfNoRunning(ctx, &types.SyncLog{DataSourceID: "ds", TenantID: 1, Status: types.SyncLogStatusRunning})
+	ok, err := r.CreateIfNoRunning(ctx, &types.SyncLog{
+		DataSourceID: "ds", TenantID: 1, Status: types.SyncLogStatusRunning,
+	})
 	require.ErrorIs(t, err, context.Canceled)
 	require.False(t, ok)
 	var count int64

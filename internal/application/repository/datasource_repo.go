@@ -193,14 +193,17 @@ func (r *SyncLogRepository) CreateIfNoRunning(ctx context.Context, log *types.Sy
 		if err := tx.Model(&types.SyncLog{}).
 			Where("data_source_id = ? AND status = ? AND "+staleSyncHeartbeatSQL(tx),
 				log.DataSourceID, types.SyncLogStatusRunning, time.Now().UTC().Add(-types.SyncExecutionStaleAfter)).
-			Updates(map[string]interface{}{"status": types.SyncLogStatusFailed, "execution_claimed": false,
+			Updates(map[string]interface{}{
+				"status": types.SyncLogStatusFailed, "execution_claimed": false,
 				"execution_generation": gorm.Expr("execution_generation + 1"), "finished_at": time.Now().UTC(),
-				"error_message": "Sync interrupted after stale execution"}).Error; err != nil {
+				"error_message": "Sync interrupted after stale execution",
+			}).Error; err != nil {
 			return err
 		}
 		var count int64
 		if err := tx.Model(&types.SyncLog{}).
-			Where("data_source_id = ? AND status IN ?", log.DataSourceID, []string{types.SyncLogStatusRunning, "pending"}).
+			Where("data_source_id = ? AND status IN ?", log.DataSourceID,
+				[]string{types.SyncLogStatusRunning, "pending"}).
 			Count(&count).Error; err != nil {
 			return err
 		}

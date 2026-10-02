@@ -37,7 +37,8 @@ func (s *DataSourceService) ProcessSync(ctx context.Context, task *asynq.Task) (
 		return err
 	}
 	if !claimed {
-		logger.Infof(ctx, "sync ds=%s run=%s phase=claim category=duplicate_or_terminal", payload.DataSourceID, payload.SyncLogID)
+		logger.Infof(ctx, "sync ds=%s run=%s phase=claim category=duplicate_or_terminal",
+			payload.DataSourceID, payload.SyncLogID)
 		return nil
 	}
 	ctx = types.WithSyncExecution(ctx, e)
@@ -83,7 +84,8 @@ func (s *DataSourceService) ProcessSync(ctx context.Context, task *asynq.Task) (
 			}
 			return
 		}
-		if log.Status != types.SyncLogStatusRunning || !log.ExecutionClaimed || log.ExecutionGeneration != e.Generation {
+		if log.Status != types.SyncLogStatusRunning || !log.ExecutionClaimed ||
+			log.ExecutionGeneration != e.Generation {
 			if log.ExecutionGeneration != e.Generation || errors.Is(runErr, types.ErrStaleSyncExecution) {
 				runErr = nil
 			}
@@ -156,7 +158,9 @@ func syncTaskCanRetry(ctx context.Context, err error) bool {
 	return ok && attempt < maxRetry
 }
 
-func (s *DataSourceService) writeSyncExecution(ctx context.Context, ds *types.DataSource, log *types.SyncLog, release bool) error {
+func (s *DataSourceService) writeSyncExecution(
+	ctx context.Context, ds *types.DataSource, log *types.SyncLog, release bool,
+) error {
 	e, ok := types.SyncExecutionFromContext(ctx)
 	if !ok {
 		return errors.New("missing sync execution ownership")
@@ -178,7 +182,9 @@ func (s *DataSourceService) writeSyncExecution(ctx context.Context, ds *types.Da
 
 // Connector/application failures already consumed request-layer retries. They
 // terminate the logical run, rather than replaying the sync on another queue retry.
-func (s *DataSourceService) failSyncAttempt(ctx context.Context, ds *types.DataSource, log *types.SyncLog, cause error, message string) error {
+func (s *DataSourceService) failSyncAttempt(
+	ctx context.Context, ds *types.DataSource, log *types.SyncLog, cause error, message string,
+) error {
 	terminalErr := errors.Join(asynq.SkipRetry, cause)
 	if errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded) {
 		// The batch connector may return a resumable cursor with its error.
@@ -190,7 +196,8 @@ func (s *DataSourceService) failSyncAttempt(ctx context.Context, ds *types.DataS
 		}
 		return cause // infrastructure timeout: wrapper releases/retries the attempt
 	}
-	if err := s.updateSyncRunResult(ctx, ds, log, &types.SyncResult{}, nil, types.SyncLogStatusFailed, message, ds.Status == types.DataSourceStatusPaused); err != nil {
+	if err := s.updateSyncRunResult(ctx, ds, log, &types.SyncResult{}, nil,
+		types.SyncLogStatusFailed, message, ds.Status == types.DataSourceStatusPaused); err != nil {
 		return err
 	}
 	return terminalErr

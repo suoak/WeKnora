@@ -167,7 +167,7 @@ func stuckSyncLogQuery(db *gorm.DB, distributed bool, staleCutoff time.Time) *go
 	if distributed {
 		// Heartbeats/checkpoints distinguish a live long-running worker from
 		// an abandoned attempt. Legacy NULL timestamps fall back to started_at.
-		if db.Dialector.Name() == "sqlite" {
+		if db.Name() == "sqlite" {
 			q = q.Where("julianday(COALESCE(updated_at, started_at)) < julianday(?)", staleCutoff)
 		} else {
 			q = q.Where("COALESCE(updated_at, started_at) < ?", staleCutoff)

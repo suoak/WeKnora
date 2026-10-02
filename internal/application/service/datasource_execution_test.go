@@ -33,7 +33,9 @@ type syncExecutionConnector struct {
 	proceed chan struct{}
 }
 
-func (c *syncExecutionConnector) FetchAll(ctx context.Context, _ *types.DataSourceConfig, _ []string) ([]types.FetchedItem, error) {
+func (c *syncExecutionConnector) FetchAll(
+	ctx context.Context, _ *types.DataSourceConfig, _ []string,
+) ([]types.FetchedItem, error) {
 	c.calls.Add(1)
 	select {
 	case c.entered <- struct{}{}:
@@ -57,8 +59,10 @@ func syncServiceSuite(t *testing.T, dialect string) {
 	makeSvc := func() (*DataSourceService, *types.DataSource, *syncExecutionQueue, *syncExecutionConnector) {
 		config, err := (&types.DataSourceConfig{Type: deletedItemConnectorType}).ToJSON()
 		require.NoError(t, err)
-		ds := &types.DataSource{ID: uuid.NewString(), TenantID: 1, KnowledgeBaseID: "kb", Name: "sync", Type: deletedItemConnectorType,
-			Status: types.DataSourceStatusActive, Config: config, SyncMode: types.SyncModeFull}
+		ds := &types.DataSource{
+			ID: uuid.NewString(), TenantID: 1, KnowledgeBaseID: "kb", Name: "sync", Type: deletedItemConnectorType,
+			Status: types.DataSourceStatusActive, Config: config, SyncMode: types.SyncModeFull,
+		}
 		require.NoError(t, dsRepo.Create(context.Background(), ds))
 		queue := &syncExecutionQueue{}
 		connector := &syncExecutionConnector{entered: make(chan struct{}, 2), proceed: make(chan struct{})}
@@ -94,7 +98,9 @@ func syncServiceSuite(t *testing.T, dialect string) {
 		svc, ds, _, connector := makeSvc()
 		log, err := svc.ManualSync(context.Background(), ds.ID)
 		require.NoError(t, err)
-		payload, err := json.Marshal(types.DataSourceSyncPayload{DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: 1, ForceFull: true})
+		payload, err := json.Marshal(types.DataSourceSyncPayload{
+			DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: 1, ForceFull: true,
+		})
 		require.NoError(t, err)
 		task := asynq.NewTask(types.TypeDataSourceSync, payload)
 		winner := make(chan error, 1)
@@ -144,7 +150,9 @@ func syncServiceSuite(t *testing.T, dialect string) {
 		}{{firstSvc, firstDS}, {secondSvc, secondDS}} {
 			log, err := entry.svc.ManualSync(context.Background(), entry.ds.ID)
 			require.NoError(t, err)
-			payload, err := json.Marshal(types.DataSourceSyncPayload{DataSourceID: entry.ds.ID, TenantID: 1, SyncLogID: log.ID, ForceFull: true})
+			payload, err := json.Marshal(types.DataSourceSyncPayload{
+				DataSourceID: entry.ds.ID, TenantID: 1, SyncLogID: log.ID, ForceFull: true,
+			})
 			require.NoError(t, err)
 			go func(svc *DataSourceService, payload []byte) {
 				results <- svc.ProcessSync(context.Background(), asynq.NewTask(types.TypeDataSourceSync, payload))
@@ -166,7 +174,9 @@ func syncServiceSuite(t *testing.T, dialect string) {
 		svc, ds, _, connector := makeSvc()
 		log, err := svc.ManualSync(context.Background(), ds.ID)
 		require.NoError(t, err)
-		payload, err := json.Marshal(types.DataSourceSyncPayload{DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: 1, ForceFull: true})
+		payload, err := json.Marshal(types.DataSourceSyncPayload{
+			DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: 1, ForceFull: true,
+		})
 		require.NoError(t, err)
 		task := asynq.NewTask(types.TypeDataSourceSync, payload)
 		ctx, cancel := context.WithCancel(types.WithTaskRetryMetadata(context.Background(), 0, 2))
@@ -196,7 +206,8 @@ func TestSyncTaskRetryMetadata(t *testing.T) {
 	infra := errors.New("infrastructure failure")
 	require.True(t, syncTaskCanRetry(types.WithTaskRetryMetadata(context.Background(), 0, 2), infra))
 	require.False(t, syncTaskCanRetry(types.WithTaskRetryMetadata(context.Background(), 2, 2), infra))
-	require.False(t, syncTaskCanRetry(types.WithTaskRetryMetadata(context.Background(), 0, 2), errors.Join(asynq.SkipRetry, infra)))
+	require.False(t, syncTaskCanRetry(types.WithTaskRetryMetadata(context.Background(), 0, 2),
+		errors.Join(asynq.SkipRetry, infra)))
 }
 
 var _ interfaces.TaskEnqueuer = (*syncExecutionQueue)(nil)
