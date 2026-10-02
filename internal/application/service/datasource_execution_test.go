@@ -68,9 +68,11 @@ func syncServiceSuite(t *testing.T, dialect string) {
 		connector := &syncExecutionConnector{entered: make(chan struct{}, 2), proceed: make(chan struct{})}
 		registry := datasource.NewConnectorRegistry()
 		require.NoError(t, registry.Register(connector))
-		svc := &DataSourceService{dsRepo: dsRepo, syncLogRepo: logs, taskEnqueuer: queue, connectorRegistry: registry,
+		svc := &DataSourceService{
+			dsRepo: dsRepo, syncLogRepo: logs, taskEnqueuer: queue, connectorRegistry: registry,
 			kbService:  &processSyncKBService{kb: &types.KnowledgeBase{ID: "kb", TenantID: 1}},
-			tenantRepo: &processSyncTenantRepo{tenant: &types.Tenant{ID: 1}}, tagService: &processSyncTagService{}}
+			tenantRepo: &processSyncTenantRepo{tenant: &types.Tenant{ID: 1}}, tagService: &processSyncTagService{},
+		}
 		return svc, ds, queue, connector
 	}
 	t.Run("manual_20", func(t *testing.T) {
