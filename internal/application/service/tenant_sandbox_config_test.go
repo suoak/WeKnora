@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	stderrors "errors"
 	"fmt"
 	"io"
@@ -231,6 +232,7 @@ func TestSandboxIdentityChangedJudgesUnreachableOldEndpoint(t *testing.T) {
 // that prevents old credentials from being overwritten while they still own
 // provider resources.
 type fakeConfigRepo struct {
+	mu     sync.Mutex
 	entity *types.TenantSandboxConfigEntity
 	policy *types.TenantSandboxConfigEntity
 	others []*types.TenantSandboxConfigEntity
@@ -247,32 +249,40 @@ type fakeConfigRepo struct {
 }
 
 func (f *fakeConfigRepo) Create(_ context.Context, e *types.TenantSandboxConfigEntity) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	if types.IsSandboxWorkspacePolicyRow(e) {
-		f.policy = e
+		f.policy = cloneSandboxEntityForTest(e)
 		return nil
 	}
-	f.entity = e
+	f.entity = cloneSandboxEntityForTest(e)
 	return nil
 }
 
 func (f *fakeConfigRepo) GetByID(
 	_ context.Context, _ uint64, _ string,
 ) (*types.TenantSandboxConfigEntity, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.events = append(f.events, "get")
-	return f.entity, nil
+	return cloneSandboxEntityForTest(f.entity), nil
 }
 
 func (f *fakeConfigRepo) ListByTenant(
 	context.Context, uint64,
 ) ([]*types.TenantSandboxConfigEntity, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	var out []*types.TenantSandboxConfigEntity
 	if f.entity != nil {
-		out = append(out, f.entity)
+		out = append(out, cloneSandboxEntityForTest(f.entity))
 	}
 	if f.policy != nil {
-		out = append(out, f.policy)
+		out = append(out, cloneSandboxEntityForTest(f.policy))
 	}
-	out = append(out, f.others...)
+	for _, entity := range f.others {
+		out = append(out, cloneSandboxEntityForTest(entity))
+	}
 	return out, nil
 }
 
@@ -283,18 +293,27 @@ func (f *fakeConfigRepo) ListAll(context.Context) ([]*types.TenantSandboxConfigE
 func (f *fakeConfigRepo) Update(
 	_ context.Context, e *types.TenantSandboxConfigEntity,
 ) error {
+	f.mu.Lock()
 	f.events = append(f.events, "write")
-	f.updated = e
-	if f.onUpdate != nil {
-		f.onUpdate()
+	f.updated = cloneSandboxEntityForTest(e)
+	hook, err := f.onUpdate, f.updateErr
+	if err == nil {
+		if types.IsSandboxWorkspacePolicyRow(e) {
+			f.policy = cloneSandboxEntityForTest(e)
+		} else {
+			f.entity = cloneSandboxEntityForTest(e)
+		}
 	}
-	if f.updateErr != nil {
-		return f.updateErr
+	f.mu.Unlock()
+	if hook != nil {
+		hook()
 	}
-	return nil
+	return err
 }
 
 func (f *fakeConfigRepo) SoftDelete(_ context.Context, _ uint64, id string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.events = append(f.events, "delete")
 	if f.policy != nil && f.policy.ID == id {
 		f.policy = nil
@@ -304,17 +323,45 @@ func (f *fakeConfigRepo) SoftDelete(_ context.Context, _ uint64, id string) erro
 }
 
 func (f *fakeConfigRepo) SetCordon(_ context.Context, _ uint64, _ string, _ time.Time) error {
+	f.mu.Lock()
 	f.events = append(f.events, "cordon")
-	if f.onSetCordon != nil {
-		f.onSetCordon()
+	hook := f.onSetCordon
+	f.mu.Unlock()
+	if hook != nil {
+		hook()
 	}
 	return nil
 }
 
 func (f *fakeConfigRepo) ClearCordon(ctx context.Context, _ uint64, _ string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.events = append(f.events, "uncordon")
 	f.clearCordonCtxErr = ctx.Err()
 	return nil
+}
+
+func (f *fakeConfigRepo) recordedEvents() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.events...)
+}
+
+// Repositories return detached rows, including nested config values. JSON is
+// used only by these fixtures; it neither encrypts nor logs the payload.
+func cloneSandboxEntityForTest(entity *types.TenantSandboxConfigEntity) *types.TenantSandboxConfigEntity {
+	if entity == nil {
+		return nil
+	}
+	data, err := json.Marshal(entity)
+	if err != nil {
+		panic(err)
+	}
+	var cloned types.TenantSandboxConfigEntity
+	if err := json.Unmarshal(data, &cloned); err != nil {
+		panic(err)
+	}
+	return &cloned
 }
 
 type stubAgentRepo struct {
@@ -329,10 +376,13 @@ func (s stubAgentRepo) ListNamesBySandboxConfigID(
 }
 
 type stubProviderClient struct {
-	inventories    [][]sandbox.RemoteSandboxSummary
-	templates      []sandbox.RemoteTemplate
-	ensured        *sandbox.RemoteTemplate
-	ensuredDesktop *sandbox.RemoteTemplate
+	ensureEntered    chan struct{}
+	replaceEntered   chan struct{}
+	releaseTemplates <-chan struct{}
+	inventories      [][]sandbox.RemoteSandboxSummary
+	templates        []sandbox.RemoteTemplate
+	ensured          *sandbox.RemoteTemplate
+	ensuredDesktop   *sandbox.RemoteTemplate
 	// ensureDelay widens the window in which concurrent provisioning requests
 	// overlap, which is the only way to observe whether they were collapsed.
 	ensureDelay      time.Duration
@@ -356,6 +406,10 @@ func (s *stubProviderClient) ListTemplates(context.Context) ([]sandbox.RemoteTem
 
 func (s *stubProviderClient) EnsureStandardTemplate(context.Context) (*sandbox.RemoteTemplate, error) {
 	s.ensureCalls.Add(1)
+	if s.ensureEntered != nil {
+		close(s.ensureEntered)
+		<-s.releaseTemplates
+	}
 	if s.ensureDelay > 0 {
 		time.Sleep(s.ensureDelay)
 	}
@@ -368,6 +422,10 @@ func (s *stubProviderClient) EnsureStandardTemplate(context.Context) (*sandbox.R
 
 func (s *stubProviderClient) ReplaceStandardTemplate(ctx context.Context) (*sandbox.RemoteTemplate, error) {
 	s.replaceCalls.Add(1)
+	if s.replaceEntered != nil {
+		close(s.replaceEntered)
+		<-s.releaseTemplates
+	}
 	if s.ensureDelay > 0 {
 		time.Sleep(s.ensureDelay)
 	}
@@ -972,6 +1030,8 @@ func TestUpdateRefusesIdentityChangeWhileSkillIsInstalling(t *testing.T) {
 }
 
 func TestQueryTemplatesEnsureAndReplaceDoNotShareSingleflight(t *testing.T) {
+	release := make(chan struct{})
+	defer close(release)
 	stored := e2bCfg("key-a", "https://api.e2b.app", "e2b.app", "t1", 300)
 	repo := &fakeConfigRepo{entity: &types.TenantSandboxConfigEntity{
 		ID: "cfg-a", TenantID: 7, SandboxType: "e2b", Config: stored,
@@ -980,7 +1040,9 @@ func TestQueryTemplatesEnsureAndReplaceDoNotShareSingleflight(t *testing.T) {
 		templates: []sandbox.RemoteTemplate{
 			{ID: "tpl-broken", Name: "weknora", Status: "failed", Standard: true},
 		},
-		ensureDelay: 80 * time.Millisecond,
+		ensureEntered:    make(chan struct{}),
+		replaceEntered:   make(chan struct{}),
+		releaseTemplates: release,
 		ensured: &sandbox.RemoteTemplate{
 			ID: "tpl-ensured", Name: "weknora", Status: "building", Standard: true,
 		},
@@ -999,8 +1061,12 @@ func TestQueryTemplatesEnsureAndReplaceDoNotShareSingleflight(t *testing.T) {
 		})
 		errCh <- err
 	}()
+	select {
+	case <-client.ensureEntered:
+	case <-time.After(time.Second):
+		t.Fatal("ensure did not enter the provider")
+	}
 	go func() {
-		time.Sleep(20 * time.Millisecond)
 		_, err := svc.QueryTemplates(context.Background(), 7, SandboxTemplateQueryInput{
 			ConfigID:        "cfg-a",
 			Config:          stored,
@@ -1008,6 +1074,14 @@ func TestQueryTemplatesEnsureAndReplaceDoNotShareSingleflight(t *testing.T) {
 		})
 		errCh <- err
 	}()
+	select {
+	case <-client.replaceEntered:
+	case <-time.After(time.Second):
+		t.Fatal("replace was incorrectly collapsed into the in-flight ensure")
+	}
+	// Both distinct provisioning operations must enter before either can finish.
+	release <- struct{}{}
+	release <- struct{}{}
 	require.NoError(t, <-errCh)
 	require.NoError(t, <-errCh)
 	require.Equal(t, int32(1), client.ensureCalls.Load())
@@ -1122,7 +1196,7 @@ func TestUpdateRefusesIdentityChangeWhileSandboxesLive(t *testing.T) {
 
 	require.ErrorIs(t, err, ErrSandboxesStillLive)
 	require.Nil(t, repo.updated, "credentials must not be overwritten")
-	require.Equal(t, []string{"get", "cordon", "uncordon"}, repo.events,
+	require.Equal(t, []string{"get", "cordon", "uncordon"}, repo.recordedEvents(),
 		"the cordon must be committed before the inventory check and released after")
 }
 
@@ -1144,7 +1218,7 @@ func TestUpdateIdentityChangeCordonsThenWrites(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, []string{"get", "cordon", "write", "uncordon"}, repo.events)
+	require.Equal(t, []string{"get", "cordon", "write", "uncordon"}, repo.recordedEvents())
 }
 
 // A non-identity edit must not pay for a cordon or a provider round-trip.
@@ -1166,7 +1240,7 @@ func TestUpdateNonIdentityEditSkipsCordon(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, []string{"get", "write"}, repo.events)
+	require.Equal(t, []string{"get", "write"}, repo.recordedEvents())
 	require.Equal(t, "prod renamed", repo.updated.Name)
 	require.Equal(t, 0, client.listCalls)
 }
@@ -1253,7 +1327,7 @@ func TestUpdateSweepsSandboxCreatedDuringCordonWindow(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, []string{"get", "cordon", "write", "uncordon"}, repo.events)
+	require.Equal(t, []string{"get", "cordon", "write", "uncordon"}, repo.recordedEvents())
 	require.Equal(t, []string{"sb-race"}, client.deleted)
 	require.NoError(t, client.deleteCtxErr, "post-write sweep must survive request cancellation")
 }
@@ -1276,7 +1350,7 @@ func TestUpdateClearsCordonWhenRequestContextCancelled(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, []string{"get", "cordon", "write", "uncordon"}, repo.events)
+	require.Equal(t, []string{"get", "cordon", "write", "uncordon"}, repo.recordedEvents())
 	require.NoError(t, repo.clearCordonCtxErr, "cordon release must survive request cancellation")
 }
 
@@ -1301,7 +1375,7 @@ func TestDeleteRefusesWhileSandboxesLive(t *testing.T) {
 	require.Equal(t, []string{"s-1"}, liveErr.Inventory.SessionIDs)
 	require.Equal(t, []string{"analyst"}, liveErr.Inventory.AgentNames)
 	require.False(t, repo.deleted)
-	require.Equal(t, []string{"get"}, repo.events)
+	require.Equal(t, []string{"get"}, repo.recordedEvents())
 }
 
 // "We cannot tell" must not read as "nothing there": refuse, and say which of
@@ -1400,7 +1474,7 @@ func TestUpdateProceedsWhenInventoryUnverifiable(t *testing.T) {
 	require.NotNil(t, updated)
 	require.NotNil(t, repo.updated)
 	require.Equal(t, "key-b", repo.updated.Config.E2B.APIKey)
-	require.Equal(t, []string{"get", "cordon", "write", "uncordon"}, repo.events)
+	require.Equal(t, []string{"get", "cordon", "write", "uncordon"}, repo.recordedEvents())
 }
 
 func TestDeleteSoftDeletesWhenEmpty(t *testing.T) {
@@ -1417,7 +1491,7 @@ func TestDeleteSoftDeletesWhenEmpty(t *testing.T) {
 
 	require.NoError(t, err)
 	require.True(t, repo.deleted)
-	require.Equal(t, []string{"get", "delete"}, repo.events)
+	require.Equal(t, []string{"get", "delete"}, repo.recordedEvents())
 }
 
 // Reporting success for a config that is not there would let the UI drop a card

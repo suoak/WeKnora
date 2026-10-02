@@ -63,7 +63,7 @@ func TestUpgradeKeepsThePreviousVersionServingWhileItRuns(t *testing.T) {
 	fx.beforeExecute = func() {
 		during = fx.usableSkills(t)
 		rowDuring, _ = fx.skillRepo.GetSkill(ctx, 7, "cfg-1", skillID)
-		deletedDuring = append([]string(nil), fx.deletedBundles...)
+		deletedDuring = fx.deletedBundleRefs()
 	}
 	_, err = fx.svc.InstallCatalogToConfigs(ctx, 7, cat.ID, []string{"cfg-1"})
 	require.NoError(t, err)
@@ -88,7 +88,7 @@ func TestUpgradeKeepsThePreviousVersionServingWhileItRuns(t *testing.T) {
 	final, err := fx.skillRepo.GetSkill(ctx, 7, "cfg-1", skillID)
 	require.NoError(t, err)
 	require.Nil(t, final.Served, "once the pointer moves nothing older is served")
-	require.Contains(t, fx.deletedBundles, firstRef, "v1's archive lost its last reader with the upgrade")
+	require.Contains(t, fx.deletedBundleRefs(), firstRef, "v1's archive lost its last reader with the upgrade")
 }
 
 // An upgrade that fails never moved the pointer, so v1 is still what runs.
@@ -113,7 +113,7 @@ func TestFailedUpgradeLeavesThePreviousVersionServing(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, types.SkillStatusFailed, failed.Status)
 	require.Equal(t, &SkillServedInfo{Version: "1.0.0"}, ServedInfoOf(failed))
-	require.NotContains(t, fx.deletedBundles, firstRef,
+	require.NotContains(t, fx.deletedBundleRefs(), firstRef,
 		"the served version still reads its files from v1's archive")
 
 	usable := fx.usableSkills(t)
@@ -129,7 +129,7 @@ func TestFailedUpgradeLeavesThePreviousVersionServing(t *testing.T) {
 	usable = fx.usableSkills(t)
 	require.Len(t, usable, 1)
 	require.Equal(t, "2.0.0", usable[0].Version)
-	require.Contains(t, fx.deletedBundles, firstRef)
+	require.Contains(t, fx.deletedBundleRefs(), firstRef)
 }
 
 // A first install has nothing in the image yet, so there is nothing to serve

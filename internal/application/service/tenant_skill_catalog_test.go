@@ -129,6 +129,7 @@ func TestInstallSkillStoresTheArchiveOnTheCatalog(t *testing.T) {
 
 	id, err := fx.svc.InstallSkill(ctx, 7, "cfg-1", archive)
 	require.NoError(t, err)
+	fx.awaitSkillSettled(t, id)
 
 	cat, err := fx.skillRepo.GetCatalogByName(ctx, 7, "pdf-tools")
 	require.NoError(t, err)
@@ -155,6 +156,7 @@ func TestRemovingLastSandboxInstallKeepsTheCatalogArchive(t *testing.T) {
 	})
 	id, err := fx.svc.InstallSkill(ctx, 7, "cfg-1", archive)
 	require.NoError(t, err)
+	fx.awaitSkillSettled(t, id)
 	skill, err := fx.skillRepo.GetSkill(ctx, 7, "cfg-1", id)
 	require.NoError(t, err)
 	skill.Status = types.SkillStatusRemoving
@@ -168,14 +170,14 @@ func TestRemovingLastSandboxInstallKeepsTheCatalogArchive(t *testing.T) {
 	files, err := fx.svc.ListCatalogFiles(ctx, 7, cat.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, files)
-	require.Empty(t, fx.deletedBundles,
+	require.Empty(t, fx.deletedBundleRefs(),
 		"uninstalling from the last sandbox must not delete the definition zip")
 	gone, err := fx.skillRepo.GetSkill(ctx, 7, "cfg-1", id)
 	require.NoError(t, err)
 	require.Nil(t, gone)
 
 	require.NoError(t, fx.svc.DeleteCatalog(ctx, 7, cat.ID))
-	require.Equal(t, []string{cat.BundleRef}, fx.deletedBundles,
+	require.Equal(t, []string{cat.BundleRef}, fx.deletedBundleRefs(),
 		"only deleting the skill from the catalog drops the stored zip")
 }
 
@@ -239,7 +241,7 @@ func TestRegisterCatalogReplacesThePreviousZip(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, fx.savedBundles)
 	require.NotEqual(t, firstRef, cat.BundleRef)
-	require.Equal(t, []string{firstRef}, fx.deletedBundles,
+	require.Equal(t, []string{firstRef}, fx.deletedBundleRefs(),
 		"replacing the definition zip must drop the previous object")
 }
 
@@ -266,7 +268,7 @@ func TestRegisterCatalogKeepsThePreviousZipWhenTheRowFailsToCommit(t *testing.T)
 	_, err = fx.svc.RegisterCatalogFromArchive(ctx, 7, second)
 
 	require.Error(t, err)
-	require.Empty(t, fx.deletedBundles,
+	require.Empty(t, fx.deletedBundleRefs(),
 		"the stored definition still names the previous archive, so it must survive")
 
 	stored, err := fx.skillRepo.GetCatalog(ctx, 7, cat.ID)
@@ -298,7 +300,7 @@ func TestRegisterCatalogDropsTheObjectOfTheRowThatLostTheNameRace(t *testing.T) 
 	require.NoError(t, err)
 	require.Equal(t, "cat-winner", cat.ID)
 	require.Equal(t, 2, fx.savedBundles, "the retry stores the archive under the winner's key")
-	require.Equal(t, []string{"file://bundle-1.zip"}, fx.deletedBundles,
+	require.Equal(t, []string{"file://bundle-1.zip"}, fx.deletedBundleRefs(),
 		"the object of the row that was never written is unreachable and must go")
 	require.NotEqual(t, "file://bundle-1.zip", cat.BundleRef)
 }
@@ -318,6 +320,7 @@ func TestRegisterCatalogKeepsTheReplacedZipForInstallsStillOnIt(t *testing.T) {
 	require.NoError(t, err)
 	skillID, err := fx.svc.InstallSkill(ctx, 7, "cfg-1", first)
 	require.NoError(t, err)
+	fx.awaitSkillSettled(t, skillID)
 	installed, err := fx.skillRepo.GetSkill(ctx, 7, "cfg-1", skillID)
 	require.NoError(t, err)
 	require.Empty(t, installed.BundleRef, "a fresh install reads the definition's copy")
@@ -330,7 +333,7 @@ func TestRegisterCatalogKeepsTheReplacedZipForInstallsStillOnIt(t *testing.T) {
 	_, err = fx.svc.RegisterCatalogFromArchive(ctx, 7, second)
 	require.NoError(t, err)
 
-	require.Empty(t, fx.deletedBundles,
+	require.Empty(t, fx.deletedBundleRefs(),
 		"an archive a live install was built from must survive the definition moving on")
 	installed, err = fx.skillRepo.GetSkill(ctx, 7, "cfg-1", skillID)
 	require.NoError(t, err)
@@ -360,14 +363,15 @@ func TestRegisterCatalogDoesNotMoveTheDefinitionWhenPinFails(t *testing.T) {
 	})
 	skillID, err := fx.svc.InstallSkill(ctx, 7, "cfg-1", first)
 	require.NoError(t, err)
+	fx.awaitSkillSettled(t, skillID)
 	installed, err := fx.skillRepo.GetSkill(ctx, 7, "cfg-1", skillID)
 	require.NoError(t, err)
 	catalogID := installed.CatalogID
 	firstRef := fx.catalogRefFor(t, catalogID)
 
-	fx.skillRepo.updateFailsWhen = func(e *types.TenantSkillEntity) bool {
+	fx.skillRepo.setUpdateFailure(func(e *types.TenantSkillEntity) bool {
 		return strings.TrimSpace(e.BundleRef) == firstRef
-	}
+	})
 
 	second := zipBundle(t, map[string]string{
 		"SKILL.md":           validSkillMD,
@@ -434,6 +438,7 @@ func TestRemovingThePinnedInstallReclaimsTheReplacedZip(t *testing.T) {
 	})
 	skillID, err := fx.svc.InstallSkill(ctx, 7, "cfg-1", first)
 	require.NoError(t, err)
+	fx.awaitSkillSettled(t, skillID)
 	installed, err := fx.skillRepo.GetSkill(ctx, 7, "cfg-1", skillID)
 	require.NoError(t, err)
 	catalogID := installed.CatalogID
@@ -456,7 +461,7 @@ func TestRemovingThePinnedInstallReclaimsTheReplacedZip(t *testing.T) {
 
 	require.NoError(t, fx.svc.runRemove(ctx, 7, "cfg-1", skillID))
 
-	require.Equal(t, []string{firstRef}, fx.deletedBundles,
+	require.Equal(t, []string{firstRef}, fx.deletedBundleRefs(),
 		"the pinned archive is reclaimed with its last reader, the definition's is not")
 }
 
@@ -514,8 +519,8 @@ func TestReinstallOfAnInstallStillOnTheReplacedArchiveLeavesTheCatalogAlone(t *t
 			require.NoError(t, err)
 			require.Equal(t, secondBundle.SHA256, cat.BundleSHA256, "the definition stays on v2")
 			require.Equal(t, secondRef, cat.BundleRef)
-			require.NotContains(t, fx.deletedBundles, secondRef, "v2's archive must survive a v1 retry")
-			require.NotContains(t, fx.deletedBundles, firstRef, "the retried install still reads v1's archive")
+			require.NotContains(t, fx.deletedBundleRefs(), secondRef, "v2's archive must survive a v1 retry")
+			require.NotContains(t, fx.deletedBundleRefs(), firstRef, "the retried install still reads v1's archive")
 
 			installed, err = fx.skillRepo.GetSkill(ctx, 7, "cfg-1", skillID)
 			require.NoError(t, err)
@@ -562,7 +567,7 @@ func TestInstallCatalogToConfigsUpgradesAnInstallStillOnTheReplacedArchive(t *te
 	require.Equal(t, secondBundle.SHA256, installed.BundleSHA256)
 	require.Empty(t, installed.BundleRef, "the upgraded install follows the definition again")
 	require.Equal(t, secondBundle.SHA256, fx.catalogSHAFor(t, cat.ID))
-	require.Contains(t, fx.deletedBundles, firstRef, "v1's archive lost its last reader")
+	require.Contains(t, fx.deletedBundleRefs(), firstRef, "v1's archive lost its last reader")
 }
 
 // Installing a definition onto a sandbox reads it; it does not re-register it.
@@ -618,10 +623,27 @@ func TestStoredArchiveThatNoLongerMatchesTheCatalogIsRefused(t *testing.T) {
 
 func (f *installFixture) awaitSkillSettled(t *testing.T, skillID string) {
 	t.Helper()
-	require.Eventually(t, func() bool {
-		row, err := f.skillRepo.GetSkill(context.Background(), 7, "cfg-1", skillID)
-		return err == nil && row != nil && row.Status != types.SkillStatusInstalling
-	}, 5*time.Second, 10*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	for {
+		f.skillRepo.mu.Lock()
+		row := f.skillRepo.skills[skillKey(7, "cfg-1", skillID)]
+		settled := row != nil && row.Status != types.SkillStatusInstalling
+		changed := f.skillRepo.changed
+		f.skillRepo.mu.Unlock()
+		if settled {
+			break
+		}
+		select {
+		case <-changed:
+		case <-ctx.Done():
+			t.Fatal("skill did not settle before the existing test deadline")
+		}
+	}
+	// A terminal row is written before runInstall finishes its cleanup. Taking
+	// the worker's config lock after observing that row is an explicit barrier:
+	// assertions and the next run cannot overlap the previous run's cleanup.
+	require.NoError(t, f.svc.withConfigLock(ctx, 7, "cfg-1", func(context.Context) error { return nil }))
 }
 
 func (f *installFixture) catalogSHAFor(t *testing.T, catalogID string) string {

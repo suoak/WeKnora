@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,6 +16,8 @@ import (
 )
 
 type fakeTenantAPIKeyRepo struct {
+	mu                  sync.Mutex
+	lastUsedUpdated     chan struct{}
 	byHash              map[string]*types.TenantAPIKey
 	nextID              uint64
 	lastUsedUpdateCount int
@@ -136,10 +139,18 @@ func TestTenantAPIKeyServiceRejectsUnknownUserMCPClientType(t *testing.T) {
 }
 
 func newFakeTenantAPIKeyRepo() *fakeTenantAPIKeyRepo {
-	return &fakeTenantAPIKeyRepo{byHash: map[string]*types.TenantAPIKey{}, nextID: 1}
+	return &fakeTenantAPIKeyRepo{byHash: map[string]*types.TenantAPIKey{}, nextID: 1, lastUsedUpdated: make(chan struct{}, 1)}
+}
+
+func (r *fakeTenantAPIKeyRepo) lastUsedCount() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.lastUsedUpdateCount
 }
 
 func (r *fakeTenantAPIKeyRepo) CreateAPIKey(_ context.Context, key *types.TenantAPIKey) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if _, ok := r.byHash[key.KeyHash]; ok {
 		return errors.New("duplicate key hash")
 	}
@@ -152,6 +163,8 @@ func (r *fakeTenantAPIKeyRepo) CreateAPIKey(_ context.Context, key *types.Tenant
 }
 
 func (r *fakeTenantAPIKeyRepo) GetAPIKeyByHash(_ context.Context, hash string) (*types.TenantAPIKey, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	key, ok := r.byHash[hash]
 	if !ok {
 		return nil, apprepo.ErrTenantAPIKeyNotFound
@@ -161,6 +174,8 @@ func (r *fakeTenantAPIKeyRepo) GetAPIKeyByHash(_ context.Context, hash string) (
 }
 
 func (r *fakeTenantAPIKeyRepo) ListAPIKeys(_ context.Context, tenantID uint64) ([]*types.TenantAPIKey, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	out := []*types.TenantAPIKey{}
 	for _, key := range r.byHash {
 		if key.TenantIDValue() == tenantID && key.RevokedAt == nil {
@@ -172,6 +187,8 @@ func (r *fakeTenantAPIKeyRepo) ListAPIKeys(_ context.Context, tenantID uint64) (
 }
 
 func (r *fakeTenantAPIKeyRepo) ListPlatformAPIKeys(_ context.Context) ([]*types.TenantAPIKey, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	out := []*types.TenantAPIKey{}
 	for _, key := range r.byHash {
 		if key.IsPlatform() && key.RevokedAt == nil {
@@ -183,6 +200,8 @@ func (r *fakeTenantAPIKeyRepo) ListPlatformAPIKeys(_ context.Context) ([]*types.
 }
 
 func (r *fakeTenantAPIKeyRepo) RevokeAPIKey(_ context.Context, tenantID uint64, id uint64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	now := time.Now()
 	for _, key := range r.byHash {
 		if key.ID == id && key.TenantIDValue() == tenantID && key.RevokedAt == nil {
@@ -198,6 +217,8 @@ func (r *fakeTenantAPIKeyRepo) RevokeAPIKey(_ context.Context, tenantID uint64, 
 func (r *fakeTenantAPIKeyRepo) UpdateAPIKey(
 	_ context.Context, tenantID uint64, id uint64, update *types.TenantAPIKey,
 ) (*types.TenantAPIKey, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	for _, key := range r.byHash {
 		if key.ID == id && key.TenantIDValue() == tenantID && key.RevokedAt == nil {
 			key.Name = update.Name
@@ -274,6 +295,8 @@ func apiKeyEqualStrings(a, b []string) bool {
 }
 
 func (r *fakeTenantAPIKeyRepo) RevokePlatformAPIKey(_ context.Context, id uint64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	now := time.Now()
 	for _, key := range r.byHash {
 		if key.ID == id && key.IsPlatform() && key.RevokedAt == nil {
@@ -285,6 +308,8 @@ func (r *fakeTenantAPIKeyRepo) RevokePlatformAPIKey(_ context.Context, id uint64
 }
 
 func (r *fakeTenantAPIKeyRepo) UpdateAPIKeyHash(_ context.Context, id uint64, hash string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	for oldHash, key := range r.byHash {
 		if key.ID == id && key.RevokedAt == nil {
 			delete(r.byHash, oldHash)
@@ -297,6 +322,8 @@ func (r *fakeTenantAPIKeyRepo) UpdateAPIKeyHash(_ context.Context, id uint64, ha
 }
 
 func (r *fakeTenantAPIKeyRepo) HasKeysWithPlaceholderHash(_ context.Context) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	for _, key := range r.byHash {
 		if key.RevokedAt == nil && strings.HasPrefix(key.KeyHash, "migrated-tenant-") {
 			return true, nil
@@ -306,6 +333,8 @@ func (r *fakeTenantAPIKeyRepo) HasKeysWithPlaceholderHash(_ context.Context) (bo
 }
 
 func (r *fakeTenantAPIKeyRepo) ListKeysWithPlaceholderHash(_ context.Context) ([]*types.TenantAPIKey, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	out := []*types.TenantAPIKey{}
 	for _, key := range r.byHash {
 		if key.RevokedAt == nil && strings.HasPrefix(key.KeyHash, "migrated-tenant-") {
@@ -317,16 +346,24 @@ func (r *fakeTenantAPIKeyRepo) ListKeysWithPlaceholderHash(_ context.Context) ([
 }
 
 func (r *fakeTenantAPIKeyRepo) UpdateAPIKeyLastUsed(_ context.Context, id uint64, at time.Time) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.lastUsedUpdateCount++
 	for _, key := range r.byHash {
 		if key.ID == id && key.RevokedAt == nil {
 			key.LastUsedAt = &at
 		}
 	}
+	select {
+	case r.lastUsedUpdated <- struct{}{}:
+	default:
+	}
 	return nil
 }
 
 func (r *fakeTenantAPIKeyRepo) ListUserMCPAPIKeys(_ context.Context, userID string) ([]*types.TenantAPIKey, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	out := []*types.TenantAPIKey{}
 	for _, key := range r.byHash {
 		if key.IsUserMCP() && key.OwnerUserID != nil && *key.OwnerUserID == userID {
@@ -348,6 +385,8 @@ func (r *fakeTenantAPIKeyRepo) GetUserMCPAPIKey(_ context.Context, userID string
 }
 
 func (r *fakeTenantAPIKeyRepo) GetUserMCPTenantScope(_ context.Context, keyID, tenantID uint64) (*types.APIKeyTenantScope, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	for _, key := range r.byHash {
 		if key.ID != keyID {
 			continue
@@ -363,6 +402,8 @@ func (r *fakeTenantAPIKeyRepo) GetUserMCPTenantScope(_ context.Context, keyID, t
 }
 
 func (r *fakeTenantAPIKeyRepo) ReplaceUserMCPAPIKey(_ context.Context, userID string, update *types.TenantAPIKey) (*types.TenantAPIKey, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	for _, key := range r.byHash {
 		if key.ID == update.ID && key.IsUserMCP() && key.OwnerUserID != nil && *key.OwnerUserID == userID && key.RevokedAt == nil {
 			key.Name, key.ClientType, key.Capabilities, key.ExpiresAt = update.Name, update.ClientType, update.Capabilities, update.ExpiresAt
@@ -375,6 +416,8 @@ func (r *fakeTenantAPIKeyRepo) ReplaceUserMCPAPIKey(_ context.Context, userID st
 }
 
 func (r *fakeTenantAPIKeyRepo) RotateUserMCPAPIKey(_ context.Context, userID string, id uint64, expectedHash, newHash, tokenHint string, expiresAt *time.Time) (*types.TenantAPIKey, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	key, ok := r.byHash[expectedHash]
 	if !ok || key.ID != id || !key.IsUserMCP() || key.OwnerUserID == nil || *key.OwnerUserID != userID || key.RevokedAt != nil {
 		return nil, apprepo.ErrTenantAPIKeyNotFound
@@ -387,6 +430,8 @@ func (r *fakeTenantAPIKeyRepo) RotateUserMCPAPIKey(_ context.Context, userID str
 }
 
 func (r *fakeTenantAPIKeyRepo) RevokeUserMCPAPIKey(_ context.Context, userID string, id uint64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	for _, key := range r.byHash {
 		if key.ID == id && key.IsUserMCP() && key.OwnerUserID != nil && *key.OwnerUserID == userID && key.RevokedAt == nil {
 			now := time.Now().UTC()
@@ -567,8 +612,8 @@ func TestTenantAPIKeyServiceAuthenticateDoesNotTouchUsageBeforeMiddlewareSuccess
 		t.Fatal(err)
 	}
 	time.Sleep(25 * time.Millisecond)
-	if repo.lastUsedUpdateCount != 0 {
-		t.Fatalf("authentication lookup touched usage before middleware validation: %d", repo.lastUsedUpdateCount)
+	if count := repo.lastUsedCount(); count != 0 {
+		t.Fatalf("authentication lookup touched usage before middleware validation: %d", count)
 	}
 }
 
@@ -676,12 +721,13 @@ func TestTenantAPIKeyServiceAuthenticateThrottlesLastUsedUpdates(t *testing.T) {
 		svc.(interfaces.TenantAPIKeyUsageRecorder).RecordAPIKeyUsed(created.APIKey.ID)
 	}
 
-	deadline := time.Now().Add(500 * time.Millisecond)
-	for repo.lastUsedUpdateCount == 0 && time.Now().Before(deadline) {
-		time.Sleep(10 * time.Millisecond)
+	select {
+	case <-repo.lastUsedUpdated:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("asynchronous last_used update did not complete")
 	}
-	if repo.lastUsedUpdateCount != 1 {
-		t.Fatalf("last_used update count = %d, want 1 (throttled async write)", repo.lastUsedUpdateCount)
+	if count := repo.lastUsedCount(); count != 1 {
+		t.Fatalf("last_used update count = %d, want 1 (throttled async write)", count)
 	}
 }
 
