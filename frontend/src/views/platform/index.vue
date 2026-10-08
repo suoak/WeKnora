@@ -217,7 +217,9 @@ onMounted(async () => {
     maybeOpenCmdkFromRoute()
     await continuePendingPortalAction()
     // 后台预取对话输入栏资源，进入 creatChat / chat 时复用缓存
-    void useChatResourcesStore().prefetchChatInput()
+    void useChatResourcesStore().prefetchChatInput().catch(error => {
+        console.warn('Failed to prefetch chat input resources', error)
+    })
 });
 
 async function continuePendingPortalAction() {

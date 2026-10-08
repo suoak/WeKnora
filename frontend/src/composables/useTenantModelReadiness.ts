@@ -26,7 +26,9 @@ export function useTenantModelReadiness() {
   }
 
   onMounted(() => {
-    refresh()
+    void refresh().catch(error => {
+      console.warn('Failed to load tenant model readiness', error)
+    })
   })
 
   const isReadyForDocumentKb = computed(() => readiness.value.isReadyForDocumentKb)

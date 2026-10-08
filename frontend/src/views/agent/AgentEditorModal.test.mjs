@@ -1,8 +1,24 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
+import { parse } from '@vue/compiler-sfc'
+import { baseParse } from '@vue/compiler-dom'
 
 const source = readFileSync(new URL('./AgentEditorModal.vue', import.meta.url), 'utf8')
+
+test('every editor menu panel is a sibling, never hidden by another menu panel', () => {
+  const ast = baseParse(parse(source).descriptor.template.content)
+  const sections = []
+  function walk(node, sectionAncestors = []) {
+    const section = node.type === 1 && node.props.find(p => p.type === 7 && p.name === 'show' && p.exp?.content.includes('currentSection'))
+    if (section) sections.push({ condition: section.exp.content, ancestors: sectionAncestors, line: node.loc.start.line })
+    for (const child of node.children || []) walk(child, section ? [...sectionAncestors, section.exp.content] : sectionAncestors)
+  }
+  walk(ast)
+  assert.deepEqual(sections.map(s => s.condition.match(/currentSection === '([^']+)'/)[1]).sort(),
+    ['basic', 'prompts', 'model', 'multimodal', 'conversation', 'suggestions', 'tools', 'mcp', 'skills', 'knowledge', 'websearch', 'retrieval', 'share'].sort())
+  assert.deepEqual(sections.filter(s => s.ancestors.length), [])
+})
 
 test('editing an agent closes the editor after a successful save', () => {
   assert.match(
@@ -166,7 +182,7 @@ test('agent skill picker offers upgrades to admins only and keeps upgrading skil
   assert.match(source, /agent\.editor\.upgradeOnThisSandbox/)
   // The progress drawer reads admin-only endpoints, so it is not offered to others.
   assert.match(source, /v-else-if="canInstallSkills && isSkillBusy\(skill\)"/)
-  assert.match(source, /skill\.selectable \|\| \(skill\.installed && isSkillBusy\(skill\)\)/)
+  assert.doesNotMatch(source, /pruneSelectedSkills/)
 })
 
 test('a skill whose previous version still runs stays selectable during and after an upgrade', () => {

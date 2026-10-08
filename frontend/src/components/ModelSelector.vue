@@ -22,11 +22,13 @@
         </span>
       </template>
       <!-- 已有的模型选项 -->
+      <t-option v-if="selectedModelId && !selectedModel" :value="selectedModelId" :label="selectedModelId" disabled />
       <t-option
         v-for="model in models"
         :key="model.id"
         :value="model.id"
         :label="modelDisplayName(model)"
+        :disabled="Boolean(model.status && model.status !== 'active')"
       >
         <div class="model-option">
           <t-icon name="check-circle-filled" class="model-icon" />
