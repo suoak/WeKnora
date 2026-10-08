@@ -1,0 +1,81 @@
+name: KnowHub25 A1.1 Linux CGO comparison
+
+on:
+  push:
+    branches: [ci/knowhub25-a1-logger-20261009]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: knowhub25-a1-logger-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  BASELINE_SHA: 1cbde4617aceab31b8928feb705599e2d65c7158
+  UPSTREAM_SHA: 6057a81017375a8d680cd32afca1c2ff03b0b17c
+  GO_VERSION: '1.26.7'
+  CGO_ENABLED: '1'
+  GOTOOLCHAIN: local
+
+jobs:
+  compare:
+    if: github.repository == 'suoak/WeKnora' && github.ref == 'refs/heads/ci/knowhub25-a1-logger-20261009'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Initialize evidence directory
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/evidence"
+          {
+            uname -a
+            printf 'runner_os=%s runner_arch=%s image_os=%s image_version=%s candidate_sha=%s\n' \
+              "$RUNNER_OS" "$RUNNER_ARCH" "${ImageOS:-unknown}" "${ImageVersion:-unknown}" "$GITHUB_SHA"
+          } > "$GITHUB_WORKSPACE/evidence/runner.txt"
+
+      - name: Checkout candidate and validation recipe
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.sha }}
+          path: candidate
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout immutable RC24 baseline
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ env.BASELINE_SHA }}
+          path: baseline
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Install exact Go toolchain without persistent caches
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          architecture: x64
+          cache: false
+
+      - name: Validate recipe result classification
+        run: python3 -B -m unittest discover -s candidate/.github/scripts -p 'knowhub25_a1_logger_ci_test.py' -v
+
+      - name: Verify identity and run both complete middleware suites
+        env:
+          CANDIDATE_SHA: ${{ github.sha }}
+          GOMODCACHE: ${{ runner.temp }}/knowhub25-a1-modules
+          GOCACHE: ${{ runner.temp }}/knowhub25-a1-build
+        run: python3 -B candidate/.github/scripts/knowhub25_a1_logger_ci.py
+
+      - name: Preserve comparison evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: knowhub25-a1-logger-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            evidence/**/*.json
+            evidence/**/*.jsonl
+            evidence/**/*.log
+            evidence/**/*.txt
+            evidence/**/*.patch
+          if-no-files-found: error
+          retention-days: 14
