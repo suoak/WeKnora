@@ -24,7 +24,7 @@ test('copyable host arguments remain literal in a POSIX shell', () => {
   const host = "https://kb.example.com/team'/$HOME/`printf-injected`/$(printf-injected)"
   const command = buildCLIConnectCommand(`${host}/api/v1`, 'https://kb.example.com')
   const argument = command.split(' --host ')[1]!.split(' --use')[0]!
-  const result = spawnSync('/bin/sh', ['-c', `printf '%s' ${argument}`], { encoding: 'utf8' })
+  const result = spawnSync(process.env.WEKNORA_TEST_POSIX_SHELL || '/bin/sh', ['-c', `printf '%s' ${argument}`], { encoding: 'utf8' })
   assert.equal(result.status, 0)
   assert.equal(result.stderr, '')
   assert.equal(result.stdout, "https://kb.example.com/team'/$HOME/%60printf-injected%60/$(printf-injected)")

@@ -72,11 +72,11 @@ test('panel open looks up a running sandbox and only provisions on an explicit c
 })
 
 test('interactive bash defines Debian-style ls aliases', () => {
-  const out = execFileSync('bash', [
+  const out = execFileSync(process.env.WEKNORA_TEST_BASH || 'bash', [
     '--norc',
     '--noprofile',
     '-ic',
-    `. '${promptPath}'; alias ll; alias la; alias l; alias ls; alias grep`,
+    `. '${promptPath.replaceAll('\\', '/')}'; alias ll; alias la; alias l; alias ls; alias grep`,
   ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
   assert.match(out, /alias ll='ls -alF'/)
   assert.match(out, /alias la='ls -A'/)

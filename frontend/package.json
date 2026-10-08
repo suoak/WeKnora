@@ -11,6 +11,7 @@
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
     "test": "tsx --test",
+    "test:agent-editor": "node tests/agent-editor/run-gate.mjs",
     "check-i18n": "tsx --test src/i18n/localeKeyAudit.test.ts",
     "scan-i18n-gaps": "tsx src/i18n/localeGapScan.ts",
     "regenerate-i18n-locales": "tsx src/i18n/regeneratePrunedLocales.ts"
@@ -48,6 +49,7 @@
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.2/xlsx-0.20.2.tgz"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
     "@tsconfig/node22": "^22.0.5",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-vue": "6.0.6",
