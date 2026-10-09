@@ -10,6 +10,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 // mcpOAuthRepository implements interfaces.MCPOAuthRepository.
@@ -19,7 +20,37 @@ type mcpOAuthRepository struct {
 
 // NewMCPOAuthRepository creates a new MCP OAuth repository.
 func NewMCPOAuthRepository(db *gorm.DB) interfaces.MCPOAuthRepository {
-	return &mcpOAuthRepository{db: db}
+	// GORM logs SQL before errors reach the manager. Credential SQL and raw
+	// driver errors must not reach that independent diagnostic channel.
+	return &mcpOAuthRepository{db: db.Session(&gorm.Session{Logger: oauthCredentialLogger{db.Logger}})}
+}
+
+// This wrapper is confined to OAuth persistence; unrelated repositories retain
+// their existing diagnostics. Operation timing/rows and logger levels survive.
+type oauthCredentialLogger struct{ gormlogger.Interface }
+
+func (l oauthCredentialLogger) LogMode(level gormlogger.LogLevel) gormlogger.Interface {
+	return oauthCredentialLogger{l.Interface.LogMode(level)}
+}
+func (l oauthCredentialLogger) Info(ctx context.Context, _ string, _ ...interface{}) {
+	l.Interface.Info(ctx, "MCP OAuth storage diagnostic")
+}
+func (l oauthCredentialLogger) Warn(ctx context.Context, _ string, _ ...interface{}) {
+	l.Interface.Warn(ctx, "MCP OAuth storage warning")
+}
+func (l oauthCredentialLogger) Error(ctx context.Context, _ string, _ ...interface{}) {
+	l.Interface.Error(ctx, "MCP OAuth storage error")
+}
+func (l oauthCredentialLogger) Trace(ctx context.Context, begin time.Time, fc func() (string, int64), err error) {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		err = gorm.ErrRecordNotFound
+	} else if err != nil {
+		err = errors.New("mcp_oauth_storage_failed")
+	}
+	l.Interface.Trace(ctx, begin, func() (string, int64) {
+		_, rows := fc()
+		return "[MCP OAuth credential SQL omitted]", rows
+	}, err)
 }
 
 func (r *mcpOAuthRepository) GetClient(

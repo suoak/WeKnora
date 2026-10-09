@@ -68,11 +68,14 @@ type ClientConfig struct {
 
 // mcpGoClient wraps mark3labs/mcp-go client to implement our MCPClient interface
 type mcpGoClient struct {
-	service      *types.MCPService
-	client       *client.Client
-	oauth        *oauthRuntime
-	connected    atomic.Bool
-	initialized  atomic.Bool
+	service     *types.MCPService
+	client      *client.Client
+	oauth       *oauthRuntime
+	connected   atomic.Bool
+	initialized atomic.Bool
+	// Retain whether initialization negotiated a session; the SDK clears its
+	// session ID before returning ErrSessionTerminated on any POST 404.
+	sessionBased atomic.Bool
 	metadataMu   sync.RWMutex
 	instructions string
 }
@@ -130,7 +133,7 @@ type OAuthRequiredError struct {
 }
 
 func (e *OAuthRequiredError) Error() string {
-	return fmt.Sprintf("the MCP server requires OAuth authorization: %v", e.Err)
+	return "the MCP server requires OAuth authorization"
 }
 
 func (e *OAuthRequiredError) Unwrap() error { return e.Err }
@@ -280,7 +283,11 @@ func buildOAuthConfig(config *ClientConfig, httpClient *http.Client) (transport.
 		AuthServerMetadataURL: svc.AuthConfig.AuthServerMetadataURL,
 		HTTPClient:            httpClient,
 	}
-	if regClient, err := config.OAuthRepo.GetClient(context.Background(), config.TenantID, svc.ID); err == nil && regClient != nil {
+	regClient, err := config.OAuthRepo.GetClient(context.Background(), config.TenantID, svc.ID)
+	if err != nil {
+		return transport.OAuthConfig{}, false, safeOAuthError("mcp_oauth_client_read_failed", err)
+	}
+	if regClient != nil {
 		oauthCfg.ClientID = regClient.ClientID
 		oauthCfg.ClientSecret = regClient.ClientSecret
 		oauthCfg.RedirectURI = regClient.RedirectURI
@@ -291,7 +298,11 @@ func buildOAuthConfig(config *ClientConfig, httpClient *http.Client) (transport.
 // onConnectionLost callback when the connection is lost
 func (c *mcpGoClient) onConnectionLost(err error) {
 	_ = c.Disconnect()
-	logger.Warnf(context.Background(), "MCP server connection has been lost, URL:%s, error:%v", *c.service.URL, err)
+	if c.oauth != nil {
+		logger.Warnf(context.Background(), "MCP OAuth connection lost: %s", SafeOAuthErrorMessage(err))
+	} else {
+		logger.Warnf(context.Background(), "MCP server connection has been lost, URL:%s, error:%v", *c.service.URL, err)
+	}
 }
 
 // checkErrorAndDisconnectIfNeeded checks for transport errors that indicate the
@@ -308,7 +319,8 @@ func (c *mcpGoClient) checkErrorAndDisconnectIfNeeded(err error) {
 	// Known session invalidation errors from MCP servers:
 	//   - "Invalid session ID"  — server recognises the header but rejects the value
 	//   - "No active connection" — server has no record of the session at all
-	if strings.Contains(errMsg, "Invalid session ID") ||
+	if (c.sessionBased.Load() && errors.Is(transportErr.Err, transport.ErrSessionTerminated)) ||
+		strings.Contains(errMsg, "Invalid session ID") ||
 		strings.Contains(errMsg, "No active connection") {
 		_ = c.Disconnect()
 	}
@@ -326,13 +338,17 @@ func oauthCall[T any](ctx context.Context, c *mcpGoClient, operation func() (T, 
 		}
 	}
 	result, err := operation()
-	if err == nil || c.oauth == nil || !isOAuthAuthorizationFailure(err) {
+	if err == nil || c.oauth == nil {
 		return result, err
+	}
+	if !isOAuthAuthorizationFailure(err) {
+		return result, safeOAuthError("mcp_oauth_request_failed", err)
 	}
 	if refreshErr := c.oauth.ensureFresh(ctx, true, client.GetOAuthHandler(err)); refreshErr != nil {
 		return zero, refreshErr
 	}
-	return operation()
+	result, err = operation()
+	return result, safeOAuthError("mcp_oauth_request_failed", err)
 }
 
 // Connect establishes connection to the MCP service
@@ -366,6 +382,7 @@ func (c *mcpGoClient) Disconnect() error {
 		return nil
 	}
 	c.initialized.Store(false)
+	c.sessionBased.Store(false)
 
 	// Close the client
 	if c.client != nil {
@@ -404,6 +421,7 @@ func (c *mcpGoClient) Initialize(ctx context.Context) (*InitializeResult, error)
 	}
 
 	c.initialized.Store(true)
+	c.sessionBased.Store(c.client.GetSessionId() != "")
 	c.metadataMu.Lock()
 	c.instructions = result.Instructions
 	c.metadataMu.Unlock()
