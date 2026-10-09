@@ -70,13 +70,40 @@ func NewMCPManager(oauthRepo interfaces.MCPOAuthRepository) *MCPManager {
 }
 
 // cacheKey computes the connection-cache key for a service. OAuth services are
-// keyed per principal (each identity connects with its own token); all other
+// keyed per execution tenant and principal; all other
 // services share a single connection per service ID.
-func cacheKey(service *types.MCPService, principal types.Principal) string {
+func cacheKey(service *types.MCPService, tenantID uint64, principal types.Principal) string {
 	if service.AuthConfig.IsOAuth() {
-		return service.ID + "\x00" + principal.Normalize().StorageID()
+		return oauthCacheKey(service.ID, tenantID, principal)
 	}
 	return service.ID
+}
+
+// oauthCacheKey uses the invoking tenant, not a builtin service's owner tenant.
+func oauthCacheKey(serviceID string, tenantID uint64, principal types.Principal) string {
+	return fmt.Sprintf("%s\x00%d\x00%s", serviceID, tenantID, principal.Normalize().StorageID())
+}
+
+// CloseOAuthClient invalidates only the credential owner. Service configuration
+// changes still use CloseClient to retire every connection to that service.
+func (m *MCPManager) CloseOAuthClient(tenantID uint64, principal types.Principal, serviceID string) error {
+	if tenantID == 0 || !principal.Normalize().Valid() {
+		return fmt.Errorf("OAuth connection scope is required")
+	}
+	key := oauthCacheKey(serviceID, tenantID, principal)
+	m.clientsMu.Lock()
+	pending := m.connecting[key]
+	delete(m.connecting, key)
+	client := m.clients[key]
+	delete(m.clients, key)
+	m.clientsMu.Unlock()
+	if pending != nil {
+		pending.cancel()
+	}
+	if client != nil {
+		return client.Disconnect()
+	}
+	return nil
 }
 
 // GetOrCreateClient gets an existing client or creates a new one
@@ -105,11 +132,11 @@ func (m *MCPManager) GetOrCreateClient(ctx context.Context, service *types.MCPSe
 		tenantID, _ = types.TenantIDFromContext(ctx)
 		principal, _ = types.PrincipalFromContext(ctx)
 		principal = types.MCPOAuthPrincipalFromContext(ctx)
-		if !principal.Valid() {
+		if tenantID == 0 || !principal.Valid() {
 			return nil, fmt.Errorf("principal context is required to connect to OAuth MCP service %s", service.Name)
 		}
 	}
-	key := cacheKey(service, principal)
+	key := cacheKey(service, tenantID, principal)
 
 	m.clientsMu.Lock()
 	if err := m.ctx.Err(); err != nil {

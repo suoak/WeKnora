@@ -164,10 +164,10 @@ func TestOAuthCacheKeyUsesPrincipalForOAuthServices(t *testing.T) {
 	alice := types.Principal{Type: types.PrincipalAPIExternalUser, ID: "7:alice"}
 	bob := types.Principal{Type: types.PrincipalAPIExternalUser, ID: "7:bob"}
 
-	require.NotEqual(t, cacheKey(service, alice), cacheKey(service, bob))
-	require.Contains(t, cacheKey(service, alice), alice.StorageID())
+	require.NotEqual(t, cacheKey(service, 7, alice), cacheKey(service, 7, bob))
+	require.Contains(t, cacheKey(service, 7, alice), alice.StorageID())
 
 	service.AuthConfig.AuthType = types.MCPAuthAPIKey
-	require.Equal(t, "svc-1", cacheKey(service, alice))
-	require.Equal(t, cacheKey(service, alice), cacheKey(service, bob))
+	require.Equal(t, "svc-1", cacheKey(service, 7, alice))
+	require.Equal(t, cacheKey(service, 7, alice), cacheKey(service, 7, bob))
 }
