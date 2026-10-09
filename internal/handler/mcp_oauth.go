@@ -107,10 +107,10 @@ func (h *MCPOAuthHandler) AuthorizeURL(c *gin.Context) {
 		ctx, service, tenantID, principal, req.RedirectURI, req.FrontendRedirect,
 	)
 	if err != nil {
-		logger.ErrorWithFields(ctx, err, map[string]interface{}{
+		logger.ErrorWithFields(ctx, stderrors.New(mcp.SafeOAuthErrorMessage(err)), map[string]interface{}{
 			"service_id": secutils.SanitizeForLog(serviceID),
 		})
-		c.Error(errors.NewInternalServerError("failed to start authorization: " + err.Error()))
+		c.Error(errors.NewInternalServerError("failed to start authorization: " + mcp.SafeOAuthErrorMessage(err)))
 		return
 	}
 
@@ -143,7 +143,7 @@ func (h *MCPOAuthHandler) Callback(c *gin.Context) {
 	const fallbackRedirect = "/"
 
 	if providerErr != "" {
-		c.Redirect(http.StatusFound, fallbackRedirect+"#mcp_oauth_error="+urlQueryEscape(providerErr))
+		c.Redirect(http.StatusFound, fallbackRedirect+"#mcp_oauth_error="+urlQueryEscape("provider_error"))
 		return
 	}
 	if state == "" || code == "" {
@@ -151,20 +151,14 @@ func (h *MCPOAuthHandler) Callback(c *gin.Context) {
 		return
 	}
 
-	frontendRedirect, serviceID, err := h.oauth.CompleteAuthorization(ctx, state, code)
+	frontendRedirect, _, err := h.oauth.CompleteAuthorizationAndInvalidate(ctx, state, code, h.mcpManager)
 	if frontendRedirect == "" {
 		frontendRedirect = fallbackRedirect
 	}
 	if err != nil {
-		logger.Errorf(ctx, "MCP OAuth callback failed: %v", err)
+		logger.Errorf(ctx, "MCP OAuth callback failed: %s", mcp.SafeOAuthErrorMessage(err))
 		c.Redirect(http.StatusFound, frontendRedirect+"#mcp_oauth_error="+urlQueryEscape("authorization_failed"))
 		return
-	}
-	// The old transport may have been created with an OAuth client registration
-	// that was invalidated together with the refresh token. Recreate it against
-	// the freshly persisted token/client on next use.
-	if h.mcpManager != nil && serviceID != "" {
-		_ = h.mcpManager.CloseClient(serviceID)
 	}
 	c.Redirect(http.StatusFound, frontendRedirect+"#mcp_oauth_result=success")
 }
@@ -197,7 +191,7 @@ func (h *MCPOAuthHandler) Status(c *gin.Context) {
 			ctx, tenantID, principal, serviceID, attemptID,
 		)
 		if err != nil {
-			c.Error(errors.NewInternalServerError("failed to query authorization status: " + err.Error()))
+			c.Error(errors.NewInternalServerError("failed to query authorization status: " + mcp.SafeOAuthErrorMessage(err)))
 			return
 		}
 		state := "pending"
@@ -213,7 +207,7 @@ func (h *MCPOAuthHandler) Status(c *gin.Context) {
 
 	status, err := h.oauth.AuthorizationStatus(ctx, tenantID, principal, serviceID)
 	if err != nil {
-		c.Error(errors.NewInternalServerError("failed to query authorization status: " + err.Error()))
+		c.Error(errors.NewInternalServerError("failed to query authorization status: " + mcp.SafeOAuthErrorMessage(err)))
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": status})
@@ -241,11 +235,13 @@ func (h *MCPOAuthHandler) Revoke(c *gin.Context) {
 	}
 
 	if err := h.oauth.Revoke(ctx, tenantID, principal, serviceID); err != nil {
-		c.Error(errors.NewInternalServerError("failed to revoke authorization: " + err.Error()))
+		c.Error(errors.NewInternalServerError("failed to revoke authorization: " + mcp.SafeOAuthErrorMessage(err)))
 		return
 	}
 	// Recycle any cached connections so a subsequent call re-authorizes.
-	_ = h.mcpManager.CloseClient(serviceID)
+	if h.mcpManager != nil {
+		_ = h.mcpManager.CloseOAuthClient(tenantID, principal, serviceID)
+	}
 	c.Status(http.StatusNoContent)
 }
 
@@ -342,7 +338,7 @@ func (h *MCPOAuthHandler) ResolveMCPOAuth(c *gin.Context) {
 	// would just fail again with another authorization-required error.
 	authorized, err := h.oauth.IsAuthorized(ctx, tenantID, principal, serviceID)
 	if err != nil {
-		c.Error(errors.NewInternalServerError("failed to verify authorization: " + err.Error()))
+		c.Error(errors.NewInternalServerError("failed to verify authorization: " + mcp.SafeOAuthErrorMessage(err)))
 		return
 	}
 	if !authorized {

@@ -40,7 +40,7 @@ func newManagedTokenStore(
 func (s *managedTokenStore) GetToken(ctx context.Context) (*transport.Token, error) {
 	token, err := s.dbTokenStore.GetToken(ctx)
 	if err != nil {
-		return nil, err
+		return nil, safeOAuthError("mcp_oauth_token_read_failed", err)
 	}
 	token.ExpiresAt = time.Time{}
 	return token, nil
@@ -62,11 +62,11 @@ func newDBTokenStore(
 // has not authorized this service yet.
 func (s *dbTokenStore) GetToken(ctx context.Context) (*transport.Token, error) {
 	if err := ctx.Err(); err != nil {
-		return nil, err
+		return nil, safeOAuthError("mcp_oauth_token_read_failed", err)
 	}
 	row, err := s.repo.GetTokenForPrincipal(ctx, s.tenantID, s.principal, s.serviceID)
 	if err != nil {
-		return nil, err
+		return nil, safeOAuthError("mcp_oauth_token_read_failed", err)
 	}
 	if row == nil || row.AccessToken == "" {
 		return nil, transport.ErrNoToken
@@ -95,7 +95,7 @@ func (s *dbTokenStore) SaveToken(ctx context.Context, token *transport.Token) er
 		expiresAt = time.Now().Add(time.Duration(token.ExpiresIn) * time.Second)
 	}
 	principal := s.principal.Normalize()
-	return s.repo.SaveTokenForPrincipal(ctx, &types.MCPOAuthToken{
+	return safeOAuthError("mcp_oauth_token_write_failed", s.repo.SaveTokenForPrincipal(ctx, &types.MCPOAuthToken{
 		TenantID:      s.tenantID,
 		PrincipalType: principal.Type,
 		PrincipalID:   principal.ID,
@@ -105,5 +105,5 @@ func (s *dbTokenStore) SaveToken(ctx context.Context, token *transport.Token) er
 		RefreshToken:  token.RefreshToken,
 		TokenType:     token.TokenType,
 		ExpiresAt:     expiresAt,
-	})
+	}))
 }
