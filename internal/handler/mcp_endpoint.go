@@ -282,6 +282,9 @@ func writeMCPEndpointMgmtError(c *gin.Context, err error) {
 			case apperrors.ErrBadRequest, apperrors.ErrValidation:
 				c.JSON(http.StatusBadRequest, gin.H{"error": appErr.Message})
 				return
+			case apperrors.ErrConflict:
+				c.JSON(http.StatusConflict, gin.H{"error": appErr.Message})
+				return
 			}
 		}
 		logger.Error(c.Request.Context(), "mcp endpoint management failed", err)

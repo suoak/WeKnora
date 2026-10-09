@@ -222,9 +222,7 @@ func (s *mcpEndpointService) RotateToken(
 	if err != nil {
 		return nil, "", err
 	}
-	ep.TokenHash = HashMCPEndpointToken(token)
-	ep.TokenHint = mcpEndpointTokenHint(token)
-	if err := s.repo.Update(ctx, ep); err != nil {
+	if err := s.repo.RotateToken(ctx, ep, HashMCPEndpointToken(token), mcpEndpointTokenHint(token)); err != nil {
 		return nil, "", err
 	}
 	return ep, token, nil

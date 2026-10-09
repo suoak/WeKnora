@@ -12,7 +12,14 @@ type MCPEndpointRepository interface {
 	GetByID(ctx context.Context, id string) (*types.MCPEndpoint, error)
 	GetByTokenHash(ctx context.Context, tokenHash string) (*types.MCPEndpoint, error)
 	ListByTenant(ctx context.Context, tenantID uint64) ([]*types.MCPEndpoint, error)
+	// Update writes config fields only. ep must retain the loaded UpdatedAt and
+	// TokenHash; both are CAS predicates. Every config/credential mutation
+	// advances UpdatedAt monotonically, independently of last_used_at.
 	Update(ctx context.Context, ep *types.MCPEndpoint) error
+	// RotateToken uses ep's loaded UpdatedAt and TokenHash as the expected version.
+	// It changes only credentials and UpdatedAt, and publishes ep's new values
+	// only after the conditional write commits. Update never writes credentials.
+	RotateToken(ctx context.Context, ep *types.MCPEndpoint, tokenHash, tokenHint string) error
 	Delete(ctx context.Context, tenantID uint64, id string) error
 	TouchLastUsed(ctx context.Context, id string) error
 }
