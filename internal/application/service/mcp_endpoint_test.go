@@ -54,6 +54,18 @@ func (r *stubMCPEndpointRepo) Update(_ context.Context, ep *types.MCPEndpoint) e
 	return nil
 }
 
+func (r *stubMCPEndpointRepo) RotateToken(_ context.Context, ep *types.MCPEndpoint, hash, hint string) error {
+	row := r.rows[ep.ID]
+	if row == nil || row.TenantID != ep.TenantID || row.TokenHash != ep.TokenHash {
+		return apperrors.NewConflictError("mcp endpoint changed; reload before retrying")
+	}
+	cp := *row
+	cp.TokenHash, cp.TokenHint = hash, hint
+	r.rows[ep.ID] = &cp
+	ep.TokenHash, ep.TokenHint = hash, hint
+	return nil
+}
+
 func (r *stubMCPEndpointRepo) Delete(_ context.Context, tenantID uint64, id string) error {
 	if ep, ok := r.rows[id]; ok && ep.TenantID == tenantID {
 		delete(r.rows, id)
