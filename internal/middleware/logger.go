@@ -65,6 +65,11 @@ func sanitizeBody(body string) string {
 }
 
 var sensitiveQueryFields = map[string]struct{}{
+	// OAuth provider-controlled errors may echo credentials in any error field.
+	"client_secret":         {},
+	"error":                 {},
+	"error_description":     {},
+	"error_uri":             {},
 	"access_token":          {},
 	"authorization_attempt": {},
 	"code":                  {},

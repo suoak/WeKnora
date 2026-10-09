@@ -70,7 +70,15 @@ func (m *OAuthManager) newHandler(
 		AuthServerMetadataURL: service.AuthConfig.AuthServerMetadataURL,
 		HTTPClient:            secutils.NewSSRFSafeHTTPClient(httpCfg),
 	}
-	if existing, err := m.repo.GetClient(ctx, tenantID, service.ID); err == nil && existing != nil {
+	existing, err := m.repo.GetClient(ctx, tenantID, service.ID)
+	if err != nil {
+		// Repository errors may contain SQL parameters, including credentials.
+		return nil, fmt.Errorf("failed to load MCP oauth client")
+	}
+	if existing != nil && existing.ClientSecret != "" && secutils.GetAESKey() == nil {
+		return nil, fmt.Errorf("mcp_oauth_client_encryption_key_invalid")
+	}
+	if existing != nil {
 		cfg.ClientID = existing.ClientID
 		cfg.ClientSecret = existing.ClientSecret
 	}
@@ -109,22 +117,28 @@ func (m *OAuthManager) StartAuthorization(
 	}
 
 	// Register a client dynamically if we don't have one yet for this service.
-	existing, _ := m.repo.GetClient(ctx, tenantID, service.ID)
+	existing, err := m.repo.GetClient(ctx, tenantID, service.ID)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to load MCP oauth client")
+	}
 	if existing == nil {
 		if err := h.RegisterClient(ctx, clientRegistrationName); err != nil {
-			return "", "", fmt.Errorf("dynamic client registration failed: %w", err)
+			return "", "", safeOAuthError("mcp_oauth_registration_failed", err)
 		}
 		clientID := h.GetClientID()
 		if clientID == "" {
 			return "", "", fmt.Errorf("dynamic client registration returned an empty client_id")
 		}
 		if err := m.repo.SaveClient(ctx, &types.MCPOAuthClient{
-			TenantID:    tenantID,
-			ServiceID:   service.ID,
-			ClientID:    clientID,
-			RedirectURI: redirectURI,
+			TenantID:     tenantID,
+			ServiceID:    service.ID,
+			ClientID:     clientID,
+			ClientSecret: h.GetClientSecret(),
+			RedirectURI:  redirectURI,
 		}); err != nil {
-			logger.GetLogger(ctx).Warnf("failed to persist MCP oauth client: %v", err)
+			// Do not issue an authorization attempt that cannot be reconstructed.
+			// Do not expose repository errors containing credential parameters.
+			return "", "", fmt.Errorf("failed to persist MCP oauth client")
 		}
 	}
 
@@ -140,7 +154,7 @@ func (m *OAuthManager) StartAuthorization(
 
 	authURL, err := h.GetAuthorizationURL(ctx, state, challenge)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to build authorization URL: %w", err)
+		return "", "", safeOAuthError("mcp_oauth_discovery_failed", err)
 	}
 
 	if err := m.states.Put(ctx, state, OAuthState{
@@ -153,7 +167,7 @@ func (m *OAuthManager) StartAuthorization(
 		RedirectURI:      redirectURI,
 		FrontendRedirect: frontendRedirect,
 	}); err != nil {
-		return "", "", fmt.Errorf("failed to persist authorization state: %w", err)
+		return "", "", safeOAuthError("mcp_oauth_state_write_failed", err)
 	}
 
 	return authURL, state, nil
@@ -171,7 +185,7 @@ func (m *OAuthManager) StartAuthorizationForService(
 ) (string, error) {
 	service, err := m.serviceRepo.GetByID(ctx, tenantID, serviceID)
 	if err != nil {
-		return "", fmt.Errorf("failed to load MCP service: %w", err)
+		return "", safeOAuthError("mcp_oauth_service_read_failed", err)
 	}
 	if service == nil {
 		return "", fmt.Errorf("MCP service not found")
@@ -185,8 +199,21 @@ func (m *OAuthManager) StartAuthorizationForService(
 // Returns the frontend redirect URL and service ID recorded at
 // StartAuthorization time so the caller can recycle any cached transport that
 // still carries the previous OAuth client registration.
-func (m *OAuthManager) CompleteAuthorization(
-	ctx context.Context, state, code string,
+func (m *OAuthManager) CompleteAuthorization(ctx context.Context, state, code string) (string, string, error) {
+	return m.completeAuthorization(ctx, state, code, nil)
+}
+
+// CompleteAuthorizationAndInvalidate uses the authenticated state scope, not
+// callback request identity (the provider callback is a public route).
+func (m *OAuthManager) CompleteAuthorizationAndInvalidate(ctx context.Context, state, code string, manager *MCPManager) (string, string, error) {
+	return m.completeAuthorization(ctx, state, code, func(tenant uint64, principal types.Principal, service string) {
+		if manager != nil {
+			_ = manager.CloseOAuthClient(tenant, principal, service)
+		}
+	})
+}
+func (m *OAuthManager) completeAuthorization(
+	ctx context.Context, state, code string, authorized func(uint64, types.Principal, string),
 ) (frontendRedirect, serviceID string, err error) {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), oauthCallbackTimeout)
 	defer cancel()
@@ -210,7 +237,7 @@ func (m *OAuthManager) CompleteAuthorization(
 
 	service, err := m.serviceRepo.GetByID(ctx, st.TenantID, st.ServiceID)
 	if err != nil {
-		return frontendRedirect, serviceID, fmt.Errorf("failed to load MCP service: %w", err)
+		return frontendRedirect, serviceID, safeOAuthError("mcp_oauth_service_read_failed", err)
 	}
 	if service == nil {
 		return frontendRedirect, serviceID, fmt.Errorf("MCP service not found")
@@ -225,10 +252,13 @@ func (m *OAuthManager) CompleteAuthorization(
 	h.SetExpectedState(state)
 
 	if err := h.ProcessAuthorizationResponse(ctx, code, state, st.CodeVerifier); err != nil {
-		return frontendRedirect, serviceID, fmt.Errorf("token exchange failed: %w", err)
+		return frontendRedirect, serviceID, safeOAuthError("mcp_oauth_exchange_failed", err)
 	}
 	if err := m.states.CompleteAttempt(ctx, state); err != nil {
-		return frontendRedirect, serviceID, fmt.Errorf("failed to record authorization completion: %w", err)
+		return frontendRedirect, serviceID, safeOAuthError("mcp_oauth_completion_failed", err)
+	}
+	if authorized != nil {
+		authorized(st.TenantID, principal, serviceID)
 	}
 	// ProcessAuthorizationResponse persists the token via the TokenStore.
 	logger.GetLogger(ctx).Infof(
@@ -266,7 +296,7 @@ func (m *OAuthManager) AuthorizationStatus(
 ) (OAuthAuthorizationStatus, error) {
 	tok, err := m.repo.GetTokenForPrincipal(ctx, tenantID, principal, serviceID)
 	if err != nil {
-		return OAuthAuthorizationStatus{}, err
+		return OAuthAuthorizationStatus{}, safeOAuthError("mcp_oauth_token_read_failed", err)
 	}
 	return tokenStatus(tok, time.Now()), nil
 }
@@ -288,7 +318,7 @@ func (m *OAuthManager) IsAuthorized(
 func (m *OAuthManager) Revoke(
 	ctx context.Context, tenantID uint64, principal types.Principal, serviceID string,
 ) error {
-	return m.repo.DeleteTokenForPrincipal(ctx, tenantID, principal, serviceID)
+	return safeOAuthError("mcp_oauth_revoke_failed", m.repo.DeleteTokenForPrincipal(ctx, tenantID, principal, serviceID))
 }
 
 // validateFrontendRedirect accepts application-relative paths or the explicitly
