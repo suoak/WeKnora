@@ -685,6 +685,12 @@ const messages = {
       autoSaveNeedSecret: '서명 토큰 모드는 자동 저장 전에 HMAC secret이 필요합니다.'
     },
     mcpserver: {
+      scopeOwnLabel: "{name} · 내 공간: {space}",
+      scopeSharedLabel: "{name} · 원본 공간 #{space} · {source}에서 공유",
+      scopeLoadFailed: "지식 베이스 권한을 새로 고칠 수 없습니다. 저장 전에 다시 시도하세요.",
+      scopeEmpty: "사용 가능한 지식 베이스가 없습니다.",
+      scopeUnavailable: "선택한 일부 지식 베이스를 사용할 수 없습니다. 해당 선택을 해제한 후 저장하세요.",
+
       title: 'MCP 서버',
       subtitle: '이 워크스페이스를 MCP 서버로 게시하여 Claude Desktop, Cursor, Claude Code 등 MCP 클라이언트가 직접 연결하게 합니다. 엔드포인트마다 별도의 토큰, 지식 베이스 범위, 도구 목록을 가집니다.',
       listTitle: '게시된 엔드포인트',

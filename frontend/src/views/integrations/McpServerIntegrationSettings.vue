@@ -85,6 +85,7 @@
       storage-key="setting-drawer:mcp-endpoint"
       width="600px"
       :confirm-loading="saving"
+      :confirm-disabled="wizardStep === 0 && (kbLoading || kbLoadFailed || unavailableKBs.length > 0)"
       :confirm-text="drawerConfirmText"
       :hide-footer="!isAdmin"
       :close-on-overlay-click="!freshToken"
@@ -142,10 +143,19 @@
               filterable
               clearable
               :loading="kbLoading"
+              :disabled="kbLoading || !isAdmin"
               :options="kbOptions"
               :placeholder="$t('integrations.mcpserver.kbScopePlaceholder')"
             />
             <p class="form-desc">{{ $t('integrations.mcpserver.kbScopeHint') }}</p>
+            <p v-if="kbLoadFailed" class="form-desc form-desc--error" role="alert">
+              {{ $t('integrations.mcpserver.scopeLoadFailed') }}
+              <t-button variant="text" :disabled="kbLoading" @click="loadOptions">{{ $t('loadState.retry') }}</t-button>
+            </p>
+            <p v-else-if="!kbLoading && !knowledgeBases.length" class="form-desc">{{ $t('integrations.mcpserver.scopeEmpty') }}</p>
+            <p v-if="!kbLoading && !kbLoadFailed && unavailableKBs.length" class="form-desc form-desc--error" role="alert">
+              {{ $t('integrations.mcpserver.scopeUnavailable') }}
+            </p>
           </div>
         </section>
 
@@ -262,6 +272,9 @@ import { useApiBaseUrlDisplay } from '@/composables/useApiBaseUrlDisplay'
 import SettingDrawer from '@/components/settings/SettingDrawer.vue'
 import type { CustomAgent } from '@/api/agent'
 import { useChatResourcesStore } from '@/stores/chatResources'
+import { listKnowledgeBases } from '@/api/knowledge-base'
+import { listSharedKnowledgeBases } from '@/api/organization'
+import { loadMcpKnowledgeBaseOptions, type ScopeKnowledgeBase } from './mcpKnowledgeBaseOptions'
 import {
   createMcpEndpoint,
   deleteMcpEndpoint,
@@ -293,8 +306,13 @@ const endpoints = ref<McpEndpoint[]>([])
 const catalog = ref<McpEndpointToolCatalog>({ groups: [], tools: [], default_tools: [] })
 
 const kbLoading = ref(false)
-const knowledgeBases = ref<{ id: string; name: string }[]>([])
-const kbOptions = computed(() => knowledgeBases.value.map((kb) => ({ label: kb.name || kb.id, value: kb.id })))
+const kbLoadFailed = ref(false)
+let optionsRequest = 0
+const knowledgeBases = ref<ScopeKnowledgeBase[]>([])
+const kbOptions = computed(() => knowledgeBases.value.map((kb) => ({
+  label: t(kb.sources.length ? 'integrations.mcpserver.scopeSharedLabel' : 'integrations.mcpserver.scopeOwnLabel',
+    { name: kb.name, space: kb.space, source: kb.sources.join(', ') }), value: kb.id,
+})))
 const kbNameById = computed(() => Object.fromEntries(knowledgeBases.value.map((kb) => [kb.id, kb.name || kb.id])))
 
 const agentsLoading = ref(false)
@@ -332,6 +350,7 @@ const form = reactive({
   rate_limit_per_minute: 60,
 })
 const toolSelections = reactive<Record<string, boolean>>({})
+const unavailableKBs = computed(() => form.knowledge_base_ids.filter(id => !knowledgeBases.value.some(kb => kb.id === id)))
 
 const groupedTools = computed(() => groupTools(catalog.value.groups, catalog.value.tools))
 const selectedToolNames = computed(() => catalog.value.tools.filter((tl) => toolSelections[tl.name]).map((tl) => tl.name))
@@ -396,22 +415,31 @@ async function load() {
 }
 
 async function loadOptions() {
+  const request = ++optionsRequest
+  const tenant = authStore.effectiveTenantId
   kbLoading.value = true
+  kbLoadFailed.value = false
+  knowledgeBases.value = []
   agentsLoading.value = true
   try {
-    // 刷新失败时给空列表，而不是把上一次的共享快照当成本次结果展示。
     const [kbResult, agentResult] = await Promise.allSettled([
-      chatResources.ensureKnowledgeBases(),
+      loadMcpKnowledgeBaseOptions(() => listKnowledgeBases() as any, listSharedKnowledgeBases,
+        authStore.currentTenantName || String(tenant)),
       chatResources.ensureAgents(),
     ])
-    const kbRows = kbResult.status === 'fulfilled'
-      ? (chatResources.rawKnowledgeBases as Array<{ id: string | number; name?: string }>)
-      : []
-    knowledgeBases.value = kbRows.map((kb) => ({ id: String(kb.id), name: kb.name || String(kb.id) }))
+    if (request !== optionsRequest || tenant !== authStore.effectiveTenantId) {
+      if (request === optionsRequest) kbLoadFailed.value = true
+      return false
+    }
+    knowledgeBases.value = kbResult.status === 'fulfilled' ? kbResult.value.rows : []
+    kbLoadFailed.value = kbResult.status !== 'fulfilled' || kbResult.value.failed
     agents.value = agentResult.status === 'fulfilled' ? (chatResources.agents as CustomAgent[]) : []
+    return !kbLoadFailed.value
   } finally {
-    kbLoading.value = false
-    agentsLoading.value = false
+    if (request === optionsRequest) {
+      kbLoading.value = false
+      agentsLoading.value = false
+    }
   }
 }
 
@@ -476,6 +504,13 @@ async function saveForm() {
   }
   saving.value = true
   try {
+    // Recheck the live list without clearing configured IDs. Server-side ResolveKB
+    // remains authoritative if access changes between this read and the write.
+    const optionsReady = await loadOptions()
+    if (!optionsReady || kbLoadFailed.value || unavailableKBs.value.length) {
+      MessagePlugin.warning(t(kbLoadFailed.value ? 'integrations.mcpserver.scopeLoadFailed' : 'integrations.mcpserver.scopeUnavailable'))
+      return
+    }
     const payload = buildPayload()
     if (editing.value) {
       await updateMcpEndpoint(editing.value.id, payload)

@@ -6944,6 +6944,12 @@ const messages = {
     },
     title: '公開と連携',
     mcpserver: {
+      scopeOwnLabel: "{name} · 自分のスペース：{space}",
+      scopeSharedLabel: "{name} · 元のスペース #{space} · {source} から共有",
+      scopeLoadFailed: "ナレッジベースの権限を更新できません。再試行してから保存してください。",
+      scopeEmpty: "利用可能なナレッジベースがありません。",
+      scopeUnavailable: "選択した一部のナレッジベースは利用できません。選択を解除してから保存してください。",
+
       title: 'MCP サーバー',
       subtitle: 'このワークスペースを MCP サーバーとして公開し、Claude Desktop、Cursor、Claude Code などの MCP クライアントから直接接続できます。エンドポイントごとにトークン、ナレッジベース範囲、ツール一覧を設定します。',
       listTitle: '公開中のエンドポイント',
