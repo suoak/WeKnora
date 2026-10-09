@@ -2,8 +2,8 @@
 import hashlib, json, os, platform, subprocess, sys, time
 from pathlib import Path
 BASELINE = "1cbde4617aceab31b8928feb705599e2d65c7158"
-SOURCE_BLOBS = {'internal/middleware/logger.go': 'a65ef0f98d55e9a3fb0fd6b316d7a85c1bbb6014', 'internal/middleware/logger_test.go': '79fe6d814e3c2190ee0f2b173c70cf5391cdb7aa', 'internal/utils/httputil.go': '8a8da886b93135059dc5bcb00988177dcf6b0249', 'internal/utils/httputil_test.go': 'f28b5bd91cc96e29938f8feaf5b61f49d0143bf9', 'internal/datasource/connector/gitlab/client.go': 'e9989525a7d4810d2c2dad2aec1e0257a9d2cbcc', 'internal/datasource/connector/gitlab/pagination_guard_test.go': '651e957114e0de33ff87d1ddabddfd1a34402c71', 'internal/datasource/connector/gitlab/pagination_recovery_test.go': 'e203a7d32149ad4c6fbfe57f721ef1d7bc701844', 'internal/application/service/datasource_gitlab_pagination_test.go': '33371771897618d509590884b044830c222b6d3b'}
-PATCH_SHA256 = "e5f14908d5fb4839c71a51b245d916e2a72dd40997b0b511627f5e463e9e8774"
+SOURCE_BLOBS = {'internal/middleware/logger.go': 'a65ef0f98d55e9a3fb0fd6b316d7a85c1bbb6014', 'internal/middleware/logger_test.go': '79fe6d814e3c2190ee0f2b173c70cf5391cdb7aa', 'internal/utils/httputil.go': '8a8da886b93135059dc5bcb00988177dcf6b0249', 'internal/utils/httputil_test.go': 'f28b5bd91cc96e29938f8feaf5b61f49d0143bf9', 'internal/datasource/connector/gitlab/client.go': 'e9989525a7d4810d2c2dad2aec1e0257a9d2cbcc', 'internal/datasource/connector/gitlab/pagination_guard_test.go': '651e957114e0de33ff87d1ddabddfd1a34402c71', 'internal/datasource/connector/gitlab/pagination_recovery_test.go': '1ff84c6bf0bf8e91772c4fe0251331f0bef38165', 'internal/application/service/datasource_gitlab_pagination_test.go': '33371771897618d509590884b044830c222b6d3b'}
+PATCH_SHA256 = "89796196adcbb202f7cc6a6eb86e9d7c6c8df6e275732c9cf5657107a9beb148"
 RECIPE = {".github/workflows/knowhub25-a1-combined-linux.yml", ".github/scripts/knowhub25_a1_combined_ci.py"}
 PACKAGES = ["./internal/middleware", "./internal/utils", "./internal/datasource/connector/gitlab", "./internal/application/service"]
 REQUIRED = {

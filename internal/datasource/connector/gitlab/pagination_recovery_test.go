@@ -91,13 +91,13 @@ func TestGitLabStreamPaginationFailureAndRetry(t *testing.T) {
 		case "/api/v4/projects/1/repository/commits/main":
 			_, _ = w.Write([]byte(`{"id":"head"}`))
 		case "/api/v4/projects/1/repository/tree":
-			if r.URL.Query().Get("path") == "good" {
-				_, _ = w.Write([]byte(`[{"type":"blob","name":"a.md","path":"good/a.md"}]`))
+			if r.URL.Query().Get("path") == "a-good" {
+				_, _ = w.Write([]byte(`[{"type":"blob","name":"a.md","path":"a-good/a.md"}]`))
 			} else {
 				if broken {
 					w.Header().Set("X-Next-Page", "2")
 				}
-				_, _ = w.Write([]byte(`[{"type":"blob","name":"b.md","path":"broken/b.md"}]`))
+				_, _ = w.Write([]byte(`[{"type":"blob","name":"b.md","path":"z-broken/b.md"}]`))
 			}
 		default:
 			if strings.Contains(r.URL.EscapedPath(), "/repository/files/") {
@@ -111,9 +111,14 @@ func TestGitLabStreamPaginationFailureAndRetry(t *testing.T) {
 	config := &types.DataSourceConfig{
 		Credentials: map[string]interface{}{"base_url": server.URL, "access_token": "test-token"},
 		Settings: map[string]interface{}{"projects": []interface{}{
-			map[string]interface{}{"project_id": "1", "paths": []interface{}{"good", "broken"}},
+			map[string]interface{}{"project_id": "1", "paths": []interface{}{"a-good", "z-broken"}},
 		}},
 	}
+	normalized, err := parseConfig(config)
+	require.NoError(t, err)
+	require.Len(t, normalized.Projects, 1)
+	require.Equal(t, []string{"a-good", "z-broken"}, normalized.Projects[0].Paths,
+		"normalized roots must visit the successful directory before the failing directory")
 	old := gitLabCursor(cursor{Projects: map[string]string{"9": "retained"}})
 	store := &paginationRecoveryStore{documents: map[string]types.FetchedItem{"existing": {ExternalID: "existing"}}, checkpoint: old}
 	connector := NewConnector()
