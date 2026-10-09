@@ -7043,6 +7043,12 @@ export default {
     },
     title: 'Publish & Integrations',
     mcpserver: {
+      scopeOwnLabel: "{name} · Own space: {space}",
+      scopeSharedLabel: "{name} · Source space #{space} · Shared via {source}",
+      scopeLoadFailed: "Failed to refresh knowledge base permissions. Retry before saving.",
+      scopeEmpty: "No knowledge bases available.",
+      scopeUnavailable: "Some selected knowledge bases are unavailable. Remove those selections before saving.",
+
       title: 'MCP Server',
       subtitle: 'Publish this workspace as an MCP server that Claude Desktop, Cursor, Claude Code and other MCP clients connect to directly. Each endpoint has its own token, knowledge-base scope and tool list.',
       listTitle: 'Published endpoints',

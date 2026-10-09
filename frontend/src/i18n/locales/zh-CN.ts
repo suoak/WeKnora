@@ -754,6 +754,12 @@ export default {
       autoSaveNeedSecret: '签名 Token 模式需要填写 HMAC 密钥后才能自动保存。'
     },
     mcpserver: {
+      scopeOwnLabel: "{name} · 自有空间：{space}",
+      scopeSharedLabel: "{name} · 来源空间 #{space} · 共享自 {source}",
+      scopeLoadFailed: "知识库授权列表加载失败，请重试后保存。",
+      scopeEmpty: "暂无可用知识库。",
+      scopeUnavailable: "部分已选知识库已不可用，请移除这些选择后再保存。",
+
       title: 'MCP Server',
       subtitle: '把当前空间发布为 MCP 服务，供 Claude Desktop、Cursor、Claude Code 等 MCP 客户端直接连接。每个端点有独立的令牌、知识库范围和工具清单。',
       listTitle: '已发布的端点',
