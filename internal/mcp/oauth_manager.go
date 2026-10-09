@@ -70,7 +70,12 @@ func (m *OAuthManager) newHandler(
 		AuthServerMetadataURL: service.AuthConfig.AuthServerMetadataURL,
 		HTTPClient:            secutils.NewSSRFSafeHTTPClient(httpCfg),
 	}
-	if existing, err := m.repo.GetClient(ctx, tenantID, service.ID); err == nil && existing != nil {
+	existing, err := m.repo.GetClient(ctx, tenantID, service.ID)
+	if err != nil {
+		// Repository errors may contain SQL parameters, including credentials.
+		return nil, fmt.Errorf("failed to load MCP oauth client")
+	}
+	if existing != nil {
 		cfg.ClientID = existing.ClientID
 		cfg.ClientSecret = existing.ClientSecret
 	}
@@ -109,7 +114,10 @@ func (m *OAuthManager) StartAuthorization(
 	}
 
 	// Register a client dynamically if we don't have one yet for this service.
-	existing, _ := m.repo.GetClient(ctx, tenantID, service.ID)
+	existing, err := m.repo.GetClient(ctx, tenantID, service.ID)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to load MCP oauth client")
+	}
 	if existing == nil {
 		if err := h.RegisterClient(ctx, clientRegistrationName); err != nil {
 			return "", "", fmt.Errorf("dynamic client registration failed: %w", err)
@@ -119,12 +127,15 @@ func (m *OAuthManager) StartAuthorization(
 			return "", "", fmt.Errorf("dynamic client registration returned an empty client_id")
 		}
 		if err := m.repo.SaveClient(ctx, &types.MCPOAuthClient{
-			TenantID:    tenantID,
-			ServiceID:   service.ID,
-			ClientID:    clientID,
-			RedirectURI: redirectURI,
+			TenantID:     tenantID,
+			ServiceID:    service.ID,
+			ClientID:     clientID,
+			ClientSecret: h.GetClientSecret(),
+			RedirectURI:  redirectURI,
 		}); err != nil {
-			logger.GetLogger(ctx).Warnf("failed to persist MCP oauth client: %v", err)
+			// Do not issue an authorization attempt that cannot be reconstructed.
+			// Do not expose repository errors containing credential parameters.
+			return "", "", fmt.Errorf("failed to persist MCP oauth client")
 		}
 	}
 

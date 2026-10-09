@@ -68,11 +68,14 @@ type ClientConfig struct {
 
 // mcpGoClient wraps mark3labs/mcp-go client to implement our MCPClient interface
 type mcpGoClient struct {
-	service      *types.MCPService
-	client       *client.Client
-	oauth        *oauthRuntime
-	connected    atomic.Bool
-	initialized  atomic.Bool
+	service     *types.MCPService
+	client      *client.Client
+	oauth       *oauthRuntime
+	connected   atomic.Bool
+	initialized atomic.Bool
+	// Retain whether initialization negotiated a session; the SDK clears its
+	// session ID before returning ErrSessionTerminated on any POST 404.
+	sessionBased atomic.Bool
 	metadataMu   sync.RWMutex
 	instructions string
 }
@@ -308,7 +311,8 @@ func (c *mcpGoClient) checkErrorAndDisconnectIfNeeded(err error) {
 	// Known session invalidation errors from MCP servers:
 	//   - "Invalid session ID"  — server recognises the header but rejects the value
 	//   - "No active connection" — server has no record of the session at all
-	if strings.Contains(errMsg, "Invalid session ID") ||
+	if (c.sessionBased.Load() && errors.Is(transportErr.Err, transport.ErrSessionTerminated)) ||
+		strings.Contains(errMsg, "Invalid session ID") ||
 		strings.Contains(errMsg, "No active connection") {
 		_ = c.Disconnect()
 	}
@@ -366,6 +370,7 @@ func (c *mcpGoClient) Disconnect() error {
 		return nil
 	}
 	c.initialized.Store(false)
+	c.sessionBased.Store(false)
 
 	// Close the client
 	if c.client != nil {
@@ -404,6 +409,7 @@ func (c *mcpGoClient) Initialize(ctx context.Context) (*InitializeResult, error)
 	}
 
 	c.initialized.Store(true)
+	c.sessionBased.Store(c.client.GetSessionId() != "")
 	c.metadataMu.Lock()
 	c.instructions = result.Instructions
 	c.metadataMu.Unlock()
