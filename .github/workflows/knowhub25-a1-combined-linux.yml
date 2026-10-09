@@ -1,0 +1,57 @@
+name: KnowHub25 A1 Linux CGO joint comparison
+on:
+  push:
+    branches: [ci/knowhub25-a1-combined-20261009]
+permissions:
+  contents: read
+concurrency:
+  group: knowhub25-a1-combined-${{ github.ref }}
+  cancel-in-progress: false
+env:
+  CGO_ENABLED: '1'
+  GOTOOLCHAIN: local
+jobs:
+  compare:
+    if: github.repository == 'suoak/WeKnora' && github.ref == 'refs/heads/ci/knowhub25-a1-combined-20261009'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Initialize evidence
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/evidence"
+          uname -a > "$GITHUB_WORKSPACE/evidence/runner.txt"
+          printf 'ImageOS=%s ImageVersion=%s RunnerArch=%s\n' "$ImageOS" "$ImageVersion" "$RUNNER_ARCH" >> "$GITHUB_WORKSPACE/evidence/runner.txt"
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.sha }}
+          path: candidate
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: 1cbde4617aceab31b8928feb705599e2d65c7158
+          path: baseline
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: '1.26.7'
+          architecture: x64
+          cache: false
+      - name: Check source identities and execute whole packages
+        env:
+          GOMODCACHE: ${{ runner.temp }}/knowhub25-a1-combined-modules
+          GOCACHE: ${{ runner.temp }}/knowhub25-a1-combined-build
+        run: python3 -B candidate/.github/scripts/knowhub25_a1_combined_ci.py
+      - name: Preserve logs and artifacts
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: knowhub25-a1-combined-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            evidence/**/*.json
+            evidence/**/*.jsonl
+            evidence/**/*.log
+            evidence/**/*.txt
+            evidence/**/*.patch
+          if-no-files-found: error
+          retention-days: 14
