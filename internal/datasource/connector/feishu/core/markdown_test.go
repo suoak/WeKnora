@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -291,5 +292,20 @@ func TestBlocksToMarkdown_CalloutContainerNoOp(t *testing.T) {
 	}
 	if strings.TrimSpace(string(md)) != "" {
 		t.Errorf("empty callout should Emit nothing, got:\n%q", md)
+	}
+}
+
+func TestA4MarkdownIntegrityFailuresDoNotEmitPartialContent(t *testing.T) {
+	for _, err := range []error{ErrBitableFieldsIncomplete, ErrResponseTooLarge, context.Canceled, context.DeadlineExceeded} {
+		blocks := []DocxBlock{{BlockType: BlockTypeText, Text: txt("already rendered")}, {BlockType: BlockTypeBitable, Bitable: &BlockTokenRef{Token: "app_table"}}, {BlockType: BlockTypeFile, File: &BlockFileRef{Token: "synthetic-file"}}}
+		md, atts, got := blocksToMarkdown(context.Background(), fakeReader{bitableErr: fmt.Errorf("read: %w", err)}, blocks)
+		if !errors.Is(got, err) || md != nil || atts != nil {
+			t.Fatalf("partial conversion accepted: %v", got)
+		}
+	}
+	// Ordinary existing permission failures retain the inline note behavior.
+	md, _, err := blocksToMarkdown(context.Background(), fakeReader{bitableErr: ErrPermission}, []DocxBlock{{BlockType: BlockTypeBitable, Bitable: &BlockTokenRef{Token: "app_table"}}})
+	if err != nil || len(md) == 0 {
+		t.Fatal("ordinary permission degradation changed")
 	}
 }

@@ -1,11 +1,14 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -503,5 +506,64 @@ func TestParseRetryAfter(t *testing.T) {
 		if got := parseRetryAfter(tt.header, fallback); got != tt.want {
 			t.Errorf("parseRetryAfter(%q) = %v, want %v", tt.header, got, tt.want)
 		}
+	}
+}
+
+type a4ObservedBody struct {
+	io.Reader
+	closed bool
+}
+
+func (b *a4ObservedBody) Close() error { b.closed = true; return nil }
+func TestA4FeishuJSONCapClosesBodyAndNeverRetries(t *testing.T) {
+	for _, status := range []int{200, 401, 403, 429, 500} {
+		for _, length := range []int64{-1, maxJSONResponseBytes + 1} {
+			t.Run(fmt.Sprintf("status%d-length%d", status, length), func(t *testing.T) {
+				calls := 0
+				body := &a4ObservedBody{Reader: strings.NewReader(strings.Repeat("x", int(maxJSONResponseBytes+1)))}
+				c := &Client{httpClient: &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+					calls++
+					return &http.Response{StatusCode: status, Header: make(http.Header), Body: body, ContentLength: length}, nil
+				})}}
+				data, err := c.doRequestBytes(context.Background(), "cap_test", http.MethodGet, "http://synthetic.invalid/", nil, false, false, 0)
+				if data != nil || !errors.Is(err, ErrResponseTooLarge) || calls != 1 || !body.closed {
+					t.Fatalf("cap lifecycle: err=%v calls=%d closed=%v", err, calls, body.closed)
+				}
+				api, ok := asAPIError(err)
+				if !ok {
+					t.Fatal("missing API classification")
+				}
+				if status != 200 && api.Category != classifyAPIError(status, 0) {
+					t.Fatal("HTTP classification lost")
+				}
+				// A second non-rate-limited request must acquire a permit normally.
+				if status != 429 {
+					c.httpClient.Transport = roundTripFunc(func(*http.Request) (*http.Response, error) {
+						return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{"code":0}`))}, nil
+					})
+					if _, err = c.doRequestBytes(context.Background(), "after_cap", http.MethodGet, "http://synthetic.invalid/", nil, false, false, 0); err != nil {
+						t.Fatal(err)
+					}
+				}
+			})
+		}
+	}
+}
+func TestA4FeishuJSONBoundaryAndBinaryBoundUnchanged(t *testing.T) {
+	for _, n := range []int64{maxJSONResponseBytes - 1, maxJSONResponseBytes} {
+		c := &Client{httpClient: &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(bytes.NewReader(bytes.Repeat([]byte(" "), int(n))))}, nil
+		})}}
+		data, err := c.doRequestBytes(context.Background(), "boundary", http.MethodGet, "http://synthetic.invalid/", nil, false, false, 0)
+		if err != nil || int64(len(data)) != n {
+			t.Fatal("legal boundary rejected")
+		}
+	}
+	c := &Client{httpClient: &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader("12345"))}, nil
+	})}}
+	data, err := c.doRequestBytes(context.Background(), "binary", http.MethodGet, "http://synthetic.invalid/", nil, false, true, 5)
+	if err != nil || string(data) != "12345" {
+		t.Fatal("binary boundary changed")
 	}
 }

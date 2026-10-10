@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -63,8 +64,8 @@ func (c *client) callAPI(ctx context.Context, action string, req interface{}, re
 
 // callAPIAt executes an authenticated POST to <basePath>/<action>. It parses
 // the standard {code, msg, data} envelope and unmarshals `data` into `result`.
-// A non-zero business code is returned as a plain error so the caller can
-// surface `msg` to the user.
+// Business error codes remain available, but provider-controlled text is not
+// included in user-visible errors.
 //
 // basePath is a parameter because notes live under a second namespace
 // (/openapi/note/v1) that shares this authentication and envelope.
@@ -128,8 +129,14 @@ func (c *client) callAPIAt(
 			return lastErr
 		}
 
-		respBody, readErr := io.ReadAll(resp.Body)
+		respBody, readErr := readCappedJSON(resp.Body)
 		_ = resp.Body.Close()
+		if errors.Is(readErr, ErrResponseTooLarge) {
+			if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+				return fmt.Errorf("response size limit: status=%d: %w", resp.StatusCode, errors.Join(ErrResponseTooLarge, datasource.ErrInvalidCredentials))
+			}
+			return fmt.Errorf("response size limit: status=%d: %w", resp.StatusCode, ErrResponseTooLarge)
+		}
 		if readErr != nil {
 			lastErr = fmt.Errorf("read response: %w", readErr)
 			if attempt < maxRetries {
@@ -144,7 +151,7 @@ func (c *client) callAPIAt(
 		// The body is only ever logged on an error path: successful responses
 		// (get_media_info in particular) carry pre-signed storage URLs and
 		// per-request auth headers that must not land in the server log.
-		bodyPreview := truncate(string(respBody), 500)
+		bodyPreview := "provider response omitted"
 		logger.Infof(ctx, "[IMA] POST %s → status=%d bodyLen=%d", label, resp.StatusCode, len(respBody))
 
 		// HTTP-level auth failures: surface as ErrInvalidCredentials.
@@ -189,21 +196,21 @@ func (c *client) callAPIAt(
 		// 110030 (无权限) is mapped to ErrInvalidCredentials so the service marks
 		// the source in `error` state and stops scheduling until re-authenticated.
 		// 110021 (限频) is retried. Everything else — including 110001 (参数非法),
-		// which is a bug on our side rather than a credential problem — surfaces
-		// verbatim so the user sees IMA's own message.
+		// which is a bug on our side rather than a credential problem — retains
+		// its code without exposing provider-controlled message text.
 		if code := env.statusCode(); code != 0 {
 			if code == 110030 {
 				return fmt.Errorf("%w: ima code=%d msg=%s",
-					datasource.ErrInvalidCredentials, code, env.message())
+					datasource.ErrInvalidCredentials, code, "provider response omitted")
 			}
 			if code == 110021 && attempt < maxRetries {
-				lastErr = fmt.Errorf("ima rate limited: code=%d msg=%s", code, env.message())
+				lastErr = fmt.Errorf("ima rate limited: code=%d msg=%s", code, "provider response omitted")
 				if sErr := sleepCtx(ctx, backoff[minInt(attempt, len(backoff)-1)]); sErr != nil {
 					return sErr
 				}
 				continue
 			}
-			return fmt.Errorf("ima api error: code=%d msg=%s", code, env.message())
+			return fmt.Errorf("ima api error: code=%d msg=%s", code, "provider response omitted")
 		}
 
 		if result != nil && len(env.Data) > 0 && string(env.Data) != "null" {
@@ -400,4 +407,20 @@ func minInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// The limit includes all JSON responses, including non-success HTTP statuses.
+const maxJSONResponseBytes int64 = 16 * 1024 * 1024
+
+var ErrResponseTooLarge = errors.New("ima response exceeds size limit")
+
+func readCappedJSON(body io.Reader) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(body, maxJSONResponseBytes+1))
+	if int64(len(data)) > maxJSONResponseBytes {
+		return nil, ErrResponseTooLarge
+	}
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }
