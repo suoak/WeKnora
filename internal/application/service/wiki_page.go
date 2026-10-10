@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"regexp"
@@ -888,10 +889,30 @@ func (s *wikiPageService) GetStats(ctx context.Context, kbID string) (*types.Wik
 }
 
 // RebuildLinks re-parses all pages and rebuilds bidirectional link references
+// WikiRebuildLinksError reports best-effort partial completion. Causes are
+// intentionally not embedded: provider/SQL errors may contain credentials.
+// Successful metadata writes remain committed and retry is idempotent.
+type WikiRebuildLinksError struct {
+	FailedCount    int
+	TotalCount     int
+	FailedPageRefs []string
+	LookupFailed   bool
+	cause          error
+}
+
+func (e *WikiRebuildLinksError) Unwrap() error { return e.cause }
+
+func (e *WikiRebuildLinksError) Error() string {
+	if e.LookupFailed {
+		return "wiki link source lookup failed"
+	}
+	return fmt.Sprintf("wiki link rebuild incomplete: %d of %d pages failed", e.FailedCount, e.TotalCount)
+}
+
 func (s *wikiPageService) RebuildLinks(ctx context.Context, kbID string) error {
 	pages, err := s.repo.ListAll(ctx, kbID)
 	if err != nil {
-		return err
+		return &WikiRebuildLinksError{LookupFailed: true, cause: err}
 	}
 
 	// Build slug-to-page map
@@ -915,14 +936,24 @@ func (s *wikiPageService) RebuildLinks(ctx context.Context, kbID string) error {
 		}
 	}
 
+	failed := &WikiRebuildLinksError{TotalCount: len(pages)}
 	// Save all pages (link rebuild is metadata-only, no version bump)
 	for _, p := range pages {
 		p.UpdatedAt = time.Now()
 		if err := s.repo.UpdateMeta(ctx, p); err != nil {
-			logger.Warnf(ctx, "wiki: failed to update links for page %s: %v", p.Slug, err)
+			ref := sha256.Sum256([]byte(p.ID))
+			safeRef := fmt.Sprintf("%x", ref[:6])
+			failed.FailedCount++
+			failed.cause = errors.Join(failed.cause, err)
+			failed.FailedPageRefs = append(failed.FailedPageRefs, safeRef)
+			logger.Warnf(ctx, "wiki: link metadata update failed page_ref=%s", safeRef)
 		}
 	}
 
+	if failed.FailedCount > 0 {
+		logger.Warnf(ctx, "wiki: link rebuild incomplete failed_count=%d total_count=%d", failed.FailedCount, failed.TotalCount)
+		return failed
+	}
 	return nil
 }
 
