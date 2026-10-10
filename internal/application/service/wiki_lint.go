@@ -343,6 +343,19 @@ func (s *WikiLintService) RunLint(ctx context.Context, kbID string) (*WikiLintRe
 }
 
 // AutoFix attempts to automatically fix fixable issues
+// WikiAutoFixIncompleteError preserves the number of already committed fixes
+// without exposing the underlying SQL/provider error to the HTTP caller.
+type WikiAutoFixIncompleteError struct {
+	AppliedFixes int
+	cause        error
+}
+
+func (e *WikiAutoFixIncompleteError) Error() string {
+	return fmt.Sprintf("wiki auto-fix incomplete: %d fixes applied; link rebuild failed; retry required", e.AppliedFixes)
+}
+
+func (e *WikiAutoFixIncompleteError) Unwrap() error { return e.cause }
+
 func (s *WikiLintService) AutoFix(ctx context.Context, kbID string) (int, error) {
 	report, err := s.RunLint(ctx, kbID)
 	if err != nil {
@@ -419,7 +432,10 @@ func (s *WikiLintService) AutoFix(ctx context.Context, kbID string) (int, error)
 
 	// Rebuild links after fixes
 	if fixed > 0 {
-		_ = s.wikiService.RebuildLinks(ctx, kbID)
+		if err := s.wikiService.RebuildLinks(ctx, kbID); err != nil {
+			logger.Warnf(ctx, "wiki auto-fix incomplete: applied_fixes=%d; link rebuild failed", fixed)
+			return fixed, &WikiAutoFixIncompleteError{AppliedFixes: fixed, cause: err}
+		}
 	}
 
 	logger.Infof(ctx, "wiki auto-fix: KB %s — fixed %d issues", kbID, fixed)

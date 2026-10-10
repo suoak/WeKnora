@@ -1148,7 +1148,13 @@ func (h *WikiPageHandler) RebuildLinks(c *gin.Context) {
 	}
 
 	if err := h.wikiService.RebuildLinks(c.Request.Context(), kbID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response := gin.H{"error": "Wiki link rebuild failed; retry the operation", "code": "WIKI_LINK_REBUILD_FAILED"}
+		var partial *service.WikiRebuildLinksError
+		if stderrors.As(err, &partial) && !partial.LookupFailed {
+			response["failed_count"] = partial.FailedCount
+			response["total_count"] = partial.TotalCount
+		}
+		c.JSON(http.StatusInternalServerError, response)
 		return
 	}
 

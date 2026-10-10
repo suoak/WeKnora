@@ -88,6 +88,8 @@ type WikiPageService interface {
 	GetStats(ctx context.Context, kbID string) (*types.WikiStats, error)
 
 	// RebuildLinks re-parses all pages and rebuilds bidirectional link references.
+	// Returns an error if any metadata write fails; successful writes are retained
+	// (not rolled back). Callers must propagate failure instead of claiming completion.
 	RebuildLinks(ctx context.Context, kbID string) error
 
 	// InjectCrossLinks scans specified pages and injects [[wiki-links]] for mentions
