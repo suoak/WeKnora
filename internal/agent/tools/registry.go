@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"runtime/debug"
 	"sort"
 	"strings"
 	"unicode/utf8"
@@ -295,12 +294,16 @@ func (r *ToolRegistry) execute(ctx context.Context, tool types.Tool, args json.R
 // run on errgroup goroutines when a round executes in parallel, and errgroup
 // does not carry a panic back to Wait: an unrecovered one from any tool (MCP
 // clients, sandboxes, third-party SDKs) would take down the whole server.
+//
+// recover only covers the goroutine that calls it, so this guards the
+// tool.Execute call alone: a goroutine a tool starts for itself must install
+// its own barrier (GoRecovered / RecoverGoroutine in goroutine.go).
 func executeRecovered(
 	ctx context.Context, tool types.Tool, args json.RawMessage,
 ) (result *types.ToolResult, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Errorf(ctx, "[ToolRegistry] Tool %s panicked: %v\n%s", tool.Name(), r, debug.Stack())
+			logger.Error(ctx, "[ToolRegistry] tool execution failed (panic)")
 			// The panic value can carry internals (paths, addresses); the
 			// model and the user only need to know the call did not complete.
 			err = fmt.Errorf("tool %s failed with an internal error", tool.Name())

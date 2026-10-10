@@ -1,0 +1,270 @@
+{
+  "baseline": "26eeef0f302669a28c590cb78bae6acf95852e09",
+  "upstream": "005627b180c6c7509660b0a14401e463f48d53f8",
+  "patch": "567e4abb6314f354789f5d625075e3053adc13590b652bdb98b49ca5682a5b2f",
+  "source": [
+    {
+      "path": "internal/agent/think.go",
+      "blob": "1e71edd983ec798202d8cffc858c5eead6689ee8",
+      "sha256": "e51037d15b46612415774c3c06710a746a718f91d217dc19421a2076d2fbd63e"
+    },
+    {
+      "path": "internal/agent/tool_goroutine_panic_test.go",
+      "blob": "12cefb4f0520aee92fd86f16bad193014eb6fe05",
+      "sha256": "06d82e685fbea3cd0485c2d9b65ad5b2edc8ac889435dcee7b2f2387d442f696"
+    },
+    {
+      "path": "internal/agent/tools/goroutine.go",
+      "blob": "51a9367a4a64b483f28b4020178f2fd76247fbce",
+      "sha256": "c3ab9d3dcc2a6096bf589571694c48539c4bc1daad31257470fcfbe195dee0e3"
+    },
+    {
+      "path": "internal/agent/tools/goroutine_security_test.go",
+      "blob": "3f3621beb9417733c7aa849d310d95ff90fbb75b",
+      "sha256": "396157b8f424c9b7b2a17698e7d0786095e5fe02f5a6b1846e134d4df973f375"
+    },
+    {
+      "path": "internal/agent/tools/goroutine_test.go",
+      "blob": "b7d5a7e3faf7dea74b1195f8cf105102814b97dc",
+      "sha256": "7cdeef52bf8b6087e8262b03a71527b1aa60ee8841579eb3deb032a41bbc0e61"
+    },
+    {
+      "path": "internal/agent/tools/mcp_exposure.go",
+      "blob": "f756f76cc706b9bd07dd23d76a92e3882d57098a",
+      "sha256": "1e93795945b2e5003571fe1993c17e74323abfc0dad8117b6c7ae2b9de1d3b24"
+    },
+    {
+      "path": "internal/agent/tools/mcp_exposure_panic_test.go",
+      "blob": "d41ec6f17b66e8f1d000431b3dc3c3961914bea2",
+      "sha256": "8d41acb6be255e55fb75f3f2272b08e7470456e43fd78335fcf591c89ce827b0"
+    },
+    {
+      "path": "internal/agent/tools/registry.go",
+      "blob": "b43375c9c6655f103bf0d599b670171eec4f245f",
+      "sha256": "36c5a2586112aabee82370363105067cd5ec799fb15e5adf44b0fcad2dc6b1a3"
+    },
+    {
+      "path": "internal/agent/tools/search_knowledge.go",
+      "blob": "a113c5badaf93d566a07ab7118c53765fb98887c",
+      "sha256": "2cac16000dc4c643d0bb129809fcf45527bef9440cb70c2e03f01701db03ba8b"
+    },
+    {
+      "path": "mcp-server/test_chat_sse.py",
+      "blob": "aa6760ebe55c606454777579a18312a0b3902670",
+      "sha256": "71b2911678975e8e4b8a5bb71b2120f8587b1b319beb1a94f6b417af52b921d9"
+    },
+    {
+      "path": "mcp-server/weknora_mcp_server.py",
+      "blob": "871c1bf494a8fb54207f64fe0de82fd037e0aa02",
+      "sha256": "f528c0169ec97e1c31059e42ddd75743aa416d709ac11df4aeca358f8c4f0114"
+    }
+  ],
+  "protected": {
+    "frontend/src/views/integrations/McpServerIntegrationSettings.vue": "dfc9cdfcf3ae9c574f70dfa9808ec42709f3456c",
+    "frontend/src/views/integrations/mcpKnowledgeBaseOptions.ts": "abf0d4f41d87770297060e2789df900d0493b5b8",
+    "frontend/src/views/integrations/mcpKnowledgeBaseOptions.test.ts": "8e344795e962d657673a32fed1da9a48e23f2354",
+    "frontend/src/i18n/locales/zh-CN.ts": "08728c2b7aaa3f344fe1d9a865589ebe26c36d22",
+    "frontend/src/i18n/locales/en-US.ts": "af3986ab3f02867fa231a737f5530ccddd29849d",
+    "frontend/src/i18n/locales/ja-JP.ts": "8a1281d6808f19b46ef1203eabea1cc2f4a48358",
+    "frontend/src/i18n/locales/ko-KR.ts": "982d5ba1816cfb29d92ecc27ae90a990a1f08a6d",
+    "frontend/src/i18n/locales/ru-RU.ts": "c9f0e6d2d7feb0d77a3b76421a504c63f72b7fb6",
+    "frontend/tests/agent-editor/final-gate.config.ts": "e72ff6719e3545423e9cc4ddbc7ac93f79259cb3",
+    "frontend/tests/agent-editor/run-gate.mjs": "bc280a5a5d3bb3d048de13a95c49cf38e5466fbb",
+    "frontend/tests/agent-editor/mcp-scope.spec.ts": "dcbd1c9cb2e9b72ca8f4182ddd5f243325096d84",
+    "internal/mcpserver/shared_scope_revalidation_test.go": "b9e481a32c05a1d628915f924bc00a6b96199968",
+    "internal/application/service/mcp_endpoint_shared_revalidation_test.go": "8edcd03702cb31765aa0ad79443e46673593190b",
+    "internal/application/repository/mcp_endpoint.go": "9d541269de9a4815ef47cf7d7eb09f9c1052d648",
+    "internal/application/repository/mcp_endpoint_cas_test.go": "f9e9e1eacbcfff1b8d617eb7e5e736e458623b26",
+    "internal/application/service/mcp_endpoint.go": "57e93ec05ab04ae46e839a690ca3cb8e7a5b4855",
+    "internal/application/service/mcp_endpoint_test.go": "60c6097ddb9886c1e9b092d3ca51719df9bb434a",
+    "internal/types/interfaces/mcp_endpoint.go": "6a2e0432296886699df2d221c59d315deb07c210",
+    "internal/handler/mcp_endpoint.go": "80acc03491b675b49ab91176f22b3023b2c3db94",
+    "internal/middleware/mcp_token_lifecycle_http_test.go": "cee5689b7b01a20d1f14be2ec3ed625e7e167f49",
+    "internal/middleware/mcp_token_stale_write_security_test.go": "1ead383a540ae3d0f5c20ceeb755ae57d923fce9",
+    "internal/middleware/mcp_token_conditional_write_test.go": "b1501fe2b58197cf7ff78a64b247097a25831ec7"
+  },
+  "required": {
+    "internal/mcp": [
+      "TestBuiltinOAuthTenantConnectionIsolation",
+      "TestBuiltinOAuthWireScope",
+      "TestMCPClientDisconnectsWhenTheSessionIsGone",
+      "TestMCPHTTPAuthErrorsAreNotRetried",
+      "TestMCPManagerReconnectsWithoutReplayingToolCall",
+      "TestMCPSessionErrorClassification",
+      "TestMCPStateless404DoesNotResetConnection",
+      "TestManagerRealWaiterDeadlineDoesNotCancelInitialization",
+      "TestOAuthAuthorizationFailClosedStateAndRecovery",
+      "TestOAuthAuthorizationFailClosedStateAndRecovery/invalid-key",
+      "TestOAuthAuthorizationFailClosedStateAndRecovery/missing-key",
+      "TestOAuthAuthorizationFailClosedStateAndRecovery/public",
+      "TestOAuthAuthorizationFailClosedStateAndRecovery/sql-error",
+      "TestOAuthCallDoesNotRetryMoreThanOnce",
+      "TestOAuthCallRefreshesAndRetriesResource401Once",
+      "TestOAuthCallbackInvalidatesOnlyAuthenticatedStateScope",
+      "TestOAuthDiscoveryKeepsRedirectPolicyAndExistingPublicClient",
+      "TestOAuthDiscoveryKeepsRedirectPolicyAndExistingPublicClient/cross-origin",
+      "TestOAuthDiscoveryKeepsRedirectPolicyAndExistingPublicClient/same-origin",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/cancel",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/deadline",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/empty",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/empty-object",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/http-400",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/http-401",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/http-403",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/http-500",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/interrupted",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/malformed",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/missing-authorization",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/missing-registration",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/missing-token",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/null",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/unsafe-endpoint",
+      "TestOAuthDiscoveryUsesConsumerCacheAndGuardsRebuiltHandlers",
+      "TestOAuthMaliciousProviderErrorsAndLogsAreRedacted",
+      "TestOAuthMaliciousProviderErrorsAndLogsAreRedacted/discovery",
+      "TestOAuthMaliciousProviderErrorsAndLogsAreRedacted/exchange",
+      "TestOAuthMaliciousProviderErrorsAndLogsAreRedacted/registration",
+      "TestOAuthManagerClientStorageFailureIsNotAuthorizationSuccess",
+      "TestOAuthManagerKeepsTheRegisteredClientSecret",
+      "TestOAuthManagerKeepsTheRegisteredClientSecret/confidential",
+      "TestOAuthManagerKeepsTheRegisteredClientSecret/public",
+      "TestOAuthRefreshBadDiscoveryPreservesToken",
+      "TestOAuthRefreshRedactionPreservesClassification",
+      "TestOAuthRuntimeDeletesPermanentlyInvalidRefreshToken",
+      "TestOAuthRuntimePreservesTokenOnTemporaryRefreshFailure",
+      "TestOAuthRuntimeRefreshesExpiredToken",
+      "TestOAuthRuntimeSerializesRotatingRefreshToken",
+      "TestOAuthTokenStoreErrorsAreSafeAndScoped",
+      "TestOAuthTokenStoreErrorsAreSafeAndScoped/cancel-read",
+      "TestOAuthTokenStoreErrorsAreSafeAndScoped/cancel-write",
+      "TestOAuthTokenStoreErrorsAreSafeAndScoped/managed-read",
+      "TestOAuthTokenStoreErrorsAreSafeAndScoped/read",
+      "TestOAuthTokenStoreErrorsAreSafeAndScoped/write"
+    ],
+    "internal/types": [],
+    "internal/application/service": [
+      "TestMCPEndpointCreatorDowngradeDoesNotRevokeMachineToken",
+      "TestMCPEndpointSharedSaveRevalidation",
+      "TestMCPEndpointSharedSaveRevocationInterleavings",
+      "TestMCPEndpointSharedSaveRevocationInterleavings/after-check-before-commit",
+      "TestMCPEndpointSharedSaveRevocationInterleavings/before-check",
+      "TestMCPEndpointSharedSaveRevocationInterleavings/during-check"
+    ],
+    "internal/handler": [
+      "TestOAuthAPIAndAccessLogsDoNotLeakProviderOrSQL",
+      "TestOAuthAPIAndAccessLogsDoNotLeakProviderOrSQL/callback",
+      "TestOAuthAPIAndAccessLogsDoNotLeakProviderOrSQL/provider",
+      "TestOAuthAPIAndAccessLogsDoNotLeakProviderOrSQL/revoke",
+      "TestOAuthAPIAndAccessLogsDoNotLeakProviderOrSQL/sql",
+      "TestOAuthAPIAndAccessLogsDoNotLeakProviderOrSQL/status",
+      "TestOAuthRevokeSuccessClearsOnlyAuthenticatedScope"
+    ],
+    "internal/application/repository": [
+      "TestMCPEndpointExplicitTransactionRollback",
+      "TestMCPEndpointMissingAndForeignConditionalWrites",
+      "TestMCPEndpointPostgresConditionalWriteFailures",
+      "TestMCPEndpointPostgresConditionalWriteFailures/config/commit",
+      "TestMCPEndpointPostgresConditionalWriteFailures/config/execute",
+      "TestMCPEndpointPostgresConditionalWriteFailures/config/zero-rows",
+      "TestMCPEndpointPostgresConditionalWriteFailures/delete/commit",
+      "TestMCPEndpointPostgresConditionalWriteFailures/delete/execute",
+      "TestMCPEndpointPostgresConditionalWriteFailures/delete/zero-rows",
+      "TestMCPEndpointPostgresConditionalWriteFailures/rotate/commit",
+      "TestMCPEndpointPostgresConditionalWriteFailures/rotate/execute",
+      "TestMCPEndpointPostgresConditionalWriteFailures/rotate/zero-rows",
+      "TestMCPEndpointSQLWhitelistCASAndTouch",
+      "TestMCPOAuthClientFailClosedSQL",
+      "TestMCPOAuthClientFailClosedSQL/entropy",
+      "TestMCPOAuthClientFailClosedSQL/forged-prefix",
+      "TestMCPOAuthClientFailClosedSQL/invalid",
+      "TestMCPOAuthClientFailClosedSQL/missing",
+      "TestMCPOAuthClientFailClosedSQL/public",
+      "TestMCPOAuthClientFailClosedSQL/valid",
+      "TestMCPOAuthRepositorySQLLogsAreRedacted"
+    ],
+    "internal/application/access": [],
+    "internal/middleware": [
+      "TestMCPEndpointDeleteAfterCommittedRotation",
+      "TestMCPEndpointHTTPConditionalConfigInterleavings",
+      "TestMCPEndpointHTTPConditionalConfigInterleavings/config",
+      "TestMCPEndpointHTTPConditionalConfigInterleavings/delete",
+      "TestMCPEndpointHTTPConditionalConfigInterleavings/disable",
+      "TestMCPEndpointHTTPConditionalConfigInterleavings/rotate",
+      "TestMCPEndpointHTTPConditionalConfigInterleavings/scope",
+      "TestMCPEndpointHTTPConditionalConfigInterleavings/tools",
+      "TestMCPEndpointHTTPStorageErrorDoesNotPublishToken",
+      "TestMCPEndpointHTTPZeroValuesAndToolsPolicy",
+      "TestMCPEndpointLifecycleHTTPCharacterization/admin-revokes",
+      "TestMCPEndpointLifecycleHTTPCharacterization/admin-rotates",
+      "TestMCPEndpointLifecycleHTTPCharacterization/creator-demoted",
+      "TestMCPEndpointLifecycleHTTPCharacterization/creator-disabled",
+      "TestMCPEndpointLifecycleHTTPCharacterization/creator-removed",
+      "TestMCPEndpointLifecycleHTTPCharacterization/cross-tenant",
+      "TestMCPEndpointLifecycleHTTPCharacterization/share-revoked",
+      "TestMCPEndpointRotationConditionalInterleavings",
+      "TestMCPEndpointRotationConditionalInterleavings/config",
+      "TestMCPEndpointRotationConditionalInterleavings/delete",
+      "TestMCPEndpointRotationConditionalInterleavings/rotate",
+      "TestMCPEndpointStaleConfigWriteCannotRestoreRotatedKey",
+      "TestMCPEndpointStaleWriteCannotResurrectDeletedEndpoint",
+      "TestOAuthProviderErrorQueryRedaction"
+    ],
+    "internal/agent/tools": [],
+    "internal/mcpserver": [
+      "TestA23MCPEndpointManagementHTTPPermissions",
+      "TestA23SharedRevocationAfterCheckBeforeCommitMCPHTTP",
+      "TestMCPEndpointLiveSharedScopeRevalidation"
+    ]
+  },
+  "candidate_required": {
+    "internal/agent": [
+      "TestToolChildGoroutinePanicDegradesToFailedResult",
+      "TestToolParentPanicIsFailedAndRedacted"
+    ],
+    "internal/agent/tools": [
+      "TestGoRecoveredContainsPanicAndRunsDefers",
+      "TestRecoverGoroutineReportsPanicToCaller",
+      "TestRecoveredPanicRedactsValueLabelAndStack",
+      "TestRecoveredConcurrentCancellationRunsCleanup",
+      "TestMCPPreloadWorkerPanicIsContained",
+      "TestMCPPreloadFailureMarkingKeepsReadySnapshots"
+    ]
+  },
+  "canaries": [
+    "synthetic-client-secret",
+    "synthetic-access-token",
+    "synthetic-refresh-token",
+    "synthetic-password",
+    "synthetic-secret",
+    "synthetic-access",
+    "synthetic-refresh",
+    "registered-secret",
+    "other-secret",
+    "tenant-a-token",
+    "tenant-b-token",
+    "other-principal-token",
+    "synthetic-revoke-a",
+    "synthetic-revoke-b",
+    "synthetic-revoke-other",
+    "a23-isolated-password",
+    "a23-isolated-signing-key-for-tests-only",
+    "synthetic-foreign-only",
+    "SYNTHETIC_LABEL_SECRET",
+    "SYNTHETIC_TOKEN_SQL_CANARY",
+    "synthetic-parent-secret-canary"
+  ],
+  "overlay": [
+    {
+      "path": ".github/qa/a24-a25/personal_mcp_bridge_test.go",
+      "blob": "9a5f9d020544601e60bae775edd6fb7564f7b2da",
+      "sha256": "5b67017343b11e58031042e0d8559bd20193f1425991912fc730eb085619d00d"
+    },
+    {
+      "path": ".github/qa/a24-a25/test_personal_mcp_lifecycle_http.py",
+      "blob": "d7e7e1f694fa316c23fcee0a535200622a88ba88",
+      "sha256": "d92b5742a8d77a64a72545fed33c14b87e344a9b064a9be0ac5b087917dee8b9"
+    }
+  ],
+  "overlay_note": "Explicit test-only overlay derived from original bridge ee22aaa981e1f126c88378d7f45df954afb91ebd; adds only synthetic tenant/platform keys via existing Service in PERSONAL_MCP_TEST_BRIDGE=1. No F1 product source."
+}
