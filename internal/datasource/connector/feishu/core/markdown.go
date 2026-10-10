@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -60,11 +61,19 @@ func blocksToMarkdown(ctx context.Context, client sheetReader, blocks []DocxBloc
 			continue // rendered by its parent table (also covered by `consumed`)
 		case BlockTypeSheet:
 			if b.Sheet != nil {
-				writePara(&sb, inlineTable(ctx, client, b.Sheet.Token, "sheet"))
+				table, err := inlineTable(ctx, client, b.Sheet.Token, "sheet")
+				if err != nil {
+					return nil, nil, err
+				}
+				writePara(&sb, table)
 			}
 		case BlockTypeBitable:
 			if b.Bitable != nil {
-				writePara(&sb, inlineTable(ctx, client, b.Bitable.Token, "bitable"))
+				table, err := inlineTable(ctx, client, b.Bitable.Token, "bitable")
+				if err != nil {
+					return nil, nil, err
+				}
+				writePara(&sb, table)
 			}
 		case BlockTypeImage:
 			// Emit a token-free placeholder: images carry no retrievable text, and
@@ -283,12 +292,12 @@ func escapePipes(row []string) []string {
 }
 
 // inlineTable reads an embedded sheet/bitable and renders it as a Markdown
-// table. Read/permission errors degrade to an inline note rather than failing
-// the whole document (partial content beats no content). A reader-reported
-// truncation appends a note.
-func inlineTable(ctx context.Context, client sheetReader, token, kind string) string {
+// table. Ordinary permission errors retain the existing inline note. Pagination
+// integrity, response bounds and cancellation errors fail the whole conversion
+// so incomplete content cannot be checkpointed. Existing row truncation adds a note.
+func inlineTable(ctx context.Context, client sheetReader, token, kind string) (string, error) {
 	if client == nil {
-		return ""
+		return "", nil
 	}
 	var (
 		rows      [][]string
@@ -304,17 +313,21 @@ func inlineTable(ctx context.Context, client sheetReader, token, kind string) st
 		noun = "内嵌多维表格"
 	}
 	if err != nil {
-		return fmt.Sprintf("> [无法读取%s]", noun)
+		if errors.Is(err, ErrBitableFieldsIncomplete) || errors.Is(err, ErrResponseTooLarge) ||
+			errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return "", err
+		}
+		return fmt.Sprintf("> [无法读取%s]", noun), nil
 	}
 	// markdownTable returns "" when there is nothing renderable (no rows, or a
 	// header with no columns). Skip the truncation note too in that case, since it
 	// would otherwise dangle without a table above it.
 	table := markdownTable(rows)
 	if table == "" {
-		return ""
+		return "", nil
 	}
 	if truncated {
 		table += fmt.Sprintf("\n\n> 表格已截断（仅显示前 %d 行）", maxTableRows)
 	}
-	return table
+	return table, nil
 }

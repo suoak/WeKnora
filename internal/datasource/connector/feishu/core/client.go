@@ -147,6 +147,10 @@ func (c *Client) GetTenantAccessToken(ctx context.Context) (string, error) {
 // maxFeishuDownloadBytes bounds a single file download to protect the sync
 // worker from adversarial or pathological oversized responses.
 const maxFeishuDownloadBytes = 512 * 1024 * 1024 // 512 MB
+const maxJSONResponseBytes int64 = 16 * 1024 * 1024
+
+// ErrResponseTooLarge is safe to propagate through synchronization and UI errors.
+var ErrResponseTooLarge = errors.New("feishu response exceeds size limit")
 
 // DoRequest executes an authenticated JSON API request. It is kept as the
 // compatibility entry point used by integration helpers; connector operations
@@ -227,17 +231,35 @@ func (c *Client) doRequestBytes(
 			}
 			err = &APIError{Category: ErrorCategoryTransient, Operation: operation, Cause: requestErr}
 		} else {
-			var responseBody []byte
-			if maxBytes > 0 {
-				responseBody, requestErr = io.ReadAll(io.LimitReader(resp.Body, maxBytes+1))
-			} else {
-				responseBody, requestErr = io.ReadAll(resp.Body)
+			limit := maxBytes
+			if !binary || resp.StatusCode < 200 || resp.StatusCode >= 300 {
+				limit = maxJSONResponseBytes
 			}
+			// Successful binary downloads retain their existing configured bound.
+			responseBody, readErr := io.ReadAll(io.LimitReader(resp.Body, limit+1))
+			requestErr = readErr
 			closeErr := resp.Body.Close()
 			if requestErr == nil {
 				requestErr = closeErr
 			}
 			release()
+			if int64(len(responseBody)) > limit {
+				if binary && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+					return nil, fmt.Errorf("feishu download exceeds max size (%d bytes): operation=%s", maxBytes, operation)
+				}
+				category := ErrorCategoryPermanent
+				if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+					category = classifyAPIError(resp.StatusCode, 0)
+				}
+				retryAfter := parseRetryAfterAt(resp.Header.Get("Retry-After"), 0, c.retry.now())
+				if category == ErrorCategoryRateLimit {
+					c.policy.extendCooldown(c.retry.delay(attempt, retryAfter))
+				}
+				// Preserve HTTP classification, but never retry the oversized body.
+				return nil, &APIError{Category: category, Operation: operation,
+					HTTPStatus: resp.StatusCode, RetryAfter: retryAfter, Cause: ErrResponseTooLarge,
+					Message: "response size limit exceeded"}
+			}
 			if requestErr != nil {
 				if ctxErr := ctx.Err(); ctxErr != nil {
 					return nil, ctxErr
@@ -262,7 +284,7 @@ func (c *Client) doRequestBytes(
 				err = &APIError{
 					Category:   classifyAPIError(resp.StatusCode, envelope.Code),
 					Code:       envelope.Code,
-					Message:    envelope.Msg,
+					Message:    "provider rejected request",
 					HTTPStatus: resp.StatusCode,
 					Operation:  operation,
 					RetryAfter: retryAfter,

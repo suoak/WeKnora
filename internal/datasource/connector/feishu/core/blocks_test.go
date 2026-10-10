@@ -3,6 +3,8 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"github.com/Tencent/WeKnora/internal/types"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -488,8 +490,8 @@ func TestReadBitableRecords_EmptyFieldsPageTerminates(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	c := &Client{baseURL: srv.URL, appID: "a", appSecret: "s", httpClient: srv.Client()}
-	if _, _, err := c.readBitableRecords(ctx, "bascabc_tblxyz"); err != nil {
-		t.Fatalf("empty fields page must terminate cleanly, got err: %v", err)
+	if rows, _, err := c.readBitableRecords(ctx, "bascabc_tblxyz"); !errors.Is(err, ErrBitableFieldsIncomplete) || rows != nil {
+		t.Fatalf("incomplete empty fields page must fail without partial rows: %v", err)
 	}
 	if fieldCalls != 1 {
 		t.Errorf("fields endpoint called %d times, want 1 (loop must break on the empty page)", fieldCalls)
@@ -524,5 +526,172 @@ func TestListDocumentBlocks_EmptyPageTerminates(t *testing.T) {
 	}
 	if len(blocks) != 0 {
 		t.Errorf("blocks = %d, want 0", len(blocks))
+	}
+}
+
+func TestA4BitableFieldPaginationIntegrity(t *testing.T) {
+	for _, mode := range []string{"normal", "repeat", "cycle", "missing", "empty-more", "hop-limit", "exact-limit", "limit-more", "over-limit", "empty-final"} {
+		t.Run(mode, func(t *testing.T) {
+			fields, records := 0, 0
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				switch {
+				case strings.Contains(req.URL.Path, "/auth/"):
+					_ = json.NewEncoder(w).Encode(TokenResponse{ApiResponse: ApiResponse{Code: 0}, TenantAccessToken: "synthetic-token", Expire: 7200})
+				case strings.HasSuffix(req.URL.Path, "/fields"):
+					fields++
+					count, more, token := 1, true, "synthetic-cursor-"+strconv.Itoa(fields)
+					switch mode {
+					case "normal":
+						more = fields < 3
+					case "repeat":
+						token = "SECRET-CURSOR-CANARY"
+					case "cycle":
+						token = "SECRET-CURSOR-CANARY-" + strconv.Itoa(fields%2)
+					case "missing":
+						token = ""
+					case "empty-more":
+						count = 0
+					case "empty-final":
+						count, more = 0, false
+					case "exact-limit":
+						count, more = 100, fields < 50
+					case "limit-more":
+						count = 100
+					case "over-limit":
+						count = maxBitableFields + 1
+					}
+					items := make([]bitableField, count)
+					for i := range items {
+						items[i].FieldName = "column" + strconv.Itoa(i)
+					}
+					_ = json.NewEncoder(w).Encode(bitableFieldsResponse{Data: bitableFieldsData{Items: items, HasMore: more, PageToken: token}})
+				case strings.HasSuffix(req.URL.Path, "/records/search"):
+					records++
+					_ = json.NewEncoder(w).Encode(bitableRecordsResponse{})
+				default:
+					t.Errorf("unexpected HTTP path")
+				}
+			}))
+			defer srv.Close()
+			c := &Client{baseURL: srv.URL, httpClient: srv.Client()}
+			rows, truncated, err := c.readBitableRecords(context.Background(), "app_table")
+			success := mode == "normal" || mode == "exact-limit" || mode == "empty-final"
+			if success {
+				if err != nil || truncated || records != 1 {
+					t.Fatalf("normal fields: err=%v records=%d", err, records)
+				}
+				if mode == "exact-limit" && len(rows[0]) != maxBitableFields {
+					t.Fatal("terminal boundary lost fields")
+				}
+			} else {
+				if !errors.Is(err, ErrBitableFieldsIncomplete) || rows != nil || truncated || records != 0 {
+					t.Fatalf("incomplete fields accepted: err=%v records=%d", err, records)
+				}
+				if strings.Contains(err.Error(), "CANARY") {
+					t.Fatal("cursor leaked")
+				}
+			}
+			if fields > maxBitableFieldPages {
+				t.Fatal("unbounded field requests")
+			}
+		})
+	}
+}
+
+// The adapters below provide synthetic listing/cursor data. Fetch executes the
+// actual HTTP Client, blocks conversion and FetchDocxWithBlocks implementation.
+// CollectHandler is in-memory: these assertions are not SQL persistence tests.
+type a4HTTPNodeOps struct{}
+
+func (a4HTTPNodeOps) List(context.Context, *Client, string) ([]string, error, error) {
+	return []string{"bad", "good"}, nil, nil
+}
+func (a4HTTPNodeOps) Token(n string) string  { return n }
+func (a4HTTPNodeOps) Title(n string) string  { return n }
+func (a4HTTPNodeOps) ObjType(string) string  { return "docx" }
+func (a4HTTPNodeOps) EditTime(string) string { return "new" }
+func (a4HTTPNodeOps) Fetch(ctx context.Context, c *Client, n, resource string, _ bool) ([]*types.FetchedItem, error) {
+	return FetchDocxWithBlocks(ctx, c, DocxFetchInput{DocToken: n, ObjToken: n, ResourceID: resource, BaseMeta: map[string]string{}})
+}
+func (a4HTTPNodeOps) ListFailureItems(string, error) []types.FetchedItem { return nil }
+func (a4HTTPNodeOps) ResourceNoun() string                               { return "synthetic-documents" }
+func (a4HTTPNodeOps) EmptyResourceIDsError() string                      { return "empty resource" }
+func (a4HTTPNodeOps) LogTag() string                                     { return "[A4-test]" }
+func (a4HTTPNodeOps) DecodeCursorTimes(m map[string]interface{}) map[string]map[string]string {
+	b, _ := json.Marshal(m["times"])
+	out := map[string]map[string]string{}
+	_ = json.Unmarshal(b, &out)
+	return out
+}
+func (a4HTTPNodeOps) EncodeCursor(times map[string]map[string]string, _ time.Time) *types.SyncCursor {
+	return &types.SyncCursor{ConnectorCursor: map[string]interface{}{"times": times}}
+}
+func TestA4FieldFailurePropagatesThroughHTTPFetchAndSyncEngine(t *testing.T) {
+	t.Setenv("FEISHU_DOCX_PARSE_MODE", "blocks")
+	broken := true
+	fieldCalls, downloadCalls := 0, 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "/auth/"):
+			_ = json.NewEncoder(w).Encode(TokenResponse{TenantAccessToken: "synthetic-token", Expire: 7200})
+		case strings.HasSuffix(r.URL.Path, "/blocks"):
+			blocks := []DocxBlock{{BlockType: BlockTypeText, Text: txt("normal text")}}
+			if strings.Contains(r.URL.Path, "/bad/") {
+				blocks = append(blocks, DocxBlock{BlockType: BlockTypeBitable, Bitable: &BlockTokenRef{Token: "app_table"}}, DocxBlock{BlockType: BlockTypeFile, File: &BlockFileRef{Token: "synthetic-file", Name: "unused.pdf"}})
+			}
+			_ = json.NewEncoder(w).Encode(DocxBlocksResponse{Data: DocxBlocksData{Items: blocks}})
+		case strings.HasSuffix(r.URL.Path, "/fields"):
+			fieldCalls++
+			_ = json.NewEncoder(w).Encode(bitableFieldsResponse{Data: bitableFieldsData{HasMore: broken, PageToken: "TOKEN-CANARY", Items: []bitableField{}}})
+		case strings.HasSuffix(r.URL.Path, "/records/search"):
+			_ = json.NewEncoder(w).Encode(bitableRecordsResponse{})
+		case strings.HasSuffix(r.URL.Path, "/download"):
+			downloadCalls++
+			if broken {
+				t.Error("attachment fetched before complete field pagination")
+			}
+			_, _ = w.Write([]byte(strings.Repeat("x", MinAttachmentBytes)))
+		default:
+			t.Errorf("unexpected request after incomplete fetch")
+			w.WriteHeader(500)
+		}
+	}))
+	defer srv.Close()
+	c := &Client{baseURL: srv.URL, httpClient: srv.Client()}
+	items, err := FetchDocxWithBlocks(context.Background(), c, DocxFetchInput{DocToken: "bad", ObjToken: "bad"})
+	if !errors.Is(err, ErrBitableFieldsIncomplete) || items != nil {
+		t.Fatalf("HTTP fetch admitted incomplete document: %v", err)
+	}
+	ops := a4HTTPNodeOps{}
+	prior := ops.EncodeCursor(map[string]map[string]string{"space-A": {"bad": "old", "good": "old"}}, time.Time{})
+	h := &CollectHandler{}
+	next, err := FetchStreamEngine(context.Background(), c, &types.DataSourceConfig{ResourceIDs: []string{"space-A"}}, prior, h, ops)
+	if err != nil {
+		t.Fatal(err)
+	}
+	times := ops.DecodeCursorTimes(next.ConnectorCursor)
+	if times["space-A"]["bad"] != "old" || times["space-A"]["good"] != "new" {
+		t.Fatal("failed edit time advanced or normal item lost")
+	}
+	if len(h.items) != 2 {
+		t.Fatal("partial batch not surfaced")
+	}
+	for _, item := range h.items {
+		if item.IsDeleted {
+			t.Fatal("failure caused deletion")
+		}
+		if item.ExternalID == "bad" && (item.Content != nil || item.ReplacesSubtree) {
+			t.Fatal("failed document could trigger save/sweep")
+		}
+	}
+	if downloadCalls != 0 {
+		t.Fatal("incomplete document downloaded attachments")
+	}
+	before := fieldCalls
+	broken = false
+	retry := &CollectHandler{}
+	_, err = FetchStreamEngine(context.Background(), c, &types.DataSourceConfig{ResourceIDs: []string{"space-A"}}, next, retry, ops)
+	if err != nil || fieldCalls != before+1 || len(retry.items) != 2 || retry.items[0].ExternalID != "bad" || downloadCalls != 1 {
+		t.Fatalf("explicit retry failed: %v", err)
 	}
 }

@@ -3,6 +3,7 @@ package yuque
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -85,8 +86,14 @@ func (c *client) doRequest(ctx context.Context, method, path string, result inte
 			return lastErr
 		}
 
-		body, readErr := io.ReadAll(resp.Body)
+		body, readErr := readCappedJSON(resp.Body)
 		resp.Body.Close()
+		if errors.Is(readErr, ErrResponseTooLarge) {
+			if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+				return fmt.Errorf("response size limit: status=%d: %w", resp.StatusCode, errors.Join(ErrResponseTooLarge, datasource.ErrInvalidCredentials))
+			}
+			return fmt.Errorf("response size limit: status=%d: %w", resp.StatusCode, ErrResponseTooLarge)
+		}
 		if readErr != nil {
 			lastErr = fmt.Errorf("read response body: %w", readErr)
 			if attempt < maxRetries {
@@ -98,7 +105,7 @@ func (c *client) doRequest(ctx context.Context, method, path string, result inte
 			return lastErr
 		}
 
-		bodyPreview := truncate(string(body), 500)
+		bodyPreview := "provider response omitted"
 		logger.Infof(ctx, "[Yuque] %s %s → status=%d bodyLen=%d body=%s",
 			method, path, resp.StatusCode, len(body), bodyPreview)
 
@@ -135,7 +142,7 @@ func (c *client) doRequest(ctx context.Context, method, path string, result inte
 			var apiErr apiErrorBody
 			_ = json.Unmarshal(body, &apiErr)
 			if apiErr.Message != "" {
-				return fmt.Errorf("yuque api error: status=%d msg=%s", resp.StatusCode, apiErr.Message)
+				return fmt.Errorf("yuque api error: status=%d msg=%s", resp.StatusCode, "provider response omitted")
 			}
 			return fmt.Errorf("yuque api error: status=%d body=%s", resp.StatusCode, bodyPreview)
 		}
@@ -307,4 +314,20 @@ func (c *client) ListBookTOC(ctx context.Context, bookID int64) ([]v2TOCNode, er
 		return nil, err
 	}
 	return resp.Data, nil
+}
+
+// The limit includes all JSON responses, including non-success HTTP statuses.
+const maxJSONResponseBytes int64 = 16 * 1024 * 1024
+
+var ErrResponseTooLarge = errors.New("yuque response exceeds size limit")
+
+func readCappedJSON(body io.Reader) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(body, maxJSONResponseBytes+1))
+	if int64(len(data)) > maxJSONResponseBytes {
+		return nil, ErrResponseTooLarge
+	}
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }
