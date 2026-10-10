@@ -3,11 +3,13 @@ package notion
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/datasource"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
 )
@@ -130,6 +132,27 @@ func (c *Connector) ListResources(
 	return resources, nil
 }
 
+// notionFetchFailure carries no provider error body or content. It is consumed
+// before returning items so failures cannot enter the knowledge ingestion path.
+func notionFetchFailure(id string) []types.FetchedItem {
+	return []types.FetchedItem{{ExternalID: id, Metadata: map[string]string{"notion_fetch_failed": "true"}}}
+}
+func notionFetchResult(items []types.FetchedItem) ([]types.FetchedItem, error) {
+	var out []types.FetchedItem
+	failed := false
+	for _, item := range items {
+		if item.Metadata["notion_fetch_failed"] == "true" {
+			failed = true
+			continue
+		}
+		out = append(out, item)
+	}
+	if failed {
+		return out, &datasource.PartialFetchError{Details: []string{"Notion content could not be completely fetched; failed resources will be retried"}}
+	}
+	return out, nil
+}
+
 // FetchAll performs a full sync of all documents from the specified resources.
 func (c *Connector) FetchAll(ctx context.Context, config *types.DataSourceConfig, resourceIDs []string) ([]types.FetchedItem, error) {
 	notionCfg, err := parseNotionConfig(config)
@@ -150,6 +173,10 @@ func (c *Connector) FetchAll(ctx context.Context, config *types.DataSourceConfig
 			allItems = append(allItems, c.fetchPage(ctx, client, page, visited)...)
 			continue
 		}
+		if !errors.Is(err, datasource.ErrResourceNotFound) {
+			allItems = append(allItems, notionFetchFailure(resourceID)...)
+			continue
+		}
 		// Not a page — treat as database/data_source.
 		// fetchDatabase handles both data_source IDs (from search) and
 		// database container IDs (from child_database blocks).
@@ -160,7 +187,7 @@ func (c *Connector) FetchAll(ctx context.Context, config *types.DataSourceConfig
 		allItems = append(allItems, items...)
 	}
 
-	return allItems, nil
+	return notionFetchResult(allItems)
 }
 
 // FetchIncremental performs an incremental sync based on cursor state.
@@ -194,7 +221,7 @@ func (c *Connector) FetchIncremental(ctx context.Context, config *types.DataSour
 		logger.Infof(ctx, "[Notion] first sync, using FetchAll for %d resources", len(resourceIDs))
 		items, err := c.FetchAll(ctx, config, resourceIDs)
 		if err != nil {
-			return nil, nil, err
+			return items, nil, err
 		}
 
 		// Build cursor from fetched items' UpdatedAt timestamps.
@@ -262,6 +289,13 @@ func (c *Connector) FetchIncremental(ctx context.Context, config *types.DataSour
 		} else {
 			changedItems = append(changedItems, c.fetchPage(ctx, client, pg, fetchVisited)...)
 		}
+	}
+
+	// An incomplete enumeration cannot prove deletion. Keep the whole previous
+	// checkpoint conservatively, including unknown database descendants. Successful
+	// items remain usable; replay on retry is idempotent by external ID.
+	if complete, fetchErr := notionFetchResult(changedItems); fetchErr != nil {
+		return complete, buildCursor(prevCursor.PageEditTimes), fetchErr
 	}
 
 	// Detect deletions. Only emit IsDeleted for pages that previously belonged
@@ -340,8 +374,8 @@ func (c *Connector) fetchPage(ctx context.Context, client *notionClient, page *n
 
 	blocks, err := client.GetBlockChildrenAll(ctx, page.ID)
 	if err != nil {
-		logger.Warnf(ctx, "[Notion] failed to get blocks for page %s: %v", page.ID, err)
-		return nil
+		logger.Warnf(ctx, "[Notion] page content fetch failed")
+		return notionFetchFailure(page.ID)
 	}
 
 	resolveFileUploads(ctx, client, blocks)
@@ -412,7 +446,13 @@ func (c *Connector) fetchPage(ctx context.Context, client *notionClient, page *n
 		case "child_page":
 			childPage, err := client.GetPage(ctx, block.ID)
 			if err != nil {
-				logger.Warnf(ctx, "[Notion] failed to get child page %s: %v", block.ID, err)
+				// Explicit source absence retains the existing child-page tolerance.
+				// An unreadable existing child is an incomplete parent, not absence.
+				if errors.Is(err, datasource.ErrResourceNotFound) {
+					continue
+				}
+				logger.Warnf(ctx, "[Notion] child page fetch failed")
+				items = append(items, notionFetchFailure(block.ID)...)
 				continue
 			}
 			items = append(items, c.fetchPage(ctx, client, childPage, visited)...)
@@ -421,6 +461,19 @@ func (c *Connector) fetchPage(ctx context.Context, client *notionClient, page *n
 		}
 	}
 
+	for _, item := range items {
+		if item.Metadata["notion_fetch_failed"] == "true" {
+			// Keep successfully fetched descendants, but do not acknowledge the
+			// parent or its attachment subtree until traversal is complete.
+			var partial []types.FetchedItem
+			for _, candidate := range items {
+				if candidate.ExternalID != page.ID && candidate.SourceResourceID != page.ID {
+					partial = append(partial, candidate)
+				}
+			}
+			return append(partial, notionFetchFailure(page.ID)...)
+		}
+	}
 	return items
 }
 
@@ -433,7 +486,10 @@ func (c *Connector) fetchDatabase(ctx context.Context, client *notionClient, id 
 	visited[id] = true
 
 	records, dbTitle, queryID, err := c.queryDatabaseRecords(ctx, client, id)
-	if err != nil || len(records) == 0 {
+	if err != nil {
+		return notionFetchFailure(id)
+	}
+	if len(records) == 0 {
 		return nil
 	}
 	if queryID != "" && queryID != id {
@@ -464,7 +520,7 @@ func (c *Connector) fetchDatabaseIncremental(ctx context.Context, client *notion
 
 	records, dbTitle, queryID, err := c.queryDatabaseRecords(ctx, client, id)
 	if err != nil {
-		return nil, nil
+		return notionFetchFailure(id), nil
 	}
 	if queryID != "" && queryID != id {
 		if visited[queryID] {
@@ -552,7 +608,8 @@ func (c *Connector) buildRecordItem(ctx context.Context, client *notionClient, r
 	// Database records may contain page-style block content beyond their properties
 	blocks, err := client.GetBlockChildrenAll(ctx, record.ID)
 	if err != nil {
-		logger.Warnf(ctx, "[Notion] failed to get blocks for record %s: %v", record.ID, err)
+		logger.Warnf(ctx, "[Notion] record content fetch failed")
+		return &notionFetchFailure(record.ID)[0]
 	} else if len(blocks) > 0 {
 		resolveFileUploads(ctx, client, blocks)
 		markdown, _ := BlocksToMarkdown(blocks)
@@ -641,7 +698,10 @@ func (c *Connector) buildDatabaseItem(ctx context.Context, client *notionClient,
 
 		// Fetch blocks for the record, in case it has page content
 		blocks, err := client.GetBlockChildrenAll(ctx, record.ID)
-		if err == nil && len(blocks) > 0 {
+		if err != nil {
+			return &notionFetchFailure(id)[0]
+		}
+		if len(blocks) > 0 {
 			resolveFileUploads(ctx, client, blocks)
 			markdown, _ := BlocksToMarkdown(blocks)
 			if strings.TrimSpace(markdown) != "" {
@@ -912,6 +972,9 @@ func getDatabaseOrDataSourceInfo(ctx context.Context, client *notionClient, id s
 	ds, err := client.GetDataSourceInfo(ctx, id)
 	if err == nil {
 		return &databaseInfo{Page: *ds, DataSourceID: id}, nil
+	}
+	if !errors.Is(err, datasource.ErrResourceNotFound) {
+		return nil, err
 	}
 	return client.GetDatabaseInfo(ctx, id)
 }

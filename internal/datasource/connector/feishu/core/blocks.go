@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -10,6 +11,15 @@ import (
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/logger"
+)
+
+// Integrity failures must not degrade into a successfully synchronized document.
+// No provider cursor, credential or response body is retained in this error.
+var ErrBitableFieldsIncomplete = errors.New("feishu bitable field pagination incomplete")
+
+const (
+	maxBitableFields     = 5000
+	maxBitableFieldPages = 100
 )
 
 // Feishu docx block_type integer enum (subset this connector handles).
@@ -362,7 +372,7 @@ type bitableRecordsResponse struct {
 func (c *Client) readBitableRecords(ctx context.Context, embedToken string) ([][]string, bool, error) {
 	idx := strings.LastIndex(embedToken, "_")
 	if idx < 0 {
-		return nil, false, fmt.Errorf("invalid bitable embed token: %q", embedToken)
+		return nil, false, ErrBitableFieldsIncomplete
 	}
 	appToken, tableID := embedToken[:idx], embedToken[idx+1:]
 
@@ -370,14 +380,29 @@ func (c *Client) readBitableRecords(ctx context.Context, embedToken string) ([][
 	baseFPath := fmt.Sprintf("/open-apis/bitable/v1/apps/%s/tables/%s/fields?page_size=%d",
 		url.PathEscape(appToken), url.PathEscape(tableID), maxBitableFieldPageSize)
 	fieldPageToken := ""
+	seenFieldTokens := make(map[string]struct{})
+	fieldPages := 0
 	for {
+		if err := ctx.Err(); err != nil {
+			return nil, false, err
+		}
+		fieldPages++
+		if fieldPages > maxBitableFieldPages {
+			return nil, false, ErrBitableFieldsIncomplete
+		}
 		fpath := baseFPath
 		if fieldPageToken != "" {
 			fpath += "&page_token=" + url.QueryEscape(fieldPageToken)
 		}
 		var fieldsResp bitableFieldsResponse
 		if err := c.doRequest(ctx, "list_bitable_fields", http.MethodGet, fpath, nil, &fieldsResp); err != nil {
+			if !errors.Is(err, ErrPermission) && !errors.Is(err, ErrAuth) {
+				return nil, false, fmt.Errorf("read bitable fields: %w", errors.Join(ErrBitableFieldsIncomplete, err))
+			}
 			return nil, false, fmt.Errorf("read bitable fields: %w", err)
+		}
+		if len(cols)+len(fieldsResp.Data.Items) > maxBitableFields {
+			return nil, false, ErrBitableFieldsIncomplete
 		}
 		for _, f := range fieldsResp.Data.Items {
 			formatter := ""
@@ -386,14 +411,17 @@ func (c *Client) readBitableRecords(ctx context.Context, embedToken string) ([][
 			}
 			cols = append(cols, bitableColumn{name: f.FieldName, fieldType: f.Type, dateFormatter: formatter})
 		}
-		if len(fieldsResp.Data.Items) == 0 {
-			// Defensive: an empty page with has_more=true would loop forever (this
-			// loop has no size cap of its own). Nothing more to read, so stop.
+		if !fieldsResp.Data.HasMore {
 			break
 		}
-		if !fieldsResp.Data.HasMore || fieldsResp.Data.PageToken == "" {
-			break
+		if len(fieldsResp.Data.Items) == 0 || strings.TrimSpace(fieldsResp.Data.PageToken) == "" ||
+			len(cols) >= maxBitableFields || fieldPages >= maxBitableFieldPages {
+			return nil, false, ErrBitableFieldsIncomplete
 		}
+		if _, repeated := seenFieldTokens[fieldsResp.Data.PageToken]; repeated {
+			return nil, false, ErrBitableFieldsIncomplete
+		}
+		seenFieldTokens[fieldsResp.Data.PageToken] = struct{}{}
 		fieldPageToken = fieldsResp.Data.PageToken
 	}
 

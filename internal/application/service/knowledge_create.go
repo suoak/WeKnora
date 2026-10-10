@@ -204,7 +204,7 @@ func (s *knowledgeService) CreateKnowledgeFromFile(ctx context.Context,
 	// Save knowledge record to database after the file is safely stored.
 	logger.Info(ctx, "Saving knowledge record to database")
 	if err := s.repo.CreateKnowledge(ctx, knowledge); err != nil {
-		logger.Errorf(ctx, "Failed to create knowledge record, ID: %s, error: %v", knowledge.ID, err)
+		logger.Errorf(ctx, "Knowledge creation failed, knowledge_id=%s, code=repository_create_failed", knowledge.ID)
 		if deleteErr := fileSvc.DeleteFile(ctx, filePath); deleteErr != nil {
 			logger.Errorf(ctx, "Failed to delete saved file after knowledge creation failed, path: %s, error: %v", filePath, deleteErr)
 		}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -100,8 +101,14 @@ func (c *notionClient) doRequest(ctx context.Context, method, path string, body 
 			break
 		}
 
-		respBody, err := io.ReadAll(resp.Body)
+		respBody, err := readCappedJSON(resp.Body)
 		resp.Body.Close()
+		if errors.Is(err, ErrResponseTooLarge) {
+			if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+				return nil, fmt.Errorf("response size limit: status=%d: %w", resp.StatusCode, errors.Join(ErrResponseTooLarge, datasource.ErrInvalidCredentials))
+			}
+			return nil, fmt.Errorf("response size limit: status=%d: %w", resp.StatusCode, ErrResponseTooLarge)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("read response: %w", err)
 		}
@@ -111,7 +118,7 @@ func (c *notionClient) doRequest(ctx context.Context, method, path string, body 
 			return respBody, nil
 
 		case resp.StatusCode == 401 || resp.StatusCode == 403:
-			return nil, fmt.Errorf("%w: %s", datasource.ErrInvalidCredentials, string(respBody))
+			return nil, fmt.Errorf("%w: %s", datasource.ErrInvalidCredentials, "provider response omitted")
 
 		case resp.StatusCode == 404:
 			return nil, fmt.Errorf("%w: %s", datasource.ErrResourceNotFound, path)
@@ -123,7 +130,7 @@ func (c *notionClient) doRequest(ctx context.Context, method, path string, body 
 				wait = time.Duration(secs * float64(time.Second))
 			}
 			logger.Warnf(ctx, "[Notion] rate limited, retry after %v (attempt %d/%d)", wait, attempt+1, maxRetries)
-			lastErr = fmt.Errorf("rate limited: %s", string(respBody))
+			lastErr = fmt.Errorf("rate limited: %s", "provider response omitted")
 			if attempt < maxRetries {
 				if sErr := sleepWithContext(ctx, wait); sErr != nil {
 					return nil, sErr
@@ -132,7 +139,7 @@ func (c *notionClient) doRequest(ctx context.Context, method, path string, body 
 			}
 
 		case resp.StatusCode >= 500:
-			lastErr = fmt.Errorf("server error %d: %s", resp.StatusCode, string(respBody))
+			lastErr = fmt.Errorf("server error %d: %s", resp.StatusCode, "provider response omitted")
 			if attempt < maxRetries {
 				if sErr := sleepWithContext(ctx, time.Duration(1<<attempt)*time.Second); sErr != nil {
 					return nil, sErr
@@ -141,7 +148,7 @@ func (c *notionClient) doRequest(ctx context.Context, method, path string, body 
 			}
 
 		default:
-			return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(respBody))
+			return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, "provider response omitted")
 		}
 	}
 
@@ -329,8 +336,12 @@ func (c *notionClient) getBlockChildrenRecursive(ctx context.Context, blockID st
 		}
 		children, err := c.getBlockChildrenRecursive(ctx, allBlocks[i].ID, depth+1)
 		if err != nil {
-			logger.Warnf(ctx, "[Notion] failed to get children for block %s (depth %d): %v", allBlocks[i].ID, depth, err)
-			continue
+			// A confirmed absent child retains the existing missing-resource
+			// tolerance. All other failures leave the parent tree incomplete.
+			if errors.Is(err, datasource.ErrResourceNotFound) {
+				continue
+			}
+			return nil, fmt.Errorf("nested block content unavailable: %w", err)
 		}
 		allBlocks[i].Children = children
 	}
@@ -346,6 +357,9 @@ func (c *notionClient) QueryDatabaseAll(ctx context.Context, id string) ([]notio
 	records, err := c.paginatePages(ctx, http.MethodPost, fmt.Sprintf("/v1/data_sources/%s/query", id))
 	if err == nil {
 		return records, nil
+	}
+	if !errors.Is(err, datasource.ErrResourceNotFound) {
+		return nil, err
 	}
 
 	// If 404, id might be a database container ID — resolve to data_source_id
@@ -527,4 +541,20 @@ func joinPlainText(segments []struct {
 		sb.WriteString(s.PlainText)
 	}
 	return sb.String()
+}
+
+// The limit includes all JSON responses, including non-success HTTP statuses.
+const maxJSONResponseBytes int64 = 16 * 1024 * 1024
+
+var ErrResponseTooLarge = errors.New("notion response exceeds size limit")
+
+func readCappedJSON(body io.Reader) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(body, maxJSONResponseBytes+1))
+	if int64(len(data)) > maxJSONResponseBytes {
+		return nil, ErrResponseTooLarge
+	}
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }

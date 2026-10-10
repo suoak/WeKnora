@@ -1,0 +1,62 @@
+name: KnowHub25 A4 R2 bounded Linux comparison
+on:
+  push:
+    branches: [ci/knowhub25-a4-linux-r2-20261010]
+permissions:
+  contents: read
+concurrency:
+  group: knowhub25-a4-${{ github.ref }}
+  cancel-in-progress: false
+env:
+  CGO_ENABLED: '1'
+  GOTOOLCHAIN: local
+jobs:
+  compare:
+    if: github.repository == 'suoak/WeKnora' && github.ref == 'refs/heads/ci/knowhub25-a4-linux-r2-20261010'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ github.sha }}
+          path: candidate
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: fc4a3615b74bad46146dfb7454a23fab087eeba6
+          path: baseline
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.7'
+          architecture: x64
+          cache: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12'
+          architecture: x64
+      - name: Environment and fixed test dependencies
+        run: |
+          mkdir -p evidence
+          uname -a > evidence/runner.txt
+          printf 'ImageOS=%s ImageVersion=%s RunnerArch=%s\n' "$ImageOS" "$ImageVersion" "$RUNNER_ARCH" >> evidence/runner.txt
+          python -m pip install --require-hashes -r candidate/.github/qa/a4/python-linux.lock > evidence/python-install.log 2>&1
+      - name: Complete source comparison and tests
+        env:
+          GOMODCACHE: ${{ runner.temp }}/knowhub25-a4-modules
+          GOCACHE: ${{ runner.temp }}/knowhub25-a4-build
+        run: python -B candidate/.github/scripts/knowhub25_a4_ci.py
+      - name: Preserve evidence only
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: knowhub25-a4-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            evidence/**/*.json
+            evidence/**/*.jsonl
+            evidence/**/*.log
+            evidence/**/*.txt
+            evidence/**/*.xml
+          if-no-files-found: error
+          retention-days: 14

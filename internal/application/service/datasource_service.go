@@ -961,7 +961,7 @@ func (s *DataSourceService) applyFetchedItem(
 				item.Title, item.ExternalID, err)
 			result.Skipped++
 		default:
-			logger.Warnf(ctx, "failed to ingest item %q (external_id=%s): %v", item.Title, item.ExternalID, err)
+			logger.Warnf(ctx, "Datasource item ingest failed, datasource_id=%s, code=ingest_failed", ds.ID)
 			result.Failed++
 			recordSyncError(result, types.SyncItemError{
 				Title:   item.Title,
