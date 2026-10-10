@@ -1,7 +1,9 @@
 """Regression tests for the SSE consumer shared by the two chat tools."""
 
 import json
+import threading
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest import mock
 
 import requests
@@ -12,6 +14,7 @@ import weknora_mcp_server as srv
 class ChatSSETest(unittest.TestCase):
     def setUp(self):
         self.client = srv.WeKnoraClient("http://example.test/api/v1", "test-key")
+        self.addCleanup(self.client.session.close)
 
     def consume(self, lines, *, agent=False):
         response = mock.MagicMock()
@@ -134,6 +137,142 @@ class ChatSSETest(unittest.TestCase):
         ):
             result = self.consume(["data: " + payload, ""] * 3)
         self.assertEqual(result["answer"], "hello" * 3)
+
+    def check_http_error_closes_in_both_chat_paths(self, status):
+        for agent in (False, True):
+            with self.subTest(status=status, agent=agent):
+                response = requests.Response()
+                response.status_code = status
+                response.url = "http://example.test/chat"
+                response.raw = mock.MagicMock()
+                with mock.patch.object(
+                    self.client.session, "post", return_value=response
+                ), mock.patch.object(
+                    response, "close", wraps=response.close
+                ) as close, mock.patch.object(
+                    response, "iter_lines"
+                ) as iter_lines:
+                    with self.assertRaises(requests.HTTPError) as raised:
+                        if agent:
+                            self.client.agent_chat("session-1", "question", "agent-1")
+                        else:
+                            self.client.chat("session-1", "question")
+                self.assertIs(raised.exception.response, response)
+                close.assert_called_once_with()
+                response.raw.close.assert_called_once_with()
+                response.raw.release_conn.assert_called_once_with()
+                iter_lines.assert_not_called()
+
+    def test_bad_request_closes_streaming_response(self):
+        self.check_http_error_closes_in_both_chat_paths(400)
+
+    def test_service_unavailable_closes_streaming_response(self):
+        self.check_http_error_closes_in_both_chat_paths(503)
+
+    def test_real_http_error_closes_streaming_response_in_both_chat_paths(self):
+        class ErrorHandler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                self.rfile.read(int(self.headers.get("Content-Length", "0")))
+                self.send_response(int(self.path.split("/")[1]))
+                body = b"backend error\n"
+                self.send_header("Content-Type", "text/plain")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, format, *args):
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), ErrorHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(thread.join, 5)
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        port = server.server_address[1]
+
+        for status in (400, 401, 403, 404, 409, 500, 503):
+            for agent in (False, True):
+                with self.subTest(status=status, agent=agent):
+                    client = srv.WeKnoraClient(
+                        f"http://127.0.0.1:{port}/{status}", "test-key"
+                    )
+                    client.session.trust_env = False
+                    self.addCleanup(client.session.close)
+                    with self.assertRaises(requests.HTTPError) as raised:
+                        if agent:
+                            client.agent_chat("session-1", "question", "agent-1")
+                        else:
+                            client.chat("session-1", "question")
+                    response = raised.exception.response
+                    self.addCleanup(response.close)
+                    self.assertEqual(response.status_code, status)
+                    self.assertTrue(response.raw.closed)
+
+    def test_post_connection_error_is_preserved_in_both_chat_paths(self):
+        for agent in (False, True):
+            with self.subTest(agent=agent):
+                error = requests.ConnectionError("connection failed")
+                with mock.patch.object(self.client.session, "post", side_effect=error):
+                    with self.assertRaises(requests.ConnectionError) as raised:
+                        if agent:
+                            self.client.agent_chat("session-1", "question", "agent-1")
+                        else:
+                            self.client.chat("session-1", "question")
+                self.assertIs(raised.exception, error)
+
+    def test_stream_read_error_closes_response_in_both_chat_paths(self):
+        for agent in (False, True):
+            with self.subTest(agent=agent):
+                response = requests.Response()
+                response.status_code = 200
+                response.raw = mock.MagicMock()
+                error = requests.ConnectionError("stream read failed")
+                with mock.patch.object(
+                    self.client.session, "post", return_value=response
+                ), mock.patch.object(
+                    response, "iter_lines", side_effect=error
+                ), mock.patch.object(
+                    response, "close", wraps=response.close
+                ) as close:
+                    with self.assertRaises(requests.ConnectionError) as raised:
+                        if agent:
+                            self.client.agent_chat("session-1", "question", "agent-1")
+                        else:
+                            self.client.chat("session-1", "question")
+                self.assertIs(raised.exception, error)
+                close.assert_called_once_with()
+                response.raw.close.assert_called_once_with()
+                response.raw.release_conn.assert_called_once_with()
+
+
+    def test_provider_error_body_and_logs_are_redacted(self):
+        canary = "SYNTHETIC_SQL_TOKEN_CANARY"
+        with self.assertLogs(srv.logger, level="ERROR") as logs:
+            with self.assertRaises(requests.RequestException) as raised:
+                self.consume(["data: " + json.dumps({"response_type":"error", "content":canary}), ""])
+        self.assertNotIn(canary, str(raised.exception))
+        self.assertFalse(any(canary in line for line in logs.output), "provider content leaked (withheld)")
+
+    def test_request_local_headers_remain_isolated(self):
+        observed = []
+        def request(*args, **kwargs):
+            observed.append(kwargs["headers"])
+            response = mock.MagicMock()
+            response.__enter__.return_value = response
+            response.iter_lines.return_value = [b'data: {"response_type":"complete"}', b'']
+            return response
+        for key, tenant in (("synthetic-client-a", "1"), ("synthetic-client-b", "2")):
+            kt = srv._request_api_key.set(key); tt = srv._request_tenant_id.set(tenant)
+            try:
+                with mock.patch.object(self.client.session, "post", side_effect=request):
+                    self.client.chat("synthetic-session", "synthetic")
+            finally:
+                srv._request_api_key.reset(kt); srv._request_tenant_id.reset(tt)
+        self.assertEqual(observed[0]["X-API-Key"], "synthetic-client-a")
+        self.assertEqual(observed[1]["X-API-Key"], "synthetic-client-b")
+        self.assertEqual(observed[0]["X-Tenant-ID"], "1")
+        self.assertEqual(observed[1]["X-Tenant-ID"], "2")
 
 
 if __name__ == "__main__":

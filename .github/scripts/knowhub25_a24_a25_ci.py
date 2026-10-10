@@ -1,0 +1,148 @@
+"""Bounded Linux comparison. No production credentials, deployments or migrations."""
+import hashlib
+import json
+import os
+import platform
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+QA = Path(__file__).resolve().parents[1] / 'qa/a24-a25'
+M = json.loads((QA / 'manifest.json').read_text())
+BASE = M['baseline']
+PACKAGES = ['internal/middleware', 'internal/mcpserver', 'internal/application/service',
+            'internal/application/repository', 'internal/application/access', 'internal/types',
+            'internal/handler', 'internal/router', 'internal/mcp', 'internal/agent/tools', 'internal/agent']
+RACE = ['internal/mcp', 'internal/mcpserver', 'internal/middleware', 'internal/agent/tools',
+        'internal/agent', 'internal/application/repository']
+CI = {'.github/scripts/knowhub25_a24_a25_ci.py', '.github/workflows/knowhub25-a24-a25-linux.yml',
+      '.github/qa/a24-a25/manifest.json', '.github/qa/a24-a25/python-linux.lock',
+      '.github/qa/a24-a25/personal_mcp_bridge_test.go', '.github/qa/a24-a25/test_personal_mcp_lifecycle_http.py'}
+
+def sha(b): return hashlib.sha256(b).hexdigest()
+def git(root, *args): return subprocess.check_output(['git', '-C', str(root), *args])
+def require(ok, reason):
+    if not ok: raise RuntimeError(reason)
+def save(p, value): p.write_text(json.dumps(value, indent=2))
+
+def identity(root, expected, tree):
+    require(git(root, 'rev-parse', 'HEAD').decode().strip() == expected, 'SHA mismatch')
+    require(git(root, 'rev-parse', 'HEAD^').decode().strip() == BASE, 'Parent mismatch')
+    require(git(root, 'rev-parse', 'HEAD^{tree}').decode().strip() == tree, 'Tree mismatch')
+    require(not git(root, 'status', '--porcelain', '--untracked-files=all'), 'Dirty source')
+    files = sorted(r['path'] for r in M['source'])
+    require(set(git(root, 'diff', '--name-only', BASE, 'HEAD').decode().splitlines()) == set(files) | CI, 'Whitelist mismatch')
+    for r in M['source']:
+        require(git(root, 'rev-parse', 'HEAD:' + r['path']).decode().strip() == r['blob'], 'Source blob mismatch')
+    require(sha(git(root, 'diff', '--binary', '--abbrev=9', BASE, 'HEAD', '--', *files)) == M['patch'], 'Patch mismatch')
+    for p, blob in M['protected'].items():
+        require(git(root, 'rev-parse', 'HEAD:' + p).decode().strip() == blob, 'Protected blob mismatch')
+    for r in M['overlay']:
+        require(git(root, 'rev-parse', 'HEAD:' + r['path']).decode().strip() == r['blob'], 'Overlay blob mismatch')
+    return {'sha': expected, 'parent': BASE, 'tree': tree, 'patch': M['patch'], 'files': files, 'ci': sorted(CI)}
+
+def parse(log, compiled, exit_code, required):
+    events = []
+    for line in log.splitlines():
+        try: events.append(json.loads(line))
+        except ValueError: pass
+    names = {a: {r['Test'] for r in events if r.get('Action') == a and r.get('Test')} for a in ['run', 'pass', 'fail', 'skip']}
+    missing = set(required) - names['pass']
+    package_pass = any(r.get('Action') == 'pass' and not r.get('Test') for r in events)
+    ok = compiled == 0 and exit_code == 0 and package_pass and bool(names['run']) and not names['fail'] and not missing and 'WARNING: DATA RACE' not in log
+    return dict(gatePass=ok, compileExit=compiled, testExit=exit_code, run=len(names['run']), passed=len(names['pass']),
+                fail=sorted(names['fail']), skip=sorted(names['skip']), missing=sorted(missing), requiredPassed=sorted(set(required) & names['pass']))
+
+def execute(root, args, log, env=None):
+    with log.open('wb') as f: return subprocess.run(args, cwd=root, stdout=f, stderr=subprocess.STDOUT, env=env).returncode
+
+def parser_selftest():
+    valid='\n'.join(json.dumps(r) for r in [{'Action':'run','Test':'TestNecessary'},{'Action':'pass','Test':'TestNecessary'},{'Action':'pass'}])
+    require(parse(valid,0,0,['TestNecessary'])['gatePass'], 'positive parser failed')
+    for compiled, code, text, req in [(1,None,'',[]),(0,0,valid,['TestMissing']),(0,1,valid,[]),(0,0,valid+'\nWARNING: DATA RACE',[]),(0,0,'',[])]:
+        require(not parse(text,compiled,code,req)['gatePass'], 'negative parser accepted')
+
+def main():
+    workspace=Path(os.environ['GITHUB_WORKSPACE']);evidence=workspace/'evidence';evidence.mkdir(exist_ok=True)
+    candidate=workspace/'candidate';baseline=workspace/'baseline';result={'gate':'BLOCKED','groups':{},'notProductionGate':True}
+    try:
+        parser_selftest()
+        expected=os.environ['GITHUB_SHA'];tree=git(candidate,'rev-parse',expected+'^{tree}').decode().strip()
+        result['identity']=identity(candidate,expected,tree)
+        require(git(baseline,'rev-parse','HEAD').decode().strip()==BASE,'Baseline mismatch')
+        require(platform.system()=='Linux' and platform.machine()=='x86_64','Runner architecture')
+        require(subprocess.check_output(['go','env','GOVERSION']).decode().strip()=='go1.26.7','Go version')
+        require(os.getenv('CGO_ENABLED')=='1' and os.getenv('GOTOOLCHAIN')=='local','CGO/toolchain')
+        execute(candidate,['go','env','-json'],evidence/'go-env.json')
+        execute(candidate,['gcc','--version'],evidence/'gcc.log')
+        execute(candidate,[sys.executable,'--version'],evidence/'python-version.log')
+        require(sys.version_info[:2]==(3,12),'Python version')
+        for label, root in [('baseline',baseline),('candidate',candidate)]:
+            require(not git(root,'status','--porcelain'),'Source dirty before modules')
+            result['groups'][label]={};group=result['groups'][label]
+            for mode, packages in [('normal',PACKAGES),('race',RACE)]:
+                for package in packages:
+                    folder=evidence/label/(mode+'_'+package.replace('/','_'));folder.mkdir(parents=True)
+                    if mode=='normal':
+                        cc=execute(root,['go','test','-mod=readonly','-p','2','-c','-x','-o',str(folder/'package.test'),'./'+package],folder/'compile.log')
+                    else: cc=0
+                    code=None
+                    if cc==0:
+                        args=['go','test','-mod=readonly','-p','2','-count=1','-json']+(['-race'] if mode=='race' else [])+['./'+package]
+                        code=execute(root,args,folder/'test.jsonl')
+                    text=(folder/'test.jsonl').read_text(errors='replace') if code is not None else ''
+                    required=list(M['required'].get(package,[]))
+                    if label=='candidate':required+=M['candidate_required'].get(package,[])
+                    record=parse(text,cc,code,required);record['compileSeparate']=mode=='normal'
+                    group[mode+':'+package]=record;save(folder/'result.json',record);save(evidence/'comparison.json',result)
+            require(not git(root,'status','--porcelain'),'Source mutated after module tests')
+            pyenv=dict(os.environ,PYTHONPATH=str(root/'mcp-server'),PYTHONDONTWRITEBYTECODE='1')
+            for name,args in [('unittest',[sys.executable,'-m','unittest','discover','-v','-s','mcp-server','-p','test_*.py']),
+                              ('pytest',[sys.executable,'-m','pytest','-q','mcp-server/tests'])]:
+                log=evidence/label/(name+'.log');code=execute(root,args,log,pyenv);text=log.read_text(errors='replace')
+                count=re.search(r'Ran (\d+) tests?',text) if name=='unittest' else re.search(r'(\d+) passed',text)
+                group['python:'+name]={'exit':code,'runOrPassed':int(count.group(1)) if count else 0,'gatePass':code==0 and bool(count) and int(count.group(1))>0}
+            # Overlay is explicit test-only provenance, never a F1 product source.
+            target=root/'internal/middleware/user_mcp_lifecycle_http_test.go'
+            require(not target.exists(),'Overlay would overwrite existing file')
+            shutil.copyfile(QA/'personal_mcp_bridge_test.go',target)
+            try:
+                binary=evidence/label/'personal-app.test'
+                cc=execute(root,['go','test','-mod=readonly','-p','2','-c','-o',str(binary),'./internal/middleware'],evidence/label/'gateway-fixture-compile.log')
+                record={'compileExit':cc,'gatePass':False,'overlay':M['overlay'],'sourceSHA':git(root,'rev-parse','HEAD').decode().strip()}
+                if cc==0:
+                    gatewayenv=dict(pyenv,PERSONAL_MCP_APP_TEST_BINARY=str(binary))
+                    log=evidence/label/'gateway.log'
+                    code=execute(root,[sys.executable,'-m','unittest','discover','-v','-s',str(QA),'-p','test_personal_mcp_lifecycle_http.py'],log,gatewayenv)
+                    text=log.read_text(errors='replace');record.update(exit=code,gatePass=code==0 and 'Ran 4 tests' in text and 'skipped' not in text.lower())
+                group['python:real-gateway']=record
+            finally: target.unlink()
+            require(not git(root,'status','--porcelain'),'Source mutated after overlay removal')
+            save(evidence/'comparison.json',result)
+        result['moduleVerifyExit']=execute(candidate,['go','mod','verify'],evidence/'module-verify.log')
+        result['pythonFreezeExit']=execute(candidate,[sys.executable,'-m','pip','freeze','--all'],evidence/'python-dependencies.log')
+        ok=all(r['gatePass'] for group in result['groups'].values() for r in group.values()) and result['moduleVerifyExit']==0
+        result['gate']='A2.4_A2.5_LINUX_INTEGRATION_GATE_PASS' if ok else 'BLOCKED'
+    except Exception as exc:
+        result['error']=str(exc)
+    finally:
+        findings=[]
+        pattern=r'(?<![A-Za-z0-9_])mcp_[A-Za-z0-9_-]{43}(?![A-Za-z0-9_-])|'+'|'.join(re.escape(x) for x in M['canaries'])
+        for p in evidence.rglob('*'):
+            if p.suffix in {'.log','.jsonl','.txt'}:
+                text=p.read_text(errors='replace')
+                if re.search(pattern,text):
+                    findings.append({'path':str(p.relative_to(evidence)),'rawSHA256':sha(p.read_bytes()),'matches':len(re.findall(pattern,text))})
+                    p.write_text(re.sub(pattern,'[REDACTED_SYNTHETIC_CREDENTIAL]',text));result['gate']='BLOCKED'
+        result['credentialFindings']=findings
+        save(evidence/'comparison.json',result)
+        save(evidence/'artifact-sha256.json',{str(p.relative_to(evidence)):sha(p.read_bytes()) for p in evidence.rglob('*') if p.is_file() and p.suffix in {'.log','.jsonl','.txt','.json'} and p.name!='artifact-sha256.json'})
+    return 0 if result['gate'].endswith('_PASS') else 1
+
+if __name__=='__main__':
+    if '--parser-selftest' in sys.argv: parser_selftest();print('parser selftest PASS')
+    elif '--identity-only' in sys.argv:
+        print(json.dumps(identity(Path(sys.argv[2]),sys.argv[3],sys.argv[4]),indent=2))
+    else: sys.exit(main())
