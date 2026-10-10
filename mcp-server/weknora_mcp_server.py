@@ -692,7 +692,6 @@ class WeKnoraClient:
                 headers=self._auth_headers(),
                 timeout=(10, WEKNORA_CHAT_TIMEOUT),
             )
-            response.raise_for_status()
 
             answer_chunks: list = []
             references: list = []
@@ -703,6 +702,7 @@ class WeKnoraClient:
             # Use context manager to ensure the connection is returned to the pool
             # even when breaking early on a 'complete' event.
             with response:
+                response.raise_for_status()
                 for raw_line in response.iter_lines():
                     if isinstance(raw_line, bytes):
                         raw_line = raw_line.decode("utf-8")
@@ -748,7 +748,7 @@ class WeKnoraClient:
                         references = event_data.get("knowledge_references") or []
                     elif response_type == "error":
                         raise RequestException(
-                            f"Server error: {event_data.get('content', 'unknown error')}"
+                            "SSE upstream failed"
                         )
                     elif response_type == "complete":
                         break
@@ -759,7 +759,12 @@ class WeKnoraClient:
                 "_debug_events": debug_events,
             }
         except RequestException as e:
-            logger.error(f"SSE stream request failed ({url}): {e}")
+            status = getattr(getattr(e, "response", None), "status_code", None)
+            # Preserve exception class/HTTP response for trusted callers, never
+            # expose provider body, URL or request credentials in message/logs.
+            if str(e) not in (f"SSE event exceeds {MAX_SSE_EVENT_BYTES} bytes", "SSE upstream failed"):
+                e.args = (f"SSE upstream request failed (type={type(e).__name__}, status={status})",)
+            logger.error("SSE stream request failed (type=%s, status=%s)", type(e).__name__, status)
             raise
 
     def chat(
