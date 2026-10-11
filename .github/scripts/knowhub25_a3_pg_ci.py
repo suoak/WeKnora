@@ -10,6 +10,7 @@ import sys
 
 PUBLIC_ROWS = []
 SERVICE_EXPECTED = {
+    "TestA3ProcessingFencePostgresAtomicPendingAdmission",
  'TestA3ProcessingAttemptCleanupPostgres',
  'TestA3ProcessingAttemptCleanupPostgres/actual_processChunks_preserves_new_generation',
  'TestA3ProcessingExecutionPostgresLifecycle',

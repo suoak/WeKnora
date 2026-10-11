@@ -294,3 +294,76 @@ func TestA3ProcessingFencePostgresKnowledgeWriteGuard(t *testing.T) {
 	require.NoError(t, db.Table("knowledges").Where("id = ? AND tenant_id = ? AND parse_status = ?", "two", 2, types.ParseStatusProcessing).Count(&count).Error)
 	require.Equal(t, int64(1), count)
 }
+
+func TestA3ProcessingFencePostgresAtomicPendingAdmission(t *testing.T) {
+	db, repo := processingPG(t)
+	ctx := context.Background()
+	first, err := repo.Allocate(ctx, 1, "one", time.Minute)
+	require.NoError(t, err)
+	start := make(chan struct{})
+	admitted := make(chan struct {
+		generation int64
+		err        error
+	}, 1)
+	finished := make(chan error, 1)
+	go func() {
+		<-start
+		generation, err := repo.ReservePending(ctx, 1, "one")
+		admitted <- struct {
+			generation int64
+			err        error
+		}{generation, err}
+	}()
+	go func() {
+		<-start
+		finished <- repo.Finish(ctx, first, types.ParseStatusCompleted, "")
+	}()
+	close(start)
+	result := <-admitted
+	require.NoError(t, result.err)
+	require.Equal(t, first.Generation+1, result.generation)
+	finishErr := <-finished
+	require.True(t, finishErr == nil || errors.Is(finishErr, ErrProcessingFence))
+	var state struct {
+		ParseStatus  string
+		ErrorMessage string
+	}
+	require.NoError(t, db.Table("knowledges").Where("id = ?", "one").Take(&state).Error)
+	require.Equal(t, types.ParseStatusPending, state.ParseStatus)
+	require.Empty(t, state.ErrorMessage)
+	require.ErrorIs(t, repo.Finish(ctx, first, types.ParseStatusCompleted, ""), ErrProcessingFence)
+	current, err := repo.Claim(ctx, 1, "one", result.generation, time.Minute)
+	require.NoError(t, err)
+	require.Equal(t, result.generation, current.Generation)
+
+	// Failure after pending has been written must roll back both writes. The
+	// current running generation and its state remain claimable/unchanged.
+	require.NoError(t, db.Table("knowledges").Where("id = ?", "one").Updates(map[string]any{"parse_status": types.ParseStatusProcessing, "error_message": "previous_failure"}).Error)
+	require.NoError(t, db.Exec(`CREATE FUNCTION reject_admission() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'controlled_admission_fault'; END $$ LANGUAGE plpgsql;
+		CREATE TRIGGER reject_admission BEFORE INSERT OR UPDATE ON knowledge_processing_executions FOR EACH ROW EXECUTE FUNCTION reject_admission();`).Error)
+	generation, err := repo.ReservePending(ctx, 1, "one")
+	require.Error(t, err)
+	require.Zero(t, generation, "an uncommitted generation cannot be enqueued")
+	require.NoError(t, db.Table("knowledges").Where("id = ?", "one").Take(&state).Error)
+	require.Equal(t, types.ParseStatusProcessing, state.ParseStatus)
+	require.Equal(t, "previous_failure", state.ErrorMessage)
+	var retained ProcessingFence
+	require.NoError(t, db.Where("tenant_id = ? AND knowledge_id = ?", 1, "one").Take(&retained).Error)
+	require.Equal(t, current.Generation, retained.Generation)
+	require.Equal(t, current.ExecutionID, retained.ExecutionID)
+	require.NoError(t, db.Exec("DROP TRIGGER reject_admission ON knowledge_processing_executions").Error)
+	retryGeneration, err := repo.ReservePending(ctx, 1, "one")
+	require.NoError(t, err)
+	require.Equal(t, current.Generation+1, retryGeneration)
+
+	// Tenant mismatch and cancellation cannot be overwritten by admission.
+	generation, err = repo.ReservePending(ctx, 2, "one")
+	require.Error(t, err)
+	require.Zero(t, generation)
+	require.NoError(t, db.Table("knowledges").Where("id = ?", "one").Update("parse_status", types.ParseStatusCancelled).Error)
+	generation, err = repo.ReservePending(ctx, 1, "one")
+	require.ErrorIs(t, err, ErrProcessingFence)
+	require.Zero(t, generation)
+	require.NoError(t, db.Table("knowledges").Where("id = ?", "one").Take(&state).Error)
+	require.Equal(t, types.ParseStatusCancelled, state.ParseStatus)
+}

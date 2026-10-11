@@ -52,6 +52,17 @@ func NewProcessingFenceRepository(db *gorm.DB) *ProcessingFenceRepository {
 // latency must not consume an execution lease, and queue retry must not allocate
 // another user generation. It uses the same knowledge-row lock as Allocate.
 func (r *ProcessingFenceRepository) Reserve(ctx context.Context, tenantID uint64, knowledgeID string) (int64, error) {
+	return r.reserve(ctx, tenantID, knowledgeID, false)
+}
+
+// ReservePending orders a new queue admission and its pending state under the
+// same row lock as worker writes. A failed transaction publishes neither state
+// nor generation. Enqueue only the generation returned after this commit.
+func (r *ProcessingFenceRepository) ReservePending(ctx context.Context, tenantID uint64, knowledgeID string) (int64, error) {
+	return r.reserve(ctx, tenantID, knowledgeID, true)
+}
+
+func (r *ProcessingFenceRepository) reserve(ctx context.Context, tenantID uint64, knowledgeID string, pending bool) (int64, error) {
 	var generation int64
 	if tenantID == 0 || knowledgeID == "" {
 		return 0, ErrProcessingFence
@@ -59,6 +70,16 @@ func (r *ProcessingFenceRepository) Reserve(ctx context.Context, tenantID uint64
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := lockProcessingKnowledge(tx, tenantID, knowledgeID); err != nil {
 			return err
+		}
+		if pending {
+			result := tx.Table("knowledges").Where("tenant_id = ? AND id = ? AND deleted_at IS NULL", tenantID, knowledgeID).
+				Updates(map[string]any{"parse_status": types.ParseStatusPending, "error_message": "", "updated_at": gorm.Expr("CURRENT_TIMESTAMP")})
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected != 1 {
+				return ErrProcessingFence
+			}
 		}
 		var current ProcessingFence
 		err := tx.Where("tenant_id = ? AND knowledge_id = ?", tenantID, knowledgeID).Take(&current).Error
@@ -74,7 +95,10 @@ func (r *ProcessingFenceRepository) Reserve(ctx context.Context, tenantID uint64
 		return tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "tenant_id"}, {Name: "knowledge_id"}},
 			DoUpdates: clause.AssignmentColumns([]string{"generation", "execution_id", "lease_until", "main_finished"})}).Create(&next).Error
 	})
-	return generation, err
+	if err != nil {
+		return 0, err
+	}
+	return generation, nil
 }
 
 // Claim grants one execution nonce for a reserved generation. A concurrent
