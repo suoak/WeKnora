@@ -22,6 +22,46 @@ RULES = {
 }
 
 
+def full_service(directory):
+    blocked = False
+    # Exact historical exceptions copied from the accepted A4 R2 gate manifest.
+    allowed_skip = {"TestSyncServicePostgres", "TestRealParserSegmentsAcceptance", "TestCreateStore_DifferentEndpointSameIndex_Allowed"}
+    for mode in ("NORMAL", "RACE"):
+        raw = directory / ("SERVICE_FULL-" + mode + ".jsonl")
+        stderr = directory / ("SERVICE_FULL-" + mode + ".stderr")
+        command = ["go", "test", "-mod=readonly", "-p", "2", "-count=1", "-timeout=10m", "-json"]
+        if mode == "RACE": command.append("-race")
+        command.append("./internal/application/service")
+        with raw.open("wb") as out, stderr.open("wb") as err:
+            result = subprocess.run(command, stdout=out, stderr=err, check=False)
+        rows = {}; invalid = False; package_pass = False; race = False; findings = []
+        for path, role in ((raw,"GO_TEST_JSONL"),(stderr,"GO_TEST_STDERR")):
+            path.chmod(0o600)
+            data = path.read_bytes(); text = data.decode("utf-8",errors="strict")
+            race |= "WARNING: DATA RACE" in text
+            findings.append({"role":role,"sha256":hashlib.sha256(data).hexdigest(),"rules":{key:len(regex.findall(text)) for key,regex in RULES.items()}})
+        try:
+            for line in raw.read_text(encoding="utf-8").splitlines():
+                event = json.loads(line); name = event.get("Test"); action = event.get("Action")
+                if name:
+                    if action == "run":
+                        if name in rows: invalid = True
+                        rows[name] = "RUN"
+                    elif action in ("pass","fail","skip"):
+                        if rows.get(name) != "RUN": invalid = True
+                        rows[name] = action.upper()
+                elif action == "pass": package_pass = True
+                elif action == "fail": invalid = True
+        except (ValueError,TypeError,UnicodeError): invalid = True
+        skipped = {key for key,value in rows.items() if value == "SKIP"}
+        scan_clear = all(not count for row in findings for count in row["rules"].values())
+        passed = result.returncode == 0 and bool(rows) and package_pass and not invalid and not race and scan_clear and skipped <= allowed_skip and all(value in ("PASS","SKIP") for value in rows.values()) and rows.get("TestA3ProcessingAttemptCleanupPostgres") == "PASS"
+        print(json.dumps({"package":"SERVICE_FULL","mode":mode,"exit":result.returncode,"run":len(rows),"pass":sum(value=="PASS" for value in rows.values()),"fail":sum(value=="FAIL" for value in rows.values()),"skip":len(skipped),"parserValid":not invalid,"dataRace":race,"scanClear":scan_clear,"rawMetadata":findings,"status":"PASS" if passed else "BLOCKED"},sort_keys=True))
+        blocked |= not passed
+        if not passed: break
+    return not blocked
+
+
 def main():
     directory = Path(tempfile.mkdtemp(prefix="a3-pg-", dir=os.environ["RUNNER_TEMP"]))
     directory.chmod(0o700)
@@ -77,6 +117,8 @@ def main():
                           "rawMetadata": findings, "status": "PASS" if passed else "BLOCKED"}, sort_keys=True))
         if not passed:
             break
+    if not blocked:
+        blocked = not full_service(directory)
     # No artifact uploads are authorized by this workflow, including on failure.
     raise SystemExit(1 if blocked else 0)
 
