@@ -434,7 +434,7 @@ func (c *Client) ContinueStream(
 
 		// Process lines with event: prefix
 		if strings.HasPrefix(line, "event:") {
-			eventType = line[6:] // Remove "event:" prefix
+			eventType = strings.TrimPrefix(line[6:], " ") // Remove "event:" prefix
 		}
 
 		// Process lines with data: prefix
