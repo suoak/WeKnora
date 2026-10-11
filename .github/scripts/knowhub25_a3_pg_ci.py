@@ -110,6 +110,9 @@ FROZEN_CANARIES = [
     "synthetic-revoke-a",
     "synthetic-revoke-b",
     "synthetic-revoke-other",
+    "LOGIN_TOKEN_SQL_CANARY",
+    "SYNTHETIC_LOGIN_CREDENTIAL",
+    "SYNTHETIC_LOGIN_BEARER",
     "synthetic-secret",
     "tenant-a-token",
     "tenant-b-token"
@@ -165,7 +168,7 @@ def full_service(directory):
                 if count: safe_hits.append({"role":"GO_TEST_JSONL","testID":public_id,"ruleID":rule,"count":count,"classification":"UNKNOWN"})
         skipped = {key for key,value in rows.items() if value == "SKIP"}
         scan_clear = all(not count for row in findings for count in row["rules"].values())
-        passed = result.returncode == 0 and bool(rows) and package_pass and not invalid and not race and scan_clear and skipped <= allowed_skip and all(value in ("PASS","SKIP") for value in rows.values()) and rows.get("TestA3ProcessingAttemptCleanupPostgres") == "PASS"
+        passed = result.returncode == 0 and bool(rows) and package_pass and not invalid and not race and scan_clear and skipped <= allowed_skip and all(value in ("PASS","SKIP") for value in rows.values()) and rows.get("TestA3ProcessingAttemptCleanupPostgres") == "PASS" and rows.get("TestLoginTokenIssueFailureLogIsControlled") == "PASS"
         emit({"package":"SERVICE_FULL","mode":mode,"exit":result.returncode,"run":len(rows),"pass":sum(value=="PASS" for value in rows.values()),"fail":sum(value=="FAIL" for value in rows.values()),"failedTestIDs":sorted({key.split("/")[0] for key,value in rows.items() if value=="FAIL" and key.split("/")[0] in allowed_tests}),"skip":len(skipped),"parserValid":not invalid,"dataRace":race,"scanClear":scan_clear,"rawMetadata":findings,"safeHitTests":safe_hits,"status":"PASS" if passed else "BLOCKED"})
         blocked |= not passed
         if not passed: break

@@ -1,8 +1,10 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"testing"
 	"time"
 
@@ -10,8 +12,35 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
 )
+
+func TestLoginTokenIssueFailureLogIsControlled(t *testing.T) {
+	ctx := context.Background()
+	canary := "LOGIN_TOKEN_SQL_CANARY token=SYNTHETIC_LOGIN_CREDENTIAL Bearer SYNTHETIC_LOGIN_BEARER"
+	tokens := &stubAuthTokenRepo{tokens: map[string]*types.AuthToken{}, createErrs: []error{errors.New(canary)}}
+	svc := newAuthTestUserService(tokens)
+	user := persistedTestUser(t, 0, "user@example.com", "Secure9!")
+	svc.userRepo.(*stubUserRepoForAuth).users["user-1"] = user
+	sink := logger.GetLogger(ctx).Logger
+	previous := sink.Out
+	var captured bytes.Buffer
+	sink.SetOutput(io.MultiWriter(previous, &captured))
+	t.Cleanup(func() { sink.SetOutput(previous) })
+	response, err := svc.Login(ctx, &types.LoginRequest{Email: user.Email, Password: "Secure9!"})
+	require.NoError(t, err)
+	require.False(t, response.Success)
+	require.Empty(t, response.Token)
+	require.Empty(t, response.RefreshToken)
+	require.Equal(t, "Login failed", response.Message)
+	require.Contains(t, captured.String(), "token_issue_failed")
+	for _, forbidden := range []string{"LOGIN_TOKEN_SQL_CANARY", "SYNTHETIC_LOGIN_CREDENTIAL", "SYNTHETIC_LOGIN_BEARER"} {
+		require.NotContains(t, captured.String(), forbidden)
+		require.NotContains(t, response.Message, forbidden)
+	}
+	require.Equal(t, 1, tokens.createCalls)
+}
 
 // errTokenWrite stands in for a failed auth_tokens insert: statement timeout,
 // exhausted connection pool, connection reset. It is always transient

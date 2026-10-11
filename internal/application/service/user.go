@@ -273,7 +273,7 @@ func (s *userService) Login(ctx context.Context, req *types.LoginRequest) (*type
 	resolvedTenantID := s.resolveLoginTenantID(ctx, user)
 	accessToken, refreshToken, err := s.generateTokensForTenant(ctx, user, resolvedTenantID)
 	if err != nil {
-		logger.Errorf(ctx, "Failed to generate tokens: %v", err)
+		logger.Error(ctx, "token_issue_failed")
 		return &types.LoginResponse{
 			Success: false,
 			Message: "Login failed",
