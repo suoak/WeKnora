@@ -16,6 +16,7 @@ import (
 	sqlite_vec "github.com/asg017/sqlite-vec-go-bindings/cgo"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 // sqliteEmbedding stores metadata alongside the vec0 virtual table rows
@@ -49,7 +50,32 @@ type sqliteRepository struct {
 	ftsUnavailable bool
 }
 
+// sqliteTraceLogger retains the configured SQL logging level and timing while
+// keeping driver errors and bound SQL out of this repository's trace boundary.
+// Repository return values are unchanged; this adapter applies only to logging.
+type sqliteTraceLogger struct{ gormlogger.Interface }
+
+func (l sqliteTraceLogger) LogMode(level gormlogger.LogLevel) gormlogger.Interface {
+	return sqliteTraceLogger{Interface: l.Interface.LogMode(level)}
+}
+
+func (l sqliteTraceLogger) Trace(ctx context.Context, begin time.Time, fc func() (string, int64), err error) {
+	var safeErr error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			safeErr = gorm.ErrRecordNotFound
+		} else {
+			safeErr = errors.New("sqlite_operation_failed")
+		}
+	}
+	l.Interface.Trace(ctx, begin, func() (string, int64) {
+		_, rows := fc()
+		return "sqlite_operation", rows
+	}, safeErr)
+}
+
 func NewSQLiteRetrieveEngineRepository(db *gorm.DB) interfaces.RetrieveEngineRepository {
+	db = db.Session(&gorm.Session{Logger: sqliteTraceLogger{Interface: db.Logger}})
 	logger.GetLogger(context.Background()).Info("[SQLite] Initializing SQLite retriever engine repository with sqlite-vec")
 
 	if err := db.AutoMigrate(&sqliteEmbedding{}); err != nil {
@@ -100,7 +126,7 @@ func enableImageChunkIndexes(db *gorm.DB) {
 		)`, string(types.ChunkTypeImageOCR), string(types.ChunkTypeImageCaption))
 	if result.Error != nil {
 		logger.GetLogger(context.Background()).Warnf(
-			"[SQLite] Failed to re-enable image chunk indexes: %v", result.Error)
+			"sqlite_image_index_repair_failed")
 		return
 	}
 	if result.RowsAffected > 0 {

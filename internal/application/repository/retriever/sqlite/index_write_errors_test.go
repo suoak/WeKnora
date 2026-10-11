@@ -5,8 +5,11 @@ import (
 	"context"
 	"fmt"
 	"github.com/Tencent/WeKnora/internal/logger"
+	gormlogger "gorm.io/gorm/logger"
 	"io"
+	"log"
 	"testing"
+	"time"
 
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/assert"
@@ -280,8 +283,14 @@ func TestFTSInitializationFailureLogIsControlled(t *testing.T) {
 	const canary = "SQLITE_INIT_SQL_CANARY_20261011"
 	require.NoError(t, repo.db.Exec("CREATE TRIGGER synthetic_init_failure BEFORE INSERT ON lite_embeddings BEGIN SELECT RAISE(ABORT, '"+canary+"'); END").Error)
 	info := sqliteTestIndex("failed-init", "kb", "knowledge", "", true)
+	var sqlCaptured bytes.Buffer
+	repo.db.Logger = sqliteTraceLogger{Interface: gormlogger.New(log.New(io.MultiWriter(logger.GetLogger(ctx).Logger.Out, &sqlCaptured), "", 0), gormlogger.Config{LogLevel: gormlogger.Info})}
 	err := repo.Save(ctx, info, map[string]any{"embedding": map[string][]float32{info.SourceID: {1, 0}}})
 	require.True(t, err != nil, "real SQLite injected write must fail")
+	require.True(t, bytes.Contains(sqlCaptured.Bytes(), []byte("sqlite_operation_failed")), "SQL logger must retain a controlled failure")
+	require.False(t, bytes.Contains(sqlCaptured.Bytes(), []byte(canary)), "driver cause must not enter SQL trace")
+	repo.db.Logger.Trace(ctx, time.Now(), func() (string, int64) { return "SELECT '" + canary + "'", 1 }, nil)
+	require.False(t, bytes.Contains(sqlCaptured.Bytes(), []byte(canary)), "successful bound SQL must not enter SQL trace")
 	require.True(t, bytes.Contains([]byte(err.Error()), []byte(canary)), "actual SQL fault must reach internal error")
 	var captured bytes.Buffer
 	previous := logger.GetLogger(ctx).Logger.Out
