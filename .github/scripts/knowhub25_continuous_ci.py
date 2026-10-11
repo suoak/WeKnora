@@ -18,7 +18,7 @@ M = json.loads((QA / 'manifest.json').read_text())
 spec = importlib.util.spec_from_file_location('continuous_contracts', QA / 'contracts.py')
 C = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(C)
-PHASES = {'GO', 'SHUFFLE', 'UNITTEST', 'PYTEST', 'GATEWAY', 'NOTION_OVERLAY',
+PHASES = {'NO_FTS_COMPANION', 'GO', 'SHUFFLE', 'UNITTEST', 'PYTEST', 'GATEWAY', 'NOTION_OVERLAY',
           'PY_DEPENDENCIES', 'FRONT_DEPENDENCIES', 'FRONT_UNIT', 'FRONT_TYPE',
           'FRONT_QA_BUILD', 'FRONT_RELEASE_BUILD', 'FRONT_QA_E2E', 'FRONT_RELEASE_E2E', 'FRONT_BROWSER'}
 MODES = {'NORMAL', 'RACE', 'SHUFFLE', 'PYTHON', 'FRONTEND', 'OVERLAY_NORMAL', 'OVERLAY_RACE', 'EXTRA_NORMAL', 'EXTRA_RACE'}
@@ -242,6 +242,11 @@ class Runner:
             definitions = {name for path in (self.source / package).glob('*_test.go') for name in re.findall(r'^func (Test[A-Za-z0-9_]*)\(', path.read_text(), re.MULTILINE)}
             not_present = sum(name.split('/')[0] not in definitions for name in M['candidate_required'].get(package, [])) if self.side == 'BASELINE' else 0
             self.record('GO', parsed, f'PKG_{index:03d}', cc, not_present)
+            if package.endswith('/retriever/sqlite') and self.side == 'CANDIDATE':
+                companion_name = 'TestSaveWorksWhenTheFTS5ModuleIsNotCompiledIn'
+                command = ['go', 'test', '-mod=readonly', '-p', '2', '-count=1', '-json'] + (['-race'] if self.mode == 'EXTRA_RACE' else []) + ['-run', '^'+companion_name+'$', './'+package]
+                code, out, err = self.execute('NO_FTS_COMPANION', command, 'GO_TEST_JSONL')
+                self.record('NO_FTS_COMPANION', C.parse(out.read_text(), 0, code, [companion_name], {}, err.read_text()), f'PKG_{index:03d}', 0)
             if package == 'internal/agent':
                 agent_pass = bool(parsed['gatePass'])
         if self.mode == 'NORMAL':

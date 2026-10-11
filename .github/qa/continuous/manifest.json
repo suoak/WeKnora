@@ -554,6 +554,11 @@
       "reasonText": "vectorstore_test.go:441: requires mockable TestConnection or repository-only test; track separately",
       "sourceRun": "38056265554",
       "policy": "Approved historical non-necessary environment skip; no production PASS"
+    },
+    "github.com/Tencent/WeKnora/internal/application/repository/retriever/sqlite::TestSaveWorksWhenTheFTS5ModuleIsNotCompiledIn": {
+      "reasonText": "fts5 is compiled in; the keyword index is checked by the other tests",
+      "sourceRun": "38152565006",
+      "policy": "Exact inapplicable no-FTS branch in tagged build; same-source untagged companion must PASS"
     }
   },
   "canaries": [
@@ -1200,7 +1205,6 @@
       "TestSanitizeFTS5QueryScopesToContent",
       "TestSaveFailsWhenAnotherObjectOwnsTheVecTableName",
       "TestSaveStillWritesEveryIndexRowOnHealthyTables",
-      "TestSaveWorksWhenTheFTS5ModuleIsNotCompiledIn",
       "TestVectorRetrieveAppliesSimilarityThreshold",
       "TestVectorRetrieveFiltersBeforeTopK",
       "TestVectorRetrieveZeroThresholdDoesNotFilter"
