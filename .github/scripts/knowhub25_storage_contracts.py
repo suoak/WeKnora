@@ -36,6 +36,7 @@ def parse(data, exit_code):
         counts['passed'] += seq.count('pass')
         counts['failed'] += seq.count('fail')
         counts['skipped'] += seq.count('skip')
+    valid &= counts['failed'] == 0
     return valid, counts
 
 
@@ -43,6 +44,7 @@ def self_test():
     good = b'{"Test":"fixed","Action":"run"}\n{"Test":"fixed","Action":"pass"}\n{"Action":"pass"}\n'
     assert parse(good, 0)[0]
     assert not parse(good, 1)[0]
+    assert not parse(good.replace(b'"Test":"fixed","Action":"pass"', b'"Test":"fixed","Action":"fail"'), 0)[0]
     assert not parse(good.replace(b'"pass"', b'"skip"', 1), 0)[0]
     assert not parse(good.splitlines()[0], 0)[0]
     assert not parse(good + good, 0)[0]
@@ -60,7 +62,13 @@ def main():
     if '--self-test' in sys.argv:
         print('STORAGE_CONTRACT_INFRASTRUCTURE_SELF_TEST_PASS')
         return
-    assert subprocess.check_output(['git', 'rev-parse', 'HEAD^']).decode().strip() == BASELINE
+    assert subprocess.check_output(['git', 'merge-base', BASELINE, 'HEAD']).decode().strip() == BASELINE
+    source_commit = '6227f729e6da09c52940c727b9d81c0b1e8b89ea'
+    approved = subprocess.check_output(['git', 'diff', '--name-only', BASELINE, source_commit]).decode().splitlines()
+    assert set(subprocess.check_output(['git', 'diff', '--name-only', BASELINE, 'HEAD']).decode().splitlines()) == set(approved)
+    for path in approved:
+        if not path.startswith('.github/'):
+            assert subprocess.check_output(['git', 'rev-parse', 'HEAD:' + path]) == subprocess.check_output(['git', 'rev-parse', source_commit + ':' + path])
     assert subprocess.check_output(['go', 'env', 'GOOS']).decode().strip() == 'linux'
     assert subprocess.check_output(['go', 'version']).decode().strip() == 'go version go1.26.7 linux/amd64'
     raw = Path(os.environ['RUNNER_TEMP']) / 'knowhub25-storage-raw'
