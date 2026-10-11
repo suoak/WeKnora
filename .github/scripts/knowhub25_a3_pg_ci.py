@@ -15,6 +15,7 @@ SERVICE_EXPECTED = {
  'TestA3ProcessingExecutionPostgresLifecycle',
  'TestA3ProcessingExecutionPostgresSupersession',
  'TestA3ProcessingExecutionPostgresParentCancellation',
+ 'TestA3ProcessingExecutionPostgresDurableCleanup',
 }
 
 

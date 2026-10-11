@@ -143,3 +143,42 @@ func TestA3ProcessingExecutionPostgresParentCancellation(t *testing.T) {
 	require.NoError(t, err, "cancelled delivery must release lease for retry")
 	require.NotEmpty(t, claim.ExecutionID)
 }
+
+func TestA3ProcessingExecutionPostgresDurableCleanup(t *testing.T) {
+	db, svc, fences := processingExecutionPG(t)
+	require.NoError(t, db.AutoMigrate(&types.Chunk{}))
+	ctx := context.Background()
+	generation, err := fences.Reserve(ctx, 1, "one")
+	require.NoError(t, err)
+	first, err := fences.Claim(ctx, 1, "one", generation, time.Minute)
+	require.NoError(t, err)
+	work := types.WithProcessingExecution(ctx, types.ProcessingExecution{TenantID: 1, KnowledgeID: "one", Generation: generation, ExecutionID: first.ExecutionID})
+	knowledge := &types.Knowledge{ID: "one", TenantID: 1}
+	old := &types.Chunk{ID: uuid.NewString(), TenantID: 1, KnowledgeID: "one", IsEnabled: true}
+	require.NoError(t, svc.persistProcessingChunks(work, knowledge, []*types.Chunk{old}))
+	second, err := fences.Allocate(ctx, 1, "one", time.Minute)
+	require.NoError(t, err)
+	newer := &types.Chunk{ID: uuid.NewString(), TenantID: 1, KnowledgeID: "one", IsEnabled: true}
+	require.NoError(t, fences.PersistChunks(ctx, second, []*types.Chunk{newer}))
+	calls := 0
+	cleanup := func(_ context.Context, ids []string) error {
+		calls++
+		require.Equal(t, []string{old.ID}, ids)
+		if calls == 1 {
+			return errors.New("controlled_vector_failure")
+		}
+		return nil
+	}
+	require.ErrorIs(t, svc.cleanupAttemptChunks(work, knowledge, []*types.Chunk{old}, cleanup), errAttemptCleanupFailed)
+	var pending int64
+	require.NoError(t, db.Table("knowledge_processing_owned_chunks").Where("chunk_id = ? AND cleanup_complete = FALSE", old.ID).Count(&pending).Error)
+	require.EqualValues(t, 1, pending, "failed external cleanup remains durable")
+	require.NoError(t, svc.cleanupAttemptChunks(work, knowledge, []*types.Chunk{old}, cleanup))
+	require.NoError(t, svc.cleanupAttemptChunks(work, knowledge, []*types.Chunk{old}, cleanup))
+	require.Equal(t, 2, calls, "completed cleanup must not repeat backend work")
+	var active int64
+	require.NoError(t, db.Model(&types.Chunk{}).Where("id = ?", newer.ID).Count(&active).Error)
+	require.EqualValues(t, 1, active, "old cleanup cannot delete new generation")
+	require.NoError(t, db.Model(&types.Chunk{}).Where("id = ?", old.ID).Count(&active).Error)
+	require.Zero(t, active)
+}

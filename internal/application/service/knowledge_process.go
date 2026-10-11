@@ -424,29 +424,34 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 	}
 
 	// 幂等性处理：清理旧的chunks和索引数据，避免重复数据
-	logger.Infof(ctx, "Cleaning up existing chunks and index data for knowledge: %s", knowledge.ID)
+	// Fenced attempts may only delete their durable owned ChunkIDs.
+	// Generation admission/publication retires prior data separately.
+	if _, fenced := types.ProcessingExecutionFromContext(ctx); !fenced {
+		logger.Infof(ctx, "Cleaning up existing chunks and index data for knowledge: %s", knowledge.ID)
 
-	// 删除旧的chunks
-	if err := s.chunkRepo.DeleteChunksByKnowledgeID(ctx, knowledge.TenantID, knowledge.ID); err != nil {
-		logger.Warnf(ctx, "Failed to delete existing chunks (may not exist): %v", err)
-		// 不返回错误，继续处理（可能没有旧数据）
-	}
-
-	// 删除旧的索引数据 — only when vector/keyword indexing is enabled
-	if embeddingModel != nil {
-		if err := retrieveEngine.DeleteByKnowledgeIDList(ctx, []string{knowledge.ID}, embeddingModel.GetDimensions(), knowledge.Type); err != nil {
-			logger.Warnf(ctx, "Failed to delete existing index data (may not exist): %v", err)
+		// 删除旧的chunks
+		if err := s.chunkRepo.DeleteChunksByKnowledgeID(ctx, knowledge.TenantID, knowledge.ID); err != nil {
+			logger.Warnf(ctx, "Failed to delete existing chunks (may not exist): %v", err)
 			// 不返回错误，继续处理（可能没有旧数据）
-		} else {
-			logger.Infof(ctx, "Successfully deleted existing index data for knowledge: %s", knowledge.ID)
 		}
-	}
 
-	// 删除知识图谱数据（如果存在）
-	namespace := types.NameSpace{KnowledgeBase: knowledge.KnowledgeBaseID, Knowledge: knowledge.ID}
-	if err := s.graphEngine.DelGraph(ctx, []types.NameSpace{namespace}); err != nil {
-		logger.Warnf(ctx, "Failed to delete existing graph data (may not exist): %v", err)
-		// 不返回错误，继续处理
+		// 删除旧的索引数据 — only when vector/keyword indexing is enabled
+		if embeddingModel != nil {
+			if err := retrieveEngine.DeleteByKnowledgeIDList(ctx, []string{knowledge.ID}, embeddingModel.GetDimensions(), knowledge.Type); err != nil {
+				logger.Warnf(ctx, "Failed to delete existing index data (may not exist): %v", err)
+				// 不返回错误，继续处理（可能没有旧数据）
+			} else {
+				logger.Infof(ctx, "Successfully deleted existing index data for knowledge: %s", knowledge.ID)
+			}
+		}
+
+		// 删除知识图谱数据（如果存在）
+		namespace := types.NameSpace{KnowledgeBase: knowledge.KnowledgeBaseID, Knowledge: knowledge.ID}
+		if err := s.graphEngine.DelGraph(ctx, []types.NameSpace{namespace}); err != nil {
+			logger.Warnf(ctx, "Failed to delete existing graph data (may not exist): %v", err)
+			// 不返回错误，继续处理
+		}
+
 	}
 
 	logger.Infof(ctx, "Cleanup completed, starting to process new chunks")
@@ -639,7 +644,7 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 	s.beginStage(ctx, knowledge.ID, types.StageChunking, types.JSONMap{
 		"chunks_planned": len(insertChunks),
 	})
-	if err := s.chunkRepo.CreateChunks(ctx, insertChunks); err != nil {
+	if err := s.persistProcessingChunks(ctx, knowledge, insertChunks); err != nil {
 		knowledge.ParseStatus = types.ParseStatusFailed
 		knowledge.ErrorMessage = err.Error()
 		knowledge.UpdatedAt = time.Now()

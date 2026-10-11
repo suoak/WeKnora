@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
@@ -35,6 +36,31 @@ func (s *knowledgeService) cleanupAttemptChunks(ctx context.Context, knowledge *
 	// lifetime. Preserve trusted context fields; never start an unbounded worker.
 	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 	defer cancel()
+	if execution, present := types.ProcessingExecutionFromContext(ctx); present {
+		provider, ok := s.repo.(interface {
+			ProcessingFences() *repository.ProcessingFenceRepository
+		})
+		if !ok || execution.TenantID != knowledge.TenantID || execution.KnowledgeID != knowledge.ID || execution.ExecutionID == "" {
+			return errAttemptCleanupFailed
+		}
+		fence := repository.ProcessingFence{TenantID: execution.TenantID, KnowledgeID: execution.KnowledgeID, Generation: execution.Generation, ExecutionID: execution.ExecutionID}
+		fences := provider.ProcessingFences()
+		owned, err := fences.CleanupSQL(cleanupCtx, fence)
+		if err != nil {
+			return errAttemptCleanupFailed
+		}
+		// Ownership is durable. Never claim vector cleanup complete merely
+		// because the SQL rows are already disabled after a previous failure.
+		if len(owned) > 0 && vectorCleanup != nil {
+			if err := vectorCleanup(cleanupCtx, owned); err != nil {
+				return errAttemptCleanupFailed
+			}
+		}
+		if err := fences.CompleteCleanup(cleanupCtx, fence); err != nil {
+			return errAttemptCleanupFailed
+		}
+		return nil
+	}
 	if err := s.chunkRepo.DeleteChunks(cleanupCtx, knowledge.TenantID, ids); err != nil {
 		return errAttemptCleanupFailed
 	}
@@ -44,4 +70,20 @@ func (s *knowledgeService) cleanupAttemptChunks(ctx context.Context, knowledge *
 		}
 	}
 	return nil
+}
+
+// persistProcessingChunks commits main-worker SQL rows and their exact-ID
+// ownership in one transaction; legacy deliveries retain their repository path.
+func (s *knowledgeService) persistProcessingChunks(ctx context.Context, knowledge *types.Knowledge, chunks []*types.Chunk) error {
+	execution, present := types.ProcessingExecutionFromContext(ctx)
+	if !present {
+		return s.chunkRepo.CreateChunks(ctx, chunks)
+	}
+	provider, ok := s.repo.(interface {
+		ProcessingFences() *repository.ProcessingFenceRepository
+	})
+	if !ok || execution.TenantID != knowledge.TenantID || execution.KnowledgeID != knowledge.ID || execution.ExecutionID == "" {
+		return errAttemptCleanupFailed
+	}
+	return provider.ProcessingFences().PersistChunks(ctx, repository.ProcessingFence{TenantID: execution.TenantID, KnowledgeID: execution.KnowledgeID, Generation: execution.Generation, ExecutionID: execution.ExecutionID}, chunks)
 }

@@ -147,9 +147,8 @@ func TestA3ProcessingAttemptCleanupPostgres(t *testing.T) {
 		require.Error(t, failure)
 		require.Equal(t, "processing_index_failed", failure.Error())
 		require.Equal(t, 1, vectorDeletes)
-		// Only the original pre-processing clear is whole-knowledge. No failed
-		// cleanup reissues it after the new generation exists.
-		require.Equal(t, 1, engine.wholeDeletes)
+		// A fenced invocation must never issue a knowledge-wide deletion.
+		require.Zero(t, engine.wholeDeletes)
 		require.NoError(t, db.Model(&types.Chunk{}).Where("id IN ?", oldIDs).Count(&count).Error)
 		require.Zero(t, count)
 		require.NoError(t, db.Model(&types.Chunk{}).Where("id = ?", newChunk.ID).Count(&count).Error)
