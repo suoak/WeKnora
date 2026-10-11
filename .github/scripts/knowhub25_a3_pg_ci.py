@@ -127,7 +127,7 @@ def main():
     blocked = False
     matrix = [(package, mode) for package in ("REPOSITORY", "SERVICE") for mode in ("NORMAL", "RACE")]
     for package, mode in matrix:
-        expected = EXPECTED if package == "REPOSITORY" else {"TestA3ProcessingAttemptCleanupPostgres"}
+        expected = EXPECTED if package == "REPOSITORY" else {"TestA3ProcessingAttemptCleanupPostgres", "TestA3ProcessingAttemptCleanupPostgres/actual_processChunks_preserves_new_generation"}
         path = "./internal/application/repository" if package == "REPOSITORY" else "./internal/application/service"
         pattern = "^TestA3ProcessingFencePostgres" if package == "REPOSITORY" else "^TestA3ProcessingAttemptCleanupPostgres$"
         raw = directory / (package + "-" + mode + ".jsonl")

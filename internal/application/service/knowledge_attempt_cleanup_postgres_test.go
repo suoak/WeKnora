@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
+	"github.com/Tencent/WeKnora/internal/models/embedding"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -14,6 +17,28 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+// The vector executor is synthetic; SQL persistence and generation transitions
+// below use production repositories against actual isolated PostgreSQL.
+type failedAttemptVectorExecutor struct {
+	parentChildRetrieveEngine
+	batch        func(context.Context, []*types.IndexInfo) error
+	cleanup      func(context.Context, []string) error
+	wholeDeletes int
+}
+
+func (e *failedAttemptVectorExecutor) BatchIndex(ctx context.Context, _ embedding.Embedder, infos []*types.IndexInfo, _ []types.RetrieverType) error {
+	return e.batch(ctx, infos)
+}
+
+func (e *failedAttemptVectorExecutor) DeleteByChunkIDList(ctx context.Context, ids []string, _ int, _ string) error {
+	return e.cleanup(ctx, ids)
+}
+
+func (e *failedAttemptVectorExecutor) DeleteByKnowledgeIDList(context.Context, []string, int, string) error {
+	e.wholeDeletes++
+	return nil
+}
 
 func TestA3ProcessingAttemptCleanupPostgres(t *testing.T) {
 	dsn := os.Getenv("KNOWHUB25_TEST_POSTGRES_DSN")
@@ -77,4 +102,60 @@ func TestA3ProcessingAttemptCleanupPostgres(t *testing.T) {
 	require.Equal(t, 2, vectorCalls)
 	require.NoError(t, db.Model(&types.Chunk{}).Where("id = ?", newer.ID).Count(&count).Error)
 	require.Equal(t, int64(1), count)
+
+	t.Run("actual_processChunks_preserves_new_generation", func(t *testing.T) {
+		require.NoError(t, db.Exec(`DROP TRIGGER reject_cleanup ON chunks`).Error)
+		require.NoError(t, db.AutoMigrate(&types.Knowledge{}))
+		migration, err := os.ReadFile(filepath.Join("..", "..", "..", "migrations", "versioned", "003024_knowledge_processing_fencing.up.sql"))
+		require.NoError(t, err)
+		require.NoError(t, db.Transaction(func(tx *gorm.DB) error { return tx.Exec(string(migration)).Error }))
+		knowledge := &types.Knowledge{ID: uuid.NewString(), TenantID: 1, KnowledgeBaseID: "kb-one", ParseStatus: types.ParseStatusProcessing}
+		knowledgeRepo := repository.NewKnowledgeRepository(db)
+		require.NoError(t, knowledgeRepo.CreateKnowledge(context.Background(), knowledge))
+		fences := repository.NewProcessingFenceRepository(db)
+		first, err := fences.Allocate(context.Background(), 1, knowledge.ID, time.Minute)
+		require.NoError(t, err)
+		newChunk := &types.Chunk{ID: uuid.NewString(), TenantID: 1, KnowledgeID: knowledge.ID, IsEnabled: true}
+		var oldIDs []string
+		vectorDeletes := 0
+		engine := &failedAttemptVectorExecutor{}
+		engine.batch = func(ctx context.Context, infos []*types.IndexInfo) error {
+			for _, info := range infos {
+				require.Equal(t, info.SourceID, info.ChunkID)
+				oldIDs = append(oldIDs, info.ChunkID)
+			}
+			require.NotEmpty(t, oldIDs)
+			// The synchronous barrier is inside BatchIndex: new generation is
+			// committed before the old invocation receives its indexing failure.
+			current, err := fences.Allocate(context.Background(), 1, knowledge.ID, time.Minute)
+			require.NoError(t, err)
+			require.NoError(t, fences.PersistChunks(context.Background(), current, []*types.Chunk{newChunk}))
+			return errors.New("synthetic_index_failure")
+		}
+		engine.cleanup = func(ctx context.Context, ids []string) error {
+			vectorDeletes++
+			require.ElementsMatch(t, oldIDs, ids)
+			require.NotContains(t, ids, newChunk.ID)
+			return nil
+		}
+		tenant := &types.Tenant{ID: 1, RetrieverEngines: types.RetrieverEngines{Engines: []types.RetrieverEngineParams{{RetrieverType: types.VectorRetrieverType, RetrieverEngineType: types.PostgresRetrieverEngineType}}}}
+		ctx := context.WithValue(context.Background(), types.TenantInfoContextKey, tenant)
+		ctx = types.WithProcessingExecution(ctx, types.ProcessingExecution{TenantID: 1, KnowledgeID: knowledge.ID, Generation: first.Generation, ExecutionID: first.ExecutionID})
+		pipeline := &knowledgeService{repo: knowledgeRepo, chunkRepo: chunks, modelService: parentChildModelService{embedder: parentChildEmbedder{}}, retrieveEngine: parentChildRetrieveRegistry{engine: engine}, graphEngine: parentChildGraphRepo{}, tenantRepo: parentChildTenantRepo{}, task: parentChildTaskEnqueuer{}}
+		kb := &types.KnowledgeBase{ID: "kb-one", TenantID: 1, EmbeddingModelID: "synthetic-embedding", IndexingStrategy: types.IndexingStrategy{VectorEnabled: true}}
+		failure := pipeline.processChunks(ctx, kb, knowledge, []types.ParsedChunk{{Content: "synthetic content", Seq: 0, Start: 0, End: 17}})
+		require.Error(t, failure)
+		require.Equal(t, "processing_index_failed", failure.Error())
+		require.Equal(t, 1, vectorDeletes)
+		// Only the original pre-processing clear is whole-knowledge. No failed
+		// cleanup reissues it after the new generation exists.
+		require.Equal(t, 1, engine.wholeDeletes)
+		require.NoError(t, db.Model(&types.Chunk{}).Where("id IN ?", oldIDs).Count(&count).Error)
+		require.Zero(t, count)
+		require.NoError(t, db.Model(&types.Chunk{}).Where("id = ?", newChunk.ID).Count(&count).Error)
+		require.Equal(t, int64(1), count)
+		stored, err := knowledgeRepo.GetKnowledgeByID(context.Background(), 1, knowledge.ID)
+		require.NoError(t, err)
+		require.Equal(t, types.ParseStatusProcessing, stored.ParseStatus, "old failed worker cannot settle the new generation")
+	})
 }
