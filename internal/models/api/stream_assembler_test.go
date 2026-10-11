@@ -2,12 +2,144 @@ package api
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"os"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+type a5AssemblerLogCapture struct {
+	mu   sync.Mutex
+	body strings.Builder
+}
+
+func (b *a5AssemblerLogCapture) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.body.Write(p)
+}
+
+func (b *a5AssemblerLogCapture) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.body.String()
+}
+
+func TestA5AssemblerFailSafeProtocol(t *testing.T) {
+	canaries := []string{"A5_ASSEMBLER_PROVIDER_CANARY", "A5_ASSEMBLER_SQL_CANARY", "A5_ASSEMBLER_TOKEN_CANARY", "Bearer A5_ASSEMBLER_BEARER_CANARY"}
+	for _, tc := range []struct {
+		name    string
+		cause   error
+		message string
+		code    string
+	}{
+		{"provider", errors.New(strings.Join(canaries, " ")), "stream_error: stream failed", "stream_error"},
+		{"cancel", fmt.Errorf("%s: %w", strings.Join(canaries, " "), context.Canceled), context.Canceled.Error(), "context_canceled"},
+		{"deadline", fmt.Errorf("%s: %w", strings.Join(canaries, " "), context.DeadlineExceeded), context.DeadlineExceeded.Error(), "context_deadline_exceeded"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			capture := &a5AssemblerLogCapture{}
+			logger.SetOutput(io.MultiWriter(os.Stderr, capture))
+			t.Cleanup(func() { logger.SetOutput(os.Stderr) })
+			a := NewStreamAssembler(context.Background(), "synthetic-model")
+			a.Usage = &types.TokenUsage{}
+			ch := make(chan types.StreamResponse, 32)
+			a.Process(ch, Delta{Content: "legitimate partial content", ToolCalls: []ToolCallDelta{{Index: 2, ID: "call-a5", Name: "safe_tool", Arguments: `{}`}}})
+			a.Process(ch, Delta{Reasoning: "legitimate reasoning"})
+			a.Fail(ch, tc.cause)
+			close(ch)
+			errorsSeen, answerDone, thinkingDone := 0, 0, 0
+			contentSeen := false
+			for chunk := range ch {
+				encoded, err := json.Marshal(chunk)
+				require.NoError(t, err)
+				for _, canary := range canaries {
+					assert.NotContains(t, string(encoded), canary)
+				}
+				if chunk.Content == "legitimate partial content" {
+					contentSeen = true
+				}
+				if chunk.Done && chunk.ResponseType == types.ResponseTypeAnswer {
+					answerDone++
+				}
+				if chunk.Done && chunk.ResponseType == types.ResponseTypeThinking {
+					thinkingDone++
+				}
+				if chunk.ResponseType == types.ResponseTypeError {
+					errorsSeen++
+					assert.True(t, chunk.Done)
+					assert.Equal(t, types.FinishReasonIncomplete, chunk.FinishReason)
+					assert.Equal(t, tc.message, chunk.Content)
+					assert.Equal(t, a.Usage, chunk.Usage)
+					require.Len(t, chunk.ToolCalls, 1)
+					assert.Equal(t, "call-a5", chunk.ToolCalls[0].ID)
+				}
+			}
+			assert.True(t, contentSeen)
+			assert.Equal(t, 1, errorsSeen, "one terminal error, never a successful answer Done")
+			assert.Zero(t, answerDone)
+			assert.Equal(t, 1, thinkingDone)
+			assert.Contains(t, capture.String(), "code="+tc.code)
+			for _, canary := range canaries {
+				assert.NotContains(t, capture.String(), canary)
+			}
+		})
+	}
+}
+
+func TestA5AssemblerFailAbandonedConsumerTerminates(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	a := NewStreamAssembler(ctx, "synthetic-model")
+	ch := make(chan types.StreamResponse)
+	started, done := make(chan struct{}), make(chan struct{})
+	go func() { close(started); a.Fail(ch, context.Canceled); close(done) }()
+	<-started
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("abandoned failure send blocked")
+	}
+	assert.True(t, a.Aborted())
+}
+
+func TestA5AssemblerEOFAndCompleteProtocol(t *testing.T) {
+	for _, complete := range []bool{false, true} {
+		t.Run(fmt.Sprintf("complete=%v", complete), func(t *testing.T) {
+			a := NewStreamAssembler(context.Background(), "synthetic-model")
+			ch := make(chan types.StreamResponse, 16)
+			a.Process(ch, Delta{Content: "valid content"})
+			if complete {
+				a.Process(ch, Delta{FinishReason: "stop"})
+			}
+			a.EndAtEOF(ch)
+			close(ch)
+			var chunks []types.StreamResponse
+			for chunk := range ch {
+				chunks = append(chunks, chunk)
+				assert.NotEqual(t, types.ResponseTypeError, chunk.ResponseType)
+			}
+			require.NotEmpty(t, chunks)
+			last := chunks[len(chunks)-1]
+			assert.True(t, last.Done)
+			if complete {
+				assert.Equal(t, "stop", last.FinishReason)
+			} else {
+				assert.Equal(t, types.FinishReasonIncomplete, last.FinishReason)
+			}
+		})
+	}
+}
 
 // A consumer that walks away must not pin the producing goroutine forever.
 // Before the cancellation-aware send this blocked on `ch <-` for the life of

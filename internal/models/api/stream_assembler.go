@@ -294,11 +294,16 @@ func (a *StreamAssembler) EndAtEOF(ch chan<- types.StreamResponse) {
 
 // Fail emits the error chunk for a broken stream.
 func (a *StreamAssembler) Fail(ch chan<- types.StreamResponse, err error) {
-	logger.Errorf(a.ctx, "Stream read error: %v (tool_calls_assembled=%d)", err, len(a.toolCallMap))
+	// Only controlled classifications cross the shared log/event boundary.
+	// Do not retain the provider error as data or as a public error cause.
+	failure := NormalizeStreamFailure(a.ctx, err)
+	code, message := failure.CodeName(), failure.PublicContent()
+	logger.Errorf(a.ctx, "Stream read error (code=%s, tool_calls_assembled=%d)", code, len(a.toolCallMap))
 	a.Finish(ch)
 	a.emit(ch, types.StreamResponse{
 		ResponseType: types.ResponseTypeError,
-		Content:      err.Error(),
+		Content:      message,
+		Failure:      failure,
 		Done:         true,
 		ToolCalls:    a.OrderedToolCalls(),
 		Usage:        a.Usage,

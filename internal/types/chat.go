@@ -316,6 +316,7 @@ const FinishReasonIncomplete = "incomplete"
 const StreamEndedEarlyError = "the model's response ended before it finished (connection interrupted)"
 
 type StreamResponse struct {
+	Failure             *StreamFailure         `json:"-"` // internal recovery metadata, never public Data
 	ID                  string                 `json:"id"`
 	ResponseType        ResponseType           `json:"response_type"`
 	Content             string                 `json:"content"`

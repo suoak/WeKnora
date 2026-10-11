@@ -28,8 +28,7 @@ func (e *AgentEngine) saveContextCheckpoint(ctx context.Context, cp *compaction.
 		Degraded:  cp.Degraded,
 	})
 	if err != nil {
-		logger.Warnf(ctx, "[Agent][Round-%d] Failed to save context checkpoint on turn %s: %v",
-			round, cp.TurnID, err)
+		logger.Warnf(ctx, "[Agent][Round-%d] Failed to save context checkpoint (code=checkpoint_save_failed)", round)
 		return
 	}
 	if cp.Degraded {
