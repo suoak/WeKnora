@@ -463,7 +463,25 @@
       "TestRawToolsUsesOAuthLifecycleAndPreservesTransportErrors"
     ],
     "internal/application/service": [
-      "TestFAQCloneStatusSyncPreservesContentAndIndexState"
+      "TestFAQCloneStatusSyncPreservesContentAndIndexState",
+      "TestLoginTokenIssueFailureLogIsControlled"
+    ],
+    "internal/datasource/connector/notion": [
+      "TestQueryDatabaseAllReadsPastTheLimitInCreatedTimeWindows",
+      "TestQueryDatabaseAllDeduplicatesRowsByID",
+      "TestQueryDatabaseAllIncompleteMarkerBeforeLastPageStartsNextWindow",
+      "TestQueryDatabaseAllCompleteWindowUnchanged",
+      "TestNotionPaginationIntegrityAndControlledErrors",
+      "TestNotionBlockCapRejectsIncompleteAndKeepsExactComplete",
+      "TestNotionPaginationLimitNeverEchoesCursor",
+      "TestNotionMalformedTimestampDoesNotExposeProviderValue",
+      "TestNotionPaginationHopLimitRealHTTP",
+      "TestNotionIncompleteDatabaseRetainsWholeCursorAndRetries",
+      "TestA4NotionOversizedPageMustNotAdvanceCursor",
+      "TestA4NotionNestedBlockFailureMustNotAcknowledgePage",
+      "TestA4NotionIncompleteFetchRetainsCursorAndRetries",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound",
+      "TestNotionSearchEmptyIntermediatePageCompletes"
     ]
   },
   "approved_skips": {
@@ -588,7 +606,10 @@
     "synthetic-revoke-other",
     "synthetic-secret",
     "tenant-a-token",
-    "tenant-b-token"
+    "tenant-b-token",
+    "LOGIN_TOKEN_SQL_CANARY",
+    "SYNTHETIC_LOGIN_CREDENTIAL",
+    "SYNTHETIC_LOGIN_BEARER"
   ],
   "protected": {
     "frontend/src/views/integrations/McpServerIntegrationSettings.vue": "dfc9cdfcf3ae9c574f70dfa9808ec42709f3456c",
@@ -1098,6 +1119,30 @@
     "internal/agent/tools/data_analysis_recovery_test.go": {
       "blob": "ff669fb5f5a903ab8915163eeaec176254ea670b",
       "sha256": "9497a5021b2cfb5b628408817fd4df10d147e1cd49178417e8b3c2e11f10671b"
+    },
+    "internal/datasource/connector/notion/client.go": {
+      "blob": "b46df3f5f4601888ae6409d5e93ade6a04818e9f",
+      "sha256": "bc98e82ad8b72a7acabbddb61c17b6894ab9fc4892a74a39559520c7289c4cc1"
+    },
+    "internal/datasource/connector/notion/types.go": {
+      "blob": "61212aab63b90c8b90cdeaec0c2724dc41dc9ad5",
+      "sha256": "239f51de2faf4fef6cb1cce5f82cd40972efe7102118d8f6f9f43694710637fb"
+    },
+    "internal/datasource/connector/notion/query_windowing_test.go": {
+      "blob": "fd0e3513b10f7918af15cf925b1c529d8ac5e80a",
+      "sha256": "8615cf980e0fecd56190c258cb7da94afdd860930155433da554136de7ca0cdf"
+    },
+    "internal/datasource/connector/notion/pagination_integrity_test.go": {
+      "blob": "bfe407d7349153ed99dd86a96ddae443be1bb8b8",
+      "sha256": "10fb0e2545648882490750dbad8a8886e8ebe3a74bfa25379fa9803017445086"
+    },
+    "internal/application/service/user.go": {
+      "blob": "ffbfe64e759aac6b738f3d0f067d2cc36530220f",
+      "sha256": "5f9c38f50be2d3a36db205467d4c7696caec56bf7cac2a77b7c6139c38129aa3"
+    },
+    "internal/application/service/user_token_persistence_test.go": {
+      "blob": "9c5c95118d48b47bc270e9b09b3bac0bd114724a",
+      "sha256": "233ab1c914642cbb2f3a11041eb9755e4e2224b231f838e2d1a270605c936932"
     }
   },
   "notion_overlay_required": [

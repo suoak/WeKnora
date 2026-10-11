@@ -178,7 +178,7 @@ func (c *notionClient) GetPage(ctx context.Context, pageID string) (*notionPage,
 
 	var page notionPage
 	if err := json.Unmarshal(respBody, &page); err != nil {
-		return nil, fmt.Errorf("unmarshal page: %w", err)
+		return nil, errors.New("unmarshal page failed")
 	}
 	page.Title = extractTitle(&page)
 	return &page, nil
@@ -200,7 +200,7 @@ func (c *notionClient) GetDatabaseInfo(ctx context.Context, dbID string) (*datab
 
 	var db notionPage
 	if err := json.Unmarshal(respBody, &db); err != nil {
-		return nil, fmt.Errorf("unmarshal database: %w", err)
+		return nil, errors.New("unmarshal database failed")
 	}
 	db.Title = extractTitle(&db)
 
@@ -232,7 +232,7 @@ func (c *notionClient) GetDataSourceInfo(ctx context.Context, dsID string) (*not
 	}
 	var ds notionPage
 	if err := json.Unmarshal(respBody, &ds); err != nil {
-		return nil, fmt.Errorf("unmarshal data_source: %w", err)
+		return nil, errors.New("unmarshal data_source failed")
 	}
 	ds.Title = extractTitle(&ds)
 	return &ds, nil
@@ -244,8 +244,9 @@ func (c *notionClient) GetDataSourceInfo(ctx context.Context, dsID string) (*not
 func (c *notionClient) GetBlockChildrenFlat(ctx context.Context, blockID string) ([]notionBlock, error) {
 	var allBlocks []notionBlock
 	var startCursor string
+	seenCursors := make(map[string]struct{})
 
-	for {
+	for page := 1; ; page++ {
 		path := fmt.Sprintf("/v1/blocks/%s/children", blockID)
 		if startCursor != "" {
 			path += "?start_cursor=" + startCursor
@@ -268,10 +269,17 @@ func (c *notionClient) GetBlockChildrenFlat(ctx context.Context, blockID string)
 
 		allBlocks = append(allBlocks, blocks...)
 
-		if !resp.HasMore || resp.NextCursor == "" {
+		if !resp.HasMore {
 			break
 		}
-		startCursor = resp.NextCursor
+		next, cursorErr := advancePaginationCursor(ctx, seenCursors, resp.NextCursor, page)
+		if cursorErr != nil {
+			return nil, cursorErr
+		}
+		if len(blocks) == 0 {
+			return nil, errQueryResultTruncated
+		}
+		startCursor = next
 	}
 
 	return allBlocks, nil
@@ -291,8 +299,9 @@ func (c *notionClient) GetBlockChildrenAll(ctx context.Context, blockID string) 
 func (c *notionClient) getBlockChildrenRecursive(ctx context.Context, blockID string, depth int) ([]notionBlock, error) {
 	var allBlocks []notionBlock
 	var startCursor string
+	seenCursors := make(map[string]struct{})
 
-	for {
+	for page := 1; ; page++ {
 		path := fmt.Sprintf("/v1/blocks/%s/children", blockID)
 		if startCursor != "" {
 			path += "?start_cursor=" + startCursor
@@ -315,10 +324,20 @@ func (c *notionClient) getBlockChildrenRecursive(ctx context.Context, blockID st
 
 		allBlocks = append(allBlocks, blocks...)
 
-		if len(allBlocks) >= maxBlocksPerPage || !resp.HasMore || resp.NextCursor == "" {
+		if len(allBlocks) > maxBlocksPerPage || (len(allBlocks) == maxBlocksPerPage && resp.HasMore) {
+			return nil, errQueryResultTruncated
+		}
+		if !resp.HasMore {
 			break
 		}
-		startCursor = resp.NextCursor
+		next, cursorErr := advancePaginationCursor(ctx, seenCursors, resp.NextCursor, page)
+		if cursorErr != nil {
+			return nil, cursorErr
+		}
+		if len(blocks) == 0 {
+			return nil, errQueryResultTruncated
+		}
+		startCursor = next
 	}
 
 	if depth >= maxBlockDepth {
@@ -354,7 +373,7 @@ func (c *notionClient) getBlockChildrenRecursive(ctx context.Context, blockID st
 // For database_ids, resolves to data_source_id via GET /v1/databases/{id}.
 func (c *notionClient) QueryDatabaseAll(ctx context.Context, id string) ([]notionPage, error) {
 	// Try as data_source_id directly
-	records, err := c.paginatePages(ctx, http.MethodPost, fmt.Sprintf("/v1/data_sources/%s/query", id))
+	records, err := c.queryDataSourceAll(ctx, fmt.Sprintf("/v1/data_sources/%s/query", id))
 	if err == nil {
 		return records, nil
 	}
@@ -370,7 +389,7 @@ func (c *notionClient) QueryDatabaseAll(ctx context.Context, id string) ([]notio
 	if info.DataSourceID == "" {
 		return nil, fmt.Errorf("database %s has no data sources", id)
 	}
-	return c.paginatePages(ctx, http.MethodPost, fmt.Sprintf("/v1/data_sources/%s/query", info.DataSourceID))
+	return c.queryDataSourceAll(ctx, fmt.Sprintf("/v1/data_sources/%s/query", info.DataSourceID))
 }
 
 // ResolveBlock re-fetches a single block to resolve file_upload URLs.
@@ -443,12 +462,34 @@ func (c *notionClient) DownloadFile(ctx context.Context, fileURL string) ([]byte
 
 // --- Shared pagination helper ---
 
+var errQueryResultTruncated = errors.New("notion paginated response incomplete")
+
+const maxPaginationHops = 10000
+
+func advancePaginationCursor(ctx context.Context, seen map[string]struct{}, cursor string, page int) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	if cursor == "" {
+		return "", errQueryResultTruncated
+	}
+	if page >= maxPaginationHops {
+		return "", fmt.Errorf("pagination exceeded %d pages", maxPaginationHops)
+	}
+	if _, exists := seen[cursor]; exists {
+		return "", errors.New("pagination repeated next_cursor")
+	}
+	seen[cursor] = struct{}{}
+	return cursor, nil
+}
+
 // paginatePages fetches all pages from a paginated Notion API endpoint.
 func (c *notionClient) paginatePages(ctx context.Context, method, path string) ([]notionPage, error) {
 	var allPages []notionPage
 	var startCursor string
+	seenCursors := make(map[string]struct{})
 
-	for {
+	for page := 1; ; page++ {
 		body := map[string]interface{}{
 			"page_size": 100,
 		}
@@ -478,7 +519,7 @@ func (c *notionClient) paginatePages(ctx context.Context, method, path string) (
 
 		var pages []notionPage
 		if err := json.Unmarshal(resp.Results, &pages); err != nil {
-			return nil, fmt.Errorf("unmarshal page results: %w", err)
+			return nil, errors.New("unmarshal page results failed")
 		}
 
 		for i := range pages {
@@ -486,14 +527,178 @@ func (c *notionClient) paginatePages(ctx context.Context, method, path string) (
 		}
 
 		allPages = append(allPages, pages...)
+		if resp.isIncomplete() {
+			return allPages, errQueryResultTruncated
+		}
 
-		if !resp.HasMore || resp.NextCursor == "" {
+		if !resp.HasMore {
 			break
 		}
-		startCursor = resp.NextCursor
+		next, cursorErr := advancePaginationCursor(ctx, seenCursors, resp.NextCursor, page)
+		if cursorErr != nil {
+			return nil, cursorErr
+		}
+		// Search may return an empty intermediate page. Continue only with a
+		// new, bounded cursor; absence is confirmed only by the terminal page.
+		startCursor = next
 	}
 
 	return allPages, nil
+}
+
+// --- Data source query: read past the per-query result limit ---
+
+// dataSourceQueryPageSize is the page size requested for every data source query page.
+const dataSourceQueryPageSize = 100
+
+// errWindowNotAdvancing reports that an incomplete window could not be followed
+// by a later one: no returned row carried a created_time, or every row in the
+// window shares the timestamp the window started at. Both mean the remaining
+// rows cannot be reached by moving the created_time boundary, so the walk stops
+// instead of re-querying the same window forever.
+var errWindowNotAdvancing = errors.New("created_time window cannot advance")
+
+// queryDataSourceAll reads every row of a data source query, splitting the walk
+// into created_time windows whenever the vendor caps a query at its per-query
+// result limit.
+//
+// A capped query answers has_more=false together with
+// request_status.type="incomplete", so a caller that only follows next_cursor
+// stops at the limit without noticing. The vendor's recipe for reading past it is
+// to sort by created_time ascending and, each time a window comes back
+// incomplete, to re-query with filter.created_time.on_or_after set to the
+// created_time of the last row seen; rows sitting exactly on that boundary are
+// returned by both windows and are de-duplicated here by row ID. created_time is
+// used deliberately instead of last_edited_time: it never changes, so a window
+// boundary stays valid while the walk is in progress, whereas last_edited_time
+// moves rows between windows as they are edited.
+// See https://developers.notion.com/guides/data-apis/query-large-data-sources
+//
+// When a window cannot advance, the walk stops and the rows collected so far are
+// returned together with errQueryResultTruncated, so callers still learn that the
+// result set is incomplete instead of reading absence from it as deletion.
+func (c *notionClient) queryDataSourceAll(ctx context.Context, path string) ([]notionPage, error) {
+	var allRows []notionPage
+	seen := make(map[string]bool, dataSourceQueryPageSize)
+	var windowStart *time.Time
+
+	for window := 1; ; window++ {
+		if window > maxPaginationHops {
+			return nil, errQueryResultTruncated
+		}
+		rows, lastCreatedTime, incompleteReason, err := c.queryDataSourceWindow(ctx, path, windowStart)
+		if err != nil {
+			return nil, err
+		}
+		for i := range rows {
+			if id := rows[i].ID; id != "" {
+				if seen[id] {
+					continue
+				}
+				seen[id] = true
+			}
+			allRows = append(allRows, rows[i])
+		}
+
+		if incompleteReason == "" {
+			return allRows, nil
+		}
+
+		// The vendor capped this window, so the rows past the limit are only
+		// reachable from a later window. The next window must start strictly after
+		// the current one, otherwise it would return the same rows again.
+		if lastCreatedTime.IsZero() {
+			logger.Warnf(ctx, "[Notion] hit the vendor per-query result limit; incomplete window")
+			return allRows, fmt.Errorf("%w: %w", errQueryResultTruncated, errWindowNotAdvancing)
+		}
+		if windowStart != nil && !lastCreatedTime.After(*windowStart) {
+			logger.Warnf(ctx, "[Notion] hit the vendor per-query result limit; incomplete window")
+			return allRows, fmt.Errorf("%w: %w", errQueryResultTruncated, errWindowNotAdvancing)
+		}
+
+		// Keep the truncation visible: the first window hit the vendor limit, and
+		// the log line records where the next window starts.
+		logger.Warnf(ctx, "[Notion] hit the vendor per-query result limit; incomplete window")
+		start := lastCreatedTime
+		windowStart = &start
+	}
+}
+
+// queryDataSourceWindow drains one created_time window: it follows next_cursor
+// until the window is exhausted, and reports the created_time of the last row it
+// saw plus the vendor's incomplete_reason when any page of the window was marked
+// incomplete (an empty reason means the window was read to the end).
+// A nil windowStart reads the first, unfiltered window.
+func (c *notionClient) queryDataSourceWindow(
+	ctx context.Context, path string, windowStart *time.Time,
+) (rows []notionPage, lastCreatedTime time.Time, incompleteReason string, err error) {
+	var startCursor string
+	seenCursors := make(map[string]struct{})
+
+	for page := 1; ; page++ {
+		body := map[string]interface{}{
+			"page_size": dataSourceQueryPageSize,
+			"sorts": []map[string]string{
+				{"timestamp": "created_time", "direction": "ascending"},
+			},
+		}
+		if windowStart != nil {
+			body["filter"] = map[string]interface{}{
+				"timestamp": "created_time",
+				"created_time": map[string]string{
+					"on_or_after": windowStart.UTC().Format(time.RFC3339Nano),
+				},
+			}
+		}
+		if startCursor != "" {
+			body["start_cursor"] = startCursor
+		}
+
+		respBody, doErr := c.doRequest(ctx, http.MethodPost, path, body)
+		if doErr != nil {
+			return nil, time.Time{}, "", fmt.Errorf("paginate %s: %w", path, doErr)
+		}
+
+		var resp paginatedResponse
+		if unmarshalErr := json.Unmarshal(respBody, &resp); unmarshalErr != nil {
+			return nil, time.Time{}, "", fmt.Errorf("unmarshal paginated response: %w", unmarshalErr)
+		}
+
+		var pageRows []notionPage
+		if unmarshalErr := json.Unmarshal(resp.Results, &pageRows); unmarshalErr != nil {
+			return nil, time.Time{}, "", errors.New("unmarshal page results failed")
+		}
+		for i := range pageRows {
+			pageRows[i].Title = extractTitle(&pageRows[i])
+			// Rows arrive sorted by created_time ascending, so the last row
+			// carrying a timestamp is this window's boundary.
+			if !pageRows[i].CreatedTime.IsZero() {
+				lastCreatedTime = pageRows[i].CreatedTime
+			}
+		}
+		rows = append(rows, pageRows...)
+
+		// The marker is latched for the whole window: it can appear on any page
+		// of a capped query, including before the last page received.
+		if resp.isIncomplete() {
+			incompleteReason = resp.RequestStatus.IncompleteReason
+			if incompleteReason == "" {
+				incompleteReason = "incomplete"
+			}
+		}
+
+		if !resp.HasMore {
+			return rows, lastCreatedTime, incompleteReason, nil
+		}
+		next, cursorErr := advancePaginationCursor(ctx, seenCursors, resp.NextCursor, page)
+		if cursorErr != nil {
+			return nil, time.Time{}, "", cursorErr
+		}
+		if len(pageRows) == 0 {
+			return nil, time.Time{}, "", errQueryResultTruncated
+		}
+		startCursor = next
+	}
 }
 
 // --- Title extraction helpers ---
