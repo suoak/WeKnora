@@ -1,0 +1,57 @@
+name: KnowHub25 CLI precision and typed error contracts
+on:
+  push:
+    branches: [integration/knowhub25-cli-contracts-20261012]
+permissions:
+  contents: read
+concurrency:
+  group: knowhub25-cli-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  contracts:
+    if: github.repository == 'suoak/WeKnora' && github.ref == 'refs/heads/integration/knowhub25-cli-contracts-20261012'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [CLI_001, CLI_002, CLI_003]
+    env:
+      KNOWHUB25_CLI_PACKAGE: ${{ matrix.package }}
+      CGO_ENABLED: '1'
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          path: candidate
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: a6403708915680ccad310b0fd64506597b879804
+          path: baseline
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.7'
+          cache: false
+      - name: Parser and raw scan negative controls
+        working-directory: candidate
+        run: python3 -B .github/scripts/knowhub25_cli_ci.py --self-test
+      - name: Whole affected CLI package Normal and Race on both sources
+        working-directory: candidate
+        run: python3 -B .github/scripts/knowhub25_cli_ci.py
+      - name: Review only fixed public summary
+        if: always()
+        id: review
+        working-directory: candidate
+        run: python3 -B .github/scripts/knowhub25_cli_ci.py --review
+      - name: Publish reviewed fixed metadata only
+        if: always() && steps.review.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: knowhub25-cli-safe-summary-${{ matrix.package }}
+          path: ${{ runner.temp }}/cli-safe-summary/summary.json
+          if-no-files-found: error
+          retention-days: 7

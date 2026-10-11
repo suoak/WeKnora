@@ -69,8 +69,13 @@ func writeJQ(w io.Writer, raw []byte, expr string) error {
 		return &JQError{Err: fmt.Errorf("jq parse: %w", err)}
 	}
 	var input any
-	if err := json.Unmarshal(raw, &input); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	if err := decoder.Decode(&input); err != nil {
 		return fmt.Errorf("jq input parse: %w", err)
+	}
+	if err := decoder.Decode(new(any)); err != io.EOF {
+		return fmt.Errorf("jq input parse: trailing JSON data")
 	}
 	iter := query.Run(input)
 	for {
