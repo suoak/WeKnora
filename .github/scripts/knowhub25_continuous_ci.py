@@ -23,6 +23,7 @@ PHASES = {'GO', 'SHUFFLE', 'UNITTEST', 'PYTEST', 'GATEWAY', 'NOTION_OVERLAY',
           'FRONT_QA_BUILD', 'FRONT_RELEASE_BUILD', 'FRONT_QA_E2E', 'FRONT_RELEASE_E2E', 'FRONT_BROWSER'}
 MODES = {'NORMAL', 'RACE', 'SHUFFLE', 'PYTHON', 'FRONTEND', 'OVERLAY_NORMAL', 'OVERLAY_RACE', 'EXTRA_NORMAL', 'EXTRA_RACE'}
 ROLES = {'GO_TEST_JSONL', 'GO_COMPILE_LOG', 'PY_JUNIT_XML', 'PYTHON_OUTPUT', 'GATEWAY_OUTPUT', 'FRONTEND_OUTPUT', 'FRONTEND_JUNIT_XML'}
+PARSER_DIAGNOSES = {'NOT_APPLICABLE', 'NONE', 'XML_INVALID', 'ROOT_INVALID', 'SUITE_INVALID', 'COUNT_MISMATCH', 'DUPLICATE_ID', 'CONFLICTING_TERMINAL', 'CASE_INVALID'}
 FAILURES = {'NONE', 'IDENTITY_FAILED', 'DEPENDENCY_FAILED', 'COMPILE_FAILED', 'TEST_FAILED',
             'PARSER_FAILED', 'DATA_RACE', 'RAW_SCAN_HIT', 'EVIDENCE_INCOMPLETE', 'HELPER_FAILED'}
 
@@ -63,18 +64,21 @@ def validate_summary(value):
     if value['productionGates'] != {'postgresSchema3023': 'NOT_EVALUATED', 'tokenGovernance': 'NOT_EVALUATED', 'release': 'NOT_EVALUATED'}:
         raise ValueError('SCHEMA_FAILED')
     for row in value['rows']:
-        if set(row) != {'phase', 'packageId', 'status', 'compileExit', 'testExit', 'run', 'passed', 'failed', 'skipped', 'requiredPassCount', 'requiredMissingCount', 'a5NotPresentCount', 'dataRace'} or row['phase'] not in PHASES or row['status'] not in {'PASS', 'FAIL', 'NOT_EXECUTED'} or row['packageId'] not in {'NOT_APPLICABLE'} | {f'PKG_{i+1:03d}' for i in range(len(M['packages']) + len(M['extra_packages']))}:
+        if set(row) != {'phase', 'packageId', 'status', 'compileExit', 'testExit', 'run', 'passed', 'failed', 'skipped', 'requiredPassCount', 'requiredMissingCount', 'a5NotPresentCount', 'dataRace', 'parserDiagnosis'} or row['phase'] not in PHASES or row['status'] not in {'PASS', 'FAIL', 'NOT_EXECUTED'} or row['packageId'] not in {'NOT_APPLICABLE'} | {f'PKG_{i+1:03d}' for i in range(len(M['packages']) + len(M['extra_packages']))}:
             raise ValueError('SCHEMA_FAILED')
         for key in ['compileExit', 'testExit', 'run', 'passed', 'failed', 'skipped', 'requiredPassCount', 'requiredMissingCount', 'a5NotPresentCount']:
             if row[key] is not None and (type(row[key]) is not int or (key not in {'compileExit', 'testExit'} and row[key] < 0)):
                 raise ValueError('SCHEMA_FAILED')
-        if type(row['dataRace']) is not bool:
+        if row['parserDiagnosis'] not in PARSER_DIAGNOSES or type(row['dataRace']) is not bool:
             raise ValueError('SCHEMA_FAILED')
         if row['status'] == 'PASS' and (row['testExit'] != 0 or row['failed'] or row['requiredMissingCount'] or row['dataRace']):
             raise ValueError('SCHEMA_FAILED')
     for row in value['rawFiles']:
-        if set(row) != {'role', 'logicalId', 'sha256', 'scanStatus', 'findings'} or row['role'] not in ROLES or not re.fullmatch('RAW_[0-9]{4}', row['logicalId']) or not re.fullmatch('[0-9a-f]{64}', row['sha256']) or row['scanStatus'] not in {'CLEAR', 'HIT', 'NOT_VERIFIED'}:
+        if set(row) != {'role', 'logicalId', 'sha256', 'scanStatus', 'findings', 'testHits'} or row['role'] not in ROLES or not re.fullmatch('RAW_[0-9]{4}', row['logicalId']) or not re.fullmatch('[0-9a-f]{64}', row['sha256']) or row['scanStatus'] not in {'CLEAR', 'HIT', 'NOT_VERIFIED'}:
             raise ValueError('SCHEMA_FAILED')
+        for hit in row['testHits']:
+            if set(hit) != {'testId', 'ruleId', 'count'} or hit['testId'] not in M['diagnostic_test_ids'] or hit['ruleId'] != 'CREDENTIAL_ASSIGNMENT' or type(hit['count']) is not int or hit['count'] <= 0:
+                raise ValueError('SCHEMA_FAILED')
         for hit in row['findings']:
             if set(hit) != {'ruleId', 'count'} or hit['ruleId'] not in {'CREDENTIAL_ASSIGNMENT', 'BEARER_PATTERN', 'MCP_KEY_PATTERN'} | {f'SYNTHETIC_{i+1:03d}' for i in range(len(M['canaries']))} or type(hit['count']) is not int or hit['count'] <= 0:
                 raise ValueError('SCHEMA_FAILED')
@@ -86,30 +90,34 @@ def validate_summary(value):
 
 def parse_node_junit(xml_path, exit_code):
     # Node gives every testcase classname=test; suite ancestry is part of its ID.
-    result = dict(exit=exit_code, run=0, passed=0, fail=[], error=[], skip=[], gatePass=False)
+    result = dict(exit=exit_code, run=0, passed=0, fail=[], error=[], skip=[], gatePass=False, parserDiagnosis='NONE')
     try:
         root = ET.parse(xml_path).getroot()
         if root.tag != 'testsuites':
-            raise ValueError('PARSER_FAILED')
+            raise ValueError('ROOT_INVALID')
         seen = set()
         def visit(element, parents):
             if element.tag == 'testsuite':
                 if not element.get('name'):
-                    raise ValueError('PARSER_FAILED')
+                    raise ValueError('SUITE_INVALID')
                 parents = parents + (element.get('name'),)
                 cases = list(element.iter('testcase'))
                 for field, tag in [('tests', None), ('failures', 'failure'), ('errors', 'error'), ('skipped', 'skipped')]:
                     count = len(cases) if tag is None else sum(c.find(tag) is not None for c in cases)
                     if element.get(field) is None or int(element.get(field)) != count:
-                        raise ValueError('PARSER_FAILED')
+                        raise ValueError('COUNT_MISMATCH')
             for child in element:
                 if child.tag == 'testsuite':
                     visit(child, parents)
                 elif child.tag == 'testcase':
                     ident = parents + (child.get('classname', ''), child.get('name', ''))
                     states = [t for t in ['failure', 'error', 'skipped'] if child.find(t) is not None]
-                    if not child.get('name') or ident in seen or len(states) > 1:
-                        raise ValueError('PARSER_FAILED')
+                    if not child.get('name'):
+                        raise ValueError('CASE_INVALID')
+                    if ident in seen:
+                        raise ValueError('DUPLICATE_ID')
+                    if len(states) > 1:
+                        raise ValueError('CONFLICTING_TERMINAL')
                     seen.add(ident)
                     result['run'] += 1
                     if not states:
@@ -118,7 +126,9 @@ def parse_node_junit(xml_path, exit_code):
                         result[{'failure': 'fail', 'error': 'error', 'skipped': 'skip'}[states[0]]].append('::'.join(ident))
         visit(root, ())
         result['gatePass'] = exit_code == 0 and result['run'] > 0 and not any(result[k] for k in ['fail', 'error', 'skip'])
-    except (OSError, ET.ParseError, ValueError):
+    except (OSError, ET.ParseError, ValueError) as exc:
+        result['parserDiagnosis'] = str(exc) if isinstance(exc, ValueError) and str(exc) in PARSER_DIAGNOSES else 'XML_INVALID'
+        result['validJUnit'] = False
         result['gatePass'] = False
     return result
 
@@ -195,7 +205,7 @@ class Runner:
         return p.returncode, paths[0], paths[1]
 
     def record(self, phase, record, package='NOT_APPLICABLE', compile_exit=None, a5_missing=0):
-        row = dict(phase=phase, packageId=package, status='PASS' if record.get('gatePass') else 'FAIL',
+        row = dict(parserDiagnosis=record.get('parserDiagnosis', 'NOT_APPLICABLE'), phase=phase, packageId=package, status='PASS' if record.get('gatePass') else 'FAIL',
                    compileExit=compile_exit, testExit=record.get('testExit', record.get('exit')),
                    run=record.get('run'), passed=record.get('passed'), failed=len(record.get('fail', [])) + len(record.get('error', [])),
                    skipped=len(record.get('skip', [])), requiredPassCount=len(record.get('requiredPassed', [])),
@@ -238,7 +248,7 @@ class Runner:
             if not agent_pass:
                 self.rows.append(dict(phase='SHUFFLE', packageId='PKG_011', status='NOT_EXECUTED', compileExit=None, testExit=None,
                                       run=None, passed=None, failed=None, skipped=None, requiredPassCount=None,
-                                      requiredMissingCount=None, a5NotPresentCount=0, dataRace=False))
+                                      requiredMissingCount=None, a5NotPresentCount=0, dataRace=False, parserDiagnosis='NOT_APPLICABLE'))
                 return
             code, out, err = self.execute('SHUFFLE', ['go', 'test', '-mod=readonly', '-p', '2', '-count=1', '-json', '-shuffle=on', './internal/agent'], 'GO_TEST_JSONL')
             required = set(M['required'].get('internal/agent', []))
@@ -372,7 +382,21 @@ class Runner:
                 state = 'HIT' if findings else 'CLEAR'
             except (OSError, UnicodeError):
                 raw, findings, state = b'', [], 'NOT_VERIFIED'
-            files.append(dict(role=role, logicalId=f'RAW_{index+1:04d}', sha256=sha(raw), scanStatus=state, findings=findings))
+            test_hits = []
+            if role == 'GO_TEST_JSONL' and state == 'HIT':
+                aggregates = {}
+                try:
+                    for line in raw.decode('utf-8', 'strict').splitlines():
+                        event = json.loads(line)
+                        test_id = event.get('Test', '').split('/')[0]
+                        if test_id in M['diagnostic_test_ids']:
+                            for hit in C.scan_findings(event.get('Output', '')):
+                                if hit['ruleId'] == 'CREDENTIAL_ASSIGNMENT':
+                                    aggregates[test_id] = aggregates.get(test_id, 0) + hit['count']
+                    test_hits = [dict(testId=k, ruleId='CREDENTIAL_ASSIGNMENT', count=v) for k,v in sorted(aggregates.items())]
+                except (ValueError, UnicodeError, TypeError):
+                    test_hits = []
+            files.append(dict(testHits=test_hits, role=role, logicalId=f'RAW_{index+1:04d}', sha256=sha(raw), scanStatus=state, findings=findings))
         if any(r['scanStatus'] != 'CLEAR' for r in files):
             self.failure = 'RAW_SCAN_HIT' if any(r['scanStatus'] == 'HIT' for r in files) else 'EVIDENCE_INCOMPLETE'
         value = dict(schema=2, scope='CONTINUOUS_REGRESSION_ONLY', side=self.side, mode=self.mode, sourceSHA=self.head,
@@ -392,7 +416,7 @@ def selftest():
                   status='BLOCKED', failureClass='EVIDENCE_INCOMPLETE', rows=[], rawFiles=[],
                   productionGates=dict(postgresSchema3023='NOT_EVALUATED', tokenGovernance='NOT_EVALUATED', release='NOT_EVALUATED'))
     validate_summary(sample)
-    row = dict(phase='GO', packageId=f"PKG_{len(M['packages']) + len(M['extra_packages']):03d}", status='PASS', compileExit=0, testExit=0, run=1, passed=1, failed=0, skipped=0, requiredPassCount=1, requiredMissingCount=0, a5NotPresentCount=0, dataRace=False)
+    row = dict(phase='GO', packageId=f"PKG_{len(M['packages']) + len(M['extra_packages']):03d}", status='PASS', compileExit=0, testExit=0, run=1, passed=1, failed=0, skipped=0, requiredPassCount=1, requiredMissingCount=0, a5NotPresentCount=0, dataRace=False, parserDiagnosis='NOT_APPLICABLE')
     validate_summary(dict(sample, rows=[row]))
     try:
         validate_summary(dict(sample, rows=[dict(row, packageId=f"PKG_{len(M['packages']) + len(M['extra_packages']) + 1:03d}")]))
@@ -400,6 +424,17 @@ def selftest():
         pass
     else:
         raise ValueError('SCHEMA_FAILED')
+    diagnostic = dict(sample, rawFiles=[dict(role='GO_TEST_JSONL', logicalId='RAW_0001', sha256='a'*64, scanStatus='HIT', findings=[dict(ruleId='CREDENTIAL_ASSIGNMENT', count=1)], testHits=[dict(testId=M['diagnostic_test_ids'][0], ruleId='CREDENTIAL_ASSIGNMENT', count=1)])])
+    validate_summary(diagnostic)
+    for field, bad in [('testId','UNAPPROVED_TEST_ID'),('ruleId','RAW_CAUSE'),('count',0)]:
+        negative = json.loads(json.dumps(diagnostic))
+        negative['rawFiles'][0]['testHits'][0][field] = bad
+        try: validate_summary(negative)
+        except ValueError: pass
+        else: raise ValueError('SCHEMA_FAILED')
+    try: validate_summary(dict(sample, rows=[dict(row, parserDiagnosis='FREE_TEXT')]))
+    except ValueError: pass
+    else: raise ValueError('SCHEMA_FAILED')
     frontend_cases = frontend_parser_selftest()
     for patch in [{'rawCause': 'not-public'}, {'status': 'PASS'}, {'failureClass': 'unknown-freetext'}]:
         try:
@@ -429,7 +464,7 @@ def selftest():
         raise ValueError('UPLOAD_FAILED')
     print(json.dumps({'goParserCases': len(go), 'junitCases': len(junit), 'unittestCases': len(unittest), 'safeSchemaNegativeCases': 3,
                       'manifestNegativeCases': 4, 'rawScanPositiveCases': 3, 'workflowFixedGuard': 'PASS', 'matrix': 98,
-                      'frontendParserCases': frontend_cases, 'packageBoundaryCases': 2, 'additionalPackageRows': len(M['extra_packages']) * 4, 'status': 'PASS'}))
+                      'frontendParserCases': frontend_cases, 'packageBoundaryCases': 2, 'diagnosticSchemaNegativeCases': 4, 'additionalPackageRows': len(M['extra_packages']) * 4, 'status': 'PASS'}))
 
 if __name__ == '__main__':
     try:
