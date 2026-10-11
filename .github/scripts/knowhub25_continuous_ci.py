@@ -90,7 +90,7 @@ def validate_summary(value):
     return value
 
 def parse_node_events(path):
-    seen, leaves, summary = set(), [], None
+    seen, terminals, leaves, summary = set(), [], [], None
     rows = path.read_text(encoding='utf-8').splitlines()
     if not rows:
         raise ValueError('CASE_INVALID')
@@ -99,14 +99,18 @@ def parse_node_events(path):
         if summary is not None:
             raise ValueError('CONFLICTING_TERMINAL')
         if row.get('kind') == 'TERMINAL':
-            if set(row) != {'kind', 'id', 'nameSHA', 'testType', 'status'} or row['testType'] not in {'test','suite'} or row['status'] not in {'PASS','FAIL','SKIP','TODO'}:
+            if set(row) != {'kind', 'id', 'nameSHA', 'testType', 'xmlLeaf', 'status'} or row['testType'] not in {'test','suite'} or row['status'] not in {'PASS','FAIL','SKIP','TODO'}:
                 raise ValueError('CASE_INVALID')
             if not all(re.fullmatch('[0-9a-f]{64}', row[k]) for k in ['id','nameSHA']):
                 raise ValueError('CASE_INVALID')
             if row['id'] in seen:
                 raise ValueError('DUPLICATE_ID')
+            if type(row['xmlLeaf']) is not bool:
+                raise ValueError('CASE_INVALID')
             seen.add(row['id'])
             if row['testType'] == 'test':
+                terminals.append(row)
+            if row['xmlLeaf']:
                 leaves.append(row)
         elif row.get('kind') == 'SUMMARY':
             if set(row) != {'kind','success','counts'} or type(row['success']) is not bool:
@@ -119,14 +123,14 @@ def parse_node_events(path):
     counts = summary['counts']
     if set(counts) != {'tests','failed','passed','cancelled','skipped','todo','topLevel','suites'} or any(type(v) is not int or v < 0 for v in counts.values()):
         raise ValueError('COUNT_MISMATCH')
-    actual = Counter(r['status'] for r in leaves)
-    if counts['tests'] != len(leaves) or counts['passed'] != actual['PASS'] or counts['skipped'] != actual['SKIP'] or counts['todo'] != actual['TODO'] or counts['failed'] + counts['cancelled'] != actual['FAIL']:
+    actual = Counter(r['status'] for r in terminals)
+    if counts['tests'] != len(terminals) or counts['passed'] != actual['PASS'] or counts['skipped'] != actual['SKIP'] or counts['todo'] != actual['TODO'] or counts['failed'] + counts['cancelled'] != actual['FAIL']:
         raise ValueError('COUNT_MISMATCH')
     if summary['success'] != (not (actual['FAIL'] or actual['SKIP'] or actual['TODO'])):
         # A skipped run may report success, but still cannot satisfy our Gate.
         if not (summary['success'] and not actual['FAIL']):
             raise ValueError('CONFLICTING_TERMINAL')
-    return Counter((r['nameSHA'],r['status']) for r in leaves)
+    return Counter((r['nameSHA'],r['status']) for r in leaves), counts
 
 
 def parse_node_junit(xml_path, exit_code, event_path=None):
@@ -136,7 +140,7 @@ def parse_node_junit(xml_path, exit_code, event_path=None):
         root = ET.parse(xml_path).getroot()
         if root.tag != 'testsuites':
             raise ValueError('ROOT_INVALID')
-        trusted = parse_node_events(event_path) if event_path is not None else None
+        trusted, node_counts = parse_node_events(event_path) if event_path is not None else (None,None)
         xml_events = Counter()
         seen = set()
         def visit(element, parents):
@@ -171,8 +175,14 @@ def parse_node_junit(xml_path, exit_code, event_path=None):
                     else:
                         result[{'failure': 'fail', 'error': 'error', 'skipped': 'skip'}[states[0]]].append('::'.join(ident))
         visit(root, ())
-        if trusted is not None and trusted != xml_events:
-            raise ValueError('COUNT_MISMATCH')
+        if trusted is not None:
+            if trusted != xml_events:
+                raise ValueError('COUNT_MISMATCH')
+            # node:test counts parent tests as tests even when JUnit projects
+            # them as suites. Report the trusted producer's actual counts.
+            result.update(run=node_counts['tests'], passed=node_counts['passed'],
+                fail=['NODE_FAIL'] * (node_counts['failed'] + node_counts['cancelled']),
+                skip=['NODE_SKIP'] * (node_counts['skipped'] + node_counts['todo']), error=[])
         result['gatePass'] = exit_code == 0 and result['run'] > 0 and not any(result[k] for k in ['fail', 'error', 'skip'])
     except (OSError, ET.ParseError, ValueError, TypeError, KeyError) as exc:
         result['parserDiagnosis'] = str(exc) if isinstance(exc, ValueError) and str(exc) in PARSER_DIAGNOSES else 'XML_INVALID'
@@ -187,21 +197,21 @@ def frontend_reporter_selftest():
     # quote entity spelling and XML whitespace normalization. Never raw logs.
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp)
-        script = "const {test}=require('node:test'); test('same',()=>{}); test('quote \"safe\"\\tline\\nnext ?',()=>{});\n"
+        script = "const {test}=require('node:test'); test('same',()=>{}); test('parent', async t=>{await t.test('child',()=>{});}); test('quote \"safe\"\\tline\\nnext ?',()=>{});\n"
         for filename in ['one.cjs','two.cjs']:
             (root/filename).write_text(script,encoding='utf-8')
         result = subprocess.run(['node','--test','--test-reporter=junit','--test-reporter='+ (QA/'node-unit-reporter.mjs').as_uri(),
             '--test-reporter-destination=cases.xml','--test-reporter-destination=events.jsonl','one.cjs','two.cjs'],cwd=root,capture_output=True)
         parsed = parse_node_junit(root/'cases.xml',result.returncode,root/'events.jsonl')
-        if not parsed['gatePass'] or parsed['run'] != parsed['passed'] or parsed['run'] != 4:
+        if not parsed['gatePass'] or parsed['run'] != parsed['passed'] or parsed['run'] != 8:
             raise ValueError('PARSER_FAILED')
-    return 4
+    return 8
 
 
 def frontend_event_selftest():
     xml = '<testsuites><testcase classname="test" name="same"/><testcase classname="test" name="same"/></testsuites>'
     name_sha = sha(json.dumps('same').encode())
-    terminal = lambda ident: dict(kind='TERMINAL',id=ident*64,nameSHA=name_sha,testType='test',status='PASS')
+    terminal = lambda ident: dict(kind='TERMINAL',id=ident*64,nameSHA=name_sha,testType='test',xmlLeaf=True,status='PASS')
     summary = dict(kind='SUMMARY',success=True,counts=dict(tests=2,failed=0,passed=2,cancelled=0,skipped=0,todo=0,topLevel=2,suites=0))
     good = [terminal('a'),terminal('b'),summary]
     scenarios = [(good,0,True),(good,1,False),(good[:-1],0,False),([good[0],good[0],summary],0,False),
@@ -211,6 +221,12 @@ def frontend_event_selftest():
                  ([dict(good[0],status='SKIP'),good[1],summary],0,False),
                  ([dict(good[0],rawCause='synthetic'),good[1],summary],0,False),
                  ([dict(good[0],nameSHA='c'*64),good[1],summary],0,False)]
+    parent = dict(terminal('c'),xmlLeaf=False)
+    parent_summary = dict(summary,counts=dict(summary['counts'],tests=3,passed=3))
+    scenarios += [([good[0],good[1],parent,parent_summary],0,True),
+        ([good[0],good[1],dict(parent,status='FAIL'),dict(parent_summary,success=False,counts=dict(parent_summary['counts'],passed=2,failed=1))],0,False),
+        ([good[0],good[1],dict(parent,status='SKIP'),dict(parent_summary,counts=dict(parent_summary['counts'],passed=2,skipped=1))],0,False),
+        ([good[0],good[1],parent_summary],0,False)]
     with tempfile.TemporaryDirectory() as temp:
         x, e = Path(temp)/'synthetic.xml', Path(temp)/'events.jsonl'
         x.write_text(xml)
