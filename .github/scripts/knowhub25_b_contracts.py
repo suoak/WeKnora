@@ -142,7 +142,7 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except BaseException:
+    except Exception:
         if '--self-test' in sys.argv:
             raise
         print('B_CONTRACT_VALIDATION_BLOCKED')
