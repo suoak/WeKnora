@@ -1,0 +1,60 @@
+name: KnowHub25 bounded cloud safety attribution
+on:
+  push:
+    branches: [ci/knowhub25-cloud-safety-20261011]
+permissions:
+  contents: read
+concurrency:
+  group: knowhub25-cloud-safety-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  attribution:
+    if: github.repository == 'suoak/WeKnora' && github.ref == 'refs/heads/ci/knowhub25-cloud-safety-20261011'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          path: harness
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: d793e8e719fccd189ef0c8a705e7e302c667b613
+          path: candidate
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: a6403708915680ccad310b0fd64506597b879804
+          path: baseline
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.7'
+          architecture: x64
+          cache: false
+      - name: Classifier positive and negative contracts
+        run: python3 -B harness/.github/scripts/knowhub25_cloud_safety.py --self-test
+      - id: diagnostic
+        name: Eight bounded executions and raw-byte attribution
+        run: python3 -B harness/.github/scripts/knowhub25_cloud_safety.py
+      - name: Validate fixed public summary
+        if: always()
+        id: review
+        run: |
+          python3 -B - <<'PY'
+          import importlib.util, json, pathlib, os
+          spec = importlib.util.spec_from_file_location('safety', 'harness/.github/scripts/knowhub25_cloud_safety.py')
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          path = pathlib.Path('cloud-safety-public/summary.json')
+          module.safe_summary(json.loads(path.read_text()))
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write('approved=true\n')
+          PY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always() && steps.review.outputs.approved == 'true'
+        with:
+          name: knowhub25-safe-attribution-${{ github.sha }}
+          path: cloud-safety-public/summary.json
+          if-no-files-found: error
+          retention-days: 7

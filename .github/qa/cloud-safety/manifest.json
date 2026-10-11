@@ -1,0 +1,226 @@
+{
+  "BASELINE": "a6403708915680ccad310b0fd64506597b879804",
+  "CANDIDATE": "d793e8e719fccd189ef0c8a705e7e302c667b613",
+  "source": [
+    {
+      "path": "internal/agent/checkpoint.go",
+      "blob": "342732295bcfb37eb21d9a0c3092625634c9f1d9",
+      "sha256": "1e977b29497452d5cf59859f876169b21f56df6bb26d8fc5e9c69d8425d6b498",
+      "role": "product"
+    },
+    {
+      "path": "internal/agent/compaction/checkpoint_test.go",
+      "blob": "32a575a2a8a8b16bb32eb95ca8b8e0d10626c0b9",
+      "sha256": "cc3db253c4315ad8b6e0646b95727fc40864d4cf1edbeba9595bce287c423de9",
+      "role": "test"
+    },
+    {
+      "path": "internal/agent/compaction/compactor.go",
+      "blob": "8674f9811fab22bbf44eef26cb5bed50acfafb9c",
+      "sha256": "2f9a14def00d25862cd754013f6221b32ea406c8726d2c190ca59cd1f1866c0f",
+      "role": "product"
+    },
+    {
+      "path": "internal/agent/compaction/overflow.go",
+      "blob": "4c0eea383a82e8bfa64890408333222ad7fc7f29",
+      "sha256": "b7d2d6e98740bf2428fae7155f159f49b0e71f2694e7d72ba77d4e8e93099d6c",
+      "role": "product"
+    },
+    {
+      "path": "internal/agent/compaction/stream_http_test.go",
+      "blob": "861e051d16ed5ef6afded02a7edf6d79c1e3bc5c",
+      "sha256": "9a70671555f055ee0234c59ad969e2bc70642aa74be5f0fdfd3b4bef9156c5dd",
+      "role": "test"
+    },
+    {
+      "path": "internal/agent/compaction/stream_test.go",
+      "blob": "598dce15cd3bb05d6827c574c86eeb52c0cbe3fd",
+      "sha256": "57f9a4d3926b7c56355f8f4060e0ca58de6e8f46622b1336578f8af6135c060b",
+      "role": "test"
+    },
+    {
+      "path": "internal/agent/const.go",
+      "blob": "2451200cc1b4a40683b88f302540afc63a5c13cc",
+      "sha256": "3a492a1c5d3734be5e24d951ec48cbae11d3af6292e9473eeb2835e9379344b0",
+      "role": "product"
+    },
+    {
+      "path": "internal/agent/engine_test.go",
+      "blob": "d6099a42f7c2382fe7f3356558b427b1b1010426",
+      "sha256": "a6ef387c035c87d77cc9aa55b20cbe8211784339a55db345d94b0253758a87a8",
+      "role": "test"
+    },
+    {
+      "path": "internal/agent/think.go",
+      "blob": "257d70c2793b1c4078ae98617da729f81831dd02",
+      "sha256": "939593efb45ffc367a0b77f6636950142f5fee7ddbc588cfadf7a4258637d427",
+      "role": "product"
+    },
+    {
+      "path": "internal/models/api/anthropicmessages/client.go",
+      "blob": "daaaee595e74d16e401318d072d1beae3f8b51f9",
+      "sha256": "4506576a2f37798be11443cceb9574c5ee08869cdda8fa825de5d6df89c3b699",
+      "role": "product"
+    },
+    {
+      "path": "internal/models/api/googlegenai/client.go",
+      "blob": "d415bf4d1370985f18543b75c4988b4ca9ae72ef",
+      "sha256": "471a8e4b6eb6d459078e84b1f6f9e735a7d2c3eb4717bc44633da5e2f2b2f3fe",
+      "role": "product"
+    },
+    {
+      "path": "internal/models/api/googlegenai/googlegenai_test.go",
+      "blob": "6216a10bcda3851739c9e44155a9c3ae858d2d9f",
+      "sha256": "b2b0cb68b08e5a60d5182f64a5f91a09891db6034b08d9089f6be933087e12f9",
+      "role": "test"
+    },
+    {
+      "path": "internal/models/api/openaicompletions/client.go",
+      "blob": "f2d8bd4ce014c0b434597baf4d321891861f00f3",
+      "sha256": "eafd986b95b93bd70c205672e260e20666485fe56a16eb56feffa629a0104270",
+      "role": "product"
+    },
+    {
+      "path": "internal/models/api/openaicompletions/golden_test.go",
+      "blob": "3e434eba945722f4e23206967085e3eec5e9915c",
+      "sha256": "930532c824a5c69bcd330f0aef10f5d8884884752f8e96476b80d7ec97f7b855",
+      "role": "test"
+    },
+    {
+      "path": "internal/models/api/openairesponses/client.go",
+      "blob": "383c38bc8e7048b3be78fdad0d5c8bb9b50d9729",
+      "sha256": "9852643be4357380c1854151107f234a8a9dd9ee13e4fca7f548036f5516aaf1",
+      "role": "product"
+    },
+    {
+      "path": "internal/models/api/openairesponses/openairesponses_test.go",
+      "blob": "29abc15dbb584c953acbf1ac0f7f09d5c35fb1a1",
+      "sha256": "ca28848e8bbd2acf9c26171a3daa5d570ebfaea41d1f2739cac5d1df0a16ffe9",
+      "role": "test"
+    },
+    {
+      "path": "internal/models/api/stream_assembler.go",
+      "blob": "a0011a9821dca05f0565ab50f42603b62307fee8",
+      "sha256": "e078096c74e7bdb69dac19b0ad9a731e7a36a1eb9fe7dfb2d11b65aee40e4e3d",
+      "role": "product"
+    },
+    {
+      "path": "internal/models/api/stream_assembler_test.go",
+      "blob": "54ff6d4f25b5343fa5c75f5d2dbdff0287b0c656",
+      "sha256": "db9e6a6b97978f918601f178859969ae8636669aec0caa11994dec8bb4415ce7",
+      "role": "test"
+    },
+    {
+      "path": "internal/models/api/stream_error.go",
+      "blob": "687d761451f43b3a9de4fff77843c43d81c182c1",
+      "sha256": "ea898c5fc63afb7ad85185f1bdbf8c700ed036b7e7dc54f851548ebfea303790",
+      "role": "product"
+    },
+    {
+      "path": "internal/models/api/stream_error_test.go",
+      "blob": "eedae5f5b8471243fcca51677b7d71eaac4361c6",
+      "sha256": "e78391f560b2e0283611e220d555925511e85b1698fbaa3fd205c25fa6685ee3",
+      "role": "test"
+    },
+    {
+      "path": "internal/types/chat.go",
+      "blob": "4967ac4c829e02d7d93de2989d7a72ae9f53ac3c",
+      "sha256": "b322040a558d284024af995bc839b42a7ac3dbf663eefd6edd6a5510803e22d3",
+      "role": "product"
+    },
+    {
+      "path": "internal/types/stream_error.go",
+      "blob": "f79a1b1c6657fe65556a5241da9b78a2e9258d63",
+      "sha256": "46a1d80f76e98a6b1dc4c1464f4cbc1b3fa95608d986090356d755b0bfba552a",
+      "role": "product"
+    },
+    {
+      "path": "internal/types/stream_error_test.go",
+      "blob": "42b2a3134621dfa78285b264a1e2fc2ff3fa278c",
+      "sha256": "ac63ce1f2064214c95c73159007913093d60d9ed5f5689a3c32fe5a78fc07da4",
+      "role": "test"
+    }
+  ],
+  "canaries": [
+    "A5_ASSEMBLER_BEARER_CANARY",
+    "A5_ASSEMBLER_PROVIDER_CANARY",
+    "A5_ASSEMBLER_SQL_CANARY",
+    "A5_ASSEMBLER_TOKEN_CANARY",
+    "A5_R2_BEARER_CANARY",
+    "A5_R2_PROVIDER_CANARY",
+    "A5_R2_SQL_CANARY",
+    "A5_R2_TOKEN_CANARY",
+    "A5_R2_UNWRAP_CANARY",
+    "A5_SYNTHETIC_BEARER_CANARY",
+    "A5_SYNTHETIC_HTTP_PROVIDER_CANARY",
+    "A5_SYNTHETIC_PROVIDER_CANARY",
+    "A5_SYNTHETIC_SQL_CANARY",
+    "A5_SYNTHETIC_TOKEN_CANARY",
+    "Authorization: Bearer SYNTHETIC",
+    "B2_MESSAGE_CANARY",
+    "B2_OVERFLOW_CANARY",
+    "B2_PROVIDER_CANARY",
+    "B2_SQL_CANARY",
+    "B2_TOKEN_CANARY",
+    "SECRET-CANARY",
+    "SQL-CANARY",
+    "SQL_CANARY",
+    "SYNTHETIC_LABEL_SECRET",
+    "SYNTHETIC_TOKEN_SQL_CANARY",
+    "TOKEN-CANARY",
+    "TOKEN_CANARY",
+    "TOKEN_SQL_BEARER_CANARY",
+    "WIKI_LINT_SQL_TOKEN_CANARY",
+    "WIKI_PROVIDER_TOKEN_CANARY",
+    "WIKI_SQL_SECRET_CANARY",
+    "a23-isolated-password",
+    "a23-isolated-signing-key-for-tests-only",
+    "other-principal-token",
+    "other-secret",
+    "registered-secret",
+    "synthetic-access",
+    "synthetic-access-token",
+    "synthetic-client-secret",
+    "synthetic-foreign-only",
+    "synthetic-parent-secret-canary",
+    "synthetic-password",
+    "synthetic-refresh",
+    "synthetic-refresh-token",
+    "synthetic-revoke-a",
+    "synthetic-revoke-b",
+    "synthetic-revoke-other",
+    "synthetic-secret",
+    "tenant-a-token",
+    "tenant-b-token"
+  ],
+  "yuque_source": {
+    "BASELINE": [
+      {
+        "path": "internal/datasource/connector/yuque/client_test.go",
+        "sha256": "7d81fb1b7151389eb79909d444ff6a0afb9a7e0a5f86053d126235048faca0a2"
+      },
+      {
+        "path": "internal/datasource/connector/yuque/client.go",
+        "sha256": "23809b7f599c6abcdfe799452aaddb84be01c7a1edde661f92519f2dc2b9a1ec"
+      },
+      {
+        "path": "internal/datasource/connector/yuque/types.go",
+        "sha256": "e69edf7a5ecb715caf4111ab75867bf97ba87f5b89f8a4c4f7fc429e4910b23e"
+      }
+    ],
+    "CANDIDATE": [
+      {
+        "path": "internal/datasource/connector/yuque/client_test.go",
+        "sha256": "7d81fb1b7151389eb79909d444ff6a0afb9a7e0a5f86053d126235048faca0a2"
+      },
+      {
+        "path": "internal/datasource/connector/yuque/client.go",
+        "sha256": "23809b7f599c6abcdfe799452aaddb84be01c7a1edde661f92519f2dc2b9a1ec"
+      },
+      {
+        "path": "internal/datasource/connector/yuque/types.go",
+        "sha256": "e69edf7a5ecb715caf4111ab75867bf97ba87f5b89f8a4c4f7fc429e4910b23e"
+      }
+    ]
+  }
+}
