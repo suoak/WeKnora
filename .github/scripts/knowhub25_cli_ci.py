@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 PACKAGE_ID = os.environ.get('KNOWHUB25_CLI_PACKAGE', 'CLI_001')
-PACKAGE = {'CLI_001':'internal/format','CLI_002':'internal/cmdutil','CLI_003':'cmd/auth'}[PACKAGE_ID]
+PACKAGE = {'CLI_001':'internal/format','CLI_002':'internal/cmdutil','CLI_003':'cmd/auth','CLI_004':'cmd/api'}[PACKAGE_ID]
 BASELINE = 'a6403708915680ccad310b0fd64506597b879804'
 CANARIES = json.loads((Path(__file__).with_name('knowhub25_cli_canaries.json')).read_text())
 RULES = [(f'SYNTHETIC_{i + 1:03}', re.compile(re.escape(v))) for i, v in enumerate(CANARIES)]
@@ -71,12 +71,12 @@ def self_test():
     assert not parse(skip.replace(b'fts5 is compiled in', b'wrong reason'), 0, allowed_skip=True)[0]
 
 
-SOURCE_BLOBS={'cli/internal/format/filter.go': 'fc0846f7fb8126e8d5cb1f47cbcb8b2950b8bb4e', 'cli/internal/format/jq_precision_test.go': '9009fe2db00a00318f4ae04dfe88731058e50917', 'cli/internal/cmdutil/errors.go': '1e10c03fe9f68db50d88a8ccbf1fc11b8a4a53ef', 'cli/internal/cmdutil/authrefresh_http_classification_test.go': 'a742dae6be46e1601d27ef635c0c6d8d2575eb20', 'cli/cmd/auth/status_jq_precision_test.go': '4f164805457df9e09316c539af7863134ff7f669'}
+SOURCE_BLOBS={'cli/internal/format/filter.go': 'fc0846f7fb8126e8d5cb1f47cbcb8b2950b8bb4e', 'cli/internal/format/jq_precision_test.go': '9009fe2db00a00318f4ae04dfe88731058e50917', 'cli/internal/cmdutil/errors.go': '1e10c03fe9f68db50d88a8ccbf1fc11b8a4a53ef', 'cli/internal/cmdutil/authrefresh_http_classification_test.go': 'a742dae6be46e1601d27ef635c0c6d8d2575eb20', 'cli/cmd/auth/status_jq_precision_test.go': '4f164805457df9e09316c539af7863134ff7f669', 'cli/cmd/api/api.go': 'd0b886e0e230bf17fa1de947516ea8e95903e24c', 'cli/cmd/api/api_test.go': '8fd89a1009fc28130caf4d5891f26116f1855527', 'cli/cmd/api/paginate_text_test.go': 'd22e90e294ab7b6caa8f4d53f70969e0f25aa6bf'}
 
-REQUIRED={'CLI_001': ['TestJQIntegerPrecisionAndInvalidTrailingData'], 'CLI_002': ['TestRejectedAutomaticRefreshPreservesHTTPClassification', 'TestRejectedAutomaticRefreshPreservesHTTPClassification/Unauthorized', 'TestRejectedAutomaticRefreshPreservesHTTPClassification/Forbidden', 'TestClassifyWrappedTypedHTTPStatusIgnoresBodyStatus'], 'CLI_003': ['TestStatusJQPreservesTenantID']}[PACKAGE_ID]
+REQUIRED={'CLI_001': ['TestJQIntegerPrecisionAndInvalidTrailingData'], 'CLI_002': ['TestRejectedAutomaticRefreshPreservesHTTPClassification', 'TestRejectedAutomaticRefreshPreservesHTTPClassification/Unauthorized', 'TestRejectedAutomaticRefreshPreservesHTTPClassification/Forbidden', 'TestClassifyWrappedTypedHTTPStatusIgnoresBodyStatus'], 'CLI_003': ['TestStatusJQPreservesTenantID'], 'CLI_004': ['TestAPI_PaginateTruncatedHTTPBody', 'TestAPI_PaginateReadError', 'TestAPI_PaginateFormats', 'TestAPI_PaginateTextWriteError']}[PACKAGE_ID]
 
 def review(value):
- if set(value)!={'schema','candidate','baseline','packageId','status','rows'} or value['schema']!=1 or value['packageId'] not in {'CLI_001','CLI_002','CLI_003'} or value['baseline']!=BASELINE or value['status'] not in {'PASS','BLOCKED'} or not re.fullmatch('[0-9a-f]{40}',value['candidate']):raise ValueError('SCHEMA_FAILED')
+ if set(value)!={'schema','candidate','baseline','packageId','status','rows'} or value['schema']!=1 or value['packageId'] not in {'CLI_001','CLI_002','CLI_003','CLI_004'} or value['baseline']!=BASELINE or value['status'] not in {'PASS','BLOCKED'} or not re.fullmatch('[0-9a-f]{40}',value['candidate']):raise ValueError('SCHEMA_FAILED')
  for row in value['rows']:
   if set(row)!={'side','mode','compileExit','testExit','counts','parserValid','dataRace','notPresentCount','rawFiles'} or row['side'] not in {'BASELINE','CANDIDATE'} or row['mode'] not in {'NORMAL','RACE'}:raise ValueError('SCHEMA_FAILED')
   if any(row[k] is not None and type(row[k]) is not int for k in ['compileExit','testExit','notPresentCount']) or type(row['parserValid']) is not bool or type(row['dataRace']) is not bool:raise ValueError('SCHEMA_FAILED')

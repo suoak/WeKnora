@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [CLI_001, CLI_002, CLI_003]
+        package: [CLI_001, CLI_002, CLI_003, CLI_004]
     env:
       KNOWHUB25_CLI_PACKAGE: ${{ matrix.package }}
       CGO_ENABLED: '1'
