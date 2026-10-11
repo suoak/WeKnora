@@ -18,25 +18,29 @@ RULES += [
 ]
 
 
-def parse(data, exit_code):
+def parse(data, exit_code, required=(), allowed_skip=False):
     states = {}
+    outputs = {}
     package_status = []
     for line in data.decode('utf-8', errors='strict').splitlines():
         event = json.loads(line)
         name, action = event.get('Test'), event.get('Action')
+        if name and action == 'output':
+            outputs[name] = outputs.get(name, '') + event.get('Output', '')
         if name and action in {'run', 'pass', 'fail', 'skip'}:
             states.setdefault(name, []).append(action)
         elif not name and action in {'pass', 'fail'}:
             package_status.append(action)
     valid = exit_code == 0 and package_status == ['pass'] and bool(states)
     counts = dict(run=0, passed=0, failed=0, skipped=0)
-    for seq in states.values():
-        valid &= len(seq) == 2 and seq[0] == 'run' and seq[1] in {'pass', 'fail'}
+    for name, seq in states.items():
+        permitted = allowed_skip and name == 'TestSaveWorksWhenTheFTS5ModuleIsNotCompiledIn' and 'fts5 is compiled in; the keyword index is checked by the other tests' in outputs.get(name, '') and name not in required
+        valid &= len(seq) == 2 and seq[0] == 'run' and (seq[1] in {'pass', 'fail'} or (seq[1] == 'skip' and permitted))
         counts['run'] += seq.count('run')
         counts['passed'] += seq.count('pass')
         counts['failed'] += seq.count('fail')
         counts['skipped'] += seq.count('skip')
-    valid &= counts['failed'] == 0
+    valid &= counts['failed'] == 0 and all(states.get(name) == ['run', 'pass'] for name in required)
     return valid, counts
 
 
@@ -55,6 +59,15 @@ def self_test():
     else:
         raise AssertionError('Corrupt JSON accepted')
     assert any(p.search('token=SYNTHETIC_CREDENTIAL_VALUE') for _, p in RULES)
+    name = 'TestSaveWorksWhenTheFTS5ModuleIsNotCompiledIn'
+    skip = '\n'.join(json.dumps(event) for event in [
+        {'Test': name, 'Action': 'run'},
+        {'Test': name, 'Action': 'output', 'Output': 'fts5 is compiled in; the keyword index is checked by the other tests'},
+        {'Test': name, 'Action': 'skip'}, {'Action': 'pass'}]).encode()
+    assert parse(skip, 0, allowed_skip=True)[0]
+    assert not parse(skip, 0)[0]
+    assert not parse(skip, 0, [name], True)[0]
+    assert not parse(skip.replace(b'fts5 is compiled in', b'wrong reason'), 0, allowed_skip=True)[0]
 
 
 def main():
@@ -63,12 +76,11 @@ def main():
         print('RETRIEVER_CONTRACT_INFRASTRUCTURE_SELF_TEST_PASS')
         return
     assert subprocess.check_output(['git', 'merge-base', BASELINE, 'HEAD']).decode().strip() == BASELINE
-    source_commit = '355de2507b1afa9e144f19633ffaf1b894a2e01c'
-    approved = subprocess.check_output(['git', 'diff', '--name-only', BASELINE, source_commit]).decode().splitlines()
-    assert set(subprocess.check_output(['git', 'diff', '--name-only', BASELINE, 'HEAD']).decode().splitlines()) == set(approved)
-    for path in approved:
-        if not path.startswith('.github/'):
-            assert subprocess.check_output(['git', 'rev-parse', 'HEAD:' + path]) == subprocess.check_output(['git', 'rev-parse', source_commit + ':' + path])
+    expected_source = {'internal/application/repository/retriever/sqlite/repository.go': '5622df031360824dfea91c4806e68597f1ed0a94', 'internal/application/repository/retriever/sqlite/batch_update_test.go': 'c5a3d58313153b9c30ddc58f145970f78dd054b4', 'internal/application/repository/retriever/sqlite/index_write_errors_test.go': 'ba95980dd14d04042732aca97788f8d61b8b2a19'}
+    approved = set(expected_source) | {'.github/scripts/knowhub25_retriever_contracts.py', '.github/scripts/knowhub25_retriever_canaries.json', '.github/workflows/knowhub25-retriever-errors.yml'}
+    assert set(subprocess.check_output(['git', 'diff', '--name-only', BASELINE, 'HEAD']).decode().splitlines()) == approved
+    for path, blob in expected_source.items():
+        assert subprocess.check_output(['git', 'rev-parse', 'HEAD:' + path]).decode().strip() == blob
     assert subprocess.check_output(['go', 'env', 'GOOS']).decode().strip() == 'linux'
     assert subprocess.check_output(['go', 'version']).decode().strip() == 'go version go1.26.7 linux/amd64'
     raw = Path(os.environ['RUNNER_TEMP']) / 'knowhub25-retriever-raw'
@@ -77,17 +89,21 @@ def main():
     safe.mkdir(mode=0o700)
     results, ok = [], True
     for i, package in enumerate(PACKAGES, 1):
-        for mode in ['NORMAL', 'RACE']:
+        for mode in ['NORMAL', 'RACE', 'NO_FTS_NORMAL', 'NO_FTS_RACE']:
             path = raw / f'{i}-{mode}.jsonl'
             errpath = raw / f'{i}-{mode}.stderr'
             # Lite release builds require FTS5; execute the full keyword tests rather than skip them.
             command = ['go', 'test', '-mod=readonly', '-tags', 'sqlite_fts5', '-p', '2', '-count=1', '-json']
-            if mode == 'RACE':
+            if mode.endswith('RACE'):
                 command += ['-race']
+            if mode.startswith('NO_FTS'):
+                command = [arg for arg in command if arg not in ['-tags', 'sqlite_fts5']]
+                command += ['-run', '^TestSaveWorksWhenTheFTS5ModuleIsNotCompiledIn$']
             command += ['./' + package]
             with path.open('wb') as out, errpath.open('wb') as err:
                 proc = subprocess.run(command, stdout=out, stderr=err, timeout=600)
-            status, counts = parse(path.read_bytes(), proc.returncode)
+            required = ['TestSaveWorksWhenTheFTS5ModuleIsNotCompiledIn'] if mode.startswith('NO_FTS') else ['TestBatchSaveRollsBackWhenVecTableIsGone', 'TestBatchSaveRollsBackWhenFTSTableIsGone', 'TestBatchSaveRollsBackWhenVecInsertIsRejected', 'TestSaveFailsWhenAnotherObjectOwnsTheVecTableName', 'TestDeleteByChunkIDListReportsIndexDeleteFailure', 'TestCopyIndicesReportsVectorCopyFailure', 'TestCopyIndicesReportsRejectedRowWithChunkIDs', 'TestCopyIndicesReportsKeywordCopyFailureWithoutLosingTheRow', 'TestSaveStillWritesEveryIndexRowOnHealthyTables']
+            status, counts = parse(path.read_bytes(), proc.returncode, required, not mode.startswith('NO_FTS'))
             findings = []
             race = False
             for file in [path, errpath]:
@@ -102,7 +118,7 @@ def main():
             results.append(dict(packageId=f'RETRIEVER_PKG_{i:03}', mode=mode, exit=proc.returncode,
                                 counts=counts, testPass=status, rawScanClear=clear,
                                 dataRace=race, rawEvidence=findings))
-    summary = dict(schema=1, candidate=subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode().strip(),
+    summary = dict(schema=1, buildVariantPolicy='FTS_FULL_AND_NO_FTS_COMPANION', candidate=subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode().strip(),
                    baseline=BASELINE, rows=results, gatePass=ok, rawArtifactPublished=False)
     # Fixed schema only: no test names, paths, error messages, output excerpts, or raw values.
     (safe / 'summary.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
