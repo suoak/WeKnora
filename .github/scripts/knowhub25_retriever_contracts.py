@@ -36,6 +36,7 @@ def parse(data, exit_code):
         counts['passed'] += seq.count('pass')
         counts['failed'] += seq.count('fail')
         counts['skipped'] += seq.count('skip')
+    valid &= counts['failed'] == 0
     return valid, counts
 
 
@@ -43,6 +44,7 @@ def self_test():
     good = b'{"Test":"fixed","Action":"run"}\n{"Test":"fixed","Action":"pass"}\n{"Action":"pass"}\n'
     assert parse(good, 0)[0]
     assert not parse(good, 1)[0]
+    assert not parse(good.replace(b'"Test":"fixed","Action":"pass"', b'"Test":"fixed","Action":"fail"'), 0)[0]
     assert not parse(good.replace(b'"pass"', b'"skip"', 1), 0)[0]
     assert not parse(good.splitlines()[0], 0)[0]
     assert not parse(good + good, 0)[0]
@@ -72,7 +74,8 @@ def main():
         for mode in ['NORMAL', 'RACE']:
             path = raw / f'{i}-{mode}.jsonl'
             errpath = raw / f'{i}-{mode}.stderr'
-            command = ['go', 'test', '-mod=readonly', '-p', '2', '-count=1', '-json']
+            # Lite release builds require FTS5; execute the full keyword tests rather than skip them.
+            command = ['go', 'test', '-mod=readonly', '-tags', 'sqlite_fts5', '-p', '2', '-count=1', '-json']
             if mode == 'RACE':
                 command += ['-race']
             command += ['./' + package]
