@@ -140,11 +140,22 @@ func TestClient_TokenNeverLoggedInFull(t *testing.T) {
 		t.Fatal("expected logger output (sanity check — SetOutput wiring may be broken)")
 	}
 	if strings.Contains(out, rawToken) {
-		t.Errorf("raw token leaked into logs:\n%s", out)
+		t.Error("raw credential leaked into logs")
 	}
-	// Verify the redacted form was emitted (positive assertion, not just absence).
-	if !strings.Contains(out, redactToken(rawToken)) {
-		t.Errorf("expected redacted token %q in logs, got:\n%s", redactToken(rawToken), out)
+	// Partial identifiers are credential material too; logging must omit them.
+	for _, forbidden := range []string{rawToken[:6], rawToken[len(rawToken)-4:], redactToken(rawToken), "token=", "base="} {
+		if strings.Contains(out, forbidden) {
+			t.Error("credential or configuration fragment leaked into logs")
+		}
+	}
+	if strings.Count(out, "[Yuque] client configured") != 1 {
+		t.Error("expected one controlled configuration event")
+	}
+	if err := c.Ping(context.Background()); err != nil {
+		t.Fatal("repeat synthetic request failed")
+	}
+	if strings.Count(buf.String(), "[Yuque] client configured") != 1 {
+		t.Error("configuration event repeated")
 	}
 }
 

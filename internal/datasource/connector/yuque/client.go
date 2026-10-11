@@ -27,9 +27,8 @@ type client struct {
 	token      string
 	httpClient *http.Client
 
-	// logTokenOnce ensures the redacted token identity is logged at most once
-	// per client lifetime (first real request), rather than on every call.
-	logTokenOnce sync.Once
+	// Log configuration once without exposing credentials or configured URLs.
+	logConfigOnce sync.Once
 }
 
 // newClient constructs a client with a normalized base URL.
@@ -43,8 +42,7 @@ func newClient(cfg *Config) *client {
 
 // doRequest executes an authenticated request and decodes JSON, with retry logic
 // for transient errors (429, 5xx, transport failures).
-// The raw X-Auth-Token is never logged; only a redacted form is emitted once per
-// client lifetime (not per request) to keep sync logs readable at thousand-doc scale.
+// Neither the X-Auth-Token nor its identifying fragments are logged.
 func (c *client) doRequest(ctx context.Context, method, path string, result interface{}) error {
 	const (
 		maxRetries    = 3
@@ -54,8 +52,8 @@ func (c *client) doRequest(ctx context.Context, method, path string, result inte
 	var lastErr error
 	backoff := []time.Duration{2 * time.Second, 4 * time.Second, 8 * time.Second}
 
-	c.logTokenOnce.Do(func() {
-		logger.Infof(ctx, "[Yuque] client configured token=%s base=%s", redactToken(c.token), c.baseURL)
+	c.logConfigOnce.Do(func() {
+		logger.Infof(ctx, "[Yuque] client configured")
 	})
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
