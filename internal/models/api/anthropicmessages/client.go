@@ -149,8 +149,9 @@ func (c *Client) ChatStream(
 			resp, err = c.send(ctx, api.StripImagesFromMessages(messages), opts, true)
 		}
 		if err != nil {
+			failure := api.NormalizeProviderStreamFailure(ctx, "anthropic-messages", err)
 			cancel()
-			return nil, err
+			return nil, failure
 		}
 	}
 	ch := make(chan types.StreamResponse)
@@ -540,11 +541,11 @@ func (c *Client) processStream(
 		}
 		var ev streamEvent
 		if err := json.Unmarshal(event.Data, &ev); err != nil {
-			assembler.Fail(ch, fmt.Errorf("decode SSE response: %w", err))
+			assembler.Fail(ch, types.NewStreamFailure(types.StreamFailureProtocol, 0, 0))
 			return
 		}
-		if ev.Error != nil && ev.Error.Message != "" {
-			assembler.Fail(ch, fmt.Errorf("API stream error: %s", ev.Error.Message))
+		if ev.Error != nil {
+			assembler.Fail(ch, api.ProviderStreamFailure("anthropic-messages", nil, ev.Error.Type, 0, ""))
 			return
 		}
 		delta := c.consume(state, ev)
@@ -571,7 +572,7 @@ func (c *Client) collectStream(ctx context.Context, body io.Reader) (*types.Chat
 	for chunk := range ch {
 		switch chunk.ResponseType {
 		case types.ResponseTypeError:
-			return nil, fmt.Errorf("%s", chunk.Content)
+			return nil, api.NormalizeStreamFailure(ctx, chunk.Failure)
 		case types.ResponseTypeThinking:
 			reasoning.WriteString(chunk.Content)
 		case types.ResponseTypeAnswer:

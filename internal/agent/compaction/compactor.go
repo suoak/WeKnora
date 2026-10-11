@@ -8,6 +8,7 @@ import (
 	"time"
 
 	agenttoken "github.com/Tencent/WeKnora/internal/agent/token"
+	"github.com/Tencent/WeKnora/internal/models/api"
 	"github.com/Tencent/WeKnora/internal/models/chat"
 	"github.com/Tencent/WeKnora/internal/types"
 )
@@ -222,6 +223,10 @@ func (c *Compactor) summarize(
 			return strings.TrimSpace(content), nil
 		}
 		lastErr = err
+		var failure *types.StreamFailure
+		if errors.As(err, &failure) && !failure.Retryable() {
+			break
+		}
 		if ctx.Err() != nil {
 			break // the turn itself was stopped; another attempt cannot help
 		}
@@ -233,6 +238,12 @@ func (c *Compactor) summarize(
 
 // streamSummary collects one summarization stream. Output of any kind, the
 // model's reasoning included, counts as progress and resets the stall timer.
+// Provider errors are deliberately not retained as causes: they may contain
+// response bodies or credentials, including when a caller unwraps the error.
+func safeSummaryProviderError(err error) error {
+	return api.NormalizeStreamFailure(context.Background(), err)
+}
+
 func (c *Compactor) streamSummary(
 	ctx context.Context, messages []chat.Message, opts *chat.ChatOptions,
 ) (content, finishReason string, err error) {
@@ -240,7 +251,7 @@ func (c *Compactor) streamSummary(
 	defer cancel()
 	stream, err := c.chatModel.ChatStream(callCtx, messages, opts)
 	if err != nil {
-		return "", "", err
+		return "", "", safeSummaryProviderError(err)
 	}
 	if stream == nil {
 		return "", "", errors.New("summarization stream was not opened")
@@ -261,7 +272,7 @@ func (c *Compactor) streamSummary(
 	stall := time.NewTimer(timeout)
 	defer stall.Stop()
 	var sb strings.Builder
-	streamErr := ""
+	var streamFailure *types.StreamFailure
 	for {
 		select {
 		case <-ctx.Done():
@@ -270,9 +281,6 @@ func (c *Compactor) streamSummary(
 			return "", "", fmt.Errorf("summarization stalled: no output for %s", timeout)
 		case chunk, ok := <-stream:
 			if !ok {
-				if streamErr != "" {
-					return "", finishReason, fmt.Errorf("summarization stream error: %s", streamErr)
-				}
 				// A stream that closes because the call was cancelled is a
 				// cancelled call, not an empty successful summary. Checking the
 				// context here, and not only in the ctx.Done() arm above, also
@@ -280,6 +288,9 @@ func (c *Compactor) streamSummary(
 				// both arms are ready and select picks between them at random.
 				if err := ctx.Err(); err != nil {
 					return "", finishReason, err
+				}
+				if streamFailure != nil {
+					return "", finishReason, streamFailure
 				}
 				return sb.String(), finishReason, nil
 			}
@@ -289,7 +300,7 @@ func (c *Compactor) streamSummary(
 			}
 			switch chunk.ResponseType {
 			case types.ResponseTypeError:
-				streamErr = chunk.Content
+				streamFailure = api.NormalizeStreamFailure(ctx, chunk.Failure)
 			case types.ResponseTypeThinking:
 				// progress, but not part of the summary
 			default:
@@ -310,6 +321,8 @@ func validateSummary(content, finishReason string) error {
 		return errors.New("empty response from LLM")
 	}
 	switch strings.ToLower(strings.TrimSpace(finishReason)) {
+	case types.FinishReasonIncomplete:
+		return errors.New(types.StreamEndedEarlyError)
 	case "length", "max_tokens", "max_output_tokens":
 		return errors.New("generation hit the token cap and the summary is incomplete")
 	}

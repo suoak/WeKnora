@@ -6,21 +6,118 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/Tencent/WeKnora/internal/agent/compaction"
 	agenttools "github.com/Tencent/WeKnora/internal/agent/tools"
 	"github.com/Tencent/WeKnora/internal/event"
+	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/modelcontext"
 	"github.com/Tencent/WeKnora/internal/models/api"
+	"github.com/Tencent/WeKnora/internal/models/api/googlegenai"
+	"github.com/Tencent/WeKnora/internal/models/api/openaicompletions"
 	"github.com/Tencent/WeKnora/internal/models/chat"
 	"github.com/Tencent/WeKnora/internal/sandbox"
 	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Tencent/WeKnora/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// The sink is the real engine persistence boundary; only storage is recorded.
+func TestA5HTTPCompactionActualCheckpointSink(t *testing.T) {
+	for _, failures := range []int32{0, 1, 4} {
+		t.Run(fmt.Sprintf("failures=%d", failures), func(t *testing.T) {
+			t.Setenv("SSRF_WHITELIST", "127.0.0.1")
+			var calls atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "text/event-stream")
+				if calls.Add(1) <= failures {
+					fmt.Fprint(w, `data: {"choices":[{"index":0,"delta":{"content":"INCOMPLETE_SUMMARY"}}]}`+"\n\n")
+				} else {
+					fmt.Fprint(w, `data: {"choices":[{"index":0,"delta":{"content":"COMPLETE_SUMMARY"},"finish_reason":"stop"}]}`+"\n\n")
+				}
+			}))
+			defer srv.Close()
+			model := openaicompletions.New(openaicompletions.Config{Endpoint: api.Endpoint{BaseURL: srv.URL, Model: "summary-test", Client: srv.Client()}})
+			engine := newTestEngine(t, model, withMaxContextTokens(40000), withMaxCompletionTokens(4000))
+			sink := &recordingCheckpointSink{}
+			engine.SetContextCheckpointSink(sink)
+			tool := newCountingTool("write_sandbox_file")
+			engine.toolRegistry = agenttools.NewToolRegistry()
+			engine.toolRegistry.RegisterTool(tool)
+			messages := storedHistoryOverflow()
+			compacted, changed := engine.manageContextWindow(context.Background(), messages, 1, engine.tokenEstimator.EstimateMessages(messages))
+			require.True(t, changed)
+			require.Equal(t, []string{"turn-b"}, sink.turnIDs)
+			require.Len(t, sink.saved, 1)
+			assert.NotContains(t, sink.saved[0].Summary, "INCOMPLETE_SUMMARY")
+			assert.Equal(t, failures == 4, sink.saved[0].Degraded)
+			assert.False(t, sink.saved[0].CreatedAt.IsZero())
+			if failures == 4 {
+				assert.Contains(t, sink.saved[0].Summary, "Raw conversation archive")
+			} else {
+				assert.Contains(t, sink.saved[0].Summary, "COMPLETE_SUMMARY")
+			}
+			wantCalls := int32(2)
+			if failures == 1 {
+				wantCalls = 3
+			}
+			if failures == 4 {
+				wantCalls = 4
+			}
+			assert.Equal(t, wantCalls, calls.Load())
+			engine.manageContextWindow(context.Background(), compacted, 2, engine.tokenEstimator.EstimateMessages(compacted))
+			assert.Len(t, sink.saved, 1, "no duplicate checkpoint in the next round")
+			assert.Equal(t, wantCalls, calls.Load(), "no repeat summarization in the next round")
+			assert.Zero(t, tool.calls, "summary retry must not replay historical tools")
+		})
+	}
+}
+
+type a5LogCapture struct {
+	mu   sync.Mutex
+	body strings.Builder
+}
+
+func (b *a5LogCapture) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.body.Write(p)
+}
+func (b *a5LogCapture) String() string { b.mu.Lock(); defer b.mu.Unlock(); return b.body.String() }
+
+// This assertion intentionally remains a real FAIL if the existing shared
+// checkpoint logger leaks driver details. A5 may not repair that shared file.
+func TestA5CheckpointSinkErrorMustNotLeakCanaries(t *testing.T) {
+	canaries := []string{"A5_SYNTHETIC_SQL_CANARY", "A5_SYNTHETIC_PROVIDER_CANARY", "A5_SYNTHETIC_TOKEN_CANARY", "Bearer A5_SYNTHETIC_BEARER_CANARY"}
+	capture := &a5LogCapture{}
+	logger.SetOutput(io.MultiWriter(os.Stderr, capture))
+	t.Cleanup(func() { logger.SetOutput(os.Stderr) })
+	engine := newTestEngine(t, &summarizerChat{}, withMaxContextTokens(40000), withMaxCompletionTokens(4000))
+	sink := &recordingCheckpointSink{err: errors.New(strings.Join(canaries, " "))}
+	engine.SetContextCheckpointSink(sink)
+	messages := storedHistoryOverflow()
+	compacted, changed := engine.manageContextWindow(context.Background(), messages, 1, engine.tokenEstimator.EstimateMessages(messages))
+	require.True(t, changed)
+	require.Len(t, sink.saved, 1)
+	assert.Less(t, engine.tokenEstimator.EstimateMessages(compacted), engine.tokenEstimator.EstimateMessages(messages))
+	assert.Contains(t, capture.String(), "Failed to save context checkpoint")
+	assert.Contains(t, capture.String(), "checkpoint_save_failed")
+	assert.NotContains(t, capture.String(), "Saved context checkpoint")
+	assert.False(t, sink.saved[0].Degraded)
+	assert.Equal(t, []string{"turn-b"}, sink.turnIDs)
+	for _, canary := range canaries {
+		assert.NotContains(t, capture.String(), canary, "shared sink errors must be redacted")
+	}
+}
 
 type countingTool struct {
 	agenttools.BaseTool
@@ -192,6 +289,7 @@ func TestStreamLLMToEventBus_ErrorAfterContent_IsNotASuccessfulTurn(t *testing.T
 		{
 			ResponseType: types.ResponseTypeError,
 			Content:      "context deadline exceeded",
+			Failure:      types.NewStreamFailure(types.StreamFailureDeadline, 0, 0),
 			Done:         true,
 			FinishReason: types.FinishReasonIncomplete,
 			ToolCalls: []types.LLMToolCall{{
@@ -214,6 +312,23 @@ func TestStreamLLMToEventBus_ErrorAfterContent_IsNotASuccessfulTurn(t *testing.T
 	require.Len(t, result.ToolCalls, 1)
 	require.Equal(t, types.FinishReasonIncomplete, result.FinishReason)
 	require.True(t, isTransientError(err), "a broken stream must be retryable")
+}
+
+func TestStreamLLMToEventBus_MessageOnlyDeadlineIsUnknown(t *testing.T) {
+	model := &mockChat{responses: []mockResponse{{chunks: []types.StreamResponse{
+		{ResponseType: types.ResponseTypeAnswer, Content: "legal partial content"},
+		{ResponseType: types.ResponseTypeError, Content: "context deadline exceeded overflow B2_MESSAGE_CANARY", Done: true, FinishReason: types.FinishReasonIncomplete},
+	}}}}
+	engine := newTestEngine(t, model)
+	result, err := engine.streamLLMToEventBus(context.Background(), nil, nil, nil)
+	require.Error(t, err)
+	var failure *types.StreamFailure
+	require.ErrorAs(t, err, &failure)
+	require.Equal(t, types.StreamFailureUnknown, failure.Code())
+	require.False(t, isTransientError(err))
+	require.False(t, compaction.IsOverflowError(err))
+	require.NotContains(t, err.Error(), "B2_MESSAGE_CANARY")
+	require.Equal(t, types.FinishReasonIncomplete, result.FinishReason)
 }
 
 func TestStreamLLMChunkReferenceExpandsBeforeEmission(t *testing.T) {
@@ -1154,4 +1269,434 @@ func TestStreamLLMIncompleteFinishIsAStreamError(t *testing.T) {
 
 	require.Error(t, err, "a stream cut before its finish reason is not a completed turn")
 	require.True(t, isTransientError(err))
+}
+
+// These requests use the real provider, SSE decoder, assembler and Agent retry
+// control. A model mock cannot establish this contract.
+func TestB2AgentRealHTTPAndSSERetryControl(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		status    int
+		body      string
+		wantCalls int32
+		wantError bool
+	}{
+		{"HTTP429", 429, `{"error":{"message":"B2_PROVIDER_CANARY Bearer B2_TOKEN_CANARY"}}`, 2, false},
+		{"HTTP503", 503, `{"error":{"message":"B2_SQL_CANARY"}}`, 2, false},
+		{"SSEServer", 200, "data: {\"error\":{\"code\":\"server_error\",\"message\":\"B2_PROVIDER_CANARY\"}}\n\n", 2, false},
+		{"MessageOnlyOverflow", 200, "data: {\"error\":{\"message\":\"context_length_exceeded rate limit 502 B2_TOKEN_CANARY\"}}\n\n", 1, true},
+		{"Malformed502", 200, "data: <html>502 B2_PROVIDER_CANARY</html>\n\n", 1, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var requests atomic.Int32
+			capture := &a5LogCapture{}
+			logger.SetOutput(io.MultiWriter(os.Stderr, capture))
+			t.Cleanup(func() { logger.SetOutput(os.Stderr) })
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				n := requests.Add(1)
+				w.Header().Set("Content-Type", "text/event-stream")
+				if n == 1 {
+					w.WriteHeader(tc.status)
+					_, _ = io.WriteString(w, tc.body)
+					return
+				}
+				_, _ = io.WriteString(w, "data: {\"choices\":[{\"delta\":{\"content\":\"complete\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n")
+			}))
+			defer srv.Close()
+			model := openaicompletions.New(openaicompletions.Config{Endpoint: api.Endpoint{BaseURL: srv.URL, Model: "b2", Client: srv.Client()}, Settings: api.DefaultOpenAICompletions()})
+			engine := newTestEngine(t, model)
+			engine.toolRegistry = agenttools.NewToolRegistry()
+			tool := newCountingTool("write_sandbox_file")
+			engine.toolRegistry.RegisterTool(tool)
+			messages := emptyMessages()
+			response, err := engine.callLLMWithRetry(context.Background(), &messages, nil, &types.AgentState{}, "safe query", 0, "synthetic-session")
+			if tc.wantError {
+				require.Error(t, err)
+				require.Nil(t, response)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, "complete", response.Content)
+			}
+			require.Equal(t, tc.wantCalls, requests.Load())
+			require.False(t, engine.overflowRecovered)
+			require.Zero(t, tool.calls)
+			for _, needle := range []string{"B2_PROVIDER_CANARY", "B2_TOKEN_CANARY", "B2_SQL_CANARY", "Bearer "} {
+				require.NotContains(t, capture.String(), needle)
+				if err != nil {
+					require.NotContains(t, err.Error(), needle)
+				}
+			}
+			t.Logf("HTTP/SSE requests=%d retries=%d overflow=false tool_calls=%d", requests.Load(), requests.Load()-1, tool.calls)
+		})
+	}
+}
+
+func TestB2AgentTrustedOverflowCompactsOnlyOnce(t *testing.T) {
+	var mu sync.Mutex
+	purposes := map[string]int{}
+	capture := &a5LogCapture{}
+	logger.SetOutput(io.MultiWriter(os.Stderr, capture))
+	t.Cleanup(func() { logger.SetOutput(os.Stderr) })
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Messages []struct {
+				Role    string `json:"role"`
+				Content string `json:"content"`
+			} `json:"messages"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid synthetic request", 400)
+			return
+		}
+		purpose := "initial"
+		for _, m := range body.Messages {
+			if strings.Contains(m.Content, "The messages above are a conversation to summarize.") {
+				purpose = "history"
+				break
+			}
+			if strings.Contains(m.Content, "This is the PREFIX of a turn") {
+				purpose = "prefix"
+				break
+			}
+			if strings.Contains(m.Content, "The conversation history before this point was compacted into the following summary:") {
+				purpose = "recovery"
+			}
+		}
+		mu.Lock()
+		purposes[purpose]++
+		mu.Unlock()
+		w.Header().Set("Content-Type", "text/event-stream")
+		if purpose == "initial" {
+			w.WriteHeader(400)
+			io.WriteString(w, `{"error":{"type":"invalid_request_error","code":"context_length_exceeded","message":"B2_OVERFLOW_CANARY"}}`)
+			return
+		}
+		text := map[string]string{"history": "HISTORY_SUMMARY", "prefix": "PREFIX_SUMMARY", "recovery": "RECOVERED_ANSWER"}[purpose]
+		fmt.Fprintf(w, "data: {\"choices\":[{\"delta\":{\"content\":%q},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n", text)
+	}))
+	defer srv.Close()
+	model := openaicompletions.New(openaicompletions.Config{Endpoint: api.Endpoint{BaseURL: srv.URL, Model: "b2", Client: srv.Client()}, Settings: api.DefaultOpenAICompletions()})
+	engine := newTestEngine(t, model, withMaxContextTokens(40000), withMaxCompletionTokens(4000))
+	engine.toolRegistry = agenttools.NewToolRegistry()
+	tool := newCountingTool("write_sandbox_file")
+	engine.toolRegistry.RegisterTool(tool)
+	var compactedEvents []event.ContextCompactedData
+	engine.eventBus.On(event.EventContextCompacted, func(_ context.Context, evt event.Event) error {
+		compactedEvents = append(compactedEvents, evt.Data.(event.ContextCompactedData))
+		return nil
+	})
+	sink := &recordingCheckpointSink{}
+	engine.SetContextCheckpointSink(sink)
+	messages := storedHistoryOverflow()
+	before := len(messages)
+	response, err := engine.callLLMWithRetry(context.Background(), &messages, nil, &types.AgentState{}, "safe query", 0, "synthetic-session")
+	require.NoError(t, err)
+	require.Equal(t, "RECOVERED_ANSWER", response.Content)
+	mu.Lock()
+	actual := map[string]int{}
+	total := 0
+	for k, v := range purposes {
+		actual[k] = v
+		total += v
+	}
+	mu.Unlock()
+	require.Equal(t, map[string]int{"initial": 1, "history": 1, "prefix": 1, "recovery": 1}, actual)
+	require.Equal(t, 4, total)
+	require.True(t, engine.overflowRecovered)
+	require.EqualValues(t, 1, engine.contextRewrites)
+	require.Len(t, compactedEvents, 1, "actual compaction lifecycle event, independent of sink count")
+	require.Equal(t, "overflow", compactedEvents[0].Reason)
+	require.True(t, compactedEvents[0].SplitTurn)
+	require.False(t, compactedEvents[0].Degraded)
+	require.Equal(t, 1, strings.Count(capture.String(), "Compacted (overflow):"))
+	require.Equal(t, 1, strings.Count(capture.String(), "Provider rejected the request as too large; compacting and retrying once"))
+	require.Less(t, len(messages), before)
+	require.Len(t, sink.saved, 1)
+	require.Equal(t, "HISTORY_SUMMARY", sink.saved[0].Summary)
+	require.False(t, sink.saved[0].Degraded)
+	require.Contains(t, compactedEvents[0].Summary, "PREFIX_SUMMARY")
+	require.Contains(t, compactedEvents[0].Summary, "HISTORY_SUMMARY")
+	require.Zero(t, tool.calls)
+	require.NotContains(t, capture.String(), "B2_OVERFLOW_CANARY")
+	t.Logf("purpose_counts=%v total=%d actual_compaction_events=%d checkpoints=%d split_turn=true degraded=false tools=%d", actual, total, len(compactedEvents), len(sink.saved), tool.calls)
+}
+
+func TestB2AgentRealGoogleSafetyDoesNotRetry(t *testing.T) {
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		w.Header().Set("Content-Type", "text/event-stream")
+		io.WriteString(w, "data: {\"promptFeedback\":{\"blockReason\":\"SAFETY\"}}\n\n")
+	}))
+	defer srv.Close()
+	model := googlegenai.New(googlegenai.Config{Endpoint: api.Endpoint{BaseURL: srv.URL, Model: "b2-google", Client: srv.Client()}, Settings: api.DefaultGoogleGenerativeAI()})
+	engine := newTestEngine(t, model)
+	messages := emptyMessages()
+	_, err := engine.callLLMWithRetry(context.Background(), &messages, nil, &types.AgentState{}, "safe query", 0, "synthetic-session")
+	var failure *types.StreamFailure
+	require.ErrorAs(t, err, &failure)
+	require.Equal(t, types.StreamFailureSafetyBlocked, failure.Code())
+	require.EqualValues(t, 1, calls.Load())
+	require.False(t, engine.overflowRecovered)
+	t.Logf("google_safety requests=%d compaction=0 result=blocked", calls.Load())
+}
+
+func TestB2AgentRealContextAndProviderTimeout(t *testing.T) {
+	t.Cleanup(utils.ResetSSRFWhitelistForTest)
+	t.Setenv("SSRF_WHITELIST", "127.0.0.1")
+	utils.ResetSSRFWhitelistForTest()
+	for _, mode := range []string{"parent_cancel", "parent_deadline", "provider_deadline"} {
+		t.Run(mode, func(t *testing.T) {
+			var calls atomic.Int32
+			started := make(chan struct{})
+			requestCanceled := make(chan struct{})
+			firstHandlerExited := make(chan struct{})
+			teardown := make(chan struct{})
+			modelExited := make(chan struct{})
+			var teardownExits atomic.Int32
+			var activeHandlers atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				activeHandlers.Add(1)
+				defer activeHandlers.Add(-1)
+				_, bodyErr := io.Copy(io.Discard, r.Body)
+				closeErr := r.Body.Close()
+				if bodyErr != nil || closeErr != nil {
+					t.Error("synthetic request body could not be consumed and closed")
+					return
+				}
+				if calls.Add(1) == 1 {
+					defer close(firstHandlerExited)
+					close(started)
+					select {
+					case <-r.Context().Done():
+						close(requestCanceled)
+					case <-teardown:
+						teardownExits.Add(1)
+					}
+					return
+				}
+				w.Header().Set("Content-Type", "text/event-stream")
+				io.WriteString(w, "data: {\"choices\":[{\"delta\":{\"content\":\"recovered\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n")
+			}))
+			defer func() {
+				// Teardown is an independent escape path, never cancellation evidence.
+				close(teardown)
+				srv.Close()
+				modelDidExit := false
+				select {
+				case <-modelExited:
+					modelDidExit = true
+				case <-time.After(10 * time.Second):
+					t.Error("model goroutine did not exit during teardown")
+				}
+				assert.Zero(t, activeHandlers.Load())
+				t.Logf("mode=%s teardown_exits=%d active_handlers=%d model_exited=%t", mode, teardownExits.Load(), activeHandlers.Load(), modelDidExit)
+			}()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			client := srv.Client()
+			if mode == "parent_deadline" {
+				ctx, cancel = context.WithTimeout(context.Background(), time.Second)
+				defer cancel()
+			}
+			if mode == "provider_deadline" {
+				client.Timeout = time.Second
+			}
+			model := openaicompletions.New(openaicompletions.Config{Endpoint: api.Endpoint{BaseURL: srv.URL, Model: "b2", Client: client}, Settings: api.DefaultOpenAICompletions()})
+			engine := newTestEngine(t, model)
+			messages := emptyMessages()
+			finished := make(chan error, 1)
+			go func() {
+				defer close(modelExited)
+				_, err := engine.callLLMWithRetry(ctx, &messages, nil, &types.AgentState{}, "safe query", 0, "synthetic-session")
+				finished <- err
+			}()
+			select {
+			case <-started:
+			case <-time.After(10 * time.Second):
+				t.Fatal("request did not reach provider")
+			}
+			if mode == "parent_cancel" {
+				cancel()
+			}
+			var err error
+			select {
+			case err = <-finished:
+			case <-time.After(10 * time.Second):
+				cancel()
+				t.Fatal("bounded control chain did not finish")
+			}
+			if mode == "provider_deadline" {
+				require.NoError(t, err)
+				require.NoError(t, ctx.Err())
+				require.EqualValues(t, 2, calls.Load())
+			} else {
+				require.Error(t, err)
+				require.EqualValues(t, 1, calls.Load())
+				if mode == "parent_cancel" {
+					require.ErrorIs(t, err, context.Canceled)
+				} else {
+					require.ErrorIs(t, err, context.DeadlineExceeded)
+				}
+			}
+			select {
+			case <-requestCanceled:
+			case <-time.After(10 * time.Second):
+				t.Fatal("provider did not observe real request context cancellation")
+			}
+			select {
+			case <-firstHandlerExited:
+			case <-time.After(10 * time.Second):
+				t.Fatal("canceled provider handler did not exit")
+			}
+			require.Zero(t, teardownExits.Load())
+			require.False(t, engine.overflowRecovered)
+			t.Logf("mode=%s requests=%d compaction=0 parent_error=%v request_context_canceled=true first_handler_exited=true teardown_exits=0", mode, calls.Load(), ctx.Err())
+		})
+	}
+}
+
+func TestB2AgentRealTemporaryBudgetAndExecutedTool(t *testing.T) {
+	t.Cleanup(utils.ResetSSRFWhitelistForTest)
+	t.Setenv("SSRF_WHITELIST", "127.0.0.1")
+	utils.ResetSSRFWhitelistForTest()
+	for _, exhaust := range []bool{false, true} {
+		t.Run(fmt.Sprintf("exhaust=%v", exhaust), func(t *testing.T) {
+			var requests atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				n := requests.Add(1)
+				if exhaust || n == 1 {
+					w.WriteHeader(503)
+					io.WriteString(w, `{"error":{"message":"B2_PROVIDER_CANARY"}}`)
+					return
+				}
+				w.Header().Set("Content-Type", "text/event-stream")
+				io.WriteString(w, "data: {\"choices\":[{\"delta\":{\"content\":\"complete\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n")
+			}))
+			defer srv.Close()
+			model := openaicompletions.New(openaicompletions.Config{Endpoint: api.Endpoint{BaseURL: srv.URL, Model: "b2", Client: srv.Client()}, Settings: api.DefaultOpenAICompletions()})
+			engine := newTestEngine(t, model)
+			engine.toolRegistry = agenttools.NewToolRegistry()
+			tool := newCountingTool("test_history")
+			engine.toolRegistry.RegisterTool(tool)
+			messages := emptyMessages()
+			if !exhaust {
+				tc := types.LLMToolCall{ID: "already-executed", Function: types.FunctionCall{Name: "test_history", Arguments: "{}"}}
+				result := engine.runToolCall(context.Background(), tc, 0, 0, 0, "synthetic-session", "synthetic-message")
+				require.True(t, result.Result.Success)
+				require.Equal(t, 1, tool.calls)
+				messages = append(messages, chat.Message{Role: "assistant", ToolCalls: []api.ToolCall{{ID: tc.ID, Type: "function", Function: api.FunctionCall{Name: tc.Function.Name, Arguments: tc.Function.Arguments}}}}, chat.Message{Role: "tool", ToolCallID: tc.ID, Content: result.Result.Output})
+			}
+			response, err := engine.callLLMWithRetry(context.Background(), &messages, nil, &types.AgentState{}, "safe query", 1, "synthetic-session")
+			if exhaust {
+				require.Error(t, err)
+				require.Nil(t, response)
+				require.EqualValues(t, 1+maxLLMRetries, requests.Load())
+				require.Zero(t, tool.calls)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, "complete", response.Content)
+				require.EqualValues(t, 2, requests.Load())
+				require.Equal(t, 1, tool.calls)
+			}
+			require.False(t, engine.overflowRecovered)
+			t.Logf("requests=%d retries=%d tool_execution=%d compaction=0 exhaust=%v", requests.Load(), requests.Load()-1, tool.calls, exhaust)
+		})
+	}
+}
+
+type b2RetryNotice struct {
+	capture a5LogCapture
+	once    sync.Once
+	notice  chan struct{}
+}
+
+func (w *b2RetryNotice) Write(p []byte) (int, error) {
+	n, err := w.capture.Write(p)
+	if strings.Contains(string(p), "retrying in 30s") {
+		w.once.Do(func() { close(w.notice) })
+	}
+	return n, err
+}
+
+func TestB2AgentRealRetryAfterWaitAndCap(t *testing.T) {
+	t.Cleanup(utils.ResetSSRFWhitelistForTest)
+	t.Setenv("SSRF_WHITELIST", "127.0.0.1")
+	utils.ResetSSRFWhitelistForTest()
+	for _, capped := range []bool{false, true} {
+		t.Run(fmt.Sprintf("capped=%v", capped), func(t *testing.T) {
+			var calls atomic.Int32
+			var mu sync.Mutex
+			var first, second time.Time
+			notice := &b2RetryNotice{notice: make(chan struct{})}
+			logger.SetOutput(io.MultiWriter(os.Stderr, notice))
+			t.Cleanup(func() { logger.SetOutput(os.Stderr) })
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				n := calls.Add(1)
+				mu.Lock()
+				if n == 1 {
+					first = time.Now()
+				} else {
+					second = time.Now()
+				}
+				mu.Unlock()
+				if n == 1 {
+					if capped {
+						w.Header().Set("Retry-After", "3600")
+					} else {
+						w.Header().Set("Retry-After", "2")
+					}
+					w.WriteHeader(429)
+					io.WriteString(w, `{"error":{"message":"B2_TOKEN_CANARY"}}`)
+					return
+				}
+				w.Header().Set("Content-Type", "text/event-stream")
+				io.WriteString(w, "data: {\"choices\":[{\"delta\":{\"content\":\"complete\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n")
+			}))
+			defer srv.Close()
+			model := openaicompletions.New(openaicompletions.Config{Endpoint: api.Endpoint{BaseURL: srv.URL, Model: "b2", Client: srv.Client()}, Settings: api.DefaultOpenAICompletions()})
+			engine := newTestEngine(t, model)
+			messages := emptyMessages()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			finished := make(chan error, 1)
+			go func() {
+				_, err := engine.callLLMWithRetry(ctx, &messages, nil, &types.AgentState{}, "safe query", 0, "synthetic-session")
+				finished <- err
+			}()
+			if capped {
+				select {
+				case <-notice.notice:
+					cancel()
+				case <-time.After(10 * time.Second):
+					t.Fatal("bounded 30s retry policy not observed")
+				}
+			}
+			var err error
+			select {
+			case err = <-finished:
+			case <-time.After(10 * time.Second):
+				cancel()
+				t.Fatal("retry control timed out")
+			}
+			if capped {
+				var failure *types.StreamFailure
+				require.ErrorAs(t, err, &failure)
+				require.Equal(t, types.StreamFailureRateLimited, failure.Code())
+				require.Equal(t, 30*time.Second, failure.RetryAfter())
+				require.EqualValues(t, 1, calls.Load())
+				require.ErrorIs(t, ctx.Err(), context.Canceled)
+			} else {
+				require.NoError(t, err)
+				require.EqualValues(t, 2, calls.Load())
+				mu.Lock()
+				elapsed := second.Sub(first)
+				mu.Unlock()
+				require.GreaterOrEqual(t, elapsed, 2*time.Second)
+			}
+			require.NotContains(t, notice.capture.String(), "B2_TOKEN_CANARY")
+			require.False(t, engine.overflowRecovered)
+			t.Logf("capped=%v requests=%d compaction=0; cap waiting cancelled by parent after policy signal", capped, calls.Load())
+		})
+	}
 }

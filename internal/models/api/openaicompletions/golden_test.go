@@ -654,7 +654,8 @@ func TestChatStream_UndecodableChunkFailsTheStream(t *testing.T) {
 	for chunk := range ch {
 		if chunk.ResponseType == types.ResponseTypeError {
 			sawError = true
-			assert.Contains(t, chunk.Content, "decode stream chunk")
+			b2AssertProviderFailure(t, chunk, types.StreamFailureProtocol)
+			assert.Empty(t, chunk.ToolCalls, "malformed calls must not be accepted")
 			continue
 		}
 		answer.WriteString(chunk.Content)
@@ -710,7 +711,8 @@ func TestChatStream_MalformedToolCallFailsTheStream(t *testing.T) {
 	for chunk := range ch {
 		if chunk.ResponseType == types.ResponseTypeError {
 			sawError = true
-			assert.Contains(t, chunk.Content, "decode tool call")
+			b2AssertProviderFailure(t, chunk, types.StreamFailureProtocol)
+			assert.Empty(t, chunk.ToolCalls, "malformed calls must not be accepted")
 			continue
 		}
 		answer.WriteString(chunk.Content)
@@ -758,5 +760,21 @@ func TestChatStream_EOFWithoutFinishReasonIsIncomplete(t *testing.T) {
 			}
 			assert.Equal(t, tc.want, last.FinishReason)
 		})
+	}
+}
+
+func b2AssertProviderFailure(t *testing.T, chunk types.StreamResponse, code types.StreamFailureCode) {
+	t.Helper()
+	if chunk.ResponseType != types.ResponseTypeError || chunk.Content != "stream_error: stream failed" || !chunk.Done || chunk.FinishReason != types.FinishReasonIncomplete || chunk.Failure == nil || chunk.Failure.Code() != code {
+		t.Fatalf("unsafe failure contract: %+v", chunk)
+	}
+	data, err := json.Marshal(chunk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range []string{"boom", "quota exceeded", "SAFETY", "decode stream chunk", "decode tool call", "decode output item", "CANARY", "Bearer ", `"failure"`, `"cause"`} {
+		if strings.Contains(string(data), s) {
+			t.Fatalf("public error contract leaks %q", s)
+		}
 	}
 }

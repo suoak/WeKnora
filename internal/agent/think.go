@@ -14,6 +14,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/event"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/modelcontext"
+	"github.com/Tencent/WeKnora/internal/models/api"
 	"github.com/Tencent/WeKnora/internal/models/chat"
 	"github.com/Tencent/WeKnora/internal/types"
 )
@@ -28,8 +29,9 @@ type streamLLMResult struct {
 	ReasoningMetadata  types.ProviderMetadata
 	ToolCalls          []types.LLMToolCall
 	Usage              *types.TokenUsage
-	FinishReason       string // actual finish_reason from LLM (captured from last stream chunk)
-	StreamError        string // error message from stream (e.g., timeout), kept separate from Content
+	FinishReason       string               // actual finish_reason from LLM (captured from last stream chunk)
+	StreamFailure      *types.StreamFailure // safe internal recovery metadata
+	StreamError        string               // error message from stream (e.g., timeout), kept separate from Content
 }
 
 // streamLLMToEventBus streams LLM response through EventBus (generic method)
@@ -63,8 +65,9 @@ func (e *AgentEngine) streamLLMToEventBus(
 	llmCtx = types.WithLLMCallMetadata(llmCtx, "agent_round", prefixFingerprint)
 	stream, err := e.chatModel.ChatStream(llmCtx, messages, opts)
 	if err != nil {
-		logger.Errorf(ctx, "[Agent][Stream] Failed to start LLM stream: %v", err)
-		return nil, err
+		failure := api.NormalizeStreamFailure(ctx, err)
+		logger.Errorf(ctx, "[Agent][Stream] Failed to start LLM stream (code=%s)", failure.CodeName())
+		return nil, failure
 	}
 
 	result := &streamLLMResult{}
@@ -93,7 +96,11 @@ func (e *AgentEngine) streamLLMToEventBus(
 		// assembled when the stream broke; keeping them lets the caller log and
 		// reason about a partial call instead of seeing a clean empty response.
 		if chunk.ResponseType == types.ResponseTypeError {
-			result.StreamError = chunk.Content
+			result.StreamFailure = api.NormalizeStreamFailure(ctx, chunk.Failure)
+			result.StreamError = result.StreamFailure.PublicContent()
+			if chunk.Usage != nil {
+				result.Usage = chunk.Usage
+			}
 			if len(chunk.ToolCalls) > 0 {
 				result.ToolCalls = chunk.ToolCalls
 			}
@@ -182,13 +189,15 @@ func (e *AgentEngine) streamLLMToEventBus(
 	// generic cancellation. Restate it as a stall so the retry path and the
 	// logs name the actual condition.
 	if stalled.Load() {
-		result.StreamError = fmt.Sprintf("LLM stream stalled: no output for %s", stallTimeout)
+		result.StreamFailure = types.NewStreamFailure(types.StreamFailureStalled, 0, 0)
+		result.StreamError = result.StreamFailure.PublicContent()
 	}
 	// The provider layer closes a body that ran out without a finish reason
 	// as an incomplete answer rather than an error chunk; for a round that is
 	// the same broken stream and goes down the same retry path.
 	if result.StreamError == "" && result.FinishReason == types.FinishReasonIncomplete {
-		result.StreamError = types.StreamEndedEarlyError
+		result.StreamFailure = types.NewStreamFailure(types.StreamFailureIncomplete, 0, 0)
+		result.StreamError = result.StreamFailure.PublicContent()
 	}
 
 	// Stream diagnostic summary: helps identify non-streaming patterns
@@ -208,7 +217,7 @@ func (e *AgentEngine) streamLLMToEventBus(
 	// preamble stand in as the final answer while a 30 KB write_sandbox_file
 	// call was silently dropped.
 	if result.StreamError != "" {
-		return result, fmt.Errorf("LLM stream error: %s", result.StreamError)
+		return result, api.NormalizeStreamFailure(ctx, result.StreamFailure)
 	}
 
 	return result, nil

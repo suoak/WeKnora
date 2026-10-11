@@ -3,12 +3,35 @@ package compaction
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/models/chat"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestA5HTTPDegradedCheckpointRetainsHistoryAndTail(t *testing.T) {
+	model := a5HTTPModel(t, func(w http.ResponseWriter, _ *http.Request) { writeSummarySSE(w, true) })
+	c := New(model, newEstimator(t), testSettings())
+	live := reactTurn(12)
+	loaded := SummaryMessage("OLD_COMPLETE_SUMMARY")
+	messages := append([]chat.Message{live[0], loaded}, storedTurn("stored-a5", 1, "/workspace/old.txt")...)
+	messages = append(messages, live[1:]...)
+	prep := Prepare(messages, c.settings, c.estimator)
+	require.NotNil(t, prep)
+	result, err := c.Compact(context.Background(), messages, ReasonThreshold)
+	require.NoError(t, err)
+	require.NotNil(t, result.Checkpoint)
+	assert.True(t, result.Degraded)
+	assert.True(t, result.SplitTurn)
+	assert.True(t, result.Checkpoint.Degraded)
+	assert.Contains(t, result.Checkpoint.Summary, "OLD_COMPLETE_SUMMARY")
+	assert.Contains(t, result.Checkpoint.Summary, "question stored-a5")
+	assert.Contains(t, result.Checkpoint.Summary, "Raw conversation archive")
+	assert.NotContains(t, result.Summary, "INCOMPLETE_SUMMARY")
+	assert.Equal(t, messages[prep.FirstKeptIdx:], result.Messages[len(result.Messages)-len(messages[prep.FirstKeptIdx:]):])
+}
 
 // storedTurn is a turn replayed from the database: every message carries the
 // ID of the assistant message that closes it.

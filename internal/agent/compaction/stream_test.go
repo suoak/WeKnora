@@ -3,6 +3,7 @@ package compaction
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -12,6 +13,38 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestA5ProviderErrorMappingDiscardsUnsafeCauses(t *testing.T) {
+	const canary = "A5_R2_UNWRAP_CANARY"
+	for _, cause := range []error{context.Canceled, context.DeadlineExceeded} {
+		err := safeSummaryProviderError(fmt.Errorf("%s: %w", canary, cause))
+		require.ErrorIs(t, err, cause)
+		assert.Nil(t, errors.Unwrap(err))
+		assert.NotContains(t, err.Error(), canary)
+	}
+	err := safeSummaryProviderError(errors.New(canary))
+	require.EqualError(t, err, "stream_error: stream failed")
+	var failure *types.StreamFailure
+	require.ErrorAs(t, err, &failure)
+	require.Equal(t, types.StreamFailureUnknown, failure.Code())
+	require.False(t, failure.Retryable())
+	require.False(t, IsOverflowError(err))
+	for _, formatted := range []string{err.Error(), fmt.Sprintf("%v", err), fmt.Sprintf("%+v", err), fmt.Sprintf("%#v", err)} {
+		assert.NotContains(t, formatted, canary)
+	}
+	assert.Nil(t, errors.Unwrap(err))
+}
+
+func TestA5SummaryFinishReasonCompatibility(t *testing.T) {
+	for _, reason := range []string{"stop", "complete", "", "previously-legal-unknown"} {
+		require.NoError(t, validateSummary("complete synthetic summary", reason))
+	}
+	for _, reason := range []string{"length", "max_tokens", "max_output_tokens"} {
+		require.EqualError(t, validateSummary("partial", reason), "generation hit the token cap and the summary is incomplete")
+	}
+	require.EqualError(t, validateSummary("partial", " INCOMPLETE "), types.StreamEndedEarlyError)
+	require.EqualError(t, validateSummary("  ", types.FinishReasonIncomplete), "empty response from LLM")
+}
 
 // pacedChat streams a summary as chunks spaced by gap, optionally stopping
 // after a number of chunks without closing the stream: a provider that stalls.
