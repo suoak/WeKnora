@@ -1,0 +1,38 @@
+name: KnowHub25 Markdown security and full frontend units
+on:
+  push:
+    branches: [integration/knowhub25-markdown-safety-20261011]
+permissions:
+  contents: read
+concurrency:
+  group: knowhub25-markdown-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  frontend:
+    if: github.repository == 'suoak/WeKnora' && github.ref == 'refs/heads/integration/knowhub25-markdown-safety-20261011'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ github.sha }}
+          path: candidate
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: a6403708915680ccad310b0fd64506597b879804
+          path: baseline
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24.10.0'
+      - name: Full unit and type tests with private evidence
+        run: python3 -B candidate/.github/scripts/knowhub25_markdown_ci.py
+      - name: Publish fixed reviewed counts only
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: knowhub25-markdown-reviewed-${{ github.sha }}
+          path: ${{ runner.temp }}/knowhub25-markdown-reviewed/summary.json
+          if-no-files-found: error
+          retention-days: 14
