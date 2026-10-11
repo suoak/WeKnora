@@ -110,6 +110,9 @@ func (r *ProcessingFenceRepository) FailPendingAdmission(ctx context.Context, te
 	}
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := lockProcessingKnowledge(tx, tenantID, knowledgeID); err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrProcessingFence
+			}
 			return err
 		}
 		var current ProcessingFence
