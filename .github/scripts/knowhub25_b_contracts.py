@@ -10,6 +10,20 @@ from pathlib import Path
 PACKAGES = ['internal/agent/tools', 'internal/mcp', 'internal/infrastructure/chunker',
             'internal/models/api/openaicompletions']
 BASELINE = 'a6403708915680ccad310b0fd64506597b879804'
+# Exact pre-existing exception approved in A4/A5 manifest (source Run 38056265554).
+# Necessary B tests are never eligible; skipped is reported separately from passed.
+APPROVED_SKIP = ('github.com/Tencent/WeKnora/internal/agent/tools',
+                 'TestSkillPythonPackageRecoveryInstallsWithoutPip/uv')
+APPROVED_SKIP_REASON = 'skill_runtime_guard_test.go:53: uv is required'
+REQUIRED = {
+    'internal/agent/tools': ['TestValidateParamsUnicodeLength', 'TestValidateParamsEnumUsesJSONValues',
+                             'TestCastParamsPreservesUntouchedNumbers', 'TestCastParamsPreservesOriginalOnNoConversion',
+                             'TestExtractContentAndImages_Resources', 'TestRedactImageData_BlobResourcesAndAudio'],
+    'internal/mcp': ['TestToolContentItems'],
+    'internal/infrastructure/chunker': ['TestHeadingScansRespectFences', 'TestHeadingScansRejectInvalidFenceOpeners',
+                                      'TestSplitByHeadings_FencedSubHeadingContext'],
+    'internal/models/api/openaicompletions': ['TestMessages_RolesToolsAndReasoningReplay'],
+}
 CANARIES = json.loads((Path(__file__).with_name('knowhub25_b_canaries.json')).read_text())
 RULES = [(f'SYNTHETIC_{i + 1:03}', re.compile(re.escape(v))) for i, v in enumerate(CANARIES)]
 RULES += [
@@ -19,24 +33,33 @@ RULES += [
 ]
 
 
-def parse(data, exit_code):
+def parse(data, exit_code, required=()):
     states = {}
+    outputs, packages = {}, {}
     package_status = []
     for line in data.decode('utf-8', errors='strict').splitlines():
         event = json.loads(line)
         name, action = event.get('Test'), event.get('Action')
+        if name:
+            packages[name] = event.get('Package')
+        if name and action == 'output':
+            outputs[name] = outputs.get(name, '') + event.get('Output', '')
         if name and action in {'run', 'pass', 'fail', 'skip'}:
             states.setdefault(name, []).append(action)
         elif not name and action in {'pass', 'fail'}:
             package_status.append(action)
     valid = exit_code == 0 and package_status == ['pass'] and bool(states)
     counts = dict(run=0, passed=0, failed=0, skipped=0)
-    for seq in states.values():
-        valid &= len(seq) == 2 and seq[0] == 'run' and seq[1] in {'pass', 'fail'}
+    for name, seq in states.items():
+        approved_skip = (packages.get(name), name) == APPROVED_SKIP and APPROVED_SKIP_REASON in outputs.get(name, '')
+        valid &= len(seq) == 2 and seq[0] == 'run' and (seq[1] in {'pass', 'fail'} or
+                  (seq[1] == 'skip' and approved_skip and not any(name == r or name.startswith(r + '/') for r in required)))
         counts['run'] += seq.count('run')
         counts['passed'] += seq.count('pass')
         counts['failed'] += seq.count('fail')
         counts['skipped'] += seq.count('skip')
+    valid &= all(states.get(name) == ['run', 'pass'] for name in required)
+    valid &= counts['failed'] == 0
     return valid, counts
 
 
@@ -44,9 +67,18 @@ def self_test():
     good = b'{"Test":"fixed","Action":"run"}\n{"Test":"fixed","Action":"pass"}\n{"Action":"pass"}\n'
     assert parse(good, 0)[0]
     assert not parse(good, 1)[0]
+    assert not parse(good.replace(b'"Test":"fixed","Action":"pass"', b'"Test":"fixed","Action":"fail"'), 0)[0]
     assert not parse(good.replace(b'"pass"', b'"skip"', 1), 0)[0]
     assert not parse(good.splitlines()[0], 0)[0]
     assert not parse(good + good, 0)[0]
+    approved = ('{"Package":"%s","Test":"%s","Action":"run"}\n'
+                '{"Package":"%s","Test":"%s","Action":"output","Output":"%s"}\n'
+                '{"Package":"%s","Test":"%s","Action":"skip"}\n{"Action":"pass"}\n') % (
+                *APPROVED_SKIP, *APPROVED_SKIP, APPROVED_SKIP_REASON, *APPROVED_SKIP)
+    assert parse(approved.encode(), 0)[0]
+    assert not parse(approved.replace(APPROVED_SKIP_REASON, 'wrong').encode(), 0)[0]
+    assert not parse(approved.encode(), 0, [APPROVED_SKIP[1]])[0]
+    assert not parse(good, 0, ['missing'])[0]
     try:
         parse(good + b'broken', 0)
     except (ValueError, UnicodeError):
@@ -79,7 +111,7 @@ def main():
             command += ['./' + package]
             with path.open('wb') as out, errpath.open('wb') as err:
                 proc = subprocess.run(command, stdout=out, stderr=err, timeout=600)
-            status, counts = parse(path.read_bytes(), proc.returncode)
+            status, counts = parse(path.read_bytes(), proc.returncode, REQUIRED[package])
             findings = []
             race = False
             for file in [path, errpath]:
