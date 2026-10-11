@@ -30,6 +30,22 @@ def parse_junit(path, exit_code, required=()):
         if not all(names):
             return out
         out.update(run=len(cases),passed=len(cases)-bad-skip,failed=bad,skipped=skip)
+        diagnostics=[]
+        browser_name='human handoff expands, stays reachable on narrow screens, focuses the browser, and collapses after completion'
+        for case in cases:
+            node=case.find('failure')
+            if node is None: node=case.find('error')
+            if node is None: continue
+            if case.get('name') != browser_name:
+                diagnostics.append({'testId':'OTHER_FIXED_TEST','category':'UNKNOWN','sourceLines':[]})
+                continue
+            text=' '.join(node.itertext())
+            category='UNKNOWN'
+            for marker,kind in [('browserType.launch','BROWSER_LAUNCH_FAILED'),('ERR_MODULE','MODULE_FAILED'),('TimeoutError','BROWSER_TIMEOUT'),('AssertionError','ASSERTION_FAILED')]:
+                if marker in text: category=kind; break
+            lines=sorted(set(int(v) for v in re.findall(r'BrowserTaskPreview\.browser\.test\.mjs:(\d+)',text)))
+            diagnostics.append({'testId':'BROWSER_PREVIEW_HANDOFF','category':category,'sourceLines':lines})
+        out['diagnostics']=diagnostics
         if exit_code==0 and bad==skip==0 and all(name in names for name in required):
             out['state']='PASS'
     except (ET.ParseError, OSError, ValueError):
@@ -71,7 +87,7 @@ def run():
                 os.environ['BROWSERSKILL_TEST_PLAYWRIGHT']=str(browser_module)
                 os.environ['BROWSERSKILL_TEST_CHROMIUM']=browser_path
                 xml=(folder/'unit.xml').resolve()
-                code=execute(['npm','test','--','--test-reporter=junit','--test-reporter-destination='+str(xml)],'UNIT')
+                code=execute(['npm','test','--','--test-concurrency=1','--test-reporter=junit','--test-reporter-destination='+str(xml)],'UNIT')
                 required = POLICY['requiredTests'] if side=='CANDIDATE' else ()
                 row['unit']=parse_junit(xml,code,required)
                 row['newNecessaryTests']='VERIFIED' if side=='CANDIDATE' and row['unit']['state']=='PASS' else 'NOT_PRESENT' if side=='BASELINE' else 'NOT_VERIFIED'
