@@ -112,10 +112,21 @@ def full_service(directory):
                 elif action == "pass": package_pass = True
                 elif action == "fail": invalid = True
         except (ValueError,TypeError,UnicodeError): invalid = True
+        safe_hits = []
+        for line in raw.read_text(encoding="utf-8").splitlines():
+            counts = {key:len(regex.findall(line)) for key,regex in RULES.items()}
+            if not any(counts.values()): continue
+            try: event = json.loads(line)
+            except (ValueError,TypeError): event = {}
+            test_name = event.get("Test", "").split("/")[0]
+            # Never expose arbitrary subtest text, Output, path or match text.
+            public_id = test_name if test_name in allowed_tests else "UNKNOWN_TEST_ID"
+            for rule,count in counts.items():
+                if count: safe_hits.append({"role":"GO_TEST_JSONL","testID":public_id,"ruleID":rule,"count":count,"classification":"UNKNOWN"})
         skipped = {key for key,value in rows.items() if value == "SKIP"}
         scan_clear = all(not count for row in findings for count in row["rules"].values())
         passed = result.returncode == 0 and bool(rows) and package_pass and not invalid and not race and scan_clear and skipped <= allowed_skip and all(value in ("PASS","SKIP") for value in rows.values()) and rows.get("TestA3ProcessingAttemptCleanupPostgres") == "PASS"
-        print(json.dumps({"package":"SERVICE_FULL","mode":mode,"exit":result.returncode,"run":len(rows),"pass":sum(value=="PASS" for value in rows.values()),"fail":sum(value=="FAIL" for value in rows.values()),"failedTestIDs":sorted({key.split("/")[0] for key,value in rows.items() if value=="FAIL" and key.split("/")[0] in allowed_tests}),"skip":len(skipped),"parserValid":not invalid,"dataRace":race,"scanClear":scan_clear,"rawMetadata":findings,"status":"PASS" if passed else "BLOCKED"},sort_keys=True))
+        print(json.dumps({"package":"SERVICE_FULL","mode":mode,"exit":result.returncode,"run":len(rows),"pass":sum(value=="PASS" for value in rows.values()),"fail":sum(value=="FAIL" for value in rows.values()),"failedTestIDs":sorted({key.split("/")[0] for key,value in rows.items() if value=="FAIL" and key.split("/")[0] in allowed_tests}),"skip":len(skipped),"parserValid":not invalid,"dataRace":race,"scanClear":scan_clear,"rawMetadata":findings,"safeHitTests":safe_hits,"status":"PASS" if passed else "BLOCKED"},sort_keys=True))
         blocked |= not passed
         if not passed: break
     return not blocked
