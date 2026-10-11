@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -1523,6 +1524,7 @@ func fakeFeishuWithBlocksAndDownloadStatus(nodes []core.WikiNode, docToken, attT
 // subtree sweep is suppressed so a transient failure never deletes the good prior
 // copy of the attachment. One bad attachment must not block the whole document.
 func TestFetchDocxWithBlocks_AttachmentDownloadFailure(t *testing.T) {
+	captureFeishuSafeLogs(t, "feishu_attachment_download_failed")
 	t.Setenv("FEISHU_DOCX_PARSE_MODE", "blocks")
 	const (
 		nodeToken = "nt-docx-fail"
@@ -1739,6 +1741,7 @@ func TestFetchDocxWithBlocks_EmbeddedImage(t *testing.T) {
 // download, rather than being silently dropped to a server log. The image is
 // still kept in SubtreeKeep so any prior OCR'd copy is preserved.
 func TestFetchDocxWithBlocks_ImageDownloadFailure(t *testing.T) {
+	captureFeishuSafeLogs(t, "feishu_image_download_failed")
 	t.Setenv("FEISHU_DOCX_PARSE_MODE", "blocks")
 	const (
 		nodeToken = "nt-docx-img-fail"
@@ -1885,6 +1888,7 @@ func TestFetchDocxWithBlocks_NonWhitelistedExtNotPromoted(t *testing.T) {
 // whitelisted-extension file block whose download is smaller than core.MinAttachmentBytes
 // is NOT promoted to a sub-item, but its inline reference IS present in the main doc.
 func TestFetchDocxWithBlocks_WhitelistedTinyAttachmentNotPromoted(t *testing.T) {
+	captureFeishuSafeLogs(t, "feishu_attachment_too_small")
 	t.Setenv("FEISHU_DOCX_PARSE_MODE", "blocks")
 	const (
 		nodeToken = "nt-docx-tiny"
@@ -1994,4 +1998,25 @@ func TestSupportedImageExt(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Keep the logger enabled and check the original output of the real Provider
+// fixtures, without echoing a failed assertion's raw buffer into CI output.
+func captureFeishuSafeLogs(t *testing.T, code string) {
+	t.Helper()
+	var captured bytes.Buffer
+	previous := logger.GetLogger(context.Background()).Logger.Out
+	logger.SetOutput(io.MultiWriter(previous, &captured))
+	t.Cleanup(func() {
+		logger.SetOutput(previous)
+		output := captured.String()
+		for _, forbidden := range []string{"token=", "SQL_CANARY", "TOKEN_CANARY", "Bearer "} {
+			if strings.Contains(output, forbidden) {
+				t.Error("feishu_safe_log_boundary_failed")
+			}
+		}
+		if code != "" && !strings.Contains(output, code) {
+			t.Error("feishu_controlled_log_class_missing")
+		}
+	})
 }

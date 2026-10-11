@@ -1154,6 +1154,18 @@
       "blob": "75345e8b0fb2d7b2468e8eb8daa30a1e13cf1d62",
       "sha256": "96d29e4c6af2cce1a5956028f6133e52f8ac5a7a9b83e483a58b7b2a98b07170",
       "source": "80d37a123ccd71c0d91a67298804a1881bb9acb2"
+    },
+    "internal/datasource/connector/feishu/core/shared.go": {
+      "blob": "ecc47f225b907272ca2f8c08e570fba1d9c89ace",
+      "sha256": "e725247e1a3a2d42d63c5f6580623fa2d97d1af6af9485fb1b6bd61dbdf24285"
+    },
+    "internal/datasource/connector/feishu/wiki/connector_test.go": {
+      "blob": "e0dac016a3c5922c2d06655b93e2af716969ed4a",
+      "sha256": "958e73d0b72e85dade628a98e678a4219ed9cfa5373dffc767cfe85a2ff7a4e4"
+    },
+    "internal/datasource/connector/feishu/wiki/connector_golden_test.go": {
+      "blob": "1581fcc64f6f548505aad4473d4ecfc2fe280ae9",
+      "sha256": "b687fb32aeb904168e3f31d4e25e2738044abe85f1e1de4f4a6e5a2aba5d45c5"
     }
   },
   "notion_overlay_required": [
@@ -1508,7 +1520,9 @@
     ".github/qa/continuous/python-linux.lock",
     ".github/qa/continuous/test_personal_mcp_lifecycle_http.py",
     ".github/scripts/knowhub25_continuous_ci.py",
-    ".github/workflows/knowhub25-continuous.yml"
+    ".github/workflows/knowhub25-continuous.yml",
+    ".github/scripts/knowhub25_feishu_log_ci.py",
+    ".github/workflows/knowhub25-feishu-log-safety.yml"
   ],
   "diagnostic_test_ids": [
     "TestClientDownloadDriveFile",

@@ -354,8 +354,7 @@ func FetchDocxWithBlocks(ctx context.Context, client *Client, in DocxFetchInput)
 
 	blocks, err := client.listDocumentBlocks(ctx, in.ObjToken)
 	if err != nil {
-		logger.Warnf(ctx, "[Feishu] blocks API failed for %s (%s), falling back to export: %v",
-			in.Title, in.ObjToken, err)
+		logger.Warnf(ctx, "feishu_blocks_fetch_failed")
 		item, ferr := exportDocxFallback(ctx, client, in)
 		if ferr != nil {
 			return nil, ferr
@@ -372,8 +371,7 @@ func FetchDocxWithBlocks(ctx context.Context, client *Client, in DocxFetchInput)
 	}
 
 	if len(strings.TrimSpace(string(md))) == 0 {
-		logger.Infof(ctx, "[Feishu] doc %s (%s): blocks rendered empty Markdown, falling back to export",
-			in.Title, in.ObjToken)
+		logger.Infof(ctx, "feishu_blocks_render_empty")
 		item, ferr := exportDocxFallback(ctx, client, in)
 		if ferr != nil {
 			return nil, ferr
@@ -408,8 +406,7 @@ func FetchDocxWithBlocks(ctx context.Context, client *Client, in DocxFetchInput)
 		keep = append(keep, childID) // present in the doc → never sweep as stale
 		ext := strings.ToLower(filepath.Ext(a.Name))
 		if ext == "" {
-			logger.Warnf(ctx, "[Feishu] doc %s: skipping attachment with no usable filename (token=%s name=%q)",
-				in.ObjToken, a.FileToken, a.Name)
+			logger.Warnf(ctx, "feishu_attachment_name_unavailable")
 			continue
 		}
 		if !parseableAttachmentExts[ext] {
@@ -417,8 +414,7 @@ func FetchDocxWithBlocks(ctx context.Context, client *Client, in DocxFetchInput)
 		}
 		data, derr := client.downloadMediaFile(ctx, a.FileToken)
 		if derr != nil {
-			logger.Warnf(ctx, "[Feishu] doc %s: attachment %q (token=%s) download failed: %v",
-				in.ObjToken, a.Name, a.FileToken, derr)
+			logger.Warnf(ctx, "feishu_attachment_download_failed")
 			items = append(items, &types.FetchedItem{
 				ExternalID:       childID,
 				Title:            a.Name,
@@ -428,8 +424,7 @@ func FetchDocxWithBlocks(ctx context.Context, client *Client, in DocxFetchInput)
 			continue
 		}
 		if len(data) < MinAttachmentBytes {
-			logger.Infof(ctx, "[Feishu] doc %s: skipping tiny attachment %q (token=%s, %d bytes < %d)",
-				in.ObjToken, a.Name, a.FileToken, len(data), MinAttachmentBytes)
+			logger.Infof(ctx, "feishu_attachment_too_small bytes=%d minimum=%d", len(data), MinAttachmentBytes)
 			continue
 		}
 		items = append(items, &types.FetchedItem{
@@ -463,8 +458,7 @@ func FetchDocxWithBlocks(ctx context.Context, client *Client, in DocxFetchInput)
 		}
 		data, derr := client.downloadMediaFile(ctx, b.Image.Token)
 		if derr != nil {
-			logger.Warnf(ctx, "[Feishu] doc %s: image (token=%s) download failed: %v",
-				in.ObjToken, b.Image.Token, derr)
+			logger.Warnf(ctx, "feishu_image_download_failed")
 			items = append(items, &types.FetchedItem{
 				ExternalID:       childID,
 				Title:            fmt.Sprintf("%s（内嵌图片）", in.Title),
@@ -478,8 +472,7 @@ func FetchDocxWithBlocks(ctx context.Context, client *Client, in DocxFetchInput)
 		}
 		ext, contentType, ok := SupportedImageExt(data)
 		if !ok {
-			logger.Warnf(ctx, "[Feishu] doc %s: skipping image (token=%s) of unsupported type %q",
-				in.ObjToken, b.Image.Token, contentType)
+			logger.Warnf(ctx, "feishu_image_type_unsupported")
 			continue
 		}
 		items = append(items, &types.FetchedItem{
