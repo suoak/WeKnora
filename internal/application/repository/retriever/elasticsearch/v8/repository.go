@@ -12,6 +12,7 @@ import (
 	typesLocal "github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/elastic/go-elasticsearch/v8"
+	"github.com/elastic/go-elasticsearch/v8/typedapi/core/bulk"
 	"github.com/elastic/go-elasticsearch/v8/typedapi/core/search"
 	"github.com/elastic/go-elasticsearch/v8/typedapi/types"
 	"github.com/elastic/go-elasticsearch/v8/typedapi/types/enums/scriptlanguage"
@@ -205,15 +206,43 @@ func (e *elasticsearchRepository) BatchSave(ctx context.Context,
 		log.Debugf("[Elasticsearch] Added chunk ID %s to bulk request", embedding.ChunkID)
 	}
 
-	// Execute the bulk request
-	_, err := indexRequest.Do(ctx)
+	// Execute the bulk request. Elasticsearch answers an accepted _bulk call
+	// with HTTP 200 even when it rejects individual documents, so the
+	// per-item errors in the response body are the only failure signal.
+	resp, err := indexRequest.Do(ctx)
 	if err != nil {
 		log.Errorf("[Elasticsearch] Failed to execute bulk operation: %v", err)
 		return fmt.Errorf("failed to do bulk: %w", err)
 	}
+	if err := inspectBulkResponse(ctx, resp); err != nil {
+		return err
+	}
 
 	log.Infof("[Elasticsearch] Successfully batch saved %d indices", len(embeddingList))
 	return nil
+}
+
+// Bulk failures expose counts only; provider IDs, types and reasons are untrusted.
+func inspectBulkResponse(ctx context.Context, resp *bulk.Response) error {
+	if resp == nil {
+		return fmt.Errorf("elasticsearch: bulk response missing")
+	}
+	if !resp.Errors {
+		return nil
+	}
+	failed := 0
+	for _, item := range resp.Items {
+		for _, detail := range item {
+			if detail.Error != nil {
+				failed++
+			}
+		}
+	}
+	if failed == 0 {
+		return fmt.Errorf("elasticsearch: bulk reported errors without per-item failure detail")
+	}
+	logger.GetLogger(ctx).Errorf("[Elasticsearch] bulk_item_failed count=%d", failed)
+	return fmt.Errorf("elasticsearch: bulk partial failure (%d/%d documents failed)", failed, len(resp.Items))
 }
 
 // DeleteByChunkIDList removes documents from the index based on chunk IDs
