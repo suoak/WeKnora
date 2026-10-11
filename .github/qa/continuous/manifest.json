@@ -444,7 +444,11 @@
       "TestValidateParamsEnumUsesJSONValues",
       "TestValidateParamsUnicodeLength",
       "TestWebFetchPaginationUsesSnapshotAndUnicodeOffsets",
-      "TestWebFetchToolPreservesPartialSuccess"
+      "TestWebFetchToolPreservesPartialSuccess",
+      "TestReconcileSQLPreservesNonIdentifiers",
+      "TestReconcileSQLPreservesQuotedIdentifierEscapes",
+      "TestReconcileSQLLeavesUnscannableInputUnchanged",
+      "TestReconcileSQLPreservesDuckDBFilterResults"
     ],
     "internal/mcp": [
       "TestOAuthCallRefreshesAndRetriesResource401Once",
@@ -1030,6 +1034,50 @@
       "blob": "484ef08286c5437f87d94398b251dd4d3252f21f",
       "sha256": "a821e5ad24575a2742cc15ee0205d85cec2a559adca0f2d90326a552b73ab2f3",
       "source": "cbf2c22161905a0ec08a2f120e155caaaf19993c"
+    },
+    "internal/application/repository/retriever/qdrant/copy_test.go": {
+      "blob": "6fe71e724aa6f83020ef4672b7c6eca65c8a1011",
+      "sha256": "70f89033eabd33ca5b860db13d951b132e930fd471c9a5d432f2856c53f9d457"
+    },
+    "internal/application/repository/retriever/qdrant/repository.go": {
+      "blob": "5e3d5b51de2c8fb0952f5b30c7534ff223970815",
+      "sha256": "9d914a299ca1d8212e69ee1c486424381049ed72c21771f04b1d4b1428f1e15f"
+    },
+    "internal/application/repository/retriever/elasticsearch/v7/bulk_test.go": {
+      "blob": "b7bcb80ab4d83a902fac1cd1c52aebd4b8f2128b",
+      "sha256": "b977a73b4e68210dceff7438db58a63b9bde25b66d7e7d0593f0e8bb38722fd5"
+    },
+    "internal/application/repository/retriever/elasticsearch/v7/repository.go": {
+      "blob": "9c0ab0cf6508e2a98b14544a1b105c304bb87dc4",
+      "sha256": "55e903042000c127dc99e7d85795e8c954cb78e702aaed25ed5a6c26b49f0ce4"
+    },
+    "internal/application/repository/retriever/elasticsearch/v8/bulk_test.go": {
+      "blob": "a14365e253e76fb7cdcb7b5bc046ce1b38121ec2",
+      "sha256": "9102053587b922357c42a7d5fdfde0a8ce185b4ecc69d4daa6546eaed57eb445"
+    },
+    "internal/application/repository/retriever/elasticsearch/v8/repository.go": {
+      "blob": "e57f16546ae2a2bc3c5635aad3a176fa8f88b201",
+      "sha256": "abcafc2cf97f438e7f064b818e454b78ae1393edd6b68c7c2dc0f5f737e99a47"
+    },
+    "internal/agent/tools/data_analysis.go": {
+      "blob": "d7e5186c851bd5cae5f32ed9af0f94e66e4a6ec9",
+      "sha256": "67e8f838c87c18237d7caa6e29881bbbb14bdc9c5762fabf50ce84a140125133"
+    },
+    "internal/agent/tools/data_analysis_reconcile_test.go": {
+      "blob": "c1dbbe58a32620901e82bb191d8f472bd763609e",
+      "sha256": "0e9c55e32759b58915139708e5f062677b8e3d88fabcb4073673ab695528d6b0"
+    },
+    "internal/application/repository/retriever/milvus/copy_test.go": {
+      "blob": "bf247b9b0b7acee78fd0e296b1461825603222b8",
+      "sha256": "cab421e11a749aedb96d4228b07c3fbdec9f0b8d557b68ce3f942b1d08386626"
+    },
+    "internal/application/repository/retriever/milvus/repository.go": {
+      "blob": "57a8aa8dbaf43ea89cb307a6277351133fe5340c",
+      "sha256": "41abf312dc29e271621a7cb25470d40b7f1f6b78e0f67527f9ff697fb3794fbb"
+    },
+    "frontend/src/views/chat/components/BrowserTaskPreview.browser.test.mjs": {
+      "blob": "b00435a6a12ba50eeeb3f320852bb271ad199ca9",
+      "sha256": "9e21e050aa5da9b18e48fcab5eaa44aef22790873de01829ecb898923c104022"
     }
   },
   "notion_overlay_required": [
@@ -1044,7 +1092,11 @@
     "internal/application/service/file",
     "internal/infrastructure/chunker",
     "internal/middleware/asynqdl",
-    "internal/datasource/connector/rss"
+    "internal/datasource/connector/rss",
+    "internal/application/repository/retriever/qdrant",
+    "internal/application/repository/retriever/elasticsearch/v7",
+    "internal/application/repository/retriever/elasticsearch/v8",
+    "internal/application/repository/retriever/milvus"
   ],
   "extra_required": {
     "internal/application/repository/retriever/sqlite": [
@@ -1304,6 +1356,61 @@
       "TestIncrementalItemLegacyCursorChangedBodyEmits",
       "TestIncrementalItemLegacyCursorUnchangedBodyUpgradesInPlace",
       "TestIncrementalItemTimestampOnly"
+    ],
+    "internal/application/repository/retriever/qdrant": [
+      "TestBatchPayloadUpdates",
+      "TestBatchPayloadUpdatesEmptyInput",
+      "TestCopyIndicesCopiesEachSourceChunkOnce",
+      "TestCopyIndicesRejectsANonAdvancingCursor",
+      "TestCreatePayloadSanitizesAllStringFields",
+      "TestDeletePropagatesCollectionCheckFailure",
+      "TestDeleteSkipsProbeForInitializedDimension",
+      "TestDeleteTreatsStaleCacheMissingCollectionAsNoOp",
+      "TestDeleteWithEmptyIDListSkipsAllRPCs",
+      "TestDeletesIssueWhenCollectionExists",
+      "TestDeletesSkipMissingCollection",
+      "TestIsMissingCollectionErr",
+      "TestNewQdrantValueMapPreservesValidUTF8",
+      "TestNewQdrantValueMapSanitizesInvalidUTF8AndNUL"
+    ],
+    "internal/application/repository/retriever/elasticsearch/v7": [
+      "TestBatchSaveReportsPerItemBulkErrors",
+      "TestBuildVectorSearchQueryClampsScriptScore",
+      "TestCopyIndicesKeepsVectorsAndEnabledState",
+      "TestMoveIndicesRequiresCompleteCounts",
+      "TestVectorScoreScriptSourceClampsNegativeCosine"
+    ],
+    "internal/application/repository/retriever/elasticsearch/v8": [
+      "TestBatchSaveReportsPerItemBulkErrors",
+      "TestBuildVectorScriptScoreQuery",
+      "TestCopyIndicesKeepsVectorsAndEnabledState",
+      "TestMoveIndicesRequiresCompleteCounts",
+      "TestVectorScoreScriptSourceClampsNegativeCosine"
+    ],
+    "internal/application/repository/retriever/milvus": [
+      "TestAnalyzerModeFromSchema",
+      "TestAnalyzerNameForUpsert",
+      "TestBuildMilvusIndexResultsPreservesSearchScores",
+      "TestBuildMilvusIndexResultsRejectsScoreCountMismatch",
+      "TestCollectionDimensionForBase",
+      "TestConvertResultSetDoubleArray",
+      "TestConvertResultSetFloatVector",
+      "TestCopyIndicesCopiesEveryMappedChunkWhenResultOrderDrifts",
+      "TestCopyIndicesIgnoresSourceChunksOutsideTheMapping",
+      "TestDetectAnalyzerName",
+      "TestMetricConversionIPAndCosinePassThrough",
+      "TestMetricConversionL2",
+      "TestMetricTypeFromIndexParams",
+      "TestMoveRowsDrainsPagesAndRetriesPartialUpsert",
+      "TestMoveRowsRejectsUnacknowledgedProgress",
+      "TestMultiAnalyzerParams",
+      "TestNormalizeAnalyzerName",
+      "TestParseMetricType",
+      "TestPrimaryKeyForMigratedRow",
+      "TestResolveMigrationMetric",
+      "TestUpdateChunkEnabledStatusInCollectionSkipsEmptyChunkIDs",
+      "TestUpdateChunkEnabledStatusInCollectionsIgnoresExtendedPrefix",
+      "TestUpdateChunkEnabledStatusInCollectionsPropagatesFailure"
     ]
   },
   "ci_file_paths": [
