@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -56,13 +57,38 @@ func TestNotionPaginationIntegrityAndControlledErrors(t *testing.T) {
 				require.Error(t, err)
 				require.NotContains(t, err.Error(), "PROVIDER_CURSOR_CANARY")
 				expected := int64(1)
-				if shape == "repeated" {
+				if shape == "repeated" || (endpoint == "search" && shape == "empty-page") {
+					// Search permits an empty intermediate page. This fixture
+					// repeats its cursor, so the second page must still fail.
 					expected = 2
 				}
 				require.Equal(t, expected, calls.Load())
 			})
 		}
 	}
+}
+
+func TestNotionSearchEmptyIntermediatePageCompletes(t *testing.T) {
+	var calls atomic.Int64
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch calls.Add(1) {
+		case 1:
+			_, _ = io.WriteString(w, `{"results":[],"has_more":true,"next_cursor":"second-page"}`)
+		case 2:
+			_, _ = io.WriteString(w, `{"results":[{"id":"synthetic-page","object":"page"}],"has_more":false}`)
+		default:
+			t.Error("unexpected extra request")
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}))
+	defer srv.Close()
+	client := mustTestClient(t, "test-token", srv.URL)
+	client.limiter = rate.NewLimiter(rate.Inf, 1)
+	pages, err := client.SearchPages(context.Background())
+	require.NoError(t, err)
+	require.Len(t, pages, 1)
+	require.Equal(t, "synthetic-page", pages[0].ID)
+	require.Equal(t, int64(2), calls.Load())
 }
 
 func TestNotionBlockCapRejectsIncompleteAndKeepsExactComplete(t *testing.T) {
