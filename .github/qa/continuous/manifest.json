@@ -1206,6 +1206,18 @@
     "cli/cmd/api/paginate_text_test.go": {
       "blob": "d22e90e294ab7b6caa8f4d53f70969e0f25aa6bf",
       "sha256": "123afbf5a950501f47fec07473bfcd8142542055cd404b87e83fbf5adf33431c"
+    },
+    "client/knowledge.go": {
+      "blob": "3cebdfbbd2207b28d9069d35c979451153e3d46e",
+      "sha256": "0c746b15ab299ca711fd9b2f52b27bb16628e3e40bd08295a0a98ea8cb5d6d05"
+    },
+    "client/skill.go": {
+      "blob": "dc94c715734c62ef1c1893d24a13037760bf93b3",
+      "sha256": "0c30ec9992840d4115c5c8ab2bb69e140f9f388bad458d4bb5d93b80c01671c9"
+    },
+    "cli/internal/cmdutil/multipart_replay_test.go": {
+      "blob": "4880dabbe52eae696b0200188a76945481b2fb75",
+      "sha256": "d1367a5af883a3319aaf82b3f49f7e755cb9a20927bba99e8b327c37a98df116"
     }
   },
   "notion_overlay_required": [
@@ -1654,7 +1666,10 @@
       "TestRejectedAutomaticRefreshPreservesHTTPClassification",
       "TestRejectedAutomaticRefreshPreservesHTTPClassification/Unauthorized",
       "TestRejectedAutomaticRefreshPreservesHTTPClassification/Forbidden",
-      "TestClassifyWrappedTypedHTTPStatusIgnoresBodyStatus"
+      "TestClassifyWrappedTypedHTTPStatusIgnoresBodyStatus",
+      "TestSDKMultipartUploadsRefreshAndReplay",
+      "TestSDKMultipartUploadsRefreshAndReplay/document",
+      "TestSDKMultipartUploadsRefreshAndReplay/skill"
     ],
     "cli/cmd/auth": [
       "TestStatusJQPreservesTenantID"
