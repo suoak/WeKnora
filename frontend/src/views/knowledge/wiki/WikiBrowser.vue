@@ -813,6 +813,7 @@ import { useMenuStore } from '@/stores/menu'
 import { useSettingsStore } from '@/stores/settings'
 import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
+import { ensureLiteralSingleTildeOnGlobalMarked } from '@/utils/markedLiteralTilde'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { RecycleScroller } from 'vue-virtual-scroller'
 import { hydrateProtectedFileImages, sanitizeMarkdownHTML } from '@/utils/security'
@@ -858,6 +859,8 @@ const router = useRouter()
 const route = useRoute()
 const menuStore = useMenuStore()
 const settingsStore = useSettingsStore()
+
+ensureLiteralSingleTildeOnGlobalMarked()
 
 const { t } = useI18n()
 

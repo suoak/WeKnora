@@ -364,7 +364,11 @@ func TestMessages_RolesToolsAndReasoningReplay(t *testing.T) {
 	assistant := msgs[2].(map[string]any)
 	assert.Equal(t, "thinking...", assistant["reasoning_content"])
 	_, hasContent := assistant["content"]
-	assert.False(t, hasContent, "empty content omitted next to tool_calls")
+	// Issue #1487: assistant tool-call turns must carry an explicit
+	// `"content": ""` — vLLM/Xinference Qwen-family Jinja templates crash on
+	// a missing (undefined/null) content field when replaying history.
+	assert.True(t, hasContent, "empty content must be emitted next to tool_calls")
+	assert.Equal(t, "", assistant["content"], "emitted content must be empty string")
 	tc := assistant["tool_calls"].([]any)[0].(map[string]any)
 	assert.Equal(t, "call_1", tc["id"])
 	assert.Equal(t, `{"q":"x"}`, tc["function"].(map[string]any)["arguments"])
@@ -654,7 +658,8 @@ func TestChatStream_UndecodableChunkFailsTheStream(t *testing.T) {
 	for chunk := range ch {
 		if chunk.ResponseType == types.ResponseTypeError {
 			sawError = true
-			assert.Contains(t, chunk.Content, "decode stream chunk")
+			b2AssertProviderFailure(t, chunk, types.StreamFailureProtocol)
+			assert.Empty(t, chunk.ToolCalls, "malformed calls must not be accepted")
 			continue
 		}
 		answer.WriteString(chunk.Content)
@@ -710,7 +715,8 @@ func TestChatStream_MalformedToolCallFailsTheStream(t *testing.T) {
 	for chunk := range ch {
 		if chunk.ResponseType == types.ResponseTypeError {
 			sawError = true
-			assert.Contains(t, chunk.Content, "decode tool call")
+			b2AssertProviderFailure(t, chunk, types.StreamFailureProtocol)
+			assert.Empty(t, chunk.ToolCalls, "malformed calls must not be accepted")
 			continue
 		}
 		answer.WriteString(chunk.Content)
@@ -758,5 +764,21 @@ func TestChatStream_EOFWithoutFinishReasonIsIncomplete(t *testing.T) {
 			}
 			assert.Equal(t, tc.want, last.FinishReason)
 		})
+	}
+}
+
+func b2AssertProviderFailure(t *testing.T, chunk types.StreamResponse, code types.StreamFailureCode) {
+	t.Helper()
+	if chunk.ResponseType != types.ResponseTypeError || chunk.Content != "stream_error: stream failed" || !chunk.Done || chunk.FinishReason != types.FinishReasonIncomplete || chunk.Failure == nil || chunk.Failure.Code() != code {
+		t.Fatalf("unsafe failure contract: %+v", chunk)
+	}
+	data, err := json.Marshal(chunk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range []string{"boom", "quota exceeded", "SAFETY", "decode stream chunk", "decode tool call", "decode output item", "CANARY", "Bearer ", `"failure"`, `"cause"`} {
+		if strings.Contains(string(data), s) {
+			t.Fatalf("public error contract leaks %q", s)
+		}
 	}
 }

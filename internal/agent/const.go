@@ -120,6 +120,10 @@ func isTransientError(err error) bool {
 	if err == nil || errors.Is(err, context.Canceled) {
 		return false
 	}
+	var failure *types.StreamFailure
+	if errors.As(err, &failure) {
+		return failure.Retryable()
+	}
 	// Typed errors decide on their own: a 400 whose body happens to mention
 	// "timeout" or "500" is still the same bad request on every retry.
 	var httpErr *api.HTTPError
@@ -157,6 +161,13 @@ const maxLLMRetryAfter = 30 * time.Second
 // said it would accept it.
 func llmRetryDelay(err error, attempt int) time.Duration {
 	delay := time.Duration(attempt) * time.Second
+	var failure *types.StreamFailure
+	if errors.As(err, &failure) {
+		if wait := min(failure.RetryAfter(), maxLLMRetryAfter); wait > delay {
+			delay = wait
+		}
+		return delay
+	}
 	var httpErr *api.HTTPError
 	if errors.As(err, &httpErr) {
 		if wait := min(httpErr.RetryAfter(), maxLLMRetryAfter); wait > delay {

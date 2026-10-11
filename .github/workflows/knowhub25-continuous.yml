@@ -1,0 +1,67 @@
+name: KnowHub25 controlled continuous regression
+on:
+  push:
+    branches: [integration/knowhub25-continuous-20261011]
+permissions:
+  contents: read
+concurrency:
+  group: knowhub25-continuous-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  regression:
+    if: github.repository == 'suoak/WeKnora' && github.ref == 'refs/heads/integration/knowhub25-continuous-20261011'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        side: [BASELINE, CANDIDATE]
+        mode: [NORMAL, RACE, PYTHON, FRONTEND, EXTRA_NORMAL, EXTRA_RACE]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          path: driver
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: a6403708915680ccad310b0fd64506597b879804
+          path: baseline
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ github.sha }}
+          path: candidate
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.7'
+          cache: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        if: matrix.mode == 'FRONTEND'
+        with:
+          node-version: '24.10.0'
+      - name: Parser and safe-summary contracts
+        run: python -B driver/.github/scripts/knowhub25_continuous_ci.py --self-test
+      - name: Independent source tests and original-byte audit
+        env:
+          CGO_ENABLED: '1'
+          GOTOOLCHAIN: local
+        run: |
+          umask 077
+          python -B driver/.github/scripts/knowhub25_continuous_ci.py '${{ matrix.side }}' '${{ matrix.mode }}' > "$RUNNER_TEMP/helper.stdout" 2> "$RUNNER_TEMP/helper.stderr"
+      - name: Validate fixed public summary
+        id: review
+        if: always()
+        run: python -B driver/.github/scripts/knowhub25_continuous_ci.py --review
+      - name: Publish only reviewed fixed metadata
+        if: always() && steps.review.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: knowhub25-continuous-${{ matrix.side }}-${{ matrix.mode }}-${{ github.sha }}
+          path: continuous-public/summary.json
+          retention-days: 7
+          if-no-files-found: error

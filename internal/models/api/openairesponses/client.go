@@ -110,8 +110,9 @@ func (c *Client) ChatStream(
 			resp, data, err = c.send(ctx, api.StripImagesFromMessages(messages), opts, true)
 		}
 		if err != nil {
+			failure := api.NormalizeProviderStreamFailure(ctx, "openai-responses", err)
 			cancel()
-			return nil, fmt.Errorf("create response stream: %w", err)
+			return nil, failure
 		}
 	}
 
@@ -416,7 +417,7 @@ func (c *Client) processStream(
 			// hole in the answer. Skipping it runs the loop to EOF, which the
 			// caller cannot tell from a complete reply and then stores as the
 			// model's answer. Fail, as the Completions loop does.
-			assembler.Fail(ch, fmt.Errorf("decode stream chunk: %w", err))
+			assembler.Fail(ch, types.NewStreamFailure(types.StreamFailureProtocol, 0, 0))
 			return
 		}
 
@@ -437,7 +438,7 @@ func (c *Client) processStream(
 		case "response.output_item.added":
 			item, ok, err := streamItem(ev.Item)
 			if err != nil {
-				assembler.Fail(ch, err)
+				assembler.Fail(ch, types.NewStreamFailure(types.StreamFailureProtocol, 0, 0))
 				return
 			}
 			if !ok || item.Type != "function_call" {
@@ -464,7 +465,7 @@ func (c *Client) processStream(
 		case "response.output_item.done":
 			item, ok, err := streamItem(ev.Item)
 			if err != nil {
-				assembler.Fail(ch, err)
+				assembler.Fail(ch, types.NewStreamFailure(types.StreamFailureProtocol, 0, 0))
 				return
 			}
 			if !ok {
@@ -490,14 +491,14 @@ func (c *Client) processStream(
 			c.completeStream(ch, assembler, st, ev.Response, ev.Type == "response.incomplete")
 			return
 		case "response.failed":
-			msg := "response failed"
-			if ev.Response != nil && ev.Response.Error != nil && ev.Response.Error.Message != "" {
-				msg = ev.Response.Error.Message
+			var code any
+			if ev.Response != nil && ev.Response.Error != nil {
+				code = ev.Response.Error.Code
 			}
-			assembler.Fail(ch, fmt.Errorf("API stream error: %s", msg))
+			assembler.Fail(ch, api.ProviderStreamFailure("openai-responses", code, "", 0, ""))
 			return
 		case "error":
-			assembler.Fail(ch, fmt.Errorf("API stream error: %s", orDefault(ev.Message, "unknown error")))
+			assembler.Fail(ch, api.ProviderStreamFailure("openai-responses", ev.Code, "", 0, ""))
 			return
 		}
 	}
