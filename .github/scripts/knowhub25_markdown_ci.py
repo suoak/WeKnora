@@ -58,15 +58,24 @@ def run():
                     result=subprocess.run(command,cwd=cwd,stdout=o,stderr=e,timeout=900)
                 return result.returncode
             install=execute(['npm','ci','--no-audit','--no-fund'],'INSTALL')
-            row={'side':side,'installExit':install,'typeExit':None,'unit':None,'files':[],'state':'BLOCKED'}
+            row={'side':side,'installExit':install,'browserInstallExit':None,'typeExit':None,'unit':None,'files':[],'state':'BLOCKED'}
             if install==0:
                 row['typeExit']=execute(['npm','run','type-check'],'TYPE_CHECK')
+                row['browserInstallExit']=execute(['node','node_modules/playwright/cli.js','install','chromium'],'BROWSER_INSTALL')
+                browser_module=(cwd/'node_modules/playwright/index.mjs').resolve()
+                with (folder/'BROWSER_IDENTITY.log').open('wb') as output, (folder/'BROWSER_IDENTITY.stderr.log').open('wb') as errors:
+                    located=subprocess.run(['node','--input-type=module','-e',"import { chromium } from 'playwright'; process.stdout.write(chromium.executablePath());"],cwd=cwd,stdout=output,stderr=errors,timeout=30)
+                browser_path=(folder/'BROWSER_IDENTITY.log').read_text(encoding='utf-8')
+                if row['browserInstallExit']!=0 or located.returncode!=0 or not browser_module.is_file() or not Path(browser_path).is_file():
+                    raise ValueError
+                os.environ['BROWSERSKILL_TEST_PLAYWRIGHT']=str(browser_module)
+                os.environ['BROWSERSKILL_TEST_CHROMIUM']=browser_path
                 xml=(folder/'unit.xml').resolve()
                 code=execute(['npm','test','--','--test-reporter=junit','--test-reporter-destination='+str(xml)],'UNIT')
                 required = POLICY['requiredTests'] if side=='CANDIDATE' else ()
                 row['unit']=parse_junit(xml,code,required)
                 row['newNecessaryTests']='VERIFIED' if side=='CANDIDATE' and row['unit']['state']=='PASS' else 'NOT_PRESENT' if side=='BASELINE' else 'NOT_VERIFIED'
-                if row['typeExit']==0 and row['unit']['state']=='PASS':
+                if row['browserInstallExit']==0 and row['typeExit']==0 and row['unit']['state']=='PASS':
                     row['state']='PASS'
             assert (cwd/'package-lock.json').read_bytes()==before
             for n,path in enumerate(sorted(folder.iterdir())):
