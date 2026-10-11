@@ -18,7 +18,8 @@ RULES = [(f'SYNTHETIC_{i+1:03d}', re.compile(re.escape(v))) for i, v in enumerat
     ('CREDENTIAL_ASSIGNMENT', ASSIGN)]
 CATEGORIES = {'CONFIRMED_NON_CREDENTIAL_BUILD_METADATA', 'MASKED_CREDENTIAL_RELATED', 'UNKNOWN'}
 BASES = {'ARCHIVE_AND_BUILD_CONTEXT', 'SOURCE_BOUND_MASK', 'INSUFFICIENT_EVIDENCE',
-         'BUILD_BLOCK_ABSENT', 'BUILD_MAPPING_UNBOUND', 'ARCHIVE_UNVERIFIED', 'BUILD_WORK_UNRESOLVED', 'UNSUPPORTED_MATCH_SHAPE', 'VERIFIED_VET_IMPORT_MAP', 'VERIFIED_VET_ARCHIVE', 'VERIFIED_VET_FACT_PATH'}
+         'BUILD_BLOCK_ABSENT', 'BUILD_MAPPING_UNBOUND', 'ARCHIVE_UNVERIFIED', 'BUILD_WORK_UNRESOLVED', 'UNSUPPORTED_MATCH_SHAPE', 'VERIFIED_VET_IMPORT_MAP', 'VERIFIED_VET_ARCHIVE', 'VERIFIED_VET_FACT_PATH',
+         'UNPROVEN_JSON_MAPPING', 'UNPROVEN_JSON_SCALAR', 'UNPROVEN_GO_COMMAND', 'UNPROVEN_SHELL_COMMAND'}
 
 def digest(value):
     return hashlib.sha256(value).hexdigest()
@@ -182,6 +183,12 @@ def classify(text, role, root, masks, goroot=None):
             if rule == 'CREDENTIAL_ASSIGNMENT' and role == 'GO_COMPILE_LOG':
                 if len(matches) != 1 or not mapping:
                     basis = 'UNSUPPORTED_MATCH_SHAPE'
+                    if re.fullmatch(r'\s*"(?:[^"\\]|\\.)+": "(?:[^"\\]|\\.)*",?', line):
+                        basis = 'UNPROVEN_JSON_MAPPING' if line.startswith('\t\t') else 'UNPROVEN_JSON_SCALAR'
+                    elif re.match(r'\S+/(?:compile|link|vet)(?: |$)', line):
+                        basis = 'UNPROVEN_GO_COMMAND'
+                    elif re.match(r'(?:cp|mv|mkdir|cd|cat) ', line):
+                        basis = 'UNPROVEN_SHELL_COMMAND'
                 else:
                     resolved = resolve_work(mapping[2])
                     canonical = 'packagefile ' + mapping[1] + '=' + resolved if resolved else None
