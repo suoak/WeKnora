@@ -1,5 +1,6 @@
 """Continuous isolated regression runner. Public output is fixed metadata only."""
 import hashlib
+from collections import Counter
 import importlib.util
 import json
 import os
@@ -88,13 +89,55 @@ def validate_summary(value):
         raise ValueError('SCHEMA_FAILED')
     return value
 
-def parse_node_junit(xml_path, exit_code):
+def parse_node_events(path):
+    seen, leaves, summary = set(), [], None
+    rows = path.read_text(encoding='utf-8').splitlines()
+    if not rows:
+        raise ValueError('CASE_INVALID')
+    for line in rows:
+        row = json.loads(line)
+        if summary is not None:
+            raise ValueError('CONFLICTING_TERMINAL')
+        if row.get('kind') == 'TERMINAL':
+            if set(row) != {'kind', 'id', 'nameSHA', 'testType', 'status'} or row['testType'] not in {'test','suite'} or row['status'] not in {'PASS','FAIL','SKIP','TODO'}:
+                raise ValueError('CASE_INVALID')
+            if not all(re.fullmatch('[0-9a-f]{64}', row[k]) for k in ['id','nameSHA']):
+                raise ValueError('CASE_INVALID')
+            if row['id'] in seen:
+                raise ValueError('DUPLICATE_ID')
+            seen.add(row['id'])
+            if row['testType'] == 'test':
+                leaves.append(row)
+        elif row.get('kind') == 'SUMMARY':
+            if set(row) != {'kind','success','counts'} or type(row['success']) is not bool:
+                raise ValueError('CASE_INVALID')
+            summary = row
+        else:
+            raise ValueError('CASE_INVALID')
+    if summary is None or not leaves:
+        raise ValueError('COUNT_MISMATCH')
+    counts = summary['counts']
+    if set(counts) != {'tests','failed','passed','cancelled','skipped','todo','topLevel','suites'} or any(type(v) is not int or v < 0 for v in counts.values()):
+        raise ValueError('COUNT_MISMATCH')
+    actual = Counter(r['status'] for r in leaves)
+    if counts['tests'] != len(leaves) or counts['passed'] != actual['PASS'] or counts['skipped'] != actual['SKIP'] or counts['todo'] != actual['TODO'] or counts['failed'] + counts['cancelled'] != actual['FAIL']:
+        raise ValueError('COUNT_MISMATCH')
+    if summary['success'] != (not (actual['FAIL'] or actual['SKIP'] or actual['TODO'])):
+        # A skipped run may report success, but still cannot satisfy our Gate.
+        if not (summary['success'] and not actual['FAIL']):
+            raise ValueError('CONFLICTING_TERMINAL')
+    return Counter((r['nameSHA'],r['status']) for r in leaves)
+
+
+def parse_node_junit(xml_path, exit_code, event_path=None):
     # Node gives every testcase classname=test; suite ancestry is part of its ID.
     result = dict(exit=exit_code, run=0, passed=0, fail=[], error=[], skip=[], gatePass=False, parserDiagnosis='NONE')
     try:
         root = ET.parse(xml_path).getroot()
         if root.tag != 'testsuites':
             raise ValueError('ROOT_INVALID')
+        trusted = parse_node_events(event_path) if event_path is not None else None
+        xml_events = Counter()
         seen = set()
         def visit(element, parents):
             if element.tag == 'testsuite':
@@ -114,23 +157,55 @@ def parse_node_junit(xml_path, exit_code):
                     states = [t for t in ['failure', 'error', 'skipped'] if child.find(t) is not None]
                     if not child.get('name'):
                         raise ValueError('CASE_INVALID')
-                    if ident in seen:
+                    if ident in seen and trusted is None:
                         raise ValueError('DUPLICATE_ID')
                     if len(states) > 1:
                         raise ValueError('CONFLICTING_TERMINAL')
                     seen.add(ident)
+                    status = 'PASS' if not states else {'failure':'FAIL','error':'FAIL','skipped':'SKIP'}[states[0]]
+                    name_sha = sha(json.dumps(child.get('name'), ensure_ascii=False, separators=(',',':')).encode())
+                    xml_events[(name_sha,status)] += 1
                     result['run'] += 1
                     if not states:
                         result['passed'] += 1
                     else:
                         result[{'failure': 'fail', 'error': 'error', 'skipped': 'skip'}[states[0]]].append('::'.join(ident))
         visit(root, ())
+        if trusted is not None and trusted != xml_events:
+            raise ValueError('COUNT_MISMATCH')
         result['gatePass'] = exit_code == 0 and result['run'] > 0 and not any(result[k] for k in ['fail', 'error', 'skip'])
-    except (OSError, ET.ParseError, ValueError) as exc:
+    except (OSError, ET.ParseError, ValueError, TypeError, KeyError) as exc:
         result['parserDiagnosis'] = str(exc) if isinstance(exc, ValueError) and str(exc) in PARSER_DIAGNOSES else 'XML_INVALID'
         result['validJUnit'] = False
         result['gatePass'] = False
     return result
+
+
+
+def frontend_event_selftest():
+    xml = '<testsuites><testcase classname="test" name="same"/><testcase classname="test" name="same"/></testsuites>'
+    name_sha = sha(json.dumps('same').encode())
+    terminal = lambda ident: dict(kind='TERMINAL',id=ident*64,nameSHA=name_sha,testType='test',status='PASS')
+    summary = dict(kind='SUMMARY',success=True,counts=dict(tests=2,failed=0,passed=2,cancelled=0,skipped=0,todo=0,topLevel=2,suites=0))
+    good = [terminal('a'),terminal('b'),summary]
+    scenarios = [(good,0,True),(good,1,False),(good[:-1],0,False),([good[0],good[0],summary],0,False),
+                 (good+[summary],0,False),([],0,False),
+                 (good[:-1]+[dict(summary,counts=dict(summary['counts'],tests=3))],0,False),
+                 ([dict(good[0],status='FAIL'),good[1],summary],0,False),
+                 ([dict(good[0],status='SKIP'),good[1],summary],0,False),
+                 ([dict(good[0],rawCause='synthetic'),good[1],summary],0,False),
+                 ([dict(good[0],nameSHA='c'*64),good[1],summary],0,False)]
+    with tempfile.TemporaryDirectory() as temp:
+        x, e = Path(temp)/'synthetic.xml', Path(temp)/'events.jsonl'
+        x.write_text(xml)
+        for rows,code,expected in scenarios:
+            e.write_text(''.join(json.dumps(row)+'\n' for row in rows))
+            if parse_node_junit(x,code,e)['gatePass'] != expected:
+                raise ValueError('PARSER_FAILED')
+        e.write_text('{invalid\n')
+        if parse_node_junit(x,0,e)['gatePass']:
+            raise ValueError('PARSER_FAILED')
+    return len(scenarios)+1
 
 
 def frontend_parser_selftest():
@@ -359,9 +434,11 @@ class Runner:
             raise ValueError('DEPENDENCY_FAILED')
         self.env.update(BROWSERSKILL_TEST_CHROMIUM=str(browser), BROWSERSKILL_TEST_PLAYWRIGHT=str(frontend / 'node_modules/playwright/index.mjs'))
         xml = self.root / 'front-unit.xml'
-        code, _, _ = self.execute('FRONT_UNIT', ['npm', 'test', '--', '--test-concurrency=1', '--test-reporter=junit', '--test-reporter-destination=' + str(xml)], 'FRONTEND_OUTPUT', cwd=frontend)
+        events = self.root / 'front-unit-events.jsonl'
+        code, _, _ = self.execute('FRONT_UNIT', ['npm', 'test', '--', '--test-concurrency=1', '--test-reporter=junit', '--test-reporter-destination=' + str(xml), '--test-reporter=' + (QA / 'node-unit-reporter.mjs').as_uri(), '--test-reporter-destination=' + str(events)], 'FRONTEND_OUTPUT', cwd=frontend)
         self.raw.append((xml, 'FRONTEND_JUNIT_XML'))
-        self.record('FRONT_UNIT', parse_node_junit(xml, code))
+        self.raw.append((events, 'FRONTEND_OUTPUT'))
+        self.record('FRONT_UNIT', parse_node_junit(xml, code, events))
         self.simple('FRONT_TYPE', ['node', 'node_modules/vue-tsc/bin/vue-tsc.js', '--build'], 'FRONTEND_OUTPUT', cwd=frontend)
         target = frontend / 'tests/agent-editor/continuous-linux.config.ts'
         if target.exists():
@@ -441,6 +518,7 @@ def selftest():
     except ValueError: pass
     else: raise ValueError('SCHEMA_FAILED')
     frontend_cases = frontend_parser_selftest()
+    frontend_event_cases = frontend_event_selftest()
     for patch in [{'rawCause': 'not-public'}, {'status': 'PASS'}, {'failureClass': 'unknown-freetext'}]:
         try:
             validate_summary(dict(sample, **patch))
@@ -469,7 +547,7 @@ def selftest():
         raise ValueError('UPLOAD_FAILED')
     print(json.dumps({'goParserCases': len(go), 'junitCases': len(junit), 'unittestCases': len(unittest), 'safeSchemaNegativeCases': 3,
                       'manifestNegativeCases': 4, 'rawScanPositiveCases': 3, 'workflowFixedGuard': 'PASS', 'matrix': 98,
-                      'frontendParserCases': frontend_cases, 'packageBoundaryCases': 2, 'diagnosticSchemaNegativeCases': 4, 'additionalPackageRows': len(M['extra_packages']) * 4, 'status': 'PASS'}))
+                      'frontendParserCases': frontend_cases, 'frontendEventCases': frontend_event_cases, 'packageBoundaryCases': 2, 'diagnosticSchemaNegativeCases': 4, 'additionalPackageRows': len(M['extra_packages']) * 4, 'status': 'PASS'}))
 
 if __name__ == '__main__':
     try:

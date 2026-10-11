@@ -1508,7 +1508,9 @@
     ".github/qa/continuous/python-linux.lock",
     ".github/qa/continuous/test_personal_mcp_lifecycle_http.py",
     ".github/scripts/knowhub25_continuous_ci.py",
-    ".github/workflows/knowhub25-continuous.yml"
+    ".github/workflows/knowhub25-continuous.yml",
+    ".github/qa/continuous/node-unit-reporter.mjs",
+    ".github/workflows/knowhub25-node-event-evidence.yml"
   ],
   "diagnostic_test_ids": [
     "TestClientDownloadDriveFile",
