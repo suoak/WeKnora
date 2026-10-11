@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS knowledge_processing_executions (
     generation BIGINT NOT NULL CHECK (generation > 0),
     execution_id VARCHAR(36) NOT NULL,
     lease_until TIMESTAMPTZ NOT NULL,
+    main_finished BOOLEAN NOT NULL DEFAULT FALSE,
     PRIMARY KEY (tenant_id, knowledge_id)
 );
 CREATE TABLE IF NOT EXISTS knowledge_processing_owned_chunks (
@@ -18,3 +19,6 @@ CREATE TABLE IF NOT EXISTS knowledge_processing_owned_chunks (
     PRIMARY KEY (tenant_id, knowledge_id, generation, chunk_id),
     UNIQUE (tenant_id, chunk_id)
 );
+
+-- Idempotent development upgrade from the earlier unactivated foundation.
+ALTER TABLE knowledge_processing_executions ADD COLUMN IF NOT EXISTS main_finished BOOLEAN NOT NULL DEFAULT FALSE;

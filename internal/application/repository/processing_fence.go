@@ -18,11 +18,12 @@ var ErrProcessingClaimBusy = errors.New("processing execution already claimed")
 
 // ProcessingFence is an internal capability. It must never be exposed as an API credential.
 type ProcessingFence struct {
-	TenantID    uint64 `gorm:"primaryKey"`
-	KnowledgeID string `gorm:"primaryKey"`
-	Generation  int64
-	ExecutionID string
-	LeaseUntil  time.Time
+	TenantID     uint64 `gorm:"primaryKey"`
+	KnowledgeID  string `gorm:"primaryKey"`
+	Generation   int64
+	ExecutionID  string
+	LeaseUntil   time.Time
+	MainFinished bool
 }
 
 func (ProcessingFence) TableName() string { return "knowledge_processing_executions" }
@@ -71,7 +72,7 @@ func (r *ProcessingFenceRepository) Reserve(ctx context.Context, tenantID uint64
 		}
 		next := ProcessingFence{TenantID: tenantID, KnowledgeID: knowledgeID, Generation: generation, LeaseUntil: now}
 		return tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "tenant_id"}, {Name: "knowledge_id"}},
-			DoUpdates: clause.AssignmentColumns([]string{"generation", "execution_id", "lease_until"})}).Create(&next).Error
+			DoUpdates: clause.AssignmentColumns([]string{"generation", "execution_id", "lease_until", "main_finished"})}).Create(&next).Error
 	})
 	return generation, err
 }
@@ -104,6 +105,9 @@ func (r *ProcessingFenceRepository) Claim(ctx context.Context, tenantID uint64, 
 		var now time.Time
 		if err := tx.Raw("SELECT CURRENT_TIMESTAMP").Row().Scan(&now); err != nil {
 			return err
+		}
+		if claimed.MainFinished {
+			return ErrProcessingFence
 		}
 		if claimed.ExecutionID != "" && claimed.LeaseUntil.After(now) {
 			return ErrProcessingClaimBusy
@@ -154,7 +158,7 @@ func (r *ProcessingFenceRepository) Allocate(ctx context.Context, tenantID uint6
 		}
 		next.LeaseUntil = now.Add(lease)
 		return tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "tenant_id"}, {Name: "knowledge_id"}},
-			DoUpdates: clause.AssignmentColumns([]string{"generation", "execution_id", "lease_until"})}).Create(&next).Error
+			DoUpdates: clause.AssignmentColumns([]string{"generation", "execution_id", "lease_until", "main_finished"})}).Create(&next).Error
 	})
 	return next, err
 }
@@ -271,4 +275,23 @@ func (r *ProcessingFenceRepository) CleanupSQL(ctx context.Context, fence Proces
 func (r *ProcessingFenceRepository) CompleteCleanup(ctx context.Context, fence ProcessingFence) error {
 	return r.db.WithContext(ctx).Model(&processingOwnedChunk{}).Where("tenant_id = ? AND knowledge_id = ? AND generation = ? AND execution_id = ?",
 		fence.TenantID, fence.KnowledgeID, fence.Generation, fence.ExecutionID).Update("cleanup_complete", true).Error
+}
+
+// Release closes the main worker lease without invalidating generation-only
+// enrichment. A successful delivery cannot be reclaimed after lease expiry;
+// a retryable failure can be reclaimed immediately with a different nonce.
+func (r *ProcessingFenceRepository) Release(ctx context.Context, fence ProcessingFence, settled bool) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := checkProcessingFence(tx, fence); err != nil {
+			return err
+		}
+		values := map[string]any{"main_finished": settled, "lease_until": gorm.Expr("CURRENT_TIMESTAMP")}
+		if err := tx.Model(&ProcessingFence{}).Where("tenant_id = ? AND knowledge_id = ? AND generation = ? AND execution_id = ?", fence.TenantID, fence.KnowledgeID, fence.Generation, fence.ExecutionID).Updates(values).Error; err != nil {
+			return err
+		}
+		if !settled {
+			return tx.Table("knowledges").Where("tenant_id = ? AND id = ? AND parse_status = ? AND deleted_at IS NULL", fence.TenantID, fence.KnowledgeID, types.ParseStatusFailed).Update("parse_status", types.ParseStatusPending).Error
+		}
+		return nil
+	})
 }

@@ -9,13 +9,20 @@ import tempfile
 import sys
 
 PUBLIC_ROWS = []
+SERVICE_EXPECTED = {
+ 'TestA3ProcessingAttemptCleanupPostgres',
+ 'TestA3ProcessingAttemptCleanupPostgres/actual_processChunks_preserves_new_generation',
+ 'TestA3ProcessingExecutionPostgresLifecycle',
+ 'TestA3ProcessingExecutionPostgresSupersession',
+ 'TestA3ProcessingExecutionPostgresParentCancellation',
+}
 
 
 def emit(value):
     """Publish fixed metadata only; retain no raw output or exception strings."""
     allowed = {'REPOSITORY', 'SERVICE', 'SERVICE_FULL', 'NORMAL', 'RACE', 'RUN',
                'PASS', 'FAIL', 'SKIP', 'BLOCKED', 'UNKNOWN', 'UNKNOWN_TEST_ID',
-               'GO_TEST_JSONL', 'GO_TEST_STDERR', 'HELPER_FAILED'} | set(RULES) | EXPECTED
+               'GO_TEST_JSONL', 'GO_TEST_STDERR', 'HELPER_FAILED'} | set(RULES) | EXPECTED | SERVICE_EXPECTED
     allowed |= {'TestA3ProcessingAttemptCleanupPostgres',
                 'TestA3ProcessingAttemptCleanupPostgres/actual_processChunks_preserves_new_generation'}
     for source in Path('internal/application/service').glob('*_test.go'):
@@ -23,7 +30,7 @@ def emit(value):
     fields = {'package', 'mode', 'exit', 'run', 'pass', 'fail', 'skip', 'tests',
               'failedTestIDs', 'parserValid', 'dataRace', 'scanClear', 'rawMetadata',
               'safeHitTests', 'status', 'role', 'sha256', 'rules', 'testID',
-              'ruleID', 'count', 'classification', 'failureClass'} | set(RULES) | EXPECTED
+              'ruleID', 'count', 'classification', 'failureClass'} | set(RULES) | EXPECTED | SERVICE_EXPECTED
     fields |= {'TestA3ProcessingAttemptCleanupPostgres',
                'TestA3ProcessingAttemptCleanupPostgres/actual_processChunks_preserves_new_generation'}
     def inspect(item):
@@ -181,9 +188,9 @@ def main():
     blocked = False
     matrix = [(package, mode) for package in ("REPOSITORY", "SERVICE") for mode in ("NORMAL", "RACE")]
     for package, mode in matrix:
-        expected = EXPECTED if package == "REPOSITORY" else {"TestA3ProcessingAttemptCleanupPostgres", "TestA3ProcessingAttemptCleanupPostgres/actual_processChunks_preserves_new_generation"}
+        expected = EXPECTED if package == "REPOSITORY" else SERVICE_EXPECTED
         path = "./internal/application/repository" if package == "REPOSITORY" else "./internal/application/service"
-        pattern = "^TestA3ProcessingFencePostgres" if package == "REPOSITORY" else "^TestA3ProcessingAttemptCleanupPostgres$"
+        pattern = "^TestA3ProcessingFencePostgres" if package == "REPOSITORY" else "^TestA3Processing(AttemptCleanupPostgres|ExecutionPostgres)"
         raw = directory / (package + "-" + mode + ".jsonl")
         stderr = directory / (package + "-" + mode + ".stderr")
         command = ["go", "test", "-mod=readonly", "-p", "2", "-count=1", "-timeout=10m", "-json"]

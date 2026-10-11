@@ -61,3 +61,17 @@ stays in mode-0700 runner storage. No artifact upload is configured. Only fixed 
 IDs, exit/status, original full-file hashes and rule/count metadata reach the console.
 Credential-pattern hits, malformed event streams, missing/skipped necessary tests,
 nonzero exits and Race reports block the batch. Product acceptance remains separate.
+
+## Production runtime development revision
+
+Document and manual generation-bearing tasks now enter a shared claim/renew/release
+boundary. A successful main delivery is persisted as settled independently of
+post-processing status; queue redelivery cannot restart a settled main worker.
+Retryable failure releases the lease without allocating a user generation.
+Supersession cancels the worker and guarded SQL still rejects its old capability.
+Rollback additionally refuses live workers, even with completed cleanup ledgers.
+
+This is not full activation: existing enqueue sites do not yet emit generation,
+legacy payload conversion remains explicit work, and per-backend cleanup target
+snapshots plus all counter/subtask guards must be wired before the admission
+batch is enabled. No production migration has been run.

@@ -298,6 +298,7 @@ type ExtractChunkPayload struct {
 
 // DocumentProcessPayload represents the document process task payload
 type DocumentProcessPayload struct {
+	Generation int64 `json:"generation,omitempty"`
 	TracingContext
 	RequestId                string   `json:"request_id"`
 	TenantID                 uint64   `json:"tenant_id"`
@@ -492,6 +493,7 @@ type KnowledgeMoveProgress struct {
 // ManualProcessPayload represents the manual knowledge processing task payload.
 // Used for both create (publish) and update operations.
 type ManualProcessPayload struct {
+	Generation int64 `json:"generation,omitempty"`
 	TracingContext
 	RequestId       string `json:"request_id"`
 	TenantID        uint64 `json:"tenant_id"`

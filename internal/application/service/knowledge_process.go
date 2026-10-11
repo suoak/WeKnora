@@ -3395,7 +3395,7 @@ func (s *knowledgeService) UpdateImageInfo(
 
 // ProcessManualUpdate handles Asynq manual knowledge update tasks.
 // It performs cleanup of old indexes/chunks (when NeedCleanup is true) and re-indexes the content.
-func (s *knowledgeService) ProcessManualUpdate(ctx context.Context, t *asynq.Task) error {
+func (s *knowledgeService) processManualUpdate(ctx context.Context, t *asynq.Task) error {
 	var payload types.ManualProcessPayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 		logger.Errorf(ctx, "failed to unmarshal manual process task payload: %v", err)
@@ -3510,7 +3510,7 @@ func (s *knowledgeService) ProcessManualUpdate(ctx context.Context, t *asynq.Tas
 }
 
 // ProcessDocument handles Asynq document processing tasks
-func (s *knowledgeService) ProcessDocument(ctx context.Context, t *asynq.Task) error {
+func (s *knowledgeService) processDocument(ctx context.Context, t *asynq.Task) error {
 	var payload types.DocumentProcessPayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 		logger.Errorf(ctx, "failed to unmarshal document process task payload: %v", err)

@@ -198,6 +198,8 @@ func TestA3ProcessingFencePostgresMigrationSafety(t *testing.T) {
 	require.NoError(t, db.Model(&processingOwnedChunk{}).Count(&count).Error)
 	require.Equal(t, int64(1), count)
 	require.NoError(t, repo.CompleteCleanup(ctx, f))
+	processingMigration(t, db, "down", false) // A live worker still prevents rollback.
+	require.NoError(t, repo.Release(ctx, f, true))
 	processingMigration(t, db, "down", true)
 	processingMigration(t, db, "down", true)
 	processingMigration(t, db, "up", true)
