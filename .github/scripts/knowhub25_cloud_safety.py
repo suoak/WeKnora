@@ -18,7 +18,7 @@ RULES = [(f'SYNTHETIC_{i+1:03d}', re.compile(re.escape(v))) for i, v in enumerat
     ('CREDENTIAL_ASSIGNMENT', ASSIGN)]
 CATEGORIES = {'CONFIRMED_NON_CREDENTIAL_BUILD_METADATA', 'MASKED_CREDENTIAL_RELATED', 'UNKNOWN'}
 BASES = {'ARCHIVE_AND_BUILD_CONTEXT', 'SOURCE_BOUND_MASK', 'INSUFFICIENT_EVIDENCE',
-         'BUILD_BLOCK_ABSENT', 'BUILD_MAPPING_UNBOUND', 'ARCHIVE_UNVERIFIED', 'BUILD_WORK_UNRESOLVED', 'UNSUPPORTED_MATCH_SHAPE'}
+         'BUILD_BLOCK_ABSENT', 'BUILD_MAPPING_UNBOUND', 'ARCHIVE_UNVERIFIED', 'BUILD_WORK_UNRESOLVED', 'UNSUPPORTED_MATCH_SHAPE', 'VERIFIED_VET_IMPORT_MAP', 'VERIFIED_VET_ARCHIVE', 'VERIFIED_VET_FACT_PATH'}
 
 def digest(value):
     return hashlib.sha256(value).hexdigest()
@@ -54,7 +54,90 @@ def archive_is_safe(value, root):
     except (OSError, ValueError):
         return False
 
-def classify(text, role, root, masks):
+def vet_proofs(text, root, goroot):
+    """Prove complete Go 1.26.7 vet objects against retained private files."""
+    keys = {'ID', 'Compiler', 'Dir', 'ImportPath', 'GoFiles', 'NonGoFiles', 'IgnoredFiles',
+            'ModulePath', 'ModuleVersion', 'ImportMap', 'PackageFile', 'Standard', 'PackageVetx',
+            'VetxOnly', 'VetxOutput', 'Stdout', 'GoVersion', 'FixArchive', 'SucceedOnTypecheckFailure'}
+    maps = {'ImportMap', 'PackageFile', 'Standard', 'PackageVetx'}
+    def unique(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value:
+                raise ValueError('DUPLICATE_FIELD')
+            value[key] = item
+        return value
+    def package(value):
+        return isinstance(value, str) and re.fullmatch(r'[A-Za-z0-9._/-]+', value) and not any(p in {'', '.', '..'} for p in value.split('/'))
+    lines = text.splitlines()
+    proofs, work = {}, None
+    for index, line in enumerate(lines):
+        marker = re.fullmatch(r'WORK=(\S+)', line)
+        if marker:
+            try:
+                candidate = pathlib.Path(marker[1]).resolve(strict=True)
+                work = candidate if candidate.is_dir() and candidate.is_relative_to(root.resolve()) else None
+            except (OSError, ValueError):
+                work = None
+        header = re.fullmatch(r"cat >(\S+/b[0-9]+/vet\.cfg) << 'EOF' # internal", line)
+        if not header:
+            continue
+        try:
+            name = header[1]
+            if name.startswith('$WORK/'):
+                if work is None or not re.fullmatch(r'\$WORK/b[0-9]+/vet\.cfg', name):
+                    continue
+                name = str(work / name[6:])
+            config_path = pathlib.Path(name).resolve(strict=True)
+            if not config_path.is_relative_to(root.resolve()):
+                continue
+            end = lines.index('EOF', index + 1)
+            body = '\n'.join(lines[index + 1:end]) + '\n'
+            if config_path.read_bytes() != body.encode('utf-8'):
+                continue
+            config = json.loads(body, object_pairs_hook=unique)
+            if not isinstance(config, dict) or set(config) != keys or config['Compiler'] != 'gc':
+                continue
+            if any(type(config[k]) is not bool for k in ['VetxOnly', 'SucceedOnTypecheckFailure']):
+                continue
+            if any(not isinstance(config[k], str) for k in keys - maps - {'GoFiles', 'NonGoFiles', 'IgnoredFiles', 'VetxOnly', 'SucceedOnTypecheckFailure'}):
+                continue
+            if any(config[k] is not None and (not isinstance(config[k], list) or any(not isinstance(v, str) for v in config[k])) for k in ['GoFiles', 'NonGoFiles', 'IgnoredFiles']):
+                continue
+            if any(not isinstance(config[k], dict) or any(not package(v) for v in config[k]) for k in maps):
+                continue
+            if any(not isinstance(v, str) for k in maps - {'Standard'} for v in config[k].values()) or any(type(v) is not bool for v in config['Standard'].values()):
+                continue
+            field = None
+            for offset in range(index + 1, end):
+                field_match = re.fullmatch(r'\t"(ImportMap|PackageFile|PackageVetx|Standard)": \{', lines[offset])
+                if field_match:
+                    field = field_match[1]
+                    continue
+                if re.fullmatch(r'\t\}[,]?', lines[offset]):
+                    field = None
+                    continue
+                entry = re.fullmatch(r'\t\t("(?:[^"\\]|\\.)+"): ("(?:[^"\\]|\\.)*")[,]?', lines[offset])
+                if not field or not entry:
+                    continue
+                key, value = json.loads(entry[1]), json.loads(entry[2])
+                if config[field].get(key) != value:
+                    continue
+                if field == 'ImportMap' and key == value and config['Standard'].get(key) is True and goroot is not None:
+                    directory = (goroot / 'src' / key).resolve(strict=True)
+                    if directory.is_relative_to((goroot / 'src').resolve()) and directory.is_dir() and any(directory.glob('*.go')):
+                        proofs[offset] = 'VERIFIED_VET_IMPORT_MAP'
+                elif field == 'PackageFile' and archive_is_safe(value, root):
+                    proofs[offset] = 'VERIFIED_VET_ARCHIVE'
+                elif field == 'PackageVetx':
+                    fact = pathlib.Path(value).resolve(strict=True)
+                    if fact.is_relative_to(root.resolve()) and fact.is_file() and (fact.name.endswith('.vetx') or re.fullmatch(r'[0-9a-f]{64}-d', fact.name)):
+                        proofs[offset] = 'VERIFIED_VET_FACT_PATH'
+        except (OSError, ValueError, TypeError, KeyError):
+            continue
+    return proofs
+
+def classify(text, role, root, masks, goroot=None):
     """Classify every exact frozen-rule match; never suppress a match."""
     rows = []
     importcfg_lines = set()
@@ -65,7 +148,8 @@ def classify(text, role, root, masks):
                 return None
             return str(work / value[6:])
         return value
-    for line in text.splitlines():
+    vetted = vet_proofs(text, root, goroot) if role == 'GO_COMPILE_LOG' else {}
+    for line_number, line in enumerate(text.splitlines()):
         marker = re.fullmatch(r'WORK=(\S+)', line)
         if marker and role == 'GO_COMPILE_LOG':
             try:
@@ -104,6 +188,8 @@ def classify(text, role, root, masks):
                     basis = 'BUILD_WORK_UNRESOLVED' if not resolved else 'BUILD_BLOCK_ABSENT' if not importcfg_lines else 'BUILD_MAPPING_UNBOUND' if line not in importcfg_lines and canonical not in importcfg_lines else 'ARCHIVE_UNVERIFIED' if not archive_is_safe(resolved, root) else 'ARCHIVE_AND_BUILD_CONTEXT'
                     if basis == 'ARCHIVE_AND_BUILD_CONTEXT':
                         category = 'CONFIRMED_NON_CREDENTIAL_BUILD_METADATA'
+                if len(matches) == 1 and line_number in vetted:
+                    category, basis = 'CONFIRMED_NON_CREDENTIAL_BUILD_METADATA', vetted[line_number]
             if rule == 'CREDENTIAL_ASSIGNMENT' and role == 'GO_TEST_JSONL':
                 try:
                     event = json.loads(line)
@@ -114,7 +200,7 @@ def classify(text, role, root, masks):
                     pass
             rows.append({'ruleId': rule, 'count': len(matches), 'classification': category,
                          'basis': 'ARCHIVE_AND_BUILD_CONTEXT' if category == 'CONFIRMED_NON_CREDENTIAL_BUILD_METADATA' else 'SOURCE_BOUND_MASK' if category == 'MASKED_CREDENTIAL_RELATED' else 'INSUFFICIENT_EVIDENCE'})
-            rows[-1]['basis'] = basis if category == 'UNKNOWN' else rows[-1]['basis']
+            rows[-1]['basis'] = basis if category != 'MASKED_CREDENTIAL_RELATED' else rows[-1]['basis']
     # Frozen \s includes real newlines. A whole-byte match that spans lines
     # has no complete single-line proof and must be retained as UNKNOWN.
     for rule, pattern in RULES:
@@ -141,12 +227,26 @@ def safe_summary(value):
         for hit in row['findings']:
             if set(hit) != {'ruleId', 'count', 'classification', 'basis'} or hit['ruleId'] not in {r for r, _ in RULES} or type(hit['count']) is not int or hit['count'] < 1 or hit['classification'] not in CATEGORIES or hit['basis'] not in BASES:
                 raise ValueError('SCHEMA_FAILED')
-    if len(value['executions']) > 8:
+    expected = M.get('expected_executions', 8)
+    allowed = {(s, m, p) for s in ['BASELINE', 'CANDIDATE']
+               for p, modes in [('PKG_001', ['COMPILE']), ('PKG_008', ['COMPILE']),
+                                ('PKG_017', [] if M.get('execution_scope') == 'COMPILE_ONLY' else ['NORMAL', 'RACE'])]
+               for m in modes}
+    if expected != len(allowed):
+        raise ValueError('SCHEMA_FAILED')
+    if len(value['executions']) > expected:
         raise ValueError('SCHEMA_FAILED')
     keys = {(r['side'], r['mode'], r['packageId']) for r in value['executions']}
     if len(keys) != len(value['executions']):
         raise ValueError('SCHEMA_FAILED')
-    if value['status'] == 'ATTRIBUTION_CLEAR' and (len(keys) != 8 or len(value['files']) != 16 or any(r['exit'] != 0 for r in value['executions']) or any(h['classification'] != 'CONFIRMED_NON_CREDENTIAL_BUILD_METADATA' for r in value['files'] for h in r['findings'])):
+    if not keys <= allowed:
+        raise ValueError('SCHEMA_FAILED')
+    file_keys = [(r['side'], r['mode'], r['packageId']) for r in value['files']]
+    if any(file_keys.count(k) != 2 for k in set(file_keys)) or not set(file_keys) <= keys:
+        raise ValueError('SCHEMA_FAILED')
+    if any(r['role'] != ('GO_COMPILE_LOG' if r['mode'] == 'COMPILE' else 'GO_TEST_JSONL') for r in value['files']):
+        raise ValueError('SCHEMA_FAILED')
+    if value['status'] == 'ATTRIBUTION_CLEAR' and (len(keys) != expected or len(value['files']) != expected * 2 or any(r['exit'] != 0 for r in value['executions']) or any(h['classification'] != 'CONFIRMED_NON_CREDENTIAL_BUILD_METADATA' for r in value['files'] for h in r['findings'])):
         raise ValueError('SCHEMA_FAILED')
     return value
 
@@ -197,6 +297,42 @@ def self_test():
         assert across_lines == [{'ruleId': 'CREDENTIAL_ASSIGNMENT', 'count': 1, 'classification': 'UNKNOWN', 'basis': 'INSUFFICIENT_EVIDENCE'}]
         assert scan('Bearer unknown_value')[0]['classification'] == 'UNKNOWN'
         assert scan('{broken token=unknown_value', 'GO_TEST_JSONL')[0]['classification'] == 'UNKNOWN'
+        # Complete retained vet objects only; malformed, mixed and outside files
+        # retain every frozen-rule hit and cannot inherit a metadata proof.
+        goroot = root / 'go'
+        (goroot / 'src/go/token').mkdir(parents=True)
+        (goroot / 'src/go/token/token.go').write_text('package token\n')
+        vet = {k: '' for k in ['ID', 'Compiler', 'Dir', 'ImportPath', 'ModulePath',
+               'ModuleVersion', 'VetxOutput', 'Stdout', 'GoVersion', 'FixArchive']}
+        vet.update(Compiler='gc', GoFiles=[], NonGoFiles=None, IgnoredFiles=None,
+                   ImportMap={'go/token': 'go/token'}, PackageFile={},
+                   Standard={'go/token': True}, PackageVetx={}, VetxOnly=False,
+                   SucceedOnTypecheckFailure=False)
+        vet_path = root / 'b001/vet.cfg'
+        def vet_scan(value, suffix='', retain=True):
+            body = json.dumps(value, indent='\t') + '\n'
+            if retain:
+                vet_path.write_bytes(body.encode())
+            text = 'WORK=' + str(root.resolve()) + "\ncat >$WORK/b001/vet.cfg << 'EOF' # internal\n" + body + 'EOF\n' + suffix
+            return classify(text, 'GO_COMPILE_LOG', root, [], goroot)
+        assert vet_scan(vet)[0]['basis'] == 'VERIFIED_VET_IMPORT_MAP'
+        mixed_vet = vet_scan(vet, 'token=unknown_value')
+        assert any(r['classification'] == 'UNKNOWN' for r in mixed_vet)
+        assert sum(r['count'] for r in mixed_vet) == len(ASSIGN.findall(
+            json.dumps(vet, indent='\t') + '\ntoken=unknown_value'))
+        invalid = dict(vet, Standard={'go/token': False})
+        assert vet_scan(invalid)[0]['classification'] == 'UNKNOWN'
+        vet_path.write_bytes(b'{}\n')
+        assert vet_scan(vet, retain=False)[0]['classification'] == 'UNKNOWN'
+        unknown = dict(vet, token='unknown_value')
+        assert all(r['classification'] == 'UNKNOWN' for r in vet_scan(unknown))
+        outside = dict(vet, ImportMap={}, PackageFile={'go/token': '/outside/archive'})
+        assert vet_scan(outside)[0]['classification'] == 'UNKNOWN'
+        archive.write_bytes(b'!<arch>\n')
+        archived = dict(vet, ImportMap={}, PackageFile={'go/token': pathlib.Path(os.path.relpath(archive)).as_posix()})
+        assert vet_scan(archived)[0]['basis'] == 'VERIFIED_VET_ARCHIVE'
+        archive.write_bytes(b'not_an_archive')
+        assert vet_scan(archived)[0]['classification'] == 'UNKNOWN'
         value = {'schema': 1, 'status': 'BLOCKED', 'historicalStatus': 'UNKNOWN', 'executions': [], 'files': []}
         safe_summary(value)
         try:
@@ -211,7 +347,7 @@ def self_test():
             pass
         else:
             raise AssertionError('SCHEMA_FAILED')
-    print(json.dumps({'selfTests': 22, 'status': 'PASS', 'frozenScannerEquivalence': 'PASS'}))
+    print(json.dumps({'selfTests': 31, 'status': 'PASS', 'frozenScannerEquivalence': 'PASS'}))
 
 def run():
     if sys.platform != 'linux':
@@ -229,6 +365,10 @@ def run():
         version = subprocess.run(['go', 'version'], capture_output=True, env=env)
         if version.returncode or version.stdout.strip() != b'go version go1.26.7 linux/amd64':
             raise ValueError('ENVIRONMENT_FAILED')
+        toolroot = subprocess.run(['go', 'env', 'GOROOT'], capture_output=True, env=env)
+        if toolroot.returncode:
+            raise ValueError('ENVIRONMENT_FAILED')
+        goroot = pathlib.Path(toolroot.stdout.decode().strip()).resolve(strict=True)
         for side in ['BASELINE', 'CANDIDATE']:
             source = pathlib.Path(side.lower())
             identity(source, side)
@@ -237,6 +377,8 @@ def run():
             masks = {v[:6] + '...' + v[-4:] for v in values if len(v) >= 12}
             for package, package_id, modes in [('internal/datasource/connector/yuque', 'PKG_017', ['NORMAL', 'RACE']), ('internal/middleware', 'PKG_001', ['COMPILE']), ('internal/router', 'PKG_008', ['COMPILE'])]:
                 for mode in modes:
+                    if M.get('execution_scope') == 'COMPILE_ONLY' and mode != 'COMPILE':
+                        continue
                     ident = f'{side}-{package_id}-{mode}'
                     command = ['go', 'test', '-mod=readonly', '-p', '2']
                     command += ['-c', '-x', '-work', '-o', str(root / (ident + '.test'))] if mode == 'COMPILE' else ['-count=1', '-json'] + (['-race'] if mode == 'RACE' else [])
@@ -247,7 +389,7 @@ def run():
                     result['executions'].append({'side': side, 'mode': mode, 'packageId': package_id, 'exit': process.returncode, 'status': 'PASS' if process.returncode == 0 else 'FAIL'})
                     for path in outputs:
                         raw = path.read_bytes()
-                        findings = classify(raw.decode('utf-8', 'strict'), 'GO_COMPILE_LOG' if mode == 'COMPILE' else 'GO_TEST_JSONL', root, masks)
+                        findings = classify(raw.decode('utf-8', 'strict'), 'GO_COMPILE_LOG' if mode == 'COMPILE' else 'GO_TEST_JSONL', root, masks, goroot)
                         result['files'].append({'role': 'GO_COMPILE_LOG' if mode == 'COMPILE' else 'GO_TEST_JSONL', 'side': side, 'mode': mode, 'packageId': package_id, 'sha256': digest(raw), 'findings': findings})
         blocked = any(r['exit'] != 0 for r in result['executions']) or any(h['classification'] != 'CONFIRMED_NON_CREDENTIAL_BUILD_METADATA' for r in result['files'] for h in r['findings'])
         result['status'] = 'BLOCKED' if blocked else 'ATTRIBUTION_CLEAR'

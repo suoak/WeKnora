@@ -231,5 +231,7 @@
       "internal/datasource/connector/yuque/client_test.go"
     ],
     "historicalRawStatus": "UNKNOWN"
-  }
+  },
+  "execution_scope": "COMPILE_ONLY",
+  "expected_executions": 4
 }
