@@ -93,7 +93,13 @@ def main():
     if '--self-test' in sys.argv:
         print('B_CONTRACT_INFRASTRUCTURE_SELF_TEST_PASS')
         return
-    assert subprocess.check_output(['git', 'rev-parse', 'HEAD^']).decode().strip() == BASELINE
+    assert subprocess.check_output(['git', 'merge-base', BASELINE, 'HEAD']).decode().strip() == BASELINE
+    source_commit = '80fd5508f370702a8696258b23a535f0a687ab01'
+    approved = subprocess.check_output(['git', 'diff', '--name-only', BASELINE, source_commit]).decode().splitlines()
+    assert set(subprocess.check_output(['git', 'diff', '--name-only', BASELINE, 'HEAD']).decode().splitlines()) == set(approved)
+    for path in approved:
+        if not path.startswith('.github/'):
+            assert subprocess.check_output(['git', 'rev-parse', 'HEAD:' + path]) == subprocess.check_output(['git', 'rev-parse', source_commit + ':' + path])
     assert subprocess.check_output(['go', 'env', 'GOOS']).decode().strip() == 'linux'
     assert subprocess.check_output(['go', 'version']).decode().strip() == 'go version go1.26.7 linux/amd64'
     raw = Path(os.environ['RUNNER_TEMP']) / 'knowhub25-b-raw'
