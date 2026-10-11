@@ -1,0 +1,1384 @@
+{
+  "baseline": "a6403708915680ccad310b0fd64506597b879804",
+  "upstream": "005627b180c6c7509660b0a14401e463f48d53f8",
+  "patch": "6bccbaf8cf67a3cd7af490b5fbd9d0d278ee94ea7992b2bd2082d8ddab774d7a",
+  "source": [
+    {
+      "path": "internal/agent/checkpoint.go",
+      "blob": "342732295bcfb37eb21d9a0c3092625634c9f1d9",
+      "sha256": "1e977b29497452d5cf59859f876169b21f56df6bb26d8fc5e9c69d8425d6b498",
+      "role": "product"
+    },
+    {
+      "path": "internal/agent/compaction/checkpoint_test.go",
+      "blob": "32a575a2a8a8b16bb32eb95ca8b8e0d10626c0b9",
+      "sha256": "cc3db253c4315ad8b6e0646b95727fc40864d4cf1edbeba9595bce287c423de9",
+      "role": "test"
+    },
+    {
+      "path": "internal/agent/compaction/compactor.go",
+      "blob": "8674f9811fab22bbf44eef26cb5bed50acfafb9c",
+      "sha256": "2f9a14def00d25862cd754013f6221b32ea406c8726d2c190ca59cd1f1866c0f",
+      "role": "product"
+    },
+    {
+      "path": "internal/agent/compaction/overflow.go",
+      "blob": "4c0eea383a82e8bfa64890408333222ad7fc7f29",
+      "sha256": "b7d2d6e98740bf2428fae7155f159f49b0e71f2694e7d72ba77d4e8e93099d6c",
+      "role": "product"
+    },
+    {
+      "path": "internal/agent/compaction/stream_http_test.go",
+      "blob": "861e051d16ed5ef6afded02a7edf6d79c1e3bc5c",
+      "sha256": "9a70671555f055ee0234c59ad969e2bc70642aa74be5f0fdfd3b4bef9156c5dd",
+      "role": "test"
+    },
+    {
+      "path": "internal/agent/compaction/stream_test.go",
+      "blob": "598dce15cd3bb05d6827c574c86eeb52c0cbe3fd",
+      "sha256": "57f9a4d3926b7c56355f8f4060e0ca58de6e8f46622b1336578f8af6135c060b",
+      "role": "test"
+    },
+    {
+      "path": "internal/agent/const.go",
+      "blob": "2451200cc1b4a40683b88f302540afc63a5c13cc",
+      "sha256": "3a492a1c5d3734be5e24d951ec48cbae11d3af6292e9473eeb2835e9379344b0",
+      "role": "product"
+    },
+    {
+      "path": "internal/agent/engine_test.go",
+      "blob": "270c70eaaf5a31969d627eee57f74a338255b90f",
+      "sha256": "9d4f179ae4fd8bdaa4f15dec055ee4fddd9b87cd4385488bf83fcd38faad03a5",
+      "role": "test"
+    },
+    {
+      "path": "internal/agent/think.go",
+      "blob": "257d70c2793b1c4078ae98617da729f81831dd02",
+      "sha256": "939593efb45ffc367a0b77f6636950142f5fee7ddbc588cfadf7a4258637d427",
+      "role": "product"
+    },
+    {
+      "path": "internal/models/api/anthropicmessages/client.go",
+      "blob": "daaaee595e74d16e401318d072d1beae3f8b51f9",
+      "sha256": "4506576a2f37798be11443cceb9574c5ee08869cdda8fa825de5d6df89c3b699",
+      "role": "product"
+    },
+    {
+      "path": "internal/models/api/googlegenai/client.go",
+      "blob": "d415bf4d1370985f18543b75c4988b4ca9ae72ef",
+      "sha256": "471a8e4b6eb6d459078e84b1f6f9e735a7d2c3eb4717bc44633da5e2f2b2f3fe",
+      "role": "product"
+    },
+    {
+      "path": "internal/models/api/googlegenai/googlegenai_test.go",
+      "blob": "6216a10bcda3851739c9e44155a9c3ae858d2d9f",
+      "sha256": "b2b0cb68b08e5a60d5182f64a5f91a09891db6034b08d9089f6be933087e12f9",
+      "role": "test"
+    },
+    {
+      "path": "internal/models/api/openaicompletions/client.go",
+      "blob": "f2d8bd4ce014c0b434597baf4d321891861f00f3",
+      "sha256": "eafd986b95b93bd70c205672e260e20666485fe56a16eb56feffa629a0104270",
+      "role": "product"
+    },
+    {
+      "path": "internal/models/api/openaicompletions/golden_test.go",
+      "blob": "3e434eba945722f4e23206967085e3eec5e9915c",
+      "sha256": "930532c824a5c69bcd330f0aef10f5d8884884752f8e96476b80d7ec97f7b855",
+      "role": "test"
+    },
+    {
+      "path": "internal/models/api/openairesponses/client.go",
+      "blob": "383c38bc8e7048b3be78fdad0d5c8bb9b50d9729",
+      "sha256": "9852643be4357380c1854151107f234a8a9dd9ee13e4fca7f548036f5516aaf1",
+      "role": "product"
+    },
+    {
+      "path": "internal/models/api/openairesponses/openairesponses_test.go",
+      "blob": "29abc15dbb584c953acbf1ac0f7f09d5c35fb1a1",
+      "sha256": "ca28848e8bbd2acf9c26171a3daa5d570ebfaea41d1f2739cac5d1df0a16ffe9",
+      "role": "test"
+    },
+    {
+      "path": "internal/models/api/stream_assembler.go",
+      "blob": "a0011a9821dca05f0565ab50f42603b62307fee8",
+      "sha256": "e078096c74e7bdb69dac19b0ad9a731e7a36a1eb9fe7dfb2d11b65aee40e4e3d",
+      "role": "product"
+    },
+    {
+      "path": "internal/models/api/stream_assembler_test.go",
+      "blob": "54ff6d4f25b5343fa5c75f5d2dbdff0287b0c656",
+      "sha256": "db9e6a6b97978f918601f178859969ae8636669aec0caa11994dec8bb4415ce7",
+      "role": "test"
+    },
+    {
+      "path": "internal/models/api/stream_error.go",
+      "blob": "687d761451f43b3a9de4fff77843c43d81c182c1",
+      "sha256": "ea898c5fc63afb7ad85185f1bdbf8c700ed036b7e7dc54f851548ebfea303790",
+      "role": "product"
+    },
+    {
+      "path": "internal/models/api/stream_error_test.go",
+      "blob": "eedae5f5b8471243fcca51677b7d71eaac4361c6",
+      "sha256": "e78391f560b2e0283611e220d555925511e85b1698fbaa3fd205c25fa6685ee3",
+      "role": "test"
+    },
+    {
+      "path": "internal/types/chat.go",
+      "blob": "4967ac4c829e02d7d93de2989d7a72ae9f53ac3c",
+      "sha256": "b322040a558d284024af995bc839b42a7ac3dbf663eefd6edd6a5510803e22d3",
+      "role": "product"
+    },
+    {
+      "path": "internal/types/stream_error.go",
+      "blob": "f79a1b1c6657fe65556a5241da9b78a2e9258d63",
+      "sha256": "46a1d80f76e98a6b1dc4c1464f4cbc1b3fa95608d986090356d755b0bfba552a",
+      "role": "product"
+    },
+    {
+      "path": "internal/types/stream_error_test.go",
+      "blob": "42b2a3134621dfa78285b264a1e2fc2ff3fa278c",
+      "sha256": "ac63ce1f2064214c95c73159007913093d60d9ed5f5689a3c32fe5a78fc07da4",
+      "role": "test"
+    }
+  ],
+  "protected": {
+    "frontend/src/views/integrations/McpServerIntegrationSettings.vue": "dfc9cdfcf3ae9c574f70dfa9808ec42709f3456c",
+    "frontend/src/views/integrations/mcpKnowledgeBaseOptions.ts": "abf0d4f41d87770297060e2789df900d0493b5b8",
+    "frontend/src/views/integrations/mcpKnowledgeBaseOptions.test.ts": "8e344795e962d657673a32fed1da9a48e23f2354",
+    "frontend/src/i18n/locales/zh-CN.ts": "08728c2b7aaa3f344fe1d9a865589ebe26c36d22",
+    "frontend/src/i18n/locales/en-US.ts": "af3986ab3f02867fa231a737f5530ccddd29849d",
+    "frontend/src/i18n/locales/ja-JP.ts": "8a1281d6808f19b46ef1203eabea1cc2f4a48358",
+    "frontend/src/i18n/locales/ko-KR.ts": "982d5ba1816cfb29d92ecc27ae90a990a1f08a6d",
+    "frontend/src/i18n/locales/ru-RU.ts": "c9f0e6d2d7feb0d77a3b76421a504c63f72b7fb6",
+    "frontend/tests/agent-editor/final-gate.config.ts": "e72ff6719e3545423e9cc4ddbc7ac93f79259cb3",
+    "frontend/tests/agent-editor/run-gate.mjs": "bc280a5a5d3bb3d048de13a95c49cf38e5466fbb",
+    "frontend/tests/agent-editor/mcp-scope.spec.ts": "dcbd1c9cb2e9b72ca8f4182ddd5f243325096d84",
+    "internal/mcpserver/shared_scope_revalidation_test.go": "b9e481a32c05a1d628915f924bc00a6b96199968",
+    "internal/application/service/mcp_endpoint_shared_revalidation_test.go": "8edcd03702cb31765aa0ad79443e46673593190b",
+    "internal/application/repository/mcp_endpoint.go": "9d541269de9a4815ef47cf7d7eb09f9c1052d648",
+    "internal/application/repository/mcp_endpoint_cas_test.go": "f9e9e1eacbcfff1b8d617eb7e5e736e458623b26",
+    "internal/application/service/mcp_endpoint.go": "57e93ec05ab04ae46e839a690ca3cb8e7a5b4855",
+    "internal/application/service/mcp_endpoint_test.go": "60c6097ddb9886c1e9b092d3ca51719df9bb434a",
+    "internal/types/interfaces/mcp_endpoint.go": "6a2e0432296886699df2d221c59d315deb07c210",
+    "internal/handler/mcp_endpoint.go": "80acc03491b675b49ab91176f22b3023b2c3db94",
+    "internal/middleware/mcp_token_lifecycle_http_test.go": "cee5689b7b01a20d1f14be2ec3ed625e7e167f49",
+    "internal/middleware/mcp_token_stale_write_security_test.go": "1ead383a540ae3d0f5c20ceeb755ae57d923fce9",
+    "internal/middleware/mcp_token_conditional_write_test.go": "b1501fe2b58197cf7ff78a64b247097a25831ec7",
+    "internal/agent/tool_goroutine_panic_test.go": "12cefb4f0520aee92fd86f16bad193014eb6fe05",
+    "internal/agent/tools/goroutine.go": "51a9367a4a64b483f28b4020178f2fd76247fbce",
+    "internal/agent/tools/goroutine_security_test.go": "3f3621beb9417733c7aa849d310d95ff90fbb75b",
+    "internal/agent/tools/goroutine_test.go": "b7d5a7e3faf7dea74b1195f8cf105102814b97dc",
+    "internal/agent/tools/mcp_exposure.go": "f756f76cc706b9bd07dd23d76a92e3882d57098a",
+    "internal/agent/tools/mcp_exposure_panic_test.go": "d41ec6f17b66e8f1d000431b3dc3c3961914bea2",
+    "internal/agent/tools/registry.go": "b43375c9c6655f103bf0d599b670171eec4f245f",
+    "internal/agent/tools/search_knowledge.go": "a113c5badaf93d566a07ab7118c53765fb98887c",
+    "mcp-server/test_chat_sse.py": "aa6760ebe55c606454777579a18312a0b3902670",
+    "mcp-server/weknora_mcp_server.py": "871c1bf494a8fb54207f64fe0de82fd037e0aa02",
+    "internal/application/service/wiki_ingest.go": "b0647522418d50b02282d24a8c5302fb3c4f2943",
+    "internal/application/service/wiki_ingest_batch.go": "7d69e0f96f2113365b8b238cc566b955e17f1234",
+    "internal/application/service/wiki_ingest_cancellation_stress_test.go": "fed6033124a6c2d1c5ec98218a3d7c9d1f86edb6",
+    "internal/application/service/wiki_ingest_cancellation_test.go": "30551a0e60b0c0b3d0e15c0761c777f7cdd88d78",
+    "internal/application/service/wiki_ingest_http_cancellation_test.go": "0dbe4ae832dbcec2b3135fdb691553010922eb4f",
+    "internal/application/service/wiki_lint.go": "32197a27e29c16104a44e9f993a46a9b0eab7c49",
+    "internal/application/service/wiki_lint_test.go": "20e076c4f208ca5cc45b3bc047cdb69d2a359d61",
+    "internal/application/service/wiki_page.go": "c169321baada08dccbd7d740c50aa72fdfcb4c0a",
+    "internal/application/service/wiki_rebuild_links_failure_test.go": "854de0cce960b0a941d15871565a0c28cbd0369e",
+    "internal/handler/wiki_page.go": "b0a36538672a2e1912d6036617c03278897ab166",
+    "internal/handler/wiki_rebuild_links_failure_test.go": "7bbda23aca83fab0da3cdd5d247626c1c7453fca",
+    "internal/types/interfaces/wiki_page.go": "84a5f4f734e049a3bbfcbf14499d0b723f3e9585",
+    "internal/application/service/datasource_feishu_integrity_test.go": "4a2f88e3ed40066b53dd0ae29961d1d76f4009d9",
+    "internal/application/service/datasource_service.go": "15eaeedd05f9790020be96a1eb27c884c7a75465",
+    "internal/application/service/knowledge_create.go": "e1f164ab8f81f1080a3299a29cb5cb760f83aba5",
+    "internal/datasource/connector/feishu/core/blocks.go": "46c4f5099e644ef04cdf9f4541432008b139ecf3",
+    "internal/datasource/connector/feishu/core/blocks_test.go": "4d22d10c94c19f115357cb2289d944c737b5b02a",
+    "internal/datasource/connector/feishu/core/client.go": "705263862f11bd13cf667e849fd15f256908cd3f",
+    "internal/datasource/connector/feishu/core/client_retry_test.go": "54b2aae5bc52d9dd3974c180aaa79ba77353ed2e",
+    "internal/datasource/connector/feishu/core/client_security_test.go": "22eb29bd11c110a9c65da5ec3460b0f012e9e3b2",
+    "internal/datasource/connector/feishu/core/markdown.go": "f14ee8467fd4f332b2cd4de6b36efa4befa04987",
+    "internal/datasource/connector/feishu/core/markdown_test.go": "4fe818c8f35f7623eb1922409829bf3f165351ef",
+    "internal/datasource/connector/ima/client.go": "df12021754ff626b250e82c5c473b6964b3519d0",
+    "internal/datasource/connector/ima/client_cap_test.go": "a30dad2a2559ca5d7afaf491ecb804f312c5c3ec",
+    "internal/datasource/connector/notion/client.go": "8145380d12642fcc5c109db193dd0a9c0cccd4ca",
+    "internal/datasource/connector/notion/client_test.go": "c3193432fe0119d3ec1a8e66372952eabf71eac1",
+    "internal/datasource/connector/notion/connector.go": "38f74de6710e8f0a20b4aeaaa96eeb45364dc4c9",
+    "internal/datasource/connector/yuque/client.go": "d4aa073c4afc976b093b9e38ba049f1fe96e2f4a",
+    "internal/datasource/connector/yuque/client_test.go": "502a2cf3e7823c9387be5acb2cd989155b986c03"
+  },
+  "required": {
+    "internal/datasource/connector/feishu/core": [
+      "TestA4BitableFieldPaginationIntegrity",
+      "TestA4FeishuJSONBoundaryAndBinaryBoundUnchanged",
+      "TestA4FeishuJSONCapClosesBodyAndNeverRetries",
+      "TestA4FeishuLoopbackChunkedOverflowAndCancellation",
+      "TestA4FeishuProviderMessagesAreNotPublicOrLogged",
+      "TestA4FieldFailurePropagatesThroughHTTPFetchAndSyncEngine",
+      "TestA4MarkdownIntegrityFailuresDoNotEmitPartialContent",
+      "TestApplicationRateLimitExhaustsSingleRetryBudget",
+      "TestBitableCellToString",
+      "TestBitableFieldCell_DateColumn",
+      "TestBlocksToMarkdown_AttachmentInsideTableCellStillCollected",
+      "TestBlocksToMarkdown_BitableInlinedAndDegrades",
+      "TestBlocksToMarkdown_BlankDocRendersEmpty",
+      "TestBlocksToMarkdown_CalloutContainerNoOp",
+      "TestBlocksToMarkdown_EmbeddedSheetAndFile",
+      "TestBlocksToMarkdown_NativeTableFromCellChildren",
+      "TestBlocksToMarkdown_SheetPermissionDegrades",
+      "TestBlocksToMarkdown_SheetTruncatedNote",
+      "TestBlocksToMarkdown_TextConstructs",
+      "TestBlocksToMarkdown_TodoAndCallout",
+      "TestBlocksToMarkdown_UnrenderableTablePreservesCellText",
+      "TestConcurrentTokenRefreshSingleflight",
+      "TestDateFormatterHasTime",
+      "TestDoRequest_429ExhaustsRetries",
+      "TestDoRequest_4xxNotRetried",
+      "TestDoRequest_5xxRetriesToConfiguredLimit",
+      "TestDoRequest_RetriesOn429ThenSucceeds",
+      "TestDownloadRawBytes_4xxNotRetried",
+      "TestDownloadRawBytes_RetriesOn429ThenSucceeds",
+      "TestGetTenantAccessTokenDoesNotLogCredentials",
+      "TestListDocumentBlocks_EmptyPageTerminates",
+      "TestListDocumentBlocks_Paginates",
+      "TestMarkdownTable_RaggedRowClampedToHeader",
+      "TestMarkdownTable_ZeroColumnRendersNothing",
+      "TestNoRetryOnAuthError",
+      "TestNoRetryOnPermissionError",
+      "TestParseRetryAfter",
+      "TestReadBitableRecords_DateColumnUsesFormatterAndTimezone",
+      "TestReadBitableRecords_EmptyFieldsPageTerminates",
+      "TestReadBitableRecords_EmptyRecordPageTerminates",
+      "TestReadBitableRecords_Exactly500NotTruncated",
+      "TestReadBitableRecords_PaginatesAndTruncatesRecords",
+      "TestReadBitableRecords_PaginatesFieldsAtMax100",
+      "TestReadBitableRecords_SplitsTokenAndBuildsTable",
+      "TestReadSheetRange_SplitsTokenAndReadsValues",
+      "TestReadSheetRange_TruncatesLargeTable",
+      "TestResolveLocation",
+      "TestRetryCancellationReturnsContextCanceled",
+      "TestRetryDeadlineReturnsDeadlineExceeded",
+      "TestRetryOnApplicationRateLimit",
+      "TestRetryOnApplicationRateLimitOnceThenSuccess",
+      "TestRetryOnTransientServerError",
+      "TestRetryOnTransientTransportError",
+      "TestSharedCooldown",
+      "TestSuccessfulApplicationResponseDoesNotBackOff",
+      "TestUnknownApplicationErrorIsNotRetried"
+    ],
+    "internal/agent": [
+      "TestToolChildGoroutinePanicDegradesToFailedResult",
+      "TestToolParentPanicIsFailedAndRedacted"
+    ],
+    "internal/types": [],
+    "internal/application/access": [],
+    "internal/datasource/connector/notion": [
+      "TestA4JSONCapHTTPAndSafeProviderErrors",
+      "TestA4JSONCapHTTPAndSafeProviderErrors/auth",
+      "TestA4JSONCapHTTPAndSafeProviderErrors/auth-cap",
+      "TestA4JSONCapHTTPAndSafeProviderErrors/chunked",
+      "TestA4JSONCapHTTPAndSafeProviderErrors/known",
+      "TestA4JSONCapReader",
+      "TestA4NotionCanceledPageRetainsCheckpoint",
+      "TestA4NotionCanceledPageRetainsCheckpoint/cancel",
+      "TestA4NotionCanceledPageRetainsCheckpoint/deadline",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound/metadata",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound/metadata/401",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound/metadata/403",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound/metadata/404",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound/metadata/429",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound/metadata/500",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound/metadata/cancel",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound/metadata/cap",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound/metadata/deadline",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound/metadata/interrupted",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound/metadata/success",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound/query",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound/query/401",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound/query/403",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound/query/404",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound/query/429",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound/query/500",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound/query/cancel",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound/query/cap",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound/query/deadline",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound/query/interrupted",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound/query/multipage",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound/query/pagination-interrupted",
+      "TestA4NotionDatabaseFallbackOnlyOnNotFound/query/success",
+      "TestA4NotionIncompleteFetchRetainsCursorAndRetries",
+      "TestA4NotionIncompleteFetchRetainsCursorAndRetries/child-page",
+      "TestA4NotionIncompleteFetchRetainsCursorAndRetries/database",
+      "TestA4NotionIncompleteFetchRetainsCursorAndRetries/database-pagination",
+      "TestA4NotionIncompleteFetchRetainsCursorAndRetries/page",
+      "TestA4NotionIncompleteFetchRetainsCursorAndRetries/record",
+      "TestA4NotionNestedBlockFailureMustNotAcknowledgePage",
+      "TestA4NotionNestedIntegrityFailureAndExplicitRetry",
+      "TestA4NotionNestedIntegrityFailureAndExplicitRetry/403",
+      "TestA4NotionNestedIntegrityFailureAndExplicitRetry/404",
+      "TestA4NotionNestedIntegrityFailureAndExplicitRetry/cap",
+      "TestA4NotionNestedIntegrityFailureAndExplicitRetry/deep",
+      "TestA4NotionOversizedPageMustNotAdvanceCursor",
+      "TestClientGetBlockChildrenAll",
+      "TestClientGetPage",
+      "TestClientPing",
+      "TestClientPing_InvalidToken",
+      "TestClientQueryDatabaseAll",
+      "TestClientSearchPages",
+      "TestDownloadFile_RejectsLoopbackURL"
+    ],
+    "internal/mcp": [
+      "TestBuiltinOAuthTenantConnectionIsolation",
+      "TestBuiltinOAuthWireScope",
+      "TestMCPClientDisconnectsWhenTheSessionIsGone",
+      "TestMCPHTTPAuthErrorsAreNotRetried",
+      "TestMCPManagerReconnectsWithoutReplayingToolCall",
+      "TestMCPSessionErrorClassification",
+      "TestMCPStateless404DoesNotResetConnection",
+      "TestManagerRealWaiterDeadlineDoesNotCancelInitialization",
+      "TestOAuthAuthorizationFailClosedStateAndRecovery",
+      "TestOAuthAuthorizationFailClosedStateAndRecovery/invalid-key",
+      "TestOAuthAuthorizationFailClosedStateAndRecovery/missing-key",
+      "TestOAuthAuthorizationFailClosedStateAndRecovery/public",
+      "TestOAuthAuthorizationFailClosedStateAndRecovery/sql-error",
+      "TestOAuthCallDoesNotRetryMoreThanOnce",
+      "TestOAuthCallRefreshesAndRetriesResource401Once",
+      "TestOAuthCallbackInvalidatesOnlyAuthenticatedStateScope",
+      "TestOAuthDiscoveryKeepsRedirectPolicyAndExistingPublicClient",
+      "TestOAuthDiscoveryKeepsRedirectPolicyAndExistingPublicClient/cross-origin",
+      "TestOAuthDiscoveryKeepsRedirectPolicyAndExistingPublicClient/same-origin",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/cancel",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/deadline",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/empty",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/empty-object",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/http-400",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/http-401",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/http-403",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/http-500",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/interrupted",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/malformed",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/missing-authorization",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/missing-registration",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/missing-token",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/null",
+      "TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects/unsafe-endpoint",
+      "TestOAuthDiscoveryUsesConsumerCacheAndGuardsRebuiltHandlers",
+      "TestOAuthMaliciousProviderErrorsAndLogsAreRedacted",
+      "TestOAuthMaliciousProviderErrorsAndLogsAreRedacted/discovery",
+      "TestOAuthMaliciousProviderErrorsAndLogsAreRedacted/exchange",
+      "TestOAuthMaliciousProviderErrorsAndLogsAreRedacted/registration",
+      "TestOAuthManagerClientStorageFailureIsNotAuthorizationSuccess",
+      "TestOAuthManagerKeepsTheRegisteredClientSecret",
+      "TestOAuthManagerKeepsTheRegisteredClientSecret/confidential",
+      "TestOAuthManagerKeepsTheRegisteredClientSecret/public",
+      "TestOAuthRefreshBadDiscoveryPreservesToken",
+      "TestOAuthRefreshRedactionPreservesClassification",
+      "TestOAuthRuntimeDeletesPermanentlyInvalidRefreshToken",
+      "TestOAuthRuntimePreservesTokenOnTemporaryRefreshFailure",
+      "TestOAuthRuntimeRefreshesExpiredToken",
+      "TestOAuthRuntimeSerializesRotatingRefreshToken",
+      "TestOAuthTokenStoreErrorsAreSafeAndScoped",
+      "TestOAuthTokenStoreErrorsAreSafeAndScoped/cancel-read",
+      "TestOAuthTokenStoreErrorsAreSafeAndScoped/cancel-write",
+      "TestOAuthTokenStoreErrorsAreSafeAndScoped/managed-read",
+      "TestOAuthTokenStoreErrorsAreSafeAndScoped/read",
+      "TestOAuthTokenStoreErrorsAreSafeAndScoped/write"
+    ],
+    "internal/middleware": [
+      "TestMCPEndpointDeleteAfterCommittedRotation",
+      "TestMCPEndpointHTTPConditionalConfigInterleavings",
+      "TestMCPEndpointHTTPConditionalConfigInterleavings/config",
+      "TestMCPEndpointHTTPConditionalConfigInterleavings/delete",
+      "TestMCPEndpointHTTPConditionalConfigInterleavings/disable",
+      "TestMCPEndpointHTTPConditionalConfigInterleavings/rotate",
+      "TestMCPEndpointHTTPConditionalConfigInterleavings/scope",
+      "TestMCPEndpointHTTPConditionalConfigInterleavings/tools",
+      "TestMCPEndpointHTTPStorageErrorDoesNotPublishToken",
+      "TestMCPEndpointHTTPZeroValuesAndToolsPolicy",
+      "TestMCPEndpointLifecycleHTTPCharacterization/admin-revokes",
+      "TestMCPEndpointLifecycleHTTPCharacterization/admin-rotates",
+      "TestMCPEndpointLifecycleHTTPCharacterization/creator-demoted",
+      "TestMCPEndpointLifecycleHTTPCharacterization/creator-disabled",
+      "TestMCPEndpointLifecycleHTTPCharacterization/creator-removed",
+      "TestMCPEndpointLifecycleHTTPCharacterization/cross-tenant",
+      "TestMCPEndpointLifecycleHTTPCharacterization/share-revoked",
+      "TestMCPEndpointRotationConditionalInterleavings",
+      "TestMCPEndpointRotationConditionalInterleavings/config",
+      "TestMCPEndpointRotationConditionalInterleavings/delete",
+      "TestMCPEndpointRotationConditionalInterleavings/rotate",
+      "TestMCPEndpointStaleConfigWriteCannotRestoreRotatedKey",
+      "TestMCPEndpointStaleWriteCannotResurrectDeletedEndpoint",
+      "TestOAuthProviderErrorQueryRedaction"
+    ],
+    "internal/application/service": [
+      "TestA4FeishuIntegrityRealSQLiteService",
+      "TestMCPEndpointCreatorDowngradeDoesNotRevokeMachineToken",
+      "TestMCPEndpointSharedSaveRevalidation",
+      "TestMCPEndpointSharedSaveRevocationInterleavings",
+      "TestMCPEndpointSharedSaveRevocationInterleavings/after-check-before-commit",
+      "TestMCPEndpointSharedSaveRevocationInterleavings/before-check",
+      "TestMCPEndpointSharedSaveRevocationInterleavings/during-check",
+      "TestRebuildLinksCancellationPreservesClassification",
+      "TestRebuildLinksLookupFailureIsSafe",
+      "TestRebuildLinksReportsPartialWriteFailure",
+      "TestRebuildLinksReportsTotalWriteFailure",
+      "TestRebuildLinksSafeLogsAndIdempotentRetry",
+      "TestRebuildLinksSucceedsWhenEveryPageIsWritten",
+      "TestWikiHTTPModelCancellationAndRecovery",
+      "TestWikiIngestRetainsInterruptedLookupAndRecovers",
+      "TestWikiInterruptedLookupRecoveryStress",
+      "TestWikiKnowledgeTombstoneSkipsLookup",
+      "TestWikiLintAutoFixRealHTTPNormalSuccess",
+      "TestWikiLintAutoFixRealHTTPPartialFailure",
+      "TestWikiLintAutoFixRealSQLPartialFailure",
+      "TestWikiLintIncompleteErrorPreservesCancellationWithoutExposingCause",
+      "TestWikiLiveUpdatesKeepDeletionAndRetractionSemantics",
+      "TestWikiLiveUpdatesRejectPartialLookupResults",
+      "TestWikiLookupFailureDoesNotBlockHealthySibling",
+      "TestWikiMapClosesSpanAfterLookupCancellation",
+      "TestWikiMapPreservesLookupFailures",
+      "TestWikiPersistentLookupFailureExhaustsRetryBudget",
+      "TestWikiRealSQLLookupFaultPreservesPendingAndRetry",
+      "TestWikiReducePreservesLookupFailures",
+      "TestWikiUnknownAndNetworkErrorsAreSafeAndRetryable"
+    ],
+    "internal/handler": [
+      "TestOAuthAPIAndAccessLogsDoNotLeakProviderOrSQL",
+      "TestOAuthAPIAndAccessLogsDoNotLeakProviderOrSQL/callback",
+      "TestOAuthAPIAndAccessLogsDoNotLeakProviderOrSQL/provider",
+      "TestOAuthAPIAndAccessLogsDoNotLeakProviderOrSQL/revoke",
+      "TestOAuthAPIAndAccessLogsDoNotLeakProviderOrSQL/sql",
+      "TestOAuthAPIAndAccessLogsDoNotLeakProviderOrSQL/status",
+      "TestOAuthRevokeSuccessClearsOnlyAuthenticatedScope",
+      "TestRebuildLinksDoesNotWriteAnotherTenantKnowledgeBase",
+      "TestRebuildLinksHandlerCancelledContextIsNotSuccess",
+      "TestRebuildLinksHandlerReportsPartialWriteFailure",
+      "TestRebuildLinksHandlerReportsSuccessWhenEveryPageIsWritten",
+      "TestRebuildLinksHandlerSQLFailureRetainsWritesAndRetry",
+      "TestRebuildLinksHandlerTotalFailureAndLookupFailureAreSafe"
+    ],
+    "internal/datasource/connector/ima": [
+      "TestA4JSONCapHTTPAndSafeProviderErrors",
+      "TestA4JSONCapReader"
+    ],
+    "internal/agent/tools": [
+      "TestGoRecoveredContainsPanicAndRunsDefers",
+      "TestMCPPreloadFailureMarkingKeepsReadySnapshots",
+      "TestMCPPreloadWorkerPanicIsContained",
+      "TestRecoverGoroutineReportsPanicToCaller",
+      "TestRecoveredConcurrentCancellationRunsCleanup",
+      "TestRecoveredPanicRedactsValueLabelAndStack"
+    ],
+    "internal/mcpserver": [
+      "TestA23MCPEndpointManagementHTTPPermissions",
+      "TestA23SharedRevocationAfterCheckBeforeCommitMCPHTTP",
+      "TestMCPEndpointLiveSharedScopeRevalidation"
+    ],
+    "internal/application/repository": [
+      "TestMCPEndpointExplicitTransactionRollback",
+      "TestMCPEndpointMissingAndForeignConditionalWrites",
+      "TestMCPEndpointPostgresConditionalWriteFailures",
+      "TestMCPEndpointPostgresConditionalWriteFailures/config/commit",
+      "TestMCPEndpointPostgresConditionalWriteFailures/config/execute",
+      "TestMCPEndpointPostgresConditionalWriteFailures/config/zero-rows",
+      "TestMCPEndpointPostgresConditionalWriteFailures/delete/commit",
+      "TestMCPEndpointPostgresConditionalWriteFailures/delete/execute",
+      "TestMCPEndpointPostgresConditionalWriteFailures/delete/zero-rows",
+      "TestMCPEndpointPostgresConditionalWriteFailures/rotate/commit",
+      "TestMCPEndpointPostgresConditionalWriteFailures/rotate/execute",
+      "TestMCPEndpointPostgresConditionalWriteFailures/rotate/zero-rows",
+      "TestMCPEndpointSQLWhitelistCASAndTouch",
+      "TestMCPOAuthClientFailClosedSQL",
+      "TestMCPOAuthClientFailClosedSQL/entropy",
+      "TestMCPOAuthClientFailClosedSQL/forged-prefix",
+      "TestMCPOAuthClientFailClosedSQL/invalid",
+      "TestMCPOAuthClientFailClosedSQL/missing",
+      "TestMCPOAuthClientFailClosedSQL/public",
+      "TestMCPOAuthClientFailClosedSQL/valid",
+      "TestMCPOAuthRepositorySQLLogsAreRedacted"
+    ],
+    "internal/datasource/connector/yuque": [
+      "TestA4JSONCapHTTPAndSafeProviderErrors",
+      "TestA4JSONCapReader",
+      "TestClient_429ExhaustsRetries",
+      "TestClient_429WithRetryAfter_Retries",
+      "TestClient_4xxNotRetried",
+      "TestClient_5xxRetriesOnce",
+      "TestClient_GetCurrentUser",
+      "TestClient_GetDocDetail",
+      "TestClient_ListBookDocs_Pagination",
+      "TestClient_ListGroupRepos",
+      "TestClient_ListUserGroups",
+      "TestClient_ListUserRepos_FiltersType",
+      "TestClient_Ping_401",
+      "TestClient_Ping_403WrapsInvalidCredentials",
+      "TestClient_Ping_SendsAuthHeader",
+      "TestClient_Ping_Success",
+      "TestClient_TokenNeverLoggedInFull",
+      "TestParseRetryAfter",
+      "TestRedactToken"
+    ]
+  },
+  "candidate_required": {
+    "internal/agent/compaction": [
+      "TestA5HTTPAndSSEErrorsAreSafeAtEveryBoundary",
+      "TestA5HTTPDegradedCheckpointRetainsHistoryAndTail",
+      "TestA5HTTPIncompleteClassificationAndBudget",
+      "TestA5HTTPProviderErrorMustNotLeakCanary",
+      "TestA5HTTPRealCancellationStopsRetries",
+      "TestA5ProviderErrorMappingDiscardsUnsafeCauses",
+      "TestA5SummaryFinishReasonCompatibility",
+      "TestCompactionHTTPStreamCheckpoint"
+    ],
+    "internal/agent": [
+      "TestA5CheckpointSinkErrorMustNotLeakCanaries",
+      "TestA5HTTPCompactionActualCheckpointSink",
+      "TestB2AgentRealContextAndProviderTimeout",
+      "TestB2AgentRealContextAndProviderTimeout/parent_cancel",
+      "TestB2AgentRealContextAndProviderTimeout/parent_deadline",
+      "TestB2AgentRealContextAndProviderTimeout/provider_deadline",
+      "TestB2AgentRealGoogleSafetyDoesNotRetry",
+      "TestB2AgentRealHTTPAndSSERetryControl",
+      "TestB2AgentRealRetryAfterWaitAndCap",
+      "TestB2AgentRealRetryAfterWaitAndCap/capped=false",
+      "TestB2AgentRealRetryAfterWaitAndCap/capped=true",
+      "TestB2AgentRealTemporaryBudgetAndExecutedTool",
+      "TestB2AgentRealTemporaryBudgetAndExecutedTool/exhaust=false",
+      "TestB2AgentRealTemporaryBudgetAndExecutedTool/exhaust=true",
+      "TestB2AgentTrustedOverflowCompactsOnlyOnce",
+      "TestStreamLLMToEventBus_MessageOnlyDeadlineIsUnknown"
+    ],
+    "internal/models/api/googlegenai": [
+      "TestChatStreamErrorPayload",
+      "TestChatStreamSurfacesPromptFeedbackBlock"
+    ],
+    "internal/models/api/openaicompletions": [
+      "TestChatStream_MalformedToolCallFailsTheStream",
+      "TestChatStream_UndecodableChunkFailsTheStream"
+    ],
+    "internal/models/api/openairesponses": [
+      "TestChatStreamFailedEvent",
+      "TestChatStreamMalformedOutputItemFailsTheStream",
+      "TestChatStreamUndecodableEventFailsTheStream"
+    ],
+    "internal/models/api": [
+      "TestA5AssemblerEOFAndCompleteProtocol",
+      "TestA5AssemblerFailAbandonedConsumerTerminates",
+      "TestA5AssemblerFailSafeProtocol",
+      "TestB2NormalizeStreamFailure",
+      "TestB2ProviderStructuredMapping"
+    ],
+    "internal/types": [
+      "TestB2StreamFailureHasNoPublicCause"
+    ]
+  },
+  "canaries": [
+    "A5_ASSEMBLER_BEARER_CANARY",
+    "A5_ASSEMBLER_PROVIDER_CANARY",
+    "A5_ASSEMBLER_SQL_CANARY",
+    "A5_ASSEMBLER_TOKEN_CANARY",
+    "A5_R2_BEARER_CANARY",
+    "A5_R2_PROVIDER_CANARY",
+    "A5_R2_SQL_CANARY",
+    "A5_R2_TOKEN_CANARY",
+    "A5_R2_UNWRAP_CANARY",
+    "A5_SYNTHETIC_BEARER_CANARY",
+    "A5_SYNTHETIC_HTTP_PROVIDER_CANARY",
+    "A5_SYNTHETIC_PROVIDER_CANARY",
+    "A5_SYNTHETIC_SQL_CANARY",
+    "A5_SYNTHETIC_TOKEN_CANARY",
+    "Authorization: Bearer SYNTHETIC",
+    "B2_MESSAGE_CANARY",
+    "B2_OVERFLOW_CANARY",
+    "B2_PROVIDER_CANARY",
+    "B2_SQL_CANARY",
+    "B2_TOKEN_CANARY",
+    "SECRET-CANARY",
+    "SQL-CANARY",
+    "SQL_CANARY",
+    "SYNTHETIC_LABEL_SECRET",
+    "SYNTHETIC_TOKEN_SQL_CANARY",
+    "TOKEN-CANARY",
+    "TOKEN_CANARY",
+    "TOKEN_SQL_BEARER_CANARY",
+    "WIKI_LINT_SQL_TOKEN_CANARY",
+    "WIKI_PROVIDER_TOKEN_CANARY",
+    "WIKI_SQL_SECRET_CANARY",
+    "a23-isolated-password",
+    "a23-isolated-signing-key-for-tests-only",
+    "other-principal-token",
+    "other-secret",
+    "registered-secret",
+    "synthetic-access",
+    "synthetic-access-token",
+    "synthetic-client-secret",
+    "synthetic-foreign-only",
+    "synthetic-parent-secret-canary",
+    "synthetic-password",
+    "synthetic-refresh",
+    "synthetic-refresh-token",
+    "synthetic-revoke-a",
+    "synthetic-revoke-b",
+    "synthetic-revoke-other",
+    "synthetic-secret",
+    "tenant-a-token",
+    "tenant-b-token"
+  ],
+  "overlay": [
+    {
+      "path": ".github/qa/a5-b2/personal_mcp_bridge_test.go",
+      "blob": "9a5f9d020544601e60bae775edd6fb7564f7b2da",
+      "sha256": "5b67017343b11e58031042e0d8559bd20193f1425991912fc730eb085619d00d"
+    },
+    {
+      "path": ".github/qa/a5-b2/test_personal_mcp_lifecycle_http.py",
+      "blob": "d7e7e1f694fa316c23fcee0a535200622a88ba88",
+      "sha256": "d92b5742a8d77a64a72545fed33c14b87e344a9b064a9be0ac5b087917dee8b9"
+    },
+    {
+      "path": ".github/qa/a5-b2/notion_nested_http_test.go",
+      "blob": "f250fcc33f3dca21356d95c3b6d59d5b2e0957d9",
+      "sha256": "1f8900132633017b4e9b8c828c0f4677d8641b77e7f3957426fcd63a2b394032"
+    }
+  ],
+  "note": "R2: frozen original 14 files; SQL test revision plus two minimal log lines. 17 unique sources. No F1 products or migrations.",
+  "productTree": "9904db646d15518b093042a1b83053de4d2bc78c",
+  "not_present_baseline": {
+    "internal/agent/compaction": [
+      "TestA5HTTPAndSSEErrorsAreSafeAtEveryBoundary",
+      "TestA5HTTPDegradedCheckpointRetainsHistoryAndTail",
+      "TestA5HTTPIncompleteClassificationAndBudget",
+      "TestA5HTTPProviderErrorMustNotLeakCanary",
+      "TestA5HTTPRealCancellationStopsRetries",
+      "TestA5ProviderErrorMappingDiscardsUnsafeCauses",
+      "TestA5SummaryFinishReasonCompatibility",
+      "TestCompactionHTTPStreamCheckpoint"
+    ],
+    "internal/agent": [
+      "TestA5CheckpointSinkErrorMustNotLeakCanaries",
+      "TestA5HTTPCompactionActualCheckpointSink",
+      "TestB2AgentRealContextAndProviderTimeout",
+      "TestB2AgentRealGoogleSafetyDoesNotRetry",
+      "TestB2AgentRealHTTPAndSSERetryControl",
+      "TestB2AgentRealRetryAfterWaitAndCap",
+      "TestB2AgentRealTemporaryBudgetAndExecutedTool",
+      "TestB2AgentTrustedOverflowCompactsOnlyOnce",
+      "TestStreamLLMToEventBus_MessageOnlyDeadlineIsUnknown"
+    ],
+    "internal/models/api/googlegenai": [],
+    "internal/models/api/openaicompletions": [],
+    "internal/models/api/openairesponses": [],
+    "internal/models/api": [
+      "TestA5AssemblerEOFAndCompleteProtocol",
+      "TestA5AssemblerFailAbandonedConsumerTerminates",
+      "TestA5AssemblerFailSafeProtocol",
+      "TestB2NormalizeStreamFailure",
+      "TestB2ProviderStructuredMapping"
+    ],
+    "internal/types": [
+      "TestB2StreamFailureHasNoPublicCause"
+    ]
+  },
+  "approvedProtectedRevision": {
+    "internal/agent/think.go": "257d70c2793b1c4078ae98617da729f81831dd02"
+  },
+  "ci_files": [
+    {
+      "path": ".github/qa/a5-b2/notion_nested_http_test.go",
+      "sha256": "1f8900132633017b4e9b8c828c0f4677d8641b77e7f3957426fcd63a2b394032",
+      "blob": "f250fcc33f3dca21356d95c3b6d59d5b2e0957d9"
+    },
+    {
+      "path": ".github/qa/a5-b2/personal_mcp_bridge_test.go",
+      "sha256": "5b67017343b11e58031042e0d8559bd20193f1425991912fc730eb085619d00d",
+      "blob": "9a5f9d020544601e60bae775edd6fb7564f7b2da"
+    },
+    {
+      "path": ".github/qa/a5-b2/python-linux.lock",
+      "sha256": "9b23a75cb127dc68a45b5f973e311ec1b577df98484446da08c925002c15cf77",
+      "blob": "1076290889fba27bcfa0a0c9e6e9f90fb1a5e98c"
+    },
+    {
+      "path": ".github/qa/a5-b2/test_personal_mcp_lifecycle_http.py",
+      "sha256": "d92b5742a8d77a64a72545fed33c14b87e344a9b064a9be0ac5b087917dee8b9",
+      "blob": "d7e7e1f694fa316c23fcee0a535200622a88ba88"
+    },
+    {
+      "path": ".github/scripts/knowhub25_a5_b2_ci.py",
+      "sha256": "422f6c04f108046974630dedeec69dafa2e49b7921f360f3ea3a664dccaaf9d4",
+      "blob": "f3e65a333d4727278043fc31a29b93addf1a361d"
+    },
+    {
+      "path": ".github/workflows/knowhub25-a5-b2-linux.yml",
+      "sha256": "1ea1fc2fc70ca6957ee68c57635dadb3e220c01ce86c78e256efbefa019aff81",
+      "blob": "d4fc8ad50ef55f46654d947b6347dd3e3bc112d6"
+    }
+  ],
+  "approved_skips": {
+    "github.com/Tencent/WeKnora/internal/agent/tools::TestSkillPythonPackageRecoveryInstallsWithoutPip/uv": {
+      "reasonText": "skill_runtime_guard_test.go:53: uv is required",
+      "sourceRun": "38056265554",
+      "policy": "Approved historical non-necessary environment skip; no production PASS"
+    },
+    "github.com/Tencent/WeKnora/internal/application/repository::TestListImageAssets_DedupsAndExpandsArrays/postgres": {
+      "reasonText": "chunk_image_assets_test.go:37: set WEKNORA_REPOSITORY_TEST_POSTGRES_DSN to run the PostgreSQL gallery query",
+      "sourceRun": "38056265554",
+      "policy": "Approved historical non-necessary environment skip; no production PASS"
+    },
+    "github.com/Tencent/WeKnora/internal/application/repository::TestListImageAssets_SkipsForeignDeletedAndMalformedRows/postgres": {
+      "reasonText": "chunk_image_assets_test.go:37: set WEKNORA_REPOSITORY_TEST_POSTGRES_DSN to run the PostgreSQL gallery query",
+      "sourceRun": "38056265554",
+      "policy": "Approved historical non-necessary environment skip; no production PASS"
+    },
+    "github.com/Tencent/WeKnora/internal/application/repository::TestListImageAssets_PagesStablyThroughTies/postgres": {
+      "reasonText": "chunk_image_assets_test.go:37: set WEKNORA_REPOSITORY_TEST_POSTGRES_DSN to run the PostgreSQL gallery query",
+      "sourceRun": "38056265554",
+      "policy": "Approved historical non-necessary environment skip; no production PASS"
+    },
+    "github.com/Tencent/WeKnora/internal/application/repository::TestListImageAssets_KeywordSearch/postgres": {
+      "reasonText": "chunk_image_assets_test.go:37: set WEKNORA_REPOSITORY_TEST_POSTGRES_DSN to run the PostgreSQL gallery query",
+      "sourceRun": "38056265554",
+      "policy": "Approved historical non-necessary environment skip; no production PASS"
+    },
+    "github.com/Tencent/WeKnora/internal/application/repository::TestListImageAssets_AttributeFiltersAndRules/postgres": {
+      "reasonText": "chunk_image_assets_test.go:37: set WEKNORA_REPOSITORY_TEST_POSTGRES_DSN to run the PostgreSQL gallery query",
+      "sourceRun": "38056265554",
+      "policy": "Approved historical non-necessary environment skip; no production PASS"
+    },
+    "github.com/Tencent/WeKnora/internal/application/repository::TestListImageAssets_SortsByAttribute/postgres": {
+      "reasonText": "chunk_image_assets_test.go:37: set WEKNORA_REPOSITORY_TEST_POSTGRES_DSN to run the PostgreSQL gallery query",
+      "sourceRun": "38056265554",
+      "policy": "Approved historical non-necessary environment skip; no production PASS"
+    },
+    "github.com/Tencent/WeKnora/internal/application/repository::TestListImageAssets_TriggersFollowChunkWrites/postgres": {
+      "reasonText": "chunk_image_assets_test.go:37: set WEKNORA_REPOSITORY_TEST_POSTGRES_DSN to run the PostgreSQL gallery query",
+      "sourceRun": "38056265554",
+      "policy": "Approved historical non-necessary environment skip; no production PASS"
+    },
+    "github.com/Tencent/WeKnora/internal/application/repository::TestListImageAssets_MigrationBackfillsExistingChunks/postgres": {
+      "reasonText": "chunk_image_assets_test.go:37: set WEKNORA_REPOSITORY_TEST_POSTGRES_DSN to run the PostgreSQL gallery query",
+      "sourceRun": "38056265554",
+      "policy": "Approved historical non-necessary environment skip; no production PASS"
+    },
+    "github.com/Tencent/WeKnora/internal/application/repository::TestSyncExecutionPostgres": {
+      "reasonText": "datasource_execution_test.go:21: SYNC_EXECUTION_POSTGRES_DSN is not configured",
+      "sourceRun": "38056265554",
+      "policy": "Approved historical non-necessary environment skip; no production PASS"
+    },
+    "github.com/Tencent/WeKnora/internal/application/repository::TestUsageGovernancePostgresAggregation": {
+      "reasonText": "usage_analytics_test.go:22: USAGE_ANALYTICS_POSTGRES_DSN is not configured",
+      "sourceRun": "38056265554",
+      "policy": "Approved historical non-necessary environment skip; no production PASS"
+    },
+    "github.com/Tencent/WeKnora/internal/application/service::TestSyncServicePostgres": {
+      "reasonText": "datasource_execution_test.go:56: SYNC_EXECUTION_POSTGRES_DSN is not configured",
+      "sourceRun": "38056265554",
+      "policy": "Approved historical non-necessary environment skip; no production PASS"
+    },
+    "github.com/Tencent/WeKnora/internal/application/service::TestRealParserSegmentsAcceptance": {
+      "reasonText": "real_parser_segments_acceptance_test.go:22: WEKNORA_REAL_PARSER_OUTPUT_JSON is not set",
+      "sourceRun": "38056265554",
+      "policy": "Approved historical non-necessary environment skip; no production PASS"
+    },
+    "github.com/Tencent/WeKnora/internal/application/service::TestCreateStore_DifferentEndpointSameIndex_Allowed": {
+      "reasonText": "vectorstore_test.go:441: requires mockable TestConnection or repository-only test; track separately",
+      "sourceRun": "38056265554",
+      "policy": "Approved historical non-necessary environment skip; no production PASS"
+    }
+  },
+  "notionOverlayPolicy": "CANDIDATE_ONLY_ADDITIONAL_GATE; no Baseline overlay PASS is claimed",
+  "externalApprovalPolicy": "Seven-file inventory and manifest self-hash external; actual future Candidate SHA/full Tree approved separately before execution.",
+  "artifactPolicy": "Original immutable bytes scanned, all JSON/JSONL/LOG/TXT/XML, zero hits and complete evidence required; only verified copies publish. Failure publishes fixed status only.",
+  "unittestPolicy": "Runner-owned structured lifecycle, exact discovery/start/terminal/count consistency. Zero SKIP/FAIL/ERROR/expectedFailure/unexpectedSuccess. Human Ran/OK text never grants PASS. Root and real gateway use the same validation.",
+  "precommitPolicy": "Actual HEAD=Baseline, separate index, actual write-tree=external Tree, exact staged 23+7, no unstaged/ignored-untracked pollution; no caller clean override.",
+  "safe_diagnostics": {
+    "schemaVersion": 2,
+    "rootCausePolicy": "UNKNOWN_UNLESS_INDEPENDENTLY_PROVEN",
+    "rawUploadAuthority": false,
+    "publicPath": "diagnostics-reviewed/safe-summary.json",
+    "failureEnums": [
+      "AUDIT_FAILED",
+      "DEPENDENCY_FAILED",
+      "EVIDENCE_INCOMPLETE",
+      "GATEWAY_FAILED",
+      "GO_COMPILE_FAILED",
+      "GO_TEST_FAILED",
+      "HELPER_FAILED",
+      "IDENTITY_NOT_VERIFIED",
+      "PYTHON_PYTEST_FAILED",
+      "PYTHON_UNITTEST_FAILED",
+      "RACE_TEST_FAILED",
+      "RAW_SCAN_HIT",
+      "RAW_SCAN_NOT_VERIFIED",
+      "SHUFFLE_FAILED",
+      "SHUFFLE_NOT_EXECUTED",
+      "UNKNOWN_FAILURE"
+    ],
+    "rawScanEnums": [
+      "NOT_VERIFIED",
+      "CLEAR",
+      "SYNTHETIC_CANARY_DETECTED",
+      "SUSPECTED_CREDENTIAL_DETECTED",
+      "MIXED_HIT_DETECTED"
+    ],
+    "lastCompletedPhasePolicy": "Last fully completed orchestration stage, not proof that all tests in that stage passed."
+  },
+  "p1a_contract": {
+    "schemaVersion": 1,
+    "necessarySHA256": "c12e8822bab3231a8c94f3d00e2574a3f907e9475acea01258fc9c5e5d034b64",
+    "expectedMatrixRows": 98,
+    "overlayRequired": [
+      "TestA4CINestedHTTPFailure"
+    ],
+    "syntheticRuleIds": [
+      "SYNTHETIC_001",
+      "SYNTHETIC_002",
+      "SYNTHETIC_003",
+      "SYNTHETIC_004",
+      "SYNTHETIC_005",
+      "SYNTHETIC_006",
+      "SYNTHETIC_007",
+      "SYNTHETIC_008",
+      "SYNTHETIC_009",
+      "SYNTHETIC_010",
+      "SYNTHETIC_011",
+      "SYNTHETIC_012",
+      "SYNTHETIC_013",
+      "SYNTHETIC_014",
+      "SYNTHETIC_015",
+      "SYNTHETIC_016",
+      "SYNTHETIC_017",
+      "SYNTHETIC_018",
+      "SYNTHETIC_019",
+      "SYNTHETIC_020",
+      "SYNTHETIC_021",
+      "SYNTHETIC_022",
+      "SYNTHETIC_023",
+      "SYNTHETIC_024",
+      "SYNTHETIC_025",
+      "SYNTHETIC_026",
+      "SYNTHETIC_027",
+      "SYNTHETIC_028",
+      "SYNTHETIC_029",
+      "SYNTHETIC_030",
+      "SYNTHETIC_031",
+      "SYNTHETIC_032",
+      "SYNTHETIC_033",
+      "SYNTHETIC_034",
+      "SYNTHETIC_035",
+      "SYNTHETIC_036",
+      "SYNTHETIC_037",
+      "SYNTHETIC_038",
+      "SYNTHETIC_039",
+      "SYNTHETIC_040",
+      "SYNTHETIC_041",
+      "SYNTHETIC_042",
+      "SYNTHETIC_043",
+      "SYNTHETIC_044",
+      "SYNTHETIC_045",
+      "SYNTHETIC_046",
+      "SYNTHETIC_047",
+      "SYNTHETIC_048",
+      "SYNTHETIC_049",
+      "SYNTHETIC_050"
+    ],
+    "otherRuleIds": [
+      "BEARER_PATTERN",
+      "MCP_KEY_PATTERN",
+      "CREDENTIAL_ASSIGNMENT"
+    ],
+    "shuffleNotExecutedPolicy": "BLOCKED_PRECONDITION; never counted as actual shuffle FAIL",
+    "matrixSlots": [
+      {
+        "logicalId": "ROW_001",
+        "side": "baseline",
+        "key": "normal:internal/middleware"
+      },
+      {
+        "logicalId": "ROW_002",
+        "side": "baseline",
+        "key": "normal:internal/mcpserver"
+      },
+      {
+        "logicalId": "ROW_003",
+        "side": "baseline",
+        "key": "normal:internal/application/service"
+      },
+      {
+        "logicalId": "ROW_004",
+        "side": "baseline",
+        "key": "normal:internal/application/repository"
+      },
+      {
+        "logicalId": "ROW_005",
+        "side": "baseline",
+        "key": "normal:internal/application/access"
+      },
+      {
+        "logicalId": "ROW_006",
+        "side": "baseline",
+        "key": "normal:internal/types"
+      },
+      {
+        "logicalId": "ROW_007",
+        "side": "baseline",
+        "key": "normal:internal/handler"
+      },
+      {
+        "logicalId": "ROW_008",
+        "side": "baseline",
+        "key": "normal:internal/router"
+      },
+      {
+        "logicalId": "ROW_009",
+        "side": "baseline",
+        "key": "normal:internal/mcp"
+      },
+      {
+        "logicalId": "ROW_010",
+        "side": "baseline",
+        "key": "normal:internal/agent/tools"
+      },
+      {
+        "logicalId": "ROW_011",
+        "side": "baseline",
+        "key": "normal:internal/agent"
+      },
+      {
+        "logicalId": "ROW_012",
+        "side": "baseline",
+        "key": "normal:internal/datasource/connector/feishu/core"
+      },
+      {
+        "logicalId": "ROW_013",
+        "side": "baseline",
+        "key": "normal:internal/datasource/connector/feishu/wiki"
+      },
+      {
+        "logicalId": "ROW_014",
+        "side": "baseline",
+        "key": "normal:internal/datasource/connector/feishu/drive"
+      },
+      {
+        "logicalId": "ROW_015",
+        "side": "baseline",
+        "key": "normal:internal/datasource/connector/ima"
+      },
+      {
+        "logicalId": "ROW_016",
+        "side": "baseline",
+        "key": "normal:internal/datasource/connector/notion"
+      },
+      {
+        "logicalId": "ROW_017",
+        "side": "baseline",
+        "key": "normal:internal/datasource/connector/yuque"
+      },
+      {
+        "logicalId": "ROW_018",
+        "side": "baseline",
+        "key": "normal:internal/agent/compaction"
+      },
+      {
+        "logicalId": "ROW_019",
+        "side": "baseline",
+        "key": "normal:internal/models/api"
+      },
+      {
+        "logicalId": "ROW_020",
+        "side": "baseline",
+        "key": "normal:internal/models/api/openaicompletions"
+      },
+      {
+        "logicalId": "ROW_021",
+        "side": "baseline",
+        "key": "normal:internal/models/api/openairesponses"
+      },
+      {
+        "logicalId": "ROW_022",
+        "side": "baseline",
+        "key": "normal:internal/models/api/anthropicmessages"
+      },
+      {
+        "logicalId": "ROW_023",
+        "side": "baseline",
+        "key": "normal:internal/models/api/googlegenai"
+      },
+      {
+        "logicalId": "ROW_024",
+        "side": "baseline",
+        "key": "race:internal/mcp"
+      },
+      {
+        "logicalId": "ROW_025",
+        "side": "baseline",
+        "key": "race:internal/mcpserver"
+      },
+      {
+        "logicalId": "ROW_026",
+        "side": "baseline",
+        "key": "race:internal/middleware"
+      },
+      {
+        "logicalId": "ROW_027",
+        "side": "baseline",
+        "key": "race:internal/agent/tools"
+      },
+      {
+        "logicalId": "ROW_028",
+        "side": "baseline",
+        "key": "race:internal/agent"
+      },
+      {
+        "logicalId": "ROW_029",
+        "side": "baseline",
+        "key": "race:internal/application/repository"
+      },
+      {
+        "logicalId": "ROW_030",
+        "side": "baseline",
+        "key": "race:internal/application/service"
+      },
+      {
+        "logicalId": "ROW_031",
+        "side": "baseline",
+        "key": "race:internal/handler"
+      },
+      {
+        "logicalId": "ROW_032",
+        "side": "baseline",
+        "key": "race:internal/datasource/connector/feishu/core"
+      },
+      {
+        "logicalId": "ROW_033",
+        "side": "baseline",
+        "key": "race:internal/datasource/connector/feishu/wiki"
+      },
+      {
+        "logicalId": "ROW_034",
+        "side": "baseline",
+        "key": "race:internal/datasource/connector/feishu/drive"
+      },
+      {
+        "logicalId": "ROW_035",
+        "side": "baseline",
+        "key": "race:internal/datasource/connector/ima"
+      },
+      {
+        "logicalId": "ROW_036",
+        "side": "baseline",
+        "key": "race:internal/datasource/connector/notion"
+      },
+      {
+        "logicalId": "ROW_037",
+        "side": "baseline",
+        "key": "race:internal/datasource/connector/yuque"
+      },
+      {
+        "logicalId": "ROW_038",
+        "side": "baseline",
+        "key": "race:internal/agent/compaction"
+      },
+      {
+        "logicalId": "ROW_039",
+        "side": "baseline",
+        "key": "race:internal/models/api"
+      },
+      {
+        "logicalId": "ROW_040",
+        "side": "baseline",
+        "key": "race:internal/models/api/openaicompletions"
+      },
+      {
+        "logicalId": "ROW_041",
+        "side": "baseline",
+        "key": "race:internal/models/api/openairesponses"
+      },
+      {
+        "logicalId": "ROW_042",
+        "side": "baseline",
+        "key": "race:internal/models/api/anthropicmessages"
+      },
+      {
+        "logicalId": "ROW_043",
+        "side": "baseline",
+        "key": "race:internal/models/api/googlegenai"
+      },
+      {
+        "logicalId": "ROW_044",
+        "side": "baseline",
+        "key": "race:internal/types"
+      },
+      {
+        "logicalId": "ROW_045",
+        "side": "baseline",
+        "key": "diagnostic:agent-shuffle"
+      },
+      {
+        "logicalId": "ROW_046",
+        "side": "baseline",
+        "key": "python:unittest"
+      },
+      {
+        "logicalId": "ROW_047",
+        "side": "baseline",
+        "key": "python:pytest"
+      },
+      {
+        "logicalId": "ROW_048",
+        "side": "baseline",
+        "key": "python:real-gateway"
+      },
+      {
+        "logicalId": "ROW_049",
+        "side": "candidate",
+        "key": "normal:internal/middleware"
+      },
+      {
+        "logicalId": "ROW_050",
+        "side": "candidate",
+        "key": "normal:internal/mcpserver"
+      },
+      {
+        "logicalId": "ROW_051",
+        "side": "candidate",
+        "key": "normal:internal/application/service"
+      },
+      {
+        "logicalId": "ROW_052",
+        "side": "candidate",
+        "key": "normal:internal/application/repository"
+      },
+      {
+        "logicalId": "ROW_053",
+        "side": "candidate",
+        "key": "normal:internal/application/access"
+      },
+      {
+        "logicalId": "ROW_054",
+        "side": "candidate",
+        "key": "normal:internal/types"
+      },
+      {
+        "logicalId": "ROW_055",
+        "side": "candidate",
+        "key": "normal:internal/handler"
+      },
+      {
+        "logicalId": "ROW_056",
+        "side": "candidate",
+        "key": "normal:internal/router"
+      },
+      {
+        "logicalId": "ROW_057",
+        "side": "candidate",
+        "key": "normal:internal/mcp"
+      },
+      {
+        "logicalId": "ROW_058",
+        "side": "candidate",
+        "key": "normal:internal/agent/tools"
+      },
+      {
+        "logicalId": "ROW_059",
+        "side": "candidate",
+        "key": "normal:internal/agent"
+      },
+      {
+        "logicalId": "ROW_060",
+        "side": "candidate",
+        "key": "normal:internal/datasource/connector/feishu/core"
+      },
+      {
+        "logicalId": "ROW_061",
+        "side": "candidate",
+        "key": "normal:internal/datasource/connector/feishu/wiki"
+      },
+      {
+        "logicalId": "ROW_062",
+        "side": "candidate",
+        "key": "normal:internal/datasource/connector/feishu/drive"
+      },
+      {
+        "logicalId": "ROW_063",
+        "side": "candidate",
+        "key": "normal:internal/datasource/connector/ima"
+      },
+      {
+        "logicalId": "ROW_064",
+        "side": "candidate",
+        "key": "normal:internal/datasource/connector/notion"
+      },
+      {
+        "logicalId": "ROW_065",
+        "side": "candidate",
+        "key": "normal:internal/datasource/connector/yuque"
+      },
+      {
+        "logicalId": "ROW_066",
+        "side": "candidate",
+        "key": "normal:internal/agent/compaction"
+      },
+      {
+        "logicalId": "ROW_067",
+        "side": "candidate",
+        "key": "normal:internal/models/api"
+      },
+      {
+        "logicalId": "ROW_068",
+        "side": "candidate",
+        "key": "normal:internal/models/api/openaicompletions"
+      },
+      {
+        "logicalId": "ROW_069",
+        "side": "candidate",
+        "key": "normal:internal/models/api/openairesponses"
+      },
+      {
+        "logicalId": "ROW_070",
+        "side": "candidate",
+        "key": "normal:internal/models/api/anthropicmessages"
+      },
+      {
+        "logicalId": "ROW_071",
+        "side": "candidate",
+        "key": "normal:internal/models/api/googlegenai"
+      },
+      {
+        "logicalId": "ROW_072",
+        "side": "candidate",
+        "key": "race:internal/mcp"
+      },
+      {
+        "logicalId": "ROW_073",
+        "side": "candidate",
+        "key": "race:internal/mcpserver"
+      },
+      {
+        "logicalId": "ROW_074",
+        "side": "candidate",
+        "key": "race:internal/middleware"
+      },
+      {
+        "logicalId": "ROW_075",
+        "side": "candidate",
+        "key": "race:internal/agent/tools"
+      },
+      {
+        "logicalId": "ROW_076",
+        "side": "candidate",
+        "key": "race:internal/agent"
+      },
+      {
+        "logicalId": "ROW_077",
+        "side": "candidate",
+        "key": "race:internal/application/repository"
+      },
+      {
+        "logicalId": "ROW_078",
+        "side": "candidate",
+        "key": "race:internal/application/service"
+      },
+      {
+        "logicalId": "ROW_079",
+        "side": "candidate",
+        "key": "race:internal/handler"
+      },
+      {
+        "logicalId": "ROW_080",
+        "side": "candidate",
+        "key": "race:internal/datasource/connector/feishu/core"
+      },
+      {
+        "logicalId": "ROW_081",
+        "side": "candidate",
+        "key": "race:internal/datasource/connector/feishu/wiki"
+      },
+      {
+        "logicalId": "ROW_082",
+        "side": "candidate",
+        "key": "race:internal/datasource/connector/feishu/drive"
+      },
+      {
+        "logicalId": "ROW_083",
+        "side": "candidate",
+        "key": "race:internal/datasource/connector/ima"
+      },
+      {
+        "logicalId": "ROW_084",
+        "side": "candidate",
+        "key": "race:internal/datasource/connector/notion"
+      },
+      {
+        "logicalId": "ROW_085",
+        "side": "candidate",
+        "key": "race:internal/datasource/connector/yuque"
+      },
+      {
+        "logicalId": "ROW_086",
+        "side": "candidate",
+        "key": "race:internal/agent/compaction"
+      },
+      {
+        "logicalId": "ROW_087",
+        "side": "candidate",
+        "key": "race:internal/models/api"
+      },
+      {
+        "logicalId": "ROW_088",
+        "side": "candidate",
+        "key": "race:internal/models/api/openaicompletions"
+      },
+      {
+        "logicalId": "ROW_089",
+        "side": "candidate",
+        "key": "race:internal/models/api/openairesponses"
+      },
+      {
+        "logicalId": "ROW_090",
+        "side": "candidate",
+        "key": "race:internal/models/api/anthropicmessages"
+      },
+      {
+        "logicalId": "ROW_091",
+        "side": "candidate",
+        "key": "race:internal/models/api/googlegenai"
+      },
+      {
+        "logicalId": "ROW_092",
+        "side": "candidate",
+        "key": "race:internal/types"
+      },
+      {
+        "logicalId": "ROW_093",
+        "side": "candidate",
+        "key": "diagnostic:agent-shuffle"
+      },
+      {
+        "logicalId": "ROW_094",
+        "side": "candidate",
+        "key": "python:unittest"
+      },
+      {
+        "logicalId": "ROW_095",
+        "side": "candidate",
+        "key": "python:pytest"
+      },
+      {
+        "logicalId": "ROW_096",
+        "side": "candidate",
+        "key": "python:real-gateway"
+      },
+      {
+        "logicalId": "ROW_097",
+        "side": "candidate",
+        "key": "overlay-normal:internal/datasource/connector/notion"
+      },
+      {
+        "logicalId": "ROW_098",
+        "side": "candidate",
+        "key": "overlay-race:internal/datasource/connector/notion"
+      }
+    ]
+  }
+}

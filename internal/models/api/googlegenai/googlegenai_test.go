@@ -619,9 +619,10 @@ func TestChatStreamErrorPayload(t *testing.T) {
 	for ev := range ch {
 		last = ev
 	}
-	if last.ResponseType != types.ResponseTypeError || last.Content != "API stream error: quota exceeded" {
+	if last.ResponseType != types.ResponseTypeError || last.Content != "stream_error: stream failed" {
 		t.Fatalf("last event = %+v", last)
 	}
+	b2AssertProviderFailure(t, last, types.StreamFailureRateLimited)
 }
 
 // "contents" is required and must be an array. A request that produced no
@@ -688,7 +689,8 @@ func TestChatStreamSurfacesPromptFeedbackBlock(t *testing.T) {
 	for chunk := range ch {
 		if chunk.ResponseType == types.ResponseTypeError {
 			sawError = true
-			if !strings.Contains(chunk.Content, "SAFETY") {
+			b2AssertProviderFailure(t, chunk, types.StreamFailureSafetyBlocked)
+			if chunk.Content != "stream_error: stream failed" {
 				t.Fatalf("error chunk = %q, want the block reason", chunk.Content)
 			}
 		}
@@ -727,5 +729,21 @@ func TestChatStreamEOFWithoutFinishReasonIsIncomplete(t *testing.T) {
 				t.Fatalf("last event = %+v, want finish reason %q", last, tc.want)
 			}
 		})
+	}
+}
+
+func b2AssertProviderFailure(t *testing.T, chunk types.StreamResponse, code types.StreamFailureCode) {
+	t.Helper()
+	if chunk.ResponseType != types.ResponseTypeError || chunk.Content != "stream_error: stream failed" || !chunk.Done || chunk.FinishReason != types.FinishReasonIncomplete || chunk.Failure == nil || chunk.Failure.Code() != code {
+		t.Fatalf("unsafe failure contract: %+v", chunk)
+	}
+	data, err := json.Marshal(chunk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range []string{"boom", "quota exceeded", "SAFETY", "decode stream chunk", "decode tool call", "decode output item", "CANARY", "Bearer ", `"failure"`, `"cause"`} {
+		if strings.Contains(string(data), s) {
+			t.Fatalf("public error contract leaks %q", s)
+		}
 	}
 }

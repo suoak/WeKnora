@@ -143,8 +143,9 @@ func (c *Client) ChatStream(
 			resp, data, err = c.send(ctx, api.StripImagesFromMessages(messages), opts, true)
 		}
 		if err != nil {
+			failure := api.NormalizeProviderStreamFailure(ctx, "google-genai", err)
 			cancel()
-			return nil, fmt.Errorf("create chat completion stream: %w", err)
+			return nil, failure
 		}
 	}
 
@@ -371,11 +372,11 @@ func (c *Client) processStream(
 
 		var env rawResponse
 		if err := json.Unmarshal(event.Data, &env); err != nil {
-			assembler.Fail(ch, fmt.Errorf("decode stream chunk: %w", err))
+			assembler.Fail(ch, types.NewStreamFailure(types.StreamFailureProtocol, 0, 0))
 			return
 		}
-		if env.Error != nil && env.Error.Message != "" {
-			assembler.Fail(ch, fmt.Errorf("API stream error: %s", env.Error.Message))
+		if env.Error != nil {
+			assembler.Fail(ch, api.ProviderStreamFailure("google-genai", nil, "", env.Error.Code, env.Error.Status))
 			return
 		}
 		if env.UsageMetadata != nil {
@@ -383,7 +384,12 @@ func (c *Client) processStream(
 		}
 		if len(env.Candidates) == 0 {
 			if env.PromptFeedback != nil && env.PromptFeedback.BlockReason != "" {
-				assembler.Fail(ch, fmt.Errorf("blocked: %s", env.PromptFeedback.BlockReason))
+				failure := types.NewStreamFailure(types.StreamFailureUnknown, 0, 0)
+				switch env.PromptFeedback.BlockReason {
+				case "SAFETY":
+					failure = types.NewStreamFailure(types.StreamFailureSafetyBlocked, 0, 0)
+				}
+				assembler.Fail(ch, failure)
 				return
 			}
 			continue

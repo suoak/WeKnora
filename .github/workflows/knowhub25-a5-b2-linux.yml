@@ -1,0 +1,140 @@
+name: KnowHub25 A5 B2 bounded Linux comparison
+on:
+  push:
+    branches: [ci/knowhub25-a5-b2-linux-p1a-20261011]
+permissions:
+  contents: read
+concurrency:
+  group: knowhub25-a5-b2-${{ github.ref }}
+  cancel-in-progress: false
+env:
+  CGO_ENABLED: '1'
+  GOTOOLCHAIN: local
+jobs:
+  compare:
+    if: github.repository == 'suoak/WeKnora' && github.ref == 'refs/heads/ci/knowhub25-a5-b2-linux-p1a-20261011'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ github.sha }}
+          path: candidate
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: a6403708915680ccad310b0fd64506597b879804
+          path: baseline
+          persist-credentials: false
+      - id: identity
+        name: Bind external approved identities
+        env:
+          EXTERNAL_APPROVAL_JSON: ${{ vars.KNOWHUB25_A5_B2_CI_APPROVAL_JSON }}
+        run: |
+          python3 - <<'PY'
+          import os, json, pathlib
+          value = json.loads(os.environ['EXTERNAL_APPROVAL_JSON'])
+          assert value.get('candidateSHA') == os.environ['GITHUB_SHA']
+          target = pathlib.Path(os.environ['RUNNER_TEMP']) / 'a5-b2-approved-identity.json'
+          target.write_text(json.dumps(value), encoding='utf-8')
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write('KNOWHUB25_CI_APPROVAL_FILE=' + str(target) + '\n')
+          PY
+          python3 -B candidate/.github/scripts/knowhub25_a5_b2_ci.py --identity-only candidate "$RUNNER_TEMP/a5-b2-approved-identity.json"
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.7'
+          architecture: x64
+          cache: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12'
+          architecture: x64
+      - id: dependencies
+        name: Environment and fixed test dependencies
+        run: |
+          mkdir -p evidence
+          uname -a > evidence/runner.txt
+          printf 'ImageOS=%s ImageVersion=%s RunnerArch=%s\n' "$ImageOS" "$ImageVersion" "$RUNNER_ARCH" >> evidence/runner.txt
+          python -m pip install --require-hashes -r candidate/.github/qa/a5-b2/python-linux.lock > evidence/python-install.log 2>&1
+      - id: comparison
+        name: Complete source comparison and tests
+        env:
+          GOMODCACHE: ${{ runner.temp }}/knowhub25-a5-b2-modules
+          GOCACHE: ${{ runner.temp }}/knowhub25-a5-b2-build
+        run: python -B candidate/.github/scripts/knowhub25_a5_b2_ci.py
+      - name: Audit original evidence before publication
+        id: safety
+        if: always()
+        shell: bash
+        run: |
+          # Runner python3 needs no installed test dependencies. Never upload evidence/**.
+          set +e
+          python3 -B candidate/.github/scripts/knowhub25_a5_b2_ci.py --artifact-audit evidence reviewed-public
+          audit_exit=$?
+          if [ "$audit_exit" -ne 0 ]; then
+            # Publish a fixed safe status only, including when checkout/helper/setup failed.
+            mkdir -p reviewed-public
+            printf '{"approved":false,"status":"SAFETY_REVIEW_BLOCKED_NO_LOG_UPLOAD"}\n' > reviewed-public/fallback-status.json
+            printf 'approved=false\n' >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+      - name: Publish reviewed evidence copies
+        if: always() && steps.safety.outcome == 'success' && steps.safety.outputs.approved == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: knowhub25-a5-b2-reviewed-${{ github.sha }}-${{ github.run_attempt }}
+          path: reviewed-public/reviewed/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish safe audit status
+        if: always() && steps.safety.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: knowhub25-a5-b2-safety-${{ github.sha }}-${{ github.run_attempt }}
+          path: reviewed-public/safety-status.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish fixed blocked status only
+        if: always() && steps.safety.outcome == 'failure'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: knowhub25-a5-b2-blocked-${{ github.sha }}-${{ github.run_attempt }}
+          path: reviewed-public/fallback-status.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Generate and strictly review safe diagnostics
+        id: diagnostics
+        if: always()
+        shell: bash
+        env:
+          IDENTITY_OUTCOME: ${{ steps.identity.outcome }}
+          DEPENDENCIES_OUTCOME: ${{ steps.dependencies.outcome }}
+          COMPARISON_OUTCOME: ${{ steps.comparison.outcome }}
+          AUDIT_OUTCOME: ${{ steps.safety.outcome }}
+        run: |
+          set +e
+          mkdir -p diagnostics-reviewed
+          python3 candidate/.github/scripts/knowhub25_a5_b2_ci.py --safe-summary evidence reviewed-public diagnostics-reviewed/safe-summary.json "${IDENTITY_OUTCOME:-unknown}" "${DEPENDENCIES_OUTCOME:-unknown}" "${COMPARISON_OUTCOME:-unknown}" "${AUDIT_OUTCOME:-unknown}"
+          generated=$?
+          if [ "$generated" -eq 0 ]; then
+            python3 candidate/.github/scripts/knowhub25_a5_b2_ci.py --validate-safe-summary diagnostics-reviewed/safe-summary.json
+            reviewed=$?
+          else
+            reviewed=1
+          fi
+          if [ "$reviewed" -ne 0 ]; then
+            printf '%s\n' '{"schemaVersion":2,"comparisonAvailable":false,"matrixComplete":false,"rawScanStatus":"NOT_VERIFIED","gatePass":false,"rootCause":"UNKNOWN","failures":["EVIDENCE_INCOMPLETE","RAW_SCAN_NOT_VERIFIED","UNKNOWN_FAILURE"],"matrixRows":null,"rawUploadPermitted":false,"lastCompletedPhase":"NOT_AVAILABLE","matrix":[],"scanFindings":[]}' > diagnostics-reviewed/safe-summary.json
+            # Independent literal equality check works even if Helper never started.
+            printf '%s\n' '{"schemaVersion":2,"comparisonAvailable":false,"matrixComplete":false,"rawScanStatus":"NOT_VERIFIED","gatePass":false,"rootCause":"UNKNOWN","failures":["EVIDENCE_INCOMPLETE","RAW_SCAN_NOT_VERIFIED","UNKNOWN_FAILURE"],"matrixRows":null,"rawUploadPermitted":false,"lastCompletedPhase":"NOT_AVAILABLE","matrix":[],"scanFindings":[]}' | cmp -s - diagnostics-reviewed/safe-summary.json || exit 1
+          fi
+          echo "approved=true" >> "$GITHUB_OUTPUT"
+      - name: Publish only reviewed closed-schema diagnostics
+        if: always() && steps.diagnostics.outcome == 'success' && steps.diagnostics.outputs.approved == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: a5-b2-safe-diagnostics-${{ github.sha }}-${{ github.run_attempt }}
+          path: diagnostics-reviewed/safe-summary.json
+          if-no-files-found: error
+          retention-days: 14
