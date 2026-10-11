@@ -110,8 +110,9 @@ func (c *Client) ChatStream(
 			resp, data, err = c.send(ctx, api.StripImagesFromMessages(messages), opts, true)
 		}
 		if err != nil {
+			failure := api.NormalizeProviderStreamFailure(ctx, "openai-completions", err)
 			cancel()
-			return nil, fmt.Errorf("create chat completion stream: %w", err)
+			return nil, failure
 		}
 	}
 
@@ -351,11 +352,11 @@ func (c *Client) processStream(
 			// the stream on EOF, which reaches the caller as a *successful*
 			// truncated reply and gets persisted as the model's answer. An
 			// error at least surfaces the proxy that corrupted the stream.
-			assembler.Fail(ch, fmt.Errorf("decode stream chunk: %w", err))
+			assembler.Fail(ch, types.NewStreamFailure(types.StreamFailureProtocol, 0, 0))
 			return
 		}
-		if env.Error != nil && env.Error.Message != "" {
-			assembler.Fail(ch, fmt.Errorf("API stream error: %s", env.Error.Message))
+		if env.Error != nil {
+			assembler.Fail(ch, api.ProviderStreamFailure("openai-completions", env.Error.Code, env.Error.Type, 0, ""))
 			return
 		}
 		if env.Usage != nil {
@@ -379,7 +380,7 @@ func (c *Client) processStream(
 		if len(choice.Delta.ToolCalls) > 0 {
 			_, deltas, err := c.decodeToolCalls(choice.Delta.ToolCalls)
 			if err != nil {
-				assembler.Fail(ch, err)
+				assembler.Fail(ch, types.NewStreamFailure(types.StreamFailureProtocol, 0, 0))
 				return
 			}
 			delta.ToolCalls = deltas

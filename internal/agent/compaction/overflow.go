@@ -1,6 +1,7 @@
 package compaction
 
 import (
+	"errors"
 	"regexp"
 	"strings"
 
@@ -56,6 +57,10 @@ var nonOverflowPatterns = []*regexp.Regexp{
 func IsOverflowError(err error) bool {
 	if err == nil {
 		return false
+	}
+	var failure *types.StreamFailure
+	if errors.As(err, &failure) {
+		return failure.Code() == types.StreamFailureContextOverflow
 	}
 	msg := err.Error()
 	for _, p := range nonOverflowPatterns {
