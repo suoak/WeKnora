@@ -701,7 +701,10 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 				knowledge.ErrorMessage = err.Error()
 				knowledge.UpdatedAt = time.Now()
 				s.repo.UpdateKnowledge(ctx, knowledge)
-				return nil
+				if cleanupErr := s.cleanupAttemptChunks(ctx, knowledge, insertChunks, nil); cleanupErr != nil {
+					return cleanupErr
+				}
+				return errors.New("processing_quota_read_failed")
 			}
 			// Check if there's enough storage quota available
 			if tenantInfo.StorageUsed+totalStorageSize > tenantInfo.StorageQuota {
@@ -709,7 +712,10 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 				knowledge.ErrorMessage = "存储空间不足"
 				knowledge.UpdatedAt = time.Now()
 				s.repo.UpdateKnowledge(ctx, knowledge)
-				return nil
+				if cleanupErr := s.cleanupAttemptChunks(ctx, knowledge, insertChunks, nil); cleanupErr != nil {
+					return cleanupErr
+				}
+				return fmt.Errorf("processing_quota_exceeded: %w", asynq.SkipRetry)
 			}
 		}
 
@@ -737,16 +743,11 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 			knowledge.UpdatedAt = time.Now()
 			s.repo.UpdateKnowledge(ctx, knowledge)
 
-			// delete failed chunks
-			if err := s.chunkRepo.DeleteChunksByKnowledgeID(ctx, knowledge.TenantID, knowledge.ID); err != nil {
-				logger.Errorf(ctx, "Delete chunks failed: %v", err)
-			}
-
-			// delete index
-			if err := retrieveEngine.DeleteByKnowledgeIDList(
-				ctx, []string{knowledge.ID}, embeddingModel.GetDimensions(), kb.Type,
-			); err != nil {
-				logger.Errorf(ctx, "Delete index failed: %v", err)
+			// Only this invocation's ChunkIDs may be cleaned after a partial write.
+			if cleanupErr := s.cleanupAttemptChunks(ctx, knowledge, insertChunks, func(cleanupCtx context.Context, ids []string) error {
+				return retrieveEngine.DeleteByChunkIDList(cleanupCtx, ids, embeddingModel.GetDimensions(), kb.Type)
+			}); cleanupErr != nil {
+				return cleanupErr
 			}
 			// Map vector store / embedding rate-limit errors to a
 			// stable code so the UI can offer "retry later" hints.
@@ -756,7 +757,7 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 			}
 			s.failStage(ctx, knowledge.ID, types.StageEmbedding,
 				code, "batch index failed", err)
-			return nil
+			return errors.New("processing_index_failed")
 		}
 		logger.GetLogger(ctx).Infof("processChunks batch index successfully, with %d index", len(indexInfoList))
 		s.endStage(ctx, knowledge.ID, types.StageEmbedding, types.JSONMap{

@@ -26,13 +26,17 @@ def main():
     directory = Path(tempfile.mkdtemp(prefix="a3-pg-", dir=os.environ["RUNNER_TEMP"]))
     directory.chmod(0o700)
     blocked = False
-    for mode in ("NORMAL", "RACE"):
-        raw = directory / (mode + ".jsonl")
-        stderr = directory / (mode + ".stderr")
+    matrix = [(package, mode) for package in ("REPOSITORY", "SERVICE") for mode in ("NORMAL", "RACE")]
+    for package, mode in matrix:
+        expected = EXPECTED if package == "REPOSITORY" else {"TestA3ProcessingAttemptCleanupPostgres"}
+        path = "./internal/application/repository" if package == "REPOSITORY" else "./internal/application/service"
+        pattern = "^TestA3ProcessingFencePostgres" if package == "REPOSITORY" else "^TestA3ProcessingAttemptCleanupPostgres$"
+        raw = directory / (package + "-" + mode + ".jsonl")
+        stderr = directory / (package + "-" + mode + ".stderr")
         command = ["go", "test", "-mod=readonly", "-p", "2", "-count=1", "-timeout=10m", "-json"]
         if mode == "RACE":
             command.append("-race")
-        command += ["-run", "^TestA3ProcessingFencePostgres", "./internal/application/repository"]
+        command += ["-run", pattern, path]
         with raw.open("wb") as out, stderr.open("wb") as err:
             result = subprocess.run(command, stdout=out, stderr=err, check=False)
         raw.chmod(0o600)
@@ -52,7 +56,7 @@ def main():
                 event = json.loads(line)
                 name = event.get("Test")
                 action = event.get("Action")
-                if name in EXPECTED:
+                if name in expected:
                     if action == "run":
                         if name in rows:
                             malformed = True
@@ -66,9 +70,9 @@ def main():
         except (ValueError, UnicodeError, TypeError):
             malformed = True
         scan_clear = all(not count for row in findings for count in row["rules"].values())
-        passed = result.returncode == 0 and rows == {name: "PASS" for name in EXPECTED} and not malformed and not data_race and scan_clear
+        passed = result.returncode == 0 and rows == {name: "PASS" for name in expected} and not malformed and not data_race and scan_clear
         blocked |= not passed
-        print(json.dumps({"mode": mode, "exit": result.returncode, "tests": rows,
+        print(json.dumps({"package": package, "mode": mode, "exit": result.returncode, "tests": rows,
                           "parserValid": not malformed, "dataRace": data_race, "scanClear": scan_clear,
                           "rawMetadata": findings, "status": "PASS" if passed else "BLOCKED"}, sort_keys=True))
         if not passed:
