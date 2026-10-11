@@ -10,6 +10,8 @@ import subprocess
 import sys
 import time
 import urllib.request
+import tempfile
+import xml.etree.ElementTree as ET
 
 QA = Path(__file__).resolve().parents[1] / 'qa/continuous'
 M = json.loads((QA / 'manifest.json').read_text())
@@ -61,7 +63,7 @@ def validate_summary(value):
     if value['productionGates'] != {'postgresSchema3023': 'NOT_EVALUATED', 'tokenGovernance': 'NOT_EVALUATED', 'release': 'NOT_EVALUATED'}:
         raise ValueError('SCHEMA_FAILED')
     for row in value['rows']:
-        if set(row) != {'phase', 'packageId', 'status', 'compileExit', 'testExit', 'run', 'passed', 'failed', 'skipped', 'requiredPassCount', 'requiredMissingCount', 'a5NotPresentCount', 'dataRace'} or row['phase'] not in PHASES or row['status'] not in {'PASS', 'FAIL', 'NOT_EXECUTED'} or row['packageId'] not in {'NOT_APPLICABLE'} | {f'PKG_{i+1:03d}' for i in range(28)}:
+        if set(row) != {'phase', 'packageId', 'status', 'compileExit', 'testExit', 'run', 'passed', 'failed', 'skipped', 'requiredPassCount', 'requiredMissingCount', 'a5NotPresentCount', 'dataRace'} or row['phase'] not in PHASES or row['status'] not in {'PASS', 'FAIL', 'NOT_EXECUTED'} or row['packageId'] not in {'NOT_APPLICABLE'} | {f'PKG_{i+1:03d}' for i in range(len(M['packages']) + len(M['extra_packages']))}:
             raise ValueError('SCHEMA_FAILED')
         for key in ['compileExit', 'testExit', 'run', 'passed', 'failed', 'skipped', 'requiredPassCount', 'requiredMissingCount', 'a5NotPresentCount']:
             if row[key] is not None and (type(row[key]) is not int or (key not in {'compileExit', 'testExit'} and row[key] < 0)):
@@ -81,6 +83,66 @@ def validate_summary(value):
     if value['status'] == 'PASS' and (not value['rows'] or value['failureClass'] != 'NONE' or any(r['status'] != 'PASS' for r in value['rows']) or any(r['scanStatus'] != 'CLEAR' for r in value['rawFiles'])):
         raise ValueError('SCHEMA_FAILED')
     return value
+
+def parse_node_junit(xml_path, exit_code):
+    # Node gives every testcase classname=test; suite ancestry is part of its ID.
+    result = dict(exit=exit_code, run=0, passed=0, fail=[], error=[], skip=[], gatePass=False)
+    try:
+        root = ET.parse(xml_path).getroot()
+        if root.tag != 'testsuites':
+            raise ValueError('PARSER_FAILED')
+        seen = set()
+        def visit(element, parents):
+            if element.tag == 'testsuite':
+                if not element.get('name'):
+                    raise ValueError('PARSER_FAILED')
+                parents = parents + (element.get('name'),)
+                cases = list(element.iter('testcase'))
+                for field, tag in [('tests', None), ('failures', 'failure'), ('errors', 'error'), ('skipped', 'skipped')]:
+                    count = len(cases) if tag is None else sum(c.find(tag) is not None for c in cases)
+                    if element.get(field) is None or int(element.get(field)) != count:
+                        raise ValueError('PARSER_FAILED')
+            for child in element:
+                if child.tag == 'testsuite':
+                    visit(child, parents)
+                elif child.tag == 'testcase':
+                    ident = parents + (child.get('classname', ''), child.get('name', ''))
+                    states = [t for t in ['failure', 'error', 'skipped'] if child.find(t) is not None]
+                    if not child.get('name') or ident in seen or len(states) > 1:
+                        raise ValueError('PARSER_FAILED')
+                    seen.add(ident)
+                    result['run'] += 1
+                    if not states:
+                        result['passed'] += 1
+                    else:
+                        result[{'failure': 'fail', 'error': 'error', 'skipped': 'skip'}[states[0]]].append('::'.join(ident))
+        visit(root, ())
+        result['gatePass'] = exit_code == 0 and result['run'] > 0 and not any(result[k] for k in ['fail', 'error', 'skip'])
+    except (OSError, ET.ParseError, ValueError):
+        result['gatePass'] = False
+    return result
+
+
+def frontend_parser_selftest():
+    good = '<testsuites><testsuite name="outer" tests="2" failures="0" errors="0" skipped="0"><testcase classname="test" name="same"/><testsuite name="inner" tests="1" failures="0" errors="0" skipped="0"><testcase classname="test" name="same"/></testsuite></testsuite></testsuites>'
+    scenarios = [(good, 0, True), (good, 1, False), ('<broken', 0, False),
+                 (good.replace('tests="2"', 'tests="3"'), 0, False),
+                 (good.replace('name="inner"', 'name=""'), 0, False),
+                 (good.replace('<testcase classname="test" name="same"/>', '<testcase classname="test" name="same"><skipped/></testcase>'), 0, False),
+                 (good.replace('<testsuite name="inner" tests="1" failures="0" errors="0" skipped="0">', '').replace('</testsuite></testsuite>', '</testsuite>'), 0, False)]
+    for tag, field in [('failure', 'failures'), ('error', 'errors'), ('skipped', 'skipped')]:
+        negative = good.replace(field + '="0"', field + '="1"').replace('<testcase classname="test" name="same"/>', '<testcase classname="test" name="same"><' + tag + '/></testcase>')
+        # Each suite counts all descendants: outer has two failed/skipped cases.
+        negative = negative.replace(field + '="1"', field + '="2"', 1)
+        scenarios.append((negative, 0, False))
+    with tempfile.TemporaryDirectory() as temp:
+        path = Path(temp) / 'synthetic.xml'
+        for raw, code, expected in scenarios:
+            path.write_text(raw, encoding='utf-8')
+            if parse_node_junit(path, code)['gatePass'] != expected:
+                raise ValueError('PARSER_FAILED')
+    return len(scenarios)
+
 
 class Runner:
     def __init__(self, side, mode):
@@ -284,7 +346,7 @@ class Runner:
         xml = self.root / 'front-unit.xml'
         code, _, _ = self.execute('FRONT_UNIT', ['npm', 'test', '--', '--test-concurrency=1', '--test-reporter=junit', '--test-reporter-destination=' + str(xml)], 'FRONTEND_OUTPUT', cwd=frontend)
         self.raw.append((xml, 'FRONTEND_JUNIT_XML'))
-        self.record('FRONT_UNIT', C.parse_pytest(xml, code))
+        self.record('FRONT_UNIT', parse_node_junit(xml, code))
         self.simple('FRONT_TYPE', ['node', 'node_modules/vue-tsc/bin/vue-tsc.js', '--build'], 'FRONTEND_OUTPUT', cwd=frontend)
         target = frontend / 'tests/agent-editor/continuous-linux.config.ts'
         if target.exists():
@@ -294,10 +356,10 @@ class Runner:
             qa_build = self.root / 'qa-dist'
             env = dict(self.env, RC24_QA_BUILD='1', RC24_BUILD_DIR=str(qa_build), VITE_IS_DOCKER='true')
             if not self.simple('FRONT_QA_BUILD', ['node', 'node_modules/vite/bin/vite.js', 'build', '--mode', 'rc24-qa', '--config', 'tests/agent-editor/frozen-build.config.ts'], 'FRONTEND_OUTPUT', cwd=frontend, env=env):
-                self.serve_e2e(qa_build, 'FRONT_QA_E2E', 39, [])
+                self.serve_e2e(qa_build, 'FRONT_QA_E2E', 45, [])
             release_build = self.root / 'release-dist'
             if not self.simple('FRONT_RELEASE_BUILD', ['node', 'node_modules/vite/bin/vite.js', 'build', '--outDir', str(release_build), '--emptyOutDir', 'false'], 'FRONTEND_OUTPUT', cwd=frontend):
-                self.serve_e2e(release_build, 'FRONT_RELEASE_E2E', 25, ['close-cycle.spec.ts', 'navigation.spec.ts', 'editor.spec.ts', 'knowledge-gate.spec.ts', 'mcp-scope.spec.ts', '--grep-invert', 'quick answer exposes retrieval'])
+                self.serve_e2e(release_build, 'FRONT_RELEASE_E2E', 31, ['close-cycle.spec.ts', 'navigation.spec.ts', 'editor.spec.ts', 'knowledge-gate.spec.ts', 'mcp-scope.spec.ts', '--grep-invert', 'quick answer exposes retrieval'])
         finally:
             target.unlink()
 
@@ -330,6 +392,15 @@ def selftest():
                   status='BLOCKED', failureClass='EVIDENCE_INCOMPLETE', rows=[], rawFiles=[],
                   productionGates=dict(postgresSchema3023='NOT_EVALUATED', tokenGovernance='NOT_EVALUATED', release='NOT_EVALUATED'))
     validate_summary(sample)
+    row = dict(phase='GO', packageId=f"PKG_{len(M['packages']) + len(M['extra_packages']):03d}", status='PASS', compileExit=0, testExit=0, run=1, passed=1, failed=0, skipped=0, requiredPassCount=1, requiredMissingCount=0, a5NotPresentCount=0, dataRace=False)
+    validate_summary(dict(sample, rows=[row]))
+    try:
+        validate_summary(dict(sample, rows=[dict(row, packageId=f"PKG_{len(M['packages']) + len(M['extra_packages']) + 1:03d}")]))
+    except ValueError:
+        pass
+    else:
+        raise ValueError('SCHEMA_FAILED')
+    frontend_cases = frontend_parser_selftest()
     for patch in [{'rawCause': 'not-public'}, {'status': 'PASS'}, {'failureClass': 'unknown-freetext'}]:
         try:
             validate_summary(dict(sample, **patch))
@@ -358,7 +429,7 @@ def selftest():
         raise ValueError('UPLOAD_FAILED')
     print(json.dumps({'goParserCases': len(go), 'junitCases': len(junit), 'unittestCases': len(unittest), 'safeSchemaNegativeCases': 3,
                       'manifestNegativeCases': 4, 'rawScanPositiveCases': 3, 'workflowFixedGuard': 'PASS', 'matrix': 98,
-                      'additionalPackageRows': 36, 'status': 'PASS'}))
+                      'frontendParserCases': frontend_cases, 'packageBoundaryCases': 2, 'additionalPackageRows': len(M['extra_packages']) * 4, 'status': 'PASS'}))
 
 if __name__ == '__main__':
     try:
