@@ -129,7 +129,9 @@ def vet_proofs(text, root, goroot):
                     unproven[offset] = {'ImportMap': 'UNPROVEN_VET_IMPORT_MAP',
                                         'PackageFile': 'UNPROVEN_VET_ARCHIVE',
                                         'PackageVetx': 'UNPROVEN_VET_FACT_PATH'}[field]
-                if field == 'ImportMap' and key == value and config['Standard'].get(key) is True and goroot is not None:
+                if field == 'ImportMap' and key == value and archive_is_safe(config['PackageFile'].get(value, ''), root):
+                    proofs[offset] = 'VERIFIED_VET_IMPORT_MAP'
+                elif field == 'ImportMap' and key == value and config['Standard'].get(key) is True and goroot is not None:
                     directory = (goroot / 'src' / key).resolve(strict=True)
                     if directory.is_relative_to((goroot / 'src').resolve()) and directory.is_dir() and any(directory.glob('*.go')):
                         proofs[offset] = 'VERIFIED_VET_IMPORT_MAP'
@@ -139,6 +141,13 @@ def vet_proofs(text, root, goroot):
                     fact = pathlib.Path(value).resolve(strict=True)
                     if fact.is_relative_to(root.resolve()) and fact.is_file() and (fact.name.endswith('.vetx') or re.fullmatch(r'[0-9a-f]{64}-d', fact.name)):
                         proofs[offset] = 'VERIFIED_VET_FACT_PATH'
+                    elif fact.is_relative_to(root.resolve()) and fact.is_file() and fact.name == 'vet.out' and re.fullmatch(r'b[0-9]+', fact.parent.name):
+                        # Go 1.26.7 work/exec.go binds this fact output to a producer.
+                        producer = json.loads((fact.parent / 'vet.cfg').read_bytes(), object_pairs_hook=unique)
+                        if (isinstance(producer, dict) and set(producer) == keys and producer['Compiler'] == 'gc'
+                                and producer['ImportPath'] == key and isinstance(producer['VetxOutput'], str)
+                                and pathlib.Path(producer['VetxOutput']).resolve(strict=True) == fact):
+                            proofs[offset] = 'VERIFIED_VET_FACT_PATH'
         except (OSError, ValueError, TypeError, KeyError):
             continue
     return proofs, unproven
@@ -345,6 +354,25 @@ def self_test():
         archive.write_bytes(b'!<arch>\n')
         archived = dict(vet, ImportMap={}, PackageFile={'go/token': pathlib.Path(os.path.relpath(archive)).as_posix()})
         assert vet_scan(archived)[0]['basis'] == 'VERIFIED_VET_ARCHIVE'
+        imported = dict(vet, Standard={}, PackageFile={'go/token': str(archive.resolve())})
+        assert vet_scan(imported)[0]['basis'] == 'VERIFIED_VET_IMPORT_MAP'
+        fact_dir = root / 'b099'
+        fact_dir.mkdir()
+        fact = fact_dir / 'vet.out'
+        fact.write_bytes(b'synthetic-vet-facts')
+        producer = dict(vet, ImportPath='go/token', VetxOutput=str(fact.resolve()))
+        producer_path = fact_dir / 'vet.cfg'
+        producer_path.write_text(json.dumps(producer))
+        consumer = dict(vet, ImportMap={}, PackageVetx={'go/token': pathlib.Path(os.path.relpath(fact)).as_posix()})
+        assert vet_scan(consumer)[0]['basis'] == 'VERIFIED_VET_FACT_PATH'
+        producer_path.write_text(json.dumps(dict(producer, ImportPath='other/package')))
+        assert vet_scan(consumer)[0]['classification'] == 'UNKNOWN'
+        producer_path.unlink()
+        assert vet_scan(consumer)[0]['classification'] == 'UNKNOWN'
+        producer_path.write_text(json.dumps(producer))
+        assert any(r['classification'] == 'UNKNOWN' for r in vet_scan(consumer, 'token=unknown_value'))
+        producer_path.write_text(json.dumps(dict(producer, VetxOutput=str(root / 'outside'))))
+        assert vet_scan(consumer)[0]['classification'] == 'UNKNOWN'
         archive.write_bytes(b'not_an_archive')
         assert vet_scan(archived)[0]['classification'] == 'UNKNOWN'
         value = {'schema': 1, 'status': 'BLOCKED', 'historicalStatus': 'UNKNOWN', 'executions': [], 'files': []}
@@ -361,7 +389,7 @@ def self_test():
             pass
         else:
             raise AssertionError('SCHEMA_FAILED')
-    print(json.dumps({'selfTests': 31, 'status': 'PASS', 'frozenScannerEquivalence': 'PASS'}))
+    print(json.dumps({'selfTests': 37, 'status': 'PASS', 'frozenScannerEquivalence': 'PASS'}))
 
 def run():
     if sys.platform != 'linux':
