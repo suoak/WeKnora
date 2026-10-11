@@ -14,6 +14,8 @@ import (
 // ErrProcessingFence is deliberately independent of driver error text.
 var ErrProcessingFence = errors.New("processing execution is no longer current")
 
+var ErrProcessingClaimBusy = errors.New("processing execution already claimed")
+
 // ProcessingFence is an internal capability. It must never be exposed as an API credential.
 type ProcessingFence struct {
 	TenantID    uint64 `gorm:"primaryKey"`
@@ -43,6 +45,75 @@ type ProcessingFenceRepository struct{ db *gorm.DB }
 
 func NewProcessingFenceRepository(db *gorm.DB) *ProcessingFenceRepository {
 	return &ProcessingFenceRepository{db: db}
+}
+
+// Reserve allocates a user generation without granting a running lease. Queue
+// latency must not consume an execution lease, and queue retry must not allocate
+// another user generation. It uses the same knowledge-row lock as Allocate.
+func (r *ProcessingFenceRepository) Reserve(ctx context.Context, tenantID uint64, knowledgeID string) (int64, error) {
+	var generation int64
+	if tenantID == 0 || knowledgeID == "" {
+		return 0, ErrProcessingFence
+	}
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockProcessingKnowledge(tx, tenantID, knowledgeID); err != nil {
+			return err
+		}
+		var current ProcessingFence
+		err := tx.Where("tenant_id = ? AND knowledge_id = ?", tenantID, knowledgeID).Take(&current).Error
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		generation = current.Generation + 1
+		var now time.Time
+		if err := tx.Raw("SELECT CURRENT_TIMESTAMP").Row().Scan(&now); err != nil {
+			return err
+		}
+		next := ProcessingFence{TenantID: tenantID, KnowledgeID: knowledgeID, Generation: generation, LeaseUntil: now}
+		return tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "tenant_id"}, {Name: "knowledge_id"}},
+			DoUpdates: clause.AssignmentColumns([]string{"generation", "execution_id", "lease_until"})}).Create(&next).Error
+	})
+	return generation, err
+}
+
+// Claim grants one execution nonce for a reserved generation. A concurrent
+// redelivery returns Busy while the lease is live. Lease recovery changes nonce,
+// fencing the crashed/partitioned worker without changing user generation.
+func (r *ProcessingFenceRepository) Claim(ctx context.Context, tenantID uint64, knowledgeID string, generation int64, lease time.Duration) (ProcessingFence, error) {
+	var claimed ProcessingFence
+	if generation <= 0 || lease <= 0 || lease > time.Hour {
+		return claimed, ErrProcessingFence
+	}
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockProcessingKnowledge(tx, tenantID, knowledgeID); err != nil {
+			return err
+		}
+		var row struct{ ParseStatus string }
+		if err := tx.Table("knowledges").Select("parse_status").Where("tenant_id = ? AND id = ?", tenantID, knowledgeID).Take(&row).Error; err != nil {
+			return err
+		}
+		if row.ParseStatus != types.ParseStatusPending && row.ParseStatus != types.ParseStatusProcessing {
+			return ErrProcessingFence
+		}
+		if err := tx.Where("tenant_id = ? AND knowledge_id = ? AND generation = ?", tenantID, knowledgeID, generation).Take(&claimed).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrProcessingFence
+			}
+			return err
+		}
+		var now time.Time
+		if err := tx.Raw("SELECT CURRENT_TIMESTAMP").Row().Scan(&now); err != nil {
+			return err
+		}
+		if claimed.ExecutionID != "" && claimed.LeaseUntil.After(now) {
+			return ErrProcessingClaimBusy
+		}
+		claimed.ExecutionID = uuid.NewString()
+		claimed.LeaseUntil = now.Add(lease)
+		return tx.Model(&ProcessingFence{}).Where("tenant_id = ? AND knowledge_id = ? AND generation = ?", tenantID, knowledgeID, generation).
+			Updates(map[string]any{"execution_id": claimed.ExecutionID, "lease_until": claimed.LeaseUntil}).Error
+	})
+	return claimed, err
 }
 
 func lockProcessingKnowledge(tx *gorm.DB, tenantID uint64, knowledgeID string) error {

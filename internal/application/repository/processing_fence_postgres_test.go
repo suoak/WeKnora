@@ -204,3 +204,53 @@ func TestA3ProcessingFencePostgresMigrationSafety(t *testing.T) {
 	require.NoError(t, db.Table("knowledges").Count(&count).Error)
 	require.Equal(t, int64(2), count)
 }
+
+func TestA3ProcessingFencePostgresQueueClaimAndRecovery(t *testing.T) {
+	db, repo := processingPG(t)
+	ctx := context.Background()
+	generation, err := repo.Reserve(ctx, 1, "one")
+	require.NoError(t, err)
+	const deliveries = 10
+	claims := make(chan ProcessingFence, deliveries)
+	errs := make(chan error, deliveries)
+	barrier := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < deliveries; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-barrier
+			claim, err := repo.Claim(ctx, 1, "one", generation, time.Minute)
+			claims <- claim
+			errs <- err
+		}()
+	}
+	close(barrier)
+	wg.Wait()
+	close(claims)
+	close(errs)
+	success := 0
+	for err := range errs {
+		if err == nil {
+			success++
+		} else {
+			require.ErrorIs(t, err, ErrProcessingClaimBusy)
+		}
+	}
+	require.Equal(t, 1, success)
+	var old ProcessingFence
+	require.NoError(t, db.Where("tenant_id = ? AND knowledge_id = ?", 1, "one").Take(&old).Error)
+	require.Equal(t, generation, old.Generation)
+	require.NoError(t, db.Exec("UPDATE knowledge_processing_executions SET lease_until = CURRENT_TIMESTAMP - INTERVAL '1 second'").Error)
+	recovered, err := repo.Claim(ctx, 1, "one", generation, time.Minute)
+	require.NoError(t, err)
+	require.Equal(t, generation, recovered.Generation)
+	require.NotEqual(t, old.ExecutionID, recovered.ExecutionID)
+	require.ErrorIs(t, repo.Renew(ctx, old, time.Minute), ErrProcessingFence)
+	require.ErrorIs(t, repo.Finish(ctx, old, types.ParseStatusFailed, "index_failed"), ErrProcessingFence)
+	newGeneration, err := repo.Reserve(ctx, 1, "one")
+	require.NoError(t, err)
+	require.Equal(t, generation+1, newGeneration)
+	_, err = repo.Claim(ctx, 1, "one", generation, time.Minute)
+	require.ErrorIs(t, err, ErrProcessingFence)
+}
