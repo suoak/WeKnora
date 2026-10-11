@@ -77,6 +77,19 @@ def self_test():
     else:
         raise AssertionError('Corrupt JSON accepted')
     assert any(p.search('token=SYNTHETIC_CREDENTIAL_VALUE') for _, p in RULES)
+    assert fixed_failures(b'{"Action":"fail","Test":"untrusted token=unknown"}\n', {}) == ['UNKNOWN_TEST_ID']
+    assert fixed_failures(b'{"Action":"fail","Test":"TestFixed/untrusted"}\n', {'TestFixed': 'NOTION_TEST_001'}) == ['NOTION_TEST_001']
+
+
+def fixed_failures(data, source_ids):
+    """Publish only source-bound identifiers; never event-supplied free text."""
+    failed = set()
+    for line in data.decode('utf-8', errors='strict').splitlines():
+        event = json.loads(line)
+        if event.get('Action') == 'fail' and event.get('Test'):
+            parent = event['Test'].split('/', 1)[0]
+            failed.add(source_ids.get(parent, 'UNKNOWN_TEST_ID'))
+    return sorted(failed)
 
 
 def main():
@@ -90,6 +103,14 @@ def main():
     assert set(subprocess.check_output(['git', 'diff', '--name-only', BASELINE, 'HEAD']).decode().splitlines()) == approved
     for path, blob in expected_source.items():
         assert subprocess.check_output(['git', 'rev-parse', 'HEAD:' + path]).decode().strip() == blob
+    source_names = set()
+    for path in subprocess.check_output(['git', 'ls-files', 'internal/datasource/connector/notion/*_test.go']).decode().splitlines():
+        text = subprocess.check_output(['git', 'show', 'HEAD:' + path]).decode('utf-8')
+        source_names.update(re.findall(r'^func (Test[A-Za-z0-9_]+)\(t \*testing.T\)', text, re.M))
+    source_ids = {name: f'NOTION_TEST_{i:03}' for i, name in enumerate(sorted(source_names), 1)}
+    assert fixed_failures(b'{"Action":"fail","Test":"untrusted token=unknown"}\n', source_ids) == ['UNKNOWN_TEST_ID']
+    first = next(iter(source_ids))
+    assert fixed_failures(json.dumps({'Action': 'fail', 'Test': first + '/untrusted'}).encode(), source_ids) == [source_ids[first]]
     assert subprocess.check_output(['go', 'env', 'GOOS']).decode().strip() == 'linux'
     assert subprocess.check_output(['go', 'version']).decode().strip() == 'go version go1.26.7 linux/amd64'
     raw = Path(os.environ['RUNNER_TEMP']) / 'knowhub25-notion-pagination-raw'
@@ -121,7 +142,8 @@ def main():
             ok &= status and clear and not race
             results.append(dict(packageId=f'NOTION_PAGINATION_PKG_{i:03}', mode=mode, exit=proc.returncode,
                                 counts=counts, testPass=status, rawScanClear=clear,
-                                dataRace=race, rawEvidence=findings))
+                                dataRace=race, rawEvidence=findings,
+                                failureIds=fixed_failures(path.read_bytes(), source_ids)))
     summary = dict(schema=1, candidate=subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode().strip(),
                    baseline=BASELINE, rows=results, gatePass=ok, rawArtifactPublished=False)
     # Fixed schema only: no test names, paths, error messages, output excerpts, or raw values.
