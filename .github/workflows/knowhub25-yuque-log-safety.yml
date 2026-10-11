@@ -1,0 +1,39 @@
+name: KnowHub25 Yuque credential log regression
+on:
+  push:
+    branches: [fix/knowhub25-yuque-log-safety-20261011]
+permissions:
+  contents: read
+concurrency:
+  group: knowhub25-yuque-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  regression:
+    if: github.repository == 'suoak/WeKnora' && github.ref == 'refs/heads/fix/knowhub25-yuque-log-safety-20261011'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CGO_ENABLED: '1'
+      GOTOOLCHAIN: local
+      GOCACHE: ${{ runner.temp }}/yuque-go-build
+      GOMODCACHE: ${{ runner.temp }}/yuque-go-modules
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.7'
+          architecture: x64
+          cache: false
+      - name: Complete normal and race tests with private raw logs
+        run: python3 -B .github/scripts/knowhub25_yuque_safety_ci.py
+      - name: Publish fixed reviewed summary only
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: knowhub25-yuque-reviewed-${{ github.sha }}
+          path: ${{ runner.temp }}/knowhub25-yuque-reviewed/summary.json
+          if-no-files-found: error
+          retention-days: 7
