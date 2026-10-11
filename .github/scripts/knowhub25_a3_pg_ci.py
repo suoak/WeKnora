@@ -10,7 +10,6 @@ import sys
 
 PUBLIC_ROWS = []
 SERVICE_EXPECTED = {
-    "TestA3ProcessingFencePostgresAtomicPendingAdmission",
  'TestA3ProcessingAttemptCleanupPostgres',
  'TestA3ProcessingAttemptCleanupPostgres/actual_processChunks_preserves_new_generation',
  'TestA3ProcessingExecutionPostgresLifecycle',
@@ -57,6 +56,7 @@ def emit(value):
     print(payload)
 
 EXPECTED = {
+    "TestA3ProcessingFencePostgresAtomicPendingAdmission",
     "TestA3ProcessingFencePostgresConcurrentGeneration",
     "TestA3ProcessingFencePostgresChunkOwnershipAndRollback",
     "TestA3ProcessingFencePostgresCancelDeleteAndLease",
@@ -246,6 +246,11 @@ def main():
 
 
 def metadata_self_test():
+    for package, required in [('repository', EXPECTED), ('service', SERVICE_EXPECTED)]:
+        definitions = {name for source in Path('internal/application/' + package).glob('*_test.go') for name in re.findall(r'(?m)^func\s+(Test[A-Za-z0-9_]+)\(', source.read_text(encoding='utf-8'))}
+        assert all(name.split('/')[0] in definitions for name in required)
+    assert all(name.startswith('TestA3ProcessingFencePostgres') for name in EXPECTED)
+    assert not (EXPECTED & SERVICE_EXPECTED)
     previous = os.environ.get('RUNNER_TEMP')
     try:
         with tempfile.TemporaryDirectory() as directory:
