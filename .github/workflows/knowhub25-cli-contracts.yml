@@ -1,7 +1,7 @@
 name: KnowHub25 CLI precision and typed error contracts
 on:
   push:
-    branches: [integration/knowhub25-cli-contracts-20261012]
+    branches: [integration/knowhub25-client-multipart-20261012]
 permissions:
   contents: read
 concurrency:
@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   contracts:
-    if: github.repository == 'suoak/WeKnora' && github.ref == 'refs/heads/integration/knowhub25-cli-contracts-20261012'
+    if: github.repository == 'suoak/WeKnora' && github.ref == 'refs/heads/integration/knowhub25-client-multipart-20261012'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     strategy:
