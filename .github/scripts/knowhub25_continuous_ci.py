@@ -182,6 +182,22 @@ def parse_node_junit(xml_path, exit_code, event_path=None):
 
 
 
+def frontend_reporter_selftest():
+    # Prove the Node reporter's actual XML attribute projection, including its
+    # quote entity spelling and XML whitespace normalization. Never raw logs.
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp)
+        script = "const {test}=require('node:test'); test('same',()=>{}); test('quote \"safe\"\\tline\\nnext ?',()=>{});\n"
+        for filename in ['one.cjs','two.cjs']:
+            (root/filename).write_text(script,encoding='utf-8')
+        result = subprocess.run(['node','--test','--test-reporter=junit','--test-reporter='+ (QA/'node-unit-reporter.mjs').as_uri(),
+            '--test-reporter-destination=cases.xml','--test-reporter-destination=events.jsonl','one.cjs','two.cjs'],cwd=root,capture_output=True)
+        parsed = parse_node_junit(root/'cases.xml',result.returncode,root/'events.jsonl')
+        if not parsed['gatePass'] or parsed['run'] != parsed['passed'] or parsed['run'] != 4:
+            raise ValueError('PARSER_FAILED')
+    return 4
+
+
 def frontend_event_selftest():
     xml = '<testsuites><testcase classname="test" name="same"/><testcase classname="test" name="same"/></testsuites>'
     name_sha = sha(json.dumps('same').encode())
@@ -519,6 +535,7 @@ def selftest():
     else: raise ValueError('SCHEMA_FAILED')
     frontend_cases = frontend_parser_selftest()
     frontend_event_cases = frontend_event_selftest()
+    frontend_reporter_cases = frontend_reporter_selftest()
     for patch in [{'rawCause': 'not-public'}, {'status': 'PASS'}, {'failureClass': 'unknown-freetext'}]:
         try:
             validate_summary(dict(sample, **patch))
@@ -547,7 +564,7 @@ def selftest():
         raise ValueError('UPLOAD_FAILED')
     print(json.dumps({'goParserCases': len(go), 'junitCases': len(junit), 'unittestCases': len(unittest), 'safeSchemaNegativeCases': 3,
                       'manifestNegativeCases': 4, 'rawScanPositiveCases': 3, 'workflowFixedGuard': 'PASS', 'matrix': 98,
-                      'frontendParserCases': frontend_cases, 'frontendEventCases': frontend_event_cases, 'packageBoundaryCases': 2, 'diagnosticSchemaNegativeCases': 4, 'additionalPackageRows': len(M['extra_packages']) * 4, 'status': 'PASS'}))
+                      'frontendParserCases': frontend_cases, 'frontendEventCases': frontend_event_cases, 'realNodeReporterCases': frontend_reporter_cases, 'packageBoundaryCases': 2, 'diagnosticSchemaNegativeCases': 4, 'additionalPackageRows': len(M['extra_packages']) * 4, 'status': 'PASS'}))
 
 if __name__ == '__main__':
     try:

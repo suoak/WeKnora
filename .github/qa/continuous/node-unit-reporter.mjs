@@ -6,7 +6,7 @@ export default async function* reporter(source) {
     if (type === 'test:pass' || type === 'test:fail') {
       const status = data.skip ? 'SKIP' : data.todo ? 'TODO' : type === 'test:pass' ? 'PASS' : 'FAIL';
       yield JSON.stringify({kind: 'TERMINAL', id: hash([data.file, data.line, data.column, data.nesting, data.testNumber, data.name]),
-        nameSHA: hash(data.name), testType: data.details.type, status}) + '\n';
+        nameSHA: hash(data.name.replace(/\n/g, '').replace(/"/g, '&quot;').replace(/[\r\t]/g, ' ')), testType: data.details.type, status}) + '\n';
     } else if (type === 'test:summary' && !data.file) {
       yield JSON.stringify({kind: 'SUMMARY', success: data.success, counts: data.counts}) + '\n';
     }
