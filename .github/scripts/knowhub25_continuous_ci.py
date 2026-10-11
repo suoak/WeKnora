@@ -381,5 +381,14 @@ if __name__ == '__main__':
                 runner.failure = 'HELPER_FAILED'
             sys.exit(runner.finish())
     except Exception:
-        # No exception strings, paths, provider causes or test stdout published.
+        # Initialization failures have no reviewed raw evidence or test counts.
+        if len(sys.argv) == 3 and sys.argv[1] in {'BASELINE', 'CANDIDATE'} and sys.argv[2] in MODES:
+            value = dict(schema=2, scope='CONTINUOUS_REGRESSION_ONLY', side=sys.argv[1], mode=sys.argv[2],
+                         sourceSHA=os.environ.get('GITHUB_SHA', ''), status='BLOCKED',
+                         failureClass='IDENTITY_FAILED', rows=[], rawFiles=[],
+                         productionGates=dict(postgresSchema3023='NOT_EVALUATED', tokenGovernance='NOT_EVALUATED', release='NOT_EVALUATED'))
+            validate_summary(value)
+            output = Path('continuous-public')
+            output.mkdir(exist_ok=True)
+            (output / 'summary.json').write_text(json.dumps(value, indent=2)+'\n', encoding='utf-8')
         sys.exit(1)
