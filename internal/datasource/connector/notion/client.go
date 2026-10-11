@@ -538,9 +538,8 @@ func (c *notionClient) paginatePages(ctx context.Context, method, path string) (
 		if cursorErr != nil {
 			return nil, cursorErr
 		}
-		if len(pages) == 0 {
-			return nil, errQueryResultTruncated
-		}
+		// Search may return an empty intermediate page. Continue only with a
+		// new, bounded cursor; absence is confirmed only by the terminal page.
 		startCursor = next
 	}
 

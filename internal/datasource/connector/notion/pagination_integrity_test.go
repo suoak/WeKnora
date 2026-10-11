@@ -171,7 +171,7 @@ func TestNotionIncompleteDatabaseRetainsWholeCursorAndRetries(t *testing.T) {
 			if broken.Load() {
 				body.(map[string]any)["request_status"] = map[string]any{"type": "incomplete", "incomplete_reason": "PROVIDER_REASON_CANARY"}
 			}
-		case "/v1/blocks/good/children", "/v1/blocks/record/children":
+		case "/v1/blocks/good/children", "/v1/blocks/record/children", "/v1/blocks/historical-record/children":
 			body = map[string]any{"results": []any{}, "has_more": false}
 		default:
 			w.WriteHeader(404)

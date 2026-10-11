@@ -98,7 +98,7 @@ def main():
         print('NOTION_PAGINATION_CONTRACT_INFRASTRUCTURE_SELF_TEST_PASS')
         return
     assert subprocess.check_output(['git', 'merge-base', BASELINE, 'HEAD']).decode().strip() == BASELINE
-    expected_source = {'internal/datasource/connector/notion/client.go': '09c4369759abb5d1dd317ada7df0f6ebf5e2b6de', 'internal/datasource/connector/notion/types.go': '61212aab63b90c8b90cdeaec0c2724dc41dc9ad5', 'internal/datasource/connector/notion/query_windowing_test.go': 'fd0e3513b10f7918af15cf925b1c529d8ac5e80a', 'internal/datasource/connector/notion/pagination_integrity_test.go': '6f33184bffbb87b86bde51ff691b3758bc834be6'}
+    expected_source = {'internal/datasource/connector/notion/client.go': 'b46df3f5f4601888ae6409d5e93ade6a04818e9f', 'internal/datasource/connector/notion/types.go': '61212aab63b90c8b90cdeaec0c2724dc41dc9ad5', 'internal/datasource/connector/notion/query_windowing_test.go': 'fd0e3513b10f7918af15cf925b1c529d8ac5e80a', 'internal/datasource/connector/notion/pagination_integrity_test.go': '780432d6ab9d2e427206b8ee7483466dfaa5c99c'}
     approved = set(expected_source) | {'.github/scripts/knowhub25_notion_pagination_canaries.json', '.github/workflows/knowhub25-notion-pagination.yml', '.github/scripts/knowhub25_notion_pagination_contracts.py'}
     assert set(subprocess.check_output(['git', 'diff', '--name-only', BASELINE, 'HEAD']).decode().splitlines()) == approved
     for path, blob in expected_source.items():
