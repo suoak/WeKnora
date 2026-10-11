@@ -14,7 +14,7 @@ BASELINE = 'a6403708915680ccad310b0fd64506597b879804'
 APPROVED_SKIP = ('github.com/Tencent/WeKnora/internal/agent/tools',
                  'TestSkillPythonPackageRecoveryInstallsWithoutPip/uv')
 APPROVED_SKIP_REASON = 'skill_runtime_guard_test.go:53: uv is required'
-REQUIRED = {'internal/datasource/connector/notion': ['TestQueryDatabaseAllReadsPastTheLimitInCreatedTimeWindows', 'TestQueryDatabaseAllDeduplicatesRowsByID', 'TestQueryDatabaseAllIncompleteMarkerBeforeLastPageStartsNextWindow', 'TestQueryDatabaseAllCompleteWindowUnchanged', 'TestNotionPaginationIntegrityAndControlledErrors', 'TestNotionBlockCapRejectsIncompleteAndKeepsExactComplete', 'TestNotionPaginationLimitNeverEchoesCursor', 'TestNotionPaginationHopLimitRealHTTP', 'TestNotionIncompleteDatabaseRetainsWholeCursorAndRetries', 'TestA4NotionOversizedPageMustNotAdvanceCursor', 'TestA4NotionNestedBlockFailureMustNotAcknowledgePage', 'TestA4NotionIncompleteFetchRetainsCursorAndRetries', 'TestA4NotionDatabaseFallbackOnlyOnNotFound']}
+REQUIRED = {'internal/datasource/connector/notion': ['TestQueryDatabaseAllReadsPastTheLimitInCreatedTimeWindows', 'TestQueryDatabaseAllDeduplicatesRowsByID', 'TestQueryDatabaseAllIncompleteMarkerBeforeLastPageStartsNextWindow', 'TestQueryDatabaseAllCompleteWindowUnchanged', 'TestNotionPaginationIntegrityAndControlledErrors', 'TestNotionBlockCapRejectsIncompleteAndKeepsExactComplete', 'TestNotionPaginationLimitNeverEchoesCursor', 'TestNotionMalformedTimestampDoesNotExposeProviderValue', 'TestNotionPaginationHopLimitRealHTTP', 'TestNotionIncompleteDatabaseRetainsWholeCursorAndRetries', 'TestA4NotionOversizedPageMustNotAdvanceCursor', 'TestA4NotionNestedBlockFailureMustNotAcknowledgePage', 'TestA4NotionIncompleteFetchRetainsCursorAndRetries', 'TestA4NotionDatabaseFallbackOnlyOnNotFound']}
 CANARIES = json.loads((Path(__file__).with_name('knowhub25_notion_pagination_canaries.json')).read_text())
 RULES = [(f'SYNTHETIC_{i + 1:03}', re.compile(re.escape(v))) for i, v in enumerate(CANARIES)]
 RULES += [
@@ -85,7 +85,7 @@ def main():
         print('NOTION_PAGINATION_CONTRACT_INFRASTRUCTURE_SELF_TEST_PASS')
         return
     assert subprocess.check_output(['git', 'merge-base', BASELINE, 'HEAD']).decode().strip() == BASELINE
-    expected_source = {'internal/datasource/connector/notion/client.go': 'c070085e35b3f79f151a458c4822854af031a7ca', 'internal/datasource/connector/notion/types.go': '61212aab63b90c8b90cdeaec0c2724dc41dc9ad5', 'internal/datasource/connector/notion/query_windowing_test.go': '61496f36f853308637ba696130d859e0bf506644', 'internal/datasource/connector/notion/pagination_integrity_test.go': 'cea8922e2c0382801a3cf88080259935cfda1437'}
+    expected_source = {'internal/datasource/connector/notion/client.go': '09c4369759abb5d1dd317ada7df0f6ebf5e2b6de', 'internal/datasource/connector/notion/types.go': '61212aab63b90c8b90cdeaec0c2724dc41dc9ad5', 'internal/datasource/connector/notion/query_windowing_test.go': 'fd0e3513b10f7918af15cf925b1c529d8ac5e80a', 'internal/datasource/connector/notion/pagination_integrity_test.go': '6f33184bffbb87b86bde51ff691b3758bc834be6'}
     approved = set(expected_source) | {'.github/scripts/knowhub25_notion_pagination_canaries.json', '.github/workflows/knowhub25-notion-pagination.yml', '.github/scripts/knowhub25_notion_pagination_contracts.py'}
     assert set(subprocess.check_output(['git', 'diff', '--name-only', BASELINE, 'HEAD']).decode().splitlines()) == approved
     for path, blob in expected_source.items():

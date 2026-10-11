@@ -98,6 +98,38 @@ func TestNotionPaginationLimitNeverEchoesCursor(t *testing.T) {
 	require.NotContains(t, err.Error(), "PROVIDER_CURSOR_CANARY")
 }
 
+func TestNotionMalformedTimestampDoesNotExposeProviderValue(t *testing.T) {
+	for _, endpoint := range []string{"page", "search", "query"} {
+		t.Run(endpoint, func(t *testing.T) {
+			logs := captureNotionLogs(t)
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				p := map[string]any{"id": "synthetic", "object": "page", "created_time": "PROVIDER_TIME_CANARY"}
+				if endpoint == "page" {
+					_ = json.NewEncoder(w).Encode(p)
+				} else {
+					_ = json.NewEncoder(w).Encode(map[string]any{"results": []any{p}, "has_more": false})
+				}
+			}))
+			defer srv.Close()
+			client := mustTestClient(t, "test-token", srv.URL)
+			var err error
+			switch endpoint {
+			case "page":
+				_, err = client.GetPage(context.Background(), "synthetic")
+			case "search":
+				_, err = client.SearchPages(context.Background())
+			case "query":
+				_, err = client.QueryDatabaseAll(context.Background(), "synthetic")
+			}
+			require.Error(t, err)
+			for cause := err; cause != nil; cause = errors.Unwrap(cause) {
+				require.NotContains(t, fmt.Sprintf("%+v", cause), "PROVIDER_TIME_CANARY")
+			}
+			require.NotContains(t, logs.String(), "PROVIDER_TIME_CANARY")
+		})
+	}
+}
+
 func TestNotionPaginationHopLimitRealHTTP(t *testing.T) {
 	var calls atomic.Int64
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -135,7 +167,7 @@ func TestNotionIncompleteDatabaseRetainsWholeCursorAndRetries(t *testing.T) {
 		case "/v1/data_sources/bad":
 			body = map[string]any{"id": "bad", "object": "data_source"}
 		case "/v1/data_sources/bad/query":
-			body = map[string]any{"results": []any{page("record")}, "has_more": false}
+			body = map[string]any{"results": []any{page("record"), page("historical-record")}, "has_more": false}
 			if broken.Load() {
 				body.(map[string]any)["request_status"] = map[string]any{"type": "incomplete", "incomplete_reason": "PROVIDER_REASON_CANARY"}
 			}

@@ -34,6 +34,24 @@ type windowTestRow struct {
 	createdTime string // RFC3339; empty emulates a row without created_time
 }
 
+// These two fixtures are from the same fixed upstream query_truncation_test.go;
+// the Connector tests from that file use upstream record-table semantics and
+// are replaced by KnowHub's real incremental/cursor regression below.
+func truncationIncomplete() map[string]interface{} {
+	return map[string]interface{}{"type": "incomplete", "incomplete_reason": "query_result_limit_reached"}
+}
+
+func truncationRecord(id string) map[string]interface{} {
+	return map[string]interface{}{
+		"id": id, "object": "page", "url": "https://notion.so/" + id,
+		"last_edited_time": "2026-01-02T10:00:00.000Z", "in_trash": false,
+		"parent": map[string]interface{}{"type": "data_source_id", "data_source_id": "ds-1"},
+		"properties": map[string]interface{}{"Name": map[string]interface{}{
+			"type": "title", "title": []interface{}{map[string]interface{}{"plain_text": "Row " + id}},
+		}},
+	}
+}
+
 // createdTimeRows builds rows one minute apart, in created_time ascending order.
 func createdTimeRows(ids ...string) []windowTestRow {
 	rows := make([]windowTestRow, 0, len(ids))

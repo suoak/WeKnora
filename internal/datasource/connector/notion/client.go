@@ -178,7 +178,7 @@ func (c *notionClient) GetPage(ctx context.Context, pageID string) (*notionPage,
 
 	var page notionPage
 	if err := json.Unmarshal(respBody, &page); err != nil {
-		return nil, fmt.Errorf("unmarshal page: %w", err)
+		return nil, errors.New("unmarshal page failed")
 	}
 	page.Title = extractTitle(&page)
 	return &page, nil
@@ -200,7 +200,7 @@ func (c *notionClient) GetDatabaseInfo(ctx context.Context, dbID string) (*datab
 
 	var db notionPage
 	if err := json.Unmarshal(respBody, &db); err != nil {
-		return nil, fmt.Errorf("unmarshal database: %w", err)
+		return nil, errors.New("unmarshal database failed")
 	}
 	db.Title = extractTitle(&db)
 
@@ -232,7 +232,7 @@ func (c *notionClient) GetDataSourceInfo(ctx context.Context, dsID string) (*not
 	}
 	var ds notionPage
 	if err := json.Unmarshal(respBody, &ds); err != nil {
-		return nil, fmt.Errorf("unmarshal data_source: %w", err)
+		return nil, errors.New("unmarshal data_source failed")
 	}
 	ds.Title = extractTitle(&ds)
 	return &ds, nil
@@ -519,7 +519,7 @@ func (c *notionClient) paginatePages(ctx context.Context, method, path string) (
 
 		var pages []notionPage
 		if err := json.Unmarshal(resp.Results, &pages); err != nil {
-			return nil, fmt.Errorf("unmarshal page results: %w", err)
+			return nil, errors.New("unmarshal page results failed")
 		}
 
 		for i := range pages {
@@ -667,7 +667,7 @@ func (c *notionClient) queryDataSourceWindow(
 
 		var pageRows []notionPage
 		if unmarshalErr := json.Unmarshal(resp.Results, &pageRows); unmarshalErr != nil {
-			return nil, time.Time{}, "", fmt.Errorf("unmarshal page results: %w", unmarshalErr)
+			return nil, time.Time{}, "", errors.New("unmarshal page results failed")
 		}
 		for i := range pageRows {
 			pageRows[i].Title = extractTitle(&pageRows[i])

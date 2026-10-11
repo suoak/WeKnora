@@ -50,5 +50,6 @@
   "tenant-a-token",
   "tenant-b-token",
   "PROVIDER_CURSOR_CANARY",
-  "PROVIDER_REASON_CANARY"
+  "PROVIDER_REASON_CANARY",
+  "PROVIDER_TIME_CANARY"
 ]
