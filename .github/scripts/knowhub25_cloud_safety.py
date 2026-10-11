@@ -19,7 +19,8 @@ RULES = [(f'SYNTHETIC_{i+1:03d}', re.compile(re.escape(v))) for i, v in enumerat
 CATEGORIES = {'CONFIRMED_NON_CREDENTIAL_BUILD_METADATA', 'MASKED_CREDENTIAL_RELATED', 'UNKNOWN'}
 BASES = {'ARCHIVE_AND_BUILD_CONTEXT', 'SOURCE_BOUND_MASK', 'INSUFFICIENT_EVIDENCE',
          'BUILD_BLOCK_ABSENT', 'BUILD_MAPPING_UNBOUND', 'ARCHIVE_UNVERIFIED', 'BUILD_WORK_UNRESOLVED', 'UNSUPPORTED_MATCH_SHAPE', 'VERIFIED_VET_IMPORT_MAP', 'VERIFIED_VET_ARCHIVE', 'VERIFIED_VET_FACT_PATH',
-         'UNPROVEN_JSON_MAPPING', 'UNPROVEN_JSON_SCALAR', 'UNPROVEN_GO_COMMAND', 'UNPROVEN_SHELL_COMMAND'}
+         'UNPROVEN_JSON_MAPPING', 'UNPROVEN_JSON_SCALAR', 'UNPROVEN_GO_COMMAND', 'UNPROVEN_SHELL_COMMAND',
+         'UNPROVEN_VET_IMPORT_MAP', 'UNPROVEN_VET_ARCHIVE', 'UNPROVEN_VET_FACT_PATH'}
 
 def digest(value):
     return hashlib.sha256(value).hexdigest()
@@ -71,7 +72,7 @@ def vet_proofs(text, root, goroot):
     def package(value):
         return isinstance(value, str) and re.fullmatch(r'[A-Za-z0-9._/-]+', value) and not any(p in {'', '.', '..'} for p in value.split('/'))
     lines = text.splitlines()
-    proofs, work = {}, None
+    proofs, unproven, work = {}, {}, None
     for index, line in enumerate(lines):
         marker = re.fullmatch(r'WORK=(\S+)', line)
         if marker:
@@ -124,6 +125,10 @@ def vet_proofs(text, root, goroot):
                 key, value = json.loads(entry[1]), json.loads(entry[2])
                 if config[field].get(key) != value:
                     continue
+                if field in {'ImportMap', 'PackageFile', 'PackageVetx'}:
+                    unproven[offset] = {'ImportMap': 'UNPROVEN_VET_IMPORT_MAP',
+                                        'PackageFile': 'UNPROVEN_VET_ARCHIVE',
+                                        'PackageVetx': 'UNPROVEN_VET_FACT_PATH'}[field]
                 if field == 'ImportMap' and key == value and config['Standard'].get(key) is True and goroot is not None:
                     directory = (goroot / 'src' / key).resolve(strict=True)
                     if directory.is_relative_to((goroot / 'src').resolve()) and directory.is_dir() and any(directory.glob('*.go')):
@@ -136,7 +141,7 @@ def vet_proofs(text, root, goroot):
                         proofs[offset] = 'VERIFIED_VET_FACT_PATH'
         except (OSError, ValueError, TypeError, KeyError):
             continue
-    return proofs
+    return proofs, unproven
 
 def classify(text, role, root, masks, goroot=None):
     """Classify every exact frozen-rule match; never suppress a match."""
@@ -149,7 +154,7 @@ def classify(text, role, root, masks, goroot=None):
                 return None
             return str(work / value[6:])
         return value
-    vetted = vet_proofs(text, root, goroot) if role == 'GO_COMPILE_LOG' else {}
+    vetted, unproven_vet = vet_proofs(text, root, goroot) if role == 'GO_COMPILE_LOG' else ({}, {})
     for line_number, line in enumerate(text.splitlines()):
         marker = re.fullmatch(r'WORK=(\S+)', line)
         if marker and role == 'GO_COMPILE_LOG':
@@ -197,6 +202,8 @@ def classify(text, role, root, masks, goroot=None):
                         category = 'CONFIRMED_NON_CREDENTIAL_BUILD_METADATA'
                 if len(matches) == 1 and line_number in vetted:
                     category, basis = 'CONFIRMED_NON_CREDENTIAL_BUILD_METADATA', vetted[line_number]
+                elif line_number in unproven_vet:
+                    basis = unproven_vet[line_number]
             if rule == 'CREDENTIAL_ASSIGNMENT' and role == 'GO_TEST_JSONL':
                 try:
                     event = json.loads(line)
