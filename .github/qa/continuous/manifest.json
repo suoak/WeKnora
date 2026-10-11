@@ -649,25 +649,29 @@
       "path": "python-linux.lock",
       "sourceCommit": "d793e8e719fccd189ef0c8a705e7e302c667b613",
       "sourcePath": ".github/qa/a5-b2/python-linux.lock",
-      "sha256": "83d738ef77e842fcc2bd6e15b9798f4c03915339b0067d91cff47c0d6801efa7"
+      "sha256": "9b23a75cb127dc68a45b5f973e311ec1b577df98484446da08c925002c15cf77",
+      "blob": "1076290889fba27bcfa0a0c9e6e9f90fb1a5e98c"
     },
     {
       "path": "personal_mcp_bridge_test.go",
       "sourceCommit": "d793e8e719fccd189ef0c8a705e7e302c667b613",
       "sourcePath": ".github/qa/a5-b2/personal_mcp_bridge_test.go",
-      "sha256": "5b67017343b11e58031042e0d8559bd20193f1425991912fc730eb085619d00d"
+      "sha256": "5b67017343b11e58031042e0d8559bd20193f1425991912fc730eb085619d00d",
+      "blob": "9a5f9d020544601e60bae775edd6fb7564f7b2da"
     },
     {
       "path": "test_personal_mcp_lifecycle_http.py",
       "sourceCommit": "d793e8e719fccd189ef0c8a705e7e302c667b613",
       "sourcePath": ".github/qa/a5-b2/test_personal_mcp_lifecycle_http.py",
-      "sha256": "7fe810fad060abdcb09ca70a9c8b583e052a8b9f81841edca5f92e701918e55f"
+      "sha256": "d92b5742a8d77a64a72545fed33c14b87e344a9b064a9be0ac5b087917dee8b9",
+      "blob": "d7e7e1f694fa316c23fcee0a535200622a88ba88"
     },
     {
       "path": "notion_nested_http_test.go",
       "sourceCommit": "d793e8e719fccd189ef0c8a705e7e302c667b613",
       "sourcePath": ".github/qa/a5-b2/notion_nested_http_test.go",
-      "sha256": "1f8900132633017b4e9b8c828c0f4677d8641b77e7f3957426fcd63a2b394032"
+      "sha256": "1f8900132633017b4e9b8c828c0f4677d8641b77e7f3957426fcd63a2b394032",
+      "blob": "f250fcc33f3dca21356d95c3b6d59d5b2e0957d9"
     }
   ],
   "contractSource": {
@@ -959,57 +963,57 @@
     },
     "frontend/src/components/doc-content.vue": {
       "blob": "8d48de179d4b20c77cfb75d9ea213fed1978bf5f",
-      "sha256": "41bf8d0adec46c6b3a7a9c571e56e391a27b0200eaeea922a4d66f2d3afcdf8d",
+      "sha256": "14f66739153d31a2c146c303be882bdcc194855da843af44797b293bbc5d4187",
       "source": "02c88cb1f"
     },
     "frontend/src/utils/chatMarkdownRenderer.test.ts": {
       "blob": "f97dd800533891a079cc68e2fcced35267747fbd",
-      "sha256": "6630bc05450b2080bc3166b630e813e26f366553180893522e092af897b8afc3",
+      "sha256": "be42c649a6afe531da6a33eb7f21629a8dd392a2ebbd7f887fe8142f2de0a570",
       "source": "02c88cb1f"
     },
     "frontend/src/utils/chatMarkdownRenderer.ts": {
       "blob": "d01ebfdd52d02a43c09f55e0913fc360f246c252",
-      "sha256": "dc2474a46dcb9f7a666c6be29a30aa44ebc0a22f8a70614ed9fb8cc1495dc88d",
+      "sha256": "63b4862cab13f85435d6ff6580c6c3e5eb9036c31fadaf9ab6620be0c1d1d005",
       "source": "02c88cb1f"
     },
     "frontend/src/utils/documentPreviewMarkdown.ts": {
       "blob": "9daae425d5e9bf6e4771e8a2cc4ccf22d82b6386",
-      "sha256": "4fb5bb1e15598029ee1808c1b0cf0910d5ac364655e3a1db13c75c97522c910a",
+      "sha256": "041afb8656a7ac7cba587fe9a1b7b1a761d98668236d44f27d1877594c18da4a",
       "source": "02c88cb1f"
     },
     "frontend/src/utils/markdownDomPurify.test.mjs": {
       "blob": "61f73cdef9bcbf5f184cf24b199053bd5e3bce81",
-      "sha256": "2717901776663270938c758cea3382cab9186d80caf52e2d067f6ed505a3469e",
+      "sha256": "60a9054b830623daea57f684fe8b1c4838f9ceb6c60122f03fddb91822c14994",
       "source": "02c88cb1f"
     },
     "frontend/src/utils/markdownDomPurify.ts": {
       "blob": "7438d8b7d429f5631124adb1a44c92f681313a4c",
-      "sha256": "d75231b96cabe50bc653514203cca7328ae377c7ab174bf055989d7c42f7ebc7",
+      "sha256": "39b168a8f8a9ce9a76267b310e1d0b1e8a732fc18b7283d2b8a1e748e813cf2a",
       "source": "02c88cb1f"
     },
     "frontend/src/utils/markedLiteralTilde.test.ts": {
       "blob": "2bed2f009e85d03aef82d3354fb66dedce6175a9",
-      "sha256": "97012d5892612d6039a26499b2ba49c42f07a29559ced96343abbc675df4168e",
+      "sha256": "fbbc962e0262d2b80f695ee9f3d9742f444e1140b9e1f5aa0433c4ee568c19cb",
       "source": "02c88cb1f"
     },
     "frontend/src/utils/markedLiteralTilde.ts": {
       "blob": "a84ca97a7c1e93193df85241269c8b89861d6312",
-      "sha256": "ce40b4630d0fb95fc184795fff68c3e421f83c969596bdf5b6fc21fc053f948d",
+      "sha256": "be0c13349ce94849a9e1774c640cbcc26e91697492d06cf96397c1b927027cb4",
       "source": "02c88cb1f"
     },
     "frontend/src/utils/security.test.ts": {
       "blob": "7ab26e4ae40a0e8b9fd6435d2d5c5400b15545ae",
-      "sha256": "98f5622b2609e4afd5f7880c899aa196f9615927388ea0765bea65e5a6a3b469",
+      "sha256": "7552a451699480e0d57f82a91bfba0dc17dfe049b2beabbd08c7338cb3603b7d",
       "source": "02c88cb1f"
     },
     "frontend/src/utils/security.ts": {
       "blob": "4e58d3495cf1d1cb940413b887f5315ac2bb0f4c",
-      "sha256": "41bc28c70cd3f31d6290b34ad7240af3fe0c2f41ee22e00fbb90258cd102d23f",
+      "sha256": "5bc6457673f7de32b8f543d2b82063f5d3e4450e60579bb002a92964b0c36fd0",
       "source": "02c88cb1f"
     },
     "frontend/src/views/knowledge/wiki/WikiBrowser.vue": {
       "blob": "916830adc0431dddda835ff724fb9614c1e0ed17",
-      "sha256": "883841198969369157c4a76714de5c1124577a2c271dc3e2fd83b33b91d9e279",
+      "sha256": "a30bcafd29b7d905b65a0926dfc11b30c02f1d3e7c61337c10306589c3a7668e",
       "source": "02c88cb1f"
     },
     "internal/datasource/connector/rss/connector.go": {
