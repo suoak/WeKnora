@@ -448,7 +448,12 @@
       "TestReconcileSQLPreservesNonIdentifiers",
       "TestReconcileSQLPreservesQuotedIdentifierEscapes",
       "TestReconcileSQLLeavesUnscannableInputUnchanged",
-      "TestReconcileSQLPreservesDuckDBFilterResults"
+      "TestReconcileSQLPreservesDuckDBFilterResults",
+      "TestDataAnalysisRegistryRetriesFailedCSVLoad",
+      "TestLoadFromExcelRetriesFailedCreate",
+      "TestDataAnalysisLoadRecoveryPreservesReuseAndCleanup",
+      "TestDataAnalysisLoadRetainsReadyTableAfterSchemaError",
+      "TestDataAnalysisCleanupIncludesFailedCreate"
     ],
     "internal/mcp": [
       "TestOAuthCallRefreshesAndRetriesResource401Once",
@@ -456,6 +461,9 @@
       "TestOAuthRefreshRedactionPreservesClassification",
       "TestOAuthRuntimePreservesTokenOnTemporaryRefreshFailure",
       "TestRawToolsUsesOAuthLifecycleAndPreservesTransportErrors"
+    ],
+    "internal/application/service": [
+      "TestFAQCloneStatusSyncPreservesContentAndIndexState"
     ]
   },
   "approved_skips": {
@@ -1060,8 +1068,8 @@
       "sha256": "abcafc2cf97f438e7f064b818e454b78ae1393edd6b68c7c2dc0f5f737e99a47"
     },
     "internal/agent/tools/data_analysis.go": {
-      "blob": "d7e5186c851bd5cae5f32ed9af0f94e66e4a6ec9",
-      "sha256": "67e8f838c87c18237d7caa6e29881bbbb14bdc9c5762fabf50ce84a140125133"
+      "blob": "394479471180716b907e8b7ab992c1a269fe1f5c",
+      "sha256": "a9c7ed32ec375698b33a22e7dab23c66212209c3410f335ac46fd310dc3609f6"
     },
     "internal/agent/tools/data_analysis_reconcile_test.go": {
       "blob": "c1dbbe58a32620901e82bb191d8f472bd763609e",
@@ -1078,6 +1086,18 @@
     "frontend/src/views/chat/components/BrowserTaskPreview.browser.test.mjs": {
       "blob": "b00435a6a12ba50eeeb3f320852bb271ad199ca9",
       "sha256": "9e21e050aa5da9b18e48fcab5eaa44aef22790873de01829ecb898923c104022"
+    },
+    "internal/application/service/faq_clone_sync.go": {
+      "blob": "615ab9ee50ce84ca9768d6ac35d7fde1ec564b9c",
+      "sha256": "764da6949125c14c55593238ec2b6560f286dcbb36bf88f7be79363370c07758"
+    },
+    "internal/application/service/faq_clone_sync_test.go": {
+      "blob": "c1caff21beb78559071995263ad1e012391063f4",
+      "sha256": "cf712b166fdf0e852e484ed62f80c2d8cd1cd478f89534561aaf570987248030"
+    },
+    "internal/agent/tools/data_analysis_recovery_test.go": {
+      "blob": "ff669fb5f5a903ab8915163eeaec176254ea670b",
+      "sha256": "9497a5021b2cfb5b628408817fd4df10d147e1cd49178417e8b3c2e11f10671b"
     }
   },
   "notion_overlay_required": [

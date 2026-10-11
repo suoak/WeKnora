@@ -144,7 +144,8 @@ type DataAnalysisTool struct {
 	tenantService        interfaces.TenantService
 	db                   *sql.DB
 	sessionID            string
-	createdTables        []string // Track tables created in this session
+	createdTables        []string        // Cleanup candidates, including failed CREATE attempts
+	loadedTables         map[string]bool // CREATE succeeded, even if a subsequent schema read failed
 	// localBaseDir is the LOCAL_STORAGE_BASE_DIR value captured at construction
 	// time so resolveFileServiceForKnowledge uses the same base path that was
 	// used when the local FileService was initialised by DI.  Re-reading the
@@ -197,16 +198,21 @@ func NewDataAnalysisTool(
 	return tool
 }
 
-// recordCreatedTable records a table name for cleanup, ensuring uniqueness
-// Returns true if the table was newly recorded, false if it already existed
-func (t *DataAnalysisTool) recordCreatedTable(tableName string) bool {
+// recordCreatedTable records a cleanup candidate, not proof that CREATE succeeded.
+func (t *DataAnalysisTool) recordCreatedTable(tableName string) {
 	for _, name := range t.createdTables {
 		if name == tableName {
-			return false
+			return
 		}
 	}
 	t.createdTables = append(t.createdTables, tableName)
-	return true
+}
+
+func (t *DataAnalysisTool) markTableLoaded(tableName string) {
+	if t.loadedTables == nil {
+		t.loadedTables = make(map[string]bool)
+	}
+	t.loadedTables[tableName] = true
 }
 
 // Cleanup cleans up the session-specific schema
@@ -228,8 +234,9 @@ func (t *DataAnalysisTool) Cleanup(ctx context.Context) {
 		logger.Infof(ctx, "[Tool][DataAnalysis] Successfully dropped table '%s'", tableName)
 	}
 
-	// Clear the list after cleanup
+	// Reset both cleanup tracking and successful-load state.
 	t.createdTables = nil
+	t.loadedTables = nil
 }
 
 // Execute executes the SQL query on DuckDB (only read-only queries are allowed)
@@ -493,8 +500,10 @@ type ColumnInfo struct {
 func (t *DataAnalysisTool) LoadFromCSV(ctx context.Context, filename string, tableName string) (*TableSchema, error) {
 	logger.Infof(ctx, "[Tool][DataAnalysis] Loading CSV file '%s' into table '%s' for session %s", filename, tableName, t.sessionID)
 
-	// Record the created table for cleanup. If already exists, skip creation
-	if t.recordCreatedTable(tableName) {
+	if !t.loadedTables[tableName] {
+		// Keep cleanup tracking even if CREATE fails; only successful creation
+		// makes the table reusable by a later call.
+		t.recordCreatedTable(tableName)
 		// Create table from CSV using DuckDB's read_csv_auto function
 		// with explicit header detection and VARCHAR coercion to align with
 		// Excel loading behavior.
@@ -509,6 +518,7 @@ func (t *DataAnalysisTool) LoadFromCSV(ctx context.Context, filename string, tab
 			logger.Errorf(ctx, "[Tool][DataAnalysis] Failed to create table from CSV: %v", err)
 			return nil, fmt.Errorf("failed to create table from CSV: %w", err)
 		}
+		t.markTableLoaded(tableName)
 
 		logger.Infof(ctx, "[Tool][DataAnalysis] Successfully created table '%s' from CSV file in session %s", tableName, t.sessionID)
 	}
@@ -539,8 +549,8 @@ func (t *DataAnalysisTool) LoadFromCSV(ctx context.Context, filename string, tab
 func (t *DataAnalysisTool) LoadFromExcel(ctx context.Context, filename string, tableName string) (*TableSchema, error) {
 	logger.Infof(ctx, "[Tool][DataAnalysis] Loading Excel file '%s' into table '%s' for session %s", filename, tableName, t.sessionID)
 
-	// Record the created table for cleanup. If already exists, skip creation.
-	if t.recordCreatedTable(tableName) {
+	if !t.loadedTables[tableName] {
+		t.recordCreatedTable(tableName)
 		sheetNames, enumErr := t.listExcelSheets(ctx, filename)
 		if enumErr != nil {
 			logger.Warnf(ctx,
@@ -555,6 +565,7 @@ func (t *DataAnalysisTool) LoadFromExcel(ctx context.Context, filename string, t
 			logger.Errorf(ctx, "[Tool][DataAnalysis] Failed to create table from Excel (sheets=%v): %v", sheetNames, err)
 			return nil, fmt.Errorf("failed to create table from Excel file (sheets=%v): %w", sheetNames, err)
 		}
+		t.markTableLoaded(tableName)
 
 		logger.Infof(ctx,
 			"[Tool][DataAnalysis] Successfully created table '%s' from Excel file in session %s (sheets=%v)",
