@@ -6,6 +6,46 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
+import sys
+
+PUBLIC_ROWS = []
+
+
+def emit(value):
+    """Publish fixed metadata only; retain no raw output or exception strings."""
+    allowed = {'REPOSITORY', 'SERVICE', 'SERVICE_FULL', 'NORMAL', 'RACE', 'RUN',
+               'PASS', 'FAIL', 'SKIP', 'BLOCKED', 'UNKNOWN', 'UNKNOWN_TEST_ID',
+               'GO_TEST_JSONL', 'GO_TEST_STDERR', 'HELPER_FAILED'} | set(RULES) | EXPECTED
+    allowed |= {'TestA3ProcessingAttemptCleanupPostgres',
+                'TestA3ProcessingAttemptCleanupPostgres/actual_processChunks_preserves_new_generation'}
+    for source in Path('internal/application/service').glob('*_test.go'):
+        allowed.update(re.findall(r'(?m)^func\s+(Test[A-Za-z0-9_]+)\(t \*testing\.T\)', source.read_text(encoding='utf-8')))
+    fields = {'package', 'mode', 'exit', 'run', 'pass', 'fail', 'skip', 'tests',
+              'failedTestIDs', 'parserValid', 'dataRace', 'scanClear', 'rawMetadata',
+              'safeHitTests', 'status', 'role', 'sha256', 'rules', 'testID',
+              'ruleID', 'count', 'classification', 'failureClass'} | set(RULES) | EXPECTED
+    fields |= {'TestA3ProcessingAttemptCleanupPostgres',
+               'TestA3ProcessingAttemptCleanupPostgres/actual_processChunks_preserves_new_generation'}
+    def inspect(item):
+        if item is None or type(item) in (bool, int): return
+        if isinstance(item, str):
+            if item not in allowed and not re.fullmatch('[0-9a-f]{64}', item):
+                raise ValueError('PUBLIC_SCHEMA_FAILED')
+        elif isinstance(item, list):
+            for child in item: inspect(child)
+        elif isinstance(item, dict):
+            if not set(item) <= fields: raise ValueError('PUBLIC_SCHEMA_FAILED')
+            for child in item.values(): inspect(child)
+        else: raise ValueError('PUBLIC_SCHEMA_FAILED')
+    inspect(value)
+    payload = json.dumps(value, sort_keys=True)
+    if any(rule.search(payload) for rule in RULES.values()):
+        raise ValueError('PUBLIC_SCAN_FAILED')
+    PUBLIC_ROWS.append(value)
+    target = Path(os.environ['RUNNER_TEMP']) / 'knowhub25-a3-public'
+    target.mkdir(mode=0o700, exist_ok=True)
+    (target / 'summary.json').write_text(json.dumps({'schema': 1, 'rows': PUBLIC_ROWS}, indent=2), encoding='utf-8')
+    print(payload)
 
 EXPECTED = {
     "TestA3ProcessingFencePostgresConcurrentGeneration",
@@ -126,7 +166,7 @@ def full_service(directory):
         skipped = {key for key,value in rows.items() if value == "SKIP"}
         scan_clear = all(not count for row in findings for count in row["rules"].values())
         passed = result.returncode == 0 and bool(rows) and package_pass and not invalid and not race and scan_clear and skipped <= allowed_skip and all(value in ("PASS","SKIP") for value in rows.values()) and rows.get("TestA3ProcessingAttemptCleanupPostgres") == "PASS"
-        print(json.dumps({"package":"SERVICE_FULL","mode":mode,"exit":result.returncode,"run":len(rows),"pass":sum(value=="PASS" for value in rows.values()),"fail":sum(value=="FAIL" for value in rows.values()),"failedTestIDs":sorted({key.split("/")[0] for key,value in rows.items() if value=="FAIL" and key.split("/")[0] in allowed_tests}),"skip":len(skipped),"parserValid":not invalid,"dataRace":race,"scanClear":scan_clear,"rawMetadata":findings,"safeHitTests":safe_hits,"status":"PASS" if passed else "BLOCKED"},sort_keys=True))
+        emit({"package":"SERVICE_FULL","mode":mode,"exit":result.returncode,"run":len(rows),"pass":sum(value=="PASS" for value in rows.values()),"fail":sum(value=="FAIL" for value in rows.values()),"failedTestIDs":sorted({key.split("/")[0] for key,value in rows.items() if value=="FAIL" and key.split("/")[0] in allowed_tests}),"skip":len(skipped),"parserValid":not invalid,"dataRace":race,"scanClear":scan_clear,"rawMetadata":findings,"safeHitTests":safe_hits,"status":"PASS" if passed else "BLOCKED"})
         blocked |= not passed
         if not passed: break
     return not blocked
@@ -182,9 +222,9 @@ def main():
         scan_clear = all(not count for row in findings for count in row["rules"].values())
         passed = result.returncode == 0 and rows == {name: "PASS" for name in expected} and not malformed and not data_race and scan_clear
         blocked |= not passed
-        print(json.dumps({"package": package, "mode": mode, "exit": result.returncode, "tests": rows,
+        emit({"package": package, "mode": mode, "exit": result.returncode, "tests": rows,
                           "parserValid": not malformed, "dataRace": data_race, "scanClear": scan_clear,
-                          "rawMetadata": findings, "status": "PASS" if passed else "BLOCKED"}, sort_keys=True))
+                          "rawMetadata": findings, "status": "PASS" if passed else "BLOCKED"})
         if not passed:
             break
     if not blocked:
@@ -193,10 +233,30 @@ def main():
     raise SystemExit(1 if blocked else 0)
 
 
+def metadata_self_test():
+    previous = os.environ.get('RUNNER_TEMP')
+    try:
+        with tempfile.TemporaryDirectory() as directory:
+            os.environ['RUNNER_TEMP'] = directory
+            emit({'status': 'BLOCKED', 'failureClass': 'HELPER_FAILED'})
+            for bad in [{'raw': 'unknown'}, {'status': 'token=unknown_secret'},
+                        {'status': 'BLOCKED', 'cause': 'unknown'}]:
+                try: emit(bad)
+                except ValueError: pass
+                else: raise AssertionError('FAIL_OPEN')
+            assert len(json.loads((Path(directory) / 'knowhub25-a3-public/summary.json').read_text())['rows']) == 1
+    finally:
+        PUBLIC_ROWS.clear()
+        if previous is None: os.environ.pop('RUNNER_TEMP', None)
+        else: os.environ['RUNNER_TEMP'] = previous
+    print('SAFE_METADATA_SELFTEST_4_PASS')
+
+
 if __name__ == "__main__":
     try:
-        main()
+        if '--self-test' in sys.argv: metadata_self_test()
+        else: main()
     except Exception:
         # Never serialize an exception cause or raw command output publicly.
-        print(json.dumps({"status": "BLOCKED", "failureClass": "HELPER_FAILED"}))
+        emit({"status": "BLOCKED", "failureClass": "HELPER_FAILED"})
         raise SystemExit(1) from None
