@@ -101,6 +101,36 @@ func (r *ProcessingFenceRepository) reserve(ctx context.Context, tenantID uint64
 	return generation, nil
 }
 
+// FailPendingAdmission records a definite enqueue failure only while this exact
+// generation is still unclaimed. An ambiguous queue timeout must never overwrite
+// a worker that has already claimed the delivery, or a newer admission.
+func (r *ProcessingFenceRepository) FailPendingAdmission(ctx context.Context, tenantID uint64, knowledgeID string, generation int64) error {
+	if tenantID == 0 || knowledgeID == "" || generation <= 0 {
+		return ErrProcessingFence
+	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockProcessingKnowledge(tx, tenantID, knowledgeID); err != nil {
+			return err
+		}
+		var current ProcessingFence
+		if err := tx.Where("tenant_id = ? AND knowledge_id = ? AND generation = ? AND execution_id = ? AND main_finished = FALSE", tenantID, knowledgeID, generation, "").Take(&current).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrProcessingFence
+			}
+			return err
+		}
+		result := tx.Table("knowledges").Where("tenant_id = ? AND id = ? AND deleted_at IS NULL AND parse_status = ?", tenantID, knowledgeID, types.ParseStatusPending).
+			Updates(map[string]any{"parse_status": types.ParseStatusFailed, "error_message": "enqueue_failed", "updated_at": gorm.Expr("CURRENT_TIMESTAMP")})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return ErrProcessingFence
+		}
+		return nil
+	})
+}
+
 // Claim grants one execution nonce for a reserved generation. A concurrent
 // redelivery returns Busy while the lease is live. Lease recovery changes nonce,
 // fencing the crashed/partitioned worker without changing user generation.

@@ -367,3 +367,44 @@ func TestA3ProcessingFencePostgresAtomicPendingAdmission(t *testing.T) {
 	require.NoError(t, db.Table("knowledges").Where("id = ?", "one").Take(&state).Error)
 	require.Equal(t, types.ParseStatusCancelled, state.ParseStatus)
 }
+
+func TestA3ProcessingFencePostgresEnqueueFailureCannotOverwriteClaim(t *testing.T) {
+	db, repo := processingPG(t)
+	ctx := context.Background()
+	generation, err := repo.ReservePending(ctx, 1, "one")
+	require.NoError(t, err)
+	require.NoError(t, repo.FailPendingAdmission(ctx, 1, "one", generation))
+	var state struct {
+		ParseStatus  string
+		ErrorMessage string
+	}
+	require.NoError(t, db.Table("knowledges").Where("id = ?", "one").Take(&state).Error)
+	require.Equal(t, types.ParseStatusFailed, state.ParseStatus)
+	require.Equal(t, "enqueue_failed", state.ErrorMessage)
+	require.ErrorIs(t, repo.FailPendingAdmission(ctx, 1, "one", generation), ErrProcessingFence)
+	next, err := repo.ReservePending(ctx, 1, "one")
+	require.NoError(t, err)
+	require.ErrorIs(t, repo.FailPendingAdmission(ctx, 1, "one", generation), ErrProcessingFence)
+	require.ErrorIs(t, repo.FailPendingAdmission(ctx, 2, "one", next), ErrProcessingFence)
+	start := make(chan struct{})
+	claimed := make(chan error, 1)
+	failed := make(chan error, 1)
+	go func() { <-start; _, e := repo.Claim(ctx, 1, "one", next, time.Minute); claimed <- e }()
+	go func() { <-start; failed <- repo.FailPendingAdmission(ctx, 1, "one", next) }()
+	close(start)
+	claimErr, failureErr := <-claimed, <-failed
+	require.True(t, (claimErr == nil && errors.Is(failureErr, ErrProcessingFence)) || (failureErr == nil && errors.Is(claimErr, ErrProcessingFence)))
+	require.NoError(t, db.Table("knowledges").Where("id = ?", "one").Take(&state).Error)
+	if claimErr == nil {
+		require.Equal(t, types.ParseStatusPending, state.ParseStatus)
+		require.Empty(t, state.ErrorMessage)
+	} else {
+		require.Equal(t, types.ParseStatusFailed, state.ParseStatus)
+	}
+	fresh, err := repo.ReservePending(ctx, 1, "one")
+	require.NoError(t, err)
+	require.NoError(t, db.Table("knowledges").Where("id = ?", "one").Update("parse_status", types.ParseStatusCancelled).Error)
+	require.ErrorIs(t, repo.FailPendingAdmission(ctx, 1, "one", fresh), ErrProcessingFence)
+	require.NoError(t, db.Table("knowledges").Where("id = ?", "one").Take(&state).Error)
+	require.Equal(t, types.ParseStatusCancelled, state.ParseStatus)
+}
