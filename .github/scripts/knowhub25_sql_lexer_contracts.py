@@ -14,7 +14,7 @@ BASELINE = 'a6403708915680ccad310b0fd64506597b879804'
 APPROVED_SKIP = ('github.com/Tencent/WeKnora/internal/agent/tools',
                  'TestSkillPythonPackageRecoveryInstallsWithoutPip/uv')
 APPROVED_SKIP_REASON = 'skill_runtime_guard_test.go:53: uv is required'
-REQUIRED = {'internal/agent/tools': ['TestReconcileSQLPreservesNonIdentifiers', 'TestReconcileSQLPreservesQuotedIdentifierEscapes', 'TestReconcileSQLLeavesUnscannableInputUnchanged', 'TestReconcileSQLPreservesDuckDBFilterResults']}
+REQUIRED = {'internal/agent/tools': ['TestReconcileSQLPreservesNonIdentifiers', 'TestReconcileSQLPreservesQuotedIdentifierEscapes', 'TestReconcileSQLLeavesUnscannableInputUnchanged', 'TestReconcileSQLPreservesDuckDBFilterResults', 'TestDataAnalysisRegistryRetriesFailedCSVLoad', 'TestLoadFromExcelRetriesFailedCreate', 'TestDataAnalysisLoadRecoveryPreservesReuseAndCleanup', 'TestDataAnalysisLoadRetainsReadyTableAfterSchemaError', 'TestDataAnalysisCleanupIncludesFailedCreate']}
 CANARIES = json.loads((Path(__file__).with_name('knowhub25_sql_lexer_canaries.json')).read_text())
 RULES = [(f'SYNTHETIC_{i + 1:03}', re.compile(re.escape(v))) for i, v in enumerate(CANARIES)]
 RULES += [
@@ -85,7 +85,7 @@ def main():
         print('SQL_LEXER_CONTRACT_INFRASTRUCTURE_SELF_TEST_PASS')
         return
     assert subprocess.check_output(['git', 'merge-base', BASELINE, 'HEAD']).decode().strip() == BASELINE
-    expected_source = {'internal/agent/tools/data_analysis.go': 'd7e5186c851bd5cae5f32ed9af0f94e66e4a6ec9', 'internal/agent/tools/data_analysis_reconcile_test.go': 'c1dbbe58a32620901e82bb191d8f472bd763609e'}
+    expected_source = {'internal/agent/tools/data_analysis.go': '394479471180716b907e8b7ab992c1a269fe1f5c', 'internal/agent/tools/data_analysis_reconcile_test.go': 'c1dbbe58a32620901e82bb191d8f472bd763609e', 'internal/agent/tools/data_analysis_recovery_test.go': 'ff669fb5f5a903ab8915163eeaec176254ea670b'}
     approved = set(expected_source) | {'.github/scripts/knowhub25_sql_lexer_canaries.json', '.github/workflows/knowhub25-sql-lexer.yml', '.github/scripts/knowhub25_sql_lexer_contracts.py'}
     assert set(subprocess.check_output(['git', 'diff', '--name-only', BASELINE, 'HEAD']).decode().splitlines()) == approved
     for path, blob in expected_source.items():

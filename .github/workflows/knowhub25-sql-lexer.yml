@@ -1,7 +1,7 @@
-name: KnowHub25 sql-lexer contracts
+name: KnowHub25 data-analysis recovery and SQL contracts
 on:
   push:
-    branches: [integration/knowhub25-sql-lexer-20261011]
+    branches: [integration/knowhub25-data-analysis-recovery-20261011]
 permissions:
   contents: read
 concurrency:
@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   bounded-contracts:
-    if: github.repository == 'suoak/WeKnora' && github.ref == 'refs/heads/integration/knowhub25-sql-lexer-20261011'
+    if: github.repository == 'suoak/WeKnora' && github.ref == 'refs/heads/integration/knowhub25-data-analysis-recovery-20261011'
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
