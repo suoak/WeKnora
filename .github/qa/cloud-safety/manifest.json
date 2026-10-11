@@ -1,6 +1,6 @@
 {
   "BASELINE": "a6403708915680ccad310b0fd64506597b879804",
-  "CANDIDATE": "d793e8e719fccd189ef0c8a705e7e302c667b613",
+  "CANDIDATE": "33eb20770f2124fad2063c87ccf9b326dd4205ea",
   "source": [
     {
       "path": "internal/agent/checkpoint.go",
@@ -211,16 +211,25 @@
     "CANDIDATE": [
       {
         "path": "internal/datasource/connector/yuque/client_test.go",
-        "sha256": "7d81fb1b7151389eb79909d444ff6a0afb9a7e0a5f86053d126235048faca0a2"
+        "sha256": "9e8191f25eb66754acd236ec41901548d954af44cdda8f444836da5764c7e29f"
       },
       {
         "path": "internal/datasource/connector/yuque/client.go",
-        "sha256": "23809b7f599c6abcdfe799452aaddb84be01c7a1edde661f92519f2dc2b9a1ec"
+        "sha256": "ae098d556fdb06f2fd670aa08f4c06ec9ff0f4b82b6c90be99150060b761497e"
       },
       {
         "path": "internal/datasource/connector/yuque/types.go",
         "sha256": "e69edf7a5ecb715caf4111ab75867bf97ba87f5b89f8a4c4f7fc429e4910b23e"
       }
     ]
+  },
+  "yuque_revision": {
+    "verifiedCommit": "c80fa183d35f96eb91c41450861dd30c5f545865",
+    "sourceCommit": "33eb20770f2124fad2063c87ccf9b326dd4205ea",
+    "paths": [
+      "internal/datasource/connector/yuque/client.go",
+      "internal/datasource/connector/yuque/client_test.go"
+    ],
+    "historicalRawStatus": "UNKNOWN"
   }
 }

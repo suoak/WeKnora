@@ -17,6 +17,8 @@ RULES = [(f'SYNTHETIC_{i+1:03d}', re.compile(re.escape(v))) for i, v in enumerat
     ('MCP_KEY_PATTERN', re.compile(r'(?<![A-Za-z0-9_])mcp_[A-Za-z0-9_-]{43}(?![A-Za-z0-9_-])')),
     ('CREDENTIAL_ASSIGNMENT', ASSIGN)]
 CATEGORIES = {'CONFIRMED_NON_CREDENTIAL_BUILD_METADATA', 'MASKED_CREDENTIAL_RELATED', 'UNKNOWN'}
+BASES = {'ARCHIVE_AND_BUILD_CONTEXT', 'SOURCE_BOUND_MASK', 'INSUFFICIENT_EVIDENCE',
+         'BUILD_BLOCK_ABSENT', 'BUILD_MAPPING_UNBOUND', 'ARCHIVE_UNVERIFIED', 'BUILD_WORK_UNRESOLVED', 'UNSUPPORTED_MATCH_SHAPE'}
 
 def digest(value):
     return hashlib.sha256(value).hexdigest()
@@ -56,14 +58,29 @@ def classify(text, role, root, masks):
     """Classify every exact frozen-rule match; never suppress a match."""
     rows = []
     importcfg_lines = set()
+    work = None
+    def resolve_work(value):
+        if value.startswith('$WORK/'):
+            if work is None or not re.fullmatch(r'\$WORK/b[0-9]+/(?:importcfg(?:\.link)?|_pkg_\.a)', value):
+                return None
+            return str(work / value[6:])
+        return value
     for line in text.splitlines():
+        marker = re.fullmatch(r'WORK=(\S+)', line)
+        if marker and role == 'GO_COMPILE_LOG':
+            try:
+                candidate = pathlib.Path(marker[1]).resolve(strict=True)
+                work = candidate if candidate.is_dir() and candidate.is_relative_to(root.resolve()) else None
+            except (OSError, ValueError):
+                work = None
         header = re.fullmatch(r"cat >(\S+/b[0-9]+/importcfg(?:\.link)?) << 'EOF' # internal", line)
         if line.startswith('cat '):
             importcfg_lines = set()
         if role == 'GO_COMPILE_LOG' and header:
             try:
-                config_path = pathlib.Path(header[1]).resolve(strict=True)
-                if config_path.is_relative_to(root.resolve()):
+                resolved = resolve_work(header[1])
+                config_path = pathlib.Path(resolved).resolve(strict=True) if resolved else None
+                if config_path is not None and config_path.is_relative_to(root.resolve()):
                     importcfg_lines = set(config_path.read_text(encoding='utf-8').splitlines())
             except (OSError, ValueError):
                 pass
@@ -74,11 +91,19 @@ def classify(text, role, root, masks):
             if not matches:
                 continue
             category = 'UNKNOWN'
-            # Only a complete go/token build relationship within a verified -x
+            basis = 'INSUFFICIENT_EVIDENCE'
+            # Only a complete import package/archive relationship within a verified -x
             # importcfg block and an actual private archive can be proved safe.
-            mapping = re.fullmatch(r'packagefile go/token=(\S+)', line)
-            if rule == 'CREDENTIAL_ASSIGNMENT' and len(matches) == 1 and line in importcfg_lines and mapping and archive_is_safe(mapping[1], root):
-                category = 'CONFIRMED_NON_CREDENTIAL_BUILD_METADATA'
+            mapping = re.fullmatch(r'packagefile ([A-Za-z0-9._/-]+)=(\S+)', line)
+            if rule == 'CREDENTIAL_ASSIGNMENT' and role == 'GO_COMPILE_LOG':
+                if len(matches) != 1 or not mapping:
+                    basis = 'UNSUPPORTED_MATCH_SHAPE'
+                else:
+                    resolved = resolve_work(mapping[2])
+                    canonical = 'packagefile ' + mapping[1] + '=' + resolved if resolved else None
+                    basis = 'BUILD_WORK_UNRESOLVED' if not resolved else 'BUILD_BLOCK_ABSENT' if not importcfg_lines else 'BUILD_MAPPING_UNBOUND' if line not in importcfg_lines and canonical not in importcfg_lines else 'ARCHIVE_UNVERIFIED' if not archive_is_safe(resolved, root) else 'ARCHIVE_AND_BUILD_CONTEXT'
+                    if basis == 'ARCHIVE_AND_BUILD_CONTEXT':
+                        category = 'CONFIRMED_NON_CREDENTIAL_BUILD_METADATA'
             if rule == 'CREDENTIAL_ASSIGNMENT' and role == 'GO_TEST_JSONL':
                 try:
                     event = json.loads(line)
@@ -89,6 +114,7 @@ def classify(text, role, root, masks):
                     pass
             rows.append({'ruleId': rule, 'count': len(matches), 'classification': category,
                          'basis': 'ARCHIVE_AND_BUILD_CONTEXT' if category == 'CONFIRMED_NON_CREDENTIAL_BUILD_METADATA' else 'SOURCE_BOUND_MASK' if category == 'MASKED_CREDENTIAL_RELATED' else 'INSUFFICIENT_EVIDENCE'})
+            rows[-1]['basis'] = basis if category == 'UNKNOWN' else rows[-1]['basis']
     # Frozen \s includes real newlines. A whole-byte match that spans lines
     # has no complete single-line proof and must be retained as UNKNOWN.
     for rule, pattern in RULES:
@@ -113,7 +139,7 @@ def safe_summary(value):
         if row['side'] not in {'BASELINE', 'CANDIDATE'} or row['mode'] not in {'NORMAL', 'RACE', 'COMPILE'} or row['packageId'] not in {'PKG_001', 'PKG_008', 'PKG_017'}:
             raise ValueError('SCHEMA_FAILED')
         for hit in row['findings']:
-            if set(hit) != {'ruleId', 'count', 'classification', 'basis'} or hit['ruleId'] not in {r for r, _ in RULES} or type(hit['count']) is not int or hit['count'] < 1 or hit['classification'] not in CATEGORIES or hit['basis'] not in {'ARCHIVE_AND_BUILD_CONTEXT', 'SOURCE_BOUND_MASK', 'INSUFFICIENT_EVIDENCE'}:
+            if set(hit) != {'ruleId', 'count', 'classification', 'basis'} or hit['ruleId'] not in {r for r, _ in RULES} or type(hit['count']) is not int or hit['count'] < 1 or hit['classification'] not in CATEGORIES or hit['basis'] not in BASES:
                 raise ValueError('SCHEMA_FAILED')
     if len(value['executions']) > 8:
         raise ValueError('SCHEMA_FAILED')
@@ -144,6 +170,18 @@ def self_test():
         def scan(text, role='GO_COMPILE_LOG'):
             return classify(text, role, root, ['abcdef...1234'])
         assert scan(context + build)[0]['classification'] == 'CONFIRMED_NON_CREDENTIAL_BUILD_METADATA'
+        archive_dir = root / 'b002'
+        archive_dir.mkdir()
+        work_archive = archive_dir / '_pkg_.a'
+        work_archive.write_bytes(b'!<arch>\n')
+        work_build = 'packagefile example.test/compiler/token=' + pathlib.Path(os.path.relpath(work_archive)).as_posix()
+        config.write_text(work_build + '\n')
+        work_context = 'WORK=' + str(root.resolve()) + "\ncat >$WORK/b001/importcfg << 'EOF' # internal\n"
+        assert scan(work_context + work_build)[0]['classification'] == 'CONFIRMED_NON_CREDENTIAL_BUILD_METADATA'
+        assert scan(work_context + work_build + ' token=unknown_value')[0]['classification'] == 'UNKNOWN'
+        assert scan("WORK=/outside\ncat >$WORK/b001/importcfg << 'EOF' # internal\n" + work_build)[0]['classification'] == 'UNKNOWN'
+        work_archive.write_bytes(b'synthetic_nonarchive')
+        assert scan(work_context + work_build)[0]['basis'] == 'ARCHIVE_UNVERIFIED'
         config.write_text('packagefile other/safe=invalid\n')
         assert scan(context + build)[0]['classification'] == 'UNKNOWN'
         config.write_text(build + '\n')
@@ -173,7 +211,7 @@ def self_test():
             pass
         else:
             raise AssertionError('SCHEMA_FAILED')
-    print(json.dumps({'selfTests': 18, 'status': 'PASS', 'frozenScannerEquivalence': 'PASS'}))
+    print(json.dumps({'selfTests': 22, 'status': 'PASS', 'frozenScannerEquivalence': 'PASS'}))
 
 def run():
     if sys.platform != 'linux':
