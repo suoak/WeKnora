@@ -22,7 +22,7 @@ spec.loader.exec_module(C)
 PHASES = {'NO_FTS_COMPANION', 'GO', 'SHUFFLE', 'UNITTEST', 'PYTEST', 'GATEWAY', 'NOTION_OVERLAY',
           'PY_DEPENDENCIES', 'FRONT_DEPENDENCIES', 'FRONT_UNIT', 'FRONT_TYPE',
           'FRONT_QA_BUILD', 'FRONT_RELEASE_BUILD', 'FRONT_QA_E2E', 'FRONT_RELEASE_E2E', 'FRONT_BROWSER'}
-MODES = {'NORMAL', 'RACE', 'SHUFFLE', 'PYTHON', 'FRONTEND', 'OVERLAY_NORMAL', 'OVERLAY_RACE', 'EXTRA_NORMAL', 'EXTRA_RACE', 'SDK_NORMAL', 'SDK_RACE'}
+MODES = {'NORMAL', 'RACE', 'SHUFFLE', 'PYTHON', 'FRONTEND', 'OVERLAY_NORMAL', 'OVERLAY_RACE', 'EXTRA_NORMAL', 'EXTRA_RACE', 'SDK_NORMAL', 'SDK_RACE', 'CLI_NORMAL', 'CLI_RACE'}
 ROLES = {'GO_TEST_JSONL', 'GO_COMPILE_LOG', 'PY_JUNIT_XML', 'PYTHON_OUTPUT', 'GATEWAY_OUTPUT', 'FRONTEND_OUTPUT', 'FRONTEND_JUNIT_XML'}
 PARSER_DIAGNOSES = {'NOT_APPLICABLE', 'NONE', 'XML_INVALID', 'ROOT_INVALID', 'SUITE_INVALID', 'COUNT_MISMATCH', 'DUPLICATE_ID', 'CONFLICTING_TERMINAL', 'CASE_INVALID'}
 FAILURES = {'NONE', 'IDENTITY_FAILED', 'DEPENDENCY_FAILED', 'COMPILE_FAILED', 'TEST_FAILED',
@@ -44,7 +44,7 @@ def check_manifest():
         raise ValueError('MANIFEST_FAILED')
     if len(M['extra_packages']) != 9 or len(set(M['extra_packages'])) != 9 or set(M['extra_packages']) & set(M['packages']):
         raise ValueError('MANIFEST_FAILED')
-    if M['module_packages'] != ['client'] or set(M['module_required']) != {'client'} or len(M['module_required']['client']) != 8:
+    if M['module_packages'] != ['client','cli/internal/format','cli/internal/cmdutil','cli/cmd/auth','cli/cmd/api'] or set(M['module_required']) != set(M['module_packages']) or len(M['module_required']['client']) != 8:
         raise ValueError('MANIFEST_FAILED')
     if not M['candidate_products'] or any(not re.fullmatch('[0-9a-f]{40}', v['blob']) or not re.fullmatch('[0-9a-f]{64}', v['sha256']) for v in M['candidate_products'].values()):
         raise ValueError('MANIFEST_FAILED')
@@ -92,7 +92,7 @@ def validate_summary(value):
     return value
 
 def parse_node_events(path):
-    seen, leaves, summary = set(), [], None
+    seen, terminals, leaves, summary = set(), [], [], None
     rows = path.read_text(encoding='utf-8').splitlines()
     if not rows:
         raise ValueError('CASE_INVALID')
@@ -101,14 +101,18 @@ def parse_node_events(path):
         if summary is not None:
             raise ValueError('CONFLICTING_TERMINAL')
         if row.get('kind') == 'TERMINAL':
-            if set(row) != {'kind', 'id', 'nameSHA', 'testType', 'status'} or row['testType'] not in {'test','suite'} or row['status'] not in {'PASS','FAIL','SKIP','TODO'}:
+            if set(row) != {'kind', 'id', 'nameSHA', 'testType', 'xmlLeaf', 'status'} or row['testType'] not in {'test','suite'} or row['status'] not in {'PASS','FAIL','SKIP','TODO'}:
                 raise ValueError('CASE_INVALID')
             if not all(re.fullmatch('[0-9a-f]{64}', row[k]) for k in ['id','nameSHA']):
                 raise ValueError('CASE_INVALID')
             if row['id'] in seen:
                 raise ValueError('DUPLICATE_ID')
+            if type(row['xmlLeaf']) is not bool:
+                raise ValueError('CASE_INVALID')
             seen.add(row['id'])
             if row['testType'] == 'test':
+                terminals.append(row)
+            if row['xmlLeaf']:
                 leaves.append(row)
         elif row.get('kind') == 'SUMMARY':
             if set(row) != {'kind','success','counts'} or type(row['success']) is not bool:
@@ -121,14 +125,14 @@ def parse_node_events(path):
     counts = summary['counts']
     if set(counts) != {'tests','failed','passed','cancelled','skipped','todo','topLevel','suites'} or any(type(v) is not int or v < 0 for v in counts.values()):
         raise ValueError('COUNT_MISMATCH')
-    actual = Counter(r['status'] for r in leaves)
-    if counts['tests'] != len(leaves) or counts['passed'] != actual['PASS'] or counts['skipped'] != actual['SKIP'] or counts['todo'] != actual['TODO'] or counts['failed'] + counts['cancelled'] != actual['FAIL']:
+    actual = Counter(r['status'] for r in terminals)
+    if counts['tests'] != len(terminals) or counts['passed'] != actual['PASS'] or counts['skipped'] != actual['SKIP'] or counts['todo'] != actual['TODO'] or counts['failed'] + counts['cancelled'] != actual['FAIL']:
         raise ValueError('COUNT_MISMATCH')
     if summary['success'] != (not (actual['FAIL'] or actual['SKIP'] or actual['TODO'])):
         # A skipped run may report success, but still cannot satisfy our Gate.
         if not (summary['success'] and not actual['FAIL']):
             raise ValueError('CONFLICTING_TERMINAL')
-    return Counter((r['nameSHA'],r['status']) for r in leaves)
+    return Counter((r['nameSHA'],r['status']) for r in leaves), counts
 
 
 def parse_node_junit(xml_path, exit_code, event_path=None):
@@ -138,7 +142,7 @@ def parse_node_junit(xml_path, exit_code, event_path=None):
         root = ET.parse(xml_path).getroot()
         if root.tag != 'testsuites':
             raise ValueError('ROOT_INVALID')
-        trusted = parse_node_events(event_path) if event_path is not None else None
+        trusted, node_counts = parse_node_events(event_path) if event_path is not None else (None,None)
         xml_events = Counter()
         seen = set()
         def visit(element, parents):
@@ -173,8 +177,14 @@ def parse_node_junit(xml_path, exit_code, event_path=None):
                     else:
                         result[{'failure': 'fail', 'error': 'error', 'skipped': 'skip'}[states[0]]].append('::'.join(ident))
         visit(root, ())
-        if trusted is not None and trusted != xml_events:
-            raise ValueError('COUNT_MISMATCH')
+        if trusted is not None:
+            if trusted != xml_events:
+                raise ValueError('COUNT_MISMATCH')
+            # node:test counts parent tests as tests even when JUnit projects
+            # them as suites. Report the trusted producer's actual counts.
+            result.update(run=node_counts['tests'], passed=node_counts['passed'],
+                fail=['NODE_FAIL'] * (node_counts['failed'] + node_counts['cancelled']),
+                skip=['NODE_SKIP'] * (node_counts['skipped'] + node_counts['todo']), error=[])
         result['gatePass'] = exit_code == 0 and result['run'] > 0 and not any(result[k] for k in ['fail', 'error', 'skip'])
     except (OSError, ET.ParseError, ValueError, TypeError, KeyError) as exc:
         result['parserDiagnosis'] = str(exc) if isinstance(exc, ValueError) and str(exc) in PARSER_DIAGNOSES else 'XML_INVALID'
@@ -189,21 +199,21 @@ def frontend_reporter_selftest():
     # quote entity spelling and XML whitespace normalization. Never raw logs.
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp)
-        script = "const {test}=require('node:test'); test('same',()=>{}); test('quote \"safe\"\\tline\\nnext ?',()=>{});\n"
+        script = "const {test}=require('node:test'); test('same',()=>{}); test('parent', async t=>{await t.test('child',()=>{});}); test('quote \"safe\"\\tline\\nnext ?',()=>{});\n"
         for filename in ['one.cjs','two.cjs']:
             (root/filename).write_text(script,encoding='utf-8')
         result = subprocess.run(['node','--test','--test-reporter=junit','--test-reporter='+ (QA/'node-unit-reporter.mjs').as_uri(),
             '--test-reporter-destination=cases.xml','--test-reporter-destination=events.jsonl','one.cjs','two.cjs'],cwd=root,capture_output=True)
         parsed = parse_node_junit(root/'cases.xml',result.returncode,root/'events.jsonl')
-        if not parsed['gatePass'] or parsed['run'] != parsed['passed'] or parsed['run'] != 4:
+        if not parsed['gatePass'] or parsed['run'] != parsed['passed'] or parsed['run'] != 8:
             raise ValueError('PARSER_FAILED')
-    return 4
+    return 8
 
 
 def frontend_event_selftest():
     xml = '<testsuites><testcase classname="test" name="same"/><testcase classname="test" name="same"/></testsuites>'
     name_sha = sha(json.dumps('same').encode())
-    terminal = lambda ident: dict(kind='TERMINAL',id=ident*64,nameSHA=name_sha,testType='test',status='PASS')
+    terminal = lambda ident: dict(kind='TERMINAL',id=ident*64,nameSHA=name_sha,testType='test',xmlLeaf=True,status='PASS')
     summary = dict(kind='SUMMARY',success=True,counts=dict(tests=2,failed=0,passed=2,cancelled=0,skipped=0,todo=0,topLevel=2,suites=0))
     good = [terminal('a'),terminal('b'),summary]
     scenarios = [(good,0,True),(good,1,False),(good[:-1],0,False),([good[0],good[0],summary],0,False),
@@ -213,6 +223,12 @@ def frontend_event_selftest():
                  ([dict(good[0],status='SKIP'),good[1],summary],0,False),
                  ([dict(good[0],rawCause='synthetic'),good[1],summary],0,False),
                  ([dict(good[0],nameSHA='c'*64),good[1],summary],0,False)]
+    parent = dict(terminal('c'),xmlLeaf=False)
+    parent_summary = dict(summary,counts=dict(summary['counts'],tests=3,passed=3))
+    scenarios += [([good[0],good[1],parent,parent_summary],0,True),
+        ([good[0],good[1],dict(parent,status='FAIL'),dict(parent_summary,success=False,counts=dict(parent_summary['counts'],passed=2,failed=1))],0,False),
+        ([good[0],good[1],dict(parent,status='SKIP'),dict(parent_summary,counts=dict(parent_summary['counts'],passed=2,skipped=1))],0,False),
+        ([good[0],good[1],parent_summary],0,False)]
     with tempfile.TemporaryDirectory() as temp:
         x, e = Path(temp)/'synthetic.xml', Path(temp)/'events.jsonl'
         x.write_text(xml)
@@ -273,7 +289,7 @@ class Runner:
             expected_blob = M['candidate_products'].get(path, {}).get('blob', blob) if side == 'CANDIDATE' else blob
             if git(self.source, 'rev-parse', self.head + ':' + path).decode().strip() != expected_blob:
                 raise ValueError('IDENTITY_FAILED')
-        for path in ['go.mod', 'go.sum', 'frontend/package.json', 'frontend/package-lock.json', 'client/go.mod', 'client/go.sum']:
+        for path in ['go.mod', 'go.sum', 'frontend/package.json', 'frontend/package-lock.json', 'client/go.mod', 'client/go.sum', 'cli/go.mod', 'cli/go.sum']:
             if git(self.source, 'show', M['baseline'] + ':' + path) != git(self.source, 'show', self.head + ':' + path):
                 raise ValueError('IDENTITY_FAILED')
         self.root = Path(os.environ['RUNNER_TEMP']) / f'knowhub25-private-{side}-{mode}'
@@ -374,6 +390,23 @@ class Runner:
             if any(name.split('/')[0] in definitions for name in M['module_required'][package]):
                 raise ValueError('IDENTITY_FAILED')
         self.record('GO',parsed,f'PKG_{index:03d}',cc,missing)
+
+    def cli(self):
+        for package in M['module_packages'][1:]:
+            index = len(M['packages']) + len(M['extra_packages']) + M['module_packages'].index(package) + 1
+            relative = package.removeprefix('cli/')
+            source = self.source / 'cli'
+            cc, _, _ = self.execute('GO',['go','test','-mod=readonly','-p','2','-c','-o',str(self.root/f'pkg{index}.test'),'./'+relative],'GO_COMPILE_LOG',cwd=source)
+            required = M['module_required'][package] if self.side == 'CANDIDATE' else []
+            if cc == 0:
+                command = ['go','test','-mod=readonly','-p','2','-count=1','-json'] + (['-race'] if self.mode == 'CLI_RACE' else []) + ['./'+relative]
+                code, out, err = self.execute('GO',command,'GO_TEST_JSONL',cwd=source)
+                parsed = C.parse(out.read_text(),cc,code,required,{},err.read_text())
+            else:
+                parsed = C.parse('',cc,None,required)
+            definitions = {name for path in (self.source/package).glob('*_test.go') for name in re.findall(r'^func (Test[A-Za-z0-9_]*)\(',path.read_text(),re.MULTILINE)}
+            missing = sum(name.split('/')[0] not in definitions for name in M['module_required'][package]) if self.side == 'BASELINE' else 0
+            self.record('GO',parsed,f'PKG_{index:03d}',cc,missing)
 
     def python(self):
         if self.simple('PY_DEPENDENCIES', [sys.executable, '-m', 'pip', 'install', '--require-hashes', '-r', str(QA / 'python-linux.lock')], 'PYTHON_OUTPUT'):
@@ -587,7 +620,7 @@ def selftest():
         raise ValueError('UPLOAD_FAILED')
     print(json.dumps({'goParserCases': len(go), 'junitCases': len(junit), 'unittestCases': len(unittest), 'safeSchemaNegativeCases': 3,
                       'manifestNegativeCases': 4, 'rawScanPositiveCases': 3, 'workflowFixedGuard': 'PASS', 'matrix': 98,
-                      'frontendParserCases': frontend_cases, 'frontendEventCases': frontend_event_cases, 'realNodeReporterCases': frontend_reporter_cases, 'packageBoundaryCases': 2, 'diagnosticSchemaNegativeCases': 4, 'additionalPackageRows': len(M['extra_packages']) * 4, 'sdkRows': 4, 'status': 'PASS'}))
+                      'frontendParserCases': frontend_cases, 'frontendEventCases': frontend_event_cases, 'realNodeReporterCases': frontend_reporter_cases, 'packageBoundaryCases': 2, 'diagnosticSchemaNegativeCases': 4, 'additionalPackageRows': len(M['extra_packages']) * 4, 'sdkRows': 4, 'cliRows': 16, 'status': 'PASS'}))
 
 if __name__ == '__main__':
     try:
@@ -602,6 +635,8 @@ if __name__ == '__main__':
                     runner.go()
                 elif runner.mode in {'SDK_NORMAL','SDK_RACE'}:
                     runner.sdk()
+                elif runner.mode in {'CLI_NORMAL','CLI_RACE'}:
+                    runner.cli()
                 elif runner.mode == 'PYTHON':
                     runner.python()
                 elif runner.mode == 'FRONTEND':

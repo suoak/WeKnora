@@ -1174,6 +1174,38 @@
     "client/streaming_test.go": {
       "blob": "9f26e091895b7233176b0ac52cee48cdacc1d7dd",
       "sha256": "ed1d2d28769f628035d5932c42a85914ccdbfe7851588126a8ffd7e3664d7d68"
+    },
+    "cli/internal/format/filter.go": {
+      "blob": "fc0846f7fb8126e8d5cb1f47cbcb8b2950b8bb4e",
+      "sha256": "e9589dd28d1d668ef42eec9a82675b0993daa793c3dd9949245672a586a780ef"
+    },
+    "cli/internal/format/jq_precision_test.go": {
+      "blob": "9009fe2db00a00318f4ae04dfe88731058e50917",
+      "sha256": "f4f6b86787cc1aedc0d214ec54bee2493d839f05fc51bf8803f87b6c5e944ef6"
+    },
+    "cli/internal/cmdutil/errors.go": {
+      "blob": "1e10c03fe9f68db50d88a8ccbf1fc11b8a4a53ef",
+      "sha256": "c11e8272e3be747214f22233cbc23e3201ed7fe8ad40183c4e0eead8bb1363f6"
+    },
+    "cli/internal/cmdutil/authrefresh_http_classification_test.go": {
+      "blob": "a742dae6be46e1601d27ef635c0c6d8d2575eb20",
+      "sha256": "a785bd21b2a5a87c5a22a1569285a7488cd6a6b06338668d850ffac8a3b24bed"
+    },
+    "cli/cmd/auth/status_jq_precision_test.go": {
+      "blob": "4f164805457df9e09316c539af7863134ff7f669",
+      "sha256": "602721fd326f29325c77c3b216d35fb3ccebc540463996f98b54b0bac2bb70dc"
+    },
+    "cli/cmd/api/api.go": {
+      "blob": "d0b886e0e230bf17fa1de947516ea8e95903e24c",
+      "sha256": "fd85b6d1cbf057cf90880b7d47f67b0d361ceb6a989a229b66985d2ef6c4af63"
+    },
+    "cli/cmd/api/api_test.go": {
+      "blob": "8fd89a1009fc28130caf4d5891f26116f1855527",
+      "sha256": "90618b096f5c6ad89cf00184d6f1cd12fd51a5b5f1543cd4a14064c3ab45159e"
+    },
+    "cli/cmd/api/paginate_text_test.go": {
+      "blob": "d22e90e294ab7b6caa8f4d53f70969e0f25aa6bf",
+      "sha256": "123afbf5a950501f47fec07473bfcd8142542055cd404b87e83fbf5adf33431c"
     }
   },
   "notion_overlay_required": [
@@ -1598,7 +1630,11 @@
     "TestSupportedImageExt"
   ],
   "module_packages": [
-    "client"
+    "client",
+    "cli/internal/format",
+    "cli/internal/cmdutil",
+    "cli/cmd/auth",
+    "cli/cmd/api"
   ],
   "module_required": {
     "client": [
@@ -1610,6 +1646,24 @@
       "TestContinueStream_EventFieldSpace/trailing_space",
       "TestContinueStream_EventFieldSpace/other_event",
       "TestContinueStream_SpacedTerminalError"
+    ],
+    "cli/internal/format": [
+      "TestJQIntegerPrecisionAndInvalidTrailingData"
+    ],
+    "cli/internal/cmdutil": [
+      "TestRejectedAutomaticRefreshPreservesHTTPClassification",
+      "TestRejectedAutomaticRefreshPreservesHTTPClassification/Unauthorized",
+      "TestRejectedAutomaticRefreshPreservesHTTPClassification/Forbidden",
+      "TestClassifyWrappedTypedHTTPStatusIgnoresBodyStatus"
+    ],
+    "cli/cmd/auth": [
+      "TestStatusJQPreservesTenantID"
+    ],
+    "cli/cmd/api": [
+      "TestAPI_PaginateTruncatedHTTPBody",
+      "TestAPI_PaginateReadError",
+      "TestAPI_PaginateFormats",
+      "TestAPI_PaginateTextWriteError"
     ]
   }
 }

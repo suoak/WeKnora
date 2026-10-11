@@ -126,7 +126,7 @@ type Error struct {
 	Silent            bool
 	RetryArgv         []string // Directly-executable argv array, distinct from prose Hint
 	RetryAfterSeconds int      // HTTP Retry-After header semantics (transport-level retry hint)
-	Detail            any    // Structured detail for envelope.error.detail (e.g. unknown-subcommand available[])
+	Detail            any      // Structured detail for envelope.error.detail (e.g. unknown-subcommand available[])
 	Risk              *RiskInfo
 }
 
@@ -396,6 +396,14 @@ func ClassifyHTTPStatus(status int) ErrorCode {
 func ClassifyHTTPError(err error) ErrorCode {
 	if err == nil {
 		return ""
+	}
+	var apiErr *sdk.APIError
+	if errors.As(err, &apiErr) {
+		base := ClassifyHTTPStatus(apiErr.StatusCode)
+		if base == CodeServerError && serverNotFoundRE.MatchString(apiErr.Body) {
+			return CodeResourceNotFound
+		}
+		return base
 	}
 	msg := err.Error()
 	rest, ok := strings.CutPrefix(msg, "HTTP error ")
