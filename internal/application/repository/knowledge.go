@@ -362,8 +362,31 @@ func (r *knowledgeRepository) UpdateKnowledge(ctx context.Context, knowledge *ty
 	if knowledge.CustomMetadata == nil {
 		omit = append(append([]string{}, omitFieldsOnUpdate...), "custom_metadata")
 	}
-	err := r.db.WithContext(ctx).Omit(omit...).Save(knowledge).Error
-	return err
+	if execution, guarded := types.ProcessingExecutionFromContext(ctx); guarded && execution.TenantID != knowledge.TenantID {
+		return ErrProcessingFence
+	}
+	return r.processingWrite(ctx, knowledge.ID, func(tx *gorm.DB) error {
+		if _, guarded := types.ProcessingExecutionFromContext(ctx); !guarded {
+			return tx.Omit(omit...).Save(knowledge).Error
+		}
+		var source struct{ FilePath string }
+		if err := tx.Table("knowledges").Select("file_path").Where("tenant_id = ? AND id = ?", knowledge.TenantID, knowledge.ID).Take(&source).Error; err != nil {
+			return err
+		}
+		if source.FilePath != knowledge.FilePath {
+			return ErrProcessingFence
+		}
+		// Updates cannot perform Save's insert-on-zero-rows fallback. Explicit
+		// Select preserves legitimate zero/false values under the row lock.
+		result := tx.Model(&types.Knowledge{}).Where("tenant_id = ? AND id = ?", knowledge.TenantID, knowledge.ID).Select("*").Omit(omit...).Updates(knowledge)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return ErrProcessingFence
+		}
+		return nil
+	})
 }
 
 // UpdateKnowledgeBatch updates knowledge items in batch
@@ -602,8 +625,13 @@ func (r *knowledgeRepository) UpdateKnowledgeColumn(
 			value = common.CleanInvalidUTF8(string(v))
 		}
 	}
-	err := r.db.WithContext(ctx).Model(&types.Knowledge{}).Where("id = ?", id).Update(column, value).Error
-	return err
+	return r.processingWrite(ctx, id, func(tx *gorm.DB) error {
+		query := tx.Model(&types.Knowledge{}).Where("id = ?", id)
+		if execution, guarded := types.ProcessingExecutionFromContext(ctx); guarded {
+			query = query.Where("tenant_id = ?", execution.TenantID)
+		}
+		return query.Update(column, value).Error
+	})
 }
 
 // UpdateKnowledgeColumns writes multiple columns in a single UPDATE so callers
@@ -626,7 +654,13 @@ func (r *knowledgeRepository) UpdateKnowledgeColumns(
 			values["error_message"] = common.CleanInvalidUTF8(string(v))
 		}
 	}
-	return r.db.WithContext(ctx).Model(&types.Knowledge{}).Where("id = ?", id).Updates(values).Error
+	return r.processingWrite(ctx, id, func(tx *gorm.DB) error {
+		query := tx.Model(&types.Knowledge{}).Where("id = ?", id)
+		if execution, guarded := types.ProcessingExecutionFromContext(ctx); guarded {
+			query = query.Where("tenant_id = ?", execution.TenantID)
+		}
+		return query.Updates(values).Error
+	})
 }
 
 // UpdateActiveDeletingKnowledgeColumns only touches rows that are still visible

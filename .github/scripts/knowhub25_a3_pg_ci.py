@@ -13,6 +13,7 @@ EXPECTED = {
     "TestA3ProcessingFencePostgresCancelDeleteAndLease",
     "TestA3ProcessingFencePostgresMigrationSafety",
     "TestA3ProcessingFencePostgresQueueClaimAndRecovery",
+    "TestA3ProcessingFencePostgresKnowledgeWriteGuard",
 }
 RULES = {
     "BEARER_PATTERN": re.compile(r"(?i)bearer[ \t]+(?!\[REDACTED)[A-Za-z0-9_.~/-]{8,}"),

@@ -254,3 +254,41 @@ func TestA3ProcessingFencePostgresQueueClaimAndRecovery(t *testing.T) {
 	_, err = repo.Claim(ctx, 1, "one", generation, time.Minute)
 	require.ErrorIs(t, err, ErrProcessingFence)
 }
+
+// Exercises the production KnowledgeRepository SQL write boundary, not a mock.
+func TestA3ProcessingFencePostgresKnowledgeWriteGuard(t *testing.T) {
+	db, fences := processingPG(t)
+	knowledge := &knowledgeRepository{db: db}
+	background := context.Background()
+	first, err := fences.Allocate(background, 1, "one", time.Minute)
+	require.NoError(t, err)
+	guarded := func(f ProcessingFence) context.Context {
+		return types.WithProcessingExecution(background, types.ProcessingExecution{TenantID: f.TenantID, KnowledgeID: f.KnowledgeID, Generation: f.Generation, ExecutionID: f.ExecutionID})
+	}
+	require.NoError(t, knowledge.UpdateKnowledgeColumns(guarded(first), "one", map[string]interface{}{"error_message": "", "pending_subtasks_count": 0}))
+	var count int64
+	require.NoError(t, db.Table("knowledges").Where("id = ? AND pending_subtasks_count = 0 AND error_message = ''", "one").Count(&count).Error)
+	require.Equal(t, int64(1), count)
+	next, err := fences.Allocate(background, 1, "one", time.Minute)
+	require.NoError(t, err)
+	require.ErrorIs(t, knowledge.UpdateKnowledgeColumn(guarded(first), "one", "parse_status", types.ParseStatusCompleted), ErrProcessingFence)
+	require.ErrorIs(t, knowledge.UpdateKnowledgeColumn(guarded(next), "two", "parse_status", types.ParseStatusFailed), ErrProcessingFence)
+	require.NoError(t, db.Model(&ProcessingFence{}).Where("tenant_id = ? AND knowledge_id = ?", 1, "one").Update("lease_until", gorm.Expr("CURRENT_TIMESTAMP - INTERVAL '1 second'")).Error)
+	require.ErrorIs(t, knowledge.UpdateKnowledgeColumns(guarded(next), "one", map[string]interface{}{"parse_status": types.ParseStatusCompleted}), ErrProcessingFence)
+	recovered, err := fences.Claim(background, 1, "one", next.Generation, time.Minute)
+	require.NoError(t, err)
+	require.NotEqual(t, next.ExecutionID, recovered.ExecutionID)
+	require.ErrorIs(t, knowledge.UpdateKnowledgeColumn(guarded(next), "one", "parse_status", types.ParseStatusCompleted), ErrProcessingFence)
+	require.NoError(t, knowledge.UpdateKnowledgeColumn(guarded(recovered), "one", "error_message", "controlled_failure"))
+	require.NoError(t, db.Table("knowledges").Where("id = ?", "one").Update("parse_status", types.ParseStatusCancelled).Error)
+	require.ErrorIs(t, knowledge.UpdateKnowledgeColumn(guarded(recovered), "one", "parse_status", types.ParseStatusProcessing), ErrProcessingFence)
+	var row struct {
+		ParseStatus  string
+		ErrorMessage string
+	}
+	require.NoError(t, db.Table("knowledges").Where("id = ?", "one").Take(&row).Error)
+	require.Equal(t, types.ParseStatusCancelled, row.ParseStatus)
+	require.Equal(t, "controlled_failure", row.ErrorMessage)
+	require.NoError(t, db.Table("knowledges").Where("id = ? AND tenant_id = ? AND parse_status = ?", "two", 2, types.ParseStatusProcessing).Count(&count).Error)
+	require.Equal(t, int64(1), count)
+}
