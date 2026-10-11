@@ -21,9 +21,68 @@ RULES = {
     "CREDENTIAL_ASSIGNMENT": re.compile(r'''(?i)["']?(?:authorization|cookie|api_key|secret|token)["']?\s*[:=]\s*["']?(?!\[REDACTED)[A-Za-z0-9_.~/-]{8,}'''),
 }
 
+# Fixed synthetic identifiers copied byte-for-byte from the frozen A5 manifest.
+FROZEN_CANARIES = [
+    "A5_ASSEMBLER_BEARER_CANARY",
+    "A5_ASSEMBLER_PROVIDER_CANARY",
+    "A5_ASSEMBLER_SQL_CANARY",
+    "A5_ASSEMBLER_TOKEN_CANARY",
+    "A5_R2_BEARER_CANARY",
+    "A5_R2_PROVIDER_CANARY",
+    "A5_R2_SQL_CANARY",
+    "A5_R2_TOKEN_CANARY",
+    "A5_R2_UNWRAP_CANARY",
+    "A5_SYNTHETIC_BEARER_CANARY",
+    "A5_SYNTHETIC_HTTP_PROVIDER_CANARY",
+    "A5_SYNTHETIC_PROVIDER_CANARY",
+    "A5_SYNTHETIC_SQL_CANARY",
+    "A5_SYNTHETIC_TOKEN_CANARY",
+    "Authorization: Bearer SYNTHETIC",
+    "B2_MESSAGE_CANARY",
+    "B2_OVERFLOW_CANARY",
+    "B2_PROVIDER_CANARY",
+    "B2_SQL_CANARY",
+    "B2_TOKEN_CANARY",
+    "SECRET-CANARY",
+    "SQL-CANARY",
+    "SQL_CANARY",
+    "SYNTHETIC_LABEL_SECRET",
+    "SYNTHETIC_TOKEN_SQL_CANARY",
+    "TOKEN-CANARY",
+    "TOKEN_CANARY",
+    "TOKEN_SQL_BEARER_CANARY",
+    "WIKI_LINT_SQL_TOKEN_CANARY",
+    "WIKI_PROVIDER_TOKEN_CANARY",
+    "WIKI_SQL_SECRET_CANARY",
+    "a23-isolated-password",
+    "a23-isolated-signing-key-for-tests-only",
+    "other-principal-token",
+    "other-secret",
+    "registered-secret",
+    "synthetic-access",
+    "synthetic-access-token",
+    "synthetic-client-secret",
+    "synthetic-foreign-only",
+    "synthetic-parent-secret-canary",
+    "synthetic-password",
+    "synthetic-refresh",
+    "synthetic-refresh-token",
+    "synthetic-revoke-a",
+    "synthetic-revoke-b",
+    "synthetic-revoke-other",
+    "synthetic-secret",
+    "tenant-a-token",
+    "tenant-b-token"
+]
+RULES.update({f"SYNTHETIC_CANARY_{index:03d}": re.compile(re.escape(value)) for index, value in enumerate(FROZEN_CANARIES, 1)})
+
+
 
 def full_service(directory):
     blocked = False
+    allowed_tests = set()
+    for path in Path("internal/application/service").glob("*_test.go"):
+        allowed_tests.update(re.findall(r"(?m)^func\s+(Test[A-Za-z0-9_]+)\(t \*testing\.T\)", path.read_text(encoding="utf-8")))
     # Exact historical exceptions copied from the accepted A4 R2 gate manifest.
     allowed_skip = {"TestSyncServicePostgres", "TestRealParserSegmentsAcceptance", "TestCreateStore_DifferentEndpointSameIndex_Allowed"}
     for mode in ("NORMAL", "RACE"):
@@ -56,7 +115,7 @@ def full_service(directory):
         skipped = {key for key,value in rows.items() if value == "SKIP"}
         scan_clear = all(not count for row in findings for count in row["rules"].values())
         passed = result.returncode == 0 and bool(rows) and package_pass and not invalid and not race and scan_clear and skipped <= allowed_skip and all(value in ("PASS","SKIP") for value in rows.values()) and rows.get("TestA3ProcessingAttemptCleanupPostgres") == "PASS"
-        print(json.dumps({"package":"SERVICE_FULL","mode":mode,"exit":result.returncode,"run":len(rows),"pass":sum(value=="PASS" for value in rows.values()),"fail":sum(value=="FAIL" for value in rows.values()),"skip":len(skipped),"parserValid":not invalid,"dataRace":race,"scanClear":scan_clear,"rawMetadata":findings,"status":"PASS" if passed else "BLOCKED"},sort_keys=True))
+        print(json.dumps({"package":"SERVICE_FULL","mode":mode,"exit":result.returncode,"run":len(rows),"pass":sum(value=="PASS" for value in rows.values()),"fail":sum(value=="FAIL" for value in rows.values()),"failedTestIDs":sorted({key.split("/")[0] for key,value in rows.items() if value=="FAIL" and key.split("/")[0] in allowed_tests}),"skip":len(skipped),"parserValid":not invalid,"dataRace":race,"scanClear":scan_clear,"rawMetadata":findings,"status":"PASS" if passed else "BLOCKED"},sort_keys=True))
         blocked |= not passed
         if not passed: break
     return not blocked
