@@ -48,5 +48,6 @@
     "synthetic-revoke-other",
     "synthetic-secret",
     "tenant-a-token",
-    "tenant-b-token"
+    "tenant-b-token",
+    "SQLITE_INIT_SQL_CANARY_20261011"
 ]

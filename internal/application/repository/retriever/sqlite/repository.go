@@ -53,7 +53,7 @@ func NewSQLiteRetrieveEngineRepository(db *gorm.DB) interfaces.RetrieveEngineRep
 	logger.GetLogger(context.Background()).Info("[SQLite] Initializing SQLite retriever engine repository with sqlite-vec")
 
 	if err := db.AutoMigrate(&sqliteEmbedding{}); err != nil {
-		logger.GetLogger(context.Background()).Errorf("[SQLite] Failed to auto-migrate lite_embeddings: %v", err)
+		logger.GetLogger(context.Background()).Error("sqlite_embedding_schema_failed")
 	}
 
 	repo := &sqliteRepository{
@@ -64,10 +64,9 @@ func NewSQLiteRetrieveEngineRepository(db *gorm.DB) interfaces.RetrieveEngineRep
 	if err := repo.initFTS5(); err != nil {
 		if errors.Is(err, errFTS5ModuleMissing) {
 			repo.ftsUnavailable = true
-			logger.GetLogger(context.Background()).Warnf(
-				"[SQLite] Keyword index disabled, driver has no fts5 module: %v", err)
+			logFTSInitializationFailure(err)
 		} else {
-			logger.GetLogger(context.Background()).Errorf("[SQLite] Failed to initialize FTS5 index: %v", err)
+			logFTSInitializationFailure(err)
 		}
 	}
 	enableImageChunkIndexes(db)
@@ -75,6 +74,17 @@ func NewSQLiteRetrieveEngineRepository(db *gorm.DB) interfaces.RetrieveEngineRep
 	repo.ensureExistingVecTables()
 
 	return repo
+}
+
+// logFTSInitializationFailure emits only controlled classifications. The
+// internal error returned by initFTS5 remains available to repository callers.
+func logFTSInitializationFailure(err error) {
+	log := logger.GetLogger(context.Background())
+	if errors.Is(err, errFTS5ModuleMissing) {
+		log.Warn("sqlite_fts_module_unavailable")
+		return
+	}
+	log.Error("sqlite_fts_initialize_failed")
 }
 
 // enableImageChunkIndexes repairs image OCR/caption rows that were indexed

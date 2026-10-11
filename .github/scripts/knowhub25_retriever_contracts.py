@@ -76,7 +76,7 @@ def main():
         print('RETRIEVER_CONTRACT_INFRASTRUCTURE_SELF_TEST_PASS')
         return
     assert subprocess.check_output(['git', 'merge-base', BASELINE, 'HEAD']).decode().strip() == BASELINE
-    expected_source = {'internal/application/repository/retriever/sqlite/repository.go': '5622df031360824dfea91c4806e68597f1ed0a94', 'internal/application/repository/retriever/sqlite/batch_update_test.go': 'c5a3d58313153b9c30ddc58f145970f78dd054b4', 'internal/application/repository/retriever/sqlite/index_write_errors_test.go': 'ba95980dd14d04042732aca97788f8d61b8b2a19'}
+    expected_source = {'internal/application/repository/retriever/sqlite/repository.go': '4254177e0de511dac21f9de36292998fe957c440', 'internal/application/repository/retriever/sqlite/batch_update_test.go': 'c5a3d58313153b9c30ddc58f145970f78dd054b4', 'internal/application/repository/retriever/sqlite/index_write_errors_test.go': '4574f8c6afb4c95b289b57dbe7e60ab8d3ccaca8'}
     approved = set(expected_source) | {'.github/scripts/knowhub25_retriever_contracts.py', '.github/scripts/knowhub25_retriever_canaries.json', '.github/workflows/knowhub25-retriever-errors.yml'}
     assert set(subprocess.check_output(['git', 'diff', '--name-only', BASELINE, 'HEAD']).decode().splitlines()) == approved
     for path, blob in expected_source.items():
@@ -102,7 +102,7 @@ def main():
             command += ['./' + package]
             with path.open('wb') as out, errpath.open('wb') as err:
                 proc = subprocess.run(command, stdout=out, stderr=err, timeout=600)
-            required = ['TestSaveWorksWhenTheFTS5ModuleIsNotCompiledIn'] if mode.startswith('NO_FTS') else ['TestBatchSaveRollsBackWhenVecTableIsGone', 'TestBatchSaveRollsBackWhenFTSTableIsGone', 'TestBatchSaveRollsBackWhenVecInsertIsRejected', 'TestSaveFailsWhenAnotherObjectOwnsTheVecTableName', 'TestDeleteByChunkIDListReportsIndexDeleteFailure', 'TestCopyIndicesReportsVectorCopyFailure', 'TestCopyIndicesReportsRejectedRowWithChunkIDs', 'TestCopyIndicesReportsKeywordCopyFailureWithoutLosingTheRow', 'TestSaveStillWritesEveryIndexRowOnHealthyTables']
+            required = ['TestSaveWorksWhenTheFTS5ModuleIsNotCompiledIn'] if mode.startswith('NO_FTS') else ['TestBatchSaveRollsBackWhenVecTableIsGone', 'TestBatchSaveRollsBackWhenFTSTableIsGone', 'TestBatchSaveRollsBackWhenVecInsertIsRejected', 'TestSaveFailsWhenAnotherObjectOwnsTheVecTableName', 'TestDeleteByChunkIDListReportsIndexDeleteFailure', 'TestCopyIndicesReportsVectorCopyFailure', 'TestCopyIndicesReportsRejectedRowWithChunkIDs', 'TestCopyIndicesReportsKeywordCopyFailureWithoutLosingTheRow', 'TestSaveStillWritesEveryIndexRowOnHealthyTables', 'TestFTSInitializationFailureLogIsControlled']
             status, counts = parse(path.read_bytes(), proc.returncode, required, not mode.startswith('NO_FTS'))
             findings = []
             race = False

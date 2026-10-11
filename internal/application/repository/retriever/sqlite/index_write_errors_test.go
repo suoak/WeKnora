@@ -1,7 +1,11 @@
 package sqlite
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"github.com/Tencent/WeKnora/internal/logger"
+	"io"
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/types"
@@ -268,4 +272,27 @@ func TestSaveWorksWhenTheFTS5ModuleIsNotCompiledIn(t *testing.T) {
 	assert.EqualValues(t, 1, countSQLiteRows(t, repository,
 		"SELECT count(*) FROM lite_embeddings WHERE chunk_id = ?", info.ChunkID))
 	assert.EqualValues(t, 1, countSQLiteRows(t, repository, "SELECT count(*) FROM vec_embeddings_2"))
+}
+
+func TestFTSInitializationFailureLogIsControlled(t *testing.T) {
+	repo := newSQLiteRetrieverTestRepository(t)
+	ctx := context.Background()
+	const canary = "SQLITE_INIT_SQL_CANARY_20261011"
+	require.NoError(t, repo.db.Exec("CREATE TRIGGER synthetic_init_failure BEFORE INSERT ON lite_embeddings BEGIN SELECT RAISE(ABORT, '"+canary+"'); END").Error)
+	info := sqliteTestIndex("failed-init", "kb", "knowledge", "", true)
+	err := repo.Save(ctx, info, map[string]any{"embedding": map[string][]float32{info.SourceID: {1, 0}}})
+	require.True(t, err != nil, "real SQLite injected write must fail")
+	require.True(t, bytes.Contains([]byte(err.Error()), []byte(canary)), "actual SQL fault must reach internal error")
+	var captured bytes.Buffer
+	previous := logger.GetLogger(ctx).Logger.Out
+	logger.SetOutput(io.MultiWriter(previous, &captured))
+	defer logger.SetOutput(previous)
+	logFTSInitializationFailure(err)
+	logFTSInitializationFailure(fmt.Errorf("%w: %s", errFTS5ModuleMissing, canary))
+	require.Contains(t, captured.String(), "sqlite_fts_initialize_failed")
+	require.Contains(t, captured.String(), "sqlite_fts_module_unavailable")
+	require.False(t, bytes.Contains(captured.Bytes(), []byte(canary)), "raw SQL cause must not enter logs")
+	require.EqualValues(t, 0, countSQLiteRows(t, repo, "SELECT count(*) FROM lite_embeddings WHERE chunk_id = ?", info.ChunkID))
+	require.NoError(t, repo.db.Exec("DROP TRIGGER synthetic_init_failure").Error)
+	require.NoError(t, repo.Save(ctx, info, map[string]any{"embedding": map[string][]float32{info.SourceID: {1, 0}}}))
 }
