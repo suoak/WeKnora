@@ -55,12 +55,20 @@ def archive_is_safe(value, root):
 def classify(text, role, root, masks):
     """Classify every exact frozen-rule match; never suppress a match."""
     rows = []
-    in_importcfg = False
+    importcfg_lines = set()
     for line in text.splitlines():
-        if role == 'GO_COMPILE_LOG' and re.fullmatch(r"cat >\$WORK/b[0-9]+/importcfg << 'EOF' # internal", line):
-            in_importcfg = True
+        header = re.fullmatch(r"cat >(\S+/b[0-9]+/importcfg(?:\.link)?) << 'EOF' # internal", line)
+        if line.startswith('cat '):
+            importcfg_lines = set()
+        if role == 'GO_COMPILE_LOG' and header:
+            try:
+                config_path = pathlib.Path(header[1]).resolve(strict=True)
+                if config_path.is_relative_to(root.resolve()):
+                    importcfg_lines = set(config_path.read_text(encoding='utf-8').splitlines())
+            except (OSError, ValueError):
+                pass
         elif line == 'EOF':
-            in_importcfg = False
+            importcfg_lines = set()
         for rule, pattern in RULES:
             matches = list(pattern.finditer(line))
             if not matches:
@@ -69,7 +77,7 @@ def classify(text, role, root, masks):
             # Only a complete go/token build relationship within a verified -x
             # importcfg block and an actual private archive can be proved safe.
             mapping = re.fullmatch(r'packagefile go/token=(\S+)', line)
-            if rule == 'CREDENTIAL_ASSIGNMENT' and len(matches) == 1 and in_importcfg and mapping and archive_is_safe(mapping[1], root):
+            if rule == 'CREDENTIAL_ASSIGNMENT' and len(matches) == 1 and line in importcfg_lines and mapping and archive_is_safe(mapping[1], root):
                 category = 'CONFIRMED_NON_CREDENTIAL_BUILD_METADATA'
             if rule == 'CREDENTIAL_ASSIGNMENT' and role == 'GO_TEST_JSONL':
                 try:
@@ -81,6 +89,14 @@ def classify(text, role, root, masks):
                     pass
             rows.append({'ruleId': rule, 'count': len(matches), 'classification': category,
                          'basis': 'ARCHIVE_AND_BUILD_CONTEXT' if category == 'CONFIRMED_NON_CREDENTIAL_BUILD_METADATA' else 'SOURCE_BOUND_MASK' if category == 'MASKED_CREDENTIAL_RELATED' else 'INSUFFICIENT_EVIDENCE'})
+    # Frozen \s includes real newlines. A whole-byte match that spans lines
+    # has no complete single-line proof and must be retained as UNKNOWN.
+    for rule, pattern in RULES:
+        difference = len(pattern.findall(text)) - sum(row['count'] for row in rows if row['ruleId'] == rule)
+        if difference < 0:
+            raise ValueError('SCANNER_CONTRACT_FAILED')
+        if difference:
+            rows.append({'ruleId': rule, 'count': difference, 'classification': 'UNKNOWN', 'basis': 'INSUFFICIENT_EVIDENCE'})
     return rows
 
 def safe_summary(value):
@@ -113,24 +129,34 @@ def self_test():
     function = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'scan_findings')
     scope = {'re': re, 'M': M}
     exec(compile(ast.Module(body=[function], type_ignores=[]), '<frozen scanner>', 'exec'), scope)
-    for sample in ['token=unknown_value', 'Bearer unknown_value', 'token=123456789', 'packagefile go/token=/tmp/synthetic/archive', 'token=[REDACTED]'] + M['canaries']:
+    for sample in ['token=unknown_value', 'token=\nunknown_value', 'Bearer unknown_value', 'token=123456789', 'packagefile go/token=/tmp/synthetic/archive', 'token=[REDACTED]'] + M['canaries']:
         exact = [{'ruleId': rule, 'count': len(pattern.findall(sample))} for rule, pattern in RULES if pattern.search(sample)]
         assert exact == scope['scan_findings'](sample)
     with tempfile.TemporaryDirectory(dir='.') as directory:
         root = pathlib.Path(directory)
         archive = root / '_pkg_.a'
         archive.write_bytes(b'!<arch>\n')
-        context = "cat >$WORK/b001/importcfg << 'EOF' # internal\n"
         build = 'packagefile go/token=' + pathlib.Path(os.path.relpath(archive)).as_posix()
+        config = root / 'b001/importcfg'
+        config.parent.mkdir()
+        config.write_text(build + '\n')
+        context = "cat >" + pathlib.Path(os.path.relpath(config)).as_posix() + " << 'EOF' # internal\n"
         def scan(text, role='GO_COMPILE_LOG'):
             return classify(text, role, root, ['abcdef...1234'])
         assert scan(context + build)[0]['classification'] == 'CONFIRMED_NON_CREDENTIAL_BUILD_METADATA'
+        config.write_text('packagefile other/safe=invalid\n')
+        assert scan(context + build)[0]['classification'] == 'UNKNOWN'
+        config.write_text(build + '\n')
+        assert scan("cat >/outside/b001/importcfg << 'EOF' # internal\n" + build)[0]['classification'] == 'UNKNOWN'
+        assert scan(context + build + ' token=unknown_value')[0]['classification'] == 'UNKNOWN'
         for text in [build, context + build + ' token=unknown_value', context + 'packagefile go/token=/outside/archive', context + build + '\nEOF\n' + build, 'token=123456789', 'token=unknown_value']:
             assert any(r['classification'] == 'UNKNOWN' for r in scan(text))
         masked = json.dumps({'Action': 'output', 'Output': '[Yuque] client configured token=abcdef...1234 base=loopback'})
         assert scan(masked, 'GO_TEST_JSONL')[0]['classification'] == 'MASKED_CREDENTIAL_RELATED'
         mixed = masked + '\n' + json.dumps({'Action': 'output', 'Output': 'token=unknown_value'})
         assert any(r['classification'] == 'UNKNOWN' for r in scan(mixed, 'GO_TEST_JSONL'))
+        across_lines = scan('token=\nunknown_value')
+        assert across_lines == [{'ruleId': 'CREDENTIAL_ASSIGNMENT', 'count': 1, 'classification': 'UNKNOWN', 'basis': 'INSUFFICIENT_EVIDENCE'}]
         assert scan('Bearer unknown_value')[0]['classification'] == 'UNKNOWN'
         assert scan('{broken token=unknown_value', 'GO_TEST_JSONL')[0]['classification'] == 'UNKNOWN'
         value = {'schema': 1, 'status': 'BLOCKED', 'historicalStatus': 'UNKNOWN', 'executions': [], 'files': []}
@@ -147,7 +173,7 @@ def self_test():
             pass
         else:
             raise AssertionError('SCHEMA_FAILED')
-    print(json.dumps({'selfTests': 14, 'status': 'PASS', 'frozenScannerEquivalence': 'PASS'}))
+    print(json.dumps({'selfTests': 18, 'status': 'PASS', 'frozenScannerEquivalence': 'PASS'}))
 
 def run():
     if sys.platform != 'linux':
