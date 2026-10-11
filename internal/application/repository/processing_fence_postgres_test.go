@@ -171,7 +171,9 @@ func TestA3ProcessingFencePostgresCancelDeleteAndLease(t *testing.T) {
 	ctx := context.Background()
 	f, err := repo.Allocate(ctx, 1, "one", time.Minute)
 	require.NoError(t, err)
+	require.NoError(t, repo.Renew(ctx, f, time.Minute))
 	require.NoError(t, db.Exec("UPDATE knowledge_processing_executions SET lease_until = CURRENT_TIMESTAMP - INTERVAL '1 second'").Error)
+	require.ErrorIs(t, repo.Renew(ctx, f, time.Minute), ErrProcessingFence)
 	require.ErrorIs(t, repo.Finish(ctx, f, types.ParseStatusFailed, "index_failed"), ErrProcessingFence)
 	for _, status := range []string{types.ParseStatusCancelled, types.ParseStatusDeleting} {
 		require.NoError(t, db.Exec("UPDATE knowledges SET parse_status = ? WHERE id = 'one'", status).Error)

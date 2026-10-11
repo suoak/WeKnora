@@ -103,6 +103,32 @@ func checkProcessingFence(tx *gorm.DB, fence ProcessingFence) error {
 	return nil
 }
 
+// Renew cannot revive an expired or superseded capability. The same row-lock
+// protocol orders heartbeat, cancellation and generation allocation.
+func (r *ProcessingFenceRepository) Renew(ctx context.Context, fence ProcessingFence, lease time.Duration) error {
+	if lease <= 0 || lease > time.Hour {
+		return ErrProcessingFence
+	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := checkProcessingFence(tx, fence); err != nil {
+			return err
+		}
+		var now time.Time
+		if err := tx.Raw("SELECT CURRENT_TIMESTAMP").Row().Scan(&now); err != nil {
+			return err
+		}
+		result := tx.Model(&ProcessingFence{}).Where("tenant_id = ? AND knowledge_id = ? AND generation = ? AND execution_id = ?",
+			fence.TenantID, fence.KnowledgeID, fence.Generation, fence.ExecutionID).Update("lease_until", now.Add(lease))
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return ErrProcessingFence
+		}
+		return nil
+	})
+}
+
 // PersistChunks commits ownership and SQL chunks together. Vector writes are external:
 // callers must retain this ledger until all backends acknowledge exact-ID cleanup.
 func (r *ProcessingFenceRepository) PersistChunks(ctx context.Context, fence ProcessingFence, chunks []*types.Chunk) error {
