@@ -19,10 +19,10 @@ M = json.loads((QA / 'manifest.json').read_text())
 spec = importlib.util.spec_from_file_location('continuous_contracts', QA / 'contracts.py')
 C = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(C)
-PHASES = {'NO_FTS_COMPANION', 'GO', 'SHUFFLE', 'UNITTEST', 'PYTEST', 'GATEWAY', 'NOTION_OVERLAY',
+PHASES = {'DOCREADER_DEPENDENCIES', 'DOCREADER_HTML', 'DOCREADER_MHTML', 'NO_FTS_COMPANION', 'GO', 'SHUFFLE', 'UNITTEST', 'PYTEST', 'GATEWAY', 'NOTION_OVERLAY',
           'PY_DEPENDENCIES', 'FRONT_DEPENDENCIES', 'FRONT_UNIT', 'FRONT_TYPE',
           'FRONT_QA_BUILD', 'FRONT_RELEASE_BUILD', 'FRONT_QA_E2E', 'FRONT_RELEASE_E2E', 'FRONT_BROWSER'}
-MODES = {'NORMAL', 'RACE', 'SHUFFLE', 'PYTHON', 'FRONTEND', 'OVERLAY_NORMAL', 'OVERLAY_RACE', 'EXTRA_NORMAL', 'EXTRA_RACE', 'SDK_NORMAL', 'SDK_RACE', 'CLI_NORMAL', 'CLI_RACE'}
+MODES = {'DOCREADER', 'NORMAL', 'RACE', 'SHUFFLE', 'PYTHON', 'FRONTEND', 'OVERLAY_NORMAL', 'OVERLAY_RACE', 'EXTRA_NORMAL', 'EXTRA_RACE', 'SDK_NORMAL', 'SDK_RACE', 'CLI_NORMAL', 'CLI_RACE'}
 ROLES = {'GO_TEST_JSONL', 'GO_COMPILE_LOG', 'PY_JUNIT_XML', 'PYTHON_OUTPUT', 'GATEWAY_OUTPUT', 'FRONTEND_OUTPUT', 'FRONTEND_JUNIT_XML'}
 PARSER_DIAGNOSES = {'NOT_APPLICABLE', 'NONE', 'XML_INVALID', 'ROOT_INVALID', 'SUITE_INVALID', 'COUNT_MISMATCH', 'DUPLICATE_ID', 'CONFLICTING_TERMINAL', 'CASE_INVALID'}
 FAILURES = {'NONE', 'IDENTITY_FAILED', 'DEPENDENCY_FAILED', 'COMPILE_FAILED', 'TEST_FAILED',
@@ -38,6 +38,18 @@ def git(root, *args):
     return p.stdout
 
 def check_manifest():
+    doc = M['docreader']
+    if set(doc) != {'python', 'uv', 'shared', 'candidate'} or doc['python'] != '3.10.18' or doc['uv'] != '0.12.15':
+        raise ValueError('MANIFEST_FAILED')
+    for group, counts in [('shared', [7, 17]), ('candidate', [1, 2])]:
+        if set(doc[group]) != {'HTML', 'MHTML'}:
+            raise ValueError('MANIFEST_FAILED')
+        for phase, count in zip(['HTML', 'MHTML'], counts):
+            ids = doc[group][phase]
+            if len(ids) != count or len(set(ids)) != count or any(not re.fullmatch('test_(html|mhtml)_parser\\.[A-Za-z]+Test\\.test_[A-Za-z0-9_]+', ident) for ident in ids):
+                raise ValueError('MANIFEST_FAILED')
+    if any(set(doc['shared'][phase]) & set(doc['candidate'][phase]) for phase in ['HTML', 'MHTML']):
+        raise ValueError('MANIFEST_FAILED')
     if len(M['packages']) != 23 or len(set(M['packages'])) != 23 or len(M['race']) != 21 or len(set(M['race'])) != 21 or not set(M['race']) <= set(M['packages']):
         raise ValueError('MANIFEST_FAILED')
     if M['matrix']['total'] != 98:
@@ -289,7 +301,7 @@ class Runner:
             expected_blob = M['candidate_products'].get(path, {}).get('blob', blob) if side == 'CANDIDATE' else blob
             if git(self.source, 'rev-parse', self.head + ':' + path).decode().strip() != expected_blob:
                 raise ValueError('IDENTITY_FAILED')
-        for path in ['go.mod', 'go.sum', 'frontend/package.json', 'frontend/package-lock.json', 'client/go.mod', 'client/go.sum', 'cli/go.mod', 'cli/go.sum']:
+        for path in ['go.mod', 'go.sum', 'frontend/package.json', 'frontend/package-lock.json', 'client/go.mod', 'client/go.sum', 'cli/go.mod', 'cli/go.sum', 'docreader/uv.lock', 'docreader/pyproject.toml']:
             if git(self.source, 'show', M['baseline'] + ':' + path) != git(self.source, 'show', self.head + ':' + path):
                 raise ValueError('IDENTITY_FAILED')
         self.root = Path(os.environ['RUNNER_TEMP']) / f'knowhub25-private-{side}-{mode}'
@@ -407,6 +419,36 @@ class Runner:
             definitions = {name for path in (self.source/package).glob('*_test.go') for name in re.findall(r'^func (Test[A-Za-z0-9_]*)\(',path.read_text(),re.MULTILINE)}
             missing = sum(name.split('/')[0] not in definitions for name in M['module_required'][package]) if self.side == 'BASELINE' else 0
             self.record('GO',parsed,f'PKG_{index:03d}',cc,missing)
+
+    def docreader(self):
+        if sys.version_info[:3] != tuple(map(int, M['docreader']['python'].split('.'))):
+            raise ValueError('DEPENDENCY_FAILED')
+        if self.simple('DOCREADER_DEPENDENCIES', [sys.executable, '-m', 'pip', 'install', '--disable-pip-version-check', 'uv==' + M['docreader']['uv']], 'PYTHON_OUTPUT'):
+            return
+        # One dependency row: installation and frozen synchronization must both pass.
+        dependency_row = self.rows.pop()
+        envdir = self.root / 'docreader-venv'
+        env = dict(self.env, UV_PROJECT_ENVIRONMENT=str(envdir), UV_CACHE_DIR=str(self.root / 'uv-cache'), PYTHONPATH=str(self.source))
+        code, _, _ = self.execute('DOCREADER_DEPENDENCIES', [sys.executable, '-m', 'uv', 'sync', '--project', 'docreader', '--frozen', '--no-dev', '--python', sys.executable], 'PYTHON_OUTPUT', env=env)
+        dependency_row.update(testExit=code, status='PASS' if code == 0 else 'FAIL')
+        self.rows.append(dependency_row)
+        if code:
+            self.failure = 'DEPENDENCY_FAILED'
+            return
+        for phase, pattern in [('HTML', 'test_html_parser.py'), ('MHTML', 'test_mhtml_parser.py')]:
+            result = self.root / ('docreader-' + phase + '.json')
+            code, _, _ = self.execute('DOCREADER_' + phase, [str(envdir / 'bin/python'), '-B', str(QA / 'contracts.py'), '--unittest-run', str(self.source / 'docreader/tests'), pattern, str(result)], 'PYTHON_OUTPUT', env=env)
+            self.raw.append((result, 'PYTHON_OUTPUT'))
+            parsed = C.parse_unittest(result, code)
+            required = set(M['docreader']['shared'][phase])
+            if self.side == 'CANDIDATE':
+                required.update(M['docreader']['candidate'][phase])
+            lifecycle = json.loads(result.read_bytes())
+            passed = {item['id'] for item in lifecycle['testcases'] if item['status'] == 'pass'}
+            parsed['requiredPassed'] = sorted(required & passed)
+            parsed['missing'] = sorted(required - passed)
+            parsed['gatePass'] = parsed['gatePass'] and not parsed['missing'] and parsed['run'] == len(required)
+            self.record('DOCREADER_' + phase, parsed)
 
     def python(self):
         if self.simple('PY_DEPENDENCIES', [sys.executable, '-m', 'pip', 'install', '--require-hashes', '-r', str(QA / 'python-linux.lock')], 'PYTHON_OUTPUT'):
@@ -599,7 +641,7 @@ def selftest():
             pass
         else:
             raise ValueError('SCHEMA_FAILED')
-    for name in ['packages', 'candidate_required', 'notion_overlay_required', 'candidate_products']:
+    for name in ['docreader', 'packages', 'candidate_required', 'notion_overlay_required', 'candidate_products']:
         old = M.pop(name)
         try:
             try:
@@ -619,7 +661,7 @@ def selftest():
     if 'steps.review.outcome == \'success\'' not in workflow or 'path: continuous-public/summary.json' not in workflow or 'path: ${{ runner.temp }}' in workflow:
         raise ValueError('UPLOAD_FAILED')
     print(json.dumps({'goParserCases': len(go), 'junitCases': len(junit), 'unittestCases': len(unittest), 'safeSchemaNegativeCases': 3,
-                      'manifestNegativeCases': 4, 'rawScanPositiveCases': 3, 'workflowFixedGuard': 'PASS', 'matrix': 98,
+                      'manifestNegativeCases': 5, 'rawScanPositiveCases': 3, 'workflowFixedGuard': 'PASS', 'matrix': 98, 'docreaderRows': 6,
                       'frontendParserCases': frontend_cases, 'frontendEventCases': frontend_event_cases, 'realNodeReporterCases': frontend_reporter_cases, 'packageBoundaryCases': 2, 'diagnosticSchemaNegativeCases': 4, 'additionalPackageRows': len(M['extra_packages']) * 4, 'sdkRows': 4, 'cliRows': (len(M['module_packages']) - 1) * 4, 'status': 'PASS'}))
 
 if __name__ == '__main__':
@@ -637,6 +679,8 @@ if __name__ == '__main__':
                     runner.sdk()
                 elif runner.mode in {'CLI_NORMAL','CLI_RACE'}:
                     runner.cli()
+                elif runner.mode == 'DOCREADER':
+                    runner.docreader()
                 elif runner.mode == 'PYTHON':
                     runner.python()
                 elif runner.mode == 'FRONTEND':

@@ -1270,6 +1270,21 @@
     "internal/datasource/connector/yuque/connector_test.go": {
       "blob": "f2a5e478a658a71f44b40f4c8338a20448f3275b",
       "sha256": "c04b9ba4f30695fd4b11c211c64bc667855b48ae0f274dfe8c31968735d65c97"
+    },
+    "docreader/parser/mhtml_parser.py": {
+      "blob": "d79ecdd4170353fffd4b25e3ad1e6002d3f23359",
+      "sha256": "7bf1eaad648e9fbe2369c2b898186b25867114b58a3339304441d7f386768849",
+      "source": "8d86944a0c3539a1f8130e22239cbaa5d246601c"
+    },
+    "docreader/tests/test_html_parser.py": {
+      "blob": "68edd901814cbba24edf7c2be1bb996430929730",
+      "sha256": "4c5a0503b613e798104df33c8eb7bdd5d6b1e284f707fca4bed28533eb316d9c",
+      "source": "8d86944a0c3539a1f8130e22239cbaa5d246601c"
+    },
+    "docreader/tests/test_mhtml_parser.py": {
+      "blob": "a0bd050b07f2206300c87d0e65539b8e3b1c4e73",
+      "sha256": "90cb2185e0d4850b04b85f3ada2745b5b03c0433b90ac1569a06cc7d5c12d7b1",
+      "source": "8d86944a0c3539a1f8130e22239cbaa5d246601c"
     }
   },
   "notion_overlay_required": [
@@ -1743,5 +1758,48 @@
     "cli/cmd/session": [
       "TestListAllPagesLimitAppliesAfterSince"
     ]
+  },
+  "docreader": {
+    "python": "3.10.18",
+    "uv": "0.12.15",
+    "shared": {
+      "HTML": [
+        "test_html_parser.HTMLParserTest.test_parse_empty_html_returns_empty_document",
+        "test_html_parser.HTMLParserTest.test_parse_honors_declared_windows_1252_charset",
+        "test_html_parser.HTMLParserTest.test_parse_honors_utf16_bom",
+        "test_html_parser.HTMLParserTest.test_parse_preserves_relative_and_fragment_links",
+        "test_html_parser.HTMLParserTest.test_parse_script_only_html_returns_empty_document",
+        "test_html_parser.HTMLParserTest.test_parse_static_html_fixture_into_markdown",
+        "test_html_parser.HTMLParserTest.test_registry_routes_html_extensions_to_html_parser"
+      ],
+      "MHTML": [
+        "test_mhtml_parser.MHTMLParserTest.test_header_str_recovers_unknown_8bit_utf8",
+        "test_mhtml_parser.MHTMLParserTest.test_html_to_markdown_collapses_excess_blank_lines_outside_code",
+        "test_mhtml_parser.MHTMLParserTest.test_html_to_markdown_does_not_strip_leading_indentation_at_document_start",
+        "test_mhtml_parser.MHTMLParserTest.test_html_to_markdown_normalizes_crlf",
+        "test_mhtml_parser.MHTMLParserTest.test_html_to_markdown_preserves_blockquote_boundaries",
+        "test_mhtml_parser.MHTMLParserTest.test_html_to_markdown_preserves_fenced_code_blank_lines",
+        "test_mhtml_parser.MHTMLParserTest.test_html_to_markdown_preserves_hard_break_spaces",
+        "test_mhtml_parser.MHTMLParserTest.test_html_to_markdown_preserves_indentation_and_code_block_blanks",
+        "test_mhtml_parser.MHTMLParserTest.test_html_to_markdown_preserves_nested_list_indentation",
+        "test_mhtml_parser.MHTMLParserTest.test_image_extraction_toggle",
+        "test_mhtml_parser.MHTMLParserTest.test_internal_links_are_unwrapped_but_external_links_remain",
+        "test_mhtml_parser.MHTMLParserTest.test_mhtml_shared_contract_fixture",
+        "test_mhtml_parser.MHTMLParserTest.test_normalize_markdown_preserves_two_space_hard_break",
+        "test_mhtml_parser.MHTMLParserTest.test_parse_8bit_utf8_headers_rewrites_images_without_crashing",
+        "test_mhtml_parser.MHTMLParserTest.test_parse_selects_main_html_and_filters_noise",
+        "test_mhtml_parser.MHTMLParserTest.test_registry_resolves_mhtml",
+        "test_mhtml_parser.MHTMLParserTest.test_table_image_and_caption_keep_markdown_block_boundaries"
+      ]
+    },
+    "candidate": {
+      "HTML": [
+        "test_html_parser.HTMLParserTest.test_parse_keeps_space_held_by_whitespace_only_inline_element"
+      ],
+      "MHTML": [
+        "test_mhtml_parser.MHTMLParserTest.test_html_to_markdown_keeps_whitespace_of_whitespace_only_inline_elements",
+        "test_mhtml_parser.MHTMLParserTest.test_html_to_markdown_still_converts_inline_elements_with_content"
+      ]
+    }
   }
 }
