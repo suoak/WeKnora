@@ -464,7 +464,9 @@
     ],
     "internal/application/service": [
       "TestFAQCloneStatusSyncPreservesContentAndIndexState",
-      "TestLoginTokenIssueFailureLogIsControlled"
+      "TestLoginTokenIssueFailureLogIsControlled",
+      "TestSortedScriptPathsSkipsVendoredTreesAtAnyDepth",
+      "TestSortedScriptPathsIsDeterministic"
     ],
     "internal/datasource/connector/notion": [
       "TestQueryDatabaseAllReadsPastTheLimitInCreatedTimeWindows",
@@ -1234,6 +1236,30 @@
     "cli/cmd/session/list_filter_limit_test.go": {
       "blob": "04a8bb2d2001ce7452eb90c963dcea3f11fad1f5",
       "sha256": "b82c4e96edc593f29a204e9ed979901e024c303dfc59e5b3c30e5069d5d3b7d8"
+    },
+    "cli/cmd/doc/upload.go": {
+      "blob": "f06347017af2e0a2e021997339828144dd919d8b",
+      "sha256": "8da735faebeac4cc3d8339ac4bedeb6e012fc772cbe4c48721beedc880739dcf"
+    },
+    "cli/cmd/doc/upload_recursive.go": {
+      "blob": "05062dcbcdeb3bedbe31e10eea7a59c71d96fc52",
+      "sha256": "55644784278db1df9d6b03ef7e456703678a02d49ead2a01d8ab1e0397df97b6"
+    },
+    "cli/cmd/doc/upload_recursive_test.go": {
+      "blob": "f24a040ea83c171c8f436641f1a47fbf765283bf",
+      "sha256": "8a7612f307f3b854e610016f4271c521cd0b3c8273e73a474c4138eebfb48824"
+    },
+    "internal/application/service/tenant_skill_verify.go": {
+      "blob": "8d8c73cd3e964b5c31ae7d7dd4858518013d8420",
+      "sha256": "e5ecac29d1c3e6b3a5ed0d5a4cdbdb0e0944671907493481fe85ce59250a2b68"
+    },
+    "internal/application/service/tenant_skill_install_test.go": {
+      "blob": "a5bd610a6b4ce0904b6b2336d3cdbab6c7afc756",
+      "sha256": "a3135707b2c8599bb20eba900b193090b949edf23a99e3ca33e6ff4210a24819"
+    },
+    "cli/cmd/doc/upload_recursive_http_test.go": {
+      "blob": "06472a31799e7a2b1b34a9e15c57fd72db9ce2ce",
+      "sha256": "373a04a79a8ea62899d24e502fe2ef415ca4e25d55e03fed30b069cd8d06a1af"
     }
   },
   "notion_overlay_required": [
@@ -1699,7 +1725,10 @@
       "TestAPI_PaginateTextWriteError"
     ],
     "cli/cmd/doc": [
-      "TestListAllPagesSortsBeforeLimit"
+      "TestListAllPagesSortsBeforeLimit",
+      "TestUploadRecursive_PreservesFolderStructure",
+      "TestKnowledgeRelativePath",
+      "TestUploadRecursiveRealMultipartRelativePaths"
     ],
     "cli/cmd/session": [
       "TestListAllPagesLimitAppliesAfterSince"
