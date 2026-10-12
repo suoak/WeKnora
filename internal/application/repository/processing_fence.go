@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -52,17 +53,40 @@ func NewProcessingFenceRepository(db *gorm.DB) *ProcessingFenceRepository {
 // latency must not consume an execution lease, and queue retry must not allocate
 // another user generation. It uses the same knowledge-row lock as Allocate.
 func (r *ProcessingFenceRepository) Reserve(ctx context.Context, tenantID uint64, knowledgeID string) (int64, error) {
-	return r.reserve(ctx, tenantID, knowledgeID, false)
+	return r.reserve(ctx, tenantID, knowledgeID, false, nil)
 }
 
 // ReservePending orders a new queue admission and its pending state under the
 // same row lock as worker writes. A failed transaction publishes neither state
 // nor generation. Enqueue only the generation returned after this commit.
 func (r *ProcessingFenceRepository) ReservePending(ctx context.Context, tenantID uint64, knowledgeID string) (int64, error) {
-	return r.reserve(ctx, tenantID, knowledgeID, true)
+	return r.reserve(ctx, tenantID, knowledgeID, true, nil)
 }
 
-func (r *ProcessingFenceRepository) reserve(ctx context.Context, tenantID uint64, knowledgeID string, pending bool) (int64, error) {
+// ReservePendingWithMetadata publishes request-owned source metadata and the
+// next queue generation in the same knowledge-row transaction. No worker state,
+// tenant identity, counters, or execution fields may be supplied by a caller.
+// This boundary is not activated in legacy admission until all writers migrate.
+func (r *ProcessingFenceRepository) ReservePendingWithMetadata(ctx context.Context, tenantID uint64, knowledgeID string, metadata map[string]string) (int64, error) {
+	copied := make(map[string]string, len(metadata))
+	for field, value := range metadata {
+		switch field {
+		case "title", "file_path", "file_name", "file_type", "source", "embedding_model_id":
+		case "metadata":
+			if !json.Valid([]byte(value)) {
+				return 0, ErrProcessingAdmissionMetadata
+			}
+		default:
+			return 0, ErrProcessingAdmissionMetadata
+		}
+		copied[field] = value
+	}
+	return r.reserve(ctx, tenantID, knowledgeID, true, copied)
+}
+
+var ErrProcessingAdmissionMetadata = errors.New("processing admission metadata invalid")
+
+func (r *ProcessingFenceRepository) reserve(ctx context.Context, tenantID uint64, knowledgeID string, pending bool, metadata map[string]string) (int64, error) {
 	var generation int64
 	if tenantID == 0 || knowledgeID == "" {
 		return 0, ErrProcessingFence
@@ -72,8 +96,12 @@ func (r *ProcessingFenceRepository) reserve(ctx context.Context, tenantID uint64
 			return err
 		}
 		if pending {
+			updates := map[string]any{"parse_status": types.ParseStatusPending, "error_message": "", "updated_at": gorm.Expr("CURRENT_TIMESTAMP")}
+			for field, value := range metadata {
+				updates[field] = value
+			}
 			result := tx.Table("knowledges").Where("tenant_id = ? AND id = ? AND deleted_at IS NULL", tenantID, knowledgeID).
-				Updates(map[string]any{"parse_status": types.ParseStatusPending, "error_message": "", "updated_at": gorm.Expr("CURRENT_TIMESTAMP")})
+				Updates(updates)
 			if result.Error != nil {
 				return result.Error
 			}

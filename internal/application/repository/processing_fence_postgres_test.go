@@ -408,3 +408,60 @@ func TestA3ProcessingFencePostgresEnqueueFailureCannotOverwriteClaim(t *testing.
 	require.NoError(t, db.Table("knowledges").Where("id = ?", "one").Take(&state).Error)
 	require.Equal(t, types.ParseStatusCancelled, state.ParseStatus)
 }
+
+func TestA3ProcessingFencePostgresAtomicMetadataPublication(t *testing.T) {
+	db, repo := processingPG(t)
+	ctx := context.Background()
+	require.NoError(t, db.Exec("ALTER TABLE knowledges ADD COLUMN title TEXT DEFAULT 'historical-title', ADD COLUMN metadata JSONB DEFAULT '{}'::jsonb").Error)
+	first, err := repo.Allocate(ctx, 1, "one", time.Minute)
+	require.NoError(t, err)
+	request := map[string]string{"file_path": "new-file", "title": "request-title", "metadata": `{"source":"fixture"}`}
+	generation, err := repo.ReservePendingWithMetadata(ctx, 1, "one", request)
+	require.NoError(t, err)
+	require.Equal(t, first.Generation+1, generation)
+	var row struct {
+		FilePath             string
+		Title                string
+		ParseStatus          string
+		Metadata             string
+		PendingSubtasksCount int64
+	}
+	require.NoError(t, db.Table("knowledges").Select("file_path,title,parse_status,metadata::text AS metadata,pending_subtasks_count").Where("id = ?", "one").Take(&row).Error)
+	require.Equal(t, "new-file", row.FilePath)
+	require.Equal(t, "request-title", row.Title)
+	require.JSONEq(t, request["metadata"], row.Metadata)
+	require.Equal(t, types.ParseStatusPending, row.ParseStatus)
+	require.EqualValues(t, 3, row.PendingSubtasksCount, "request publication does not reset worker counters")
+	require.ErrorIs(t, repo.Finish(ctx, first, types.ParseStatusFinalizing, ""), ErrProcessingFence)
+	oldWorker := types.WithProcessingExecution(ctx, types.ProcessingExecution{TenantID: 1, KnowledgeID: "one", Generation: first.Generation, ExecutionID: first.ExecutionID})
+	require.ErrorIs(t, NewKnowledgeRepository(db).UpdateKnowledgeColumn(oldWorker, "one", "title", "stale-worker-title"), ErrProcessingFence)
+	require.NoError(t, db.Table("knowledges").Where("id = ?", "one").Update("parse_status", types.ParseStatusProcessing).Error)
+	// An execution-table write failure rolls back metadata and pending state too.
+	require.NoError(t, db.Exec(`CREATE FUNCTION reject_metadata_admission() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'controlled_metadata_publication_fault'; END $$ LANGUAGE plpgsql;
+ CREATE TRIGGER reject_metadata_admission BEFORE INSERT OR UPDATE ON knowledge_processing_executions FOR EACH ROW EXECUTE FUNCTION reject_metadata_admission();`).Error)
+	failedGeneration, err := repo.ReservePendingWithMetadata(ctx, 1, "one", map[string]string{"file_path": "uncommitted-file", "title": "uncommitted-title"})
+	require.Error(t, err)
+	require.Zero(t, failedGeneration)
+	require.NoError(t, db.Table("knowledges").Select("file_path,title,parse_status,metadata::text AS metadata,pending_subtasks_count").Where("id = ?", "one").Take(&row).Error)
+	require.Equal(t, "new-file", row.FilePath)
+	require.Equal(t, "request-title", row.Title)
+	require.Equal(t, types.ParseStatusProcessing, row.ParseStatus, "pending state must roll back with metadata")
+	require.NoError(t, db.Exec("DROP TRIGGER reject_metadata_admission ON knowledge_processing_executions").Error)
+	var current ProcessingFence
+	require.NoError(t, db.Where("tenant_id = ? AND knowledge_id = ?", 1, "one").Take(&current).Error)
+	require.Equal(t, generation, current.Generation)
+	for _, changes := range []map[string]string{{"tenant_id": "2"}, {"parse_status": "completed"}, {"pending_subtasks_count": "0"}, {"execution_id": "untrusted"}, {"metadata": "broken-json"}} {
+		rejected, err := repo.ReservePendingWithMetadata(ctx, 1, "one", changes)
+		require.ErrorIs(t, err, ErrProcessingAdmissionMetadata)
+		require.Zero(t, rejected)
+	}
+	retryGeneration, err := repo.ReservePendingWithMetadata(ctx, 1, "one", map[string]string{"title": ""})
+	require.NoError(t, err)
+	require.Equal(t, generation+1, retryGeneration)
+	require.NoError(t, db.Table("knowledges").Select("title").Where("id = ?", "one").Take(&row).Error)
+	require.Empty(t, row.Title, "explicit empty request values are persisted")
+	require.NoError(t, db.Table("knowledges").Where("id = ?", "one").Update("parse_status", types.ParseStatusCancelled).Error)
+	rejected, err := repo.ReservePendingWithMetadata(ctx, 1, "one", request)
+	require.ErrorIs(t, err, ErrProcessingFence)
+	require.Zero(t, rejected)
+}

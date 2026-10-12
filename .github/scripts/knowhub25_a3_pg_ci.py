@@ -58,6 +58,7 @@ def emit(value):
     print(payload)
 
 EXPECTED = {
+    "TestA3ProcessingFencePostgresAtomicMetadataPublication",
     "TestA3ProcessingFencePostgresEnqueueFailureCannotOverwriteClaim",
     "TestA3ProcessingFencePostgresAtomicPendingAdmission",
     "TestA3ProcessingFencePostgresConcurrentGeneration",
