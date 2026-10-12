@@ -90,6 +90,9 @@ func TestGenerateTokensPersistsPairBeforeReturning(t *testing.T) {
 	tokenRepo := &stubAuthTokenRepo{tokens: map[string]*types.AuthToken{}}
 	svc := newAuthTestUserService(tokenRepo)
 	user := persistedTestUser(t, 1, "user@example.com", "Secure9!")
+	// Validation loads the persisted user; it must be the same enabled account
+	// used for issuance, rather than the stub's unrelated zero-value user.
+	svc.userRepo.(*stubUserRepoForAuth).users[user.ID] = user
 
 	access, refresh, err := svc.GenerateTokens(ctx, user)
 	require.NoError(t, err)
@@ -105,6 +108,21 @@ func TestGenerateTokensPersistsPairBeforeReturning(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, user.ID, got.ID)
 	require.Equal(t, uint64(1), tenantID)
+}
+
+func TestSourceIDDisabledAccountRejectsExistingLocalTokens(t *testing.T) {
+	ctx := context.Background()
+	repo := &stubAuthTokenRepo{tokens: map[string]*types.AuthToken{}}
+	svc := newAuthTestUserService(repo)
+	user := persistedTestUser(t, 0, "disabled@example.test", "Secure9!")
+	svc.userRepo.(*stubUserRepoForAuth).users[user.ID] = user
+	access, refresh, err := svc.GenerateTokens(ctx, user)
+	require.NoError(t, err)
+	user.IsActive = false
+	_, _, err = svc.ValidateToken(ctx, access)
+	require.ErrorContains(t, err, "account disabled")
+	_, _, err = svc.RefreshToken(ctx, refresh)
+	require.ErrorContains(t, err, "account disabled")
 }
 
 // A failed lookup is an infrastructure error, not a revocation. Reporting it as
