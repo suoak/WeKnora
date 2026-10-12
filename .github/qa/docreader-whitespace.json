@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "upstream": "e7aaf8ae02608d1d9e0f84aa864106a5f1ae78a3",
+  "files": {
+    "docreader/parser/mhtml_parser.py": {
+      "blob": "d79ecdd4170353fffd4b25e3ad1e6002d3f23359",
+      "sha256": "7bf1eaad648e9fbe2369c2b898186b25867114b58a3339304441d7f386768849"
+    },
+    "docreader/tests/test_html_parser.py": {
+      "blob": "68edd901814cbba24edf7c2be1bb996430929730",
+      "sha256": "4c5a0503b613e798104df33c8eb7bdd5d6b1e284f707fca4bed28533eb316d9c"
+    },
+    "docreader/tests/test_mhtml_parser.py": {
+      "blob": "a0bd050b07f2206300c87d0e65539b8e3b1c4e73",
+      "sha256": "90cb2185e0d4850b04b85f3ada2745b5b03c0433b90ac1569a06cc7d5c12d7b1"
+    },
+    "docreader/uv.lock": {
+      "blob": "dd3676aca8fee21d2995883feebbb2f969ee535b",
+      "sha256": "57861b67cfcbbaeee7e8ae49b8f22985b6eae4d83ffd3c0b59f761181af1bf85"
+    },
+    "docreader/pyproject.toml": {
+      "blob": "60c63a976c76910c74723188a7c630a5dace1a52",
+      "sha256": "757a432a66e826fbbc45f590bc41dd349cbafa2ecd1517596255a93b76d0259f"
+    }
+  },
+  "required": {
+    "HTML": [
+      "test_html_parser.HTMLParserTest.test_parse_keeps_space_held_by_whitespace_only_inline_element"
+    ],
+    "MHTML": [
+      "test_mhtml_parser.MHTMLParserTest.test_html_to_markdown_keeps_whitespace_of_whitespace_only_inline_elements",
+      "test_mhtml_parser.MHTMLParserTest.test_html_to_markdown_still_converts_inline_elements_with_content"
+    ]
+  }
+}
