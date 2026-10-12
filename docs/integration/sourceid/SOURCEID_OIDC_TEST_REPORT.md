@@ -2,8 +2,8 @@
 
 工作分支：feature/knowhub-sourceid-oidc。
 审计基线：ac7dbe5e2607af5ab4e74c062137e0cad48d0e50。
-验证实现 SHA：bcb83273f8527e1a2ae3029b8c25cb0c44689b25。
-[最终 GitHub Actions 运行](https://github.com/suoak/WeKnora/actions/runs/38240018931) 全部成功。
+验证实现 SHA：8ae91bc4439dcc93be11844ada5ec1479f2730bc。
+[最终 GitHub Actions 运行](https://github.com/suoak/WeKnora/actions/runs/38242327216) 全部成功。
 后续交付报告提交仅修改本目录文档；以 git rev-parse HEAD 获取文档交付 SHA，运行代码与上述验证 SHA 一致。
 
 ## 已交付的支持范围
@@ -24,8 +24,8 @@
 
 | 检查 | 结果 |
 |---|---|
-| SourceID/认证重点用例，8 包，race | 61 个顶层测试、92 项含子用例通过，0 失败 |
-| Repository/Service/Handler/Config/Middleware/Utils/MCP/MCPServer 整包回归，8 包 | 3141 个顶层测试、4618 项含子用例通过，0 失败 |
+| SourceID/认证重点用例，8 包，race | 63 个顶层测试、98 项含子用例通过，0 失败 |
+| Repository/Service/Handler/Config/Middleware/Utils/MCP/MCPServer 整包回归，8 包 | 3143 个顶层测试、4624 项含子用例通过，0 失败 |
 | 临时 PostgreSQL 17，实际 migration up/down、并发绑定/刷新/登出，race | 2 个测试通过 |
 | SQLite 实际 migration up/down | 包含在 Repository 测试中，通过 |
 | 前端认证/刷新/落地测试 | 21 项通过 |
@@ -43,8 +43,8 @@ Windows 全量 Go 验证受旧 MinGW/原生 PostgreSQL parser/DuckDB 环境影�
 
 ## 证据
 
-Actions artifact：sourceid-linux-bcb83273f8527e1a2ae3029b8c25cb0c44689b25，ID 11742847831。
-GitHub 公布 SHA-256：7432ad5eacf1c8e4d226380ba6a4339f55eb4bb8b13c82cfd3d481a8b4b56565。
+Actions artifact：sourceid-linux-8ae91bc4439dcc93be11844ada5ec1479f2730bc，ID 11744092389。
+GitHub 公布 SHA-256：2d1d457b204da027f9aaf51aeea8d7861741009d203fbf8485502df8c69c28a2；本地下载归档已核对一致。
 内含 head、环境及 focused/regression JSONL。仓库仅保存统计，不复制完整日志或认证数据。
 Mock 仅使用 httptest、临时 SQLite/云端 PostgreSQL，没有调用真实 SID 登录/退出接口，没有使用真实 SID/生产凭据。
 
@@ -53,14 +53,14 @@ Mock 仅使用 httptest、临时 SQLite/云端 PostgreSQL，没有调用真实 S
 | 状态 | 结论 |
 |---|---|
 | IMPLEMENTED_LOCAL | 上述安全支持范围的代码、Mock/数据库验证和云端回归完成 |
-| BLOCKED_EXTERNAL | 是：完整企业 OIDC 文档及真实协议/网络信任契约待确认 |
+| BLOCKED_EXTERNAL | 是：真实生产协议/网络信任契约待确认；飞书全文及参数表已读取 |
 | READY_FOR_SID_INTEGRATION | 否：还需真实配置与确认的协议字段 |
 | SID_INTEGRATION_VERIFIED | 否：未执行真实 SID 登录/登出 |
 | READY_FOR_RELEASE | 否：真实联调、传输风险验收、生产备份/部署/回退演练未完成 |
 
 尚缺正式 issuer/Discovery/JWKS、签名算法、客户端认证、PKCE/nonce 支持；员工自然人与岗位身份规则、状态字段；OIDC 与 SessionIndex 的来源及等价证明；通知源认证、参数位置/Content-Type、压缩、响应/重试和外部 ID 生命周期。
 Token Response 专有会话扩展、原生通知签名尚未实现，若真实协议要求，应补适配并重新验证。body/form-urlencoded、XML 或显式 base64+raw DEFLATE、空 HTTP 200 是本地支持范围，不能作为真实契约已确认的证据。
-已读三份用户 HTML；飞书导出正文不完整。用户身份 CLI 返回 need_user_authorization，需 wiki:node:retrieve / docx:document:readonly 只读授权后取完整正文。
+已读三份用户 HTML。用户完成授权后，飞书 CLI 已读取企业 OIDC 文档 revision 20 全文和全部 13 张嵌入参数表，详情见 [SOURCEID_PROTOCOL_REVIEW.md](SOURCEID_PROTOCOL_REVIEW.md)。其中员工属性示例为通用学工号/在校状态，不能认定企业自然人工号及启用状态。Profile 表单传 token 的方式已补充显式请求适配；正式 Token/Profile Content-Type 和生产端点仍需确认。
 
 审批 HTTP callback 保持原值；授权码/cookie 明文传输风险已记录。未来 HTTPS 须取得新 URI 审批，并同步更新批准 URI 校验、入口、配置和回调注册。
 SourceID 默认关闭；不推送/合并主分支、不部署生产、不操作生产数据库。P6 步骤见 [SOURCEID_OIDC_DEPLOYMENT.md](SOURCEID_OIDC_DEPLOYMENT.md)，回退见 [SOURCEID_OIDC_ROLLBACK.md](SOURCEID_OIDC_ROLLBACK.md)。

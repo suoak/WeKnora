@@ -1,17 +1,17 @@
 {
-  "sha": "bcb83273f8527e1a2ae3029b8c25cb0c44689b25",
+  "sha": "8ae91bc4439dcc93be11844ada5ec1479f2730bc",
   "environment": [
     "go version go1.26.8 linux/amd64",
     "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
     "Copyright (C) 2023 Free Software Foundation, Inc."
   ],
-  "run": "https://github.com/suoak/WeKnora/actions/runs/38240018931",
-  "artifact_id": 11742847831,
-  "artifact_sha256": "7432ad5eacf1c8e4d226380ba6a4339f55eb4bb8b13c82cfd3d481a8b4b56565",
+  "run": "https://github.com/suoak/WeKnora/actions/runs/38242327216",
+  "artifact_id": 11744092389,
+  "artifact_sha256": "2d1d457b204da027f9aaf51aeea8d7861741009d203fbf8485502df8c69c28a2",
   "checks": {
     "focused.jsonl": {
-      "passed_including_subtests": 92,
-      "top_level_passed": 61,
+      "passed_including_subtests": 98,
+      "top_level_passed": 63,
       "failures": 0,
       "packages": [
         "github.com/Tencent/WeKnora/internal/sourceid",
@@ -25,8 +25,8 @@
       ]
     },
     "regression.jsonl": {
-      "passed_including_subtests": 4618,
-      "top_level_passed": 3141,
+      "passed_including_subtests": 4624,
+      "top_level_passed": 3143,
       "failures": 0,
       "packages": [
         "github.com/Tencent/WeKnora/internal/application/repository",

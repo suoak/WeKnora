@@ -5,7 +5,7 @@
 1. 固定交付 commit，完成 Linux 回归和 PostgreSQL 迁移测试。备份 users、auth_tokens、成员、共享、外部身份表；验证备份恢复。
 2. 在隔离测试库执行本仓库 migration 机制的 `003024_sourceid_oidc.up.sql`。PostgreSQL/SQLite 均有 up/down。迁移新增表和 token session_id，不重建 users，不修改成员/知识库表。
 3. 使用 sourceid-enroll dry-run 审核旧账号，再在授权测试库 apply。新员工预开户后登记。
-4. 安全注入 Client Secret，固定已审批回调 URI，确认生产 issuer/Discovery/JWKS、client auth、scope、PKCE/nonce 和员工状态来源。先只启用 OIDC 的测试环境。
+4. 安全注入 Client Secret，固定已审批回调 URI，确认生产 issuer/Discovery/JWKS、client auth、Token Content-Type、Profile 请求方式（OIDC_AUTH_USER_INFO_TRANSPORT）、scope、PKCE/nonce 和员工状态来源。先只启用 OIDC 的测试环境。
 5. 证明 OIDC 会话字段与 XML SessionIndex 相同（同一用户两个独立会话的抓包证据必须脱敏）。若字段在 Token Response 等不支持的来源，先补适配和测试；不能退化用工号注销。
 6. 配置经过验证的入口来源认证、网络 CIDR、网关注入内部 secret；禁止互联网直接访问应用后端绕过网关，网关覆盖而非转发该 header。
 7. 确认通知 Content-Type、压缩算法、成功状态码、超时重试和会话 ID 生命周期。确认与实现一致后才设 SOURCEID_CONTRACT_CONFIRMED/SOURCEID_LOGOUT_ENABLE。

@@ -28,6 +28,7 @@ SID 会话最长 7 天，刷新不会延长该期限。tombstone 不自动删除
 复用现有 Discovery、Token Exchange、JWKS/SSRF 客户端。SID 强制签名 ID Token、nonce、issuer/audience/expiry/issued-at/azp/sub 验证。sub 必须为字符串，nonce 和 UserInfo subject 精确比较，不通过空白归一化掩盖不一致；Token/UserInfo 响应有大小限制。
 SID state 和 PKCE verifier 保存在 `oidc_transactions`；公开 state 中无 verifier。授权 URL/config/start 响应禁止缓存，回调消费状态只允许一次。PKCE S256 由显式配置决定，不猜测 SID 支持情况。
 业务属性可明确选 `id_token` 或 `userinfo`；后一种要求 UserInfo sub 与验签后的 sub 一致且请求成功，不混用不同来源的属性。Token Response 的专有会话字段未实现，若真实协议要求此来源，保持 BLOCKED_EXTERNAL。
+UserInfo 可显式选 Bearer GET、urlencoded POST 或 multipart POST。POST 只在 body 携带 access_token；未知请求方式拒绝，不把令牌放入 URL，不在失败后自动尝试其他方式。通用 OIDC 默认 Bearer GET，SID 需按确认后的 Profile 契约配置。
 
 callback 把本地登录结果保存 60 秒，以 HttpOnly、SameSite cookie 保存随机兑换键；浏览器 URL 只出现 `#oidc_complete=1`。
 POST result 要求自定义请求头以阻止普通跨站表单，结果单次消费后数据库清空内容和 verifier。响应设置 no-store。
