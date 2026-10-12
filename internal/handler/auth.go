@@ -71,10 +71,8 @@ func NewAuthHandler(configInfo *config.Config,
 	// pointing at the misconfiguration so operators notice on startup
 	// instead of discovering it the day someone hits /auth/register.
 	if configInfo == nil || configInfo.Auth == nil {
-		logger.Errorf(context.Background(),
-			"[auth] AuthHandler constructed with nil/incomplete config (cfg=%v); "+
-				"registration_mode enforcement is disabled. This is almost certainly a wiring bug.",
-			configInfo)
+		logger.Error(context.Background(),
+			"[auth] AuthHandler constructed with nil/incomplete auth config; registration_mode enforcement is disabled")
 	}
 	return &AuthHandler{
 		configInfo:       configInfo,
@@ -463,7 +461,7 @@ func (h *AuthHandler) OIDCRedirectCallback(c *gin.Context) {
 	resp, err := h.userService.LoginWithOIDC(ctx, code, strings.TrimSpace(decodedState.RedirectURI), h.resolveDefaultTenantMode(ctx))
 	if err != nil {
 		logger.Warn(ctx, "OIDC login rejected")
-		c.Redirect(http.StatusFound, frontendRedirectURI+"#oidc_error="+urlQueryEscape("login_failed"))
+		c.Redirect(http.StatusFound, frontendRedirectURI+"#oidc_error="+urlQueryEscape(oidcPublicError(err)))
 		return
 	}
 	if !resp.Success {

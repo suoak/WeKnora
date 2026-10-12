@@ -134,7 +134,6 @@ const handleGlobalOIDCCallback = async () => {
 
   const params = new URLSearchParams(hash)
   const oidcError = params.get('oidc_error')
-  const oidcErrorDescription = params.get('oidc_error_description')
   const oidcComplete = params.get('oidc_complete')
 
   if (!oidcError && !oidcComplete) return
@@ -142,7 +141,16 @@ const handleGlobalOIDCCallback = async () => {
   if (oidcError) {
     clearOIDCCallbackState('/login')
     await router.replace('/login')
-    MessagePlugin.error(oidcErrorDescription || 'OIDC login failed')
+    const messages: Record<string, [string, string]> = {
+      enrollment_required: ['This account needs an administrator to approve its SID binding.', '此账号需要管理员审核并绑定企业工号。'],
+      identity_conflict: ['This SID identity conflicts with an existing binding. Contact an administrator.', '企业身份与现有绑定冲突，请联系管理员。'],
+      account_disabled: ['This employee or KnowHub account is disabled.', '员工身份或知汇账号已停用。'],
+      identity_fields_missing: ['SID did not supply the required employee or session identity. Contact an administrator.', 'SID 未提供必需的工号或会话信息，请联系管理员。'],
+      invalid_state: ['The login request expired. Please sign in again.', '登录请求已失效，请重新登录。'],
+      provider_error: ['SID login was cancelled or is currently unavailable.', 'SID 登录已取消或暂时不可用。'],
+    }
+    const message = messages[oidcError]
+    MessagePlugin.error(message ? message[locale.value === 'zh-CN' ? 1 : 0] : t('auth.oidcLoginFailed'))
     return
   }
 

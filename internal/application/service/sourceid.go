@@ -63,8 +63,8 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 	if cfg.SourceIDEmployeeClaim == "" || cfg.SourceIDSessionClaim == "" || cfg.SourceIDStatusClaim == "" || cfg.SourceIDAllowedStatus == "" {
 		return nil, ctx, errors.New("sourceid claim contract unconfirmed")
 	}
-	employee := sourceIDClaim(info.Claims, cfg.SourceIDEmployeeClaim)
-	index := sourceIDClaim(info.Claims, cfg.SourceIDSessionClaim)
+	employee := sourceIDStringClaim(info.Claims, cfg.SourceIDEmployeeClaim)
+	index := sourceIDStringClaim(info.Claims, cfg.SourceIDSessionClaim)
 	status := sourceIDClaim(info.Claims, cfg.SourceIDStatusClaim)
 	if employee == "" || index == "" {
 		return nil, ctx, errors.New("sourceid employee or session missing")

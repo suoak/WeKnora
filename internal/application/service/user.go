@@ -1433,7 +1433,7 @@ func isSandboxTerminalTicketClaims(claims jwt.MapClaims) bool {
 	return ok && tokenType == sandboxTerminalTicketType
 }
 
-func userIDFromSignedToken(tokenString string) (string, error) {
+func claimsFromSignedToken(tokenString string) (jwt.MapClaims, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -1441,14 +1441,21 @@ func userIDFromSignedToken(tokenString string) (string, error) {
 		return []byte(getJwtSecret()), nil
 	}, jwt.WithoutClaimsValidation())
 	if err != nil || token == nil || !token.Valid {
-		return "", errors.New("invalid token")
+		return nil, errors.New("invalid token")
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		return "", errors.New("invalid token claims")
+		return nil, errors.New("invalid token claims")
 	}
+	return claims, nil
+}
 
+func userIDFromSignedToken(tokenString string) (string, error) {
+	claims, err := claimsFromSignedToken(tokenString)
+	if err != nil {
+		return "", err
+	}
 	userID, ok := claims["user_id"].(string)
 	if !ok || strings.TrimSpace(userID) == "" {
 		return "", errors.New("invalid user ID in token")
@@ -1565,16 +1572,16 @@ func (s *userService) Logout(ctx context.Context, tokenString string) error {
 	if err != nil {
 		return err
 	}
-	record, lookupErr := s.tokenRepo.GetTokenByValue(ctx, tokenString)
-	if lookupErr != nil {
-		return lookupErr
+	claims, err := claimsFromSignedToken(tokenString)
+	if err != nil {
+		return err
 	}
-	if record != nil && record.SessionID != "" {
+	if sessionID, _ := claims["session_id"].(string); sessionID != "" {
 		store, err := s.sourceIDStore()
 		if err != nil {
 			return err
 		}
-		return store.RevokeSourceIDSession(ctx, record.SessionID, userID)
+		return store.RevokeSourceIDSession(ctx, sessionID, userID)
 	}
 	return s.tokenRepo.RevokeTokensByUserID(ctx, userID)
 }

@@ -7,6 +7,7 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/Tencent/WeKnora/internal/sourceid"
@@ -105,6 +106,22 @@ func (h *AuthHandler) OIDCLoginResult(c *gin.Context) {
 		c.Status(http.StatusForbidden)
 		return
 	}
+	// Do not depend on a permissive deployment's CORS configuration for CSRF.
+	if c.GetHeader("Sec-Fetch-Site") == "cross-site" {
+		c.Status(http.StatusForbidden)
+		return
+	}
+	if origin := c.GetHeader("Origin"); origin != "" {
+		expected := oidcCallbackURL(c)
+		if h.configInfo != nil && h.configInfo.OIDCAuth != nil && h.configInfo.OIDCAuth.RedirectURI != "" {
+			expected = h.configInfo.OIDCAuth.RedirectURI
+		}
+		u, err := url.Parse(expected)
+		if err != nil || origin != u.Scheme+"://"+u.Host {
+			c.Status(http.StatusForbidden)
+			return
+		}
+	}
 	key, err := c.Cookie("knowhub_oidc_result")
 	c.SetCookie("knowhub_oidc_result", "", -1, "/api/v1/auth/oidc", "", c.Request.TLS != nil, true)
 	service, ok := h.userService.(sourceIDAuthService)
@@ -123,4 +140,26 @@ func (h *AuthHandler) OIDCLoginResult(c *gin.Context) {
 		return
 	}
 	c.Data(http.StatusOK, "application/json", payload)
+}
+
+// Only known, non-sensitive categories may reach the browser. SQL/provider
+// bodies and arbitrary errors never become user-facing descriptions.
+func oidcPublicError(err error) string {
+	if err == nil {
+		return "login_failed"
+	}
+	switch err.Error() {
+	case "sourceid enrollment requires review":
+		return "enrollment_required"
+	case "sourceid identity conflict":
+		return "identity_conflict"
+	case "sourceid employee disabled", "sourceid account unavailable":
+		return "account_disabled"
+	case "sourceid employee or session missing":
+		return "identity_fields_missing"
+	case "OIDC ID Token nonce mismatch":
+		return "invalid_identity"
+	default:
+		return "login_failed"
+	}
 }
