@@ -1,7 +1,7 @@
 name: KnowHub25 A3 PostgreSQL atomic foundation
 on:
   push:
-    branches: [integration/knowhub25-a3-production-20261011]
+    branches: [integration/knowhub25-skill-vendored-20261012]
 permissions:
   contents: read
 concurrency:
@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   postgres:
-    if: github.repository == 'suoak/WeKnora' && github.ref == 'refs/heads/integration/knowhub25-a3-production-20261011'
+    if: github.repository == 'suoak/WeKnora' && github.ref == 'refs/heads/integration/knowhub25-skill-vendored-20261012'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     services:
