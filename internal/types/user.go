@@ -181,6 +181,7 @@ type OIDCAuthURLResponse struct {
 }
 
 type OIDCConfigResponse struct {
+	RedirectURI         string `json:"redirect_uri,omitempty"`
 	Success             bool   `json:"success"`
 	Enabled             bool   `json:"enabled"`
 	ProviderDisplayName string `json:"provider_display_name,omitempty"`

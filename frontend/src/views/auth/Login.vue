@@ -431,6 +431,7 @@ const isRegisterMode = ref(false)
 const showLanguageMenu = ref(false)
 const oidcEnabled = ref(false)
 const oidcProviderName = ref('')
+const oidcRedirectURI = ref('')
 // Wait for configuration before showing a registration entry.
 const registrationMode = ref('')
 const registrationEnabled = computed(() => canRegister(registrationMode.value, !!inviteLookup.value))
@@ -618,6 +619,7 @@ const loadOIDCConfig = async () => {
     const response = await getOIDCConfig()
     oidcEnabled.value = !!response.success && !!response.enabled
     oidcProviderName.value = response.provider_display_name || ''
+    oidcRedirectURI.value = response.redirect_uri || `${window.location.origin}/api/v1/auth/oidc/callback`
   } catch {
     oidcEnabled.value = false
     oidcProviderName.value = ''
@@ -641,7 +643,7 @@ const handleOIDCLogin = async () => {
     oidcLoading.value = true
     // The backend selects the configured, approved callback. Keeping the JSON
     // request lets provider/configuration failures stay on the login page.
-    const response = await getOIDCAuthorizationURL('')
+    const response = await getOIDCAuthorizationURL(oidcRedirectURI.value)
     const authorizationURL = response.authorization_url
     if (!response.success || !authorizationURL) {
       MessagePlugin.error(response.message || t('auth.oidcLoginFailed'))

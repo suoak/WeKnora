@@ -62,6 +62,7 @@ export interface OIDCAuthURLResponse {
 }
 
 export interface OIDCConfigResponse {
+	redirect_uri?: string
   success: boolean
   enabled: boolean
   provider_display_name?: string

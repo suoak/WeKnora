@@ -396,14 +396,17 @@ func (h *AuthHandler) OIDCStart(c *gin.Context) {
 // @Router       /auth/oidc/config [get]
 func (h *AuthHandler) GetOIDCConfig(c *gin.Context) {
 	providerDisplayName := ""
+	redirectURI := ""
 	enabled := false
 
 	if h.configInfo != nil && h.configInfo.OIDCAuth != nil {
 		enabled = h.configInfo.OIDCAuth.Enable
 		providerDisplayName = strings.TrimSpace(h.configInfo.OIDCAuth.ProviderDisplayName)
+		redirectURI = h.configInfo.OIDCAuth.RedirectURI
 	}
 
 	c.JSON(http.StatusOK, &types.OIDCConfigResponse{
+		RedirectURI:         redirectURI,
 		Success:             true,
 		Enabled:             enabled,
 		ProviderDisplayName: providerDisplayName,

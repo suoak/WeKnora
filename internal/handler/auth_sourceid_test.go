@@ -143,3 +143,15 @@ func TestOIDCURLUsesApprovedCallbackWithoutBrowserOverride(t *testing.T) {
 	router.ServeHTTP(w, httptest.NewRequest("GET", "http://alternate.test/api/v1/auth/oidc/url?redirect_uri=https://evil.test/callback", nil))
 	require.Equal(t, 400, w.Code)
 }
+
+func TestSourceIDOIDCConfigReturnsPublicCallbackWithoutSecrets(t *testing.T) {
+	callback := "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback"
+	h := &AuthHandler{configInfo: &config.Config{OIDCAuth: &config.OIDCAuthConfig{Enable: true, RedirectURI: callback, ClientSecret: "mock-secret-never-public"}}}
+	router := gin.New()
+	router.GET("/api/v1/auth/oidc/config", h.GetOIDCConfig)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/auth/oidc/config", nil))
+	require.Equal(t, 200, w.Code)
+	require.Contains(t, w.Body.String(), callback)
+	require.NotContains(t, w.Body.String(), "mock-secret-never-public")
+}
