@@ -1285,6 +1285,16 @@
       "blob": "a0bd050b07f2206300c87d0e65539b8e3b1c4e73",
       "sha256": "90cb2185e0d4850b04b85f3ada2745b5b03c0433b90ac1569a06cc7d5c12d7b1",
       "source": "8d86944a0c3539a1f8130e22239cbaa5d246601c"
+    },
+    "docreader/parser/epub_parser.py": {
+      "blob": "41961b7e135d60cc93297235fbf3a11f1afeb285",
+      "sha256": "f395c51f2bbe0845756bcd047f69d7d0c0f9812b9d1438559d209669910d1656",
+      "source": "c9723b1198bfa42d31278b4e44f1199593ee5a08"
+    },
+    "docreader/tests/test_epub_parser.py": {
+      "blob": "4154f263c9dc6d730e1a3799cbeb4c63e890adef",
+      "sha256": "d2336725b09a6b7e21f2ae1f7700b87c268780f1847d35f06db5804e9eb94eec",
+      "source": "c9723b1198bfa42d31278b4e44f1199593ee5a08"
     }
   },
   "notion_overlay_required": [
@@ -1640,7 +1650,8 @@
     ".github/qa/continuous/test_personal_mcp_lifecycle_http.py",
     ".github/scripts/knowhub25_continuous_ci.py",
     ".github/workflows/knowhub25-continuous.yml",
-    ".github/qa/continuous/node-unit-reporter.mjs"
+    ".github/qa/continuous/node-unit-reporter.mjs",
+    ".github/workflows/knowhub25-epub-spine.yml"
   ],
   "diagnostic_test_ids": [
     "TestClientDownloadDriveFile",
@@ -1790,6 +1801,12 @@
         "test_mhtml_parser.MHTMLParserTest.test_parse_selects_main_html_and_filters_noise",
         "test_mhtml_parser.MHTMLParserTest.test_registry_resolves_mhtml",
         "test_mhtml_parser.MHTMLParserTest.test_table_image_and_caption_keep_markdown_block_boundaries"
+      ],
+      "EPUB": [
+        "test_epub_parser.EPUBParserTest.test_internal_links_are_unwrapped_but_external_links_remain",
+        "test_epub_parser.EPUBParserTest.test_parse_minimal_epub",
+        "test_epub_parser.EPUBParserTest.test_parse_without_images",
+        "test_epub_parser.EPUBParserTest.test_registry_resolves_epub"
       ]
     },
     "candidate": {
@@ -1799,6 +1816,11 @@
       "MHTML": [
         "test_mhtml_parser.MHTMLParserTest.test_html_to_markdown_keeps_whitespace_of_whitespace_only_inline_elements",
         "test_mhtml_parser.MHTMLParserTest.test_html_to_markdown_still_converts_inline_elements_with_content"
+      ],
+      "EPUB": [
+        "test_epub_parser.EPUBParserTest.test_a_document_listed_twice_in_the_spine_is_read_once",
+        "test_epub_parser.EPUBParserTest.test_chapters_follow_the_spine_not_the_manifest",
+        "test_epub_parser.EPUBParserTest.test_documents_outside_the_spine_follow_it"
       ]
     }
   }
