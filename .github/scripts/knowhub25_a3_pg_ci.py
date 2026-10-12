@@ -21,6 +21,14 @@ SERVICE_EXPECTED = {
 }
 
 
+def required_pattern(expected):
+    # Match every fixed required parent, retaining all subtests. New required
+    # contracts cannot be silently omitted by a manually maintained -run prefix.
+    if not expected or any(not re.fullmatch(r'Test[A-Za-z0-9_]+(?:/[A-Za-z0-9_]+)*', name) for name in expected):
+        raise ValueError('REQUIRED_TEST_CONTRACT_FAILED')
+    return '^(' + '|'.join(re.escape(name) for name in sorted({n.split('/')[0] for n in expected})) + ')$'
+
+
 def emit(value):
     """Publish fixed metadata only; retain no raw output or exception strings."""
     allowed = {'REPOSITORY', 'SERVICE', 'SERVICE_FULL', 'NORMAL', 'RACE', 'RUN',
@@ -195,7 +203,7 @@ def main():
     for package, mode in matrix:
         expected = EXPECTED if package == "REPOSITORY" else SERVICE_EXPECTED
         path = "./internal/application/repository" if package == "REPOSITORY" else "./internal/application/service"
-        pattern = "^TestA3ProcessingFencePostgres" if package == "REPOSITORY" else "^TestA3Processing(AttemptCleanupPostgres|ExecutionPostgres)"
+        pattern = required_pattern(expected)
         raw = directory / (package + "-" + mode + ".jsonl")
         stderr = directory / (package + "-" + mode + ".stderr")
         command = ["go", "test", "-mod=readonly", "-p", "2", "-count=1", "-timeout=10m", "-json"]
@@ -254,6 +262,15 @@ def metadata_self_test():
         assert all(name.split('/')[0] in definitions for name in required)
     assert all(name.startswith('TestA3ProcessingFencePostgres') for name in EXPECTED)
     assert not (EXPECTED & SERVICE_EXPECTED)
+    for required in [EXPECTED, SERVICE_EXPECTED]:
+        pattern = re.compile(required_pattern(required))
+        assert all(pattern.fullmatch(name.split('/')[0]) for name in required)
+    assert re.fullmatch(required_pattern(SERVICE_EXPECTED), 'TestSortedScriptPathsSkipsVendoredTreesAtAnyDepth')
+    assert not re.fullmatch(required_pattern(SERVICE_EXPECTED), 'TestNotApproved')
+    try: required_pattern({'untrusted arbitrary body'})
+    except ValueError: pass
+    else: raise AssertionError('FAIL_OPEN_REQUIRED_SELECTION')
+
     previous = os.environ.get('RUNNER_TEMP')
     try:
         with tempfile.TemporaryDirectory() as directory:
