@@ -46,3 +46,24 @@ func TestEnrollmentCSVRejectsDuplicatesAndEmailMatching(t *testing.T) {
 		require.Error(t, err)
 	}
 }
+
+func TestEnrollmentCSVDoesNotSilentlyAcceptTruncatedBatch(t *testing.T) {
+	// Every row before the boundary is valid. A reader capped exactly at the
+	// boundary would otherwise accept this prefix and miss the duplicate below.
+	const limit = 1 << 20
+	var b strings.Builder
+	b.WriteString("employee_no,user_id\n")
+	firstID := uuid.NewString()
+	b.WriteString("first," + firstID + "\n")
+	for b.Len()+550 < limit {
+		id := uuid.NewString()
+		b.WriteString(id + strings.Repeat("x", 350-len(id)) + "," + uuid.NewString() + "\n")
+	}
+	remaining := limit - b.Len()
+	id := uuid.NewString()
+	b.WriteString(id + strings.Repeat("x", remaining-38-len(id)) + "," + uuid.NewString() + "\n")
+	require.Equal(t, limit, b.Len())
+	b.WriteString("first," + firstID + "\n")
+	_, err := readRows(strings.NewReader(b.String()))
+	require.ErrorContains(t, err, "CSV exceeds size limit")
+}

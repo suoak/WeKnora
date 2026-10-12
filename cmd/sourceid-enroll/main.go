@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/csv"
 	"errors"
 	"flag"
@@ -24,7 +25,14 @@ import (
 type enrollmentRow struct{ EmployeeNo, UserID string }
 
 func readRows(reader io.Reader) ([]enrollmentRow, error) {
-	r := csv.NewReader(io.LimitReader(reader, 1<<20))
+	data, err := io.ReadAll(io.LimitReader(reader, (1<<20)+1))
+	if err != nil {
+		return nil, errors.New("CSV read failed")
+	}
+	if len(data) > 1<<20 {
+		return nil, errors.New("CSV exceeds size limit")
+	}
+	r := csv.NewReader(bytes.NewReader(data))
 	header, err := r.Read()
 	if err != nil {
 		return nil, errors.New("invalid CSV")
