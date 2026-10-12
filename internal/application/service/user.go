@@ -1799,7 +1799,7 @@ func (s *userService) exchangeOIDCCode(ctx context.Context, cfg *config.OIDCAuth
 	}
 
 	var tokenResp oidcTokenResponse
-	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&tokenResp); err != nil {
 		return nil, fmt.Errorf("failed to decode OIDC token response: %w", err)
 	}
 	if strings.TrimSpace(tokenResp.AccessToken) == "" && strings.TrimSpace(tokenResp.IDToken) == "" {
@@ -1830,7 +1830,8 @@ func (s *userService) resolveOIDCUserInfo(ctx context.Context, cfg *config.OIDCA
 			if cfg.SourceIDEnable && expectedNonce == "" {
 				return nil, errors.New("sourceid authorization transaction required")
 			}
-			if expectedNonce != "" && extractClaimAsString(idTokenClaims, "nonce") != expectedNonce {
+			returnedNonce, _ := idTokenClaims["nonce"].(string)
+			if expectedNonce != "" && returnedNonce != expectedNonce {
 				return nil, errors.New("OIDC ID Token nonce mismatch")
 			}
 			for k, v := range idTokenClaims {
@@ -1863,7 +1864,9 @@ func (s *userService) resolveOIDCUserInfo(ctx context.Context, cfg *config.OIDCA
 			}
 			logger.Warnf(ctx, "Failed to fetch OIDC userinfo, using verified id_token claims: %v", err)
 		} else {
-			if verifiedFromIDToken && (extractClaimAsString(userInfoClaims, "sub") == "" || extractClaimAsString(userInfoClaims, "sub") != extractClaimAsString(claims, "sub")) {
+			returnedSubject, _ := userInfoClaims["sub"].(string)
+			verifiedSubject, _ := claims["sub"].(string)
+			if verifiedFromIDToken && (returnedSubject == "" || returnedSubject != verifiedSubject) {
 				return nil, errors.New("OIDC UserInfo subject mismatch")
 			}
 			for k, v := range userInfoClaims {
@@ -1920,7 +1923,7 @@ func (s *userService) fetchOIDCUserInfo(ctx context.Context, endpoint, accessTok
 	}
 
 	var claims map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&claims); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&claims); err != nil {
 		return nil, err
 	}
 	return claims, nil

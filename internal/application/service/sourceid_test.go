@@ -50,6 +50,8 @@ func TestSourceIDMockLoginAndSessionLifecycle(t *testing.T) {
 		switch mode {
 		case "nonce":
 			claims["nonce"] = "wrong"
+		case "nonce-padding":
+			claims["nonce"] = nonce + " "
 		case "employee":
 			delete(claims, "employee")
 		case "inactive":
@@ -79,7 +81,7 @@ func TestSourceIDMockLoginAndSessionLifecycle(t *testing.T) {
 		require.Error(t, err)
 		return s.LoginWithOIDC(prepared, "mock-code", cfg.RedirectURI, types.TenantProvisioningTenantless)
 	}
-	for _, failure := range []string{"nonce", "employee", "inactive", "issuer", "audience", "expired"} {
+	for _, failure := range []string{"nonce", "nonce-padding", "employee", "inactive", "issuer", "audience", "expired"} {
 		t.Run(failure, func(t *testing.T) { mode = failure; _, err := login(); require.Error(t, err) })
 	}
 	mode = "valid"
@@ -138,6 +140,9 @@ func TestSourceIDUserInfoSubjectAndClaimSource(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "002", sourceIDClaim(info.Claims, "employee"))
 	sub = "other"
+	_, err = s.resolveOIDCUserInfo(ctx, cfg, &oidcTokenResponse{AccessToken: "mock", IDToken: signedIDToken(t, key, "kid", claims)})
+	require.Error(t, err)
+	sub = " user-123 "
 	_, err = s.resolveOIDCUserInfo(ctx, cfg, &oidcTokenResponse{AccessToken: "mock", IDToken: signedIDToken(t, key, "kid", claims)})
 	require.Error(t, err)
 	require.Empty(t, sourceIDClaim(map[string]interface{}{"attributes": []interface{}{"GH"}}, "attributes.GH"))
