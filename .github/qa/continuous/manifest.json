@@ -1262,6 +1262,14 @@
     "cli/cmd/doc/upload_recursive_http_test.go": {
       "blob": "06472a31799e7a2b1b34a9e15c57fd72db9ce2ce",
       "sha256": "373a04a79a8ea62899d24e502fe2ef415ca4e25d55e03fed30b069cd8d06a1af"
+    },
+    "internal/datasource/connector/yuque/connector.go": {
+      "blob": "3ef687e3ef5182882ae600e3b34e7e1aab0ff365",
+      "sha256": "740ecef34bd8723d7687b677db77058112614760e3c8e3cf5b8f134f859a7691"
+    },
+    "internal/datasource/connector/yuque/connector_test.go": {
+      "blob": "f2a5e478a658a71f44b40f4c8338a20448f3275b",
+      "sha256": "c04b9ba4f30695fd4b11c211c64bc667855b48ae0f274dfe8c31968735d65c97"
     }
   },
   "notion_overlay_required": [
