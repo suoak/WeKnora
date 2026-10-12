@@ -182,3 +182,45 @@ func TestA3ProcessingExecutionPostgresDurableCleanup(t *testing.T) {
 	require.NoError(t, db.Model(&types.Chunk{}).Where("id = ?", old.ID).Count(&active).Error)
 	require.Zero(t, active)
 }
+
+func TestA3ProcessingExecutionPostgresRestartCleanupReplay(t *testing.T) {
+	db, svc, fences := processingExecutionPG(t)
+	require.NoError(t, db.AutoMigrate(&types.Chunk{}))
+	ctx := context.Background()
+	generation, err := fences.Reserve(ctx, 1, "one")
+	require.NoError(t, err)
+	first, err := fences.Claim(ctx, 1, "one", generation, time.Minute)
+	require.NoError(t, err)
+	work := types.WithProcessingExecution(ctx, types.ProcessingExecution{TenantID: 1, KnowledgeID: "one", Generation: generation, ExecutionID: first.ExecutionID})
+	old := &types.Chunk{ID: uuid.NewString(), TenantID: 1, KnowledgeID: "one", IsEnabled: true}
+	require.NoError(t, svc.persistProcessingChunks(work, &types.Knowledge{ID: "one", TenantID: 1}, []*types.Chunk{old}))
+	newer, err := fences.Allocate(ctx, 1, "one", time.Minute)
+	require.NoError(t, err)
+	fresh := &types.Chunk{ID: uuid.NewString(), TenantID: 1, KnowledgeID: "one", IsEnabled: true}
+	require.NoError(t, fences.PersistChunks(ctx, newer, []*types.Chunk{fresh}))
+	// A missing configured backend is a failure, never a cleanup acknowledgement.
+	require.ErrorIs(t, replayProcessingCleanup(ctx, fences, first, nil), errAttemptCleanupFailed)
+	var pending int64
+	require.NoError(t, db.Table("knowledge_processing_owned_chunks").Where("chunk_id = ? AND cleanup_complete = FALSE", old.ID).Count(&pending).Error)
+	require.EqualValues(t, 1, pending)
+	// New orchestration object has no old Chunk slice; reconstruct by durable capability.
+	restarted := repository.NewProcessingFenceRepository(db)
+	calls := 0
+	backend := func(_ context.Context, ids []string) error {
+		calls++
+		require.Equal(t, []string{old.ID}, ids)
+		if calls == 1 {
+			return errors.New("controlled_backend_unavailable")
+		}
+		return nil
+	}
+	require.ErrorIs(t, replayProcessingCleanup(ctx, restarted, first, backend), errAttemptCleanupFailed)
+	require.NoError(t, replayProcessingCleanup(ctx, restarted, first, backend))
+	require.NoError(t, replayProcessingCleanup(ctx, restarted, first, backend))
+	require.Equal(t, 2, calls)
+	require.NoError(t, db.Table("knowledge_processing_owned_chunks").Where("chunk_id = ? AND cleanup_complete = FALSE", old.ID).Count(&pending).Error)
+	require.Zero(t, pending)
+	var active int64
+	require.NoError(t, db.Model(&types.Chunk{}).Where("id = ?", fresh.ID).Count(&active).Error)
+	require.EqualValues(t, 1, active)
+}

@@ -44,22 +44,7 @@ func (s *knowledgeService) cleanupAttemptChunks(ctx context.Context, knowledge *
 			return errAttemptCleanupFailed
 		}
 		fence := repository.ProcessingFence{TenantID: execution.TenantID, KnowledgeID: execution.KnowledgeID, Generation: execution.Generation, ExecutionID: execution.ExecutionID}
-		fences := provider.ProcessingFences()
-		owned, err := fences.CleanupSQL(cleanupCtx, fence)
-		if err != nil {
-			return errAttemptCleanupFailed
-		}
-		// Ownership is durable. Never claim vector cleanup complete merely
-		// because the SQL rows are already disabled after a previous failure.
-		if len(owned) > 0 && vectorCleanup != nil {
-			if err := vectorCleanup(cleanupCtx, owned); err != nil {
-				return errAttemptCleanupFailed
-			}
-		}
-		if err := fences.CompleteCleanup(cleanupCtx, fence); err != nil {
-			return errAttemptCleanupFailed
-		}
-		return nil
+		return replayProcessingCleanup(cleanupCtx, provider.ProcessingFences(), fence, vectorCleanup)
 	}
 	if err := s.chunkRepo.DeleteChunks(cleanupCtx, knowledge.TenantID, ids); err != nil {
 		return errAttemptCleanupFailed
@@ -86,4 +71,30 @@ func (s *knowledgeService) persistProcessingChunks(ctx context.Context, knowledg
 		return errAttemptCleanupFailed
 	}
 	return provider.ProcessingFences().PersistChunks(ctx, repository.ProcessingFence{TenantID: execution.TenantID, KnowledgeID: execution.KnowledgeID, Generation: execution.Generation, ExecutionID: execution.ExecutionID}, chunks)
+}
+
+// replayProcessingCleanup reconstructs the external worklist from durable SQL
+// ownership, not a crashed worker's in-memory chunks. A nil backend callback
+// cannot confirm deletion; the ledger must remain pending in that case.
+func replayProcessingCleanup(ctx context.Context, fences *repository.ProcessingFenceRepository, fence repository.ProcessingFence, vectorCleanup func(context.Context, []string) error) error {
+	if fences == nil || fence.TenantID == 0 || fence.KnowledgeID == "" || fence.Generation <= 0 || fence.ExecutionID == "" {
+		return errAttemptCleanupFailed
+	}
+	owned, err := fences.CleanupSQL(ctx, fence)
+	if err != nil {
+		return errAttemptCleanupFailed
+	}
+	if len(owned) == 0 {
+		return nil
+	}
+	if vectorCleanup == nil {
+		return errAttemptCleanupFailed
+	}
+	if err := vectorCleanup(ctx, owned); err != nil {
+		return errAttemptCleanupFailed
+	}
+	if err := fences.CompleteCleanup(ctx, fence); err != nil {
+		return errAttemptCleanupFailed
+	}
+	return nil
 }
