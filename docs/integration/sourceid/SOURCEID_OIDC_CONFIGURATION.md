@@ -12,6 +12,7 @@ OIDC_AUTH_DISCOVERY_URL=<confirmed-discovery>
 OIDC_AUTH_SCOPES=openid
 OIDC_AUTH_REDIRECT_URI=http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback
 OIDC_AUTH_CLIENT_AUTH_METHOD=client_secret_post
+OIDC_AUTH_USER_INFO_TRANSPORT=bearer_get
 OIDC_AUTH_PKCE_ENABLE=false
 SOURCEID_ENABLE=false
 SOURCEID_LOGOUT_ENABLE=false
@@ -27,6 +28,7 @@ SOURCEID_LOGOUT_SECRET=<secure-random-at-least-32-characters>
 ```
 
 Client authentication 仅支持 `client_secret_post` / `client_secret_basic`。PKCE 只在 SID 支持已验证后开启。
+UserInfo 请求方式显式配置为 `bearer_get`（默认 GET + Authorization Bearer）、`form_post`（POST urlencoded 的 access_token 字段）或 `multipart_post`（POST multipart/form-data 的 access_token 字段）。不把 access_token 放入 URL，不自动探测或失败降级。飞书 `/profile` 示例描述 POST form-data，应在 SID 方确认具体 Content-Type 后选择对应方式；不能默认认定支持 Bearer。
 已有授权/Token/UserInfo/JWKS 显式端点变量可复用；Discovery issuer 不一致拒绝。不配置来源字段默认拒绝，而不是自动使用 OAuth2 的 attributes.GH/tgt。
 业务 claims 来源为 `id_token`（默认）或 `userinfo`。状态可为字符串或 boolean 的精确 `true`/`false`；工号禁止数字强制转换，保留前导零。
 SSRF 白名单只添加确认过的服务地址，绝不关闭 TLS 证书验证。

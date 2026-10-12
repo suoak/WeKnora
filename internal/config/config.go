@@ -334,6 +334,7 @@ type OIDCAuthConfig struct {
 	RedirectURI               string `yaml:"redirect_uri" json:"redirect_uri"`
 	PKCEEnable                bool   `yaml:"pkce_enable" json:"-"`
 	ClientAuthMethod          string `yaml:"client_auth_method" json:"-"`
+	UserInfoTransport         string `yaml:"user_info_transport" json:"-"`
 
 	Enable                bool                 `yaml:"enable"                 json:"enable"`
 	IssuerURL             string               `yaml:"issuer_url"             json:"issuer_url"`
@@ -783,16 +784,17 @@ func applyOIDCEnvOverrides(cfg *Config) {
 	}
 
 	for key, target := range map[string]*string{
-		"SOURCEID_EMPLOYEE_CLAIM":      &cfg.OIDCAuth.SourceIDEmployeeClaim,
-		"SOURCEID_SESSION_CLAIM":       &cfg.OIDCAuth.SourceIDSessionClaim,
-		"SOURCEID_STATUS_CLAIM":        &cfg.OIDCAuth.SourceIDStatusClaim,
-		"SOURCEID_ALLOWED_STATUS":      &cfg.OIDCAuth.SourceIDAllowedStatus,
-		"SOURCEID_CLAIMS_SOURCE":       &cfg.OIDCAuth.SourceIDClaimsSource,
-		"SOURCEID_LOGOUT_ENCODING":     &cfg.OIDCAuth.SourceIDLogoutEncoding,
-		"SOURCEID_LOGOUT_CIDRS":        &cfg.OIDCAuth.SourceIDLogoutCIDRs,
-		"SOURCEID_LOGOUT_SECRET":       &cfg.OIDCAuth.SourceIDLogoutSecret,
-		"OIDC_AUTH_REDIRECT_URI":       &cfg.OIDCAuth.RedirectURI,
-		"OIDC_AUTH_CLIENT_AUTH_METHOD": &cfg.OIDCAuth.ClientAuthMethod,
+		"SOURCEID_EMPLOYEE_CLAIM":       &cfg.OIDCAuth.SourceIDEmployeeClaim,
+		"SOURCEID_SESSION_CLAIM":        &cfg.OIDCAuth.SourceIDSessionClaim,
+		"SOURCEID_STATUS_CLAIM":         &cfg.OIDCAuth.SourceIDStatusClaim,
+		"SOURCEID_ALLOWED_STATUS":       &cfg.OIDCAuth.SourceIDAllowedStatus,
+		"SOURCEID_CLAIMS_SOURCE":        &cfg.OIDCAuth.SourceIDClaimsSource,
+		"SOURCEID_LOGOUT_ENCODING":      &cfg.OIDCAuth.SourceIDLogoutEncoding,
+		"SOURCEID_LOGOUT_CIDRS":         &cfg.OIDCAuth.SourceIDLogoutCIDRs,
+		"SOURCEID_LOGOUT_SECRET":        &cfg.OIDCAuth.SourceIDLogoutSecret,
+		"OIDC_AUTH_REDIRECT_URI":        &cfg.OIDCAuth.RedirectURI,
+		"OIDC_AUTH_CLIENT_AUTH_METHOD":  &cfg.OIDCAuth.ClientAuthMethod,
+		"OIDC_AUTH_USER_INFO_TRANSPORT": &cfg.OIDCAuth.UserInfoTransport,
 	} {
 		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
 			*target = value

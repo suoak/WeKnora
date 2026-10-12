@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -11,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
@@ -1672,6 +1674,9 @@ func (s *userService) getOIDCConfig(ctx context.Context) (*config.OIDCAuthConfig
 		return nil, errors.New("OIDC login is disabled")
 	}
 	cfg := *s.config.OIDCAuth
+	if cfg.UserInfoTransport != "" && cfg.UserInfoTransport != "bearer_get" && cfg.UserInfoTransport != "form_post" && cfg.UserInfoTransport != "multipart_post" {
+		return nil, errors.New("unsupported OIDC UserInfo transport")
+	}
 	if cfg.RedirectURI != "" {
 		// Callback URI is a deployment contract, never learned from a browser.
 		if cfg.SourceIDEnable && cfg.RedirectURI != "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback" {
@@ -1857,7 +1862,7 @@ func (s *userService) resolveOIDCUserInfo(ctx context.Context, cfg *config.OIDCA
 		}
 	}
 	if strings.TrimSpace(cfg.UserInfoEndpoint) != "" && strings.TrimSpace(tokenResp.AccessToken) != "" {
-		userInfoClaims, err := s.fetchOIDCUserInfo(ctx, cfg.UserInfoEndpoint, tokenResp.AccessToken)
+		userInfoClaims, err := s.fetchOIDCUserInfoWithTransport(ctx, cfg.UserInfoEndpoint, tokenResp.AccessToken, cfg.UserInfoTransport)
 		if err != nil {
 			if !verifiedFromIDToken || (cfg.SourceIDEnable && cfg.SourceIDClaimsSource == "userinfo") {
 				return nil, fmt.Errorf("failed to fetch OIDC userinfo: %w", err)
@@ -1901,15 +1906,47 @@ func (s *userService) resolveOIDCUserInfo(ctx context.Context, cfg *config.OIDCA
 }
 
 func (s *userService) fetchOIDCUserInfo(ctx context.Context, endpoint, accessToken string) (map[string]interface{}, error) {
+	return s.fetchOIDCUserInfoWithTransport(ctx, endpoint, accessToken, "bearer_get")
+}
+
+func (s *userService) fetchOIDCUserInfoWithTransport(ctx context.Context, endpoint, accessToken, transport string) (map[string]interface{}, error) {
 	if err := validateOIDCEndpoint("userinfo", endpoint, true); err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	method := http.MethodGet
+	var body io.Reader
+	contentType := ""
+	switch transport {
+	case "", "bearer_get":
+	case "form_post":
+		method = http.MethodPost
+		body = strings.NewReader(url.Values{"access_token": {accessToken}}.Encode())
+		contentType = "application/x-www-form-urlencoded"
+	case "multipart_post":
+		method = http.MethodPost
+		var payload bytes.Buffer
+		writer := multipart.NewWriter(&payload)
+		if err := writer.WriteField("access_token", accessToken); err != nil {
+			return nil, errors.New("failed to encode OIDC UserInfo request")
+		}
+		if err := writer.Close(); err != nil {
+			return nil, errors.New("failed to encode OIDC UserInfo request")
+		}
+		body = &payload
+		contentType = writer.FormDataContentType()
+	default:
+		return nil, errors.New("unsupported OIDC UserInfo transport")
+	}
+	req, err := http.NewRequestWithContext(ctx, method, endpoint, body)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+accessToken)
+	if method == http.MethodGet {
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+	} else {
+		req.Header.Set("Content-Type", contentType)
+	}
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := newOIDCHTTPClient().Do(req)
