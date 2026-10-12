@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/config"
@@ -89,7 +90,7 @@ func TestA3ProcessingExecutionPostgresFileUploadAdmission(t *testing.T) {
 	require.Empty(t, fence.ExecutionID)
 	require.False(t, fence.MainFinished)
 	// An enqueue error cannot overwrite a delivery that already acquired a lease.
-	claimed, err := fences.Claim(ctx, 1, knowledge.ID, 1, config.DefaultDocumentProcessTimeout)
+	claimed, err := fences.Claim(ctx, 1, knowledge.ID, 1, time.Minute)
 	require.NoError(t, err)
 	svc.markFileProcessingEnqueueFailed(ctx, knowledge, 1)
 	stored, err = svc.repo.GetKnowledgeByID(ctx, 1, knowledge.ID)
