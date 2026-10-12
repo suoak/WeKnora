@@ -48,7 +48,7 @@ employee_no,user_id
 ./sourceid-enroll --input reviewed.csv --issuer '<confirmed-issuer>' --reviewer '<reviewer-id>' --reference '<approval-ticket>'
 ```
 
-默认只预检、不写入；人工复核报告后增加 `--apply`，整批事务提交，任一冲突整批回滚。
+默认只预检、不写入；人工复核报告后增加 `--apply`，整批事务提交，任一冲突整批回滚。单个 CSV 最多 1 MiB / 10000 行，超限拒绝，不截断导入。
 已有相同登记幂等跳过，不覆盖 reviewer、reference 或正确身份。唯一约束保护并发导入。
 新员工先用现有系统管理员开户流程（沿用默认空间策略、普通权限），再登记审核映射。
 本任务没有操作生产数据库。

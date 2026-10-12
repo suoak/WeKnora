@@ -21,6 +21,7 @@
 | POST `/api/v1/auth/oidc/result` | cookie 绑定的一次性登录结果兑换，不需要本地 JWT |
 
 容器 Compose 已透传新增配置。固定共享 JWT_SECRET（安全随机值）保证多实例 state/JWT 一致；所有实例共享数据库。
+前后端必须同版本切换，新一次性 cookie 兑换协议不能与旧 fragment 回调协议混用。灰度采用完整实例切换并清理旧前端缓存。
 数据库故障不允许通过会话验证；需监控 503 通知失败、登出未匹配事件和人工审核冲突，日志不记录 token/XML/secret。
 清理已消费或过期 oidc_transactions 时保留状态防重放到其最大有效期之后；登出 tombstone 未确定 SID index 生命周期前不自动删除。
 

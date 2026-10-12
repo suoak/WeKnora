@@ -1,0 +1,45 @@
+Validated implementation SHA: bcb83273f8527e1a2ae3029b8c25cb0c44689b25
+Audit baseline: ac7dbe5e2607af5ab4e74c062137e0cad48d0e50
+Documentation-only delivery commit follows this validation.
+
+.env.example
+.github/workflows/sourceid-oidc.yml
+cmd/sourceid-enroll/main.go
+cmd/sourceid-enroll/main_test.go
+docker-compose.yml
+docs/integration/sourceid/SOURCEID_CHANGE_MANIFEST.txt
+docs/integration/sourceid/SOURCEID_OIDC_AUDIT.md
+docs/integration/sourceid/SOURCEID_OIDC_CONFIGURATION.md
+docs/integration/sourceid/SOURCEID_OIDC_DEPLOYMENT.md
+docs/integration/sourceid/SOURCEID_OIDC_DESIGN.md
+docs/integration/sourceid/SOURCEID_OIDC_ROLLBACK.md
+docs/integration/sourceid/SOURCEID_OIDC_TEST_REPORT.md
+docs/integration/sourceid/SOURCEID_VALIDATION_SUMMARY.json
+frontend/src/App.vue
+frontend/src/api/auth/index.ts
+frontend/src/router/index.ts
+frontend/src/views/auth/Login.vue
+internal/application/repository/sourceid.go
+internal/application/repository/sourceid_postgres_test.go
+internal/application/repository/sourceid_test.go
+internal/application/repository/user.go
+internal/application/service/sourceid.go
+internal/application/service/sourceid_claims.go
+internal/application/service/sourceid_test.go
+internal/application/service/user.go
+internal/application/service/user_token_persistence_test.go
+internal/config/config.go
+internal/handler/auth.go
+internal/handler/auth_sourceid.go
+internal/handler/auth_sourceid_test.go
+internal/middleware/auth.go
+internal/router/routes_auth_tenant.go
+internal/sourceid/logout.go
+internal/sourceid/logout_test.go
+internal/types/interfaces/sourceid.go
+internal/types/sourceid.go
+internal/types/user.go
+migrations/sqlite/003024_sourceid_oidc.down.sql
+migrations/sqlite/003024_sourceid_oidc.up.sql
+migrations/versioned/003024_sourceid_oidc.down.sql
+migrations/versioned/003024_sourceid_oidc.up.sql

@@ -19,7 +19,7 @@
 | 空间切换 | 现有成员角色、跨空间判断、落地偏好保留；SID 派生会话从已认证 access token 继承，提交 refresh 时另校验归属 |
 | User | UUID ID；username/email 唯一；is_active、is_system_admin、can_access_all_tenants、preferences、软删除；绑定不写这些字段 |
 | 成员/共享 | `tenant_members` 及知识库授权仍由现有服务判断；SID 身份成功不授予额外权限 |
-| 前端 | 复用已有 OIDC 按钮、权限加载和落地恢复；原 fragment 携带完整本地令牌，改为 HttpOnly opaque cookie + 一次性 POST 兑换 |
+| 前端 | 复用已有 OIDC 按钮、权限加载和落地恢复；保留邀请与目标页暂存；配置接口公开 callback URI、不公开 secret；原 fragment 令牌改为 HttpOnly opaque cookie + 一次性 POST 兑换 |
 | API Key/MCP | 独立认证保持；只增加两条无本地 JWT 的认证路由，登出处理另做信任验证 |
 
 ## 协议证据

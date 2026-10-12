@@ -1,29 +1,66 @@
 # 开发与验证报告（2026-10-12）
 
-基线：`ac7dbe5e2607af5ab4e74c062137e0cad48d0e50`；功能分支：`feature/knowhub-sourceid-oidc`。
-代码交付仍处于验证阶段，最终 SHA 和云端运行链接将在检查结束后补充。
+工作分支：feature/knowhub-sourceid-oidc。
+审计基线：ac7dbe5e2607af5ab4e74c062137e0cad48d0e50。
+验证实现 SHA：bcb83273f8527e1a2ae3029b8c25cb0c44689b25。
+[最终 GitHub Actions 运行](https://github.com/suoak/WeKnora/actions/runs/38240018931) 全部成功。
+后续交付报告提交仅修改本目录文档；以 git rev-parse HEAD 获取文档交付 SHA，运行代码与上述验证 SHA 一致。
 
-## 范围
+## 已交付的支持范围
 
-复用 OIDC 和本地 JWT；独立企业身份/审核映射/会话/登出 tombstone；一次性 state、nonce、可选 S256 PKCE；固定批准 URI；登录结果 cookie 兑换；XML 与显式压缩解析；审核 CSV 工具；PG/SQLite migration；Compose/env 和六份文档。
-未知员工自动开户、Token Response 扩展字段读取、原生 SourceID 通知签名、真实压缩/响应兼容性尚未实现或未经真实协议证明；保持启用门禁关闭。
+复用既有 OIDC、Discovery、SSRF HTTP、RSA JWKS 和本地 JWT。新增 SourceID 企业身份/审核映射、持久化会话/登出 tombstone、一次性 state、nonce、可选 S256 PKCE、固定审批回调、cookie 结果兑换、XML/显式压缩解析、审核 CSV 工具及 PG/SQLite migration。
+新增接口为 POST /api/v1/auth/oidc/backchannel-logout、POST /api/v1/auth/oidc/result；既有 config 接口增加可选的公开 redirect_uri，不公开 secret。
+完整变更文件清单见 [SOURCEID_CHANGE_MANIFEST.txt](SOURCEID_CHANGE_MANIFEST.txt)，机器可读验证统计见 [SOURCEID_VALIDATION_SUMMARY.json](SOURCEID_VALIDATION_SUMMARY.json)。
 
-## 本地结果
+旧账号按审核工号映射和 issuer+sub 复用原 User ID，不按邮箱自动绑定，不修改权限/成员/知识库/API Key。唯一约束和数据库事务保护并发绑定。
+未知员工默认拒绝；新增员工通过现有管理员开户服务、原默认空间策略，再导入审核映射。本版不支持未审核员工自动开户，也不支持静默 sub 轮换/岗位多身份切换。
 
-前端 `npm run type-check` 通过。XML parser 用例通过。
-初次 Go 运行被旧 MinGW 缺少 __stack_chk_fail/RstrtMgr import library 阻塞；在工作区外补充原系统 DLL 的 import library 并链接 libssp 后，部分测试可运行。
-完整回归出现既有 PostgreSQL parser 原生崩溃及无关用例失败，不能声称 Windows 全量通过。最终以本分支云端 Linux 结果作为验证依据。
+外部会话按 issuer+SessionIndex 匹配；本地 SID 退出只撤销当前会话族。刷新和空间切换保留会话 ID，并在数据库中检查撤销；重复通知幂等，未知通知写 tombstone，防止晚到 callback 复活。
+本地密码登录/既有本地退出语义保留。OIDC 邀请和目标页暂存保留，配置/网络失败留在登录页显示安全提示。
 
-新增测试覆盖：审核登记冲突与旧 User ID/管理员属性保持；邮箱变化；禁用账号；SQLite 实际 up/down；状态/结果一次性消费；会话精确撤销/不同设备隔离/晚到 callback；刷新条件消费；Mock OIDC nonce/iss/aud/exp/工号/状态失败；UserInfo sub 一致；空间派生令牌保持会话；XXE/畸形/超大/重复字段/压缩炸弹；直接 peer CIDR 验证不信任 forwarded header；CSV dry-run、幂等和整批回滚。
-保留所有既有测试，不删除失败回归。
+## 自动化结果
 
-## 云端
+环境：Ubuntu 24.04 / Linux amd64 / Go 1.26.8 / GCC 13.3.0 / CGO_ENABLED=1。
 
-用户明确授权 GitHub 云端验证。工作流 `.github/workflows/sourceid-oidc.yml` 在功能分支执行 Linux race、安全用例、认证/MCP 回归、临时 PostgreSQL migration 和前端检查；不含任何部署步骤或生产凭据。
-所有 Mock 使用本机 httptest/临时测试库；云端 PostgreSQL secret 是一次性测试夹具，与真实 SID/生产无关。
+| 检查 | 结果 |
+|---|---|
+| SourceID/认证重点用例，8 包，race | 61 个顶层测试、92 项含子用例通过，0 失败 |
+| Repository/Service/Handler/Config/Middleware/Utils/MCP/MCPServer 整包回归，8 包 | 3141 个顶层测试、4618 项含子用例通过，0 失败 |
+| 临时 PostgreSQL 17，实际 migration up/down、并发绑定/刷新/登出，race | 2 个测试通过 |
+| SQLite 实际 migration up/down | 包含在 Repository 测试中，通过 |
+| 前端认证/刷新/落地测试 | 21 项通过 |
+| 前端类型检查与生产构建 | 通过 |
+| Go vet、修改文件 gofmt、git diff --check | 通过 |
+| 服务端和审核导入工具编译 | 通过 |
 
-## 外部状态
+运行范围有重叠，不能将各行相加视为新增测试数量。整包回归包含既有测试；PostgreSQL 专用测试在普通运行中跳过，在独立 PostgreSQL job 中实际执行。
+云端验证提交树；开始时已有的其他未提交/未跟踪工作完整保留，不混入这次验证提交。
 
-`BLOCKED_EXTERNAL`：企业完整 OIDC 文档访问尚需只读授权；正式端点、员工身份/状态、SessionIndex 关联、来源认证、压缩/响应契约尚待确认。
-尚未执行真实 SID 登录/登出，因此不声明 SID_INTEGRATION_VERIFIED、READY_FOR_RELEASE。
-最终 IMPLEMENTED_LOCAL/READY_FOR_SID_INTEGRATION 状态必须由相应测试和外部契约证据补齐后确认。
+关键新增用例覆盖：审核映射冲突、旧 User ID/管理员属性保持、邮箱变化、停用账号；状态/结果单次消费；精确撤销、设备隔离、重启后持久化撤销、晚到 callback；刷新重放/并发登出；JWT issuer/audience/expiry/nonce/subject 类型/azp 异常；UserInfo sub 精确一致；空间派生令牌撤销；XXE/畸形/超大/重复 XML/压缩炸弹；直接 peer CIDR，不信任 forwarded header；接口未授权/重复参数/跨站兑换；泛用 OIDC dev proxy；CSV dry-run/幂等/整批回滚/超限不截断。
+
+首次云端发现过期签名令牌注销兼容性回归，已恢复既有本地语义；第二次发现持久化测试夹具校验了另一条默认停用用户，已让夹具保存实际启用用户，并新增停用账号拒绝已有令牌测试。保留全部既有回归，没有删除失败用例。
+Windows 全量 Go 验证受旧 MinGW/原生 PostgreSQL parser/DuckDB 环境影响；不声称 Windows 全量通过。用户授权后使用上述云端结果，未修改生产环境或关闭 TLS 验证。
+
+## 证据
+
+Actions artifact：sourceid-linux-bcb83273f8527e1a2ae3029b8c25cb0c44689b25，ID 11742847831。
+GitHub 公布 SHA-256：7432ad5eacf1c8e4d226380ba6a4339f55eb4bb8b13c82cfd3d481a8b4b56565。
+内含 head、环境及 focused/regression JSONL。仓库仅保存统计，不复制完整日志或认证数据。
+Mock 仅使用 httptest、临时 SQLite/云端 PostgreSQL，没有调用真实 SID 登录/退出接口，没有使用真实 SID/生产凭据。
+
+## 外部阻塞与交付状态
+
+| 状态 | 结论 |
+|---|---|
+| IMPLEMENTED_LOCAL | 上述安全支持范围的代码、Mock/数据库验证和云端回归完成 |
+| BLOCKED_EXTERNAL | 是：完整企业 OIDC 文档及真实协议/网络信任契约待确认 |
+| READY_FOR_SID_INTEGRATION | 否：还需真实配置与确认的协议字段 |
+| SID_INTEGRATION_VERIFIED | 否：未执行真实 SID 登录/登出 |
+| READY_FOR_RELEASE | 否：真实联调、传输风险验收、生产备份/部署/回退演练未完成 |
+
+尚缺正式 issuer/Discovery/JWKS、签名算法、客户端认证、PKCE/nonce 支持；员工自然人与岗位身份规则、状态字段；OIDC 与 SessionIndex 的来源及等价证明；通知源认证、参数位置/Content-Type、压缩、响应/重试和外部 ID 生命周期。
+Token Response 专有会话扩展、原生通知签名尚未实现，若真实协议要求，应补适配并重新验证。body/form-urlencoded、XML 或显式 base64+raw DEFLATE、空 HTTP 200 是本地支持范围，不能作为真实契约已确认的证据。
+已读三份用户 HTML；飞书导出正文不完整。用户身份 CLI 返回 need_user_authorization，需 wiki:node:retrieve / docx:document:readonly 只读授权后取完整正文。
+
+审批 HTTP callback 保持原值；授权码/cookie 明文传输风险已记录。未来 HTTPS 须取得新 URI 审批，并同步更新批准 URI 校验、入口、配置和回调注册。
+SourceID 默认关闭；不推送/合并主分支、不部署生产、不操作生产数据库。P6 步骤见 [SOURCEID_OIDC_DEPLOYMENT.md](SOURCEID_OIDC_DEPLOYMENT.md)，回退见 [SOURCEID_OIDC_ROLLBACK.md](SOURCEID_OIDC_ROLLBACK.md)。
