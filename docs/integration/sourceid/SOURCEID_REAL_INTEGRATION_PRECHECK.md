@@ -9,7 +9,7 @@
 | 检查 | 当前结果 | 需要收口 |
 |---|---|---|
 | 功能/配置/路由 | STATIC_CHECKED | 正式值未提供，配置未部署 |
-| 本机SID DNS/TCP443/TLS | PASS，TLSv1.3，2026-10-12 19:41:19+08:00 | 实际应用网络命名空间未测 |
+| 本机及Linux测试主机SID DNS/TCP443/TLS | Windows本机19:41、Linux主机23:37均PASS，TLSv1.3 | 实际应用容器网络命名空间未测；详见环境报告 |
 | 本机KnowHub DNS/TCP80/有限HEAD | DNS/TCP PASS；批准两路径各一次HEAD为401、无重定向、请求ID存在 | HEAD不能证明GET callback/POST通知handler；运行版本、隔离数据库、SID注册一致性NOT_TESTED |
 | issuer/Discovery/JWKS/Token | BLOCKED_EXTERNAL | 只有企业SID基地址，不从示例猜完整URL；未扫描发现路径 |
 | Profile编码/client auth | BLOCKED_EXTERNAL | 当前支持Bearer GET/两类POST；Token仅urlencoded POST与post/basic认证 |
