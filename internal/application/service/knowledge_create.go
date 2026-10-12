@@ -269,15 +269,25 @@ func (s *knowledgeService) CreateKnowledgeFromFile(ctx context.Context,
 	)
 	info, err := s.task.Enqueue(task)
 	if err != nil {
-		logger.Errorf(ctx, "Failed to enqueue document process task: %v", err)
-		s.markFileProcessingEnqueueFailed(ctx, knowledge, generation)
+		var publicErr error
+		processingStatus := "failed"
+		if generation != 0 {
+			// Enqueue errors can occur after the broker accepted the task.
+			// Do not turn an unclaimed valid delivery into a rejected generation.
+			logger.Warnf(ctx, "File enqueue outcome unknown, knowledge_id=%s, code=enqueue_outcome_unknown", knowledge.ID)
+			publicErr = errFileProcessingEnqueueUnknown
+			processingStatus = "unknown"
+		} else {
+			logger.Errorf(ctx, "Failed to enqueue document process task: %v", err)
+			s.markFileProcessingEnqueueFailed(ctx, knowledge, generation)
+		}
 		recordKBActivity(ctx, s.audit, knowledge.TenantID, kbID, types.AuditActionKnowledgeCreated,
 			"knowledge", knowledge.ID, types.AuditOutcomeFailed, map[string]any{
 				"title": knowledge.Title, "source_type": "file", "file_type": knowledge.FileType,
-				"processing_status": "failed", "failure_stage": "enqueue",
+				"processing_status": processingStatus, "failure_stage": "enqueue",
 			})
 		// 即使入队失败，也返回knowledge，因为文件已保存
-		return knowledge, nil
+		return knowledge, publicErr
 	}
 	recordKBActivity(ctx, s.audit, knowledge.TenantID, kbID, types.AuditActionKnowledgeCreated,
 		"knowledge", knowledge.ID, types.AuditOutcomeAccepted, map[string]any{

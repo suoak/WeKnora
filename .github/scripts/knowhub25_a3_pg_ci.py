@@ -148,6 +148,7 @@ FROZEN_CANARIES = [
     "tenant-b-token"
 ]
 RULES.update({f"SYNTHETIC_CANARY_{index:03d}": re.compile(re.escape(value)) for index, value in enumerate(FROZEN_CANARIES, 1)})
+RULES['FILE_ADMISSION_QUEUE_CANARY'] = re.compile(re.escape('FILE_ADMISSION_QUEUE_TOKEN_CANARY'))
 
 
 

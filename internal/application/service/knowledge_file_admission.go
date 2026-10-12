@@ -2,11 +2,14 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
 )
+
+var errFileProcessingEnqueueUnknown = errors.New("processing_enqueue_outcome_unknown")
 
 func (s *knowledgeService) createFileProcessingKnowledge(ctx context.Context, knowledge *types.Knowledge) (int64, error) {
 	if s.config == nil || s.config.KnowledgeBase == nil || !s.config.KnowledgeBase.FencedFileAdmission {

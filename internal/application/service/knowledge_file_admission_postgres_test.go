@@ -25,7 +25,7 @@ func (q *fileAdmissionQueue) Enqueue(task *asynq.Task, _ ...asynq.Option) (*asyn
 	q.calls++
 	q.task = task
 	if q.reject {
-		return nil, errors.New("controlled_queue_unavailable")
+		return nil, errors.New("FILE_ADMISSION_QUEUE_TOKEN_CANARY")
 	}
 	return &asynq.TaskInfo{ID: "file-admission-test", Queue: "default"}, nil
 }
@@ -106,12 +106,25 @@ func TestA3ProcessingExecutionPostgresFileUploadAdmission(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, types.ParseStatusPending, stored.ParseStatus)
 	require.NoError(t, fences.Release(ctx, claimed, false))
-	// Definite unclaimed admission failure remains failed without an entire-row Save.
+	// A broker error has no trusted rejection signal. Preserve pending so an
+	// accepted delivery can still claim, and return a controlled non-success.
 	queue.reject = true
 	failed, err := svc.CreateKnowledgeFromFile(ctx, "kb-1", newMultipartFileHeader(t, "failed.txt", "different fresh upload"), nil, nil, "", nil, "", nil)
-	require.NoError(t, err)
-	require.Equal(t, types.ParseStatusFailed, failed.ParseStatus)
+	require.ErrorIs(t, err, errFileProcessingEnqueueUnknown)
+	require.Equal(t, types.ParseStatusPending, failed.ParseStatus)
 	stored, err = svc.repo.GetKnowledgeByID(ctx, 1, failed.ID)
+	require.NoError(t, err)
+	require.Equal(t, types.ParseStatusPending, stored.ParseStatus)
+	require.Error(t, svc.ProcessDocument(ctx, queue.task))
+	require.Equal(t, 3, tenantFailure.calls, "an ambiguously accepted delivery must still enter the actual worker")
+	// A definite pre-enqueue failure uses the conditional update; the uncertain
+	// queue error path above must never call it automatically.
+	prequeue := &types.Knowledge{ID: "preenqueue-only", TenantID: 1, KnowledgeBaseID: "kb-1", Type: "file"}
+	generation, err := svc.createFileProcessingKnowledge(ctx, prequeue)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, generation)
+	svc.markFileProcessingEnqueueFailed(ctx, prequeue, generation)
+	stored, err = svc.repo.GetKnowledgeByID(ctx, 1, prequeue.ID)
 	require.NoError(t, err)
 	require.Equal(t, types.ParseStatusFailed, stored.ParseStatus)
 	// SQL failure must roll back the Knowledge as well as the generation and
