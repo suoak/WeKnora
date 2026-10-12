@@ -416,8 +416,30 @@ func TestA3ProcessingFencePostgresAtomicMetadataPublication(t *testing.T) {
 	first, err := repo.Allocate(ctx, 1, "one", time.Minute)
 	require.NoError(t, err)
 	request := map[string]string{"file_path": "new-file", "title": "request-title", "metadata": `{"source":"fixture"}`}
-	generation, err := repo.ReservePendingWithMetadata(ctx, 1, "one", request)
-	require.NoError(t, err)
+	start := make(chan struct{})
+	admitted := make(chan struct {
+		generation int64
+		err        error
+	}, 1)
+	written := make(chan error, 1)
+	concurrentWorker := types.WithProcessingExecution(ctx, types.ProcessingExecution{TenantID: 1, KnowledgeID: "one", Generation: first.Generation, ExecutionID: first.ExecutionID})
+	go func() {
+		<-start
+		generation, err := repo.ReservePendingWithMetadata(ctx, 1, "one", request)
+		admitted <- struct {
+			generation int64
+			err        error
+		}{generation, err}
+	}()
+	go func() {
+		<-start
+		written <- NewKnowledgeRepository(db).UpdateKnowledgeColumn(concurrentWorker, "one", "title", "concurrent-old-worker")
+	}()
+	close(start)
+	result, writeErr := <-admitted, <-written
+	require.NoError(t, result.err)
+	require.True(t, writeErr == nil || errors.Is(writeErr, ErrProcessingFence), "row lock orders old worker and request metadata publication")
+	generation := result.generation
 	require.Equal(t, first.Generation+1, generation)
 	var row struct {
 		FilePath             string
