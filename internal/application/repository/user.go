@@ -8,6 +8,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 var (
@@ -285,7 +286,7 @@ type authTokenRepository struct {
 
 // NewAuthTokenRepository creates a new auth token repository
 func NewAuthTokenRepository(db *gorm.DB) interfaces.AuthTokenRepository {
-	return &authTokenRepository{db: db}
+	return &authTokenRepository{db: db.Session(&gorm.Session{Logger: gormlogger.Discard})}
 }
 
 // CreateToken creates an auth token

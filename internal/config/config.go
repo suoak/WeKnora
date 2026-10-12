@@ -320,6 +320,21 @@ type OIDCUserInfoMapping struct {
 }
 
 type OIDCAuthConfig struct {
+	SourceIDClaimsSource      string `yaml:"sourceid_claims_source" json:"-"`
+	SourceIDLogoutEncoding    string `yaml:"sourceid_logout_encoding" json:"-"`
+	SourceIDEnable            bool   `yaml:"sourceid_enable" json:"-"`
+	SourceIDLogoutEnable      bool   `yaml:"sourceid_logout_enable" json:"-"`
+	SourceIDEmployeeClaim     string `yaml:"sourceid_employee_claim" json:"-"`
+	SourceIDSessionClaim      string `yaml:"sourceid_session_claim" json:"-"`
+	SourceIDStatusClaim       string `yaml:"sourceid_status_claim" json:"-"`
+	SourceIDAllowedStatus     string `yaml:"sourceid_allowed_status" json:"-"`
+	SourceIDLogoutCIDRs       string `yaml:"sourceid_logout_cidrs" json:"-"`
+	SourceIDLogoutSecret      string `yaml:"sourceid_logout_secret" json:"-"`
+	SourceIDContractConfirmed bool   `yaml:"sourceid_contract_confirmed" json:"-"`
+	RedirectURI               string `yaml:"redirect_uri" json:"redirect_uri"`
+	PKCEEnable                bool   `yaml:"pkce_enable" json:"-"`
+	ClientAuthMethod          string `yaml:"client_auth_method" json:"-"`
+
 	Enable                bool                 `yaml:"enable"                 json:"enable"`
 	IssuerURL             string               `yaml:"issuer_url"             json:"issuer_url"`
 	DiscoveryURL          string               `yaml:"discovery_url"          json:"discovery_url"`
@@ -767,6 +782,32 @@ func applyOIDCEnvOverrides(cfg *Config) {
 		cfg.OIDCAuth.UserInfoMapping.Email = value
 	}
 
+	for key, target := range map[string]*string{
+		"SOURCEID_EMPLOYEE_CLAIM":      &cfg.OIDCAuth.SourceIDEmployeeClaim,
+		"SOURCEID_SESSION_CLAIM":       &cfg.OIDCAuth.SourceIDSessionClaim,
+		"SOURCEID_STATUS_CLAIM":        &cfg.OIDCAuth.SourceIDStatusClaim,
+		"SOURCEID_ALLOWED_STATUS":      &cfg.OIDCAuth.SourceIDAllowedStatus,
+		"SOURCEID_CLAIMS_SOURCE":       &cfg.OIDCAuth.SourceIDClaimsSource,
+		"SOURCEID_LOGOUT_ENCODING":     &cfg.OIDCAuth.SourceIDLogoutEncoding,
+		"SOURCEID_LOGOUT_CIDRS":        &cfg.OIDCAuth.SourceIDLogoutCIDRs,
+		"SOURCEID_LOGOUT_SECRET":       &cfg.OIDCAuth.SourceIDLogoutSecret,
+		"OIDC_AUTH_REDIRECT_URI":       &cfg.OIDCAuth.RedirectURI,
+		"OIDC_AUTH_CLIENT_AUTH_METHOD": &cfg.OIDCAuth.ClientAuthMethod,
+	} {
+		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+			*target = value
+		}
+	}
+	for key, target := range map[string]*bool{
+		"SOURCEID_ENABLE":             &cfg.OIDCAuth.SourceIDEnable,
+		"SOURCEID_LOGOUT_ENABLE":      &cfg.OIDCAuth.SourceIDLogoutEnable,
+		"SOURCEID_CONTRACT_CONFIRMED": &cfg.OIDCAuth.SourceIDContractConfirmed,
+		"OIDC_AUTH_PKCE_ENABLE":       &cfg.OIDCAuth.PKCEEnable,
+	} {
+		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+			*target = strings.EqualFold(value, "true")
+		}
+	}
 	if cfg.OIDCAuth.ProviderDisplayName == "" {
 		cfg.OIDCAuth.ProviderDisplayName = "OIDC"
 	}

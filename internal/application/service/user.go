@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -438,6 +439,9 @@ func (s *userService) GetOIDCAuthorizationURL(ctx context.Context, redirectURI s
 	if err != nil {
 		return nil, err
 	}
+	if cfg.RedirectURI != "" && redirectURI != cfg.RedirectURI {
+		return nil, errors.New("OIDC redirect URI mismatch")
+	}
 	if strings.TrimSpace(redirectURI) == "" {
 		return nil, errors.New("redirect_uri is required")
 	}
@@ -461,6 +465,26 @@ func (s *userService) GetOIDCAuthorizationURL(ctx context.Context, redirectURI s
 	query.Set("redirect_uri", redirectURI)
 	query.Set("scope", strings.Join(cfg.Scopes, " "))
 	query.Set("state", state)
+	query.Set("nonce", nonce)
+	if cfg.SourceIDEnable {
+		store, err := s.sourceIDStore()
+		if err != nil {
+			return nil, err
+		}
+		verifier := ""
+		if cfg.PKCEEnable {
+			verifier, err = generateRandomString(48)
+			if err != nil {
+				return nil, err
+			}
+			digest := sha256.Sum256([]byte(verifier))
+			query.Set("code_challenge", base64.RawURLEncoding.EncodeToString(digest[:]))
+			query.Set("code_challenge_method", "S256")
+		}
+		if err := store.SaveOIDCTransaction(ctx, &types.OIDCTransaction{Key: apprepo.SourceIDHash(state), Nonce: nonce, Verifier: verifier, ExpiresAt: time.Now().Add(10 * time.Minute)}); err != nil {
+			return nil, err
+		}
+	}
 
 	authURL := cfg.AuthorizationEndpoint
 	if strings.Contains(authURL, "?") {
@@ -499,6 +523,9 @@ func (s *userService) LoginWithOIDC(
 		return nil, err
 	}
 
+	if cfg.RedirectURI != "" && redirectURI != cfg.RedirectURI {
+		return nil, errors.New("OIDC redirect URI mismatch")
+	}
 	tokenResp, err := s.exchangeOIDCCode(ctx, cfg, code, redirectURI)
 	if err != nil {
 		return nil, err
@@ -508,21 +535,31 @@ func (s *userService) LoginWithOIDC(
 	if err != nil {
 		return nil, err
 	}
-	if strings.TrimSpace(userInfo.Email) == "" {
-		return nil, errors.New("OIDC provider did not return email")
-	}
-
-	user, err := s.userRepo.GetUserByEmail(ctx, userInfo.Email)
-	if err != nil && !isUserLookupNotFound(err) {
-		return nil, fmt.Errorf("failed to query user by email: %w", err)
-	}
+	var user *types.User
 	isNewUser := false
-	if isUserLookupNotFound(err) || user == nil {
-		user, err = s.provisionOIDCUser(ctx, userInfo, provisioning)
+	if cfg.SourceIDEnable {
+		user, ctx, err = s.loginSourceID(ctx, cfg, userInfo)
 		if err != nil {
 			return nil, err
 		}
-		isNewUser = true
+	} else {
+		if strings.TrimSpace(userInfo.Email) == "" {
+			return nil, errors.New("OIDC provider did not return email")
+		}
+
+		user, err = s.userRepo.GetUserByEmail(ctx, userInfo.Email)
+		if err != nil && !isUserLookupNotFound(err) {
+			return nil, fmt.Errorf("failed to query user by email: %w", err)
+		}
+
+		if isUserLookupNotFound(err) || user == nil {
+			user, err = s.provisionOIDCUser(ctx, userInfo, provisioning)
+			if err != nil {
+				return nil, err
+			}
+			isNewUser = true
+		}
+
 	}
 
 	if !user.IsActive {
@@ -1077,6 +1114,7 @@ func (s *userService) generateTokensForTenant(
 	user *types.User,
 	activeTenantID uint64,
 ) (accessToken, refreshToken string, err error) {
+	sessionID, _ := ctx.Value(sourceIDSessionKey).(string)
 	// Generate access token (expires in 24 hours)
 	accessClaims := jwt.MapClaims{
 		"user_id":   user.ID,
@@ -1087,6 +1125,10 @@ func (s *userService) generateTokensForTenant(
 		"type":      "access",
 	}
 
+	accessClaims["jti"] = uuid.NewString()
+	if sessionID != "" {
+		accessClaims["session_id"] = sessionID
+	}
 	accessTokenObj := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
 	accessToken, err = accessTokenObj.SignedString([]byte(getJwtSecret()))
 	if err != nil {
@@ -1101,6 +1143,10 @@ func (s *userService) generateTokensForTenant(
 		"type":    "refresh",
 	}
 
+	refreshClaims["jti"] = uuid.NewString()
+	if sessionID != "" {
+		refreshClaims["session_id"] = sessionID
+	}
 	refreshTokenObj := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
 	refreshToken, err = refreshTokenObj.SignedString([]byte(getJwtSecret()))
 	if err != nil {
@@ -1128,6 +1174,19 @@ func (s *userService) generateTokensForTenant(
 		UpdatedAt: time.Now(),
 	}
 
+	accessTokenRecord.SessionID = sessionID
+	refreshTokenRecord.SessionID = sessionID
+	if sessionID != "" {
+		store, err := s.sourceIDStore()
+		if err != nil {
+			return "", "", err
+		}
+		previous, _ := ctx.Value(sourceIDPreviousKey).(string)
+		if err := store.PersistSourceIDTokens(ctx, sessionID, accessTokenRecord, refreshTokenRecord, previous); err != nil {
+			return "", "", err
+		}
+		return accessToken, refreshToken, nil
+	}
 	// Persist before returning the pair: a signed token the database has no row
 	// for is rejected by ValidateToken / RefreshToken on the very next request,
 	// so swallowing a write error turns a transient database failure into a
@@ -1199,6 +1258,14 @@ func (s *userService) SwitchTenant(
 		return nil, fmt.Errorf("record last-active-tenant preference: %w", err)
 	}
 
+	sessionID, _ := ctx.Value(sourceIDSessionKey).(string)
+	if sessionID != "" && currentRefreshToken != "" {
+		record, err := s.tokenRepo.GetTokenByValue(ctx, currentRefreshToken)
+		if err != nil || record == nil || record.IsRevoked || record.UserID != user.ID || record.SessionID != sessionID || record.TokenType != "refresh_token" {
+			return nil, errors.New("refresh session mismatch")
+		}
+		ctx = context.WithValue(ctx, sourceIDPreviousKey, currentRefreshToken)
+	}
 	accessToken, refreshToken, err := s.generateTokensForTenant(ctx, user, targetTenantID)
 	if err != nil {
 		return nil, fmt.Errorf("generate tokens: %w", err)
@@ -1207,7 +1274,7 @@ func (s *userService) SwitchTenant(
 	// Best-effort revoke of the previous refresh token. Failure is
 	// logged but not fatal — the new tokens are already issued and the
 	// old refresh token will expire naturally.
-	if strings.TrimSpace(currentRefreshToken) != "" {
+	if sessionID == "" && strings.TrimSpace(currentRefreshToken) != "" {
 		if err := s.RevokeToken(ctx, currentRefreshToken); err != nil {
 			logger.Warnf(ctx, "Failed to revoke previous refresh token during tenant switch: %v", err)
 		}
@@ -1295,9 +1362,15 @@ func (s *userService) ValidateToken(ctx context.Context, tokenString string) (*t
 		return nil, 0, errors.New("refresh token cannot be used as access token")
 	}
 
+	if err := s.CheckSourceIDTokenSession(ctx, tokenRecord); err != nil {
+		return nil, 0, err
+	}
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
 		return nil, 0, err
+	}
+	if !user.IsActive {
+		return nil, 0, errors.New("account disabled")
 	}
 
 	// Extract active tenant from the JWT. Anything missing or unparseable
@@ -1328,6 +1401,9 @@ func (s *userService) GetAccessTokenByValue(ctx context.Context, tokenString str
 	if err != nil {
 		return nil, err
 	}
+	if err := s.CheckSourceIDTokenSession(ctx, token); err != nil {
+		return nil, err
+	}
 	return redactAuthToken(token), nil
 }
 
@@ -1339,6 +1415,9 @@ func (s *userService) GetAccessTokenByID(ctx context.Context, id string) (*types
 	}
 	token, err := s.tokenRepo.GetTokenByID(ctx, id)
 	if err != nil {
+		return nil, err
+	}
+	if err := s.CheckSourceIDTokenSession(ctx, token); err != nil {
 		return nil, err
 	}
 	return redactAuthToken(token), nil
@@ -1457,6 +1536,18 @@ func (s *userService) RefreshToken(
 		return "", "", err
 	}
 
+	if !user.IsActive {
+		return "", "", errors.New("account disabled")
+	}
+
+	if tokenRecord.SessionID != "" {
+		if err := s.CheckSourceIDTokenSession(ctx, tokenRecord); err != nil {
+			return "", "", err
+		}
+		ctx = context.WithValue(ctx, sourceIDSessionKey, tokenRecord.SessionID)
+		ctx = context.WithValue(ctx, sourceIDPreviousKey, refreshTokenString)
+		return s.GenerateTokens(ctx, user)
+	}
 	// Revoke old refresh token
 	tokenRecord.IsRevoked = true
 	_ = s.tokenRepo.UpdateToken(ctx, tokenRecord)
@@ -1473,6 +1564,17 @@ func (s *userService) Logout(ctx context.Context, tokenString string) error {
 	userID, err := userIDFromSignedToken(tokenString)
 	if err != nil {
 		return err
+	}
+	record, lookupErr := s.tokenRepo.GetTokenByValue(ctx, tokenString)
+	if lookupErr != nil {
+		return lookupErr
+	}
+	if record != nil && record.SessionID != "" {
+		store, err := s.sourceIDStore()
+		if err != nil {
+			return err
+		}
+		return store.RevokeSourceIDSession(ctx, record.SessionID, userID)
 	}
 	return s.tokenRepo.RevokeTokensByUserID(ctx, userID)
 }
@@ -1563,6 +1665,15 @@ func (s *userService) getOIDCConfig(ctx context.Context) (*config.OIDCAuthConfig
 		return nil, errors.New("OIDC login is disabled")
 	}
 	cfg := *s.config.OIDCAuth
+	if cfg.RedirectURI != "" {
+		// Callback URI is a deployment contract, never learned from a browser.
+		if cfg.SourceIDEnable && cfg.RedirectURI != "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback" {
+			return nil, errors.New("sourceid callback differs from approval")
+		}
+	}
+	if cfg.SourceIDEnable && (!cfg.SourceIDContractConfirmed || cfg.IssuerURL == "" || cfg.RedirectURI == "") {
+		return nil, errors.New("sourceid protocol contract unconfirmed")
+	}
 	if cfg.UserInfoMapping == nil {
 		cfg.UserInfoMapping = &config.OIDCUserInfoMapping{Username: "name", Email: "email"}
 	}
@@ -1611,13 +1722,16 @@ func (s *userService) applyOIDCDiscoveryDocument(ctx context.Context, cfg *confi
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-		return fmt.Errorf("OIDC discovery request failed: status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 2048))
+		return fmt.Errorf("OIDC discovery request failed: status=%d", resp.StatusCode)
 	}
 
 	var doc oidcDiscoveryDocument
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&doc); err != nil {
 		return fmt.Errorf("failed to decode OIDC discovery document: %w", err)
+	}
+	if cfg.IssuerURL != "" && doc.Issuer != cfg.IssuerURL {
+		return errors.New("OIDC discovery issuer mismatch")
 	}
 	if strings.TrimSpace(cfg.AuthorizationEndpoint) == "" {
 		cfg.AuthorizationEndpoint = doc.AuthorizationEndpoint
@@ -1647,11 +1761,22 @@ func (s *userService) exchangeOIDCCode(ctx context.Context, cfg *config.OIDCAuth
 	form.Set("code", code)
 	form.Set("redirect_uri", redirectURI)
 	form.Set("client_id", cfg.ClientID)
-	form.Set("client_secret", cfg.ClientSecret)
+	if cfg.ClientAuthMethod != "client_secret_basic" {
+		form.Set("client_secret", cfg.ClientSecret)
+	}
+	if verifier, _ := ctx.Value(oidcVerifierKey).(string); verifier != "" {
+		form.Set("code_verifier", verifier)
+	}
+	if cfg.ClientAuthMethod != "" && cfg.ClientAuthMethod != "client_secret_post" && cfg.ClientAuthMethod != "client_secret_basic" {
+		return nil, errors.New("unsupported OIDC client authentication method")
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, cfg.TokenEndpoint, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OIDC token request: %w", err)
+	}
+	if cfg.ClientAuthMethod == "client_secret_basic" {
+		req.SetBasicAuth(url.QueryEscape(cfg.ClientID), url.QueryEscape(cfg.ClientSecret))
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
@@ -1679,6 +1804,9 @@ func (s *userService) exchangeOIDCCode(ctx context.Context, cfg *config.OIDCAuth
 func (s *userService) resolveOIDCUserInfo(ctx context.Context, cfg *config.OIDCAuthConfig, tokenResp *oidcTokenResponse) (*types.OIDCUserInfo, error) {
 	claims := map[string]interface{}{}
 	verifiedFromIDToken := false
+	if cfg.SourceIDEnable && (tokenResp.IDToken == "" || cfg.JwksURI == "") {
+		return nil, errors.New("sourceid requires signed ID Token")
+	}
 
 	if idToken := strings.TrimSpace(tokenResp.IDToken); idToken != "" {
 		if strings.TrimSpace(cfg.JwksURI) == "" {
@@ -1691,6 +1819,13 @@ func (s *userService) resolveOIDCUserInfo(ctx context.Context, cfg *config.OIDCA
 			if err != nil {
 				return nil, fmt.Errorf("OIDC id_token verification failed: %w", err)
 			}
+			expectedNonce, _ := ctx.Value(oidcNonceKey).(string)
+			if cfg.SourceIDEnable && expectedNonce == "" {
+				return nil, errors.New("sourceid authorization transaction required")
+			}
+			if expectedNonce != "" && extractClaimAsString(idTokenClaims, "nonce") != expectedNonce {
+				return nil, errors.New("OIDC ID Token nonce mismatch")
+			}
 			for k, v := range idTokenClaims {
 				claims[k] = v
 			}
@@ -1698,15 +1833,36 @@ func (s *userService) resolveOIDCUserInfo(ctx context.Context, cfg *config.OIDCA
 		}
 	}
 
+	if cfg.SourceIDEnable && cfg.SourceIDClaimsSource != "" && cfg.SourceIDClaimsSource != "id_token" && cfg.SourceIDClaimsSource != "userinfo" {
+		return nil, errors.New("unsupported sourceid claims source")
+	}
+	if cfg.SourceIDEnable && cfg.SourceIDClaimsSource == "userinfo" {
+		if cfg.UserInfoEndpoint == "" || tokenResp.AccessToken == "" {
+			return nil, errors.New("sourceid UserInfo required")
+		}
+		// Preserve the verified OIDC identity; business attributes must come from
+		// the explicitly selected source, without mixing conflicting claim sets.
+		for k := range claims {
+			if k != "sub" && k != "iss" && k != "aud" && k != "nonce" && k != "exp" {
+				delete(claims, k)
+			}
+		}
+	}
 	if strings.TrimSpace(cfg.UserInfoEndpoint) != "" && strings.TrimSpace(tokenResp.AccessToken) != "" {
 		userInfoClaims, err := s.fetchOIDCUserInfo(ctx, cfg.UserInfoEndpoint, tokenResp.AccessToken)
 		if err != nil {
-			if !verifiedFromIDToken {
+			if !verifiedFromIDToken || (cfg.SourceIDEnable && cfg.SourceIDClaimsSource == "userinfo") {
 				return nil, fmt.Errorf("failed to fetch OIDC userinfo: %w", err)
 			}
 			logger.Warnf(ctx, "Failed to fetch OIDC userinfo, using verified id_token claims: %v", err)
 		} else {
+			if verifiedFromIDToken && (extractClaimAsString(userInfoClaims, "sub") == "" || extractClaimAsString(userInfoClaims, "sub") != extractClaimAsString(claims, "sub")) {
+				return nil, errors.New("OIDC UserInfo subject mismatch")
+			}
 			for k, v := range userInfoClaims {
+				if (cfg.SourceIDEnable && cfg.SourceIDClaimsSource != "userinfo") || k == "iss" || k == "aud" || k == "nonce" || k == "exp" {
+					continue
+				}
 				claims[k] = v
 			}
 		}
@@ -2066,11 +2222,24 @@ func (s *userService) verifyOIDCIDToken(
 	if _, err := jwt.NewParser(
 		jwt.WithValidMethods([]string{"RS256", "RS384", "RS512"}),
 		jwt.WithExpirationRequired(),
+		jwt.WithIssuedAt(),
 		jwt.WithLeeway(oidcIDTokenLeeway),
 		jwt.WithIssuer(strings.TrimSpace(cfg.IssuerURL)),
 		jwt.WithAudience(strings.TrimSpace(cfg.ClientID)),
 	).ParseWithClaims(idToken, claims, keyFunc); err != nil {
 		return nil, fmt.Errorf("id_token verification failed: %w", err)
+	}
+	issuedAt, err := claims.GetIssuedAt()
+	if err != nil || issuedAt == nil {
+		return nil, errors.New("id_token missing issued-at")
+	}
+	azp, _ := claims["azp"].(string)
+	audience, err := claims.GetAudience()
+	if err != nil {
+		return nil, err
+	}
+	if (azp != "" && azp != cfg.ClientID) || (len(audience) > 1 && azp != cfg.ClientID) {
+		return nil, errors.New("id_token authorized party mismatch")
 	}
 	verified := map[string]interface{}(claims)
 	if strings.TrimSpace(extractClaimAsString(verified, "sub")) == "" {

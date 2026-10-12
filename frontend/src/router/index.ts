@@ -43,7 +43,7 @@ function isLiteSpaDefaultEntry(to: RouteLocationNormalized) {
 function hasPendingOIDCCallback() {
   if (typeof window === 'undefined') return false
   const hash = window.location.hash || ''
-  return hash.includes('oidc_result=') || hash.includes('oidc_error=')
+  return hash.includes('oidc_complete=') || hash.includes('oidc_error=')
 }
 
 const router = createRouter({

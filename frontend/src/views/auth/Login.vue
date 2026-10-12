@@ -352,7 +352,6 @@ import 'swiper/css/pagination'
 import {
   login,
   register,
-  getOIDCAuthorizationURL,
   getOIDCConfig,
   autoSetup,
   getAuthConfig,
@@ -612,7 +611,6 @@ const persistLoginResponse = async (response: any, skipRedirect = false) => {
   router.replace(resolveLoginLanding())
 }
 
-const getBackendOIDCRedirectURI = () => `${window.location.origin}/api/v1/auth/oidc/callback`
 
 const loadOIDCConfig = async () => {
   try {
@@ -640,20 +638,7 @@ const loadAuthConfig = async () => {
 const handleOIDCLogin = async () => {
   try {
     oidcLoading.value = true
-    const response = await getOIDCAuthorizationURL(getBackendOIDCRedirectURI())
-    const authorizationURL = response.authorization_url
-
-    if (!response.success || !authorizationURL) {
-      MessagePlugin.error(response.message || t('auth.oidcLoginFailed'))
-      return
-    }
-
-    rememberAuthReturnTarget(route.query.returnUrl || route.query.redirect)
-    // 跳转 IdP 会丢失 URL 中的 token，暂存到 sessionStorage，回调后由 App.vue 兑换。
-    if (inviteToken.value) {
-      sessionStorage.setItem('weknora_pending_invite_token', inviteToken.value)
-    }
-    window.location.href = authorizationURL
+    window.location.assign('/api/v1/auth/oidc/start')
   } catch (error: any) {
     console.error('OIDC 登录跳转失败:', error)
     MessagePlugin.error(error.message || t('auth.oidcLoginFailed'))

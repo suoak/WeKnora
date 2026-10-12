@@ -314,6 +314,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
 func (h *AuthHandler) GetOIDCAuthorizationURL(c *gin.Context) {
 	ctx := c.Request.Context()
 	redirectURI := strings.TrimSpace(c.Query("redirect_uri"))
+	if h.configInfo != nil && h.configInfo.OIDCAuth != nil && h.configInfo.OIDCAuth.RedirectURI != "" {
+		if redirectURI != "" && redirectURI != h.configInfo.OIDCAuth.RedirectURI {
+			c.Status(http.StatusBadRequest)
+			return
+		}
+		redirectURI = h.configInfo.OIDCAuth.RedirectURI
+	}
 	if redirectURI == "" {
 		appErr := errors.NewValidationError("redirect_uri is required")
 		c.Error(appErr)
@@ -323,7 +330,7 @@ func (h *AuthHandler) GetOIDCAuthorizationURL(c *gin.Context) {
 	resp, err := h.userService.GetOIDCAuthorizationURL(ctx, redirectURI)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to generate OIDC authorization URL: %v", err)
-		appErr := errors.NewForbiddenError("OIDC authorization unavailable").WithDetails(err.Error())
+		appErr := errors.NewForbiddenError("OIDC authorization unavailable")
 		c.Error(appErr)
 		return
 	}
@@ -368,10 +375,14 @@ func oidcCallbackURL(c *gin.Context) string {
 // @Router       /auth/oidc/start [get]
 func (h *AuthHandler) OIDCStart(c *gin.Context) {
 	ctx := c.Request.Context()
-	resp, err := h.userService.GetOIDCAuthorizationURL(ctx, oidcCallbackURL(c))
+	redirectURI := oidcCallbackURL(c)
+	if h.configInfo != nil && h.configInfo.OIDCAuth != nil && h.configInfo.OIDCAuth.RedirectURI != "" {
+		redirectURI = h.configInfo.OIDCAuth.RedirectURI
+	}
+	resp, err := h.userService.GetOIDCAuthorizationURL(ctx, redirectURI)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to generate OIDC authorization URL: %v", err)
-		appErr := errors.NewForbiddenError("OIDC authorization unavailable").WithDetails(err.Error())
+		appErr := errors.NewForbiddenError("OIDC authorization unavailable")
 		c.Error(appErr)
 		return
 	}
@@ -416,13 +427,12 @@ func (h *AuthHandler) GetOIDCConfig(c *gin.Context) {
 // @Router       /auth/oidc/callback [get]
 func (h *AuthHandler) OIDCRedirectCallback(c *gin.Context) {
 	ctx := c.Request.Context()
+	c.Header("Cache-Control", "no-store")
+	c.Header("Referrer-Policy", "no-referrer")
 	frontendRedirectURI := "/"
 
 	if providerError := strings.TrimSpace(c.Query("error")); providerError != "" {
-		redirectURL := frontendRedirectURI + "#oidc_error=" + urlQueryEscape(providerError)
-		if description := strings.TrimSpace(c.Query("error_description")); description != "" {
-			redirectURL += "&oidc_error_description=" + urlQueryEscape(description)
-		}
+		redirectURL := frontendRedirectURI + "#oidc_error=provider_error"
 		c.Redirect(http.StatusFound, redirectURL)
 		return
 	}
@@ -443,14 +453,21 @@ func (h *AuthHandler) OIDCRedirectCallback(c *gin.Context) {
 		return
 	}
 
+	if service, ok := h.userService.(sourceIDAuthService); ok {
+		ctx, err = service.PrepareOIDCCallback(ctx, state)
+		if err != nil {
+			c.Redirect(http.StatusFound, "/#oidc_error=invalid_state")
+			return
+		}
+	}
 	resp, err := h.userService.LoginWithOIDC(ctx, code, strings.TrimSpace(decodedState.RedirectURI), h.resolveDefaultTenantMode(ctx))
 	if err != nil {
-		logger.Errorf(ctx, "Failed to complete OIDC login via redirect callback: %v", err)
-		c.Redirect(http.StatusFound, frontendRedirectURI+"#oidc_error="+urlQueryEscape("login_failed")+"&oidc_error_description="+urlQueryEscape(err.Error()))
+		logger.Warn(ctx, "OIDC login rejected")
+		c.Redirect(http.StatusFound, frontendRedirectURI+"#oidc_error="+urlQueryEscape("login_failed"))
 		return
 	}
 	if !resp.Success {
-		c.Redirect(http.StatusFound, frontendRedirectURI+"#oidc_error="+urlQueryEscape("login_failed")+"&oidc_error_description="+urlQueryEscape(resp.Message))
+		c.Redirect(http.StatusFound, frontendRedirectURI+"#oidc_error="+urlQueryEscape("login_failed"))
 		return
 	}
 
@@ -461,7 +478,20 @@ func (h *AuthHandler) OIDCRedirectCallback(c *gin.Context) {
 		return
 	}
 
-	c.Redirect(http.StatusFound, frontendRedirectURI+"#oidc_result="+urlQueryEscape(payload))
+	service, ok := h.userService.(sourceIDAuthService)
+	if !ok {
+		c.Redirect(http.StatusFound, "/#oidc_error=login_failed")
+		return
+	}
+	key, err := service.SaveOIDCLoginResult(ctx, payload)
+	if err != nil {
+		c.Redirect(http.StatusFound, "/#oidc_error=login_failed")
+		return
+	}
+	c.SetSameSite(http.SameSiteStrictMode)
+	secure := c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https")
+	c.SetCookie("knowhub_oidc_result", key, 60, "/api/v1/auth/oidc", "", secure, true)
+	c.Redirect(http.StatusFound, frontendRedirectURI+"#oidc_complete=1")
 }
 
 func encodeOIDCCallbackPayload(resp *types.OIDCCallbackResponse) (string, error) {
@@ -877,6 +907,14 @@ func (h *AuthHandler) SwitchTenant(c *gin.Context) {
 		return
 	}
 
+	if service, ok := h.userService.(sourceIDAuthService); ok {
+		access := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
+		ctx, err = service.SourceIDSwitchContext(ctx, access)
+		if err != nil {
+			c.Status(http.StatusUnauthorized)
+			return
+		}
+	}
 	resp, err := h.userService.SwitchTenant(ctx, user, req.TenantID, req.RefreshToken)
 	if err != nil {
 		logger.Errorf(ctx, "SwitchTenant failed user=%s target=%d: %v", user.ID, req.TenantID, err)

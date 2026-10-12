@@ -43,14 +43,6 @@ const tdLocaleMap: Record<string, object> = {
 
 const tdGlobalConfig = computed(() => tdLocaleMap[locale.value] || enUSConfig)
 
-const decodeOIDCResult = (encoded: string) => {
-  const normalized = encoded.replace(/-/g, '+').replace(/_/g, '/')
-  const padded = normalized + '='.repeat((4 - normalized.length % 4) % 4)
-  const binary = window.atob(padded)
-  const bytes = Uint8Array.from(binary, char => char.charCodeAt(0))
-  return JSON.parse(new TextDecoder().decode(bytes))
-}
-
 const clearOIDCCallbackState = (path = '/') => {
   window.history.replaceState({}, document.title, path)
 }
@@ -143,9 +135,9 @@ const handleGlobalOIDCCallback = async () => {
   const params = new URLSearchParams(hash)
   const oidcError = params.get('oidc_error')
   const oidcErrorDescription = params.get('oidc_error_description')
-  const oidcResult = params.get('oidc_result')
+  const oidcComplete = params.get('oidc_complete')
 
-  if (!oidcError && !oidcResult) return
+  if (!oidcError && !oidcComplete) return
 
   if (oidcError) {
     clearOIDCCallbackState('/login')
@@ -155,14 +147,19 @@ const handleGlobalOIDCCallback = async () => {
   }
 
   try {
-    if (!oidcResult) {
+    if (!oidcComplete) {
       clearOIDCCallbackState('/login')
       await router.replace('/login')
       MessagePlugin.error('OIDC login failed')
       return
     }
 
-    const response = decodeOIDCResult(oidcResult)
+    const result = await fetch('/api/v1/auth/oidc/result', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'X-KnowHub-OIDC-Result': '1' },
+    })
+    if (!result.ok) throw new Error('OIDC login expired; please sign in again')
+    const response = await result.json()
     if (response.success) {
       clearOIDCCallbackState('/')
       await persistOIDCLoginResponse(response)
