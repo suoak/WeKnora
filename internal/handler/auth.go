@@ -320,9 +320,7 @@ func (h *AuthHandler) GetOIDCAuthorizationURL(c *gin.Context) {
 		redirectURI = h.configInfo.OIDCAuth.RedirectURI
 	}
 	if redirectURI == "" {
-		appErr := errors.NewValidationError("redirect_uri is required")
-		c.Error(appErr)
-		return
+		redirectURI = oidcCallbackURL(c)
 	}
 
 	resp, err := h.userService.GetOIDCAuthorizationURL(ctx, redirectURI)

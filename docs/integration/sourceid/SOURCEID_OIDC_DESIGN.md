@@ -31,7 +31,7 @@ SID state 和 PKCE verifier 保存在 `oidc_transactions`；公开 state 中无 
 
 callback 把本地登录结果保存 60 秒，以 HttpOnly、SameSite cookie 保存随机兑换键；浏览器 URL 只出现 `#oidc_complete=1`。
 POST result 要求自定义请求头以阻止普通跨站表单，结果单次消费后数据库清空内容和 verifier。响应设置 no-store。
-前端复用原用户/成员/空间权限恢复，登录入口通过后台 start 读取固定回调配置。
+前端复用原用户/成员/空间权限恢复，通过后台 url 接口读取固定回调配置；保留目标页和邀请 token 的暂存。请求失败留在登录页显示安全提示；门户直接链接仍可使用 start。
 
 ## 通知信任与解析
 

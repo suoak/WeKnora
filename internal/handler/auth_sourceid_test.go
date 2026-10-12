@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/config"
+	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -122,4 +123,23 @@ func TestOIDCResultRejectsCrossSiteAndConsumesCookie(t *testing.T) {
 	require.Equal(t, 403, request("", false))
 	require.Equal(t, 200, request("http://knowhub.test", true))
 	require.Equal(t, 401, request("http://knowhub.test", true))
+}
+
+func TestOIDCURLUsesApprovedCallbackWithoutBrowserOverride(t *testing.T) {
+	approved := "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback"
+	var callback string
+	stub := &stubOIDCStartUserService{getOIDCAuthorizationURL: func(_ context.Context, uri string) (*types.OIDCAuthURLResponse, error) {
+		callback = uri
+		return &types.OIDCAuthURLResponse{Success: true, AuthorizationURL: "https://mock.example/authorize", Nonce: "mock-nonce"}, nil
+	}}
+	h := &AuthHandler{userService: stub, configInfo: &config.Config{OIDCAuth: &config.OIDCAuthConfig{RedirectURI: approved}}}
+	router := gin.New()
+	router.GET("/api/v1/auth/oidc/url", h.GetOIDCAuthorizationURL)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest("GET", "http://alternate.test/api/v1/auth/oidc/url", nil))
+	require.Equal(t, 200, w.Code)
+	require.Equal(t, approved, callback)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest("GET", "http://alternate.test/api/v1/auth/oidc/url?redirect_uri=https://evil.test/callback", nil))
+	require.Equal(t, 400, w.Code)
 }

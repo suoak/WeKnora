@@ -352,6 +352,7 @@ import 'swiper/css/pagination'
 import {
   login,
   register,
+  getOIDCAuthorizationURL,
   getOIDCConfig,
   autoSetup,
   getAuthConfig,
@@ -638,7 +639,19 @@ const loadAuthConfig = async () => {
 const handleOIDCLogin = async () => {
   try {
     oidcLoading.value = true
-    window.location.assign('/api/v1/auth/oidc/start')
+    // The backend selects the configured, approved callback. Keeping the JSON
+    // request lets provider/configuration failures stay on the login page.
+    const response = await getOIDCAuthorizationURL('')
+    const authorizationURL = response.authorization_url
+    if (!response.success || !authorizationURL) {
+      MessagePlugin.error(response.message || t('auth.oidcLoginFailed'))
+      return
+    }
+    rememberAuthReturnTarget(route.query.returnUrl || route.query.redirect)
+    if (inviteToken.value) {
+      sessionStorage.setItem('weknora_pending_invite_token', inviteToken.value)
+    }
+    window.location.href = authorizationURL
   } catch (error: any) {
     console.error('OIDC 登录跳转失败:', error)
     MessagePlugin.error(error.message || t('auth.oidcLoginFailed'))
