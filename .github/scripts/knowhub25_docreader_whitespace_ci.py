@@ -46,8 +46,13 @@ def validate(summary):
     if summary['status'] == 'PASS':
         assert summary['phase'] == 'COMPLETE' and summary['failureClass'] == 'NONE'
         assert len(summary['rows']) == 2
+        assert {r['suite'] for r in summary['rows']} == {'HTML','MHTML'}
         assert all(r['exit'] == 0 and r['parserValid'] and r['requiredPass'] and r['fail'] == r['error'] == r['skip'] == 0 and r['pass'] == r['run'] > 0 for r in summary['rows'])
         assert all(not any(f['rules'].values()) for f in summary['rawFiles'])
+        assert len(summary['rawFiles']) == 6 and {(f['phase'],f['role']) for f in summary['rawFiles']} == {
+            ('INSTALL_UV','PYTHON_OUTPUT'),('DEPENDENCIES','PYTHON_OUTPUT'),
+            ('HTML','PYTHON_OUTPUT'),('HTML','PYTHON_RESULT'),
+            ('MHTML','PYTHON_OUTPUT'),('MHTML','PYTHON_RESULT')}
 
 def selftest():
     assert len(C.unittest_selftest()) == 15
@@ -60,7 +65,22 @@ def selftest():
         else: raise AssertionError('unsafe summary accepted')
     assert C.scan_findings('token=synthetic_fixture_value')
     assert C.scan_findings('Bearer synthetic_fixture_value')
-    print('UNittest_15_SCHEMA_3_SCAN_2_PASS')
+    complete = dict(valid,status='PASS',phase='COMPLETE',failureClass='NONE',rows=[
+        dict(suite=s,exit=0,run=1,**{'pass':1,'fail':0,'error':0,'skip':0},requiredPass=True,parserValid=True) for s in ['HTML','MHTML']],rawFiles=[
+        dict(role=role,phase=phase,sha256='0'*64,rules=dict.fromkeys(RULE_IDS,0)) for phase,role in [
+            ('INSTALL_UV','PYTHON_OUTPUT'),('DEPENDENCIES','PYTHON_OUTPUT'),('HTML','PYTHON_OUTPUT'),('HTML','PYTHON_RESULT'),('MHTML','PYTHON_OUTPUT'),('MHTML','PYTHON_RESULT')]])
+    validate(complete)
+    for name in ['missing-evidence','raw-hit','required-missing','skip','unexpected-field']:
+        bad=json.loads(json.dumps(complete))
+        if name=='missing-evidence': bad['rawFiles'].pop()
+        elif name=='raw-hit': bad['rawFiles'][0]['rules']['CREDENTIAL_ASSIGNMENT']=1
+        elif name=='required-missing': bad['rows'][0]['requiredPass']=False
+        elif name=='skip': bad['rows'][0]['skip']=1
+        else: bad['exception']='raw cause'
+        try: validate(bad)
+        except AssertionError: pass
+        else: raise AssertionError('incomplete or unsafe gate accepted')
+    print('UNITTEST_15_SCHEMA_8_SCAN_2_PASS')
 
 def run():
     os.umask(0o077)
