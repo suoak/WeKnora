@@ -60,7 +60,7 @@ jobs:
           set -euo pipefail
           image="knowhub-sourceid-test/$COMPONENT:8ae91bc44"
           if [ "$COMPONENT" = app ]; then
-            docker build --progress=plain --platform linux/amd64 \
+            docker build --progress=plain --platform linux/amd64 --target runtime \
               --build-arg VERSION_ARG=0.8.0-sourceid-test-8ae91bc44 \
               --build-arg "COMMIT_ID_ARG=$SOURCE_SHA" \
               --build-arg "REVISION_ARG=$SOURCE_SHA" \
@@ -79,7 +79,7 @@ jobs:
           set -euo pipefail
           image="knowhub-sourceid-test/$COMPONENT:8ae91bc44"
           if [ "$COMPONENT" = app ]; then
-            docker run --rm --network none --entrypoint sh "$image" -c 'test -x /app/WeKnora && test -f /app/migrations/versioned/003024_sourceid_oidc.up.sql && test -f /app/migrations/versioned/003024_sourceid_oidc.down.sql'
+            docker run --rm --network none --entrypoint sh "$image" -c 'test -x /app/WeKnora && test -x /app/scripts/docker-entrypoint.sh && test ! -e /usr/local/bin/anydoc-runtime-tests && test -f /app/migrations/versioned/003024_sourceid_oidc.up.sql && test -f /app/migrations/versioned/003024_sourceid_oidc.down.sql'
           else
             docker run --rm --network none --entrypoint sh "$image" -c 'test -s /usr/share/nginx/html/index.html && test -f /etc/nginx/api-proxy.conf'
           fi
