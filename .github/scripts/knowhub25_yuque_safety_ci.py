@@ -62,6 +62,10 @@ def findings(data):
 
 
 def self_test():
+    # Source identity compares dependencies with a fixed historical baseline.
+    # A depth-one checkout cannot satisfy that contract.
+    workflow = (Path(__file__).resolve().parents[1] / 'workflows/knowhub25-yuque-log-safety.yml').read_text()
+    assert re.search(r'(?m)^\s+fetch-depth:\s+0\s*$', workflow)
     pkg = 'github.com/Tencent/WeKnora/internal/datasource/connector/yuque'
     events = []
     for test in sorted(REQUIRED_TESTS):
@@ -91,6 +95,7 @@ def run():
     try:
         self_test()
         assert subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode().strip() == os.environ['GITHUB_SHA']
+        assert subprocess.check_output(['git', 'rev-parse', '--is-shallow-repository']).decode().strip() == 'false'
         assert not subprocess.check_output(['git', 'status', '--porcelain'])
         for name, blob in POLICY['sourceBlobs'].items():
             assert subprocess.check_output(['git', 'rev-parse', 'HEAD:' + name]).decode().strip() == blob
