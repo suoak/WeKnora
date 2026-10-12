@@ -1,7 +1,7 @@
 name: KnowHub25 Yuque credential log regression
 on:
   push:
-    branches: [fix/knowhub25-yuque-log-safety-20261011]
+    branches: [integration/knowhub25-yuque-cursor-20261012]
 permissions:
   contents: read
 concurrency:
@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   regression:
-    if: github.repository == 'suoak/WeKnora' && github.ref == 'refs/heads/fix/knowhub25-yuque-log-safety-20261011'
+    if: github.repository == 'suoak/WeKnora' && github.ref == 'refs/heads/integration/knowhub25-yuque-cursor-20261012'
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:

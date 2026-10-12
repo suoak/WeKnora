@@ -90,6 +90,12 @@ def run():
                'rows': [], 'rawUploadPermitted': False, 'gatePass': False, 'failureClass': 'UNKNOWN'}
     try:
         self_test()
+        assert subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode().strip() == os.environ['GITHUB_SHA']
+        assert not subprocess.check_output(['git', 'status', '--porcelain'])
+        for name, blob in POLICY['sourceBlobs'].items():
+            assert subprocess.check_output(['git', 'rev-parse', 'HEAD:' + name]).decode().strip() == blob
+        for name in ['go.mod', 'go.sum']:
+            assert subprocess.check_output(['git', 'show', POLICY['baseline'] + ':' + name]) == subprocess.check_output(['git', 'show', 'HEAD:' + name])
         assert subprocess.check_output(['go', 'version']).decode().strip().startswith('go version go1.26.7 linux/amd64')
         assert os.environ.get('CGO_ENABLED') == '1' and os.environ.get('GOTOOLCHAIN') == 'local'
         for mode in ('NORMAL', 'RACE'):

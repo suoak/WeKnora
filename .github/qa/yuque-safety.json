@@ -57,6 +57,14 @@
   "requiredTests": [
     "TestClient_TokenNeverLoggedInFull",
     "TestClient_Ping_SendsAuthHeader",
-    "TestClient_429WithRetryAfter_Retries"
-  ]
+    "TestClient_429WithRetryAfter_Retries",
+    "TestConnector_FetchIncremental_DetailFailureDoesNotAckVersion",
+    "TestConnector_FetchIncremental_NewDocDetailFailureNotAcknowledged"
+  ],
+  "sourceBlobs": {
+    "internal/datasource/connector/yuque/client.go": "09ff6bc92b5348889c1396a86b3e348412f457d6",
+    "internal/datasource/connector/yuque/client_test.go": "60bfb38bd759e2d1e9823de5a50e87338cefcddb",
+    "internal/datasource/connector/yuque/connector.go": "3ef687e3ef5182882ae600e3b34e7e1aab0ff365",
+    "internal/datasource/connector/yuque/connector_test.go": "f2a5e478a658a71f44b40f4c8338a20448f3275b"
+  }
 }
