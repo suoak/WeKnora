@@ -1,6 +1,7 @@
 # 部署与真实 SID 联调
 
 状态门禁：真实协议未确认时 `BLOCKED_EXTERNAL`；Mock 成功不能作为 `SID_INTEGRATION_VERIFIED`。
+P6详细检查与真实测试门禁见 [SOURCEID_P6_PRECHECK.md](SOURCEID_P6_PRECHECK.md) 和 [SOURCEID_REAL_INTEGRATION_PRECHECK.md](SOURCEID_REAL_INTEGRATION_PRECHECK.md)。目前还发现通用HTTP form-body日志及默认代理日志风险，真实联调前须完成敏感路由日志排除/脱敏验收，不能视为现有配置已满足日志保密。
 
 1. 固定交付 commit，完成 Linux 回归和 PostgreSQL 迁移测试。备份 users、auth_tokens、成员、共享、外部身份表；验证备份恢复。
 2. 在隔离测试库执行本仓库 migration 机制的 `003024_sourceid_oidc.up.sql`。PostgreSQL/SQLite 均有 up/down。迁移新增表和 token session_id，不重建 users，不修改成员/知识库表。
@@ -22,7 +23,7 @@
 
 容器 Compose 已透传新增配置。固定共享 JWT_SECRET（安全随机值）保证多实例 state/JWT 一致；所有实例共享数据库。
 前后端必须同版本切换，新一次性 cookie 兑换协议不能与旧 fragment 回调协议混用。灰度采用完整实例切换并清理旧前端缓存。
-数据库故障不允许通过会话验证；需监控 503 通知失败、登出未匹配事件和人工审核冲突，日志不记录 token/XML/secret。
+数据库故障不允许通过会话验证；需监控 503 通知失败、登出未匹配事件和人工审核冲突。上线门禁要求日志不记录 token/XML/secret；P6已发现通用中间件及代理日志的缺口，须修复并验收后才能启用真实测试。
 清理已消费或过期 oidc_transactions 时保留状态防重放到其最大有效期之后；登出 tombstone 未确定 SID index 生命周期前不自动删除。
 
 HTTP 风险：已审批 callback 为 HTTP，授权码及 cookie 传输不能抵御链路窃听，PKCE 只能缓解部分攻击。当前保持审批 URI；迁移 HTTPS 应先获得 SID 新 URI 审批，然后整体更新入口、cookie Secure、反向代理与回调注册并重新联调。

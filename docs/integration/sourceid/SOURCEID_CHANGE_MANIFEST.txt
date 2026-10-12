@@ -1,6 +1,7 @@
 Validated implementation SHA: 8ae91bc4439dcc93be11844ada5ec1479f2730bc
 Audit baseline: ac7dbe5e2607af5ab4e74c062137e0cad48d0e50
 Documentation-only delivery commit follows this validation.
+P6 preparation adds only documentation/templates; runtime code remains at the validated SHA.
 
 .env.example
 .github/workflows/sourceid-oidc.yml
@@ -15,6 +16,19 @@ docs/integration/sourceid/SOURCEID_OIDC_DESIGN.md
 docs/integration/sourceid/SOURCEID_OIDC_ROLLBACK.md
 docs/integration/sourceid/SOURCEID_OIDC_TEST_REPORT.md
 docs/integration/sourceid/SOURCEID_PROTOCOL_REVIEW.md
+docs/integration/sourceid/SOURCEID_P6_PRECHECK.md
+docs/integration/sourceid/SOURCEID_CONTRACT_CHECKLIST.md
+docs/integration/sourceid/SOURCEID_P6_CONFIG.env.example
+docs/integration/sourceid/SOURCEID_SID_QUESTIONS.md
+docs/integration/sourceid/SOURCEID_P6_ACCOUNT_MAPPING.md
+docs/integration/sourceid/SOURCEID_P6_E2E.md
+docs/integration/sourceid/SOURCEID_P6_RELEASE_GATE.md
+docs/integration/sourceid/SOURCEID_REAL_INTEGRATION_PRECHECK.md
+docs/integration/sourceid/SOURCEID_REAL_LOGIN_TEST_REPORT.md
+docs/integration/sourceid/SOURCEID_REAL_USERINFO_SCHEMA.md
+docs/integration/sourceid/SOURCEID_SESSION_MAPPING_REPORT.md
+docs/integration/sourceid/SOURCEID_BACKCHANNEL_TEST_REPORT.md
+docs/integration/sourceid/SOURCEID_REMAINING_BLOCKERS.md
 docs/integration/sourceid/SOURCEID_VALIDATION_SUMMARY.json
 frontend/src/App.vue
 frontend/src/api/auth/index.ts

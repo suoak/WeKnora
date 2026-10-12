@@ -1,5 +1,7 @@
 # 回退方案
 
+P6生产前门禁、重建配置生效及精确错误绑定回滚分别见 [SOURCEID_P6_RELEASE_GATE.md](SOURCEID_P6_RELEASE_GATE.md)、[SOURCEID_REAL_INTEGRATION_PRECHECK.md](SOURCEID_REAL_INTEGRATION_PRECHECK.md) 和 [SOURCEID_P6_ACCOUNT_MAPPING.md](SOURCEID_P6_ACCOUNT_MAPPING.md)。以下均为待审批操作，本轮未执行。
+
 优先配置回退：关闭 SOURCEID_ENABLE、SOURCEID_LOGOUT_ENABLE、SOURCEID_CONTRACT_CONFIRMED 和 OIDC_AUTH_ENABLE，保留本地应急登录。先在授权环境撤销 SourceID 令牌/会话，确保停用后没有残留有效 SID 登录。
 已发行 SID 令牌仍要求数据库会话检查，不能通过关闭适配配置绕过撤销。禁用开关不自动注销本地用户，也不修改 API Key。
 

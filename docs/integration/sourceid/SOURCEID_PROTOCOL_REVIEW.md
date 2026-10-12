@@ -1,6 +1,8 @@
 # 飞书 OIDC 协议核对（2026-10-12）
 
-来源：[用户指定企业 OIDC 文档](https://ruijie.feishu.cn/wiki/OMhSwh3G1iApPBklVW6cLzC2nVb)，revision 20。经用户授权，使用飞书 CLI 的用户身份读取全文，并读取正文全部 13 张嵌入参数表的完整 used range。此前 HTML 导出正文不完整的问题已解除。原始正文、表格、示例密钥、JWT 和个人信息不提交仓库。
+P6复核更正：先前把13张工作表总数写成参数表数；正文实际引用12张参数表，另1张Sheet1为空白。所有正文引用均已核对，正式逐项契约见 [SOURCEID_CONTRACT_CHECKLIST.md](SOURCEID_CONTRACT_CHECKLIST.md)。
+
+来源：[用户指定企业 OIDC 文档](https://ruijie.feishu.cn/wiki/OMhSwh3G1iApPBklVW6cLzC2nVb)，revision 20。经用户授权，使用飞书 CLI 的用户身份读取全文、全部12张正文嵌入参数表的完整used range，并检查1张空白工作表（共13张工作表）。此前 HTML 导出正文不完整的问题已解除。原始正文、表格、示例密钥、JWT 和个人信息不提交仓库。
 
 | 证据 | 对实现的影响 |
 |---|---|

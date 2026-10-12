@@ -28,7 +28,7 @@
 不能据此拼接正式 SID 生产接口。OAuth2 导出描述工号、多身份和传统 profile，不证明 OIDC 使用相同字段。
 
 [SourceID 官方应用登出](https://sourceid.ruishan.cc/linkid/authentication/introduction/logout.html) 确认服务端 POST 的 `logoutRequest`、XML 的 SessionIndex、传统 OAuth 的 tgt 关联。公开文档未给出压缩实现、通知认证和响应约定。
-[企业 OIDC 文档](https://ruijie.feishu.cn/wiki/OMhSwh3G1iApPBklVW6cLzC2nVb) 已在用户授权后通过飞书 CLI 读取 revision 20 全文及全部 13 张嵌入参数表。示例描述 `/cas/oidc/profile` 的 access_token 表单参数；新增显式 UserInfo 请求方式配置，保留通用 OIDC 的 Bearer GET 默认值。文档没有确认企业员工号字段、状态字典、正式 issuer/JWKS、nonce/PKCE，亦没有 OIDC 会话与 SessionIndex 的对应关系。证据与未确认项见 [SOURCEID_PROTOCOL_REVIEW.md](SOURCEID_PROTOCOL_REVIEW.md)。
+[企业 OIDC 文档](https://ruijie.feishu.cn/wiki/OMhSwh3G1iApPBklVW6cLzC2nVb) 已在用户授权后通过飞书 CLI 读取 revision 20 全文及全部12张正文嵌入参数表，另检查1张空白Sheet1（工作簿共13张；更正原报告计数）。示例描述 `/cas/oidc/profile` 的 access_token 表单参数；新增显式 UserInfo 请求方式配置，保留通用 OIDC 的 Bearer GET 默认值。文档没有确认企业员工号字段、状态字典、正式 issuer/JWKS、nonce/PKCE，亦没有 OIDC 会话与 SessionIndex 的对应关系。证据与未确认项见 [SOURCEID_PROTOCOL_REVIEW.md](SOURCEID_PROTOCOL_REVIEW.md)。
 
 ## 必须保留的外部门禁
 

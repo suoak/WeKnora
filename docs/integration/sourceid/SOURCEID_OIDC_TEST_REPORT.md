@@ -1,5 +1,7 @@
 # 开发与验证报告（2026-10-12）
 
+P6后续准备结果见 [SOURCEID_P6_PRECHECK.md](SOURCEID_P6_PRECHECK.md)；真实登录/通知仍为NOT_TESTED。P6日志检查发现通用HTTP采集和默认代理日志缺口，列为真实启用前门禁，未修改运行代码，不能以本报告CI成功声称该门禁通过。工作簿计数已更正为12张正文参数表及1张空白表，共13张工作表。
+
 工作分支：feature/knowhub-sourceid-oidc。
 审计基线：ac7dbe5e2607af5ab4e74c062137e0cad48d0e50。
 验证实现 SHA：8ae91bc4439dcc93be11844ada5ec1479f2730bc。
@@ -60,7 +62,7 @@ Mock 仅使用 httptest、临时 SQLite/云端 PostgreSQL，没有调用真实 S
 
 尚缺正式 issuer/Discovery/JWKS、签名算法、客户端认证、PKCE/nonce 支持；员工自然人与岗位身份规则、状态字段；OIDC 与 SessionIndex 的来源及等价证明；通知源认证、参数位置/Content-Type、压缩、响应/重试和外部 ID 生命周期。
 Token Response 专有会话扩展、原生通知签名尚未实现，若真实协议要求，应补适配并重新验证。body/form-urlencoded、XML 或显式 base64+raw DEFLATE、空 HTTP 200 是本地支持范围，不能作为真实契约已确认的证据。
-已读三份用户 HTML。用户完成授权后，飞书 CLI 已读取企业 OIDC 文档 revision 20 全文和全部 13 张嵌入参数表，详情见 [SOURCEID_PROTOCOL_REVIEW.md](SOURCEID_PROTOCOL_REVIEW.md)。其中员工属性示例为通用学工号/在校状态，不能认定企业自然人工号及启用状态。Profile 表单传 token 的方式已补充显式请求适配；正式 Token/Profile Content-Type 和生产端点仍需确认。
+已读三份用户 HTML。用户完成授权后，飞书 CLI 已读取企业 OIDC 文档 revision 20 全文和全部12张正文嵌入参数表，另检查1张空白表（共13张工作表），详情见 [SOURCEID_PROTOCOL_REVIEW.md](SOURCEID_PROTOCOL_REVIEW.md)。其中员工属性示例为通用学工号/在校状态，不能认定企业自然人工号及启用状态。Profile 表单传 token 的方式已补充显式请求适配；正式 Token/Profile Content-Type 和生产端点仍需确认。
 
 审批 HTTP callback 保持原值；授权码/cookie 明文传输风险已记录。未来 HTTPS 须取得新 URI 审批，并同步更新批准 URI 校验、入口、配置和回调注册。
 SourceID 默认关闭；不推送/合并主分支、不部署生产、不操作生产数据库。P6 步骤见 [SOURCEID_OIDC_DEPLOYMENT.md](SOURCEID_OIDC_DEPLOYMENT.md)，回退见 [SOURCEID_OIDC_ROLLBACK.md](SOURCEID_OIDC_ROLLBACK.md)。
