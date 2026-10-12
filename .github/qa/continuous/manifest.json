@@ -1218,6 +1218,22 @@
     "cli/internal/cmdutil/multipart_replay_test.go": {
       "blob": "4880dabbe52eae696b0200188a76945481b2fb75",
       "sha256": "d1367a5af883a3319aaf82b3f49f7e755cb9a20927bba99e8b327c37a98df116"
+    },
+    "cli/cmd/doc/list.go": {
+      "blob": "c72b890c0452a5bd7d95fcced6f8f2ea5b3db9d0",
+      "sha256": "f42a3ed0b74f27b00e2fc9238ed42bc64cc702e3d7974cc6df5ee63b2db91bab"
+    },
+    "cli/cmd/doc/list_limit_order_test.go": {
+      "blob": "c548db7d643d87ef1c390dee6dfa620dbe098d90",
+      "sha256": "6a8080cef4a6d85ce7b3000c28d7a4abc9bd7384195195610df6e6a9826f819b"
+    },
+    "cli/cmd/session/list.go": {
+      "blob": "18255cd4e357dee2c13a7cad5de8883c1e2ed409",
+      "sha256": "d21c3a7fbd9301139beea11214df56b9f8505aac15b011f3a6e74fca6982cd8e"
+    },
+    "cli/cmd/session/list_filter_limit_test.go": {
+      "blob": "04a8bb2d2001ce7452eb90c963dcea3f11fad1f5",
+      "sha256": "b82c4e96edc593f29a204e9ed979901e024c303dfc59e5b3c30e5069d5d3b7d8"
     }
   },
   "notion_overlay_required": [
@@ -1646,7 +1662,9 @@
     "cli/internal/format",
     "cli/internal/cmdutil",
     "cli/cmd/auth",
-    "cli/cmd/api"
+    "cli/cmd/api",
+    "cli/cmd/doc",
+    "cli/cmd/session"
   ],
   "module_required": {
     "client": [
@@ -1679,6 +1697,12 @@
       "TestAPI_PaginateReadError",
       "TestAPI_PaginateFormats",
       "TestAPI_PaginateTextWriteError"
+    ],
+    "cli/cmd/doc": [
+      "TestListAllPagesSortsBeforeLimit"
+    ],
+    "cli/cmd/session": [
+      "TestListAllPagesLimitAppliesAfterSince"
     ]
   }
 }

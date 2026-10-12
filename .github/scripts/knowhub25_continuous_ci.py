@@ -44,7 +44,7 @@ def check_manifest():
         raise ValueError('MANIFEST_FAILED')
     if len(M['extra_packages']) != 9 or len(set(M['extra_packages'])) != 9 or set(M['extra_packages']) & set(M['packages']):
         raise ValueError('MANIFEST_FAILED')
-    if M['module_packages'] != ['client','cli/internal/format','cli/internal/cmdutil','cli/cmd/auth','cli/cmd/api'] or set(M['module_required']) != set(M['module_packages']) or len(M['module_required']['client']) != 8:
+    if M['module_packages'] != ['client','cli/internal/format','cli/internal/cmdutil','cli/cmd/auth','cli/cmd/api','cli/cmd/doc','cli/cmd/session'] or set(M['module_required']) != set(M['module_packages']) or len(M['module_required']['client']) != 8:
         raise ValueError('MANIFEST_FAILED')
     if not M['candidate_products'] or any(not re.fullmatch('[0-9a-f]{40}', v['blob']) or not re.fullmatch('[0-9a-f]{64}', v['sha256']) for v in M['candidate_products'].values()):
         raise ValueError('MANIFEST_FAILED')
@@ -620,7 +620,7 @@ def selftest():
         raise ValueError('UPLOAD_FAILED')
     print(json.dumps({'goParserCases': len(go), 'junitCases': len(junit), 'unittestCases': len(unittest), 'safeSchemaNegativeCases': 3,
                       'manifestNegativeCases': 4, 'rawScanPositiveCases': 3, 'workflowFixedGuard': 'PASS', 'matrix': 98,
-                      'frontendParserCases': frontend_cases, 'frontendEventCases': frontend_event_cases, 'realNodeReporterCases': frontend_reporter_cases, 'packageBoundaryCases': 2, 'diagnosticSchemaNegativeCases': 4, 'additionalPackageRows': len(M['extra_packages']) * 4, 'sdkRows': 4, 'cliRows': 16, 'status': 'PASS'}))
+                      'frontendParserCases': frontend_cases, 'frontendEventCases': frontend_event_cases, 'realNodeReporterCases': frontend_reporter_cases, 'packageBoundaryCases': 2, 'diagnosticSchemaNegativeCases': 4, 'additionalPackageRows': len(M['extra_packages']) * 4, 'sdkRows': 4, 'cliRows': (len(M['module_packages']) - 1) * 4, 'status': 'PASS'}))
 
 if __name__ == '__main__':
     try:
