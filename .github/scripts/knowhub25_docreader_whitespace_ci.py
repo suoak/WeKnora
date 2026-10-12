@@ -82,6 +82,11 @@ def selftest():
         else: raise AssertionError('incomplete or unsafe gate accepted')
     print('UNITTEST_15_SCHEMA_8_SCAN_2_PASS')
 
+def test_environment(root):
+    # Absolute script execution puts qa/continuous, not the source root, on
+    # sys.path. Bind imports to this candidate instead of inherited PYTHONPATH.
+    return dict(os.environ,PYTHONPATH=str(root))
+
 def run():
     os.umask(0o077)
     temp = Path(os.environ['RUNNER_TEMP'])
@@ -93,7 +98,7 @@ def run():
         summary['phase'] = phase
         path = private / (phase+'.log')
         with path.open('wb') as log:
-            code = subprocess.run(command,cwd=ROOT,stdout=log,stderr=subprocess.STDOUT,timeout=1200).returncode
+            code = subprocess.run(command,cwd=ROOT,env=test_environment(ROOT),stdout=log,stderr=subprocess.STDOUT,timeout=1200).returncode
         raw = path.read_bytes(); findings = scan(raw)
         summary['rawFiles'].append(dict(role=role,phase=phase,sha256=sha(raw),rules=findings))
         if any(findings.values()): summary['failureClass']='RAW_SCAN_HIT'; raise RuntimeError()
