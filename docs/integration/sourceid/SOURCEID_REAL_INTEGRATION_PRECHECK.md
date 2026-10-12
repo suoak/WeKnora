@@ -1,6 +1,6 @@
 # 真实 SID 联调预检查
 
-状态：**BLOCKED_EXTERNAL / NOT_TESTED（真实登录）**。本轮只完成本机及源码检查，没有启用服务、真实登录、登出、映射或生产变更。完整只读结果见 [P6检查报告](SOURCEID_P6_PRECHECK.md)，正式契约见 [契约清单](SOURCEID_CONTRACT_CHECKLIST.md)。
+状态：**BLOCKED_EXTERNAL / NOT_TESTED（真实登录）**。已完成本机/源码及用户指定Linux测试机的Docker、目录、部署只读检查，没有启用服务、真实登录、登出、映射或生产变更。完整只读结果见 [P6检查报告](SOURCEID_P6_PRECHECK.md) 和 [测试机环境报告](SOURCEID_TEST_HOST_ENVIRONMENT_REPORT.md)，正式契约见 [契约清单](SOURCEID_CONTRACT_CHECKLIST.md)。
 
 ## 基线与当前结果
 

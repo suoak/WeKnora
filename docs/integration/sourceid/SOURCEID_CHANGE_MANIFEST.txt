@@ -29,6 +29,7 @@ docs/integration/sourceid/SOURCEID_REAL_USERINFO_SCHEMA.md
 docs/integration/sourceid/SOURCEID_SESSION_MAPPING_REPORT.md
 docs/integration/sourceid/SOURCEID_BACKCHANNEL_TEST_REPORT.md
 docs/integration/sourceid/SOURCEID_REMAINING_BLOCKERS.md
+docs/integration/sourceid/SOURCEID_TEST_HOST_ENVIRONMENT_REPORT.md
 docs/integration/sourceid/SOURCEID_VALIDATION_SUMMARY.json
 frontend/src/App.vue
 frontend/src/api/auth/index.ts
