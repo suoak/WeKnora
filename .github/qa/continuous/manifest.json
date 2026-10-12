@@ -419,7 +419,9 @@
     "internal/datasource/connector/yuque": [
       "TestClient_TokenNeverLoggedInFull",
       "TestClient_Ping_SendsAuthHeader",
-      "TestClient_429WithRetryAfter_Retries"
+      "TestClient_429WithRetryAfter_Retries",
+      "TestConnector_FetchIncremental_DetailFailureDoesNotAckVersion",
+      "TestConnector_FetchIncremental_NewDocDetailFailureNotAcknowledged"
     ],
     "internal/agent/tools": [
       "TestCastParamsPreservesOriginalOnNoConversion",
