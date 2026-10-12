@@ -32,9 +32,10 @@ func (q *fileAdmissionQueue) Enqueue(task *asynq.Task, _ ...asynq.Option) (*asyn
 
 type fileAdmissionTenantFailure struct {
 	interfaces.TenantRepository
-	calls int
-	svc   *knowledgeService
-	t     *testing.T
+	calls  int
+	nonces []string
+	svc    *knowledgeService
+	t      *testing.T
 }
 
 func (r *fileAdmissionTenantFailure) GetTenantByID(ctx context.Context, tenant uint64) (*types.Tenant, error) {
@@ -44,6 +45,7 @@ func (r *fileAdmissionTenantFailure) GetTenantByID(ctx context.Context, tenant u
 	require.Equal(r.t, tenant, execution.TenantID)
 	require.EqualValues(r.t, 1, execution.Generation)
 	require.NotEmpty(r.t, execution.ExecutionID)
+	r.nonces = append(r.nonces, execution.ExecutionID)
 	return nil, errors.New("controlled_tenant_read_retry")
 }
 
@@ -85,9 +87,16 @@ func TestA3ProcessingExecutionPostgresFileUploadAdmission(t *testing.T) {
 	require.Error(t, svc.ProcessDocument(ctx, queue.task))
 	require.Error(t, svc.ProcessDocument(ctx, queue.task))
 	require.Equal(t, 2, tenantFailure.calls)
+	require.Len(t, tenantFailure.nonces, 2)
+	require.NotEqual(t, tenantFailure.nonces[0], tenantFailure.nonces[1], "actual retry must claim a new nonce")
 	require.NoError(t, db.Where("knowledge_id = ?", knowledge.ID).Take(&fence).Error)
 	require.EqualValues(t, 1, fence.Generation)
-	require.Empty(t, fence.ExecutionID)
+	// Release retains the execution identity for per-attempt cleanup, while
+	// expiring its lease so a real retry can claim a different nonce.
+	require.Equal(t, tenantFailure.nonces[1], fence.ExecutionID)
+	var databaseNow time.Time
+	require.NoError(t, db.Raw("SELECT CURRENT_TIMESTAMP").Row().Scan(&databaseNow))
+	require.False(t, fence.LeaseUntil.After(databaseNow))
 	require.False(t, fence.MainFinished)
 	// An enqueue error cannot overwrite a delivery that already acquired a lease.
 	claimed, err := fences.Claim(ctx, 1, knowledge.ID, 1, time.Minute)
