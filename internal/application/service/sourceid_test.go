@@ -52,6 +52,10 @@ func TestSourceIDMockLoginAndSessionLifecycle(t *testing.T) {
 			claims["nonce"] = "wrong"
 		case "nonce-padding":
 			claims["nonce"] = nonce + " "
+		case "subject-number":
+			claims["sub"] = 123
+		case "azp-number":
+			claims["azp"] = 123
 		case "employee":
 			delete(claims, "employee")
 		case "inactive":
@@ -81,7 +85,7 @@ func TestSourceIDMockLoginAndSessionLifecycle(t *testing.T) {
 		require.Error(t, err)
 		return s.LoginWithOIDC(prepared, "mock-code", cfg.RedirectURI, types.TenantProvisioningTenantless)
 	}
-	for _, failure := range []string{"nonce", "nonce-padding", "employee", "inactive", "issuer", "audience", "expired"} {
+	for _, failure := range []string{"nonce", "nonce-padding", "subject-number", "azp-number", "employee", "inactive", "issuer", "audience", "expired"} {
 		t.Run(failure, func(t *testing.T) { mode = failure; _, err := login(); require.Error(t, err) })
 	}
 	mode = "valid"

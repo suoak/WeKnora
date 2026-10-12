@@ -310,6 +310,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 // @Failure      403           {object}  errors.AppError  "OIDC未启用"
 // @Router       /auth/oidc/url [get]
 func (h *AuthHandler) GetOIDCAuthorizationURL(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
 	ctx := c.Request.Context()
 	redirectURI := strings.TrimSpace(c.Query("redirect_uri"))
 	if h.configInfo != nil && h.configInfo.OIDCAuth != nil && h.configInfo.OIDCAuth.RedirectURI != "" {
@@ -370,6 +371,7 @@ func oidcCallbackURL(c *gin.Context) string {
 // @Success      302
 // @Router       /auth/oidc/start [get]
 func (h *AuthHandler) OIDCStart(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
 	ctx := c.Request.Context()
 	redirectURI := oidcCallbackURL(c)
 	if h.configInfo != nil && h.configInfo.OIDCAuth != nil && h.configInfo.OIDCAuth.RedirectURI != "" {
@@ -395,6 +397,7 @@ func (h *AuthHandler) OIDCStart(c *gin.Context) {
 // @Success      200  {object}  types.OIDCConfigResponse
 // @Router       /auth/oidc/config [get]
 func (h *AuthHandler) GetOIDCConfig(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
 	providerDisplayName := ""
 	redirectURI := ""
 	enabled := false

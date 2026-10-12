@@ -152,6 +152,29 @@ func TestSourceIDOIDCConfigReturnsPublicCallbackWithoutSecrets(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/auth/oidc/config", nil))
 	require.Equal(t, 200, w.Code)
+	require.Equal(t, "no-store", w.Header().Get("Cache-Control"))
 	require.Contains(t, w.Body.String(), callback)
 	require.NotContains(t, w.Body.String(), "mock-secret-never-public")
+}
+
+func TestOIDCResultGenericDevProxyUsesBrowserFetchMetadata(t *testing.T) {
+	stub := &sourceIDHandlerStub{}
+	h := &AuthHandler{userService: stub}
+	router := gin.New()
+	router.POST("/api/v1/auth/oidc/result", h.OIDCLoginResult)
+	request := func(site string) int {
+		r := httptest.NewRequest("POST", "http://localhost:8080/api/v1/auth/oidc/result", nil)
+		r.Header.Set("Origin", "http://localhost:5173")
+		r.Header.Set("Sec-Fetch-Site", site)
+		r.Header.Set("X-KnowHub-OIDC-Result", "1")
+		r.AddCookie(&http.Cookie{Name: "knowhub_oidc_result", Value: "mock-cookie"})
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, r)
+		return w.Code
+	}
+	require.Equal(t, 403, request("same-site"))
+	require.Equal(t, 200, request("same-origin"))
+	stub.resultConsumed = false
+	h.configInfo = &config.Config{OIDCAuth: &config.OIDCAuthConfig{RedirectURI: "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback"}}
+	require.Equal(t, 403, request("same-origin"))
 }

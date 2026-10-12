@@ -2243,16 +2243,17 @@ func (s *userService) verifyOIDCIDToken(
 	if err != nil || issuedAt == nil {
 		return nil, errors.New("id_token missing issued-at")
 	}
-	azp, _ := claims["azp"].(string)
+	azp, azpPresent := claims["azp"]
 	audience, err := claims.GetAudience()
 	if err != nil {
 		return nil, err
 	}
-	if (azp != "" && azp != cfg.ClientID) || (len(audience) > 1 && azp != cfg.ClientID) {
+	if (azpPresent && azp != cfg.ClientID) || (len(audience) > 1 && azp != cfg.ClientID) {
 		return nil, errors.New("id_token authorized party mismatch")
 	}
 	verified := map[string]interface{}(claims)
-	if strings.TrimSpace(extractClaimAsString(verified, "sub")) == "" {
+	subject, err := claims.GetSubject()
+	if err != nil || strings.TrimSpace(subject) == "" {
 		return nil, errors.New("id_token missing sub claim")
 	}
 	return verified, nil

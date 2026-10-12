@@ -113,11 +113,15 @@ func (h *AuthHandler) OIDCLoginResult(c *gin.Context) {
 	}
 	if origin := c.GetHeader("Origin"); origin != "" {
 		expected := oidcCallbackURL(c)
+		configuredCallback := false
 		if h.configInfo != nil && h.configInfo.OIDCAuth != nil && h.configInfo.OIDCAuth.RedirectURI != "" {
 			expected = h.configInfo.OIDCAuth.RedirectURI
+			configuredCallback = true
 		}
 		u, err := url.Parse(expected)
-		if err != nil || origin != u.Scheme+"://"+u.Host {
+		// Same-origin Fetch Metadata is browser-controlled and survives a dev
+		// proxy rewriting Host. A configured callback must always match exactly.
+		if err != nil || (origin != u.Scheme+"://"+u.Host && (configuredCallback || c.GetHeader("Sec-Fetch-Site") != "same-origin")) {
 			c.Status(http.StatusForbidden)
 			return
 		}
