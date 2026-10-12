@@ -21,12 +21,28 @@ SERVICE_EXPECTED = {
  'TestA3ProcessingExecutionPostgresPreIndexCleanup',
 }
 
+def file_admission_failure_locations(events, states):
+    """Publish source-bound assertion line numbers, never raw Output or paths."""
+    target = 'TestA3ProcessingExecutionPostgresFileUploadAdmission'
+    if states.get(target) != 'FAIL': return []
+    source = Path('internal/application/service/knowledge_file_admission_postgres_test.go')
+    maximum = len(source.read_text(encoding='utf-8').splitlines())
+    locations = set()
+    for event in events:
+        if event.get('Test') != target or event.get('Action') != 'output': continue
+        text = event.get('Output', '')
+        if not isinstance(text, str) or 'Error Trace:' not in text: continue
+        for line in re.findall(r'knowledge_file_admission_postgres_test\.go:([0-9]+)', text):
+            number = int(line)
+            if 1 <= number <= maximum: locations.add(number)
+    return [{'testID':target,'sourceFileID':'FILE_UPLOAD_ADMISSION_TEST','line':line} for line in sorted(locations)]
+
 
 def emit(value):
     """Publish fixed metadata only; retain no raw output or exception strings."""
     allowed = {'REPOSITORY', 'SERVICE', 'SERVICE_FULL', 'NORMAL', 'RACE', 'RUN',
                'PASS', 'FAIL', 'SKIP', 'BLOCKED', 'UNKNOWN', 'UNKNOWN_TEST_ID',
-               'GO_TEST_JSONL', 'GO_TEST_STDERR', 'HELPER_FAILED'} | set(RULES) | EXPECTED | SERVICE_EXPECTED
+               'GO_TEST_JSONL', 'GO_TEST_STDERR', 'HELPER_FAILED', 'FILE_UPLOAD_ADMISSION_TEST'} | set(RULES) | EXPECTED | SERVICE_EXPECTED
     allowed |= {'TestA3ProcessingAttemptCleanupPostgres',
                 'TestA3ProcessingAttemptCleanupPostgres/actual_processChunks_preserves_new_generation'}
     for source in Path('internal/application/service').glob('*_test.go'):
@@ -34,7 +50,7 @@ def emit(value):
     fields = {'package', 'mode', 'exit', 'run', 'pass', 'fail', 'skip', 'tests',
               'failedTestIDs', 'parserValid', 'dataRace', 'scanClear', 'rawMetadata',
               'safeHitTests', 'status', 'role', 'sha256', 'rules', 'testID',
-              'ruleID', 'count', 'classification', 'failureClass'} | set(RULES) | EXPECTED | SERVICE_EXPECTED
+              'ruleID', 'count', 'classification', 'failureClass', 'failureLocations', 'sourceFileID', 'line'} | set(RULES) | EXPECTED | SERVICE_EXPECTED
     fields |= {'TestA3ProcessingAttemptCleanupPostgres',
                'TestA3ProcessingAttemptCleanupPostgres/actual_processChunks_preserves_new_generation'}
     def inspect(item):
@@ -209,6 +225,7 @@ def main():
         raw.chmod(0o600)
         stderr.chmod(0o600)
         rows = {}
+        events = []
         malformed = False
         data_race = False
         findings = []
@@ -221,6 +238,7 @@ def main():
         try:
             for line in raw.read_text(encoding="utf-8").splitlines():
                 event = json.loads(line)
+                events.append(event)
                 name = event.get("Test")
                 action = event.get("Action")
                 if name in expected:
@@ -241,7 +259,8 @@ def main():
         blocked |= not passed
         emit({"package": package, "mode": mode, "exit": result.returncode, "tests": rows,
                           "parserValid": not malformed, "dataRace": data_race, "scanClear": scan_clear,
-                          "rawMetadata": findings, "status": "PASS" if passed else "BLOCKED"})
+                          "rawMetadata": findings, "failureLocations": file_admission_failure_locations(events, rows),
+                          "status": "PASS" if passed else "BLOCKED"})
         if not passed:
             break
     if not blocked:
