@@ -224,3 +224,25 @@ func TestA3ProcessingExecutionPostgresRestartCleanupReplay(t *testing.T) {
 	require.NoError(t, db.Model(&types.Chunk{}).Where("id = ?", fresh.ID).Count(&active).Error)
 	require.EqualValues(t, 1, active)
 }
+
+func TestA3ProcessingExecutionPostgresPreIndexCleanup(t *testing.T) {
+	db, svc, fences := processingExecutionPG(t)
+	require.NoError(t, db.AutoMigrate(&types.Chunk{}))
+	ctx := context.Background()
+	generation, err := fences.Reserve(ctx, 1, "one")
+	require.NoError(t, err)
+	first, err := fences.Claim(ctx, 1, "one", generation, time.Minute)
+	require.NoError(t, err)
+	work := types.WithProcessingExecution(ctx, types.ProcessingExecution{TenantID: 1, KnowledgeID: "one", Generation: generation, ExecutionID: first.ExecutionID})
+	chunk := &types.Chunk{ID: uuid.NewString(), TenantID: 1, KnowledgeID: "one", IsEnabled: true}
+	knowledge := &types.Knowledge{ID: "one", TenantID: 1}
+	require.NoError(t, svc.persistProcessingChunks(work, knowledge, []*types.Chunk{chunk}))
+	// SQL rows can exist before any external write. Only this known pre-index
+	// boundary explicitly confirms zero vector writes; nil replay remains unsafe.
+	require.NoError(t, svc.cleanupAttemptChunks(work, knowledge, []*types.Chunk{chunk}, confirmNoAttemptVectorWrites))
+	var pending, active int64
+	require.NoError(t, db.Table("knowledge_processing_owned_chunks").Where("chunk_id = ? AND cleanup_complete = FALSE", chunk.ID).Count(&pending).Error)
+	require.Zero(t, pending)
+	require.NoError(t, db.Model(&types.Chunk{}).Where("id = ?", chunk.ID).Count(&active).Error)
+	require.Zero(t, active)
+}

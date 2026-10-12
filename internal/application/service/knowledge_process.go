@@ -706,7 +706,7 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 				knowledge.ErrorMessage = err.Error()
 				knowledge.UpdatedAt = time.Now()
 				s.repo.UpdateKnowledge(ctx, knowledge)
-				if cleanupErr := s.cleanupAttemptChunks(ctx, knowledge, insertChunks, nil); cleanupErr != nil {
+				if cleanupErr := s.cleanupAttemptChunks(ctx, knowledge, insertChunks, confirmNoAttemptVectorWrites); cleanupErr != nil {
 					return cleanupErr
 				}
 				return errors.New("processing_quota_read_failed")
@@ -717,7 +717,7 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 				knowledge.ErrorMessage = "存储空间不足"
 				knowledge.UpdatedAt = time.Now()
 				s.repo.UpdateKnowledge(ctx, knowledge)
-				if cleanupErr := s.cleanupAttemptChunks(ctx, knowledge, insertChunks, nil); cleanupErr != nil {
+				if cleanupErr := s.cleanupAttemptChunks(ctx, knowledge, insertChunks, confirmNoAttemptVectorWrites); cleanupErr != nil {
 					return cleanupErr
 				}
 				return fmt.Errorf("processing_quota_exceeded: %w", asynq.SkipRetry)

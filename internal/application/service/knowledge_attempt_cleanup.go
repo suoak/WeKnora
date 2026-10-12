@@ -98,3 +98,8 @@ func replayProcessingCleanup(ctx context.Context, fences *repository.ProcessingF
 	}
 	return nil
 }
+
+// confirmNoAttemptVectorWrites is used only before BatchIndex has been entered.
+// It explicitly confirms the zero-write case, preserving quota SkipRetry while
+// restart replay with an unknown/missing backend continues to fail closed.
+func confirmNoAttemptVectorWrites(context.Context, []string) error { return nil }
