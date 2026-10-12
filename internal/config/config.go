@@ -175,6 +175,9 @@ type ServerConfig struct {
 
 // KnowledgeBaseConfig 知识库配置
 type KnowledgeBaseConfig struct {
+	// FencedFileAdmission is an explicit rollout gate. It stays disabled until
+	// downstream writers and the database migration have passed deployment review.
+	FencedFileAdmission    bool                   `yaml:"fenced_file_admission" json:"fenced_file_admission"`
 	ChunkSize              int                    `yaml:"chunk_size"       json:"chunk_size"`
 	ChunkOverlap           int                    `yaml:"chunk_overlap"    json:"chunk_overlap"`
 	SplitMarkers           []string               `yaml:"split_markers"    json:"split_markers"`

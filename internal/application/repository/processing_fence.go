@@ -49,6 +49,43 @@ func NewProcessingFenceRepository(db *gorm.DB) *ProcessingFenceRepository {
 	return &ProcessingFenceRepository{db: db}
 }
 
+// CreateKnowledgeForProcessing commits a fresh upload's source, pending state
+// and first generation together. Missing protocol tables fail the transaction;
+// there is no fallback to an unprotected generation-zero enqueue.
+func (r *knowledgeRepository) CreateKnowledgeForProcessing(ctx context.Context, knowledge *types.Knowledge) (int64, error) {
+	tenant, ok := ctx.Value(types.TenantIDContextKey).(uint64)
+	if !ok || tenant == 0 || knowledge == nil || knowledge.TenantID != tenant || knowledge.ID == "" || knowledge.KnowledgeBaseID == "" {
+		return 0, ErrProcessingFence
+	}
+	copy := *knowledge
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var kb struct{ ID string }
+		if err := tx.Table("knowledge_bases").Select("id").Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ? AND tenant_id = ? AND deleted_at IS NULL", copy.KnowledgeBaseID, tenant).Take(&kb).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrProcessingFence
+			}
+			return err
+		}
+		copy.ParseStatus = types.ParseStatusPending
+		copy.ErrorMessage = ""
+		if err := tx.Create(&copy).Error; err != nil {
+			return err
+		}
+		// Fresh IDs must not reuse a previously allocated capability.
+		var now time.Time
+		if err := tx.Raw("SELECT CURRENT_TIMESTAMP").Row().Scan(&now); err != nil {
+			return err
+		}
+		return tx.Create(&ProcessingFence{TenantID: tenant, KnowledgeID: copy.ID, Generation: 1, LeaseUntil: now}).Error
+	})
+	if err != nil {
+		return 0, err
+	}
+	*knowledge = copy
+	return 1, nil
+}
+
 // Reserve allocates a user generation without granting a running lease. Queue
 // latency must not consume an execution lease, and queue retry must not allocate
 // another user generation. It uses the same knowledge-row lock as Allocate.

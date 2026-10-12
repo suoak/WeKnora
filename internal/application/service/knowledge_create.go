@@ -91,6 +91,9 @@ func (s *knowledgeService) CreateKnowledgeFromFile(ctx context.Context,
 
 	// Check if file already exists
 	tenantID := ctx.Value(types.TenantIDContextKey).(uint64)
+	if s.config != nil && s.config.KnowledgeBase != nil && s.config.KnowledgeBase.FencedFileAdmission && kb.TenantID != tenantID {
+		return nil, errProcessingExecution
+	}
 	logger.Infof(ctx, "Checking if file exists, tenant ID: %d", tenantID)
 	checkParams := &types.KnowledgeCheckParams{
 		Type:     "file",
@@ -203,15 +206,19 @@ func (s *knowledgeService) CreateKnowledgeFromFile(ctx context.Context,
 
 	// Save knowledge record to database after the file is safely stored.
 	logger.Info(ctx, "Saving knowledge record to database")
-	if err := s.repo.CreateKnowledge(ctx, knowledge); err != nil {
+	generation, createErr := s.createFileProcessingKnowledge(ctx, knowledge)
+	if createErr != nil {
 		logger.Errorf(ctx, "Knowledge creation failed, knowledge_id=%s, code=repository_create_failed", knowledge.ID)
 		if deleteErr := fileSvc.DeleteFile(ctx, filePath); deleteErr != nil {
 			logger.Errorf(ctx, "Failed to delete saved file after knowledge creation failed, path: %s, error: %v", filePath, deleteErr)
 		}
-		return nil, err
+		return nil, createErr
 	}
 	// Set tag relations
 	if err := s.setAndAttachKnowledgeTags(ctx, tenantID, kbID, knowledge, tagIDs); err != nil {
+		if generation != 0 {
+			s.markFileProcessingEnqueueFailed(ctx, knowledge, generation)
+		}
 		logger.Errorf(ctx, "Failed to set knowledge tags, knowledge ID: %s, error: %v", knowledge.ID, err)
 		return nil, err
 	}
@@ -228,6 +235,7 @@ func (s *knowledgeService) CreateKnowledgeFromFile(ctx context.Context,
 
 	lang := types.LanguageFromContextOrDefault(ctx)
 	taskPayload := types.DocumentProcessPayload{
+		Generation:               generation,
 		TenantID:                 tenantID,
 		KnowledgeID:              knowledge.ID,
 		KnowledgeBaseID:          kbID,
@@ -244,7 +252,7 @@ func (s *knowledgeService) CreateKnowledgeFromFile(ctx context.Context,
 	payloadBytes, err := json.Marshal(taskPayload)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to marshal document process task payload: %v", err)
-		s.markKnowledgeEnqueueFailed(ctx, knowledge)
+		s.markFileProcessingEnqueueFailed(ctx, knowledge, generation)
 		recordKBActivity(ctx, s.audit, knowledge.TenantID, kbID, types.AuditActionKnowledgeCreated,
 			"knowledge", knowledge.ID, types.AuditOutcomeFailed, map[string]any{
 				"title": knowledge.Title, "source_type": "file", "file_type": knowledge.FileType,
@@ -262,7 +270,7 @@ func (s *knowledgeService) CreateKnowledgeFromFile(ctx context.Context,
 	info, err := s.task.Enqueue(task)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to enqueue document process task: %v", err)
-		s.markKnowledgeEnqueueFailed(ctx, knowledge)
+		s.markFileProcessingEnqueueFailed(ctx, knowledge, generation)
 		recordKBActivity(ctx, s.audit, knowledge.TenantID, kbID, types.AuditActionKnowledgeCreated,
 			"knowledge", knowledge.ID, types.AuditOutcomeFailed, map[string]any{
 				"title": knowledge.Title, "source_type": "file", "file_type": knowledge.FileType,
