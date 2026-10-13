@@ -101,6 +101,8 @@ func getJwtSecret() string {
 
 // userService implements the UserService interface
 type userService struct {
+	// Set only by the isolated protocol probe; normal authentication keeps its client.
+	protocolClient   *http.Client
 	userRepo         interfaces.UserRepository
 	tokenRepo        interfaces.AuthTokenRepository
 	tenantService    interfaces.TenantService
@@ -1793,7 +1795,7 @@ func (s *userService) exchangeOIDCCode(ctx context.Context, cfg *config.OIDCAuth
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := newOIDCHTTPClient().Do(req)
+	resp, err := s.oidcProtocolHTTPClient().Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to exchange OIDC code: %w", err)
 	}
@@ -1949,7 +1951,7 @@ func (s *userService) fetchOIDCUserInfoWithTransport(ctx context.Context, endpoi
 	}
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := newOIDCHTTPClient().Do(req)
+	resp, err := s.oidcProtocolHTTPClient().Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -2214,7 +2216,7 @@ func (s *userService) fetchOIDCJWKS(ctx context.Context, jwksURI string) (*oidcJ
 	}
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := newOIDCHTTPClient().Do(req)
+	resp, err := s.oidcProtocolHTTPClient().Do(req)
 	if err != nil {
 		return nil, err
 	}
