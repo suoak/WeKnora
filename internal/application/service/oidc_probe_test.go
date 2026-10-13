@@ -132,6 +132,7 @@ func TestOIDCProtocolProbe(t *testing.T) {
 			nonce = q.Get("nonce")
 			challenge = q.Get("code_challenge")
 			fixtureMu.Unlock()
+			originalVerifier := p.verifier
 			if strings.Contains(start.Body.String(), private) || start.Header().Get("Set-Cookie") != "" || q.Get("scope") != "openid" {
 				t.Fatal("authorize leaked or changed scope")
 			}
@@ -152,6 +153,14 @@ func TestOIDCProtocolProbe(t *testing.T) {
 				t.Fatalf("unexpected validation result for %s", kind)
 			}
 			encoded, _ := json.Marshal(p.Report())
+			for _, sensitive := range []string{private, nonce, q.Get("state"), originalVerifier, "user-123", "user@example.com", "Real User"} {
+				if strings.Contains(string(encoded), sensitive) {
+					t.Fatal("sensitive protocol value reached report")
+				}
+			}
+			if kind == "subject" && (p.Report().UserInfo == nil || p.Report().Validation["userinfo_subject"]) {
+				t.Fatal("subject mismatch lost safe schema or passed identity check")
+			}
 			if strings.Contains(string(encoded), private) || strings.Contains(result.Body.String(), private) || result.Header().Get("Set-Cookie") != "" {
 				t.Fatal("credential or personal value leaked")
 			}
