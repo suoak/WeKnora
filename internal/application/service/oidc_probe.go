@@ -279,22 +279,24 @@ func (p *OIDCProtocolProbe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result.Algorithm = h.Algorithm
+	budget := 512
+	result.Claims = probeSchema(claims, 0, &budget)
 	info, err := svc.fetchOIDCUserInfoWithTransport(ctx, cfg.UserInfoEndpoint, tokens.AccessToken, cfg.UserInfoTransport)
 	result.Validation["userinfo"] = err == nil
 	if err != nil {
 		p.finish(w, 502, result)
 		return
 	}
+	// Preserve schema-only protocol evidence even when subject validation fails.
+	// No identity values are exposed and the transaction still fails closed.
+	budget = 512
+	result.UserInfo = probeSchema(info, 0, &budget)
 	sub, ok := info["sub"].(string)
 	result.Validation["userinfo_subject"] = ok && sub != "" && sub == claims["sub"]
 	if !result.Validation["userinfo_subject"] {
 		p.finish(w, 400, result)
 		return
 	}
-	budget := 512
-	result.Claims = probeSchema(claims, 0, &budget)
-	budget = 512
-	result.UserInfo = probeSchema(info, 0, &budget)
 	result.Validation["completed"] = true
 	p.finish(w, 200, result)
 }
