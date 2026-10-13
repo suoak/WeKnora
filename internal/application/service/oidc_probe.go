@@ -169,7 +169,9 @@ func (t *probeDiagnosticTransport) RoundTrip(req *http.Request) (*http.Response,
 			}
 		}
 	}
-	if details != nil && !probeDiagnosticValueSafe(d.OAuthError, privateValues) {
+	// Detailed mode publishes error codes only after Close has filtered body
+	// token echoes as well as request credentials. The legacy path is unchanged.
+	if details != nil {
 		d.OAuthError = ""
 	}
 	t.report.HTTP = append(t.report.HTTP, d)
@@ -415,6 +417,12 @@ func (p *OIDCProtocolProbe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	client.Transport = &probeDiagnosticTransport{base: client.Transport, endpoints: result.Endpoints, report: &result, callbackReceived: callbackReceived, clientAuth: cfg.ClientAuthMethod, diagnostics: p.metadata.HTTPDiagnostics, clientID: cfg.ClientID, publicErrorCodes: p.metadata.PublicErrorCodes}
 	svc := &userService{protocolClient: client} // Intentionally no user/token repositories or config/container.
 	tokens, err := svc.exchangeOIDCCode(ctx, &cfg, q.Get("code"), redirect)
+	if len(result.HTTP) > 0 {
+		d := &result.HTTP[len(result.HTTP)-1]
+		if d.Diagnostics != nil && d.Diagnostics.Response != nil {
+			d.OAuthError = d.Diagnostics.Response.OAuthError
+		}
+	}
 	result.Validation["token_exchange"] = err == nil
 	if err != nil {
 		if len(result.HTTP) > 0 && strings.HasPrefix(err.Error(), "failed to decode OIDC token response:") {

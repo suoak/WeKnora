@@ -15,7 +15,7 @@ import (
 )
 
 func TestOIDCProbeHTTPDiagnostics(t *testing.T) {
-	for _, kind := range []string{"oauth", "www", "vendor", "html", "private_description", "invalid_200", "unknown_vendor", "private_correlation", "token_correlation", "large", "disabled"} {
+	for _, kind := range []string{"oauth", "www", "vendor", "vendor_secret", "html", "private_description", "invalid_200", "unknown_vendor", "private_correlation", "token_correlation", "token_error_alias", "large", "disabled"} {
 		t.Run(kind, func(t *testing.T) {
 			withOIDCSSRFWhitelist(t, "127.0.0.1")
 			const secret = "synthetic private secret &+:/"
@@ -25,6 +25,9 @@ func TestOIDCProbeHTTPDiagnostics(t *testing.T) {
 			clientSecret := secret
 			if kind == "private_correlation" {
 				clientSecret = secretID
+			}
+			if kind == "vendor_secret" {
+				clientSecret = "SID_INVALID_CLIENT"
 			}
 			var calls int
 			provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +71,7 @@ func TestOIDCProbeHTTPDiagnostics(t *testing.T) {
 				}
 				w.WriteHeader(status)
 				switch kind {
-				case "vendor":
+				case "vendor", "vendor_secret":
 					io.WriteString(w, `{"errorCode":"SID_INVALID_CLIENT","message":"`+sensitive+`"}`)
 				case "unknown_vendor":
 					io.WriteString(w, `{"errorCode":"EMPLOYEE_123456","message":"`+sensitive+`"}`)
@@ -78,6 +81,8 @@ func TestOIDCProbeHTTPDiagnostics(t *testing.T) {
 					json.NewEncoder(w).Encode(map[string]string{"error": "invalid_client", "error_description": clientSecret + code + sensitive})
 				case "token_correlation":
 					json.NewEncoder(w).Encode(map[string]string{"error": "invalid_client", "access_token": secretID})
+				case "token_error_alias":
+					json.NewEncoder(w).Encode(map[string]string{"error": "invalid_client", "access_token": "invalid_client"})
 				case "invalid_200":
 					io.WriteString(w, "not JSON "+sensitive)
 				case "large":
@@ -128,6 +133,14 @@ func TestOIDCProbeHTTPDiagnostics(t *testing.T) {
 			case "unknown_vendor":
 				if response.VendorCode != "" || !response.VendorCodeSuppressed {
 					t.Fatal("unapproved vendor code leaked")
+				}
+			case "vendor_secret":
+				if response.VendorCode != "" || !response.VendorCodeSuppressed {
+					t.Fatal("approved code collided with credential")
+				}
+			case "token_error_alias":
+				if d.OAuthError != "" || response.OAuthError != "" {
+					t.Fatal("error code collided with token")
 				}
 			case "html":
 				if response.BodyKind != "html" || !response.GatewaySuspected {
