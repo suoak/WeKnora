@@ -1,12 +1,14 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -42,6 +44,75 @@ type OIDCProbeReport struct {
 	Claims     map[string]interface{} `json:"claims,omitempty"`
 	UserInfo   map[string]interface{} `json:"userinfo_schema,omitempty"`
 	Validation map[string]bool        `json:"validation"`
+	HTTP       []OIDCProbeHTTPResult  `json:"http,omitempty"`
+}
+
+// Only bounded public diagnostics are retained. Never record requests, headers,
+// URLs with queries, raw errors, response text or credentials.
+type OIDCProbeHTTPResult struct {
+	Stage      string `json:"stage"`
+	Status     int    `json:"status"`
+	DurationMS int64  `json:"duration_ms"`
+	Failure    string `json:"failure,omitempty"`
+	OAuthError string `json:"oauth_error,omitempty"`
+}
+
+type probeDiagnosticTransport struct {
+	base      http.RoundTripper
+	endpoints map[string]string
+	report    *OIDCProbeReport
+}
+
+func (t *probeDiagnosticTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	stage := "unknown"
+	for name, raw := range t.endpoints {
+		if req.URL.String() == raw && (name == "token" || name == "jwks" || name == "userinfo") {
+			stage = name
+			break
+		}
+	}
+	start := time.Now()
+	base := t.base
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	resp, err := base.RoundTrip(req)
+	d := OIDCProbeHTTPResult{Stage: stage, DurationMS: time.Since(start).Milliseconds()}
+	if err != nil {
+		d.Failure = "transport_error"
+	} else {
+		d.Status = resp.StatusCode
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			d.Failure = "http_status"
+			// Inspect at most 4 KiB of an error response in service memory, then
+			// restore it for the existing decoder/discard logic. Never retain it.
+			body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+			resp.Body = &probeReplayBody{Reader: io.MultiReader(bytes.NewReader(body), resp.Body), Closer: resp.Body}
+			var fields struct {
+				Error json.RawMessage `json:"error"`
+			}
+			if json.Unmarshal(body, &fields) == nil {
+				var code string
+				if json.Unmarshal(fields.Error, &code) != nil {
+					var codes []string
+					if json.Unmarshal(fields.Error, &codes) == nil && len(codes) == 1 {
+						code = codes[0]
+					}
+				}
+				switch code {
+				case "invalid_request", "invalid_client", "invalid_grant", "unauthorized_client", "unsupported_grant_type", "invalid_scope", "invalid_token", "access_denied", "server_error", "temporarily_unavailable":
+					d.OAuthError = code
+				}
+			}
+		}
+	}
+	t.report.HTTP = append(t.report.HTTP, d)
+	return resp, err
+}
+
+type probeReplayBody struct {
+	io.Reader
+	io.Closer
 }
 
 // OIDCProtocolProbe has no repository reference and never creates a user,
@@ -250,16 +321,25 @@ func (p *OIDCProtocolProbe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	client := newOIDCHTTPClient()
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	client.Transport = &probeDiagnosticTransport{base: client.Transport, endpoints: result.Endpoints, report: &result}
 	svc := &userService{protocolClient: client} // Intentionally no user/token repositories or config/container.
 	tokens, err := svc.exchangeOIDCCode(ctx, &cfg, q.Get("code"), redirect)
 	result.Validation["token_exchange"] = err == nil
 	if err != nil {
+		if len(result.HTTP) > 0 && strings.HasPrefix(err.Error(), "failed to decode OIDC token response:") {
+			result.HTTP[len(result.HTTP)-1].Failure = "invalid_response_json"
+		} else if len(result.HTTP) > 0 && strings.HasPrefix(err.Error(), "OIDC token response missing ") {
+			result.HTTP[len(result.HTTP)-1].Failure = "missing_tokens"
+		}
 		p.finish(w, 502, result)
 		return
 	}
 	// The existing decoder deliberately has no refresh_token field; it is ignored.
 	defer func() { tokens.AccessToken = ""; tokens.IDToken = ""; cfg.ClientSecret = "" }()
 	if tokens.IDToken == "" || tokens.AccessToken == "" {
+		if len(result.HTTP) > 0 {
+			result.HTTP[len(result.HTTP)-1].Failure = "missing_tokens"
+		}
 		p.finish(w, 502, result)
 		return
 	}

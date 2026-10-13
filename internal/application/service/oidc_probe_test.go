@@ -23,7 +23,7 @@ func TestOIDCProtocolProbe(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, kind := range []string{"success", "approved_callback", "basic", "rs384", "signature", "issuer", "audience", "expiry", "nonce", "subject", "userinfo_failure", "token_failure", "token_redirect", "jwks_redirect", "userinfo_redirect", "provider_error"} {
+	for _, kind := range []string{"success", "approved_callback", "basic", "rs384", "signature", "issuer", "audience", "expiry", "nonce", "subject", "userinfo_failure", "token_failure", "token_oauth_error", "token_unknown_error", "token_invalid_json", "token_redirect", "jwks_redirect", "userinfo_redirect", "provider_error"} {
 		t.Run(kind, func(t *testing.T) {
 			withOIDCSSRFWhitelist(t, "127.0.0.1")
 			const private = "synthetic-private-probe-value"
@@ -69,6 +69,20 @@ func TestOIDCProtocolProbe(t *testing.T) {
 					}
 					if kind == "token_failure" {
 						w.WriteHeader(401)
+						_, _ = w.Write([]byte(private))
+						return
+					}
+					if kind == "token_oauth_error" || kind == "token_unknown_error" {
+						errorCode := "invalid_client"
+						if kind == "token_unknown_error" {
+							errorCode = private
+							w.Header().Set("X-Request-Id", private)
+						}
+						w.WriteHeader(401)
+						_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": errorCode, "error_description": private, "client_secret": private, "access_token": private})
+						return
+					}
+					if kind == "token_invalid_json" {
 						_, _ = w.Write([]byte(private))
 						return
 					}
@@ -189,6 +203,22 @@ func TestOIDCProtocolProbe(t *testing.T) {
 			}
 			if kind == "rs384" && (result.Code != 400 || p.Report().Validation["algorithm"] || p.Report().Claims != nil || p.Report().Algorithm != "") {
 				t.Fatal("non-RS256 token was accepted or exposed claims")
+			}
+			if kind == "token_failure" || kind == "token_oauth_error" || kind == "token_unknown_error" || kind == "token_invalid_json" {
+				diagnostics := p.Report().HTTP
+				if len(diagnostics) != 1 || diagnostics[0].Stage != "token" || diagnostics[0].DurationMS < 0 {
+					t.Fatal("token failure lost bounded diagnostics")
+				}
+				wantStatus, wantFailure := 401, "http_status"
+				if kind == "token_invalid_json" {
+					wantStatus, wantFailure = 200, "invalid_response_json"
+				}
+				if diagnostics[0].Status != wantStatus || diagnostics[0].Failure != wantFailure {
+					t.Fatal("incorrect failure classification")
+				}
+				if (diagnostics[0].OAuthError == "invalid_client") != (kind == "token_oauth_error") {
+					t.Fatal("OAuth error allowlist lost or exposed unknown value")
+				}
 			}
 			encoded, _ := json.Marshal(p.Report())
 			for _, sensitive := range []string{private, nonce, q.Get("state"), originalVerifier, "user-123", "user@example.com", "Real User"} {
