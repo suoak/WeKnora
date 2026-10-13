@@ -29,15 +29,18 @@ func TestOIDCProtocolProbe(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, kind := range []string{"success", "approved_callback", "basic", "rs384", "signature", "issuer", "audience", "expiry", "nonce", "subject", "userinfo_failure", "token_failure", "token_oauth_error", "token_unknown_error", "token_invalid_json", "token_redirect", "jwks_redirect", "userinfo_redirect", "provider_error"} {
+	for _, kind := range []string{"success", "approved_callback", "basic", "basic_no_pkce", "basic_no_pkce_nonce_missing", "basic_no_pkce_nonce_wrong", "rs384", "signature", "issuer", "audience", "expiry", "nonce", "subject", "userinfo_failure", "token_failure", "token_oauth_error", "token_unknown_error", "token_invalid_json", "token_redirect", "jwks_redirect", "userinfo_redirect", "provider_error"} {
 		t.Run(kind, func(t *testing.T) {
 			withOIDCSSRFWhitelist(t, "127.0.0.1")
 			const private = "synthetic-private-probe-value"
 			var nonce, challenge string
 			var fixtureMu sync.Mutex
 			var calls atomic.Int32
+			var userInfoCalls atomic.Int32
+			withoutPKCE := strings.HasPrefix(kind, "basic_no_pkce")
+			basicAuth := kind == "basic" || withoutPKCE
 			expectedRedirectURI := "http://probe.example/probe/callback"
-			if kind == "approved_callback" {
+			if kind == "approved_callback" || withoutPKCE {
 				expectedRedirectURI = approvedSourceIDProbeCallbackURI
 			}
 			provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -57,17 +60,24 @@ func TestOIDCProtocolProbe(t *testing.T) {
 					if r.Form.Get("grant_type") != "authorization_code" || r.Form.Get("code") != private || r.Form.Get("client_id") != "probe-client" {
 						t.Error("wrong code exchange")
 					}
-					if kind == "basic" {
+					if basicAuth {
 						username, password, ok := r.BasicAuth()
-						if !ok || username != "probe-client" || password != private || r.Form.Get("client_secret") != "" {
+						_, secretInBody := r.PostForm["client_secret"]
+						if !ok || username != "probe-client" || password != private || secretInBody {
 							t.Error("wrong basic auth")
 						}
 					} else if r.Form.Get("client_secret") != private || r.Header.Get("Authorization") != "" {
 						t.Error("missing post auth")
 					}
-					sum := sha256.Sum256([]byte(r.Form.Get("code_verifier")))
-					if base64.RawURLEncoding.EncodeToString(sum[:]) != expectedChallenge {
-						t.Error("PKCE not bound")
+					if withoutPKCE {
+						if _, present := r.PostForm["code_verifier"]; present {
+							t.Error("disabled PKCE sent code_verifier")
+						}
+					} else {
+						sum := sha256.Sum256([]byte(r.Form.Get("code_verifier")))
+						if base64.RawURLEncoding.EncodeToString(sum[:]) != expectedChallenge {
+							t.Error("PKCE not bound")
+						}
 					}
 					if kind == "token_redirect" {
 						http.Redirect(w, r, "/should-not-follow", http.StatusTemporaryRedirect)
@@ -94,6 +104,11 @@ func TestOIDCProtocolProbe(t *testing.T) {
 					}
 					claims := baseClaims("https://confirmed.example", "probe-client")
 					claims["nonce"] = expectedNonce
+					if kind == "basic_no_pkce_nonce_missing" {
+						delete(claims, "nonce")
+					} else if kind == "basic_no_pkce_nonce_wrong" {
+						claims["nonce"] = "wrong"
+					}
 					claims["employee_candidate"] = private
 					if kind == "issuer" {
 						claims["iss"] = "https://wrong.example"
@@ -131,6 +146,7 @@ func TestOIDCProtocolProbe(t *testing.T) {
 					}
 					_ = json.NewEncoder(w).Encode(oidcJWKS{Keys: []oidcJWK{rsaJWK(key, "probe-key")}})
 				case "/userinfo":
+					userInfoCalls.Add(1)
 					if kind == "rs384" {
 						t.Error("rejected algorithm reached UserInfo")
 					}
@@ -160,9 +176,10 @@ func TestOIDCProtocolProbe(t *testing.T) {
 			}))
 			defer provider.Close()
 			m := OIDCProbeMetadata{Confirmed: true, Issuer: "https://confirmed.example", Authorization: "https://confirmed.example/authorize", Token: provider.URL + "/token", JWKS: provider.URL + "/jwks", UserInfo: provider.URL + "/userinfo", RedirectURI: "http://probe.example/probe/callback", ClientID: "probe-client", ClientAuth: "client_secret_post", UserInfoTransport: "bearer_get", Scopes: []string{"openid"}, PKCE: true}
-			if kind == "basic" {
+			if basicAuth {
 				m.ClientAuth = "client_secret_basic"
 			}
+			m.PKCE = !withoutPKCE
 			m.RedirectURI = expectedRedirectURI
 			// Only test fixtures bypass production HTTPS validation. No repository exists.
 			p := newOIDCProtocolProbe(m, private)
@@ -173,6 +190,12 @@ func TestOIDCProtocolProbe(t *testing.T) {
 				t.Fatal("authorize failed")
 			}
 			q := u.Query()
+			if withoutPKCE && (q.Has("code_challenge") || q.Has("code_challenge_method")) {
+				t.Fatal("disabled PKCE sent authorization challenge fields")
+			}
+			if q.Get("state") == "" || q.Get("nonce") == "" {
+				t.Fatal("state or nonce lost when selecting protocol options")
+			}
 			if q.Get("redirect_uri") != expectedRedirectURI {
 				t.Fatal("approved redirect_uri changed during authorize")
 			}
@@ -203,17 +226,25 @@ func TestOIDCProtocolProbe(t *testing.T) {
 			}
 			result := httptest.NewRecorder()
 			p.ServeHTTP(result, httptest.NewRequest("GET", p.callbackPath()+"?"+callback.Encode(), nil))
-			completed := kind == "success" || kind == "approved_callback" || kind == "basic"
+			completed := kind == "success" || kind == "approved_callback" || kind == "basic" || kind == "basic_no_pkce"
 			if p.Report().Validation["completed"] != completed {
 				t.Fatalf("unexpected validation result for %s", kind)
 			}
 			if kind != "provider_error" {
 				d := p.Report().HTTP[0]
-				if d.Stage != "token" || d.ClientAuth != m.ClientAuth || d.AuthorizationHeaderPresent == nil || *d.AuthorizationHeaderPresent != (kind == "basic") {
+				if d.Stage != "token" || d.ClientAuth != m.ClientAuth || d.AuthorizationHeaderPresent == nil || *d.AuthorizationHeaderPresent != basicAuth {
 					t.Fatal("client authentication placement diagnostics incorrect")
 				}
 				if d.CallbackToTokenDispatchMS == nil || *d.CallbackToTokenDispatchMS < 0 || (d.CallbackToTokenSentMS != nil && *d.CallbackToTokenSentMS < *d.CallbackToTokenDispatchMS) {
 					t.Fatal("callback-to-dispatch/write timing missing or out of order")
+				}
+			}
+			if withoutPKCE && calls.Load() != 1 {
+				t.Fatal("non-PKCE transaction retried token exchange")
+			}
+			if kind == "basic_no_pkce_nonce_missing" || kind == "basic_no_pkce_nonce_wrong" {
+				if result.Code != 400 || !p.Report().Validation["id_token"] || p.Report().Validation["nonce"] || userInfoCalls.Load() != 0 || p.Report().Claims != nil {
+					t.Fatal("non-PKCE transaction bypassed nonce rejection")
 				}
 			}
 			if kind == "rs384" && (result.Code != 400 || p.Report().Validation["algorithm"] || p.Report().Claims != nil || p.Report().Algorithm != "") {
