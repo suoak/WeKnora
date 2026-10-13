@@ -34,6 +34,8 @@ type OIDCProbeMetadata struct {
 	PKCE              bool     `json:"pkce"`
 }
 
+const approvedSourceIDProbeCallbackURI = "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback"
+
 type OIDCProbeReport struct {
 	Endpoints  map[string]string      `json:"endpoint"`
 	Algorithm  string                 `json:"alg,omitempty"`
@@ -80,7 +82,11 @@ func ValidateOIDCProbeMetadata(m OIDCProbeMetadata) error {
 		}
 	}
 	u, err := url.Parse(m.RedirectURI)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.Path != "/probe/callback" || u.RawQuery != "" || u.Fragment != "" {
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		return errors.New("independent approved probe callback required")
+	}
+	// This changes only the isolated observer's route, never the business router.
+	if u.Path != "/probe/callback" && m.RedirectURI != approvedSourceIDProbeCallbackURI {
 		return errors.New("independent approved probe callback required")
 	}
 	if m.ClientAuth != "client_secret_post" && m.ClientAuth != "client_secret_basic" {
@@ -109,6 +115,12 @@ func newOIDCProtocolProbe(m OIDCProbeMetadata, secret string) *OIDCProtocolProbe
 }
 
 func (p *OIDCProtocolProbe) Done() <-chan struct{} { return p.done }
+func (p *OIDCProtocolProbe) callbackPath() string {
+	if u, err := url.Parse(p.metadata.RedirectURI); err == nil && u.Path != "" {
+		return u.Path
+	}
+	return "/probe/callback"
+}
 func (p *OIDCProtocolProbe) Report() OIDCProbeReport {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -205,7 +217,7 @@ func (p *OIDCProtocolProbe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusFound)
 		return
 	}
-	if r.URL.Path != "/probe/callback" {
+	if r.URL.Path != p.callbackPath() {
 		p.mu.Unlock()
 		probeJSON(w, 404, OIDCProbeReport{Validation: map[string]bool{"route": false}})
 		return

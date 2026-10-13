@@ -21,13 +21,17 @@ func TestOIDCProtocolProbe(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, kind := range []string{"success", "basic", "signature", "issuer", "audience", "expiry", "nonce", "subject", "userinfo_failure", "token_failure", "token_redirect", "jwks_redirect", "userinfo_redirect", "provider_error"} {
+	for _, kind := range []string{"success", "approved_callback", "basic", "signature", "issuer", "audience", "expiry", "nonce", "subject", "userinfo_failure", "token_failure", "token_redirect", "jwks_redirect", "userinfo_redirect", "provider_error"} {
 		t.Run(kind, func(t *testing.T) {
 			withOIDCSSRFWhitelist(t, "127.0.0.1")
 			const private = "synthetic-private-probe-value"
 			var nonce, challenge string
 			var fixtureMu sync.Mutex
 			var calls atomic.Int32
+			expectedRedirectURI := "http://probe.example/probe/callback"
+			if kind == "approved_callback" {
+				expectedRedirectURI = approvedSourceIDProbeCallbackURI
+			}
 			provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				switch r.URL.Path {
 				case "/token":
@@ -39,6 +43,9 @@ func TestOIDCProtocolProbe(t *testing.T) {
 						t.Error("unsafe token transport")
 					}
 					_ = r.ParseForm()
+					if r.Form.Get("redirect_uri") != expectedRedirectURI {
+						t.Error("approved redirect_uri changed during exchange")
+					}
 					if r.Form.Get("grant_type") != "authorization_code" || r.Form.Get("code") != private {
 						t.Error("wrong code exchange")
 					}
@@ -119,6 +126,7 @@ func TestOIDCProtocolProbe(t *testing.T) {
 			if kind == "basic" {
 				m.ClientAuth = "client_secret_basic"
 			}
+			m.RedirectURI = expectedRedirectURI
 			// Only test fixtures bypass production HTTPS validation. No repository exists.
 			p := newOIDCProtocolProbe(m, private)
 			start := httptest.NewRecorder()
@@ -128,6 +136,9 @@ func TestOIDCProtocolProbe(t *testing.T) {
 				t.Fatal("authorize failed")
 			}
 			q := u.Query()
+			if q.Get("redirect_uri") != expectedRedirectURI {
+				t.Fatal("approved redirect_uri changed during authorize")
+			}
 			fixtureMu.Lock()
 			nonce = q.Get("nonce")
 			challenge = q.Get("code_challenge")
@@ -137,7 +148,14 @@ func TestOIDCProtocolProbe(t *testing.T) {
 				t.Fatal("authorize leaked or changed scope")
 			}
 			bad := httptest.NewRecorder()
-			p.ServeHTTP(bad, httptest.NewRequest("GET", "/probe/callback?state=wrong&code="+private, nil))
+			if kind == "approved_callback" {
+				p.ServeHTTP(bad, httptest.NewRequest("GET", "/probe/callback?state="+q.Get("state")+"&code="+private, nil))
+				if bad.Code != 404 || calls.Load() != 0 {
+					t.Fatal("unconfigured path reached provider")
+				}
+				bad = httptest.NewRecorder()
+			}
+			p.ServeHTTP(bad, httptest.NewRequest("GET", p.callbackPath()+"?state=wrong&code="+private, nil))
 			if bad.Code != 400 || calls.Load() != 0 {
 				t.Fatal("invalid state reached provider")
 			}
@@ -147,8 +165,8 @@ func TestOIDCProtocolProbe(t *testing.T) {
 				callback.Del("code")
 			}
 			result := httptest.NewRecorder()
-			p.ServeHTTP(result, httptest.NewRequest("GET", "/probe/callback?"+callback.Encode(), nil))
-			completed := kind == "success" || kind == "basic"
+			p.ServeHTTP(result, httptest.NewRequest("GET", p.callbackPath()+"?"+callback.Encode(), nil))
+			completed := kind == "success" || kind == "approved_callback" || kind == "basic"
 			if p.Report().Validation["completed"] != completed {
 				t.Fatalf("unexpected validation result for %s", kind)
 			}
@@ -173,7 +191,7 @@ func TestOIDCProtocolProbe(t *testing.T) {
 				t.Fatal("probe did not close")
 			}
 			replay := httptest.NewRecorder()
-			p.ServeHTTP(replay, httptest.NewRequest("GET", "/probe/callback?"+callback.Encode(), nil))
+			p.ServeHTTP(replay, httptest.NewRequest("GET", p.callbackPath()+"?"+callback.Encode(), nil))
 			if replay.Code != 410 {
 				t.Fatal("closed probe accepted replay")
 			}
@@ -195,6 +213,22 @@ func TestOIDCProbeRequiresConfirmedIndependentMetadata(t *testing.T) {
 		t.Fatal("valid metadata rejected")
 	}
 	valid.Close()
+	approved := m
+	approved.RedirectURI = approvedSourceIDProbeCallbackURI
+	if ValidateOIDCProbeMetadata(approved) != nil {
+		t.Fatal("exact approved callback rejected")
+	}
+	for _, uri := range []string{
+		approvedSourceIDProbeCallbackURI + "/", approvedSourceIDProbeCallbackURI + "?probe=1",
+		strings.Replace(approvedSourceIDProbeCallbackURI, "http:", "https:", 1),
+		strings.Replace(approvedSourceIDProbeCallbackURI, "knowhub.ruijie.com.cn", "knowhub.ruijie.com.cn:80", 1),
+	} {
+		c := approved
+		c.RedirectURI = uri
+		if ValidateOIDCProbeMetadata(c) == nil {
+			t.Fatal("modified approved callback accepted")
+		}
+	}
 	for _, kind := range []string{"unconfirmed", "missing", "http", "query_secret", "business_callback", "offline", "auth_method"} {
 		t.Run(kind, func(t *testing.T) {
 			c := m
