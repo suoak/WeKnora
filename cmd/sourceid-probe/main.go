@@ -52,7 +52,7 @@ func run() int {
 	// Require a pipe, preventing accidental echoed terminal input. The caller can
 	// use a shell's hidden `read -s` and builtin printf without a file or argv secret.
 	stat, err := os.Stdin.Stat()
-	if err != nil || stat.Mode()&os.ModeCharDevice != 0 {
+	if err != nil || stat.Mode()&os.ModeNamedPipe == 0 {
 		return 2
 	}
 	secret, err := bufio.NewReader(io.LimitReader(os.Stdin, 4098)).ReadBytes('\n')
