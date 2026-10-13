@@ -54,7 +54,10 @@ jobs:
           set -euo pipefail
           go test -race -json -count=1 ./cmd/sourceid-enroll ./cmd/sourceid-probe ./internal/sourceid ./internal/application/repository ./internal/application/service ./internal/handler ./internal/config ./internal/middleware ./internal/utils -run 'SourceID|Enrollment|OIDC|AuthToken|SwitchTenant|Login|Logout|GenerateTokens|ValidateToken|RefreshToken' | tee sourceid-results/focused.jsonl
       - name: Validate isolated diagnostic report persistence filter
-        run: python3 docs/integration/sourceid/linux-probe/probe_report_filter_test.py | tee sourceid-results/diagnostic-filter.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 docs/integration/sourceid/linux-probe/probe_report_filter_test.py | tee sourceid-results/diagnostic-filter.json
       - name: Authentication and MCP regression
         shell: bash
         run: |
