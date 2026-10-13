@@ -1,10 +1,12 @@
 # 单次 SID OIDC Protocol Probe
 
+2026-10-13 后续更新：已审批 callback 的专用浏览器复用方案已在 Windows→SSH→Linux 上实测通过，新验证 SHA 为 `a4fdb8052df13ab2f1286b6b22b91a497337ad77`，云端 CI 38353155370 全部 success。最新状态、路径规则和实测证据见 [SOURCEID_BROWSER_CALLBACK_PROBE_REPORT.md](SOURCEID_BROWSER_CALLBACK_PROBE_REPORT.md)。下文 c855 的工件与 CI 数字保留为历史基线。
+
 2026-10-13。验证提交：c855338b9530d2a7c6d14ce8485b4474cde0d1e8。云端验证：[38327545586](https://github.com/suoak/WeKnora/actions/runs/38327545586) 全部通过。真实 SID：NOT_TESTED / BLOCKED_EXTERNAL；未启动真实 probe 入口，业务 SID 保持关闭。
 
 ## 实现范围
 
-独立命令 cmd/sourceid-probe，监听默认 127.0.0.1:18183。仅提供 GET /probe/start 与 GET /probe/callback，拒绝原业务 callback 地址；不复用 KnowHub handler/router/container，不需要数据库或 Redis。
+独立命令 cmd/sourceid-probe，监听默认 127.0.0.1:18183。提供 GET /probe/start 与从已确认 redirect_uri 派生的 callback：允许 /probe/callback，或完整精确的 `http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback`。后者由独立 Probe 处理；不复用 KnowHub handler/router/container，不需要数据库或 Redis。
 
 authorize 只创建一笔内存事务；使用随机 state/nonce，按正式确认配置发送 PKCE S256。callback 一次消费 state，立即换取 Token，复用现有 ID Token RSA/JWKS 验证和 UserInfo 请求能力。保留 issuer/audience/azp/exp/iat/sub 校验以及基线两分钟时钟宽限，并额外强制 nonce、UserInfo.sub 一致。签名算法支持范围沿用 RS256/RS384/RS512；其他算法安全失败，不能关闭验证。
 
@@ -16,9 +18,9 @@ authorize 只创建一笔内存事务；使用随机 state/nonce，按正式确�
 
 使用 [公开模板](sourceid-probe.metadata.example.json)。必须由 SID 提供正式 Issuer、Authorization、Token、JWKS、UserInfo，以及 client auth、UserInfo 请求方式、scope、nonce/PKCE 支持；人工核对后才设 metadata_confirmed=true。模板不是已验证配置，禁止根据 /cas/oidc/* 示例填写。
 
-程序先验证公开 Metadata，再读取 Secret；未确认、缺字段、非 HTTPS 提供方端点、端点含 userinfo/query/fragment、未知 auth method、offline_access 或业务 callback 均拒绝。Client Secret 不支持 JSON/env/CLI 参数/文件来源，只从 stdin pipe 接收一行，限制长度。监听仅允许 loopback，禁止直接开放公网。
+程序先验证公开 Metadata，再读取 Secret；未确认、缺字段、非 HTTPS 提供方端点、端点含 userinfo/query/fragment、未知 auth method、offline_access 或未审批 callback 变体均拒绝。Client Secret 不支持 JSON/env/CLI 参数/文件来源，只从 stdin pipe 接收一行，限制长度。监听仅允许 loopback，禁止直接开放公网。
 
-独立 redirect_uri 必须为 SID 批准的 http(s)://<测试入口>/probe/callback，不能直接用目前批准的 /api/v1/auth/oidc/callback。本轮未申请新登记或修改转发；临时入口必须另行确认与审批。
+redirect_uri 必须已经审批。当前可通过专用浏览器局部解析与 Windows loopback SSH 转发复用上述完整已审批 URI，无需修改正式 DNS/网关或申请新 callback；不可改协议、端口、尾斜杠或增加 query。该本地路径已完成 synthetic 及日志检查，实际 SID Metadata 仍缺，真实登录尚未执行。
 
 ## Linux 运行步骤（正式 Metadata 到位后，由用户操作）
 
