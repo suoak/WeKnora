@@ -89,6 +89,7 @@ func TestOIDCProbeProcessClosesListenerAndDoesNotPersistCredentials(t *testing.T
 	}
 	metadata := filepath.Join(dir, "metadata.json")
 	m := service.OIDCProbeMetadata{Confirmed: true, Issuer: issuer, Authorization: issuer + "/authorize", Token: issuer + "/token", JWKS: issuer + "/jwks", UserInfo: issuer + "/userinfo", RedirectURI: "http://approved-probe.example/probe/callback", ClientID: "knowhub", ClientAuth: "client_secret_post", UserInfoTransport: "bearer_get", Scopes: []string{"openid"}, PKCE: true}
+	m.HTTPDiagnostics = true
 	data, _ := json.Marshal(m)
 	if os.WriteFile(metadata, data, 0600) != nil {
 		t.Fatal("metadata write")
@@ -159,6 +160,9 @@ func TestOIDCProbeProcessClosesListenerAndDoesNotPersistCredentials(t *testing.T
 	}
 	if child.Wait() != nil {
 		t.Fatal("probe process failed")
+	}
+	if len(final.HTTP) == 0 || final.HTTP[0].Diagnostics == nil || final.HTTP[0].Diagnostics.Response == nil {
+		t.Fatal("process diagnostic output missing")
 	}
 	encoded, _ := json.Marshal(final)
 	if strings.Contains(string(encoded), private) || strings.Contains(stderr.String(), private) {
