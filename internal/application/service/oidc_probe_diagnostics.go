@@ -163,6 +163,9 @@ func probeDiagnosticValueSafe(value string, private []string) bool {
 	}
 	v := strings.ToLower(value)
 	for _, secret := range private {
+		if secret != "" && strings.EqualFold(value, secret) {
+			return false
+		}
 		if len(secret) < 4 {
 			continue
 		}
