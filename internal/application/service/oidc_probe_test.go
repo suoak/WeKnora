@@ -14,6 +14,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 func TestOIDCProtocolProbe(t *testing.T) {
@@ -21,7 +23,7 @@ func TestOIDCProtocolProbe(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, kind := range []string{"success", "approved_callback", "basic", "signature", "issuer", "audience", "expiry", "nonce", "subject", "userinfo_failure", "token_failure", "token_redirect", "jwks_redirect", "userinfo_redirect", "provider_error"} {
+	for _, kind := range []string{"success", "approved_callback", "basic", "rs384", "signature", "issuer", "audience", "expiry", "nonce", "subject", "userinfo_failure", "token_failure", "token_redirect", "jwks_redirect", "userinfo_redirect", "provider_error"} {
 		t.Run(kind, func(t *testing.T) {
 			withOIDCSSRFWhitelist(t, "127.0.0.1")
 			const private = "synthetic-private-probe-value"
@@ -86,17 +88,32 @@ func TestOIDCProtocolProbe(t *testing.T) {
 						claims["nonce"] = "wrong"
 					}
 					id := signedIDToken(t, key, "probe-key", claims)
+					if kind == "rs384" {
+						token := jwt.NewWithClaims(jwt.SigningMethodRS384, jwt.MapClaims(claims))
+						token.Header["kid"] = "probe-key"
+						signed, signErr := token.SignedString(key)
+						if signErr != nil {
+							t.Fatal("could not sign RSA algorithm rejection fixture")
+						}
+						id = signed
+					}
 					if kind == "signature" {
 						id = unsignedJWT(claims)
 					}
 					_ = json.NewEncoder(w).Encode(map[string]interface{}{"id_token": id, "access_token": private, "refresh_token": private, "token_type": "Bearer"})
 				case "/jwks":
+					if kind == "rs384" {
+						t.Error("rejected algorithm reached JWKS")
+					}
 					if kind == "jwks_redirect" {
 						http.Redirect(w, r, "/should-not-follow", http.StatusFound)
 						return
 					}
 					_ = json.NewEncoder(w).Encode(oidcJWKS{Keys: []oidcJWK{rsaJWK(key, "probe-key")}})
 				case "/userinfo":
+					if kind == "rs384" {
+						t.Error("rejected algorithm reached UserInfo")
+					}
 					if kind == "userinfo_redirect" {
 						http.Redirect(w, r, "/should-not-follow", http.StatusFound)
 						return
@@ -169,6 +186,9 @@ func TestOIDCProtocolProbe(t *testing.T) {
 			completed := kind == "success" || kind == "approved_callback" || kind == "basic"
 			if p.Report().Validation["completed"] != completed {
 				t.Fatalf("unexpected validation result for %s", kind)
+			}
+			if kind == "rs384" && (result.Code != 400 || p.Report().Validation["algorithm"] || p.Report().Claims != nil || p.Report().Algorithm != "") {
+				t.Fatal("non-RS256 token was accepted or exposed claims")
 			}
 			encoded, _ := json.Marshal(p.Report())
 			for _, sensitive := range []string{private, nonce, q.Get("state"), originalVerifier, "user-123", "user@example.com", "Real User"} {

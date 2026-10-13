@@ -263,6 +263,18 @@ func (p *OIDCProtocolProbe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		p.finish(w, 502, result)
 		return
 	}
+	// This isolated formal probe accepts RS256 only, independently of the
+	// broader business verifier's supported RSA algorithms. The untrusted
+	// header is used only to reject algorithms, never to establish identity.
+	header, err := base64.RawURLEncoding.DecodeString(strings.Split(tokens.IDToken, ".")[0])
+	var h struct {
+		Algorithm string `json:"alg"`
+	}
+	result.Validation["algorithm"] = err == nil && json.Unmarshal(header, &h) == nil && h.Algorithm == "RS256"
+	if !result.Validation["algorithm"] {
+		p.finish(w, 400, result)
+		return
+	}
 	claims, err := svc.verifyOIDCIDToken(ctx, &cfg, tokens.IDToken)
 	result.Validation["id_token"] = err == nil
 	if err != nil {
@@ -277,18 +289,6 @@ func (p *OIDCProtocolProbe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, check := range []string{"signature", "issuer", "audience", "authorized_party", "expiry", "issued_at", "subject"} {
 		result.Validation[check] = true
-	}
-	header, err := base64.RawURLEncoding.DecodeString(strings.Split(tokens.IDToken, ".")[0])
-	if err != nil {
-		p.finish(w, 400, result)
-		return
-	}
-	var h struct {
-		Algorithm string `json:"alg"`
-	}
-	if json.Unmarshal(header, &h) != nil {
-		p.finish(w, 400, result)
-		return
 	}
 	result.Algorithm = h.Algorithm
 	budget := 512
