@@ -10,6 +10,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
 	"regexp"
 	"strings"
@@ -50,17 +51,23 @@ type OIDCProbeReport struct {
 // Only bounded public diagnostics are retained. Never record requests, headers,
 // URLs with queries, raw errors, response text or credentials.
 type OIDCProbeHTTPResult struct {
-	Stage      string `json:"stage"`
-	Status     int    `json:"status"`
-	DurationMS int64  `json:"duration_ms"`
-	Failure    string `json:"failure,omitempty"`
-	OAuthError string `json:"oauth_error,omitempty"`
+	Stage                      string `json:"stage"`
+	Status                     int    `json:"status"`
+	DurationMS                 int64  `json:"duration_ms"`
+	Failure                    string `json:"failure,omitempty"`
+	OAuthError                 string `json:"oauth_error,omitempty"`
+	ClientAuth                 string `json:"client_auth,omitempty"`
+	AuthorizationHeaderPresent *bool  `json:"authorization_header_present,omitempty"`
+	CallbackToTokenDispatchMS  *int64 `json:"callback_to_token_dispatch_ms,omitempty"`
+	CallbackToTokenSentMS      *int64 `json:"callback_to_token_sent_ms,omitempty"`
 }
 
 type probeDiagnosticTransport struct {
-	base      http.RoundTripper
-	endpoints map[string]string
-	report    *OIDCProbeReport
+	base             http.RoundTripper
+	endpoints        map[string]string
+	report           *OIDCProbeReport
+	callbackReceived time.Time
+	clientAuth       string
 }
 
 func (t *probeDiagnosticTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -72,12 +79,40 @@ func (t *probeDiagnosticTransport) RoundTrip(req *http.Request) (*http.Response,
 		}
 	}
 	start := time.Now()
+	var dispatchMS, sentMS *int64
+	var traceMu sync.Mutex
+	var authorizationPresent *bool
+	if stage == "token" && !t.callbackReceived.IsZero() {
+		elapsed := time.Since(t.callbackReceived).Milliseconds()
+		dispatchMS = &elapsed
+		present := req.Header.Get("Authorization") != ""
+		authorizationPresent = &present
+		trace := &httptrace.ClientTrace{WroteRequest: func(info httptrace.WroteRequestInfo) {
+			if info.Err == nil {
+				traceMu.Lock()
+				if sentMS == nil {
+					elapsed := time.Since(t.callbackReceived).Milliseconds()
+					sentMS = &elapsed
+				}
+				traceMu.Unlock()
+			}
+		}}
+		req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
+	}
 	base := t.base
 	if base == nil {
 		base = http.DefaultTransport
 	}
 	resp, err := base.RoundTrip(req)
 	d := OIDCProbeHTTPResult{Stage: stage, DurationMS: time.Since(start).Milliseconds()}
+	if dispatchMS != nil {
+		d.ClientAuth = t.clientAuth
+		d.AuthorizationHeaderPresent = authorizationPresent
+		d.CallbackToTokenDispatchMS = dispatchMS
+		traceMu.Lock()
+		d.CallbackToTokenSentMS = sentMS
+		traceMu.Unlock()
+	}
 	if err != nil {
 		d.Failure = "transport_error"
 	} else {
@@ -228,6 +263,7 @@ func probeJSON(w http.ResponseWriter, status int, report OIDCProbeReport) {
 }
 
 func (p *OIDCProtocolProbe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	callbackReceived := time.Now()
 	// No logging/recovery framework: panic values must not reach stderr or a dump.
 	defer func() {
 		if recover() != nil {
@@ -321,7 +357,7 @@ func (p *OIDCProtocolProbe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	client := newOIDCHTTPClient()
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	client.Transport = &probeDiagnosticTransport{base: client.Transport, endpoints: result.Endpoints, report: &result}
+	client.Transport = &probeDiagnosticTransport{base: client.Transport, endpoints: result.Endpoints, report: &result, callbackReceived: callbackReceived, clientAuth: cfg.ClientAuthMethod}
 	svc := &userService{protocolClient: client} // Intentionally no user/token repositories or config/container.
 	tokens, err := svc.exchangeOIDCCode(ctx, &cfg, q.Get("code"), redirect)
 	result.Validation["token_exchange"] = err == nil

@@ -1,13 +1,16 @@
 package service
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httptrace"
 	"net/url"
 	"strings"
 	"sync"
@@ -15,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/config"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -48,15 +52,15 @@ func TestOIDCProtocolProbe(t *testing.T) {
 					if r.Form.Get("redirect_uri") != expectedRedirectURI {
 						t.Error("approved redirect_uri changed during exchange")
 					}
-					if r.Form.Get("grant_type") != "authorization_code" || r.Form.Get("code") != private {
+					if r.Form.Get("grant_type") != "authorization_code" || r.Form.Get("code") != private || r.Form.Get("client_id") != "probe-client" {
 						t.Error("wrong code exchange")
 					}
 					if kind == "basic" {
-						_, password, ok := r.BasicAuth()
-						if !ok || password != private || r.Form.Get("client_secret") != "" {
+						username, password, ok := r.BasicAuth()
+						if !ok || username != "probe-client" || password != private || r.Form.Get("client_secret") != "" {
 							t.Error("wrong basic auth")
 						}
-					} else if r.Form.Get("client_secret") != private {
+					} else if r.Form.Get("client_secret") != private || r.Header.Get("Authorization") != "" {
 						t.Error("missing post auth")
 					}
 					sum := sha256.Sum256([]byte(r.Form.Get("code_verifier")))
@@ -201,6 +205,15 @@ func TestOIDCProtocolProbe(t *testing.T) {
 			if p.Report().Validation["completed"] != completed {
 				t.Fatalf("unexpected validation result for %s", kind)
 			}
+			if kind != "provider_error" {
+				d := p.Report().HTTP[0]
+				if d.Stage != "token" || d.ClientAuth != m.ClientAuth || d.AuthorizationHeaderPresent == nil || *d.AuthorizationHeaderPresent != (kind == "basic") {
+					t.Fatal("client authentication placement diagnostics incorrect")
+				}
+				if d.CallbackToTokenDispatchMS == nil || *d.CallbackToTokenDispatchMS < 0 || (d.CallbackToTokenSentMS != nil && *d.CallbackToTokenSentMS < *d.CallbackToTokenDispatchMS) {
+					t.Fatal("callback-to-dispatch/write timing missing or out of order")
+				}
+			}
 			if kind == "rs384" && (result.Code != 400 || p.Report().Validation["algorithm"] || p.Report().Claims != nil || p.Report().Algorithm != "") {
 				t.Fatal("non-RS256 token was accepted or exposed claims")
 			}
@@ -252,6 +265,60 @@ func TestOIDCProtocolProbe(t *testing.T) {
 				t.Fatal("provider error exchanged code")
 			}
 		})
+	}
+}
+
+type probeTraceRoundTripper func(*http.Request) (*http.Response, error)
+
+func (f probeTraceRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestOIDCProbeCallbackWriteTiming(t *testing.T) {
+	report := OIDCProbeReport{}
+	endpoint := "https://confirmed.example/token"
+	transport := probeDiagnosticTransport{
+		base: probeTraceRoundTripper(func(r *http.Request) (*http.Response, error) {
+			trace := httptrace.ContextClientTrace(r.Context())
+			if trace == nil || trace.WroteRequest == nil {
+				t.Fatal("missing request-write timing hook")
+			}
+			trace.WroteRequest(httptrace.WroteRequestInfo{})
+			return &http.Response{StatusCode: 401, Body: io.NopCloser(strings.NewReader(`{"error":"invalid_client"}`))}, nil
+		}), endpoints: map[string]string{"token": endpoint}, report: &report,
+		callbackReceived: time.Now().Add(-30 * time.Millisecond), clientAuth: "client_secret_post",
+	}
+	req, _ := http.NewRequest("POST", endpoint, nil)
+	resp, err := transport.RoundTrip(req)
+	if err != nil {
+		t.Fatal("timing fixture failed")
+	}
+	resp.Body.Close()
+	d := report.HTTP[0]
+	if d.CallbackToTokenDispatchMS == nil || d.CallbackToTokenSentMS == nil || *d.CallbackToTokenDispatchMS < 30 || *d.CallbackToTokenSentMS < *d.CallbackToTokenDispatchMS {
+		t.Fatal("write timing did not include callback handling interval")
+	}
+}
+
+func TestOIDCProbePostCredentialEncoding(t *testing.T) {
+	withOIDCSSRFWhitelist(t, "127.0.0.1")
+	const secret = "synthetic secret &+=:/"
+	const code = "synthetic-code&+=:/"
+	const verifier = "synthetic-verifier"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" || r.URL.RawQuery != "" || r.Header.Get("Authorization") != "" || r.Header.Get("Content-Type") != "application/x-www-form-urlencoded" {
+			t.Error("post credential transport leaked or changed")
+		}
+		_ = r.ParseForm()
+		if r.PostForm.Get("client_id") != "probe-client" || r.PostForm.Get("client_secret") != secret || r.PostForm.Get("code") != code || r.PostForm.Get("redirect_uri") != approvedSourceIDProbeCallbackURI || r.PostForm.Get("grant_type") != "authorization_code" || r.PostForm.Get("code_verifier") != verifier {
+			t.Error("post fields failed exact encoding round-trip")
+		}
+		_ = json.NewEncoder(w).Encode(map[string]string{"access_token": "synthetic-access", "id_token": "synthetic-id"})
+	}))
+	defer server.Close()
+	svc := &userService{protocolClient: server.Client()}
+	cfg := config.OIDCAuthConfig{TokenEndpoint: server.URL, ClientID: "probe-client", ClientSecret: secret, ClientAuthMethod: "client_secret_post"}
+	ctx := context.WithValue(context.Background(), oidcVerifierKey, verifier)
+	if _, err := svc.exchangeOIDCCode(ctx, &cfg, code, approvedSourceIDProbeCallbackURI); err != nil {
+		t.Fatal("post exchange fixture failed")
 	}
 }
 
