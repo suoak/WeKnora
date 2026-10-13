@@ -180,6 +180,7 @@ func TestOIDCProtocolProbe(t *testing.T) {
 				m.ClientAuth = "client_secret_basic"
 			}
 			m.PKCE = !withoutPKCE
+			m.HTTPDiagnostics = kind == "success" || kind == "basic_no_pkce" || kind == "token_invalid_json" || kind == "token_oauth_error"
 			m.RedirectURI = expectedRedirectURI
 			// Only test fixtures bypass production HTTPS validation. No repository exists.
 			p := newOIDCProtocolProbe(m, private)
@@ -232,6 +233,11 @@ func TestOIDCProtocolProbe(t *testing.T) {
 			}
 			if kind != "provider_error" {
 				d := p.Report().HTTP[0]
+				if m.HTTPDiagnostics {
+					if d.Diagnostics == nil || d.Diagnostics.Request.FieldPresence["code_verifier"] != m.PKCE || d.Diagnostics.Response == nil {
+						t.Fatal("probe diagnostics missing or changed PKCE behavior")
+					}
+				}
 				if d.Stage != "token" || d.ClientAuth != m.ClientAuth || d.AuthorizationHeaderPresent == nil || *d.AuthorizationHeaderPresent != basicAuth {
 					t.Fatal("client authentication placement diagnostics incorrect")
 				}

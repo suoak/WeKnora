@@ -38,6 +38,8 @@ type OIDCProbeMetadata struct {
 	UserInfoTransport string   `json:"userinfo_transport"`
 	Scopes            []string `json:"scopes"`
 	PKCE              bool     `json:"pkce"`
+	HTTPDiagnostics   bool     `json:"http_diagnostics,omitempty"`
+	PublicErrorCodes  []string `json:"diagnostic_public_error_codes,omitempty"`
 }
 
 const approvedSourceIDProbeCallbackURI = "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback"
@@ -54,15 +56,16 @@ type OIDCProbeReport struct {
 // Only bounded public diagnostics are retained. Never record requests, headers,
 // URLs with queries, raw errors, response text or credentials.
 type OIDCProbeHTTPResult struct {
-	Stage                      string `json:"stage"`
-	Status                     int    `json:"status"`
-	DurationMS                 int64  `json:"duration_ms"`
-	Failure                    string `json:"failure,omitempty"`
-	OAuthError                 string `json:"oauth_error,omitempty"`
-	ClientAuth                 string `json:"client_auth,omitempty"`
-	AuthorizationHeaderPresent *bool  `json:"authorization_header_present,omitempty"`
-	CallbackToTokenDispatchMS  *int64 `json:"callback_to_token_dispatch_ms,omitempty"`
-	CallbackToTokenSentMS      *int64 `json:"callback_to_token_sent_ms,omitempty"`
+	Stage                      string                    `json:"stage"`
+	Status                     int                       `json:"status"`
+	DurationMS                 int64                     `json:"duration_ms"`
+	Failure                    string                    `json:"failure,omitempty"`
+	OAuthError                 string                    `json:"oauth_error,omitempty"`
+	ClientAuth                 string                    `json:"client_auth,omitempty"`
+	AuthorizationHeaderPresent *bool                     `json:"authorization_header_present,omitempty"`
+	CallbackToTokenDispatchMS  *int64                    `json:"callback_to_token_dispatch_ms,omitempty"`
+	CallbackToTokenSentMS      *int64                    `json:"callback_to_token_sent_ms,omitempty"`
+	Diagnostics                *OIDCProbeHTTPDiagnostics `json:"diagnostics,omitempty"`
 }
 
 type probeDiagnosticTransport struct {
@@ -71,6 +74,9 @@ type probeDiagnosticTransport struct {
 	report           *OIDCProbeReport
 	callbackReceived time.Time
 	clientAuth       string
+	diagnostics      bool
+	clientID         string
+	publicErrorCodes []string
 }
 
 func (t *probeDiagnosticTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -82,7 +88,13 @@ func (t *probeDiagnosticTransport) RoundTrip(req *http.Request) (*http.Response,
 		}
 	}
 	start := time.Now()
+	var details *OIDCProbeHTTPDiagnostics
+	var privateValues []string
+	if stage == "token" && t.diagnostics {
+		details, privateValues = probeRequestDiagnostics(req, t.clientID, t.endpoints["callback"])
+	}
 	var dispatchMS, sentMS *int64
+	var sentUTC string
 	var traceMu sync.Mutex
 	var authorizationPresent *bool
 	if stage == "token" && !t.callbackReceived.IsZero() {
@@ -96,6 +108,7 @@ func (t *probeDiagnosticTransport) RoundTrip(req *http.Request) (*http.Response,
 				if sentMS == nil {
 					elapsed := time.Since(t.callbackReceived).Milliseconds()
 					sentMS = &elapsed
+					sentUTC = time.Now().UTC().Format(time.RFC3339Nano)
 				}
 				traceMu.Unlock()
 			}
@@ -108,18 +121,30 @@ func (t *probeDiagnosticTransport) RoundTrip(req *http.Request) (*http.Response,
 	}
 	resp, err := base.RoundTrip(req)
 	d := OIDCProbeHTTPResult{Stage: stage, DurationMS: time.Since(start).Milliseconds()}
+	d.Diagnostics = details
 	if dispatchMS != nil {
 		d.ClientAuth = t.clientAuth
 		d.AuthorizationHeaderPresent = authorizationPresent
 		d.CallbackToTokenDispatchMS = dispatchMS
 		traceMu.Lock()
 		d.CallbackToTokenSentMS = sentMS
+		if details != nil {
+			details.Request.SentUTC = sentUTC
+		}
 		traceMu.Unlock()
 	}
 	if err != nil {
 		d.Failure = probeTransportFailure(err)
 	} else {
 		d.Status = resp.StatusCode
+		if details != nil {
+			details.Response = probeResponseDiagnostics(resp, privateValues)
+			correlations := map[string]string{}
+			for name := range details.Response.Correlation {
+				correlations[name] = resp.Header.Get(name)
+			}
+			resp.Body = &probeObservedBody{ReadCloser: resp.Body, report: details.Response, started: start, privateValues: privateValues, publicCodes: t.publicErrorCodes, correlationValues: correlations}
+		}
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			d.Failure = "http_status"
 			// Inspect at most 4 KiB of an error response in service memory, then
@@ -143,6 +168,9 @@ func (t *probeDiagnosticTransport) RoundTrip(req *http.Request) (*http.Response,
 				}
 			}
 		}
+	}
+	if details != nil && !probeDiagnosticValueSafe(d.OAuthError, privateValues) {
+		d.OAuthError = ""
 	}
 	t.report.HTTP = append(t.report.HTTP, d)
 	return resp, err
@@ -194,6 +222,14 @@ func NewOIDCProtocolProbe(m OIDCProbeMetadata, secret string) (*OIDCProtocolProb
 
 // ValidateOIDCProbeMetadata runs before reading any credential from stdin.
 func ValidateOIDCProbeMetadata(m OIDCProbeMetadata) error {
+	if len(m.PublicErrorCodes) > 16 || (len(m.PublicErrorCodes) > 0 && !m.HTTPDiagnostics) {
+		return errors.New("invalid probe diagnostic policy")
+	}
+	for _, code := range m.PublicErrorCodes {
+		if !probePublicCodePattern.MatchString(code) {
+			return errors.New("invalid probe diagnostic policy")
+		}
+	}
 	if !m.Confirmed || m.ClientID == "" {
 		return errors.New("probe configuration incomplete")
 	}
@@ -376,7 +412,7 @@ func (p *OIDCProtocolProbe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	client := newOIDCHTTPClient()
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	client.Transport = &probeDiagnosticTransport{base: client.Transport, endpoints: result.Endpoints, report: &result, callbackReceived: callbackReceived, clientAuth: cfg.ClientAuthMethod}
+	client.Transport = &probeDiagnosticTransport{base: client.Transport, endpoints: result.Endpoints, report: &result, callbackReceived: callbackReceived, clientAuth: cfg.ClientAuthMethod, diagnostics: p.metadata.HTTPDiagnostics, clientID: cfg.ClientID, publicErrorCodes: p.metadata.PublicErrorCodes}
 	svc := &userService{protocolClient: client} // Intentionally no user/token repositories or config/container.
 	tokens, err := svc.exchangeOIDCCode(ctx, &cfg, q.Get("code"), redirect)
 	result.Validation["token_exchange"] = err == nil
