@@ -5,8 +5,10 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -271,6 +273,39 @@ func TestOIDCProtocolProbe(t *testing.T) {
 type probeTraceRoundTripper func(*http.Request) (*http.Response, error)
 
 func (f probeTraceRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+type probeTimeoutError struct{}
+
+func (probeTimeoutError) Error() string   { return "synthetic-private-transport-cause" }
+func (probeTimeoutError) Timeout() bool   { return true }
+func (probeTimeoutError) Temporary() bool { return false }
+
+func TestOIDCProbeSafeTransportCategories(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+		want string
+	}{
+		{"timeout", probeTimeoutError{}, "timeout"},
+		{"certificate", x509.HostnameError{Certificate: &x509.Certificate{}, Host: "synthetic-private-transport-cause"}, "tls_error"},
+		{"network", errors.New("synthetic-private-transport-cause"), "transport_error"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			report := OIDCProbeReport{}
+			endpoint := "https://confirmed.example/token"
+			transport := probeDiagnosticTransport{base: probeTraceRoundTripper(func(*http.Request) (*http.Response, error) { return nil, tc.err }), endpoints: map[string]string{"token": endpoint}, report: &report, callbackReceived: time.Now(), clientAuth: "client_secret_post"}
+			req, _ := http.NewRequest("POST", endpoint, nil)
+			_, err := transport.RoundTrip(req)
+			if err == nil || len(report.HTTP) != 1 || report.HTTP[0].Failure != tc.want || report.HTTP[0].Status != 0 || report.HTTP[0].CallbackToTokenSentMS != nil {
+				t.Fatal("transport failure category incorrect or write falsely recorded")
+			}
+			encoded, _ := json.Marshal(report)
+			if strings.Contains(string(encoded), "synthetic-private-transport-cause") {
+				t.Fatal("raw transport/certificate detail reached report")
+			}
+		})
+	}
+}
 
 func TestOIDCProbeCallbackWriteTiming(t *testing.T) {
 	report := OIDCProbeReport{}

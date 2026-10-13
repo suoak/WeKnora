@@ -5,10 +5,13 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
@@ -114,7 +117,7 @@ func (t *probeDiagnosticTransport) RoundTrip(req *http.Request) (*http.Response,
 		traceMu.Unlock()
 	}
 	if err != nil {
-		d.Failure = "transport_error"
+		d.Failure = probeTransportFailure(err)
 	} else {
 		d.Status = resp.StatusCode
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -143,6 +146,22 @@ func (t *probeDiagnosticTransport) RoundTrip(req *http.Request) (*http.Response,
 	}
 	t.report.HTTP = append(t.report.HTTP, d)
 	return resp, err
+}
+
+func probeTransportFailure(err error) string {
+	var timedOut net.Error
+	if errors.As(err, &timedOut) && timedOut.Timeout() {
+		return "timeout"
+	}
+	var verification *tls.CertificateVerificationError
+	var unknownAuthority x509.UnknownAuthorityError
+	var hostname x509.HostnameError
+	var invalidCertificate x509.CertificateInvalidError
+	var invalidTLSRecord tls.RecordHeaderError
+	if errors.As(err, &verification) || errors.As(err, &unknownAuthority) || errors.As(err, &hostname) || errors.As(err, &invalidCertificate) || errors.As(err, &invalidTLSRecord) {
+		return "tls_error"
+	}
+	return "transport_error"
 }
 
 type probeReplayBody struct {
