@@ -320,6 +320,7 @@ type OIDCUserInfoMapping struct {
 }
 
 type OIDCAuthConfig struct {
+	SourceIDDiagnosticsEnable bool   `yaml:"sourceid_diagnostics_enable" json:"-"`
 	SourceIDClaimsSource      string `yaml:"sourceid_claims_source" json:"-"`
 	SourceIDLogoutEncoding    string `yaml:"sourceid_logout_encoding" json:"-"`
 	SourceIDEnable            bool   `yaml:"sourceid_enable" json:"-"`
@@ -802,6 +803,7 @@ func applyOIDCEnvOverrides(cfg *Config) {
 	}
 	for key, target := range map[string]*bool{
 		"SOURCEID_ENABLE":             &cfg.OIDCAuth.SourceIDEnable,
+		"SOURCEID_DIAGNOSTICS_ENABLE": &cfg.OIDCAuth.SourceIDDiagnosticsEnable,
 		"SOURCEID_LOGOUT_ENABLE":      &cfg.OIDCAuth.SourceIDLogoutEnable,
 		"SOURCEID_CONTRACT_CONFIRMED": &cfg.OIDCAuth.SourceIDContractConfirmed,
 		"OIDC_AUTH_PKCE_ENABLE":       &cfg.OIDCAuth.PKCEEnable,

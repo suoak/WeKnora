@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -429,6 +430,11 @@ func (h *AuthHandler) GetOIDCConfig(c *gin.Context) {
 // @Router       /auth/oidc/callback [get]
 func (h *AuthHandler) OIDCRedirectCallback(c *gin.Context) {
 	ctx := c.Request.Context()
+	diagnosticsEnabled := h.configInfo != nil && h.configInfo.OIDCAuth != nil && h.configInfo.OIDCAuth.SourceIDEnable && h.configInfo.OIDCAuth.SourceIDDiagnosticsEnable
+	ctx = service.NewSourceIDDiagnosticContext(ctx, diagnosticsEnabled)
+	stageStarted := time.Now()
+	callbackError := stderrors.New("callback rejected")
+	defer func() { service.SourceIDDiagnosticStage(ctx, "callback_result", stageStarted, callbackError) }()
 	c.Header("Cache-Control", "no-store")
 	c.Header("Referrer-Policy", "no-referrer")
 	frontendRedirectURI := "/"
@@ -442,6 +448,7 @@ func (h *AuthHandler) OIDCRedirectCallback(c *gin.Context) {
 	state := strings.TrimSpace(c.Query("state"))
 	decodedState, err := decodeOIDCState(state, c.Request)
 	if err != nil {
+		service.SourceIDDiagnosticStage(ctx, "callback_state", stageStarted, err)
 		logger.Errorf(ctx, "Failed to decode OIDC state: %v", err)
 		c.Redirect(http.StatusFound, frontendRedirectURI+"#oidc_error="+urlQueryEscape("invalid_state"))
 		return
@@ -458,10 +465,12 @@ func (h *AuthHandler) OIDCRedirectCallback(c *gin.Context) {
 	if service, ok := h.userService.(sourceIDAuthService); ok {
 		ctx, err = service.PrepareOIDCCallback(ctx, state)
 		if err != nil {
+			service.SourceIDDiagnosticStage(ctx, "callback_state", stageStarted, err)
 			c.Redirect(http.StatusFound, "/#oidc_error=invalid_state")
 			return
 		}
 	}
+	service.SourceIDDiagnosticStage(ctx, "callback_state", stageStarted, nil)
 	resp, err := h.userService.LoginWithOIDC(ctx, code, strings.TrimSpace(decodedState.RedirectURI), h.resolveDefaultTenantMode(ctx))
 	if err != nil {
 		logger.Warn(ctx, "OIDC login rejected")
@@ -493,6 +502,7 @@ func (h *AuthHandler) OIDCRedirectCallback(c *gin.Context) {
 	c.SetSameSite(http.SameSiteStrictMode)
 	secure := c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https")
 	c.SetCookie("knowhub_oidc_result", key, 60, "/api/v1/auth/oidc", "", secure, true)
+	callbackError = nil
 	c.Redirect(http.StatusFound, frontendRedirectURI+"#oidc_complete=1")
 }
 

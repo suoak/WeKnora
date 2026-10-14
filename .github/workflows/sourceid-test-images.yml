@@ -1,4 +1,4 @@
-name: SourceID disabled test images
+name: SourceID isolated business test images
 
 on:
   push:
@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_SHA: 8ae91bc4439dcc93be11844ada5ec1479f2730bc
+  SOURCE_SHA: ${{ github.sha }}
 
 jobs:
   build:
@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: 8ae91bc4439dcc93be11844ada5ec1479f2730bc
+          ref: ${{ github.sha }}
           persist-credentials: false
       - name: Verify fixed source and prepare build recipe
         env:
@@ -58,10 +58,10 @@ jobs:
           COMPONENT: ${{ matrix.component }}
         run: |
           set -euo pipefail
-          image="knowhub-sourceid-test/$COMPONENT:8ae91bc44"
+          image="knowhub-sourceid-test/$COMPONENT:${SOURCE_SHA:0:9}"
           if [ "$COMPONENT" = app ]; then
             docker build --progress=plain --platform linux/amd64 --target runtime \
-              --build-arg VERSION_ARG=0.8.0-sourceid-test-8ae91bc44 \
+              --build-arg VERSION_ARG=0.8.0-sourceid-test-${SOURCE_SHA:0:9} \
               --build-arg "COMMIT_ID_ARG=$SOURCE_SHA" \
               --build-arg "REVISION_ARG=$SOURCE_SHA" \
               --build-arg "BUILD_TIME_ARG=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -77,7 +77,7 @@ jobs:
           COMPONENT: ${{ matrix.component }}
         run: |
           set -euo pipefail
-          image="knowhub-sourceid-test/$COMPONENT:8ae91bc44"
+          image="knowhub-sourceid-test/$COMPONENT:${SOURCE_SHA:0:9}"
           if [ "$COMPONENT" = app ]; then
             docker run --rm --network none --entrypoint sh "$image" -c 'test -x /app/WeKnora && test -x /app/scripts/docker-entrypoint.sh && test ! -e /usr/local/bin/anydoc-runtime-tests && test -f /app/migrations/versioned/003024_sourceid_oidc.up.sql && test -f /app/migrations/versioned/003024_sourceid_oidc.down.sql'
           else
@@ -85,12 +85,12 @@ jobs:
           fi
           docker image ls --no-trunc --digests --filter "reference=$image" \
             --format 'image={{.Repository}}:{{.Tag}} id={{.ID}} digest={{.Digest}}' > /tmp/sourceid-image-results/image.txt
-          docker save "$image" | gzip -1 > "/tmp/sourceid-image-results/$COMPONENT-8ae91bc44.tar.gz"
+          docker save "$image" | gzip -1 > "/tmp/sourceid-image-results/$COMPONENT-${SOURCE_SHA:0:9}.tar.gz"
           cd /tmp/sourceid-image-results
-          sha256sum "$COMPONENT-8ae91bc44.tar.gz" > archive-sha256.txt
+          sha256sum "$COMPONENT-${SOURCE_SHA:0:9}.tar.gz" > archive-sha256.txt
       - uses: actions/upload-artifact@v6
         with:
-          name: sourceid-test-${{ matrix.component }}-8ae91bc44
+          name: sourceid-business-${{ matrix.component }}-${{ github.sha }}
           path: /tmp/sourceid-image-results
           compression-level: 0
           retention-days: 7

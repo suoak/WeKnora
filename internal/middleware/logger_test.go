@@ -196,7 +196,7 @@ func TestReadRequestBodySkipsNonTextBodies(t *testing.T) {
 	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/knowledge/file", strings.NewReader(payload))
 	c.Request.Header.Set("Content-Type", "multipart/form-data; boundary=x")
 
-	if got := readRequestBody(c); got != "[非文本类型，已跳过]" {
+	if got := readRequestBody(c); got != "[非JSON请求体，已跳过]" {
 		t.Fatalf("readRequestBody() = %q, want the non-text marker", got)
 	}
 	rest, err := io.ReadAll(c.Request.Body)

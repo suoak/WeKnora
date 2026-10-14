@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Tencent/WeKnora/internal/utils"
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel/propagation"
 )
@@ -43,7 +44,6 @@ func GinMiddleware() gin.HandlerFunc {
 			Metadata: map[string]interface{}{
 				"http.method": c.Request.Method,
 				"http.path":   c.FullPath(),
-				"http.query":  c.Request.URL.RawQuery,
 			},
 			Tags: []string{"http", strings.ToLower(c.Request.Method)},
 		}
@@ -83,6 +83,9 @@ func GinMiddleware() gin.HandlerFunc {
 // Read-only listing / GET endpoints are deliberately excluded; they never
 // trigger LLM work and would only add noise.
 func shouldTrace(c *gin.Context) bool {
+	if utils.IsAuthenticationPath(c.Request.URL.Path) {
+		return false
+	}
 	path := c.FullPath()
 	if path == "" {
 		return false

@@ -438,7 +438,10 @@ func synthFallbackMembership(user *types.User, activeTenant *types.Tenant) []typ
 }
 
 // GetOIDCAuthorizationURL builds the OIDC authorization URL.
-func (s *userService) GetOIDCAuthorizationURL(ctx context.Context, redirectURI string) (*types.OIDCAuthURLResponse, error) {
+func (s *userService) GetOIDCAuthorizationURL(ctx context.Context, redirectURI string) (_ *types.OIDCAuthURLResponse, resultErr error) {
+	stageStarted := time.Now()
+	ctx = NewSourceIDDiagnosticContext(ctx, s.config != nil && s.config.OIDCAuth != nil && s.config.OIDCAuth.SourceIDEnable && s.config.OIDCAuth.SourceIDDiagnosticsEnable)
+	defer func() { SourceIDDiagnosticStage(ctx, "authorize", stageStarted, resultErr) }()
 	cfg, err := s.getOIDCConfig(ctx)
 	if err != nil {
 		return nil, err
@@ -530,7 +533,14 @@ func (s *userService) LoginWithOIDC(
 	if cfg.RedirectURI != "" && redirectURI != cfg.RedirectURI {
 		return nil, errors.New("OIDC redirect URI mismatch")
 	}
+	if cfg.SourceIDEnable && cfg.SourceIDDiagnosticsEnable {
+		if _, ok := ctx.Value(sourceIDDiagnosticKey{}).(sourceIDDiagnosticContext); !ok {
+			ctx = NewSourceIDDiagnosticContext(ctx, true)
+		}
+	}
+	stageStarted := time.Now()
 	tokenResp, err := s.exchangeOIDCCode(ctx, cfg, code, redirectURI)
+	SourceIDDiagnosticStage(ctx, "token", stageStarted, err)
 	if err != nil {
 		return nil, err
 	}
@@ -542,7 +552,9 @@ func (s *userService) LoginWithOIDC(
 	var user *types.User
 	isNewUser := false
 	if cfg.SourceIDEnable {
+		stageStarted = time.Now()
 		user, ctx, err = s.loginSourceID(ctx, cfg, userInfo)
+		SourceIDDiagnosticStage(ctx, "identity_mapping", stageStarted, err)
 		if err != nil {
 			return nil, err
 		}
@@ -573,7 +585,9 @@ func (s *userService) LoginWithOIDC(
 	// Resolve target tenant once so the JWT claim and the tenant we
 	// return below stay in sync; see Login for the rationale.
 	resolvedTenantID := s.resolveLoginTenantID(ctx, user)
+	stageStarted = time.Now()
 	accessToken, refreshToken, err := s.generateTokensForTenant(ctx, user, resolvedTenantID)
+	SourceIDDiagnosticStage(ctx, "local_session", stageStarted, err)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate local tokens: %w", err)
 	}
@@ -1795,7 +1809,16 @@ func (s *userService) exchangeOIDCCode(ctx context.Context, cfg *config.OIDCAuth
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := s.oidcProtocolHTTPClient().Do(req)
+	client := s.oidcProtocolHTTPClient()
+	if entry, ok := ctx.Value(sourceIDDiagnosticKey{}).(sourceIDDiagnosticContext); ok && cfg.SourceIDEnable && cfg.SourceIDDiagnosticsEnable {
+		copyClient := *client
+		copyClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+		report := &OIDCProbeReport{}
+		copyClient.Transport = &probeDiagnosticTransport{base: client.Transport, endpoints: map[string]string{"token": cfg.TokenEndpoint, "callback": redirectURI}, report: report, callbackReceived: entry.Started, clientAuth: cfg.ClientAuthMethod, diagnostics: true, clientID: cfg.ClientID}
+		client = &copyClient
+		defer sourceIDHTTPDiagnostics(ctx, report)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to exchange OIDC code: %w", err)
 	}
@@ -1829,18 +1852,23 @@ func (s *userService) resolveOIDCUserInfo(ctx context.Context, cfg *config.OIDCA
 			}
 			logger.Warnf(ctx, "OIDC id_token ignored: no jwks_uri configured; relying on userinfo endpoint")
 		} else {
+			stageStarted := time.Now()
 			idTokenClaims, err := s.verifyOIDCIDToken(ctx, cfg, idToken)
 			if err != nil {
+				SourceIDDiagnosticStage(ctx, "id_token", stageStarted, err)
 				return nil, fmt.Errorf("OIDC id_token verification failed: %w", err)
 			}
 			expectedNonce, _ := ctx.Value(oidcNonceKey).(string)
 			if cfg.SourceIDEnable && expectedNonce == "" {
+				SourceIDDiagnosticStage(ctx, "id_token", stageStarted, errors.New("missing nonce"))
 				return nil, errors.New("sourceid authorization transaction required")
 			}
 			returnedNonce, _ := idTokenClaims["nonce"].(string)
 			if expectedNonce != "" && returnedNonce != expectedNonce {
+				SourceIDDiagnosticStage(ctx, "id_token", stageStarted, errors.New("OIDC ID Token nonce mismatch"))
 				return nil, errors.New("OIDC ID Token nonce mismatch")
 			}
+			SourceIDDiagnosticStage(ctx, "id_token", stageStarted, nil)
 			for k, v := range idTokenClaims {
 				claims[k] = v
 			}
@@ -1864,18 +1892,25 @@ func (s *userService) resolveOIDCUserInfo(ctx context.Context, cfg *config.OIDCA
 		}
 	}
 	if strings.TrimSpace(cfg.UserInfoEndpoint) != "" && strings.TrimSpace(tokenResp.AccessToken) != "" {
+		stageStarted := time.Now()
 		userInfoClaims, err := s.fetchOIDCUserInfoWithTransport(ctx, cfg.UserInfoEndpoint, tokenResp.AccessToken, cfg.UserInfoTransport)
 		if err != nil {
+			SourceIDDiagnosticStage(ctx, "userinfo", stageStarted, err)
 			if !verifiedFromIDToken || (cfg.SourceIDEnable && cfg.SourceIDClaimsSource == "userinfo") {
 				return nil, fmt.Errorf("failed to fetch OIDC userinfo: %w", err)
+			}
+			if cfg.SourceIDEnable {
+				return nil, errors.New("sourceid userinfo unavailable")
 			}
 			logger.Warnf(ctx, "Failed to fetch OIDC userinfo, using verified id_token claims: %v", err)
 		} else {
 			returnedSubject, _ := userInfoClaims["sub"].(string)
 			verifiedSubject, _ := claims["sub"].(string)
 			if verifiedFromIDToken && (returnedSubject == "" || returnedSubject != verifiedSubject) {
+				SourceIDDiagnosticStage(ctx, "userinfo", stageStarted, errors.New("OIDC UserInfo subject mismatch"))
 				return nil, errors.New("OIDC UserInfo subject mismatch")
 			}
+			SourceIDDiagnosticStage(ctx, "userinfo", stageStarted, nil)
 			for k, v := range userInfoClaims {
 				if (cfg.SourceIDEnable && cfg.SourceIDClaimsSource != "userinfo") || k == "iss" || k == "aud" || k == "nonce" || k == "exp" {
 					continue
@@ -2268,8 +2303,12 @@ func (s *userService) verifyOIDCIDToken(
 	}
 
 	claims := jwt.MapClaims{}
+	methods := []string{"RS256", "RS384", "RS512"}
+	if cfg.SourceIDEnable {
+		methods = []string{"RS256"}
+	}
 	if _, err := jwt.NewParser(
-		jwt.WithValidMethods([]string{"RS256", "RS384", "RS512"}),
+		jwt.WithValidMethods(methods),
 		jwt.WithExpirationRequired(),
 		jwt.WithIssuedAt(),
 		jwt.WithLeeway(oidcIDTokenLeeway),

@@ -56,7 +56,7 @@ var sensitiveFieldRegex = regexp.MustCompile(
 		`refresh[_-]?token|next[_-]?token|device[_-]?token|pending[_-]?token|pairing[_-]?link|` +
 		`id[_-]?token|authorization|auth[_-]?token|api[_-]?key|` +
 		`api[_-]?secret|secret[_-]?key|client[_-]?secret|private[_-]?key|secret|` +
-		`authorization[_-]?url|authorization[_-]?attempt)")\s*:\s*"[^"]*"`,
+		`logoutRequest|SessionIndex|tgt|authorization[_-]?url|authorization[_-]?attempt)")\s*:\s*"[^"]*"`,
 )
 
 // sanitizeBody 清理敏感信息
@@ -80,8 +80,13 @@ var sensitiveQueryFields = map[string]struct{}{
 	// browser cannot set Authorization on an upgrade, so it travels in the
 	// query string; anyone holding it for its 2-minute TTL can open a shell
 	// in the session's sandbox, which is why it must never reach a log line.
-	"ticket": {},
-	"token":  {},
+	"ticket":        {},
+	"token":         {},
+	"logoutrequest": {},
+	"sessionindex":  {},
+	"tgt":           {},
+	"clientsecret":  {},
+	"authorization": {},
 }
 
 // sanitizeQuery prevents OAuth authorization codes, CSRF/attempt state, and
@@ -109,12 +114,11 @@ func readRequestBody(c *gin.Context) string {
 
 	// 检查Content-Type，只记录JSON类型
 	contentType := c.GetHeader("Content-Type")
-	if !strings.Contains(contentType, "application/json") &&
-		!strings.Contains(contentType, "application/x-www-form-urlencoded") &&
-		!strings.Contains(contentType, "text/") {
-		return "[非文本类型，已跳过]"
+	// Form/XML/text payloads may contain opaque logout messages or credentials.
+	// Do not inspect them; the handler retains the original stream.
+	if !strings.Contains(contentType, "application/json") {
+		return "[非JSON请求体，已跳过]"
 	}
-
 	// 重置request body：把已窥探的前缀接回未读取的剩余部分，handler 仍能读到完整
 	// 数据，但中间件自身只驻留日志需要的那点字节。
 	//
@@ -197,9 +201,11 @@ func Logger() gin.HandlerFunc {
 		// Keep access metadata, but never read or buffer these request/response bodies.
 		browserTraffic := strings.HasPrefix(path, "/api/v1/local-browser/") ||
 			path == "/api/v1/me/browser" || strings.HasSuffix(path, "/local-browser")
+		authTraffic := secutils.IsAuthenticationPath(path)
+		privateTraffic := browserTraffic || authTraffic
 		// 读取请求体（在Next之前读取，因为Next会消费body）
 		var requestBody string
-		if !browserTraffic && (c.Request.Method == "POST" || c.Request.Method == "PUT" || c.Request.Method == "PATCH") {
+		if !privateTraffic && (c.Request.Method == "POST" || c.Request.Method == "PUT" || c.Request.Method == "PATCH") {
 			requestBody = readRequestBody(c)
 		}
 
@@ -209,7 +215,7 @@ func Logger() gin.HandlerFunc {
 			ResponseWriter: c.Writer,
 			body:           responseBody,
 		}
-		if !browserTraffic {
+		if !privateTraffic {
 			c.Writer = responseWriter
 		}
 
@@ -234,7 +240,7 @@ func Logger() gin.HandlerFunc {
 		statusCode := c.Writer.Status()
 		method := c.Request.Method
 
-		if raw != "" {
+		if raw != "" && !authTraffic {
 			path = path + "?" + sanitizeQuery(raw)
 		}
 
@@ -280,7 +286,11 @@ func Logger() gin.HandlerFunc {
 			logMsg = logMsg.WithField("response_body", secutils.SanitizeForLog(responseBodyStr))
 		}
 		if last := c.Errors.Last(); last != nil && last.Err != nil {
-			logMsg = logMsg.WithField("error", secutils.SanitizeForLog(last.Err.Error()))
+			if authTraffic {
+				logMsg = logMsg.WithField("error", "[authentication error omitted]")
+			} else {
+				logMsg = logMsg.WithField("error", secutils.SanitizeForLog(last.Err.Error()))
+			}
 		}
 		switch {
 		case statusCode >= 500:

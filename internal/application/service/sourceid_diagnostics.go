@@ -1,0 +1,73 @@
+package service
+
+import (
+	"context"
+	"encoding/json"
+	"strings"
+	"time"
+
+	"github.com/Tencent/WeKnora/internal/logger"
+	"github.com/google/uuid"
+)
+
+type sourceIDDiagnosticContext struct {
+	ID      string
+	Started time.Time
+}
+type sourceIDDiagnosticKey struct{}
+
+// NewSourceIDDiagnosticContext uses a fresh server-owned identifier. It never
+// imports state, code, subject, request headers or a browser supplied trace ID.
+func NewSourceIDDiagnosticContext(ctx context.Context, enabled bool) context.Context {
+	if !enabled {
+		return ctx
+	}
+	return context.WithValue(ctx, sourceIDDiagnosticKey{}, sourceIDDiagnosticContext{ID: uuid.NewString(), Started: time.Now()})
+}
+
+func sourceIDHTTPDiagnostics(ctx context.Context, report *OIDCProbeReport) {
+	entry, ok := ctx.Value(sourceIDDiagnosticKey{}).(sourceIDDiagnosticContext)
+	if !ok {
+		return
+	}
+	data, _ := json.Marshal(struct {
+		Event string                `json:"event"`
+		Trace string                `json:"trace"`
+		HTTP  []OIDCProbeHTTPResult `json:"http"`
+	}{"sourceid_token_http", entry.ID, report.HTTP})
+	logger.Warn(ctx, string(data))
+}
+
+func SourceIDDiagnosticStage(ctx context.Context, stage string, start time.Time, err error) {
+	entry, ok := ctx.Value(sourceIDDiagnosticKey{}).(sourceIDDiagnosticContext)
+	if !ok {
+		return
+	}
+	allowed := map[string]bool{"authorize": true, "callback_state": true, "token": true, "id_token": true, "userinfo": true, "identity_mapping": true, "local_session": true, "callback_result": true}
+	if !allowed[stage] {
+		return
+	}
+	category := "none"
+	if err != nil {
+		category = "rejected"
+		// Match only code-owned prefixes. Arbitrary provider/SQL messages are
+		// never emitted, even if they contain a plausible public error string.
+		for prefix, label := range map[string]string{"OIDC token exchange failed: status=401": "token_http_401", "OIDC ID Token nonce mismatch": "nonce_mismatch", "sourceid enrollment requires review": "enrollment_required", "sourceid identity conflict": "identity_conflict", "sourceid employee disabled": "account_disabled", "sourceid employee or session missing": "identity_fields_missing", "OIDC UserInfo subject mismatch": "subject_mismatch"} {
+			if err.Error() == prefix {
+				category = label
+			}
+		}
+		if strings.HasPrefix(err.Error(), "id_token verification failed:") {
+			category = "id_token_verification"
+		}
+	}
+	data, _ := json.Marshal(struct {
+		Event    string `json:"event"`
+		Trace    string `json:"trace"`
+		Stage    string `json:"stage"`
+		Pass     bool   `json:"pass"`
+		Duration int64  `json:"duration_ms"`
+		Category string `json:"category"`
+	}{"sourceid_stage", entry.ID, stage, err == nil, time.Since(start).Milliseconds(), category})
+	logger.Warn(ctx, string(data))
+}
