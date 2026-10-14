@@ -38,6 +38,21 @@ func sourceIDHTTPDiagnostics(ctx context.Context, report *OIDCProbeReport) {
 	logger.Warn(ctx, string(data))
 }
 
+func sourceIDSchemaDiagnostic(ctx context.Context, stage string, claims map[string]interface{}) {
+	entry, ok := ctx.Value(sourceIDDiagnosticKey{}).(sourceIDDiagnosticContext)
+	if !ok || (stage != "id_token" && stage != "userinfo") {
+		return
+	}
+	budget := 128
+	data, _ := json.Marshal(struct {
+		Event  string                 `json:"event"`
+		Trace  string                 `json:"trace"`
+		Stage  string                 `json:"stage"`
+		Schema map[string]interface{} `json:"schema"`
+	}{"sourceid_verified_schema", entry.ID, stage, probeSchema(claims, 0, &budget)})
+	logger.Warn(ctx, string(data))
+}
+
 func SourceIDDiagnosticStage(ctx context.Context, stage string, start time.Time, err error) {
 	entry, ok := ctx.Value(sourceIDDiagnosticKey{}).(sourceIDDiagnosticContext)
 	if !ok {

@@ -60,6 +60,9 @@ func sourceIDClaim(claims map[string]interface{}, path string) string {
 }
 
 func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthConfig, info *types.OIDCUserInfo) (*types.User, context.Context, error) {
+	if cfg.SourceIDProtocolOnly || !cfg.SourceIDContractConfirmed {
+		return nil, ctx, errors.New("sourceid identity contract pending")
+	}
 	if cfg.SourceIDEmployeeClaim == "" || cfg.SourceIDSessionClaim == "" || cfg.SourceIDStatusClaim == "" || cfg.SourceIDAllowedStatus == "" {
 		return nil, ctx, errors.New("sourceid claim contract unconfirmed")
 	}

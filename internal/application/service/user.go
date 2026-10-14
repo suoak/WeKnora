@@ -549,6 +549,11 @@ func (s *userService) LoginWithOIDC(
 	if err != nil {
 		return nil, err
 	}
+	if cfg.SourceIDEnable && cfg.SourceIDProtocolOnly {
+		err := errors.New("sourceid identity contract pending")
+		SourceIDDiagnosticStage(ctx, "identity_mapping", time.Now(), err)
+		return nil, err
+	}
 	var user *types.User
 	isNewUser := false
 	if cfg.SourceIDEnable {
@@ -1699,7 +1704,10 @@ func (s *userService) getOIDCConfig(ctx context.Context) (*config.OIDCAuthConfig
 			return nil, errors.New("sourceid callback differs from approval")
 		}
 	}
-	if cfg.SourceIDEnable && (!cfg.SourceIDContractConfirmed || cfg.IssuerURL == "" || cfg.RedirectURI == "") {
+	if cfg.SourceIDProtocolOnly && !cfg.SourceIDEnable {
+		return nil, errors.New("sourceid protocol-only requires sourceid identity gate")
+	}
+	if cfg.SourceIDEnable && ((!cfg.SourceIDContractConfirmed && !cfg.SourceIDProtocolOnly) || cfg.IssuerURL == "" || cfg.RedirectURI == "") {
 		return nil, errors.New("sourceid protocol contract unconfirmed")
 	}
 	if cfg.UserInfoMapping == nil {
@@ -1869,6 +1877,7 @@ func (s *userService) resolveOIDCUserInfo(ctx context.Context, cfg *config.OIDCA
 				return nil, errors.New("OIDC ID Token nonce mismatch")
 			}
 			SourceIDDiagnosticStage(ctx, "id_token", stageStarted, nil)
+			sourceIDSchemaDiagnostic(ctx, "id_token", idTokenClaims)
 			for k, v := range idTokenClaims {
 				claims[k] = v
 			}
@@ -1911,6 +1920,7 @@ func (s *userService) resolveOIDCUserInfo(ctx context.Context, cfg *config.OIDCA
 				return nil, errors.New("OIDC UserInfo subject mismatch")
 			}
 			SourceIDDiagnosticStage(ctx, "userinfo", stageStarted, nil)
+			sourceIDSchemaDiagnostic(ctx, "userinfo", userInfoClaims)
 			for k, v := range userInfoClaims {
 				if (cfg.SourceIDEnable && cfg.SourceIDClaimsSource != "userinfo") || k == "iss" || k == "aud" || k == "nonce" || k == "exp" {
 					continue
