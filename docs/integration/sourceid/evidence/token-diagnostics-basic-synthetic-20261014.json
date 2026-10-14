@@ -1,0 +1,107 @@
+{
+  "fixtures": [
+    {
+      "double_query_escape_differs": false,
+      "fixture": "unreserved",
+      "oauth_base64_decode_only_receiver_matches_original": true,
+      "oauth_header_equals_raw_header": true,
+      "oauth_password_component": "SyntheticOnly-AZ_19.~",
+      "oauth_receiver_one_form_decode_recovers_original": true,
+      "set_basic_auth_equals_raw_postman_algorithm": true,
+      "synthetic_secret": "SyntheticOnly-AZ_19.~"
+    },
+    {
+      "double_query_escape_differs": true,
+      "fixture": "plus",
+      "oauth_base64_decode_only_receiver_matches_original": false,
+      "oauth_header_equals_raw_header": false,
+      "oauth_password_component": "Synthetic%2BA",
+      "oauth_receiver_one_form_decode_recovers_original": true,
+      "set_basic_auth_equals_raw_postman_algorithm": true,
+      "synthetic_secret": "Synthetic+A"
+    },
+    {
+      "double_query_escape_differs": true,
+      "fixture": "slash",
+      "oauth_base64_decode_only_receiver_matches_original": false,
+      "oauth_header_equals_raw_header": false,
+      "oauth_password_component": "Synthetic%2FA",
+      "oauth_receiver_one_form_decode_recovers_original": true,
+      "set_basic_auth_equals_raw_postman_algorithm": true,
+      "synthetic_secret": "Synthetic/A"
+    },
+    {
+      "double_query_escape_differs": true,
+      "fixture": "equals",
+      "oauth_base64_decode_only_receiver_matches_original": false,
+      "oauth_header_equals_raw_header": false,
+      "oauth_password_component": "Synthetic%3DA",
+      "oauth_receiver_one_form_decode_recovers_original": true,
+      "set_basic_auth_equals_raw_postman_algorithm": true,
+      "synthetic_secret": "Synthetic=A"
+    },
+    {
+      "double_query_escape_differs": true,
+      "fixture": "percent",
+      "oauth_base64_decode_only_receiver_matches_original": false,
+      "oauth_header_equals_raw_header": false,
+      "oauth_password_component": "Synthetic%25A",
+      "oauth_receiver_one_form_decode_recovers_original": true,
+      "set_basic_auth_equals_raw_postman_algorithm": true,
+      "synthetic_secret": "Synthetic%A"
+    },
+    {
+      "double_query_escape_differs": true,
+      "fixture": "colon",
+      "oauth_base64_decode_only_receiver_matches_original": false,
+      "oauth_header_equals_raw_header": false,
+      "oauth_password_component": "Synthetic%3AA",
+      "oauth_receiver_one_form_decode_recovers_original": true,
+      "set_basic_auth_equals_raw_postman_algorithm": true,
+      "synthetic_secret": "Synthetic:A"
+    },
+    {
+      "double_query_escape_differs": true,
+      "fixture": "space",
+      "oauth_base64_decode_only_receiver_matches_original": false,
+      "oauth_header_equals_raw_header": false,
+      "oauth_password_component": "Synthetic+A",
+      "oauth_receiver_one_form_decode_recovers_original": true,
+      "set_basic_auth_equals_raw_postman_algorithm": true,
+      "synthetic_secret": "Synthetic A"
+    },
+    {
+      "double_query_escape_differs": true,
+      "fixture": "non_ascii",
+      "oauth_base64_decode_only_receiver_matches_original": false,
+      "oauth_header_equals_raw_header": false,
+      "oauth_password_component": "Synthetic-%E6%B5%8B%E8%AF%95",
+      "oauth_receiver_one_form_decode_recovers_original": true,
+      "set_basic_auth_equals_raw_postman_algorithm": true,
+      "synthetic_secret": "Synthetic-\u6d4b\u8bd5"
+    },
+    {
+      "double_query_escape_differs": true,
+      "fixture": "already_encoded_literal",
+      "oauth_base64_decode_only_receiver_matches_original": false,
+      "oauth_header_equals_raw_header": false,
+      "oauth_password_component": "Synthetic%252BA",
+      "oauth_receiver_one_form_decode_recovers_original": true,
+      "set_basic_auth_equals_raw_postman_algorithm": true,
+      "synthetic_secret": "Synthetic%2BA"
+    }
+  ],
+  "loopback_request_test": {
+    "basic_received_intact": true,
+    "client_id_with_basic_present": true,
+    "client_secret_form_absent": true,
+    "code_verifier_absent": true,
+    "content_type_urlencoded": true,
+    "method_post": true,
+    "mock_response_bytes": 0,
+    "mock_status": 401,
+    "redirect_uri_exact": true
+  },
+  "real_sid_requests": 0,
+  "synthetic_only": true
+}

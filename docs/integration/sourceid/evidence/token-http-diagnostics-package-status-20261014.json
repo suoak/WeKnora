@@ -1,0 +1,161 @@
+{
+  "transaction": {
+    "knowhub_trace": "d69e9f7f-e165-4b56-b67b-ed2875cf2677",
+    "http": [
+      {
+        "stage": "token",
+        "status": 401,
+        "duration_ms": 212,
+        "failure": "http_status",
+        "client_auth": "client_secret_basic",
+        "authorization_header_present": true,
+        "callback_to_token_dispatch_ms": 5206,
+        "callback_to_token_sent_ms": 5320,
+        "diagnostics": {
+          "request": {
+            "method": "POST",
+            "host": "sid.ruijie.com.cn",
+            "path": "/oidc/accessToken",
+            "host_matches_endpoint": true,
+            "content_type": "application/x-www-form-urlencoded",
+            "authorization_type": "Basic",
+            "authorization_present": true,
+            "basic_format_valid": true,
+            "configured_client_id": "knowhub",
+            "configured_redirect_uri": "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback",
+            "form_fields": [
+              "client_id",
+              "code",
+              "grant_type",
+              "redirect_uri"
+            ],
+            "field_presence": {
+              "client_id": true,
+              "client_secret": false,
+              "code": true,
+              "code_verifier": false,
+              "grant_type": true,
+              "redirect_uri": true
+            },
+            "field_checks": {
+              "client_id_matches_config": true,
+              "code_single_nonempty": true,
+              "grant_type_authorization_code": true,
+              "redirect_uri_matches_config": true
+            },
+            "unknown_field_count": 0,
+            "form_inspected": true,
+            "query_present": false,
+            "dispatch_utc": "2026-10-14T09:09:00.632674172Z",
+            "sent_utc": "2026-10-14T09:09:00.746727197Z"
+          },
+          "response": {
+            "content_type": "absent",
+            "declared_length": 0,
+            "bytes_read": 0,
+            "body_eof": true,
+            "prefix_truncated": false,
+            "read_error": false,
+            "body_elapsed_ms": 212,
+            "body_kind": "empty",
+            "unknown_field_count": 0,
+            "error_description_present": false,
+            "vendor_code_suppressed": false,
+            "www_authenticate_present": true,
+            "www_schemes": [
+              "basic"
+            ],
+            "www_realm_present": true,
+            "www_description_present": false,
+            "correlation": {
+              "Traceparent": {
+                "present": false,
+                "format_valid": false
+              },
+              "X-Correlation-ID": {
+                "present": false,
+                "format_valid": false
+              },
+              "X-Request-ID": {
+                "present": false,
+                "format_valid": false
+              }
+            },
+            "gateway_suspected": false
+          }
+        }
+      }
+    ]
+  },
+  "stages": [
+    {
+      "trace": "d69e9f7f-e165-4b56-b67b-ed2875cf2677",
+      "stage": "callback_state",
+      "pass": true,
+      "duration_ms": 1,
+      "category": "none"
+    },
+    {
+      "trace": "d69e9f7f-e165-4b56-b67b-ed2875cf2677",
+      "stage": "token",
+      "pass": false,
+      "duration_ms": 217,
+      "category": "token_http_401"
+    },
+    {
+      "trace": "d69e9f7f-e165-4b56-b67b-ed2875cf2677",
+      "stage": "callback_result",
+      "pass": false,
+      "duration_ms": 5419,
+      "category": "rejected"
+    }
+  ],
+  "source_zip_sha256": "83654de0c100fd421f564162a3358194d9e029b5acb82cd2f424821633d1b5de",
+  "historical_missing_fields": {
+    "dns_timeline": "NOT_CAPTURED",
+    "remote_ip_port": "NOT_CAPTURED",
+    "tls_version": "NOT_CAPTURED",
+    "http_version": "NOT_CAPTURED",
+    "written_user_agent": "NOT_CAPTURED",
+    "server": "NOT_CAPTURED",
+    "via": "NOT_CAPTURED",
+    "response_date": "NOT_CAPTURED",
+    "proxy_authenticate": "NOT_CAPTURED",
+    "authorization_value_count": "NOT_CAPTURED",
+    "body_duplicate_counts": "NOT_CAPTURED"
+  },
+  "new_business_diagnostics": {
+    "schema_version": 2,
+    "events": [
+      "sourceid_token_request",
+      "sourceid_token_send",
+      "sourceid_token_http"
+    ],
+    "real_request_with_new_version": "NOT_TESTED",
+    "deployed": true,
+    "nonce_at_token_dispatch": "NOT_YET_EXECUTED",
+    "rejecting_layer": "UNKNOWN",
+    "implementation_sha": "3be5d3f9268fe8819d66485a2b990c6237827e25",
+    "ci_url": "https://github.com/suoak/WeKnora/actions/runs/38556052305",
+    "synthetic_acceptance": "PASS",
+    "deployment_host": "172.30.232.42"
+  },
+  "server_configuration": {
+    "effective_oidc_config_revision": "SID_SERVER_CONFIRMATION_REQUIRED",
+    "credential_version": "SID_SERVER_CONFIRMATION_REQUIRED",
+    "gateway_policy": "SID_SERVER_CONFIRMATION_REQUIRED",
+    "nat_source": "SID_SERVER_CONFIRMATION_REQUIRED",
+    "postman_success_exact_time": "SID_SERVER_CONFIRMATION_REQUIRED",
+    "postman_node": "SID_SERVER_CONFIRMATION_REQUIRED",
+    "code_validation_result": "SID_SERVER_CONFIRMATION_REQUIRED",
+    "oidc_switch_date": "2026-10-13 (user/SID report)",
+    "postman_success_after_switch": "CONFIRMED_BY_USER_REPORT"
+  },
+  "documentation_review": {
+    "source_url": "https://ruijie.feishu.cn/wiki/OMhSwh3G1iApPBklVW6cLzC2nVb",
+    "document_revision": 20,
+    "embedded_tables_read": 12,
+    "basic_component_encoding": "NOT_SPECIFIED_IN_READ_CONTENT",
+    "supplier_basic_no_pkce_nonce_confirmation": "SEPARATE_SUPPLIER_CONFIRMATION"
+  }
+}

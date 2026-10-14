@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><title>KnowHub Token 401 后端诊断证据</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#eef2f6;color:#182337;font:18px/1.5 "Microsoft YaHei","Segoe UI",sans-serif;padding:38px}.sheet{max-width:1360px;margin:auto;background:white;border:1px solid #d8e0ea;border-radius:16px;overflow:hidden}.top{padding:27px 34px;background:#142b48;color:white}.tag{font-size:15px;color:#b8d4ef}h1{font-size:30px;margin:8px 0}.notice{padding:12px 34px;background:#fff0cb;color:#654500;font-weight:700}.content{padding:24px 34px}.url{font:20px/1.5 Consolas,monospace;background:#edf3fa;padding:14px;border-radius:8px;overflow-wrap:anywhere}.row{display:grid;grid-template-columns:250px 1fr;border-bottom:1px solid #e6ebf1;padding:10px 0;gap:20px}.label{color:#596a80}.value{overflow-wrap:anywhere}.mono{font-family:Consolas,"Microsoft YaHei",monospace}.fail{color:#ba2430;font-weight:bold;font-size:24px}.pass{color:#117047;font-weight:bold}.foot{margin-top:20px;padding:16px;background:#f4f6f9;font-size:15px;color:#52637a}.subtitle{font-weight:bold;margin:22px 0 8px;color:#213e60}
+</style>
+<div class="sheet"><div class="top"><div class="tag">KnowHub · SID OIDC · 真实业务请求</div><h1>Token HTTP 401：请求与响应证据</h1><div>来源：172.30.232.42 · db1b2cd05 · 当前历史记录，无新增认证</div></div>
+<div class="notice">KnowHub 后端 HTTP 诊断记录，并非浏览器 Network 抓包</div>
+<div class="notice">Historical SID evidence. Enhanced diagnostics deployed; synthetic validation PASS. No new real SID request.</div>
+<div class="content"><div class="url">POST https://sid.ruijie.com.cn/oidc/accessToken</div>
+<div class="row"><div class="label">北京时间 · 发送事件</div><div class="value mono">2026-10-14 17:09:00.746727197 +08:00</div></div>
+<div class="row"><div class="label">对应 UTC</div><div class="value mono">2026-10-14T09:09:00.746727197Z</div></div>
+<div class="row"><div class="label">Client ID / Host</div><div class="value mono">knowhub / sid.ruijie.com.cn</div></div>
+<div class="row"><div class="label">Content-Type / 认证</div><div class="value mono">application/x-www-form-urlencoded<br>client_secret_basic · Basic Header 存在 · 格式检查通过</div></div>
+<div class="row"><div class="label">表单字段名称</div><div class="value mono">grant_type, client_id, redirect_uri, code<br>client_secret、code_verifier 不在表单中</div></div>
+<div class="row"><div class="label">redirect_uri</div><div class="value mono">http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback<br>与配置一致性检查通过</div></div>
+<div class="row"><div class="label">Callback state</div><div class="value pass">PASS · 1 ms</div></div>
+<div class="row"><div class="label">Token 响应</div><div class="value fail">HTTP 401 · 212 ms</div></div>
+<div class="row"><div class="label">响应正文 / Content-Type</div><div class="value">0 字节 · EOF · 无截断/读取错误<br>Content-Type：未提供</div></div>
+<div class="row"><div class="label">WWW-Authenticate</div><div class="value">Basic challenge · realm 存在，原值未保存<br>无可解析 OAuth error 正文</div></div>
+<div class="row"><div class="label">Callback 至发送</div><div class="value">5320 ms；dispatch 为 5206 ms<br>记录为 Go WroteRequest 发送事件，不冒充抓包时间</div></div>
+<div class="row"><div class="label">关联信息</div><div class="value mono">KnowHub trace: d69e9f7f-e165-4b56-b67b-ed2875cf2677<br>SID X-Request-ID / X-Correlation-ID / Traceparent：均未出现</div></div>
+<div class="row"><div class="label">无法从记录确定</div><div class="value">Server / Via / 实际 HTTP、TLS 版本：未记录<br>SID 看到的 NAT 来源、拒绝组件和拒绝原因：UNKNOWN</div></div>
+<div class="foot">本图由既有脱敏诊断 JSON 排版生成，不是网络原始报文截图。Basic 格式检查通过不代表注册凭据校验通过。图中不包含 Secret、授权码、Authorization 原值、Token、Cookie 或员工资料。此 trace 只有一条 Token 事件，不证明授权码未被其他方消费。</div>
+</div></div></html>
