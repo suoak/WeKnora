@@ -1,0 +1,158 @@
+{
+  "transactions": [
+    {
+      "trace": "b7c7216a-4c51-4092-b11b-042f3e80e35b",
+      "sent_utc": "2026-10-14T12:01:16.712545625Z",
+      "sent_beijing": "2026-10-14T20:01:16.712545625+08:00",
+      "status": 401,
+      "duration_ms": 195,
+      "callback_to_dispatch_ms": 196,
+      "callback_to_sent_ms": 286,
+      "bytes_read": 0,
+      "www": [
+        "basic"
+      ],
+      "remote": "39.107.195.76:443",
+      "tls": "TLS1.3",
+      "http": "HTTP/1.1",
+      "server_class": "nginx",
+      "writes": 1,
+      "retry": false
+    },
+    {
+      "trace": "e1d20ff6-1945-4cd4-aa5d-0e0d2220e973",
+      "sent_utc": "2026-10-14T12:01:31.766526364Z",
+      "sent_beijing": "2026-10-14T20:01:31.766526364+08:00",
+      "status": 401,
+      "duration_ms": 451,
+      "callback_to_dispatch_ms": 5598,
+      "callback_to_sent_ms": 5711,
+      "bytes_read": 0,
+      "www": [
+        "basic"
+      ],
+      "remote": "39.107.195.76:443",
+      "tls": "TLS1.3",
+      "http": "HTTP/1.1",
+      "server_class": "nginx",
+      "writes": 1,
+      "retry": false
+    },
+    {
+      "trace": "70c51379-94d1-4da2-b039-c1ba19fb476e",
+      "sent_utc": "2026-10-14T12:03:32.058449037Z",
+      "sent_beijing": "2026-10-14T20:03:32.058449037+08:00",
+      "status": 401,
+      "duration_ms": 189,
+      "callback_to_dispatch_ms": 191,
+      "callback_to_sent_ms": 281,
+      "bytes_read": 0,
+      "www": [
+        "basic"
+      ],
+      "remote": "39.107.195.76:443",
+      "tls": "TLS1.3",
+      "http": "HTTP/1.1",
+      "server_class": "nginx",
+      "writes": 1,
+      "retry": false
+    },
+    {
+      "trace": "5758d1eb-7924-431b-a9ba-cf95d64412ca",
+      "sent_utc": "2026-10-14T12:03:47.24393253Z",
+      "sent_beijing": "2026-10-14T20:03:47.24393253+08:00",
+      "status": 401,
+      "duration_ms": 187,
+      "callback_to_dispatch_ms": 193,
+      "callback_to_sent_ms": 284,
+      "bytes_read": 0,
+      "www": [
+        "basic"
+      ],
+      "remote": "39.107.195.76:443",
+      "tls": "TLS1.3",
+      "http": "HTTP/1.1",
+      "server_class": "nginx",
+      "writes": 1,
+      "retry": false
+    },
+    {
+      "trace": "17d34461-5faa-44f2-a46f-08a058c6a522",
+      "sent_utc": "2026-10-14T12:03:59.596366315Z",
+      "sent_beijing": "2026-10-14T20:03:59.596366315+08:00",
+      "status": 401,
+      "duration_ms": 176,
+      "callback_to_dispatch_ms": 253,
+      "callback_to_sent_ms": 342,
+      "bytes_read": 0,
+      "www": [
+        "basic"
+      ],
+      "remote": "39.107.195.76:443",
+      "tls": "TLS1.3",
+      "http": "HTTP/1.1",
+      "server_class": "nginx",
+      "writes": 1,
+      "retry": false
+    },
+    {
+      "trace": "c201830b-c8fc-4589-8681-a8bc8a9e3d33",
+      "sent_utc": "2026-10-14T12:04:03.075821954Z",
+      "sent_beijing": "2026-10-14T20:04:03.075821954+08:00",
+      "status": 401,
+      "duration_ms": 223,
+      "callback_to_dispatch_ms": 222,
+      "callback_to_sent_ms": 329,
+      "bytes_read": 0,
+      "www": [
+        "basic"
+      ],
+      "remote": "39.107.195.76:443",
+      "tls": "TLS1.3",
+      "http": "HTTP/1.1",
+      "server_class": "nginx",
+      "writes": 1,
+      "retry": false
+    },
+    {
+      "trace": "35227770-e981-4e33-a43c-66bae349cebf",
+      "sent_utc": "2026-10-14T12:04:09.231360905Z",
+      "sent_beijing": "2026-10-14T20:04:09.231360905+08:00",
+      "status": 401,
+      "duration_ms": 173,
+      "callback_to_dispatch_ms": 187,
+      "callback_to_sent_ms": 277,
+      "bytes_read": 0,
+      "www": [
+        "basic"
+      ],
+      "remote": "39.107.195.76:443",
+      "tls": "TLS1.3",
+      "http": "HTTP/1.1",
+      "server_class": "nginx",
+      "writes": 1,
+      "retry": false
+    },
+    {
+      "trace": "2196147b-8d94-4ad1-aa1f-d69493da1331",
+      "sent_utc": "2026-10-14T12:04:14.419494239Z",
+      "sent_beijing": "2026-10-14T20:04:14.419494239+08:00",
+      "status": 401,
+      "duration_ms": 194,
+      "callback_to_dispatch_ms": 189,
+      "callback_to_sent_ms": 294,
+      "bytes_read": 0,
+      "www": [
+        "basic"
+      ],
+      "remote": "39.107.195.76:443",
+      "tls": "TLS1.3",
+      "http": "HTTP/1.1",
+      "server_class": "nginx",
+      "writes": 1,
+      "retry": false
+    }
+  ],
+  "verified_schema_count": 0,
+  "real_request_triggered_by_agent": false
+}
