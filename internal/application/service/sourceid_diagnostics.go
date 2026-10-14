@@ -21,6 +21,8 @@ type sourceIDDiagnosticKey struct{}
 // Token diagnostics are bounded per process independently of Docker rotation.
 // Exhaustion changes observability only, never authentication or HTTP behavior.
 var sourceIDTokenDiagnosticBytes atomic.Uint64
+var sourceIDDiagnosticWindowStarted atomic.Int64
+var sourceIDDiagnosticLimitNotified atomic.Bool
 
 const sourceIDTokenDiagnosticBudget = 10 * 1024 * 1024
 
@@ -28,9 +30,20 @@ func sourceIDEmitTokenDiagnostic(ctx context.Context, data []byte) {
 	if len(data) > 32768 {
 		return
 	}
+	now := time.Now().Unix()
+	sourceIDDiagnosticWindowStarted.CompareAndSwap(0, now)
+	if now-sourceIDDiagnosticWindowStarted.Load() > 30*60 {
+		if sourceIDDiagnosticLimitNotified.CompareAndSwap(false, true) {
+			logger.Warn(ctx, `{"event":"sourceid_diagnostics_limit","reason":"window_expired"}`)
+		}
+		return
+	}
 	for {
 		used := sourceIDTokenDiagnosticBytes.Load()
 		if used+uint64(len(data)) > sourceIDTokenDiagnosticBudget {
+			if sourceIDDiagnosticLimitNotified.CompareAndSwap(false, true) {
+				logger.Warn(ctx, `{"event":"sourceid_diagnostics_limit","reason":"byte_budget"}`)
+			}
 			return
 		}
 		if sourceIDTokenDiagnosticBytes.CompareAndSwap(used, used+uint64(len(data))) {

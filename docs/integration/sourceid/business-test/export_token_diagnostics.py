@@ -17,13 +17,22 @@ rules = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(rules)
 
 
-def extract(line):
+def extract(line, depth=0):
     if len(line) > 65536:
         return None
     # Accept direct structured events and the existing logger's plain prefix.
     # No arbitrary error text is ever copied into the exported object.
     start = line.find('{"event"')
     if start < 0:
+        if depth == 0:
+            try:
+                wrapper = json.loads(line)
+                if isinstance(wrapper, dict):
+                    for key in ('message', 'msg', 'content'):
+                        if isinstance(wrapper.get(key), str):
+                            return extract(wrapper[key], depth=1)
+            except (TypeError, ValueError):
+                pass
         return None
     try:
         item = json.JSONDecoder().raw_decode(line[start:])[0]

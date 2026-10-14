@@ -20,6 +20,7 @@ transport = fixtures.transport
 event = {'event': 'sourceid_token_send', 'trace': transport['trace'], 'transport': transport}
 assert exporter.extract(json.dumps(event)) == event
 assert exporter.extract('WARN log prefix '+json.dumps(event)+' trailing logger text') == event
+assert exporter.extract(json.dumps({'message':json.dumps(event)})) == event
 bad = copy.deepcopy(event)
 bad['raw_body'] = 'synthetic-secret'
 assert exporter.extract(json.dumps(bad)) is None
