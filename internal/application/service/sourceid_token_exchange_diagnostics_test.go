@@ -62,16 +62,19 @@ func TestSourceIDTokenExchangeDiagnosticsReadOnlyIntegration(t *testing.T) {
 				if strings.Contains(output.String(), private) {
 					t.Fatal("private value leaked through actual logger")
 				}
+			}
 			phases := map[string]int{}
 			decoder := json.NewDecoder(&output)
 			for decoder.More() {
-				var wrapper struct{ Message string `json:"msg"` }
+				var wrapper struct {
+					Message string `json:"msg"`
+				}
 				if err := decoder.Decode(&wrapper); err != nil {
 					t.Fatal("invalid logger JSON")
 				}
 				var event struct {
-					Event string `json:"event"`
-					HTTP []OIDCProbeHTTPResult `json:"http"`
+					Event string                `json:"event"`
+					HTTP  []OIDCProbeHTTPResult `json:"http"`
 				}
 				if err := json.Unmarshal([]byte(wrapper.Message), &event); err != nil {
 					t.Fatal("invalid diagnostic event JSON")
