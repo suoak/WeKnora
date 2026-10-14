@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/logger"
@@ -16,6 +17,28 @@ type sourceIDDiagnosticContext struct {
 	StatePassed bool
 }
 type sourceIDDiagnosticKey struct{}
+
+// Token diagnostics are bounded per process independently of Docker rotation.
+// Exhaustion changes observability only, never authentication or HTTP behavior.
+var sourceIDTokenDiagnosticBytes atomic.Uint64
+
+const sourceIDTokenDiagnosticBudget = 10 * 1024 * 1024
+
+func sourceIDEmitTokenDiagnostic(ctx context.Context, data []byte) {
+	if len(data) > 32768 {
+		return
+	}
+	for {
+		used := sourceIDTokenDiagnosticBytes.Load()
+		if used+uint64(len(data)) > sourceIDTokenDiagnosticBudget {
+			return
+		}
+		if sourceIDTokenDiagnosticBytes.CompareAndSwap(used, used+uint64(len(data))) {
+			logger.Warn(ctx, string(data))
+			return
+		}
+	}
+}
 
 // NewSourceIDDiagnosticContext uses a fresh server-owned identifier. It never
 // imports state, code, subject, request headers or a browser supplied trace ID.
@@ -47,7 +70,7 @@ func sourceIDTokenDiagnosticPhase(ctx context.Context, event string, request *OI
 		Transport *sourceIDTokenTelemetry   `json:"transport"`
 	}{event, transport.Trace, request, transport})
 	if err == nil && len(data) <= 32768 {
-		logger.Warn(ctx, string(data))
+		sourceIDEmitTokenDiagnostic(ctx, data)
 	}
 }
 
@@ -62,9 +85,9 @@ func sourceIDHTTPDiagnostics(ctx context.Context, report *OIDCProbeReport) {
 		HTTP  []OIDCProbeHTTPResult `json:"http"`
 	}{"sourceid_token_http", entry.ID, report.HTTP})
 	if len(data) <= 32768 {
-		logger.Warn(ctx, string(data))
+		sourceIDEmitTokenDiagnostic(ctx, data)
 	} else {
-		logger.Warn(ctx, `{"event":"sourceid_token_http","diagnostic_suppressed":"size_limit"}`)
+		sourceIDEmitTokenDiagnostic(ctx, []byte(`{"event":"sourceid_token_http","diagnostic_suppressed":"size_limit"}`))
 	}
 }
 
@@ -113,7 +136,7 @@ func sourceIDSchemaDiagnostic(ctx context.Context, stage string, claims map[stri
 		Stage  string                 `json:"stage"`
 		Schema map[string]interface{} `json:"schema"`
 	}{"sourceid_verified_schema", entry.ID, stage, probeSchema(claims, 0, &budget)})
-	logger.Warn(ctx, string(data))
+	sourceIDEmitTokenDiagnostic(ctx, data)
 }
 
 func SourceIDDiagnosticStage(ctx context.Context, stage string, start time.Time, err error) {
@@ -147,5 +170,5 @@ func SourceIDDiagnosticStage(ctx context.Context, stage string, start time.Time,
 		Duration int64  `json:"duration_ms"`
 		Category string `json:"category"`
 	}{"sourceid_stage", entry.ID, stage, err == nil, time.Since(start).Milliseconds(), category})
-	logger.Warn(ctx, string(data))
+	sourceIDEmitTokenDiagnostic(ctx, data)
 }

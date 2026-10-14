@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/config"
@@ -15,9 +16,9 @@ func TestSourceIDTokenExchangeDiagnosticsReadOnlyIntegration(t *testing.T) {
 	t.Setenv("SSRF_WHITELIST", "127.0.0.1")
 	for _, enabled := range []bool{false, true} {
 		t.Run(map[bool]string{false: "disabled", true: "enabled"}[enabled], func(t *testing.T) {
-			calls := 0
+			var calls atomic.Int64
 			server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				calls++
+				calls.Add(1)
 				if err := r.ParseForm(); err != nil {
 					t.Error("invalid form")
 				}
@@ -36,7 +37,7 @@ func TestSourceIDTokenExchangeDiagnosticsReadOnlyIntegration(t *testing.T) {
 			cfg := &config.OIDCAuthConfig{Enable: true, SourceIDEnable: true, SourceIDDiagnosticsEnable: enabled, SourceIDProtocolOnly: true, ClientID: "knowhub", ClientSecret: "Synthetic+/=:% secret", ClientAuthMethod: "client_secret_basic", TokenEndpoint: server.URL, PKCEEnable: false}
 			ctx := SourceIDDiagnosticStatePassed(NewSourceIDDiagnosticContext(context.Background(), enabled))
 			result, err := s.exchangeOIDCCode(ctx, cfg, "SyntheticOnlyCode", "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback")
-			if result != nil || err == nil || !strings.Contains(err.Error(), "status=401") || calls != 1 {
+			if result != nil || err == nil || !strings.Contains(err.Error(), "status=401") || calls.Load() != 1 {
 				t.Fatal("enable/disable changed rejection or request count")
 			}
 		})

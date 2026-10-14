@@ -131,6 +131,7 @@ def transport(x):
         'scheme': {'http', 'https', 'other'},
         'accept_class': {'application/json', 'other'},
         'user_agent_class': {'transport_default_not_observed', 'Go-http-client/1.1', 'other'},
+        'written_user_agent_class': {'NOT_CAPTURED', 'Go-http-client/1.1', 'other'},
         'basic_strategy': {'not_basic', 'oauth_form_escape_then_set_basic_auth_base64_once'},
         'state_validation': {'PASS', 'NOT_CAPTURED'},
         'nonce_validation_at_token_dispatch': {'NOT_YET_EXECUTED'},
@@ -146,7 +147,7 @@ def transport(x):
         'outcome': {'', 'UNKNOWN', 'network_or_tls_error', 'empty_401_basic_challenge', 'standard_oauth_error', 'html_response_origin_unknown', 'invalid_token_response_structure', 'missing_token_fields', 'token_fields_present_verification_pending', 'http_error_origin_unknown'},
     }
     bools = {'user_agent_header_present', 'client_secret_loaded', 'oauth_form_encoding_executed', 'set_basic_auth_used', 'duplicate_authorization', 'duplicate_body_fields', 'pkce_disabled', 'connection_reused', 'retry_observed', 'redirect_response', 'proxy_authenticate_present'}
-    ints = {'authorization_header_value_count', 'body_value_count', 'events_dropped', 'observed_write_attempts', 'observed_completed_writes'}
+    ints = {'authorization_header_value_count', 'authorization_values_written', 'body_value_count', 'events_dropped', 'observed_write_attempts', 'observed_completed_writes'}
     other = {'trace', 'utc', 'beijing', 'remote_address', 'response_date_utc', 'known_body_field_counts', 'network_events'}
     try:
         if not isinstance(x, dict) or set(x) != set(enums) | bools | ints | other:

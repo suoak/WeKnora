@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 )
 
@@ -27,9 +28,9 @@ func TestSourceIDTokenTelemetryPreservesRequestAndPrivacy(t *testing.T) {
 		{"malformed_success", `{SYNTHETIC_PRIVATE_SECRET`, "application/json", 200},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			calls := 0
+			var calls atomic.Int64
 			server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				calls++
+				calls.Add(1)
 				if r.Method != "POST" {
 					t.Error("method changed")
 				}
@@ -62,8 +63,8 @@ func TestSourceIDTokenTelemetryPreservesRequestAndPrivacy(t *testing.T) {
 			originalAuth := req.Header.Get("Authorization")
 			// Existing caller hooks must still run once; observation composes
 			// httptrace instead of replacing it.
-			callerWrites := 0
-			req = req.WithContext(httptrace.WithClientTrace(req.Context(), &httptrace.ClientTrace{WroteRequest: func(httptrace.WroteRequestInfo) { callerWrites++ }}))
+			var callerWrites atomic.Int64
+			req = req.WithContext(httptrace.WithClientTrace(req.Context(), &httptrace.ClientTrace{WroteRequest: func(httptrace.WroteRequestInfo) { callerWrites.Add(1) }}))
 			req, telemetry := observeSourceIDTokenRequest(req, "synthetic-trace", true, false, true, true)
 			report := &OIDCProbeReport{}
 			client.Transport = &probeDiagnosticTransport{base: client.Transport, report: report, endpoints: map[string]string{"token": server.URL, "callback": form.Get("redirect_uri")}, clientID: "knowhub", diagnostics: true}
@@ -78,7 +79,7 @@ func TestSourceIDTokenTelemetryPreservesRequestAndPrivacy(t *testing.T) {
 			}
 			resp.Body.Close()
 			telemetry.complete()
-			if string(body) != tc.body || resp.StatusCode != tc.status || calls != 1 || callerWrites != 1 || req.Header.Get("Authorization") != originalAuth {
+			if string(body) != tc.body || resp.StatusCode != tc.status || calls.Load() != 1 || callerWrites.Load() != 1 || req.Header.Get("Authorization") != originalAuth {
 				t.Fatal("diagnostics changed response/request count")
 			}
 			if telemetry.SuccessfulWrites != 1 || telemetry.Retry || telemetry.Remote == "NOT_CAPTURED" || telemetry.TLS == "NOT_CAPTURED" {

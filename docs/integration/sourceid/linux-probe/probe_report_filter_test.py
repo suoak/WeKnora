@@ -10,6 +10,7 @@ x=copy.deepcopy(report);x['http'][0]['diagnostics']['response']['vendor_error_co
 print(json.dumps({'report_filter':'PASS','unknown_raw_fields_rejected':True,'unapproved_vendor_codes_rejected':True,'nanosecond_timestamp':'PASS','real_secret_read':False}))
 
 transport = {
+ 'written_user_agent_class':'Go-http-client/1.1','authorization_values_written':1,
  'trace':'12345678-1234-1234-1234-123456789abc', 'utc':'2026-10-14T09:09:00Z', 'beijing':'2026-10-14T17:09:00+08:00',
  'scheme':'https','accept_class':'application/json','user_agent_header_present':False,'user_agent_class':'transport_default_not_observed',
  'basic_strategy':'oauth_form_escape_then_set_basic_auth_base64_once','client_secret_loaded':True,'oauth_form_encoding_executed':True,'set_basic_auth_used':True,

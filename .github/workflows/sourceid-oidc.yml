@@ -58,6 +58,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 docs/integration/sourceid/linux-probe/probe_report_filter_test.py | tee sourceid-results/diagnostic-filter.json
+          python3 docs/integration/sourceid/business-test/export_token_diagnostics_test.py | tee sourceid-results/diagnostic-exporter.json
       - name: Authentication and MCP regression
         shell: bash
         run: |

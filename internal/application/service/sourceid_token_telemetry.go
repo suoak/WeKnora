@@ -25,47 +25,49 @@ type sourceIDNetworkEvent struct {
 }
 
 type sourceIDTokenTelemetry struct {
-	mu                     sync.Mutex
-	phaseStarts            map[string][]time.Time
-	Trace                  string                 `json:"trace"`
-	UTC                    string                 `json:"utc"`
-	Beijing                string                 `json:"beijing"`
-	Scheme                 string                 `json:"scheme"`
-	Accept                 string                 `json:"accept_class"`
-	UserAgentPresent       bool                   `json:"user_agent_header_present"`
-	UserAgentClass         string                 `json:"user_agent_class"`
-	BasicStrategy          string                 `json:"basic_strategy"`
-	SecretLoaded           bool                   `json:"client_secret_loaded"`
-	FormEncoding           bool                   `json:"oauth_form_encoding_executed"`
-	SetBasicAuth           bool                   `json:"set_basic_auth_used"`
-	AuthorizationCount     int                    `json:"authorization_header_value_count"`
-	DuplicateAuthorization bool                   `json:"duplicate_authorization"`
-	BodyValueCount         int                    `json:"body_value_count"`
-	KnownBodyCounts        map[string]int         `json:"known_body_field_counts"`
-	DuplicateBodyFields    bool                   `json:"duplicate_body_fields"`
-	PKCEDisabled           bool                   `json:"pkce_disabled"`
-	State                  string                 `json:"state_validation"`
-	Nonce                  string                 `json:"nonce_validation_at_token_dispatch"`
-	Proxy                  string                 `json:"proxy_policy"`
-	Remote                 string                 `json:"remote_address"`
-	TLS                    string                 `json:"tls_version"`
-	ALPN                   string                 `json:"negotiated_protocol"`
-	HTTP                   string                 `json:"response_http_version"`
-	Reused                 bool                   `json:"connection_reused"`
-	Events                 []sourceIDNetworkEvent `json:"network_events"`
-	Dropped                int                    `json:"events_dropped"`
-	WriteAttempts          int                    `json:"observed_write_attempts"`
-	SuccessfulWrites       int                    `json:"observed_completed_writes"`
-	Retry                  bool                   `json:"retry_observed"`
-	Redirect               bool                   `json:"redirect_response"`
-	Date                   string                 `json:"response_date_utc"`
-	Server                 string                 `json:"server_class"`
-	Via                    string                 `json:"via_class"`
-	Realm                  string                 `json:"www_realm_class"`
-	ProxyChallenge         bool                   `json:"proxy_authenticate_present"`
-	Failure                string                 `json:"network_failure_class"`
-	RejectingLayer         string                 `json:"rejecting_layer"`
-	Outcome                string                 `json:"outcome"`
+	mu                         sync.Mutex
+	phaseStarts                map[string][]time.Time
+	Trace                      string                 `json:"trace"`
+	UTC                        string                 `json:"utc"`
+	Beijing                    string                 `json:"beijing"`
+	Scheme                     string                 `json:"scheme"`
+	Accept                     string                 `json:"accept_class"`
+	UserAgentPresent           bool                   `json:"user_agent_header_present"`
+	UserAgentClass             string                 `json:"user_agent_class"`
+	WrittenUserAgent           string                 `json:"written_user_agent_class"`
+	AuthorizationValuesWritten int                    `json:"authorization_values_written"`
+	BasicStrategy              string                 `json:"basic_strategy"`
+	SecretLoaded               bool                   `json:"client_secret_loaded"`
+	FormEncoding               bool                   `json:"oauth_form_encoding_executed"`
+	SetBasicAuth               bool                   `json:"set_basic_auth_used"`
+	AuthorizationCount         int                    `json:"authorization_header_value_count"`
+	DuplicateAuthorization     bool                   `json:"duplicate_authorization"`
+	BodyValueCount             int                    `json:"body_value_count"`
+	KnownBodyCounts            map[string]int         `json:"known_body_field_counts"`
+	DuplicateBodyFields        bool                   `json:"duplicate_body_fields"`
+	PKCEDisabled               bool                   `json:"pkce_disabled"`
+	State                      string                 `json:"state_validation"`
+	Nonce                      string                 `json:"nonce_validation_at_token_dispatch"`
+	Proxy                      string                 `json:"proxy_policy"`
+	Remote                     string                 `json:"remote_address"`
+	TLS                        string                 `json:"tls_version"`
+	ALPN                       string                 `json:"negotiated_protocol"`
+	HTTP                       string                 `json:"response_http_version"`
+	Reused                     bool                   `json:"connection_reused"`
+	Events                     []sourceIDNetworkEvent `json:"network_events"`
+	Dropped                    int                    `json:"events_dropped"`
+	WriteAttempts              int                    `json:"observed_write_attempts"`
+	SuccessfulWrites           int                    `json:"observed_completed_writes"`
+	Retry                      bool                   `json:"retry_observed"`
+	Redirect                   bool                   `json:"redirect_response"`
+	Date                       string                 `json:"response_date_utc"`
+	Server                     string                 `json:"server_class"`
+	Via                        string                 `json:"via_class"`
+	Realm                      string                 `json:"www_realm_class"`
+	ProxyChallenge             bool                   `json:"proxy_authenticate_present"`
+	Failure                    string                 `json:"network_failure_class"`
+	RejectingLayer             string                 `json:"rejecting_layer"`
+	Outcome                    string                 `json:"outcome"`
 }
 
 func (d *sourceIDTokenTelemetry) MarshalJSON() ([]byte, error) {
@@ -123,6 +125,8 @@ func (d *sourceIDTokenTelemetry) event(kind, result string, addresses ...string)
 func observeSourceIDTokenRequest(req *http.Request, trace string, secretLoaded, pkce, statePassed bool, basic bool) (*http.Request, *sourceIDTokenTelemetry) {
 	u, b := telemetryTimes()
 	d := &sourceIDTokenTelemetry{Trace: trace, UTC: u, Beijing: b, Scheme: "other", Accept: "other", UserAgentClass: "transport_default_not_observed", BasicStrategy: "not_basic", SecretLoaded: secretLoaded, PKCEDisabled: !pkce, State: "NOT_CAPTURED", Nonce: "NOT_YET_EXECUTED", Proxy: "no_proxy_in_configured_transport", Remote: "NOT_CAPTURED", TLS: "NOT_CAPTURED", ALPN: "NOT_CAPTURED", HTTP: "NOT_CAPTURED", Date: "NOT_CAPTURED", Server: "absent", Via: "absent", Realm: "absent", Failure: "none", RejectingLayer: "UNKNOWN", KnownBodyCounts: map[string]int{}}
+	d.Events = []sourceIDNetworkEvent{}
+	d.WrittenUserAgent = "NOT_CAPTURED"
 	if req.URL.Scheme == "https" || req.URL.Scheme == "http" {
 		d.Scheme = req.URL.Scheme
 	}
@@ -184,6 +188,19 @@ func observeSourceIDTokenRequest(req *http.Request, trace string, secretLoaded, 
 		}
 	}
 	traceHooks := &httptrace.ClientTrace{
+		WroteHeaderField: func(key string, values []string) {
+			d.mu.Lock()
+			defer d.mu.Unlock()
+			if strings.EqualFold(key, "Authorization") {
+				d.AuthorizationValuesWritten += len(values)
+			}
+			if strings.EqualFold(key, "User-Agent") {
+				d.WrittenUserAgent = "other"
+				if len(values) == 1 && values[0] == "Go-http-client/1.1" {
+					d.WrittenUserAgent = "Go-http-client/1.1"
+				}
+			}
+		},
 		DNSStart: func(httptrace.DNSStartInfo) { d.event("dns_start", "started") },
 		DNSDone: func(info httptrace.DNSDoneInfo) {
 			addresses := []string{}
