@@ -462,8 +462,8 @@ func (h *AuthHandler) OIDCRedirectCallback(c *gin.Context) {
 		return
 	}
 
-	if service, ok := h.userService.(sourceIDAuthService); ok {
-		ctx, err = service.PrepareOIDCCallback(ctx, state)
+	if authService, ok := h.userService.(sourceIDAuthService); ok {
+		ctx, err = authService.PrepareOIDCCallback(ctx, state)
 		if err != nil {
 			service.SourceIDDiagnosticStage(ctx, "callback_state", stageStarted, err)
 			c.Redirect(http.StatusFound, "/#oidc_error=invalid_state")
