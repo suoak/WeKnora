@@ -11,8 +11,9 @@ import (
 )
 
 type sourceIDDiagnosticContext struct {
-	ID      string
-	Started time.Time
+	ID          string
+	Started     time.Time
+	StatePassed bool
 }
 type sourceIDDiagnosticKey struct{}
 
@@ -25,6 +26,31 @@ func NewSourceIDDiagnosticContext(ctx context.Context, enabled bool) context.Con
 	return context.WithValue(ctx, sourceIDDiagnosticKey{}, sourceIDDiagnosticContext{ID: uuid.NewString(), Started: time.Now()})
 }
 
+// Called only after the handler's state and durable transaction checks pass.
+func SourceIDDiagnosticStatePassed(ctx context.Context) context.Context {
+	entry, ok := ctx.Value(sourceIDDiagnosticKey{}).(sourceIDDiagnosticContext)
+	if !ok {
+		return ctx
+	}
+	entry.StatePassed = true
+	return context.WithValue(ctx, sourceIDDiagnosticKey{}, entry)
+}
+
+func sourceIDTokenDiagnosticPhase(ctx context.Context, event string, request *OIDCProbeHTTPDiagnostics, transport *sourceIDTokenTelemetry) {
+	if event != "sourceid_token_request" && event != "sourceid_token_send" {
+		return
+	}
+	data, err := json.Marshal(struct {
+		Event     string                    `json:"event"`
+		Trace     string                    `json:"trace"`
+		Request   *OIDCProbeHTTPDiagnostics `json:"diagnostics,omitempty"`
+		Transport *sourceIDTokenTelemetry   `json:"transport"`
+	}{event, transport.Trace, request, transport})
+	if err == nil && len(data) <= 32768 {
+		logger.Warn(ctx, string(data))
+	}
+}
+
 func sourceIDHTTPDiagnostics(ctx context.Context, report *OIDCProbeReport) {
 	entry, ok := ctx.Value(sourceIDDiagnosticKey{}).(sourceIDDiagnosticContext)
 	if !ok {
@@ -35,7 +61,44 @@ func sourceIDHTTPDiagnostics(ctx context.Context, report *OIDCProbeReport) {
 		Trace string                `json:"trace"`
 		HTTP  []OIDCProbeHTTPResult `json:"http"`
 	}{"sourceid_token_http", entry.ID, report.HTTP})
-	logger.Warn(ctx, string(data))
+	if len(data) <= 32768 {
+		logger.Warn(ctx, string(data))
+	} else {
+		logger.Warn(ctx, `{"event":"sourceid_token_http","diagnostic_suppressed":"size_limit"}`)
+	}
+}
+
+func sourceIDTokenOutcome(row OIDCProbeHTTPResult) string {
+	if row.Status == 0 {
+		return "network_or_tls_error"
+	}
+	if row.Diagnostics == nil || row.Diagnostics.Response == nil {
+		return "UNKNOWN"
+	}
+	r := row.Diagnostics.Response
+	if row.Status == 401 && r.BodyKind == "empty" && r.WWWPresent {
+		for _, s := range r.WWWSchemes {
+			if s == "basic" {
+				return "empty_401_basic_challenge"
+			}
+		}
+	}
+	if r.OAuthError != "" {
+		return "standard_oauth_error"
+	}
+	if r.BodyKind == "html" {
+		return "html_response_origin_unknown"
+	}
+	if row.Status == 200 {
+		if r.BodyKind != "json_object" {
+			return "invalid_token_response_structure"
+		}
+		if r.ErrorFields["access_token"] != "string" && r.ErrorFields["id_token"] != "string" {
+			return "missing_token_fields"
+		}
+		return "token_fields_present_verification_pending"
+	}
+	return "http_error_origin_unknown"
 }
 
 func sourceIDSchemaDiagnostic(ctx context.Context, stage string, claims map[string]interface{}) {

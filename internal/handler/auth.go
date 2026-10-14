@@ -471,6 +471,7 @@ func (h *AuthHandler) OIDCRedirectCallback(c *gin.Context) {
 		}
 	}
 	service.SourceIDDiagnosticStage(ctx, "callback_state", stageStarted, nil)
+	ctx = service.SourceIDDiagnosticStatePassed(ctx)
 	resp, err := h.userService.LoginWithOIDC(ctx, code, strings.TrimSpace(decodedState.RedirectURI), h.resolveDefaultTenantMode(ctx))
 	if err != nil {
 		logger.Warn(ctx, "OIDC login rejected")

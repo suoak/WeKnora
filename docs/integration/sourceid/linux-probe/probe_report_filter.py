@@ -5,6 +5,7 @@ login entrypoint. Custom public codes need explicit operator approval.
 """
 import datetime
 import re
+import ipaddress
 
 ENDPOINTS = {
     'issuer': 'https://sid.ruijie.com.cn',
@@ -101,7 +102,7 @@ def safe(x, public_codes=()):
         if not isinstance(rows, list) or len(rows) > 8:
             return False
         for row in rows:
-            if not isinstance(row, dict) or set(row) - {'stage', 'status', 'duration_ms', 'failure', 'oauth_error', 'client_auth', 'authorization_header_present', 'callback_to_token_dispatch_ms', 'callback_to_token_sent_ms', 'diagnostics'}:
+            if not isinstance(row, dict) or set(row) - {'stage', 'status', 'duration_ms', 'failure', 'oauth_error', 'client_auth', 'authorization_header_present', 'callback_to_token_dispatch_ms', 'callback_to_token_sent_ms', 'diagnostics', 'transport'}:
                 return False
             if row.get('stage') not in {'token', 'jwks', 'userinfo', 'unknown'} or not integer(row.get('status'), 0, 599) or (row['status'] != 0 and row['status'] < 100) or not integer(row.get('duration_ms')):
                 return False
@@ -117,6 +118,70 @@ def safe(x, public_codes=()):
                 return False
             if 'diagnostics' in row and (row['stage'] != 'token' or not diagnostics(row['diagnostics'], public_codes)):
                 return False
+            if 'transport' in row and (row['stage'] != 'token' or not transport(row['transport'])):
+                return False
         return all(schema(x[k]) for k in ['claims', 'userinfo_schema'] if k in x)
+    except (TypeError, ValueError, KeyError, AttributeError):
+        return False
+
+
+def transport(x):
+    """Closed schema for business httptrace telemetry; no raw header text."""
+    enums = {
+        'scheme': {'http', 'https', 'other'},
+        'accept_class': {'application/json', 'other'},
+        'user_agent_class': {'transport_default_not_observed', 'Go-http-client/1.1', 'other'},
+        'basic_strategy': {'not_basic', 'oauth_form_escape_then_set_basic_auth_base64_once'},
+        'state_validation': {'PASS', 'NOT_CAPTURED'},
+        'nonce_validation_at_token_dispatch': {'NOT_YET_EXECUTED'},
+        'proxy_policy': {'no_proxy_in_configured_transport'},
+        'tls_version': {'NOT_CAPTURED', 'TLS1.2', 'TLS1.3', 'other'},
+        'negotiated_protocol': {'NOT_CAPTURED', 'h2', 'http/1.1', 'absent', 'other'},
+        'response_http_version': {'NOT_CAPTURED', 'HTTP/1.1', 'HTTP/2.0', 'other'},
+        'server_class': {'absent', 'nginx', 'openresty', 'envoy', 'apache', 'microsoft-iis', 'other'},
+        'via_class': {'absent', 'present_value_withheld'},
+        'www_realm_class': {'absent', 'not_detected', 'present_value_withheld'},
+        'network_failure_class': {'none', 'tls_error', 'timeout', 'transport_error'},
+        'rejecting_layer': {'UNKNOWN'},
+        'outcome': {'', 'UNKNOWN', 'network_or_tls_error', 'empty_401_basic_challenge', 'standard_oauth_error', 'html_response_origin_unknown', 'invalid_token_response_structure', 'missing_token_fields', 'token_fields_present_verification_pending', 'http_error_origin_unknown'},
+    }
+    bools = {'user_agent_header_present', 'client_secret_loaded', 'oauth_form_encoding_executed', 'set_basic_auth_used', 'duplicate_authorization', 'duplicate_body_fields', 'pkce_disabled', 'connection_reused', 'retry_observed', 'redirect_response', 'proxy_authenticate_present'}
+    ints = {'authorization_header_value_count', 'body_value_count', 'events_dropped', 'observed_write_attempts', 'observed_completed_writes'}
+    other = {'trace', 'utc', 'beijing', 'remote_address', 'response_date_utc', 'known_body_field_counts', 'network_events'}
+    try:
+        if not isinstance(x, dict) or set(x) != set(enums) | bools | ints | other:
+            return False
+        if not re.fullmatch('[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}', x['trace']):
+            return False
+        if any(x[k] not in v for k, v in enums.items()) or not booleans({k: x[k] for k in bools}, bools) or any(not integer(x[k], hi=2**31-1) for k in ints):
+            return False
+        def beijing(v):
+            return isinstance(v, str) and bool(re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?\+08:00', v)) and timestamp(v[:-6]+'Z')
+        def address(v):
+            if v == 'NOT_CAPTURED':
+                return True
+            host, port = v.rsplit(':', 1)
+            ipaddress.ip_address(host.strip('[]'))
+            return port.isdigit() and 1 <= int(port) <= 65535
+        if not timestamp(x['utc']) or not beijing(x['beijing']) or not address(x['remote_address']) or (x['response_date_utc'] != 'NOT_CAPTURED' and not timestamp(x['response_date_utc'])):
+            return False
+        if not isinstance(x['known_body_field_counts'], dict) or set(x['known_body_field_counts']) - FORM or any(not integer(n, hi=65536) for n in x['known_body_field_counts'].values()):
+            return False
+        if not isinstance(x['network_events'], list) or len(x['network_events']) > 64:
+            return False
+        for e in x['network_events']:
+            if not isinstance(e, dict) or set(e) - {'kind', 'utc', 'beijing', 'result', 'addresses', 'duration_ms'} or e.get('kind') not in {'dns_start', 'dns_done', 'tcp_start', 'tcp_done', 'tls_start', 'tls_done', 'connection_acquired', 'headers_written', 'request_write_completed', 'first_response_byte', 'exchange_complete'} or not timestamp(e.get('utc')) or not beijing(e.get('beijing')) or e.get('result') not in {'ok', 'error', 'started', 'finished'}:
+                return False
+            if 'duration_ms' in e and not integer(e['duration_ms']):
+                return False
+            values = e.get('addresses', [])
+            if not isinstance(values, list) or len(values) > 8:
+                return False
+            for v in values:
+                if e['kind'] == 'dns_done':
+                    ipaddress.ip_address(v)
+                elif not address(v):
+                    return False
+        return True
     except (TypeError, ValueError, KeyError, AttributeError):
         return False

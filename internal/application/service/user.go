@@ -1818,15 +1818,30 @@ func (s *userService) exchangeOIDCCode(ctx context.Context, cfg *config.OIDCAuth
 	req.Header.Set("Accept", "application/json")
 
 	client := s.oidcProtocolHTTPClient()
+	var tokenTelemetry *sourceIDTokenTelemetry
 	if entry, ok := ctx.Value(sourceIDDiagnosticKey{}).(sourceIDDiagnosticContext); ok && cfg.SourceIDEnable && cfg.SourceIDDiagnosticsEnable {
+		req, tokenTelemetry = observeSourceIDTokenRequest(req, entry.ID, cfg.ClientSecret != "", cfg.PKCEEnable, entry.StatePassed, cfg.ClientAuthMethod == "client_secret_basic")
 		copyClient := *client
 		copyClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 		report := &OIDCProbeReport{}
-		copyClient.Transport = &probeDiagnosticTransport{base: client.Transport, endpoints: map[string]string{"token": cfg.TokenEndpoint, "callback": redirectURI}, report: report, callbackReceived: entry.Started, clientAuth: cfg.ClientAuthMethod, diagnostics: true, clientID: cfg.ClientID}
+		copyClient.Transport = &probeDiagnosticTransport{base: client.Transport, endpoints: map[string]string{"token": cfg.TokenEndpoint, "callback": redirectURI}, report: report, callbackReceived: entry.Started, clientAuth: cfg.ClientAuthMethod, diagnostics: true, clientID: cfg.ClientID, beforeSend: func(d *OIDCProbeHTTPDiagnostics) {
+			sourceIDTokenDiagnosticPhase(ctx, "sourceid_token_request", d, tokenTelemetry)
+		}}
 		client = &copyClient
-		defer sourceIDHTTPDiagnostics(ctx, report)
+		defer func() {
+			tokenTelemetry.complete()
+			for i := range report.HTTP {
+				tokenTelemetry.Outcome = sourceIDTokenOutcome(report.HTTP[i])
+				report.HTTP[i].Transport = tokenTelemetry
+			}
+			sourceIDHTTPDiagnostics(ctx, report)
+		}()
 	}
 	resp, err := client.Do(req)
+	if tokenTelemetry != nil {
+		tokenTelemetry.response(resp, err)
+		sourceIDTokenDiagnosticPhase(ctx, "sourceid_token_send", nil, tokenTelemetry)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to exchange OIDC code: %w", err)
 	}

@@ -66,6 +66,7 @@ type OIDCProbeHTTPResult struct {
 	CallbackToTokenDispatchMS  *int64                    `json:"callback_to_token_dispatch_ms,omitempty"`
 	CallbackToTokenSentMS      *int64                    `json:"callback_to_token_sent_ms,omitempty"`
 	Diagnostics                *OIDCProbeHTTPDiagnostics `json:"diagnostics,omitempty"`
+	Transport                  *sourceIDTokenTelemetry   `json:"transport,omitempty"`
 }
 
 type probeDiagnosticTransport struct {
@@ -77,6 +78,7 @@ type probeDiagnosticTransport struct {
 	diagnostics      bool
 	clientID         string
 	publicErrorCodes []string
+	beforeSend       func(*OIDCProbeHTTPDiagnostics)
 }
 
 func (t *probeDiagnosticTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -92,6 +94,9 @@ func (t *probeDiagnosticTransport) RoundTrip(req *http.Request) (*http.Response,
 	var privateValues []string
 	if stage == "token" && t.diagnostics {
 		details, privateValues = probeRequestDiagnostics(req, t.clientID, t.endpoints["callback"])
+		if t.beforeSend != nil {
+			t.beforeSend(details)
+		}
 	}
 	var dispatchMS, sentMS *int64
 	var sentUTC string
