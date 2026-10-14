@@ -1,0 +1,82 @@
+{
+  "synthetic_only": true,
+  "real_sid_requests": 0,
+  "cases": [
+    {
+      "case": "unreserved",
+      "oauth_equals_plain_basic": true,
+      "oauth_receiver_one_decode_restores": true,
+      "base64_only_receiver_restores_original": true,
+      "double_escape_differs": false
+    },
+    {
+      "case": "plus",
+      "oauth_equals_plain_basic": false,
+      "oauth_receiver_one_decode_restores": true,
+      "base64_only_receiver_restores_original": false,
+      "double_escape_differs": true
+    },
+    {
+      "case": "slash",
+      "oauth_equals_plain_basic": false,
+      "oauth_receiver_one_decode_restores": true,
+      "base64_only_receiver_restores_original": false,
+      "double_escape_differs": true
+    },
+    {
+      "case": "equals",
+      "oauth_equals_plain_basic": false,
+      "oauth_receiver_one_decode_restores": true,
+      "base64_only_receiver_restores_original": false,
+      "double_escape_differs": true
+    },
+    {
+      "case": "percent",
+      "oauth_equals_plain_basic": false,
+      "oauth_receiver_one_decode_restores": true,
+      "base64_only_receiver_restores_original": false,
+      "double_escape_differs": true
+    },
+    {
+      "case": "colon",
+      "oauth_equals_plain_basic": false,
+      "oauth_receiver_one_decode_restores": true,
+      "base64_only_receiver_restores_original": false,
+      "double_escape_differs": true
+    },
+    {
+      "case": "space",
+      "oauth_equals_plain_basic": false,
+      "oauth_receiver_one_decode_restores": true,
+      "base64_only_receiver_restores_original": false,
+      "double_escape_differs": true
+    },
+    {
+      "case": "non_ascii",
+      "oauth_equals_plain_basic": false,
+      "oauth_receiver_one_decode_restores": true,
+      "base64_only_receiver_restores_original": false,
+      "double_escape_differs": true
+    },
+    {
+      "case": "already_encoded_literal",
+      "oauth_equals_plain_basic": false,
+      "oauth_receiver_one_decode_restores": true,
+      "base64_only_receiver_restores_original": false,
+      "double_escape_differs": true
+    }
+  ],
+  "mock": {
+    "basic_received_intact": true,
+    "client_id_with_basic_present": true,
+    "client_secret_form_absent": true,
+    "code_verifier_absent": true,
+    "content_type_urlencoded": true,
+    "method_post": true,
+    "mock_response_bytes": 0,
+    "mock_status": 401,
+    "redirect_uri_exact": true
+  },
+  "postman_actual_configuration": "UNKNOWN",
+  "actual_credentials_used": false
+}
