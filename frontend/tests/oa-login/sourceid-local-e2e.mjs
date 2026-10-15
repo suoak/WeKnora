@@ -50,19 +50,24 @@ try {
     if (url.origin === browserOrigin) {
       const headers = await request.allHeaders()
       headers.host = '127.0.0.1:18195'
-      const response = await route.fetch({ url: frontend + url.pathname + url.search, headers, maxRedirects: 0 })
-      if (url.pathname.startsWith('/api/v1/auth/oidc/')) {
-        const location = response.headers().location || ''
-        const result = new URL(location || '/', browserOrigin).hash
-        const mark = result.startsWith('#oidc_error=') ? result.slice(1) : result.startsWith('#oidc_complete=') ? 'oidc_complete' : 'none'
-        console.log(`SOURCEID_SYNTHETIC_AUTH: ${url.pathname} ${response.status()} ${mark}`)
-      }
-      return route.fulfill({ response })
+      return route.continue({ url: frontend + url.pathname + url.search, headers })
     }
     if ([frontend, mock.origin].includes(url.origin)) return route.continue()
     return route.abort()
   })
   const page = await context.newPage()
+  page.on('response', async response => {
+    const url = new URL(response.url())
+    if (!url.pathname.startsWith('/api/v1/auth/oidc/')) return
+    const result = new URL(response.headers().location || '/', browserOrigin).hash
+    const mark = result.startsWith('#oidc_error=') ? result.slice(1) : result.startsWith('#oidc_complete=') ? 'oidc_complete' : 'none'
+    console.log(`SOURCEID_SYNTHETIC_AUTH: ${url.pathname} ${response.status()} ${mark}`)
+    if (url.pathname === '/api/v1/auth/oidc/url') {
+      const body = await response.json().catch(() => ({}))
+      console.log(`SOURCEID_SYNTHETIC_AUTH_URL: success=${body.success === true} present=${typeof body.authorization_url === 'string'}`)
+    }
+  })
+  page.on('pageerror', error => console.log(`SOURCEID_SYNTHETIC_PAGE_ERROR: ${error.name}`))
   console.log('SOURCEID_SYNTHETIC_STAGE: login_page')
   await page.goto(`${browserOrigin}/login`)
   await expect(page.locator('.oidc-button')).toBeVisible({ timeout: 90000 })
