@@ -74,7 +74,14 @@ func (r *userRepository) ResolveSourceIDEmailIdentity(ctx context.Context, issue
 		return nil, errors.New("sourceid enrollment lookup failed")
 	}
 	var existing int64
-	if db.Model(&types.ExternalIdentity{}).Where("provider = ? AND issuer = ? AND (employee_no = ? OR subject = ?)", "sourceid", issuer, employee, subject).Count(&existing).Error != nil || existing != 0 {
+	if db.Model(&types.ExternalIdentity{}).Where("provider = ? AND issuer = ? AND (employee_no = ? OR subject = ?)", "sourceid", issuer, employee, subject).Count(&existing).Error != nil {
+		return nil, errors.New("sourceid identity lookup failed")
+	}
+	if existing != 0 {
+		var concurrent types.SourceIDBindingReview
+		if db.Where("issuer = ? AND employee_no = ? AND subject = ? AND status = ?", issuer, employee, subject, "approved").First(&concurrent).Error == nil {
+			return r.ResolveSourceIDIdentity(ctx, issuer, subject, employee)
+		}
 		return nil, errors.New("sourceid identity conflict")
 	}
 	normalized, err := normalizeSourceIDEmail(email)
@@ -90,15 +97,72 @@ func (r *userRepository) ResolveSourceIDEmailIdentity(ctx context.Context, issue
 	}
 	user := candidates[0]
 	var conflicts int64
-	if db.Model(&types.ExternalIdentity{}).Where("provider = ? AND issuer = ? AND user_id = ?", "sourceid", issuer, user.ID).Count(&conflicts).Error != nil || conflicts != 0 {
+	if db.Model(&types.ExternalIdentity{}).Where("provider = ? AND issuer = ? AND user_id = ?", "sourceid", issuer, user.ID).Count(&conflicts).Error != nil {
+		return nil, errors.New("sourceid identity lookup failed")
+	}
+	if conflicts != 0 {
+		var concurrent types.SourceIDBindingReview
+		if db.Where("issuer = ? AND employee_no = ? AND subject = ? AND user_id = ? AND status = ?", issuer, employee, subject, user.ID, "approved").First(&concurrent).Error == nil {
+			return r.ResolveSourceIDIdentity(ctx, issuer, subject, employee)
+		}
 		return nil, errors.New("sourceid identity conflict")
 	}
 	now := time.Now()
 	review = types.SourceIDBindingReview{ID: uuid.NewString(), Issuer: issuer, Subject: subject, EmployeeNo: employee, UserID: user.ID, Email: normalized, Status: "pending", CreatedAt: now, UpdatedAt: now}
-	if db.Create(&review).Error != nil {
+	result := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&review)
+	if result.Error != nil {
 		return nil, errors.New("sourceid candidate conflict; review required")
 	}
+	if result.RowsAffected == 0 {
+		var existing types.SourceIDBindingReview
+		if db.Where("issuer = ? AND employee_no = ? AND subject = ? AND user_id = ?", issuer, employee, subject, user.ID).First(&existing).Error != nil || existing.Status == "revoked" {
+			return nil, errors.New("sourceid identity conflict")
+		}
+	}
 	return nil, ErrSourceIDBindingPending
+}
+
+func (r *userRepository) ResolveSourceIDAutoEmailIdentity(ctx context.Context, issuer, subject, employee, email, policyReference string) (*types.User, error) {
+	if strings.TrimSpace(policyReference) == "" {
+		return nil, ErrSourceIDBindingPending
+	}
+	user, err := r.ResolveSourceIDEmailIdentity(ctx, issuer, subject, employee, email)
+	if err == nil || !errors.Is(err, ErrSourceIDBindingPending) {
+		return user, err
+	}
+	var row types.SourceIDBindingReview
+	if r.bindingDB(ctx).Where("issuer = ? AND employee_no = ? AND subject = ?", issuer, employee, subject).First(&row).Error != nil {
+		return nil, ErrSourceIDBindingPending
+	}
+	if err := r.reviewSourceIDBinding(ctx, row.ID, "enterprise-auto-policy", policyReference, "approve", true); err != nil {
+		return nil, ErrSourceIDBindingPending
+	}
+	return r.ResolveSourceIDEmailIdentity(ctx, issuer, subject, employee, email)
+}
+
+// Missing/unknown authorization data is not evidence of an ordinary account.
+func ordinarySourceIDAutoAccount(tx *gorm.DB, user types.User) bool {
+	if user.IsSystemAdmin || user.CanAccessAllTenants || !user.IsActive {
+		return false
+	}
+	if !tx.Migrator().HasTable("tenant_members") || !tx.Migrator().HasTable("organization_tenant_members") {
+		return false
+	}
+	var privileged int64
+	if tx.Table("tenant_members").Where("user_id = ? AND (role NOT IN ? OR status <> ?)", user.ID, []string{"contributor", "viewer"}, "active").Count(&privileged).Error != nil || privileged != 0 {
+		return false
+	}
+	if user.TenantID != 0 {
+		var home int64
+		if tx.Table("tenant_members").Where("user_id = ? AND tenant_id = ? AND status = ? AND role IN ?", user.ID, user.TenantID, "active", []string{"contributor", "viewer"}).Count(&home).Error != nil || home != 1 {
+			return false
+		}
+	}
+	tenants := tx.Table("tenant_members").Select("tenant_id").Where("user_id = ?", user.ID)
+	if tx.Table("organization_tenant_members").Where("role = ? AND (representative_user_id = ? OR tenant_id = ? OR tenant_id IN (?))", "admin", user.ID, user.TenantID, tenants).Count(&privileged).Error != nil || privileged != 0 {
+		return false
+	}
+	return true
 }
 
 func (r *userRepository) ListSourceIDBindingReviews(ctx context.Context) ([]types.SourceIDBindingReview, error) {
@@ -129,6 +193,10 @@ func (r *userRepository) CreateSourceIDReviewedSession(ctx context.Context, sess
 // Operator-only API: callers must enforce admin authorization outside this
 // repository. Reviewer/reference document independent account-ownership review.
 func (r *userRepository) ReviewSourceIDBinding(ctx context.Context, id, reviewer, reference, action string) error {
+	return r.reviewSourceIDBinding(ctx, id, reviewer, reference, action, false)
+}
+
+func (r *userRepository) reviewSourceIDBinding(ctx context.Context, id, reviewer, reference, action string, automatic bool) error {
 	if strings.TrimSpace(reviewer) == "" || strings.TrimSpace(reference) == "" {
 		return errors.New("sourceid approval evidence required")
 	}
@@ -139,6 +207,12 @@ func (r *userRepository) ReviewSourceIDBinding(ctx context.Context, id, reviewer
 		var row types.SourceIDBindingReview
 		if tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", id).First(&row).Error != nil {
 			return errors.New("sourceid review missing")
+		}
+		if automatic && row.Status == "approved" {
+			return nil
+		}
+		if automatic && row.ReviewedBy != "" {
+			return ErrSourceIDBindingPending
 		}
 		// Rolled back with any rejected action, including duplicate approval.
 		if err := tx.Create(&types.SourceIDBindingAudit{ID: uuid.NewString(), ReviewID: row.ID, Action: action, ReviewedBy: reviewer, ReviewReference: reference, CreatedAt: time.Now()}).Error; err != nil {
@@ -185,6 +259,9 @@ func (r *userRepository) ReviewSourceIDBinding(ctx context.Context, id, reviewer
 		var user types.User
 		if tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND is_active = ?", row.UserID, true).First(&user).Error != nil {
 			return errors.New("sourceid account unavailable")
+		}
+		if automatic && !ordinarySourceIDAutoAccount(tx, user) {
+			return ErrSourceIDBindingPending
 		}
 		normalized, err := normalizeSourceIDEmail(user.Email)
 		if err != nil || normalized != row.Email {

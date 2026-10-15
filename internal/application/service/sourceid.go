@@ -69,6 +69,9 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 	if cfg.SourceIDEmailBindingEnable && (!cfg.SourceIDEmailContractConfirmed || cfg.SourceIDEmployeeClaim != "attributes.RJGH" || cfg.SourceIDClaimsSource != "userinfo") {
 		return nil, ctx, errors.New("sourceid email identity contract pending")
 	}
+	if cfg.SourceIDAutoBindingEnable && (!cfg.SourceIDEmailBindingEnable || cfg.SourceIDAutoBindingPolicyRef == "") {
+		return nil, ctx, errors.New("sourceid automatic binding policy pending")
+	}
 	employee := sourceIDStringClaim(info.Claims, cfg.SourceIDEmployeeClaim)
 	index := sourceIDStringClaim(info.Claims, cfg.SourceIDSessionClaim)
 	status := sourceIDClaim(info.Claims, cfg.SourceIDStatusClaim)
@@ -84,13 +87,23 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 	}
 	var user *types.User
 	if cfg.SourceIDEmailBindingEnable {
-		binding, ok := r.(interface {
-			ResolveSourceIDEmailIdentity(context.Context, string, string, string, string) (*types.User, error)
-		})
-		if !ok {
-			return nil, ctx, errors.New("sourceid binding repository unavailable")
+		if cfg.SourceIDAutoBindingEnable {
+			binding, ok := r.(interface {
+				ResolveSourceIDAutoEmailIdentity(context.Context, string, string, string, string, string) (*types.User, error)
+			})
+			if !ok {
+				return nil, ctx, errors.New("sourceid binding repository unavailable")
+			}
+			user, err = binding.ResolveSourceIDAutoEmailIdentity(ctx, cfg.IssuerURL, info.Subject, employee, sourceIDStringClaim(info.Claims, "attributes.RJEMAIL"), cfg.SourceIDAutoBindingPolicyRef)
+		} else {
+			binding, ok := r.(interface {
+				ResolveSourceIDEmailIdentity(context.Context, string, string, string, string) (*types.User, error)
+			})
+			if !ok {
+				return nil, ctx, errors.New("sourceid binding repository unavailable")
+			}
+			user, err = binding.ResolveSourceIDEmailIdentity(ctx, cfg.IssuerURL, info.Subject, employee, sourceIDStringClaim(info.Claims, "attributes.RJEMAIL"))
 		}
-		user, err = binding.ResolveSourceIDEmailIdentity(ctx, cfg.IssuerURL, info.Subject, employee, sourceIDStringClaim(info.Claims, "attributes.RJEMAIL"))
 	} else {
 		user, err = r.ResolveSourceIDIdentity(ctx, cfg.IssuerURL, info.Subject, employee)
 	}

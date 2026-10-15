@@ -143,7 +143,7 @@ const handleGlobalOIDCCallback = async () => {
     await router.replace('/login')
     const messages: Record<string, [string, string]> = {
 	  identity_contract_pending: ['OIDC protocol verification completed. Employee identity approval is still required; no local login was created.', 'OIDC 协议验证已完成，员工身份契约与审核尚待确认，未创建本地登录会话。'],
-      enrollment_required: ['This account needs an administrator to approve its SID binding.', '此账号需要管理员审核并绑定企业工号。'],
+      enrollment_required: ['We could not connect your existing account automatically. Contact an administrator to verify it.', '暂时无法自动关联原账号，请联系管理员核实。'],
       identity_conflict: ['This SID identity conflicts with an existing binding. Contact an administrator.', '企业身份与现有绑定冲突，请联系管理员。'],
       account_disabled: ['This employee or KnowHub account is disabled.', '员工身份或知汇账号已停用。'],
       identity_fields_missing: ['SID did not supply the required employee or session identity. Contact an administrator.', 'SID 未提供必需的工号或会话信息，请联系管理员。'],

@@ -336,6 +336,8 @@ type OIDCAuthConfig struct {
 	SourceIDContractConfirmed      bool   `yaml:"sourceid_contract_confirmed" json:"-"`
 	SourceIDEmailBindingEnable     bool   `yaml:"sourceid_email_binding_enable" json:"-"`
 	SourceIDEmailContractConfirmed bool   `yaml:"sourceid_email_contract_confirmed" json:"-"`
+	SourceIDAutoBindingEnable      bool   `yaml:"sourceid_auto_binding_enable" json:"-"`
+	SourceIDAutoBindingPolicyRef   string `yaml:"sourceid_auto_binding_policy_ref" json:"-"`
 	RedirectURI                    string `yaml:"redirect_uri" json:"redirect_uri"`
 	PKCEEnable                     bool   `yaml:"pkce_enable" json:"-"`
 	ClientAuthMethod               string `yaml:"client_auth_method" json:"-"`
@@ -794,18 +796,19 @@ func applyOIDCEnvOverrides(cfg *Config) {
 	}
 
 	for key, target := range map[string]*string{
-		"SOURCEID_EMPLOYEE_CLAIM":       &cfg.OIDCAuth.SourceIDEmployeeClaim,
-		"SOURCEID_SESSION_CLAIM":        &cfg.OIDCAuth.SourceIDSessionClaim,
-		"SOURCEID_STATUS_CLAIM":         &cfg.OIDCAuth.SourceIDStatusClaim,
-		"SOURCEID_ALLOWED_STATUS":       &cfg.OIDCAuth.SourceIDAllowedStatus,
-		"SOURCEID_CLAIMS_SOURCE":        &cfg.OIDCAuth.SourceIDClaimsSource,
-		"SOURCEID_BASIC_ENCODING":       &cfg.OIDCAuth.SourceIDBasicEncoding,
-		"SOURCEID_LOGOUT_ENCODING":      &cfg.OIDCAuth.SourceIDLogoutEncoding,
-		"SOURCEID_LOGOUT_CIDRS":         &cfg.OIDCAuth.SourceIDLogoutCIDRs,
-		"SOURCEID_LOGOUT_SECRET":        &cfg.OIDCAuth.SourceIDLogoutSecret,
-		"OIDC_AUTH_REDIRECT_URI":        &cfg.OIDCAuth.RedirectURI,
-		"OIDC_AUTH_CLIENT_AUTH_METHOD":  &cfg.OIDCAuth.ClientAuthMethod,
-		"OIDC_AUTH_USER_INFO_TRANSPORT": &cfg.OIDCAuth.UserInfoTransport,
+		"SOURCEID_EMPLOYEE_CLAIM":          &cfg.OIDCAuth.SourceIDEmployeeClaim,
+		"SOURCEID_AUTO_BINDING_POLICY_REF": &cfg.OIDCAuth.SourceIDAutoBindingPolicyRef,
+		"SOURCEID_SESSION_CLAIM":           &cfg.OIDCAuth.SourceIDSessionClaim,
+		"SOURCEID_STATUS_CLAIM":            &cfg.OIDCAuth.SourceIDStatusClaim,
+		"SOURCEID_ALLOWED_STATUS":          &cfg.OIDCAuth.SourceIDAllowedStatus,
+		"SOURCEID_CLAIMS_SOURCE":           &cfg.OIDCAuth.SourceIDClaimsSource,
+		"SOURCEID_BASIC_ENCODING":          &cfg.OIDCAuth.SourceIDBasicEncoding,
+		"SOURCEID_LOGOUT_ENCODING":         &cfg.OIDCAuth.SourceIDLogoutEncoding,
+		"SOURCEID_LOGOUT_CIDRS":            &cfg.OIDCAuth.SourceIDLogoutCIDRs,
+		"SOURCEID_LOGOUT_SECRET":           &cfg.OIDCAuth.SourceIDLogoutSecret,
+		"OIDC_AUTH_REDIRECT_URI":           &cfg.OIDCAuth.RedirectURI,
+		"OIDC_AUTH_CLIENT_AUTH_METHOD":     &cfg.OIDCAuth.ClientAuthMethod,
+		"OIDC_AUTH_USER_INFO_TRANSPORT":    &cfg.OIDCAuth.UserInfoTransport,
 	} {
 		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
 			*target = value
@@ -818,6 +821,7 @@ func applyOIDCEnvOverrides(cfg *Config) {
 		"SOURCEID_LOGOUT_ENABLE":            &cfg.OIDCAuth.SourceIDLogoutEnable,
 		"SOURCEID_CONTRACT_CONFIRMED":       &cfg.OIDCAuth.SourceIDContractConfirmed,
 		"SOURCEID_EMAIL_BINDING_ENABLE":     &cfg.OIDCAuth.SourceIDEmailBindingEnable,
+		"SOURCEID_AUTO_BINDING_ENABLE":      &cfg.OIDCAuth.SourceIDAutoBindingEnable,
 		"SOURCEID_EMAIL_CONTRACT_CONFIRMED": &cfg.OIDCAuth.SourceIDEmailContractConfirmed,
 		"OIDC_AUTH_PKCE_ENABLE":             &cfg.OIDCAuth.PKCEEnable,
 	} {
