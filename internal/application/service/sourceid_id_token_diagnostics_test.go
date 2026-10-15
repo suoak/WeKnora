@@ -5,9 +5,13 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -68,6 +72,46 @@ func TestSourceIDIDTokenFailureSyntheticBranches(t *testing.T) {
 				t.Fatalf("expected category %s", tc.category)
 			}
 		})
+	}
+}
+
+func TestSourceIDJWKSNoKidNodeDifferenceFailsClosed(t *testing.T) {
+	withOIDCSSRFWhitelist(t, "127.0.0.1")
+	keyA, _ := rsa.GenerateKey(rand.Reader, 2048)
+	keyB, _ := rsa.GenerateKey(rand.Reader, 2048)
+	var calls atomic.Int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		key := keyA
+		if calls.Add(1)%2 == 0 {
+			key = keyB
+		}
+		_ = json.NewEncoder(w).Encode(oidcJWKS{Keys: []oidcJWK{rsaJWK(key, "")}})
+	}))
+	defer server.Close()
+	cfg := &config.OIDCAuthConfig{SourceIDEnable: true, IssuerURL: "https://synthetic.example", ClientID: "knowhub", JwksURI: server.URL}
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, baseClaims(cfg.IssuerURL, cfg.ClientID))
+	raw, err := token.SignedString(keyA)
+	if err != nil {
+		t.Fatal("synthetic signing failed")
+	}
+	s := &userService{}
+	if _, err := s.verifyOIDCIDToken(context.Background(), cfg, raw); err != nil {
+		t.Fatal("single matching no-kid key rejected")
+	}
+	if _, err := s.verifyOIDCIDToken(context.Background(), cfg, raw); err == nil || !reflect.DeepEqual(sourceIDIDTokenFailureCategories(err), []string{"signature"}) {
+		t.Fatal("different node signing key not rejected")
+	}
+	if calls.Load() != 2 {
+		t.Fatal("JWKS fetch unexpectedly cached or retried")
+	}
+	// A JWT-provided kid never falls back to an unrelated key lacking kid.
+	token.Header["kid"] = "synthetic-unmatched"
+	raw, err = token.SignedString(keyA)
+	if err != nil {
+		t.Fatal("synthetic signing failed")
+	}
+	if _, err = s.verifyOIDCIDToken(context.Background(), cfg, raw); err == nil || !reflect.DeepEqual(sourceIDIDTokenFailureCategories(err), []string{"key_selection"}) {
+		t.Fatal("unmatched kid was accepted")
 	}
 }
 
