@@ -15,12 +15,28 @@ const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host
   env: { ...process.env, VITE_DEV_PROXY_TARGET: backend.origin }, stdio: 'pipe',
 })
 let browser
+const watchdog = setTimeout(() => {
+  console.error('SOURCEID_SYNTHETIC_TIMEOUT')
+  server.kill()
+  void browser?.close()
+  setTimeout(() => process.exit(1), 2000)
+}, 150000)
+const startup = []
+server.stdout.on('data', chunk => { startup.push(chunk.toString()); if (startup.length > 12) startup.shift() })
+server.stderr.on('data', chunk => { startup.push(chunk.toString()); if (startup.length > 12) startup.shift() })
 try {
-  await new Promise((resolve, reject) => {
-    server.stdout.on('data', chunk => { if (chunk.toString().includes('Local:')) resolve() })
-    server.on('error', reject)
-    server.on('exit', code => reject(new Error(`Synthetic Vite exited ${code}`)))
-  })
+  console.log('SOURCEID_SYNTHETIC_STAGE: frontend_start')
+  const readyDeadline = Date.now() + 30000
+  while (true) {
+    if (server.exitCode !== null) throw new Error(`Synthetic Vite startup failed: ${startup.join('')}`)
+    try {
+      const response = await fetch(frontend, { signal: AbortSignal.timeout(1000) })
+      if (response.ok) break
+    } catch { /* startup is polled with a strict deadline */ }
+    if (Date.now() > readyDeadline) throw new Error(`Synthetic Vite not ready: ${startup.join('')}`)
+    await new Promise(resolve => setTimeout(resolve, 200))
+  }
+  console.log('SOURCEID_SYNTHETIC_STAGE: browser_start')
   browser = await chromium.launch({
     executablePath: process.env.CHROME_PATH || (process.platform === 'win32' ? 'C:/Program Files/Google/Chrome/Application/chrome.exe' : '/usr/bin/google-chrome'),
     headless: true, args: ['--no-proxy-server', '--disable-gpu', '--disable-dev-shm-usage'],
@@ -41,11 +57,14 @@ try {
     return route.abort()
   })
   const page = await context.newPage()
+  console.log('SOURCEID_SYNTHETIC_STAGE: login_page')
   await page.goto(`${browserOrigin}/login`)
   await expect(page.locator('.oidc-button')).toBeVisible({ timeout: 90000 })
   await page.locator('.oidc-button').click()
+  console.log('SOURCEID_SYNTHETIC_STAGE: authorization_started')
   await page.waitForURL(/\/portal(?:[/?#]|$)/, { timeout: 90000 })
   await expect(page.locator('.portal-shell')).toBeVisible({ timeout: 30000 })
+  console.log('SOURCEID_SYNTHETIC_STAGE: portal_rendered')
   const api = (path, method = 'GET') => page.evaluate(async ({ path, method }) => {
     const response = await fetch(path, { method, headers: { Authorization: `Bearer ${localStorage.getItem('weknora_token')}` } })
     const body = response.ok ? await response.json() : null
@@ -71,4 +90,8 @@ try {
 } finally {
   if (browser) await browser.close()
   server.kill()
+  server.stdout.destroy()
+  server.stderr.destroy()
+  server.stdin.destroy()
+  clearTimeout(watchdog)
 }

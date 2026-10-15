@@ -197,7 +197,10 @@ func TestSourceIDLocalBrowserBusinessLogin(t *testing.T) {
 	router.NoRoute(func(c *gin.Context) { c.JSON(200, gin.H{"success": true, "data": []interface{}{}}) })
 	app := httptest.NewServer(router)
 	defer app.Close()
-	cmd := exec.Command("node", "tests/oa-login/sourceid-local-e2e.mjs")
+	commandCtx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(commandCtx, "node", "tests/oa-login/sourceid-local-e2e.mjs")
+	cmd.WaitDelay = 5 * time.Second
 	cmd.Dir = filepath.Join(root, "frontend")
 	cmd.Env = append(os.Environ(), "SOURCEID_E2E_BACKEND="+app.URL, "SOURCEID_E2E_MOCK="+mock.URL)
 	output, err := cmd.CombinedOutput()
