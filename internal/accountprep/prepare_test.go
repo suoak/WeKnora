@@ -104,6 +104,7 @@ func lifecycle(t *testing.T, pg bool) {
 	var first types.AuditLog
 	require.NoError(t, db.Where("action = ?", preparedAction).Order("id").First(&first).Error)
 	in.OperationID, in.Cleanup = first.ScopeID, true
+	in.Approval = "synthetic-cleanup-approval"
 	in.Apply = false
 	_, err = Run(ctx, db, in)
 	require.NoError(t, err)
@@ -118,6 +119,12 @@ func lifecycle(t *testing.T, pg bool) {
 	require.NoError(t, db.First(&u, "id = ?", uid).Error)
 	require.False(t, u.IsActive)
 	require.Zero(t, u.TenantID)
+	var cleanup types.AuditLog
+	require.NoError(t, db.Where("action = ?", cleanedAction).First(&cleanup).Error)
+	var cleanupBaseline baseline
+	require.NoError(t, json.Unmarshal(cleanup.Details, &cleanupBaseline))
+	require.Equal(t, "synthetic-cleanup-approval", cleanupBaseline.CleanupApproval)
+	require.Equal(t, "synthetic-preparation-approval", cleanupBaseline.Approval)
 	_, err = Run(ctx, db, in)
 	require.Error(t, err) // Closed operation cannot be reused.
 	var owner types.TenantMember

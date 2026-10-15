@@ -48,12 +48,13 @@ type Result struct {
 }
 
 type baseline struct {
-	Created, Added bool
-	HomeChanged    bool
-	Home           uint64
-	MemberID       uint64
-	Role           types.TenantRole
-	Approval       string
+	Created, Added  bool
+	HomeChanged     bool
+	Home            uint64
+	MemberID        uint64
+	Role            types.TenantRole
+	Approval        string
+	CleanupApproval string `json:",omitempty"`
 }
 
 var reference = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,95}$`)
@@ -265,6 +266,9 @@ func Run(ctx context.Context, db *gorm.DB, in Input) (out Result, err error) {
 }
 
 func record(ctx context.Context, tx *gorm.DB, in Input, userID string, b baseline, action types.AuditAction) error {
+	if action == cleanedAction {
+		b.CleanupApproval = in.Approval
+	}
 	data, _ := json.Marshal(b)
 	return repo.NewAuditLogRepository(tx).Create(ctx, &types.AuditLog{TenantID: in.TenantID, ActorUserID: in.OperatorID, ActorRole: "owner", Action: action, ScopeType: "test_account", ScopeID: in.OperationID, TargetUserID: userID, Outcome: types.AuditOutcomeSuccess, Details: types.JSON(data), CreatedAt: time.Now()})
 }
