@@ -1,0 +1,27 @@
+{
+  "date": "2026-10-15",
+  "source_sha": "1b4e7dc797fb6dc0fb96ffae9c0a5c787b854cbb",
+  "packaging_version": "2fcbcaaed",
+  "packaging_state_source": "USER_REPORTED_NOT_SSH_VERIFIED",
+  "exchange_function_equal_between_versions": true,
+  "credential_source": "local_current_user_binary_DPAPI",
+  "equivalent": true,
+  "credential_validity": "NOT_TESTED",
+  "packaging_runtime_credential_equivalence": "NOT_CHECKED",
+  "checker_self_test": "PASS",
+  "config_test": "PASS",
+  "synthetic_fixtures": 11,
+  "synthetic_loopback_requests": 22,
+  "real_sid_requests": 0,
+  "servers_accessed": false,
+  "running_configuration_changed": false,
+  "secret_header_length_or_fingerprint_output": false,
+  "existing_mock_ci_url": "https://github.com/suoak/WeKnora/actions/runs/38717758880",
+  "existing_mock_results": [
+    "default PASS",
+    "oauth_form PASS",
+    "raw PASS",
+    "other_provider_raw_ignored PASS"
+  ],
+  "switch_status": "PROPOSED_REQUIRES_USER_APPROVAL"
+}
