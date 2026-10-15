@@ -62,6 +62,7 @@ func TestSourceIDLocalBrowserBusinessLogin(t *testing.T) {
 	if os.Getenv("SOURCEID_BROWSER_E2E") != "1" {
 		t.Skip("opt-in synthetic browser integration")
 	}
+	t.Setenv("JWT_SECRET", "synthetic-browser-test-signing-key")
 	t.Setenv("SSRF_WHITELIST", "127.0.0.1")
 	secutils.ResetSSRFWhitelistForTest()
 	t.Cleanup(secutils.ResetSSRFWhitelistForTest)

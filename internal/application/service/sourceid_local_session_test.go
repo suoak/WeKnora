@@ -17,6 +17,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/config"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
@@ -80,6 +81,7 @@ func (r sourceIDMockAdmissionResolver) Resolve(ctx context.Context, request type
 
 func sourceIDLocalFixture(t *testing.T) (*userService, *gorm.DB, *types.OIDCUserInfo) {
 	t.Helper()
+	t.Setenv("JWT_SECRET", "synthetic-local-test-signing-key")
 	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "local.db")), &gorm.Config{Logger: logger.Discard})
 	require.NoError(t, err)
 	sqlDB, err := db.DB()
@@ -112,6 +114,56 @@ func sourceIDLocalFixture(t *testing.T) (*userService, *gorm.DB, *types.OIDCUser
 		"mock_eligibility": "ALLOW", "attributes": map[string]interface{}{"RJGH": "synthetic-001", "RJEMAIL": "ordinary@example.test"},
 	}}
 	return svc, db, info
+}
+
+type sourceIDLocalTestMembers struct {
+	interfaces.TenantMemberService
+	userID string
+}
+
+func (m sourceIDLocalTestMembers) GetMembership(_ context.Context, userID string, tenant uint64) (*types.TenantMember, error) {
+	if userID != m.userID || tenant != 42 {
+		return nil, nil
+	}
+	return &types.TenantMember{UserID: userID, TenantID: 42, Role: types.TenantRoleContributor, Status: types.TenantMemberStatusActive}, nil
+}
+func (m sourceIDLocalTestMembers) ListByUser(_ context.Context, userID string) ([]*types.TenantMember, error) {
+	member, _ := m.GetMembership(context.Background(), userID, 42)
+	return []*types.TenantMember{member}, nil
+}
+
+func TestSourceIDLocalSwitchTenantAndMissingSessionClaim(t *testing.T) {
+	s, db, info := sourceIDLocalFixture(t)
+	ctx := context.Background()
+	user, loginCtx, err := s.loginSourceID(ctx, s.config.OIDCAuth, info)
+	require.NoError(t, err)
+	s.tenantService = sourceIDLocalTestTenants{}
+	s.memberService = sourceIDLocalTestMembers{userID: user.ID}
+	access, refresh, err := s.generateTokensForTenant(loginCtx, user, 42)
+	require.NoError(t, err)
+	switchCtx, err := s.SourceIDSwitchContext(ctx, access)
+	require.NoError(t, err)
+	_, err = s.SwitchTenant(switchCtx, user, 43, refresh)
+	require.ErrorIs(t, err, ErrMembershipNotFound)
+	switched, err := s.SwitchTenant(switchCtx, user, 42, refresh)
+	require.NoError(t, err)
+	require.True(t, switched.Success)
+	_, tenant, err := s.ValidateToken(ctx, switched.Token)
+	require.NoError(t, err)
+	require.EqualValues(t, 42, tenant)
+	claims, err := claimsFromSignedToken(switched.Token)
+	require.NoError(t, err)
+	delete(claims, "session_id")
+	withoutSession, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(getJwtSecret()))
+	require.NoError(t, err)
+	require.NoError(t, db.Model(&types.AuthToken{}).Where("token = ?", switched.Token).Update("token", withoutSession).Error)
+	_, _, err = s.ValidateToken(ctx, withoutSession)
+	require.ErrorContains(t, err, "session mismatch")
+	store, err := s.sourceIDStore()
+	require.NoError(t, err)
+	require.NoError(t, store.RevokeSourceIDSession(ctx, loginCtx.Value(sourceIDSessionKey).(string), user.ID))
+	_, _, err = s.RefreshToken(ctx, switched.RefreshToken)
+	require.Error(t, err)
 }
 
 func TestSourceIDLocalSessionBindingAndTokenLifecycle(t *testing.T) {
