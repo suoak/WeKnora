@@ -35,4 +35,8 @@ bad['transport']['network_events'][0]['authorization'] = 'Basic synthetic-privat
 assert exporter.extract(json.dumps(bad)) is None
 assert exporter.extract('x'*65537) is None
 assert exporter.extract('raw token=synthetic-private') is None
+failure = {'event': 'sourceid_id_token_failure', 'trace': transport['trace'], 'categories': ['key_selection'], 'at_hash_validation': 'NOT_IMPLEMENTED'}
+assert exporter.extract(json.dumps(failure)) == failure
+for patch in [{'categories': ['synthetic-secret']}, {'raw_error': 'synthetic-token'}, {'categories': []}, {'at_hash_validation': 'PASS'}]:
+    assert exporter.extract(json.dumps({**failure, **patch})) is None
 print(json.dumps({'exporter': 'PASS', 'unknown_raw_fields_rejected': True, 'trace_binding_checked': True}))

@@ -41,6 +41,14 @@ def extract(line, depth=0):
     if not isinstance(item, dict) or not re.fullmatch(r'[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}', item.get('trace', '')):
         return None
     kind = item.get('event')
+    if kind == 'sourceid_id_token_failure':
+        allowed = {'jwks_fetch', 'key_selection', 'parse', 'issuer', 'audience', 'expired', 'iat', 'nbf', 'required_claim', 'claim_type', 'algorithm', 'signature', 'iat_missing', 'authorized_party', 'subject_missing', 'nonce', 'nonce_missing', 'unknown'}
+        categories = item.get('categories')
+        if set(item) != {'event', 'trace', 'categories', 'at_hash_validation'} or item.get('at_hash_validation') != 'NOT_IMPLEMENTED':
+            return None
+        if not isinstance(categories, list) or not 1 <= len(categories) <= len(allowed) or any(not isinstance(c, str) or c not in allowed for c in categories) or len(set(categories)) != len(categories):
+            return None
+        return item
     if kind == 'sourceid_token_http':
         if set(item) != {'event', 'trace', 'http'} or not rules.safe({'http': item['http']}):
             return None

@@ -1891,16 +1891,19 @@ func (s *userService) resolveOIDCUserInfo(ctx context.Context, cfg *config.OIDCA
 			idTokenClaims, err := s.verifyOIDCIDToken(ctx, cfg, idToken)
 			if err != nil {
 				SourceIDDiagnosticStage(ctx, "id_token", stageStarted, err)
+				sourceIDIDTokenFailureDiagnostic(ctx, err)
 				return nil, fmt.Errorf("OIDC id_token verification failed: %w", err)
 			}
 			expectedNonce, _ := ctx.Value(oidcNonceKey).(string)
 			if cfg.SourceIDEnable && expectedNonce == "" {
 				SourceIDDiagnosticStage(ctx, "id_token", stageStarted, errors.New("missing nonce"))
+				sourceIDIDTokenFailureDiagnostic(ctx, errors.New("missing nonce"))
 				return nil, errors.New("sourceid authorization transaction required")
 			}
 			returnedNonce, _ := idTokenClaims["nonce"].(string)
 			if expectedNonce != "" && returnedNonce != expectedNonce {
 				SourceIDDiagnosticStage(ctx, "id_token", stageStarted, errors.New("OIDC ID Token nonce mismatch"))
+				sourceIDIDTokenFailureDiagnostic(ctx, errors.New("OIDC ID Token nonce mismatch"))
 				return nil, errors.New("OIDC ID Token nonce mismatch")
 			}
 			SourceIDDiagnosticStage(ctx, "id_token", stageStarted, nil)
@@ -2328,7 +2331,7 @@ func (s *userService) verifyOIDCIDToken(
 
 	jwks, err := s.fetchOIDCJWKS(ctx, cfg.JwksURI)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", errOIDCJWKSFetch, err)
 	}
 
 	keyFunc := func(token *jwt.Token) (interface{}, error) {
@@ -2336,7 +2339,11 @@ func (s *userService) verifyOIDCIDToken(
 			return nil, fmt.Errorf("unexpected id_token signing method: %v", token.Header["alg"])
 		}
 		kid, _ := token.Header["kid"].(string)
-		return jwks.rsaKeyForKid(kid)
+		key, err := jwks.rsaKeyForKid(kid)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %w", errOIDCKeySelection, err)
+		}
+		return key, nil
 	}
 
 	claims := jwt.MapClaims{}
