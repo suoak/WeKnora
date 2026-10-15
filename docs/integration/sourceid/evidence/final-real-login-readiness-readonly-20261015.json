@@ -1,0 +1,91 @@
+{
+  "utc": "2026-10-15T14:21:32.530641+00:00",
+  "target": "172.30.232.42",
+  "images": {
+    "app": {
+      "container_id": "ceac394ee4632f5514cbb65821e77c369df63b35ee1aba7d291fab8a9fdb6ea5",
+      "image_id": "sha256:b2751ba9c8797b0c2440b9435ad92ba9ab2c30d4a95b0c28a2b1b34e4a4c3af1",
+      "revision": "431226c3b1bd5338ec06c1bd0520e637d5fed398",
+      "health": "healthy",
+      "ports": {
+        "8080/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "8080"
+          }
+        ]
+      }
+    },
+    "frontend": {
+      "container_id": "309f4982cf11f34d2ce19784226360a886ab2b7d78acfb84b1c7e8aa5accbb6d",
+      "image_id": "sha256:5aa70b6378d4fdbcb173d7a3bd4e4494b1218cafd148e9414684014ca90a3ac1",
+      "revision": "431226c3b1bd5338ec06c1bd0520e637d5fed398",
+      "health": "NOT_CONFIGURED",
+      "ports": {
+        "80/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "80"
+          }
+        ]
+      }
+    }
+  },
+  "flags": {
+    "SOURCEID_BASIC_ENCODING": "oauth_form",
+    "SOURCEID_PROTOCOL_ONLY": "true",
+    "SOURCEID_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_EMAIL_BINDING_ENABLE": "false",
+    "SOURCEID_EMAIL_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_AUTO_BINDING_ENABLE": "false",
+    "SOURCEID_LOGOUT_ENABLE": "false",
+    "SOURCEID_SESSION_MODE": "NOT_SET",
+    "OIDC_AUTH_ENABLE": "true",
+    "SOURCEID_DIAGNOSTICS_ENABLE": "true",
+    "OIDC_AUTH_PKCE_ENABLE": "false",
+    "AUTO_MIGRATE": "false"
+  },
+  "database_aggregates": [
+    {
+      "version": 3027,
+      "dirty": false
+    },
+    {
+      "users": 1,
+      "active_users": 1,
+      "system_admins": 0,
+      "cross_tenant_admins": 0,
+      "reserved_domain_users": 1
+    },
+    {
+      "memberships": 1,
+      "active_memberships": 1,
+      "owner_memberships": 1,
+      "admin_memberships": 0,
+      "contributor_memberships": 0,
+      "viewer_memberships": 0
+    },
+    {
+      "ordinary_auto_binding_candidates": 0
+    },
+    {
+      "duplicate_normalized_email_groups": 0
+    },
+    {
+      "knowledge_bases_total": 9,
+      "active_knowledge_bases": 0
+    },
+    {
+      "tenants": 1,
+      "external_identities": 0,
+      "binding_reviews": 0,
+      "sourceid_sessions": 0,
+      "local_enterprise_sessions": 0
+    }
+  ],
+  "read_only_database_transaction": true,
+  "accounts_created": false,
+  "config_changed": false,
+  "real_sid_login": "NOT_EXECUTED",
+  "result": "PASS"
+}

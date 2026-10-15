@@ -1,0 +1,18 @@
+{
+  "target": "172.30.232.42",
+  "proxy_bypassed": true,
+  "login_page_status": 200,
+  "entry_scripts": [
+    "/assets/main-Dqj-SBfJ.js",
+    "/config.js",
+    "/tdesign-icons/0.4.1/fonts/index.js"
+  ],
+  "login_chunks": [
+    {
+      "asset": "Login-DwQVCxKj.js",
+      "contains_old_provider_based_label": true,
+      "contains_new_oa_label": false,
+      "contains_old_redirect_label": true
+    }
+  ]
+}
