@@ -11,7 +11,7 @@ assert.ok(['before', 'after'].includes(phase))
 const origin = 'http://127.0.0.1:18190'
 const output = new URL('../../../docs/qa/oa-login-ui-release-20261015/', import.meta.url)
 await mkdir(output, { recursive: true })
-const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '18190', '--strictPort'], { stdio: 'pipe' })
+const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--host', '127.0.0.1', '--port', '18190', '--strictPort'], { stdio: 'pipe' })
 await new Promise((resolve, reject) => {
   server.stdout.on('data', data => { if (data.toString().includes('Local:')) resolve() })
   server.on('error', reject)
@@ -23,6 +23,7 @@ const browser = await chromium.launch({
   args: ['--no-proxy-server', '--disable-gpu', '--disable-background-timer-throttling', '--disable-renderer-backgrounding'],
 })
 const results = []
+const pageErrors = []
 const cases = [
   ['desktop-zh', 'zh-CN', 1440, 1000, 'light', '使用 OA 登录'],
   ['mobile-zh', 'zh-CN', 390, 844, 'light', '使用 OA 登录'],
@@ -67,7 +68,8 @@ try {
       return route.continue()
     })
     const page = await context.newPage()
-    await page.goto(`${origin}/login`)
+    page.on('pageerror', error => { pageErrors.push(error.message); console.error('Synthetic UI error:', error.message) })
+    await page.goto(`${origin}/login`, { waitUntil: 'domcontentloaded', timeout: 120000 })
     const oa = page.locator('button.oidc-button')
     await expect(oa).toBeVisible({ timeout: 90000 })
     await page.evaluate(theme => document.documentElement.setAttribute('theme-mode', theme), theme)
@@ -151,7 +153,8 @@ try {
         return route.continue()
       })
       const page = await context.newPage()
-      await page.goto(`${origin}/login`)
+    page.on('pageerror', error => { pageErrors.push(error.message); console.error('Synthetic UI error:', error.message) })
+      await page.goto(`${origin}/login`, { waitUntil: 'domcontentloaded', timeout: 120000 })
       const oa = page.locator('button.oidc-button')
       await expect(oa).toHaveText(label)
       await oa.click()
@@ -172,7 +175,8 @@ try {
         return route.continue()
       })
       const page = await context.newPage()
-      await page.goto(`${origin}/login`)
+    page.on('pageerror', error => { pageErrors.push(error.message); console.error('Synthetic UI error:', error.message) })
+      await page.goto(`${origin}/login`, { waitUntil: 'domcontentloaded', timeout: 120000 })
       const button = page.locator('.oidc-button')
       await expect(button).toHaveText(label)
       await expect(page.locator('.oa-button')).toHaveCount(0)
@@ -190,7 +194,8 @@ try {
       return route.continue()
     })
     const page = await context.newPage()
-    await page.goto(`${origin}/login`)
+    page.on('pageerror', error => { pageErrors.push(error.message); console.error('Synthetic UI error:', error.message) })
+    await page.goto(`${origin}/login`, { waitUntil: 'domcontentloaded', timeout: 120000 })
     await expect(page.locator('.submit-button')).toBeVisible()
     await expect(page.locator('.oidc-button')).toHaveCount(0)
     await expect(page.locator('.oidc-divider')).toHaveCount(0)
@@ -202,4 +207,5 @@ try {
   server.kill()
   await writeFile(new URL(`${phase}-results.json`, output), JSON.stringify(results, null, 2) + '\n', 'utf8')
 }
+assert.deepEqual(pageErrors, [])
 console.log(JSON.stringify({ phase, cases: results.length, status: 'PASS' }))
