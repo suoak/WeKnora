@@ -1,0 +1,122 @@
+[
+  {
+    "name": "desktop-zh",
+    "layout": {
+      "primary": {
+        "x": 884.390625,
+        "y": 560,
+        "width": 400,
+        "height": 46
+      },
+      "oa": {
+        "x": 884.390625,
+        "y": 650,
+        "width": 400,
+        "height": 46
+      },
+      "divider": {
+        "x": 884.390625,
+        "y": 622,
+        "width": 400,
+        "height": 22
+      },
+      "background": "linear-gradient(225deg, rgb(2, 44, 34), rgb(6, 78, 59) 15%, rgb(6, 95, 70) 25%, rgb(4, 120, 87) 38%, rgb(5, 150, 105) 50%, rgb(7, 192, 95) 65%, rgb(16, 185, 129) 78%, rgb(52, 211, 153) 90%, rgb(110, 231, 183))",
+      "primaryColor": "rgb(7, 192, 95)",
+      "primaryRadius": "8px",
+      "oaRadius": "8px",
+      "horizontalOverflow": false
+    },
+    "authorizationRequests": 0,
+    "status": "PASS"
+  },
+  {
+    "name": "mobile-zh",
+    "layout": {
+      "primary": {
+        "x": 40,
+        "y": 970.59375,
+        "width": 310,
+        "height": 46
+      },
+      "oa": {
+        "x": 40,
+        "y": 1060.59375,
+        "width": 310,
+        "height": 46
+      },
+      "divider": {
+        "x": 40,
+        "y": 1032.59375,
+        "width": 310,
+        "height": 22
+      },
+      "background": "linear-gradient(225deg, rgb(2, 44, 34), rgb(6, 78, 59) 15%, rgb(6, 95, 70) 25%, rgb(4, 120, 87) 38%, rgb(5, 150, 105) 50%, rgb(7, 192, 95) 65%, rgb(16, 185, 129) 78%, rgb(52, 211, 153) 90%, rgb(110, 231, 183))",
+      "primaryColor": "rgb(7, 192, 95)",
+      "primaryRadius": "8px",
+      "oaRadius": "8px",
+      "horizontalOverflow": false
+    },
+    "authorizationRequests": 0,
+    "status": "PASS"
+  },
+  {
+    "name": "desktop-en-dark",
+    "layout": {
+      "primary": {
+        "x": 884.390625,
+        "y": 569.296875,
+        "width": 400,
+        "height": 46
+      },
+      "oa": {
+        "x": 884.390625,
+        "y": 659.296875,
+        "width": 400,
+        "height": 46
+      },
+      "divider": {
+        "x": 884.390625,
+        "y": 631.296875,
+        "width": 400,
+        "height": 22
+      },
+      "background": "linear-gradient(225deg, rgb(1, 26, 20), rgb(3, 46, 34) 15%, rgb(4, 58, 44) 25%, rgb(5, 80, 61) 38%, rgb(4, 102, 71) 50%, rgb(3, 138, 86) 65%, rgb(4, 155, 96) 78%, rgb(6, 160, 106) 90%, rgb(7, 176, 116))",
+      "primaryColor": "rgb(6, 176, 77)",
+      "primaryRadius": "8px",
+      "oaRadius": "8px",
+      "horizontalOverflow": false
+    },
+    "authorizationRequests": 0,
+    "status": "PASS"
+  },
+  {
+    "name": "mobile-en",
+    "layout": {
+      "primary": {
+        "x": 40,
+        "y": 970.59375,
+        "width": 310,
+        "height": 46
+      },
+      "oa": {
+        "x": 40,
+        "y": 1060.59375,
+        "width": 310,
+        "height": 46
+      },
+      "divider": {
+        "x": 40,
+        "y": 1032.59375,
+        "width": 310,
+        "height": 22
+      },
+      "background": "linear-gradient(225deg, rgb(2, 44, 34), rgb(6, 78, 59) 15%, rgb(6, 95, 70) 25%, rgb(4, 120, 87) 38%, rgb(5, 150, 105) 50%, rgb(7, 192, 95) 65%, rgb(16, 185, 129) 78%, rgb(52, 211, 153) 90%, rgb(110, 231, 183))",
+      "primaryColor": "rgb(7, 192, 95)",
+      "primaryRadius": "8px",
+      "oaRadius": "8px",
+      "horizontalOverflow": false
+    },
+    "authorizationRequests": 0,
+    "status": "PASS"
+  }
+]

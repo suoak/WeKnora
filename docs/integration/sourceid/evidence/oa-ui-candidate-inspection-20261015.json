@@ -1,0 +1,92 @@
+{
+  "candidate_ready": true,
+  "sha": "1ba24ef5f9a730bb98d9ade6a5a5d141ea49292b",
+  "tag": "knowhub-sourceid-phaseb/frontend:oa-ui-1ba24ef5f",
+  "image_id": "sha256:63146a134fc3be75b663a1ac6ddba205be2b0a3c881891a3ba29a28d6a04f48a",
+  "revision": "1ba24ef5f9a730bb98d9ade6a5a5d141ea49292b",
+  "frontend_file_count": 237,
+  "image_matches_built_dist": true,
+  "sourceid_and_other_provider_presentation_present": true,
+  "http_compatibility": {
+    "/login": 200,
+    "/api/v1/auth/oidc/config": 200,
+    "sourceid_marker_compatible": true
+  },
+  "current_app": {
+    "id": "ceac394ee4632f5514cbb65821e77c369df63b35ee1aba7d291fab8a9fdb6ea5",
+    "name": "/knowhub-sourceid-business-app-1",
+    "image_id": "sha256:b2751ba9c8797b0c2440b9435ad92ba9ab2c30d4a95b0c28a2b1b34e4a4c3af1",
+    "image_reference": "sha256:b2751ba9c8797b0c2440b9435ad92ba9ab2c30d4a95b0c28a2b1b34e4a4c3af1",
+    "created": "2026-10-15T12:17:07.969824699Z",
+    "started": "2026-10-15T12:17:08.368998635Z",
+    "running": true,
+    "health": "healthy",
+    "restart_count": 0,
+    "project": "knowhub-sourceid-business",
+    "service": "app",
+    "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+    "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml,/home/aqyfzx/ai/knowhub-sourceid-phaseb-preflight-431226c3b/candidate-image-pin.yml",
+    "ports": {
+      "8080/tcp": [
+        {
+          "HostIp": "0.0.0.0",
+          "HostPort": "8080"
+        }
+      ]
+    },
+    "mounts": [
+      {
+        "Type": "volume",
+        "Name": "knowhub-sourceid-business_files",
+        "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_files/_data",
+        "Destination": "/data/files",
+        "RW": true
+      },
+      {
+        "Type": "volume",
+        "Name": "knowhub-sourceid-business_doc-tmp",
+        "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_doc-tmp/_data",
+        "Destination": "/tmp/docreader",
+        "RW": false
+      },
+      {
+        "Type": "bind",
+        "Name": null,
+        "Source": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/fixture/ca.pem",
+        "Destination": "/fixture/ca.pem",
+        "RW": false
+      }
+    ]
+  },
+  "current_frontend": {
+    "id": "309f4982cf11f34d2ce19784226360a886ab2b7d78acfb84b1c7e8aa5accbb6d",
+    "name": "/knowhub-sourceid-business-frontend-1",
+    "image_id": "sha256:5aa70b6378d4fdbcb173d7a3bd4e4494b1218cafd148e9414684014ca90a3ac1",
+    "image_reference": "sha256:5aa70b6378d4fdbcb173d7a3bd4e4494b1218cafd148e9414684014ca90a3ac1",
+    "created": "2026-10-15T12:17:08.020514948Z",
+    "started": "2026-10-15T12:17:14.231661529Z",
+    "running": true,
+    "health": "NOT_CONFIGURED",
+    "restart_count": 0,
+    "project": "knowhub-sourceid-business",
+    "service": "frontend",
+    "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+    "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml,/home/aqyfzx/ai/knowhub-sourceid-phaseb-preflight-431226c3b/candidate-image-pin.yml",
+    "ports": {
+      "80/tcp": [
+        {
+          "HostIp": "0.0.0.0",
+          "HostPort": "80"
+        }
+      ]
+    },
+    "mounts": []
+  },
+  "database_schema": "3027|f",
+  "running_services_changed": false,
+  "smoke_container_removed": true,
+  "current_phaseb_pin": "/home/aqyfzx/ai/knowhub-sourceid-phaseb-preflight-431226c3b/candidate-image-pin.yml",
+  "candidate_override": "/home/aqyfzx/ai/knowhub-oa-ui-candidate-1ba24ef5f/frontend-ui-pin.yml",
+  "rollback_override": "/home/aqyfzx/ai/knowhub-oa-ui-candidate-1ba24ef5f/frontend-ui-rollback-pin.yml",
+  "overrides_applied": false
+}
