@@ -74,7 +74,7 @@ try {
       }
       if (url.pathname === '/__oa_ui_authorize') return route.fulfill({ contentType: 'text/html', body: '<p>Mock authorization destination</p>' })
       if (url.pathname === '/api/v1/auth/oidc/config') return route.fulfill({ json: {
-        success: true, enabled: true, provider_display_name: '企业 SID',
+        success: true, enabled: true, provider_display_name: '企业 SID', sourceid_basic_encoding: 'oauth_form',
         redirect_uri: 'http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback',
       } })
       if (url.pathname === '/api/v1/auth/config') return route.fulfill({ json: { success: true, registration_mode: 'invite_only' } })
