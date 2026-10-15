@@ -1,0 +1,11 @@
+{
+  "host": "172.30.232.42",
+  "read_only": true,
+  "real_credentials_read": false,
+  "image_revision": "3be5d3f9268fe8819d66485a2b990c6237827e25",
+  "running_binary_sha256": "39f582b85040e408b8d00f73528aa763a4a7d21abbf524cc928edb17d564635e",
+  "build_source_basic_strategy": "oauth_form",
+  "set_basic_auth_call_count_in_exchange": 1,
+  "explicit_authorization_header_override_in_exchange": false,
+  "expected_verified_binary_matches": true
+}
