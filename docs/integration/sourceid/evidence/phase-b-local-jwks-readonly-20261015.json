@@ -1,0 +1,31 @@
+{
+    "source":  "official_public_jwks",
+    "tls_validation":  "enabled",
+    "reads":  [
+                  {
+                      "utc":  "2026-10-15T09:49:57.0111523+00:00",
+                      "http_status":  200,
+                      "http_date":  "Thu, 15 Oct 2026 09:49:57 GMT",
+                      "rsa_count":  1,
+                      "nonempty_kid_count":  0,
+                      "declared_algorithms":  [
+
+                                              ],
+                      "duration_ms":  636
+                  },
+                  {
+                      "utc":  "2026-10-15T09:49:57.6817660+00:00",
+                      "http_status":  200,
+                      "http_date":  "Thu, 15 Oct 2026 09:49:58 GMT",
+                      "rsa_count":  1,
+                      "nonempty_kid_count":  0,
+                      "declared_algorithms":  [
+
+                                              ],
+                      "duration_ms":  61
+                  }
+              ],
+    "public_rsa_material_equal_across_two_reads":  true,
+    "real_id_token_read":  false,
+    "historical_signature_cause":  "UNKNOWN"
+}
