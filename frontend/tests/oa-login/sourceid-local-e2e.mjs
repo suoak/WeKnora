@@ -98,7 +98,14 @@ try {
   await page.waitForURL(/\/login(?:#.*)?$/, { timeout: 60000 })
   await expect(page.locator('.t-message')).toBeVisible()
   assert.equal(await page.evaluate(() => !!localStorage.getItem('weknora_token')), false)
-  console.log('SOURCEID_LOCAL_BROWSER_PASS: portal, auth/me, contributor, fixture knowledge access, logout and disabled-SSO rejection')
+  console.log('SOURCEID_LOCAL_BROWSER_PASS: portal, auth/me, restored session, contributor, fixture knowledge access, logout and disabled-SSO rejection')
+} catch (error) {
+  // Playwright's default timeout stack can include navigation URLs containing
+  // even synthetic authorization codes. Preserve only a class and test line.
+  const category = ['TimeoutError', 'AssertionError', 'Error'].includes(error?.name) ? error.name : 'Error'
+  const line = /sourceid-local-e2e\.mjs:(\d+)/.exec(error?.stack || '')?.[1] || 'unknown'
+  console.error(`SOURCEID_SYNTHETIC_FAILURE: ${category} test_line=${line}`)
+  process.exitCode = 1
 } finally {
   if (browser) await browser.close()
   server.kill()
