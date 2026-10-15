@@ -1,0 +1,11 @@
+{
+  "result": "REFRESHED_FINAL_SOURCE",
+  "pid": 720165,
+  "source_sha256": {
+    "internal/accountprep/prepare.go": "4546a2ff5c6e1ec11bfbd016763d94ed3520bfa126c4c6d78e9a108509bfb527",
+    "internal/accountprep/prepare_test.go": "bb0761cae244a6b62501d81eb14e421e97fc3b1bc6c07d2e54f6e74f4d47997d",
+    "cmd/sourceid-test-account/main.go": "a2d80d0d7601e0d4bb70527c6e39fa5c489fe47637c951ae6c49bb59ce191167",
+    "cmd/sourceid-test-account/main_test.go": "6a7fef93b6844a2d5ea120d8177f8b33708488ae94d3f1d47c209d26c545ff69"
+  },
+  "business_database_accessed": false
+}

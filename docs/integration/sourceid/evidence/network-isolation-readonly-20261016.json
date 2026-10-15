@@ -1,0 +1,914 @@
+{
+  "utc": "2026-10-15T16:30:14.400698+00:00",
+  "target": "172.30.232.42",
+  "read_only": true,
+  "containers": [
+    {
+      "id": "7b624ec2ee90",
+      "name": "/knowhub-sourceid-business-frontend-1",
+      "image_id": "sha256:63146a134fc3be75b663a1ac6ddba205be2b0a3c881891a3ba29a28d6a04f48a",
+      "project": "knowhub-sourceid-business",
+      "service": "frontend",
+      "published_ports": {
+        "80/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "80"
+          }
+        ]
+      },
+      "networks": {
+        "knowhub-sourceid-business_isolated": {
+          "ip": "172.28.0.6",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "ceac394ee463",
+      "name": "/knowhub-sourceid-business-app-1",
+      "image_id": "sha256:b2751ba9c8797b0c2440b9435ad92ba9ab2c30d4a95b0c28a2b1b34e4a4c3af1",
+      "project": "knowhub-sourceid-business",
+      "service": "app",
+      "published_ports": {
+        "8080/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "8080"
+          }
+        ]
+      },
+      "networks": {
+        "knowhub-sourceid-business_isolated": {
+          "ip": "172.28.0.2",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "9c50e590d87a",
+      "name": "/knowhub-sourceid-p6-app-1",
+      "image_id": "sha256:6cea5e7269419db133d7c609e7b85043317e32539e9137f22292b8b72d185b92",
+      "project": "knowhub-sourceid-p6",
+      "service": "app",
+      "published_ports": {
+        "8080/tcp": null
+      },
+      "networks": {
+        "knowhub-sourceid-p6_sourceid": {
+          "ip": "172.27.0.5",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "ba1385464699",
+      "name": "/knowhub-sourceid-business-postgres-1",
+      "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+      "project": "knowhub-sourceid-business",
+      "service": "postgres",
+      "published_ports": {
+        "5432/tcp": null
+      },
+      "networks": {
+        "knowhub-sourceid-business_isolated": {
+          "ip": "172.28.0.5",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "2396325bde68",
+      "name": "/knowhub-sourceid-business-docreader-1",
+      "image_id": "sha256:8399936620aa78f991b95a0339585f5d2d61f215e6311955e8386a01329beba2",
+      "project": "knowhub-sourceid-business",
+      "service": "docreader",
+      "published_ports": {
+        "50051/tcp": null
+      },
+      "networks": {
+        "knowhub-sourceid-business_isolated": {
+          "ip": "172.28.0.4",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "fcc4d64070c7",
+      "name": "/knowhub-sourceid-business-redis-1",
+      "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+      "project": "knowhub-sourceid-business",
+      "service": "redis",
+      "published_ports": {
+        "6379/tcp": null
+      },
+      "networks": {
+        "knowhub-sourceid-business_isolated": {
+          "ip": "172.28.0.3",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "2a280fa4c735",
+      "name": "/knowhub-sourceid-p6-frontend-1",
+      "image_id": "sha256:e2686ca6c72a92e0b90aa5387aefe2b7c700bea94a2afac0045c8197d7402356",
+      "project": "knowhub-sourceid-p6",
+      "service": "frontend",
+      "published_ports": {
+        "80/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "18182"
+          }
+        ]
+      },
+      "networks": {
+        "knowhub-sourceid-p6_sourceid": {
+          "ip": "172.27.0.6",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "dfc572de7f30",
+      "name": "/knowhub-sourceid-p6-postgres-1",
+      "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+      "project": "knowhub-sourceid-p6",
+      "service": "postgres",
+      "published_ports": {
+        "5432/tcp": null
+      },
+      "networks": {
+        "knowhub-sourceid-p6_sourceid": {
+          "ip": "172.27.0.3",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "6b15930f1cc5",
+      "name": "/knowhub-sourceid-p6-docreader-1",
+      "image_id": "sha256:8399936620aa78f991b95a0339585f5d2d61f215e6311955e8386a01329beba2",
+      "project": "knowhub-sourceid-p6",
+      "service": "docreader",
+      "published_ports": {
+        "50051/tcp": null
+      },
+      "networks": {
+        "knowhub-sourceid-p6_sourceid": {
+          "ip": "172.27.0.4",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "ede8bcb14f74",
+      "name": "/knowhub-sourceid-p6-redis-1",
+      "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+      "project": "knowhub-sourceid-p6",
+      "service": "redis",
+      "published_ports": {
+        "6379/tcp": null
+      },
+      "networks": {
+        "knowhub-sourceid-p6_sourceid": {
+          "ip": "172.27.0.2",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "278a75a85cac",
+      "name": "/knowhub24-rc1-smoke-app",
+      "image_id": "sha256:dc1268591cc4a273b732eacb9cd360f7c44d24ddd33706078a464cc3f90fff52",
+      "project": "knowhub24-rc1-smoke",
+      "service": "app",
+      "published_ports": {
+        "8080/tcp": null
+      },
+      "networks": {
+        "knowhub24-rc1-smoke_smoke": {
+          "ip": "172.26.0.6",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "0f53714cb586",
+      "name": "/knowhub24-rc1-smoke-docreader",
+      "image_id": "sha256:8399936620aa78f991b95a0339585f5d2d61f215e6311955e8386a01329beba2",
+      "project": "knowhub24-rc1-smoke",
+      "service": "docreader",
+      "published_ports": {
+        "50051/tcp": null
+      },
+      "networks": {
+        "knowhub24-rc1-smoke_smoke": {
+          "ip": "172.26.0.5",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "14aad5e42f4c",
+      "name": "/knowhub24-rc1-smoke-postgres",
+      "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+      "project": "knowhub24-rc1-smoke",
+      "service": "postgres",
+      "published_ports": {
+        "5432/tcp": null
+      },
+      "networks": {
+        "knowhub24-rc1-smoke_smoke": {
+          "ip": "172.26.0.4",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "ede18337528b",
+      "name": "/knowhub24-rc1-smoke-neo4j",
+      "image_id": "sha256:5ff6e5ba92302482483cb07e6278ed76511ca6692acb93a4df3df07d1fea88ad",
+      "project": "knowhub24-rc1-smoke",
+      "service": "neo4j",
+      "published_ports": {
+        "7473/tcp": null,
+        "7474/tcp": null,
+        "7687/tcp": null
+      },
+      "networks": {
+        "knowhub24-rc1-smoke_smoke": {
+          "ip": "172.26.0.3",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "362e8fb1039f",
+      "name": "/knowhub24-rc1-smoke-redis",
+      "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+      "project": "knowhub24-rc1-smoke",
+      "service": "redis",
+      "published_ports": {
+        "6379/tcp": null
+      },
+      "networks": {
+        "knowhub24-rc1-smoke_smoke": {
+          "ip": "172.26.0.2",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "d21301445af2",
+      "name": "/knowhub-rc22-rc2-frontend",
+      "image_id": "sha256:c3dbda6506c6537905bbaac3958198e7b92bf5a03191096c7c8feee6d846c190",
+      "project": null,
+      "service": null,
+      "published_ports": {
+        "80/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "32778"
+          }
+        ]
+      },
+      "networks": {
+        "knowhub-rc22-rc2-frontend-net": {
+          "ip": "172.24.0.3",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "98299210745c",
+      "name": "/knowhub-rc22-m1-app",
+      "image_id": "sha256:c0e4ce0f60ca208051464c72facfaeff60cc4b9be896048aeff18a78963ff069",
+      "project": null,
+      "service": null,
+      "published_ports": {
+        "8080/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "32777"
+          }
+        ]
+      },
+      "networks": {
+        "knowhub-rc22-db-drill": {
+          "ip": "172.22.0.7",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "c1ec187880d9",
+      "name": "/knowhub-rc22-rollback21-frontend",
+      "image_id": "sha256:a0c644e326c6ef0c4c98e87eb538a75e3a1a1eb2c8f479ad17c6766f2ccf3274",
+      "project": null,
+      "service": null,
+      "published_ports": {
+        "80/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "32776"
+          }
+        ]
+      },
+      "networks": {
+        "knowhub-rc22-rollback21-net": {
+          "ip": "172.23.0.3",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "c1f56999b9f4",
+      "name": "/knowhub-rc22-rollback13-nomigrate-app",
+      "image_id": "sha256:9080ba2945c3a8eb3ad0995d8cba629a7e6f506c3453146da5fa8f93c823e2c4",
+      "project": null,
+      "service": null,
+      "published_ports": {
+        "8080/tcp": null
+      },
+      "networks": {
+        "knowhub-rc22-db-drill": {
+          "ip": "172.22.0.6",
+          "ipv6": ""
+        },
+        "knowhub-rc22-rollback21-net": {
+          "ip": "172.23.0.2",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "c200a2106606",
+      "name": "/knowhub-rc22-runtime-docreader",
+      "image_id": "sha256:8399936620aa78f991b95a0339585f5d2d61f215e6311955e8386a01329beba2",
+      "project": null,
+      "service": null,
+      "published_ports": {
+        "50051/tcp": null
+      },
+      "networks": {
+        "knowhub-rc22-db-drill": {
+          "ip": "172.22.0.5",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "d2cba8bddfbc",
+      "name": "/knowhub-rc22-runtime-neo4j",
+      "image_id": "sha256:5ff6e5ba92302482483cb07e6278ed76511ca6692acb93a4df3df07d1fea88ad",
+      "project": null,
+      "service": null,
+      "published_ports": {
+        "7473/tcp": null,
+        "7474/tcp": null,
+        "7687/tcp": null
+      },
+      "networks": {
+        "knowhub-rc22-db-drill": {
+          "ip": "172.22.0.4",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "88e90a066484",
+      "name": "/knowhub-rc22-runtime-redis",
+      "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+      "project": null,
+      "service": null,
+      "published_ports": {
+        "6379/tcp": null
+      },
+      "networks": {
+        "knowhub-rc22-db-drill": {
+          "ip": "172.22.0.3",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "151ef06090d4",
+      "name": "/knowhub-rc22-db-drill",
+      "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+      "project": null,
+      "service": null,
+      "published_ports": {
+        "5432/tcp": null
+      },
+      "networks": {
+        "knowhub-rc22-db-drill": {
+          "ip": "172.22.0.2",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "42dff61fef1d",
+      "name": "/knowhub13-smoke-app",
+      "image_id": "sha256:9080ba2945c3a8eb3ad0995d8cba629a7e6f506c3453146da5fa8f93c823e2c4",
+      "project": null,
+      "service": null,
+      "published_ports": {
+        "8080/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "32775"
+          }
+        ]
+      },
+      "networks": {
+        "knowhub8-smoke-network": {
+          "ip": "172.21.0.12",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "f8abe476704c",
+      "name": "/knowhub12-smoke-frontend",
+      "image_id": "sha256:bfbae6311ed1a6cba4d17b817a535ce95fdb51a65ec68aedcac1bb5f0d0104ae",
+      "project": null,
+      "service": null,
+      "published_ports": {
+        "80/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "32774"
+          }
+        ]
+      },
+      "networks": {
+        "knowhub8-smoke-network": {
+          "ip": "172.21.0.11",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "a02d7084e06f",
+      "name": "/knowhub11-smoke-frontend",
+      "image_id": "sha256:b3e2d45d62a97091e49b2c764f8fbe53f32e1b53e270f32b8df498e21062eb58",
+      "project": null,
+      "service": null,
+      "published_ports": {
+        "80/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "32773"
+          }
+        ]
+      },
+      "networks": {
+        "knowhub8-smoke-network": {
+          "ip": "172.21.0.10",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "9b3ae5ab8cca",
+      "name": "/knowhub10-smoke-frontend",
+      "image_id": "sha256:45708f03c2a5cdf98533f0a264d859d83603fcd5ea7e7b33bfcedd3c40142bdc",
+      "project": null,
+      "service": null,
+      "published_ports": {
+        "80/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "32772"
+          }
+        ]
+      },
+      "networks": {
+        "knowhub8-smoke-network": {
+          "ip": "172.21.0.9",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "b0848ee18c7d",
+      "name": "/knowhub9-smoke-frontend",
+      "image_id": "sha256:8d4ab11276dd90865d07611014cca305c692a043339854a5f14ca2ec4bae63de",
+      "project": null,
+      "service": null,
+      "published_ports": {
+        "80/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "32771"
+          }
+        ]
+      },
+      "networks": {
+        "knowhub8-smoke-network": {
+          "ip": "172.21.0.8",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "76764a408ae2",
+      "name": "/knowhub8-smoke-frontend",
+      "image_id": "sha256:6d9a8a823bc36c42777a4232691cc7c6eb549734b795ade2cce09ede9e71d59b",
+      "project": null,
+      "service": null,
+      "published_ports": {
+        "80/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "32770"
+          }
+        ]
+      },
+      "networks": {
+        "knowhub8-smoke-network": {
+          "ip": "172.21.0.7",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "5d0a1ba70b0e",
+      "name": "/knowhub8-smoke-app",
+      "image_id": "sha256:85974a456adaca280e68e3b1b529c9d6ab07f4ecc2f57fd84fcab5f5d658ffd6",
+      "project": "smoke-v080-knowhub8-32e97760",
+      "service": "app",
+      "published_ports": {
+        "8080/tcp": null
+      },
+      "networks": {
+        "knowhub8-smoke-network": {
+          "ip": "172.21.0.6",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "585e4843bc87",
+      "name": "/knowhub8-smoke-docreader",
+      "image_id": "sha256:8399936620aa78f991b95a0339585f5d2d61f215e6311955e8386a01329beba2",
+      "project": "smoke-v080-knowhub8-32e97760",
+      "service": "docreader",
+      "published_ports": {
+        "50051/tcp": null
+      },
+      "networks": {
+        "knowhub8-smoke-network": {
+          "ip": "172.21.0.5",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "747cd7292fb5",
+      "name": "/knowhub8-smoke-redis",
+      "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+      "project": "smoke-v080-knowhub8-32e97760",
+      "service": "redis",
+      "published_ports": {
+        "6379/tcp": null
+      },
+      "networks": {
+        "knowhub8-smoke-network": {
+          "ip": "172.21.0.4",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "9761ca0d0d26",
+      "name": "/knowhub8-smoke-neo4j",
+      "image_id": "sha256:5ff6e5ba92302482483cb07e6278ed76511ca6692acb93a4df3df07d1fea88ad",
+      "project": "smoke-v080-knowhub8-32e97760",
+      "service": "neo4j",
+      "published_ports": {
+        "7473/tcp": null,
+        "7474/tcp": null,
+        "7687/tcp": null
+      },
+      "networks": {
+        "knowhub8-smoke-network": {
+          "ip": "172.21.0.3",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "1f32c13834f8",
+      "name": "/knowhub8-smoke-postgres",
+      "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+      "project": "smoke-v080-knowhub8-32e97760",
+      "service": "postgres",
+      "published_ports": {
+        "5432/tcp": null
+      },
+      "networks": {
+        "knowhub8-smoke-network": {
+          "ip": "172.21.0.2",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "7baad304a95e",
+      "name": "/knowhub-ipd-app",
+      "image_id": "sha256:8aece983c4c0cc3fa2680f6ad045ea931f9ab063b9c2d482f1b9cf8f5b0f1846",
+      "project": null,
+      "service": null,
+      "published_ports": {
+        "8080/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "18082"
+          },
+          {
+            "HostIp": "::",
+            "HostPort": "18082"
+          }
+        ]
+      },
+      "networks": {
+        "knowhub-ipd-gate": {
+          "ip": "172.19.0.5",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "a2a190b368ab",
+      "name": "/knowhub-ipd-redis",
+      "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+      "project": null,
+      "service": null,
+      "published_ports": {
+        "6379/tcp": null
+      },
+      "networks": {
+        "knowhub-ipd-gate": {
+          "ip": "172.19.0.4",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "b50db743dac3",
+      "name": "/knowhub-ipd-pg-upgrade",
+      "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+      "project": null,
+      "service": null,
+      "published_ports": {
+        "5432/tcp": null
+      },
+      "networks": {
+        "knowhub-ipd-gate": {
+          "ip": "172.19.0.3",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "5e2969e87307",
+      "name": "/knowhub-ipd-pg-clean",
+      "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+      "project": null,
+      "service": null,
+      "published_ports": {
+        "5432/tcp": null
+      },
+      "networks": {
+        "knowhub-ipd-gate": {
+          "ip": "172.19.0.2",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "61d246fac185",
+      "name": "/WeKnora-segment-frontend",
+      "image_id": "sha256:894e6a32987191e096817194219a00051f4d737c3482c05c8aec41f153eae420",
+      "project": "weknora-segment-test",
+      "service": "frontend",
+      "published_ports": {
+        "80/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "18081"
+          },
+          {
+            "HostIp": "::",
+            "HostPort": "18081"
+          }
+        ]
+      },
+      "networks": {
+        "weknora-segment-test_WeKnora-network": {
+          "ip": "172.18.0.5",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "74fc5cfc828c",
+      "name": "/WeKnora-segment-app",
+      "image_id": "sha256:a3d3d2557c7e28b3c65f3eeb2ea2ed18a44d9466db03c2801c94fa734587818d",
+      "project": "weknora-segment-test",
+      "service": "app",
+      "published_ports": {
+        "8080/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "18080"
+          },
+          {
+            "HostIp": "::",
+            "HostPort": "18080"
+          }
+        ]
+      },
+      "networks": {
+        "weknora-segment-test_WeKnora-network": {
+          "ip": "172.18.0.2",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "d4526daf29aa",
+      "name": "/WeKnora-segment-docreader",
+      "image_id": "sha256:d7f4284bcd815edb48b729ab274a2a0d66dfc6ff1f2791e5604d3238dd733487",
+      "project": "weknora-segment-test",
+      "service": "docreader",
+      "published_ports": {
+        "50051/tcp": null
+      },
+      "networks": {
+        "weknora-segment-test_WeKnora-network": {
+          "ip": "172.18.0.3",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "bf566898f87b",
+      "name": "/WeKnora-segment-postgres",
+      "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+      "project": "weknora-segment-test",
+      "service": "postgres",
+      "published_ports": {
+        "5432/tcp": null
+      },
+      "networks": {
+        "weknora-segment-test_WeKnora-network": {
+          "ip": "172.18.0.4",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "b7d0c72ee990",
+      "name": "/WeKnora-segment-redis",
+      "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+      "project": "weknora-segment-test",
+      "service": "redis",
+      "published_ports": {
+        "6379/tcp": null
+      },
+      "networks": {
+        "weknora-segment-test_WeKnora-network": {
+          "ip": "172.18.0.6",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "590102ce51aa",
+      "name": "/WeKnora-mcp",
+      "image_id": "sha256:aa880bcfa09a66f201463aa614d7a299fef10b342779335ec08dac29713de337",
+      "project": "weknora",
+      "service": "mcp",
+      "published_ports": {
+        "8000/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "8082"
+          },
+          {
+            "HostIp": "::",
+            "HostPort": "8082"
+          }
+        ]
+      },
+      "networks": {
+        "weknora_WeKnora-network": {
+          "ip": "172.17.0.2",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "b2229c012c06",
+      "name": "/WeKnora-postgres",
+      "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+      "project": "weknora",
+      "service": "postgres",
+      "published_ports": {
+        "5432/tcp": null
+      },
+      "networks": {
+        "weknora_WeKnora-network": {
+          "ip": "172.17.0.6",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "a2a2fbd1533f",
+      "name": "/WeKnora-docreader",
+      "image_id": "sha256:1f520c9e7c5890c6a97997523e536e9e312065548aeed826eb8ef600ce988ba9",
+      "project": "weknora",
+      "service": "docreader",
+      "published_ports": {
+        "50051/tcp": null
+      },
+      "networks": {
+        "weknora_WeKnora-network": {
+          "ip": "172.17.0.3",
+          "ipv6": ""
+        }
+      }
+    },
+    {
+      "id": "c22a6e302e7b",
+      "name": "/WeKnora-redis",
+      "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+      "project": "weknora",
+      "service": "redis",
+      "published_ports": {
+        "6379/tcp": null
+      },
+      "networks": {
+        "weknora_WeKnora-network": {
+          "ip": "172.17.0.7",
+          "ipv6": ""
+        }
+      }
+    }
+  ],
+  "tcp_listeners": [
+    "0.0.0.0:22",
+    "0.0.0.0:18080",
+    "0.0.0.0:18081",
+    "127.0.0.1:32770",
+    "0.0.0.0:18082",
+    "127.0.0.1:32771",
+    "127.0.0.1:32772",
+    "0.0.0.0:33060",
+    "127.0.0.1:32773",
+    "127.0.0.1:18182",
+    "127.0.0.1:32774",
+    "127.0.0.1:32775",
+    "127.0.0.1:32776",
+    "127.0.0.1:32777",
+    "127.0.0.1:32778",
+    "0.0.0.0:3306",
+    "0.0.0.0:80",
+    "0.0.0.0:8080",
+    "0.0.0.0:8082",
+    "[::]:22",
+    "[::]:18080",
+    "[::]:18081",
+    "[::]:18082",
+    "[::]:8082"
+  ],
+  "firewall_inventory": {
+    "iptables": {
+      "readable": false,
+      "docker_user_chain_seen": false,
+      "raw_rules_exported": false
+    },
+    "ip6tables": {
+      "readable": false,
+      "docker_user_chain_seen": false,
+      "raw_rules_exported": false
+    },
+    "nft": {
+      "readable": false,
+      "docker_user_chain_seen": false,
+      "raw_rules_exported": false
+    }
+  },
+  "docker_security_options": [
+    "name=apparmor",
+    "name=seccomp,profile=builtin"
+  ],
+  "network_rules_changed": false,
+  "real_login_started": false
+}

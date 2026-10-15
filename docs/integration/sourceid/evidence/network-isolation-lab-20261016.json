@@ -1,0 +1,55 @@
+{
+  "utc": "2026-10-15T16:33:29.773064+00:00",
+  "scope": "new isolated synthetic Docker networks only",
+  "checks": {
+    "allowed_ipv4": {
+      "status": 200,
+      "exit_code": 0,
+      "expected": 200,
+      "pass": true,
+      "synthetic_body_only": true
+    },
+    "denied_ipv4": {
+      "status": 403,
+      "exit_code": 1,
+      "expected": 403,
+      "pass": true,
+      "synthetic_body_only": true
+    },
+    "allowed_ipv6": {
+      "status": 200,
+      "exit_code": 0,
+      "expected": 200,
+      "pass": true,
+      "synthetic_body_only": true
+    },
+    "denied_ipv6": {
+      "status": 403,
+      "exit_code": 1,
+      "expected": 403,
+      "pass": true,
+      "synthetic_body_only": true
+    },
+    "direct_backend_denied": {
+      "status": 0,
+      "exit_code": 1,
+      "expected": 0,
+      "pass": true,
+      "synthetic_body_only": true
+    },
+    "backend_health": {
+      "pass": true
+    },
+    "published_port_no_bypass": {
+      "status": 403,
+      "pass": true
+    }
+  },
+  "published_port": "32782",
+  "lab_removed": true,
+  "existing_containers_unchanged": true,
+  "running_service_rules_changed": false,
+  "host_firewall_rules_modified": false,
+  "real_environment_allow_deny_sources": "NOT_EXECUTED",
+  "result": "PASS"
+}
