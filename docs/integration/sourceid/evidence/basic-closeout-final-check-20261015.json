@@ -1,0 +1,33 @@
+{
+  "final_app_id": "89f47e199a142788e5203e826d3f7298b56bea67515846d35d4d6454e1d0415a",
+  "image_id": "sha256:93f5c831b6e061832d71aa19fe74835c78e16b637d77e7ce18a4283e9ed62daa",
+  "health": "healthy",
+  "credential_equivalence": "EQUIVALENT=true",
+  "configuration": "oauth_form",
+  "rollback_script_syntax": "PASS",
+  "rollback_executed": false,
+  "protected_permissions": {
+    "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/private/basic-encoding-backups/20261015T112150Z": "0o700",
+    "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/private/basic-encoding-backups/20261015T112150Z/compose.yml.before": "0o600",
+    "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/private/basic-encoding-backups/20261015T112150Z/rollback.sh": "0o700",
+    "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/private/basic-encoding-backups/20261015T112150Z/image-pin.yml": "0o600",
+    "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml": "0o600"
+  },
+  "http": {
+    "http://127.0.0.1/": {
+      "status": 200
+    },
+    "http://127.0.0.1:8080/health": {
+      "status": 200
+    },
+    "http://127.0.0.1/api/v1/auth/oidc/config": {
+      "status": 200,
+      "sourceid_basic_encoding": "oauth_form"
+    },
+    "http://127.0.0.1:8080/api/v1/auth/oidc/config": {
+      "status": 200,
+      "sourceid_basic_encoding": "oauth_form"
+    }
+  },
+  "utc": "2026-10-15T11:22:42.015980+00:00"
+}

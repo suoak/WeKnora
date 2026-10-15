@@ -1,0 +1,169 @@
+{
+  "utc": "2026-10-15T11:21:46.018741+00:00",
+  "target": "172.30.232.42",
+  "switch_completed": true,
+  "rolled_back": false,
+  "real_sid_login": "NOT_EXECUTED",
+  "real_sid_token_exchange": "NOT_EXECUTED",
+  "credential_equivalence": "EQUIVALENT=true",
+  "same_container_historical_token_200_count": 8,
+  "schema_before": "3026|f",
+  "baseline_local_acceptance": {
+    "local_login": 200,
+    "/api/v1/auth/me": 200,
+    "/api/v1/knowledge-bases": 200,
+    "/api/v1/agents": 200,
+    "/api/v1/models": 200,
+    "/api/v1/mcp-endpoints": 200,
+    "/api/v1/mcp-endpoints/tools": 200,
+    "/api/v1/me/feishu": 200,
+    "local_logout": 200,
+    "local_token_revoked": true
+  },
+  "source_credential_matches_running": true,
+  "backup_directory": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/private/basic-encoding-backups/20261015T112150Z",
+  "rollback_script": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/private/basic-encoding-backups/20261015T112150Z/rollback.sh",
+  "image_pin_override": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/private/basic-encoding-backups/20261015T112150Z/image-pin.yml",
+  "configuration_semantic_changed_keys": [
+    "services.app.environment.SOURCEID_BASIC_ENCODING"
+  ],
+  "only_basic_encoding_environment_changed": true,
+  "credential_equivalence_after": "EQUIVALENT=true",
+  "app_before": {
+    "id": "03b06efdafe2d7281550b4f070ab6ce79dd91fdd4c8fd6a0d5be07dd3b9e2856",
+    "name": "/knowhub-sourceid-business-app-1",
+    "image_id": "sha256:93f5c831b6e061832d71aa19fe74835c78e16b637d77e7ce18a4283e9ed62daa",
+    "image_reference": "knowhub-sourceid-business/app:2fcbcaaed",
+    "created": "2026-10-15T06:22:28.443304188Z",
+    "started": "2026-10-15T06:22:28.896515199Z",
+    "running": true,
+    "health": "healthy",
+    "restart_count": 0,
+    "project": "knowhub-sourceid-business",
+    "service": "app",
+    "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+    "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+    "ports": {
+      "8080/tcp": [
+        {
+          "HostIp": "0.0.0.0",
+          "HostPort": "8080"
+        }
+      ]
+    },
+    "mounts": [
+      {
+        "Type": "volume",
+        "Name": "knowhub-sourceid-business_files",
+        "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_files/_data",
+        "Destination": "/data/files",
+        "RW": true
+      },
+      {
+        "Type": "volume",
+        "Name": "knowhub-sourceid-business_doc-tmp",
+        "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_doc-tmp/_data",
+        "Destination": "/tmp/docreader",
+        "RW": false
+      },
+      {
+        "Type": "bind",
+        "Name": null,
+        "Source": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/fixture/ca.pem",
+        "Destination": "/fixture/ca.pem",
+        "RW": false
+      }
+    ]
+  },
+  "app_after": {
+    "id": "89f47e199a142788e5203e826d3f7298b56bea67515846d35d4d6454e1d0415a",
+    "name": "/knowhub-sourceid-business-app-1",
+    "image_id": "sha256:93f5c831b6e061832d71aa19fe74835c78e16b637d77e7ce18a4283e9ed62daa",
+    "image_reference": "sha256:93f5c831b6e061832d71aa19fe74835c78e16b637d77e7ce18a4283e9ed62daa",
+    "created": "2026-10-15T11:21:50.698859924Z",
+    "started": "2026-10-15T11:21:51.497902773Z",
+    "running": true,
+    "health": "healthy",
+    "restart_count": 0,
+    "project": "knowhub-sourceid-business",
+    "service": "app",
+    "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+    "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml,/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/private/basic-encoding-backups/20261015T112150Z/image-pin.yml",
+    "ports": {
+      "8080/tcp": [
+        {
+          "HostIp": "0.0.0.0",
+          "HostPort": "8080"
+        }
+      ]
+    },
+    "mounts": [
+      {
+        "Type": "bind",
+        "Name": null,
+        "Source": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/fixture/ca.pem",
+        "Destination": "/fixture/ca.pem",
+        "RW": false
+      },
+      {
+        "Type": "volume",
+        "Name": "knowhub-sourceid-business_files",
+        "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_files/_data",
+        "Destination": "/data/files",
+        "RW": true
+      },
+      {
+        "Type": "volume",
+        "Name": "knowhub-sourceid-business_doc-tmp",
+        "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_doc-tmp/_data",
+        "Destination": "/tmp/docreader",
+        "RW": false
+      }
+    ]
+  },
+  "fixed_image_id_unchanged": true,
+  "non_app_containers_unchanged": true,
+  "non_app_container_ids": {
+    "frontend": "dcbeecba4f422149c215c01b1226d8a44801a536b9a38596ad5bdf34cfabd801",
+    "sid-mock": "8b4c423f194a406fe2877c0140c05d3e3a53c8c79e749148ccd721e2c615eaac",
+    "postgres": "ba1385464699fdb0b21e48b3134e870f99de3bc1d74ff9663a4dc42e5476f624",
+    "docreader": "2396325bde68730217152ee1885508ca9294ed8524ef424a7022c8b9a2c2cc90",
+    "redis": "fcc4d64070c73ee198ffa0c5badf6abd1b2d03543243f857be4f84b8605c33ad"
+  },
+  "app_volumes_and_ports_unchanged": true,
+  "schema_after": "3026|f",
+  "oidc_config": {
+    "success": true,
+    "enabled": true,
+    "sourceid_basic_encoding": "oauth_form",
+    "redirect_uri": "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback"
+  },
+  "frontend_80_status": 200,
+  "app_8080_health_status": 200,
+  "post_switch_local_acceptance": {
+    "local_login": 200,
+    "/api/v1/auth/me": 200,
+    "/api/v1/knowledge-bases": 200,
+    "/api/v1/agents": 200,
+    "/api/v1/models": 200,
+    "/api/v1/mcp-endpoints": 200,
+    "/api/v1/mcp-endpoints/tools": 200,
+    "/api/v1/me/feishu": 200,
+    "local_logout": 200,
+    "local_token_revoked": true
+  },
+  "preserved_flags": {
+    "SOURCEID_ENABLE": "true",
+    "SOURCEID_PROTOCOL_ONLY": "true",
+    "SOURCEID_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_EMAIL_BINDING_ENABLE": "false",
+    "SOURCEID_EMAIL_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_AUTO_BINDING_ENABLE": "false",
+    "SOURCEID_LOGOUT_ENABLE": "false",
+    "SOURCEID_SESSION_MODE": "NOT_SET",
+    "SOURCEID_DIAGNOSTICS_ENABLE": "true",
+    "OIDC_AUTH_ENABLE": "true",
+    "OIDC_AUTH_PKCE_ENABLE": "false"
+  },
+  "rollback_ready": true
+}
