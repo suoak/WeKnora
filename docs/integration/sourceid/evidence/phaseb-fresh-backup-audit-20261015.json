@@ -1,0 +1,20 @@
+{
+  "result": "PASS",
+  "real_sid_login": "NOT_EXECUTED",
+  "backup_restored_schema": "3026|f",
+  "row_counts": {
+    "users": 1,
+    "tenants": 1,
+    "tenant_members": 1,
+    "knowledge_bases": 8,
+    "external_identities": 0,
+    "source_id_sessions": 0,
+    "source_id_binding_reviews": 0,
+    "feishu_connections": 0,
+    "feishu_personal_imports": 0
+  },
+  "active_knowledge_bases": 0,
+  "preupgrade_backup_path": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/private/phaseb-upgrade-backups/20261015T121331Z/test-db-3026.dump",
+  "actual_fresh_backup_restored": true,
+  "disposable_resources_removed": true
+}
