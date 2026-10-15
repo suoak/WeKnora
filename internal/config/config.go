@@ -338,6 +338,15 @@ type OIDCAuthConfig struct {
 	SourceIDEmailContractConfirmed bool   `yaml:"sourceid_email_contract_confirmed" json:"-"`
 	SourceIDAutoBindingEnable      bool   `yaml:"sourceid_auto_binding_enable" json:"-"`
 	SourceIDAutoBindingPolicyRef   string `yaml:"sourceid_auto_binding_policy_ref" json:"-"`
+	SourceIDSessionMode            string `yaml:"sourceid_session_mode" json:"-"`
+	SourceIDLocalPolicyRef         string `yaml:"sourceid_local_policy_ref" json:"-"`
+	SourceIDLocalAccessTTL         string `yaml:"sourceid_local_access_ttl" json:"-"`
+	SourceIDLocalAbsoluteTTL       string `yaml:"sourceid_local_absolute_ttl" json:"-"`
+	SourceIDLocalIdleTTL           string `yaml:"sourceid_local_idle_ttl" json:"-"`
+	SourceIDLocalRefreshEnable     bool   `yaml:"sourceid_local_refresh_enable" json:"-"`
+	SourceIDAdmissionMode          string `yaml:"sourceid_admission_mode" json:"-"`
+	SourceIDAdmissionPolicyRef     string `yaml:"sourceid_admission_policy_ref" json:"-"`
+	SourceIDAdmissionMaxAge        string `yaml:"sourceid_admission_max_age" json:"-"`
 	RedirectURI                    string `yaml:"redirect_uri" json:"redirect_uri"`
 	PKCEEnable                     bool   `yaml:"pkce_enable" json:"-"`
 	ClientAuthMethod               string `yaml:"client_auth_method" json:"-"`
@@ -796,6 +805,14 @@ func applyOIDCEnvOverrides(cfg *Config) {
 	}
 
 	for key, target := range map[string]*string{
+		"SOURCEID_SESSION_MODE":            &cfg.OIDCAuth.SourceIDSessionMode,
+		"SOURCEID_LOCAL_POLICY_REF":        &cfg.OIDCAuth.SourceIDLocalPolicyRef,
+		"SOURCEID_LOCAL_ACCESS_TTL":        &cfg.OIDCAuth.SourceIDLocalAccessTTL,
+		"SOURCEID_LOCAL_ABSOLUTE_TTL":      &cfg.OIDCAuth.SourceIDLocalAbsoluteTTL,
+		"SOURCEID_LOCAL_IDLE_TTL":          &cfg.OIDCAuth.SourceIDLocalIdleTTL,
+		"SOURCEID_ADMISSION_MODE":          &cfg.OIDCAuth.SourceIDAdmissionMode,
+		"SOURCEID_ADMISSION_POLICY_REF":    &cfg.OIDCAuth.SourceIDAdmissionPolicyRef,
+		"SOURCEID_ADMISSION_MAX_AGE":       &cfg.OIDCAuth.SourceIDAdmissionMaxAge,
 		"SOURCEID_EMPLOYEE_CLAIM":          &cfg.OIDCAuth.SourceIDEmployeeClaim,
 		"SOURCEID_AUTO_BINDING_POLICY_REF": &cfg.OIDCAuth.SourceIDAutoBindingPolicyRef,
 		"SOURCEID_SESSION_CLAIM":           &cfg.OIDCAuth.SourceIDSessionClaim,
@@ -815,6 +832,7 @@ func applyOIDCEnvOverrides(cfg *Config) {
 		}
 	}
 	for key, target := range map[string]*bool{
+		"SOURCEID_LOCAL_REFRESH_ENABLE":     &cfg.OIDCAuth.SourceIDLocalRefreshEnable,
 		"SOURCEID_ENABLE":                   &cfg.OIDCAuth.SourceIDEnable,
 		"SOURCEID_PROTOCOL_ONLY":            &cfg.OIDCAuth.SourceIDProtocolOnly,
 		"SOURCEID_DIAGNOSTICS_ENABLE":       &cfg.OIDCAuth.SourceIDDiagnosticsEnable,

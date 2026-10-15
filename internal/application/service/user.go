@@ -1138,12 +1138,34 @@ func (s *userService) generateTokensForTenant(
 	activeTenantID uint64,
 ) (accessToken, refreshToken string, err error) {
 	sessionID, _ := ctx.Value(sourceIDSessionKey).(string)
+	now := time.Now()
+	accessExpiry, refreshExpiry := now.Add(24*time.Hour), now.Add(7*24*time.Hour)
+	if sessionID != "" {
+		local, err := s.sourceIDLocalLimits(ctx, sessionID, user.ID)
+		if err != nil {
+			return "", "", err
+		}
+		if local != nil {
+			// Admission validity never slides forward on Refresh or SwitchTenant.
+			accessExpiry = now.Add(time.Duration(local.AccessSeconds) * time.Second)
+			if accessExpiry.After(local.AdmissionValidUntil) {
+				accessExpiry = local.AdmissionValidUntil
+			}
+			refreshExpiry = local.AdmissionValidUntil
+			if !local.RefreshEnabled {
+				refreshExpiry = accessExpiry
+			}
+			if !accessExpiry.After(now) {
+				return "", "", errors.New("sourceid admission expired")
+			}
+		}
+	}
 	// Generate access token (expires in 24 hours)
 	accessClaims := jwt.MapClaims{
 		"user_id":   user.ID,
 		"email":     user.Email,
 		"tenant_id": activeTenantID,
-		"exp":       time.Now().Add(24 * time.Hour).Unix(),
+		"exp":       accessExpiry.Unix(),
 		"iat":       time.Now().Unix(),
 		"type":      "access",
 	}
@@ -1161,7 +1183,7 @@ func (s *userService) generateTokensForTenant(
 	// Generate refresh token (expires in 7 days)
 	refreshClaims := jwt.MapClaims{
 		"user_id": user.ID,
-		"exp":     time.Now().Add(7 * 24 * time.Hour).Unix(),
+		"exp":     refreshExpiry.Unix(),
 		"iat":     time.Now().Unix(),
 		"type":    "refresh",
 	}
@@ -1182,7 +1204,7 @@ func (s *userService) generateTokensForTenant(
 		UserID:    user.ID,
 		Token:     accessToken,
 		TokenType: "access_token",
-		ExpiresAt: time.Now().Add(24 * time.Hour),
+		ExpiresAt: accessExpiry,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -1192,7 +1214,7 @@ func (s *userService) generateTokensForTenant(
 		UserID:    user.ID,
 		Token:     refreshToken,
 		TokenType: "refresh_token",
-		ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
+		ExpiresAt: refreshExpiry,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -1282,6 +1304,15 @@ func (s *userService) SwitchTenant(
 	}
 
 	sessionID, _ := ctx.Value(sourceIDSessionKey).(string)
+	if sessionID != "" {
+		local, err := s.sourceIDLocalLimits(ctx, sessionID, user.ID)
+		if err != nil {
+			return nil, err
+		}
+		if local != nil && currentRefreshToken == "" {
+			return nil, errors.New("sourceid local switch requires refresh predecessor")
+		}
+	}
 	if sessionID != "" && currentRefreshToken != "" {
 		record, err := s.tokenRepo.GetTokenByValue(ctx, currentRefreshToken)
 		if err != nil || record == nil || record.IsRevoked || record.UserID != user.ID || record.SessionID != sessionID || record.TokenType != "refresh_token" {
@@ -1380,6 +1411,10 @@ func (s *userService) ValidateToken(ctx context.Context, tokenString string) (*t
 	}
 	if tokenRecord == nil || tokenRecord.IsRevoked {
 		return nil, 0, errors.New("token is revoked")
+	}
+	claimSession, _ := claims["session_id"].(string)
+	if claimSession != tokenRecord.SessionID || tokenRecord.UserID != userID {
+		return nil, 0, errors.New("token session mismatch")
 	}
 	if tokenRecord.TokenType == "refresh_token" {
 		return nil, 0, errors.New("refresh token cannot be used as access token")
@@ -1554,7 +1589,16 @@ func (s *userService) RefreshToken(
 		return "", "", fmt.Errorf("look up refresh token: %w", err)
 	}
 	if tokenRecord == nil || tokenRecord.IsRevoked {
+		if tokenRecord != nil {
+			if err := s.revokeSourceIDRefreshReplay(ctx, tokenRecord); err != nil {
+				return "", "", err
+			}
+		}
 		return "", "", errors.New("refresh token is revoked")
+	}
+	claimSession, _ := claims["session_id"].(string)
+	if claimSession != tokenRecord.SessionID || tokenRecord.UserID != userID {
+		return "", "", errors.New("refresh session mismatch")
 	}
 	if tokenRecord.TokenType != "refresh_token" {
 		return "", "", errors.New("not a refresh token")
@@ -1571,6 +1615,13 @@ func (s *userService) RefreshToken(
 	}
 
 	if tokenRecord.SessionID != "" {
+		local, err := s.sourceIDLocalLimits(ctx, tokenRecord.SessionID, tokenRecord.UserID)
+		if err != nil {
+			return "", "", err
+		}
+		if local != nil && !local.RefreshEnabled {
+			return "", "", errors.New("sourceid local refresh disabled")
+		}
 		if err := s.CheckSourceIDTokenSession(ctx, tokenRecord); err != nil {
 			return "", "", err
 		}

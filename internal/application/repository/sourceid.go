@@ -67,6 +67,9 @@ func checkSourceIDSession(tx *gorm.DB, id, userID string, lock bool) error {
 	if session.Revoked || !session.ExpiresAt.After(time.Now()) {
 		return errors.New("sourceid session revoked")
 	}
+	if session.SessionIndexHash == "" {
+		return checkSourceIDLocalSession(tx, &session)
+	}
 	var count int64
 	if err := tx.Session(&gorm.Session{NewDB: true}).Model(&types.SourceIDLogout{}).Where("key = ?", session.SessionIndexHash).Count(&count).Error; err != nil {
 		return err
@@ -82,17 +85,46 @@ func (r *userRepository) CheckSourceIDSession(ctx context.Context, id, userID st
 }
 
 func (r *userRepository) PersistSourceIDTokens(ctx context.Context, id string, access, refresh *types.AuthToken, previous string) error {
-	return r.db.WithContext(ctx).Session(&gorm.Session{Logger: gormlogger.Discard}).Transaction(func(tx *gorm.DB) error {
+	localMode := false
+	err := r.db.WithContext(ctx).Session(&gorm.Session{Logger: gormlogger.Discard}).Transaction(func(tx *gorm.DB) error {
 		if err := checkSourceIDSession(tx, id, access.UserID, true); err != nil {
 			return err
 		}
+		var session types.SourceIDSession
+		if err := tx.Where("id = ? AND user_id = ?", id, access.UserID).First(&session).Error; err != nil {
+			return err
+		}
+		localMode = session.SessionIndexHash == ""
+		if localMode {
+			var local types.SourceIDLocalSession
+			if err := tx.Where("id = ?", id).First(&local).Error; err != nil {
+				return err
+			}
+			if previous != "" && !local.RefreshEnabled {
+				return errors.New("sourceid local refresh disabled")
+			}
+			if access.SessionID != id || refresh.SessionID != id || refresh.UserID != access.UserID ||
+				access.ExpiresAt.After(session.ExpiresAt) || access.ExpiresAt.After(local.AdmissionValidUntil) ||
+				refresh.ExpiresAt.After(session.ExpiresAt) || refresh.ExpiresAt.After(local.AdmissionValidUntil) {
+				return errors.New("sourceid local token limits invalid")
+			}
+			if previous == "" {
+				var count int64
+				if err := tx.Model(&types.AuthToken{}).Where("session_id = ? AND token_type = ?", id, "refresh_token").Count(&count).Error; err != nil {
+					return err
+				}
+				if count != 0 {
+					return errors.New("sourceid local refresh predecessor required")
+				}
+			}
+		}
 		if previous != "" {
-			result := tx.Model(&types.AuthToken{}).Where("token = ? AND user_id = ? AND session_id = ? AND is_revoked = ?", previous, access.UserID, id, false).Update("is_revoked", true)
+			result := tx.Model(&types.AuthToken{}).Where("token = ? AND user_id = ? AND session_id = ? AND token_type = ? AND is_revoked = ? AND expires_at > ?", previous, access.UserID, id, "refresh_token", false, time.Now()).Update("is_revoked", true)
 			if result.Error != nil {
 				return result.Error
 			}
 			if result.RowsAffected != 1 {
-				return errors.New("refresh token already consumed")
+				return errSourceIDRefreshConsumed
 			}
 		}
 		if err := tx.Create(access).Error; err != nil {
@@ -100,6 +132,13 @@ func (r *userRepository) PersistSourceIDTokens(ctx context.Context, id string, a
 		}
 		return tx.Create(refresh).Error
 	})
+	// Commit family revocation outside the rolled-back failed rotation.
+	if localMode && errors.Is(err, errSourceIDRefreshConsumed) {
+		if revokeErr := r.RevokeSourceIDSession(ctx, id, access.UserID); revokeErr != nil {
+			return revokeErr
+		}
+	}
+	return err
 }
 
 func (r *userRepository) RevokeSourceIDSession(ctx context.Context, id, userID string) error {

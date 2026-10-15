@@ -60,6 +60,21 @@ type SourceIDSession struct {
 	CreatedAt        time.Time
 }
 
+// Companion to SourceIDSession. Local sessions have an empty external index;
+// it is never manufactured from an employee or OIDC subject identifier.
+type SourceIDLocalSession struct {
+	ID                  string `gorm:"primaryKey;size:36"`
+	BindingID           string
+	Subject             string
+	PolicyRef           string
+	AdmissionPolicyRef  string
+	AdmissionValidUntil time.Time
+	LastSeenAt          time.Time
+	IdleSeconds         int64
+	AccessSeconds       int64
+	RefreshEnabled      bool
+}
+
 // SourceIDLogout persists a tombstone, including when logout precedes callback.
 type SourceIDLogout struct {
 	Key       string `gorm:"primaryKey"`

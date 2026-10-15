@@ -63,7 +63,11 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 	if cfg.SourceIDProtocolOnly || !cfg.SourceIDContractConfirmed {
 		return nil, ctx, errors.New("sourceid identity contract pending")
 	}
-	if cfg.SourceIDEmployeeClaim == "" || cfg.SourceIDSessionClaim == "" || cfg.SourceIDStatusClaim == "" || cfg.SourceIDAllowedStatus == "" {
+	mode := cfg.EffectiveSourceIDSessionMode()
+	if mode != "external" && mode != "local_approved" {
+		return nil, ctx, errors.New("sourceid session mode invalid")
+	}
+	if cfg.SourceIDEmployeeClaim == "" || (mode == "external" && cfg.SourceIDSessionClaim == "") || cfg.SourceIDStatusClaim == "" || cfg.SourceIDAllowedStatus == "" {
 		return nil, ctx, errors.New("sourceid claim contract unconfirmed")
 	}
 	if cfg.SourceIDEmailBindingEnable && (!cfg.SourceIDEmailContractConfirmed || cfg.SourceIDEmployeeClaim != "attributes.RJGH" || cfg.SourceIDClaimsSource != "userinfo") {
@@ -75,11 +79,20 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 	employee := sourceIDStringClaim(info.Claims, cfg.SourceIDEmployeeClaim)
 	index := sourceIDStringClaim(info.Claims, cfg.SourceIDSessionClaim)
 	status := sourceIDClaim(info.Claims, cfg.SourceIDStatusClaim)
-	if employee == "" || index == "" {
+	if employee == "" || info.Subject == "" || (mode == "external" && index == "") {
 		return nil, ctx, errors.New("sourceid employee or session missing")
 	}
 	if status != cfg.SourceIDAllowedStatus {
 		return nil, ctx, errors.New("sourceid employee disabled")
+	}
+	now := time.Now()
+	var admissionUntil time.Time
+	if mode == "local_approved" {
+		var err error
+		admissionUntil, err = sourceIDAdmission(cfg, info, now)
+		if err != nil {
+			return nil, ctx, err
+		}
 	}
 	r, err := s.sourceIDStore()
 	if err != nil {
@@ -111,7 +124,27 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 		return nil, ctx, err
 	}
 	session := &types.SourceIDSession{ID: uuid.NewString(), Issuer: cfg.IssuerURL, UserID: user.ID, SessionIndexHash: apprepo.SourceIDHash(cfg.IssuerURL + "\x00" + index), ExpiresAt: time.Now().Add(7 * 24 * time.Hour), CreatedAt: time.Now()}
-	if cfg.SourceIDEmailBindingEnable {
+	if mode == "local_approved" {
+		policy, err := cfg.SourceIDLocalPolicy()
+		if err != nil {
+			return nil, ctx, err
+		}
+		store, ok := r.(sourceIDLocalStore)
+		if !ok {
+			return nil, ctx, errors.New("sourceid local repository unavailable")
+		}
+		session.SessionIndexHash = ""
+		session.ExpiresAt = now.Add(policy.AbsoluteTTL)
+		if admissionUntil.Before(session.ExpiresAt) {
+			session.ExpiresAt = admissionUntil
+		}
+		local := &types.SourceIDLocalSession{ID: session.ID, Subject: info.Subject, PolicyRef: cfg.SourceIDLocalPolicyRef,
+			AdmissionPolicyRef: cfg.SourceIDAdmissionPolicyRef, AdmissionValidUntil: admissionUntil, LastSeenAt: now,
+			IdleSeconds: int64(policy.IdleTTL / time.Second), AccessSeconds: int64(policy.AccessTTL / time.Second), RefreshEnabled: cfg.SourceIDLocalRefreshEnable}
+		if err := store.CreateSourceIDLocalSession(ctx, session, local); err != nil {
+			return nil, ctx, err
+		}
+	} else if cfg.SourceIDEmailBindingEnable {
 		binding, ok := r.(interface {
 			CreateSourceIDReviewedSession(context.Context, *types.SourceIDSession) error
 		})
@@ -132,8 +165,14 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 }
 
 func (s *userService) CheckSourceIDTokenSession(ctx context.Context, token *types.AuthToken) error {
+	if token == nil {
+		return errors.New("sourceid token missing")
+	}
 	if token.SessionID == "" {
 		return nil
+	}
+	if _, err := s.sourceIDLocalLimits(ctx, token.SessionID, token.UserID); err != nil {
+		return err
 	}
 	r, err := s.sourceIDStore()
 	if err != nil {
