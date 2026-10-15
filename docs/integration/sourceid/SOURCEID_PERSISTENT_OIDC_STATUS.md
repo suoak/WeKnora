@@ -1,3 +1,5 @@
+> 2026-10-15 状态更新：以下持续开启记录为历史快照。raw Basic 升级已完成，当前 OIDC 与诊断均关闭，SOURCEID_BASIC_ENCODING=raw；以 [raw 兼容部署报告](SOURCEID_RAW_BASIC_COMPATIBILITY_DEPLOYMENT_REPORT.md) 为准。
+
 # 打包机 OIDC 持续开启状态
 
 2026-10-14 北京时间 20:00，按用户最新授权开启。此记录更新此前部署验收结束时的关闭状态；旧报告及旧 JSON 保留为历史快照。

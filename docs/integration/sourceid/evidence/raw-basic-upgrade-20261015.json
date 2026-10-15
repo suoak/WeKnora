@@ -1,0 +1,66 @@
+{
+  "host": "172.30.232.42",
+  "source_sha": "468410e893de4a34918e9a5201bbc3870dadc22c",
+  "backup_directory": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/upgrade-backups/raw-basic-20261015T022248Z",
+  "upgraded": true,
+  "before": [
+    {
+      "service": "app",
+      "id": "96801825bfb6931c99a89b3d26e06398fb4237ec32e6c80d2194b7f7a2941386",
+      "image": "knowhub-sourceid-business/app:3be5d3f92",
+      "image_id": "sha256:0890f309f89397e82ea5b1ecd901f2ddb37de142b78f854e9925a05430c34c1d"
+    },
+    {
+      "service": "frontend",
+      "id": "960d98f5202ea0bd0f7b682aaca10c738ff43a087c65e2fdd2134097e180ecf0",
+      "image": "knowhub-sourceid-business/frontend:3be5d3f92",
+      "image_id": "sha256:ae4a1207900234b131605ea3cdd4af8e99845faebdd1be87e00af150d34dbf34"
+    }
+  ],
+  "database_counts_before": {
+    "users": 1,
+    "knowledge_bases": 2,
+    "knowledges": 2,
+    "external_identities": 0,
+    "source_id_sessions": 0
+  },
+  "migration_before": "3024",
+  "database_backup": {
+    "bytes": 354932,
+    "sha256": "c311390046e92415368e781301bc5223fa8e4b6c2d481a6d39fbde26308ecc01",
+    "catalog_verified": true
+  },
+  "public_config": {
+    "sourceid_basic_encoding": "raw",
+    "redirect_uri": "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback",
+    "success": true,
+    "enabled": false,
+    "provider_display_name": "企业 SID"
+  },
+  "after": [
+    {
+      "service": "app",
+      "id": "79d8417133df28306a60996074d411a4eb1ba31e203003016d62577473f2ae45",
+      "image": "knowhub-sourceid-business/app:468410e89",
+      "image_id": "sha256:e2feec2c9e25279140a811308ff5a4e61bbf5855e161b8fae39549f7159ee6ea",
+      "ports": "8080/tcp -> 0.0.0.0:8080"
+    },
+    {
+      "service": "frontend",
+      "id": "aeb7bb2e1be1b39e55402a5c4f505488694cd39835cd1f336e6b0a1e4c0833bc",
+      "image": "knowhub-sourceid-business/frontend:468410e89",
+      "image_id": "sha256:f329c19f4c6a87d03caa6421870bc0fabb01b2b0821c6f15f8202b1bf4946919",
+      "ports": "80/tcp -> 0.0.0.0:80"
+    }
+  ],
+  "database_counts_after": {
+    "users": 1,
+    "knowledge_bases": 2,
+    "knowledges": 2,
+    "external_identities": 0,
+    "source_id_sessions": 0
+  },
+  "migration_after": "3024",
+  "other_container_ids_unchanged": true,
+  "rollback_script": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/upgrade-backups/raw-basic-20261015T022248Z/rollback.sh"
+}

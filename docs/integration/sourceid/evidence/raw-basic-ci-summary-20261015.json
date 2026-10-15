@@ -1,0 +1,26 @@
+{
+  "focused.jsonl": {
+    "passed": 185,
+    "failed": 0,
+    "raw_tests": [
+      "TestSourceIDBasicEncodingConfig",
+      "TestSourceIDRawBasicExchangeModes/default",
+      "TestSourceIDRawBasicExchangeModes/oauth_form",
+      "TestSourceIDRawBasicExchangeModes/raw",
+      "TestSourceIDRawBasicExchangeModes/other_provider_raw_ignored",
+      "TestSourceIDRawBasicExchangeModes"
+    ]
+  },
+  "regression.jsonl": {
+    "passed": 4710,
+    "failed": 0,
+    "raw_tests": [
+      "TestSourceIDBasicEncodingConfig",
+      "TestSourceIDRawBasicExchangeModes/default",
+      "TestSourceIDRawBasicExchangeModes/oauth_form",
+      "TestSourceIDRawBasicExchangeModes/raw",
+      "TestSourceIDRawBasicExchangeModes/other_provider_raw_ignored",
+      "TestSourceIDRawBasicExchangeModes"
+    ]
+  }
+}

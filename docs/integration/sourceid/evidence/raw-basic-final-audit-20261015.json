@@ -1,0 +1,90 @@
+{
+  "host": "172.30.232.42",
+  "source_sha": "468410e893de4a34918e9a5201bbc3870dadc22c",
+  "real_sid_login": false,
+  "production_host_accessed": false,
+  "services": [
+    {
+      "service": "app",
+      "id": "79d8417133df28306a60996074d411a4eb1ba31e203003016d62577473f2ae45",
+      "image": "knowhub-sourceid-business/app:468410e89",
+      "image_id": "sha256:e2feec2c9e25279140a811308ff5a4e61bbf5855e161b8fae39549f7159ee6ea",
+      "ports": "8080/tcp -> 0.0.0.0:8080",
+      "running": "true",
+      "revision": "468410e893de4a34918e9a5201bbc3870dadc22c"
+    },
+    {
+      "service": "frontend",
+      "id": "aeb7bb2e1be1b39e55402a5c4f505488694cd39835cd1f336e6b0a1e4c0833bc",
+      "image": "knowhub-sourceid-business/frontend:468410e89",
+      "image_id": "sha256:f329c19f4c6a87d03caa6421870bc0fabb01b2b0821c6f15f8202b1bf4946919",
+      "ports": "80/tcp -> 0.0.0.0:80",
+      "running": "true",
+      "revision": "468410e893de4a34918e9a5201bbc3870dadc22c"
+    },
+    {
+      "service": "postgres",
+      "id": "ba1385464699fdb0b21e48b3134e870f99de3bc1d74ff9663a4dc42e5476f624",
+      "image": "paradedb/paradedb:v0.22.2-pg17",
+      "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+      "ports": "",
+      "running": "true"
+    },
+    {
+      "service": "redis",
+      "id": "fcc4d64070c73ee198ffa0c5badf6abd1b2d03543243f857be4f84b8605c33ad",
+      "image": "redis:7.0-alpine",
+      "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+      "ports": "",
+      "running": "true"
+    },
+    {
+      "service": "docreader",
+      "id": "2396325bde68730217152ee1885508ca9294ed8524ef424a7022c8b9a2c2cc90",
+      "image": "weknora-custom/docreader:v0.8.0-knowhub.6-0a40e3ad",
+      "image_id": "sha256:8399936620aa78f991b95a0339585f5d2d61f215e6311955e8386a01329beba2",
+      "ports": "",
+      "running": "true"
+    }
+  ],
+  "gates": {
+    "SOURCEID_BASIC_ENCODING": "raw",
+    "OIDC_AUTH_ENABLE": "false",
+    "SOURCEID_DIAGNOSTICS_ENABLE": "false",
+    "SOURCEID_PROTOCOL_ONLY": "true",
+    "SOURCEID_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_LOGOUT_ENABLE": "false"
+  },
+  "no_mock_ca_or_whitelist": true,
+  "automatic_migration_disabled": true,
+  "mock_running": false,
+  "migration_version": "3024",
+  "database_counts": {
+    "users": 1,
+    "knowledge_bases": 2,
+    "knowledges": 2,
+    "external_identities": 0,
+    "source_id_sessions": 0
+  },
+  "private_secret_file_mode": "0o600",
+  "image_recipe_sha256": {
+    "Dockerfile.app": "854e6b1d04a1eda6802cae0fdd63f318e939f059666f103e07403212f9ed2477",
+    "Dockerfile.frontend": "dbbe62cb7bd9d8299571126e677b094c3416dde4431507a796fb0504ac5a1d74",
+    "build-app.sh": "eaa4754fa5b9d11092fd7206b775a3f1d6482dec940ca019655793de9e807ccc",
+    "build-frontend.sh": "bc00c7bddfc9ce7a4174340e871b9cb8061c340c23b34d787da09f4299d5af11"
+  },
+  "binary_sha256": "833a0e86f16a7c5bfde3efaede5cf547a99c7b015938f01598f40192c775c4ef",
+  "old_images_retained": {
+    "app": "sha256:0890f309f89397e82ea5b1ecd901f2ddb37de142b78f854e9925a05430c34c1d",
+    "frontend": "sha256:ae4a1207900234b131605ea3cdd4af8e99845faebdd1be87e00af150d34dbf34"
+  },
+  "app_logging_options": "{\"compress\":\"true\",\"max-file\":\"3\",\"max-size\":\"10m\"}",
+  "health": {
+    "http://127.0.0.1/login": 200,
+    "http://127.0.0.1/health": 200,
+    "http://127.0.0.1:8080/health": 200,
+    "http://127.0.0.1/api/v1/auth/oidc/config": 200
+  },
+  "public_oidc_enabled": false,
+  "public_effective_basic_encoding": "raw"
+}
