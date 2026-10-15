@@ -1,5 +1,5 @@
 // Local UI checks only: every API is mocked and external requests are blocked.
-// Starts/stops its own Vite on 127.0.0.1:18190.
+// Starts/stops its own Vite preview on 127.0.0.1:18190.
 // Run: node tests/oa-login/oa-login-ui.mjs [before|after]
 import { chromium, expect } from '@playwright/test'
 import { mkdir, writeFile, readFile } from 'node:fs/promises'
@@ -12,11 +12,25 @@ const origin = 'http://127.0.0.1:18190'
 const output = new URL('../../../docs/qa/oa-login-ui-release-20261015/', import.meta.url)
 await mkdir(output, { recursive: true })
 const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--host', '127.0.0.1', '--port', '18190', '--strictPort'], { stdio: 'pipe' })
-await new Promise((resolve, reject) => {
-  server.stdout.on('data', data => { if (data.toString().includes('Local:')) resolve() })
-  server.on('error', reject)
-  server.on('exit', code => reject(new Error(`Vite exited: ${code}`)))
-})
+// Drain the pipes and observe HTTP readiness rather than parsing ANSI console
+// labels: Vite preview output differs between interactive terminals and CI.
+server.stdout.resume()
+server.stderr.resume()
+try {
+  const deadline = Date.now() + 30000
+  while (true) {
+    if (server.exitCode !== null) throw new Error(`Vite preview exited: ${server.exitCode}`)
+    try {
+      const response = await fetch(origin, { signal: AbortSignal.timeout(1000) })
+      if (response.ok) break
+    } catch {}
+    if (Date.now() >= deadline) throw new Error('Vite preview readiness timed out')
+    await new Promise(resolve => setTimeout(resolve, 200))
+  }
+} catch (error) {
+  server.kill()
+  throw error
+}
 const browser = await chromium.launch({
   executablePath: process.env.CHROME_PATH || (process.platform === 'win32' ? 'C:/Program Files/Google/Chrome/Application/chrome.exe' : undefined),
   headless: true,
