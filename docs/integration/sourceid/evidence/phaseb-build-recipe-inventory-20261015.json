@@ -1,0 +1,39 @@
+{
+  "recipes": {
+    "Dockerfile.app": "FROM knowhub-sourceid-test/app:runtime-8ae91bc44\nCOPY artifacts/WeKnora /app/WeKnora\nCOPY artifacts/sourceid-enroll /app/sourceid-enroll\nCOPY source/migrations /app/migrations\nCOPY source/config /app/config\nCOPY source/scripts/docker-entrypoint.sh /app/scripts/docker-entrypoint.sh\nRUN chmod +x /app/WeKnora /app/sourceid-enroll /app/scripts/docker-entrypoint.sh\nLABEL org.opencontainers.image.revision=\"2fcbcaaedfa75fb955bd44dd7fe464ded64eec7c\" knowhub.environment=\"sourceid-business-isolated\"\n\nRUN mkdir -p /work/cache/go/pkg/mod/github.com/yanyiwu && cp -a /go/pkg/mod/github.com/yanyiwu/. /work/cache/go/pkg/mod/github.com/yanyiwu/\n\nCOPY artifacts/sourceid-binding /app/sourceid-binding\nRUN chmod +x /app/sourceid-binding\n\nUSER root\nRUN chmod -R a+rX /app/config /app/migrations\n",
+    "Dockerfile.frontend": "FROM knowhub-sourceid-test/frontend:8ae91bc44\nRUN rm -rf /usr/share/nginx/html/*\nCOPY artifacts/dist /usr/share/nginx/html\nCOPY source/frontend/nginx.conf /etc/nginx/templates/default.conf.template\nCOPY source/frontend/nginx-api-proxy.conf /etc/nginx/api-proxy.conf\nCOPY source/frontend/nginx-http.conf /etc/nginx/conf.d/00-weknora-http.conf\nCOPY source/frontend/docker-entrypoint.sh /docker-entrypoint.sh\nRUN chmod +x /docker-entrypoint.sh\nLABEL knowhub.environment=\"sourceid-business-isolated\"\n\nLABEL org.opencontainers.image.revision=\"2fcbcaaedfa75fb955bd44dd7fe464ded64eec7c\"\n"
+  },
+  "files": [
+    "tools",
+    "build-app.sh",
+    "worker.log",
+    "build-worker.py",
+    "source-manifest.json",
+    "oa-final-gate-synthetic",
+    "toolchain",
+    "cache",
+    "Dockerfile.frontend",
+    "source",
+    "build-status.json",
+    "source.tar.gz",
+    "Dockerfile.app",
+    "artifacts",
+    ".dockerignore",
+    "build-frontend.sh"
+  ],
+  "status": {},
+  "builder_containers": [
+    {
+      "ID": "1dd0466e3496",
+      "Image": "knowhub-build/golang:1.26-bookworm-ustc",
+      "Names": "knowhub-feishu-frontend-build-20261014",
+      "Status": "Exited (0) 31 hours ago"
+    },
+    {
+      "ID": "d4a975813c6c",
+      "Image": "knowhub-build/golang:1.26-bookworm-ustc",
+      "Names": "knowhub-feishu-native-build-20261014",
+      "Status": "Exited (0) 20 hours ago"
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "status": {
+    "state": "COMPLETE",
+    "time_utc": "2026-10-15T11:47:56.841697+00:00",
+    "source": "431226c3b",
+    "compiler": "go1.26.7",
+    "offline_dependency_baseline": "existing-feishu-personal-20261014",
+    "runtime_baseline": "sourceid-8ae91bc44"
+  },
+  "logs": {
+    "sheetjs-cache.log": {
+      "bytes": 0,
+      "test_fail": false,
+      "go_version_observed": false
+    },
+    "auth-tests.log": {
+      "bytes": 357,
+      "test_fail": false,
+      "go_version_observed": false
+    },
+    "controller-app.log": {
+      "bytes": 204,
+      "test_fail": false,
+      "go_version_observed": true
+    },
+    "anydoc-build.log": {
+      "bytes": 4428,
+      "test_fail": false,
+      "go_version_observed": false
+    },
+    "frontend-build.log": {
+      "bytes": 23934,
+      "test_fail": false,
+      "go_version_observed": false
+    },
+    "npm-ci.log": {
+      "bytes": 768,
+      "test_fail": false,
+      "go_version_observed": false
+    },
+    "app-build.log": {
+      "bytes": 858,
+      "test_fail": false,
+      "go_version_observed": false
+    },
+    "apt-update.log": {
+      "bytes": 558,
+      "test_fail": false,
+      "go_version_observed": false
+    },
+    "frontend-types.log": {
+      "bytes": 55,
+      "test_fail": false,
+      "go_version_observed": false
+    },
+    "enrollment-tests.log": {
+      "bytes": 61,
+      "test_fail": false,
+      "go_version_observed": false
+    },
+    "apt-install.log": {
+      "bytes": 2519,
+      "test_fail": false,
+      "go_version_observed": false
+    },
+    "controller-image_frontend.log": {
+      "bytes": 1333,
+      "test_fail": false,
+      "go_version_observed": false
+    },
+    "controller-frontend.log": {
+      "bytes": 150,
+      "test_fail": false,
+      "go_version_observed": false
+    },
+    "controller-image_app.log": {
+      "bytes": 1749,
+      "test_fail": false,
+      "go_version_observed": false
+    }
+  }
+}
