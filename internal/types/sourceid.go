@@ -2,6 +2,30 @@ package types
 
 import "time"
 
+// Email is a protected candidate snapshot, never a login credential or proof of ownership.
+type SourceIDBindingReview struct {
+	ID              string `gorm:"primaryKey;size:36"`
+	Issuer          string
+	EmployeeNo      string
+	Subject         string
+	UserID          string
+	Email           string
+	Status          string
+	ReviewedBy      string
+	ReviewReference string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+type SourceIDBindingAudit struct {
+	ID              string `gorm:"primaryKey;size:36"`
+	ReviewID        string
+	Action          string
+	ReviewedBy      string
+	ReviewReference string
+	CreatedAt       time.Time
+}
+
 // ExternalIdentity never replaces a local user's primary key or permissions.
 type ExternalIdentity struct {
 	ID          string `gorm:"primaryKey;size:36"`

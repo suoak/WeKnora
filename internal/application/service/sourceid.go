@@ -66,6 +66,9 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 	if cfg.SourceIDEmployeeClaim == "" || cfg.SourceIDSessionClaim == "" || cfg.SourceIDStatusClaim == "" || cfg.SourceIDAllowedStatus == "" {
 		return nil, ctx, errors.New("sourceid claim contract unconfirmed")
 	}
+	if cfg.SourceIDEmailBindingEnable && (!cfg.SourceIDEmailContractConfirmed || cfg.SourceIDEmployeeClaim != "attributes.RJGH" || cfg.SourceIDClaimsSource != "userinfo") {
+		return nil, ctx, errors.New("sourceid email identity contract pending")
+	}
 	employee := sourceIDStringClaim(info.Claims, cfg.SourceIDEmployeeClaim)
 	index := sourceIDStringClaim(info.Claims, cfg.SourceIDSessionClaim)
 	status := sourceIDClaim(info.Claims, cfg.SourceIDStatusClaim)
@@ -79,12 +82,34 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 	if err != nil {
 		return nil, ctx, err
 	}
-	user, err := r.ResolveSourceIDIdentity(ctx, cfg.IssuerURL, info.Subject, employee)
+	var user *types.User
+	if cfg.SourceIDEmailBindingEnable {
+		binding, ok := r.(interface {
+			ResolveSourceIDEmailIdentity(context.Context, string, string, string, string) (*types.User, error)
+		})
+		if !ok {
+			return nil, ctx, errors.New("sourceid binding repository unavailable")
+		}
+		user, err = binding.ResolveSourceIDEmailIdentity(ctx, cfg.IssuerURL, info.Subject, employee, sourceIDStringClaim(info.Claims, "attributes.RJEMAIL"))
+	} else {
+		user, err = r.ResolveSourceIDIdentity(ctx, cfg.IssuerURL, info.Subject, employee)
+	}
 	if err != nil {
 		return nil, ctx, err
 	}
 	session := &types.SourceIDSession{ID: uuid.NewString(), Issuer: cfg.IssuerURL, UserID: user.ID, SessionIndexHash: apprepo.SourceIDHash(cfg.IssuerURL + "\x00" + index), ExpiresAt: time.Now().Add(7 * 24 * time.Hour), CreatedAt: time.Now()}
-	if err := r.CreateSourceIDSession(ctx, session); err != nil {
+	if cfg.SourceIDEmailBindingEnable {
+		binding, ok := r.(interface {
+			CreateSourceIDReviewedSession(context.Context, *types.SourceIDSession) error
+		})
+		if !ok {
+			return nil, ctx, errors.New("sourceid session repository unavailable")
+		}
+		err = binding.CreateSourceIDReviewedSession(ctx, session)
+	} else {
+		err = r.CreateSourceIDSession(ctx, session)
+	}
+	if err != nil {
 		return nil, ctx, err
 	}
 	if err := r.CheckSourceIDSession(ctx, session.ID, user.ID); err != nil {

@@ -52,7 +52,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          go test -race -json -count=1 ./cmd/sourceid-enroll ./cmd/sourceid-probe ./internal/sourceid ./internal/application/repository ./internal/application/service ./internal/handler ./internal/config ./internal/middleware ./internal/utils -run 'SourceID|Enrollment|OIDC|AuthToken|SwitchTenant|Login|Logout|GenerateTokens|ValidateToken|RefreshToken' | tee sourceid-results/focused.jsonl
+          go test -race -json -count=1 ./cmd/sourceid-binding ./cmd/sourceid-enroll ./cmd/sourceid-probe ./internal/sourceid ./internal/application/repository ./internal/application/service ./internal/handler ./internal/config ./internal/middleware ./internal/utils -run 'SourceID|Enrollment|OIDC|AuthToken|SwitchTenant|Login|Logout|GenerateTokens|ValidateToken|RefreshToken' | tee sourceid-results/focused.jsonl
       - name: Validate isolated diagnostic report persistence filter
         shell: bash
         run: |
@@ -70,6 +70,7 @@ jobs:
         run: |
           go build -o /tmp/knowhub-sourceid-server ./cmd/server
           go build -o /tmp/sourceid-enroll ./cmd/sourceid-enroll
+          go build -o /tmp/sourceid-binding ./cmd/sourceid-binding
           go build -o /tmp/sourceid-probe ./cmd/sourceid-probe
       - uses: actions/upload-artifact@v6
         with:
