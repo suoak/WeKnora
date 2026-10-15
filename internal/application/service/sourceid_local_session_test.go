@@ -211,6 +211,7 @@ func TestSourceIDAdmissionStrategiesAndUnavailableFailClosed(t *testing.T) {
 				cfg.SourceIDAdmissionMode = source
 				if source == "authorization" {
 					cfg.SourceIDLocalRefreshEnable = false
+					cfg.SourceIDAuthorizationRecheckConfirmed = true
 				}
 				mock := sourceIDMockAdmissionResolver{cfg: cfg}
 				switch failure {

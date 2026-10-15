@@ -45,7 +45,7 @@ func (c *OIDCAuthConfig) SourceIDLocalPolicy() (SourceIDLocalPolicy, error) {
 	if p.AccessTTL > p.AbsoluteTTL || p.IdleTTL > p.AbsoluteTTL || p.AdmissionMaxAge > p.AbsoluteTTL {
 		return p, errors.New("sourceid local duration exceeds absolute limit")
 	}
-	if c.SourceIDAdmissionMode == "authorization" && c.SourceIDLocalRefreshEnable {
+	if c.SourceIDAdmissionMode == "authorization" && (!c.SourceIDAuthorizationRecheckConfirmed || c.SourceIDLocalRefreshEnable) {
 		return p, errors.New("sourceid authorization-only admission requires refresh disabled")
 	}
 	return p, nil

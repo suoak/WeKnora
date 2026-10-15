@@ -39,8 +39,9 @@ func (r sourceIDAuthorizationAdmissionResolver) Resolve(ctx context.Context, req
 		CheckedAt: request.AuthorizationVerifiedAt, ValidUntil: request.AuthorizationVerifiedAt.Add(policy.AdmissionMaxAge)}, nil
 }
 
-// No production adapter is installed. All three strategies are exercised by
-// synthetic adapters; configuration alone can never manufacture an ALLOW.
+// Authorization admission is gated on a verified OIDC transaction and the
+// separately confirmed SID SSO-recheck/freshness contract. Other strategies
+// currently have synthetic adapters only.
 func (s *userService) resolveSourceIDAdmission(ctx context.Context, cfg *config.OIDCAuthConfig, request types.SourceIDAdmissionRequest) (types.SourceIDAdmissionDecision, error) {
 	var decision types.SourceIDAdmissionDecision
 	p, err := cfg.SourceIDLocalPolicy()

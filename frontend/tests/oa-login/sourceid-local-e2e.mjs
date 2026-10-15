@@ -1,0 +1,73 @@
+// Launched only by TestSourceIDLocalBrowserBusinessLogin. No real SID endpoints.
+import { chromium, expect } from '@playwright/test'
+import { spawn } from 'node:child_process'
+import assert from 'node:assert/strict'
+
+const backend = new URL(process.env.SOURCEID_E2E_BACKEND)
+const mock = new URL(process.env.SOURCEID_E2E_MOCK)
+for (const url of [backend, mock]) {
+  assert.equal(url.protocol, 'http:')
+  assert.equal(url.hostname, '127.0.0.1')
+}
+const frontend = 'http://127.0.0.1:18195'
+const browserOrigin = 'http://knowhub.ruijie.com.cn'
+const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '18195', '--strictPort'], {
+  env: { ...process.env, VITE_DEV_PROXY_TARGET: backend.origin }, stdio: 'pipe',
+})
+let browser
+try {
+  await new Promise((resolve, reject) => {
+    server.stdout.on('data', chunk => { if (chunk.toString().includes('Local:')) resolve() })
+    server.on('error', reject)
+    server.on('exit', code => reject(new Error(`Synthetic Vite exited ${code}`)))
+  })
+  browser = await chromium.launch({
+    executablePath: process.env.CHROME_PATH || (process.platform === 'win32' ? 'C:/Program Files/Google/Chrome/Application/chrome.exe' : '/usr/bin/google-chrome'),
+    headless: true, args: ['--no-proxy-server', '--disable-gpu', '--disable-dev-shm-usage'],
+  })
+  const context = await browser.newContext()
+  // All approved-domain traffic is fulfilled locally, so DNS can never reach
+  // a real server. Cookies/Origin remain in one real browser context.
+  await context.route('**/*', async route => {
+    const request = route.request()
+    const url = new URL(request.url())
+    if (url.origin === browserOrigin) {
+      const headers = await request.allHeaders()
+      headers.host = '127.0.0.1:18195'
+      const response = await route.fetch({ url: frontend + url.pathname + url.search, headers, maxRedirects: 0 })
+      return route.fulfill({ response })
+    }
+    if ([frontend, mock.origin].includes(url.origin)) return route.continue()
+    return route.abort()
+  })
+  const page = await context.newPage()
+  await page.goto(`${browserOrigin}/login`)
+  await expect(page.locator('.oidc-button')).toBeVisible({ timeout: 90000 })
+  await page.locator('.oidc-button').click()
+  await page.waitForURL(/\/portal(?:[/?#]|$)/, { timeout: 90000 })
+  const api = (path, method = 'GET') => page.evaluate(async ({ path, method }) => {
+    const response = await fetch(path, { method, headers: { Authorization: `Bearer ${localStorage.getItem('weknora_token')}` } })
+    const body = response.ok ? await response.json() : null
+    return { status: response.status, success: body?.success, tenant: body?.data?.tenant?.id, role: body?.data?.memberships?.[0]?.role, ids: Array.isArray(body?.data) ? body.data.map(item => item.id) : [] }
+  }, { path, method })
+  const me = await api('/api/v1/auth/me')
+  assert.equal(me.status, 200); assert.equal(me.success, true)
+  assert.equal(me.tenant, 42); assert.equal(me.role, 'contributor')
+  const knowledge = await api('/api/v1/knowledge-bases')
+  assert.equal(knowledge.status, 200); assert.deepEqual(knowledge.ids, ['synthetic-kb'])
+  const logout = await api('/api/v1/auth/logout', 'POST')
+  assert.equal(logout.status, 200); assert.equal((await api('/api/v1/auth/me')).status, 401)
+  await context.request.post(backend.origin + '/__synthetic/disable')
+  await context.addCookies([{ name: 'synthetic_sid_sso', value: 'present', url: mock.origin }])
+  await page.evaluate(() => { localStorage.removeItem('weknora_token'); localStorage.removeItem('weknora_refresh_token') })
+  await page.goto(`${browserOrigin}/login`)
+  await expect(page.locator('.oidc-button')).toBeVisible()
+  await page.locator('.oidc-button').click()
+  await page.waitForURL(/\/login(?:#.*)?$/, { timeout: 60000 })
+  await expect(page.locator('.t-message')).toBeVisible()
+  assert.equal(await page.evaluate(() => !!localStorage.getItem('weknora_token')), false)
+  console.log('SOURCEID_LOCAL_BROWSER_PASS: portal, auth/me, contributor, fixture knowledge access, logout and disabled-SSO rejection')
+} finally {
+  if (browser) await browser.close()
+  server.kill()
+}
