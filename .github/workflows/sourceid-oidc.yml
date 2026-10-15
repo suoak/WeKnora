@@ -85,6 +85,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Real frontend and business auth handlers with isolated Mock SID
         run: |
+          set -euo pipefail
           npm ci --prefix frontend
           SOURCEID_BROWSER_E2E=1 go test -v -count=1 ./internal/handler -run '^TestSourceIDLocalBrowserBusinessLogin$' | tee sourceid-results/local-browser.txt
       - uses: actions/upload-artifact@v6
