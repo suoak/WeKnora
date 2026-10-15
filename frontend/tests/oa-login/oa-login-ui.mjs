@@ -178,7 +178,7 @@ try {
       results.push({ name: `${locale}-error-recovery`, status: 'PASS' })
       await context.close()
     }
-    for (const [provider, label] of [['Acme SSO', '?? Acme SSO ??'], ['', '?? OIDC ??']]) {
+    for (const [provider, label] of [['Acme SSO', '使用 Acme SSO 登录'], ['', '使用 OIDC 登录']]) {
       const context = await browser.newContext()
       await context.addInitScript(() => localStorage.setItem('locale', 'zh-CN'))
       await context.route('**/*', route => {
