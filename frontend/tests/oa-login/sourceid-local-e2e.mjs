@@ -63,15 +63,21 @@ try {
     const mark = result.startsWith('#oidc_error=') ? result.slice(1) : result.startsWith('#oidc_complete=') ? 'oidc_complete' : 'none'
     console.log(`SOURCEID_SYNTHETIC_AUTH: ${url.pathname} ${response.status()} ${mark}`)
     if (url.pathname === '/api/v1/auth/oidc/url') {
-      const body = await response.json().catch(() => ({}))
-      console.log(`SOURCEID_SYNTHETIC_AUTH_URL: success=${body.success === true} present=${typeof body.authorization_url === 'string'}`)
+      let parsed = false
+      const body = await response.json().then(value => { parsed = true; return value }).catch(() => ({}))
+      console.log(`SOURCEID_SYNTHETIC_AUTH_URL: json=${parsed} content_type=${response.headers()['content-type'] || 'absent'} success=${body.success === true} present=${typeof body.authorization_url === 'string'} keys=${Object.keys(body).filter(key => ['success', 'authorization_url', 'error', 'data'].includes(key)).join(',')}`)
     }
   })
   page.on('pageerror', error => console.log(`SOURCEID_SYNTHETIC_PAGE_ERROR: ${error.name}`))
   console.log('SOURCEID_SYNTHETIC_STAGE: login_page')
   await page.goto(`${browserOrigin}/login`)
   await expect(page.locator('.oidc-button')).toBeVisible({ timeout: 90000 })
+  const authorizationResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/oidc/url')
   await page.locator('.oidc-button').click()
+  const authResponse = await authorizationResponse
+  const authBody = await authResponse.json().catch(() => null)
+  assert.equal(authBody?.success, true, 'synthetic authorization response must be a success object')
+  assert.equal(typeof authBody.authorization_url, 'string')
   console.log('SOURCEID_SYNTHETIC_STAGE: authorization_started')
   await page.waitForURL(/\/portal(?:[/?#]|$)/, { timeout: 90000 })
   await expect(page.locator('.portal-shell')).toBeVisible({ timeout: 30000 })
