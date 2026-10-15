@@ -23,6 +23,7 @@ transport = {
  'proxy_authenticate_present':False,'network_failure_class':'none','rejecting_layer':'UNKNOWN','outcome':'empty_401_basic_challenge',
 }
 assert m.transport(transport)
+raw_transport=copy.deepcopy(transport);raw_transport['basic_strategy']='raw_then_set_basic_auth_base64_once';raw_transport['oauth_form_encoding_executed']=False;assert m.transport(raw_transport)
 x=copy.deepcopy(report);x['http'][0]['transport']=transport;assert m.safe(x)
 for key,value in [('secret','synthetic-private'),('server_class','nginx/synthetic-private'),('remote_address','synthetic-private:443'),('trace','synthetic-private'),('body_value_count',True),('beijing','synthetic-private')]:
  y=copy.deepcopy(transport);y[key]=value;assert not m.transport(y)

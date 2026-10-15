@@ -1788,6 +1788,10 @@ func (s *userService) applyOIDCDiscoveryDocument(ctx context.Context, cfg *confi
 }
 
 func (s *userService) exchangeOIDCCode(ctx context.Context, cfg *config.OIDCAuthConfig, code, redirectURI string) (*oidcTokenResponse, error) {
+	basicEncoding, err := cfg.EffectiveSourceIDBasicEncoding()
+	if err != nil {
+		return nil, err
+	}
 	if err := validateOIDCEndpoint("token", cfg.TokenEndpoint, true); err != nil {
 		return nil, err
 	}
@@ -1812,7 +1816,11 @@ func (s *userService) exchangeOIDCCode(ctx context.Context, cfg *config.OIDCAuth
 		return nil, fmt.Errorf("failed to create OIDC token request: %w", err)
 	}
 	if cfg.ClientAuthMethod == "client_secret_basic" {
-		req.SetBasicAuth(url.QueryEscape(cfg.ClientID), url.QueryEscape(cfg.ClientSecret))
+		if basicEncoding == "raw" {
+			req.SetBasicAuth(cfg.ClientID, cfg.ClientSecret)
+		} else {
+			req.SetBasicAuth(url.QueryEscape(cfg.ClientID), url.QueryEscape(cfg.ClientSecret))
+		}
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
@@ -1821,6 +1829,10 @@ func (s *userService) exchangeOIDCCode(ctx context.Context, cfg *config.OIDCAuth
 	var tokenTelemetry *sourceIDTokenTelemetry
 	if entry, ok := ctx.Value(sourceIDDiagnosticKey{}).(sourceIDDiagnosticContext); ok && cfg.SourceIDEnable && cfg.SourceIDDiagnosticsEnable {
 		req, tokenTelemetry = observeSourceIDTokenRequest(req, entry.ID, cfg.ClientSecret != "", cfg.PKCEEnable, entry.StatePassed, cfg.ClientAuthMethod == "client_secret_basic")
+		if cfg.ClientAuthMethod == "client_secret_basic" && basicEncoding == "raw" {
+			tokenTelemetry.BasicStrategy = "raw_then_set_basic_auth_base64_once"
+			tokenTelemetry.FormEncoding = false // Credential components; body is still form encoded.
+		}
 		copyClient := *client
 		copyClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 		report := &OIDCProbeReport{}

@@ -132,7 +132,7 @@ def transport(x):
         'accept_class': {'application/json', 'other'},
         'user_agent_class': {'transport_default_not_observed', 'Go-http-client/1.1', 'other'},
         'written_user_agent_class': {'NOT_CAPTURED', 'Go-http-client/1.1', 'other'},
-        'basic_strategy': {'not_basic', 'oauth_form_escape_then_set_basic_auth_base64_once'},
+        'basic_strategy': {'not_basic', 'oauth_form_escape_then_set_basic_auth_base64_once', 'raw_then_set_basic_auth_base64_once'},
         'state_validation': {'PASS', 'NOT_CAPTURED'},
         'nonce_validation_at_token_dispatch': {'NOT_YET_EXECUTED'},
         'proxy_policy': {'no_proxy_in_configured_transport'},

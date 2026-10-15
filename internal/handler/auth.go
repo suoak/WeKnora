@@ -402,18 +402,23 @@ func (h *AuthHandler) GetOIDCConfig(c *gin.Context) {
 	providerDisplayName := ""
 	redirectURI := ""
 	enabled := false
+	sourceIDBasicEncoding := ""
 
 	if h.configInfo != nil && h.configInfo.OIDCAuth != nil {
 		enabled = h.configInfo.OIDCAuth.Enable
 		providerDisplayName = strings.TrimSpace(h.configInfo.OIDCAuth.ProviderDisplayName)
 		redirectURI = h.configInfo.OIDCAuth.RedirectURI
+		if h.configInfo.OIDCAuth.SourceIDEnable {
+			sourceIDBasicEncoding, _ = h.configInfo.OIDCAuth.EffectiveSourceIDBasicEncoding()
+		}
 	}
 
 	c.JSON(http.StatusOK, &types.OIDCConfigResponse{
-		RedirectURI:         redirectURI,
-		Success:             true,
-		Enabled:             enabled,
-		ProviderDisplayName: providerDisplayName,
+		RedirectURI:           redirectURI,
+		Success:               true,
+		Enabled:               enabled,
+		ProviderDisplayName:   providerDisplayName,
+		SourceIDBasicEncoding: sourceIDBasicEncoding,
 	})
 }
 

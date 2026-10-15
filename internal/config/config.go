@@ -322,6 +322,7 @@ type OIDCUserInfoMapping struct {
 type OIDCAuthConfig struct {
 	SourceIDProtocolOnly      bool   `yaml:"sourceid_protocol_only" json:"-"`
 	SourceIDDiagnosticsEnable bool   `yaml:"sourceid_diagnostics_enable" json:"-"`
+	SourceIDBasicEncoding     string `yaml:"sourceid_basic_encoding" json:"-"`
 	SourceIDClaimsSource      string `yaml:"sourceid_claims_source" json:"-"`
 	SourceIDLogoutEncoding    string `yaml:"sourceid_logout_encoding" json:"-"`
 	SourceIDEnable            bool   `yaml:"sourceid_enable" json:"-"`
@@ -663,6 +664,11 @@ func applyMCPPublicURLEnv(cfg *Config) {
 // It checks for obviously invalid or missing values that would cause runtime failures.
 func ValidateConfig(cfg *Config) error {
 	var errs []string
+	if cfg.OIDCAuth != nil {
+		if _, err := cfg.OIDCAuth.EffectiveSourceIDBasicEncoding(); err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
 
 	if cfg.OIDCAuth != nil && cfg.OIDCAuth.Enable {
 		if strings.TrimSpace(cfg.OIDCAuth.ClientID) == "" {
@@ -791,6 +797,7 @@ func applyOIDCEnvOverrides(cfg *Config) {
 		"SOURCEID_STATUS_CLAIM":         &cfg.OIDCAuth.SourceIDStatusClaim,
 		"SOURCEID_ALLOWED_STATUS":       &cfg.OIDCAuth.SourceIDAllowedStatus,
 		"SOURCEID_CLAIMS_SOURCE":        &cfg.OIDCAuth.SourceIDClaimsSource,
+		"SOURCEID_BASIC_ENCODING":       &cfg.OIDCAuth.SourceIDBasicEncoding,
 		"SOURCEID_LOGOUT_ENCODING":      &cfg.OIDCAuth.SourceIDLogoutEncoding,
 		"SOURCEID_LOGOUT_CIDRS":         &cfg.OIDCAuth.SourceIDLogoutCIDRs,
 		"SOURCEID_LOGOUT_SECRET":        &cfg.OIDCAuth.SourceIDLogoutSecret,
