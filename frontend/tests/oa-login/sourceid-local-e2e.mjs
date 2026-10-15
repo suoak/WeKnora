@@ -45,6 +45,7 @@ try {
   await expect(page.locator('.oidc-button')).toBeVisible({ timeout: 90000 })
   await page.locator('.oidc-button').click()
   await page.waitForURL(/\/portal(?:[/?#]|$)/, { timeout: 90000 })
+  await expect(page.locator('.portal-shell')).toBeVisible({ timeout: 30000 })
   const api = (path, method = 'GET') => page.evaluate(async ({ path, method }) => {
     const response = await fetch(path, { method, headers: { Authorization: `Bearer ${localStorage.getItem('weknora_token')}` } })
     const body = response.ok ? await response.json() : null
