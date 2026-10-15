@@ -1,3 +1,5 @@
+> 2026-10-15 10:35 后续指令：raw 单次真实测试仍为 Token 401。用户要求普通浏览器常驻测试，当前 OIDC/受限诊断重新开启，raw 与身份门禁保持；以 [最新真实测试及常驻入口报告](SOURCEID_RAW_BASIC_FIRST_REAL_LOGIN_REPORT.md) 为准。
+
 > 2026-10-15 状态更新：以下持续开启记录为历史快照。raw Basic 升级已完成，当前 OIDC 与诊断均关闭，SOURCEID_BASIC_ENCODING=raw；以 [raw 兼容部署报告](SOURCEID_RAW_BASIC_COMPATIBILITY_DEPLOYMENT_REPORT.md) 为准。
 
 # 打包机 OIDC 持续开启状态
