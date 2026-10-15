@@ -51,6 +51,12 @@ try {
       const headers = await request.allHeaders()
       headers.host = '127.0.0.1:18195'
       const response = await route.fetch({ url: frontend + url.pathname + url.search, headers, maxRedirects: 0 })
+      if (url.pathname.startsWith('/api/v1/auth/oidc/')) {
+        const location = response.headers().location || ''
+        const result = new URL(location || '/', browserOrigin).hash
+        const mark = result.startsWith('#oidc_error=') ? result.slice(1) : result.startsWith('#oidc_complete=') ? 'oidc_complete' : 'none'
+        console.log(`SOURCEID_SYNTHETIC_AUTH: ${url.pathname} ${response.status()} ${mark}`)
+      }
       return route.fulfill({ response })
     }
     if ([frontend, mock.origin].includes(url.origin)) return route.continue()

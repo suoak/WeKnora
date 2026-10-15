@@ -96,7 +96,8 @@ func TestSourceIDLocalBrowserBusinessLogin(t *testing.T) {
 	var tokens atomic.Int64
 	var codes sync.Map
 	cfg := &config.OIDCAuthConfig{Enable: true, SourceIDEnable: true, SourceIDContractConfirmed: true,
-		SourceIDSessionMode: "local_approved", SourceIDEmployeeClaim: "attributes.RJGH", SourceIDClaimsSource: "userinfo",
+		SourceIDDiagnosticsEnable: true,
+		SourceIDSessionMode:       "local_approved", SourceIDEmployeeClaim: "attributes.RJGH", SourceIDClaimsSource: "userinfo",
 		SourceIDEmailBindingEnable: true, SourceIDEmailContractConfirmed: true, SourceIDAutoBindingEnable: true,
 		SourceIDAutoBindingPolicyRef: "synthetic-binding-policy", SourceIDLocalPolicyRef: "synthetic-local-approval",
 		SourceIDAdmissionMode: "authorization", SourceIDAdmissionPolicyRef: "synthetic-sid-authorization-contract",
