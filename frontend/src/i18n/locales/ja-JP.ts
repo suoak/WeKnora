@@ -2430,10 +2430,12 @@ const messages = {
   auth: {
     login: 'ログイン',
     logout: 'ログアウト',
+    oaLogin: 'OAでログイン',
+    redirectingToOA: 'OAへ移動しています...',
     oidcLogin: 'OIDCでログイン',
     oidcLoginWithProvider: '{provider}でログイン',
     redirectingToOIDC: 'IDプロバイダにリダイレクトしています...',
-    orContinueWith: 'または次の方法で続行',
+    orContinueWith: 'または次の方法でログイン',
     oidcLoginFailed: 'OIDCログインに失敗しました',
     username: 'ユーザ名',
     email: 'メールアドレス',

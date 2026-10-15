@@ -5311,10 +5311,12 @@ export default {
   auth: {
     login: '登录',
     logout: '退出',
+    oaLogin: '使用 OA 登录',
+    redirectingToOA: '正在跳转到 OA...',
     oidcLogin: '使用 OIDC 登录',
     oidcLoginWithProvider: '使用 {provider} 登录',
     redirectingToOIDC: '正在跳转到身份提供商...',
-    orContinueWith: '或使用以下方式继续',
+    orContinueWith: '或使用以下方式登录',
     oidcLoginFailed: 'OIDC 登录失败',
     username: '用户名',
     email: '邮箱',

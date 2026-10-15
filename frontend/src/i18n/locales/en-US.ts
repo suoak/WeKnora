@@ -2521,10 +2521,12 @@ export default {
   auth: {
     login: 'Login',
     logout: 'Logout',
+    oaLogin: 'Sign in with OA',
+    redirectingToOA: 'Redirecting to OA...',
     oidcLogin: 'Sign in with OIDC',
     oidcLoginWithProvider: 'Sign in with {provider}',
     redirectingToOIDC: 'Redirecting to identity provider...',
-    orContinueWith: 'Or continue with',
+    orContinueWith: 'Or sign in with',
     oidcLoginFailed: 'OIDC login failed',
     username: 'Username',
     email: 'Email',

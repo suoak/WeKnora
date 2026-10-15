@@ -5232,10 +5232,12 @@ const messages = {
   auth: {
     login: '로그인',
     logout: '로그아웃',
+    oaLogin: 'OA로 로그인',
+    redirectingToOA: 'OA로 이동하는 중...',
     oidcLogin: 'OIDC로 로그인',
     oidcLoginWithProvider: '{provider}(으)로 로그인',
     redirectingToOIDC: 'ID 공급자로 이동하는 중...',
-    orContinueWith: '또는 다음 방법으로 계속',
+    orContinueWith: '또는 다음 방법으로 로그인',
     oidcLoginFailed: 'OIDC 로그인 실패',
     username: '사용자명',
     email: '이메일',

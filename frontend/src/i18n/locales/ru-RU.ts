@@ -5232,10 +5232,12 @@ const messages = {
   auth: {
     login: 'Вход',
     logout: 'Выход',
+    oaLogin: 'Войти через OA',
+    redirectingToOA: 'Переход в OA...',
     oidcLogin: 'Войти через OIDC',
     oidcLoginWithProvider: 'Войти через {provider}',
     redirectingToOIDC: 'Перенаправление к поставщику удостоверений...',
-    orContinueWith: 'Или продолжить с помощью',
+    orContinueWith: 'Или войдите с помощью',
     oidcLoginFailed: 'Ошибка входа через OIDC',
     username: 'Имя пользователя',
     email: 'Почта Email',

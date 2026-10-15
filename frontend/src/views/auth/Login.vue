@@ -229,9 +229,11 @@
                 <span>{{ $t('auth.orContinueWith') }}</span>
               </div>
 
-              <t-button v-if="oidcEnabled" theme="default" size="large" block :loading="oidcLoading" :disabled="loading"
-                class="oidc-button" @click="handleOIDCLogin">
-                {{ oidcLoading ? $t('auth.redirectingToOIDC') : oidcLoginText }}
+              <t-button v-if="oidcEnabled" type="button" theme="default" :variant="isSourceID ? 'outline' : 'base'" size="large" block
+                :loading="oidcLoading" :disabled="loading || oidcLoading" :aria-busy="oidcLoading"
+                class="oidc-button" :class="{ 'oa-button': isSourceID }" @click="handleOIDCLogin">
+                <template v-if="isSourceID" #icon><BuildingIcon aria-hidden="true" /></template>
+                {{ oidcLoading ? $t(isSourceID ? 'auth.redirectingToOA' : 'auth.redirectingToOIDC') : oidcLoginText }}
               </t-button>
             </t-form>
 
@@ -340,6 +342,8 @@
 import { ref, reactive, nextTick, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { MessagePlugin } from 'tdesign-vue-next'
+import { BuildingIcon } from 'tdesign-icons-vue-next'
+import { isSourceIDProvider } from './oidcLoginPresentation'
 import { useRoleLabel } from '@/composables/useRoleLabel'
 import { notifyLoginSuccess } from '@/utils/loginNotify'
 import { canRegister } from './registrationPolicy'
@@ -430,6 +434,7 @@ const oidcLoading = ref(false)
 const isRegisterMode = ref(false)
 const showLanguageMenu = ref(false)
 const oidcEnabled = ref(false)
+const isSourceID = ref(false)
 const oidcProviderName = ref('')
 const oidcRedirectURI = ref('')
 // Wait for configuration before showing a registration entry.
@@ -457,12 +462,11 @@ const languageOptions = [
 ]
 
 const currentLanguage = computed(() => locale.value)
-const oidcLoginText = computed(() => {
-  if (oidcProviderName.value) {
-    return t('auth.oidcLoginWithProvider', { provider: oidcProviderName.value })
-  }
-  return t('auth.oidcLogin')
-})
+const oidcLoginText = computed(() => isSourceID.value
+  ? t('auth.oaLogin')
+  : oidcProviderName.value
+    ? t('auth.oidcLoginWithProvider', { provider: oidcProviderName.value })
+    : t('auth.oidcLogin'))
 const currentLangOption = computed(() => languageOptions.find(l => l.value === currentLanguage.value))
 
 // Login form data
@@ -618,10 +622,12 @@ const loadOIDCConfig = async () => {
   try {
     const response = await getOIDCConfig()
     oidcEnabled.value = !!response.success && !!response.enabled
+    isSourceID.value = isSourceIDProvider(response)
     oidcProviderName.value = response.provider_display_name || ''
     oidcRedirectURI.value = response.redirect_uri || `${window.location.origin}/api/v1/auth/oidc/callback`
   } catch {
     oidcEnabled.value = false
+    isSourceID.value = false
     oidcProviderName.value = ''
   }
 }
@@ -1550,25 +1556,24 @@ onMounted(async () => {
 }
 
 .oidc-divider {
-  position: relative;
-  margin: 4px 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0 12px;
   text-align: center;
-  color: var(--td-text-color-placeholder);
+  color: var(--td-text-color-secondary);
   font-size: var(--app-text-sm);
+  line-height: 1.5;
 
   span {
-    position: relative;
-    z-index: 1;
-    padding: 0 12px;
-    background: rgba(255, 255, 255, 0.95);
+    min-width: 0;
   }
 
-  &::before {
+  &::before,
+  &::after {
     content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 50%;
+    flex: 1;
+    min-width: 12px;
     border-top: 1px solid var(--td-component-stroke);
   }
 }
@@ -1578,6 +1583,38 @@ onMounted(async () => {
   border-radius: var(--app-radius-md);
   font-size: var(--app-text-lg);
   font-weight: 500;
+}
+
+.oidc-button.oa-button {
+  border-color: var(--td-brand-color);
+  background: var(--td-brand-color-light);
+  color: var(--td-brand-color-8);
+  font-size: var(--app-text-lg);
+  font-weight: 500;
+  font-family: var(--app-font-family);
+  transition: background-color 0.15s, border-color 0.15s;
+
+  &:hover:not(:disabled) {
+    background: var(--td-brand-color-focus);
+    border-color: var(--td-brand-color-active);
+  }
+
+  &:active:not(:disabled) {
+    background: var(--td-brand-color-focus);
+    box-shadow: inset 0 0 0 1px var(--td-brand-color-active);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--td-brand-color-active);
+    outline-offset: 3px;
+  }
+
+  &:disabled {
+    background: var(--td-bg-color-component-disabled);
+    border-color: var(--td-component-stroke);
+    color: var(--td-text-color-disabled);
+    cursor: not-allowed;
+  }
 }
 
 .form-footer {
