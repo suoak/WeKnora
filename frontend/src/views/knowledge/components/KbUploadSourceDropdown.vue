@@ -71,6 +71,8 @@ import { useI18n } from 'vue-i18n'
 import { MessagePlugin, Icon as TIcon } from 'tdesign-vue-next'
 import { AddIcon, FileAddIcon, UploadIcon, FolderAddIcon, LinkIcon, EditIcon } from 'tdesign-icons-vue-next'
 import { MAX_FILE_SIZE_MB } from '@/utils/uploadLimits'
+import { isFeishuDocumentURL } from '@/api/feishuPersonal'
+import { feishuMessages } from '@/i18n/feishuPersonal'
 import {
   filterUploadFiles,
   getUploadRejectionNotice,
@@ -81,6 +83,7 @@ const props = withDefaults(defineProps<{
   acceptFileTypes?: string
   supportedFileTypes?: string[]
   includeManual?: boolean
+  includeFeishu?: boolean
   triggerIcon?: string
   triggerLabel?: string
   triggerClass?: string
@@ -102,9 +105,11 @@ const emit = defineEmits<{
   files: [files: File[]]
   url: [url: string]
   manual: []
+  feishu: [url: string]
 }>()
 
 const { t } = useI18n()
+const { t: ft } = useI18n({ useScope: 'local', messages: feishuMessages })
 
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const folderInputRef = ref<HTMLInputElement | null>(null)
@@ -147,10 +152,14 @@ const dropdownOptions = computed(() => {
     })
   }
   return options
+    .concat(props.includeFeishu ? [{ content: ft('title'), value: 'feishu', prefixIcon: () => h(LinkIcon, sourceIconProps) }] : [])
 })
 
 const handleActionSelect = (data: { value: string }) => {
   switch (data.value) {
+    case 'feishu':
+      emit('feishu', '')
+      break
     case 'upload':
       fileInputRef.value?.click()
       break
@@ -217,7 +226,8 @@ const handleUrlDialogConfirm = () => {
   }
   urlDialogVisible.value = false
   urlInputValue.value = ''
-  emit('url', url)
+  if (props.includeFeishu && isFeishuDocumentURL(url)) emit('feishu', url)
+  else emit('url', url)
 }
 
 const handleUrlDialogCancel = () => {

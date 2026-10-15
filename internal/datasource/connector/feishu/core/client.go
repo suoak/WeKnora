@@ -186,8 +186,11 @@ func (c *Client) doRequestBytes(
 	c.ensureRuntime()
 	var token string
 	var err error
+	identity, personal := ctx.Value(userIdentityKey{}).(userIdentity)
 	if authenticated {
-		token, err = c.GetTenantAccessToken(ctx)
+		if !personal {
+			token, err = c.GetTenantAccessToken(ctx)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -197,6 +200,15 @@ func (c *Client) doRequestBytes(
 	for attempt := 0; attempt <= c.retry.maxRetries; attempt++ {
 		if err := ctx.Err(); err != nil {
 			return nil, err
+		}
+		if authenticated && personal {
+			token, err = identity.provider(ctx)
+			if err != nil {
+				return nil, err
+			}
+			if strings.TrimSpace(token) == "" {
+				return nil, ErrAuth
+			}
 		}
 		release, err := c.policy.beforeRequest(ctx)
 		if err != nil {
@@ -661,6 +673,10 @@ func (c *Client) ExportAndDownload(ctx context.Context, objToken, objType string
 	if !ok {
 		return nil, "", fmt.Errorf("unsupported obj_type for export: %s", objType)
 	}
+	return c.exportAndDownload(ctx, objToken, exportType, fileExt)
+}
+
+func (c *Client) exportAndDownload(ctx context.Context, objToken, exportType, fileExt string) ([]byte, string, error) {
 
 	// Step 1: create export task
 	ticket, err := c.createExportTask(ctx, objToken, exportType, fileExt)

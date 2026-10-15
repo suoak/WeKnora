@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import FeishuImportDialog from './components/FeishuImportDialog.vue';
+import { FEISHU_PENDING } from '@/i18n/feishuPersonal';
+import { isFeishuDocumentURL } from '@/api/feishuPersonal';
 import { ref, onMounted, onUnmounted, watch, reactive, computed, nextTick } from "vue";
 import { MessagePlugin } from "tdesign-vue-next";
 import DocContent from "@/components/doc-content.vue";
@@ -1779,8 +1782,19 @@ const handleUploadSourceFiles = (files: File[]) => {
 
 const handleUploadSourceUrl = (url: string) => {
   if (!ensureDocumentKbReady()) return;
+  if (isFeishuDocumentURL(url)) { openFeishuImport(url); return; }
   openUploadConfirmDialog([], [url]);
 };
+
+const feishuVisible = ref(false);
+const feishuInitialURL = ref('');
+const openFeishuImport = (url = '') => { feishuInitialURL.value = url; feishuVisible.value = true; };
+onMounted(() => {
+  try {
+    const pending = JSON.parse(sessionStorage.getItem(FEISHU_PENDING) || '{}');
+    if (pending.kbId === kbId.value) { sessionStorage.removeItem(FEISHU_PENDING); openFeishuImport(pending.url || ''); }
+  } catch { sessionStorage.removeItem(FEISHU_PENDING); }
+});
 
 const handleManualCreate = () => {
   if (!ensureDocumentKbReady()) return;
@@ -2516,10 +2530,10 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
                   </div>
                   <div v-if="canEdit" class="doc-filter-actions">
                     <KbUploadSourceDropdown ref="uploadSourceRef" :accept-file-types="acceptFileTypes"
-                      :supported-file-types="[...supportedFileTypes]" include-manual trigger-icon="add" :trigger-label="t('knowledgeBase.addDocument')"
+                      :supported-file-types="[...supportedFileTypes]" include-manual include-feishu trigger-icon="add" :trigger-label="t('knowledgeBase.addDocument')"
                       trigger-class="content-bar-icon-btn" data-guide="kb-detail-add-doc"
                       :tooltip="t('knowledgeBase.addDocument')" placement="bottom-right" @files="handleUploadSourceFiles"
-                      @url="handleUploadSourceUrl" @manual="handleManualCreate" />
+                      @url="handleUploadSourceUrl" @manual="handleManualCreate" @feishu="openFeishuImport" />
                   </div>
                 </div>
               </div>
@@ -2638,6 +2652,7 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
       </template>
 
       <!-- DocContent drawer (shared by documents tab and wiki source refs) -->
+      <FeishuImportDialog v-model:visible="feishuVisible" :kb-id="kbId" :initial-url="feishuInitialURL" @imported="loadKnowledgeFiles(kbId)" />
       <DocContent ref="docContentRef" :visible="isCardDetails" :details="details" :canEditKB="canEdit"
         :canDownloadKB="canDownloadKnowledge" :kbId="kbId"
         @closeDoc="closeDoc" @getDoc="getDoc" @summaryStateChange="syncDocumentSummaryState">

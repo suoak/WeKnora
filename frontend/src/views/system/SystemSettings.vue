@@ -56,6 +56,7 @@
       </p>
     </div>
 
+    <FeishuAppSettings />
     <div v-if="loading && settings.length === 0" class="loading-state">
       <t-loading :text="t('system.globalSettings.loading')" />
     </div>
@@ -325,6 +326,7 @@
 </template>
 
 <script setup lang="ts">
+import FeishuAppSettings from './FeishuAppSettings.vue'
 import { ref, reactive, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { MessagePlugin } from 'tdesign-vue-next'
