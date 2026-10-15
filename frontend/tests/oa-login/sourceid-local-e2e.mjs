@@ -12,7 +12,7 @@ for (const url of [backend, mock]) {
 const frontend = 'http://127.0.0.1:18195'
 const browserOrigin = 'http://knowhub.ruijie.com.cn'
 const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '18195', '--strictPort'], {
-  env: { ...process.env, VITE_DEV_PROXY_TARGET: backend.origin }, stdio: 'pipe',
+  env: { ...process.env, VITE_DEV_PROXY_TARGET: backend.origin, __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS: 'knowhub.ruijie.com.cn' }, stdio: 'pipe',
 })
 let browser
 const watchdog = setTimeout(() => {
@@ -39,20 +39,15 @@ try {
   console.log('SOURCEID_SYNTHETIC_STAGE: browser_start')
   browser = await chromium.launch({
     executablePath: process.env.CHROME_PATH || (process.platform === 'win32' ? 'C:/Program Files/Google/Chrome/Application/chrome.exe' : '/usr/bin/google-chrome'),
-    headless: true, args: ['--no-proxy-server', '--disable-gpu', '--disable-dev-shm-usage'],
+    headless: true, args: ['--no-proxy-server', '--disable-gpu', '--disable-dev-shm-usage', '--host-resolver-rules=MAP knowhub.ruijie.com.cn 127.0.0.1:18195'],
   })
   const context = await browser.newContext()
-  // All approved-domain traffic is fulfilled locally, so DNS can never reach
-  // a real server. Cookies/Origin remain in one real browser context.
+  // Chromium resolves this single approved domain directly to the local Vite
+  // port. Keep the browser's normal response, cookie and navigation handling;
+  // no URL/header rewriting or global hosts/DNS changes are involved.
   await context.route('**/*', async route => {
-    const request = route.request()
-    const url = new URL(request.url())
-    if (url.origin === browserOrigin) {
-      const headers = await request.allHeaders()
-      headers.host = '127.0.0.1:18195'
-      return route.continue({ url: frontend + url.pathname + url.search, headers })
-    }
-    if ([frontend, mock.origin].includes(url.origin)) return route.continue()
+    const url = new URL(route.request().url())
+    if ([browserOrigin, frontend, mock.origin].includes(url.origin)) return route.continue()
     return route.abort()
   })
   const page = await context.newPage()
