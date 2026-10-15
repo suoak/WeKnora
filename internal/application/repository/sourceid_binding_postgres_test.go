@@ -18,6 +18,7 @@ func TestSourceIDPostgresEmailBindingApprovalAndMigrationRollback(t *testing.T) 
 	require.NoError(t, db.Exec(string(up)).Error)
 	r := &userRepository{db: db}
 	ctx := context.Background()
+	require.NoError(t, db.Create(&types.Tenant{ID: 42, Name: "synthetic-existing-tenant"}).Error)
 	user := types.User{ID: uuid.NewString(), Username: "synthetic-pg", Email: "Pg@Example.Test", IsActive: true, TenantID: 42}
 	require.NoError(t, db.Create(&user).Error)
 	_, err = r.ResolveSourceIDEmailIdentity(ctx, "mock", "sub", "0007", "pg@example.test")
