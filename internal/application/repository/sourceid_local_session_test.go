@@ -22,13 +22,17 @@ func sourceIDLocalRepositoryFixture(t *testing.T, db *gorm.DB, dialect string) (
 		require.NoError(t, db.Exec(string(sql)).Error)
 	}
 	r := &userRepository{db: db}
-	user := types.User{ID: uuid.NewString(), Email: "synthetic-local@example.test", Username: "synthetic-local", IsActive: true}
+	require.NoError(t, db.AutoMigrate(&types.Tenant{}))
+	require.NoError(t, db.Create(&types.Tenant{ID: 42, Name: "synthetic-local-space"}).Error)
+	user := types.User{ID: uuid.NewString(), Email: "synthetic-local@example.test", Username: "synthetic-local", IsActive: true, TenantID: 42}
 	require.NoError(t, db.Create(&user).Error)
 	identity := types.ExternalIdentity{ID: uuid.NewString(), Provider: "sourceid", Issuer: "mock", Subject: "synthetic-sub", EmployeeNo: "synthetic-employee", UserID: user.ID, CreatedAt: time.Now(), UpdatedAt: time.Now(), LastLoginAt: time.Now()}
 	require.NoError(t, db.Create(&identity).Error)
 	require.NoError(t, db.Create(&types.SourceIDBindingReview{ID: uuid.NewString(), Issuer: "mock", EmployeeNo: identity.EmployeeNo, Subject: identity.Subject, UserID: user.ID, Email: user.Email, Status: "approved", ReviewedBy: "synthetic-policy", ReviewReference: "synthetic-approval", CreatedAt: time.Now(), UpdatedAt: time.Now()}).Error)
 	session := &types.SourceIDSession{ID: uuid.NewString(), Issuer: "mock", UserID: user.ID, ExpiresAt: time.Now().Add(time.Hour), CreatedAt: time.Now()}
 	local := &types.SourceIDLocalSession{ID: session.ID, Subject: identity.Subject, PolicyRef: "synthetic-approval", AdmissionPolicyRef: "synthetic-admission", AdmissionValidUntil: session.ExpiresAt, LastSeenAt: time.Now(), IdleSeconds: 1800, AccessSeconds: 600, RefreshEnabled: true}
+	local.AdmissionSource = "sid_query"
+	local.AdmissionCheckedAt = time.Now()
 	require.NoError(t, r.CreateSourceIDLocalSession(context.Background(), session, local))
 	access := &types.AuthToken{ID: uuid.NewString(), UserID: user.ID, SessionID: session.ID, Token: "synthetic-access", TokenType: "access_token", ExpiresAt: time.Now().Add(10 * time.Minute), CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	refresh := &types.AuthToken{ID: uuid.NewString(), UserID: user.ID, SessionID: session.ID, Token: "synthetic-refresh", TokenType: "refresh_token", ExpiresAt: session.ExpiresAt, CreatedAt: time.Now(), UpdatedAt: time.Now()}

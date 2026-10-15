@@ -25,6 +25,14 @@ func (r *userRepository) GetSourceIDLocalSession(ctx context.Context, id, userID
 	if err := db.Where("id = ?", id).First(&local).Error; err != nil {
 		return nil, errors.New("sourceid local session metadata unavailable")
 	}
+	local.Issuer = session.Issuer
+	local.AbsoluteExpiresAt = session.ExpiresAt
+	local.Revoked = session.Revoked
+	var identity types.ExternalIdentity
+	if err := db.Where("id = ? AND subject = ? AND user_id = ? AND issuer = ?", local.BindingID, local.Subject, userID, session.Issuer).First(&identity).Error; err != nil {
+		return nil, errors.New("sourceid local identity unavailable")
+	}
+	local.EmployeeNo = identity.EmployeeNo
 	return &local, nil
 }
 
@@ -81,3 +89,29 @@ func checkSourceIDLocalSession(tx *gorm.DB, session *types.SourceIDSession) erro
 }
 
 var errSourceIDRefreshConsumed = errors.New("sourceid refresh already consumed")
+
+func (r *userRepository) UpdateSourceIDLocalAdmission(ctx context.Context, id, userID string, decision types.SourceIDAdmissionDecision) error {
+	return r.bindingDB(ctx).Transaction(func(tx *gorm.DB) error {
+		var base types.SourceIDSession
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND user_id = ?", id, userID).First(&base).Error; err != nil {
+			return err
+		}
+		var local types.SourceIDLocalSession
+		if err := tx.Where("id = ?", id).First(&local).Error; err != nil {
+			return err
+		}
+		now := time.Now()
+		if base.Revoked || !base.ExpiresAt.After(now) || !local.RecheckSupported ||
+			!local.LastSeenAt.Add(time.Duration(local.IdleSeconds)*time.Second).After(now) ||
+			decision.Outcome != types.SourceIDAdmissionAllow || !decision.RecheckSupported || decision.Source != local.AdmissionSource ||
+			decision.ContractRef != local.AdmissionPolicyRef || decision.CheckedAt.Before(local.AdmissionCheckedAt) ||
+			!decision.ValidUntil.After(now) {
+			return errors.New("sourceid admission renewal rejected")
+		}
+		until := decision.ValidUntil
+		if until.After(base.ExpiresAt) {
+			until = base.ExpiresAt
+		}
+		return tx.Model(&local).Updates(map[string]interface{}{"admission_checked_at": decision.CheckedAt, "admission_valid_until": until}).Error
+	})
+}

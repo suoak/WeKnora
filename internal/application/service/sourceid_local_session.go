@@ -12,24 +12,101 @@ import (
 type sourceIDLocalStore interface {
 	GetSourceIDLocalSession(context.Context, string, string) (*types.SourceIDLocalSession, error)
 	CreateSourceIDLocalSession(context.Context, *types.SourceIDSession, *types.SourceIDLocalSession) error
+	UpdateSourceIDLocalAdmission(context.Context, string, string, types.SourceIDAdmissionDecision) error
 }
 
-// Only a formally approved UserInfo status contract is currently executable.
-// Authorization-time guarantees/query APIs need their own confirmed adapter;
-// a successful code exchange alone is not an employee-admission decision.
-func sourceIDAdmission(cfg *config.OIDCAuthConfig, info *types.OIDCUserInfo, now time.Time) (time.Time, error) {
+type sourceIDAuthorizationProofKey struct{}
+type sourceIDAuthorizationProof struct {
+	Issuer, Subject string
+	At              time.Time
+}
+
+// First-release adapter: only consumes a fully verified, single-use OIDC
+// transaction. It cannot infer eligibility from an arbitrary Token HTTP 200.
+type sourceIDAuthorizationAdmissionResolver struct{ cfg *config.OIDCAuthConfig }
+
+func (r sourceIDAuthorizationAdmissionResolver) Resolve(ctx context.Context, request types.SourceIDAdmissionRequest) (types.SourceIDAdmissionDecision, error) {
+	decision := types.SourceIDAdmissionDecision{Outcome: types.SourceIDAdmissionUnknown}
+	if ctx.Err() != nil || !r.cfg.SourceIDAuthorizationRecheckConfirmed || request.Stage != "login" ||
+		!request.AuthorizationVerified || request.Issuer != r.cfg.IssuerURL || request.Subject == "" || request.AuthorizationVerifiedAt.IsZero() {
+		return decision, nil
+	}
+	policy, err := r.cfg.SourceIDLocalPolicy()
+	if err != nil {
+		return decision, err
+	}
+	return types.SourceIDAdmissionDecision{Outcome: types.SourceIDAdmissionAllow, Source: "authorization", ContractRef: r.cfg.SourceIDAdmissionPolicyRef,
+		CheckedAt: request.AuthorizationVerifiedAt, ValidUntil: request.AuthorizationVerifiedAt.Add(policy.AdmissionMaxAge)}, nil
+}
+
+// No production adapter is installed. All three strategies are exercised by
+// synthetic adapters; configuration alone can never manufacture an ALLOW.
+func (s *userService) resolveSourceIDAdmission(ctx context.Context, cfg *config.OIDCAuthConfig, request types.SourceIDAdmissionRequest) (types.SourceIDAdmissionDecision, error) {
+	var decision types.SourceIDAdmissionDecision
 	p, err := cfg.SourceIDLocalPolicy()
 	if err != nil {
-		return time.Time{}, err
+		return decision, err
 	}
-	status := sourceIDClaim(info.Claims, cfg.SourceIDStatusClaim)
-	if status == "" {
-		return time.Time{}, errors.New("sourceid admission unknown")
+	resolver := s.employeeAdmission
+	if resolver == nil && cfg.SourceIDAdmissionMode == "authorization" && cfg.SourceIDAuthorizationRecheckConfirmed {
+		resolver = sourceIDAuthorizationAdmissionResolver{cfg}
 	}
-	if status != cfg.SourceIDAllowedStatus {
-		return time.Time{}, errors.New("sourceid admission denied")
+	if resolver == nil {
+		return decision, errors.New("sourceid admission contract pending")
 	}
-	return now.Add(p.AdmissionMaxAge), nil
+	callCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	decision, err = resolver.Resolve(callCtx, request)
+	if err != nil || callCtx.Err() != nil {
+		return types.SourceIDAdmissionDecision{}, errors.New("sourceid admission unavailable")
+	}
+	if decision.Outcome == types.SourceIDAdmissionDeny {
+		return decision, errors.New("sourceid admission denied")
+	}
+	now := time.Now()
+	if decision.Outcome != types.SourceIDAdmissionAllow || decision.Source != cfg.SourceIDAdmissionMode ||
+		decision.ContractRef != cfg.SourceIDAdmissionPolicyRef || decision.CheckedAt.IsZero() || decision.CheckedAt.After(now) ||
+		!decision.ValidUntil.After(now) || decision.ValidUntil.Before(decision.CheckedAt) {
+		return types.SourceIDAdmissionDecision{}, errors.New("sourceid admission unknown")
+	}
+	limit := decision.CheckedAt.Add(p.AdmissionMaxAge)
+	if decision.ValidUntil.After(limit) {
+		decision.ValidUntil = limit
+	}
+	if !decision.ValidUntil.After(now) {
+		return types.SourceIDAdmissionDecision{}, errors.New("sourceid admission expired")
+	}
+	if decision.Source == "authorization" && decision.RecheckSupported {
+		return types.SourceIDAdmissionDecision{}, errors.New("sourceid authorization admission cannot recheck")
+	}
+	if request.Stage != "login" && !decision.RecheckSupported {
+		return types.SourceIDAdmissionDecision{}, errors.New("sourceid admission reauthentication required")
+	}
+	return decision, nil
+}
+
+func (s *userService) recheckSourceIDAdmission(ctx context.Context, sessionID, userID string) error {
+	local, err := s.sourceIDLocalLimits(ctx, sessionID, userID)
+	if err != nil || local == nil {
+		return err
+	}
+	if !local.RecheckSupported {
+		return nil
+	} // Existing snapshot is strictly bounded; never extended.
+	decision, err := s.resolveSourceIDAdmission(ctx, s.config.OIDCAuth, types.SourceIDAdmissionRequest{
+		Issuer: local.Issuer, Subject: local.Subject, EmployeeNo: local.EmployeeNo, Stage: "refresh",
+	})
+	if err != nil {
+		store, storeErr := s.sourceIDStore()
+		if storeErr != nil {
+			return storeErr
+		}
+		if revokeErr := store.RevokeSourceIDSession(ctx, sessionID, userID); revokeErr != nil {
+			return revokeErr
+		}
+		return err
+	}
+	return s.userRepo.(sourceIDLocalStore).UpdateSourceIDLocalAdmission(ctx, sessionID, userID, decision)
 }
 
 func (s *userService) sourceIDLocalLimits(ctx context.Context, sessionID, userID string) (*types.SourceIDLocalSession, error) {
@@ -41,6 +118,9 @@ func (s *userService) sourceIDLocalLimits(ctx context.Context, sessionID, userID
 	if err != nil || local == nil {
 		return local, err
 	}
+	if local.Revoked || !local.AbsoluteExpiresAt.After(time.Now()) || !local.LastSeenAt.Add(time.Duration(local.IdleSeconds)*time.Second).After(time.Now()) {
+		return nil, errors.New("sourceid local session expired")
+	}
 	if s.config == nil || s.config.OIDCAuth == nil {
 		return nil, errors.New("sourceid local policy unavailable")
 	}
@@ -48,7 +128,7 @@ func (s *userService) sourceIDLocalLimits(ctx context.Context, sessionID, userID
 	if _, err := cfg.SourceIDLocalPolicy(); err != nil {
 		return nil, err
 	}
-	if cfg.SourceIDLocalPolicyRef != local.PolicyRef || cfg.SourceIDAdmissionPolicyRef != local.AdmissionPolicyRef {
+	if cfg.IssuerURL != local.Issuer || cfg.SourceIDLocalPolicyRef != local.PolicyRef || cfg.SourceIDAdmissionPolicyRef != local.AdmissionPolicyRef || cfg.SourceIDAdmissionMode != local.AdmissionSource {
 		return nil, errors.New("sourceid local policy changed; reauthentication required")
 	}
 	return local, nil

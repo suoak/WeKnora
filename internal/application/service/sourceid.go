@@ -19,6 +19,7 @@ const oidcNonceKey oidcContextKey = "oidc_nonce"
 const oidcVerifierKey oidcContextKey = "oidc_verifier"
 const sourceIDSessionKey oidcContextKey = "sourceid_session"
 const sourceIDPreviousKey oidcContextKey = "sourceid_previous_refresh"
+const sourceIDPreparedKey oidcContextKey = "sourceid_prepared"
 
 func (s *userService) sourceIDStore() (interfaces.SourceIDRepository, error) {
 	r, ok := s.userRepo.(interfaces.SourceIDRepository)
@@ -50,6 +51,7 @@ func (s *userService) PrepareOIDCCallback(ctx context.Context, state string) (co
 	if transaction.Nonce != p.Nonce {
 		return ctx, errors.New("oidc transaction mismatch")
 	}
+	ctx = context.WithValue(ctx, sourceIDPreparedKey, true)
 	return context.WithValue(ctx, oidcVerifierKey, transaction.Verifier), nil
 }
 
@@ -67,7 +69,7 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 	if mode != "external" && mode != "local_approved" {
 		return nil, ctx, errors.New("sourceid session mode invalid")
 	}
-	if cfg.SourceIDEmployeeClaim == "" || (mode == "external" && cfg.SourceIDSessionClaim == "") || cfg.SourceIDStatusClaim == "" || cfg.SourceIDAllowedStatus == "" {
+	if cfg.SourceIDEmployeeClaim == "" || (mode == "external" && (cfg.SourceIDSessionClaim == "" || cfg.SourceIDStatusClaim == "" || cfg.SourceIDAllowedStatus == "")) {
 		return nil, ctx, errors.New("sourceid claim contract unconfirmed")
 	}
 	if cfg.SourceIDEmailBindingEnable && (!cfg.SourceIDEmailContractConfirmed || cfg.SourceIDEmployeeClaim != "attributes.RJGH" || cfg.SourceIDClaimsSource != "userinfo") {
@@ -82,14 +84,18 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 	if employee == "" || info.Subject == "" || (mode == "external" && index == "") {
 		return nil, ctx, errors.New("sourceid employee or session missing")
 	}
-	if status != cfg.SourceIDAllowedStatus {
+	if mode == "external" && status != cfg.SourceIDAllowedStatus {
 		return nil, ctx, errors.New("sourceid employee disabled")
 	}
 	now := time.Now()
-	var admissionUntil time.Time
+	var admission types.SourceIDAdmissionDecision
 	if mode == "local_approved" {
 		var err error
-		admissionUntil, err = sourceIDAdmission(cfg, info, now)
+		proof, _ := ctx.Value(sourceIDAuthorizationProofKey{}).(sourceIDAuthorizationProof)
+		admission, err = s.resolveSourceIDAdmission(ctx, cfg, types.SourceIDAdmissionRequest{
+			Issuer: cfg.IssuerURL, Subject: info.Subject, EmployeeNo: employee, Stage: "login", VerifiedClaims: info.Claims,
+			AuthorizationVerified: proof.Issuer == cfg.IssuerURL && proof.Subject == info.Subject, AuthorizationVerifiedAt: proof.At,
+		})
 		if err != nil {
 			return nil, ctx, err
 		}
@@ -135,11 +141,12 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 		}
 		session.SessionIndexHash = ""
 		session.ExpiresAt = now.Add(policy.AbsoluteTTL)
-		if admissionUntil.Before(session.ExpiresAt) {
-			session.ExpiresAt = admissionUntil
+		if !admission.RecheckSupported && admission.ValidUntil.Before(session.ExpiresAt) {
+			session.ExpiresAt = admission.ValidUntil
 		}
 		local := &types.SourceIDLocalSession{ID: session.ID, Subject: info.Subject, PolicyRef: cfg.SourceIDLocalPolicyRef,
-			AdmissionPolicyRef: cfg.SourceIDAdmissionPolicyRef, AdmissionValidUntil: admissionUntil, LastSeenAt: now,
+			AdmissionPolicyRef: cfg.SourceIDAdmissionPolicyRef, AdmissionValidUntil: admission.ValidUntil, LastSeenAt: now,
+			AdmissionSource: admission.Source, AdmissionCheckedAt: admission.CheckedAt, RecheckSupported: admission.RecheckSupported,
 			IdleSeconds: int64(policy.IdleTTL / time.Second), AccessSeconds: int64(policy.AccessTTL / time.Second), RefreshEnabled: cfg.SourceIDLocalRefreshEnable}
 		if err := store.CreateSourceIDLocalSession(ctx, session, local); err != nil {
 			return nil, ctx, err
@@ -196,6 +203,7 @@ func (s *userService) SourceIDSwitchContext(ctx context.Context, access string) 
 	}
 	if token.SessionID != "" {
 		ctx = context.WithValue(ctx, sourceIDSessionKey, token.SessionID)
+		ctx = context.WithValue(ctx, types.SourceIDTokenOperationKey{}, "switch")
 	}
 	return ctx, nil
 }

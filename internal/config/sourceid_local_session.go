@@ -25,8 +25,7 @@ func (c *OIDCAuthConfig) SourceIDLocalPolicy() (SourceIDLocalPolicy, error) {
 		c.SourceIDProtocolOnly || !c.SourceIDContractConfirmed ||
 		strings.TrimSpace(c.SourceIDLocalPolicyRef) == "" ||
 		strings.TrimSpace(c.SourceIDAdmissionPolicyRef) == "" ||
-		c.SourceIDAdmissionMode != "userinfo_claim" || c.SourceIDClaimsSource != "userinfo" ||
-		c.SourceIDStatusClaim == "" || c.SourceIDAllowedStatus == "" ||
+		(c.SourceIDAdmissionMode != "authorization" && c.SourceIDAdmissionMode != "userinfo_claim" && c.SourceIDAdmissionMode != "sid_query") || c.SourceIDClaimsSource != "userinfo" ||
 		c.SourceIDEmployeeClaim != "attributes.RJGH" || !c.SourceIDEmailBindingEnable || !c.SourceIDEmailContractConfirmed {
 		return p, errors.New("sourceid local session policy pending")
 	}
@@ -45,6 +44,9 @@ func (c *OIDCAuthConfig) SourceIDLocalPolicy() (SourceIDLocalPolicy, error) {
 	}
 	if p.AccessTTL > p.AbsoluteTTL || p.IdleTTL > p.AbsoluteTTL || p.AdmissionMaxAge > p.AbsoluteTTL {
 		return p, errors.New("sourceid local duration exceeds absolute limit")
+	}
+	if c.SourceIDAdmissionMode == "authorization" && c.SourceIDLocalRefreshEnable {
+		return p, errors.New("sourceid authorization-only admission requires refresh disabled")
 	}
 	return p, nil
 }

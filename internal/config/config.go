@@ -320,37 +320,38 @@ type OIDCUserInfoMapping struct {
 }
 
 type OIDCAuthConfig struct {
-	SourceIDProtocolOnly           bool   `yaml:"sourceid_protocol_only" json:"-"`
-	SourceIDDiagnosticsEnable      bool   `yaml:"sourceid_diagnostics_enable" json:"-"`
-	SourceIDBasicEncoding          string `yaml:"sourceid_basic_encoding" json:"-"`
-	SourceIDClaimsSource           string `yaml:"sourceid_claims_source" json:"-"`
-	SourceIDLogoutEncoding         string `yaml:"sourceid_logout_encoding" json:"-"`
-	SourceIDEnable                 bool   `yaml:"sourceid_enable" json:"-"`
-	SourceIDLogoutEnable           bool   `yaml:"sourceid_logout_enable" json:"-"`
-	SourceIDEmployeeClaim          string `yaml:"sourceid_employee_claim" json:"-"`
-	SourceIDSessionClaim           string `yaml:"sourceid_session_claim" json:"-"`
-	SourceIDStatusClaim            string `yaml:"sourceid_status_claim" json:"-"`
-	SourceIDAllowedStatus          string `yaml:"sourceid_allowed_status" json:"-"`
-	SourceIDLogoutCIDRs            string `yaml:"sourceid_logout_cidrs" json:"-"`
-	SourceIDLogoutSecret           string `yaml:"sourceid_logout_secret" json:"-"`
-	SourceIDContractConfirmed      bool   `yaml:"sourceid_contract_confirmed" json:"-"`
-	SourceIDEmailBindingEnable     bool   `yaml:"sourceid_email_binding_enable" json:"-"`
-	SourceIDEmailContractConfirmed bool   `yaml:"sourceid_email_contract_confirmed" json:"-"`
-	SourceIDAutoBindingEnable      bool   `yaml:"sourceid_auto_binding_enable" json:"-"`
-	SourceIDAutoBindingPolicyRef   string `yaml:"sourceid_auto_binding_policy_ref" json:"-"`
-	SourceIDSessionMode            string `yaml:"sourceid_session_mode" json:"-"`
-	SourceIDLocalPolicyRef         string `yaml:"sourceid_local_policy_ref" json:"-"`
-	SourceIDLocalAccessTTL         string `yaml:"sourceid_local_access_ttl" json:"-"`
-	SourceIDLocalAbsoluteTTL       string `yaml:"sourceid_local_absolute_ttl" json:"-"`
-	SourceIDLocalIdleTTL           string `yaml:"sourceid_local_idle_ttl" json:"-"`
-	SourceIDLocalRefreshEnable     bool   `yaml:"sourceid_local_refresh_enable" json:"-"`
-	SourceIDAdmissionMode          string `yaml:"sourceid_admission_mode" json:"-"`
-	SourceIDAdmissionPolicyRef     string `yaml:"sourceid_admission_policy_ref" json:"-"`
-	SourceIDAdmissionMaxAge        string `yaml:"sourceid_admission_max_age" json:"-"`
-	RedirectURI                    string `yaml:"redirect_uri" json:"redirect_uri"`
-	PKCEEnable                     bool   `yaml:"pkce_enable" json:"-"`
-	ClientAuthMethod               string `yaml:"client_auth_method" json:"-"`
-	UserInfoTransport              string `yaml:"user_info_transport" json:"-"`
+	SourceIDProtocolOnly                  bool   `yaml:"sourceid_protocol_only" json:"-"`
+	SourceIDDiagnosticsEnable             bool   `yaml:"sourceid_diagnostics_enable" json:"-"`
+	SourceIDBasicEncoding                 string `yaml:"sourceid_basic_encoding" json:"-"`
+	SourceIDClaimsSource                  string `yaml:"sourceid_claims_source" json:"-"`
+	SourceIDLogoutEncoding                string `yaml:"sourceid_logout_encoding" json:"-"`
+	SourceIDEnable                        bool   `yaml:"sourceid_enable" json:"-"`
+	SourceIDLogoutEnable                  bool   `yaml:"sourceid_logout_enable" json:"-"`
+	SourceIDEmployeeClaim                 string `yaml:"sourceid_employee_claim" json:"-"`
+	SourceIDSessionClaim                  string `yaml:"sourceid_session_claim" json:"-"`
+	SourceIDStatusClaim                   string `yaml:"sourceid_status_claim" json:"-"`
+	SourceIDAllowedStatus                 string `yaml:"sourceid_allowed_status" json:"-"`
+	SourceIDLogoutCIDRs                   string `yaml:"sourceid_logout_cidrs" json:"-"`
+	SourceIDLogoutSecret                  string `yaml:"sourceid_logout_secret" json:"-"`
+	SourceIDContractConfirmed             bool   `yaml:"sourceid_contract_confirmed" json:"-"`
+	SourceIDEmailBindingEnable            bool   `yaml:"sourceid_email_binding_enable" json:"-"`
+	SourceIDEmailContractConfirmed        bool   `yaml:"sourceid_email_contract_confirmed" json:"-"`
+	SourceIDAutoBindingEnable             bool   `yaml:"sourceid_auto_binding_enable" json:"-"`
+	SourceIDAutoBindingPolicyRef          string `yaml:"sourceid_auto_binding_policy_ref" json:"-"`
+	SourceIDSessionMode                   string `yaml:"sourceid_session_mode" json:"-"`
+	SourceIDLocalPolicyRef                string `yaml:"sourceid_local_policy_ref" json:"-"`
+	SourceIDLocalAccessTTL                string `yaml:"sourceid_local_access_ttl" json:"-"`
+	SourceIDLocalAbsoluteTTL              string `yaml:"sourceid_local_absolute_ttl" json:"-"`
+	SourceIDLocalIdleTTL                  string `yaml:"sourceid_local_idle_ttl" json:"-"`
+	SourceIDLocalRefreshEnable            bool   `yaml:"sourceid_local_refresh_enable" json:"-"`
+	SourceIDAdmissionMode                 string `yaml:"sourceid_admission_mode" json:"-"`
+	SourceIDAdmissionPolicyRef            string `yaml:"sourceid_admission_policy_ref" json:"-"`
+	SourceIDAdmissionMaxAge               string `yaml:"sourceid_admission_max_age" json:"-"`
+	SourceIDAuthorizationRecheckConfirmed bool   `yaml:"sourceid_authorization_recheck_confirmed" json:"-"`
+	RedirectURI                           string `yaml:"redirect_uri" json:"redirect_uri"`
+	PKCEEnable                            bool   `yaml:"pkce_enable" json:"-"`
+	ClientAuthMethod                      string `yaml:"client_auth_method" json:"-"`
+	UserInfoTransport                     string `yaml:"user_info_transport" json:"-"`
 
 	Enable                bool                 `yaml:"enable"                 json:"enable"`
 	IssuerURL             string               `yaml:"issuer_url"             json:"issuer_url"`
@@ -832,16 +833,17 @@ func applyOIDCEnvOverrides(cfg *Config) {
 		}
 	}
 	for key, target := range map[string]*bool{
-		"SOURCEID_LOCAL_REFRESH_ENABLE":     &cfg.OIDCAuth.SourceIDLocalRefreshEnable,
-		"SOURCEID_ENABLE":                   &cfg.OIDCAuth.SourceIDEnable,
-		"SOURCEID_PROTOCOL_ONLY":            &cfg.OIDCAuth.SourceIDProtocolOnly,
-		"SOURCEID_DIAGNOSTICS_ENABLE":       &cfg.OIDCAuth.SourceIDDiagnosticsEnable,
-		"SOURCEID_LOGOUT_ENABLE":            &cfg.OIDCAuth.SourceIDLogoutEnable,
-		"SOURCEID_CONTRACT_CONFIRMED":       &cfg.OIDCAuth.SourceIDContractConfirmed,
-		"SOURCEID_EMAIL_BINDING_ENABLE":     &cfg.OIDCAuth.SourceIDEmailBindingEnable,
-		"SOURCEID_AUTO_BINDING_ENABLE":      &cfg.OIDCAuth.SourceIDAutoBindingEnable,
-		"SOURCEID_EMAIL_CONTRACT_CONFIRMED": &cfg.OIDCAuth.SourceIDEmailContractConfirmed,
-		"OIDC_AUTH_PKCE_ENABLE":             &cfg.OIDCAuth.PKCEEnable,
+		"SOURCEID_AUTHORIZATION_RECHECK_CONFIRMED": &cfg.OIDCAuth.SourceIDAuthorizationRecheckConfirmed,
+		"SOURCEID_LOCAL_REFRESH_ENABLE":            &cfg.OIDCAuth.SourceIDLocalRefreshEnable,
+		"SOURCEID_ENABLE":                          &cfg.OIDCAuth.SourceIDEnable,
+		"SOURCEID_PROTOCOL_ONLY":                   &cfg.OIDCAuth.SourceIDProtocolOnly,
+		"SOURCEID_DIAGNOSTICS_ENABLE":              &cfg.OIDCAuth.SourceIDDiagnosticsEnable,
+		"SOURCEID_LOGOUT_ENABLE":                   &cfg.OIDCAuth.SourceIDLogoutEnable,
+		"SOURCEID_CONTRACT_CONFIRMED":              &cfg.OIDCAuth.SourceIDContractConfirmed,
+		"SOURCEID_EMAIL_BINDING_ENABLE":            &cfg.OIDCAuth.SourceIDEmailBindingEnable,
+		"SOURCEID_AUTO_BINDING_ENABLE":             &cfg.OIDCAuth.SourceIDAutoBindingEnable,
+		"SOURCEID_EMAIL_CONTRACT_CONFIRMED":        &cfg.OIDCAuth.SourceIDEmailContractConfirmed,
+		"OIDC_AUTH_PKCE_ENABLE":                    &cfg.OIDCAuth.PKCEEnable,
 	} {
 		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
 			*target = strings.EqualFold(value, "true")

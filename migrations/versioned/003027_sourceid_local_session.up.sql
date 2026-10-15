@@ -9,5 +9,8 @@ CREATE TABLE source_id_local_sessions (
  last_seen_at TIMESTAMP WITH TIME ZONE NOT NULL,
  idle_seconds BIGINT NOT NULL CHECK(idle_seconds > 0),
  access_seconds BIGINT NOT NULL CHECK(access_seconds > 0),
- refresh_enabled BOOLEAN NOT NULL DEFAULT FALSE
+ refresh_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+ admission_source TEXT NOT NULL,
+ admission_checked_at TIMESTAMP WITH TIME ZONE NOT NULL,
+ recheck_supported BOOLEAN NOT NULL DEFAULT FALSE
 );

@@ -100,12 +100,12 @@ func (r *userRepository) PersistSourceIDTokens(ctx context.Context, id string, a
 			if err := tx.Where("id = ?", id).First(&local).Error; err != nil {
 				return err
 			}
-			if previous != "" && !local.RefreshEnabled {
+			if previous != "" && !local.RefreshEnabled && ctx.Value(types.SourceIDTokenOperationKey{}) != "switch" {
 				return errors.New("sourceid local refresh disabled")
 			}
 			if access.SessionID != id || refresh.SessionID != id || refresh.UserID != access.UserID ||
 				access.ExpiresAt.After(session.ExpiresAt) || access.ExpiresAt.After(local.AdmissionValidUntil) ||
-				refresh.ExpiresAt.After(session.ExpiresAt) || refresh.ExpiresAt.After(local.AdmissionValidUntil) {
+				refresh.ExpiresAt.After(session.ExpiresAt) || (!local.RecheckSupported && refresh.ExpiresAt.After(local.AdmissionValidUntil)) {
 				return errors.New("sourceid local token limits invalid")
 			}
 			if previous == "" {
@@ -119,7 +119,11 @@ func (r *userRepository) PersistSourceIDTokens(ctx context.Context, id string, a
 			}
 		}
 		if previous != "" {
-			result := tx.Model(&types.AuthToken{}).Where("token = ? AND user_id = ? AND session_id = ? AND token_type = ? AND is_revoked = ? AND expires_at > ?", previous, access.UserID, id, "refresh_token", false, time.Now()).Update("is_revoked", true)
+			query := tx.Model(&types.AuthToken{}).Where("token = ? AND user_id = ? AND session_id = ? AND is_revoked = ?", previous, access.UserID, id, false)
+			if localMode {
+				query = query.Where("token_type = ? AND expires_at > ?", "refresh_token", time.Now())
+			}
+			result := query.Update("is_revoked", true)
 			if result.Error != nil {
 				return result.Error
 			}

@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -27,6 +28,35 @@ type sourceIDLocalTestTenants struct{ interfaces.TenantService }
 
 func (sourceIDLocalTestTenants) GetTenantByID(context.Context, uint64) (*types.Tenant, error) {
 	return &types.Tenant{ID: 42, Name: "synthetic-existing-space"}, nil
+}
+
+// Synthetic only: never registered by production wiring.
+type sourceIDMockAdmissionResolver struct {
+	cfg         *config.OIDCAuthConfig
+	fail        error
+	expired     bool
+	recheck     bool
+	denyRefresh bool
+}
+
+func (r sourceIDMockAdmissionResolver) Resolve(ctx context.Context, request types.SourceIDAdmissionRequest) (types.SourceIDAdmissionDecision, error) {
+	now := time.Now()
+	outcome := types.SourceIDAdmissionAllow
+	if request.Stage == "login" {
+		status, _ := request.VerifiedClaims["mock_eligibility"].(string)
+		if status == "DENY" {
+			outcome = types.SourceIDAdmissionDeny
+		} else if status != "ALLOW" {
+			outcome = types.SourceIDAdmissionUnknown
+		}
+	} else if r.denyRefresh {
+		outcome = types.SourceIDAdmissionDeny
+	}
+	until := now.Add(time.Hour)
+	if r.expired {
+		until = now.Add(-time.Second)
+	}
+	return types.SourceIDAdmissionDecision{Outcome: outcome, Source: r.cfg.SourceIDAdmissionMode, ContractRef: r.cfg.SourceIDAdmissionPolicyRef, CheckedAt: now, ValidUntil: until, RecheckSupported: r.recheck}, r.fail
 }
 
 func sourceIDLocalFixture(t *testing.T) (*userService, *gorm.DB, *types.OIDCUserInfo) {
@@ -58,6 +88,7 @@ func sourceIDLocalFixture(t *testing.T) (*userService, *gorm.DB, *types.OIDCUser
 		SourceIDAdmissionMode: "userinfo_claim", SourceIDLocalAccessTTL: "10m", SourceIDLocalAbsoluteTTL: "8h",
 		SourceIDLocalIdleTTL: "30m", SourceIDAdmissionMaxAge: "1h", SourceIDLocalRefreshEnable: true, IssuerURL: "https://mock.example"}
 	svc := &userService{config: &config.Config{OIDCAuth: cfg}, userRepo: apprepo.NewUserRepository(db), tokenRepo: apprepo.NewAuthTokenRepository(db)}
+	svc.employeeAdmission = sourceIDMockAdmissionResolver{cfg: cfg}
 	info := &types.OIDCUserInfo{Subject: "synthetic-sub", Claims: map[string]interface{}{
 		"mock_eligibility": "ALLOW", "attributes": map[string]interface{}{"RJGH": "synthetic-001", "RJEMAIL": "ordinary@example.test"},
 	}}
@@ -171,6 +202,62 @@ func TestSourceIDLocalSessionAdmissionAndExpiryFailClosed(t *testing.T) {
 	}
 }
 
+func TestSourceIDAdmissionStrategiesAndUnavailableFailClosed(t *testing.T) {
+	for _, source := range []string{"authorization", "userinfo_claim", "sid_query"} {
+		for _, failure := range []string{"allow", "deny", "unknown", "expired", "unavailable", "uninstalled"} {
+			t.Run(source+"/"+failure, func(t *testing.T) {
+				s, db, info := sourceIDLocalFixture(t)
+				cfg := s.config.OIDCAuth
+				cfg.SourceIDAdmissionMode = source
+				if source == "authorization" {
+					cfg.SourceIDLocalRefreshEnable = false
+				}
+				mock := sourceIDMockAdmissionResolver{cfg: cfg}
+				switch failure {
+				case "deny":
+					info.Claims["mock_eligibility"] = "DENY"
+				case "unknown":
+					delete(info.Claims, "mock_eligibility")
+				case "expired":
+					mock.expired = true
+				case "unavailable":
+					mock.fail = errors.New("synthetic private response must not escape")
+				}
+				s.employeeAdmission = mock
+				if failure == "uninstalled" {
+					s.employeeAdmission = nil
+				}
+				_, _, err := s.loginSourceID(context.Background(), cfg, info)
+				if failure == "allow" {
+					require.NoError(t, err)
+				} else {
+					require.Error(t, err)
+					require.NotContains(t, err.Error(), "private response")
+					var count int64
+					require.NoError(t, db.Model(&types.ExternalIdentity{}).Count(&count).Error)
+					require.Zero(t, count)
+				}
+			})
+		}
+	}
+}
+
+func TestSourceIDQueryAdmissionRefreshRecheckAndRevoke(t *testing.T) {
+	s, _, info := sourceIDLocalFixture(t)
+	cfg := s.config.OIDCAuth
+	cfg.SourceIDAdmissionMode = "sid_query"
+	s.employeeAdmission = sourceIDMockAdmissionResolver{cfg: cfg, recheck: true}
+	user, loginCtx, err := s.loginSourceID(context.Background(), cfg, info)
+	require.NoError(t, err)
+	access, refresh, err := s.generateTokensForTenant(loginCtx, user, 42)
+	require.NoError(t, err)
+	s.employeeAdmission = sourceIDMockAdmissionResolver{cfg: cfg, recheck: true, denyRefresh: true}
+	_, _, err = s.RefreshToken(context.Background(), refresh)
+	require.Error(t, err)
+	_, _, err = s.ValidateToken(context.Background(), access)
+	require.Error(t, err)
+}
+
 func TestSourceIDLocalSessionRealOIDCServiceWithMockSID(t *testing.T) {
 	s, db, info := sourceIDLocalFixture(t)
 	withOIDCSSRFWhitelist(t, "127.0.0.1")
@@ -180,6 +267,13 @@ func TestSourceIDLocalSessionRealOIDCServiceWithMockSID(t *testing.T) {
 	keys := jwksServer(t, key, "mock-local")
 	defer keys.Close()
 	cfg := s.config.OIDCAuth
+	// Exercise the real first-release adapter against an entirely synthetic SID.
+	cfg.SourceIDAdmissionMode = "authorization"
+	cfg.SourceIDAuthorizationRecheckConfirmed = true
+	cfg.SourceIDLocalRefreshEnable = false
+	cfg.SourceIDStatusClaim = ""
+	cfg.SourceIDAllowedStatus = ""
+	s.employeeAdmission = nil
 	nonce := ""
 	exchanges := 0
 	mock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

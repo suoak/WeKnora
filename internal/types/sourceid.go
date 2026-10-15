@@ -73,6 +73,37 @@ type SourceIDLocalSession struct {
 	IdleSeconds         int64
 	AccessSeconds       int64
 	RefreshEnabled      bool
+	AdmissionSource     string
+	AdmissionCheckedAt  time.Time
+	RecheckSupported    bool
+	Issuer              string    `gorm:"-"`
+	EmployeeNo          string    `gorm:"-"`
+	AbsoluteExpiresAt   time.Time `gorm:"-"`
+	Revoked             bool      `gorm:"-"`
+}
+
+type SourceIDAdmissionOutcome string
+type SourceIDTokenOperationKey struct{}
+
+const (
+	SourceIDAdmissionAllow   SourceIDAdmissionOutcome = "ALLOW"
+	SourceIDAdmissionDeny    SourceIDAdmissionOutcome = "DENY"
+	SourceIDAdmissionUnknown SourceIDAdmissionOutcome = "UNKNOWN"
+)
+
+// These structures carry protected identity input only in process memory.
+// Never log/serialize a request, claims map, adapter error or provider response.
+type SourceIDAdmissionRequest struct {
+	Issuer, Subject, EmployeeNo, Stage string
+	VerifiedClaims                     map[string]interface{}
+	AuthorizationVerified              bool
+	AuthorizationVerifiedAt            time.Time
+}
+type SourceIDAdmissionDecision struct {
+	Outcome               SourceIDAdmissionOutcome
+	Source, ContractRef   string
+	CheckedAt, ValidUntil time.Time
+	RecheckSupported      bool
 }
 
 // SourceIDLogout persists a tombstone, including when logout precedes callback.

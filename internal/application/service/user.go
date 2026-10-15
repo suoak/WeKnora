@@ -102,13 +102,14 @@ func getJwtSecret() string {
 // userService implements the UserService interface
 type userService struct {
 	// Set only by the isolated protocol probe; normal authentication keeps its client.
-	protocolClient   *http.Client
-	userRepo         interfaces.UserRepository
-	tokenRepo        interfaces.AuthTokenRepository
-	tenantService    interfaces.TenantService
-	memberService    interfaces.TenantMemberService
-	config           *config.Config
-	systemSettingSvc interfaces.SystemSettingService
+	protocolClient    *http.Client
+	employeeAdmission interfaces.SourceIDEmployeeAdmissionResolver
+	userRepo          interfaces.UserRepository
+	tokenRepo         interfaces.AuthTokenRepository
+	tenantService     interfaces.TenantService
+	memberService     interfaces.TenantMemberService
+	config            *config.Config
+	systemSettingSvc  interfaces.SystemSettingService
 }
 
 // NewUserService creates a new user service instance
@@ -558,6 +559,9 @@ func (s *userService) LoginWithOIDC(
 	isNewUser := false
 	if cfg.SourceIDEnable {
 		stageStarted = time.Now()
+		if prepared, _ := ctx.Value(sourceIDPreparedKey).(bool); prepared {
+			ctx = context.WithValue(ctx, sourceIDAuthorizationProofKey{}, sourceIDAuthorizationProof{Issuer: cfg.IssuerURL, Subject: userInfo.Subject, At: time.Now()})
+		}
 		user, ctx, err = s.loginSourceID(ctx, cfg, userInfo)
 		SourceIDDiagnosticStage(ctx, "identity_mapping", stageStarted, err)
 		if err != nil {
@@ -1152,6 +1156,9 @@ func (s *userService) generateTokensForTenant(
 				accessExpiry = local.AdmissionValidUntil
 			}
 			refreshExpiry = local.AdmissionValidUntil
+			if local.RecheckSupported {
+				refreshExpiry = local.AbsoluteExpiresAt
+			}
 			if !local.RefreshEnabled {
 				refreshExpiry = accessExpiry
 			}
@@ -1615,6 +1622,9 @@ func (s *userService) RefreshToken(
 	}
 
 	if tokenRecord.SessionID != "" {
+		if err := s.recheckSourceIDAdmission(ctx, tokenRecord.SessionID, tokenRecord.UserID); err != nil {
+			return "", "", err
+		}
 		local, err := s.sourceIDLocalLimits(ctx, tokenRecord.SessionID, tokenRecord.UserID)
 		if err != nil {
 			return "", "", err
