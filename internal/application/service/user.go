@@ -1420,7 +1420,7 @@ func (s *userService) ValidateToken(ctx context.Context, tokenString string) (*t
 		return nil, 0, errors.New("token is revoked")
 	}
 	claimSession, _ := claims["session_id"].(string)
-	if claimSession != tokenRecord.SessionID || tokenRecord.UserID != userID {
+	if claimSession != tokenRecord.SessionID || (tokenRecord.SessionID != "" && tokenRecord.UserID != userID) {
 		return nil, 0, errors.New("token session mismatch")
 	}
 	if tokenRecord.TokenType == "refresh_token" {
@@ -1604,7 +1604,7 @@ func (s *userService) RefreshToken(
 		return "", "", errors.New("refresh token is revoked")
 	}
 	claimSession, _ := claims["session_id"].(string)
-	if claimSession != tokenRecord.SessionID || tokenRecord.UserID != userID {
+	if claimSession != tokenRecord.SessionID || (tokenRecord.SessionID != "" && tokenRecord.UserID != userID) {
 		return "", "", errors.New("refresh session mismatch")
 	}
 	if tokenRecord.TokenType != "refresh_token" {

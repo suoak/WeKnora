@@ -153,13 +153,13 @@ func oidcPublicError(err error) string {
 		return "login_failed"
 	}
 	switch err.Error() {
-	case "sourceid identity contract pending", "sourceid email identity contract pending", "sourceid automatic binding policy pending", "sourceid admission contract pending", "sourceid local session policy pending":
+	case "sourceid identity contract pending", "sourceid email identity contract pending", "sourceid automatic binding policy pending", "sourceid admission contract pending", "sourceid local session policy pending", "sourceid authorization admission contract pending":
 		return "identity_contract_pending"
 	case "sourceid enrollment requires review", "sourceid binding approval required", "sourceid candidate conflict; review required", "sourceid email match unavailable", "sourceid email invalid", "sourceid binding revoked":
 		return "enrollment_required"
 	case "sourceid identity conflict":
 		return "identity_conflict"
-	case "sourceid employee disabled", "sourceid account unavailable":
+	case "sourceid employee disabled", "sourceid account unavailable", "sourceid admission denied":
 		return "account_disabled"
 	case "sourceid employee or session missing":
 		return "identity_fields_missing"

@@ -39,6 +39,25 @@ type sourceIDMockAdmissionResolver struct {
 	denyRefresh bool
 }
 
+type sourceIDTimedAdmissionResolver struct{}
+
+func (sourceIDTimedAdmissionResolver) Resolve(ctx context.Context, _ types.SourceIDAdmissionRequest) (types.SourceIDAdmissionDecision, error) {
+	<-ctx.Done()
+	return types.SourceIDAdmissionDecision{Outcome: types.SourceIDAdmissionUnknown}, ctx.Err()
+}
+
+func TestSourceIDAdmissionTimeoutWritesNothing(t *testing.T) {
+	s, db, info := sourceIDLocalFixture(t)
+	s.employeeAdmission = sourceIDTimedAdmissionResolver{}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+	defer cancel()
+	_, _, err := s.loginSourceID(ctx, s.config.OIDCAuth, info)
+	require.ErrorContains(t, err, "admission unavailable")
+	var count int64
+	require.NoError(t, db.Model(&types.ExternalIdentity{}).Count(&count).Error)
+	require.Zero(t, count)
+}
+
 func (r sourceIDMockAdmissionResolver) Resolve(ctx context.Context, request types.SourceIDAdmissionRequest) (types.SourceIDAdmissionDecision, error) {
 	now := time.Now()
 	outcome := types.SourceIDAdmissionAllow

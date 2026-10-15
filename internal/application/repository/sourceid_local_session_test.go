@@ -29,7 +29,7 @@ func sourceIDLocalRepositoryFixture(t *testing.T, db *gorm.DB, dialect string) (
 	identity := types.ExternalIdentity{ID: uuid.NewString(), Provider: "sourceid", Issuer: "mock", Subject: "synthetic-sub", EmployeeNo: "synthetic-employee", UserID: user.ID, CreatedAt: time.Now(), UpdatedAt: time.Now(), LastLoginAt: time.Now()}
 	require.NoError(t, db.Create(&identity).Error)
 	require.NoError(t, db.Create(&types.SourceIDBindingReview{ID: uuid.NewString(), Issuer: "mock", EmployeeNo: identity.EmployeeNo, Subject: identity.Subject, UserID: user.ID, Email: user.Email, Status: "approved", ReviewedBy: "synthetic-policy", ReviewReference: "synthetic-approval", CreatedAt: time.Now(), UpdatedAt: time.Now()}).Error)
-	session := &types.SourceIDSession{ID: uuid.NewString(), Issuer: "mock", UserID: user.ID, ExpiresAt: time.Now().Add(time.Hour), CreatedAt: time.Now()}
+	session := &types.SourceIDSession{ID: uuid.NewString(), Issuer: "mock", UserID: user.ID, ExpiresAt: time.Now().Add(time.Hour).Truncate(time.Microsecond), CreatedAt: time.Now()}
 	local := &types.SourceIDLocalSession{ID: session.ID, Subject: identity.Subject, PolicyRef: "synthetic-approval", AdmissionPolicyRef: "synthetic-admission", AdmissionValidUntil: session.ExpiresAt, LastSeenAt: time.Now(), IdleSeconds: 1800, AccessSeconds: 600, RefreshEnabled: true}
 	local.AdmissionSource = "sid_query"
 	local.AdmissionCheckedAt = time.Now()
