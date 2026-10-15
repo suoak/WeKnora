@@ -31,14 +31,14 @@ func TestSourceIDPostgresFeishuOrderedMigrationChain(t *testing.T) {
 	// This Force establishes ONLY the fresh fixture baseline after executing
 	// 003024. Never run Force on the packaging machine to skip migrations.
 	require.NoError(t, m.Force(3024))
-	for _, version := range []uint{3025, 3026} {
+	for _, version := range []uint{3025, 3026, 3027} {
 		require.NoError(t, m.Steps(1))
 		v, dirty, err := m.Version()
 		require.NoError(t, err)
 		require.Equal(t, version, v)
 		require.False(t, dirty)
 	}
-	for _, table := range []string{"feishu_connections", "feishu_oauth_states", "feishu_personal_imports", "source_id_binding_reviews", "source_id_binding_audits"} {
+	for _, table := range []string{"feishu_connections", "feishu_oauth_states", "feishu_personal_imports", "source_id_binding_reviews", "source_id_binding_audits", "source_id_local_sessions"} {
 		require.True(t, db.Migrator().HasTable(table))
 	}
 	var count int64
@@ -48,6 +48,13 @@ func TestSourceIDPostgresFeishuOrderedMigrationChain(t *testing.T) {
 	require.EqualValues(t, 1, count)
 	require.NoError(t, m.Steps(-1))
 	v, dirty, err := m.Version()
+	require.NoError(t, err)
+	require.EqualValues(t, 3026, v)
+	require.False(t, dirty)
+	require.True(t, db.Migrator().HasTable("feishu_connections"))
+	require.True(t, db.Migrator().HasTable("source_id_binding_reviews"))
+	require.NoError(t, m.Steps(-1))
+	v, dirty, err = m.Version()
 	require.NoError(t, err)
 	require.EqualValues(t, 3025, v)
 	require.False(t, dirty)
