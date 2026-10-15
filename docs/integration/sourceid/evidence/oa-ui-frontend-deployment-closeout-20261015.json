@@ -1,0 +1,220 @@
+{
+  "result": "PASS",
+  "utc": "2026-10-15T15:54:50.890750+00:00",
+  "containers": {
+    "frontend": {
+      "id": "7b624ec2ee904cb7a0ab86458954722bae831f20f1f3c9da54c7ca3f5e53c448",
+      "name": "/knowhub-sourceid-business-frontend-1",
+      "image_id": "sha256:63146a134fc3be75b663a1ac6ddba205be2b0a3c881891a3ba29a28d6a04f48a",
+      "image_reference": "sha256:63146a134fc3be75b663a1ac6ddba205be2b0a3c881891a3ba29a28d6a04f48a",
+      "created": "2026-10-15T15:53:43.062651455Z",
+      "started": "2026-10-15T15:53:43.860347172Z",
+      "running": true,
+      "health": "NOT_CONFIGURED",
+      "restart_count": 0,
+      "project": "knowhub-sourceid-business",
+      "service": "frontend",
+      "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+      "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml,/home/aqyfzx/ai/knowhub-sourceid-phaseb-preflight-431226c3b/candidate-image-pin.yml,/home/aqyfzx/ai/knowhub-oa-ui-candidate-1ba24ef5f/frontend-ui-pin.yml",
+      "ports": {
+        "80/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "80"
+          }
+        ]
+      },
+      "mounts": []
+    },
+    "app": {
+      "id": "ceac394ee4632f5514cbb65821e77c369df63b35ee1aba7d291fab8a9fdb6ea5",
+      "name": "/knowhub-sourceid-business-app-1",
+      "image_id": "sha256:b2751ba9c8797b0c2440b9435ad92ba9ab2c30d4a95b0c28a2b1b34e4a4c3af1",
+      "image_reference": "sha256:b2751ba9c8797b0c2440b9435ad92ba9ab2c30d4a95b0c28a2b1b34e4a4c3af1",
+      "created": "2026-10-15T12:17:07.969824699Z",
+      "started": "2026-10-15T12:17:08.368998635Z",
+      "running": true,
+      "health": "healthy",
+      "restart_count": 0,
+      "project": "knowhub-sourceid-business",
+      "service": "app",
+      "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+      "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml,/home/aqyfzx/ai/knowhub-sourceid-phaseb-preflight-431226c3b/candidate-image-pin.yml",
+      "ports": {
+        "8080/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "8080"
+          }
+        ]
+      },
+      "mounts": [
+        {
+          "Type": "bind",
+          "Name": null,
+          "Source": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/fixture/ca.pem",
+          "Destination": "/fixture/ca.pem",
+          "RW": false
+        },
+        {
+          "Type": "volume",
+          "Name": "knowhub-sourceid-business_files",
+          "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_files/_data",
+          "Destination": "/data/files",
+          "RW": true
+        },
+        {
+          "Type": "volume",
+          "Name": "knowhub-sourceid-business_doc-tmp",
+          "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_doc-tmp/_data",
+          "Destination": "/tmp/docreader",
+          "RW": false
+        }
+      ]
+    },
+    "sid-mock": {
+      "id": "8b4c423f194a406fe2877c0140c05d3e3a53c8c79e749148ccd721e2c615eaac",
+      "name": "/knowhub-sourceid-business-sid-mock-1",
+      "image_id": "sha256:8bfc2006e22c6a8eee94a45e0c9afe0168cfa72aa4f214291576c95a6d56c39c",
+      "image_reference": "m.daocloud.io/docker.io/library/python:3.10.18-bookworm",
+      "created": "2026-10-14T11:40:44.575707425Z",
+      "started": "2026-10-14T11:40:45.086723889Z",
+      "running": false,
+      "health": "NOT_CONFIGURED",
+      "restart_count": 0,
+      "project": "knowhub-sourceid-business",
+      "service": "sid-mock",
+      "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+      "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+      "ports": {},
+      "mounts": [
+        {
+          "Type": "bind",
+          "Name": null,
+          "Source": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/token-diagnostic-fixture",
+          "Destination": "/fixture",
+          "RW": false
+        }
+      ]
+    },
+    "postgres": {
+      "id": "ba1385464699fdb0b21e48b3134e870f99de3bc1d74ff9663a4dc42e5476f624",
+      "name": "/knowhub-sourceid-business-postgres-1",
+      "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+      "image_reference": "paradedb/paradedb:v0.22.2-pg17",
+      "created": "2026-10-14T06:41:37.796071356Z",
+      "started": "2026-10-14T06:41:39.06627162Z",
+      "running": true,
+      "health": "healthy",
+      "restart_count": 0,
+      "project": "knowhub-sourceid-business",
+      "service": "postgres",
+      "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+      "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+      "ports": {
+        "5432/tcp": null
+      },
+      "mounts": [
+        {
+          "Type": "volume",
+          "Name": "knowhub-sourceid-business_postgres",
+          "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_postgres/_data",
+          "Destination": "/var/lib/postgresql/data",
+          "RW": true
+        }
+      ]
+    },
+    "docreader": {
+      "id": "2396325bde68730217152ee1885508ca9294ed8524ef424a7022c8b9a2c2cc90",
+      "name": "/knowhub-sourceid-business-docreader-1",
+      "image_id": "sha256:8399936620aa78f991b95a0339585f5d2d61f215e6311955e8386a01329beba2",
+      "image_reference": "weknora-custom/docreader:v0.8.0-knowhub.6-0a40e3ad",
+      "created": "2026-10-14T06:41:37.795755583Z",
+      "started": "2026-10-14T06:41:38.981189326Z",
+      "running": true,
+      "health": "NOT_CONFIGURED",
+      "restart_count": 0,
+      "project": "knowhub-sourceid-business",
+      "service": "docreader",
+      "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+      "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+      "ports": {
+        "50051/tcp": null
+      },
+      "mounts": [
+        {
+          "Type": "volume",
+          "Name": "knowhub-sourceid-business_doc-tmp",
+          "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_doc-tmp/_data",
+          "Destination": "/tmp/docreader",
+          "RW": true
+        }
+      ]
+    },
+    "redis": {
+      "id": "fcc4d64070c73ee198ffa0c5badf6abd1b2d03543243f857be4f84b8605c33ad",
+      "name": "/knowhub-sourceid-business-redis-1",
+      "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+      "image_reference": "redis:7.0-alpine",
+      "created": "2026-10-14T06:41:37.79530949Z",
+      "started": "2026-10-14T06:41:38.801991581Z",
+      "running": true,
+      "health": "NOT_CONFIGURED",
+      "restart_count": 0,
+      "project": "knowhub-sourceid-business",
+      "service": "redis",
+      "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+      "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+      "ports": {
+        "6379/tcp": null
+      },
+      "mounts": [
+        {
+          "Type": "volume",
+          "Name": "knowhub-sourceid-business_redis",
+          "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_redis/_data",
+          "Destination": "/data",
+          "RW": true
+        }
+      ]
+    }
+  },
+  "revisions": {
+    "app": "431226c3b1bd5338ec06c1bd0520e637d5fed398",
+    "frontend": "1ba24ef5f9a730bb98d9ade6a5a5d141ea49292b"
+  },
+  "flags": {
+    "SOURCEID_BASIC_ENCODING": "oauth_form",
+    "SOURCEID_PROTOCOL_ONLY": "true",
+    "SOURCEID_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_EMAIL_BINDING_ENABLE": "false",
+    "SOURCEID_EMAIL_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_AUTO_BINDING_ENABLE": "false",
+    "SOURCEID_LOGOUT_ENABLE": "false",
+    "SOURCEID_SESSION_MODE": "NOT_SET",
+    "OIDC_AUTH_ENABLE": "true",
+    "SOURCEID_DIAGNOSTICS_ENABLE": "true",
+    "OIDC_AUTH_PKCE_ENABLE": "false",
+    "AUTO_MIGRATE": "false"
+  },
+  "schema": "3027|f",
+  "all_non_frontend_containers_unchanged": true,
+  "backup_permissions": "0700/0600",
+  "old_frontend_image_retained": true,
+  "asset_sha256": {
+    "/assets/main-CJrpCTow.js": "d3f0e3fc4b8185ccacf485840f81219d513a0eb0d4abcc3e18a210ce820066a5",
+    "/assets/Login-BwWSdVPg.js": "7edd6b3c81750c826c7d51918ef7a1981d3933f90ab08c0904e8be259b84f1f2"
+  },
+  "log_privacy": {
+    "app": {
+      "bytes_scanned": 610,
+      "credential_pattern_found": false
+    },
+    "frontend": {
+      "bytes_scanned": 10665,
+      "credential_pattern_found": false
+    }
+  },
+  "real_sid_login": "NOT_EXECUTED",
+  "rolled_back": false
+}
