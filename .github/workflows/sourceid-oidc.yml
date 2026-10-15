@@ -78,16 +78,6 @@ jobs:
           go build -o /tmp/sourceid-enroll ./cmd/sourceid-enroll
           go build -o /tmp/sourceid-binding ./cmd/sourceid-binding
           go build -o /tmp/sourceid-probe ./cmd/sourceid-probe
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Real frontend and business auth handlers with isolated Mock SID
-        run: |
-          set -euo pipefail
-          npm ci --prefix frontend
-          SOURCEID_BROWSER_E2E=1 go test -v -count=1 ./internal/handler -run '^TestSourceIDLocalBrowserBusinessLogin$' | tee sourceid-results/local-browser.txt
       - uses: actions/upload-artifact@v6
         with:
           name: sourceid-probe-linux-${{ github.sha }}
@@ -97,6 +87,32 @@ jobs:
         if: always()
         with:
           name: sourceid-linux-${{ github.sha }}
+          path: sourceid-results
+
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.8"
+          cache: true
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Real frontend and business auth handlers with isolated Mock SID
+        run: |
+          set -euo pipefail
+          mkdir -p sourceid-results
+          npm ci --prefix frontend
+          SOURCEID_BROWSER_E2E=1 go test -timeout 5m -v -count=1 ./internal/handler -run '^TestSourceIDLocalBrowserBusinessLogin$' | tee sourceid-results/local-browser.txt
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: sourceid-local-browser-${{ github.sha }}
           path: sourceid-results
 
   postgres:

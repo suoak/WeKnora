@@ -198,6 +198,26 @@ func TestSourceIDLocalBrowserBusinessLogin(t *testing.T) {
 	router.NoRoute(func(c *gin.Context) { c.JSON(200, gin.H{"success": true, "data": []interface{}{}}) })
 	app := httptest.NewServer(router)
 	defer app.Close()
+	// Isolate server-side correctness from browser cookie/SPA behavior first.
+	start := httptest.NewRecorder()
+	router.ServeHTTP(start, httptest.NewRequest(http.MethodGet, "/api/v1/auth/oidc/url", nil))
+	require.Equal(t, 200, start.Code)
+	var authorization types.OIDCAuthURLResponse
+	require.NoError(t, json.Unmarshal(start.Body.Bytes(), &authorization))
+	sidClient := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	approved, err := sidClient.Get(authorization.AuthorizationURL)
+	require.NoError(t, err)
+	approved.Body.Close()
+	callbackURL, err := url.Parse(approved.Header.Get("Location"))
+	require.NoError(t, err)
+	callback := httptest.NewRequest(http.MethodGet, callbackURL.String(), nil)
+	for _, cookie := range start.Result().Cookies() {
+		callback.AddCookie(cookie)
+	}
+	callbackResult := httptest.NewRecorder()
+	router.ServeHTTP(callbackResult, callback)
+	require.Equal(t, http.StatusFound, callbackResult.Code)
+	require.Equal(t, "/#oidc_complete=1", callbackResult.Header().Get("Location"), "synthetic direct business callback must succeed")
 	commandCtx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(commandCtx, "node", "tests/oa-login/sourceid-local-e2e.mjs")
@@ -207,7 +227,7 @@ func TestSourceIDLocalBrowserBusinessLogin(t *testing.T) {
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, "synthetic browser assertions: %s", string(output))
 	require.Contains(t, string(output), "SOURCEID_LOCAL_BROWSER_PASS")
-	require.EqualValues(t, 1, tokens.Load(), "denied/SSO-disabled authorizations must not exchange a code")
+	require.EqualValues(t, 2, tokens.Load(), "one code exchange per direct/browser success; denied authorizations exchange none")
 	var count int64
 	require.NoError(t, db.Model(&types.User{}).Count(&count).Error)
 	require.EqualValues(t, 1, count)
