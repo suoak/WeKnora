@@ -63,7 +63,7 @@ func checkSourceIDLocalSession(tx *gorm.DB, session *types.SourceIDSession) erro
 		return errors.New("sourceid local session metadata unavailable")
 	}
 	now := time.Now()
-	if local.IdleSeconds <= 0 || local.AccessSeconds <= 0 || local.PolicyRef == "" || local.AdmissionPolicyRef == "" ||
+	if local.IdleSeconds <= 0 || local.AccessSeconds <= 0 || local.PolicyRef == "" || local.AdmissionPolicyRef == "" || local.LastSeenAt.After(now) ||
 		!local.AdmissionValidUntil.After(now) || !local.LastSeenAt.Add(time.Duration(local.IdleSeconds)*time.Second).After(now) {
 		return errors.New("sourceid local session expired")
 	}
@@ -77,8 +77,8 @@ func checkSourceIDLocalSession(tx *gorm.DB, session *types.SourceIDSession) erro
 	// Conditional update prevents concurrent requests from resurrecting an idle
 	// session. Never move last_seen_at backwards, including under clock skew.
 	result := tx.Session(&gorm.Session{NewDB: true}).Model(&types.SourceIDLocalSession{}).
-		Where("id = ? AND last_seen_at > ? AND last_seen_at <= ? AND admission_valid_until > ?", session.ID, now.Add(-time.Duration(local.IdleSeconds)*time.Second), now, now).
-		Update("last_seen_at", now)
+		Where("id = ? AND last_seen_at > ? AND admission_valid_until > ?", session.ID, now.Add(-time.Duration(local.IdleSeconds)*time.Second), now).
+		Update("last_seen_at", gorm.Expr("CASE WHEN last_seen_at < ? THEN ? ELSE last_seen_at END", now, now))
 	if result.Error != nil {
 		return result.Error
 	}

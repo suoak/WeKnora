@@ -77,3 +77,22 @@ func TestSourceIDPostgresLocalRefreshRaceAndReplay(t *testing.T) {
 	require.EqualValues(t, 1, success.Load())
 	require.Error(t, r.CheckSourceIDSession(context.Background(), session.ID, session.UserID))
 }
+
+func TestSourceIDPostgresLocalConcurrentAccessDoesNotRejectActiveSession(t *testing.T) {
+	db := sourceIDPostgresDB(t)
+	r, session, _ := sourceIDLocalRepositoryFixture(t, db, "versioned")
+	errors := make(chan error, 32)
+	var wg sync.WaitGroup
+	for i := 0; i < cap(errors); i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			errors <- r.CheckSourceIDSession(context.Background(), session.ID, session.UserID)
+		}()
+	}
+	wg.Wait()
+	close(errors)
+	for err := range errors {
+		require.NoError(t, err)
+	}
+}
