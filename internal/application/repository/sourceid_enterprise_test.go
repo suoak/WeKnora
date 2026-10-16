@@ -104,9 +104,15 @@ func TestSourceIDEnterpriseOwnershipLifecycle(t *testing.T) {
 	require.Equal(t, "{}", string(raw))
 }
 func TestSourceIDEnterpriseOwnershipScale(t *testing.T) {
+	runSourceIDEnterpriseOwnershipScale(t, false)
+}
+func TestSourceIDPostgresEnterpriseOwnershipScale(t *testing.T) {
+	runSourceIDEnterpriseOwnershipScale(t, true)
+}
+func runSourceIDEnterpriseOwnershipScale(t *testing.T, postgres bool) {
 	for _, population := range []int{1000, 10000} {
 		t.Run(fmt.Sprint(population), func(t *testing.T) {
-			r, db, _ := enterpriseTestDB(t, false)
+			r, db, _ := enterpriseTestDB(t, postgres)
 			ctx := context.Background()
 			users := make([]types.User, population)
 			for i := range users {
@@ -130,12 +136,40 @@ func TestSourceIDEnterpriseOwnershipScale(t *testing.T) {
 				require.NoError(t, r.CheckSourceIDEnterpriseOwnership(ctx, "synthetic-issuer", fmt.Sprintf("synthetic-%d", index), users[index].ID, "synthetic-enterprise", time.Hour))
 			}
 			t.Logf("synthetic_population=%d import_ms=%d indexed_1000_checks_ms=%d", population, imported.Milliseconds(), time.Since(start).Milliseconds())
-			var plan []struct{ Detail string }
-			require.NoError(t, db.Raw("EXPLAIN QUERY PLAN SELECT * FROM source_id_account_ownership WHERE issuer=? AND employee_no=?", "synthetic-issuer", "synthetic-1").Scan(&plan).Error)
-			require.NotEmpty(t, plan)
-			require.Contains(t, plan[0].Detail, "INDEX")
-			require.NoError(t, db.Raw("EXPLAIN QUERY PLAN SELECT id FROM users WHERE LOWER(TRIM(email))=?", "scale-1@example.test").Scan(&plan).Error)
-			require.Contains(t, plan[0].Detail, "idx_sourceid_users_normalized_email")
+			if postgres {
+				require.NoError(t, db.Exec("ANALYZE source_id_account_ownership").Error)
+				var plan []struct {
+					Plan string `gorm:"column:QUERY PLAN"`
+				}
+				require.NoError(t, db.Raw("EXPLAIN SELECT * FROM source_id_account_ownership WHERE issuer=? AND employee_no=?", "synthetic-issuer", "synthetic-1").Scan(&plan).Error)
+				indexed := false
+				for _, line := range plan {
+					indexed = indexed || strings.Contains(line.Plan, "Index")
+				}
+				require.True(t, indexed)
+			} else {
+				var plan []struct{ Detail string }
+				require.NoError(t, db.Raw("EXPLAIN QUERY PLAN SELECT * FROM source_id_account_ownership WHERE issuer=? AND employee_no=?", "synthetic-issuer", "synthetic-1").Scan(&plan).Error)
+				require.NotEmpty(t, plan)
+				require.Contains(t, plan[0].Detail, "INDEX")
+				require.NoError(t, db.Raw("EXPLAIN QUERY PLAN SELECT id FROM users WHERE LOWER(TRIM(email))=?", "scale-1@example.test").Scan(&plan).Error)
+				require.Contains(t, plan[0].Detail, "idx_sourceid_users_normalized_email")
+			}
+			// An incremental feed updates existing proofs without adding users,
+			// identities or ownership rows. Missing rows are never silently deleted.
+			for i := 0; i < 100; i++ {
+				row := proof(users[i])
+				row.EmployeeNo = fmt.Sprintf("synthetic-%d", i)
+				row.Revision = 2
+				row.Status = "disabled"
+				_, err := r.SyncSourceIDAccountOwnership(ctx, row, "synthetic-operator", true)
+				require.NoError(t, err)
+			}
+			require.NoError(t, db.Model(&types.SourceIDAccountOwnership{}).Count(&n).Error)
+			require.EqualValues(t, population, n)
+			var disabled int64
+			require.NoError(t, db.Model(&types.SourceIDAccountOwnership{}).Where("status=?", "disabled").Count(&disabled).Error)
+			require.EqualValues(t, 100, disabled)
 		})
 	}
 }
@@ -169,4 +203,68 @@ func TestSourceIDPostgresEnterpriseConcurrentOwnershipAndBinding(t *testing.T) {
 	require.Equal(t, user.IsSystemAdmin, after.IsSystemAdmin)
 	require.Equal(t, user.CanAccessAllTenants, after.CanAccessAllTenants)
 	require.Equal(t, user.TenantID, after.TenantID)
+}
+
+func TestSourceIDEnterpriseRejectsOwnershipConflictsAndUnavailableDirectory(t *testing.T) {
+	r, db, user := enterpriseTestDB(t, false)
+	ctx := context.Background()
+	row := proof(user)
+	_, err := r.SyncSourceIDAccountOwnership(ctx, row, "synthetic-operator", true)
+	require.NoError(t, err)
+	other := types.User{ID: uuid.NewString(), Email: "other@example.test", Username: "synthetic-other", IsActive: true, TenantID: 42}
+	require.NoError(t, db.Create(&other).Error)
+	conflict := row
+	conflict.UserID = other.ID
+	conflict.Email = other.Email
+	conflict.Revision++
+	_, err = r.SyncSourceIDAccountOwnership(ctx, conflict, "synthetic-operator", true)
+	require.Error(t, err)
+	conflict = row
+	conflict.EmployeeNo = "synthetic-reallocated"
+	conflict.Revision++
+	_, err = r.SyncSourceIDAccountOwnership(ctx, conflict, "synthetic-operator", true)
+	require.Error(t, err)
+	conflict = row
+	conflict.Email = other.Email
+	_, err = r.SyncSourceIDAccountOwnership(ctx, conflict, "synthetic-operator", true)
+	require.Error(t, err)
+	duplicate := types.User{ID: uuid.NewString(), Email: row.Email, Username: "synthetic-duplicate", IsActive: true, TenantID: 42}
+	require.NoError(t, db.Create(&duplicate).Error)
+	_, err = r.ResolveSourceIDEnterpriseEmailIdentity(ctx, row.Issuer, "synthetic-sub", row.EmployeeNo, row.Email, "synthetic-binding", row.PolicyRef, time.Hour)
+	require.Error(t, err)
+	require.NoError(t, db.Delete(&duplicate).Error)
+	bound, err := r.ResolveSourceIDEnterpriseEmailIdentity(ctx, row.Issuer, "synthetic-sub", row.EmployeeNo, row.Email, "synthetic-binding", row.PolicyRef, time.Hour)
+	require.NoError(t, err)
+	require.Equal(t, user.ID, bound.ID)
+	require.Error(t, r.CheckSourceIDEnterpriseOwnership(ctx, row.Issuer, row.EmployeeNo, user.ID, row.PolicyRef, time.Nanosecond))
+	require.NoError(t, db.Exec("DROP TABLE source_id_account_ownership").Error)
+	_, err = r.ResolveSourceIDEnterpriseEmailIdentity(ctx, row.Issuer, "synthetic-sub", row.EmployeeNo, row.Email, "synthetic-binding", row.PolicyRef, time.Hour)
+	require.Error(t, err)
+}
+
+func TestSourceIDPostgresEnterpriseDisableRevokesIssuedSessionAndTokens(t *testing.T) {
+	r, db, user := enterpriseTestDB(t, true)
+	ctx := context.Background()
+	row := proof(user)
+	_, err := r.SyncSourceIDAccountOwnership(ctx, row, "synthetic-operator", true)
+	require.NoError(t, err)
+	_, err = r.ResolveSourceIDEnterpriseEmailIdentity(ctx, row.Issuer, "synthetic-sub", row.EmployeeNo, row.Email, "synthetic-binding", row.PolicyRef, time.Hour)
+	require.NoError(t, err)
+	now := time.Now()
+	session := &types.SourceIDSession{ID: uuid.NewString(), Issuer: row.Issuer, UserID: user.ID, CreatedAt: now, ExpiresAt: now.Add(time.Hour)}
+	local := &types.SourceIDLocalSession{ID: session.ID, Subject: "synthetic-sub", PolicyRef: "synthetic-local", AdmissionPolicyRef: "synthetic-sso", AdmissionValidUntil: now.Add(time.Hour), LastSeenAt: now, AdmissionCheckedAt: now, AdmissionSource: "oidc_sso_approved", IdleSeconds: 1800, AccessSeconds: 3600}
+	require.NoError(t, r.CreateSourceIDEnterpriseLocalSession(ctx, session, local, row.EmployeeNo, row.PolicyRef, time.Hour))
+	access := &types.AuthToken{ID: uuid.NewString(), UserID: user.ID, SessionID: session.ID, Token: "synthetic-access-only", TokenType: "access_token", ExpiresAt: now.Add(time.Hour), CreatedAt: now, UpdatedAt: now}
+	require.NoError(t, r.PersistSourceIDTokens(ctx, session.ID, access, nil, ""))
+	row.Revision++
+	row.Status = "disabled"
+	_, err = r.SyncSourceIDAccountOwnership(ctx, row, "synthetic-operator", true)
+	require.NoError(t, err)
+	require.Error(t, r.CheckSourceIDSession(ctx, session.ID, user.ID))
+	require.NoError(t, db.First(access, "id=?", access.ID).Error)
+	require.True(t, access.IsRevoked)
+	session.ID = uuid.NewString()
+	local.ID = session.ID
+	require.Error(t, r.CreateSourceIDEnterpriseLocalSession(ctx, session, local, row.EmployeeNo, row.PolicyRef, time.Hour))
+	require.Error(t, r.PersistSourceIDTokens(ctx, session.ID, access, nil, ""))
 }

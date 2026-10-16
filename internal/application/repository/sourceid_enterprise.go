@@ -83,7 +83,7 @@ func (r *userRepository) CreateSourceIDEnterpriseLocalSession(ctx context.Contex
 func (r *userRepository) SyncSourceIDAccountOwnership(ctx context.Context, input types.SourceIDAccountOwnership, actor string, apply bool) (changed bool, err error) {
 	email, e := normalizeSourceIDEmail(input.Email)
 	if e != nil || strings.TrimSpace(actor) == "" || input.Issuer == "" || input.EmployeeNo == "" || strings.TrimSpace(input.EmployeeNo) != input.EmployeeNo || len(input.EmployeeNo) > 256 || input.UserID == "" ||
-		input.Revision <= 0 || input.PolicyRef == "" || input.OwnershipRef == "" || input.SourceRef == "" || (input.Status != "active" && input.Status != "disabled") ||
+		input.Revision <= 0 || strings.TrimSpace(input.PolicyRef) == "" || strings.TrimSpace(input.OwnershipRef) == "" || strings.TrimSpace(input.SourceRef) == "" || (input.Status != "active" && input.Status != "disabled") ||
 		input.VerifiedAt.IsZero() || input.VerifiedAt.After(time.Now()) || (input.Status == "active" && (!input.ValidUntil.After(time.Now()) || !input.ValidUntil.After(input.VerifiedAt))) {
 		return false, errOwnership
 	}
