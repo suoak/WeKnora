@@ -179,6 +179,9 @@ func TestSourceIDPostgresEnterpriseConcurrentOwnershipAndBinding(t *testing.T) {
 	row := proof(user)
 	_, err := r.SyncSourceIDAccountOwnership(ctx, row, "synthetic-operator", true)
 	require.NoError(t, err)
+	changed, err := r.SyncSourceIDAccountOwnership(ctx, row, "synthetic-operator", true)
+	require.NoError(t, err)
+	require.False(t, changed)
 	var wg sync.WaitGroup
 	var ok atomic.Int64
 	for i := 0; i < 12; i++ {

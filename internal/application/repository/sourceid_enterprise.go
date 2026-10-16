@@ -88,6 +88,11 @@ func (r *userRepository) SyncSourceIDAccountOwnership(ctx context.Context, input
 		return false, errOwnership
 	}
 	input.Email = email
+	// PostgreSQL timestamps have microsecond resolution. Canonicalize before
+	// persistence/comparison so an identical source revision remains idempotent
+	// across supported databases, including nanosecond JSON timestamps.
+	input.VerifiedAt = input.VerifiedAt.UTC().Truncate(time.Microsecond)
+	input.ValidUntil = input.ValidUntil.UTC().Truncate(time.Microsecond)
 	err = r.bindingDB(ctx).Transaction(func(tx *gorm.DB) error {
 		var user types.User
 		if tx.Where("id = ?", input.UserID).First(&user).Error != nil {
