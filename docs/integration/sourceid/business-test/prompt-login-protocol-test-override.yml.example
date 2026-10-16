@@ -1,0 +1,6 @@
+# Never loaded automatically. A real-login authorization is required first.
+# Append AFTER all five existing Compose files; app only, no image override.
+services:
+  app:
+    environment:
+      SOURCEID_FORCE_REAUTH_PROMPT_LOGIN: "true"

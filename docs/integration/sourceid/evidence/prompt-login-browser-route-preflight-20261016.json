@@ -1,0 +1,662 @@
+{
+  "result": "PASS",
+  "utc": "2026-10-16T02:58:07.624Z",
+  "checks": {
+    "config": {
+      "status": 200,
+      "encoding": "oauth_form",
+      "callback": "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback"
+    },
+    "page": {
+      "status": 200,
+      "oa_button_visible": true
+    },
+    "callback": {
+      "status": 302,
+      "invalid_state": true
+    }
+  },
+  "static_js_success_count": 19,
+  "actual_browser_peers": [
+    {
+      "path": "/login",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/vendor-highlight-BiJVEjr2.css",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/main-CJrpCTow.js",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/vendor-markdown-CfVKi3_s.css",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/tdesign-icon-offline-BGaR9nj3.css",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/vendor-markdown-DHJ-8hc8.js",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/settings-Fnnjf7Ge.js",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/index-Dcx-2vg7.js",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/config.js",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/files-DSyvmYgC.js",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/main-CCQJ1U7m.css",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/tdesign-icons/0.4.1/fonts/index.js",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/vendor-highlight-B_Hb1bUL.js",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/tdesign-icon-offline-BrnIeLAs.js",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/vendor-mermaid-eyDm_lRT.js",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/Login-DQazxq98.css",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/BrandLogo-BZ_6WuUB.css",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/passwordPolicy-DviL7E9h.js",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/BrandLogo-DvsFxJVf.js",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/Login-BwWSdVPg.js",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/screenshot-1-BKyK8Z1i.svg",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/screenshot-3-GAVkb9Cw.svg",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/brand/knowhub-mark-inverse.svg",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/screenshot-2-DMYuKNyb.svg",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/screenshot-4-zM_NSO4D.svg",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/auth/oidc/config",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/auth/config",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/brand/knowhub-mark.svg",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/auth/config",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/api/v1/auth/oidc/config",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/index-Dcx-2vg7.js",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/vendor-highlight-BiJVEjr2.css",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/vendor-markdown-CfVKi3_s.css",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/main-CJrpCTow.js",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/vendor-markdown-DHJ-8hc8.js",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/settings-Fnnjf7Ge.js",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/files-DSyvmYgC.js",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/tdesign-icon-offline-BGaR9nj3.css",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/main-CCQJ1U7m.css",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/config.js",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/vendor-highlight-B_Hb1bUL.js",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/tdesign-icons/0.4.1/fonts/index.js",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/vendor-mermaid-eyDm_lRT.js",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/tdesign-icon-offline-BrnIeLAs.js",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    },
+    {
+      "path": "/assets/BrandLogo-BZ_6WuUB.css",
+      "ip": "127.0.0.1",
+      "port": 13346,
+      "status": 200
+    }
+  ],
+  "fixed_upstream": "172.30.232.42:80",
+  "upstream_request_summary": [
+    {
+      "path": "/login",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 5150
+    },
+    {
+      "path": "/assets/vendor-highlight-BiJVEjr2.css",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 1418
+    },
+    {
+      "path": "/assets/main-CJrpCTow.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 194745
+    },
+    {
+      "path": "/assets/vendor-markdown-CfVKi3_s.css",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 29265
+    },
+    {
+      "path": "/assets/tdesign-icon-offline-BGaR9nj3.css",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 489019
+    },
+    {
+      "path": "/assets/vendor-markdown-DHJ-8hc8.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 301324
+    },
+    {
+      "path": "/assets/settings-Fnnjf7Ge.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 71013
+    },
+    {
+      "path": "/assets/index-Dcx-2vg7.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 4118
+    },
+    {
+      "path": "/config.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 112
+    },
+    {
+      "path": "/assets/files-DSyvmYgC.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 1039
+    },
+    {
+      "path": "/assets/main-CCQJ1U7m.css",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 518488
+    },
+    {
+      "path": "/assets/tdesign-icon-offline-BrnIeLAs.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 3645013
+    },
+    {
+      "path": "/assets/vendor-highlight-B_Hb1bUL.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 1095873
+    },
+    {
+      "path": "/tdesign-icons/0.4.1/fonts/index.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 976454
+    },
+    {
+      "path": "/assets/vendor-mermaid-eyDm_lRT.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 2901815
+    },
+    {
+      "path": "/assets/passwordPolicy-DviL7E9h.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 813
+    },
+    {
+      "path": "/assets/BrandLogo-DvsFxJVf.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 1320
+    },
+    {
+      "path": "/assets/Login-BwWSdVPg.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 129216
+    },
+    {
+      "path": "/assets/Login-DQazxq98.css",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 27846
+    },
+    {
+      "path": "/assets/BrandLogo-BZ_6WuUB.css",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 986
+    },
+    {
+      "path": "/assets/screenshot-1-BKyK8Z1i.svg",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 5073
+    },
+    {
+      "path": "/assets/screenshot-3-GAVkb9Cw.svg",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 5830
+    },
+    {
+      "path": "/brand/knowhub-mark-inverse.svg",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 585
+    },
+    {
+      "path": "/assets/screenshot-2-DMYuKNyb.svg",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 5384
+    },
+    {
+      "path": "/api/v1/auth/oidc/config",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 179
+    },
+    {
+      "path": "/assets/screenshot-4-zM_NSO4D.svg",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 4555
+    },
+    {
+      "path": "/api/v1/auth/config",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 83
+    },
+    {
+      "path": "/brand/knowhub-mark.svg",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 585
+    },
+    {
+      "path": "/api/v1/auth/config",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 83
+    },
+    {
+      "path": "/api/v1/auth/oidc/config",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 179
+    },
+    {
+      "path": "/api/v1/auth/oidc/callback",
+      "status": 302,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 49
+    },
+    {
+      "path": "/",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 5150
+    },
+    {
+      "path": "/assets/index-Dcx-2vg7.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 4118
+    },
+    {
+      "path": "/assets/vendor-highlight-BiJVEjr2.css",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 1418
+    },
+    {
+      "path": "/assets/main-CJrpCTow.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 194745
+    },
+    {
+      "path": "/assets/vendor-markdown-CfVKi3_s.css",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 29265
+    },
+    {
+      "path": "/assets/vendor-markdown-DHJ-8hc8.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 301324
+    },
+    {
+      "path": "/assets/settings-Fnnjf7Ge.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 71013
+    },
+    {
+      "path": "/assets/files-DSyvmYgC.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 1039
+    },
+    {
+      "path": "/assets/tdesign-icon-offline-BGaR9nj3.css",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 489019
+    },
+    {
+      "path": "/config.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 112
+    },
+    {
+      "path": "/assets/main-CCQJ1U7m.css",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 518488
+    },
+    {
+      "path": "/assets/vendor-highlight-B_Hb1bUL.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 1095873
+    },
+    {
+      "path": "/tdesign-icons/0.4.1/fonts/index.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 976454
+    },
+    {
+      "path": "/assets/vendor-mermaid-eyDm_lRT.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 2901815
+    },
+    {
+      "path": "/assets/tdesign-icon-offline-BrnIeLAs.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 3645013
+    },
+    {
+      "path": "/assets/passwordPolicy-DviL7E9h.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 813
+    },
+    {
+      "path": "/assets/BrandLogo-DvsFxJVf.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 1320
+    },
+    {
+      "path": "/assets/BrandLogo-BZ_6WuUB.css",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 986
+    },
+    {
+      "path": "/assets/Login-BwWSdVPg.js",
+      "status": 200,
+      "upstream_ip": "172.30.232.42",
+      "upstream_port": 80,
+      "bytes": 129216
+    }
+  ],
+  "system_proxy_bypassed": true,
+  "global_hosts_changed": false,
+  "sid_requests": 0,
+  "authorization_started": false,
+  "existing_sso_used": false,
+  "credentials_or_cookies_read": false,
+  "callback_code_submitted": false,
+  "production_destination_possible_in_proxy": false,
+  "profile_scope": "fresh disposable routing check; not future real-login profile",
+  "temporary_proxy_closed": true,
+  "temporary_browser_closed": true
+}
