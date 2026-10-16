@@ -253,7 +253,9 @@ func TestSourceIDPostgresEnterpriseDisableRevokesIssuedSessionAndTokens(t *testi
 	require.NoError(t, err)
 	_, err = r.ResolveSourceIDEnterpriseEmailIdentity(ctx, row.Issuer, "synthetic-sub", row.EmployeeNo, row.Email, "synthetic-binding", row.PolicyRef, time.Hour)
 	require.NoError(t, err)
-	now := time.Now()
+	// Real access JWT expiry uses integer seconds; retain the strict repository
+	// bound instead of giving the fixture a nanosecond past PG's stored expiry.
+	now := time.Now().Truncate(time.Second)
 	session := &types.SourceIDSession{ID: uuid.NewString(), Issuer: row.Issuer, UserID: user.ID, CreatedAt: now, ExpiresAt: now.Add(time.Hour)}
 	local := &types.SourceIDLocalSession{ID: session.ID, Subject: "synthetic-sub", PolicyRef: "synthetic-local", AdmissionPolicyRef: "synthetic-sso", AdmissionValidUntil: now.Add(time.Hour), LastSeenAt: now, AdmissionCheckedAt: now, AdmissionSource: "oidc_sso_approved", IdleSeconds: 1800, AccessSeconds: 3600}
 	require.NoError(t, r.CreateSourceIDEnterpriseLocalSession(ctx, session, local, row.EmployeeNo, row.PolicyRef, time.Hour))
