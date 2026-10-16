@@ -61,7 +61,7 @@ try {
   })
   page.on('pageerror', error => console.log(`SOURCEID_SYNTHETIC_PAGE_ERROR: ${error.name}`))
   console.log('SOURCEID_SYNTHETIC_STAGE: login_page')
-  await page.goto(`${browserOrigin}/login`)
+  await page.goto(`${browserOrigin}/login`, { waitUntil: 'domcontentloaded', timeout: 90000 })
   await expect(page.locator('.oidc-button')).toBeVisible({ timeout: 90000 })
   await page.evaluate(() => localStorage.setItem('weknora_refresh_token', 'synthetic-stale-refresh'))
   const authorizationResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/oidc/url')

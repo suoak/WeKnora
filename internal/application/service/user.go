@@ -155,11 +155,23 @@ func (s *userService) Register(ctx context.Context, req *types.RegisterRequest) 
 		return nil, ErrUserUsernameExists
 	}
 
-	// Hash password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	if err != nil {
-		logger.Errorf(ctx, "Failed to hash password: %v", err)
-		return nil, errors.New("failed to process password")
+	var hashedPassword []byte
+	var err error
+	if externalOnly, _ := ctx.Value(sourceIDJITExternalOnlyKey{}).(bool); externalOnly {
+		// Private in-process JIT context, never a request field. These accounts
+		// cannot authenticate a password, so do not hash a discarded password
+		// while holding the atomic registration lock. Public registration keeps
+		// its existing bcrypt policy and behavior.
+		if req.TenantProvisioning != types.TenantProvisioningTenantless {
+			return nil, errors.New("external registration requires tenantless mode")
+		}
+		hashedPassword = []byte("!sourceid-jit-no-local-password")
+	} else {
+		hashedPassword, err = bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			logger.Errorf(ctx, "Failed to hash password: %v", err)
+			return nil, errors.New("failed to process password")
+		}
 	}
 
 	provisioning := req.TenantProvisioning

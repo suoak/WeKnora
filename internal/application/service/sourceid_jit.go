@@ -17,6 +17,7 @@ type sourceIDJITStore interface {
 }
 
 type sourceIDJITCreatedKey struct{}
+type sourceIDJITExternalOnlyKey struct{}
 
 // Keep driver error details out of Register's generic error logging, while
 // reusing the existing tenantless registration and password policy behavior.
@@ -43,7 +44,8 @@ func (s *userService) sourceIDJITProvisioner(email string) func(context.Context,
 		}
 		scoped := *s
 		scoped.userRepo = sourceIDJITUsers{repository}
-		user, err := scoped.Register(ctx, &types.RegisterRequest{Username: "oa-" + uuid.NewString(), Email: email, Password: base64.RawURLEncoding.EncodeToString(password), TenantProvisioning: types.TenantProvisioningTenantless})
+		registrationCtx := context.WithValue(ctx, sourceIDJITExternalOnlyKey{}, true)
+		user, err := scoped.Register(registrationCtx, &types.RegisterRequest{Username: "oa-" + uuid.NewString(), Email: email, Password: base64.RawURLEncoding.EncodeToString(password), TenantProvisioning: types.TenantProvisioningTenantless})
 		if err != nil {
 			return nil, errors.New("sourceid jit registration failed")
 		}

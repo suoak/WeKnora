@@ -16,7 +16,6 @@ import (
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -167,7 +166,7 @@ func TestSourceIDPostgresJITConcurrentRegistration(t *testing.T) {
 	t.Logf("synthetic_jit_concurrent=12 registrations=1 duration_ms=%d", time.Since(start).Milliseconds())
 }
 
-// Includes actual registration password-hashing cost and the safety lock.
+// Includes the external-only credential representation and safety lock.
 // A bounded synthetic sample, not an end-to-end SID or production SLA claim.
 func TestSourceIDPostgresJITDistinctRegistrationCapacity(t *testing.T) {
 	r, db, _ := jitTestDB(t, true)
@@ -187,11 +186,7 @@ func TestSourceIDPostgresJITDistinctRegistrationCapacity(t *testing.T) {
 			began := time.Now()
 			email := fmt.Sprintf("jit-capacity-%d@example.test", i)
 			_, err := r.ResolveSourceIDEnterpriseOrJITIdentity(ctx, "synthetic-issuer", fmt.Sprintf("sub-%d", i), fmt.Sprintf("employee-%d", i), email, "binding", "enterprise", time.Hour, "jit", []string{"example.test"}, func(c context.Context, repo interfaces.UserRepository) (*types.User, error) {
-				h, e := bcrypt.GenerateFromPassword([]byte("synthetic-password-only"), bcrypt.DefaultCost)
-				if e != nil {
-					return nil, e
-				}
-				u := &types.User{ID: uuid.NewString(), Email: email, Username: uuid.NewString(), PasswordHash: string(h), IsActive: true, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+				u := &types.User{ID: uuid.NewString(), Email: email, Username: uuid.NewString(), PasswordHash: "!sourceid-jit-no-local-password", IsActive: true, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 				return u, repo.CreateUser(c, u)
 			})
 			errs <- err

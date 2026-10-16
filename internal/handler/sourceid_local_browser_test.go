@@ -364,6 +364,9 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 			require.False(t, user.IsSystemAdmin)
 			require.False(t, user.CanAccessAllTenants)
 			require.Equal(t, "!sourceid-jit-no-local-password", user.PasswordHash)
+			passwordLogin, err := users.Login(context.Background(), &types.LoginRequest{Email: user.Email, Password: "synthetic-password-must-not-work"})
+			require.NoError(t, err)
+			require.False(t, passwordLogin.Success)
 		}
 		_, hasRefresh := login["refresh_token"]
 		require.False(t, hasRefresh)
