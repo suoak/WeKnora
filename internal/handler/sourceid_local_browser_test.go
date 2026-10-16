@@ -45,6 +45,18 @@ func (localBrowserTenants) GetTenantByID(_ context.Context, id uint64) (*types.T
 	return &types.Tenant{ID: id, Name: "Synthetic existing space"}, nil
 }
 
+func (s localBrowserTenants) GetTenantsByIDs(ctx context.Context, ids []uint64) (map[uint64]*types.Tenant, error) {
+	out := map[uint64]*types.Tenant{}
+	for _, id := range ids {
+		tenant, err := s.GetTenantByID(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		out[id] = tenant
+	}
+	return out, nil
+}
+
 type localBrowserMembers struct {
 	interfaces.TenantMemberService
 	db *gorm.DB
@@ -327,7 +339,7 @@ func runSourceIDLocalBusinessLogin(t *testing.T, ordinary, browser bool, role st
 		var refreshCount int64
 		require.NoError(t, db.Model(&types.AuthToken{}).Where("token_type = ?", "refresh_token").Count(&refreshCount).Error)
 		require.Zero(t, refreshCount)
-		require.NotEqual(t, 200, api("/api/v1/auth/refresh", `{"refresh_token":"synthetic-unissued"}`, access).Code)
+		require.NotEqual(t, 200, api("/api/v1/auth/refresh", `{"refreshToken":"synthetic-unissued"}`, access).Code)
 		require.Equal(t, 200, api("/api/v1/auth/logout", "", access).Code)
 		require.Equal(t, 401, api("/api/v1/auth/me", "", access).Code)
 		var original types.User
