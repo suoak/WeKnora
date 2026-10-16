@@ -1,0 +1,40 @@
+{
+  "result": "PASS",
+  "real_authentication": false,
+  "default_changed": false,
+  "free_bytes_before": 249449619456,
+  "revision": "09e6d86db731953834916e58ac5f3f5985ad0aa1",
+  "image_id": "sha256:e69261fae8c5a1d20a76dcfbd36f0f8b12f88eedb10e9eb0daf1f992eb3e00bd",
+  "frontend_revision": "832b6652adf541892545a7eac8b68733f846ab95",
+  "schema": {
+    "version": 3028,
+    "dirty": false
+  },
+  "backup_directory": "/home/aqyfzx/ai/knowhub-enterprise-candidate-09e6d86db/private/before-upgrade",
+  "database_backup_bytes": 21678166,
+  "file_backup_bytes": 2570240,
+  "selected_data_unchanged": true,
+  "counts": {
+    "users": 3,
+    "tenants": 4,
+    "tenant_members": 5,
+    "organization_tenant_members": 0,
+    "knowledge_bases": 2,
+    "knowledges": 3,
+    "chunks": 19786,
+    "embeddings": 2717,
+    "kb_shares": 0,
+    "resources": 3,
+    "resource_bindings": 3
+  },
+  "other_container_ids_unchanged": true,
+  "environment_bytes_unchanged": true,
+  "health": {
+    "/login": 200,
+    "/health": 200,
+    "/api/v1/auth/oidc/config": 200
+  },
+  "account_scope": "pilot DEFAULT",
+  "enterprise_all_enabled": false,
+  "utc": "2026-10-16T11:45:37.543138+00:00"
+}

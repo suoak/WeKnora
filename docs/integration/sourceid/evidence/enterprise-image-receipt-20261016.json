@@ -1,0 +1,15 @@
+{
+  "utc": "2026-10-16T11:44:42.336819+00:00",
+  "result": "PASS",
+  "stage": "complete",
+  "image_id": "sha256:dbaff4ef55df5759c30e3535bf8be89882bd7ac74f1010d96875b7a3dbb21a6e",
+  "revision": "09e6d86db731953834916e58ac5f3f5985ad0aa1",
+  "builder": "sha256:2b63ff41b02b21d7b302c2d3ba6b4ab43990181fc7d2221585d2cfa5161553fb",
+  "compiler": "go1.26.7",
+  "network": "none",
+  "frontend_rebuilt": false,
+  "live_service_changed": false,
+  "packaging_completed_utc": "2026-10-16T11:46:48.456082+00:00",
+  "migration_003028_packaged": true,
+  "compiled_binaries_unchanged": true
+}

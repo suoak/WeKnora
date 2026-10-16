@@ -1,0 +1,294 @@
+{
+  "real_sid_called": true,
+  "production_called": false,
+  "results": [
+    {
+      "path": "/login",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/main-BHCzGc_L.js",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/index-Dcx-2vg7.js",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/vendor-highlight-BiJVEjr2.css",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/settings-nKvNwjdq.js",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/vendor-markdown-CfVKi3_s.css",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/tdesign-icon-offline-BGaR9nj3.css",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/main-CCQJ1U7m.css",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/vendor-markdown-DHJ-8hc8.js",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/vendor-highlight-B_Hb1bUL.js",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/vendor-mermaid-eyDm_lRT.js",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/files-DSyvmYgC.js",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/tdesign-icon-offline-BrnIeLAs.js",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/BrandLogo-BZ_6WuUB.css",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/Login-C79pAnxw.css",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/BrandLogo-DvsFxJVf.js",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/passwordPolicy-DviL7E9h.js",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/Login-DDGzJB9J.js",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/screenshot-4-zM_NSO4D.svg",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/screenshot-2-DMYuKNyb.svg",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/screenshot-3-GAVkb9Cw.svg",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/screenshot-1-BKyK8Z1i.svg",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/api/v1/auth/oidc/config",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/api/v1/auth/oidc/config",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/api/v1/auth/oidc/callback",
+      "status": 302,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/index-Dcx-2vg7.js",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/vendor-highlight-BiJVEjr2.css",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/vendor-markdown-CfVKi3_s.css",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/main-BHCzGc_L.js",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/tdesign-icon-offline-BGaR9nj3.css",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/main-CCQJ1U7m.css",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/files-DSyvmYgC.js",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/settings-nKvNwjdq.js",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/vendor-highlight-B_Hb1bUL.js",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/vendor-markdown-DHJ-8hc8.js",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/vendor-mermaid-eyDm_lRT.js",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/tdesign-icon-offline-BrnIeLAs.js",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/BrandLogo-BZ_6WuUB.css",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/Login-C79pAnxw.css",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/passwordPolicy-DviL7E9h.js",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/BrandLogo-DvsFxJVf.js",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/Login-DDGzJB9J.js",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/screenshot-4-zM_NSO4D.svg",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/screenshot-2-DMYuKNyb.svg",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/screenshot-1-BKyK8Z1i.svg",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/assets/screenshot-3-GAVkb9Cw.svg",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    },
+    {
+      "path": "/api/v1/auth/oidc/config",
+      "status": 200,
+      "ip": "127.0.0.1",
+      "port": 18190
+    }
+  ],
+  "horizontal_overflow": false,
+  "all_four_classes_observed": true,
+  "all_connections_controlled_tunnel": true,
+  "sid_public_metadata_https_status": 200,
+  "real_authentication": false,
+  "result": "PASS"
+}

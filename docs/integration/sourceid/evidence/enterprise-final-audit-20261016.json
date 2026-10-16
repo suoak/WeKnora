@@ -1,0 +1,203 @@
+{
+  "result": "PASS",
+  "real_sid_login": false,
+  "real_identity_rows_imported": 0,
+  "default_changed": false,
+  "data_checks": {
+    "users": true,
+    "tenants": true,
+    "tenant_members": true,
+    "organization_tenant_members": true,
+    "knowledge_bases": true,
+    "knowledges": true,
+    "chunks": true,
+    "embeddings": true,
+    "kb_shares": true,
+    "resources": true,
+    "resource_bindings": true,
+    "models": true
+  },
+  "source_original_unchanged": true,
+  "file_checks": {
+    "matches_before": true,
+    "matches_original": true,
+    "files": 3,
+    "bytes": 2554991
+  },
+  "schema": "3028|false",
+  "source_schema": "79|false",
+  "jit_table_present": "f",
+  "counts": {
+    "users": 3,
+    "tenants": 4,
+    "tenant_members": 5,
+    "organization_tenant_members": 0,
+    "knowledge_bases": 2,
+    "knowledges": 3,
+    "chunks": 19786,
+    "embeddings": 2717,
+    "kb_shares": 0,
+    "resources": 3,
+    "resource_bindings": 3
+  },
+  "active_data": {
+    "active_kbs": 1,
+    "documents": 3,
+    "nonempty_active_chunks": 2717,
+    "embedding_rows": 2717,
+    "resources": 3
+  },
+  "reference_checks": {
+    "embeddings_missing_chunk": 0,
+    "embedding_document_mismatch": 0,
+    "embedding_kb_mismatch": 0,
+    "active_chunks_missing_document": 0
+  },
+  "credential_and_identity_counts": {
+    "active_tokens": 0,
+    "active_api_keys": 0,
+    "identities": 0,
+    "reviews": 0,
+    "sessions": 0,
+    "ownership": 0,
+    "ownership_audits": 0,
+    "enabled_connectors": 0
+  },
+  "indexes_valid": true,
+  "ownership_constraints": [
+    {
+      "type": "u",
+      "definition": "UNIQUE (issuer, email)"
+    },
+    {
+      "type": "u",
+      "definition": "UNIQUE (issuer, employee_no)"
+    },
+    {
+      "type": "u",
+      "definition": "UNIQUE (issuer, user_id)"
+    },
+    {
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "type": "c",
+      "definition": "CHECK ((revision > 0))"
+    },
+    {
+      "type": "c",
+      "definition": "CHECK ((status = ANY (ARRAY['active'::text, 'disabled'::text])))"
+    },
+    {
+      "type": "f",
+      "definition": "FOREIGN KEY (user_id) REFERENCES users(id)"
+    }
+  ],
+  "normalized_email_index_present": true,
+  "flags": {
+    "OIDC_AUTH_ENABLE": "false",
+    "SOURCEID_BASIC_ENCODING": "oauth_form",
+    "SOURCEID_PROTOCOL_ONLY": "true",
+    "SOURCEID_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_EMAIL_BINDING_ENABLE": "false",
+    "SOURCEID_AUTO_BINDING_ENABLE": "false",
+    "SOURCEID_SSO_POLICY_CONFIRMED": "false",
+    "SOURCEID_SESSION_MODE": "external",
+    "SOURCEID_ADMISSION_MODE": "oidc_sso_approved",
+    "SOURCEID_LOCAL_REFRESH_ENABLE": "false",
+    "SOURCEID_FORCE_REAUTH_PROMPT_LOGIN": "false",
+    "SOURCEID_ACCOUNT_SCOPE": "NOT_SET",
+    "SOURCEID_ENTERPRISE_POLICY_CONFIRMED": "NOT_SET",
+    "SOURCEID_JIT_ENABLE": "NOT_SET",
+    "AUTO_MIGRATE": "false"
+  },
+  "env_bytes_unchanged": true,
+  "app": {
+    "id": "b1014c0dc040ba051943d1f79385ddeef0d2362dd70ed907a096ffa44e667550",
+    "name": "/knowhub-oa-sso-pilot-app-1",
+    "image_id": "sha256:dbaff4ef55df5759c30e3535bf8be89882bd7ac74f1010d96875b7a3dbb21a6e",
+    "image_reference": "sha256:dbaff4ef55df5759c30e3535bf8be89882bd7ac74f1010d96875b7a3dbb21a6e",
+    "created": "2026-10-16T11:54:38.393131696Z",
+    "started": "2026-10-16T11:54:38.610591927Z",
+    "running": true,
+    "health": "healthy",
+    "restart_count": 0,
+    "project": "knowhub-oa-sso-pilot",
+    "service": "app",
+    "working_dir": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a",
+    "compose_files": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a/compose.json,/home/aqyfzx/ai/knowhub-enterprise-candidate-09e6d86db/enterprise-app-pin.json",
+    "ports": {},
+    "mounts": [
+      {
+        "Type": "volume",
+        "Name": "knowhub-oa-sso-pilot-files",
+        "Source": "/mnt/sata0/lib/docker/volumes/knowhub-oa-sso-pilot-files/_data",
+        "Destination": "/data/files",
+        "RW": false
+      },
+      {
+        "Type": "volume",
+        "Name": "knowhub-oa-sso-pilot_doc-tmp",
+        "Source": "/mnt/sata0/lib/docker/volumes/knowhub-oa-sso-pilot_doc-tmp/_data",
+        "Destination": "/tmp/docreader",
+        "RW": false
+      },
+      {
+        "Type": "bind",
+        "Name": null,
+        "Source": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a/private/ownership",
+        "Destination": "/run/sourceid/ownership",
+        "RW": false
+      }
+    ]
+  },
+  "frontend": {
+    "id": "dc2e0af88834c9a621a93e405f2c8aed8197317d904f44feb8491b010eefcda8",
+    "name": "/knowhub-oa-sso-pilot-frontend-1",
+    "image_id": "sha256:ab7845c89fadeb17ad2b68bd924e892f948b893781a50ab79e48385c319ddbe1",
+    "image_reference": "sha256:ab7845c89fadeb17ad2b68bd924e892f948b893781a50ab79e48385c319ddbe1",
+    "created": "2026-10-16T09:20:38.101178738Z",
+    "started": "2026-10-16T09:20:39.132454178Z",
+    "running": true,
+    "health": "NOT_CONFIGURED",
+    "restart_count": 0,
+    "project": "knowhub-oa-sso-pilot",
+    "service": "frontend",
+    "working_dir": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a",
+    "compose_files": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a/compose.json",
+    "ports": {
+      "80/tcp": [
+        {
+          "HostIp": "127.0.0.1",
+          "HostPort": "18090"
+        }
+      ]
+    },
+    "mounts": []
+  },
+  "app_revision": "09e6d86db731953834916e58ac5f3f5985ad0aa1",
+  "frontend_revision": "832b6652adf541892545a7eac8b68733f846ab95",
+  "unchanged_containers": {
+    "knowhub-oa-sso-pilot": {
+      "frontend": true,
+      "postgres": true,
+      "redis": true,
+      "docreader": true,
+      "sid-network": true
+    },
+    "knowhub-sourceid-business": {
+      "app": true,
+      "frontend": true,
+      "postgres": true,
+      "redis": true,
+      "docreader": true
+    }
+  },
+  "default_schema": "3027|false",
+  "app_no_host_port": true,
+  "pg_no_host_port": true,
+  "backup_private_permissions": true,
+  "disposable_databases_removed": true,
+  "utc": "2026-10-16T12:39:18.892298+00:00"
+}
