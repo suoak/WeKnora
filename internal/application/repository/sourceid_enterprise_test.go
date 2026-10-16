@@ -32,6 +32,7 @@ func enterpriseTestDB(t *testing.T, postgres bool) (*userRepository, *gorm.DB, t
 			require.NoError(t, db.Exec(string(data)).Error)
 		}
 		user = types.User{ID: uuid.NewString(), Email: "employee@example.test", Username: "synthetic", IsActive: true, TenantID: 42, IsSystemAdmin: true, CanAccessAllTenants: true}
+		require.NoError(t, db.Create(&types.Tenant{ID: 42, Name: "synthetic-enterprise-space"}).Error)
 		require.NoError(t, db.Create(&user).Error)
 	} else {
 		r, db, user = bindingTestDB(t)

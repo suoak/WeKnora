@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	apprepo "github.com/Tencent/WeKnora/internal/application/repository"
@@ -52,6 +53,9 @@ func process(ctx context.Context, in io.Reader, out io.Writer, store syncStore, 
 	s := bufio.NewScanner(in)
 	s.Buffer(make([]byte, 4096), 65536)
 	result := summary{Applied: apply}
+	// One latest event per identity/account per batch. Identical duplicates are
+	// idempotent; conflicting duplicates fail equally in dry-run and apply.
+	seen := map[string]string{}
 	for s.Scan() {
 		if ctx.Err() != nil {
 			return errors.New("ownership sync cancelled")
@@ -64,6 +68,26 @@ func process(ctx context.Context, in io.Reader, out io.Writer, store syncStore, 
 			result.Rejected++
 			continue
 		}
+		canonical, _ := json.Marshal(row)
+		keys := []string{"employee:" + row.Issuer + "\x00" + row.EmployeeNo, "user:" + row.Issuer + "\x00" + row.UserID, "email:" + row.Issuer + "\x00" + strings.ToLower(strings.TrimSpace(row.Email))}
+		duplicate, conflict := false, false
+		for _, key := range keys {
+			if old, ok := seen[key]; ok {
+				if old != string(canonical) {
+					conflict = true
+				} else {
+					duplicate = true
+				}
+			}
+		}
+		if conflict {
+			result.Rejected++
+			continue
+		}
+		if duplicate {
+			result.Unchanged++
+			continue
+		}
 		changed, err := store.SyncSourceIDAccountOwnership(ctx, types.SourceIDAccountOwnership{Issuer: row.Issuer, EmployeeNo: row.EmployeeNo, UserID: row.UserID, Email: row.Email, Status: row.Status, Revision: row.Revision, PolicyRef: row.PolicyRef, OwnershipRef: row.OwnershipRef, SourceRef: row.SourceRef, VerifiedAt: row.VerifiedAt, ValidUntil: row.ValidUntil}, actor, apply)
 		if err != nil {
 			result.Rejected++
@@ -71,6 +95,11 @@ func process(ctx context.Context, in io.Reader, out io.Writer, store syncStore, 
 			result.Changed++
 		} else {
 			result.Unchanged++
+		}
+		if err == nil {
+			for _, key := range keys {
+				seen[key] = string(canonical)
+			}
 		}
 	}
 	if s.Err() != nil {

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
 	"strings"
@@ -28,7 +29,7 @@ func TestSourceIDOwnershipStreamingAndRedaction(t *testing.T) {
 	for _, n := range []int{1000, 10000} {
 		var input bytes.Buffer
 		for i := 0; i < n; i++ {
-			b, _ := json.Marshal(protectedRow{EmployeeNo: "synthetic-private-employee", Email: "synthetic-private@example.test"})
+			b, _ := json.Marshal(protectedRow{Issuer: "synthetic-issuer", UserID: fmt.Sprint(i), EmployeeNo: fmt.Sprintf("synthetic-private-employee-%d", i), Email: fmt.Sprintf("synthetic-private-%d@example.test", i)})
 			input.Write(b)
 			input.WriteByte('\n')
 		}
@@ -51,4 +52,27 @@ func TestSourceIDOwnershipStreamingAndRedaction(t *testing.T) {
 	require.Equal(t, 1, result.Changed)
 	require.Equal(t, 2, result.Rejected)
 	require.NotContains(t, out.String(), "private")
+}
+
+func TestSourceIDOwnershipConflictingBatchRejectedBeforeWrite(t *testing.T) {
+	for _, apply := range []bool{false, true} {
+		var input, out bytes.Buffer
+		a := protectedRow{Issuer: "synthetic-issuer", UserID: "synthetic-user", EmployeeNo: "synthetic-employee", Email: "synthetic@example.test"}
+		b, _ := json.Marshal(a)
+		input.Write(b)
+		input.WriteByte('\n')
+		input.Write(b)
+		input.WriteByte('\n')
+		a.EmployeeNo = "synthetic-reallocated"
+		b, _ = json.Marshal(a)
+		input.Write(b)
+		input.WriteByte('\n')
+		store := &syntheticStore{}
+		require.Error(t, process(context.Background(), &input, &out, store, "synthetic-operator", apply))
+		require.Equal(t, 1, store.calls)
+		var result summary
+		require.NoError(t, json.Unmarshal(out.Bytes(), &result))
+		require.Equal(t, 1, result.Unchanged)
+		require.Equal(t, 1, result.Rejected)
+	}
 }
