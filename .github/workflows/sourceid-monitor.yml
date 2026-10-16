@@ -1,0 +1,30 @@
+name: SourceID monitor control tests
+
+on:
+  push:
+    branches: [feature/knowhub-sourceid-oidc]
+    paths:
+      - "docs/integration/sourceid/business-test/protocol_monitor*.py"
+      - ".github/workflows/sourceid-monitor.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-controls:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        python: ["3.8", "3.12"]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Pure controls and mocked deployment adapter
+        run: |
+          python docs/integration/sourceid/business-test/protocol_monitor_test.py
+          python docs/integration/sourceid/business-test/protocol_monitor_runtime.py
+          git diff --check
