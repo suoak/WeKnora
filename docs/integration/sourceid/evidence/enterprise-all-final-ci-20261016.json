@@ -1,0 +1,50 @@
+{
+  "code_sha": "09e6d86db731953834916e58ac5f3f5985ad0aa1",
+  "run_id": 38887398840,
+  "url": "https://github.com/suoak/WeKnora/actions/runs/38887398840",
+  "run_status": "completed",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "name": "linux",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "frontend",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "postgres",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "browser",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "observed_utc": "2026-10-16T11:03:17.544270+00:00",
+  "postgres_scale": [
+    {
+      "population": 1000,
+      "import_ms": 3232,
+      "indexed_1000_checks_ms": 364
+    },
+    {
+      "population": 10000,
+      "import_ms": 26313,
+      "indexed_1000_checks_ms": 365
+    }
+  ],
+  "postgres_enterprise_passes": [
+    "TestSourceIDPostgresEnterpriseOwnershipScale",
+    "TestSourceIDPostgresEnterpriseOwnershipScale",
+    "TestSourceIDPostgresEnterpriseOwnershipScale",
+    "TestSourceIDPostgresEnterpriseConcurrentOwnershipAndBinding",
+    "TestSourceIDPostgresEnterpriseDisableRevokesIssuedSessionAndTokens"
+  ],
+  "result": "PASS"
+}
