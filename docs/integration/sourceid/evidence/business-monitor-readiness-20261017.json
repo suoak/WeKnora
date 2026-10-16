@@ -1,0 +1,78 @@
+{
+  "result": "PASS",
+  "utc": "2026-10-16T16:36:59.220089+00:00",
+  "project": "knowhub-oa-sso-pilot",
+  "revision": "f40b1602f69ce5d88e1e87dc3cefae36e9bde356",
+  "schema": 3029,
+  "dirty": false,
+  "gate_values": {
+    "OIDC_AUTH_ENABLE": "false",
+    "SOURCEID_PROTOCOL_ONLY": "true",
+    "SOURCEID_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_EMAIL_BINDING_ENABLE": "false",
+    "SOURCEID_AUTO_BINDING_ENABLE": "false",
+    "SOURCEID_SESSION_MODE": "external",
+    "SOURCEID_FORCE_REAUTH_PROMPT_LOGIN": "false",
+    "SOURCEID_LOCAL_REFRESH_ENABLE": "false",
+    "SOURCEID_BASIC_ENCODING": "oauth_form",
+    "AUTO_MIGRATE": "false"
+  },
+  "snapshot_query_shapes_valid": true,
+  "counts": {
+    "users": 3,
+    "members": 5,
+    "org_members": 0,
+    "tenants": 4,
+    "kbs": 2,
+    "acl": 0,
+    "sessions": 0,
+    "jit": 0
+  },
+  "active_unconsumed_transactions": 0,
+  "postgres_test_only": {
+    "max_connections": 100,
+    "reserved_connections": 3
+  },
+  "collector_calibration": {
+    "result": "PASS",
+    "tests_run": 25,
+    "passed_tests": [
+      "test_bus_failure_cases_restore_and_revoke",
+      "test_concrete_jit_projection_uses_f40_tenantless_zero",
+      "test_consumed_first_observation_not_guessed",
+      "test_db_failure_at_restore_cannot_prevent_closing_gates",
+      "test_default_cli_inert_without_docker_or_file_access",
+      "test_each_protocol_failure_stops_no_retry_and_restores",
+      "test_evidence_failure_does_not_skip_restore_or_revocation",
+      "test_existing_all_roles_same_adapter_and_no_extra_authorize",
+      "test_explicit_authorization_and_window_both_required",
+      "test_fixed_target_version_schema_project_image",
+      "test_jit_zero_permissions_and_single_user",
+      "test_missing_http_or_retry_cannot_pass",
+      "test_no_portal_evidence_cannot_pass",
+      "test_no_raw_or_handle_leak",
+      "test_out_of_order_callback_stages_not_pass",
+      "test_partial_enable_restores_and_stream_closes",
+      "test_permissions_cannot_change_on_restore",
+      "test_prompt_true_not_accepted_as_ordinary_sso",
+      "test_real_mock_http_browser_channel_not_just_http200",
+      "test_restore_failure_never_report_pass_and_revocation_still_attempted",
+      "test_runtime_refuses_wrong_host_before_reading_inputs",
+      "test_second_authorize_or_unknown_callback_is_ambiguous",
+      "test_timeout_bounded_by_transaction_lifetime",
+      "test_unknown_fields_and_oversized_lines_reject",
+      "test_waiting_password_page_does_not_finish"
+    ],
+    "failed_tests": [],
+    "type": "synthetic control plane + loopback Mock HTTP observer; not a real Chrome or SID test"
+  },
+  "monitor_code_sha256": {
+    "business_monitor.py": "1ccfd08f55e1fb1b8cd55c4c0b9a447aae566f0acef3259d693a210bd218470f",
+    "business_monitor_adapter.py": "e5535b1405b410a8e44991306f90445c384f0826c97e790170d1565df7694380",
+    "business_monitor_pilot.py": "adc3dfcbcfebc596b1e41cea72687442be154c18e4779539c60143b9108aa926",
+    "business_monitor_test.py": "c4fa7b5d7e2a32569e7e16512633c0932c7ba986e06d397abe29d47671372190"
+  },
+  "production_accessed": false,
+  "app_recreated": false,
+  "real_sid_requests": 0
+}

@@ -1,0 +1,302 @@
+"""Inert by default. Fixed local Docker pilot; no production/SSH/SID client.
+
+Protected browser observations come from the controlled browser observer, not
+Cookie/HAR/token exports. No business PASS without that channel and DB checks.
+"""
+import argparse
+import json
+import os
+from pathlib import Path
+import re
+import select
+import subprocess
+import time
+import uuid
+
+from business_monitor import PROJECT, IMAGE, REVISION, SCHEMA, COMMON, EXISTING, JIT
+from business_monitor_adapter import CLOSED, run
+from protocol_monitor import Transaction
+
+ROOT=Path('/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a')
+RELEASE=Path('/home/aqyfzx/ai/knowhub-enterprise-jit-f40b1602f')
+APP=PROJECT+'-app-1';PG=PROJECT+'-postgres-1'
+DOCKER=['docker','--host','unix:///var/run/docker.sock']
+UUID=re.compile(r'[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}')
+FLAGS=set(CLOSED)|{'SOURCEID_ACCOUNT_SCOPE','SOURCEID_ADMISSION_MODE','SOURCEID_DIAGNOSTICS_ENABLE','SOURCEID_JIT_ENABLE'}
+ENV_ALLOWED=FLAGS|{'SOURCEID_EMAIL_CONTRACT_CONFIRMED','SOURCEID_SSO_POLICY_CONFIRMED','SOURCEID_ENTERPRISE_POLICY_CONFIRMED','SOURCEID_JIT_POLICY_CONFIRMED','SOURCEID_AUTO_BINDING_POLICY_REF','SOURCEID_LOCAL_POLICY_REF','SOURCEID_ADMISSION_POLICY_REF','SOURCEID_ENTERPRISE_POLICY_REF','SOURCEID_JIT_POLICY_REF','SOURCEID_JIT_EMAIL_DOMAINS','SOURCEID_ENTERPRISE_MAX_AGE','SOURCEID_LOCAL_ACCESS_TTL','SOURCEID_LOCAL_ABSOLUTE_TTL','SOURCEID_LOCAL_IDLE_TTL','SOURCEID_ADMISSION_MAX_AGE'}
+
+
+def command(args, data=None, timeout=30):
+    p=subprocess.run(args,input=data,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=timeout)
+    if p.returncode:raise RuntimeError('controlled_pilot_command_failed')
+    return p.stdout
+
+
+def inspect(name, field):
+    return json.loads(command(DOCKER+['inspect','--format','{{json '+field+'}}',name]))
+
+
+def atomic(path, value):
+    raw=json.dumps(value,sort_keys=True).encode()
+    if len(raw)>1048576:raise RuntimeError('evidence_budget')
+    tmp=path.with_suffix('.tmp')
+    with tmp.open('wb') as f:f.write(raw);f.flush();os.fsync(f.fileno())
+    tmp.chmod(0o600);tmp.replace(path)
+
+
+def protected(path, maximum=65536):
+    path=Path(path)
+    if path.is_symlink() or not path.is_file() or path.stat().st_uid!=os.getuid() or path.stat().st_mode & 0o077 or path.stat().st_size>maximum:
+        raise RuntimeError('protected_input_required')
+    # No duplicate policy/observation fields.
+    def unique(pairs):
+        d={}
+        for k,v in pairs:
+            if k in d:raise ValueError('duplicate_field')
+            d[k]=v
+        return d
+    return json.loads(path.read_text(encoding='utf-8'),object_pairs_hook=unique)
+
+
+class DockerPilotPort:
+    def __init__(self, inputs, case):
+        interfaces=json.loads(command(['ip','-j','-4','address','show']))
+        if not any(a.get('local')=='172.30.232.42' for n in interfaces for a in n.get('addr_info',[])):
+            raise RuntimeError('fixed_packaging_host_required')
+        self.case=case;self.inputs=inputs;self.process=None;self.buffer=b'';self.tx_cache={};self.run_id=None
+        self.user=inputs.get('existing_user_id')
+        if case=='existing' and (not isinstance(self.user,str) or not UUID.fullmatch(self.user)):
+            raise RuntimeError('protected_existing_account_required')
+        if case=='jit' and self.user is not None:raise RuntimeError('jit_cannot_target_legacy_user')
+        self.env=inputs['approved_environment']
+        if set(self.env)-ENV_ALLOWED or any(not isinstance(v,str) or '\n' in v or '\r' in v for v in self.env.values()):
+            raise RuntimeError('override_not_whitelisted')
+        fixed={'SOURCEID_FORCE_REAUTH_PROMPT_LOGIN':'false','SOURCEID_BASIC_ENCODING':'oauth_form',
+               'SOURCEID_LOCAL_REFRESH_ENABLE':'false','SOURCEID_ACCOUNT_SCOPE':'enterprise_all',
+               'SOURCEID_ADMISSION_MODE':'oidc_sso_approved','SOURCEID_SESSION_MODE':'local_approved',
+               'AUTO_MIGRATE':'false','SOURCEID_JIT_ENABLE':'true' if case=='jit' else 'false'}
+        if any(self.env.get(k)!=v for k,v in fixed.items()):raise RuntimeError('approved_mode_mismatch')
+        for key in ('business_approval_ref','scope_evidence_ref','ownership_batch_ref'):
+            if not isinstance(inputs.get(key),str) or not inputs[key].strip():raise RuntimeError('approval_input_missing')
+        self.dir=RELEASE/'private'/('business-monitor-'+str(uuid.uuid4()));self.dir.mkdir(mode=0o700)
+        self.override=self.dir/'approved-once.json'
+        self.observer_dir=Path(inputs['protected_observer_directory']).resolve()
+        self.observer_dir.relative_to((RELEASE/'private').resolve())
+        if self.observer_dir.is_symlink() or self.observer_dir.stat().st_uid!=os.getuid() or self.observer_dir.stat().st_mode & 0o077:
+            raise RuntimeError('protected_observer_required')
+
+    def now(self):return time.time()
+    def pause(self):time.sleep(.25)
+
+    def query(self,q,write=False):
+        # Never request result, nonce, verifier, tokens, email, sub or RJGH.
+        prefix="SET log_statement='none';SET log_min_error_statement='panic';SET log_parameter_max_length_on_error=0;"
+        sql=prefix+('BEGIN;' if write else 'BEGIN READ ONLY;')+q+(';COMMIT;' if write else ';ROLLBACK;')
+        return command(DOCKER+['exec','-i',PG,'psql','-X','-U','clean_owner','-d','knowhub_oa_sso_pilot','-qAt','-v','ON_ERROR_STOP=1'],sql.encode()).decode().strip()
+
+    def flags(self):
+        env=dict(x.split('=',1) for x in inspect(APP,'.Config.Env') if '=' in x)
+        return {k:env.get(k,'false' if k=='SOURCEID_JIT_ENABLE' else 'NOT_SET') for k in ENV_ALLOWED}
+
+    def inventory(self):
+        labels=inspect(APP,'.Config.Labels')
+        if labels.get('com.docker.compose.project.working_dir')!=str(ROOT):raise RuntimeError('project_directory_mismatch')
+        if labels.get('com.docker.compose.project.config_files','').split(',') not in ([str(ROOT/'compose.json'),str(RELEASE/'jit-app-pin.json')],[str(ROOT/'compose.json'),str(RELEASE/'jit-app-pin.json'),str(self.override)]):raise RuntimeError('compose_order_mismatch')
+        image=inspect(APP,'.Image')
+        if inspect(APP,'.HostConfig.PortBindings') or inspect(PG,'.HostConfig.PortBindings') or inspect(PROJECT+'-redis-1','.HostConfig.PortBindings'):
+            raise RuntimeError('pilot_private_ports_changed')
+        if inspect(PROJECT+'-frontend-1','.HostConfig.PortBindings')!={'80/tcp':[{'HostIp':'127.0.0.1','HostPort':'18090'}]}:
+            raise RuntimeError('pilot_loopback_entry_changed')
+        if inspect(APP,'.HostConfig.NetworkMode')!='container:'+inspect(PROJECT+'-sid-network-1','.Id'):
+            raise RuntimeError('pilot_guard_namespace_changed')
+        revision=command(DOCKER+['image','inspect','--format','{{index .Config.Labels "org.opencontainers.image.revision"}}',image]).decode().strip()
+        schema=json.loads(self.query("SELECT json_build_object('version',version,'dirty',dirty) FROM schema_migrations"))
+        return {'project':labels.get('com.docker.compose.project'),'image':image,'revision':revision,'schema':schema['version'],'dirty':schema['dirty'],'healthy':inspect(APP,'.State.Health.Status')=='healthy','flags':self.flags()}
+
+    def other_services(self):
+        return {s:(inspect(PROJECT+'-'+s+'-1','.Id'),inspect(PROJECT+'-'+s+'-1','.Image')) for s in ('frontend','postgres','redis','docreader','sid-network')}
+
+    def rows(self,table,columns):
+        return json.loads(self.query("SELECT COALESCE(json_agg(s),'[]') FROM (SELECT "+columns+' FROM '+table+' ORDER BY id) s'))
+
+    def snapshot(self):
+        # Limited permission metadata, never employee fields or document text.
+        return {'users':self.rows('users','id,tenant_id,is_active,is_system_admin,can_access_all_tenants'),
+                'members':self.rows('tenant_members','id,user_id,tenant_id,role,status,deleted_at'),
+                'kbs':self.rows('knowledge_bases','id,tenant_id,deleted_at'),
+                'acl':self.rows('kb_shares','id,knowledge_base_id,organization_id,source_tenant_id,permission,deleted_at'),
+                'org_members':self.rows('organization_tenant_members','id,organization_id,tenant_id,role,representative_user_id'),
+                'tenants':self.rows('tenants','id'),
+                'sessions':self.rows('source_id_sessions','id,user_id,revoked'),
+                'jit':self.rows('source_id_jit_registrations','id,user_id'),
+                'other_services':self.other_services()}
+
+    def save_private_baseline(self,before):self.before=before  # RAM only.
+
+    def transactions(self):
+        # The f40 server stores version/start/prompt metadata before consuming.
+        # Select only those metadata projections, not the raw result field.
+        rows=json.loads(self.query("""SELECT COALESCE(json_agg(s),'[]') FROM (
+        SELECT key,consumed,EXTRACT(EPOCH FROM expires_at) AS expires,
+        CASE WHEN NOT consumed AND result LIKE '{"version":1,%' THEN EXTRACT(EPOCH FROM (result::jsonb->>'started')::timestamptz) ELSE NULL END AS started,
+        CASE WHEN NOT consumed AND result LIKE '{"version":1,%' THEN COALESCE(result::jsonb->>'prompt','')='login' ELSE NULL END AS prompt
+        FROM oidc_transactions ORDER BY expires_at LIMIT 10001) s"""))
+        if len(rows)>10000:raise RuntimeError('transaction_snapshot_limit')
+        out=[]
+        for row in rows:
+            key=row['key'];saved=self.tx_cache.get(key)
+            if row['started'] is not None:
+                saved=(float(row['started']),row['prompt']);self.tx_cache[key]=saved
+            start,prompt=saved if saved is not None else (float(row['expires'])-600,False)
+            # 600s is the local state lifetime in exact f40, NOT code issue time.
+            out.append(Transaction(key,start,float(row['expires']),row['consumed'],prompt))
+        return out
+
+    def compose(self,override=False):
+        args=DOCKER+['compose','-p',PROJECT,'--project-directory',str(ROOT),'-f',str(ROOT/'compose.json'),'-f',str(RELEASE/'jit-app-pin.json')]
+        return args+(['-f',str(self.override)] if override else [])
+
+    def recreate(self,override):
+        command(self.compose(override)+['up','-d','--no-deps','--no-build','--pull','never','--force-recreate','app'],timeout=90)
+        for _ in range(70):
+            if inspect(APP,'.Image')==IMAGE and inspect(APP,'.State.Health.Status')=='healthy':break
+            time.sleep(1)
+        else:raise RuntimeError('app_health_failed')
+        command(DOCKER+['exec',PROJECT+'-frontend-1','nginx','-s','reload'])
+
+    def enable_approved(self,case):
+        self.original_flags=self.flags()
+        atomic(self.override,{'services':{'app':{'environment':self.env}}})
+        self.recreate(True)
+
+    def restore_original_app_only(self):self.recreate(False)
+
+    def start_stream(self):
+        self.process=subprocess.Popen(DOCKER+['attach','--no-stdin','--sig-proxy=false',APP],stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+        os.set_blocking(self.process.stdout.fileno(),False)
+
+    def drain_lines(self):
+        if self.process.poll() is not None:raise RuntimeError('live_stream_ended')
+        if select.select([self.process.stdout],[],[],0)[0]:self.buffer+=os.read(self.process.stdout.fileno(),262144)
+        lines=[]
+        while b'\n' in self.buffer and len(lines)<256:
+            line,self.buffer=self.buffer.split(b'\n',1)
+            if len(line)>65536:raise RuntimeError('log_line_limit')
+            lines.append(line.decode('utf-8','replace'))
+        if len(self.buffer)>65536:raise RuntimeError('log_buffer_limit')
+        return lines
+
+    def ready(self,run_id):
+        self.run_id=run_id
+        atomic(self.observer_dir/'request.json',{'run_id':run_id,'case':self.case,'action':'observe_one_business_login'})
+        # Observer is separately prepared in the authorized actual Chrome.
+        path=self.observer_dir/'ready.json'
+        for _ in range(20):
+            if path.exists():
+                v=protected(path)
+                if set(v)=={'run_id','four_routes_verified','sso_context_confirmed'} and v['run_id']==run_id and v['four_routes_verified'] is True and v['sso_context_confirmed'] is True:
+                    atomic(self.dir/'status.json',{'run_id':run_id,'phase':'READY'});return
+            time.sleep(.25)
+        raise RuntimeError('actual_browser_observer_not_ready')
+
+    def session_candidate(self,before):
+        rows=self.new_session_candidates(before)
+        if len(rows)>1:raise RuntimeError('multiple_new_sessions')
+        return rows[0] if rows else None
+
+    def new_session_candidates(self,before):
+        old={s['id'] for s in before['sessions']}
+        return [s for s in self.rows('source_id_sessions','id,user_id,revoked') if s['id'] not in old]
+
+    def candidate_belongs_to_run(self,s,m,before,case):
+        if m.bound is None or not m.bound.consumed or len(m.seen)!=1 or not UUID.fullmatch(s['id']) or not UUID.fullmatch(s['user_id']):return False
+        old={u['id'] for u in before['users']}
+        if case=='existing':return s['user_id']==self.user and any(u['id']==self.user and u['is_active'] for u in before['users'])
+        new={u['id'] for u in self.snapshot()['users']}-old
+        jit=[j for j in self.rows('source_id_jit_registrations','id,user_id') if j['id'] not in {x['id'] for x in before['jit']}]
+        return new=={s['user_id']} and len(jit)==1 and jit[0]['user_id']==s['user_id']
+
+    def permissions_preserved(self,before,case):
+        after=self.snapshot();old_ids={u['id'] for u in before['users']}
+        return (all(before[k]==after[k] for k in ('members','kbs','acl','org_members','tenants','other_services')) and
+                [u for u in after['users'] if u['id'] in old_ids]==before['users'] and
+                len(after['users'])-len(before['users']) in ((0,) if case=='existing' else (0,1)))
+
+    def business_probes(self,before,s,case,run_id,callback_trace):
+        # Random internal IDs only, in the protected observer IPC directory.
+        # The browser observer compares in-process and returns booleans; no
+        # Cookie, JWT, employee number, email or claim is exported here.
+        atomic(self.observer_dir/'probe-request.json',{'run_id':run_id,'case':case,'callback_trace':callback_trace,'expected_user_id':s['user_id'],'expected_session_id':s['id']})
+        path=self.observer_dir/'observations.json'
+        if not path.exists():return None
+        v=protected(path)
+        if set(v)!={'run_id','callback_trace','checks'} or v['run_id']!=run_id or v['callback_trace']!=callback_trace:raise RuntimeError('observer_run_mismatch')
+        self.observer_trace=v['callback_trace']
+        check=v['checks'];browser={'auth_me_200','portal_loaded','no_refresh','knowledge_access_correct','logout_revoked','session_user_matches','access_session_matches'}
+        if set(check)!=browser or any(type(x) is not bool for x in check.values()):raise RuntimeError('observer_schema_rejected')
+        after=self.snapshot();uid=s['user_id'];new={u['id'] for u in after['users']}-{u['id'] for u in before['users']}
+        q="SELECT json_build_object('local',COUNT(*)=1,'bounded',COALESCE(bool_and(NOT l.refresh_enabled AND l.access_seconds>0 AND l.idle_seconds>0 AND l.admission_valid_until>=x.expires_at AND NOT EXISTS(SELECT 1 FROM auth_tokens a WHERE a.session_id=x.id AND (a.token_type='refresh_token' OR a.expires_at>x.expires_at))),false)) FROM source_id_local_sessions l JOIN source_id_sessions x ON x.id=l.id WHERE l.id='"+s['id']+"'"
+        policy=json.loads(self.query(q))
+        check.update(single_bound_session=len(self.new_session_candidates(before))==1 and policy['local'],session_access_bounded=policy['bounded'])
+        preserved=self.permissions_preserved(before,case)
+        if case=='existing':check.update(original_user_id=uid==self.user,roles_unchanged=preserved,memberships_unchanged=before['members']==after['members'],acl_unchanged=before['acl']==after['acl'],no_new_user=not new)
+        else:
+            u=next(x for x in after['users'] if x['id']==uid)
+            # f40 stores tenantless users with TenantID=0 (uint64), not SQL NULL.
+            zero=not u['is_system_admin'] and not u['can_access_all_tenants'] and u['tenant_id']==0
+            check.update(one_new_user=new=={uid},single_identity_record=len([j for j in after['jit'] if j['user_id']==uid])==1,no_admin_flags=zero,no_memberships=not any(x['user_id']==uid for x in after['members']),no_default_knowledge_access=check['knowledge_access_correct'] and zero,no_historical_collision=preserved)
+        return v['callback_trace'],check
+
+    def operator_action(self,run_id):
+        path=self.observer_dir/'operator.json'
+        if not path.exists():return None
+        v=protected(path,1024)
+        return v.get('action') if set(v)=={'run_id','action'} and v['run_id']==run_id else None
+
+    def revoke_exact_session_and_access(self,s):
+        self.query("UPDATE source_id_sessions SET revoked=TRUE WHERE id='"+s['id']+"' AND user_id='"+s['user_id']+"';UPDATE auth_tokens SET is_revoked=TRUE WHERE session_id='"+s['id']+"'",True)
+
+    def revocation_verified(self,s):
+        return self.query("SELECT (SELECT revoked FROM source_id_sessions WHERE id='"+s['id']+"') AND NOT EXISTS(SELECT 1 FROM auth_tokens WHERE session_id='"+s['id']+"' AND NOT is_revoked)")=='t'
+
+    def invalidate_exact_unused(self,tx):
+        if not re.fullmatch('[a-f0-9]{64}',tx.handle):raise RuntimeError('invalid_private_transaction_handle')
+        current=next((x for x in self.transactions() if x.handle==tx.handle),None)
+        if current is None or current.consumed:return 'NO_UNUSED_BOUND_TRANSACTION'
+        if current.expires!=tx.expires:raise RuntimeError('transaction_changed')
+        self.query("UPDATE oidc_transactions SET consumed=TRUE,result='',nonce='',verifier='' WHERE key='"+tx.handle+"' AND NOT consumed AND expires_at=to_timestamp("+str(tx.expires)+")",True)
+        if any(x.handle==tx.handle and not x.consumed for x in self.transactions()):raise RuntimeError('transaction_cleanup_not_confirmed')
+        return 'EXACT_UNUSED_TRANSACTION_INVALIDATED'
+
+    def save_safe(self,name,result):atomic(self.dir/(name+'.json'),result)
+    def close_stream(self):
+        if self.process:
+            self.process.terminate()
+            try:self.process.wait(timeout=5)
+            except subprocess.TimeoutExpired:self.process.kill();self.process.wait()
+            self.process.stdout.close()
+
+
+def main(argv=None):
+    p=argparse.ArgumentParser();p.add_argument('--execute-authorized',action='store_true');p.add_argument('--exclusive-window-confirmed',action='store_true');p.add_argument('--case',choices=('existing','jit'));p.add_argument('--protected-inputs',type=Path)
+    a=p.parse_args(argv)
+    if not a.execute_authorized or not a.exclusive_window_confirmed:
+        print(json.dumps({'result':'NOT_EXECUTED','real_business_authorization_required':True,'new_sid_requests':0}));return 0
+    if a.case is None or a.protected_inputs is None:p.error('protected inputs and case required')
+    import fcntl
+    import signal
+    def interrupted(signum,frame):raise KeyboardInterrupt()
+    signal.signal(signal.SIGTERM,interrupted);signal.signal(signal.SIGINT,interrupted)
+    os.umask(0o077)
+    with (RELEASE/'private/business-monitor.lock').open('a') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        port=DockerPilotPort(protected(a.protected_inputs),a.case)
+        result=run(port,a.case,True,True)
+        print(json.dumps({k:result.get(k) for k in ('run_id','case','result','reason','recovery')}))
+    return 0
+
+
+if __name__=='__main__':
+    try:raise SystemExit(main())
+    except Exception:
+        print(json.dumps({'result':'FAIL','reason':'CONTROLLED_EXECUTION_FAILURE','raw_error_saved':False}));raise SystemExit(2)
