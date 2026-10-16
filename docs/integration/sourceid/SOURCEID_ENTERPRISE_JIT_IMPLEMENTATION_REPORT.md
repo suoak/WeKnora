@@ -1,6 +1,6 @@
 # 企业新员工 JIT 最小实现
 
-日期：2026-10-16。源码候选：`f40b1602f69ce5d88e1e87dc3cefae36e9bde356`，分支 `feature/knowhub-sourceid-enterprise-jit`，基于已验收09e6d86db。**已实现但默认关闭；当前运行试点仍为09e6d86db，不包含此新JIT，003029未在运行库执行。**
+日期：2026-10-16。源码候选：`f40b1602f69ce5d88e1e87dc3cefae36e9bde356`，分支 `feature/knowhub-sourceid-enterprise-jit`，基于已验收09e6d86db。**本轮获独立授权后已部署至独立试点，003029已执行；真实业务门禁仍关闭。** 当前现场及新增验收以[最终技术验收报告](SOURCEID_JIT_PILOT_FINAL_TECHNICAL_ACCEPTANCE_REPORT.md)为准。
 
 ## 一条OA入口，两类账号处理
 
@@ -33,4 +33,4 @@ JIT_ENABLE=true前，还必须有JIT_POLICY_CONFIRMED、真实JIT_POLICY_REF、�
 
 同一完整提交的 [GitHub CI 38900142644](https://github.com/suoak/WeKnora/actions/runs/38900142644) Linux、PostgreSQL、Frontend、Browser四项全部成功，见 [验收收据](evidence/enterprise-jit-final-ci-20261016.json)。Windows本地Handler/仓储及调整初始页面等待后的Vue测试通过；完整service测试受到本机旧MinGW/DuckDB静态链接限制，以同源码Linux隔离与CI执行为最终证据，没有替换打包工具链或弱化验证。
 
-真实SID新员工开户未执行；真实历史归属数据未导入；正式容量、政策、新JIT候选部署和003029现场迁移尚未批准。JIT无匹配普通账号进入Portal但没有已有知识库权限，不应为制造“可用”而自动加到敏感空间。
+真实SID新员工开户未执行，真实历史归属数据未导入；生产容量与正式政策仍待确认。本轮独立候选部署、003029和合成容量验证另见最终报告，不代表正式放行。JIT无匹配普通账号进入Portal但没有已有知识库权限，不应为制造“可用”而自动加到敏感空间。

@@ -1,0 +1,1374 @@
+{
+  "build-status.json": {
+    "utc": "2026-10-16T15:02:18.235473+00:00",
+    "result": "PASS",
+    "stage": "complete",
+    "image_id": "sha256:742c7ce56ef38ad32548900c8e7f8b264f9f6cd6138043674b91b27557443413",
+    "revision": "f40b1602f69ce5d88e1e87dc3cefae36e9bde356",
+    "builder": "sha256:2b63ff41b02b21d7b302c2d3ba6b4ab43990181fc7d2221585d2cfa5161553fb",
+    "compiler": "go1.26.7",
+    "network": "none",
+    "frontend_rebuilt": false,
+    "live_service_changed": false
+  },
+  "upgrade-result.json": {
+    "result": "PASS",
+    "real_authentication": false,
+    "default_changed": false,
+    "free_bytes_before": 246635290624,
+    "revision": "f40b1602f69ce5d88e1e87dc3cefae36e9bde356",
+    "image_id": "sha256:742c7ce56ef38ad32548900c8e7f8b264f9f6cd6138043674b91b27557443413",
+    "frontend_revision": "832b6652adf541892545a7eac8b68733f846ab95",
+    "schema": {
+      "version": 3029,
+      "dirty": false
+    },
+    "backup_directory": "/home/aqyfzx/ai/knowhub-enterprise-jit-f40b1602f/private/before-upgrade",
+    "database_backup_bytes": 21684360,
+    "file_backup_bytes": 2570240,
+    "selected_data_unchanged": true,
+    "counts": {
+      "users": 3,
+      "tenants": 4,
+      "tenant_members": 5,
+      "organization_tenant_members": 0,
+      "knowledge_bases": 2,
+      "knowledges": 3,
+      "chunks": 19786,
+      "embeddings": 2717,
+      "kb_shares": 0,
+      "resources": 3,
+      "resource_bindings": 3
+    },
+    "other_container_ids_unchanged": true,
+    "environment_bytes_unchanged": true,
+    "health": {
+      "/login": 200,
+      "/health": 200,
+      "/api/v1/auth/oidc/config": 200
+    },
+    "account_scope": "pilot DEFAULT",
+    "enterprise_all_enabled": false,
+    "utc": "2026-10-16T15:03:15.187993+00:00"
+  },
+  "validation-result.json": {
+    "result": "PASS",
+    "real_sid_called": false,
+    "clean_pilot_written": false,
+    "original_business_api": {
+      "result": "PASS",
+      "real_sid_login": false,
+      "mock_sid_identity_injected": false,
+      "live_database_switched": false,
+      "health_and_frontend": {
+        "health": 200,
+        "portal_static": 200
+      },
+      "actual_outbound_denied": {
+        "172.30.232.42:80": true,
+        "172.30.232.42:8080": true,
+        "1.1.1.1:443": true
+      },
+      "oidc_config_status": 200,
+      "oidc_config_enabled": false,
+      "oidc_disabled": true,
+      "original_admin": {
+        "same_user_id": true,
+        "same_home_tenant": true,
+        "same_admin_flags": true,
+        "auth_me": 200,
+        "original_kb_access": 200,
+        "document_downloads": [
+          {
+            "status": 200,
+            "nonempty": true
+          },
+          {
+            "status": 200,
+            "nonempty": true
+          },
+          {
+            "status": 200,
+            "nonempty": true
+          }
+        ],
+        "credential": "fresh candidate-only local password; disabled after test"
+      },
+      "vector_recall": {
+        "status": 200,
+        "hits": 3,
+        "original_document_references": true,
+        "model_calls": 0,
+        "text_or_vector_exported": false
+      },
+      "local_logout_invalidates_token": true,
+      "disposable_viewer_acl": {
+        "preparer_dry_run_and_apply": true,
+        "auth_me": 200,
+        "original_allowed_kb": 200,
+        "existing_denied_kb_admin_read": 200,
+        "denied_kb_separate_space": true,
+        "no_membership_or_kb_share": true,
+        "denied_kb_status": 403,
+        "denied_switch_status": 403,
+        "fixtures_in_clean_target": false
+      },
+      "clean_final_counts": {
+        "users": 3,
+        "tenants": 4,
+        "tenant_members": 5,
+        "organization_tenant_members": 0,
+        "knowledge_bases": 2,
+        "knowledges": 3,
+        "chunks": 19786,
+        "embeddings": 2717,
+        "kb_shares": 0,
+        "resources": 3,
+        "resource_bindings": 3
+      },
+      "clean_target_identity_rows": 0,
+      "final_integrity": {
+        "selected_data_and_acl_equal_source": true,
+        "files_equal_source": true,
+        "all_passwords_disabled": true,
+        "all_auth_tokens_revoked": true,
+        "all_api_keys_revoked": true,
+        "schema": "3029|false",
+        "validation_database_dropped": true
+      },
+      "completed_utc": "2026-10-16T15:05:53.297076+00:00"
+    },
+    "old_app_3029_business_compatibility": {
+      "result": "PASS",
+      "real_sid_login": false,
+      "mock_sid_identity_injected": false,
+      "live_database_switched": false,
+      "health_and_frontend": {
+        "health": 200,
+        "portal_static": 200
+      },
+      "actual_outbound_denied": {
+        "172.30.232.42:80": true,
+        "172.30.232.42:8080": true,
+        "1.1.1.1:443": true
+      },
+      "oidc_config_status": 200,
+      "oidc_config_enabled": false,
+      "oidc_disabled": true,
+      "original_admin": {
+        "same_user_id": true,
+        "same_home_tenant": true,
+        "same_admin_flags": true,
+        "auth_me": 200,
+        "original_kb_access": 200,
+        "document_downloads": [
+          {
+            "status": 200,
+            "nonempty": true
+          },
+          {
+            "status": 200,
+            "nonempty": true
+          },
+          {
+            "status": 200,
+            "nonempty": true
+          }
+        ],
+        "credential": "fresh candidate-only local password; disabled after test"
+      },
+      "vector_recall": {
+        "status": 200,
+        "hits": 3,
+        "original_document_references": true,
+        "model_calls": 0,
+        "text_or_vector_exported": false
+      },
+      "local_logout_invalidates_token": true,
+      "disposable_viewer_acl": {
+        "preparer_dry_run_and_apply": true,
+        "auth_me": 200,
+        "original_allowed_kb": 200,
+        "existing_denied_kb_admin_read": 200,
+        "denied_kb_separate_space": true,
+        "no_membership_or_kb_share": true,
+        "denied_kb_status": 403,
+        "denied_switch_status": 403,
+        "fixtures_in_clean_target": false
+      },
+      "clean_final_counts": {
+        "users": 3,
+        "tenants": 4,
+        "tenant_members": 5,
+        "organization_tenant_members": 0,
+        "knowledge_bases": 2,
+        "knowledges": 3,
+        "chunks": 19786,
+        "embeddings": 2717,
+        "kb_shares": 0,
+        "resources": 3,
+        "resource_bindings": 3
+      },
+      "clean_target_identity_rows": 0,
+      "final_integrity": {
+        "selected_data_and_acl_equal_source": true,
+        "files_equal_source": true,
+        "all_passwords_disabled": true,
+        "all_auth_tokens_revoked": true,
+        "all_api_keys_revoked": true,
+        "schema": "3029|false",
+        "validation_database_dropped": true
+      },
+      "completed_utc": "2026-10-16T15:07:34.318293+00:00"
+    },
+    "mock_pilot": {
+      "result": "PASS",
+      "real_sid_called": false,
+      "real_identity_binding": false,
+      "clean_pilot_changed": false,
+      "api": {
+        "login_1": {
+          "same_user_id": true,
+          "same_admin_flags": true,
+          "auth_me": 200,
+          "no_refresh_response_cookie": true
+        },
+        "login_2": {
+          "same_user_id": true,
+          "same_admin_flags": true,
+          "auth_me": 200,
+          "no_refresh_response_cookie": true
+        },
+        "switch_tenant_access_only": true,
+        "switch_does_not_extend_expiry": true,
+        "multi_device_logout_isolated": true,
+        "local_logout_revokes": true,
+        "refresh_rejected": true
+      },
+      "synthetic_candidate_policy": {
+        "sessions": 2,
+        "idle_1800": true,
+        "access_3600": true,
+        "refresh_disabled": true,
+        "absolute_3600": true,
+        "access_bounded": true
+      },
+      "refresh_rows_created": 0,
+      "identities": 1,
+      "permissions_unchanged": true,
+      "role": "original system_admin+owner; other real roles NOT_REAL_DATA_VERIFIED",
+      "disposable_mock_database_removed": true,
+      "utc": "2026-10-16T15:08:10.063043+00:00"
+    },
+    "mock_enterprise_all": {
+      "result": "PASS",
+      "real_sid_called": false,
+      "real_identity_binding": false,
+      "clean_pilot_changed": false,
+      "protected_cli_dry_apply_replay": [
+        {
+          "rows": 1,
+          "changed": 1,
+          "unchanged": 0,
+          "rejected": 0,
+          "applied": false
+        },
+        {
+          "rows": 1,
+          "changed": 1,
+          "unchanged": 0,
+          "rejected": 0,
+          "applied": true
+        },
+        {
+          "rows": 1,
+          "changed": 0,
+          "unchanged": 1,
+          "rejected": 0,
+          "applied": true
+        }
+      ],
+      "api": {
+        "login_1": {
+          "same_user_id": true,
+          "same_admin_flags": true,
+          "auth_me": 200,
+          "no_refresh_response_cookie": true
+        },
+        "login_2": {
+          "same_user_id": true,
+          "same_admin_flags": true,
+          "auth_me": 200,
+          "no_refresh_response_cookie": true
+        },
+        "switch_tenant_access_only": true,
+        "switch_does_not_extend_expiry": true,
+        "multi_device_logout_isolated": true,
+        "local_logout_revokes": true,
+        "refresh_rejected": true,
+        "disabled_ownership_revokes_remaining_device": true
+      },
+      "synthetic_candidate_policy": {
+        "sessions": 2,
+        "idle_1800": true,
+        "access_3600": true,
+        "refresh_disabled": true,
+        "absolute_3600": true,
+        "access_bounded": true
+      },
+      "refresh_rows_created": 0,
+      "identities": 1,
+      "permissions_unchanged": true,
+      "role": "original system_admin+owner; other real roles NOT_REAL_DATA_VERIFIED",
+      "disposable_mock_database_removed": true,
+      "utc": "2026-10-16T15:08:49.203098+00:00"
+    },
+    "mock_jit": {
+      "result": "PASS",
+      "real_sid_called": false,
+      "real_identity_binding": false,
+      "clean_pilot_changed": false,
+      "api": {
+        "login_1": {
+          "same_jit_user_id": true,
+          "unprivileged_jit_flags": true,
+          "auth_me": 200,
+          "no_refresh_response_cookie": true
+        },
+        "login_2": {
+          "same_jit_user_id": true,
+          "unprivileged_jit_flags": true,
+          "auth_me": 200,
+          "no_refresh_response_cookie": true
+        },
+        "switch_tenant_access_only": true,
+        "switch_does_not_extend_expiry": true,
+        "multi_device_logout_isolated": true,
+        "local_logout_revokes": true,
+        "refresh_rejected": true
+      },
+      "jit_zero_default_privileges": true,
+      "synthetic_candidate_policy": {
+        "sessions": 2,
+        "idle_1800": true,
+        "access_3600": true,
+        "refresh_disabled": true,
+        "absolute_3600": true,
+        "access_bounded": true
+      },
+      "refresh_rows_created": 0,
+      "identities": 1,
+      "permissions_unchanged": true,
+      "role": "original system_admin+owner; other real roles NOT_REAL_DATA_VERIFIED",
+      "disposable_mock_database_removed": true,
+      "utc": "2026-10-16T15:09:24.825885+00:00"
+    },
+    "candidate_app": "sha256:742c7ce56ef38ad32548900c8e7f8b264f9f6cd6138043674b91b27557443413",
+    "frontend": "sha256:ab7845c89fadeb17ad2b68bd924e892f948b893781a50ab79e48385c319ddbe1",
+    "all_role_http_test_evidence": "offline packaging tests + four-job CI; eight synthetic roles",
+    "original_real_roles": "original system_admin+owner/cross-tenant flags; absent role fixtures NOT_REAL_DATA_VERIFIED",
+    "utc": "2026-10-16T15:09:24.878088+00:00"
+  },
+  "rollback-result.json": {
+    "result": "PASS",
+    "database_downgraded": false,
+    "real_authentication": false,
+    "old_app_health": {
+      "/health": 200,
+      "/login": 200,
+      "/api/v1/auth/oidc/config": 200
+    },
+    "candidate_health": {
+      "/health": 200,
+      "/login": 200,
+      "/api/v1/auth/oidc/config": 200
+    },
+    "old_revision": "09e6d86db731953834916e58ac5f3f5985ad0aa1",
+    "candidate_revision": "f40b1602f69ce5d88e1e87dc3cefae36e9bde356",
+    "candidate_restored": true,
+    "other_container_ids_unchanged": true,
+    "environment_bytes_unchanged": true,
+    "schema": "3029|false",
+    "utc": "2026-10-16T15:10:55.286720+00:00"
+  },
+  "network-result.json": {
+    "result": "PASS",
+    "real_authentication": false,
+    "app_network": {
+      "dns": [
+        "39.107.195.76"
+      ],
+      "tls": {
+        "certificate_validation": true,
+        "hostname_validation": true,
+        "version": "TLSv1.3",
+        "remote_address": [
+          "39.107.195.76",
+          443
+        ],
+        "milliseconds": 209
+      },
+      "discovery_status": 200,
+      "jwks": {
+        "status": 200,
+        "keys": 1,
+        "rsa_present": true
+      },
+      "auth_endpoints": {
+        "/oidc/authorize": "TLS_SHARED_HOST_VERIFIED_NOT_CALLED",
+        "/oidc/accessToken": "TLS_SHARED_HOST_VERIFIED_NOT_CALLED",
+        "/oidc/profile": "TLS_SHARED_HOST_VERIFIED_NOT_CALLED"
+      },
+      "denied": [
+        {
+          "target": "1.1.1.1",
+          "port": 443,
+          "denied": true
+        },
+        {
+          "target": "39.107.195.76",
+          "port": 80,
+          "denied": true
+        },
+        {
+          "target": "172.30.232.42",
+          "port": 80,
+          "denied": true
+        },
+        {
+          "target": "172.30.232.42",
+          "port": 8080,
+          "denied": true
+        }
+      ],
+      "ipv6_interfaces": ""
+    },
+    "frontend_api": {
+      "/login": 200,
+      "/health": 200,
+      "/api/v1/auth/oidc/config": 200
+    },
+    "app": {
+      "id": "0e4d884540a2b6855381e887d21527bb4a7b94d70767152121031e76e9b97fd4",
+      "name": "/knowhub-oa-sso-pilot-app-1",
+      "image_id": "sha256:742c7ce56ef38ad32548900c8e7f8b264f9f6cd6138043674b91b27557443413",
+      "image_reference": "sha256:742c7ce56ef38ad32548900c8e7f8b264f9f6cd6138043674b91b27557443413",
+      "created": "2026-10-16T15:03:02.824553671Z",
+      "started": "2026-10-16T15:03:03.025011853Z",
+      "running": true,
+      "health": "healthy",
+      "restart_count": 0,
+      "project": "knowhub-oa-sso-pilot",
+      "service": "app",
+      "working_dir": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a",
+      "compose_files": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a/compose.json,/home/aqyfzx/ai/knowhub-enterprise-jit-f40b1602f/jit-app-pin.json",
+      "ports": {},
+      "mounts": [
+        {
+          "Type": "bind",
+          "Name": null,
+          "Source": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a/private/ownership",
+          "Destination": "/run/sourceid/ownership",
+          "RW": false
+        },
+        {
+          "Type": "volume",
+          "Name": "knowhub-oa-sso-pilot-files",
+          "Source": "/mnt/sata0/lib/docker/volumes/knowhub-oa-sso-pilot-files/_data",
+          "Destination": "/data/files",
+          "RW": false
+        },
+        {
+          "Type": "volume",
+          "Name": "knowhub-oa-sso-pilot_doc-tmp",
+          "Source": "/mnt/sata0/lib/docker/volumes/knowhub-oa-sso-pilot_doc-tmp/_data",
+          "Destination": "/tmp/docreader",
+          "RW": false
+        }
+      ]
+    },
+    "gateway": {
+      "id": "e7fb660313e1b5e5d8e16fd9610a22ab7a31551fae43953fb6d880e62539454d",
+      "name": "/knowhub-oa-sso-pilot-sid-network-1",
+      "image_id": "sha256:c6e631c631e4488b32f7964e700dae8dfd9105ca4a75f2c0443272f44484c1c5",
+      "image_reference": "sha256:c6e631c631e4488b32f7964e700dae8dfd9105ca4a75f2c0443272f44484c1c5",
+      "created": "2026-10-16T10:09:46.708689068Z",
+      "started": "2026-10-16T10:09:47.243863214Z",
+      "running": true,
+      "health": "healthy",
+      "restart_count": 0,
+      "project": "knowhub-oa-sso-pilot",
+      "service": "sid-network",
+      "working_dir": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a",
+      "compose_files": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a/compose.json",
+      "ports": {
+        "8080/tcp": null
+      },
+      "mounts": [
+        {
+          "Type": "bind",
+          "Name": null,
+          "Source": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a/egress",
+          "Destination": "/egress",
+          "RW": false
+        },
+        {
+          "Type": "bind",
+          "Name": null,
+          "Source": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a/egress/nettools",
+          "Destination": "/nettools",
+          "RW": false
+        }
+      ]
+    },
+    "unapproved_bridge_source": [
+      {
+        "target": "192.168.160.7",
+        "port": 8080,
+        "denied": true
+      },
+      {
+        "target": "192.168.208.2",
+        "port": 8080,
+        "denied": true
+      },
+      {
+        "target": "192.168.160.4",
+        "port": 5432,
+        "denied": true
+      }
+    ]
+  },
+  "capacity-result.json": {
+    "result": "PASS",
+    "real_sid_called": false,
+    "real_identity_binding": false,
+    "clean_pilot_changed": false,
+    "synthetic_existing_accounts": 1950,
+    "capacity": {
+      "result": "PASS",
+      "scenarios": [
+        {
+          "scenario": "e300",
+          "population": 300,
+          "window_seconds": 60,
+          "planned_starts_per_second": 5.0,
+          "wall_seconds": 59.853,
+          "outcomes": {
+            "PASS": 300
+          },
+          "p50_ms": 37.62,
+          "p95_ms": 72.34,
+          "p99_ms": 88.96,
+          "max_start_lag_ms": 1.62,
+          "fault": "normal",
+          "functional_pass": true
+        },
+        {
+          "scenario": "e500",
+          "population": 500,
+          "window_seconds": 60,
+          "planned_starts_per_second": 8.333,
+          "wall_seconds": 59.92,
+          "outcomes": {
+            "PASS": 500
+          },
+          "p50_ms": 37.04,
+          "p95_ms": 69.84,
+          "p99_ms": 92.0,
+          "max_start_lag_ms": 0.89,
+          "fault": "normal",
+          "functional_pass": true
+        },
+        {
+          "scenario": "j300",
+          "population": 300,
+          "window_seconds": 60,
+          "planned_starts_per_second": 5.0,
+          "wall_seconds": 59.852,
+          "outcomes": {
+            "PASS": 300
+          },
+          "p50_ms": 40.03,
+          "p95_ms": 73.43,
+          "p99_ms": 87.24,
+          "max_start_lag_ms": 0.69,
+          "fault": "normal",
+          "functional_pass": true
+        },
+        {
+          "scenario": "j500",
+          "population": 500,
+          "window_seconds": 60,
+          "planned_starts_per_second": 8.333,
+          "wall_seconds": 59.951,
+          "outcomes": {
+            "PASS": 500
+          },
+          "p50_ms": 39.63,
+          "p95_ms": 75.21,
+          "p99_ms": 92.99,
+          "max_start_lag_ms": 0.82,
+          "fault": "normal",
+          "functional_pass": true
+        },
+        {
+          "scenario": "m300",
+          "population": 300,
+          "window_seconds": 60,
+          "planned_starts_per_second": 5.0,
+          "wall_seconds": 59.84,
+          "outcomes": {
+            "PASS": 300
+          },
+          "p50_ms": 39.78,
+          "p95_ms": 69.2,
+          "p99_ms": 87.95,
+          "max_start_lag_ms": 0.6,
+          "fault": "normal",
+          "functional_pass": true
+        },
+        {
+          "scenario": "m500",
+          "population": 500,
+          "window_seconds": 60,
+          "planned_starts_per_second": 8.333,
+          "wall_seconds": 59.928,
+          "outcomes": {
+            "PASS": 500
+          },
+          "p50_ms": 39.31,
+          "p95_ms": 79.98,
+          "p99_ms": 99.89,
+          "max_start_lag_ms": 3.48,
+          "fault": "normal",
+          "functional_pass": true
+        },
+        {
+          "scenario": "delay500",
+          "population": 500,
+          "window_seconds": 60,
+          "planned_starts_per_second": 8.333,
+          "wall_seconds": 60.522,
+          "outcomes": {
+            "PASS": 500
+          },
+          "p50_ms": 640.87,
+          "p95_ms": 669.57,
+          "p99_ms": 691.17,
+          "max_start_lag_ms": 0.77,
+          "fault": "delay",
+          "functional_pass": true
+        },
+        {
+          "scenario": "limited500",
+          "population": 500,
+          "window_seconds": 60,
+          "planned_starts_per_second": 8.333,
+          "wall_seconds": 59.922,
+          "outcomes": {
+            "EXPECTED_REJECT": 50,
+            "PASS": 450
+          },
+          "p50_ms": 40.02,
+          "p95_ms": 73.94,
+          "p99_ms": 95.88,
+          "max_start_lag_ms": 0.81,
+          "fault": "limited",
+          "functional_pass": true
+        },
+        {
+          "scenario": "failure500",
+          "population": 500,
+          "window_seconds": 60,
+          "planned_starts_per_second": 8.333,
+          "wall_seconds": 59.922,
+          "outcomes": {
+            "EXPECTED_REJECT": 50,
+            "PASS": 450
+          },
+          "p50_ms": 40.18,
+          "p95_ms": 67.4,
+          "p99_ms": 88.98,
+          "max_start_lag_ms": 18.2,
+          "fault": "failure",
+          "functional_pass": true
+        },
+        {
+          "scenario": "expired500",
+          "population": 500,
+          "window_seconds": 60,
+          "planned_starts_per_second": 8.333,
+          "wall_seconds": 59.917,
+          "outcomes": {
+            "PASS": 500
+          },
+          "p50_ms": 35.03,
+          "p95_ms": 60.26,
+          "p99_ms": 84.98,
+          "max_start_lag_ms": 0.79,
+          "fault": "normal",
+          "functional_pass": true,
+          "same_user_ids": true
+        }
+      ],
+      "mock_counts": {
+        "authorize": 4400,
+        "token": 4400,
+        "profile": 4300,
+        "reused_code": 0,
+        "rate_limited": 50,
+        "failed": 50,
+        "expired_code": 0
+      },
+      "expired_old_access_rejected": true,
+      "relogin_logout_revocations": 500,
+      "real_sid_called": false,
+      "raw_identity_artifacts": false,
+      "production_capacity_pass": false
+    },
+    "monitoring": {
+      "samples": 102,
+      "max_connections": 3,
+      "max_active": 2,
+      "max_lock_waiters": 0,
+      "max_users_lock_waiters": 0,
+      "max_lock_wait_ms": 0.0,
+      "max_cpu_percent": 77.06,
+      "max_pg_cpu_percent": 34.78,
+      "pg_memory_samples": [
+        "246.8MiB / 31.32GiB",
+        "247.6MiB / 31.32GiB",
+        "250.6MiB / 31.32GiB",
+        "250.2MiB / 31.32GiB",
+        "250.9MiB / 31.32GiB",
+        "251.5MiB / 31.32GiB",
+        "252.5MiB / 31.32GiB",
+        "252.9MiB / 31.32GiB",
+        "250MiB / 31.32GiB",
+        "250.4MiB / 31.32GiB",
+        "245.9MiB / 31.32GiB"
+      ],
+      "memory_samples": [
+        "197.3MiB / 4GiB",
+        "205.8MiB / 4GiB",
+        "207.4MiB / 4GiB",
+        "208.7MiB / 4GiB",
+        "209.4MiB / 4GiB",
+        "209.8MiB / 4GiB",
+        "211.3MiB / 4GiB",
+        "213.3MiB / 4GiB",
+        "213.6MiB / 4GiB",
+        "214MiB / 4GiB",
+        "214.6MiB / 4GiB"
+      ],
+      "application_pool_wait_counters": "NOT_CAPTURED (no exported database/sql Stats endpoint)"
+    },
+    "rejected_identities_and_sessions_zero": true,
+    "zero_new_refresh_rows": true,
+    "zero_jit_memberships_admin_flags": true,
+    "production_capacity_pass": false,
+    "disposable_mock_database_removed": true,
+    "utc": "2026-10-16T15:33:24.412122+00:00"
+  },
+  "final-result.json": {
+    "result": "PASS",
+    "real_sid_login": false,
+    "real_identity_rows_imported": 0,
+    "default_changed": false,
+    "data_checks": {
+      "users": true,
+      "tenants": true,
+      "tenant_members": true,
+      "organization_tenant_members": true,
+      "knowledge_bases": true,
+      "knowledges": true,
+      "chunks": true,
+      "embeddings": true,
+      "kb_shares": true,
+      "resources": true,
+      "resource_bindings": true,
+      "models": true
+    },
+    "source_original_unchanged": true,
+    "file_checks": {
+      "matches_before": true,
+      "matches_original": true,
+      "files": 3,
+      "bytes": 2554991
+    },
+    "schema": "3029|false",
+    "source_schema": "79|false",
+    "jit_table_present": "t",
+    "counts": {
+      "users": 3,
+      "tenants": 4,
+      "tenant_members": 5,
+      "organization_tenant_members": 0,
+      "knowledge_bases": 2,
+      "knowledges": 3,
+      "chunks": 19786,
+      "embeddings": 2717,
+      "kb_shares": 0,
+      "resources": 3,
+      "resource_bindings": 3
+    },
+    "active_data": {
+      "active_kbs": 1,
+      "documents": 3,
+      "nonempty_active_chunks": 2717,
+      "embedding_rows": 2717,
+      "resources": 3
+    },
+    "reference_checks": {
+      "embeddings_missing_chunk": 0,
+      "embedding_document_mismatch": 0,
+      "embedding_kb_mismatch": 0,
+      "active_chunks_missing_document": 0
+    },
+    "credential_and_identity_counts": {
+      "active_tokens": 0,
+      "active_api_keys": 0,
+      "identities": 0,
+      "reviews": 0,
+      "sessions": 0,
+      "ownership": 0,
+      "ownership_audits": 0,
+      "jit_registrations": 0,
+      "enterprise_sessions": 0,
+      "active_oidc_transactions": 0,
+      "enabled_connectors": 0
+    },
+    "indexes_valid": true,
+    "ownership_constraints": [
+      {
+        "type": "u",
+        "definition": "UNIQUE (issuer, email)"
+      },
+      {
+        "type": "u",
+        "definition": "UNIQUE (issuer, employee_no)"
+      },
+      {
+        "type": "u",
+        "definition": "UNIQUE (issuer, user_id)"
+      },
+      {
+        "type": "p",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "type": "c",
+        "definition": "CHECK ((revision > 0))"
+      },
+      {
+        "type": "c",
+        "definition": "CHECK ((status = ANY (ARRAY['active'::text, 'disabled'::text])))"
+      },
+      {
+        "type": "f",
+        "definition": "FOREIGN KEY (user_id) REFERENCES users(id)"
+      }
+    ],
+    "normalized_email_index_present": true,
+    "flags": {
+      "OIDC_AUTH_ENABLE": "false",
+      "SOURCEID_BASIC_ENCODING": "oauth_form",
+      "SOURCEID_PROTOCOL_ONLY": "true",
+      "SOURCEID_CONTRACT_CONFIRMED": "false",
+      "SOURCEID_EMAIL_BINDING_ENABLE": "false",
+      "SOURCEID_AUTO_BINDING_ENABLE": "false",
+      "SOURCEID_SSO_POLICY_CONFIRMED": "false",
+      "SOURCEID_SESSION_MODE": "external",
+      "SOURCEID_ADMISSION_MODE": "oidc_sso_approved",
+      "SOURCEID_LOCAL_REFRESH_ENABLE": "false",
+      "SOURCEID_FORCE_REAUTH_PROMPT_LOGIN": "false",
+      "SOURCEID_ACCOUNT_SCOPE": "NOT_SET",
+      "SOURCEID_ENTERPRISE_POLICY_CONFIRMED": "NOT_SET",
+      "SOURCEID_JIT_ENABLE": "NOT_SET",
+      "SOURCEID_JIT_POLICY_CONFIRMED": "NOT_SET",
+      "SOURCEID_EMAIL_CONTRACT_CONFIRMED": "false",
+      "SOURCEID_AUTHORIZATION_RECHECK_CONFIRMED": "false",
+      "AUTO_MIGRATE": "false"
+    },
+    "env_bytes_unchanged": true,
+    "app": {
+      "id": "ed05c9861e86c9d79e5f5330c9b4946be4ec66d9193f54f8583e3870bdb7c224",
+      "name": "/knowhub-oa-sso-pilot-app-1",
+      "image_id": "sha256:742c7ce56ef38ad32548900c8e7f8b264f9f6cd6138043674b91b27557443413",
+      "image_reference": "sha256:742c7ce56ef38ad32548900c8e7f8b264f9f6cd6138043674b91b27557443413",
+      "created": "2026-10-16T15:10:43.364499957Z",
+      "started": "2026-10-16T15:10:43.914377698Z",
+      "running": true,
+      "health": "healthy",
+      "restart_count": 0,
+      "project": "knowhub-oa-sso-pilot",
+      "service": "app",
+      "working_dir": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a",
+      "compose_files": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a/compose.json,/home/aqyfzx/ai/knowhub-enterprise-jit-f40b1602f/jit-app-pin.json",
+      "ports": {},
+      "mounts": [
+        {
+          "Type": "volume",
+          "Name": "knowhub-oa-sso-pilot-files",
+          "Source": "/mnt/sata0/lib/docker/volumes/knowhub-oa-sso-pilot-files/_data",
+          "Destination": "/data/files",
+          "RW": false
+        },
+        {
+          "Type": "volume",
+          "Name": "knowhub-oa-sso-pilot_doc-tmp",
+          "Source": "/mnt/sata0/lib/docker/volumes/knowhub-oa-sso-pilot_doc-tmp/_data",
+          "Destination": "/tmp/docreader",
+          "RW": false
+        },
+        {
+          "Type": "bind",
+          "Name": null,
+          "Source": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a/private/ownership",
+          "Destination": "/run/sourceid/ownership",
+          "RW": false
+        }
+      ]
+    },
+    "frontend": {
+      "id": "dc2e0af88834c9a621a93e405f2c8aed8197317d904f44feb8491b010eefcda8",
+      "name": "/knowhub-oa-sso-pilot-frontend-1",
+      "image_id": "sha256:ab7845c89fadeb17ad2b68bd924e892f948b893781a50ab79e48385c319ddbe1",
+      "image_reference": "sha256:ab7845c89fadeb17ad2b68bd924e892f948b893781a50ab79e48385c319ddbe1",
+      "created": "2026-10-16T09:20:38.101178738Z",
+      "started": "2026-10-16T09:20:39.132454178Z",
+      "running": true,
+      "health": "NOT_CONFIGURED",
+      "restart_count": 0,
+      "project": "knowhub-oa-sso-pilot",
+      "service": "frontend",
+      "working_dir": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a",
+      "compose_files": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a/compose.json",
+      "ports": {
+        "80/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "18090"
+          }
+        ]
+      },
+      "mounts": []
+    },
+    "app_revision": "f40b1602f69ce5d88e1e87dc3cefae36e9bde356",
+    "frontend_revision": "832b6652adf541892545a7eac8b68733f846ab95",
+    "unchanged_containers": {
+      "knowhub-oa-sso-pilot": {
+        "frontend": true,
+        "postgres": true,
+        "redis": true,
+        "docreader": true,
+        "sid-network": true
+      },
+      "knowhub-sourceid-business": {
+        "app": true,
+        "frontend": true,
+        "postgres": true,
+        "redis": true,
+        "docreader": true
+      }
+    },
+    "default_schema": "3027|false",
+    "app_no_host_port": true,
+    "pg_no_host_port": true,
+    "backup_private_permissions": true,
+    "disposable_databases_removed": true,
+    "archive_sha256": "91003bd609f50e3351e47c9a680a8c5053be67eba4c6597788c93fc5f480a3e6",
+    "migration_3029_constraints": [
+      {
+        "type": "u",
+        "definition": "UNIQUE (issuer, email)"
+      },
+      {
+        "type": "u",
+        "definition": "UNIQUE (issuer, employee_no)"
+      },
+      {
+        "type": "u",
+        "definition": "UNIQUE (issuer, user_id)"
+      },
+      {
+        "type": "p",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "type": "f",
+        "definition": "FOREIGN KEY (user_id) REFERENCES users(id)"
+      }
+    ],
+    "utc": "2026-10-16T15:34:42.648968+00:00"
+  },
+  "image-receipt.json": {
+    "result": "PASS",
+    "image_id": "sha256:742c7ce56ef38ad32548900c8e7f8b264f9f6cd6138043674b91b27557443413",
+    "revision": "f40b1602f69ce5d88e1e87dc3cefae36e9bde356",
+    "migration_resources_match_exact_source": {
+      "003028_sourceid_enterprise_ownership.up.sql": true,
+      "003029_sourceid_jit_registration.up.sql": true
+    },
+    "source_archive_sha256": "91003bd609f50e3351e47c9a680a8c5053be67eba4c6597788c93fc5f480a3e6",
+    "app_frontend_source_diff_empty": true,
+    "ci_run_id": 38900142644,
+    "utc": "2026-10-16T15:18:00.299023+00:00"
+  },
+  "jit-revoke-result.json": {
+    "result": "PASS",
+    "real_sid_called": false,
+    "real_identity_binding": false,
+    "clean_pilot_changed": false,
+    "api": {
+      "login_1": {
+        "same_jit_user_id": true,
+        "unprivileged_jit_flags": true,
+        "auth_me": 200,
+        "no_refresh_response_cookie": true
+      },
+      "login_2": {
+        "same_jit_user_id": true,
+        "unprivileged_jit_flags": true,
+        "auth_me": 200,
+        "no_refresh_response_cookie": true
+      },
+      "multi_device_logout_isolated": true,
+      "local_logout_revokes": true,
+      "refresh_rejected": true,
+      "unauthorized_switch_denied": true,
+      "disabled_jit_ownership_revokes_remaining_device": true
+    },
+    "jit_zero_default_privileges": true,
+    "synthetic_candidate_policy": {
+      "sessions": 2,
+      "idle_1800": true,
+      "access_3600": true,
+      "refresh_disabled": true,
+      "absolute_3600": true,
+      "access_bounded": true
+    },
+    "refresh_rows_created": 0,
+    "identities": 1,
+    "permissions_unchanged": true,
+    "role": "new tenantless ordinary JIT; original admin memberships unchanged",
+    "disposable_mock_database_removed": true,
+    "utc": "2026-10-16T15:34:01.501264+00:00"
+  },
+  "capacity-first-attempt.json": {
+    "result": "FAIL",
+    "real_sid_called": false,
+    "real_identity_binding": false,
+    "clean_pilot_changed": false,
+    "synthetic_existing_accounts": 1950,
+    "capacity": {
+      "result": "PASS",
+      "scenarios": [
+        {
+          "scenario": "e300",
+          "population": 300,
+          "window_seconds": 60,
+          "planned_starts_per_second": 5.0,
+          "wall_seconds": 59.838,
+          "outcomes": {
+            "PASS": 300
+          },
+          "p50_ms": 37.48,
+          "p95_ms": 75.09,
+          "p99_ms": 90.47,
+          "max_start_lag_ms": 23.01,
+          "fault": "normal",
+          "functional_pass": true
+        },
+        {
+          "scenario": "e500",
+          "population": 500,
+          "window_seconds": 60,
+          "planned_starts_per_second": 8.333,
+          "wall_seconds": 59.922,
+          "outcomes": {
+            "PASS": 500
+          },
+          "p50_ms": 37.12,
+          "p95_ms": 70.85,
+          "p99_ms": 91.22,
+          "max_start_lag_ms": 1.28,
+          "fault": "normal",
+          "functional_pass": true
+        },
+        {
+          "scenario": "j300",
+          "population": 300,
+          "window_seconds": 60,
+          "planned_starts_per_second": 5.0,
+          "wall_seconds": 59.843,
+          "outcomes": {
+            "PASS": 300
+          },
+          "p50_ms": 40.19,
+          "p95_ms": 71.93,
+          "p99_ms": 95.69,
+          "max_start_lag_ms": 0.58,
+          "fault": "normal",
+          "functional_pass": true
+        },
+        {
+          "scenario": "j500",
+          "population": 500,
+          "window_seconds": 60,
+          "planned_starts_per_second": 8.333,
+          "wall_seconds": 59.921,
+          "outcomes": {
+            "PASS": 500
+          },
+          "p50_ms": 39.73,
+          "p95_ms": 71.51,
+          "p99_ms": 91.99,
+          "max_start_lag_ms": 0.75,
+          "fault": "normal",
+          "functional_pass": true
+        },
+        {
+          "scenario": "m300",
+          "population": 300,
+          "window_seconds": 60,
+          "planned_starts_per_second": 5.0,
+          "wall_seconds": 59.85,
+          "outcomes": {
+            "PASS": 300
+          },
+          "p50_ms": 39.88,
+          "p95_ms": 66.08,
+          "p99_ms": 89.14,
+          "max_start_lag_ms": 0.56,
+          "fault": "normal",
+          "functional_pass": true
+        },
+        {
+          "scenario": "m500",
+          "population": 500,
+          "window_seconds": 60,
+          "planned_starts_per_second": 8.333,
+          "wall_seconds": 59.921,
+          "outcomes": {
+            "PASS": 500
+          },
+          "p50_ms": 39.39,
+          "p95_ms": 70.81,
+          "p99_ms": 88.91,
+          "max_start_lag_ms": 23.15,
+          "fault": "normal",
+          "functional_pass": true
+        },
+        {
+          "scenario": "delay500",
+          "population": 500,
+          "window_seconds": 60,
+          "planned_starts_per_second": 8.333,
+          "wall_seconds": 60.526,
+          "outcomes": {
+            "PASS": 500
+          },
+          "p50_ms": 640.68,
+          "p95_ms": 676.84,
+          "p99_ms": 692.28,
+          "max_start_lag_ms": 21.47,
+          "fault": "delay",
+          "functional_pass": true
+        },
+        {
+          "scenario": "limited500",
+          "population": 500,
+          "window_seconds": 60,
+          "planned_starts_per_second": 8.333,
+          "wall_seconds": 59.921,
+          "outcomes": {
+            "EXPECTED_REJECT": 50,
+            "PASS": 450
+          },
+          "p50_ms": 40.07,
+          "p95_ms": 67.54,
+          "p99_ms": 86.11,
+          "max_start_lag_ms": 0.77,
+          "fault": "limited",
+          "functional_pass": true
+        },
+        {
+          "scenario": "failure500",
+          "population": 500,
+          "window_seconds": 60,
+          "planned_starts_per_second": 8.333,
+          "wall_seconds": 59.923,
+          "outcomes": {
+            "EXPECTED_REJECT": 50,
+            "PASS": 450
+          },
+          "p50_ms": 40.33,
+          "p95_ms": 75.21,
+          "p99_ms": 95.53,
+          "max_start_lag_ms": 0.84,
+          "fault": "failure",
+          "functional_pass": true
+        },
+        {
+          "scenario": "expired500",
+          "population": 500,
+          "window_seconds": 60,
+          "planned_starts_per_second": 8.333,
+          "wall_seconds": 59.917,
+          "outcomes": {
+            "PASS": 500
+          },
+          "p50_ms": 35.38,
+          "p95_ms": 69.51,
+          "p99_ms": 87.96,
+          "max_start_lag_ms": 0.78,
+          "fault": "normal",
+          "functional_pass": true,
+          "same_user_ids": true
+        }
+      ],
+      "mock_counts": {
+        "authorize": 4400,
+        "token": 4400,
+        "profile": 4300,
+        "reused_code": 0,
+        "rate_limited": 50,
+        "failed": 50,
+        "expired_code": 0
+      },
+      "expired_old_access_rejected": true,
+      "relogin_logout_revocations": 500,
+      "real_sid_called": false,
+      "raw_identity_artifacts": false,
+      "production_capacity_pass": false
+    },
+    "monitoring": {
+      "samples": 102,
+      "max_connections": 3,
+      "max_active": 2,
+      "max_lock_waiters": 0,
+      "max_users_lock_waiters": 0,
+      "max_lock_wait_ms": 0.0,
+      "max_cpu_percent": 79.5,
+      "max_pg_cpu_percent": 39.83,
+      "pg_memory_samples": [
+        "254.6MiB / 31.32GiB",
+        "254.9MiB / 31.32GiB",
+        "255.3MiB / 31.32GiB",
+        "255.4MiB / 31.32GiB",
+        "259.2MiB / 31.32GiB",
+        "252.8MiB / 31.32GiB",
+        "252.8MiB / 31.32GiB",
+        "252.8MiB / 31.32GiB",
+        "253MiB / 31.32GiB",
+        "253.2MiB / 31.32GiB",
+        "248.4MiB / 31.32GiB"
+      ],
+      "memory_samples": [
+        "197.2MiB / 4GiB",
+        "206.2MiB / 4GiB",
+        "208.4MiB / 4GiB",
+        "208.9MiB / 4GiB",
+        "210.1MiB / 4GiB",
+        "210.5MiB / 4GiB",
+        "211.9MiB / 4GiB",
+        "214.1MiB / 4GiB",
+        "214.4MiB / 4GiB",
+        "214.8MiB / 4GiB",
+        "215.6MiB / 4GiB"
+      ],
+      "application_pool_wait_counters": "NOT_CAPTURED (no exported database/sql Stats endpoint)"
+    },
+    "failed_stage": "capacity",
+    "failure_class": "AssertionError",
+    "failure_lines": [
+      82
+    ],
+    "disposable_mock_database_removed": true,
+    "utc": "2026-10-16T15:21:22.010107+00:00"
+  },
+  "capacity-first-fault-evidence.json": {
+    "result": "PASS",
+    "invariants": {
+      "jit_registrations": 1950,
+      "unique_jit_users": true,
+      "jit_memberships": 0,
+      "jit_admin_flags": 0,
+      "new_refresh_rows": 0,
+      "historical_refresh_rows": 24,
+      "historical_active_refresh_rows": 0,
+      "rejected_identity_rows": 0,
+      "rejected_user_sessions": 0,
+      "synthetic_users": 3900,
+      "identities": 3800
+    },
+    "utc": "2026-10-16T15:21:11.361017+00:00",
+    "real_sid_called": false
+  },
+  "health-during-load": {
+    "utc": "2026-10-16T15:15:07.691916+00:00",
+    "health": {
+      "80/health": 200,
+      "80/api/v1/auth/oidc/config": 200,
+      "8080/health": 200,
+      "8080/api/v1/auth/oidc/config": 200,
+      "18090/health": 200,
+      "18090/api/v1/auth/oidc/config": 200
+    },
+    "host_logical_cpus": 16,
+    "load_averages": [
+      1.71,
+      1.89,
+      1.94
+    ],
+    "capacity_container_limits": {
+      "knowhub-jit-capacity-app": {
+        "nano_cpus": 2000000000,
+        "memory_bytes": 4294967296
+      },
+      "knowhub-jit-capacity-provider": {
+        "nano_cpus": 0,
+        "memory_bytes": 0
+      }
+    }
+  },
+  "health-final": {
+    "utc": "2026-10-16T15:34:41.380467+00:00",
+    "health": {
+      "80/health": 200,
+      "80/api/v1/auth/oidc/config": 200,
+      "8080/health": 200,
+      "8080/api/v1/auth/oidc/config": 200,
+      "18090/health": 200,
+      "18090/api/v1/auth/oidc/config": 200
+    },
+    "host_logical_cpus": 16,
+    "load_averages": [
+      1.46,
+      1.51,
+      1.6
+    ],
+    "capacity_container_limits": {}
+  },
+  "private-fixture-cleanup": {
+    "result": "PASS",
+    "removed_generated_fixture_names": [
+      "mock-fixture-pilot",
+      "mock-fixture-enterprise_all",
+      "mock-fixture-jit",
+      "capacity-fixture",
+      "mock-runtime.env",
+      "validation-runtime.env",
+      "test.env"
+    ],
+    "protected_backup_preserved": true,
+    "live_environment_untouched": true,
+    "utc": "2026-10-16T15:36:25.950354+00:00"
+  },
+  "evidence_interpretation": {
+    "initial_jit_case_summary": "Original raw JIT case inherited admin/switch summary labels. Use jit-revoke-result.json for corrected tenantless role and denied SwitchTenant assertions; original-account cases prove legal switch expiry preservation.",
+    "initial_capacity_attempt": "Retained FAIL: total Refresh count included 24 revoked historical records; corrected new-synthetic-user assertion and all ten scenarios rerun successfully."
+  }
+}
