@@ -115,6 +115,8 @@ func runSourceIDLocalBusinessLogin(t *testing.T, ordinary, browser bool, role st
 	}
 	require.NoError(t, db.Exec("CREATE TABLE organization_tenant_members(tenant_id BIGINT,role TEXT,representative_user_id TEXT)").Error)
 	require.NoError(t, db.Create(&types.Tenant{ID: 42, Name: "Synthetic existing space"}).Error)
+	// The unauthorized target is a real, separate space, not a nonexistent ID.
+	require.NoError(t, db.Create(&types.Tenant{ID: 43, Name: "Synthetic second space"}).Error)
 	user := types.User{ID: uuid.NewString(), Username: "synthetic-ordinary", Email: "ordinary@example.test", TenantID: 42, IsActive: true}
 	require.NoError(t, db.Create(&user).Error)
 	require.NoError(t, db.Create(&types.TenantMember{UserID: user.ID, TenantID: 42, Role: types.TenantRoleContributor, Status: types.TenantMemberStatusActive, JoinedAt: time.Now()}).Error)
@@ -132,7 +134,6 @@ func runSourceIDLocalBusinessLogin(t *testing.T, ordinary, browser bool, role st
 		user.CanAccessAllTenants = true
 		require.NoError(t, db.Save(&user).Error)
 	case "multi_space":
-		require.NoError(t, db.Create(&types.Tenant{ID: 43, Name: "Synthetic second space"}).Error)
 		require.NoError(t, db.Create(&types.TenantMember{UserID: user.ID, TenantID: 43, Role: types.TenantRoleViewer, Status: types.TenantMemberStatusActive, JoinedAt: time.Now()}).Error)
 	}
 	var originalMembers []types.TenantMember
