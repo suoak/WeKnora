@@ -51,6 +51,10 @@ func (s *userService) PrepareOIDCCallback(ctx context.Context, state string) (co
 	if transaction.Nonce != p.Nonce {
 		return ctx, errors.New("oidc transaction mismatch")
 	}
+	ctx, err = prepareSourceIDReauthentication(ctx, s.config.OIDCAuth, transaction.Result)
+	if err != nil {
+		return ctx, err
+	}
 	ctx = context.WithValue(ctx, sourceIDPreparedKey, true)
 	return context.WithValue(ctx, oidcVerifierKey, transaction.Verifier), nil
 }
@@ -95,6 +99,7 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 		admission, err = s.resolveSourceIDAdmission(ctx, cfg, types.SourceIDAdmissionRequest{
 			Issuer: cfg.IssuerURL, Subject: info.Subject, EmployeeNo: employee, Stage: "login", VerifiedClaims: info.Claims,
 			AuthorizationVerified: proof.Issuer == cfg.IssuerURL && proof.Subject == info.Subject, AuthorizationVerifiedAt: proof.At,
+			PromptLoginRequested: proof.PromptLoginRequested,
 		})
 		if err != nil {
 			return nil, ctx, err

@@ -453,6 +453,9 @@ func (s *userService) GetOIDCAuthorizationURL(ctx context.Context, redirectURI s
 	if strings.TrimSpace(redirectURI) == "" {
 		return nil, errors.New("redirect_uri is required")
 	}
+	if cfg.SourceIDEnable && !cfg.SourceIDProtocolOnly && cfg.EffectiveSourceIDSessionMode() == "local_approved" && cfg.SourceIDAdmissionMode == "authorization" && !cfg.SourceIDForceReauthPromptLogin {
+		return nil, errors.New("sourceid forced reauthentication required")
+	}
 
 	nonce, err := generateRandomString(24)
 	if err != nil {
@@ -489,13 +492,22 @@ func (s *userService) GetOIDCAuthorizationURL(ctx context.Context, redirectURI s
 			query.Set("code_challenge", base64.RawURLEncoding.EncodeToString(digest[:]))
 			query.Set("code_challenge_method", "S256")
 		}
-		if err := store.SaveOIDCTransaction(ctx, &types.OIDCTransaction{Key: apprepo.SourceIDHash(state), Nonce: nonce, Verifier: verifier, ExpiresAt: time.Now().Add(10 * time.Minute)}); err != nil {
+		metadata, err := sourceIDAuthorizationMetadata(cfg, query)
+		if err != nil {
+			return nil, err
+		}
+		if err := store.SaveOIDCTransaction(ctx, &types.OIDCTransaction{Key: apprepo.SourceIDHash(state), Nonce: nonce, Verifier: verifier, Result: metadata, ExpiresAt: time.Now().Add(10 * time.Minute)}); err != nil {
 			return nil, err
 		}
 	}
 
 	authURL := cfg.AuthorizationEndpoint
-	if strings.Contains(authURL, "?") {
+	if cfg.SourceIDEnable && cfg.SourceIDForceReauthPromptLogin {
+		authURL, err = sourceIDForcedAuthorizationURL(authURL, query)
+		if err != nil {
+			return nil, err
+		}
+	} else if strings.Contains(authURL, "?") {
 		authURL += "&" + query.Encode()
 	} else {
 		authURL += "?" + query.Encode()
@@ -560,7 +572,8 @@ func (s *userService) LoginWithOIDC(
 	if cfg.SourceIDEnable {
 		stageStarted = time.Now()
 		if prepared, _ := ctx.Value(sourceIDPreparedKey).(bool); prepared {
-			ctx = context.WithValue(ctx, sourceIDAuthorizationProofKey{}, sourceIDAuthorizationProof{Issuer: cfg.IssuerURL, Subject: userInfo.Subject, At: time.Now()})
+			request, _ := ctx.Value(sourceIDReauthRequestKey{}).(sourceIDReauthRequest)
+			ctx = context.WithValue(ctx, sourceIDAuthorizationProofKey{}, sourceIDAuthorizationProof{Issuer: cfg.IssuerURL, Subject: userInfo.Subject, At: time.Now(), PromptLoginRequested: request.Prompt == "login"})
 		}
 		user, ctx, err = s.loginSourceID(ctx, cfg, userInfo)
 		SourceIDDiagnosticStage(ctx, "identity_mapping", stageStarted, err)
@@ -1966,6 +1979,9 @@ func (s *userService) resolveOIDCUserInfo(ctx context.Context, cfg *config.OIDCA
 				SourceIDDiagnosticStage(ctx, "id_token", stageStarted, errors.New("OIDC ID Token nonce mismatch"))
 				sourceIDIDTokenFailureDiagnostic(ctx, errors.New("OIDC ID Token nonce mismatch"))
 				return nil, errors.New("OIDC ID Token nonce mismatch")
+			}
+			if err := checkSourceIDReauthentication(ctx, cfg, idTokenClaims); err != nil {
+				return nil, err
 			}
 			SourceIDDiagnosticStage(ctx, "id_token", stageStarted, nil)
 			sourceIDSchemaDiagnostic(ctx, "id_token", idTokenClaims)

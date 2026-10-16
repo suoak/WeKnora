@@ -102,13 +102,16 @@ func TestSourceIDLocalBrowserBusinessLogin(t *testing.T) {
 		SourceIDAutoBindingPolicyRef: "synthetic-binding-policy", SourceIDLocalPolicyRef: "synthetic-local-approval",
 		SourceIDAdmissionMode: "authorization", SourceIDAdmissionPolicyRef: "synthetic-sid-authorization-contract",
 		SourceIDAuthorizationRecheckConfirmed: true, SourceIDLocalAccessTTL: "10m", SourceIDLocalAbsoluteTTL: "10m",
-		SourceIDLocalIdleTTL: "10m", SourceIDAdmissionMaxAge: "10m", ClientID: "knowhub", ClientSecret: "synthetic-secret",
+		SourceIDForceReauthPromptLogin: true,
+		SourceIDLocalIdleTTL:           "10m", SourceIDAdmissionMaxAge: "10m", ClientID: "knowhub", ClientSecret: "synthetic-secret",
 		IssuerURL: "https://mock.example", ClientAuthMethod: "client_secret_basic", UserInfoTransport: "bearer_get",
 		Scopes: []string{"openid"}, RedirectURI: "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback", ProviderDisplayName: "OA"}
 	mock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/authorize":
 			q := r.URL.Query()
+			require.Equal(t, []string{"login"}, q["prompt"])
+			require.False(t, q.Has("max_age"))
 			dest, _ := url.Parse(q.Get("redirect_uri"))
 			values := dest.Query()
 			values.Set("state", q.Get("state"))

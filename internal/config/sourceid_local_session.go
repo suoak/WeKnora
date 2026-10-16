@@ -48,6 +48,9 @@ func (c *OIDCAuthConfig) SourceIDLocalPolicy() (SourceIDLocalPolicy, error) {
 	if c.SourceIDAdmissionMode == "authorization" && !c.SourceIDAuthorizationRecheckConfirmed {
 		return p, errors.New("sourceid authorization admission contract pending")
 	}
+	if c.SourceIDAdmissionMode == "authorization" && !c.SourceIDForceReauthPromptLogin {
+		return p, errors.New("sourceid forced reauthentication required")
+	}
 	if c.SourceIDAdmissionMode == "authorization" && c.SourceIDLocalRefreshEnable {
 		return p, errors.New("sourceid authorization-only admission requires refresh disabled")
 	}

@@ -283,6 +283,7 @@ func TestSourceIDAdmissionStrategiesAndUnavailableFailClosed(t *testing.T) {
 				if source == "authorization" {
 					cfg.SourceIDLocalRefreshEnable = false
 					cfg.SourceIDAuthorizationRecheckConfirmed = true
+					cfg.SourceIDForceReauthPromptLogin = true
 				}
 				mock := sourceIDMockAdmissionResolver{cfg: cfg}
 				switch failure {
@@ -342,6 +343,7 @@ func TestSourceIDLocalSessionRealOIDCServiceWithMockSID(t *testing.T) {
 	// Exercise the real first-release adapter against an entirely synthetic SID.
 	cfg.SourceIDAdmissionMode = "authorization"
 	cfg.SourceIDAuthorizationRecheckConfirmed = true
+	cfg.SourceIDForceReauthPromptLogin = true
 	cfg.SourceIDLocalRefreshEnable = false
 	cfg.SourceIDStatusClaim = ""
 	cfg.SourceIDAllowedStatus = ""

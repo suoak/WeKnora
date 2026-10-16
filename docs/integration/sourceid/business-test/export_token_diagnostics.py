@@ -41,6 +41,12 @@ def extract(line, depth=0):
     if not isinstance(item, dict) or not re.fullmatch(r'[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}', item.get('trace', '')):
         return None
     kind = item.get('event')
+    if kind == 'sourceid_reauthentication':
+        if set(item) != {'event', 'trace', 'evidence'} or item.get('evidence') not in {
+            'NOT_PROVIDED_CONTRACT_REQUIRED', 'INVALID_OR_STALE', 'SIGNED_AUTH_TIME_VERIFIED'
+        }:
+            return None
+        return item
     if kind == 'sourceid_id_token_failure':
         allowed = {'jwks_fetch', 'key_selection', 'parse', 'issuer', 'audience', 'expired', 'iat', 'nbf', 'required_claim', 'claim_type', 'algorithm', 'signature', 'iat_missing', 'authorized_party', 'subject_missing', 'nonce', 'nonce_missing', 'unknown'}
         categories = item.get('categories')

@@ -39,4 +39,10 @@ failure = {'event': 'sourceid_id_token_failure', 'trace': transport['trace'], 'c
 assert exporter.extract(json.dumps(failure)) == failure
 for patch in [{'categories': ['synthetic-secret']}, {'raw_error': 'synthetic-token'}, {'categories': []}, {'at_hash_validation': 'PASS'}]:
     assert exporter.extract(json.dumps({**failure, **patch})) is None
-print(json.dumps({'exporter': 'PASS', 'unknown_raw_fields_rejected': True, 'trace_binding_checked': True}))
+for evidence in ['NOT_PROVIDED_CONTRACT_REQUIRED', 'INVALID_OR_STALE', 'SIGNED_AUTH_TIME_VERIFIED']:
+    reauth = {'event': 'sourceid_reauthentication', 'trace': transport['trace'], 'evidence': evidence}
+    assert exporter.extract(json.dumps(reauth)) == reauth
+    assert exporter.extract(json.dumps({**reauth, 'auth_time': 1234567890})) is None
+    assert exporter.extract(json.dumps({**reauth, 'subject': 'synthetic-private'})) is None
+    assert exporter.extract(json.dumps({**reauth, 'evidence': 'synthetic-private'})) is None
+print(json.dumps({'exporter': 'PASS', 'unknown_raw_fields_rejected': True, 'trace_binding_checked': True, 'reauthentication_enum_only': True}))

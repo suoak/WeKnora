@@ -97,6 +97,7 @@ type SourceIDAdmissionRequest struct {
 	Issuer, Subject, EmployeeNo, Stage string
 	VerifiedClaims                     map[string]interface{}
 	AuthorizationVerified              bool
+	PromptLoginRequested               bool
 	AuthorizationVerifiedAt            time.Time
 }
 type SourceIDAdmissionDecision struct {

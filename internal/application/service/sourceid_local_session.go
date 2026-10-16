@@ -17,8 +17,9 @@ type sourceIDLocalStore interface {
 
 type sourceIDAuthorizationProofKey struct{}
 type sourceIDAuthorizationProof struct {
-	Issuer, Subject string
-	At              time.Time
+	Issuer, Subject      string
+	At                   time.Time
+	PromptLoginRequested bool
 }
 
 // First-release adapter: only consumes a fully verified, single-use OIDC
@@ -28,6 +29,7 @@ type sourceIDAuthorizationAdmissionResolver struct{ cfg *config.OIDCAuthConfig }
 func (r sourceIDAuthorizationAdmissionResolver) Resolve(ctx context.Context, request types.SourceIDAdmissionRequest) (types.SourceIDAdmissionDecision, error) {
 	decision := types.SourceIDAdmissionDecision{Outcome: types.SourceIDAdmissionUnknown}
 	if ctx.Err() != nil || !r.cfg.SourceIDAuthorizationRecheckConfirmed || request.Stage != "login" ||
+		!r.cfg.SourceIDForceReauthPromptLogin || !request.PromptLoginRequested ||
 		!request.AuthorizationVerified || request.Issuer != r.cfg.IssuerURL || request.Subject == "" || request.AuthorizationVerifiedAt.IsZero() {
 		return decision, nil
 	}
