@@ -356,6 +356,9 @@ type OIDCAuthConfig struct {
 	SourceIDEnterprisePolicyRef           string `yaml:"sourceid_enterprise_policy_ref" json:"-"`
 	SourceIDEnterpriseMaxAge              string `yaml:"sourceid_enterprise_max_age" json:"-"`
 	SourceIDJITEnable                     bool   `yaml:"sourceid_jit_enable" json:"-"`
+	SourceIDJITPolicyConfirmed            bool   `yaml:"sourceid_jit_policy_confirmed" json:"-"`
+	SourceIDJITPolicyRef                  string `yaml:"sourceid_jit_policy_ref" json:"-"`
+	SourceIDJITEmailDomains               string `yaml:"sourceid_jit_email_domains" json:"-"`
 	RedirectURI                           string `yaml:"redirect_uri" json:"redirect_uri"`
 	PKCEEnable                            bool   `yaml:"pkce_enable" json:"-"`
 	ClientAuthMethod                      string `yaml:"client_auth_method" json:"-"`
@@ -819,6 +822,8 @@ func applyOIDCEnvOverrides(cfg *Config) {
 		"SOURCEID_ACCOUNT_SCOPE":           &cfg.OIDCAuth.SourceIDAccountScope,
 		"SOURCEID_ENTERPRISE_POLICY_REF":   &cfg.OIDCAuth.SourceIDEnterprisePolicyRef,
 		"SOURCEID_ENTERPRISE_MAX_AGE":      &cfg.OIDCAuth.SourceIDEnterpriseMaxAge,
+		"SOURCEID_JIT_POLICY_REF":          &cfg.OIDCAuth.SourceIDJITPolicyRef,
+		"SOURCEID_JIT_EMAIL_DOMAINS":       &cfg.OIDCAuth.SourceIDJITEmailDomains,
 		"SOURCEID_LOCAL_POLICY_REF":        &cfg.OIDCAuth.SourceIDLocalPolicyRef,
 		"SOURCEID_LOCAL_ACCESS_TTL":        &cfg.OIDCAuth.SourceIDLocalAccessTTL,
 		"SOURCEID_LOCAL_ABSOLUTE_TTL":      &cfg.OIDCAuth.SourceIDLocalAbsoluteTTL,
@@ -849,6 +854,7 @@ func applyOIDCEnvOverrides(cfg *Config) {
 		"SOURCEID_SSO_POLICY_CONFIRMED":            &cfg.OIDCAuth.SourceIDSSOPolicyConfirmed,
 		"SOURCEID_ENTERPRISE_POLICY_CONFIRMED":     &cfg.OIDCAuth.SourceIDEnterprisePolicyConfirmed,
 		"SOURCEID_JIT_ENABLE":                      &cfg.OIDCAuth.SourceIDJITEnable,
+		"SOURCEID_JIT_POLICY_CONFIRMED":            &cfg.OIDCAuth.SourceIDJITPolicyConfirmed,
 		"SOURCEID_AUTHORIZATION_RECHECK_CONFIRMED": &cfg.OIDCAuth.SourceIDAuthorizationRecheckConfirmed,
 		"SOURCEID_LOCAL_REFRESH_ENABLE":            &cfg.OIDCAuth.SourceIDLocalRefreshEnable,
 		"SOURCEID_ENABLE":                          &cfg.OIDCAuth.SourceIDEnable,

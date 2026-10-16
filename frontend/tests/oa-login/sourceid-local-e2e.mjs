@@ -5,6 +5,7 @@ import assert from 'node:assert/strict'
 
 const backend = new URL(process.env.SOURCEID_E2E_BACKEND)
 const mock = new URL(process.env.SOURCEID_E2E_MOCK)
+const jit = process.env.SOURCEID_E2E_JIT === '1'
 for (const url of [backend, mock]) {
   assert.equal(url.protocol, 'http:')
   assert.equal(url.hostname, '127.0.0.1')
@@ -82,13 +83,13 @@ try {
   }, { path, method })
   const me = await api('/api/v1/auth/me')
   assert.equal(me.status, 200); assert.equal(me.success, true)
-  assert.equal(me.tenant, 42); assert.equal(me.role, 'contributor')
+  assert.equal(me.tenant, jit ? undefined : 42); assert.equal(me.role, jit ? undefined : 'contributor')
   await page.reload()
   await expect(page.locator('.portal-shell')).toBeVisible({ timeout: 30000 })
   const restored = await api('/api/v1/auth/me')
-  assert.equal(restored.status, 200); assert.equal(restored.tenant, 42); assert.equal(restored.role, 'contributor')
+  assert.equal(restored.status, 200); assert.equal(restored.tenant, jit ? undefined : 42); assert.equal(restored.role, jit ? undefined : 'contributor')
   const knowledge = await api('/api/v1/knowledge-bases')
-  assert.equal(knowledge.status, 200); assert.deepEqual(knowledge.ids, ['synthetic-kb'])
+  assert.equal(knowledge.status, 200); assert.deepEqual(knowledge.ids, jit ? [] : ['synthetic-kb'])
   const logout = await api('/api/v1/auth/logout', 'POST')
   assert.equal(logout.status, 200); assert.equal((await api('/api/v1/auth/me')).status, 401)
   await context.request.post(backend.origin + '/__synthetic/disable')

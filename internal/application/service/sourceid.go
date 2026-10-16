@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	apprepo "github.com/Tencent/WeKnora/internal/application/repository"
@@ -126,7 +127,16 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 			if policyErr != nil {
 				return nil, ctx, policyErr
 			}
-			user, err = binding.ResolveSourceIDEnterpriseEmailIdentity(ctx, cfg.IssuerURL, info.Subject, employee, sourceIDStringClaim(info.Claims, "attributes.RJEMAIL"), cfg.SourceIDAutoBindingPolicyRef, cfg.SourceIDEnterprisePolicyRef, maxAge)
+			email := strings.ToLower(strings.TrimSpace(sourceIDStringClaim(info.Claims, "attributes.RJEMAIL")))
+			if cfg.SourceIDJITEnable {
+				jit, ok := r.(sourceIDJITStore)
+				if !ok {
+					return nil, ctx, errors.New("sourceid jit repository unavailable")
+				}
+				user, err = jit.ResolveSourceIDEnterpriseOrJITIdentity(ctx, cfg.IssuerURL, info.Subject, employee, email, cfg.SourceIDAutoBindingPolicyRef, cfg.SourceIDEnterprisePolicyRef, maxAge, cfg.SourceIDJITPolicyRef, cfg.SourceIDJITDomains(), s.sourceIDJITProvisioner(email))
+			} else {
+				user, err = binding.ResolveSourceIDEnterpriseEmailIdentity(ctx, cfg.IssuerURL, info.Subject, employee, email, cfg.SourceIDAutoBindingPolicyRef, cfg.SourceIDEnterprisePolicyRef, maxAge)
+			}
 		} else {
 			accounts, accountErr := cfg.SourceIDPilotAccounts()
 			if accountErr != nil {

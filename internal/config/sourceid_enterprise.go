@@ -29,12 +29,31 @@ func (c *OIDCAuthConfig) SourceIDAccountPolicy() error {
 	default:
 		return errors.New("sourceid account scope invalid")
 	}
-	// JIT remains a separately approved product capability, not a fallback when
-	// historical account ownership cannot be established.
 	if c.SourceIDJITEnable {
-		return errors.New("sourceid jit policy unsupported")
+		if c.EffectiveSourceIDAccountScope() != "enterprise_all" || !c.SourceIDJITPolicyConfirmed || strings.TrimSpace(c.SourceIDJITPolicyRef) == "" || len(c.SourceIDJITDomains()) == 0 {
+			return errors.New("sourceid jit policy pending")
+		}
 	}
 	return nil
+}
+
+// Exact corporate domains, approved with the independent JIT identity and
+// eligibility contract. No wildcard/substring domain matching.
+func (c *OIDCAuthConfig) SourceIDJITDomains() []string {
+	var result []string
+	for _, raw := range strings.Split(c.SourceIDJITEmailDomains, ",") {
+		domain := strings.ToLower(strings.TrimSpace(raw))
+		if domain == "" || !strings.Contains(domain, ".") || strings.ContainsAny(domain, "@*/ :\\\t\r\n") {
+			return nil
+		}
+		for _, ch := range domain {
+			if !(ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '-' || ch == '.') {
+				return nil
+			}
+		}
+		result = append(result, domain)
+	}
+	return result
 }
 
 func (c *OIDCAuthConfig) SourceIDEnterpriseFreshness() (time.Duration, error) {

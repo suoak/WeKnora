@@ -97,10 +97,23 @@ func TestSourceIDEnterpriseAccessOnlyHTTP(t *testing.T) {
 func TestSourceIDEnterpriseBrowserBusinessLogin(t *testing.T) {
 	runSourceIDLocalBusinessLoginScope(t, true, true, "contributor", true)
 }
+func TestSourceIDJITAccessOnlyHTTP(t *testing.T) {
+	runSourceIDLocalBusinessLoginScope(t, true, false, "jit", true)
+}
+func TestSourceIDJITBrowserBusinessLogin(t *testing.T) {
+	runSourceIDLocalBusinessLoginScope(t, true, true, "jit", true)
+}
+func TestSourceIDJITExistingAllRolesHTTP(t *testing.T) {
+	for _, role := range []string{"viewer", "contributor", "owner", "tenant_admin", "org_admin", "system_admin", "cross_space_admin", "multi_space"} {
+		t.Run(role, func(t *testing.T) { runSourceIDLocalBusinessLoginScope(t, true, false, "jit-enabled:"+role, true) })
+	}
+}
 func runSourceIDLocalBusinessLogin(t *testing.T, ordinary, browser bool, role string) {
 	runSourceIDLocalBusinessLoginScope(t, ordinary, browser, role, false)
 }
 func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, role string, enterprise bool) {
+	enableJIT := role == "jit" || strings.HasPrefix(role, "jit-enabled:")
+	role = strings.TrimPrefix(role, "jit-enabled:")
 	if browser && os.Getenv("SOURCEID_BROWSER_E2E") != "1" {
 		t.Skip("opt-in synthetic browser integration")
 	}
@@ -119,7 +132,7 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 	require.NoError(t, db.AutoMigrate(&types.Tenant{}, &types.User{}, &types.AuthToken{}, &types.TenantMember{}))
 	require.NoError(t, db.Exec("DROP INDEX IF EXISTS idx_auth_tokens_session_id").Error)
 	require.NoError(t, db.Exec("ALTER TABLE auth_tokens DROP COLUMN session_id").Error)
-	for _, name := range []string{"003024_sourceid_oidc", "003026_sourceid_binding_review", "003027_sourceid_local_session", "003028_sourceid_enterprise_ownership"} {
+	for _, name := range []string{"003024_sourceid_oidc", "003026_sourceid_binding_review", "003027_sourceid_local_session", "003028_sourceid_enterprise_ownership", "003029_sourceid_jit_registration"} {
 		data, err := os.ReadFile(filepath.Join(root, "migrations/sqlite/"+name+".up.sql"))
 		require.NoError(t, err)
 		require.NoError(t, db.Exec(string(data)).Error)
@@ -129,8 +142,10 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 	// The unauthorized target is a real, separate space, not a nonexistent ID.
 	require.NoError(t, db.Create(&types.Tenant{ID: 43, Name: "Synthetic second space"}).Error)
 	user := types.User{ID: uuid.NewString(), Username: "synthetic-ordinary", Email: "ordinary@example.test", TenantID: 42, IsActive: true}
-	require.NoError(t, db.Create(&user).Error)
-	require.NoError(t, db.Create(&types.TenantMember{UserID: user.ID, TenantID: 42, Role: types.TenantRoleContributor, Status: types.TenantMemberStatusActive, JoinedAt: time.Now()}).Error)
+	if role != "jit" {
+		require.NoError(t, db.Create(&user).Error)
+		require.NoError(t, db.Create(&types.TenantMember{UserID: user.ID, TenantID: 42, Role: types.TenantRoleContributor, Status: types.TenantMemberStatusActive, JoinedAt: time.Now()}).Error)
+	}
 	switch role {
 	case "viewer", "owner":
 		require.NoError(t, db.Model(&types.TenantMember{}).Where("user_id=?", user.ID).Update("role", role).Error)
@@ -188,12 +203,25 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 		cfg.SourceIDEnterprisePolicyRef = "synthetic-enterprise"
 		cfg.SourceIDEnterpriseMaxAge = "1h"
 		cfg.SourceIDPilotAccountsFile = ""
+		if enableJIT {
+			cfg.SourceIDJITEnable = true
+			cfg.SourceIDJITPolicyConfirmed = true
+			cfg.SourceIDJITPolicyRef = "synthetic-jit"
+			cfg.SourceIDJITEmailDomains = "example.test"
+		}
 		importer, ok := apprepo.NewUserRepository(db).(interface {
 			SyncSourceIDAccountOwnership(context.Context, types.SourceIDAccountOwnership, string, bool) (bool, error)
 		})
 		require.True(t, ok)
-		_, err := importer.SyncSourceIDAccountOwnership(context.Background(), types.SourceIDAccountOwnership{Issuer: cfg.IssuerURL, EmployeeNo: "synthetic-employee", UserID: user.ID, Email: user.Email, Status: "active", Revision: 1, PolicyRef: cfg.SourceIDEnterprisePolicyRef, OwnershipRef: "synthetic-independent-account-proof", SourceRef: "synthetic-directory", VerifiedAt: time.Now().Add(-time.Second), ValidUntil: time.Now().Add(time.Hour)}, "synthetic-operator", true)
-		require.NoError(t, err)
+		if role == "jit" {
+			cfg.SourceIDJITEnable = true
+			cfg.SourceIDJITPolicyConfirmed = true
+			cfg.SourceIDJITPolicyRef = "synthetic-jit"
+			cfg.SourceIDJITEmailDomains = "example.test"
+		} else {
+			_, err := importer.SyncSourceIDAccountOwnership(context.Background(), types.SourceIDAccountOwnership{Issuer: cfg.IssuerURL, EmployeeNo: "synthetic-employee", UserID: user.ID, Email: user.Email, Status: "active", Revision: 1, PolicyRef: cfg.SourceIDEnterprisePolicyRef, OwnershipRef: "synthetic-independent-account-proof", SourceRef: "synthetic-directory", VerifiedAt: time.Now().Add(-time.Second), ValidUntil: time.Now().Add(time.Hour)}, "synthetic-operator", true)
+			require.NoError(t, err)
+		}
 	}
 	mock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -327,6 +355,13 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 		require.Equal(t, 200, result.Code)
 		var login map[string]interface{}
 		require.NoError(t, json.Unmarshal(result.Body.Bytes(), &login))
+		if role == "jit" {
+			require.NoError(t, db.Where("email=?", user.Email).First(&user).Error)
+			require.Zero(t, user.TenantID)
+			require.False(t, user.IsSystemAdmin)
+			require.False(t, user.CanAccessAllTenants)
+			require.Equal(t, "!sourceid-jit-no-local-password", user.PasswordHash)
+		}
 		_, hasRefresh := login["refresh_token"]
 		require.False(t, hasRefresh)
 		access, ok := login["token"].(string)
@@ -354,11 +389,15 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 			require.Equal(t, 403, api("/api/v1/auth/switch-tenant", `{"tenant_id":43}`, access).Code)
 		}
 		switched := api("/api/v1/auth/switch-tenant", `{"tenant_id":42}`, access)
-		require.Equal(t, 200, switched.Code)
-		var next map[string]interface{}
-		require.NoError(t, json.Unmarshal(switched.Body.Bytes(), &next))
-		_, hasRefresh = next["refresh_token"]
-		require.False(t, hasRefresh)
+		if role == "jit" {
+			require.Equal(t, 403, switched.Code)
+		} else {
+			require.Equal(t, 200, switched.Code)
+			var next map[string]interface{}
+			require.NoError(t, json.Unmarshal(switched.Body.Bytes(), &next))
+			_, hasRefresh = next["refresh_token"]
+			require.False(t, hasRefresh)
+		}
 		var after types.SourceIDSession
 		require.NoError(t, db.First(&after).Error)
 		require.Equal(t, before.ExpiresAt, after.ExpiresAt)
@@ -387,6 +426,9 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 	cmd.WaitDelay = 5 * time.Second
 	cmd.Dir = filepath.Join(root, "frontend")
 	cmd.Env = append(os.Environ(), "SOURCEID_E2E_BACKEND="+app.URL, "SOURCEID_E2E_MOCK="+mock.URL)
+	if role == "jit" {
+		cmd.Env = append(cmd.Env, "SOURCEID_E2E_JIT=1")
+	}
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, "synthetic browser assertions: %s", string(output))
 	require.Contains(t, string(output), "SOURCEID_LOCAL_BROWSER_PASS")
@@ -397,6 +439,12 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 	var binding types.ExternalIdentity
 	require.NoError(t, db.First(&binding).Error)
 	require.Equal(t, user.ID, binding.UserID)
+	if role == "jit" {
+		var members int64
+		require.NoError(t, db.Model(&types.TenantMember{}).Count(&members).Error)
+		require.Zero(t, members)
+		return
+	}
 	var member types.TenantMember
 	require.NoError(t, db.First(&member).Error)
 	require.Equal(t, types.TenantRoleContributor, member.Role)
