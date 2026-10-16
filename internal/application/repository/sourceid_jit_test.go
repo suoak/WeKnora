@@ -62,6 +62,11 @@ func TestSourceIDJITLifecycle(t *testing.T) {
 	u, e = login("new-sub", "changed@example.test")
 	require.NoError(t, e)
 	require.Equal(t, firstID, u.ID)
+	// Independently verified directory maintenance supersedes JIT renewal.
+	require.NoError(t, db.Model(&types.SourceIDAccountOwnership{}).Where("user_id=?", firstID).Update("source_ref", "synthetic-independent-directory").Error)
+	u, e = login("new-sub", "changed@example.test")
+	require.NoError(t, e)
+	require.Equal(t, firstID, u.ID)
 	_, e = login("wrong-sub", "new@example.test")
 	require.Error(t, e)
 	var review types.SourceIDBindingReview

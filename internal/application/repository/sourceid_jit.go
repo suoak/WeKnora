@@ -34,7 +34,7 @@ func (r *userRepository) ResolveSourceIDEnterpriseOrJITIdentity(ctx context.Cont
 		if r.bindingDB(ctx).Model(&types.SourceIDJITRegistration{}).Where("issuer=? AND employee_no=?", issuer, employee).Count(&n).Error != nil {
 			return nil, errJIT
 		}
-		if n == 0 {
+		if n == 0 || !strings.HasPrefix(known.SourceRef, "approved-jit:") {
 			return r.ResolveSourceIDEnterpriseEmailIdentity(ctx, issuer, subject, employee, email, bindingPolicy, ownershipPolicy, maxAge)
 		}
 	} else if !errors.Is(lookup, gorm.ErrRecordNotFound) {
@@ -63,7 +63,7 @@ func (r *userRepository) ResolveSourceIDEnterpriseOrJITIdentity(ctx context.Cont
 			if jerr != nil && !errors.Is(jerr, gorm.ErrRecordNotFound) {
 				return errJIT
 			}
-			if jerr == nil {
+			if jerr == nil && strings.HasPrefix(ownership.SourceRef, "approved-jit:") {
 				// Only our own new accounts can renew their verified identity
 				// snapshot on subsequent OIDC login, never historical ownership.
 				if ownership.UserID != jit.UserID || ownership.Status != "active" || jit.PolicyRef != jitPolicy || ownership.SourceRef != "approved-jit:"+jitPolicy {
