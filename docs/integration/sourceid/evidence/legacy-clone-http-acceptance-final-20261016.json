@@ -1,0 +1,48 @@
+{
+  "result": "PASS",
+  "real_sid_login": false,
+  "real_employee_binding": false,
+  "admin_first_login": {
+    "original_user_id_preserved": true,
+    "home_tenant_preserved": true,
+    "system_admin_preserved": true,
+    "auth_me": 200,
+    "refresh_renewal_rejected": true,
+    "portal_static_route": 200
+  },
+  "original_knowledge": {
+    "kb_detail": 200,
+    "document_list": 200,
+    "downloads": [
+      {
+        "http_status": 200,
+        "nonempty": true
+      },
+      {
+        "http_status": 200,
+        "nonempty": true
+      },
+      {
+        "http_status": 200,
+        "nonempty": true
+      }
+    ]
+  },
+  "admin_second_login_same_account": true,
+  "forbidden_fixture": {
+    "exists_verified_as_admin": true,
+    "separate_space": true
+  },
+  "viewer_acl": {
+    "auth_me": 200,
+    "allowed_existing_kb": 200,
+    "existing_cross_space_denied": 403,
+    "cross_space_switch_denied": true
+  },
+  "mock_admission_deny": true,
+  "mock_request_counts": {
+    "token": 3,
+    "userinfo": 3,
+    "authorization": 4
+  }
+}

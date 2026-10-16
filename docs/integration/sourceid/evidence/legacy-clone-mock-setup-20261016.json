@@ -1,0 +1,9 @@
+{
+  "result": "PASS",
+  "synthetic_viewer_created_in_clone_only": true,
+  "original_documents_readable_local_scheme": 3,
+  "synthetic_oidc_only": true,
+  "local_policy_is_synthetic_not_real_approval": true,
+  "live_configuration_changed": false,
+  "network": "none-loopback-only"
+}

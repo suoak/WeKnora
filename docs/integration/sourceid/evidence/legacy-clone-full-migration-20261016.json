@@ -1,0 +1,61 @@
+{
+  "result": "PASS",
+  "migration": "79_to_3027_full_chain",
+  "clone_only": true,
+  "schema": "3027|false",
+  "original_role_acl_preserved": {
+    "users": true,
+    "tenant_members": true,
+    "organization_tenant_members": true,
+    "knowledge_bases": true,
+    "kb_shares": true
+  },
+  "original_counts_preserved": true,
+  "extensions": [
+    {
+      "name": "vector",
+      "version": "0.8.1"
+    },
+    {
+      "name": "pg_search",
+      "version": "0.22.2"
+    }
+  ],
+  "invalid_indexes": 0,
+  "embedding_references": {
+    "rows": 2717,
+    "missing_chunks": 0,
+    "missing_documents": 0,
+    "missing_kbs": 0
+  },
+  "credential_table_columns": [
+    {
+      "table": "auth_tokens",
+      "column": "is_revoked"
+    },
+    {
+      "table": "models",
+      "column": "parameters"
+    },
+    {
+      "table": "auth_tokens",
+      "column": "token"
+    },
+    {
+      "table": "models",
+      "column": "status"
+    },
+    {
+      "table": "tenants",
+      "column": "status"
+    },
+    {
+      "table": "data_sources",
+      "column": "status"
+    },
+    {
+      "table": "auth_tokens",
+      "column": "token_type"
+    }
+  ]
+}

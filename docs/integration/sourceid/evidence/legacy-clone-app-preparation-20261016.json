@@ -1,0 +1,27 @@
+{
+  "old_auth_tokens_all_revoked": true,
+  "old_api_keys_all_revoked": true,
+  "old_passwords_disabled": true,
+  "fresh_jwt_and_aes_keys": true,
+  "copied_models_keys_removed": true,
+  "external_sources_disabled": true,
+  "role_acl_preserved_during_sanitation": true,
+  "original_documents_file_check": {
+    "documents": 3,
+    "exact_paths_present": 0,
+    "nonempty_readable_files": 0
+  },
+  "stored_vector_self_match_hits": 3,
+  "disabled_oidc_app_health": {
+    "health": 200
+  },
+  "outbound_blocked": {
+    "172.30.232.42:80": true,
+    "172.30.232.42:8080": true,
+    "1.1.1.1:443": true
+  },
+  "candidate_image_id": "sha256:2d91336c3f5ba1ba330820801c7bf0573b1c9c45b9280994dd0862d016435286",
+  "network_mode": "shared isolated network-none namespace; loopback only",
+  "published_ports": {},
+  "result": "PASS"
+}

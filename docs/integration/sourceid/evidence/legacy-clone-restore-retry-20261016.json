@@ -1,0 +1,6 @@
+{
+  "result": "PASS",
+  "restore_clean_if_exists": true,
+  "clone_only": true,
+  "schema": "79|false"
+}
