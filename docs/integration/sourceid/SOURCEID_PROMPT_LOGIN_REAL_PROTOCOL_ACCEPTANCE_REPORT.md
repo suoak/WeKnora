@@ -1,4 +1,77 @@
-# SID prompt=login 单次真实协议验收记录
+# SID prompt=login 本轮真实协议验收：校准监测器
+
+2026-10-16。本轮run_id：`b1c1a75a-a661-4f9d-b4e3-40947af37327`。
+
+**INCOMPLETE / INCOMPLETE_TIMEOUT / RESTORE_PASS**。只观察到一笔authorize，未观察到callback，未发送本次Token请求；不能归因为Token、签名、nonce或UserInfo失败。没有自动第二次登录。
+
+## 本轮执行
+
+- 用户确认SID负责人在线、原Chrome有SSO、KnowHub路由指向172.30.232.42、连续8分钟独占窗口，并明确授权。Chrome路由/SSO为用户确认，未读取Cookie验证。
+- 14:36:19北京时间只读预检通过：APP479416c90、Frontend1ba24ef5f、DB3027 clean，活动未消费事务0，企业门禁关闭。
+- 使用审核提交88c884a42的四个监测模块及两个匹配过滤文件；Git对象一致后从该提交提供源文件，没有使用历史worker。
+- 启动包装器起初因私有父目录不存在而停止，未启动监测或改APP；建立0700目录后只启动一个有效监测进程。一个要求prompt=false的辅助只读快照在临时true期间按断言拒绝执行，不是凭据错误；主监测器继续运行。没有由工具发起authorize/Token。
+- READY时实测进程prompt=true及原门禁。状态文件中的READY是初始快照，最终状态以final-result及恢复快照为准。
+- 唯一事务创建：**14:38:43.942523北京时间 / 06:38:43.942523 UTC**。本地原到期14:48:43.942569；人工等待截止14:46:43.942523，没有延长。
+- authorize Trace：`f15819c8-5eaf-4f45-87d6-9af7ae49d3ab`，PASS，254ms。唯一新事务包含服务端prompt=login元数据；不导出事务键或完整URL。
+- 用户最初回复“认证完成”，随后确认仍在SID页面，并说明“没有报错，登录之后会自动跳转到sid页面”。operator_complete=true只证明收到反馈，不证明完成协议。运行器没有提前恢复，而是等待原截止。
+- 截至14:47:19安全路径计数：OA入口200为1，callback/result为0；APP阶段也只有authorize。无第二笔关联冲突。
+
+## 阶段结果
+
+| 阶段 | 本轮结果 |
+| --- | --- |
+| 服务端强制模式 | PASS：进程配置和事务元数据已观察；不等于SID实际执行确认 |
+| authorize | PASS，254ms |
+| SID页面 | USER_OBSERVED：提交后仍在SID，无错误 |
+| 忽略SSO、重新认证及员工准入 | PENDING_SID_CONFIRMATION；在线不等于已反馈执行结果 |
+| callback/state | NOT_EXECUTED_AT_TEST_INSTANCE；没有相应请求或事件 |
+| Token | NOT_EXECUTED；无HTTP状态、耗时或发送结构；不是HTTP401或200 |
+| ID Token/RS256/JWKS/Issuer/Audience/时间/nonce | NOT_EXECUTED |
+| UserInfo/sub | NOT_EXECUTED |
+| 签名auth_time | NOT_CAPTURED：未到ID Token阶段，未用UserInfo替代 |
+| identity_contract_pending | NOT_EXECUTED：未到业务门禁分支 |
+| 企业身份/Session | 无新增，门禁保持关闭 |
+| 历史signature问题 | 未到验签阶段，既不证明修复，也不是新失败样本 |
+
+没有callback不能证明SID内部未签发Code，也不能确定SID内部跳转、浏览器路由或其他根因。没有因用户反馈或页面显示而判定完整PASS。
+
+## 超时与安全恢复
+
+480秒到期，监测器记录INCOMPLETE_TIMEOUT，先保存pre-restore-evidence，再原五层Compose仅恢复APP，核对后保存final-result。仅定向失效本次明确归属的未消费事务，无批量清理、不消费Code。
+
+- final-result：restore=PASS；transaction_cleanup=EXACT_UNUSED_TRANSACTION_INVALIDATED；HTTP事件0；监测进程已结束。
+- 14:47:19独立核验：prompt=false，protocol_only=true；contract/email/auto-binding/recheck/logout=false；Session默认external；oauth_form不变；OIDC及诊断保持现场true；AUTO_MIGRATE=false。
+- APP原镜像及479416c90不变，恢复后容器`7e2138ebd613725c2156baff2e509c94ef0212c46fb9fed68e9d596720d6b40e`，healthy；Frontend原容器及1ba24ef5f不变。
+- DB3027 clean；用户2、身份绑定0、本地企业Session0、活动未消费事务0。适配器在内存比对用户/成员权限及相关表计数不变；配套容器和挂载不变。frontend/app/配置代理均HTTP200。
+- 未切库、迁移、启用local_approved或业务绑定，未访问生产。未创建/关闭日常Chrome、读取Cookie、修改hosts/全局代理或新建隧道。
+- 当前SID测试页面对应事务已失效，请关闭，不再提交、延长或重复登录。
+
+## SID负责人最小核对单
+
+Client ID=knowhub，scope=openid，服务端prompt=login，原审批callback不变；oauth_form/client_secret_basic、无PKCE未调整。
+
+请核对**2026-10-16 14:38:43.942523至14:46:43.942523北京时间**（UTC06:38:43.942523–06:46:43.942523）：
+
+1. 是否收到本笔prompt=login，忽略原SSO并执行新认证/员工准入？仅提供事件类别及时间。
+2. 用户提交认证后为何仍回到SID页面，是否发生内部重定向或会话异常？
+3. 是否签发Code并发送回调跳转？仅提供布尔、时间及回调目的路径是否正确，不提供Code或完整Location。
+4. 若确实发出回调，再通过独立批准定位为何测试机未接收；本轮不追加认证或修改参数。
+
+state创建时间不是SID Code签发时间，90秒Code兑换规则本轮未验证。下一步范围为SID认证至callback到达之间；不能把本轮当Token401或认定OIDC代码故障。
+
+## 本轮证据
+
+- [最终脱敏结果](evidence/prompt-login-real-calibrated-final-20261016.json)
+- [执行前现场](evidence/protocol-monitor-authorized-preflight-20261016.json)
+- [恢复后独立核验](evidence/protocol-monitor-real-restored-20261016.json)
+- [前端路径计数](evidence/protocol-monitor-live-paths-20261016.json)
+- [授权事务时间](evidence/protocol-monitor-live-window-20261016.json)
+
+本轮停止，等待SID反馈及后续独立授权，不执行第二笔或企业业务放行。
+
+---
+
+# 历史记录：此前11:41单次真实协议验收（不与本轮关联）
 
 2026-10-16。结论：**INCOMPLETE / CALLBACK_AND_TOKEN_NOT_EXECUTED / RESTORE_PASS**。
 
