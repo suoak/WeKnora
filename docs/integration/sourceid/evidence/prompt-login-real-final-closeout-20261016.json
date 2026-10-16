@@ -1,0 +1,27 @@
+{
+  "result": "PASS",
+  "utc": "2026-10-16T03:44:38.904839+00:00",
+  "prompt": false,
+  "revision": "479416c9086d91de4484dbbd2cc5f912cdcdb697",
+  "health": {
+    "frontend": 200,
+    "app": 200,
+    "oidc_config": 200
+  },
+  "unused_test_transaction_invalidated": 1,
+  "persisted_test_request_prompt_login": true,
+  "proof_scope": "server transaction metadata; not browser final query or SID execution confirmation",
+  "counts": {
+    "users": 2,
+    "members": 2,
+    "bindings": 0,
+    "reviews": 0,
+    "sessions": 0,
+    "local_sessions": 0,
+    "live_transactions": 0
+  },
+  "schema": "3027|false",
+  "new_authorization_or_token_requests": false,
+  "non_app_containers_unchanged": true,
+  "accounts_and_permissions_unchanged": true
+}
