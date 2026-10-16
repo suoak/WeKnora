@@ -140,31 +140,6 @@ func (r *userRepository) ResolveSourceIDAutoEmailIdentity(ctx context.Context, i
 	return r.ResolveSourceIDEmailIdentity(ctx, issuer, subject, employee, email)
 }
 
-// Missing/unknown authorization data is not evidence of an ordinary account.
-func ordinarySourceIDAutoAccount(tx *gorm.DB, user types.User) bool {
-	if user.IsSystemAdmin || user.CanAccessAllTenants || !user.IsActive {
-		return false
-	}
-	if !tx.Migrator().HasTable("tenant_members") || !tx.Migrator().HasTable("organization_tenant_members") {
-		return false
-	}
-	var privileged int64
-	if tx.Table("tenant_members").Where("user_id = ? AND (role NOT IN ? OR status <> ?)", user.ID, []string{"contributor", "viewer"}, "active").Count(&privileged).Error != nil || privileged != 0 {
-		return false
-	}
-	if user.TenantID != 0 {
-		var home int64
-		if tx.Table("tenant_members").Where("user_id = ? AND tenant_id = ? AND status = ? AND role IN ?", user.ID, user.TenantID, "active", []string{"contributor", "viewer"}).Count(&home).Error != nil || home != 1 {
-			return false
-		}
-	}
-	tenants := tx.Table("tenant_members").Select("tenant_id").Where("user_id = ?", user.ID)
-	if tx.Table("organization_tenant_members").Where("role = ? AND (representative_user_id = ? OR tenant_id = ? OR tenant_id IN (?))", "admin", user.ID, user.TenantID, tenants).Count(&privileged).Error != nil || privileged != 0 {
-		return false
-	}
-	return true
-}
-
 func (r *userRepository) ListSourceIDBindingReviews(ctx context.Context) ([]types.SourceIDBindingReview, error) {
 	var reviews []types.SourceIDBindingReview
 	err := r.bindingDB(ctx).Order("created_at DESC").Limit(100).Find(&reviews).Error
@@ -260,9 +235,10 @@ func (r *userRepository) reviewSourceIDBinding(ctx context.Context, id, reviewer
 		if tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND is_active = ?", row.UserID, true).First(&user).Error != nil {
 			return errors.New("sourceid account unavailable")
 		}
-		if automatic && !ordinarySourceIDAutoAccount(tx, user) {
-			return ErrSourceIDBindingPending
-		}
+		// The approved enterprise policy covers every existing account role.
+		// Identity approval never edits the user's privileges or memberships.
+		// The locked active-account, unique-email and identity-conflict checks
+		// below apply equally to automatic and operator-reviewed approval.
 		normalized, err := normalizeSourceIDEmail(user.Email)
 		if err != nil || normalized != row.Email {
 			return errors.New("sourceid candidate email changed; new review required")
