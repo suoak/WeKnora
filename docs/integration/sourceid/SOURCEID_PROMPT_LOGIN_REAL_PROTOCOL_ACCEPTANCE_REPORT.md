@@ -1,8 +1,12 @@
 # SID prompt=login 单次真实协议验收记录
 
-2026-10-16。结论：**INCOMPLETE_NO_CALLBACK_OBSERVED / RESTORE_PASS**。
+2026-10-16。结论：**INCOMPLETE / CALLBACK_AND_TOKEN_NOT_EXECUTED / RESTORE_PASS**。
 
 本次服务端强制授权配置成功加载，并观察到一次授权入口成功；未观察到本次callback或Token兑换，不能将本次标记为真实协议验证通过。按用户“操作已结束”反馈停止，未自动重试。当前已恢复prompt=false。
+
+用户随后补充实际观察：点击OA后Chrome已跳转SID，已有SSO的上下文仍被要求输入账号密码。此项记为 **USER_OBSERVED_REAUTHENTICATION_UI**，符合prompt=login预期，但用户当时尚未完成交互认证，不能代表SID已完成认证/员工准入，亦不能代表Token或后续校验通过。
+
+特别说明：在补充观察到达前，运行器已按此前“操作已结束”的反馈恢复false，并定向失效该笔未消费事务。**当前旧SID页面不应继续提交**；即使SID页面仍可提交或后来签发Code，KnowHub本地事务已无效，不能把它当成仍可继续的本笔验收。不重新激活已消费/失效事务，不恢复旧state，不借此自动发起第二笔登录。
 
 ## 1. 执行前事实与路由
 
@@ -25,7 +29,9 @@
 | 授权Trace | `03a6279c-d628-4c8b-9b67-c1d48a636981`，服务器自有诊断标识 |
 | 持久化强制请求事实 | 本次时间范围内1条未消费事务包含服务端版本1、prompt=login元数据 |
 | 浏览器实际URL唯一prompt | NOT_CONFIRMED：用户没有提供实际检查结果；不保存完整授权URL |
-| SID执行强制重新认证及准入 | UNKNOWN，等待实际SID确认 |
+| SID登录页跳转 | OBSERVED，用户已确认 |
+| 已有SSO仍显示重新输入密码界面 | OBSERVED，用户已确认；尚未提交认证 |
+| SID服务端重新认证及准入确认 | PENDING，负责人反馈尚未取得，具体执行状态UNKNOWN |
 
 持久化元数据证明服务端生成链路采用强制模式，结合已验收代码可核查参数构造规则；它不替代浏览器最终参数或SID实际执行的证据。没有把prompt=true本身写成“SID强制认证验收成功”。
 
@@ -33,8 +39,8 @@
 
 | 阶段 | 本次结果 |
 | --- | --- |
-| Callback/state | NOT_OBSERVED，无callback_state或callback_result记录 |
-| Token HTTP | NOT_OBSERVED，无请求/响应诊断；没有HTTP状态或耗时可报告 |
+| Callback/state | NOT_EXECUTED，用户确认未完成SID认证，无callback_state或callback_result记录 |
+| Token HTTP | NOT_EXECUTED，无请求/响应诊断；没有HTTP状态或耗时可报告 |
 | ID Token RS256/JWKS/Issuer/Audience/时间声明 | NOT_EXECUTED/NOT_OBSERVED，无验证结果 |
 | nonce | NOT_OBSERVED |
 | UserInfo/sub | NOT_OBSERVED |
@@ -44,7 +50,7 @@
 
 安全日志过滤收据只含一条authorize阶段、HTTP事件0、声明schema0。数据库同时发现本次授权事务尚未消费，支持“未观察到有效callback消费”的结论。不能伪造Token200/401、验签PASS或新鲜度分类。
 
-用户回报为“【填写实际提示】”“【是/否】”等占位模板，不属于实际页面或SID证据，已要求仅补充本次真实页面状态和负责人结论，不要求重新操作。无法判断用户停在认证页、发生浏览器异常、SID拒绝或回调未返回；原因保持UNKNOWN。
+最初的用户回报为“【填写实际提示】”“【是/否】”等占位模板，不能据此认定已完成认证。用户随后确认停在SID重新输入密码的页面，尚未确认完成认证；这解释了当前没有callback及Token结果的观察边界。没有证据证明SID拒绝、签名错误或浏览器异常，不推断这些根因。
 
 运行器原始结果字段FAIL源于其初始未完成状态及操作结束后的受控中断，**不是Token失败或ID Token验签失败**。本报告将业务结论准确分类为INCOMPLETE_NO_CALLBACK_OBSERVED，原始安全收据保留。
 
@@ -74,6 +80,10 @@
 ## 5. 后续边界
 
 本次授权事务已经结束，不因结果不完整自动补做。先补齐此次实际页面和SID侧记录，定位为何未出现callback；任何后续真实事务等待独立授权。
+
+可交给SID负责人的最小核对信息：2026-10-16北京时间11:41:26—11:43:35强制配置开启窗口；Client ID为 `knowhub`；本地授权Trace `03a6279c-d628-4c8b-9b67-c1d48a636981`；用户观察已有SSO仍显示密码认证页，明确尚未提交认证；客户端没有callback/Token记录。请核对该窗口的prompt请求是否忽略原SSO、重新认证流程是否已启动，以及是否执行员工准入；不得把认证界面出现等同于准入已完成。该Trace是KnowHub本地标识，未必传到SID，不能声称SID可直接按此检索。不得索取原始Code、Token、Cookie、员工数据或完整请求日志。本程序没有向外部联系人发送消息；由用户将脱敏核对项交负责人，服务端结果收到后再归档。
+
+最终用户确认：不会继续提交旧认证页面、刷新或重复登录；尚未独立核对浏览器授权请求中的唯一prompt参数。当前仅依据服务端受控配置及持久化事务确认强制模式，完整协议验收保持INCOMPLETE。没有新增SID负责人确认结论，不补造PENDING事项的结果。
 
 真实OA业务验收仍缺：完成强制协议真实闭环与SID执行证明、auth_time边界如实确认、D及停用前Code90秒残余风险接受、获批的local_approved期限/无Refresh政策、全角色绑定及流量隔离/账号归属审批。10分钟仍为候选，不在此报告批准。
 
