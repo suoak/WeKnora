@@ -109,7 +109,7 @@ jobs:
           set -euo pipefail
           mkdir -p sourceid-results
           npm ci --prefix frontend
-          SOURCEID_BROWSER_E2E=1 go test -timeout 5m -v -count=1 ./internal/handler -run '^TestSourceIDLocalBrowserBusinessLogin$' | tee sourceid-results/local-browser.txt
+          SOURCEID_BROWSER_E2E=1 go test -timeout 8m -v -count=1 ./internal/handler -run '^TestSourceID(Local|SSO)BrowserBusinessLogin$' | tee sourceid-results/local-browser.txt
       - uses: actions/upload-artifact@v6
         if: always()
         with:

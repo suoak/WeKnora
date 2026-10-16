@@ -39,6 +39,40 @@ func (r *userRepository) bindingDB(ctx context.Context) *gorm.DB {
 	return r.db.WithContext(ctx).Session(&gorm.Session{Logger: gormlogger.Discard})
 }
 
+type sourceIDPilotScopeKey struct{}
+type sourceIDPilotScope map[string]string
+
+// Applies the same protected pilot/account-ownership boundary to every role.
+// It must run before a pending review, identity or enrollment is inserted.
+func checkSourceIDPilotAccount(ctx context.Context, userID, email string, first bool) error {
+	accounts, scoped := ctx.Value(sourceIDPilotScopeKey{}).(sourceIDPilotScope)
+	if !scoped {
+		return nil
+	} // Existing modes keep their approved behavior.
+	approved, ok := accounts[userID]
+	if !ok || approved == "" {
+		return errors.New("sourceid pilot account unavailable")
+	}
+	if first {
+		normalized, err := normalizeSourceIDEmail(email)
+		if err != nil || normalized != approved {
+			return errors.New("sourceid account ownership unconfirmed")
+		}
+	}
+	return nil
+}
+
+func (r *userRepository) ResolveSourceIDPilotEmailIdentity(ctx context.Context, issuer, subject, employee, email, policy string, accounts map[string]string) (*types.User, error) {
+	if len(accounts) == 0 {
+		return nil, errors.New("sourceid pilot account unavailable")
+	}
+	copyAccounts := sourceIDPilotScope{}
+	for id, email := range accounts {
+		copyAccounts[id] = email
+	}
+	return r.ResolveSourceIDAutoEmailIdentity(context.WithValue(ctx, sourceIDPilotScopeKey{}, copyAccounts), issuer, subject, employee, email, policy)
+}
+
 // Approved identity wins over email. A newly discovered candidate is committed
 // as pending, with no external identity, enrollment, session or JWT created.
 func (r *userRepository) ResolveSourceIDEmailIdentity(ctx context.Context, issuer, subject, employee, email string) (*types.User, error) {
@@ -56,7 +90,13 @@ func (r *userRepository) ResolveSourceIDEmailIdentity(ctx context.Context, issue
 			return nil, errors.New("sourceid binding revoked")
 		}
 		if review.Status != "approved" {
+			if err := checkSourceIDPilotAccount(ctx, review.UserID, review.Email, true); err != nil {
+				return nil, err
+			}
 			return nil, ErrSourceIDBindingPending
+		}
+		if err := checkSourceIDPilotAccount(ctx, review.UserID, "", false); err != nil {
+			return nil, err
 		}
 		return r.ResolveSourceIDIdentity(ctx, issuer, subject, employee)
 	}
@@ -68,6 +108,12 @@ func (r *userRepository) ResolveSourceIDEmailIdentity(ctx context.Context, issue
 	var enrollment types.SourceIDEnrollment
 	err = db.Where("issuer = ? AND employee_no = ?", issuer, employee).First(&enrollment).Error
 	if err == nil {
+		if _, scoped := ctx.Value(sourceIDPilotScopeKey{}).(sourceIDPilotScope); scoped {
+			return nil, errors.New("sourceid pilot reviewed identity required")
+		}
+		if err := checkSourceIDPilotAccount(ctx, enrollment.UserID, "", false); err != nil {
+			return nil, err
+		}
 		return r.ResolveSourceIDIdentity(ctx, issuer, subject, employee)
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -80,6 +126,9 @@ func (r *userRepository) ResolveSourceIDEmailIdentity(ctx context.Context, issue
 	if existing != 0 {
 		var concurrent types.SourceIDBindingReview
 		if db.Where("issuer = ? AND employee_no = ? AND subject = ? AND status = ?", issuer, employee, subject, "approved").First(&concurrent).Error == nil {
+			if err := checkSourceIDPilotAccount(ctx, concurrent.UserID, "", false); err != nil {
+				return nil, err
+			}
 			return r.ResolveSourceIDIdentity(ctx, issuer, subject, employee)
 		}
 		return nil, errors.New("sourceid identity conflict")
@@ -96,6 +145,9 @@ func (r *userRepository) ResolveSourceIDEmailIdentity(ctx context.Context, issue
 		return nil, errors.New("sourceid email match unavailable")
 	}
 	user := candidates[0]
+	if err := checkSourceIDPilotAccount(ctx, user.ID, normalized, true); err != nil {
+		return nil, err
+	}
 	var conflicts int64
 	if db.Model(&types.ExternalIdentity{}).Where("provider = ? AND issuer = ? AND user_id = ?", "sourceid", issuer, user.ID).Count(&conflicts).Error != nil {
 		return nil, errors.New("sourceid identity lookup failed")
@@ -103,6 +155,9 @@ func (r *userRepository) ResolveSourceIDEmailIdentity(ctx context.Context, issue
 	if conflicts != 0 {
 		var concurrent types.SourceIDBindingReview
 		if db.Where("issuer = ? AND employee_no = ? AND subject = ? AND user_id = ? AND status = ?", issuer, employee, subject, user.ID, "approved").First(&concurrent).Error == nil {
+			if err := checkSourceIDPilotAccount(ctx, concurrent.UserID, "", false); err != nil {
+				return nil, err
+			}
 			return r.ResolveSourceIDIdentity(ctx, issuer, subject, employee)
 		}
 		return nil, errors.New("sourceid identity conflict")
@@ -234,6 +289,9 @@ func (r *userRepository) reviewSourceIDBinding(ctx context.Context, id, reviewer
 		var user types.User
 		if tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND is_active = ?", row.UserID, true).First(&user).Error != nil {
 			return errors.New("sourceid account unavailable")
+		}
+		if err := checkSourceIDPilotAccount(ctx, user.ID, user.Email, true); err != nil {
+			return err
 		}
 		// The approved enterprise policy covers every existing account role.
 		// Identity approval never edits the user's privileges or memberships.

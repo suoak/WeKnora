@@ -263,9 +263,7 @@ function persistLoginResponse(authStore: ReturnType<typeof useAuthStore>, respon
     const homeTenantId = response.user.tenant_id ?? activeTenant?.id ?? ''
     authStore.setUser(userInfoFromApi(response.user, homeTenantId))
     authStore.setToken(response.token)
-    if (response.refresh_token) {
-      authStore.setRefreshToken(response.refresh_token)
-    }
+    authStore.setRefreshToken(response.refresh_token || '')
     if (activeTenant) {
       authStore.setTenant({
         id: String(activeTenant.id) || '',

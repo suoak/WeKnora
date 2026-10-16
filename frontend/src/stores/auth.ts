@@ -215,7 +215,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   const setRefreshToken = (refreshTokenValue: string) => {
     refreshToken.value = refreshTokenValue
-    localStorage.setItem('weknora_refresh_token', refreshTokenValue)
+    if (refreshTokenValue) localStorage.setItem('weknora_refresh_token', refreshTokenValue)
+    else localStorage.removeItem('weknora_refresh_token')
   }
 
   const setKnowledgeBases = (kbList: KnowledgeBaseInfo[]) => {

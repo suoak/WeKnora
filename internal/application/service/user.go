@@ -1157,16 +1157,21 @@ func (s *userService) generateTokensForTenant(
 	sessionID, _ := ctx.Value(sourceIDSessionKey).(string)
 	now := time.Now()
 	accessExpiry, refreshExpiry := now.Add(24*time.Hour), now.Add(7*24*time.Hour)
+	accessOnly := false
 	if sessionID != "" {
 		local, err := s.sourceIDLocalLimits(ctx, sessionID, user.ID)
 		if err != nil {
 			return "", "", err
 		}
 		if local != nil {
+			accessOnly = !local.RefreshEnabled
 			// Admission validity never slides forward on Refresh or SwitchTenant.
 			accessExpiry = now.Add(time.Duration(local.AccessSeconds) * time.Second)
 			if accessExpiry.After(local.AdmissionValidUntil) {
 				accessExpiry = local.AdmissionValidUntil
+			}
+			if accessExpiry.After(local.AbsoluteExpiresAt) {
+				accessExpiry = local.AbsoluteExpiresAt
 			}
 			refreshExpiry = local.AdmissionValidUntil
 			if local.RecheckSupported {
@@ -1198,6 +1203,17 @@ func (s *userService) generateTokensForTenant(
 	accessToken, err = accessTokenObj.SignedString([]byte(getJwtSecret()))
 	if err != nil {
 		return "", "", err
+	}
+	if accessOnly {
+		store, err := s.sourceIDStore()
+		if err != nil {
+			return "", "", err
+		}
+		record := &types.AuthToken{ID: uuid.NewString(), UserID: user.ID, Token: accessToken, TokenType: "access_token", SessionID: sessionID, ExpiresAt: accessExpiry, CreatedAt: now, UpdatedAt: now}
+		if err := store.PersistSourceIDTokens(ctx, sessionID, record, nil, ""); err != nil {
+			return "", "", err
+		}
+		return accessToken, "", nil
 	}
 
 	// Generate refresh token (expires in 7 days)
@@ -1319,6 +1335,18 @@ func (s *userService) SwitchTenant(
 	// durable landing-preference update. RefreshToken re-reads this
 	// field; writing after issue would leave a window where access
 	// is scoped to targetTenantID but refresh falls back to home.
+	if sessionID, _ := ctx.Value(sourceIDSessionKey).(string); sessionID != "" {
+		if _, err := s.sourceIDLocalLimits(ctx, sessionID, user.ID); err != nil {
+			return nil, err
+		}
+		store, err := s.sourceIDStore()
+		if err != nil {
+			return nil, err
+		}
+		if err = store.CheckSourceIDSession(ctx, sessionID, user.ID); err != nil {
+			return nil, err
+		}
+	}
 	if err := s.recordLastActiveTenant(ctx, user, targetTenantID); err != nil {
 		return nil, fmt.Errorf("record last-active-tenant preference: %w", err)
 	}
@@ -1329,8 +1357,11 @@ func (s *userService) SwitchTenant(
 		if err != nil {
 			return nil, err
 		}
-		if local != nil && currentRefreshToken == "" {
+		if local != nil && local.RefreshEnabled && currentRefreshToken == "" {
 			return nil, errors.New("sourceid local switch requires refresh predecessor")
+		}
+		if local != nil && !local.RefreshEnabled {
+			currentRefreshToken = ""
 		}
 	}
 	if sessionID != "" && currentRefreshToken != "" {

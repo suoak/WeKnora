@@ -26,6 +26,24 @@ type sourceIDAuthorizationProof struct {
 // transaction. It cannot infer eligibility from an arbitrary Token HTTP 200.
 type sourceIDAuthorizationAdmissionResolver struct{ cfg *config.OIDCAuthConfig }
 
+// Approved ordinary SSO accepts a verified OIDC transaction as identity proof.
+// It makes no claim that an existing SID SSO session rechecked employment.
+type sourceIDSSOAdmissionResolver struct{ cfg *config.OIDCAuthConfig }
+
+func (r sourceIDSSOAdmissionResolver) Resolve(ctx context.Context, request types.SourceIDAdmissionRequest) (types.SourceIDAdmissionDecision, error) {
+	unknown := types.SourceIDAdmissionDecision{Outcome: types.SourceIDAdmissionUnknown}
+	if ctx.Err() != nil || !r.cfg.SourceIDSSOPolicyConfirmed || request.Stage != "login" || !request.AuthorizationVerified ||
+		request.Issuer != r.cfg.IssuerURL || request.Subject == "" || request.AuthorizationVerifiedAt.IsZero() {
+		return unknown, nil
+	}
+	p, err := r.cfg.SourceIDLocalPolicy()
+	if err != nil {
+		return unknown, err
+	}
+	return types.SourceIDAdmissionDecision{Outcome: types.SourceIDAdmissionAllow, Source: "oidc_sso_approved", ContractRef: r.cfg.SourceIDAdmissionPolicyRef,
+		CheckedAt: request.AuthorizationVerifiedAt, ValidUntil: request.AuthorizationVerifiedAt.Add(p.AdmissionMaxAge)}, nil
+}
+
 func (r sourceIDAuthorizationAdmissionResolver) Resolve(ctx context.Context, request types.SourceIDAdmissionRequest) (types.SourceIDAdmissionDecision, error) {
 	decision := types.SourceIDAdmissionDecision{Outcome: types.SourceIDAdmissionUnknown}
 	if ctx.Err() != nil || !r.cfg.SourceIDAuthorizationRecheckConfirmed || request.Stage != "login" ||
@@ -51,6 +69,9 @@ func (s *userService) resolveSourceIDAdmission(ctx context.Context, cfg *config.
 		return decision, err
 	}
 	resolver := s.employeeAdmission
+	if cfg.SourceIDAdmissionMode == "oidc_sso_approved" {
+		resolver = sourceIDSSOAdmissionResolver{cfg}
+	}
 	if resolver == nil && cfg.SourceIDAdmissionMode == "authorization" && cfg.SourceIDAuthorizationRecheckConfirmed {
 		resolver = sourceIDAuthorizationAdmissionResolver{cfg}
 	}
@@ -133,6 +154,12 @@ func (s *userService) sourceIDLocalLimits(ctx context.Context, sessionID, userID
 	}
 	if cfg.IssuerURL != local.Issuer || cfg.SourceIDLocalPolicyRef != local.PolicyRef || cfg.SourceIDAdmissionPolicyRef != local.AdmissionPolicyRef || cfg.SourceIDAdmissionMode != local.AdmissionSource {
 		return nil, errors.New("sourceid local policy changed; reauthentication required")
+	}
+	if cfg.SourceIDAdmissionMode == "oidc_sso_approved" {
+		accounts, err := cfg.SourceIDPilotAccounts()
+		if err != nil || accounts[userID] == "" {
+			return nil, errors.New("sourceid pilot account unavailable")
+		}
 	}
 	return local, nil
 }

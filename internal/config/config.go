@@ -349,6 +349,8 @@ type OIDCAuthConfig struct {
 	SourceIDAdmissionMaxAge               string `yaml:"sourceid_admission_max_age" json:"-"`
 	SourceIDAuthorizationRecheckConfirmed bool   `yaml:"sourceid_authorization_recheck_confirmed" json:"-"`
 	SourceIDForceReauthPromptLogin        bool   `yaml:"sourceid_force_reauth_prompt_login" json:"-"`
+	SourceIDSSOPolicyConfirmed            bool   `yaml:"sourceid_sso_policy_confirmed" json:"-"`
+	SourceIDPilotAccountsFile             string `yaml:"sourceid_pilot_accounts_file" json:"-"`
 	RedirectURI                           string `yaml:"redirect_uri" json:"redirect_uri"`
 	PKCEEnable                            bool   `yaml:"pkce_enable" json:"-"`
 	ClientAuthMethod                      string `yaml:"client_auth_method" json:"-"`
@@ -808,6 +810,7 @@ func applyOIDCEnvOverrides(cfg *Config) {
 
 	for key, target := range map[string]*string{
 		"SOURCEID_SESSION_MODE":            &cfg.OIDCAuth.SourceIDSessionMode,
+		"SOURCEID_PILOT_ACCOUNTS_FILE":     &cfg.OIDCAuth.SourceIDPilotAccountsFile,
 		"SOURCEID_LOCAL_POLICY_REF":        &cfg.OIDCAuth.SourceIDLocalPolicyRef,
 		"SOURCEID_LOCAL_ACCESS_TTL":        &cfg.OIDCAuth.SourceIDLocalAccessTTL,
 		"SOURCEID_LOCAL_ABSOLUTE_TTL":      &cfg.OIDCAuth.SourceIDLocalAbsoluteTTL,
@@ -835,6 +838,7 @@ func applyOIDCEnvOverrides(cfg *Config) {
 	}
 	for key, target := range map[string]*bool{
 		"SOURCEID_FORCE_REAUTH_PROMPT_LOGIN":       &cfg.OIDCAuth.SourceIDForceReauthPromptLogin,
+		"SOURCEID_SSO_POLICY_CONFIRMED":            &cfg.OIDCAuth.SourceIDSSOPolicyConfirmed,
 		"SOURCEID_AUTHORIZATION_RECHECK_CONFIRMED": &cfg.OIDCAuth.SourceIDAuthorizationRecheckConfirmed,
 		"SOURCEID_LOCAL_REFRESH_ENABLE":            &cfg.OIDCAuth.SourceIDLocalRefreshEnable,
 		"SOURCEID_ENABLE":                          &cfg.OIDCAuth.SourceIDEnable,

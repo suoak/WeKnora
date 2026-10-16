@@ -25,7 +25,7 @@ func (c *OIDCAuthConfig) SourceIDLocalPolicy() (SourceIDLocalPolicy, error) {
 		c.SourceIDProtocolOnly || !c.SourceIDContractConfirmed ||
 		strings.TrimSpace(c.SourceIDLocalPolicyRef) == "" ||
 		strings.TrimSpace(c.SourceIDAdmissionPolicyRef) == "" ||
-		(c.SourceIDAdmissionMode != "authorization" && c.SourceIDAdmissionMode != "userinfo_claim" && c.SourceIDAdmissionMode != "sid_query") || c.SourceIDClaimsSource != "userinfo" ||
+		(c.SourceIDAdmissionMode != "authorization" && c.SourceIDAdmissionMode != "userinfo_claim" && c.SourceIDAdmissionMode != "sid_query" && c.SourceIDAdmissionMode != "oidc_sso_approved") || c.SourceIDClaimsSource != "userinfo" ||
 		c.SourceIDEmployeeClaim != "attributes.RJGH" || !c.SourceIDEmailBindingEnable || !c.SourceIDEmailContractConfirmed {
 		return p, errors.New("sourceid local session policy pending")
 	}
@@ -53,6 +53,11 @@ func (c *OIDCAuthConfig) SourceIDLocalPolicy() (SourceIDLocalPolicy, error) {
 	}
 	if c.SourceIDAdmissionMode == "authorization" && c.SourceIDLocalRefreshEnable {
 		return p, errors.New("sourceid authorization-only admission requires refresh disabled")
+	}
+	if c.SourceIDAdmissionMode == "oidc_sso_approved" && (!c.SourceIDSSOPolicyConfirmed || c.SourceIDLocalRefreshEnable ||
+		c.SourceIDForceReauthPromptLogin || strings.TrimSpace(c.SourceIDPilotAccountsFile) == "" ||
+		!c.SourceIDAutoBindingEnable || strings.TrimSpace(c.SourceIDAutoBindingPolicyRef) == "") {
+		return p, errors.New("sourceid sso policy pending")
 	}
 	return p, nil
 }

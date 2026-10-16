@@ -166,6 +166,14 @@ func TestSourceIDAutoEmailBindingRejectsReassignedIdentity(t *testing.T) {
 }
 
 func TestSourceIDPostgresAutoEmailBindingConcurrentFirstLogins(t *testing.T) {
+	runSourceIDPostgresAutoBindingRace(t, false)
+}
+
+func TestSourceIDPostgresPilotAutoEmailBindingConcurrentFirstLogins(t *testing.T) {
+	runSourceIDPostgresAutoBindingRace(t, true)
+}
+
+func runSourceIDPostgresAutoBindingRace(t *testing.T, pilot bool) {
 	db := sourceIDPostgresDB(t)
 	up, err := os.ReadFile("../../../migrations/versioned/003026_sourceid_binding_review.up.sql")
 	require.NoError(t, err)
@@ -185,7 +193,13 @@ func TestSourceIDPostgresAutoEmailBindingConcurrentFirstLogins(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			u, err := r.ResolveSourceIDAutoEmailIdentity(ctx, "mock", "sub", "0007", "employee@example.test", "approved-policy-v1")
+			var u *types.User
+			var err error
+			if pilot {
+				u, err = r.ResolveSourceIDPilotEmailIdentity(ctx, "mock", "sub", "0007", "employee@example.test", "approved-policy-v1", map[string]string{user.ID: user.Email})
+			} else {
+				u, err = r.ResolveSourceIDAutoEmailIdentity(ctx, "mock", "sub", "0007", "employee@example.test", "approved-policy-v1")
+			}
 			if err == nil && u.ID == user.ID {
 				success.Add(1)
 			}

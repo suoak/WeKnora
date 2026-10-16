@@ -577,9 +577,7 @@ const persistLoginResponse = async (response: any, skipRedirect = false) => {
     const homeTenantIdRaw = response.user.tenant_id ?? activeTenant?.id ?? ''
     authStore.setUser(userInfoFromApi(response.user, homeTenantIdRaw))
     authStore.setToken(response.token)
-    if (response.refresh_token) {
-      authStore.setRefreshToken(response.refresh_token)
-    }
+    authStore.setRefreshToken(response.refresh_token || '')
     if (activeTenant) {
       authStore.setTenant({
         id: String(activeTenant.id) || '',

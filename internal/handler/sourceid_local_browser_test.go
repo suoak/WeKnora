@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -22,6 +23,7 @@ import (
 	apprepo "github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/application/service"
 	"github.com/Tencent/WeKnora/internal/config"
+	"github.com/Tencent/WeKnora/internal/testutil/privatefile"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	secutils "github.com/Tencent/WeKnora/internal/utils"
@@ -36,8 +38,11 @@ import (
 
 type localBrowserTenants struct{ interfaces.TenantService }
 
-func (localBrowserTenants) GetTenantByID(context.Context, uint64) (*types.Tenant, error) {
-	return &types.Tenant{ID: 42, Name: "Synthetic existing space"}, nil
+func (localBrowserTenants) GetTenantByID(_ context.Context, id uint64) (*types.Tenant, error) {
+	if id != 42 && id != 43 {
+		return nil, fmt.Errorf("synthetic space not found")
+	}
+	return &types.Tenant{ID: id, Name: "Synthetic existing space"}, nil
 }
 
 type localBrowserMembers struct {
@@ -59,7 +64,21 @@ func (m localBrowserMembers) ListByUser(ctx context.Context, user string) ([]*ty
 // Real Vue frontend + real auth handlers/service/repositories. Other Portal
 // APIs use bounded fixture responses; this is not an LLM/RAG ingestion test.
 func TestSourceIDLocalBrowserBusinessLogin(t *testing.T) {
-	if os.Getenv("SOURCEID_BROWSER_E2E") != "1" {
+	runSourceIDLocalBusinessLogin(t, false, true, "contributor")
+}
+
+func TestSourceIDSSOBrowserBusinessLogin(t *testing.T) {
+	runSourceIDLocalBusinessLogin(t, true, true, "contributor")
+}
+
+func TestSourceIDSSOAccessOnlyHTTP(t *testing.T) {
+	for _, role := range []string{"viewer", "contributor", "owner", "tenant_admin", "org_admin", "system_admin", "cross_space_admin", "multi_space"} {
+		t.Run(role, func(t *testing.T) { runSourceIDLocalBusinessLogin(t, true, false, role) })
+	}
+}
+
+func runSourceIDLocalBusinessLogin(t *testing.T, ordinary, browser bool, role string) {
+	if browser && os.Getenv("SOURCEID_BROWSER_E2E") != "1" {
 		t.Skip("opt-in synthetic browser integration")
 	}
 	t.Setenv("JWT_SECRET", "synthetic-browser-test-signing-key")
@@ -87,6 +106,25 @@ func TestSourceIDLocalBrowserBusinessLogin(t *testing.T) {
 	user := types.User{ID: uuid.NewString(), Username: "synthetic-ordinary", Email: "ordinary@example.test", TenantID: 42, IsActive: true}
 	require.NoError(t, db.Create(&user).Error)
 	require.NoError(t, db.Create(&types.TenantMember{UserID: user.ID, TenantID: 42, Role: types.TenantRoleContributor, Status: types.TenantMemberStatusActive, JoinedAt: time.Now()}).Error)
+	switch role {
+	case "viewer", "owner":
+		require.NoError(t, db.Model(&types.TenantMember{}).Where("user_id=?", user.ID).Update("role", role).Error)
+	case "tenant_admin":
+		require.NoError(t, db.Model(&types.TenantMember{}).Where("user_id=?", user.ID).Update("role", "admin").Error)
+	case "org_admin":
+		require.NoError(t, db.Exec("INSERT INTO organization_tenant_members VALUES (42,'admin',?)", user.ID).Error)
+	case "system_admin":
+		user.IsSystemAdmin = true
+		require.NoError(t, db.Save(&user).Error)
+	case "cross_space_admin":
+		user.CanAccessAllTenants = true
+		require.NoError(t, db.Save(&user).Error)
+	case "multi_space":
+		require.NoError(t, db.Create(&types.Tenant{ID: 43, Name: "Synthetic second space"}).Error)
+		require.NoError(t, db.Create(&types.TenantMember{UserID: user.ID, TenantID: 43, Role: types.TenantRoleViewer, Status: types.TenantMemberStatusActive, JoinedAt: time.Now()}).Error)
+	}
+	var originalMembers []types.TenantMember
+	require.NoError(t, db.Order("tenant_id").Find(&originalMembers).Error)
 	require.NoError(t, db.Exec("CREATE TABLE synthetic_knowledge_bases(id TEXT PRIMARY KEY,tenant_id BIGINT,name TEXT)").Error)
 	require.NoError(t, db.Exec("INSERT INTO synthetic_knowledge_bases VALUES ('synthetic-kb',42,'Synthetic original knowledge base')").Error)
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -106,11 +144,28 @@ func TestSourceIDLocalBrowserBusinessLogin(t *testing.T) {
 		SourceIDLocalIdleTTL:           "10m", SourceIDAdmissionMaxAge: "10m", ClientID: "knowhub", ClientSecret: "synthetic-secret",
 		IssuerURL: "https://mock.example", ClientAuthMethod: "client_secret_basic", UserInfoTransport: "bearer_get",
 		Scopes: []string{"openid"}, RedirectURI: "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback", ProviderDisplayName: "OA"}
+	if ordinary {
+		cfg.SourceIDAdmissionMode = "oidc_sso_approved"
+		cfg.SourceIDSSOPolicyConfirmed = true
+		cfg.SourceIDForceReauthPromptLogin = false
+		cfg.SourceIDAuthorizationRecheckConfirmed = false
+		cfg.SourceIDLocalAccessTTL = "60m"
+		cfg.SourceIDLocalAbsoluteTTL = "60m"
+		cfg.SourceIDLocalIdleTTL = "30m"
+		cfg.SourceIDAdmissionMaxAge = "60m"
+		cfg.SourceIDPilotAccountsFile = filepath.Join(t.TempDir(), "ownership.json")
+		manifest, _ := json.Marshal(map[string]interface{}{"version": 1, "policy_ref": cfg.SourceIDAutoBindingPolicyRef, "ownership_ref": "synthetic-snapshot-ownership", "accounts": []map[string]string{{"user_id": user.ID, "email": user.Email}}})
+		require.NoError(t, privatefile.WriteFile(cfg.SourceIDPilotAccountsFile, manifest, 0600))
+	}
 	mock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/authorize":
 			q := r.URL.Query()
-			require.Equal(t, []string{"login"}, q["prompt"])
+			if ordinary {
+				require.False(t, q.Has("prompt"))
+			} else {
+				require.Equal(t, []string{"login"}, q["prompt"])
+			}
 			require.False(t, q.Has("max_age"))
 			dest, _ := url.Parse(q.Get("redirect_uri"))
 			values := dest.Query()
@@ -189,6 +244,8 @@ func TestSourceIDLocalBrowserBusinessLogin(t *testing.T) {
 	}
 	router.GET("/api/v1/auth/me", protect, h.GetCurrentUser)
 	router.POST("/api/v1/auth/logout", protect, h.Logout)
+	router.POST("/api/v1/auth/switch-tenant", protect, h.SwitchTenant)
+	router.POST("/api/v1/auth/refresh", h.RefreshToken)
 	router.GET("/api/v1/knowledge-bases", protect, func(c *gin.Context) {
 		id, _ := types.TenantIDFromContext(c.Request.Context())
 		var rows []map[string]interface{}
@@ -221,6 +278,71 @@ func TestSourceIDLocalBrowserBusinessLogin(t *testing.T) {
 	router.ServeHTTP(callbackResult, callback)
 	require.Equal(t, http.StatusFound, callbackResult.Code)
 	require.Equal(t, "/#oidc_complete=1", callbackResult.Header().Get("Location"), "synthetic direct business callback must succeed")
+	if ordinary {
+		resultReq := httptest.NewRequest("POST", "/api/v1/auth/oidc/result", nil)
+		resultReq.Header.Set("X-KnowHub-OIDC-Result", "1")
+		for _, cookie := range callbackResult.Result().Cookies() {
+			resultReq.AddCookie(cookie)
+		}
+		result := httptest.NewRecorder()
+		router.ServeHTTP(result, resultReq)
+		require.Equal(t, 200, result.Code)
+		var login map[string]interface{}
+		require.NoError(t, json.Unmarshal(result.Body.Bytes(), &login))
+		_, hasRefresh := login["refresh_token"]
+		require.False(t, hasRefresh)
+		access, ok := login["token"].(string)
+		require.True(t, ok)
+		require.NotEmpty(t, access)
+		api := func(path, body, token string) *httptest.ResponseRecorder {
+			req := httptest.NewRequest("POST", path, strings.NewReader(body))
+			if path == "/api/v1/auth/me" {
+				req.Method = "GET"
+			}
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Authorization", "Bearer "+token)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+			return w
+		}
+		require.Equal(t, 200, api("/api/v1/auth/me", "", access).Code)
+		var before types.SourceIDSession
+		require.NoError(t, db.First(&before).Error)
+		require.Equal(t, 403, api("/api/v1/auth/switch-tenant", `{"tenant_id":999}`, access).Code)
+		if role == "multi_space" || role == "cross_space_admin" {
+			peer := api("/api/v1/auth/switch-tenant", `{"tenant_id":43}`, access)
+			require.Equal(t, 200, peer.Code)
+		} else {
+			require.Equal(t, 403, api("/api/v1/auth/switch-tenant", `{"tenant_id":43}`, access).Code)
+		}
+		switched := api("/api/v1/auth/switch-tenant", `{"tenant_id":42}`, access)
+		require.Equal(t, 200, switched.Code)
+		var next map[string]interface{}
+		require.NoError(t, json.Unmarshal(switched.Body.Bytes(), &next))
+		_, hasRefresh = next["refresh_token"]
+		require.False(t, hasRefresh)
+		var after types.SourceIDSession
+		require.NoError(t, db.First(&after).Error)
+		require.Equal(t, before.ExpiresAt, after.ExpiresAt)
+		var refreshCount int64
+		require.NoError(t, db.Model(&types.AuthToken{}).Where("token_type = ?", "refresh_token").Count(&refreshCount).Error)
+		require.Zero(t, refreshCount)
+		require.NotEqual(t, 200, api("/api/v1/auth/refresh", `{"refresh_token":"synthetic-unissued"}`, access).Code)
+		require.Equal(t, 200, api("/api/v1/auth/logout", "", access).Code)
+		require.Equal(t, 401, api("/api/v1/auth/me", "", access).Code)
+		var original types.User
+		require.NoError(t, db.First(&original, "id=?", user.ID).Error)
+		require.Equal(t, user.TenantID, original.TenantID)
+		require.Equal(t, user.IsSystemAdmin, original.IsSystemAdmin)
+		require.Equal(t, user.CanAccessAllTenants, original.CanAccessAllTenants)
+		var members []types.TenantMember
+		require.NoError(t, db.Order("tenant_id").Find(&members).Error)
+		require.Equal(t, originalMembers, members)
+	}
+	if !browser {
+		require.EqualValues(t, 1, tokens.Load())
+		return
+	}
 	commandCtx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(commandCtx, "node", "tests/oa-login/sourceid-local-e2e.mjs")

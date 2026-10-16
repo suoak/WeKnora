@@ -74,7 +74,7 @@ func TestSourceIDSessionRevocationAndRotation(t *testing.T) {
 	}
 	first, second := newSession("device-1"), newSession("device-2")
 	pair := func(id string) (*types.AuthToken, *types.AuthToken) {
-		return &types.AuthToken{ID: uuid.NewString(), SessionID: id, UserID: userID, Token: uuid.NewString(), TokenType: "access_token"}, &types.AuthToken{ID: uuid.NewString(), SessionID: id, UserID: userID, Token: uuid.NewString(), TokenType: "refresh_token"}
+		return &types.AuthToken{ID: uuid.NewString(), SessionID: id, UserID: userID, Token: uuid.NewString(), TokenType: "access_token", ExpiresAt: time.Now().Add(time.Minute)}, &types.AuthToken{ID: uuid.NewString(), SessionID: id, UserID: userID, Token: uuid.NewString(), TokenType: "refresh_token", ExpiresAt: time.Now().Add(time.Minute)}
 	}
 	a, b := pair(first.ID)
 	require.NoError(t, r.PersistSourceIDTokens(ctx, first.ID, a, b, ""))

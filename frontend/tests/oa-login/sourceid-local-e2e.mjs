@@ -62,6 +62,7 @@ try {
   console.log('SOURCEID_SYNTHETIC_STAGE: login_page')
   await page.goto(`${browserOrigin}/login`)
   await expect(page.locator('.oidc-button')).toBeVisible({ timeout: 90000 })
+  await page.evaluate(() => localStorage.setItem('weknora_refresh_token', 'synthetic-stale-refresh'))
   const authorizationResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/oidc/url')
   await page.locator('.oidc-button').click()
   const authResponse = await authorizationResponse
@@ -73,6 +74,7 @@ try {
   await page.waitForURL(/\/portal(?:[/?#]|$)/, { timeout: 90000 })
   await expect(page.locator('.portal-shell')).toBeVisible({ timeout: 30000 })
   console.log('SOURCEID_SYNTHETIC_STAGE: portal_rendered')
+  assert.equal(await page.evaluate(() => localStorage.getItem('weknora_refresh_token')), null)
   const api = (path, method = 'GET') => page.evaluate(async ({ path, method }) => {
     const response = await fetch(path, { method, headers: { Authorization: `Bearer ${localStorage.getItem('weknora_token')}` } })
     const body = response.ok ? await response.json() : null

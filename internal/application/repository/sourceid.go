@@ -85,6 +85,9 @@ func (r *userRepository) CheckSourceIDSession(ctx context.Context, id, userID st
 }
 
 func (r *userRepository) PersistSourceIDTokens(ctx context.Context, id string, access, refresh *types.AuthToken, previous string) error {
+	if access == nil || access.UserID == "" || access.TokenType != "access_token" || access.SessionID != id || access.IsRevoked || !access.ExpiresAt.After(time.Now()) {
+		return errors.New("sourceid access token invalid")
+	}
 	localMode := false
 	err := r.db.WithContext(ctx).Session(&gorm.Session{Logger: gormlogger.Discard}).Transaction(func(tx *gorm.DB) error {
 		if err := checkSourceIDSession(tx, id, access.UserID, true); err != nil {
@@ -100,7 +103,13 @@ func (r *userRepository) PersistSourceIDTokens(ctx context.Context, id string, a
 			if err := tx.Where("id = ?", id).First(&local).Error; err != nil {
 				return err
 			}
-			if previous != "" && !local.RefreshEnabled && ctx.Value(types.SourceIDTokenOperationKey{}) != "switch" {
+			if refresh == nil {
+				if local.RefreshEnabled || previous != "" || access.ExpiresAt.After(session.ExpiresAt) || access.ExpiresAt.After(local.AdmissionValidUntil) {
+					return errors.New("sourceid access-only token limits invalid")
+				}
+				return tx.Create(access).Error
+			}
+			if !local.RefreshEnabled {
 				return errors.New("sourceid local refresh disabled")
 			}
 			if access.SessionID != id || refresh.SessionID != id || refresh.UserID != access.UserID ||
@@ -117,6 +126,9 @@ func (r *userRepository) PersistSourceIDTokens(ctx context.Context, id string, a
 					return errors.New("sourceid local refresh predecessor required")
 				}
 			}
+		}
+		if refresh == nil {
+			return errors.New("sourceid refresh required for external session")
 		}
 		if previous != "" {
 			query := tx.Model(&types.AuthToken{}).Where("token = ? AND user_id = ? AND session_id = ? AND is_revoked = ?", previous, access.UserID, id, false)

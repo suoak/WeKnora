@@ -110,7 +110,19 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 		return nil, ctx, err
 	}
 	var user *types.User
-	if cfg.SourceIDEmailBindingEnable {
+	if mode == "local_approved" && cfg.SourceIDAdmissionMode == "oidc_sso_approved" {
+		accounts, accountErr := cfg.SourceIDPilotAccounts()
+		if accountErr != nil {
+			return nil, ctx, accountErr
+		}
+		binding, ok := r.(interface {
+			ResolveSourceIDPilotEmailIdentity(context.Context, string, string, string, string, string, map[string]string) (*types.User, error)
+		})
+		if !ok {
+			return nil, ctx, errors.New("sourceid pilot repository unavailable")
+		}
+		user, err = binding.ResolveSourceIDPilotEmailIdentity(ctx, cfg.IssuerURL, info.Subject, employee, sourceIDStringClaim(info.Claims, "attributes.RJEMAIL"), cfg.SourceIDAutoBindingPolicyRef, accounts)
+	} else if cfg.SourceIDEmailBindingEnable {
 		if cfg.SourceIDAutoBindingEnable {
 			binding, ok := r.(interface {
 				ResolveSourceIDAutoEmailIdentity(context.Context, string, string, string, string, string) (*types.User, error)
@@ -196,11 +208,14 @@ func (s *userService) CheckSourceIDTokenSession(ctx context.Context, token *type
 // Switches inherit the authenticated access token's session, never a caller's
 // unrelated refresh token. This works even when no refresh token is submitted.
 func (s *userService) SourceIDSwitchContext(ctx context.Context, access string) (context.Context, error) {
+	if _, _, err := s.ValidateToken(ctx, access); err != nil {
+		return ctx, err
+	}
 	token, err := s.tokenRepo.GetTokenByValue(ctx, access)
 	if err != nil {
 		return ctx, err
 	}
-	if token == nil || token.IsRevoked || token.TokenType != "access_token" {
+	if token == nil || token.IsRevoked || token.TokenType != "access_token" || !token.ExpiresAt.After(time.Now()) {
 		return ctx, errors.New("invalid access token")
 	}
 	if err := s.CheckSourceIDTokenSession(ctx, token); err != nil {
