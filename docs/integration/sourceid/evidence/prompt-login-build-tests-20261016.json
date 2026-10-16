@@ -1,0 +1,38 @@
+{
+  "result": "PASS",
+  "source_sha": "479416c9086d91de4484dbbd2cc5f912cdcdb697",
+  "image_id": "sha256:85f9d6c052298e7f52e7d7c4533e131ce19326d461521378e90c6df3b01fa49c",
+  "toolchain": "go1.26.7",
+  "network": "none",
+  "race_enabled": true,
+  "package_results": [
+    {
+      "package": "github.com/Tencent/WeKnora/internal/config",
+      "elapsed": "1.770s"
+    },
+    {
+      "package": "github.com/Tencent/WeKnora/internal/application/service",
+      "elapsed": "11.876s"
+    },
+    {
+      "package": "github.com/Tencent/WeKnora/internal/handler",
+      "elapsed": "2.271s"
+    },
+    {
+      "package": "github.com/Tencent/WeKnora/internal/application/repository",
+      "elapsed": "4.335s"
+    },
+    {
+      "package": "github.com/Tencent/WeKnora/internal/middleware",
+      "elapsed": "2.163s"
+    },
+    {
+      "package": "github.com/Tencent/WeKnora/internal/utils",
+      "elapsed": "1.047s"
+    }
+  ],
+  "test_filter": "SourceID|OIDC|AuthToken|SwitchTenant|Login|Logout|GenerateTokens|ValidateToken|RefreshToken",
+  "binary_built": true,
+  "real_credentials_used": false,
+  "live_services_changed": false
+}
