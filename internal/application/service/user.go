@@ -576,6 +576,7 @@ func (s *userService) LoginWithOIDC(
 			ctx = context.WithValue(ctx, sourceIDAuthorizationProofKey{}, sourceIDAuthorizationProof{Issuer: cfg.IssuerURL, Subject: userInfo.Subject, At: time.Now(), PromptLoginRequested: request.Prompt == "login"})
 		}
 		user, ctx, err = s.loginSourceID(ctx, cfg, userInfo)
+		isNewUser, _ = ctx.Value(sourceIDJITCreatedKey{}).(bool)
 		SourceIDDiagnosticStage(ctx, "identity_mapping", stageStarted, err)
 		if err != nil {
 			return nil, err

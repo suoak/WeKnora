@@ -133,7 +133,16 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 				if !ok {
 					return nil, ctx, errors.New("sourceid jit repository unavailable")
 				}
-				user, err = jit.ResolveSourceIDEnterpriseOrJITIdentity(ctx, cfg.IssuerURL, info.Subject, employee, email, cfg.SourceIDAutoBindingPolicyRef, cfg.SourceIDEnterprisePolicyRef, maxAge, cfg.SourceIDJITPolicyRef, cfg.SourceIDJITDomains(), s.sourceIDJITProvisioner(email))
+				created := false
+				provision := func(c context.Context, repository interfaces.UserRepository) (*types.User, error) {
+					u, e := s.sourceIDJITProvisioner(email)(c, repository)
+					created = e == nil
+					return u, e
+				}
+				user, err = jit.ResolveSourceIDEnterpriseOrJITIdentity(ctx, cfg.IssuerURL, info.Subject, employee, email, cfg.SourceIDAutoBindingPolicyRef, cfg.SourceIDEnterprisePolicyRef, maxAge, cfg.SourceIDJITPolicyRef, cfg.SourceIDJITDomains(), provision)
+				if err == nil {
+					ctx = context.WithValue(ctx, sourceIDJITCreatedKey{}, created)
+				}
 			} else {
 				user, err = binding.ResolveSourceIDEnterpriseEmailIdentity(ctx, cfg.IssuerURL, info.Subject, employee, email, cfg.SourceIDAutoBindingPolicyRef, cfg.SourceIDEnterprisePolicyRef, maxAge)
 			}

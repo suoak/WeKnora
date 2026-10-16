@@ -356,6 +356,7 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 		var login map[string]interface{}
 		require.NoError(t, json.Unmarshal(result.Body.Bytes(), &login))
 		if role == "jit" {
+			require.Equal(t, true, login["is_new_user"])
 			email := user.Email
 			user = types.User{}
 			require.NoError(t, db.Where("email=?", email).First(&user).Error)

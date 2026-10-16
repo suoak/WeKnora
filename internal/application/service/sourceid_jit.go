@@ -16,6 +16,8 @@ type sourceIDJITStore interface {
 	ResolveSourceIDEnterpriseOrJITIdentity(context.Context, string, string, string, string, string, string, time.Duration, string, []string, func(context.Context, interfaces.UserRepository) (*types.User, error)) (*types.User, error)
 }
 
+type sourceIDJITCreatedKey struct{}
+
 // Keep driver error details out of Register's generic error logging, while
 // reusing the existing tenantless registration and password policy behavior.
 type sourceIDJITUsers struct{ interfaces.UserRepository }
