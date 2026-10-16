@@ -1,0 +1,124 @@
+{
+  "result": "PASS",
+  "since_utc": "2026-10-16T03:46:00Z",
+  "utc": "2026-10-16T03:55:34.725534+00:00",
+  "containers": {
+    "knowhub-sourceid-business-app-1": {
+      "safe_path_status_counts": {},
+      "safe_stages": [
+        {
+          "trace": "ae40087f-88a0-4ee7-b382-84f4d20d1316",
+          "stage": "authorize",
+          "pass": true,
+          "duration_ms": 4071,
+          "category": "none"
+        },
+        {
+          "trace": "6037dfd9-ddd0-4dac-a0cd-d499b4087e19",
+          "stage": "callback_state",
+          "pass": true,
+          "duration_ms": 1,
+          "category": "none"
+        },
+        {
+          "trace": "6037dfd9-ddd0-4dac-a0cd-d499b4087e19",
+          "stage": "token",
+          "pass": true,
+          "duration_ms": 255,
+          "category": "none"
+        },
+        {
+          "trace": "6037dfd9-ddd0-4dac-a0cd-d499b4087e19",
+          "stage": "id_token",
+          "pass": true,
+          "duration_ms": 215,
+          "category": "none"
+        },
+        {
+          "trace": "6037dfd9-ddd0-4dac-a0cd-d499b4087e19",
+          "stage": "userinfo",
+          "pass": true,
+          "duration_ms": 194,
+          "category": "none"
+        },
+        {
+          "trace": "6037dfd9-ddd0-4dac-a0cd-d499b4087e19",
+          "stage": "identity_mapping",
+          "pass": false,
+          "duration_ms": 0,
+          "category": "rejected"
+        },
+        {
+          "trace": "6037dfd9-ddd0-4dac-a0cd-d499b4087e19",
+          "stage": "callback_result",
+          "pass": false,
+          "duration_ms": 854,
+          "category": "rejected"
+        },
+        {
+          "trace": "263d1423-e408-43d6-b2f8-313086bb672c",
+          "stage": "authorize",
+          "pass": true,
+          "duration_ms": 4892,
+          "category": "none"
+        },
+        {
+          "trace": "2b28fe39-642d-4783-a222-4058817d7475",
+          "stage": "callback_state",
+          "pass": true,
+          "duration_ms": 2,
+          "category": "none"
+        },
+        {
+          "trace": "2b28fe39-642d-4783-a222-4058817d7475",
+          "stage": "token",
+          "pass": true,
+          "duration_ms": 240,
+          "category": "none"
+        },
+        {
+          "trace": "2b28fe39-642d-4783-a222-4058817d7475",
+          "stage": "id_token",
+          "pass": true,
+          "duration_ms": 190,
+          "category": "none"
+        },
+        {
+          "trace": "2b28fe39-642d-4783-a222-4058817d7475",
+          "stage": "userinfo",
+          "pass": true,
+          "duration_ms": 187,
+          "category": "none"
+        },
+        {
+          "trace": "2b28fe39-642d-4783-a222-4058817d7475",
+          "stage": "identity_mapping",
+          "pass": false,
+          "duration_ms": 0,
+          "category": "rejected"
+        },
+        {
+          "trace": "2b28fe39-642d-4783-a222-4058817d7475",
+          "stage": "callback_result",
+          "pass": false,
+          "duration_ms": 808,
+          "category": "rejected"
+        }
+      ],
+      "bytes_scanned": 29743,
+      "tail_limit": 3000
+    },
+    "knowhub-sourceid-business-frontend-1": {
+      "safe_path_status_counts": {
+        "GET /api/v1/auth/oidc/config 200": 4,
+        "GET /api/v1/auth/oidc/url 200": 2,
+        "GET /api/v1/auth/oidc/callback 302": 2
+      },
+      "safe_stages": [],
+      "bytes_scanned": 3002,
+      "tail_limit": 3000
+    }
+  },
+  "new_requests_sent": false,
+  "raw_logs_saved": false
+}

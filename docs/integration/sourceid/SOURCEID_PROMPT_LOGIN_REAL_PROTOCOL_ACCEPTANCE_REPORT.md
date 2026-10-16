@@ -94,3 +94,9 @@
 - [最终恢复及定向事务处理](evidence/prompt-login-real-final-closeout-20261016.json)
 
 未保存完整URL、Secret、Code、Token、Cookie、员工字段原值、凭据指纹或原始HTTP响应。报告结论仅使用允许的阶段、布尔值、计数及安全Trace。
+
+## 7. 后续只读审计补充——不得合并为本笔强制认证结果
+
+2026-10-16北京时间11:54—11:56服务端审计发现，恢复prompt=false之后出现两笔独立事务：11:49:53、11:51:45发送Token，分别HTTP200/248ms、200/234ms，callback/state、ID Token及UserInfo阶段PASS，之后身份映射rejected。企业绑定及Session仍0，符合protocol_only门禁；操作者及是否强制重新认证没有证据，本轮程序未发起这些请求。
+
+这两笔不能补成上次11:41—11:43强制窗口的闭环，也不能修改本报告主结论INCOMPLETE。最后保存的字段schema中ID Token未见auth_time，UserInfo有number类型auth_time；后者不能冒充签名新鲜度证据。详细独立Trace、证据边界及下一笔采集方案见 [服务端监测方案](SOURCEID_SERVER_PROTOCOL_MONITORING_PLAN.md)。
