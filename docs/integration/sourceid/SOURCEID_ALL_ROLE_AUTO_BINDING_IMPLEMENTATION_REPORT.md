@@ -1,5 +1,7 @@
 # OA 全角色首次自动关联实现与安全评审
 
+> 发布状态更新：此功能随后获批准完成APP-only发布，默认APP已为035f35e1d，真实身份门禁仍关闭。见[部署报告](SOURCEID_ALL_ROLE_APP_DEPLOYMENT_REPORT.md)。下文NOT_DEPLOYED指初次实现验收时点，非最新运行状态。
+
 日期：2026-10-16。结论：**IMPLEMENTED / SYNTHETIC_PASS / CI_PASS / NOT_DEPLOYED_TO_DEFAULT_SERVICE**。
 
 本次产品输入：所有既有账号均可首次自动关联，不按 viewer、contributor、owner、租户/组织/系统/跨租户管理员角色拒绝；保留原账号与权限。实际部署和真实企业绑定仍需单独授权。

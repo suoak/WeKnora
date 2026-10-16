@@ -1,0 +1,20 @@
+{
+  "target": "172.30.232.42",
+  "target_commit": "035f35e1d388a2f02615d35cf826bbdcc22e56b0",
+  "result": "FAILED",
+  "upgrade_completed": false,
+  "rolled_back": false,
+  "real_sid_login": "NOT_EXECUTED",
+  "real_employee_binding": "NOT_EXECUTED",
+  "database_migration": "NOT_EXECUTED",
+  "legacy_database_reuse": "NOT_EXECUTED",
+  "failure_stage": "precheck",
+  "failure_class": "RuntimeError",
+  "failure_lines": [
+    303,
+    276,
+    269,
+    250
+  ],
+  "completed_utc": "2026-10-16T00:51:21.741977+00:00"
+}

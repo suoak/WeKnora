@@ -1,0 +1,58 @@
+{
+  "utc": "2026-10-16T00:53:44.572736+00:00",
+  "result": "PASS",
+  "app_container_id": "842f61a9825fe013dfbd87285cfc6846c65bd086131bf26dbdcbd192c13c4e78",
+  "app_image_id": "sha256:2d91336c3f5ba1ba330820801c7bf0573b1c9c45b9280994dd0862d016435286",
+  "app_revision": "035f35e1d388a2f02615d35cf826bbdcc22e56b0",
+  "frontend_container_id": "7b624ec2ee904cb7a0ab86458954722bae831f20f1f3c9da54c7ca3f5e53c448",
+  "frontend_revision": "1ba24ef5f9a730bb98d9ade6a5a5d141ea49292b",
+  "flags": {
+    "SOURCEID_BASIC_ENCODING": "oauth_form",
+    "SOURCEID_ENABLE": "true",
+    "SOURCEID_PROTOCOL_ONLY": "true",
+    "SOURCEID_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_EMAIL_BINDING_ENABLE": "false",
+    "SOURCEID_EMAIL_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_AUTO_BINDING_ENABLE": "false",
+    "SOURCEID_SESSION_MODE": "NOT_SET",
+    "SOURCEID_LOGOUT_ENABLE": "false",
+    "OIDC_AUTH_ENABLE": "true",
+    "SOURCEID_DIAGNOSTICS_ENABLE": "true",
+    "OIDC_AUTH_PKCE_ENABLE": "false",
+    "AUTO_MIGRATE": "false"
+  },
+  "database": [
+    {
+      "version": 3027,
+      "dirty": false
+    },
+    {
+      "users": 2,
+      "tenants": 1,
+      "members": 2,
+      "identities": 0,
+      "reviews": 0,
+      "sessions": 0,
+      "local_sessions": 0,
+      "active_knowledge_bases": 0,
+      "active_mcp_endpoints": 0
+    }
+  ],
+  "health": {
+    "frontend_80": {
+      "status": 200
+    },
+    "app_8080": {
+      "status": 200
+    },
+    "proxy_oidc_config": {
+      "status": 200,
+      "enabled": true,
+      "sourceid_basic_encoding": "oauth_form",
+      "redirect_uri": "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback"
+    }
+  },
+  "real_sid_login": false,
+  "legacy_database_reused": false,
+  "database_migration_executed": false
+}
