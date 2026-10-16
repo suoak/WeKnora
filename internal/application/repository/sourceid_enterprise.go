@@ -15,6 +15,33 @@ import (
 var errOwnership = errors.New("sourceid enterprise ownership unavailable")
 var errOwnershipDryRun = errors.New("sourceid ownership dry run")
 
+// Read-only bulk join. A trusted historical ownership reference is still
+// required by Sync; unique email alone is never account-ownership proof.
+// Existing employee rows win over changed email and cannot migrate users.
+func (r *userRepository) ResolveSourceIDOwnershipAccount(ctx context.Context, issuer, employee, email string) (string, error) {
+	if issuer == "" || employee == "" {
+		return "", errOwnership
+	}
+	db := r.bindingDB(ctx)
+	var row types.SourceIDAccountOwnership
+	err := db.Where("issuer = ? AND employee_no = ?", issuer, employee).First(&row).Error
+	if err == nil {
+		return row.UserID, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", errOwnership
+	}
+	normalized, err := normalizeSourceIDEmail(email)
+	if err != nil {
+		return "", errOwnership
+	}
+	var users []types.User
+	if db.Where("LOWER(TRIM(email)) = ?", normalized).Limit(2).Find(&users).Error != nil || len(users) != 1 || !users[0].IsActive {
+		return "", errOwnership
+	}
+	return users[0].ID, nil
+}
+
 func ownershipUsable(row *types.SourceIDAccountOwnership, userID, policy string, maxAge time.Duration) bool {
 	now := time.Now()
 	return maxAge > 0 && row.UserID == userID && row.Status == "active" && row.PolicyRef == policy &&

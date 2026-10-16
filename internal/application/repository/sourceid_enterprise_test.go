@@ -52,6 +52,9 @@ func TestSourceIDEnterpriseOwnershipLifecycle(t *testing.T) {
 	changed, err := r.SyncSourceIDAccountOwnership(ctx, row, "synthetic-operator", false)
 	require.NoError(t, err)
 	require.True(t, changed)
+	joined, err := r.ResolveSourceIDOwnershipAccount(ctx, row.Issuer, row.EmployeeNo, row.Email)
+	require.NoError(t, err)
+	require.Equal(t, user.ID, joined)
 	var n int64
 	require.NoError(t, db.Model(&types.SourceIDAccountOwnership{}).Count(&n).Error)
 	require.Zero(t, n)
@@ -76,6 +79,9 @@ func TestSourceIDEnterpriseOwnershipLifecycle(t *testing.T) {
 	require.Error(t, err)
 	row.Revision++
 	row.Email = "new@example.test"
+	joined, err = r.ResolveSourceIDOwnershipAccount(ctx, row.Issuer, row.EmployeeNo, row.Email)
+	require.NoError(t, err)
+	require.Equal(t, user.ID, joined)
 	changed, err = r.SyncSourceIDAccountOwnership(ctx, row, "synthetic-operator", true)
 	require.NoError(t, err)
 	require.True(t, changed)

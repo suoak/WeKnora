@@ -25,6 +25,9 @@ import (
 type syncStore interface {
 	SyncSourceIDAccountOwnership(context.Context, types.SourceIDAccountOwnership, string, bool) (bool, error)
 }
+type accountResolver interface {
+	ResolveSourceIDOwnershipAccount(context.Context, string, string, string) (string, error)
+}
 type protectedRow struct {
 	Issuer       string    `json:"issuer"`
 	EmployeeNo   string    `json:"employee_no"`
@@ -67,6 +70,19 @@ func process(ctx context.Context, in io.Reader, out io.Writer, store syncStore, 
 		if d.Decode(&row) != nil || d.Decode(new(interface{})) != io.EOF {
 			result.Rejected++
 			continue
+		}
+		if row.UserID == "" {
+			resolver, ok := store.(accountResolver)
+			if !ok {
+				result.Rejected++
+				continue
+			}
+			id, err := resolver.ResolveSourceIDOwnershipAccount(ctx, row.Issuer, row.EmployeeNo, row.Email)
+			if err != nil {
+				result.Rejected++
+				continue
+			}
+			row.UserID = id
 		}
 		canonical, _ := json.Marshal(row)
 		keys := []string{"employee:" + row.Issuer + "\x00" + row.EmployeeNo, "user:" + row.Issuer + "\x00" + row.UserID, "email:" + row.Issuer + "\x00" + strings.ToLower(strings.TrimSpace(row.Email))}

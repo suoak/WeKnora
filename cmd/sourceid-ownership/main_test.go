@@ -17,6 +17,10 @@ type syntheticStore struct {
 	applied bool
 }
 
+func (s *syntheticStore) ResolveSourceIDOwnershipAccount(_ context.Context, _ string, employee string, _ string) (string, error) {
+	return "synthetic-" + employee, nil
+}
+
 func (s *syntheticStore) SyncSourceIDAccountOwnership(_ context.Context, row types.SourceIDAccountOwnership, _ string, apply bool) (bool, error) {
 	s.calls++
 	s.applied = apply
