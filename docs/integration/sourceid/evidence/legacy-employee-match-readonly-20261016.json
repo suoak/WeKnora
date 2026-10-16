@@ -1,0 +1,48 @@
+{
+  "utc": "2026-10-16T00:05:33.579154+00:00",
+  "result": "PASS",
+  "projects": [
+    {
+      "project": "weknora",
+      "status": "READ_ONLY_MATCHED_COUNTS",
+      "counts": {
+        "matched_accounts": 1,
+        "active_matches": 1,
+        "system_admin_matches": 1,
+        "cross_tenant_matches": 0,
+        "owner_or_admin_membership_matches": 1,
+        "ordinary_membership_matches": 0
+      }
+    },
+    {
+      "project": "weknora-segment-test",
+      "status": "READ_ONLY_MATCHED_COUNTS",
+      "counts": {
+        "matched_accounts": 1,
+        "active_matches": 1,
+        "system_admin_matches": 1,
+        "cross_tenant_matches": 0,
+        "owner_or_admin_membership_matches": 1,
+        "ordinary_membership_matches": 0
+      }
+    },
+    {
+      "project": "knowhub-sourceid-business",
+      "status": "READ_ONLY_MATCHED_COUNTS",
+      "counts": {
+        "matched_accounts": 1,
+        "active_matches": 1,
+        "system_admin_matches": 0,
+        "cross_tenant_matches": 0,
+        "owner_or_admin_membership_matches": 0,
+        "ordinary_membership_matches": 1
+      }
+    }
+  ],
+  "scope": "authorized employee own-email comparison only",
+  "employee_values_exported": false,
+  "email_fingerprint_exported": false,
+  "all_queries_read_only": true,
+  "database_or_configuration_changed": false,
+  "sid_login_started": false
+}

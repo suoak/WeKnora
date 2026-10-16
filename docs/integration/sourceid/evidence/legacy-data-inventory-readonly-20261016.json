@@ -1,0 +1,1703 @@
+{
+  "started_utc": "2026-10-16T00:03:22.358998+00:00",
+  "finished_utc": "2026-10-16T00:04:02.399132+00:00",
+  "target": "172.30.232.42",
+  "projects": {
+    "knowhub-sourceid-business": [
+      {
+        "container_id": "7b624ec2ee904cb7a0ab86458954722bae831f20f1f3c9da54c7ca3f5e53c448",
+        "service": "frontend",
+        "image_id": "sha256:63146a134fc3be75b663a1ac6ddba205be2b0a3c881891a3ba29a28d6a04f48a",
+        "revision": "1ba24ef5f9a730bb98d9ade6a5a5d141ea49292b",
+        "running": true,
+        "health": "NOT_CONFIGURED",
+        "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml,/home/aqyfzx/ai/knowhub-sourceid-phaseb-preflight-431226c3b/candidate-image-pin.yml,/home/aqyfzx/ai/knowhub-oa-ui-candidate-1ba24ef5f/frontend-ui-pin.yml",
+        "mounts": [],
+        "published_ports": {
+          "80/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "80"
+            }
+          ]
+        }
+      },
+      {
+        "container_id": "ceac394ee4632f5514cbb65821e77c369df63b35ee1aba7d291fab8a9fdb6ea5",
+        "service": "app",
+        "image_id": "sha256:b2751ba9c8797b0c2440b9435ad92ba9ab2c30d4a95b0c28a2b1b34e4a4c3af1",
+        "revision": "431226c3b1bd5338ec06c1bd0520e637d5fed398",
+        "running": true,
+        "health": "healthy",
+        "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml,/home/aqyfzx/ai/knowhub-sourceid-phaseb-preflight-431226c3b/candidate-image-pin.yml",
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "knowhub-sourceid-business_doc-tmp",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_doc-tmp/_data",
+            "Destination": "/tmp/docreader",
+            "RW": false
+          },
+          {
+            "Type": "bind",
+            "Name": null,
+            "Source": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/fixture/ca.pem",
+            "Destination": "/fixture/ca.pem",
+            "RW": false
+          },
+          {
+            "Type": "volume",
+            "Name": "knowhub-sourceid-business_files",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_files/_data",
+            "Destination": "/data/files",
+            "RW": true
+          }
+        ],
+        "published_ports": {
+          "8080/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "8080"
+            }
+          ]
+        }
+      },
+      {
+        "container_id": "8b4c423f194a406fe2877c0140c05d3e3a53c8c79e749148ccd721e2c615eaac",
+        "service": "sid-mock",
+        "image_id": "sha256:8bfc2006e22c6a8eee94a45e0c9afe0168cfa72aa4f214291576c95a6d56c39c",
+        "revision": "NOT_CAPTURED",
+        "running": false,
+        "health": "NOT_CONFIGURED",
+        "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+        "mounts": [
+          {
+            "Type": "bind",
+            "Name": null,
+            "Source": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/token-diagnostic-fixture",
+            "Destination": "/fixture",
+            "RW": false
+          }
+        ],
+        "published_ports": {}
+      },
+      {
+        "container_id": "ba1385464699fdb0b21e48b3134e870f99de3bc1d74ff9663a4dc42e5476f624",
+        "service": "postgres",
+        "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+        "revision": "NOT_CAPTURED",
+        "running": true,
+        "health": "healthy",
+        "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "knowhub-sourceid-business_postgres",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_postgres/_data",
+            "Destination": "/var/lib/postgresql/data",
+            "RW": true
+          }
+        ],
+        "published_ports": {
+          "5432/tcp": null
+        }
+      },
+      {
+        "container_id": "2396325bde68730217152ee1885508ca9294ed8524ef424a7022c8b9a2c2cc90",
+        "service": "docreader",
+        "image_id": "sha256:8399936620aa78f991b95a0339585f5d2d61f215e6311955e8386a01329beba2",
+        "revision": "NOT_CAPTURED",
+        "running": true,
+        "health": "NOT_CONFIGURED",
+        "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "knowhub-sourceid-business_doc-tmp",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_doc-tmp/_data",
+            "Destination": "/tmp/docreader",
+            "RW": true
+          }
+        ],
+        "published_ports": {
+          "50051/tcp": null
+        }
+      },
+      {
+        "container_id": "fcc4d64070c73ee198ffa0c5badf6abd1b2d03543243f857be4f84b8605c33ad",
+        "service": "redis",
+        "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+        "revision": "NOT_CAPTURED",
+        "running": true,
+        "health": "NOT_CONFIGURED",
+        "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "knowhub-sourceid-business_redis",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_redis/_data",
+            "Destination": "/data",
+            "RW": true
+          }
+        ],
+        "published_ports": {
+          "6379/tcp": null
+        }
+      }
+    ],
+    "knowhub-sourceid-p6": [
+      {
+        "container_id": "9c50e590d87a081fed62065c9a048a353b522b1a74a8ad89bedf6ebc852fb028",
+        "service": "app",
+        "image_id": "sha256:6cea5e7269419db133d7c609e7b85043317e32539e9137f22292b8b72d185b92",
+        "revision": "8ae91bc4439dcc93be11844ada5ec1479f2730bc",
+        "running": true,
+        "health": "healthy",
+        "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-p6-isolated-8ae91bc44/compose.yml,/home/aqyfzx/ai/knowhub-sourceid-p6-isolated-8ae91bc44/compose.login-containment.yml,/home/aqyfzx/ai/knowhub-feishu-personal-20261014/compose.feishu-test.yml",
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "knowhub-sourceid-p6_files",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-p6_files/_data",
+            "Destination": "/data/files",
+            "RW": true
+          },
+          {
+            "Type": "volume",
+            "Name": "knowhub-sourceid-p6_docreader-tmp",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-p6_docreader-tmp/_data",
+            "Destination": "/tmp/docreader",
+            "RW": false
+          }
+        ],
+        "published_ports": {
+          "8080/tcp": null
+        }
+      },
+      {
+        "container_id": "2a280fa4c7356f3b54bb89d4b2413b9c43abf423181853bd4b65da8f3127282a",
+        "service": "frontend",
+        "image_id": "sha256:e2686ca6c72a92e0b90aa5387aefe2b7c700bea94a2afac0045c8197d7402356",
+        "revision": "NOT_CAPTURED",
+        "running": true,
+        "health": "NOT_CONFIGURED",
+        "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-p6-isolated-8ae91bc44/compose.yml,/home/aqyfzx/ai/knowhub-sourceid-p6-isolated-8ae91bc44/compose.login-containment.yml,/home/aqyfzx/ai/knowhub-feishu-personal-20261014/compose.feishu-test.yml",
+        "mounts": [
+          {
+            "Type": "bind",
+            "Name": null,
+            "Source": "/home/aqyfzx/ai/knowhub-sourceid-p6-isolated-8ae91bc44/safe-nginx.conf",
+            "Destination": "/etc/nginx/templates/default.conf.template",
+            "RW": false
+          },
+          {
+            "Type": "bind",
+            "Name": null,
+            "Source": "/home/aqyfzx/ai/knowhub-sourceid-p6-isolated-8ae91bc44/safe-nginx-http.conf",
+            "Destination": "/etc/nginx/conf.d/00-weknora-http.conf",
+            "RW": false
+          }
+        ],
+        "published_ports": {
+          "80/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "18182"
+            }
+          ]
+        }
+      },
+      {
+        "container_id": "dfc572de7f309d34f154efc34f63d7e36d40718296d58b71f35b3a410628ff0b",
+        "service": "postgres",
+        "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+        "revision": "NOT_CAPTURED",
+        "running": true,
+        "health": "healthy",
+        "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-p6-isolated-8ae91bc44/compose.yml,/home/aqyfzx/ai/knowhub-sourceid-p6-isolated-8ae91bc44/compose.login-containment.yml",
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "knowhub-sourceid-p6_postgres",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-p6_postgres/_data",
+            "Destination": "/var/lib/postgresql/data",
+            "RW": true
+          }
+        ],
+        "published_ports": {
+          "5432/tcp": null
+        }
+      },
+      {
+        "container_id": "6b15930f1cc5f30db90c811343d0f55bcab6be0e205ec9babfab53638f30a618",
+        "service": "docreader",
+        "image_id": "sha256:8399936620aa78f991b95a0339585f5d2d61f215e6311955e8386a01329beba2",
+        "revision": "NOT_CAPTURED",
+        "running": true,
+        "health": "NOT_CONFIGURED",
+        "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-p6-isolated-8ae91bc44/compose.yml,/home/aqyfzx/ai/knowhub-sourceid-p6-isolated-8ae91bc44/compose.login-containment.yml",
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "knowhub-sourceid-p6_docreader-tmp",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-p6_docreader-tmp/_data",
+            "Destination": "/tmp/docreader",
+            "RW": true
+          }
+        ],
+        "published_ports": {
+          "50051/tcp": null
+        }
+      },
+      {
+        "container_id": "ede8bcb14f745af205baa9c0766d750d61df5044f5b64474db6275fa404cb977",
+        "service": "redis",
+        "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+        "revision": "NOT_CAPTURED",
+        "running": true,
+        "health": "NOT_CONFIGURED",
+        "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-p6-isolated-8ae91bc44/compose.yml,/home/aqyfzx/ai/knowhub-sourceid-p6-isolated-8ae91bc44/compose.login-containment.yml",
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "knowhub-sourceid-p6_redis",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-p6_redis/_data",
+            "Destination": "/data",
+            "RW": true
+          }
+        ],
+        "published_ports": {
+          "6379/tcp": null
+        }
+      }
+    ],
+    "knowhub24-rc1-smoke": [
+      {
+        "container_id": "278a75a85cac8c6b14400142c991479ae00b3dca0e08795735795833b0afbbaa",
+        "service": "app",
+        "image_id": "sha256:dc1268591cc4a273b732eacb9cd360f7c44d24ddd33706078a464cc3f90fff52",
+        "revision": "854f3b956ae3600e12a3ffd2fc40d4fe624ced74",
+        "running": true,
+        "health": "healthy",
+        "compose_files": "/home/aqyfzx/ai/knowhub-rc24-isolated-health-v0.8.0-knowhub.24-rc1-854f3b95/docker-compose.smoke.yml,/home/aqyfzx/ai/knowhub-sourceid-build-8ae91bc44/compose.rollback-app.yml",
+        "mounts": [
+          {
+            "Type": "bind",
+            "Name": null,
+            "Source": "/home/aqyfzx/ai/WeKnora-rc24-rc1-854f3b95/config/config.yaml",
+            "Destination": "/app/config/config.yaml",
+            "RW": false
+          },
+          {
+            "Type": "volume",
+            "Name": "knowhub24-rc1-smoke_data-files",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub24-rc1-smoke_data-files/_data",
+            "Destination": "/data/files",
+            "RW": true
+          },
+          {
+            "Type": "volume",
+            "Name": "knowhub24-rc1-smoke_docreader-tmp",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub24-rc1-smoke_docreader-tmp/_data",
+            "Destination": "/tmp/docreader",
+            "RW": false
+          }
+        ],
+        "published_ports": {
+          "8080/tcp": null
+        }
+      },
+      {
+        "container_id": "0f53714cb5869ad20f47392e874d2c65fa50c4b504cbc932d4f5bbf0ef71b088",
+        "service": "docreader",
+        "image_id": "sha256:8399936620aa78f991b95a0339585f5d2d61f215e6311955e8386a01329beba2",
+        "revision": "NOT_CAPTURED",
+        "running": true,
+        "health": "healthy",
+        "compose_files": "/home/aqyfzx/ai/knowhub-rc24-isolated-health-v0.8.0-knowhub.24-rc1-854f3b95/docker-compose.smoke.yml",
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "knowhub24-rc1-smoke_docreader-tmp",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub24-rc1-smoke_docreader-tmp/_data",
+            "Destination": "/tmp/docreader",
+            "RW": true
+          }
+        ],
+        "published_ports": {
+          "50051/tcp": null
+        }
+      },
+      {
+        "container_id": "14aad5e42f4cda1833ce4cbe823c5bc1138d808f1661b49faf9bc0d6631c4bbf",
+        "service": "postgres",
+        "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+        "revision": "NOT_CAPTURED",
+        "running": true,
+        "health": "healthy",
+        "compose_files": "/home/aqyfzx/ai/knowhub-rc24-isolated-health-v0.8.0-knowhub.24-rc1-854f3b95/docker-compose.smoke.yml",
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "knowhub24-rc1-smoke_postgres-data",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub24-rc1-smoke_postgres-data/_data",
+            "Destination": "/var/lib/postgresql/data",
+            "RW": true
+          }
+        ],
+        "published_ports": {
+          "5432/tcp": null
+        }
+      },
+      {
+        "container_id": "ede18337528b02c1a695cd6282868d1f997118b009c8667c7e2fa9675eac3266",
+        "service": "neo4j",
+        "image_id": "sha256:5ff6e5ba92302482483cb07e6278ed76511ca6692acb93a4df3df07d1fea88ad",
+        "revision": "NOT_CAPTURED",
+        "running": true,
+        "health": "NOT_CONFIGURED",
+        "compose_files": "/home/aqyfzx/ai/knowhub-rc24-isolated-health-v0.8.0-knowhub.24-rc1-854f3b95/docker-compose.smoke.yml",
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "knowhub24-rc1-smoke_neo4j-data",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub24-rc1-smoke_neo4j-data/_data",
+            "Destination": "/data",
+            "RW": true
+          },
+          {
+            "Type": "volume",
+            "Name": "37f57d39599f724f072bbf676ab613fd979f52169e2bb2279f43c319ee038dd0",
+            "Source": "/mnt/sata0/lib/docker/volumes/37f57d39599f724f072bbf676ab613fd979f52169e2bb2279f43c319ee038dd0/_data",
+            "Destination": "/logs",
+            "RW": true
+          }
+        ],
+        "published_ports": {
+          "7473/tcp": null,
+          "7474/tcp": null,
+          "7687/tcp": null
+        }
+      },
+      {
+        "container_id": "362e8fb1039fe3aed7ec33f4dbb232a6cde5059005d7c79218a98f26277c8709",
+        "service": "redis",
+        "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+        "revision": "NOT_CAPTURED",
+        "running": true,
+        "health": "NOT_CONFIGURED",
+        "compose_files": "/home/aqyfzx/ai/knowhub-rc24-isolated-health-v0.8.0-knowhub.24-rc1-854f3b95/docker-compose.smoke.yml",
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "knowhub24-rc1-smoke_redis-data",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub24-rc1-smoke_redis-data/_data",
+            "Destination": "/data",
+            "RW": true
+          }
+        ],
+        "published_ports": {
+          "6379/tcp": null
+        }
+      }
+    ],
+    "smoke-v080-knowhub8-32e97760": [
+      {
+        "container_id": "5d0a1ba70b0eaa94e714b2db29f16d4b312d6a3486076c141a2eac745096b517",
+        "service": "app",
+        "image_id": "sha256:85974a456adaca280e68e3b1b529c9d6ab07f4ecc2f57fd84fcab5f5d658ffd6",
+        "revision": "NOT_CAPTURED",
+        "running": true,
+        "health": "healthy",
+        "compose_files": "/home/aqyfzx/ai/WeKnora-release-build/smoke-v0.8.0-knowhub.8-32e97760/docker-compose.smoke.yml",
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "knowhub8-smoke-data-files",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub8-smoke-data-files/_data",
+            "Destination": "/data/files",
+            "RW": true
+          },
+          {
+            "Type": "volume",
+            "Name": "knowhub8-smoke-docreader-tmp",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub8-smoke-docreader-tmp/_data",
+            "Destination": "/tmp/docreader",
+            "RW": false
+          },
+          {
+            "Type": "bind",
+            "Name": null,
+            "Source": "/home/aqyfzx/ai/WeKnora-release-build/build-v0.8.0-knowhub.8-32e97760/config/config.yaml",
+            "Destination": "/app/config/config.yaml",
+            "RW": false
+          }
+        ],
+        "published_ports": {
+          "8080/tcp": null
+        }
+      },
+      {
+        "container_id": "585e4843bc87c95e3aa1943d5ef5615e5314392692a9b1ada4b386a5095a431f",
+        "service": "docreader",
+        "image_id": "sha256:8399936620aa78f991b95a0339585f5d2d61f215e6311955e8386a01329beba2",
+        "revision": "NOT_CAPTURED",
+        "running": true,
+        "health": "healthy",
+        "compose_files": "/home/aqyfzx/ai/WeKnora-release-build/smoke-v0.8.0-knowhub.8-32e97760/docker-compose.smoke.yml",
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "knowhub8-smoke-docreader-tmp",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub8-smoke-docreader-tmp/_data",
+            "Destination": "/tmp/docreader",
+            "RW": true
+          }
+        ],
+        "published_ports": {
+          "50051/tcp": null
+        }
+      },
+      {
+        "container_id": "747cd7292fb51ee90d240a7a450e828848147816ee924271a4146eadf3be713a",
+        "service": "redis",
+        "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+        "revision": "NOT_CAPTURED",
+        "running": true,
+        "health": "NOT_CONFIGURED",
+        "compose_files": "/home/aqyfzx/ai/WeKnora-release-build/smoke-v0.8.0-knowhub.8-32e97760/docker-compose.smoke.yml",
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "knowhub8-smoke-redis-data",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub8-smoke-redis-data/_data",
+            "Destination": "/data",
+            "RW": true
+          }
+        ],
+        "published_ports": {
+          "6379/tcp": null
+        }
+      },
+      {
+        "container_id": "9761ca0d0d2670b4745b8bd706212297092dbefad90083a945782cc146685f4a",
+        "service": "neo4j",
+        "image_id": "sha256:5ff6e5ba92302482483cb07e6278ed76511ca6692acb93a4df3df07d1fea88ad",
+        "revision": "NOT_CAPTURED",
+        "running": true,
+        "health": "NOT_CONFIGURED",
+        "compose_files": "/home/aqyfzx/ai/WeKnora-release-build/smoke-v0.8.0-knowhub.8-32e97760/docker-compose.smoke.yml",
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "knowhub8-smoke-neo4j-data",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub8-smoke-neo4j-data/_data",
+            "Destination": "/data",
+            "RW": true
+          },
+          {
+            "Type": "volume",
+            "Name": "6356323bcfe5244da40491304dbb0c25b8918412174398bf55be055d066f9ffa",
+            "Source": "/mnt/sata0/lib/docker/volumes/6356323bcfe5244da40491304dbb0c25b8918412174398bf55be055d066f9ffa/_data",
+            "Destination": "/logs",
+            "RW": true
+          }
+        ],
+        "published_ports": {
+          "7473/tcp": null,
+          "7474/tcp": null,
+          "7687/tcp": null
+        }
+      },
+      {
+        "container_id": "1f32c13834f81056c31f8ef5e2473663629086962d20885b52a7bd4dbaf59c78",
+        "service": "postgres",
+        "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+        "revision": "NOT_CAPTURED",
+        "running": true,
+        "health": "healthy",
+        "compose_files": "/home/aqyfzx/ai/WeKnora-release-build/smoke-v0.8.0-knowhub.8-32e97760/docker-compose.smoke.yml",
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "knowhub8-smoke-postgres-data",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub8-smoke-postgres-data/_data",
+            "Destination": "/var/lib/postgresql/data",
+            "RW": true
+          }
+        ],
+        "published_ports": {
+          "5432/tcp": null
+        }
+      }
+    ],
+    "weknora-segment-test": [
+      {
+        "container_id": "61d246fac18584fe350053af72ebaa675156d57e158f57fbdeb862c082959695",
+        "service": "frontend",
+        "image_id": "sha256:894e6a32987191e096817194219a00051f4d737c3482c05c8aec41f153eae420",
+        "revision": "3d5d8bfcdfeeea266b292b71cea616847af28d0f",
+        "running": true,
+        "health": "NOT_CONFIGURED",
+        "compose_files": "/home/aqyfzx/ai/WeKnora-suoak/docker-compose.yml,/home/aqyfzx/ai/WeKnora-suoak/docker-compose.segment-test.yml",
+        "mounts": [],
+        "published_ports": {
+          "80/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "18081"
+            },
+            {
+              "HostIp": "::",
+              "HostPort": "18081"
+            }
+          ]
+        }
+      },
+      {
+        "container_id": "74fc5cfc828c0f72ac667955b9fbc8531334814df31fc2a66e1ce7bb41473f74",
+        "service": "app",
+        "image_id": "sha256:a3d3d2557c7e28b3c65f3eeb2ea2ed18a44d9466db03c2801c94fa734587818d",
+        "revision": "NOT_CAPTURED",
+        "running": true,
+        "health": "healthy",
+        "compose_files": "/home/aqyfzx/ai/WeKnora-suoak/docker-compose.yml,/home/aqyfzx/ai/WeKnora-suoak/docker-compose.segment-test.yml",
+        "mounts": [
+          {
+            "Type": "bind",
+            "Name": null,
+            "Source": "/home/aqyfzx/ai/WeKnora-suoak/config/config.yaml",
+            "Destination": "/app/config/config.yaml",
+            "RW": true
+          },
+          {
+            "Type": "bind",
+            "Name": null,
+            "Source": "/home/aqyfzx/ai/WeKnora-suoak/skills/preloaded",
+            "Destination": "/app/skills/preloaded",
+            "RW": true
+          },
+          {
+            "Type": "volume",
+            "Name": "weknora-segment-test_data-files",
+            "Source": "/mnt/sata0/lib/docker/volumes/weknora-segment-test_data-files/_data",
+            "Destination": "/data/files",
+            "RW": true
+          },
+          {
+            "Type": "volume",
+            "Name": "weknora-segment-test_docreader-tmp",
+            "Source": "/mnt/sata0/lib/docker/volumes/weknora-segment-test_docreader-tmp/_data",
+            "Destination": "/tmp/docreader",
+            "RW": false
+          }
+        ],
+        "published_ports": {
+          "8080/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "18080"
+            },
+            {
+              "HostIp": "::",
+              "HostPort": "18080"
+            }
+          ]
+        }
+      },
+      {
+        "container_id": "d4526daf29aab6c5233995c4eb09d0e89ca621f8dd0fb287e007df847499c931",
+        "service": "docreader",
+        "image_id": "sha256:d7f4284bcd815edb48b729ab274a2a0d66dfc6ff1f2791e5604d3238dd733487",
+        "revision": "NOT_CAPTURED",
+        "running": true,
+        "health": "healthy",
+        "compose_files": "/home/aqyfzx/ai/WeKnora-suoak/docker-compose.yml,/home/aqyfzx/ai/WeKnora-suoak/docker-compose.segment-test.yml",
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "weknora-segment-test_docreader-tmp",
+            "Source": "/mnt/sata0/lib/docker/volumes/weknora-segment-test_docreader-tmp/_data",
+            "Destination": "/tmp/docreader",
+            "RW": true
+          }
+        ],
+        "published_ports": {
+          "50051/tcp": null
+        }
+      },
+      {
+        "container_id": "bf566898f87b898a9034d0a1b0e9cd4b672b03768413448222f5f4fd1753f915",
+        "service": "postgres",
+        "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+        "revision": "NOT_CAPTURED",
+        "running": true,
+        "health": "healthy",
+        "compose_files": "/home/aqyfzx/ai/WeKnora-suoak/docker-compose.yml,/home/aqyfzx/ai/WeKnora-suoak/docker-compose.segment-test.yml",
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "weknora-segment-test_postgres-data",
+            "Source": "/mnt/sata0/lib/docker/volumes/weknora-segment-test_postgres-data/_data",
+            "Destination": "/var/lib/postgresql/data",
+            "RW": true
+          }
+        ],
+        "published_ports": {
+          "5432/tcp": null
+        }
+      },
+      {
+        "container_id": "b7d0c72ee990ec00eb522284c2107303cec183b00a630d17c7263a1bf57295c6",
+        "service": "redis",
+        "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+        "revision": "NOT_CAPTURED",
+        "running": true,
+        "health": "NOT_CONFIGURED",
+        "compose_files": "/home/aqyfzx/ai/WeKnora-suoak/docker-compose.yml,/home/aqyfzx/ai/WeKnora-suoak/docker-compose.segment-test.yml",
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "weknora-segment-test_redis-segment-data",
+            "Source": "/mnt/sata0/lib/docker/volumes/weknora-segment-test_redis-segment-data/_data",
+            "Destination": "/data",
+            "RW": true
+          }
+        ],
+        "published_ports": {
+          "6379/tcp": null
+        }
+      }
+    ],
+    "weknora": [
+      {
+        "container_id": "839b9ed3ef0ba4c531a8c7b1331adcbd5881154c3f2a097171fde66300193d06",
+        "service": "app",
+        "image_id": "sha256:1abaf9dd921aa0648d74efd10efbb6b016f15af411b59bc9b360dde5348e1979",
+        "revision": "3d5d8bfcdfeeea266b292b71cea616847af28d0f",
+        "running": false,
+        "health": "unhealthy",
+        "compose_files": "/home/aqyfzx/ai/WeKnora/docker-compose.yml",
+        "mounts": [
+          {
+            "Type": "bind",
+            "Name": null,
+            "Source": "/home/aqyfzx/ai/WeKnora/skills/preloaded",
+            "Destination": "/app/skills/preloaded",
+            "RW": true
+          },
+          {
+            "Type": "volume",
+            "Name": "weknora_data-files",
+            "Source": "/mnt/sata0/lib/docker/volumes/weknora_data-files/_data",
+            "Destination": "/data/files",
+            "RW": true
+          },
+          {
+            "Type": "volume",
+            "Name": "weknora_docreader-tmp",
+            "Source": "/mnt/sata0/lib/docker/volumes/weknora_docreader-tmp/_data",
+            "Destination": "/tmp/docreader",
+            "RW": false
+          },
+          {
+            "Type": "bind",
+            "Name": null,
+            "Source": "/home/aqyfzx/ai/WeKnora/config/config.yaml",
+            "Destination": "/app/config/config.yaml",
+            "RW": true
+          }
+        ],
+        "published_ports": {}
+      },
+      {
+        "container_id": "590102ce51aab2d5950e42965202c44dbb407ef3e1e2f6675a10397bd5e224e0",
+        "service": "mcp",
+        "image_id": "sha256:aa880bcfa09a66f201463aa614d7a299fef10b342779335ec08dac29713de337",
+        "revision": "NOT_CAPTURED",
+        "running": true,
+        "health": "NOT_CONFIGURED",
+        "compose_files": "/home/aqyfzx/ai/WeKnora/docker-compose.yml",
+        "mounts": [],
+        "published_ports": {
+          "8000/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "8082"
+            },
+            {
+              "HostIp": "::",
+              "HostPort": "8082"
+            }
+          ]
+        }
+      },
+      {
+        "container_id": "453d542a300ba1be9d34098ea9899510b0ad6ab5b818615f55681a84acb47d3d",
+        "service": "frontend",
+        "image_id": "sha256:894e6a32987191e096817194219a00051f4d737c3482c05c8aec41f153eae420",
+        "revision": "3d5d8bfcdfeeea266b292b71cea616847af28d0f",
+        "running": false,
+        "health": "NOT_CONFIGURED",
+        "compose_files": "/home/aqyfzx/ai/WeKnora/docker-compose.yml",
+        "mounts": [],
+        "published_ports": {}
+      },
+      {
+        "container_id": "b2229c012c06ac8fab34b83b8ae0442077bb69bfc5cf065764bf94ca446c8abe",
+        "service": "postgres",
+        "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+        "revision": "NOT_CAPTURED",
+        "running": true,
+        "health": "healthy",
+        "compose_files": "/home/aqyfzx/ai/WeKnora/docker-compose.yml",
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "weknora_postgres-data",
+            "Source": "/mnt/sata0/lib/docker/volumes/weknora_postgres-data/_data",
+            "Destination": "/var/lib/postgresql/data",
+            "RW": true
+          }
+        ],
+        "published_ports": {
+          "5432/tcp": null
+        }
+      },
+      {
+        "container_id": "a2a2fbd1533fd7676c53a1e405ce50dc897f2a0ba08e92f2b6ee48677c0076bd",
+        "service": "docreader",
+        "image_id": "sha256:1f520c9e7c5890c6a97997523e536e9e312065548aeed826eb8ef600ce988ba9",
+        "revision": "3d5d8bfcdfeeea266b292b71cea616847af28d0f",
+        "running": true,
+        "health": "healthy",
+        "compose_files": "/home/aqyfzx/ai/WeKnora/docker-compose.yml",
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "weknora_docreader-tmp",
+            "Source": "/mnt/sata0/lib/docker/volumes/weknora_docreader-tmp/_data",
+            "Destination": "/tmp/docreader",
+            "RW": true
+          }
+        ],
+        "published_ports": {
+          "50051/tcp": null
+        }
+      },
+      {
+        "container_id": "c22a6e302e7bfa7b4befc50b92c62f564a95131f7b2bea5c8fb5f29a528f9014",
+        "service": "redis",
+        "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+        "revision": "NOT_CAPTURED",
+        "running": true,
+        "health": "NOT_CONFIGURED",
+        "compose_files": "/home/aqyfzx/ai/WeKnora/docker-compose.yml",
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "9f8af58d9cdc3cd0823720c783fcad930265c70c3aa6a96aa90997a408ff546b",
+            "Source": "/mnt/sata0/lib/docker/volumes/9f8af58d9cdc3cd0823720c783fcad930265c70c3aa6a96aa90997a408ff546b/_data",
+            "Destination": "/data",
+            "RW": true
+          }
+        ],
+        "published_ports": {
+          "6379/tcp": null
+        }
+      }
+    ]
+  },
+  "databases": [
+    {
+      "project": "knowhub-sourceid-business",
+      "database_slot": 1,
+      "present_tables": [
+        "agent_shares",
+        "chunks",
+        "embeddings",
+        "external_identities",
+        "kb_shares",
+        "knowledge_bases",
+        "knowledges",
+        "models",
+        "organization_tenant_members",
+        "schema_migrations",
+        "source_id_binding_reviews",
+        "source_id_local_sessions",
+        "source_id_sessions",
+        "tenant_members",
+        "tenants",
+        "users"
+      ],
+      "status": "READ_ONLY_AGGREGATES",
+      "aggregates": {
+        "migration": {
+          "version": 3027,
+          "dirty": false
+        },
+        "users": {
+          "total": 2,
+          "active_rows": 2,
+          "is_active": 2,
+          "is_system_admin": 0,
+          "can_access_all_tenants": 0
+        },
+        "email_uniqueness": {
+          "duplicate_normalized_groups": 0
+        },
+        "tenants": {
+          "total": 1,
+          "active_rows": 1
+        },
+        "memberships": {
+          "active_rows": 2,
+          "owner": 1,
+          "admin": 0,
+          "contributor": 0,
+          "viewer": 1
+        },
+        "ordinary_candidates": {
+          "count": 1
+        },
+        "knowledge_bases": {
+          "total": 9,
+          "active": 0,
+          "active_spaces": 0
+        },
+        "documents": {
+          "total": 3,
+          "active": 0,
+          "completed": 0,
+          "failed": 0,
+          "pending": 0,
+          "processing": 0,
+          "finalizing": 0,
+          "file_path_present": 0,
+          "embedding_model_id_present": 0
+        },
+        "chunks": {
+          "total": 0,
+          "active": 0,
+          "nonempty_active": 0,
+          "indexed_active": 0
+        },
+        "embeddings": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "models": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "kb_shares": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "agent_shares": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "external_identities": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "source_id_binding_reviews": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "source_id_sessions": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "source_id_local_sessions": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "reusable_content": {
+          "active_kbs_with_completed_nonempty_chunks": 0,
+          "spaces_with_content": 0
+        },
+        "extensions": [
+          {
+            "name": "vector",
+            "version": "0.8.1"
+          },
+          {
+            "name": "pg_search",
+            "version": "0.22.2"
+          }
+        ]
+      }
+    },
+    {
+      "project": "knowhub-sourceid-p6",
+      "database_slot": 1,
+      "present_tables": [
+        "agent_shares",
+        "chunks",
+        "embeddings",
+        "external_identities",
+        "kb_shares",
+        "knowledge_bases",
+        "knowledges",
+        "models",
+        "organization_tenant_members",
+        "schema_migrations",
+        "source_id_sessions",
+        "tenant_members",
+        "tenants",
+        "users"
+      ],
+      "status": "READ_ONLY_AGGREGATES",
+      "aggregates": {
+        "migration": {
+          "version": 3024,
+          "dirty": false
+        },
+        "users": {
+          "total": 0,
+          "active_rows": 0,
+          "is_active": 0,
+          "is_system_admin": 0,
+          "can_access_all_tenants": 0
+        },
+        "email_uniqueness": {
+          "duplicate_normalized_groups": 0
+        },
+        "tenants": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "memberships": {
+          "active_rows": 0,
+          "owner": 0,
+          "admin": 0,
+          "contributor": 0,
+          "viewer": 0
+        },
+        "ordinary_candidates": {
+          "count": 0
+        },
+        "knowledge_bases": {
+          "total": 0,
+          "active": 0,
+          "active_spaces": 0
+        },
+        "documents": {
+          "total": 0,
+          "active": 0,
+          "completed": 0,
+          "failed": 0,
+          "pending": 0,
+          "processing": 0,
+          "finalizing": 0,
+          "file_path_present": 0,
+          "embedding_model_id_present": 0
+        },
+        "chunks": {
+          "total": 0,
+          "active": 0,
+          "nonempty_active": 0,
+          "indexed_active": 0
+        },
+        "embeddings": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "models": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "kb_shares": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "agent_shares": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "external_identities": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "source_id_sessions": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "reusable_content": {
+          "active_kbs_with_completed_nonempty_chunks": 0,
+          "spaces_with_content": 0
+        },
+        "extensions": [
+          {
+            "name": "pg_search",
+            "version": "0.22.2"
+          },
+          {
+            "name": "vector",
+            "version": "0.8.1"
+          }
+        ]
+      }
+    },
+    {
+      "project": "knowhub-sourceid-p6",
+      "database_slot": 2,
+      "present_tables": [
+        "agent_shares",
+        "chunks",
+        "embeddings",
+        "external_identities",
+        "kb_shares",
+        "knowledge_bases",
+        "knowledges",
+        "models",
+        "organization_tenant_members",
+        "schema_migrations",
+        "source_id_sessions",
+        "tenant_members",
+        "tenants",
+        "users"
+      ],
+      "status": "READ_ONLY_AGGREGATES",
+      "aggregates": {
+        "migration": {
+          "version": 3024,
+          "dirty": false
+        },
+        "users": {
+          "total": 0,
+          "active_rows": 0,
+          "is_active": 0,
+          "is_system_admin": 0,
+          "can_access_all_tenants": 0
+        },
+        "email_uniqueness": {
+          "duplicate_normalized_groups": 0
+        },
+        "tenants": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "memberships": {
+          "active_rows": 0,
+          "owner": 0,
+          "admin": 0,
+          "contributor": 0,
+          "viewer": 0
+        },
+        "ordinary_candidates": {
+          "count": 0
+        },
+        "knowledge_bases": {
+          "total": 0,
+          "active": 0,
+          "active_spaces": 0
+        },
+        "documents": {
+          "total": 0,
+          "active": 0,
+          "completed": 0,
+          "failed": 0,
+          "pending": 0,
+          "processing": 0,
+          "finalizing": 0,
+          "file_path_present": 0,
+          "embedding_model_id_present": 0
+        },
+        "chunks": {
+          "total": 0,
+          "active": 0,
+          "nonempty_active": 0,
+          "indexed_active": 0
+        },
+        "embeddings": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "models": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "kb_shares": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "agent_shares": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "external_identities": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "source_id_sessions": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "reusable_content": {
+          "active_kbs_with_completed_nonempty_chunks": 0,
+          "spaces_with_content": 0
+        },
+        "extensions": [
+          {
+            "name": "pg_search",
+            "version": "0.22.2"
+          },
+          {
+            "name": "vector",
+            "version": "0.8.1"
+          }
+        ]
+      }
+    },
+    {
+      "project": "knowhub-sourceid-p6",
+      "database_slot": 3,
+      "present_tables": [
+        "agent_shares",
+        "chunks",
+        "embeddings",
+        "external_identities",
+        "kb_shares",
+        "knowledge_bases",
+        "knowledges",
+        "models",
+        "organization_tenant_members",
+        "schema_migrations",
+        "source_id_sessions",
+        "tenant_members",
+        "tenants",
+        "users"
+      ],
+      "status": "READ_ONLY_AGGREGATES",
+      "aggregates": {
+        "migration": {
+          "version": 3025,
+          "dirty": false
+        },
+        "users": {
+          "total": 0,
+          "active_rows": 0,
+          "is_active": 0,
+          "is_system_admin": 0,
+          "can_access_all_tenants": 0
+        },
+        "email_uniqueness": {
+          "duplicate_normalized_groups": 0
+        },
+        "tenants": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "memberships": {
+          "active_rows": 0,
+          "owner": 0,
+          "admin": 0,
+          "contributor": 0,
+          "viewer": 0
+        },
+        "ordinary_candidates": {
+          "count": 0
+        },
+        "knowledge_bases": {
+          "total": 0,
+          "active": 0,
+          "active_spaces": 0
+        },
+        "documents": {
+          "total": 0,
+          "active": 0,
+          "completed": 0,
+          "failed": 0,
+          "pending": 0,
+          "processing": 0,
+          "finalizing": 0,
+          "file_path_present": 0,
+          "embedding_model_id_present": 0
+        },
+        "chunks": {
+          "total": 0,
+          "active": 0,
+          "nonempty_active": 0,
+          "indexed_active": 0
+        },
+        "embeddings": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "models": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "kb_shares": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "agent_shares": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "external_identities": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "source_id_sessions": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "reusable_content": {
+          "active_kbs_with_completed_nonempty_chunks": 0,
+          "spaces_with_content": 0
+        },
+        "extensions": [
+          {
+            "name": "pg_search",
+            "version": "0.22.2"
+          },
+          {
+            "name": "vector",
+            "version": "0.8.1"
+          }
+        ]
+      }
+    },
+    {
+      "project": "knowhub24-rc1-smoke",
+      "database_slot": 1,
+      "present_tables": [
+        "agent_shares",
+        "chunks",
+        "embeddings",
+        "kb_shares",
+        "knowledge_bases",
+        "knowledges",
+        "models",
+        "organization_tenant_members",
+        "schema_migrations",
+        "tenant_members",
+        "tenants",
+        "users"
+      ],
+      "status": "READ_ONLY_AGGREGATES",
+      "aggregates": {
+        "migration": {
+          "version": 3023,
+          "dirty": false
+        },
+        "users": {
+          "total": 0,
+          "active_rows": 0,
+          "is_active": 0,
+          "is_system_admin": 0,
+          "can_access_all_tenants": 0
+        },
+        "email_uniqueness": {
+          "duplicate_normalized_groups": 0
+        },
+        "tenants": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "memberships": {
+          "active_rows": 0,
+          "owner": 0,
+          "admin": 0,
+          "contributor": 0,
+          "viewer": 0
+        },
+        "ordinary_candidates": {
+          "count": 0
+        },
+        "knowledge_bases": {
+          "total": 0,
+          "active": 0,
+          "active_spaces": 0
+        },
+        "documents": {
+          "total": 0,
+          "active": 0,
+          "completed": 0,
+          "failed": 0,
+          "pending": 0,
+          "processing": 0,
+          "finalizing": 0,
+          "file_path_present": 0,
+          "embedding_model_id_present": 0
+        },
+        "chunks": {
+          "total": 0,
+          "active": 0,
+          "nonempty_active": 0,
+          "indexed_active": 0
+        },
+        "embeddings": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "models": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "kb_shares": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "agent_shares": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "reusable_content": {
+          "active_kbs_with_completed_nonempty_chunks": 0,
+          "spaces_with_content": 0
+        },
+        "extensions": [
+          {
+            "name": "pg_search",
+            "version": "0.22.2"
+          },
+          {
+            "name": "vector",
+            "version": "0.8.1"
+          }
+        ]
+      }
+    },
+    {
+      "project": "smoke-v080-knowhub8-32e97760",
+      "database_slot": 1,
+      "present_tables": [
+        "agent_shares",
+        "chunks",
+        "embeddings",
+        "kb_shares",
+        "knowledge_bases",
+        "knowledges",
+        "models",
+        "organization_tenant_members",
+        "schema_migrations",
+        "tenant_members",
+        "tenants",
+        "users"
+      ],
+      "status": "READ_ONLY_AGGREGATES",
+      "aggregates": {
+        "migration": {
+          "version": 96,
+          "dirty": false
+        },
+        "users": {
+          "total": 0,
+          "active_rows": 0,
+          "is_active": 0,
+          "is_system_admin": 0,
+          "can_access_all_tenants": 0
+        },
+        "email_uniqueness": {
+          "duplicate_normalized_groups": 0
+        },
+        "tenants": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "memberships": {
+          "active_rows": 0,
+          "owner": 0,
+          "admin": 0,
+          "contributor": 0,
+          "viewer": 0
+        },
+        "ordinary_candidates": {
+          "count": 0
+        },
+        "knowledge_bases": {
+          "total": 0,
+          "active": 0,
+          "active_spaces": 0
+        },
+        "documents": {
+          "total": 0,
+          "active": 0,
+          "completed": 0,
+          "failed": 0,
+          "pending": 0,
+          "processing": 0,
+          "finalizing": 0,
+          "file_path_present": 0,
+          "embedding_model_id_present": 0
+        },
+        "chunks": {
+          "total": 0,
+          "active": 0,
+          "nonempty_active": 0,
+          "indexed_active": 0
+        },
+        "embeddings": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "models": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "kb_shares": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "agent_shares": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "reusable_content": {
+          "active_kbs_with_completed_nonempty_chunks": 0,
+          "spaces_with_content": 0
+        },
+        "extensions": [
+          {
+            "name": "pg_search",
+            "version": "0.22.2"
+          },
+          {
+            "name": "vector",
+            "version": "0.8.1"
+          }
+        ]
+      }
+    },
+    {
+      "project": "weknora-segment-test",
+      "database_slot": 1,
+      "present_tables": [
+        "agent_shares",
+        "chunks",
+        "embeddings",
+        "kb_shares",
+        "knowledge_bases",
+        "knowledges",
+        "models",
+        "organization_tenant_members",
+        "schema_migrations",
+        "tenant_members",
+        "tenants",
+        "users"
+      ],
+      "status": "READ_ONLY_AGGREGATES",
+      "aggregates": {
+        "migration": {
+          "version": 87,
+          "dirty": false
+        },
+        "users": {
+          "total": 2,
+          "active_rows": 2,
+          "is_active": 2,
+          "is_system_admin": 1,
+          "can_access_all_tenants": 0
+        },
+        "email_uniqueness": {
+          "duplicate_normalized_groups": 0
+        },
+        "tenants": {
+          "total": 6,
+          "active_rows": 6
+        },
+        "memberships": {
+          "active_rows": 7,
+          "owner": 6,
+          "admin": 1,
+          "contributor": 0,
+          "viewer": 0
+        },
+        "ordinary_candidates": {
+          "count": 0
+        },
+        "knowledge_bases": {
+          "total": 5,
+          "active": 4,
+          "active_spaces": 3
+        },
+        "documents": {
+          "total": 1,
+          "active": 1,
+          "completed": 1,
+          "failed": 0,
+          "pending": 0,
+          "processing": 0,
+          "finalizing": 0,
+          "file_path_present": 1,
+          "embedding_model_id_present": 1
+        },
+        "chunks": {
+          "total": 6216,
+          "active": 3109,
+          "nonempty_active": 3109,
+          "indexed_active": 2
+        },
+        "embeddings": {
+          "total": 3109,
+          "active_rows": 3109
+        },
+        "models": {
+          "total": 10,
+          "active_rows": 10
+        },
+        "kb_shares": {
+          "total": 2,
+          "active_rows": 1
+        },
+        "agent_shares": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "reusable_content": {
+          "active_kbs_with_completed_nonempty_chunks": 1,
+          "spaces_with_content": 1
+        },
+        "extensions": [
+          {
+            "name": "pg_search",
+            "version": "0.22.2"
+          },
+          {
+            "name": "vector",
+            "version": "0.8.1"
+          }
+        ]
+      }
+    },
+    {
+      "project": "weknora",
+      "database_slot": 1,
+      "present_tables": [
+        "agent_shares",
+        "chunks",
+        "embeddings",
+        "kb_shares",
+        "knowledge_bases",
+        "knowledges",
+        "models",
+        "organization_tenant_members",
+        "schema_migrations",
+        "tenant_members",
+        "tenants",
+        "users"
+      ],
+      "status": "READ_ONLY_AGGREGATES",
+      "aggregates": {
+        "migration": {
+          "version": 79,
+          "dirty": false
+        },
+        "users": {
+          "total": 3,
+          "active_rows": 3,
+          "is_active": 3,
+          "is_system_admin": 1,
+          "can_access_all_tenants": 0
+        },
+        "email_uniqueness": {
+          "duplicate_normalized_groups": 0
+        },
+        "tenants": {
+          "total": 4,
+          "active_rows": 4
+        },
+        "memberships": {
+          "active_rows": 5,
+          "owner": 5,
+          "admin": 0,
+          "contributor": 0,
+          "viewer": 0
+        },
+        "ordinary_candidates": {
+          "count": 0
+        },
+        "knowledge_bases": {
+          "total": 2,
+          "active": 1,
+          "active_spaces": 1
+        },
+        "documents": {
+          "total": 3,
+          "active": 3,
+          "completed": 3,
+          "failed": 0,
+          "pending": 0,
+          "processing": 0,
+          "finalizing": 0,
+          "file_path_present": 3,
+          "embedding_model_id_present": 3
+        },
+        "chunks": {
+          "total": 19786,
+          "active": 2717,
+          "nonempty_active": 2717,
+          "indexed_active": 4
+        },
+        "embeddings": {
+          "total": 2717,
+          "active_rows": 2717
+        },
+        "models": {
+          "total": 3,
+          "active_rows": 2
+        },
+        "kb_shares": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "agent_shares": {
+          "total": 0,
+          "active_rows": 0
+        },
+        "reusable_content": {
+          "active_kbs_with_completed_nonempty_chunks": 1,
+          "spaces_with_content": 1
+        },
+        "extensions": [
+          {
+            "name": "pg_search",
+            "version": "0.22.2"
+          },
+          {
+            "name": "vector",
+            "version": "0.8.1"
+          }
+        ]
+      }
+    }
+  ],
+  "old_upgrade_backup_metadata": {
+    "old-database.dump": {
+      "exists": true,
+      "bytes": 21489449,
+      "mode": "0o600",
+      "mtime_utc": "2026-10-14T08:01:32.720236+00:00"
+    },
+    "old-data-files.tar.gz": {
+      "exists": true,
+      "bytes": 2246625,
+      "mode": "0o600",
+      "mtime_utc": "2026-10-14T08:01:34.828225+00:00"
+    },
+    "old-config": {
+      "exists": true,
+      "bytes": 4096,
+      "mode": "0o700",
+      "mtime_utc": "2026-10-14T08:01:15.316328+00:00"
+    },
+    "rollback.sh": {
+      "exists": true,
+      "bytes": 417,
+      "mode": "0o700",
+      "mtime_utc": "2026-10-14T08:01:34.972224+00:00"
+    }
+  },
+  "all_data_queries_read_only": true,
+  "personal_row_values_exported": false,
+  "credentials_read": false,
+  "documents_or_vectors_exported": false,
+  "database_copied_or_migrated": false,
+  "containers_or_configuration_changed": false
+}
