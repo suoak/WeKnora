@@ -78,6 +78,35 @@ func TestSourceIDPostgresLocalRefreshRaceAndReplay(t *testing.T) {
 	require.Error(t, r.CheckSourceIDSession(context.Background(), session.ID, session.UserID))
 }
 
+func TestSourceIDPostgresAccessOnlyIssueAndRevokeRace(t *testing.T) {
+	db := sourceIDPostgresDB(t)
+	r, session, _ := sourceIDLocalRepositoryFixture(t, db, "versioned")
+	require.NoError(t, db.Model(&types.SourceIDLocalSession{}).Where("id=?", session.ID).Update("refresh_enabled", false).Error)
+	var refreshBefore int64
+	require.NoError(t, db.Model(&types.AuthToken{}).Where("session_id=? AND token_type='refresh_token'", session.ID).Count(&refreshBefore).Error)
+	ctx := context.Background()
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			a := &types.AuthToken{ID: uuid.NewString(), UserID: session.UserID, SessionID: session.ID, Token: "synthetic-" + uuid.NewString(), TokenType: "access_token", ExpiresAt: time.Now().Add(time.Minute), CreatedAt: time.Now(), UpdatedAt: time.Now()}
+			_ = r.PersistSourceIDTokens(ctx, session.ID, a, nil, "")
+		}()
+	}
+	close(start)
+	require.NoError(t, r.RevokeSourceIDSession(ctx, session.ID, session.UserID))
+	wg.Wait()
+	var live, refreshAfter int64
+	require.NoError(t, db.Model(&types.AuthToken{}).Where("session_id=? AND is_revoked=false", session.ID).Count(&live).Error)
+	require.Zero(t, live)
+	require.NoError(t, db.Model(&types.AuthToken{}).Where("session_id=? AND token_type='refresh_token'", session.ID).Count(&refreshAfter).Error)
+	require.Equal(t, refreshBefore, refreshAfter)
+	require.Error(t, r.CheckSourceIDSession(ctx, session.ID, session.UserID))
+}
+
 func TestSourceIDPostgresLocalConcurrentAccessDoesNotRejectActiveSession(t *testing.T) {
 	db := sourceIDPostgresDB(t)
 	r, session, _ := sourceIDLocalRepositoryFixture(t, db, "versioned")
