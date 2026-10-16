@@ -70,13 +70,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          go vet ./cmd/sourceid-enroll ./cmd/sourceid-probe ./internal/sourceid ./internal/application/repository ./internal/application/service ./internal/handler ./internal/config ./internal/middleware
+          go vet ./cmd/sourceid-ownership ./cmd/sourceid-enroll ./cmd/sourceid-probe ./internal/sourceid ./internal/application/repository ./internal/application/service ./internal/handler ./internal/config ./internal/middleware
           go test -json -count=1 ./internal/application/repository ./internal/application/service ./internal/handler ./internal/config ./internal/middleware ./internal/utils ./internal/mcp ./internal/mcpserver | tee sourceid-results/regression.jsonl
       - name: Build server and reviewed enrollment utility
         run: |
           go build -o /tmp/knowhub-sourceid-server ./cmd/server
           go build -o /tmp/sourceid-enroll ./cmd/sourceid-enroll
           go build -o /tmp/sourceid-binding ./cmd/sourceid-binding
+          go build -o /tmp/sourceid-ownership ./cmd/sourceid-ownership
           go build -o /tmp/sourceid-test-account ./cmd/sourceid-test-account
           go build -o /tmp/sourceid-probe ./cmd/sourceid-probe
       - uses: actions/upload-artifact@v6
