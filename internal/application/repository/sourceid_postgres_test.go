@@ -59,8 +59,8 @@ func TestSourceIDPostgresMigrationAndRevocation(t *testing.T) {
 	require.NoError(t, NewUserRepository(db).CreateUser(ctx, &types.User{ID: userID, Username: "mock", Email: "mock@example.test", IsActive: true}))
 	session := &types.SourceIDSession{ID: uuid.NewString(), Issuer: "mock", SessionIndexHash: sourceIDIndexKey("mock", "index"), UserID: userID, ExpiresAt: time.Now().Add(time.Hour), CreatedAt: time.Now()}
 	require.NoError(t, r.CreateSourceIDSession(ctx, session))
-	a := &types.AuthToken{ID: uuid.NewString(), UserID: userID, SessionID: session.ID, Token: "mock-access", TokenType: "access_token"}
-	b := &types.AuthToken{ID: uuid.NewString(), UserID: userID, SessionID: session.ID, Token: "mock-refresh", TokenType: "refresh_token"}
+	a := &types.AuthToken{ID: uuid.NewString(), UserID: userID, SessionID: session.ID, Token: "mock-access", TokenType: "access_token", ExpiresAt: time.Now().Add(time.Minute)}
+	b := &types.AuthToken{ID: uuid.NewString(), UserID: userID, SessionID: session.ID, Token: "mock-refresh", TokenType: "refresh_token", ExpiresAt: time.Now().Add(time.Minute)}
 	require.NoError(t, r.PersistSourceIDTokens(ctx, session.ID, a, b, ""))
 	require.NoError(t, r.RevokeSourceIDIndex(ctx, "mock", "index"))
 	require.NoError(t, r.RevokeSourceIDIndex(ctx, "mock", "index"))
@@ -102,7 +102,7 @@ func TestSourceIDPostgresConcurrentIdentityAndLogout(t *testing.T) {
 	session := &types.SourceIDSession{ID: uuid.NewString(), Issuer: "mock", SessionIndexHash: sourceIDIndexKey("mock", "concurrent-index"), UserID: userID, ExpiresAt: time.Now().Add(time.Hour), CreatedAt: time.Now()}
 	require.NoError(t, r.CreateSourceIDSession(ctx, session))
 	pair := func() (*types.AuthToken, *types.AuthToken) {
-		return &types.AuthToken{ID: uuid.NewString(), UserID: userID, SessionID: session.ID, Token: uuid.NewString(), TokenType: "access_token"}, &types.AuthToken{ID: uuid.NewString(), UserID: userID, SessionID: session.ID, Token: uuid.NewString(), TokenType: "refresh_token"}
+		return &types.AuthToken{ID: uuid.NewString(), UserID: userID, SessionID: session.ID, Token: uuid.NewString(), TokenType: "access_token", ExpiresAt: time.Now().Add(time.Minute)}, &types.AuthToken{ID: uuid.NewString(), UserID: userID, SessionID: session.ID, Token: uuid.NewString(), TokenType: "refresh_token", ExpiresAt: time.Now().Add(time.Minute)}
 	}
 	a, b := pair()
 	require.NoError(t, r.PersistSourceIDTokens(ctx, session.ID, a, b, ""))

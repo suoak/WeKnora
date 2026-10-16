@@ -107,6 +107,12 @@ type SourceIDAdmissionDecision struct {
 	RecheckSupported      bool
 }
 
+// Protected, independently verified account ownership. Never serialize/log.
+type SourceIDPilotAccount struct {
+	Email      string `json:"-"`
+	EmployeeNo string `json:"-"`
+}
+
 // SourceIDLogout persists a tombstone, including when logout precedes callback.
 type SourceIDLogout struct {
 	Key       string `gorm:"primaryKey"`

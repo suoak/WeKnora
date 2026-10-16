@@ -157,7 +157,7 @@ func (s *userService) sourceIDLocalLimits(ctx context.Context, sessionID, userID
 	}
 	if cfg.SourceIDAdmissionMode == "oidc_sso_approved" {
 		accounts, err := cfg.SourceIDPilotAccounts()
-		if err != nil || accounts[userID] == "" {
+		if err != nil || accounts[userID].Email == "" || accounts[userID].EmployeeNo != local.EmployeeNo {
 			return nil, errors.New("sourceid pilot account unavailable")
 		}
 	}

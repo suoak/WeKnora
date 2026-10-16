@@ -27,7 +27,7 @@ func sourceIDSSOFixture(t *testing.T) (*userService, *gorm.DB, *types.OIDCUserIn
 	c.SourceIDPilotAccountsFile = filepath.Join(t.TempDir(), "ownership.json")
 	var user types.User
 	require.NoError(t, db.First(&user).Error)
-	data, _ := json.Marshal(map[string]interface{}{"version": 1, "policy_ref": c.SourceIDAutoBindingPolicyRef, "ownership_ref": "synthetic-account-history", "accounts": []map[string]string{{"user_id": user.ID, "email": user.Email}}})
+	data, _ := json.Marshal(map[string]interface{}{"version": 1, "policy_ref": c.SourceIDAutoBindingPolicyRef, "ownership_ref": "synthetic-account-history", "issuer": c.IssuerURL, "accounts": []map[string]string{{"user_id": user.ID, "email": user.Email, "employee_no": "synthetic-001"}}})
 	require.NoError(t, privatefile.WriteFile(c.SourceIDPilotAccountsFile, data, 0600))
 	delete(info.Claims, "mock_eligibility")
 	ctx := context.WithValue(context.Background(), sourceIDAuthorizationProofKey{}, sourceIDAuthorizationProof{Issuer: c.IssuerURL, Subject: info.Subject, At: time.Now()})
@@ -95,11 +95,17 @@ func TestSourceIDSSOAllRolesAccessOnlyPreservesPermissions(t *testing.T) {
 }
 
 func TestSourceIDSSOProofScopeAndLifetimeFailClosed(t *testing.T) {
-	for _, scenario := range []string{"no_verified_transaction", "scope", "ownership", "idle", "absolute", "binding_revoke", "admin_revoke", "manifest_removed", "refresh"} {
+	for _, scenario := range []string{"no_verified_transaction", "scope", "ownership", "employee_mismatch", "external_mode", "idle", "absolute", "binding_revoke", "admin_revoke", "manifest_removed", "refresh"} {
 		t.Run(scenario, func(t *testing.T) {
 			s, db, info, ctx, id := sourceIDSSOFixture(t)
 			if scenario == "no_verified_transaction" {
 				ctx = context.Background()
+			}
+			if scenario == "employee_mismatch" {
+				info.Claims["attributes"].(map[string]interface{})["RJGH"] = "synthetic-other"
+			}
+			if scenario == "external_mode" {
+				s.config.OIDCAuth.SourceIDSessionMode = "external"
 			}
 			if scenario == "scope" || scenario == "ownership" {
 				uid, email := id, "wrong@example.test"
@@ -107,11 +113,11 @@ func TestSourceIDSSOProofScopeAndLifetimeFailClosed(t *testing.T) {
 					uid = "not-this-user"
 					email = "ordinary@example.test"
 				}
-				data, _ := json.Marshal(map[string]interface{}{"version": 1, "policy_ref": s.config.OIDCAuth.SourceIDAutoBindingPolicyRef, "ownership_ref": "synthetic", "accounts": []map[string]string{{"user_id": uid, "email": email}}})
+				data, _ := json.Marshal(map[string]interface{}{"version": 1, "policy_ref": s.config.OIDCAuth.SourceIDAutoBindingPolicyRef, "ownership_ref": "synthetic", "issuer": s.config.OIDCAuth.IssuerURL, "accounts": []map[string]string{{"user_id": uid, "email": email, "employee_no": "synthetic-001"}}})
 				require.NoError(t, os.WriteFile(s.config.OIDCAuth.SourceIDPilotAccountsFile, data, 0600))
 			}
 			user, loginCtx, err := s.loginSourceID(ctx, s.config.OIDCAuth, info)
-			if scenario == "no_verified_transaction" || scenario == "scope" || scenario == "ownership" {
+			if scenario == "no_verified_transaction" || scenario == "scope" || scenario == "ownership" || scenario == "employee_mismatch" || scenario == "external_mode" {
 				require.Error(t, err)
 				for _, table := range []string{"external_identities", "source_id_binding_reviews", "source_id_enrollments", "source_id_sessions", "source_id_local_sessions"} {
 					var n int64

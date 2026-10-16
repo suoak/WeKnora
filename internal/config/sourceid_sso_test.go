@@ -12,13 +12,13 @@ import (
 
 func syntheticSSOConfig(t *testing.T) OIDCAuthConfig {
 	t.Helper()
-	c := OIDCAuthConfig{SourceIDEnable: true, SourceIDContractConfirmed: true, SourceIDEmailBindingEnable: true, SourceIDEmailContractConfirmed: true,
+	c := OIDCAuthConfig{IssuerURL: "https://mock.example", SourceIDEnable: true, SourceIDContractConfirmed: true, SourceIDEmailBindingEnable: true, SourceIDEmailContractConfirmed: true,
 		SourceIDAutoBindingEnable: true, SourceIDAutoBindingPolicyRef: "synthetic-all-role", SourceIDSessionMode: "local_approved",
 		SourceIDClaimsSource: "userinfo", SourceIDEmployeeClaim: "attributes.RJGH", SourceIDAdmissionMode: "oidc_sso_approved",
 		SourceIDSSOPolicyConfirmed: true, SourceIDLocalPolicyRef: "synthetic-local", SourceIDAdmissionPolicyRef: "synthetic-sso",
 		SourceIDLocalAccessTTL: "60m", SourceIDLocalAbsoluteTTL: "60m", SourceIDLocalIdleTTL: "30m", SourceIDAdmissionMaxAge: "60m"}
 	c.SourceIDPilotAccountsFile = filepath.Join(t.TempDir(), "ownership.json")
-	data, _ := json.Marshal(map[string]interface{}{"version": 1, "policy_ref": c.SourceIDAutoBindingPolicyRef, "ownership_ref": "synthetic-history-evidence", "accounts": []map[string]string{{"user_id": "synthetic-user", "email": " Owner@Example.Test "}}})
+	data, _ := json.Marshal(map[string]interface{}{"version": 1, "policy_ref": c.SourceIDAutoBindingPolicyRef, "ownership_ref": "synthetic-history-evidence", "issuer": c.IssuerURL, "accounts": []map[string]string{{"user_id": "synthetic-user", "email": " Owner@Example.Test ", "employee_no": "synthetic-employee"}}})
 	require.NoError(t, privatefile.WriteFile(c.SourceIDPilotAccountsFile, data, 0600))
 	return c
 }
@@ -30,7 +30,7 @@ func TestSourceIDSSOPolicyFailsClosedAndPreservesForcedMode(t *testing.T) {
 	require.Equal(t, "1h0m0s", p.AbsoluteTTL.String())
 	accounts, err := c.SourceIDPilotAccounts()
 	require.NoError(t, err)
-	require.Equal(t, "owner@example.test", accounts["synthetic-user"])
+	require.Equal(t, "owner@example.test", accounts["synthetic-user"].Email)
 	for _, name := range []string{"approval", "manifest", "refresh", "prompt", "binding", "protocol", "contract", "policy"} {
 		t.Run(name, func(t *testing.T) {
 			cfg := c

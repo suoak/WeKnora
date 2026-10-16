@@ -70,6 +70,9 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 		return nil, ctx, errors.New("sourceid identity contract pending")
 	}
 	mode := cfg.EffectiveSourceIDSessionMode()
+	if cfg.SourceIDAdmissionMode == "oidc_sso_approved" && mode != "local_approved" {
+		return nil, ctx, errors.New("sourceid sso local session required")
+	}
 	if mode != "external" && mode != "local_approved" {
 		return nil, ctx, errors.New("sourceid session mode invalid")
 	}
@@ -116,7 +119,7 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 			return nil, ctx, accountErr
 		}
 		binding, ok := r.(interface {
-			ResolveSourceIDPilotEmailIdentity(context.Context, string, string, string, string, string, map[string]string) (*types.User, error)
+			ResolveSourceIDPilotEmailIdentity(context.Context, string, string, string, string, string, map[string]types.SourceIDPilotAccount) (*types.User, error)
 		})
 		if !ok {
 			return nil, ctx, errors.New("sourceid pilot repository unavailable")

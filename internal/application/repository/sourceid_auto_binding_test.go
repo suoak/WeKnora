@@ -196,7 +196,7 @@ func runSourceIDPostgresAutoBindingRace(t *testing.T, pilot bool) {
 			var u *types.User
 			var err error
 			if pilot {
-				u, err = r.ResolveSourceIDPilotEmailIdentity(ctx, "mock", "sub", "0007", "employee@example.test", "approved-policy-v1", map[string]string{user.ID: user.Email})
+				u, err = r.ResolveSourceIDPilotEmailIdentity(ctx, "mock", "sub", "0007", "employee@example.test", "approved-policy-v1", map[string]types.SourceIDPilotAccount{user.ID: {Email: user.Email, EmployeeNo: "0007"}})
 			} else {
 				u, err = r.ResolveSourceIDAutoEmailIdentity(ctx, "mock", "sub", "0007", "employee@example.test", "approved-policy-v1")
 			}

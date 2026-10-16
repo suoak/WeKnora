@@ -154,7 +154,7 @@ func runSourceIDLocalBusinessLogin(t *testing.T, ordinary, browser bool, role st
 		cfg.SourceIDLocalIdleTTL = "30m"
 		cfg.SourceIDAdmissionMaxAge = "60m"
 		cfg.SourceIDPilotAccountsFile = filepath.Join(t.TempDir(), "ownership.json")
-		manifest, _ := json.Marshal(map[string]interface{}{"version": 1, "policy_ref": cfg.SourceIDAutoBindingPolicyRef, "ownership_ref": "synthetic-snapshot-ownership", "accounts": []map[string]string{{"user_id": user.ID, "email": user.Email}}})
+		manifest, _ := json.Marshal(map[string]interface{}{"version": 1, "policy_ref": cfg.SourceIDAutoBindingPolicyRef, "ownership_ref": "synthetic-snapshot-ownership", "issuer": cfg.IssuerURL, "accounts": []map[string]string{{"user_id": user.ID, "email": user.Email, "employee_no": "synthetic-employee"}}})
 		require.NoError(t, privatefile.WriteFile(cfg.SourceIDPilotAccountsFile, manifest, 0600))
 	}
 	mock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
