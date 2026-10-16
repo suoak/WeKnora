@@ -1,0 +1,635 @@
+{
+  "scope": "172.30.232.42 only; ordinary SSO disabled until separate approval",
+  "preparation": {
+    "result": "PASS",
+    "old_entry_changed": false,
+    "real_sid_login": false,
+    "stage": "green_ready_not_published",
+    "green_project": "knowhub-company-test",
+    "green_root": "/home/aqyfzx/ai/knowhub-company-entry-20261017/green",
+    "backup_directory": "/home/aqyfzx/ai/knowhub-company-entry-20261017/private/pre-switch",
+    "image_id": "sha256:742c7ce56ef38ad32548900c8e7f8b264f9f6cd6138043674b91b27557443413",
+    "frontend_image_id": "sha256:ab7845c89fadeb17ad2b68bd924e892f948b893781a50ab79e48385c319ddbe1",
+    "schema": 3029,
+    "dirty": false,
+    "counts": {
+      "users": 3,
+      "active_kbs": 1,
+      "documents": 3,
+      "chunks": 2717,
+      "embeddings": 2717,
+      "active_tokens": 0,
+      "active_keys": 0,
+      "identities": 0,
+      "ownership": 0,
+      "jit": 0,
+      "enterprise_sessions": 0
+    },
+    "data_permission_signatures_match": true,
+    "files_match": true,
+    "original_stacks_unchanged": true,
+    "health": {
+      "/login": 200,
+      "/health": 200,
+      "/api/v1/auth/oidc/config": 200
+    },
+    "namespace_internal_subnet_corrected": true,
+    "db_and_file_backups_bytes": {
+      "knowhub-sourceid-business-files.tar": 10240,
+      "knowhub-oa-sso-pilot.dump": 21687581,
+      "knowhub-sourceid-business.dump": 379114,
+      "knowhub-oa-sso-pilot-files.tar": 2570240
+    },
+    "utc": "2026-10-16T17:13:21.225791+00:00"
+  },
+  "publication": {
+    "result": "PASS",
+    "real_sid_login": false,
+    "production_accessed": false,
+    "rollback_triggered": false,
+    "staged_frontend": {
+      "/health": {
+        "status": 200,
+        "environment": "company-test-f40-db3029"
+      },
+      "/login": {
+        "status": 200,
+        "environment": "company-test-f40-db3029"
+      },
+      "static_asset": {
+        "status": 200,
+        "environment": "company-test-f40-db3029"
+      },
+      "/api/v1/auth/oidc/config": {
+        "status": 200,
+        "environment": "company-test-f40-db3029",
+        "oidc_enabled": false,
+        "basic_encoding": "oauth_form"
+      },
+      "/api/v1/auth/oidc/callback": {
+        "status": 302,
+        "environment": "company-test-f40-db3029",
+        "redirect_path": "/",
+        "invalid_state": true
+      }
+    },
+    "staged_app": {
+      "/health": {
+        "status": 200,
+        "environment": "company-test-f40-db3029"
+      },
+      "/api/v1/auth/oidc/config": {
+        "status": 200,
+        "environment": "company-test-f40-db3029",
+        "oidc_enabled": false,
+        "basic_encoding": "oauth_form"
+      },
+      "/api/v1/auth/oidc/callback": {
+        "status": 302,
+        "environment": "company-test-f40-db3029",
+        "redirect_path": "/",
+        "invalid_state": true
+      }
+    },
+    "frontend_80": {
+      "/health": {
+        "status": 200,
+        "environment": "company-test-f40-db3029"
+      },
+      "/login": {
+        "status": 200,
+        "environment": "company-test-f40-db3029"
+      },
+      "static_asset": {
+        "status": 200,
+        "environment": "company-test-f40-db3029"
+      },
+      "/api/v1/auth/oidc/config": {
+        "status": 200,
+        "environment": "company-test-f40-db3029",
+        "oidc_enabled": false,
+        "basic_encoding": "oauth_form"
+      },
+      "/api/v1/auth/oidc/callback": {
+        "status": 302,
+        "environment": "company-test-f40-db3029",
+        "redirect_path": "/",
+        "invalid_state": true
+      }
+    },
+    "app_8080": {
+      "/health": {
+        "status": 200,
+        "environment": "company-test-f40-db3029"
+      },
+      "/api/v1/auth/oidc/config": {
+        "status": 200,
+        "environment": "company-test-f40-db3029",
+        "oidc_enabled": false,
+        "basic_encoding": "oauth_form"
+      },
+      "/api/v1/auth/oidc/callback": {
+        "status": 302,
+        "environment": "company-test-f40-db3029",
+        "redirect_path": "/",
+        "invalid_state": true
+      }
+    },
+    "stage": "published",
+    "green_project": "knowhub-company-test",
+    "entry_project": "knowhub-company-entry",
+    "app_revision": "f40b1602f69ce5d88e1e87dc3cefae36e9bde356",
+    "frontend_revision": "832b6652adf541892545a7eac8b68733f846ab95",
+    "db_version": 3029,
+    "rollback_ready": true,
+    "allowed_sources": "current authorized workstation + host health checks; Docker bridge denied by dedicated INPUT/FORWARD rules",
+    "old_app_frontend_preserved_stopped": true,
+    "other_original_and_pilot_containers_unchanged": true,
+    "utc": "2026-10-16T17:16:39.468844+00:00"
+  },
+  "validation": {
+    "result": "PASS",
+    "real_sid_login": false,
+    "live_business_gates_changed": false,
+    "live_identity_writes": false,
+    "stage": "live_data_unchanged",
+    "business-validation-worker.py": {
+      "result": "PASS",
+      "fixture_result_saved_private": true
+    },
+    "mock-enterprise_all-worker.py": {
+      "result": "PASS",
+      "fixture_result_saved_private": true
+    },
+    "mock-jit-worker.py": {
+      "result": "PASS",
+      "fixture_result_saved_private": true
+    },
+    "live_identity_counts": {
+      "identities": 0,
+      "ownership": 0,
+      "jit": 0,
+      "sessions": 0,
+      "active_tokens": 0
+    },
+    "live_permission_signatures_unchanged": true,
+    "utc": "2026-10-16T17:20:20.882729+00:00"
+  },
+  "final": {
+    "result": "PASS",
+    "real_sid_login": false,
+    "production_accessed": false,
+    "services": {
+      "app": {
+        "id": "dc2a3ff3053f38cadf4826ebb3c231d321f6ecce969d625c94ef6d8d7d810352",
+        "name": "/knowhub-company-test-app-1",
+        "image_id": "sha256:742c7ce56ef38ad32548900c8e7f8b264f9f6cd6138043674b91b27557443413",
+        "image_reference": "sha256:742c7ce56ef38ad32548900c8e7f8b264f9f6cd6138043674b91b27557443413",
+        "created": "2026-10-16T17:36:46.743127323Z",
+        "started": "2026-10-16T17:36:46.987728606Z",
+        "running": true,
+        "health": "healthy",
+        "restart_count": 0,
+        "project": "knowhub-company-test",
+        "service": "app",
+        "working_dir": "/home/aqyfzx/ai/knowhub-company-entry-20261017/green",
+        "compose_files": "/home/aqyfzx/ai/knowhub-company-entry-20261017/green/compose.json",
+        "ports": {},
+        "mounts": [
+          {
+            "Type": "bind",
+            "Name": null,
+            "Source": "/home/aqyfzx/ai/knowhub-company-entry-20261017/green/private/ownership",
+            "Destination": "/run/sourceid/ownership",
+            "RW": false
+          },
+          {
+            "Type": "volume",
+            "Name": "knowhub-company-test-files",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub-company-test-files/_data",
+            "Destination": "/data/files",
+            "RW": true
+          },
+          {
+            "Type": "volume",
+            "Name": "knowhub-company-test_doc-tmp",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub-company-test_doc-tmp/_data",
+            "Destination": "/tmp/docreader",
+            "RW": false
+          }
+        ]
+      },
+      "frontend": {
+        "id": "12d554c6492e94866fc6edcb8819c179e8d94ad845dce4f09f2d104ee687eb3a",
+        "name": "/knowhub-company-test-frontend-1",
+        "image_id": "sha256:ab7845c89fadeb17ad2b68bd924e892f948b893781a50ab79e48385c319ddbe1",
+        "image_reference": "sha256:ab7845c89fadeb17ad2b68bd924e892f948b893781a50ab79e48385c319ddbe1",
+        "created": "2026-10-16T17:13:09.102240567Z",
+        "started": "2026-10-16T17:13:15.848403773Z",
+        "running": true,
+        "health": "NOT_CONFIGURED",
+        "restart_count": 0,
+        "project": "knowhub-company-test",
+        "service": "frontend",
+        "working_dir": "/home/aqyfzx/ai/knowhub-company-entry-20261017/green",
+        "compose_files": "/home/aqyfzx/ai/knowhub-company-entry-20261017/green/compose.json",
+        "ports": {
+          "80/tcp": [
+            {
+              "HostIp": "127.0.0.1",
+              "HostPort": "18091"
+            }
+          ]
+        },
+        "mounts": []
+      },
+      "postgres": {
+        "id": "3f55b403bddb475bebc6815ed3125fb0c04b6bab9869c446338ef1286edcd517",
+        "name": "/knowhub-company-test-postgres-1",
+        "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+        "image_reference": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+        "created": "2026-10-16T17:06:00.687024429Z",
+        "started": "2026-10-16T17:06:01.816978468Z",
+        "running": true,
+        "health": "healthy",
+        "restart_count": 0,
+        "project": "knowhub-company-test",
+        "service": "postgres",
+        "working_dir": "/home/aqyfzx/ai/knowhub-company-entry-20261017/green",
+        "compose_files": "/home/aqyfzx/ai/knowhub-company-entry-20261017/green/compose.json",
+        "ports": {},
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "knowhub-company-test-pgdata",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub-company-test-pgdata/_data",
+            "Destination": "/var/lib/postgresql/data",
+            "RW": true
+          }
+        ]
+      },
+      "redis": {
+        "id": "31bdc0140efea4fa52e2e463fec2c47e09c56172ee05c4bd72736dd6e1560258",
+        "name": "/knowhub-company-test-redis-1",
+        "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+        "image_reference": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+        "created": "2026-10-16T17:06:00.6865897Z",
+        "started": "2026-10-16T17:06:01.500161005Z",
+        "running": true,
+        "health": "NOT_CONFIGURED",
+        "restart_count": 0,
+        "project": "knowhub-company-test",
+        "service": "redis",
+        "working_dir": "/home/aqyfzx/ai/knowhub-company-entry-20261017/green",
+        "compose_files": "/home/aqyfzx/ai/knowhub-company-entry-20261017/green/compose.json",
+        "ports": {},
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "knowhub-company-test_redis",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub-company-test_redis/_data",
+            "Destination": "/data",
+            "RW": true
+          }
+        ]
+      },
+      "docreader": {
+        "id": "be544554586fd30ba52e9ad1defcab8b8c21d8c141221f545d343d5d31d41a59",
+        "name": "/knowhub-company-test-docreader-1",
+        "image_id": "sha256:8399936620aa78f991b95a0339585f5d2d61f215e6311955e8386a01329beba2",
+        "image_reference": "sha256:8399936620aa78f991b95a0339585f5d2d61f215e6311955e8386a01329beba2",
+        "created": "2026-10-16T17:06:00.686812419Z",
+        "started": "2026-10-16T17:06:01.489648162Z",
+        "running": true,
+        "health": "NOT_CONFIGURED",
+        "restart_count": 0,
+        "project": "knowhub-company-test",
+        "service": "docreader",
+        "working_dir": "/home/aqyfzx/ai/knowhub-company-entry-20261017/green",
+        "compose_files": "/home/aqyfzx/ai/knowhub-company-entry-20261017/green/compose.json",
+        "ports": {},
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "knowhub-company-test_doc-tmp",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub-company-test_doc-tmp/_data",
+            "Destination": "/tmp/docreader",
+            "RW": true
+          }
+        ]
+      },
+      "sid-network": {
+        "id": "82389076bf07f5fa45659e6841feb96babec21fc1866a2677683864f718a267a",
+        "name": "/knowhub-company-test-sid-network-1",
+        "image_id": "sha256:c6e631c631e4488b32f7964e700dae8dfd9105ca4a75f2c0443272f44484c1c5",
+        "image_reference": "sha256:c6e631c631e4488b32f7964e700dae8dfd9105ca4a75f2c0443272f44484c1c5",
+        "created": "2026-10-16T17:12:51.525720697Z",
+        "started": "2026-10-16T17:13:02.506118402Z",
+        "running": true,
+        "health": "healthy",
+        "restart_count": 0,
+        "project": "knowhub-company-test",
+        "service": "sid-network",
+        "working_dir": "/home/aqyfzx/ai/knowhub-company-entry-20261017/green",
+        "compose_files": "/home/aqyfzx/ai/knowhub-company-entry-20261017/green/compose.json",
+        "ports": {
+          "8080/tcp": null
+        },
+        "mounts": [
+          {
+            "Type": "bind",
+            "Name": null,
+            "Source": "/home/aqyfzx/ai/knowhub-company-entry-20261017/green/egress",
+            "Destination": "/egress",
+            "RW": false
+          },
+          {
+            "Type": "bind",
+            "Name": null,
+            "Source": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a/egress/nettools",
+            "Destination": "/nettools",
+            "RW": false
+          }
+        ]
+      }
+    },
+    "images": {
+      "app": "f40b1602f69ce5d88e1e87dc3cefae36e9bde356",
+      "frontend": "832b6652adf541892545a7eac8b68733f846ab95"
+    },
+    "flags": {
+      "OIDC_AUTH_ENABLE": "false",
+      "SOURCEID_PROTOCOL_ONLY": "true",
+      "SOURCEID_CONTRACT_CONFIRMED": "false",
+      "SOURCEID_EMAIL_BINDING_ENABLE": "false",
+      "SOURCEID_EMAIL_CONTRACT_CONFIRMED": "false",
+      "SOURCEID_AUTO_BINDING_ENABLE": "false",
+      "SOURCEID_JIT_ENABLE": "false",
+      "SOURCEID_JIT_POLICY_CONFIRMED": "false",
+      "SOURCEID_ENTERPRISE_POLICY_CONFIRMED": "false",
+      "SOURCEID_SSO_POLICY_CONFIRMED": "false",
+      "SOURCEID_SESSION_MODE": "external",
+      "SOURCEID_ACCOUNT_SCOPE": "enterprise_all",
+      "SOURCEID_ADMISSION_MODE": "oidc_sso_approved",
+      "SOURCEID_FORCE_REAUTH_PROMPT_LOGIN": "false",
+      "SOURCEID_LOCAL_REFRESH_ENABLE": "false",
+      "SOURCEID_AUTHORIZATION_RECHECK_CONFIRMED": "false",
+      "SOURCEID_LOGOUT_ENABLE": "false",
+      "SOURCEID_DIAGNOSTICS_ENABLE": "false",
+      "SOURCEID_BASIC_ENCODING": "oauth_form",
+      "AUTO_MIGRATE": "false"
+    },
+    "jwt_isolated_from_old_and_pilot": true,
+    "callback_matches_approved": true,
+    "internal_services_no_host_ports": true,
+    "old_stack": {
+      "app": {
+        "container_id_preserved": true,
+        "running": false
+      },
+      "frontend": {
+        "container_id_preserved": true,
+        "running": false
+      },
+      "postgres": {
+        "container_id_preserved": true,
+        "running": true
+      },
+      "redis": {
+        "container_id_preserved": true,
+        "running": true
+      },
+      "docreader": {
+        "container_id_preserved": true,
+        "running": true
+      }
+    },
+    "pilot_container_ids_unchanged": true,
+    "unauthenticated_api": {
+      "/api/v1/auth/me": 401,
+      "/api/v1/knowledge-bases": 401,
+      "/api/v1/mcp-endpoints": 401,
+      "/api/v1/me/feishu/status": 401,
+      "/api/v1/system/admin/feishu/config": 401
+    },
+    "unapproved_bridge_probes": [
+      {
+        "port": 80,
+        "denied": true
+      },
+      {
+        "port": 8080,
+        "denied": true
+      },
+      {
+        "port": 5432,
+        "denied": true
+      },
+      {
+        "port": 6379,
+        "denied": true
+      }
+    ],
+    "entry_bindings": {
+      "80/tcp": [
+        {
+          "HostIp": "0.0.0.0",
+          "HostPort": "80"
+        }
+      ],
+      "8080/tcp": [
+        {
+          "HostIp": "0.0.0.0",
+          "HostPort": "8080"
+        }
+      ]
+    },
+    "rollback_script_ready": true,
+    "business_fixture_summary": {
+      "result": "PASS",
+      "real_sid_login": false,
+      "mock_sid_identity_injected": false,
+      "live_database_switched": false,
+      "oidc_config_status": 200,
+      "oidc_config_enabled": false,
+      "oidc_disabled": true,
+      "local_logout_invalidates_token": true,
+      "clean_target_identity_rows": 0
+    },
+    "utc": "2026-10-16T17:37:19.496038+00:00"
+  },
+  "closeout": {
+    "result": "PASS",
+    "rollback_shell_syntax": "PASS",
+    "rollback_scope": "old APP/Frontend entry only; removes only new entry firewall rules; no DB restore/down",
+    "restart_policy": "public entry no automatic restart; reapply guard and validate before restart",
+    "fixture_summaries": {
+      "acceptance-result.json": {
+        "result": "PASS",
+        "real_sid_login": false,
+        "mock_sid_identity_injected": false,
+        "live_database_switched": false,
+        "health_and_frontend": {
+          "health": 200,
+          "portal_static": 200
+        },
+        "actual_outbound_denied": {
+          "172.30.232.42:80": true,
+          "172.30.232.42:8080": true,
+          "1.1.1.1:443": true
+        },
+        "oidc_config_status": 200,
+        "oidc_config_enabled": false,
+        "oidc_disabled": true,
+        "original_admin": {
+          "same_user_id": true,
+          "same_home_tenant": true,
+          "same_admin_flags": true,
+          "auth_me": 200,
+          "original_kb_access": 200
+        },
+        "vector_recall": {
+          "status": 200,
+          "hits": 3,
+          "original_document_references": true,
+          "model_calls": 0,
+          "text_or_vector_exported": false
+        },
+        "local_logout_invalidates_token": true,
+        "disposable_viewer_acl": {
+          "preparer_dry_run_and_apply": true,
+          "auth_me": 200,
+          "original_allowed_kb": 200,
+          "existing_denied_kb_admin_read": 200,
+          "denied_kb_separate_space": true,
+          "no_membership_or_kb_share": true,
+          "denied_kb_status": 403,
+          "denied_switch_status": 403,
+          "fixtures_in_clean_target": false
+        },
+        "clean_final_counts": {
+          "users": 3,
+          "tenants": 4,
+          "tenant_members": 5,
+          "organization_tenant_members": 0,
+          "knowledge_bases": 2,
+          "knowledges": 3,
+          "chunks": 19786,
+          "embeddings": 2717,
+          "kb_shares": 0,
+          "resources": 3,
+          "resource_bindings": 3
+        },
+        "clean_target_identity_rows": 0,
+        "final_integrity": {
+          "selected_data_and_acl_equal_source": true,
+          "files_equal_source": true,
+          "all_passwords_disabled": true,
+          "all_auth_tokens_revoked": true,
+          "all_api_keys_revoked": true,
+          "validation_database_dropped": true
+        }
+      },
+      "mock-result.json": {
+        "result": "PASS",
+        "real_sid_called": false,
+        "real_identity_binding": false,
+        "clean_pilot_changed": false,
+        "api": {
+          "login_1": {
+            "same_jit_user_id": true,
+            "unprivileged_jit_flags": true,
+            "auth_me": 200,
+            "no_refresh_response_cookie": true
+          },
+          "login_2": {
+            "same_jit_user_id": true,
+            "unprivileged_jit_flags": true,
+            "auth_me": 200,
+            "no_refresh_response_cookie": true
+          },
+          "switch_tenant_access_only": true,
+          "switch_does_not_extend_expiry": true,
+          "multi_device_logout_isolated": true,
+          "local_logout_revokes": true,
+          "refresh_rejected": true
+        },
+        "jit_zero_default_privileges": true,
+        "synthetic_candidate_policy": {
+          "sessions": 2,
+          "idle_1800": true,
+          "access_3600": true,
+          "refresh_disabled": true,
+          "absolute_3600": true,
+          "access_bounded": true
+        },
+        "refresh_rows_created": 0,
+        "identities": 1,
+        "permissions_unchanged": true,
+        "disposable_mock_database_removed": true
+      }
+    },
+    "no_real_authentication": true
+  },
+  "readiness": {
+    "result": "PASS",
+    "new_sid_requests": 0,
+    "real_identity_writes": 0,
+    "business_gates_changed": false,
+    "credentials": {
+      "client_id_matches_default": true,
+      "secret_matches_default_boolean_only": true
+    },
+    "actual_local_password_login": "NOT_EXECUTED_CLEAN_TARGET_PASSWORDS_DISABLED",
+    "real_sid_login": "NOT_EXECUTED",
+    "rollback_executed": false,
+    "database": [
+      {
+        "version": 3029,
+        "dirty": false
+      },
+      {
+        "users": 3,
+        "identities": 0,
+        "ownership": 0,
+        "jit": 0,
+        "enterprise_sessions": 0,
+        "active_tokens": 0,
+        "active_keys": 0,
+        "active_transactions": 0
+      }
+    ],
+    "public_entry_automatic_restart": "no",
+    "utc": "2026-10-16T17:37:22.618524+00:00"
+  },
+  "sid_public_only": {
+    "dns_resolved": true,
+    "real_authentication": false,
+    "tls_verified": true,
+    "tls_version": "TLSv1.3",
+    "discovery": 200,
+    "jwks": 200,
+    "rsa_present": true,
+    "result": "PASS"
+  },
+  "forward_guard": {
+    "result": "PASS",
+    "targeted_entry_addresses": 2,
+    "global_rules_flushed": false,
+    "host_paths_changed": false,
+    "reapply_and_remove_scripts_saved_private": true
+  },
+  "sid_config_staging": {
+    "result": "PASS",
+    "new_sid_requests": 0,
+    "business_gates_enabled": false,
+    "client_id_matches_default": true,
+    "secret_matches_default_boolean_only": true,
+    "approved_callback_preserved": true,
+    "approved_protocol_config_preserved": true,
+    "oidc_remains_disabled": true,
+    "all_business_gates_closed": true,
+    "no_claim_of_new_token_success": true,
+    "utc": "2026-10-16T17:36:52.578699+00:00"
+  }
+}

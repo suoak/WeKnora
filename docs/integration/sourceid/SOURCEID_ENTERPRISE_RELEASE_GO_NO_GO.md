@@ -18,15 +18,15 @@
 | 普通SSO风险 | BLOCKED：具名接受人；复用SID SSO不保证实时员工有效性，本地退出不等于SID统一登出；D未知非0，停用前Code90秒内仍可兑换 |
 | 新账号权限 | USER_CONFIRMED：无默认空间/敏感KB/管理权限；公共知识仅通过KnowHub共享ACL单独授予，允许登录不是全知识访问授权。实际无特权及共享边界仍需真实JIT验收 |
 | 真实业务验收 | NOT_EXECUTED：分别批准已有账号关联和真正新员工开户；覆盖Portal/auth-me/原KB读取/越权拒绝/重复登录/退出/撤销 |
-| 实际Chrome路由 | NOT_VERIFIED：无凭据专用浏览器隧道验证不等于日常SSO Chrome；页面/资源/API/callback必须同源进入18090独立项目 |
+| 实际Chrome路由 | 原测试80/8080获批替换后无凭据PASS：页面/资源/API/callback均进入新f40/832/DB3029环境，Windows直接原域名实测，无18090隧道要求；未执行日常SSO真实授权，真实窗口仍需路由明确 |
 | 容量 | 独立10场景4300成功/100预期拒绝保留。原300–500人是旧规划，不代表公司总人数；全公司预计用户数、最忙一分钟登录人数、新旧比例、正式规格、SID限流/并发及成功率/P95/P99阈值UNKNOWN，须据此重定生产容量目标。PG主池无显式MaxOpenConns，WaitCount/WaitDuration为NOT_CAPTURED，须明确连接预算与观测 |
-| 真实业务监测 | Mock PASS：c0c504548业务适配器在Windows/Linux各25项通过，原28项兼容回归通过；不用旧protocol_only worker。真实日常Chrome观察通道尚未接通，未达到真实业务READY，详见最新READY报告 |
+| 真实业务监测 | Mock PASS：c0c504548业务适配器Windows/Linux各25项、原28项兼容回归通过；不用旧protocol_only worker。入口已改新项目knowhub-company-test，需先校准固定目标及Portal观察；原测试有效SID配置已受控加载但OIDC关闭，不是新的认证PASS，详见部署与READY报告 |
 | 检索/RAG | 原文件与已有向量读取可验证；模型/AES恢复、外部Embedding/重排/BM25/完整RAG需批准配置及内容传输边界后验证 |
 | 发布/恢复 | BLOCKED：具名发布、数据、网络、安全、SID、回滚负责人和维护窗口；生产端口/回调/备份/迁移/写入冻结与成套DB文件回退预演，生产操作另行授权 |
 
 正式目标配置为enterprise_all、oidc_sso_approved、local_approved、prompt=false、Refresh=false。其余contract/email/auto/enterprise/JIT/SSO政策门禁仅在上述条件成立且真实审批引用就绪后按操作卡加载；不能全部设true或填写虚构政策号。
 
-公司级策略是产品范围批准，不是生产发布、真实归属apply或真实认证授权。当前f40b1602f/DB3029和全部运行门禁不变；剩余阻塞以[最新READY报告](KNOWHUB_REAL_OA_BUSINESS_ACCEPTANCE_READY_REPORT.md)为准。
+公司级策略不是生产发布、真实归属apply或真实认证授权。已另获批准将打包机原80/8080指向新的f40/832/DB3029副本，全部真实身份业务门禁仍关闭，原独立试点保留；见[部署报告](KNOWHUB_COMPANY_TEST_ENTRY_DEPLOYMENT_REPORT.md)。剩余阻塞以[最新READY报告](KNOWHUB_REAL_OA_BUSINESS_ACCEPTANCE_READY_REPORT.md)为准。
 
 严重错绑、越权、重复用户或系统性登录故障：立即关闭OA自动绑定/JIT/业务准入、定向撤销企业Session和派生Access，保存审计后按APP-only固定镜像回滚；不降迁、不恢复raw、不删除新用户/审核记录掩盖问题。业务写入后如需恢复DB，必须使用同代文件并先处理新增写入差异。
 
