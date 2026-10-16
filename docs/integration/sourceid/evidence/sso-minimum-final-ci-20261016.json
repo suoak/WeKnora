@@ -1,0 +1,232 @@
+{
+  "commit": "832b6652adf541892545a7eac8b68733f846ab95",
+  "run_id": 38871919491,
+  "url": "https://github.com/suoak/WeKnora/actions/runs/38871919491",
+  "conclusion": "success",
+  "observed_utc": "2026-10-16T08:27:08.182834+00:00",
+  "jobs": [
+    {
+      "name": "postgres",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Initialize containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-go@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "PostgreSQL migration and durable session tests",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-go@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "linux",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-go@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Record identity",
+          "conclusion": "success"
+        },
+        {
+          "name": "SourceID and authentication tests with race detection",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate isolated diagnostic report persistence filter",
+          "conclusion": "success"
+        },
+        {
+          "name": "Feishu and combined migration compatibility",
+          "conclusion": "success"
+        },
+        {
+          "name": "Authentication and MCP regression",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build server and reviewed enrollment utility",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-go@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "frontend",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm run type-check",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm test -- src/utils/authRedirect.test.ts src/utils/authRefresh.test.ts src/utils/authLandingContracts.test.ts src/utils/oidcCallbackEntry.test.ts",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm run build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "browser",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-go@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Real frontend and business auth handlers with isolated Mock SID",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-go@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "go_case_actions_by_job": {
+    "linux": {
+      "pass": 5511,
+      "skip": 40
+    },
+    "postgres": {
+      "pass": 11
+    }
+  },
+  "required_acceptance_tests": {
+    "TestSourceIDPostgresPilotAutoEmailBindingConcurrentFirstLogins": "pass",
+    "TestSourceIDPostgresAccessOnlyIssueAndRevokeRace": "pass",
+    "TestSourceIDSSOPolicyFailsClosedAndPreservesForcedMode": "pass",
+    "TestSourceIDPilotManifestRejectsInvalidOwnership": "pass",
+    "TestSourceIDSSOAccessOnlyHTTP": "pass",
+    "TestSourceIDSSOAllRolesAccessOnlyPreservesPermissions": "pass",
+    "TestSourceIDSSOProofScopeAndLifetimeFailClosed": "pass",
+    "TestSourceIDSSODisabledProviderCannotFallBackToGenericOIDC": "pass"
+  },
+  "real_vue_mock_sid_passes": 2,
+  "raw_ci_logs_in_report": false,
+  "real_sid_login_executed": false,
+  "runtime_deployed": false
+}

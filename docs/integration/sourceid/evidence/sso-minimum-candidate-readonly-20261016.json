@@ -1,0 +1,114 @@
+{
+  "utc": "2026-10-16T07:52:53.300320+00:00",
+  "target": "172.30.232.42",
+  "runtime_changed": false,
+  "candidate_started": false,
+  "artifacts": {
+    "source79-clean.dump": {
+      "exists": true,
+      "bytes": 21489454,
+      "private_mode": true
+    },
+    "source79-files.tar": {
+      "exists": true,
+      "bytes": 2570240,
+      "private_mode": true
+    },
+    "sanitized-3027-clean.dump": {
+      "exists": true,
+      "bytes": 21678050,
+      "private_mode": true
+    },
+    "ready-3027-clean.dump": {
+      "exists": true,
+      "bytes": 21678448,
+      "private_mode": true
+    }
+  },
+  "candidate_pg": {
+    "id": "c5bac6a1d394e4674c69ddc8aeaf45ea3aecb4b738a6e3305f98572a275530c7",
+    "running": false,
+    "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+    "mounts": [
+      {
+        "Type": "volume",
+        "Name": "knowhub-legacy-clean-20261016-pgdata",
+        "Source": "/mnt/sata0/lib/docker/volumes/knowhub-legacy-clean-20261016-pgdata/_data",
+        "Destination": "/var/lib/postgresql/data",
+        "RW": true
+      }
+    ]
+  },
+  "candidate_network_mode": "none",
+  "volumes": {
+    "knowhub-legacy-clean-20261016-pgdata": {
+      "exists": true
+    },
+    "knowhub-legacy-clean-20261016-files": {
+      "exists": true
+    }
+  },
+  "source_aggregate": [
+    {
+      "version": 79,
+      "dirty": false
+    },
+    {
+      "users": 3,
+      "system_admins": 1,
+      "cross_tenant_admins": 0,
+      "active_kbs": 1,
+      "active_documents": 3,
+      "nonempty_chunks": 2717,
+      "embeddings": 2717
+    }
+  ],
+  "source_membership_tables": {
+    "tenant_members": {
+      "exists": true,
+      "aggregate_roles": [
+        {
+          "role_class": "owner",
+          "count": 5
+        }
+      ]
+    },
+    "organization_tenant_members": {
+      "exists": true,
+      "aggregate_roles": []
+    }
+  },
+  "default_gate_flags": {
+    "SOURCEID_FORCE_REAUTH_PROMPT_LOGIN": "false",
+    "SOURCEID_PROTOCOL_ONLY": "true",
+    "SOURCEID_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_EMAIL_BINDING_ENABLE": "false",
+    "SOURCEID_AUTO_BINDING_ENABLE": "false",
+    "SOURCEID_BASIC_ENCODING": "oauth_form"
+  },
+  "default_app": {
+    "id": "7e2138ebd613725c2156baff2e509c94ef0212c46fb9fed68e9d596720d6b40e",
+    "image_id": "sha256:85f9d6c052298e7f52e7d7c4533e131ce19326d461521378e90c6df3b01fa49c",
+    "health": "healthy",
+    "ports": {
+      "8080/tcp": [
+        {
+          "HostIp": "0.0.0.0",
+          "HostPort": "8080"
+        }
+      ]
+    }
+  },
+  "frontend_ports": {
+    "80/tcp": [
+      {
+        "HostIp": "0.0.0.0",
+        "HostPort": "80"
+      }
+    ]
+  },
+  "disk_free_bytes": 253075714048,
+  "new_candidate_compatibility": "NOT_EXECUTED_PENDING_CANDIDATE",
+  "allowed_denied_source_network_validation": "NOT_EXECUTED_NO_NETWORK_RULE_CHANGE",
+  "candidate_database_current_rows": "NOT_QUERIED_STOPPED_CONTAINER"
+}
