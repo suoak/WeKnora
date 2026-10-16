@@ -2,7 +2,7 @@ name: SourceID OIDC validation
 
 on:
   push:
-    branches: [feature/knowhub-sourceid-oidc]
+    branches: [feature/knowhub-sourceid-oidc, feature/knowhub-sourceid-enterprise-all]
     paths:
       - "**/*.go"
       - "go.mod"
@@ -52,7 +52,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          go test -race -json -count=1 ./cmd/sourceid-test-account ./internal/accountprep ./cmd/sourceid-binding ./cmd/sourceid-enroll ./cmd/sourceid-probe ./internal/sourceid ./internal/application/repository ./internal/application/service ./internal/handler ./internal/config ./internal/middleware ./internal/utils -run 'SourceID|Enrollment|OIDC|AuthToken|SwitchTenant|Login|Logout|GenerateTokens|ValidateToken|RefreshToken' | tee sourceid-results/focused.jsonl
+          go test -race -json -count=1 ./cmd/sourceid-ownership ./cmd/sourceid-test-account ./internal/accountprep ./cmd/sourceid-binding ./cmd/sourceid-enroll ./cmd/sourceid-probe ./internal/sourceid ./internal/application/repository ./internal/application/service ./internal/handler ./internal/config ./internal/middleware ./internal/utils -run 'SourceID|Enrollment|OIDC|AuthToken|SwitchTenant|Login|Logout|GenerateTokens|ValidateToken|RefreshToken' | tee sourceid-results/focused.jsonl
       - name: Validate isolated diagnostic report persistence filter
         shell: bash
         run: |
@@ -109,7 +109,7 @@ jobs:
           set -euo pipefail
           mkdir -p sourceid-results
           npm ci --prefix frontend
-          SOURCEID_BROWSER_E2E=1 go test -timeout 8m -v -count=1 ./internal/handler -run '^TestSourceID(Local|SSO)BrowserBusinessLogin$' | tee sourceid-results/local-browser.txt
+          SOURCEID_BROWSER_E2E=1 go test -timeout 8m -v -count=1 ./internal/handler -run '^TestSourceID(Local|SSO|Enterprise)BrowserBusinessLogin$' | tee sourceid-results/local-browser.txt
       - uses: actions/upload-artifact@v6
         if: always()
         with:

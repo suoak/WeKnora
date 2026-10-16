@@ -89,7 +89,18 @@ func TestSourceIDSSOAccessOnlyHTTP(t *testing.T) {
 	}
 }
 
+func TestSourceIDEnterpriseAccessOnlyHTTP(t *testing.T) {
+	for _, role := range []string{"viewer", "contributor", "owner", "tenant_admin", "org_admin", "system_admin", "cross_space_admin", "multi_space"} {
+		t.Run(role, func(t *testing.T) { runSourceIDLocalBusinessLoginScope(t, true, false, role, true) })
+	}
+}
+func TestSourceIDEnterpriseBrowserBusinessLogin(t *testing.T) {
+	runSourceIDLocalBusinessLoginScope(t, true, true, "contributor", true)
+}
 func runSourceIDLocalBusinessLogin(t *testing.T, ordinary, browser bool, role string) {
+	runSourceIDLocalBusinessLoginScope(t, ordinary, browser, role, false)
+}
+func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, role string, enterprise bool) {
 	if browser && os.Getenv("SOURCEID_BROWSER_E2E") != "1" {
 		t.Skip("opt-in synthetic browser integration")
 	}
@@ -108,7 +119,7 @@ func runSourceIDLocalBusinessLogin(t *testing.T, ordinary, browser bool, role st
 	require.NoError(t, db.AutoMigrate(&types.Tenant{}, &types.User{}, &types.AuthToken{}, &types.TenantMember{}))
 	require.NoError(t, db.Exec("DROP INDEX IF EXISTS idx_auth_tokens_session_id").Error)
 	require.NoError(t, db.Exec("ALTER TABLE auth_tokens DROP COLUMN session_id").Error)
-	for _, name := range []string{"003024_sourceid_oidc", "003026_sourceid_binding_review", "003027_sourceid_local_session"} {
+	for _, name := range []string{"003024_sourceid_oidc", "003026_sourceid_binding_review", "003027_sourceid_local_session", "003028_sourceid_enterprise_ownership"} {
 		data, err := os.ReadFile(filepath.Join(root, "migrations/sqlite/"+name+".up.sql"))
 		require.NoError(t, err)
 		require.NoError(t, db.Exec(string(data)).Error)
@@ -169,6 +180,20 @@ func runSourceIDLocalBusinessLogin(t *testing.T, ordinary, browser bool, role st
 		cfg.SourceIDPilotAccountsFile = filepath.Join(t.TempDir(), "ownership.json")
 		manifest, _ := json.Marshal(map[string]interface{}{"version": 1, "policy_ref": cfg.SourceIDAutoBindingPolicyRef, "ownership_ref": "synthetic-snapshot-ownership", "issuer": cfg.IssuerURL, "accounts": []map[string]string{{"user_id": user.ID, "email": user.Email, "employee_no": "synthetic-employee"}}})
 		require.NoError(t, privatefile.WriteFile(cfg.SourceIDPilotAccountsFile, manifest, 0600))
+	}
+
+	if enterprise {
+		cfg.SourceIDAccountScope = "enterprise_all"
+		cfg.SourceIDEnterprisePolicyConfirmed = true
+		cfg.SourceIDEnterprisePolicyRef = "synthetic-enterprise"
+		cfg.SourceIDEnterpriseMaxAge = "1h"
+		cfg.SourceIDPilotAccountsFile = ""
+		importer, ok := apprepo.NewUserRepository(db).(interface {
+			SyncSourceIDAccountOwnership(context.Context, types.SourceIDAccountOwnership, string, bool) (bool, error)
+		})
+		require.True(t, ok)
+		_, err := importer.SyncSourceIDAccountOwnership(context.Background(), types.SourceIDAccountOwnership{Issuer: cfg.IssuerURL, EmployeeNo: "synthetic-employee", UserID: user.ID, Email: user.Email, Status: "active", Revision: 1, PolicyRef: cfg.SourceIDEnterprisePolicyRef, OwnershipRef: "synthetic-independent-account-proof", SourceRef: "synthetic-directory", VerifiedAt: time.Now().Add(-time.Second), ValidUntil: time.Now().Add(time.Hour)}, "synthetic-operator", true)
+		require.NoError(t, err)
 	}
 	mock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {

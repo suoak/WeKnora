@@ -15,6 +15,12 @@ type sourceIDLocalStore interface {
 	UpdateSourceIDLocalAdmission(context.Context, string, string, types.SourceIDAdmissionDecision) error
 }
 
+type sourceIDEnterpriseStore interface {
+	ResolveSourceIDEnterpriseEmailIdentity(context.Context, string, string, string, string, string, string, time.Duration) (*types.User, error)
+	CreateSourceIDEnterpriseLocalSession(context.Context, *types.SourceIDSession, *types.SourceIDLocalSession, string, string, time.Duration) error
+	CheckSourceIDEnterpriseOwnership(context.Context, string, string, string, string, time.Duration) error
+}
+
 type sourceIDAuthorizationProofKey struct{}
 type sourceIDAuthorizationProof struct {
 	Issuer, Subject      string
@@ -156,9 +162,23 @@ func (s *userService) sourceIDLocalLimits(ctx context.Context, sessionID, userID
 		return nil, errors.New("sourceid local policy changed; reauthentication required")
 	}
 	if cfg.SourceIDAdmissionMode == "oidc_sso_approved" {
-		accounts, err := cfg.SourceIDPilotAccounts()
-		if err != nil || accounts[userID].Email == "" || accounts[userID].EmployeeNo != local.EmployeeNo {
-			return nil, errors.New("sourceid pilot account unavailable")
+		if cfg.EffectiveSourceIDAccountScope() == "enterprise_all" {
+			enterprise, ok := store.(sourceIDEnterpriseStore)
+			if !ok {
+				return nil, errors.New("sourceid enterprise repository unavailable")
+			}
+			maxAge, policyErr := cfg.SourceIDEnterpriseFreshness()
+			if policyErr != nil {
+				return nil, policyErr
+			}
+			if err := enterprise.CheckSourceIDEnterpriseOwnership(ctx, local.Issuer, local.EmployeeNo, userID, cfg.SourceIDEnterprisePolicyRef, maxAge); err != nil {
+				return nil, err
+			}
+		} else {
+			accounts, err := cfg.SourceIDPilotAccounts()
+			if err != nil || accounts[userID].Email == "" || accounts[userID].EmployeeNo != local.EmployeeNo {
+				return nil, errors.New("sourceid pilot account unavailable")
+			}
 		}
 	}
 	return local, nil

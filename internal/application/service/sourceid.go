@@ -70,6 +70,9 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 		return nil, ctx, errors.New("sourceid identity contract pending")
 	}
 	mode := cfg.EffectiveSourceIDSessionMode()
+	if cfg.EffectiveSourceIDAccountScope() == "enterprise_all" && (mode != "local_approved" || cfg.SourceIDAdmissionMode != "oidc_sso_approved") {
+		return nil, ctx, errors.New("sourceid enterprise local policy required")
+	}
 	if cfg.SourceIDAdmissionMode == "oidc_sso_approved" && mode != "local_approved" {
 		return nil, ctx, errors.New("sourceid sso local session required")
 	}
@@ -114,17 +117,29 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 	}
 	var user *types.User
 	if mode == "local_approved" && cfg.SourceIDAdmissionMode == "oidc_sso_approved" {
-		accounts, accountErr := cfg.SourceIDPilotAccounts()
-		if accountErr != nil {
-			return nil, ctx, accountErr
+		if cfg.EffectiveSourceIDAccountScope() == "enterprise_all" {
+			binding, ok := r.(sourceIDEnterpriseStore)
+			if !ok {
+				return nil, ctx, errors.New("sourceid enterprise repository unavailable")
+			}
+			maxAge, policyErr := cfg.SourceIDEnterpriseFreshness()
+			if policyErr != nil {
+				return nil, ctx, policyErr
+			}
+			user, err = binding.ResolveSourceIDEnterpriseEmailIdentity(ctx, cfg.IssuerURL, info.Subject, employee, sourceIDStringClaim(info.Claims, "attributes.RJEMAIL"), cfg.SourceIDAutoBindingPolicyRef, cfg.SourceIDEnterprisePolicyRef, maxAge)
+		} else {
+			accounts, accountErr := cfg.SourceIDPilotAccounts()
+			if accountErr != nil {
+				return nil, ctx, accountErr
+			}
+			binding, ok := r.(interface {
+				ResolveSourceIDPilotEmailIdentity(context.Context, string, string, string, string, string, map[string]types.SourceIDPilotAccount) (*types.User, error)
+			})
+			if !ok {
+				return nil, ctx, errors.New("sourceid pilot repository unavailable")
+			}
+			user, err = binding.ResolveSourceIDPilotEmailIdentity(ctx, cfg.IssuerURL, info.Subject, employee, sourceIDStringClaim(info.Claims, "attributes.RJEMAIL"), cfg.SourceIDAutoBindingPolicyRef, accounts)
 		}
-		binding, ok := r.(interface {
-			ResolveSourceIDPilotEmailIdentity(context.Context, string, string, string, string, string, map[string]types.SourceIDPilotAccount) (*types.User, error)
-		})
-		if !ok {
-			return nil, ctx, errors.New("sourceid pilot repository unavailable")
-		}
-		user, err = binding.ResolveSourceIDPilotEmailIdentity(ctx, cfg.IssuerURL, info.Subject, employee, sourceIDStringClaim(info.Claims, "attributes.RJEMAIL"), cfg.SourceIDAutoBindingPolicyRef, accounts)
 	} else if cfg.SourceIDEmailBindingEnable {
 		if cfg.SourceIDAutoBindingEnable {
 			binding, ok := r.(interface {
@@ -168,7 +183,20 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 			AdmissionPolicyRef: cfg.SourceIDAdmissionPolicyRef, AdmissionValidUntil: admission.ValidUntil, LastSeenAt: now,
 			AdmissionSource: admission.Source, AdmissionCheckedAt: admission.CheckedAt, RecheckSupported: admission.RecheckSupported,
 			IdleSeconds: int64(policy.IdleTTL / time.Second), AccessSeconds: int64(policy.AccessTTL / time.Second), RefreshEnabled: cfg.SourceIDLocalRefreshEnable}
-		if err := store.CreateSourceIDLocalSession(ctx, session, local); err != nil {
+		if cfg.SourceIDAdmissionMode == "oidc_sso_approved" && cfg.EffectiveSourceIDAccountScope() == "enterprise_all" {
+			enterprise, ok := r.(sourceIDEnterpriseStore)
+			if !ok {
+				return nil, ctx, errors.New("sourceid enterprise repository unavailable")
+			}
+			maxAge, policyErr := cfg.SourceIDEnterpriseFreshness()
+			if policyErr != nil {
+				return nil, ctx, policyErr
+			}
+			err = enterprise.CreateSourceIDEnterpriseLocalSession(ctx, session, local, employee, cfg.SourceIDEnterprisePolicyRef, maxAge)
+		} else {
+			err = store.CreateSourceIDLocalSession(ctx, session, local)
+		}
+		if err != nil {
 			return nil, ctx, err
 		}
 	} else if cfg.SourceIDEmailBindingEnable {

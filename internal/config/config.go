@@ -351,6 +351,11 @@ type OIDCAuthConfig struct {
 	SourceIDForceReauthPromptLogin        bool   `yaml:"sourceid_force_reauth_prompt_login" json:"-"`
 	SourceIDSSOPolicyConfirmed            bool   `yaml:"sourceid_sso_policy_confirmed" json:"-"`
 	SourceIDPilotAccountsFile             string `yaml:"sourceid_pilot_accounts_file" json:"-"`
+	SourceIDAccountScope                  string `yaml:"sourceid_account_scope" json:"-"`
+	SourceIDEnterprisePolicyConfirmed     bool   `yaml:"sourceid_enterprise_policy_confirmed" json:"-"`
+	SourceIDEnterprisePolicyRef           string `yaml:"sourceid_enterprise_policy_ref" json:"-"`
+	SourceIDEnterpriseMaxAge              string `yaml:"sourceid_enterprise_max_age" json:"-"`
+	SourceIDJITEnable                     bool   `yaml:"sourceid_jit_enable" json:"-"`
 	RedirectURI                           string `yaml:"redirect_uri" json:"redirect_uri"`
 	PKCEEnable                            bool   `yaml:"pkce_enable" json:"-"`
 	ClientAuthMethod                      string `yaml:"client_auth_method" json:"-"`
@@ -811,6 +816,9 @@ func applyOIDCEnvOverrides(cfg *Config) {
 	for key, target := range map[string]*string{
 		"SOURCEID_SESSION_MODE":            &cfg.OIDCAuth.SourceIDSessionMode,
 		"SOURCEID_PILOT_ACCOUNTS_FILE":     &cfg.OIDCAuth.SourceIDPilotAccountsFile,
+		"SOURCEID_ACCOUNT_SCOPE":           &cfg.OIDCAuth.SourceIDAccountScope,
+		"SOURCEID_ENTERPRISE_POLICY_REF":   &cfg.OIDCAuth.SourceIDEnterprisePolicyRef,
+		"SOURCEID_ENTERPRISE_MAX_AGE":      &cfg.OIDCAuth.SourceIDEnterpriseMaxAge,
 		"SOURCEID_LOCAL_POLICY_REF":        &cfg.OIDCAuth.SourceIDLocalPolicyRef,
 		"SOURCEID_LOCAL_ACCESS_TTL":        &cfg.OIDCAuth.SourceIDLocalAccessTTL,
 		"SOURCEID_LOCAL_ABSOLUTE_TTL":      &cfg.OIDCAuth.SourceIDLocalAbsoluteTTL,
@@ -839,6 +847,8 @@ func applyOIDCEnvOverrides(cfg *Config) {
 	for key, target := range map[string]*bool{
 		"SOURCEID_FORCE_REAUTH_PROMPT_LOGIN":       &cfg.OIDCAuth.SourceIDForceReauthPromptLogin,
 		"SOURCEID_SSO_POLICY_CONFIRMED":            &cfg.OIDCAuth.SourceIDSSOPolicyConfirmed,
+		"SOURCEID_ENTERPRISE_POLICY_CONFIRMED":     &cfg.OIDCAuth.SourceIDEnterprisePolicyConfirmed,
+		"SOURCEID_JIT_ENABLE":                      &cfg.OIDCAuth.SourceIDJITEnable,
 		"SOURCEID_AUTHORIZATION_RECHECK_CONFIRMED": &cfg.OIDCAuth.SourceIDAuthorizationRecheckConfirmed,
 		"SOURCEID_LOCAL_REFRESH_ENABLE":            &cfg.OIDCAuth.SourceIDLocalRefreshEnable,
 		"SOURCEID_ENABLE":                          &cfg.OIDCAuth.SourceIDEnable,

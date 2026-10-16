@@ -16,7 +16,7 @@ import (
 // their original user ID even if their email later changes.
 func (c *OIDCAuthConfig) SourceIDPilotAccounts() (map[string]types.SourceIDPilotAccount, error) {
 	fail := errors.New("sourceid pilot ownership unavailable")
-	if c.SourceIDAdmissionMode != "oidc_sso_approved" || !c.SourceIDSSOPolicyConfirmed {
+	if c.EffectiveSourceIDAccountScope() != "pilot" || c.SourceIDAdmissionMode != "oidc_sso_approved" || !c.SourceIDSSOPolicyConfirmed {
 		return nil, fail
 	}
 	info, err := os.Lstat(c.SourceIDPilotAccountsFile)

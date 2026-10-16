@@ -55,7 +55,7 @@ func (c *OIDCAuthConfig) SourceIDLocalPolicy() (SourceIDLocalPolicy, error) {
 		return p, errors.New("sourceid authorization-only admission requires refresh disabled")
 	}
 	if c.SourceIDAdmissionMode == "oidc_sso_approved" && (!c.SourceIDSSOPolicyConfirmed || c.SourceIDLocalRefreshEnable ||
-		c.SourceIDForceReauthPromptLogin || strings.TrimSpace(c.SourceIDPilotAccountsFile) == "" ||
+		c.SourceIDForceReauthPromptLogin || c.SourceIDAccountPolicy() != nil ||
 		!c.SourceIDAutoBindingEnable || strings.TrimSpace(c.SourceIDAutoBindingPolicyRef) == "") {
 		return p, errors.New("sourceid sso policy pending")
 	}
