@@ -1800,6 +1800,9 @@ func (s *userService) getOIDCConfig(ctx context.Context) (*config.OIDCAuthConfig
 		return nil, errors.New("OIDC login is disabled")
 	}
 	cfg := *s.config.OIDCAuth
+	if cfg.SourceIDAdmissionMode == "oidc_sso_approved" && !cfg.SourceIDEnable {
+		return nil, errors.New("sourceid sso requires sourceid identity gate")
+	}
 	if cfg.UserInfoTransport != "" && cfg.UserInfoTransport != "bearer_get" && cfg.UserInfoTransport != "form_post" && cfg.UserInfoTransport != "multipart_post" {
 		return nil, errors.New("unsupported OIDC UserInfo transport")
 	}

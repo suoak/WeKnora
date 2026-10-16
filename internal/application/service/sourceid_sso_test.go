@@ -159,3 +159,17 @@ func TestSourceIDSSOProofScopeAndLifetimeFailClosed(t *testing.T) {
 		})
 	}
 }
+
+func TestSourceIDSSODisabledProviderCannotFallBackToGenericOIDC(t *testing.T) {
+	s, db, _, ctx, _ := sourceIDSSOFixture(t)
+	s.config.OIDCAuth.SourceIDEnable = false
+	_, err := s.GetOIDCAuthorizationURL(ctx, "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback")
+	require.ErrorContains(t, err, "sourceid sso requires sourceid identity gate")
+	_, err = s.LoginWithOIDC(ctx, "synthetic-unused-code", "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback", types.TenantProvisioningMode("tenantless"))
+	require.ErrorContains(t, err, "sourceid sso requires sourceid identity gate")
+	for _, table := range []string{"oidc_transactions", "external_identities", "source_id_sessions"} {
+		var count int64
+		require.NoError(t, db.Table(table).Count(&count).Error)
+		require.Zero(t, count)
+	}
+}
