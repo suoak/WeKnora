@@ -1,0 +1,19 @@
+{
+  "commit": "88c884a4200ef6c4849eb7500c9ec1c819b08a26",
+  "run_id": 38858387367,
+  "url": "https://github.com/suoak/WeKnora/actions/runs/38858387367",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "name": "synthetic-controls (3.12)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "synthetic-controls (3.8)",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "scope": "synthetic controls and mocked adapter only; no SID or deployment"
+}

@@ -1,0 +1,40 @@
+{
+  "result": "PASS",
+  "utc": "2026-10-16T05:47:06.841841+00:00",
+  "windows": {
+    "post_restore": {
+      "since_utc": "2026-10-16T03:46:00Z",
+      "safe_path_status_counts": {
+        "GET /api/v1/auth/oidc/url 200": 2,
+        "GET /api/v1/auth/oidc/callback 302": 2
+      },
+      "distinct_source_address_count": 1,
+      "source_classes": {
+        "private_network": 4
+      },
+      "user_agent_classes": {
+        "other_or_absent": 4
+      },
+      "tail_limit": 3000,
+      "bytes_scanned": 3002,
+      "raw_saved": false
+    },
+    "last_five_minutes": {
+      "since_utc": "2026-10-16T05:42:06.841841+00:00",
+      "safe_path_status_counts": {},
+      "distinct_source_address_count": 0,
+      "source_classes": {},
+      "user_agent_classes": {},
+      "tail_limit": 3000,
+      "bytes_scanned": 0,
+      "raw_saved": false
+    }
+  },
+  "known_test_processes": [],
+  "new_login": false,
+  "network_rules_changed": false,
+  "prompt": "false",
+  "active_unconsumed_transactions": 0,
+  "operator_identity": "UNKNOWN_NOT_INFERRED",
+  "future_exclusive_window": "NOT_PROVEN_BY_SNAPSHOT"
+}

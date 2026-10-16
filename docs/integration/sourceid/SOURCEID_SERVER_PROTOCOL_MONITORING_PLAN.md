@@ -2,6 +2,8 @@
 
 2026-10-16。状态：**READ_ONLY_AUDIT_COMPLETE / MONITOR_PLAN_READY / NO_NEW_LOGIN_STARTED**。
 
+后续校准更新：监测状态机、受控运行适配器及28项合成测试已经实现，Python3.8/3.12 CI通过。见 [监测器校准报告](SOURCEID_PROTOCOL_MONITOR_CALIBRATION_REPORT.md)。以下“尚未实施/需校准”文字保留为原方案时间线，下一笔应使用新protocol_monitor模块，不再使用旧900秒worker；新运行器尚未真实启动或用于配置切换。
+
 本轮只读访问172.30.232.42，未发起authorize、Token、UserInfo或真实登录请求，未重建容器、修改配置/事务或触碰生产。APP479416c90、Frontend1ba24ef5f、DB3027clean及全部企业门禁保持现状。
 
 ## 1. 已有证据必须分组

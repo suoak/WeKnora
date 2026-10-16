@@ -2,6 +2,8 @@
 
 状态：**UPDATED_PLAN_ONLY / NEXT_TRANSACTION_NOT_AUTHORIZED**。本卡按上次停在SID认证页的经验更新，下一笔完整认证需另行授权。本轮只归档和更新操作卡，不改运行配置或程序。
 
+最新实施状态：已完成独立监测器最小改造及合成控制验证，见 [监测器校准报告](SOURCEID_PROTOCOL_MONITOR_CALIBRATION_REPORT.md)。本卡第8项的校准要求已由新protocol_monitor模块实现；旧worker保持历史归档，不得继续用于新事务。APP认证代码和运行配置未改变，下一笔仍需单独授权及独占窗口确认。
+
 目标仅为协议验证，不验证企业账号业务放行。目标服务器仅172.30.232.42，真实KnowHub Handler；不使用Protocol Probe，不访问生产10.51.134.114。
 
 ## 执行前门禁
