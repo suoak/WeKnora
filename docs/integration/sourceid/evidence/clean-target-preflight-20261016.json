@@ -1,0 +1,552 @@
+{
+  "utc": "2026-10-16T01:46:36.176560+00:00",
+  "result": "PASS",
+  "target": "172.30.232.42",
+  "projects": {
+    "weknora": {
+      "app": {
+        "id": "839b9ed3ef0ba4c531a8c7b1331adcbd5881154c3f2a097171fde66300193d06",
+        "name": "/WeKnora-app",
+        "image_id": "sha256:1abaf9dd921aa0648d74efd10efbb6b016f15af411b59bc9b360dde5348e1979",
+        "image_reference": "wechatopenai/weknora-app:latest",
+        "created": "2026-08-25T03:48:10.562074345Z",
+        "started": "2026-10-14T08:01:47.959777119Z",
+        "running": false,
+        "health": "unhealthy",
+        "restart_count": 0,
+        "project": "weknora",
+        "service": "app",
+        "working_dir": "/home/aqyfzx/ai/WeKnora",
+        "compose_files": "/home/aqyfzx/ai/WeKnora/docker-compose.yml",
+        "ports": {},
+        "mounts": [
+          {
+            "Type": "bind",
+            "Name": null,
+            "Source": "/home/aqyfzx/ai/WeKnora/config/config.yaml",
+            "Destination": "/app/config/config.yaml",
+            "RW": true
+          },
+          {
+            "Type": "bind",
+            "Name": null,
+            "Source": "/home/aqyfzx/ai/WeKnora/skills/preloaded",
+            "Destination": "/app/skills/preloaded",
+            "RW": true
+          },
+          {
+            "Type": "volume",
+            "Name": "weknora_data-files",
+            "Source": "/mnt/sata0/lib/docker/volumes/weknora_data-files/_data",
+            "Destination": "/data/files",
+            "RW": true
+          },
+          {
+            "Type": "volume",
+            "Name": "weknora_docreader-tmp",
+            "Source": "/mnt/sata0/lib/docker/volumes/weknora_docreader-tmp/_data",
+            "Destination": "/tmp/docreader",
+            "RW": false
+          }
+        ]
+      },
+      "mcp": {
+        "id": "590102ce51aab2d5950e42965202c44dbb407ef3e1e2f6675a10397bd5e224e0",
+        "name": "/WeKnora-mcp",
+        "image_id": "sha256:aa880bcfa09a66f201463aa614d7a299fef10b342779335ec08dac29713de337",
+        "image_reference": "weknora-mcp",
+        "created": "2026-08-20T12:50:52.43755134Z",
+        "started": "2026-09-07T02:19:58.102606799Z",
+        "running": true,
+        "health": "NOT_CONFIGURED",
+        "restart_count": 0,
+        "project": "weknora",
+        "service": "mcp",
+        "working_dir": "/home/aqyfzx/ai/WeKnora",
+        "compose_files": "/home/aqyfzx/ai/WeKnora/docker-compose.yml",
+        "ports": {
+          "8000/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "8082"
+            },
+            {
+              "HostIp": "::",
+              "HostPort": "8082"
+            }
+          ]
+        },
+        "mounts": []
+      },
+      "frontend": {
+        "id": "453d542a300ba1be9d34098ea9899510b0ad6ab5b818615f55681a84acb47d3d",
+        "name": "/WeKnora-frontend",
+        "image_id": "sha256:894e6a32987191e096817194219a00051f4d737c3482c05c8aec41f153eae420",
+        "image_reference": "wechatopenai/weknora-ui:latest",
+        "created": "2026-08-12T02:23:11.736056173Z",
+        "started": "2026-10-14T08:01:48.774562239Z",
+        "running": false,
+        "health": "NOT_CONFIGURED",
+        "restart_count": 0,
+        "project": "weknora",
+        "service": "frontend",
+        "working_dir": "/home/aqyfzx/ai/WeKnora",
+        "compose_files": "/home/aqyfzx/ai/WeKnora/docker-compose.yml",
+        "ports": {},
+        "mounts": []
+      },
+      "postgres": {
+        "id": "b2229c012c06ac8fab34b83b8ae0442077bb69bfc5cf065764bf94ca446c8abe",
+        "name": "/WeKnora-postgres",
+        "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+        "image_reference": "paradedb/paradedb:v0.22.2-pg17",
+        "created": "2026-08-12T02:23:11.609465739Z",
+        "started": "2026-09-07T02:19:59.220964121Z",
+        "running": true,
+        "health": "healthy",
+        "restart_count": 0,
+        "project": "weknora",
+        "service": "postgres",
+        "working_dir": "/home/aqyfzx/ai/WeKnora",
+        "compose_files": "/home/aqyfzx/ai/WeKnora/docker-compose.yml",
+        "ports": {
+          "5432/tcp": null
+        },
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "weknora_postgres-data",
+            "Source": "/mnt/sata0/lib/docker/volumes/weknora_postgres-data/_data",
+            "Destination": "/var/lib/postgresql/data",
+            "RW": true
+          }
+        ]
+      },
+      "docreader": {
+        "id": "a2a2fbd1533fd7676c53a1e405ce50dc897f2a0ba08e92f2b6ee48677c0076bd",
+        "name": "/WeKnora-docreader",
+        "image_id": "sha256:1f520c9e7c5890c6a97997523e536e9e312065548aeed826eb8ef600ce988ba9",
+        "image_reference": "wechatopenai/weknora-docreader:latest",
+        "created": "2026-08-12T02:23:11.609357581Z",
+        "started": "2026-09-07T02:19:58.185858236Z",
+        "running": true,
+        "health": "healthy",
+        "restart_count": 0,
+        "project": "weknora",
+        "service": "docreader",
+        "working_dir": "/home/aqyfzx/ai/WeKnora",
+        "compose_files": "/home/aqyfzx/ai/WeKnora/docker-compose.yml",
+        "ports": {
+          "50051/tcp": null
+        },
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "weknora_docreader-tmp",
+            "Source": "/mnt/sata0/lib/docker/volumes/weknora_docreader-tmp/_data",
+            "Destination": "/tmp/docreader",
+            "RW": true
+          }
+        ]
+      },
+      "redis": {
+        "id": "c22a6e302e7bfa7b4befc50b92c62f564a95131f7b2bea5c8fb5f29a528f9014",
+        "name": "/WeKnora-redis",
+        "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+        "image_reference": "redis:7.0-alpine",
+        "created": "2026-08-12T02:23:11.609266303Z",
+        "started": "2026-09-07T02:19:59.254730605Z",
+        "running": true,
+        "health": "NOT_CONFIGURED",
+        "restart_count": 0,
+        "project": "weknora",
+        "service": "redis",
+        "working_dir": "/home/aqyfzx/ai/WeKnora",
+        "compose_files": "/home/aqyfzx/ai/WeKnora/docker-compose.yml",
+        "ports": {
+          "6379/tcp": null
+        },
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "9f8af58d9cdc3cd0823720c783fcad930265c70c3aa6a96aa90997a408ff546b",
+            "Source": "/mnt/sata0/lib/docker/volumes/9f8af58d9cdc3cd0823720c783fcad930265c70c3aa6a96aa90997a408ff546b/_data",
+            "Destination": "/data",
+            "RW": true
+          }
+        ]
+      }
+    },
+    "knowhub-sourceid-business": {
+      "app": {
+        "id": "842f61a9825fe013dfbd87285cfc6846c65bd086131bf26dbdcbd192c13c4e78",
+        "name": "/knowhub-sourceid-business-app-1",
+        "image_id": "sha256:2d91336c3f5ba1ba330820801c7bf0573b1c9c45b9280994dd0862d016435286",
+        "image_reference": "sha256:2d91336c3f5ba1ba330820801c7bf0573b1c9c45b9280994dd0862d016435286",
+        "created": "2026-10-16T00:51:54.42799761Z",
+        "started": "2026-10-16T00:51:55.086840883Z",
+        "running": true,
+        "health": "healthy",
+        "restart_count": 0,
+        "project": "knowhub-sourceid-business",
+        "service": "app",
+        "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+        "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml,/home/aqyfzx/ai/knowhub-sourceid-phaseb-preflight-431226c3b/candidate-image-pin.yml,/home/aqyfzx/ai/knowhub-oa-ui-candidate-1ba24ef5f/frontend-ui-pin.yml,/home/aqyfzx/ai/knowhub-allroles-035f35e1d/app-release-pin.yml",
+        "ports": {
+          "8080/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "8080"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "Type": "bind",
+            "Name": null,
+            "Source": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/fixture/ca.pem",
+            "Destination": "/fixture/ca.pem",
+            "RW": false
+          },
+          {
+            "Type": "volume",
+            "Name": "knowhub-sourceid-business_files",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_files/_data",
+            "Destination": "/data/files",
+            "RW": true
+          },
+          {
+            "Type": "volume",
+            "Name": "knowhub-sourceid-business_doc-tmp",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_doc-tmp/_data",
+            "Destination": "/tmp/docreader",
+            "RW": false
+          }
+        ]
+      },
+      "frontend": {
+        "id": "7b624ec2ee904cb7a0ab86458954722bae831f20f1f3c9da54c7ca3f5e53c448",
+        "name": "/knowhub-sourceid-business-frontend-1",
+        "image_id": "sha256:63146a134fc3be75b663a1ac6ddba205be2b0a3c881891a3ba29a28d6a04f48a",
+        "image_reference": "sha256:63146a134fc3be75b663a1ac6ddba205be2b0a3c881891a3ba29a28d6a04f48a",
+        "created": "2026-10-15T15:53:43.062651455Z",
+        "started": "2026-10-15T15:53:43.860347172Z",
+        "running": true,
+        "health": "NOT_CONFIGURED",
+        "restart_count": 0,
+        "project": "knowhub-sourceid-business",
+        "service": "frontend",
+        "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+        "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml,/home/aqyfzx/ai/knowhub-sourceid-phaseb-preflight-431226c3b/candidate-image-pin.yml,/home/aqyfzx/ai/knowhub-oa-ui-candidate-1ba24ef5f/frontend-ui-pin.yml",
+        "ports": {
+          "80/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "80"
+            }
+          ]
+        },
+        "mounts": []
+      },
+      "sid-mock": {
+        "id": "8b4c423f194a406fe2877c0140c05d3e3a53c8c79e749148ccd721e2c615eaac",
+        "name": "/knowhub-sourceid-business-sid-mock-1",
+        "image_id": "sha256:8bfc2006e22c6a8eee94a45e0c9afe0168cfa72aa4f214291576c95a6d56c39c",
+        "image_reference": "m.daocloud.io/docker.io/library/python:3.10.18-bookworm",
+        "created": "2026-10-14T11:40:44.575707425Z",
+        "started": "2026-10-14T11:40:45.086723889Z",
+        "running": false,
+        "health": "NOT_CONFIGURED",
+        "restart_count": 0,
+        "project": "knowhub-sourceid-business",
+        "service": "sid-mock",
+        "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+        "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+        "ports": {},
+        "mounts": [
+          {
+            "Type": "bind",
+            "Name": null,
+            "Source": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/token-diagnostic-fixture",
+            "Destination": "/fixture",
+            "RW": false
+          }
+        ]
+      },
+      "postgres": {
+        "id": "ba1385464699fdb0b21e48b3134e870f99de3bc1d74ff9663a4dc42e5476f624",
+        "name": "/knowhub-sourceid-business-postgres-1",
+        "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+        "image_reference": "paradedb/paradedb:v0.22.2-pg17",
+        "created": "2026-10-14T06:41:37.796071356Z",
+        "started": "2026-10-14T06:41:39.06627162Z",
+        "running": true,
+        "health": "healthy",
+        "restart_count": 0,
+        "project": "knowhub-sourceid-business",
+        "service": "postgres",
+        "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+        "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+        "ports": {
+          "5432/tcp": null
+        },
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "knowhub-sourceid-business_postgres",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_postgres/_data",
+            "Destination": "/var/lib/postgresql/data",
+            "RW": true
+          }
+        ]
+      },
+      "docreader": {
+        "id": "2396325bde68730217152ee1885508ca9294ed8524ef424a7022c8b9a2c2cc90",
+        "name": "/knowhub-sourceid-business-docreader-1",
+        "image_id": "sha256:8399936620aa78f991b95a0339585f5d2d61f215e6311955e8386a01329beba2",
+        "image_reference": "weknora-custom/docreader:v0.8.0-knowhub.6-0a40e3ad",
+        "created": "2026-10-14T06:41:37.795755583Z",
+        "started": "2026-10-14T06:41:38.981189326Z",
+        "running": true,
+        "health": "NOT_CONFIGURED",
+        "restart_count": 0,
+        "project": "knowhub-sourceid-business",
+        "service": "docreader",
+        "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+        "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+        "ports": {
+          "50051/tcp": null
+        },
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "knowhub-sourceid-business_doc-tmp",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_doc-tmp/_data",
+            "Destination": "/tmp/docreader",
+            "RW": true
+          }
+        ]
+      },
+      "redis": {
+        "id": "fcc4d64070c73ee198ffa0c5badf6abd1b2d03543243f857be4f84b8605c33ad",
+        "name": "/knowhub-sourceid-business-redis-1",
+        "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+        "image_reference": "redis:7.0-alpine",
+        "created": "2026-10-14T06:41:37.79530949Z",
+        "started": "2026-10-14T06:41:38.801991581Z",
+        "running": true,
+        "health": "NOT_CONFIGURED",
+        "restart_count": 0,
+        "project": "knowhub-sourceid-business",
+        "service": "redis",
+        "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+        "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+        "ports": {
+          "6379/tcp": null
+        },
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "knowhub-sourceid-business_redis",
+            "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_redis/_data",
+            "Destination": "/data",
+            "RW": true
+          }
+        ]
+      }
+    },
+    "weknora-segment-test": {
+      "frontend": {
+        "id": "61d246fac18584fe350053af72ebaa675156d57e158f57fbdeb862c082959695",
+        "name": "/WeKnora-segment-frontend",
+        "image_id": "sha256:894e6a32987191e096817194219a00051f4d737c3482c05c8aec41f153eae420",
+        "image_reference": "wechatopenai/weknora-ui:latest",
+        "created": "2026-08-26T06:15:17.221558693Z",
+        "started": "2026-09-07T02:19:59.157204024Z",
+        "running": true,
+        "health": "NOT_CONFIGURED",
+        "restart_count": 0,
+        "project": "weknora-segment-test",
+        "service": "frontend",
+        "working_dir": "/home/aqyfzx/ai/WeKnora-suoak",
+        "compose_files": "/home/aqyfzx/ai/WeKnora-suoak/docker-compose.yml,/home/aqyfzx/ai/WeKnora-suoak/docker-compose.segment-test.yml",
+        "ports": {
+          "80/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "18081"
+            },
+            {
+              "HostIp": "::",
+              "HostPort": "18081"
+            }
+          ]
+        },
+        "mounts": []
+      },
+      "app": {
+        "id": "74fc5cfc828c0f72ac667955b9fbc8531334814df31fc2a66e1ce7bb41473f74",
+        "name": "/WeKnora-segment-app",
+        "image_id": "sha256:a3d3d2557c7e28b3c65f3eeb2ea2ed18a44d9466db03c2801c94fa734587818d",
+        "image_reference": "weknora-local/app:4a298383",
+        "created": "2026-08-26T06:01:23.753498962Z",
+        "started": "2026-09-07T02:20:00.100990525Z",
+        "running": true,
+        "health": "healthy",
+        "restart_count": 1,
+        "project": "weknora-segment-test",
+        "service": "app",
+        "working_dir": "/home/aqyfzx/ai/WeKnora-suoak",
+        "compose_files": "/home/aqyfzx/ai/WeKnora-suoak/docker-compose.yml,/home/aqyfzx/ai/WeKnora-suoak/docker-compose.segment-test.yml",
+        "ports": {
+          "8080/tcp": [
+            {
+              "HostIp": "0.0.0.0",
+              "HostPort": "18080"
+            },
+            {
+              "HostIp": "::",
+              "HostPort": "18080"
+            }
+          ]
+        },
+        "mounts": [
+          {
+            "Type": "bind",
+            "Name": null,
+            "Source": "/home/aqyfzx/ai/WeKnora-suoak/config/config.yaml",
+            "Destination": "/app/config/config.yaml",
+            "RW": true
+          },
+          {
+            "Type": "bind",
+            "Name": null,
+            "Source": "/home/aqyfzx/ai/WeKnora-suoak/skills/preloaded",
+            "Destination": "/app/skills/preloaded",
+            "RW": true
+          },
+          {
+            "Type": "volume",
+            "Name": "weknora-segment-test_data-files",
+            "Source": "/mnt/sata0/lib/docker/volumes/weknora-segment-test_data-files/_data",
+            "Destination": "/data/files",
+            "RW": true
+          },
+          {
+            "Type": "volume",
+            "Name": "weknora-segment-test_docreader-tmp",
+            "Source": "/mnt/sata0/lib/docker/volumes/weknora-segment-test_docreader-tmp/_data",
+            "Destination": "/tmp/docreader",
+            "RW": false
+          }
+        ]
+      },
+      "docreader": {
+        "id": "d4526daf29aab6c5233995c4eb09d0e89ca621f8dd0fb287e007df847499c931",
+        "name": "/WeKnora-segment-docreader",
+        "image_id": "sha256:d7f4284bcd815edb48b729ab274a2a0d66dfc6ff1f2791e5604d3238dd733487",
+        "image_reference": "weknora-local/docreader:4a298383",
+        "created": "2026-08-26T05:59:22.254840048Z",
+        "started": "2026-09-07T02:19:58.297850835Z",
+        "running": true,
+        "health": "healthy",
+        "restart_count": 0,
+        "project": "weknora-segment-test",
+        "service": "docreader",
+        "working_dir": "/home/aqyfzx/ai/WeKnora-suoak",
+        "compose_files": "/home/aqyfzx/ai/WeKnora-suoak/docker-compose.yml,/home/aqyfzx/ai/WeKnora-suoak/docker-compose.segment-test.yml",
+        "ports": {
+          "50051/tcp": null
+        },
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "weknora-segment-test_docreader-tmp",
+            "Source": "/mnt/sata0/lib/docker/volumes/weknora-segment-test_docreader-tmp/_data",
+            "Destination": "/tmp/docreader",
+            "RW": true
+          }
+        ]
+      },
+      "postgres": {
+        "id": "bf566898f87b898a9034d0a1b0e9cd4b672b03768413448222f5f4fd1753f915",
+        "name": "/WeKnora-segment-postgres",
+        "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+        "image_reference": "paradedb/paradedb:v0.22.2-pg17",
+        "created": "2026-08-26T05:53:27.362469691Z",
+        "started": "2026-09-07T02:19:58.674284833Z",
+        "running": true,
+        "health": "healthy",
+        "restart_count": 0,
+        "project": "weknora-segment-test",
+        "service": "postgres",
+        "working_dir": "/home/aqyfzx/ai/WeKnora-suoak",
+        "compose_files": "/home/aqyfzx/ai/WeKnora-suoak/docker-compose.yml,/home/aqyfzx/ai/WeKnora-suoak/docker-compose.segment-test.yml",
+        "ports": {
+          "5432/tcp": null
+        },
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "weknora-segment-test_postgres-data",
+            "Source": "/mnt/sata0/lib/docker/volumes/weknora-segment-test_postgres-data/_data",
+            "Destination": "/var/lib/postgresql/data",
+            "RW": true
+          }
+        ]
+      },
+      "redis": {
+        "id": "b7d0c72ee990ec00eb522284c2107303cec183b00a630d17c7263a1bf57295c6",
+        "name": "/WeKnora-segment-redis",
+        "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+        "image_reference": "redis:7.0-alpine",
+        "created": "2026-08-26T05:53:27.361981907Z",
+        "started": "2026-09-07T02:19:59.259815386Z",
+        "running": true,
+        "health": "NOT_CONFIGURED",
+        "restart_count": 0,
+        "project": "weknora-segment-test",
+        "service": "redis",
+        "working_dir": "/home/aqyfzx/ai/WeKnora-suoak",
+        "compose_files": "/home/aqyfzx/ai/WeKnora-suoak/docker-compose.yml,/home/aqyfzx/ai/WeKnora-suoak/docker-compose.segment-test.yml",
+        "ports": {
+          "6379/tcp": null
+        },
+        "mounts": [
+          {
+            "Type": "volume",
+            "Name": "weknora-segment-test_redis-segment-data",
+            "Source": "/mnt/sata0/lib/docker/volumes/weknora-segment-test_redis-segment-data/_data",
+            "Destination": "/data",
+            "RW": true
+          }
+        ]
+      }
+    }
+  },
+  "source": [
+    {
+      "version": 79,
+      "dirty": false
+    },
+    {
+      "users": 3,
+      "tenants": 4,
+      "active_kbs": 1,
+      "active_documents": 3,
+      "active_nonempty_chunks": 2717,
+      "embeddings": 2717
+    },
+    {
+      "model_rows": 3,
+      "api_key_present": 2,
+      "api_key_encrypted": 2,
+      "app_secret_present": 0
+    }
+  ],
+  "disk_free_bytes": 255459758080,
+  "memory_available_bytes": 28893732864,
+  "old_clean_source_snapshot_present": true,
+  "local_candidate_password_hash_supported": true,
+  "source_modified": false
+}

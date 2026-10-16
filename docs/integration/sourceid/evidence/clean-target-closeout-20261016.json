@@ -1,0 +1,80 @@
+{
+  "result": "PASS",
+  "utc": "2026-10-16T01:58:05.959721+00:00",
+  "projects_unchanged": true,
+  "live_app_id": "842f61a9825fe013dfbd87285cfc6846c65bd086131bf26dbdcbd192c13c4e78",
+  "live_frontend_id": "7b624ec2ee904cb7a0ab86458954722bae831f20f1f3c9da54c7ca3f5e53c448",
+  "live_app_image": "sha256:2d91336c3f5ba1ba330820801c7bf0573b1c9c45b9280994dd0862d016435286",
+  "live_frontend_image": "sha256:63146a134fc3be75b663a1ac6ddba205be2b0a3c881891a3ba29a28d6a04f48a",
+  "live_flags": {
+    "SOURCEID_BASIC_ENCODING": "oauth_form",
+    "SOURCEID_PROTOCOL_ONLY": "true",
+    "SOURCEID_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_EMAIL_BINDING_ENABLE": "false",
+    "SOURCEID_AUTO_BINDING_ENABLE": "false",
+    "SOURCEID_SESSION_MODE": "NOT_SET",
+    "SOURCEID_LOGOUT_ENABLE": "false",
+    "OIDC_AUTH_ENABLE": "true",
+    "SOURCEID_DIAGNOSTICS_ENABLE": "true",
+    "AUTO_MIGRATE": "false"
+  },
+  "live_database": [
+    {
+      "version": 3027,
+      "dirty": false
+    },
+    {
+      "users": 2,
+      "tenants": 1,
+      "members": 2,
+      "identities": 0,
+      "sessions": 0,
+      "local_sessions": 0,
+      "active_kbs": 0
+    }
+  ],
+  "original_schema": "79|false",
+  "candidate_schema": "3027|false",
+  "additional_original_role_comparison": {
+    "organization_members": "NOT_PRESENT_IN_SOURCE",
+    "users": true
+  },
+  "protected_artifacts": {
+    "source79-clean.dump": {
+      "bytes": 21489454,
+      "mode": "0o600"
+    },
+    "source79-files.tar": {
+      "bytes": 2570240,
+      "mode": "0o600"
+    },
+    "sanitized-3027-clean.dump": {
+      "bytes": 21678050,
+      "mode": "0o600"
+    },
+    "ready-3027-clean.dump": {
+      "bytes": 21678448,
+      "mode": "0o600"
+    },
+    "candidate.env": {
+      "bytes": 1139,
+      "mode": "0o600"
+    },
+    "postgres.env": {
+      "bytes": 132,
+      "mode": "0o600"
+    }
+  },
+  "candidate_postgres_stopped": true,
+  "candidate_app_frontend_redis_removed": true,
+  "candidate_volume_retained": {
+    "postgres": "knowhub-legacy-clean-20261016-pgdata",
+    "files": "knowhub-legacy-clean-20261016-files"
+  },
+  "candidate_network": "none",
+  "candidate_published_ports": false,
+  "disk_free_bytes": 255387316224,
+  "real_sid_login": false,
+  "live_database_switched": false,
+  "production_accessed": false
+}

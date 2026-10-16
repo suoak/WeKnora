@@ -1,0 +1,104 @@
+{
+  "result": "FAIL",
+  "target": "172.30.232.42",
+  "live_database_switched": false,
+  "source_database_changed": false,
+  "mock_identity_injected": false,
+  "real_sid_login": false,
+  "source_counts": {
+    "users": 3,
+    "tenants": 4,
+    "tenant_members": 5,
+    "organization_tenant_members": 0,
+    "knowledge_bases": 2,
+    "knowledges": 3,
+    "chunks": 19786,
+    "embeddings": 2717,
+    "kb_shares": 0,
+    "resources": 3,
+    "resource_bindings": 3
+  },
+  "source_model_credential_inventory": {
+    "rows": 3,
+    "api_key_present": 2,
+    "encrypted_api_key": 2,
+    "app_secret_present": 0
+  },
+  "fresh_snapshot": {
+    "generation": "20261016-clean-v1",
+    "database_bytes": 21489454,
+    "files": 3,
+    "file_bytes": 2554991,
+    "source_selected_data_stable": true,
+    "source_files_stable": true,
+    "database_transaction_consistent": true,
+    "cross_system_write_freeze": false
+  },
+  "old_clean_snapshot_comparison": {
+    "users": true,
+    "tenants": true,
+    "tenant_members": true,
+    "organization_tenant_members": true,
+    "knowledge_bases": true,
+    "knowledges": true,
+    "chunks": true,
+    "embeddings": true,
+    "kb_shares": true,
+    "resources": true,
+    "resource_bindings": true,
+    "models": true
+  },
+  "old_snapshot_comparison_scope": "selected account/content/ACL/vector/resource/model-identity columns; excludes credentials and runtime tables",
+  "old_clean_files_match_current_source": true,
+  "original_selected_data_preserved": {
+    "users": true,
+    "tenants": true,
+    "tenant_members": true,
+    "organization_tenant_members": true,
+    "knowledge_bases": true,
+    "knowledges": true,
+    "chunks": true,
+    "embeddings": true,
+    "kb_shares": true,
+    "resources": true,
+    "resource_bindings": true,
+    "models": true
+  },
+  "schema": {
+    "version": 3027,
+    "dirty": false,
+    "full_up_chain": 45
+  },
+  "extensions": [
+    {
+      "name": "vector",
+      "version": "0.8.1"
+    },
+    {
+      "name": "pg_search",
+      "version": "0.22.2"
+    }
+  ],
+  "invalid_indexes": 0,
+  "embedding_references": {
+    "rows": 2717,
+    "missing_chunks": 0,
+    "missing_documents": 0,
+    "missing_kbs": 0
+  },
+  "credential_counts_before": {
+    "auth_tokens": 48,
+    "unrevoked_auth_tokens": 6,
+    "api_keys": 6,
+    "unrevoked_api_keys": 1,
+    "mcp_services": 0,
+    "oauth_token_rows": 0,
+    "data_sources": 1
+  },
+  "failed_stage": "invalidate_candidate_credentials",
+  "failure_class": "RuntimeError",
+  "failure_lines": [
+    65
+  ],
+  "completed_utc": "2026-10-16T01:49:29.498864+00:00"
+}
