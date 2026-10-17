@@ -237,7 +237,8 @@ class BusinessMonitor:
                 'transaction_bound': self.bound is not None, 'wait_seconds': self.wait_seconds,
                 'prompt_login_required': False, 'auth_time_required': False,
                 'events': self.events, 'http_events': self.http_events, 'raw_logs_saved': False,
-                'correlation_scope': 'exclusive single new transaction + one callback trace; no native shared authorize trace'}
+                'correlation_scope': 'exclusive single new transaction + one callback trace; no native shared authorize trace',
+                'observation_mode': 'SERVER_METADATA_AND_USER_PORTAL_CONFIRMATION' if getattr(self,'observation_mode',None)=='SERVER_METADATA_AND_USER_PORTAL_CONFIRMATION' else 'PROTECTED_EXTERNAL_OBSERVER'}
 
 
 def finish(m, adapter):

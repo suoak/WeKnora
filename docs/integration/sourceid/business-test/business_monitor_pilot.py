@@ -16,6 +16,8 @@ import uuid
 from business_monitor import PROJECT, IMAGE, REVISION, SCHEMA, COMMON, EXISTING, JIT
 from business_monitor_adapter import CLOSED, run
 from protocol_monitor import Transaction
+from company_business_observer import ServerBusinessObserver
+from company_gateway_observer import GatewayObservation
 
 RELEASE=Path('/home/aqyfzx/ai/knowhub-company-entry-20261017')
 ROOT=RELEASE/'green'
@@ -90,6 +92,13 @@ class DockerPilotPort:
         self.observer_dir.relative_to((RELEASE/'private').resolve())
         if self.observer_dir.is_symlink() or self.observer_dir.stat().st_uid!=os.getuid() or self.observer_dir.stat().st_mode & 0o077:
             raise RuntimeError('protected_observer_required')
+        self.server_observer=None;self.gateway_observation=None;self.gateway_process=None
+        if inputs.get('observation_mode')=='server_metadata':
+            if case!='existing':raise RuntimeError('first_round_existing_only')
+            self.server_observer=ServerBusinessObserver(inputs['approved_client_address'],inputs['allowed_kb_ids'],inputs['allowed_document_ids'],inputs.get('denied_kb_id'))
+            if not self.server_observer.denied:raise RuntimeError('existing_negative_resource_not_ready')
+            self.validate_observation_resources()
+            self.gateway_observation=GatewayObservation(command,inspect,inputs['approved_client_address'],self.server_observer.allowed,self.server_observer.documents,self.server_observer.denied)
 
     def now(self):return time.time()
     def pause(self):time.sleep(.25)
@@ -198,28 +207,45 @@ class DockerPilotPort:
 
     def enable_approved(self,case):
         self.original_flags=self.flags()
+        if getattr(self,'gateway_observation',None) is not None:self.gateway_observation.enable()
         atomic(self.override,{'services':{'app':{'environment':self.env}}})
         self.recreate(True)
 
-    def restore_original_app_only(self):self.recreate(False)
+    def restore_original_app_only(self):
+        try:self.recreate(False)
+        finally:
+            if getattr(self,'gateway_observation',None) is not None:self.gateway_observation.restore()
 
     def start_stream(self):
         self.process=subprocess.Popen(DOCKER+['attach','--no-stdin','--sig-proxy=false',APP],stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
         os.set_blocking(self.process.stdout.fileno(),False)
+        self.stream_buffers={'app':b'','gateway':b''}
+        if getattr(self,'gateway_observation',None) is not None:
+            self.gateway_process=subprocess.Popen(DOCKER+['attach','--no-stdin','--sig-proxy=false',ENTRY],stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+            os.set_blocking(self.gateway_process.stdout.fileno(),False)
 
     def drain_lines(self):
-        if self.process.poll() is not None:raise RuntimeError('live_stream_ended')
-        if select.select([self.process.stdout],[],[],0)[0]:self.buffer+=os.read(self.process.stdout.fileno(),262144)
         lines=[]
-        while b'\n' in self.buffer and len(lines)<256:
-            line,self.buffer=self.buffer.split(b'\n',1)
-            if len(line)>65536:raise RuntimeError('log_line_limit')
-            lines.append(line.decode('utf-8','replace'))
-        if len(self.buffer)>65536:raise RuntimeError('log_buffer_limit')
+        for name,process in (('app',self.process),('gateway',getattr(self,'gateway_process',None))):
+            if process is None:continue
+            if process.poll() is not None:raise RuntimeError('live_stream_ended')
+            buffer=self.stream_buffers[name]
+            if select.select([process.stdout],[],[],0)[0]:buffer+=os.read(process.stdout.fileno(),262144)
+            while b'\n' in buffer and len(lines)<256:
+                line,buffer=buffer.split(b'\n',1)
+                if len(line)>65536:raise RuntimeError('log_line_limit')
+                lines.append(line.decode('utf-8','replace'))
+            if len(buffer)>65536:raise RuntimeError('log_buffer_limit')
+            self.stream_buffers[name]=buffer
         return lines
 
     def ready(self,run_id):
         self.run_id=run_id
+        if getattr(self,'server_observer',None) is not None:
+            # prepare.inventory already checked empty callback BEFORE attaching
+            # the live stream; do not inject an unowned callback after READY.
+            atomic(self.dir/'status.json',{'run_id':run_id,'phase':'READY','mode':'SERVER_METADATA_AND_USER_PORTAL_CONFIRMATION'})
+            return
         atomic(self.observer_dir/'request.json',{'run_id':run_id,'case':self.case,'action':'observe_one_business_login'})
         # Observer is separately prepared in the authorized actual Chrome.
         path=self.observer_dir/'ready.json'
@@ -230,6 +256,22 @@ class DockerPilotPort:
                     atomic(self.dir/'status.json',{'run_id':run_id,'phase':'READY'});return
             time.sleep(.25)
         raise RuntimeError('actual_browser_observer_not_ready')
+
+    def validate_observation_resources(self):
+        observer=self.server_observer
+        ids=observer.allowed|{observer.denied}
+        literals=','.join("'"+x+"'" for x in ids)
+        rows=json.loads(self.query("SELECT COALESCE(json_agg(id),'[]') FROM knowledge_bases WHERE deleted_at IS NULL AND id IN ("+literals+")"))
+        if set(rows)!=ids:raise RuntimeError('approved_knowledge_resource_missing')
+        docs=','.join("'"+x+"'" for x in observer.documents);kbs=','.join("'"+x+"'" for x in observer.allowed)
+        rows=json.loads(self.query("SELECT COALESCE(json_agg(id),'[]') FROM knowledges WHERE deleted_at IS NULL AND id IN ("+docs+") AND knowledge_base_id IN ("+kbs+")"))
+        if set(rows)!=observer.documents:raise RuntimeError('approved_document_resource_missing')
+
+    def observe_business_lines(self,lines,m):
+        observer=getattr(self,'server_observer',None)
+        if observer is None:return
+        for line in lines:observer.observe(line,m.stages['callback_result']=='PASS')
+        if observer.failed:m.end('BUSINESS_INVARIANT_FAILURE')
 
     def session_candidate(self,before):
         rows=self.new_session_candidates(before)
@@ -258,11 +300,17 @@ class DockerPilotPort:
         # Random internal IDs only, in the protected observer IPC directory.
         # The browser observer compares in-process and returns booleans; no
         # Cookie, JWT, employee number, email or claim is exported here.
-        atomic(self.observer_dir/'probe-request.json',{'run_id':run_id,'case':case,'callback_trace':callback_trace,'expected_user_id':s['user_id'],'expected_session_id':s['id']})
-        path=self.observer_dir/'observations.json'
-        if not path.exists():return None
-        v=protected(path)
-        if set(v)!={'run_id','callback_trace','checks'} or v['run_id']!=run_id or v['callback_trace']!=callback_trace:raise RuntimeError('observer_run_mismatch')
+        observer=getattr(self,'server_observer',None)
+        if observer is not None:
+            if not observer.complete():return None
+            bound=json.loads(self.query("SELECT json_build_object('no_refresh',NOT EXISTS(SELECT 1 FROM auth_tokens WHERE session_id='"+s['id']+"' AND token_type='refresh_token'),'session_user_matches',EXISTS(SELECT 1 FROM source_id_sessions WHERE id='"+s['id']+"' AND user_id='"+s['user_id']+"'),'access_session_matches',EXISTS(SELECT 1 FROM auth_tokens WHERE session_id='"+s['id']+"' AND user_id='"+s['user_id']+"' AND token_type='access_token') AND NOT EXISTS(SELECT 1 FROM auth_tokens WHERE NOT is_revoked AND expires_at>NOW() AND (session_id IS DISTINCT FROM '"+s['id']+"' OR user_id<>'"+s['user_id']+"')),'logout_revoked',(SELECT revoked FROM source_id_sessions WHERE id='"+s['id']+"') AND NOT EXISTS(SELECT 1 FROM auth_tokens WHERE session_id='"+s['id']+"' AND NOT is_revoked))"))
+            v={'callback_trace':callback_trace,'checks':observer.checks(bound)}
+        else:
+            atomic(self.observer_dir/'probe-request.json',{'run_id':run_id,'case':case,'callback_trace':callback_trace,'expected_user_id':s['user_id'],'expected_session_id':s['id']})
+            path=self.observer_dir/'observations.json'
+            if not path.exists():return None
+            v=protected(path)
+            if set(v)!={'run_id','callback_trace','checks'} or v['run_id']!=run_id or v['callback_trace']!=callback_trace:raise RuntimeError('observer_run_mismatch')
         self.observer_trace=v['callback_trace']
         check=v['checks'];browser={'auth_me_200','portal_loaded','no_refresh','knowledge_access_correct','logout_revoked','session_user_matches','access_session_matches'}
         if set(check)!=browser or any(type(x) is not bool for x in check.values()):raise RuntimeError('observer_schema_rejected')
@@ -283,6 +331,9 @@ class DockerPilotPort:
         path=self.observer_dir/'operator.json'
         if not path.exists():return None
         v=protected(path,1024)
+        observer=getattr(self,'server_observer',None)
+        if observer is not None and set(v)=={'run_id','action','portal_confirmed'} and v['run_id']==run_id:
+            observer.confirm_operator({k:v[k] for k in ('action','portal_confirmed')});return v['action']
         return v.get('action') if set(v)=={'run_id','action'} and v['run_id']==run_id else None
 
     def revoke_exact_session_and_access(self,s):
@@ -302,11 +353,12 @@ class DockerPilotPort:
 
     def save_safe(self,name,result):atomic(self.dir/(name+'.json'),result)
     def close_stream(self):
-        if self.process:
-            self.process.terminate()
-            try:self.process.wait(timeout=5)
-            except subprocess.TimeoutExpired:self.process.kill();self.process.wait()
-            self.process.stdout.close()
+        for process in (getattr(self,'process',None),getattr(self,'gateway_process',None)):
+            if process:
+                process.terminate()
+                try:process.wait(timeout=5)
+                except subprocess.TimeoutExpired:process.kill();process.wait()
+                process.stdout.close()
 
 
 def main(argv=None):

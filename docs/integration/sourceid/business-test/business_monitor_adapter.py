@@ -76,6 +76,8 @@ class PilotBusinessAdapter:
             m.line(line)
             if m.finished:
                 break
+        if hasattr(self.port,'observe_business_lines'):
+            self.port.observe_business_lines(lines,m)
         if not m.finished and m.stages['callback_result'] == 'PASS':
             private = self.port.session_candidate(self.before)
             if private is not None:
@@ -87,6 +89,8 @@ class PilotBusinessAdapter:
                     if probes is not None:
                         observed_trace, values = probes
                         m.business_probes(observed_trace, values)
+                        if getattr(self.port,'server_observer',None) is not None:
+                            m.observation_mode='SERVER_METADATA_AND_USER_PORTAL_CONFIRMATION'
         action = self.port.operator_action(m.run_id)
         if action is not None:
             m.operator(action)

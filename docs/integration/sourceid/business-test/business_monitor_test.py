@@ -16,6 +16,8 @@ import export_token_diagnostics
 from business_monitor import BusinessMonitor, COMMON, EXISTING, JIT, IMAGE, PROJECT, REVISION, Transaction, finish
 from business_monitor_adapter import CLOSED, run, PilotBusinessAdapter
 from business_monitor_pilot import main, DockerPilotPort, ROOT, RELEASE, ENTRY, FRONT_IMAGE
+from company_business_observer import ServerBusinessObserver
+from company_gateway_observer import GatewayObservation,configuration
 
 A='aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa';C='cccccccc-cccc-4ccc-accc-cccccccccccc'
 OTHER='bbbbbbbb-bbbb-4bbb-abbb-bbbbbbbbbbbb'
@@ -104,6 +106,109 @@ class MockPort:
 
 
 class Calibration(unittest.TestCase):
+    def test_gateway_observer_accepts_only_closed_safe_metadata(self):
+        observer=ServerBusinessObserver('192.0.2.10',[A],[C],OTHER)
+        value={'event':'company_business_http','kind':'auth_me','method':'GET','status':200,'source_approved':True,'request_id':'a'*32}
+        for row in (dict(value,cookie=POISON),dict(value,source_approved=False),dict(value,request_id=POISON)):
+            observer.observe(json.dumps(row),True)
+        self.assertFalse(observer.seen)
+        observer.observe(json.dumps(value),True);self.assertEqual(observer.seen,{'auth_me'})
+        observer.observe(json.dumps(dict(value,kind='denied_kb',status=200,request_id='b'*32)),True);self.assertTrue(observer.failed)
+
+    def test_gateway_configuration_never_logs_headers_queries_body_or_identity(self):
+        original='http { access_log off; server { allow 192.0.2.10; deny all; } }'
+        text=configuration(original,'192.0.2.10',[A],[C],OTHER)
+        for variable in ('$request_uri','$http_cookie','$http_authorization','$request_body','$upstream_http_set_cookie','$remote_addr"'):
+            self.assertNotIn(variable,text)
+        self.assertIn('escape=json',text);self.assertIn('map $uri',text);self.assertIn('access_log /dev/stdout kh_business if=$kh_emit;',text)
+        with self.assertRaises(ValueError):configuration(original,'192.0.2.11',[A],[C],OTHER)
+
+    def test_gateway_metadata_config_restores_exact_bytes(self):
+        class File:
+            def __init__(self):self.data=b'http { access_log off; server { allow 192.0.2.10; } }'
+            def read_bytes(self):return self.data
+            def write_bytes(self,v):self.data=v
+            def write_text(self,v):self.data=v.encode()
+        file=File();original=file.data;calls=[]
+        with patch('company_gateway_observer.CONFIG',file):
+            control=GatewayObservation(lambda args:calls.append(args),lambda n,f:{'Type':'none'},'192.0.2.10',[A],[C],OTHER)
+            control.enable();self.assertNotEqual(file.data,original)
+            control.restore();self.assertEqual(file.data,original);self.assertIsNone(control.original)
+            bad=GatewayObservation(lambda args:None,lambda n,f:{'Type':'json-file'},'192.0.2.10',[A],[C],OTHER)
+            with self.assertRaisesRegex(RuntimeError,'gateway_raw_persistence_not_allowed'):bad.enable()
+
+    def test_gateway_restore_runs_even_if_app_restore_fails(self):
+        p=DockerPilotPort.__new__(DockerPilotPort)
+        p.recreate=lambda _:(_ for _ in ()).throw(RuntimeError('synthetic restore failure'))
+        class Gateway:
+            restored=False
+            def restore(self):self.restored=True
+        p.gateway_observation=Gateway()
+        with self.assertRaises(RuntimeError):p.restore_original_app_only()
+        self.assertTrue(p.gateway_observation.restored)
+
+    def test_server_metadata_ready_does_not_inject_unowned_callback(self):
+        p=DockerPilotPort.__new__(DockerPilotPort);p.server_observer=object();p.dir=Path('synthetic-unused')
+        p.check_public_routes=lambda:(_ for _ in ()).throw(AssertionError('must not inject callback after attach'))
+        with patch('business_monitor_pilot.atomic') as save:p.ready(A)
+        self.assertEqual(save.call_args.args[1]['phase'],'READY')
+
+    @staticmethod
+    def access_line(path,status=200,method='GET',source='192.0.2.10'):
+        import uuid
+        return 'INFO[2026-10-17] ['+str(uuid.uuid4())+' client_ip='+source+' latency=1ms method='+method+' path='+path+' response_body='+POISON+' size=1 status_code='+str(status)+'] logger.go | '
+
+    def test_server_observer_metadata_and_user_portal_are_separate(self):
+        observer=ServerBusinessObserver('192.0.2.10',[A],[C],OTHER)
+        paths=[('/api/v1/auth/me',200,'GET'),('/api/v1/knowledge-bases/'+A,200,'GET'),('/api/v1/knowledge/'+C+'/preview',200,'GET'),('/api/v1/knowledge-bases/'+OTHER,403,'GET'),('/api/v1/auth/logout',200,'POST')]
+        for path,status,method in paths:observer.observe(self.access_line(path,status,method),True)
+        self.assertFalse(observer.complete())
+        observer.confirm_operator({'action':'authentication_complete','portal_confirmed':True})
+        self.assertTrue(observer.complete())
+        db=dict.fromkeys(('no_refresh','logout_revoked','session_user_matches','access_session_matches'),True)
+        self.assertTrue(all(observer.checks(db).values()))
+        self.assertNotIn(POISON,json.dumps(observer.checks(db)))
+
+    def test_server_observer_ignores_wrong_source_pre_callback_and_unknown_logs(self):
+        observer=ServerBusinessObserver('192.0.2.10',[A],[C],OTHER)
+        observer.observe(self.access_line('/api/v1/auth/me'),False)
+        observer.observe(self.access_line('/api/v1/auth/me',source='192.0.2.99'),True)
+        observer.observe('path=/api/v1/auth/me status_code=200 '+POISON,True)
+        self.assertFalse(observer.seen);self.assertFalse(observer.failed)
+        observer.observe(self.access_line('/api/v1/knowledge-bases/'+OTHER,200),True)
+        self.assertTrue(observer.failed)
+
+    def test_server_observer_resource_absence_or_refresh_cannot_pass(self):
+        observer=ServerBusinessObserver('192.0.2.10',[A],[C],None)
+        observer.confirm_operator({'action':'authentication_complete','portal_confirmed':True})
+        for path in ('/api/v1/auth/me','/api/v1/knowledge-bases/'+A,'/api/v1/knowledge/'+C):observer.observe(self.access_line(path),True)
+        self.assertFalse(observer.complete())
+        db={'no_refresh':False,'logout_revoked':True,'session_user_matches':True,'access_session_matches':True}
+        self.assertFalse(observer.checks(db)['no_refresh'])
+        with self.assertRaises(ValueError):ServerBusinessObserver('192.0.2.10',[A],[C],A)
+
+    def test_server_observer_full_adapter_run_saves_restores_and_revokes(self):
+        class ServerPort(MockPort):
+            def __init__(self):
+                super().__init__();self.server_observer=ServerBusinessObserver('192.0.2.10',[A],[C],OTHER)
+            def drain_lines(self):
+                lines=super().drain_lines()
+                if self.step==2:
+                    for path,status,method in [('/api/v1/auth/me',200,'GET'),('/api/v1/knowledge-bases/'+A,200,'GET'),('/api/v1/knowledge/'+C,200,'GET'),('/api/v1/knowledge-bases/'+OTHER,403,'GET'),('/api/v1/auth/logout',200,'POST')]:lines.append(Calibration.access_line(path,status,method))
+                return lines
+            def observe_business_lines(self,lines,m):
+                for line in lines:self.server_observer.observe(line,m.stages['callback_result']=='PASS')
+            def business_probes(self,before,private,case,run_id,callback_trace):
+                if not self.server_observer.complete():return None
+                trace,values=super().business_probes(before,private,case,run_id,callback_trace)
+                values.update(self.server_observer.checks(dict.fromkeys(('no_refresh','logout_revoked','session_user_matches','access_session_matches'),True)))
+                return trace,values
+            def operator_action(self,run_id):
+                if self.step>=2:self.server_observer.confirm_operator({'action':'authentication_complete','portal_confirmed':True});return 'authentication_complete'
+        p=ServerPort();r=run(p,'existing',True,True)
+        self.assertEqual(r['result'],'PASS');self.assertEqual(r['observation_mode'],'SERVER_METADATA_AND_USER_PORTAL_CONFIRMATION');self.assertEqual(p.flags,CLOSED);self.assertEqual(p.revoked,[SESSION])
+        self.assertLess(p.order.index('save_before-restore'),p.order.index('restore'))
+
     def test_company_compose_has_no_legacy_pin_or_old_project(self):
         p=DockerPilotPort.__new__(DockerPilotPort);p.override=RELEASE/'private/test-only-override.json'
         self.assertEqual(PROJECT,'knowhub-company-test')
