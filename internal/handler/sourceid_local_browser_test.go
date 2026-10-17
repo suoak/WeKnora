@@ -522,7 +522,7 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 		require.Zero(t, members)
 		return
 	}
-	var member types.TenantMember
-	require.NoError(t, db.First(&member).Error)
-	require.Equal(t, types.TenantRoleContributor, member.Role)
+	var finalMembers []types.TenantMember
+	require.NoError(t, db.Order("tenant_id").Find(&finalMembers).Error)
+	require.Equal(t, originalMembers, finalMembers, "browser login must retain every original membership and role")
 }
