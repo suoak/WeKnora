@@ -415,3 +415,43 @@ func TestSourceIDPostgresVerifiedEmailDirectoryDisableRace(t *testing.T) {
 	require.Zero(t, n)
 	require.Error(t, r.CheckSourceIDVerifiedEmailSession(ctx, s.ID, u.ID, q.Issuer, q.EmployeeNo, q.Subject, q.PolicyRef, q.BindingPolicyRef))
 }
+
+func TestSourceIDVerifiedEmailRetainingMigrationDownUp(t *testing.T) { verifiedEmailDownUp(t, false) }
+func TestSourceIDPostgresVerifiedEmailRetainingMigrationDownUp(t *testing.T) {
+	verifiedEmailDownUp(t, true)
+}
+func verifiedEmailDownUp(t *testing.T, pg bool) {
+	r, db, u := verifiedEmailDB(t, pg)
+	ctx := context.Background()
+	q := verifiedEmailInput()
+	s, l := verifiedEmailSession()
+	_, _, e := r.ResolveSourceIDVerifiedEmailSession(ctx, q, s, l, nil)
+	require.NoError(t, e)
+	a := &types.AuthToken{ID: uuid.NewString(), UserID: u.ID, SessionID: s.ID, Token: "synthetic-down-access", TokenType: "access_token", ExpiresAt: time.Now().Add(time.Minute)}
+	require.NoError(t, r.PersistSourceIDTokens(ctx, s.ID, a, nil, ""))
+	dialect := "sqlite"
+	if pg {
+		dialect = "versioned"
+	}
+	down, e := os.ReadFile("../../../migrations/" + dialect + "/003030_sourceid_verified_email_policy.down.sql")
+	require.NoError(t, e)
+	require.NoError(t, db.Exec(string(down)).Error)
+	require.Error(t, r.CheckSourceIDSession(ctx, s.ID, u.ID))
+	require.False(t, verifiedEmailMigrationEnabled(db))
+	s2, l2 := verifiedEmailSession()
+	_, _, e = r.ResolveSourceIDVerifiedEmailSession(ctx, q, s2, l2, nil)
+	require.Error(t, e)
+	for _, model := range []interface{}{&types.SourceIDBindingAudit{}, &types.SourceIDLinkDecision{}, &types.ExternalIdentity{}} {
+		var n int64
+		require.NoError(t, db.Model(model).Count(&n).Error)
+		require.EqualValues(t, 1, n)
+	}
+	up, e := os.ReadFile("../../../migrations/" + dialect + "/003030_sourceid_verified_email_policy.up.sql")
+	require.NoError(t, e)
+	require.NoError(t, db.Exec(string(up)).Error)
+	s3, l3 := verifiedEmailSession()
+	again, _, e := r.ResolveSourceIDVerifiedEmailSession(ctx, q, s3, l3, nil)
+	require.NoError(t, e)
+	require.Equal(t, u.ID, again.ID)
+	require.Error(t, r.CheckSourceIDSession(ctx, s.ID, u.ID), "retaining up must not resurrect old access/session")
+}
