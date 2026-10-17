@@ -17,6 +17,11 @@ const verifiedEmailMode = "verified_email_policy"
 
 var errVerifiedEmail = errors.New("sourceid verified email policy unavailable")
 
+func verifiedEmailMigrationEnabled(db *gorm.DB) bool {
+	var enabled bool
+	return db.Raw("SELECT enabled FROM source_id_link_policy_state WHERE id=1").Scan(&enabled).Error == nil && enabled
+}
+
 // Serialize first linkage with password registration/email updates and JIT.
 // Always users -> review -> session. Existing review/revoke takes no users
 // table write lock, so revocation cannot reverse this table-lock order.
@@ -94,6 +99,9 @@ func (r *userRepository) ResolveSourceIDVerifiedEmailSession(ctx context.Context
 	var user *types.User
 	created := false
 	err := r.bindingDB(ctx).Transaction(func(tx *gorm.DB) error {
+		if !verifiedEmailMigrationEnabled(tx) {
+			return errVerifiedEmail
+		}
 		if lockSourceIDEmailAccounts(tx) != nil {
 			return errVerifiedEmail
 		}
@@ -242,6 +250,9 @@ func (r *userRepository) SourceIDSessionLinkPolicy(ctx context.Context, id strin
 
 func (r *userRepository) CheckSourceIDVerifiedEmailSession(ctx context.Context, id, userID, issuer, employee, subject, policy, bindingPolicy string) error {
 	db := r.bindingDB(ctx)
+	if !verifiedEmailMigrationEnabled(db) {
+		return errVerifiedEmail
+	}
 	marker, err := r.SourceIDSessionLinkPolicy(ctx, id)
 	if err != nil || marker == nil || marker.LinkMode != verifiedEmailMode || marker.PolicyRef != policy || marker.BindingPolicyRef != bindingPolicy {
 		return errVerifiedEmail

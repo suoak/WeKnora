@@ -115,7 +115,7 @@ func TestSourceIDVerifiedEmailAccessOnlyHTTP(t *testing.T) {
 	}
 }
 func TestSourceIDVerifiedEmailBrowserBusinessLogin(t *testing.T) {
-	for _, role := range []string{"viewer", "owner", "system_admin", "cross_space_admin", "multi_space", "jit"} {
+	for _, role := range []string{"viewer", "contributor", "owner", "tenant_admin", "org_admin", "system_admin", "cross_space_admin", "multi_space", "jit"} {
 		t.Run(role, func(t *testing.T) { runSourceIDLocalBusinessLoginScope(t, true, true, "verified:"+role, true) })
 	}
 }
@@ -320,7 +320,7 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 	cfg.TokenEndpoint = mock.URL + "/token"
 	cfg.JwksURI = mock.URL + "/jwks"
 	cfg.UserInfoEndpoint = mock.URL + "/userinfo"
-	appCfg := &config.Config{OIDCAuth: cfg, Auth: &config.AuthConfig{RegistrationMode: "invite_only"}, Tenant: &config.TenantConfig{}}
+	appCfg := &config.Config{OIDCAuth: cfg, Auth: &config.AuthConfig{RegistrationMode: "invite_only"}, Tenant: &config.TenantConfig{EnableCrossTenantAccess: true}}
 	tenants := localBrowserTenants{}
 	users := service.NewUserService(appCfg, apprepo.NewUserRepository(db), apprepo.NewAuthTokenRepository(db), tenants, localBrowserMembers{db: db}, nil)
 	h := NewAuthHandler(appCfg, users, tenants, nil, nil)
@@ -495,6 +495,14 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 	cmd.WaitDelay = 5 * time.Second
 	cmd.Dir = filepath.Join(root, "frontend")
 	cmd.Env = append(os.Environ(), "SOURCEID_E2E_BACKEND="+app.URL, "SOURCEID_E2E_MOCK="+mock.URL)
+	expectedRole := "contributor"
+	if role == "viewer" || role == "owner" {
+		expectedRole = role
+	}
+	if role == "tenant_admin" {
+		expectedRole = "admin"
+	}
+	cmd.Env = append(cmd.Env, "SOURCEID_E2E_EXPECTED_ROLE="+expectedRole, "SOURCEID_E2E_EXPECTED_USER="+user.ID, fmt.Sprintf("SOURCEID_E2E_EXPECTED_SYSTEM_ADMIN=%t", user.IsSystemAdmin), fmt.Sprintf("SOURCEID_E2E_EXPECTED_CROSS_SPACE=%t", user.CanAccessAllTenants))
 	if role == "jit" {
 		cmd.Env = append(cmd.Env, "SOURCEID_E2E_JIT=1")
 	}

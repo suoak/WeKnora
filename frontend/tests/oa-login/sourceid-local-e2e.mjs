@@ -6,6 +6,9 @@ import assert from 'node:assert/strict'
 const backend = new URL(process.env.SOURCEID_E2E_BACKEND)
 const mock = new URL(process.env.SOURCEID_E2E_MOCK)
 const jit = process.env.SOURCEID_E2E_JIT === '1'
+const expectedRole = jit ? undefined : (process.env.SOURCEID_E2E_EXPECTED_ROLE || 'contributor')
+const expectedUser = process.env.SOURCEID_E2E_EXPECTED_USER
+assert.ok(jit || ['viewer','contributor','owner','admin'].includes(expectedRole))
 for (const url of [backend, mock]) {
   assert.equal(url.protocol, 'http:')
   assert.equal(url.hostname, '127.0.0.1')
@@ -79,15 +82,19 @@ try {
   const api = (path, method = 'GET') => page.evaluate(async ({ path, method }) => {
     const response = await fetch(path, { method, headers: { Authorization: `Bearer ${localStorage.getItem('weknora_token')}` } })
     const body = response.ok ? await response.json() : null
-    return { status: response.status, success: body?.success, tenant: body?.data?.tenant?.id, role: body?.data?.memberships?.[0]?.role, ids: Array.isArray(body?.data) ? body.data.map(item => item.id) : [] }
+    return { status: response.status, success: body?.success, user: body?.data?.user?.id, tenant: body?.data?.tenant?.id, role: body?.data?.memberships?.[0]?.role, systemAdmin: body?.data?.user?.is_system_admin, crossSpace: body?.data?.user?.can_access_all_tenants, ids: Array.isArray(body?.data) ? body.data.map(item => item.id) : [] }
   }, { path, method })
   const me = await api('/api/v1/auth/me')
   assert.equal(me.status, 200); assert.equal(me.success, true)
-  assert.equal(me.tenant, jit ? undefined : 42); assert.equal(me.role, jit ? undefined : 'contributor')
+  assert.equal(me.tenant, jit ? undefined : 42); assert.equal(me.role, expectedRole)
+  if (expectedUser) assert.equal(me.user, expectedUser)
+  if (process.env.SOURCEID_E2E_EXPECTED_SYSTEM_ADMIN) assert.equal(me.systemAdmin, process.env.SOURCEID_E2E_EXPECTED_SYSTEM_ADMIN === 'true')
+  if (process.env.SOURCEID_E2E_EXPECTED_CROSS_SPACE) assert.equal(me.crossSpace, process.env.SOURCEID_E2E_EXPECTED_CROSS_SPACE === 'true')
   await page.reload()
   await expect(page.locator('.portal-shell')).toBeVisible({ timeout: 30000 })
   const restored = await api('/api/v1/auth/me')
-  assert.equal(restored.status, 200); assert.equal(restored.tenant, jit ? undefined : 42); assert.equal(restored.role, jit ? undefined : 'contributor')
+  assert.equal(restored.status, 200); assert.equal(restored.tenant, jit ? undefined : 42); assert.equal(restored.role, expectedRole)
+  if (expectedUser) assert.equal(restored.user, expectedUser)
   const knowledge = await api('/api/v1/knowledge-bases')
   assert.equal(knowledge.status, 200); assert.deepEqual(knowledge.ids, jit ? [] : ['synthetic-kb'])
   const logout = await api('/api/v1/auth/logout', 'POST')

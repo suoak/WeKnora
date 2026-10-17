@@ -1,5 +1,5 @@
 -- Additive policy metadata; never rewrites users, roles, ACL or ownership.
-CREATE TABLE source_id_link_decisions (
+CREATE TABLE IF NOT EXISTS source_id_link_decisions (
  id VARCHAR(36) PRIMARY KEY,
  review_id VARCHAR(36) NOT NULL REFERENCES source_id_binding_reviews(id),
  link_mode TEXT NOT NULL CHECK (link_mode = 'verified_email_policy'),
@@ -9,14 +9,14 @@ CREATE TABLE source_id_link_decisions (
  created_at DATETIME NOT NULL,
  UNIQUE(review_id, link_mode, policy_ref, binding_policy_ref)
 );
-CREATE TABLE source_id_local_link_policies (
+CREATE TABLE IF NOT EXISTS source_id_local_link_policies (
  id VARCHAR(36) PRIMARY KEY REFERENCES source_id_local_sessions(id) ON DELETE CASCADE,
  decision_id VARCHAR(36) NOT NULL REFERENCES source_id_link_decisions(id),
  link_mode TEXT NOT NULL CHECK (link_mode = 'verified_email_policy'),
  policy_ref TEXT NOT NULL,
  binding_policy_ref TEXT NOT NULL
 );
-CREATE TABLE source_id_link_blocks (
+CREATE TABLE IF NOT EXISTS source_id_link_blocks (
  id VARCHAR(36) PRIMARY KEY,
  issuer TEXT NOT NULL,
  user_id TEXT NOT NULL DEFAULT '',
@@ -29,12 +29,15 @@ CREATE TABLE source_id_link_blocks (
  created_at DATETIME NOT NULL,
  CHECK (user_id <> '' OR employee_no <> '' OR subject <> '' OR email <> '')
 );
-CREATE INDEX source_id_link_blocks_user ON source_id_link_blocks(issuer,user_id);
-CREATE INDEX source_id_link_blocks_employee ON source_id_link_blocks(issuer,employee_no);
-CREATE INDEX source_id_link_blocks_subject ON source_id_link_blocks(issuer,subject);
-CREATE INDEX source_id_link_blocks_email ON source_id_link_blocks(issuer,email);
+CREATE INDEX IF NOT EXISTS source_id_link_blocks_user ON source_id_link_blocks(issuer,user_id);
+CREATE INDEX IF NOT EXISTS source_id_link_blocks_employee ON source_id_link_blocks(issuer,employee_no);
+CREATE INDEX IF NOT EXISTS source_id_link_blocks_subject ON source_id_link_blocks(issuer,subject);
+CREATE INDEX IF NOT EXISTS source_id_link_blocks_email ON source_id_link_blocks(issuer,email);
 -- Historical exceptions must match the same canonical mailbox as users.
-CREATE INDEX source_id_reviews_normalized_email ON source_id_binding_reviews(issuer,LOWER(TRIM(email)));
-CREATE INDEX source_id_ownership_normalized_email ON source_id_account_ownership(issuer,LOWER(TRIM(email)));
-CREATE INDEX source_id_jit_normalized_email ON source_id_jit_registrations(issuer,LOWER(TRIM(email)));
-CREATE INDEX source_id_blocks_normalized_email ON source_id_link_blocks(issuer,LOWER(TRIM(email)));
+CREATE INDEX IF NOT EXISTS source_id_reviews_normalized_email ON source_id_binding_reviews(issuer,LOWER(TRIM(email)));
+CREATE INDEX IF NOT EXISTS source_id_ownership_normalized_email ON source_id_account_ownership(issuer,LOWER(TRIM(email)));
+CREATE INDEX IF NOT EXISTS source_id_jit_normalized_email ON source_id_jit_registrations(issuer,LOWER(TRIM(email)));
+CREATE INDEX IF NOT EXISTS source_id_blocks_normalized_email ON source_id_link_blocks(issuer,LOWER(TRIM(email)));
+-- Retaining down disables admission without deleting audit/exception data.
+CREATE TABLE IF NOT EXISTS source_id_link_policy_state (id INTEGER PRIMARY KEY CHECK (id=1), enabled BOOLEAN NOT NULL);
+INSERT INTO source_id_link_policy_state(id,enabled) VALUES (1,TRUE) ON CONFLICT(id) DO UPDATE SET enabled=TRUE;

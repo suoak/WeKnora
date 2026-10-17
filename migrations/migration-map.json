@@ -43,7 +43,7 @@
                      "versioned":  {
                                        "directory":  "migrations/versioned",
                                        "database":  "postgresql",
-                                       "current_latest":  3029,
+                                       "current_latest":  3030,
                                        "existing_knowhub_baseline":  3000,
                                        "immutable_through":  96,
                                        "immutable_file_count":  194,
@@ -52,7 +52,7 @@
                      "sqlite":  {
                                     "directory":  "migrations/sqlite",
                                     "database":  "sqlite",
-                                    "current_latest":  3029,
+                                    "current_latest":  3030,
                                     "existing_knowhub_baseline":  3000,
                                     "immutable_through":  17,
                                     "immutable_file_count":  36,
@@ -60,6 +60,7 @@
                                 }
                  },
     "logical_parity":  [
+                           {"logical_id":"sourceid_verified_email_policy","versioned":3030,"sqlite":3030},
                            {
                                "logical_id":  "user_mcp_api_keys",
                                "versioned":  91,
