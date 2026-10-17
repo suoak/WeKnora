@@ -1,5 +1,7 @@
 # 首个原账号：历史核验与真实 OA 验收准备
 
+> 后续范围收口见[最小确认单](SOURCEID_FIRST_ACCOUNT_TEST_CONFIRMATION.md)：A正向验收与B完整负向验收分别记录。B未执行不算PASS；测试负责人批准A独立范围后才调整采集器验收门禁，本轮尚未修改。以下完整闭环对照资源要求不能被静默跳过。
+
 2026-10-17，北京时间。仅打包机 `172.30.232.42`、`knowhub-company-test`；APP f40b1602f、Frontend 832b6652a、DB3029 clean。未重建站点、未调整 Chrome、未执行真实认证或归属 apply。
 
 ## 历史记录能证明什么
