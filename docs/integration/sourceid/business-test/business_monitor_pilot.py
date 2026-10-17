@@ -1,4 +1,4 @@
-"""Inert by default. Fixed local Docker pilot; no production/SSH/SID client.
+"""Inert by default. Fixed company-test Docker target; no SID client.
 
 Protected browser observations come from the controlled browser observer, not
 Cookie/HAR/token exports. No business PASS without that channel and DB checks.
@@ -17,8 +17,11 @@ from business_monitor import PROJECT, IMAGE, REVISION, SCHEMA, COMMON, EXISTING,
 from business_monitor_adapter import CLOSED, run
 from protocol_monitor import Transaction
 
-ROOT=Path('/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a')
-RELEASE=Path('/home/aqyfzx/ai/knowhub-enterprise-jit-f40b1602f')
+RELEASE=Path('/home/aqyfzx/ai/knowhub-company-entry-20261017')
+ROOT=RELEASE/'green'
+FRONT_IMAGE='sha256:ab7845c89fadeb17ad2b68bd924e892f948b893781a50ab79e48385c319ddbe1'
+FRONT_REVISION='832b6652adf541892545a7eac8b68733f846ab95'
+ENTRY='knowhub-company-entry-entry-1'
 APP=PROJECT+'-app-1';PG=PROJECT+'-postgres-1'
 DOCKER=['docker','--host','unix:///var/run/docker.sock']
 UUID=re.compile(r'[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}')
@@ -78,6 +81,9 @@ class DockerPilotPort:
         if any(self.env.get(k)!=v for k,v in fixed.items()):raise RuntimeError('approved_mode_mismatch')
         for key in ('business_approval_ref','scope_evidence_ref','ownership_batch_ref'):
             if not isinstance(inputs.get(key),str) or not inputs[key].strip():raise RuntimeError('approval_input_missing')
+            if any(word in inputs[key].lower() for word in ('synthetic','mock','placeholder','todo')):raise RuntimeError('real_approval_required')
+        for key,value in self.env.items():
+            if key.endswith('_POLICY_REF') and (not value.strip() or any(word in value.lower() for word in ('synthetic','mock','placeholder','todo'))):raise RuntimeError('real_policy_required')
         self.dir=RELEASE/'private'/('business-monitor-'+str(uuid.uuid4()));self.dir.mkdir(mode=0o700)
         self.override=self.dir/'approved-once.json'
         self.observer_dir=Path(inputs['protected_observer_directory']).resolve()
@@ -101,12 +107,19 @@ class DockerPilotPort:
     def inventory(self):
         labels=inspect(APP,'.Config.Labels')
         if labels.get('com.docker.compose.project.working_dir')!=str(ROOT):raise RuntimeError('project_directory_mismatch')
-        if labels.get('com.docker.compose.project.config_files','').split(',') not in ([str(ROOT/'compose.json'),str(RELEASE/'jit-app-pin.json')],[str(ROOT/'compose.json'),str(RELEASE/'jit-app-pin.json'),str(self.override)]):raise RuntimeError('compose_order_mismatch')
+        if labels.get('com.docker.compose.project.config_files','').split(',') not in ([str(ROOT/'compose.json')],[str(ROOT/'compose.json'),str(self.override)]):raise RuntimeError('compose_order_mismatch')
         image=inspect(APP,'.Image')
         if inspect(APP,'.HostConfig.PortBindings') or inspect(PG,'.HostConfig.PortBindings') or inspect(PROJECT+'-redis-1','.HostConfig.PortBindings'):
             raise RuntimeError('pilot_private_ports_changed')
-        if inspect(PROJECT+'-frontend-1','.HostConfig.PortBindings')!={'80/tcp':[{'HostIp':'127.0.0.1','HostPort':'18090'}]}:
-            raise RuntimeError('pilot_loopback_entry_changed')
+        if inspect(PROJECT+'-frontend-1','.HostConfig.PortBindings')!={'80/tcp':[{'HostIp':'127.0.0.1','HostPort':'18091'}]}:
+            raise RuntimeError('company_internal_frontend_changed')
+        if inspect(PROJECT+'-frontend-1','.Image')!=FRONT_IMAGE:
+            raise RuntimeError('company_frontend_image_changed')
+        if inspect(ENTRY,'.Config.Labels').get('com.docker.compose.project')!='knowhub-company-entry' or not inspect(ENTRY,'.State.Running'):
+            raise RuntimeError('company_public_entry_changed')
+        if inspect(ENTRY,'.HostConfig.PortBindings')!={'80/tcp':[{'HostIp':'0.0.0.0','HostPort':'80'}],'8080/tcp':[{'HostIp':'0.0.0.0','HostPort':'8080'}]}:
+            raise RuntimeError('company_public_ports_changed')
+        self.check_public_routes()
         if inspect(APP,'.HostConfig.NetworkMode')!='container:'+inspect(PROJECT+'-sid-network-1','.Id'):
             raise RuntimeError('pilot_guard_namespace_changed')
         revision=command(DOCKER+['image','inspect','--format','{{index .Config.Labels "org.opencontainers.image.revision"}}',image]).decode().strip()
@@ -114,7 +127,26 @@ class DockerPilotPort:
         return {'project':labels.get('com.docker.compose.project'),'image':image,'revision':revision,'schema':schema['version'],'dirty':schema['dirty'],'healthy':inspect(APP,'.State.Health.Status')=='healthy','flags':self.flags()}
 
     def other_services(self):
-        return {s:(inspect(PROJECT+'-'+s+'-1','.Id'),inspect(PROJECT+'-'+s+'-1','.Image')) for s in ('frontend','postgres','redis','docreader','sid-network')}
+        values={s:(inspect(PROJECT+'-'+s+'-1','.Id'),inspect(PROJECT+'-'+s+'-1','.Image')) for s in ('frontend','postgres','redis','docreader','sid-network')}
+        values['public_entry']=(inspect(ENTRY,'.Id'),inspect(ENTRY,'.Image'))
+        return values
+
+    def check_public_routes(self):
+        # Public callbacks carry no code/state; never request authorize URL.
+        import urllib.request,urllib.error,urllib.parse
+        class NoRedirect(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self,*a,**k):return None
+        opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
+        for port in (80,8080):
+            for path in ('/health','/api/v1/auth/oidc/config','/api/v1/auth/oidc/callback'):
+                request=urllib.request.Request('http://127.0.0.1:'+str(port)+path,headers={'Host':'knowhub.ruijie.com.cn'})
+                try:response=opener.open(request,timeout=8)
+                except urllib.error.HTTPError as error:response=error
+                with response:
+                    if response.headers.get('X-KnowHub-Environment')!='company-test-f40-db3029' or response.code!=(302 if path.endswith('/callback') else 200):raise RuntimeError('company_route_mismatch')
+                    if path.endswith('/callback'):
+                        location=urllib.parse.urlsplit(response.headers.get('Location',''))
+                        if location.hostname not in (None,'knowhub.ruijie.com.cn') or urllib.parse.parse_qs(location.fragment).get('oidc_error')!=['invalid_state']:raise RuntimeError('company_callback_mismatch')
 
     def rows(self,table,columns):
         return json.loads(self.query("SELECT COALESCE(json_agg(s),'[]') FROM (SELECT "+columns+' FROM '+table+' ORDER BY id) s'))
@@ -153,7 +185,7 @@ class DockerPilotPort:
         return out
 
     def compose(self,override=False):
-        args=DOCKER+['compose','-p',PROJECT,'--project-directory',str(ROOT),'-f',str(ROOT/'compose.json'),'-f',str(RELEASE/'jit-app-pin.json')]
+        args=DOCKER+['compose','-p',PROJECT,'--project-directory',str(ROOT),'-f',str(ROOT/'compose.json')]
         return args+(['-f',str(self.override)] if override else [])
 
     def recreate(self,override):

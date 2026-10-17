@@ -1,0 +1,27 @@
+{
+  "project": "knowhub-company-test",
+  "schema": {
+    "version": 3029,
+    "dirty": false
+  },
+  "matched_accounts": 1,
+  "employee_values_exported": false,
+  "queries_read_only": true,
+  "identity_or_session_writes": false,
+  "real_sid_requests": 0,
+  "ownership_ready": false,
+  "ownership_reason": "INDEPENDENT_RJGH_HISTORY_EVIDENCE_NOT_SUPPLIED",
+  "active": true,
+  "system_admin": true,
+  "cross_tenant": false,
+  "permission_counts": {
+    "memberships": 1,
+    "owner_memberships": 1,
+    "active_knowledge_bases": 1,
+    "existing_ownership": 0,
+    "existing_identities": 0,
+    "active_kbs_in_member_spaces": 1,
+    "active_kbs_outside_member_spaces": 0
+  },
+  "utc": "2026-10-17T08:10:49.087783+00:00"
+}

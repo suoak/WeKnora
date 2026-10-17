@@ -1,4 +1,4 @@
-"""Independent-pilot business adapter and bounded orchestration.
+"""Company-test business adapter and bounded orchestration.
 
 The port owns protected DB/browser IPC and approved APP-only configuration.
 No protocol-only runtime import, credentials in receipts, or role split.
@@ -11,7 +11,8 @@ CLOSED = {'OIDC_AUTH_ENABLE': 'false', 'SOURCEID_PROTOCOL_ONLY': 'true',
           'SOURCEID_CONTRACT_CONFIRMED': 'false', 'SOURCEID_EMAIL_BINDING_ENABLE': 'false',
           'SOURCEID_AUTO_BINDING_ENABLE': 'false', 'SOURCEID_SESSION_MODE': 'external',
           'SOURCEID_FORCE_REAUTH_PROMPT_LOGIN': 'false', 'SOURCEID_LOCAL_REFRESH_ENABLE': 'false',
-          'SOURCEID_BASIC_ENCODING': 'oauth_form', 'AUTO_MIGRATE': 'false'}
+          'SOURCEID_BASIC_ENCODING': 'oauth_form', 'AUTO_MIGRATE': 'false',
+          'SOURCEID_JIT_ENABLE': 'false'}
 
 
 class PilotBusinessAdapter:

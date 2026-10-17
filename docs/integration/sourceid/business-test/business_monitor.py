@@ -11,7 +11,7 @@ from protocol_monitor import KNOWN, CATEGORIES, Transaction
 from export_token_diagnostics import extract
 
 REVISION = 'f40b1602f69ce5d88e1e87dc3cefae36e9bde356'
-PROJECT = 'knowhub-oa-sso-pilot'
+PROJECT = 'knowhub-company-test'
 IMAGE = 'sha256:742c7ce56ef38ad32548900c8e7f8b264f9f6cd6138043674b91b27557443413'
 SCHEMA = 3029
 STAGES = ('authorize', 'callback', 'token', 'token_http', 'id_token', 'nonce', 'userinfo',

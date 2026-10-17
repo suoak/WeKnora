@@ -15,7 +15,7 @@ import export_token_diagnostics
 
 from business_monitor import BusinessMonitor, COMMON, EXISTING, JIT, IMAGE, PROJECT, REVISION, Transaction, finish
 from business_monitor_adapter import CLOSED, run, PilotBusinessAdapter
-from business_monitor_pilot import main, DockerPilotPort
+from business_monitor_pilot import main, DockerPilotPort, ROOT, RELEASE, ENTRY, FRONT_IMAGE
 
 A='aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa';C='cccccccc-cccc-4ccc-accc-cccccccccccc'
 OTHER='bbbbbbbb-bbbb-4bbb-abbb-bbbbbbbbbbbb'
@@ -104,6 +104,63 @@ class MockPort:
 
 
 class Calibration(unittest.TestCase):
+    def test_company_compose_has_no_legacy_pin_or_old_project(self):
+        p=DockerPilotPort.__new__(DockerPilotPort);p.override=RELEASE/'private/test-only-override.json'
+        self.assertEqual(PROJECT,'knowhub-company-test')
+        self.assertEqual(p.compose(),['docker','--host','unix:///var/run/docker.sock','compose','-p',PROJECT,'--project-directory',str(ROOT),'-f',str(ROOT/'compose.json')])
+        self.assertEqual(p.compose(True),p.compose()+['-f',str(p.override)])
+        self.assertNotIn('knowhub-oa-sso-pilot',' '.join(p.compose(True)))
+
+    def test_real_runtime_rejects_synthetic_approval_before_files_or_enable(self):
+        env={'SOURCEID_FORCE_REAUTH_PROMPT_LOGIN':'false','SOURCEID_BASIC_ENCODING':'oauth_form','SOURCEID_LOCAL_REFRESH_ENABLE':'false','SOURCEID_ACCOUNT_SCOPE':'enterprise_all','SOURCEID_ADMISSION_MODE':'oidc_sso_approved','SOURCEID_SESSION_MODE':'local_approved','AUTO_MIGRATE':'false','SOURCEID_JIT_ENABLE':'false'}
+        inputs={'existing_user_id':A,'approved_environment':env,'business_approval_ref':'synthetic-never-execute','scope_evidence_ref':'approved-company-contract','ownership_batch_ref':'approved-one-account'}
+        host=json.dumps([{'addr_info':[{'local':'172.30.232.42'}]}]).encode()
+        with patch('business_monitor_pilot.command',return_value=host):
+            with self.assertRaisesRegex(RuntimeError,'real_approval_required'):DockerPilotPort(inputs,'existing')
+            inputs['business_approval_ref']='approved-business-window';env['SOURCEID_LOCAL_POLICY_REF']='synthetic-not-approved'
+            with self.assertRaisesRegex(RuntimeError,'real_policy_required'):DockerPilotPort(inputs,'existing')
+
+    def test_company_inventory_rejects_old_project_frontend_ports_and_entry(self):
+        p=DockerPilotPort.__new__(DockerPilotPort);p.override=RELEASE/'private/unused.json'
+        p.query=lambda q:json.dumps({'version':3029,'dirty':False})
+        p.flags=lambda:dict(CLOSED)
+        p.check_public_routes=lambda:None
+        labels={'com.docker.compose.project':PROJECT,'com.docker.compose.project.working_dir':str(ROOT),'com.docker.compose.project.config_files':str(ROOT/'compose.json')}
+        data={(PROJECT+'-app-1','.Config.Labels'):labels,(PROJECT+'-app-1','.Image'):IMAGE,(PROJECT+'-app-1','.HostConfig.PortBindings'):{},(PROJECT+'-postgres-1','.HostConfig.PortBindings'):{},(PROJECT+'-redis-1','.HostConfig.PortBindings'):{},(PROJECT+'-frontend-1','.HostConfig.PortBindings'):{'80/tcp':[{'HostIp':'127.0.0.1','HostPort':'18091'}]},(PROJECT+'-frontend-1','.Image'):FRONT_IMAGE,(ENTRY,'.Config.Labels'):{'com.docker.compose.project':'knowhub-company-entry'},(ENTRY,'.State.Running'):True,(ENTRY,'.HostConfig.PortBindings'):{'80/tcp':[{'HostIp':'0.0.0.0','HostPort':'80'}],'8080/tcp':[{'HostIp':'0.0.0.0','HostPort':'8080'}]},(PROJECT+'-app-1','.HostConfig.NetworkMode'):'container:synthetic-new-namespace',(PROJECT+'-sid-network-1','.Id'):'synthetic-new-namespace',(PROJECT+'-app-1','.State.Health.Status'):'healthy'}
+        with patch('business_monitor_pilot.inspect',side_effect=lambda n,f:data[n,f]),patch('business_monitor_pilot.command',return_value=REVISION.encode()):
+            self.assertEqual(p.inventory()['project'],PROJECT)
+            for key,value in [((PROJECT+'-frontend-1','.Image'),'old-frontend'),((ENTRY,'.State.Running'),False),((PROJECT+'-frontend-1','.HostConfig.PortBindings'),{'80/tcp':[{'HostIp':'127.0.0.1','HostPort':'18090'}]}),((PROJECT+'-app-1','.HostConfig.NetworkMode'),'container:old-pilot-namespace')]:
+                old=data[key];data[key]=value
+                with self.assertRaises(RuntimeError):p.inventory()
+                data[key]=old
+
+    def test_company_public_routes_use_only_no_credential_paths(self):
+        class Response:
+            def __init__(self,url):
+                self.code=302 if url.endswith('/callback') else 200
+                self.headers={'X-KnowHub-Environment':'company-test-f40-db3029','Location':'/#oidc_error=invalid_state'}
+            def __enter__(self):return self
+            def __exit__(self,*args):pass
+        requests=[]
+        class Opener:
+            def open(self,request,timeout):requests.append(request.full_url);return Response(request.full_url)
+        with patch('urllib.request.build_opener',return_value=Opener()):DockerPilotPort.__new__(DockerPilotPort).check_public_routes()
+        self.assertEqual(len(requests),6)
+        self.assertTrue(all('?' not in x and '/authorize' not in x and '/token' not in x for x in requests))
+        self.assertTrue(any(':80/' in x for x in requests));self.assertTrue(any(':8080/' in x for x in requests))
+
+    def test_single_account_dryrun_no_evidence_and_no_apply(self):
+        import importlib.util,datetime
+        path=Path(__file__).with_name('company-first-ownership-dryrun.py')
+        spec=importlib.util.spec_from_file_location('single_dryrun',path);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        with patch.object(module.subprocess,'run',side_effect=AssertionError('must be inert')),contextlib.redirect_stdout(io.StringIO()) as output:module.main([])
+        self.assertEqual(json.loads(output.getvalue())['result'],'NOT_EXECUTED')
+        now=datetime.datetime.now(datetime.timezone.utc)
+        row={'issuer':'https://sid.ruijie.com.cn','employee_no':'fictional','email':'fictional@example.test','user_id':A,'ownership_ref':'approved-record-ref','source_ref':'approved-source-ref','policy_ref':'approved-policy-ref','status':'active','revision':1,'verified_at':(now-datetime.timedelta(minutes=1)).isoformat(),'valid_until':(now+datetime.timedelta(minutes=20)).isoformat()}
+        module.validate(row,{'existing_user_id':A},now)
+        for key,value in [('employee_no',''),('user_id',OTHER),('ownership_ref','synthetic-not-real'),('policy_ref',''),('valid_until',(now-datetime.timedelta(seconds=1)).isoformat())]:
+            with self.assertRaises(ValueError):module.validate(dict(row,**{key:value}),{'existing_user_id':A},now)
+
     def test_concrete_jit_projection_uses_f40_tenantless_zero(self):
         p=DockerPilotPort.__new__(DockerPilotPort);p.observer_dir=Path('synthetic-observer')
         before={'users':[],'jit':[]}
