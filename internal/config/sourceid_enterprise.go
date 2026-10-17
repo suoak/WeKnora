@@ -14,16 +14,23 @@ func (c *OIDCAuthConfig) EffectiveSourceIDAccountScope() string {
 }
 
 func (c *OIDCAuthConfig) SourceIDAccountPolicy() error {
+	if c.EffectiveSourceIDAccountLinkMode() != "trusted_ownership" && c.EffectiveSourceIDAccountLinkMode() != "verified_email_policy" {
+		return errors.New("sourceid account link mode invalid")
+	}
+	if c.EffectiveSourceIDAccountLinkMode() == "verified_email_policy" &&
+		(c.EffectiveSourceIDAccountScope() != "enterprise_all" || !c.SourceIDVerifiedEmailPolicyConfirmed || strings.TrimSpace(c.SourceIDVerifiedEmailPolicyRef) == "") {
+		return errors.New("sourceid verified email policy pending")
+	}
 	switch c.EffectiveSourceIDAccountScope() {
 	case "pilot":
 		if strings.TrimSpace(c.SourceIDPilotAccountsFile) == "" {
 			return errors.New("sourceid pilot ownership unavailable")
 		}
 	case "enterprise_all":
-		if !c.SourceIDEnterprisePolicyConfirmed || strings.TrimSpace(c.SourceIDEnterprisePolicyRef) == "" {
+		if c.EffectiveSourceIDAccountLinkMode() == "trusted_ownership" && (!c.SourceIDEnterprisePolicyConfirmed || strings.TrimSpace(c.SourceIDEnterprisePolicyRef) == "") {
 			return errors.New("sourceid enterprise ownership policy pending")
 		}
-		if _, err := c.SourceIDEnterpriseFreshness(); err != nil {
+		if _, err := c.SourceIDEnterpriseFreshness(); c.EffectiveSourceIDAccountLinkMode() == "trusted_ownership" && err != nil {
 			return err
 		}
 	default:
@@ -35,6 +42,13 @@ func (c *OIDCAuthConfig) SourceIDAccountPolicy() error {
 		}
 	}
 	return nil
+}
+
+func (c *OIDCAuthConfig) EffectiveSourceIDAccountLinkMode() string {
+	if c.SourceIDAccountLinkMode == "" {
+		return "trusted_ownership"
+	}
+	return c.SourceIDAccountLinkMode
 }
 
 // Exact corporate domains, approved with the independent JIT identity and

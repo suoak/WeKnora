@@ -108,10 +108,37 @@ func TestSourceIDJITExistingAllRolesHTTP(t *testing.T) {
 		t.Run(role, func(t *testing.T) { runSourceIDLocalBusinessLoginScope(t, true, false, "jit-enabled:"+role, true) })
 	}
 }
+
+func TestSourceIDVerifiedEmailAccessOnlyHTTP(t *testing.T) {
+	for _, role := range []string{"viewer", "contributor", "owner", "tenant_admin", "org_admin", "system_admin", "cross_space_admin", "multi_space", "jit", "jit-enabled:system_admin"} {
+		t.Run(role, func(t *testing.T) { runSourceIDLocalBusinessLoginScope(t, true, false, "verified:"+role, true) })
+	}
+}
+func TestSourceIDVerifiedEmailBrowserBusinessLogin(t *testing.T) {
+	for _, role := range []string{"viewer", "owner", "system_admin", "cross_space_admin", "multi_space", "jit"} {
+		t.Run(role, func(t *testing.T) { runSourceIDLocalBusinessLoginScope(t, true, true, "verified:"+role, true) })
+	}
+}
+
+func TestSourceIDVerifiedEmailPolicyChangeHTTP(t *testing.T) {
+	for _, change := range []string{"email", "binding", "mode", "inactive", "expiry"} {
+		t.Run(change, func(t *testing.T) {
+			runSourceIDLocalBusinessLoginScope(t, true, false, "verified:policy-"+change+":system_admin", true)
+		})
+	}
+}
 func runSourceIDLocalBusinessLogin(t *testing.T, ordinary, browser bool, role string) {
 	runSourceIDLocalBusinessLoginScope(t, ordinary, browser, role, false)
 }
 func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, role string, enterprise bool) {
+	verified := strings.HasPrefix(role, "verified:")
+	role = strings.TrimPrefix(role, "verified:")
+	policyChange := ""
+	if strings.HasPrefix(role, "policy-") {
+		parts := strings.SplitN(role, ":", 2)
+		policyChange = strings.TrimPrefix(parts[0], "policy-")
+		role = parts[1]
+	}
 	enableJIT := role == "jit" || strings.HasPrefix(role, "jit-enabled:")
 	role = strings.TrimPrefix(role, "jit-enabled:")
 	if browser && os.Getenv("SOURCEID_BROWSER_E2E") != "1" {
@@ -132,7 +159,7 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 	require.NoError(t, db.AutoMigrate(&types.Tenant{}, &types.User{}, &types.AuthToken{}, &types.TenantMember{}))
 	require.NoError(t, db.Exec("DROP INDEX IF EXISTS idx_auth_tokens_session_id").Error)
 	require.NoError(t, db.Exec("ALTER TABLE auth_tokens DROP COLUMN session_id").Error)
-	for _, name := range []string{"003024_sourceid_oidc", "003026_sourceid_binding_review", "003027_sourceid_local_session", "003028_sourceid_enterprise_ownership", "003029_sourceid_jit_registration"} {
+	for _, name := range []string{"003024_sourceid_oidc", "003026_sourceid_binding_review", "003027_sourceid_local_session", "003028_sourceid_enterprise_ownership", "003029_sourceid_jit_registration", "003030_sourceid_verified_email_policy"} {
 		data, err := os.ReadFile(filepath.Join(root, "migrations/sqlite/"+name+".up.sql"))
 		require.NoError(t, err)
 		require.NoError(t, db.Exec(string(data)).Error)
@@ -192,9 +219,11 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 		cfg.SourceIDLocalAbsoluteTTL = "60m"
 		cfg.SourceIDLocalIdleTTL = "30m"
 		cfg.SourceIDAdmissionMaxAge = "60m"
-		cfg.SourceIDPilotAccountsFile = filepath.Join(t.TempDir(), "ownership.json")
-		manifest, _ := json.Marshal(map[string]interface{}{"version": 1, "policy_ref": cfg.SourceIDAutoBindingPolicyRef, "ownership_ref": "synthetic-snapshot-ownership", "issuer": cfg.IssuerURL, "accounts": []map[string]string{{"user_id": user.ID, "email": user.Email, "employee_no": "synthetic-employee"}}})
-		require.NoError(t, privatefile.WriteFile(cfg.SourceIDPilotAccountsFile, manifest, 0600))
+		if !verified {
+			cfg.SourceIDPilotAccountsFile = filepath.Join(t.TempDir(), "ownership.json")
+			manifest, _ := json.Marshal(map[string]interface{}{"version": 1, "policy_ref": cfg.SourceIDAutoBindingPolicyRef, "ownership_ref": "synthetic-snapshot-ownership", "issuer": cfg.IssuerURL, "accounts": []map[string]string{{"user_id": user.ID, "email": user.Email, "employee_no": "synthetic-employee"}}})
+			require.NoError(t, privatefile.WriteFile(cfg.SourceIDPilotAccountsFile, manifest, 0600))
+		}
 	}
 
 	if enterprise {
@@ -218,9 +247,17 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 			cfg.SourceIDJITPolicyConfirmed = true
 			cfg.SourceIDJITPolicyRef = "synthetic-jit"
 			cfg.SourceIDJITEmailDomains = "example.test"
-		} else {
+		} else if !verified {
 			_, err := importer.SyncSourceIDAccountOwnership(context.Background(), types.SourceIDAccountOwnership{Issuer: cfg.IssuerURL, EmployeeNo: "synthetic-employee", UserID: user.ID, Email: user.Email, Status: "active", Revision: 1, PolicyRef: cfg.SourceIDEnterprisePolicyRef, OwnershipRef: "synthetic-independent-account-proof", SourceRef: "synthetic-directory", VerifiedAt: time.Now().Add(-time.Second), ValidUntil: time.Now().Add(time.Hour)}, "synthetic-operator", true)
 			require.NoError(t, err)
+		}
+		if verified {
+			cfg.SourceIDAccountLinkMode = "verified_email_policy"
+			cfg.SourceIDVerifiedEmailPolicyConfirmed = true
+			cfg.SourceIDVerifiedEmailPolicyRef = "synthetic-company-email-policy"
+			cfg.SourceIDEnterprisePolicyConfirmed = false
+			cfg.SourceIDEnterprisePolicyRef = ""
+			cfg.SourceIDEnterpriseMaxAge = ""
 		}
 	}
 	mock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -411,6 +448,32 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 		require.NoError(t, db.Model(&types.AuthToken{}).Where("token_type = ?", "refresh_token").Count(&refreshCount).Error)
 		require.Zero(t, refreshCount)
 		require.NotEqual(t, 200, api("/api/v1/auth/refresh", `{"refreshToken":"synthetic-unissued"}`, access).Code)
+		if policyChange != "" {
+			originalConfig := *cfg
+			switch policyChange {
+			case "email":
+				cfg.SourceIDVerifiedEmailPolicyRef = "synthetic-policy-v2"
+			case "binding":
+				cfg.SourceIDAutoBindingPolicyRef = "synthetic-binding-v2"
+			case "mode":
+				cfg.SourceIDAccountLinkMode = "trusted_ownership"
+				cfg.SourceIDEnterprisePolicyConfirmed = true
+				cfg.SourceIDEnterprisePolicyRef = "synthetic-enterprise"
+				cfg.SourceIDEnterpriseMaxAge = "1h"
+			case "inactive":
+				require.NoError(t, db.Model(&types.User{}).Where("id=?", user.ID).Update("is_active", false).Error)
+			case "expiry":
+				require.NoError(t, db.Model(&types.SourceIDSession{}).Where("id=?", before.ID).Update("expires_at", time.Now().Add(-time.Second)).Error)
+			}
+			require.Equal(t, 401, api("/api/v1/auth/me", "", access).Code)
+			*cfg = originalConfig
+			if policyChange == "inactive" {
+				require.NoError(t, db.Model(&types.User{}).Where("id=?", user.ID).Update("is_active", true).Error)
+			}
+			require.Equal(t, 401, api("/api/v1/auth/me", "", access).Code, "restoring old config must not resurrect invalidated access")
+			require.Equal(t, 401, api("/api/v1/auth/switch-tenant", `{"tenant_id":42}`, access).Code)
+			return
+		}
 		require.Equal(t, 200, api("/api/v1/auth/logout", "", access).Code)
 		require.Equal(t, 401, api("/api/v1/auth/me", "", access).Code)
 		var original types.User

@@ -355,6 +355,9 @@ type OIDCAuthConfig struct {
 	SourceIDEnterprisePolicyConfirmed     bool   `yaml:"sourceid_enterprise_policy_confirmed" json:"-"`
 	SourceIDEnterprisePolicyRef           string `yaml:"sourceid_enterprise_policy_ref" json:"-"`
 	SourceIDEnterpriseMaxAge              string `yaml:"sourceid_enterprise_max_age" json:"-"`
+	SourceIDAccountLinkMode               string `yaml:"sourceid_account_link_mode" json:"-"`
+	SourceIDVerifiedEmailPolicyConfirmed  bool   `yaml:"sourceid_verified_email_policy_confirmed" json:"-"`
+	SourceIDVerifiedEmailPolicyRef        string `yaml:"sourceid_verified_email_policy_ref" json:"-"`
 	SourceIDJITEnable                     bool   `yaml:"sourceid_jit_enable" json:"-"`
 	SourceIDJITPolicyConfirmed            bool   `yaml:"sourceid_jit_policy_confirmed" json:"-"`
 	SourceIDJITPolicyRef                  string `yaml:"sourceid_jit_policy_ref" json:"-"`
@@ -817,33 +820,35 @@ func applyOIDCEnvOverrides(cfg *Config) {
 	}
 
 	for key, target := range map[string]*string{
-		"SOURCEID_SESSION_MODE":            &cfg.OIDCAuth.SourceIDSessionMode,
-		"SOURCEID_PILOT_ACCOUNTS_FILE":     &cfg.OIDCAuth.SourceIDPilotAccountsFile,
-		"SOURCEID_ACCOUNT_SCOPE":           &cfg.OIDCAuth.SourceIDAccountScope,
-		"SOURCEID_ENTERPRISE_POLICY_REF":   &cfg.OIDCAuth.SourceIDEnterprisePolicyRef,
-		"SOURCEID_ENTERPRISE_MAX_AGE":      &cfg.OIDCAuth.SourceIDEnterpriseMaxAge,
-		"SOURCEID_JIT_POLICY_REF":          &cfg.OIDCAuth.SourceIDJITPolicyRef,
-		"SOURCEID_JIT_EMAIL_DOMAINS":       &cfg.OIDCAuth.SourceIDJITEmailDomains,
-		"SOURCEID_LOCAL_POLICY_REF":        &cfg.OIDCAuth.SourceIDLocalPolicyRef,
-		"SOURCEID_LOCAL_ACCESS_TTL":        &cfg.OIDCAuth.SourceIDLocalAccessTTL,
-		"SOURCEID_LOCAL_ABSOLUTE_TTL":      &cfg.OIDCAuth.SourceIDLocalAbsoluteTTL,
-		"SOURCEID_LOCAL_IDLE_TTL":          &cfg.OIDCAuth.SourceIDLocalIdleTTL,
-		"SOURCEID_ADMISSION_MODE":          &cfg.OIDCAuth.SourceIDAdmissionMode,
-		"SOURCEID_ADMISSION_POLICY_REF":    &cfg.OIDCAuth.SourceIDAdmissionPolicyRef,
-		"SOURCEID_ADMISSION_MAX_AGE":       &cfg.OIDCAuth.SourceIDAdmissionMaxAge,
-		"SOURCEID_EMPLOYEE_CLAIM":          &cfg.OIDCAuth.SourceIDEmployeeClaim,
-		"SOURCEID_AUTO_BINDING_POLICY_REF": &cfg.OIDCAuth.SourceIDAutoBindingPolicyRef,
-		"SOURCEID_SESSION_CLAIM":           &cfg.OIDCAuth.SourceIDSessionClaim,
-		"SOURCEID_STATUS_CLAIM":            &cfg.OIDCAuth.SourceIDStatusClaim,
-		"SOURCEID_ALLOWED_STATUS":          &cfg.OIDCAuth.SourceIDAllowedStatus,
-		"SOURCEID_CLAIMS_SOURCE":           &cfg.OIDCAuth.SourceIDClaimsSource,
-		"SOURCEID_BASIC_ENCODING":          &cfg.OIDCAuth.SourceIDBasicEncoding,
-		"SOURCEID_LOGOUT_ENCODING":         &cfg.OIDCAuth.SourceIDLogoutEncoding,
-		"SOURCEID_LOGOUT_CIDRS":            &cfg.OIDCAuth.SourceIDLogoutCIDRs,
-		"SOURCEID_LOGOUT_SECRET":           &cfg.OIDCAuth.SourceIDLogoutSecret,
-		"OIDC_AUTH_REDIRECT_URI":           &cfg.OIDCAuth.RedirectURI,
-		"OIDC_AUTH_CLIENT_AUTH_METHOD":     &cfg.OIDCAuth.ClientAuthMethod,
-		"OIDC_AUTH_USER_INFO_TRANSPORT":    &cfg.OIDCAuth.UserInfoTransport,
+		"SOURCEID_SESSION_MODE":              &cfg.OIDCAuth.SourceIDSessionMode,
+		"SOURCEID_PILOT_ACCOUNTS_FILE":       &cfg.OIDCAuth.SourceIDPilotAccountsFile,
+		"SOURCEID_ACCOUNT_SCOPE":             &cfg.OIDCAuth.SourceIDAccountScope,
+		"SOURCEID_ENTERPRISE_POLICY_REF":     &cfg.OIDCAuth.SourceIDEnterprisePolicyRef,
+		"SOURCEID_ENTERPRISE_MAX_AGE":        &cfg.OIDCAuth.SourceIDEnterpriseMaxAge,
+		"SOURCEID_ACCOUNT_LINK_MODE":         &cfg.OIDCAuth.SourceIDAccountLinkMode,
+		"SOURCEID_VERIFIED_EMAIL_POLICY_REF": &cfg.OIDCAuth.SourceIDVerifiedEmailPolicyRef,
+		"SOURCEID_JIT_POLICY_REF":            &cfg.OIDCAuth.SourceIDJITPolicyRef,
+		"SOURCEID_JIT_EMAIL_DOMAINS":         &cfg.OIDCAuth.SourceIDJITEmailDomains,
+		"SOURCEID_LOCAL_POLICY_REF":          &cfg.OIDCAuth.SourceIDLocalPolicyRef,
+		"SOURCEID_LOCAL_ACCESS_TTL":          &cfg.OIDCAuth.SourceIDLocalAccessTTL,
+		"SOURCEID_LOCAL_ABSOLUTE_TTL":        &cfg.OIDCAuth.SourceIDLocalAbsoluteTTL,
+		"SOURCEID_LOCAL_IDLE_TTL":            &cfg.OIDCAuth.SourceIDLocalIdleTTL,
+		"SOURCEID_ADMISSION_MODE":            &cfg.OIDCAuth.SourceIDAdmissionMode,
+		"SOURCEID_ADMISSION_POLICY_REF":      &cfg.OIDCAuth.SourceIDAdmissionPolicyRef,
+		"SOURCEID_ADMISSION_MAX_AGE":         &cfg.OIDCAuth.SourceIDAdmissionMaxAge,
+		"SOURCEID_EMPLOYEE_CLAIM":            &cfg.OIDCAuth.SourceIDEmployeeClaim,
+		"SOURCEID_AUTO_BINDING_POLICY_REF":   &cfg.OIDCAuth.SourceIDAutoBindingPolicyRef,
+		"SOURCEID_SESSION_CLAIM":             &cfg.OIDCAuth.SourceIDSessionClaim,
+		"SOURCEID_STATUS_CLAIM":              &cfg.OIDCAuth.SourceIDStatusClaim,
+		"SOURCEID_ALLOWED_STATUS":            &cfg.OIDCAuth.SourceIDAllowedStatus,
+		"SOURCEID_CLAIMS_SOURCE":             &cfg.OIDCAuth.SourceIDClaimsSource,
+		"SOURCEID_BASIC_ENCODING":            &cfg.OIDCAuth.SourceIDBasicEncoding,
+		"SOURCEID_LOGOUT_ENCODING":           &cfg.OIDCAuth.SourceIDLogoutEncoding,
+		"SOURCEID_LOGOUT_CIDRS":              &cfg.OIDCAuth.SourceIDLogoutCIDRs,
+		"SOURCEID_LOGOUT_SECRET":             &cfg.OIDCAuth.SourceIDLogoutSecret,
+		"OIDC_AUTH_REDIRECT_URI":             &cfg.OIDCAuth.RedirectURI,
+		"OIDC_AUTH_CLIENT_AUTH_METHOD":       &cfg.OIDCAuth.ClientAuthMethod,
+		"OIDC_AUTH_USER_INFO_TRANSPORT":      &cfg.OIDCAuth.UserInfoTransport,
 	} {
 		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
 			*target = value
@@ -853,6 +858,7 @@ func applyOIDCEnvOverrides(cfg *Config) {
 		"SOURCEID_FORCE_REAUTH_PROMPT_LOGIN":       &cfg.OIDCAuth.SourceIDForceReauthPromptLogin,
 		"SOURCEID_SSO_POLICY_CONFIRMED":            &cfg.OIDCAuth.SourceIDSSOPolicyConfirmed,
 		"SOURCEID_ENTERPRISE_POLICY_CONFIRMED":     &cfg.OIDCAuth.SourceIDEnterprisePolicyConfirmed,
+		"SOURCEID_VERIFIED_EMAIL_POLICY_CONFIRMED": &cfg.OIDCAuth.SourceIDVerifiedEmailPolicyConfirmed,
 		"SOURCEID_JIT_ENABLE":                      &cfg.OIDCAuth.SourceIDJITEnable,
 		"SOURCEID_JIT_POLICY_CONFIRMED":            &cfg.OIDCAuth.SourceIDJITPolicyConfirmed,
 		"SOURCEID_AUTHORIZATION_RECHECK_CONFIRMED": &cfg.OIDCAuth.SourceIDAuthorizationRecheckConfirmed,

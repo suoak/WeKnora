@@ -121,6 +121,11 @@ func (r *userRepository) SyncSourceIDAccountOwnership(ctx context.Context, input
 	input.VerifiedAt = input.VerifiedAt.UTC().Truncate(time.Microsecond)
 	input.ValidUntil = input.ValidUntil.UTC().Truncate(time.Microsecond)
 	err = r.bindingDB(ctx).Transaction(func(tx *gorm.DB) error {
+		// Shares the verified-email/JIT lock order: a directory disable or
+		// ownership insert cannot race a new policy binding/session commit.
+		if lockSourceIDEmailAccounts(tx) != nil {
+			return errOwnership
+		}
 		var user types.User
 		if tx.Where("id = ?", input.UserID).First(&user).Error != nil {
 			return errOwnership

@@ -71,6 +71,10 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 		return nil, ctx, errors.New("sourceid identity contract pending")
 	}
 	mode := cfg.EffectiveSourceIDSessionMode()
+	if cfg.EffectiveSourceIDAccountLinkMode() != "trusted_ownership" &&
+		(cfg.EffectiveSourceIDAccountLinkMode() != "verified_email_policy" || mode != "local_approved" || cfg.SourceIDAdmissionMode != "oidc_sso_approved" || cfg.SourceIDAccountPolicy() != nil) {
+		return nil, ctx, errors.New("sourceid account link policy pending")
+	}
 	if cfg.EffectiveSourceIDAccountScope() == "enterprise_all" && (mode != "local_approved" || cfg.SourceIDAdmissionMode != "oidc_sso_approved") {
 		return nil, ctx, errors.New("sourceid enterprise local policy required")
 	}
@@ -117,6 +121,9 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 		return nil, ctx, err
 	}
 	var user *types.User
+	if cfg.EffectiveSourceIDAccountLinkMode() == "verified_email_policy" {
+		return s.loginSourceIDVerifiedEmail(ctx, cfg, info, employee, admission, now)
+	}
 	if mode == "local_approved" && cfg.SourceIDAdmissionMode == "oidc_sso_approved" {
 		if cfg.EffectiveSourceIDAccountScope() == "enterprise_all" {
 			binding, ok := r.(sourceIDEnterpriseStore)

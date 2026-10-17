@@ -178,6 +178,10 @@ func (r *userRepository) ResolveSourceIDEmailIdentity(ctx context.Context, issue
 }
 
 func (r *userRepository) ResolveSourceIDAutoEmailIdentity(ctx context.Context, issuer, subject, employee, email, policyReference string) (*types.User, error) {
+	return r.resolveSourceIDAutoEmailIdentity(ctx, issuer, subject, employee, email, policyReference, "enterprise-auto-policy")
+}
+
+func (r *userRepository) resolveSourceIDAutoEmailIdentity(ctx context.Context, issuer, subject, employee, email, policyReference, actor string) (*types.User, error) {
 	if strings.TrimSpace(policyReference) == "" {
 		return nil, ErrSourceIDBindingPending
 	}
@@ -189,7 +193,7 @@ func (r *userRepository) ResolveSourceIDAutoEmailIdentity(ctx context.Context, i
 	if r.bindingDB(ctx).Where("issuer = ? AND employee_no = ? AND subject = ?", issuer, employee, subject).First(&row).Error != nil {
 		return nil, ErrSourceIDBindingPending
 	}
-	if err := r.reviewSourceIDBinding(ctx, row.ID, "enterprise-auto-policy", policyReference, "approve", true); err != nil {
+	if err := r.reviewSourceIDBinding(ctx, row.ID, actor, policyReference, "approve", true); err != nil {
 		return nil, ErrSourceIDBindingPending
 	}
 	return r.ResolveSourceIDEmailIdentity(ctx, issuer, subject, employee, email)

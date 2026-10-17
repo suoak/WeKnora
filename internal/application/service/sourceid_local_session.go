@@ -162,6 +162,28 @@ func (s *userService) sourceIDLocalLimits(ctx context.Context, sessionID, userID
 		return nil, errors.New("sourceid local policy changed; reauthentication required")
 	}
 	if cfg.SourceIDAdmissionMode == "oidc_sso_approved" {
+		if cfg.EffectiveSourceIDAccountLinkMode() == "verified_email_policy" {
+			verified, ok := store.(sourceIDVerifiedEmailStore)
+			if !ok {
+				return nil, errors.New("sourceid verified email repository unavailable")
+			}
+			if err := verified.CheckSourceIDVerifiedEmailSession(ctx, sessionID, userID, local.Issuer, local.EmployeeNo, local.Subject, cfg.SourceIDVerifiedEmailPolicyRef, cfg.SourceIDAutoBindingPolicyRef); err != nil {
+				if base, e := s.sourceIDStore(); e == nil {
+					_ = base.RevokeSourceIDSession(ctx, sessionID, userID)
+				}
+				return nil, err
+			}
+			return local, nil
+		}
+		if verified, ok := store.(sourceIDVerifiedEmailStore); ok {
+			marker, err := verified.SourceIDSessionLinkPolicy(ctx, sessionID)
+			if err != nil || marker != nil {
+				if base, e := s.sourceIDStore(); e == nil {
+					_ = base.RevokeSourceIDSession(ctx, sessionID, userID)
+				}
+				return nil, errors.New("sourceid account link policy changed; reauthentication required")
+			}
+		}
 		if cfg.EffectiveSourceIDAccountScope() == "enterprise_all" {
 			enterprise, ok := store.(sourceIDEnterpriseStore)
 			if !ok {
