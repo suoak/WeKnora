@@ -1,0 +1,67 @@
+{
+  "result": "PASS",
+  "source_app_revision": "f40b1602f",
+  "source_frontend_revision": "832b6652a",
+  "app_image": "sha256:742c7ce56ef38ad32548900c8e7f8b264f9f6cd6138043674b91b27557443413",
+  "frontend_image": "sha256:ab7845c89fadeb17ad2b68bd924e892f948b893781a50ab79e48385c319ddbe1",
+  "database": {
+    "version": 3029,
+    "dirty": false,
+    "enterprise_sessions": 0,
+    "identities": 0,
+    "ownership": 0,
+    "jit": 0,
+    "active_transactions": 0
+  },
+  "gate_values": {
+    "OIDC_AUTH_ENABLE": "false",
+    "SOURCEID_PROTOCOL_ONLY": "true",
+    "SOURCEID_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_EMAIL_BINDING_ENABLE": "false",
+    "SOURCEID_AUTO_BINDING_ENABLE": "false",
+    "SOURCEID_JIT_ENABLE": "false",
+    "SOURCEID_SESSION_MODE": "external",
+    "SOURCEID_FORCE_REAUTH_PROMPT_LOGIN": "false",
+    "SOURCEID_LOCAL_REFRESH_ENABLE": "false",
+    "SOURCEID_BASIC_ENCODING": "oauth_form",
+    "SOURCEID_DIAGNOSTICS_ENABLE": "false",
+    "AUTO_MIGRATE": "false",
+    "SOURCEID_VERIFIED_EMAIL_POLICY_CONFIRMED": "false"
+  },
+  "routes": [
+    {
+      "port": 80,
+      "kind": "health",
+      "status": 200
+    },
+    {
+      "port": 80,
+      "kind": "oidc_config",
+      "status": 200
+    },
+    {
+      "port": 80,
+      "kind": "callback_without_parameters",
+      "status": 302
+    },
+    {
+      "port": 8080,
+      "kind": "health",
+      "status": 200
+    },
+    {
+      "port": 8080,
+      "kind": "oidc_config",
+      "status": 200
+    },
+    {
+      "port": 8080,
+      "kind": "callback_without_parameters",
+      "status": 302
+    }
+  ],
+  "real_sid_requests": 0,
+  "configuration_changed": false,
+  "app_recreated": false,
+  "utc": "2026-10-17T15:45:01.319067+00:00"
+}

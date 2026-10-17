@@ -1,0 +1,21 @@
+{
+  "result": "PASS",
+  "source_sha": "5f988be51779f1a22bd9d027b7503fe6a8749f62",
+  "live_app_changed": false,
+  "live_database_written": false,
+  "real_sid_requests": 0,
+  "image_id": "sha256:0994762cd32f4289dc397757f9123bafd3cc913b407c05927c7ee064b32ade2b",
+  "oci_revision": "5f988be51779f1a22bd9d027b7503fe6a8749f62",
+  "tag": "knowhub-verified-email/app:5f988be51",
+  "schema_target": 3030,
+  "base_image_id": "sha256:742c7ce56ef38ad32548900c8e7f8b264f9f6cd6138043674b91b27557443413",
+  "builder_image_id": "sha256:2b63ff41b02b21d7b302c2d3ba6b4ab43990181fc7d2221585d2cfa5161553fb",
+  "go_version": "1.26.7",
+  "archive_sha256": "bda077a28d2dd4051b00d81a5a89dbca5c6cbd4632015fb1e21761d152a96df1",
+  "binary_sha256": "ebf7f4682cc8472554435e6253190ad8d74bbf9088f55998fff9476874959b6b",
+  "pull_performed": false,
+  "offline_build": true,
+  "candidate_pin_prepared": true,
+  "rollback_pin_prepared": true,
+  "utc": "2026-10-17T15:53:53.590660+00:00"
+}

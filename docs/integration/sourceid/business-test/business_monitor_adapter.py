@@ -12,7 +12,8 @@ CLOSED = {'OIDC_AUTH_ENABLE': 'false', 'SOURCEID_PROTOCOL_ONLY': 'true',
           'SOURCEID_AUTO_BINDING_ENABLE': 'false', 'SOURCEID_SESSION_MODE': 'external',
           'SOURCEID_FORCE_REAUTH_PROMPT_LOGIN': 'false', 'SOURCEID_LOCAL_REFRESH_ENABLE': 'false',
           'SOURCEID_BASIC_ENCODING': 'oauth_form', 'AUTO_MIGRATE': 'false',
-          'SOURCEID_JIT_ENABLE': 'false'}
+          'SOURCEID_JIT_ENABLE': 'false','SOURCEID_ACCOUNT_LINK_MODE':'trusted_ownership',
+          'SOURCEID_VERIFIED_EMAIL_POLICY_CONFIRMED':'false'}
 
 
 class PilotBusinessAdapter:
@@ -44,6 +45,7 @@ class PilotBusinessAdapter:
             raise RuntimeError('active_authorization_transaction_exists')
         m = BusinessMonitor(self.case, now, (t.handle for t in rows))
         self.monitor = m
+        m.acceptance_scope=getattr(self.port,'acceptance_scope','full')
         self.port.save_private_baseline(self.before)  # In-memory only by contract.
         self.changed = True  # Recovery also covers partially failed enable.
         self.port.enable_approved(self.case)
@@ -51,6 +53,8 @@ class PilotBusinessAdapter:
         if enabled['project'] != PROJECT or enabled['image'] != IMAGE or enabled['schema'] != SCHEMA or enabled['dirty'] or not enabled['healthy']:
             raise RuntimeError('enabled_target_changed')
         flags = enabled['flags']
+        if getattr(self.port,'env',{}).get('SOURCEID_ACCOUNT_LINK_MODE')=='verified_email_policy' and (flags.get('SOURCEID_ACCOUNT_LINK_MODE')!='verified_email_policy' or flags.get('SOURCEID_VERIFIED_EMAIL_POLICY_CONFIRMED')!='true'):
+            raise RuntimeError('verified_email_mode_not_loaded')
         needed = {'OIDC_AUTH_ENABLE':'true', 'SOURCEID_PROTOCOL_ONLY':'false',
                   'SOURCEID_CONTRACT_CONFIRMED':'true', 'SOURCEID_EMAIL_BINDING_ENABLE':'true',
                   'SOURCEID_AUTO_BINDING_ENABLE':'true', 'SOURCEID_SESSION_MODE':'local_approved',
@@ -91,6 +95,7 @@ class PilotBusinessAdapter:
                         m.business_probes(observed_trace, values)
                         if getattr(self.port,'server_observer',None) is not None:
                             m.observation_mode='SERVER_METADATA_AND_USER_PORTAL_CONFIRMATION'
+                        m.link_policy_verification=getattr(self.port,'link_policy_status','NOT_CAPTURED')
         action = self.port.operator_action(m.run_id)
         if action is not None:
             m.operator(action)

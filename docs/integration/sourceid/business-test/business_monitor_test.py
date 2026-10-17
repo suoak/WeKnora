@@ -13,9 +13,9 @@ from unittest.mock import patch
 from pathlib import Path
 import export_token_diagnostics
 
-from business_monitor import BusinessMonitor, COMMON, EXISTING, JIT, IMAGE, PROJECT, REVISION, Transaction, finish
+from business_monitor import BusinessMonitor, COMMON, EXISTING, JIT, IMAGE, PROJECT, REVISION, SCHEMA, Transaction, finish
 from business_monitor_adapter import CLOSED, run, PilotBusinessAdapter
-from business_monitor_pilot import main, DockerPilotPort, ROOT, RELEASE, ENTRY, FRONT_IMAGE
+from business_monitor_pilot import main, DockerPilotPort, ROOT, RELEASE, ENTRY, FRONT_IMAGE, COMPOSE_FILES, ENVIRONMENT_HEADER, approved_scope
 from company_business_observer import ServerBusinessObserver
 from company_gateway_observer import GatewayObservation,configuration
 
@@ -51,7 +51,7 @@ class MockPort:
     def now(self):return self.clock
     def pause(self):self.step+=1;self.clock+=1
     def inventory(self):
-        return {'project':PROJECT,'image':IMAGE,'revision':REVISION,'schema':3029,'dirty':False,'healthy':True,'flags':dict(self.flags)}
+        return {'project':PROJECT,'image':IMAGE,'revision':REVISION,'schema':SCHEMA,'dirty':False,'healthy':True,'flags':dict(self.flags)}
     def snapshot(self):return {'other_services':self.other_services(),'private':self.snapshot_marker}
     def save_private_baseline(self,b):self.before=b
     def other_services(self):return {'frontend':'unchanged','postgres':'unchanged','redis':'unchanged','docreader':'unchanged'}
@@ -106,6 +106,56 @@ class MockPort:
 
 
 class Calibration(unittest.TestCase):
+
+    def test_positive_scope_requires_explicit_real_approval(self):
+        self.assertEqual(approved_scope({}, {}, 'existing'),'full')
+        for value in ({'acceptance_scope':'A_positive'},{'acceptance_scope':'A_positive','positive_scope_approval_ref':'synthetic-not-approved'},{'acceptance_scope':'unknown'}):
+            with self.assertRaises(RuntimeError):approved_scope(value,{},'existing')
+        value={'acceptance_scope':'A_positive','positive_scope_approval_ref':'approved-positive-only-window'}
+        self.assertEqual(approved_scope(value,{},'existing'),'A_positive')
+        with self.assertRaises(RuntimeError):approved_scope(value,{},'jit')
+
+    def test_positive_scope_never_reports_negative_pass(self):
+        observer=ServerBusinessObserver('192.0.2.10',[A],[C],None,False)
+        for path,method in (('/api/v1/auth/me','GET'),('/api/v1/knowledge-bases/'+A,'GET'),('/api/v1/knowledge/'+C,'GET'),('/api/v1/auth/logout','POST')):observer.observe(self.access_line(path,method=method),True)
+        observer.confirm_operator({'action':'authentication_complete','portal_confirmed':True})
+        self.assertTrue(observer.complete());self.assertNotIn('denied_kb',observer.seen)
+        p=MockPort();p.acceptance_scope='A_positive';p.link_policy_status='PASS'
+        receipt=run(p,'existing',True,True)
+        self.assertEqual(receipt['result'],'PASS');self.assertEqual(receipt['acceptance_scope'],'A_positive');self.assertEqual(receipt['cross_space_negative'],'NOT_EXECUTED');self.assertEqual(receipt['link_policy_verification'],'PASS')
+
+    def test_new_policy_requires_company_approval_not_ownership_batch(self):
+        env={'SOURCEID_FORCE_REAUTH_PROMPT_LOGIN':'false','SOURCEID_BASIC_ENCODING':'oauth_form','SOURCEID_LOCAL_REFRESH_ENABLE':'false','SOURCEID_ACCOUNT_SCOPE':'enterprise_all','SOURCEID_ADMISSION_MODE':'oidc_sso_approved','SOURCEID_SESSION_MODE':'local_approved','AUTO_MIGRATE':'false','SOURCEID_JIT_ENABLE':'false','SOURCEID_ACCOUNT_LINK_MODE':'verified_email_policy','SOURCEID_VERIFIED_EMAIL_POLICY_CONFIRMED':'true','SOURCEID_VERIFIED_EMAIL_POLICY_REF':'approved-company-policy'}
+        inputs={'existing_user_id':A,'approved_environment':env,'business_approval_ref':'approved-window','scope_evidence_ref':'approved-company-scope','company_policy_ref':'wrong-policy'}
+        host=json.dumps([{'addr_info':[{'local':'172.30.232.42'}]}]).encode()
+        with patch('business_monitor_pilot.command',return_value=host):
+            with self.assertRaisesRegex(RuntimeError,'company_email_policy_approval_required'):DockerPilotPort(inputs,'existing')
+            inputs['company_policy_ref']='approved-company-policy';inputs['acceptance_scope']='A_positive'
+            # Proves there was no per-person ownership_batch_ref requirement,
+            # but the independent positive-only scope cannot be assumed.
+            with self.assertRaisesRegex(RuntimeError,'explicit_positive_scope_approval_required'):DockerPilotPort(inputs,'existing')
+
+    def test_verified_policy_metadata_and_no_fabricated_ownership_required(self):
+        p=DockerPilotPort.__new__(DockerPilotPort);p.user=A
+        p.env={'SOURCEID_ACCOUNT_LINK_MODE':'verified_email_policy','SOURCEID_VERIFIED_EMAIL_POLICY_REF':'synthetic-company-policy','SOURCEID_AUTO_BINDING_POLICY_REF':'synthetic-auto-policy'}
+        class Observer:
+            def complete(self):return True
+            def checks(self,db):return dict.fromkeys(('auth_me_200','portal_loaded','no_refresh','knowledge_access_correct','logout_revoked','session_user_matches','access_session_matches'),True)
+        p.server_observer=Observer();before={'users':[{'id':A}],'members':[],'acl':[],'ownership':[]}
+        after=copy.deepcopy(before);p.snapshot=lambda:after;p.permissions_preserved=lambda b,c:True
+        p.new_session_candidates=lambda b:[{'id':C,'user_id':A}]
+        marker={'link_mode':'verified_email_policy','policy_ref':'synthetic-company-policy','binding_policy_ref':'synthetic-auto-policy'}
+        def query(sql):
+            if 'source_id_local_link_policies' in sql:return json.dumps([marker])
+            if "'local',COUNT" in sql:return json.dumps({'local':True,'bounded':True})
+            return json.dumps(dict.fromkeys(('no_refresh','session_user_matches','access_session_matches','logout_revoked'),True))
+        p.query=query
+        _,checks=p.business_probes(before,{'id':C,'user_id':A},'existing',A,C)
+        self.assertTrue(all(checks.values()));self.assertEqual(p.link_policy_status,'PASS')
+        marker['policy_ref']='different-policy'
+        with self.assertRaisesRegex(RuntimeError,'verified_email_policy_metadata_mismatch'):p.business_probes(before,{'id':C,'user_id':A},'existing',A,C)
+        marker['policy_ref']='synthetic-company-policy';after['ownership']=[{'id':OTHER}]
+        with self.assertRaisesRegex(RuntimeError,'verified_email_policy_metadata_mismatch'):p.business_probes(before,{'id':C,'user_id':A},'existing',A,C)
     def test_gateway_observer_accepts_only_closed_safe_metadata(self):
         observer=ServerBusinessObserver('192.0.2.10',[A],[C],OTHER)
         value={'event':'company_business_http','kind':'auth_me','method':'GET','status':200,'source_approved':True,'request_id':'a'*32}
@@ -212,7 +262,7 @@ class Calibration(unittest.TestCase):
     def test_company_compose_has_no_legacy_pin_or_old_project(self):
         p=DockerPilotPort.__new__(DockerPilotPort);p.override=RELEASE/'private/test-only-override.json'
         self.assertEqual(PROJECT,'knowhub-company-test')
-        self.assertEqual(p.compose(),['docker','--host','unix:///var/run/docker.sock','compose','-p',PROJECT,'--project-directory',str(ROOT),'-f',str(ROOT/'compose.json')])
+        self.assertEqual(p.compose(),['docker','--host','unix:///var/run/docker.sock','compose','-p',PROJECT,'--project-directory',str(ROOT),'-f',COMPOSE_FILES[0],'-f',COMPOSE_FILES[1]])
         self.assertEqual(p.compose(True),p.compose()+['-f',str(p.override)])
         self.assertNotIn('knowhub-oa-sso-pilot',' '.join(p.compose(True)))
 
@@ -227,10 +277,10 @@ class Calibration(unittest.TestCase):
 
     def test_company_inventory_rejects_old_project_frontend_ports_and_entry(self):
         p=DockerPilotPort.__new__(DockerPilotPort);p.override=RELEASE/'private/unused.json'
-        p.query=lambda q:json.dumps({'version':3029,'dirty':False})
+        p.query=lambda q:json.dumps({'version':SCHEMA,'dirty':False})
         p.flags=lambda:dict(CLOSED)
         p.check_public_routes=lambda:None
-        labels={'com.docker.compose.project':PROJECT,'com.docker.compose.project.working_dir':str(ROOT),'com.docker.compose.project.config_files':str(ROOT/'compose.json')}
+        labels={'com.docker.compose.project':PROJECT,'com.docker.compose.project.working_dir':str(ROOT),'com.docker.compose.project.config_files':','.join(COMPOSE_FILES)}
         data={(PROJECT+'-app-1','.Config.Labels'):labels,(PROJECT+'-app-1','.Image'):IMAGE,(PROJECT+'-app-1','.HostConfig.PortBindings'):{},(PROJECT+'-postgres-1','.HostConfig.PortBindings'):{},(PROJECT+'-redis-1','.HostConfig.PortBindings'):{},(PROJECT+'-frontend-1','.HostConfig.PortBindings'):{'80/tcp':[{'HostIp':'127.0.0.1','HostPort':'18091'}]},(PROJECT+'-frontend-1','.Image'):FRONT_IMAGE,(ENTRY,'.Config.Labels'):{'com.docker.compose.project':'knowhub-company-entry'},(ENTRY,'.State.Running'):True,(ENTRY,'.HostConfig.PortBindings'):{'80/tcp':[{'HostIp':'0.0.0.0','HostPort':'80'}],'8080/tcp':[{'HostIp':'0.0.0.0','HostPort':'8080'}]},(PROJECT+'-app-1','.HostConfig.NetworkMode'):'container:synthetic-new-namespace',(PROJECT+'-sid-network-1','.Id'):'synthetic-new-namespace',(PROJECT+'-app-1','.State.Health.Status'):'healthy'}
         with patch('business_monitor_pilot.inspect',side_effect=lambda n,f:data[n,f]),patch('business_monitor_pilot.command',return_value=REVISION.encode()):
             self.assertEqual(p.inventory()['project'],PROJECT)
@@ -243,7 +293,7 @@ class Calibration(unittest.TestCase):
         class Response:
             def __init__(self,url):
                 self.code=302 if url.endswith('/callback') else 200
-                self.headers={'X-KnowHub-Environment':'company-test-f40-db3029','Location':'/#oidc_error=invalid_state'}
+                self.headers={'X-KnowHub-Environment':ENVIRONMENT_HEADER,'Location':'/#oidc_error=invalid_state'}
             def __enter__(self):return self
             def __exit__(self,*args):pass
         requests=[]

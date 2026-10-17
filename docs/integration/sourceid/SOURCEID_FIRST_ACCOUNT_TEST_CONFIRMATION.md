@@ -1,3 +1,5 @@
+> 2026-10-18: Candidate collector supports explicitly approved A_positive scope; 43 Mock tests pass on Windows and Linux. Full scope remains the default, and B is NOT_EXECUTED for A_positive. No real window or scope approval has been loaded. See SOURCEID_VERIFIED_EMAIL_FIRST_REAL_LOGIN_CARD.md.
+
 # 首笔原账号 OA 验收：最小确认单
 
 > 后续产品要求已调整为[可信SID邮箱政策自动关联](SOURCEID_VERIFIED_EMAIL_AUTO_LINK_DESIGN.md)。本单逐行证明与apply要求仅适用于原trusted-ownership路径，不再作为公司员工逐人接入要求。新模式尚在设计与隔离验证，尚未修改运行配置；改用获批的公司级关联政策，不生成虚假source_ref/ownership_ref。

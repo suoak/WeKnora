@@ -10,10 +10,10 @@ import uuid
 from protocol_monitor import KNOWN, CATEGORIES, Transaction
 from export_token_diagnostics import extract
 
-REVISION = 'f40b1602f69ce5d88e1e87dc3cefae36e9bde356'
+REVISION = '5f988be51779f1a22bd9d027b7503fe6a8749f62'
 PROJECT = 'knowhub-company-test'
-IMAGE = 'sha256:742c7ce56ef38ad32548900c8e7f8b264f9f6cd6138043674b91b27557443413'
-SCHEMA = 3029
+IMAGE = 'sha256:0994762cd32f4289dc397757f9123bafd3cc913b407c05927c7ee064b32ade2b'
+SCHEMA = 3030
 STAGES = ('authorize', 'callback', 'token', 'token_http', 'id_token', 'nonce', 'userinfo',
           'identity_mapping', 'local_session', 'callback_result', 'portal')
 COMMON = {'auth_me_200', 'portal_loaded', 'no_refresh', 'single_bound_session',
@@ -238,7 +238,10 @@ class BusinessMonitor:
                 'prompt_login_required': False, 'auth_time_required': False,
                 'events': self.events, 'http_events': self.http_events, 'raw_logs_saved': False,
                 'correlation_scope': 'exclusive single new transaction + one callback trace; no native shared authorize trace',
-                'observation_mode': 'SERVER_METADATA_AND_USER_PORTAL_CONFIRMATION' if getattr(self,'observation_mode',None)=='SERVER_METADATA_AND_USER_PORTAL_CONFIRMATION' else 'PROTECTED_EXTERNAL_OBSERVER'}
+                'observation_mode': 'SERVER_METADATA_AND_USER_PORTAL_CONFIRMATION' if getattr(self,'observation_mode',None)=='SERVER_METADATA_AND_USER_PORTAL_CONFIRMATION' else 'PROTECTED_EXTERNAL_OBSERVER',
+                'acceptance_scope':'A_positive' if getattr(self,'acceptance_scope',None)=='A_positive' else 'full',
+                'cross_space_negative':'NOT_EXECUTED' if getattr(self,'acceptance_scope',None)=='A_positive' else ('PASS' if self.probes and self.probes.get('knowledge_access_correct') else 'NOT_CAPTURED'),
+                'link_policy_verification':'PASS' if getattr(self,'link_policy_verification',None)=='PASS' else 'NOT_CAPTURED'}
 
 
 def finish(m, adapter):

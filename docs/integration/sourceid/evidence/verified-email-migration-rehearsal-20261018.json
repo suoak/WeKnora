@@ -1,0 +1,31 @@
+{
+  "result": "PASS",
+  "source_written": false,
+  "source_app_recreated": false,
+  "real_sid_requests": 0,
+  "stage": "verify_post_migration",
+  "retaining_down_up_pass": true,
+  "target_schema": 3030,
+  "target_dirty": false,
+  "source_schema": 3029,
+  "source_dirty": false,
+  "original_user_roles_memberships_kb_document_metadata_identical": true,
+  "acl_and_embedding_reference_metadata_identical": true,
+  "source_unchanged": true,
+  "counts": {
+    "users": 3,
+    "knowledge_bases": 2,
+    "documents": 3,
+    "chunks": 19786,
+    "nonempty_chunks": 2717,
+    "embeddings": 2717
+  },
+  "new_policy_tables_empty": true,
+  "invalid_indexes": 0,
+  "network": "none",
+  "files_mounted": false,
+  "real_identity_writes": false,
+  "protected_dump_retained": true,
+  "disposable_database_removed": true,
+  "utc": "2026-10-17T15:32:10.591875+00:00"
+}

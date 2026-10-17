@@ -7,12 +7,14 @@ import ipaddress,re,uuid,json
 ANSI=re.compile(r'\x1b\[[0-9;]*m')
 UUID=r'[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}'
 class ServerBusinessObserver:
-    def __init__(self,source_ip,allowed_kbs,documents,denied_kb):
+    def __init__(self,source_ip,allowed_kbs,documents,denied_kb,require_negative=True):
         self.source=ipaddress.ip_address(source_ip)
         self.allowed=set(allowed_kbs);self.documents=set(documents);self.denied=denied_kb
         ids=self.allowed|self.documents|({denied_kb} if denied_kb else set())
         if not self.allowed or not self.documents or any(str(uuid.UUID(x))!=x for x in ids):raise ValueError('approved_resource_ids_required')
         if denied_kb in self.allowed:raise ValueError('allow_deny_resource_conflict')
+        if type(require_negative) is not bool:raise ValueError('invalid_acceptance_scope')
+        self.require_negative=require_negative
         self.seen=set();self.request_ids=set();self.portal_confirmed=False;self.operator_complete=False;self.failed=False
     def observe(self,line,callback_complete=False):
         if not callback_complete or not isinstance(line,str) or len(line)>65536:return
@@ -61,7 +63,7 @@ class ServerBusinessObserver:
             self.operator_complete=True;self.portal_confirmed=value['portal_confirmed']
     def checks(self,db):
         return {'auth_me_200':'auth_me' in self.seen,'portal_loaded':self.portal_confirmed,
-                'no_refresh':db['no_refresh'],'knowledge_access_correct':{'allowed_kb','document','denied_kb'}<=self.seen,
+                'no_refresh':db['no_refresh'],'knowledge_access_correct':({'allowed_kb','document','denied_kb'} if self.require_negative else {'allowed_kb','document'})<=self.seen,
                 'logout_revoked':'logout' in self.seen and db['logout_revoked'],
                 'session_user_matches':db['session_user_matches'],'access_session_matches':db['access_session_matches']}
-    def complete(self):return self.portal_confirmed and self.operator_complete and {'auth_me','allowed_kb','document','denied_kb','logout'}<=self.seen
+    def complete(self):return self.portal_confirmed and self.operator_complete and ({'auth_me','allowed_kb','document','denied_kb','logout'} if self.require_negative else {'auth_me','allowed_kb','document','logout'})<=self.seen

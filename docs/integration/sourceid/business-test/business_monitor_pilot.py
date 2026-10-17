@@ -21,6 +21,9 @@ from company_gateway_observer import GatewayObservation
 
 RELEASE=Path('/home/aqyfzx/ai/knowhub-company-entry-20261017')
 ROOT=RELEASE/'green'
+APP_PIN=Path('/home/aqyfzx/ai/knowhub-verified-email-candidate-5f988be51/app-pin.json')
+COMPOSE_FILES=[str(ROOT/'compose.json'),str(APP_PIN)]
+ENVIRONMENT_HEADER='company-test-verified-email-db3030'
 FRONT_IMAGE='sha256:ab7845c89fadeb17ad2b68bd924e892f948b893781a50ab79e48385c319ddbe1'
 FRONT_REVISION='832b6652adf541892545a7eac8b68733f846ab95'
 ENTRY='knowhub-company-entry-entry-1'
@@ -28,7 +31,15 @@ APP=PROJECT+'-app-1';PG=PROJECT+'-postgres-1'
 DOCKER=['docker','--host','unix:///var/run/docker.sock']
 UUID=re.compile(r'[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}')
 FLAGS=set(CLOSED)|{'SOURCEID_ACCOUNT_SCOPE','SOURCEID_ADMISSION_MODE','SOURCEID_DIAGNOSTICS_ENABLE','SOURCEID_JIT_ENABLE'}
-ENV_ALLOWED=FLAGS|{'SOURCEID_EMAIL_CONTRACT_CONFIRMED','SOURCEID_SSO_POLICY_CONFIRMED','SOURCEID_ENTERPRISE_POLICY_CONFIRMED','SOURCEID_JIT_POLICY_CONFIRMED','SOURCEID_AUTO_BINDING_POLICY_REF','SOURCEID_LOCAL_POLICY_REF','SOURCEID_ADMISSION_POLICY_REF','SOURCEID_ENTERPRISE_POLICY_REF','SOURCEID_JIT_POLICY_REF','SOURCEID_JIT_EMAIL_DOMAINS','SOURCEID_ENTERPRISE_MAX_AGE','SOURCEID_LOCAL_ACCESS_TTL','SOURCEID_LOCAL_ABSOLUTE_TTL','SOURCEID_LOCAL_IDLE_TTL','SOURCEID_ADMISSION_MAX_AGE'}
+ENV_ALLOWED=FLAGS|{'SOURCEID_ACCOUNT_LINK_MODE','SOURCEID_VERIFIED_EMAIL_POLICY_CONFIRMED','SOURCEID_VERIFIED_EMAIL_POLICY_REF','SOURCEID_EMAIL_CONTRACT_CONFIRMED','SOURCEID_SSO_POLICY_CONFIRMED','SOURCEID_ENTERPRISE_POLICY_CONFIRMED','SOURCEID_JIT_POLICY_CONFIRMED','SOURCEID_AUTO_BINDING_POLICY_REF','SOURCEID_LOCAL_POLICY_REF','SOURCEID_ADMISSION_POLICY_REF','SOURCEID_ENTERPRISE_POLICY_REF','SOURCEID_JIT_POLICY_REF','SOURCEID_JIT_EMAIL_DOMAINS','SOURCEID_ENTERPRISE_MAX_AGE','SOURCEID_LOCAL_ACCESS_TTL','SOURCEID_LOCAL_ABSOLUTE_TTL','SOURCEID_LOCAL_IDLE_TTL','SOURCEID_ADMISSION_MAX_AGE'}
+
+def approved_scope(inputs,env,case):
+    scope=inputs.get('acceptance_scope','full')
+    if scope not in ('full','A_positive'):raise RuntimeError('invalid_acceptance_scope')
+    if scope=='A_positive':
+        ref=inputs.get('positive_scope_approval_ref','')
+        if case!='existing' or not isinstance(ref,str) or not ref.strip() or any(w in ref.lower() for w in ('synthetic','mock','placeholder','todo')):raise RuntimeError('explicit_positive_scope_approval_required')
+    return scope
 
 
 def command(args, data=None, timeout=30):
@@ -80,12 +91,18 @@ class DockerPilotPort:
                'SOURCEID_LOCAL_REFRESH_ENABLE':'false','SOURCEID_ACCOUNT_SCOPE':'enterprise_all',
                'SOURCEID_ADMISSION_MODE':'oidc_sso_approved','SOURCEID_SESSION_MODE':'local_approved',
                'AUTO_MIGRATE':'false','SOURCEID_JIT_ENABLE':'true' if case=='jit' else 'false'}
-        if any(self.env.get(k)!=v for k,v in fixed.items()):raise RuntimeError('approved_mode_mismatch')
-        for key in ('business_approval_ref','scope_evidence_ref','ownership_batch_ref'):
+        if any(self.env.get(k)!=v for k,v in fixed.items()) or self.env.get('SOURCEID_ACCOUNT_LINK_MODE','trusted_ownership') not in ('trusted_ownership','verified_email_policy'):raise RuntimeError('approved_mode_mismatch')
+        evidence_keys=['business_approval_ref','scope_evidence_ref']
+        if getattr(self,'env',{}).get('SOURCEID_ACCOUNT_LINK_MODE')=='verified_email_policy':
+            if self.env.get('SOURCEID_VERIFIED_EMAIL_POLICY_CONFIRMED')!='true' or inputs.get('company_policy_ref')!=self.env.get('SOURCEID_VERIFIED_EMAIL_POLICY_REF'):raise RuntimeError('company_email_policy_approval_required')
+            evidence_keys.append('company_policy_ref')
+        else:evidence_keys.append('ownership_batch_ref')
+        for key in evidence_keys:
             if not isinstance(inputs.get(key),str) or not inputs[key].strip():raise RuntimeError('approval_input_missing')
             if any(word in inputs[key].lower() for word in ('synthetic','mock','placeholder','todo')):raise RuntimeError('real_approval_required')
         for key,value in self.env.items():
             if key.endswith('_POLICY_REF') and (not value.strip() or any(word in value.lower() for word in ('synthetic','mock','placeholder','todo'))):raise RuntimeError('real_policy_required')
+        self.acceptance_scope=approved_scope(inputs,self.env,case)
         self.dir=RELEASE/'private'/('business-monitor-'+str(uuid.uuid4()));self.dir.mkdir(mode=0o700)
         self.override=self.dir/'approved-once.json'
         self.observer_dir=Path(inputs['protected_observer_directory']).resolve()
@@ -95,8 +112,8 @@ class DockerPilotPort:
         self.server_observer=None;self.gateway_observation=None;self.gateway_process=None
         if inputs.get('observation_mode')=='server_metadata':
             if case!='existing':raise RuntimeError('first_round_existing_only')
-            self.server_observer=ServerBusinessObserver(inputs['approved_client_address'],inputs['allowed_kb_ids'],inputs['allowed_document_ids'],inputs.get('denied_kb_id'))
-            if not self.server_observer.denied:raise RuntimeError('existing_negative_resource_not_ready')
+            self.server_observer=ServerBusinessObserver(inputs['approved_client_address'],inputs['allowed_kb_ids'],inputs['allowed_document_ids'],inputs.get('denied_kb_id'),self.acceptance_scope!='A_positive')
+            if self.server_observer.require_negative and not self.server_observer.denied:raise RuntimeError('existing_negative_resource_not_ready')
             self.validate_observation_resources()
             self.gateway_observation=GatewayObservation(command,inspect,inputs['approved_client_address'],self.server_observer.allowed,self.server_observer.documents,self.server_observer.denied)
 
@@ -110,13 +127,16 @@ class DockerPilotPort:
         return command(DOCKER+['exec','-i',PG,'psql','-X','-U','clean_owner','-d','knowhub_oa_sso_pilot','-qAt','-v','ON_ERROR_STOP=1'],sql.encode()).decode().strip()
 
     def flags(self):
-        env=dict(x.split('=',1) for x in inspect(APP,'.Config.Env') if '=' in x)
-        return {k:env.get(k,'false' if k=='SOURCEID_JIT_ENABLE' else 'NOT_SET') for k in ENV_ALLOWED}
+        # Query only reviewed policy keys in the APP process. Never retrieve
+        # the entire Docker environment (which includes real credentials).
+        script="import os,json,sys;print(json.dumps({k:os.environ[k] for k in json.loads(sys.argv[1]) if k in os.environ}))"
+        env=json.loads(command(DOCKER+['exec',APP,'python3','-c',script,json.dumps(sorted(ENV_ALLOWED))]))
+        return {k:env.get(k,'trusted_ownership' if k=='SOURCEID_ACCOUNT_LINK_MODE' else ('false' if k in ('SOURCEID_JIT_ENABLE','SOURCEID_VERIFIED_EMAIL_POLICY_CONFIRMED') else 'NOT_SET')) for k in ENV_ALLOWED}
 
     def inventory(self):
         labels=inspect(APP,'.Config.Labels')
         if labels.get('com.docker.compose.project.working_dir')!=str(ROOT):raise RuntimeError('project_directory_mismatch')
-        if labels.get('com.docker.compose.project.config_files','').split(',') not in ([str(ROOT/'compose.json')],[str(ROOT/'compose.json'),str(self.override)]):raise RuntimeError('compose_order_mismatch')
+        if labels.get('com.docker.compose.project.config_files','').split(',') not in (COMPOSE_FILES,COMPOSE_FILES+[str(self.override)]):raise RuntimeError('compose_order_mismatch')
         image=inspect(APP,'.Image')
         if inspect(APP,'.HostConfig.PortBindings') or inspect(PG,'.HostConfig.PortBindings') or inspect(PROJECT+'-redis-1','.HostConfig.PortBindings'):
             raise RuntimeError('pilot_private_ports_changed')
@@ -152,7 +172,7 @@ class DockerPilotPort:
                 try:response=opener.open(request,timeout=8)
                 except urllib.error.HTTPError as error:response=error
                 with response:
-                    if response.headers.get('X-KnowHub-Environment')!='company-test-f40-db3029' or response.code!=(302 if path.endswith('/callback') else 200):raise RuntimeError('company_route_mismatch')
+                    if response.headers.get('X-KnowHub-Environment')!=ENVIRONMENT_HEADER or response.code!=(302 if path.endswith('/callback') else 200):raise RuntimeError('company_route_mismatch')
                     if path.endswith('/callback'):
                         location=urllib.parse.urlsplit(response.headers.get('Location',''))
                         if location.hostname not in (None,'knowhub.ruijie.com.cn') or urllib.parse.parse_qs(location.fragment).get('oidc_error')!=['invalid_state']:raise RuntimeError('company_callback_mismatch')
@@ -170,6 +190,7 @@ class DockerPilotPort:
                 'tenants':self.rows('tenants','id'),
                 'sessions':self.rows('source_id_sessions','id,user_id,revoked'),
                 'jit':self.rows('source_id_jit_registrations','id,user_id'),
+                'ownership':self.rows('source_id_account_ownership','id,user_id,status'),
                 'other_services':self.other_services()}
 
     def save_private_baseline(self,before):self.before=before  # RAM only.
@@ -194,7 +215,8 @@ class DockerPilotPort:
         return out
 
     def compose(self,override=False):
-        args=DOCKER+['compose','-p',PROJECT,'--project-directory',str(ROOT),'-f',str(ROOT/'compose.json')]
+        args=DOCKER+['compose','-p',PROJECT,'--project-directory',str(ROOT)]
+        for name in COMPOSE_FILES:args+=['-f',name]
         return args+(['-f',str(self.override)] if override else [])
 
     def recreate(self,override):
@@ -259,7 +281,7 @@ class DockerPilotPort:
 
     def validate_observation_resources(self):
         observer=self.server_observer
-        ids=observer.allowed|{observer.denied}
+        ids=observer.allowed|({observer.denied} if observer.denied else set())
         literals=','.join("'"+x+"'" for x in ids)
         rows=json.loads(self.query("SELECT COALESCE(json_agg(id),'[]') FROM knowledge_bases WHERE deleted_at IS NULL AND id IN ("+literals+")"))
         if set(rows)!=ids:raise RuntimeError('approved_knowledge_resource_missing')
@@ -317,6 +339,12 @@ class DockerPilotPort:
         after=self.snapshot();uid=s['user_id'];new={u['id'] for u in after['users']}-{u['id'] for u in before['users']}
         q="SELECT json_build_object('local',COUNT(*)=1,'bounded',COALESCE(bool_and(NOT l.refresh_enabled AND l.access_seconds>0 AND l.idle_seconds>0 AND l.admission_valid_until>=x.expires_at AND NOT EXISTS(SELECT 1 FROM auth_tokens a WHERE a.session_id=x.id AND (a.token_type='refresh_token' OR a.expires_at>x.expires_at))),false)) FROM source_id_local_sessions l JOIN source_id_sessions x ON x.id=l.id WHERE l.id='"+s['id']+"'"
         policy=json.loads(self.query(q))
+        if getattr(self,'env',{}).get('SOURCEID_ACCOUNT_LINK_MODE')=='verified_email_policy':
+            # Only safe policy metadata, never UserInfo/employee claims. Exact
+            # references are compared inside the process, not exported.
+            markers=json.loads(self.query("SELECT COALESCE(json_agg(s),'[]') FROM (SELECT p.link_mode,p.policy_ref,p.binding_policy_ref FROM source_id_local_link_policies p JOIN source_id_link_decisions d ON d.id=p.decision_id JOIN source_id_binding_reviews r ON r.id=d.review_id WHERE p.id='"+s['id']+"' AND r.user_id='"+s['user_id']+"' AND r.status='approved') s"))
+            if len(markers)!=1 or markers[0]!={'link_mode':'verified_email_policy','policy_ref':self.env['SOURCEID_VERIFIED_EMAIL_POLICY_REF'],'binding_policy_ref':self.env['SOURCEID_AUTO_BINDING_POLICY_REF']} or before['ownership']!=self.snapshot()['ownership']:raise RuntimeError('verified_email_policy_metadata_mismatch')
+            self.link_policy_status='PASS'
         check.update(single_bound_session=len(self.new_session_candidates(before))==1 and policy['local'],session_access_bounded=policy['bounded'])
         preserved=self.permissions_preserved(before,case)
         if case=='existing':check.update(original_user_id=uid==self.user,roles_unchanged=preserved,memberships_unchanged=before['members']==after['members'],acl_unchanged=before['acl']==after['acl'],no_new_user=not new)

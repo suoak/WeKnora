@@ -1,3 +1,5 @@
+> 2026-10-18 update: verified_email_policy implementation and four CI jobs PASS; candidate 5f988be51 is built, not deployed. See [implementation](SOURCEID_VERIFIED_EMAIL_IMPLEMENTATION_REPORT.md), [upgrade plan](SOURCEID_VERIFIED_EMAIL_TEST_SITE_UPGRADE_PLAN.md), and [real login card](SOURCEID_VERIFIED_EMAIL_FIRST_REAL_LOGIN_CARD.md). Historical f40 execution requirements below do not override the new policy.
+
 # KnowHub真实OA业务验收READY检查报告
 
 > 最新产品调整：拟采用[可信SID邮箱自动关联政策](SOURCEID_VERIFIED_EMAIL_AUTO_LINK_DESIGN.md)，不再要求公司员工逐个提供独立ownership JSON。f40原归属模式仍在运行、门禁未变；新政策模式须完成最小适配和隔离全链路验证后才能部署。旧文档的“单账号必须先提交独立证明/apply”是原模式执行路径，不能当作新模式对每位员工的要求。未记录的历史邮箱转让风险须公司级明确接受或集中清理，不伪造归属依据。

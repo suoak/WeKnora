@@ -1,0 +1,12 @@
+{
+  "result": "PASS",
+  "candidate_revision": "5f988be51779f1a22bd9d027b7503fe6a8749f62",
+  "candidate_schema": 3030,
+  "windows_business_tests": 43,
+  "linux_business_tests": 43,
+  "windows_protocol_compatibility_tests": 28,
+  "synthetic_only": true,
+  "live_worker_started": false,
+  "live_app_changed": false,
+  "real_sid_requests": 0
+}

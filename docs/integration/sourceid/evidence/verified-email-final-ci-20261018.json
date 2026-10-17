@@ -1,0 +1,214 @@
+{
+  "source_sha": "5f988be51779f1a22bd9d027b7503fe6a8749f62",
+  "run_id": 39045640602,
+  "url": "https://github.com/suoak/WeKnora/actions/runs/39045640602",
+  "result": "PASS",
+  "jobs": {
+    "frontend": "success",
+    "browser": "success",
+    "postgres": "success",
+    "linux": "success"
+  },
+  "steps": [
+    {
+      "name": "frontend",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm run type-check",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm test -- src/utils/authRedirect.test.ts src/utils/authRefresh.test.ts src/utils/authLandingContracts.test.ts src/utils/oidcCallbackEntry.test.ts",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm run build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "browser",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-go@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Real frontend and business auth handlers with isolated Mock SID",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-go@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "postgres",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Initialize containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-go@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "PostgreSQL migration and durable session tests",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-go@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "linux",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-go@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Record identity",
+          "conclusion": "success"
+        },
+        {
+          "name": "SourceID and authentication tests with race detection",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate isolated diagnostic report persistence filter",
+          "conclusion": "success"
+        },
+        {
+          "name": "Feishu and combined migration compatibility",
+          "conclusion": "success"
+        },
+        {
+          "name": "Authentication and MCP regression",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build server and reviewed enrollment utility",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-go@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ]
+}
