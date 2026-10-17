@@ -1,0 +1,45 @@
+{
+  "result": "PREFLIGHT_PASS",
+  "backup_directory": "/home/aqyfzx/ai/knowhub-verified-email-candidate-5f988be51/private/deployment-20261017T171954Z",
+  "app": "f40b1602f",
+  "frontend": "832b6652a",
+  "db": 3029,
+  "dirty": false,
+  "candidate_image": "sha256:0994762cd32f4289dc397757f9123bafd3cc913b407c05927c7ee064b32ade2b",
+  "candidate_revision": "5f988be51779f1a22bd9d027b7503fe6a8749f62",
+  "active_authorization_transactions": 0,
+  "active_other_db_queries": 0,
+  "entry_established_connections": {
+    "80": 0,
+    "8080": 0
+  },
+  "gates": {
+    "OIDC_AUTH_ENABLE": "false",
+    "SOURCEID_PROTOCOL_ONLY": "true",
+    "SOURCEID_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_EMAIL_BINDING_ENABLE": "false",
+    "SOURCEID_AUTO_BINDING_ENABLE": "false",
+    "SOURCEID_JIT_ENABLE": "false",
+    "SOURCEID_SESSION_MODE": "external",
+    "SOURCEID_FORCE_REAUTH_PROMPT_LOGIN": "false",
+    "SOURCEID_LOCAL_REFRESH_ENABLE": "false",
+    "SOURCEID_BASIC_ENCODING": "oauth_form",
+    "SOURCEID_DIAGNOSTICS_ENABLE": "false",
+    "AUTO_MIGRATE": "false"
+  },
+  "counts": {
+    "users": 3,
+    "members": 5,
+    "active_kbs": 1,
+    "documents": 3,
+    "chunks": 2717,
+    "embeddings": 2717,
+    "identities": 0,
+    "sessions": 0,
+    "jit": 0,
+    "ownership": 0
+  },
+  "internal_services_not_published": true,
+  "free_gib": 226.1,
+  "real_sid_requests": 0
+}

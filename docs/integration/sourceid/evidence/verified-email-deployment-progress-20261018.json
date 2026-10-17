@@ -1,0 +1,30 @@
+{
+  "deployment-backup-result.json": {
+    "result": "PASS",
+    "stage": "paired_backup_complete_app_stopped",
+    "real_sid_requests": 0,
+    "backup_directory": "/home/aqyfzx/ai/knowhub-verified-email-candidate-5f988be51/private/deployment-20261017T171954Z",
+    "database_backup_bytes": 21706942,
+    "files_backup_bytes": 2570240,
+    "protected_configuration_saved": true,
+    "paired_snapshot_writers_stopped": true,
+    "app_stopped": true,
+    "database_schema": 3029,
+    "source_files_read_only": true,
+    "utc": "2026-10-17T17:22:29.974826+00:00"
+  },
+  "deployment-result.json": {
+    "result": "FAIL",
+    "stage": "entry_route_verify",
+    "real_sid_requests": 0,
+    "rollback_triggered": true,
+    "migration_executed": true,
+    "failure_class": "AssertionError",
+    "failure_lines": [
+      52
+    ],
+    "database_state_after_failure": "3030|false",
+    "rollback_status": "OLD_APP_RESTORED_DATABASE_RETAINED",
+    "utc": "2026-10-17T17:23:23.601151+00:00"
+  }
+}

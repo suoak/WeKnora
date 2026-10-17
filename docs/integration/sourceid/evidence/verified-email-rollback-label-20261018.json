@@ -1,0 +1,6 @@
+{
+  "result": "PASS",
+  "only_environment_label_updated": "company-test-f40-db3030",
+  "upstream_routes_changed": false,
+  "real_sid_requests": 0
+}
