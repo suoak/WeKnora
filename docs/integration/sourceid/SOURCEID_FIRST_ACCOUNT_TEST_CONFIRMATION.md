@@ -1,5 +1,7 @@
 # 首笔原账号 OA 验收：最小确认单
 
+> 后续产品要求已调整为[可信SID邮箱政策自动关联](SOURCEID_VERIFIED_EMAIL_AUTO_LINK_DESIGN.md)。本单逐行证明与apply要求仅适用于原trusted-ownership路径，不再作为公司员工逐人接入要求。新模式尚在设计与隔离验证，尚未修改运行配置；改用获批的公司级关联政策，不生成虚假source_ref/ownership_ref。
+
 状态：待人工核验及政策确认。无真实归属 apply、无真实 SID 登录；JIT关闭。仅限打包测试机 `172.30.232.42` 的 `knowhub-company-test`，不是生产放行。
 
 ## 1. 一份单账号受保护核验记录
