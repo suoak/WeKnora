@@ -346,7 +346,7 @@ func TestSourceIDPostgresVerifiedEmailBlocksConcurrentEmailInsert(t *testing.T) 
 		t.Fatal("first review not reached")
 	}
 	go func() {
-		insertDone <- db.Create(&types.User{ID: uuid.NewString(), Username: "synthetic-competing-registration", Email: "EMPLOYEE@example.test", IsActive: true}).Error
+		insertDone <- r.CreateUser(context.Background(), &types.User{ID: uuid.NewString(), Username: "synthetic-competing-registration", Email: "EMPLOYEE@example.test", IsActive: true})
 	}()
 	select {
 	case <-insertDone:
