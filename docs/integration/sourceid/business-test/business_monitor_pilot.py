@@ -209,7 +209,7 @@ class DockerPilotPort:
         SELECT key,consumed,EXTRACT(EPOCH FROM expires_at) AS expires,
         CASE WHEN NOT consumed AND result LIKE '{"version":1,%' THEN EXTRACT(EPOCH FROM (result::jsonb->>'started')::timestamptz) ELSE NULL END AS started,
         CASE WHEN NOT consumed AND result LIKE '{"version":1,%' THEN COALESCE(result::jsonb->>'prompt','')='login' ELSE NULL END AS prompt
-        FROM oidc_transactions ORDER BY expires_at LIMIT 10001) s"""))
+        FROM oidc_transactions WHERE nonce<>'' ORDER BY expires_at LIMIT 10001) s"""))
         if len(rows)>10000:raise RuntimeError('transaction_snapshot_limit')
         out=[]
         for row in rows:

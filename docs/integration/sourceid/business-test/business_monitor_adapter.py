@@ -4,6 +4,8 @@ The port owns protected DB/browser IPC and approved APP-only configuration.
 No protocol-only runtime import, credentials in receipts, or role split.
 """
 import json
+import traceback
+from pathlib import Path
 
 from business_monitor import BusinessMonitor, PROJECT, IMAGE, REVISION, SCHEMA, finish
 
@@ -177,9 +179,13 @@ def run(port, case, approved=False, exclusive=False):
             adapter.poll(m, port.now())
             if not m.finished:
                 port.pause()
-    except (Exception, KeyboardInterrupt):
+    except (Exception, KeyboardInterrupt) as error:
         if m is None:
             m = BusinessMonitor(case, port.now())
+        m.control_failure={'class':type(error).__name__, 'sites':[
+            {'module':Path(frame.filename).name,'line':frame.lineno}
+            for frame in traceback.extract_tb(error.__traceback__)
+            if Path(frame.filename).name in ('business_monitor_adapter.py','business_monitor_pilot.py','company_gateway_observer.py')][-5:]}
         m.end('CONTROLLED_FAILURE_NO_RETRY')
     finally:
         try:

@@ -107,6 +107,13 @@ class MockPort:
 
 class Calibration(unittest.TestCase):
 
+    def test_gateway_uuid_path_map_has_explicit_bucket_size(self):
+        original='http { access_log off; allow 192.0.2.10; }'
+        value=configuration(original,'192.0.2.10',[A],[C],None)
+        self.assertIn('map_hash_bucket_size 128;',value)
+        existing=configuration('http { map_hash_bucket_size 256; access_log off; allow 192.0.2.10; }','192.0.2.10',[A],[C],None)
+        self.assertEqual(existing.count('map_hash_bucket_size'),1)
+
     def test_preexisting_oidc_entry_is_preserved_with_business_closed(self):
         port=MockPort();port.closed_baseline=dict(CLOSED,OIDC_AUTH_ENABLE='true');port.flags=dict(port.closed_baseline)
         original=port.restore_original_app_only
@@ -440,6 +447,18 @@ class Calibration(unittest.TestCase):
     def test_unknown_fields_and_oversized_lines_reject(self):
         m=BusinessMonitor('jit',100);m.stage({'token':POISON});self.assertEqual(m.reason,'OBSERVABILITY_INCOMPLETE')
         m=BusinessMonitor('jit',100);m.line('x'*65537);self.assertEqual(m.reason,'OBSERVABILITY_INCOMPLETE')
+
+    def test_login_result_handoff_is_not_an_authorization(self):
+        # Real server stores authorization and login-result handoff in the same
+        # table. Handoff has empty nonce and must not look like a second login.
+        p=object.__new__(DockerPilotPort);p.tx_cache={}
+        def query(sql):
+            self.assertIn("FROM oidc_transactions WHERE nonce<>''",sql)
+            return json.dumps([{'key':PRIVATE,'consumed':False,'expires':700,'started':100,'prompt':False}])
+        p.query=query
+        rows=p.transactions();self.assertEqual(len(rows),1)
+        m=BusinessMonitor('existing',100);m.transactions(rows,100)
+        self.assertFalse(m.finished);self.assertEqual(m.bound.handle,PRIVATE)
 
     def test_default_cli_inert_without_docker_or_file_access(self):
         with patch('business_monitor_pilot.command',side_effect=AssertionError('must not call Docker')),contextlib.redirect_stdout(io.StringIO()) as output:

@@ -15,7 +15,10 @@ def configuration(original,source,allowed,documents,denied):
     for x in documents:
         entries += [(p,'document') for p in ('/api/v1/knowledge/'+x,'/api/v1/knowledge/'+x+'/preview','/api/v1/knowledge/'+x+'/download','/api/v1/chunks/'+x)]
     mapping=' '.join('"'+path+'" '+kind+';' for path,kind in entries)
-    block=('map $uri $kh_kind { default ""; '+mapping+' } '
+    # Real UUID-bearing KB paths exceed nginx's default map bucket size.
+    # This lives only in the temporary observer configuration and is restored.
+    bucket='' if re.search(r'\bmap_hash_bucket_size\s+',original) else 'map_hash_bucket_size 128; '
+    block=(bucket+'map $uri $kh_kind { default ""; '+mapping+' } '
            'map $kh_kind $kh_emit { default 1; "" 0; } '
            'map $remote_addr $kh_source { default false; '+source+' true; } '
            'log_format kh_business escape=json \'{"event":"company_business_http","kind":"$kh_kind","status":$status,"method":"$request_method","source_approved":$kh_source,"request_id":"$request_id"}\'; '

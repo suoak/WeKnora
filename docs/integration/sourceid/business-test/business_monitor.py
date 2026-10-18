@@ -241,7 +241,8 @@ class BusinessMonitor:
                 'observation_mode': 'SERVER_METADATA_AND_USER_PORTAL_CONFIRMATION' if getattr(self,'observation_mode',None)=='SERVER_METADATA_AND_USER_PORTAL_CONFIRMATION' else 'PROTECTED_EXTERNAL_OBSERVER',
                 'acceptance_scope':'A_positive' if getattr(self,'acceptance_scope',None)=='A_positive' else 'full',
                 'cross_space_negative':'NOT_EXECUTED' if getattr(self,'acceptance_scope',None)=='A_positive' else ('PASS' if self.probes and self.probes.get('knowledge_access_correct') else 'NOT_CAPTURED'),
-                'link_policy_verification':'PASS' if getattr(self,'link_policy_verification',None)=='PASS' else 'NOT_CAPTURED'}
+                'link_policy_verification':'PASS' if getattr(self,'link_policy_verification',None)=='PASS' else 'NOT_CAPTURED',
+                'control_failure':getattr(self,'control_failure',None)}
 
 
 def finish(m, adapter):
