@@ -40,7 +40,14 @@ with account/session metadata corroboration. Full automated acceptance remains
 INCOMPLETE. Complete before/after ACL equality, vector counts and HTTP-stage
 results are not reasserted by this read-only check.
 
-Local logout and derived Access invalidation remain PENDING because one Session
-and one Access record are still active. Session expiry, cross-space negative
-authorization, JIT and SID unified logout were NOT_EXECUTED in this result.
-The user's active Session has not been revoked prematurely during use.
+The user subsequently confirmed local logout. A fresh read-only database check
+then showed zero active enterprise Sessions, all three recorded Sessions revoked,
+and zero active enterprise Access records. Enterprise Refresh records remain zero.
+Original account, binding, approved policy, owner membership and administrator
+flag remain present. Local logout and stored Session/Access revocation are thus
+corroborated; no replay of a real Access token was performed.
+
+APP remains healthy, DB3030 remains clean, and approved business configuration
+remains loaded. Session expiry, cross-space negative authorization, JIT and SID
+unified logout were NOT_EXECUTED in this result. The observation limitation above
+still prevents claiming complete automatic protocol-stage acceptance.
