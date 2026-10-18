@@ -1,0 +1,136 @@
+{
+  "result": "PASS",
+  "real_sid_requests": 0,
+  "business_identity_writes": false,
+  "stage": "rollback_verified",
+  "original_user_roles_members_acl_documents_vector_references_unchanged": true,
+  "file_contents_unchanged": true,
+  "other_containers_images_mounts_ports_unchanged": true,
+  "firewall_rules_unchanged": true,
+  "routes": [
+    {
+      "port": 80,
+      "path": "/login",
+      "status": 200
+    },
+    {
+      "port": 80,
+      "path": "/health",
+      "status": 200
+    },
+    {
+      "port": 80,
+      "path": "/api/v1/auth/oidc/config",
+      "status": 200
+    },
+    {
+      "port": 80,
+      "path": "/api/v1/auth/oidc/callback",
+      "status": 302
+    },
+    {
+      "port": 80,
+      "path": "/api/v1/auth/me",
+      "status": 401
+    },
+    {
+      "port": 80,
+      "path": "/api/v1/knowledge-bases",
+      "status": 401
+    },
+    {
+      "port": 80,
+      "path": "/api/v1/system/admin/feishu",
+      "status": 401
+    },
+    {
+      "port": 80,
+      "path": "/api/v1/me/feishu",
+      "status": 401
+    },
+    {
+      "port": 80,
+      "path": "/mcp/nonexistent-deployment-probe",
+      "status": 401
+    },
+    {
+      "port": 8080,
+      "path": "/login",
+      "status": 401
+    },
+    {
+      "port": 8080,
+      "path": "/health",
+      "status": 200
+    },
+    {
+      "port": 8080,
+      "path": "/api/v1/auth/oidc/config",
+      "status": 200
+    },
+    {
+      "port": 8080,
+      "path": "/api/v1/auth/oidc/callback",
+      "status": 302
+    },
+    {
+      "port": 8080,
+      "path": "/api/v1/auth/me",
+      "status": 401
+    },
+    {
+      "port": 8080,
+      "path": "/api/v1/knowledge-bases",
+      "status": 401
+    },
+    {
+      "port": 8080,
+      "path": "/api/v1/system/admin/feishu",
+      "status": 401
+    },
+    {
+      "port": 8080,
+      "path": "/api/v1/me/feishu",
+      "status": 401
+    },
+    {
+      "port": 8080,
+      "path": "/mcp/nonexistent-deployment-probe",
+      "status": 401
+    }
+  ],
+  "current_app_revision": "f40b1602f69ce5d88e1e87dc3cefae36e9bde356",
+  "current_app_image": "sha256:742c7ce56ef38ad32548900c8e7f8b264f9f6cd6138043674b91b27557443413",
+  "frontend_revision": "832b6652adf541892545a7eac8b68733f846ab95",
+  "schema": 3030,
+  "dirty": false,
+  "gates": {
+    "OIDC_AUTH_ENABLE": "false",
+    "SOURCEID_PROTOCOL_ONLY": "true",
+    "SOURCEID_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_EMAIL_BINDING_ENABLE": "false",
+    "SOURCEID_AUTO_BINDING_ENABLE": "false",
+    "SOURCEID_JIT_ENABLE": "false",
+    "SOURCEID_SESSION_MODE": "external",
+    "SOURCEID_FORCE_REAUTH_PROMPT_LOGIN": "false",
+    "SOURCEID_LOCAL_REFRESH_ENABLE": "false",
+    "SOURCEID_BASIC_ENCODING": "oauth_form",
+    "SOURCEID_DIAGNOSTICS_ENABLE": "false",
+    "AUTO_MIGRATE": "false",
+    "SOURCEID_ACCOUNT_LINK_MODE": "trusted_ownership",
+    "SOURCEID_VERIFIED_EMAIL_POLICY_CONFIRMED": "false",
+    "SOURCEID_VERIFIED_EMAIL_POLICY_REF": "",
+    "FEISHU_PERSONAL_ENABLE": null
+  },
+  "users": 3,
+  "members": 5,
+  "active_kbs": 1,
+  "documents": 3,
+  "nonempty_chunks": 2717,
+  "embeddings": 2717,
+  "actual_app_only_rollback_verified": true,
+  "root_cause": "VERIFIER_COMPARED_UNORDERED_DOCKER_MOUNTS_AS_ORDERED_ARRAY",
+  "new_policy_implementation_not_currently_running": true,
+  "full_mcp_feishu_business_not_executed": true,
+  "utc": "2026-10-18T00:15:52.145016+00:00"
+}

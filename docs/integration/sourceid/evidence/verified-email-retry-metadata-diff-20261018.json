@@ -1,0 +1,28 @@
+{
+  "result": "READ_ONLY",
+  "differences": [
+    {
+      "container": "knowhub-sourceid-p6-frontend-1",
+      "differing_keys": [
+        "mounts"
+      ],
+      "mounts_equal_ignoring_order": true,
+      "id_unchanged": true,
+      "image_unchanged": true,
+      "ports_unchanged": true
+    },
+    {
+      "container": "knowhub-ipd-app",
+      "differing_keys": [
+        "mounts"
+      ],
+      "mounts_equal_ignoring_order": true,
+      "id_unchanged": true,
+      "image_unchanged": true,
+      "ports_unchanged": true
+    }
+  ],
+  "app_image": "sha256:742c7ce56ef38ad32548900c8e7f8b264f9f6cd6138043674b91b27557443413",
+  "app_health": "healthy",
+  "real_sid_requests": 0
+}

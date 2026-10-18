@@ -1,0 +1,9 @@
+{
+  "result": "PASS",
+  "linux_tests": 6,
+  "unchanged_other_containers_semantic_comparison": "PASS",
+  "timing": "AFTER_ROLLBACK_NO_REDEPLOY",
+  "schema_commands_executed": 0,
+  "real_sid_requests": 0,
+  "app_recreated": false
+}

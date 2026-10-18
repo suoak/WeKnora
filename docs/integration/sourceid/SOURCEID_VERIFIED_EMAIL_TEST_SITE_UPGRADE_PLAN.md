@@ -2,6 +2,8 @@
 
 > 2026-10-18实际执行：3030迁移成功，APP验收脚本误将8080当作前端登录页，已自动回滚f40并完成数据/入口核查。当前为f40/832/DB3030 clean，停止等待APP-only重试确认；不可再次执行下文3029起点迁移。详见[SOURCEID_VERIFIED_EMAIL_TEST_SITE_DEPLOYMENT_REPORT.md](SOURCEID_VERIFIED_EMAIL_TEST_SITE_DEPLOYMENT_REPORT.md)。
 
+> 同日授权的一次APP-only重试已执行，端口验收通过，但Docker挂载数组顺序比较误报导致再次回滚；当前仍f40/832/3030 clean，未再次部署。最新事实见[APP-only重试实际记录](SOURCEID_VERIFIED_EMAIL_APP_ONLY_RETRY_DEPLOYMENT_REPORT.md)。
+
 仅172.30.232.42、knowhub-company-test；不操作生产。当前APP f40b1602f、Frontend832b6652a、DB3029。目标为经过CI的verified_email_policy候选APP与DB3030，Frontend不变。本文件不是实际升级执行记录。
 
 候选源码：`5f988be51779f1a22bd9d027b7503fe6a8749f62`；镜像：`sha256:0994762cd32f4289dc397757f9123bafd3cc913b407c05927c7ee064b32ade2b`。四项CI全部通过。候选目录`/home/aqyfzx/ai/knowhub-verified-email-candidate-5f988be51`，APP pin为`app-pin.json`，恢复pin为`app-rollback-pin.json`。当前基础Compose是`/home/aqyfzx/ai/knowhub-company-entry-20261017/green/compose.json`；批准升级时按基础Compose→候选APP pin顺序，仅对app执行`up -d --no-deps --no-build --pull never --force-recreate app`。不得混用历史pilot或旧默认项目pin。

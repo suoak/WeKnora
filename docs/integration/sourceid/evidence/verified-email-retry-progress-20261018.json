@@ -1,0 +1,129 @@
+{
+  "retry-backup-result.json": {
+    "result": "PASS",
+    "stage": "paired_backup_complete_app_stopped",
+    "real_sid_requests": 0,
+    "backup_directory": "/home/aqyfzx/ai/knowhub-verified-email-candidate-5f988be51/private/retry-20261018T001316Z",
+    "database_backup_bytes": 21717702,
+    "files_backup_bytes": 2570240,
+    "protected_configuration_saved": true,
+    "paired_snapshot_writers_stopped": true,
+    "app_stopped": true,
+    "database_schema": 3030,
+    "source_files_read_only": true,
+    "utc": "2026-10-18T00:13:36.060095+00:00"
+  },
+  "retry-deploy-result.json": {
+    "result": "FAIL",
+    "stage": "verify_before_label_change",
+    "schema_commands_executed": 0,
+    "real_sid_requests": 0,
+    "rollback_triggered": true,
+    "deploy_attempts": 1,
+    "protected_runtime_configuration_unchanged": true,
+    "last_route_probe": {
+      "port": 8080,
+      "path": "/mcp/nonexistent-deployment-probe",
+      "status": 401
+    },
+    "routes_before_label_update": [
+      {
+        "port": 80,
+        "path": "/login",
+        "status": 200
+      },
+      {
+        "port": 80,
+        "path": "/health",
+        "status": 200
+      },
+      {
+        "port": 80,
+        "path": "/api/v1/auth/oidc/config",
+        "status": 200
+      },
+      {
+        "port": 80,
+        "path": "/api/v1/auth/oidc/callback",
+        "status": 302
+      },
+      {
+        "port": 80,
+        "path": "/api/v1/auth/me",
+        "status": 401
+      },
+      {
+        "port": 80,
+        "path": "/api/v1/knowledge-bases",
+        "status": 401
+      },
+      {
+        "port": 80,
+        "path": "/api/v1/system/admin/feishu",
+        "status": 401
+      },
+      {
+        "port": 80,
+        "path": "/api/v1/me/feishu",
+        "status": 401
+      },
+      {
+        "port": 80,
+        "path": "/mcp/nonexistent-deployment-probe",
+        "status": 401
+      },
+      {
+        "port": 8080,
+        "path": "/login",
+        "status": 401
+      },
+      {
+        "port": 8080,
+        "path": "/health",
+        "status": 200
+      },
+      {
+        "port": 8080,
+        "path": "/api/v1/auth/oidc/config",
+        "status": 200
+      },
+      {
+        "port": 8080,
+        "path": "/api/v1/auth/oidc/callback",
+        "status": 302
+      },
+      {
+        "port": 8080,
+        "path": "/api/v1/auth/me",
+        "status": 401
+      },
+      {
+        "port": 8080,
+        "path": "/api/v1/knowledge-bases",
+        "status": 401
+      },
+      {
+        "port": 8080,
+        "path": "/api/v1/system/admin/feishu",
+        "status": 401
+      },
+      {
+        "port": 8080,
+        "path": "/api/v1/me/feishu",
+        "status": 401
+      },
+      {
+        "port": 8080,
+        "path": "/mcp/nonexistent-deployment-probe",
+        "status": 401
+      }
+    ],
+    "original_data_permissions_and_file_contents_unchanged": true,
+    "failure_class": "AssertionError",
+    "failure_lines": [
+      75
+    ],
+    "rollback_status": "OLD_APP_RESTORED_DB3030_RETAINED_VERIFIED",
+    "utc": "2026-10-18T00:14:44.005873+00:00"
+  }
+}
