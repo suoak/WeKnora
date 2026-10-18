@@ -1,6 +1,9 @@
 import { get, post, put, del } from '@/utils/request'
 export type FeishuStatus = { configured: boolean; available: boolean; connected: boolean }
 export type FeishuImport = { id: string; url: string; resource_type: string; knowledge_id: string; status: string; coverage: string }
+export type FeishuDriveItem = { token: string; name: string; type: string; url: string; modified: string; importable: boolean }
+export type FeishuDrivePage = { items: FeishuDriveItem[]; has_more: boolean; next_page_token: string }
+export const browseFeishuDrive = (folder = '', pageToken = '') => get<FeishuDrivePage>('/api/v1/me/feishu/resources', { params: { folder, page_token: pageToken } })
 export const feishuStatus = () => get<FeishuStatus>('/api/v1/me/feishu')
 export const authorizeFeishu = () => post<{ authorization_url: string }>('/api/v1/me/feishu/authorize')
 export const disconnectFeishu = () => del('/api/v1/me/feishu')

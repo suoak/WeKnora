@@ -52,6 +52,15 @@ func feishuFailureResponse(c *gin.Context, err error) {
 func (h *FeishuPersonalHandler) Status(c *gin.Context) {
 	c.JSON(200, h.svc.Status(c.Request.Context()))
 }
+
+func (h *FeishuPersonalHandler) Browse(c *gin.Context) {
+	result, err := h.svc.Browse(c.Request.Context(), c.Query("folder"), c.Query("page_token"))
+	if err != nil {
+		feishuFailureResponse(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
 func (h *FeishuPersonalHandler) Config(c *gin.Context) {
 	result, err := h.svc.AdminConfig(c.Request.Context())
 	if err != nil {

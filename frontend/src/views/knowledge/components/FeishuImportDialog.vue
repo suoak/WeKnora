@@ -4,6 +4,7 @@
     <template v-else>
       <t-button v-if="!status.connected" :loading="busy" @click="connect">{{ t('connect') }}</t-button>
       <div v-else>{{ t('connected') }} <t-button variant="text" :disabled="busy" @click="disconnect">{{ t('disconnect') }}</t-button></div>
+      <FeishuDriveBrowser v-if="visible && status.connected" :disabled="busy" @select="url = $event" />
       <t-input v-model="url" :placeholder="t('url')" :disabled="busy" style="margin: 16px 0" />
       <p>{{ t('coverage') }}</p>
       <t-button :disabled="!status.connected || !url.trim()" :loading="busy" @click="runImport">{{ t('import') }}</t-button>
@@ -19,6 +20,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import FeishuDriveBrowser from './FeishuDriveBrowser.vue'
 import { feishuMessages, FEISHU_PENDING } from '@/i18n/feishuPersonal'
 import { feishuStatus, authorizeFeishu, disconnectFeishu, importFeishu, listFeishuImports, type FeishuImport } from '@/api/feishuPersonal'
 const props = defineProps<{ visible: boolean; kbId: string; initialUrl?: string }>()

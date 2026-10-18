@@ -17,6 +17,7 @@ func RegisterFeishuPersonalRoutes(r *gin.RouterGroup, h *handler.FeishuPersonalH
 	admin.POST("/test", h.TestConfig)
 	me := r.Group("/me/feishu")
 	me.GET("", h.Status)
+	me.GET("/resources", h.Browse)
 	me.POST("/authorize", h.Authorize)
 	me.POST("/callback", h.Complete)
 	me.DELETE("", h.Disconnect)

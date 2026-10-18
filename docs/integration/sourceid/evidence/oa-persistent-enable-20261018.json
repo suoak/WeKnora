@@ -1,0 +1,139 @@
+{
+  "enablement": {
+    "result": "PERSISTENT_TEST_OA_ENABLED",
+    "revision": "5f988be51779f1a22bd9d027b7503fe6a8749f62",
+    "image": "sha256:0994762cd32f4289dc397757f9123bafd3cc913b407c05927c7ee064b32ade2b",
+    "schema": 3030,
+    "dirty": false,
+    "approval_ref": "user-conversation:2026-10-18:company-test-oa-persistent-v1",
+    "backup_directory": "/home/aqyfzx/ai/knowhub-company-entry-20261017/private/oa-persistent-20261018T043810Z",
+    "compose_override": "/home/aqyfzx/ai/knowhub-company-entry-20261017/private/oa-persistent-20261018T043810Z/persistent-oa.json",
+    "rollback_script": "/home/aqyfzx/ai/knowhub-company-entry-20261017/private/oa-persistent-20261018T043810Z/rollback-app-only.sh",
+    "database_and_files_backed_up_same_frozen_generation": true,
+    "original_accounts_permissions_bindings_and_knowledge_unchanged": true,
+    "other_containers_resources_unchanged": true,
+    "only_app_recreated": true,
+    "routes": {
+      "80/login": 200,
+      "8080/login": 401,
+      "80/health": 200,
+      "8080/health": 200,
+      "80/api/v1/auth/oidc/config": 200,
+      "8080/api/v1/auth/oidc/config": 200,
+      "80/api/v1/auth/oidc/callback": 302,
+      "8080/api/v1/auth/oidc/callback": 302
+    },
+    "effective_flags": {
+      "OIDC_AUTH_ENABLE": "true",
+      "SOURCEID_ENABLE": "true",
+      "SOURCEID_PROTOCOL_ONLY": "false",
+      "SOURCEID_CONTRACT_CONFIRMED": "true",
+      "SOURCEID_CLAIMS_SOURCE": "userinfo",
+      "SOURCEID_EMPLOYEE_CLAIM": "attributes.RJGH",
+      "SOURCEID_EMAIL_BINDING_ENABLE": "true",
+      "SOURCEID_EMAIL_CONTRACT_CONFIRMED": "true",
+      "SOURCEID_AUTO_BINDING_ENABLE": "true",
+      "SOURCEID_AUTO_BINDING_POLICY_REF": "user-conversation:2026-10-18:company-test-oa-persistent-v1",
+      "SOURCEID_ACCOUNT_SCOPE": "enterprise_all",
+      "SOURCEID_ACCOUNT_LINK_MODE": "verified_email_policy",
+      "SOURCEID_VERIFIED_EMAIL_POLICY_CONFIRMED": "true",
+      "SOURCEID_VERIFIED_EMAIL_POLICY_REF": "user-conversation:2026-10-18:company-test-oa-persistent-v1",
+      "SOURCEID_SESSION_MODE": "local_approved",
+      "SOURCEID_LOCAL_POLICY_REF": "user-conversation:2026-10-18:company-test-oa-persistent-v1",
+      "SOURCEID_LOCAL_ACCESS_TTL": "60m",
+      "SOURCEID_LOCAL_ABSOLUTE_TTL": "60m",
+      "SOURCEID_LOCAL_IDLE_TTL": "30m",
+      "SOURCEID_LOCAL_REFRESH_ENABLE": "false",
+      "SOURCEID_ADMISSION_MODE": "oidc_sso_approved",
+      "SOURCEID_ADMISSION_POLICY_REF": "user-conversation:2026-10-18:company-test-oa-persistent-v1",
+      "SOURCEID_ADMISSION_MAX_AGE": "60m",
+      "SOURCEID_SSO_POLICY_CONFIRMED": "true",
+      "SOURCEID_FORCE_REAUTH_PROMPT_LOGIN": "false",
+      "SOURCEID_BASIC_ENCODING": "oauth_form",
+      "SOURCEID_JIT_ENABLE": "true",
+      "SOURCEID_JIT_POLICY_CONFIRMED": "true",
+      "SOURCEID_JIT_POLICY_REF": "user-conversation:2026-10-18:company-test-oa-persistent-v1",
+      "SOURCEID_JIT_EMAIL_DOMAINS": "ruijie.com.cn",
+      "SOURCEID_LOGOUT_ENABLE": "false",
+      "SOURCEID_AUTHORIZATION_RECHECK_CONFIRMED": "false",
+      "AUTO_MIGRATE": "false"
+    },
+    "real_sid_auth_calls": 0,
+    "continuous_enablement": true,
+    "rollback_triggered": false
+  },
+  "verification": {
+    "result": "PASS",
+    "revision": "5f988be51779f1a22bd9d027b7503fe6a8749f62",
+    "schema": 3030,
+    "dirty": false,
+    "routes": {
+      "80/login": 200,
+      "8080/login": 401,
+      "80/health": 200,
+      "8080/health": 200,
+      "80/api/v1/auth/oidc/config": 200,
+      "8080/api/v1/auth/oidc/config": 200,
+      "80/api/v1/auth/oidc/callback": 302,
+      "8080/api/v1/auth/oidc/callback": 302
+    },
+    "anonymous_apis": {
+      "80/api/v1/auth/me": 401,
+      "80/api/v1/knowledge-bases": 401,
+      "80/api/v1/mcp-endpoints": 401,
+      "80/api/v1/me/feishu": 401,
+      "80/api/v1/system/admin/feishu": 401,
+      "8080/api/v1/auth/me": 401,
+      "8080/api/v1/knowledge-bases": 401,
+      "8080/api/v1/mcp-endpoints": 401,
+      "8080/api/v1/me/feishu": 401,
+      "8080/api/v1/system/admin/feishu": 401
+    },
+    "sid_public_https": {
+      "dns_tls_discovery": "PASS",
+      "jwks": "PASS",
+      "rsa_key_present": true,
+      "official_https_only": true,
+      "authorization_token_userinfo_called": false
+    },
+    "counts": {
+      "users": 3,
+      "bindings": 1,
+      "jit": 0,
+      "documents": 3,
+      "chunks": 2717,
+      "vectors": 2717
+    },
+    "file_contents_match": true,
+    "internal_ports_unpublished": true,
+    "unapproved_bridge_denied": [
+      {
+        "port": 80,
+        "denied": true
+      },
+      {
+        "port": 8080,
+        "denied": true
+      },
+      {
+        "port": 5432,
+        "denied": true
+      },
+      {
+        "port": 6379,
+        "denied": true
+      }
+    ],
+    "effective_approved_config_matches": true,
+    "continuous_oa_and_jit": true,
+    "refresh": false,
+    "force_prompt": false,
+    "feishu_preexisting_state": {
+      "application_settings": 0,
+      "connections": 0,
+      "imports": 0
+    },
+    "real_sid_auth_calls": 0,
+    "new_real_identity_writes": 0
+  }
+}
