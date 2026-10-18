@@ -398,7 +398,24 @@ class Calibration(unittest.TestCase):
 
     def test_consumed_first_observation_not_guessed(self):
         m=BusinessMonitor('jit',100);m.transactions([Transaction(PRIVATE,100,700,True,False)],101)
-        self.assertEqual(m.reason,'CORRELATION_AMBIGUOUS')
+        self.assertEqual(m.reason,'OBSERVABILITY_INCOMPLETE')
+        self.assertEqual(m.receipt()['result'],'INCOMPLETE')
+        self.assertEqual(m.correlation_failure,'FIRST_OBSERVATION_ALREADY_CONSUMED')
+
+    def test_fast_callback_retains_counts_without_inventing_correlation(self):
+        m=BusinessMonitor('existing',100)
+        m.retain_batch_evidence([json.dumps(event('authorize',trace=A)),json.dumps(event('callback_state')),json.dumps(event('token'))])
+        m.transactions([Transaction(PRIVATE,100,700,True,False)],101)
+        r=m.receipt()
+        self.assertEqual(r['unassociated_stage_counts'],{'authorize:pass':1,'callback_state:pass':1,'token:pass':1})
+        self.assertIsNone(r['callback_trace']);self.assertFalse(r['transaction_bound'])
+        self.assertNotIn('PASS',r['stages'].values());self.assertEqual(r['result'],'INCOMPLETE')
+
+    def test_unassociated_evidence_never_saves_private_fields(self):
+        m=BusinessMonitor('existing',100);item=event('authorize',trace=A);item['token']=POISON
+        m.retain_batch_evidence([json.dumps(item),json.dumps({'event':'sourceid_stage','stage':POISON})])
+        self.assertNotIn(POISON,json.dumps(m.receipt()))
+        self.assertEqual(m.unassociated_stage_counts,{'authorize:pass':1})
 
     def test_bus_failure_cases_restore_and_revoke(self):
         for case,failure in [('existing','permission'),('jit','duplicate_jit'),('jit','refresh'),('existing','observer_trace')]:

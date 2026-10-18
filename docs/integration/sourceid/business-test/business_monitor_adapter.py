@@ -77,6 +77,7 @@ class PilotBusinessAdapter:
     def poll(self, m, now):
         # Capture stream first, then consumption snapshot, then process stages.
         lines = self.port.drain_lines()
+        m.retain_batch_evidence(lines)
         m.transactions(self.port.transactions(), now)
         for line in lines:
             m.line(line)

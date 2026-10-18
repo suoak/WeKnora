@@ -54,6 +54,35 @@ class BusinessMonitor:
         self.operator_complete = False
         self.finished = False
         self.reason = None
+        self.correlation_failure = None
+        self.unassociated_stage_counts = {}
+
+    def retain_batch_evidence(self, lines):
+        """Keep bounded, classified stage counts before DB correlation can stop.
+
+        Counts are observations only: never assign them to the tested callback
+        or turn a stage into PASS. Discard values outside the closed vocabulary.
+        """
+        for raw in lines[:256]:
+            if not isinstance(raw, str) or len(raw) > 65536:
+                continue
+            offset = raw.find('{"event"')
+            if offset < 0:
+                continue
+            try:
+                item = json.JSONDecoder().raw_decode(raw[offset:])[0]
+            except (ValueError, TypeError):
+                continue
+            if not isinstance(item, dict) or item.get('event') != 'sourceid_stage':
+                continue
+            stage, passed, category = item.get('stage'), item.get('pass'), item.get('category')
+            duration = item.get('duration_ms')
+            if (not valid_uuid(item.get('trace')) or not isinstance(stage, str) or stage not in KNOWN or
+                    type(passed) is not bool or not isinstance(category, str) or category not in CATEGORIES or
+                    type(duration) is not int or not 0 <= duration <= 600000):
+                continue
+            key = stage + (':pass' if passed else ':fail')
+            self.unassociated_stage_counts[key] = min(256, self.unassociated_stage_counts.get(key, 0) + 1)
 
     def end(self, reason):
         if not self.finished:
@@ -71,20 +100,28 @@ class BusinessMonitor:
             if tx.handle in self.baseline:
                 continue
             if not isinstance(tx, Transaction) or not tx.handle or tx.prompt_login is not False:
+                self.correlation_failure = 'TRANSACTION_METADATA_INVALID'
                 self.end('CORRELATION_AMBIGUOUS')
                 return
             self.seen.add(tx.handle)
             if len(self.seen) != 1:
+                self.correlation_failure = 'MULTIPLE_NEW_AUTHORIZATIONS'
                 self.end('CORRELATION_AMBIGUOUS')
                 return
             if self.bound is None:
-                if tx.consumed or not all(math.isfinite(v) for v in (tx.created, tx.expires)) or tx.created > now or tx.expires <= now:
+                if tx.consumed:
+                    self.correlation_failure = 'FIRST_OBSERVATION_ALREADY_CONSUMED'
+                    self.end('OBSERVABILITY_INCOMPLETE')
+                    return
+                if not all(math.isfinite(v) for v in (tx.created, tx.expires)) or tx.created > now or tx.expires <= now:
+                    self.correlation_failure = 'TRANSACTION_TIME_INVALID'
                     self.end('CORRELATION_AMBIGUOUS')
                     return
                 self.bound = tx
                 self.deadline = min(now + self.wait_seconds, tx.expires)
             elif tx.handle == self.bound.handle:
                 if tx.expires != self.bound.expires or self.bound.consumed and not tx.consumed:
+                    self.correlation_failure = 'TRANSACTION_CHANGED'
                     self.end('CORRELATION_AMBIGUOUS')
                     return
                 self.bound.consumed = tx.consumed
@@ -231,7 +268,7 @@ class BusinessMonitor:
             stages['token_http'] = 'NOT_CAPTURED'
         return {'run_id': self.run_id, 'case': self.case, 'finished': self.finished,
                 'result': 'PASS' if self.reason == 'BUSINESS_ACCEPTANCE_PASS' else
-                          ('INCOMPLETE' if self.reason in (None, 'INCOMPLETE_TIMEOUT', 'CANCELLED_INCOMPLETE') else 'FAIL'),
+                          ('INCOMPLETE' if self.reason in (None, 'INCOMPLETE_TIMEOUT', 'CANCELLED_INCOMPLETE', 'OBSERVABILITY_INCOMPLETE') else 'FAIL'),
                 'reason': self.reason, 'stages': stages, 'business_probes': self.probes,
                 'authorize_trace': self.authorize_trace, 'callback_trace': self.callback_trace,
                 'transaction_bound': self.bound is not None, 'wait_seconds': self.wait_seconds,
@@ -242,7 +279,9 @@ class BusinessMonitor:
                 'acceptance_scope':'A_positive' if getattr(self,'acceptance_scope',None)=='A_positive' else 'full',
                 'cross_space_negative':'NOT_EXECUTED' if getattr(self,'acceptance_scope',None)=='A_positive' else ('PASS' if self.probes and self.probes.get('knowledge_access_correct') else 'NOT_CAPTURED'),
                 'link_policy_verification':'PASS' if getattr(self,'link_policy_verification',None)=='PASS' else 'NOT_CAPTURED',
-                'control_failure':getattr(self,'control_failure',None)}
+                'control_failure':getattr(self,'control_failure',None),
+                'correlation_failure':self.correlation_failure,
+                'unassociated_stage_counts':dict(self.unassociated_stage_counts)}
 
 
 def finish(m, adapter):

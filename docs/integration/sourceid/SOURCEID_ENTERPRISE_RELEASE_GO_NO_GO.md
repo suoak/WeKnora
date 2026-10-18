@@ -1,5 +1,13 @@
 # 正式一次性全员开放 GO / NO-GO
 
+> **2026-10-18 最新结论优先：** [首次真实 OA 验收收口](SOURCEID_REAL_OA_ACCEPTANCE_CLOSEOUT.md)。
+> 原账号 OA 登录、原权限和文档访问已完成人工正向 PASS；退出后企业有效 Session/Access 均为 0，
+> 无 Refresh。自动 Trace 为 PARTIAL/NOT_CAPTURED，跨空间负向、真实到期与真实 JIT 尚未执行。
+> 当前测试 APP 为 5f988be51、DB3030 clean，业务配置按获批测试政策保持生效。
+> 已采用 verified_email_policy，逐人 ownership JSON/独立 RJGH 历史证明不再是该模式的前置条件；
+> 下文旧的“真实业务 NOT_EXECUTED”、旧版本、关闭配置及逐人归属阻塞说明仅作历史记录，不作为当前门禁。
+> 正式一次性公司全员发布仍 NO-GO，具体剩余项目以上述收口报告为准，不增加事业部或管理员单独流程。
+
 > 首笔账号准备最新状态见[历史核验与观察接线](SOURCEID_FIRST_ACCOUNT_HISTORY_AND_READINESS.md)：39项校准及无凭据网关联通PASS，不是新的真实OIDC/业务PASS；原账号连续性已核实，仍需独立RJGH归属及真实政策批准。公司正式发布条件与首笔单账号验收分开，不要求先完成全公司导入或JIT审批才能准备该笔已有账号验证。
 
 产品基线（2026-10-17更新）：一次性向符合公司企业身份条件的全公司员工开放；不限制事业部、部门、组织或角色，enterprise_all无固定人数上限、无线上逐人名单。已有账号保留user_id与全部权限，新员工经获批公司级SID企业身份及精确邮箱域策略JIT成为无特权tenantless普通账号。事业部范围确认与组织字段校验开发已取消，不是上线阻塞。
