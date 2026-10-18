@@ -1,0 +1,3 @@
+R=pathlib.Path('/home/aqyfzx/ai/knowhub-jit-fresh-5f988be51-20261018');dump=R/'private/mock/empty-fresh.dump'
+with dump.open('rb') as f:z=subprocess.run(['docker','exec','-i','knowhub-jit-fresh-postgres-1','pg_restore','-U','fresh_owner','-d','jit_mock_new','--no-owner','--no-acl','--exit-on-error'],stdin=f,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=90)
+text=z.stderr.decode().lower();print(json.dumps({'exit':z.returncode,'categories':[x for x in ('unrecognized configuration parameter','transaction_timeout','already exists','extension','permission denied','role','unsupported version','connection refused') if x in text],'sqlstates':re.findall(r'sqlstate[ :]+([a-z0-9]{5})',text),'stderr_bytes':len(z.stderr)}))
