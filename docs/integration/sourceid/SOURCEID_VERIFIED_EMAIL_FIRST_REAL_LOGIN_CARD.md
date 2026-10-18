@@ -1,5 +1,7 @@
 # 首次真实OA业务操作卡：已有账号，JIT关闭
 
+> 最新现场：5f988be51/832b6652a/DB3030已在原80/8080部署验收PASS，新策略与真实OIDC门禁仍关闭。无需再次部署或迁移；下一步等待真实公司政策、会话期限、A范围及一笔真实登录窗口批准。见[最终升级验收报告](SOURCEID_VERIFIED_EMAIL_TEST_SITE_UPGRADE_ACCEPTANCE_REPORT.md)。下文“候选待部署”为历史准备语境，以此状态为准。
+
 准备材料；当前不启动。仅原测试地址进入172.30.232.42 company-test，不操作生产。部署后的候选APP/DB3030需单独批准与验收通过，旧f40采集器不能直接拿来监测新候选。
 
 已准备候选`5f988be51779f1a22bd9d027b7503fe6a8749f62`，镜像`sha256:0994762cd32f4289dc397757f9123bafd3cc913b407c05927c7ee064b32ade2b`；业务采集器Windows/Linux各43项Mock通过。候选目录下`monitor/business-test`仅保存校准源码，没有启动worker。当前运行站点仍是f40/DB3029；须先单独批准APP-only升级及3030迁移，再批准政策和一笔真实登录窗口。

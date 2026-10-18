@@ -1,3 +1,5 @@
+> 2026-10-18?verified_email_policy APP5f988be51??company-test?80/8080????PASS?Frontend832?DB3030 clean????????????????????????????????OA?????????f40???????????[SOURCEID_VERIFIED_EMAIL_TEST_SITE_UPGRADE_ACCEPTANCE_REPORT.md](SOURCEID_VERIFIED_EMAIL_TEST_SITE_UPGRADE_ACCEPTANCE_REPORT.md)?
+
 > 2026-10-18 update: verified_email_policy implementation and four CI jobs PASS; candidate 5f988be51 is built, not deployed. See [implementation](SOURCEID_VERIFIED_EMAIL_IMPLEMENTATION_REPORT.md), [upgrade plan](SOURCEID_VERIFIED_EMAIL_TEST_SITE_UPGRADE_PLAN.md), and [real login card](SOURCEID_VERIFIED_EMAIL_FIRST_REAL_LOGIN_CARD.md). Historical f40 execution requirements below do not override the new policy.
 
 # KnowHub真实OA业务验收READY检查报告

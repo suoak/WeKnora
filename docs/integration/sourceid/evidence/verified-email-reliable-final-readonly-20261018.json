@@ -1,0 +1,22 @@
+{
+  "result": "PASS",
+  "app_revision": "5f988be51779f1a22bd9d027b7503fe6a8749f62",
+  "app_image": "sha256:0994762cd32f4289dc397757f9123bafd3cc913b407c05927c7ee064b32ade2b",
+  "frontend_revision": "832b6652adf541892545a7eac8b68733f846ab95",
+  "database": {
+    "schema": 3030,
+    "dirty": false,
+    "identities": 0,
+    "sessions": 0,
+    "jit": 0,
+    "policy_decisions": 0,
+    "active_authorizations": 0
+  },
+  "app_healthy": true,
+  "restart_count": 0,
+  "observed_uptime_seconds": 98,
+  "gates_unchanged": true,
+  "schema_commands_executed": 0,
+  "real_sid_requests": 0,
+  "utc": "2026-10-18T00:53:39.221700+00:00"
+}

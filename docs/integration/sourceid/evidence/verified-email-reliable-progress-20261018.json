@@ -1,0 +1,261 @@
+{
+  "reliable-backup-result.json": {
+    "result": "PASS",
+    "stage": "paired_backup_complete_app_stopped",
+    "real_sid_requests": 0,
+    "backup_directory": "/home/aqyfzx/ai/knowhub-verified-email-candidate-5f988be51/private/reliable-20261018T005053Z",
+    "database_backup_bytes": 21717702,
+    "files_backup_bytes": 2570240,
+    "protected_configuration_saved": true,
+    "paired_snapshot_writers_stopped": true,
+    "app_stopped": true,
+    "database_schema": 3030,
+    "source_files_read_only": true,
+    "utc": "2026-10-18T00:51:47.111267+00:00"
+  },
+  "reliable-deploy-result.json": {
+    "result": "PASS",
+    "stage": "completed",
+    "schema_commands_executed": 0,
+    "real_sid_requests": 0,
+    "rollback_triggered": false,
+    "deploy_attempts": 1,
+    "protected_runtime_configuration_unchanged": true,
+    "last_route_probe": {
+      "port": 8080,
+      "path": "/mcp/nonexistent-deployment-probe",
+      "status": 401
+    },
+    "routes_before_label_update": [
+      {
+        "port": 80,
+        "path": "/login",
+        "status": 200
+      },
+      {
+        "port": 80,
+        "path": "/health",
+        "status": 200
+      },
+      {
+        "port": 80,
+        "path": "/api/v1/auth/oidc/config",
+        "status": 200
+      },
+      {
+        "port": 80,
+        "path": "/api/v1/auth/oidc/callback",
+        "status": 302
+      },
+      {
+        "port": 80,
+        "path": "/api/v1/auth/me",
+        "status": 401
+      },
+      {
+        "port": 80,
+        "path": "/api/v1/knowledge-bases",
+        "status": 401
+      },
+      {
+        "port": 80,
+        "path": "/api/v1/system/admin/feishu",
+        "status": 401
+      },
+      {
+        "port": 80,
+        "path": "/api/v1/me/feishu",
+        "status": 401
+      },
+      {
+        "port": 80,
+        "path": "/mcp/nonexistent-deployment-probe",
+        "status": 401
+      },
+      {
+        "port": 8080,
+        "path": "/login",
+        "status": 401
+      },
+      {
+        "port": 8080,
+        "path": "/health",
+        "status": 200
+      },
+      {
+        "port": 8080,
+        "path": "/api/v1/auth/oidc/config",
+        "status": 200
+      },
+      {
+        "port": 8080,
+        "path": "/api/v1/auth/oidc/callback",
+        "status": 302
+      },
+      {
+        "port": 8080,
+        "path": "/api/v1/auth/me",
+        "status": 401
+      },
+      {
+        "port": 8080,
+        "path": "/api/v1/knowledge-bases",
+        "status": 401
+      },
+      {
+        "port": 8080,
+        "path": "/api/v1/system/admin/feishu",
+        "status": 401
+      },
+      {
+        "port": 8080,
+        "path": "/api/v1/me/feishu",
+        "status": 401
+      },
+      {
+        "port": 8080,
+        "path": "/mcp/nonexistent-deployment-probe",
+        "status": 401
+      }
+    ],
+    "original_data_permissions_and_file_contents_unchanged": true,
+    "other_containers_images_mounts_ports_unchanged": true,
+    "firewall_rules_unchanged": true,
+    "gates": {
+      "OIDC_AUTH_ENABLE": "false",
+      "SOURCEID_PROTOCOL_ONLY": "true",
+      "SOURCEID_CONTRACT_CONFIRMED": "false",
+      "SOURCEID_EMAIL_BINDING_ENABLE": "false",
+      "SOURCEID_AUTO_BINDING_ENABLE": "false",
+      "SOURCEID_JIT_ENABLE": "false",
+      "SOURCEID_SESSION_MODE": "external",
+      "SOURCEID_FORCE_REAUTH_PROMPT_LOGIN": "false",
+      "SOURCEID_LOCAL_REFRESH_ENABLE": "false",
+      "SOURCEID_BASIC_ENCODING": "oauth_form",
+      "SOURCEID_DIAGNOSTICS_ENABLE": "false",
+      "AUTO_MIGRATE": "false",
+      "SOURCEID_ACCOUNT_LINK_MODE": "trusted_ownership",
+      "SOURCEID_VERIFIED_EMAIL_POLICY_CONFIRMED": "false",
+      "SOURCEID_VERIFIED_EMAIL_POLICY_REF": ""
+    },
+    "identity_counts": {
+      "identities": 0,
+      "sessions": 0,
+      "ownership": 0,
+      "jit": 0,
+      "policy_decisions": 0,
+      "policy_sessions": 0,
+      "active_authorizations": 0
+    },
+    "routes_after_label_update": [
+      {
+        "port": 80,
+        "path": "/login",
+        "status": 200
+      },
+      {
+        "port": 80,
+        "path": "/health",
+        "status": 200
+      },
+      {
+        "port": 80,
+        "path": "/api/v1/auth/oidc/config",
+        "status": 200
+      },
+      {
+        "port": 80,
+        "path": "/api/v1/auth/oidc/callback",
+        "status": 302
+      },
+      {
+        "port": 80,
+        "path": "/api/v1/auth/me",
+        "status": 401
+      },
+      {
+        "port": 80,
+        "path": "/api/v1/knowledge-bases",
+        "status": 401
+      },
+      {
+        "port": 80,
+        "path": "/api/v1/system/admin/feishu",
+        "status": 401
+      },
+      {
+        "port": 80,
+        "path": "/api/v1/me/feishu",
+        "status": 401
+      },
+      {
+        "port": 80,
+        "path": "/mcp/nonexistent-deployment-probe",
+        "status": 401
+      },
+      {
+        "port": 8080,
+        "path": "/login",
+        "status": 401
+      },
+      {
+        "port": 8080,
+        "path": "/health",
+        "status": 200
+      },
+      {
+        "port": 8080,
+        "path": "/api/v1/auth/oidc/config",
+        "status": 200
+      },
+      {
+        "port": 8080,
+        "path": "/api/v1/auth/oidc/callback",
+        "status": 302
+      },
+      {
+        "port": 8080,
+        "path": "/api/v1/auth/me",
+        "status": 401
+      },
+      {
+        "port": 8080,
+        "path": "/api/v1/knowledge-bases",
+        "status": 401
+      },
+      {
+        "port": 8080,
+        "path": "/api/v1/system/admin/feishu",
+        "status": 401
+      },
+      {
+        "port": 8080,
+        "path": "/api/v1/me/feishu",
+        "status": 401
+      },
+      {
+        "port": 8080,
+        "path": "/mcp/nonexistent-deployment-probe",
+        "status": 401
+      }
+    ],
+    "app_revision": "5f988be51779f1a22bd9d027b7503fe6a8749f62",
+    "app_image": "sha256:0994762cd32f4289dc397757f9123bafd3cc913b407c05927c7ee064b32ade2b",
+    "frontend_revision": "832b6652adf541892545a7eac8b68733f846ab95",
+    "frontend_image": "sha256:ab7845c89fadeb17ad2b68bd924e892f948b893781a50ab79e48385c319ddbe1",
+    "db_schema": 3030,
+    "dirty": false,
+    "verified_email_deployed_but_disabled": true,
+    "users": 3,
+    "members": 5,
+    "active_kbs": 1,
+    "documents": 3,
+    "nonempty_chunks": 2717,
+    "embeddings": 2717,
+    "backup_directory": "/home/aqyfzx/ai/knowhub-verified-email-candidate-5f988be51/private/reliable-20261018T005053Z",
+    "gateway_label_changed_after_verification": true,
+    "refresh": false,
+    "actual_rollback_this_attempt": false,
+    "utc": "2026-10-18T00:52:13.392004+00:00"
+  }
+}

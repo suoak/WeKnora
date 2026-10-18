@@ -16,8 +16,27 @@ def same_container_inventory(before, after):
         result['mounts'] = sorted(result['mounts'], key=lambda x: json.dumps(x, sort_keys=True))
         result['ports'] = {k: sorted(v, key=lambda x: json.dumps(x, sort_keys=True)) if v else v
                            for k, v in (result.get('ports') or {}).items()}
+        if 'networks' in result:
+            result['networks'] = {name: {key: sorted(item) if key in ('Aliases', 'DNSNames') and item else item
+                                        for key, item in network.items()}
+                                  for name, network in result['networks'].items()}
         return result
     return canonical(before) == canonical(after)
+
+
+def same_resource_inventory(before, after, replace_app=None):
+    """No unapproved additions/removals; only the selected APP may change ID/image."""
+    if set(before) != set(after):
+        return False
+    for name in before:
+        left, right = dict(before[name]), dict(after[name])
+        if name == replace_app:
+            for key in ('id', 'image_id'):
+                left.pop(key, None)
+                right.pop(key, None)
+        if not same_container_inventory(left, right):
+            return False
+    return True
 
 
 def validate(port, path, status, location=None):

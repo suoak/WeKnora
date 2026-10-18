@@ -1,10 +1,27 @@
 """Synthetic status/redirect fault injection; no real SID or Docker activity."""
 import unittest
 import copy
-from verified_email_deployment_contract import PATHS, validate, same_container_inventory
+from verified_email_deployment_contract import PATHS, validate, same_container_inventory, same_resource_inventory
 
 
 class DeploymentContractTest(unittest.TestCase):
+    def test_inventory_set_and_app_replacement_scope(self):
+        base = {'app': {'id': 'old', 'image_id': 'old', 'mounts': [], 'ports': {}},
+                'pg': {'id': 'pg', 'image_id': 'pg', 'mounts': [], 'ports': {}}}
+        replaced = copy.deepcopy(base)
+        replaced['app'].update(id='new', image_id='new')
+        self.assertTrue(same_resource_inventory(base, replaced, 'app'))
+        self.assertFalse(same_resource_inventory(base, replaced))
+        for mutation in ('added', 'removed', 'other_id', 'other_image', 'app_mount', 'app_port'):
+            changed = copy.deepcopy(replaced)
+            if mutation == 'added': changed['unexpected'] = copy.deepcopy(base['pg'])
+            elif mutation == 'removed': del changed['pg']
+            elif mutation == 'other_id': changed['pg']['id'] = 'changed'
+            elif mutation == 'other_image': changed['pg']['image_id'] = 'changed'
+            elif mutation == 'app_mount': changed['app']['mounts'].append({'Source': 'unexpected', 'Destination': '/data', 'RW': True})
+            elif mutation == 'app_port': changed['app']['ports']['8080/tcp'] = [{'HostIp': '0.0.0.0', 'HostPort': '8080'}]
+            self.assertFalse(same_resource_inventory(base, changed, 'app'), mutation)
+
     def test_frontend_and_backend_are_different(self):
         self.assertTrue(validate(80, '/login', 200))
         self.assertTrue(validate(8080, '/login', 401))
