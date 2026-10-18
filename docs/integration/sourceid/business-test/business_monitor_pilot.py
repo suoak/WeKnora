@@ -31,7 +31,7 @@ APP=PROJECT+'-app-1';PG=PROJECT+'-postgres-1'
 DOCKER=['docker','--host','unix:///var/run/docker.sock']
 UUID=re.compile(r'[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}')
 FLAGS=set(CLOSED)|{'SOURCEID_ACCOUNT_SCOPE','SOURCEID_ADMISSION_MODE','SOURCEID_DIAGNOSTICS_ENABLE','SOURCEID_JIT_ENABLE'}
-ENV_ALLOWED=FLAGS|{'SOURCEID_ACCOUNT_LINK_MODE','SOURCEID_VERIFIED_EMAIL_POLICY_CONFIRMED','SOURCEID_VERIFIED_EMAIL_POLICY_REF','SOURCEID_EMAIL_CONTRACT_CONFIRMED','SOURCEID_SSO_POLICY_CONFIRMED','SOURCEID_ENTERPRISE_POLICY_CONFIRMED','SOURCEID_JIT_POLICY_CONFIRMED','SOURCEID_AUTO_BINDING_POLICY_REF','SOURCEID_LOCAL_POLICY_REF','SOURCEID_ADMISSION_POLICY_REF','SOURCEID_ENTERPRISE_POLICY_REF','SOURCEID_JIT_POLICY_REF','SOURCEID_JIT_EMAIL_DOMAINS','SOURCEID_ENTERPRISE_MAX_AGE','SOURCEID_LOCAL_ACCESS_TTL','SOURCEID_LOCAL_ABSOLUTE_TTL','SOURCEID_LOCAL_IDLE_TTL','SOURCEID_ADMISSION_MAX_AGE'}
+ENV_ALLOWED=FLAGS|{'SOURCEID_CLAIMS_SOURCE','SOURCEID_EMPLOYEE_CLAIM','SOURCEID_ACCOUNT_LINK_MODE','SOURCEID_VERIFIED_EMAIL_POLICY_CONFIRMED','SOURCEID_VERIFIED_EMAIL_POLICY_REF','SOURCEID_EMAIL_CONTRACT_CONFIRMED','SOURCEID_SSO_POLICY_CONFIRMED','SOURCEID_ENTERPRISE_POLICY_CONFIRMED','SOURCEID_JIT_POLICY_CONFIRMED','SOURCEID_AUTO_BINDING_POLICY_REF','SOURCEID_LOCAL_POLICY_REF','SOURCEID_ADMISSION_POLICY_REF','SOURCEID_ENTERPRISE_POLICY_REF','SOURCEID_JIT_POLICY_REF','SOURCEID_JIT_EMAIL_DOMAINS','SOURCEID_ENTERPRISE_MAX_AGE','SOURCEID_LOCAL_ACCESS_TTL','SOURCEID_LOCAL_ABSOLUTE_TTL','SOURCEID_LOCAL_IDLE_TTL','SOURCEID_ADMISSION_MAX_AGE'}
 
 def approved_scope(inputs,env,case):
     scope=inputs.get('acceptance_scope','full')
@@ -80,6 +80,12 @@ class DockerPilotPort:
         if not any(a.get('local')=='172.30.232.42' for n in interfaces for a in n.get('addr_info',[])):
             raise RuntimeError('fixed_packaging_host_required')
         self.case=case;self.inputs=inputs;self.process=None;self.buffer=b'';self.tx_cache={};self.run_id=None
+        self.base_compose=list(COMPOSE_FILES);self.closed_baseline=dict(CLOSED)
+        if inputs.get('existing_entry_override'):
+            entry=Path(inputs['existing_entry_override']).resolve()
+            entry.relative_to(Path('/home/aqyfzx/ai/knowhub-verified-email-candidate-5f988be51/private').resolve())
+            if entry.name!='approved-entry-only.json' or protected(entry)!={'services':{'app':{'environment':{'OIDC_AUTH_ENABLE':'true'}}}}:raise RuntimeError('invalid_existing_entry_override')
+            self.base_compose.append(str(entry));self.closed_baseline['OIDC_AUTH_ENABLE']='true'
         self.user=inputs.get('existing_user_id')
         if case=='existing' and (not isinstance(self.user,str) or not UUID.fullmatch(self.user)):
             raise RuntimeError('protected_existing_account_required')
@@ -136,7 +142,8 @@ class DockerPilotPort:
     def inventory(self):
         labels=inspect(APP,'.Config.Labels')
         if labels.get('com.docker.compose.project.working_dir')!=str(ROOT):raise RuntimeError('project_directory_mismatch')
-        if labels.get('com.docker.compose.project.config_files','').split(',') not in (COMPOSE_FILES,COMPOSE_FILES+[str(self.override)]):raise RuntimeError('compose_order_mismatch')
+        base=getattr(self,'base_compose',COMPOSE_FILES)
+        if labels.get('com.docker.compose.project.config_files','').split(',') not in (base,base+[str(self.override)]):raise RuntimeError('compose_order_mismatch')
         image=inspect(APP,'.Image')
         if inspect(APP,'.HostConfig.PortBindings') or inspect(PG,'.HostConfig.PortBindings') or inspect(PROJECT+'-redis-1','.HostConfig.PortBindings'):
             raise RuntimeError('pilot_private_ports_changed')
@@ -216,7 +223,7 @@ class DockerPilotPort:
 
     def compose(self,override=False):
         args=DOCKER+['compose','-p',PROJECT,'--project-directory',str(ROOT)]
-        for name in COMPOSE_FILES:args+=['-f',name]
+        for name in getattr(self,'base_compose',COMPOSE_FILES):args+=['-f',name]
         return args+(['-f',str(self.override)] if override else [])
 
     def recreate(self,override):

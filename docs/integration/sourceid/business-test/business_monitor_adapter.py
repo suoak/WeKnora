@@ -36,7 +36,7 @@ class PilotBusinessAdapter:
         if (v['project'] != PROJECT or v['image'] != IMAGE or v['revision'] != REVISION or
                 v['schema'] != SCHEMA or v['dirty'] is not False or not v['healthy']):
             raise RuntimeError('fixed_target_mismatch')
-        if any(v['flags'].get(k) != value for k, value in CLOSED.items()):
+        if any(v['flags'].get(k) != value for k, value in getattr(self.port, 'closed_baseline', CLOSED).items()):
             raise RuntimeError('closed_gate_baseline_mismatch')
         self.before = self.port.snapshot()
         self.before_flags = dict(v['flags'])
@@ -152,7 +152,7 @@ class PilotBusinessAdapter:
         after = self.port.inventory()
         if self.changed or after['image'] != IMAGE or after['schema'] != SCHEMA or after['dirty'] or not after['healthy']:
             raise RuntimeError('restore_failed')
-        if any(after['flags'].get(k) != value for k, value in CLOSED.items()):
+        if any(after['flags'].get(k) != value for k, value in getattr(self.port, 'closed_baseline', CLOSED).items()):
             raise RuntimeError('restore_gates_failed')
         if after['flags'] != self.before_flags:
             raise RuntimeError('approved_override_not_fully_removed')

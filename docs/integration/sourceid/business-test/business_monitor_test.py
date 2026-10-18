@@ -107,6 +107,21 @@ class MockPort:
 
 class Calibration(unittest.TestCase):
 
+    def test_preexisting_oidc_entry_is_preserved_with_business_closed(self):
+        port=MockPort();port.closed_baseline=dict(CLOSED,OIDC_AUTH_ENABLE='true');port.flags=dict(port.closed_baseline)
+        original=port.restore_original_app_only
+        def restore():
+            original();port.flags['OIDC_AUTH_ENABLE']='true'
+        port.restore_original_app_only=restore
+        result=run(port,'existing',True,True)
+        self.assertEqual(result['result'],'PASS')
+        self.assertEqual(port.flags,port.closed_baseline)
+
+    def test_preexisting_entry_compose_layer_survives_restore(self):
+        port=DockerPilotPort.__new__(DockerPilotPort);port.base_compose=COMPOSE_FILES+['/protected/approved-entry-only.json'];port.override=Path('/protected/one-business-window.json')
+        self.assertEqual(port.compose(False)[-2:],['-f','/protected/approved-entry-only.json'])
+        self.assertEqual(port.compose(True)[-4:],['-f','/protected/approved-entry-only.json','-f',str(port.override)])
+
     def test_positive_scope_requires_explicit_real_approval(self):
         self.assertEqual(approved_scope({}, {}, 'existing'),'full')
         for value in ({'acceptance_scope':'A_positive'},{'acceptance_scope':'A_positive','positive_scope_approval_ref':'synthetic-not-approved'},{'acceptance_scope':'unknown'}):
