@@ -1,0 +1,41 @@
+{
+  "result": "PASS",
+  "stage": "entry_visible_protocol_only",
+  "business_gates_opened": false,
+  "real_sid_login_started_by_agent": false,
+  "app_revision": "5f988be51779f1a22bd9d027b7503fe6a8749f62",
+  "configuration_changes": [
+    "OIDC_AUTH_ENABLE=false->true"
+  ],
+  "gates": {
+    "OIDC_AUTH_ENABLE": "true",
+    "SOURCEID_PROTOCOL_ONLY": "true",
+    "SOURCEID_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_EMAIL_BINDING_ENABLE": "false",
+    "SOURCEID_AUTO_BINDING_ENABLE": "false",
+    "SOURCEID_JIT_ENABLE": "false",
+    "SOURCEID_SESSION_MODE": "external",
+    "SOURCEID_FORCE_REAUTH_PROMPT_LOGIN": "false",
+    "SOURCEID_LOCAL_REFRESH_ENABLE": "false",
+    "SOURCEID_BASIC_ENCODING": "oauth_form",
+    "SOURCEID_DIAGNOSTICS_ENABLE": "false",
+    "AUTO_MIGRATE": "false",
+    "SOURCEID_ACCOUNT_LINK_MODE": "trusted_ownership",
+    "SOURCEID_VERIFIED_EMAIL_POLICY_CONFIRMED": "false",
+    "SOURCEID_VERIFIED_EMAIL_POLICY_REF": ""
+  },
+  "config_api_checks": [
+    {
+      "port": 80,
+      "oidc_enabled": true
+    },
+    {
+      "port": 8080,
+      "oidc_enabled": true
+    }
+  ],
+  "other_containers_unchanged": true,
+  "protected_directory": "/home/aqyfzx/ai/knowhub-verified-email-candidate-5f988be51/private/oa-entry-20261018T012025Z",
+  "policy_approval_still_required_for_business_session": true,
+  "utc": "2026-10-18T01:20:33.227739+00:00"
+}
