@@ -1,7 +1,9 @@
 package types
 
 import (
+	"crypto/sha256"
 	"database/sql/driver"
+	"encoding/hex"
 	"encoding/json"
 	"strings"
 	"time"
@@ -189,6 +191,9 @@ func IsValidWikiPageStatus(status string) bool {
 // Wiki pages are LLM-generated, interlinked markdown documents that form
 // a persistent, compounding knowledge artifact.
 type WikiPage struct {
+	// ReadETag binds a read-modify-write to all persisted dependencies, including
+	// meta/link fields whose updates do not increment the public revision.
+	ReadETag string `json:"-" gorm:"-"`
 	// Unique identifier (UUID)
 	ID string `json:"id" gorm:"type:varchar(36);primaryKey"`
 	// Workspace ID for multi-workspace isolation
@@ -276,6 +281,30 @@ type WikiPage struct {
 // TableName specifies the database table name
 func (WikiPage) TableName() string {
 	return "wiki_pages"
+}
+
+func (p *WikiPage) DependencyETag() string {
+	copy := *p
+	copy.ReadETag = ""
+	copy.CreatedAt, copy.UpdatedAt = time.Time{}, time.Time{}
+	// PostgreSQL jsonb and SQLite JSON may serialize object keys differently.
+	// Round-trip through an object to canonicalize nested raw JSON as well.
+	b, _ := json.Marshal(copy)
+	var normalized any
+	_ = json.Unmarshal(b, &normalized)
+	b, _ = json.Marshal(normalized)
+	h := sha256.Sum256(b)
+	return hex.EncodeToString(h[:])
+}
+
+func (p *WikiPage) AfterFind(_ *gorm.DB) error {
+	p.ReadETag = p.DependencyETag()
+	return nil
+}
+
+func (p *WikiPage) AfterCreate(_ *gorm.DB) error {
+	p.ReadETag = p.DependencyETag()
+	return nil
 }
 
 // Wiki edit source constants describe who authored a page version. Stored in

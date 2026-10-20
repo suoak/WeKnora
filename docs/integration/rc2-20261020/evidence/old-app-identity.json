@@ -1,0 +1,22 @@
+{
+  "production": {
+    "available": true,
+    "image_id": "sha256:b613ee469ac81cc1c0560834cca73de025b626f79b1e6760b691f92f77348eb1",
+    "architecture": "amd64",
+    "os": "linux",
+    "rootfs_sha256": "6e022c0d88a106ec5758b09c67e3546ada384a61d60ca3618892cf249fa485ff",
+    "normalized_config_sha256": "6d47cb549c21da591419dbfd74df0812f057d6f8a2ba955ce2e8424aabb1f9a2",
+    "revision": "854f3b956ae3600e12a3ffd2fc40d4fe624ced74"
+  },
+  "packaging_host": {
+    "available": true,
+    "image_id": "sha256:dc1268591cc4a273b732eacb9cd360f7c44d24ddd33706078a464cc3f90fff52",
+    "architecture": "amd64",
+    "os": "linux",
+    "rootfs_sha256": "6e022c0d88a106ec5758b09c67e3546ada384a61d60ca3618892cf249fa485ff",
+    "normalized_config_sha256": "6d47cb549c21da591419dbfd74df0812f057d6f8a2ba955ce2e8424aabb1f9a2",
+    "revision": "854f3b956ae3600e12a3ffd2fc40d4fe624ced74"
+  },
+  "same_runtime_payload": true,
+  "scope": "read-only image identity; no image pulled or production change"
+}

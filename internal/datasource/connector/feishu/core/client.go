@@ -28,6 +28,7 @@ type Client struct {
 	location *time.Location
 
 	httpClient *http.Client
+	jsonLimit  int64 // Tests may lower the production JSON boundary.
 	policy     *appPolicy
 	retry      retryPolicy
 	token      *tokenState
@@ -187,6 +188,15 @@ func (c *Client) doRequestBytes(
 	var token string
 	var err error
 	identity, personal := ctx.Value(userIdentityKey{}).(userIdentity)
+	app, application := ctx.Value(applicationIdentityKey{}).(applicationIdentity)
+	if application {
+		if personal {
+			return nil, ErrAuth
+		}
+		identity = userIdentity{provider: app.provider}
+		personal = true
+	}
+	gate := c.requestGate(method, path)
 	if authenticated {
 		if !personal {
 			token, err = c.GetTenantAccessToken(ctx)
@@ -210,9 +220,74 @@ func (c *Client) doRequestBytes(
 				return nil, ErrAuth
 			}
 		}
-		release, err := c.policy.beforeRequest(ctx)
-		if err != nil {
-			return nil, err
+		// Quota and identity are independent. Never call the tenant resolver
+		// for a personal request. Refreshes rejoin pacing with the new token.
+		var release func()
+		for {
+			release, err = c.policy.beforeRequest(ctx)
+			if err != nil {
+				return nil, err
+			}
+			if err = gate.wait(ctx); err != nil {
+				release()
+				return nil, err
+			}
+			if !authenticated {
+				break
+			}
+			if personal {
+				// Application identity providers re-read source ACLs using this
+				// same app's HTTP limiter. Never retain a slot during that I/O.
+				if application {
+					release()
+				}
+				current, resolveErr := identity.provider(ctx)
+				if resolveErr != nil {
+					if !application {
+						release()
+					}
+					return nil, resolveErr
+				}
+				if strings.TrimSpace(current) == "" {
+					if !application {
+						release()
+					}
+					return nil, ErrAuth
+				}
+				if application {
+					token = current
+					release, err = c.policy.acquireRequest(ctx)
+					if err != nil {
+						return nil, err
+					}
+					if app.validate != nil {
+						if err = app.validate(ctx); err != nil {
+							release()
+							return nil, err
+						}
+					}
+					break
+				}
+				if current == token {
+					break
+				}
+				token = current
+			} else {
+				if c.token.mu.TryLock() {
+					valid := token == c.token.cache && c.retry.now().Before(c.token.expAt)
+					c.token.mu.Unlock()
+					if valid {
+						break
+					}
+				}
+			}
+			release()
+			if !personal {
+				token, err = c.GetTenantAccessToken(ctx)
+				if err != nil {
+					return nil, err
+				}
+			}
 		}
 
 		var bodyReader io.Reader
@@ -239,17 +314,34 @@ func (c *Client) doRequestBytes(
 			}
 			err = &APIError{Category: ErrorCategoryTransient, Operation: operation, Cause: requestErr}
 		} else {
-			var responseBody []byte
-			if maxBytes > 0 {
-				responseBody, requestErr = io.ReadAll(io.LimitReader(resp.Body, maxBytes+1))
-			} else {
-				responseBody, requestErr = io.ReadAll(resp.Body)
+			// A pathological oversized error must not erase a known HTTP 429
+			// cooldown merely because its body cannot be decoded safely.
+			if resp.StatusCode == http.StatusTooManyRequests {
+				gate.cooldown(feishuRateLimitWait(resp.Header, c.retry.now()))
 			}
+			limit := c.jsonLimit
+			if limit <= 0 {
+				limit = maxFeishuJSONBytes
+			}
+			if binary {
+				limit = maxBytes
+				if limit <= 0 {
+					limit = maxFeishuDownloadBytes
+				}
+				if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+					limit = maxFeishuErrorBytes
+				}
+			}
+			responseBody, readErr := readFeishuCapped(resp.Body, limit)
+			requestErr = readErr
 			closeErr := resp.Body.Close()
 			if requestErr == nil {
 				requestErr = closeErr
 			}
 			release()
+			if errors.Is(requestErr, ErrResponseTooLarge) {
+				return nil, requestErr
+			}
 			if requestErr != nil {
 				if ctxErr := ctx.Err(); ctxErr != nil {
 					return nil, ctxErr
@@ -258,19 +350,24 @@ func (c *Client) doRequestBytes(
 					Category: ErrorCategoryTransient, HTTPStatus: resp.StatusCode,
 					Operation: operation, Cause: requestErr,
 				}
-			} else if maxBytes > 0 && int64(len(responseBody)) > maxBytes {
-				return nil, fmt.Errorf("feishu download exceeds max size (%d bytes): operation=%s", maxBytes, operation)
 			} else {
 				var envelope ApiResponse
 				if !binary || resp.StatusCode < 200 || resp.StatusCode >= 300 {
 					_ = json.Unmarshal(responseBody, &envelope)
 				}
-				if resp.StatusCode >= 200 && resp.StatusCode < 300 && (binary || envelope.Code == 0) {
+				if binary && isFeishuRateLimited(resp.StatusCode, responseBody) {
+					envelope.Code = feishuRateLimitCode
+				}
+				if resp.StatusCode >= 200 && resp.StatusCode < 300 && envelope.Code == 0 {
 					logger.Infof(ctx, "[Feishu] API request succeeded operation=%s status=%d bytes=%d",
 						operation, resp.StatusCode, len(responseBody))
 					return responseBody, nil
 				}
 				retryAfter := parseRetryAfterAt(resp.Header.Get("Retry-After"), 0, c.retry.now())
+				if classifyAPIError(resp.StatusCode, envelope.Code) == ErrorCategoryRateLimit {
+					retryAfter = feishuRateLimitWait(resp.Header, c.retry.now())
+					gate.cooldown(retryAfter)
+				}
 				err = &APIError{
 					Category:   classifyAPIError(resp.StatusCode, envelope.Code),
 					Code:       envelope.Code,
@@ -290,7 +387,7 @@ func (c *Client) doRequestBytes(
 		if errors.Is(err, ErrRateLimited) {
 			// Install the cooldown even on the final failed attempt. The next item
 			// in runSync must not immediately hit the same exhausted quota.
-			c.policy.extendCooldown(delay)
+			c.policy.extendCooldown(max(delay, c.retry.delay(attempt, 0)))
 		}
 		if attempt >= c.retry.maxRetries {
 			logger.Errorf(ctx, "[Feishu] API retry exhausted operation=%s category=%s code=%d status=%d attempts=%d",
@@ -646,7 +743,7 @@ func (c *Client) getExportTaskStatus(ctx context.Context, ticket string, token s
 	case 1, 2: // initializing, processing
 		return "", "", nil // not ready yet
 	default:
-		return "", "", fmt.Errorf("export task failed: status=%d msg=%s", r.JobStatus, r.JobErrorMsg)
+		return "", "", fmt.Errorf("export task failed: status=%d", r.JobStatus)
 	}
 }
 
@@ -661,7 +758,7 @@ func (c *Client) downloadExportFile(ctx context.Context, fileToken string) ([]by
 // ExportAndDownload is a high-level helper that creates an export task, polls until
 // completion, and downloads the resulting file. Returns (fileBytes, fileName, error).
 //
-// Timeout: 60 seconds. Poll interval: 2 seconds.
+// A finite poll budget excludes quota waits; the caller context bounds total time.
 func (c *Client) ExportAndDownload(ctx context.Context, objToken, objType string) ([]byte, string, error) {
 	// Determine export format
 	fileExt, ok := ObjTypeToExportFileExtension[objType]
@@ -684,11 +781,13 @@ func (c *Client) exportAndDownload(ctx context.Context, objToken, exportType, fi
 		return nil, "", err
 	}
 
-	// Step 2: poll until ready (max 60s, every 2s)
-	deadline := time.Now().Add(60 * time.Second)
+	// Keep the same ticket across quota waits rather than exhausting a separate
+	// wall-clock deadline while another document's API group is cooling down.
+	maxPolls := feishuExportMaxPolls()
+	pollInterval := feishuConfiguredDuration("FEISHU_EXPORT_POLL_INTERVAL", defaultFeishuExportPollInterval)
 	var fileToken, fileName string
 
-	for time.Now().Before(deadline) {
+	for poll := 0; poll < maxPolls; poll++ {
 		fileToken, fileName, err = c.getExportTaskStatus(ctx, ticket, objToken)
 		if err != nil {
 			return nil, "", err
@@ -696,15 +795,15 @@ func (c *Client) exportAndDownload(ctx context.Context, objToken, exportType, fi
 		if fileToken != "" {
 			break // export ready
 		}
-		select {
-		case <-ctx.Done():
-			return nil, "", ctx.Err()
-		case <-time.After(2 * time.Second):
+		if poll+1 < maxPolls {
+			if err := sleepCtx(ctx, pollInterval); err != nil {
+				return nil, "", err
+			}
 		}
 	}
 
 	if fileToken == "" {
-		return nil, "", fmt.Errorf("export task timed out after 60s (ticket=%s)", ticket)
+		return nil, "", &APIError{Category: ErrorCategoryTransient, Operation: "export_poll_budget_exhausted"}
 	}
 
 	// Step 3: download file using file_token (NOT ticket)

@@ -35,24 +35,34 @@ var versionedSQLiteTables = []string{
 	"model_usage_events",
 	"mcp_usage_events",
 	"usage_resource_links",
+	"feishu_connections",
+	"feishu_oauth_states",
+	"feishu_personal_imports",
+	"feishu_personal_resources",
+	"feishu_personal_grant_epochs",
+	"feishu_personal_attempts",
 }
 
 // versionedSQLiteColumns maps each existing table to the columns that the
 // versioned migrations add and the SQLite baseline was missing.
 var versionedSQLiteColumns = map[string][]string{
-	"tenants":            {"api_principal_config"},                       // 000064
-	"users":              {"is_system_admin"},                            // 000053
-	"knowledges":         {"pending_subtasks_count"},                     // 000056
-	"messages":           {"attachments", "usage"},                       // 000034, 000085
-	"tenant_invitations": {"token", "accepted_count"},                    // 000054
-	"embed_channels":     {"allow_memory"},                               // 000060
-	"mcp_oauth_tokens":   {"principal_type", "principal_id"},             // 000064
-	"tenant_api_keys":    {"owner_user_id", "client_type", "token_hint"}, // 000091, 003000
-	"mcp_tool_approvals": {"enabled"},                                    // 000092
-	"sync_logs":          {"execution_generation", "execution_claimed"},  // 003021
+	"feishu_personal_imports":  {"auth_mode", "application_id"},                                          // 003033
+	"feishu_personal_attempts": {"auth_mode", "application_id", "manifest_hash", "fence", "lease_until"}, // 003031/003033
+	"tenants":                  {"api_principal_config"},                                                 // 000064
+	"users":                    {"is_system_admin"},                                                      // 000053
+	"knowledges":               {"pending_subtasks_count"},                                               // 000056
+	"messages":                 {"attachments", "usage"},                                                 // 000034, 000085
+	"tenant_invitations":       {"token", "accepted_count"},                                              // 000054
+	"embed_channels":           {"allow_memory"},                                                         // 000060
+	"mcp_oauth_tokens":         {"principal_type", "principal_id"},                                       // 000064
+	"tenant_api_keys":          {"owner_user_id", "client_type", "token_hint"},                           // 000091, 003000
+	"mcp_tool_approvals":       {"enabled"},                                                              // 000092
+	"sync_logs":                {"execution_generation", "execution_claimed"},                            // 003021
 }
 
-const expectedSQLiteMigrationVersion = 3021
+// The full migration runner applies the already accepted personal recovery and
+// application-principal migrations too. Keep their schema assertions above.
+const expectedSQLiteMigrationVersion = 3033
 
 func TestSQLiteMigrationsCreateVersionedSchema(t *testing.T) {
 	repoRoot := sqliteRepoRoot(t)

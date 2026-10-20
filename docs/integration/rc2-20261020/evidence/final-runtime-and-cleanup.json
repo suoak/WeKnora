@@ -1,0 +1,61 @@
+{
+  "utc": "2026-10-20T01:49:43.074493+00:00",
+  "production_writes": false,
+  "scope": "final read-only runtime identity; stop only owned isolated experiment containers; retain backups/data",
+  "production": {
+    "containers": [
+      {
+        "name": "/WeKnora-app",
+        "image": "sha256:b613ee469ac81cc1c0560834cca73de025b626f79b1e6760b691f92f77348eb1",
+        "running": true,
+        "health": "healthy"
+      },
+      {
+        "name": "/WeKnora-postgres",
+        "image": "sha256:6396bfd53a97f6c1aad50af05aad4a65b06bb7c07602b42a8b33b5d51cf83ab1",
+        "running": true,
+        "health": "healthy"
+      }
+    ],
+    "schema": {
+      "dirty": false,
+      "version": 3023,
+      "database": "weknora"
+    }
+  },
+  "test": {
+    "containers": [
+      {
+        "name": "/knowhub-mvp-p3-app-1",
+        "image": "sha256:67b78b1c5aaf72c3d8e03763bfab57bdeb47bf3cf9d771e8fba60c870246d6cb",
+        "running": true,
+        "health": null
+      },
+      {
+        "name": "/WeKnora-postgres",
+        "image": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+        "running": true,
+        "health": "healthy"
+      }
+    ],
+    "schema": {
+      "dirty": false,
+      "version": 3033,
+      "database": "WeKnora"
+    }
+  },
+  "isolated_cleanup": [
+    {
+      "name": "knowhub-rc2-pg-final",
+      "running": false,
+      "network": "none",
+      "data_retained": true
+    },
+    {
+      "name": "knowhub-rc2-pg",
+      "running": false,
+      "network": "none",
+      "data_retained": true
+    }
+  ]
+}

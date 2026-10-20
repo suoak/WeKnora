@@ -1,0 +1,602 @@
+[
+  {
+    "id": "db5726cc-e2f5-4d5c-a455-529f849ef474",
+    "mode": "incremental",
+    "type": "feishu",
+    "kb_id": "6f1763ee-74e5-4512-b544-fcfaee4d9257",
+    "status": "paused",
+    "deleted": true,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10003,
+    "last_sync_at": null,
+    "sync_deletions": true,
+    "knowledge_count": 0,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "f06a7027-2afa-4ae2-bf60-b3815870b84b",
+    "mode": "incremental",
+    "type": "feishu_drive",
+    "kb_id": "0d13271c-89ef-43b2-a296-13489f33e68c",
+    "status": "paused",
+    "deleted": true,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10018,
+    "last_sync_at": null,
+    "sync_deletions": true,
+    "knowledge_count": 0,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "c9ec8746-accd-4e77-9615-c0d2e1cc33fd",
+    "mode": "incremental",
+    "type": "feishu_drive",
+    "kb_id": "09b0c5d5-0196-4131-a72b-402eee1c50d4",
+    "status": "active",
+    "deleted": false,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10005,
+    "last_sync_at": "2026-10-19T22:00:00.956121",
+    "sync_deletions": true,
+    "knowledge_count": 2,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "73866b07-171c-4c0d-a67a-2a9053f26370",
+    "mode": "incremental",
+    "type": "feishu_drive",
+    "kb_id": "b9cdeddc-8056-45d4-918a-34300daa4632",
+    "status": "active",
+    "deleted": true,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10000,
+    "last_sync_at": "2026-09-28T06:16:55.773889",
+    "sync_deletions": true,
+    "knowledge_count": 0,
+    "indexing_strategy": {
+      "wiki_enabled": false,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "1963e9f0-a989-472c-a954-47eee6735bb5",
+    "mode": "incremental",
+    "type": "feishu",
+    "kb_id": "74eeef8e-e4fc-4d27-b901-23669df26686",
+    "status": "paused",
+    "deleted": true,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10000,
+    "last_sync_at": null,
+    "sync_deletions": true,
+    "knowledge_count": 0,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "72db7f19-70c9-4ab3-9e10-6202e948e630",
+    "mode": "full",
+    "type": "feishu_drive",
+    "kb_id": "b9cdeddc-8056-45d4-918a-34300daa4632",
+    "status": "error",
+    "deleted": true,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10000,
+    "last_sync_at": "2026-09-22T10:00:01.746937",
+    "sync_deletions": true,
+    "knowledge_count": 1,
+    "indexing_strategy": {
+      "wiki_enabled": false,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "356a0e55-361e-4178-a577-3cfec5b1c263",
+    "mode": "incremental",
+    "type": "feishu",
+    "kb_id": "74eeef8e-e4fc-4d27-b901-23669df26686",
+    "status": "paused",
+    "deleted": true,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10000,
+    "last_sync_at": null,
+    "sync_deletions": true,
+    "knowledge_count": 0,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "5ad0a781-e023-43df-99cc-0162213a5ddc",
+    "mode": "incremental",
+    "type": "feishu",
+    "kb_id": "b9cdeddc-8056-45d4-918a-34300daa4632",
+    "status": "paused",
+    "deleted": true,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10000,
+    "last_sync_at": null,
+    "sync_deletions": true,
+    "knowledge_count": 0,
+    "indexing_strategy": {
+      "wiki_enabled": false,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "842ad62e-16e5-4663-ba30-aae245402f96",
+    "mode": "full",
+    "type": "feishu_drive",
+    "kb_id": "74eeef8e-e4fc-4d27-b901-23669df26686",
+    "status": "paused",
+    "deleted": true,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10000,
+    "last_sync_at": "2026-09-17T06:55:41.181118",
+    "sync_deletions": true,
+    "knowledge_count": 1112,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "c985b009-eaa0-49d0-b7ea-466247c1fb48",
+    "mode": "incremental",
+    "type": "feishu",
+    "kb_id": "0d13271c-89ef-43b2-a296-13489f33e68c",
+    "status": "paused",
+    "deleted": true,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10018,
+    "last_sync_at": null,
+    "sync_deletions": true,
+    "knowledge_count": 0,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "d3d7ab43-3d17-428c-8001-788a74585998",
+    "mode": "incremental",
+    "type": "feishu_drive",
+    "kb_id": "0d13271c-89ef-43b2-a296-13489f33e68c",
+    "status": "error",
+    "deleted": true,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10018,
+    "last_sync_at": "2026-09-28T05:46:58.421669",
+    "sync_deletions": true,
+    "knowledge_count": 0,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "785e34ad-df9d-4c6f-a8d7-fcf67c2d7631",
+    "mode": "incremental",
+    "type": "feishu_drive",
+    "kb_id": "74eeef8e-e4fc-4d27-b901-23669df26686",
+    "status": "paused",
+    "deleted": true,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10000,
+    "last_sync_at": null,
+    "sync_deletions": true,
+    "knowledge_count": 0,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "7362fdef-d8f4-4145-8534-8b376e82c20f",
+    "mode": "full",
+    "type": "feishu",
+    "kb_id": "ea99bfb7-7847-436a-9c8e-1701578bd969",
+    "status": "paused",
+    "deleted": false,
+    "conflict": "overwrite",
+    "schedule": "0 0 2 * * *",
+    "tenant_id": 10004,
+    "last_sync_at": "2026-09-19T18:00:08.593946",
+    "sync_deletions": true,
+    "knowledge_count": 1,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "7ffcd489-bee2-4c56-aecb-b8a33c028f30",
+    "mode": "incremental",
+    "type": "feishu",
+    "kb_id": "54b0a305-1ab4-4fab-9937-778fd71c3a74",
+    "status": "paused",
+    "deleted": true,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10002,
+    "last_sync_at": null,
+    "sync_deletions": true,
+    "knowledge_count": 0,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "311bfe01-3d44-4194-a702-4dc13c01aa1a",
+    "mode": "incremental",
+    "type": "feishu_drive",
+    "kb_id": "70a07827-1b81-42b8-be29-b881d451a441",
+    "status": "paused",
+    "deleted": false,
+    "conflict": "overwrite",
+    "schedule": "0 0 2 * * *",
+    "tenant_id": 10004,
+    "last_sync_at": "2026-09-19T18:00:06.883628",
+    "sync_deletions": true,
+    "knowledge_count": 4,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "38640b07-c6f3-4cfe-8099-c08526352688",
+    "mode": "incremental",
+    "type": "feishu_drive",
+    "kb_id": "0d13271c-89ef-43b2-a296-13489f33e68c",
+    "status": "active",
+    "deleted": true,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10018,
+    "last_sync_at": "2026-09-29T04:00:01.952106",
+    "sync_deletions": true,
+    "knowledge_count": 0,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "2670bade-e3f4-4aa5-af1a-4339335ecc6a",
+    "mode": "incremental",
+    "type": "feishu_drive",
+    "kb_id": "b7b46b55-189c-4109-aec8-b25008a5ceae",
+    "status": "error",
+    "deleted": false,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10005,
+    "last_sync_at": "2026-10-13T06:48:19.903165",
+    "sync_deletions": true,
+    "knowledge_count": 1,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "eea7e329-708a-4c4b-bc77-b34a254db471",
+    "mode": "incremental",
+    "type": "feishu_drive",
+    "kb_id": "d14eb0c0-1ade-46f9-890e-84fa823b335d",
+    "status": "active",
+    "deleted": false,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10005,
+    "last_sync_at": "2026-10-12T06:04:09.838192",
+    "sync_deletions": true,
+    "knowledge_count": 113,
+    "indexing_strategy": {
+      "wiki_enabled": false,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "45f76336-9fd5-4230-a17d-7f677e58f1ce",
+    "mode": "incremental",
+    "type": "feishu",
+    "kb_id": "0d13271c-89ef-43b2-a296-13489f33e68c",
+    "status": "error",
+    "deleted": true,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10018,
+    "last_sync_at": "2026-10-08T02:03:48.4398",
+    "sync_deletions": true,
+    "knowledge_count": 0,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "5c7bc873-0ba3-43c7-90a0-32c23e6bd529",
+    "mode": "incremental",
+    "type": "feishu_drive",
+    "kb_id": "6dcae886-fc03-446d-9523-ee6f4e5009c9",
+    "status": "active",
+    "deleted": false,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10005,
+    "last_sync_at": "2026-10-19T22:00:02.400424",
+    "sync_deletions": true,
+    "knowledge_count": 46,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "3e361ce0-b06a-4e8f-ac92-dd9101097045",
+    "mode": "incremental",
+    "type": "feishu_drive",
+    "kb_id": "b93b9e1f-e75b-41f5-940a-ad7de5105c6f",
+    "status": "active",
+    "deleted": false,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10005,
+    "last_sync_at": "2026-10-19T22:00:01.70479",
+    "sync_deletions": true,
+    "knowledge_count": 0,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "53e7a89c-a384-4b78-a201-7c74c370ec13",
+    "mode": "incremental",
+    "type": "feishu",
+    "kb_id": "0944913a-c708-408b-bb07-7ed695831faa",
+    "status": "error",
+    "deleted": false,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10019,
+    "last_sync_at": "2026-10-12T04:05:45.467056",
+    "sync_deletions": true,
+    "knowledge_count": 266,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "14433cdb-fddc-4d6c-a979-ef11c05b61bf",
+    "mode": "incremental",
+    "type": "feishu",
+    "kb_id": "54b0a305-1ab4-4fab-9937-778fd71c3a74",
+    "status": "active",
+    "deleted": false,
+    "conflict": "overwrite",
+    "schedule": "0 0 2 * * *",
+    "tenant_id": 10002,
+    "last_sync_at": "2026-10-19T18:00:19.127664",
+    "sync_deletions": true,
+    "knowledge_count": 16,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "875a2a3b-37d3-4199-854e-7401c3906d2a",
+    "mode": "incremental",
+    "type": "feishu",
+    "kb_id": "0944913a-c708-408b-bb07-7ed695831faa",
+    "status": "paused",
+    "deleted": true,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10019,
+    "last_sync_at": null,
+    "sync_deletions": true,
+    "knowledge_count": 0,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "8a5e2f6f-b646-4f4e-8b8e-3eb021730182",
+    "mode": "incremental",
+    "type": "feishu",
+    "kb_id": "0d13271c-89ef-43b2-a296-13489f33e68c",
+    "status": "error",
+    "deleted": false,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10018,
+    "last_sync_at": "2026-10-09T16:20:16.435654",
+    "sync_deletions": true,
+    "knowledge_count": 290,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "73a040fa-005f-4c96-9797-2831a01e7820",
+    "mode": "incremental",
+    "type": "feishu",
+    "kb_id": "0944913a-c708-408b-bb07-7ed695831faa",
+    "status": "paused",
+    "deleted": true,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10019,
+    "last_sync_at": null,
+    "sync_deletions": true,
+    "knowledge_count": 0,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "22d67f80-6e7e-45b4-b82f-88cfb04374ab",
+    "mode": "incremental",
+    "type": "feishu",
+    "kb_id": "0944913a-c708-408b-bb07-7ed695831faa",
+    "status": "paused",
+    "deleted": true,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10019,
+    "last_sync_at": null,
+    "sync_deletions": true,
+    "knowledge_count": 0,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "867e5798-1c2b-4547-921d-d43132e3f275",
+    "mode": "incremental",
+    "type": "feishu_drive",
+    "kb_id": "8ca41885-69e1-4d43-8bfd-ffc8670900fe",
+    "status": "active",
+    "deleted": false,
+    "conflict": "overwrite",
+    "schedule": "0 0 2 * * *",
+    "tenant_id": 10002,
+    "last_sync_at": "2026-10-10T06:17:13.433587",
+    "sync_deletions": true,
+    "knowledge_count": 69,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "86671f52-5ebf-4460-aa34-212bf8f5e6a8",
+    "mode": "incremental",
+    "type": "feishu",
+    "kb_id": "0d13271c-89ef-43b2-a296-13489f33e68c",
+    "status": "paused",
+    "deleted": true,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10018,
+    "last_sync_at": null,
+    "sync_deletions": true,
+    "knowledge_count": 0,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  },
+  {
+    "id": "be5a806a-8ff0-4352-9478-0d9063f7ca95",
+    "mode": "incremental",
+    "type": "feishu",
+    "kb_id": "a01317cc-fcda-4dfd-b9c5-2086d7c0cf7a",
+    "status": "active",
+    "deleted": false,
+    "conflict": "overwrite",
+    "schedule": "0 0 */6 * * *",
+    "tenant_id": 10014,
+    "last_sync_at": "2026-10-19T22:03:06.915461",
+    "sync_deletions": true,
+    "knowledge_count": 108,
+    "indexing_strategy": {
+      "wiki_enabled": true,
+      "graph_enabled": false,
+      "vector_enabled": true,
+      "keyword_enabled": true
+    }
+  }
+]

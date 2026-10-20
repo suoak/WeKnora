@@ -29,6 +29,7 @@ import (
 	secutils "github.com/Tencent/WeKnora/internal/utils"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
+	"gorm.io/gorm"
 )
 
 func (s *knowledgeService) cloneKnowledge(
@@ -427,26 +428,28 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 	logger.Infof(ctx, "Cleaning up existing chunks and index data for knowledge: %s", knowledge.ID)
 
 	// 删除旧的chunks
-	if err := s.chunkRepo.DeleteChunksByKnowledgeID(ctx, knowledge.TenantID, knowledge.ID); err != nil {
-		logger.Warnf(ctx, "Failed to delete existing chunks (may not exist): %v", err)
-		// 不返回错误，继续处理（可能没有旧数据）
-	}
-
-	// 删除旧的索引数据 — only when vector/keyword indexing is enabled
-	if embeddingModel != nil {
-		if err := retrieveEngine.DeleteByKnowledgeIDList(ctx, []string{knowledge.ID}, embeddingModel.GetDimensions(), knowledge.Type); err != nil {
-			logger.Warnf(ctx, "Failed to delete existing index data (may not exist): %v", err)
+	if !isPersonalFirstCreate(ctx) {
+		if err := s.chunkRepo.DeleteChunksByKnowledgeID(ctx, knowledge.TenantID, knowledge.ID); err != nil {
+			logger.Warnf(ctx, "Failed to delete existing chunks (may not exist): %v", err)
 			// 不返回错误，继续处理（可能没有旧数据）
-		} else {
-			logger.Infof(ctx, "Successfully deleted existing index data for knowledge: %s", knowledge.ID)
 		}
-	}
 
-	// 删除知识图谱数据（如果存在）
-	namespace := types.NameSpace{KnowledgeBase: knowledge.KnowledgeBaseID, Knowledge: knowledge.ID}
-	if err := s.graphEngine.DelGraph(ctx, []types.NameSpace{namespace}); err != nil {
-		logger.Warnf(ctx, "Failed to delete existing graph data (may not exist): %v", err)
-		// 不返回错误，继续处理
+		// 删除旧的索引数据 — only when vector/keyword indexing is enabled
+		if embeddingModel != nil {
+			if err := retrieveEngine.DeleteByKnowledgeIDList(ctx, []string{knowledge.ID}, embeddingModel.GetDimensions(), knowledge.Type); err != nil {
+				logger.Warnf(ctx, "Failed to delete existing index data (may not exist): %v", err)
+				// 不返回错误，继续处理（可能没有旧数据）
+			} else {
+				logger.Infof(ctx, "Successfully deleted existing index data for knowledge: %s", knowledge.ID)
+			}
+		}
+
+		// 删除知识图谱数据（如果存在）
+		namespace := types.NameSpace{KnowledgeBase: knowledge.KnowledgeBaseID, Knowledge: knowledge.ID}
+		if err := s.graphEngine.DelGraph(ctx, []types.NameSpace{namespace}); err != nil {
+			logger.Warnf(ctx, "Failed to delete existing graph data (may not exist): %v", err)
+			// 不返回错误，继续处理
+		}
 	}
 
 	logger.Infof(ctx, "Cleanup completed, starting to process new chunks")
@@ -732,6 +735,12 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 
 		err = retrieveEngine.BatchIndex(ctx, embeddingModel, indexInfoList)
 		if err != nil {
+			if isPersonalFirstCreate(ctx) {
+				// A provider error/timeout can leave real PG index rows behind.
+				// Preserve every partial artifact; fenced caller records attention.
+				s.failStage(ctx, knowledge.ID, types.StageEmbedding, werrors.ErrCodeVectorStoreWriteFailed, "batch index result requires review", nil)
+				return fmt.Errorf("personal first-create batch index unconfirmed: %w", err)
+			}
 			knowledge.ParseStatus = types.ParseStatusFailed
 			knowledge.ErrorMessage = err.Error()
 			knowledge.UpdatedAt = time.Now()
@@ -774,6 +783,9 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 		}
 		if aborted, status := s.isKnowledgeAborted(ctx, knowledge.TenantID, knowledge.ID); aborted {
 			logger.Infof(ctx, "Knowledge aborted (%s) after indexing: %s", status, knowledge.ID)
+			if isPersonalFirstCreate(ctx) {
+				return abortRetryErr(ctx, knowledge.ID, status)
+			}
 			if status == types.ParseStatusDeleting {
 				if err := s.chunkRepo.DeleteChunksByKnowledgeID(ctx, knowledge.TenantID, knowledge.ID); err != nil {
 					logger.Warnf(ctx, "Failed to cleanup chunks after deletion detected: %v", err)
@@ -3512,6 +3524,47 @@ func (s *knowledgeService) ProcessManualUpdate(ctx context.Context, t *asynq.Tas
 func (s *knowledgeService) ProcessDocument(ctx context.Context, t *asynq.Task) error {
 	var payload types.DocumentProcessPayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+		return nil
+	}
+	if payload.FeishuAuthMode == types.FeishuApplicationGrant || t.Type() == types.TypeFeishuApplicationProcess {
+		if payload.FeishuAuthMode != types.FeishuApplicationGrant || payload.FeishuApplicationID == "" || payload.PersonalAttemptID == "" || t.Type() != types.TypeFeishuApplicationProcess {
+			return repository.ErrPersonalIdentity
+		}
+	}
+	if payload.PersonalAttemptID != "" {
+		if s.personalRecovery == nil {
+			return errors.New("personal recovery worker unavailable")
+		}
+		return s.personalRecovery.Process(ctx, payload)
+	}
+	if payload.DispatchID != "" {
+		return s.processDurableDocument(ctx, t, payload)
+	}
+	if repo, ok := s.repo.(interfaces.KnowledgeDispatchRepository); ok {
+		k, err := s.repo.GetKnowledgeByID(ctx, payload.TenantID, payload.KnowledgeID)
+		if err == nil && k != nil && isFeishuAdmissionSource(k.Channel) {
+			if s.personalRecovery != nil && k.Channel == "feishu_personal" {
+				return errors.New("legacy personal task requires fenced staging recovery")
+			}
+			return repo.WithKnowledgeDispatchLock(ctx, k.ID, func(ctx context.Context) error {
+				_, err := repo.GetKnowledgeDispatch(ctx, k.TenantID, k.ID)
+				// A legacy delivery must not race the canonical durable task.
+				if err == nil {
+					return nil
+				}
+				if !errors.Is(err, gorm.ErrRecordNotFound) {
+					return err
+				}
+				return s.processDocument(ctx, t)
+			})
+		}
+	}
+	return s.processDocument(ctx, t)
+}
+
+func (s *knowledgeService) processDocument(ctx context.Context, t *asynq.Task) error {
+	var payload types.DocumentProcessPayload
+	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 		logger.Errorf(ctx, "failed to unmarshal document process task payload: %v", err)
 		return nil
 	}
@@ -4223,6 +4276,12 @@ func (s *knowledgeService) convert(
 		return s.failKnowledge(ctx, knowledge, isLastRetry, "%s", message)
 	}
 	sanitizeReadResult(result)
+	if isPersonalFirstCreate(ctx) {
+		if err := verifyApplicationParse(knowledge, result); err != nil {
+			s.failStage(ctx, knowledge.ID, types.StageDocReader, werrors.ErrCodeDocReaderParseFailed, "application export parsing completeness could not be verified", err)
+			return s.failKnowledge(ctx, knowledge, isLastRetry, "application export parsing completeness could not be verified")
+		}
+	}
 	if result.Error != "" {
 		logger.Errorf(ctx, "[convert] parser returned error kb=%s knowledge=%s file=%q type=%s engine=%q: %s",
 			kb.ID, knowledge.ID, req.FileName, fileType, parserEngine, result.Error)
@@ -4588,6 +4647,29 @@ func (s *knowledgeService) decrMultimodalSlots(
 func (s *knowledgeService) enqueueKnowledgePostProcessTask(
 	ctx context.Context, knowledge *types.Knowledge,
 ) error {
+	if op, ok := ctx.Value(knowledgeDispatchContextKey{}).(*types.TaskPendingOp); ok {
+		repo, ok := s.repo.(interfaces.KnowledgeDispatchRepository)
+		if !ok {
+			return ErrFeishuDispatchUnconfirmed
+		}
+		current, err := s.repo.GetKnowledgeByID(ctx, knowledge.TenantID, knowledge.ID)
+		if err != nil {
+			return err
+		}
+		if current.FileHash != knowledge.FileHash || current.FilePath != knowledge.FilePath || current.EnableStatus != "enabled" {
+			return ErrFeishuDispatchUnconfirmed
+		}
+		var intent types.KnowledgeDispatch
+		if err = json.Unmarshal(op.Payload, &intent); err != nil {
+			return err
+		}
+		// Persist the next-stage intent before publishing it. Redis loss can
+		// now replay post-process without re-entering destructive chunk cleanup.
+		if err = repo.SetKnowledgeDispatchState(ctx, op.ID, "processed"); err != nil {
+			return err
+		}
+		return s.publishDurablePostProcess(ctx, op, intent.Task)
+	}
 	if s.task == nil {
 		return nil
 	}

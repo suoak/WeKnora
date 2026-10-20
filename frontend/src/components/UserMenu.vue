@@ -181,6 +181,7 @@ import { getRootZoom, rectToCssPx, cssViewportSize } from '@/utils/zoom'
 import { openNewUserGuide } from '@/config/contextualGuides'
 import { SETTINGS_MANAGEMENT_SHORTCUT_MIN_ROLE } from '@/config/settingsAccess'
 import { docsUrl } from '@/utils/docsUrl'
+import { getUserDisplayName, getWorkspaceDisplayName } from '@/utils/userDisplayName'
 const { t } = useI18n()
 
 const router = useRouter()
@@ -193,11 +194,12 @@ const { isHomeTenant } = useHomeTenant()
 // activeTenantName 优先用切换器选中的名字（含 fallback 到 home tenant 名字），
 // 单空间用户也能正常显示自己的 home tenant 名。
 const activeTenantName = computed(() => {
-  return (
+  const name = (
     authStore.selectedTenantName ||
     authStore.tenant?.name ||
     ''
   )
+  return getWorkspaceDisplayName(name, authStore.user, authStore.currentTenantRole === 'owner')
 })
 const currentRoleLabel = computed(() => formatRole(authStore.currentTenantRole))
 const currentRoleIcon = computed(() => roleIcon(authStore.currentTenantRole))
@@ -222,7 +224,7 @@ let tenantSubmenuHideTimer: ReturnType<typeof setTimeout> | null = null
 // 用户信息直接读 auth store：启动时 main.ts 已用 /auth/me 校准过，
 // 这里不再各自拉一份，避免首屏两次 /auth/me。
 const userInfo = computed(() => ({
-  username: authStore.user?.username || t('common.defaultUser'),
+  username: getUserDisplayName(authStore.user) || t('common.defaultUser'),
   email: authStore.user?.email || 'user@example.com',
   avatar: authStore.user?.avatar || '',
 }))
@@ -340,7 +342,9 @@ const isCurrentTenant = (id: number) => {
 }
 
 const tenantDisplayName = (m: Membership) =>
-  m.tenant_name && m.tenant_name.trim() !== '' ? m.tenant_name : `#${m.tenant_id}`
+  m.tenant_name && m.tenant_name.trim() !== ''
+    ? getWorkspaceDisplayName(m.tenant_name, authStore.user, m.role === 'owner')
+    : `#${m.tenant_id}`
 
 const tenantInitial = (m: Membership) => {
   const name = tenantDisplayName(m).trim()

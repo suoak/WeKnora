@@ -12,6 +12,7 @@ import (
 
 type gitLabKnowledgeRepo struct {
 	interfaces.KnowledgeRepository
+	interfaces.KnowledgeDispatchRepository
 }
 
 func (r *gitLabKnowledgeRepo) GetKnowledgeTags(context.Context, []string) (map[string][]*types.KnowledgeTag, error) {
@@ -23,10 +24,12 @@ func TestCreateKnowledgeFromFileGitLabPreservesSourcePaths(t *testing.T) {
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	repo := &gitLabKnowledgeRepo{KnowledgeRepository: repository.NewKnowledgeRepository(db)}
+	base := repository.NewKnowledgeRepository(db)
+	repo := &gitLabKnowledgeRepo{KnowledgeRepository: base, KnowledgeDispatchRepository: base.(interfaces.KnowledgeDispatchRepository)}
+	require.NoError(t, db.AutoMigrate(&types.TaskPendingOp{}))
 	svc := &knowledgeService{
 		repo:      repo,
-		kbService: &createKnowledgeFileKBServiceStub{kb: &types.KnowledgeBase{ID: "kb-1"}},
+		kbService: &createKnowledgeFileKBServiceStub{kb: &types.KnowledgeBase{ID: "kb-1", TenantID: 1}},
 		fileSvc:   &createKnowledgeFileServiceStub{},
 		task:      &createKnowledgeTaskEnqueuerStub{},
 	}
@@ -70,10 +73,19 @@ func TestCreateKnowledgeFromFileGitLabPreservesSourcePaths(t *testing.T) {
 	require.ErrorAs(t, err, &dupErr)
 	require.Equal(t, nested.ID, duplicate.ID, "a retry must match this path's own knowledge")
 
-	for _, channel := range []string{"", types.ConnectorTypeFeishu} {
+	for _, channel := range []string{""} {
 		_, err := create(channel, "ds-3", "another/README.md")
 		require.ErrorAs(t, err, &dupErr, "other import channels retain content deduplication")
 	}
+	feishu, err := create(types.ConnectorTypeFeishu, "ds-3", "another/README.md")
+	require.NoError(t, err, "Feishu keeps a separate durable source identity")
+	require.NotEqual(t, root.ID, feishu.ID)
+	replayed, err := create(types.ConnectorTypeFeishu, "ds-3", "another/README.md")
+	require.ErrorAs(t, err, &dupErr)
+	require.Equal(t, feishu.ID, replayed.ID)
+	intent, err := repo.GetKnowledgeDispatch(ctx, 1, feishu.ID)
+	require.NoError(t, err)
+	require.Equal(t, "dispatched", intent.Op)
 	_, err = create(types.ConnectorTypeGitLab, "", "missing-identity/README.md")
 	require.ErrorAs(t, err, &dupErr, "incomplete source identity retains content deduplication")
 }

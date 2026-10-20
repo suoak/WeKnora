@@ -1,0 +1,60 @@
+{
+  "utc": "2026-10-20T00:11:26.161735+00:00",
+  "app_image": "sha256:67b78b1c5aaf72c3d8e03763bfab57bdeb47bf3cf9d771e8fba60c870246d6cb",
+  "frontend_image": "sha256:e262122048b835e27c8e523cf98118aa3440120f3ba6c19cd3651460161381b0",
+  "strategy": "code_flow_tls_userinfo",
+  "lifecycle": "continuous_test",
+  "read_only_data_check": {
+    "users": 3,
+    "schema": {
+      "dirty": false,
+      "version": 3033
+    },
+    "bindings": 1,
+    "resources": [
+      {
+        "id": "47e00dae-16ae-4823-bcb0-319a27fbb94c",
+        "chunks": 43,
+        "status": "completed",
+        "embeddings": 108
+      },
+      {
+        "id": "4c920c49-6bcb-441b-b8f5-1a084ff74c67",
+        "chunks": 30,
+        "status": "completed",
+        "embeddings": 25
+      },
+      {
+        "id": "97df1129-0f2b-47c0-9193-8b659e89f95f",
+        "chunks": 43,
+        "status": "completed",
+        "embeddings": 39
+      },
+      {
+        "id": "9d892d51-2eb1-43b0-a15c-0d6193cec5b8",
+        "chunks": 364,
+        "status": "completed",
+        "embeddings": 1223
+      },
+      {
+        "id": "e3970f9f-a5bf-4988-bd1d-a644d6a79d89",
+        "chunks": 30,
+        "status": "completed",
+        "embeddings": 61
+      },
+      {
+        "id": "5e243c9f-7104-4950-85cf-76c0e5b2bd8e",
+        "chunks": 364,
+        "status": "completed",
+        "embeddings": 323
+      }
+    ]
+  },
+  "http_checks": {
+    "/health": 200,
+    "/api/v1/knowledge-bases": 401,
+    "/api/v1/system/settings/feishu": 401
+  },
+  "new_browser_login": "NOT_EXECUTED: no runtime source change or redeployment this RC2",
+  "production_changes": false
+}

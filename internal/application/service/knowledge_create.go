@@ -16,6 +16,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/tracing/langfuse"
 	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	secutils "github.com/Tencent/WeKnora/internal/utils"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
@@ -27,6 +28,20 @@ func (s *knowledgeService) CreateKnowledgeFromFile(ctx context.Context,
 	processOverrides *types.KnowledgeProcessOverrides,
 ) (*types.Knowledge, error) {
 	logger.Info(ctx, "Start creating knowledge from file")
+	if channel == "feishu_personal" {
+		// Preserve the P0 OAuth/import service while giving its first-create
+		// retries a user-scoped durable source identity.
+		if metadata["feishu_imported_by"] == "" || metadata["feishu_resource_id"] == "" {
+			return nil, ErrFeishuDispatchUnconfirmed
+		}
+		copyMetadata := make(map[string]string, len(metadata)+2)
+		for key, value := range metadata {
+			copyMetadata[key] = value
+		}
+		copyMetadata["datasource_id"] = "feishu_personal:" + metadata["feishu_imported_by"]
+		copyMetadata["external_id"] = metadata["feishu_resource_id"]
+		metadata = copyMetadata
+	}
 
 	// Use custom filename if provided, otherwise use original filename. Folder
 	// uploads pass a path-qualified name ("docs/spec/design.md"): the directory
@@ -92,6 +107,40 @@ func (s *knowledgeService) CreateKnowledgeFromFile(ctx context.Context,
 	// Check if file already exists
 	tenantID := ctx.Value(types.TenantIDContextKey).(uint64)
 	logger.Infof(ctx, "Checking if file exists, tenant ID: %d", tenantID)
+	if isFeishuAdmissionSource(channel) && metadata["datasource_id"] != "" && metadata["external_id"] != "" {
+		var existing *types.Knowledge
+		var err error
+		if channel == "feishu_personal" {
+			repo, ok := s.repo.(interfaces.KnowledgeDispatchRepository)
+			if !ok {
+				return nil, ErrFeishuDispatchUnconfirmed
+			}
+			existing, err = repo.FindFeishuPersonalKnowledge(ctx, tenantID, kbID, metadata["feishu_imported_by"], metadata["feishu_resource_id"])
+		} else {
+			existing, err = s.repo.FindByDataSourceExternalID(ctx, tenantID, kbID, metadata["datasource_id"], metadata["external_id"])
+		}
+		if err != nil {
+			return nil, err
+		}
+		if existing != nil {
+			if existing.FileHash != hash || existing.FileName != fileName {
+				return existing, ErrFeishuStagingRequired
+			}
+			if existing.ParseStatus == types.ParseStatusCompleted || existing.ParseStatus == types.ParseStatusFinalizing {
+				if channel == "feishu_personal" {
+					return existing, nil
+				}
+				return existing, types.NewDuplicateFileError(existing)
+			}
+			if err := s.ResumeKnowledgeDispatch(ctx, existing); err != nil {
+				return existing, err
+			}
+			if channel == "feishu_personal" {
+				return existing, nil
+			}
+			return existing, types.NewDuplicateFileError(existing)
+		}
+	}
 	checkParams := &types.KnowledgeCheckParams{
 		Type:     "file",
 		FileName: fileName,
@@ -112,6 +161,12 @@ func (s *knowledgeService) CreateKnowledgeFromFile(ctx context.Context,
 		return nil, err
 	}
 	if exists {
+		if isFeishuAdmissionSource(channel) {
+			if err := s.ResumeKnowledgeDispatch(ctx, existingKnowledge); err != nil {
+				return existingKnowledge, err
+			}
+			return existingKnowledge, types.NewDuplicateFileError(existingKnowledge)
+		}
 		logger.Infof(ctx, "File already exists: %s", fileName)
 		// Update creation time for existing knowledge
 		if err := s.repo.UpdateKnowledgeColumn(ctx, existingKnowledge.ID, "created_at", time.Now()); err != nil {
@@ -192,6 +247,13 @@ func (s *knowledgeService) CreateKnowledgeFromFile(ctx context.Context,
 		}
 	}
 
+	if isFeishuAdmissionSource(channel) {
+		if metadata["datasource_id"] == "" || metadata["external_id"] == "" {
+			return nil, ErrFeishuDispatchUnconfirmed
+		}
+		knowledge.ID = feishuAdmissionID(tenantID, kbID, metadata, hash, safeFilename)
+	}
+
 	// Save the file to storage (use KB-level storage engine if configured)
 	logger.Infof(ctx, "Saving file, knowledge ID: %s", knowledge.ID)
 	fileSvc := s.resolveFileService(ctx, kb)
@@ -201,11 +263,22 @@ func (s *knowledgeService) CreateKnowledgeFromFile(ctx context.Context,
 		return nil, err
 	}
 	knowledge.FilePath = filePath
+	if isFeishuAdmissionSource(channel) {
+		return s.acceptFeishuKnowledgeDispatch(ctx, knowledge, fileSvc, tagIDs)
+	}
 
 	// Save knowledge record to database after the file is safely stored.
 	logger.Info(ctx, "Saving knowledge record to database")
 	if err := s.repo.CreateKnowledge(ctx, knowledge); err != nil {
 		logger.Errorf(ctx, "Failed to create knowledge record, ID: %s, error: %v", knowledge.ID, err)
+		if isFeishuAdmissionSource(channel) {
+			// An error can mean an unknown commit. Do not delete the candidate
+			// blob when the row may already reference it; reconciliation owns it.
+			current, readErr := s.repo.GetKnowledgeByID(context.WithoutCancel(ctx), tenantID, knowledge.ID)
+			if readErr != nil || (current != nil && current.FilePath == filePath) {
+				return nil, err
+			}
+		}
 		if deleteErr := fileSvc.DeleteFile(ctx, filePath); deleteErr != nil {
 			logger.Errorf(ctx, "Failed to delete saved file after knowledge creation failed, path: %s, error: %v", filePath, deleteErr)
 		}
@@ -1169,7 +1242,7 @@ func (s *knowledgeService) markKnowledgeEnqueueFailed(ctx context.Context, knowl
 
 func usesSourceIdentityDuplicateCheck(channel string) bool {
 	switch channel {
-	case types.ConnectorTypeGitLab, types.ChannelConfluence:
+	case types.ConnectorTypeGitLab, types.ChannelConfluence, "feishu", "feishu_drive", "lark", "lark_drive", "feishu_personal":
 		return true
 	default:
 		return false

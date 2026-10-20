@@ -141,6 +141,10 @@ func resetPendingTasks(db *gorm.DB) {
 func stuckKnowledgeParseQuery(db *gorm.DB) *gorm.DB {
 	q := db.Model(&types.Knowledge{}).
 		Where("parse_status IN ?", resettableParseStatuses()).
+		Where(`NOT EXISTS (SELECT 1 FROM task_pending_ops d
+			WHERE d.scope = ? AND d.scope_id = knowledges.id
+			AND d.tenant_id = knowledges.tenant_id
+			AND d.op IN ('pending','dispatched','processing','recovery','processed'))`, types.KnowledgeDispatchScope).
 		// Wiki ingest ops are persisted independently from the task trigger.
 		// When wiki owns the only outstanding slot, keeping this finalizing row
 		// alive lets startup recreate the trigger and finish cleanly. A count

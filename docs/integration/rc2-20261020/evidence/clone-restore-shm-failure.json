@@ -1,0 +1,19 @@
+{
+  "started_utc": "2026-10-20T00:08:51.373694+00:00",
+  "scope": "approved isolated production snapshot clone; no business networks; no production writes",
+  "state": "FAILED",
+  "pg_image": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+  "source_manifest": "1ffa81392e28d83fd31dd0ab853aa250782e9557c88044e1ec03a653c23cd721",
+  "force_version_used": false,
+  "historical_sql_changed": false,
+  "checks": {},
+  "snapshot_sha256": "38ab3c9b648037f1a7c4da37e1425882d59d412574615b54b75097399fcfe499",
+  "snapshot_bytes": 6239732271,
+  "restore_target": "empty template0 database; image initialization schema retained separately in rc2init_partial",
+  "restore": {
+    "exit": 1,
+    "seconds": 527.601
+  },
+  "failure_type": "AssertionError",
+  "failure": "restore failed; private restore.log retained"
+}

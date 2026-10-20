@@ -74,10 +74,8 @@ func TestPersonalIdentityRevokedDuringRetry(t *testing.T) {
 	}))
 	defer server.Close()
 	client := NewClient(&Config{AppID: "revoke_test", BaseURL: server.URL})
-	var resolved int
 	ctx := WithUserIdentity(context.Background(), func(context.Context) (string, error) {
-		resolved++
-		if resolved > 1 {
+		if calls.Load() > 0 {
 			return "", ErrAuth
 		}
 		return "user-A", nil

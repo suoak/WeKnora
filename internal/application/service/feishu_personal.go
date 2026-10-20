@@ -14,10 +14,12 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
+	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
@@ -36,6 +38,7 @@ var ErrFeishuReconnect = errors.New("feishu_reconnect_required")
 // It deliberately bypasses the general tunable registry: only this dedicated
 // admin API can write it, and every read hits the DB (no stale credential cache).
 type FeishuAppConfig struct {
+	AuthMode    string `json:"auth_mode"`
 	AppID       string `json:"app_id"`
 	Secret      string `json:"client_secret"`
 	RedirectURI string `json:"redirect_uri"`
@@ -44,6 +47,7 @@ type FeishuAppConfig struct {
 }
 
 type FeishuPersonalService struct {
+	recovery  *PersonalRecovery
 	db        *gorm.DB
 	settings  interfaces.SystemSettingRepository
 	knowledge interfaces.KnowledgeService
@@ -131,7 +135,8 @@ func (s *FeishuPersonalService) SaveApp(ctx context.Context, cfg *FeishuAppConfi
 		}
 		cfg.Secret = old.Secret
 	}
-	if err := validateFeishuApp(cfg); err != nil {
+	cfg.AuthMode = types.FeishuAuthMode(cfg.AuthMode)
+	if err := validateFeishuModeConfig(cfg); err != nil {
 		return err
 	}
 	cfg.Version = uuid.NewString()
@@ -158,7 +163,7 @@ func (s *FeishuPersonalService) AdminConfig(ctx context.Context) (map[string]any
 	if err != nil {
 		return map[string]any{"configured": false}, nil
 	}
-	return map[string]any{"configured": true, "app_id": cfg.AppID, "redirect_uri": cfg.RedirectURI, "enabled": cfg.Enabled, "secret_set": cfg.Secret != ""}, nil
+	return map[string]any{"auth_mode": types.FeishuAuthMode(cfg.AuthMode), "configured": true, "app_id": cfg.AppID, "redirect_uri": cfg.RedirectURI, "enabled": cfg.Enabled, "secret_set": cfg.Secret != ""}, nil
 }
 
 func (s *FeishuPersonalService) TestApp(ctx context.Context) error {
@@ -180,12 +185,27 @@ func (s *FeishuPersonalService) Status(ctx context.Context) map[string]any {
 	cfg, err := s.app(ctx)
 	configured := err == nil
 	available := configured && cfg.Enabled && len(utils.GetAESKey()) == 32
+	mode := types.FeishuUserOAuth
+	if configured {
+		mode = types.FeishuAuthMode(cfg.AuthMode)
+	}
+	if mode == types.FeishuApplicationGrant {
+		available = available && s.recovery != nil && s.recovery.firstCreateOnly && applicationGrantEnabled() && applicationGrantEngineAvailable() && applicationUserAllowed(types.IsSystemAdminFromContext(ctx))
+	}
 	connected := false
-	if user, ok := types.UserIDFromContext(ctx); ok && available {
+	if user, ok := types.UserIDFromContext(ctx); ok && available && mode == types.FeishuUserOAuth {
 		var c types.FeishuConnection
 		connected = s.db.WithContext(ctx).Where("user_id = ? AND app_id = ?", user, cfg.AppID).First(&c).Error == nil && c.RefreshExpiresAt.After(time.Now())
 	}
-	return map[string]any{"configured": configured, "available": available, "connected": connected}
+	result := map[string]any{"auth_mode": mode, "configured": configured, "available": available, "connected": connected}
+	if mode == types.FeishuApplicationGrant {
+		supported := []string{"docx"}
+		if os.Getenv("FEISHU_APPLICATION_TABLES_ENABLED") == "1" {
+			supported = append(supported, "sheet", "bitable")
+		}
+		result["supported_resource_types"] = supported
+	}
+	return result
 }
 
 func stateHash(state string) string {
@@ -201,6 +221,9 @@ func (s *FeishuPersonalService) Authorize(ctx context.Context) (string, error) {
 	cfg, err := s.app(ctx)
 	if err != nil {
 		return "", err
+	}
+	if types.FeishuAuthMode(cfg.AuthMode) != types.FeishuUserOAuth {
+		return "", ErrFeishuApplicationRestricted
 	}
 	if !cfg.Enabled || len(utils.GetAESKey()) != 32 {
 		return "", errors.New("feishu_app_unavailable")
@@ -243,7 +266,14 @@ func (s *FeishuPersonalService) oauthRequest(ctx context.Context, payload map[st
 	}
 	defer resp.Body.Close()
 	var token feishuTokens
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 1024*1024)).Decode(&token); err != nil {
+	body, readErr := io.ReadAll(io.LimitReader(resp.Body, 1024*1024+1))
+	if readErr != nil {
+		return nil, errors.New("feishu_oauth_invalid_response")
+	}
+	if len(body) > 1024*1024 {
+		return nil, core.ErrResponseTooLarge
+	}
+	if err := json.Unmarshal(body, &token); err != nil {
 		return nil, errors.New("feishu_oauth_invalid_response")
 	}
 	if resp.StatusCode == 429 || resp.StatusCode >= 500 {
@@ -264,6 +294,10 @@ func (s *FeishuPersonalService) Complete(ctx context.Context, state, code string
 	if err != nil || !cfg.Enabled {
 		return errors.New("feishu_app_unavailable")
 	}
+	if types.FeishuAuthMode(cfg.AuthMode) != types.FeishuUserOAuth {
+		return ErrFeishuApplicationRestricted
+	}
+
 	// Atomic consume is supported by both PostgreSQL and SQLite. Only the owner
 	// may consume it; a wrong-user attempt cannot invalidate the owner's state.
 	consumed := s.db.WithContext(ctx).Model(&types.FeishuOAuthState{}).Where("hash = ? AND user_id = ? AND config_version = ? AND expires_at > ? AND claimed = ?", stateHash(state), user, cfg.Version, time.Now(), false).Update("claimed", true)
@@ -279,6 +313,9 @@ func (s *FeishuPersonalService) Complete(ctx context.Context, state, code string
 	}
 	client := s.client(&core.Config{AppID: cfg.AppID})
 	identityCtx := core.WithUserIdentity(ctx, func(context.Context) (string, error) { return t.Access, nil })
+	if types.FeishuAuthMode(cfg.AuthMode) != types.FeishuUserOAuth {
+		return ErrFeishuApplicationRestricted
+	}
 	var info struct {
 		Data struct {
 			OpenID string `json:"open_id"`
@@ -310,7 +347,13 @@ func (s *FeishuPersonalService) Complete(ctx context.Context, state, code string
 		if err := tx.Where("user_id = ?", user).Delete(&types.FeishuOAuthState{}).Error; err != nil {
 			return err
 		}
-		return tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "user_id"}}, DoUpdates: clause.AssignmentColumns([]string{"app_id", "open_id", "tokens", "expires_at", "refresh_expires_at", "updated_at"})}).Create(&c).Error
+		if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "user_id"}}, DoUpdates: clause.AssignmentColumns([]string{"app_id", "open_id", "tokens", "expires_at", "refresh_expires_at", "updated_at"})}).Create(&c).Error; err != nil {
+			return err
+		}
+		if tx.Migrator().HasTable(&types.FeishuPersonalGrantEpoch{}) {
+			return tx.Clauses(clause.OnConflict{UpdateAll: true}).Create(&types.FeishuPersonalGrantEpoch{UserID: user, Epoch: uuid.NewString()}).Error
+		}
+		return nil
 	})
 }
 
@@ -319,6 +362,9 @@ func (s *FeishuPersonalService) Disconnect(ctx context.Context) error {
 	if !ok {
 		return errors.New("user_session_required")
 	}
+	if cfg, err := s.app(ctx); err == nil && types.FeishuAuthMode(cfg.AuthMode) != types.FeishuUserOAuth {
+		return ErrFeishuApplicationRestricted
+	}
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("user_id = ?", user).Delete(&types.FeishuConnection{}).Error; err != nil {
 			return err
@@ -326,7 +372,7 @@ func (s *FeishuPersonalService) Disconnect(ctx context.Context) error {
 		if err := tx.Where("user_id = ?", user).Delete(&types.FeishuOAuthState{}).Error; err != nil {
 			return err
 		}
-		return tx.Model(&types.FeishuPersonalImport{}).Where("user_id = ?", user).Update("status", "needs_attention").Error
+		return tx.Model(&types.FeishuPersonalImport{}).Where("user_id = ? AND auth_mode = ?", user, types.FeishuUserOAuth).Update("status", "needs_attention").Error
 	})
 }
 
@@ -339,7 +385,7 @@ func (s *FeishuPersonalService) UserToken(ctx context.Context, user, appID, open
 	}
 	var result string
 	cfg, err := s.app(ctx)
-	if err != nil || !cfg.Enabled || cfg.AppID != appID {
+	if err != nil || !cfg.Enabled || cfg.AppID != appID || types.FeishuAuthMode(cfg.AuthMode) != types.FeishuUserOAuth {
 		return "", ErrFeishuReconnect
 	}
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -410,7 +456,57 @@ func (s *FeishuPersonalService) ListImports(ctx context.Context, kbID string) ([
 			}
 		}
 	}
+
+	if err == nil && s.recovery != nil && len(rows) > 0 {
+		ids := make([]string, 0, len(rows))
+		for _, row := range rows {
+			ids = append(ids, row.ID)
+		}
+		var resources []types.FeishuPersonalResource
+		if err = s.db.WithContext(ctx).Where("import_id IN ?", ids).Find(&resources).Error; err != nil {
+			return nil, err
+		}
+		byID := make(map[string]types.FeishuPersonalResource, len(resources))
+		for _, resource := range resources {
+			byID[resource.ImportID] = resource
+		}
+		attemptIDs := make([]string, 0, len(resources))
+		for _, resource := range resources {
+			attemptIDs = append(attemptIDs, resource.CurrentAttemptID)
+		}
+		var attempts []types.FeishuPersonalAttempt
+		if len(attemptIDs) > 0 {
+			if err = s.db.WithContext(ctx).Select("id", "last_error_category").Where("id IN ?", attemptIDs).Find(&attempts).Error; err != nil {
+				return nil, err
+			}
+		}
+		categories := map[string]string{}
+		for _, a := range attempts {
+			if a.LastErrorCategory != "" {
+				categories[a.ID] = personalImportPublicError(a.LastErrorCategory)
+			}
+		}
+		for i := range rows {
+			if resource, ok := byID[rows[i].ID]; ok {
+				rows[i].LogicalKnowledgeID = resource.LogicalKnowledgeID
+				rows[i].AttemptID = resource.CurrentAttemptID
+				rows[i].ErrorCategory = categories[resource.CurrentAttemptID]
+			}
+		}
+	}
+	if err == nil && s.recovery != nil && s.recovery.firstCreateOnly {
+		err = s.recovery.firstCreateStatuses(ctx, rows)
+	}
 	return rows, err
+}
+
+func personalImportPublicError(category string) string {
+	switch category {
+	case "candidate_media_not_supported", "candidate_content_incomplete", "authorization_revalidation_failed", "authorization_or_resource_missing", "partial_or_unknown_index_requires_review", "parse_or_index_result_unconfirmed", "pg_index_receipt_unconfirmed":
+		return category
+	default:
+		return "operation_failed"
+	}
 }
 
 func feishuFile(data []byte, name string) (*multipart.Form, *multipart.FileHeader, error) {
@@ -435,6 +531,12 @@ func feishuFile(data []byte, name string) (*multipart.Form, *multipart.FileHeade
 }
 
 func (s *FeishuPersonalService) Import(ctx context.Context, kbID, rawURL string) (*types.FeishuPersonalImport, error) {
+	if s.recovery != nil {
+		return s.recovery.prepare(ctx, kbID, rawURL)
+	}
+	if cfg, err := s.app(ctx); err == nil && types.FeishuAuthMode(cfg.AuthMode) != types.FeishuUserOAuth {
+		return nil, ErrFeishuApplicationRestricted
+	}
 	user, ok := types.UserIDFromContext(ctx)
 	if !ok {
 		return nil, errors.New("user_session_required")
@@ -514,6 +616,9 @@ func (s *FeishuPersonalService) Import(ctx context.Context, kbID, rawURL string)
 			return &row, nil
 		}
 	}
+	if row.KnowledgeID != "" {
+		return nil, repository.ErrPersonalUpdateDisabled
+	}
 	data, name, err := client.DownloadPersonalResource(remoteCtx, resource)
 	if err != nil {
 		return nil, err
@@ -540,11 +645,7 @@ func (s *FeishuPersonalService) Import(ctx context.Context, kbID, rawURL string)
 	}
 	metadata := map[string]string{"source_url": sourceURL, "original_url": strings.TrimSpace(rawURL), "feishu_document_token": token, "feishu_resource_type": resource.Type, "feishu_resource_id": core.PersonalResourceID(resource), "feishu_imported_by": user, "feishu_open_id": row.OpenID, "feishu_source_modified": resource.Modified, "feishu_coverage": coverage, "feishu_synced_at": time.Now().UTC().Format(time.RFC3339)}
 	var knowledge *types.Knowledge
-	if row.KnowledgeID == "" {
-		knowledge, err = s.knowledge.CreateKnowledgeFromFile(ctx, kbID, file, metadata, nil, name, nil, "feishu_personal", nil)
-	} else {
-		knowledge, err = s.knowledge.ReplaceKnowledgeFile(ctx, row.KnowledgeID, file, name, metadata)
-	}
+	knowledge, err = s.knowledge.CreateKnowledgeFromFile(ctx, kbID, file, metadata, nil, name, nil, "feishu_personal", nil)
 	if err != nil {
 		var duplicate *types.DuplicateKnowledgeError
 		if !errors.As(err, &duplicate) || duplicate.Knowledge == nil {

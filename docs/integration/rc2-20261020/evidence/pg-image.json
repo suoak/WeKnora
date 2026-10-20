@@ -1,0 +1,8 @@
+{
+  "production_operation": "docker image save (read only)",
+  "test_operation": "docker image load",
+  "image": "sha256:6396bfd53a97f6c1aad50af05aad4a65b06bb7c07602b42a8b33b5d51cf83ab1",
+  "bytes": 1831282176,
+  "archive_sha256": "85c0ef3e7be7db3ca23d4be7789bfdfe60daae01ee9c7ec718bc4a3e0624e286",
+  "seconds": 79.031
+}

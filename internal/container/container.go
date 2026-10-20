@@ -621,6 +621,8 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	// Router configuration
 	logger.Debugf(ctx, "[Container] Registering router and starting task server...")
 	must(container.Provide(router.NewRouter))
+	must(container.Invoke(configurePersonalRecovery))
+
 	if redisAvailable {
 		must(container.Invoke(router.RunAsynqServer))
 	} else {
@@ -631,6 +633,7 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	// persistence succeeded immediately before trigger enqueue failed). Re-arm
 	// them only after the matching handlers are ready.
 	must(container.Invoke(recoverPendingWikiTasks))
+	must(container.Invoke(recoverKnowledgeDispatches))
 
 	// BrowserSkill is registered when its manager is constructed, which is
 	// early, so reverse-order cleanup would run it last. Force the manager

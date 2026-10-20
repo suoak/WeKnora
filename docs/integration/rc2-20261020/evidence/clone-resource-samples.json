@@ -1,0 +1,933 @@
+[
+  {
+    "utc": "2026-10-20T00:10:54.877903+00:00",
+    "disk_free": 193134653440,
+    "pg": {
+      "indexes": null,
+      "activity": [
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        }
+      ],
+      "db_bytes": 3388528307
+    }
+  },
+  {
+    "utc": "2026-10-20T00:12:02.306548+00:00",
+    "disk_free": 191116902400,
+    "pg": {
+      "indexes": null,
+      "activity": [
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        }
+      ],
+      "db_bytes": 5389547187
+    }
+  },
+  {
+    "utc": "2026-10-20T00:14:14.519918+00:00",
+    "disk_free": 186397736960,
+    "pg": {
+      "indexes": null,
+      "activity": [
+        {
+          "state": "active",
+          "wait_type": "LWLock",
+          "wait_event": "WALWrite"
+        },
+        {
+          "state": "active",
+          "wait_type": "IO",
+          "wait_event": "WalInitSync"
+        }
+      ],
+      "db_bytes": 10061141683
+    }
+  },
+  {
+    "utc": "2026-10-20T00:14:58.418234+00:00",
+    "disk_free": 185309741056,
+    "pg": {
+      "indexes": [
+        {
+          "index": "-",
+          "phase": "building index: scanning table",
+          "command": "CREATE INDEX",
+          "blocks_done": 253439,
+          "tuples_done": 0,
+          "blocks_total": 773312,
+          "tuples_total": 0
+        }
+      ],
+      "activity": [
+        {
+          "state": "active",
+          "wait_type": "IO",
+          "wait_event": "WalSync"
+        },
+        {
+          "state": "active",
+          "wait_type": "IO",
+          "wait_event": "DataFileRead"
+        },
+        {
+          "state": "active",
+          "wait_type": "IO",
+          "wait_event": "DataFileRead"
+        },
+        {
+          "state": "active",
+          "wait_type": "IO",
+          "wait_event": "DataFileRead"
+        }
+      ],
+      "db_bytes": 11198879411
+    }
+  },
+  {
+    "utc": "2026-10-20T00:15:57.810124+00:00",
+    "disk_free": 184873836544,
+    "pg": {
+      "indexes": [
+        {
+          "index": "-",
+          "phase": "building index: sorting dead tuples",
+          "command": "CREATE INDEX",
+          "blocks_done": 773312,
+          "tuples_done": 0,
+          "blocks_total": 773312,
+          "tuples_total": 0
+        }
+      ],
+      "activity": [
+        {
+          "state": "active",
+          "wait_type": "LWLock",
+          "wait_event": "WALWrite"
+        },
+        {
+          "state": "active",
+          "wait_type": "IPC",
+          "wait_event": "ParallelCreateIndexScan"
+        },
+        {
+          "state": "active",
+          "wait_type": "IO",
+          "wait_event": "DataFileRead"
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": "IO",
+          "wait_event": "BuffileWrite"
+        }
+      ],
+      "db_bytes": 11652781747
+    }
+  },
+  {
+    "utc": "2026-10-20T00:16:39.871945+00:00",
+    "disk_free": 184396038144,
+    "pg": {
+      "indexes": [
+        {
+          "index": "-",
+          "phase": "building index: sorting live tuples",
+          "command": "CREATE INDEX",
+          "blocks_done": 773312,
+          "tuples_done": 0,
+          "blocks_total": 773312,
+          "tuples_total": 0
+        }
+      ],
+      "activity": [
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": "Timeout",
+          "wait_event": "VacuumDelay"
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        }
+      ],
+      "db_bytes": 12103939763
+    }
+  },
+  {
+    "utc": "2026-10-20T00:17:27.176557+00:00",
+    "disk_free": 183388565504,
+    "pg": {
+      "indexes": [
+        {
+          "index": "-",
+          "phase": "building index",
+          "command": "CREATE INDEX",
+          "blocks_done": 5846,
+          "tuples_done": 0,
+          "blocks_total": 13760,
+          "tuples_total": 0
+        }
+      ],
+      "activity": [
+        {
+          "state": "active",
+          "wait_type": "IO",
+          "wait_event": "DataFileExtend"
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        }
+      ],
+      "db_bytes": 13109355023
+    }
+  },
+  {
+    "utc": "2026-10-20T00:19:05.043522+00:00",
+    "disk_free": 183132151808,
+    "pg": {
+      "indexes": null,
+      "activity": [
+        {
+          "state": "active",
+          "wait_type": "Timeout",
+          "wait_event": "VacuumDelay"
+        }
+      ],
+      "db_bytes": 13360112143
+    }
+  },
+  {
+    "utc": "2026-10-20T00:22:07.636126+00:00",
+    "disk_free": 183131082752,
+    "pg": {
+      "indexes": null,
+      "activity": [
+        {
+          "state": "active",
+          "wait_type": "IO",
+          "wait_event": "DataFileRead"
+        }
+      ],
+      "db_bytes": 13361108659
+    }
+  },
+  {
+    "utc": "2026-10-20T00:30:36.096910+00:00",
+    "disk_free": 181526679552,
+    "pg": {
+      "indexes": [
+        {
+          "index": "-",
+          "phase": "building index: sorting live tuples",
+          "command": "CREATE INDEX",
+          "blocks_done": 21136,
+          "tuples_done": 0,
+          "blocks_total": 21136,
+          "tuples_total": 0
+        },
+        {
+          "index": "-",
+          "phase": "building index",
+          "command": "CREATE INDEX",
+          "blocks_done": 32179,
+          "tuples_done": 386340,
+          "blocks_total": 113536,
+          "tuples_total": 0
+        }
+      ],
+      "activity": [
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        }
+      ],
+      "db_bytes": 14954821299
+    }
+  },
+  {
+    "utc": "2026-10-20T00:31:35.242637+00:00",
+    "disk_free": 179635761152,
+    "pg": {
+      "indexes": [
+        {
+          "index": "-",
+          "phase": "building index",
+          "command": "CREATE INDEX",
+          "blocks_done": 1845,
+          "tuples_done": 0,
+          "blocks_total": 113536,
+          "tuples_total": 0
+        },
+        {
+          "index": "-",
+          "phase": "building index",
+          "command": "CREATE INDEX",
+          "blocks_done": 35287,
+          "tuples_done": 435433,
+          "blocks_total": 113536,
+          "tuples_total": 0
+        }
+      ],
+      "activity": [
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": null,
+          "wait_type": null,
+          "wait_event": null
+        }
+      ],
+      "db_bytes": 16853505715
+    }
+  },
+  {
+    "utc": "2026-10-20T00:33:09.809970+00:00",
+    "disk_free": 179440517120,
+    "pg": {
+      "indexes": [
+        {
+          "index": "-",
+          "phase": "building index",
+          "command": "CREATE INDEX",
+          "blocks_done": 47640,
+          "tuples_done": 0,
+          "blocks_total": 113536,
+          "tuples_total": 0
+        },
+        {
+          "index": "-",
+          "phase": "building index",
+          "command": "CREATE INDEX",
+          "blocks_done": 40928,
+          "tuples_done": 511553,
+          "blocks_total": 113536,
+          "tuples_total": 0
+        }
+      ],
+      "activity": [
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": null,
+          "wait_type": null,
+          "wait_event": null
+        }
+      ],
+      "db_bytes": 17048114867
+    }
+  },
+  {
+    "utc": "2026-10-20T00:35:42.628189+00:00",
+    "disk_free": 178592378880,
+    "pg": {
+      "indexes": [
+        {
+          "index": "-",
+          "phase": "building index",
+          "command": "CREATE INDEX",
+          "blocks_done": 49829,
+          "tuples_done": 624988,
+          "blocks_total": 113536,
+          "tuples_total": 0
+        }
+      ],
+      "activity": [
+        {
+          "state": "idle",
+          "wait_type": "Client",
+          "wait_event": "ClientRead"
+        },
+        {
+          "state": "active",
+          "wait_type": "IO",
+          "wait_event": "DataFileRead"
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        }
+      ],
+      "db_bytes": 17896003251
+    }
+  },
+  {
+    "utc": "2026-10-20T00:39:10.208876+00:00",
+    "disk_free": 178119745536,
+    "pg": {
+      "indexes": [
+        {
+          "index": "-",
+          "phase": "building index",
+          "command": "CREATE INDEX",
+          "blocks_done": 60338,
+          "tuples_done": 802417,
+          "blocks_total": 113536,
+          "tuples_total": 0
+        }
+      ],
+      "activity": [
+        {
+          "state": "idle",
+          "wait_type": "Client",
+          "wait_event": "ClientRead"
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        }
+      ],
+      "db_bytes": 18368247475
+    }
+  },
+  {
+    "utc": "2026-10-20T00:43:38.609448+00:00",
+    "disk_free": 177549803520,
+    "pg": {
+      "indexes": [
+        {
+          "index": "-",
+          "phase": "building index",
+          "command": "CREATE INDEX",
+          "blocks_done": 78193,
+          "tuples_done": 1018537,
+          "blocks_total": 113536,
+          "tuples_total": 0
+        }
+      ],
+      "activity": [
+        {
+          "state": "idle",
+          "wait_type": "Client",
+          "wait_event": "ClientRead"
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        }
+      ],
+      "db_bytes": 18938107571
+    }
+  },
+  {
+    "utc": "2026-10-20T00:45:38.701848+00:00",
+    "disk_free": 177272573952,
+    "pg": {
+      "indexes": [
+        {
+          "index": "-",
+          "phase": "building index",
+          "command": "CREATE INDEX",
+          "blocks_done": 85981,
+          "tuples_done": 1126021,
+          "blocks_total": 113536,
+          "tuples_total": 0
+        }
+      ],
+      "activity": [
+        {
+          "state": "idle",
+          "wait_type": "Client",
+          "wait_event": "ClientRead"
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        }
+      ],
+      "db_bytes": 19214898867
+    }
+  },
+  {
+    "utc": "2026-10-20T00:46:49.029568+00:00",
+    "disk_free": 177108439040,
+    "pg": {
+      "indexes": [
+        {
+          "index": "-",
+          "phase": "building index",
+          "command": "CREATE INDEX",
+          "blocks_done": 91025,
+          "tuples_done": 1187087,
+          "blocks_total": 113536,
+          "tuples_total": 0
+        }
+      ],
+      "activity": [
+        {
+          "state": "idle",
+          "wait_type": "Client",
+          "wait_event": "ClientRead"
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        }
+      ],
+      "db_bytes": 19378878131
+    }
+  },
+  {
+    "utc": "2026-10-20T00:48:10.152613+00:00",
+    "disk_free": 176906407936,
+    "pg": {
+      "indexes": [
+        {
+          "index": "-",
+          "phase": "building index",
+          "command": "CREATE INDEX",
+          "blocks_done": 98744,
+          "tuples_done": 1266184,
+          "blocks_total": 113536,
+          "tuples_total": 0
+        }
+      ],
+      "activity": [
+        {
+          "state": "idle",
+          "wait_type": "Client",
+          "wait_event": "ClientRead"
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        }
+      ],
+      "db_bytes": 19580466867
+    }
+  },
+  {
+    "utc": "2026-10-20T00:49:12.024871+00:00",
+    "disk_free": 176763367424,
+    "pg": {
+      "indexes": [
+        {
+          "index": "-",
+          "phase": "building index",
+          "command": "CREATE INDEX",
+          "blocks_done": 105666,
+          "tuples_done": 1318833,
+          "blocks_total": 113536,
+          "tuples_total": 0
+        }
+      ],
+      "activity": [
+        {
+          "state": "idle",
+          "wait_type": "Client",
+          "wait_event": "ClientRead"
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        },
+        {
+          "state": "active",
+          "wait_type": null,
+          "wait_event": null
+        }
+      ],
+      "db_bytes": 19723966131
+    }
+  },
+  {
+    "utc": "2026-10-20T00:51:02.146652+00:00",
+    "disk_free": 176365514752,
+    "pg": {
+      "indexes": [
+        {
+          "index": "-",
+          "phase": "building index",
+          "command": "CREATE INDEX",
+          "blocks_done": 113536,
+          "tuples_done": 1386902,
+          "blocks_total": 113536,
+          "tuples_total": 0
+        }
+      ],
+      "activity": [
+        {
+          "state": "idle",
+          "wait_type": "Client",
+          "wait_event": "ClientRead"
+        },
+        {
+          "state": "active",
+          "wait_type": "IO",
+          "wait_event": "WalSync"
+        }
+      ],
+      "db_bytes": 19902576307
+    }
+  },
+  {
+    "utc": "2026-10-20T01:02:51.263426+00:00",
+    "disk_free": 148453941248,
+    "pg": {
+      "indexes": null,
+      "activity": null,
+      "db_bytes": 19933755059
+    }
+  },
+  {
+    "utc": "2026-10-20T01:05:25.469110+00:00",
+    "disk_free": 140164214784,
+    "pg": {
+      "indexes": null,
+      "activity": [
+        {
+          "pid": 2365,
+          "state": "active",
+          "database": "postgres",
+          "wait_type": "IO",
+          "wait_event": "CopyFileRead",
+          "create_database": true,
+          "query_age_seconds": 276.432462,
+          "auth_tokens_statement": false
+        },
+        {
+          "pid": 2397,
+          "state": "active",
+          "database": "postgres",
+          "wait_type": null,
+          "wait_event": null,
+          "create_database": false,
+          "query_age_seconds": 0.017318,
+          "auth_tokens_statement": true
+        }
+      ],
+      "db_bytes": 19933755059
+    }
+  },
+  {
+    "utc": "2026-10-20T01:22:26.348177+00:00",
+    "disk_free": 116709826560,
+    "pg": {
+      "indexes": [
+        {
+          "index": "1824154",
+          "phase": "building index",
+          "command": "REINDEX",
+          "blocks_done": 5726,
+          "tuples_done": 77824,
+          "blocks_total": 113536,
+          "tuples_total": 0
+        }
+      ],
+      "activity": [
+        {
+          "pid": 3069,
+          "state": "active",
+          "database": "rc2recovered",
+          "wait_type": null,
+          "wait_event": null,
+          "create_database": false,
+          "query_age_seconds": 49.549889,
+          "auth_tokens_statement": false
+        },
+        {
+          "pid": 3083,
+          "state": "active",
+          "database": "postgres",
+          "wait_type": null,
+          "wait_event": null,
+          "create_database": false,
+          "query_age_seconds": 0.030683,
+          "auth_tokens_statement": true
+        }
+      ],
+      "db_bytes": 19933755059
+    }
+  },
+  {
+    "utc": "2026-10-20T01:28:14.947646+00:00",
+    "disk_free": 116618870784,
+    "pg": {
+      "indexes": [
+        {
+          "index": "1824154",
+          "phase": "building index",
+          "command": "REINDEX",
+          "blocks_done": 47321,
+          "tuples_done": 649527,
+          "blocks_total": 113536,
+          "tuples_total": 0
+        }
+      ],
+      "activity": [
+        {
+          "pid": 3069,
+          "state": "active",
+          "database": "rc2recovered",
+          "wait_type": null,
+          "wait_event": null,
+          "create_database": false,
+          "query_age_seconds": 398.095216,
+          "auth_tokens_statement": false
+        },
+        {
+          "pid": 3142,
+          "state": "active",
+          "database": "postgres",
+          "wait_type": null,
+          "wait_event": null,
+          "create_database": false,
+          "query_age_seconds": 0.003759,
+          "auth_tokens_statement": true
+        }
+      ],
+      "db_bytes": 19933755059
+    }
+  },
+  {
+    "utc": "2026-10-20T01:34:10.229411+00:00",
+    "disk_free": 116605349888,
+    "pg": {
+      "indexes": [
+        {
+          "index": "1824154",
+          "phase": "building index",
+          "command": "REINDEX",
+          "blocks_done": 91830,
+          "tuples_done": 1211054,
+          "blocks_total": 113536,
+          "tuples_total": 0
+        }
+      ],
+      "activity": [
+        {
+          "pid": 3069,
+          "state": "active",
+          "database": "rc2recovered",
+          "wait_type": null,
+          "wait_event": null,
+          "create_database": false,
+          "query_age_seconds": 753.373544,
+          "auth_tokens_statement": false
+        },
+        {
+          "pid": 3249,
+          "state": "active",
+          "database": "postgres",
+          "wait_type": null,
+          "wait_event": null,
+          "create_database": false,
+          "query_age_seconds": 0.003579,
+          "auth_tokens_statement": true
+        }
+      ],
+      "db_bytes": 19933755059
+    }
+  },
+  {
+    "utc": "2026-10-20T01:43:23.822563+00:00",
+    "disk_free": 116571901952,
+    "pg": {
+      "indexes": null,
+      "activity": [
+        {
+          "pid": 3495,
+          "state": "active",
+          "database": "postgres",
+          "wait_type": null,
+          "wait_event": null,
+          "create_database": false,
+          "query_age_seconds": 0.003666,
+          "auth_tokens_statement": true
+        }
+      ],
+      "db_bytes": 19933755059
+    }
+  },
+  {
+    "utc": "2026-10-20T01:45:51.992346+00:00",
+    "disk_free": 116571885568,
+    "pg": {
+      "indexes": null,
+      "activity": [
+        {
+          "pid": 3526,
+          "state": "active",
+          "database": "postgres",
+          "wait_type": null,
+          "wait_event": null,
+          "create_database": false,
+          "query_age_seconds": 0.003012,
+          "auth_tokens_statement": true
+        }
+      ],
+      "db_bytes": 19933755059
+    }
+  }
+]

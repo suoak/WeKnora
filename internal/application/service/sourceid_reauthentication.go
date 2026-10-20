@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"math"
@@ -16,13 +17,18 @@ type sourceIDReauthRequestKey struct{}
 // Stored in the existing authorization transaction Result field, never in
 // browser-controlled state. Login-result rows use a separate hashed key space.
 type sourceIDReauthRequest struct {
-	Version int       `json:"version"`
-	Prompt  string    `json:"prompt"`
-	Started time.Time `json:"started"`
+	TLSBinding string    `json:"tls_binding,omitempty"`
+	Version    int       `json:"version"`
+	Prompt     string    `json:"prompt"`
+	Started    time.Time `json:"started"`
 }
 
 func sourceIDAuthorizationMetadata(cfg *config.OIDCAuthConfig, query url.Values) (string, error) {
 	m := sourceIDReauthRequest{Version: 1, Started: time.Now().UTC()}
+	if sidTLSUserInfoMode(cfg) {
+		binding := sidTLSConfigurationBinding(cfg)
+		m.TLSBinding = hex.EncodeToString(binding[:])
+	}
 	if cfg.SourceIDForceReauthPromptLogin {
 		m.Prompt = "login"
 		query.Set("prompt", "login")
@@ -95,6 +101,9 @@ func checkSourceIDReauthentication(ctx context.Context, cfg *config.OIDCAuthConf
 			err = errors.New("sourceid reauthentication auth_time invalid or stale")
 		} else {
 			evidence = "SIGNED_AUTH_TIME_VERIFIED"
+			if sidTLSUserInfoMode(cfg) {
+				evidence = "TLS_TOKEN_AUTH_TIME_VERIFIED"
+			}
 		}
 	}
 	if entry, ok := ctx.Value(sourceIDDiagnosticKey{}).(sourceIDDiagnosticContext); ok {

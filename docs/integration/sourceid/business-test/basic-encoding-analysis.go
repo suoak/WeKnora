@@ -1,3 +1,5 @@
+//go:build ignore
+
 // Standalone, synthetic-only analysis. No SID endpoints or real credentials.
 // Run with GO111MODULE=off GOTOOLCHAIN=local go run this-file.go.
 package main

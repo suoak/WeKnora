@@ -51,9 +51,16 @@ func ParsePersonalResourceURL(raw string) (PersonalResource, error) {
 // ResolvePersonalResource unwraps a Wiki link and validates metadata under the
 // user identity. Identity is {real type}:{real token}, independent of URL form.
 func (c *Client) ResolvePersonalResource(ctx context.Context, r PersonalResource) (PersonalResource, error) {
+	if _, app := ctx.Value(applicationIdentityKey{}).(applicationIdentity); app {
+		return r, ErrAuth
+	}
 	if _, ok := ctx.Value(userIdentityKey{}).(userIdentity); !ok {
 		return r, ErrAuth
 	}
+	return c.resolveResource(ctx, r)
+}
+
+func (c *Client) resolveResource(ctx context.Context, r PersonalResource) (PersonalResource, error) {
 	if r.Type == "wiki" {
 		node, err := c.GetWikiNode(ctx, "", r.Token)
 		if err != nil {
@@ -96,9 +103,16 @@ func (c *Client) ResolvePersonalResource(ctx context.Context, r PersonalResource
 }
 
 func (c *Client) DownloadPersonalResource(ctx context.Context, r PersonalResource) ([]byte, string, error) {
+	if _, app := ctx.Value(applicationIdentityKey{}).(applicationIdentity); app {
+		return nil, "", ErrAuth
+	}
 	if _, ok := ctx.Value(userIdentityKey{}).(userIdentity); !ok {
 		return nil, "", ErrAuth
 	}
+	return c.downloadResource(ctx, r)
+}
+
+func (c *Client) downloadResource(ctx context.Context, r PersonalResource) ([]byte, string, error) {
 	if r.Type == "file" {
 		data, err := c.DownloadDriveFile(ctx, r.Token)
 		if err == nil {
@@ -168,9 +182,16 @@ func validatePersonalBytes(data []byte, name string) error {
 // in the exported workbook. Field/record semantics and attachment contents
 // still require the documented live fixture checks; they are not inferred.
 func (c *Client) ValidateWorkbookCoverage(ctx context.Context, r PersonalResource, data []byte) (int, error) {
+	if _, app := ctx.Value(applicationIdentityKey{}).(applicationIdentity); app {
+		return 0, ErrAuth
+	}
 	if _, ok := ctx.Value(userIdentityKey{}).(userIdentity); !ok {
 		return 0, ErrAuth
 	}
+	return c.validateWorkbookCoverage(ctx, r, data)
+}
+
+func (c *Client) validateWorkbookCoverage(ctx context.Context, r PersonalResource, data []byte) (int, error) {
 	if r.Type != "sheet" && r.Type != "bitable" {
 		return 0, nil
 	}

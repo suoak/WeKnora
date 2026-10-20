@@ -320,6 +320,17 @@ type OIDCUserInfoMapping struct {
 }
 
 type OIDCAuthConfig struct {
+	SourceIDTLSUserInfoConfirmed          bool   `yaml:"sourceid_tls_userinfo_confirmed" json:"-"`
+	SourceIDTLSUserInfoApprovalRef        string `yaml:"sourceid_tls_userinfo_approval_ref" json:"-"`
+	SourceIDTLSUserInfoExpiresAt          string `yaml:"sourceid_tls_userinfo_expires_at" json:"-"`
+	SourceIDTLSUserInfoLifecycle          string `yaml:"sourceid_tls_userinfo_lifecycle" json:"-"`
+	SourceIDTLSUserInfoTestInstance       string `yaml:"sourceid_tls_userinfo_test_instance" json:"-"`
+	SourceIDValidationStrategy            string `yaml:"sourceid_validation_strategy" json:"-"`
+	SourceIDPinnedKeysFile                string `yaml:"sourceid_pinned_keys_file" json:"-"`
+	SourceIDPinnedKeysConfirmed           bool   `yaml:"sourceid_pinned_keys_confirmed" json:"-"`
+	SourceIDPinnedKeysApprovalRef         string `yaml:"sourceid_pinned_keys_approval_ref" json:"-"`
+	SourceIDPinnedKeysExpiresAt           string `yaml:"sourceid_pinned_keys_expires_at" json:"-"`
+	SourceIDPinnedKeyFingerprints         string `yaml:"sourceid_pinned_key_fingerprints" json:"-"`
 	SourceIDProtocolOnly                  bool   `yaml:"sourceid_protocol_only" json:"-"`
 	SourceIDDiagnosticsEnable             bool   `yaml:"sourceid_diagnostics_enable" json:"-"`
 	SourceIDBasicEncoding                 string `yaml:"sourceid_basic_encoding" json:"-"`
@@ -693,6 +704,9 @@ func applyMCPPublicURLEnv(cfg *Config) {
 func ValidateConfig(cfg *Config) error {
 	var errs []string
 	if cfg.OIDCAuth != nil {
+		if err := cfg.OIDCAuth.ValidateSourceIDValidationStrategy(); err != nil {
+			errs = append(errs, err.Error())
+		}
 		if _, err := cfg.OIDCAuth.EffectiveSourceIDBasicEncoding(); err != nil {
 			errs = append(errs, err.Error())
 		}
@@ -820,41 +834,52 @@ func applyOIDCEnvOverrides(cfg *Config) {
 	}
 
 	for key, target := range map[string]*string{
-		"SOURCEID_SESSION_MODE":              &cfg.OIDCAuth.SourceIDSessionMode,
-		"SOURCEID_PILOT_ACCOUNTS_FILE":       &cfg.OIDCAuth.SourceIDPilotAccountsFile,
-		"SOURCEID_ACCOUNT_SCOPE":             &cfg.OIDCAuth.SourceIDAccountScope,
-		"SOURCEID_ENTERPRISE_POLICY_REF":     &cfg.OIDCAuth.SourceIDEnterprisePolicyRef,
-		"SOURCEID_ENTERPRISE_MAX_AGE":        &cfg.OIDCAuth.SourceIDEnterpriseMaxAge,
-		"SOURCEID_ACCOUNT_LINK_MODE":         &cfg.OIDCAuth.SourceIDAccountLinkMode,
-		"SOURCEID_VERIFIED_EMAIL_POLICY_REF": &cfg.OIDCAuth.SourceIDVerifiedEmailPolicyRef,
-		"SOURCEID_JIT_POLICY_REF":            &cfg.OIDCAuth.SourceIDJITPolicyRef,
-		"SOURCEID_JIT_EMAIL_DOMAINS":         &cfg.OIDCAuth.SourceIDJITEmailDomains,
-		"SOURCEID_LOCAL_POLICY_REF":          &cfg.OIDCAuth.SourceIDLocalPolicyRef,
-		"SOURCEID_LOCAL_ACCESS_TTL":          &cfg.OIDCAuth.SourceIDLocalAccessTTL,
-		"SOURCEID_LOCAL_ABSOLUTE_TTL":        &cfg.OIDCAuth.SourceIDLocalAbsoluteTTL,
-		"SOURCEID_LOCAL_IDLE_TTL":            &cfg.OIDCAuth.SourceIDLocalIdleTTL,
-		"SOURCEID_ADMISSION_MODE":            &cfg.OIDCAuth.SourceIDAdmissionMode,
-		"SOURCEID_ADMISSION_POLICY_REF":      &cfg.OIDCAuth.SourceIDAdmissionPolicyRef,
-		"SOURCEID_ADMISSION_MAX_AGE":         &cfg.OIDCAuth.SourceIDAdmissionMaxAge,
-		"SOURCEID_EMPLOYEE_CLAIM":            &cfg.OIDCAuth.SourceIDEmployeeClaim,
-		"SOURCEID_AUTO_BINDING_POLICY_REF":   &cfg.OIDCAuth.SourceIDAutoBindingPolicyRef,
-		"SOURCEID_SESSION_CLAIM":             &cfg.OIDCAuth.SourceIDSessionClaim,
-		"SOURCEID_STATUS_CLAIM":              &cfg.OIDCAuth.SourceIDStatusClaim,
-		"SOURCEID_ALLOWED_STATUS":            &cfg.OIDCAuth.SourceIDAllowedStatus,
-		"SOURCEID_CLAIMS_SOURCE":             &cfg.OIDCAuth.SourceIDClaimsSource,
-		"SOURCEID_BASIC_ENCODING":            &cfg.OIDCAuth.SourceIDBasicEncoding,
-		"SOURCEID_LOGOUT_ENCODING":           &cfg.OIDCAuth.SourceIDLogoutEncoding,
-		"SOURCEID_LOGOUT_CIDRS":              &cfg.OIDCAuth.SourceIDLogoutCIDRs,
-		"SOURCEID_LOGOUT_SECRET":             &cfg.OIDCAuth.SourceIDLogoutSecret,
-		"OIDC_AUTH_REDIRECT_URI":             &cfg.OIDCAuth.RedirectURI,
-		"OIDC_AUTH_CLIENT_AUTH_METHOD":       &cfg.OIDCAuth.ClientAuthMethod,
-		"OIDC_AUTH_USER_INFO_TRANSPORT":      &cfg.OIDCAuth.UserInfoTransport,
+		"SOURCEID_SESSION_MODE":               &cfg.OIDCAuth.SourceIDSessionMode,
+		"SOURCEID_PILOT_ACCOUNTS_FILE":        &cfg.OIDCAuth.SourceIDPilotAccountsFile,
+		"SOURCEID_ACCOUNT_SCOPE":              &cfg.OIDCAuth.SourceIDAccountScope,
+		"SOURCEID_ENTERPRISE_POLICY_REF":      &cfg.OIDCAuth.SourceIDEnterprisePolicyRef,
+		"SOURCEID_ENTERPRISE_MAX_AGE":         &cfg.OIDCAuth.SourceIDEnterpriseMaxAge,
+		"SOURCEID_ACCOUNT_LINK_MODE":          &cfg.OIDCAuth.SourceIDAccountLinkMode,
+		"SOURCEID_VERIFIED_EMAIL_POLICY_REF":  &cfg.OIDCAuth.SourceIDVerifiedEmailPolicyRef,
+		"SOURCEID_JIT_POLICY_REF":             &cfg.OIDCAuth.SourceIDJITPolicyRef,
+		"SOURCEID_JIT_EMAIL_DOMAINS":          &cfg.OIDCAuth.SourceIDJITEmailDomains,
+		"SOURCEID_LOCAL_POLICY_REF":           &cfg.OIDCAuth.SourceIDLocalPolicyRef,
+		"SOURCEID_LOCAL_ACCESS_TTL":           &cfg.OIDCAuth.SourceIDLocalAccessTTL,
+		"SOURCEID_LOCAL_ABSOLUTE_TTL":         &cfg.OIDCAuth.SourceIDLocalAbsoluteTTL,
+		"SOURCEID_LOCAL_IDLE_TTL":             &cfg.OIDCAuth.SourceIDLocalIdleTTL,
+		"SOURCEID_ADMISSION_MODE":             &cfg.OIDCAuth.SourceIDAdmissionMode,
+		"SOURCEID_ADMISSION_POLICY_REF":       &cfg.OIDCAuth.SourceIDAdmissionPolicyRef,
+		"SOURCEID_ADMISSION_MAX_AGE":          &cfg.OIDCAuth.SourceIDAdmissionMaxAge,
+		"SOURCEID_EMPLOYEE_CLAIM":             &cfg.OIDCAuth.SourceIDEmployeeClaim,
+		"SOURCEID_AUTO_BINDING_POLICY_REF":    &cfg.OIDCAuth.SourceIDAutoBindingPolicyRef,
+		"SOURCEID_SESSION_CLAIM":              &cfg.OIDCAuth.SourceIDSessionClaim,
+		"SOURCEID_STATUS_CLAIM":               &cfg.OIDCAuth.SourceIDStatusClaim,
+		"SOURCEID_ALLOWED_STATUS":             &cfg.OIDCAuth.SourceIDAllowedStatus,
+		"SOURCEID_CLAIMS_SOURCE":              &cfg.OIDCAuth.SourceIDClaimsSource,
+		"SOURCEID_BASIC_ENCODING":             &cfg.OIDCAuth.SourceIDBasicEncoding,
+		"SOURCEID_LOGOUT_ENCODING":            &cfg.OIDCAuth.SourceIDLogoutEncoding,
+		"SOURCEID_LOGOUT_CIDRS":               &cfg.OIDCAuth.SourceIDLogoutCIDRs,
+		"SOURCEID_LOGOUT_SECRET":              &cfg.OIDCAuth.SourceIDLogoutSecret,
+		"OIDC_AUTH_REDIRECT_URI":              &cfg.OIDCAuth.RedirectURI,
+		"OIDC_AUTH_CLIENT_AUTH_METHOD":        &cfg.OIDCAuth.ClientAuthMethod,
+		"OIDC_AUTH_USER_INFO_TRANSPORT":       &cfg.OIDCAuth.UserInfoTransport,
+		"SOURCEID_VALIDATION_STRATEGY":        &cfg.OIDCAuth.SourceIDValidationStrategy,
+		"SOURCEID_TLS_USERINFO_APPROVAL_REF":  &cfg.OIDCAuth.SourceIDTLSUserInfoApprovalRef,
+		"SOURCEID_TLS_USERINFO_EXPIRES_AT":    &cfg.OIDCAuth.SourceIDTLSUserInfoExpiresAt,
+		"SOURCEID_TLS_USERINFO_LIFECYCLE":     &cfg.OIDCAuth.SourceIDTLSUserInfoLifecycle,
+		"SOURCEID_TLS_USERINFO_TEST_INSTANCE": &cfg.OIDCAuth.SourceIDTLSUserInfoTestInstance,
+		"SOURCEID_PINNED_KEYS_FILE":           &cfg.OIDCAuth.SourceIDPinnedKeysFile,
+		"SOURCEID_PINNED_KEYS_APPROVAL_REF":   &cfg.OIDCAuth.SourceIDPinnedKeysApprovalRef,
+		"SOURCEID_PINNED_KEYS_EXPIRES_AT":     &cfg.OIDCAuth.SourceIDPinnedKeysExpiresAt,
+		"SOURCEID_PINNED_KEY_FINGERPRINTS":    &cfg.OIDCAuth.SourceIDPinnedKeyFingerprints,
 	} {
 		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
 			*target = value
 		}
 	}
 	for key, target := range map[string]*bool{
+		"SOURCEID_TLS_USERINFO_CONFIRMED":          &cfg.OIDCAuth.SourceIDTLSUserInfoConfirmed,
+		"SOURCEID_PINNED_KEYS_CONFIRMED":           &cfg.OIDCAuth.SourceIDPinnedKeysConfirmed,
 		"SOURCEID_FORCE_REAUTH_PROMPT_LOGIN":       &cfg.OIDCAuth.SourceIDForceReauthPromptLogin,
 		"SOURCEID_SSO_POLICY_CONFIRMED":            &cfg.OIDCAuth.SourceIDSSOPolicyConfirmed,
 		"SOURCEID_ENTERPRISE_POLICY_CONFIRMED":     &cfg.OIDCAuth.SourceIDEnterprisePolicyConfirmed,

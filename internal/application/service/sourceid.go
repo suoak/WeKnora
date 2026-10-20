@@ -57,6 +57,16 @@ func (s *userService) PrepareOIDCCallback(ctx context.Context, state string) (co
 		return ctx, err
 	}
 	ctx = context.WithValue(ctx, sourceIDPreparedKey, true)
+	if sidTLSUserInfoMode(s.config.OIDCAuth) {
+		cfg, err := s.getOIDCConfig(ctx)
+		if err != nil {
+			return ctx, err
+		}
+		ctx, err = s.prepareSIDTLSAuthorization(ctx, cfg, transaction)
+		if err != nil {
+			return ctx, err
+		}
+	}
 	return context.WithValue(ctx, oidcVerifierKey, transaction.Verifier), nil
 }
 

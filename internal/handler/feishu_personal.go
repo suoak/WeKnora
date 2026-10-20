@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/application/service"
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/gin-gonic/gin"
@@ -24,6 +25,22 @@ func feishuFailureResponse(c *gin.Context, err error) {
 	if err != nil {
 		code, message := "feishu_operation_failed", "请检查飞书授权、文档权限和知识库配置后重试"
 		switch {
+		case errors.Is(err, core.ErrApplicationTableMedia):
+			code, message = "feishu_table_media_not_supported", "表格包含尚未支持完整解析的图片或附件，请手动导出核对后上传"
+		case errors.Is(err, core.ErrApplicationTableIncomplete):
+			code, message = "feishu_table_content_incomplete", "表格内容读取不完整或读取期间发生变化，请稍后重试"
+		case errors.Is(err, service.ErrFeishuApplicationRestricted):
+			code, message = "feishu_application_test_only", "飞书文档导入尚未启用或当前账号无导入权限"
+		case errors.Is(err, service.ErrFeishuIncompleteContent), errors.Is(err, core.ErrApplicationIncompleteContent):
+			code, message = "feishu_incomplete_content", "该文档含尚未验证的内容或导出内容不完整，请手动导出核对后上传；已有知识保留"
+		case errors.Is(err, repository.ErrPersonalReviewRequired):
+			code, message = "feishu_recovery_requires_review", "已有部分解析或索引结果，需要人工核查恢复；原知识和文件已保留"
+		case errors.Is(err, repository.ErrPersonalUpdateDisabled):
+			code, message = "feishu_update_not_open", "文档更新暂未开放，已入库内容保持不变"
+		case errors.Is(err, repository.ErrPersonalAlreadyImported):
+			code, message = "feishu_already_imported", "该飞书资源已导入当前知识库，请查看已有知识条目；不会使用其他用户的授权重新抓取"
+		case errors.Is(err, core.ErrResponseTooLarge):
+			code, message = "feishu_response_too_large", "飞书响应超过安全大小上限，请手动导出或拆分后上传，已有知识保留"
 		case errors.Is(err, service.ErrInvalidFileType):
 			code, message = "feishu_unsupported_file_type", "该文件格式不在当前 KnowHub 解析器支持范围内，请先转换为可解析格式"
 		case err.Error() == "SYSTEM_AES_KEY must contain exactly 32 bytes":
@@ -33,7 +50,7 @@ func feishuFailureResponse(c *gin.Context, err error) {
 		case errors.Is(err, service.ErrFeishuReconnect), errors.Is(err, core.ErrAuth):
 			code, message = "feishu_reconnect_required", "飞书授权已失效，请重新连接账号"
 		case errors.Is(err, core.ErrPermission), errors.Is(err, core.ErrNotFound):
-			code, message = "feishu_permission_required", "当前飞书账号无权读取或导出该资源，已有入库内容将保留"
+			code, message = "feishu_permission_required", "当前飞书授权身份无权读取或导出该资源，已有入库内容将保留"
 		case errors.Is(err, core.ErrRateLimited):
 			code, message = "feishu_rate_limited", "飞书限流，请稍后重试，已有入库内容将保留"
 		case errors.Is(err, core.ErrTransient), errors.Is(err, context.DeadlineExceeded), strings.Contains(err.Error(), "export task timed out"):

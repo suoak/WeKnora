@@ -1,0 +1,126 @@
+[
+  {
+    "path": "clone-restore-shm-failure.json",
+    "sha256": "cdf752c3d93d02f5be7c8ed9c82007f18e6d7803bc2bac7147d320a2018156b6"
+  },
+  {
+    "path": "clone-rollback-startup.json",
+    "sha256": "2fdd8db6ff563bb549b684bd1b279d5549011b8421f21dfa05b308a896479850"
+  },
+  {
+    "path": "clone-resource-samples.json",
+    "sha256": "038fe1bf9b5b03bae55943f66081aca32ca5465c4361ee23439a12d5e5c244c2"
+  },
+  {
+    "path": "clone-progress.json",
+    "sha256": "1486d250fb42bc2fe45dbecd72a7fe151978927b5a7c0312409d933ae86672bc"
+  },
+  {
+    "path": "production-snapshot.json",
+    "sha256": "c110b2e22dcdc6dbe4d4cd37274dcb3443cb668e937aa17aa635f78c9058ecf3"
+  },
+  {
+    "path": "old-app-identity.json",
+    "sha256": "91dd78676304874c1eced0ceb01c5c74a7051f6ef8e912e080951fd2fc993413"
+  },
+  {
+    "path": "test-protection.json",
+    "sha256": "53448c2b3cf090ee74f91dc836a22c7cca166e308a92672d11bf59b12b7fe4eb"
+  },
+  {
+    "path": "ann-exact-reference.json",
+    "sha256": "7a77b06a32e7b08b85ced4641d2a12421275e415f4aaf47066506d9c86e92cfd"
+  },
+  {
+    "path": "clone-harness-failure-2026-10-20T00-07-46.110937_00-00.json",
+    "sha256": "44775e00caf0266ed4d077456fa11e5be5db02755cdcdb5339f2a727b48df59d"
+  },
+  {
+    "path": "strict-validation.json",
+    "sha256": "baa3a93d4b19119cf49290e04f5eab9a83dd6944d9821ca029deab98cbd0d223"
+  },
+  {
+    "path": "restore-repair-progress.json",
+    "sha256": "6f2cc9bc02bc4b2b6424d23c4fdbd783e1254f18d2ae207df673aa4f63cde35e"
+  },
+  {
+    "path": "pg-image-identity.json",
+    "sha256": "79aa3b7f21da5cdb89d29bef3cc6ba7ea73620f54f3b1f3923901befa1435a0b"
+  },
+  {
+    "path": "ann-diagnosis.json",
+    "sha256": "a0c3da618b246204c43608f7224ac0a507116c703c2b818e6a8eda0897bbb68e"
+  },
+  {
+    "path": "clone-result.json",
+    "sha256": "1486d250fb42bc2fe45dbecd72a7fe151978927b5a7c0312409d933ae86672bc"
+  },
+  {
+    "path": "migration-log-versions.json",
+    "sha256": "d1c21bba9f93264d6001d2311522c52e6d6ea58e94807772fcf51e5df9a1ed60"
+  },
+  {
+    "path": "serial-reindex.json",
+    "sha256": "209442d9fa2b483c07c036339320d2ec84d8eae1de0b7585407dc774c1f799d3"
+  },
+  {
+    "path": "clone-app-startup.json",
+    "sha256": "fbf1853d49a029dd32df2b6be7b621427410c2d82c80da03bd0922b8737a39c4"
+  },
+  {
+    "path": "migrator-runtime-asset-failure.json",
+    "sha256": "fbaa801586adb4592c106d4e894cacd0bfaac97dc9dea215a64dedc574d3318b"
+  },
+  {
+    "path": "harness.json",
+    "sha256": "788eb2669efbc0ea3d9a39610180ef4bdf14f85c6050e47c34a94a6b7e49b17a"
+  },
+  {
+    "path": "release-tool-validation.json",
+    "sha256": "d34e100f3b554282102880584f48e6e7266cac436e867413c448775c6f093c86"
+  },
+  {
+    "path": "ann-point-metadata.json",
+    "sha256": "8895dbc700c7bc43242c81ec4f9265b2197d744952b85a11f4ce8a4acdc314ea"
+  },
+  {
+    "path": "ann-product-parameters.json",
+    "sha256": "08cb81089d4aa0c7c57d5a56a38783239704af92da94a2c3a54c0dec9fb58e6a"
+  },
+  {
+    "path": "clone-initial-harness-failure.json",
+    "sha256": "ad79150c0443a8dae433743b1cc12fc502d254a63c885b716be22a83f29b8f1c"
+  },
+  {
+    "path": "clone-harness-failure-2026-10-20T00-28-30.706103_00-00.json",
+    "sha256": "fbaa801586adb4592c106d4e894cacd0bfaac97dc9dea215a64dedc574d3318b"
+  },
+  {
+    "path": "fault-observation.json",
+    "sha256": "865aae573a5566119d7aa6329a79a73558c160beaa4f5071e8aed224dc00b2b7"
+  },
+  {
+    "path": "clone-data-validation.json",
+    "sha256": "28a3120d5eb5d4c876b5b59ed0f57c32199ab8f3831f6fad0b887af6b35bb08c"
+  },
+  {
+    "path": "cloned-source-inventory.json",
+    "sha256": "ba7dd35d319818019964c69160ae0561ddf53feaa5dfa36d6d814ef8ba2dcbb8"
+  },
+  {
+    "path": "clone-data-validation-before-repair.json",
+    "sha256": "1584a8ed44ff1648dec40b2f069ecc64a992a1e630636f70ba1dc29656f6e505"
+  },
+  {
+    "path": "restore-selector-attempt.json",
+    "sha256": "e2a1b79e89806aeef23595ee9dbc6d39a9b7434cde19786c6060c511200dd7e1"
+  },
+  {
+    "path": "ann-scoped-comparison.json",
+    "sha256": "ce36b55e5d8e0458bf70d51828c27b7fa8cf86dd903435b462bb8fc3fe56830e"
+  },
+  {
+    "path": "preflight.json",
+    "sha256": "de89d1a64ca8dc4cee7c032f8c46d3b951788e5ef0a317e3ca77d40e0d862a6d"
+  }
+]

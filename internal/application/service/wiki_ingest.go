@@ -795,7 +795,11 @@ func (s *wikiIngestService) enqueueFinalizeRow(ctx context.Context, op *types.Ta
 	accepted, err := enqueueWikiPendingOp(ctx, s.pendingRepo, op)
 	if err != nil {
 		logger.Warnf(ctx, "wiki finalize: enqueue %s row failed: %v", op.Op, err)
+		recordWikiPostError(ctx, err)
 		return false
+	}
+	if !accepted {
+		recordWikiPostError(ctx, errors.New("wiki finalize admission rejected"))
 	}
 	return accepted
 }
@@ -814,6 +818,7 @@ func (s *wikiIngestService) enqueueFinalize(
 	folderIDs []string,
 ) {
 	if s.pendingRepo == nil {
+		recordWikiPostError(ctx, errors.New("wiki finalize durable repository unavailable"))
 		return
 	}
 	acceptedAny := false
@@ -1363,7 +1368,21 @@ func (s *wikiIngestService) requeueFailedOps(ctx context.Context, payload WikiIn
 		// knowledge's finalizing counter (ingest ops only; retracts are
 		// for deleted knowledge that has no counter to drain). The
 		// matching +1 was seeded by KnowledgePostProcess.SetFinalizing.
-		if op.Op == WikiOpIngest {
+		firstAddFailure := false
+		if op.Op == WikiOpIngest && s.knowledgeSvc != nil {
+			knowledge, lookupErr := s.knowledgeSvc.GetKnowledgeByIDOnly(ctx, op.KnowledgeID)
+			if lookupErr != nil {
+				settleErrs = append(settleErrs, lookupErr)
+				continue
+			}
+			var metadata map[string]any
+			firstAddFailure = knowledge != nil && knowledge.Channel == "feishu_personal" && json.Unmarshal(knowledge.Metadata, &metadata) == nil && metadata["feishu_mvp_attempt"] != ""
+		}
+		if firstAddFailure && s.deadLetterRepo == nil {
+			settleErrs = append(settleErrs, errors.New("first-add failure requires durable dead letter"))
+			continue
+		}
+		if op.Op == WikiOpIngest && !firstAddFailure {
 			s.finalizeWikiSubtask(ctx, op.KnowledgeID, op.Attempt)
 		}
 		logger.Warnf(ctx, "wiki ingest: dropping op %s (%s) after %d failures (limit %d)", op.KnowledgeID, op.DocTitle, count, wikiMaxFailRetries)
@@ -1381,7 +1400,13 @@ func (s *wikiIngestService) requeueFailedOps(ctx context.Context, payload WikiIn
 			}); dlErr != nil {
 				logger.Warnf(ctx, "wiki ingest: failed to archive op %s to dead letters: %v", op.KnowledgeID, dlErr)
 				settleErrs = append(settleErrs, fmt.Errorf("archive dead letter id=%d: %w", op.dbID, dlErr))
+				if firstAddFailure {
+					continue
+				}
 			}
+		}
+		if firstAddFailure {
+			s.finalizeWikiSubtask(ctx, op.KnowledgeID, op.Attempt)
 		}
 		if err := s.pendingRepo.DeleteByIDs(ctx, []int64{op.dbID}); err != nil {
 			logger.Warnf(ctx, "wiki ingest: failed to drop dead-lettered row id=%d: %v", op.dbID, err)
@@ -1719,6 +1744,7 @@ func (s *wikiIngestService) sanitizeDeadSummaryLinks(
 		}
 		page.Content = newContent
 		if err := s.wikiService.UpdateAutoLinkedContent(ctx, page); err != nil {
+			recordWikiPostError(ctx, err)
 			logger.Warnf(ctx, "wiki ingest: failed to sanitize dead links in summary %s: %v", summarySlug, err)
 			continue
 		}
@@ -1918,6 +1944,7 @@ func (s *wikiIngestService) cleanDeadLinks(ctx context.Context, kbID string, aff
 		// because dead-link cleanup is a machine-only edit.
 		page.Content = newContent
 		if err := s.wikiService.UpdateAutoLinkedContent(ctx, page); err != nil {
+			recordWikiPostError(ctx, err)
 			logger.Warnf(ctx, "wiki: failed to clean dead links in page %s: %v", page.Slug, err)
 			continue
 		}
@@ -2000,6 +2027,7 @@ func (s *wikiIngestService) injectCrossLinks(
 		}
 		page.Content = newContent
 		if err := s.wikiService.UpdateAutoLinkedContent(ctx, page); err != nil {
+			recordWikiPostError(ctx, err)
 			logger.Warnf(ctx, "wiki ingest: cross-link injection failed for %s: %v", page.Slug, err)
 			continue
 		}
@@ -2248,8 +2276,23 @@ const indexIntroSummaryCap = 200
 func (s *wikiIngestService) rebuildIndexPage(ctx context.Context, chatModel chat.Chat, payload WikiIngestPayload,
 	changeDesc, lang, customInstructions string,
 ) error {
-	indexPage, _ := s.wikiService.GetIndex(ctx, payload.KnowledgeBaseID)
+	strict, _ := ctx.Value(wikiFirstAddFinalizeKey{}).(bool)
+	indexPage, indexErr := s.wikiService.GetIndex(ctx, payload.KnowledgeBaseID)
+	if strict && indexErr != nil {
+		return fmt.Errorf("wiki first-add index lookup: %w", indexErr)
+	}
 	if indexPage == nil {
+		if strict {
+			return errors.New("wiki first-add index page unavailable")
+		}
+		return nil
+	}
+	// First additions may regenerate an explicitly automatic introduction,
+	// never one authored by a person, an agent, a revert, or an unknown legacy
+	// writer. This protects edits made BEFORE generation; the existing CAS
+	// below independently rejects edits made WHILE generation is in flight.
+	if strict && indexPage.LastEditSource != types.WikiEditSourcePipeline {
+		logger.Infof(ctx, "wiki first-add index introduction preserved: non-pipeline author")
 		return nil
 	}
 
@@ -2309,6 +2352,9 @@ func (s *wikiIngestService) rebuildIndexPage(ctx context.Context, chatModel chat
 			"InstructionScope":   "wiki_content",
 		})
 		if genErr != nil {
+			if strict {
+				return fmt.Errorf("wiki first-add index generation: %w", genErr)
+			}
 			intro = "# Wiki Index\n\nThis wiki contains knowledge extracted from uploaded documents.\n"
 		} else {
 			intro = strings.TrimSpace(generatedIntro)
@@ -2331,6 +2377,9 @@ func (s *wikiIngestService) rebuildIndexPage(ctx context.Context, chatModel chat
 			"InstructionScope":   "wiki_content",
 		})
 		if genErr != nil {
+			if strict {
+				return fmt.Errorf("wiki first-add index generation: %w", genErr)
+			}
 			intro = existingIntro // keep existing on error
 		} else {
 			intro = strings.TrimSpace(updatedIntro)
@@ -2339,6 +2388,9 @@ func (s *wikiIngestService) rebuildIndexPage(ctx context.Context, chatModel chat
 		// No change description and an existing intro: leave it as-is so
 		// we don't bump the version for a no-op.
 		intro = existingIntro
+	}
+	if strict && strings.TrimSpace(intro) == "" {
+		return errors.New("wiki first-add index generation returned empty content")
 	}
 
 	// Defensive: some LLM outputs occasionally bleed into a directory-
@@ -2385,6 +2437,7 @@ func (s *wikiIngestService) publishDraftPages(ctx context.Context, kbID string, 
 		if page.Status == types.WikiPageStatusDraft {
 			page.Status = types.WikiPageStatusPublished
 			if err := s.wikiService.UpdatePageMeta(ctx, page); err != nil {
+				recordWikiPostError(ctx, err)
 				logger.Warnf(ctx, "wiki ingest: failed to publish page %s: %v", slug, err)
 			}
 		}

@@ -1,0 +1,11 @@
+CREATE TABLE feishu_application_down_guard(ok INTEGER CHECK(ok=1));
+INSERT INTO feishu_application_down_guard SELECT CASE WHEN EXISTS(SELECT 1 FROM feishu_personal_imports WHERE auth_mode='application_grant') OR EXISTS(SELECT 1 FROM feishu_personal_attempts WHERE auth_mode='application_grant') THEN 0 ELSE 1 END;
+DROP TABLE feishu_application_down_guard;
+DROP TRIGGER feishu_import_principal_update;
+DROP TRIGGER feishu_attempt_principal_insert;
+DROP TRIGGER feishu_attempt_principal_update;
+DROP INDEX feishu_application_resource_unique;
+ALTER TABLE feishu_personal_attempts DROP COLUMN auth_mode;
+ALTER TABLE feishu_personal_attempts DROP COLUMN application_id;
+ALTER TABLE feishu_personal_imports DROP COLUMN auth_mode;
+ALTER TABLE feishu_personal_imports DROP COLUMN application_id;

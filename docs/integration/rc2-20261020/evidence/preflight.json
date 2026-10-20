@@ -1,0 +1,8 @@
+{
+  "test_host": "172.30.232.42",
+  "verified_app_image": "sha256:67b78b1c5aaf72c3d8e03763bfab57bdeb47bf3cf9d771e8fba60c870246d6cb",
+  "disk_free": 204399517696,
+  "clone_pg_image": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+  "production_data_approval": "user explicit approval in current RC2 conversation; restricted SSH transfer and isolated restore only",
+  "clone_not_business_database": true
+}

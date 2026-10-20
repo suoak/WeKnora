@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
+	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
@@ -72,6 +73,11 @@ func feishuFixture(t *testing.T) (*FeishuPersonalService, *feishuSettingRepo) {
 		if strings.TrimSpace(statement) != "" {
 			require.NoError(t, db.Exec(statement).Error)
 		}
+	}
+	for _, name := range []string{"003031_feishu_personal_recovery", "003033_feishu_application_grant"} {
+		b, err := os.ReadFile("../../../migrations/sqlite/" + name + ".up.sql")
+		require.NoError(t, err)
+		require.NoError(t, db.Exec(string(b)).Error)
 	}
 	for _, user := range []string{"A", "B"} {
 		require.NoError(t, db.Exec("INSERT INTO users(id) VALUES (?)", user).Error)
@@ -279,11 +285,14 @@ func TestFeishuImportPermissionIdentityDedupeAndFailedResyncPreservesKnowledge(t
 	require.Equal(t, "1", persisted.SourceModified)
 	require.Equal(t, "needs_attention", persisted.Status)
 	denyDownload = false
-	updated, err := s.Import(ctx, "kb", "https://team.feishu.cn/file/real")
-	require.NoError(t, err)
-	require.Equal(t, row.ID, updated.ID)
-	require.Equal(t, 1, knowledge.replaces)
-	require.Equal(t, "2", updated.SourceModified)
+	// MVP explicitly withdraws legacy automatic updates. The original test
+	// source is preserved in the stability tree / reuse-source manifest.
+	_, err = s.Import(ctx, "kb", "https://team.feishu.cn/file/real")
+	require.ErrorIs(t, err, repository.ErrPersonalUpdateDisabled)
+	require.Zero(t, knowledge.replaces)
+	require.NoError(t, s.db.First(&persisted, "id = ?", row.ID).Error)
+	require.Equal(t, "knowledge", persisted.KnowledgeID)
+	require.Equal(t, "1", persisted.SourceModified)
 }
 
 func TestFeishuDisconnectDuringOAuthCannotResurrectConnection(t *testing.T) {
@@ -318,4 +327,14 @@ func TestFeishuPlaintextAndSwappedOwnerRejected(t *testing.T) {
 		_, err := s.UserToken(personalUser("A"), "A", "cli_test", "open-A")
 		require.Error(t, err)
 	}
+}
+
+func TestFeishuOAuthRejectsOversizedValidJSONPrefix(t *testing.T) {
+	s, _ := feishuFixture(t)
+	s.api = &http.Client{Transport: feishuTestTransport(func(*http.Request) (*http.Response, error) {
+		body := `{"access_token":"access","refresh_token":"refresh","expires_in":3600,"refresh_token_expires_in":7200}` + strings.Repeat(" ", 1024*1024)
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}, nil
+	})}
+	_, err := s.oauthRequest(context.Background(), map[string]string{"grant_type": "synthetic"})
+	require.ErrorIs(t, err, core.ErrResponseTooLarge)
 }

@@ -1,3 +1,5 @@
+//go:build ignore
+
 // Synthetic-only audit; never accepts credentials or calls a SID endpoint.
 package main
 

@@ -130,6 +130,11 @@ func (s *wikiPageService) UpdatePage(ctx context.Context, page *types.WikiPage) 
 	if err != nil {
 		return nil, fmt.Errorf("get existing page: %w", err)
 	}
+	if page.ReadETag == "" || page.ReadETag != existing.DependencyETag() {
+		return nil, repository.ErrWikiPageConflict
+	}
+	// Carry the producer's dependency snapshot through to the atomic DB check.
+	existing.ReadETag = page.ReadETag
 	stripWikiPageInlineChunkCitations(page)
 
 	oldOutLinks := existing.OutLinks
@@ -220,6 +225,10 @@ func (s *wikiPageService) UpdateAutoLinkedContent(ctx context.Context, page *typ
 	if err != nil {
 		return fmt.Errorf("get existing page: %w", err)
 	}
+	if page.ReadETag == "" || page.ReadETag != existing.DependencyETag() {
+		return repository.ErrWikiPageConflict
+	}
+	existing.ReadETag = page.ReadETag
 
 	oldOutLinks := existing.OutLinks
 

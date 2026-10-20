@@ -1,0 +1,90 @@
+{
+  "scope": "production read-only RC2 metadata; no dump or writes",
+  "at_utc": "2026-10-19T23:55:34.356047+00:00",
+  "schema": {
+    "ok": true,
+    "rows": [
+      "3023|f"
+    ]
+  },
+  "size": {
+    "ok": true,
+    "rows": [
+      "{\"db_bytes\" : 23082587827, \"tables\" : [{\"relname\":\"embeddings\",\"bytes\":10395377664}, ",
+      " {\"relname\":\"chunks\",\"bytes\":9436913664}, ",
+      " {\"relname\":\"wiki_pages\",\"bytes\":964927488}, ",
+      " {\"relname\":\"knowledge_processing_spans\",\"bytes\":523763712}, ",
+      " {\"relname\":\"model_usage_events\",\"bytes\":444932096}, ",
+      " {\"relname\":\"usage_resource_links\",\"bytes\":442531840}, ",
+      " {\"relname\":\"wiki_page_revisions\",\"bytes\":331358208}, ",
+      " {\"relname\":\"chunk_images\",\"bytes\":274980864}, ",
+      " {\"relname\":\"resources\",\"bytes\":192307200}, ",
+      " {\"relname\":\"knowledges\",\"bytes\":13770752}, ",
+      " {\"relname\":\"resource_bindings\",\"bytes\":11100160}, ",
+      " {\"relname\":\"spatial_ref_sys\",\"bytes\":7315456}]}"
+    ]
+  },
+  "active_sources": {
+    "ok": true,
+    "rows": [
+      "{\"id\" : \"14433cdb-fddc-4d6c-a979-ef11c05b61bf\", \"tenant_id\" : 10002, \"kb_id\" : \"54b0a305-1ab4-4fab-9937-778fd71c3a74\", \"type\" : \"feishu\", \"schedule\" : \"0 0 2 * * *\", \"mode\" : \"incremental\", \"conflict\" : \"overwrite\", \"sync_deletions\" : true, \"last_sync_at\" : \"2026-10-19T18:00:19.127664\"}",
+      "{\"id\" : \"be5a806a-8ff0-4352-9478-0d9063f7ca95\", \"tenant_id\" : 10014, \"kb_id\" : \"a01317cc-fcda-4dfd-b9c5-2086d7c0cf7a\", \"type\" : \"feishu\", \"schedule\" : \"0 0 */6 * * *\", \"mode\" : \"incremental\", \"conflict\" : \"overwrite\", \"sync_deletions\" : true, \"last_sync_at\" : \"2026-10-19T22:03:06.915461\"}",
+      "{\"id\" : \"3e361ce0-b06a-4e8f-ac92-dd9101097045\", \"tenant_id\" : 10005, \"kb_id\" : \"b93b9e1f-e75b-41f5-940a-ad7de5105c6f\", \"type\" : \"feishu_drive\", \"schedule\" : \"0 0 */6 * * *\", \"mode\" : \"incremental\", \"conflict\" : \"overwrite\", \"sync_deletions\" : true, \"last_sync_at\" : \"2026-10-19T22:00:01.70479\"}",
+      "{\"id\" : \"5c7bc873-0ba3-43c7-90a0-32c23e6bd529\", \"tenant_id\" : 10005, \"kb_id\" : \"6dcae886-fc03-446d-9523-ee6f4e5009c9\", \"type\" : \"feishu_drive\", \"schedule\" : \"0 0 */6 * * *\", \"mode\" : \"incremental\", \"conflict\" : \"overwrite\", \"sync_deletions\" : true, \"last_sync_at\" : \"2026-10-19T22:00:02.400424\"}",
+      "{\"id\" : \"867e5798-1c2b-4547-921d-d43132e3f275\", \"tenant_id\" : 10002, \"kb_id\" : \"8ca41885-69e1-4d43-8bfd-ffc8670900fe\", \"type\" : \"feishu_drive\", \"schedule\" : \"0 0 2 * * *\", \"mode\" : \"incremental\", \"conflict\" : \"overwrite\", \"sync_deletions\" : true, \"last_sync_at\" : \"2026-10-10T06:17:13.433587\"}",
+      "{\"id\" : \"c9ec8746-accd-4e77-9615-c0d2e1cc33fd\", \"tenant_id\" : 10005, \"kb_id\" : \"09b0c5d5-0196-4131-a72b-402eee1c50d4\", \"type\" : \"feishu_drive\", \"schedule\" : \"0 0 */6 * * *\", \"mode\" : \"incremental\", \"conflict\" : \"overwrite\", \"sync_deletions\" : true, \"last_sync_at\" : \"2026-10-19T22:00:00.956121\"}",
+      "{\"id\" : \"eea7e329-708a-4c4b-bc77-b34a254db471\", \"tenant_id\" : 10005, \"kb_id\" : \"d14eb0c0-1ade-46f9-890e-84fa823b335d\", \"type\" : \"feishu_drive\", \"schedule\" : \"0 0 */6 * * *\", \"mode\" : \"incremental\", \"conflict\" : \"overwrite\", \"sync_deletions\" : true, \"last_sync_at\" : \"2026-10-12T06:04:09.838192\"}"
+    ]
+  },
+  "indexes": {
+    "ok": true,
+    "rows": [
+      "{\"table\" : \"chunks\", \"index\" : \"chunks_pkey\", \"valid\" : true, \"ready\" : true, \"bytes\" : 426688512}",
+      "{\"table\" : \"chunks\", \"index\" : \"idx_chunks_kb_tenant\", \"valid\" : true, \"ready\" : true, \"bytes\" : 77463552}",
+      "{\"table\" : \"chunks\", \"index\" : \"idx_chunks_knowledge_enabled\", \"valid\" : true, \"ready\" : true, \"bytes\" : 74719232}",
+      "{\"table\" : \"chunks\", \"index\" : \"idx_chunks_parent_id\", \"valid\" : true, \"ready\" : true, \"bytes\" : 71532544}",
+      "{\"table\" : \"chunks\", \"index\" : \"idx_chunks_seq_id\", \"valid\" : true, \"ready\" : true, \"bytes\" : 213065728}",
+      "{\"table\" : \"chunks\", \"index\" : \"idx_chunks_tag\", \"valid\" : true, \"ready\" : true, \"bytes\" : 57081856}",
+      "{\"table\" : \"embeddings\", \"index\" : \"embeddings_embedding_idx_1024\", \"valid\" : true, \"ready\" : true, \"bytes\" : 3964887040}",
+      "{\"table\" : \"embeddings\", \"index\" : \"embeddings_embedding_idx_3584\", \"valid\" : true, \"ready\" : true, \"bytes\" : 16384}",
+      "{\"table\" : \"embeddings\", \"index\" : \"embeddings_embedding_idx_798\", \"valid\" : true, \"ready\" : true, \"bytes\" : 16384}",
+      "{\"table\" : \"embeddings\", \"index\" : \"embeddings_pkey\", \"valid\" : true, \"ready\" : true, \"bytes\" : 43425792}",
+      "{\"table\" : \"embeddings\", \"index\" : \"embeddings_search_idx\", \"valid\" : true, \"ready\" : true, \"bytes\" : 607502336}",
+      "{\"table\" : \"embeddings\", \"index\" : \"embeddings_unique_source\", \"valid\" : true, \"ready\" : true, \"bytes\" : 164831232}",
+      "{\"table\" : \"embeddings\", \"index\" : \"idx_embeddings_chunk_id\", \"valid\" : true, \"ready\" : true, \"bytes\" : 77185024}",
+      "{\"table\" : \"embeddings\", \"index\" : \"idx_embeddings_is_enabled\", \"valid\" : true, \"ready\" : true, \"bytes\" : 19996672}",
+      "{\"table\" : \"embeddings\", \"index\" : \"idx_embeddings_knowledge_base_id\", \"valid\" : true, \"ready\" : true, \"bytes\" : 23461888}",
+      "{\"table\" : \"embeddings\", \"index\" : \"idx_embeddings_knowledge_id\", \"valid\" : true, \"ready\" : true, \"bytes\" : 20512768}",
+      "{\"table\" : \"embeddings\", \"index\" : \"idx_embeddings_tag_id\", \"valid\" : true, \"ready\" : true, \"bytes\" : 19996672}",
+      "{\"table\" : \"knowledges\", \"index\" : \"idx_knowledges_base_id\", \"valid\" : true, \"ready\" : true, \"bytes\" : 139264}",
+      "{\"table\" : \"knowledges\", \"index\" : \"idx_knowledges_enable_status\", \"valid\" : true, \"ready\" : true, \"bytes\" : 106496}",
+      "{\"table\" : \"knowledges\", \"index\" : \"idx_knowledges_folder_path\", \"valid\" : true, \"ready\" : true, \"bytes\" : 155648}",
+      "{\"table\" : \"knowledges\", \"index\" : \"idx_knowledges_kb_metadata_external_id\", \"valid\" : true, \"ready\" : true, \"bytes\" : 655360}",
+      "{\"table\" : \"knowledges\", \"index\" : \"idx_knowledges_parse_status\", \"valid\" : true, \"ready\" : true, \"bytes\" : 98304}",
+      "{\"table\" : \"knowledges\", \"index\" : \"idx_knowledges_summary_status\", \"valid\" : true, \"ready\" : true, \"bytes\" : 106496}",
+      "{\"table\" : \"knowledges\", \"index\" : \"idx_knowledges_tenant_id\", \"valid\" : true, \"ready\" : true, \"bytes\" : 114688}",
+      "{\"table\" : \"knowledges\", \"index\" : \"knowledges_pkey\", \"valid\" : true, \"ready\" : true, \"bytes\" : 319488}"
+    ]
+  },
+  "available_disk": [
+    "Filesystem                           1B-blocks        Used   Available Use% Mounted on",
+    "/dev/mapper/ubuntu--vg-ubuntu--lv 102971269120 79085211648 18608156672  81% /"
+  ],
+  "backup_directory_candidates": [
+    {
+      "path": "/home/aqyfzx/release-package/docker-compose.offline.yml.bak-before-image-restore-20260916-065247",
+      "is_dir": false,
+      "bytes": 5889
+    },
+    {
+      "path": "/home/aqyfzx/release-package/backup-before-v0.8.0-knowhub.4-51e719e2-20260908-114054",
+      "is_dir": true,
+      "bytes": 4096
+    },
+    {
+      "path": "/home/aqyfzx/release-package/backup-before-knowhub-v080-20260904-085010",
+      "is_dir": true,
+      "bytes": 4096
+    }
+  ]
+}

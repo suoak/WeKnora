@@ -1767,6 +1767,7 @@ type oidcDiscoveryDocument struct {
 }
 
 type oidcTokenResponse struct {
+	sidTLSProof *sidTLSReceipt
 	AccessToken string `json:"access_token"`
 	IDToken     string `json:"id_token"`
 	TokenType   string `json:"token_type"`
@@ -1813,6 +1814,9 @@ func (s *userService) getOIDCConfig(ctx context.Context) (*config.OIDCAuthConfig
 		return nil, errors.New("OIDC login is disabled")
 	}
 	cfg := *s.config.OIDCAuth
+	if err := cfg.ValidateSourceIDValidationStrategy(); err != nil {
+		return nil, err
+	}
 	if cfg.SourceIDAdmissionMode == "oidc_sso_approved" && !cfg.SourceIDEnable {
 		return nil, errors.New("sourceid sso requires sourceid identity gate")
 	}
@@ -1837,10 +1841,26 @@ func (s *userService) getOIDCConfig(ctx context.Context) (*config.OIDCAuthConfig
 	if err := s.populateOIDCEndpoints(ctx, &cfg); err != nil {
 		return nil, err
 	}
+	if sidTLSUserInfoMode(&cfg) {
+		if err := validateSIDTLSResolved(&cfg); err != nil {
+			return nil, err
+		}
+	}
+	if sidPinnedMode(&cfg) {
+		if err := validateSIDPinnedEndpoints(&cfg); err != nil {
+			return nil, err
+		}
+		if _, err := loadSIDPinnedKeys(&cfg, time.Now()); err != nil {
+			return nil, err
+		}
+	}
 	return &cfg, nil
 }
 
 func oidcNeedsDiscovery(cfg *config.OIDCAuthConfig) bool {
+	if sidPinnedMode(cfg) || sidTLSUserInfoMode(cfg) {
+		return cfg.AuthorizationEndpoint == "" || cfg.TokenEndpoint == "" || cfg.UserInfoEndpoint == "" || cfg.IssuerURL == ""
+	}
 	return strings.TrimSpace(cfg.AuthorizationEndpoint) == "" ||
 		strings.TrimSpace(cfg.TokenEndpoint) == "" ||
 		strings.TrimSpace(cfg.JwksURI) == "" ||
@@ -1909,6 +1929,20 @@ func (s *userService) applyOIDCDiscoveryDocument(ctx context.Context, cfg *confi
 }
 
 func (s *userService) exchangeOIDCCode(ctx context.Context, cfg *config.OIDCAuthConfig, code, redirectURI string) (*oidcTokenResponse, error) {
+	if sidTLSUserInfoMode(cfg) {
+		return s.exchangeSIDTLSCode(ctx, cfg, code, redirectURI)
+	}
+	if sidPinnedMode(cfg) {
+		if err := cfg.ValidateSourceIDValidationStrategy(); err != nil {
+			return nil, err
+		}
+		if err := validateSIDPinnedEndpoints(cfg); err != nil {
+			return nil, err
+		}
+		if prepared, _ := ctx.Value(sourceIDPreparedKey).(bool); !prepared {
+			return nil, errors.New("sourceid consumed authorization transaction required")
+		}
+	}
 	basicEncoding, err := cfg.EffectiveSourceIDBasicEncoding()
 	if err != nil {
 		return nil, err
@@ -1947,6 +1981,11 @@ func (s *userService) exchangeOIDCCode(ctx context.Context, cfg *config.OIDCAuth
 	req.Header.Set("Accept", "application/json")
 
 	client := s.oidcProtocolHTTPClient()
+	if sidPinnedMode(cfg) {
+		copyClient := *client
+		copyClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+		client = &copyClient
+	}
 	var tokenTelemetry *sourceIDTokenTelemetry
 	if entry, ok := ctx.Value(sourceIDDiagnosticKey{}).(sourceIDDiagnosticContext); ok && cfg.SourceIDEnable && cfg.SourceIDDiagnosticsEnable {
 		req, tokenTelemetry = observeSourceIDTokenRequest(req, entry.ID, cfg.ClientSecret != "", cfg.PKCEEnable, entry.StatePassed, cfg.ClientAuthMethod == "client_secret_basic")
@@ -1995,14 +2034,20 @@ func (s *userService) exchangeOIDCCode(ctx context.Context, cfg *config.OIDCAuth
 }
 
 func (s *userService) resolveOIDCUserInfo(ctx context.Context, cfg *config.OIDCAuthConfig, tokenResp *oidcTokenResponse) (*types.OIDCUserInfo, error) {
+	if sidTLSUserInfoMode(cfg) {
+		return s.resolveSIDTLSUserInfo(ctx, cfg, tokenResp)
+	}
+	if sidPinnedMode(cfg) && (strings.TrimSpace(tokenResp.AccessToken) == "" || strings.TrimSpace(cfg.UserInfoEndpoint) == "") {
+		return nil, errors.New("SID pinned mode requires UserInfo and current access token")
+	}
 	claims := map[string]interface{}{}
 	verifiedFromIDToken := false
-	if cfg.SourceIDEnable && (tokenResp.IDToken == "" || cfg.JwksURI == "") {
+	if cfg.SourceIDEnable && (tokenResp.IDToken == "" || (!sidPinnedMode(cfg) && cfg.JwksURI == "")) {
 		return nil, errors.New("sourceid requires signed ID Token")
 	}
 
 	if idToken := strings.TrimSpace(tokenResp.IDToken); idToken != "" {
-		if strings.TrimSpace(cfg.JwksURI) == "" {
+		if strings.TrimSpace(cfg.JwksURI) == "" && !sidPinnedMode(cfg) {
 			if strings.TrimSpace(cfg.UserInfoEndpoint) == "" || strings.TrimSpace(tokenResp.AccessToken) == "" {
 				return nil, errors.New("cannot verify OIDC id_token: no jwks_uri configured")
 			}
@@ -2056,7 +2101,13 @@ func (s *userService) resolveOIDCUserInfo(ctx context.Context, cfg *config.OIDCA
 	}
 	if strings.TrimSpace(cfg.UserInfoEndpoint) != "" && strings.TrimSpace(tokenResp.AccessToken) != "" {
 		stageStarted := time.Now()
-		userInfoClaims, err := s.fetchOIDCUserInfoWithTransport(ctx, cfg.UserInfoEndpoint, tokenResp.AccessToken, cfg.UserInfoTransport)
+		client := s.oidcProtocolHTTPClient()
+		if sidPinnedMode(cfg) {
+			copyClient := *client
+			copyClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+			client = &copyClient
+		}
+		userInfoClaims, err := s.fetchOIDCUserInfoWithClient(ctx, cfg.UserInfoEndpoint, tokenResp.AccessToken, cfg.UserInfoTransport, client)
 		if err != nil {
 			SourceIDDiagnosticStage(ctx, "userinfo", stageStarted, err)
 			if !verifiedFromIDToken || (cfg.SourceIDEnable && cfg.SourceIDClaimsSource == "userinfo") {
@@ -2087,6 +2138,13 @@ func (s *userService) resolveOIDCUserInfo(ctx context.Context, cfg *config.OIDCA
 	if len(claims) == 0 {
 		return nil, errors.New("OIDC provider returned no user claims")
 	}
+	// Re-read the controlled file after UserInfo: a key revoked or expired
+	// during a slow network call must not reach identity/session writes.
+	if sidPinnedMode(cfg) {
+		if _, err := s.verifyOIDCIDToken(ctx, cfg, tokenResp.IDToken); err != nil {
+			return nil, err
+		}
+	}
 
 	info := &types.OIDCUserInfo{Claims: claims}
 	if sub, _ := claims["sub"].(string); sub != "" {
@@ -2111,6 +2169,10 @@ func (s *userService) fetchOIDCUserInfo(ctx context.Context, endpoint, accessTok
 }
 
 func (s *userService) fetchOIDCUserInfoWithTransport(ctx context.Context, endpoint, accessToken, transport string) (map[string]interface{}, error) {
+	return s.fetchOIDCUserInfoWithClient(ctx, endpoint, accessToken, transport, s.oidcProtocolHTTPClient())
+}
+
+func (s *userService) fetchOIDCUserInfoWithClient(ctx context.Context, endpoint, accessToken, transport string, client *http.Client) (map[string]interface{}, error) {
 	if err := validateOIDCEndpoint("userinfo", endpoint, true); err != nil {
 		return nil, err
 	}
@@ -2150,7 +2212,7 @@ func (s *userService) fetchOIDCUserInfoWithTransport(ctx context.Context, endpoi
 	}
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := s.oidcProtocolHTTPClient().Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -2443,7 +2505,13 @@ const oidcIDTokenLeeway = 2 * time.Minute
 func (s *userService) verifyOIDCIDToken(
 	ctx context.Context, cfg *config.OIDCAuthConfig, idToken string,
 ) (map[string]interface{}, error) {
-	if strings.TrimSpace(cfg.JwksURI) == "" {
+	if sidTLSUserInfoMode(cfg) {
+		return nil, errors.New("SID TLS verification requires current exchange provenance, not a standalone JWT")
+	}
+	if err := cfg.ValidateSourceIDValidationStrategy(); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(cfg.JwksURI) == "" && !sidPinnedMode(cfg) {
 		return nil, errors.New("cannot verify OIDC id_token: no jwks_uri configured")
 	}
 	if strings.TrimSpace(cfg.IssuerURL) == "" {
@@ -2453,14 +2521,26 @@ func (s *userService) verifyOIDCIDToken(
 		return nil, errors.New("cannot verify OIDC id_token: client_id is not configured")
 	}
 
-	jwks, err := s.fetchOIDCJWKS(ctx, cfg.JwksURI)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", errOIDCJWKSFetch, err)
+	var jwks *oidcJWKS
+	var pinnedKey *rsa.PublicKey
+	var err error
+	if sidPinnedMode(cfg) {
+		pinnedKey, err = sidPinnedKeyForToken(ctx, cfg, idToken)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		jwks, err = s.fetchOIDCJWKS(ctx, cfg.JwksURI)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %w", errOIDCJWKSFetch, err)
+		}
 	}
-
 	keyFunc := func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("unexpected id_token signing method: %v", token.Header["alg"])
+		}
+		if pinnedKey != nil {
+			return pinnedKey, nil
 		}
 		kid, _ := token.Header["kid"].(string)
 		key, err := jwks.rsaKeyForKid(kid)
