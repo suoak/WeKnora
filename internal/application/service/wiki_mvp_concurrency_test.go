@@ -19,7 +19,12 @@ type mvpUnavailableIndexModel struct{ mvpChatAPI }
 
 func (*mvpUnavailableIndexModel) GetModelID() string   { return "mvp-unavailable-index-model" }
 func (*mvpUnavailableIndexModel) GetModelName() string { return "mvp-unavailable-index-model" }
-func (*mvpUnavailableIndexModel) Chat(context.Context, []chat.Message, *chat.ChatOptions) (*types.ChatResponse, error) {
+
+func (*mvpUnavailableIndexModel) Chat(
+	context.Context,
+	[]chat.Message,
+	*chat.ChatOptions,
+) (*types.ChatResponse, error) {
 	return nil, errors.New("isolated model unavailable")
 }
 
@@ -32,12 +37,32 @@ func TestMVPWikiFinalizeMustNotSwallowGenerationFailurePostgres(t *testing.T) {
 			ctx = context.WithValue(ctx, wikiFirstAddFinalizeKey{}, true)
 			repo := repository.NewWikiPageRepository(db)
 			pages := NewWikiPageService(repo, nil, nil, nil, nil, nil)
-			page := &types.WikiPage{ID: "index", TenantID: 1, KnowledgeBaseID: "kb", Slug: "index", PageType: types.WikiPageTypeIndex, Content: previous}
+			page := &types.WikiPage{
+				ID:              "index",
+				TenantID:        1,
+				KnowledgeBaseID: "kb",
+				Slug:            "index",
+				PageType:        types.WikiPageTypeIndex,
+				Content:         previous,
+			}
 			_, err := pages.CreatePage(ctx, page)
 			require.NoError(t, err)
 			s := &wikiIngestService{wikiService: pages}
-			err = s.rebuildIndexPage(ctx, &mvpUnavailableIndexModel{}, WikiIngestPayload{KnowledgeBaseID: "kb"}, "added first document", "English", "")
-			require.ErrorContains(t, err, "isolated model unavailable", "finalize must retain its durable lane instead of reporting a fallback as success")
+			err = s.rebuildIndexPage(
+				ctx,
+				&mvpUnavailableIndexModel{},
+				WikiIngestPayload{KnowledgeBaseID: "kb"},
+				"added first document",
+				"English",
+				"",
+			)
+			require.ErrorContains(
+				t,
+				err,
+				"isolated model unavailable",
+				"finalize must retain its durable lane instead of reporting a fallback "+
+					"as success",
+			)
 			actual, err := repo.GetBySlug(ctx, "kb", "index")
 			require.NoError(t, err)
 			require.Equal(t, previous, actual.Content)
@@ -54,13 +79,37 @@ func TestMVPWikiRetryExhaustionRemainsVisibleAfterServiceRestartPostgres(t *test
 	m := f.prepare("https://tenant.feishu.cn/file/real")
 	require.NoError(t, f.p.Process(f.ctx, f.payload(m.AttemptID)))
 	k, _, _ := mvpPublicTask(t, f, m)
-	require.NoError(t, f.db.Model(k).Updates(map[string]any{"parse_status": types.ParseStatusFinalizing, "pending_subtasks_count": 1}).Error)
+	require.NoError(
+		t,
+		f.db.Model(k).
+			Updates(map[string]any{"parse_status": types.ParseStatusFinalizing, "pending_subtasks_count": 1}).
+			Error,
+	)
 	pending := repository.NewTaskPendingOpsRepository(f.db)
-	op := &types.TaskPendingOp{TenantID: 1, TaskType: wikiTaskType, Scope: wikiTaskScope, ScopeID: "kb", DedupKey: k.ID, Op: WikiOpIngest}
+	op := &types.TaskPendingOp{
+		TenantID: 1,
+		TaskType: wikiTaskType,
+		Scope:    wikiTaskScope,
+		ScopeID:  "kb",
+		DedupKey: k.ID,
+		Op:       WikiOpIngest,
+	}
 	require.NoError(t, pending.Enqueue(f.ctx, op))
 	for failure := 1; failure <= wikiMaxFailRetries+1; failure++ {
-		s := &wikiIngestService{pendingRepo: repository.NewTaskPendingOpsRepository(f.db), deadLetterRepo: repository.NewTaskDeadLetterRepository(f.db), knowledgeRepo: f.ks.repo, knowledgeSvc: mvpLiveKnowledge{repo: f.ks.repo}}
-		require.NoError(t, s.requeueFailedOps(f.ctx, WikiIngestPayload{TenantID: 1, KnowledgeBaseID: "kb"}, []WikiPendingOp{{Op: WikiOpIngest, KnowledgeID: k.ID, dbID: op.ID}}))
+		s := &wikiIngestService{
+			pendingRepo:    repository.NewTaskPendingOpsRepository(f.db),
+			deadLetterRepo: repository.NewTaskDeadLetterRepository(f.db),
+			knowledgeRepo:  f.ks.repo,
+			knowledgeSvc:   mvpLiveKnowledge{repo: f.ks.repo},
+		}
+		require.NoError(
+			t,
+			s.requeueFailedOps(
+				f.ctx,
+				WikiIngestPayload{TenantID: 1, KnowledgeBaseID: "kb"},
+				[]WikiPendingOp{{Op: WikiOpIngest, KnowledgeID: k.ID, dbID: op.ID}},
+			),
+		)
 		var n int64
 		require.NoError(t, f.db.Model(&types.TaskPendingOp{}).Where("id = ?", op.ID).Count(&n).Error)
 		if failure <= wikiMaxFailRetries {
@@ -73,11 +122,32 @@ func TestMVPWikiRetryExhaustionRemainsVisibleAfterServiceRestartPostgres(t *test
 		}
 	}
 	var dead types.TaskDeadLetter
-	require.NoError(t, f.db.Where("related_id = ? AND task_type = ?", k.ID, wikiTaskType).First(&dead).Error)
+	require.NoError(
+		t,
+		f.db.Where("related_id = ? AND task_type = ?", k.ID, wikiTaskType).First(&dead).Error,
+	)
 	require.Equal(t, wikiMaxFailRetries+1, dead.FailCount)
 	// Status projection must prefer this durable failure over parse completed.
-	require.NoError(t, f.db.Create(&types.TaskPendingOp{TenantID: 1, TaskType: "knowledge:index_receipt", Scope: personalIndexReceiptScope, ScopeID: k.ID, DedupKey: "index-" + m.AttemptID, Op: "verified"}).Error)
-	f.s.kbs = dispatchActualKB{kb: &types.KnowledgeBase{ID: "kb", TenantID: 1, IndexingStrategy: types.IndexingStrategy{WikiEnabled: true}}}
+	require.NoError(
+		t,
+		f.db.Create(
+			&types.TaskPendingOp{
+				TenantID: 1,
+				TaskType: "knowledge:index_receipt",
+				Scope:    personalIndexReceiptScope,
+				ScopeID:  k.ID,
+				DedupKey: "index-" + m.AttemptID,
+				Op:       "verified",
+			},
+		).Error,
+	)
+	f.s.kbs = dispatchActualKB{
+		kb: &types.KnowledgeBase{
+			ID:               "kb",
+			TenantID:         1,
+			IndexingStrategy: types.IndexingStrategy{WikiEnabled: true},
+		},
+	}
 	rows, err := f.s.ListImports(f.ctx, "kb")
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
@@ -94,7 +164,17 @@ func TestMVPWikiMetaLinkDependenciesPostgres(t *testing.T) {
 			ctx := context.Background()
 			repo := repository.NewWikiPageRepository(db)
 			svc := NewWikiPageService(repo, nil, nil, nil, nil, nil)
-			page := &types.WikiPage{ID: "P", TenantID: 1, KnowledgeBaseID: "kb", Slug: "shared", Title: "shared", PageType: types.WikiPageTypeEntity, Status: types.WikiPageStatusPublished, Content: "original", SourceRefs: types.StringArray{"Kold|Old"}}
+			page := &types.WikiPage{
+				ID:              "P",
+				TenantID:        1,
+				KnowledgeBaseID: "kb",
+				Slug:            "shared",
+				Title:           "shared",
+				PageType:        types.WikiPageTypeEntity,
+				Status:          types.WikiPageStatusPublished,
+				Content:         "original",
+				SourceRefs:      types.StringArray{"Kold|Old"},
+			}
 			_, err := svc.CreatePage(ctx, page)
 			require.NoError(t, err)
 			stale, err := svc.GetPageBySlug(ctx, "kb", page.Slug)
@@ -110,7 +190,13 @@ func TestMVPWikiMetaLinkDependenciesPostgres(t *testing.T) {
 				fresh.OutLinks = types.StringArray{"another"}
 				require.NoError(t, repo.UpdateAutoLinkedContent(ctx, fresh))
 			case "direct_sql_body":
-				require.NoError(t, db.Model(&types.WikiPage{}).Where("id = ?", page.ID).Update("content", "DIRECT original").Error)
+				require.NoError(
+					t,
+					db.Model(&types.WikiPage{}).
+						Where("id = ?", page.ID).
+						Update("content", "DIRECT original").
+						Error,
+				)
 			case "manual_body":
 				fresh.Content = "HUMAN original"
 				_, err = svc.UpdatePage(ctx, fresh)
@@ -119,7 +205,12 @@ func TestMVPWikiMetaLinkDependenciesPostgres(t *testing.T) {
 			before, err := repo.GetBySlug(ctx, "kb", page.Slug)
 			require.NoError(t, err)
 			if writer != "manual_body" {
-				require.Equal(t, stale.Version, before.Version, "this contract must detect changes that do not bump revision")
+				require.Equal(
+					t,
+					stale.Version,
+					before.Version,
+					"this contract must detect changes that do not bump revision",
+				)
 			}
 			stale.Content = "stale model result"
 			_, err = svc.UpdatePage(ctx, stale)
@@ -166,7 +257,11 @@ func TestMVPWikiDependencyCheckAndCommitAreAtomicPostgres(t *testing.T) {
 	workerPID := <-pid
 	require.Eventually(t, func() bool {
 		var count int64
-		return db.Raw("SELECT count(*) FROM pg_stat_activity WHERE pid = ? AND wait_event_type = 'Lock'", workerPID).Scan(&count).Error == nil && count == 1
+		return db.Raw("SELECT count(*) FROM pg_stat_activity WHERE pid = ? AND "+
+			"wait_event_type = 'Lock'", workerPID).
+			Scan(&count).
+			Error == nil &&
+			count == 1
 	}, 5*time.Second, 20*time.Millisecond)
 	require.NoError(t, tx.Commit().Error)
 	require.ErrorIs(t, <-done, repository.ErrWikiPageConflict)
@@ -177,19 +272,57 @@ func TestMVPWikiDependencyCheckAndCommitAreAtomicPostgres(t *testing.T) {
 
 func TestMVPWikiFirstAddFreshRegenerationAndIdempotentContributionPostgres(t *testing.T) {
 	db := syncdb.Open(t, "postgres")
-	require.NoError(t, db.AutoMigrate(&types.WikiPage{}, &types.WikiPageRevision{}, &types.Knowledge{}, &types.Chunk{}))
+	require.NoError(
+		t,
+		db.AutoMigrate(&types.WikiPage{}, &types.WikiPageRevision{}, &types.Knowledge{}, &types.Chunk{}),
+	)
 	ctx := context.WithValue(context.Background(), types.TenantIDContextKey, uint64(1))
 	kr := repository.NewKnowledgeRepository(db)
 	cr := repository.NewChunkRepository(db)
 	repo := repository.NewWikiPageRepository(db)
 	pages := NewWikiPageService(repo, cr, nil, nil, nil, nil)
-	require.NoError(t, kr.CreateKnowledge(ctx, &types.Knowledge{ID: "Knew", TenantID: 1, KnowledgeBaseID: "kb", Channel: "feishu_personal", Metadata: types.JSON(`{"feishu_mvp_attempt":"first-attempt"}`), ParseStatus: types.ParseStatusProcessing}))
-	p := &types.WikiPage{ID: "P", TenantID: 1, KnowledgeBaseID: "kb", Slug: "entity/shared", Title: "shared", Content: "OLD SOURCE MUST SURVIVE", SourceRefs: types.StringArray{"Kold|Old"}, PageType: types.WikiPageTypeEntity, Status: types.WikiPageStatusPublished}
+	require.NoError(
+		t,
+		kr.CreateKnowledge(
+			ctx,
+			&types.Knowledge{
+				ID:              "Knew",
+				TenantID:        1,
+				KnowledgeBaseID: "kb",
+				Channel:         "feishu_personal",
+				Metadata:        types.JSON(`{"feishu_mvp_attempt":"first-attempt"}`),
+				ParseStatus:     types.ParseStatusProcessing,
+			},
+		),
+	)
+	p := &types.WikiPage{
+		ID:              "P",
+		TenantID:        1,
+		KnowledgeBaseID: "kb",
+		Slug:            "entity/shared",
+		Title:           "shared",
+		Content:         "OLD SOURCE MUST SURVIVE",
+		SourceRefs:      types.StringArray{"Kold|Old"},
+		PageType:        types.WikiPageTypeEntity,
+		Status:          types.WikiPageStatusPublished,
+	}
 	_, err := pages.CreatePage(ctx, p)
 	require.NoError(t, err)
 	s := &wikiIngestService{wikiService: pages, chunkRepo: cr, knowledgeSvc: mvpLiveKnowledge{repo: kr}}
-	batch := &WikiBatchContext{SlugTitleMany: func(context.Context, []string) map[string]string { return map[string]string{} }, PlannedFolderID: map[string]string{}}
-	updates := []SlugUpdate{{Slug: p.Slug, Type: "entity", KnowledgeID: "Knew", SourceRef: "Knew|New", DocTitle: "New", Item: extractedItem{Name: "shared", Details: "new fact"}}}
+	batch := &WikiBatchContext{
+		SlugTitleMany:   func(context.Context, []string) map[string]string { return map[string]string{} },
+		PlannedFolderID: map[string]string{},
+	}
+	updates := []SlugUpdate{
+		{
+			Slug:        p.Slug,
+			Type:        "entity",
+			KnowledgeID: "Knew",
+			SourceRef:   "Knew|New",
+			DocTitle:    "New",
+			Item:        extractedItem{Name: "shared", Details: "new fact"},
+		},
+	}
 	model := &mvpEditDuringModel{response: "SUMMARY: first addition\nNEW CONTRIBUTION"}
 	model.edit = func() {
 		human, e := pages.GetPageBySlug(ctx, "kb", p.Slug)

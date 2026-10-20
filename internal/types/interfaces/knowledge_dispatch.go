@@ -2,6 +2,7 @@ package interfaces
 
 import (
 	"context"
+
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
@@ -18,6 +19,7 @@ type KnowledgeDispatchRepository interface {
 	WithKnowledgeDispatchLock(context.Context, string, func(context.Context) error) error
 }
 
+// KnowledgeDispatchRecovery defines knowledge dispatch recovery state.
 type KnowledgeDispatchRecovery interface {
 	ResumeKnowledgeDispatch(context.Context, *types.Knowledge) error
 	RecoverKnowledgeDispatches(context.Context) error

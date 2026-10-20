@@ -87,17 +87,17 @@ func TestGitLabStreamPaginationFailureAndRetry(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/api/v4/projects/1":
-			_, _ = w.Write([]byte(`{"id":1,"name":"docs","default_branch":"main"}`))
+			_, _ = w.Write([]byte("{\"id\":1,\"name\":\"docs\",\"default_branch\":\"main\"}"))
 		case "/api/v4/projects/1/repository/commits/main":
 			_, _ = w.Write([]byte(`{"id":"head"}`))
 		case "/api/v4/projects/1/repository/tree":
 			if r.URL.Query().Get("path") == "a-good" {
-				_, _ = w.Write([]byte(`[{"type":"blob","name":"a.md","path":"a-good/a.md"}]`))
+				_, _ = w.Write([]byte("[{\"type\":\"blob\",\"name\":\"a.md\",\"path\":\"a-good/a.md\"}]"))
 			} else {
 				if broken {
 					w.Header().Set("X-Next-Page", "2")
 				}
-				_, _ = w.Write([]byte(`[{"type":"blob","name":"b.md","path":"z-broken/b.md"}]`))
+				_, _ = w.Write([]byte("[{\"type\":\"blob\",\"name\":\"b.md\",\"path\":\"z-broken/b.md\"}]"))
 			}
 		default:
 			if strings.Contains(r.URL.EscapedPath(), "/repository/files/") {
@@ -118,9 +118,13 @@ func TestGitLabStreamPaginationFailureAndRetry(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, normalized.Projects, 1)
 	require.Equal(t, []string{"a-good", "z-broken"}, normalized.Projects[0].Paths,
-		"normalized roots must visit the successful directory before the failing directory")
+		"normalized roots must visit the successful directory before the "+
+			"failing directory")
 	old := gitLabCursor(cursor{Projects: map[string]string{"9": "retained"}})
-	store := &paginationRecoveryStore{documents: map[string]types.FetchedItem{"existing": {ExternalID: "existing"}}, checkpoint: old}
+	store := &paginationRecoveryStore{
+		documents:  map[string]types.FetchedItem{"existing": {ExternalID: "existing"}},
+		checkpoint: old,
+	}
 	connector := NewConnector()
 	ctx, cancel := context.WithTimeout(context.Background(), guardTestTimeout)
 	defer cancel()
@@ -138,7 +142,12 @@ func TestGitLabStreamPaginationFailureAndRetry(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, next)
 	require.Equal(t, 1, store.checkpoints)
-	require.Len(t, store.documents, 3, "upsert replay must not duplicate documents or remove existing entries")
+	require.Len(
+		t,
+		store.documents,
+		3,
+		"upsert replay must not duplicate documents or remove existing entries",
+	)
 	require.Zero(t, store.deletions)
 	require.Equal(t, map[string]string{"9": "retained", "1": "head"}, next.ConnectorCursor["projects"])
 	emits := store.emits

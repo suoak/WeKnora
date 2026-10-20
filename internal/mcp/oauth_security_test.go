@@ -21,12 +21,16 @@ import (
 	gormlog "gorm.io/gorm/logger"
 )
 
-const syntheticOAuthSensitive = "synthetic-client-secret synthetic-access-token synthetic-refresh-token postgres://synthetic-password"
+const syntheticOAuthSensitive = "synthetic-client-secret synthetic-access-token " +
+	"synthetic-refresh-token postgres://synthetic-password"
 
 func securityOAuthDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	t.Setenv("SYSTEM_AES_KEY", "0123456789abcdef0123456789abcdef")
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: gormlog.Default.LogMode(gormlog.Silent)})
+	db, err := gorm.Open(
+		sqlite.Open(":memory:"),
+		&gorm.Config{Logger: gormlog.Default.LogMode(gormlog.Silent)},
+	)
 	require.NoError(t, err)
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
@@ -52,14 +56,32 @@ func TestOAuthAuthorizationFailClosedStateAndRecovery(t *testing.T) {
 				w.Header().Set("Content-Type", "application/json")
 				if r.URL.Path == "/register" {
 					w.WriteHeader(201)
-					_ = json.NewEncoder(w).Encode(map[string]any{"client_id": "client", "client_secret": secret})
+					_ = json.NewEncoder(w).
+						Encode(map[string]any{"client_id": "client", "client_secret": secret})
 					return
 				}
-				_ = json.NewEncoder(w).Encode(map[string]any{"issuer": server.URL, "registration_endpoint": server.URL + "/register", "authorization_endpoint": server.URL + "/authorize", "token_endpoint": server.URL + "/token"})
+				_ = json.NewEncoder(w).
+					Encode(map[string]any{
+						"issuer": server.URL,
+						"registration_endpoint": server.URL +
+							"/register",
+						"authorization_endpoint": server.URL +
+							"/authorize",
+						"token_endpoint": server.URL +
+							"/token",
+					})
 			}))
 			t.Cleanup(server.Close)
 			u := server.URL + "/mcp"
-			service := &types.MCPService{ID: "svc", TenantID: 7, URL: &u, AuthConfig: &types.MCPAuthConfig{AuthType: types.MCPAuthOAuth, AuthServerMetadataURL: server.URL + "/metadata"}}
+			service := &types.MCPService{
+				ID:       "svc",
+				TenantID: 7,
+				URL:      &u,
+				AuthConfig: &types.MCPAuthConfig{
+					AuthType:              types.MCPAuthOAuth,
+					AuthServerMetadataURL: server.URL + "/metadata",
+				},
+			}
 			manager := NewOAuthManager(repo, fakeMCPServiceRepo{service: service}, nil)
 			principal := types.Principal{Type: types.PrincipalWebUser, ID: "user"}
 			switch mode {
@@ -68,9 +90,23 @@ func TestOAuthAuthorizationFailClosedStateAndRecovery(t *testing.T) {
 			case "invalid-key":
 				t.Setenv("SYSTEM_AES_KEY", "short")
 			case "sql-error":
-				require.NoError(t, db.Exec("CREATE TRIGGER reject_oauth_client BEFORE INSERT ON mcp_oauth_clients BEGIN SELECT RAISE(ABORT, 'synthetic-client-secret SQL parameters'); END").Error)
+				require.NoError(
+					t,
+					db.Exec(
+						"CREATE TRIGGER reject_oauth_client BEFORE INSERT ON mcp_oauth_clients "+
+							"BEGIN SELECT RAISE(ABORT, 'synthetic-client-secret SQL parameters'); "+
+							"END",
+					).Error,
+				)
 			}
-			url, state, err := manager.StartAuthorization(context.Background(), service, 7, principal, "http://localhost/callback", "/")
+			url, state, err := manager.StartAuthorization(
+				context.Background(),
+				service,
+				7,
+				principal,
+				"http://localhost/callback",
+				"/",
+			)
 			var count int64
 			require.NoError(t, db.Model(&types.MCPOAuthClient{}).Count(&count).Error)
 			if mode == "public" {
@@ -94,7 +130,14 @@ func TestOAuthAuthorizationFailClosedStateAndRecovery(t *testing.T) {
 				require.NoError(t, db.Exec("DROP TRIGGER reject_oauth_client").Error)
 			}
 			t.Setenv("SYSTEM_AES_KEY", "0123456789abcdef0123456789abcdef")
-			url, state, err = manager.StartAuthorization(context.Background(), service, 7, principal, "http://localhost/callback", "/")
+			url, state, err = manager.StartAuthorization(
+				context.Background(),
+				service,
+				7,
+				principal,
+				"http://localhost/callback",
+				"/",
+			)
 			require.NoError(t, err)
 			require.NotEmpty(t, url)
 			require.NotEmpty(t, state)
@@ -117,27 +160,58 @@ func TestOAuthMaliciousProviderErrorsAndLogsAreRedacted(t *testing.T) {
 			var server *httptest.Server
 			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
-				if fail.Load() && ((phase == "registration" && r.URL.Path == "/register") || (phase == "exchange" && r.URL.Path == "/token") || phase == "discovery") {
+				if fail.Load() &&
+					((phase == "registration" &&
+						r.URL.Path == "/register") ||
+						(phase == "exchange" &&
+							r.URL.Path == "/token") ||
+						phase == "discovery") {
 					w.WriteHeader(400)
-					_ = json.NewEncoder(w).Encode(map[string]any{"error": "invalid_client", "error_description": syntheticOAuthSensitive})
+					_ = json.NewEncoder(w).
+						Encode(map[string]any{"error": "invalid_client", "error_description": syntheticOAuthSensitive})
 					return
 				}
 				if r.URL.Path == "/register" {
 					w.WriteHeader(201)
-					_ = json.NewEncoder(w).Encode(map[string]any{"client_id": "client", "client_secret": "synthetic-client-secret"})
+					_ = json.NewEncoder(w).
+						Encode(map[string]any{"client_id": "client", "client_secret": "synthetic-client-secret"})
 					return
 				}
-				_ = json.NewEncoder(w).Encode(map[string]any{"issuer": server.URL, "registration_endpoint": server.URL + "/register", "authorization_endpoint": server.URL + "/authorize", "token_endpoint": server.URL + "/token"})
+				_ = json.NewEncoder(w).
+					Encode(map[string]any{
+						"issuer": server.URL,
+						"registration_endpoint": server.URL +
+							"/register",
+						"authorization_endpoint": server.URL +
+							"/authorize",
+						"token_endpoint": server.URL +
+							"/token",
+					})
 			}))
 			t.Cleanup(server.Close)
 			u := server.URL + "/mcp"
-			service := &types.MCPService{ID: "svc", TenantID: 7, URL: &u, AuthConfig: &types.MCPAuthConfig{AuthType: types.MCPAuthOAuth, AuthServerMetadataURL: server.URL + "/metadata"}}
+			service := &types.MCPService{
+				ID:       "svc",
+				TenantID: 7,
+				URL:      &u,
+				AuthConfig: &types.MCPAuthConfig{
+					AuthType:              types.MCPAuthOAuth,
+					AuthServerMetadataURL: server.URL + "/metadata",
+				},
+			}
 			var captured bytes.Buffer
 			log := logrus.New()
 			log.SetOutput(&captured)
 			ctx := context.WithValue(context.Background(), types.LoggerContextKey, logrus.NewEntry(log))
 			manager := NewOAuthManager(repo, fakeMCPServiceRepo{service: service}, nil)
-			_, state, err := manager.StartAuthorization(ctx, service, 7, types.Principal{Type: types.PrincipalWebUser, ID: "user"}, "http://localhost/callback", "/")
+			_, state, err := manager.StartAuthorization(
+				ctx,
+				service,
+				7,
+				types.Principal{Type: types.PrincipalWebUser, ID: "user"},
+				"http://localhost/callback",
+				"/",
+			)
 			if phase == "exchange" {
 				require.NoError(t, err)
 				fail.Store(true)
@@ -146,17 +220,31 @@ func TestOAuthMaliciousProviderErrorsAndLogsAreRedacted(t *testing.T) {
 			require.Error(t, err)
 			applog.GetLogger(ctx).Errorf("OAuth failure: %v", err)
 			require.NotEmpty(t, captured.String())
-			for _, s := range []string{"synthetic-client-secret", "synthetic-access-token", "synthetic-refresh-token", "synthetic-password"} {
+			for _, s := range []string{
+				"synthetic-client-secret",
+
+				"synthetic-access-token",
+
+				"synthetic-refresh-token",
+
+				"synthetic-password",
+			} {
+
 				require.NotContains(t, err.Error(), s)
 				require.NotContains(t, captured.String(), s)
 				require.NotContains(t, SafeOAuthErrorMessage(err), s)
+
 			}
 		})
 	}
 }
 
 func TestOAuthRefreshRedactionPreservesClassification(t *testing.T) {
-	runtime, repo, requests, closeServer := newOAuthLifecycleFixture(t, 503, map[string]any{"error": "temporarily_unavailable", "error_description": syntheticOAuthSensitive})
+	runtime, repo, requests, closeServer := newOAuthLifecycleFixture(
+		t,
+		503,
+		map[string]any{"error": "temporarily_unavailable", "error_description": syntheticOAuthSensitive},
+	)
 	defer closeServer()
 	err := runtime.ensureFresh(context.Background(), false, nil)
 	var temporary *OAuthRefreshTemporaryError
@@ -168,10 +256,23 @@ func TestOAuthRefreshRedactionPreservesClassification(t *testing.T) {
 	log.SetOutput(&captured)
 	ctx := context.WithValue(context.Background(), types.LoggerContextKey, logrus.NewEntry(log))
 	applog.GetLogger(ctx).Errorf("refresh: %v", err)
-	for _, s := range []string{"synthetic-client-secret", "synthetic-access-token", "synthetic-refresh-token", "synthetic-password"} {
+	for _, s := range []string{
+		"synthetic-client-secret",
+
+		"synthetic-access-token",
+
+		"synthetic-refresh-token",
+
+		"synthetic-password",
+	} {
 		require.NotContains(t, captured.String(), s)
 	}
-	row, err := repo.GetTokenForPrincipal(ctx, 7, types.Principal{Type: types.PrincipalWebUser, ID: "user-1"}, "svc-1")
+	row, err := repo.GetTokenForPrincipal(
+		ctx,
+		7,
+		types.Principal{Type: types.PrincipalWebUser, ID: "user-1"},
+		"svc-1",
+	)
 	require.NoError(t, err)
 	require.Equal(t, "old-refresh", row.RefreshToken)
 	require.ErrorIs(t, safeOAuthError("read", context.DeadlineExceeded), context.DeadlineExceeded)

@@ -33,6 +33,7 @@ type mvpPipelineEmbedder struct{}
 func (mvpPipelineEmbedder) Embed(context.Context, string) ([]float32, error) {
 	return []float32{1, 0, 0}, nil
 }
+
 func (mvpPipelineEmbedder) BatchEmbed(_ context.Context, values []string) ([][]float32, error) {
 	rows := make([][]float32, len(values))
 	for i := range rows {
@@ -42,7 +43,11 @@ func (mvpPipelineEmbedder) BatchEmbed(_ context.Context, values []string) ([][]f
 }
 func (mvpPipelineEmbedder) GetDimensions() int { return 3 }
 
-func (e mvpPipelineEmbedder) BatchEmbedWithPool(ctx context.Context, _ embedding.Embedder, values []string) ([][]float32, error) {
+func (e mvpPipelineEmbedder) BatchEmbedWithPool(
+	ctx context.Context,
+	_ embedding.Embedder,
+	values []string,
+) ([][]float32, error) {
 	return e.BatchEmbed(ctx, values)
 }
 func (mvpPipelineEmbedder) GetModelID() string   { return "mvp-synthetic" }
@@ -51,7 +56,21 @@ func (mvpPipelineEmbedder) GetModelName() string { return "mvp-synthetic" }
 type mvpPipelineTenant struct{ interfaces.TenantRepository }
 
 func (mvpPipelineTenant) GetTenantByID(context.Context, uint64) (*types.Tenant, error) {
-	return &types.Tenant{ID: 1, RetrieverEngines: types.RetrieverEngines{Engines: []types.RetrieverEngineParams{{RetrieverEngineType: types.PostgresRetrieverEngineType, RetrieverType: types.VectorRetrieverType}, {RetrieverEngineType: types.PostgresRetrieverEngineType, RetrieverType: types.KeywordsRetrieverType}}}}, nil
+	return &types.Tenant{
+		ID: 1,
+		RetrieverEngines: types.RetrieverEngines{
+			Engines: []types.RetrieverEngineParams{
+				{
+					RetrieverEngineType: types.PostgresRetrieverEngineType,
+					RetrieverType:       types.VectorRetrieverType,
+				},
+				{
+					RetrieverEngineType: types.PostgresRetrieverEngineType,
+					RetrieverType:       types.KeywordsRetrieverType,
+				},
+			},
+		},
+	}, nil
 }
 func (mvpPipelineTenant) AdjustStorageUsed(context.Context, uint64, int64) error { return nil }
 
@@ -70,7 +89,7 @@ func runMVPPipeline(t *testing.T, application bool) {
 			}
 			// syncdb isolates tables in a fresh schema. Native extension types
 			// and operators live in public; include it without sharing test rows.
-			parsed, err := url.Parse(f.db.Dialector.(*postgres.Dialector).Config.DSN)
+			parsed, err := url.Parse(f.db.Dialector.(*postgres.Dialector).DSN)
 			require.NoError(t, err)
 			query := parsed.Query()
 			require.Contains(t, query.Get("search_path"), "sync_test_")
@@ -96,27 +115,64 @@ func runMVPPipeline(t *testing.T, application bool) {
 				}
 				switch r.URL.Path {
 				case "/open-apis/drive/v1/metas/batch_query":
-					io.WriteString(w, `{"code":0,"data":{"metas":[{"doc_type":"file","doc_token":"real","title":"test.md","latest_modify_time":"1"}]}}`)
+					_, _ = io.WriteString(
+						w,
+						"{\"code\":0,\"data\":{\"metas\":[{\"doc_type\":\"file\","+
+							"\"doc_token\":\"real\",\"title\":\"test.md\","+
+							"\"latest_modify_time\":\"1\"}]}}",
+					)
 				case "/open-apis/drive/v1/files/real/download":
-					io.WriteString(w, "# Recovery knowledge\n\nPersistent personal import uses the original logical document identity. Searchable recovery evidence.")
+					_, _ = io.WriteString(
+						w,
+						"# Recovery knowledge\n\nPersistent personal import uses the original "+
+							"logical document identity. Searchable recovery evidence.",
+					)
 				default:
 					w.WriteHeader(404)
 				}
 			}))
 			defer server.Close()
 			if !application {
-				f.s.newClient = func(cfg *core.Config) *core.Client { cfg.BaseURL = server.URL; return core.NewClient(cfg) }
+				f.s.newClient = func(cfg *core.Config) *core.Client {
+					cfg.BaseURL = server.URL
+					return core.NewClient(
+						cfg,
+					)
+				}
 			}
 			for _, sql := range []string{
-				`CREATE TABLE embeddings(id bigserial PRIMARY KEY,created_at timestamptz,updated_at timestamptz,source_id varchar(64) NOT NULL,source_type integer NOT NULL,chunk_id varchar(64),knowledge_id varchar(64),knowledge_base_id varchar(64),tag_id text,content text,dimension integer NOT NULL,embedding halfvec,is_enabled boolean,UNIQUE(source_id,source_type))`,
-				`CREATE INDEX mvp_bm25 ON embeddings USING bm25(id,knowledge_base_id,content,knowledge_id,chunk_id) WITH(key_field='id')`,
+				"CREATE TABLE embeddings(id bigserial PRIMARY KEY,created_at " +
+					"timestamptz,updated_at timestamptz,source_id varchar(64) NOT NULL," +
+					"source_type integer NOT NULL,chunk_id varchar(64),knowledge_id " +
+					"varchar(64),knowledge_base_id varchar(64),tag_id text,content text," +
+					"dimension integer NOT NULL,embedding halfvec,is_enabled boolean," +
+					"UNIQUE(source_id,source_type))",
+				"CREATE INDEX mvp_bm25 ON embeddings USING bm25(id,knowledge_base_id," +
+					"content,knowledge_id,chunk_id) WITH(key_field='id')",
 			} {
 				require.NoError(t, f.db.Exec(sql).Error)
 			}
-			require.NoError(t, f.db.AutoMigrate(&types.TaskDeadLetter{}, &types.WikiPage{}, &types.WikiPageRevision{}))
-			kb := &types.KnowledgeBase{ID: "kb", TenantID: 1, CreatorID: "A", Type: types.KnowledgeBaseTypeDocument, EmbeddingModelID: "mvp-synthetic", ChunkingConfig: types.ChunkingConfig{ChunkSize: 1024, ChunkOverlap: 32}, IndexingStrategy: types.IndexingStrategy{VectorEnabled: true, KeywordEnabled: true, WikiEnabled: wiki}}
+			require.NoError(
+				t,
+				f.db.AutoMigrate(&types.TaskDeadLetter{}, &types.WikiPage{}, &types.WikiPageRevision{}),
+			)
+			kb := &types.KnowledgeBase{
+				ID:               "kb",
+				TenantID:         1,
+				CreatorID:        "A",
+				Type:             types.KnowledgeBaseTypeDocument,
+				EmbeddingModelID: "mvp-synthetic",
+				ChunkingConfig:   types.ChunkingConfig{ChunkSize: 1024, ChunkOverlap: 32},
+				IndexingStrategy: types.IndexingStrategy{
+					VectorEnabled:  true,
+					KeywordEnabled: true,
+					WikiEnabled:    wiki,
+				},
+			}
 			if application {
-				kb.ChunkingConfig.ParserEngineRules = []types.ParserEngineRule{{FileTypes: []string{"docx"}, Engine: "anydoc"}}
+				kb.ChunkingConfig.ParserEngineRules = []types.ParserEngineRule{
+					{FileTypes: []string{"docx"}, Engine: "anydoc"},
+				}
 			}
 			f.ks.kbService = dispatchActualKB{kb: kb}
 			f.s.kbs = dispatchActualKB{kb: kb}
@@ -124,7 +180,9 @@ func runMVPPipeline(t *testing.T, application bool) {
 			f.ks.tenantService = &stubTenantServiceForModelDelete{}
 			f.ks.modelService = parentChildModelService{embedder: mvpPipelineEmbedder{}}
 			pg := pgretriever.NewPostgresRetrieveEngineRepository(f.db)
-			f.ks.retrieveEngine = parentChildRetrieveRegistry{engine: retriever.NewKVHybridRetrieveEngine(pg, types.PostgresRetrieverEngineType)}
+			f.ks.retrieveEngine = parentChildRetrieveRegistry{
+				engine: retriever.NewKVHybridRetrieveEngine(pg, types.PostgresRetrieverEngineType),
+			}
 			f.ks.graphEngine = parentChildGraphRepo{}
 			// The Wiki-off case composes queue recovery with real parse/index
 			// completion, rather than inferring completion from queue delivery.
@@ -133,10 +191,17 @@ func runMVPPipeline(t *testing.T, application bool) {
 				addr := os.Getenv("FEISHU_DISPATCH_REDIS_ADDR")
 				require.Equal(t, "knowhub-p1-dispatch-redis-20261018:6379", addr)
 				rdb := redis.NewClient(&redis.Options{Addr: addr})
-				defer rdb.Close()
+				defer func(cleanup func() error) { _ = cleanup() }(rdb.Close)
 				require.NoError(t, rdb.FlushDB(f.ctx).Err())
-				down := asynq.NewClient(asynq.RedisClientOpt{Addr: "127.0.0.1:1", DialTimeout: 50 * time.Millisecond, ReadTimeout: 50 * time.Millisecond, WriteTimeout: 50 * time.Millisecond})
-				defer down.Close()
+				down := asynq.NewClient(
+					asynq.RedisClientOpt{
+						Addr:         "127.0.0.1:1",
+						DialTimeout:  50 * time.Millisecond,
+						ReadTimeout:  50 * time.Millisecond,
+						WriteTimeout: 50 * time.Millisecond,
+					},
+				)
+				defer func(cleanup func() error) { _ = cleanup() }(down.Close)
 				queue = &dispatchActualQueue{client: down}
 				f.ks.task = queue
 			}
@@ -153,17 +218,25 @@ func runMVPPipeline(t *testing.T, application bool) {
 			if queue != nil {
 				addr := os.Getenv("FEISHU_DISPATCH_REDIS_ADDR")
 				client := asynq.NewClient(asynq.RedisClientOpt{Addr: addr})
-				defer client.Close()
+				defer func(cleanup func() error) { _ = cleanup() }(client.Close)
 				queue.client = client
 				inspector := asynq.NewInspector(asynq.RedisClientOpt{Addr: addr})
-				defer inspector.Close()
+				defer func(cleanup func() error) { _ = cleanup() }(inspector.Close)
 				f.ks.taskInspector = dispatchActualInspector{raw: inspector}
 				f.ks.redisClient = redis.NewClient(&redis.Options{Addr: addr})
-				defer f.ks.redisClient.Close()
+				defer func(cleanup func() error) { _ = cleanup() }(f.ks.redisClient.Close)
 				restarted := restartKnowledgeServiceForTest(t, f.ks)
 				require.NoError(t, restarted.RecoverKnowledgeDispatches(f.ctx))
 				results := make(chan error, 4)
-				worker := asynq.NewServer(asynq.RedisClientOpt{Addr: addr}, asynq.Config{Concurrency: 2, Queues: map[string]int{types.QueueDefault: 1}, TaskCheckInterval: 50 * time.Millisecond, ShutdownTimeout: time.Second})
+				worker := asynq.NewServer(
+					asynq.RedisClientOpt{Addr: addr},
+					asynq.Config{
+						Concurrency:       2,
+						Queues:            map[string]int{types.QueueDefault: 1},
+						TaskCheckInterval: 50 * time.Millisecond,
+						ShutdownTimeout:   time.Second,
+					},
+				)
 				mux := asynq.NewServeMux()
 				taskType := types.TypeDocumentProcess
 				if application {
@@ -195,24 +268,57 @@ func runMVPPipeline(t *testing.T, application bool) {
 				}(), b)))
 			}
 			var receipt types.TaskPendingOp
-			require.NoError(t, f.db.Where("scope = ? AND scope_id = ?", personalIndexReceiptScope, k.ID).First(&receipt).Error)
+			require.NoError(
+				t,
+				f.db.Where("scope = ? AND scope_id = ?", personalIndexReceiptScope, k.ID).
+					First(&receipt).
+					Error,
+			)
 			require.Equal(t, "verified", receipt.Op)
 			chunks, err := f.ks.chunkRepo.ListAllChunksByKnowledgeID(f.ctx, k.TenantID, k.ID)
 			require.NoError(t, err)
 			require.NotEmpty(t, chunks)
-			vector, err := pg.Retrieve(f.ctx, types.RetrieveParams{KnowledgeBaseIDs: []string{"kb"}, Embedding: []float32{1, 0, 0}, TopK: 5, RetrieverType: types.VectorRetrieverType, AdditionalParams: map[string]any{"dimension": 3}})
+			vector, err := pg.Retrieve(
+				f.ctx,
+				types.RetrieveParams{
+					KnowledgeBaseIDs: []string{"kb"},
+					Embedding:        []float32{1, 0, 0},
+					TopK:             5,
+					RetrieverType:    types.VectorRetrieverType,
+					AdditionalParams: map[string]any{"dimension": 3},
+				},
+			)
 			require.NoError(t, err)
 			require.NotEmpty(t, vector)
-			keyword, err := pg.Retrieve(f.ctx, types.RetrieveParams{KnowledgeBaseIDs: []string{"kb"}, Query: func() string {
-				if application {
-					return "fixture"
-				}
-				return "recovery"
-			}(), TopK: 5, RetrieverType: types.KeywordsRetrieverType})
+			keyword, err := pg.Retrieve(
+				f.ctx,
+				types.RetrieveParams{KnowledgeBaseIDs: []string{"kb"}, Query: func() string {
+					if application {
+						return "fixture"
+					}
+					return "recovery"
+				}(), TopK: 5, RetrieverType: types.KeywordsRetrieverType},
+			)
 			require.NoError(t, err)
 			require.NotEmpty(t, keyword)
-			post := NewKnowledgePostProcessService(f.ks.repo, f.ks.kbService, nil, f.ks.chunkRepo, f.ks.task, repository.NewTaskPendingOpsRepository(f.db), nil, nil)
-			postBody, _ := json.Marshal(types.KnowledgePostProcessPayload{TenantID: k.TenantID, KnowledgeBaseID: k.KnowledgeBaseID, KnowledgeID: k.ID, Attempt: payload.Attempt})
+			post := NewKnowledgePostProcessService(
+				f.ks.repo,
+				f.ks.kbService,
+				nil,
+				f.ks.chunkRepo,
+				f.ks.task,
+				repository.NewTaskPendingOpsRepository(f.db),
+				nil,
+				nil,
+			)
+			postBody, _ := json.Marshal(
+				types.KnowledgePostProcessPayload{
+					TenantID:        k.TenantID,
+					KnowledgeBaseID: k.KnowledgeBaseID,
+					KnowledgeID:     k.ID,
+					Attempt:         payload.Attempt,
+				},
+			)
 			require.NoError(t, post.Handle(f.ctx, asynq.NewTask(types.TypeKnowledgePostProcess, postBody)))
 			rows, err := f.s.ListImports(f.ctx, "kb")
 			require.NoError(t, err)
@@ -222,7 +328,13 @@ func runMVPPipeline(t *testing.T, application bool) {
 				require.Equal(t, "pending", rows[0].WikiStatus)
 				require.NotEqual(t, "synced", rows[0].Status)
 				var n int64
-				require.NoError(t, f.db.Model(&types.TaskPendingOp{}).Where("task_type = ? AND scope_id = ? AND dedup_key = ?", wikiTaskType, "kb", k.ID).Count(&n).Error)
+				require.NoError(
+					t,
+					f.db.Model(&types.TaskPendingOp{}).
+						Where("task_type = ? AND scope_id = ? AND dedup_key = ?", wikiTaskType, "kb", k.ID).
+						Count(&n).
+						Error,
+				)
 				require.EqualValues(t, 1, n)
 			} else {
 				require.Equal(t, "disabled", rows[0].WikiStatus)

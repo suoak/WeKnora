@@ -38,7 +38,15 @@ func TestBuiltinOAuthTenantConnectionIsolation(t *testing.T) {
 		endpoint.ServeHTTP(w, r)
 	}))
 	t.Cleanup(server.Close)
-	service := &types.MCPService{ID: "builtin", TenantID: 99, IsBuiltin: true, Enabled: true, URL: &server.URL, TransportType: types.MCPTransportHTTPStreamable, AuthConfig: &types.MCPAuthConfig{AuthType: types.MCPAuthOAuth}}
+	service := &types.MCPService{
+		ID:            "builtin",
+		TenantID:      99,
+		IsBuiltin:     true,
+		Enabled:       true,
+		URL:           &server.URL,
+		TransportType: types.MCPTransportHTTPStreamable,
+		AuthConfig:    &types.MCPAuthConfig{AuthType: types.MCPAuthOAuth},
+	}
 	alice := types.Principal{Type: types.PrincipalWebUser, ID: "same-user"}
 	bob := types.Principal{Type: types.PrincipalWebUser, ID: "other-user"}
 	ctxA := types.WithPrincipal(types.WithExecutionTenant(context.Background(), 7), alice)
@@ -49,8 +57,33 @@ func TestBuiltinOAuthTenantConnectionIsolation(t *testing.T) {
 		principal types.Principal
 		token     string
 	}{{7, alice, "tenant-a-token"}, {8, alice, "tenant-b-token"}, {7, bob, "other-principal-token"}} {
-		require.NoError(t, repo.SaveClient(context.Background(), &types.MCPOAuthClient{TenantID: scope.tenant, ServiceID: service.ID, ClientID: "public-client"}))
-		require.NoError(t, repo.SaveTokenForPrincipal(context.Background(), &types.MCPOAuthToken{TenantID: scope.tenant, ServiceID: service.ID, PrincipalType: scope.principal.Type, PrincipalID: scope.principal.ID, UserID: scope.principal.StorageID(), AccessToken: scope.token, TokenType: "Bearer", ExpiresAt: time.Now().Add(time.Hour)}))
+		require.NoError(
+			t,
+			repo.SaveClient(
+				context.Background(),
+				&types.MCPOAuthClient{
+					TenantID:  scope.tenant,
+					ServiceID: service.ID,
+					ClientID:  "public-client",
+				},
+			),
+		)
+		require.NoError(
+			t,
+			repo.SaveTokenForPrincipal(
+				context.Background(),
+				&types.MCPOAuthToken{
+					TenantID:      scope.tenant,
+					ServiceID:     service.ID,
+					PrincipalType: scope.principal.Type,
+					PrincipalID:   scope.principal.ID,
+					UserID:        scope.principal.StorageID(),
+					AccessToken:   scope.token,
+					TokenType:     "Bearer",
+					ExpiresAt:     time.Now().Add(time.Hour),
+				},
+			),
+		)
 	}
 	manager := NewMCPManager(repo)
 	t.Cleanup(manager.Shutdown)
@@ -72,8 +105,18 @@ func TestBuiltinOAuthTenantConnectionIsolation(t *testing.T) {
 	mu.Lock()
 	initialHeaders := append([]string(nil), headers["initialize"]...)
 	mu.Unlock()
-	require.Equal(t, []string{"Bearer tenant-a-token", "Bearer tenant-b-token", "Bearer other-principal-token"}, initialHeaders)
-	t.Logf("cache scopes: A=%q B=%q principal=%q; actual initialize Authorization scopes verified", cacheKey(service, 7, alice), cacheKey(service, 8, alice), cacheKey(service, 7, bob))
+	require.Equal(
+		t,
+		[]string{"Bearer tenant-a-token", "Bearer tenant-b-token", "Bearer other-principal-token"},
+		initialHeaders,
+	)
+	t.Logf(
+		"cache scopes: A=%q B=%q principal=%q; actual initialize Authorization "+
+			"scopes verified",
+		cacheKey(service, 7, alice),
+		cacheKey(service, 8, alice),
+		cacheKey(service, 7, bob),
+	)
 	var wg sync.WaitGroup
 	results := make(chan MCPClient, 8)
 	errs := make(chan error, 8)
@@ -109,12 +152,32 @@ func TestBuiltinOAuthTenantConnectionIsolation(t *testing.T) {
 	require.NoError(t, err)
 	require.NotSame(t, b, fresh)
 	for _, status := range []int32{401, 403} {
-		require.NoError(t, repo.SaveTokenForPrincipal(context.Background(), &types.MCPOAuthToken{TenantID: 7, ServiceID: service.ID, PrincipalType: bob.Type, PrincipalID: bob.ID, UserID: bob.StorageID(), AccessToken: "other-principal-token", TokenType: "Bearer", ExpiresAt: time.Now().Add(time.Hour)}))
+		require.NoError(
+			t,
+			repo.SaveTokenForPrincipal(
+				context.Background(),
+				&types.MCPOAuthToken{
+					TenantID:      7,
+					ServiceID:     service.ID,
+					PrincipalType: bob.Type,
+					PrincipalID:   bob.ID,
+					UserID:        bob.StorageID(),
+					AccessToken:   "other-principal-token",
+					TokenType:     "Bearer",
+					ExpiresAt:     time.Now().Add(time.Hour),
+				},
+			),
+		)
 		endpoint.status.Store(status)
 		before := endpoint.toolCalls.Load()
 		_, err = other.CallTool(ctxOther, "side-effect", nil)
 		require.Error(t, err)
-		require.Equal(t, before+1, endpoint.toolCalls.Load(), "permission failure cannot replay a tool without a refresh credential")
+		require.Equal(
+			t,
+			before+1,
+			endpoint.toolCalls.Load(),
+			"permission failure cannot replay a tool without a refresh credential",
+		)
 		require.True(t, fresh.IsConnected())
 	}
 	require.NoError(t, manager.CloseClient(service.ID))
@@ -159,7 +222,12 @@ func TestManagerRealWaiterDeadlineDoesNotCancelInitialization(t *testing.T) {
 	t.Cleanup(func() { releaseOnce.Do(func() { close(release) }) })
 	manager := NewMCPManager(nil)
 	t.Cleanup(manager.Shutdown)
-	service := &types.MCPService{ID: "deadline", Enabled: true, URL: &server.URL, TransportType: types.MCPTransportHTTPStreamable}
+	service := &types.MCPService{
+		ID:            "deadline",
+		Enabled:       true,
+		URL:           &server.URL,
+		TransportType: types.MCPTransportHTTPStreamable,
+	}
 	type result struct {
 		client MCPClient
 		err    error
@@ -235,20 +303,46 @@ func TestOAuthCallbackInvalidatesOnlyAuthenticatedStateScope(t *testing.T) {
 	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/metadata":
-			_ = json.NewEncoder(w).Encode(map[string]any{"issuer": server.URL, "registration_endpoint": server.URL + "/register", "authorization_endpoint": server.URL + "/authorize", "token_endpoint": server.URL + "/token"})
+			_ = json.NewEncoder(w).
+				Encode(
+					map[string]any{
+						"issuer": server.URL,
+
+						"registration_endpoint": server.URL +
+							"/register",
+
+						"authorization_endpoint": server.URL +
+							"/authorize",
+
+						"token_endpoint": server.URL +
+							"/token",
+					},
+				)
 		case "/register":
 			w.WriteHeader(201)
 			_ = json.NewEncoder(w).Encode(map[string]any{"client_id": "public-client"})
 		case "/token":
 			_ = r.ParseForm()
-			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": r.Form.Get("code"), "token_type": "Bearer", "expires_in": 3600})
+			_ = json.NewEncoder(w).
+				Encode(map[string]any{"access_token": r.Form.Get("code"), "token_type": "Bearer", "expires_in": 3600})
 		default:
 			endpoint.ServeHTTP(w, r)
 		}
 	}))
 	t.Cleanup(server.Close)
 	u := server.URL + "/mcp"
-	service := &types.MCPService{ID: "builtin-callback", TenantID: 99, IsBuiltin: true, Enabled: true, URL: &u, TransportType: types.MCPTransportHTTPStreamable, AuthConfig: &types.MCPAuthConfig{AuthType: types.MCPAuthOAuth, AuthServerMetadataURL: server.URL + "/metadata"}}
+	service := &types.MCPService{
+		ID:            "builtin-callback",
+		TenantID:      99,
+		IsBuiltin:     true,
+		Enabled:       true,
+		URL:           &u,
+		TransportType: types.MCPTransportHTTPStreamable,
+		AuthConfig: &types.MCPAuthConfig{
+			AuthType:              types.MCPAuthOAuth,
+			AuthServerMetadataURL: server.URL + "/metadata",
+		},
+	}
 	alice := types.Principal{Type: types.PrincipalWebUser, ID: "same-user"}
 	bob := types.Principal{Type: types.PrincipalWebUser, ID: "other-user"}
 	oauth := NewOAuthManager(repo, fakeMCPServiceRepo{service: service}, nil)
@@ -259,7 +353,14 @@ func TestOAuthCallbackInvalidatesOnlyAuthenticatedStateScope(t *testing.T) {
 		tenant uint64
 		code   string
 	}{{7, "synthetic-a"}, {8, "synthetic-b"}} {
-		_, state, err := oauth.StartAuthorization(ctx, service, scope.tenant, alice, "http://localhost/callback", "/")
+		_, state, err := oauth.StartAuthorization(
+			ctx,
+			service,
+			scope.tenant,
+			alice,
+			"http://localhost/callback",
+			"/",
+		)
 		require.NoError(t, err)
 		_, _, err = oauth.CompleteAuthorization(ctx, state, scope.code)
 		require.NoError(t, err)
@@ -271,7 +372,22 @@ func TestOAuthCallbackInvalidatesOnlyAuthenticatedStateScope(t *testing.T) {
 	require.NoError(t, err)
 	b, err := manager.GetOrCreateClient(ctxB, service)
 	require.NoError(t, err)
-	require.NoError(t, repo.SaveTokenForPrincipal(ctx, &types.MCPOAuthToken{TenantID: 7, ServiceID: service.ID, PrincipalType: bob.Type, PrincipalID: bob.ID, UserID: bob.StorageID(), AccessToken: "synthetic-bob", TokenType: "Bearer", ExpiresAt: time.Now().Add(time.Hour)}))
+	require.NoError(
+		t,
+		repo.SaveTokenForPrincipal(
+			ctx,
+			&types.MCPOAuthToken{
+				TenantID:      7,
+				ServiceID:     service.ID,
+				PrincipalType: bob.Type,
+				PrincipalID:   bob.ID,
+				UserID:        bob.StorageID(),
+				AccessToken:   "synthetic-bob",
+				TokenType:     "Bearer",
+				ExpiresAt:     time.Now().Add(time.Hour),
+			},
+		),
+	)
 	other, err := manager.GetOrCreateClient(ctxBob, service)
 	require.NoError(t, err)
 	_, state, err := oauth.StartAuthorization(ctx, service, 7, alice, "http://localhost/callback", "/")

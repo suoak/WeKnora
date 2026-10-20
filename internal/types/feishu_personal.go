@@ -2,6 +2,7 @@ package types
 
 import "time"
 
+// FeishuConnection defines feishu connection state.
 // Credentials are never serialized through API responses.
 type FeishuConnection struct {
 	UserID           string    `gorm:"primaryKey" json:"-"`
@@ -13,6 +14,7 @@ type FeishuConnection struct {
 	UpdatedAt        time.Time `json:"-"`
 }
 
+// FeishuOAuthState defines feishu oauth state state.
 type FeishuOAuthState struct {
 	Hash          string `gorm:"primaryKey"`
 	UserID        string
@@ -21,10 +23,16 @@ type FeishuOAuthState struct {
 	Claimed       bool
 }
 
-func (FeishuConnection) TableName() string     { return "feishu_connections" }
-func (FeishuOAuthState) TableName() string     { return "feishu_oauth_states" }
+// TableName returns the database table name.
+func (FeishuConnection) TableName() string { return "feishu_connections" }
+
+// TableName returns the database table name.
+func (FeishuOAuthState) TableName() string { return "feishu_oauth_states" }
+
+// TableName returns the database table name.
 func (FeishuPersonalImport) TableName() string { return "feishu_personal_imports" }
 
+// FeishuPersonalImport defines feishu personal import state.
 type FeishuPersonalImport struct {
 	AuthMode           string    `gorm:"default:user_oauth" json:"auth_mode"`
 	ApplicationID      string    `json:"-"`

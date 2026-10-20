@@ -13,7 +13,12 @@ func TestRC3LegacyFreezeConfiguration(t *testing.T) {
 		t.Run(raw, func(t *testing.T) {
 			t.Setenv("FEISHU_LEGACY_SYNC_SUSPENDED", raw)
 			want := raw != "" && raw != "false" && raw != "0"
-			for _, kind := range []string{types.ConnectorTypeFeishu, types.ConnectorTypeFeishuDrive, types.ConnectorTypeLark, types.ConnectorTypeLarkDrive} {
+			for _, kind := range []string{
+				types.ConnectorTypeFeishu,
+				types.ConnectorTypeFeishuDrive,
+				types.ConnectorTypeLark,
+				types.ConnectorTypeLarkDrive,
+			} {
 				require.Equal(t, want, LegacyFeishuSyncSuspended(kind))
 			}
 			for _, kind := range []string{"feishu_personal", types.ConnectorTypeRSS, types.ConnectorTypeGitLab, ""} {
@@ -29,8 +34,10 @@ func TestRC3LegacyFreezeSchedulerAndStaleCallback(t *testing.T) {
 	logs := newFakeSyncLogRepo()
 	// No enqueuer: stale callbacks must not reach queue dispatch.
 	s := NewScheduler(repo, logs, nil)
-	ds := &types.DataSource{ID: "legacy", TenantID: 1, Type: types.ConnectorTypeFeishu,
-		Status: types.DataSourceStatusActive, SyncSchedule: "0 0 */6 * * *"}
+	ds := &types.DataSource{
+		ID: "legacy", TenantID: 1, Type: types.ConnectorTypeFeishu,
+		Status: types.DataSourceStatusActive, SyncSchedule: "0 0 */6 * * *",
+	}
 	require.NoError(t, repo.Create(context.Background(), ds))
 	require.NoError(t, s.Start(context.Background()))
 	t.Cleanup(s.Stop)

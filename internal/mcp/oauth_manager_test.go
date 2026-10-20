@@ -26,7 +26,11 @@ type fakeMCPServiceRepo struct {
 	service *types.MCPService
 }
 
-func (r fakeMCPServiceRepo) GetByID(_ context.Context, tenant uint64, id string) (*types.MCPService, error) {
+func (r fakeMCPServiceRepo) GetByID(
+	_ context.Context,
+	tenant uint64,
+	id string,
+) (*types.MCPService, error) {
 	if r.service != nil && r.service.ID == id && (r.service.TenantID == tenant || r.service.IsBuiltin) {
 		return r.service, nil
 	}
@@ -95,7 +99,10 @@ func TestOAuthManagerKeepsTheRegisteredClientSecret(t *testing.T) {
 					AuthServerMetadataURL: server.URL + "/.well-known/oauth-authorization-server",
 				},
 			}
-			db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+			db, err := gorm.Open(
+				sqlite.Open(":memory:"),
+				&gorm.Config{Logger: logger.Default.LogMode(logger.Silent)},
+			)
 			require.NoError(t, err)
 			sqlDB, err := db.DB()
 			require.NoError(t, err)
@@ -107,7 +114,14 @@ func TestOAuthManagerKeepsTheRegisteredClientSecret(t *testing.T) {
 			principal := types.Principal{Type: types.PrincipalWebUser, ID: "42"}
 			ctx := context.Background()
 
-			_, state, err := manager.StartAuthorization(ctx, service, 7, principal, "http://localhost:8080/callback", "/")
+			_, state, err := manager.StartAuthorization(
+				ctx,
+				service,
+				7,
+				principal,
+				"http://localhost:8080/callback",
+				"/",
+			)
 			require.NoError(t, err)
 			stored, err := repo.GetClient(ctx, 7, "svc-1")
 			require.NoError(t, err)
@@ -115,7 +129,13 @@ func TestOAuthManagerKeepsTheRegisteredClientSecret(t *testing.T) {
 			require.Equal(t, "registered-client", stored.ClientID)
 			require.Equal(t, secret, stored.ClientSecret)
 			var raw string
-			require.NoError(t, db.Raw("SELECT client_secret FROM mcp_oauth_clients WHERE tenant_id = ? AND service_id = ?", 7, "svc-1").Scan(&raw).Error)
+			require.NoError(
+				t,
+				db.Raw("SELECT client_secret FROM mcp_oauth_clients WHERE tenant_id = ? AND "+
+					"service_id = ?", 7, "svc-1").
+					Scan(&raw).
+					Error,
+			)
 			if secret != "" {
 				require.Contains(t, raw, secutils.EncPrefix)
 				require.NotContains(t, raw, secret)
@@ -128,7 +148,18 @@ func TestOAuthManagerKeepsTheRegisteredClientSecret(t *testing.T) {
 			other, err := repo.GetClient(ctx, 8, "svc-1")
 			require.NoError(t, err)
 			require.Nil(t, other)
-			require.NoError(t, repo.SaveClient(ctx, &types.MCPOAuthClient{TenantID: 8, ServiceID: "svc-1", ClientID: "other-tenant", ClientSecret: "other-secret"}))
+			require.NoError(
+				t,
+				repo.SaveClient(
+					ctx,
+					&types.MCPOAuthClient{
+						TenantID:     8,
+						ServiceID:    "svc-1",
+						ClientID:     "other-tenant",
+						ClientSecret: "other-secret",
+					},
+				),
+			)
 			stored, err = repo.GetClient(ctx, 7, "svc-1")
 			require.NoError(t, err)
 			require.Equal(t, secret, stored.ClientSecret)
@@ -149,7 +180,12 @@ func TestOAuthManagerKeepsTheRegisteredClientSecret(t *testing.T) {
 			otherToken, err := repo.GetTokenForPrincipal(ctx, 8, principal, "svc-1")
 			require.NoError(t, err)
 			require.Nil(t, otherToken)
-			otherToken, err = repo.GetTokenForPrincipal(ctx, 7, types.Principal{Type: types.PrincipalWebUser, ID: "other"}, "svc-1")
+			otherToken, err = repo.GetTokenForPrincipal(
+				ctx,
+				7,
+				types.Principal{Type: types.PrincipalWebUser, ID: "other"},
+				"svc-1",
+			)
 			require.NoError(t, err)
 			require.Nil(t, otherToken)
 			h, err := manager.newHandler(ctx, service, 7, principal, "http://localhost:8080/callback")
@@ -162,7 +198,18 @@ func TestOAuthManagerKeepsTheRegisteredClientSecret(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, token)
 			// Exercise an upsert using the real hooks, not only an initial insert.
-			require.NoError(t, repo.SaveClient(ctx, &types.MCPOAuthClient{TenantID: 7, ServiceID: "svc-1", ClientID: "registered-client", ClientSecret: secret}))
+			require.NoError(
+				t,
+				repo.SaveClient(
+					ctx,
+					&types.MCPOAuthClient{
+						TenantID:     7,
+						ServiceID:    "svc-1",
+						ClientID:     "registered-client",
+						ClientSecret: secret,
+					},
+				),
+			)
 			stored, err = repo.GetClient(ctx, 7, "svc-1")
 			require.NoError(t, err)
 			require.Equal(t, secret, stored.ClientSecret)
@@ -181,12 +228,17 @@ type failingClientRepo struct {
 	failRead bool
 }
 
-func (r failingClientRepo) GetClient(ctx context.Context, tenant uint64, service string) (*types.MCPOAuthClient, error) {
+func (r failingClientRepo) GetClient(
+	ctx context.Context,
+	tenant uint64,
+	service string,
+) (*types.MCPOAuthClient, error) {
 	if r.failRead {
 		return nil, errors.New("database parameters contain registered-secret")
 	}
 	return r.MCPOAuthRepository.GetClient(ctx, tenant, service)
 }
+
 func (r failingClientRepo) SaveClient(context.Context, *types.MCPOAuthClient) error {
 	return errors.New("database parameters contain registered-secret")
 }
@@ -199,18 +251,52 @@ func TestOAuthManagerClientStorageFailureIsNotAuthorizationSuccess(t *testing.T)
 		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path == "/register" {
 			w.WriteHeader(http.StatusCreated)
-			_ = json.NewEncoder(w).Encode(map[string]any{"client_id": "client", "client_secret": "registered-secret"})
+			_ = json.NewEncoder(w).
+				Encode(map[string]any{"client_id": "client", "client_secret": "registered-secret"})
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"issuer": server.URL, "authorization_endpoint": server.URL + "/authorize", "registration_endpoint": server.URL + "/register", "token_endpoint": server.URL + "/token"})
+		_ = json.NewEncoder(w).
+			Encode(
+				map[string]any{
+					"issuer": server.URL,
+
+					"authorization_endpoint": server.URL +
+						"/authorize",
+
+					"registration_endpoint": server.URL +
+						"/register",
+
+					"token_endpoint": server.URL +
+						"/token",
+				},
+			)
 	}))
 	defer server.Close()
 	u := server.URL + "/mcp"
-	service := &types.MCPService{ID: "svc", TenantID: 7, URL: &u, AuthConfig: &types.MCPAuthConfig{AuthType: types.MCPAuthOAuth, AuthServerMetadataURL: server.URL + "/.well-known/oauth-authorization-server"}}
+	service := &types.MCPService{
+		ID:       "svc",
+		TenantID: 7,
+		URL:      &u,
+		AuthConfig: &types.MCPAuthConfig{
+			AuthType:              types.MCPAuthOAuth,
+			AuthServerMetadataURL: server.URL + "/.well-known/oauth-authorization-server",
+		},
+	}
 	for _, readFail := range []bool{false, true} {
-		manager := NewOAuthManager(failingClientRepo{MCPOAuthRepository: newFakeOAuthRepo(), failRead: readFail}, nil, nil)
+		manager := NewOAuthManager(
+			failingClientRepo{MCPOAuthRepository: newFakeOAuthRepo(), failRead: readFail},
+			nil,
+			nil,
+		)
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		authURL, state, err := manager.StartAuthorization(ctx, service, 7, types.Principal{Type: types.PrincipalWebUser, ID: "user"}, "http://localhost/callback", "/")
+		authURL, state, err := manager.StartAuthorization(
+			ctx,
+			service,
+			7,
+			types.Principal{Type: types.PrincipalWebUser, ID: "user"},
+			"http://localhost/callback",
+			"/",
+		)
 		cancel()
 		require.Error(t, err)
 		require.Empty(t, authURL)

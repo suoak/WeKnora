@@ -15,7 +15,12 @@ func TestP4SheetReadsBeyond500WithFormulaAndHeaderContext(t *testing.T) {
 	requests := 0
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/sheets/query") {
-			fmt.Fprint(w, `{"code":0,"data":{"sheets":[{"sheet_id":"s1","title":"Sales","grid_properties":{"row_count":601,"column_count":2},"merges":[]}]}}`)
+			_, _ = fmt.Fprint(
+				w,
+				"{\"code\":0,\"data\":{\"sheets\":[{\"sheet_id\":\"s1\","+
+					"\"title\":\"Sales\",\"grid_properties\":{\"row_count\":601,"+
+					"\"column_count\":2},\"merges\":[]}]}}",
+			)
 			return
 		}
 		requests++
@@ -32,12 +37,28 @@ func TestP4SheetReadsBeyond500WithFormulaAndHeaderContext(t *testing.T) {
 			}
 			rows = append(rows, []any{"row" + strconv.Itoa(n), v})
 		}
-		json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{"revision": 42, "valueRange": map[string]any{"range": rg, "values": rows}}})
+		_ = json.NewEncoder(w).
+			Encode(map[string]any{
+				"code": 0,
+				"data": map[string]any{
+					"revision": 42,
+					"valueRange": map[string]any{
+						"range":  rg,
+						"values": rows,
+					},
+				},
+			})
 	}))
 	defer s.Close()
 	c := NewClient(&Config{AppID: "p4sheet601", BaseURL: s.URL})
-	ctx := WithApplicationIdentity(context.Background(), func(context.Context) (string, error) { return "app", nil })
-	got, err := c.CollectApplicationTableSnapshot(ctx, PersonalResource{Type: "sheet", Token: "sheet", Title: "Revenue"})
+	ctx := WithApplicationIdentity(
+		context.Background(),
+		func(context.Context) (string, error) { return "app", nil },
+	)
+	got, err := c.CollectApplicationTableSnapshot(
+		ctx,
+		PersonalResource{Type: "sheet", Token: "sheet", Title: "Revenue"},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +82,11 @@ func TestP4SheetRejectsChangedRevisionAndMedia(t *testing.T) {
 			requests := 0
 			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if strings.HasSuffix(r.URL.Path, "/sheets/query") {
-					fmt.Fprint(w, `{"code":0,"data":{"sheets":[{"sheet_id":"s","title":"T","grid_properties":{"row_count":1,"column_count":1}}]}}`)
+					_, _ = fmt.Fprint(
+						w,
+						"{\"code\":0,\"data\":{\"sheets\":[{\"sheet_id\":\"s\",\"title\":\"T\","+
+							"\"grid_properties\":{\"row_count\":1,\"column_count\":1}}]}}",
+					)
 					return
 				}
 				requests++
@@ -77,12 +102,35 @@ func TestP4SheetRejectsChangedRevisionAndMedia(t *testing.T) {
 				if mode == "media" {
 					v = map[string]any{"type": "image", "fileToken": "secret-token"}
 				}
-				json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{"revision": revision, "valueRange": map[string]any{"range": rg, "values": [][]any{{v}}}}})
+				_ = json.NewEncoder(w).
+					Encode(map[string]any{
+						"code": 0,
+						"data": map[string]any{
+							"revision": revision,
+							"valueRange": map[string]any{
+								"range": rg,
+								"values": [][]any{
+									{
+										v,
+									},
+								},
+							},
+						},
+					})
 			}))
 			defer s.Close()
 			c := NewClient(&Config{AppID: "p4sheetreject" + mode, BaseURL: s.URL})
-			ctx := WithApplicationIdentity(context.Background(), func(context.Context) (string, error) { return "app", nil })
-			if _, err := c.CollectApplicationTableSnapshot(ctx, PersonalResource{Type: "sheet", Token: "sheet"}); err == nil {
+			ctx := WithApplicationIdentity(
+				context.Background(),
+				func(context.Context) (string, error) { return "app", nil },
+			)
+			if _, err := c.CollectApplicationTableSnapshot(
+				ctx,
+				PersonalResource{
+					Type:  "sheet",
+					Token: "sheet",
+				},
+			); err == nil {
 				t.Fatal("incomplete sheet accepted")
 			}
 		})
@@ -100,9 +148,15 @@ func TestP4BitableAllPagesAndRecordContext(t *testing.T) {
 		var data any
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/tables"):
-			data = map[string]any{"items": []any{map[string]any{"table_id": "t1", "name": "Sales"}}, "has_more": false}
+			data = map[string]any{
+				"items":    []any{map[string]any{"table_id": "t1", "name": "Sales"}},
+				"has_more": false,
+			}
 		case strings.HasSuffix(r.URL.Path, "/fields"):
-			data = map[string]any{"items": []any{map[string]any{"field_id": "f1", "field_name": "Customer", "type": 1}}, "has_more": false}
+			data = map[string]any{
+				"items":    []any{map[string]any{"field_id": "f1", "field_name": "Customer", "type": 1}},
+				"has_more": false,
+			}
 		case strings.HasSuffix(r.URL.Path, "/records"):
 			if r.URL.Query().Get("view_id") != "" || r.Method != "GET" {
 				t.Error("view filtering is forbidden")
@@ -114,18 +168,35 @@ func TestP4BitableAllPagesAndRecordContext(t *testing.T) {
 				start = 500
 			}
 			for i := start; i < min(start+500, 601); i++ {
-				items = append(items, map[string]any{"record_id": fmt.Sprintf("r%d", i), "fields": map[string]any{"Customer": fmt.Sprintf("customer%d", i)}})
+				items = append(
+					items,
+					map[string]any{
+						"record_id": fmt.Sprintf("r%d", i),
+						"fields":    map[string]any{"Customer": fmt.Sprintf("customer%d", i)},
+					},
+				)
 			}
-			data = map[string]any{"items": items, "has_more": pages == 1, "page_token": "next", "total": 601}
+			data = map[string]any{
+				"items":      items,
+				"has_more":   pages == 1,
+				"page_token": "next",
+				"total":      601,
+			}
 		default:
 			t.Errorf("unexpected %s", r.URL.Path)
 		}
-		json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": data})
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": data})
 	}))
 	defer s.Close()
 	c := NewClient(&Config{AppID: "p4pages", BaseURL: s.URL})
-	ctx := WithApplicationIdentity(context.Background(), func(context.Context) (string, error) { return "application", nil })
-	got, err := c.CollectApplicationTableSnapshot(ctx, PersonalResource{Type: "bitable", Token: "app", Title: "CRM"})
+	ctx := WithApplicationIdentity(
+		context.Background(),
+		func(context.Context) (string, error) { return "application", nil },
+	)
+	got, err := c.CollectApplicationTableSnapshot(
+		ctx,
+		PersonalResource{Type: "bitable", Token: "app", Title: "CRM"},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +215,14 @@ func TestP4BitableAllPagesAndRecordContext(t *testing.T) {
 }
 
 func TestP4BitableBrokenPaginationNeverSucceeds(t *testing.T) {
-	for _, mode := range []string{"repeated", "missing", "duplicate_record", "wrong_total", "unknown_field", "attachment"} {
+	for _, mode := range []string{
+		"repeated",
+		"missing",
+		"duplicate_record",
+		"wrong_total",
+		"unknown_field",
+		"attachment",
+	} {
 		t.Run(mode, func(t *testing.T) {
 			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				var data any
@@ -156,13 +234,20 @@ func TestP4BitableBrokenPaginationNeverSucceeds(t *testing.T) {
 					if mode == "attachment" {
 						typ = 17
 					}
-					data = map[string]any{"items": []any{map[string]any{"field_id": "f", "field_name": "F", "type": typ}}}
+					data = map[string]any{
+						"items": []any{map[string]any{"field_id": "f", "field_name": "F", "type": typ}},
+					}
 				default:
 					field := "F"
 					if mode == "unknown_field" {
 						field = "missing"
 					}
-					data = map[string]any{"items": []any{map[string]any{"record_id": "r", "fields": map[string]any{field: "value"}}}, "total": 1}
+					data = map[string]any{
+						"items": []any{
+							map[string]any{"record_id": "r", "fields": map[string]any{field: "value"}},
+						},
+						"total": 1,
+					}
 					d := data.(map[string]any)
 					if mode == "repeated" || mode == "missing" || mode == "duplicate_record" {
 						d["has_more"] = true
@@ -174,12 +259,24 @@ func TestP4BitableBrokenPaginationNeverSucceeds(t *testing.T) {
 						d["total"] = 2
 					}
 				}
-				json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": data})
+				_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": data})
 			}))
 			defer s.Close()
 			c := NewClient(&Config{AppID: "p4broken" + mode, BaseURL: s.URL})
-			ctx := WithApplicationIdentity(context.Background(), func(context.Context) (string, error) { return "app", nil })
-			if _, err := c.CollectApplicationTableSnapshot(ctx, PersonalResource{Type: "bitable", Token: "app"}); err == nil {
+			ctx := WithApplicationIdentity(
+				context.Background(),
+				func(context.Context) (string, error) { return "app", nil },
+			)
+			if _,
+				err := c.CollectApplicationTableSnapshot(
+				ctx,
+
+				PersonalResource{
+					Type: "bitable",
+
+					Token: "app",
+				},
+			); err == nil {
 				t.Fatal("incomplete snapshot accepted")
 			}
 		})
@@ -188,8 +285,44 @@ func TestP4BitableBrokenPaginationNeverSucceeds(t *testing.T) {
 
 func TestP4SnapshotRequiresExclusiveApplicationIdentity(t *testing.T) {
 	c := NewClient(&Config{AppID: "p4identity"})
-	for _, ctx := range []context.Context{context.Background(), WithUserIdentity(context.Background(), func(context.Context) (string, error) { return "user", nil }), WithUserIdentity(WithApplicationIdentity(context.Background(), nil), nil)} {
-		if _, err := c.CollectApplicationTableSnapshot(ctx, PersonalResource{Type: "sheet", Token: "s"}); err != ErrAuth {
+	for _, ctx := range []context.Context{
+		context.Background(),
+
+		WithUserIdentity(
+			context.Background(),
+
+			func(
+				context.Context,
+			) (
+				string,
+
+				error,
+			) {
+				return "user",
+					nil
+			},
+		),
+
+		WithUserIdentity(
+			WithApplicationIdentity(
+				context.Background(),
+
+				nil,
+			),
+
+			nil,
+		),
+	} {
+		if _,
+			err := c.CollectApplicationTableSnapshot(
+			ctx,
+
+			PersonalResource{
+				Type: "sheet",
+
+				Token: "s",
+			},
+		); err != ErrAuth {
 			t.Fatalf("identity bypass: %v", err)
 		}
 	}

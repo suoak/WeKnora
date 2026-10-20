@@ -1,8 +1,6 @@
 package core
 
 import (
-	"archive/zip"
-	"bytes"
 	"context"
 )
 
@@ -22,7 +20,11 @@ func (c *Client) downloadApplicationTable(ctx context.Context, r PersonalResourc
 	return []byte(text), SanitizeFileName(r.Title) + ".md", nil
 }
 
-func (c *Client) ReadApplicationTableCandidate(ctx context.Context, r PersonalResource) (*ApplicationTableSnapshot, error) {
+// ReadApplicationTableCandidate provides the read application table candidate operation.
+func (c *Client) ReadApplicationTableCandidate(
+	ctx context.Context,
+	r PersonalResource,
+) (*ApplicationTableSnapshot, error) {
 	if err := requireApplicationIdentity(ctx); err != nil {
 		return nil, err
 	}
@@ -66,18 +68,3 @@ func (c *Client) ReadApplicationTableCandidate(ctx context.Context, r PersonalRe
 	}
 	return second, nil
 }
-
-func validateApplicationWorkbookMedia(data []byte) error {
-	z, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
-	if err != nil {
-		return ErrApplicationTableIncomplete
-	}
-	for _, f := range z.File {
-		if len(f.Name) >= 9 && (hasPrefix(f.Name, "xl/media/") || hasPrefix(f.Name, "xl/drawings/") || hasPrefix(f.Name, "xl/embeddings/") || hasPrefix(f.Name, "xl/charts/")) {
-			return ErrApplicationTableMedia
-		}
-	}
-	return nil
-}
-
-func hasPrefix(s, prefix string) bool { return len(s) >= len(prefix) && s[:len(prefix)] == prefix }

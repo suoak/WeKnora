@@ -3,8 +3,9 @@ package mcp
 import (
 	"context"
 	"errors"
-	"github.com/mark3labs/mcp-go/client/transport"
 	"strings"
+
+	"github.com/mark3labs/mcp-go/client/transport"
 )
 
 // OAuthSafeError deliberately does not retain provider bodies or SQL errors.
@@ -52,9 +53,21 @@ func safeOAuthError(code string, err error) error {
 	}
 	return e
 }
+
 func safeOAuthProviderCode(code string) string {
 	switch code {
-	case "invalid_request", "invalid_client", "invalid_grant", "unauthorized_client", "unsupported_grant_type", "invalid_scope", "access_denied", "server_error", "temporarily_unavailable", "invalid_token", "expired_token", "bad_refresh_token":
+	case "invalid_request",
+		"invalid_client",
+		"invalid_grant",
+		"unauthorized_client",
+		"unsupported_grant_type",
+		"invalid_scope",
+		"access_denied",
+		"server_error",
+		"temporarily_unavailable",
+		"invalid_token",
+		"expired_token",
+		"bad_refresh_token":
 		return code
 	default:
 		return "provider_error"

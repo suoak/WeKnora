@@ -4,9 +4,21 @@ import { readFileSync } from 'node:fs'
 import { createI18n } from 'vue-i18n'
 import embed from '../../src/i18n/embed'
 import { LOCALE_BUNDLES, getLocaleValueAtPath } from '../../src/i18n/localeKeyAudit'
-import { missingKeys, scanExpression, scanSources } from './i18nStaticAudit'
+import { localTranslationScopes, missingKeys, scanExpression, scanSources } from './i18nStaticAudit'
 const baseline = JSON.parse(readFileSync(new URL('./i18nHistoricalBaseline.json', import.meta.url), 'utf8'))
 const repaired: Record<string,string[]> = JSON.parse(readFileSync(new URL('./rc24-translations.json', import.meta.url), 'utf8'))
+
+test('local Feishu messages and aliases are checked without accepting missing or global-only keys', () => {
+  const scopes = localTranslationScopes(`
+    import { feishuMessages as messages } from '@/i18n/feishuPersonal'
+    const { t: ft } = useI18n({ useScope: 'local', messages: messages })
+  `)
+  const calls = scanExpression(`ft('sharingShort'); ft('new.missing'); ft('knowledgeBase.documentCount')`, 'sample.vue', 0, scopes)
+  assert.equal(calls.length, 3)
+  assert.deepEqual(missingKeys(calls).map(x => x.key), ['new.missing', 'knowledgeBase.documentCount'])
+  const unresolved = localTranslationScopes(`const { t } = useI18n({ useScope: 'local', messages: unknown })`)
+  assert.equal(missingKeys(scanExpression(`t('title')`, 'sample.vue', 0, unresolved)).length, 1)
+})
 
 test('AST skips comments and handles literal conditional branches and template literals', () => {
   assert.deepEqual(scanExpression(`// t('comment.fake')\n t(ready ? 'a.yes' : 'a.no'); $t(\`a.template\`); t('prefix.' + dynamic);`, 'sample.ts').map(c=>c.key), ['a.yes','a.no','a.template'])

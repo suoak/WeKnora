@@ -52,55 +52,105 @@ func newPersonalRecoveryFixture(t *testing.T) *personalRecoveryFixture {
 	t.Cleanup(utils.ResetSSRFWhitelistForTest)
 	db := syncdb.Open(t, "postgres")
 	for _, ddl := range []string{
-		"CREATE TABLE users(id varchar(36) PRIMARY KEY,is_active boolean,deleted_at timestamptz,is_system_admin boolean NOT NULL DEFAULT false)",
-		"CREATE TABLE tenants(id bigint PRIMARY KEY,status text,deleted_at timestamptz)",
-		"CREATE TABLE tenant_members(id bigserial PRIMARY KEY,user_id varchar(36),tenant_id bigint,role text,status text,deleted_at timestamptz)",
-		"CREATE TABLE knowledge_bases(id varchar(36) PRIMARY KEY,tenant_id bigint,creator_id varchar(36),deleted_at timestamptz)",
-		"INSERT INTO users(id,is_active,deleted_at) VALUES('A',true,NULL),('B',true,NULL)",
+		"CREATE TABLE users(id varchar(36) PRIMARY KEY,is_active boolean," +
+			"deleted_at timestamptz,is_system_admin boolean NOT NULL DEFAULT false)",
+		"CREATE TABLE tenants(id bigint PRIMARY KEY,status text,deleted_at " +
+			"timestamptz)",
+		"CREATE TABLE tenant_members(id bigserial PRIMARY KEY,user_id " +
+			"varchar(36),tenant_id bigint,role text,status text,deleted_at " +
+			"timestamptz)",
+		"CREATE TABLE knowledge_bases(id varchar(36) PRIMARY KEY,tenant_id " +
+			"bigint,creator_id varchar(36),deleted_at timestamptz)",
+		"INSERT INTO users(id,is_active,deleted_at) VALUES('A',true,NULL),('B'," +
+			"true,NULL)",
 		"INSERT INTO tenants VALUES(1,'active',NULL)",
-		"INSERT INTO tenant_members(user_id,tenant_id,role,status) VALUES('A',1,'admin','active'),('B',1,'admin','active')",
+		"INSERT INTO tenant_members(user_id,tenant_id,role,status) VALUES('A'," +
+			"1,'admin','active'),('B',1,'admin','active')",
 		"INSERT INTO knowledge_bases VALUES('kb',1,'A',NULL)",
 	} {
 		require.NoError(t, db.Exec(ddl).Error)
 	}
-	for _, name := range []string{"003025_feishu_personal", "003031_feishu_personal_recovery", "003033_feishu_application_grant"} {
+	for _, name := range []string{
+		"003025_feishu_personal",
+		"003031_feishu_personal_recovery",
+		"003033_feishu_application_grant",
+	} {
 		ddl, err := os.ReadFile("../../../migrations/versioned/" + name + ".up.sql")
 		require.NoError(t, err)
 		require.NoError(t, db.Exec(string(ddl)).Error)
 	}
-	require.NoError(t, db.AutoMigrate(&types.Knowledge{}, &types.TaskPendingOp{}, &types.Chunk{}, &types.SystemSetting{}))
+	require.NoError(
+		t,
+		db.AutoMigrate(&types.Knowledge{}, &types.TaskPendingOp{}, &types.Chunk{}, &types.SystemSetting{}),
+	)
 	settings := repository.NewSystemSettingRepository(db)
 	kb := &types.KnowledgeBase{ID: "kb", TenantID: 1, CreatorID: "A"}
 	base := repository.NewKnowledgeRepository(db)
 	ks := &knowledgeService{repo: base, task: &dispatchQueue{}, kbService: dispatchActualKB{kb: kb}}
 	s := NewFeishuPersonalService(db, settings, ks, dispatchActualKB{kb: kb}, nil)
 	admin := context.WithValue(personalUser("A"), types.SystemAdminContextKey, true)
-	require.NoError(t, s.SaveApp(admin, &FeishuAppConfig{AppID: "cli_test", Secret: "synthetic-only", RedirectURI: "https://test.invalid/feishu/callback", Enabled: true}))
+	require.NoError(
+		t,
+		s.SaveApp(
+			admin,
+			&FeishuAppConfig{
+				AppID:       "cli_test",
+				Secret:      "synthetic-only",
+				RedirectURI: "https://test.invalid/feishu/callback",
+				Enabled:     true,
+			},
+		),
+	)
 	for _, user := range []string{"A", "B"} {
-		cipher, err := sealFeishu(feishuTokens{UserID: user, Access: "access-" + user, Refresh: "refresh-" + user})
+		cipher, err := sealFeishu(
+			feishuTokens{UserID: user, Access: "access-" + user, Refresh: "refresh-" + user},
+		)
 		require.NoError(t, err)
-		require.NoError(t, db.Create(&types.FeishuConnection{UserID: user, AppID: "cli_test", OpenID: "open-" + user, Tokens: cipher, ExpiresAt: time.Now().Add(time.Hour), RefreshExpiresAt: time.Now().Add(2 * time.Hour)}).Error)
-		require.NoError(t, db.Create(&types.FeishuPersonalGrantEpoch{UserID: user, Epoch: uuid.NewString()}).Error)
+		require.NoError(
+			t,
+			db.Create(
+				&types.FeishuConnection{
+					UserID:           user,
+					AppID:            "cli_test",
+					OpenID:           "open-" + user,
+					Tokens:           cipher,
+					ExpiresAt:        time.Now().Add(time.Hour),
+					RefreshExpiresAt: time.Now().Add(2 * time.Hour),
+				},
+			).Error,
+		)
+		require.NoError(
+			t,
+			db.Create(&types.FeishuPersonalGrantEpoch{UserID: user, Epoch: uuid.NewString()}).Error,
+		)
 	}
 	require.NoError(t, EnablePersonalRecovery(s, ks, nil, t.TempDir()))
 	f := &personalRecoveryFixture{t: t, db: db, s: s, p: s.recovery, ks: ks}
 	f.revision.Store(1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") != "Bearer access-A" && r.Header.Get("Authorization") != "Bearer access-B" {
+		if r.Header.Get("Authorization") != "Bearer access-A" &&
+			r.Header.Get("Authorization") != "Bearer access-B" {
 			w.WriteHeader(403)
 			return
 		}
 		switch r.URL.Path {
 		case "/open-apis/wiki/v2/spaces/get_node":
-			io.WriteString(w, `{"code":0,"data":{"node":{"obj_type":"file","obj_token":"real"}}}`)
+			_, _ = io.WriteString(w, "{\"code\":0,\"data\":{\"node\":{\"obj_type\":\"file\","+
+				"\"obj_token\":\"real\"}}}")
 		case "/open-apis/drive/v1/metas/batch_query":
-			fmt.Fprintf(w, `{"code":0,"data":{"metas":[{"doc_type":"file","doc_token":"real","title":"test.pdf","latest_modify_time":"%d"}]}}`, f.revision.Load())
+			_, _ = fmt.Fprintf(
+				w,
+				"{\"code\":0,\"data\":{\"metas\":[{\"doc_type\":\"file\","+
+					"\"doc_token\":\"real\",\"title\":\"test.pdf\","+
+					"\"latest_modify_time\":\"%d\"}]}}",
+				f.revision.Load(),
+			)
 		case "/open-apis/drive/v1/files/real/download":
 			f.downloads.Add(1)
 			if f.block != nil {
 				f.block()
 			}
-			io.WriteString(w, "%PDF-1.7 synthetic candidate")
+			_, _ = io.WriteString(w, "%PDF-1.7 synthetic candidate")
 		default:
 			w.WriteHeader(404)
 		}
@@ -114,7 +164,14 @@ func newPersonalRecoveryFixture(t *testing.T) *personalRecoveryFixture {
 func (f *personalRecoveryFixture) userContext(user string) context.Context {
 	c := types.Caller{TenantID: 1, UserID: user, Role: types.TenantRoleAdmin}
 	ctx := types.WithCaller(personalUser(user), c)
-	g, err := access.ResolveKB(ctx, access.KBRequest{Caller: c}, &types.KnowledgeBase{ID: "kb", TenantID: 1}, types.OrgRoleEditor, nil, nil)
+	g, err := access.ResolveKB(
+		ctx,
+		access.KBRequest{Caller: c},
+		&types.KnowledgeBase{ID: "kb", TenantID: 1},
+		types.OrgRoleEditor,
+		nil,
+		nil,
+	)
 	require.NoError(f.t, err)
 	return g.Context(ctx)
 }
@@ -146,7 +203,10 @@ func (f *personalRecoveryFixture) check(m *types.FeishuPersonalImport, status st
 	var n int64
 	require.NoError(f.t, f.db.Model(&types.FeishuPersonalImport{}).Where("id = ?", m.ID).Count(&n).Error)
 	require.EqualValues(f.t, 1, n)
-	require.NoError(f.t, f.db.Model(&types.Knowledge{}).Where("id = ?", a.CandidateVersionID).Count(&n).Error)
+	require.NoError(
+		f.t,
+		f.db.Model(&types.Knowledge{}).Where("id = ?", a.CandidateVersionID).Count(&n).Error,
+	)
 	require.Zero(f.t, n, "candidate must never enter normal Knowledge")
 	require.NoError(f.t, f.db.Model(&types.Chunk{}).Count(&n).Error)
 	require.Zero(f.t, n, "P1-2 must not index private candidates")
@@ -173,10 +233,12 @@ func (p personalFaultPool) BeginTx(ctx context.Context, opts *sql.TxOptions) (go
 	tx, err := p.DB.BeginTx(ctx, opts)
 	return &personalFaultTx{tx, p.mode, p.onlyReady}, err
 }
+
 func (t personalFaultTx) Commit() error {
 	if t.onlyReady {
 		var ready int
-		if err := t.Tx.QueryRow("SELECT count(*) FROM feishu_personal_attempts WHERE status='awaiting_index_isolation'").Scan(&ready); err != nil {
+		if err := t.Tx.QueryRow("SELECT count(*) FROM feishu_personal_attempts WHERE " +
+			"status='awaiting_index_isolation'").Scan(&ready); err != nil {
 			return err
 		}
 		if ready == 0 {
@@ -185,7 +247,7 @@ func (t personalFaultTx) Commit() error {
 	}
 	mode := t.mode.Swap(0)
 	if mode == 2 {
-		_ = t.Tx.Rollback()
+		_ = t.Rollback()
 		return errors.New("injected commit rollback")
 	}
 	err := t.Tx.Commit()
@@ -197,22 +259,57 @@ func (t personalFaultTx) Commit() error {
 
 func TestFeishuPersonalRecoveryPostgres(t *testing.T) {
 	url := "https://team.feishu.cn/file/real"
-	for _, name := range []string{"atomic_accept", "commit_unknown", "transaction_rollback", "legacy_knowledge_mapping_lost", "double_click", "wiki_direct_canonical", "two_users", "two_workers_claim", "late_old_worker", "unlink", "kb_permission_revoked", "app_config_changed", "new_revision_active_preserved", "accepted_before_work", "manifest_commit_unknown", "missing_dispatch_reconcile", "missing_candidate_file"} {
+	for _, name := range []string{
+		"atomic_accept",
+		"commit_unknown",
+		"transaction_rollback",
+		"legacy_knowledge_mapping_lost",
+		"double_click",
+		"wiki_direct_canonical",
+		"two_users",
+		"two_workers_claim",
+		"late_old_worker",
+		"unlink",
+		"kb_permission_revoked",
+		"app_config_changed",
+		"new_revision_active_preserved",
+		"accepted_before_work",
+		"manifest_commit_unknown",
+		"missing_dispatch_reconcile",
+		"missing_candidate_file",
+	} {
 		t.Run(name, func(t *testing.T) {
 			f := newPersonalRecoveryFixture(t)
 			if name == "commit_unknown" || name == "transaction_rollback" {
 				pool, err := f.db.DB()
 				require.NoError(t, err)
 				mode := &atomic.Int32{}
-				faultDB, err := gorm.Open(postgres.New(postgres.Config{Conn: personalFaultPool{pool, mode, false}}), &gorm.Config{})
+				faultDB, err := gorm.Open(
+					postgres.New(postgres.Config{Conn: personalFaultPool{pool, mode, false}}),
+					&gorm.Config{},
+				)
 				require.NoError(t, err)
 				repo := repository.NewPersonalRecoveryRepository(faultDB)
 				var epoch types.FeishuPersonalGrantEpoch
 				require.NoError(t, f.db.Where("user_id = ?", "A").First(&epoch).Error)
 				cfg, err := f.s.app(f.ctx)
 				require.NoError(t, err)
-				m := &types.FeishuPersonalImport{ID: uuid.NewString(), UserID: "A", AppID: "cli_test", OpenID: "open-A", KBID: "kb", ResourceType: "file", DocumentToken: "real", URL: url}
-				a := &types.FeishuPersonalAttempt{CallerTenantID: 1, Revision: "1", AppConfigVersion: cfg.Version, GrantEpoch: epoch.Epoch}
+				m := &types.FeishuPersonalImport{
+					ID:            uuid.NewString(),
+					UserID:        "A",
+					AppID:         "cli_test",
+					OpenID:        "open-A",
+					KBID:          "kb",
+					ResourceType:  "file",
+					DocumentToken: "real",
+					URL:           url,
+				}
+				a := &types.FeishuPersonalAttempt{
+					CallerTenantID:   1,
+					Revision:         "1",
+					AppConfigVersion: cfg.Version,
+					GrantEpoch:       epoch.Epoch,
+				}
 				if name == "commit_unknown" {
 					mode.Store(1)
 				} else {
@@ -245,8 +342,28 @@ func TestFeishuPersonalRecoveryPostgres(t *testing.T) {
 				return
 			}
 			if name == "legacy_knowledge_mapping_lost" || name == "new_revision_active_preserved" {
-				metadata, _ := json.Marshal(map[string]string{"feishu_imported_by": "A", "feishu_resource_id": "file:real", "feishu_open_id": "open-A"})
-				require.NoError(t, f.db.Create(&types.Knowledge{ID: "original-K1", TenantID: 1, KnowledgeBaseID: "kb", Channel: "feishu_personal", Metadata: metadata, FilePath: "original-immutable-path", FileHash: "old-hash", ParseStatus: types.ParseStatusCompleted}).Error)
+				metadata, _ := json.Marshal(
+					map[string]string{
+						"feishu_imported_by": "A",
+						"feishu_resource_id": "file:real",
+						"feishu_open_id":     "open-A",
+					},
+				)
+				require.NoError(
+					t,
+					f.db.Create(
+						&types.Knowledge{
+							ID:              "original-K1",
+							TenantID:        1,
+							KnowledgeBaseID: "kb",
+							Channel:         "feishu_personal",
+							Metadata:        metadata,
+							FilePath:        "original-immutable-path",
+							FileHash:        "old-hash",
+							ParseStatus:     types.ParseStatusCompleted,
+						},
+					).Error,
+				)
 			}
 			m := f.prepare(url)
 			payload := f.payload(m.AttemptID)
@@ -287,27 +404,61 @@ func TestFeishuPersonalRecoveryPostgres(t *testing.T) {
 				}
 				wg.Wait()
 				require.EqualValues(t, 1, success.Load())
-				require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET lease_until=clock_timestamp()-interval '1 second' WHERE id=?", m.AttemptID).Error)
+				require.NoError(
+					t,
+					f.db.Exec(
+						"UPDATE feishu_personal_attempts SET "+
+							"lease_until=clock_timestamp()-interval '1 second' WHERE id=?",
+						m.AttemptID,
+					).Error,
+				)
 			case "late_old_worker":
 				old, err := f.p.repo.Claim(f.ctx, m.AttemptID, time.Second)
 				require.NoError(t, err)
-				require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET lease_until=clock_timestamp()-interval '1 second' WHERE id=?", m.AttemptID).Error)
+				require.NoError(
+					t,
+					f.db.Exec(
+						"UPDATE feishu_personal_attempts SET "+
+							"lease_until=clock_timestamp()-interval '1 second' WHERE id=?",
+						m.AttemptID,
+					).Error,
+				)
 				newOwner, err := f.p.repo.Claim(f.ctx, m.AttemptID, time.Second)
 				require.NoError(t, err)
 				require.Greater(t, newOwner.Fence, old.Fence)
-				require.ErrorIs(t, f.p.repo.Mutate(f.ctx, old, 0, func(tx *gorm.DB, a *types.FeishuPersonalAttempt) error {
-					a.ManifestHash = "late-old-writer"
-					return nil
-				}), repository.ErrPersonalFence)
-				require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET lease_until=clock_timestamp()-interval '1 second' WHERE id=?", m.AttemptID).Error)
+				require.ErrorIs(
+					t,
+					f.p.repo.Mutate(f.ctx, old, 0, func(_ *gorm.DB, a *types.FeishuPersonalAttempt) error {
+						a.ManifestHash = "late-old-writer"
+						return nil
+					}),
+					repository.ErrPersonalFence,
+				)
+				require.NoError(
+					t,
+					f.db.Exec(
+						"UPDATE feishu_personal_attempts SET "+
+							"lease_until=clock_timestamp()-interval '1 second' WHERE id=?",
+						m.AttemptID,
+					).Error,
+				)
 			case "unlink":
 				require.NoError(t, f.s.Disconnect(personalUser("A")))
 			case "kb_permission_revoked":
-				require.NoError(t, f.db.Exec("UPDATE tenant_members SET role='viewer' WHERE user_id='A'").Error)
+				require.NoError(
+					t,
+					f.db.Exec("UPDATE tenant_members SET role='viewer' WHERE user_id='A'").Error,
+				)
 			case "app_config_changed":
 				cfg, err := f.s.app(f.ctx)
 				require.NoError(t, err)
-				require.NoError(t, f.s.SaveApp(context.WithValue(personalUser("A"), types.SystemAdminContextKey, true), cfg))
+				require.NoError(
+					t,
+					f.s.SaveApp(
+						context.WithValue(personalUser("A"), types.SystemAdminContextKey, true),
+						cfg,
+					),
+				)
 			case "new_revision_active_preserved":
 				f.revision.Store(2)
 				newM := f.prepare(url)
@@ -320,13 +471,43 @@ func TestFeishuPersonalRecoveryPostgres(t *testing.T) {
 			case "manifest_commit_unknown":
 				owner, err := f.p.repo.Claim(f.ctx, m.AttemptID, time.Second)
 				require.NoError(t, err)
-				owner.ManifestKey = fmt.Sprintf("%s/%s/f%d", owner.ID, owner.CandidateVersionID, owner.Fence)
-				require.NoError(t, f.p.repo.Mutate(f.ctx, owner, 0, func(tx *gorm.DB, a *types.FeishuPersonalAttempt) error { a.ManifestKey = owner.ManifestKey; return nil }))
+				owner.ManifestKey = fmt.Sprintf(
+					"%s/%s/f%d",
+					owner.ID,
+					owner.CandidateVersionID,
+					owner.Fence,
+				)
+				require.NoError(
+					t,
+					f.p.repo.Mutate(
+						f.ctx,
+						owner,
+						0,
+						func(_ *gorm.DB,
+							a *types.FeishuPersonalAttempt,
+						) error {
+							a.ManifestKey = owner.ManifestKey
+							return nil
+						},
+					),
+				)
 				_, err = f.p.store.put(owner, []byte("%PDF-1.7 saved before DB confirmation"), "test.pdf")
 				require.NoError(t, err)
-				require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET lease_until=clock_timestamp()-interval '1 second' WHERE id=?", m.AttemptID).Error)
+				require.NoError(
+					t,
+					f.db.Exec(
+						"UPDATE feishu_personal_attempts SET "+
+							"lease_until=clock_timestamp()-interval '1 second' WHERE id=?",
+						m.AttemptID,
+					).Error,
+				)
 			case "missing_dispatch_reconcile":
-				require.NoError(t, f.db.Where("dedup_key = ?", "personal-"+m.AttemptID).Delete(&types.TaskPendingOp{}).Error)
+				require.NoError(
+					t,
+					f.db.Where("dedup_key = ?", "personal-"+m.AttemptID).
+						Delete(&types.TaskPendingOp{}).
+						Error,
+				)
 			}
 			if name == "unlink" || name == "kb_permission_revoked" || name == "app_config_changed" {
 				require.NoError(t, f.p.Reconcile(f.ctx))
@@ -374,45 +555,78 @@ func TestFeishuPersonalRecoveryAsynqPostgres(t *testing.T) {
 		t.Skip("isolated Redis not configured")
 	}
 	require.Equal(t, "knowhub-p1-dispatch-redis-20261018:6379", addr)
-	for _, fault := range []string{"enqueue_failure", "enqueue_response_unknown", "redis_restart", "app_process_exit", "dispatch_ack_failure"} {
+	for _, fault := range []string{
+		"enqueue_failure",
+		"enqueue_response_unknown",
+		"redis_restart",
+		"app_process_exit",
+		"dispatch_ack_failure",
+	} {
 		t.Run(fault, func(t *testing.T) {
 			f := newPersonalRecoveryFixture(t)
 			rdb := redis.NewClient(&redis.Options{Addr: addr})
 			f.ks.redisClient = rdb
-			defer rdb.Close()
+			defer func(cleanup func() error) { _ = cleanup() }(rdb.Close)
 			require.NoError(t, rdb.FlushDB(f.ctx).Err())
 			client := asynq.NewClient(asynq.RedisClientOpt{Addr: addr})
-			defer client.Close()
-			unavailable := asynq.NewClient(asynq.RedisClientOpt{Addr: "127.0.0.1:1", DialTimeout: 50 * time.Millisecond, ReadTimeout: 50 * time.Millisecond, WriteTimeout: 50 * time.Millisecond})
-			defer unavailable.Close()
+			defer func(cleanup func() error) { _ = cleanup() }(client.Close)
+			unavailable := asynq.NewClient(
+				asynq.RedisClientOpt{
+					Addr:         "127.0.0.1:1",
+					DialTimeout:  50 * time.Millisecond,
+					ReadTimeout:  50 * time.Millisecond,
+					WriteTimeout: 50 * time.Millisecond,
+				},
+			)
+			defer func(cleanup func() error) { _ = cleanup() }(unavailable.Close)
 			q := &dispatchActualQueue{client: client, loseResponse: fault == "enqueue_response_unknown"}
 			if fault == "enqueue_failure" {
 				q.client = unavailable
 			}
 			f.ks.task = q
 			inspector := asynq.NewInspector(asynq.RedisClientOpt{Addr: addr})
-			defer inspector.Close()
+			defer func(cleanup func() error) { _ = cleanup() }(inspector.Close)
 			f.ks.taskInspector = dispatchActualInspector{raw: inspector}
 			base := repository.NewKnowledgeRepository(f.db)
-			wrapped := &dispatchFaultRepo{KnowledgeRepository: base, KnowledgeDispatchRepository: base.(interfaces.KnowledgeDispatchRepository), ackFailure: fault == "dispatch_ack_failure"}
+			wrapped := &dispatchFaultRepo{
+				KnowledgeRepository:         base,
+				KnowledgeDispatchRepository: base.(interfaces.KnowledgeDispatchRepository),
+				ackFailure:                  fault == "dispatch_ack_failure",
+			}
 			f.ks.repo = wrapped
 			m := f.prepare("https://team.feishu.cn/file/real")
 			_, _, original, err := f.p.repo.Load(f.ctx, m.AttemptID)
 			require.NoError(t, err)
 			if fault == "redis_restart" {
 				_ = rdb.Shutdown(f.ctx).Err()
-				require.Eventually(t, func() bool { return rdb.Ping(f.ctx).Err() == nil }, 20*time.Second, 100*time.Millisecond)
+				require.Eventually(
+					t,
+					func() bool { return rdb.Ping(f.ctx).Err() == nil },
+					20*time.Second,
+					100*time.Millisecond,
+				)
 			}
 			if fault == "app_process_exit" {
-				dsn := f.db.Dialector.(*postgres.Dialector).Config.DSN
+				dsn := f.db.Dialector.(*postgres.Dialector).DSN
 				cmd := exec.Command(os.Args[0], "-test.run=^TestFeishuPersonalRecoveryChild$")
-				cmd.Env = append(os.Environ(), "FEISHU_PERSONAL_CHILD_DSN="+dsn, "FEISHU_PERSONAL_CHILD_ATTEMPT="+original.ID)
+				cmd.Env = append(
+					os.Environ(),
+					"FEISHU_PERSONAL_CHILD_DSN="+dsn,
+					"FEISHU_PERSONAL_CHILD_ATTEMPT="+original.ID,
+				)
 				err = cmd.Run()
 				var exited *exec.ExitError
 				require.ErrorAs(t, err, &exited)
 				require.Equal(t, 19, exited.ExitCode())
 				require.NoError(t, rdb.FlushDB(f.ctx).Err())
-				require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET lease_until=clock_timestamp()-interval '1 second' WHERE id=?", original.ID).Error)
+				require.NoError(
+					t,
+					f.db.Exec(
+						"UPDATE feishu_personal_attempts SET "+
+							"lease_until=clock_timestamp()-interval '1 second' WHERE id=?",
+						original.ID,
+					).Error,
+				)
 			}
 			q.client = client
 			wrapped.ackFailure = false
@@ -420,7 +634,15 @@ func TestFeishuPersonalRecoveryAsynqPostgres(t *testing.T) {
 			require.NoError(t, restarted.RecoverKnowledgeDispatches(f.ctx))
 			require.NoError(t, restarted.RecoverKnowledgeDispatches(f.ctx))
 			var executed atomic.Int32
-			server := asynq.NewServer(asynq.RedisClientOpt{Addr: addr}, asynq.Config{Concurrency: 2, Queues: map[string]int{types.QueueDefault: 1}, ShutdownTimeout: time.Second, TaskCheckInterval: 100 * time.Millisecond})
+			server := asynq.NewServer(
+				asynq.RedisClientOpt{Addr: addr},
+				asynq.Config{
+					Concurrency:       2,
+					Queues:            map[string]int{types.QueueDefault: 1},
+					ShutdownTimeout:   time.Second,
+					TaskCheckInterval: 100 * time.Millisecond,
+				},
+			)
 			mux := asynq.NewServeMux()
 			mux.HandleFunc(types.TypeDocumentProcess, func(ctx context.Context, task *asynq.Task) error {
 				executed.Add(1)
@@ -459,7 +681,8 @@ func TestFeishuPersonalRecoveryChild(t *testing.T) {
 	require.Contains(t, dsn, "sync_test_")
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)
-	_, err = repository.NewPersonalRecoveryRepository(db).Claim(context.Background(), os.Getenv("FEISHU_PERSONAL_CHILD_ATTEMPT"), 30*time.Second)
+	_, err = repository.NewPersonalRecoveryRepository(db).
+		Claim(context.Background(), os.Getenv("FEISHU_PERSONAL_CHILD_ATTEMPT"), 30*time.Second)
 	require.NoError(t, err)
 	os.Exit(19)
 }
@@ -483,7 +706,14 @@ func TestFeishuPersonalRecoveryLateNetworkWorkerPostgres(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("old worker did not enter remote request")
 	}
-	require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET lease_until=clock_timestamp()-interval '1 second' WHERE id=?", m.AttemptID).Error)
+	require.NoError(
+		t,
+		f.db.Exec(
+			"UPDATE feishu_personal_attempts SET "+
+				"lease_until=clock_timestamp()-interval '1 second' WHERE id=?",
+			m.AttemptID,
+		).Error,
+	)
 	require.NoError(t, f.p.Process(context.Background(), payload))
 	_, _, newer, err := f.p.repo.Load(f.ctx, m.AttemptID)
 	require.NoError(t, err)
@@ -513,8 +743,22 @@ func TestFeishuPersonalRecoveryConcurrentPreparePostgres(t *testing.T) {
 	results := make(chan result, 2)
 	for i := 0; i < 2; i++ {
 		go func() {
-			m := &types.FeishuPersonalImport{ID: uuid.NewString(), UserID: "A", AppID: "cli_test", OpenID: "open-A", KBID: "kb", ResourceType: "file", DocumentToken: "real", URL: "https://team.feishu.cn/file/real"}
-			a := &types.FeishuPersonalAttempt{CallerTenantID: 1, Revision: "1", AppConfigVersion: cfg.Version, GrantEpoch: epoch.Epoch}
+			m := &types.FeishuPersonalImport{
+				ID:            uuid.NewString(),
+				UserID:        "A",
+				AppID:         "cli_test",
+				OpenID:        "open-A",
+				KBID:          "kb",
+				ResourceType:  "file",
+				DocumentToken: "real",
+				URL:           "https://team.feishu.cn/file/real",
+			}
+			a := &types.FeishuPersonalAttempt{
+				CallerTenantID:   1,
+				Revision:         "1",
+				AppConfigVersion: cfg.Version,
+				GrantEpoch:       epoch.Epoch,
+			}
 			r, accepted, err := f.p.repo.Prepare(context.Background(), m, a)
 			results <- result{r, accepted, err}
 		}()
@@ -526,9 +770,19 @@ func TestFeishuPersonalRecoveryConcurrentPreparePostgres(t *testing.T) {
 	require.Equal(t, one.a.ID, two.a.ID)
 	require.Equal(t, one.a.CandidateVersionID, two.a.CandidateVersionID)
 	var count int64
-	for _, model := range []any{&types.FeishuPersonalImport{}, &types.FeishuPersonalResource{}, &types.FeishuPersonalAttempt{}, &types.TaskPendingOp{}} {
+	for _, model := range []any{
+		&types.FeishuPersonalImport{},
+
+		&types.FeishuPersonalResource{},
+
+		&types.FeishuPersonalAttempt{},
+
+		&types.TaskPendingOp{},
+	} {
+
 		require.NoError(t, f.db.Model(model).Count(&count).Error)
 		require.EqualValues(t, 1, count)
+
 	}
 }
 
@@ -543,15 +797,30 @@ func TestFeishuPersonalRecoveryCommitAuthorizationPostgres(t *testing.T) {
 			case "user_disabled":
 				require.NoError(t, f.db.Exec("UPDATE users SET is_active=false WHERE id='A'").Error)
 			case "member_revoked":
-				require.NoError(t, f.db.Exec("UPDATE tenant_members SET role='viewer' WHERE user_id='A'").Error)
+				require.NoError(
+					t,
+					f.db.Exec("UPDATE tenant_members SET role='viewer' WHERE user_id='A'").Error,
+				)
 			case "app_changed":
 				cfg, err := f.s.app(f.ctx)
 				require.NoError(t, err)
-				require.NoError(t, f.s.SaveApp(context.WithValue(personalUser("A"), types.SystemAdminContextKey, true), cfg))
+				require.NoError(
+					t,
+					f.s.SaveApp(
+						context.WithValue(personalUser("A"), types.SystemAdminContextKey, true),
+						cfg,
+					),
+				)
 			case "grant_rotated":
-				require.NoError(t, f.db.Model(&types.FeishuPersonalGrantEpoch{}).Where("user_id = ?", "A").Update("epoch", uuid.NewString()).Error)
+				require.NoError(
+					t,
+					f.db.Model(&types.FeishuPersonalGrantEpoch{}).
+						Where("user_id = ?", "A").
+						Update("epoch", uuid.NewString()).
+						Error,
+				)
 			}
-			err = f.p.mutate(f.ctx, owner, 0, func(tx *gorm.DB, a *types.FeishuPersonalAttempt) error {
+			err = f.p.mutate(f.ctx, owner, 0, func(_ *gorm.DB, a *types.FeishuPersonalAttempt) error {
 				a.ManifestHash = "must-not-commit"
 				return nil
 			})
@@ -573,16 +842,29 @@ func TestFeishuPersonalRecoveryGrantRefreshPostgres(t *testing.T) {
 			m := f.prepare("https://team.feishu.cn/file/real")
 			var before types.FeishuPersonalGrantEpoch
 			require.NoError(t, f.db.First(&before, "user_id = ?", "A").Error)
-			require.NoError(t, f.db.Model(&types.FeishuConnection{}).Where("user_id = ?", "A").Update("expires_at", time.Now().Add(-time.Second)).Error)
-			f.s.api = &http.Client{Transport: feishuTestTransport(func(r *http.Request) (*http.Response, error) {
-				body := `{"access_token":"access-A","refresh_token":"rotated-synthetic","expires_in":3600,"refresh_token_expires_in":7200}`
-				status := 200
-				if reject {
-					body = `{"error":"invalid_grant"}`
-					status = 400
-				}
-				return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}, nil
-			})}
+			require.NoError(
+				t,
+				f.db.Model(&types.FeishuConnection{}).
+					Where("user_id = ?", "A").
+					Update("expires_at", time.Now().Add(-time.Second)).
+					Error,
+			)
+			f.s.api = &http.Client{
+				Transport: feishuTestTransport(func(_ *http.Request) (*http.Response, error) {
+					body := "{\"access_token\":\"access-A\",\"refresh_token\":\"rotated-synthetic\"" +
+						",\"expires_in\":3600,\"refresh_token_expires_in\":7200}"
+					status := 200
+					if reject {
+						body = `{"error":"invalid_grant"}`
+						status = 400
+					}
+					return &http.Response{
+						StatusCode: status,
+						Body:       io.NopCloser(strings.NewReader(body)),
+						Header:     make(http.Header),
+					}, nil
+				}),
+			}
 			err := f.p.Process(context.Background(), f.payload(m.AttemptID))
 			if reject {
 				require.Error(t, err)
@@ -609,7 +891,10 @@ func TestFeishuPersonalRecoveryManifestConfirmationPostgres(t *testing.T) {
 			require.NoError(t, err)
 			mode := &atomic.Int32{}
 			mode.Store(modeValue)
-			faultDB, err := gorm.Open(postgres.New(postgres.Config{Conn: personalFaultPool{pool, mode, true}}), &gorm.Config{})
+			faultDB, err := gorm.Open(
+				postgres.New(postgres.Config{Conn: personalFaultPool{pool, mode, true}}),
+				&gorm.Config{},
+			)
 			require.NoError(t, err)
 			f.p.repo = repository.NewPersonalRecoveryRepository(faultDB)
 			require.Error(t, f.p.Process(context.Background(), payload))
@@ -621,7 +906,8 @@ func TestFeishuPersonalRecoveryManifestConfirmationPostgres(t *testing.T) {
 				require.Equal(t, "awaiting_index_isolation", saved.Status)
 			} else {
 				require.Equal(t, "recovery", saved.Status)
-				require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET retry_after=clock_timestamp()-interval '1 second' WHERE id=?", saved.ID).Error)
+				require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET "+
+					"retry_after=clock_timestamp()-interval '1 second' WHERE id=?", saved.ID).Error)
 			}
 			require.NoError(t, f.p.Reconcile(context.Background()))
 			require.NoError(t, f.p.Process(context.Background(), payload))
@@ -643,11 +929,14 @@ func TestFeishuPersonalRecoveryTransientIdentityReadPostgres(t *testing.T) {
 			m := f.prepare("https://team.feishu.cn/file/real")
 			var fired atomic.Bool
 			name := "personal_identity_read_timeout"
-			require.NoError(t, f.db.Callback().Query().Before("gorm:query").Register(name, func(tx *gorm.DB) {
-				if tx.Statement.Table == table && fired.CompareAndSwap(false, true) {
-					tx.AddError(context.DeadlineExceeded)
-				}
-			}))
+			require.NoError(
+				t,
+				f.db.Callback().Query().Before("gorm:query").Register(name, func(tx *gorm.DB) {
+					if tx.Statement.Table == table && fired.CompareAndSwap(false, true) {
+						_ = tx.AddError(context.DeadlineExceeded)
+					}
+				}),
+			)
 			err := f.p.Reconcile(context.Background())
 			require.ErrorIs(t, err, context.DeadlineExceeded)
 			require.True(t, fired.Load())

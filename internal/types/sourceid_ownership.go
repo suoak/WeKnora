@@ -2,6 +2,7 @@ package types
 
 import "time"
 
+// SourceIDAccountOwnership defines source idaccount ownership state.
 // Protected account-ownership evidence, not another user directory. Never
 // expose these records in application/CLI logs, public APIs or config output.
 type SourceIDAccountOwnership struct {
@@ -21,8 +22,10 @@ type SourceIDAccountOwnership struct {
 	UpdatedAt    time.Time `json:"-"`
 }
 
+// TableName returns the database table name.
 func (SourceIDAccountOwnership) TableName() string { return "source_id_account_ownership" }
 
+// SourceIDOwnershipAudit defines source idownership audit state.
 type SourceIDOwnershipAudit struct {
 	ID          string    `gorm:"primaryKey" json:"-"`
 	OwnershipID string    `json:"-"`
@@ -32,4 +35,5 @@ type SourceIDOwnershipAudit struct {
 	CreatedAt   time.Time `json:"-"`
 }
 
+// TableName returns the database table name.
 func (SourceIDOwnershipAudit) TableName() string { return "source_id_ownership_audits" }

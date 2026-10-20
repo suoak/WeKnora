@@ -15,7 +15,21 @@ import (
 )
 
 func TestOIDCProbeHTTPDiagnostics(t *testing.T) {
-	for _, kind := range []string{"oauth", "www", "vendor", "vendor_secret", "html", "private_description", "invalid_200", "unknown_vendor", "private_correlation", "token_correlation", "token_error_alias", "large", "disabled"} {
+	for _, kind := range []string{
+		"oauth",
+		"www",
+		"vendor",
+		"vendor_secret",
+		"html",
+		"private_description",
+		"invalid_200",
+		"unknown_vendor",
+		"private_correlation",
+		"token_correlation",
+		"token_error_alias",
+		"large",
+		"disabled",
+	} {
 		t.Run(kind, func(t *testing.T) {
 			withOIDCSSRFWhitelist(t, "127.0.0.1")
 			const secret = "synthetic private secret &+:/"
@@ -32,7 +46,8 @@ func TestOIDCProbeHTTPDiagnostics(t *testing.T) {
 			var calls int
 			provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				calls++
-				if r.Method != "POST" || r.URL.RawQuery != "" || r.Header.Get("Content-Type") != "application/x-www-form-urlencoded" {
+				if r.Method != "POST" || r.URL.RawQuery != "" ||
+					r.Header.Get("Content-Type") != "application/x-www-form-urlencoded" {
 					t.Error("token protocol changed")
 				}
 				_ = r.ParseForm()
@@ -46,7 +61,8 @@ func TestOIDCProbeHTTPDiagnostics(t *testing.T) {
 				if _, exists := r.PostForm["code_verifier"]; exists {
 					t.Error("disabled PKCE entered body")
 				}
-				if r.PostForm.Get("code") != code || r.PostForm.Get("redirect_uri") != approvedSourceIDProbeCallbackURI {
+				if r.PostForm.Get("code") != code ||
+					r.PostForm.Get("redirect_uri") != approvedSourceIDProbeCallbackURI {
 					t.Error("code or callback changed")
 				}
 				w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -60,7 +76,13 @@ func TestOIDCProbeHTTPDiagnostics(t *testing.T) {
 					w.Header().Set("X-Request-ID", secretID)
 				}
 				if kind == "www" {
-					w.Header().Set("WWW-Authenticate", `Basic realm="`+clientSecret+`", error="invalid_client", error_description="`+sensitive+`"`)
+					w.Header().
+						Set("WWW-Authenticate", `Basic realm="`+
+							clientSecret+
+							"\", error=\"invalid_client\", error_descri"+
+							"ption=\""+
+							sensitive+
+							`"`)
 				}
 				status := 401
 				if kind == "invalid_200" {
@@ -72,31 +94,61 @@ func TestOIDCProbeHTTPDiagnostics(t *testing.T) {
 				w.WriteHeader(status)
 				switch kind {
 				case "vendor", "vendor_secret":
-					io.WriteString(w, `{"errorCode":"SID_INVALID_CLIENT","message":"`+sensitive+`"}`)
+					_, _ = io.WriteString(w, "{\"errorCode\":\"SID_INVALID_CLIENT\",\"message\":\""+sensitive+`"}`)
 				case "unknown_vendor":
-					io.WriteString(w, `{"errorCode":"EMPLOYEE_123456","message":"`+sensitive+`"}`)
+					_, _ = io.WriteString(w, `{"errorCode":"EMPLOYEE_123456","message":"`+sensitive+`"}`)
 				case "html":
-					io.WriteString(w, "<!doctype html><html>"+sensitive+"</html>")
+					_, _ = io.WriteString(w, "<!doctype html><html>"+sensitive+"</html>")
 				case "private_description":
-					json.NewEncoder(w).Encode(map[string]string{"error": "invalid_client", "error_description": clientSecret + code + sensitive})
+					_ = json.NewEncoder(w).
+						Encode(map[string]string{
+							"error": "invalid_client",
+							"error_description": clientSecret +
+								code +
+								sensitive,
+						})
 				case "token_correlation":
-					json.NewEncoder(w).Encode(map[string]string{"error": "invalid_client", "access_token": secretID})
+					_ = json.NewEncoder(w).
+						Encode(map[string]string{"error": "invalid_client", "access_token": secretID})
 				case "token_error_alias":
-					json.NewEncoder(w).Encode(map[string]string{"error": "invalid_client", "access_token": "invalid_client"})
+					_ = json.NewEncoder(w).
+						Encode(map[string]string{"error": "invalid_client", "access_token": "invalid_client"})
 				case "invalid_200":
-					io.WriteString(w, "not JSON "+sensitive)
+					_, _ = io.WriteString(w, "not JSON "+sensitive)
 				case "large":
-					io.WriteString(w, strings.Repeat(sensitive, 512))
+					_, _ = io.WriteString(w, strings.Repeat(sensitive, 512))
 				default:
-					io.WriteString(w, `{"error":"invalid_client"}`)
+					_, _ = io.WriteString(w, `{"error":"invalid_client"}`)
 				}
 			}))
 			defer provider.Close()
 			report := OIDCProbeReport{}
-			transport := &probeDiagnosticTransport{base: provider.Client().Transport, endpoints: map[string]string{"token": provider.URL, "callback": approvedSourceIDProbeCallbackURI}, report: &report, callbackReceived: time.Now(), clientAuth: "client_secret_basic", diagnostics: kind != "disabled", clientID: "probe id:é", publicErrorCodes: []string{"SID_INVALID_CLIENT"}}
+			transport := &probeDiagnosticTransport{
+				base: provider.Client().Transport,
+				endpoints: map[string]string{
+					"token":    provider.URL,
+					"callback": approvedSourceIDProbeCallbackURI,
+				},
+				report:           &report,
+				callbackReceived: time.Now(),
+				clientAuth:       "client_secret_basic",
+				diagnostics:      kind != "disabled",
+				clientID:         "probe id:é",
+				publicErrorCodes: []string{"SID_INVALID_CLIENT"},
+			}
 			svc := &userService{protocolClient: &http.Client{Transport: transport}}
-			cfg := config.OIDCAuthConfig{TokenEndpoint: provider.URL, ClientID: "probe id:é", ClientSecret: clientSecret, ClientAuthMethod: "client_secret_basic"}
-			_, err := svc.exchangeOIDCCode(context.Background(), &cfg, code, approvedSourceIDProbeCallbackURI)
+			cfg := config.OIDCAuthConfig{
+				TokenEndpoint:    provider.URL,
+				ClientID:         "probe id:é",
+				ClientSecret:     clientSecret,
+				ClientAuthMethod: "client_secret_basic",
+			}
+			_, err := svc.exchangeOIDCCode(
+				context.Background(),
+				&cfg,
+				code,
+				approvedSourceIDProbeCallbackURI,
+			)
 			if err == nil || calls != 1 || len(report.HTTP) != 1 {
 				t.Fatal("unexpected success or retry")
 			}
@@ -111,7 +163,18 @@ func TestOIDCProbeHTTPDiagnostics(t *testing.T) {
 				t.Fatal("diagnostic evidence missing")
 			}
 			request, response := d.Diagnostics.Request, d.Diagnostics.Response
-			if request.Method != "POST" || request.Host == "" || request.Path != "" || !request.HostMatchesEndpoint || request.ContentType != "application/x-www-form-urlencoded" || request.AuthorizationType != "Basic" || !request.BasicFormatValid || !request.FormInspected || request.FieldPresence["client_secret"] || request.FieldPresence["code_verifier"] || !request.FieldPresence["code"] || !request.FieldChecks["redirect_uri_matches_config"] || !request.FieldChecks["client_id_matches_config"] || request.SentUTC == "" {
+			if request.Method != "POST" || request.Host == "" || request.Path != "" ||
+				!request.HostMatchesEndpoint ||
+				request.ContentType != "application/x-www-form-urlencoded" ||
+				request.AuthorizationType != "Basic" ||
+				!request.BasicFormatValid ||
+				!request.FormInspected ||
+				request.FieldPresence["client_secret"] ||
+				request.FieldPresence["code_verifier"] ||
+				!request.FieldPresence["code"] ||
+				!request.FieldChecks["redirect_uri_matches_config"] ||
+				!request.FieldChecks["client_id_matches_config"] ||
+				request.SentUTC == "" {
 				t.Fatal("safe request structure incorrect")
 			}
 			if response.BytesRead <= 0 || response.BodyElapsedMS < 0 {
@@ -123,7 +186,9 @@ func TestOIDCProbeHTTPDiagnostics(t *testing.T) {
 					t.Fatal("OAuth error misclassified")
 				}
 			case "www":
-				if !response.WWWPresent || response.WWWError != "invalid_client" || !response.WWWRealmPresent || !response.WWWDescriptionPresent {
+				if !response.WWWPresent || response.WWWError != "invalid_client" ||
+					!response.WWWRealmPresent ||
+					!response.WWWDescriptionPresent {
 					t.Fatal("WWW challenge lost")
 				}
 			case "vendor":
@@ -147,7 +212,8 @@ func TestOIDCProbeHTTPDiagnostics(t *testing.T) {
 					t.Fatal("HTML error misclassified")
 				}
 			case "private_description":
-				if !response.ErrorDescriptionPresent || response.ErrorDescriptionSummary != "withheld_untrusted_description" {
+				if !response.ErrorDescriptionPresent ||
+					response.ErrorDescriptionSummary != "withheld_untrusted_description" {
 					t.Fatal("description policy bypassed")
 				}
 			case "invalid_200":
@@ -164,7 +230,19 @@ func TestOIDCProbeHTTPDiagnostics(t *testing.T) {
 				}
 			}
 			encoded, _ := json.Marshal(report)
-			for _, private := range []string{secret, code, sensitive, secretID, "EMPLOYEE_123456", "0123456789abcdef0123456789abcdef"} {
+			for _, private := range []string{
+				secret,
+
+				code,
+
+				sensitive,
+
+				secretID,
+
+				"EMPLOYEE_123456",
+
+				"0123456789abcdef0123456789abcdef",
+			} {
 				if strings.Contains(string(encoded), private) {
 					t.Fatal("sensitive response/request escaped diagnostic filter")
 				}
@@ -175,14 +253,44 @@ func TestOIDCProbeHTTPDiagnostics(t *testing.T) {
 
 func TestOIDCProbeDiagnosticPolicy(t *testing.T) {
 	withOIDCSSRFWhitelist(t, "sid.example")
-	m := OIDCProbeMetadata{Confirmed: true, Issuer: "https://sid.example", Authorization: "https://sid.example/authorize", Token: "https://sid.example/token", JWKS: "https://sid.example/jwks", UserInfo: "https://sid.example/userinfo", RedirectURI: approvedSourceIDProbeCallbackURI, ClientID: "knowhub", ClientAuth: "client_secret_basic", UserInfoTransport: "bearer_get", Scopes: []string{"openid"}, HTTPDiagnostics: true, PublicErrorCodes: []string{"SID_INVALID_CLIENT"}}
+	m := OIDCProbeMetadata{
+		Confirmed:         true,
+		Issuer:            "https://sid.example",
+		Authorization:     "https://sid.example/authorize",
+		Token:             "https://sid.example/token",
+		JWKS:              "https://sid.example/jwks",
+		UserInfo:          "https://sid.example/userinfo",
+		RedirectURI:       approvedSourceIDProbeCallbackURI,
+		ClientID:          "knowhub",
+		ClientAuth:        "client_secret_basic",
+		UserInfoTransport: "bearer_get",
+		Scopes:            []string{"openid"},
+		HTTPDiagnostics:   true,
+		PublicErrorCodes:  []string{"SID_INVALID_CLIENT"},
+	}
 	if err := ValidateOIDCProbeMetadata(m); err != nil {
 		t.Fatal("public diagnostic policy rejected")
 	}
-	for _, code := range []string{"employee@example.com", "SECRET with spaces", "https://example.com/token", "eyJ.mock.jwt", strings.Repeat("A", 49)} {
+	for _, code := range []string{
+		"employee@example.com",
+
+		"SECRET with spaces",
+
+		"https://example.com/token",
+
+		"eyJ.mock.jwt",
+
+		strings.Repeat(
+			"A",
+
+			49,
+		),
+	} {
+
 		m.PublicErrorCodes = []string{code}
 		if ValidateOIDCProbeMetadata(m) == nil {
 			t.Fatal("unsafe public code policy accepted")
 		}
+
 	}
 }

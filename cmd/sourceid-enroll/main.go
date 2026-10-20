@@ -79,11 +79,34 @@ func enroll(db *gorm.DB, rows []enrollmentRow, issuer, reviewer, reference strin
 	err := db.Transaction(func(tx *gorm.DB) error {
 		for _, row := range rows {
 			var user types.User
-			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND is_active = ?", row.UserID, true).First(&user).Error; err != nil {
+			if err := tx.Clauses(
+				clause.Locking{
+					Strength: "UPDATE",
+				},
+			).
+				Where(
+					"id = ? AND is_active = ?",
+					row.UserID,
+					true,
+				).
+				First(
+					&user,
+				).
+				Error; err != nil {
 				return errors.New("local account missing or disabled")
 			}
 			var identities []types.ExternalIdentity
-			if err := tx.Where("provider = ? AND issuer = ? AND (employee_no = ? OR user_id = ?)", "sourceid", issuer, row.EmployeeNo, row.UserID).Find(&identities).Error; err != nil {
+			if err := tx.Where(
+				"provider = ? AND issuer = ? AND (employee_no = ? OR user_id = ?)",
+				"sourceid",
+				issuer,
+				row.EmployeeNo,
+				row.UserID,
+			).
+				Find(
+					&identities,
+				).
+				Error; err != nil {
 				return errors.New("identity lookup failed")
 			}
 			for _, identity := range identities {
@@ -92,17 +115,38 @@ func enroll(db *gorm.DB, rows []enrollmentRow, issuer, reviewer, reference strin
 				}
 			}
 			var existing []types.SourceIDEnrollment
-			if err := tx.Where("issuer = ? AND (employee_no = ? OR user_id = ?)", issuer, row.EmployeeNo, row.UserID).Find(&existing).Error; err != nil {
+			if err := tx.Where(
+				"issuer = ? AND (employee_no = ? OR user_id = ?)",
+				issuer,
+				row.EmployeeNo,
+				row.UserID,
+			).
+				Find(
+					&existing,
+				).
+				Error; err != nil {
 				return errors.New("enrollment lookup failed")
 			}
 			if len(existing) > 0 {
-				if len(existing) != 1 || existing[0].EmployeeNo != row.EmployeeNo || existing[0].UserID != row.UserID {
+				if len(existing) != 1 || existing[0].EmployeeNo != row.EmployeeNo ||
+					existing[0].UserID != row.UserID {
 					return errors.New("existing enrollment conflict")
 				}
 				continue
 			}
 			if apply {
-				if err := tx.Create(&types.SourceIDEnrollment{ID: uuid.NewString(), Issuer: issuer, EmployeeNo: row.EmployeeNo, UserID: row.UserID, ReviewedBy: reviewer, ReviewReference: reference, CreatedAt: time.Now()}).Error; err != nil {
+				if err := tx.Create(
+					&types.SourceIDEnrollment{
+						ID:              uuid.NewString(),
+						Issuer:          issuer,
+						EmployeeNo:      row.EmployeeNo,
+						UserID:          row.UserID,
+						ReviewedBy:      reviewer,
+						ReviewReference: reference,
+						CreatedAt:       time.Now(),
+					},
+				).
+					Error; err != nil {
 					return errors.New("enrollment write conflict; batch rolled back")
 				}
 			}
@@ -130,7 +174,7 @@ func run() error {
 	if err != nil {
 		return errors.New("cannot open input CSV")
 	}
-	defer f.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(f.Close)
 	rows, err := readRows(f)
 	if err != nil {
 		return err
@@ -156,7 +200,7 @@ func run() error {
 	if err != nil {
 		return errors.New("database unavailable")
 	}
-	defer sqlDB.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(sqlDB.Close)
 	if err := enroll(db, rows, *issuer, *reviewer, *reference, *apply); err != nil {
 		return err
 	}

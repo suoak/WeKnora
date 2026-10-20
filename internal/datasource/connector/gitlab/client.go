@@ -295,7 +295,12 @@ func (c *client) tree(ctx context.Context, id, ref, dir string) ([]treeEntry, er
 	}
 }
 
-func (c *client) getPage(ctx context.Context, endpoint string, query url.Values, out interface{}) (string, error) {
+func (c *client) getPage(
+	ctx context.Context,
+	endpoint string,
+	query url.Values,
+	out interface{},
+) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+endpoint+"?"+query.Encode(), nil)
 	if err != nil {
 		return "", err
@@ -324,7 +329,12 @@ func (c *client) getPage(ctx context.Context, endpoint string, query url.Values,
 		}
 		current, err := strconv.Atoi(query.Get("page"))
 		if err != nil || next < current {
-			return "", fmt.Errorf("gitlab API %s: pagination moved backwards from %q to %q", endpoint, query.Get("page"), nextPage)
+			return "", fmt.Errorf(
+				"gitlab API %s: pagination moved backwards from %q to %q",
+				endpoint,
+				query.Get("page"),
+				nextPage,
+			)
 		}
 	}
 	return nextPage, nil
@@ -333,7 +343,9 @@ func (c *client) getPage(ctx context.Context, endpoint string, query url.Values,
 func (c *client) raw(ctx context.Context, id, ref, file string) ([]byte, error) {
 	q := url.Values{"ref": {ref}}
 	encodedFile := gitlabFilePathEscape(file)
-	rawEndpoint := "/projects/" + projectPath(id) + "/repository/files/" + encodedFile + "/raw?" + q.Encode()
+	rawEndpoint := "/projects/" + projectPath(
+		id,
+	) + "/repository/files/" + encodedFile + "/raw?" + q.Encode()
 	content, err := c.getRaw(ctx, rawEndpoint)
 	if err == nil {
 		return content, nil
@@ -372,7 +384,8 @@ func gitlabFilePathEscape(file string) string {
 	var b strings.Builder
 	b.Grow(len(file) * 3)
 	for _, c := range []byte(file) {
-		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_' {
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' ||
+			c == '_' {
 			b.WriteByte(c)
 			continue
 		}
@@ -388,6 +401,11 @@ func (c *client) compare(ctx context.Context, id, from, to string) (*comparison,
 	// comparison misses reverted files when a branch is reset or force-pushed.
 	q := url.Values{"from": {from}, "to": {to}, "straight": {"true"}}
 	var v comparison
-	err := c.getCapped(ctx, "/projects/"+projectPath(id)+"/repository/compare?"+q.Encode(), &v, c.compareLimit)
+	err := c.getCapped(
+		ctx,
+		"/projects/"+projectPath(id)+"/repository/compare?"+q.Encode(),
+		&v,
+		c.compareLimit,
+	)
 	return &v, err
 }

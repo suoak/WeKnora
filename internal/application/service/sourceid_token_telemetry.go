@@ -79,7 +79,10 @@ func (d *sourceIDTokenTelemetry) MarshalJSON() ([]byte, error) {
 
 func telemetryTimes() (string, string) {
 	now := time.Now()
-	return now.UTC().Format(time.RFC3339Nano), now.In(time.FixedZone("Beijing", 8*3600)).Format(time.RFC3339Nano)
+	return now.UTC().
+			Format(time.RFC3339Nano),
+		now.In(time.FixedZone("Beijing", 8*3600)).
+			Format(time.RFC3339Nano)
 }
 
 func telemetryAddress(address string) string {
@@ -122,9 +125,38 @@ func (d *sourceIDTokenTelemetry) event(kind, result string, addresses ...string)
 }
 
 // secretLoaded is a boolean computed by the caller, never a credential.
-func observeSourceIDTokenRequest(req *http.Request, trace string, secretLoaded, pkce, statePassed bool, basic bool) (*http.Request, *sourceIDTokenTelemetry) {
+func observeSourceIDTokenRequest(
+	req *http.Request,
+	trace string,
+	secretLoaded, pkce, statePassed bool,
+	basic bool,
+) (*http.Request, *sourceIDTokenTelemetry) {
 	u, b := telemetryTimes()
-	d := &sourceIDTokenTelemetry{Trace: trace, UTC: u, Beijing: b, Scheme: "other", Accept: "other", UserAgentClass: "transport_default_not_observed", BasicStrategy: "not_basic", SecretLoaded: secretLoaded, PKCEDisabled: !pkce, State: "NOT_CAPTURED", Nonce: "NOT_YET_EXECUTED", Proxy: "no_proxy_in_configured_transport", Remote: "NOT_CAPTURED", TLS: "NOT_CAPTURED", ALPN: "NOT_CAPTURED", HTTP: "NOT_CAPTURED", Date: "NOT_CAPTURED", Server: "absent", Via: "absent", Realm: "absent", Failure: "none", RejectingLayer: "UNKNOWN", KnownBodyCounts: map[string]int{}}
+	d := &sourceIDTokenTelemetry{
+		Trace:           trace,
+		UTC:             u,
+		Beijing:         b,
+		Scheme:          "other",
+		Accept:          "other",
+		UserAgentClass:  "transport_default_not_observed",
+		BasicStrategy:   "not_basic",
+		SecretLoaded:    secretLoaded,
+		PKCEDisabled:    !pkce,
+		State:           "NOT_CAPTURED",
+		Nonce:           "NOT_YET_EXECUTED",
+		Proxy:           "no_proxy_in_configured_transport",
+		Remote:          "NOT_CAPTURED",
+		TLS:             "NOT_CAPTURED",
+		ALPN:            "NOT_CAPTURED",
+		HTTP:            "NOT_CAPTURED",
+		Date:            "NOT_CAPTURED",
+		Server:          "absent",
+		Via:             "absent",
+		Realm:           "absent",
+		Failure:         "none",
+		RejectingLayer:  "UNKNOWN",
+		KnownBodyCounts: map[string]int{},
+	}
 	d.Events = []sourceIDNetworkEvent{}
 	d.WrittenUserAgent = "NOT_CAPTURED"
 	if req.URL.Scheme == "https" || req.URL.Scheme == "http" {
@@ -167,7 +199,7 @@ func observeSourceIDTokenRequest(req *http.Request, trace string, secretLoaded, 
 					break
 				}
 			}
-			r.Close()
+			_ = r.Close()
 			if n <= 65536 {
 				if form, e := url.ParseQuery(string(buf[:n])); e == nil {
 					for k, v := range form {
@@ -176,7 +208,12 @@ func observeSourceIDTokenRequest(req *http.Request, trace string, secretLoaded, 
 							d.DuplicateBodyFields = true
 						}
 						switch k {
-						case "grant_type", "client_id", "client_secret", "code", "redirect_uri", "code_verifier":
+						case "grant_type",
+							"client_id",
+							"client_secret",
+							"code",
+							"redirect_uri",
+							"code_verifier":
 							d.KnownBodyCounts[k] = len(v)
 						}
 					}

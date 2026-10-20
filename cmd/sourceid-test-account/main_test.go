@@ -24,12 +24,24 @@ func TestSourceIDAccountPrepCLIInputBoundary(t *testing.T) {
 		args            []string
 		input, category string
 	}{
-		{[]string{"--protected-json-stdin"}, `{"email":"synthetic@example.test","database_dsn":"private-db","client_secret":"synthetic-private"}`, "protected_input_invalid"},
-		{[]string{"--protected-json-stdin"}, `{"email":"synthetic@example.test","database_dsn":"private-db"}{}`, "protected_input_invalid"},
+		{[]string{
+			"--protected-json-stdin",
+		}, "{\"email\":\"synthetic@example.test\",\"database_dsn\":\"private-db\"," +
+			"\"client_secret\":\"synthetic-private\"}", "protected_input_invalid"},
+		{
+			[]string{
+				"--protected-json-stdin",
+			},
+			"{\"email\":\"synthetic@example.test\"," +
+				"\"database_dsn\":\"private-db\"}{}",
+			"protected_input_invalid",
+		},
 		{nil, "synthetic@example.test", "protected_database_configuration_required"},
 		{[]string{"--tenant=synthetic-private"}, "", ""},
 	} {
-		cmd := exec.Command(os.Args[0], append([]string{"-test.run=^TestSourceIDAccountPrepCLIInputBoundary$", "--"}, tc.args...)...)
+		cmd := exec.Command(
+			os.Args[0],
+			append([]string{"-test.run=^TestSourceIDAccountPrepCLIInputBoundary$", "--"}, tc.args...)...)
 		cmd.Env = append(os.Environ(), "ACCOUNT_PREP_TEST_CHILD=1", "SOURCEID_TEST_ACCOUNT_DSN=")
 		cmd.Stdin = strings.NewReader(tc.input)
 		output, err := cmd.CombinedOutput()

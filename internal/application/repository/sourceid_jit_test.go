@@ -35,19 +35,44 @@ func jitTestDB(t *testing.T, pg bool) (*userRepository, *gorm.DB, types.User) {
 	}
 	return r, db, legacy
 }
-func syntheticJITProvision(email string, calls *atomic.Int32) func(context.Context, interfaces.UserRepository) (*types.User, error) {
+
+func syntheticJITProvision(
+	email string,
+	calls *atomic.Int32,
+) func(context.Context, interfaces.UserRepository) (*types.User, error) {
 	return func(ctx context.Context, r interfaces.UserRepository) (*types.User, error) {
 		calls.Add(1)
-		u := &types.User{ID: uuid.NewString(), Email: email, Username: "synthetic-" + uuid.NewString(), IsActive: true, PasswordHash: "!synthetic-disabled", CreatedAt: time.Now(), UpdatedAt: time.Now()}
+		u := &types.User{
+			ID:           uuid.NewString(),
+			Email:        email,
+			Username:     "synthetic-" + uuid.NewString(),
+			IsActive:     true,
+			PasswordHash: "!synthetic-disabled",
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		}
 		return u, r.CreateUser(ctx, u)
 	}
 }
+
 func TestSourceIDJITLifecycle(t *testing.T) {
 	r, db, legacy := jitTestDB(t, false)
 	ctx := context.Background()
 	var calls atomic.Int32
 	login := func(sub, email string) (*types.User, error) {
-		return r.ResolveSourceIDEnterpriseOrJITIdentity(ctx, "synthetic-issuer", sub, "new-employee", email, "synthetic-binding", "synthetic-enterprise", time.Hour, "synthetic-jit", []string{"example.test"}, syntheticJITProvision(email, &calls))
+		return r.ResolveSourceIDEnterpriseOrJITIdentity(
+			ctx,
+			"synthetic-issuer",
+			sub,
+			"new-employee",
+			email,
+			"synthetic-binding",
+			"synthetic-enterprise",
+			time.Hour,
+			"synthetic-jit",
+			[]string{"example.test"},
+			syntheticJITProvision(email, &calls),
+		)
 	}
 	u, e := login("new-sub", "new@example.test")
 	require.NoError(t, e)
@@ -60,12 +85,24 @@ func TestSourceIDJITLifecycle(t *testing.T) {
 	require.NoError(t, e)
 	require.Equal(t, firstID, u.ID)
 	require.EqualValues(t, 1, calls.Load())
-	require.NoError(t, db.Model(&types.SourceIDAccountOwnership{}).Where("user_id=?", firstID).Update("valid_until", time.Now().Add(-time.Second)).Error)
+	require.NoError(
+		t,
+		db.Model(&types.SourceIDAccountOwnership{}).
+			Where("user_id=?", firstID).
+			Update("valid_until", time.Now().Add(-time.Second)).
+			Error,
+	)
 	u, e = login("new-sub", "changed@example.test")
 	require.NoError(t, e)
 	require.Equal(t, firstID, u.ID)
 	// Independently verified directory maintenance supersedes JIT renewal.
-	require.NoError(t, db.Model(&types.SourceIDAccountOwnership{}).Where("user_id=?", firstID).Update("source_ref", "synthetic-independent-directory").Error)
+	require.NoError(
+		t,
+		db.Model(&types.SourceIDAccountOwnership{}).
+			Where("user_id=?", firstID).
+			Update("source_ref", "synthetic-independent-directory").
+			Error,
+	)
 	u, e = login("new-sub", "changed@example.test")
 	require.NoError(t, e)
 	require.Equal(t, firstID, u.ID)
@@ -73,7 +110,10 @@ func TestSourceIDJITLifecycle(t *testing.T) {
 	require.Error(t, e)
 	var review types.SourceIDBindingReview
 	require.NoError(t, db.Where("user_id=?", firstID).First(&review).Error)
-	require.NoError(t, r.ReviewSourceIDBinding(ctx, review.ID, "synthetic-operator", "synthetic-revoke", "revoke"))
+	require.NoError(
+		t,
+		r.ReviewSourceIDBinding(ctx, review.ID, "synthetic-operator", "synthetic-revoke", "revoke"),
+	)
 	_, e = login("new-sub", "new@example.test")
 	require.Error(t, e)
 	var n int64
@@ -83,48 +123,107 @@ func TestSourceIDJITLifecycle(t *testing.T) {
 	require.NoError(t, e)
 	require.Equal(t, "{}", string(raw))
 }
+
 func TestSourceIDJITConflictsRollbackAndHistoricalNoFallback(t *testing.T) {
 	r, db, legacy := jitTestDB(t, false)
 	ctx := context.Background()
 	var calls atomic.Int32
-	login := func(employee, email string, provision func(context.Context, interfaces.UserRepository) (*types.User, error)) error {
-		_, err := r.ResolveSourceIDEnterpriseOrJITIdentity(ctx, "synthetic-issuer", "new-sub", employee, email, "synthetic-binding", "synthetic-enterprise", time.Hour, "synthetic-jit", []string{"example.test"}, provision)
+	login := func(employee,
+		email string,
+		provision func(context.Context,
+			interfaces.UserRepository) (*types.User,
+			error),
+	) error {
+		_, err := r.ResolveSourceIDEnterpriseOrJITIdentity(
+			ctx,
+			"synthetic-issuer",
+			"new-sub",
+			employee,
+			email,
+			"synthetic-binding",
+			"synthetic-enterprise",
+			time.Hour,
+			"synthetic-jit",
+			[]string{"example.test"},
+			provision,
+		)
 		return err
 	}
 	require.Error(t, login("unowned-legacy", legacy.Email, syntheticJITProvision(legacy.Email, &calls)))
 	require.Zero(t, calls.Load())
-	require.Error(t, login("new-employee", "new@example.test", func(c context.Context, p interfaces.UserRepository) (*types.User, error) {
-		u, _ := syntheticJITProvision("new@example.test", &calls)(c, p)
-		return u, errors.New("synthetic-registration-failure")
-	}))
+	require.Error(
+		t,
+		login(
+			"new-employee",
+			"new@example.test",
+			func(c context.Context, p interfaces.UserRepository) (*types.User, error) {
+				u, _ := syntheticJITProvision("new@example.test", &calls)(c, p)
+				return u, errors.New("synthetic-registration-failure")
+			},
+		),
+	)
 	var n int64
 	require.NoError(t, db.Model(&types.User{}).Count(&n).Error)
 	require.EqualValues(t, 1, n)
-	require.Error(t, login("new-employee", "new@example.test", func(c context.Context, p interfaces.UserRepository) (*types.User, error) {
-		u, e := syntheticJITProvision("new@example.test", &calls)(c, p)
-		u.IsSystemAdmin = true
-		return u, e
-	}))
+	require.Error(
+		t,
+		login(
+			"new-employee",
+			"new@example.test",
+			func(c context.Context, p interfaces.UserRepository) (*types.User, error) {
+				u, e := syntheticJITProvision("new@example.test", &calls)(c, p)
+				u.IsSystemAdmin = true
+				return u, e
+			},
+		),
+	)
 	require.NoError(t, db.Model(&types.SourceIDJITRegistration{}).Count(&n).Error)
 	require.Zero(t, n)
 	require.NoError(t, db.Delete(&legacy).Error)
 	require.Error(t, login("new-employee", legacy.Email, syntheticJITProvision(legacy.Email, &calls)))
-	require.Error(t, login("new-employee", "person@evil.example.test", syntheticJITProvision("person@evil.example.test", &calls)))
+	require.Error(
+		t,
+		login(
+			"new-employee",
+			"person@evil.example.test",
+			syntheticJITProvision("person@evil.example.test", &calls),
+		),
+	)
 }
+
 func TestSourceIDJITDisabledCannotRenew(t *testing.T) {
 	r, db, _ := jitTestDB(t, false)
 	ctx := context.Background()
 	var calls atomic.Int32
 	login := func() (*types.User, error) {
-		return r.ResolveSourceIDEnterpriseOrJITIdentity(ctx, "synthetic-issuer", "sub", "employee", "new@example.test", "binding", "enterprise", time.Hour, "jit", []string{"example.test"}, syntheticJITProvision("new@example.test", &calls))
+		return r.ResolveSourceIDEnterpriseOrJITIdentity(
+			ctx,
+			"synthetic-issuer",
+			"sub",
+			"employee",
+			"new@example.test",
+			"binding",
+			"enterprise",
+			time.Hour,
+			"jit",
+			[]string{"example.test"},
+			syntheticJITProvision("new@example.test", &calls),
+		)
 	}
 	u, e := login()
 	require.NoError(t, e)
-	require.NoError(t, db.Model(&types.SourceIDAccountOwnership{}).Where("user_id=?", u.ID).Update("status", "disabled").Error)
+	require.NoError(
+		t,
+		db.Model(&types.SourceIDAccountOwnership{}).
+			Where("user_id=?", u.ID).
+			Update("status", "disabled").
+			Error,
+	)
 	_, e = login()
 	require.Error(t, e)
 	require.EqualValues(t, 1, calls.Load())
 }
+
 func TestSourceIDPostgresJITConcurrentRegistration(t *testing.T) {
 	r, db, _ := jitTestDB(t, true)
 	ctx := context.Background()
@@ -137,7 +236,19 @@ func TestSourceIDPostgresJITConcurrentRegistration(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			u, e := r.ResolveSourceIDEnterpriseOrJITIdentity(ctx, "synthetic-issuer", "sub", "new-employee", "new@example.test", "binding", "enterprise", time.Hour, "jit", []string{"example.test"}, syntheticJITProvision("new@example.test", &calls))
+			u, e := r.ResolveSourceIDEnterpriseOrJITIdentity(
+				ctx,
+				"synthetic-issuer",
+				"sub",
+				"new-employee",
+				"new@example.test",
+				"binding",
+				"enterprise",
+				time.Hour,
+				"jit",
+				[]string{"example.test"},
+				syntheticJITProvision("new@example.test", &calls),
+			)
 			errs <- e
 			if e == nil {
 				ids <- u.ID
@@ -185,10 +296,30 @@ func TestSourceIDPostgresJITDistinctRegistrationCapacity(t *testing.T) {
 			defer func() { <-sem }()
 			began := time.Now()
 			email := fmt.Sprintf("jit-capacity-%d@example.test", i)
-			_, err := r.ResolveSourceIDEnterpriseOrJITIdentity(ctx, "synthetic-issuer", fmt.Sprintf("sub-%d", i), fmt.Sprintf("employee-%d", i), email, "binding", "enterprise", time.Hour, "jit", []string{"example.test"}, func(c context.Context, repo interfaces.UserRepository) (*types.User, error) {
-				u := &types.User{ID: uuid.NewString(), Email: email, Username: uuid.NewString(), PasswordHash: "!sourceid-jit-no-local-password", IsActive: true, CreatedAt: time.Now(), UpdatedAt: time.Now()}
-				return u, repo.CreateUser(c, u)
-			})
+			_, err := r.ResolveSourceIDEnterpriseOrJITIdentity(
+				ctx,
+				"synthetic-issuer",
+				fmt.Sprintf("sub-%d", i),
+				fmt.Sprintf("employee-%d", i),
+				email,
+				"binding",
+				"enterprise",
+				time.Hour,
+				"jit",
+				[]string{"example.test"},
+				func(c context.Context, repo interfaces.UserRepository) (*types.User, error) {
+					u := &types.User{
+						ID:           uuid.NewString(),
+						Email:        email,
+						Username:     uuid.NewString(),
+						PasswordHash: "!sourceid-jit-no-local-password",
+						IsActive:     true,
+						CreatedAt:    time.Now(),
+						UpdatedAt:    time.Now(),
+					}
+					return u, repo.CreateUser(c, u)
+				},
+			)
 			errs <- err
 			latencies <- time.Since(began).Milliseconds()
 		}(i)
@@ -202,12 +333,23 @@ func TestSourceIDPostgresJITDistinctRegistrationCapacity(t *testing.T) {
 	var n int64
 	require.NoError(t, db.Model(&types.SourceIDJITRegistration{}).Count(&n).Error)
 	require.EqualValues(t, 24, n)
-	require.NoError(t, db.Model(&types.User{}).Where("is_system_admin=false AND can_access_all_tenants=false AND tenant_id IS NULL").Count(&n).Error)
+	require.NoError(
+		t,
+		db.Model(&types.User{}).
+			Where("is_system_admin=false AND can_access_all_tenants=false AND tenant_id "+
+				"IS NULL").
+			Count(&n).
+			Error,
+	)
 	require.EqualValues(t, 24, n)
 	times := make([]int64, 0, 24)
 	for ms := range latencies {
 		times = append(times, ms)
 	}
 	sort.Slice(times, func(i, j int) bool { return times[i] < times[j] })
-	t.Logf("synthetic_jit_distinct=24 concurrent=8 duration_ms=%d p95_ms=%d", time.Since(start).Milliseconds(), times[22])
+	t.Logf(
+		"synthetic_jit_distinct=24 concurrent=8 duration_ms=%d p95_ms=%d",
+		time.Since(start).Milliseconds(),
+		times[22],
+	)
 }

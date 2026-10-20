@@ -8,8 +8,14 @@ import (
 
 func TestApplicationIdentityCannotImpersonatePersonalResource(t *testing.T) {
 	c := NewClient(&Config{AppID: "cli_test"})
-	app := WithApplicationIdentity(context.Background(), func(context.Context) (string, error) { return "app", nil })
-	user := WithUserIdentity(context.Background(), func(context.Context) (string, error) { return "user", nil })
+	app := WithApplicationIdentity(
+		context.Background(),
+		func(context.Context) (string, error) { return "app", nil },
+	)
+	user := WithUserIdentity(
+		context.Background(),
+		func(context.Context) (string, error) { return "user", nil },
+	)
 	r := PersonalResource{Type: "docx", Token: "real"}
 	if _, err := c.ResolvePersonalResource(app, r); !errors.Is(err, ErrAuth) {
 		t.Fatalf("personal resolver accepted app: %v", err)
@@ -30,7 +36,10 @@ func TestApplicationIdentityCannotImpersonatePersonalResource(t *testing.T) {
 	if _, err := c.ResolveApplicationResource(mixed, r); !errors.Is(err, ErrAuth) {
 		t.Fatalf("mixed identity accepted: %v", err)
 	}
-	if _, err := c.ResolveApplicationResource(app, PersonalResource{Type: "sheet", Token: "real"}); !errors.Is(err, ErrUnsupportedPersonalResource) {
+	if _, err := c.ResolveApplicationResource(app, PersonalResource{Type: "sheet", Token: "real"}); !errors.Is(
+		err,
+		ErrUnsupportedPersonalResource,
+	) {
 		t.Fatalf("unvalidated sheet accepted: %v", err)
 	}
 }

@@ -23,7 +23,12 @@ import (
 )
 
 type syncStore interface {
-	SyncSourceIDAccountOwnership(context.Context, types.SourceIDAccountOwnership, string, bool) (bool, error)
+	SyncSourceIDAccountOwnership(
+		context.Context,
+		types.SourceIDAccountOwnership,
+		string,
+		bool,
+	) (bool, error)
 }
 type accountResolver interface {
 	ResolveSourceIDOwnershipAccount(context.Context, string, string, string) (string, error)
@@ -52,7 +57,14 @@ type summary struct {
 // 64KiB is a single-record input safety bound, never a directory size or
 // business population limit. Rows stream independently; partial failures are
 // counted and return nonzero; successful rows can be safely replayed.
-func process(ctx context.Context, in io.Reader, out io.Writer, store syncStore, actor string, apply bool) error {
+func process(
+	ctx context.Context,
+	in io.Reader,
+	out io.Writer,
+	store syncStore,
+	actor string,
+	apply bool,
+) error {
 	s := bufio.NewScanner(in)
 	s.Buffer(make([]byte, 4096), 65536)
 	result := summary{Applied: apply}
@@ -85,7 +97,11 @@ func process(ctx context.Context, in io.Reader, out io.Writer, store syncStore, 
 			row.UserID = id
 		}
 		canonical, _ := json.Marshal(row)
-		keys := []string{"employee:" + row.Issuer + "\x00" + row.EmployeeNo, "user:" + row.Issuer + "\x00" + row.UserID, "email:" + row.Issuer + "\x00" + strings.ToLower(strings.TrimSpace(row.Email))}
+		keys := []string{
+			"employee:" + row.Issuer + "\x00" + row.EmployeeNo,
+			"user:" + row.Issuer + "\x00" + row.UserID,
+			"email:" + row.Issuer + "\x00" + strings.ToLower(strings.TrimSpace(row.Email)),
+		}
 		duplicate, conflict := false, false
 		for _, key := range keys {
 			if old, ok := seen[key]; ok {
@@ -104,7 +120,24 @@ func process(ctx context.Context, in io.Reader, out io.Writer, store syncStore, 
 			result.Unchanged++
 			continue
 		}
-		changed, err := store.SyncSourceIDAccountOwnership(ctx, types.SourceIDAccountOwnership{Issuer: row.Issuer, EmployeeNo: row.EmployeeNo, UserID: row.UserID, Email: row.Email, Status: row.Status, Revision: row.Revision, PolicyRef: row.PolicyRef, OwnershipRef: row.OwnershipRef, SourceRef: row.SourceRef, VerifiedAt: row.VerifiedAt, ValidUntil: row.ValidUntil}, actor, apply)
+		changed, err := store.SyncSourceIDAccountOwnership(
+			ctx,
+			types.SourceIDAccountOwnership{
+				Issuer:       row.Issuer,
+				EmployeeNo:   row.EmployeeNo,
+				UserID:       row.UserID,
+				Email:        row.Email,
+				Status:       row.Status,
+				Revision:     row.Revision,
+				PolicyRef:    row.PolicyRef,
+				OwnershipRef: row.OwnershipRef,
+				SourceRef:    row.SourceRef,
+				VerifiedAt:   row.VerifiedAt,
+				ValidUntil:   row.ValidUntil,
+			},
+			actor,
+			apply,
+		)
 		if err != nil {
 			result.Rejected++
 		} else if changed {
@@ -129,6 +162,7 @@ func process(ctx context.Context, in io.Reader, out io.Writer, store syncStore, 
 	}
 	return nil
 }
+
 func run() error {
 	apply := flag.Bool("apply", false, "apply approved incremental rows; default dry-run")
 	actor := flag.String("actor", "", "authorized operator reference; no employee data")
@@ -155,13 +189,14 @@ func run() error {
 	if err != nil {
 		return errors.New("ownership database unavailable")
 	}
-	defer raw.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(raw.Close)
 	store, ok := apprepo.NewUserRepository(db).(syncStore)
 	if !ok {
 		return errors.New("ownership store unavailable")
 	}
 	return process(context.Background(), os.Stdin, os.Stdout, store, *actor, *apply)
 }
+
 func main() {
 	if run() != nil {
 		fmt.Fprintln(os.Stderr, "ownership_sync_failed=true")

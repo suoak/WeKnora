@@ -31,44 +31,69 @@ func TestFeishuPersonalRecoveryMigrationsPostgres(t *testing.T) {
 			require.Contains(t, dsn, "/personal_")
 			db, err := sql.Open("postgres", dsn)
 			require.NoError(t, err)
-			defer db.Close()
+			defer func(cleanup func() error) { _ = cleanup() }(db.Close)
 			if kind == "CLONE" {
 				var version int
 				var dirty bool
-				require.NoError(t, db.QueryRow("SELECT version,dirty FROM schema_migrations").Scan(&version, &dirty))
+				require.NoError(
+					t,
+					db.QueryRow("SELECT version,dirty FROM schema_migrations").Scan(&version, &dirty),
+				)
 				require.Equal(t, 3030, version)
 				require.False(t, dirty)
 			}
 			require.NoError(t, RunMigrationsWithOptions(dsn, MigrationOptions{}))
 			var version int
 			var dirty bool
-			require.NoError(t, db.QueryRow("SELECT version,dirty FROM schema_migrations").Scan(&version, &dirty))
+			require.NoError(
+				t,
+				db.QueryRow("SELECT version,dirty FROM schema_migrations").Scan(&version, &dirty),
+			)
 			require.Equal(t, 3033, version)
 			require.False(t, dirty)
 			require.NoError(t, RunMigrationsWithOptions(dsn, MigrationOptions{}))
 			var missing int
-			require.NoError(t, db.QueryRow("SELECT count(*) FROM feishu_personal_imports m LEFT JOIN feishu_personal_resources r ON r.import_id=m.id WHERE r.import_id IS NULL OR (m.knowledge_id<>'' AND (r.logical_knowledge_id<>m.knowledge_id OR r.active_version_id<>m.knowledge_id))").Scan(&missing))
+			require.NoError(
+				t,
+				db.QueryRow("SELECT count(*) FROM feishu_personal_imports m LEFT JOIN "+
+					"feishu_personal_resources r ON r.import_id=m.id WHERE r.import_id IS "+
+					"NULL OR (m.knowledge_id<>'' AND (r.logical_knowledge_id<>m.knowledge_i"+
+					"d OR r.active_version_id<>m.knowledge_id))").
+					Scan(&missing),
+			)
 			require.Zero(t, missing)
 			var attempts int
 			require.NoError(t, db.QueryRow("SELECT count(*) FROM feishu_personal_attempts").Scan(&attempts))
 			require.Zero(t, attempts)
 			m, err := migrate.New("file://migrations/versioned", dsn)
 			require.NoError(t, err)
-			defer m.Close()
+			defer func(cleanup func() (error, error)) { _, _ = cleanup() }(m.Close)
 			require.NoError(t, m.Steps(-1))
-			require.NoError(t, db.QueryRow("SELECT version,dirty FROM schema_migrations").Scan(&version, &dirty))
+			require.NoError(
+				t,
+				db.QueryRow("SELECT version,dirty FROM schema_migrations").Scan(&version, &dirty),
+			)
 			require.Equal(t, 3031, version)
 			require.False(t, dirty)
 			require.NoError(t, m.Steps(-1))
-			require.NoError(t, db.QueryRow("SELECT version,dirty FROM schema_migrations").Scan(&version, &dirty))
+			require.NoError(
+				t,
+				db.QueryRow("SELECT version,dirty FROM schema_migrations").Scan(&version, &dirty),
+			)
 			require.Equal(t, 3030, version)
 			require.False(t, dirty)
 			require.NoError(t, m.Steps(1))
-			require.NoError(t, db.QueryRow("SELECT version,dirty FROM schema_migrations").Scan(&version, &dirty))
+			require.NoError(
+				t,
+				db.QueryRow("SELECT version,dirty FROM schema_migrations").Scan(&version, &dirty),
+			)
 			require.Equal(t, 3031, version)
 			require.False(t, dirty)
 			require.NoError(t, m.Steps(1))
-			require.NoError(t, db.QueryRow("SELECT version,dirty FROM schema_migrations").Scan(&version, &dirty))
+			require.NoError(
+				t,
+				db.QueryRow("SELECT version,dirty FROM schema_migrations").Scan(&version, &dirty),
+			)
 			require.Equal(t, 3033, version)
 			require.False(t, dirty)
 		})
@@ -92,7 +117,16 @@ func TestFeishuPersonalRecoveryMigrationGuards(t *testing.T) {
 			require.NoError(t, db.Exec("INSERT INTO users(id) VALUES('A')").Error)
 			require.NoError(t, db.Exec("INSERT INTO knowledge_bases(id) VALUES('kb')").Error)
 			for _, id := range []string{"first", "second"} {
-				require.NoError(t, db.Exec("INSERT INTO feishu_personal_imports(id,user_id,app_id,open_id,kb_id,document_token,resource_type,url,knowledge_id) VALUES(?,'A','app','open','kb',?,'file','https://test.invalid','legacy-K1')", id, id).Error)
+				require.NoError(
+					t,
+					db.Exec(
+						"INSERT INTO feishu_personal_imports(id,user_id,app_id,open_id,kb_id,"+
+							"document_token,resource_type,url,knowledge_id) VALUES(?,'A','app',"+
+							"'open','kb',?,'file','https://test.invalid','legacy-K1')",
+						id,
+						id,
+					).Error,
+				)
 			}
 			up, err := os.ReadFile(root + "/migrations/" + dir + "/003031_feishu_personal_recovery.up.sql")
 			require.NoError(t, err)
@@ -106,10 +140,26 @@ func TestFeishuPersonalRecoveryMigrationGuards(t *testing.T) {
 			require.NoError(t, db.First(&resource, "import_id = ?", "first").Error)
 			require.Equal(t, "legacy-K1", resource.LogicalKnowledgeID)
 			require.Equal(t, "legacy-K1", resource.ActiveVersionID)
-			require.Error(t, db.Transaction(func(tx *gorm.DB) error { return tx.Exec(string(up)).Error }), "raw DDL repeat must fail rather than overwrite")
-			a := types.FeishuPersonalAttempt{ID: uuid.NewString(), ImportID: "first", LogicalKnowledgeID: resource.LogicalKnowledgeID, CandidateVersionID: uuid.NewString(), Revision: "1", CallerTenantID: 1, AppConfigVersion: uuid.NewString(), GrantEpoch: uuid.NewString(), Status: "pending"}
+			require.Error(
+				t,
+				db.Transaction(func(tx *gorm.DB) error { return tx.Exec(string(up)).Error }),
+				"raw DDL repeat must fail rather than overwrite",
+			)
+			a := types.FeishuPersonalAttempt{
+				ID:                 uuid.NewString(),
+				ImportID:           "first",
+				LogicalKnowledgeID: resource.LogicalKnowledgeID,
+				CandidateVersionID: uuid.NewString(),
+				Revision:           "1",
+				CallerTenantID:     1,
+				AppConfigVersion:   uuid.NewString(),
+				GrantEpoch:         uuid.NewString(),
+				Status:             "pending",
+			}
 			require.NoError(t, db.Omit("AuthMode", "ApplicationID").Create(&a).Error)
-			down, err := os.ReadFile(root + "/migrations/" + dir + "/003031_feishu_personal_recovery.down.sql")
+			down, err := os.ReadFile(
+				root + "/migrations/" + dir + "/003031_feishu_personal_recovery.down.sql",
+			)
 			require.NoError(t, err)
 			require.Error(t, db.Transaction(func(tx *gorm.DB) error { return tx.Exec(string(down)).Error }))
 			var count int64
@@ -117,7 +167,10 @@ func TestFeishuPersonalRecoveryMigrationGuards(t *testing.T) {
 			require.EqualValues(t, 1, count)
 			// Test-only drain of synthetic state, then prove down/up compatibility.
 			require.NoError(t, db.Delete(&a).Error)
-			require.NoError(t, db.Transaction(func(tx *gorm.DB) error { return tx.Exec(string(down)).Error }))
+			require.NoError(
+				t,
+				db.Transaction(func(tx *gorm.DB) error { return tx.Exec(string(down)).Error }),
+			)
 			require.NoError(t, db.Transaction(func(tx *gorm.DB) error { return tx.Exec(string(up)).Error }))
 		})
 	}

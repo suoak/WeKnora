@@ -54,7 +54,16 @@ func newSIDTLSFixture(t *testing.T) *sidTLSFixture {
 	t.Helper()
 	withOIDCSSRFWhitelist(t, "sid.ruijie.com.cn")
 	s, db, info, _, uid := sourceIDSSOFixture(t)
-	f := &sidTLSFixture{s: s, db: db, info: info, uid: uid, signer: pinnedTestKey(t), nonces: map[string]string{}, tokenStatus: 200, profileStatus: 200}
+	f := &sidTLSFixture{
+		s:             s,
+		db:            db,
+		info:          info,
+		uid:           uid,
+		signer:        pinnedTestKey(t),
+		nonces:        map[string]string{},
+		tokenStatus:   200,
+		profileStatus: 200,
+	}
 	c := s.config.OIDCAuth
 	c.Enable = true
 	c.SourceIDValidationStrategy = config.SourceIDTLSUserInfoValidation
@@ -82,12 +91,22 @@ func newSIDTLSFixture(t *testing.T) *sidTLSFixture {
 	ownership["issuer"] = c.IssuerURL
 	raw, e = json.Marshal(ownership)
 	require.NoError(t, e)
-	require.NoError(t, os.WriteFile(c.SourceIDPilotAccountsFile, raw, 0600))
+	require.NoError(t, os.WriteFile(c.SourceIDPilotAccountsFile, raw, 0o600))
 	s.tenantService = sourceIDLocalTestTenants{}
 	s.memberService = sourceIDLocalTestMembers{userID: uid}
 	key, e := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, e)
-	cert := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "synthetic SID test only"}, DNSNames: []string{"sid.ruijie.com.cn"}, NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour), KeyUsage: x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}, IsCA: true, BasicConstraintsValid: true}
+	cert := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "synthetic SID test only"},
+		DNSNames:              []string{"sid.ruijie.com.cn"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+	}
 	der, e := x509.CreateCertificate(rand.Reader, cert, cert, &key.PublicKey, key)
 	require.NoError(t, e)
 	public, e := x509.ParseCertificate(der)
@@ -103,7 +122,8 @@ func newSIDTLSFixture(t *testing.T) *sidTLSFixture {
 			f.tokenCalls.Add(1)
 			_ = r.ParseForm()
 			id, secret, ok := r.BasicAuth()
-			if !ok || id != c.ClientID || secret != c.ClientSecret || r.Form.Get("redirect_uri") != c.RedirectURI {
+			if !ok || id != c.ClientID || secret != c.ClientSecret ||
+				r.Form.Get("redirect_uri") != c.RedirectURI {
 				w.WriteHeader(401)
 				return
 			}
@@ -138,7 +158,11 @@ func newSIDTLSFixture(t *testing.T) *sidTLSFixture {
 				w.WriteHeader(500)
 				return
 			}
-			data := map[string]interface{}{"id_token": signed, "access_token": "synthetic-access-token", "token_type": "Bearer"}
+			data := map[string]interface{}{
+				"id_token":     signed,
+				"access_token": "synthetic-access-token",
+				"token_type":   "Bearer",
+			}
 			if f.tokenEdit != nil {
 				f.tokenEdit(data)
 			}
@@ -153,7 +177,8 @@ func newSIDTLSFixture(t *testing.T) *sidTLSFixture {
 				w.WriteHeader(f.profileStatus)
 				return
 			}
-			if r.Method == http.MethodGet && r.Header.Get("Authorization") != "Bearer synthetic-access-token" {
+			if r.Method == http.MethodGet &&
+				r.Header.Get("Authorization") != "Bearer synthetic-access-token" {
 				w.WriteHeader(401)
 				return
 			}
@@ -170,15 +195,21 @@ func newSIDTLSFixture(t *testing.T) *sidTLSFixture {
 		}
 	}))
 	f.server.Config.ErrorLog = log.New(io.Discard, "", 0)
-	f.server.TLS = &tls.Config{Certificates: []tls.Certificate{{Certificate: [][]byte{der}, PrivateKey: key}}, MinVersion: tls.VersionTLS12}
+	f.server.TLS = &tls.Config{
+		Certificates: []tls.Certificate{{Certificate: [][]byte{der}, PrivateKey: key}},
+		MinVersion:   tls.VersionTLS12,
+	}
 	f.server.StartTLS()
 	t.Cleanup(f.server.Close)
-	transport := &http.Transport{TLSClientConfig: &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}, DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
-		if address != "sid.ruijie.com.cn:443" {
-			return nil, errors.New("unexpected destination")
-		}
-		return (&net.Dialer{}).DialContext(ctx, network, f.server.Listener.Addr().String())
-	}}
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12},
+		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
+			if address != "sid.ruijie.com.cn:443" {
+				return nil, errors.New("unexpected destination")
+			}
+			return (&net.Dialer{}).DialContext(ctx, network, f.server.Listener.Addr().String())
+		},
+	}
 	t.Cleanup(transport.CloseIdleConnections)
 	s.protocolClient = &http.Client{Transport: transport, Timeout: 5 * time.Second}
 	sqlDB, e := db.DB()
@@ -202,7 +233,13 @@ func (f *sidTLSFixture) begin(t *testing.T, code string) (context.Context, strin
 func sidTLSBusinessCounts(t *testing.T, db *gorm.DB) []int64 {
 	t.Helper()
 	result := []int64{}
-	for _, table := range []string{"users", "external_identities", "auth_tokens", "source_id_sessions", "source_id_local_sessions"} {
+	for _, table := range []string{
+		"users",
+		"external_identities",
+		"auth_tokens",
+		"source_id_sessions",
+		"source_id_local_sessions",
+	} {
 		var count int64
 		require.NoError(t, db.Table(table).Count(&count).Error)
 		result = append(result, count)
@@ -214,7 +251,12 @@ func TestSIDTLSUserInfoExistingAccountLifecycle(t *testing.T) {
 	f := newSIDTLSFixture(t)
 	for _, code := range []string{"synthetic-first", "synthetic-repeat"} {
 		ctx, _ := f.begin(t, code)
-		response, e := f.s.LoginWithOIDC(ctx, code, f.s.config.OIDCAuth.RedirectURI, types.TenantProvisioningTenantless)
+		response, e := f.s.LoginWithOIDC(
+			ctx,
+			code,
+			f.s.config.OIDCAuth.RedirectURI,
+			types.TenantProvisioningTenantless,
+		)
 		require.NoError(t, e)
 		require.True(t, response.Success)
 		require.Equal(t, f.uid, response.User.ID)
@@ -242,7 +284,10 @@ func TestSIDTLSUserInfoNegativeNoBusinessWrites(t *testing.T) {
 		name  string
 		apply func(*sidTLSFixture)
 	}{
-		{"issuer", func(f *sidTLSFixture) { f.claimsEdit = func(c jwt.MapClaims) { c["iss"] = "https://evil.invalid" } }},
+		{
+			"issuer",
+			func(f *sidTLSFixture) { f.claimsEdit = func(c jwt.MapClaims) { c["iss"] = "https://evil.invalid" } },
+		},
 		{"audience", func(f *sidTLSFixture) { f.claimsEdit = func(c jwt.MapClaims) { c["aud"] = "other" } }},
 		{"azp", func(f *sidTLSFixture) { f.claimsEdit = func(c jwt.MapClaims) { c["azp"] = "other" } }},
 		{"multiple_audience_no_azp", func(f *sidTLSFixture) {
@@ -274,21 +319,74 @@ func TestSIDTLSUserInfoNegativeNoBusinessWrites(t *testing.T) {
 		{"external_jku", func(f *sidTLSFixture) {
 			f.headerEdit = func(h map[string]interface{}) { h["jku"] = "https://evil.invalid/jwks" }
 		}},
-		{"missing_id_token", func(f *sidTLSFixture) { f.tokenEdit = func(v map[string]interface{}) { delete(v, "id_token") } }},
-		{"missing_access_token", func(f *sidTLSFixture) { f.tokenEdit = func(v map[string]interface{}) { delete(v, "access_token") } }},
-		{"non_bearer", func(f *sidTLSFixture) { f.tokenEdit = func(v map[string]interface{}) { v["token_type"] = "unknown" } }},
-		{"malformed_jwt", func(f *sidTLSFixture) { f.tokenEdit = func(v map[string]interface{}) { v["id_token"] = "invalid.jwt" } }},
-		{"token_error_with_tokens", func(f *sidTLSFixture) { f.tokenEdit = func(v map[string]interface{}) { v["error"] = "invalid_grant" } }},
+		{
+			"missing_id_token",
+			func(f *sidTLSFixture) {
+				f.tokenEdit = func(v map[string]interface{}) {
+					delete(
+						v,
+						"id_token",
+					)
+				}
+			},
+		},
+		{
+			"missing_access_token",
+			func(f *sidTLSFixture) {
+				f.tokenEdit = func(v map[string]interface{}) {
+					delete(
+						v,
+						"access_token",
+					)
+				}
+			},
+		},
+		{
+			"non_bearer",
+			func(f *sidTLSFixture) { f.tokenEdit = func(v map[string]interface{}) { v["token_type"] = "unknown" } },
+		},
+		{
+			"malformed_jwt",
+			func(f *sidTLSFixture) { f.tokenEdit = func(v map[string]interface{}) { v["id_token"] = "invalid.jwt" } },
+		},
+		{
+			"token_error_with_tokens",
+			func(f *sidTLSFixture) { f.tokenEdit = func(v map[string]interface{}) { v["error"] = "invalid_grant" } },
+		},
 		{"duplicate_response_json", func(f *sidTLSFixture) {
-			f.rawTokenJSON = `{"id_token":"one","id_token":"two","access_token":"x","token_type":"Bearer"}`
+			f.rawTokenJSON = "{\"id_token\":\"one\",\"id_token\":\"two\",\"access_token\":\"x\"," +
+				"\"token_type\":\"Bearer\"}"
 		}},
 		{"token_endpoint_401", func(f *sidTLSFixture) { f.tokenStatus = 401 }},
 		{"token_redirect", func(f *sidTLSFixture) { f.tokenStatus = 307 }},
 		{"userinfo_500", func(f *sidTLSFixture) { f.profileStatus = 500 }},
 		{"userinfo_redirect", func(f *sidTLSFixture) { f.profileStatus = 302 }},
-		{"userinfo_subject_mismatch", func(f *sidTLSFixture) { f.profileEdit = func(p map[string]interface{}) { p["sub"] = "other-person" } }},
-		{"userinfo_missing_sub", func(f *sidTLSFixture) { f.profileEdit = func(p map[string]interface{}) { delete(p, "sub") } }},
-		{"userinfo_no_employee_no_id_token_fallback", func(f *sidTLSFixture) { f.profileEdit = func(p map[string]interface{}) { delete(p, "attributes") } }},
+		{
+			"userinfo_subject_mismatch",
+			func(f *sidTLSFixture) { f.profileEdit = func(p map[string]interface{}) { p["sub"] = "other-person" } },
+		},
+		{
+			"userinfo_missing_sub",
+			func(f *sidTLSFixture) {
+				f.profileEdit = func(p map[string]interface{}) {
+					delete(
+						p,
+						"sub",
+					)
+				}
+			},
+		},
+		{
+			"userinfo_no_employee_no_id_token_fallback",
+			func(f *sidTLSFixture) {
+				f.profileEdit = func(p map[string]interface{}) {
+					delete(
+						p,
+						"attributes",
+					)
+				}
+			},
+		},
 		{"untrusted_tls_certificate", func(f *sidTLSFixture) {
 			f.s.protocolClient.Transport.(*http.Transport).TLSClientConfig.RootCAs = x509.NewCertPool()
 		}},
@@ -306,7 +404,12 @@ func TestSIDTLSUserInfoNegativeNoBusinessWrites(t *testing.T) {
 			f.mu.Unlock()
 			ctx, _ := f.begin(t, "negative-code")
 			before := sidTLSBusinessCounts(t, f.db)
-			_, e := f.s.LoginWithOIDC(ctx, "negative-code", f.s.config.OIDCAuth.RedirectURI, types.TenantProvisioningTenantless)
+			_, e := f.s.LoginWithOIDC(
+				ctx,
+				"negative-code",
+				f.s.config.OIDCAuth.RedirectURI,
+				types.TenantProvisioningTenantless,
+			)
 			require.Error(t, e)
 			require.Equal(t, before, sidTLSBusinessCounts(t, f.db))
 		})
@@ -314,7 +417,17 @@ func TestSIDTLSUserInfoNegativeNoBusinessWrites(t *testing.T) {
 }
 
 func TestSIDTLSUserInfoProvenanceCannotBeForgedOrReplayed(t *testing.T) {
-	for _, scenario := range []string{"no_receipt", "id_token_swap", "access_token_swap", "different_transaction", "different_service", "receipt_replay", "expired_transaction", "changed_policy", "direct_jwt_verifier"} {
+	for _, scenario := range []string{
+		"no_receipt",
+		"id_token_swap",
+		"access_token_swap",
+		"different_transaction",
+		"different_service",
+		"receipt_replay",
+		"expired_transaction",
+		"changed_policy",
+		"direct_jwt_verifier",
+	} {
 		t.Run(scenario, func(t *testing.T) {
 			f := newSIDTLSFixture(t)
 			c := f.s.config.OIDCAuth
@@ -338,7 +451,8 @@ func TestSIDTLSUserInfoProvenanceCannotBeForgedOrReplayed(t *testing.T) {
 				_, e = f.s.resolveOIDCUserInfo(ctx, c, response)
 				require.NoError(t, e)
 			case "expired_transaction":
-				ctx.Value(sidTLSAuthorizationKey{}).(*sidTLSAuthorization).expires = time.Now().Add(-time.Second)
+				ctx.Value(sidTLSAuthorizationKey{}).(*sidTLSAuthorization).expires = time.Now().
+					Add(-time.Second)
 			case "changed_policy":
 				c.SourceIDTLSUserInfoApprovalRef = "different-approval"
 			case "direct_jwt_verifier":
@@ -387,7 +501,12 @@ func TestSIDTLSUserInfoSubjectSecurityClaimsNotOverwritten(t *testing.T) {
 	}
 	f.mu.Unlock()
 	ctx, _ := f.begin(t, "security-claims")
-	r, e := f.s.exchangeOIDCCode(ctx, f.s.config.OIDCAuth, "security-claims", f.s.config.OIDCAuth.RedirectURI)
+	r, e := f.s.exchangeOIDCCode(
+		ctx,
+		f.s.config.OIDCAuth,
+		"security-claims",
+		f.s.config.OIDCAuth.RedirectURI,
+	)
 	require.NoError(t, e)
 	info, e := f.s.resolveOIDCUserInfo(ctx, f.s.config.OIDCAuth, r)
 	require.NoError(t, e)
@@ -409,8 +528,14 @@ func TestSIDTLSUserInfoParallelDifferentTransactions(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			r, e := f.s.LoginWithOIDC(contexts[i], codes[i], c.RedirectURI, types.TenantProvisioningTenantless)
-			if e == nil && (!r.Success || r.User.ID != f.uid || r.User.IsSystemAdmin || r.User.CanAccessAllTenants) {
+			r, e := f.s.LoginWithOIDC(
+				contexts[i],
+				codes[i],
+				c.RedirectURI,
+				types.TenantProvisioningTenantless,
+			)
+			if e == nil &&
+				(!r.Success || r.User.ID != f.uid || r.User.IsSystemAdmin || r.User.CanAccessAllTenants) {
 				e = errors.New("parallel login identity or privilege mismatch")
 			}
 			errs <- e
@@ -430,7 +555,12 @@ func TestSIDTLSUserInfoUntrustedTransportCannotMintProof(t *testing.T) {
 	f := newSIDTLSFixture(t)
 	f.s.protocolClient.Transport = &sidPinnedRejectNetwork{}
 	ctx, _ := f.begin(t, "custom-transport")
-	_, e := f.s.exchangeOIDCCode(ctx, f.s.config.OIDCAuth, "custom-transport", f.s.config.OIDCAuth.RedirectURI)
+	_, e := f.s.exchangeOIDCCode(
+		ctx,
+		f.s.config.OIDCAuth,
+		"custom-transport",
+		f.s.config.OIDCAuth.RedirectURI,
+	)
 	require.Error(t, e)
 	require.Zero(t, f.tokenCalls.Load())
 }
@@ -441,7 +571,11 @@ func TestSIDTLSUserInfoNoGlobalSignatureBypass(t *testing.T) {
 	ctx, _ := f.begin(t, "trusted-only")
 	r, e := f.s.exchangeOIDCCode(ctx, c, "trusted-only", c.RedirectURI)
 	require.NoError(t, e)
-	_, e = f.s.resolveOIDCUserInfo(context.Background(), c, &oidcTokenResponse{IDToken: r.IDToken, AccessToken: r.AccessToken, TokenType: "Bearer"})
+	_, e = f.s.resolveOIDCUserInfo(
+		context.Background(),
+		c,
+		&oidcTokenResponse{IDToken: r.IDToken, AccessToken: r.AccessToken, TokenType: "Bearer"},
+	)
 	require.Error(t, e)
 	_, e = f.s.resolveOIDCUserInfo(ctx, c, r)
 	require.NoError(t, e)
@@ -512,7 +646,10 @@ func TestSIDTLSUserInfoNewEmployeeJITRemainsUnprivileged(t *testing.T) {
 	c.SourceIDJITEmailDomains = "example.test"
 	f.mu.Lock()
 	f.info.Subject = "synthetic-new-employee-sub"
-	f.info.Claims["attributes"] = map[string]interface{}{"RJGH": "synthetic-new-employee", "RJEMAIL": "synthetic-new@example.test"}
+	f.info.Claims["attributes"] = map[string]interface{}{
+		"RJGH":    "synthetic-new-employee",
+		"RJEMAIL": "synthetic-new@example.test",
+	}
 	f.mu.Unlock()
 	var firstID string
 	for _, code := range []string{"jit-first", "jit-repeat"} {

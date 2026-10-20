@@ -71,11 +71,11 @@ func (SystemSetting) TableName() string {
 // MarshalJSON never exposes persisted secret values, including ciphertext.
 func (s SystemSetting) MarshalJSON() ([]byte, error) {
 	type settingAlias SystemSetting
-	copy := settingAlias(s)
+	cloned := settingAlias(s)
 	if s.IsSecret {
-		copy.Value = JSON(`null`)
+		cloned.Value = JSON(`null`)
 	}
-	return json.Marshal(copy)
+	return json.Marshal(cloned)
 }
 
 // AsInt decodes the raw JSON value as an int64. Returns an error if

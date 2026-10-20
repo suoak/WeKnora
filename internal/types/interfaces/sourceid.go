@@ -2,9 +2,11 @@ package interfaces
 
 import (
 	"context"
+
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
+// SourceIDRepository defines source idrepository state.
 // Optional extension implemented by the SQL user repository; generic OIDC and
 // local authentication do not require SourceID capabilities.
 type SourceIDRepository interface {

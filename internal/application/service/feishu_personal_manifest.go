@@ -6,10 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/google/uuid"
@@ -17,23 +18,25 @@ import (
 
 // Personal manifests are outside Knowledge FileService and all public routes.
 // A multi-APP deployment must mount this directory on shared durable storage.
-type personalManifestStore struct{ root string }
-type personalManifest struct {
-	Assets      []core.ApplicationAttachment `json:"assets,omitempty"`
-	AttemptID   string                       `json:"attempt_id"`
-	CandidateID string                       `json:"candidate_id"`
-	ImportID    string                       `json:"import_id"`
-	Revision    string                       `json:"revision"`
-	Hash        string                       `json:"sha256"`
-	Size        int64                        `json:"size"`
-	Name        string                       `json:"name"`
-}
+type (
+	personalManifestStore struct{ root string }
+	personalManifest      struct {
+		Assets      []core.ApplicationAttachment `json:"assets,omitempty"`
+		AttemptID   string                       `json:"attempt_id"`
+		CandidateID string                       `json:"candidate_id"`
+		ImportID    string                       `json:"import_id"`
+		Revision    string                       `json:"revision"`
+		Hash        string                       `json:"sha256"`
+		Size        int64                        `json:"size"`
+		Name        string                       `json:"name"`
+	}
+)
 
 func newPersonalManifestStore(root string) (*personalManifestStore, error) {
 	if root == "" || !filepath.IsAbs(root) {
 		return nil, errors.New("personal staging requires an absolute private directory")
 	}
-	if err := os.MkdirAll(root, 0700); err != nil {
+	if err := os.MkdirAll(root, 0o700); err != nil {
 		return nil, err
 	}
 	resolved, err := filepath.EvalSymlinks(root)
@@ -75,7 +78,8 @@ func (s *personalManifestStore) read(a *types.FeishuPersonalAttempt) (*personalM
 	if err = json.Unmarshal(b, &m); err != nil {
 		return nil, err
 	}
-	if m.AttemptID != a.ID || m.CandidateID != a.CandidateVersionID || m.ImportID != a.ImportID || m.Revision != a.Revision {
+	if m.AttemptID != a.ID || m.CandidateID != a.CandidateVersionID || m.ImportID != a.ImportID ||
+		m.Revision != a.Revision {
 		return nil, errors.New("personal manifest ownership mismatch")
 	}
 	data, err := os.ReadFile(filepath.Join(p, "content"))
@@ -118,7 +122,7 @@ func personalManifestDigest(data []byte, assets []core.ApplicationAttachment) st
 }
 
 func writePersonalFile(path string, data []byte) error {
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return err
 	}
@@ -129,7 +133,12 @@ func writePersonalFile(path string, data []byte) error {
 	return errors.Join(writeErr, f.Close())
 }
 
-func (s *personalManifestStore) put(a *types.FeishuPersonalAttempt, data []byte, name string, assets ...core.ApplicationAttachment) (*personalManifest, error) {
+func (s *personalManifestStore) put(
+	a *types.FeishuPersonalAttempt,
+	data []byte,
+	name string,
+	assets ...core.ApplicationAttachment,
+) (*personalManifest, error) {
 	if len(data) == 0 {
 		return nil, errors.New("empty personal candidate")
 	}
@@ -142,7 +151,7 @@ func (s *personalManifestStore) put(a *types.FeishuPersonalAttempt, data []byte,
 	if err != nil {
 		return nil, err
 	}
-	if err = os.MkdirAll(filepath.Dir(p), 0700); err != nil {
+	if err = os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
 		return nil, err
 	}
 	// Persist newly-created attempt/candidate directory entries as well as the
@@ -161,8 +170,17 @@ func (s *personalManifestStore) put(a *types.FeishuPersonalAttempt, data []byte,
 		return nil, err
 	}
 	// Only remove this invocation's unpublished private temporary directory.
-	defer os.RemoveAll(tmp)
-	m := personalManifest{Assets: assets, AttemptID: a.ID, CandidateID: a.CandidateVersionID, ImportID: a.ImportID, Revision: a.Revision, Hash: personalManifestDigest(data, assets), Size: int64(len(data)), Name: filepath.Base(name)}
+	defer func(target string) { _ = os.RemoveAll(target) }(tmp)
+	m := personalManifest{
+		Assets:      assets,
+		AttemptID:   a.ID,
+		CandidateID: a.CandidateVersionID,
+		ImportID:    a.ImportID,
+		Revision:    a.Revision,
+		Hash:        personalManifestDigest(data, assets),
+		Size:        int64(len(data)),
+		Name:        filepath.Base(name),
+	}
 	encoded, err := json.Marshal(m)
 	if err != nil {
 		return nil, err
@@ -171,7 +189,7 @@ func (s *personalManifestStore) put(a *types.FeishuPersonalAttempt, data []byte,
 		return nil, err
 	}
 	if len(assets) > 0 {
-		if err = os.Mkdir(filepath.Join(tmp, "assets"), 0700); err != nil {
+		if err = os.Mkdir(filepath.Join(tmp, "assets"), 0o700); err != nil {
 			return nil, err
 		}
 		written := map[string]bool{}
@@ -179,7 +197,9 @@ func (s *personalManifestStore) put(a *types.FeishuPersonalAttempt, data []byte,
 		for _, asset := range assets {
 			h := sha256.Sum256(asset.Data)
 			size += int64(len(asset.Data))
-			if len(asset.Data) == 0 || int64(len(asset.Data)) != asset.Size || hex.EncodeToString(h[:]) != asset.SHA256 || size > 32<<20 {
+			if len(asset.Data) == 0 || int64(len(asset.Data)) != asset.Size ||
+				hex.EncodeToString(h[:]) != asset.SHA256 ||
+				size > 32<<20 {
 				return nil, errors.New("invalid personal manifest asset")
 			}
 			if written[asset.SHA256] {

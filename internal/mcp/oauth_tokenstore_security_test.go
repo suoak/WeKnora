@@ -22,12 +22,21 @@ type tokenStoreErrorRepo struct {
 	writes    int
 }
 
-func (r *tokenStoreErrorRepo) GetTokenForPrincipal(_ context.Context, tenant uint64, principal types.Principal, service string) (*types.MCPOAuthToken, error) {
+func (r *tokenStoreErrorRepo) GetTokenForPrincipal(
+	_ context.Context,
+	tenant uint64,
+	principal types.Principal,
+	service string,
+) (*types.MCPOAuthToken, error) {
 	r.tenant, r.principal, r.service = tenant, principal, service
 	return nil, errors.New("SQL " + syntheticOAuthSensitive)
 }
+
 func (r *tokenStoreErrorRepo) SaveTokenForPrincipal(_ context.Context, row *types.MCPOAuthToken) error {
-	r.tenant, r.principal, r.service = row.TenantID, types.Principal{Type: row.PrincipalType, ID: row.PrincipalID}, row.ServiceID
+	r.tenant, r.principal, r.service = row.TenantID, types.Principal{
+		Type: row.PrincipalType,
+		ID:   row.PrincipalID,
+	}, row.ServiceID
 	r.writes++
 	return errors.New("SQL " + syntheticOAuthSensitive)
 }
@@ -54,7 +63,13 @@ func TestOAuthTokenStoreErrorsAreSafeAndScoped(t *testing.T) {
 			case "managed-read":
 				_, err = newManagedTokenStore(repo, 8, principal, "builtin").GetToken(ctx)
 			default:
-				err = store.SaveToken(ctx, &transport.Token{AccessToken: "synthetic-access-token", RefreshToken: "synthetic-refresh-token"})
+				err = store.SaveToken(
+					ctx,
+					&transport.Token{
+						AccessToken:  "synthetic-access-token",
+						RefreshToken: "synthetic-refresh-token",
+					},
+				)
 			}
 			require.Error(t, err)
 			if mode == "cancel-read" || mode == "cancel-write" {
@@ -75,10 +90,20 @@ func TestOAuthTokenStoreErrorsAreSafeAndScoped(t *testing.T) {
 				require.Equal(t, code, safe.Code)
 			}
 			applog.GetLogger(ctx).Errorf("token store: %v", err)
-			for _, s := range []string{"synthetic-client-secret", "synthetic-access-token", "synthetic-refresh-token", "synthetic-password"} {
+			for _, s := range []string{
+				"synthetic-client-secret",
+
+				"synthetic-access-token",
+
+				"synthetic-refresh-token",
+
+				"synthetic-password",
+			} {
+
 				require.NotContains(t, err.Error(), s)
 				require.NotContains(t, SafeOAuthErrorMessage(err), s)
 				require.NotContains(t, captured.String(), s)
+
 			}
 		})
 	}

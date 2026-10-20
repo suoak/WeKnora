@@ -18,10 +18,13 @@ import (
 // in-flight slot exhausts the shared gate and prevents both from finishing.
 func TestApplicationIdentityNestedACLRequestsMustNotHoldInflightSlots(t *testing.T) {
 	var active, maximum atomic.Int32
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		n := active.Add(1)
 		defer active.Add(-1)
-		for old := maximum.Load(); n > old && !maximum.CompareAndSwap(old, n); old = maximum.Load() {
+		for old := maximum.Load(); n > old; old = maximum.Load() {
+			if maximum.CompareAndSwap(old, n) {
+				break
+			}
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"code":0}`))
@@ -29,7 +32,12 @@ func TestApplicationIdentityNestedACLRequestsMustNotHoldInflightSlots(t *testing
 	defer srv.Close()
 	c := NewClient(&Config{AppID: t.Name()})
 	c.baseURL, c.httpClient = srv.URL, srv.Client()
-	c.policy = &appPolicy{limiter: rate.NewLimiter(rate.Inf, 1), requestGate: make(chan struct{}, 2), now: time.Now, sleep: sleepCtx}
+	c.policy = &appPolicy{
+		limiter:     rate.NewLimiter(rate.Inf, 1),
+		requestGate: make(chan struct{}, 2),
+		now:         time.Now,
+		sleep:       sleepCtx,
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	var arrivals atomic.Int32
@@ -51,7 +59,10 @@ func TestApplicationIdentityNestedACLRequestsMustNotHoldInflightSlots(t *testing
 						return "", call.Err()
 					}
 				}
-				probe := WithApplicationIdentity(call, func(context.Context) (string, error) { return "test-app-token", nil })
+				probe := WithApplicationIdentity(
+					call,
+					func(context.Context) (string, error) { return "test-app-token", nil },
+				)
 				var response map[string]any
 				if err := c.DoRequest(probe, http.MethodGet, "/acl", nil, &response); err != nil {
 					return "", err
@@ -74,14 +85,19 @@ func TestApplicationIdentityNestedACLRequestsMustNotHoldInflightSlots(t *testing
 
 func TestApplicationIdentityLocalRevocationWhileReacquiringSlot(t *testing.T) {
 	var sent atomic.Int32
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		sent.Add(1)
 		_, _ = w.Write([]byte(`{"code":0}`))
 	}))
 	defer srv.Close()
 	c := NewClient(&Config{AppID: t.Name()})
 	c.baseURL, c.httpClient = srv.URL, srv.Client()
-	c.policy = &appPolicy{limiter: rate.NewLimiter(rate.Inf, 1), requestGate: make(chan struct{}, 2), now: time.Now, sleep: sleepCtx}
+	c.policy = &appPolicy{
+		limiter:     rate.NewLimiter(rate.Inf, 1),
+		requestGate: make(chan struct{}, 2),
+		now:         time.Now,
+		sleep:       sleepCtx,
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	ready, resume := make(chan struct{}), make(chan struct{})

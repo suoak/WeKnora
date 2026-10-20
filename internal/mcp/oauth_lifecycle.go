@@ -78,7 +78,8 @@ func newOAuthRuntime(
 	h := transport.NewOAuthHandler(cfg)
 	h.SetBaseURL(baseURL)
 	leaseDuration := oauthRefreshLease
-	if cfg.HTTPClient != nil && cfg.HTTPClient.Timeout > 0 && cfg.HTTPClient.Timeout+15*time.Second > leaseDuration {
+	if cfg.HTTPClient != nil && cfg.HTTPClient.Timeout > 0 &&
+		cfg.HTTPClient.Timeout+15*time.Second > leaseDuration {
 		leaseDuration = cfg.HTTPClient.Timeout + 15*time.Second
 	}
 	return &oauthRuntime{
@@ -112,7 +113,11 @@ func tokenStatus(token *types.MCPOAuthToken, now time.Time) OAuthAuthorizationSt
 	return status
 }
 
-func (r *oauthRuntime) ensureFresh(ctx context.Context, force bool, override *transport.OAuthHandler) error {
+func (r *oauthRuntime) ensureFresh(
+	ctx context.Context,
+	force bool,
+	override *transport.OAuthHandler,
+) error {
 	row, err := r.repo.GetTokenForPrincipal(ctx, r.tenantID, r.principal, r.serviceID)
 	if err != nil {
 		return safeOAuthError("load MCP OAuth token", err)
@@ -133,7 +138,9 @@ func (r *oauthRuntime) ensureFresh(ctx context.Context, force bool, override *tr
 	}
 	if row.RefreshToken == "" {
 		_ = r.repo.DeleteTokenForPrincipal(ctx, r.tenantID, r.principal, r.serviceID)
-		return &OAuthReauthorizationRequiredError{Reason: "the access token expired and no refresh token is available"}
+		return &OAuthReauthorizationRequiredError{
+			Reason: "the access token expired and no refresh token is available",
+		}
 	}
 	return r.refreshWithLease(ctx, row, override)
 }
@@ -188,7 +195,8 @@ func (r *oauthRuntime) refreshAsLeaseOwner(
 		if err := r.repo.ReleaseTokenRefreshLease(
 			releaseCtx, r.tenantID, r.principal, r.serviceID, leaseID,
 		); err != nil {
-			logger.GetLogger(releaseCtx).Warnf("failed to release MCP OAuth refresh lease: %s", SafeOAuthErrorMessage(err))
+			logger.GetLogger(releaseCtx).
+				Warnf("failed to release MCP OAuth refresh lease: %s", SafeOAuthErrorMessage(err))
 		}
 	}()
 
@@ -220,7 +228,8 @@ func (r *oauthRuntime) refreshAsLeaseOwner(
 	}
 	refreshed, refreshErr := handler.RefreshToken(ctx, current.RefreshToken)
 	if refreshErr == nil && refreshed != nil && refreshed.AccessToken != "" {
-		logger.GetLogger(ctx).Infof("MCP OAuth token refreshed: service=%s principal=%s", r.serviceID, r.principal.StorageID())
+		logger.GetLogger(ctx).
+			Infof("MCP OAuth token refreshed: service=%s principal=%s", r.serviceID, r.principal.StorageID())
 		return nil
 	}
 	if refreshErr == nil {

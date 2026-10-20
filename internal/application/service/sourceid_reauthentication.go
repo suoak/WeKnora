@@ -60,14 +60,24 @@ func sourceIDForcedAuthorizationURL(endpoint string, query url.Values) (string, 
 	return u.String(), nil
 }
 
-func prepareSourceIDReauthentication(ctx context.Context, cfg *config.OIDCAuthConfig, saved string) (context.Context, error) {
+func prepareSourceIDReauthentication(
+	ctx context.Context,
+	cfg *config.OIDCAuthConfig,
+	saved string,
+) (context.Context, error) {
 	var request sourceIDReauthRequest
 	if saved != "" {
 		if err := json.Unmarshal([]byte(saved), &request); err != nil {
 			return ctx, errors.New("sourceid reauthentication transaction invalid")
 		}
 	}
-	if cfg.SourceIDForceReauthPromptLogin && (request.Version != 1 || request.Prompt != "login" || request.Started.IsZero() || request.Started.After(time.Now())) {
+	if cfg.SourceIDForceReauthPromptLogin &&
+		(request.Version != 1 ||
+			request.Prompt != "login" ||
+			request.Started.IsZero() ||
+			request.Started.After(
+				time.Now(),
+			)) {
 		return ctx, errors.New("sourceid forced reauthentication transaction required")
 	}
 	return context.WithValue(ctx, sourceIDReauthRequestKey{}, request), nil
@@ -75,7 +85,11 @@ func prepareSourceIDReauthentication(ctx context.Context, cfg *config.OIDCAuthCo
 
 // Only called with signature/issuer/audience/time/nonce-verified ID Token
 // claims, BEFORE UserInfo merging. No UserInfo field can supply this evidence.
-func checkSourceIDReauthentication(ctx context.Context, cfg *config.OIDCAuthConfig, signed map[string]interface{}) error {
+func checkSourceIDReauthentication(
+	ctx context.Context,
+	cfg *config.OIDCAuthConfig,
+	signed map[string]interface{},
+) error {
 	if !cfg.SourceIDEnable || !cfg.SourceIDForceReauthPromptLogin {
 		return nil
 	}
@@ -96,7 +110,9 @@ func checkSourceIDReauthentication(ctx context.Context, cfg *config.OIDCAuthConf
 		default:
 			err = errors.New("sourceid auth_time invalid")
 		}
-		if err != nil || math.IsNaN(seconds) || math.IsInf(seconds, 0) || math.Trunc(seconds) != seconds || seconds < float64(request.Started.Unix()) || seconds > float64(time.Now().Unix()) {
+		if err != nil || math.IsNaN(seconds) || math.IsInf(seconds, 0) || math.Trunc(seconds) != seconds ||
+			seconds < float64(request.Started.Unix()) ||
+			seconds > float64(time.Now().Unix()) {
 			evidence = "INVALID_OR_STALE"
 			err = errors.New("sourceid reauthentication auth_time invalid or stale")
 		} else {

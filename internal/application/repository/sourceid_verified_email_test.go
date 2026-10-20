@@ -26,25 +26,64 @@ func verifiedEmailDB(t *testing.T, pg bool) (*userRepository, *gorm.DB, types.Us
 		require.NoError(t, e)
 		require.NoError(t, db.Exec(string(sql)).Error)
 	}
-	sql, e := os.ReadFile("../../../migrations/" + dialect + "/003030_sourceid_verified_email_policy.up.sql")
+	sql, e := os.ReadFile(
+		"../../../migrations/" + dialect + "/003030_sourceid_verified_email_policy.up." +
+			"sql",
+	)
 	require.NoError(t, e)
 	require.NoError(t, db.Exec(string(sql)).Error)
 	return r, db, u
 }
+
 func verifiedEmailInput() types.SourceIDVerifiedEmailLogin {
-	return types.SourceIDVerifiedEmailLogin{Issuer: "synthetic-issuer", Subject: "synthetic-sub", EmployeeNo: "synthetic-employee", Email: " employee@EXAMPLE.test ", PolicyRef: "synthetic-email-policy-v1", BindingPolicyRef: "synthetic-auto-v1", JITPolicyRef: "synthetic-jit", JITDomains: []string{"example.test"}}
+	return types.SourceIDVerifiedEmailLogin{
+		Issuer:           "synthetic-issuer",
+		Subject:          "synthetic-sub",
+		EmployeeNo:       "synthetic-employee",
+		Email:            " employee@EXAMPLE.test ",
+		PolicyRef:        "synthetic-email-policy-v1",
+		BindingPolicyRef: "synthetic-auto-v1",
+		JITPolicyRef:     "synthetic-jit",
+		JITDomains:       []string{"example.test"},
+	}
 }
+
 func verifiedEmailSession() (*types.SourceIDSession, *types.SourceIDLocalSession) {
 	now := time.Now()
 	id := uuid.NewString()
-	return &types.SourceIDSession{ID: id, Issuer: "synthetic-issuer", ExpiresAt: now.Add(time.Hour), CreatedAt: now}, &types.SourceIDLocalSession{ID: id, Subject: "synthetic-sub", PolicyRef: "synthetic-local", AdmissionPolicyRef: "synthetic-sso", AdmissionSource: "oidc_sso_approved", AdmissionCheckedAt: now, AdmissionValidUntil: now.Add(time.Hour), AccessSeconds: 3600, IdleSeconds: 1800, LastSeenAt: now}
+	return &types.SourceIDSession{
+			ID:        id,
+			Issuer:    "synthetic-issuer",
+			ExpiresAt: now.Add(time.Hour),
+			CreatedAt: now,
+		}, &types.SourceIDLocalSession{
+			ID:                  id,
+			Subject:             "synthetic-sub",
+			PolicyRef:           "synthetic-local",
+			AdmissionPolicyRef:  "synthetic-sso",
+			AdmissionSource:     "oidc_sso_approved",
+			AdmissionCheckedAt:  now,
+			AdmissionValidUntil: now.Add(time.Hour),
+			AccessSeconds:       3600,
+			IdleSeconds:         1800,
+			LastSeenAt:          now,
+		}
 }
+
 func TestSourceIDVerifiedEmailAtomicLifecycleAllRoles(t *testing.T) {
 	for _, role := range []string{"viewer", "contributor", "owner", "system_admin", "cross_space_admin"} {
 		t.Run(role, func(t *testing.T) {
 			r, db, u := verifiedEmailDB(t, false)
 			ctx := context.Background()
-			require.NoError(t, db.Model(&u).Updates(map[string]interface{}{"is_system_admin": role == "system_admin", "can_access_all_tenants": role == "cross_space_admin"}).Error)
+			require.NoError(
+				t,
+				db.Model(&u).
+					Updates(map[string]interface{}{
+						"is_system_admin":        role == "system_admin",
+						"can_access_all_tenants": role == "cross_space_admin",
+					}).
+					Error,
+			)
 			require.NoError(t, db.First(&u, "id=?", u.ID).Error)
 			q := verifiedEmailInput()
 			s, l := verifiedEmailSession()
@@ -55,7 +94,19 @@ func TestSourceIDVerifiedEmailAtomicLifecycleAllRoles(t *testing.T) {
 			require.Equal(t, u.IsSystemAdmin, bound.IsSystemAdmin)
 			require.Equal(t, u.CanAccessAllTenants, bound.CanAccessAllTenants)
 			require.Equal(t, u.TenantID, bound.TenantID)
-			require.NoError(t, r.CheckSourceIDVerifiedEmailSession(ctx, s.ID, u.ID, q.Issuer, q.EmployeeNo, q.Subject, q.PolicyRef, q.BindingPolicyRef))
+			require.NoError(
+				t,
+				r.CheckSourceIDVerifiedEmailSession(
+					ctx,
+					s.ID,
+					u.ID,
+					q.Issuer,
+					q.EmployeeNo,
+					q.Subject,
+					q.PolicyRef,
+					q.BindingPolicyRef,
+				),
+			)
 			var n int64
 			require.NoError(t, db.Model(&types.SourceIDAccountOwnership{}).Count(&n).Error)
 			require.Zero(t, n)
@@ -67,10 +118,25 @@ func TestSourceIDVerifiedEmailAtomicLifecycleAllRoles(t *testing.T) {
 			again, _, e := r.ResolveSourceIDVerifiedEmailSession(ctx, q, s2, l2, nil)
 			require.NoError(t, e)
 			require.Equal(t, u.ID, again.ID)
-			require.Error(t, r.CheckSourceIDVerifiedEmailSession(ctx, s.ID, u.ID, q.Issuer, q.EmployeeNo, q.Subject, "changed-policy", q.BindingPolicyRef))
+			require.Error(
+				t,
+				r.CheckSourceIDVerifiedEmailSession(
+					ctx,
+					s.ID,
+					u.ID,
+					q.Issuer,
+					q.EmployeeNo,
+					q.Subject,
+					"changed-policy",
+					q.BindingPolicyRef,
+				),
+			)
 			var review types.SourceIDBindingReview
 			require.NoError(t, db.First(&review).Error)
-			require.NoError(t, r.ReviewSourceIDBinding(ctx, review.ID, "synthetic-admin", "synthetic-revoke", "revoke"))
+			require.NoError(
+				t,
+				r.ReviewSourceIDBinding(ctx, review.ID, "synthetic-admin", "synthetic-revoke", "revoke"),
+			)
 			require.Error(t, r.CheckSourceIDSession(ctx, s.ID, u.ID))
 			s3, l3 := verifiedEmailSession()
 			_, _, e = r.ResolveSourceIDVerifiedEmailSession(ctx, q, s3, l3, nil)
@@ -80,7 +146,20 @@ func TestSourceIDVerifiedEmailAtomicLifecycleAllRoles(t *testing.T) {
 }
 
 func TestSourceIDVerifiedEmailRejectsExceptionsNoJITFallback(t *testing.T) {
-	for _, scenario := range []string{"duplicate", "soft_deleted", "deleted_duplicate", "inactive", "disabled_ownership", "expired_ownership", "wrong_employee", "known_transfer", "subject_conflict", "revoked", "session_insert_failure", "session_id_failure"} {
+	for _, scenario := range []string{
+		"duplicate",
+		"soft_deleted",
+		"deleted_duplicate",
+		"inactive",
+		"disabled_ownership",
+		"expired_ownership",
+		"wrong_employee",
+		"known_transfer",
+		"subject_conflict",
+		"revoked",
+		"session_insert_failure",
+		"session_id_failure",
+	} {
 		t.Run(scenario, func(t *testing.T) {
 			r, db, u := verifiedEmailDB(t, false)
 			ctx := context.Background()
@@ -90,7 +169,12 @@ func TestSourceIDVerifiedEmailRejectsExceptionsNoJITFallback(t *testing.T) {
 			var calls atomic.Int32
 			switch scenario {
 			case "duplicate", "deleted_duplicate":
-				other := types.User{ID: uuid.NewString(), Username: "synthetic-other", Email: " employee@example.test ", IsActive: true}
+				other := types.User{
+					ID:       uuid.NewString(),
+					Username: "synthetic-other",
+					Email:    " employee@example.test ",
+					IsActive: true,
+				}
 				require.NoError(t, db.Create(&other).Error)
 				if scenario == "deleted_duplicate" {
 					require.NoError(t, db.Delete(&other).Error)
@@ -110,17 +194,38 @@ func TestSourceIDVerifiedEmailRejectsExceptionsNoJITFallback(t *testing.T) {
 				_, e := r.SyncSourceIDAccountOwnership(ctx, p, "synthetic-operator", true)
 				require.NoError(t, e)
 				if scenario == "expired_ownership" {
-					require.NoError(t, db.Model(&types.SourceIDAccountOwnership{}).Where("user_id=?", u.ID).Update("valid_until", time.Now().Add(-time.Minute)).Error)
+					require.NoError(
+						t,
+						db.Model(&types.SourceIDAccountOwnership{}).
+							Where("user_id=?", u.ID).
+							Update("valid_until", time.Now().Add(-time.Minute)).
+							Error,
+					)
 				}
 			case "known_transfer":
-				require.NoError(t, r.RecordSourceIDLinkBlock(ctx, types.SourceIDLinkBlock{Issuer: q.Issuer, Email: u.Email, Reason: "email_reassigned", Actor: "synthetic-security", Reference: "synthetic-case"}))
+				require.NoError(
+					t,
+					r.RecordSourceIDLinkBlock(
+						ctx,
+						types.SourceIDLinkBlock{
+							Issuer:    q.Issuer,
+							Email:     u.Email,
+							Reason:    "email_reassigned",
+							Actor:     "synthetic-security",
+							Reference: "synthetic-case",
+						},
+					),
+				)
 			case "subject_conflict", "revoked":
 				_, _, e := r.ResolveSourceIDVerifiedEmailSession(ctx, q, s, l, nil)
 				require.NoError(t, e)
 				var row types.SourceIDBindingReview
 				require.NoError(t, db.First(&row).Error)
 				if scenario == "revoked" {
-					require.NoError(t, r.ReviewSourceIDBinding(ctx, row.ID, "synthetic-admin", "synthetic-case", "revoke"))
+					require.NoError(
+						t,
+						r.ReviewSourceIDBinding(ctx, row.ID, "synthetic-admin", "synthetic-case", "revoke"),
+					)
 				} else {
 					q.Subject = "synthetic-other-sub"
 				}
@@ -129,18 +234,37 @@ func TestSourceIDVerifiedEmailRejectsExceptionsNoJITFallback(t *testing.T) {
 			case "session_id_failure":
 				l.ID = uuid.NewString()
 			case "session_insert_failure":
-				require.NoError(t, db.Exec("CREATE TRIGGER synthetic_fail_session BEFORE INSERT ON source_id_local_link_policies BEGIN SELECT RAISE(ABORT,'synthetic rollback'); END").Error)
+				require.NoError(
+					t,
+					db.Exec(
+						"CREATE TRIGGER synthetic_fail_session BEFORE INSERT ON "+
+							"source_id_local_link_policies BEGIN SELECT RAISE(ABORT,'synthetic "+
+							"rollback'); END",
+					).Error,
+				)
 			}
 			var before int64
 			require.NoError(t, db.Model(&types.ExternalIdentity{}).Count(&before).Error)
-			_, _, e := r.ResolveSourceIDVerifiedEmailSession(ctx, q, s, l, syntheticJITProvision("employee@example.test", &calls))
+			_, _, e := r.ResolveSourceIDVerifiedEmailSession(
+				ctx,
+				q,
+				s,
+				l,
+				syntheticJITProvision("employee@example.test", &calls),
+			)
 			require.Error(t, e)
 			require.Zero(t, calls.Load())
 			var after int64
 			require.NoError(t, db.Model(&types.ExternalIdentity{}).Count(&after).Error)
 			require.Equal(t, before, after)
 			if scenario == "session_insert_failure" {
-				for _, m := range []interface{}{&types.SourceIDBindingReview{}, &types.SourceIDBindingAudit{}, &types.SourceIDLinkDecision{}, &types.SourceIDSession{}, &types.SourceIDLocalSession{}} {
+				for _, m := range []interface{}{
+					&types.SourceIDBindingReview{},
+					&types.SourceIDBindingAudit{},
+					&types.SourceIDLinkDecision{},
+					&types.SourceIDSession{},
+					&types.SourceIDLocalSession{},
+				} {
 					require.NoError(t, db.Model(m).Count(&after).Error)
 					require.Zero(t, after)
 				}
@@ -157,29 +281,79 @@ func TestSourceIDVerifiedEmailJITAndBlockedAccess(t *testing.T) {
 	q.JITEnabled = true
 	var calls atomic.Int32
 	s, l := verifiedEmailSession()
-	u, created, e := r.ResolveSourceIDVerifiedEmailSession(ctx, q, s, l, syntheticJITProvision(q.Email, &calls))
+	u, created, e := r.ResolveSourceIDVerifiedEmailSession(
+		ctx,
+		q,
+		s,
+		l,
+		syntheticJITProvision(q.Email, &calls),
+	)
 	require.NoError(t, e)
 	require.True(t, created)
 	require.Zero(t, u.TenantID)
 	require.False(t, u.IsSystemAdmin)
 	require.False(t, u.CanAccessAllTenants)
-	a := &types.AuthToken{ID: uuid.NewString(), UserID: u.ID, SessionID: s.ID, Token: "synthetic-access", TokenType: "access_token", ExpiresAt: time.Now().Add(time.Minute)}
+	a := &types.AuthToken{
+		ID:        uuid.NewString(),
+		UserID:    u.ID,
+		SessionID: s.ID,
+		Token:     "synthetic-access",
+		TokenType: "access_token",
+		ExpiresAt: time.Now().Add(time.Minute),
+	}
 	require.NoError(t, r.PersistSourceIDTokens(ctx, s.ID, a, nil, ""))
-	refresh := &types.AuthToken{ID: uuid.NewString(), UserID: u.ID, SessionID: s.ID, Token: "synthetic-refresh", TokenType: "refresh_token", ExpiresAt: time.Now().Add(time.Minute)}
+	refresh := &types.AuthToken{
+		ID:        uuid.NewString(),
+		UserID:    u.ID,
+		SessionID: s.ID,
+		Token:     "synthetic-refresh",
+		TokenType: "refresh_token",
+		ExpiresAt: time.Now().Add(time.Minute),
+	}
 	require.Error(t, r.PersistSourceIDTokens(ctx, s.ID, a, refresh, ""))
 	q.Email = "changed@example.test"
 	s2, l2 := verifiedEmailSession()
-	again, created, e := r.ResolveSourceIDVerifiedEmailSession(ctx, q, s2, l2, syntheticJITProvision(q.Email, &calls))
+	again, created, e := r.ResolveSourceIDVerifiedEmailSession(
+		ctx,
+		q,
+		s2,
+		l2,
+		syntheticJITProvision(q.Email, &calls),
+	)
 	require.NoError(t, e)
 	require.False(t, created)
 	require.Equal(t, u.ID, again.ID)
 	require.EqualValues(t, 1, calls.Load())
-	require.NoError(t, r.RecordSourceIDLinkBlock(ctx, types.SourceIDLinkBlock{Issuer: q.Issuer, UserID: u.ID, Reason: "identity_disabled", Actor: "synthetic-security", Reference: "synthetic-case"}))
+	require.NoError(
+		t,
+		r.RecordSourceIDLinkBlock(
+			ctx,
+			types.SourceIDLinkBlock{
+				Issuer:    q.Issuer,
+				UserID:    u.ID,
+				Reason:    "identity_disabled",
+				Actor:     "synthetic-security",
+				Reference: "synthetic-case",
+			},
+		),
+	)
 	require.Error(t, r.CheckSourceIDSession(ctx, s.ID, u.ID))
 	var token types.AuthToken
 	require.NoError(t, db.First(&token, "id=?", a.ID).Error)
 	require.True(t, token.IsRevoked)
-	require.Error(t, r.CheckSourceIDVerifiedEmailSession(ctx, s2.ID, u.ID, q.Issuer, q.EmployeeNo, q.Subject, q.PolicyRef, q.BindingPolicyRef))
+	require.Error(
+		t,
+		r.CheckSourceIDVerifiedEmailSession(
+			ctx,
+			s2.ID,
+			u.ID,
+			q.Issuer,
+			q.EmployeeNo,
+			q.Subject,
+			q.PolicyRef,
+			q.BindingPolicyRef,
+		),
+	)
 }
 
 func TestSourceIDVerifiedEmailJITFailureRollsBack(t *testing.T) {
@@ -190,11 +364,17 @@ func TestSourceIDVerifiedEmailJITFailureRollsBack(t *testing.T) {
 	s, l := verifiedEmailSession()
 	var before int64
 	require.NoError(t, db.Model(&types.User{}).Count(&before).Error)
-	_, _, err := r.ResolveSourceIDVerifiedEmailSession(context.Background(), q, s, l, func(ctx context.Context, repo interfaces.UserRepository) (*types.User, error) {
-		u := &types.User{ID: uuid.NewString(), Email: q.Email, Username: "synthetic", IsActive: true}
-		require.NoError(t, repo.CreateUser(ctx, u))
-		return nil, errors.New("synthetic failure")
-	})
+	_, _, err := r.ResolveSourceIDVerifiedEmailSession(
+		context.Background(),
+		q,
+		s,
+		l,
+		func(ctx context.Context, repo interfaces.UserRepository) (*types.User, error) {
+			u := &types.User{ID: uuid.NewString(), Email: q.Email, Username: "synthetic", IsActive: true}
+			require.NoError(t, repo.CreateUser(ctx, u))
+			return nil, errors.New("synthetic failure")
+		},
+	)
 	require.Error(t, err)
 	var after int64
 	require.NoError(t, db.Model(&types.User{}).Count(&after).Error)
@@ -218,7 +398,13 @@ func TestSourceIDPostgresVerifiedEmailConcurrentFirstAndJIT(t *testing.T) {
 				go func() {
 					defer wg.Done()
 					s, l := verifiedEmailSession()
-					u, _, e := r.ResolveSourceIDVerifiedEmailSession(context.Background(), q, s, l, syntheticJITProvision(q.Email, &calls))
+					u, _, e := r.ResolveSourceIDVerifiedEmailSession(
+						context.Background(),
+						q,
+						s,
+						l,
+						syntheticJITProvision(q.Email, &calls),
+					)
 					if e == nil {
 						success.Add(1)
 						ids <- u.ID
@@ -242,7 +428,12 @@ func TestSourceIDPostgresVerifiedEmailConcurrentFirstAndJIT(t *testing.T) {
 				require.NotEqual(t, legacy.ID, first)
 				require.EqualValues(t, 1, calls.Load())
 			}
-			for _, m := range []interface{}{&types.SourceIDBindingReview{}, &types.ExternalIdentity{}, &types.SourceIDEnrollment{}, &types.SourceIDLinkDecision{}} {
+			for _, m := range []interface{}{
+				&types.SourceIDBindingReview{},
+				&types.ExternalIdentity{},
+				&types.SourceIDEnrollment{},
+				&types.SourceIDLinkDecision{},
+			} {
 				var n int64
 				require.NoError(t, db.Model(m).Count(&n).Error)
 				require.EqualValues(t, 1, n)
@@ -282,7 +473,10 @@ func TestSourceIDPostgresVerifiedEmailRevokeRace(t *testing.T) {
 	wg.Wait()
 	require.NoError(t, <-fail)
 	var n int64
-	require.NoError(t, db.Model(&types.SourceIDSession{}).Where("user_id=? AND NOT revoked", u.ID).Count(&n).Error)
+	require.NoError(
+		t,
+		db.Model(&types.SourceIDSession{}).Where("user_id=? AND NOT revoked", u.ID).Count(&n).Error,
+	)
 	require.Zero(t, n)
 }
 
@@ -304,7 +498,13 @@ func TestSourceIDPostgresVerifiedEmailJITCannotRaceExistingLink(t *testing.T) {
 			}
 			s, l := verifiedEmailSession()
 			l.Subject = q.Subject
-			bound, _, e := r.ResolveSourceIDVerifiedEmailSession(context.Background(), q, s, l, syntheticJITProvision("employee@example.test", &calls))
+			bound, _, e := r.ResolveSourceIDVerifiedEmailSession(
+				context.Background(),
+				q,
+				s,
+				l,
+				syntheticJITProvision("employee@example.test", &calls),
+			)
 			if e == nil && bound.ID == u.ID {
 				success.Add(1)
 			}
@@ -329,11 +529,17 @@ func TestSourceIDPostgresVerifiedEmailBlocksConcurrentEmailInsert(t *testing.T) 
 	loginDone := make(chan error, 1)
 	insertDone := make(chan error, 1)
 	var once sync.Once
-	require.NoError(t, db.Callback().Create().Before("gorm:create").Register("synthetic_verified_first_review", func(tx *gorm.DB) {
-		if tx.Statement.Table == "source_id_binding_reviews" {
-			once.Do(func() { close(entered); <-release })
-		}
-	}))
+	require.NoError(
+		t,
+		db.Callback().
+			Create().
+			Before("gorm:create").
+			Register("synthetic_verified_first_review", func(tx *gorm.DB) {
+				if tx.Statement.Table == "source_id_binding_reviews" {
+					once.Do(func() { close(entered); <-release })
+				}
+			}),
+	)
 	t.Cleanup(func() { _ = db.Callback().Create().Remove("synthetic_verified_first_review") })
 	go func() {
 		s, l := verifiedEmailSession()
@@ -346,7 +552,19 @@ func TestSourceIDPostgresVerifiedEmailBlocksConcurrentEmailInsert(t *testing.T) 
 		t.Fatal("first review not reached")
 	}
 	go func() {
-		insertDone <- r.CreateUser(context.Background(), &types.User{ID: uuid.NewString(), Username: "synthetic-competing-registration", Email: "EMPLOYEE@example.test", IsActive: true})
+		insertDone <- r.CreateUser(
+			context.Background(),
+
+			&types.User{
+				ID: uuid.NewString(),
+
+				Username: "synthetic-competing-registration",
+
+				Email: "EMPLOYEE@example.test",
+
+				IsActive: true,
+			},
+		)
 	}()
 	select {
 	case <-insertDone:
@@ -411,15 +629,31 @@ func TestSourceIDPostgresVerifiedEmailDirectoryDisableRace(t *testing.T) {
 	wg.Wait()
 	require.NoError(t, <-done)
 	var n int64
-	require.NoError(t, db.Model(&types.SourceIDSession{}).Where("user_id=? AND NOT revoked", u.ID).Count(&n).Error)
+	require.NoError(
+		t,
+		db.Model(&types.SourceIDSession{}).Where("user_id=? AND NOT revoked", u.ID).Count(&n).Error,
+	)
 	require.Zero(t, n)
-	require.Error(t, r.CheckSourceIDVerifiedEmailSession(ctx, s.ID, u.ID, q.Issuer, q.EmployeeNo, q.Subject, q.PolicyRef, q.BindingPolicyRef))
+	require.Error(
+		t,
+		r.CheckSourceIDVerifiedEmailSession(
+			ctx,
+			s.ID,
+			u.ID,
+			q.Issuer,
+			q.EmployeeNo,
+			q.Subject,
+			q.PolicyRef,
+			q.BindingPolicyRef,
+		),
+	)
 }
 
 func TestSourceIDVerifiedEmailRetainingMigrationDownUp(t *testing.T) { verifiedEmailDownUp(t, false) }
 func TestSourceIDPostgresVerifiedEmailRetainingMigrationDownUp(t *testing.T) {
 	verifiedEmailDownUp(t, true)
 }
+
 func verifiedEmailDownUp(t *testing.T, pg bool) {
 	r, db, u := verifiedEmailDB(t, pg)
 	ctx := context.Background()
@@ -427,13 +661,23 @@ func verifiedEmailDownUp(t *testing.T, pg bool) {
 	s, l := verifiedEmailSession()
 	_, _, e := r.ResolveSourceIDVerifiedEmailSession(ctx, q, s, l, nil)
 	require.NoError(t, e)
-	a := &types.AuthToken{ID: uuid.NewString(), UserID: u.ID, SessionID: s.ID, Token: "synthetic-down-access", TokenType: "access_token", ExpiresAt: time.Now().Add(time.Minute)}
+	a := &types.AuthToken{
+		ID:        uuid.NewString(),
+		UserID:    u.ID,
+		SessionID: s.ID,
+		Token:     "synthetic-down-access",
+		TokenType: "access_token",
+		ExpiresAt: time.Now().Add(time.Minute),
+	}
 	require.NoError(t, r.PersistSourceIDTokens(ctx, s.ID, a, nil, ""))
 	dialect := "sqlite"
 	if pg {
 		dialect = "versioned"
 	}
-	down, e := os.ReadFile("../../../migrations/" + dialect + "/003030_sourceid_verified_email_policy.down.sql")
+	down, e := os.ReadFile(
+		"../../../migrations/" + dialect + "/003030_sourceid_verified_email_policy.dow" +
+			"n.sql",
+	)
 	require.NoError(t, e)
 	require.NoError(t, db.Exec(string(down)).Error)
 	require.Error(t, r.CheckSourceIDSession(ctx, s.ID, u.ID))
@@ -441,17 +685,30 @@ func verifiedEmailDownUp(t *testing.T, pg bool) {
 	s2, l2 := verifiedEmailSession()
 	_, _, e = r.ResolveSourceIDVerifiedEmailSession(ctx, q, s2, l2, nil)
 	require.Error(t, e)
-	for _, model := range []interface{}{&types.SourceIDBindingAudit{}, &types.SourceIDLinkDecision{}, &types.ExternalIdentity{}} {
+	for _, model := range []interface{}{
+		&types.SourceIDBindingAudit{},
+
+		&types.SourceIDLinkDecision{},
+
+		&types.ExternalIdentity{},
+	} {
+
 		var n int64
 		require.NoError(t, db.Model(model).Count(&n).Error)
 		require.EqualValues(t, 1, n)
+
 	}
-	up, e := os.ReadFile("../../../migrations/" + dialect + "/003030_sourceid_verified_email_policy.up.sql")
+	up, e := os.ReadFile("../../../migrations/" + dialect + "/003030_sourceid_verified_email_policy.up." +
+		"sql")
 	require.NoError(t, e)
 	require.NoError(t, db.Exec(string(up)).Error)
 	s3, l3 := verifiedEmailSession()
 	again, _, e := r.ResolveSourceIDVerifiedEmailSession(ctx, q, s3, l3, nil)
 	require.NoError(t, e)
 	require.Equal(t, u.ID, again.ID)
-	require.Error(t, r.CheckSourceIDSession(ctx, s.ID, u.ID), "retaining up must not resurrect old access/session")
+	require.Error(
+		t,
+		r.CheckSourceIDSession(ctx, s.ID, u.ID),
+		"retaining up must not resurrect old access/session",
+	)
 }

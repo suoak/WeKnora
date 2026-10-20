@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"errors"
-	"golang.org/x/time/rate"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +11,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 func TestStabilityResponseBudgets(t *testing.T) {
@@ -21,20 +22,41 @@ func TestStabilityResponseBudgets(t *testing.T) {
 		status      int
 		size, limit int64
 	}{
-		{"json_exact", false, 200, 64, 64}, {"json_oversized", false, 200, 65, 64},
-		{"json_error", false, 403, 65, 64}, {"binary_exact", true, 200, 64, 64},
-		{"binary_oversized", true, 200, 65, 64}, {"binary_error", true, 403, maxFeishuErrorBytes + 1, 64},
+		{"json_exact", false, 200, 64, 64},
+		{"json_oversized", false, 200, 65, 64},
+		{"json_error", false, 403, 65, 64},
+		{"binary_exact", true, 200, 64, 64},
+		{"binary_oversized", true, 200, 65, 64},
+		{"binary_error", true, 403, maxFeishuErrorBytes + 1, 64},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var calls atomic.Int32
 			var closed atomic.Bool
 			client := NewClient(&Config{AppID: tc.name, BaseURL: "https://open.feishu.cn"})
 			client.jsonLimit = tc.limit
-			client.httpClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
-				calls.Add(1)
-				return &http.Response{StatusCode: tc.status, Header: make(http.Header), Body: &stabilityBody{Reader: strings.NewReader(strings.Repeat("x", int(tc.size))), closed: &closed}}, nil
-			})}
-			_, err := client.doRequestBytes(context.Background(), "budget", "GET", "/budget", nil, false, tc.binary, tc.limit)
+			client.httpClient = &http.Client{
+				Transport: roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+					calls.Add(1)
+					return &http.Response{
+						StatusCode: tc.status,
+						Header:     make(http.Header),
+						Body: &stabilityBody{
+							Reader: strings.NewReader(strings.Repeat("x", int(tc.size))),
+							closed: &closed,
+						},
+					}, nil
+				}),
+			}
+			_, err := client.doRequestBytes(
+				context.Background(),
+				"budget",
+				"GET",
+				"/budget",
+				nil,
+				false,
+				tc.binary,
+				tc.limit,
+			)
 			oversized := tc.size > tc.limit
 			if tc.binary && tc.status != 200 {
 				oversized = tc.size > maxFeishuErrorBytes
@@ -116,7 +138,11 @@ func TestStabilityUserAndTenantShareQuotaWithoutSharingTokens(t *testing.T) {
 		_, _ = io.WriteString(w, `{"code":0}`)
 	}))
 	defer server.Close()
-	clients := []*Client{NewClient(&Config{AppID: "mixed", BaseURL: server.URL}), NewClient(&Config{AppID: "mixed", BaseURL: server.URL}), NewClient(&Config{AppID: "mixed", BaseURL: server.URL})}
+	clients := []*Client{
+		NewClient(&Config{AppID: "mixed", BaseURL: server.URL}),
+		NewClient(&Config{AppID: "mixed", BaseURL: server.URL}),
+		NewClient(&Config{AppID: "mixed", BaseURL: server.URL}),
+	}
 	for _, c := range clients {
 		c.token.cache = "tenant"
 		c.token.expAt = time.Now().Add(time.Hour)
@@ -134,7 +160,18 @@ func TestStabilityUserAndTenantShareQuotaWithoutSharingTokens(t *testing.T) {
 				user := []string{"A", "B"}[i]
 				ctx = WithUserIdentity(ctx, func(context.Context) (string, error) { return user, nil })
 			}
-			if err := c.DoRequest(ctx, "GET", "/open-apis/drive/v1/export_tasks/"+[]string{"one", "two", "three"}[i], nil, nil); err != nil {
+			if err := c.DoRequest(
+				ctx,
+				"GET",
+				"/open-apis/drive/v1/export_tasks/"+
+					[]string{
+						"one",
+						"two",
+						"three",
+					}[i],
+				nil,
+				nil,
+			); err != nil {
 				t.Error(err)
 			}
 		}(i, c)
@@ -166,7 +203,8 @@ func TestStabilityHeaderCooldownAndGroups(t *testing.T) {
 	if first != a.requestGate("GET", "/open-apis/drive/v1/export_tasks/t2?token=d2") {
 		t.Fatal("per document budget")
 	}
-	if first == a.requestGate("POST", "/open-apis/drive/v1/export_tasks") || first == b.requestGate("GET", "/open-apis/drive/v1/export_tasks/t1") {
+	if first == a.requestGate("POST", "/open-apis/drive/v1/export_tasks") ||
+		first == b.requestGate("GET", "/open-apis/drive/v1/export_tasks/t1") {
 		t.Fatal("groups/apps not isolated")
 	}
 	first.cooldown(time.Second)
@@ -175,7 +213,10 @@ func TestStabilityHeaderCooldownAndGroups(t *testing.T) {
 	if !errors.Is(first.wait(ctx), context.Canceled) {
 		t.Fatal("cancel ignored")
 	}
-	if strings.Contains((&APIError{Message: "secret-canary", Category: ErrorCategoryPermission}).Error(), "secret-canary") {
+	if strings.Contains(
+		(&APIError{Message: "secret-canary", Category: ErrorCategoryPermission}).Error(),
+		"secret-canary",
+	) {
 		t.Fatal("provider message leaked")
 	}
 }
@@ -184,7 +225,7 @@ func TestStabilityBinaryRateEnvelopeExhaustionRetainsCooldown(t *testing.T) {
 	for _, status := range []int{200, 400, 429} {
 		t.Run(http.StatusText(status), func(t *testing.T) {
 			var calls atomic.Int32
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				calls.Add(1)
 				w.Header().Set("x-ogw-ratelimit-reset", "1")
 				w.WriteHeader(status)
@@ -193,7 +234,10 @@ func TestStabilityBinaryRateEnvelopeExhaustionRetainsCooldown(t *testing.T) {
 			defer server.Close()
 			client := NewClient(&Config{AppID: "exhaust", BaseURL: server.URL})
 			client.retry.maxRetries = 0
-			ctx := WithUserIdentity(context.Background(), func(context.Context) (string, error) { return "user-A", nil })
+			ctx := WithUserIdentity(
+				context.Background(),
+				func(context.Context) (string, error) { return "user-A", nil },
+			)
 			_, err := client.downloadRawBytes(ctx, "/open-apis/drive/v1/files/doc/download")
 			if !errors.Is(err, ErrRateLimited) || calls.Load() != 1 {
 				t.Fatalf("classification/calls: %v %d", err, calls.Load())
@@ -220,14 +264,17 @@ func TestStabilityExportPollBudgetIsFinite(t *testing.T) {
 			_, _ = io.WriteString(w, `{"code":0,"data":{"ticket":"same-ticket"}}`)
 		case "/open-apis/drive/v1/export_tasks/same-ticket":
 			polls.Add(1)
-			_, _ = io.WriteString(w, `{"code":0,"data":{"result":{"job_status":2}}}`)
+			_, _ = io.WriteString(w, "{\"code\":0,\"data\":{\"result\":{\"job_status\":2}}}")
 		default:
 			t.Error("unexpected export request")
 		}
 	}))
 	defer server.Close()
 	client := NewClient(&Config{AppID: "poll-budget", BaseURL: server.URL})
-	ctx := WithUserIdentity(context.Background(), func(context.Context) (string, error) { return "user", nil })
+	ctx := WithUserIdentity(
+		context.Background(),
+		func(context.Context) (string, error) { return "user", nil },
+	)
 	_, _, err := client.ExportAndDownload(ctx, "doc", "docx")
 	if !errors.Is(err, ErrTransient) || creates.Load() != 1 || polls.Load() != 2 {
 		t.Fatalf("budget: creates=%d polls=%d err=%v", creates.Load(), polls.Load(), err)

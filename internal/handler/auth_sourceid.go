@@ -26,7 +26,8 @@ type sourceIDAuthService interface {
 // presumed native SourceID header. Ingress must strip incoming copies and set
 // it only after verifying the SourceID sender. Direct peer CIDRs are required.
 func trustedSourceIDPeer(r *http.Request, cidrs, secret string) bool {
-	if len(secret) < 32 || subtle.ConstantTimeCompare([]byte(r.Header.Get("X-KnowHub-SourceID-Secret")), []byte(secret)) != 1 {
+	if len(secret) < 32 ||
+		subtle.ConstantTimeCompare([]byte(r.Header.Get("X-KnowHub-SourceID-Secret")), []byte(secret)) != 1 {
 		return false
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
@@ -50,6 +51,7 @@ func trustedSourceIDPeer(r *http.Request, cidrs, secret string) bool {
 	return allowed
 }
 
+// SourceIDBackchannelLogout provides the source idbackchannel logout operation.
 func (h *AuthHandler) SourceIDBackchannelLogout(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	if h.configInfo == nil || h.configInfo.OIDCAuth == nil {
@@ -57,7 +59,8 @@ func (h *AuthHandler) SourceIDBackchannelLogout(c *gin.Context) {
 		return
 	}
 	cfg := h.configInfo.OIDCAuth
-	if !cfg.Enable || !cfg.SourceIDEnable || !cfg.SourceIDLogoutEnable || !cfg.SourceIDContractConfirmed || cfg.IssuerURL == "" {
+	if !cfg.Enable || !cfg.SourceIDEnable || !cfg.SourceIDLogoutEnable || !cfg.SourceIDContractConfirmed ||
+		cfg.IssuerURL == "" {
 		c.Status(http.StatusServiceUnavailable)
 		return
 	}
@@ -98,6 +101,7 @@ func (h *AuthHandler) SourceIDBackchannelLogout(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
+// OIDCLoginResult provides the oidclogin result operation.
 // The opaque cookie prevents local JWTs entering URLs, history or referrers.
 func (h *AuthHandler) OIDCLoginResult(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
@@ -121,7 +125,14 @@ func (h *AuthHandler) OIDCLoginResult(c *gin.Context) {
 		u, err := url.Parse(expected)
 		// Same-origin Fetch Metadata is browser-controlled and survives a dev
 		// proxy rewriting Host. A configured callback must always match exactly.
-		if err != nil || (origin != u.Scheme+"://"+u.Host && (configuredCallback || c.GetHeader("Sec-Fetch-Site") != "same-origin")) {
+		if err != nil ||
+			(origin != u.Scheme+
+				"://"+
+				u.Host &&
+				(configuredCallback ||
+					c.GetHeader(
+						"Sec-Fetch-Site",
+					) != "same-origin")) {
 			c.Status(http.StatusForbidden)
 			return
 		}
@@ -153,9 +164,19 @@ func oidcPublicError(err error) string {
 		return "login_failed"
 	}
 	switch err.Error() {
-	case "sourceid identity contract pending", "sourceid email identity contract pending", "sourceid automatic binding policy pending", "sourceid admission contract pending", "sourceid local session policy pending", "sourceid authorization admission contract pending":
+	case "sourceid identity contract pending",
+		"sourceid email identity contract pending",
+		"sourceid automatic binding policy pending",
+		"sourceid admission contract pending",
+		"sourceid local session policy pending",
+		"sourceid authorization admission contract pending":
 		return "identity_contract_pending"
-	case "sourceid enrollment requires review", "sourceid binding approval required", "sourceid candidate conflict; review required", "sourceid email match unavailable", "sourceid email invalid", "sourceid binding revoked":
+	case "sourceid enrollment requires review",
+		"sourceid binding approval required",
+		"sourceid candidate conflict; review required",
+		"sourceid email match unavailable",
+		"sourceid email invalid",
+		"sourceid binding revoked":
 		return "enrollment_required"
 	case "sourceid identity conflict":
 		return "identity_conflict"

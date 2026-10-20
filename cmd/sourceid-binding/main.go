@@ -58,7 +58,7 @@ func run() error {
 	if err != nil {
 		return errors.New("database unavailable")
 	}
-	defer sqlDB.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(sqlDB.Close)
 	store, ok := apprepo.NewUserRepository(db).(reviewStore)
 	if !ok {
 		return errors.New("review store unavailable")

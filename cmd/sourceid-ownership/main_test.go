@@ -6,10 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Tencent/WeKnora/internal/types"
-	"github.com/stretchr/testify/require"
 	"strings"
 	"testing"
+
+	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/stretchr/testify/require"
 )
 
 type syntheticStore struct {
@@ -17,11 +18,21 @@ type syntheticStore struct {
 	applied bool
 }
 
-func (s *syntheticStore) ResolveSourceIDOwnershipAccount(_ context.Context, _ string, employee string, _ string) (string, error) {
+func (s *syntheticStore) ResolveSourceIDOwnershipAccount(
+	_ context.Context,
+	_ string,
+	employee string,
+	_ string,
+) (string, error) {
 	return "synthetic-" + employee, nil
 }
 
-func (s *syntheticStore) SyncSourceIDAccountOwnership(_ context.Context, row types.SourceIDAccountOwnership, _ string, apply bool) (bool, error) {
+func (s *syntheticStore) SyncSourceIDAccountOwnership(
+	_ context.Context,
+	row types.SourceIDAccountOwnership,
+	_ string,
+	apply bool,
+) (bool, error) {
 	s.calls++
 	s.applied = apply
 	if row.EmployeeNo == "synthetic-conflict" {
@@ -29,11 +40,19 @@ func (s *syntheticStore) SyncSourceIDAccountOwnership(_ context.Context, row typ
 	}
 	return true, nil
 }
+
 func TestSourceIDOwnershipStreamingAndRedaction(t *testing.T) {
 	for _, n := range []int{1000, 10000} {
 		var input bytes.Buffer
 		for i := 0; i < n; i++ {
-			b, _ := json.Marshal(protectedRow{Issuer: "synthetic-issuer", UserID: fmt.Sprint(i), EmployeeNo: fmt.Sprintf("synthetic-private-employee-%d", i), Email: fmt.Sprintf("synthetic-private-%d@example.test", i)})
+			b, _ := json.Marshal(
+				protectedRow{
+					Issuer:     "synthetic-issuer",
+					UserID:     fmt.Sprint(i),
+					EmployeeNo: fmt.Sprintf("synthetic-private-employee-%d", i),
+					Email:      fmt.Sprintf("synthetic-private-%d@example.test", i),
+				},
+			)
 			input.Write(b)
 			input.WriteByte('\n')
 		}
@@ -50,7 +69,20 @@ func TestSourceIDOwnershipStreamingAndRedaction(t *testing.T) {
 	}
 	var out bytes.Buffer
 	store := &syntheticStore{}
-	require.Error(t, process(context.Background(), strings.NewReader("{\"employee_no\":\"synthetic-ok\"}\n{\"employee_no\":\"synthetic-conflict\"}\n{\"unreviewed_field\":true}\n"), &out, store, "synthetic-operator", true))
+	require.Error(
+		t,
+		process(
+			context.Background(),
+			strings.NewReader(
+				"{\"employee_no\":\"synthetic-ok\"}\n{\"employee_no\":\"synthetic-confl"+
+					"ict\"}\n{\"unreviewed_field\":true}\n",
+			),
+			&out,
+			store,
+			"synthetic-operator",
+			true,
+		),
+	)
 	var result summary
 	require.NoError(t, json.Unmarshal(out.Bytes(), &result))
 	require.Equal(t, 1, result.Changed)
@@ -61,7 +93,12 @@ func TestSourceIDOwnershipStreamingAndRedaction(t *testing.T) {
 func TestSourceIDOwnershipConflictingBatchRejectedBeforeWrite(t *testing.T) {
 	for _, apply := range []bool{false, true} {
 		var input, out bytes.Buffer
-		a := protectedRow{Issuer: "synthetic-issuer", UserID: "synthetic-user", EmployeeNo: "synthetic-employee", Email: "synthetic@example.test"}
+		a := protectedRow{
+			Issuer:     "synthetic-issuer",
+			UserID:     "synthetic-user",
+			EmployeeNo: "synthetic-employee",
+			Email:      "synthetic@example.test",
+		}
 		b, _ := json.Marshal(a)
 		input.Write(b)
 		input.WriteByte('\n')

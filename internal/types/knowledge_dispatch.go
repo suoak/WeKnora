@@ -1,7 +1,9 @@
 package types
 
+// KnowledgeDispatchScope identifies knowledge dispatch scope.
 const KnowledgeDispatchScope = "knowledge_dispatch"
 
+// KnowledgeDispatchAdmissionError defines knowledge dispatch admission error state.
 // Commit errors are ambiguous; a subsequent not-found read does not prove
 // that an in-flight COMMIT cannot become visible later. Only a failure before
 // COMMIT was attempted permits candidate-file cleanup.

@@ -17,14 +17,21 @@ const personalIndexReceiptScope = "personal_index_receipt"
 
 // This receipt confirms the ordinary PG rows, not an immutable serving
 // generation or final Wiki success. No model call or index write is performed.
-func (p *PersonalRecovery) verifyFirstCreateIndex(ctx context.Context, m *types.FeishuPersonalImport, a *types.FeishuPersonalAttempt) ([]byte, error) {
+func (p *PersonalRecovery) verifyFirstCreateIndex(
+	ctx context.Context,
+	m *types.FeishuPersonalImport,
+	a *types.FeishuPersonalAttempt,
+) ([]byte, error) {
 	ks := p.service.knowledge.(*knowledgeService)
 	k, err := ks.repo.GetKnowledgeByIDOnly(ctx, a.LogicalKnowledgeID)
 	if err != nil {
 		return nil, err
 	}
 	var metadata map[string]any
-	if json.Unmarshal(k.Metadata, &metadata) != nil || metadata["feishu_mvp_attempt"] != a.ID || metadata["feishu_manifest_sha256"] != a.ManifestHash || k.KnowledgeBaseID != m.KBID || k.EnableStatus != "enabled" {
+	if json.Unmarshal(k.Metadata, &metadata) != nil || metadata["feishu_mvp_attempt"] != a.ID ||
+		metadata["feishu_manifest_sha256"] != a.ManifestHash ||
+		k.KnowledgeBaseID != m.KBID ||
+		k.EnableStatus != "enabled" {
 		return nil, repository.ErrPersonalIdentity
 	}
 	chunks, err := ks.chunkRepo.ListAllChunksByKnowledgeID(ctx, k.TenantID, k.ID)
@@ -48,7 +55,14 @@ func (p *PersonalRecovery) verifyFirstCreateIndex(ctx context.Context, m *types.
 		Content   string
 		Dimension int
 	}
-	err = p.service.db.WithContext(ctx).Table("embeddings").Select("source_id, chunk_id, content, dimension").Where("knowledge_id = ? AND knowledge_base_id = ? AND source_id IN ? AND source_type = ? AND is_enabled = true AND embedding IS NOT NULL AND dimension > 0", k.ID, m.KBID, ids, types.ChunkSourceType).Find(&rows).Error
+	err = p.service.db.WithContext(ctx).
+		Table("embeddings").
+		Select("source_id, chunk_id, content, dimension").
+		Where("knowledge_id = ? AND knowledge_base_id = ? AND source_id IN ? AND "+
+			"source_type = ? AND is_enabled = true AND embedding IS NOT NULL AND "+
+			"dimension > 0", k.ID, m.KBID, ids, types.ChunkSourceType).
+		Find(&rows).
+		Error
 	if err != nil {
 		return nil, err
 	}
@@ -63,28 +77,74 @@ func (p *PersonalRecovery) verifyFirstCreateIndex(ctx context.Context, m *types.
 	// Exercise the deployed PG keyword operator on the actual document rows.
 	// Missing/invalid pg_search indexes produce an error, never a fake receipt.
 	var hits int64
-	err = p.service.db.WithContext(ctx).Raw("SELECT count(*) FROM embeddings WHERE knowledge_id = ? AND knowledge_base_id = ? AND source_id IN ? AND content ||| ?", k.ID, m.KBID, ids, rows[0].Content).Scan(&hits).Error
+	err = p.service.db.WithContext(ctx).
+		Raw("SELECT count(*) FROM embeddings WHERE knowledge_id = ? AND "+
+			"knowledge_base_id = ? AND source_id IN ? AND content ||| ?", k.ID, m.KBID, ids, rows[0].Content).
+		Scan(&hits).
+		Error
 	if err != nil {
 		return nil, err
 	}
 	if hits == 0 {
 		return nil, errors.New("first_create_bm25_readback_empty")
 	}
-	return json.Marshal(map[string]any{"payload_version": 1, "knowledge_id": k.ID, "attempt_id": a.ID, "manifest_sha256": a.ManifestHash, "file_hash": k.FileHash, "text_chunks": len(ids), "pg_vector_rows_verified": true, "bm25_document_readback": true, "verified_at": time.Now().UTC()})
+	return json.Marshal(
+		map[string]any{
+			"payload_version":         1,
+			"knowledge_id":            k.ID,
+			"attempt_id":              a.ID,
+			"manifest_sha256":         a.ManifestHash,
+			"file_hash":               k.FileHash,
+			"text_chunks":             len(ids),
+			"pg_vector_rows_verified": true,
+			"bm25_document_readback":  true,
+			"verified_at":             time.Now().UTC(),
+		},
+	)
 }
 
-func (p *PersonalRecovery) recordFirstCreateIndex(ctx context.Context, m *types.FeishuPersonalImport, owner *types.FeishuPersonalAttempt) error {
+func (p *PersonalRecovery) recordFirstCreateIndex(
+	ctx context.Context,
+	m *types.FeishuPersonalImport,
+	owner *types.FeishuPersonalAttempt,
+) error {
 	receipt, err := p.verifyFirstCreateIndex(ctx, m, owner)
 	if err != nil {
 		return err
 	}
 	return p.mutate(ctx, owner, 0, func(tx *gorm.DB, a *types.FeishuPersonalAttempt) error {
 		var count int64
-		if err := tx.Model(&types.TaskPendingOp{}).Where("scope = ? AND scope_id = ? AND dedup_key = ?", personalIndexReceiptScope, a.LogicalKnowledgeID, "index-"+a.ID).Count(&count).Error; err != nil {
+		if err := tx.Model(
+			&types.TaskPendingOp{},
+		).
+			Where(
+				"scope = ? AND scope_id = ? AND dedup_key = ?",
+				personalIndexReceiptScope,
+				a.LogicalKnowledgeID,
+				"index-"+
+					a.ID,
+			).
+			Count(
+				&count,
+			).
+			Error; err != nil {
 			return err
 		}
 		if count == 0 {
-			if err := tx.Create(&types.TaskPendingOp{TenantID: a.CallerTenantID, TaskType: "knowledge:index_receipt", Scope: personalIndexReceiptScope, ScopeID: a.LogicalKnowledgeID, DedupKey: "index-" + a.ID, Op: "verified", Payload: receipt, EnqueuedAt: time.Now()}).Error; err != nil {
+			if err := tx.Create(
+				&types.TaskPendingOp{
+					TenantID: a.CallerTenantID,
+					TaskType: "knowledge:index_receipt",
+					Scope:    personalIndexReceiptScope,
+					ScopeID:  a.LogicalKnowledgeID,
+					DedupKey: "index-" +
+						a.ID,
+					Op:         "verified",
+					Payload:    receipt,
+					EnqueuedAt: time.Now(),
+				},
+			).
+				Error; err != nil {
 				return err
 			}
 		}
@@ -92,11 +152,17 @@ func (p *PersonalRecovery) recordFirstCreateIndex(ctx context.Context, m *types.
 		a.LeaseUntil = nil
 		a.OwnerNonce = ""
 		a.LastErrorCategory = ""
-		return tx.Model(&types.FeishuPersonalImport{}).Where("id = ?", m.ID).Update("status", "indexed").Error
+		return tx.Model(&types.FeishuPersonalImport{}).
+			Where("id = ?", m.ID).
+			Update("status", "indexed").
+			Error
 	})
 }
 
-func (p *PersonalRecovery) firstCreateStatuses(ctx context.Context, rows []types.FeishuPersonalImport) error {
+func (p *PersonalRecovery) firstCreateStatuses(
+	ctx context.Context,
+	rows []types.FeishuPersonalImport,
+) error {
 	for i := range rows {
 		r := &rows[i]
 		r.IndexStatus = "pending"
@@ -105,11 +171,38 @@ func (p *PersonalRecovery) firstCreateStatuses(ctx context.Context, rows []types
 			continue
 		}
 		var k types.Knowledge
-		if err := p.service.db.WithContext(ctx).Where("id = ? AND knowledge_base_id = ?", r.KnowledgeID, r.KBID).First(&k).Error; err != nil {
+		if err := p.service.db.WithContext(
+			ctx,
+		).
+			Where(
+				"id = ? AND knowledge_base_id = ?",
+				r.KnowledgeID,
+				r.KBID,
+			).
+			First(
+				&k,
+			).
+			Error; err != nil {
 			return err
 		}
 		var receipts []types.TaskPendingOp
-		if err := p.service.db.WithContext(ctx).Where("scope = ? AND scope_id = ? AND dedup_key = ?", personalIndexReceiptScope, k.ID, "index-"+r.AttemptID).Limit(1).Find(&receipts).Error; err != nil {
+		if err := p.service.db.WithContext(
+			ctx,
+		).
+			Where(
+				"scope = ? AND scope_id = ? AND dedup_key = ?",
+				personalIndexReceiptScope,
+				k.ID,
+				"index-"+
+					r.AttemptID,
+			).
+			Limit(
+				1,
+			).
+			Find(
+				&receipts,
+			).
+			Error; err != nil {
 			return err
 		}
 		if len(receipts) == 0 {
@@ -133,7 +226,21 @@ func (p *PersonalRecovery) firstCreateStatuses(ctx context.Context, rows []types
 		} else {
 			r.WikiStatus = "pending"
 			var dead int64
-			if err = p.service.db.WithContext(ctx).Model(&types.TaskDeadLetter{}).Where("task_type = ? AND related_id = ?", "wiki:ingest", k.ID).Count(&dead).Error; err != nil {
+			if err = p.service.db.WithContext(
+				ctx,
+			).
+				Model(
+					&types.TaskDeadLetter{},
+				).
+				Where(
+					"task_type = ? AND related_id = ?",
+					"wiki:ingest",
+					k.ID,
+				).
+				Count(
+					&dead,
+				).
+				Error; err != nil {
 				return err
 			}
 			if dead > 0 {
@@ -142,10 +249,47 @@ func (p *PersonalRecovery) firstCreateStatuses(ctx context.Context, rows []types
 				continue
 			}
 			var pending int64
-			if err = p.service.db.WithContext(ctx).Model(&types.TaskPendingOp{}).Where("(task_type = ? AND scope_id = ? AND dedup_key = ?) OR (task_type = ? AND scope_id = ?)", wikiTaskType, r.KBID, k.ID, wikiFinalizeTaskType, r.KBID).Count(&pending).Error; err != nil {
+			if err = p.service.db.WithContext(
+				ctx,
+			).
+				Model(
+					&types.TaskPendingOp{},
+				).
+				Where(
+					"(task_type = ? AND scope_id = ? AND dedup_key = ?) OR (task_type = ? "+
+						"AND scope_id = ?)",
+
+					wikiTaskType,
+
+					r.KBID,
+
+					k.ID,
+
+					wikiFinalizeTaskType,
+
+					r.KBID,
+				).
+				Count(
+					&pending,
+				).
+				Error; err != nil {
 				return err
 			}
-			if err = p.service.db.WithContext(ctx).Model(&types.TaskDeadLetter{}).Where("task_type = ? AND scope_id = ?", wikiFinalizeTaskType, r.KBID).Count(&dead).Error; err != nil {
+			if err = p.service.db.WithContext(
+				ctx,
+			).
+				Model(
+					&types.TaskDeadLetter{},
+				).
+				Where(
+					"task_type = ? AND scope_id = ?",
+					wikiFinalizeTaskType,
+					r.KBID,
+				).
+				Count(
+					&dead,
+				).
+				Error; err != nil {
 				return err
 			}
 			if dead > 0 {
@@ -157,7 +301,8 @@ func (p *PersonalRecovery) firstCreateStatuses(ctx context.Context, rows []types
 				r.WikiStatus = "completed"
 			}
 		}
-		if k.ParseStatus == types.ParseStatusCompleted && (r.WikiStatus == "completed" || r.WikiStatus == "disabled") {
+		if k.ParseStatus == types.ParseStatusCompleted &&
+			(r.WikiStatus == "completed" || r.WikiStatus == "disabled") {
 			r.Status = "synced"
 		} else if k.ParseStatus == types.ParseStatusFailed {
 			r.Status = "needs_attention"
@@ -169,19 +314,55 @@ func (p *PersonalRecovery) firstCreateStatuses(ctx context.Context, rows []types
 }
 
 // Exit after the durable index handoff is recovered by readback, not reparse.
-func (p *PersonalRecovery) reconcileFirstCreatePublic(ctx context.Context, m *types.FeishuPersonalImport, a *types.FeishuPersonalAttempt) error {
+func (p *PersonalRecovery) reconcileFirstCreatePublic(
+	ctx context.Context,
+	m *types.FeishuPersonalImport,
+	a *types.FeishuPersonalAttempt,
+) error {
 	ks := p.service.knowledge.(*knowledgeService)
 	dispatch := ks.repo.(interfaces.KnowledgeDispatchRepository)
 	return dispatch.WithKnowledgeDispatchLock(ctx, a.LogicalKnowledgeID, func(ctx context.Context) error {
 		var n int64
-		if err := p.service.db.WithContext(ctx).Model(&types.TaskPendingOp{}).Where("scope = ? AND scope_id = ? AND dedup_key = ?", personalIndexReceiptScope, a.LogicalKnowledgeID, "index-"+a.ID).Count(&n).Error; err != nil {
+		if err := p.service.db.WithContext(
+			ctx,
+		).
+			Model(
+				&types.TaskPendingOp{},
+			).
+			Where(
+				"scope = ? AND scope_id = ? AND dedup_key = ?",
+
+				personalIndexReceiptScope,
+
+				a.LogicalKnowledgeID,
+
+				"index-"+
+					a.ID,
+			).
+			Count(
+				&n,
+			).
+			Error; err != nil {
 			return err
 		}
 		if n > 0 {
 			return nil
 		}
 		var k types.Knowledge
-		if err := p.service.db.WithContext(ctx).Where("id = ? AND knowledge_base_id = ?", m.KnowledgeID, m.KBID).First(&k).Error; err != nil {
+		if err := p.service.db.WithContext(
+			ctx,
+		).
+			Where(
+				"id = ? AND knowledge_base_id = ?",
+
+				m.KnowledgeID,
+
+				m.KBID,
+			).
+			First(
+				&k,
+			).
+			Error; err != nil {
 			return err
 		}
 		op, err := dispatch.GetKnowledgeDispatch(ctx, k.TenantID, a.LogicalKnowledgeID)

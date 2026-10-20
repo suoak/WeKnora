@@ -19,7 +19,12 @@ type approvedIndexModel struct {
 
 func (*approvedIndexModel) GetModelID() string   { return "isolated-index-authoring" }
 func (*approvedIndexModel) GetModelName() string { return "isolated-index-authoring" }
-func (m *approvedIndexModel) Chat(context.Context, []chat.Message, *chat.ChatOptions) (*types.ChatResponse, error) {
+
+func (m *approvedIndexModel) Chat(
+	context.Context,
+	[]chat.Message,
+	*chat.ChatOptions,
+) (*types.ChatResponse, error) {
 	m.calls++
 	if m.during != nil {
 		m.during()
@@ -28,7 +33,13 @@ func (m *approvedIndexModel) Chat(context.Context, []chat.Message, *chat.ChatOpt
 }
 
 func TestMVPWikiIndexAuthoringProtectionPostgres(t *testing.T) {
-	for _, source := range []string{types.WikiEditSourcePipeline, types.WikiEditSourceUser, types.WikiEditSourceAgent, types.WikiEditSourceRevert, ""} {
+	for _, source := range []string{
+		types.WikiEditSourcePipeline,
+		types.WikiEditSourceUser,
+		types.WikiEditSourceAgent,
+		types.WikiEditSourceRevert,
+		"",
+	} {
 		name := source
 		if name == "" {
 			name = "unknown_legacy"
@@ -40,12 +51,31 @@ func TestMVPWikiIndexAuthoringProtectionPostgres(t *testing.T) {
 			repo := repository.NewWikiPageRepository(db)
 			pages := NewWikiPageService(repo, nil, nil, nil, nil, nil)
 			original := "Keep this existing introduction intact."
-			page := &types.WikiPage{ID: "index", KnowledgeBaseID: "kb", Slug: "index", PageType: types.WikiPageTypeIndex, Content: original, Summary: original, Version: 8, LastEditSource: source}
+			page := &types.WikiPage{
+				ID:              "index",
+				KnowledgeBaseID: "kb",
+				Slug:            "index",
+				PageType:        types.WikiPageTypeIndex,
+				Content:         original,
+				Summary:         original,
+				Version:         8,
+				LastEditSource:  source,
+			}
 			// Direct fixture insertion preserves the unknown legacy source exactly.
 			require.NoError(t, db.Create(page).Error)
 			model := &approvedIndexModel{}
 			svc := &wikiIngestService{wikiService: pages}
-			require.NoError(t, svc.rebuildIndexPage(ctx, model, WikiIngestPayload{KnowledgeBaseID: "kb"}, "added source", "English", ""))
+			require.NoError(
+				t,
+				svc.rebuildIndexPage(
+					ctx,
+					model,
+					WikiIngestPayload{KnowledgeBaseID: "kb"},
+					"added source",
+					"English",
+					"",
+				),
+			)
 			actual, err := repo.GetBySlug(ctx, "kb", "index")
 			require.NoError(t, err)
 			var history []types.WikiPageRevision
@@ -57,7 +87,9 @@ func TestMVPWikiIndexAuthoringProtectionPostgres(t *testing.T) {
 				require.Len(t, history, 1)
 				require.Equal(t, original, history[0].Content)
 			} else {
-				require.Equal(t, original, actual.Content, "human, reverted, agent or unknown introduction must survive first-add finalize")
+				require.Equal(t, original, actual.Content,
+					"human, reverted, agent or unknown introduction must survive first-add finalize",
+				)
 				require.Equal(t, original, actual.Summary)
 				require.Equal(t, 8, actual.Version)
 				require.Equal(t, source, actual.LastEditSource)
@@ -74,7 +106,15 @@ func TestMVPWikiIndexHumanEditDuringGenerationPostgres(t *testing.T) {
 	ctx := context.WithValue(context.Background(), wikiFirstAddFinalizeKey{}, true)
 	repo := repository.NewWikiPageRepository(db)
 	pages := NewWikiPageService(repo, nil, nil, nil, nil, nil)
-	page := &types.WikiPage{ID: "index", KnowledgeBaseID: "kb", Slug: "index", PageType: types.WikiPageTypeIndex, Content: "Original pipeline introduction", Version: 1, LastEditSource: types.WikiEditSourcePipeline}
+	page := &types.WikiPage{
+		ID:              "index",
+		KnowledgeBaseID: "kb",
+		Slug:            "index",
+		PageType:        types.WikiPageTypeIndex,
+		Content:         "Original pipeline introduction",
+		Version:         1,
+		LastEditSource:  types.WikiEditSourcePipeline,
+	}
 	require.NoError(t, db.Create(page).Error)
 	model := &approvedIndexModel{during: func() {
 		fresh, err := pages.GetPageBySlug(ctx, "kb", "index")
@@ -84,7 +124,18 @@ func TestMVPWikiIndexHumanEditDuringGenerationPostgres(t *testing.T) {
 		require.NoError(t, err)
 	}}
 	svc := &wikiIngestService{wikiService: pages}
-	require.ErrorIs(t, svc.rebuildIndexPage(ctx, model, WikiIngestPayload{KnowledgeBaseID: "kb"}, "added source", "English", ""), repository.ErrWikiPageConflict)
+	require.ErrorIs(
+		t,
+		svc.rebuildIndexPage(
+			ctx,
+			model,
+			WikiIngestPayload{KnowledgeBaseID: "kb"},
+			"added source",
+			"English",
+			"",
+		),
+		repository.ErrWikiPageConflict,
+	)
 	actual, err := repo.GetBySlug(ctx, "kb", "index")
 	require.NoError(t, err)
 	require.Equal(t, "HUMAN introduction committed during generation", actual.Content)

@@ -8,6 +8,7 @@ import (
 	"net/url"
 )
 
+// ApplicationAttachment defines application attachment state.
 // Attachment bytes never appear in JSON, logs, or the indexed Markdown. The
 // caller persists them atomically with the private source manifest.
 type ApplicationAttachment struct {
@@ -23,14 +24,25 @@ type ApplicationAttachment struct {
 	Parser   string `json:"parser"`
 	Data     []byte `json:"-"`
 }
-type applicationAttachmentProcessorKey struct{}
-type ApplicationAttachmentProcessor func(context.Context, ApplicationAttachment) (ApplicationAttachment, error)
+type (
+	applicationAttachmentProcessorKey struct{}
+	// ApplicationAttachmentProcessor defines application attachment processor state.
+	ApplicationAttachmentProcessor func(context.Context, ApplicationAttachment) (ApplicationAttachment, error)
+)
 
-func WithApplicationAttachmentProcessor(ctx context.Context, process ApplicationAttachmentProcessor) context.Context {
+// WithApplicationAttachmentProcessor provides the with application attachment processor operation.
+func WithApplicationAttachmentProcessor(
+	ctx context.Context,
+	process ApplicationAttachmentProcessor,
+) context.Context {
 	return context.WithValue(ctx, applicationAttachmentProcessorKey{}, process)
 }
 
-func (c *Client) collectApplicationAttachments(ctx context.Context, tableID, fieldID, recordID string, raw json.RawMessage) ([]ApplicationAttachment, error) {
+func (c *Client) collectApplicationAttachments(
+	ctx context.Context,
+	tableID, fieldID, recordID string,
+	raw json.RawMessage,
+) ([]ApplicationAttachment, error) {
 	process, _ := ctx.Value(applicationAttachmentProcessorKey{}).(ApplicationAttachmentProcessor)
 	if process == nil {
 		return nil, ErrApplicationTableMedia
@@ -51,7 +63,9 @@ func (c *Client) collectApplicationAttachments(ctx context.Context, tableID, fie
 	seen := map[string]bool{}
 	total := int64(0)
 	for _, file := range files {
-		if !resourceTokenPattern.MatchString(file.Token) || file.Name == "" || file.Size < 1 || file.Size > 16<<20 || seen[file.Token] {
+		if !resourceTokenPattern.MatchString(file.Token) || file.Name == "" || file.Size < 1 ||
+			file.Size > 16<<20 ||
+			seen[file.Token] {
 			return nil, ErrApplicationTableIncomplete
 		}
 		seen[file.Token] = true
@@ -59,10 +73,31 @@ func (c *Client) collectApplicationAttachments(ctx context.Context, tableID, fie
 		if total > 32<<20 {
 			return nil, ErrApplicationTableIncomplete
 		}
-		a := ApplicationAttachment{TableID: tableID, FieldID: fieldID, RecordID: recordID, Token: file.Token, Name: file.Name, MIME: file.MIME, Size: file.Size}
-		extra := map[string]any{"bitablePerm": map[string]any{"tableId": tableID, "attachments": map[string]any{fieldID: map[string]any{recordID: []string{file.Token}}}}}
+		a := ApplicationAttachment{
+			TableID:  tableID,
+			FieldID:  fieldID,
+			RecordID: recordID,
+			Token:    file.Token,
+			Name:     file.Name,
+			MIME:     file.MIME,
+			Size:     file.Size,
+		}
+		extra := map[string]any{
+			"bitablePerm": map[string]any{
+				"tableId":     tableID,
+				"attachments": map[string]any{fieldID: map[string]any{recordID: []string{file.Token}}},
+			},
+		}
 		encoded, _ := json.Marshal(extra)
-		data, err := c.downloadRawBytesOperation(ctx, "download_bitable_attachment", "/open-apis/drive/v1/medias/"+url.PathEscape(file.Token)+"/download?extra="+url.QueryEscape(string(encoded)))
+		data, err := c.downloadRawBytesOperation(
+			ctx,
+			"download_bitable_attachment",
+			"/open-apis/drive/v1/medias/"+url.PathEscape(
+				file.Token,
+			)+"/download?extra="+url.QueryEscape(
+				string(encoded),
+			),
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -77,7 +112,14 @@ func (c *Client) collectApplicationAttachments(ctx context.Context, tableID, fie
 			return nil, err
 		}
 		// A callback supplies parsing evidence, never changes source ownership.
-		if parsed.SHA256 != a.SHA256 || parsed.TableID != a.TableID || parsed.FieldID != a.FieldID || parsed.RecordID != a.RecordID || parsed.Token != a.Token || parsed.Size != a.Size || parsed.Name != a.Name || parsed.MIME != a.MIME || parsed.Text == "" || parsed.Parser == "" {
+		if parsed.SHA256 != a.SHA256 || parsed.TableID != a.TableID || parsed.FieldID != a.FieldID ||
+			parsed.RecordID != a.RecordID ||
+			parsed.Token != a.Token ||
+			parsed.Size != a.Size ||
+			parsed.Name != a.Name ||
+			parsed.MIME != a.MIME ||
+			parsed.Text == "" ||
+			parsed.Parser == "" {
 			return nil, ErrApplicationTableIncomplete
 		}
 		parsed.Data = data

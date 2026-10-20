@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/Tencent/WeKnora/internal/infrastructure/docparser/anydoc"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +13,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+
+	"github.com/Tencent/WeKnora/internal/infrastructure/docparser/anydoc"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/application/repository"
@@ -28,7 +29,15 @@ import (
 
 func applicationTestConfig(t *testing.T, mode, callback string) *FeishuAppConfig {
 	t.Helper()
-	data, err := json.Marshal(map[string]any{"app_id": "cli_test", "client_secret": "synthetic-only", "auth_mode": mode, "redirect_uri": callback, "enabled": true})
+	data, err := json.Marshal(
+		map[string]any{
+			"app_id":        "cli_test",
+			"client_secret": "synthetic-only",
+			"auth_mode":     mode,
+			"redirect_uri":  callback,
+			"enabled":       true,
+		},
+	)
 	require.NoError(t, err)
 	var cfg FeishuAppConfig
 	require.NoError(t, json.Unmarshal(data, &cfg))
@@ -50,9 +59,21 @@ func newApplicationGrantFixture(t *testing.T) (*personalRecoveryFixture, *atomic
 	var buffer bytes.Buffer
 	z := zip.NewWriter(&buffer)
 	for name, content := range map[string]string{
-		"[Content_Types].xml": `<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`,
-		"_rels/.rels":         `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`,
-		"word/document.xml":   `<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Fixture Document</w:t></w:r></w:p><w:sectPr/></w:body></w:document>`,
+		"[Content_Types].xml": "<?xml version=\"1.0\"?><Types xmlns=\"http://schemas.openxmlformats.or" +
+			"g/package/2006/content-types\"><Default Extension=\"rels\" " +
+			"ContentType=\"application/vnd.openxmlformats-package.relationships+xml" +
+			"\"/><Default Extension=\"xml\" ContentType=\"application/xml\"/><Overr" +
+			"ide PartName=\"/word/document.xml\" " +
+			"ContentType=\"application/vnd.openxmlformats-officedocument.wordproces" +
+			"singml.document.main+xml\"/></Types>",
+		"_rels/.rels": "<?xml version=\"1.0\"?><Relationships " +
+			"xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"" +
+			"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/of" +
+			"ficeDocument/2006/relationships/officeDocument\" " +
+			"Target=\"word/document.xml\"/></Relationships>",
+		"word/document.xml": "<?xml version=\"1.0\"?><w:document xmlns:w=\"http://schemas.openxmlfor" +
+			"mats.org/wordprocessingml/2006/main\"><w:body><w:p><w:r><w:t>Fixture " +
+			"Document</w:t></w:r></w:p><w:sectPr/></w:body></w:document>",
 	} {
 		w, err := z.Create(name)
 		require.NoError(t, err)
@@ -64,7 +85,11 @@ func newApplicationGrantFixture(t *testing.T) (*personalRecoveryFixture, *atomic
 	revoked := &atomic.Bool{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/open-apis/auth/v3/tenant_access_token/internal" {
-			io.WriteString(w, `{"code":0,"tenant_access_token":"application-test-token","expire":7200}`)
+			_, _ = io.WriteString(
+				w,
+				"{\"code\":0,\"tenant_access_token\":\"application-test-token\","+
+					"\"expire\":7200}",
+			)
 			return
 		}
 		if r.Header.Get("Authorization") != "Bearer application-test-token" {
@@ -73,28 +98,43 @@ func newApplicationGrantFixture(t *testing.T) (*personalRecoveryFixture, *atomic
 		}
 		if revoked.Load() {
 			w.WriteHeader(403)
-			io.WriteString(w, `{"code":1770032}`)
+			_, _ = io.WriteString(w, `{"code":1770032}`)
 			return
 		}
 		switch r.URL.Path {
 		case "/open-apis/wiki/v2/spaces/get_node":
-			io.WriteString(w, `{"code":0,"data":{"node":{"obj_type":"docx","obj_token":"real"}}}`)
+			_, _ = io.WriteString(w, "{\"code\":0,\"data\":{\"node\":{\"obj_type\":\"docx\","+
+				"\"obj_token\":\"real\"}}}")
 		case "/open-apis/drive/v1/metas/batch_query":
-			fmt.Fprintf(w, `{"code":0,"data":{"metas":[{"doc_type":"docx","doc_token":"real","title":"application-test","latest_modify_time":"%d"}]}}`, f.revision.Load())
+			_, _ = fmt.Fprintf(
+				w,
+				"{\"code\":0,\"data\":{\"metas\":[{\"doc_type\":\"docx\","+
+					"\"doc_token\":\"real\",\"title\":\"application-test\","+
+					"\"latest_modify_time\":\"%d\"}]}}",
+				f.revision.Load(),
+			)
 		case "/open-apis/drive/v1/export_tasks":
 			if f.block != nil {
 				f.block()
 			}
-			io.WriteString(w, `{"code":0,"data":{"ticket":"ticket"}}`)
+			_, _ = io.WriteString(w, `{"code":0,"data":{"ticket":"ticket"}}`)
 		case "/open-apis/drive/v1/export_tasks/ticket":
-			io.WriteString(w, `{"code":0,"data":{"result":{"job_status":0,"file_token":"download-token","file_name":"test.docx"}}}`)
+			_, _ = io.WriteString(
+				w,
+				"{\"code\":0,\"data\":{\"result\":{\"job_status\":0,"+
+					"\"file_token\":\"download-token\",\"file_name\":\"test.docx\"}}}",
+			)
 		case "/open-apis/drive/v1/export_tasks/file/download-token/download":
 			f.downloads.Add(1)
-			w.Write(data)
+			_, _ = w.Write(data)
 		case "/open-apis/docx/v1/documents/real/blocks":
-			io.WriteString(w, `{"code":0,"data":{"items":[{"block_type":1},{"block_type":2}],"has_more":false}}`)
+			_, _ = io.WriteString(
+				w,
+				"{\"code\":0,\"data\":{\"items\":[{\"block_type\":1},"+
+					"{\"block_type\":2}],\"has_more\":false}}",
+			)
 		case "/open-apis/docx/v1/documents/real/raw_content":
-			io.WriteString(w, `{"code":0,"data":{"content":"Fixture Document"}}`)
+			_, _ = io.WriteString(w, "{\"code\":0,\"data\":{\"content\":\"Fixture Document\"}}")
 		default:
 			w.WriteHeader(404)
 		}
@@ -129,7 +169,10 @@ type applicationTestKBs struct {
 	values map[string]*types.KnowledgeBase
 }
 
-func (v applicationTestKBs) GetKnowledgeBaseByID(_ context.Context, id string) (*types.KnowledgeBase, error) {
+func (v applicationTestKBs) GetKnowledgeBaseByID(
+	_ context.Context,
+	id string,
+) (*types.KnowledgeBase, error) {
 	if kb, ok := v.values[id]; ok {
 		return kb, nil
 	}
@@ -138,13 +181,29 @@ func (v applicationTestKBs) GetKnowledgeBaseByID(_ context.Context, id string) (
 
 func TestApplicationGrantSameSourceDifferentKBs(t *testing.T) {
 	f, _ := newApplicationGrantFixture(t)
-	require.NoError(t, f.db.Exec("INSERT INTO knowledge_bases(id,tenant_id,creator_id) VALUES('kb2',1,'A')").Error)
-	kbs := applicationTestKBs{values: map[string]*types.KnowledgeBase{"kb": {ID: "kb", TenantID: 1, CreatorID: "A"}, "kb2": {ID: "kb2", TenantID: 1, CreatorID: "A"}}}
+	require.NoError(
+		t,
+		f.db.Exec("INSERT INTO knowledge_bases(id,tenant_id,creator_id) VALUES('kb2',1,"+
+			"'A')").Error,
+	)
+	kbs := applicationTestKBs{
+		values: map[string]*types.KnowledgeBase{
+			"kb":  {ID: "kb", TenantID: 1, CreatorID: "A"},
+			"kb2": {ID: "kb2", TenantID: 1, CreatorID: "A"},
+		},
+	}
 	f.s.kbs = kbs
 	f.ks.kbService = kbs
 	first := f.prepare("https://test.feishu.cn/docx/real")
 	caller := types.Caller{TenantID: 1, UserID: "A", Role: types.TenantRoleAdmin}
-	grant, err := access.ResolveKB(f.ctx, access.KBRequest{Caller: caller}, kbs.values["kb2"], types.OrgRoleEditor, nil, nil)
+	grant, err := access.ResolveKB(
+		f.ctx,
+		access.KBRequest{Caller: caller},
+		kbs.values["kb2"],
+		types.OrgRoleEditor,
+		nil,
+		nil,
+	)
 	require.NoError(t, err)
 	ctx := grant.Context(f.ctx)
 	second, err := f.s.Import(ctx, "kb2", "https://test.feishu.cn/docx/real")
@@ -166,7 +225,10 @@ func TestApplicationGrantCommitUnknownRetainsOriginalKnowledge(t *testing.T) {
 			require.NoError(t, err)
 			fault := &atomic.Int32{}
 			fault.Store(mode)
-			faultDB, err := gorm.Open(postgres.New(postgres.Config{Conn: mvpBridgeFaultPool{pool, fault}}), &gorm.Config{})
+			faultDB, err := gorm.Open(
+				postgres.New(postgres.Config{Conn: mvpBridgeFaultPool{pool, fault}}),
+				&gorm.Config{},
+			)
 			require.NoError(t, err)
 			f.s.db = faultDB
 			f.p.repo = repository.NewPersonalRecoveryRepository(faultDB)
@@ -177,7 +239,8 @@ func TestApplicationGrantCommitUnknownRetainsOriginalKnowledge(t *testing.T) {
 				require.NoError(t, err)
 			} else {
 				require.Error(t, err)
-				require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET retry_after=clock_timestamp()-interval '1 second' WHERE id=?", m.AttemptID).Error)
+				require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET "+
+					"retry_after=clock_timestamp()-interval '1 second' WHERE id=?", m.AttemptID).Error)
 				require.NoError(t, f.p.Process(f.ctx, f.payload(m.AttemptID)))
 			}
 			var k types.Knowledge
@@ -260,15 +323,29 @@ func TestApplicationGrantModeConfusionAndOldTaskRejected(t *testing.T) {
 	require.ErrorIs(t, f.p.Process(f.ctx, payload), repository.ErrPersonalIdentity)
 	b, err := json.Marshal(f.payload(m.AttemptID))
 	require.NoError(t, err)
-	require.ErrorIs(t, f.ks.ProcessDocument(f.ctx, asynq.NewTask(types.TypeDocumentProcess, b)), repository.ErrPersonalIdentity)
+	require.ErrorIs(
+		t,
+		f.ks.ProcessDocument(f.ctx, asynq.NewTask(types.TypeDocumentProcess, b)),
+		repository.ErrPersonalIdentity,
+	)
 	// An exact old-protocol mux has no route for this type; it must not process K.
 	old := asynq.NewServeMux()
 	calls := 0
-	old.HandleFunc(types.TypeDocumentProcess, func(context.Context, *asynq.Task) error { calls++; return nil })
+	old.HandleFunc(
+		types.TypeDocumentProcess,
+		func(context.Context, *asynq.Task) error { calls++; return nil },
+	)
 	require.Error(t, old.ProcessTask(f.ctx, asynq.NewTask(types.TypeFeishuApplicationProcess, b)))
 	require.Zero(t, calls)
-	require.Error(t, f.db.Exec("UPDATE feishu_personal_attempts SET grant_epoch='fake-user-grant' WHERE id=?", m.AttemptID).Error)
-	require.Error(t, f.db.Exec("UPDATE feishu_personal_imports SET open_id='fake-user' WHERE id=?", m.ID).Error)
+	require.Error(
+		t,
+		f.db.Exec("UPDATE feishu_personal_attempts SET grant_epoch='fake-user-grant' "+
+			"WHERE id=?", m.AttemptID).Error,
+	)
+	require.Error(
+		t,
+		f.db.Exec("UPDATE feishu_personal_imports SET open_id='fake-user' WHERE id=?", m.ID).Error,
+	)
 }
 
 func TestApplicationGrantConcurrentSameResourceAndChangedRevision(t *testing.T) {
@@ -327,7 +404,13 @@ func TestApplicationGrantConfigurationWithoutOAuthCallback(t *testing.T) {
 func TestApplicationGrantUnknownIdentityRejected(t *testing.T) {
 	f := newPersonalRecoveryFixture(t)
 	admin := context.WithValue(f.ctx, types.SystemAdminContextKey, true)
-	require.Error(t, f.s.SaveApp(admin, applicationTestConfig(t, "administrator_fallback", "https://test.invalid/feishu/callback")))
+	require.Error(
+		t,
+		f.s.SaveApp(
+			admin,
+			applicationTestConfig(t, "administrator_fallback", "https://test.invalid/feishu/callback"),
+		),
+	)
 }
 
 func TestApplicationGrantDefaultAdmissionClosed(t *testing.T) {
@@ -368,7 +451,18 @@ func TestApplicationGrantRealDocxFirstCreate(t *testing.T) {
 	require.NotEmpty(t, input.Secret)
 	f, _ := newApplicationGrantFixture(t)
 	f.s.newClient = nil
-	require.NoError(t, f.s.SaveApp(f.ctx, &FeishuAppConfig{AuthMode: types.FeishuApplicationGrant, AppID: input.AppID, Secret: input.Secret, Enabled: true}))
+	require.NoError(
+		t,
+		f.s.SaveApp(
+			f.ctx,
+			&FeishuAppConfig{
+				AuthMode: types.FeishuApplicationGrant,
+				AppID:    input.AppID,
+				Secret:   input.Secret,
+				Enabled:  true,
+			},
+		),
+	)
 	m, err := f.s.Import(f.ctx, "kb", input.URL)
 	require.NoError(t, err)
 	require.Equal(t, "docx", m.ResourceType)
@@ -385,5 +479,6 @@ func TestApplicationGrantRealDocxFirstCreate(t *testing.T) {
 	require.EqualValues(t, 1, count)
 	require.NoError(t, f.db.Model(&types.FeishuConnection{}).Count(&count).Error)
 	require.Zero(t, count)
-	t.Logf("Real application source accepted on stable Knowledge ID %s; parse/index completion NOT_EXECUTED", k.ID)
+	t.Logf("Real application source accepted on stable Knowledge ID %s; "+
+		"parse/index completion NOT_EXECUTED", k.ID)
 }

@@ -10,9 +10,27 @@ func TestSIDPinnedConfig(t *testing.T) {
 	if got := (&OIDCAuthConfig{}).EffectiveSourceIDValidationStrategy(); got != SourceIDJWKSValidation {
 		t.Fatal("default must remain strict JWKS")
 	}
-	for _, name := range []string{"valid", "other_provider", "missing_approval", "missing_file", "missing_fingerprints", "missing_expiry", "unknown_strategy"} {
+	for _, name := range []string{
+		"valid",
+		"other_provider",
+		"missing_approval",
+		"missing_file",
+		"missing_fingerprints",
+		"missing_expiry",
+		"unknown_strategy",
+	} {
 		t.Run(name, func(t *testing.T) {
-			c := &OIDCAuthConfig{SourceIDEnable: true, IssuerURL: SourceIDPinnedIssuer, ClientID: "synthetic", SourceIDValidationStrategy: SourceIDPinnedValidation, SourceIDPinnedKeysFile: filepath.Join(t.TempDir(), "keys.json"), SourceIDPinnedKeysConfirmed: true, SourceIDPinnedKeysApprovalRef: "SYNTHETIC", SourceIDPinnedKeysExpiresAt: time.Now().Add(time.Hour).Format(time.RFC3339), SourceIDPinnedKeyFingerprints: "synthetic-runtime-validated"}
+			c := &OIDCAuthConfig{
+				SourceIDEnable:                true,
+				IssuerURL:                     SourceIDPinnedIssuer,
+				ClientID:                      "synthetic",
+				SourceIDValidationStrategy:    SourceIDPinnedValidation,
+				SourceIDPinnedKeysFile:        filepath.Join(t.TempDir(), "keys.json"),
+				SourceIDPinnedKeysConfirmed:   true,
+				SourceIDPinnedKeysApprovalRef: "SYNTHETIC",
+				SourceIDPinnedKeysExpiresAt:   time.Now().Add(time.Hour).Format(time.RFC3339),
+				SourceIDPinnedKeyFingerprints: "synthetic-runtime-validated",
+			}
 			switch name {
 			case "other_provider":
 				c.SourceIDEnable = false
@@ -43,7 +61,11 @@ func TestSIDPinnedEnvironment(t *testing.T) {
 	t.Setenv("SOURCEID_PINNED_KEY_FINGERPRINTS", "SYNTHETIC-FP")
 	c := &Config{}
 	applyOIDCEnvOverrides(c)
-	if c.OIDCAuth.SourceIDValidationStrategy != SourceIDPinnedValidation || c.OIDCAuth.SourceIDPinnedKeysFile != "/run/controlled/sid.json" || !c.OIDCAuth.SourceIDPinnedKeysConfirmed || c.OIDCAuth.SourceIDPinnedKeysApprovalRef != "SYNTHETIC" || c.OIDCAuth.SourceIDPinnedKeyFingerprints != "SYNTHETIC-FP" {
+	if c.OIDCAuth.SourceIDValidationStrategy != SourceIDPinnedValidation ||
+		c.OIDCAuth.SourceIDPinnedKeysFile != "/run/controlled/sid.json" ||
+		!c.OIDCAuth.SourceIDPinnedKeysConfirmed ||
+		c.OIDCAuth.SourceIDPinnedKeysApprovalRef != "SYNTHETIC" ||
+		c.OIDCAuth.SourceIDPinnedKeyFingerprints != "SYNTHETIC-FP" {
 		t.Fatal("controlled environment fields not loaded")
 	}
 }

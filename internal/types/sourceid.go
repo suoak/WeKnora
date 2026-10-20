@@ -2,6 +2,7 @@ package types
 
 import "time"
 
+// SourceIDBindingReview defines source idbinding review state.
 // Email is a protected candidate snapshot, never a login credential or proof of ownership.
 type SourceIDBindingReview struct {
 	ID              string `gorm:"primaryKey;size:36"`
@@ -17,6 +18,7 @@ type SourceIDBindingReview struct {
 	UpdatedAt       time.Time
 }
 
+// SourceIDBindingAudit defines source idbinding audit state.
 type SourceIDBindingAudit struct {
 	ID              string `gorm:"primaryKey;size:36"`
 	ReviewID        string
@@ -50,6 +52,7 @@ type SourceIDEnrollment struct {
 	CreatedAt       time.Time
 }
 
+// SourceIDSession defines source idsession state.
 type SourceIDSession struct {
 	ID               string `gorm:"primaryKey;size:36"`
 	Issuer           string
@@ -60,6 +63,7 @@ type SourceIDSession struct {
 	CreatedAt        time.Time
 }
 
+// SourceIDLocalSession defines source idlocal session state.
 // Companion to SourceIDSession. Local sessions have an empty external index;
 // it is never manufactured from an employee or OIDC subject identifier.
 type SourceIDLocalSession struct {
@@ -82,15 +86,23 @@ type SourceIDLocalSession struct {
 	Revoked             bool      `gorm:"-"`
 }
 
-type SourceIDAdmissionOutcome string
-type SourceIDTokenOperationKey struct{}
+type (
+	// SourceIDAdmissionOutcome defines source idadmission outcome state.
+	SourceIDAdmissionOutcome string
+	// SourceIDTokenOperationKey defines source idtoken operation key state.
+	SourceIDTokenOperationKey struct{}
+)
 
 const (
-	SourceIDAdmissionAllow   SourceIDAdmissionOutcome = "ALLOW"
-	SourceIDAdmissionDeny    SourceIDAdmissionOutcome = "DENY"
+	// SourceIDAdmissionAllow identifies source idadmission allow.
+	SourceIDAdmissionAllow SourceIDAdmissionOutcome = "ALLOW"
+	// SourceIDAdmissionDeny refuses an unverified authorization transaction.
+	SourceIDAdmissionDeny SourceIDAdmissionOutcome = "DENY"
+	// SourceIDAdmissionUnknown represents missing or unavailable admission evidence.
 	SourceIDAdmissionUnknown SourceIDAdmissionOutcome = "UNKNOWN"
 )
 
+// SourceIDAdmissionRequest defines source idadmission request state.
 // These structures carry protected identity input only in process memory.
 // Never log/serialize a request, claims map, adapter error or provider response.
 type SourceIDAdmissionRequest struct {
@@ -100,6 +112,8 @@ type SourceIDAdmissionRequest struct {
 	PromptLoginRequested               bool
 	AuthorizationVerifiedAt            time.Time
 }
+
+// SourceIDAdmissionDecision defines source idadmission decision state.
 type SourceIDAdmissionDecision struct {
 	Outcome               SourceIDAdmissionOutcome
 	Source, ContractRef   string
@@ -107,6 +121,7 @@ type SourceIDAdmissionDecision struct {
 	RecheckSupported      bool
 }
 
+// SourceIDPilotAccount defines source idpilot account state.
 // Protected, independently verified account ownership. Never serialize/log.
 type SourceIDPilotAccount struct {
 	Email      string `json:"-"`
@@ -119,6 +134,7 @@ type SourceIDLogout struct {
 	CreatedAt time.Time
 }
 
+// OIDCTransaction defines oidctransaction state.
 type OIDCTransaction struct {
 	Key       string `gorm:"primaryKey"`
 	Nonce     string
@@ -128,4 +144,5 @@ type OIDCTransaction struct {
 	Consumed  bool
 }
 
+// TableName returns the authorization transaction table.
 func (OIDCTransaction) TableName() string { return "oidc_transactions" }

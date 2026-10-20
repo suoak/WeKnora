@@ -26,7 +26,11 @@ type securityOAuthService struct {
 	service *types.MCPService
 }
 
-func (s securityOAuthService) GetMCPServiceByID(context.Context, uint64, string) (*types.MCPService, error) {
+func (s securityOAuthService) GetMCPServiceByID(
+	context.Context,
+	uint64,
+	string,
+) (*types.MCPService, error) {
 	return s.service, nil
 }
 
@@ -37,13 +41,23 @@ type securityOAuthRepo struct {
 
 func (s securityOAuthRepo) GetClient(context.Context, uint64, string) (*types.MCPOAuthClient, error) {
 	if s.fail {
-		return nil, errors.New("SQL client_secret=synthetic-secret access_token=synthetic-access refresh_token=synthetic-refresh")
+		return nil, errors.New(
+			"SQL client_secret=synthetic-secret access_token=synthetic-access " +
+				"refresh_token=synthetic-refresh",
+		)
 	}
 	return nil, nil
 }
-func (s securityOAuthRepo) GetTokenForPrincipal(context.Context, uint64, types.Principal, string) (*types.MCPOAuthToken, error) {
+
+func (s securityOAuthRepo) GetTokenForPrincipal(
+	context.Context,
+	uint64,
+	types.Principal,
+	string,
+) (*types.MCPOAuthToken, error) {
 	return nil, errors.New("SQL synthetic-secret synthetic-access synthetic-refresh")
 }
+
 func (s securityOAuthRepo) DeleteTokenForPrincipal(context.Context, uint64, types.Principal, string) error {
 	return errors.New("SQL synthetic-secret synthetic-access synthetic-refresh")
 }
@@ -57,25 +71,47 @@ func TestOAuthAPIAndAccessLogsDoNotLeakProviderOrSQL(t *testing.T) {
 	provider = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/register" {
 			w.WriteHeader(400)
-			_ = json.NewEncoder(w).Encode(map[string]any{"error": "invalid_client", "error_description": sensitive})
+			_ = json.NewEncoder(w).
+				Encode(map[string]any{"error": "invalid_client", "error_description": sensitive})
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"issuer": provider.URL, "registration_endpoint": provider.URL + "/register", "token_endpoint": provider.URL + "/token", "authorization_endpoint": provider.URL + "/authorize"})
+		_ = json.NewEncoder(w).
+			Encode(map[string]any{
+				"issuer": provider.URL,
+				"registration_endpoint": provider.URL +
+					"/register",
+				"token_endpoint": provider.URL +
+					"/token",
+				"authorization_endpoint": provider.URL +
+					"/authorize",
+			})
 	}))
 	t.Cleanup(provider.Close)
 	u := provider.URL + "/mcp"
-	service := &types.MCPService{ID: "svc", URL: &u, AuthConfig: &types.MCPAuthConfig{AuthType: types.MCPAuthOAuth, AuthServerMetadataURL: provider.URL + "/metadata"}}
+	service := &types.MCPService{
+		ID:  "svc",
+		URL: &u,
+		AuthConfig: &types.MCPAuthConfig{
+			AuthType:              types.MCPAuthOAuth,
+			AuthServerMetadataURL: provider.URL + "/metadata",
+		},
+	}
 	for _, path := range []string{"provider", "sql", "callback", "status", "revoke"} {
 		t.Run(path, func(t *testing.T) {
 			var captured bytes.Buffer
 			l := logrus.New()
 			l.SetOutput(&captured)
-			ctx := types.WithPrincipal(types.WithExecutionTenant(context.Background(), 7), types.Principal{Type: types.PrincipalWebUser, ID: "user"})
+			ctx := types.WithPrincipal(
+				types.WithExecutionTenant(context.Background(), 7),
+				types.Principal{Type: types.PrincipalWebUser, ID: "user"},
+			)
 			ctx = context.WithValue(ctx, types.LoggerContextKey, logrus.NewEntry(l))
 			router := gin.New()
 			router.ContextWithFallback = true
 			router.Use(middleware.Logger(), middleware.ErrorHandler())
-			router.Use(func(c *gin.Context) { c.Set(types.TenantIDContextKey.String(), uint64(7)); c.Next() })
+			router.Use(
+				func(c *gin.Context) { c.Set(types.TenantIDContextKey.String(), uint64(7)); c.Next() },
+			)
 			manager := mcp.NewOAuthManager(securityOAuthRepo{fail: path == "sql"}, nil, nil)
 			h := NewMCPOAuthHandler(manager, nil, securityOAuthService{service: service}, nil)
 			router.POST("/authorize/:id", h.AuthorizeURL)
@@ -85,13 +121,25 @@ func TestOAuthAPIAndAccessLogsDoNotLeakProviderOrSQL(t *testing.T) {
 			var req *http.Request
 			switch path {
 			case "callback":
-				req = httptest.NewRequest("GET", "/callback?error="+url.QueryEscape(sensitive)+"&error_description="+url.QueryEscape(sensitive)+"&client_secret=synthetic-secret", nil)
+				req = httptest.NewRequest(
+					"GET",
+					"/callback?error="+url.QueryEscape(
+						sensitive,
+					)+"&error_description="+url.QueryEscape(
+						sensitive,
+					)+"&client_secret=synthetic-secret",
+					nil,
+				)
 			case "status":
 				req = httptest.NewRequest("GET", "/status/svc", nil)
 			case "revoke":
 				req = httptest.NewRequest("DELETE", "/revoke/svc", nil)
 			default:
-				req = httptest.NewRequest("POST", "/authorize/svc", strings.NewReader(`{"redirect_uri":"http://localhost/callback"}`))
+				req = httptest.NewRequest(
+					"POST",
+					"/authorize/svc",
+					strings.NewReader("{\"redirect_uri\":\"http://localhost/callback\"}"),
+				)
 				req.Header.Set("Content-Type", "application/json")
 			}
 			recorder := httptest.NewRecorder()

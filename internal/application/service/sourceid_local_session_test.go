@@ -42,7 +42,10 @@ type sourceIDMockAdmissionResolver struct {
 
 type sourceIDTimedAdmissionResolver struct{}
 
-func (sourceIDTimedAdmissionResolver) Resolve(ctx context.Context, _ types.SourceIDAdmissionRequest) (types.SourceIDAdmissionDecision, error) {
+func (sourceIDTimedAdmissionResolver) Resolve(
+	ctx context.Context,
+	_ types.SourceIDAdmissionRequest,
+) (types.SourceIDAdmissionDecision, error) {
 	<-ctx.Done()
 	return types.SourceIDAdmissionDecision{Outcome: types.SourceIDAdmissionUnknown}, ctx.Err()
 }
@@ -59,7 +62,10 @@ func TestSourceIDAdmissionTimeoutWritesNothing(t *testing.T) {
 	require.Zero(t, count)
 }
 
-func (r sourceIDMockAdmissionResolver) Resolve(ctx context.Context, request types.SourceIDAdmissionRequest) (types.SourceIDAdmissionDecision, error) {
+func (r sourceIDMockAdmissionResolver) Resolve(
+	_ context.Context,
+	request types.SourceIDAdmissionRequest,
+) (types.SourceIDAdmissionDecision, error) {
 	now := time.Now()
 	outcome := types.SourceIDAdmissionAllow
 	if request.Stage == "login" {
@@ -76,13 +82,23 @@ func (r sourceIDMockAdmissionResolver) Resolve(ctx context.Context, request type
 	if r.expired {
 		until = now.Add(-time.Second)
 	}
-	return types.SourceIDAdmissionDecision{Outcome: outcome, Source: r.cfg.SourceIDAdmissionMode, ContractRef: r.cfg.SourceIDAdmissionPolicyRef, CheckedAt: now, ValidUntil: until, RecheckSupported: r.recheck}, r.fail
+	return types.SourceIDAdmissionDecision{
+		Outcome:          outcome,
+		Source:           r.cfg.SourceIDAdmissionMode,
+		ContractRef:      r.cfg.SourceIDAdmissionPolicyRef,
+		CheckedAt:        now,
+		ValidUntil:       until,
+		RecheckSupported: r.recheck,
+	}, r.fail
 }
 
 func sourceIDLocalFixture(t *testing.T) (*userService, *gorm.DB, *types.OIDCUserInfo) {
 	t.Helper()
 	t.Setenv("JWT_SECRET", "synthetic-local-test-signing-key")
-	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "local.db")), &gorm.Config{Logger: logger.Discard})
+	db, err := gorm.Open(
+		sqlite.Open(filepath.Join(t.TempDir(), "local.db")),
+		&gorm.Config{Logger: logger.Discard},
+	)
 	require.NoError(t, err)
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
@@ -91,27 +107,68 @@ func sourceIDLocalFixture(t *testing.T) (*userService, *gorm.DB, *types.OIDCUser
 	require.NoError(t, db.AutoMigrate(&types.User{}, &types.AuthToken{}))
 	require.NoError(t, db.Exec("DROP INDEX IF EXISTS idx_auth_tokens_session_id").Error)
 	require.NoError(t, db.Exec("ALTER TABLE auth_tokens DROP COLUMN session_id").Error)
-	for _, file := range []string{"003024_sourceid_oidc", "003026_sourceid_binding_review", "003027_sourceid_local_session"} {
+	for _, file := range []string{
+		"003024_sourceid_oidc",
+		"003026_sourceid_binding_review",
+		"003027_sourceid_local_session",
+	} {
 		sql, err := os.ReadFile("../../../migrations/sqlite/" + file + ".up.sql")
 		require.NoError(t, err)
 		require.NoError(t, db.Exec(string(sql)).Error)
 	}
-	require.NoError(t, db.Exec("CREATE TABLE tenant_members(user_id TEXT,tenant_id BIGINT,role TEXT,status TEXT)").Error)
-	require.NoError(t, db.Exec("CREATE TABLE organization_tenant_members(tenant_id BIGINT,role TEXT,representative_user_id TEXT)").Error)
-	user := &types.User{ID: uuid.NewString(), Username: "synthetic-ordinary", Email: "ordinary@example.test", IsActive: true, TenantID: 42}
+	require.NoError(
+		t,
+		db.Exec("CREATE TABLE tenant_members(user_id TEXT,tenant_id BIGINT,role TEXT,"+
+			"status TEXT)").Error,
+	)
+	require.NoError(
+		t,
+		db.Exec(
+			"CREATE TABLE organization_tenant_members(tenant_id BIGINT,role TEXT,"+
+				"representative_user_id TEXT)",
+		).Error,
+	)
+	user := &types.User{
+		ID:       uuid.NewString(),
+		Username: "synthetic-ordinary",
+		Email:    "ordinary@example.test",
+		IsActive: true,
+		TenantID: 42,
+	}
 	require.NoError(t, db.Create(user).Error)
-	require.NoError(t, db.Exec("INSERT INTO tenant_members VALUES (?,42,'contributor','active')", user.ID).Error)
-	cfg := &config.OIDCAuthConfig{Enable: true, SourceIDEnable: true, SourceIDContractConfirmed: true,
-		SourceIDSessionMode: "local_approved", SourceIDEmployeeClaim: "attributes.RJGH", SourceIDClaimsSource: "userinfo",
+	require.NoError(
+		t,
+		db.Exec("INSERT INTO tenant_members VALUES (?,42,'contributor','active')", user.ID).Error,
+	)
+	cfg := &config.OIDCAuthConfig{
+		Enable: true, SourceIDEnable: true, SourceIDContractConfirmed: true,
+		SourceIDSessionMode:   "local_approved",
+		SourceIDEmployeeClaim: "attributes.RJGH",
+		SourceIDClaimsSource:  "userinfo",
+
 		SourceIDStatusClaim: "mock_eligibility", SourceIDAllowedStatus: "ALLOW", SourceIDEmailBindingEnable: true,
-		SourceIDEmailContractConfirmed: true, SourceIDAutoBindingEnable: true, SourceIDAutoBindingPolicyRef: "synthetic-binding-approval",
+		SourceIDEmailContractConfirmed: true,
+		SourceIDAutoBindingEnable:      true,
+		SourceIDAutoBindingPolicyRef:   "synthetic-binding-approval",
+
 		SourceIDLocalPolicyRef: "synthetic-local-approval", SourceIDAdmissionPolicyRef: "synthetic-sid-status-contract",
 		SourceIDAdmissionMode: "userinfo_claim", SourceIDLocalAccessTTL: "10m", SourceIDLocalAbsoluteTTL: "8h",
-		SourceIDLocalIdleTTL: "30m", SourceIDAdmissionMaxAge: "1h", SourceIDLocalRefreshEnable: true, IssuerURL: "https://mock.example"}
-	svc := &userService{config: &config.Config{OIDCAuth: cfg}, userRepo: apprepo.NewUserRepository(db), tokenRepo: apprepo.NewAuthTokenRepository(db)}
+		SourceIDLocalIdleTTL:       "30m",
+		SourceIDAdmissionMaxAge:    "1h",
+		SourceIDLocalRefreshEnable: true,
+		IssuerURL:                  "https://mock.example",
+	}
+	svc := &userService{
+		config:    &config.Config{OIDCAuth: cfg},
+		userRepo:  apprepo.NewUserRepository(db),
+		tokenRepo: apprepo.NewAuthTokenRepository(db),
+	}
 	svc.employeeAdmission = sourceIDMockAdmissionResolver{cfg: cfg}
 	info := &types.OIDCUserInfo{Subject: "synthetic-sub", Claims: map[string]interface{}{
-		"mock_eligibility": "ALLOW", "attributes": map[string]interface{}{"RJGH": "synthetic-001", "RJEMAIL": "ordinary@example.test"},
+		"mock_eligibility": "ALLOW", "attributes": map[string]interface{}{
+			"RJGH":    "synthetic-001",
+			"RJEMAIL": "ordinary@example.test",
+		},
 	}}
 	return svc, db, info
 }
@@ -121,13 +178,26 @@ type sourceIDLocalTestMembers struct {
 	userID string
 }
 
-func (m sourceIDLocalTestMembers) GetMembership(_ context.Context, userID string, tenant uint64) (*types.TenantMember, error) {
+func (m sourceIDLocalTestMembers) GetMembership(
+	_ context.Context,
+	userID string,
+	tenant uint64,
+) (*types.TenantMember, error) {
 	if userID != m.userID || tenant != 42 {
 		return nil, nil
 	}
-	return &types.TenantMember{UserID: userID, TenantID: 42, Role: types.TenantRoleContributor, Status: types.TenantMemberStatusActive}, nil
+	return &types.TenantMember{
+		UserID:   userID,
+		TenantID: 42,
+		Role:     types.TenantRoleContributor,
+		Status:   types.TenantMemberStatusActive,
+	}, nil
 }
-func (m sourceIDLocalTestMembers) ListByUser(_ context.Context, userID string) ([]*types.TenantMember, error) {
+
+func (m sourceIDLocalTestMembers) ListByUser(
+	_ context.Context,
+	userID string,
+) ([]*types.TenantMember, error) {
 	member, _ := m.GetMembership(context.Background(), userID, 42)
 	return []*types.TenantMember{member}, nil
 }
@@ -154,14 +224,24 @@ func TestSourceIDLocalSwitchTenantAndMissingSessionClaim(t *testing.T) {
 	claims, err := claimsFromSignedToken(switched.Token)
 	require.NoError(t, err)
 	delete(claims, "session_id")
-	withoutSession, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(getJwtSecret()))
+	withoutSession, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).
+		SignedString([]byte(getJwtSecret()))
 	require.NoError(t, err)
-	require.NoError(t, db.Model(&types.AuthToken{}).Where("token = ?", switched.Token).Update("token", withoutSession).Error)
+	require.NoError(
+		t,
+		db.Model(&types.AuthToken{}).
+			Where("token = ?", switched.Token).
+			Update("token", withoutSession).
+			Error,
+	)
 	_, _, err = s.ValidateToken(ctx, withoutSession)
 	require.ErrorContains(t, err, "session mismatch")
 	store, err := s.sourceIDStore()
 	require.NoError(t, err)
-	require.NoError(t, store.RevokeSourceIDSession(ctx, loginCtx.Value(sourceIDSessionKey).(string), user.ID))
+	require.NoError(
+		t,
+		store.RevokeSourceIDSession(ctx, loginCtx.Value(sourceIDSessionKey).(string), user.ID),
+	)
 	_, _, err = s.RefreshToken(ctx, switched.RefreshToken)
 	require.Error(t, err)
 }
@@ -208,7 +288,19 @@ func TestSourceIDLocalSessionBindingAndTokenLifecycle(t *testing.T) {
 }
 
 func TestSourceIDLocalSessionAdmissionAndExpiryFailClosed(t *testing.T) {
-	for _, scenario := range []string{"DENY", "UNKNOWN", "protocol_only", "unapproved", "idle", "admission_expired", "absolute", "refresh_disabled", "binding_revoke", "admin_revoke", "missing_metadata"} {
+	for _, scenario := range []string{
+		"DENY",
+		"UNKNOWN",
+		"protocol_only",
+		"unapproved",
+		"idle",
+		"admission_expired",
+		"absolute",
+		"refresh_disabled",
+		"binding_revoke",
+		"admin_revoke",
+		"missing_metadata",
+	} {
 		t.Run(scenario, func(t *testing.T) {
 			s, db, info := sourceIDLocalFixture(t)
 			cfg := s.config.OIDCAuth
@@ -229,7 +321,8 @@ func TestSourceIDLocalSessionAdmissionAndExpiryFailClosed(t *testing.T) {
 				cfg.SourceIDLocalRefreshEnable = false
 			}
 			user, loginCtx, err := s.loginSourceID(ctx, cfg, info)
-			if scenario == "DENY" || scenario == "UNKNOWN" || scenario == "protocol_only" || scenario == "unapproved" {
+			if scenario == "DENY" || scenario == "UNKNOWN" || scenario == "protocol_only" ||
+				scenario == "unapproved" {
 				require.Error(t, err)
 				var count int64
 				require.NoError(t, db.Model(&types.ExternalIdentity{}).Count(&count).Error)
@@ -242,11 +335,29 @@ func TestSourceIDLocalSessionAdmissionAndExpiryFailClosed(t *testing.T) {
 			id := loginCtx.Value(sourceIDSessionKey).(string)
 			switch scenario {
 			case "idle":
-				require.NoError(t, db.Model(&types.SourceIDLocalSession{}).Where("id = ?", id).Update("last_seen_at", time.Now().Add(-31*time.Minute)).Error)
+				require.NoError(
+					t,
+					db.Model(&types.SourceIDLocalSession{}).
+						Where("id = ?", id).
+						Update("last_seen_at", time.Now().Add(-31*time.Minute)).
+						Error,
+				)
 			case "admission_expired":
-				require.NoError(t, db.Model(&types.SourceIDLocalSession{}).Where("id = ?", id).Update("admission_valid_until", time.Now().Add(-time.Second)).Error)
+				require.NoError(
+					t,
+					db.Model(&types.SourceIDLocalSession{}).
+						Where("id = ?", id).
+						Update("admission_valid_until", time.Now().Add(-time.Second)).
+						Error,
+				)
 			case "absolute":
-				require.NoError(t, db.Model(&types.SourceIDSession{}).Where("id = ?", id).Update("expires_at", time.Now().Add(-time.Second)).Error)
+				require.NoError(
+					t,
+					db.Model(&types.SourceIDSession{}).
+						Where("id = ?", id).
+						Update("expires_at", time.Now().Add(-time.Second)).
+						Error,
+				)
 			case "refresh_disabled":
 				_, _, err = s.RefreshToken(ctx, refresh)
 				require.Error(t, err)
@@ -257,7 +368,16 @@ func TestSourceIDLocalSessionAdmissionAndExpiryFailClosed(t *testing.T) {
 				})
 				var review types.SourceIDBindingReview
 				require.NoError(t, db.First(&review).Error)
-				require.NoError(t, admin.ReviewSourceIDBinding(ctx, review.ID, "synthetic-admin", "synthetic-revoke", "revoke"))
+				require.NoError(
+					t,
+					admin.ReviewSourceIDBinding(
+						ctx,
+						review.ID,
+						"synthetic-admin",
+						"synthetic-revoke",
+						"revoke",
+					),
+				)
 			case "admin_revoke":
 				store, err := s.sourceIDStore()
 				require.NoError(t, err)
@@ -353,7 +473,11 @@ func TestSourceIDLocalSessionRealOIDCServiceWithMockSID(t *testing.T) {
 	mock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/userinfo" {
 			require.Equal(t, "Bearer synthetic-access", r.Header.Get("Authorization"))
-			claims := map[string]interface{}{"sub": "user-123", "mock_eligibility": "ALLOW", "attributes": info.Claims["attributes"]}
+			claims := map[string]interface{}{
+				"sub":              "user-123",
+				"mock_eligibility": "ALLOW",
+				"attributes":       info.Claims["attributes"],
+			}
 			_ = json.NewEncoder(w).Encode(claims)
 			return
 		}
@@ -367,7 +491,22 @@ func TestSourceIDLocalSessionRealOIDCServiceWithMockSID(t *testing.T) {
 		require.Empty(t, r.Form.Get("client_secret"))
 		claims := baseClaims(cfg.IssuerURL, cfg.ClientID)
 		claims["nonce"] = nonce
-		_ = json.NewEncoder(w).Encode(oidcTokenResponse{AccessToken: "synthetic-access", IDToken: signedIDToken(t, key, "mock-local", claims)})
+		_ = json.NewEncoder(w).
+			Encode(
+				oidcTokenResponse{
+					AccessToken: "synthetic-access",
+
+					IDToken: signedIDToken(
+						t,
+
+						key,
+
+						"mock-local",
+
+						claims,
+					),
+				},
+			)
 	}))
 	defer mock.Close()
 	cfg.ClientID = "knowhub"
@@ -386,7 +525,12 @@ func TestSourceIDLocalSessionRealOIDCServiceWithMockSID(t *testing.T) {
 	require.NotContains(t, auth.AuthorizationURL, "code_challenge")
 	prepared, err := s.PrepareOIDCCallback(context.Background(), auth.State)
 	require.NoError(t, err)
-	response, err := s.LoginWithOIDC(prepared, "synthetic-fresh-code", cfg.RedirectURI, types.TenantProvisioningTenantless)
+	response, err := s.LoginWithOIDC(
+		prepared,
+		"synthetic-fresh-code",
+		cfg.RedirectURI,
+		types.TenantProvisioningTenantless,
+	)
 	require.NoError(t, err)
 	require.True(t, response.Success)
 	require.NotEmpty(t, response.Token)

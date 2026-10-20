@@ -28,17 +28,29 @@ type dispatchFaultRepo struct {
 	readFailure                         error
 }
 
-func (r *dispatchFaultRepo) GetKnowledgeByID(ctx context.Context, tenant uint64, id string) (*types.Knowledge, error) {
+func (r *dispatchFaultRepo) GetKnowledgeByID(
+	ctx context.Context,
+	tenant uint64,
+	id string,
+) (*types.Knowledge, error) {
 	if r.readFailure != nil {
 		return nil, r.readFailure
 	}
 	return r.KnowledgeRepository.GetKnowledgeByID(ctx, tenant, id)
 }
 
-func (r *dispatchFaultRepo) GetKnowledgeTags(context.Context, []string) (map[string][]*types.KnowledgeTag, error) {
+func (r *dispatchFaultRepo) GetKnowledgeTags(
+	context.Context,
+	[]string,
+) (map[string][]*types.KnowledgeTag, error) {
 	return nil, nil
 }
-func (r *dispatchFaultRepo) AcceptKnowledgeDispatch(ctx context.Context, k *types.Knowledge, op *types.TaskPendingOp) error {
+
+func (r *dispatchFaultRepo) AcceptKnowledgeDispatch(
+	ctx context.Context,
+	k *types.Knowledge,
+	op *types.TaskPendingOp,
+) error {
 	if r.rollback {
 		return &types.KnowledgeDispatchAdmissionError{Cause: errors.New("DB rollback before commit")}
 	}
@@ -48,6 +60,7 @@ func (r *dispatchFaultRepo) AcceptKnowledgeDispatch(ctx context.Context, k *type
 	}
 	return err
 }
+
 func (r *dispatchFaultRepo) SetKnowledgeDispatchState(ctx context.Context, id int64, state string) error {
 	if r.ackFailure && state == "dispatched" {
 		return errors.New("ack write failed")
@@ -84,15 +97,29 @@ func feishuDispatchSuite(t *testing.T, dialect string) {
 	db := syncdb.Open(t, dialect)
 	require.NoError(t, db.AutoMigrate(&types.Knowledge{}, &types.TaskPendingOp{}, &types.Chunk{}))
 	ctx := newCreateKnowledgeFileContext()
-	fixture := func() (*knowledgeService, *dispatchFaultRepo, *dispatchQueue, *createKnowledgeFileServiceStub, *types.Knowledge) {
+	fixture := func() (*knowledgeService,
+		*dispatchFaultRepo,
+		*dispatchQueue,
+		*createKnowledgeFileServiceStub,
+		*types.Knowledge,
+	) {
 		for _, model := range []any{&types.TaskPendingOp{}, &types.Chunk{}, &types.Knowledge{}} {
 			require.NoError(t, db.Unscoped().Where("1 = 1").Delete(model).Error)
 		}
 		base := repository.NewKnowledgeRepository(db)
-		repo := &dispatchFaultRepo{KnowledgeRepository: base, KnowledgeDispatchRepository: base.(interfaces.KnowledgeDispatchRepository)}
+		repo := &dispatchFaultRepo{
+			KnowledgeRepository:         base,
+			KnowledgeDispatchRepository: base.(interfaces.KnowledgeDispatchRepository),
+		}
 		q := &dispatchQueue{}
 		fs := &createKnowledgeFileServiceStub{}
-		svc := &knowledgeService{repo: repo, task: q, fileSvc: fs, chunkRepo: repository.NewChunkRepository(db), kbService: &createKnowledgeFileKBServiceStub{kb: &types.KnowledgeBase{ID: "kb", TenantID: 1}}}
+		svc := &knowledgeService{
+			repo:      repo,
+			task:      q,
+			fileSvc:   fs,
+			chunkRepo: repository.NewChunkRepository(db),
+			kbService: &createKnowledgeFileKBServiceStub{kb: &types.KnowledgeBase{ID: "kb", TenantID: 1}},
+		}
 		k := replayRow(types.ParseStatusPending)
 		k.ID = uuid.NewString()
 		k.TenantID = 1
@@ -134,7 +161,13 @@ func feishuDispatchSuite(t *testing.T, dialect string) {
 		require.Zero(t, fs.deleteCalls)
 		// Actual delivery reaches the original DB row, then recognizes completed
 		// state without touching source/chunks. This is queue, not index evidence.
-		require.NoError(t, db.Model(&types.Knowledge{}).Where("id = ?", k.ID).UpdateColumn("parse_status", types.ParseStatusCompleted).Error)
+		require.NoError(
+			t,
+			db.Model(&types.Knowledge{}).
+				Where("id = ?", k.ID).
+				UpdateColumn("parse_status", types.ParseStatusCompleted).
+				Error,
+		)
 		require.NoError(t, restarted.ProcessDocument(ctx, q.snapshot()[len(q.snapshot())-1]))
 		op, err = r.GetKnowledgeDispatch(ctx, 1, k.ID)
 		require.NoError(t, err)
@@ -205,7 +238,13 @@ func feishuDispatchSuite(t *testing.T, dialect string) {
 		s, _, q, fs, k := fixture()
 		_, err := s.acceptFeishuKnowledgeDispatch(ctx, k, fs, nil)
 		require.NoError(t, err)
-		require.NoError(t, db.Model(&types.Knowledge{}).Where("id = ?", k.ID).UpdateColumn("parse_status", types.ParseStatusCompleted).Error)
+		require.NoError(
+			t,
+			db.Model(&types.Knowledge{}).
+				Where("id = ?", k.ID).
+				UpdateColumn("parse_status", types.ParseStatusCompleted).
+				Error,
+		)
 		for i := 0; i < 2; i++ {
 			require.NoError(t, s.ProcessDocument(ctx, q.snapshot()[0]))
 		}
@@ -216,7 +255,13 @@ func feishuDispatchSuite(t *testing.T, dialect string) {
 		s, _, q, fs, k := fixture()
 		_, err := s.acceptFeishuKnowledgeDispatch(ctx, k, fs, nil)
 		require.NoError(t, err)
-		require.NoError(t, db.Model(&types.Knowledge{}).Where("id = ?", k.ID).UpdateColumn("parse_status", types.ParseStatusCompleted).Error)
+		require.NoError(
+			t,
+			db.Model(&types.Knowledge{}).
+				Where("id = ?", k.ID).
+				UpdateColumn("parse_status", types.ParseStatusCompleted).
+				Error,
+		)
 		var wg sync.WaitGroup
 		for i := 0; i < 2; i++ {
 			wg.Add(1)
@@ -277,7 +322,13 @@ func feishuDispatchSuite(t *testing.T, dialect string) {
 		s, r, q, fs, k := fixture()
 		_, err := s.acceptFeishuKnowledgeDispatch(ctx, k, fs, nil)
 		require.NoError(t, err)
-		chunk := &types.Chunk{ID: uuid.NewString(), TenantID: 1, KnowledgeID: k.ID, KnowledgeBaseID: "kb", Content: "preserve"}
+		chunk := &types.Chunk{
+			ID:              uuid.NewString(),
+			TenantID:        1,
+			KnowledgeID:     k.ID,
+			KnowledgeBaseID: "kb",
+			Content:         "preserve",
+		}
 		require.NoError(t, db.Create(chunk).Error)
 		s.chunkRepo = repository.NewChunkRepository(db)
 		require.ErrorIs(t, s.ProcessDocument(ctx, q.snapshot()[0]), ErrFeishuDispatchUnconfirmed)
@@ -306,7 +357,12 @@ func feishuDispatchSuite(t *testing.T, dialect string) {
 		m := map[string]string{"datasource_id": "a", "external_id": "b"}
 		id := feishuAdmissionID(1, "kb", m, "v1", "doc")
 		require.Equal(t, id, feishuAdmissionID(1, "kb", m, "v1", "doc"))
-		require.Equal(t, id, feishuAdmissionID(1, "kb", m, "v2", "doc"), "revision changes must not create another logical Knowledge")
+		require.Equal(
+			t,
+			id,
+			feishuAdmissionID(1, "kb", m, "v2", "doc"),
+			"revision changes must not create another logical Knowledge",
+		)
 		require.NotEqual(t, id, feishuAdmissionID(2, "kb", m, "v1", "doc"))
 	})
 	t.Run("concurrent_initial_revisions_cannot_create_k2", func(t *testing.T) {
@@ -353,26 +409,62 @@ func feishuDispatchSuite(t *testing.T, dialect string) {
 		s, _, q, fs, _ := fixture()
 		q.setDown(true)
 		metadata := map[string]string{"datasource_id": "source", "external_id": "doc"}
-		k, err := s.CreateKnowledgeFromFile(ctx, "kb", newMultipartFileHeader(t, "doc.txt", "v1"), metadata, nil, "", nil, "feishu", nil)
+		k, err := s.CreateKnowledgeFromFile(
+			ctx,
+			"kb",
+			newMultipartFileHeader(t, "doc.txt", "v1"),
+			metadata,
+			nil,
+			"",
+			nil,
+			"feishu",
+			nil,
+		)
 		require.Error(t, err)
 		require.NotNil(t, k)
 		count(k.ID)
 		require.Zero(t, fs.deleteCalls)
-		ds := &types.DataSource{ID: "source", TenantID: 1, KnowledgeBaseID: "kb", Type: "feishu", LastSyncCursor: types.JSON(`{"accepted":"previous"}`)}
-		h := newStreamHandler(&DataSourceService{knowledgeService: s}, ds, &types.SyncResult{}, &types.SyncLog{})
+		ds := &types.DataSource{
+			ID:              "source",
+			TenantID:        1,
+			KnowledgeBaseID: "kb",
+			Type:            "feishu",
+			LastSyncCursor:  types.JSON(`{"accepted":"previous"}`),
+		}
+		h := newStreamHandler(
+			&DataSourceService{knowledgeService: s},
+			ds,
+			&types.SyncResult{},
+			&types.SyncLog{},
+		)
 		item := types.FetchedItem{ExternalID: "doc", Content: []byte("v1"), FileName: "doc.txt"}
 		require.Error(t, h.Emit(ctx, item))
 		require.Error(t, h.Checkpoint(ctx, &types.SyncCursor{}))
 		require.JSONEq(t, `{"accepted":"previous"}`, string(ds.LastSyncCursor))
 		q.setDown(false)
-		retried, err := s.CreateKnowledgeFromFile(ctx, "kb", newMultipartFileHeader(t, "doc.txt", "v1"), metadata, nil, "", nil, "feishu", nil)
+		retried, err := s.CreateKnowledgeFromFile(
+			ctx,
+			"kb",
+			newMultipartFileHeader(t, "doc.txt", "v1"),
+			metadata,
+			nil,
+			"",
+			nil,
+			"feishu",
+			nil,
+		)
 		var duplicate *types.DuplicateKnowledgeError
 		require.ErrorAs(t, err, &duplicate)
 		require.Equal(t, k.ID, retried.ID)
 		count(k.ID)
 		assertQueued(q, k.ID)
 		require.Equal(t, 1, fs.saveCalls)
-		fresh := newStreamHandler(&DataSourceService{knowledgeService: s}, ds, &types.SyncResult{}, &types.SyncLog{})
+		fresh := newStreamHandler(
+			&DataSourceService{knowledgeService: s},
+			ds,
+			&types.SyncResult{},
+			&types.SyncLog{},
+		)
 		require.NoError(t, fresh.Emit(ctx, item))
 		require.Equal(t, 1, fresh.result.Skipped)
 		require.Zero(t, fs.deleteCalls)
@@ -381,18 +473,53 @@ func feishuDispatchSuite(t *testing.T, dialect string) {
 		s, _, q, fs, _ := fixture()
 		q.setDown(true)
 		metadata := map[string]string{"feishu_imported_by": "user-a", "feishu_resource_id": "docx:private"}
-		k, err := s.CreateKnowledgeFromFile(ctx, "kb", newMultipartFileHeader(t, "doc.txt", "v1"), metadata, nil, "", nil, "feishu_personal", nil)
+		k, err := s.CreateKnowledgeFromFile(
+			ctx,
+			"kb",
+			newMultipartFileHeader(t, "doc.txt", "v1"),
+			metadata,
+			nil,
+			"",
+			nil,
+			"feishu_personal",
+			nil,
+		)
 		require.Error(t, err)
 		require.NotNil(t, k)
 		count(k.ID)
 		q.setDown(false)
-		restored, err := s.CreateKnowledgeFromFile(ctx, "kb", newMultipartFileHeader(t, "doc.txt", "v1"), metadata, nil, "", nil, "feishu_personal", nil)
-		require.NoError(t, err, "the personal caller can bind its existing import record after initial response failure")
+		restored, err := s.CreateKnowledgeFromFile(
+			ctx,
+			"kb",
+			newMultipartFileHeader(t, "doc.txt", "v1"),
+			metadata,
+			nil,
+			"",
+			nil,
+			"feishu_personal",
+			nil,
+		)
+		require.NoError(
+			t,
+			err,
+			"the personal caller can bind its existing import record after initial "+
+				"response failure",
+		)
 		require.Equal(t, k.ID, restored.ID)
 		assertQueued(q, k.ID)
 		require.Equal(t, 1, fs.saveCalls)
 		other := map[string]string{"feishu_imported_by": "user-b", "feishu_resource_id": "docx:private"}
-		b, err := s.CreateKnowledgeFromFile(ctx, "kb", newMultipartFileHeader(t, "doc.txt", "v1"), other, nil, "", nil, "feishu_personal", nil)
+		b, err := s.CreateKnowledgeFromFile(
+			ctx,
+			"kb",
+			newMultipartFileHeader(t, "doc.txt", "v1"),
+			other,
+			nil,
+			"",
+			nil,
+			"feishu_personal",
+			nil,
+		)
 		require.NoError(t, err)
 		require.NotEqual(t, k.ID, b.ID)
 		var rows int64
@@ -410,7 +537,17 @@ func feishuDispatchSuite(t *testing.T, dialect string) {
 		metadata := map[string]string{"feishu_imported_by": "user-a", "feishu_resource_id": "docx:private"}
 		k.Metadata, _ = json.Marshal(metadata)
 		require.NoError(t, db.Create(k).Error)
-		got, err := s.CreateKnowledgeFromFile(ctx, "kb", newMultipartFileHeader(t, "doc.txt", "v1"), metadata, nil, "", nil, "feishu_personal", nil)
+		got, err := s.CreateKnowledgeFromFile(
+			ctx,
+			"kb",
+			newMultipartFileHeader(t, "doc.txt", "v1"),
+			metadata,
+			nil,
+			"",
+			nil,
+			"feishu_personal",
+			nil,
+		)
 		require.NoError(t, err)
 		require.Equal(t, k.ID, got.ID)
 		count(k.ID)
@@ -431,7 +568,13 @@ func feishuDispatchSuite(t *testing.T, dialect string) {
 		require.NoError(t, db.Create(k).Error)
 		grant, err := access.WithKBTaskWrite(ctx, &types.KnowledgeBase{ID: "kb", TenantID: 1}, 1)
 		require.NoError(t, err)
-		_, err = s.ReplaceKnowledgeFile(grant, k.ID, newMultipartFileHeader(t, "doc.txt", "v2"), "doc.txt", nil)
+		_, err = s.ReplaceKnowledgeFile(
+			grant,
+			k.ID,
+			newMultipartFileHeader(t, "doc.txt", "v2"),
+			"doc.txt",
+			nil,
+		)
 		require.ErrorIs(t, err, ErrFeishuStagingRequired)
 		require.Zero(t, fs.saveCalls)
 		require.Zero(t, fs.deleteCalls)
@@ -444,7 +587,7 @@ func feishuDispatchSuite(t *testing.T, dialect string) {
 			q.setDown(true)
 			_, err := s.acceptFeishuKnowledgeDispatch(ctx, k, fs, nil)
 			require.Error(t, err)
-			dead, err := gorm.Open(postgres.Open(db.Dialector.(*postgres.Dialector).Config.DSN), &gorm.Config{})
+			dead, err := gorm.Open(postgres.Open(db.Dialector.(*postgres.Dialector).DSN), &gorm.Config{})
 			require.NoError(t, err)
 			pool, err := dead.DB()
 			require.NoError(t, err)
@@ -466,15 +609,39 @@ func feishuDispatchSuite(t *testing.T, dialect string) {
 		release := make(chan struct{})
 		done := make(chan error, 1)
 		go func() {
-			done <- r.WithKnowledgeDispatchLock(ctx, k.ID, func(context.Context) error { close(entered); <-release; return nil })
+			done <- r.WithKnowledgeDispatchLock(
+				ctx,
+
+				k.ID,
+
+				func(
+					context.Context,
+				) error {
+					close(
+						entered,
+					)
+					<-release
+					return nil
+				},
+			)
 		}()
 		<-entered
 		if dialect == "postgres" {
-			require.Error(t, r.WithKnowledgeDispatchLock(ctx, k.ID, func(context.Context) error { t.Error("concurrent owner entered"); return nil }))
+			require.Error(
+				t,
+				r.WithKnowledgeDispatchLock(
+					ctx,
+					k.ID,
+					func(context.Context) error { t.Error("concurrent owner entered"); return nil },
+				),
+			)
 		}
 		close(release)
 		require.NoError(t, <-done)
-		require.NoError(t, r.WithKnowledgeDispatchLock(ctx, k.ID, func(context.Context) error { return nil }))
+		require.NoError(
+			t,
+			r.WithKnowledgeDispatchLock(ctx, k.ID, func(context.Context) error { return nil }),
+		)
 	})
 	if dialect == "postgres" {
 		t.Run("lost_postgres_session_cancels_old_worker", func(t *testing.T) {
@@ -493,7 +660,17 @@ func feishuDispatchSuite(t *testing.T, dialect string) {
 			hash := fnv.New64a()
 			_, _ = hash.Write([]byte("knowledge-dispatch:" + k.ID))
 			key := hash.Sum64()
-			require.NoError(t, db.Exec(`SELECT pg_terminate_backend(pid) FROM pg_locks WHERE locktype = 'advisory' AND classid::bigint = ? AND objid::bigint = ? AND pid <> pg_backend_pid() AND database = (SELECT oid FROM pg_database WHERE datname = current_database())`, int64(uint32(key>>32)), int64(uint32(key))).Error)
+			require.NoError(
+				t,
+				db.Exec(
+					"SELECT pg_terminate_backend(pid) FROM pg_locks WHERE locktype = "+
+						"'advisory' AND classid::bigint = ? AND objid::bigint = ? AND pid <> "+
+						"pg_backend_pid() AND database = (SELECT oid FROM pg_database WHERE "+
+						"datname = current_database())",
+					int64(uint32(key>>32)),
+					int64(uint32(key)),
+				).Error,
+			)
 			select {
 			case err := <-done:
 				require.Error(t, err)

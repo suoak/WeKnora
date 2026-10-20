@@ -16,6 +16,7 @@ import (
 	"time"
 )
 
+// OIDCProbeHTTPDiagnostics defines oidcprobe httpdiagnostics state.
 // Opt-in Token diagnostics contain only public configuration, fixed enums,
 // existence/type checks and fingerprints. No free-form header/body text.
 type OIDCProbeHTTPDiagnostics struct {
@@ -23,6 +24,7 @@ type OIDCProbeHTTPDiagnostics struct {
 	Response *OIDCProbeResponseDiagnostics `json:"response,omitempty"`
 }
 
+// OIDCProbeRequestDiagnostics defines oidcprobe request diagnostics state.
 type OIDCProbeRequestDiagnostics struct {
 	Method               string          `json:"method"`
 	Host                 string          `json:"host"`
@@ -44,12 +46,14 @@ type OIDCProbeRequestDiagnostics struct {
 	SentUTC              string          `json:"sent_utc,omitempty"`
 }
 
+// OIDCProbeCorrelation defines oidcprobe correlation state.
 type OIDCProbeCorrelation struct {
 	Present     bool   `json:"present"`
 	FormatValid bool   `json:"format_valid"`
 	Fingerprint string `json:"sha256,omitempty"`
 }
 
+// OIDCProbeResponseDiagnostics defines oidcprobe response diagnostics state.
 type OIDCProbeResponseDiagnostics struct {
 	ContentType             string                          `json:"content_type"`
 	DeclaredLength          int64                           `json:"declared_length"`
@@ -75,11 +79,16 @@ type OIDCProbeResponseDiagnostics struct {
 	GatewaySuspected        bool                            `json:"gateway_suspected"`
 }
 
-var probePublicCodePattern = regexp.MustCompile(`^(?:[A-Z][A-Z0-9_]{2,47}|[1-9][0-9]{2,7})$`)
-var probeBasicPattern = regexp.MustCompile(`^Basic [A-Za-z0-9+/]+={0,2}$`)
-var probeIDPattern = regexp.MustCompile(`^(?:[a-fA-F0-9]{32}|[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})$`)
-var probeTracePattern = regexp.MustCompile(`^00-[a-f0-9]{32}-[a-f0-9]{16}-[a-f0-9]{2}$`)
-var probeWWWErrorPattern = regexp.MustCompile(`(?i)(?:^|[, ])error="([a-z_]{1,40})"`)
+var (
+	probePublicCodePattern = regexp.MustCompile(`^(?:[A-Z][A-Z0-9_]{2,47}|[1-9][0-9]{2,7})$`)
+	probeBasicPattern      = regexp.MustCompile(`^Basic [A-Za-z0-9+/]+={0,2}$`)
+	probeIDPattern         = regexp.MustCompile(
+		"^(?:[a-fA-F0-9]{32}|[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA" +
+			"-F0-9]{4}-[a-fA-F0-9]{12})$",
+	)
+	probeTracePattern    = regexp.MustCompile(`^00-[a-f0-9]{32}-[a-f0-9]{16}-[a-f0-9]{2}$`)
+	probeWWWErrorPattern = regexp.MustCompile(`(?i)(?:^|[, ])error="([a-z_]{1,40})"`)
+)
 
 func probeMediaType(raw string) string {
 	v, _, err := mime.ParseMediaType(raw)
@@ -90,14 +99,21 @@ func probeMediaType(raw string) string {
 		return "other"
 	}
 	switch strings.ToLower(v) {
-	case "application/json", "application/problem+json", "text/html", "text/plain", "application/x-www-form-urlencoded":
+	case "application/json",
+		"application/problem+json",
+		"text/html",
+		"text/plain",
+		"application/x-www-form-urlencoded":
 		return strings.ToLower(v)
 	default:
 		return "other"
 	}
 }
 
-func probeRequestDiagnostics(req *http.Request, clientID, redirect string) (*OIDCProbeHTTPDiagnostics, []string) {
+func probeRequestDiagnostics(
+	req *http.Request,
+	clientID, redirect string,
+) (*OIDCProbeHTTPDiagnostics, []string) {
 	auth := req.Header.Get("Authorization")
 	scheme := "absent"
 	if auth != "" {
@@ -117,7 +133,22 @@ func probeRequestDiagnostics(req *http.Request, clientID, redirect string) (*OID
 	if host == "" {
 		host = req.URL.Host
 	}
-	d := &OIDCProbeRequestDiagnostics{Method: method, Host: req.URL.Host, Path: req.URL.Path, HostMatchesEndpoint: host == req.URL.Host, ContentType: probeMediaType(req.Header.Get("Content-Type")), AuthorizationType: scheme, AuthorizationPresent: auth != "", BasicFormatValid: probeBasicPattern.MatchString(auth), ClientID: clientID, RedirectURI: redirect, FieldPresence: map[string]bool{}, FieldChecks: map[string]bool{}, QueryPresent: req.URL.RawQuery != "", DispatchUTC: time.Now().UTC().Format(time.RFC3339Nano)}
+	d := &OIDCProbeRequestDiagnostics{
+		Method:               method,
+		Host:                 req.URL.Host,
+		Path:                 req.URL.Path,
+		HostMatchesEndpoint:  host == req.URL.Host,
+		ContentType:          probeMediaType(req.Header.Get("Content-Type")),
+		AuthorizationType:    scheme,
+		AuthorizationPresent: auth != "",
+		BasicFormatValid:     probeBasicPattern.MatchString(auth),
+		ClientID:             clientID,
+		RedirectURI:          redirect,
+		FieldPresence:        map[string]bool{},
+		FieldChecks:          map[string]bool{},
+		QueryPresent:         req.URL.RawQuery != "",
+		DispatchUTC:          time.Now().UTC().Format(time.RFC3339Nano),
+	}
 	private := []string{auth}
 	if _, encoded, ok := req.BasicAuth(); ok {
 		private = append(private, encoded)
@@ -129,12 +160,19 @@ func probeRequestDiagnostics(req *http.Request, clientID, redirect string) (*OID
 		reader, err := req.GetBody()
 		if err == nil {
 			raw, readErr := io.ReadAll(io.LimitReader(reader, 64*1024+1))
-			reader.Close()
+			_ = reader.Close()
 			if readErr == nil && len(raw) <= 64*1024 {
 				form, parseErr := url.ParseQuery(string(raw))
 				if parseErr == nil {
 					d.FormInspected = true
-					for _, k := range []string{"grant_type", "code", "redirect_uri", "client_id", "client_secret", "code_verifier"} {
+					for _, k := range []string{
+						"grant_type",
+						"code",
+						"redirect_uri",
+						"client_id",
+						"client_secret",
+						"code_verifier",
+					} {
 						v, exists := form[k]
 						d.FieldPresence[k] = exists
 						if exists {
@@ -145,9 +183,12 @@ func probeRequestDiagnostics(req *http.Request, clientID, redirect string) (*OID
 						}
 					}
 					d.UnknownFieldCount = len(form) - len(d.FormFields)
-					d.FieldChecks["grant_type_authorization_code"] = len(form["grant_type"]) == 1 && form.Get("grant_type") == "authorization_code"
-					d.FieldChecks["client_id_matches_config"] = len(form["client_id"]) == 1 && form.Get("client_id") == clientID
-					d.FieldChecks["redirect_uri_matches_config"] = len(form["redirect_uri"]) == 1 && form.Get("redirect_uri") == redirect
+					d.FieldChecks["grant_type_authorization_code"] = len(form["grant_type"]) == 1 &&
+						form.Get("grant_type") == "authorization_code"
+					d.FieldChecks["client_id_matches_config"] = len(form["client_id"]) == 1 &&
+						form.Get("client_id") == clientID
+					d.FieldChecks["redirect_uri_matches_config"] = len(form["redirect_uri"]) == 1 &&
+						form.Get("redirect_uri") == redirect
 					d.FieldChecks["code_single_nonempty"] = len(form["code"]) == 1 && form.Get("code") != ""
 				}
 			}
@@ -169,7 +210,17 @@ func probeDiagnosticValueSafe(value string, private []string) bool {
 		if len(secret) < 4 {
 			continue
 		}
-		for _, encoded := range []string{secret, url.QueryEscape(secret), base64.StdEncoding.EncodeToString([]byte(secret))} {
+		for _, encoded := range []string{
+			secret,
+			url.QueryEscape(
+				secret,
+			),
+			base64.StdEncoding.EncodeToString(
+				[]byte(
+					secret,
+				),
+			),
+		} {
 			if strings.Contains(v, strings.ToLower(encoded)) {
 				return false
 			}
@@ -180,7 +231,16 @@ func probeDiagnosticValueSafe(value string, private []string) bool {
 
 func probeOAuthCode(raw string) string {
 	switch raw {
-	case "invalid_request", "invalid_client", "invalid_grant", "unauthorized_client", "unsupported_grant_type", "invalid_scope", "invalid_token", "access_denied", "server_error", "temporarily_unavailable":
+	case "invalid_request",
+		"invalid_client",
+		"invalid_grant",
+		"unauthorized_client",
+		"unsupported_grant_type",
+		"invalid_scope",
+		"invalid_token",
+		"access_denied",
+		"server_error",
+		"temporarily_unavailable":
 		return raw
 	default:
 		return ""
@@ -188,7 +248,12 @@ func probeOAuthCode(raw string) string {
 }
 
 func probeResponseDiagnostics(resp *http.Response, private []string) *OIDCProbeResponseDiagnostics {
-	d := &OIDCProbeResponseDiagnostics{ContentType: probeMediaType(resp.Header.Get("Content-Type")), DeclaredLength: resp.ContentLength, BodyKind: "not_observed", Correlation: map[string]OIDCProbeCorrelation{}}
+	d := &OIDCProbeResponseDiagnostics{
+		ContentType:    probeMediaType(resp.Header.Get("Content-Type")),
+		DeclaredLength: resp.ContentLength,
+		BodyKind:       "not_observed",
+		Correlation:    map[string]OIDCProbeCorrelation{},
+	}
 	www := resp.Header.Get("WWW-Authenticate")
 	d.WWWPresent = www != ""
 	if len(www) <= 4096 && www != "" {
@@ -212,7 +277,15 @@ func probeResponseDiagnostics(resp *http.Response, private []string) *OIDCProbeR
 		values := resp.Header.Values(name)
 		value := resp.Header.Get(name)
 		entry := OIDCProbeCorrelation{Present: len(values) > 0}
-		entry.FormatValid = len(values) == 1 && ((name == "Traceparent" && probeTracePattern.MatchString(value)) || (name != "Traceparent" && probeIDPattern.MatchString(value)))
+		entry.FormatValid = len(values) == 1 &&
+			((name == "Traceparent" &&
+				probeTracePattern.MatchString(
+					value,
+				)) ||
+				(name != "Traceparent" &&
+					probeIDPattern.MatchString(
+						value,
+					)))
 		if entry.FormatValid && probeDiagnosticValueSafe(value, private) {
 			sum := sha256.Sum256([]byte(value))
 			entry.Fingerprint = hex.EncodeToString(sum[:])
@@ -250,7 +323,11 @@ func (b *probeObservedBody) Read(p []byte) (int, error) {
 	} else if err != nil {
 		b.report.ReadError = true
 	}
-	b.report.PrefixTruncated = b.report.BytesRead > 4096 || (b.report.BytesRead == 4096 && !b.report.BodyEOF && (b.report.DeclaredLength < 0 || b.report.DeclaredLength > 4096))
+	b.report.PrefixTruncated = b.report.BytesRead > 4096 ||
+		(b.report.BytesRead == 4096 &&
+			!b.report.BodyEOF &&
+			(b.report.DeclaredLength < 0 ||
+				b.report.DeclaredLength > 4096))
 	return n, err
 }
 
@@ -269,7 +346,12 @@ func (b *probeObservedBody) Close() error {
 	return b.ReadCloser.Close()
 }
 
-func probeClassifyResponse(d *OIDCProbeResponseDiagnostics, raw []byte, publicCodes, private []string, correlations map[string]string) {
+func probeClassifyResponse(
+	d *OIDCProbeResponseDiagnostics,
+	raw []byte,
+	publicCodes, private []string,
+	correlations map[string]string,
+) {
 	trimmed := bytes.TrimSpace(raw)
 	if len(trimmed) == 0 {
 		d.BodyKind = "empty"
@@ -278,7 +360,8 @@ func probeClassifyResponse(d *OIDCProbeResponseDiagnostics, raw []byte, publicCo
 	var object map[string]json.RawMessage
 	if json.Unmarshal(trimmed, &object) != nil || object == nil {
 		lower := strings.ToLower(string(trimmed[:min(len(trimmed), 64)]))
-		if d.ContentType == "text/html" || strings.HasPrefix(lower, "<!doctype html") || strings.HasPrefix(lower, "<html") {
+		if d.ContentType == "text/html" || strings.HasPrefix(lower, "<!doctype html") ||
+			strings.HasPrefix(lower, "<html") {
 			d.BodyKind = "html"
 			d.GatewaySuspected = true
 		} else {
@@ -289,7 +372,18 @@ func probeClassifyResponse(d *OIDCProbeResponseDiagnostics, raw []byte, publicCo
 	d.BodyKind = "json_object"
 	d.ErrorFields = map[string]string{}
 	known := map[string]bool{}
-	for _, name := range []string{"error", "error_description", "errorCode", "error_code", "code", "message", "access_token", "id_token", "refresh_token", "token_type"} {
+	for _, name := range []string{
+		"error",
+		"error_description",
+		"errorCode",
+		"error_code",
+		"code",
+		"message",
+		"access_token",
+		"id_token",
+		"refresh_token",
+		"token_type",
+	} {
 		known[name] = true
 		if value, ok := object[name]; ok {
 			d.ErrorFields[name] = probeJSONType(value)
@@ -301,7 +395,19 @@ func probeClassifyResponse(d *OIDCProbeResponseDiagnostics, raw []byte, publicCo
 		}
 	}
 	// Token/error responses can echo tokens not present in the outgoing form.
-	for _, name := range []string{"access_token", "id_token", "refresh_token", "authorization_code", "client_secret", "cookie", "password", "token", "tgt", "SessionIndex", "sessionIndex"} {
+	for _, name := range []string{
+		"access_token",
+		"id_token",
+		"refresh_token",
+		"authorization_code",
+		"client_secret",
+		"cookie",
+		"password",
+		"token",
+		"tgt",
+		"SessionIndex",
+		"sessionIndex",
+	} {
 		var v string
 		if json.Unmarshal(object[name], &v) == nil && v != "" {
 			private = append(private, v)

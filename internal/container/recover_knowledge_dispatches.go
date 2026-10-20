@@ -2,9 +2,10 @@ package container
 
 import (
 	"context"
+	"time"
+
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
-	"time"
 )
 
 // Recover after handlers are registered and keep retrying when Redis was
@@ -23,7 +24,11 @@ func recoverKnowledgeDispatches(knowledge interfaces.KnowledgeService, cleaner i
 		for {
 			attempt, stop := context.WithTimeout(ctx, 45*time.Second)
 			if err := recovery.RecoverKnowledgeDispatches(attempt); err != nil && ctx.Err() == nil {
-				logger.Warnf(ctx, "Knowledge dispatch recovery incomplete; durable intent retained (database_or_queue_unavailable)")
+				logger.Warnf(
+					ctx,
+					"Knowledge dispatch recovery incomplete; durable intent retained "+
+						"(database_or_queue_unavailable)",
+				)
 			}
 			stop()
 			select {

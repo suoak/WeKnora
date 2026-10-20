@@ -13,7 +13,11 @@ import (
 // MVP first additions preserve the existing body verbatim. A whole-page LLM
 // rewrite is not evidence that another source's contribution survived.
 // The per-KID marker is committed with body/refs in the same guarded page write.
-func (s *wikiIngestService) firstAddDependencies(ctx context.Context, page *types.WikiPage, updates []SlugUpdate) ([]SlugUpdate, map[string]bool, error) {
+func (s *wikiIngestService) firstAddDependencies(
+	ctx context.Context,
+	page *types.WikiPage,
+	updates []SlugUpdate,
+) ([]SlugUpdate, map[string]bool, error) {
 	candidates := map[string]bool{}
 	for _, u := range updates {
 		if u.Type == "retract" || u.Type == "retractStale" {
@@ -107,17 +111,20 @@ func preserveWikiFirstAddBody(previous, generated string) string {
 	return previous + "\n\n---\n\n" + generated
 }
 
-type wikiPostErrorsKey struct{}
-type wikiFirstAddFinalizeKey struct{}
-type wikiPostErrors struct {
-	mu     sync.Mutex
-	failed bool
-}
+type (
+	wikiPostErrorsKey       struct{}
+	wikiFirstAddFinalizeKey struct{}
+	wikiPostErrors          struct {
+		mu     sync.Mutex
+		failed bool
+	}
+)
 
 func withWikiPostErrors(ctx context.Context) (context.Context, *wikiPostErrors) {
 	result := &wikiPostErrors{}
 	return context.WithValue(ctx, wikiPostErrorsKey{}, result), result
 }
+
 func recordWikiPostError(ctx context.Context, err error) {
 	if err == nil {
 		return
@@ -138,8 +145,10 @@ func (s *wikiIngestService) isMVPWikiKnowledge(ctx context.Context, id string) (
 		return false, err
 	}
 	var meta map[string]any
-	return k != nil && k.Channel == "feishu_personal" && json.Unmarshal(k.Metadata, &meta) == nil && meta["feishu_mvp_attempt"] != "", nil
+	return k != nil && k.Channel == "feishu_personal" && json.Unmarshal(k.Metadata, &meta) == nil &&
+		meta["feishu_mvp_attempt"] != "", nil
 }
+
 func (s *wikiIngestService) hasFirstAddPages(ctx context.Context, kb string, slugs []string) (bool, error) {
 	for _, slug := range slugs {
 		page, err := s.wikiService.GetPageBySlug(ctx, kb, slug)

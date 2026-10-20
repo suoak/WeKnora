@@ -26,21 +26,39 @@ func (s *replayKnowledge) ResumeKnowledgeDispatch(_ context.Context, existing *t
 }
 func (s *replayKnowledge) RecoverKnowledgeDispatches(context.Context) error { return s.err }
 
-func (s *replayKnowledge) ReparseKnowledge(context.Context, string, *types.KnowledgeProcessOverrides) (*types.Knowledge, error) {
+func (s *replayKnowledge) ReparseKnowledge(
+	context.Context,
+	string,
+	*types.KnowledgeProcessOverrides,
+) (*types.Knowledge, error) {
 	s.calls++
 	return s.row, s.err
 }
 
 func replayRow(status string) *types.Knowledge {
 	sum := md5.Sum([]byte("v1"))
-	return &types.Knowledge{ID: "stable", FileHash: hex.EncodeToString(sum[:]), FileName: "doc.docx", ParseStatus: status}
+	return &types.Knowledge{
+		ID:          "stable",
+		FileHash:    hex.EncodeToString(sum[:]),
+		FileName:    "doc.docx",
+		ParseStatus: status,
+	}
 }
 
 func TestFeishuReplayPreservesExistingID(t *testing.T) {
-	for _, status := range []string{types.ParseStatusCompleted, types.ParseStatusFinalizing, types.ParseStatusProcessing} {
+	for _, status := range []string{
+		types.ParseStatusCompleted,
+		types.ParseStatusFinalizing,
+		types.ParseStatusProcessing,
+	} {
 		t.Run(status, func(t *testing.T) {
 			svc := &replayKnowledge{}
-			err := reconcileFeishuReplay(context.Background(), svc, replayRow(status), &types.FetchedItem{Content: []byte("v1"), FileName: "doc.docx"})
+			err := reconcileFeishuReplay(
+				context.Background(),
+				svc,
+				replayRow(status),
+				&types.FetchedItem{Content: []byte("v1"), FileName: "doc.docx"},
+			)
 			var duplicate *types.DuplicateKnowledgeError
 			require.ErrorAs(t, err, &duplicate)
 			require.Equal(t, "stable", duplicate.Knowledge.ID)
@@ -51,7 +69,17 @@ func TestFeishuReplayPreservesExistingID(t *testing.T) {
 
 func TestFeishuChangedReplayNeverDeletesOrReplaces(t *testing.T) {
 	svc := &replayKnowledge{}
-	for _, item := range []*types.FetchedItem{{Content: []byte("v2"), FileName: "doc.docx"}, {URL: "https://example.test"}} {
+	for _, item := range []*types.FetchedItem{
+		{
+			Content: []byte(
+				"v2",
+			),
+			FileName: "doc.docx",
+		},
+		{
+			URL: "https://example.test",
+		},
+	} {
 		err := reconcileFeishuReplay(context.Background(), svc, replayRow(types.ParseStatusCompleted), item)
 		require.ErrorIs(t, err, ErrFeishuStagingRequired)
 		require.Zero(t, svc.calls)
@@ -63,7 +91,12 @@ func TestFeishuDispatchUncertaintyNeverReparsesExistingContent(t *testing.T) {
 		row := replayRow(status)
 		row.ErrorMessage = "Failed to enqueue processing task"
 		svc := &replayKnowledge{}
-		err := reconcileFeishuReplay(context.Background(), svc, row, &types.FetchedItem{Content: []byte("v1"), FileName: "doc.docx"})
+		err := reconcileFeishuReplay(
+			context.Background(),
+			svc,
+			row,
+			&types.FetchedItem{Content: []byte("v1"), FileName: "doc.docx"},
+		)
 		require.ErrorIs(t, err, ErrFeishuDispatchUnconfirmed)
 		require.Zero(t, svc.calls)
 	}
@@ -84,8 +117,19 @@ func TestFeishuGateBEnqueueFailureMustRecoverOnSameKnowledgeID(t *testing.T) {
 	row := replayRow(types.ParseStatusFailed)
 	row.ErrorMessage = "Failed to enqueue processing task"
 	svc := &replayKnowledge{row: &types.Knowledge{ID: row.ID, ParseStatus: types.ParseStatusPending}}
-	err := reconcileFeishuReplay(context.Background(), svc, row, &types.FetchedItem{Content: []byte("v1"), FileName: "doc.docx"})
+	err := reconcileFeishuReplay(
+		context.Background(),
+		svc,
+		row,
+		&types.FetchedItem{Content: []byte("v1"), FileName: "doc.docx"},
+	)
 	var accepted *types.DuplicateKnowledgeError
-	require.ErrorAs(t, err, &accepted, "Gate B requires durable dispatch recovery, not permanent needs_attention")
+	require.ErrorAs(
+		t,
+		err,
+		&accepted,
+		"Gate B requires durable dispatch recovery, not permanent "+
+			"needs_attention",
+	)
 	require.Equal(t, row.ID, accepted.Knowledge.ID)
 }

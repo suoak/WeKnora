@@ -36,7 +36,12 @@ func run() error {
 	role := flag.String("role", "viewer", "viewer or explicitly approved contributor")
 	driver := flag.String("driver", "postgres", "postgres or synthetic sqlite")
 	host := flag.String("test-host", "", "must explicitly identify 172.30.232.42 for PostgreSQL")
-	protectedJSON := flag.Bool("protected-json-stdin", false, "protected launcher supplies email and database DSN via stdin, never argv")
+	protectedJSON := flag.Bool(
+		"protected-json-stdin",
+		false,
+		"protected launcher supplies email and database DSN via stdin, never "+
+			"argv",
+	)
 	flag.Parse()
 	if flag.NArg() != 0 {
 		return errors.New("positional_input_forbidden")
@@ -98,7 +103,7 @@ func run() error {
 	if err != nil {
 		return errors.New("database_unavailable")
 	}
-	defer sqlDB.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(sqlDB.Close)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	result, err := accountprep.Run(ctx, db, in)

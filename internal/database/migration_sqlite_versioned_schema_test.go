@@ -46,18 +46,31 @@ var versionedSQLiteTables = []string{
 // versionedSQLiteColumns maps each existing table to the columns that the
 // versioned migrations add and the SQLite baseline was missing.
 var versionedSQLiteColumns = map[string][]string{
-	"feishu_personal_imports":  {"auth_mode", "application_id"},                                          // 003033
-	"feishu_personal_attempts": {"auth_mode", "application_id", "manifest_hash", "fence", "lease_until"}, // 003031/003033
-	"tenants":                  {"api_principal_config"},                                                 // 000064
-	"users":                    {"is_system_admin"},                                                      // 000053
-	"knowledges":               {"pending_subtasks_count"},                                               // 000056
-	"messages":                 {"attachments", "usage"},                                                 // 000034, 000085
-	"tenant_invitations":       {"token", "accepted_count"},                                              // 000054
-	"embed_channels":           {"allow_memory"},                                                         // 000060
-	"mcp_oauth_tokens":         {"principal_type", "principal_id"},                                       // 000064
-	"tenant_api_keys":          {"owner_user_id", "client_type", "token_hint"},                           // 000091, 003000
-	"mcp_tool_approvals":       {"enabled"},                                                              // 000092
-	"sync_logs":                {"execution_generation", "execution_claimed"},                            // 003021
+	"feishu_personal_imports": {"auth_mode", "application_id"}, // 003033
+	"feishu_personal_attempts": {
+		"auth_mode",
+		"application_id",
+		"manifest_hash",
+		"fence",
+		"lease_until",
+	}, // 003031/003033
+	"tenants":    {"api_principal_config"},   // 000064
+	"users":      {"is_system_admin"},        // 000053
+	"knowledges": {"pending_subtasks_count"}, // 000056
+	"messages": {
+		"attachments",
+		"usage",
+	}, // 000034, 000085
+	"tenant_invitations": {"token", "accepted_count"},        // 000054
+	"embed_channels":     {"allow_memory"},                   // 000060
+	"mcp_oauth_tokens":   {"principal_type", "principal_id"}, // 000064
+	"tenant_api_keys": {
+		"owner_user_id",
+		"client_type",
+		"token_hint",
+	}, // 000091, 003000
+	"mcp_tool_approvals": {"enabled"},                                   // 000092
+	"sync_logs":          {"execution_generation", "execution_claimed"}, // 003021
 }
 
 // The full migration runner applies the already accepted personal recovery and
@@ -105,7 +118,8 @@ func TestSQLiteMigrationsCreateVersionedSchema(t *testing.T) {
 	assertSQLiteShareLinkInvitationsWork(t, db)
 	assertSQLiteMCPOAuthPrincipalUpsertWorks(t, db)
 	require.False(t, sqliteColumnExists(t, db, "knowledges", "tag_id"),
-		"SQLite migrations must drop legacy knowledges.tag_id after multi-tag migration")
+		"SQLite migrations must drop legacy knowledges.tag_id after multi-tag "+
+			"migration")
 }
 
 func TestSQLiteMigrationsUpgradeV4PreservesData(t *testing.T) {
@@ -124,11 +138,16 @@ func TestSQLiteMigrationsUpgradeV4PreservesData(t *testing.T) {
 	versionBefore, dirtyBefore := sqliteMigrationState(t, db)
 	require.Equal(t, 4, versionBefore)
 	require.False(t, dirtyBefore)
-	_, err := db.Exec("INSERT INTO tenants (name, business) VALUES (?, ?)", "upgrade-sentinel", "migration-test")
+	_, err := db.Exec(
+		"INSERT INTO tenants (name, business) VALUES (?, ?)",
+		"upgrade-sentinel",
+		"migration-test",
+	)
 	require.NoError(t, err)
 	_, err = db.Exec(
-		"INSERT INTO knowledges (id, tenant_id, knowledge_base_id, type, title, source, tag_id) "+
-			"VALUES (?, 1, ?, 'document', 'tagged-doc', 'manual', ?)",
+		"INSERT INTO knowledges (id, tenant_id, knowledge_base_id, type, title,"+
+			" source, tag_id) VALUES (?, 1, ?, 'document', 'tagged-doc', 'manual', "+
+			"?)",
 		"legacy-knowledge-1", "legacy-kb-1", "legacy-tag-1",
 	)
 	require.NoError(t, err)
@@ -158,12 +177,16 @@ func TestSQLiteMigrationsUpgradeV4PreservesData(t *testing.T) {
 	}
 
 	var sentinelName string
-	require.NoError(t, db.QueryRow("SELECT name FROM tenants WHERE business = ?", "migration-test").Scan(&sentinelName))
+	require.NoError(
+		t,
+		db.QueryRow("SELECT name FROM tenants WHERE business = ?", "migration-test").Scan(&sentinelName),
+	)
 	require.Equal(t, "upgrade-sentinel", sentinelName)
 
 	var relationCount int
 	require.NoError(t, db.QueryRow(
-		"SELECT COUNT(*) FROM knowledge_tag_relations WHERE knowledge_id = ? AND tag_id = ?",
+		"SELECT COUNT(*) FROM knowledge_tag_relations WHERE knowledge_id = ? "+
+			"AND tag_id = ?",
 		"legacy-knowledge-1", "legacy-tag-1",
 	).Scan(&relationCount))
 	require.Equal(t, 1, relationCount)
@@ -216,9 +239,9 @@ func TestSQLiteUserMCPCredentialLifecycleUpgradePreservesLegacySecret(t *testing
 	require.NoError(t, RunMigrationsWithOptions("sqlite3://unused", MigrationOptions{SQLiteDBPath: dbPath}))
 	db := openSQLiteDB(t, dbPath)
 	legacyHash := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-	_, err := db.Exec(`INSERT INTO tenant_api_keys
-		(scope_type, owner_user_id, name, key_hash, api_key, full_access)
-		VALUES ('user_mcp', 'legacy-owner', 'legacy-mcp', ?, 'synthetic-legacy-secret', 0)`, legacyHash)
+	_, err := db.Exec("INSERT INTO tenant_api_keys\n\t\t(scope_type, owner_user_id, name, "+
+		"key_hash, api_key, full_access)\n\t\tVALUES ('user_mcp', "+
+		"'legacy-owner', 'legacy-mcp', ?, 'synthetic-legacy-secret', 0)", legacyHash)
 	require.NoError(t, err)
 
 	chdirAndRestore(t, repoRoot)
@@ -228,17 +251,36 @@ func TestSQLiteUserMCPCredentialLifecycleUpgradePreservesLegacySecret(t *testing
 	require.False(t, dirty)
 
 	var clientType, tokenHint, apiKey, keyHash string
-	require.NoError(t, db.QueryRow(`SELECT client_type, token_hint, api_key, key_hash
-		FROM tenant_api_keys WHERE name='legacy-mcp'`).Scan(&clientType, &tokenHint, &apiKey, &keyHash))
+	require.NoError(
+		t,
+		db.QueryRow("SELECT client_type, token_hint, api_key, key_hash\n\t\tFROM "+
+			"tenant_api_keys WHERE name='legacy-mcp'").Scan(&clientType, &tokenHint, &apiKey, &keyHash),
+	)
 	require.Equal(t, "generic", clientType)
 	require.Empty(t, tokenHint)
-	require.Equal(t, "synthetic-legacy-secret", apiKey, "DDL migration must not irreversibly clear legacy credentials")
+	require.Equal(
+		t,
+		"synthetic-legacy-secret",
+		apiKey,
+		"DDL migration must not irreversibly clear legacy credentials",
+	)
 	require.Equal(t, legacyHash, keyHash)
-	_, err = db.Exec(`UPDATE tenant_api_keys SET client_type='future-client' WHERE name='legacy-mcp'`)
-	require.NoError(t, err, "client_type must remain schema-extensible without an enum-style DB CHECK")
+	_, err = db.Exec("UPDATE tenant_api_keys SET client_type='future-client' WHERE " +
+		"name='legacy-mcp'")
+	require.NoError(t, err, "client_type must remain schema-extensible without an enum-style DB "+
+		"CHECK")
 	var tableSQL string
-	require.NoError(t, db.QueryRow(`SELECT sql FROM sqlite_master WHERE type='table' AND name='tenant_api_keys'`).Scan(&tableSQL))
-	require.NotContains(t, tableSQL, "workbuddy", "client allow-list belongs in application validation, not the DB schema")
+	require.NoError(
+		t,
+		db.QueryRow("SELECT sql FROM sqlite_master WHERE type='table' AND "+
+			"name='tenant_api_keys'").Scan(&tableSQL),
+	)
+	require.NotContains(
+		t,
+		tableSQL,
+		"workbuddy",
+		"client allow-list belongs in application validation, not the DB schema",
+	)
 }
 
 func TestUserMCPCredentialLifecycleClientTypeHasNoDatabaseEnumCheck(t *testing.T) {
@@ -251,8 +293,18 @@ func TestUserMCPCredentialLifecycleClientTypeHasNoDatabaseEnumCheck(t *testing.T
 		require.NoError(t, err)
 		sqlText := string(contents)
 		require.Contains(t, sqlText, "client_type")
-		require.NotContains(t, sqlText, "workbuddy", "client allow-list must not be encoded in migration SQL")
-		require.NotContains(t, sqlText, "CHECK", "client_type must not require a migration for future client values")
+		require.NotContains(
+			t,
+			sqlText,
+			"workbuddy",
+			"client allow-list must not be encoded in migration SQL",
+		)
+		require.NotContains(
+			t,
+			sqlText,
+			"CHECK",
+			"client_type must not require a migration for future client values",
+		)
 	}
 }
 
@@ -267,9 +319,13 @@ func TestSQLiteKnowledgePortalMigrationUpgradeConstraintsAndDown(t *testing.T) {
 	version, dirty := sqliteMigrationState(t, db)
 	require.Equal(t, 14, version)
 	require.False(t, dirty)
-	_, err := db.Exec("INSERT INTO tenants (id, name, business) VALUES (101, 'portal-space', 'migration-test')")
+	_, err := db.Exec("INSERT INTO tenants (id, name, business) VALUES (101, 'portal-space', " +
+		"'migration-test')")
 	require.NoError(t, err)
-	_, err = db.Exec("INSERT INTO organizations (id, name, owner_id, owner_tenant_id) VALUES ('org-portal', 'Portal Org', 'owner', 101)")
+	_, err = db.Exec(
+		"INSERT INTO organizations (id, name, owner_id, owner_tenant_id) " +
+			"VALUES ('org-portal', 'Portal Org', 'owner', 101)",
+	)
 	require.NoError(t, err)
 
 	chdirAndRestore(t, repoRoot)
@@ -278,24 +334,31 @@ func TestSQLiteKnowledgePortalMigrationUpgradeConstraintsAndDown(t *testing.T) {
 	require.Equal(t, expectedSQLiteMigrationVersion, version)
 	require.False(t, dirty)
 
-	_, err = db.Exec(`INSERT INTO tenant_portal_configs
-		(tenant_id, status, display_name, category, interaction_organization_id, created_by, updated_by)
-		VALUES (101, 'published', 'Portal Space', 'hardware', 'org-portal', 'admin', 'admin')`)
+	_, err = db.Exec("INSERT INTO tenant_portal_configs\n\t\t(tenant_id, status, " +
+		"display_name, category, interaction_organization_id, created_by, " +
+		"updated_by)\n\t\tVALUES (101, 'published', 'Portal Space', 'hardware'," +
+		" 'org-portal', 'admin', 'admin')")
 	require.NoError(t, err)
-	_, err = db.Exec("UPDATE tenant_portal_configs SET category = 'architecture' WHERE tenant_id = 101")
+	_, err = db.Exec("UPDATE tenant_portal_configs SET category = 'architecture' WHERE " +
+		"tenant_id = 101")
 	require.Error(t, err, "category must not reuse an IPD stage key")
-	_, err = db.Exec("UPDATE tenant_portal_configs SET category = ' Hardware ' WHERE tenant_id = 101")
+	_, err = db.Exec("UPDATE tenant_portal_configs SET category = ' Hardware ' WHERE " +
+		"tenant_id = 101")
 	require.Error(t, err, "category must be stored in canonical trim/lowercase form")
-	_, err = db.Exec("INSERT INTO tenant_portal_stages (tenant_id, stage_key) VALUES (101, 'architecture')")
+	_, err = db.Exec("INSERT INTO tenant_portal_stages (tenant_id, stage_key) VALUES (101, " +
+		"'architecture')")
 	require.NoError(t, err)
-	_, err = db.Exec("INSERT INTO tenant_portal_stages (tenant_id, stage_key) VALUES (101, 'architecture')")
+	_, err = db.Exec("INSERT INTO tenant_portal_stages (tenant_id, stage_key) VALUES (101, " +
+		"'architecture')")
 	require.Error(t, err, "a stage may occur only once per workspace")
-	_, err = db.Exec("INSERT INTO tenant_portal_stages (tenant_id, stage_key) VALUES (101, 'all_process')")
+	_, err = db.Exec("INSERT INTO tenant_portal_stages (tenant_id, stage_key) VALUES (101, " +
+		"'all_process')")
 	require.NoError(t, err, "the database must allow future catalog stages without a migration")
 
-	insertRequest := `INSERT INTO tenant_access_requests
-		(id, tenant_id, applicant_user_id, source, status, reason, requested_role)
-		VALUES (?, 101, 'applicant', ?, ?, 'request access', ?)`
+	insertRequest := "INSERT INTO tenant_access_requests\n\t\t(id, tenant_id, " +
+		"applicant_user_id, source, status, reason, " +
+		"requested_role)\n\t\tVALUES (?, 101, 'applicant', ?, ?, 'request " +
+		"access', ?)"
 	_, err = db.Exec(insertRequest, "req-1", "portal", "pending", "viewer")
 	require.NoError(t, err)
 	_, err = db.Exec(insertRequest, "req-2", "portal", "pending", "viewer")
@@ -310,7 +373,11 @@ func TestSQLiteKnowledgePortalMigrationUpgradeConstraintsAndDown(t *testing.T) {
 	_, err = db.Exec("DELETE FROM organizations WHERE id = 'org-portal'")
 	require.NoError(t, err)
 	var orgID sql.NullString
-	require.NoError(t, db.QueryRow("SELECT interaction_organization_id FROM tenant_portal_configs WHERE tenant_id = 101").Scan(&orgID))
+	require.NoError(
+		t,
+		db.QueryRow("SELECT interaction_organization_id FROM tenant_portal_configs WHERE "+
+			"tenant_id = 101").Scan(&orgID),
+	)
 	require.False(t, orgID.Valid, "organization hard delete must SET NULL")
 
 	_, err = db.Exec("DELETE FROM tenants WHERE id = 101")
@@ -355,15 +422,21 @@ func TestSQLiteUsageAnalyticsMigrationUpgradeV15AndDown(t *testing.T) {
 		require.True(t, sqliteTableExists(t, db, table), table)
 	}
 
-	_, err := db.Exec(`INSERT INTO model_usage_events
-		(event_key, tenant_id, principal_type, channel, operation, input_tokens, output_tokens, total_tokens,
-		 cache_read_tokens, cache_write_tokens, reasoning_tokens, usage_source, status, occurred_at)
-		VALUES ('message:kept-after-delete', 999, 'web_user', 'web', 'knowledge_qa_turn', 10, 5, 15, 4, 0, 0, 'provider', 'completed', CURRENT_TIMESTAMP)`)
+	_, err := db.Exec("INSERT INTO model_usage_events\n\t\t(event_key, tenant_id, " +
+		"principal_type, channel, operation, input_tokens, output_tokens, " +
+		"total_tokens,\n\t\t cache_read_tokens, cache_write_tokens, " +
+		"reasoning_tokens, usage_source, status, occurred_at)\n\t\tVALUES " +
+		"('message:kept-after-delete', 999, 'web_user', 'web', " +
+		"'knowledge_qa_turn', 10, 5, 15, 4, 0, 0, 'provider', 'completed', " +
+		"CURRENT_TIMESTAMP)")
 	require.NoError(t, err, "analytics ledger must not require a live tenant or message foreign key")
-	_, err = db.Exec(`INSERT INTO model_usage_events
-		(event_key, tenant_id, principal_type, channel, operation, input_tokens, output_tokens, total_tokens,
-		 cache_read_tokens, cache_write_tokens, reasoning_tokens, usage_source, status, occurred_at)
-		VALUES ('message:kept-after-delete', 999, 'web_user', 'web', 'knowledge_qa_turn', 10, 5, 15, 4, 0, 0, 'provider', 'completed', CURRENT_TIMESTAMP)`)
+	_, err = db.Exec("INSERT INTO model_usage_events\n\t\t(event_key, tenant_id, " +
+		"principal_type, channel, operation, input_tokens, output_tokens, " +
+		"total_tokens,\n\t\t cache_read_tokens, cache_write_tokens, " +
+		"reasoning_tokens, usage_source, status, occurred_at)\n\t\tVALUES " +
+		"('message:kept-after-delete', 999, 'web_user', 'web', " +
+		"'knowledge_qa_turn', 10, 5, 15, 4, 0, 0, 'provider', 'completed', " +
+		"CURRENT_TIMESTAMP)")
 	require.Error(t, err, "event_key must make retries idempotent")
 
 	driver, err := sqlite3migrate.WithInstance(db, &sqlite3migrate.Config{})
@@ -433,12 +506,13 @@ func sqliteTableExists(t *testing.T, db *sql.DB, table string) bool {
 func assertSQLiteAgentHistoryQueriesUseTheIndex(t *testing.T, db *sql.DB) {
 	t.Helper()
 	for name, query := range map[string]string{
-		"backwards page": `SELECT * FROM messages WHERE session_id = 's'
-			AND (created_at < '2026-01-01' OR (created_at = '2026-01-01' AND id < 'x'))
-			AND deleted_at IS NULL ORDER BY created_at DESC, id DESC LIMIT 200`,
-		"newest checkpoint": `SELECT id FROM messages WHERE session_id = 's' AND role = 'assistant'
-			AND context_checkpoint IS NOT NULL AND deleted_at IS NULL
-			ORDER BY created_at DESC, id DESC LIMIT 1`,
+		"backwards page": "SELECT * FROM messages WHERE session_id = 's'\n\t\t\tAND (created_at " +
+			"< '2026-01-01' OR (created_at = '2026-01-01' AND id < " +
+			"'x'))\n\t\t\tAND deleted_at IS NULL ORDER BY created_at DESC, id DESC " +
+			"LIMIT 200",
+		"newest checkpoint": "SELECT id FROM messages WHERE session_id = 's' AND role = " +
+			"'assistant'\n\t\t\tAND context_checkpoint IS NOT NULL AND deleted_at " +
+			"IS NULL\n\t\t\tORDER BY created_at DESC, id DESC LIMIT 1",
 	} {
 		rows, err := db.Query("EXPLAIN QUERY PLAN " + query)
 		require.NoError(t, err, name)
@@ -451,7 +525,14 @@ func assertSQLiteAgentHistoryQueriesUseTheIndex(t *testing.T, db *sql.DB) {
 		}
 		require.NoError(t, rows.Err(), name)
 		require.NoError(t, rows.Close(), name)
-		require.Contains(t, plan.String(), "idx_messages_session_created_id", "%s plan:\n%s", name, plan.String())
+		require.Contains(
+			t,
+			plan.String(),
+			"idx_messages_session_created_id",
+			"%s plan:\n%s",
+			name,
+			plan.String(),
+		)
 		require.NotContains(t, plan.String(), "TEMP B-TREE", "%s must not sort:\n%s", name, plan.String())
 	}
 }
@@ -479,13 +560,16 @@ func sqliteColumnExists(t *testing.T, db *sql.DB, table, column string) bool {
 
 func assertSQLiteShareLinkInvitationsWork(t *testing.T, db *sql.DB) {
 	t.Helper()
-	_, err := db.Exec("INSERT INTO tenants (name, business) VALUES (?, ?)", "share-link-tenant", "share-link-test")
+	_, err := db.Exec(
+		"INSERT INTO tenants (name, business) VALUES (?, ?)",
+		"share-link-tenant",
+		"share-link-test",
+	)
 	require.NoError(t, err)
 
 	expiresAt := "2099-01-01 00:00:00"
-	shareLinkInsert := "INSERT INTO tenant_invitations " +
-		"(tenant_id, invitee_user_id, token, role, status, expires_at) " +
-		"VALUES (1, '', ?, 'member', 'pending', ?)"
+	shareLinkInsert := "INSERT INTO tenant_invitations (tenant_id, invitee_user_id, token, " +
+		"role, status, expires_at) VALUES (1, '', ?, 'member', 'pending', ?)"
 	_, err = db.Exec(shareLinkInsert, "token-a", expiresAt)
 	require.NoError(t, err)
 	_, err = db.Exec(shareLinkInsert, "token-b", expiresAt)
@@ -493,7 +577,8 @@ func assertSQLiteShareLinkInvitationsWork(t *testing.T, db *sql.DB) {
 
 	var count int
 	require.NoError(t, db.QueryRow(
-		"SELECT COUNT(*) FROM tenant_invitations WHERE tenant_id = 1 AND invitee_user_id = '' AND status = 'pending'",
+		"SELECT COUNT(*) FROM tenant_invitations WHERE tenant_id = 1 AND "+
+			"invitee_user_id = '' AND status = 'pending'",
 	).Scan(&count))
 	require.Equal(t, 2, count)
 }
@@ -501,38 +586,44 @@ func assertSQLiteShareLinkInvitationsWork(t *testing.T, db *sql.DB) {
 func assertSQLiteMCPOAuthPrincipalUpsertWorks(t *testing.T, db *sql.DB) {
 	t.Helper()
 	_, err := db.Exec(
-		"INSERT INTO mcp_services (id, tenant_id, name, transport_type) VALUES (?, 1, 'svc', 'http')",
+		"INSERT INTO mcp_services (id, tenant_id, name, transport_type) VALUES "+
+			"(?, 1, 'svc', 'http')",
 		"svc-migration-1",
 	)
 	require.NoError(t, err)
 
-	tokenInsertPrefix := "INSERT INTO mcp_oauth_tokens " +
-		"(id, tenant_id, user_id, service_id, principal_type, principal_id, access_token) "
+	tokenInsertPrefix := "INSERT INTO mcp_oauth_tokens (id, tenant_id, user_id, service_id, " +
+		"principal_type, principal_id, access_token) "
 	_, err = db.Exec(
 		tokenInsertPrefix +
-			"VALUES ('tok-1', 1, 'u1', 'svc-migration-1', 'web_user', 'u1', 'token-1')",
+			"VALUES ('tok-1', 1, 'u1', 'svc-migration-1" +
+			"', 'web_user', 'u1', 'token-1')",
 	)
 	require.NoError(t, err)
 
 	_, err = db.Exec(
 		tokenInsertPrefix +
-			"VALUES ('tok-2', 1, 'u1', 'svc-migration-1', 'web_user', 'u1', 'token-2') " +
-			"ON CONFLICT(tenant_id, principal_type, principal_id, service_id) " +
-			"DO UPDATE SET access_token = excluded.access_token",
+			"VALUES ('tok-2', 1, 'u1', 'svc-migration-1" +
+			"', 'web_user', 'u1', 'token-2') " +
+			"ON CONFLICT(tenant_id, principal_type, pri" +
+			"ncipal_id, service_id) " +
+			"DO UPDATE SET access_token = excluded.acce" +
+			"ss_token",
 	)
 	require.NoError(t, err)
 
 	var accessToken string
 	require.NoError(t, db.QueryRow(
-		"SELECT access_token FROM mcp_oauth_tokens "+
-			"WHERE tenant_id = 1 AND principal_type = 'web_user' "+
-			"AND principal_id = 'u1' AND service_id = 'svc-migration-1'",
+		"SELECT access_token FROM mcp_oauth_tokens WHERE tenant_id = 1 AND "+
+			"principal_type = 'web_user' AND principal_id = 'u1' AND service_id = "+
+			"'svc-migration-1'",
 	).Scan(&accessToken))
 	require.Equal(t, "token-2", accessToken)
 
 	var rowCount int
 	require.NoError(t, db.QueryRow(
-		"SELECT COUNT(*) FROM mcp_oauth_tokens WHERE tenant_id = 1 AND service_id = 'svc-migration-1'",
+		"SELECT COUNT(*) FROM mcp_oauth_tokens WHERE tenant_id = 1 AND "+
+			"service_id = 'svc-migration-1'",
 	).Scan(&rowCount))
 	require.Equal(t, 1, rowCount)
 }

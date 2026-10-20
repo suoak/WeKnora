@@ -15,12 +15,19 @@ import (
 	"gorm.io/gorm"
 )
 
-func (p *PersonalRecovery) processFirstCreateManifest(ctx context.Context, payload types.DocumentProcessPayload) error {
+func (p *PersonalRecovery) processFirstCreateManifest(
+	ctx context.Context,
+	payload types.DocumentProcessPayload,
+) error {
 	m, r, a, err := p.repo.Load(ctx, payload.PersonalAttemptID)
 	if err != nil {
 		return err
 	}
-	if !applicationPayloadMatches(m, payload) || payload.KnowledgeID != a.CandidateVersionID || payload.CandidateVersionID != a.CandidateVersionID || payload.DispatchID != "personal-"+a.ID || payload.TenantID != a.CallerTenantID || payload.KnowledgeBaseID != m.KBID {
+	if !applicationPayloadMatches(m, payload) || payload.KnowledgeID != a.CandidateVersionID ||
+		payload.CandidateVersionID != a.CandidateVersionID ||
+		payload.DispatchID != "personal-"+a.ID ||
+		payload.TenantID != a.CallerTenantID ||
+		payload.KnowledgeBaseID != m.KBID {
 		return repository.ErrPersonalIdentity
 	}
 	ks := p.service.knowledge.(*knowledgeService)
@@ -58,7 +65,11 @@ func (p *PersonalRecovery) processFirstCreateManifest(ctx context.Context, paylo
 // The manifest download receipt remains distinct from this public admission.
 // FileService is outside the transaction; ambiguous/unreferenced saved blobs
 // are retained for ownership reconciliation, never deleted speculatively.
-func (p *PersonalRecovery) bridgeFirstCreate(ctx context.Context, m *types.FeishuPersonalImport, a *types.FeishuPersonalAttempt) error {
+func (p *PersonalRecovery) bridgeFirstCreate(
+	ctx context.Context,
+	m *types.FeishuPersonalImport,
+	a *types.FeishuPersonalAttempt,
+) error {
 	ks := p.service.knowledge.(*knowledgeService)
 	remote, err := p.authorize(ctx, m, a)
 	if err != nil {
@@ -68,7 +79,8 @@ func (p *PersonalRecovery) bridgeFirstCreate(ctx context.Context, m *types.Feish
 	if err != nil {
 		return err
 	}
-	if manifest.Hash != a.ManifestHash || manifest.Size != a.ManifestSize || manifest.Name != a.ManifestName {
+	if manifest.Hash != a.ManifestHash || manifest.Size != a.ManifestSize ||
+		manifest.Name != a.ManifestName {
 		return repository.ErrPersonalIdentity
 	}
 	private, err := p.store.path(a.ManifestKey)
@@ -83,7 +95,7 @@ func (p *PersonalRecovery) bridgeFirstCreate(ctx context.Context, m *types.Feish
 	if err != nil {
 		return err
 	}
-	defer form.RemoveAll()
+	defer func(cleanup func() error) { _ = cleanup() }(form.RemoveAll)
 	kb, err := ks.kbService.GetKnowledgeBaseByID(remote, m.KBID)
 	if err != nil {
 		return err
@@ -110,7 +122,24 @@ func (p *PersonalRecovery) bridgeFirstCreate(ctx context.Context, m *types.Feish
 	if err != nil {
 		return p.restoreBridge(ctx, owner, err)
 	}
-	meta := map[string]string{"feishu_auth_mode": types.FeishuAuthMode(m.AuthMode), "feishu_auth_principal": applicationPrincipalFingerprint(m.ApplicationID, a.AppConfigVersion), "source_url": m.URL, "original_url": m.URL, "feishu_resource_type": m.ResourceType, "feishu_document_token": m.DocumentToken, "feishu_resource_id": m.ResourceType + ":" + m.DocumentToken, "feishu_imported_by": m.UserID, "feishu_open_id": m.OpenID, "feishu_source_modified": a.Revision, "feishu_coverage": "exported_content; embedded objects and attachments require completeness review", "feishu_mvp_attempt": a.ID, "feishu_manifest_sha256": manifest.Hash, "datasource_id": "personal:" + m.ID, "external_id": m.ResourceType + ":" + m.DocumentToken}
+	meta := map[string]string{
+		"feishu_auth_mode":       types.FeishuAuthMode(m.AuthMode),
+		"feishu_auth_principal":  applicationPrincipalFingerprint(m.ApplicationID, a.AppConfigVersion),
+		"source_url":             m.URL,
+		"original_url":           m.URL,
+		"feishu_resource_type":   m.ResourceType,
+		"feishu_document_token":  m.DocumentToken,
+		"feishu_resource_id":     m.ResourceType + ":" + m.DocumentToken,
+		"feishu_imported_by":     m.UserID,
+		"feishu_open_id":         m.OpenID,
+		"feishu_source_modified": a.Revision,
+		"feishu_coverage": "exported_content; embedded objects and attachments require " +
+			"completeness review",
+		"feishu_mvp_attempt":     a.ID,
+		"feishu_manifest_sha256": manifest.Hash,
+		"datasource_id":          "personal:" + m.ID,
+		"external_id":            m.ResourceType + ":" + m.DocumentToken,
+	}
 	if types.FeishuAuthMode(m.AuthMode) == types.FeishuApplicationGrant {
 		verified, err := applicationVerifiedTextHash(remote, data, manifest.Name)
 		if err != nil {
@@ -121,12 +150,32 @@ func (p *PersonalRecovery) bridgeFirstCreate(ctx context.Context, m *types.Feish
 		if m.ResourceType == "sheet" || m.ResourceType == "bitable" {
 			meta["feishu_coverage"] = "structured_api_snapshot_v1; full_read_compare; media_rejected"
 			if len(manifest.Assets) > 0 {
-				meta["feishu_coverage"] = "structured_api_snapshot_v1; full_read_compare; attachments_persisted_and_parsed"
+				meta["feishu_coverage"] = "structured_api_snapshot_v1; full_read_compare; " +
+					"attachments_persisted_and_parsed"
 			}
 		}
 	}
 	b, _ := json.Marshal(meta)
-	k := &types.Knowledge{ID: a.LogicalKnowledgeID, TenantID: kb.TenantID, KnowledgeBaseID: m.KBID, Type: "file", Channel: "feishu_personal", Source: m.URL, Title: manifest.Name, FileName: manifest.Name, FileType: getFileType(manifest.Name), FilePath: path, FileSize: manifest.Size, FileHash: hash, EmbeddingModelID: kb.EmbeddingModelID, ParseStatus: types.ParseStatusPending, EnableStatus: "disabled", Metadata: types.JSON(b), CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	k := &types.Knowledge{
+		ID:               a.LogicalKnowledgeID,
+		TenantID:         kb.TenantID,
+		KnowledgeBaseID:  m.KBID,
+		Type:             "file",
+		Channel:          "feishu_personal",
+		Source:           m.URL,
+		Title:            manifest.Name,
+		FileName:         manifest.Name,
+		FileType:         getFileType(manifest.Name),
+		FilePath:         path,
+		FileSize:         manifest.Size,
+		FileHash:         hash,
+		EmbeddingModelID: kb.EmbeddingModelID,
+		ParseStatus:      types.ParseStatusPending,
+		EnableStatus:     "disabled",
+		Metadata:         types.JSON(b),
+		CreatedAt:        time.Now(),
+		UpdatedAt:        time.Now(),
+	}
 	if types.FeishuAuthMode(m.AuthMode) == types.FeishuApplicationGrant {
 		// The parse/index pipeline must use the same parser as the verified export.
 		// Preserve the KB's configuration and pin only this document.
@@ -134,7 +183,18 @@ func (p *PersonalRecovery) bridgeFirstCreate(ctx context.Context, m *types.Feish
 		if m.ResourceType == "sheet" || m.ResourceType == "bitable" {
 			engine, fileType = "builtin", "md"
 		}
-		if err := k.SetProcessOverrides(&types.KnowledgeProcessOverrides{ParserEngineRules: []types.ParserEngineRule{{FileTypes: []string{fileType}, Engine: engine}}}); err != nil {
+		if err := k.SetProcessOverrides(
+			&types.KnowledgeProcessOverrides{
+				ParserEngineRules: []types.ParserEngineRule{
+					{
+						FileTypes: []string{
+							fileType,
+						},
+						Engine: engine,
+					},
+				},
+			},
+		); err != nil {
 			return p.restoreBridge(ctx, owner, err)
 		}
 	}
@@ -162,7 +222,8 @@ func (p *PersonalRecovery) bridgeFirstCreate(ctx context.Context, m *types.Feish
 		return p.restoreBridge(ctx, owner, err)
 	}
 	err = p.mutate(ctx, owner, 0, func(tx *gorm.DB, current *types.FeishuPersonalAttempt) error {
-		if current.ManifestHash != manifest.Hash || current.LogicalKnowledgeID != k.ID || current.CandidateVersionID == k.ID {
+		if current.ManifestHash != manifest.Hash || current.LogicalKnowledgeID != k.ID ||
+			current.CandidateVersionID == k.ID {
 			return repository.ErrPersonalIdentity
 		}
 		if err := tx.Create(k).Error; err != nil {
@@ -171,7 +232,14 @@ func (p *PersonalRecovery) bridgeFirstCreate(ctx context.Context, m *types.Feish
 		if err := tx.Create(op).Error; err != nil {
 			return err
 		}
-		bound := tx.Model(&types.FeishuPersonalImport{}).Where("id = ? AND knowledge_id = ?", m.ID, "").Updates(map[string]any{"knowledge_id": k.ID, "source_modified": a.Revision, "coverage": meta["feishu_coverage"], "status": "index_pending"})
+		bound := tx.Model(&types.FeishuPersonalImport{}).
+			Where("id = ? AND knowledge_id = ?", m.ID, "").
+			Updates(map[string]any{
+				"knowledge_id":    k.ID,
+				"source_modified": a.Revision,
+				"coverage":        meta["feishu_coverage"],
+				"status":          "index_pending",
+			})
 		if bound.Error != nil {
 			return bound.Error
 		}
@@ -190,7 +258,14 @@ func (p *PersonalRecovery) bridgeFirstCreate(ctx context.Context, m *types.Feish
 		defer cancel()
 		var saved types.Knowledge
 		var pending types.TaskPendingOp
-		if p.service.db.WithContext(read).Where("id = ? AND file_path = ? AND file_hash = ?", k.ID, path, hash).First(&saved).Error != nil || p.service.db.WithContext(read).Where("scope = ? AND scope_id = ? AND dedup_key = ?", types.KnowledgeDispatchScope, k.ID, op.DedupKey).First(&pending).Error != nil {
+		if p.service.db.WithContext(read).
+			Where("id = ? AND file_path = ? AND file_hash = ?", k.ID, path, hash).
+			First(&saved).
+			Error != nil ||
+			p.service.db.WithContext(read).
+				Where("scope = ? AND scope_id = ? AND dedup_key = ?", types.KnowledgeDispatchScope, k.ID, op.DedupKey).
+				First(&pending).
+				Error != nil {
 			return p.restoreBridge(read, owner, err)
 		}
 		op = &pending
@@ -200,7 +275,11 @@ func (p *PersonalRecovery) bridgeFirstCreate(ctx context.Context, m *types.Feish
 	return nil
 }
 
-func (p *PersonalRecovery) restoreBridge(ctx context.Context, owner *types.FeishuPersonalAttempt, cause error) error {
+func (p *PersonalRecovery) restoreBridge(
+	ctx context.Context,
+	owner *types.FeishuPersonalAttempt,
+	cause error,
+) error {
 	read, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
 	err := p.mutate(read, owner, 0, func(tx *gorm.DB, a *types.FeishuPersonalAttempt) error {
@@ -213,38 +292,84 @@ func (p *PersonalRecovery) restoreBridge(ctx context.Context, owner *types.Feish
 		a.RetryAfter = &next
 		if a.RetryCount >= 8 {
 			a.Status = "needs_attention"
-			if err := tx.Model(&types.FeishuPersonalImport{}).Where("id = ?", a.ImportID).Update("status", "needs_attention").Error; err != nil {
+			if err := tx.Model(
+				&types.FeishuPersonalImport{},
+			).
+				Where(
+					"id = ?",
+					a.ImportID,
+				).
+				Update(
+					"status",
+					"needs_attention",
+				).
+				Error; err != nil {
 				return err
 			}
-			return tx.Model(&types.TaskPendingOp{}).Where("scope = ? AND scope_id = ?", types.KnowledgeDispatchScope, a.CandidateVersionID).Update("op", "attention").Error
+			return tx.Model(&types.TaskPendingOp{}).
+				Where("scope = ? AND scope_id = ?", types.KnowledgeDispatchScope, a.CandidateVersionID).
+				Update("op", "attention").
+				Error
 		}
 		return nil
 	})
 	return errors.Join(cause, err)
 }
 
-func (p *PersonalRecovery) firstCreateDispatchable(ctx context.Context, intent types.KnowledgeDispatch) (bool, error) {
+func (p *PersonalRecovery) firstCreateDispatchable(
+	ctx context.Context,
+	intent types.KnowledgeDispatch,
+) (bool, error) {
 	m, r, a, err := p.repo.Load(ctx, intent.AttemptID)
 	if err != nil {
 		return false, err
 	}
 	t := intent.Task
-	if !p.firstCreateOnly || intent.PayloadVersion != publicPayloadVersion(m) || !applicationPayloadMatches(m, t) || !t.FirstCreate || t.PersonalAttemptID != a.ID || t.CandidateVersionID != a.CandidateVersionID || t.KnowledgeID != r.LogicalKnowledgeID || m.KnowledgeID != r.LogicalKnowledgeID || t.DispatchID != "document-"+r.LogicalKnowledgeID || t.KnowledgeBaseID != m.KBID || intent.Revision != a.Revision {
+	if !p.firstCreateOnly || intent.PayloadVersion != publicPayloadVersion(m) ||
+		!applicationPayloadMatches(m, t) ||
+		!t.FirstCreate ||
+		t.PersonalAttemptID != a.ID ||
+		t.CandidateVersionID != a.CandidateVersionID ||
+		t.KnowledgeID != r.LogicalKnowledgeID ||
+		m.KnowledgeID != r.LogicalKnowledgeID ||
+		t.DispatchID != "document-"+r.LogicalKnowledgeID ||
+		t.KnowledgeBaseID != m.KBID ||
+		intent.Revision != a.Revision {
 		return false, repository.ErrPersonalIdentity
 	}
 	var k types.Knowledge
-	if err = p.service.db.WithContext(ctx).Where("id = ? AND knowledge_base_id = ? AND tenant_id = ?", t.KnowledgeID, t.KnowledgeBaseID, t.TenantID).First(&k).Error; err != nil {
+	if err = p.service.db.WithContext(
+		ctx,
+	).
+		Where(
+			"id = ? AND knowledge_base_id = ? AND tenant_id = ?",
+			t.KnowledgeID,
+			t.KnowledgeBaseID,
+			t.TenantID,
+		).
+		First(
+			&k,
+		).
+		Error; err != nil {
 		return false, err
 	}
 	var meta map[string]any
-	if json.Unmarshal(k.Metadata, &meta) != nil || meta["feishu_mvp_attempt"] != a.ID || meta["feishu_manifest_sha256"] != a.ManifestHash || k.FilePath != t.FilePath || k.FileName != t.FileName || a.Status == "obsolete" || a.Status == "needs_attention" {
+	if json.Unmarshal(k.Metadata, &meta) != nil || meta["feishu_mvp_attempt"] != a.ID ||
+		meta["feishu_manifest_sha256"] != a.ManifestHash ||
+		k.FilePath != t.FilePath ||
+		k.FileName != t.FileName ||
+		a.Status == "obsolete" ||
+		a.Status == "needs_attention" {
 		return false, repository.ErrPersonalIdentity
 	}
 	_, err = p.authorize(ctx, m, a)
 	return err == nil, err
 }
 
-func (p *PersonalRecovery) processFirstCreateDocument(ctx context.Context, payload types.DocumentProcessPayload) error {
+func (p *PersonalRecovery) processFirstCreateDocument(
+	ctx context.Context,
+	payload types.DocumentProcessPayload,
+) error {
 	ks := p.service.knowledge.(*knowledgeService)
 	dispatch := ks.repo.(interfaces.KnowledgeDispatchRepository)
 	return dispatch.WithKnowledgeDispatchLock(ctx, payload.KnowledgeID, func(ctx context.Context) error {
@@ -286,14 +411,29 @@ func (p *PersonalRecovery) processFirstCreateDocument(ctx context.Context, paylo
 		if err != nil {
 			return err
 		}
-		if len(chunks) > 0 || k.ParseStatus == types.ParseStatusCompleted || k.ParseStatus == types.ParseStatusFinalizing {
+		if len(chunks) > 0 || k.ParseStatus == types.ParseStatusCompleted ||
+			k.ParseStatus == types.ParseStatusFinalizing {
 			// Unknown partial/final results are not permission to run the
 			// ordinary destructive cleanup again. Reconciler must read receipts.
 			_ = dispatch.SetKnowledgeDispatchState(ctx, op.ID, "attention")
 			return p.repo.Invalidate(ctx, a.ID, "partial_or_unknown_index_requires_review")
 		}
 		var indexRows int64
-		if err = p.service.db.WithContext(ctx).Table("embeddings").Where("knowledge_id = ?", k.ID).Count(&indexRows).Error; err != nil {
+		if err = p.service.db.WithContext(
+			ctx,
+		).
+			Table(
+				"embeddings",
+			).
+			Where(
+				"knowledge_id = ?",
+
+				k.ID,
+			).
+			Count(
+				&indexRows,
+			).
+			Error; err != nil {
 			return err
 		}
 		if indexRows > 0 {
@@ -344,11 +484,11 @@ func (p *PersonalRecovery) processFirstCreateDocument(ctx context.Context, paylo
 		defer stop()
 		current, readErr := dispatch.GetKnowledgeDispatch(read, k.TenantID, k.ID)
 		if err == nil && readErr == nil && current.Op == "processed" {
-			if receiptErr := p.recordFirstCreateIndex(read, m, owner); receiptErr == nil {
+			receiptErr := p.recordFirstCreateIndex(read, m, owner)
+			if receiptErr == nil {
 				return nil
-			} else {
-				return errors.Join(receiptErr, p.repo.Invalidate(read, a.ID, "pg_index_receipt_unconfirmed"))
 			}
+			return errors.Join(receiptErr, p.repo.Invalidate(read, a.ID, "pg_index_receipt_unconfirmed"))
 		}
 		_ = dispatch.SetKnowledgeDispatchState(read, op.ID, "attention")
 		return errors.Join(err, readErr, p.repo.Invalidate(read, a.ID, "parse_or_index_result_unconfirmed"))
@@ -362,8 +502,19 @@ func isPersonalFirstCreate(ctx context.Context) bool {
 	return v
 }
 
-func firstCreateRecoveryPayload(m *types.FeishuPersonalImport, a *types.FeishuPersonalAttempt) types.DocumentProcessPayload {
-	payload := types.DocumentProcessPayload{PersonalAttemptID: a.ID, CandidateVersionID: a.CandidateVersionID, KnowledgeID: a.CandidateVersionID, KnowledgeBaseID: m.KBID, TenantID: a.CallerTenantID, DispatchID: "personal-" + a.ID, Attempt: 1}
+func firstCreateRecoveryPayload(
+	m *types.FeishuPersonalImport,
+	a *types.FeishuPersonalAttempt,
+) types.DocumentProcessPayload {
+	payload := types.DocumentProcessPayload{
+		PersonalAttemptID:  a.ID,
+		CandidateVersionID: a.CandidateVersionID,
+		KnowledgeID:        a.CandidateVersionID,
+		KnowledgeBaseID:    m.KBID,
+		TenantID:           a.CallerTenantID,
+		DispatchID:         "personal-" + a.ID,
+		Attempt:            1,
+	}
 	if types.FeishuAuthMode(m.AuthMode) == types.FeishuApplicationGrant {
 		payload.FeishuAuthMode = m.AuthMode
 		payload.FeishuApplicationID = m.ApplicationID

@@ -8,15 +8,16 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"github.com/Tencent/WeKnora/internal/infrastructure/docparser"
-	"github.com/Tencent/WeKnora/internal/infrastructure/docparser/anydoc"
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"html"
 	"os"
 	"path/filepath"
 	"strings"
 	"unicode"
+
+	"github.com/Tencent/WeKnora/internal/infrastructure/docparser"
+	"github.com/Tencent/WeKnora/internal/infrastructure/docparser/anydoc"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/application/repository"
@@ -24,16 +25,22 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
-var ErrFeishuApplicationRestricted = errors.New("feishu_application_test_only")
-var ErrFeishuIncompleteContent = errors.New("feishu_application_content_not_verified")
+var (
+	// ErrFeishuApplicationRestricted reports feishu application restricted.
+	ErrFeishuApplicationRestricted = errors.New("feishu_application_test_only")
+	// ErrFeishuIncompleteContent rejects unverified or incomplete source content.
+	ErrFeishuIncompleteContent = errors.New("feishu_application_content_not_verified")
+)
 
 // General availability keeps the original restricted rollout as an explicit fallback.
 func applicationGrantPublicEnabled() bool {
 	return os.Getenv("FEISHU_APPLICATION_GRANT_ENABLED") == "1"
 }
+
 func applicationGrantEnabled() bool {
 	return applicationGrantPublicEnabled() || os.Getenv("FEISHU_APPLICATION_GRANT_TEST_ONLY") == "1"
 }
+
 func applicationUserAllowed(systemAdmin bool) bool {
 	return applicationGrantPublicEnabled() || systemAdmin
 }
@@ -61,7 +68,8 @@ func validateFeishuModeConfig(cfg *FeishuAppConfig) error {
 		if cfg.RedirectURI != "" {
 			return errors.New("application mode does not use OAuth callback")
 		}
-		if !strings.HasPrefix(cfg.AppID, "cli_") || len(cfg.AppID) > 128 || cfg.Secret == "" || len(cfg.Secret) > 1024 {
+		if !strings.HasPrefix(cfg.AppID, "cli_") || len(cfg.AppID) > 128 || cfg.Secret == "" ||
+			len(cfg.Secret) > 1024 {
 			return errors.New("invalid application credentials")
 		}
 		return nil
@@ -70,12 +78,33 @@ func validateFeishuModeConfig(cfg *FeishuAppConfig) error {
 	}
 }
 
-func (p *PersonalRecovery) authorizeApplication(ctx, fresh context.Context, cfg *FeishuAppConfig, m *types.FeishuPersonalImport, a *types.FeishuPersonalAttempt) (context.Context, error) {
-	if !p.firstCreateOnly || !applicationKBAllowed(m.KBID) || m.OpenID != "" || a.GrantEpoch != "" || m.ApplicationID != cfg.AppID || a.ApplicationID != cfg.AppID {
+func (p *PersonalRecovery) authorizeApplication(
+	ctx, fresh context.Context,
+	cfg *FeishuAppConfig,
+	m *types.FeishuPersonalImport,
+	a *types.FeishuPersonalAttempt,
+) (context.Context, error) {
+	if !p.firstCreateOnly || !applicationKBAllowed(m.KBID) || m.OpenID != "" || a.GrantEpoch != "" ||
+		m.ApplicationID != cfg.AppID ||
+		a.ApplicationID != cfg.AppID {
 		return nil, ErrFeishuApplicationRestricted
 	}
 	var user types.User
-	if err := p.service.db.WithContext(ctx).Select("id", "is_system_admin").Where("id = ?", m.UserID).First(&user).Error; err != nil {
+	if err := p.service.db.WithContext(
+		ctx,
+	).
+		Select(
+			"id",
+			"is_system_admin",
+		).
+		Where(
+			"id = ?",
+			m.UserID,
+		).
+		First(
+			&user,
+		).
+		Error; err != nil {
 		return nil, err
 	}
 	if !applicationUserAllowed(user.IsSystemAdmin) {
@@ -91,7 +120,22 @@ func (p *PersonalRecovery) authorizeApplication(ctx, fresh context.Context, cfg 
 			return ErrFeishuApplicationRestricted
 		}
 		var u types.User
-		if err = p.service.db.WithContext(call).Select("id", "is_system_admin").Where("id = ? AND is_active = ?", m.UserID, true).First(&u).Error; err != nil {
+		if err = p.service.db.WithContext(
+			call,
+		).
+			Select(
+				"id",
+				"is_system_admin",
+			).
+			Where(
+				"id = ? AND is_active = ?",
+				m.UserID,
+				true,
+			).
+			First(
+				&u,
+			).
+			Error; err != nil {
 			return err
 		}
 		if !applicationUserAllowed(u.IsSystemAdmin) {
@@ -114,11 +158,15 @@ func (p *PersonalRecovery) authorizeApplication(ctx, fresh context.Context, cfg 
 		if m.DocumentToken != "" {
 			probe := core.WithApplicationIdentityValidation(call, provider, validate)
 			probe = applicationTableContext(probe)
-			resolved, err := client.ResolveApplicationResource(probe, core.PersonalResource{Type: m.ResourceType, Token: m.DocumentToken, URL: m.URL})
+			resolved, err := client.ResolveApplicationResource(
+				probe,
+				core.PersonalResource{Type: m.ResourceType, Token: m.DocumentToken, URL: m.URL},
+			)
 			if err != nil {
 				return "", err
 			}
-			if resolved.Modified != a.Revision || resolved.Type != m.ResourceType || resolved.Token != m.DocumentToken {
+			if resolved.Modified != a.Revision || resolved.Type != m.ResourceType ||
+				resolved.Token != m.DocumentToken {
 				return "", repository.ErrPersonalIdentity
 			}
 		}
@@ -129,18 +177,26 @@ func (p *PersonalRecovery) authorizeApplication(ctx, fresh context.Context, cfg 
 	// Live source ACL/revision check also applies when resuming an already saved
 	// manifest or public task. No local epoch substitutes for Feishu resource ACL.
 	if m.DocumentToken != "" {
-		resolved, err := client.ResolveApplicationResource(authOnly, core.PersonalResource{Type: m.ResourceType, Token: m.DocumentToken, URL: m.URL})
+		resolved, err := client.ResolveApplicationResource(
+			authOnly,
+			core.PersonalResource{Type: m.ResourceType, Token: m.DocumentToken, URL: m.URL},
+		)
 		if err != nil {
 			return nil, err
 		}
-		if resolved.Type != m.ResourceType || resolved.Token != m.DocumentToken || resolved.Modified != a.Revision {
+		if resolved.Type != m.ResourceType || resolved.Token != m.DocumentToken ||
+			resolved.Modified != a.Revision {
 			return nil, repository.ErrPersonalIdentity
 		}
 	}
 	return remote, nil
 }
 
-func (p *PersonalRecovery) resolveResource(ctx context.Context, m *types.FeishuPersonalImport, r core.PersonalResource) (core.PersonalResource, error) {
+func (p *PersonalRecovery) resolveResource(
+	ctx context.Context,
+	m *types.FeishuPersonalImport,
+	r core.PersonalResource,
+) (core.PersonalResource, error) {
 	client := p.service.client(&core.Config{AppID: m.AppID})
 	if types.FeishuAuthMode(m.AuthMode) == types.FeishuApplicationGrant {
 		return client.ResolveApplicationResource(applicationTableContext(ctx), r)
@@ -163,12 +219,14 @@ func manifestPayloadVersion(m *types.FeishuPersonalImport) int {
 	}
 	return 2
 }
+
 func publicPayloadVersion(m *types.FeishuPersonalImport) int {
 	if types.FeishuAuthMode(m.AuthMode) == types.FeishuApplicationGrant {
 		return 5
 	}
 	return 3
 }
+
 func applicationPayloadMatches(m *types.FeishuPersonalImport, t types.DocumentProcessPayload) bool {
 	if types.FeishuAuthMode(m.AuthMode) == types.FeishuApplicationGrant {
 		return t.FeishuAuthMode == types.FeishuApplicationGrant && t.FeishuApplicationID == m.ApplicationID
@@ -178,23 +236,67 @@ func applicationPayloadMatches(m *types.FeishuPersonalImport, t types.DocumentPr
 
 // This callback participates in the existing short admission/fence transaction.
 // Only local SQL occurs; network, file, parser and queue calls stay outside it.
-func (p *PersonalRecovery) validateApplicationIdentityTx(tx *gorm.DB, m *types.FeishuPersonalImport, a *types.FeishuPersonalAttempt) error {
+func (p *PersonalRecovery) validateApplicationIdentityTx(
+	tx *gorm.DB,
+	m *types.FeishuPersonalImport,
+	a *types.FeishuPersonalAttempt,
+) error {
 	if !p.firstCreateOnly || !applicationKBAllowed(m.KBID) {
 		return ErrFeishuApplicationRestricted
 	}
 	var u types.User
-	if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ? AND is_active = ?", m.UserID, true).First(&u).Error; err != nil {
+	if err := tx.Clauses(
+		clause.Locking{
+			Strength: "SHARE",
+		},
+	).
+		Where(
+			"id = ? AND is_active = ?",
+			m.UserID,
+			true,
+		).
+		First(
+			&u,
+		).
+		Error; err != nil {
 		return personalAccessError(err)
 	}
 	if !applicationUserAllowed(u.IsSystemAdmin) {
 		return access.ErrForbidden
 	}
 	var member types.TenantMember
-	if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("user_id = ? AND tenant_id = ? AND status = ?", m.UserID, a.CallerTenantID, types.TenantMemberStatusActive).First(&member).Error; err != nil {
+	if err := tx.Clauses(
+		clause.Locking{
+			Strength: "SHARE",
+		},
+	).
+		Where(
+			"user_id = ? AND tenant_id = ? AND status = ?",
+			m.UserID,
+			a.CallerTenantID,
+			types.TenantMemberStatusActive,
+		).
+		First(
+			&member,
+		).
+		Error; err != nil {
 		return personalAccessError(err)
 	}
 	var tenant types.Tenant
-	if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ? AND status = ?", a.CallerTenantID, "active").First(&tenant).Error; err != nil {
+	if err := tx.Clauses(
+		clause.Locking{
+			Strength: "SHARE",
+		},
+	).
+		Where(
+			"id = ? AND status = ?",
+			a.CallerTenantID,
+			"active",
+		).
+		First(
+			&tenant,
+		).
+		Error; err != nil {
 		return personalAccessError(err)
 	}
 	var kb types.KnowledgeBase
@@ -202,7 +304,19 @@ func (p *PersonalRecovery) validateApplicationIdentityTx(tx *gorm.DB, m *types.F
 		return personalAccessError(err)
 	}
 	var setting types.SystemSetting
-	if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("key = ?", feishuAppSetting).First(&setting).Error; err != nil {
+	if err := tx.Clauses(
+		clause.Locking{
+			Strength: "SHARE",
+		},
+	).
+		Where(
+			"key = ?",
+			feishuAppSetting,
+		).
+		First(
+			&setting,
+		).
+		Error; err != nil {
 		return err
 	}
 	cipher, err := setting.AsString()
@@ -213,7 +327,11 @@ func (p *PersonalRecovery) validateApplicationIdentityTx(tx *gorm.DB, m *types.F
 	if err = openFeishu(cipher, &cfg); err != nil {
 		return err
 	}
-	if !cfg.Enabled || cfg.Version != a.AppConfigVersion || types.FeishuAuthMode(cfg.AuthMode) != types.FeishuApplicationGrant || cfg.AppID != m.AppID || m.ApplicationID != cfg.AppID || a.ApplicationID != cfg.AppID {
+	if !cfg.Enabled || cfg.Version != a.AppConfigVersion ||
+		types.FeishuAuthMode(cfg.AuthMode) != types.FeishuApplicationGrant ||
+		cfg.AppID != m.AppID ||
+		m.ApplicationID != cfg.AppID ||
+		a.ApplicationID != cfg.AppID {
 		return repository.ErrPersonalIdentity
 	}
 	if !member.Role.HasPermission(types.TenantRoleContributor) {
@@ -227,7 +345,12 @@ func (p *PersonalRecovery) validateApplicationIdentityTx(tx *gorm.DB, m *types.F
 		if p.shares == nil {
 			return access.ErrForbidden
 		}
-		perm, shared, err := p.shares.CheckTenantKBPermission(tx.Statement.Context, kb.ID, a.CallerTenantID, member.Role)
+		perm, shared, err := p.shares.CheckTenantKBPermission(
+			tx.Statement.Context,
+			kb.ID,
+			a.CallerTenantID,
+			member.Role,
+		)
 		if err != nil {
 			return err
 		}
@@ -247,7 +370,13 @@ func normalizeApplicationText(s string) string {
 	}, html.UnescapeString(s))
 }
 
-func (p *PersonalRecovery) validateApplicationContent(ctx context.Context, client *core.Client, r core.PersonalResource, data []byte, name string) error {
+func (p *PersonalRecovery) validateApplicationContent(
+	ctx context.Context,
+	client *core.Client,
+	r core.PersonalResource,
+	data []byte,
+	name string,
+) error {
 	if r.Type == "sheet" || r.Type == "bitable" {
 		if os.Getenv("FEISHU_APPLICATION_TABLES_ENABLED") != "1" || filepath.Ext(name) != ".md" {
 			return ErrFeishuIncompleteContent
@@ -278,11 +407,13 @@ func (p *PersonalRecovery) validateApplicationContent(ctx context.Context, clien
 			return ErrFeishuIncompleteContent
 		}
 	}
-	parsed, err := docparser.NewAnydocReader(nil, nil).Read(ctx, &types.ReadRequest{FileType: "docx", FileName: name, FileContent: data})
+	parsed, err := docparser.NewAnydocReader(nil, nil).
+		Read(ctx, &types.ReadRequest{FileType: "docx", FileName: name, FileContent: data})
 	if err != nil {
 		return ErrFeishuIncompleteContent
 	}
-	if parsed == nil || len(parsed.ImageRefs) > 0 || strings.TrimSpace(parsed.MarkdownContent) == "" || strings.TrimSpace(raw) == "" {
+	if parsed == nil || len(parsed.ImageRefs) > 0 || strings.TrimSpace(parsed.MarkdownContent) == "" ||
+		strings.TrimSpace(raw) == "" {
 		return ErrFeishuIncompleteContent
 	}
 	normalized := normalizeApplicationText(parsed.MarkdownContent)
@@ -300,20 +431,27 @@ func applicationTextHash(text string) string {
 	sum := sha256.Sum256([]byte(normalizeApplicationText(text)))
 	return hex.EncodeToString(sum[:])
 }
+
 func applicationVerifiedTextHash(ctx context.Context, data []byte, name string) (string, error) {
-	if filepath.Ext(name) == ".md" && bytes.HasPrefix(data, []byte("<!-- knowhub-feishu-table-snapshot-v1 -->\n")) {
-		parsed, err := (&docparser.SimpleFormatReader{}).Read(ctx, &types.ReadRequest{FileType: "md", FileName: name, FileContent: data})
+	if filepath.Ext(name) == ".md" &&
+		bytes.HasPrefix(data, []byte("<!-- knowhub-feishu-table-snapshot-v1 -->\n")) {
+		parsed, err := (&docparser.SimpleFormatReader{}).Read(
+			ctx,
+			&types.ReadRequest{FileType: "md", FileName: name, FileContent: data},
+		)
 		if err != nil || parsed == nil || parsed.MarkdownContent == "" {
 			return "", ErrFeishuIncompleteContent
 		}
 		return applicationTextHash(parsed.MarkdownContent), nil
 	}
-	parsed, err := docparser.NewAnydocReader(nil, nil).Read(ctx, &types.ReadRequest{FileType: "docx", FileName: name, FileContent: data})
+	parsed, err := docparser.NewAnydocReader(nil, nil).
+		Read(ctx, &types.ReadRequest{FileType: "docx", FileName: name, FileContent: data})
 	if err != nil || parsed == nil || parsed.MarkdownContent == "" || len(parsed.ImageRefs) > 0 {
 		return "", ErrFeishuIncompleteContent
 	}
 	return applicationTextHash(parsed.MarkdownContent), nil
 }
+
 func verifyApplicationParse(k *types.Knowledge, result *types.ReadResult) error {
 	var meta map[string]any
 	if json.Unmarshal(k.Metadata, &meta) != nil {
@@ -323,7 +461,8 @@ func verifyApplicationParse(k *types.Knowledge, result *types.ReadResult) error 
 		return nil
 	}
 	expected, _ := meta["feishu_verified_text_sha256"].(string)
-	if expected == "" || result == nil || len(result.ImageRefs) > 0 || applicationTextHash(result.MarkdownContent) != expected {
+	if expected == "" || result == nil || len(result.ImageRefs) > 0 ||
+		applicationTextHash(result.MarkdownContent) != expected {
 		return ErrFeishuIncompleteContent
 	}
 	return nil

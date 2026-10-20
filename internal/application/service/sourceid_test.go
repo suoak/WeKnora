@@ -28,10 +28,38 @@ func TestSourceIDMockLoginAndSessionLifecycle(t *testing.T) {
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	require.NoError(t, db.AutoMigrate(&types.User{}, &types.AuthToken{}, &types.ExternalIdentity{}, &types.SourceIDEnrollment{}, &types.SourceIDSession{}, &types.SourceIDLogout{}, &types.OIDCTransaction{}))
-	user := &types.User{ID: uuid.NewString(), Username: "historical", Email: "original@example.test", IsActive: true}
+	require.NoError(
+		t,
+		db.AutoMigrate(
+			&types.User{},
+			&types.AuthToken{},
+			&types.ExternalIdentity{},
+			&types.SourceIDEnrollment{},
+			&types.SourceIDSession{},
+			&types.SourceIDLogout{},
+			&types.OIDCTransaction{},
+		),
+	)
+	user := &types.User{
+		ID:       uuid.NewString(),
+		Username: "historical",
+		Email:    "original@example.test",
+		IsActive: true,
+	}
 	require.NoError(t, apprepo.NewUserRepository(db).CreateUser(context.Background(), user))
-	require.NoError(t, db.Create(&types.SourceIDEnrollment{ID: uuid.NewString(), Issuer: "https://mock.example", EmployeeNo: "0001", UserID: user.ID, ReviewedBy: "reviewer", ReviewReference: "mock-ticket"}).Error)
+	require.NoError(
+		t,
+		db.Create(
+			&types.SourceIDEnrollment{
+				ID:              uuid.NewString(),
+				Issuer:          "https://mock.example",
+				EmployeeNo:      "0001",
+				UserID:          user.ID,
+				ReviewedBy:      "reviewer",
+				ReviewReference: "mock-ticket",
+			},
+		).Error,
+	)
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
 	keys := jwksServer(t, key, "mock-key")
@@ -67,11 +95,34 @@ func TestSourceIDMockLoginAndSessionLifecycle(t *testing.T) {
 		case "expired":
 			claims["exp"] = time.Now().Add(-time.Hour).Unix()
 		}
-		_ = json.NewEncoder(w).Encode(oidcTokenResponse{AccessToken: "mock-access", IDToken: signedIDToken(t, key, "mock-key", claims)})
+		_ = json.NewEncoder(w).
+			Encode(oidcTokenResponse{AccessToken: "mock-access", IDToken: signedIDToken(t, key, "mock-key", claims)})
 	}))
 	defer server.Close()
-	cfg := &config.OIDCAuthConfig{Enable: true, SourceIDEnable: true, SourceIDContractConfirmed: true, SourceIDLogoutEnable: true, PKCEEnable: true, IssuerURL: "https://mock.example", ClientID: "knowhub", ClientSecret: "mock-secret", RedirectURI: "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback", AuthorizationEndpoint: server.URL, TokenEndpoint: server.URL, JwksURI: keys.URL, SourceIDEmployeeClaim: "employee", SourceIDSessionClaim: "session", SourceIDStatusClaim: "status", SourceIDAllowedStatus: "enabled", Scopes: []string{"openid"}}
-	s := &userService{config: &config.Config{OIDCAuth: cfg}, userRepo: apprepo.NewUserRepository(db), tokenRepo: apprepo.NewAuthTokenRepository(db)}
+	cfg := &config.OIDCAuthConfig{
+		Enable:                    true,
+		SourceIDEnable:            true,
+		SourceIDContractConfirmed: true,
+		SourceIDLogoutEnable:      true,
+		PKCEEnable:                true,
+		IssuerURL:                 "https://mock.example",
+		ClientID:                  "knowhub",
+		ClientSecret:              "mock-secret",
+		RedirectURI:               "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback",
+		AuthorizationEndpoint:     server.URL,
+		TokenEndpoint:             server.URL,
+		JwksURI:                   keys.URL,
+		SourceIDEmployeeClaim:     "employee",
+		SourceIDSessionClaim:      "session",
+		SourceIDStatusClaim:       "status",
+		SourceIDAllowedStatus:     "enabled",
+		Scopes:                    []string{"openid"},
+	}
+	s := &userService{
+		config:    &config.Config{OIDCAuth: cfg},
+		userRepo:  apprepo.NewUserRepository(db),
+		tokenRepo: apprepo.NewAuthTokenRepository(db),
+	}
 	ctx := context.Background()
 	login := func() (*types.OIDCCallbackResponse, error) {
 		auth, err := s.GetOIDCAuthorizationURL(ctx, cfg.RedirectURI)
@@ -85,7 +136,17 @@ func TestSourceIDMockLoginAndSessionLifecycle(t *testing.T) {
 		require.Error(t, err)
 		return s.LoginWithOIDC(prepared, "mock-code", cfg.RedirectURI, types.TenantProvisioningTenantless)
 	}
-	for _, failure := range []string{"nonce", "nonce-padding", "subject-number", "azp-number", "employee", "inactive", "issuer", "audience", "expired"} {
+	for _, failure := range []string{
+		"nonce",
+		"nonce-padding",
+		"subject-number",
+		"azp-number",
+		"employee",
+		"inactive",
+		"issuer",
+		"audience",
+		"expired",
+	} {
 		t.Run(failure, func(t *testing.T) { mode = failure; _, err := login(); require.Error(t, err) })
 	}
 	mode = "valid"
@@ -140,16 +201,31 @@ func TestSourceIDUserInfoSubjectAndClaimSource(t *testing.T) {
 	claims["employee"] = "unselected"
 	s := &userService{}
 	ctx := context.WithValue(context.Background(), oidcNonceKey, "expected")
-	info, err := s.resolveOIDCUserInfo(ctx, cfg, &oidcTokenResponse{AccessToken: "mock", IDToken: signedIDToken(t, key, "kid", claims)})
+	info, err := s.resolveOIDCUserInfo(
+		ctx,
+		cfg,
+		&oidcTokenResponse{AccessToken: "mock", IDToken: signedIDToken(t, key, "kid", claims)},
+	)
 	require.NoError(t, err)
 	require.Equal(t, "002", sourceIDClaim(info.Claims, "employee"))
 	sub = "other"
-	_, err = s.resolveOIDCUserInfo(ctx, cfg, &oidcTokenResponse{AccessToken: "mock", IDToken: signedIDToken(t, key, "kid", claims)})
+	_, err = s.resolveOIDCUserInfo(
+		ctx,
+		cfg,
+		&oidcTokenResponse{AccessToken: "mock", IDToken: signedIDToken(t, key, "kid", claims)},
+	)
 	require.Error(t, err)
 	sub = " user-123 "
-	_, err = s.resolveOIDCUserInfo(ctx, cfg, &oidcTokenResponse{AccessToken: "mock", IDToken: signedIDToken(t, key, "kid", claims)})
+	_, err = s.resolveOIDCUserInfo(
+		ctx,
+		cfg,
+		&oidcTokenResponse{AccessToken: "mock", IDToken: signedIDToken(t, key, "kid", claims)},
+	)
 	require.Error(t, err)
-	require.Empty(t, sourceIDClaim(map[string]interface{}{"attributes": []interface{}{"GH"}}, "attributes.GH"))
+	require.Empty(
+		t,
+		sourceIDClaim(map[string]interface{}{"attributes": []interface{}{"GH"}}, "attributes.GH"),
+	)
 	require.Empty(t, sourceIDClaim(map[string]interface{}{"GH": 123}, "GH"))
 	require.Empty(t, sourceIDClaim(map[string]interface{}{"GH": strings.Repeat("x", 513)}, "GH"))
 }

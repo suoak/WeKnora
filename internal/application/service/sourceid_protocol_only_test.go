@@ -24,8 +24,14 @@ func TestSourceIDProtocolOnlyVerifiesIdentityBeforeRejectingBusinessLogin(t *tes
 		t.Fatal(err)
 	}
 	connection, _ := db.DB()
-	defer connection.Close()
-	if err = db.AutoMigrate(&types.OIDCTransaction{}, &types.User{}, &types.AuthToken{}, &types.ExternalIdentity{}, &types.SourceIDSession{}); err != nil {
+	defer func(cleanup func() error) { _ = cleanup() }(connection.Close)
+	if err = db.AutoMigrate(
+		&types.OIDCTransaction{},
+		&types.User{},
+		&types.AuthToken{},
+		&types.ExternalIdentity{},
+		&types.SourceIDSession{},
+	); err != nil {
 		t.Fatal(err)
 	}
 	key, _ := rsa.GenerateKey(rand.Reader, 2048)
@@ -38,22 +44,42 @@ func TestSourceIDProtocolOnlyVerifiesIdentityBeforeRejectingBusinessLogin(t *tes
 		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path == "/profile" {
 			profileCalls++
-			json.NewEncoder(w).Encode(map[string]interface{}{"sub": "user-123", "employee_candidate": "synthetic-private"})
+			_ = json.NewEncoder(w).
+				Encode(map[string]interface{}{"sub": "user-123", "employee_candidate": "synthetic-private"})
 			return
 		}
 		calls++
-		r.ParseForm()
+		_ = r.ParseForm()
 		id, _, ok := r.BasicAuth()
 		if !ok || id != "knowhub" || r.PostForm.Has("client_secret") || r.PostForm.Has("code_verifier") {
 			t.Error("Basic/non-PKCE protocol changed")
 		}
 		claims := baseClaims("https://synthetic.example", "knowhub")
 		claims["nonce"] = nonce
-		json.NewEncoder(w).Encode(oidcTokenResponse{AccessToken: "synthetic-access", IDToken: signedIDToken(t, key, "mock", claims)})
+		_ = json.NewEncoder(w).
+			Encode(oidcTokenResponse{AccessToken: "synthetic-access", IDToken: signedIDToken(t, key, "mock", claims)})
 	}))
 	defer server.Close()
-	cfg := &config.OIDCAuthConfig{Enable: true, SourceIDEnable: true, SourceIDProtocolOnly: true, ClientAuthMethod: "client_secret_basic", ClientID: "knowhub", ClientSecret: "synthetic-secret", IssuerURL: "https://synthetic.example", AuthorizationEndpoint: server.URL, TokenEndpoint: server.URL, JwksURI: jwks.URL, UserInfoEndpoint: server.URL + "/profile", RedirectURI: approvedSourceIDProbeCallbackURI, Scopes: []string{"openid"}}
-	svc := &userService{config: &config.Config{OIDCAuth: cfg}, userRepo: apprepo.NewUserRepository(db), tokenRepo: apprepo.NewAuthTokenRepository(db)}
+	cfg := &config.OIDCAuthConfig{
+		Enable:                true,
+		SourceIDEnable:        true,
+		SourceIDProtocolOnly:  true,
+		ClientAuthMethod:      "client_secret_basic",
+		ClientID:              "knowhub",
+		ClientSecret:          "synthetic-secret",
+		IssuerURL:             "https://synthetic.example",
+		AuthorizationEndpoint: server.URL,
+		TokenEndpoint:         server.URL,
+		JwksURI:               jwks.URL,
+		UserInfoEndpoint:      server.URL + "/profile",
+		RedirectURI:           approvedSourceIDProbeCallbackURI,
+		Scopes:                []string{"openid"},
+	}
+	svc := &userService{
+		config:    &config.Config{OIDCAuth: cfg},
+		userRepo:  apprepo.NewUserRepository(db),
+		tokenRepo: apprepo.NewAuthTokenRepository(db),
+	}
 	auth, err := svc.GetOIDCAuthorizationURL(context.Background(), cfg.RedirectURI)
 	if err != nil {
 		t.Fatal(err)
@@ -64,7 +90,8 @@ func TestSourceIDProtocolOnlyVerifiesIdentityBeforeRejectingBusinessLogin(t *tes
 		t.Fatal(err)
 	}
 	response, err := svc.LoginWithOIDC(ctx, "synthetic-code", cfg.RedirectURI, "")
-	if response != nil || err == nil || err.Error() != "sourceid identity contract pending" || calls != 1 || profileCalls != 1 {
+	if response != nil || err == nil || err.Error() != "sourceid identity contract pending" || calls != 1 ||
+		profileCalls != 1 {
 		t.Fatal("protocol-only did not reach verified identity gate")
 	}
 	for _, table := range []string{"users", "auth_tokens", "external_identities", "source_id_sessions"} {

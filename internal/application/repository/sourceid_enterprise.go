@@ -12,13 +12,18 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-var errOwnership = errors.New("sourceid enterprise ownership unavailable")
-var errOwnershipDryRun = errors.New("sourceid ownership dry run")
+var (
+	errOwnership       = errors.New("sourceid enterprise ownership unavailable")
+	errOwnershipDryRun = errors.New("sourceid ownership dry run")
+)
 
 // Read-only bulk join. A trusted historical ownership reference is still
 // required by Sync; unique email alone is never account-ownership proof.
 // Existing employee rows win over changed email and cannot migrate users.
-func (r *userRepository) ResolveSourceIDOwnershipAccount(ctx context.Context, issuer, employee, email string) (string, error) {
+func (r *userRepository) ResolveSourceIDOwnershipAccount(
+	ctx context.Context,
+	issuer, employee, email string,
+) (string, error) {
 	if issuer == "" || employee == "" {
 		return "", errOwnership
 	}
@@ -36,19 +41,39 @@ func (r *userRepository) ResolveSourceIDOwnershipAccount(ctx context.Context, is
 		return "", errOwnership
 	}
 	var users []types.User
-	if db.Where("LOWER(TRIM(email)) = ?", normalized).Limit(2).Find(&users).Error != nil || len(users) != 1 || !users[0].IsActive {
+	if db.Where("LOWER(TRIM(email)) = ?", normalized).Limit(2).Find(&users).Error != nil ||
+		len(users) != 1 ||
+		!users[0].IsActive {
 		return "", errOwnership
 	}
 	return users[0].ID, nil
 }
 
-func ownershipUsable(row *types.SourceIDAccountOwnership, userID, policy string, maxAge time.Duration) bool {
+func ownershipUsable(
+	row *types.SourceIDAccountOwnership,
+	userID, policy string,
+	maxAge time.Duration,
+) bool {
 	now := time.Now()
 	return maxAge > 0 && row.UserID == userID && row.Status == "active" && row.PolicyRef == policy &&
-		row.OwnershipRef != "" && row.SourceRef != "" && !row.VerifiedAt.After(now) && row.VerifiedAt.Add(maxAge).After(now) && row.ValidUntil.After(now)
+		row.OwnershipRef != "" && row.SourceRef != "" && !row.VerifiedAt.After(
+		now,
+	) && row.VerifiedAt.Add(
+		maxAge,
+	).
+		After(
+			now,
+		) && row.ValidUntil.After(
+		now,
+	)
 }
 
-func enterpriseOwnership(tx *gorm.DB, issuer, employee, userID, policy string, maxAge time.Duration, lock bool) (*types.SourceIDAccountOwnership, error) {
+func enterpriseOwnership(
+	tx *gorm.DB,
+	issuer, employee, userID, policy string,
+	maxAge time.Duration,
+	lock bool,
+) (*types.SourceIDAccountOwnership, error) {
 	var row types.SourceIDAccountOwnership
 	if lock {
 		tx = tx.Clauses(clause.Locking{Strength: "UPDATE"})
@@ -65,14 +90,22 @@ func enterpriseOwnership(tx *gorm.DB, issuer, employee, userID, policy string, m
 	return &row, nil
 }
 
-func (r *userRepository) CheckSourceIDEnterpriseOwnership(ctx context.Context, issuer, employee, userID, policy string, maxAge time.Duration) error {
+func (r *userRepository) CheckSourceIDEnterpriseOwnership(
+	ctx context.Context,
+	issuer, employee, userID, policy string,
+	maxAge time.Duration,
+) error {
 	_, err := enterpriseOwnership(r.bindingDB(ctx), issuer, employee, userID, policy, maxAge, false)
 	return err
 }
 
 // Indexed lookup of one protected proof, then reuse the existing all-role
 // approval transaction. No population-sized manifest is loaded on login.
-func (r *userRepository) ResolveSourceIDEnterpriseEmailIdentity(ctx context.Context, issuer, subject, employee, email, bindingPolicy, ownershipPolicy string, maxAge time.Duration) (*types.User, error) {
+func (r *userRepository) ResolveSourceIDEnterpriseEmailIdentity(
+	ctx context.Context,
+	issuer, subject, employee, email, bindingPolicy, ownershipPolicy string,
+	maxAge time.Duration,
+) (*types.User, error) {
 	var user *types.User
 	err := r.bindingDB(ctx).Transaction(func(tx *gorm.DB) error {
 		row, err := enterpriseOwnership(tx, issuer, employee, "", ownershipPolicy, maxAge, true)
@@ -80,7 +113,17 @@ func (r *userRepository) ResolveSourceIDEnterpriseEmailIdentity(ctx context.Cont
 			return err
 		}
 		scoped := &userRepository{db: tx}
-		user, err = scoped.ResolveSourceIDPilotEmailIdentity(ctx, issuer, subject, employee, email, bindingPolicy, map[string]types.SourceIDPilotAccount{row.UserID: {Email: row.Email, EmployeeNo: row.EmployeeNo}})
+		user, err = scoped.ResolveSourceIDPilotEmailIdentity(
+			ctx,
+			issuer,
+			subject,
+			employee,
+			email,
+			bindingPolicy,
+			map[string]types.SourceIDPilotAccount{
+				row.UserID: {Email: row.Email, EmployeeNo: row.EmployeeNo},
+			},
+		)
 		return err
 	})
 	if err != nil {
@@ -91,9 +134,23 @@ func (r *userRepository) ResolveSourceIDEnterpriseEmailIdentity(ctx context.Cont
 
 // Serializes session creation against ownership disable/sync. Existing local
 // session/token/revocation implementations remain the source of truth.
-func (r *userRepository) CreateSourceIDEnterpriseLocalSession(ctx context.Context, session *types.SourceIDSession, local *types.SourceIDLocalSession, employee, policy string, maxAge time.Duration) error {
+func (r *userRepository) CreateSourceIDEnterpriseLocalSession(
+	ctx context.Context,
+	session *types.SourceIDSession,
+	local *types.SourceIDLocalSession,
+	employee, policy string,
+	maxAge time.Duration,
+) error {
 	err := r.bindingDB(ctx).Transaction(func(tx *gorm.DB) error {
-		if _, err := enterpriseOwnership(tx, session.Issuer, employee, session.UserID, policy, maxAge, true); err != nil {
+		if _, err := enterpriseOwnership(
+			tx,
+			session.Issuer,
+			employee,
+			session.UserID,
+			policy,
+			maxAge,
+			true,
+		); err != nil {
 			return err
 		}
 		return (&userRepository{db: tx}).CreateSourceIDLocalSession(ctx, session, local)
@@ -107,11 +164,40 @@ func (r *userRepository) CreateSourceIDEnterpriseLocalSession(ctx context.Contex
 // Operator-only, per-row atomic incremental sync. References attest trusted
 // independent evidence at the administrative boundary; they are not proof
 // inferred from a token. Never log/serialize input records or SQL errors.
-func (r *userRepository) SyncSourceIDAccountOwnership(ctx context.Context, input types.SourceIDAccountOwnership, actor string, apply bool) (changed bool, err error) {
+func (r *userRepository) SyncSourceIDAccountOwnership(
+	ctx context.Context,
+	input types.SourceIDAccountOwnership,
+	actor string,
+	apply bool,
+) (changed bool, err error) {
 	email, e := normalizeSourceIDEmail(input.Email)
-	if e != nil || strings.TrimSpace(actor) == "" || input.Issuer == "" || input.EmployeeNo == "" || strings.TrimSpace(input.EmployeeNo) != input.EmployeeNo || len(input.EmployeeNo) > 256 || input.UserID == "" ||
-		input.Revision <= 0 || strings.TrimSpace(input.PolicyRef) == "" || strings.TrimSpace(input.OwnershipRef) == "" || strings.TrimSpace(input.SourceRef) == "" || (input.Status != "active" && input.Status != "disabled") ||
-		input.VerifiedAt.IsZero() || input.VerifiedAt.After(time.Now()) || (input.Status == "active" && (!input.ValidUntil.After(time.Now()) || !input.ValidUntil.After(input.VerifiedAt))) {
+	if e != nil ||
+		strings.TrimSpace(
+			actor,
+		) == "" ||
+		input.Issuer == "" ||
+		input.EmployeeNo == "" ||
+		strings.TrimSpace(
+			input.EmployeeNo,
+		) != input.EmployeeNo ||
+		len(
+			input.EmployeeNo,
+		) > 256 ||
+		input.UserID == "" ||
+		input.Revision <= 0 ||
+		strings.TrimSpace(input.PolicyRef) == "" ||
+		strings.TrimSpace(input.OwnershipRef) == "" ||
+		strings.TrimSpace(input.SourceRef) == "" ||
+		(input.Status != "active" && input.Status != "disabled") ||
+		input.VerifiedAt.IsZero() ||
+		input.VerifiedAt.After(time.Now()) ||
+		(input.Status == "active" &&
+			(!input.ValidUntil.After(
+				time.Now(),
+			) ||
+				!input.ValidUntil.After(
+					input.VerifiedAt,
+				))) {
 		return false, errOwnership
 	}
 	input.Email = email
@@ -138,7 +224,15 @@ func (r *userRepository) SyncSourceIDAccountOwnership(ctx context.Context, input
 			return errOwnership
 		}
 		var approved types.SourceIDBindingReview
-		bound := tx.Where("issuer = ? AND employee_no = ? AND user_id = ? AND status = ?", input.Issuer, input.EmployeeNo, input.UserID, "approved").First(&approved).Error == nil
+		bound := tx.Where(
+			"issuer = ? AND employee_no = ? AND user_id = ? AND status = ?",
+			input.Issuer,
+			input.EmployeeNo,
+			input.UserID,
+			"approved",
+		).
+			First(&approved).
+			Error == nil
 		if !bound {
 			original, e := normalizeSourceIDEmail(user.Email)
 			if input.Status == "active" && (e != nil || original != email || count != 1) {
@@ -155,7 +249,11 @@ func (r *userRepository) SyncSourceIDAccountOwnership(ctx context.Context, input
 		}
 		if result.RowsAffected == 0 {
 			var row types.SourceIDAccountOwnership
-			if tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("issuer = ? AND employee_no = ?", input.Issuer, input.EmployeeNo).First(&row).Error != nil || row.UserID != input.UserID {
+			if tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+				Where("issuer = ? AND employee_no = ?", input.Issuer, input.EmployeeNo).
+				First(&row).
+				Error != nil ||
+				row.UserID != input.UserID {
 				return errOwnership
 			}
 			input.ID = row.ID
@@ -163,25 +261,68 @@ func (r *userRepository) SyncSourceIDAccountOwnership(ctx context.Context, input
 				return errOwnership
 			}
 			if input.Revision == row.Revision {
-				if row.Email != email || row.Status != input.Status || row.PolicyRef != input.PolicyRef || row.SourceRef != input.SourceRef || row.OwnershipRef != input.OwnershipRef || !row.VerifiedAt.Equal(input.VerifiedAt) || !row.ValidUntil.Equal(input.ValidUntil) {
+				if row.Email != email || row.Status != input.Status || row.PolicyRef != input.PolicyRef ||
+					row.SourceRef != input.SourceRef ||
+					row.OwnershipRef != input.OwnershipRef ||
+					!row.VerifiedAt.Equal(input.VerifiedAt) ||
+					!row.ValidUntil.Equal(input.ValidUntil) {
 					return errOwnership
 				}
 				return nil
 			}
-			if tx.Model(&row).Updates(map[string]interface{}{"email": email, "status": input.Status, "revision": input.Revision, "policy_ref": input.PolicyRef, "source_ref": input.SourceRef, "ownership_ref": input.OwnershipRef, "verified_at": input.VerifiedAt, "valid_until": input.ValidUntil, "updated_at": now}).Error != nil {
+			if tx.Model(&row).
+				Updates(
+					map[string]interface{}{
+						"email": email,
+
+						"status": input.Status,
+
+						"revision": input.Revision,
+
+						"policy_ref": input.PolicyRef,
+
+						"source_ref": input.SourceRef,
+
+						"ownership_ref": input.OwnershipRef,
+
+						"verified_at": input.VerifiedAt,
+
+						"valid_until": input.ValidUntil,
+
+						"updated_at": now,
+					},
+				).
+				Error != nil {
 				return errOwnership
 			}
 		}
 		if input.Status == "disabled" {
-			if tx.Model(&types.SourceIDSession{}).Where("issuer = ? AND user_id = ?", input.Issuer, input.UserID).Update("revoked", true).Error != nil {
+			if tx.Model(&types.SourceIDSession{}).
+				Where("issuer = ? AND user_id = ?", input.Issuer, input.UserID).
+				Update("revoked", true).
+				Error != nil {
 				return errOwnership
 			}
-			ids := tx.Model(&types.SourceIDSession{}).Select("id").Where("issuer = ? AND user_id = ?", input.Issuer, input.UserID)
-			if tx.Model(&types.AuthToken{}).Where("session_id IN (?)", ids).Update("is_revoked", true).Error != nil {
+			ids := tx.Model(&types.SourceIDSession{}).
+				Select("id").
+				Where("issuer = ? AND user_id = ?", input.Issuer, input.UserID)
+			if tx.Model(&types.AuthToken{}).
+				Where("session_id IN (?)", ids).
+				Update("is_revoked", true).
+				Error != nil {
 				return errOwnership
 			}
 		}
-		if tx.Create(&types.SourceIDOwnershipAudit{ID: uuid.NewString(), OwnershipID: input.ID, Revision: input.Revision, Actor: actor, Action: input.Status, CreatedAt: now}).Error != nil {
+		if tx.Create(
+			&types.SourceIDOwnershipAudit{
+				ID:          uuid.NewString(),
+				OwnershipID: input.ID,
+				Revision:    input.Revision,
+				Actor:       actor,
+				Action:      input.Status,
+				CreatedAt:   now,
+			},
+		).Error != nil {
 			return errOwnership
 		}
 		changed = true

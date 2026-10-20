@@ -29,7 +29,30 @@ func TestOIDCProtocolProbe(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, kind := range []string{"success", "approved_callback", "basic", "basic_no_pkce", "basic_no_pkce_nonce_missing", "basic_no_pkce_nonce_wrong", "rs384", "signature", "issuer", "audience", "expiry", "nonce", "subject", "userinfo_failure", "token_failure", "token_oauth_error", "token_unknown_error", "token_invalid_json", "token_redirect", "jwks_redirect", "userinfo_redirect", "provider_error"} {
+	for _, kind := range []string{
+		"success",
+		"approved_callback",
+		"basic",
+		"basic_no_pkce",
+		"basic_no_pkce_nonce_missing",
+		"basic_no_pkce_nonce_wrong",
+		"rs384",
+		"signature",
+		"issuer",
+		"audience",
+		"expiry",
+		"nonce",
+		"subject",
+		"userinfo_failure",
+		"token_failure",
+		"token_oauth_error",
+		"token_unknown_error",
+		"token_invalid_json",
+		"token_redirect",
+		"jwks_redirect",
+		"userinfo_redirect",
+		"provider_error",
+	} {
 		t.Run(kind, func(t *testing.T) {
 			withOIDCSSRFWhitelist(t, "127.0.0.1")
 			const private = "synthetic-private-probe-value"
@@ -50,14 +73,16 @@ func TestOIDCProtocolProbe(t *testing.T) {
 					expectedNonce, expectedChallenge := nonce, challenge
 					fixtureMu.Unlock()
 					calls.Add(1)
-					if r.Method != "POST" || r.URL.RawQuery != "" || r.Header.Get("Content-Type") != "application/x-www-form-urlencoded" {
+					if r.Method != "POST" || r.URL.RawQuery != "" ||
+						r.Header.Get("Content-Type") != "application/x-www-form-urlencoded" {
 						t.Error("unsafe token transport")
 					}
 					_ = r.ParseForm()
 					if r.Form.Get("redirect_uri") != expectedRedirectURI {
 						t.Error("approved redirect_uri changed during exchange")
 					}
-					if r.Form.Get("grant_type") != "authorization_code" || r.Form.Get("code") != private || r.Form.Get("client_id") != "probe-client" {
+					if r.Form.Get("grant_type") != "authorization_code" || r.Form.Get("code") != private ||
+						r.Form.Get("client_id") != "probe-client" {
 						t.Error("wrong code exchange")
 					}
 					if basicAuth {
@@ -95,7 +120,13 @@ func TestOIDCProtocolProbe(t *testing.T) {
 							w.Header().Set("X-Request-Id", private)
 						}
 						w.WriteHeader(401)
-						_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": errorCode, "error_description": private, "client_secret": private, "access_token": private})
+						_ = json.NewEncoder(w).
+							Encode(map[string]interface{}{
+								"error":             errorCode,
+								"error_description": private,
+								"client_secret":     private,
+								"access_token":      private,
+							})
 						return
 					}
 					if kind == "token_invalid_json" {
@@ -104,9 +135,10 @@ func TestOIDCProtocolProbe(t *testing.T) {
 					}
 					claims := baseClaims("https://confirmed.example", "probe-client")
 					claims["nonce"] = expectedNonce
-					if kind == "basic_no_pkce_nonce_missing" {
+					switch kind {
+					case "basic_no_pkce_nonce_missing":
 						delete(claims, "nonce")
-					} else if kind == "basic_no_pkce_nonce_wrong" {
+					case "basic_no_pkce_nonce_wrong":
 						claims["nonce"] = "wrong"
 					}
 					claims["employee_candidate"] = private
@@ -135,7 +167,13 @@ func TestOIDCProtocolProbe(t *testing.T) {
 					if kind == "signature" {
 						id = unsignedJWT(claims)
 					}
-					_ = json.NewEncoder(w).Encode(map[string]interface{}{"id_token": id, "access_token": private, "refresh_token": private, "token_type": "Bearer"})
+					_ = json.NewEncoder(w).
+						Encode(map[string]interface{}{
+							"id_token":      id,
+							"access_token":  private,
+							"refresh_token": private,
+							"token_type":    "Bearer",
+						})
 				case "/jwks":
 					if kind == "rs384" {
 						t.Error("rejected algorithm reached JWKS")
@@ -166,7 +204,20 @@ func TestOIDCProtocolProbe(t *testing.T) {
 					if kind == "subject" {
 						sub = "other-subject"
 					}
-					_ = json.NewEncoder(w).Encode(map[string]interface{}{"sub": sub, "employee_candidate": private, "attributes": map[string]interface{}{"status": true, "nested": map[string]interface{}{"private_field": private}}, "items": []interface{}{private}})
+					_ = json.NewEncoder(w).
+						Encode(map[string]interface{}{
+							"sub":                sub,
+							"employee_candidate": private,
+							"attributes": map[string]interface{}{
+								"status": true,
+								"nested": map[string]interface{}{
+									"private_field": private,
+								},
+							},
+							"items": []interface{}{
+								private,
+							},
+						})
 				case "/should-not-follow":
 					t.Error("probe followed provider redirect")
 					w.WriteHeader(500)
@@ -175,12 +226,27 @@ func TestOIDCProtocolProbe(t *testing.T) {
 				}
 			}))
 			defer provider.Close()
-			m := OIDCProbeMetadata{Confirmed: true, Issuer: "https://confirmed.example", Authorization: "https://confirmed.example/authorize", Token: provider.URL + "/token", JWKS: provider.URL + "/jwks", UserInfo: provider.URL + "/userinfo", RedirectURI: "http://probe.example/probe/callback", ClientID: "probe-client", ClientAuth: "client_secret_post", UserInfoTransport: "bearer_get", Scopes: []string{"openid"}, PKCE: true}
+			m := OIDCProbeMetadata{
+				Confirmed:         true,
+				Issuer:            "https://confirmed.example",
+				Authorization:     "https://confirmed.example/authorize",
+				Token:             provider.URL + "/token",
+				JWKS:              provider.URL + "/jwks",
+				UserInfo:          provider.URL + "/userinfo",
+				RedirectURI:       "http://probe.example/probe/callback",
+				ClientID:          "probe-client",
+				ClientAuth:        "client_secret_post",
+				UserInfoTransport: "bearer_get",
+				Scopes:            []string{"openid"},
+				PKCE:              true,
+			}
 			if basicAuth {
 				m.ClientAuth = "client_secret_basic"
 			}
 			m.PKCE = !withoutPKCE
-			m.HTTPDiagnostics = kind == "success" || kind == "basic_no_pkce" || kind == "token_invalid_json" || kind == "token_oauth_error"
+			m.HTTPDiagnostics = kind == "success" || kind == "basic_no_pkce" ||
+				kind == "token_invalid_json" ||
+				kind == "token_oauth_error"
 			m.RedirectURI = expectedRedirectURI
 			// Only test fixtures bypass production HTTPS validation. No repository exists.
 			p := newOIDCProtocolProbe(m, private)
@@ -205,12 +271,20 @@ func TestOIDCProtocolProbe(t *testing.T) {
 			challenge = q.Get("code_challenge")
 			fixtureMu.Unlock()
 			originalVerifier := p.verifier
-			if strings.Contains(start.Body.String(), private) || start.Header().Get("Set-Cookie") != "" || q.Get("scope") != "openid" {
+			if strings.Contains(start.Body.String(), private) || start.Header().Get("Set-Cookie") != "" ||
+				q.Get("scope") != "openid" {
 				t.Fatal("authorize leaked or changed scope")
 			}
 			bad := httptest.NewRecorder()
 			if kind == "approved_callback" {
-				p.ServeHTTP(bad, httptest.NewRequest("GET", "/probe/callback?state="+q.Get("state")+"&code="+private, nil))
+				p.ServeHTTP(
+					bad,
+					httptest.NewRequest(
+						"GET",
+						"/probe/callback?state="+q.Get("state")+"&code="+private,
+						nil,
+					),
+				)
 				if bad.Code != 404 || calls.Load() != 0 {
 					t.Fatal("unconfigured path reached provider")
 				}
@@ -227,21 +301,27 @@ func TestOIDCProtocolProbe(t *testing.T) {
 			}
 			result := httptest.NewRecorder()
 			p.ServeHTTP(result, httptest.NewRequest("GET", p.callbackPath()+"?"+callback.Encode(), nil))
-			completed := kind == "success" || kind == "approved_callback" || kind == "basic" || kind == "basic_no_pkce"
+			completed := kind == "success" || kind == "approved_callback" || kind == "basic" ||
+				kind == "basic_no_pkce"
 			if p.Report().Validation["completed"] != completed {
 				t.Fatalf("unexpected validation result for %s", kind)
 			}
 			if kind != "provider_error" {
 				d := p.Report().HTTP[0]
 				if m.HTTPDiagnostics {
-					if d.Diagnostics == nil || d.Diagnostics.Request.FieldPresence["code_verifier"] != m.PKCE || d.Diagnostics.Response == nil {
+					if d.Diagnostics == nil ||
+						d.Diagnostics.Request.FieldPresence["code_verifier"] != m.PKCE ||
+						d.Diagnostics.Response == nil {
 						t.Fatal("probe diagnostics missing or changed PKCE behavior")
 					}
 				}
-				if d.Stage != "token" || d.ClientAuth != m.ClientAuth || d.AuthorizationHeaderPresent == nil || *d.AuthorizationHeaderPresent != basicAuth {
+				if d.Stage != "token" || d.ClientAuth != m.ClientAuth ||
+					d.AuthorizationHeaderPresent == nil ||
+					*d.AuthorizationHeaderPresent != basicAuth {
 					t.Fatal("client authentication placement diagnostics incorrect")
 				}
-				if d.CallbackToTokenDispatchMS == nil || *d.CallbackToTokenDispatchMS < 0 || (d.CallbackToTokenSentMS != nil && *d.CallbackToTokenSentMS < *d.CallbackToTokenDispatchMS) {
+				if d.CallbackToTokenDispatchMS == nil || *d.CallbackToTokenDispatchMS < 0 ||
+					(d.CallbackToTokenSentMS != nil && *d.CallbackToTokenSentMS < *d.CallbackToTokenDispatchMS) {
 					t.Fatal("callback-to-dispatch/write timing missing or out of order")
 				}
 			}
@@ -249,16 +329,28 @@ func TestOIDCProtocolProbe(t *testing.T) {
 				t.Fatal("non-PKCE transaction retried token exchange")
 			}
 			if kind == "basic_no_pkce_nonce_missing" || kind == "basic_no_pkce_nonce_wrong" {
-				if result.Code != 400 || !p.Report().Validation["id_token"] || p.Report().Validation["nonce"] || userInfoCalls.Load() != 0 || p.Report().Claims != nil {
+				if result.Code != 400 || !p.Report().Validation["id_token"] ||
+					p.Report().Validation["nonce"] ||
+					userInfoCalls.Load() != 0 ||
+					p.Report().Claims != nil {
 					t.Fatal("non-PKCE transaction bypassed nonce rejection")
 				}
 			}
-			if kind == "rs384" && (result.Code != 400 || p.Report().Validation["algorithm"] || p.Report().Claims != nil || p.Report().Algorithm != "") {
+			if kind == "rs384" &&
+				(result.Code != 400 ||
+					p.Report().
+						Validation["algorithm"] ||
+					p.Report().
+						Claims != nil ||
+					p.Report().
+						Algorithm != "") {
 				t.Fatal("non-RS256 token was accepted or exposed claims")
 			}
-			if kind == "token_failure" || kind == "token_oauth_error" || kind == "token_unknown_error" || kind == "token_invalid_json" {
+			if kind == "token_failure" || kind == "token_oauth_error" || kind == "token_unknown_error" ||
+				kind == "token_invalid_json" {
 				diagnostics := p.Report().HTTP
-				if len(diagnostics) != 1 || diagnostics[0].Stage != "token" || diagnostics[0].DurationMS < 0 {
+				if len(diagnostics) != 1 || diagnostics[0].Stage != "token" ||
+					diagnostics[0].DurationMS < 0 {
 					t.Fatal("token failure lost bounded diagnostics")
 				}
 				wantStatus, wantFailure := 401, "http_status"
@@ -273,18 +365,37 @@ func TestOIDCProtocolProbe(t *testing.T) {
 				}
 			}
 			encoded, _ := json.Marshal(p.Report())
-			for _, sensitive := range []string{private, nonce, q.Get("state"), originalVerifier, "user-123", "user@example.com", "Real User"} {
+			for _, sensitive := range []string{
+				private,
+				nonce,
+				q.Get(
+					"state",
+				),
+				originalVerifier,
+				"user-123",
+				"user@example.com",
+				"Real User",
+			} {
 				if strings.Contains(string(encoded), sensitive) {
 					t.Fatal("sensitive protocol value reached report")
 				}
 			}
-			if kind == "subject" && (p.Report().UserInfo == nil || p.Report().Validation["userinfo_subject"]) {
+			if kind == "subject" &&
+				(p.Report().UserInfo == nil || p.Report().Validation["userinfo_subject"]) {
 				t.Fatal("subject mismatch lost safe schema or passed identity check")
 			}
-			if strings.Contains(string(encoded), private) || strings.Contains(result.Body.String(), private) || result.Header().Get("Set-Cookie") != "" {
+			if strings.Contains(string(encoded), private) ||
+				strings.Contains(result.Body.String(), private) ||
+				result.Header().Get("Set-Cookie") != "" {
 				t.Fatal("credential or personal value leaked")
 			}
-			if completed && (p.Report().Algorithm != "RS256" || p.Report().Claims["employee_candidate"] != "string" || p.Report().UserInfo["employee_candidate"] != "string") {
+			if completed &&
+				(p.Report().
+					Algorithm != "RS256" ||
+					p.Report().
+						Claims["employee_candidate"] != "string" ||
+					p.Report().
+						UserInfo["employee_candidate"] != "string") {
 				t.Fatal("safe schema missing")
 			}
 			select {
@@ -324,16 +435,33 @@ func TestOIDCProbeSafeTransportCategories(t *testing.T) {
 		want string
 	}{
 		{"timeout", probeTimeoutError{}, "timeout"},
-		{"certificate", x509.HostnameError{Certificate: &x509.Certificate{}, Host: "synthetic-private-transport-cause"}, "tls_error"},
+		{
+			"certificate",
+			x509.HostnameError{
+				Certificate: &x509.Certificate{},
+				Host:        "synthetic-private-transport-cause",
+			},
+			"tls_error",
+		},
 		{"network", errors.New("synthetic-private-transport-cause"), "transport_error"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			report := OIDCProbeReport{}
 			endpoint := "https://confirmed.example/token"
-			transport := probeDiagnosticTransport{base: probeTraceRoundTripper(func(*http.Request) (*http.Response, error) { return nil, tc.err }), endpoints: map[string]string{"token": endpoint}, report: &report, callbackReceived: time.Now(), clientAuth: "client_secret_post"}
+			transport := probeDiagnosticTransport{
+				base: probeTraceRoundTripper(
+					func(*http.Request) (*http.Response, error) { return nil, tc.err },
+				),
+				endpoints:        map[string]string{"token": endpoint},
+				report:           &report,
+				callbackReceived: time.Now(),
+				clientAuth:       "client_secret_post",
+			}
 			req, _ := http.NewRequest("POST", endpoint, nil)
 			_, err := transport.RoundTrip(req)
-			if err == nil || len(report.HTTP) != 1 || report.HTTP[0].Failure != tc.want || report.HTTP[0].Status != 0 || report.HTTP[0].CallbackToTokenSentMS != nil {
+			if err == nil || len(report.HTTP) != 1 || report.HTTP[0].Failure != tc.want ||
+				report.HTTP[0].Status != 0 ||
+				report.HTTP[0].CallbackToTokenSentMS != nil {
 				t.Fatal("transport failure category incorrect or write falsely recorded")
 			}
 			encoded, _ := json.Marshal(report)
@@ -354,7 +482,10 @@ func TestOIDCProbeCallbackWriteTiming(t *testing.T) {
 				t.Fatal("missing request-write timing hook")
 			}
 			trace.WroteRequest(httptrace.WroteRequestInfo{})
-			return &http.Response{StatusCode: 401, Body: io.NopCloser(strings.NewReader(`{"error":"invalid_client"}`))}, nil
+			return &http.Response{
+				StatusCode: 401,
+				Body:       io.NopCloser(strings.NewReader(`{"error":"invalid_client"}`)),
+			}, nil
 		}), endpoints: map[string]string{"token": endpoint}, report: &report,
 		callbackReceived: time.Now().Add(-30 * time.Millisecond), clientAuth: "client_secret_post",
 	}
@@ -363,9 +494,11 @@ func TestOIDCProbeCallbackWriteTiming(t *testing.T) {
 	if err != nil {
 		t.Fatal("timing fixture failed")
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	d := report.HTTP[0]
-	if d.CallbackToTokenDispatchMS == nil || d.CallbackToTokenSentMS == nil || *d.CallbackToTokenDispatchMS < 30 || *d.CallbackToTokenSentMS < *d.CallbackToTokenDispatchMS {
+	if d.CallbackToTokenDispatchMS == nil || d.CallbackToTokenSentMS == nil ||
+		*d.CallbackToTokenDispatchMS < 30 ||
+		*d.CallbackToTokenSentMS < *d.CallbackToTokenDispatchMS {
 		t.Fatal("write timing did not include callback handling interval")
 	}
 }
@@ -376,18 +509,29 @@ func TestOIDCProbePostCredentialEncoding(t *testing.T) {
 	const code = "synthetic-code&+=:/"
 	const verifier = "synthetic-verifier"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" || r.URL.RawQuery != "" || r.Header.Get("Authorization") != "" || r.Header.Get("Content-Type") != "application/x-www-form-urlencoded" {
+		if r.Method != "POST" || r.URL.RawQuery != "" || r.Header.Get("Authorization") != "" ||
+			r.Header.Get("Content-Type") != "application/x-www-form-urlencoded" {
 			t.Error("post credential transport leaked or changed")
 		}
 		_ = r.ParseForm()
-		if r.PostForm.Get("client_id") != "probe-client" || r.PostForm.Get("client_secret") != secret || r.PostForm.Get("code") != code || r.PostForm.Get("redirect_uri") != approvedSourceIDProbeCallbackURI || r.PostForm.Get("grant_type") != "authorization_code" || r.PostForm.Get("code_verifier") != verifier {
+		if r.PostForm.Get("client_id") != "probe-client" || r.PostForm.Get("client_secret") != secret ||
+			r.PostForm.Get("code") != code ||
+			r.PostForm.Get("redirect_uri") != approvedSourceIDProbeCallbackURI ||
+			r.PostForm.Get("grant_type") != "authorization_code" ||
+			r.PostForm.Get("code_verifier") != verifier {
 			t.Error("post fields failed exact encoding round-trip")
 		}
-		_ = json.NewEncoder(w).Encode(map[string]string{"access_token": "synthetic-access", "id_token": "synthetic-id"})
+		_ = json.NewEncoder(w).
+			Encode(map[string]string{"access_token": "synthetic-access", "id_token": "synthetic-id"})
 	}))
 	defer server.Close()
 	svc := &userService{protocolClient: server.Client()}
-	cfg := config.OIDCAuthConfig{TokenEndpoint: server.URL, ClientID: "probe-client", ClientSecret: secret, ClientAuthMethod: "client_secret_post"}
+	cfg := config.OIDCAuthConfig{
+		TokenEndpoint:    server.URL,
+		ClientID:         "probe-client",
+		ClientSecret:     secret,
+		ClientAuthMethod: "client_secret_post",
+	}
 	ctx := context.WithValue(context.Background(), oidcVerifierKey, verifier)
 	if _, err := svc.exchangeOIDCCode(ctx, &cfg, code, approvedSourceIDProbeCallbackURI); err != nil {
 		t.Fatal("post exchange fixture failed")
@@ -396,7 +540,19 @@ func TestOIDCProbePostCredentialEncoding(t *testing.T) {
 
 func TestOIDCProbeRequiresConfirmedIndependentMetadata(t *testing.T) {
 	withOIDCSSRFWhitelist(t, "sid.example")
-	m := OIDCProbeMetadata{Confirmed: true, Issuer: "https://sid.example", Authorization: "https://sid.example/authorize", Token: "https://sid.example/token", JWKS: "https://sid.example/jwks", UserInfo: "https://sid.example/userinfo", RedirectURI: "http://test.example/probe/callback", ClientID: "knowhub", ClientAuth: "client_secret_post", UserInfoTransport: "bearer_get", Scopes: []string{"openid"}}
+	m := OIDCProbeMetadata{
+		Confirmed:         true,
+		Issuer:            "https://sid.example",
+		Authorization:     "https://sid.example/authorize",
+		Token:             "https://sid.example/token",
+		JWKS:              "https://sid.example/jwks",
+		UserInfo:          "https://sid.example/userinfo",
+		RedirectURI:       "http://test.example/probe/callback",
+		ClientID:          "knowhub",
+		ClientAuth:        "client_secret_post",
+		UserInfoTransport: "bearer_get",
+		Scopes:            []string{"openid"},
+	}
 	valid, err := NewOIDCProtocolProbe(m, "synthetic")
 	if err != nil {
 		t.Fatal("valid metadata rejected")
@@ -418,7 +574,21 @@ func TestOIDCProbeRequiresConfirmedIndependentMetadata(t *testing.T) {
 			t.Fatal("modified approved callback accepted")
 		}
 	}
-	for _, kind := range []string{"unconfirmed", "missing", "http", "query_secret", "business_callback", "offline", "auth_method"} {
+	for _, kind := range []string{
+		"unconfirmed",
+
+		"missing",
+
+		"http",
+
+		"query_secret",
+
+		"business_callback",
+
+		"offline",
+
+		"auth_method",
+	} {
 		t.Run(kind, func(t *testing.T) {
 			c := m
 			switch kind {
@@ -445,13 +615,19 @@ func TestOIDCProbeRequiresConfirmedIndependentMetadata(t *testing.T) {
 }
 
 func TestOIDCProbeExpiryAndDuplicateParameters(t *testing.T) {
-	p := newOIDCProtocolProbe(OIDCProbeMetadata{Authorization: "https://sid.example/authorize"}, "synthetic")
+	p := newOIDCProtocolProbe(
+		OIDCProbeMetadata{Authorization: "https://sid.example/authorize"},
+		"synthetic",
+	)
 	start := httptest.NewRecorder()
 	p.ServeHTTP(start, httptest.NewRequest("GET", "/probe/start", nil))
 	u, _ := url.Parse(start.Header().Get("Location"))
 	state := u.Query().Get("state")
 	w := httptest.NewRecorder()
-	p.ServeHTTP(w, httptest.NewRequest("GET", "/probe/callback?state="+state+"&state="+state+"&code=synthetic", nil))
+	p.ServeHTTP(
+		w,
+		httptest.NewRequest("GET", "/probe/callback?state="+state+"&state="+state+"&code=synthetic", nil),
+	)
 	if w.Code != 400 {
 		t.Fatal("duplicate state accepted")
 	}

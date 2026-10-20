@@ -12,15 +12,20 @@ import (
 	"time"
 )
 
-const MaxLogoutBytes = 64 << 10
-const protocolNS = "urn:oasis:names:tc:SAML:2.0:protocol"
+const (
+	// MaxLogoutBytes identifies max logout bytes.
+	MaxLogoutBytes = 64 << 10
+	protocolNS     = "urn:oasis:names:tc:SAML:2.0:protocol"
+)
 
+// LogoutRequest defines logout request state.
 type LogoutRequest struct {
 	ID           string
 	SessionIndex string
 	IssueInstant time.Time
 }
 
+// ParseLogout provides the parse logout operation.
 // Encoding is explicit: compressed traffic is disabled until independently
 // confirmed. Both compressed and expanded messages have strict size limits.
 func ParseLogout(raw, encoding string) (*LogoutRequest, error) {
@@ -36,7 +41,7 @@ func ParseLogout(raw, encoding string) (*LogoutRequest, error) {
 			return nil, errors.New("invalid logout encoding")
 		}
 		r := flate.NewReader(bytes.NewReader(decoded))
-		defer r.Close()
+		defer func(cleanup func() error) { _ = cleanup() }(r.Close)
 		data, err = io.ReadAll(io.LimitReader(r, MaxLogoutBytes+1))
 		if err != nil || len(data) > MaxLogoutBytes {
 			return nil, errors.New("invalid compressed logout")
@@ -118,7 +123,9 @@ func ParseLogout(raw, encoding string) (*LogoutRequest, error) {
 			depth--
 		}
 	}
-	if roots != 1 || depth != 0 || result.ID == "" || len(result.ID) > 512 || result.SessionIndex == "" || len(result.SessionIndex) > 512 || result.IssueInstant.IsZero() {
+	if roots != 1 || depth != 0 || result.ID == "" || len(result.ID) > 512 || result.SessionIndex == "" ||
+		len(result.SessionIndex) > 512 ||
+		result.IssueInstant.IsZero() {
 		return nil, errors.New("missing logout fields")
 	}
 	return result, nil

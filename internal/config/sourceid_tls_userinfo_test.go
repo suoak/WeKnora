@@ -8,9 +8,29 @@ import (
 )
 
 func tlsUserInfoConfig() *OIDCAuthConfig {
-	return &OIDCAuthConfig{Enable: true, SourceIDEnable: true, SourceIDContractConfirmed: true, SourceIDValidationStrategy: SourceIDTLSUserInfoValidation,
-		IssuerURL: SourceIDPinnedIssuer, RedirectURI: SourceIDHTTPCallback, ClientID: "synthetic-client", ClientSecret: "synthetic-secret", ClientAuthMethod: "client_secret_basic", SourceIDClaimsSource: "userinfo",
-		SourceIDTLSUserInfoConfirmed: true, SourceIDTLSUserInfoApprovalRef: "SYNTHETIC-APPROVAL", SourceIDTLSUserInfoExpiresAt: time.Now().Add(time.Hour).Format(time.RFC3339)}
+	return &OIDCAuthConfig{
+		Enable:                     true,
+		SourceIDEnable:             true,
+		SourceIDContractConfirmed:  true,
+		SourceIDValidationStrategy: SourceIDTLSUserInfoValidation,
+
+		IssuerURL:            SourceIDPinnedIssuer,
+		RedirectURI:          SourceIDHTTPCallback,
+		ClientID:             "synthetic-client",
+		ClientSecret:         "synthetic-secret",
+		ClientAuthMethod:     "client_secret_basic",
+		SourceIDClaimsSource: "userinfo",
+
+		SourceIDTLSUserInfoConfirmed:   true,
+		SourceIDTLSUserInfoApprovalRef: "SYNTHETIC-APPROVAL",
+		SourceIDTLSUserInfoExpiresAt: time.Now().
+			Add(
+				time.Hour,
+			).
+			Format(
+				time.RFC3339,
+			),
+	}
 }
 
 func TestSIDTLSUserInfoPolicy(t *testing.T) {
@@ -35,8 +55,18 @@ func TestSIDTLSUserInfoPolicy(t *testing.T) {
 		{"wrong_client_auth", func(c *OIDCAuthConfig) { c.ClientAuthMethod = "client_secret_post" }, false},
 		{"id_token_employee_fallback", func(c *OIDCAuthConfig) { c.SourceIDClaimsSource = "id_token" }, false},
 		{"wrong_discovery", func(c *OIDCAuthConfig) { c.DiscoveryURL = "https://other.example/discovery" }, false},
-		{"wrong_token_endpoint", func(c *OIDCAuthConfig) { c.TokenEndpoint = "http://sid.ruijie.com.cn/oidc/accessToken" }, false},
-		{"wrong_userinfo", func(c *OIDCAuthConfig) { c.UserInfoEndpoint = "https://sid.ruijie.com.cn/oidc/profile?override=1" }, false},
+		{
+			"wrong_token_endpoint",
+			func(c *OIDCAuthConfig) { c.TokenEndpoint = "http://sid.ruijie.com.cn/oidc/accessToken" },
+			false,
+		},
+		{
+			"wrong_userinfo",
+			func(c *OIDCAuthConfig) {
+				c.UserInfoEndpoint = "https://sid.ruijie.com.cn/oidc/profile?override=1"
+			},
+			false,
+		},
 		{"wrong_transport", func(c *OIDCAuthConfig) { c.UserInfoTransport = "arbitrary" }, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -85,12 +115,24 @@ func TestSIDTLSUserInfoContinuousTestPolicy(t *testing.T) {
 		{"production_instance", func(c *OIDCAuthConfig) { c.SourceIDTLSUserInfoTestInstance = "production" }, false},
 		{"unknown_lifecycle", func(c *OIDCAuthConfig) { c.SourceIDTLSUserInfoLifecycle = "unlimited" }, false},
 		{"default_still_requires_deadline", func(c *OIDCAuthConfig) { c.SourceIDTLSUserInfoLifecycle = "" }, false},
-		{"time_limited_still_requires_deadline", func(c *OIDCAuthConfig) { c.SourceIDTLSUserInfoLifecycle = "time_limited" }, false},
-		{"independent_approval_expiry_enforced", func(c *OIDCAuthConfig) { c.SourceIDTLSUserInfoExpiresAt = "2026-10-21T18:00:00+08:00" }, false},
+		{
+			"time_limited_still_requires_deadline",
+			func(c *OIDCAuthConfig) { c.SourceIDTLSUserInfoLifecycle = "time_limited" },
+			false,
+		},
+		{
+			"independent_approval_expiry_enforced",
+			func(c *OIDCAuthConfig) { c.SourceIDTLSUserInfoExpiresAt = "2026-10-21T18:00:00+08:00" },
+			false,
+		},
 		{"malformed_approval_expiry", func(c *OIDCAuthConfig) { c.SourceIDTLSUserInfoExpiresAt = "never" }, false},
 		{"no_confirmation", func(c *OIDCAuthConfig) { c.SourceIDTLSUserInfoConfirmed = false }, false},
 		{"no_approval_reference", func(c *OIDCAuthConfig) { c.SourceIDTLSUserInfoApprovalRef = "" }, false},
-		{"http_token_endpoint", func(c *OIDCAuthConfig) { c.TokenEndpoint = "http://sid.ruijie.com.cn/oidc/accessToken" }, false},
+		{
+			"http_token_endpoint",
+			func(c *OIDCAuthConfig) { c.TokenEndpoint = "http://sid.ruijie.com.cn/oidc/accessToken" },
+			false,
+		},
 		{"other_issuer", func(c *OIDCAuthConfig) { c.IssuerURL = "https://other.example" }, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

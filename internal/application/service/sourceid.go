@@ -16,11 +16,13 @@ import (
 
 type oidcContextKey string
 
-const oidcNonceKey oidcContextKey = "oidc_nonce"
-const oidcVerifierKey oidcContextKey = "oidc_verifier"
-const sourceIDSessionKey oidcContextKey = "sourceid_session"
-const sourceIDPreviousKey oidcContextKey = "sourceid_previous_refresh"
-const sourceIDPreparedKey oidcContextKey = "sourceid_prepared"
+const (
+	oidcNonceKey        oidcContextKey = "oidc_nonce"
+	oidcVerifierKey     oidcContextKey = "oidc_verifier"
+	sourceIDSessionKey  oidcContextKey = "sourceid_session"
+	sourceIDPreviousKey oidcContextKey = "sourceid_previous_refresh"
+	sourceIDPreparedKey oidcContextKey = "sourceid_prepared"
+)
 
 func (s *userService) sourceIDStore() (interfaces.SourceIDRepository, error) {
 	r, ok := s.userRepo.(interfaces.SourceIDRepository)
@@ -76,16 +78,24 @@ func sourceIDClaim(claims map[string]interface{}, path string) string {
 	return strictSourceIDClaim(claims, path)
 }
 
-func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthConfig, info *types.OIDCUserInfo) (*types.User, context.Context, error) {
+func (s *userService) loginSourceID(
+	ctx context.Context,
+	cfg *config.OIDCAuthConfig,
+	info *types.OIDCUserInfo,
+) (*types.User, context.Context, error) {
 	if cfg.SourceIDProtocolOnly || !cfg.SourceIDContractConfirmed {
 		return nil, ctx, errors.New("sourceid identity contract pending")
 	}
 	mode := cfg.EffectiveSourceIDSessionMode()
 	if cfg.EffectiveSourceIDAccountLinkMode() != "trusted_ownership" &&
-		(cfg.EffectiveSourceIDAccountLinkMode() != "verified_email_policy" || mode != "local_approved" || cfg.SourceIDAdmissionMode != "oidc_sso_approved" || cfg.SourceIDAccountPolicy() != nil) {
+		(cfg.EffectiveSourceIDAccountLinkMode() != "verified_email_policy" ||
+			mode != "local_approved" ||
+			cfg.SourceIDAdmissionMode != "oidc_sso_approved" ||
+			cfg.SourceIDAccountPolicy() != nil) {
 		return nil, ctx, errors.New("sourceid account link policy pending")
 	}
-	if cfg.EffectiveSourceIDAccountScope() == "enterprise_all" && (mode != "local_approved" || cfg.SourceIDAdmissionMode != "oidc_sso_approved") {
+	if cfg.EffectiveSourceIDAccountScope() == "enterprise_all" &&
+		(mode != "local_approved" || cfg.SourceIDAdmissionMode != "oidc_sso_approved") {
 		return nil, ctx, errors.New("sourceid enterprise local policy required")
 	}
 	if cfg.SourceIDAdmissionMode == "oidc_sso_approved" && mode != "local_approved" {
@@ -94,13 +104,21 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 	if mode != "external" && mode != "local_approved" {
 		return nil, ctx, errors.New("sourceid session mode invalid")
 	}
-	if cfg.SourceIDEmployeeClaim == "" || (mode == "external" && (cfg.SourceIDSessionClaim == "" || cfg.SourceIDStatusClaim == "" || cfg.SourceIDAllowedStatus == "")) {
+	if cfg.SourceIDEmployeeClaim == "" ||
+		(mode == "external" &&
+			(cfg.SourceIDSessionClaim == "" ||
+				cfg.SourceIDStatusClaim == "" ||
+				cfg.SourceIDAllowedStatus == "")) {
 		return nil, ctx, errors.New("sourceid claim contract unconfirmed")
 	}
-	if cfg.SourceIDEmailBindingEnable && (!cfg.SourceIDEmailContractConfirmed || cfg.SourceIDEmployeeClaim != "attributes.RJGH" || cfg.SourceIDClaimsSource != "userinfo") {
+	if cfg.SourceIDEmailBindingEnable &&
+		(!cfg.SourceIDEmailContractConfirmed ||
+			cfg.SourceIDEmployeeClaim != "attributes.RJGH" ||
+			cfg.SourceIDClaimsSource != "userinfo") {
 		return nil, ctx, errors.New("sourceid email identity contract pending")
 	}
-	if cfg.SourceIDAutoBindingEnable && (!cfg.SourceIDEmailBindingEnable || cfg.SourceIDAutoBindingPolicyRef == "") {
+	if cfg.SourceIDAutoBindingEnable &&
+		(!cfg.SourceIDEmailBindingEnable || cfg.SourceIDAutoBindingPolicyRef == "") {
 		return nil, ctx, errors.New("sourceid automatic binding policy pending")
 	}
 	employee := sourceIDStringClaim(info.Claims, cfg.SourceIDEmployeeClaim)
@@ -118,8 +136,14 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 		var err error
 		proof, _ := ctx.Value(sourceIDAuthorizationProofKey{}).(sourceIDAuthorizationProof)
 		admission, err = s.resolveSourceIDAdmission(ctx, cfg, types.SourceIDAdmissionRequest{
-			Issuer: cfg.IssuerURL, Subject: info.Subject, EmployeeNo: employee, Stage: "login", VerifiedClaims: info.Claims,
-			AuthorizationVerified: proof.Issuer == cfg.IssuerURL && proof.Subject == info.Subject, AuthorizationVerifiedAt: proof.At,
+			Issuer:         cfg.IssuerURL,
+			Subject:        info.Subject,
+			EmployeeNo:     employee,
+			Stage:          "login",
+			VerifiedClaims: info.Claims,
+
+			AuthorizationVerified: proof.Issuer == cfg.IssuerURL &&
+				proof.Subject == info.Subject, AuthorizationVerifiedAt: proof.At,
 			PromptLoginRequested: proof.PromptLoginRequested,
 		})
 		if err != nil {
@@ -144,7 +168,9 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 			if policyErr != nil {
 				return nil, ctx, policyErr
 			}
-			email := strings.ToLower(strings.TrimSpace(sourceIDStringClaim(info.Claims, "attributes.RJEMAIL")))
+			email := strings.ToLower(
+				strings.TrimSpace(sourceIDStringClaim(info.Claims, "attributes.RJEMAIL")),
+			)
 			if cfg.SourceIDJITEnable {
 				jit, ok := r.(sourceIDJITStore)
 				if !ok {
@@ -156,12 +182,33 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 					created = e == nil
 					return u, e
 				}
-				user, err = jit.ResolveSourceIDEnterpriseOrJITIdentity(ctx, cfg.IssuerURL, info.Subject, employee, email, cfg.SourceIDAutoBindingPolicyRef, cfg.SourceIDEnterprisePolicyRef, maxAge, cfg.SourceIDJITPolicyRef, cfg.SourceIDJITDomains(), provision)
+				user, err = jit.ResolveSourceIDEnterpriseOrJITIdentity(
+					ctx,
+					cfg.IssuerURL,
+					info.Subject,
+					employee,
+					email,
+					cfg.SourceIDAutoBindingPolicyRef,
+					cfg.SourceIDEnterprisePolicyRef,
+					maxAge,
+					cfg.SourceIDJITPolicyRef,
+					cfg.SourceIDJITDomains(),
+					provision,
+				)
 				if err == nil {
 					ctx = context.WithValue(ctx, sourceIDJITCreatedKey{}, created)
 				}
 			} else {
-				user, err = binding.ResolveSourceIDEnterpriseEmailIdentity(ctx, cfg.IssuerURL, info.Subject, employee, email, cfg.SourceIDAutoBindingPolicyRef, cfg.SourceIDEnterprisePolicyRef, maxAge)
+				user, err = binding.ResolveSourceIDEnterpriseEmailIdentity(
+					ctx,
+					cfg.IssuerURL,
+					info.Subject,
+					employee,
+					email,
+					cfg.SourceIDAutoBindingPolicyRef,
+					cfg.SourceIDEnterprisePolicyRef,
+					maxAge,
+				)
 			}
 		} else {
 			accounts, accountErr := cfg.SourceIDPilotAccounts()
@@ -169,22 +216,56 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 				return nil, ctx, accountErr
 			}
 			binding, ok := r.(interface {
-				ResolveSourceIDPilotEmailIdentity(context.Context, string, string, string, string, string, map[string]types.SourceIDPilotAccount) (*types.User, error)
+				ResolveSourceIDPilotEmailIdentity(context.Context,
+					string,
+					string,
+					string,
+					string,
+					string,
+					map[string]types.SourceIDPilotAccount) (*types.User,
+					error)
 			})
 			if !ok {
 				return nil, ctx, errors.New("sourceid pilot repository unavailable")
 			}
-			user, err = binding.ResolveSourceIDPilotEmailIdentity(ctx, cfg.IssuerURL, info.Subject, employee, sourceIDStringClaim(info.Claims, "attributes.RJEMAIL"), cfg.SourceIDAutoBindingPolicyRef, accounts)
+			user, err = binding.ResolveSourceIDPilotEmailIdentity(
+				ctx,
+				cfg.IssuerURL,
+				info.Subject,
+				employee,
+				sourceIDStringClaim(
+					info.Claims,
+					"attributes.RJEMAIL",
+				),
+				cfg.SourceIDAutoBindingPolicyRef,
+				accounts,
+			)
 		}
 	} else if cfg.SourceIDEmailBindingEnable {
 		if cfg.SourceIDAutoBindingEnable {
 			binding, ok := r.(interface {
-				ResolveSourceIDAutoEmailIdentity(context.Context, string, string, string, string, string) (*types.User, error)
+				ResolveSourceIDAutoEmailIdentity(context.Context,
+					string,
+					string,
+					string,
+					string,
+					string) (*types.User,
+					error)
 			})
 			if !ok {
 				return nil, ctx, errors.New("sourceid binding repository unavailable")
 			}
-			user, err = binding.ResolveSourceIDAutoEmailIdentity(ctx, cfg.IssuerURL, info.Subject, employee, sourceIDStringClaim(info.Claims, "attributes.RJEMAIL"), cfg.SourceIDAutoBindingPolicyRef)
+			user, err = binding.ResolveSourceIDAutoEmailIdentity(
+				ctx,
+				cfg.IssuerURL,
+				info.Subject,
+				employee,
+				sourceIDStringClaim(
+					info.Claims,
+					"attributes.RJEMAIL",
+				),
+				cfg.SourceIDAutoBindingPolicyRef,
+			)
 		} else {
 			binding, ok := r.(interface {
 				ResolveSourceIDEmailIdentity(context.Context, string, string, string, string) (*types.User, error)
@@ -192,7 +273,16 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 			if !ok {
 				return nil, ctx, errors.New("sourceid binding repository unavailable")
 			}
-			user, err = binding.ResolveSourceIDEmailIdentity(ctx, cfg.IssuerURL, info.Subject, employee, sourceIDStringClaim(info.Claims, "attributes.RJEMAIL"))
+			user, err = binding.ResolveSourceIDEmailIdentity(
+				ctx,
+				cfg.IssuerURL,
+				info.Subject,
+				employee,
+				sourceIDStringClaim(
+					info.Claims,
+					"attributes.RJEMAIL",
+				),
+			)
 		}
 	} else {
 		user, err = r.ResolveSourceIDIdentity(ctx, cfg.IssuerURL, info.Subject, employee)
@@ -200,7 +290,14 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 	if err != nil {
 		return nil, ctx, err
 	}
-	session := &types.SourceIDSession{ID: uuid.NewString(), Issuer: cfg.IssuerURL, UserID: user.ID, SessionIndexHash: apprepo.SourceIDHash(cfg.IssuerURL + "\x00" + index), ExpiresAt: time.Now().Add(7 * 24 * time.Hour), CreatedAt: time.Now()}
+	session := &types.SourceIDSession{
+		ID:               uuid.NewString(),
+		Issuer:           cfg.IssuerURL,
+		UserID:           user.ID,
+		SessionIndexHash: apprepo.SourceIDHash(cfg.IssuerURL + "\x00" + index),
+		ExpiresAt:        time.Now().Add(7 * 24 * time.Hour),
+		CreatedAt:        time.Now(),
+	}
 	if mode == "local_approved" {
 		policy, err := cfg.SourceIDLocalPolicy()
 		if err != nil {
@@ -215,11 +312,22 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 		if !admission.RecheckSupported && admission.ValidUntil.Before(session.ExpiresAt) {
 			session.ExpiresAt = admission.ValidUntil
 		}
-		local := &types.SourceIDLocalSession{ID: session.ID, Subject: info.Subject, PolicyRef: cfg.SourceIDLocalPolicyRef,
-			AdmissionPolicyRef: cfg.SourceIDAdmissionPolicyRef, AdmissionValidUntil: admission.ValidUntil, LastSeenAt: now,
-			AdmissionSource: admission.Source, AdmissionCheckedAt: admission.CheckedAt, RecheckSupported: admission.RecheckSupported,
-			IdleSeconds: int64(policy.IdleTTL / time.Second), AccessSeconds: int64(policy.AccessTTL / time.Second), RefreshEnabled: cfg.SourceIDLocalRefreshEnable}
-		if cfg.SourceIDAdmissionMode == "oidc_sso_approved" && cfg.EffectiveSourceIDAccountScope() == "enterprise_all" {
+		local := &types.SourceIDLocalSession{
+			ID: session.ID, Subject: info.Subject, PolicyRef: cfg.SourceIDLocalPolicyRef,
+			AdmissionPolicyRef:  cfg.SourceIDAdmissionPolicyRef,
+			AdmissionValidUntil: admission.ValidUntil,
+			LastSeenAt:          now,
+
+			AdmissionSource:    admission.Source,
+			AdmissionCheckedAt: admission.CheckedAt,
+			RecheckSupported:   admission.RecheckSupported,
+
+			IdleSeconds: int64(
+				policy.IdleTTL / time.Second,
+			), AccessSeconds: int64(policy.AccessTTL / time.Second), RefreshEnabled: cfg.SourceIDLocalRefreshEnable,
+		}
+		if cfg.SourceIDAdmissionMode == "oidc_sso_approved" &&
+			cfg.EffectiveSourceIDAccountScope() == "enterprise_all" {
 			enterprise, ok := r.(sourceIDEnterpriseStore)
 			if !ok {
 				return nil, ctx, errors.New("sourceid enterprise repository unavailable")
@@ -228,7 +336,14 @@ func (s *userService) loginSourceID(ctx context.Context, cfg *config.OIDCAuthCon
 			if policyErr != nil {
 				return nil, ctx, policyErr
 			}
-			err = enterprise.CreateSourceIDEnterpriseLocalSession(ctx, session, local, employee, cfg.SourceIDEnterprisePolicyRef, maxAge)
+			err = enterprise.CreateSourceIDEnterpriseLocalSession(
+				ctx,
+				session,
+				local,
+				employee,
+				cfg.SourceIDEnterprisePolicyRef,
+				maxAge,
+			)
 		} else {
 			err = store.CreateSourceIDLocalSession(ctx, session, local)
 		}
@@ -282,7 +397,8 @@ func (s *userService) SourceIDSwitchContext(ctx context.Context, access string) 
 	if err != nil {
 		return ctx, err
 	}
-	if token == nil || token.IsRevoked || token.TokenType != "access_token" || !token.ExpiresAt.After(time.Now()) {
+	if token == nil || token.IsRevoked || token.TokenType != "access_token" ||
+		!token.ExpiresAt.After(time.Now()) {
 		return ctx, errors.New("invalid access token")
 	}
 	if err := s.CheckSourceIDTokenSession(ctx, token); err != nil {
@@ -296,7 +412,9 @@ func (s *userService) SourceIDSwitchContext(ctx context.Context, access string) 
 }
 
 func (s *userService) SourceIDBackchannelLogout(ctx context.Context, issuer, index string) error {
-	if s.config == nil || s.config.OIDCAuth == nil || !s.config.OIDCAuth.Enable || !s.config.OIDCAuth.SourceIDEnable || !s.config.OIDCAuth.SourceIDLogoutEnable {
+	if s.config == nil || s.config.OIDCAuth == nil || !s.config.OIDCAuth.Enable ||
+		!s.config.OIDCAuth.SourceIDEnable ||
+		!s.config.OIDCAuth.SourceIDLogoutEnable {
 		return errors.New("sourceid logout disabled")
 	}
 	if issuer == "" || issuer != s.config.OIDCAuth.IssuerURL {
@@ -318,7 +436,14 @@ func (s *userService) SaveOIDCLoginResult(ctx context.Context, result string) (s
 	if err != nil {
 		return "", err
 	}
-	err = r.SaveOIDCTransaction(ctx, &types.OIDCTransaction{Key: apprepo.SourceIDHash("result:" + key), Result: result, ExpiresAt: time.Now().Add(time.Minute)})
+	err = r.SaveOIDCTransaction(
+		ctx,
+		&types.OIDCTransaction{
+			Key:       apprepo.SourceIDHash("result:" + key),
+			Result:    result,
+			ExpiresAt: time.Now().Add(time.Minute),
+		},
+	)
 	return key, err
 }
 

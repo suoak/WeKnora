@@ -51,7 +51,11 @@ func NewOAuthManager(
 
 // newHandler builds an OAuth handler bound to a service + per-principal token store.
 func (m *OAuthManager) newHandler(
-	ctx context.Context, service *types.MCPService, tenantID uint64, principal types.Principal, redirectURI string,
+	ctx context.Context,
+	service *types.MCPService,
+	tenantID uint64,
+	principal types.Principal,
+	redirectURI string,
 ) (*transport.OAuthHandler, error) {
 	if service.URL == nil || *service.URL == "" {
 		return nil, fmt.Errorf("MCP service URL is required for OAuth")
@@ -103,7 +107,10 @@ func (m *OAuthManager) StartAuthorization(
 	}
 	principal = principal.Normalize()
 	if !principal.Valid() {
-		return "", "", fmt.Errorf("principal context is required to authorize OAuth MCP service %s", service.ID)
+		return "", "", fmt.Errorf(
+			"principal context is required to authorize OAuth MCP service %s",
+			service.ID,
+		)
 	}
 
 	frontendRedirect, err = validateFrontendRedirect(frontendRedirect)
@@ -196,7 +203,14 @@ func (m *OAuthManager) StartAuthorizationForService(
 	if service == nil {
 		return "", fmt.Errorf("MCP service not found")
 	}
-	authURL, _, err := m.StartAuthorization(ctx, service, tenantID, principal, redirectURI, frontendRedirect)
+	authURL, _, err := m.StartAuthorization(
+		ctx,
+		service,
+		tenantID,
+		principal,
+		redirectURI,
+		frontendRedirect,
+	)
 	return authURL, err
 }
 
@@ -205,19 +219,32 @@ func (m *OAuthManager) StartAuthorizationForService(
 // Returns the frontend redirect URL and service ID recorded at
 // StartAuthorization time so the caller can recycle any cached transport that
 // still carries the previous OAuth client registration.
-func (m *OAuthManager) CompleteAuthorization(ctx context.Context, state, code string) (string, string, error) {
+func (m *OAuthManager) CompleteAuthorization(
+	ctx context.Context,
+	state, code string,
+) (string, string, error) {
 	return m.completeAuthorization(ctx, state, code, nil)
 }
 
 // CompleteAuthorizationAndInvalidate uses the authenticated state scope, not
 // callback request identity (the provider callback is a public route).
-func (m *OAuthManager) CompleteAuthorizationAndInvalidate(ctx context.Context, state, code string, manager *MCPManager) (string, string, error) {
-	return m.completeAuthorization(ctx, state, code, func(tenant uint64, principal types.Principal, service string) {
-		if manager != nil {
-			_ = manager.CloseOAuthClient(tenant, principal, service)
-		}
-	})
+func (m *OAuthManager) CompleteAuthorizationAndInvalidate(
+	ctx context.Context,
+	state, code string,
+	manager *MCPManager,
+) (string, string, error) {
+	return m.completeAuthorization(
+		ctx,
+		state,
+		code,
+		func(tenant uint64, principal types.Principal, service string) {
+			if manager != nil {
+				_ = manager.CloseOAuthClient(tenant, principal, service)
+			}
+		},
+	)
 }
+
 func (m *OAuthManager) completeAuthorization(
 	ctx context.Context, state, code string, authorized func(uint64, types.Principal, string),
 ) (frontendRedirect, serviceID string, err error) {
@@ -293,7 +320,10 @@ func (m *OAuthManager) IsAuthorizationAttemptComplete(
 	attemptPrincipal := attempt.Principal.Normalize()
 	if attempt.TenantID != tenantID || attempt.ServiceID != serviceID ||
 		attemptPrincipal.Type != principal.Type || attemptPrincipal.ID != principal.ID {
-		return false, fmt.Errorf("oauth authorization attempt does not match the current principal or service")
+		return false, fmt.Errorf(
+			"oauth authorization attempt does not match the current principal or " +
+				"service",
+		)
 	}
 	return attempt.Completed, nil
 }
@@ -327,7 +357,10 @@ func (m *OAuthManager) IsAuthorized(
 func (m *OAuthManager) Revoke(
 	ctx context.Context, tenantID uint64, principal types.Principal, serviceID string,
 ) error {
-	return safeOAuthError("mcp_oauth_revoke_failed", m.repo.DeleteTokenForPrincipal(ctx, tenantID, principal, serviceID))
+	return safeOAuthError(
+		"mcp_oauth_revoke_failed",
+		m.repo.DeleteTokenForPrincipal(ctx, tenantID, principal, serviceID),
+	)
 }
 
 // validateFrontendRedirect accepts application-relative paths or the explicitly

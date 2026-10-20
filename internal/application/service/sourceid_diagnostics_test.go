@@ -20,8 +20,16 @@ func TestSourceIDBusinessDiagnosticDoesNotEchoPrivateError(t *testing.T) {
 	logger.SetOutput(&out)
 	defer logger.SetOutput(io.Discard)
 	ctx := NewSourceIDDiagnosticContext(context.Background(), true)
-	SourceIDDiagnosticStage(ctx, "token", time.Now(), errors.New("synthetic-secret synthetic-code synthetic-token personal@example.invalid"))
-	if bytes.Contains(out.Bytes(), []byte("synthetic-")) || bytes.Contains(out.Bytes(), []byte("personal@")) || !bytes.Contains(out.Bytes(), []byte(`"category":"rejected"`)) {
+	SourceIDDiagnosticStage(
+		ctx,
+		"token",
+		time.Now(),
+		errors.New("synthetic-secret synthetic-code synthetic-token "+
+			"personal@example.invalid"),
+	)
+	if bytes.Contains(out.Bytes(), []byte("synthetic-")) ||
+		bytes.Contains(out.Bytes(), []byte("personal@")) ||
+		!bytes.Contains(out.Bytes(), []byte(`"category":"rejected"`)) {
 		t.Fatal("private diagnostic error leaked")
 	}
 	before := out.Len()
@@ -40,8 +48,17 @@ func TestSourceIDBusinessRejectsNonRS256(t *testing.T) {
 	}
 	server := jwksServer(t, key, "key")
 	defer server.Close()
-	cfg := &config.OIDCAuthConfig{SourceIDEnable: true, IssuerURL: "https://synthetic.example", ClientID: "knowhub", JwksURI: server.URL}
-	for _, method := range []*jwt.SigningMethodRSA{jwt.SigningMethodRS256, jwt.SigningMethodRS384, jwt.SigningMethodRS512} {
+	cfg := &config.OIDCAuthConfig{
+		SourceIDEnable: true,
+		IssuerURL:      "https://synthetic.example",
+		ClientID:       "knowhub",
+		JwksURI:        server.URL,
+	}
+	for _, method := range []*jwt.SigningMethodRSA{
+		jwt.SigningMethodRS256,
+		jwt.SigningMethodRS384,
+		jwt.SigningMethodRS512,
+	} {
 		token := jwt.NewWithClaims(method, baseClaims(cfg.IssuerURL, cfg.ClientID))
 		token.Header["kid"] = "key"
 		raw, err := token.SignedString(key)

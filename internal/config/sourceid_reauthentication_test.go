@@ -20,10 +20,22 @@ func TestSourceIDForcedPromptEnvironmentDefaultsOff(t *testing.T) {
 }
 
 func TestSourceIDAuthorizationLocalPolicyRequiresForcedPrompt(t *testing.T) {
-	c := OIDCAuthConfig{SourceIDEnable: true, SourceIDContractConfirmed: true, SourceIDSessionMode: "local_approved",
-		SourceIDEmailBindingEnable: true, SourceIDEmailContractConfirmed: true, SourceIDEmployeeClaim: "attributes.RJGH", SourceIDClaimsSource: "userinfo",
-		SourceIDLocalPolicyRef: "synthetic-approval", SourceIDAdmissionPolicyRef: "synthetic-sid-contract", SourceIDAdmissionMode: "authorization",
-		SourceIDLocalAccessTTL: "10m", SourceIDLocalAbsoluteTTL: "10m", SourceIDLocalIdleTTL: "10m", SourceIDAdmissionMaxAge: "10m"}
+	c := OIDCAuthConfig{
+		SourceIDEnable: true, SourceIDContractConfirmed: true, SourceIDSessionMode: "local_approved",
+		SourceIDEmailBindingEnable:     true,
+		SourceIDEmailContractConfirmed: true,
+		SourceIDEmployeeClaim:          "attributes.RJGH",
+		SourceIDClaimsSource:           "userinfo",
+
+		SourceIDLocalPolicyRef:     "synthetic-approval",
+		SourceIDAdmissionPolicyRef: "synthetic-sid-contract",
+		SourceIDAdmissionMode:      "authorization",
+
+		SourceIDLocalAccessTTL:   "10m",
+		SourceIDLocalAbsoluteTTL: "10m",
+		SourceIDLocalIdleTTL:     "10m",
+		SourceIDAdmissionMaxAge:  "10m",
+	}
 	_, err := c.SourceIDLocalPolicy()
 	require.Error(t, err)
 	c.SourceIDAuthorizationRecheckConfirmed = true

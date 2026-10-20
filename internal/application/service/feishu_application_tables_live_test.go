@@ -47,32 +47,41 @@ func runP4LiveTableManifest(t *testing.T, kind string) {
 	require.NoError(t, err)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
-	ctx = core.WithApplicationTables(core.WithApplicationIdentity(ctx, func(context.Context) (string, error) { return cfg.Token, nil }))
+	ctx = core.WithApplicationTables(
+		core.WithApplicationIdentity(ctx, func(context.Context) (string, error) { return cfg.Token, nil }),
+	)
 	cache := map[string]core.ApplicationAttachment{}
-	ctx = core.WithApplicationAttachmentProcessor(ctx, func(call context.Context, a core.ApplicationAttachment) (core.ApplicationAttachment, error) {
-		if previous, ok := cache[a.SHA256]; ok {
-			a.Text, a.Parser = previous.Text, previous.Parser
+	ctx = core.WithApplicationAttachmentProcessor(
+		ctx,
+		func(call context.Context, a core.ApplicationAttachment) (core.ApplicationAttachment, error) {
+			if previous, ok := cache[a.SHA256]; ok {
+				a.Text, a.Parser = previous.Text, previous.Parser
+				return a, nil
+			}
+			if a.MIME != "image/png" {
+				return a, core.ErrApplicationTableMedia
+			}
+			ocr, err := model.Predict(call, [][]byte{a.Data}, buildVLMOCRPrompt("", types.VLMConfig{}))
+			if err != nil {
+				return a, err
+			}
+			caption, err := model.Predict(
+				call,
+				[][]byte{a.Data},
+				buildVLMCaptionPrompt(call, types.VLMConfig{}),
+			)
+			if err != nil {
+				return a, err
+			}
+			if strings.TrimSpace(caption) == "" {
+				return a, core.ErrApplicationTableIncomplete
+			}
+			a.Text = fmt.Sprintf("Image description: %s\nOCR: %s", caption, sanitizeOCRText(ocr))
+			a.Parser = "existing_vlm:" + model.GetModelID()
+			cache[a.SHA256] = a
 			return a, nil
-		}
-		if a.MIME != "image/png" {
-			return a, core.ErrApplicationTableMedia
-		}
-		ocr, err := model.Predict(call, [][]byte{a.Data}, buildVLMOCRPrompt("", types.VLMConfig{}))
-		if err != nil {
-			return a, err
-		}
-		caption, err := model.Predict(call, [][]byte{a.Data}, buildVLMCaptionPrompt(call, types.VLMConfig{}))
-		if err != nil {
-			return a, err
-		}
-		if strings.TrimSpace(caption) == "" {
-			return a, core.ErrApplicationTableIncomplete
-		}
-		a.Text = fmt.Sprintf("Image description: %s\nOCR: %s", caption, sanitizeOCRText(ocr))
-		a.Parser = "existing_vlm:" + model.GetModelID()
-		cache[a.SHA256] = a
-		return a, nil
-	})
+		},
+	)
 	for _, r := range cfg.Resources {
 		if r.Type != kind {
 			continue
@@ -85,7 +94,12 @@ func runP4LiveTableManifest(t *testing.T, kind string) {
 		require.NotEmpty(t, snapshot.Attachments)
 		store, err := newPersonalManifestStore(t.TempDir())
 		require.NoError(t, err)
-		a := &types.FeishuPersonalAttempt{ID: uuid.NewString(), ImportID: uuid.NewString(), CandidateVersionID: uuid.NewString(), Revision: r.Modified}
+		a := &types.FeishuPersonalAttempt{
+			ID:                 uuid.NewString(),
+			ImportID:           uuid.NewString(),
+			CandidateVersionID: uuid.NewString(),
+			Revision:           r.Modified,
+		}
 		a.ManifestKey = a.ID + "/" + a.CandidateVersionID + "/f1"
 		manifest, err := store.put(a, []byte(text), "controlled-"+kind+".md", snapshot.Attachments...)
 		require.NoError(t, err)
@@ -96,7 +110,18 @@ func runP4LiveTableManifest(t *testing.T, kind string) {
 			records += len(table.Records)
 			fields += len(table.Fields)
 		}
-		t.Logf("RESULT=PRIVATE_TABLE_MANIFEST type=%s tables=%d fields=%d records=%d assets=%d bytes=%d manifest_sha256=%s; public Knowledge/index/RAG NOT_EXECUTED", kind, len(snapshot.Tables), fields, records, len(manifest.Assets), len(text), manifest.Hash)
+		t.Logf(
+			"RESULT=PRIVATE_TABLE_MANIFEST type=%s tables=%d fields=%d records=%d "+
+				"assets=%d bytes=%d manifest_sha256=%s; public Knowledge/index/RAG "+
+				"NOT_EXECUTED",
+			kind,
+			len(snapshot.Tables),
+			fields,
+			records,
+			len(manifest.Assets),
+			len(text),
+			manifest.Hash,
+		)
 		return
 	}
 	t.Fatal("controlled table sample missing")

@@ -40,7 +40,10 @@ func TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects(t *testing.T) {
 				if r.URL.Path == "/register" {
 					registrations.Add(1)
 					w.WriteHeader(http.StatusCreated)
-					_, _ = w.Write([]byte(`{"client_id":"invalid-client","client_secret":"synthetic-client-secret"}`))
+					_, _ = w.Write(
+						[]byte("{\"client_id\":\"invalid-client\",\"client_secret\":\"synthetic-client" +
+							"-secret\"}"),
+					)
 					return
 				}
 				discoveries.Add(1)
@@ -49,7 +52,11 @@ func TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects(t *testing.T) {
 				case "http-400", "http-401", "http-403", "http-500":
 					status := map[string]int{"http-400": 400, "http-401": 401, "http-403": 403, "http-500": 500}[mode]
 					w.WriteHeader(status)
-					_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid_client", "error_description": syntheticOAuthSensitive})
+					_ = json.NewEncoder(w).
+						Encode(map[string]string{
+							"error":             "invalid_client",
+							"error_description": syntheticOAuthSensitive,
+						})
 				case "empty":
 				case "null":
 					_, _ = w.Write([]byte("null"))
@@ -66,7 +73,12 @@ func TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects(t *testing.T) {
 					entered <- struct{}{}
 					<-r.Context().Done()
 				default:
-					metadata := map[string]string{"issuer": server.URL, "authorization_endpoint": server.URL + "/authorize", "token_endpoint": server.URL + "/token", "registration_endpoint": server.URL + "/register"}
+					metadata := map[string]string{
+						"issuer":                 server.URL,
+						"authorization_endpoint": server.URL + "/authorize",
+						"token_endpoint":         server.URL + "/token",
+						"registration_endpoint":  server.URL + "/register",
+					}
 					switch mode {
 					case "missing-authorization":
 						delete(metadata, "authorization_endpoint")
@@ -82,7 +94,15 @@ func TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects(t *testing.T) {
 			}))
 			t.Cleanup(server.Close)
 			u := server.URL + "/mcp"
-			service := &types.MCPService{ID: "discovery", TenantID: 7, URL: &u, AuthConfig: &types.MCPAuthConfig{AuthType: types.MCPAuthOAuth, AuthServerMetadataURL: server.URL + "/metadata"}}
+			service := &types.MCPService{
+				ID:       "discovery",
+				TenantID: 7,
+				URL:      &u,
+				AuthConfig: &types.MCPAuthConfig{
+					AuthType:              types.MCPAuthOAuth,
+					AuthServerMetadataURL: server.URL + "/metadata",
+				},
+			}
 			manager := NewOAuthManager(repo, fakeMCPServiceRepo{service: service}, nil)
 			var captured bytes.Buffer
 			log := logrus.New()
@@ -100,7 +120,14 @@ func TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects(t *testing.T) {
 					}
 				}()
 			}
-			url, state, err := manager.StartAuthorization(ctx, service, 7, types.Principal{Type: types.PrincipalWebUser, ID: "user"}, "http://localhost/callback", "/")
+			url, state, err := manager.StartAuthorization(
+				ctx,
+				service,
+				7,
+				types.Principal{Type: types.PrincipalWebUser, ID: "user"},
+				"http://localhost/callback",
+				"/",
+			)
 			// A panic fails the test naturally: no recover or swallowed errors.
 			require.Error(t, err)
 			var safe *OAuthSafeError
@@ -126,7 +153,12 @@ func TestOAuthDiscoveryRejectsInvalidMetadataBeforeSideEffects(t *testing.T) {
 			require.Zero(t, states)
 			require.Zero(t, attempts)
 			applog.GetLogger(ctx).Errorf("OAuth discovery: %v", err)
-			for _, secret := range []string{"synthetic-client-secret", "synthetic-access-token", "synthetic-refresh-token", "synthetic-password"} {
+			for _, secret := range []string{
+				"synthetic-client-secret",
+				"synthetic-access-token",
+				"synthetic-refresh-token",
+				"synthetic-password",
+			} {
 				require.NotContains(t, err.Error(), secret)
 				require.NotContains(t, SafeOAuthErrorMessage(err), secret)
 				require.NotContains(t, captured.String(), secret)
@@ -153,25 +185,56 @@ func TestOAuthDiscoveryUsesConsumerCacheAndGuardsRebuiltHandlers(t *testing.T) {
 				_, _ = w.Write([]byte(syntheticOAuthSensitive))
 				return
 			}
-			_ = json.NewEncoder(w).Encode(map[string]string{"issuer": server.URL, "authorization_endpoint": server.URL + "/authorize", "token_endpoint": server.URL + "/token", "registration_endpoint": server.URL + "/register"})
+			_ = json.NewEncoder(w).
+				Encode(map[string]string{
+					"issuer": server.URL,
+					"authorization_endpoint": server.URL +
+						"/authorize",
+					"token_endpoint": server.URL +
+						"/token",
+					"registration_endpoint": server.URL +
+						"/register",
+				})
 		case "/register":
 			registrations.Add(1)
 			// If a second independent discovery were issued before the URL
 			// consumer, this would now fail. The validated cached data wins.
 			invalid.Store(true)
 			w.WriteHeader(201)
-			_, _ = w.Write([]byte(`{"client_id":"client","client_secret":"synthetic-client-secret"}`))
+			_, _ = w.Write([]byte("{\"client_id\":\"client\",\"client_secret\":\"synthetic-client-secret" +
+				"\"}"))
 		case "/token":
 			exchanges.Add(1)
-			_, _ = w.Write([]byte(`{"access_token":"synthetic-access-token","refresh_token":"synthetic-refresh-token","token_type":"Bearer"}`))
+			_, _ = w.Write(
+				[]byte(
+					"{\"access_token\":\"synthetic-access-token\"," +
+						"\"refresh_token\":\"synthetic-refresh-token\"," +
+						"\"token_type\":\"Bearer\"}",
+				),
+			)
 		}
 	}))
 	t.Cleanup(server.Close)
 	u := server.URL + "/mcp"
-	service := &types.MCPService{ID: "cache", TenantID: 7, URL: &u, AuthConfig: &types.MCPAuthConfig{AuthType: types.MCPAuthOAuth, AuthServerMetadataURL: server.URL + "/metadata"}}
+	service := &types.MCPService{
+		ID:       "cache",
+		TenantID: 7,
+		URL:      &u,
+		AuthConfig: &types.MCPAuthConfig{
+			AuthType:              types.MCPAuthOAuth,
+			AuthServerMetadataURL: server.URL + "/metadata",
+		},
+	}
 	manager := NewOAuthManager(repo, fakeMCPServiceRepo{service: service}, nil)
 	principal := types.Principal{Type: types.PrincipalWebUser, ID: "user"}
-	url, state, err := manager.StartAuthorization(context.Background(), service, 7, principal, "http://localhost/callback", "/")
+	url, state, err := manager.StartAuthorization(
+		context.Background(),
+		service,
+		7,
+		principal,
+		"http://localhost/callback",
+		"/",
+	)
 	require.NoError(t, err)
 	require.NotEmpty(t, url)
 	require.NotEmpty(t, state)
@@ -182,14 +245,28 @@ func TestOAuthDiscoveryUsesConsumerCacheAndGuardsRebuiltHandlers(t *testing.T) {
 	require.ErrorContains(t, err, "mcp_oauth_discovery_failed")
 	require.Zero(t, exchanges.Load())
 	// An existing registration must also be guarded (without registering again).
-	url, state, err = manager.StartAuthorization(context.Background(), service, 7, principal, "http://localhost/callback", "/")
+	url, state, err = manager.StartAuthorization(
+		context.Background(),
+		service,
+		7,
+		principal,
+		"http://localhost/callback",
+		"/",
+	)
 	require.ErrorContains(t, err, "mcp_oauth_discovery_failed")
 	require.Empty(t, url)
 	require.Empty(t, state)
 	require.EqualValues(t, 1, registrations.Load())
 	// Reauthorization after a provider recovery keeps the existing credential.
 	invalid.Store(false)
-	_, state, err = manager.StartAuthorization(context.Background(), service, 7, principal, "http://localhost/callback", "/")
+	_, state, err = manager.StartAuthorization(
+		context.Background(),
+		service,
+		7,
+		principal,
+		"http://localhost/callback",
+		"/",
+	)
 	require.NoError(t, err)
 	_, _, err = manager.CompleteAuthorization(context.Background(), state, "code")
 	require.NoError(t, err)
@@ -203,7 +280,7 @@ func TestOAuthDiscoveryUsesConsumerCacheAndGuardsRebuiltHandlers(t *testing.T) {
 func TestOAuthRefreshBadDiscoveryPreservesToken(t *testing.T) {
 	runtime, repo, requests, closeServer := newOAuthLifecycleFixture(t, 200, nil)
 	defer closeServer()
-	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(500)
 		_, _ = w.Write([]byte(syntheticOAuthSensitive))
 	}))
@@ -214,10 +291,22 @@ func TestOAuthRefreshBadDiscoveryPreservesToken(t *testing.T) {
 	require.ErrorAs(t, err, &temporary)
 	require.ErrorContains(t, err, "mcp_oauth_discovery_failed")
 	require.Zero(t, requests.Load())
-	row, err := repo.GetTokenForPrincipal(context.Background(), 7, types.Principal{Type: types.PrincipalWebUser, ID: "user-1"}, "svc-1")
+	row, err := repo.GetTokenForPrincipal(
+		context.Background(),
+		7,
+		types.Principal{Type: types.PrincipalWebUser, ID: "user-1"},
+		"svc-1",
+	)
 	require.NoError(t, err)
 	require.Equal(t, "old-refresh", row.RefreshToken)
-	leased, err := repo.TryAcquireTokenRefreshLease(context.Background(), 7, types.Principal{Type: types.PrincipalWebUser, ID: "user-1"}, "svc-1", "after-failure", time.Now().Add(time.Minute))
+	leased, err := repo.TryAcquireTokenRefreshLease(
+		context.Background(),
+		7,
+		types.Principal{Type: types.PrincipalWebUser, ID: "user-1"},
+		"svc-1",
+		"after-failure",
+		time.Now().Add(time.Minute),
+	)
 	require.NoError(t, err)
 	require.True(t, leased, "failed discovery must release the refresh lease")
 }
@@ -230,7 +319,9 @@ func TestOAuthDiscoveryKeepsRedirectPolicyAndExistingPublicClient(t *testing.T) 
 			utils.SetSSRFWhitelistFromRaw("127.0.0.1")
 			t.Cleanup(utils.ResetSSRFWhitelistForTest)
 			var foreignCalls atomic.Int32
-			foreign := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { foreignCalls.Add(1) }))
+			foreign := httptest.NewServer(
+				http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) { foreignCalls.Add(1) }),
+			)
 			t.Cleanup(foreign.Close)
 			var registrations atomic.Int32
 			var server *httptest.Server
@@ -246,15 +337,45 @@ func TestOAuthDiscoveryKeepsRedirectPolicyAndExistingPublicClient(t *testing.T) 
 					registrations.Add(1)
 				default:
 					// registration_endpoint is optional for an existing public client.
-					_ = json.NewEncoder(w).Encode(map[string]string{"authorization_endpoint": server.URL + "/authorize", "token_endpoint": server.URL + "/token"})
+					_ = json.NewEncoder(w).
+						Encode(
+							map[string]string{
+								"authorization_endpoint": server.URL +
+									"/authorize",
+
+								"token_endpoint": server.URL +
+									"/token",
+							},
+						)
 				}
 			}))
 			t.Cleanup(server.Close)
 			u := server.URL + "/mcp"
-			service := &types.MCPService{ID: "redirect", TenantID: 7, URL: &u, AuthConfig: &types.MCPAuthConfig{AuthType: types.MCPAuthOAuth, AuthServerMetadataURL: server.URL + "/redirect"}}
-			require.NoError(t, repo.SaveClient(context.Background(), &types.MCPOAuthClient{TenantID: 7, ServiceID: service.ID, ClientID: "public"}))
+			service := &types.MCPService{
+				ID:       "redirect",
+				TenantID: 7,
+				URL:      &u,
+				AuthConfig: &types.MCPAuthConfig{
+					AuthType:              types.MCPAuthOAuth,
+					AuthServerMetadataURL: server.URL + "/redirect",
+				},
+			}
+			require.NoError(
+				t,
+				repo.SaveClient(
+					context.Background(),
+					&types.MCPOAuthClient{TenantID: 7, ServiceID: service.ID, ClientID: "public"},
+				),
+			)
 			manager := NewOAuthManager(repo, fakeMCPServiceRepo{service: service}, nil)
-			url, state, err := manager.StartAuthorization(context.Background(), service, 7, types.Principal{Type: types.PrincipalWebUser, ID: "user"}, "http://localhost/callback", "/")
+			url, state, err := manager.StartAuthorization(
+				context.Background(),
+				service,
+				7,
+				types.Principal{Type: types.PrincipalWebUser, ID: "user"},
+				"http://localhost/callback",
+				"/",
+			)
 			if mode == "same-origin" {
 				require.NoError(t, err)
 				require.NotEmpty(t, url)
@@ -264,7 +385,11 @@ func TestOAuthDiscoveryKeepsRedirectPolicyAndExistingPublicClient(t *testing.T) 
 				require.Empty(t, url)
 				require.Empty(t, state)
 			}
-			require.Zero(t, foreignCalls.Load(), "SSRF redirect policy must block before the foreign request")
+			require.Zero(
+				t,
+				foreignCalls.Load(),
+				"SSRF redirect policy must block before the foreign request",
+			)
 			require.Zero(t, registrations.Load(), "public client must not register again")
 		})
 	}

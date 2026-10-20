@@ -33,15 +33,40 @@ func pinnedTestKey(t *testing.T) *rsa.PrivateKey {
 	require.NoError(t, e)
 	return k
 }
+
 func pinnedTestJWK(k *rsa.PrivateKey) sidPinnedJWK {
 	j := rsaJWK(k, "")
 	return sidPinnedJWK{Kty: j.Kty, N: j.N, E: j.E, Alg: j.Alg, Use: j.Use}
 }
-func pinnedTestConfig(t *testing.T, keys ...*rsa.PrivateKey) (*config.OIDCAuthConfig, *sidPinnedKeyDocument) {
+
+func pinnedTestConfig(
+	t *testing.T,
+	keys ...*rsa.PrivateKey,
+) (*config.OIDCAuthConfig, *sidPinnedKeyDocument) {
 	t.Helper()
 	now := time.Now().UTC().Truncate(time.Second)
-	c := &config.OIDCAuthConfig{Enable: true, SourceIDEnable: true, SourceIDContractConfirmed: true, SourceIDValidationStrategy: config.SourceIDPinnedValidation, IssuerURL: config.SourceIDPinnedIssuer, ClientID: "synthetic-knowhub", ClientSecret: "synthetic-only", SourceIDPinnedKeysConfirmed: true, SourceIDPinnedKeysApprovalRef: "SYNTHETIC-NOT-A-REAL-APPROVAL", SourceIDPinnedKeysExpiresAt: now.Add(time.Hour).Format(time.RFC3339), SourceIDPinnedKeysFile: filepath.Join(t.TempDir(), "keys.json"), UserInfoMapping: &config.OIDCUserInfoMapping{Username: "name", Email: "email"}}
-	d := &sidPinnedKeyDocument{Version: 1, Issuer: c.IssuerURL, ClientID: c.ClientID, ApprovalRef: c.SourceIDPinnedKeysApprovalRef, NotBefore: now.Add(-time.Minute), ExpiresAt: now.Add(30 * time.Minute)}
+	c := &config.OIDCAuthConfig{
+		Enable:                        true,
+		SourceIDEnable:                true,
+		SourceIDContractConfirmed:     true,
+		SourceIDValidationStrategy:    config.SourceIDPinnedValidation,
+		IssuerURL:                     config.SourceIDPinnedIssuer,
+		ClientID:                      "synthetic-knowhub",
+		ClientSecret:                  "synthetic-only",
+		SourceIDPinnedKeysConfirmed:   true,
+		SourceIDPinnedKeysApprovalRef: "SYNTHETIC-NOT-A-REAL-APPROVAL",
+		SourceIDPinnedKeysExpiresAt:   now.Add(time.Hour).Format(time.RFC3339),
+		SourceIDPinnedKeysFile:        filepath.Join(t.TempDir(), "keys.json"),
+		UserInfoMapping:               &config.OIDCUserInfoMapping{Username: "name", Email: "email"},
+	}
+	d := &sidPinnedKeyDocument{
+		Version:     1,
+		Issuer:      c.IssuerURL,
+		ClientID:    c.ClientID,
+		ApprovalRef: c.SourceIDPinnedKeysApprovalRef,
+		NotBefore:   now.Add(-time.Minute),
+		ExpiresAt:   now.Add(30 * time.Minute),
+	}
 	fps := []string{}
 	for _, k := range keys {
 		d.Keys = append(d.Keys, pinnedTestJWK(k))
@@ -51,13 +76,21 @@ func pinnedTestConfig(t *testing.T, keys ...*rsa.PrivateKey) (*config.OIDCAuthCo
 	pinnedWrite(t, c, d)
 	return c, d
 }
+
 func pinnedWrite(t *testing.T, c *config.OIDCAuthConfig, d *sidPinnedKeyDocument) {
 	t.Helper()
 	raw, e := json.Marshal(d)
 	require.NoError(t, e)
-	require.NoError(t, os.WriteFile(c.SourceIDPinnedKeysFile, raw, 0600))
+	require.NoError(t, os.WriteFile(c.SourceIDPinnedKeysFile, raw, 0o600))
 }
-func pinnedToken(t *testing.T, k *rsa.PrivateKey, c *config.OIDCAuthConfig, change func(jwt.MapClaims), header map[string]interface{}) string {
+
+func pinnedToken(
+	t *testing.T,
+	k *rsa.PrivateKey,
+	c *config.OIDCAuthConfig,
+	change func(jwt.MapClaims),
+	header map[string]interface{},
+) string {
 	t.Helper()
 	claims := baseClaims(c.IssuerURL, c.ClientID)
 	claims["nonce"] = "expected-nonce"
@@ -84,19 +117,71 @@ func TestSIDPinnedKeysSignaturesAndClaims(t *testing.T) {
 		header map[string]interface{}
 		want   bool
 	}{
-		{name: "A_no_kid", key: a, want: true}, {name: "B_no_kid", key: b, want: true}, {name: "untrusted_C", key: c},
+		{name: "A_no_kid", key: a, want: true},
+		{name: "B_no_kid", key: b, want: true},
+		{name: "untrusted_C", key: c},
 		{name: "issuer", key: a, change: func(v jwt.MapClaims) { v["iss"] = "https://attacker.invalid" }},
 		{name: "audience", key: a, change: func(v jwt.MapClaims) { v["aud"] = "wrong-client" }},
-		{name: "expired", key: a, change: func(v jwt.MapClaims) { v["exp"] = time.Now().Add(-10 * time.Minute).Unix() }},
-		{name: "future_nbf", key: a, change: func(v jwt.MapClaims) { v["nbf"] = time.Now().Add(10 * time.Minute).Unix() }},
-		{name: "future_iat", key: a, change: func(v jwt.MapClaims) { v["iat"] = time.Now().Add(10 * time.Minute).Unix() }},
+		{
+			name: "expired",
+			key:  a,
+			change: func(v jwt.MapClaims) {
+				v["exp"] = time.Now().
+					Add(
+						-10 * time.Minute,
+					).
+					Unix()
+			},
+		},
+		{
+			name: "future_nbf",
+			key:  a,
+			change: func(v jwt.MapClaims) {
+				v["nbf"] = time.Now().
+					Add(
+						10 * time.Minute,
+					).
+					Unix()
+			},
+		},
+		{
+			name: "future_iat",
+			key:  a,
+			change: func(v jwt.MapClaims) {
+				v["iat"] = time.Now().
+					Add(
+						10 * time.Minute,
+					).
+					Unix()
+			},
+		},
 		{name: "missing_iat", key: a, change: func(v jwt.MapClaims) { delete(v, "iat") }},
 		{name: "missing_exp", key: a, change: func(v jwt.MapClaims) { delete(v, "exp") }},
 		{name: "empty_sub", key: a, change: func(v jwt.MapClaims) { v["sub"] = "" }},
 		{name: "numeric_sub", key: a, change: func(v jwt.MapClaims) { v["sub"] = 123 }},
 		{name: "wrong_azp", key: a, change: func(v jwt.MapClaims) { v["azp"] = "another-client" }},
-		{name: "multiple_audience_no_azp", key: a, change: func(v jwt.MapClaims) { v["aud"] = []string{cfg.ClientID, "other"} }},
-		{name: "multiple_audience_correct_azp", key: a, change: func(v jwt.MapClaims) { v["aud"] = []string{cfg.ClientID, "other"}; v["azp"] = cfg.ClientID }, want: true},
+		{
+			name: "multiple_audience_no_azp",
+			key:  a,
+			change: func(v jwt.MapClaims) {
+				v["aud"] = []string{
+					cfg.ClientID,
+					"other",
+				}
+			},
+		},
+		{
+			name: "multiple_audience_correct_azp",
+			key:  a,
+			change: func(v jwt.MapClaims) {
+				v["aud"] = []string{
+					cfg.ClientID,
+					"other",
+				}
+				v["azp"] = cfg.ClientID
+			},
+			want: true,
+		},
 		{name: "unknown_kid", key: a, header: map[string]interface{}{"kid": "unknown"}},
 		{name: "nonstring_kid", key: a, header: map[string]interface{}{"kid": 1}},
 		{name: "jku", key: a, header: map[string]interface{}{"jku": "https://attacker.invalid/keys"}},
@@ -105,7 +190,11 @@ func TestSIDPinnedKeysSignaturesAndClaims(t *testing.T) {
 		{name: "critical", key: a, header: map[string]interface{}{"crit": []string{"custom"}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			_, e := svc.verifyOIDCIDToken(context.Background(), cfg, pinnedToken(t, tc.key, cfg, tc.change, tc.header))
+			_, e := svc.verifyOIDCIDToken(
+				context.Background(),
+				cfg,
+				pinnedToken(t, tc.key, cfg, tc.change, tc.header),
+			)
 			if tc.want {
 				require.NoError(t, e)
 			} else {
@@ -114,7 +203,11 @@ func TestSIDPinnedKeysSignaturesAndClaims(t *testing.T) {
 		})
 	}
 	t.Run("none", func(t *testing.T) {
-		_, e := svc.verifyOIDCIDToken(context.Background(), cfg, unsignedJWT(baseClaims(cfg.IssuerURL, cfg.ClientID)))
+		_, e := svc.verifyOIDCIDToken(
+			context.Background(),
+			cfg,
+			unsignedJWT(baseClaims(cfg.IssuerURL, cfg.ClientID)),
+		)
 		require.Error(t, e)
 	})
 	for _, method := range []jwt.SigningMethod{jwt.SigningMethodRS384, jwt.SigningMethodPS256, jwt.SigningMethodHS256} {
@@ -133,7 +226,36 @@ func TestSIDPinnedKeysSignaturesAndClaims(t *testing.T) {
 
 func TestSIDPinnedKeysControlledLifecycle(t *testing.T) {
 	a, b, c := pinnedTestKey(t), pinnedTestKey(t), pinnedTestKey(t)
-	for _, name := range []string{"duplicate_material", "unknown_key", "revoked", "future_set", "expired_set", "extended_deadline", "wrong_approval", "wrong_issuer", "wrong_client", "wrong_version", "key_limit", "weak_key", "wrong_use", "wrong_alg", "wrong_ops", "bad_n", "bad_e", "non_rsa", "oversize_file", "private_jwk_field", "missing_file", "unsafe_permissions", "malformed", "duplicate_json", "symlink", "missing_confirmation", "expired_config", "unknown_strategy"} {
+	for _, name := range []string{
+		"duplicate_material",
+		"unknown_key",
+		"revoked",
+		"future_set",
+		"expired_set",
+		"extended_deadline",
+		"wrong_approval",
+		"wrong_issuer",
+		"wrong_client",
+		"wrong_version",
+		"key_limit",
+		"weak_key",
+		"wrong_use",
+		"wrong_alg",
+		"wrong_ops",
+		"bad_n",
+		"bad_e",
+		"non_rsa",
+		"oversize_file",
+		"private_jwk_field",
+		"missing_file",
+		"unsafe_permissions",
+		"malformed",
+		"duplicate_json",
+		"symlink",
+		"missing_confirmation",
+		"expired_config",
+		"unknown_strategy",
+	} {
 		t.Run(name, func(t *testing.T) {
 			cfg, d := pinnedTestConfig(t, a, b)
 			want := false
@@ -192,20 +314,27 @@ func TestSIDPinnedKeysControlledLifecycle(t *testing.T) {
 				raw, e := os.ReadFile(cfg.SourceIDPinnedKeysFile)
 				require.NoError(t, e)
 				raw = bytesReplaceFirst(raw, `"kty":"RSA"`, `"d":"not-allowed","kty":"RSA"`)
-				require.NoError(t, os.WriteFile(cfg.SourceIDPinnedKeysFile, raw, 0600))
+				require.NoError(t, os.WriteFile(cfg.SourceIDPinnedKeysFile, raw, 0o600))
 			case "missing_file":
 				require.NoError(t, os.Remove(cfg.SourceIDPinnedKeysFile))
 			case "unsafe_permissions":
-				require.NoError(t, os.Chmod(cfg.SourceIDPinnedKeysFile, 0666))
+				require.NoError(t, os.Chmod(cfg.SourceIDPinnedKeysFile, 0o666))
 			case "malformed":
-				require.NoError(t, os.WriteFile(cfg.SourceIDPinnedKeysFile, []byte("{"), 0600))
+				require.NoError(t, os.WriteFile(cfg.SourceIDPinnedKeysFile, []byte("{"), 0o600))
 			case "oversize_file":
-				require.NoError(t, os.WriteFile(cfg.SourceIDPinnedKeysFile, []byte(strings.Repeat(" ", sidPinnedMaxBytes+1)), 0600))
+				require.NoError(
+					t,
+					os.WriteFile(
+						cfg.SourceIDPinnedKeysFile,
+						[]byte(strings.Repeat(" ", sidPinnedMaxBytes+1)),
+						0o600,
+					),
+				)
 			case "duplicate_json":
 				raw, e := os.ReadFile(cfg.SourceIDPinnedKeysFile)
 				require.NoError(t, e)
 				raw = append([]byte(`{"version":1,`), raw[1:]...)
-				require.NoError(t, os.WriteFile(cfg.SourceIDPinnedKeysFile, raw, 0600))
+				require.NoError(t, os.WriteFile(cfg.SourceIDPinnedKeysFile, raw, 0o600))
 			case "symlink":
 				old := cfg.SourceIDPinnedKeysFile
 				cfg.SourceIDPinnedKeysFile += ".link"
@@ -233,8 +362,8 @@ func TestSIDPinnedKeysControlledLifecycle(t *testing.T) {
 	require.NoError(t, e)
 }
 
-func bytesReplaceFirst(raw []byte, old, new string) []byte {
-	return []byte(strings.Replace(string(raw), old, new, 1))
+func bytesReplaceFirst(raw []byte, old, replacement string) []byte {
+	return []byte(strings.Replace(string(raw), old, replacement, 1))
 }
 
 func TestSIDPinnedKeysAmbiguousMatchDefense(t *testing.T) {
@@ -244,7 +373,12 @@ func TestSIDPinnedKeysAmbiguousMatchDefense(t *testing.T) {
 	require.NoError(t, e)
 	// Deliberately violate loader deduplication to exercise the last cardinality
 	// defense. This is not a claim that two natural RSA materials collide.
-	_, e = uniqueSIDPinnedSignatureMatch([]sidPinnedCandidate{{key: &a.PublicKey}, {key: &a.PublicKey}}, "", digest[:], sig)
+	_, e = uniqueSIDPinnedSignatureMatch(
+		[]sidPinnedCandidate{{key: &a.PublicKey}, {key: &a.PublicKey}},
+		"",
+		digest[:],
+		sig,
+	)
 	require.Error(t, e)
 }
 
@@ -255,7 +389,18 @@ func TestSIDPinnedKeysAmbiguousJWTSyntax(t *testing.T) {
 	require.NoError(t, e)
 	for _, tc := range []struct{ name, header, payload string }{
 		{"duplicate_alg", `{"alg":"RS256","alg":"RS256"}`, string(claims)},
-		{"duplicate_sub", `{"alg":"RS256"}`, strings.Replace(string(claims), `"sub":"user-123"`, `"sub":"other","sub":"user-123"`, 1)},
+		{
+			"duplicate_sub",
+			`{"alg":"RS256"}`,
+			strings.Replace(
+				string(
+					claims,
+				),
+				`"sub":"user-123"`,
+				`"sub":"other","sub":"user-123"`,
+				1,
+			),
+		},
 		{"trailing_claims", `{"alg":"RS256"}`, string(claims) + ` {}`},
 		{"null_kid", `{"alg":"RS256","kid":null}`, string(claims)},
 		{"oversize", `{"alg":"RS256","unused":"` + strings.Repeat("a", 16<<10) + `"}`, string(claims)},
@@ -279,9 +424,17 @@ func TestSIDPinnedKeyIDsAndCanonicalDedup(t *testing.T) {
 	d.Keys[0].Kid = "A"
 	d.Keys[1].Kid = "B"
 	pinnedWrite(t, cfg, d)
-	_, e := (&userService{}).verifyOIDCIDToken(context.Background(), cfg, pinnedToken(t, a, cfg, nil, map[string]interface{}{"kid": "A"}))
+	_, e := (&userService{}).verifyOIDCIDToken(
+		context.Background(),
+		cfg,
+		pinnedToken(t, a, cfg, nil, map[string]interface{}{"kid": "A"}),
+	)
 	require.NoError(t, e)
-	_, e = (&userService{}).verifyOIDCIDToken(context.Background(), cfg, pinnedToken(t, a, cfg, nil, map[string]interface{}{"kid": "B"}))
+	_, e = (&userService{}).verifyOIDCIDToken(
+		context.Background(),
+		cfg,
+		pinnedToken(t, a, cfg, nil, map[string]interface{}{"kid": "B"}),
+	)
 	require.Error(t, e)
 	d.Keys[1].Kid = "A"
 	pinnedWrite(t, cfg, d)
@@ -306,7 +459,7 @@ type sidPinnedRouteTransport struct {
 }
 
 func (r sidPinnedRouteTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	copy := req.Clone(req.Context())
+	cloned := req.Clone(req.Context())
 	u := *req.URL
 	target, err := http.NewRequest(http.MethodGet, r.target, nil)
 	if err != nil {
@@ -314,15 +467,24 @@ func (r sidPinnedRouteTransport) RoundTrip(req *http.Request) (*http.Response, e
 	}
 	u.Scheme = target.URL.Scheme
 	u.Host = target.URL.Host
-	copy.URL = &u
-	copy.Host = u.Host
-	return r.inner.RoundTrip(copy)
+	cloned.URL = &u
+	cloned.Host = u.Host
+	return r.inner.RoundTrip(cloned)
 }
 
 func TestSIDPinnedKeysNonceAndUserInfo(t *testing.T) {
 	withOIDCSSRFWhitelist(t, "sid.ruijie.com.cn")
 	a := pinnedTestKey(t)
-	for _, name := range []string{"valid", "wrong_nonce", "missing_nonce", "userinfo_error", "userinfo_subject", "missing_access", "revoked_during_userinfo", "userinfo_redirect"} {
+	for _, name := range []string{
+		"valid",
+		"wrong_nonce",
+		"missing_nonce",
+		"userinfo_error",
+		"userinfo_subject",
+		"missing_access",
+		"revoked_during_userinfo",
+		"userinfo_redirect",
+	} {
 		t.Run(name, func(t *testing.T) {
 			cfg, d := pinnedTestConfig(t, a)
 			cfg.UserInfoEndpoint = config.SourceIDPinnedIssuer + "/oidc/profile"
@@ -334,7 +496,7 @@ func TestSIDPinnedKeysNonceAndUserInfo(t *testing.T) {
 					w.WriteHeader(503)
 					return
 				case "userinfo_redirect":
-					http.Redirect(w, r, "https://attacker.invalid/", 302)
+					http.Redirect(w, r, "https://attacker.invalid/", http.StatusFound)
 					return
 				case "revoked_during_userinfo":
 					d.Revoked = true
@@ -344,7 +506,7 @@ func TestSIDPinnedKeysNonceAndUserInfo(t *testing.T) {
 				if name == "userinfo_subject" {
 					sub = "other-user"
 				}
-				json.NewEncoder(w).Encode(map[string]interface{}{"sub": sub, "name": "synthetic"})
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{"sub": sub, "name": "synthetic"})
 			}))
 			defer server.Close()
 			client := server.Client()
@@ -363,7 +525,11 @@ func TestSIDPinnedKeysNonceAndUserInfo(t *testing.T) {
 			if name == "missing_access" {
 				access = ""
 			}
-			info, e := svc.resolveOIDCUserInfo(ctx, cfg, &oidcTokenResponse{IDToken: raw, AccessToken: access})
+			info, e := svc.resolveOIDCUserInfo(
+				ctx,
+				cfg,
+				&oidcTokenResponse{IDToken: raw, AccessToken: access},
+			)
 			if name == "valid" {
 				require.NoError(t, e)
 				require.Equal(t, "user-123", info.Subject)
@@ -381,7 +547,18 @@ func TestSIDPinnedKeysNonceAndUserInfo(t *testing.T) {
 func TestSIDPinnedKeysLoginFailuresHaveNoIdentitySideEffects(t *testing.T) {
 	withOIDCSSRFWhitelist(t, "sid.ruijie.com.cn")
 	a, c := pinnedTestKey(t), pinnedTestKey(t)
-	for _, failure := range []string{"untrusted_key", "nonce", "token_error", "userinfo_error", "userinfo_sub", "invalid_tls", "missing_access", "state_replay", "state_invalid", "repeated_code"} {
+	for _, failure := range []string{
+		"untrusted_key",
+		"nonce",
+		"token_error",
+		"userinfo_error",
+		"userinfo_sub",
+		"invalid_tls",
+		"missing_access",
+		"state_replay",
+		"state_invalid",
+		"repeated_code",
+	} {
 		t.Run(failure, func(t *testing.T) {
 			cfg, _ := pinnedTestConfig(t, a)
 			cfg.AuthorizationEndpoint = config.SourceIDPinnedIssuer + "/oidc/authorize"
@@ -395,8 +572,17 @@ func TestSIDPinnedKeysLoginFailuresHaveNoIdentitySideEffects(t *testing.T) {
 			require.NoError(t, e)
 			connection, e := db.DB()
 			require.NoError(t, e)
-			defer connection.Close()
-			require.NoError(t, db.AutoMigrate(&types.User{}, &types.AuthToken{}, &types.ExternalIdentity{}, &types.SourceIDSession{}, &types.OIDCTransaction{}))
+			defer func(cleanup func() error) { _ = cleanup() }(connection.Close)
+			require.NoError(
+				t,
+				db.AutoMigrate(
+					&types.User{},
+					&types.AuthToken{},
+					&types.ExternalIdentity{},
+					&types.SourceIDSession{},
+					&types.OIDCTransaction{},
+				),
+			)
 			nonce := ""
 			calls := 0
 			tokenCalls := 0
@@ -414,7 +600,7 @@ func TestSIDPinnedKeysLoginFailuresHaveNoIdentitySideEffects(t *testing.T) {
 					if failure == "userinfo_sub" {
 						sub = "other"
 					}
-					json.NewEncoder(w).Encode(map[string]interface{}{"sub": sub})
+					_ = json.NewEncoder(w).Encode(map[string]interface{}{"sub": sub})
 					return
 				}
 				tokenCalls++
@@ -436,7 +622,8 @@ func TestSIDPinnedKeysLoginFailuresHaveNoIdentitySideEffects(t *testing.T) {
 				if failure == "missing_access" {
 					access = ""
 				}
-				json.NewEncoder(w).Encode(oidcTokenResponse{IDToken: token, AccessToken: access, TokenType: "Bearer"})
+				_ = json.NewEncoder(w).
+					Encode(oidcTokenResponse{IDToken: token, AccessToken: access, TokenType: "Bearer"})
 			}))
 			defer server.Close()
 			client := server.Client()
@@ -444,7 +631,12 @@ func TestSIDPinnedKeysLoginFailuresHaveNoIdentitySideEffects(t *testing.T) {
 				client = &http.Client{Transport: http.DefaultTransport}
 			}
 			client.Transport = sidPinnedRouteTransport{target: server.URL, inner: client.Transport}
-			svc := &userService{config: &config.Config{OIDCAuth: cfg}, userRepo: apprepo.NewUserRepository(db), tokenRepo: apprepo.NewAuthTokenRepository(db), protocolClient: client}
+			svc := &userService{
+				config:         &config.Config{OIDCAuth: cfg},
+				userRepo:       apprepo.NewUserRepository(db),
+				tokenRepo:      apprepo.NewAuthTokenRepository(db),
+				protocolClient: client,
+			}
 			auth, e := svc.GetOIDCAuthorizationURL(context.Background(), cfg.RedirectURI)
 			require.NoError(t, e)
 			nonce = auth.Nonce
@@ -466,7 +658,12 @@ func TestSIDPinnedKeysLoginFailuresHaveNoIdentitySideEffects(t *testing.T) {
 				require.Error(t, e)
 				require.Zero(t, calls)
 			} else {
-				response, e := svc.LoginWithOIDC(ctx, "synthetic-once-code", cfg.RedirectURI, types.TenantProvisioningTenantless)
+				response, e := svc.LoginWithOIDC(
+					ctx,
+					"synthetic-once-code",
+					cfg.RedirectURI,
+					types.TenantProvisioningTenantless,
+				)
 				require.Error(t, e)
 				require.Nil(t, response)
 			}
@@ -476,7 +673,12 @@ func TestSIDPinnedKeysLoginFailuresHaveNoIdentitySideEffects(t *testing.T) {
 				nonce = auth.Nonce
 				ctx, e = svc.PrepareOIDCCallback(context.Background(), auth.State)
 				require.NoError(t, e)
-				response, e := svc.LoginWithOIDC(ctx, "synthetic-once-code", cfg.RedirectURI, types.TenantProvisioningTenantless)
+				response, e := svc.LoginWithOIDC(
+					ctx,
+					"synthetic-once-code",
+					cfg.RedirectURI,
+					types.TenantProvisioningTenantless,
+				)
 				require.Error(t, e)
 				require.Nil(t, response)
 				require.Equal(t, 2, tokenCalls)
@@ -537,6 +739,7 @@ func (t *sidPinnedRejectNetwork) RoundTrip(*http.Request) (*http.Response, error
 	t.calls++
 	return nil, errors.New("network must not be used by fixed-key verification")
 }
+
 func TestSIDPinnedKeysNeverLearnFromNetwork(t *testing.T) {
 	a, c := pinnedTestKey(t), pinnedTestKey(t)
 	cfg, _ := pinnedTestConfig(t, a)
@@ -579,7 +782,7 @@ func TestSIDPinnedKeysSyntheticExistingAccountLifecycle(t *testing.T) {
 	ownership["issuer"] = c.IssuerURL
 	raw, e = json.Marshal(ownership)
 	require.NoError(t, e)
-	require.NoError(t, os.WriteFile(c.SourceIDPilotAccountsFile, raw, 0600))
+	require.NoError(t, os.WriteFile(c.SourceIDPilotAccountsFile, raw, 0o600))
 	svc.tenantService = sourceIDLocalTestTenants{}
 	svc.memberService = sourceIDLocalTestMembers{userID: originalID}
 	nonce := ""
@@ -594,10 +797,17 @@ func TestSIDPinnedKeysSyntheticExistingAccountLifecycle(t *testing.T) {
 				profile[k] = v
 			}
 			profile["sub"] = info.Subject
-			json.NewEncoder(w).Encode(profile)
+			_ = json.NewEncoder(w).Encode(profile)
 		case "/oidc/accessToken":
-			token := pinnedToken(t, signer, c, func(v jwt.MapClaims) { v["nonce"] = nonce; v["sub"] = info.Subject }, nil)
-			json.NewEncoder(w).Encode(oidcTokenResponse{IDToken: token, AccessToken: "synthetic-access", TokenType: "Bearer"})
+			token := pinnedToken(
+				t,
+				signer,
+				c,
+				func(v jwt.MapClaims) { v["nonce"] = nonce; v["sub"] = info.Subject },
+				nil,
+			)
+			_ = json.NewEncoder(w).
+				Encode(oidcTokenResponse{IDToken: token, AccessToken: "synthetic-access", TokenType: "Bearer"})
 		default:
 			jwksCalls++
 			w.WriteHeader(500)
@@ -614,7 +824,12 @@ func TestSIDPinnedKeysSyntheticExistingAccountLifecycle(t *testing.T) {
 		nonce = auth.Nonce
 		ctx, e := svc.PrepareOIDCCallback(context.Background(), auth.State)
 		require.NoError(t, e)
-		response, e := svc.LoginWithOIDC(ctx, "synthetic-code", c.RedirectURI, types.TenantProvisioningTenantless)
+		response, e := svc.LoginWithOIDC(
+			ctx,
+			"synthetic-code",
+			c.RedirectURI,
+			types.TenantProvisioningTenantless,
+		)
 		require.NoError(t, e)
 		require.True(t, response.Success)
 		require.Equal(t, originalID, response.User.ID)
@@ -634,6 +849,9 @@ func TestSIDPinnedKeysSyntheticExistingAccountLifecycle(t *testing.T) {
 	require.NoError(t, db.Model(&types.ExternalIdentity{}).Count(&bindings).Error)
 	require.EqualValues(t, 1, bindings)
 	var role string
-	require.NoError(t, db.Raw("SELECT role FROM tenant_members WHERE user_id=?", originalID).Scan(&role).Error)
+	require.NoError(
+		t,
+		db.Raw("SELECT role FROM tenant_members WHERE user_id=?", originalID).Scan(&role).Error,
+	)
 	require.Equal(t, "contributor", role)
 }

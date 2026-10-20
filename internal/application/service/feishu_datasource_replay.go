@@ -5,14 +5,19 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
+
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 )
 
 // Changed versions must not fall through to the legacy delete/create path.
 // This safety error stays active until a validated staging writer is wired.
-var ErrFeishuStagingRequired = errors.New("feishu safe staging writer is not available for changed source version")
-var ErrFeishuDispatchUnconfirmed = errors.New("feishu durable dispatch is not confirmed")
+var (
+	ErrFeishuStagingRequired = errors.New(
+		"feishu safe staging writer is not available for changed source version",
+	)
+	ErrFeishuDispatchUnconfirmed = errors.New("feishu durable dispatch is not confirmed")
+)
 
 func isFeishuAdmissionSource(kind string) bool {
 	switch kind {
@@ -22,7 +27,12 @@ func isFeishuAdmissionSource(kind string) bool {
 	return false
 }
 
-func reconcileFeishuReplay(ctx context.Context, service interfaces.KnowledgeService, existing *types.Knowledge, item *types.FetchedItem) error {
+func reconcileFeishuReplay(
+	ctx context.Context,
+	service interfaces.KnowledgeService,
+	existing *types.Knowledge,
+	item *types.FetchedItem,
+) error {
 	if len(item.Content) == 0 {
 		return ErrFeishuStagingRequired
 	}

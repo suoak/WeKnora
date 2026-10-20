@@ -14,12 +14,21 @@ func TestOIDCTracingExcludesCredentials(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.Use(GinMiddleware())
-	for _, path := range []string{"/api/v1/auth/oidc/callback", "/api/v1/auth/oidc/result", "/api/v1/auth/oidc/backchannel-logout"} {
+	for _, path := range []string{
+		"/api/v1/auth/oidc/callback",
+		"/api/v1/auth/oidc/result",
+		"/api/v1/auth/oidc/backchannel-logout",
+	} {
 		r.Any(path, func(c *gin.Context) { c.Status(403) })
 	}
 	r.POST("/api/v1/knowledge-chat", func(c *gin.Context) { c.Status(200) })
 	const secret = "synthetic-private-APM-value"
-	for _, path := range []string{"/api/v1/auth/oidc/callback", "/api/v1/auth/oidc/result", "/api/v1/auth/oidc/backchannel-logout", "/api/v1/auth/oidc/unknown"} {
+	for _, path := range []string{
+		"/api/v1/auth/oidc/callback",
+		"/api/v1/auth/oidc/result",
+		"/api/v1/auth/oidc/backchannel-logout",
+		"/api/v1/auth/oidc/unknown",
+	} {
 		req := httptest.NewRequest("POST", path+"?code="+secret+"&state="+secret, strings.NewReader(secret))
 		req.Header.Set("Authorization", secret)
 		req.Header.Set("Cookie", secret)
@@ -28,7 +37,10 @@ func TestOIDCTracingExcludesCredentials(t *testing.T) {
 	if len(exp.GetSpans()) != 0 {
 		t.Fatal("authentication request exported a trace")
 	}
-	r.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", "/api/v1/knowledge-chat?client_secret="+secret, nil))
+	r.ServeHTTP(
+		httptest.NewRecorder(),
+		httptest.NewRequest("POST", "/api/v1/knowledge-chat?client_secret="+secret, nil),
+	)
 	spans := exp.GetSpans()
 	if len(spans) != 1 {
 		t.Fatal("ordinary business tracing missing")

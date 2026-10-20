@@ -26,7 +26,13 @@ func main() {
 		if mode == "" {
 			mode = "check"
 		}
-		dsn, expected, dir := os.Getenv("KNOWHUB_MIGRATION_DSN"), os.Getenv("KNOWHUB_MIGRATION_DATABASE"), os.Getenv("KNOWHUB_MIGRATION_DIR")
+		dsn, expected, dir := os.Getenv(
+			"KNOWHUB_MIGRATION_DSN",
+		), os.Getenv(
+			"KNOWHUB_MIGRATION_DATABASE",
+		), os.Getenv(
+			"KNOWHUB_MIGRATION_DIR",
+		)
 		if (mode != "check" && mode != "up") || dsn == "" || expected == "" || !filepath.IsAbs(dir) {
 			return errors.New("invalid configuration")
 		}
@@ -52,14 +58,14 @@ func main() {
 		if err != nil {
 			return err
 		}
-		defer db.Close()
+		defer func(cleanup func() error) { _ = cleanup() }(db.Close)
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 		tx, err := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 		if err != nil {
 			return err
 		}
-		defer tx.Rollback()
+		defer func(cleanup func() error) { _ = cleanup() }(tx.Rollback)
 		var actual string
 		var version uint
 		var dirty bool
@@ -70,10 +76,18 @@ func main() {
 			return errors.New("unexpected database")
 		}
 		var rows int
-		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM schema_migrations").Scan(&rows); err != nil || rows != 1 {
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM schema_migrations").Scan(&rows); err != nil ||
+			rows != 1 {
 			return errors.New("migration state is ambiguous")
 		}
-		if err := tx.QueryRowContext(ctx, "SELECT version,dirty FROM schema_migrations").Scan(&version, &dirty); err != nil {
+		if err := tx.QueryRowContext(
+			ctx,
+			"SELECT version,dirty FROM schema_migrations",
+		).
+			Scan(
+				&version,
+				&dirty,
+			); err != nil {
 			return err
 		}
 		result["database"], result["version"], result["dirty"], result["mode"] = actual, version, dirty, mode
@@ -92,7 +106,7 @@ func main() {
 		if err != nil {
 			return err
 		}
-		defer m.Close()
+		defer func(cleanup func() (error, error)) { _, _ = cleanup() }(m.Close)
 		// No Force, Down, or automatic dirty recovery path is provided.
 		if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 			if v, d, readErr := m.Version(); readErr == nil {
@@ -114,7 +128,8 @@ func main() {
 	}
 	started := time.Now()
 	err := run()
-	result["ok"], result["stage"], result["elapsed_ms"] = err == nil, stage, time.Since(started).Milliseconds()
+	result["ok"], result["stage"], result["elapsed_ms"] = err == nil, stage, time.Since(started).
+		Milliseconds()
 	// Driver errors can contain connection strings. Report the failing stage,
 	// never the DSN or raw driver message. Diagnose in a controlled environment.
 	_ = json.NewEncoder(os.Stdout).Encode(result)

@@ -1590,7 +1590,7 @@ onMounted(async () => {
   font-size: var(--app-text-lg);
   font-weight: 500;
   font-family: var(--app-font-family);
-  transition: background-color 0.15s, border-color 0.15s;
+  transition: background-color var(--app-motion-fast), border-color var(--app-motion-fast);
 
   &:hover:not(:disabled) {
     background: var(--td-brand-color-focus);

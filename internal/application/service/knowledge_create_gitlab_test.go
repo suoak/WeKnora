@@ -15,7 +15,10 @@ type gitLabKnowledgeRepo struct {
 	interfaces.KnowledgeDispatchRepository
 }
 
-func (r *gitLabKnowledgeRepo) GetKnowledgeTags(context.Context, []string) (map[string][]*types.KnowledgeTag, error) {
+func (r *gitLabKnowledgeRepo) GetKnowledgeTags(
+	context.Context,
+	[]string,
+) (map[string][]*types.KnowledgeTag, error) {
 	return map[string][]*types.KnowledgeTag{}, nil
 }
 
@@ -25,7 +28,10 @@ func TestCreateKnowledgeFromFileGitLabPreservesSourcePaths(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = sqlDB.Close() })
 	base := repository.NewKnowledgeRepository(db)
-	repo := &gitLabKnowledgeRepo{KnowledgeRepository: base, KnowledgeDispatchRepository: base.(interfaces.KnowledgeDispatchRepository)}
+	repo := &gitLabKnowledgeRepo{
+		KnowledgeRepository:         base,
+		KnowledgeDispatchRepository: base.(interfaces.KnowledgeDispatchRepository),
+	}
 	require.NoError(t, db.AutoMigrate(&types.TaskPendingOp{}))
 	svc := &knowledgeService{
 		repo:      repo,
@@ -41,13 +47,27 @@ func TestCreateKnowledgeFromFileGitLabPreservesSourcePaths(t *testing.T) {
 			metadata["datasource_id"] = source
 			metadata["external_id"] = "gitlab:instance:1:main:" + file
 		}
-		return svc.CreateKnowledgeFromFile(ctx, "kb-1", newMultipartFileHeader(t, "README.md", "# same content"),
-			metadata, nil, "docs-main/"+file, nil, channel, nil)
+		return svc.CreateKnowledgeFromFile(
+			ctx,
+			"kb-1",
+			newMultipartFileHeader(t, "README.md", "# same content"),
+			metadata,
+			nil,
+			"docs-main/"+file,
+			nil,
+			channel,
+			nil,
+		)
 	}
 
 	root, err := create(types.ConnectorTypeGitLab, "ds-1", "README.md")
 	require.NoError(t, err)
-	ds := &types.DataSource{ID: "ds-1", TenantID: 1, KnowledgeBaseID: "kb-1", Type: types.ConnectorTypeGitLab}
+	ds := &types.DataSource{
+		ID:              "ds-1",
+		TenantID:        1,
+		KnowledgeBaseID: "kb-1",
+		Type:            types.ConnectorTypeGitLab,
+	}
 	item := &types.FetchedItem{
 		ExternalID: "gitlab:instance:1:main:a/b/c/d/e/README.md",
 		FileName:   "docs-main/a/b/c/d/e/README.md",
@@ -55,10 +75,22 @@ func TestCreateKnowledgeFromFileGitLabPreservesSourcePaths(t *testing.T) {
 	}
 	result := &types.SyncResult{}
 	(&DataSourceService{knowledgeService: svc}).applyFetchedItem(ctx, ds, item, nil, result)
-	require.Equal(t, 1, result.Created, "identical content at a different repository path must still be imported")
+	require.Equal(
+		t,
+		1,
+		result.Created,
+		"identical content at a different repository path must still be "+
+			"imported",
+	)
 	require.Zero(t, result.Skipped)
 	require.Zero(t, result.Failed)
-	nested, err := repo.FindByDataSourceExternalID(ctx, ds.TenantID, ds.KnowledgeBaseID, ds.ID, item.ExternalID)
+	nested, err := repo.FindByDataSourceExternalID(
+		ctx,
+		ds.TenantID,
+		ds.KnowledgeBaseID,
+		ds.ID,
+		item.ExternalID,
+	)
 	require.NoError(t, err)
 	require.NotNil(t, nested)
 	require.NotEqual(t, root.ID, nested.ID)
@@ -105,9 +137,17 @@ func TestCreateKnowledgeFromFileConfluencePreservesCopiedPages(t *testing.T) {
 	ctx := newCreateKnowledgeFileContext()
 	create := func(source, pageID string) (*types.Knowledge, error) {
 		t.Helper()
-		return svc.CreateKnowledgeFromFile(ctx, "kb-1", newMultipartFileHeader(t, "Overview.md", "# same body"),
+		return svc.CreateKnowledgeFromFile(
+			ctx,
+			"kb-1",
+			newMultipartFileHeader(t, "Overview.md", "# same body"),
 			map[string]string{"datasource_id": source, "external_id": pageID},
-			nil, "Overview-"+pageID+".md", nil, types.ChannelConfluence, nil)
+			nil,
+			"Overview-"+pageID+".md",
+			nil,
+			types.ChannelConfluence,
+			nil,
+		)
 	}
 
 	first, err := create("ds-1", "p1")

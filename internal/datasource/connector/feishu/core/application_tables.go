@@ -15,18 +15,27 @@ import (
 	"strings"
 )
 
-var ErrApplicationTableIncomplete = errors.New("feishu_table_content_incomplete")
-var ErrApplicationTableMedia = errors.New("feishu_table_media_not_supported")
+var (
+	// ErrApplicationTableIncomplete reports application table incomplete.
+	ErrApplicationTableIncomplete = errors.New("feishu_table_content_incomplete")
+	// ErrApplicationTableMedia rejects table media that cannot be completely represented.
+	ErrApplicationTableMedia = errors.New("feishu_table_media_not_supported")
+)
 
-const applicationTableBytes = 64 << 20
-const applicationTableCells = 2000000
+const (
+	applicationTableBytes = 64 << 20
+	applicationTableCells = 2000000
+)
 
+// ApplicationTableSnapshot defines application table snapshot state.
 type ApplicationTableSnapshot struct {
 	Version     int                     `json:"version"`
 	Resource    PersonalResource        `json:"resource"`
 	Tables      []ApplicationTable      `json:"tables"`
 	Attachments []ApplicationAttachment `json:"attachments,omitempty"`
 }
+
+// ApplicationTable defines application table state.
 type ApplicationTable struct {
 	Links    []ApplicationTableLink   `json:"links,omitempty"`
 	ID       string                   `json:"id"`
@@ -36,20 +45,28 @@ type ApplicationTable struct {
 	Metadata json.RawMessage          `json:"metadata,omitempty"`
 	Cells    []ApplicationTableRow    `json:"rows,omitempty"`
 }
+
+// ApplicationTableLink defines application table link state.
 type ApplicationTableLink struct {
 	Ref    string `json:"ref"`
 	Target string `json:"target"`
 }
+
+// ApplicationTableField defines application table field state.
 type ApplicationTableField struct {
 	ID       string          `json:"field_id"`
 	Name     string          `json:"field_name"`
 	Type     int             `json:"type"`
 	Property json.RawMessage `json:"property,omitempty"`
 }
+
+// ApplicationTableRecord defines application table record state.
 type ApplicationTableRecord struct {
 	ID     string                     `json:"record_id"`
 	Fields map[string]json.RawMessage `json:"fields"`
 }
+
+// ApplicationTableRow defines application table row state.
 type ApplicationTableRow struct {
 	Number   int               `json:"row"`
 	Values   []json.RawMessage `json:"values"`
@@ -58,7 +75,10 @@ type ApplicationTableRow struct {
 
 // CollectApplicationTableSnapshot reads only with an explicit application
 // principal. Caller must still revalidate revision/ACL before persisting it.
-func (c *Client) CollectApplicationTableSnapshot(ctx context.Context, r PersonalResource) (*ApplicationTableSnapshot, error) {
+func (c *Client) CollectApplicationTableSnapshot(
+	ctx context.Context,
+	r PersonalResource,
+) (*ApplicationTableSnapshot, error) {
 	if err := requireApplicationIdentity(ctx); err != nil {
 		return nil, err
 	}
@@ -213,7 +233,13 @@ func (c *Client) collectApplicationBitable(ctx context.Context, s *ApplicationTa
 			}
 			for _, field := range table.Fields {
 				if field.Type == 17 {
-					assets, err := c.collectApplicationAttachments(ctx, table.ID, field.ID, rec.ID, rec.Fields[field.Name])
+					assets, err := c.collectApplicationAttachments(
+						ctx,
+						table.ID,
+						field.ID,
+						rec.ID,
+						rec.Fields[field.Name],
+					)
 					if err != nil {
 						return err
 					}
@@ -315,7 +341,9 @@ func (c *Client) collectApplicationSheets(ctx context.Context, s *ApplicationTab
 						} `json:"valueRange"`
 					} `json:"data"`
 				}
-				p := "/open-apis/sheets/v2/spreadsheets/" + s.Resource.Token + "/values/" + url.PathEscape(rg) + "?valueRenderOption=" + mode + "&dateTimeRenderOption=FormattedString"
+				p := "/open-apis/sheets/v2/spreadsheets/" + s.Resource.Token + "/values/" + url.PathEscape(
+					rg,
+				) + "?valueRenderOption=" + mode + "&dateTimeRenderOption=FormattedString"
 				if err := c.doRequest(ctx, "application_sheet_values", http.MethodGet, p, nil, &values); err != nil {
 					return err
 				}
@@ -401,16 +429,38 @@ func containsTableMedia(v any) bool {
 func (s *ApplicationTableSnapshot) IndexText() (string, error) {
 	var b strings.Builder
 	b.WriteString("<!-- knowhub-feishu-table-snapshot-v1 -->\n")
-	fmt.Fprintf(&b, "# %s\nSource: %s\nResource type: %s\n", s.Resource.Title, s.Resource.URL, s.Resource.Type)
+	fmt.Fprintf(
+		&b,
+		"# %s\nSource: %s\nResource type: %s\n",
+		s.Resource.Title,
+		s.Resource.URL,
+		s.Resource.Type,
+	)
 	for _, t := range s.Tables {
 		fmt.Fprintf(&b, "\n## %s [%s]\nMetadata: %s\n", t.Title, t.ID, t.Metadata)
 		for _, link := range t.Links {
-			fmt.Fprintf(&b, "\n### Document: %s | Sheet: %s [%s] | Hyperlink: %s\nTarget: %s\n", tableHeading(s.Resource.Title), tableHeading(t.Title), t.ID, link.Ref, link.Target)
+			fmt.Fprintf(
+				&b,
+				"\n### Document: %s | Sheet: %s [%s] | Hyperlink: %s\nTarget: %s\n",
+				tableHeading(s.Resource.Title),
+				tableHeading(t.Title),
+				t.ID,
+				link.Ref,
+				link.Target,
+			)
 		}
 		for _, asset := range s.Attachments {
 			if asset.TableID == t.ID && asset.FieldID == "sheet_background" {
 				encoded, _ := json.Marshal(asset)
-				fmt.Fprintf(&b, "\n### Document: %s | Sheet: %s [%s] | Sheet background image\nAttachment: %s\n", tableHeading(s.Resource.Title), tableHeading(t.Title), t.ID, encoded)
+				fmt.Fprintf(
+					&b,
+					"\n### Document: %s | Sheet: %s [%s] | Sheet background "+
+						"image\nAttachment: %s\n",
+					tableHeading(s.Resource.Title),
+					tableHeading(t.Title),
+					t.ID,
+					encoded,
+				)
 			}
 		}
 		headerRows := []ApplicationTableRow{}
@@ -429,13 +479,27 @@ func (s *ApplicationTableSnapshot) IndexText() (string, error) {
 		}
 		fmt.Fprintf(&b, "Field schema: %s\n", schema)
 		for _, rec := range t.Records {
-			fmt.Fprintf(&b, "\n### Document: %s | Table: %s [%s] | Record: %s\n", tableHeading(s.Resource.Title), tableHeading(t.Title), t.ID, rec.ID)
+			fmt.Fprintf(
+				&b,
+				"\n### Document: %s | Table: %s [%s] | Record: %s\n",
+				tableHeading(s.Resource.Title),
+				tableHeading(t.Title),
+				t.ID,
+				rec.ID,
+			)
 			for _, field := range t.Fields {
 				value := rec.Fields[field.Name]
 				if len(value) == 0 {
 					value = json.RawMessage("null")
 				}
-				fmt.Fprintf(&b, "\n#### Field: %s [%s] | Type: %d\nValue: %s\n", tableHeading(field.Name), field.ID, field.Type, value)
+				fmt.Fprintf(
+					&b,
+					"\n#### Field: %s [%s] | Type: %d\nValue: %s\n",
+					tableHeading(field.Name),
+					field.ID,
+					field.Type,
+					value,
+				)
 				if b.Len() > applicationTableBytes {
 					return "", ErrApplicationTableIncomplete
 				}
@@ -450,7 +514,18 @@ func (s *ApplicationTableSnapshot) IndexText() (string, error) {
 			}
 			v, _ := json.Marshal(row.Values)
 			f, _ := json.Marshal(row.Formulas)
-			fmt.Fprintf(&b, "\n### Document: %s | Sheet: %s [%s] | Row: %d\nFirst rows / header context: %s\nValues (A onward): %s\nFormulas (A onward): %s\n", tableHeading(s.Resource.Title), tableHeading(t.Title), t.ID, row.Number, header, v, f)
+			fmt.Fprintf(
+				&b,
+				"\n### Document: %s | Sheet: %s [%s] | Row: %d\nFirst rows / header "+
+					"context: %s\nValues (A onward): %s\nFormulas (A onward): %s\n",
+				tableHeading(s.Resource.Title),
+				tableHeading(t.Title),
+				t.ID,
+				row.Number,
+				header,
+				v,
+				f,
+			)
 			for col := 0; col < max(len(row.Values), len(row.Formulas)); col++ {
 				var value, formula json.RawMessage
 				if col < len(row.Values) {
@@ -459,7 +534,12 @@ func (s *ApplicationTableSnapshot) IndexText() (string, error) {
 				if col < len(row.Formulas) {
 					formula = row.Formulas[col]
 				}
-				if !applicationRowNonempty(ApplicationTableRow{Values: []json.RawMessage{value}, Formulas: []json.RawMessage{formula}}) {
+				if !applicationRowNonempty(
+					ApplicationTableRow{
+						Values:   []json.RawMessage{value},
+						Formulas: []json.RawMessage{formula},
+					},
+				) {
 					continue
 				}
 				labels := []json.RawMessage{}
@@ -469,7 +549,14 @@ func (s *ApplicationTableSnapshot) IndexText() (string, error) {
 					}
 				}
 				label, _ := json.Marshal(labels)
-				fmt.Fprintf(&b, "\n#### Column: %s | Header context: %s\nValue: %s\nFormula: %s\n", spreadsheetColumn(col+1), label, value, formula)
+				fmt.Fprintf(
+					&b,
+					"\n#### Column: %s | Header context: %s\nValue: %s\nFormula: %s\n",
+					spreadsheetColumn(col+1),
+					label,
+					value,
+					formula,
+				)
 				if b.Len() > applicationTableBytes {
 					return "", ErrApplicationTableIncomplete
 				}
@@ -499,6 +586,7 @@ func applicationRowNonempty(row ApplicationTableRow) bool {
 	return false
 }
 
+// Fingerprint hashes the canonical snapshot for completeness comparison.
 func (s *ApplicationTableSnapshot) Fingerprint() (string, error) {
 	b, err := json.Marshal(s)
 	if err != nil {

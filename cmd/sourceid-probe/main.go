@@ -42,7 +42,7 @@ func run() int {
 	decoder := json.NewDecoder(io.LimitReader(f, 64<<10))
 	decoder.DisallowUnknownFields()
 	err = decoder.Decode(&m)
-	f.Close()
+	_ = f.Close()
 	if err != nil {
 		return 2
 	}
@@ -64,7 +64,6 @@ func run() int {
 	for i := range secret {
 		secret[i] = 0
 	}
-	value = ""
 	if err != nil {
 		return 2
 	}
@@ -77,7 +76,14 @@ func run() int {
 	defer cancel()
 	deadline, stop := context.WithTimeout(ctx, 10*time.Minute)
 	defer stop()
-	server := &http.Server{Handler: p, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 120 * time.Second, MaxHeaderBytes: 16 << 10, ErrorLog: log.New(io.Discard, "", 0)}
+	server := &http.Server{
+		Handler:           p,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      120 * time.Second,
+		MaxHeaderBytes:    16 << 10,
+		ErrorLog:          log.New(io.Discard, "", 0),
+	}
 	completed := make(chan struct{})
 	go func() {
 		select {
@@ -91,7 +97,14 @@ func run() int {
 		close(completed)
 	}()
 	// Public endpoint only: no transaction state, code, credential or authorize URL.
-	_ = json.NewEncoder(os.Stdout).Encode(map[string]interface{}{"endpoint": map[string]string{"probe_start": "http://" + *listen + "/probe/start"}})
+	_ = json.NewEncoder(os.Stdout).
+		Encode(map[string]interface{}{
+			"endpoint": map[string]string{
+				"probe_start": "http://" +
+					*listen +
+					"/probe/start",
+			},
+		})
 	err = server.Serve(listener)
 	p.Close()
 	<-completed

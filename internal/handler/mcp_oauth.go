@@ -110,7 +110,7 @@ func (h *MCPOAuthHandler) AuthorizeURL(c *gin.Context) {
 		logger.ErrorWithFields(ctx, stderrors.New(mcp.SafeOAuthErrorMessage(err)), map[string]interface{}{
 			"service_id": secutils.SanitizeForLog(serviceID),
 		})
-		c.Error(errors.NewInternalServerError("failed to start authorization: " + mcp.SafeOAuthErrorMessage(err)))
+		_ = c.Error(errors.NewInternalServerError("failed to start authorization: " + mcp.SafeOAuthErrorMessage(err)))
 		return
 	}
 
@@ -191,7 +191,14 @@ func (h *MCPOAuthHandler) Status(c *gin.Context) {
 			ctx, tenantID, principal, serviceID, attemptID,
 		)
 		if err != nil {
-			c.Error(errors.NewInternalServerError("failed to query authorization status: " + mcp.SafeOAuthErrorMessage(err)))
+			_ = c.Error(
+				errors.NewInternalServerError(
+					"failed to query authorization status: " +
+						mcp.SafeOAuthErrorMessage(
+							err,
+						),
+				),
+			)
 			return
 		}
 		state := "pending"
@@ -207,7 +214,14 @@ func (h *MCPOAuthHandler) Status(c *gin.Context) {
 
 	status, err := h.oauth.AuthorizationStatus(ctx, tenantID, principal, serviceID)
 	if err != nil {
-		c.Error(errors.NewInternalServerError("failed to query authorization status: " + mcp.SafeOAuthErrorMessage(err)))
+		_ = c.Error(
+			errors.NewInternalServerError(
+				"failed to query authorization status: " +
+					mcp.SafeOAuthErrorMessage(
+						err,
+					),
+			),
+		)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": status})
@@ -235,7 +249,7 @@ func (h *MCPOAuthHandler) Revoke(c *gin.Context) {
 	}
 
 	if err := h.oauth.Revoke(ctx, tenantID, principal, serviceID); err != nil {
-		c.Error(errors.NewInternalServerError("failed to revoke authorization: " + mcp.SafeOAuthErrorMessage(err)))
+		_ = c.Error(errors.NewInternalServerError("failed to revoke authorization: " + mcp.SafeOAuthErrorMessage(err)))
 		return
 	}
 	// Recycle any cached connections so a subsequent call re-authorizes.
@@ -338,7 +352,7 @@ func (h *MCPOAuthHandler) ResolveMCPOAuth(c *gin.Context) {
 	// would just fail again with another authorization-required error.
 	authorized, err := h.oauth.IsAuthorized(ctx, tenantID, principal, serviceID)
 	if err != nil {
-		c.Error(errors.NewInternalServerError("failed to verify authorization: " + mcp.SafeOAuthErrorMessage(err)))
+		_ = c.Error(errors.NewInternalServerError("failed to verify authorization: " + mcp.SafeOAuthErrorMessage(err)))
 		return
 	}
 	if !authorized {

@@ -25,47 +25,89 @@ func TestRC2LegacyCloneChangedRevisionPreservesPublishedKnowledge(t *testing.T) 
 	require.NoError(t, err)
 	conn, err := db.DB()
 	require.NoError(t, err)
-	defer conn.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(conn.Close)
 	var name string
 	require.NoError(t, db.Raw("SELECT current_database()").Scan(&name).Error)
 	require.Equal(t, "rc2baseline", name, "only the dedicated clone is permitted")
 	var sources []types.DataSource
-	require.NoError(t, db.Where("type IN ? AND status = ? AND deleted_at IS NULL", []string{"feishu", "feishu_drive"}, "active").Order("id").Find(&sources).Error)
+	require.NoError(
+		t,
+		db.Where("type IN ? AND status = ? AND deleted_at IS NULL", []string{"feishu", "feishu_drive"}, "active").
+			Order("id").
+			Find(&sources).
+			Error,
+	)
 	require.NotEmpty(t, sources)
 	for _, source := range sources {
 		t.Run(source.Type+"/"+source.ID, func(t *testing.T) {
 			var old types.Knowledge
-			err := db.Where("tenant_id = ? AND knowledge_base_id = ? AND metadata->>'datasource_id' = ? AND COALESCE(metadata->>'external_id','') <> '' AND deleted_at IS NULL", source.TenantID, source.KnowledgeBaseID, source.ID).Order("id").First(&old).Error
+			err := db.Where("tenant_id = ? AND knowledge_base_id = ? AND "+
+				"metadata->>'datasource_id' = ? AND COALESCE(metadata->>'external_id',"+
+				"'') <> '' AND deleted_at IS NULL", source.TenantID, source.KnowledgeBaseID, source.ID).
+				Order("id").
+				First(&old).
+				Error
 			if err == gorm.ErrRecordNotFound {
 				t.Skip("source has no retained external knowledge in this snapshot")
 			}
 			require.NoError(t, err)
 			var external string
-			require.NoError(t, db.Raw("SELECT metadata->>'external_id' FROM knowledges WHERE id = ?", old.ID).Scan(&external).Error)
+			require.NoError(
+				t,
+				db.Raw("SELECT metadata->>'external_id' FROM knowledges WHERE id = ?", old.ID).
+					Scan(&external).
+					Error,
+			)
 			fingerprint := func() string {
 				var value string
-				require.NoError(t, db.Raw(`SELECT jsonb_build_object(
-					'knowledge',(SELECT md5(to_jsonb(k)::text)FROM knowledges k WHERE id=?),
-					'chunks',(SELECT md5(string_agg(id::text,',' ORDER BY id))FROM chunks WHERE knowledge_id=?),
-					'embeddings',(SELECT count(*)FROM embeddings WHERE knowledge_id=?))::text`, old.ID, old.ID, old.ID).Scan(&value).Error)
+				require.NoError(
+					t,
+					db.Raw("SELECT jsonb_build_object(\n\t\t\t\t\t'knowledge',(SELECT "+
+						"md5(to_jsonb(k)::text)FROM knowledges k WHERE id=?),"+
+						"\n\t\t\t\t\t'chunks',(SELECT md5(string_agg(id::text,',' ORDER BY "+
+						"id))FROM chunks WHERE knowledge_id=?),\n\t\t\t\t\t'embeddings',"+
+						"(SELECT count(*)FROM embeddings WHERE knowledge_id=?))::text",
+						old.ID, old.ID, old.ID,
+					).Scan(&value).Error,
+				)
 				return value
 			}
 			before := fingerprint()
 			ks := &sweepFakeKS{repo: repository.NewKnowledgeRepository(db)}
 			svc := &DataSourceService{knowledgeService: ks}
 			for i := 0; i < 2; i++ {
-				item := types.FetchedItem{ExternalID: external, FileName: old.FileName, Content: []byte("RC2 synthetic changed revision; never published")}
+				item := types.FetchedItem{
+					ExternalID: external,
+					FileName:   old.FileName,
+					Content:    []byte("RC2 synthetic changed revision; never published"),
+				}
 				updated, err := svc.ingestItem(context.Background(), &source, &item, nil)
 				require.ErrorIs(t, err, ErrFeishuStagingRequired)
 				require.False(t, updated)
 			}
 			require.Empty(t, ks.events, "no replacement, reparse, or deletion permitted")
 			require.Empty(t, ks.deleted)
-			require.Equal(t, before, fingerprint(), "published identity, ACL scope and index rows must survive")
+			require.Equal(
+				t,
+				before,
+				fingerprint(),
+				"published identity, ACL scope and index rows must survive",
+			)
 			result := &types.SyncResult{}
 			originalCursor := string(source.LastSyncCursor)
 			h := newStreamHandler(svc, &source, result, &types.SyncLog{})
-			require.ErrorIs(t, h.Emit(context.Background(), types.FetchedItem{ExternalID: external, FileName: old.FileName, Content: []byte("RC2 synthetic changed revision; never published")}), ErrFeishuStagingRequired)
+			require.ErrorIs(
+				t,
+				h.Emit(
+					context.Background(),
+					types.FetchedItem{
+						ExternalID: external,
+						FileName:   old.FileName,
+						Content:    []byte("RC2 synthetic changed revision; never published"),
+					},
+				),
+				ErrFeishuStagingRequired,
+			)
 			require.Error(t, h.Checkpoint(context.Background(), &types.SyncCursor{}))
 			require.Equal(t, originalCursor, string(source.LastSyncCursor))
 			require.Equal(t, 1, result.Failed)

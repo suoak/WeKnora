@@ -20,9 +20,11 @@ type sourceIDDiagnosticKey struct{}
 
 // Token diagnostics are bounded per process independently of Docker rotation.
 // Exhaustion changes observability only, never authentication or HTTP behavior.
-var sourceIDTokenDiagnosticBytes atomic.Uint64
-var sourceIDDiagnosticWindowStarted atomic.Int64
-var sourceIDDiagnosticLimitNotified atomic.Bool
+var (
+	sourceIDTokenDiagnosticBytes    atomic.Uint64
+	sourceIDDiagnosticWindowStarted atomic.Int64
+	sourceIDDiagnosticLimitNotified atomic.Bool
+)
 
 const sourceIDTokenDiagnosticBudget = 10 * 1024 * 1024
 
@@ -34,7 +36,8 @@ func sourceIDEmitTokenDiagnostic(ctx context.Context, data []byte) {
 	sourceIDDiagnosticWindowStarted.CompareAndSwap(0, now)
 	if now-sourceIDDiagnosticWindowStarted.Load() > 30*60 {
 		if sourceIDDiagnosticLimitNotified.CompareAndSwap(false, true) {
-			logger.Warn(ctx, `{"event":"sourceid_diagnostics_limit","reason":"window_expired"}`)
+			logger.Warn(ctx, "{\"event\":\"sourceid_diagnostics_limit\","+
+				"\"reason\":\"window_expired\"}")
 		}
 		return
 	}
@@ -42,7 +45,7 @@ func sourceIDEmitTokenDiagnostic(ctx context.Context, data []byte) {
 		used := sourceIDTokenDiagnosticBytes.Load()
 		if used+uint64(len(data)) > sourceIDTokenDiagnosticBudget {
 			if sourceIDDiagnosticLimitNotified.CompareAndSwap(false, true) {
-				logger.Warn(ctx, `{"event":"sourceid_diagnostics_limit","reason":"byte_budget"}`)
+				logger.Warn(ctx, "{\"event\":\"sourceid_diagnostics_limit\",\"reason\":\"byte_budget\"}")
 			}
 			return
 		}
@@ -59,9 +62,14 @@ func NewSourceIDDiagnosticContext(ctx context.Context, enabled bool) context.Con
 	if !enabled {
 		return ctx
 	}
-	return context.WithValue(ctx, sourceIDDiagnosticKey{}, sourceIDDiagnosticContext{ID: uuid.NewString(), Started: time.Now()})
+	return context.WithValue(
+		ctx,
+		sourceIDDiagnosticKey{},
+		sourceIDDiagnosticContext{ID: uuid.NewString(), Started: time.Now()},
+	)
 }
 
+// SourceIDDiagnosticStatePassed provides the source iddiagnostic state passed operation.
 // Called only after the handler's state and durable transaction checks pass.
 func SourceIDDiagnosticStatePassed(ctx context.Context) context.Context {
 	entry, ok := ctx.Value(sourceIDDiagnosticKey{}).(sourceIDDiagnosticContext)
@@ -72,7 +80,12 @@ func SourceIDDiagnosticStatePassed(ctx context.Context) context.Context {
 	return context.WithValue(ctx, sourceIDDiagnosticKey{}, entry)
 }
 
-func sourceIDTokenDiagnosticPhase(ctx context.Context, event string, request *OIDCProbeHTTPDiagnostics, transport *sourceIDTokenTelemetry) {
+func sourceIDTokenDiagnosticPhase(
+	ctx context.Context,
+	event string,
+	request *OIDCProbeHTTPDiagnostics,
+	transport *sourceIDTokenTelemetry,
+) {
 	if event != "sourceid_token_request" && event != "sourceid_token_send" {
 		return
 	}
@@ -100,7 +113,9 @@ func sourceIDHTTPDiagnostics(ctx context.Context, report *OIDCProbeReport) {
 	if len(data) <= 32768 {
 		sourceIDEmitTokenDiagnostic(ctx, data)
 	} else {
-		sourceIDEmitTokenDiagnostic(ctx, []byte(`{"event":"sourceid_token_http","diagnostic_suppressed":"size_limit"}`))
+		sourceIDEmitTokenDiagnostic(ctx, []byte(
+			`{"event":"sourceid_token_http","diagnostic_suppressed":"size_limit"}`,
+		))
 	}
 }
 
@@ -152,12 +167,22 @@ func sourceIDSchemaDiagnostic(ctx context.Context, stage string, claims map[stri
 	sourceIDEmitTokenDiagnostic(ctx, data)
 }
 
+// SourceIDDiagnosticStage provides the source iddiagnostic stage operation.
 func SourceIDDiagnosticStage(ctx context.Context, stage string, start time.Time, err error) {
 	entry, ok := ctx.Value(sourceIDDiagnosticKey{}).(sourceIDDiagnosticContext)
 	if !ok {
 		return
 	}
-	allowed := map[string]bool{"authorize": true, "callback_state": true, "token": true, "id_token": true, "userinfo": true, "identity_mapping": true, "local_session": true, "callback_result": true}
+	allowed := map[string]bool{
+		"authorize":        true,
+		"callback_state":   true,
+		"token":            true,
+		"id_token":         true,
+		"userinfo":         true,
+		"identity_mapping": true,
+		"local_session":    true,
+		"callback_result":  true,
+	}
 	if !allowed[stage] {
 		return
 	}
@@ -166,7 +191,21 @@ func SourceIDDiagnosticStage(ctx context.Context, stage string, start time.Time,
 		category = "rejected"
 		// Match only code-owned prefixes. Arbitrary provider/SQL messages are
 		// never emitted, even if they contain a plausible public error string.
-		for prefix, label := range map[string]string{"OIDC token exchange failed: status=401": "token_http_401", "OIDC ID Token nonce mismatch": "nonce_mismatch", "sourceid enrollment requires review": "enrollment_required", "sourceid identity conflict": "identity_conflict", "sourceid employee disabled": "account_disabled", "sourceid employee or session missing": "identity_fields_missing", "OIDC UserInfo subject mismatch": "subject_mismatch"} {
+		for prefix, label := range map[string]string{
+			"OIDC token exchange failed: status=401": "token_http_401",
+
+			"OIDC ID Token nonce mismatch": "nonce_mismatch",
+
+			"sourceid enrollment requires review": "enrollment_required",
+
+			"sourceid identity conflict": "identity_conflict",
+
+			"sourceid employee disabled": "account_disabled",
+
+			"sourceid employee or session missing": "identity_fields_missing",
+
+			"OIDC UserInfo subject mismatch": "subject_mismatch",
+		} {
 			if err.Error() == prefix {
 				category = label
 			}

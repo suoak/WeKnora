@@ -23,6 +23,7 @@ type personalDispatchRunner interface {
 	Dispatchable(context.Context, types.KnowledgeDispatch) (bool, error)
 }
 
+// PersonalRecovery defines personal recovery state.
 // Explicit opt-in: no default replacement of the legacy Knowledge lifecycle.
 // This protocol finishes at a durable private manifest, not a searchable index.
 type PersonalRecovery struct {
@@ -34,17 +35,28 @@ type PersonalRecovery struct {
 	firstCreateOnly bool
 }
 
-func EnablePersonalRecovery(s *FeishuPersonalService, knowledge interfaces.KnowledgeService, shares interfaces.KBShareService, root string) error {
-	if s.db.Dialector.Name() != "postgres" {
+// EnablePersonalRecovery provides the enable personal recovery operation.
+func EnablePersonalRecovery(
+	s *FeishuPersonalService,
+	knowledge interfaces.KnowledgeService,
+	shares interfaces.KBShareService,
+	root string,
+) error {
+	if s.db.Name() != "postgres" {
 		return errors.New("personal fencing protocol requires PostgreSQL")
 	}
-	for _, model := range []any{&types.FeishuPersonalResource{}, &types.FeishuPersonalAttempt{}, &types.FeishuPersonalGrantEpoch{}} {
+	for _, model := range []any{
+		&types.FeishuPersonalResource{},
+		&types.FeishuPersonalAttempt{},
+		&types.FeishuPersonalGrantEpoch{},
+	} {
 		if !s.db.Migrator().HasTable(model) {
 			return errors.New("personal recovery requires migration 3031")
 		}
 	}
-	if !s.db.Migrator().HasColumn(&types.FeishuPersonalImport{}, "auth_mode") || !s.db.Migrator().HasColumn(&types.FeishuPersonalAttempt{}, "application_id") {
-		return errors.New("Feishu identity requires migration 3033")
+	if !s.db.Migrator().HasColumn(&types.FeishuPersonalImport{}, "auth_mode") ||
+		!s.db.Migrator().HasColumn(&types.FeishuPersonalAttempt{}, "application_id") {
+		return errors.New("feishu identity requires migration 3033")
 	}
 	store, err := newPersonalManifestStore(root)
 	if err != nil {
@@ -54,7 +66,13 @@ func EnablePersonalRecovery(s *FeishuPersonalService, knowledge interfaces.Knowl
 	if !ok {
 		return errors.New("personal recovery requires durable knowledge dispatcher")
 	}
-	p := &PersonalRecovery{service: s, repo: repository.NewPersonalRecoveryRepository(s.db), store: store, shares: shares, lease: 30 * time.Second}
+	p := &PersonalRecovery{
+		service: s,
+		repo:    repository.NewPersonalRecoveryRepository(s.db),
+		store:   store,
+		shares:  shares,
+		lease:   30 * time.Second,
+	}
 	p.firstCreateOnly = os.Getenv("FEISHU_PERSONAL_MVP_FIRST_CREATE") == "1"
 	if applicationGrantEnabled() && (!p.firstCreateOnly || !applicationGrantEngineAvailable()) {
 		return errors.New("application grant requires first-create and native anydoc engine")
@@ -68,14 +86,27 @@ func EnablePersonalRecovery(s *FeishuPersonalService, knowledge interfaces.Knowl
 
 // Restore a new context from the original user; no task/admin grant is inherited.
 // Tenant membership and KB ownership are live checks, not payload assertions.
-func (p *PersonalRecovery) authorizeLocal(ctx context.Context, m *types.FeishuPersonalImport, a *types.FeishuPersonalAttempt) (context.Context, *FeishuAppConfig, error) {
+func (p *PersonalRecovery) authorizeLocal(
+	ctx context.Context,
+	m *types.FeishuPersonalImport,
+	a *types.FeishuPersonalAttempt,
+) (context.Context, *FeishuAppConfig, error) {
 	db := p.service.db.WithContext(ctx)
 	var user types.User
 	if err := db.Where("id = ? AND is_active = ?", m.UserID, true).First(&user).Error; err != nil {
 		return nil, nil, personalAccessError(err)
 	}
 	var member types.TenantMember
-	if err := db.Where("user_id = ? AND tenant_id = ? AND status = ?", m.UserID, a.CallerTenantID, types.TenantMemberStatusActive).First(&member).Error; err != nil {
+	if err := db.Where(
+		"user_id = ? AND tenant_id = ? AND status = ?",
+		m.UserID,
+		a.CallerTenantID,
+		types.TenantMemberStatusActive,
+	).
+		First(
+			&member,
+		).
+		Error; err != nil {
 		return nil, nil, personalAccessError(err)
 	}
 	if !member.Role.HasPermission(types.TenantRoleContributor) {
@@ -89,16 +120,23 @@ func (p *PersonalRecovery) authorizeLocal(ctx context.Context, m *types.FeishuPe
 	if err := db.Where("id = ?", m.KBID).First(&kb).Error; err != nil {
 		return nil, nil, personalAccessError(err)
 	}
-	if kb.TenantID == member.TenantID && !member.Role.HasPermission(types.TenantRoleAdmin) && kb.CreatorID != user.ID {
-		return nil, nil, access.ErrForbidden
-	}
+	// The canonical KB resolver below is the write authority, just as at the
+	// product route. Requiring creator/admin here would reject an otherwise
+	// authorized contributor before duplicate detection or background recovery.
 	caller := types.Caller{TenantID: member.TenantID, UserID: user.ID, Role: member.Role}
 	// Replace inherited caller/grants, then let the canonical resolver issue a
 	// fresh grant. Incoming task contexts have no user authority whatsoever.
 	fresh := context.WithValue(ctx, types.KBGrantsContextKey, nil)
 	fresh = types.WithCaller(fresh, caller)
 	fresh = context.WithValue(fresh, types.UserIDContextKey, user.ID)
-	grant, err := access.ResolveKB(fresh, access.KBRequest{Caller: caller}, &kb, types.OrgRoleEditor, p.shares, nil)
+	grant, err := access.ResolveKB(
+		fresh,
+		access.KBRequest{Caller: caller},
+		&kb,
+		types.OrgRoleEditor,
+		p.shares,
+		nil,
+	)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -110,13 +148,19 @@ func (p *PersonalRecovery) authorizeLocal(ctx context.Context, m *types.FeishuPe
 	if err != nil {
 		return nil, nil, err
 	}
-	if !cfg.Enabled || cfg.Version != a.AppConfigVersion || cfg.AppID != m.AppID || types.FeishuAuthMode(cfg.AuthMode) != types.FeishuAuthMode(m.AuthMode) || types.FeishuAuthMode(a.AuthMode) != types.FeishuAuthMode(m.AuthMode) {
+	if !cfg.Enabled || cfg.Version != a.AppConfigVersion || cfg.AppID != m.AppID ||
+		types.FeishuAuthMode(cfg.AuthMode) != types.FeishuAuthMode(m.AuthMode) ||
+		types.FeishuAuthMode(a.AuthMode) != types.FeishuAuthMode(m.AuthMode) {
 		return nil, nil, repository.ErrPersonalIdentity
 	}
 	return fresh, cfg, nil
 }
 
-func (p *PersonalRecovery) authorize(ctx context.Context, m *types.FeishuPersonalImport, a *types.FeishuPersonalAttempt) (context.Context, error) {
+func (p *PersonalRecovery) authorize(
+	ctx context.Context,
+	m *types.FeishuPersonalImport,
+	a *types.FeishuPersonalAttempt,
+) (context.Context, error) {
 	fresh, cfg, err := p.authorizeLocal(ctx, m, a)
 	if err != nil {
 		return nil, err
@@ -136,7 +180,16 @@ func (p *PersonalRecovery) authorize(ctx context.Context, m *types.FeishuPersona
 		return nil, err
 	}
 	var connection types.FeishuConnection
-	if err = db.Where("user_id = ? AND app_id = ? AND open_id = ?", m.UserID, m.AppID, m.OpenID).First(&connection).Error; err != nil {
+	if err = db.Where(
+		"user_id = ? AND app_id = ? AND open_id = ?",
+		m.UserID,
+		m.AppID,
+		m.OpenID,
+	).
+		First(
+			&connection,
+		).
+		Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrFeishuReconnect
 		}
@@ -144,7 +197,8 @@ func (p *PersonalRecovery) authorize(ctx context.Context, m *types.FeishuPersona
 	}
 
 	var tokens feishuTokens
-	if err := openFeishu(connection.Tokens, &tokens); err != nil || tokens.UserID != m.UserID || tokens.Access == "" {
+	if err := openFeishu(connection.Tokens, &tokens); err != nil || tokens.UserID != m.UserID ||
+		tokens.Access == "" {
 		return nil, ErrFeishuReconnect
 	}
 	if !connection.ExpiresAt.After(time.Now()) && !connection.RefreshExpiresAt.After(time.Now()) {
@@ -157,7 +211,18 @@ func (p *PersonalRecovery) authorize(ctx context.Context, m *types.FeishuPersona
 		}
 
 		var current types.FeishuPersonalGrantEpoch
-		if err := p.service.db.WithContext(call).Where("user_id = ? AND epoch = ?", m.UserID, a.GrantEpoch).First(&current).Error; err != nil {
+		if err := p.service.db.WithContext(
+			call,
+		).
+			Where(
+				"user_id = ? AND epoch = ?",
+				m.UserID,
+				a.GrantEpoch,
+			).
+			First(
+				&current,
+			).
+			Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return "", ErrFeishuReconnect
 			}
@@ -167,7 +232,10 @@ func (p *PersonalRecovery) authorize(ctx context.Context, m *types.FeishuPersona
 	}), nil
 }
 
-func (p *PersonalRecovery) prepare(ctx context.Context, kbID, rawURL string) (*types.FeishuPersonalImport, error) {
+func (p *PersonalRecovery) prepare(
+	ctx context.Context,
+	kbID, rawURL string,
+) (*types.FeishuPersonalImport, error) {
 	user, ok := types.UserIDFromContext(ctx)
 	if !ok {
 		return nil, access.ErrUnauthorized
@@ -184,17 +252,43 @@ func (p *PersonalRecovery) prepare(ctx context.Context, kbID, rawURL string) (*t
 		return nil, err
 	}
 	mode := types.FeishuAuthMode(cfg.AuthMode)
-	m := types.FeishuPersonalImport{ID: uuid.NewString(), AuthMode: mode, UserID: user, AppID: cfg.AppID, KBID: kbID, URL: rawURL, Status: "accepted", UpdatedAt: time.Now()}
-	a := types.FeishuPersonalAttempt{AuthMode: mode, CallerTenantID: types.CallerFromContext(ctx).TenantID, AppConfigVersion: cfg.Version}
-	if mode == types.FeishuApplicationGrant {
-		if !applicationUserAllowed(types.IsSystemAdminFromContext(ctx)) || !applicationKBAllowed(kbID) || !p.firstCreateOnly {
+	m := types.FeishuPersonalImport{
+		ID:        uuid.NewString(),
+		AuthMode:  mode,
+		UserID:    user,
+		AppID:     cfg.AppID,
+		KBID:      kbID,
+		URL:       rawURL,
+		Status:    "accepted",
+		UpdatedAt: time.Now(),
+	}
+	a := types.FeishuPersonalAttempt{
+		AuthMode:         mode,
+		CallerTenantID:   types.CallerFromContext(ctx).TenantID,
+		AppConfigVersion: cfg.Version,
+	}
+	switch mode {
+	case types.FeishuApplicationGrant:
+		if !applicationUserAllowed(types.IsSystemAdminFromContext(ctx)) || !applicationKBAllowed(kbID) ||
+			!p.firstCreateOnly {
 			return nil, ErrFeishuApplicationRestricted
 		}
 		m.ApplicationID = cfg.AppID
 		a.ApplicationID = cfg.AppID
-	} else if mode == types.FeishuUserOAuth {
+	case types.FeishuUserOAuth:
 		var connection types.FeishuConnection
-		if err = p.service.db.WithContext(ctx).Where("user_id = ? AND app_id = ?", user, cfg.AppID).First(&connection).Error; err != nil {
+		if err = p.service.db.WithContext(
+			ctx,
+		).
+			Where(
+				"user_id = ? AND app_id = ?",
+				user,
+				cfg.AppID,
+			).
+			First(
+				&connection,
+			).
+			Error; err != nil {
 			return nil, ErrFeishuReconnect
 		}
 		var epoch types.FeishuPersonalGrantEpoch
@@ -203,7 +297,7 @@ func (p *PersonalRecovery) prepare(ctx context.Context, kbID, rawURL string) (*t
 		}
 		m.OpenID = connection.OpenID
 		a.GrantEpoch = epoch.Epoch
-	} else {
+	default:
 		return nil, repository.ErrPersonalIdentity
 	}
 
@@ -237,7 +331,11 @@ func (p *PersonalRecovery) prepare(ctx context.Context, kbID, rawURL string) (*t
 
 	if ks, ok := p.service.knowledge.(*knowledgeService); ok {
 		if dispatch, ok := ks.repo.(interfaces.KnowledgeDispatchRepository); ok {
-			if op, loadErr := dispatch.GetKnowledgeDispatch(ctx, accepted.CallerTenantID, accepted.CandidateVersionID); loadErr == nil {
+			if op, loadErr := dispatch.GetKnowledgeDispatch(
+				ctx,
+				accepted.CallerTenantID,
+				accepted.CandidateVersionID,
+			); loadErr == nil {
 				_ = ks.publishKnowledgeDispatch(ctx, op)
 			}
 		}
@@ -246,15 +344,24 @@ func (p *PersonalRecovery) prepare(ctx context.Context, kbID, rawURL string) (*t
 	return &m, nil
 }
 
+// Dispatchable provides the dispatchable operation.
 func (p *PersonalRecovery) Dispatchable(ctx context.Context, intent types.KnowledgeDispatch) (bool, error) {
 	m, r, a, err := p.repo.Load(ctx, intent.AttemptID)
 	if err != nil {
 		return false, err
 	}
-	if intent.PayloadVersion != manifestPayloadVersion(m) || !applicationPayloadMatches(m, intent.Task) || intent.Task.PersonalAttemptID != a.ID || intent.Task.CandidateVersionID != a.CandidateVersionID || intent.Task.KnowledgeID != a.CandidateVersionID || intent.Task.TenantID != a.CallerTenantID || intent.Task.KnowledgeBaseID != m.KBID || intent.SourceID != m.ID || intent.Revision != a.Revision {
+	if intent.PayloadVersion != manifestPayloadVersion(m) || !applicationPayloadMatches(m, intent.Task) ||
+		intent.Task.PersonalAttemptID != a.ID ||
+		intent.Task.CandidateVersionID != a.CandidateVersionID ||
+		intent.Task.KnowledgeID != a.CandidateVersionID ||
+		intent.Task.TenantID != a.CallerTenantID ||
+		intent.Task.KnowledgeBaseID != m.KBID ||
+		intent.SourceID != m.ID ||
+		intent.Revision != a.Revision {
 		return false, repository.ErrPersonalIdentity
 	}
-	if r.CurrentAttemptID != a.ID || a.Status == "awaiting_index_isolation" || a.Status == "obsolete" || a.Status == "needs_attention" {
+	if r.CurrentAttemptID != a.ID || a.Status == "awaiting_index_isolation" || a.Status == "obsolete" ||
+		a.Status == "needs_attention" {
 		return false, nil
 	}
 	if a.RetryAfter != nil && a.RetryAfter.After(time.Now()) {
@@ -266,13 +373,17 @@ func (p *PersonalRecovery) Dispatchable(ctx context.Context, intent types.Knowle
 	_, err = p.authorize(ctx, m, a)
 	if err != nil {
 		if personalAuthorizationLost(err) {
-			return false, errors.Join(err, p.repo.Invalidate(ctx, a.ID, "authorization_revalidation_failed"))
+			return false, errors.Join(
+				err,
+				p.repo.Invalidate(ctx, a.ID, "authorization_revalidation_failed"),
+			)
 		}
 		return false, err
 	}
 	return true, nil
 }
 
+// Process provides the process operation.
 func (p *PersonalRecovery) Process(ctx context.Context, payload types.DocumentProcessPayload) error {
 	m, _, _, err := p.repo.Load(ctx, payload.PersonalAttemptID)
 	if err != nil {
@@ -290,15 +401,23 @@ func (p *PersonalRecovery) Process(ctx context.Context, payload types.DocumentPr
 	return p.processPrivateManifest(ctx, payload)
 }
 
-func (p *PersonalRecovery) processPrivateManifest(ctx context.Context, payload types.DocumentProcessPayload) error {
+func (p *PersonalRecovery) processPrivateManifest(
+	ctx context.Context,
+	payload types.DocumentProcessPayload,
+) error {
 	m, resource, a, err := p.repo.Load(ctx, payload.PersonalAttemptID)
 	if err != nil {
 		return err
 	}
-	if payload.CandidateVersionID != a.CandidateVersionID || payload.KnowledgeID != a.CandidateVersionID || payload.TenantID != a.CallerTenantID || payload.KnowledgeBaseID != m.KBID || payload.DispatchID != "personal-"+a.ID {
+	if payload.CandidateVersionID != a.CandidateVersionID || payload.KnowledgeID != a.CandidateVersionID ||
+		payload.TenantID != a.CallerTenantID ||
+		payload.KnowledgeBaseID != m.KBID ||
+		payload.DispatchID != "personal-"+a.ID {
 		return repository.ErrPersonalIdentity
 	}
-	if resource.CurrentAttemptID != a.ID || a.Status == "awaiting_index_isolation" || a.Status == "obsolete" || a.Status == "needs_attention" {
+	if resource.CurrentAttemptID != a.ID || a.Status == "awaiting_index_isolation" ||
+		a.Status == "obsolete" ||
+		a.Status == "needs_attention" {
 		return nil
 	}
 	remote, err := p.authorize(ctx, m, a)
@@ -316,7 +435,8 @@ func (p *PersonalRecovery) processPrivateManifest(ctx context.Context, payload t
 		return err
 	}
 	fetchTimeout := 2 * time.Minute
-	if types.FeishuAuthMode(m.AuthMode) == types.FeishuApplicationGrant && (m.ResourceType == "sheet" || m.ResourceType == "bitable") {
+	if types.FeishuAuthMode(m.AuthMode) == types.FeishuApplicationGrant &&
+		(m.ResourceType == "sheet" || m.ResourceType == "bitable") {
 		fetchTimeout = 15 * time.Minute
 	}
 	work, cancel := context.WithTimeout(remote, fetchTimeout)
@@ -350,32 +470,52 @@ func (p *PersonalRecovery) processPrivateManifest(ctx context.Context, payload t
 	if finishErr != nil {
 		cleanup, stop := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer stop()
-		if _, authErr := p.authorize(cleanup, m, a); personalAuthorizationLost(authErr) || personalAuthorizationLost(finishErr) {
+		if _, authErr := p.authorize(cleanup, m, a); personalAuthorizationLost(authErr) ||
+			personalAuthorizationLost(finishErr) {
 			category := "authorization_revalidation_failed"
 			if errors.Is(finishErr, core.ErrApplicationTableMedia) {
 				category = "candidate_media_not_supported"
-			} else if errors.Is(finishErr, core.ErrApplicationTableIncomplete) || errors.Is(finishErr, ErrFeishuIncompleteContent) {
+			} else if errors.Is(
+				finishErr,
+				core.ErrApplicationTableIncomplete,
+			) ||
+				errors.Is(
+					finishErr,
+					ErrFeishuIncompleteContent,
+				) {
 				category = "candidate_content_incomplete"
 			}
 			return errors.Join(finishErr, p.repo.Invalidate(cleanup, a.ID, category))
 		}
-		persistErr := p.mutate(cleanup, owner, 0, func(tx *gorm.DB, current *types.FeishuPersonalAttempt) error {
-			current.Status = "recovery"
-			current.RetryCount++
-			delay := time.Duration(1<<min(current.RetryCount, 8)) * time.Second
-			next := time.Now().Add(delay)
-			current.RetryAfter = &next
-			current.LeaseUntil = nil
-			current.OwnerNonce = ""
-			current.LastErrorCategory = "candidate_fetch_or_commit_unconfirmed"
-			return tx.Model(&types.TaskPendingOp{}).Where("scope = ? AND scope_id = ?", types.KnowledgeDispatchScope, current.CandidateVersionID).Update("op", "recovery").Error
-		})
+		persistErr := p.mutate(
+			cleanup,
+			owner,
+			0,
+			func(tx *gorm.DB, current *types.FeishuPersonalAttempt) error {
+				current.Status = "recovery"
+				current.RetryCount++
+				delay := time.Duration(1<<min(current.RetryCount, 8)) * time.Second
+				next := time.Now().Add(delay)
+				current.RetryAfter = &next
+				current.LeaseUntil = nil
+				current.OwnerNonce = ""
+				current.LastErrorCategory = "candidate_fetch_or_commit_unconfirmed"
+				return tx.Model(&types.TaskPendingOp{}).
+					Where("scope = ? AND scope_id = ?", types.KnowledgeDispatchScope, current.CandidateVersionID).
+					Update("op", "recovery").
+					Error
+			},
+		)
 		return errors.Join(finishErr, persistErr)
 	}
 	return nil
 }
 
-func (p *PersonalRecovery) fetchCandidate(ctx context.Context, m *types.FeishuPersonalImport, owner *types.FeishuPersonalAttempt) error {
+func (p *PersonalRecovery) fetchCandidate(
+	ctx context.Context,
+	m *types.FeishuPersonalImport,
+	owner *types.FeishuPersonalAttempt,
+) error {
 	// A planned path is committed before any external write. If a prior owner
 	// published it, ownership+hash validation adopts it without downloading again.
 	var manifest *personalManifest
@@ -388,7 +528,12 @@ func (p *PersonalRecovery) fetchCandidate(ctx context.Context, m *types.FeishuPe
 	}
 	if manifest == nil {
 		key := fmt.Sprintf("%s/%s/f%d", owner.ID, owner.CandidateVersionID, owner.Fence)
-		if err = p.mutate(ctx, owner, p.lease, func(tx *gorm.DB, current *types.FeishuPersonalAttempt) error { current.ManifestKey = key; return nil }); err != nil {
+		if err = p.mutate(
+			ctx,
+			owner,
+			p.lease,
+			func(_ *gorm.DB, current *types.FeishuPersonalAttempt) error { current.ManifestKey = key; return nil },
+		); err != nil {
 			return err
 		}
 		owner.ManifestKey = key
@@ -436,7 +581,8 @@ func (p *PersonalRecovery) fetchCandidate(ctx context.Context, m *types.FeishuPe
 		if verifyErr != nil {
 			return verifyErr
 		}
-		if verified.Modified != owner.Revision || verified.Type != m.ResourceType || verified.Token != m.DocumentToken {
+		if verified.Modified != owner.Revision || verified.Type != m.ResourceType ||
+			verified.Token != m.DocumentToken {
 			return errors.New("personal_resource_revision_changed_during_fetch")
 		}
 		if ctx.Err() != nil {
@@ -464,13 +610,28 @@ func (p *PersonalRecovery) fetchCandidate(ctx context.Context, m *types.FeishuPe
 		current.LeaseUntil = nil
 		current.OwnerNonce = ""
 		current.LastErrorCategory = ""
-		if err := tx.Model(&types.FeishuPersonalImport{}).Where("id = ?", m.ID).Update("status", current.Status).Error; err != nil {
+		if err := tx.Model(
+			&types.FeishuPersonalImport{},
+		).
+			Where(
+				"id = ?",
+				m.ID,
+			).
+			Update(
+				"status",
+				current.Status,
+			).
+			Error; err != nil {
 			return err
 		}
-		return tx.Model(&types.TaskPendingOp{}).Where("scope = ? AND scope_id = ?", types.KnowledgeDispatchScope, current.CandidateVersionID).Update("op", "completed").Error
+		return tx.Model(&types.TaskPendingOp{}).
+			Where("scope = ? AND scope_id = ?", types.KnowledgeDispatchScope, current.CandidateVersionID).
+			Update("op", "completed").
+			Error
 	})
 }
 
+// Reconcile provides the reconcile operation.
 func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 	var after string
 	var failures []error
@@ -494,7 +655,10 @@ func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 
 			if err != nil {
 				if personalAuthorizationLost(err) || errors.Is(err, gorm.ErrRecordNotFound) {
-					failures = append(failures, p.repo.Invalidate(ctx, a.ID, "authorization_or_resource_missing"))
+					failures = append(
+						failures,
+						p.repo.Invalidate(ctx, a.ID, "authorization_or_resource_missing"),
+					)
 				} else {
 					failures = append(failures, err)
 				}
@@ -530,32 +694,96 @@ func personalAccessError(err error) error {
 	}
 	return err
 }
+
 func personalAuthorizationLost(err error) bool {
-	return errors.Is(err, core.ErrApplicationTableIncomplete) || errors.Is(err, core.ErrApplicationTableMedia) || errors.Is(err, ErrFeishuApplicationRestricted) || errors.Is(err, ErrFeishuIncompleteContent) || errors.Is(err, core.ErrApplicationIncompleteContent) || errors.Is(err, access.ErrForbidden) || errors.Is(err, access.ErrNotFound) || errors.Is(err, ErrFeishuReconnect) || errors.Is(err, repository.ErrPersonalIdentity) || errors.Is(err, core.ErrAuth) || errors.Is(err, core.ErrPermission) || errors.Is(err, core.ErrNotFound)
+	return errors.Is(err, core.ErrApplicationTableIncomplete) ||
+		errors.Is(err, core.ErrApplicationTableMedia) ||
+		errors.Is(err, ErrFeishuApplicationRestricted) ||
+		errors.Is(err, ErrFeishuIncompleteContent) ||
+		errors.Is(err, core.ErrApplicationIncompleteContent) ||
+		errors.Is(err, access.ErrForbidden) ||
+		errors.Is(err, access.ErrNotFound) ||
+		errors.Is(err, ErrFeishuReconnect) ||
+		errors.Is(err, repository.ErrPersonalIdentity) ||
+		errors.Is(err, core.ErrAuth) ||
+		errors.Is(err, core.ErrPermission) ||
+		errors.Is(err, core.ErrNotFound)
 }
 
 // Recheck local authorization at every fenced DB commit, including heartbeat.
 // SHARE locks keep a concurrent local revocation from committing between this
 // check and the state write. No Feishu/Redis/model request occurs in this tx.
-func (p *PersonalRecovery) mutate(ctx context.Context, owner *types.FeishuPersonalAttempt, lease time.Duration, fn func(*gorm.DB, *types.FeishuPersonalAttempt) error) error {
+func (p *PersonalRecovery) mutate(
+	ctx context.Context,
+	owner *types.FeishuPersonalAttempt,
+	lease time.Duration,
+	fn func(*gorm.DB, *types.FeishuPersonalAttempt) error,
+) error {
 	return p.repo.Mutate(ctx, owner, lease, func(tx *gorm.DB, a *types.FeishuPersonalAttempt) error {
 		var m types.FeishuPersonalImport
 		if err := tx.Where("id = ?", a.ImportID).First(&m).Error; err != nil {
 			return personalAccessError(err)
 		}
 		var user types.User
-		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ? AND is_active = ?", m.UserID, true).First(&user).Error; err != nil {
+		if err := tx.Clauses(
+			clause.Locking{
+				Strength: "SHARE",
+			},
+		).
+			Where(
+				"id = ? AND is_active = ?",
+
+				m.UserID,
+
+				true,
+			).
+			First(
+				&user,
+			).
+			Error; err != nil {
 			return personalAccessError(err)
 		}
 		var member types.TenantMember
-		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("user_id = ? AND tenant_id = ? AND status = ?", m.UserID, a.CallerTenantID, types.TenantMemberStatusActive).First(&member).Error; err != nil {
+		if err := tx.Clauses(
+			clause.Locking{
+				Strength: "SHARE",
+			},
+		).
+			Where(
+				"user_id = ? AND tenant_id = ? AND status = ?",
+
+				m.UserID,
+
+				a.CallerTenantID,
+
+				types.TenantMemberStatusActive,
+			).
+			First(
+				&member,
+			).
+			Error; err != nil {
 			return personalAccessError(err)
 		}
 		if !member.Role.HasPermission(types.TenantRoleContributor) {
 			return access.ErrForbidden
 		}
 		var tenant types.Tenant
-		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ? AND status = ?", a.CallerTenantID, "active").First(&tenant).Error; err != nil {
+		if err := tx.Clauses(
+			clause.Locking{
+				Strength: "SHARE",
+			},
+		).
+			Where(
+				"id = ? AND status = ?",
+
+				a.CallerTenantID,
+
+				"active",
+			).
+			First(
+				&tenant,
+			).
+			Error; err != nil {
 			return personalAccessError(err)
 		}
 		var kb types.KnowledgeBase
@@ -579,7 +807,20 @@ func (p *PersonalRecovery) mutate(ctx context.Context, owner *types.FeishuPerson
 			}
 		}
 		var setting types.SystemSetting
-		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("key = ?", feishuAppSetting).First(&setting).Error; err != nil {
+		if err := tx.Clauses(
+			clause.Locking{
+				Strength: "SHARE",
+			},
+		).
+			Where(
+				"key = ?",
+
+				feishuAppSetting,
+			).
+			First(
+				&setting,
+			).
+			Error; err != nil {
 			return personalAccessError(err)
 		}
 		cipher, err := setting.AsString()
@@ -590,10 +831,13 @@ func (p *PersonalRecovery) mutate(ctx context.Context, owner *types.FeishuPerson
 		if err = openFeishu(cipher, &cfg); err != nil {
 			return err
 		}
-		if !cfg.Enabled || cfg.Version != a.AppConfigVersion || cfg.AppID != m.AppID || types.FeishuAuthMode(cfg.AuthMode) != types.FeishuAuthMode(m.AuthMode) || types.FeishuAuthMode(a.AuthMode) != types.FeishuAuthMode(m.AuthMode) {
+		if !cfg.Enabled || cfg.Version != a.AppConfigVersion || cfg.AppID != m.AppID ||
+			types.FeishuAuthMode(cfg.AuthMode) != types.FeishuAuthMode(m.AuthMode) ||
+			types.FeishuAuthMode(a.AuthMode) != types.FeishuAuthMode(m.AuthMode) {
 			return repository.ErrPersonalIdentity
 		}
-		if types.FeishuAuthMode(m.AuthMode) == types.FeishuApplicationGrant && (!applicationUserAllowed(user.IsSystemAdmin) || !applicationKBAllowed(m.KBID)) {
+		if types.FeishuAuthMode(m.AuthMode) == types.FeishuApplicationGrant &&
+			(!applicationUserAllowed(user.IsSystemAdmin) || !applicationKBAllowed(m.KBID)) {
 			return ErrFeishuApplicationRestricted
 		}
 		if fn != nil {

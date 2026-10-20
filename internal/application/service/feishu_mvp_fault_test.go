@@ -31,11 +31,20 @@ func newMVPFixture(t *testing.T) *personalRecoveryFixture {
 	f.ks.chunkRepo = repository.NewChunkRepository(f.db)
 	return f
 }
-func mvpPublicTask(t *testing.T, f *personalRecoveryFixture, m *types.FeishuPersonalImport) (*types.Knowledge, *types.TaskPendingOp, types.DocumentProcessPayload) {
+
+func mvpPublicTask(
+	t *testing.T,
+	f *personalRecoveryFixture,
+	m *types.FeishuPersonalImport,
+) (*types.Knowledge, *types.TaskPendingOp, types.DocumentProcessPayload) {
 	t.Helper()
 	var k types.Knowledge
 	require.NoError(t, f.db.Where("id = ?", m.LogicalKnowledgeID).First(&k).Error)
-	op, err := f.ks.repo.(interfaces.KnowledgeDispatchRepository).GetKnowledgeDispatch(f.ctx, k.TenantID, k.ID)
+	op, err := f.ks.repo.(interfaces.KnowledgeDispatchRepository).GetKnowledgeDispatch(
+		f.ctx,
+		k.TenantID,
+		k.ID,
+	)
 	require.NoError(t, err)
 	var intent types.KnowledgeDispatch
 	require.NoError(t, json.Unmarshal(op.Payload, &intent))
@@ -49,6 +58,7 @@ func mvpPublicTask(t *testing.T, f *personalRecoveryFixture, m *types.FeishuPers
 	require.NotEqual(t, intent.Task.KnowledgeID, intent.Task.CandidateVersionID)
 	return &k, op, intent.Task
 }
+
 func mvpAssertSingle(t *testing.T, f *personalRecoveryFixture, m *types.FeishuPersonalImport) {
 	t.Helper()
 	var n int64
@@ -67,7 +77,12 @@ func mvpAssertSingle(t *testing.T, f *personalRecoveryFixture, m *types.FeishuPe
 }
 
 func TestMVPFirstCreateIdempotencyPostgres(t *testing.T) {
-	for _, scenario := range []string{"same_revision_and_changed_revision", "two_users_shared_resource", "concurrent_same_user", "partial_chunks_preserved"} {
+	for _, scenario := range []string{
+		"same_revision_and_changed_revision",
+		"two_users_shared_resource",
+		"concurrent_same_user",
+		"partial_chunks_preserved",
+	} {
 		t.Run(scenario, func(t *testing.T) {
 			f := newMVPFixture(t)
 			m := f.prepare("https://tenant.feishu.cn/file/real")
@@ -86,7 +101,10 @@ func TestMVPFirstCreateIdempotencyPostgres(t *testing.T) {
 				_, err := f.s.Import(f.userContext("B"), "kb", "https://tenant.feishu.cn/file/real")
 				require.ErrorIs(t, err, repository.ErrPersonalAlreadyImported)
 				var n int64
-				require.NoError(t, f.db.Model(&types.FeishuPersonalImport{}).Where("user_id = ?", "B").Count(&n).Error)
+				require.NoError(
+					t,
+					f.db.Model(&types.FeishuPersonalImport{}).Where("user_id = ?", "B").Count(&n).Error,
+				)
 				require.Zero(t, n)
 			case "concurrent_same_user":
 				var wg sync.WaitGroup
@@ -108,7 +126,15 @@ func TestMVPFirstCreateIdempotencyPostgres(t *testing.T) {
 					require.NoError(t, err)
 				}
 			case "partial_chunks_preserved":
-				c := &types.Chunk{ID: "partial", TenantID: k.TenantID, KnowledgeID: k.ID, KnowledgeBaseID: k.KnowledgeBaseID, Content: "must survive unknown indexing", IsEnabled: true, ChunkType: types.ChunkTypeText}
+				c := &types.Chunk{
+					ID:              "partial",
+					TenantID:        k.TenantID,
+					KnowledgeID:     k.ID,
+					KnowledgeBaseID: k.KnowledgeBaseID,
+					Content:         "must survive unknown indexing",
+					IsEnabled:       true,
+					ChunkType:       types.ChunkTypeText,
+				}
 				require.NoError(t, f.db.Create(c).Error)
 				b, _ := json.Marshal(task)
 				require.NoError(t, f.ks.ProcessDocument(f.ctx, asynq.NewTask(types.TypeDocumentProcess, b)))
@@ -138,6 +164,7 @@ func (p mvpBridgeFaultPool) BeginTx(ctx context.Context, opts *sql.TxOptions) (g
 	tx, err := p.DB.BeginTx(ctx, opts)
 	return &mvpBridgeFaultTx{tx, p.mode}, err
 }
+
 func (t mvpBridgeFaultTx) Commit() error {
 	var count int
 	if err := t.Tx.QueryRow("SELECT count(*) FROM knowledges").Scan(&count); err != nil {
@@ -151,36 +178,47 @@ func (t mvpBridgeFaultTx) Commit() error {
 			}
 			return context.DeadlineExceeded
 		case 2:
-			_ = t.Tx.Rollback()
+			_ = t.Rollback()
 			return errors.New("injected rollback before public admission")
 		}
 	}
 	return t.Tx.Commit()
 }
+
 func TestMVPFirstCreateCommitUnknownPostgres(t *testing.T) {
 	for _, mode := range []int32{1, 2} {
-		t.Run(map[int32]string{1: "commit_ack_lost", 2: "rollback_then_same_kid_retry"}[mode], func(t *testing.T) {
-			f := newMVPFixture(t)
-			m := f.prepare("https://tenant.feishu.cn/file/real")
-			pool, err := f.db.DB()
-			require.NoError(t, err)
-			fault := &atomic.Int32{}
-			fault.Store(mode)
-			faultDB, err := gorm.Open(postgres.New(postgres.Config{Conn: mvpBridgeFaultPool{pool, fault}}), &gorm.Config{})
-			require.NoError(t, err)
-			f.s.db = faultDB
-			f.p.repo = repository.NewPersonalRecoveryRepository(faultDB)
-			f.p.repo.FirstCreateOnly = true
-			err = f.p.Process(f.ctx, f.payload(m.AttemptID))
-			if mode == 1 {
+		t.Run(
+			map[int32]string{1: "commit_ack_lost", 2: "rollback_then_same_kid_retry"}[mode],
+			func(t *testing.T) {
+				f := newMVPFixture(t)
+				m := f.prepare("https://tenant.feishu.cn/file/real")
+				pool, err := f.db.DB()
 				require.NoError(t, err)
-			} else {
-				require.Error(t, err)
-				require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET retry_after = clock_timestamp() - interval '1 second' WHERE id = ?", m.AttemptID).Error)
-				require.NoError(t, f.p.Process(f.ctx, f.payload(m.AttemptID)))
-			}
-			mvpAssertSingle(t, f, m)
-		})
+				fault := &atomic.Int32{}
+				fault.Store(mode)
+				faultDB, err := gorm.Open(
+					postgres.New(postgres.Config{Conn: mvpBridgeFaultPool{pool, fault}}),
+					&gorm.Config{},
+				)
+				require.NoError(t, err)
+				f.s.db = faultDB
+				f.p.repo = repository.NewPersonalRecoveryRepository(faultDB)
+				f.p.repo.FirstCreateOnly = true
+				err = f.p.Process(f.ctx, f.payload(m.AttemptID))
+				if mode == 1 {
+					require.NoError(t, err)
+				} else {
+					require.Error(t, err)
+					require.NoError(t, f.db.Exec(
+						"UPDATE feishu_personal_attempts SET retry_after = "+
+							"clock_timestamp() - interval '1 second' WHERE id = ?",
+						m.AttemptID,
+					).Error)
+					require.NoError(t, f.p.Process(f.ctx, f.payload(m.AttemptID)))
+				}
+				mvpAssertSingle(t, f, m)
+			},
+		)
 	}
 }
 
@@ -192,10 +230,17 @@ func TestMVPFirstCreateRedisRecoveryUsesOriginalKnowledge(t *testing.T) {
 	require.Equal(t, "knowhub-p1-dispatch-redis-20261018:6379", addr)
 	f := newMVPFixture(t)
 	rdb := redis.NewClient(&redis.Options{Addr: addr})
-	defer rdb.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(rdb.Close)
 	require.NoError(t, rdb.FlushDB(f.ctx).Err())
-	down := asynq.NewClient(asynq.RedisClientOpt{Addr: "127.0.0.1:1", DialTimeout: 50 * time.Millisecond, ReadTimeout: 50 * time.Millisecond, WriteTimeout: 50 * time.Millisecond})
-	defer down.Close()
+	down := asynq.NewClient(
+		asynq.RedisClientOpt{
+			Addr:         "127.0.0.1:1",
+			DialTimeout:  50 * time.Millisecond,
+			ReadTimeout:  50 * time.Millisecond,
+			WriteTimeout: 50 * time.Millisecond,
+		},
+	)
+	defer func(cleanup func() error) { _ = cleanup() }(down.Close)
 	q := &dispatchActualQueue{client: down}
 	f.ks.task = q
 	m := f.prepare("https://tenant.feishu.cn/file/real")
@@ -204,18 +249,39 @@ func TestMVPFirstCreateRedisRecoveryUsesOriginalKnowledge(t *testing.T) {
 	require.Equal(t, "pending", op.Op)
 	// An interrupted, partially-persisted parse is deliberately attention.
 	// This test proves queue delivery to the original KID, not final indexing.
-	require.NoError(t, f.db.Create(&types.Chunk{ID: "partial", TenantID: 1, KnowledgeID: k.ID, KnowledgeBaseID: k.KnowledgeBaseID, Content: "original partial", ChunkType: types.ChunkTypeText, IsEnabled: true}).Error)
+	require.NoError(
+		t,
+		f.db.Create(
+			&types.Chunk{
+				ID:              "partial",
+				TenantID:        1,
+				KnowledgeID:     k.ID,
+				KnowledgeBaseID: k.KnowledgeBaseID,
+				Content:         "original partial",
+				ChunkType:       types.ChunkTypeText,
+				IsEnabled:       true,
+			},
+		).Error,
+	)
 	client := asynq.NewClient(asynq.RedisClientOpt{Addr: addr})
-	defer client.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(client.Close)
 	q.client = client
 	inspector := asynq.NewInspector(asynq.RedisClientOpt{Addr: addr})
-	defer inspector.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(inspector.Close)
 	f.ks.taskInspector = dispatchActualInspector{raw: inspector}
 	f.ks.redisClient = rdb
 	restarted := restartKnowledgeServiceForTest(t, f.ks)
 	require.NoError(t, restarted.RecoverKnowledgeDispatches(f.ctx))
 	var received atomic.Bool
-	server := asynq.NewServer(asynq.RedisClientOpt{Addr: addr}, asynq.Config{Concurrency: 2, Queues: map[string]int{types.QueueDefault: 1}, TaskCheckInterval: 50 * time.Millisecond, ShutdownTimeout: time.Second})
+	server := asynq.NewServer(
+		asynq.RedisClientOpt{Addr: addr},
+		asynq.Config{
+			Concurrency:       2,
+			Queues:            map[string]int{types.QueueDefault: 1},
+			TaskCheckInterval: 50 * time.Millisecond,
+			ShutdownTimeout:   time.Second,
+		},
+	)
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(types.TypeDocumentProcess, func(ctx context.Context, task *asynq.Task) error {
 		var actual types.DocumentProcessPayload

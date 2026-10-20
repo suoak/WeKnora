@@ -18,14 +18,26 @@ func withWikiDependencies(db *gorm.DB, page *types.WikiPage, write func(*gorm.DB
 	}
 	originalETag, originalVersion := page.ReadETag, page.Version
 	err := db.Transaction(func(tx *gorm.DB) error {
-		if tx.Dialector.Name() == "sqlite" {
+		if tx.Name() == "sqlite" {
 			// Acquire the SQLite writer reservation before reading dependencies.
 			if err := tx.Exec("UPDATE wiki_pages SET version = version WHERE id = ?", page.ID).Error; err != nil {
 				return err
 			}
 		}
 		var current types.WikiPage
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", page.ID).First(&current).Error; err != nil {
+		if err := tx.Clauses(
+			clause.Locking{
+				Strength: "UPDATE",
+			},
+		).
+			Where(
+				"id = ?",
+				page.ID,
+			).
+			First(
+				&current,
+			).
+			Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrWikiPageNotFound
 			}
@@ -53,6 +65,10 @@ func withWikiDependencies(db *gorm.DB, page *types.WikiPage, write func(*gorm.DB
 }
 
 // Kept separate so tests can exercise real lock ordering without model mocks.
-func (r *wikiPageRepository) guardedWikiWrite(ctx context.Context, page *types.WikiPage, write func(*gorm.DB) error) error {
+func (r *wikiPageRepository) guardedWikiWrite(
+	ctx context.Context,
+	page *types.WikiPage,
+	write func(*gorm.DB) error,
+) error {
 	return withWikiDependencies(r.db.WithContext(ctx), page, write)
 }

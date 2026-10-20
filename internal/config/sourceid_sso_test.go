@@ -12,14 +12,47 @@ import (
 
 func syntheticSSOConfig(t *testing.T) OIDCAuthConfig {
 	t.Helper()
-	c := OIDCAuthConfig{IssuerURL: "https://mock.example", SourceIDEnable: true, SourceIDContractConfirmed: true, SourceIDEmailBindingEnable: true, SourceIDEmailContractConfirmed: true,
-		SourceIDAutoBindingEnable: true, SourceIDAutoBindingPolicyRef: "synthetic-all-role", SourceIDSessionMode: "local_approved",
-		SourceIDClaimsSource: "userinfo", SourceIDEmployeeClaim: "attributes.RJGH", SourceIDAdmissionMode: "oidc_sso_approved",
-		SourceIDSSOPolicyConfirmed: true, SourceIDLocalPolicyRef: "synthetic-local", SourceIDAdmissionPolicyRef: "synthetic-sso",
-		SourceIDLocalAccessTTL: "60m", SourceIDLocalAbsoluteTTL: "60m", SourceIDLocalIdleTTL: "30m", SourceIDAdmissionMaxAge: "60m"}
+	c := OIDCAuthConfig{
+		IssuerURL:                      "https://mock.example",
+		SourceIDEnable:                 true,
+		SourceIDContractConfirmed:      true,
+		SourceIDEmailBindingEnable:     true,
+		SourceIDEmailContractConfirmed: true,
+
+		SourceIDAutoBindingEnable:    true,
+		SourceIDAutoBindingPolicyRef: "synthetic-all-role",
+		SourceIDSessionMode:          "local_approved",
+
+		SourceIDClaimsSource:  "userinfo",
+		SourceIDEmployeeClaim: "attributes.RJGH",
+		SourceIDAdmissionMode: "oidc_sso_approved",
+
+		SourceIDSSOPolicyConfirmed: true,
+		SourceIDLocalPolicyRef:     "synthetic-local",
+		SourceIDAdmissionPolicyRef: "synthetic-sso",
+
+		SourceIDLocalAccessTTL:   "60m",
+		SourceIDLocalAbsoluteTTL: "60m",
+		SourceIDLocalIdleTTL:     "30m",
+		SourceIDAdmissionMaxAge:  "60m",
+	}
 	c.SourceIDPilotAccountsFile = filepath.Join(t.TempDir(), "ownership.json")
-	data, _ := json.Marshal(map[string]interface{}{"version": 1, "policy_ref": c.SourceIDAutoBindingPolicyRef, "ownership_ref": "synthetic-history-evidence", "issuer": c.IssuerURL, "accounts": []map[string]string{{"user_id": "synthetic-user", "email": " Owner@Example.Test ", "employee_no": "synthetic-employee"}}})
-	require.NoError(t, privatefile.WriteFile(c.SourceIDPilotAccountsFile, data, 0600))
+	data, _ := json.Marshal(
+		map[string]interface{}{
+			"version":       1,
+			"policy_ref":    c.SourceIDAutoBindingPolicyRef,
+			"ownership_ref": "synthetic-history-evidence",
+			"issuer":        c.IssuerURL,
+			"accounts": []map[string]string{
+				{
+					"user_id":     "synthetic-user",
+					"email":       " Owner@Example.Test ",
+					"employee_no": "synthetic-employee",
+				},
+			},
+		},
+	)
+	require.NoError(t, privatefile.WriteFile(c.SourceIDPilotAccountsFile, data, 0o600))
 	return c
 }
 
@@ -31,7 +64,16 @@ func TestSourceIDSSOPolicyFailsClosedAndPreservesForcedMode(t *testing.T) {
 	accounts, err := c.SourceIDPilotAccounts()
 	require.NoError(t, err)
 	require.Equal(t, "owner@example.test", accounts["synthetic-user"].Email)
-	for _, name := range []string{"approval", "manifest", "refresh", "prompt", "binding", "protocol", "contract", "policy"} {
+	for _, name := range []string{
+		"approval",
+		"manifest",
+		"refresh",
+		"prompt",
+		"binding",
+		"protocol",
+		"contract",
+		"policy",
+	} {
 		t.Run(name, func(t *testing.T) {
 			cfg := c
 			switch name {
@@ -75,9 +117,17 @@ func TestSourceIDSSOPolicyFailsClosedAndPreservesForcedMode(t *testing.T) {
 }
 
 func TestSourceIDPilotManifestRejectsInvalidOwnership(t *testing.T) {
-	for _, body := range []string{`{}`, `{"version":1,"policy_ref":"wrong","ownership_ref":"yes","accounts":[]}`, `{"version":1,"policy_ref":"synthetic-all-role","ownership_ref":"","accounts":[{"user_id":"u","email":"a@example.test"}]}`, `{"version":1,"policy_ref":"synthetic-all-role","ownership_ref":"evidence","accounts":[{"user_id":"u","email":"a@example.test"},{"user_id":"u","email":"b@example.test"}]}`, `{"version":1,"policy_ref":"synthetic-all-role","ownership_ref":"evidence","accounts":[{"user_id":"u","email":"a@example.test","role":"admin"}]}`} {
+	for _, body := range []string{`{}`, "{\"version\":1,\"policy_ref\":\"wrong\",\"ownership_ref\":\"yes\"," +
+		"\"accounts\":[]}", "{\"version\":1,\"policy_ref\":\"synthetic-all-role\"," +
+		"\"ownership_ref\":\"\",\"accounts\":[{\"user_id\":\"u\"," +
+		"\"email\":\"a@example.test\"}]}", "{\"version\":1,\"policy_ref\":\"synthetic-all-role\"," +
+		"\"ownership_ref\":\"evidence\",\"accounts\":[{\"user_id\":\"u\"," +
+		"\"email\":\"a@example.test\"},{\"user_id\":\"u\"," +
+		"\"email\":\"b@example.test\"}]}", "{\"version\":1,\"policy_ref\":\"synthetic-all-role\"," +
+		"\"ownership_ref\":\"evidence\",\"accounts\":[{\"user_id\":\"u\"," +
+		"\"email\":\"a@example.test\",\"role\":\"admin\"}]}"} {
 		c := syntheticSSOConfig(t)
-		require.NoError(t, os.WriteFile(c.SourceIDPilotAccountsFile, []byte(body), 0600))
+		require.NoError(t, os.WriteFile(c.SourceIDPilotAccountsFile, []byte(body), 0o600))
 		_, err := c.SourceIDPilotAccounts()
 		require.Error(t, err)
 	}

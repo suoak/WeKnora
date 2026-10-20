@@ -23,14 +23,60 @@ func TestOIDCLogsExcludeSensitivePayloads(t *testing.T) {
 		panic                                 bool
 	}{
 		{"callback", "/api/v1/auth/oidc/callback", "GET", "", "", false},
-		{"result", "/api/v1/auth/oidc/result", "POST", "application/json", `{"token":"` + secret + `","client_secret":"` + secret + `"}`, false},
-		{"logout form", "/api/v1/auth/oidc/backchannel-logout", "POST", "application/x-www-form-urlencoded", "logoutRequest=<LogoutRequest><SessionIndex>" + secret + "</SessionIndex><tgt>" + secret + "</tgt></LogoutRequest>", false},
-		{"logout xml", "/api/v1/auth/oidc/backchannel-logout", "POST", "text/xml", "<SessionIndex>" + secret + "</SessionIndex>", false},
-		{"truncated json", "/api/v1/auth/oidc/result", "POST", "application/json", `{"client_secret":"` + strings.Repeat(secret, 1000), false},
+		{
+			"result",
+			"/api/v1/auth/oidc/result",
+			"POST",
+			"application/json",
+			`{"token":"` + secret + `","client_secret":"` + secret + `"}`,
+			false,
+		},
+		{
+			"logout form",
+			"/api/v1/auth/oidc/backchannel-logout",
+			"POST",
+			"application/x-www-form-urlencoded",
+			"logoutRequest=<LogoutRequest><SessionIndex>" +
+				secret +
+				"</SessionIndex><tgt>" +
+				secret +
+				"</tgt></LogoutRequest>",
+			false,
+		},
+		{
+			"logout xml",
+			"/api/v1/auth/oidc/backchannel-logout",
+			"POST",
+			"text/xml",
+			"<SessionIndex>" + secret + "</SessionIndex>",
+			false,
+		},
+		{
+			"truncated json",
+			"/api/v1/auth/oidc/result",
+			"POST",
+			"application/json",
+			`{"client_secret":"` + strings.Repeat(secret, 1000),
+			false,
+		},
 		{"unknown auth route", "/api/v1/auth/oidc/unknown", "POST", "text/plain", secret, false},
 		{"panic", "/api/v1/auth/oidc/callback", "GET", "", "", true},
-		{"feishu application", "/api/v1/system/admin/feishu", "PUT", "application/json", `{"client_secret":"` + secret + `\"` + secret + `"}`, false},
-		{"feishu truncated config", "/api/v1/system/admin/feishu", "PUT", "application/json", `{"client_secret":"` + strings.Repeat(secret, 1000), false},
+		{
+			"feishu application",
+			"/api/v1/system/admin/feishu",
+			"PUT",
+			"application/json",
+			`{"client_secret":"` + secret + `\"` + secret + `"}`,
+			false,
+		},
+		{
+			"feishu truncated config",
+			"/api/v1/system/admin/feishu",
+			"PUT",
+			"application/json",
+			`{"client_secret":"` + strings.Repeat(secret, 1000),
+			false,
+		},
 		{"feishu callback", "/api/v1/me/feishu/callback", "POST", "text/plain", secret, false},
 		{"feishu panic", "/api/v1/me/feishu/authorize", "POST", "", "", true},
 	}
@@ -65,18 +111,45 @@ func TestOIDCLogsExcludeSensitivePayloads(t *testing.T) {
 			} else {
 				r.Handle(tc.method, tc.path, handler)
 			}
-			query := "?code=" + secret + "&state=" + secret + "&state=" + secret + "&logoutRequest=" + secret + "&SessionIndex=" + secret + "&tgt=" + secret + "&unknown=" + secret
+			query := "?code=" +
+				secret +
+				"&state=" +
+				secret +
+				"&state=" +
+				secret +
+				"&logoutRequest=" +
+				secret +
+				"&SessionIndex=" +
+				secret +
+				"&tgt=" +
+				secret +
+				"&unknown=" +
+				secret
 			req := httptest.NewRequest(tc.method, tc.path+query, nil)
 			req.Body = &countingBody{Reader: strings.NewReader(tc.body)}
 			req.Header.Set("Content-Type", tc.contentType)
-			for _, h := range []string{"Referer", "Cookie", "Authorization", "X-KnowHub-SourceID-Secret", "User-Agent"} {
+			for _, h := range []string{
+				"Referer",
+
+				"Cookie",
+
+				"Authorization",
+
+				"X-KnowHub-SourceID-Secret",
+
+				"User-Agent",
+			} {
 				req.Header.Set(h, secret)
 			}
-			req = req.WithContext(context.WithValue(req.Context(), types.LoggerContextKey, logrus.NewEntry(l)))
+			req = req.WithContext(
+				context.WithValue(req.Context(), types.LoggerContextKey, logrus.NewEntry(l)),
+			)
 			w := httptest.NewRecorder()
 			r.ServeHTTP(w, req)
 			logs := output.String()
-			if strings.Contains(logs, secret) || strings.Contains(logs, "request_body") || strings.Contains(logs, "response_body") || strings.Contains(logs, "?code") {
+			if strings.Contains(logs, secret) || strings.Contains(logs, "request_body") ||
+				strings.Contains(logs, "response_body") ||
+				strings.Contains(logs, "?code") {
 				t.Fatal("sensitive authentication data reached log output")
 			}
 			if !strings.Contains(logs, tc.path) || !strings.Contains(logs, "status_code") {
@@ -95,19 +168,44 @@ func TestOIDCLogsExcludeSensitivePayloads(t *testing.T) {
 
 func TestSourceIDQueryAndOpaqueBodyPrivacy(t *testing.T) {
 	const secret = "synthetic-logout-private"
-	got := sanitizeQuery("logout%52equest=" + secret + "&SessionIndex=" + secret + "&TGT=" + secret + "&client_secret=" + secret + "&token=" + secret)
+	got := sanitizeQuery(
+
+		"logout%52equest=" +
+			secret +
+			"&SessionIndex=" +
+			secret +
+			"&TGT=" +
+			secret +
+			"&client_secret=" +
+			secret +
+			"&token=" +
+			secret,
+	)
 	if strings.Contains(got, secret) {
 		t.Fatal("sensitive query values retained")
 	}
-	for _, contentType := range []string{"application/x-www-form-urlencoded", "text/xml", "application/xml", "text/plain"} {
+	for _, contentType := range []string{
+		"application/x-www-form-urlencoded",
+
+		"text/xml",
+
+		"application/xml",
+
+		"text/plain",
+	} {
+
 		c, counter := newJSONContext(t, "/not-an-auth-route", secret)
 		c.Request.Header.Set("Content-Type", contentType)
 		got = readRequestBody(c)
 		if strings.Contains(got, secret) || counter.read != 0 {
 			t.Fatal("opaque body reached logger")
 		}
+
 	}
-	if strings.Contains(sanitizeBody(`{"logoutRequest":"`+secret+`","SessionIndex":"`+secret+`","tgt":"`+secret+`"}`), secret) {
+	if strings.Contains(
+		sanitizeBody(`{"logoutRequest":"`+secret+`","SessionIndex":"`+secret+`","tgt":"`+secret+`"}`),
+		secret,
+	) {
 		t.Fatal("JSON session credentials retained")
 	}
 }

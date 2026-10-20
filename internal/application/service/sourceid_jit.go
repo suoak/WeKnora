@@ -13,11 +13,25 @@ import (
 )
 
 type sourceIDJITStore interface {
-	ResolveSourceIDEnterpriseOrJITIdentity(context.Context, string, string, string, string, string, string, time.Duration, string, []string, func(context.Context, interfaces.UserRepository) (*types.User, error)) (*types.User, error)
+	ResolveSourceIDEnterpriseOrJITIdentity(
+		context.Context,
+		string,
+		string,
+		string,
+		string,
+		string,
+		string,
+		time.Duration,
+		string,
+		[]string,
+		func(context.Context, interfaces.UserRepository) (*types.User, error),
+	) (*types.User, error)
 }
 
-type sourceIDJITCreatedKey struct{}
-type sourceIDJITExternalOnlyKey struct{}
+type (
+	sourceIDJITCreatedKey      struct{}
+	sourceIDJITExternalOnlyKey struct{}
+)
 
 // Keep driver error details out of Register's generic error logging, while
 // reusing the existing tenantless registration and password policy behavior.
@@ -29,6 +43,7 @@ func (r sourceIDJITUsers) CreateUser(ctx context.Context, u *types.User) error {
 	}
 	return nil
 }
+
 func (r sourceIDJITUsers) UpdateUser(ctx context.Context, u *types.User) error {
 	if r.UserRepository.UpdateUser(ctx, u) != nil {
 		return errors.New("sourceid jit registration failed")
@@ -36,7 +51,9 @@ func (r sourceIDJITUsers) UpdateUser(ctx context.Context, u *types.User) error {
 	return nil
 }
 
-func (s *userService) sourceIDJITProvisioner(email string) func(context.Context, interfaces.UserRepository) (*types.User, error) {
+func (s *userService) sourceIDJITProvisioner(
+	email string,
+) func(context.Context, interfaces.UserRepository) (*types.User, error) {
 	return func(ctx context.Context, repository interfaces.UserRepository) (*types.User, error) {
 		password := make([]byte, 32)
 		if _, err := rand.Read(password); err != nil {
@@ -45,7 +62,15 @@ func (s *userService) sourceIDJITProvisioner(email string) func(context.Context,
 		scoped := *s
 		scoped.userRepo = sourceIDJITUsers{repository}
 		registrationCtx := context.WithValue(ctx, sourceIDJITExternalOnlyKey{}, true)
-		user, err := scoped.Register(registrationCtx, &types.RegisterRequest{Username: "oa-" + uuid.NewString(), Email: email, Password: base64.RawURLEncoding.EncodeToString(password), TenantProvisioning: types.TenantProvisioningTenantless})
+		user, err := scoped.Register(
+			registrationCtx,
+			&types.RegisterRequest{
+				Username:           "oa-" + uuid.NewString(),
+				Email:              email,
+				Password:           base64.RawURLEncoding.EncodeToString(password),
+				TenantProvisioning: types.TenantProvisioningTenantless,
+			},
+		)
 		if err != nil {
 			return nil, errors.New("sourceid jit registration failed")
 		}

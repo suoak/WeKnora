@@ -2,6 +2,7 @@ package types
 
 import "time"
 
+// FeishuPersonalResource defines feishu personal resource state.
 // These records are private protocol state, never normal searchable Knowledge.
 // ActiveVersionID is changed only by a future receipt-checked activation CAS.
 type FeishuPersonalResource struct {
@@ -13,15 +14,19 @@ type FeishuPersonalResource struct {
 	Generation         int64
 }
 
+// TableName returns the database table name.
 func (FeishuPersonalResource) TableName() string { return "feishu_personal_resources" }
 
+// FeishuPersonalGrantEpoch defines feishu personal grant epoch state.
 type FeishuPersonalGrantEpoch struct {
 	UserID string `gorm:"primaryKey"`
 	Epoch  string
 }
 
+// TableName returns the database table name.
 func (FeishuPersonalGrantEpoch) TableName() string { return "feishu_personal_grant_epochs" }
 
+// FeishuPersonalAttempt defines feishu personal attempt state.
 type FeishuPersonalAttempt struct {
 	AuthMode              string `gorm:"default:user_oauth"`
 	ApplicationID         string
@@ -49,4 +54,5 @@ type FeishuPersonalAttempt struct {
 	UpdatedAt             time.Time
 }
 
+// TableName returns the database table name.
 func (FeishuPersonalAttempt) TableName() string { return "feishu_personal_attempts" }

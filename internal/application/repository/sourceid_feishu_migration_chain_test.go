@@ -20,14 +20,19 @@ func TestSourceIDPostgresFeishuOrderedMigrationChain(t *testing.T) {
 	require.NoError(t, db.Raw("SELECT current_schema()").Scan(&schema).Error)
 	require.NoError(t, db.Exec("CREATE TABLE knowledge_bases(id VARCHAR(36) PRIMARY KEY)").Error)
 	require.NoError(t, db.Exec("CREATE TABLE system_settings(key TEXT PRIMARY KEY,value TEXT)").Error)
-	user := types.User{ID: uuid.NewString(), Username: "chain-fixture", Email: "chain@example.test", IsActive: true}
+	user := types.User{
+		ID:       uuid.NewString(),
+		Username: "chain-fixture",
+		Email:    "chain@example.test",
+		IsActive: true,
+	}
 	require.NoError(t, NewUserRepository(db).CreateUser(context.Background(), &user))
 	require.NoError(t, db.Exec("INSERT INTO knowledge_bases(id) VALUES (?)", "synthetic-kb").Error)
 	driver, err := pgmigrate.WithInstance(sqlDB, &pgmigrate.Config{SchemaName: schema})
 	require.NoError(t, err)
 	m, err := migrate.NewWithDatabaseInstance("file://../../../migrations/versioned", "postgres", driver)
 	require.NoError(t, err)
-	defer m.Close()
+	defer func(cleanup func() (error, error)) { _, _ = cleanup() }(m.Close)
 	// This Force establishes ONLY the fresh fixture baseline after executing
 	// 003024. Never run Force on the packaging machine to skip migrations.
 	require.NoError(t, m.Force(3024))
@@ -38,7 +43,14 @@ func TestSourceIDPostgresFeishuOrderedMigrationChain(t *testing.T) {
 		require.Equal(t, version, v)
 		require.False(t, dirty)
 	}
-	for _, table := range []string{"feishu_connections", "feishu_oauth_states", "feishu_personal_imports", "source_id_binding_reviews", "source_id_binding_audits", "source_id_local_sessions"} {
+	for _, table := range []string{
+		"feishu_connections",
+		"feishu_oauth_states",
+		"feishu_personal_imports",
+		"source_id_binding_reviews",
+		"source_id_binding_audits",
+		"source_id_local_sessions",
+	} {
 		require.True(t, db.Migrator().HasTable(table))
 	}
 	var count int64

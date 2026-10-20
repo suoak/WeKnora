@@ -283,13 +283,14 @@ func (WikiPage) TableName() string {
 	return "wiki_pages"
 }
 
+// DependencyETag provides the dependency etag operation.
 func (p *WikiPage) DependencyETag() string {
-	copy := *p
-	copy.ReadETag = ""
-	copy.CreatedAt, copy.UpdatedAt = time.Time{}, time.Time{}
+	cloned := *p
+	cloned.ReadETag = ""
+	cloned.CreatedAt, cloned.UpdatedAt = time.Time{}, time.Time{}
 	// PostgreSQL jsonb and SQLite JSON may serialize object keys differently.
 	// Round-trip through an object to canonicalize nested raw JSON as well.
-	b, _ := json.Marshal(copy)
+	b, _ := json.Marshal(cloned)
 	var normalized any
 	_ = json.Unmarshal(b, &normalized)
 	b, _ = json.Marshal(normalized)
@@ -297,11 +298,13 @@ func (p *WikiPage) DependencyETag() string {
 	return hex.EncodeToString(h[:])
 }
 
+// AfterFind provides the after find operation.
 func (p *WikiPage) AfterFind(_ *gorm.DB) error {
 	p.ReadETag = p.DependencyETag()
 	return nil
 }
 
+// AfterCreate provides the after create operation.
 func (p *WikiPage) AfterCreate(_ *gorm.DB) error {
 	p.ReadETag = p.DependencyETag()
 	return nil

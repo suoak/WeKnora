@@ -54,14 +54,57 @@ func fixture(t *testing.T, pg bool) (*gorm.DB, Input) {
 		sqlDB.SetMaxOpenConns(1)
 	}
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	require.NoError(t, db.AutoMigrate(&types.Tenant{}, &types.User{}, &types.TenantMember{}, &types.AuthToken{}, &types.ExternalIdentity{}, &types.SourceIDBindingReview{}, &types.SourceIDEnrollment{}, &types.SourceIDSession{}, &types.AuditLog{}))
-	require.NoError(t, db.Exec("CREATE TABLE organization_tenant_members (tenant_id bigint, representative_user_id text, role text)").Error)
-	require.NoError(t, db.Exec("CREATE UNIQUE INDEX prep_member_unique ON tenant_members (user_id,tenant_id) WHERE deleted_at IS NULL").Error)
-	owner := types.User{ID: uuid.NewString(), Username: "synthetic-owner", Email: "owner@example.test", TenantID: 7, IsActive: true}
+	require.NoError(
+		t,
+		db.AutoMigrate(
+			&types.Tenant{},
+			&types.User{},
+			&types.TenantMember{},
+			&types.AuthToken{},
+			&types.ExternalIdentity{},
+			&types.SourceIDBindingReview{},
+			&types.SourceIDEnrollment{},
+			&types.SourceIDSession{},
+			&types.AuditLog{},
+		),
+	)
+	require.NoError(
+		t,
+		db.Exec(
+			"CREATE TABLE organization_tenant_members (tenant_id bigint, "+
+				"representative_user_id text, role text)",
+		).Error,
+	)
+	require.NoError(
+		t,
+		db.Exec(
+			"CREATE UNIQUE INDEX prep_member_unique ON tenant_members (user_id,"+
+				"tenant_id) WHERE deleted_at IS NULL",
+		).Error,
+	)
+	owner := types.User{
+		ID:       uuid.NewString(),
+		Username: "synthetic-owner",
+		Email:    "owner@example.test",
+		TenantID: 7,
+		IsActive: true,
+	}
 	require.NoError(t, db.Create(&types.Tenant{ID: 7, Name: "synthetic-existing", Status: "active"}).Error)
 	require.NoError(t, db.Create(&owner).Error)
-	require.NoError(t, db.Create(&types.TenantMember{UserID: owner.ID, TenantID: 7, Role: "owner", Status: "active"}).Error)
-	return db, Input{Email: "synthetic@example.test", OperationID: uuid.NewString(), OperatorID: owner.ID, Approval: "synthetic-preparation-approval", TenantID: 7, Role: "viewer"}
+	require.NoError(
+		t,
+		db.Create(
+			&types.TenantMember{UserID: owner.ID, TenantID: 7, Role: "owner", Status: "active"},
+		).Error,
+	)
+	return db, Input{
+		Email:       "synthetic@example.test",
+		OperationID: uuid.NewString(),
+		OperatorID:  owner.ID,
+		Approval:    "synthetic-preparation-approval",
+		TenantID:    7,
+		Role:        "viewer",
+	}
 }
 
 func count(t *testing.T, db *gorm.DB, table string, expected int64) {
@@ -141,7 +184,16 @@ func TestSourceIDAccountPrepRollbackAndNoLeak(t *testing.T) {
 			db, in := fixture(t, false)
 			in.Apply = true
 			// Failure after registration, or after both registration and membership.
-			require.NoError(t, db.Exec(fmt.Sprintf("CREATE TRIGGER fail_prep BEFORE INSERT ON %s BEGIN SELECT RAISE(ABORT,'synthetic@example.test credential-like-private-data'); END", table)).Error)
+			require.NoError(
+				t,
+				db.Exec(
+					fmt.Sprintf(
+						"CREATE TRIGGER fail_prep BEFORE INSERT ON %s BEGIN SELECT RAISE(ABORT,"+
+							"'synthetic@example.test credential-like-private-data'); END",
+						table,
+					),
+				).Error,
+			)
 			r, err := Run(context.Background(), db, in)
 			require.Error(t, err)
 			require.Equal(t, "preparation_rejected", err.Error())
@@ -156,10 +208,31 @@ func TestSourceIDAccountPrepRollbackAndNoLeak(t *testing.T) {
 }
 
 func TestSourceIDAccountPrepPermissionBoundaries(t *testing.T) {
-	for _, kind := range []string{"owner_role", "contributor_unapproved", "non_owner_operator", "disabled", "system_admin", "cross_tenant", "other_owner", "org_admin", "identity", "review", "enrollment", "session", "ambiguous_email", "missing_schema", "wrong_operation"} {
+	for _, kind := range []string{
+		"owner_role",
+		"contributor_unapproved",
+		"non_owner_operator",
+		"disabled",
+		"system_admin",
+		"cross_tenant",
+		"other_owner",
+		"org_admin",
+		"identity",
+		"review",
+		"enrollment",
+		"session",
+		"ambiguous_email",
+		"missing_schema",
+		"wrong_operation",
+	} {
 		t.Run(kind, func(t *testing.T) {
 			db, in := fixture(t, false)
-			u := types.User{ID: uuid.NewString(), Email: in.Email, Username: "synthetic-existing", IsActive: true}
+			u := types.User{
+				ID:       uuid.NewString(),
+				Email:    in.Email,
+				Username: "synthetic-existing",
+				IsActive: true,
+			}
 			require.NoError(t, db.Create(&u).Error)
 			switch kind {
 			case "owner_role":
@@ -175,19 +248,50 @@ func TestSourceIDAccountPrepPermissionBoundaries(t *testing.T) {
 			case "cross_tenant":
 				require.NoError(t, db.Model(&u).Update("can_access_all_tenants", true).Error)
 			case "other_owner":
-				require.NoError(t, db.Create(&types.TenantMember{UserID: u.ID, TenantID: 99, Role: "owner", Status: "active"}).Error)
+				require.NoError(
+					t,
+					db.Create(
+						&types.TenantMember{UserID: u.ID, TenantID: 99, Role: "owner", Status: "active"},
+					).Error,
+				)
 			case "org_admin":
-				require.NoError(t, db.Exec("INSERT INTO organization_tenant_members VALUES(7,?, 'admin')", u.ID).Error)
+				require.NoError(
+					t,
+					db.Exec("INSERT INTO organization_tenant_members VALUES(7,?, 'admin')", u.ID).Error,
+				)
 			case "identity":
-				require.NoError(t, db.Create(&types.ExternalIdentity{ID: uuid.NewString(), UserID: u.ID}).Error)
+				require.NoError(
+					t,
+					db.Create(&types.ExternalIdentity{ID: uuid.NewString(), UserID: u.ID}).Error,
+				)
 			case "review":
-				require.NoError(t, db.Create(&types.SourceIDBindingReview{ID: uuid.NewString(), UserID: u.ID, Status: "revoked"}).Error)
+				require.NoError(
+					t,
+					db.Create(
+						&types.SourceIDBindingReview{ID: uuid.NewString(), UserID: u.ID, Status: "revoked"},
+					).Error,
+				)
 			case "enrollment":
-				require.NoError(t, db.Create(&types.SourceIDEnrollment{ID: uuid.NewString(), UserID: u.ID}).Error)
+				require.NoError(
+					t,
+					db.Create(&types.SourceIDEnrollment{ID: uuid.NewString(), UserID: u.ID}).Error,
+				)
 			case "session":
-				require.NoError(t, db.Create(&types.SourceIDSession{ID: uuid.NewString(), UserID: u.ID}).Error)
+				require.NoError(
+					t,
+					db.Create(&types.SourceIDSession{ID: uuid.NewString(), UserID: u.ID}).Error,
+				)
 			case "ambiguous_email":
-				require.NoError(t, db.Create(&types.User{ID: uuid.NewString(), Email: "SYNTHETIC@example.test", Username: "synthetic-other"}).Error)
+				require.NoError(
+					t,
+					db.Create(
+						&types.User{
+							ID:       uuid.NewString(),
+							Email:    "SYNTHETIC@example.test",
+							Username: "synthetic-other",
+						},
+					).Error,
+				)
 			case "missing_schema":
 				require.NoError(t, db.Migrator().DropTable("source_id_enrollments"))
 			case "wrong_operation":
@@ -230,9 +334,18 @@ func TestSourceIDAccountPrepPostgresConcurrent(t *testing.T) {
 func TestSourceIDAccountPrepExistingHomeAndCleanupGuard(t *testing.T) {
 	db, in := fixture(t, false)
 	require.NoError(t, db.Create(&types.Tenant{ID: 8, Name: "synthetic-original", Status: "active"}).Error)
-	u := types.User{ID: uuid.NewString(), Email: in.Email, Username: "synthetic-existing", TenantID: 8, IsActive: true}
+	u := types.User{
+		ID:       uuid.NewString(),
+		Email:    in.Email,
+		Username: "synthetic-existing",
+		TenantID: 8,
+		IsActive: true,
+	}
 	require.NoError(t, db.Create(&u).Error)
-	require.NoError(t, db.Create(&types.TenantMember{UserID: u.ID, TenantID: 8, Role: "viewer", Status: "active"}).Error)
+	require.NoError(
+		t,
+		db.Create(&types.TenantMember{UserID: u.ID, TenantID: 8, Role: "viewer", Status: "active"}).Error,
+	)
 	in.Apply, in.ContributorApproved, in.Role = true, true, "contributor"
 	r, err := Run(context.Background(), db, in)
 	require.NoError(t, err)
@@ -255,6 +368,9 @@ func TestSourceIDAccountPrepExistingHomeAndCleanupGuard(t *testing.T) {
 	require.True(t, after.IsActive)
 	require.Equal(t, u.TenantID, after.TenantID)
 	var n int64
-	require.NoError(t, db.Model(&types.TenantMember{}).Where("user_id = ? AND tenant_id = 8", u.ID).Count(&n).Error)
+	require.NoError(
+		t,
+		db.Model(&types.TenantMember{}).Where("user_id = ? AND tenant_id = 8", u.ID).Count(&n).Error,
+	)
 	require.EqualValues(t, 1, n)
 }

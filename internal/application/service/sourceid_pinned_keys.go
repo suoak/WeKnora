@@ -20,8 +20,10 @@ import (
 	"github.com/Tencent/WeKnora/internal/logger"
 )
 
-const sidPinnedMaxKeys = 8
-const sidPinnedMaxBytes = 32 << 10
+const (
+	sidPinnedMaxKeys  = 8
+	sidPinnedMaxBytes = 32 << 10
+)
 
 type sidPinnedJWK struct {
 	Kty    string   `json:"kty"`
@@ -62,11 +64,15 @@ func sidPinnedMode(c *config.OIDCAuthConfig) bool {
 func validateSIDPinnedEndpoints(c *config.OIDCAuthConfig) error {
 	for _, endpoint := range []string{c.AuthorizationEndpoint, c.TokenEndpoint, c.UserInfoEndpoint} {
 		u, e := url.Parse(endpoint)
-		if e != nil || u.Scheme != "https" || u.Host != "sid.ruijie.com.cn" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		if e != nil || u.Scheme != "https" || u.Host != "sid.ruijie.com.cn" || u.User != nil ||
+			u.RawQuery != "" ||
+			u.Fragment != "" {
 			return errors.New("SID pinned mode requires trusted HTTPS SID endpoints")
 		}
 	}
-	if c.AuthorizationEndpoint != config.SourceIDPinnedIssuer+"/oidc/authorize" || c.TokenEndpoint != config.SourceIDPinnedIssuer+"/oidc/accessToken" || c.UserInfoEndpoint != config.SourceIDPinnedIssuer+"/oidc/profile" {
+	if c.AuthorizationEndpoint != config.SourceIDPinnedIssuer+"/oidc/authorize" ||
+		c.TokenEndpoint != config.SourceIDPinnedIssuer+"/oidc/accessToken" ||
+		c.UserInfoEndpoint != config.SourceIDPinnedIssuer+"/oidc/profile" {
 		return errors.New("SID pinned endpoints differ from Discovery contract")
 	}
 	return nil
@@ -108,14 +114,15 @@ func loadSIDPinnedKeys(c *config.OIDCAuthConfig, now time.Time) (*sidPinnedSet, 
 		approved[v] = true
 	}
 	before, e := os.Lstat(c.SourceIDPinnedKeysFile)
-	if e != nil || !before.Mode().IsRegular() || before.Mode().Perm()&0022 != 0 || before.Size() > sidPinnedMaxBytes {
+	if e != nil || !before.Mode().IsRegular() || before.Mode().Perm()&0o022 != 0 ||
+		before.Size() > sidPinnedMaxBytes {
 		return nil, errors.New("SID runtime key file unavailable or unsafe")
 	}
 	f, e := os.Open(c.SourceIDPinnedKeysFile)
 	if e != nil {
 		return nil, errors.New("SID runtime key file unavailable")
 	}
-	defer f.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(f.Close)
 	after, e := f.Stat()
 	if e != nil || !os.SameFile(before, after) || !after.Mode().IsRegular() {
 		return nil, errors.New("SID runtime key file changed during open")
@@ -133,10 +140,16 @@ func loadSIDPinnedKeys(c *config.OIDCAuthConfig, now time.Time) (*sidPinnedSet, 
 	if e = decoder.Decode(&doc); e != nil {
 		return nil, errors.New("SID runtime key schema invalid")
 	}
-	if doc.Version != 1 || doc.Issuer != c.IssuerURL || doc.ClientID != c.ClientID || doc.ApprovalRef != c.SourceIDPinnedKeysApprovalRef || doc.Revoked {
+	if doc.Version != 1 || doc.Issuer != c.IssuerURL || doc.ClientID != c.ClientID ||
+		doc.ApprovalRef != c.SourceIDPinnedKeysApprovalRef ||
+		doc.Revoked {
 		return nil, errors.New("SID runtime key approval mismatch or revoked")
 	}
-	if doc.NotBefore.IsZero() || doc.ExpiresAt.IsZero() || doc.NotBefore.After(now) || !now.Before(doc.ExpiresAt) || doc.ExpiresAt.After(deadline) || !doc.ExpiresAt.After(doc.NotBefore) || doc.ExpiresAt.Sub(doc.NotBefore) > 30*24*time.Hour {
+	if doc.NotBefore.IsZero() || doc.ExpiresAt.IsZero() || doc.NotBefore.After(now) ||
+		!now.Before(doc.ExpiresAt) ||
+		doc.ExpiresAt.After(deadline) ||
+		!doc.ExpiresAt.After(doc.NotBefore) ||
+		doc.ExpiresAt.Sub(doc.NotBefore) > 30*24*time.Hour {
 		return nil, errors.New("SID runtime key validity rejected")
 	}
 	if len(doc.Keys) == 0 || len(doc.Keys) > sidPinnedMaxKeys {
@@ -145,7 +158,10 @@ func loadSIDPinnedKeys(c *config.OIDCAuthConfig, now time.Time) (*sidPinnedSet, 
 	unique := map[string]*sidPinnedCandidate{}
 	kidOwners := map[string]string{}
 	for _, j := range doc.Keys {
-		if j.Kty != "RSA" || (j.Alg != "" && j.Alg != "RS256") || (j.Use != "" && j.Use != "sig") || len(j.N) > 700 || len(j.E) > 8 || len(j.Kid) > 128 {
+		if j.Kty != "RSA" || (j.Alg != "" && j.Alg != "RS256") || (j.Use != "" && j.Use != "sig") ||
+			len(j.N) > 700 ||
+			len(j.E) > 8 ||
+			len(j.Kid) > 128 {
 			return nil, errors.New("SID public key policy rejected")
 		}
 		if j.KeyOps != nil && (len(j.KeyOps) != 1 || j.KeyOps[0] != "verify") {
@@ -160,7 +176,8 @@ func loadSIDPinnedKeys(c *config.OIDCAuthConfig, now time.Time) (*sidPinnedSet, 
 			return nil, errors.New("SID public exponent invalid")
 		}
 		key, e := (oidcJWK{Kty: j.Kty, N: j.N, E: j.E}).rsaPublicKey()
-		if e != nil || key.E != 65537 || key.N.BitLen() < 2048 || key.N.BitLen() > 4096 || key.N.Bit(0) != 1 {
+		if e != nil || key.E != 65537 || key.N.BitLen() < 2048 || key.N.BitLen() > 4096 ||
+			key.N.Bit(0) != 1 {
 			return nil, errors.New("SID RSA key strength rejected")
 		}
 		fp := sidPinnedFingerprint(key)
@@ -265,7 +282,11 @@ func sidPinnedJSONObject(raw []byte) (map[string]interface{}, error) {
 	return m, nil
 }
 
-func sidPinnedKeyForToken(ctx context.Context, c *config.OIDCAuthConfig, token string) (*rsa.PublicKey, error) {
+func sidPinnedKeyForToken(
+	ctx context.Context,
+	c *config.OIDCAuthConfig,
+	token string,
+) (*rsa.PublicKey, error) {
 	if len(token) > 16<<10 {
 		return nil, errors.New("SID ID Token size limit exceeded")
 	}
@@ -314,11 +335,23 @@ func sidPinnedKeyForToken(ctx context.Context, c *config.OIDCAuthConfig, token s
 	if e != nil {
 		return nil, e
 	}
-	logger.Infof(ctx, "sourceid pinned signature matched fingerprint=%s set_sha256=%s expires=%s candidates=%d", matched.fingerprint, set.digest, set.expires.UTC().Format(time.RFC3339), len(set.candidates))
+	logger.Infof(
+		ctx,
+		"sourceid pinned signature matched fingerprint=%s set_sha256=%s "+
+			"expires=%s candidates=%d",
+		matched.fingerprint,
+		set.digest,
+		set.expires.UTC().Format(time.RFC3339),
+		len(set.candidates),
+	)
 	return matched.key, nil
 }
 
-func uniqueSIDPinnedSignatureMatch(candidates []sidPinnedCandidate, kid string, digest, signature []byte) (*sidPinnedCandidate, error) {
+func uniqueSIDPinnedSignatureMatch(
+	candidates []sidPinnedCandidate,
+	kid string,
+	digest, signature []byte,
+) (*sidPinnedCandidate, error) {
 	var matched *sidPinnedCandidate
 	matches := 0
 	for i := range candidates {

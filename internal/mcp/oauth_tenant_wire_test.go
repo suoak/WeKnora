@@ -27,7 +27,10 @@ func TestBuiltinOAuthWireScope(t *testing.T) {
 	t.Setenv("SYSTEM_AES_KEY", "0123456789abcdef0123456789abcdef")
 	utils.SetSSRFWhitelistFromRaw("127.0.0.1")
 	t.Cleanup(utils.ResetSSRFWhitelistForTest)
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	db, err := gorm.Open(
+		sqlite.Open(":memory:"),
+		&gorm.Config{Logger: logger.Default.LogMode(logger.Silent)},
+	)
 	require.NoError(t, err)
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
@@ -54,7 +57,15 @@ func TestBuiltinOAuthWireScope(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 	principal := types.Principal{Type: types.PrincipalWebUser, ID: "same-principal"}
-	service := &types.MCPService{ID: "shared-builtin", IsBuiltin: true, TenantID: 99, Enabled: true, URL: &server.URL, TransportType: types.MCPTransportHTTPStreamable, AuthConfig: &types.MCPAuthConfig{AuthType: types.MCPAuthOAuth}}
+	service := &types.MCPService{
+		ID:            "shared-builtin",
+		IsBuiltin:     true,
+		TenantID:      99,
+		Enabled:       true,
+		URL:           &server.URL,
+		TransportType: types.MCPTransportHTTPStreamable,
+		AuthConfig:    &types.MCPAuthConfig{AuthType: types.MCPAuthOAuth},
+	}
 	manager := NewMCPManager(repo)
 	t.Cleanup(manager.Shutdown)
 	clients := make([]MCPClient, 0, 2)
@@ -62,14 +73,44 @@ func TestBuiltinOAuthWireScope(t *testing.T) {
 		tenant uint64
 		token  string
 	}{{7, "synthetic-a"}, {8, "synthetic-b"}} {
-		require.NoError(t, repo.SaveClient(context.Background(), &types.MCPOAuthClient{TenantID: scope.tenant, ServiceID: service.ID, ClientID: "public"}))
-		require.NoError(t, repo.SaveTokenForPrincipal(context.Background(), &types.MCPOAuthToken{TenantID: scope.tenant, ServiceID: service.ID, PrincipalType: principal.Type, PrincipalID: principal.ID, UserID: principal.StorageID(), AccessToken: scope.token, TokenType: "Bearer", ExpiresAt: time.Now().Add(time.Hour)}))
-		ctx := types.WithPrincipal(context.WithValue(context.Background(), types.TenantIDContextKey, scope.tenant), principal)
+		require.NoError(
+			t,
+			repo.SaveClient(
+				context.Background(),
+				&types.MCPOAuthClient{TenantID: scope.tenant, ServiceID: service.ID, ClientID: "public"},
+			),
+		)
+		require.NoError(
+			t,
+			repo.SaveTokenForPrincipal(
+				context.Background(),
+				&types.MCPOAuthToken{
+					TenantID:      scope.tenant,
+					ServiceID:     service.ID,
+					PrincipalType: principal.Type,
+					PrincipalID:   principal.ID,
+					UserID:        principal.StorageID(),
+					AccessToken:   scope.token,
+					TokenType:     "Bearer",
+					ExpiresAt:     time.Now().Add(time.Hour),
+				},
+			),
+		)
+		ctx := types.WithPrincipal(
+			context.WithValue(context.Background(), types.TenantIDContextKey, scope.tenant),
+			principal,
+		)
 		c, err := manager.GetOrCreateClient(ctx, service)
 		require.NoError(t, err)
 		clients = append(clients, c)
 	}
-	require.EqualValues(t, 2, endpoint.initializations.Load(), "different tenant credentials require independent transport initialization")
+	require.EqualValues(
+		t,
+		2,
+		endpoint.initializations.Load(),
+		"different tenant credentials require independent transport "+
+			"initialization",
+	)
 	require.NotSame(t, clients[0], clients[1])
 	mu.Lock()
 	actual := append([]string(nil), seen...)

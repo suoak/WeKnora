@@ -72,9 +72,19 @@ func TestSourceIDPromptLoginPreDisableCodeExpiryAndSingleConsumption(t *testing.
 					accepted++
 					claims := baseClaims(cfg.IssuerURL, "knowhub")
 					claims["nonce"], claims["auth_time"] = nonce, authenticatedAt.Unix()
-					_ = json.NewEncoder(w).Encode(oidcTokenResponse{AccessToken: "synthetic-access", IDToken: signedIDToken(t, key, "code-risk-key", claims)})
+					_ = json.NewEncoder(w).
+						Encode(oidcTokenResponse{
+							AccessToken: "synthetic-access",
+							IDToken: signedIDToken(
+								t,
+								key,
+								"code-risk-key",
+								claims,
+							),
+						})
 				case "/userinfo":
-					_ = json.NewEncoder(w).Encode(map[string]interface{}{"sub": "user-123", "attributes": info.Claims["attributes"]})
+					_ = json.NewEncoder(w).
+						Encode(map[string]interface{}{"sub": "user-123", "attributes": info.Claims["attributes"]})
 				}
 			}))
 			defer mock.Close()
@@ -89,7 +99,7 @@ func TestSourceIDPromptLoginPreDisableCodeExpiryAndSingleConsumption(t *testing.
 			require.Greater(t, time.Until(transaction.ExpiresAt), 90*time.Second)
 			r, err := http.Get(auth.AuthorizationURL)
 			require.NoError(t, err)
-			r.Body.Close()
+			_ = r.Body.Close()
 			require.Equal(t, 200, r.StatusCode)
 			enabled = false
 			if scenario == "expired" {
@@ -100,7 +110,12 @@ func TestSourceIDPromptLoginPreDisableCodeExpiryAndSingleConsumption(t *testing.
 			}
 			ctx, err := s.PrepareOIDCCallback(context.Background(), auth.State)
 			require.NoError(t, err)
-			response, loginErr := s.LoginWithOIDC(ctx, code, cfg.RedirectURI, types.TenantProvisioningTenantless)
+			response, loginErr := s.LoginWithOIDC(
+				ctx,
+				code,
+				cfg.RedirectURI,
+				types.TenantProvisioningTenantless,
+			)
 			require.Equal(t, 1, calls) // No retry even on invalid_grant.
 			var sessions int64
 			require.NoError(t, db.Model(&types.SourceIDSession{}).Count(&sessions).Error)
@@ -129,7 +144,7 @@ func TestSourceIDPromptLoginPreDisableCodeExpiryAndSingleConsumption(t *testing.
 			require.NoError(t, err)
 			r, err = http.Get(u.String())
 			require.NoError(t, err)
-			r.Body.Close()
+			_ = r.Body.Close()
 			require.Equal(t, 403, r.StatusCode)
 			require.Equal(t, 1, freshAuthDenials)
 		})

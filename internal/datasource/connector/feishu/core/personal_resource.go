@@ -16,6 +16,7 @@ import (
 
 var resourceTokenPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,256}$`)
 
+// PersonalResource defines personal resource state.
 type PersonalResource struct {
 	Type     string `json:"type"`
 	Token    string `json:"token"`
@@ -24,8 +25,10 @@ type PersonalResource struct {
 	URL      string `json:"url"`
 }
 
+// ErrUnsupportedPersonalResource reports unsupported personal resource.
 var ErrUnsupportedPersonalResource = errors.New("feishu_unsupported_resource_export_manually")
 
+// ParsePersonalResourceURL provides the parse personal resource url operation.
 // Parsing follows PR #3312's URL types, with strict host/path validation.
 func ParsePersonalResourceURL(raw string) (PersonalResource, error) {
 	u, err := url.Parse(strings.TrimSpace(raw))
@@ -40,7 +43,18 @@ func ParsePersonalResourceURL(raw string) (PersonalResource, error) {
 	if len(parts) != 2 || !resourceTokenPattern.MatchString(parts[1]) {
 		return PersonalResource{}, ErrUnsupportedPersonalResource
 	}
-	kind := map[string]string{"docx": "docx", "docs": "doc", "doc": "doc", "sheets": "sheet", "base": "bitable", "wiki": "wiki", "file": "file", "slides": "slides", "mindnotes": "mindnote", "mindnote": "mindnote"}[parts[0]]
+	kind := map[string]string{
+		"docx":      "docx",
+		"docs":      "doc",
+		"doc":       "doc",
+		"sheets":    "sheet",
+		"base":      "bitable",
+		"wiki":      "wiki",
+		"file":      "file",
+		"slides":    "slides",
+		"mindnotes": "mindnote",
+		"mindnote":  "mindnote",
+	}[parts[0]]
 	if kind == "" {
 		return PersonalResource{}, ErrUnsupportedPersonalResource
 	}
@@ -50,7 +64,10 @@ func ParsePersonalResourceURL(raw string) (PersonalResource, error) {
 
 // ResolvePersonalResource unwraps a Wiki link and validates metadata under the
 // user identity. Identity is {real type}:{real token}, independent of URL form.
-func (c *Client) ResolvePersonalResource(ctx context.Context, r PersonalResource) (PersonalResource, error) {
+func (c *Client) ResolvePersonalResource(
+	ctx context.Context,
+	r PersonalResource,
+) (PersonalResource, error) {
 	if _, app := ctx.Value(applicationIdentityKey{}).(applicationIdentity); app {
 		return r, ErrAuth
 	}
@@ -91,17 +108,30 @@ func (c *Client) resolveResource(ctx context.Context, r PersonalResource) (Perso
 			} `json:"failed_list"`
 		} `json:"data"`
 	}
-	body := map[string]any{"request_docs": []map[string]string{{"doc_token": r.Token, "doc_type": r.Type}}, "with_url": true}
-	if err := c.doRequest(ctx, "resolve_personal_resource", http.MethodPost, "/open-apis/drive/v1/metas/batch_query", body, &response); err != nil {
+	body := map[string]any{
+		"request_docs": []map[string]string{{"doc_token": r.Token, "doc_type": r.Type}},
+		"with_url":     true,
+	}
+	if err := c.doRequest(
+		ctx,
+		"resolve_personal_resource",
+		http.MethodPost,
+		"/open-apis/drive/v1/metas/batch_query",
+		body,
+		&response,
+	); err != nil {
 		return r, err
 	}
-	if len(response.Data.Failed) > 0 || len(response.Data.Metas) != 1 || response.Data.Metas[0].Token != r.Token || response.Data.Metas[0].Type != r.Type {
+	if len(response.Data.Failed) > 0 || len(response.Data.Metas) != 1 ||
+		response.Data.Metas[0].Token != r.Token ||
+		response.Data.Metas[0].Type != r.Type {
 		return r, ErrPermission
 	}
 	r.Title, r.Modified = response.Data.Metas[0].Title, response.Data.Metas[0].Modified
 	return r, nil
 }
 
+// DownloadPersonalResource provides the download personal resource operation.
 func (c *Client) DownloadPersonalResource(ctx context.Context, r PersonalResource) ([]byte, string, error) {
 	if _, app := ctx.Value(applicationIdentityKey{}).(applicationIdentity); app {
 		return nil, "", ErrAuth
@@ -181,7 +211,11 @@ func validatePersonalBytes(data []byte, name string) error {
 // ValidateWorkbookCoverage verifies all visible tables/sheets are represented
 // in the exported workbook. Field/record semantics and attachment contents
 // still require the documented live fixture checks; they are not inferred.
-func (c *Client) ValidateWorkbookCoverage(ctx context.Context, r PersonalResource, data []byte) (int, error) {
+func (c *Client) ValidateWorkbookCoverage(
+	ctx context.Context,
+	r PersonalResource,
+	data []byte,
+) (int, error) {
 	if _, app := ctx.Value(applicationIdentityKey{}).(applicationIdentity); app {
 		return 0, ErrAuth
 	}
@@ -191,7 +225,11 @@ func (c *Client) ValidateWorkbookCoverage(ctx context.Context, r PersonalResourc
 	return c.validateWorkbookCoverage(ctx, r, data)
 }
 
-func (c *Client) validateWorkbookCoverage(ctx context.Context, r PersonalResource, data []byte) (int, error) {
+func (c *Client) validateWorkbookCoverage(
+	ctx context.Context,
+	r PersonalResource,
+	data []byte,
+) (int, error) {
 	if r.Type != "sheet" && r.Type != "bitable" {
 		return 0, nil
 	}
@@ -204,7 +242,16 @@ func (c *Client) validateWorkbookCoverage(ctx context.Context, r PersonalResourc
 				} `json:"sheets"`
 			} `json:"data"`
 		}
-		if err := c.doRequest(ctx, "verify_personal_sheets", http.MethodGet, "/open-apis/sheets/v3/spreadsheets/"+r.Token+"/sheets/query", nil, &resp); err != nil {
+		if err := c.doRequest(
+			ctx,
+			"verify_personal_sheets",
+			http.MethodGet,
+			"/open-apis/sheets/v3/spreadsheets/"+
+				r.Token+
+				"/sheets/query",
+			nil,
+			&resp,
+		); err != nil {
 			return 0, err
 		}
 		for _, sheet := range resp.Data.Sheets {
@@ -262,7 +309,7 @@ func (c *Client) validateWorkbookCoverage(ctx context.Context, r PersonalResourc
 				return 0, err
 			}
 			err = xml.NewDecoder(io.LimitReader(reader, 4*1024*1024)).Decode(&workbook)
-			reader.Close()
+			_ = reader.Close()
 			if err != nil {
 				return 0, err
 			}
@@ -277,4 +324,5 @@ func (c *Client) validateWorkbookCoverage(ctx context.Context, r PersonalResourc
 	return len(names), nil
 }
 
+// PersonalResourceID combines the resolved resource type and token into a stable identity.
 func PersonalResourceID(r PersonalResource) string { return fmt.Sprintf("%s:%s", r.Type, r.Token) }

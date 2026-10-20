@@ -35,12 +35,14 @@ func openApplicationWorkbook(data []byte) (*applicationWorkbook, error) {
 		}
 		w.files[f.Name] = f
 		// Drawing anchors, charts and embedded objects need separate extraction.
-		if strings.HasPrefix(f.Name, "xl/drawings/") || strings.HasPrefix(f.Name, "xl/charts/") || strings.HasPrefix(f.Name, "xl/embeddings/") {
+		if strings.HasPrefix(f.Name, "xl/drawings/") || strings.HasPrefix(f.Name, "xl/charts/") ||
+			strings.HasPrefix(f.Name, "xl/embeddings/") {
 			return nil, ErrApplicationTableMedia
 		}
 	}
 	return w, nil
 }
+
 func (w *applicationWorkbook) read(name string) ([]byte, error) {
 	f := w.files[name]
 	if f == nil || f.UncompressedSize64 > 16<<20 {
@@ -50,7 +52,7 @@ func (w *applicationWorkbook) read(name string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer r.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(r.Close)
 	return readFeishuCapped(r, 16<<20)
 }
 
@@ -61,7 +63,9 @@ type applicationWorkbookRelationship struct {
 	Mode   string `xml:"TargetMode,attr"`
 }
 
-func (w *applicationWorkbook) relationships(part string) (map[string]applicationWorkbookRelationship, error) {
+func (w *applicationWorkbook) relationships(
+	part string,
+) (map[string]applicationWorkbookRelationship, error) {
 	out := map[string]applicationWorkbookRelationship{}
 	file := path.Join(path.Dir(part), "_rels", path.Base(part)+".rels")
 	if w.files[file] == nil {
@@ -85,6 +89,7 @@ func (w *applicationWorkbook) relationships(part string) (map[string]application
 	}
 	return out, nil
 }
+
 func workbookTarget(part, target string) (string, error) {
 	result := path.Clean(path.Join(path.Dir(part), target))
 	if strings.HasPrefix(target, "/") {
@@ -171,7 +176,8 @@ func (w *applicationWorkbook) enrich(ctx context.Context, s *ApplicationTableSna
 				}
 				target = r.Target
 				u, e := url.Parse(target)
-				if e != nil || u.User != nil || (u.Scheme != "https" && u.Scheme != "http" && u.Scheme != "mailto") {
+				if e != nil || u.User != nil ||
+					(u.Scheme != "https" && u.Scheme != "http" && u.Scheme != "mailto") {
 					return ErrApplicationTableIncomplete
 				}
 			}
@@ -200,7 +206,17 @@ func (w *applicationWorkbook) enrich(ctx context.Context, s *ApplicationTableSna
 			used[media] = true
 			h := sha256.Sum256(data)
 			digest := hex.EncodeToString(h[:])
-			asset := ApplicationAttachment{TableID: table.ID, FieldID: "sheet_background", RecordID: "sheet_background", Token: "xlsx_" + digest, Name: path.Base(media), MIME: http.DetectContentType(data), Size: int64(len(data)), SHA256: digest, Data: data}
+			asset := ApplicationAttachment{
+				TableID:  table.ID,
+				FieldID:  "sheet_background",
+				RecordID: "sheet_background",
+				Token:    "xlsx_" + digest,
+				Name:     path.Base(media),
+				MIME:     http.DetectContentType(data),
+				Size:     int64(len(data)),
+				SHA256:   digest,
+				Data:     data,
+			}
 			processor, _ := ctx.Value(applicationAttachmentProcessorKey{}).(ApplicationAttachmentProcessor)
 			if processor == nil {
 				return ErrApplicationTableMedia
@@ -209,7 +225,12 @@ func (w *applicationWorkbook) enrich(ctx context.Context, s *ApplicationTableSna
 			if err != nil {
 				return err
 			}
-			if parsed.SHA256 != asset.SHA256 || parsed.TableID != asset.TableID || parsed.RecordID != asset.RecordID || parsed.FieldID != asset.FieldID || parsed.Token != asset.Token || parsed.Text == "" || parsed.Parser == "" {
+			if parsed.SHA256 != asset.SHA256 || parsed.TableID != asset.TableID ||
+				parsed.RecordID != asset.RecordID ||
+				parsed.FieldID != asset.FieldID ||
+				parsed.Token != asset.Token ||
+				parsed.Text == "" ||
+				parsed.Parser == "" {
 				return ErrApplicationTableIncomplete
 			}
 			parsed.Data = data

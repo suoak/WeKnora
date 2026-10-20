@@ -8,7 +8,10 @@ import (
 	"testing"
 )
 
-const sampleLogout = `<samlp:LogoutRequest xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="mock-request" Version="2.0" IssueInstant="2026-10-12T00:00:00Z"><samlp:SessionIndex>mock-session</samlp:SessionIndex></samlp:LogoutRequest>`
+const sampleLogout = "<samlp:LogoutRequest xmlns:samlp=\"urn:oasis:names:tc:SAML:2.0:protoco" +
+	"l\" ID=\"mock-request\" Version=\"2.0\" " +
+	"IssueInstant=\"2026-10-12T00:00:00Z\"><samlp:SessionIndex>mock-session" +
+	"</samlp:SessionIndex></samlp:LogoutRequest>"
 
 func TestLogoutParser(t *testing.T) {
 	for _, test := range []struct {
@@ -16,10 +19,26 @@ func TestLogoutParser(t *testing.T) {
 		valid     bool
 	}{
 		{"valid", sampleLogout, true},
-		{"missing index", strings.ReplaceAll(sampleLogout, "<samlp:SessionIndex>mock-session</samlp:SessionIndex>", ""), false},
-		{"duplicate index", strings.ReplaceAll(sampleLogout, "</samlp:LogoutRequest>", "<samlp:SessionIndex>other</samlp:SessionIndex></samlp:LogoutRequest>"), false},
+		{
+			"missing index",
+			strings.ReplaceAll(
+				sampleLogout,
+				"<samlp:SessionIndex>mock-session</samlp:SessionIndex>",
+				"",
+			),
+			false,
+		},
+		{
+			"duplicate index",
+			strings.ReplaceAll(
+				sampleLogout,
+				"</samlp:LogoutRequest>",
+				"<samlp:SessionIndex>other</samlp:SessionIndex></samlp:LogoutRequest>",
+			),
+			false,
+		},
 		{"wrong namespace", strings.ReplaceAll(sampleLogout, protocolNS, "urn:evil"), false},
-		{"XXE", `<!DOCTYPE x [<!ENTITY e SYSTEM "file:///etc/passwd">]>` + sampleLogout, false},
+		{"XXE", "<!DOCTYPE x [<!ENTITY e SYSTEM \"file:///etc/passwd\">]>" + sampleLogout, false},
 		{"oversize", strings.Repeat("x", MaxLogoutBytes+1), false},
 		{"trailing document", sampleLogout + sampleLogout, false},
 		{"malformed", sampleLogout[:80], false},
@@ -49,7 +68,21 @@ func TestCompressedLogout(t *testing.T) {
 	if _, err := ParseLogout(compress(sampleLogout), "deflate-base64"); err != nil {
 		t.Fatal(err)
 	}
-	for _, raw := range []string{"not-base64", base64.StdEncoding.EncodeToString([]byte("invalid")), compress(strings.Repeat("x", MaxLogoutBytes+1))} {
+	for _, raw := range []string{
+		"not-base64",
+		base64.StdEncoding.EncodeToString(
+			[]byte(
+				"invalid",
+			),
+		),
+		compress(
+			strings.Repeat(
+				"x",
+				MaxLogoutBytes+
+					1,
+			),
+		),
+	} {
 		if _, err := ParseLogout(raw, "deflate-base64"); err == nil {
 			t.Fatal("invalid compressed message accepted")
 		}

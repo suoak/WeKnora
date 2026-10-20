@@ -7,10 +7,16 @@ import (
 	"time"
 )
 
-const SourceIDJWKSValidation = "jwks_signature"
-const SourceIDPinnedValidation = "sid_pinned_keys"
-const SourceIDPinnedIssuer = "https://sid.ruijie.com.cn"
+const (
+	// SourceIDJWKSValidation identifies source idjwksvalidation.
+	SourceIDJWKSValidation = "jwks_signature"
+	// SourceIDPinnedValidation selects explicitly approved SID runtime signing keys.
+	SourceIDPinnedValidation = "sid_pinned_keys"
+	// SourceIDPinnedIssuer is the sole issuer allowed to use the SID-specific policies.
+	SourceIDPinnedIssuer = "https://sid.ruijie.com.cn"
+)
 
+// EffectiveSourceIDValidationStrategy provides the effective source idvalidation strategy operation.
 func (c *OIDCAuthConfig) EffectiveSourceIDValidationStrategy() string {
 	if c.SourceIDValidationStrategy == "" {
 		return SourceIDJWKSValidation
@@ -18,6 +24,7 @@ func (c *OIDCAuthConfig) EffectiveSourceIDValidationStrategy() string {
 	return c.SourceIDValidationStrategy
 }
 
+// ValidateSourceIDValidationStrategy provides the validate source idvalidation strategy operation.
 func (c *OIDCAuthConfig) ValidateSourceIDValidationStrategy() error {
 	switch c.EffectiveSourceIDValidationStrategy() {
 	case SourceIDJWKSValidation:
@@ -31,7 +38,8 @@ func (c *OIDCAuthConfig) ValidateSourceIDValidationStrategy() error {
 	if !c.SourceIDEnable || c.IssuerURL != SourceIDPinnedIssuer || strings.TrimSpace(c.ClientID) == "" {
 		return errors.New("pinned keys are restricted to SID")
 	}
-	if !c.SourceIDPinnedKeysConfirmed || strings.TrimSpace(c.SourceIDPinnedKeysApprovalRef) == "" || len(c.SourceIDPinnedKeysApprovalRef) > 128 {
+	if !c.SourceIDPinnedKeysConfirmed || strings.TrimSpace(c.SourceIDPinnedKeysApprovalRef) == "" ||
+		len(c.SourceIDPinnedKeysApprovalRef) > 128 {
 		return errors.New("SID pinned key approval required")
 	}
 	if !filepath.IsAbs(c.SourceIDPinnedKeysFile) || c.SourceIDPinnedKeyFingerprints == "" {

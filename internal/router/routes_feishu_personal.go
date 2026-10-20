@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// RegisterFeishuPersonalRoutes provides the register feishu personal routes operation.
 // JWT users only: these routes deliberately do not declare API key policies.
 // KB writes depend on the Editor grant; no system/space-admin role is required.
 func RegisterFeishuPersonalRoutes(r *gin.RouterGroup, h *handler.FeishuPersonalHandler, g *rbacGuards) {

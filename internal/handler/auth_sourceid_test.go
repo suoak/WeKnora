@@ -42,17 +42,24 @@ type sourceIDHandlerStub struct {
 func (s *sourceIDHandlerStub) PrepareOIDCCallback(ctx context.Context, _ string) (context.Context, error) {
 	return ctx, nil
 }
-func (s *sourceIDHandlerStub) SourceIDSwitchContext(ctx context.Context, _ string) (context.Context, error) {
+
+func (s *sourceIDHandlerStub) SourceIDSwitchContext(
+	ctx context.Context,
+	_ string,
+) (context.Context, error) {
 	return ctx, nil
 }
+
 func (s *sourceIDHandlerStub) SourceIDBackchannelLogout(_ context.Context, _, index string) error {
 	s.calls++
 	s.index = index
 	return nil
 }
+
 func (s *sourceIDHandlerStub) SaveOIDCLoginResult(context.Context, string) (string, error) {
 	return "mock-cookie", nil
 }
+
 func (s *sourceIDHandlerStub) ConsumeOIDCLoginResult(_ context.Context, key string) (string, error) {
 	if key != "mock-cookie" || s.resultConsumed {
 		return "", errors.New("expired")
@@ -64,24 +71,79 @@ func (s *sourceIDHandlerStub) ConsumeOIDCLoginResult(_ context.Context, key stri
 func TestSourceIDBackchannelHTTPContract(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	stub := &sourceIDHandlerStub{}
-	cfg := &config.OIDCAuthConfig{Enable: true, SourceIDEnable: true, SourceIDLogoutEnable: true, SourceIDContractConfirmed: true, IssuerURL: "mock-issuer", SourceIDLogoutSecret: strings.Repeat("mock", 8), SourceIDLogoutCIDRs: "192.0.2.0/24"}
+	cfg := &config.OIDCAuthConfig{
+		Enable:                    true,
+		SourceIDEnable:            true,
+		SourceIDLogoutEnable:      true,
+		SourceIDContractConfirmed: true,
+		IssuerURL:                 "mock-issuer",
+		SourceIDLogoutSecret:      strings.Repeat("mock", 8),
+		SourceIDLogoutCIDRs:       "192.0.2.0/24",
+	}
 	h := &AuthHandler{userService: stub, configInfo: &config.Config{OIDCAuth: cfg}}
 	router := gin.New()
 	router.POST("/api/v1/auth/oidc/backchannel-logout", h.SourceIDBackchannelLogout)
-	xml := `<p:LogoutRequest xmlns:p="urn:oasis:names:tc:SAML:2.0:protocol" ID="mock-request" Version="2.0" IssueInstant="2026-10-12T00:00:00Z"><p:SessionIndex>mock-index</p:SessionIndex></p:LogoutRequest>`
+	xml := "<p:LogoutRequest xmlns:p=\"urn:oasis:names:tc:SAML:2.0:protocol\" " +
+		"ID=\"mock-request\" Version=\"2.0\" IssueInstant=\"2026-10-12T00:00:00" +
+		"Z\"><p:SessionIndex>mock-index</p:SessionIndex></p:LogoutRequest>"
 	for _, tc := range []struct {
 		name, body, contentType, secret string
 		status                          int
 	}{
-		{"normal", url.Values{"logoutRequest": {xml}}.Encode(), "application/x-www-form-urlencoded", cfg.SourceIDLogoutSecret, 200},
-		{"duplicate notification", url.Values{"logoutRequest": {xml}}.Encode(), "application/x-www-form-urlencoded", cfg.SourceIDLogoutSecret, 200},
+		{
+			"normal",
+			url.Values{
+				"logoutRequest": {
+					xml,
+				},
+			}.Encode(),
+			"application/x-www-form-urlencoded",
+			cfg.SourceIDLogoutSecret,
+			200,
+		},
+		{
+			"duplicate notification",
+			url.Values{
+				"logoutRequest": {
+					xml,
+				},
+			}.Encode(),
+			"application/x-www-form-urlencoded",
+			cfg.SourceIDLogoutSecret,
+			200,
+		},
 		{"unauthorized", url.Values{"logoutRequest": {xml}}.Encode(), "application/x-www-form-urlencoded", "", 403},
 		{"wrong type", xml, "application/xml", cfg.SourceIDLogoutSecret, 415},
-		{"malformed", url.Values{"logoutRequest": {"broken"}}.Encode(), "application/x-www-form-urlencoded", cfg.SourceIDLogoutSecret, 400},
-		{"duplicate form field", url.Values{"logoutRequest": {xml, xml}}.Encode(), "application/x-www-form-urlencoded", cfg.SourceIDLogoutSecret, 400},
+		{
+			"malformed",
+			url.Values{
+				"logoutRequest": {
+					"broken",
+				},
+			}.Encode(),
+			"application/x-www-form-urlencoded",
+			cfg.SourceIDLogoutSecret,
+			400,
+		},
+		{
+			"duplicate form field",
+			url.Values{
+				"logoutRequest": {
+					xml,
+					xml,
+				},
+			}.Encode(),
+			"application/x-www-form-urlencoded",
+			cfg.SourceIDLogoutSecret,
+			400,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			request := httptest.NewRequest("POST", "/api/v1/auth/oidc/backchannel-logout", strings.NewReader(tc.body))
+			request := httptest.NewRequest(
+				"POST",
+				"/api/v1/auth/oidc/backchannel-logout",
+				strings.NewReader(tc.body),
+			)
 			request.RemoteAddr = "192.0.2.5:1234"
 			request.Header.Set("Content-Type", tc.contentType)
 			request.Header.Set("X-KnowHub-SourceID-Secret", tc.secret)
@@ -128,11 +190,20 @@ func TestOIDCResultRejectsCrossSiteAndConsumesCookie(t *testing.T) {
 func TestOIDCURLUsesApprovedCallbackWithoutBrowserOverride(t *testing.T) {
 	approved := "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback"
 	var callback string
-	stub := &stubOIDCStartUserService{getOIDCAuthorizationURL: func(_ context.Context, uri string) (*types.OIDCAuthURLResponse, error) {
-		callback = uri
-		return &types.OIDCAuthURLResponse{Success: true, AuthorizationURL: "https://mock.example/authorize", Nonce: "mock-nonce"}, nil
-	}}
-	h := &AuthHandler{userService: stub, configInfo: &config.Config{OIDCAuth: &config.OIDCAuthConfig{RedirectURI: approved}}}
+	stub := &stubOIDCStartUserService{
+		getOIDCAuthorizationURL: func(_ context.Context, uri string) (*types.OIDCAuthURLResponse, error) {
+			callback = uri
+			return &types.OIDCAuthURLResponse{
+				Success:          true,
+				AuthorizationURL: "https://mock.example/authorize",
+				Nonce:            "mock-nonce",
+			}, nil
+		},
+	}
+	h := &AuthHandler{
+		userService: stub,
+		configInfo:  &config.Config{OIDCAuth: &config.OIDCAuthConfig{RedirectURI: approved}},
+	}
 	router := gin.New()
 	router.GET("/api/v1/auth/oidc/url", h.GetOIDCAuthorizationURL)
 	w := httptest.NewRecorder()
@@ -140,13 +211,29 @@ func TestOIDCURLUsesApprovedCallbackWithoutBrowserOverride(t *testing.T) {
 	require.Equal(t, 200, w.Code)
 	require.Equal(t, approved, callback)
 	w = httptest.NewRecorder()
-	router.ServeHTTP(w, httptest.NewRequest("GET", "http://alternate.test/api/v1/auth/oidc/url?redirect_uri=https://evil.test/callback", nil))
+	router.ServeHTTP(
+		w,
+		httptest.NewRequest(
+			"GET",
+			"http://alternate.test/api/v1/auth/oidc/url?redirect_uri=https://evil.t"+
+				"est/callback",
+			nil,
+		),
+	)
 	require.Equal(t, 400, w.Code)
 }
 
 func TestSourceIDOIDCConfigReturnsPublicCallbackWithoutSecrets(t *testing.T) {
 	callback := "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback"
-	h := &AuthHandler{configInfo: &config.Config{OIDCAuth: &config.OIDCAuthConfig{Enable: true, RedirectURI: callback, ClientSecret: "mock-secret-never-public"}}}
+	h := &AuthHandler{
+		configInfo: &config.Config{
+			OIDCAuth: &config.OIDCAuthConfig{
+				Enable:       true,
+				RedirectURI:  callback,
+				ClientSecret: "mock-secret-never-public",
+			},
+		},
+	}
 	router := gin.New()
 	router.GET("/api/v1/auth/oidc/config", h.GetOIDCConfig)
 	w := httptest.NewRecorder()
@@ -175,6 +262,10 @@ func TestOIDCResultGenericDevProxyUsesBrowserFetchMetadata(t *testing.T) {
 	require.Equal(t, 403, request("same-site"))
 	require.Equal(t, 200, request("same-origin"))
 	stub.resultConsumed = false
-	h.configInfo = &config.Config{OIDCAuth: &config.OIDCAuthConfig{RedirectURI: "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback"}}
+	h.configInfo = &config.Config{
+		OIDCAuth: &config.OIDCAuthConfig{
+			RedirectURI: "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback",
+		},
+	}
 	require.Equal(t, 403, request("same-origin"))
 }

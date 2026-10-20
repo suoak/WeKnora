@@ -42,12 +42,14 @@ func (r *feishuSettingRepo) Upsert(_ context.Context, row *types.SystemSetting) 
 	r.rows[row.Key] = row
 	return nil
 }
+
 func (r *feishuSettingRepo) UpsertBatch(ctx context.Context, rows []*types.SystemSetting) error {
 	for _, row := range rows {
 		_ = r.Upsert(ctx, row)
 	}
 	return nil
 }
+
 func (r *feishuSettingRepo) Delete(_ context.Context, key string) (bool, error) {
 	_, ok := r.rows[key]
 	delete(r.rows, key)
@@ -85,7 +87,18 @@ func feishuFixture(t *testing.T) (*FeishuPersonalService, *feishuSettingRepo) {
 	repo := &feishuSettingRepo{rows: map[string]*types.SystemSetting{}}
 	s := NewFeishuPersonalService(db, repo, nil, nil, nil)
 	admin := context.WithValue(personalUser("A"), types.SystemAdminContextKey, true)
-	require.NoError(t, s.SaveApp(admin, &FeishuAppConfig{AppID: "cli_test", Secret: "super-secret", RedirectURI: "https://knowhub.example/feishu/callback", Enabled: true}))
+	require.NoError(
+		t,
+		s.SaveApp(
+			admin,
+			&FeishuAppConfig{
+				AppID:       "cli_test",
+				Secret:      "super-secret",
+				RedirectURI: "https://knowhub.example/feishu/callback",
+				Enabled:     true,
+			},
+		),
+	)
 	return s, repo
 }
 
@@ -115,9 +128,23 @@ func TestFeishuOAuthStateOwnerReplayExpiryAndDisconnect(t *testing.T) {
 	cfg, err := s.app(context.Background())
 	require.NoError(t, err)
 	state := strings.Repeat("s", 43)
-	require.NoError(t, s.db.Create(&types.FeishuOAuthState{Hash: stateHash(state), UserID: "A", ConfigVersion: cfg.Version, ExpiresAt: time.Now().Add(time.Minute)}).Error)
+	require.NoError(
+		t,
+		s.db.Create(
+			&types.FeishuOAuthState{
+				Hash:          stateHash(state),
+				UserID:        "A",
+				ConfigVersion: cfg.Version,
+				ExpiresAt:     time.Now().Add(time.Minute),
+			},
+		).Error,
+	)
 	var exchanges atomic.Int32
-	s.api = &http.Client{Transport: feishuTestTransport(func(r *http.Request) (*http.Response, error) { exchanges.Add(1); return nil, errors.New("offline") })}
+	s.api = &http.Client{
+		Transport: feishuTestTransport(
+			func(_ *http.Request) (*http.Response, error) { exchanges.Add(1); return nil, errors.New("offline") },
+		),
+	}
 	require.Error(t, s.Complete(personalUser("B"), state, "code"))
 	require.EqualValues(t, 0, exchanges.Load())
 	require.Error(t, s.Complete(personalUser("A"), state, "code"))
@@ -129,7 +156,17 @@ func TestFeishuOAuthStateOwnerReplayExpiryAndDisconnect(t *testing.T) {
 	require.NoError(t, s.db.Model(&types.FeishuOAuthState{}).Where("user_id = ?", "A").Count(&count).Error)
 	require.Zero(t, count)
 	expired := strings.Repeat("x", 43)
-	require.NoError(t, s.db.Create(&types.FeishuOAuthState{Hash: stateHash(expired), UserID: "A", ConfigVersion: cfg.Version, ExpiresAt: time.Now().Add(-time.Second)}).Error)
+	require.NoError(
+		t,
+		s.db.Create(
+			&types.FeishuOAuthState{
+				Hash:          stateHash(expired),
+				UserID:        "A",
+				ConfigVersion: cfg.Version,
+				ExpiresAt:     time.Now().Add(-time.Second),
+			},
+		).Error,
+	)
 	require.Error(t, s.Complete(personalUser("A"), expired, "code"))
 	require.EqualValues(t, 1, exchanges.Load())
 }
@@ -138,14 +175,36 @@ type feishuTestTransport func(*http.Request) (*http.Response, error)
 
 func (f feishuTestTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 func feishuTokenResponse() *http.Response {
-	return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"code":0,"access_token":"new-access","refresh_token":"new-refresh","expires_in":7200,"refresh_token_expires_in":86400}`)), Header: make(http.Header)}
+	return &http.Response{
+		StatusCode: 200,
+		Body: io.NopCloser(
+			strings.NewReader(
+				"{\"code\":0,\"access_token\":\"new-access\"," +
+					"\"refresh_token\":\"new-refresh\",\"expires_in\":7200," +
+					"\"refresh_token_expires_in\":86400}",
+			),
+		),
+		Header: make(http.Header),
+	}
 }
 
 func TestFeishuRefreshOwnerBoundAndDisconnectStopsFetch(t *testing.T) {
 	s, _ := feishuFixture(t)
 	encrypted, err := sealFeishu(feishuTokens{UserID: "A", Access: "old", Refresh: "refresh"})
 	require.NoError(t, err)
-	require.NoError(t, s.db.Create(&types.FeishuConnection{UserID: "A", AppID: "cli_test", OpenID: "open-A", Tokens: encrypted, ExpiresAt: time.Now().Add(-time.Second), RefreshExpiresAt: time.Now().Add(time.Hour)}).Error)
+	require.NoError(
+		t,
+		s.db.Create(
+			&types.FeishuConnection{
+				UserID:           "A",
+				AppID:            "cli_test",
+				OpenID:           "open-A",
+				Tokens:           encrypted,
+				ExpiresAt:        time.Now().Add(-time.Second),
+				RefreshExpiresAt: time.Now().Add(time.Hour),
+			},
+		).Error,
+	)
 	var refreshes atomic.Int32
 	_, err = s.UserToken(personalUser("B"), "A", "cli_test", "open-A")
 	require.Error(t, err)
@@ -185,15 +244,39 @@ type personalKnowledgeStub struct {
 	item              *types.Knowledge
 }
 
-func (s *personalKnowledgeStub) CreateKnowledgeFromFile(_ context.Context, kb string, f *multipart.FileHeader, meta map[string]string, _ *bool, _ string, _ []string, channel string, _ *types.KnowledgeProcessOverrides) (*types.Knowledge, error) {
+func (s *personalKnowledgeStub) CreateKnowledgeFromFile(
+	_ context.Context,
+	kb string,
+	_ *multipart.FileHeader,
+	meta map[string]string,
+	_ *bool,
+	_ string,
+	_ []string,
+	channel string,
+	_ *types.KnowledgeProcessOverrides,
+) (*types.Knowledge, error) {
 	s.creates++
-	s.item = &types.Knowledge{ID: "knowledge", KnowledgeBaseID: kb, ParseStatus: types.ParseStatusCompleted, Source: meta["source_url"], Channel: channel}
+	s.item = &types.Knowledge{
+		ID:              "knowledge",
+		KnowledgeBaseID: kb,
+		ParseStatus:     types.ParseStatusCompleted,
+		Source:          meta["source_url"],
+		Channel:         channel,
+	}
 	return s.item, nil
 }
-func (s *personalKnowledgeStub) ReplaceKnowledgeFile(_ context.Context, id string, _ *multipart.FileHeader, _ string, _ map[string]string) (*types.Knowledge, error) {
+
+func (s *personalKnowledgeStub) ReplaceKnowledgeFile(
+	_ context.Context,
+	_ string,
+	_ *multipart.FileHeader,
+	_ string,
+	_ map[string]string,
+) (*types.Knowledge, error) {
 	s.replaces++
 	return s.item, nil
 }
+
 func (s *personalKnowledgeStub) GetKnowledgeByID(context.Context, string) (*types.Knowledge, error) {
 	return s.item, nil
 }
@@ -206,9 +289,23 @@ func TestFeishuImportPermissionIdentityDedupeAndFailedResyncPreservesKnowledge(t
 	s.knowledge = knowledge
 	require.NoError(t, s.db.Exec("INSERT INTO knowledge_bases(id) VALUES ('kb')").Error)
 	for _, user := range []string{"A", "B"} {
-		encrypted, err := sealFeishu(feishuTokens{UserID: user, Access: "access-" + user, Refresh: "refresh"})
+		encrypted, err := sealFeishu(
+			feishuTokens{UserID: user, Access: "access-" + user, Refresh: "refresh"},
+		)
 		require.NoError(t, err)
-		require.NoError(t, s.db.Create(&types.FeishuConnection{UserID: user, AppID: "cli_test", OpenID: "open-" + user, Tokens: encrypted, ExpiresAt: time.Now().Add(time.Hour), RefreshExpiresAt: time.Now().Add(time.Hour)}).Error)
+		require.NoError(
+			t,
+			s.db.Create(
+				&types.FeishuConnection{
+					UserID:           user,
+					AppID:            "cli_test",
+					OpenID:           "open-" + user,
+					Tokens:           encrypted,
+					ExpiresAt:        time.Now().Add(time.Hour),
+					RefreshExpiresAt: time.Now().Add(time.Hour),
+				},
+			).Error,
+		)
 	}
 	modified := "1"
 	denyDownload := false
@@ -228,9 +325,18 @@ func TestFeishuImportPermissionIdentityDedupeAndFailedResyncPreservesKnowledge(t
 				_, _ = io.WriteString(w, `{"code":99991672}`)
 				return
 			}
-			_, _ = io.WriteString(w, `{"code":0,"data":{"node":{"obj_type":"file","obj_token":"real","title":"test.pdf"}}}`)
+			_, _ = io.WriteString(
+				w,
+				"{\"code\":0,\"data\":{\"node\":{\"obj_type\":\"file\","+
+					"\"obj_token\":\"real\",\"title\":\"test.pdf\"}}}",
+			)
 		case "/open-apis/drive/v1/metas/batch_query":
-			_, _ = io.WriteString(w, `{"code":0,"data":{"metas":[{"doc_type":"file","doc_token":"real","title":"test.pdf","latest_modify_time":"`+modified+`"}]}}`)
+			_, _ = io.WriteString(
+				w,
+				"{\"code\":0,\"data\":{\"metas\":[{\"doc_type\":\"file\","+
+					"\"doc_token\":\"real\",\"title\":\"test.pdf\","+
+					"\"latest_modify_time\":\""+modified+`"}]}}`,
+			)
 		case "/open-apis/drive/v1/files/real/download":
 			if denyDownload {
 				w.WriteHeader(403)
@@ -300,8 +406,18 @@ func TestFeishuDisconnectDuringOAuthCannotResurrectConnection(t *testing.T) {
 	cfg, err := s.app(context.Background())
 	require.NoError(t, err)
 	state := strings.Repeat("q", 43)
-	require.NoError(t, s.db.Create(&types.FeishuOAuthState{Hash: stateHash(state), UserID: "A", ConfigVersion: cfg.Version, ExpiresAt: time.Now().Add(time.Minute)}).Error)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	require.NoError(
+		t,
+		s.db.Create(
+			&types.FeishuOAuthState{
+				Hash:          stateHash(state),
+				UserID:        "A",
+				ConfigVersion: cfg.Version,
+				ExpiresAt:     time.Now().Add(time.Minute),
+			},
+		).Error,
+	)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = io.WriteString(w, `{"code":0,"data":{"open_id":"open-A"}}`)
 	}))
 	defer server.Close()
@@ -323,7 +439,19 @@ func TestFeishuPlaintextAndSwappedOwnerRejected(t *testing.T) {
 		require.NoError(t, err)
 		return x
 	}()} {
-		require.NoError(t, s.db.Save(&types.FeishuConnection{UserID: "A", AppID: "cli_test", OpenID: "open-A", Tokens: tokens, ExpiresAt: time.Now().Add(time.Hour), RefreshExpiresAt: time.Now().Add(time.Hour)}).Error)
+		require.NoError(
+			t,
+			s.db.Save(
+				&types.FeishuConnection{
+					UserID:           "A",
+					AppID:            "cli_test",
+					OpenID:           "open-A",
+					Tokens:           tokens,
+					ExpiresAt:        time.Now().Add(time.Hour),
+					RefreshExpiresAt: time.Now().Add(time.Hour),
+				},
+			).Error,
+		)
 		_, err := s.UserToken(personalUser("A"), "A", "cli_test", "open-A")
 		require.Error(t, err)
 	}
@@ -332,8 +460,16 @@ func TestFeishuPlaintextAndSwappedOwnerRejected(t *testing.T) {
 func TestFeishuOAuthRejectsOversizedValidJSONPrefix(t *testing.T) {
 	s, _ := feishuFixture(t)
 	s.api = &http.Client{Transport: feishuTestTransport(func(*http.Request) (*http.Response, error) {
-		body := `{"access_token":"access","refresh_token":"refresh","expires_in":3600,"refresh_token_expires_in":7200}` + strings.Repeat(" ", 1024*1024)
-		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}, nil
+		body := "{\"access_token\":\"access\",\"refresh_token\":\"refresh\"," +
+			"\"expires_in\":3600,\"refresh_token_expires_in\":7200}" + strings.Repeat(
+			" ",
+			1024*1024,
+		)
+		return &http.Response{
+			StatusCode: 200,
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Header:     make(http.Header),
+		}, nil
 	})}
 	_, err := s.oauthRequest(context.Background(), map[string]string{"grant_type": "synthetic"})
 	require.ErrorIs(t, err, core.ErrResponseTooLarge)

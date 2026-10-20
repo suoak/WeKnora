@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/mark3labs/mcp-go/client/transport"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +12,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/mark3labs/mcp-go/client/transport"
 
 	"github.com/Tencent/WeKnora/internal/types"
 	secutils "github.com/Tencent/WeKnora/internal/utils"
@@ -125,7 +126,20 @@ func TestMCPSessionErrorClassification(t *testing.T) {
 		session, disconnect bool
 	}{
 		{"session-404", transport.NewError(transport.ErrSessionTerminated), true, true},
-		{"wrapped-session", fmt.Errorf("wrap: %w", transport.NewError(fmt.Errorf("wrap: %w", transport.ErrSessionTerminated))), true, true},
+		{
+			"wrapped-session",
+			fmt.Errorf(
+				"wrap: %w",
+				transport.NewError(
+					fmt.Errorf(
+						"wrap: %w",
+						transport.ErrSessionTerminated,
+					),
+				),
+			),
+			true,
+			true,
+		},
 		{"stateless-404", transport.NewError(transport.ErrSessionTerminated), false, false},
 		{"ordinary-404", transport.NewError(errors.New("HTTP 404 not found")), true, false},
 		{"unauthorized", transport.NewError(errors.New("HTTP 401 Unauthorized")), true, false},
@@ -152,7 +166,13 @@ func TestMCPManagerReconnectsWithoutReplayingToolCall(t *testing.T) {
 	httpServer := httptest.NewServer(server)
 	defer httpServer.Close()
 	u := httpServer.URL
-	service := &types.MCPService{ID: "session-service", TenantID: 7, Enabled: true, TransportType: types.MCPTransportHTTPStreamable, URL: &u}
+	service := &types.MCPService{
+		ID:            "session-service",
+		TenantID:      7,
+		Enabled:       true,
+		TransportType: types.MCPTransportHTTPStreamable,
+		URL:           &u,
+	}
 	manager := NewMCPManager(nil)
 	defer manager.Shutdown()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -207,7 +227,15 @@ func TestMCPStateless404DoesNotResetConnection(t *testing.T) {
 	httpServer := httptest.NewServer(server)
 	defer httpServer.Close()
 	u := httpServer.URL
-	c, err := NewMCPClient(&ClientConfig{Service: &types.MCPService{ID: "stateless", TransportType: types.MCPTransportHTTPStreamable, URL: &u}})
+	c, err := NewMCPClient(
+		&ClientConfig{
+			Service: &types.MCPService{
+				ID:            "stateless",
+				TransportType: types.MCPTransportHTTPStreamable,
+				URL:           &u,
+			},
+		},
+	)
 	require.NoError(t, err)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -230,7 +258,15 @@ func TestMCPHTTPAuthErrorsAreNotRetried(t *testing.T) {
 			httpServer := httptest.NewServer(server)
 			defer httpServer.Close()
 			u := httpServer.URL
-			c, err := NewMCPClient(&ClientConfig{Service: &types.MCPService{ID: "auth-boundary", TransportType: types.MCPTransportHTTPStreamable, URL: &u}})
+			c, err := NewMCPClient(
+				&ClientConfig{
+					Service: &types.MCPService{
+						ID:            "auth-boundary",
+						TransportType: types.MCPTransportHTTPStreamable,
+						URL:           &u,
+					},
+				},
+			)
 			require.NoError(t, err)
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()

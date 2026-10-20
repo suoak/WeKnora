@@ -1,3 +1,4 @@
+// Package utils provides shared application utility functions.
 package utils
 
 import "strings"

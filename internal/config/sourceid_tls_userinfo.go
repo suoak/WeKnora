@@ -6,9 +6,14 @@ import (
 	"time"
 )
 
-const SourceIDTLSUserInfoValidation = "code_flow_tls_userinfo"
-const SourceIDHTTPCallback = "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback"
+const (
+	// SourceIDTLSUserInfoValidation identifies source idtlsuser info validation.
+	SourceIDTLSUserInfoValidation = "code_flow_tls_userinfo"
+	// SourceIDHTTPCallback preserves the registered internal HTTP callback contract.
+	SourceIDHTTPCallback = "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback"
+)
 
+// ValidateSIDTLSUserInfoPolicy provides the validate sidtlsuser info policy operation.
 // Only an explicit SID policy can replace signature validation with the
 // authenticated, direct Token Endpoint response provenance. No fallback.
 func (c *OIDCAuthConfig) ValidateSIDTLSUserInfoPolicy() error {
@@ -18,7 +23,11 @@ func (c *OIDCAuthConfig) ValidateSIDTLSUserInfoPolicy() error {
 func (c *OIDCAuthConfig) validateSIDTLSUserInfoPolicyAt(now time.Time) error {
 	if c.EffectiveSourceIDValidationStrategy() != SourceIDTLSUserInfoValidation ||
 		!c.Enable || !c.SourceIDEnable || c.SourceIDProtocolOnly || !c.SourceIDContractConfirmed ||
-		!c.SourceIDTLSUserInfoConfirmed || strings.TrimSpace(c.SourceIDTLSUserInfoApprovalRef) == "" || len(c.SourceIDTLSUserInfoApprovalRef) > 128 {
+		!c.SourceIDTLSUserInfoConfirmed || strings.TrimSpace(
+		c.SourceIDTLSUserInfoApprovalRef,
+	) == "" || len(
+		c.SourceIDTLSUserInfoApprovalRef,
+	) > 128 {
 		return errors.New("SID TLS UserInfo policy approval required")
 	}
 	switch c.SourceIDTLSUserInfoLifecycle {
@@ -48,10 +57,24 @@ func (c *OIDCAuthConfig) validateSIDTLSUserInfoPolicyAt(now time.Time) error {
 		c.ClientAuthMethod != "client_secret_basic" || c.SourceIDClaimsSource != "userinfo" {
 		return errors.New("SID TLS UserInfo deployment contract invalid")
 	}
-	if c.DiscoveryURL != "" && c.DiscoveryURL != SourceIDPinnedIssuer+"/oidc/.well-known/openid-configuration" {
+	if c.DiscoveryURL != "" &&
+		c.DiscoveryURL != SourceIDPinnedIssuer+"/oidc/.well-known/openid-configuration" {
 		return errors.New("SID TLS discovery contract invalid")
 	}
-	for _, pair := range [][2]string{{c.AuthorizationEndpoint, "/oidc/authorize"}, {c.TokenEndpoint, "/oidc/accessToken"}, {c.UserInfoEndpoint, "/oidc/profile"}} {
+	for _, pair := range [][2]string{
+		{
+			c.AuthorizationEndpoint,
+			"/oidc/authorize",
+		},
+		{
+			c.TokenEndpoint,
+			"/oidc/accessToken",
+		},
+		{
+			c.UserInfoEndpoint,
+			"/oidc/profile",
+		},
+	} {
 		if pair[0] != "" && pair[0] != SourceIDPinnedIssuer+pair[1] {
 			return errors.New("SID TLS endpoint contract invalid")
 		}

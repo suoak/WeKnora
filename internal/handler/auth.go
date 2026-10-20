@@ -73,7 +73,8 @@ func NewAuthHandler(configInfo *config.Config,
 	// instead of discovering it the day someone hits /auth/register.
 	if configInfo == nil || configInfo.Auth == nil {
 		logger.Error(context.Background(),
-			"[auth] AuthHandler constructed with nil/incomplete auth config; registration_mode enforcement is disabled")
+			"[auth] AuthHandler constructed with nil/incomplete auth config; "+
+				"registration_mode enforcement is disabled")
 	}
 	return &AuthHandler{
 		configInfo:       configInfo,
@@ -435,7 +436,9 @@ func (h *AuthHandler) GetOIDCConfig(c *gin.Context) {
 // @Router       /auth/oidc/callback [get]
 func (h *AuthHandler) OIDCRedirectCallback(c *gin.Context) {
 	ctx := c.Request.Context()
-	diagnosticsEnabled := h.configInfo != nil && h.configInfo.OIDCAuth != nil && h.configInfo.OIDCAuth.SourceIDEnable && h.configInfo.OIDCAuth.SourceIDDiagnosticsEnable
+	diagnosticsEnabled := h.configInfo != nil && h.configInfo.OIDCAuth != nil &&
+		h.configInfo.OIDCAuth.SourceIDEnable &&
+		h.configInfo.OIDCAuth.SourceIDDiagnosticsEnable
 	ctx = service.NewSourceIDDiagnosticContext(ctx, diagnosticsEnabled)
 	stageStarted := time.Now()
 	callbackError := stderrors.New("callback rejected")
@@ -477,10 +480,18 @@ func (h *AuthHandler) OIDCRedirectCallback(c *gin.Context) {
 	}
 	service.SourceIDDiagnosticStage(ctx, "callback_state", stageStarted, nil)
 	ctx = service.SourceIDDiagnosticStatePassed(ctx)
-	resp, err := h.userService.LoginWithOIDC(ctx, code, strings.TrimSpace(decodedState.RedirectURI), h.resolveDefaultTenantMode(ctx))
+	resp, err := h.userService.LoginWithOIDC(
+		ctx,
+		code,
+		strings.TrimSpace(decodedState.RedirectURI),
+		h.resolveDefaultTenantMode(ctx),
+	)
 	if err != nil {
 		logger.Warn(ctx, "OIDC login rejected")
-		c.Redirect(http.StatusFound, frontendRedirectURI+"#oidc_error="+urlQueryEscape(oidcPublicError(err)))
+		c.Redirect(
+			http.StatusFound,
+			frontendRedirectURI+"#oidc_error="+urlQueryEscape(oidcPublicError(err)),
+		)
 		return
 	}
 	if !resp.Success {
@@ -491,7 +502,10 @@ func (h *AuthHandler) OIDCRedirectCallback(c *gin.Context) {
 	payload, err := encodeOIDCCallbackPayload(resp)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to encode OIDC callback payload: %v", err)
-		c.Redirect(http.StatusFound, frontendRedirectURI+"#oidc_error="+urlQueryEscape("payload_encode_failed"))
+		c.Redirect(
+			http.StatusFound,
+			frontendRedirectURI+"#oidc_error="+urlQueryEscape("payload_encode_failed"),
+		)
 		return
 	}
 
@@ -691,7 +705,13 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 	if activeTenantID > 0 {
 		tenant, err = h.tenantService.GetTenantByID(ctx, activeTenantID)
 		if err != nil {
-			logger.Warnf(ctx, "Failed to get tenant info for user %s, tenant ID %d: %v", user.Email, activeTenantID, err)
+			logger.Warnf(
+				ctx,
+				"Failed to get tenant info for user %s, tenant ID %d: %v",
+				user.Email,
+				activeTenantID,
+				err,
+			)
 			// Don't fail the request if tenant info is not available
 		}
 	}
@@ -703,15 +723,22 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 	canCreateTenant := user.CanAccessAllTenants ||
 		resolveTenantSelfServiceCreationEnabled(ctx, h.configInfo, h.systemSettingSvc)
 	autoAcceptInvitation := h.systemSettingSvc != nil &&
-		h.systemSettingSvc.GetBool(ctx, "tenant.auto_accept_invitation", "WEKNORA_TENANT_AUTO_ACCEPT_INVITATION", false)
+		h.systemSettingSvc.GetBool(
+			ctx,
+			"tenant.auto_accept_invitation",
+			"WEKNORA_TENANT_AUTO_ACCEPT_INVITATION",
+			false,
+		)
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
-			"user":                userInfo,
-			"preference_defaults": gin.H{"browser_search_instructions": types.DefaultBrowserSearchInstructions},
-			"tenant":              dto.NewTenantResponse(ctx, tenant),
-			"memberships":         memberships,
-			"tenant_required":     tenant == nil,
+			"user": userInfo,
+			"preference_defaults": gin.H{
+				"browser_search_instructions": types.DefaultBrowserSearchInstructions,
+			},
+			"tenant":          dto.NewTenantResponse(ctx, tenant),
+			"memberships":     memberships,
+			"tenant_required": tenant == nil,
 			"capabilities": gin.H{
 				"can_create_tenant":      canCreateTenant,
 				"auto_accept_invitation": autoAcceptInvitation,
@@ -914,7 +941,7 @@ func (h *AuthHandler) SwitchTenant(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		appErr := errors.NewValidationError("Invalid workspace switch request").WithDetails(err.Error())
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
@@ -962,7 +989,10 @@ func (h *AuthHandler) AutoSetup(c *gin.Context) {
 	}
 
 	if liteSetupToken == "" ||
-		subtle.ConstantTimeCompare([]byte(c.GetHeader("X-WeKnora-Desktop-Token")), []byte(liteSetupToken)) != 1 {
+		subtle.ConstantTimeCompare(
+			[]byte(c.GetHeader("X-WeKnora-Desktop-Token")),
+			[]byte(liteSetupToken),
+		) != 1 {
 		_ = c.Error(errors.NewUnauthorizedError("desktop authentication is required"))
 		return
 	}

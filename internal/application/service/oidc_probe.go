@@ -44,6 +44,7 @@ type OIDCProbeMetadata struct {
 
 const approvedSourceIDProbeCallbackURI = "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback"
 
+// OIDCProbeReport defines oidcprobe report state.
 type OIDCProbeReport struct {
 	Endpoints  map[string]string      `json:"endpoint"`
 	Algorithm  string                 `json:"alg,omitempty"`
@@ -53,6 +54,7 @@ type OIDCProbeReport struct {
 	HTTP       []OIDCProbeHTTPResult  `json:"http,omitempty"`
 }
 
+// OIDCProbeHTTPResult defines oidcprobe httpresult state.
 // Only bounded public diagnostics are retained. Never record requests, headers,
 // URLs with queries, raw errors, response text or credentials.
 type OIDCProbeHTTPResult struct {
@@ -148,7 +150,14 @@ func (t *probeDiagnosticTransport) RoundTrip(req *http.Request) (*http.Response,
 			for name := range details.Response.Correlation {
 				correlations[name] = resp.Header.Get(name)
 			}
-			resp.Body = &probeObservedBody{ReadCloser: resp.Body, report: details.Response, started: start, privateValues: privateValues, publicCodes: t.publicErrorCodes, correlationValues: correlations}
+			resp.Body = &probeObservedBody{
+				ReadCloser:        resp.Body,
+				report:            details.Response,
+				started:           start,
+				privateValues:     privateValues,
+				publicCodes:       t.publicErrorCodes,
+				correlationValues: correlations,
+			}
 		}
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			d.Failure = "http_status"
@@ -168,7 +177,16 @@ func (t *probeDiagnosticTransport) RoundTrip(req *http.Request) (*http.Response,
 					}
 				}
 				switch code {
-				case "invalid_request", "invalid_client", "invalid_grant", "unauthorized_client", "unsupported_grant_type", "invalid_scope", "invalid_token", "access_denied", "server_error", "temporarily_unavailable":
+				case "invalid_request",
+					"invalid_client",
+					"invalid_grant",
+					"unauthorized_client",
+					"unsupported_grant_type",
+					"invalid_scope",
+					"invalid_token",
+					"access_denied",
+					"server_error",
+					"temporarily_unavailable":
 					d.OAuthError = code
 				}
 			}
@@ -193,7 +211,9 @@ func probeTransportFailure(err error) string {
 	var hostname x509.HostnameError
 	var invalidCertificate x509.CertificateInvalidError
 	var invalidTLSRecord tls.RecordHeaderError
-	if errors.As(err, &verification) || errors.As(err, &unknownAuthority) || errors.As(err, &hostname) || errors.As(err, &invalidCertificate) || errors.As(err, &invalidTLSRecord) {
+	if errors.As(err, &verification) || errors.As(err, &unknownAuthority) || errors.As(err, &hostname) ||
+		errors.As(err, &invalidCertificate) ||
+		errors.As(err, &invalidTLSRecord) {
 		return "tls_error"
 	}
 	return "transport_error"
@@ -217,6 +237,7 @@ type OIDCProtocolProbe struct {
 	result                    OIDCProbeReport
 }
 
+// NewOIDCProtocolProbe constructs OIDCProtocolProbe.
 func NewOIDCProtocolProbe(m OIDCProbeMetadata, secret string) (*OIDCProtocolProbe, error) {
 	if secret == "" || len(secret) > 4096 {
 		return nil, errors.New("probe configuration incomplete")
@@ -242,7 +263,8 @@ func ValidateOIDCProbeMetadata(m OIDCProbeMetadata) error {
 	}
 	for _, raw := range []string{m.Issuer, m.Authorization, m.Token, m.JWKS, m.UserInfo} {
 		u, err := url.Parse(raw)
-		if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" ||
+			u.Fragment != "" {
 			return errors.New("confirmed HTTPS metadata required")
 		}
 		if err = validateOIDCEndpoint("probe", raw, true); err != nil {
@@ -250,7 +272,9 @@ func ValidateOIDCProbeMetadata(m OIDCProbeMetadata) error {
 		}
 	}
 	u, err := url.Parse(m.RedirectURI)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil ||
+		u.RawQuery != "" ||
+		u.Fragment != "" {
 		return errors.New("independent approved probe callback required")
 	}
 	// This changes only the isolated observer's route, never the business router.
@@ -260,7 +284,8 @@ func ValidateOIDCProbeMetadata(m OIDCProbeMetadata) error {
 	if m.ClientAuth != "client_secret_post" && m.ClientAuth != "client_secret_basic" {
 		return errors.New("confirmed client authentication required")
 	}
-	if m.UserInfoTransport != "bearer_get" && m.UserInfoTransport != "form_post" && m.UserInfoTransport != "multipart_post" {
+	if m.UserInfoTransport != "bearer_get" && m.UserInfoTransport != "form_post" &&
+		m.UserInfoTransport != "multipart_post" {
 		return errors.New("confirmed UserInfo transport required")
 	}
 	openid := false
@@ -279,21 +304,53 @@ func ValidateOIDCProbeMetadata(m OIDCProbeMetadata) error {
 }
 
 func newOIDCProtocolProbe(m OIDCProbeMetadata, secret string) *OIDCProtocolProbe {
-	return &OIDCProtocolProbe{metadata: m, cfg: config.OIDCAuthConfig{IssuerURL: m.Issuer, ClientID: m.ClientID, ClientSecret: secret, AuthorizationEndpoint: m.Authorization, TokenEndpoint: m.Token, JwksURI: m.JWKS, UserInfoEndpoint: m.UserInfo, ClientAuthMethod: m.ClientAuth, UserInfoTransport: m.UserInfoTransport}, deadline: time.Now().Add(10 * time.Minute), done: make(chan struct{}), result: OIDCProbeReport{Endpoints: map[string]string{"issuer": m.Issuer, "authorization": m.Authorization, "token": m.Token, "jwks": m.JWKS, "userinfo": m.UserInfo, "callback": m.RedirectURI}, Validation: map[string]bool{"completed": false}}}
+	return &OIDCProtocolProbe{
+		metadata: m,
+		cfg: config.OIDCAuthConfig{
+			IssuerURL:             m.Issuer,
+			ClientID:              m.ClientID,
+			ClientSecret:          secret,
+			AuthorizationEndpoint: m.Authorization,
+			TokenEndpoint:         m.Token,
+			JwksURI:               m.JWKS,
+			UserInfoEndpoint:      m.UserInfo,
+			ClientAuthMethod:      m.ClientAuth,
+			UserInfoTransport:     m.UserInfoTransport,
+		},
+		deadline: time.Now().Add(10 * time.Minute),
+		done:     make(chan struct{}),
+		result: OIDCProbeReport{
+			Endpoints: map[string]string{
+				"issuer":        m.Issuer,
+				"authorization": m.Authorization,
+				"token":         m.Token,
+				"jwks":          m.JWKS,
+				"userinfo":      m.UserInfo,
+				"callback":      m.RedirectURI,
+			},
+			Validation: map[string]bool{"completed": false},
+		},
+	}
 }
 
+// Done provides the done operation.
 func (p *OIDCProtocolProbe) Done() <-chan struct{} { return p.done }
+
 func (p *OIDCProtocolProbe) callbackPath() string {
 	if u, err := url.Parse(p.metadata.RedirectURI); err == nil && u.Path != "" {
 		return u.Path
 	}
 	return "/probe/callback"
 }
+
+// Report provides the report operation.
 func (p *OIDCProtocolProbe) Report() OIDCProbeReport {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.result
 }
+
+// Close provides the close operation.
 func (p *OIDCProtocolProbe) Close() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -406,7 +463,10 @@ func (p *OIDCProtocolProbe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p.state = ""
 	p.nonce = ""
 	p.verifier = ""
-	result := OIDCProbeReport{Endpoints: p.result.Endpoints, Validation: map[string]bool{"state": true, "completed": false}}
+	result := OIDCProbeReport{
+		Endpoints:  p.result.Endpoints,
+		Validation: map[string]bool{"state": true, "completed": false},
+	}
 	p.mu.Unlock()
 	defer p.Close()
 	if len(q["code"]) != 1 || q.Get("code") == "" || len(q.Get("code")) > 8192 || len(q["error"]) != 0 {
@@ -419,8 +479,19 @@ func (p *OIDCProtocolProbe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	client := newOIDCHTTPClient()
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	client.Transport = &probeDiagnosticTransport{base: client.Transport, endpoints: result.Endpoints, report: &result, callbackReceived: callbackReceived, clientAuth: cfg.ClientAuthMethod, diagnostics: p.metadata.HTTPDiagnostics, clientID: cfg.ClientID, publicErrorCodes: p.metadata.PublicErrorCodes}
-	svc := &userService{protocolClient: client} // Intentionally no user/token repositories or config/container.
+	client.Transport = &probeDiagnosticTransport{
+		base:             client.Transport,
+		endpoints:        result.Endpoints,
+		report:           &result,
+		callbackReceived: callbackReceived,
+		clientAuth:       cfg.ClientAuthMethod,
+		diagnostics:      p.metadata.HTTPDiagnostics,
+		clientID:         cfg.ClientID,
+		publicErrorCodes: p.metadata.PublicErrorCodes,
+	}
+	svc := &userService{
+		protocolClient: client,
+	} // Intentionally no user/token repositories or config/container.
 	tokens, err := svc.exchangeOIDCCode(ctx, &cfg, q.Get("code"), redirect)
 	if len(result.HTTP) > 0 {
 		d := &result.HTTP[len(result.HTTP)-1]
@@ -454,7 +525,8 @@ func (p *OIDCProtocolProbe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var h struct {
 		Algorithm string `json:"alg"`
 	}
-	result.Validation["algorithm"] = err == nil && json.Unmarshal(header, &h) == nil && h.Algorithm == "RS256"
+	result.Validation["algorithm"] = err == nil && json.Unmarshal(header, &h) == nil &&
+		h.Algorithm == "RS256"
 	if !result.Validation["algorithm"] {
 		p.finish(w, 400, result)
 		return
@@ -471,13 +543,26 @@ func (p *OIDCProtocolProbe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		p.finish(w, 400, result)
 		return
 	}
-	for _, check := range []string{"signature", "issuer", "audience", "authorized_party", "expiry", "issued_at", "subject"} {
+	for _, check := range []string{
+		"signature",
+		"issuer",
+		"audience",
+		"authorized_party",
+		"expiry",
+		"issued_at",
+		"subject",
+	} {
 		result.Validation[check] = true
 	}
 	result.Algorithm = h.Algorithm
 	budget := 512
 	result.Claims = probeSchema(claims, 0, &budget)
-	info, err := svc.fetchOIDCUserInfoWithTransport(ctx, cfg.UserInfoEndpoint, tokens.AccessToken, cfg.UserInfoTransport)
+	info, err := svc.fetchOIDCUserInfoWithTransport(
+		ctx,
+		cfg.UserInfoEndpoint,
+		tokens.AccessToken,
+		cfg.UserInfoTransport,
+	)
 	result.Validation["userinfo"] = err == nil
 	if err != nil {
 		p.finish(w, 502, result)

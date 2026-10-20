@@ -25,7 +25,10 @@ func TestOAuthRevokeSuccessClearsOnlyAuthenticatedScope(t *testing.T) {
 	t.Setenv("SYSTEM_AES_KEY", "0123456789abcdef0123456789abcdef")
 	utils.SetSSRFWhitelistFromRaw("127.0.0.1")
 	t.Cleanup(utils.ResetSSRFWhitelistForTest)
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	db, err := gorm.Open(
+		sqlite.Open(":memory:"),
+		&gorm.Config{Logger: logger.Default.LogMode(logger.Silent)},
+	)
 	require.NoError(t, err)
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
@@ -33,7 +36,10 @@ func TestOAuthRevokeSuccessClearsOnlyAuthenticatedScope(t *testing.T) {
 	t.Cleanup(func() { _ = sqlDB.Close() })
 	require.NoError(t, db.AutoMigrate(&types.MCPOAuthClient{}, &types.MCPOAuthToken{}))
 	repo := repository.NewMCPOAuthRepository(db)
-	backend := msrv.NewStreamableHTTPServer(msrv.NewMCPServer("isolated-revoke", "1"), msrv.WithStateLess(true))
+	backend := msrv.NewStreamableHTTPServer(
+		msrv.NewMCPServer("isolated-revoke", "1"),
+		msrv.WithStateLess(true),
+	)
 	var mu sync.Mutex
 	seen := map[string]int{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +49,15 @@ func TestOAuthRevokeSuccessClearsOnlyAuthenticatedScope(t *testing.T) {
 		backend.ServeHTTP(w, r)
 	}))
 	t.Cleanup(server.Close)
-	service := &types.MCPService{ID: "builtin", TenantID: 99, IsBuiltin: true, Enabled: true, URL: &server.URL, TransportType: types.MCPTransportHTTPStreamable, AuthConfig: &types.MCPAuthConfig{AuthType: types.MCPAuthOAuth}}
+	service := &types.MCPService{
+		ID:            "builtin",
+		TenantID:      99,
+		IsBuiltin:     true,
+		Enabled:       true,
+		URL:           &server.URL,
+		TransportType: types.MCPTransportHTTPStreamable,
+		AuthConfig:    &types.MCPAuthConfig{AuthType: types.MCPAuthOAuth},
+	}
 	manager := mcp.NewMCPManager(repo)
 	t.Cleanup(manager.Shutdown)
 	alice := types.Principal{Type: types.PrincipalWebUser, ID: "same-user"}
@@ -57,9 +71,33 @@ func TestOAuthRevokeSuccessClearsOnlyAuthenticatedScope(t *testing.T) {
 	}{
 		{7, alice, "synthetic-revoke-a"}, {8, alice, "synthetic-revoke-b"}, {7, bob, "synthetic-revoke-other"},
 	} {
-		require.NoError(t, repo.SaveClient(context.Background(), &types.MCPOAuthClient{TenantID: scope.tenant, ServiceID: service.ID, ClientID: "public"}))
-		require.NoError(t, repo.SaveTokenForPrincipal(context.Background(), &types.MCPOAuthToken{TenantID: scope.tenant, ServiceID: service.ID, PrincipalType: scope.principal.Type, PrincipalID: scope.principal.ID, UserID: scope.principal.StorageID(), AccessToken: scope.token, TokenType: "Bearer", ExpiresAt: time.Now().Add(time.Hour)}))
-		ctx := types.WithPrincipal(types.WithExecutionTenant(context.Background(), scope.tenant), scope.principal)
+		require.NoError(
+			t,
+			repo.SaveClient(
+				context.Background(),
+				&types.MCPOAuthClient{TenantID: scope.tenant, ServiceID: service.ID, ClientID: "public"},
+			),
+		)
+		require.NoError(
+			t,
+			repo.SaveTokenForPrincipal(
+				context.Background(),
+				&types.MCPOAuthToken{
+					TenantID:      scope.tenant,
+					ServiceID:     service.ID,
+					PrincipalType: scope.principal.Type,
+					PrincipalID:   scope.principal.ID,
+					UserID:        scope.principal.StorageID(),
+					AccessToken:   scope.token,
+					TokenType:     "Bearer",
+					ExpiresAt:     time.Now().Add(time.Hour),
+				},
+			),
+		)
+		ctx := types.WithPrincipal(
+			types.WithExecutionTenant(context.Background(), scope.tenant),
+			scope.principal,
+		)
 		c, err := manager.GetOrCreateClient(ctx, service)
 		require.NoError(t, err)
 		clients = append(clients, c)
@@ -71,7 +109,13 @@ func TestOAuthRevokeSuccessClearsOnlyAuthenticatedScope(t *testing.T) {
 		actual[header] = count
 	}
 	mu.Unlock()
-	for _, header := range []string{"Bearer synthetic-revoke-a", "Bearer synthetic-revoke-b", "Bearer synthetic-revoke-other"} {
+	for _, header := range []string{
+		"Bearer synthetic-revoke-a",
+
+		"Bearer synthetic-revoke-b",
+
+		"Bearer synthetic-revoke-other",
+	} {
 		require.Positive(t, actual[header], "all scopes must establish real authorized transport")
 	}
 	oauth := mcp.NewOAuthManager(repo, nil, nil)
@@ -79,7 +123,8 @@ func TestOAuthRevokeSuccessClearsOnlyAuthenticatedScope(t *testing.T) {
 	router := gin.New()
 	router.Use(func(c *gin.Context) { c.Set(types.TenantIDContextKey.String(), uint64(7)); c.Next() })
 	router.DELETE("/revoke/:id", h.Revoke)
-	request := httptest.NewRequest("DELETE", "/revoke/builtin?tenant_id=8&principal_id=other-user", nil).WithContext(contexts[0])
+	request := httptest.NewRequest("DELETE", "/revoke/builtin?tenant_id=8&principal_id=other-user", nil).
+		WithContext(contexts[0])
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
 	require.Equal(t, http.StatusNoContent, response.Code)
@@ -98,7 +143,12 @@ func TestOAuthRevokeSuccessClearsOnlyAuthenticatedScope(t *testing.T) {
 	}{
 		{8, alice, 1, "synthetic-revoke-b"}, {7, bob, 2, "synthetic-revoke-other"},
 	} {
-		row, err := repo.GetTokenForPrincipal(context.Background(), scope.tenant, scope.principal, service.ID)
+		row, err := repo.GetTokenForPrincipal(
+			context.Background(),
+			scope.tenant,
+			scope.principal,
+			service.ID,
+		)
 		require.NoError(t, err)
 		require.Equal(t, scope.token, row.AccessToken)
 		c, err := manager.GetOrCreateClient(contexts[scope.index], service)

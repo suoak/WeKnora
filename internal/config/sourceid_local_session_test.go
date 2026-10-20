@@ -1,8 +1,9 @@
 package config
 
 import (
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestSourceIDLocalSessionApprovalIsExplicit(t *testing.T) {
@@ -10,12 +11,17 @@ func TestSourceIDLocalSessionApprovalIsExplicit(t *testing.T) {
 	require.Equal(t, "external", cfg.EffectiveSourceIDSessionMode())
 	_, err := cfg.SourceIDLocalPolicy()
 	require.Error(t, err)
-	cfg = OIDCAuthConfig{SourceIDEnable: true, SourceIDContractConfirmed: true, SourceIDSessionMode: "local_approved",
-		SourceIDEmployeeClaim: "attributes.RJGH", SourceIDClaimsSource: "userinfo", SourceIDStatusClaim: "mock_eligibility",
+	cfg = OIDCAuthConfig{
+		SourceIDEnable: true, SourceIDContractConfirmed: true, SourceIDSessionMode: "local_approved",
+		SourceIDEmployeeClaim: "attributes.RJGH",
+		SourceIDClaimsSource:  "userinfo",
+		SourceIDStatusClaim:   "mock_eligibility",
+
 		SourceIDAllowedStatus: "ALLOW", SourceIDEmailBindingEnable: true, SourceIDEmailContractConfirmed: true,
 		SourceIDLocalPolicyRef: "synthetic-approval", SourceIDAdmissionPolicyRef: "synthetic-sid-contract",
 		SourceIDAdmissionMode: "userinfo_claim", SourceIDLocalAccessTTL: "10m", SourceIDLocalAbsoluteTTL: "8h",
-		SourceIDLocalIdleTTL: "30m", SourceIDAdmissionMaxAge: "5m"}
+		SourceIDLocalIdleTTL: "30m", SourceIDAdmissionMaxAge: "5m",
+	}
 	_, err = cfg.SourceIDLocalPolicy()
 	require.NoError(t, err)
 	for _, scenario := range []string{"protocol", "approval", "duration", "admission", "overlong", "unknown_mode"} {

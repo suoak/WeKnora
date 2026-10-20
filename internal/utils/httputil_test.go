@@ -43,9 +43,17 @@ func TestDownloadBytesInterruptedStreamReturnsNoPartialData(t *testing.T) {
 	original := defaultHTTPClient
 	t.Cleanup(func() { defaultHTTPClient = original })
 	body := &interruptedDownloadBody{}
-	defaultHTTPClient = &http.Client{Transport: downloadTestTransport(func(req *http.Request) (*http.Response, error) {
-		return &http.Response{StatusCode: http.StatusOK, ContentLength: -1, Body: body, Header: make(http.Header), Request: req}, nil
-	})}
+	defaultHTTPClient = &http.Client{
+		Transport: downloadTestTransport(func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode:    http.StatusOK,
+				ContentLength: -1,
+				Body:          body,
+				Header:        make(http.Header),
+				Request:       req,
+			}, nil
+		}),
+	}
 	data, err := DownloadBytes("https://download.example/image.png")
 	if !errors.Is(err, io.ErrUnexpectedEOF) || data != nil || !body.closed {
 		t.Fatalf("interrupted download: data=%q err=%v closed=%v", data, err, body.closed)

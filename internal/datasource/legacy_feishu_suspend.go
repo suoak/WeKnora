@@ -8,7 +8,11 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
-var ErrLegacyFeishuSyncSuspended = errors.New("legacy Feishu Wiki/Drive synchronization is temporarily suspended; existing knowledge remains available")
+// ErrLegacyFeishuSyncSuspended reports legacy feishu sync suspended.
+var ErrLegacyFeishuSyncSuspended = errors.New(
+	"legacy Feishu Wiki/Drive synchronization is temporarily suspended; " +
+		"existing knowledge remains available",
+)
 
 // LegacyFeishuSyncSuspended is a deployment admission barrier, not a live drain
 // protocol. All old producers must exit before starting a suspended deployment.
@@ -16,7 +20,10 @@ var ErrLegacyFeishuSyncSuspended = errors.New("legacy Feishu Wiki/Drive synchron
 // Personal application_grant and other connectors do not use this barrier.
 func LegacyFeishuSyncSuspended(connectorType string) bool {
 	switch connectorType {
-	case types.ConnectorTypeFeishu, types.ConnectorTypeFeishuDrive, types.ConnectorTypeLark, types.ConnectorTypeLarkDrive:
+	case types.ConnectorTypeFeishu,
+		types.ConnectorTypeFeishuDrive,
+		types.ConnectorTypeLark,
+		types.ConnectorTypeLarkDrive:
 	default:
 		return false
 	}

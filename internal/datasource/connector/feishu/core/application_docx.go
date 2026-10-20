@@ -7,6 +7,7 @@ import (
 	"net/url"
 )
 
+// ErrApplicationIncompleteContent reports application incomplete content.
 var ErrApplicationIncompleteContent = errors.New("feishu_application_content_not_verified")
 
 // ApplicationDocxText fails closed on unvalidated blocks, images, attachments
@@ -40,7 +41,9 @@ func (c *Client) ApplicationDocxText(ctx context.Context, r PersonalResource) (s
 		}
 		for _, b := range response.Data.Items {
 			count++
-			if !(b.BlockType >= 1 && b.BlockType <= 14 || b.BlockType == 22 || b.BlockType == 31 || b.BlockType == 32 || b.BlockType == 34) {
+			if (b.BlockType < 1 || b.BlockType > 14) && b.BlockType != 22 && b.BlockType != 31 &&
+				b.BlockType != 32 &&
+				b.BlockType != 34 {
 				return "", ErrApplicationIncompleteContent
 			}
 		}

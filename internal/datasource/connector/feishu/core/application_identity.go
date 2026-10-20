@@ -18,15 +18,20 @@ func applicationResourceAllowed(ctx context.Context, kind string) bool {
 	return enabled && (kind == "sheet" || kind == "bitable")
 }
 
-type applicationIdentityKey struct{}
-type applicationIdentity struct {
-	provider func(context.Context) (string, error)
-	validate func(context.Context) error
-}
+type (
+	applicationIdentityKey struct{}
+	applicationIdentity    struct {
+		provider func(context.Context) (string, error)
+		validate func(context.Context) error
+	}
+)
 
 // WithApplicationIdentity is explicit, request-scoped, and never a fallback
 // for a failed user identity. The provider revalidates the persisted principal.
-func WithApplicationIdentity(ctx context.Context, provider func(context.Context) (string, error)) context.Context {
+func WithApplicationIdentity(
+	ctx context.Context,
+	provider func(context.Context) (string, error),
+) context.Context {
 	if provider == nil {
 		provider = func(context.Context) (string, error) { return "", ErrAuth }
 	}
@@ -36,7 +41,11 @@ func WithApplicationIdentity(ctx context.Context, provider func(context.Context)
 // WithApplicationIdentityValidation adds a local, non-Feishu authorization
 // check after waiting for an HTTP slot. The full provider may perform source
 // ACL requests; it must run without holding that shared slot.
-func WithApplicationIdentityValidation(ctx context.Context, provider func(context.Context) (string, error), validate func(context.Context) error) context.Context {
+func WithApplicationIdentityValidation(
+	ctx context.Context,
+	provider func(context.Context) (string, error),
+	validate func(context.Context) error,
+) context.Context {
 	ctx = WithApplicationIdentity(ctx, provider)
 	entry := ctx.Value(applicationIdentityKey{}).(applicationIdentity)
 	if validate == nil {
@@ -55,9 +64,13 @@ func requireApplicationIdentity(ctx context.Context) error {
 	return nil
 }
 
+// ResolveApplicationResource provides the resolve application resource operation.
 // Only the proven Docx path is opened. Wiki is resolved before checking the
 // underlying type. Other types remain independently gated, not empty success.
-func (c *Client) ResolveApplicationResource(ctx context.Context, r PersonalResource) (PersonalResource, error) {
+func (c *Client) ResolveApplicationResource(
+	ctx context.Context,
+	r PersonalResource,
+) (PersonalResource, error) {
 	if err := requireApplicationIdentity(ctx); err != nil {
 		return r, err
 	}
@@ -71,7 +84,11 @@ func (c *Client) ResolveApplicationResource(ctx context.Context, r PersonalResou
 	return resolved, err
 }
 
-func (c *Client) DownloadApplicationResource(ctx context.Context, r PersonalResource) ([]byte, string, error) {
+// DownloadApplicationResource provides the download application resource operation.
+func (c *Client) DownloadApplicationResource(
+	ctx context.Context,
+	r PersonalResource,
+) ([]byte, string, error) {
 	if err := requireApplicationIdentity(ctx); err != nil {
 		return nil, "", err
 	}

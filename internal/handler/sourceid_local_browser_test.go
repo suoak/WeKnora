@@ -45,7 +45,10 @@ func (localBrowserTenants) GetTenantByID(_ context.Context, id uint64) (*types.T
 	return &types.Tenant{ID: id, Name: "Synthetic existing space"}, nil
 }
 
-func (s localBrowserTenants) GetTenantsByIDs(ctx context.Context, ids []uint64) (map[uint64]*types.Tenant, error) {
+func (s localBrowserTenants) GetTenantsByIDs(
+	ctx context.Context,
+	ids []uint64,
+) (map[uint64]*types.Tenant, error) {
 	out := map[uint64]*types.Tenant{}
 	for _, id := range ids {
 		tenant, err := s.GetTenantByID(ctx, id)
@@ -62,11 +65,16 @@ type localBrowserMembers struct {
 	db *gorm.DB
 }
 
-func (m localBrowserMembers) GetMembership(ctx context.Context, user string, tenant uint64) (*types.TenantMember, error) {
+func (m localBrowserMembers) GetMembership(
+	ctx context.Context,
+	user string,
+	tenant uint64,
+) (*types.TenantMember, error) {
 	var row types.TenantMember
 	err := m.db.WithContext(ctx).Where("user_id = ? AND tenant_id = ?", user, tenant).First(&row).Error
 	return &row, err
 }
+
 func (m localBrowserMembers) ListByUser(ctx context.Context, user string) ([]*types.TenantMember, error) {
 	var rows []*types.TenantMember
 	err := m.db.WithContext(ctx).Where("user_id = ?", user).Find(&rows).Error
@@ -84,53 +92,128 @@ func TestSourceIDSSOBrowserBusinessLogin(t *testing.T) {
 }
 
 func TestSourceIDSSOAccessOnlyHTTP(t *testing.T) {
-	for _, role := range []string{"viewer", "contributor", "owner", "tenant_admin", "org_admin", "system_admin", "cross_space_admin", "multi_space"} {
+	for _, role := range []string{
+		"viewer",
+		"contributor",
+		"owner",
+		"tenant_admin",
+		"org_admin",
+		"system_admin",
+		"cross_space_admin",
+		"multi_space",
+	} {
 		t.Run(role, func(t *testing.T) { runSourceIDLocalBusinessLogin(t, true, false, role) })
 	}
 }
 
 func TestSourceIDEnterpriseAccessOnlyHTTP(t *testing.T) {
-	for _, role := range []string{"viewer", "contributor", "owner", "tenant_admin", "org_admin", "system_admin", "cross_space_admin", "multi_space"} {
+	for _, role := range []string{
+		"viewer",
+		"contributor",
+		"owner",
+		"tenant_admin",
+		"org_admin",
+		"system_admin",
+		"cross_space_admin",
+		"multi_space",
+	} {
 		t.Run(role, func(t *testing.T) { runSourceIDLocalBusinessLoginScope(t, true, false, role, true) })
 	}
 }
+
 func TestSourceIDEnterpriseBrowserBusinessLogin(t *testing.T) {
 	runSourceIDLocalBusinessLoginScope(t, true, true, "contributor", true)
 }
+
 func TestSourceIDJITAccessOnlyHTTP(t *testing.T) {
 	runSourceIDLocalBusinessLoginScope(t, true, false, "jit", true)
 }
+
 func TestSourceIDJITBrowserBusinessLogin(t *testing.T) {
 	runSourceIDLocalBusinessLoginScope(t, true, true, "jit", true)
 }
+
 func TestSourceIDJITExistingAllRolesHTTP(t *testing.T) {
-	for _, role := range []string{"viewer", "contributor", "owner", "tenant_admin", "org_admin", "system_admin", "cross_space_admin", "multi_space"} {
-		t.Run(role, func(t *testing.T) { runSourceIDLocalBusinessLoginScope(t, true, false, "jit-enabled:"+role, true) })
+	for _, role := range []string{
+		"viewer",
+		"contributor",
+		"owner",
+		"tenant_admin",
+		"org_admin",
+		"system_admin",
+		"cross_space_admin",
+		"multi_space",
+	} {
+		t.Run(
+			role,
+			func(t *testing.T) { runSourceIDLocalBusinessLoginScope(t, true, false, "jit-enabled:"+role, true) },
+		)
 	}
 }
 
 func TestSourceIDVerifiedEmailAccessOnlyHTTP(t *testing.T) {
-	for _, role := range []string{"viewer", "contributor", "owner", "tenant_admin", "org_admin", "system_admin", "cross_space_admin", "multi_space", "jit", "jit-enabled:system_admin"} {
-		t.Run(role, func(t *testing.T) { runSourceIDLocalBusinessLoginScope(t, true, false, "verified:"+role, true) })
+	for _, role := range []string{
+		"viewer",
+		"contributor",
+		"owner",
+		"tenant_admin",
+		"org_admin",
+		"system_admin",
+		"cross_space_admin",
+		"multi_space",
+		"jit",
+		"jit-enabled:system_admin",
+	} {
+		t.Run(
+			role,
+			func(t *testing.T) { runSourceIDLocalBusinessLoginScope(t, true, false, "verified:"+role, true) },
+		)
 	}
 }
+
 func TestSourceIDVerifiedEmailBrowserBusinessLogin(t *testing.T) {
-	for _, role := range []string{"viewer", "contributor", "owner", "tenant_admin", "org_admin", "system_admin", "cross_space_admin", "multi_space", "jit"} {
-		t.Run(role, func(t *testing.T) { runSourceIDLocalBusinessLoginScope(t, true, true, "verified:"+role, true) })
+	for _, role := range []string{
+		"viewer",
+		"contributor",
+		"owner",
+		"tenant_admin",
+		"org_admin",
+		"system_admin",
+		"cross_space_admin",
+		"multi_space",
+		"jit",
+	} {
+		t.Run(
+			role,
+			func(t *testing.T) { runSourceIDLocalBusinessLoginScope(t, true, true, "verified:"+role, true) },
+		)
 	}
 }
 
 func TestSourceIDVerifiedEmailPolicyChangeHTTP(t *testing.T) {
 	for _, change := range []string{"email", "binding", "mode", "inactive", "expiry"} {
 		t.Run(change, func(t *testing.T) {
-			runSourceIDLocalBusinessLoginScope(t, true, false, "verified:policy-"+change+":system_admin", true)
+			runSourceIDLocalBusinessLoginScope(
+				t,
+				true,
+				false,
+				"verified:policy-"+change+":system_admin",
+				true,
+			)
 		})
 	}
 }
+
 func runSourceIDLocalBusinessLogin(t *testing.T, ordinary, browser bool, role string) {
 	runSourceIDLocalBusinessLoginScope(t, ordinary, browser, role, false)
 }
-func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, role string, enterprise bool) {
+
+func runSourceIDLocalBusinessLoginScope(
+	t *testing.T,
+	ordinary, browser bool,
+	role string,
+	enterprise bool,
+) {
 	verified := strings.HasPrefix(role, "verified:")
 	role = strings.TrimPrefix(role, "verified:")
 	policyChange := ""
@@ -150,36 +233,81 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 	t.Cleanup(secutils.ResetSSRFWhitelistForTest)
 	root, err := filepath.Abs("../..")
 	require.NoError(t, err)
-	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "browser.db")), &gorm.Config{Logger: logger.Discard})
+	db, err := gorm.Open(
+		sqlite.Open(filepath.Join(t.TempDir(), "browser.db")),
+		&gorm.Config{Logger: logger.Discard},
+	)
 	require.NoError(t, err)
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	require.NoError(t, db.AutoMigrate(&types.Tenant{}, &types.User{}, &types.AuthToken{}, &types.TenantMember{}))
+	require.NoError(
+		t,
+		db.AutoMigrate(&types.Tenant{}, &types.User{}, &types.AuthToken{}, &types.TenantMember{}),
+	)
 	require.NoError(t, db.Exec("DROP INDEX IF EXISTS idx_auth_tokens_session_id").Error)
 	require.NoError(t, db.Exec("ALTER TABLE auth_tokens DROP COLUMN session_id").Error)
-	for _, name := range []string{"003024_sourceid_oidc", "003026_sourceid_binding_review", "003027_sourceid_local_session", "003028_sourceid_enterprise_ownership", "003029_sourceid_jit_registration", "003030_sourceid_verified_email_policy"} {
+	for _, name := range []string{
+		"003024_sourceid_oidc",
+		"003026_sourceid_binding_review",
+		"003027_sourceid_local_session",
+		"003028_sourceid_enterprise_ownership",
+		"003029_sourceid_jit_registration",
+		"003030_sourceid_verified_email_policy",
+	} {
 		data, err := os.ReadFile(filepath.Join(root, "migrations/sqlite/"+name+".up.sql"))
 		require.NoError(t, err)
 		require.NoError(t, db.Exec(string(data)).Error)
 	}
-	require.NoError(t, db.Exec("CREATE TABLE organization_tenant_members(tenant_id BIGINT,role TEXT,representative_user_id TEXT)").Error)
+	require.NoError(
+		t,
+		db.Exec(
+			"CREATE TABLE organization_tenant_members(tenant_id BIGINT,role TEXT,"+
+				"representative_user_id TEXT)",
+		).Error,
+	)
 	require.NoError(t, db.Create(&types.Tenant{ID: 42, Name: "Synthetic existing space"}).Error)
 	// The unauthorized target is a real, separate space, not a nonexistent ID.
 	require.NoError(t, db.Create(&types.Tenant{ID: 43, Name: "Synthetic second space"}).Error)
-	user := types.User{ID: uuid.NewString(), Username: "synthetic-ordinary", Email: "ordinary@example.test", TenantID: 42, IsActive: true}
+	user := types.User{
+		ID:       uuid.NewString(),
+		Username: "synthetic-ordinary",
+		Email:    "ordinary@example.test",
+		TenantID: 42,
+		IsActive: true,
+	}
 	if role != "jit" {
 		require.NoError(t, db.Create(&user).Error)
-		require.NoError(t, db.Create(&types.TenantMember{UserID: user.ID, TenantID: 42, Role: types.TenantRoleContributor, Status: types.TenantMemberStatusActive, JoinedAt: time.Now()}).Error)
+		require.NoError(
+			t,
+			db.Create(
+				&types.TenantMember{
+					UserID:   user.ID,
+					TenantID: 42,
+					Role:     types.TenantRoleContributor,
+					Status:   types.TenantMemberStatusActive,
+					JoinedAt: time.Now(),
+				},
+			).Error,
+		)
 	}
 	switch role {
 	case "viewer", "owner":
-		require.NoError(t, db.Model(&types.TenantMember{}).Where("user_id=?", user.ID).Update("role", role).Error)
+		require.NoError(
+			t,
+			db.Model(&types.TenantMember{}).Where("user_id=?", user.ID).Update("role", role).Error,
+		)
 	case "tenant_admin":
-		require.NoError(t, db.Model(&types.TenantMember{}).Where("user_id=?", user.ID).Update("role", "admin").Error)
+		require.NoError(
+			t,
+			db.Model(&types.TenantMember{}).Where("user_id=?", user.ID).Update("role", "admin").Error,
+		)
 	case "org_admin":
-		require.NoError(t, db.Exec("INSERT INTO organization_tenant_members VALUES (42,'admin',?)", user.ID).Error)
+		require.NoError(
+			t,
+			db.Exec("INSERT INTO organization_tenant_members VALUES (42,'admin',?)", user.ID).Error,
+		)
 	case "system_admin":
 		user.IsSystemAdmin = true
 		require.NoError(t, db.Save(&user).Error)
@@ -187,29 +315,61 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 		user.CanAccessAllTenants = true
 		require.NoError(t, db.Save(&user).Error)
 	case "multi_space":
-		require.NoError(t, db.Create(&types.TenantMember{UserID: user.ID, TenantID: 43, Role: types.TenantRoleViewer, Status: types.TenantMemberStatusActive, JoinedAt: time.Now()}).Error)
+		require.NoError(
+			t,
+			db.Create(
+				&types.TenantMember{
+					UserID:   user.ID,
+					TenantID: 43,
+					Role:     types.TenantRoleViewer,
+					Status:   types.TenantMemberStatusActive,
+					JoinedAt: time.Now(),
+				},
+			).Error,
+		)
 	}
 	var originalMembers []types.TenantMember
 	require.NoError(t, db.Order("tenant_id").Find(&originalMembers).Error)
-	require.NoError(t, db.Exec("CREATE TABLE synthetic_knowledge_bases(id TEXT PRIMARY KEY,tenant_id BIGINT,name TEXT)").Error)
-	require.NoError(t, db.Exec("INSERT INTO synthetic_knowledge_bases VALUES ('synthetic-kb',42,'Synthetic original knowledge base')").Error)
+	require.NoError(
+		t,
+		db.Exec("CREATE TABLE synthetic_knowledge_bases(id TEXT PRIMARY KEY,tenant_id "+
+			"BIGINT,name TEXT)").Error,
+	)
+	require.NoError(
+		t,
+		db.Exec(
+			"INSERT INTO synthetic_knowledge_bases VALUES ('synthetic-kb',42,"+
+				"'Synthetic original knowledge base')",
+		).Error,
+	)
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
 	var enabled atomic.Bool
 	enabled.Store(true)
 	var tokens atomic.Int64
 	var codes sync.Map
-	cfg := &config.OIDCAuthConfig{Enable: true, SourceIDEnable: true, SourceIDContractConfirmed: true,
+	cfg := &config.OIDCAuthConfig{
+		Enable: true, SourceIDEnable: true, SourceIDContractConfirmed: true,
 		SourceIDDiagnosticsEnable: true,
-		SourceIDSessionMode:       "local_approved", SourceIDEmployeeClaim: "attributes.RJGH", SourceIDClaimsSource: "userinfo",
+		SourceIDSessionMode:       "local_approved",
+		SourceIDEmployeeClaim:     "attributes.RJGH",
+		SourceIDClaimsSource:      "userinfo",
+
 		SourceIDEmailBindingEnable: true, SourceIDEmailContractConfirmed: true, SourceIDAutoBindingEnable: true,
 		SourceIDAutoBindingPolicyRef: "synthetic-binding-policy", SourceIDLocalPolicyRef: "synthetic-local-approval",
 		SourceIDAdmissionMode: "authorization", SourceIDAdmissionPolicyRef: "synthetic-sid-authorization-contract",
 		SourceIDAuthorizationRecheckConfirmed: true, SourceIDLocalAccessTTL: "10m", SourceIDLocalAbsoluteTTL: "10m",
 		SourceIDForceReauthPromptLogin: true,
-		SourceIDLocalIdleTTL:           "10m", SourceIDAdmissionMaxAge: "10m", ClientID: "knowhub", ClientSecret: "synthetic-secret",
+		SourceIDLocalIdleTTL:           "10m",
+		SourceIDAdmissionMaxAge:        "10m",
+		ClientID:                       "knowhub",
+		ClientSecret:                   "synthetic-secret",
+
 		IssuerURL: "https://mock.example", ClientAuthMethod: "client_secret_basic", UserInfoTransport: "bearer_get",
-		Scopes: []string{"openid"}, RedirectURI: "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback", ProviderDisplayName: "OA"}
+		Scopes: []string{
+			"openid",
+		}, RedirectURI: "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback", ProviderDisplayName: "OA",
+	}
 	if ordinary {
 		cfg.SourceIDAdmissionMode = "oidc_sso_approved"
 		cfg.SourceIDSSOPolicyConfirmed = true
@@ -221,8 +381,18 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 		cfg.SourceIDAdmissionMaxAge = "60m"
 		if !verified {
 			cfg.SourceIDPilotAccountsFile = filepath.Join(t.TempDir(), "ownership.json")
-			manifest, _ := json.Marshal(map[string]interface{}{"version": 1, "policy_ref": cfg.SourceIDAutoBindingPolicyRef, "ownership_ref": "synthetic-snapshot-ownership", "issuer": cfg.IssuerURL, "accounts": []map[string]string{{"user_id": user.ID, "email": user.Email, "employee_no": "synthetic-employee"}}})
-			require.NoError(t, privatefile.WriteFile(cfg.SourceIDPilotAccountsFile, manifest, 0600))
+			manifest, _ := json.Marshal(
+				map[string]interface{}{
+					"version":       1,
+					"policy_ref":    cfg.SourceIDAutoBindingPolicyRef,
+					"ownership_ref": "synthetic-snapshot-ownership",
+					"issuer":        cfg.IssuerURL,
+					"accounts": []map[string]string{
+						{"user_id": user.ID, "email": user.Email, "employee_no": "synthetic-employee"},
+					},
+				},
+			)
+			require.NoError(t, privatefile.WriteFile(cfg.SourceIDPilotAccountsFile, manifest, 0o600))
 		}
 	}
 
@@ -248,7 +418,30 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 			cfg.SourceIDJITPolicyRef = "synthetic-jit"
 			cfg.SourceIDJITEmailDomains = "example.test"
 		} else if !verified {
-			_, err := importer.SyncSourceIDAccountOwnership(context.Background(), types.SourceIDAccountOwnership{Issuer: cfg.IssuerURL, EmployeeNo: "synthetic-employee", UserID: user.ID, Email: user.Email, Status: "active", Revision: 1, PolicyRef: cfg.SourceIDEnterprisePolicyRef, OwnershipRef: "synthetic-independent-account-proof", SourceRef: "synthetic-directory", VerifiedAt: time.Now().Add(-time.Second), ValidUntil: time.Now().Add(time.Hour)}, "synthetic-operator", true)
+			_, err := importer.SyncSourceIDAccountOwnership(
+				context.Background(),
+				types.SourceIDAccountOwnership{
+					Issuer:       cfg.IssuerURL,
+					EmployeeNo:   "synthetic-employee",
+					UserID:       user.ID,
+					Email:        user.Email,
+					Status:       "active",
+					Revision:     1,
+					PolicyRef:    cfg.SourceIDEnterprisePolicyRef,
+					OwnershipRef: "synthetic-independent-account-proof",
+					SourceRef:    "synthetic-directory",
+					VerifiedAt: time.Now().
+						Add(
+							-time.Second,
+						),
+					ValidUntil: time.Now().
+						Add(
+							time.Hour,
+						),
+				},
+				"synthetic-operator",
+				true,
+			)
 			require.NoError(t, err)
 		}
 		if verified {
@@ -295,22 +488,62 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 				w.WriteHeader(400)
 				return
 			}
-			if r.Form.Get("redirect_uri") != cfg.RedirectURI || r.Form.Get("code_verifier") != "" || r.Form.Get("client_secret") != "" {
+			if r.Form.Get("redirect_uri") != cfg.RedirectURI || r.Form.Get("code_verifier") != "" ||
+				r.Form.Get("client_secret") != "" {
 				w.WriteHeader(400)
 				return
 			}
-			claims := jwt.MapClaims{"iss": cfg.IssuerURL, "aud": "knowhub", "sub": "synthetic-sub", "nonce": nonce, "iat": time.Now().Unix(), "exp": time.Now().Add(time.Minute).Unix()}
+			claims := jwt.MapClaims{
+				"iss":   cfg.IssuerURL,
+				"aud":   "knowhub",
+				"sub":   "synthetic-sub",
+				"nonce": nonce,
+				"iat":   time.Now().Unix(),
+				"exp":   time.Now().Add(time.Minute).Unix(),
+			}
 			signed, err := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(key)
 			if err != nil {
 				w.WriteHeader(500)
 				return
 			}
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{"access_token": "synthetic-sid-access", "id_token": signed, "token_type": "Bearer"})
+			_ = json.NewEncoder(w).
+				Encode(map[string]interface{}{
+					"access_token": "synthetic-sid-access",
+					"id_token":     signed,
+					"token_type":   "Bearer",
+				})
 		case "/jwks":
 			enc := base64.RawURLEncoding.EncodeToString
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{"keys": []map[string]string{{"kty": "RSA", "use": "sig", "alg": "RS256", "n": enc(key.N.Bytes()), "e": enc(big.NewInt(int64(key.E)).Bytes())}}})
+			_ = json.NewEncoder(w).
+				Encode(map[string]interface{}{
+					"keys": []map[string]string{
+						{
+							"kty": "RSA",
+							"use": "sig",
+							"alg": "RS256",
+							"n": enc(
+								key.N.Bytes(),
+							),
+							"e": enc(
+								big.NewInt(
+									int64(
+										key.E,
+									),
+								).
+									Bytes(),
+							),
+						},
+					},
+				})
 		case "/userinfo":
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{"sub": "synthetic-sub", "attributes": map[string]string{"RJGH": "synthetic-employee", "RJEMAIL": "ordinary@example.test"}})
+			_ = json.NewEncoder(w).
+				Encode(map[string]interface{}{
+					"sub": "synthetic-sub",
+					"attributes": map[string]string{
+						"RJGH":    "synthetic-employee",
+						"RJEMAIL": "ordinary@example.test",
+					},
+				})
 		default:
 			w.WriteHeader(404)
 		}
@@ -320,9 +553,20 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 	cfg.TokenEndpoint = mock.URL + "/token"
 	cfg.JwksURI = mock.URL + "/jwks"
 	cfg.UserInfoEndpoint = mock.URL + "/userinfo"
-	appCfg := &config.Config{OIDCAuth: cfg, Auth: &config.AuthConfig{RegistrationMode: "invite_only"}, Tenant: &config.TenantConfig{EnableCrossTenantAccess: true}}
+	appCfg := &config.Config{
+		OIDCAuth: cfg,
+		Auth:     &config.AuthConfig{RegistrationMode: "invite_only"},
+		Tenant:   &config.TenantConfig{EnableCrossTenantAccess: true},
+	}
 	tenants := localBrowserTenants{}
-	users := service.NewUserService(appCfg, apprepo.NewUserRepository(db), apprepo.NewAuthTokenRepository(db), tenants, localBrowserMembers{db: db}, nil)
+	users := service.NewUserService(
+		appCfg,
+		apprepo.NewUserRepository(db),
+		apprepo.NewAuthTokenRepository(db),
+		tenants,
+		localBrowserMembers{db: db},
+		nil,
+	)
 	h := NewAuthHandler(appCfg, users, tenants, nil, nil)
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
@@ -367,10 +611,12 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 	require.Equal(t, 200, start.Code)
 	var authorization types.OIDCAuthURLResponse
 	require.NoError(t, json.Unmarshal(start.Body.Bytes(), &authorization))
-	sidClient := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	sidClient := &http.Client{
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	}
 	approved, err := sidClient.Get(authorization.AuthorizationURL)
 	require.NoError(t, err)
-	approved.Body.Close()
+	_ = approved.Body.Close()
 	callbackURL, err := url.Parse(approved.Header.Get("Location"))
 	require.NoError(t, err)
 	callback := httptest.NewRequest(http.MethodGet, callbackURL.String(), nil)
@@ -380,7 +626,12 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 	callbackResult := httptest.NewRecorder()
 	router.ServeHTTP(callbackResult, callback)
 	require.Equal(t, http.StatusFound, callbackResult.Code)
-	require.Equal(t, "/#oidc_complete=1", callbackResult.Header().Get("Location"), "synthetic direct business callback must succeed")
+	require.Equal(
+		t,
+		"/#oidc_complete=1",
+		callbackResult.Header().Get("Location"),
+		"synthetic direct business callback must succeed",
+	)
 	if ordinary {
 		resultReq := httptest.NewRequest("POST", "/api/v1/auth/oidc/result", nil)
 		resultReq.Header.Set("X-KnowHub-OIDC-Result", "1")
@@ -401,7 +652,10 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 			require.False(t, user.IsSystemAdmin)
 			require.False(t, user.CanAccessAllTenants)
 			require.Equal(t, "!sourceid-jit-no-local-password", user.PasswordHash)
-			passwordLogin, err := users.Login(context.Background(), &types.LoginRequest{Email: user.Email, Password: "synthetic-password-must-not-work"})
+			passwordLogin, err := users.Login(
+				context.Background(),
+				&types.LoginRequest{Email: user.Email, Password: "synthetic-password-must-not-work"},
+			)
 			require.NoError(t, err)
 			require.False(t, passwordLogin.Success)
 		}
@@ -445,9 +699,19 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 		require.NoError(t, db.First(&after).Error)
 		require.Equal(t, before.ExpiresAt, after.ExpiresAt)
 		var refreshCount int64
-		require.NoError(t, db.Model(&types.AuthToken{}).Where("token_type = ?", "refresh_token").Count(&refreshCount).Error)
+		require.NoError(
+			t,
+			db.Model(&types.AuthToken{}).
+				Where("token_type = ?", "refresh_token").
+				Count(&refreshCount).
+				Error,
+		)
 		require.Zero(t, refreshCount)
-		require.NotEqual(t, 200, api("/api/v1/auth/refresh", `{"refreshToken":"synthetic-unissued"}`, access).Code)
+		require.NotEqual(
+			t,
+			200,
+			api("/api/v1/auth/refresh", `{"refreshToken":"synthetic-unissued"}`, access).Code,
+		)
 		if policyChange != "" {
 			originalConfig := *cfg
 			switch policyChange {
@@ -461,16 +725,33 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 				cfg.SourceIDEnterprisePolicyRef = "synthetic-enterprise"
 				cfg.SourceIDEnterpriseMaxAge = "1h"
 			case "inactive":
-				require.NoError(t, db.Model(&types.User{}).Where("id=?", user.ID).Update("is_active", false).Error)
+				require.NoError(
+					t,
+					db.Model(&types.User{}).Where("id=?", user.ID).Update("is_active", false).Error,
+				)
 			case "expiry":
-				require.NoError(t, db.Model(&types.SourceIDSession{}).Where("id=?", before.ID).Update("expires_at", time.Now().Add(-time.Second)).Error)
+				require.NoError(
+					t,
+					db.Model(&types.SourceIDSession{}).
+						Where("id=?", before.ID).
+						Update("expires_at", time.Now().Add(-time.Second)).
+						Error,
+				)
 			}
 			require.Equal(t, 401, api("/api/v1/auth/me", "", access).Code)
 			*cfg = originalConfig
 			if policyChange == "inactive" {
-				require.NoError(t, db.Model(&types.User{}).Where("id=?", user.ID).Update("is_active", true).Error)
+				require.NoError(
+					t,
+					db.Model(&types.User{}).Where("id=?", user.ID).Update("is_active", true).Error,
+				)
 			}
-			require.Equal(t, 401, api("/api/v1/auth/me", "", access).Code, "restoring old config must not resurrect invalidated access")
+			require.Equal(
+				t,
+				401,
+				api("/api/v1/auth/me", "", access).Code,
+				"restoring old config must not resurrect invalidated access",
+			)
 			require.Equal(t, 401, api("/api/v1/auth/switch-tenant", `{"tenant_id":42}`, access).Code)
 			return
 		}
@@ -502,14 +783,26 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 	if role == "tenant_admin" {
 		expectedRole = "admin"
 	}
-	cmd.Env = append(cmd.Env, "SOURCEID_E2E_EXPECTED_ROLE="+expectedRole, "SOURCEID_E2E_EXPECTED_USER="+user.ID, fmt.Sprintf("SOURCEID_E2E_EXPECTED_SYSTEM_ADMIN=%t", user.IsSystemAdmin), fmt.Sprintf("SOURCEID_E2E_EXPECTED_CROSS_SPACE=%t", user.CanAccessAllTenants))
+	cmd.Env = append(
+		cmd.Env,
+		"SOURCEID_E2E_EXPECTED_ROLE="+expectedRole,
+		"SOURCEID_E2E_EXPECTED_USER="+user.ID,
+		fmt.Sprintf("SOURCEID_E2E_EXPECTED_SYSTEM_ADMIN=%t", user.IsSystemAdmin),
+		fmt.Sprintf("SOURCEID_E2E_EXPECTED_CROSS_SPACE=%t", user.CanAccessAllTenants),
+	)
 	if role == "jit" {
 		cmd.Env = append(cmd.Env, "SOURCEID_E2E_JIT=1")
 	}
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, "synthetic browser assertions: %s", string(output))
 	require.Contains(t, string(output), "SOURCEID_LOCAL_BROWSER_PASS")
-	require.EqualValues(t, 2, tokens.Load(), "one code exchange per direct/browser success; denied authorizations exchange none")
+	require.EqualValues(
+		t,
+		2,
+		tokens.Load(),
+		"one code exchange per direct/browser success; denied authorizations "+
+			"exchange none",
+	)
 	var count int64
 	require.NoError(t, db.Model(&types.User{}).Count(&count).Error)
 	require.EqualValues(t, 1, count)
@@ -524,5 +817,10 @@ func runSourceIDLocalBusinessLoginScope(t *testing.T, ordinary, browser bool, ro
 	}
 	var finalMembers []types.TenantMember
 	require.NoError(t, db.Order("tenant_id").Find(&finalMembers).Error)
-	require.Equal(t, originalMembers, finalMembers, "browser login must retain every original membership and role")
+	require.Equal(
+		t,
+		originalMembers,
+		finalMembers,
+		"browser login must retain every original membership and role",
+	)
 }

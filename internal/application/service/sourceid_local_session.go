@@ -16,17 +16,35 @@ type sourceIDLocalStore interface {
 }
 
 type sourceIDEnterpriseStore interface {
-	ResolveSourceIDEnterpriseEmailIdentity(context.Context, string, string, string, string, string, string, time.Duration) (*types.User, error)
-	CreateSourceIDEnterpriseLocalSession(context.Context, *types.SourceIDSession, *types.SourceIDLocalSession, string, string, time.Duration) error
+	ResolveSourceIDEnterpriseEmailIdentity(
+		context.Context,
+		string,
+		string,
+		string,
+		string,
+		string,
+		string,
+		time.Duration,
+	) (*types.User, error)
+	CreateSourceIDEnterpriseLocalSession(
+		context.Context,
+		*types.SourceIDSession,
+		*types.SourceIDLocalSession,
+		string,
+		string,
+		time.Duration,
+	) error
 	CheckSourceIDEnterpriseOwnership(context.Context, string, string, string, string, time.Duration) error
 }
 
-type sourceIDAuthorizationProofKey struct{}
-type sourceIDAuthorizationProof struct {
-	Issuer, Subject      string
-	At                   time.Time
-	PromptLoginRequested bool
-}
+type (
+	sourceIDAuthorizationProofKey struct{}
+	sourceIDAuthorizationProof    struct {
+		Issuer, Subject      string
+		At                   time.Time
+		PromptLoginRequested bool
+	}
+)
 
 // First-release adapter: only consumes a fully verified, single-use OIDC
 // transaction. It cannot infer eligibility from an arbitrary Token HTTP 200.
@@ -36,39 +54,65 @@ type sourceIDAuthorizationAdmissionResolver struct{ cfg *config.OIDCAuthConfig }
 // It makes no claim that an existing SID SSO session rechecked employment.
 type sourceIDSSOAdmissionResolver struct{ cfg *config.OIDCAuthConfig }
 
-func (r sourceIDSSOAdmissionResolver) Resolve(ctx context.Context, request types.SourceIDAdmissionRequest) (types.SourceIDAdmissionDecision, error) {
+func (r sourceIDSSOAdmissionResolver) Resolve(
+	ctx context.Context,
+	request types.SourceIDAdmissionRequest,
+) (types.SourceIDAdmissionDecision, error) {
 	unknown := types.SourceIDAdmissionDecision{Outcome: types.SourceIDAdmissionUnknown}
-	if ctx.Err() != nil || !r.cfg.SourceIDSSOPolicyConfirmed || request.Stage != "login" || !request.AuthorizationVerified ||
-		request.Issuer != r.cfg.IssuerURL || request.Subject == "" || request.AuthorizationVerifiedAt.IsZero() {
+	if ctx.Err() != nil || !r.cfg.SourceIDSSOPolicyConfirmed || request.Stage != "login" ||
+		!request.AuthorizationVerified ||
+		request.Issuer != r.cfg.IssuerURL ||
+		request.Subject == "" ||
+		request.AuthorizationVerifiedAt.IsZero() {
 		return unknown, nil
 	}
 	p, err := r.cfg.SourceIDLocalPolicy()
 	if err != nil {
 		return unknown, err
 	}
-	return types.SourceIDAdmissionDecision{Outcome: types.SourceIDAdmissionAllow, Source: "oidc_sso_approved", ContractRef: r.cfg.SourceIDAdmissionPolicyRef,
-		CheckedAt: request.AuthorizationVerifiedAt, ValidUntil: request.AuthorizationVerifiedAt.Add(p.AdmissionMaxAge)}, nil
+	return types.SourceIDAdmissionDecision{
+		Outcome:     types.SourceIDAdmissionAllow,
+		Source:      "oidc_sso_approved",
+		ContractRef: r.cfg.SourceIDAdmissionPolicyRef,
+
+		CheckedAt: request.AuthorizationVerifiedAt, ValidUntil: request.AuthorizationVerifiedAt.Add(p.AdmissionMaxAge),
+	}, nil
 }
 
-func (r sourceIDAuthorizationAdmissionResolver) Resolve(ctx context.Context, request types.SourceIDAdmissionRequest) (types.SourceIDAdmissionDecision, error) {
+func (r sourceIDAuthorizationAdmissionResolver) Resolve(
+	ctx context.Context,
+	request types.SourceIDAdmissionRequest,
+) (types.SourceIDAdmissionDecision, error) {
 	decision := types.SourceIDAdmissionDecision{Outcome: types.SourceIDAdmissionUnknown}
 	if ctx.Err() != nil || !r.cfg.SourceIDAuthorizationRecheckConfirmed || request.Stage != "login" ||
 		!r.cfg.SourceIDForceReauthPromptLogin || !request.PromptLoginRequested ||
-		!request.AuthorizationVerified || request.Issuer != r.cfg.IssuerURL || request.Subject == "" || request.AuthorizationVerifiedAt.IsZero() {
+		!request.AuthorizationVerified ||
+		request.Issuer != r.cfg.IssuerURL ||
+		request.Subject == "" ||
+		request.AuthorizationVerifiedAt.IsZero() {
+
 		return decision, nil
 	}
 	policy, err := r.cfg.SourceIDLocalPolicy()
 	if err != nil {
 		return decision, err
 	}
-	return types.SourceIDAdmissionDecision{Outcome: types.SourceIDAdmissionAllow, Source: "authorization", ContractRef: r.cfg.SourceIDAdmissionPolicyRef,
-		CheckedAt: request.AuthorizationVerifiedAt, ValidUntil: request.AuthorizationVerifiedAt.Add(policy.AdmissionMaxAge)}, nil
+	return types.SourceIDAdmissionDecision{
+		Outcome: types.SourceIDAdmissionAllow, Source: "authorization", ContractRef: r.cfg.SourceIDAdmissionPolicyRef,
+		CheckedAt: request.AuthorizationVerifiedAt, ValidUntil: request.AuthorizationVerifiedAt.Add(
+			policy.AdmissionMaxAge,
+		),
+	}, nil
 }
 
 // Authorization admission is gated on a verified OIDC transaction and the
 // separately confirmed SID SSO-recheck/freshness contract. Other strategies
 // currently have synthetic adapters only.
-func (s *userService) resolveSourceIDAdmission(ctx context.Context, cfg *config.OIDCAuthConfig, request types.SourceIDAdmissionRequest) (types.SourceIDAdmissionDecision, error) {
+func (s *userService) resolveSourceIDAdmission(
+	ctx context.Context,
+	cfg *config.OIDCAuthConfig,
+	request types.SourceIDAdmissionRequest,
+) (types.SourceIDAdmissionDecision, error) {
 	var decision types.SourceIDAdmissionDecision
 	p, err := cfg.SourceIDLocalPolicy()
 	if err != nil {
@@ -78,7 +122,8 @@ func (s *userService) resolveSourceIDAdmission(ctx context.Context, cfg *config.
 	if cfg.SourceIDAdmissionMode == "oidc_sso_approved" {
 		resolver = sourceIDSSOAdmissionResolver{cfg}
 	}
-	if resolver == nil && cfg.SourceIDAdmissionMode == "authorization" && cfg.SourceIDAuthorizationRecheckConfirmed {
+	if resolver == nil && cfg.SourceIDAdmissionMode == "authorization" &&
+		cfg.SourceIDAuthorizationRecheckConfirmed {
 		resolver = sourceIDAuthorizationAdmissionResolver{cfg}
 	}
 	if resolver == nil {
@@ -95,7 +140,11 @@ func (s *userService) resolveSourceIDAdmission(ctx context.Context, cfg *config.
 	}
 	now := time.Now()
 	if decision.Outcome != types.SourceIDAdmissionAllow || decision.Source != cfg.SourceIDAdmissionMode ||
-		decision.ContractRef != cfg.SourceIDAdmissionPolicyRef || decision.CheckedAt.IsZero() || decision.CheckedAt.After(now) ||
+		decision.ContractRef != cfg.SourceIDAdmissionPolicyRef ||
+		decision.CheckedAt.IsZero() ||
+		decision.CheckedAt.After(
+			now,
+		) ||
 		!decision.ValidUntil.After(now) || decision.ValidUntil.Before(decision.CheckedAt) {
 		return types.SourceIDAdmissionDecision{}, errors.New("sourceid admission unknown")
 	}
@@ -107,7 +156,9 @@ func (s *userService) resolveSourceIDAdmission(ctx context.Context, cfg *config.
 		return types.SourceIDAdmissionDecision{}, errors.New("sourceid admission expired")
 	}
 	if decision.Source == "authorization" && decision.RecheckSupported {
-		return types.SourceIDAdmissionDecision{}, errors.New("sourceid authorization admission cannot recheck")
+		return types.SourceIDAdmissionDecision{}, errors.New(
+			"sourceid authorization admission cannot recheck",
+		)
 	}
 	if request.Stage != "login" && !decision.RecheckSupported {
 		return types.SourceIDAdmissionDecision{}, errors.New("sourceid admission reauthentication required")
@@ -139,7 +190,10 @@ func (s *userService) recheckSourceIDAdmission(ctx context.Context, sessionID, u
 	return s.userRepo.(sourceIDLocalStore).UpdateSourceIDLocalAdmission(ctx, sessionID, userID, decision)
 }
 
-func (s *userService) sourceIDLocalLimits(ctx context.Context, sessionID, userID string) (*types.SourceIDLocalSession, error) {
+func (s *userService) sourceIDLocalLimits(
+	ctx context.Context,
+	sessionID, userID string,
+) (*types.SourceIDLocalSession, error) {
 	store, ok := s.userRepo.(sourceIDLocalStore)
 	if !ok {
 		return nil, nil
@@ -148,7 +202,8 @@ func (s *userService) sourceIDLocalLimits(ctx context.Context, sessionID, userID
 	if err != nil || local == nil {
 		return local, err
 	}
-	if local.Revoked || !local.AbsoluteExpiresAt.After(time.Now()) || !local.LastSeenAt.Add(time.Duration(local.IdleSeconds)*time.Second).After(time.Now()) {
+	if local.Revoked || !local.AbsoluteExpiresAt.After(time.Now()) ||
+		!local.LastSeenAt.Add(time.Duration(local.IdleSeconds)*time.Second).After(time.Now()) {
 		return nil, errors.New("sourceid local session expired")
 	}
 	if s.config == nil || s.config.OIDCAuth == nil {
@@ -158,7 +213,9 @@ func (s *userService) sourceIDLocalLimits(ctx context.Context, sessionID, userID
 	if _, err := cfg.SourceIDLocalPolicy(); err != nil {
 		return nil, err
 	}
-	if cfg.IssuerURL != local.Issuer || cfg.SourceIDLocalPolicyRef != local.PolicyRef || cfg.SourceIDAdmissionPolicyRef != local.AdmissionPolicyRef || cfg.SourceIDAdmissionMode != local.AdmissionSource {
+	if cfg.IssuerURL != local.Issuer || cfg.SourceIDLocalPolicyRef != local.PolicyRef ||
+		cfg.SourceIDAdmissionPolicyRef != local.AdmissionPolicyRef ||
+		cfg.SourceIDAdmissionMode != local.AdmissionSource {
 		return nil, errors.New("sourceid local policy changed; reauthentication required")
 	}
 	if cfg.SourceIDAdmissionMode == "oidc_sso_approved" {
@@ -167,7 +224,16 @@ func (s *userService) sourceIDLocalLimits(ctx context.Context, sessionID, userID
 			if !ok {
 				return nil, errors.New("sourceid verified email repository unavailable")
 			}
-			if err := verified.CheckSourceIDVerifiedEmailSession(ctx, sessionID, userID, local.Issuer, local.EmployeeNo, local.Subject, cfg.SourceIDVerifiedEmailPolicyRef, cfg.SourceIDAutoBindingPolicyRef); err != nil {
+			if err := verified.CheckSourceIDVerifiedEmailSession(
+				ctx,
+				sessionID,
+				userID,
+				local.Issuer,
+				local.EmployeeNo,
+				local.Subject,
+				cfg.SourceIDVerifiedEmailPolicyRef,
+				cfg.SourceIDAutoBindingPolicyRef,
+			); err != nil {
 				if base, e := s.sourceIDStore(); e == nil {
 					_ = base.RevokeSourceIDSession(ctx, sessionID, userID)
 				}
@@ -193,7 +259,19 @@ func (s *userService) sourceIDLocalLimits(ctx context.Context, sessionID, userID
 			if policyErr != nil {
 				return nil, policyErr
 			}
-			if err := enterprise.CheckSourceIDEnterpriseOwnership(ctx, local.Issuer, local.EmployeeNo, userID, cfg.SourceIDEnterprisePolicyRef, maxAge); err != nil {
+			if err := enterprise.CheckSourceIDEnterpriseOwnership(
+				ctx,
+
+				local.Issuer,
+
+				local.EmployeeNo,
+
+				userID,
+
+				cfg.SourceIDEnterprisePolicyRef,
+
+				maxAge,
+			); err != nil {
 				return nil, err
 			}
 		} else {
