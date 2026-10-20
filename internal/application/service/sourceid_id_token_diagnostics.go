@@ -23,8 +23,10 @@ func sourceIDIDTokenFailureDiagnostic(ctx context.Context, err error) {
 	sourceIDEmitTokenDiagnostic(ctx, data)
 }
 
-var errOIDCJWKSFetch = errors.New("oidc jwks fetch failed")
-var errOIDCKeySelection = errors.New("oidc signing key selection failed")
+var (
+	errOIDCJWKSFetch    = errors.New("oidc jwks fetch failed")
+	errOIDCKeySelection = errors.New("oidc signing key selection failed")
+)
 
 // Only code-owned enums leave the verifier. Neither error text nor token claims
 // are logged. Multiple claim failures can be joined by the JWT validator.
@@ -37,11 +39,16 @@ func sourceIDIDTokenFailureCategories(err error) []string {
 		err  error
 		name string
 	}{
-		{errOIDCJWKSFetch, "jwks_fetch"}, {errOIDCKeySelection, "key_selection"},
-		{jwt.ErrTokenMalformed, "parse"}, {jwt.ErrTokenInvalidIssuer, "issuer"},
-		{jwt.ErrTokenInvalidAudience, "audience"}, {jwt.ErrTokenExpired, "expired"},
-		{jwt.ErrTokenUsedBeforeIssued, "iat"}, {jwt.ErrTokenNotValidYet, "nbf"},
-		{jwt.ErrTokenRequiredClaimMissing, "required_claim"}, {jwt.ErrInvalidType, "claim_type"},
+		{errOIDCJWKSFetch, "jwks_fetch"},
+		{errOIDCKeySelection, "key_selection"},
+		{jwt.ErrTokenMalformed, "parse"},
+		{jwt.ErrTokenInvalidIssuer, "issuer"},
+		{jwt.ErrTokenInvalidAudience, "audience"},
+		{jwt.ErrTokenExpired, "expired"},
+		{jwt.ErrTokenUsedBeforeIssued, "iat"},
+		{jwt.ErrTokenNotValidYet, "nbf"},
+		{jwt.ErrTokenRequiredClaimMissing, "required_claim"},
+		{jwt.ErrInvalidType, "claim_type"},
 	} {
 		if errors.Is(err, item.err) {
 			result = append(result, item.name)

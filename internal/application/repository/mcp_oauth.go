@@ -32,15 +32,19 @@ type oauthCredentialLogger struct{ gormlogger.Interface }
 func (l oauthCredentialLogger) LogMode(level gormlogger.LogLevel) gormlogger.Interface {
 	return oauthCredentialLogger{l.Interface.LogMode(level)}
 }
+
 func (l oauthCredentialLogger) Info(ctx context.Context, _ string, _ ...interface{}) {
 	l.Interface.Info(ctx, "MCP OAuth storage diagnostic")
 }
+
 func (l oauthCredentialLogger) Warn(ctx context.Context, _ string, _ ...interface{}) {
 	l.Interface.Warn(ctx, "MCP OAuth storage warning")
 }
+
 func (l oauthCredentialLogger) Error(ctx context.Context, _ string, _ ...interface{}) {
 	l.Interface.Error(ctx, "MCP OAuth storage error")
 }
+
 func (l oauthCredentialLogger) Trace(ctx context.Context, begin time.Time, fc func() (string, int64), err error) {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		err = gorm.ErrRecordNotFound
