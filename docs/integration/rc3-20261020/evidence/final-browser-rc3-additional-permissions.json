@@ -1,0 +1,51 @@
+{
+  "checks": [
+    {
+      "name": "wrong-space-document-read",
+      "http": 403,
+      "rejected": true
+    },
+    {
+      "name": "wrong-space-portal-search",
+      "http": 403,
+      "rejected": true
+    },
+    {
+      "name": "wrong-space-hybrid-search",
+      "http": 403,
+      "rejected": true
+    },
+    {
+      "name": "ordinary-system-app-test",
+      "http": 403,
+      "rejected": true
+    },
+    {
+      "name": "same-resource-other-importer-docx",
+      "http": 400,
+      "error": "feishu_already_imported",
+      "error_class_matches_expected": true,
+      "private_record_exposed": false
+    },
+    {
+      "name": "same-resource-other-importer-sheet",
+      "http": 400,
+      "error": "feishu_already_imported",
+      "error_class_matches_expected": true,
+      "private_record_exposed": false
+    },
+    {
+      "name": "same-resource-other-importer-bitable",
+      "http": 400,
+      "error": "feishu_already_imported",
+      "error_class_matches_expected": true,
+      "private_record_exposed": false
+    },
+    {
+      "name": "cross-importer-does-not-reuse-private-import-record",
+      "before": 0,
+      "after": 0,
+      "pass": true
+    }
+  ]
+}

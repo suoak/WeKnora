@@ -1,3 +1,11 @@
+# 最终收口索引（2026-10-20）
+
+最终运行源码 `1e2ded5b67ce9487966210d31011cf9c5b8cdfb9`；正式 CI 9 SUCCESS / 0 FAIL / 3 SKIP，普通员工 OA、三格式索引/检索、幂等、跨导入者明确错误、越权拒绝和退出已真实复验。完整结果、来源 SHA、限制及回滚证据见 [RC3_FINAL_CI_FIXES.md](RC3_FINAL_CI_FIXES.md)。下文保留此前版本的历史快照，不应将其旧 FAIL/PENDING 状态或旧镜像误当作最终结果。
+
+生产仍 NO-GO；尚未合并 main。新的审核报告提交只改变文档，当前 PR 检查须另行核对。Bitable 复杂汇总截断、>500 样本、首次 JIT/首次邮箱关联和未签发 Refresh 的真实验收没有因此变为 PASS。
+
+---
+
 # RC3 main 合并与 CI 审查
 
 Draft PR [#28](https://github.com/suoak/WeKnora/pull/28)，代码 head `5156e4b47643535d6ff473c9890be814bd6f7ffe`。main 审查点 `854f3b956ae3600e12a3ffd2fc40d4fe624ced74`。RC3 相对冻结父版本 176 个提交文件（含报告/清单）；相对 main 还包含原 OA/KnowHub 历史链，不能仅将 RC3 的18文件作为整个 PR 范围。完整 PR diff 与迁移库存需按实际 head/base 审核。

@@ -1,0 +1,69 @@
+{
+  "utc": "2026-10-20T06:49:56.364154+00:00",
+  "scope": "all 16 pre-final-deployment knowledge records and their chunks/embeddings, existing KBs and all Wiki pages; canonical JSON row digests exclude mutable access/update timestamps",
+  "source": "isolated restored backup3 compared to live approved test database",
+  "rows": [
+    {
+      "table": "knowledges",
+      "before": {
+        "count": 16,
+        "digest": "5751434edf59cf66bd78bdef7ce444bf"
+      },
+      "after": {
+        "count": 16,
+        "digest": "5751434edf59cf66bd78bdef7ce444bf"
+      },
+      "pass": true
+    },
+    {
+      "table": "chunks",
+      "before": {
+        "count": 21564,
+        "digest": "359d33a508f0d4da3a46a3e7388d8291"
+      },
+      "after": {
+        "count": 21564,
+        "digest": "359d33a508f0d4da3a46a3e7388d8291"
+      },
+      "pass": true
+    },
+    {
+      "table": "embeddings",
+      "before": {
+        "count": 5295,
+        "digest": "265c6ea888bc47947d406fca7b7f584e"
+      },
+      "after": {
+        "count": 5295,
+        "digest": "265c6ea888bc47947d406fca7b7f584e"
+      },
+      "pass": true
+    },
+    {
+      "table": "knowledge_bases",
+      "before": {
+        "count": 6,
+        "digest": "47e26cc3f714e33f0a3d1475375aa5b9"
+      },
+      "after": {
+        "count": 6,
+        "digest": "47e26cc3f714e33f0a3d1475375aa5b9"
+      },
+      "pass": true
+    },
+    {
+      "table": "wiki_pages",
+      "before": {
+        "count": 352,
+        "digest": "72278cd1f074ac61f79ed32cd4cbce04"
+      },
+      "after": {
+        "count": 352,
+        "digest": "72278cd1f074ac61f79ed32cd4cbce04"
+      },
+      "pass": true
+    }
+  ],
+  "pass": true,
+  "production_modified": false
+}

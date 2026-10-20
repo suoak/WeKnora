@@ -1,0 +1,37 @@
+{
+  "pass": true,
+  "at_utc": "2026-10-20T06:24:20.632374+00:00",
+  "writer_stopped_for_snapshot": true,
+  "prior_candidate_restarted_after_snapshot": true,
+  "database_restore_verified": true,
+  "restored_counts": [
+    "3033|f",
+    "4|16|21564|5295|352|2|78|26"
+  ],
+  "restored_three_resources_match": true,
+  "archive_read_verified": true,
+  "backup_files": [
+    {
+      "name": "db3033.dump",
+      "bytes": 34372740,
+      "sha256": "8e1a4df2ed132b4135deb60c2344df1def8daccda98f886bb861ee66aeb9ab39"
+    },
+    {
+      "name": "files.tar.gz",
+      "bytes": 2331434,
+      "sha256": "3f213bd9b7bbac9408d0d0778629782f84dfb03a5d6ce2a64d0c742809e614d1"
+    },
+    {
+      "name": "staging.tar.gz",
+      "bytes": 3926398,
+      "sha256": "f6f9dc1e8de0dfc9d70012d569dfbe05424f7c9fc2fb1e983605486b04b1cfc7"
+    },
+    {
+      "name": "redis.rdb",
+      "bytes": 6362,
+      "sha256": "6d210a02a5b3e3640767ae5b7e6ae86d82cbdb699271e664589ea481bcee7712"
+    }
+  ],
+  "restore_network": "none",
+  "no_business_database_restore": true
+}

@@ -1,0 +1,14 @@
+{
+  "utc": "2026-10-20T06:22:28.375255+00:00",
+  "test_host": "172.30.232.42",
+  "hostname": "aqyfzx10",
+  "database": "WeKnora",
+  "redis": "WeKnora-redis:6379",
+  "app_image": "sha256:a40dd80dfb4ad40a50c0d1bb244019e8906d1c746afa4215ee0f9709fd3b611c",
+  "frontend_image": "sha256:6b51e4484b03ef26381d530bd33f491ae5070b317edf148eab581320d6c74c9f",
+  "compose_files_backed_up": 10,
+  "rollback_script_ready": true,
+  "production_operations": false,
+  "sourceid_strategy": "code_flow_tls_userinfo",
+  "sourceid_lifecycle": "continuous_test"
+}

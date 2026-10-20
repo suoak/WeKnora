@@ -1,3 +1,11 @@
+# 最终收口索引（2026-10-20）
+
+最终运行源码 `1e2ded5b67ce9487966210d31011cf9c5b8cdfb9`；正式 CI 9 SUCCESS / 0 FAIL / 3 SKIP，普通员工 OA、三格式索引/检索、幂等、跨导入者明确错误、越权拒绝和退出已真实复验。完整结果、来源 SHA、限制及回滚证据见 [RC3_FINAL_CI_FIXES.md](RC3_FINAL_CI_FIXES.md)。下文保留此前版本的历史快照，不应将其旧 FAIL/PENDING 状态或旧镜像误当作最终结果。
+
+生产仍 NO-GO；尚未合并 main。新的审核报告提交只改变文档，当前 PR 检查须另行核对。Bitable 复杂汇总截断、>500 样本、首次 JIT/首次邮箱关联和未签发 Refresh 的真实验收没有因此变为 PASS。
+
+---
+
 # RC3 发布门禁
 
 结论：**测试候选已部署，核心普通员工业务通过；NOT_READY_TO_MERGE / NOT_READY_FOR_PRODUCTION。**

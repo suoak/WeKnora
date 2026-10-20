@@ -1,0 +1,52 @@
+{
+  "parent": "48f3e5dac39e7ec9932b6feb13832496f2bacf3b",
+  "candidate": "1e2ded5b67ce9487966210d31011cf9c5b8cdfb9",
+  "normalization": "ignore comments/positions, compare individual declarations, normalize equal string concatenations and integer literal spelling",
+  "files": [
+    {
+      "ast_equal": true,
+      "path": "docs/integration/sourceid/business-test/basic-encoding-analysis.go"
+    },
+    {
+      "ast_equal": true,
+      "path": "internal/config/sourceid_basic_encoding_test.go"
+    },
+    {
+      "ast_equal": true,
+      "path": "internal/config/sourceid_enterprise_test.go"
+    },
+    {
+      "ast_equal": true,
+      "path": "internal/config/sourceid_pilot_permissions_unix.go"
+    },
+    {
+      "ast_equal": true,
+      "path": "internal/config/sourceid_pilot_permissions_windows.go"
+    },
+    {
+      "ast_equal": true,
+      "path": "internal/config/sourceid_verified_email_test.go"
+    },
+    {
+      "ast_equal": true,
+      "path": "internal/datasource/connector/feishu/core/client.go"
+    },
+    {
+      "ast_equal": true,
+      "path": "internal/datasource/connector/feishu/core/response_limits.go"
+    },
+    {
+      "ast_equal": true,
+      "path": "internal/datasource/connector/feishu/core/user_identity.go"
+    },
+    {
+      "ast_equal": true,
+      "path": "internal/middleware/auth.go"
+    },
+    {
+      "ast_equal": true,
+      "path": "internal/testutil/privatefile/privatefile_windows.go"
+    }
+  ],
+  "all_equal": true
+}
