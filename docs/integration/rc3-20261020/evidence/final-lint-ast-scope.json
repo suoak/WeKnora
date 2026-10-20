@@ -1,0 +1,560 @@
+{
+  "files": 177,
+  "ast_unchanged_after_comment_position_and_constant_string_normalization": 98,
+  "changes": [
+    {
+      "path": "cmd/sourceid-binding/main.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "cmd/sourceid-enroll/main.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "cmd/sourceid-ownership/main.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "cmd/sourceid-probe/main.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "cmd/sourceid-probe/main_test.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "cmd/sourceid-test-account/main.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "docs/integration/rc2-20261020/tools/migrate/main.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/accountprep/prepare.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/repository/feishu_personal_recovery.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/repository/knowledge_dispatch.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/repository/sourceid_binding.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 1,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/repository/sourceid_binding_interleave_test.go",
+      "changed_declaration_count": 0,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": true
+    },
+    {
+      "path": "internal/application/repository/sourceid_enterprise_test.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/repository/sourceid_feishu_migration_chain_test.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/repository/sourceid_jit.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/repository/sourceid_verified_email.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/repository/sourceid_verified_email_test.go",
+      "changed_declaration_count": 2,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/repository/wiki_page_dependencies.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/feishu_application_grant_test.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/feishu_application_manifest_assets_test.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/feishu_application_tables_test.go",
+      "changed_declaration_count": 2,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/feishu_mvp_contract_test.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/feishu_mvp_fault_test.go",
+      "changed_declaration_count": 2,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/feishu_mvp_pipeline_test.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/feishu_personal.go",
+      "changed_declaration_count": 6,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/feishu_personal_first_create.go",
+      "changed_declaration_count": 2,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/feishu_personal_manifest.go",
+      "changed_declaration_count": 3,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/feishu_personal_recovery.go",
+      "changed_declaration_count": 4,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/feishu_personal_recovery_test.go",
+      "changed_declaration_count": 7,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/feishu_personal_test.go",
+      "changed_declaration_count": 4,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/feishu_rc2_clone_test.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/feishu_rc3_duplicate_test.go",
+      "changed_declaration_count": 0,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": true
+    },
+    {
+      "path": "internal/application/service/knowledge_dispatch.go",
+      "changed_declaration_count": 2,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/knowledge_dispatch_asynq_test.go",
+      "changed_declaration_count": 3,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/knowledge_dispatch_test.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/knowledge_process.go",
+      "changed_declaration_count": 3,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/oidc_probe_diagnostics.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/oidc_probe_diagnostics_test.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/oidc_probe_test.go",
+      "changed_declaration_count": 2,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/sourceid_authorization_code_risk_test.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/sourceid_email_binding_test.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/sourceid_id_token_diagnostics_test.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/sourceid_local_session_test.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/sourceid_pinned_keys.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/sourceid_pinned_keys_test.go",
+      "changed_declaration_count": 7,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/sourceid_protocol_only_test.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/sourceid_raw_basic_test.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/sourceid_reauthentication_test.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/sourceid_sso_test.go",
+      "changed_declaration_count": 2,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/sourceid_tls_userinfo.go",
+      "changed_declaration_count": 2,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/sourceid_tls_userinfo_test.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/sourceid_token_telemetry.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/sourceid_token_telemetry_test.go",
+      "changed_declaration_count": 2,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/sourceid_userinfo_transport_test.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/application/service/user.go",
+      "changed_declaration_count": 2,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/config/sourceid_enterprise.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/config/sourceid_pilot.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/config/sourceid_sso_test.go",
+      "changed_declaration_count": 2,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/database/feishu_application_grant_migration_test.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/database/feishu_personal_recovery_migration_test.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/database/migration_sqlite_versioned_schema_test.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/datasource/connector/feishu/core/application_attachment_test.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/datasource/connector/feishu/core/application_docx.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/datasource/connector/feishu/core/application_identity_reentrant_test.go",
+      "changed_declaration_count": 2,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/datasource/connector/feishu/core/application_table_download.go",
+      "changed_declaration_count": 0,
+      "added_declarations": 0,
+      "removed_declarations": 4,
+      "new_file": false
+    },
+    {
+      "path": "internal/datasource/connector/feishu/core/application_tables_test.go",
+      "changed_declaration_count": 4,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/datasource/connector/feishu/core/application_workbook.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/datasource/connector/feishu/core/personal_resource.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/datasource/connector/feishu/core/personal_resource_test.go",
+      "changed_declaration_count": 2,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/datasource/connector/feishu/core/stability_audit_test.go",
+      "changed_declaration_count": 2,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/handler/auth.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/handler/feishu_failure_test.go",
+      "changed_declaration_count": 0,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": true
+    },
+    {
+      "path": "internal/handler/feishu_personal.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 1,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/handler/mcp_oauth.go",
+      "changed_declaration_count": 4,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/handler/sourceid_local_browser_test.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/mcp/oauth_discovery_test.go",
+      "changed_declaration_count": 2,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/sourceid/logout.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/types/system_setting.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    },
+    {
+      "path": "internal/types/wiki_page.go",
+      "changed_declaration_count": 1,
+      "added_declarations": 0,
+      "removed_declarations": 0,
+      "new_file": false
+    }
+  ],
+  "limits": "AST equality proves formatting-only for equal entries. Other entries include explicit discarded cleanup errors, unused parameter/local renames, staticcheck simplifications and actual fixes; equality is not a security audit."
+}

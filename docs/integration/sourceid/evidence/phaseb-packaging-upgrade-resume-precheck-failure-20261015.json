@@ -1,0 +1,15 @@
+{
+  "target": "172.30.232.42",
+  "target_sha": "431226c3b1bd5338ec06c1bd0520e637d5fed398",
+  "result": "FAILED",
+  "upgrade_completed": false,
+  "rolled_back": false,
+  "real_sid_login": "NOT_EXECUTED",
+  "real_identity_binding": "NOT_EXECUTED",
+  "failure_stage": "precheck",
+  "failure_category": "AssertionError",
+  "failure_lines": [
+    339
+  ],
+  "completed_utc": "2026-10-15T12:16:27.280355+00:00"
+}

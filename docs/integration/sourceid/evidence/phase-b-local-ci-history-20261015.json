@@ -1,0 +1,29 @@
+{
+  "sha": "cecd00661c39b19b9bf419a1dd89912723884f0e",
+  "ci_url": "https://github.com/suoak/WeKnora/actions/runs/38709604564",
+  "browser": "FAIL_TIMEOUT_NOT_PASS",
+  "jobs": {
+    "postgres": "PASS",
+    "frontend": "PASS"
+  },
+  "test_results": {
+    "focused.jsonl": {
+      "pass": 276,
+      "fail": 0,
+      "skip": 9,
+      "local_session_pass": 44
+    },
+    "regression.jsonl": {
+      "pass": 4808,
+      "fail": 0,
+      "skip": 21,
+      "local_session_pass": 44
+    },
+    "combined-feishu.jsonl": {
+      "pass": 233,
+      "fail": 0,
+      "skip": 1,
+      "local_session_pass": 36
+    }
+  }
+}

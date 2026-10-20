@@ -1,0 +1,18 @@
+{
+  "utc": "2026-10-15T11:24:56.322102+00:00",
+  "connection": "Windows direct IP, system proxies bypassed",
+  "target": "172.30.232.42",
+  "http": {
+    "frontend": {
+      "status": 200
+    },
+    "app_health": {
+      "status": 200
+    },
+    "proxy_oidc_config": {
+      "status": 200,
+      "sourceid_basic_encoding": "oauth_form"
+    }
+  },
+  "sid_login": "NOT_EXECUTED"
+}

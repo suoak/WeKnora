@@ -1,0 +1,16 @@
+{
+  "build_started": true,
+  "pid": 3787354,
+  "directory": "/home/aqyfzx/ai/knowhub-sourceid-phaseb-preflight-431226c3b",
+  "source_sha": "431226c3b1bd5338ec06c1bd0520e637d5fed398",
+  "archive_sha256": "651b092c9228402ded1cc6d7562b6faac22c67aed604e7d56b768e4d9e0220c7",
+  "builder_image_id": "sha256:2b63ff41b02b21d7b302c2d3ba6b4ab43990181fc7d2221585d2cfa5161553fb",
+  "compiler_baseline": "go1.26.7",
+  "runtime_baseline": "sourceid-8ae91bc44",
+  "candidate_image_namespace": "knowhub-sourceid-phaseb",
+  "build_limits": {
+    "cpus": 2,
+    "memory_bytes": 8589934592
+  },
+  "default_services_modified": false
+}

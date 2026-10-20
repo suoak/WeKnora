@@ -1,0 +1,8 @@
+{
+  "dependency": "third_party/anydoc-go/lib/linux_amd64_gnu/libanydoc_go.a",
+  "sha256": "d5543b2cf68400c048992a192475aa70e895fda0abc495b85afb68dfd699122a",
+  "bytes": 30778878,
+  "source": "same pinned, previously validated native archive used by current RC3 test image",
+  "source_code_spliced": false,
+  "git_archive_regular_files_unchanged": true
+}

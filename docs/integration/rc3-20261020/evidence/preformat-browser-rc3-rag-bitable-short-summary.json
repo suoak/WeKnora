@@ -1,0 +1,19 @@
+{
+  "real_model": true,
+  "ordinary_employee": true,
+  "results": [
+    {
+      "type": "bitable",
+      "knowledge_id": "0ad72f32-fc37-4856-87ea-ba26489093a4",
+      "http": 200,
+      "complete": true,
+      "answer_chars": 513,
+      "truncated": false,
+      "error_events": 0,
+      "references": 3,
+      "expected_kid_referenced": true,
+      "raw_content_exported": false,
+      "pass": true
+    }
+  ]
+}

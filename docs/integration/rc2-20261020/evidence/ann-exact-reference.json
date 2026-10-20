@@ -1,0 +1,18 @@
+{
+  "fixed_probe": {
+    "id": 3945,
+    "kb_exists": true,
+    "kb_deleted": false,
+    "chunk_exists": true,
+    "self_distance": 0,
+    "knowledge_exists": true,
+    "knowledge_status": "completed",
+    "embedding_enabled": true,
+    "knowledge_deleted": false,
+    "knowledge_enabled": "enabled"
+  },
+  "forced_sequential_exact": {
+    "min_distance": 0
+  },
+  "scope": "diagnostic only; original ANN assertions and failures retained; no product GUC changes"
+}

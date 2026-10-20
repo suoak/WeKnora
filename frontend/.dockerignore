@@ -17,3 +17,10 @@ package.json.md5
 .gitignore
 .dockerignore
 Dockerfile
+
+# Isolated QA entries, fixture credentials and raw evidence never enter image builds.
+tests
+test-results
+playwright-report
+**/*.test.*
+**/*.spec.*

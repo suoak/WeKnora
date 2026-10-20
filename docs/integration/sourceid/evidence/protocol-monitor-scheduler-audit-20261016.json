@@ -1,0 +1,22 @@
+{
+  "result": "READ_ONLY_COMPLETED",
+  "utc": "2026-10-16T05:57:19.657991+00:00",
+  "current_user_crontab": {
+    "readable": true,
+    "active_line_count": 0,
+    "oidc_related_line_count": 0
+  },
+  "timers": {
+    "system_timers": {
+      "readable": true,
+      "oidc_marker_line_count": 0
+    },
+    "user_timers": {
+      "readable": true,
+      "oidc_marker_line_count": 0
+    }
+  },
+  "scope_limit": "No privileged system crontab, other user schedules, client machines or browser extensions inspected. No marker does not prove no other callers.",
+  "new_login": false,
+  "config_changed": false
+}

@@ -82,7 +82,7 @@ func TestStreamHandler_EmitClassifiesDeletedAndFailed(t *testing.T) {
 	h := newStreamHandler(&DataSourceService{knowledgeService: knowledgeSvc}, ds, result, &types.SyncLog{})
 
 	require.NoError(t, h.Emit(context.Background(), types.FetchedItem{ExternalID: "gone", IsDeleted: true}))
-	require.NoError(t, h.Emit(context.Background(), types.FetchedItem{
+	require.Error(t, h.Emit(context.Background(), types.FetchedItem{
 		ExternalID: "bad", Title: "Broken Doc",
 		Metadata: map[string]string{"error": "export failed"},
 	}))

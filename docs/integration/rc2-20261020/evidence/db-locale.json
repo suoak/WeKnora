@@ -1,0 +1,22 @@
+{
+  "production": {
+    "ctype": "en_US.utf8",
+    "collate": "en_US.utf8",
+    "encoding": "UTF8",
+    "provider": "c",
+    "server_version": "17.9 (Debian 17.9-1.pgdg13+1)",
+    "actual_collation_version": "2.41",
+    "stored_collation_version": "2.41"
+  },
+  "isolated_clone": {
+    "ctype": "en_US.utf8",
+    "collate": "en_US.utf8",
+    "encoding": "UTF8",
+    "provider": "c",
+    "server_version": "17.9 (Debian 17.9-1.pgdg13+1)",
+    "actual_collation_version": "2.41",
+    "stored_collation_version": "2.41"
+  },
+  "identical": true,
+  "scope": "read-only metadata; no collation changes"
+}

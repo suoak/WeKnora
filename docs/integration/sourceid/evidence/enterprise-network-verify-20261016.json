@@ -1,0 +1,148 @@
+{
+  "result": "PASS",
+  "real_authentication": false,
+  "app_network": {
+    "dns": [
+      "39.107.195.76"
+    ],
+    "tls": {
+      "certificate_validation": true,
+      "hostname_validation": true,
+      "version": "TLSv1.3",
+      "remote_address": [
+        "39.107.195.76",
+        443
+      ],
+      "milliseconds": 187
+    },
+    "discovery_status": 200,
+    "jwks": {
+      "status": 200,
+      "keys": 1,
+      "rsa_present": true
+    },
+    "auth_endpoints": {
+      "/oidc/authorize": "TLS_SHARED_HOST_VERIFIED_NOT_CALLED",
+      "/oidc/accessToken": "TLS_SHARED_HOST_VERIFIED_NOT_CALLED",
+      "/oidc/profile": "TLS_SHARED_HOST_VERIFIED_NOT_CALLED"
+    },
+    "denied": [
+      {
+        "target": "1.1.1.1",
+        "port": 443,
+        "denied": true
+      },
+      {
+        "target": "39.107.195.76",
+        "port": 80,
+        "denied": true
+      },
+      {
+        "target": "172.30.232.42",
+        "port": 80,
+        "denied": true
+      },
+      {
+        "target": "172.30.232.42",
+        "port": 8080,
+        "denied": true
+      }
+    ],
+    "ipv6_interfaces": ""
+  },
+  "frontend_api": {
+    "/login": 200,
+    "/health": 200,
+    "/api/v1/auth/oidc/config": 200
+  },
+  "app": {
+    "id": "937da1728298da4171a503182aa5038d97e14b4c99b08031f2030b1dd86bbc84",
+    "name": "/knowhub-oa-sso-pilot-app-1",
+    "image_id": "sha256:dbaff4ef55df5759c30e3535bf8be89882bd7ac74f1010d96875b7a3dbb21a6e",
+    "image_reference": "sha256:dbaff4ef55df5759c30e3535bf8be89882bd7ac74f1010d96875b7a3dbb21a6e",
+    "created": "2026-10-16T11:46:48.60597132Z",
+    "started": "2026-10-16T11:46:48.829479674Z",
+    "running": true,
+    "health": "healthy",
+    "restart_count": 0,
+    "project": "knowhub-oa-sso-pilot",
+    "service": "app",
+    "working_dir": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a",
+    "compose_files": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a/compose.json,/home/aqyfzx/ai/knowhub-enterprise-candidate-09e6d86db/enterprise-app-pin.json",
+    "ports": {},
+    "mounts": [
+      {
+        "Type": "bind",
+        "Name": null,
+        "Source": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a/private/ownership",
+        "Destination": "/run/sourceid/ownership",
+        "RW": false
+      },
+      {
+        "Type": "volume",
+        "Name": "knowhub-oa-sso-pilot-files",
+        "Source": "/mnt/sata0/lib/docker/volumes/knowhub-oa-sso-pilot-files/_data",
+        "Destination": "/data/files",
+        "RW": false
+      },
+      {
+        "Type": "volume",
+        "Name": "knowhub-oa-sso-pilot_doc-tmp",
+        "Source": "/mnt/sata0/lib/docker/volumes/knowhub-oa-sso-pilot_doc-tmp/_data",
+        "Destination": "/tmp/docreader",
+        "RW": false
+      }
+    ]
+  },
+  "gateway": {
+    "id": "e7fb660313e1b5e5d8e16fd9610a22ab7a31551fae43953fb6d880e62539454d",
+    "name": "/knowhub-oa-sso-pilot-sid-network-1",
+    "image_id": "sha256:c6e631c631e4488b32f7964e700dae8dfd9105ca4a75f2c0443272f44484c1c5",
+    "image_reference": "sha256:c6e631c631e4488b32f7964e700dae8dfd9105ca4a75f2c0443272f44484c1c5",
+    "created": "2026-10-16T10:09:46.708689068Z",
+    "started": "2026-10-16T10:09:47.243863214Z",
+    "running": true,
+    "health": "healthy",
+    "restart_count": 0,
+    "project": "knowhub-oa-sso-pilot",
+    "service": "sid-network",
+    "working_dir": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a",
+    "compose_files": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a/compose.json",
+    "ports": {
+      "8080/tcp": null
+    },
+    "mounts": [
+      {
+        "Type": "bind",
+        "Name": null,
+        "Source": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a/egress",
+        "Destination": "/egress",
+        "RW": false
+      },
+      {
+        "Type": "bind",
+        "Name": null,
+        "Source": "/home/aqyfzx/ai/knowhub-oa-sso-pilot-832b6652a/egress/nettools",
+        "Destination": "/nettools",
+        "RW": false
+      }
+    ]
+  },
+  "unapproved_bridge_source": [
+    {
+      "target": "192.168.160.7",
+      "port": 8080,
+      "denied": true
+    },
+    {
+      "target": "192.168.208.2",
+      "port": 8080,
+      "denied": true
+    },
+    {
+      "target": "192.168.160.4",
+      "port": 5432,
+      "denied": true
+    }
+  ]
+}

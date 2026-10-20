@@ -12,9 +12,13 @@ import (
 
 type gitLabKnowledgeRepo struct {
 	interfaces.KnowledgeRepository
+	interfaces.KnowledgeDispatchRepository
 }
 
-func (r *gitLabKnowledgeRepo) GetKnowledgeTags(context.Context, []string) (map[string][]*types.KnowledgeTag, error) {
+func (r *gitLabKnowledgeRepo) GetKnowledgeTags(
+	context.Context,
+	[]string,
+) (map[string][]*types.KnowledgeTag, error) {
 	return map[string][]*types.KnowledgeTag{}, nil
 }
 
@@ -23,10 +27,15 @@ func TestCreateKnowledgeFromFileGitLabPreservesSourcePaths(t *testing.T) {
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	repo := &gitLabKnowledgeRepo{KnowledgeRepository: repository.NewKnowledgeRepository(db)}
+	base := repository.NewKnowledgeRepository(db)
+	repo := &gitLabKnowledgeRepo{
+		KnowledgeRepository:         base,
+		KnowledgeDispatchRepository: base.(interfaces.KnowledgeDispatchRepository),
+	}
+	require.NoError(t, db.AutoMigrate(&types.TaskPendingOp{}))
 	svc := &knowledgeService{
 		repo:      repo,
-		kbService: &createKnowledgeFileKBServiceStub{kb: &types.KnowledgeBase{ID: "kb-1"}},
+		kbService: &createKnowledgeFileKBServiceStub{kb: &types.KnowledgeBase{ID: "kb-1", TenantID: 1}},
 		fileSvc:   &createKnowledgeFileServiceStub{},
 		task:      &createKnowledgeTaskEnqueuerStub{},
 	}
@@ -38,13 +47,27 @@ func TestCreateKnowledgeFromFileGitLabPreservesSourcePaths(t *testing.T) {
 			metadata["datasource_id"] = source
 			metadata["external_id"] = "gitlab:instance:1:main:" + file
 		}
-		return svc.CreateKnowledgeFromFile(ctx, "kb-1", newMultipartFileHeader(t, "README.md", "# same content"),
-			metadata, nil, "docs-main/"+file, nil, channel, nil)
+		return svc.CreateKnowledgeFromFile(
+			ctx,
+			"kb-1",
+			newMultipartFileHeader(t, "README.md", "# same content"),
+			metadata,
+			nil,
+			"docs-main/"+file,
+			nil,
+			channel,
+			nil,
+		)
 	}
 
 	root, err := create(types.ConnectorTypeGitLab, "ds-1", "README.md")
 	require.NoError(t, err)
-	ds := &types.DataSource{ID: "ds-1", TenantID: 1, KnowledgeBaseID: "kb-1", Type: types.ConnectorTypeGitLab}
+	ds := &types.DataSource{
+		ID:              "ds-1",
+		TenantID:        1,
+		KnowledgeBaseID: "kb-1",
+		Type:            types.ConnectorTypeGitLab,
+	}
 	item := &types.FetchedItem{
 		ExternalID: "gitlab:instance:1:main:a/b/c/d/e/README.md",
 		FileName:   "docs-main/a/b/c/d/e/README.md",
@@ -52,10 +75,22 @@ func TestCreateKnowledgeFromFileGitLabPreservesSourcePaths(t *testing.T) {
 	}
 	result := &types.SyncResult{}
 	(&DataSourceService{knowledgeService: svc}).applyFetchedItem(ctx, ds, item, nil, result)
-	require.Equal(t, 1, result.Created, "identical content at a different repository path must still be imported")
+	require.Equal(
+		t,
+		1,
+		result.Created,
+		"identical content at a different repository path must still be "+
+			"imported",
+	)
 	require.Zero(t, result.Skipped)
 	require.Zero(t, result.Failed)
-	nested, err := repo.FindByDataSourceExternalID(ctx, ds.TenantID, ds.KnowledgeBaseID, ds.ID, item.ExternalID)
+	nested, err := repo.FindByDataSourceExternalID(
+		ctx,
+		ds.TenantID,
+		ds.KnowledgeBaseID,
+		ds.ID,
+		item.ExternalID,
+	)
 	require.NoError(t, err)
 	require.NotNil(t, nested)
 	require.NotEqual(t, root.ID, nested.ID)
@@ -70,10 +105,19 @@ func TestCreateKnowledgeFromFileGitLabPreservesSourcePaths(t *testing.T) {
 	require.ErrorAs(t, err, &dupErr)
 	require.Equal(t, nested.ID, duplicate.ID, "a retry must match this path's own knowledge")
 
-	for _, channel := range []string{"", types.ConnectorTypeFeishu} {
+	for _, channel := range []string{""} {
 		_, err := create(channel, "ds-3", "another/README.md")
 		require.ErrorAs(t, err, &dupErr, "other import channels retain content deduplication")
 	}
+	feishu, err := create(types.ConnectorTypeFeishu, "ds-3", "another/README.md")
+	require.NoError(t, err, "Feishu keeps a separate durable source identity")
+	require.NotEqual(t, root.ID, feishu.ID)
+	replayed, err := create(types.ConnectorTypeFeishu, "ds-3", "another/README.md")
+	require.ErrorAs(t, err, &dupErr)
+	require.Equal(t, feishu.ID, replayed.ID)
+	intent, err := repo.GetKnowledgeDispatch(ctx, 1, feishu.ID)
+	require.NoError(t, err)
+	require.Equal(t, "dispatched", intent.Op)
 	_, err = create(types.ConnectorTypeGitLab, "", "missing-identity/README.md")
 	require.ErrorAs(t, err, &dupErr, "incomplete source identity retains content deduplication")
 }
@@ -93,9 +137,17 @@ func TestCreateKnowledgeFromFileConfluencePreservesCopiedPages(t *testing.T) {
 	ctx := newCreateKnowledgeFileContext()
 	create := func(source, pageID string) (*types.Knowledge, error) {
 		t.Helper()
-		return svc.CreateKnowledgeFromFile(ctx, "kb-1", newMultipartFileHeader(t, "Overview.md", "# same body"),
+		return svc.CreateKnowledgeFromFile(
+			ctx,
+			"kb-1",
+			newMultipartFileHeader(t, "Overview.md", "# same body"),
 			map[string]string{"datasource_id": source, "external_id": pageID},
-			nil, "Overview-"+pageID+".md", nil, types.ChannelConfluence, nil)
+			nil,
+			"Overview-"+pageID+".md",
+			nil,
+			types.ChannelConfluence,
+			nil,
+		)
 	}
 
 	first, err := create("ds-1", "p1")

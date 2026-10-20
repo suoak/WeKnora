@@ -1,0 +1,14 @@
+{
+  "utc": "2026-10-20T01:18:54.139051+00:00",
+  "scope": "actual RC24 runtime payload on the same quiesced DB3033 startup fixture; not OA session or pending-task semantic rollback acceptance",
+  "production_image": "sha256:b613ee469ac81cc1c0560834cca73de025b626f79b1e6760b691f92f77348eb1",
+  "test_image": "sha256:dc1268591cc4a273b732eacb9cd360f7c44d24ddd33706078a464cc3f90fff52",
+  "same_runtime_payload": true,
+  "create_exit": 0,
+  "health": 200,
+  "seconds": 5.851,
+  "schema": "3033|false",
+  "identity_role_rows_unchanged": true,
+  "result": "PASS",
+  "isolated_containers_stopped": true
+}

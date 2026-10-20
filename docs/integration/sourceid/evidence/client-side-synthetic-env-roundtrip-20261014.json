@@ -1,0 +1,12 @@
+{
+  "synthetic_only": true,
+  "real_secret_read": false,
+  "existing_business_configuration_modified": false,
+  "env_writer_roundtrip": {
+    "ordinary": true,
+    "punctuation": true,
+    "dollar": true,
+    "apostrophe": true,
+    "backslash": false
+  }
+}

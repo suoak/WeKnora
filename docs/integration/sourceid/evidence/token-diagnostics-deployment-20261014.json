@@ -1,0 +1,1588 @@
+{
+  "schema_version": 1,
+  "implementation_sha": "3be5d3f9268fe8819d66485a2b990c6237827e25",
+  "ci_url": "https://github.com/suoak/WeKnora/actions/runs/38556052305",
+  "real_sid_login": "NOT_TESTED_THIS_ROUND",
+  "source_archive_sha256": "e61614169f49bf6987465a9f41e51423a52ec6908dd6b26ec195a3b278b9aa0b",
+  "upgrade": {
+    "host": "172.30.232.42",
+    "source_sha": "3be5d3f9268fe8819d66485a2b990c6237827e25",
+    "backup_directory": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/upgrade-backups/token-diagnostics-20261014T114018Z",
+    "before": [
+      {
+        "name": "knowhub-sourceid-business-app-1",
+        "id": "dc4a8b5375c95db469af1fb3b3a0a0a00965aa5e92d7b38e64e83fed2fb96893",
+        "image": "knowhub-sourceid-business/app:db1b2cd05",
+        "image_id": "sha256:1085776dac855cf8e84a2eacf005585bbc3226c965b436e72718b46cb724f28a",
+        "ports": "8080/tcp -> 0.0.0.0:8080"
+      },
+      {
+        "name": "knowhub-sourceid-business-frontend-1",
+        "id": "b24d33636bb00af298f678a2b117b8acbfeb1e346cd9a22d754511a80f8d488c",
+        "image": "knowhub-sourceid-business/frontend:db1b2cd05",
+        "image_id": "sha256:0ffe6996295c87ca5d0f960f67381d4857751fac69036f60fb94802d417a8e16",
+        "ports": "80/tcp -> 0.0.0.0:80"
+      }
+    ],
+    "database_counts_before": {
+      "users": 1,
+      "knowledge_bases": 1,
+      "knowledges": 1,
+      "external_identities": 0,
+      "source_id_sessions": 0
+    },
+    "migration_before": "3024",
+    "upgraded": true,
+    "database_backup": {
+      "bytes": 353346,
+      "sha256": "b8744c1b829078e13c959476ed628a3fc85bf7421fc61174c8ded03edbdb8f7d",
+      "catalog_verified": true
+    },
+    "preserved_volumes": [
+      {
+        "name": "knowhub-sourceid-business_files",
+        "destination": "/data/files"
+      },
+      {
+        "name": "knowhub-sourceid-business_doc-tmp",
+        "destination": "/tmp/docreader"
+      }
+    ],
+    "files_backup_bytes": 181,
+    "after": [
+      {
+        "name": "knowhub-sourceid-business-app-1",
+        "id": "9434ff1cf345c8703364bce58b9729d7edc0994914c8160dea66be9fbd998d2a",
+        "image": "knowhub-sourceid-business/app:3be5d3f92",
+        "image_id": "sha256:0890f309f89397e82ea5b1ecd901f2ddb37de142b78f854e9925a05430c34c1d",
+        "ports": "8080/tcp -> 0.0.0.0:8080",
+        "revision": "3be5d3f9268fe8819d66485a2b990c6237827e25"
+      },
+      {
+        "name": "knowhub-sourceid-business-frontend-1",
+        "id": "c5af98723560e91156c6eaa5bb78417680bc89f45fb0be18850a5b91cdad3987",
+        "image": "knowhub-sourceid-business/frontend:3be5d3f92",
+        "image_id": "sha256:ae4a1207900234b131605ea3cdd4af8e99845faebdd1be87e00af150d34dbf34",
+        "ports": "80/tcp -> 0.0.0.0:80",
+        "revision": "3be5d3f9268fe8819d66485a2b990c6237827e25"
+      }
+    ],
+    "migration_after": "3024",
+    "database_counts_after": {
+      "users": 1,
+      "knowledge_bases": 1,
+      "knowledges": 1,
+      "external_identities": 0,
+      "source_id_sessions": 0
+    },
+    "other_container_ids_unchanged": true,
+    "rollback_script": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/upgrade-backups/token-diagnostics-20261014T114018Z/rollback.sh"
+  },
+  "first_upgrade_attempt": {
+    "host": "172.30.232.42",
+    "source_sha": "3be5d3f9268fe8819d66485a2b990c6237827e25",
+    "backup_directory": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/upgrade-backups/token-diagnostics-20261014T113610Z",
+    "before": [
+      {
+        "name": "knowhub-sourceid-business-app-1",
+        "id": "94e5f448a4bf832e37be85ac6dc080070005aa53d7305ad01e3ae2af2b3d7866",
+        "image": "knowhub-sourceid-business/app:db1b2cd05",
+        "image_id": "sha256:1085776dac855cf8e84a2eacf005585bbc3226c965b436e72718b46cb724f28a",
+        "ports": "8080/tcp -> 0.0.0.0:8080"
+      },
+      {
+        "name": "knowhub-sourceid-business-frontend-1",
+        "id": "aa911822d6e43ee55d7fb0e97dfbd1b4f89e9560b21b7794474be761da7e4fc6",
+        "image": "knowhub-sourceid-business/frontend:db1b2cd05",
+        "image_id": "sha256:0ffe6996295c87ca5d0f960f67381d4857751fac69036f60fb94802d417a8e16",
+        "ports": "80/tcp -> 0.0.0.0:80"
+      }
+    ],
+    "database_counts_before": {
+      "users": 1,
+      "knowledge_bases": 1,
+      "knowledges": 1,
+      "external_identities": 0,
+      "source_id_sessions": 0
+    },
+    "migration_before": "3024",
+    "upgraded": false,
+    "database_backup": {
+      "bytes": 353345,
+      "sha256": "5ae9956731cb5639d41cbd2b0c4d2b9dcd418cfe53ae434f21b0cfc65bb05341",
+      "catalog_verified": true
+    },
+    "preserved_volumes": [
+      {
+        "name": "knowhub-sourceid-business_files",
+        "destination": "/data/files"
+      },
+      {
+        "name": "knowhub-sourceid-business_doc-tmp",
+        "destination": "/tmp/docreader"
+      }
+    ],
+    "files_backup_bytes": 181,
+    "failure_class": "RuntimeError",
+    "automatic_rollback": "PASS",
+    "rollback_script": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/upgrade-backups/token-diagnostics-20261014T113610Z/rollback.sh"
+  },
+  "final_audit": {
+    "host": "172.30.232.42",
+    "source_sha": "3be5d3f9268fe8819d66485a2b990c6237827e25",
+    "real_sid_login": false,
+    "production_host_accessed": false,
+    "services": [
+      {
+        "service": "app",
+        "id": "8c41fa2ae75b4ab7a9a54e27355866965fff192cb5a3ff41eb3356fb90f34617",
+        "image": "knowhub-sourceid-business/app:3be5d3f92",
+        "image_id": "sha256:0890f309f89397e82ea5b1ecd901f2ddb37de142b78f854e9925a05430c34c1d",
+        "ports": "8080/tcp -> 0.0.0.0:8080",
+        "running": "true",
+        "revision": "3be5d3f9268fe8819d66485a2b990c6237827e25"
+      },
+      {
+        "service": "frontend",
+        "id": "60280b103291c0965bbc79fe7900d369cf6217f2e39f8630878fdc899a79519a",
+        "image": "knowhub-sourceid-business/frontend:3be5d3f92",
+        "image_id": "sha256:ae4a1207900234b131605ea3cdd4af8e99845faebdd1be87e00af150d34dbf34",
+        "ports": "80/tcp -> 0.0.0.0:80",
+        "running": "true",
+        "revision": "3be5d3f9268fe8819d66485a2b990c6237827e25"
+      },
+      {
+        "service": "postgres",
+        "id": "ba1385464699fdb0b21e48b3134e870f99de3bc1d74ff9663a4dc42e5476f624",
+        "image": "paradedb/paradedb:v0.22.2-pg17",
+        "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+        "ports": "",
+        "running": "true"
+      },
+      {
+        "service": "redis",
+        "id": "fcc4d64070c73ee198ffa0c5badf6abd1b2d03543243f857be4f84b8605c33ad",
+        "image": "redis:7.0-alpine",
+        "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+        "ports": "",
+        "running": "true"
+      },
+      {
+        "service": "docreader",
+        "id": "2396325bde68730217152ee1885508ca9294ed8524ef424a7022c8b9a2c2cc90",
+        "image": "weknora-custom/docreader:v0.8.0-knowhub.6-0a40e3ad",
+        "image_id": "sha256:8399936620aa78f991b95a0339585f5d2d61f215e6311955e8386a01329beba2",
+        "ports": "",
+        "running": "true"
+      }
+    ],
+    "gates": {
+      "OIDC_AUTH_ENABLE": "false",
+      "SOURCEID_DIAGNOSTICS_ENABLE": "false",
+      "SOURCEID_PROTOCOL_ONLY": "true",
+      "SOURCEID_CONTRACT_CONFIRMED": "false",
+      "SOURCEID_LOGOUT_ENABLE": "false"
+    },
+    "no_mock_ca_or_whitelist": true,
+    "mock_running": false,
+    "migration_version": "3024",
+    "database_counts": {
+      "users": 1,
+      "knowledge_bases": 2,
+      "knowledges": 2,
+      "external_identities": 0,
+      "source_id_sessions": 0
+    },
+    "private_secret_file_mode": "0o600",
+    "image_recipe_sha256": {
+      "Dockerfile.app": "3e6e435b77dd4d2d05f4aeeca893a705106dc8df9d386e21457433a641e3da0e",
+      "Dockerfile.frontend": "69c121bfa45ee762e3ac6b9b77711d9558fb10a58e149475f7fb3b136a3de4af",
+      "build-app.sh": "54827c5c34104d4487470ebe333e3f63029f64c69eac94e7bd5285e2113995e6",
+      "build-frontend.sh": "d0d9d4ddd941c944b5bfaff4a0bf3ef80c33437425dd8a273c90e56e74d99084"
+    },
+    "binary_sha256": "39f582b85040e408b8d00f73528aa763a4a7d21abbf524cc928edb17d564635e",
+    "old_images_retained": {
+      "app": "sha256:1085776dac855cf8e84a2eacf005585bbc3226c965b436e72718b46cb724f28a",
+      "frontend": "sha256:0ffe6996295c87ca5d0f960f67381d4857751fac69036f60fb94802d417a8e16"
+    },
+    "app_logging_options": "{\"compress\":\"true\",\"max-file\":\"3\",\"max-size\":\"10m\"}",
+    "health": {
+      "http://127.0.0.1/login": 200,
+      "http://127.0.0.1/health": 200,
+      "http://127.0.0.1:8080/health": 200,
+      "http://127.0.0.1/api/v1/auth/oidc/config": 200
+    },
+    "public_oidc_enabled": false
+  },
+  "synthetic_acceptance": {
+    "host": "172.30.232.42",
+    "synthetic_only": true,
+    "cases": [
+      {
+        "test_case": "stage_a_empty",
+        "real_sid_requests": false,
+        "stage": "inspect_auth_state",
+        "oidc_public_config": {
+          "success": true,
+          "enabled": true,
+          "synthetic_provider_name_matches": true
+        },
+        "dom_flags": {
+          "oidc_elements": 1,
+          "provider_text_present": true,
+          "app_children": 1,
+          "document_ready": "complete"
+        },
+        "token_present": false,
+        "auth_me_status": 401,
+        "callback_error": "login_failed",
+        "callback_complete": false,
+        "all_knowhub_connections_loopback": true,
+        "production_ip_seen": false,
+        "api_responses": [
+          {
+            "ip": "127.0.0.1",
+            "port": 80,
+            "path": "/api/v1/auth/oidc/config",
+            "status": 200
+          },
+          {
+            "ip": "127.0.0.1",
+            "port": 80,
+            "path": "/api/v1/auth/config",
+            "status": 200
+          },
+          {
+            "ip": "127.0.0.1",
+            "port": 80,
+            "path": "/api/v1/auth/oidc/url",
+            "status": 200
+          },
+          {
+            "ip": "127.0.0.1",
+            "port": 80,
+            "path": "/api/v1/auth/config",
+            "status": 200
+          },
+          {
+            "ip": "127.0.0.1",
+            "port": 80,
+            "path": "/api/v1/auth/oidc/config",
+            "status": 200
+          }
+        ],
+        "bearer_request_presence": [
+          {
+            "path": "/api/v1/auth/oidc/config",
+            "authorization_bearer_present": false
+          },
+          {
+            "path": "/api/v1/auth/config",
+            "authorization_bearer_present": false
+          },
+          {
+            "path": "/api/v1/auth/oidc/url",
+            "authorization_bearer_present": false
+          },
+          {
+            "path": "/api/v1/auth/oidc/callback",
+            "authorization_bearer_present": false
+          },
+          {
+            "path": "/api/v1/auth/oidc/config",
+            "authorization_bearer_present": false
+          },
+          {
+            "path": "/api/v1/auth/config",
+            "authorization_bearer_present": false
+          },
+          {
+            "path": "/api/v1/auth/me",
+            "authorization_bearer_present": false
+          }
+        ],
+        "actual_business_frontend": true,
+        "actual_business_callback": true,
+        "har_cookie_tokens_exported": false,
+        "mock_token_requests": 1,
+        "portal_requested": false,
+        "renderer_crashed": false,
+        "result": "PASS",
+        "browser_closed": true,
+        "stderr_bytes": 251
+      },
+      {
+        "test_case": "stage_a_401",
+        "real_sid_requests": false,
+        "stage": "inspect_auth_state",
+        "oidc_public_config": {
+          "success": true,
+          "enabled": true,
+          "synthetic_provider_name_matches": true
+        },
+        "dom_flags": {
+          "oidc_elements": 1,
+          "provider_text_present": true,
+          "app_children": 1,
+          "document_ready": "complete"
+        },
+        "token_present": false,
+        "auth_me_status": 401,
+        "callback_error": "login_failed",
+        "callback_complete": false,
+        "all_knowhub_connections_loopback": true,
+        "production_ip_seen": false,
+        "api_responses": [
+          {
+            "ip": "127.0.0.1",
+            "port": 80,
+            "path": "/api/v1/auth/oidc/config",
+            "status": 200
+          },
+          {
+            "ip": "127.0.0.1",
+            "port": 80,
+            "path": "/api/v1/auth/config",
+            "status": 200
+          },
+          {
+            "ip": "127.0.0.1",
+            "port": 80,
+            "path": "/api/v1/auth/oidc/url",
+            "status": 200
+          },
+          {
+            "ip": "127.0.0.1",
+            "port": 80,
+            "path": "/api/v1/auth/oidc/config",
+            "status": 200
+          },
+          {
+            "ip": "127.0.0.1",
+            "port": 80,
+            "path": "/api/v1/auth/config",
+            "status": 200
+          }
+        ],
+        "bearer_request_presence": [
+          {
+            "path": "/api/v1/auth/oidc/config",
+            "authorization_bearer_present": false
+          },
+          {
+            "path": "/api/v1/auth/config",
+            "authorization_bearer_present": false
+          },
+          {
+            "path": "/api/v1/auth/oidc/url",
+            "authorization_bearer_present": false
+          },
+          {
+            "path": "/api/v1/auth/oidc/callback",
+            "authorization_bearer_present": false
+          },
+          {
+            "path": "/api/v1/auth/oidc/config",
+            "authorization_bearer_present": false
+          },
+          {
+            "path": "/api/v1/auth/config",
+            "authorization_bearer_present": false
+          },
+          {
+            "path": "/api/v1/auth/me",
+            "authorization_bearer_present": false
+          }
+        ],
+        "actual_business_frontend": true,
+        "actual_business_callback": true,
+        "har_cookie_tokens_exported": false,
+        "mock_token_requests": 1,
+        "portal_requested": false,
+        "renderer_crashed": false,
+        "result": "PASS",
+        "browser_closed": true,
+        "stderr_bytes": 252
+      },
+      {
+        "test_case": "stage_a_html",
+        "real_sid_requests": false,
+        "stage": "inspect_auth_state",
+        "oidc_public_config": {
+          "success": true,
+          "enabled": true,
+          "synthetic_provider_name_matches": true
+        },
+        "dom_flags": {
+          "oidc_elements": 1,
+          "provider_text_present": true,
+          "app_children": 1,
+          "document_ready": "complete"
+        },
+        "token_present": false,
+        "auth_me_status": 401,
+        "callback_error": "login_failed",
+        "callback_complete": false,
+        "all_knowhub_connections_loopback": true,
+        "production_ip_seen": false,
+        "api_responses": [
+          {
+            "ip": "127.0.0.1",
+            "port": 80,
+            "path": "/api/v1/auth/oidc/config",
+            "status": 200
+          },
+          {
+            "ip": "127.0.0.1",
+            "port": 80,
+            "path": "/api/v1/auth/config",
+            "status": 200
+          },
+          {
+            "ip": "127.0.0.1",
+            "port": 80,
+            "path": "/api/v1/auth/oidc/url",
+            "status": 200
+          },
+          {
+            "ip": "127.0.0.1",
+            "port": 80,
+            "path": "/api/v1/auth/config",
+            "status": 200
+          },
+          {
+            "ip": "127.0.0.1",
+            "port": 80,
+            "path": "/api/v1/auth/oidc/config",
+            "status": 200
+          }
+        ],
+        "bearer_request_presence": [
+          {
+            "path": "/api/v1/auth/oidc/config",
+            "authorization_bearer_present": false
+          },
+          {
+            "path": "/api/v1/auth/config",
+            "authorization_bearer_present": false
+          },
+          {
+            "path": "/api/v1/auth/oidc/url",
+            "authorization_bearer_present": false
+          },
+          {
+            "path": "/api/v1/auth/oidc/callback",
+            "authorization_bearer_present": false
+          },
+          {
+            "path": "/api/v1/auth/oidc/config",
+            "authorization_bearer_present": false
+          },
+          {
+            "path": "/api/v1/auth/config",
+            "authorization_bearer_present": false
+          },
+          {
+            "path": "/api/v1/auth/me",
+            "authorization_bearer_present": false
+          }
+        ],
+        "actual_business_frontend": true,
+        "actual_business_callback": true,
+        "har_cookie_tokens_exported": false,
+        "mock_token_requests": 1,
+        "portal_requested": false,
+        "renderer_crashed": false,
+        "result": "PASS",
+        "browser_closed": true,
+        "stderr_bytes": 251
+      },
+      {
+        "test_case": "stage_a_valid",
+        "real_sid_requests": false,
+        "stage": "inspect_auth_state",
+        "oidc_public_config": {
+          "success": true,
+          "enabled": true,
+          "synthetic_provider_name_matches": true
+        },
+        "dom_flags": {
+          "oidc_elements": 1,
+          "provider_text_present": true,
+          "app_children": 1,
+          "document_ready": "complete"
+        },
+        "token_present": false,
+        "auth_me_status": 401,
+        "callback_error": "identity_contract_pending",
+        "callback_complete": false,
+        "all_knowhub_connections_loopback": true,
+        "production_ip_seen": false,
+        "api_responses": [
+          {
+            "ip": "127.0.0.1",
+            "port": 80,
+            "path": "/api/v1/auth/oidc/config",
+            "status": 200
+          },
+          {
+            "ip": "127.0.0.1",
+            "port": 80,
+            "path": "/api/v1/auth/config",
+            "status": 200
+          },
+          {
+            "ip": "127.0.0.1",
+            "port": 80,
+            "path": "/api/v1/auth/oidc/url",
+            "status": 200
+          },
+          {
+            "ip": "127.0.0.1",
+            "port": 80,
+            "path": "/api/v1/auth/config",
+            "status": 200
+          },
+          {
+            "ip": "127.0.0.1",
+            "port": 80,
+            "path": "/api/v1/auth/oidc/config",
+            "status": 200
+          }
+        ],
+        "bearer_request_presence": [
+          {
+            "path": "/api/v1/auth/oidc/config",
+            "authorization_bearer_present": false
+          },
+          {
+            "path": "/api/v1/auth/config",
+            "authorization_bearer_present": false
+          },
+          {
+            "path": "/api/v1/auth/oidc/url",
+            "authorization_bearer_present": false
+          },
+          {
+            "path": "/api/v1/auth/oidc/callback",
+            "authorization_bearer_present": false
+          },
+          {
+            "path": "/api/v1/auth/oidc/config",
+            "authorization_bearer_present": false
+          },
+          {
+            "path": "/api/v1/auth/config",
+            "authorization_bearer_present": false
+          },
+          {
+            "path": "/api/v1/auth/me",
+            "authorization_bearer_present": false
+          }
+        ],
+        "actual_business_frontend": true,
+        "actual_business_callback": true,
+        "har_cookie_tokens_exported": false,
+        "mock_token_requests": 1,
+        "portal_requested": false,
+        "renderer_crashed": false,
+        "result": "PASS",
+        "browser_closed": true,
+        "stderr_bytes": 252
+      }
+    ],
+    "setup": {
+      "synthetic_only": true,
+      "real_secret_env_excluded": true,
+      "mock_started": true,
+      "identity_counts_before": {
+        "users": 1,
+        "external_identities": 0,
+        "source_id_sessions": 0,
+        "auth_tokens": 2
+      }
+    },
+    "passed": true,
+    "diagnostics": {
+      "log_privacy": "PASS",
+      "phase_trace_association": "PASS",
+      "single_exchange": "PASS",
+      "synthetic_endpoint_normalization_for_validator_only": true,
+      "transactions": [
+        {
+          "event": "sourceid_token_http",
+          "trace": "89334c1f-8101-4b2d-86f7-0e513c7c75fe",
+          "http": [
+            {
+              "stage": "token",
+              "status": 401,
+              "duration_ms": 3,
+              "failure": "http_status",
+              "client_auth": "client_secret_basic",
+              "authorization_header_present": true,
+              "callback_to_token_dispatch_ms": 5,
+              "callback_to_token_sent_ms": 7,
+              "diagnostics": {
+                "request": {
+                  "method": "POST",
+                  "host": "sid-mock:8443",
+                  "path": "/token",
+                  "host_matches_endpoint": true,
+                  "content_type": "application/x-www-form-urlencoded",
+                  "authorization_type": "Basic",
+                  "authorization_present": true,
+                  "basic_format_valid": true,
+                  "configured_client_id": "knowhub",
+                  "configured_redirect_uri": "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback",
+                  "form_fields": [
+                    "client_id",
+                    "code",
+                    "grant_type",
+                    "redirect_uri"
+                  ],
+                  "field_presence": {
+                    "client_id": true,
+                    "client_secret": false,
+                    "code": true,
+                    "code_verifier": false,
+                    "grant_type": true,
+                    "redirect_uri": true
+                  },
+                  "field_checks": {
+                    "client_id_matches_config": true,
+                    "code_single_nonempty": true,
+                    "grant_type_authorization_code": true,
+                    "redirect_uri_matches_config": true
+                  },
+                  "unknown_field_count": 0,
+                  "form_inspected": true,
+                  "query_present": false,
+                  "dispatch_utc": "2026-10-14T11:40:58.31524901Z",
+                  "sent_utc": "2026-10-14T11:40:58.318056099Z"
+                },
+                "response": {
+                  "content_type": "absent",
+                  "declared_length": 0,
+                  "bytes_read": 0,
+                  "body_eof": true,
+                  "prefix_truncated": false,
+                  "read_error": false,
+                  "body_elapsed_ms": 3,
+                  "body_kind": "empty",
+                  "unknown_field_count": 0,
+                  "error_description_present": false,
+                  "vendor_code_suppressed": false,
+                  "www_authenticate_present": true,
+                  "www_schemes": [
+                    "basic"
+                  ],
+                  "www_realm_present": true,
+                  "www_description_present": false,
+                  "correlation": {
+                    "Traceparent": {
+                      "present": false,
+                      "format_valid": false
+                    },
+                    "X-Correlation-ID": {
+                      "present": false,
+                      "format_valid": false
+                    },
+                    "X-Request-ID": {
+                      "present": false,
+                      "format_valid": false
+                    }
+                  },
+                  "gateway_suspected": false
+                }
+              },
+              "transport": {
+                "trace": "89334c1f-8101-4b2d-86f7-0e513c7c75fe",
+                "utc": "2026-10-14T11:40:58.31517992Z",
+                "beijing": "2026-10-14T19:40:58.31517992+08:00",
+                "scheme": "https",
+                "accept_class": "application/json",
+                "user_agent_header_present": false,
+                "user_agent_class": "transport_default_not_observed",
+                "written_user_agent_class": "Go-http-client/1.1",
+                "authorization_values_written": 1,
+                "basic_strategy": "oauth_form_escape_then_set_basic_auth_base64_once",
+                "client_secret_loaded": true,
+                "oauth_form_encoding_executed": true,
+                "set_basic_auth_used": true,
+                "authorization_header_value_count": 1,
+                "duplicate_authorization": false,
+                "body_value_count": 4,
+                "known_body_field_counts": {
+                  "client_id": 1,
+                  "code": 1,
+                  "grant_type": 1,
+                  "redirect_uri": 1
+                },
+                "duplicate_body_fields": false,
+                "pkce_disabled": true,
+                "state_validation": "PASS",
+                "nonce_validation_at_token_dispatch": "NOT_YET_EXECUTED",
+                "proxy_policy": "no_proxy_in_configured_transport",
+                "remote_address": "172.28.0.7:8443",
+                "tls_version": "TLS1.3",
+                "negotiated_protocol": "absent",
+                "response_http_version": "other",
+                "connection_reused": false,
+                "network_events": [
+                  {
+                    "kind": "dns_start",
+                    "utc": "2026-10-14T11:40:58.31568648Z",
+                    "beijing": "2026-10-14T19:40:58.31568648+08:00",
+                    "result": "started"
+                  },
+                  {
+                    "kind": "dns_done",
+                    "utc": "2026-10-14T11:40:58.31596043Z",
+                    "beijing": "2026-10-14T19:40:58.31596043+08:00",
+                    "addresses": [
+                      "172.28.0.7"
+                    ],
+                    "result": "ok",
+                    "duration_ms": 0
+                  },
+                  {
+                    "kind": "tcp_start",
+                    "utc": "2026-10-14T11:40:58.31596794Z",
+                    "beijing": "2026-10-14T19:40:58.31596794+08:00",
+                    "addresses": [
+                      "172.28.0.7:8443"
+                    ],
+                    "result": "started"
+                  },
+                  {
+                    "kind": "tcp_done",
+                    "utc": "2026-10-14T11:40:58.31606523Z",
+                    "beijing": "2026-10-14T19:40:58.31606523+08:00",
+                    "addresses": [
+                      "172.28.0.7:8443"
+                    ],
+                    "result": "ok",
+                    "duration_ms": 0
+                  },
+                  {
+                    "kind": "tls_start",
+                    "utc": "2026-10-14T11:40:58.31607859Z",
+                    "beijing": "2026-10-14T19:40:58.31607859+08:00",
+                    "result": "started"
+                  },
+                  {
+                    "kind": "tls_done",
+                    "utc": "2026-10-14T11:40:58.317976229Z",
+                    "beijing": "2026-10-14T19:40:58.317976229+08:00",
+                    "result": "ok",
+                    "duration_ms": 1
+                  },
+                  {
+                    "kind": "connection_acquired",
+                    "utc": "2026-10-14T11:40:58.317991879Z",
+                    "beijing": "2026-10-14T19:40:58.317991879+08:00",
+                    "result": "ok"
+                  },
+                  {
+                    "kind": "headers_written",
+                    "utc": "2026-10-14T11:40:58.318020439Z",
+                    "beijing": "2026-10-14T19:40:58.318020439+08:00",
+                    "result": "ok"
+                  },
+                  {
+                    "kind": "request_write_completed",
+                    "utc": "2026-10-14T11:40:58.318057299Z",
+                    "beijing": "2026-10-14T19:40:58.318057299+08:00",
+                    "result": "ok"
+                  },
+                  {
+                    "kind": "first_response_byte",
+                    "utc": "2026-10-14T11:40:58.318668029Z",
+                    "beijing": "2026-10-14T19:40:58.318668029+08:00",
+                    "result": "ok"
+                  },
+                  {
+                    "kind": "exchange_complete",
+                    "utc": "2026-10-14T11:40:58.318875138Z",
+                    "beijing": "2026-10-14T19:40:58.318875138+08:00",
+                    "result": "finished"
+                  }
+                ],
+                "events_dropped": 0,
+                "observed_write_attempts": 1,
+                "observed_completed_writes": 1,
+                "retry_observed": false,
+                "redirect_response": false,
+                "response_date_utc": "2026-10-14T11:40:58Z",
+                "server_class": "other",
+                "via_class": "absent",
+                "www_realm_class": "present_value_withheld",
+                "proxy_authenticate_present": false,
+                "network_failure_class": "none",
+                "rejecting_layer": "UNKNOWN",
+                "outcome": "empty_401_basic_challenge"
+              }
+            }
+          ]
+        },
+        {
+          "event": "sourceid_token_http",
+          "trace": "f37706bc-2572-4845-9ae5-c78f824a2710",
+          "http": [
+            {
+              "stage": "token",
+              "status": 401,
+              "duration_ms": 3,
+              "failure": "http_status",
+              "client_auth": "client_secret_basic",
+              "authorization_header_present": true,
+              "callback_to_token_dispatch_ms": 4,
+              "callback_to_token_sent_ms": 7,
+              "diagnostics": {
+                "request": {
+                  "method": "POST",
+                  "host": "sid-mock:8443",
+                  "path": "/token",
+                  "host_matches_endpoint": true,
+                  "content_type": "application/x-www-form-urlencoded",
+                  "authorization_type": "Basic",
+                  "authorization_present": true,
+                  "basic_format_valid": true,
+                  "configured_client_id": "knowhub",
+                  "configured_redirect_uri": "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback",
+                  "form_fields": [
+                    "client_id",
+                    "code",
+                    "grant_type",
+                    "redirect_uri"
+                  ],
+                  "field_presence": {
+                    "client_id": true,
+                    "client_secret": false,
+                    "code": true,
+                    "code_verifier": false,
+                    "grant_type": true,
+                    "redirect_uri": true
+                  },
+                  "field_checks": {
+                    "client_id_matches_config": true,
+                    "code_single_nonempty": true,
+                    "grant_type_authorization_code": true,
+                    "redirect_uri_matches_config": true
+                  },
+                  "unknown_field_count": 0,
+                  "form_inspected": true,
+                  "query_present": false,
+                  "dispatch_utc": "2026-10-14T11:41:45.040038007Z",
+                  "sent_utc": "2026-10-14T11:41:45.042576915Z"
+                },
+                "response": {
+                  "content_type": "application/json",
+                  "declared_length": 119,
+                  "bytes_read": 119,
+                  "body_eof": true,
+                  "prefix_truncated": false,
+                  "read_error": false,
+                  "body_elapsed_ms": 3,
+                  "body_kind": "json_object",
+                  "error_fields": {
+                    "error": "string",
+                    "error_description": "string"
+                  },
+                  "unknown_field_count": 0,
+                  "error_description_present": true,
+                  "error_description_summary": "withheld_untrusted_description",
+                  "oauth_error": "invalid_client",
+                  "vendor_code_suppressed": false,
+                  "www_authenticate_present": false,
+                  "www_realm_present": false,
+                  "www_description_present": false,
+                  "correlation": {
+                    "Traceparent": {
+                      "present": false,
+                      "format_valid": false
+                    },
+                    "X-Correlation-ID": {
+                      "present": false,
+                      "format_valid": false
+                    },
+                    "X-Request-ID": {
+                      "present": false,
+                      "format_valid": false
+                    }
+                  },
+                  "gateway_suspected": false
+                }
+              },
+              "transport": {
+                "trace": "f37706bc-2572-4845-9ae5-c78f824a2710",
+                "utc": "2026-10-14T11:41:45.039990957Z",
+                "beijing": "2026-10-14T19:41:45.039990957+08:00",
+                "scheme": "https",
+                "accept_class": "application/json",
+                "user_agent_header_present": false,
+                "user_agent_class": "transport_default_not_observed",
+                "written_user_agent_class": "Go-http-client/1.1",
+                "authorization_values_written": 1,
+                "basic_strategy": "oauth_form_escape_then_set_basic_auth_base64_once",
+                "client_secret_loaded": true,
+                "oauth_form_encoding_executed": true,
+                "set_basic_auth_used": true,
+                "authorization_header_value_count": 1,
+                "duplicate_authorization": false,
+                "body_value_count": 4,
+                "known_body_field_counts": {
+                  "client_id": 1,
+                  "code": 1,
+                  "grant_type": 1,
+                  "redirect_uri": 1
+                },
+                "duplicate_body_fields": false,
+                "pkce_disabled": true,
+                "state_validation": "PASS",
+                "nonce_validation_at_token_dispatch": "NOT_YET_EXECUTED",
+                "proxy_policy": "no_proxy_in_configured_transport",
+                "remote_address": "172.28.0.7:8443",
+                "tls_version": "TLS1.3",
+                "negotiated_protocol": "absent",
+                "response_http_version": "other",
+                "connection_reused": false,
+                "network_events": [
+                  {
+                    "kind": "dns_start",
+                    "utc": "2026-10-14T11:41:45.040188397Z",
+                    "beijing": "2026-10-14T19:41:45.040188397+08:00",
+                    "result": "started"
+                  },
+                  {
+                    "kind": "dns_done",
+                    "utc": "2026-10-14T11:41:45.040412487Z",
+                    "beijing": "2026-10-14T19:41:45.040412487+08:00",
+                    "addresses": [
+                      "172.28.0.7"
+                    ],
+                    "result": "ok",
+                    "duration_ms": 0
+                  },
+                  {
+                    "kind": "tcp_start",
+                    "utc": "2026-10-14T11:41:45.040419827Z",
+                    "beijing": "2026-10-14T19:41:45.040419827+08:00",
+                    "addresses": [
+                      "172.28.0.7:8443"
+                    ],
+                    "result": "started"
+                  },
+                  {
+                    "kind": "tcp_done",
+                    "utc": "2026-10-14T11:41:45.040512986Z",
+                    "beijing": "2026-10-14T19:41:45.040512986+08:00",
+                    "addresses": [
+                      "172.28.0.7:8443"
+                    ],
+                    "result": "ok",
+                    "duration_ms": 0
+                  },
+                  {
+                    "kind": "tls_start",
+                    "utc": "2026-10-14T11:41:45.040524546Z",
+                    "beijing": "2026-10-14T19:41:45.040524546+08:00",
+                    "result": "started"
+                  },
+                  {
+                    "kind": "tls_done",
+                    "utc": "2026-10-14T11:41:45.042499455Z",
+                    "beijing": "2026-10-14T19:41:45.042499455+08:00",
+                    "result": "ok",
+                    "duration_ms": 1
+                  },
+                  {
+                    "kind": "connection_acquired",
+                    "utc": "2026-10-14T11:41:45.042514075Z",
+                    "beijing": "2026-10-14T19:41:45.042514075+08:00",
+                    "result": "ok"
+                  },
+                  {
+                    "kind": "headers_written",
+                    "utc": "2026-10-14T11:41:45.042548855Z",
+                    "beijing": "2026-10-14T19:41:45.042548855+08:00",
+                    "result": "ok"
+                  },
+                  {
+                    "kind": "request_write_completed",
+                    "utc": "2026-10-14T11:41:45.042578085Z",
+                    "beijing": "2026-10-14T19:41:45.042578085+08:00",
+                    "result": "ok"
+                  },
+                  {
+                    "kind": "first_response_byte",
+                    "utc": "2026-10-14T11:41:45.043169835Z",
+                    "beijing": "2026-10-14T19:41:45.043169835+08:00",
+                    "result": "ok"
+                  },
+                  {
+                    "kind": "exchange_complete",
+                    "utc": "2026-10-14T11:41:45.043427235Z",
+                    "beijing": "2026-10-14T19:41:45.043427235+08:00",
+                    "result": "finished"
+                  }
+                ],
+                "events_dropped": 0,
+                "observed_write_attempts": 1,
+                "observed_completed_writes": 1,
+                "retry_observed": false,
+                "redirect_response": false,
+                "response_date_utc": "2026-10-14T11:41:45Z",
+                "server_class": "other",
+                "via_class": "absent",
+                "www_realm_class": "absent",
+                "proxy_authenticate_present": false,
+                "network_failure_class": "none",
+                "rejecting_layer": "UNKNOWN",
+                "outcome": "standard_oauth_error"
+              }
+            }
+          ]
+        },
+        {
+          "event": "sourceid_token_http",
+          "trace": "bc8564af-f1fc-48de-b4f7-a8699272be6d",
+          "http": [
+            {
+              "stage": "token",
+              "status": 401,
+              "duration_ms": 3,
+              "failure": "http_status",
+              "client_auth": "client_secret_basic",
+              "authorization_header_present": true,
+              "callback_to_token_dispatch_ms": 4,
+              "callback_to_token_sent_ms": 7,
+              "diagnostics": {
+                "request": {
+                  "method": "POST",
+                  "host": "sid-mock:8443",
+                  "path": "/token",
+                  "host_matches_endpoint": true,
+                  "content_type": "application/x-www-form-urlencoded",
+                  "authorization_type": "Basic",
+                  "authorization_present": true,
+                  "basic_format_valid": true,
+                  "configured_client_id": "knowhub",
+                  "configured_redirect_uri": "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback",
+                  "form_fields": [
+                    "client_id",
+                    "code",
+                    "grant_type",
+                    "redirect_uri"
+                  ],
+                  "field_presence": {
+                    "client_id": true,
+                    "client_secret": false,
+                    "code": true,
+                    "code_verifier": false,
+                    "grant_type": true,
+                    "redirect_uri": true
+                  },
+                  "field_checks": {
+                    "client_id_matches_config": true,
+                    "code_single_nonempty": true,
+                    "grant_type_authorization_code": true,
+                    "redirect_uri_matches_config": true
+                  },
+                  "unknown_field_count": 0,
+                  "form_inspected": true,
+                  "query_present": false,
+                  "dispatch_utc": "2026-10-14T11:41:55.584144986Z",
+                  "sent_utc": "2026-10-14T11:41:55.586827294Z"
+                },
+                "response": {
+                  "content_type": "text/html",
+                  "declared_length": -1,
+                  "bytes_read": 38,
+                  "body_eof": true,
+                  "prefix_truncated": false,
+                  "read_error": false,
+                  "body_elapsed_ms": 3,
+                  "body_kind": "html",
+                  "unknown_field_count": 0,
+                  "error_description_present": false,
+                  "vendor_code_suppressed": false,
+                  "www_authenticate_present": false,
+                  "www_realm_present": false,
+                  "www_description_present": false,
+                  "correlation": {
+                    "Traceparent": {
+                      "present": false,
+                      "format_valid": false
+                    },
+                    "X-Correlation-ID": {
+                      "present": false,
+                      "format_valid": false
+                    },
+                    "X-Request-ID": {
+                      "present": false,
+                      "format_valid": false
+                    }
+                  },
+                  "gateway_suspected": true
+                }
+              },
+              "transport": {
+                "trace": "bc8564af-f1fc-48de-b4f7-a8699272be6d",
+                "utc": "2026-10-14T11:41:55.584100126Z",
+                "beijing": "2026-10-14T19:41:55.584100126+08:00",
+                "scheme": "https",
+                "accept_class": "application/json",
+                "user_agent_header_present": false,
+                "user_agent_class": "transport_default_not_observed",
+                "written_user_agent_class": "Go-http-client/1.1",
+                "authorization_values_written": 1,
+                "basic_strategy": "oauth_form_escape_then_set_basic_auth_base64_once",
+                "client_secret_loaded": true,
+                "oauth_form_encoding_executed": true,
+                "set_basic_auth_used": true,
+                "authorization_header_value_count": 1,
+                "duplicate_authorization": false,
+                "body_value_count": 4,
+                "known_body_field_counts": {
+                  "client_id": 1,
+                  "code": 1,
+                  "grant_type": 1,
+                  "redirect_uri": 1
+                },
+                "duplicate_body_fields": false,
+                "pkce_disabled": true,
+                "state_validation": "PASS",
+                "nonce_validation_at_token_dispatch": "NOT_YET_EXECUTED",
+                "proxy_policy": "no_proxy_in_configured_transport",
+                "remote_address": "172.28.0.7:8443",
+                "tls_version": "TLS1.3",
+                "negotiated_protocol": "absent",
+                "response_http_version": "other",
+                "connection_reused": false,
+                "network_events": [
+                  {
+                    "kind": "dns_start",
+                    "utc": "2026-10-14T11:41:55.584282966Z",
+                    "beijing": "2026-10-14T19:41:55.584282966+08:00",
+                    "result": "started"
+                  },
+                  {
+                    "kind": "dns_done",
+                    "utc": "2026-10-14T11:41:55.584596876Z",
+                    "beijing": "2026-10-14T19:41:55.584596876+08:00",
+                    "addresses": [
+                      "172.28.0.7"
+                    ],
+                    "result": "ok",
+                    "duration_ms": 0
+                  },
+                  {
+                    "kind": "tcp_start",
+                    "utc": "2026-10-14T11:41:55.584606606Z",
+                    "beijing": "2026-10-14T19:41:55.584606606+08:00",
+                    "addresses": [
+                      "172.28.0.7:8443"
+                    ],
+                    "result": "started"
+                  },
+                  {
+                    "kind": "tcp_done",
+                    "utc": "2026-10-14T11:41:55.584713116Z",
+                    "beijing": "2026-10-14T19:41:55.584713116+08:00",
+                    "addresses": [
+                      "172.28.0.7:8443"
+                    ],
+                    "result": "ok",
+                    "duration_ms": 0
+                  },
+                  {
+                    "kind": "tls_start",
+                    "utc": "2026-10-14T11:41:55.584733236Z",
+                    "beijing": "2026-10-14T19:41:55.584733236+08:00",
+                    "result": "started"
+                  },
+                  {
+                    "kind": "tls_done",
+                    "utc": "2026-10-14T11:41:55.586744135Z",
+                    "beijing": "2026-10-14T19:41:55.586744135+08:00",
+                    "result": "ok",
+                    "duration_ms": 1
+                  },
+                  {
+                    "kind": "connection_acquired",
+                    "utc": "2026-10-14T11:41:55.586757245Z",
+                    "beijing": "2026-10-14T19:41:55.586757245+08:00",
+                    "result": "ok"
+                  },
+                  {
+                    "kind": "headers_written",
+                    "utc": "2026-10-14T11:41:55.586800144Z",
+                    "beijing": "2026-10-14T19:41:55.586800144+08:00",
+                    "result": "ok"
+                  },
+                  {
+                    "kind": "request_write_completed",
+                    "utc": "2026-10-14T11:41:55.586828514Z",
+                    "beijing": "2026-10-14T19:41:55.586828514+08:00",
+                    "result": "ok"
+                  },
+                  {
+                    "kind": "first_response_byte",
+                    "utc": "2026-10-14T11:41:55.587529914Z",
+                    "beijing": "2026-10-14T19:41:55.587529914+08:00",
+                    "result": "ok"
+                  },
+                  {
+                    "kind": "exchange_complete",
+                    "utc": "2026-10-14T11:41:55.587725024Z",
+                    "beijing": "2026-10-14T19:41:55.587725024+08:00",
+                    "result": "finished"
+                  }
+                ],
+                "events_dropped": 0,
+                "observed_write_attempts": 1,
+                "observed_completed_writes": 1,
+                "retry_observed": false,
+                "redirect_response": false,
+                "response_date_utc": "2026-10-14T11:41:55Z",
+                "server_class": "other",
+                "via_class": "absent",
+                "www_realm_class": "absent",
+                "proxy_authenticate_present": false,
+                "network_failure_class": "none",
+                "rejecting_layer": "UNKNOWN",
+                "outcome": "html_response_origin_unknown"
+              }
+            }
+          ]
+        },
+        {
+          "event": "sourceid_token_http",
+          "trace": "4b19e7f1-6609-4f0e-a2da-ea17e710e159",
+          "http": [
+            {
+              "stage": "token",
+              "status": 200,
+              "duration_ms": 36,
+              "client_auth": "client_secret_basic",
+              "authorization_header_present": true,
+              "callback_to_token_dispatch_ms": 4,
+              "callback_to_token_sent_ms": 7,
+              "diagnostics": {
+                "request": {
+                  "method": "POST",
+                  "host": "sid-mock:8443",
+                  "path": "/token",
+                  "host_matches_endpoint": true,
+                  "content_type": "application/x-www-form-urlencoded",
+                  "authorization_type": "Basic",
+                  "authorization_present": true,
+                  "basic_format_valid": true,
+                  "configured_client_id": "knowhub",
+                  "configured_redirect_uri": "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback",
+                  "form_fields": [
+                    "client_id",
+                    "code",
+                    "grant_type",
+                    "redirect_uri"
+                  ],
+                  "field_presence": {
+                    "client_id": true,
+                    "client_secret": false,
+                    "code": true,
+                    "code_verifier": false,
+                    "grant_type": true,
+                    "redirect_uri": true
+                  },
+                  "field_checks": {
+                    "client_id_matches_config": true,
+                    "code_single_nonempty": true,
+                    "grant_type_authorization_code": true,
+                    "redirect_uri_matches_config": true
+                  },
+                  "unknown_field_count": 0,
+                  "form_inspected": true,
+                  "query_present": false,
+                  "dispatch_utc": "2026-10-14T11:42:08.856216794Z",
+                  "sent_utc": "2026-10-14T11:42:08.858859713Z"
+                },
+                "response": {
+                  "content_type": "application/json",
+                  "declared_length": 869,
+                  "bytes_read": 869,
+                  "body_eof": true,
+                  "prefix_truncated": false,
+                  "read_error": false,
+                  "body_elapsed_ms": 36,
+                  "body_kind": "json_object",
+                  "error_fields": {
+                    "access_token": "string",
+                    "id_token": "string",
+                    "token_type": "string"
+                  },
+                  "unknown_field_count": 0,
+                  "error_description_present": false,
+                  "vendor_code_suppressed": false,
+                  "www_authenticate_present": false,
+                  "www_realm_present": false,
+                  "www_description_present": false,
+                  "correlation": {
+                    "Traceparent": {
+                      "present": false,
+                      "format_valid": false
+                    },
+                    "X-Correlation-ID": {
+                      "present": false,
+                      "format_valid": false
+                    },
+                    "X-Request-ID": {
+                      "present": false,
+                      "format_valid": false
+                    }
+                  },
+                  "gateway_suspected": false
+                }
+              },
+              "transport": {
+                "trace": "4b19e7f1-6609-4f0e-a2da-ea17e710e159",
+                "utc": "2026-10-14T11:42:08.856170284Z",
+                "beijing": "2026-10-14T19:42:08.856170284+08:00",
+                "scheme": "https",
+                "accept_class": "application/json",
+                "user_agent_header_present": false,
+                "user_agent_class": "transport_default_not_observed",
+                "written_user_agent_class": "Go-http-client/1.1",
+                "authorization_values_written": 1,
+                "basic_strategy": "oauth_form_escape_then_set_basic_auth_base64_once",
+                "client_secret_loaded": true,
+                "oauth_form_encoding_executed": true,
+                "set_basic_auth_used": true,
+                "authorization_header_value_count": 1,
+                "duplicate_authorization": false,
+                "body_value_count": 4,
+                "known_body_field_counts": {
+                  "client_id": 1,
+                  "code": 1,
+                  "grant_type": 1,
+                  "redirect_uri": 1
+                },
+                "duplicate_body_fields": false,
+                "pkce_disabled": true,
+                "state_validation": "PASS",
+                "nonce_validation_at_token_dispatch": "NOT_YET_EXECUTED",
+                "proxy_policy": "no_proxy_in_configured_transport",
+                "remote_address": "172.28.0.7:8443",
+                "tls_version": "TLS1.3",
+                "negotiated_protocol": "absent",
+                "response_http_version": "other",
+                "connection_reused": false,
+                "network_events": [
+                  {
+                    "kind": "dns_start",
+                    "utc": "2026-10-14T11:42:08.856368104Z",
+                    "beijing": "2026-10-14T19:42:08.856368104+08:00",
+                    "result": "started"
+                  },
+                  {
+                    "kind": "dns_done",
+                    "utc": "2026-10-14T11:42:08.856621184Z",
+                    "beijing": "2026-10-14T19:42:08.856621184+08:00",
+                    "addresses": [
+                      "172.28.0.7"
+                    ],
+                    "result": "ok",
+                    "duration_ms": 0
+                  },
+                  {
+                    "kind": "tcp_start",
+                    "utc": "2026-10-14T11:42:08.856628354Z",
+                    "beijing": "2026-10-14T19:42:08.856628354+08:00",
+                    "addresses": [
+                      "172.28.0.7:8443"
+                    ],
+                    "result": "started"
+                  },
+                  {
+                    "kind": "tcp_done",
+                    "utc": "2026-10-14T11:42:08.856729214Z",
+                    "beijing": "2026-10-14T19:42:08.856729214+08:00",
+                    "addresses": [
+                      "172.28.0.7:8443"
+                    ],
+                    "result": "ok",
+                    "duration_ms": 0
+                  },
+                  {
+                    "kind": "tls_start",
+                    "utc": "2026-10-14T11:42:08.856744914Z",
+                    "beijing": "2026-10-14T19:42:08.856744914+08:00",
+                    "result": "started"
+                  },
+                  {
+                    "kind": "tls_done",
+                    "utc": "2026-10-14T11:42:08.858780483Z",
+                    "beijing": "2026-10-14T19:42:08.858780483+08:00",
+                    "result": "ok",
+                    "duration_ms": 2
+                  },
+                  {
+                    "kind": "connection_acquired",
+                    "utc": "2026-10-14T11:42:08.858796373Z",
+                    "beijing": "2026-10-14T19:42:08.858796373+08:00",
+                    "result": "ok"
+                  },
+                  {
+                    "kind": "headers_written",
+                    "utc": "2026-10-14T11:42:08.858831703Z",
+                    "beijing": "2026-10-14T19:42:08.858831703+08:00",
+                    "result": "ok"
+                  },
+                  {
+                    "kind": "request_write_completed",
+                    "utc": "2026-10-14T11:42:08.858860993Z",
+                    "beijing": "2026-10-14T19:42:08.858860993+08:00",
+                    "result": "ok"
+                  },
+                  {
+                    "kind": "first_response_byte",
+                    "utc": "2026-10-14T11:42:08.892701324Z",
+                    "beijing": "2026-10-14T19:42:08.892701324+08:00",
+                    "result": "ok"
+                  },
+                  {
+                    "kind": "exchange_complete",
+                    "utc": "2026-10-14T11:42:08.893026704Z",
+                    "beijing": "2026-10-14T19:42:08.893026704+08:00",
+                    "result": "finished"
+                  }
+                ],
+                "events_dropped": 0,
+                "observed_write_attempts": 1,
+                "observed_completed_writes": 1,
+                "retry_observed": false,
+                "redirect_response": false,
+                "response_date_utc": "2026-10-14T11:42:08Z",
+                "server_class": "other",
+                "via_class": "absent",
+                "www_realm_class": "absent",
+                "proxy_authenticate_present": false,
+                "network_failure_class": "none",
+                "rejecting_layer": "UNKNOWN",
+                "outcome": "token_fields_present_verification_pending"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "cleanup": {
+      "mock_stopped": true,
+      "real_config_restored": true,
+      "oidc_enabled": false,
+      "diagnostics_enabled": false,
+      "identity_counts_unchanged": true,
+      "counts_after": {
+        "users": 1,
+        "external_identities": 0,
+        "source_id_sessions": 0,
+        "auth_tokens": 2
+      }
+    },
+    "local_ports_released": {
+      "80": true,
+      "18443": true
+    }
+  },
+  "business_acceptance": {
+    "host": "172.30.232.42",
+    "real_sid_login": false,
+    "tests": {
+      "frontend_login_page": 200,
+      "frontend_health_proxy": 200,
+      "existing_isolated_local_account_login": 200,
+      "/api/v1/auth/me": 200,
+      "/api/v1/knowledge-bases": 200,
+      "/api/v1/agents": 200,
+      "/api/v1/models": 200,
+      "/api/v1/mcp-endpoints": 200,
+      "/api/v1/mcp-endpoints/tools": 200,
+      "/api/v1/system/capabilities": 200,
+      "knowledge_base_create_status": 201,
+      "manual_draft_create_status": 200,
+      "manual_draft_read_status": 200,
+      "mcp_endpoint_create_status": 201,
+      "mcp_initialize_status": 200,
+      "mcp_tools_list_status": 200,
+      "mcp_tool_call_status": 200,
+      "oidc_disabled": true,
+      "callback_status": 302,
+      "callback_invalid_state": true,
+      "knowhub-sourceid-business-app-1_privacy": true,
+      "knowhub-sourceid-business-frontend-1_privacy": true,
+      "mcp_cleanup_status": 200,
+      "knowledge_cleanup_status": 200,
+      "local_logout_status": 200,
+      "revoked_local_token_status": 401
+    },
+    "passed": true,
+    "time_utc": "2026-10-14T11:43:17.750572+00:00"
+  },
+  "windows_http": {
+    "http://172.30.232.42/login": {
+      "status": 200
+    },
+    "http://172.30.232.42/health": {
+      "status": 200
+    },
+    "http://172.30.232.42:8080/health": {
+      "status": 200
+    },
+    "http://172.30.232.42/api/v1/auth/oidc/config": {
+      "status": 200,
+      "enabled": false
+    }
+  },
+  "live_data_counts": {
+    "knowledge_bases": {
+      "live": 0,
+      "soft_deleted": 2
+    },
+    "knowledges": {
+      "live": 0,
+      "soft_deleted": 2
+    },
+    "source_config_mode": "0o600",
+    "appuser_config_readable": true
+  },
+  "build": {
+    "host": "172.30.232.42",
+    "status": {
+      "state": "COMPLETE",
+      "time_utc": "2026-10-14T11:36:01.021598+00:00",
+      "source": "3be5d3f92",
+      "compiler": "go1.26.7",
+      "offline_dependency_baseline": "existing-feishu-personal-20261014",
+      "runtime_baseline": "sourceid-8ae91bc44"
+    },
+    "build_container_names": [],
+    "artifact_sizes": {
+      "sheetjs-cache.log": 0,
+      "sourceid-enroll": 35654192,
+      "auth-tests.log": 375,
+      "controller-app.log": 83,
+      "anydoc-build.log": 4428,
+      "frontend-build.log": 23822,
+      "npm-ci.log": 768,
+      "app-build.log": 858,
+      "apt-update.log": 558,
+      "WeKnora": 282765536,
+      "frontend-types.log": 55,
+      "enrollment-tests.log": 61,
+      "apt-install.log": 2519,
+      "controller-image_frontend.log": 1334,
+      "controller-frontend.log": 29,
+      "controller-image_app.log": 1500
+    }
+  }
+}

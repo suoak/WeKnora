@@ -1,0 +1,32 @@
+{
+  "migration_startup_flags": {
+    "AUTO_MIGRATE": "false",
+    "AUTO_RECOVER_DIRTY": "false"
+  },
+  "image_revision": "2fcbcaaedfa75fb955bd44dd7fe464ded64eec7c",
+  "basic_source": {
+    "file": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+    "location": "services.app.environment.SOURCEID_BASIC_ENCODING",
+    "value": "raw"
+  },
+  "credential_source_matches_running_container": true,
+  "credential_equivalence": "EQUIVALENT=true",
+  "source_file_metadata": [
+    {
+      "path": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/private/app.env",
+      "mode": "0o600",
+      "modified_utc": "2026-10-14T06:41:37.362635+00:00"
+    },
+    {
+      "path": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/mode.env",
+      "mode": "0o600",
+      "modified_utc": "2026-10-14T11:40:24.690262+00:00"
+    },
+    {
+      "path": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/private/sourceid.env",
+      "mode": "0o600",
+      "modified_utc": "2026-10-15T03:20:00.022798+00:00"
+    }
+  ],
+  "compose_file_mode": "0o600"
+}

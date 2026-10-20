@@ -1,0 +1,25 @@
+{
+  "utc": "2026-10-15T16:51:36.024939+00:00",
+  "result": "PASS",
+  "binary_sha256": "cb7fd6d852eb76b179cef93346367da0401dfb9eb3e75a464566b0d717194500",
+  "compiler": "go1.26.7",
+  "test_database": "disposable PostgreSQL private Docker network",
+  "top_level_passes": 7,
+  "subtest_passes": 17,
+  "test_failures": 0,
+  "isolated_pg_removed": true,
+  "isolated_network_removed": true,
+  "actual_account_baseline_checks": {
+    "active": true,
+    "ordinary": true,
+    "same_user": true,
+    "same_tenant": true,
+    "viewer": true,
+    "email_nonempty": true
+  },
+  "backup_permissions": "0700/0600",
+  "protected_baseline_saved": true,
+  "synthetic_tests_accessed_business_database": false,
+  "actual_account_postcheck_read_business_database": true,
+  "postcheck_utc": "2026-10-15T16:52:19.466046+00:00"
+}

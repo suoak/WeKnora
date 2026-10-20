@@ -1,0 +1,11 @@
+{
+  "result": "PREPARED_NOT_DEPLOYED",
+  "candidate_image": "sha256:85f9d6c052298e7f52e7d7c4533e131ce19326d461521378e90c6df3b01fa49c",
+  "revision": "479416c9086d91de4484dbbd2cc5f912cdcdb697",
+  "candidate_pin": "/home/aqyfzx/ai/knowhub-prompt-login-479416c90/prompt-login-app-pin.yml",
+  "rollback_pin": "/home/aqyfzx/ai/knowhub-prompt-login-479416c90/prompt-login-app-rollback-pin.yml",
+  "old_app_image": "sha256:2d91336c3f5ba1ba330820801c7bf0573b1c9c45b9280994dd0862d016435286",
+  "live_app_unchanged": true,
+  "new_flag_default": false,
+  "database_migration_required": false
+}

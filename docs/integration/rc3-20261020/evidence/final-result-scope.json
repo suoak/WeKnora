@@ -1,0 +1,43 @@
+{
+  "source_commit": "1e2ded5b67ce9487966210d31011cf9c5b8cdfb9",
+  "frontend_counts": {
+    "pass": 1577,
+    "fail": 0,
+    "skip": 1,
+    "job_id": 118485411921
+  },
+  "native_full_counts": {
+    "pass": 14023,
+    "fail": 0,
+    "skip": 80,
+    "executed_archive_commit": "48f3e5dac39e7ec9932b6feb13832496f2bacf3b"
+  },
+  "final_native_race": {
+    "pass": 47,
+    "fail": 0,
+    "skip": 0,
+    "executed_archive_commit": "1e2ded5b67ce9487966210d31011cf9c5b8cdfb9"
+  },
+  "format_check": {
+    "pr_go_files": 237,
+    "diff_bytes": 0,
+    "go_inputs_compared": 2986,
+    "unexplained_input_differences": 0
+  },
+  "unlimited_lint_issues": 0,
+  "build_attempt_failures_retained": [
+    {
+      "attempt": "initial clean archive native linking",
+      "result": "FAIL missing pinned libanydoc_go; restored verified existing build dependency, retry PASS"
+    },
+    {
+      "attempt": "optional isolated cached Node22 npm ci",
+      "result": "FAIL npm Exit handler never called; no tests ran; not counted PASS; final official Node24 npm ci/test/typecheck/build PASS"
+    },
+    {
+      "attempt": "Windows frontend full tests",
+      "result": "1575 PASS / 2 FAIL / 1 SKIP; two POSIX-shell unavailable cases; final official Linux tests executed them and passed"
+    }
+  ],
+  "production_modified": false
+}

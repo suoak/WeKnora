@@ -62,7 +62,7 @@ type QueueDefinition struct {
 
 var queueDefinitions = []QueueDefinition{
 	{Name: QueueDefault, Pool: WorkerPoolCore, Weight: 1, SharedWeight: 3, TaskTypes: []string{
-		TypeDocumentProcess, TypeManualProcess,
+		TypeDocumentProcess, TypeFeishuApplicationProcess, TypeManualProcess,
 	}},
 	// Interactive chat attachment parsing: higher core weight than the default
 	// queue so a large KB import cannot make chat uploads queue behind it.
@@ -298,6 +298,12 @@ type ExtractChunkPayload struct {
 
 // DocumentProcessPayload represents the document process task payload
 type DocumentProcessPayload struct {
+	FirstCreate         bool   `json:"first_create,omitempty"`
+	FeishuAuthMode      string `json:"feishu_auth_mode,omitempty"`
+	FeishuApplicationID string `json:"feishu_application_id,omitempty"`
+	PersonalAttemptID   string `json:"personal_attempt_id,omitempty"`
+	CandidateVersionID  string `json:"candidate_version_id,omitempty"`
+	DispatchID          string `json:"dispatch_id,omitempty"`
 	TracingContext
 	RequestId                string   `json:"request_id"`
 	TenantID                 uint64   `json:"tenant_id"`

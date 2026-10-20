@@ -1,0 +1,277 @@
+{
+  "local_browser_route": [
+    {
+      "windows_loopback_80_bind": "PASS"
+    },
+    {
+      "fresh_context_callback_status": 200,
+      "callback_exact_base": true,
+      "local_receiver": true
+    },
+    {
+      "sid_public_page_status": 200,
+      "sid_public_page_hostname": "sid.ruijie.com.cn",
+      "sid_hsts_present": true,
+      "sid_hsts_include_subdomains": false,
+      "enterprise_credentials_submitted": false
+    },
+    {
+      "after_sid_callback_status": 200,
+      "http_preserved": true,
+      "hsts_or_https_upgrade_observed": false
+    },
+    {
+      "browser_version": "154.0.8037.98",
+      "browser_callback_peers": [
+        {
+          "scheme": "http:",
+          "ip": "127.0.0.1",
+          "port": 80,
+          "status": 200
+        },
+        {
+          "scheme": "http:",
+          "ip": "127.0.0.1",
+          "port": 80,
+          "status": 200
+        },
+        {
+          "scheme": "http:",
+          "ip": "127.0.0.1",
+          "port": 80,
+          "status": 200
+        },
+        {
+          "scheme": "http:",
+          "ip": "127.0.0.1",
+          "port": 80,
+          "status": 200
+        }
+      ],
+      "windows_receiver_requests": [
+        {
+          "host": "knowhub.ruijie.com.cn",
+          "path": "/api/v1/auth/oidc/callback",
+          "peer": "127.0.0.1",
+          "synthetic_values_present": true
+        },
+        {
+          "host": "knowhub.ruijie.com.cn",
+          "path": "/favicon.ico",
+          "peer": "127.0.0.1",
+          "synthetic_values_present": false
+        },
+        {
+          "host": "knowhub.ruijie.com.cn",
+          "path": "/api/v1/auth/oidc/callback",
+          "peer": "127.0.0.1",
+          "synthetic_values_present": true
+        },
+        {
+          "host": "knowhub.ruijie.com.cn",
+          "path": "/favicon.ico",
+          "peer": "127.0.0.1",
+          "synthetic_values_present": false
+        }
+      ],
+      "production_callback_ip_seen": false,
+      "cookies_or_har_exported": false,
+      "global_hosts_modified": false
+    },
+    {
+      "dedicated_browser_closed": true,
+      "windows_port_80_closed": true
+    }
+  ],
+  "browser_policy": [
+    {
+      "hive": "HKLM",
+      "browser": "Chrome",
+      "policy_key_present": true,
+      "selected_policies": {},
+      "policy_lists": {}
+    },
+    {
+      "hive": "HKLM",
+      "browser": "Edge",
+      "policy_key_present": true,
+      "selected_policies": {},
+      "policy_lists": {}
+    },
+    {
+      "hive": "HKCU",
+      "browser": "Chrome",
+      "policy_key_present": false
+    },
+    {
+      "hive": "HKCU",
+      "browser": "Edge",
+      "policy_key_present": false
+    }
+  ],
+  "standard_metadata": {
+    "requested_standard_discovery_url": "https://sid.ruijie.com.cn/.well-known/openid-configuration",
+    "http_status": 500,
+    "content_type": "text/html",
+    "redirect_present": false,
+    "tls_verification_disabled": false,
+    "other_discovery_paths_tried": false,
+    "oidc_metadata_complete": false
+  },
+  "public_config": {
+    "login_page_explicit_metadata_config_resources": 0,
+    "checked_resources": [],
+    "guessed_interface_paths": false
+  },
+  "ci": {
+    "validated_sha": "a4fdb8052df13ab2f1286b6b22b91a497337ad77",
+    "ci_run": 38353155370,
+    "evidence_zip_sha256": "d52666ae667a7ccdbbd1fb31d991e55b1e1306b8cb9274f2533e085afaa5e7b8",
+    "approved_callback_full_mock_protocol_case_passed": true,
+    "tests": {
+      "focused.jsonl": {
+        "test_pass_events": 124,
+        "top_level_test_passes": 67,
+        "fail_events": 0
+      },
+      "regression.jsonl": {
+        "test_pass_events": 4649,
+        "top_level_test_passes": 3146,
+        "fail_events": 0
+      }
+    }
+  },
+  "artifact_import": {
+    "artifact_id": 11791539516,
+    "validated_sha": "a4fdb8052df13ab2f1286b6b22b91a497337ad77",
+    "artifact_zip_sha256": "33badda4c7b954e527b038bf8ee080f5461097a06458c1efb0af376e73058a43",
+    "binary_sha256": "1c1575b748ecc570db16c7b55c3a46ddc32bc78ba2f58f225e5e8a5fc2c38314",
+    "binary_bytes": 60941040,
+    "directory": "/home/aqyfzx/ai/sourceid-protocol-probe-a4fdb8052df1",
+    "remote_digest_verified": true,
+    "baseline_c855_binary_overwritten": false
+  },
+  "browser_ssh_probe": {
+    "browser_exit": 0,
+    "browser": [
+      {
+        "sid_public_page_status": 200,
+        "sid_hsts_present": true,
+        "sid_hsts_include_subdomains": false,
+        "credentials_submitted": false
+      },
+      {
+        "synthetic_start_status": 302,
+        "state_present": true,
+        "nonce_present": true,
+        "pkce_S256": true,
+        "synthetic_authorization_target_intercepted_locally": true,
+        "real_sid_authorize_tested": false
+      },
+      {
+        "callback_base_exact": true,
+        "callback_status": 400,
+        "state_validation": true,
+        "completed": false,
+        "no_sensitive_value_in_response": true,
+        "response_keys": [
+          "endpoint",
+          "validation"
+        ],
+        "callback_handled_by_independent_probe": true
+      },
+      {
+        "mock_https_to_http_redirect_status": 400,
+        "mock_redirect_callback_base_exact": true,
+        "real_sid_authorize_tested": false
+      },
+      {
+        "sensitive_synthetic_post_body_status": 405,
+        "post_body_response_has_no_sensitive_value": true
+      },
+      {
+        "unconfigured_callback_status": 404
+      },
+      {
+        "browser_version": "154.0.8037.98",
+        "callback_response_peers": [
+          {
+            "scheme": "http:",
+            "ip": "127.0.0.1",
+            "port": 80,
+            "status": 400
+          },
+          {
+            "scheme": "http:",
+            "ip": "127.0.0.1",
+            "port": 80,
+            "status": 400
+          },
+          {
+            "scheme": "http:",
+            "ip": "127.0.0.1",
+            "port": 80,
+            "status": 405
+          },
+          {
+            "scheme": "http:",
+            "ip": "127.0.0.1",
+            "port": 80,
+            "status": 404
+          }
+        ],
+        "production_callback_ip_seen": false,
+        "all_callback_connections_loopback": true,
+        "cookies_har_passwords_exported": false
+      },
+      {
+        "dedicated_browser_closed": true
+      }
+    ],
+    "browser_stdout_stderr_sensitive_values_absent": true,
+    "browser_stderr_empty": true,
+    "ssh_direct_tcpip_channels": [
+      {
+        "destination": "127.0.0.1:18183",
+        "via": "172.30.232.42:22"
+      },
+      {
+        "destination": "127.0.0.1:18183",
+        "via": "172.30.232.42:22"
+      }
+    ],
+    "hosts_file_unchanged": true,
+    "global_dns_changed": false,
+    "ssh_tunnel_application_logging": false,
+    "remote_end": [
+      {
+        "probe_exit": 1,
+        "all_synthetic_values_absent_from_stdout_stderr": true,
+        "stderr_empty": true,
+        "stdout_structural_report_only": true
+      },
+      {
+        "remote_probe_port_closed": true
+      }
+    ],
+    "remote_stderr_present": false,
+    "remote_controller_exit": 0,
+    "windows_port_80_closed": true
+  },
+  "final_host_state": [
+    "2026-10-13T06:18:04+00:00",
+    "1c1575b748ecc570db16c7b55c3a46ddc32bc78ba2f58f225e5e8a5fc2c38314  /home/aqyfzx/ai/sourceid-protocol-probe-a4fdb8052df1/sourceid-probe",
+    "State   Recv-Q   Send-Q     Local Address:Port     Peer Address:Port  Process   ",
+    "OIDC_AUTH_ENABLE=false",
+    "SOURCEID_ENABLE=false",
+    "SOURCEID_LOGOUT_ENABLE=false",
+    "SOURCEID_CONTRACT_CONFIRMED=false",
+    "23c3f031ce26 knowhub-sourceid-p6-frontend-1 127.0.0.1:18182->80/tcp",
+    "f45c04a7457e knowhub-sourceid-p6-app-1 8080/tcp",
+    "dfc572de7f30 knowhub-sourceid-p6-postgres-1 5432/tcp",
+    "6b15930f1cc5 knowhub-sourceid-p6-docreader-1 50051/tcp",
+    "ede8bcb14f74 knowhub-sourceid-p6-redis-1 6379/tcp",
+    "839b9ed3ef0b WeKnora-app 0.0.0.0:8080->8080/tcp, :::8080->8080/tcp",
+    "453d542a300b WeKnora-frontend 0.0.0.0:80->80/tcp, :::80->80/tcp"
+  ]
+}

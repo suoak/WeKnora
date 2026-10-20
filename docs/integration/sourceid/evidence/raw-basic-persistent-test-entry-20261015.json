@@ -1,0 +1,34 @@
+{
+  "host": "172.30.232.42",
+  "source_sha": "468410e893de4a34918e9a5201bbc3870dadc22c",
+  "backup_directory": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/upgrade-backups/raw-persistent-20261015T023459Z",
+  "real_login_started": false,
+  "credential_file_read": false,
+  "credential_file_modified": false,
+  "public_config": {
+    "sourceid_basic_encoding": "raw",
+    "redirect_uri": "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback",
+    "success": true,
+    "enabled": true,
+    "provider_display_name": "企业 SID"
+  },
+  "runtime_credential_matches_current_dpapi": true,
+  "gates": {
+    "OIDC_AUTH_ENABLE": "true",
+    "SOURCEID_DIAGNOSTICS_ENABLE": "true",
+    "SOURCEID_BASIC_ENCODING": "raw",
+    "SOURCEID_PROTOCOL_ONLY": "true",
+    "SOURCEID_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_LOGOUT_ENABLE": "false",
+    "OIDC_AUTH_CLIENT_AUTH_METHOD": "client_secret_basic",
+    "OIDC_AUTH_PKCE_ENABLE": "false",
+    "OIDC_AUTH_SCOPES": "openid",
+    "OIDC_AUTH_USER_INFO_TRANSPORT": "bearer_get"
+  },
+  "other_services_unchanged": true,
+  "enabled": true,
+  "credential_validity": "NOT_VERIFIED_BY_SID",
+  "diagnostics_limited_minutes": 30,
+  "time_utc": "2026-10-15T02:35:11.883288+00:00",
+  "windows_direct_public_config_verified": true
+}

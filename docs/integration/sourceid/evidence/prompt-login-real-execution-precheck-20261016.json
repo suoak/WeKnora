@@ -1,0 +1,123 @@
+{
+  "result": "PASS",
+  "utc": "2026-10-16T03:17:15.343460+00:00",
+  "revision": "479416c9086d91de4484dbbd2cc5f912cdcdb697",
+  "app_id": "44cffa11c288c5f7b8a22cbd3ccd432d85fd560253016329c692bbab3c3aba2e",
+  "app_image": "sha256:85f9d6c052298e7f52e7d7c4533e131ce19326d461521378e90c6df3b01fa49c",
+  "frontend_id": "7b624ec2ee904cb7a0ab86458954722bae831f20f1f3c9da54c7ca3f5e53c448",
+  "frontend_revision": "1ba24ef5f9a730bb98d9ade6a5a5d141ea49292b",
+  "flags": {
+    "SOURCEID_BASIC_ENCODING": "oauth_form",
+    "SOURCEID_ENABLE": "true",
+    "SOURCEID_PROTOCOL_ONLY": "true",
+    "SOURCEID_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_EMAIL_BINDING_ENABLE": "false",
+    "SOURCEID_EMAIL_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_AUTO_BINDING_ENABLE": "false",
+    "SOURCEID_SESSION_MODE": "NOT_SET",
+    "SOURCEID_LOGOUT_ENABLE": "false",
+    "OIDC_AUTH_ENABLE": "true",
+    "SOURCEID_DIAGNOSTICS_ENABLE": "true",
+    "OIDC_AUTH_PKCE_ENABLE": "false",
+    "AUTO_MIGRATE": "false",
+    "SOURCEID_AUTHORIZATION_RECHECK_CONFIRMED": "false",
+    "SOURCEID_LOCAL_REFRESH_ENABLE": "NOT_SET",
+    "SOURCEID_FORCE_REAUTH_PROMPT_LOGIN": "false"
+  },
+  "database": [
+    {
+      "version": 3027,
+      "dirty": false
+    },
+    {
+      "users": 2,
+      "members": 2,
+      "bindings": 0,
+      "reviews": 0,
+      "sessions": 0,
+      "local_sessions": 0
+    }
+  ],
+  "authorization_transactions": {
+    "total": 71,
+    "consumed": 69,
+    "unconsumed_expired": 2,
+    "unconsumed_live": 0,
+    "authorization_live": 0,
+    "result_live": 0
+  },
+  "public_settings": {
+    "OIDC_AUTH_CLIENT_ID": "knowhub",
+    "OIDC_AUTH_ISSUER_URL": "https://sid.ruijie.com.cn",
+    "OIDC_AUTH_DISCOVERY_URL": "https://sid.ruijie.com.cn/oidc/.well-known/openid-configuration",
+    "OIDC_AUTH_AUTHORIZATION_ENDPOINT": "",
+    "OIDC_AUTH_TOKEN_ENDPOINT": "",
+    "OIDC_AUTH_JWKS_URI": "",
+    "OIDC_AUTH_USER_INFO_ENDPOINT": "",
+    "OIDC_AUTH_REDIRECT_URI": "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback",
+    "OIDC_AUTH_SCOPES": "openid",
+    "OIDC_AUTH_CLIENT_AUTH_METHOD": "client_secret_basic",
+    "OIDC_AUTH_USER_INFO_TRANSPORT": "bearer_get"
+  },
+  "official_public_metadata": {
+    "discovery_status": 200,
+    "jwks_status": 200,
+    "endpoints": {
+      "issuer": "https://sid.ruijie.com.cn",
+      "authorization_endpoint": "https://sid.ruijie.com.cn/oidc/authorize",
+      "token_endpoint": "https://sid.ruijie.com.cn/oidc/accessToken",
+      "jwks_uri": "https://sid.ruijie.com.cn/oidc/jwks",
+      "userinfo_endpoint": "https://sid.ruijie.com.cn/oidc/profile"
+    },
+    "jwks_key_structure": [
+      {
+        "kty": "RSA",
+        "alg": null,
+        "kid_present": false,
+        "use": null
+      }
+    ],
+    "tls_verified_system_ca": true,
+    "proxy_bypassed_for_public_probe": true,
+    "auth_time_advertised": false,
+    "auth_time_actual_return": "NOT_OBSERVED",
+    "rs256_advertised": true
+  },
+  "configured_endpoints_match": {
+    "OIDC_AUTH_ISSUER_URL": true,
+    "OIDC_AUTH_AUTHORIZATION_ENDPOINT": true,
+    "OIDC_AUTH_TOKEN_ENDPOINT": true,
+    "OIDC_AUTH_JWKS_URI": true,
+    "OIDC_AUTH_USER_INFO_ENDPOINT": true
+  },
+  "compose_files_in_order": [
+    "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+    "/home/aqyfzx/ai/knowhub-sourceid-phaseb-preflight-431226c3b/candidate-image-pin.yml",
+    "/home/aqyfzx/ai/knowhub-oa-ui-candidate-1ba24ef5f/frontend-ui-pin.yml",
+    "/home/aqyfzx/ai/knowhub-allroles-035f35e1d/app-release-pin.yml",
+    "/home/aqyfzx/ai/knowhub-prompt-login-479416c90/prompt-login-app-pin.yml"
+  ],
+  "hypothetical_last_override": {
+    "validated_config_only": true,
+    "only_environment_change": [
+      "SOURCEID_FORCE_REAUTH_PROMPT_LOGIN"
+    ],
+    "same_image": true,
+    "other_services_unchanged": true,
+    "applied": false
+  },
+  "rollback": {
+    "pin": "/home/aqyfzx/ai/knowhub-prompt-login-479416c90/prompt-login-app-rollback-pin.yml",
+    "old_image_present": true,
+    "backup": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/private/prompt-login-app-upgrade-backups/20261016T024953Z",
+    "database_backup_bytes": 377583
+  },
+  "health": {
+    "frontend": 200,
+    "app_health": 200,
+    "oidc_config": 200
+  },
+  "secret_read": false,
+  "login_started": false,
+  "runtime_configuration_changed": false
+}

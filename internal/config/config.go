@@ -320,6 +320,64 @@ type OIDCUserInfoMapping struct {
 }
 
 type OIDCAuthConfig struct {
+	SourceIDTLSUserInfoConfirmed          bool   `yaml:"sourceid_tls_userinfo_confirmed" json:"-"`
+	SourceIDTLSUserInfoApprovalRef        string `yaml:"sourceid_tls_userinfo_approval_ref" json:"-"`
+	SourceIDTLSUserInfoExpiresAt          string `yaml:"sourceid_tls_userinfo_expires_at" json:"-"`
+	SourceIDTLSUserInfoLifecycle          string `yaml:"sourceid_tls_userinfo_lifecycle" json:"-"`
+	SourceIDTLSUserInfoTestInstance       string `yaml:"sourceid_tls_userinfo_test_instance" json:"-"`
+	SourceIDValidationStrategy            string `yaml:"sourceid_validation_strategy" json:"-"`
+	SourceIDPinnedKeysFile                string `yaml:"sourceid_pinned_keys_file" json:"-"`
+	SourceIDPinnedKeysConfirmed           bool   `yaml:"sourceid_pinned_keys_confirmed" json:"-"`
+	SourceIDPinnedKeysApprovalRef         string `yaml:"sourceid_pinned_keys_approval_ref" json:"-"`
+	SourceIDPinnedKeysExpiresAt           string `yaml:"sourceid_pinned_keys_expires_at" json:"-"`
+	SourceIDPinnedKeyFingerprints         string `yaml:"sourceid_pinned_key_fingerprints" json:"-"`
+	SourceIDProtocolOnly                  bool   `yaml:"sourceid_protocol_only" json:"-"`
+	SourceIDDiagnosticsEnable             bool   `yaml:"sourceid_diagnostics_enable" json:"-"`
+	SourceIDBasicEncoding                 string `yaml:"sourceid_basic_encoding" json:"-"`
+	SourceIDClaimsSource                  string `yaml:"sourceid_claims_source" json:"-"`
+	SourceIDLogoutEncoding                string `yaml:"sourceid_logout_encoding" json:"-"`
+	SourceIDEnable                        bool   `yaml:"sourceid_enable" json:"-"`
+	SourceIDLogoutEnable                  bool   `yaml:"sourceid_logout_enable" json:"-"`
+	SourceIDEmployeeClaim                 string `yaml:"sourceid_employee_claim" json:"-"`
+	SourceIDSessionClaim                  string `yaml:"sourceid_session_claim" json:"-"`
+	SourceIDStatusClaim                   string `yaml:"sourceid_status_claim" json:"-"`
+	SourceIDAllowedStatus                 string `yaml:"sourceid_allowed_status" json:"-"`
+	SourceIDLogoutCIDRs                   string `yaml:"sourceid_logout_cidrs" json:"-"`
+	SourceIDLogoutSecret                  string `yaml:"sourceid_logout_secret" json:"-"`
+	SourceIDContractConfirmed             bool   `yaml:"sourceid_contract_confirmed" json:"-"`
+	SourceIDEmailBindingEnable            bool   `yaml:"sourceid_email_binding_enable" json:"-"`
+	SourceIDEmailContractConfirmed        bool   `yaml:"sourceid_email_contract_confirmed" json:"-"`
+	SourceIDAutoBindingEnable             bool   `yaml:"sourceid_auto_binding_enable" json:"-"`
+	SourceIDAutoBindingPolicyRef          string `yaml:"sourceid_auto_binding_policy_ref" json:"-"`
+	SourceIDSessionMode                   string `yaml:"sourceid_session_mode" json:"-"`
+	SourceIDLocalPolicyRef                string `yaml:"sourceid_local_policy_ref" json:"-"`
+	SourceIDLocalAccessTTL                string `yaml:"sourceid_local_access_ttl" json:"-"`
+	SourceIDLocalAbsoluteTTL              string `yaml:"sourceid_local_absolute_ttl" json:"-"`
+	SourceIDLocalIdleTTL                  string `yaml:"sourceid_local_idle_ttl" json:"-"`
+	SourceIDLocalRefreshEnable            bool   `yaml:"sourceid_local_refresh_enable" json:"-"`
+	SourceIDAdmissionMode                 string `yaml:"sourceid_admission_mode" json:"-"`
+	SourceIDAdmissionPolicyRef            string `yaml:"sourceid_admission_policy_ref" json:"-"`
+	SourceIDAdmissionMaxAge               string `yaml:"sourceid_admission_max_age" json:"-"`
+	SourceIDAuthorizationRecheckConfirmed bool   `yaml:"sourceid_authorization_recheck_confirmed" json:"-"`
+	SourceIDForceReauthPromptLogin        bool   `yaml:"sourceid_force_reauth_prompt_login" json:"-"`
+	SourceIDSSOPolicyConfirmed            bool   `yaml:"sourceid_sso_policy_confirmed" json:"-"`
+	SourceIDPilotAccountsFile             string `yaml:"sourceid_pilot_accounts_file" json:"-"`
+	SourceIDAccountScope                  string `yaml:"sourceid_account_scope" json:"-"`
+	SourceIDEnterprisePolicyConfirmed     bool   `yaml:"sourceid_enterprise_policy_confirmed" json:"-"`
+	SourceIDEnterprisePolicyRef           string `yaml:"sourceid_enterprise_policy_ref" json:"-"`
+	SourceIDEnterpriseMaxAge              string `yaml:"sourceid_enterprise_max_age" json:"-"`
+	SourceIDAccountLinkMode               string `yaml:"sourceid_account_link_mode" json:"-"`
+	SourceIDVerifiedEmailPolicyConfirmed  bool   `yaml:"sourceid_verified_email_policy_confirmed" json:"-"`
+	SourceIDVerifiedEmailPolicyRef        string `yaml:"sourceid_verified_email_policy_ref" json:"-"`
+	SourceIDJITEnable                     bool   `yaml:"sourceid_jit_enable" json:"-"`
+	SourceIDJITPolicyConfirmed            bool   `yaml:"sourceid_jit_policy_confirmed" json:"-"`
+	SourceIDJITPolicyRef                  string `yaml:"sourceid_jit_policy_ref" json:"-"`
+	SourceIDJITEmailDomains               string `yaml:"sourceid_jit_email_domains" json:"-"`
+	RedirectURI                           string `yaml:"redirect_uri" json:"redirect_uri"`
+	PKCEEnable                            bool   `yaml:"pkce_enable" json:"-"`
+	ClientAuthMethod                      string `yaml:"client_auth_method" json:"-"`
+	UserInfoTransport                     string `yaml:"user_info_transport" json:"-"`
+
 	Enable                bool                 `yaml:"enable"                 json:"enable"`
 	IssuerURL             string               `yaml:"issuer_url"             json:"issuer_url"`
 	DiscoveryURL          string               `yaml:"discovery_url"          json:"discovery_url"`
@@ -645,6 +703,14 @@ func applyMCPPublicURLEnv(cfg *Config) {
 // It checks for obviously invalid or missing values that would cause runtime failures.
 func ValidateConfig(cfg *Config) error {
 	var errs []string
+	if cfg.OIDCAuth != nil {
+		if err := cfg.OIDCAuth.ValidateSourceIDValidationStrategy(); err != nil {
+			errs = append(errs, err.Error())
+		}
+		if _, err := cfg.OIDCAuth.EffectiveSourceIDBasicEncoding(); err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
 
 	if cfg.OIDCAuth != nil && cfg.OIDCAuth.Enable {
 		if strings.TrimSpace(cfg.OIDCAuth.ClientID) == "" {
@@ -767,6 +833,75 @@ func applyOIDCEnvOverrides(cfg *Config) {
 		cfg.OIDCAuth.UserInfoMapping.Email = value
 	}
 
+	for key, target := range map[string]*string{
+		"SOURCEID_SESSION_MODE":               &cfg.OIDCAuth.SourceIDSessionMode,
+		"SOURCEID_PILOT_ACCOUNTS_FILE":        &cfg.OIDCAuth.SourceIDPilotAccountsFile,
+		"SOURCEID_ACCOUNT_SCOPE":              &cfg.OIDCAuth.SourceIDAccountScope,
+		"SOURCEID_ENTERPRISE_POLICY_REF":      &cfg.OIDCAuth.SourceIDEnterprisePolicyRef,
+		"SOURCEID_ENTERPRISE_MAX_AGE":         &cfg.OIDCAuth.SourceIDEnterpriseMaxAge,
+		"SOURCEID_ACCOUNT_LINK_MODE":          &cfg.OIDCAuth.SourceIDAccountLinkMode,
+		"SOURCEID_VERIFIED_EMAIL_POLICY_REF":  &cfg.OIDCAuth.SourceIDVerifiedEmailPolicyRef,
+		"SOURCEID_JIT_POLICY_REF":             &cfg.OIDCAuth.SourceIDJITPolicyRef,
+		"SOURCEID_JIT_EMAIL_DOMAINS":          &cfg.OIDCAuth.SourceIDJITEmailDomains,
+		"SOURCEID_LOCAL_POLICY_REF":           &cfg.OIDCAuth.SourceIDLocalPolicyRef,
+		"SOURCEID_LOCAL_ACCESS_TTL":           &cfg.OIDCAuth.SourceIDLocalAccessTTL,
+		"SOURCEID_LOCAL_ABSOLUTE_TTL":         &cfg.OIDCAuth.SourceIDLocalAbsoluteTTL,
+		"SOURCEID_LOCAL_IDLE_TTL":             &cfg.OIDCAuth.SourceIDLocalIdleTTL,
+		"SOURCEID_ADMISSION_MODE":             &cfg.OIDCAuth.SourceIDAdmissionMode,
+		"SOURCEID_ADMISSION_POLICY_REF":       &cfg.OIDCAuth.SourceIDAdmissionPolicyRef,
+		"SOURCEID_ADMISSION_MAX_AGE":          &cfg.OIDCAuth.SourceIDAdmissionMaxAge,
+		"SOURCEID_EMPLOYEE_CLAIM":             &cfg.OIDCAuth.SourceIDEmployeeClaim,
+		"SOURCEID_AUTO_BINDING_POLICY_REF":    &cfg.OIDCAuth.SourceIDAutoBindingPolicyRef,
+		"SOURCEID_SESSION_CLAIM":              &cfg.OIDCAuth.SourceIDSessionClaim,
+		"SOURCEID_STATUS_CLAIM":               &cfg.OIDCAuth.SourceIDStatusClaim,
+		"SOURCEID_ALLOWED_STATUS":             &cfg.OIDCAuth.SourceIDAllowedStatus,
+		"SOURCEID_CLAIMS_SOURCE":              &cfg.OIDCAuth.SourceIDClaimsSource,
+		"SOURCEID_BASIC_ENCODING":             &cfg.OIDCAuth.SourceIDBasicEncoding,
+		"SOURCEID_LOGOUT_ENCODING":            &cfg.OIDCAuth.SourceIDLogoutEncoding,
+		"SOURCEID_LOGOUT_CIDRS":               &cfg.OIDCAuth.SourceIDLogoutCIDRs,
+		"SOURCEID_LOGOUT_SECRET":              &cfg.OIDCAuth.SourceIDLogoutSecret,
+		"OIDC_AUTH_REDIRECT_URI":              &cfg.OIDCAuth.RedirectURI,
+		"OIDC_AUTH_CLIENT_AUTH_METHOD":        &cfg.OIDCAuth.ClientAuthMethod,
+		"OIDC_AUTH_USER_INFO_TRANSPORT":       &cfg.OIDCAuth.UserInfoTransport,
+		"SOURCEID_VALIDATION_STRATEGY":        &cfg.OIDCAuth.SourceIDValidationStrategy,
+		"SOURCEID_TLS_USERINFO_APPROVAL_REF":  &cfg.OIDCAuth.SourceIDTLSUserInfoApprovalRef,
+		"SOURCEID_TLS_USERINFO_EXPIRES_AT":    &cfg.OIDCAuth.SourceIDTLSUserInfoExpiresAt,
+		"SOURCEID_TLS_USERINFO_LIFECYCLE":     &cfg.OIDCAuth.SourceIDTLSUserInfoLifecycle,
+		"SOURCEID_TLS_USERINFO_TEST_INSTANCE": &cfg.OIDCAuth.SourceIDTLSUserInfoTestInstance,
+		"SOURCEID_PINNED_KEYS_FILE":           &cfg.OIDCAuth.SourceIDPinnedKeysFile,
+		"SOURCEID_PINNED_KEYS_APPROVAL_REF":   &cfg.OIDCAuth.SourceIDPinnedKeysApprovalRef,
+		"SOURCEID_PINNED_KEYS_EXPIRES_AT":     &cfg.OIDCAuth.SourceIDPinnedKeysExpiresAt,
+		"SOURCEID_PINNED_KEY_FINGERPRINTS":    &cfg.OIDCAuth.SourceIDPinnedKeyFingerprints,
+	} {
+		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+			*target = value
+		}
+	}
+	for key, target := range map[string]*bool{
+		"SOURCEID_TLS_USERINFO_CONFIRMED":          &cfg.OIDCAuth.SourceIDTLSUserInfoConfirmed,
+		"SOURCEID_PINNED_KEYS_CONFIRMED":           &cfg.OIDCAuth.SourceIDPinnedKeysConfirmed,
+		"SOURCEID_FORCE_REAUTH_PROMPT_LOGIN":       &cfg.OIDCAuth.SourceIDForceReauthPromptLogin,
+		"SOURCEID_SSO_POLICY_CONFIRMED":            &cfg.OIDCAuth.SourceIDSSOPolicyConfirmed,
+		"SOURCEID_ENTERPRISE_POLICY_CONFIRMED":     &cfg.OIDCAuth.SourceIDEnterprisePolicyConfirmed,
+		"SOURCEID_VERIFIED_EMAIL_POLICY_CONFIRMED": &cfg.OIDCAuth.SourceIDVerifiedEmailPolicyConfirmed,
+		"SOURCEID_JIT_ENABLE":                      &cfg.OIDCAuth.SourceIDJITEnable,
+		"SOURCEID_JIT_POLICY_CONFIRMED":            &cfg.OIDCAuth.SourceIDJITPolicyConfirmed,
+		"SOURCEID_AUTHORIZATION_RECHECK_CONFIRMED": &cfg.OIDCAuth.SourceIDAuthorizationRecheckConfirmed,
+		"SOURCEID_LOCAL_REFRESH_ENABLE":            &cfg.OIDCAuth.SourceIDLocalRefreshEnable,
+		"SOURCEID_ENABLE":                          &cfg.OIDCAuth.SourceIDEnable,
+		"SOURCEID_PROTOCOL_ONLY":                   &cfg.OIDCAuth.SourceIDProtocolOnly,
+		"SOURCEID_DIAGNOSTICS_ENABLE":              &cfg.OIDCAuth.SourceIDDiagnosticsEnable,
+		"SOURCEID_LOGOUT_ENABLE":                   &cfg.OIDCAuth.SourceIDLogoutEnable,
+		"SOURCEID_CONTRACT_CONFIRMED":              &cfg.OIDCAuth.SourceIDContractConfirmed,
+		"SOURCEID_EMAIL_BINDING_ENABLE":            &cfg.OIDCAuth.SourceIDEmailBindingEnable,
+		"SOURCEID_AUTO_BINDING_ENABLE":             &cfg.OIDCAuth.SourceIDAutoBindingEnable,
+		"SOURCEID_EMAIL_CONTRACT_CONFIRMED":        &cfg.OIDCAuth.SourceIDEmailContractConfirmed,
+		"OIDC_AUTH_PKCE_ENABLE":                    &cfg.OIDCAuth.PKCEEnable,
+	} {
+		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+			*target = strings.EqualFold(value, "true")
+		}
+	}
 	if cfg.OIDCAuth.ProviderDisplayName == "" {
 		cfg.OIDCAuth.ProviderDisplayName = "OIDC"
 	}

@@ -1,0 +1,49 @@
+{
+  "state": {
+    "state": "image",
+    "utc": "2026-10-15T15:45:30.631449+00:00",
+    "sha": "1ba24ef5f9a730bb98d9ade6a5a5d141ea49292b"
+  },
+  "logs": {
+    "controller-frontend.log": {
+      "bytes": 150,
+      "build_complete": false,
+      "transforming": false,
+      "rendering": false,
+      "out_of_memory": false,
+      "type_error": false
+    },
+    "frontend-types.log": {
+      "bytes": 55,
+      "build_complete": false,
+      "transforming": false,
+      "rendering": false,
+      "out_of_memory": false,
+      "type_error": false
+    },
+    "frontend-build.log": {
+      "bytes": 23934,
+      "build_complete": true,
+      "transforming": true,
+      "rendering": true,
+      "out_of_memory": false,
+      "type_error": false
+    },
+    "npm-ci.log": {
+      "bytes": 768,
+      "build_complete": false,
+      "transforming": false,
+      "rendering": false,
+      "out_of_memory": false,
+      "type_error": false
+    },
+    "controller-image.log": {
+      "bytes": 0,
+      "build_complete": false,
+      "transforming": false,
+      "rendering": false,
+      "out_of_memory": false,
+      "type_error": false
+    }
+  }
+}

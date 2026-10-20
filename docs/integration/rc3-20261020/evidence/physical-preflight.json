@@ -1,0 +1,443 @@
+{
+  "utc": "2026-10-20T02:04:23.667454+00:00",
+  "scope": "read-only metadata only; no checkpoint, WAL switch, slot creation, base backup, configuration or production writes",
+  "settings": {
+    "wal_level": "replica",
+    "archive_mode": "off",
+    "max_wal_size": "1024",
+    "min_wal_size": "80",
+    "wal_keep_size": "0",
+    "data_checksums": "off",
+    "data_directory": "/var/lib/postgresql/data",
+    "max_wal_senders": "10",
+    "full_page_writes": "on",
+    "wal_segment_size": "16777216",
+    "checkpoint_timeout": "300",
+    "max_replication_slots": "10",
+    "max_slot_wal_keep_size": "-1",
+    "shared_preload_libraries": "pg_search,pg_cron,pg_stat_statements"
+  },
+  "role": {
+    "superuser": true,
+    "replication": true,
+    "current_role": "postgres"
+  },
+  "tablespaces": [
+    {
+      "oid": "1663",
+      "name": "pg_default",
+      "location": ""
+    },
+    {
+      "oid": "1664",
+      "name": "pg_global",
+      "location": ""
+    }
+  ],
+  "databases": [
+    {
+      "name": "postgres",
+      "bytes": 7886515
+    },
+    {
+      "name": "weknora",
+      "bytes": 23082694323
+    },
+    {
+      "name": "paradedb",
+      "bytes": 20275727
+    }
+  ],
+  "wal": {
+    "slots": [],
+    "archiver": {
+      "failed_count": 0,
+      "archived_count": 0
+    },
+    "wal_bytes": 1056964608,
+    "wal_files": 63,
+    "wal_senders": 0,
+    "backup_active": 0
+  },
+  "replication_hba": [
+    {
+      "type": "local",
+      "valid": true,
+      "address": null,
+      "netmask": null,
+      "database": [
+        "replication"
+      ],
+      "user_name": [
+        "all"
+      ],
+      "auth_method": "trust"
+    },
+    {
+      "type": "host",
+      "valid": true,
+      "address": "127.0.0.1",
+      "netmask": "255.255.255.255",
+      "database": [
+        "replication"
+      ],
+      "user_name": [
+        "all"
+      ],
+      "auth_method": "trust"
+    },
+    {
+      "type": "host",
+      "valid": true,
+      "address": "::1",
+      "netmask": "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+      "database": [
+        "replication"
+      ],
+      "user_name": [
+        "all"
+      ],
+      "auth_method": "trust"
+    }
+  ],
+  "schema": {
+    "dirty": false,
+    "version": 3023
+  },
+  "tools": {
+    "pg_basebackup": {
+      "available": true,
+      "version": "pg_basebackup (PostgreSQL) 17.9 (Debian 17.9-1.pgdg13+1)"
+    },
+    "pg_verifybackup": {
+      "available": true,
+      "version": "pg_verifybackup (PostgreSQL) 17.9 (Debian 17.9-1.pgdg13+1)"
+    },
+    "pg_waldump": {
+      "available": true,
+      "version": "pg_waldump (PostgreSQL) 17.9 (Debian 17.9-1.pgdg13+1)"
+    }
+  },
+  "disk": [
+    "Filesystem                           1B-blocks        Used   Available Use% Mounted on",
+    "/dev/mapper/ubuntu--vg-ubuntu--lv 102971269120 79083970560 18609397760  81% /"
+  ],
+  "source_inventory": [
+    {
+      "id": "867e5798-1c2b-4547-921d-d43132e3f275",
+      "type": "feishu_drive",
+      "kb_id": "8ca41885-69e1-4d43-8bfd-ffc8670900fe",
+      "status": "active",
+      "schedule": "0 0 2 * * *",
+      "tenant_id": 10002,
+      "cursor_md5": "8ad349c3501b8c166de28f80eff8ab3a",
+      "claimed_logs": 0,
+      "last_sync_at": "2026-10-10T06:17:13.433587",
+      "running_logs": 0,
+      "kb_creator_id": "7a811ca1-ea0b-4ff4-8840-cc22105a567a",
+      "knowledge_count": 69,
+      "tenant_owner_admin_ids": [
+        {
+          "role": "owner",
+          "user_id": "1a1e1ab7-43d1-4f58-a00a-cf56323a85b1"
+        },
+        {
+          "role": "owner",
+          "user_id": "7a811ca1-ea0b-4ff4-8840-cc22105a567a"
+        },
+        {
+          "role": "admin",
+          "user_id": "9e83178b-2e63-47ae-9921-40b75ea2a035"
+        },
+        {
+          "role": "admin",
+          "user_id": "6c157206-b590-401b-ad72-7dbafe7baf4b"
+        },
+        {
+          "role": "admin",
+          "user_id": "7ae6467c-81f0-4dbf-b9ef-131ad265bd62"
+        }
+      ]
+    },
+    {
+      "id": "14433cdb-fddc-4d6c-a979-ef11c05b61bf",
+      "type": "feishu",
+      "kb_id": "54b0a305-1ab4-4fab-9937-778fd71c3a74",
+      "status": "active",
+      "schedule": "0 0 2 * * *",
+      "tenant_id": 10002,
+      "cursor_md5": "73df70d1130d4b33019af2320b210200",
+      "claimed_logs": 0,
+      "last_sync_at": "2026-10-19T18:00:19.127664",
+      "running_logs": 0,
+      "kb_creator_id": "7a811ca1-ea0b-4ff4-8840-cc22105a567a",
+      "knowledge_count": 16,
+      "tenant_owner_admin_ids": [
+        {
+          "role": "owner",
+          "user_id": "1a1e1ab7-43d1-4f58-a00a-cf56323a85b1"
+        },
+        {
+          "role": "owner",
+          "user_id": "7a811ca1-ea0b-4ff4-8840-cc22105a567a"
+        },
+        {
+          "role": "admin",
+          "user_id": "9e83178b-2e63-47ae-9921-40b75ea2a035"
+        },
+        {
+          "role": "admin",
+          "user_id": "6c157206-b590-401b-ad72-7dbafe7baf4b"
+        },
+        {
+          "role": "admin",
+          "user_id": "7ae6467c-81f0-4dbf-b9ef-131ad265bd62"
+        }
+      ]
+    },
+    {
+      "id": "eea7e329-708a-4c4b-bc77-b34a254db471",
+      "type": "feishu_drive",
+      "kb_id": "d14eb0c0-1ade-46f9-890e-84fa823b335d",
+      "status": "active",
+      "schedule": "0 0 */6 * * *",
+      "tenant_id": 10005,
+      "cursor_md5": "cfb6e97f0309d94251462b23b10e67f5",
+      "claimed_logs": 0,
+      "last_sync_at": "2026-10-12T06:04:09.838192",
+      "running_logs": 0,
+      "kb_creator_id": "54517c59-1439-447d-9cd9-35d27a67f534",
+      "knowledge_count": 113,
+      "tenant_owner_admin_ids": [
+        {
+          "role": "owner",
+          "user_id": "1a1e1ab7-43d1-4f58-a00a-cf56323a85b1"
+        },
+        {
+          "role": "admin",
+          "user_id": "54517c59-1439-447d-9cd9-35d27a67f534"
+        },
+        {
+          "role": "admin",
+          "user_id": "735ee206-0286-4a1a-a608-b358cb094c72"
+        },
+        {
+          "role": "admin",
+          "user_id": "ec57d44a-2db0-4bf9-886b-44a0ff12ba9b"
+        },
+        {
+          "role": "admin",
+          "user_id": "7abeebdf-debd-470c-95dc-eb0b4d704d1a"
+        },
+        {
+          "role": "admin",
+          "user_id": "9e83178b-2e63-47ae-9921-40b75ea2a035"
+        },
+        {
+          "role": "admin",
+          "user_id": "6c157206-b590-401b-ad72-7dbafe7baf4b"
+        },
+        {
+          "role": "admin",
+          "user_id": "7ae6467c-81f0-4dbf-b9ef-131ad265bd62"
+        },
+        {
+          "role": "admin",
+          "user_id": "ddb0308d-2300-41a1-8ce2-bb589faee387"
+        }
+      ]
+    },
+    {
+      "id": "be5a806a-8ff0-4352-9478-0d9063f7ca95",
+      "type": "feishu",
+      "kb_id": "a01317cc-fcda-4dfd-b9c5-2086d7c0cf7a",
+      "status": "active",
+      "schedule": "0 0 */6 * * *",
+      "tenant_id": 10014,
+      "cursor_md5": "95b245c225b563bd00a4dd7401e09b3b",
+      "claimed_logs": 0,
+      "last_sync_at": "2026-10-19T22:03:06.915461",
+      "running_logs": 0,
+      "kb_creator_id": "1a1e1ab7-43d1-4f58-a00a-cf56323a85b1",
+      "knowledge_count": 108,
+      "tenant_owner_admin_ids": [
+        {
+          "role": "owner",
+          "user_id": "1a1e1ab7-43d1-4f58-a00a-cf56323a85b1"
+        },
+        {
+          "role": "admin",
+          "user_id": "7ae6467c-81f0-4dbf-b9ef-131ad265bd62"
+        },
+        {
+          "role": "admin",
+          "user_id": "18079540-456f-4db2-b9d1-4729966ab58c"
+        },
+        {
+          "role": "admin",
+          "user_id": "9e83178b-2e63-47ae-9921-40b75ea2a035"
+        },
+        {
+          "role": "admin",
+          "user_id": "6c157206-b590-401b-ad72-7dbafe7baf4b"
+        }
+      ]
+    },
+    {
+      "id": "3e361ce0-b06a-4e8f-ac92-dd9101097045",
+      "type": "feishu_drive",
+      "kb_id": "b93b9e1f-e75b-41f5-940a-ad7de5105c6f",
+      "status": "active",
+      "schedule": "0 0 */6 * * *",
+      "tenant_id": 10005,
+      "cursor_md5": "5fba5107ea03e5e791e987689d108712",
+      "claimed_logs": 0,
+      "last_sync_at": "2026-10-19T22:00:01.70479",
+      "running_logs": 0,
+      "kb_creator_id": "735ee206-0286-4a1a-a608-b358cb094c72",
+      "knowledge_count": 0,
+      "tenant_owner_admin_ids": [
+        {
+          "role": "owner",
+          "user_id": "1a1e1ab7-43d1-4f58-a00a-cf56323a85b1"
+        },
+        {
+          "role": "admin",
+          "user_id": "54517c59-1439-447d-9cd9-35d27a67f534"
+        },
+        {
+          "role": "admin",
+          "user_id": "735ee206-0286-4a1a-a608-b358cb094c72"
+        },
+        {
+          "role": "admin",
+          "user_id": "ec57d44a-2db0-4bf9-886b-44a0ff12ba9b"
+        },
+        {
+          "role": "admin",
+          "user_id": "7abeebdf-debd-470c-95dc-eb0b4d704d1a"
+        },
+        {
+          "role": "admin",
+          "user_id": "9e83178b-2e63-47ae-9921-40b75ea2a035"
+        },
+        {
+          "role": "admin",
+          "user_id": "6c157206-b590-401b-ad72-7dbafe7baf4b"
+        },
+        {
+          "role": "admin",
+          "user_id": "7ae6467c-81f0-4dbf-b9ef-131ad265bd62"
+        },
+        {
+          "role": "admin",
+          "user_id": "ddb0308d-2300-41a1-8ce2-bb589faee387"
+        }
+      ]
+    },
+    {
+      "id": "c9ec8746-accd-4e77-9615-c0d2e1cc33fd",
+      "type": "feishu_drive",
+      "kb_id": "09b0c5d5-0196-4131-a72b-402eee1c50d4",
+      "status": "active",
+      "schedule": "0 0 */6 * * *",
+      "tenant_id": 10005,
+      "cursor_md5": "105965473482ac2d578aee7114b627e2",
+      "claimed_logs": 0,
+      "last_sync_at": "2026-10-19T22:00:00.956121",
+      "running_logs": 0,
+      "kb_creator_id": "735ee206-0286-4a1a-a608-b358cb094c72",
+      "knowledge_count": 2,
+      "tenant_owner_admin_ids": [
+        {
+          "role": "owner",
+          "user_id": "1a1e1ab7-43d1-4f58-a00a-cf56323a85b1"
+        },
+        {
+          "role": "admin",
+          "user_id": "54517c59-1439-447d-9cd9-35d27a67f534"
+        },
+        {
+          "role": "admin",
+          "user_id": "735ee206-0286-4a1a-a608-b358cb094c72"
+        },
+        {
+          "role": "admin",
+          "user_id": "ec57d44a-2db0-4bf9-886b-44a0ff12ba9b"
+        },
+        {
+          "role": "admin",
+          "user_id": "7abeebdf-debd-470c-95dc-eb0b4d704d1a"
+        },
+        {
+          "role": "admin",
+          "user_id": "9e83178b-2e63-47ae-9921-40b75ea2a035"
+        },
+        {
+          "role": "admin",
+          "user_id": "6c157206-b590-401b-ad72-7dbafe7baf4b"
+        },
+        {
+          "role": "admin",
+          "user_id": "7ae6467c-81f0-4dbf-b9ef-131ad265bd62"
+        },
+        {
+          "role": "admin",
+          "user_id": "ddb0308d-2300-41a1-8ce2-bb589faee387"
+        }
+      ]
+    },
+    {
+      "id": "5c7bc873-0ba3-43c7-90a0-32c23e6bd529",
+      "type": "feishu_drive",
+      "kb_id": "6dcae886-fc03-446d-9523-ee6f4e5009c9",
+      "status": "active",
+      "schedule": "0 0 */6 * * *",
+      "tenant_id": 10005,
+      "cursor_md5": "afbfc55bcdc4f7ca11a7d28f8de85e00",
+      "claimed_logs": 0,
+      "last_sync_at": "2026-10-19T22:00:02.400424",
+      "running_logs": 0,
+      "kb_creator_id": "735ee206-0286-4a1a-a608-b358cb094c72",
+      "knowledge_count": 46,
+      "tenant_owner_admin_ids": [
+        {
+          "role": "owner",
+          "user_id": "1a1e1ab7-43d1-4f58-a00a-cf56323a85b1"
+        },
+        {
+          "role": "admin",
+          "user_id": "54517c59-1439-447d-9cd9-35d27a67f534"
+        },
+        {
+          "role": "admin",
+          "user_id": "735ee206-0286-4a1a-a608-b358cb094c72"
+        },
+        {
+          "role": "admin",
+          "user_id": "ec57d44a-2db0-4bf9-886b-44a0ff12ba9b"
+        },
+        {
+          "role": "admin",
+          "user_id": "7abeebdf-debd-470c-95dc-eb0b4d704d1a"
+        },
+        {
+          "role": "admin",
+          "user_id": "9e83178b-2e63-47ae-9921-40b75ea2a035"
+        },
+        {
+          "role": "admin",
+          "user_id": "6c157206-b590-401b-ad72-7dbafe7baf4b"
+        },
+        {
+          "role": "admin",
+          "user_id": "7ae6467c-81f0-4dbf-b9ef-131ad265bd62"
+        },
+        {
+          "role": "admin",
+          "user_id": "ddb0308d-2300-41a1-8ce2-bb589faee387"
+        }
+      ]
+    }
+  ]
+}

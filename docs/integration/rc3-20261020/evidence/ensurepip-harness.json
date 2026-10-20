@@ -1,0 +1,28 @@
+{
+  "source": "https://www.python.org/ftp/python/3.11.2/Python-3.11.2.tar.xz",
+  "runtime": "Debian Python 3.11.2 in existing builder",
+  "use": "CI harness only: restore missing standard-library ensurepip; no product changes or mock",
+  "archive_sha256": "29e4b8f5f1658542a8c13e2dd277358c9c48f2b2f7318652ef1675e402b9d2af",
+  "files": [
+    {
+      "path": "ensurepip/__main__.py",
+      "sha256": "ee735f518d0fc4dfec81f7aa3da1e052372ed4202c0da4eddd2587840beaecd7"
+    },
+    {
+      "path": "ensurepip/_uninstall.py",
+      "sha256": "3a6e95d01c45e2e47c05df3c81073b895c97c1eb0e5b90ab175d6d9263fc81f2"
+    },
+    {
+      "path": "ensurepip/__init__.py",
+      "sha256": "6e420ae5897f7d46a422fbd33c9f8c28db406aec920acdf385d1a4b650310ad4"
+    },
+    {
+      "path": "ensurepip/_bundled/pip-22.3.1-py3-none-any.whl",
+      "sha256": "908c78e6bc29b676ede1c4d57981d490cb892eb45cd8c214ab6298125119e077"
+    },
+    {
+      "path": "ensurepip/_bundled/setuptools-65.5.0-py3-none-any.whl",
+      "sha256": "f62ea9da9ed6289bfe868cd6845968a2c854d1427f8548d52cae02a42b4f0356"
+    }
+  ]
+}

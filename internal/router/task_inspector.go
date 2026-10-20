@@ -85,13 +85,14 @@ var queuesScanned = func() []string {
 // deliberately narrow: we don't touch FAQ import / KB-level tasks
 // because the cancel API is per-knowledge.
 var taskTypesForKnowledgeCancel = map[string]struct{}{
-	types.TypeDocumentProcess:      {},
-	types.TypeManualProcess:        {},
-	types.TypeImageMultimodal:      {},
-	types.TypeKnowledgePostProcess: {},
-	types.TypeQuestionGeneration:   {},
-	types.TypeSummaryGeneration:    {},
-	types.TypeChunkExtract:         {},
+	types.TypeDocumentProcess:          {},
+	types.TypeFeishuApplicationProcess: {},
+	types.TypeManualProcess:            {},
+	types.TypeImageMultimodal:          {},
+	types.TypeKnowledgePostProcess:     {},
+	types.TypeQuestionGeneration:       {},
+	types.TypeSummaryGeneration:        {},
+	types.TypeChunkExtract:             {},
 }
 
 // listPageSize caps each Redis LIST call. Asynq pages tasks, so we

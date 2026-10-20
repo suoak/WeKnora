@@ -896,7 +896,7 @@ func TestEnsureReady_NilCtx_Rejected(t *testing.T) {
 		once:    make(map[int]*sync.Once),
 		initErr: make(map[int]error),
 	}
-	err := r.ensureReady(nil, 768) //nolint:staticcheck — explicit nil ctx test
+	err := r.ensureReady(nil, 768) //nolint:staticcheck // Explicit nil context test.
 	if err == nil || !strings.Contains(err.Error(), "non-nil ctx") {
 		t.Errorf("nil ctx: want error about non-nil ctx, got %v", err)
 	}

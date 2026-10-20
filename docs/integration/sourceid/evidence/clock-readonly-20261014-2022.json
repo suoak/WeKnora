@@ -1,0 +1,21 @@
+{
+  "host": "172.30.232.42",
+  "server_epoch": 1791980539.7312415,
+  "server_utc": "2026-10-14T12:22:19.731244+00:00",
+  "server_local": "2026-10-14T12:22:19.731259+00:00",
+  "read_only": true,
+  "timedatectl": {
+    "Timezone": "Etc/UTC",
+    "LocalRTC": "no",
+    "NTP": "yes",
+    "NTPSynchronized": "yes"
+  },
+  "app_container_utc": "2026-10-14T12:22:20Z",
+  "windows_epoch_before": 1791980538.443828,
+  "windows_epoch_after": 1791980540.0577836,
+  "server_clock_within_windows_observation_interval": true,
+  "offset_bound_seconds": [
+    -0.327,
+    1.287
+  ]
+}

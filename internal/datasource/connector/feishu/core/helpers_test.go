@@ -12,6 +12,8 @@ import (
 func TestMain(m *testing.M) {
 	mustSetenv("SSRF_WHITELIST", "127.0.0.1,localhost,open.feishu.cn,open.larksuite.com")
 	mustSetenv("FEISHU_API_RATE_LIMIT_RPS", "10000")
+	mustSetenv("FEISHU_API_REQUESTS_PER_MINUTE", "60000")
+	mustSetenv("FEISHU_RATE_LIMIT_RETRY_WAIT", "1ms")
 	mustSetenv("FEISHU_API_RATE_LIMIT_BURST", "10000")
 	mustSetenv("FEISHU_API_RETRY_INITIAL_BACKOFF_MS", "1")
 	mustSetenv("FEISHU_API_RETRY_MAX_BACKOFF_MS", "5")

@@ -1,0 +1,163 @@
+name: SourceID OIDC validation
+
+on:
+  push:
+    branches: [feature/knowhub-sourceid-oidc, feature/knowhub-sourceid-enterprise-all, feature/knowhub-sourceid-enterprise-jit]
+    paths:
+      - "**/*.go"
+      - "go.mod"
+      - "go.sum"
+      - "migrations/**"
+      - "frontend/**"
+      - "config/**"
+      - ".env.example"
+      - "docker-compose.yml"
+      - ".github/workflows/sourceid-oidc.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sourceid-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  LOG_FORMAT: ""
+  CGO_ENABLED: "1"
+  GOTOOLCHAIN: local
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.8"
+          cache: true
+      - name: Record identity
+        run: |
+          mkdir -p sourceid-results
+          git rev-parse HEAD > sourceid-results/head.txt
+          go version > sourceid-results/environment.txt
+          gcc --version >> sourceid-results/environment.txt
+          git diff --check
+          mapfile -t changed_go < <(git diff --name-only ac7dbe5e2607af5ab4e74c062137e0cad48d0e50..HEAD -- '*.go')
+          test -z "$(gofmt -l "${changed_go[@]}")"
+      - name: SourceID and authentication tests with race detection
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -race -json -count=1 ./cmd/sourceid-ownership ./cmd/sourceid-test-account ./internal/accountprep ./cmd/sourceid-binding ./cmd/sourceid-enroll ./cmd/sourceid-probe ./internal/sourceid ./internal/application/repository ./internal/application/service ./internal/handler ./internal/config ./internal/middleware ./internal/utils -run 'SourceID|Enrollment|OIDC|AuthToken|SwitchTenant|Login|Logout|GenerateTokens|ValidateToken|RefreshToken' | tee sourceid-results/focused.jsonl
+      - name: Validate isolated diagnostic report persistence filter
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 docs/integration/sourceid/linux-probe/probe_report_filter_test.py | tee sourceid-results/diagnostic-filter.json
+          python3 docs/integration/sourceid/business-test/export_token_diagnostics_test.py | tee sourceid-results/diagnostic-exporter.json
+          go run docs/integration/sourceid/business-test/basic-encoding-analysis.go > sourceid-results/basic-encoding.json
+      - name: Feishu and combined migration compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -race -json -count=1 ./internal/datasource/connector/feishu/core ./internal/datasource/connector/feishu/wiki ./internal/datasource/connector/feishu/drive ./internal/application/service ./internal/handler ./internal/router ./internal/utils -run 'Feishu|Personal|SystemSetting|SourceID|OIDC' | tee sourceid-results/combined-feishu.jsonl
+          go test ./internal/database -run 'MigrationNumbersAreUniqueAndPaired|Immutable|Governance|MigrationManifest' -count=1
+      - name: Authentication and MCP regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          go vet ./cmd/sourceid-ownership ./cmd/sourceid-enroll ./cmd/sourceid-probe ./internal/sourceid ./internal/application/repository ./internal/application/service ./internal/handler ./internal/config ./internal/middleware
+          go test -json -count=1 ./internal/application/repository ./internal/application/service ./internal/handler ./internal/config ./internal/middleware ./internal/utils ./internal/mcp ./internal/mcpserver | tee sourceid-results/regression.jsonl
+      - name: Build server and reviewed enrollment utility
+        run: |
+          go build -o /tmp/knowhub-sourceid-server ./cmd/server
+          go build -o /tmp/sourceid-enroll ./cmd/sourceid-enroll
+          go build -o /tmp/sourceid-binding ./cmd/sourceid-binding
+          go build -o /tmp/sourceid-ownership ./cmd/sourceid-ownership
+          go build -o /tmp/sourceid-test-account ./cmd/sourceid-test-account
+          go build -o /tmp/sourceid-probe ./cmd/sourceid-probe
+      - uses: actions/upload-artifact@v6
+        with:
+          name: sourceid-probe-linux-${{ github.sha }}
+          path: /tmp/sourceid-probe
+          retention-days: 7
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: sourceid-linux-${{ github.sha }}
+          path: sourceid-results
+
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.8"
+          cache: true
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Real frontend and business auth handlers with isolated Mock SID
+        run: |
+          set -euo pipefail
+          mkdir -p sourceid-results
+          npm ci --prefix frontend
+          SOURCEID_BROWSER_E2E=1 go test -timeout 15m -v -count=1 ./internal/handler -run '^TestSourceID(Local|SSO|Enterprise|JIT|VerifiedEmail)BrowserBusinessLogin$' | tee sourceid-results/local-browser.txt
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: sourceid-local-browser-${{ github.sha }}
+          path: sourceid-results
+
+  postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: sourceid_mock
+          POSTGRES_PASSWORD: sourceid_mock
+          POSTGRES_DB: sourceid_mock
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U sourceid_mock -d sourceid_mock"
+          --health-interval 10s --health-timeout 5s --health-retries 6
+    env:
+      SOURCEID_TEST_POSTGRES_DSN: postgres://sourceid_mock:sourceid_mock@localhost:5432/sourceid_mock?sslmode=disable
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.8"
+          cache: true
+      - name: PostgreSQL migration and durable session tests
+        run: |
+          go test -race -v -count=1 ./internal/application/repository -run SourceIDPostgres
+          go test -race -v -count=1 ./internal/accountprep -run SourceIDAccountPrepPostgres
+
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run type-check
+      - run: npm test -- src/utils/authRedirect.test.ts src/utils/authRefresh.test.ts src/utils/authLandingContracts.test.ts src/utils/oidcCallbackEntry.test.ts
+      - run: npm run build

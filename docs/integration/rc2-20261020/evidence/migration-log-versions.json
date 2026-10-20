@@ -1,0 +1,38 @@
+[
+  {
+    "database": "rc2upgrade",
+    "sha256": "423d8405b627b9da0b05d891d89d2e8334ac5ab20f45c637d009ee0f2d1c12fa",
+    "captured_utc": "2026-10-20T00:54:59.424568+00:00",
+    "private_path": "/home/aqyfzx/ai/knowhub-rc2-20261020/private/phase-logs/rc2upgrade-1.log"
+  },
+  {
+    "database": "rc2upgrade",
+    "sha256": "740fb9dacde261d482f4dd57a5c3fb150863b1d626c87c4dd031bfb874852492",
+    "captured_utc": "2026-10-20T00:59:24.477105+00:00",
+    "private_path": "/home/aqyfzx/ai/knowhub-rc2-20261020/private/phase-logs/rc2upgrade-2.log"
+  },
+  {
+    "database": "rc2upgrade",
+    "sha256": "2d417136f5ac5640fab55a861302cb5ee8e1bc55455658b6668279b8e7b38728",
+    "captured_utc": "2026-10-20T01:00:15.505004+00:00",
+    "private_path": "/home/aqyfzx/ai/knowhub-rc2-20261020/private/phase-logs/rc2upgrade-3.log"
+  },
+  {
+    "database": "rc2fault",
+    "sha256": "ed44ddba11dc2cff90b9eb7dd87a02125aa1d89136ef052e6ba0bcec903887e3",
+    "captured_utc": "2026-10-20T01:00:44.356738+00:00",
+    "private_path": "/home/aqyfzx/ai/knowhub-rc2-20261020/private/phase-logs/rc2fault-4.log"
+  },
+  {
+    "database": "rc2fault",
+    "sha256": "afccf6ff25a54fdbd887804594a66e2a738a742ea31d884ff925036cdc889871",
+    "captured_utc": "2026-10-20T01:00:48.986002+00:00",
+    "private_path": "/home/aqyfzx/ai/knowhub-rc2-20261020/private/phase-logs/rc2fault-5.log"
+  },
+  {
+    "database": "rc2recovered",
+    "sha256": "a95c0711806eb5cad0b108a33da409323b206438ecc222f3a00914c008751433",
+    "captured_utc": "2026-10-20T01:06:58.247283+00:00",
+    "private_path": "/home/aqyfzx/ai/knowhub-rc2-20261020/private/phase-logs/rc2recovered-6.log"
+  }
+]

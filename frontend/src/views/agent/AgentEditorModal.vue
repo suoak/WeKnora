@@ -5,7 +5,7 @@
     nav-guide="agent-editor-sidebar" nav-item-guide-prefix="agent-editor-nav" @close="modalShell.requestClose">
     <div ref="contentWrapperRef" class="content-wrapper" :class="{ 'content-wrapper--prompts': currentSection === 'prompts' }">
       <!-- 基础设置 -->
-      <div v-show="currentSection === 'basic'" class="section">
+      <AgentEditorPanel v-show="currentSection === 'basic'" class="section" :title="navItems.find(item => item.key === 'basic')?.label || ''" :loading="panelLoading('basic')" :issues="panelIssues('basic')" :empty-message="panelEmptyMessage('basic')" @retry="retryPanel('basic')">
         <div class="section-header">
           <div class="section-header-title">
             <h2>{{ $t('agent.editor.basicInfo') }}</h2>
@@ -150,10 +150,10 @@
           </div>
 
         </div>
-      </div>
+      </AgentEditorPanel>
 
       <!-- 提示词 -->
-      <div v-show="currentSection === 'prompts'" class="section section--prompts">
+      <AgentEditorPanel v-show="currentSection === 'prompts'" class="section section--prompts" :title="navItems.find(item => item.key === 'prompts')?.label || ''" :loading="panelLoading('prompts')" :issues="panelIssues('prompts')" :empty-message="panelEmptyMessage('prompts')" @retry="retryPanel('prompts')">
         <div class="prompts-panel">
           <div class="prompts-panel__header">
             <div class="section-header section-header--compact">
@@ -356,7 +356,87 @@
                 </template>
               </div>
             </div>
+          </div>
 
+          <!-- 改写提示词复用现有配置字段，与其它提示词面板同级 -->
+
+          <div v-if="showRewritePrompts" v-show="activePromptAnchor === 'rewrite-system'"
+            class="setting-row setting-row-vertical prompts-panel__pane">
+            <div class="setting-info">
+              <label>{{ $t('agent.editor.rewritePromptSystem') }}</label>
+              <p class="desc">{{ $t('agentEditor.desc.rewriteSystemPrompt') }}</p>
+              <div v-if="rewriteSystemPlaceholders.length > 0" class="placeholder-tags">
+                <span class="placeholder-label">{{ $t('agentEditor.placeholders.available') }}</span>
+                <t-tooltip v-for="placeholder in rewriteSystemPlaceholders" :key="placeholder.name"
+                  :content="placeholder.description + $t('agentEditor.placeholders.clickToInsert')">
+                  <span class="placeholder-tag" @click="handlePlaceholderClick('rewriteSystem', placeholder.name)"
+                    v-text="'{{' + placeholder.name + '}}'"></span>
+                </t-tooltip>
+              </div>
+            </div>
+            <div class="setting-control setting-control-full" style="position: relative;">
+              <div class="textarea-with-template">
+                <t-textarea ref="rewriteSystemTextareaRef" v-model="formData.config.rewrite_prompt_system"
+                  :placeholder="defaultRewritePromptSystem || $t('agent.editor.rewritePromptSystemPlaceholder')"
+                  :autosize="{ minRows: 4, maxRows: 12 }" @input="handleRewriteSystemInput" />
+                <PromptTemplateSelector type="rewrite" position="corner" :hasKnowledgeBase="hasKnowledgeBase"
+                  @select="handleRewriteTemplateSelect" @reset-default="handleRewriteTemplateSelect" />
+              </div>
+              <Teleport to="body">
+                <div v-if="rewriteSystemPopup.show && filteredRewriteSystemPlaceholders.length > 0"
+                  class="placeholder-popup-wrapper" :style="rewriteSystemPopup.style">
+                  <div class="placeholder-popup">
+                    <div v-for="(placeholder, index) in filteredRewriteSystemPlaceholders" :key="placeholder.name"
+                      class="placeholder-item" :class="{ active: rewriteSystemPopup.selectedIndex === index }"
+                      @mousedown.prevent="insertGenericPlaceholder('rewriteSystem', placeholder.name, true)"
+                      @mouseenter="rewriteSystemPopup.selectedIndex = index">
+                      <div class="placeholder-name"><code v-text="'{{' + placeholder.name + '}}'"></code></div>
+                      <div class="placeholder-desc">{{ placeholder.description }}</div>
+                    </div>
+                  </div>
+                </div>
+              </Teleport>
+            </div>
+          </div>
+
+          <div v-if="showRewritePrompts" v-show="activePromptAnchor === 'rewrite-user'"
+            class="setting-row setting-row-vertical prompts-panel__pane">
+            <div class="setting-info">
+              <label>{{ $t('agent.editor.rewritePromptUser') }}</label>
+              <p class="desc">{{ $t('agentEditor.desc.rewriteUserPrompt') }}</p>
+              <div v-if="rewritePlaceholders.length > 0" class="placeholder-tags">
+                <span class="placeholder-label">{{ $t('agentEditor.placeholders.available') }}</span>
+                <t-tooltip v-for="placeholder in rewritePlaceholders" :key="placeholder.name"
+                  :content="placeholder.description + $t('agentEditor.placeholders.clickToInsert')">
+                  <span class="placeholder-tag" @click="handlePlaceholderClick('rewriteUser', placeholder.name)"
+                    v-text="'{{' + placeholder.name + '}}'"></span>
+                </t-tooltip>
+              </div>
+            </div>
+            <div class="setting-control setting-control-full" style="position: relative;">
+              <div class="textarea-with-template">
+                <t-textarea ref="rewriteUserTextareaRef" v-model="formData.config.rewrite_prompt_user"
+                  :placeholder="defaultRewritePromptUser || $t('agent.editor.rewritePromptUserPlaceholder')"
+                  :autosize="{ minRows: 4, maxRows: 12 }" @input="handleRewriteUserInput" />
+                <PromptTemplateSelector type="rewrite" position="corner" :hasKnowledgeBase="hasKnowledgeBase"
+                  @select="handleRewriteTemplateSelect" @reset-default="handleRewriteTemplateSelect" />
+              </div>
+              <Teleport to="body">
+                <div v-if="rewriteUserPopup.show && filteredRewriteUserPlaceholders.length > 0"
+                  class="placeholder-popup-wrapper" :style="rewriteUserPopup.style">
+                  <div class="placeholder-popup">
+                    <div v-for="(placeholder, index) in filteredRewriteUserPlaceholders" :key="placeholder.name"
+                      class="placeholder-item" :class="{ active: rewriteUserPopup.selectedIndex === index }"
+                      @mousedown.prevent="insertGenericPlaceholder('rewriteUser', placeholder.name, true)"
+                      @mouseenter="rewriteUserPopup.selectedIndex = index">
+                      <div class="placeholder-name"><code v-text="'{{' + placeholder.name + '}}'"></code></div>
+                      <div class="placeholder-desc">{{ placeholder.description }}</div>
+                    </div>
+                  </div>
+                </div>
+              </Teleport>
+            </div>
+          </div>
 
           <!-- 检索兜底（普通模式 + 启用知识库） -->
           <div v-if="!isAgentMode && hasKnowledgeBase" v-show="activePromptAnchor === 'fallback'"
@@ -442,14 +522,16 @@
             </div>
           </div>
         </div>
-      </div>
 
+      </AgentEditorPanel>
       <!-- 模型配置 -->
-      <div v-show="currentSection === 'model'" class="section">
+      <AgentEditorPanel v-show="currentSection === 'model'" class="section" :title="navItems.find(item => item.key === 'model')?.label || ''" :loading="panelLoading('model')" :issues="panelIssues('model')" :empty-message="panelEmptyMessage('model')" @retry="retryPanel('model')">
         <div class="section-header">
           <h2>{{ $t('agent.editor.modelConfig') }}</h2>
           <p class="section-description">{{ $t('agent.editor.modelConfigDesc') }}</p>
         </div>
+        <t-alert v-for="id in unavailableModelIds" :key="id" theme="warning"
+          :message="$t('agentEditor.resourceState.unavailableModel', { id })" />
 
         <div class="settings-group">
           <!-- 模型选择 -->
@@ -623,10 +705,10 @@
           </div>
 
         </div>
-      </div>
+      </AgentEditorPanel>
 
       <!-- 附件上传 -->
-      <div v-show="currentSection === 'multimodal'" class="section">
+      <AgentEditorPanel v-show="currentSection === 'multimodal'" class="section" :title="navItems.find(item => item.key === 'multimodal')?.label || ''" :loading="panelLoading('multimodal')" :issues="panelIssues('multimodal')" :empty-message="panelEmptyMessage('multimodal')" @retry="retryPanel('multimodal')">
         <div class="section-header">
           <h2>{{ $t('agentEditor.imageUpload.sectionTitle') }}</h2>
           <p class="section-description">{{ $t('agentEditor.imageUpload.sectionDesc') }}</p>
@@ -765,12 +847,12 @@
           </div>
 
         </div>
-      </div>
+      </AgentEditorPanel>
 
       <!-- 多轮对话。两种模式都保留本组：Agent 模式在这里说明历史按上下文窗口
            自动管理，并承载跨轮保留检索结果；开关由 EnsureDefaults 强制开启，
            故只在普通模式展示。 -->
-      <div v-show="currentSection === 'conversation'" class="section">
+      <AgentEditorPanel v-show="currentSection === 'conversation'" class="section" :title="navItems.find(item => item.key === 'conversation')?.label || ''" :loading="panelLoading('conversation')" :issues="panelIssues('conversation')" :empty-message="panelEmptyMessage('conversation')" @retry="retryPanel('conversation')">
         <div class="section-header">
           <h2>{{ $t('agent.editor.conversationSettings') }}</h2>
           <p class="section-description">{{ conversationSectionDesc }}</p>
@@ -824,10 +906,10 @@
             </div>
           </div>
         </div>
-      </div>
+      </AgentEditorPanel>
 
       <!-- 对话问题推荐 -->
-      <div v-show="currentSection === 'suggestions'" class="section">
+      <AgentEditorPanel v-show="currentSection === 'suggestions'" class="section" :title="navItems.find(item => item.key === 'suggestions')?.label || ''" :loading="panelLoading('suggestions')" :issues="panelIssues('suggestions')" :empty-message="panelEmptyMessage('suggestions')" @retry="retryPanel('suggestions')">
         <div class="section-header">
           <h2>{{ $t('agentEditor.questionSuggestions.title') }}</h2>
           <p class="section-description">{{ $t('agentEditor.questionSuggestions.description') }}</p>
@@ -1007,10 +1089,10 @@
             </div>
           </template>
         </div>
-      </div>
+      </AgentEditorPanel>
 
       <!-- 工具配置（仅 Agent 模式） -->
-      <div v-show="currentSection === 'tools' && isAgentMode" class="section">
+      <AgentEditorPanel v-show="currentSection === 'tools' && isAgentMode" class="section" :title="navItems.find(item => item.key === 'tools')?.label || ''" :loading="panelLoading('tools')" :issues="panelIssues('tools')" :empty-message="panelEmptyMessage('tools')" @retry="retryPanel('tools')">
         <div class="section-header">
           <h2>{{ $t('agent.editor.toolsConfig') }}</h2>
           <p class="section-description">{{ $t('agent.editor.toolsConfigDesc') }}</p>
@@ -1113,10 +1195,10 @@
             </div>
           </div>
         </div>
-      </div>
+      </AgentEditorPanel>
 
       <!-- MCP 服务配置（仅 Agent 模式） -->
-      <div v-show="currentSection === 'mcp' && isAgentMode" class="section">
+      <AgentEditorPanel v-show="currentSection === 'mcp' && isAgentMode" class="section" :title="navItems.find(item => item.key === 'mcp')?.label || ''" :loading="panelLoading('mcp')" :issues="panelIssues('mcp')" :empty-message="panelEmptyMessage('mcp')" @retry="retryPanel('mcp')">
         <div class="section-header">
           <h2>{{ $t('agentEditor.mcp.label') }}</h2>
           <p class="section-description">{{ $t('agentEditor.mcp.desc') }}</p>
@@ -1165,10 +1247,10 @@
             </div>
           </div>
         </div>
-      </div>
+      </AgentEditorPanel>
 
       <!-- 技能：脚本跑在所选沙箱里，可用列表也来自这份配置 -->
-      <div v-show="currentSection === 'skills' && isAgentMode" class="section">
+      <AgentEditorPanel v-show="currentSection === 'skills' && isAgentMode" class="section" :title="navItems.find(item => item.key === 'skills')?.label || ''" :loading="panelLoading('skills')" :issues="panelIssues('skills')" :empty-message="panelEmptyMessage('skills')" @retry="retryPanel('skills')">
         <div class="section-header">
           <h2>{{ $t('agent.editor.skillsConfig') }}</h2>
           <p class="section-description">{{ hostOnly ? $t('agent.editor.hostSkillsConfigDesc') : $t('agent.editor.skillsConfigDesc') }}</p>
@@ -1362,10 +1444,10 @@
             </div>
           </div>
         </div>
-      </div>
+      </AgentEditorPanel>
 
       <!-- 知识库配置 -->
-      <div v-show="currentSection === 'knowledge'" class="section">
+      <AgentEditorPanel v-show="currentSection === 'knowledge'" class="section" :title="navItems.find(item => item.key === 'knowledge')?.label || ''" :loading="panelLoading('knowledge')" :issues="panelIssues('knowledge')" :empty-message="panelEmptyMessage('knowledge')" @retry="retryPanel('knowledge')">
         <div class="section-header">
           <h2>{{ $t('agent.editor.knowledgeConfig') }}</h2>
           <p class="section-description">{{ $t('agent.editor.knowledgeConfigDesc') }}</p>
@@ -1461,10 +1543,10 @@
           </div>
 
         </div>
-      </div>
+      </AgentEditorPanel>
 
       <!-- 网络搜索配置 -->
-      <div v-show="currentSection === 'websearch'" class="section">
+      <AgentEditorPanel v-show="currentSection === 'websearch'" class="section" :title="navItems.find(item => item.key === 'websearch')?.label || ''" :loading="panelLoading('websearch')" :issues="panelIssues('websearch')" :empty-message="panelEmptyMessage('websearch')" @retry="retryPanel('websearch')">
         <div class="section-header">
           <h2>{{ $t('agent.editor.webSearchConfig') }}</h2>
           <p class="section-description">{{ $t('agent.editor.webSearchConfigDesc') }}</p>
@@ -1541,11 +1623,11 @@
             </div>
           </div>
         </div>
-      </div>
+      </AgentEditorPanel>
 
       <!-- 检索策略（仅普通模式且有知识库能力时显示；Agent 模式的 search_knowledge
            使用全局检索配置，这里的设置对它不生效） -->
-      <div v-show="currentSection === 'retrieval' && hasKnowledgeBase && !isAgentMode" class="section">
+      <AgentEditorPanel v-show="currentSection === 'retrieval' && hasKnowledgeBase && !isAgentMode" class="section" :title="navItems.find(item => item.key === 'retrieval')?.label || ''" :loading="panelLoading('retrieval')" :issues="panelIssues('retrieval')" :empty-message="panelEmptyMessage('retrieval')" @retry="retryPanel('retrieval')">
         <div class="section-header">
           <h2>{{ $t('agent.editor.retrievalStrategy') }}</h2>
           <p class="section-description">{{ $t('agentEditor.desc.retrievalSection') }}</p>
@@ -1677,14 +1759,13 @@
             </div>
           </div>
         </div>
-      </div>
+      </AgentEditorPanel>
 
       <!-- 共享管理（仅编辑模式且非内置智能体） -->
-      <div v-if="editorMode === 'edit' && editorAgent?.id && !editorAgent?.is_builtin"
-        v-show="currentSection === 'share'" class="section">
+      <AgentEditorPanel v-if="editorMode === 'edit' && editorAgent?.id && !editorAgent?.is_builtin"
+        v-show="currentSection === 'share'" class="section" :title="navItems.find(item => item.key === 'share')?.label || ''" :loading="panelLoading('share')" :issues="panelIssues('share')" :empty-message="panelEmptyMessage('share')" @retry="retryPanel('share')">
         <AgentShareSettings :agent-id="editorAgent.id" :agent="editorAgent" />
-      </div>
-    </div>
+      </AgentEditorPanel>
     </div>
 
     <template #footer-note>
@@ -1747,6 +1828,7 @@ import { copyWithToast } from '@/utils/clipboard';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { useModalShell } from '@/composables/useModalShell'
 import SettingsModalShell from '@/components/SettingsModalShell.vue'
+import AgentEditorPanel from './AgentEditorPanel.vue'
 import {
   createAgent,
   updateAgent,
@@ -1954,6 +2036,49 @@ onBeforeUnmount(() => {
 const saving = ref(false);
 const editorInitializing = ref(false);
 const allModels = ref<ModelConfig[]>([]);
+const resourceLoadStates = ref<Record<string, { loading: boolean; error?: unknown }>>({});
+const sectionResources: Record<string, string[]> = {
+  basic: ['agentTypePresets'], prompts: ['promptTemplates', 'placeholders'],
+  model: ['models'], tools: ['knowledgeBases', 'agentTypePresets'],
+  knowledge: ['knowledgeBases'], retrieval: ['tenantRetrievalConfig'],
+  websearch: ['webSearchProviders'], mcp: ['mcpServices'],
+  skills: ['sandboxConfigs', 'skills', 'skillCatalog'], multimodal: ['models', 'storageEngine', 'parserEngines'],
+};
+async function loadResource(key: string, request: () => Promise<void>): Promise<boolean> {
+  resourceLoadStates.value[key] = { loading: true };
+  try {
+    await request();
+    resourceLoadStates.value[key] = { loading: false };
+    return true;
+  } catch (error) {
+    resourceLoadStates.value[key] = { loading: false, error };
+    console.error(`Agent editor resource failed: ${key}`, error);
+    return false;
+  }
+}
+function panelLoading(section: string) {
+  return (sectionResources[section] || []).some(key => resourceLoadStates.value[key]?.loading);
+}
+function panelIssues(section: string) {
+  return (sectionResources[section] || []).flatMap(resource => {
+    const error = resourceLoadStates.value[resource]?.error as { response?: { status?: number }; status?: number } | undefined;
+    if (!error) return [];
+    const status = error.response?.status ?? error.status;
+    return [{ resource, message: t(status === 401 || status === 403
+      ? 'agentEditor.resourceState.permissionDenied' : 'agentEditor.resourceState.loadFailed') }];
+  });
+}
+function panelEmptyMessage(section: string) {
+  if (section === 'model' && !allModels.value.some(m => m.type === 'KnowledgeQA' && (!m.status || m.status === 'active'))) return t('agentEditor.resourceState.emptyModels');
+  if (section === 'knowledge' && !kbOptions.value.length) return t('agentEditor.resourceState.empty');
+  if (section === 'mcp' && !editorResources.mcpServices.length) return t('agentEditor.resourceState.empty');
+  if (section === 'websearch' && !webSearchProviderList.value.length) return t('agentEditor.resourceState.empty');
+  return '';
+}
+async function retryPanel(section: string) {
+  await loadDependencies(section);
+  if (section === 'skills') await syncInstalledSkills(true);
+}
 const kbOptions = ref<{ label: string; value: string; type?: 'document' | 'faq'; count?: number; shared?: boolean; orgName?: string; ragEnabled?: boolean; wikiEnabled?: boolean; capabilities?: KBCapabilities }[]>([]);
 
 // 智能体类型预设（仅 smart-reasoning 模式下展示）
@@ -2140,6 +2265,7 @@ function namedSandboxConfigs(): SandboxConfigRecord[] {
 }
 
 function autoBindSoleSandbox() {
+  if (editorInitializing.value && editorMode.value === 'edit') return
   if (hostOnly.value) return
   if (skillsSelectionMode.value === 'none') return
   if (formData.value.config.sandbox_config_id) return
@@ -2206,34 +2332,22 @@ function onSkillProgressChanged() {
   void syncInstalledSkills(true)
 }
 
-function pruneSelectedSkills() {
-  if (!catalogReady.value) return
-  // A skill being upgraded is briefly not ready, and dropping it here would
-  // silently unselect it for good once the agent is saved.
-  const names = new Set(catalogSkillRows.value
-    .filter((skill) => skill.selectable || (skill.installed && isSkillBusy(skill)))
-    .map((skill) => skill.name))
-  const selected: string[] = formData.value.config.selected_skills || []
-  const kept = selected.filter((name: string) => names.has(name))
-  if (kept.length !== selected.length) {
-    formData.value.config.selected_skills = kept
-  }
-}
-
 async function syncInstalledSkills(force = false) {
   autoBindSoleSandbox()
   const configId = skillTargetId.value
   // The editor only edits this workspace's agents, so the sandbox config is
   // local and needs no source-workspace scope.
-  await editorResources.ensureSkills(configId, undefined, force)
-  try {
-    await editorResources.ensureSkillCatalog(force)
+  await loadResource('skills', async () => {
+    await editorResources.ensureSkills(configId, undefined, force)
+    if (editorResources.skillsError) throw editorResources.skillsError
+  })
+  const loaded = await loadResource('skillCatalog', () => editorResources.ensureSkillCatalog(force))
+  if (loaded) {
     skillCatalog.value = [...editorResources.skillCatalog]
     catalogReady.value = true
-  } catch {
+  } else {
     catalogReady.value = false
   }
-  pruneSelectedSkills()
 }
 
 async function installCatalogToCurrent(skill: CatalogSkillRow) {
@@ -3345,6 +3459,8 @@ const onAgentTypeChange = (val: AgentType) => {
 const selectedChatModel = computed(() =>
   allModels.value.find(model => model.id === formData.value.config.model_id),
 );
+const unavailableModelIds = computed(() => [formData.value.config.model_id, formData.value.config.rerank_model_id]
+  .filter((id): id is string => Boolean(id) && !allModels.value.some(model => model.id === id && (!model.status || model.status === 'active'))));
 const selectedChatModelCanThink = computed(() => modelCanThink(selectedChatModel.value?.capabilities));
 // 所选模型无法关闭思考（deepseek-reasoner / qwq-plus / gemini-3 等）时给出提示，
 // 否则下拉里没有「关闭」看起来像 bug。
@@ -3372,15 +3488,8 @@ const clampReasoningEffortToModel = () => {
   const clamped = clampLevel(reasoningEffortLevel.value, reasoningEffortOptions.value);
   if (clamped !== reasoningEffortLevel.value) reasoningEffortLevel.value = clamped;
 };
-watch(
-  () => [
-    editorInitializing.value,
-    formData.value.config.model_id,
-    reasoningEffortOptions.value.join(','),
-  ].join('|'),
-  () => clampReasoningEffortToModel(),
-  { immediate: true },
-);
+// Only a user changing the model may adapt the draft's thinking level.
+watch(() => formData.value.config.model_id, () => clampReasoningEffortToModel());
 
 // 是否为内置智能体
 const isBuiltinAgent = computed(() => {
@@ -3847,9 +3956,7 @@ watch(() => uiStore.showSettingsModal, async (visible, prevVisible) => {
         editorResources.ensureStorageEngine(true),
         chatResources.ensureSandboxConfigs(true),
       ]);
-      if (chatResources.allModels.length > 0) {
-        allModels.value = chatResources.allModels;
-      }
+      allModels.value = chatResources.allModels;
       if (editorResources.storageStatus.length > 0) {
         storageEngineStatus.value = editorResources.storageStatus;
       }
@@ -3914,19 +4021,28 @@ const applyPromptTemplateDefaults = (cfg: PromptTemplatesConfig | null) => {
 };
 
 // 加载依赖数据（复用空间级缓存，避免重复请求）
-const loadDependencies = async () => {
+const loadDependencies = async (section?: string) => {
   try {
-    await Promise.all([
-      chatResources.ensureModels(),
-      chatResources.ensureKnowledgeBases(),
-      chatResources.ensureWebSearchProviders(),
-      chatResources.ensureSandboxConfigs(),
-      editorResources.prefetchAgentEditorDeps(),
-    ]);
+    const tasks: Record<string, () => Promise<void>> = {
+      models: () => chatResources.ensureModels(),
+      knowledgeBases: () => chatResources.ensureKnowledgeBases(),
+      webSearchProviders: () => chatResources.ensureWebSearchProviders(),
+      sandboxConfigs: async () => {
+        await chatResources.ensureSandboxConfigs();
+        if (chatResources.sandboxConfigsError) throw chatResources.sandboxConfigsError;
+      },
+      mcpServices: () => editorResources.ensureMcpServices(),
+      agentTypePresets: () => editorResources.ensureAgentTypePresets(),
+      promptTemplates: () => editorResources.ensurePromptTemplates(),
+      storageEngine: () => editorResources.ensureStorageEngine(),
+      placeholders: () => editorResources.ensurePlaceholders(),
+      tenantRetrievalConfig: () => editorResources.ensureTenantRetrievalConfig(),
+      parserEngines: () => editorResources.ensureParserEngines(),
+    };
+    const required = section ? sectionResources[section] || [] : Object.keys(tasks);
+    await Promise.all(required.filter(key => tasks[key]).map(key => loadResource(key, tasks[key]!)));
 
-    if (chatResources.allModels.length > 0) {
-      allModels.value = chatResources.allModels;
-    }
+    allModels.value = chatResources.allModels;
 
     const myKbs = chatResources.rawKnowledgeBases.map((kb: any) => mapKbToOption(kb, false));
     const myKbIds = new Set(myKbs.map(kb => kb.value));
@@ -4857,8 +4973,6 @@ const handleSave = async () => {
   if (!formData.value.config.intent_prompts || Object.keys(formData.value.config.intent_prompts).length === 0) {
     delete formData.value.config.intent_prompts;
   }
-
-  pruneSelectedSkills()
 
   if (hostOnly.value) formData.value.config.sandbox_config_id = ''
 

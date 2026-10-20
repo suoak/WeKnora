@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -71,10 +72,9 @@ func NewAuthHandler(configInfo *config.Config,
 	// pointing at the misconfiguration so operators notice on startup
 	// instead of discovering it the day someone hits /auth/register.
 	if configInfo == nil || configInfo.Auth == nil {
-		logger.Errorf(context.Background(),
-			"[auth] AuthHandler constructed with nil/incomplete config (cfg=%v); "+
-				"registration_mode enforcement is disabled. This is almost certainly a wiring bug.",
-			configInfo)
+		logger.Error(context.Background(),
+			"[auth] AuthHandler constructed with nil/incomplete auth config; "+
+				"registration_mode enforcement is disabled")
 	}
 	return &AuthHandler{
 		configInfo:       configInfo,
@@ -312,18 +312,24 @@ func (h *AuthHandler) Login(c *gin.Context) {
 // @Failure      403           {object}  errors.AppError  "OIDC未启用"
 // @Router       /auth/oidc/url [get]
 func (h *AuthHandler) GetOIDCAuthorizationURL(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
 	ctx := c.Request.Context()
 	redirectURI := strings.TrimSpace(c.Query("redirect_uri"))
+	if h.configInfo != nil && h.configInfo.OIDCAuth != nil && h.configInfo.OIDCAuth.RedirectURI != "" {
+		if redirectURI != "" && redirectURI != h.configInfo.OIDCAuth.RedirectURI {
+			c.Status(http.StatusBadRequest)
+			return
+		}
+		redirectURI = h.configInfo.OIDCAuth.RedirectURI
+	}
 	if redirectURI == "" {
-		appErr := errors.NewValidationError("redirect_uri is required")
-		c.Error(appErr)
-		return
+		redirectURI = oidcCallbackURL(c)
 	}
 
 	resp, err := h.userService.GetOIDCAuthorizationURL(ctx, redirectURI)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to generate OIDC authorization URL: %v", err)
-		appErr := errors.NewForbiddenError("OIDC authorization unavailable").WithDetails(err.Error())
+		appErr := errors.NewForbiddenError("OIDC authorization unavailable")
 		c.Error(appErr)
 		return
 	}
@@ -367,11 +373,16 @@ func oidcCallbackURL(c *gin.Context) string {
 // @Success      302
 // @Router       /auth/oidc/start [get]
 func (h *AuthHandler) OIDCStart(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
 	ctx := c.Request.Context()
-	resp, err := h.userService.GetOIDCAuthorizationURL(ctx, oidcCallbackURL(c))
+	redirectURI := oidcCallbackURL(c)
+	if h.configInfo != nil && h.configInfo.OIDCAuth != nil && h.configInfo.OIDCAuth.RedirectURI != "" {
+		redirectURI = h.configInfo.OIDCAuth.RedirectURI
+	}
+	resp, err := h.userService.GetOIDCAuthorizationURL(ctx, redirectURI)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to generate OIDC authorization URL: %v", err)
-		appErr := errors.NewForbiddenError("OIDC authorization unavailable").WithDetails(err.Error())
+		appErr := errors.NewForbiddenError("OIDC authorization unavailable")
 		c.Error(appErr)
 		return
 	}
@@ -388,18 +399,27 @@ func (h *AuthHandler) OIDCStart(c *gin.Context) {
 // @Success      200  {object}  types.OIDCConfigResponse
 // @Router       /auth/oidc/config [get]
 func (h *AuthHandler) GetOIDCConfig(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
 	providerDisplayName := ""
+	redirectURI := ""
 	enabled := false
+	sourceIDBasicEncoding := ""
 
 	if h.configInfo != nil && h.configInfo.OIDCAuth != nil {
 		enabled = h.configInfo.OIDCAuth.Enable
 		providerDisplayName = strings.TrimSpace(h.configInfo.OIDCAuth.ProviderDisplayName)
+		redirectURI = h.configInfo.OIDCAuth.RedirectURI
+		if h.configInfo.OIDCAuth.SourceIDEnable {
+			sourceIDBasicEncoding, _ = h.configInfo.OIDCAuth.EffectiveSourceIDBasicEncoding()
+		}
 	}
 
 	c.JSON(http.StatusOK, &types.OIDCConfigResponse{
-		Success:             true,
-		Enabled:             enabled,
-		ProviderDisplayName: providerDisplayName,
+		RedirectURI:           redirectURI,
+		Success:               true,
+		Enabled:               enabled,
+		ProviderDisplayName:   providerDisplayName,
+		SourceIDBasicEncoding: sourceIDBasicEncoding,
 	})
 }
 
@@ -416,13 +436,19 @@ func (h *AuthHandler) GetOIDCConfig(c *gin.Context) {
 // @Router       /auth/oidc/callback [get]
 func (h *AuthHandler) OIDCRedirectCallback(c *gin.Context) {
 	ctx := c.Request.Context()
+	diagnosticsEnabled := h.configInfo != nil && h.configInfo.OIDCAuth != nil &&
+		h.configInfo.OIDCAuth.SourceIDEnable &&
+		h.configInfo.OIDCAuth.SourceIDDiagnosticsEnable
+	ctx = service.NewSourceIDDiagnosticContext(ctx, diagnosticsEnabled)
+	stageStarted := time.Now()
+	callbackError := stderrors.New("callback rejected")
+	defer func() { service.SourceIDDiagnosticStage(ctx, "callback_result", stageStarted, callbackError) }()
+	c.Header("Cache-Control", "no-store")
+	c.Header("Referrer-Policy", "no-referrer")
 	frontendRedirectURI := "/"
 
 	if providerError := strings.TrimSpace(c.Query("error")); providerError != "" {
-		redirectURL := frontendRedirectURI + "#oidc_error=" + urlQueryEscape(providerError)
-		if description := strings.TrimSpace(c.Query("error_description")); description != "" {
-			redirectURL += "&oidc_error_description=" + urlQueryEscape(description)
-		}
+		redirectURL := frontendRedirectURI + "#oidc_error=provider_error"
 		c.Redirect(http.StatusFound, redirectURL)
 		return
 	}
@@ -430,6 +456,7 @@ func (h *AuthHandler) OIDCRedirectCallback(c *gin.Context) {
 	state := strings.TrimSpace(c.Query("state"))
 	decodedState, err := decodeOIDCState(state, c.Request)
 	if err != nil {
+		service.SourceIDDiagnosticStage(ctx, "callback_state", stageStarted, err)
 		logger.Errorf(ctx, "Failed to decode OIDC state: %v", err)
 		c.Redirect(http.StatusFound, frontendRedirectURI+"#oidc_error="+urlQueryEscape("invalid_state"))
 		return
@@ -443,25 +470,60 @@ func (h *AuthHandler) OIDCRedirectCallback(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.userService.LoginWithOIDC(ctx, code, strings.TrimSpace(decodedState.RedirectURI), h.resolveDefaultTenantMode(ctx))
+	if authService, ok := h.userService.(sourceIDAuthService); ok {
+		ctx, err = authService.PrepareOIDCCallback(ctx, state)
+		if err != nil {
+			service.SourceIDDiagnosticStage(ctx, "callback_state", stageStarted, err)
+			c.Redirect(http.StatusFound, "/#oidc_error=invalid_state")
+			return
+		}
+	}
+	service.SourceIDDiagnosticStage(ctx, "callback_state", stageStarted, nil)
+	ctx = service.SourceIDDiagnosticStatePassed(ctx)
+	resp, err := h.userService.LoginWithOIDC(
+		ctx,
+		code,
+		strings.TrimSpace(decodedState.RedirectURI),
+		h.resolveDefaultTenantMode(ctx),
+	)
 	if err != nil {
-		logger.Errorf(ctx, "Failed to complete OIDC login via redirect callback: %v", err)
-		c.Redirect(http.StatusFound, frontendRedirectURI+"#oidc_error="+urlQueryEscape("login_failed")+"&oidc_error_description="+urlQueryEscape(err.Error()))
+		logger.Warn(ctx, "OIDC login rejected")
+		c.Redirect(
+			http.StatusFound,
+			frontendRedirectURI+"#oidc_error="+urlQueryEscape(oidcPublicError(err)),
+		)
 		return
 	}
 	if !resp.Success {
-		c.Redirect(http.StatusFound, frontendRedirectURI+"#oidc_error="+urlQueryEscape("login_failed")+"&oidc_error_description="+urlQueryEscape(resp.Message))
+		c.Redirect(http.StatusFound, frontendRedirectURI+"#oidc_error="+urlQueryEscape("login_failed"))
 		return
 	}
 
 	payload, err := encodeOIDCCallbackPayload(resp)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to encode OIDC callback payload: %v", err)
-		c.Redirect(http.StatusFound, frontendRedirectURI+"#oidc_error="+urlQueryEscape("payload_encode_failed"))
+		c.Redirect(
+			http.StatusFound,
+			frontendRedirectURI+"#oidc_error="+urlQueryEscape("payload_encode_failed"),
+		)
 		return
 	}
 
-	c.Redirect(http.StatusFound, frontendRedirectURI+"#oidc_result="+urlQueryEscape(payload))
+	service, ok := h.userService.(sourceIDAuthService)
+	if !ok {
+		c.Redirect(http.StatusFound, "/#oidc_error=login_failed")
+		return
+	}
+	key, err := service.SaveOIDCLoginResult(ctx, payload)
+	if err != nil {
+		c.Redirect(http.StatusFound, "/#oidc_error=login_failed")
+		return
+	}
+	c.SetSameSite(http.SameSiteStrictMode)
+	secure := c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https")
+	c.SetCookie("knowhub_oidc_result", key, 60, "/api/v1/auth/oidc", "", secure, true)
+	callbackError = nil
+	c.Redirect(http.StatusFound, frontendRedirectURI+"#oidc_complete=1")
 }
 
 func encodeOIDCCallbackPayload(resp *types.OIDCCallbackResponse) (string, error) {
@@ -643,7 +705,13 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 	if activeTenantID > 0 {
 		tenant, err = h.tenantService.GetTenantByID(ctx, activeTenantID)
 		if err != nil {
-			logger.Warnf(ctx, "Failed to get tenant info for user %s, tenant ID %d: %v", user.Email, activeTenantID, err)
+			logger.Warnf(
+				ctx,
+				"Failed to get tenant info for user %s, tenant ID %d: %v",
+				user.Email,
+				activeTenantID,
+				err,
+			)
 			// Don't fail the request if tenant info is not available
 		}
 	}
@@ -655,15 +723,22 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 	canCreateTenant := user.CanAccessAllTenants ||
 		resolveTenantSelfServiceCreationEnabled(ctx, h.configInfo, h.systemSettingSvc)
 	autoAcceptInvitation := h.systemSettingSvc != nil &&
-		h.systemSettingSvc.GetBool(ctx, "tenant.auto_accept_invitation", "WEKNORA_TENANT_AUTO_ACCEPT_INVITATION", false)
+		h.systemSettingSvc.GetBool(
+			ctx,
+			"tenant.auto_accept_invitation",
+			"WEKNORA_TENANT_AUTO_ACCEPT_INVITATION",
+			false,
+		)
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
-			"user":                userInfo,
-			"preference_defaults": gin.H{"browser_search_instructions": types.DefaultBrowserSearchInstructions},
-			"tenant":              dto.NewTenantResponse(ctx, tenant),
-			"memberships":         memberships,
-			"tenant_required":     tenant == nil,
+			"user": userInfo,
+			"preference_defaults": gin.H{
+				"browser_search_instructions": types.DefaultBrowserSearchInstructions,
+			},
+			"tenant":          dto.NewTenantResponse(ctx, tenant),
+			"memberships":     memberships,
+			"tenant_required": tenant == nil,
 			"capabilities": gin.H{
 				"can_create_tenant":      canCreateTenant,
 				"auto_accept_invitation": autoAcceptInvitation,
@@ -866,7 +941,7 @@ func (h *AuthHandler) SwitchTenant(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		appErr := errors.NewValidationError("Invalid workspace switch request").WithDetails(err.Error())
-		c.Error(appErr)
+		_ = c.Error(appErr)
 		return
 	}
 
@@ -877,6 +952,14 @@ func (h *AuthHandler) SwitchTenant(c *gin.Context) {
 		return
 	}
 
+	if service, ok := h.userService.(sourceIDAuthService); ok {
+		access := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
+		ctx, err = service.SourceIDSwitchContext(ctx, access)
+		if err != nil {
+			c.Status(http.StatusUnauthorized)
+			return
+		}
+	}
 	resp, err := h.userService.SwitchTenant(ctx, user, req.TenantID, req.RefreshToken)
 	if err != nil {
 		logger.Errorf(ctx, "SwitchTenant failed user=%s target=%d: %v", user.ID, req.TenantID, err)
@@ -906,7 +989,10 @@ func (h *AuthHandler) AutoSetup(c *gin.Context) {
 	}
 
 	if liteSetupToken == "" ||
-		subtle.ConstantTimeCompare([]byte(c.GetHeader("X-WeKnora-Desktop-Token")), []byte(liteSetupToken)) != 1 {
+		subtle.ConstantTimeCompare(
+			[]byte(c.GetHeader("X-WeKnora-Desktop-Token")),
+			[]byte(liteSetupToken),
+		) != 1 {
 		_ = c.Error(errors.NewUnauthorizedError("desktop authentication is required"))
 		return
 	}

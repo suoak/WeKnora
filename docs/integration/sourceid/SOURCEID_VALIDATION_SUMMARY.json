@@ -1,0 +1,53 @@
+{
+  "sha": "8ae91bc4439dcc93be11844ada5ec1479f2730bc",
+  "environment": [
+    "go version go1.26.8 linux/amd64",
+    "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+    "Copyright (C) 2023 Free Software Foundation, Inc."
+  ],
+  "run": "https://github.com/suoak/WeKnora/actions/runs/38242327216",
+  "artifact_id": 11744092389,
+  "artifact_sha256": "2d1d457b204da027f9aaf51aeea8d7861741009d203fbf8485502df8c69c28a2",
+  "checks": {
+    "focused.jsonl": {
+      "passed_including_subtests": 98,
+      "top_level_passed": 63,
+      "failures": 0,
+      "packages": [
+        "github.com/Tencent/WeKnora/internal/sourceid",
+        "github.com/Tencent/WeKnora/cmd/sourceid-enroll",
+        "github.com/Tencent/WeKnora/internal/application/repository",
+        "github.com/Tencent/WeKnora/internal/config",
+        "github.com/Tencent/WeKnora/internal/middleware",
+        "github.com/Tencent/WeKnora/internal/handler",
+        "github.com/Tencent/WeKnora/internal/utils",
+        "github.com/Tencent/WeKnora/internal/application/service"
+      ]
+    },
+    "regression.jsonl": {
+      "passed_including_subtests": 4624,
+      "top_level_passed": 3143,
+      "failures": 0,
+      "packages": [
+        "github.com/Tencent/WeKnora/internal/application/repository",
+        "github.com/Tencent/WeKnora/internal/config",
+        "github.com/Tencent/WeKnora/internal/handler",
+        "github.com/Tencent/WeKnora/internal/middleware",
+        "github.com/Tencent/WeKnora/internal/utils",
+        "github.com/Tencent/WeKnora/internal/mcpserver",
+        "github.com/Tencent/WeKnora/internal/mcp",
+        "github.com/Tencent/WeKnora/internal/application/service"
+      ]
+    }
+  },
+  "postgres_tests_passed": 2,
+  "frontend_tests_passed": 21,
+  "frontend_typecheck": "PASS",
+  "frontend_build": "PASS",
+  "server_and_enrollment_build": "PASS",
+  "scope": "committed implementation; real SID integration not performed",
+  "status": [
+    "IMPLEMENTED_LOCAL",
+    "BLOCKED_EXTERNAL"
+  ]
+}

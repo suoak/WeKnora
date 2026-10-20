@@ -1,0 +1,14 @@
+{
+  "id": 3945,
+  "kb_exists": true,
+  "kb_deleted": false,
+  "source_type": 0,
+  "chunk_exists": true,
+  "self_distance": 0,
+  "knowledge_exists": true,
+  "knowledge_status": "completed",
+  "wiki_page_exists": false,
+  "embedding_enabled": true,
+  "knowledge_deleted": false,
+  "knowledge_enabled": "enabled"
+}

@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
 import { before, test } from 'node:test'
+import { fileURLToPath } from 'node:url'
+import { createI18n } from 'vue-i18n'
 
 import { findAuditActionDefaultRegistryMismatches } from './auditActionLocaleDefaults.ts'
 import { REGISTERED_AUDIT_ACTION_ENTRIES, KB_ACTIVITY_DETAIL_VALUES, KB_ACTIVITY_I18N_ROOTS, KB_ACTIVITY_OUTCOMES } from './auditActionRegistry.ts'
@@ -8,6 +10,7 @@ import {
   LOCALE_BUNDLES,
   alignLocaleBundleToReferenceKeys,
   collectI18nUsageFromSources,
+  collectI18nUsageFromSourceFiles,
   collectLocaleKeys,
   collectReferencedLocaleKeys,
   diffLocaleKeys,
@@ -19,6 +22,45 @@ import {
 } from './localeKeyAudit.ts'
 
 const REFERENCE_LOCALE: LocaleName = 'en-US'
+
+test('KnowledgeBase page static translation keys exist in zh-CN, including conditional calls', () => {
+  const page = fileURLToPath(new URL('../views/knowledge/KnowledgeBase.vue', import.meta.url))
+  const documentList = fileURLToPath(new URL('../views/knowledge/components/DocumentListView.vue', import.meta.url))
+  const { staticKeys } = collectI18nUsageFromSourceFiles([page, documentList])
+  for (const key of ['documentCount', 'filters', 'clearFilters']) {
+    assert.ok(staticKeys.has(`knowledgeBase.${key}`), `scanner missed knowledgeBase.${key}`)
+  }
+  const zhKeys = collectLocaleKeys(LOCALE_BUNDLES['zh-CN'])
+  const missing = [...staticKeys].filter(key => !zhKeys.has(key))
+  assert.deepEqual(missing, [], missing.join('\n'))
+})
+
+test('zh-CN and en-US knowledgeBase namespace keys remain consistent', () => {
+  const enKeys = collectLocaleKeys(LOCALE_BUNDLES['en-US'].knowledgeBase)
+  const zhKeys = collectLocaleKeys(LOCALE_BUNDLES['zh-CN'].knowledgeBase)
+  assert.deepEqual(diffLocaleKeys(enKeys, zhKeys), { missing: [], extra: [] })
+})
+
+test('KnowledgeBase document count and filter labels resolve through vue-i18n in every locale', () => {
+  for (const [locale, bundle] of Object.entries(LOCALE_BUNDLES)) {
+    const { global } = createI18n({ legacy: false, locale, fallbackLocale: false, messages: { [locale]: bundle } })
+    for (const key of ['documentCount', 'filters', 'clearFilters']) {
+      const path = `knowledgeBase.${key}`
+      assert.ok(global.te(path), `${locale}: missing ${path}`)
+      assert.notEqual(global.t(path, { count: 7 }), path, `${locale}: unresolved ${path}`)
+    }
+    for (const count of [0, 1, 7, 123]) {
+      const label = global.t('knowledgeBase.documentCount', { count })
+      assert.ok(label.includes(String(count)), `${locale}: count ${count} missing from ${label}`)
+      assert.ok(!label.includes('{count}'))
+      if (locale === 'zh-CN') assert.equal(label, `共 ${count} 个文档`)
+    }
+    if (locale === 'zh-CN') {
+      assert.equal(global.t('knowledgeBase.filters'), '筛选')
+      assert.equal(global.t('knowledgeBase.clearFilters'), '清除筛选')
+    }
+  }
+})
 
 let localeKeysByName: Record<LocaleName, Set<string>>
 let referencedKeys: Set<string>

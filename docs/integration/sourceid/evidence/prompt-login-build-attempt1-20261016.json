@@ -1,0 +1,20 @@
+{
+  "isolated_docker_build_error": [
+    "#2 [internal] load build definition from Dockerfile",
+    "#2 transferring dockerfile: 293B done",
+    "#2 DONE 0.1s",
+    "",
+    "#3 [internal] load metadata for docker.io/library/sha256:2d91336c3f5ba1ba330820801c7bf0573b1c9c45b9280994dd0862d016435286",
+    "#3 ERROR: failed to do request: Head \"https://registry-1.docker.io/v2/library/sha256/manifests/2d91336c3f5ba1ba330820801c7bf0573b1c9c45b9280994dd0862d016435286\": dial tcp 104.23.125.189:443: i/o timeout",
+    "------",
+    " > [internal] load metadata for docker.io/library/sha256:2d91336c3f5ba1ba330820801c7bf0573b1c9c45b9280994dd0862d016435286:",
+    "------",
+    "Dockerfile:1",
+    "--------------------",
+    "   1 | >>> FROM sha256:2d91336c3f5ba1ba330820801c7bf0573b1c9c45b9280994dd0862d016435286",
+    "   2 |     COPY artifacts/WeKnora /app/WeKnora",
+    "   3 |     LABEL org.opencontainers.image.revision=\"c24c1cf21abc6da9d34c60c26a152952c5eefaf8\" knowhub.environment=\"prompt-login-candidate-not-deployed\"",
+    "--------------------",
+    "ERROR: failed to solve: sha256:2d91336c3f5ba1ba330820801c7bf0573b1c9c45b9280994dd0862d016435286: failed to do request: Head \"https://registry-1.docker.io/v2/library/sha256/manifests/2d91336c3f5ba1ba330820801c7bf0573b1c9c45b9280994dd0862d016435286\": dial tcp 104.23.125.189:443: i/o timeout"
+  ]
+}

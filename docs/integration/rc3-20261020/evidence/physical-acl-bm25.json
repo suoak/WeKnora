@@ -1,0 +1,169 @@
+{
+  "container_network": "none",
+  "production_queries": false,
+  "application_api_or_llm": false,
+  "identity": {
+    "acl_rows_md5": "822f3cdabf6b9e4d6da470c15b010240",
+    "user_rows_md5": "539ded5ad20b7512c9c40890c3762442",
+    "knowledge_identity_md5": "80f85e1001647ae3f3ce0524ea3eef29",
+    "business_index_definitions_md5": "1c9af8789a726121013ae18c62281a1d"
+  },
+  "same_as_rc2_production_snapshot": {
+    "acl_rows_md5": true,
+    "user_rows_md5": true,
+    "knowledge_identity_md5": true,
+    "business_index_definitions_md5": true
+  },
+  "acl_table_digests": {
+    "tenant_members": {
+      "rows": 145,
+      "rows_md5": "822f3cdabf6b9e4d6da470c15b010240"
+    },
+    "organization_tenant_members": {
+      "rows": 0,
+      "rows_md5": null
+    },
+    "knowledge_bases": {
+      "rows": 75,
+      "rows_md5": "36d1136f3ddd1e4ef8f0162293857f1e"
+    },
+    "kb_shares": {
+      "rows": 0,
+      "rows_md5": null
+    },
+    "api_key_kb_scopes": {
+      "rows": 2,
+      "rows_md5": "14464544b4dac9606a2f2fcbdbad2133"
+    },
+    "api_key_tenant_scopes": {
+      "rows": 64,
+      "rows_md5": "8c0a9791b4b234fb830fe70811800314"
+    },
+    "data_sources": {
+      "rows": 32,
+      "rows_md5": "35b8890e9ed3e23f8ada2b15faba2786"
+    }
+  },
+  "sources": [
+    {
+      "id": "14433cdb-fddc-4d6c-a979-ef11c05b61bf",
+      "kb": "54b0a305-1ab4-4fab-9937-778fd71c3a74",
+      "type": "feishu",
+      "status": "active",
+      "tenant": 10002,
+      "schedule": "0 0 2 * * *",
+      "cursor_md5": "73df70d1130d4b33019af2320b210200",
+      "updated_at": "2026-10-19T18:00:19.130346",
+      "last_sync_at": "2026-10-19T18:00:19.127664",
+      "knowledge_count": 16,
+      "knowledge_identity_md5": "c95c9cdd9a8566c267bee409496468e3"
+    },
+    {
+      "id": "3e361ce0-b06a-4e8f-ac92-dd9101097045",
+      "kb": "b93b9e1f-e75b-41f5-940a-ad7de5105c6f",
+      "type": "feishu_drive",
+      "status": "active",
+      "tenant": 10005,
+      "schedule": "0 0 */6 * * *",
+      "cursor_md5": "5fba5107ea03e5e791e987689d108712",
+      "updated_at": "2026-10-19T22:00:01.707638",
+      "last_sync_at": "2026-10-19T22:00:01.70479",
+      "knowledge_count": 0,
+      "knowledge_identity_md5": null
+    },
+    {
+      "id": "5c7bc873-0ba3-43c7-90a0-32c23e6bd529",
+      "kb": "6dcae886-fc03-446d-9523-ee6f4e5009c9",
+      "type": "feishu_drive",
+      "status": "active",
+      "tenant": 10005,
+      "schedule": "0 0 */6 * * *",
+      "cursor_md5": "afbfc55bcdc4f7ca11a7d28f8de85e00",
+      "updated_at": "2026-10-19T22:00:02.402598",
+      "last_sync_at": "2026-10-19T22:00:02.400424",
+      "knowledge_count": 46,
+      "knowledge_identity_md5": "e3aa721fab7d9776350df1392779db59"
+    },
+    {
+      "id": "867e5798-1c2b-4547-921d-d43132e3f275",
+      "kb": "8ca41885-69e1-4d43-8bfd-ffc8670900fe",
+      "type": "feishu_drive",
+      "status": "active",
+      "tenant": 10002,
+      "schedule": "0 0 2 * * *",
+      "cursor_md5": "8ad349c3501b8c166de28f80eff8ab3a",
+      "updated_at": "2026-10-10T06:17:13.437623",
+      "last_sync_at": "2026-10-10T06:17:13.433587",
+      "knowledge_count": 69,
+      "knowledge_identity_md5": "2c0ecb1fd80d9cf778e9907c4db65bce"
+    },
+    {
+      "id": "be5a806a-8ff0-4352-9478-0d9063f7ca95",
+      "kb": "a01317cc-fcda-4dfd-b9c5-2086d7c0cf7a",
+      "type": "feishu",
+      "status": "active",
+      "tenant": 10014,
+      "schedule": "0 0 */6 * * *",
+      "cursor_md5": "95b245c225b563bd00a4dd7401e09b3b",
+      "updated_at": "2026-10-19T22:03:06.916778",
+      "last_sync_at": "2026-10-19T22:03:06.915461",
+      "knowledge_count": 108,
+      "knowledge_identity_md5": "c41e2db46def4a726400415a2a8b741d"
+    },
+    {
+      "id": "c9ec8746-accd-4e77-9615-c0d2e1cc33fd",
+      "kb": "09b0c5d5-0196-4131-a72b-402eee1c50d4",
+      "type": "feishu_drive",
+      "status": "active",
+      "tenant": 10005,
+      "schedule": "0 0 */6 * * *",
+      "cursor_md5": "105965473482ac2d578aee7114b627e2",
+      "updated_at": "2026-10-19T22:00:00.958133",
+      "last_sync_at": "2026-10-19T22:00:00.956121",
+      "knowledge_count": 2,
+      "knowledge_identity_md5": "c929d6d285fa2caf7143cd18cd0aa085"
+    },
+    {
+      "id": "eea7e329-708a-4c4b-bc77-b34a254db471",
+      "kb": "d14eb0c0-1ade-46f9-890e-84fa823b335d",
+      "type": "feishu_drive",
+      "status": "active",
+      "tenant": 10005,
+      "schedule": "0 0 */6 * * *",
+      "cursor_md5": "cfb6e97f0309d94251462b23b10e67f5",
+      "updated_at": "2026-10-12T07:03:50.193897",
+      "last_sync_at": "2026-10-12T06:04:09.838192",
+      "knowledge_count": 113,
+      "knowledge_identity_md5": "c55bdb570cfe7fc0a66c456012c2993b"
+    }
+  ],
+  "bm25_sql": [
+    {
+      "probe": 1551034,
+      "state": "NOT_AVAILABLE: no bounded ASCII keyword"
+    },
+    {
+      "probe": 1566120,
+      "term_sha256": "dd77e84cc55080435c0338da088bb55c47bf69cb33a007c887d5b4747e34d582",
+      "result": {
+        "rows": 10,
+        "all_scoped": true,
+        "with_source_url": false,
+        "with_existing_chunk": true,
+        "with_existing_knowledge": true
+      }
+    },
+    {
+      "probe": 5042587,
+      "term_sha256": "6da624dba5235ba1f3901c904a78ea41debbfb0d8a488aeba7063dba508d9211",
+      "result": {
+        "rows": 10,
+        "all_scoped": true,
+        "with_source_url": false,
+        "with_existing_chunk": true,
+        "with_existing_knowledge": true
+      }
+    }
+  ],
+  "pass": false
+}

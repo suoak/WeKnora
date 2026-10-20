@@ -1,0 +1,47 @@
+{
+  "kb": "b1bbb346-3b7f-4ec6-8ef3-9908fe9fef2a",
+  "results": [
+    {
+      "type": "bitable",
+      "import_id": "566fb15f-48ae-40cd-b2a6-660580f9763d",
+      "knowledge_id": "b8a42836-f031-4331-b25d-7764246bdf7b",
+      "index_status": "verified",
+      "parse_status": "completed",
+      "search_hits": 4,
+      "hybrid_hits": 10,
+      "all_expected_kid": true,
+      "nonempty_content": true,
+      "source_url_present": true,
+      "repeat_same_import_and_kid": true,
+      "ordinary_employee": true
+    },
+    {
+      "type": "sheet",
+      "import_id": "5901f84b-9517-4662-86af-2ccf971092d5",
+      "knowledge_id": "900ee6d0-17e5-4225-a16f-ff2b02d3d516",
+      "index_status": "verified",
+      "parse_status": "completed",
+      "search_hits": 3,
+      "hybrid_hits": 10,
+      "all_expected_kid": true,
+      "nonempty_content": true,
+      "source_url_present": true,
+      "repeat_same_import_and_kid": true,
+      "ordinary_employee": true
+    },
+    {
+      "type": "docx",
+      "import_id": "42dbb1e1-afe9-4f17-af38-5dce750ca465",
+      "knowledge_id": "0afa6733-e1d9-4e69-8a10-315a5b0ba599",
+      "index_status": "verified",
+      "parse_status": "completed",
+      "search_hits": 5,
+      "hybrid_hits": 10,
+      "all_expected_kid": true,
+      "nonempty_content": true,
+      "source_url_present": true,
+      "repeat_same_import_and_kid": true,
+      "ordinary_employee": true
+    }
+  ]
+}

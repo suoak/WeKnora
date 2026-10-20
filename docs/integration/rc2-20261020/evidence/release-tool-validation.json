@@ -1,0 +1,149 @@
+{
+  "utc": "2026-10-20T01:31:29.950304+00:00",
+  "runtime_image": "sha256:67b78b1c5aaf72c3d8e03763bfab57bdeb47bf3cf9d771e8fba60c870246d6cb",
+  "binary_sha256": "ae0e4d6ea26ceb88f4fe0e48ca38bb9a5e227ba8e62163734d63f58af2eb27f3",
+  "source_sha256": "d0025cbf1fac9c0033019968feb7d97c4f7d4277bf333ca1a9c034bd70077145",
+  "cgo_enabled": false,
+  "no_application_service_initialization": true,
+  "cases": [
+    {
+      "case": "default_readonly_full3023",
+      "expected_exit": 0,
+      "actual_exit": 0,
+      "result": {
+        "before_dirty": false,
+        "before_version": 3023,
+        "database": "rc2baseline",
+        "dirty": false,
+        "elapsed_ms": 110,
+        "mode": "check",
+        "ok": true,
+        "stage": "read_only_preflight",
+        "version": 3023
+      },
+      "secret_absent": true
+    },
+    {
+      "case": "readonly_full3033",
+      "expected_exit": 0,
+      "actual_exit": 0,
+      "result": {
+        "before_dirty": false,
+        "before_version": 3033,
+        "database": "rc2upgrade",
+        "dirty": false,
+        "elapsed_ms": 138,
+        "mode": "check",
+        "ok": true,
+        "stage": "read_only_preflight",
+        "version": 3033
+      },
+      "secret_absent": true
+    },
+    {
+      "case": "up_replay_full3033",
+      "expected_exit": 0,
+      "actual_exit": 0,
+      "result": {
+        "before_dirty": false,
+        "before_version": 3033,
+        "database": "rc2upgrade",
+        "dirty": false,
+        "elapsed_ms": 179,
+        "mode": "up",
+        "ok": true,
+        "stage": "postflight",
+        "version": 3033
+      },
+      "secret_absent": true
+    },
+    {
+      "case": "dirty_database_refused",
+      "expected_exit": 1,
+      "actual_exit": 1,
+      "result": {
+        "before_dirty": true,
+        "before_version": 3024,
+        "database": "rc2fault",
+        "dirty": true,
+        "elapsed_ms": 141,
+        "mode": "up",
+        "ok": false,
+        "stage": "read_only_preflight",
+        "version": 3024
+      },
+      "secret_absent": true
+    },
+    {
+      "case": "wrong_database_refused",
+      "expected_exit": 1,
+      "actual_exit": 1,
+      "result": {
+        "elapsed_ms": 4,
+        "ok": false,
+        "stage": "read_only_preflight"
+      },
+      "secret_absent": true
+    },
+    {
+      "case": "force_mode_not_provided",
+      "expected_exit": 1,
+      "actual_exit": 1,
+      "result": {
+        "elapsed_ms": 0,
+        "ok": false,
+        "stage": "configuration"
+      },
+      "secret_absent": true
+    },
+    {
+      "case": "missing_dsn_refused",
+      "expected_exit": 1,
+      "actual_exit": 1,
+      "result": {
+        "elapsed_ms": 0,
+        "ok": false,
+        "stage": "configuration"
+      },
+      "secret_absent": true
+    },
+    {
+      "case": "up_production_schema3023_to3033",
+      "expected_exit": 0,
+      "actual_exit": 0,
+      "result": {
+        "before_dirty": false,
+        "before_version": 3023,
+        "database": "rc2tool",
+        "dirty": false,
+        "elapsed_ms": 203,
+        "mode": "up",
+        "ok": true,
+        "stage": "postflight",
+        "version": 3033
+      },
+      "secret_absent": true
+    },
+    {
+      "case": "verify_schema3033_after_up",
+      "expected_exit": 0,
+      "actual_exit": 0,
+      "result": {
+        "before_dirty": false,
+        "before_version": 3033,
+        "database": "rc2tool",
+        "dirty": false,
+        "elapsed_ms": 5,
+        "mode": "check",
+        "ok": true,
+        "stage": "read_only_preflight",
+        "version": 3033
+      },
+      "secret_absent": true
+    }
+  ],
+  "pass": 9,
+  "fail": 0,
+  "skip": 0,
+  "production_operations": false
+}

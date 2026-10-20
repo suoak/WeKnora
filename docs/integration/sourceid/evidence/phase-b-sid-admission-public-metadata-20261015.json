@@ -1,0 +1,12 @@
+{
+    "source":  "official_public_discovery",
+    "tls_validation":  "enabled",
+    "issuer":  "https://sid.ruijie.com.cn",
+    "authorization_endpoint":  "https://sid.ruijie.com.cn/oidc/authorize",
+    "token_endpoint":  "https://sid.ruijie.com.cn/oidc/accessToken",
+    "jwks_uri":  "https://sid.ruijie.com.cn/oidc/jwks",
+    "userinfo_endpoint":  "https://sid.ruijie.com.cn/oidc/profile",
+    "admission_propagation_limit":  "NOT_PUBLISHED",
+    "existing_sso_eligibility_recheck":  "NOT_PUBLISHED",
+    "userinfo_employee_values_read":  false
+}

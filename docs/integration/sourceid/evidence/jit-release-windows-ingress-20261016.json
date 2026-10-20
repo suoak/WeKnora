@@ -1,0 +1,17 @@
+{
+  "windows_unapproved_direct": [
+    {
+      "target": "172.30.232.42",
+      "port": 18090,
+      "denied": true
+    },
+    {
+      "target": "::ffff:172.30.232.42",
+      "port": 18090,
+      "denied": true
+    }
+  ],
+  "ssh_tunnel_closed": true,
+  "daily_chrome_profile_changed": false,
+  "global_proxy_dns_hosts_changed": false
+}

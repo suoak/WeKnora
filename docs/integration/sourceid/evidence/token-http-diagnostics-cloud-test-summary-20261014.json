@@ -1,0 +1,24 @@
+{
+  "implementation_sha": "3be5d3f9268fe8819d66485a2b990c6237827e25",
+  "ci_run_id": 38556052305,
+  "artifact_sha256": "4f09b8b161350cfbb2b9490ebb923a23d9ae1d47f3214197731b208e0b7d940d",
+  "focused_passed_test_entries": 179,
+  "regression_passed_test_entries": 4704,
+  "new_diagnostic_tests": [
+    "TestSourceIDTokenExchangeDiagnosticsReadOnlyIntegration/disabled",
+    "TestSourceIDTokenExchangeDiagnosticsReadOnlyIntegration/enabled",
+    "TestSourceIDTokenExchangeDiagnosticsReadOnlyIntegration",
+    "TestSourceIDTokenTelemetryPreservesRequestAndPrivacy/empty_basic",
+    "TestSourceIDTokenTelemetryPreservesRequestAndPrivacy/oauth",
+    "TestSourceIDTokenTelemetryPreservesRequestAndPrivacy/gateway",
+    "TestSourceIDTokenTelemetryPreservesRequestAndPrivacy/success",
+    "TestSourceIDTokenTelemetryPreservesRequestAndPrivacy/malformed_success",
+    "TestSourceIDTokenTelemetryPreservesRequestAndPrivacy",
+    "TestSourceIDTokenTelemetryDuplicateFieldsAndBoundedConcurrentTrace",
+    "TestSourceIDTokenTelemetryNetworkErrorsAndRedirects"
+  ],
+  "actual_logger_privacy_and_three_phase_assertions": "PASS",
+  "basic_synthetic_cases": 9,
+  "failed_tests": [],
+  "raw_logs_exported": false
+}

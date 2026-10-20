@@ -1,0 +1,26 @@
+{
+  "checked_at": "2026-10-20T03:35:25.894248+00:00",
+  "test_host": "172.30.232.42",
+  "database": "WeKnora",
+  "original_three_knowledge_chunk_embedding_rows_identical": true,
+  "original_rows_compared": 9,
+  "counts": {
+    "users": 4,
+    "knowledge": 13,
+    "chunks": 21127,
+    "embeddings": 4908,
+    "wiki_pages": 352,
+    "external_identities": 2,
+    "schema_version": 3033,
+    "schema_dirty": false
+  },
+  "app_image": "sha256:20497a6098669044cf78426425361a67976ba3c6a3766dc175b7f5a5c5b11234",
+  "app_running": true,
+  "health": null,
+  "configuration": {
+    "SOURCEID_VALIDATION_STRATEGY": "code_flow_tls_userinfo",
+    "SOURCEID_TLS_USERINFO_LIFECYCLE": "continuous_test",
+    "SOURCEID_TLS_USERINFO_EXPIRES_AT": "",
+    "FEISHU_LEGACY_SYNC_SUSPENDED": "true"
+  }
+}

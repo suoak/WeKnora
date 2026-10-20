@@ -81,7 +81,10 @@ func readFrontendDeploymentCapabilityKeys() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	return parseFrontendDeploymentCapabilityKeys(content)
+}
 
+func parseFrontendDeploymentCapabilityKeys(content []byte) ([]string, error) {
 	re := regexp.MustCompile(`(?s)export const DEPLOYMENT_CAPABILITY_KEYS = \[(.*?)\]`)
 	match := re.FindSubmatch(content)
 	if len(match) < 2 {
@@ -90,7 +93,9 @@ func readFrontendDeploymentCapabilityKeys() ([]string, error) {
 
 	var keys []string
 	for _, line := range strings.Split(string(match[1]), "\n") {
-		line = strings.TrimSpace(strings.TrimRight(line, ","))
+		// Trim CRLF whitespace before the comma; trimming in the opposite order
+		// leaves a comma behind on Windows-origin release source snapshots.
+		line = strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(line), ","))
 		if line == "" {
 			continue
 		}
@@ -98,6 +103,22 @@ func readFrontendDeploymentCapabilityKeys() ([]string, error) {
 		keys = append(keys, line)
 	}
 	return keys, nil
+}
+
+func TestParseFrontendDeploymentCapabilityKeysLineEndings(t *testing.T) {
+	fixture := "export const DEPLOYMENT_CAPABILITY_KEYS = [\n  '" +
+		strings.Join(DeploymentCapabilityKeys, "',\n  '") + "',\n] as const\n"
+	for _, newline := range []string{"\n", "\r\n"} {
+		t.Run(strings.ReplaceAll(newline, "\n", "LF"), func(t *testing.T) {
+			keys, err := parseFrontendDeploymentCapabilityKeys([]byte(strings.ReplaceAll(fixture, "\n", newline)))
+			require.NoError(t, err)
+			require.Equal(t, DeploymentCapabilityKeys, keys)
+		})
+	}
+	wrong := strings.Replace(fixture, "'organizations'", "'unexpected'", 1)
+	keys, err := parseFrontendDeploymentCapabilityKeys([]byte(wrong))
+	require.NoError(t, err)
+	require.NotEqual(t, DeploymentCapabilityKeys, keys, "real capability mismatches must remain detectable")
 }
 
 func TestHostSandboxCapabilityFollowsAvailability(t *testing.T) {

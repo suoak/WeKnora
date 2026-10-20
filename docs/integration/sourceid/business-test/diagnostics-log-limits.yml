@@ -1,0 +1,10 @@
+# Deployment-only overlay. Do not apply until the diagnostic build is approved.
+# This file contains no credential or authentication-policy override.
+services:
+  app:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+        compress: "true"

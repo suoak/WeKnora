@@ -1,0 +1,8 @@
+{
+  "source_manifest": "1ffa81392e28d83fd31dd0ab853aa250782e9557c88044e1ec03a653c23cd721",
+  "product_source_changes": 0,
+  "harness_only_extra_file": ".rc2-harness/main.go",
+  "container": "0647bc75444e21900df74fa4241ea945287e2d601cc91ec938c82c8bb07c32b8",
+  "host_available_memory": "              total        used        free      shared  buff/cache   available\nMem:    33627516928  4510744576  1269714944   561242112 27847057408 28065816576\nSwap:    8589930496  6005706752  2584223744\n",
+  "exact_production_pg_image_available": false
+}

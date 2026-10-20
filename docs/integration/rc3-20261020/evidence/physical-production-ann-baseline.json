@@ -1,0 +1,359 @@
+{
+  "utc": "2026-10-20T02:26:12.155889+00:00",
+  "scope": "18 bounded read-only ANN baseline queries, fixed historical points, no vector/content export; separate transactions not an exported atomic snapshot",
+  "state": {
+    "utc": "2026-10-20T02:26:13.395505+00:00",
+    "dirty": false,
+    "version": 3023,
+    "wal_lsn": "88/19001AB0",
+    "recovery": false
+  },
+  "results": [
+    {
+      "id": 1551034,
+      "result": {
+        "rows": 31,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1566120,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 5042587,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1992726,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1993904,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 2006212,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1281070,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1282633,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1284196,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1579042,
+      "result": {
+        "rows": 100,
+        "min_distance": 0.271523866042117
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 5051476,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 5112057,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1993611,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1993701,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1993795,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1573126,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1643857,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1677223,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    }
+  ],
+  "metadata": [
+    {
+      "id": 1281070,
+      "kb": "8ca41885-69e1-4d43-8bfd-ffc8670900fe",
+      "enabled": true,
+      "dimension": 1024,
+      "vector_md5": "1aded5b162fcb8e37609a86d3a1f1f4c",
+      "source_type": 0
+    },
+    {
+      "id": 1282633,
+      "kb": "8ca41885-69e1-4d43-8bfd-ffc8670900fe",
+      "enabled": true,
+      "dimension": 1024,
+      "vector_md5": "b1b594d14fa7cc064b79152a068294bc",
+      "source_type": 0
+    },
+    {
+      "id": 1284196,
+      "kb": "8ca41885-69e1-4d43-8bfd-ffc8670900fe",
+      "enabled": true,
+      "dimension": 1024,
+      "vector_md5": "c2e101a0d116682550dde0c907c4e3ec",
+      "source_type": 0
+    },
+    {
+      "id": 1551034,
+      "kb": "54b0a305-1ab4-4fab-9937-778fd71c3a74",
+      "enabled": true,
+      "dimension": 1024,
+      "vector_md5": "6b7e584c4c6287cc91dda22bf33c6c38",
+      "source_type": 0
+    },
+    {
+      "id": 1566120,
+      "kb": "54b0a305-1ab4-4fab-9937-778fd71c3a74",
+      "enabled": true,
+      "dimension": 1024,
+      "vector_md5": "350cd5c8305c3b7374a48dbead1a221f",
+      "source_type": 0
+    },
+    {
+      "id": 1573126,
+      "kb": "d14eb0c0-1ade-46f9-890e-84fa823b335d",
+      "enabled": true,
+      "dimension": 1024,
+      "vector_md5": "f0b6ca96a3c3c76e4b629a569232b0ff",
+      "source_type": 0
+    },
+    {
+      "id": 1579042,
+      "kb": "a01317cc-fcda-4dfd-b9c5-2086d7c0cf7a",
+      "enabled": true,
+      "dimension": 1024,
+      "vector_md5": "6462f87faa3a6de6e2f20d708b77ad78",
+      "source_type": 0
+    },
+    {
+      "id": 1643857,
+      "kb": "d14eb0c0-1ade-46f9-890e-84fa823b335d",
+      "enabled": true,
+      "dimension": 1024,
+      "vector_md5": "e26df5586d3fe3585ce6314c6b8d8e41",
+      "source_type": 0
+    },
+    {
+      "id": 1677223,
+      "kb": "d14eb0c0-1ade-46f9-890e-84fa823b335d",
+      "enabled": true,
+      "dimension": 1024,
+      "vector_md5": "94ca5dae455191a842a476c11f15daea",
+      "source_type": 0
+    },
+    {
+      "id": 1992726,
+      "kb": "6dcae886-fc03-446d-9523-ee6f4e5009c9",
+      "enabled": true,
+      "dimension": 1024,
+      "vector_md5": "e101ae92b66744414e0a9f40ad9123e2",
+      "source_type": 0
+    },
+    {
+      "id": 1993611,
+      "kb": "09b0c5d5-0196-4131-a72b-402eee1c50d4",
+      "enabled": true,
+      "dimension": 1024,
+      "vector_md5": "c4ca1413edfc61a7fb788ddb439ca35d",
+      "source_type": 0
+    },
+    {
+      "id": 1993701,
+      "kb": "09b0c5d5-0196-4131-a72b-402eee1c50d4",
+      "enabled": true,
+      "dimension": 1024,
+      "vector_md5": "8fbe506afc54bb19c967482e97bf322d",
+      "source_type": 0
+    },
+    {
+      "id": 1993795,
+      "kb": "09b0c5d5-0196-4131-a72b-402eee1c50d4",
+      "enabled": true,
+      "dimension": 1024,
+      "vector_md5": "7f2543d97329a83b9c139087d0e433ce",
+      "source_type": 0
+    },
+    {
+      "id": 1993904,
+      "kb": "6dcae886-fc03-446d-9523-ee6f4e5009c9",
+      "enabled": true,
+      "dimension": 1024,
+      "vector_md5": "9f7084c6490830e4d8815218c0b953b8",
+      "source_type": 0
+    },
+    {
+      "id": 2006212,
+      "kb": "6dcae886-fc03-446d-9523-ee6f4e5009c9",
+      "enabled": true,
+      "dimension": 1024,
+      "vector_md5": "24626a2bbbc89128f8c752e563ea56fe",
+      "source_type": 0
+    },
+    {
+      "id": 5042587,
+      "kb": "54b0a305-1ab4-4fab-9937-778fd71c3a74",
+      "enabled": true,
+      "dimension": 1024,
+      "vector_md5": "ccf9580959573a6ae13355063980bca7",
+      "source_type": 0
+    },
+    {
+      "id": 5051476,
+      "kb": "a01317cc-fcda-4dfd-b9c5-2086d7c0cf7a",
+      "enabled": true,
+      "dimension": 1024,
+      "vector_md5": "20f306dc810915bb4218c468273b4162",
+      "source_type": 0
+    },
+    {
+      "id": 5112057,
+      "kb": "a01317cc-fcda-4dfd-b9c5-2086d7c0cf7a",
+      "enabled": true,
+      "dimension": 1024,
+      "vector_md5": "78fbbee77ed78befcb55839ec430c139",
+      "source_type": 0
+    }
+  ],
+  "pass": 17,
+  "fail": 1
+}

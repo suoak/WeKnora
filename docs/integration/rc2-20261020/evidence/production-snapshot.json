@@ -1,0 +1,71 @@
+{
+  "snapshot_consistent": true,
+  "source_schema": 3023,
+  "source_dirty": false,
+  "snapshot_counts": {
+    "users": 44,
+    "knowledge": 4060,
+    "chunks": 4961022,
+    "embeddings": 1386916,
+    "wiki_pages": 71652,
+    "data_sources": 32,
+    "knowledge_identity_md5": "80f85e1001647ae3f3ce0524ea3eef29",
+    "extensions": [
+      {
+        "name": "plpgsql",
+        "version": "1.0"
+      },
+      {
+        "name": "pg_search",
+        "version": "0.22.2"
+      },
+      {
+        "name": "pg_ivm",
+        "version": "1.13"
+      },
+      {
+        "name": "vector",
+        "version": "0.8.1"
+      },
+      {
+        "name": "postgis",
+        "version": "3.6.2"
+      },
+      {
+        "name": "postgis_topology",
+        "version": "3.6.2"
+      },
+      {
+        "name": "fuzzystrmatch",
+        "version": "1.2"
+      },
+      {
+        "name": "postgis_tiger_geocoder",
+        "version": "3.6.2"
+      },
+      {
+        "name": "pg_stat_statements",
+        "version": "1.11"
+      },
+      {
+        "name": "uuid-ossp",
+        "version": "1.1"
+      },
+      {
+        "name": "pg_trgm",
+        "version": "1.6"
+      }
+    ]
+  },
+  "pg_dump_exit": 0,
+  "dump_seconds": 238.231,
+  "at_utc": "2026-10-20T00:02:31.399237+00:00",
+  "production_files_written": false,
+  "snapshot_locks": "ACCESS SHARE; 10s lock timeout; no production DDL or service changes",
+  "state": "complete",
+  "bytes": 6239732271,
+  "sha256": "38ab3c9b648037f1a7c4da37e1425882d59d412574615b54b75097399fcfe499",
+  "transfer_seconds": 238.469,
+  "destination": "172.30.232.42:/home/aqyfzx/ai/knowhub-rc2-20261020/private/production-3023-v4.dump",
+  "business_network_access": false
+}

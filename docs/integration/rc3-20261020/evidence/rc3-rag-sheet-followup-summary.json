@@ -1,0 +1,19 @@
+{
+  "real_model": true,
+  "ordinary_employee": true,
+  "results": [
+    {
+      "type": "sheet",
+      "knowledge_id": "900ee6d0-17e5-4225-a16f-ff2b02d3d516",
+      "http": 200,
+      "complete": true,
+      "answer_chars": 285,
+      "truncated": false,
+      "error_events": 0,
+      "references": 5,
+      "expected_kid_referenced": true,
+      "raw_content_exported": false,
+      "pass": true
+    }
+  ]
+}

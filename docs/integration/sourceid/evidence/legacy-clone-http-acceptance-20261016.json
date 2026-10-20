@@ -1,0 +1,11 @@
+{
+  "result": "FAIL",
+  "real_sid_login": false,
+  "real_employee_binding": false,
+  "failed_stage": "original_admin_first_oidc_login",
+  "failure_class": "AssertionError",
+  "failure_lines": [
+    42,
+    33
+  ]
+}

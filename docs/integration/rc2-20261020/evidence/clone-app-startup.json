@@ -1,0 +1,17 @@
+{
+  "utc": "2026-10-20T01:15:11.993295+00:00",
+  "scope": "isolated copy of upgraded production clone, startup compatibility only; no OA login or external Feishu/model calls",
+  "app_image": "sha256:67b78b1c5aaf72c3d8e03763bfab57bdeb47bf3cf9d771e8fba60c870246d6cb",
+  "frontend_changed": false,
+  "business_networks": false,
+  "production_changes": false,
+  "fixture_preparation": "Only rc2startup: source status paused; pending operations completed; unfinished parses cancelled. Baseline, upgrade and business DB untouched.",
+  "copy_seconds": 208.169,
+  "create_exit": 0,
+  "health": 200,
+  "startup_seconds": 10.654,
+  "schema": "3033|false",
+  "identity_role_rows_unchanged": true,
+  "result": "PASS",
+  "isolated_app_and_redis_stopped": true
+}

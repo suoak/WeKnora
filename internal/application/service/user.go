@@ -1,15 +1,18 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"math/big"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
@@ -52,12 +55,13 @@ var (
 	// It is exported so HTTP handlers can translate the failure to a 400
 	// without exposing bcrypt or persistence errors.
 	ErrPasswordPolicy = errors.New(
-		"password must be 8-32 characters and contain at least one letter and one number")
+		"password must be 8-32 characters and contain at least one letter and " +
+			"one number")
 	// ErrComplexPasswordPolicy is returned when the runtime complex-password
 	// switch is on and the new password is missing a required character class.
 	ErrComplexPasswordPolicy = errors.New(
-		"password must be 8-32 characters and must contain uppercase and lowercase " +
-			"letters, numbers, and special characters")
+		"password must be 8-32 characters and must contain uppercase and " +
+			"lowercase letters, numbers, and special characters")
 
 	// ErrInvalidOldPassword is returned by ChangePassword when the supplied
 	// current password does not match the stored hash. Handlers map this to
@@ -77,7 +81,8 @@ const (
 	DetailSamePassword       = "same_password"
 )
 
-// getJwtSecret retrieves the JWT secret from the environment, falling back to a securely generated random secret.
+// getJwtSecret retrieves the JWT secret from the environment, falling back to a securely generated random
+// secret.
 func getJwtSecret() string {
 	jwtSecretOnce.Do(func() {
 		envSecret := strings.TrimSpace(os.Getenv("JWT_SECRET"))
@@ -98,12 +103,15 @@ func getJwtSecret() string {
 
 // userService implements the UserService interface
 type userService struct {
-	userRepo         interfaces.UserRepository
-	tokenRepo        interfaces.AuthTokenRepository
-	tenantService    interfaces.TenantService
-	memberService    interfaces.TenantMemberService
-	config           *config.Config
-	systemSettingSvc interfaces.SystemSettingService
+	// Set only by the isolated protocol probe; normal authentication keeps its client.
+	protocolClient    *http.Client
+	employeeAdmission interfaces.SourceIDEmployeeAdmissionResolver
+	userRepo          interfaces.UserRepository
+	tokenRepo         interfaces.AuthTokenRepository
+	tenantService     interfaces.TenantService
+	memberService     interfaces.TenantMemberService
+	config            *config.Config
+	systemSettingSvc  interfaces.SystemSettingService
 }
 
 // NewUserService creates a new user service instance
@@ -149,11 +157,23 @@ func (s *userService) Register(ctx context.Context, req *types.RegisterRequest) 
 		return nil, ErrUserUsernameExists
 	}
 
-	// Hash password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	if err != nil {
-		logger.Errorf(ctx, "Failed to hash password: %v", err)
-		return nil, errors.New("failed to process password")
+	var hashedPassword []byte
+	var err error
+	if externalOnly, _ := ctx.Value(sourceIDJITExternalOnlyKey{}).(bool); externalOnly {
+		// Private in-process JIT context, never a request field. These accounts
+		// cannot authenticate a password, so do not hash a discarded password
+		// while holding the atomic registration lock. Public registration keeps
+		// its existing bcrypt policy and behavior.
+		if req.TenantProvisioning != types.TenantProvisioningTenantless {
+			return nil, errors.New("external registration requires tenantless mode")
+		}
+		hashedPassword = []byte("!sourceid-jit-no-local-password")
+	} else {
+		hashedPassword, err = bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			logger.Errorf(ctx, "Failed to hash password: %v", err)
+			return nil, errors.New("failed to process password")
+		}
 	}
 
 	provisioning := req.TenantProvisioning
@@ -201,7 +221,12 @@ func (s *userService) Register(ctx context.Context, req *types.RegisterRequest) 
 		logger.Errorf(ctx, "Failed to create user: %v", err)
 		if createdTenant != nil {
 			if rollbackErr := s.tenantService.DeleteTenant(ctx, createdTenant.ID); rollbackErr != nil {
-				logger.Errorf(ctx, "Failed to roll back tenant %d after user creation failure: %v", createdTenant.ID, rollbackErr)
+				logger.Errorf(
+					ctx,
+					"Failed to roll back tenant %d after user creation failure: %v",
+					createdTenant.ID,
+					rollbackErr,
+				)
 			}
 		}
 		return nil, errors.New("failed to create user")
@@ -433,13 +458,32 @@ func synthFallbackMembership(user *types.User, activeTenant *types.Tenant) []typ
 }
 
 // GetOIDCAuthorizationURL builds the OIDC authorization URL.
-func (s *userService) GetOIDCAuthorizationURL(ctx context.Context, redirectURI string) (*types.OIDCAuthURLResponse, error) {
+func (s *userService) GetOIDCAuthorizationURL(
+	ctx context.Context,
+	redirectURI string,
+) (_ *types.OIDCAuthURLResponse, resultErr error) {
+	stageStarted := time.Now()
+	ctx = NewSourceIDDiagnosticContext(
+		ctx,
+		s.config != nil && s.config.OIDCAuth != nil && s.config.OIDCAuth.SourceIDEnable &&
+			s.config.OIDCAuth.SourceIDDiagnosticsEnable,
+	)
+	defer func() { SourceIDDiagnosticStage(ctx, "authorize", stageStarted, resultErr) }()
 	cfg, err := s.getOIDCConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
+	if cfg.RedirectURI != "" && redirectURI != cfg.RedirectURI {
+		return nil, errors.New("OIDC redirect URI mismatch")
+	}
 	if strings.TrimSpace(redirectURI) == "" {
 		return nil, errors.New("redirect_uri is required")
+	}
+	if cfg.SourceIDEnable && !cfg.SourceIDProtocolOnly &&
+		cfg.EffectiveSourceIDSessionMode() == "local_approved" &&
+		cfg.SourceIDAdmissionMode == "authorization" &&
+		!cfg.SourceIDForceReauthPromptLogin {
+		return nil, errors.New("sourceid forced reauthentication required")
 	}
 
 	nonce, err := generateRandomString(24)
@@ -461,9 +505,57 @@ func (s *userService) GetOIDCAuthorizationURL(ctx context.Context, redirectURI s
 	query.Set("redirect_uri", redirectURI)
 	query.Set("scope", strings.Join(cfg.Scopes, " "))
 	query.Set("state", state)
+	query.Set("nonce", nonce)
+	if cfg.SourceIDEnable {
+		store, err := s.sourceIDStore()
+		if err != nil {
+			return nil, err
+		}
+		verifier := ""
+		if cfg.PKCEEnable {
+			verifier, err = generateRandomString(48)
+			if err != nil {
+				return nil, err
+			}
+			digest := sha256.Sum256([]byte(verifier))
+			query.Set("code_challenge", base64.RawURLEncoding.EncodeToString(digest[:]))
+			query.Set("code_challenge_method", "S256")
+		}
+		metadata, err := sourceIDAuthorizationMetadata(cfg, query)
+		if err != nil {
+			return nil, err
+		}
+		if err := store.SaveOIDCTransaction(
+			ctx,
+
+			&types.OIDCTransaction{
+				Key: apprepo.SourceIDHash(
+					state,
+				),
+
+				Nonce: nonce,
+
+				Verifier: verifier,
+
+				Result: metadata,
+
+				ExpiresAt: time.Now().
+					Add(
+						10 * time.Minute,
+					),
+			},
+		); err != nil {
+			return nil, err
+		}
+	}
 
 	authURL := cfg.AuthorizationEndpoint
-	if strings.Contains(authURL, "?") {
+	if cfg.SourceIDEnable && cfg.SourceIDForceReauthPromptLogin {
+		authURL, err = sourceIDForcedAuthorizationURL(authURL, query)
+		if err != nil {
+			return nil, err
+		}
+	} else if strings.Contains(authURL, "?") {
 		authURL += "&" + query.Encode()
 	} else {
 		authURL += "?" + query.Encode()
@@ -499,7 +591,17 @@ func (s *userService) LoginWithOIDC(
 		return nil, err
 	}
 
+	if cfg.RedirectURI != "" && redirectURI != cfg.RedirectURI {
+		return nil, errors.New("OIDC redirect URI mismatch")
+	}
+	if cfg.SourceIDEnable && cfg.SourceIDDiagnosticsEnable {
+		if _, ok := ctx.Value(sourceIDDiagnosticKey{}).(sourceIDDiagnosticContext); !ok {
+			ctx = NewSourceIDDiagnosticContext(ctx, true)
+		}
+	}
+	stageStarted := time.Now()
 	tokenResp, err := s.exchangeOIDCCode(ctx, cfg, code, redirectURI)
+	SourceIDDiagnosticStage(ctx, "token", stageStarted, err)
 	if err != nil {
 		return nil, err
 	}
@@ -508,21 +610,52 @@ func (s *userService) LoginWithOIDC(
 	if err != nil {
 		return nil, err
 	}
-	if strings.TrimSpace(userInfo.Email) == "" {
-		return nil, errors.New("OIDC provider did not return email")
+	if cfg.SourceIDEnable && cfg.SourceIDProtocolOnly {
+		err := errors.New("sourceid identity contract pending")
+		SourceIDDiagnosticStage(ctx, "identity_mapping", time.Now(), err)
+		return nil, err
 	}
-
-	user, err := s.userRepo.GetUserByEmail(ctx, userInfo.Email)
-	if err != nil && !isUserLookupNotFound(err) {
-		return nil, fmt.Errorf("failed to query user by email: %w", err)
-	}
+	var user *types.User
 	isNewUser := false
-	if isUserLookupNotFound(err) || user == nil {
-		user, err = s.provisionOIDCUser(ctx, userInfo, provisioning)
+	if cfg.SourceIDEnable {
+		stageStarted = time.Now()
+		if prepared, _ := ctx.Value(sourceIDPreparedKey).(bool); prepared {
+			request, _ := ctx.Value(sourceIDReauthRequestKey{}).(sourceIDReauthRequest)
+			ctx = context.WithValue(
+				ctx,
+				sourceIDAuthorizationProofKey{},
+				sourceIDAuthorizationProof{
+					Issuer:               cfg.IssuerURL,
+					Subject:              userInfo.Subject,
+					At:                   time.Now(),
+					PromptLoginRequested: request.Prompt == "login",
+				},
+			)
+		}
+		user, ctx, err = s.loginSourceID(ctx, cfg, userInfo)
+		isNewUser, _ = ctx.Value(sourceIDJITCreatedKey{}).(bool)
+		SourceIDDiagnosticStage(ctx, "identity_mapping", stageStarted, err)
 		if err != nil {
 			return nil, err
 		}
-		isNewUser = true
+	} else {
+		if strings.TrimSpace(userInfo.Email) == "" {
+			return nil, errors.New("OIDC provider did not return email")
+		}
+
+		user, err = s.userRepo.GetUserByEmail(ctx, userInfo.Email)
+		if err != nil && !isUserLookupNotFound(err) {
+			return nil, fmt.Errorf("failed to query user by email: %w", err)
+		}
+
+		if isUserLookupNotFound(err) || user == nil {
+			user, err = s.provisionOIDCUser(ctx, userInfo, provisioning)
+			if err != nil {
+				return nil, err
+			}
+			isNewUser = true
+		}
+
 	}
 
 	if !user.IsActive {
@@ -532,7 +665,9 @@ func (s *userService) LoginWithOIDC(
 	// Resolve target tenant once so the JWT claim and the tenant we
 	// return below stay in sync; see Login for the rationale.
 	resolvedTenantID := s.resolveLoginTenantID(ctx, user)
+	stageStarted = time.Now()
 	accessToken, refreshToken, err := s.generateTokensForTenant(ctx, user, resolvedTenantID)
+	SourceIDDiagnosticStage(ctx, "local_session", stageStarted, err)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate local tokens: %w", err)
 	}
@@ -934,15 +1069,16 @@ func (s *userService) resolveLoginTenantID(ctx context.Context, user *types.User
 	if !user.CanAccessAllTenants {
 		if s.memberService == nil {
 			logger.Warnf(ctx,
-				"resolveLoginTenantID: member service unavailable; falling back to home for user %s",
+				"resolveLoginTenantID: member service unavailable; falling back to "+
+					"home for user %s",
 				user.ID)
 			return user.TenantID
 		}
 		member, err := s.memberService.GetMembership(ctx, user.ID, preferred)
 		if err != nil || member == nil || member.Status != types.TenantMemberStatusActive {
 			logger.Warnf(ctx,
-				"resolveLoginTenantID: user %s no longer has active membership in tenant %d, "+
-					"clearing preference and falling back to home (err=%v)",
+				"resolveLoginTenantID: user %s no longer has active membership in "+
+					"tenant %d, clearing preference and falling back to home (err=%v)",
 				user.ID, preferred, err)
 			s.clearLastActiveTenantPreference(ctx, user)
 			return s.homeOrFirstMembershipTenant(ctx, user)
@@ -982,8 +1118,8 @@ func (s *userService) homeOrFirstMembershipTenant(ctx context.Context, user *typ
 		return user.TenantID
 	}
 	logger.Warnf(ctx,
-		"homeOrFirstMembershipTenant: user %s home tenant %d has no active membership, "+
-			"clearing stale home and re-resolving (err=%v)",
+		"homeOrFirstMembershipTenant: user %s home tenant %d has no active "+
+			"membership, clearing stale home and re-resolving (err=%v)",
 		user.ID, user.TenantID, err)
 	s.clearStaleHomeTenant(ctx, user)
 	return s.resolveFirstMembershipTenant(ctx, user)
@@ -1007,7 +1143,8 @@ func (s *userService) clearStaleHomeTenant(ctx context.Context, user *types.User
 	}
 	if err := s.userRepo.UpdateUser(ctx, user); err != nil {
 		logger.Warnf(ctx,
-			"clearStaleHomeTenant: failed to persist cleared home for user %s (was tenant %d): %v",
+			"clearStaleHomeTenant: failed to persist cleared home for user %s (was "+
+				"tenant %d): %v",
 			user.ID, staleHome, err)
 	}
 }
@@ -1024,7 +1161,8 @@ func (s *userService) resolveFirstMembershipTenant(ctx context.Context, user *ty
 	}
 	members, err := s.memberService.ListByUser(ctx, user.ID)
 	if err != nil {
-		logger.Warnf(ctx, "resolveLoginTenantID: failed to list memberships for tenantless user %s: %v", user.ID, err)
+		logger.Warnf(ctx, "resolveLoginTenantID: failed to list memberships for tenantless user "+
+			"%s: %v", user.ID, err)
 		return 0
 	}
 	for _, member := range members {
@@ -1033,8 +1171,14 @@ func (s *userService) resolveFirstMembershipTenant(ctx context.Context, user *ty
 		}
 		if s.tenantService != nil {
 			if _, err := s.tenantService.GetTenantByID(ctx, member.TenantID); err != nil {
-				logger.Warnf(ctx, "resolveLoginTenantID: tenant %d for tenantless user %s is unavailable: %v",
-					member.TenantID, user.ID, err)
+				logger.Warnf(
+					ctx,
+					"resolveLoginTenantID: tenant %d for tenantless user %s is "+
+						"unavailable: %v",
+					member.TenantID,
+					user.ID,
+					err,
+				)
 				continue
 			}
 		}
@@ -1042,8 +1186,14 @@ func (s *userService) resolveFirstMembershipTenant(ctx context.Context, user *ty
 		user.TenantID = member.TenantID
 		if s.userRepo != nil {
 			if err := s.userRepo.UpdateUser(ctx, user); err != nil {
-				logger.Warnf(ctx, "resolveLoginTenantID: failed to persist tenant %d for tenantless user %s: %v",
-					member.TenantID, user.ID, err)
+				logger.Warnf(
+					ctx,
+					"resolveLoginTenantID: failed to persist tenant %d for tenantless user "+
+						"%s: %v",
+					member.TenantID,
+					user.ID,
+					err,
+				)
 				user.TenantID = 0
 			}
 		}
@@ -1063,7 +1213,8 @@ func (s *userService) clearLastActiveTenantPreference(ctx context.Context, user 
 	user.Preferences.LastActiveTenantID = nil
 	if err := s.userRepo.UpdateUser(ctx, user); err != nil {
 		logger.Warnf(ctx,
-			"clearLastActiveTenantPreference: failed to persist cleared preference for user %s: %v",
+			"clearLastActiveTenantPreference: failed to persist cleared preference "+
+				"for user %s: %v",
 			user.ID, err)
 	}
 }
@@ -1077,30 +1228,89 @@ func (s *userService) generateTokensForTenant(
 	user *types.User,
 	activeTenantID uint64,
 ) (accessToken, refreshToken string, err error) {
+	sessionID, _ := ctx.Value(sourceIDSessionKey).(string)
+	now := time.Now()
+	accessExpiry, refreshExpiry := now.Add(24*time.Hour), now.Add(7*24*time.Hour)
+	accessOnly := false
+	if sessionID != "" {
+		local, err := s.sourceIDLocalLimits(ctx, sessionID, user.ID)
+		if err != nil {
+			return "", "", err
+		}
+		if local != nil {
+			accessOnly = !local.RefreshEnabled
+			// Admission validity never slides forward on Refresh or SwitchTenant.
+			accessExpiry = now.Add(time.Duration(local.AccessSeconds) * time.Second)
+			if accessExpiry.After(local.AdmissionValidUntil) {
+				accessExpiry = local.AdmissionValidUntil
+			}
+			if accessExpiry.After(local.AbsoluteExpiresAt) {
+				accessExpiry = local.AbsoluteExpiresAt
+			}
+			refreshExpiry = local.AdmissionValidUntil
+			if local.RecheckSupported {
+				refreshExpiry = local.AbsoluteExpiresAt
+			}
+			if !local.RefreshEnabled {
+				refreshExpiry = accessExpiry
+			}
+			if !accessExpiry.After(now) {
+				return "", "", errors.New("sourceid admission expired")
+			}
+		}
+	}
 	// Generate access token (expires in 24 hours)
 	accessClaims := jwt.MapClaims{
 		"user_id":   user.ID,
 		"email":     user.Email,
 		"tenant_id": activeTenantID,
-		"exp":       time.Now().Add(24 * time.Hour).Unix(),
+		"exp":       accessExpiry.Unix(),
 		"iat":       time.Now().Unix(),
 		"type":      "access",
 	}
 
+	accessClaims["jti"] = uuid.NewString()
+	if sessionID != "" {
+		accessClaims["session_id"] = sessionID
+	}
 	accessTokenObj := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
 	accessToken, err = accessTokenObj.SignedString([]byte(getJwtSecret()))
 	if err != nil {
 		return "", "", err
 	}
+	if accessOnly {
+		store, err := s.sourceIDStore()
+		if err != nil {
+			return "", "", err
+		}
+		record := &types.AuthToken{
+			ID:        uuid.NewString(),
+			UserID:    user.ID,
+			Token:     accessToken,
+			TokenType: "access_token",
+			SessionID: sessionID,
+			ExpiresAt: accessExpiry,
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+		if err := store.PersistSourceIDTokens(ctx, sessionID, record, nil, ""); err != nil {
+			return "", "", err
+		}
+		return accessToken, "", nil
+	}
 
 	// Generate refresh token (expires in 7 days)
 	refreshClaims := jwt.MapClaims{
 		"user_id": user.ID,
-		"exp":     time.Now().Add(7 * 24 * time.Hour).Unix(),
+		"exp":     refreshExpiry.Unix(),
 		"iat":     time.Now().Unix(),
 		"type":    "refresh",
 	}
 
+	refreshClaims["jti"] = uuid.NewString()
+	if sessionID != "" {
+		refreshClaims["session_id"] = sessionID
+	}
 	refreshTokenObj := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
 	refreshToken, err = refreshTokenObj.SignedString([]byte(getJwtSecret()))
 	if err != nil {
@@ -1113,7 +1323,7 @@ func (s *userService) generateTokensForTenant(
 		UserID:    user.ID,
 		Token:     accessToken,
 		TokenType: "access_token",
-		ExpiresAt: time.Now().Add(24 * time.Hour),
+		ExpiresAt: accessExpiry,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -1123,11 +1333,28 @@ func (s *userService) generateTokensForTenant(
 		UserID:    user.ID,
 		Token:     refreshToken,
 		TokenType: "refresh_token",
-		ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
+		ExpiresAt: refreshExpiry,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
 
+	accessTokenRecord.SessionID = sessionID
+	refreshTokenRecord.SessionID = sessionID
+	if sessionID != "" {
+		store, err := s.sourceIDStore()
+		if err != nil {
+			return "", "", err
+		}
+		previous, _ := ctx.Value(sourceIDPreviousKey).(string)
+		if err := store.PersistSourceIDTokens(ctx,
+			sessionID,
+			accessTokenRecord,
+			refreshTokenRecord,
+			previous); err != nil {
+			return "", "", err
+		}
+		return accessToken, refreshToken, nil
+	}
 	// Persist before returning the pair: a signed token the database has no row
 	// for is rejected by ValidateToken / RefreshToken on the very next request,
 	// so swallowing a write error turns a transient database failure into a
@@ -1195,10 +1422,44 @@ func (s *userService) SwitchTenant(
 	// durable landing-preference update. RefreshToken re-reads this
 	// field; writing after issue would leave a window where access
 	// is scoped to targetTenantID but refresh falls back to home.
+	if sessionID, _ := ctx.Value(sourceIDSessionKey).(string); sessionID != "" {
+		if _, err := s.sourceIDLocalLimits(ctx, sessionID, user.ID); err != nil {
+			return nil, err
+		}
+		store, err := s.sourceIDStore()
+		if err != nil {
+			return nil, err
+		}
+		if err = store.CheckSourceIDSession(ctx, sessionID, user.ID); err != nil {
+			return nil, err
+		}
+	}
 	if err := s.recordLastActiveTenant(ctx, user, targetTenantID); err != nil {
 		return nil, fmt.Errorf("record last-active-tenant preference: %w", err)
 	}
 
+	sessionID, _ := ctx.Value(sourceIDSessionKey).(string)
+	if sessionID != "" {
+		local, err := s.sourceIDLocalLimits(ctx, sessionID, user.ID)
+		if err != nil {
+			return nil, err
+		}
+		if local != nil && local.RefreshEnabled && currentRefreshToken == "" {
+			return nil, errors.New("sourceid local switch requires refresh predecessor")
+		}
+		if local != nil && !local.RefreshEnabled {
+			currentRefreshToken = ""
+		}
+	}
+	if sessionID != "" && currentRefreshToken != "" {
+		record, err := s.tokenRepo.GetTokenByValue(ctx, currentRefreshToken)
+		if err != nil || record == nil || record.IsRevoked || record.UserID != user.ID ||
+			record.SessionID != sessionID ||
+			record.TokenType != "refresh_token" {
+			return nil, errors.New("refresh session mismatch")
+		}
+		ctx = context.WithValue(ctx, sourceIDPreviousKey, currentRefreshToken)
+	}
 	accessToken, refreshToken, err := s.generateTokensForTenant(ctx, user, targetTenantID)
 	if err != nil {
 		return nil, fmt.Errorf("generate tokens: %w", err)
@@ -1207,7 +1468,7 @@ func (s *userService) SwitchTenant(
 	// Best-effort revoke of the previous refresh token. Failure is
 	// logged but not fatal — the new tokens are already issued and the
 	// old refresh token will expire naturally.
-	if strings.TrimSpace(currentRefreshToken) != "" {
+	if sessionID == "" && strings.TrimSpace(currentRefreshToken) != "" {
 		if err := s.RevokeToken(ctx, currentRefreshToken); err != nil {
 			logger.Warnf(ctx, "Failed to revoke previous refresh token during tenant switch: %v", err)
 		}
@@ -1291,13 +1552,24 @@ func (s *userService) ValidateToken(ctx context.Context, tokenString string) (*t
 	if tokenRecord == nil || tokenRecord.IsRevoked {
 		return nil, 0, errors.New("token is revoked")
 	}
+	claimSession, _ := claims["session_id"].(string)
+	if claimSession != tokenRecord.SessionID ||
+		(tokenRecord.SessionID != "" && tokenRecord.UserID != userID) {
+		return nil, 0, errors.New("token session mismatch")
+	}
 	if tokenRecord.TokenType == "refresh_token" {
 		return nil, 0, errors.New("refresh token cannot be used as access token")
 	}
 
+	if err := s.CheckSourceIDTokenSession(ctx, tokenRecord); err != nil {
+		return nil, 0, err
+	}
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
 		return nil, 0, err
+	}
+	if !user.IsActive {
+		return nil, 0, errors.New("account disabled")
 	}
 
 	// Extract active tenant from the JWT. Anything missing or unparseable
@@ -1319,13 +1591,19 @@ func redactAuthToken(token *types.AuthToken) *types.AuthToken {
 
 // GetAccessTokenByValue looks up the stored token row for a JWT string.
 // The JWT itself is stripped so callers cannot log or re-play it.
-func (s *userService) GetAccessTokenByValue(ctx context.Context, tokenString string) (*types.AuthToken, error) {
+func (s *userService) GetAccessTokenByValue(
+	ctx context.Context,
+	tokenString string,
+) (*types.AuthToken, error) {
 	tokenString = strings.TrimSpace(tokenString)
 	if tokenString == "" {
 		return nil, apprepo.ErrTokenNotFound
 	}
 	token, err := s.tokenRepo.GetTokenByValue(ctx, tokenString)
 	if err != nil {
+		return nil, err
+	}
+	if err := s.CheckSourceIDTokenSession(ctx, token); err != nil {
 		return nil, err
 	}
 	return redactAuthToken(token), nil
@@ -1341,6 +1619,9 @@ func (s *userService) GetAccessTokenByID(ctx context.Context, id string) (*types
 	if err != nil {
 		return nil, err
 	}
+	if err := s.CheckSourceIDTokenSession(ctx, token); err != nil {
+		return nil, err
+	}
 	return redactAuthToken(token), nil
 }
 
@@ -1354,7 +1635,7 @@ func isSandboxTerminalTicketClaims(claims jwt.MapClaims) bool {
 	return ok && tokenType == sandboxTerminalTicketType
 }
 
-func userIDFromSignedToken(tokenString string) (string, error) {
+func claimsFromSignedToken(tokenString string) (jwt.MapClaims, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -1362,14 +1643,21 @@ func userIDFromSignedToken(tokenString string) (string, error) {
 		return []byte(getJwtSecret()), nil
 	}, jwt.WithoutClaimsValidation())
 	if err != nil || token == nil || !token.Valid {
-		return "", errors.New("invalid token")
+		return nil, errors.New("invalid token")
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		return "", errors.New("invalid token claims")
+		return nil, errors.New("invalid token claims")
 	}
+	return claims, nil
+}
 
+func userIDFromSignedToken(tokenString string) (string, error) {
+	claims, err := claimsFromSignedToken(tokenString)
+	if err != nil {
+		return "", err
+	}
 	userID, ok := claims["user_id"].(string)
 	if !ok || strings.TrimSpace(userID) == "" {
 		return "", errors.New("invalid user ID in token")
@@ -1445,7 +1733,17 @@ func (s *userService) RefreshToken(
 		return "", "", fmt.Errorf("look up refresh token: %w", err)
 	}
 	if tokenRecord == nil || tokenRecord.IsRevoked {
+		if tokenRecord != nil {
+			if err := s.revokeSourceIDRefreshReplay(ctx, tokenRecord); err != nil {
+				return "", "", err
+			}
+		}
 		return "", "", errors.New("refresh token is revoked")
+	}
+	claimSession, _ := claims["session_id"].(string)
+	if claimSession != tokenRecord.SessionID ||
+		(tokenRecord.SessionID != "" && tokenRecord.UserID != userID) {
+		return "", "", errors.New("refresh session mismatch")
 	}
 	if tokenRecord.TokenType != "refresh_token" {
 		return "", "", errors.New("not a refresh token")
@@ -1457,6 +1755,28 @@ func (s *userService) RefreshToken(
 		return "", "", err
 	}
 
+	if !user.IsActive {
+		return "", "", errors.New("account disabled")
+	}
+
+	if tokenRecord.SessionID != "" {
+		if err := s.recheckSourceIDAdmission(ctx, tokenRecord.SessionID, tokenRecord.UserID); err != nil {
+			return "", "", err
+		}
+		local, err := s.sourceIDLocalLimits(ctx, tokenRecord.SessionID, tokenRecord.UserID)
+		if err != nil {
+			return "", "", err
+		}
+		if local != nil && !local.RefreshEnabled {
+			return "", "", errors.New("sourceid local refresh disabled")
+		}
+		if err := s.CheckSourceIDTokenSession(ctx, tokenRecord); err != nil {
+			return "", "", err
+		}
+		ctx = context.WithValue(ctx, sourceIDSessionKey, tokenRecord.SessionID)
+		ctx = context.WithValue(ctx, sourceIDPreviousKey, refreshTokenString)
+		return s.GenerateTokens(ctx, user)
+	}
 	// Revoke old refresh token
 	tokenRecord.IsRevoked = true
 	_ = s.tokenRepo.UpdateToken(ctx, tokenRecord)
@@ -1473,6 +1793,17 @@ func (s *userService) Logout(ctx context.Context, tokenString string) error {
 	userID, err := userIDFromSignedToken(tokenString)
 	if err != nil {
 		return err
+	}
+	claims, err := claimsFromSignedToken(tokenString)
+	if err != nil {
+		return err
+	}
+	if sessionID, _ := claims["session_id"].(string); sessionID != "" {
+		store, err := s.sourceIDStore()
+		if err != nil {
+			return err
+		}
+		return store.RevokeSourceIDSession(ctx, sessionID, userID)
 	}
 	return s.tokenRepo.RevokeTokensByUserID(ctx, userID)
 }
@@ -1517,6 +1848,7 @@ type oidcDiscoveryDocument struct {
 }
 
 type oidcTokenResponse struct {
+	sidTLSProof *sidTLSReceipt
 	AccessToken string `json:"access_token"`
 	IDToken     string `json:"id_token"`
 	TokenType   string `json:"token_type"`
@@ -1563,16 +1895,59 @@ func (s *userService) getOIDCConfig(ctx context.Context) (*config.OIDCAuthConfig
 		return nil, errors.New("OIDC login is disabled")
 	}
 	cfg := *s.config.OIDCAuth
+	if err := cfg.ValidateSourceIDValidationStrategy(); err != nil {
+		return nil, err
+	}
+	if cfg.SourceIDAdmissionMode == "oidc_sso_approved" && !cfg.SourceIDEnable {
+		return nil, errors.New("sourceid sso requires sourceid identity gate")
+	}
+	if cfg.UserInfoTransport != "" && cfg.UserInfoTransport != "bearer_get" &&
+		cfg.UserInfoTransport != "form_post" &&
+		cfg.UserInfoTransport != "multipart_post" {
+		return nil, errors.New("unsupported OIDC UserInfo transport")
+	}
+	if cfg.RedirectURI != "" {
+		// Callback URI is a deployment contract, never learned from a browser.
+		if cfg.SourceIDEnable &&
+			cfg.RedirectURI != "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback" {
+			return nil, errors.New("sourceid callback differs from approval")
+		}
+	}
+	if cfg.SourceIDProtocolOnly && !cfg.SourceIDEnable {
+		return nil, errors.New("sourceid protocol-only requires sourceid identity gate")
+	}
+	if cfg.SourceIDEnable &&
+		((!cfg.SourceIDContractConfirmed && !cfg.SourceIDProtocolOnly) ||
+			cfg.IssuerURL == "" || cfg.RedirectURI == "") {
+		return nil, errors.New("sourceid protocol contract unconfirmed")
+	}
 	if cfg.UserInfoMapping == nil {
 		cfg.UserInfoMapping = &config.OIDCUserInfoMapping{Username: "name", Email: "email"}
 	}
 	if err := s.populateOIDCEndpoints(ctx, &cfg); err != nil {
 		return nil, err
 	}
+	if sidTLSUserInfoMode(&cfg) {
+		if err := validateSIDTLSResolved(&cfg); err != nil {
+			return nil, err
+		}
+	}
+	if sidPinnedMode(&cfg) {
+		if err := validateSIDPinnedEndpoints(&cfg); err != nil {
+			return nil, err
+		}
+		if _, err := loadSIDPinnedKeys(&cfg, time.Now()); err != nil {
+			return nil, err
+		}
+	}
 	return &cfg, nil
 }
 
 func oidcNeedsDiscovery(cfg *config.OIDCAuthConfig) bool {
+	if sidPinnedMode(cfg) || sidTLSUserInfoMode(cfg) {
+		return cfg.AuthorizationEndpoint == "" || cfg.TokenEndpoint == "" || cfg.UserInfoEndpoint == "" ||
+			cfg.IssuerURL == ""
+	}
 	return strings.TrimSpace(cfg.AuthorizationEndpoint) == "" ||
 		strings.TrimSpace(cfg.TokenEndpoint) == "" ||
 		strings.TrimSpace(cfg.JwksURI) == "" ||
@@ -1582,7 +1957,8 @@ func oidcNeedsDiscovery(cfg *config.OIDCAuthConfig) bool {
 func (s *userService) populateOIDCEndpoints(ctx context.Context, cfg *config.OIDCAuthConfig) error {
 	if oidcNeedsDiscovery(cfg) {
 		if strings.TrimSpace(cfg.DiscoveryURL) == "" {
-			if strings.TrimSpace(cfg.AuthorizationEndpoint) == "" || strings.TrimSpace(cfg.TokenEndpoint) == "" {
+			if strings.TrimSpace(cfg.AuthorizationEndpoint) == "" ||
+				strings.TrimSpace(cfg.TokenEndpoint) == "" {
 				return errors.New("OIDC discovery_url or explicit endpoints are required")
 			}
 		} else if err := s.applyOIDCDiscoveryDocument(ctx, cfg); err != nil {
@@ -1609,15 +1985,18 @@ func (s *userService) applyOIDCDiscoveryDocument(ctx context.Context, cfg *confi
 	if err != nil {
 		return fmt.Errorf("failed to load OIDC discovery document: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(resp.Body.Close)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-		return fmt.Errorf("OIDC discovery request failed: status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 2048))
+		return fmt.Errorf("OIDC discovery request failed: status=%d", resp.StatusCode)
 	}
 
 	var doc oidcDiscoveryDocument
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&doc); err != nil {
 		return fmt.Errorf("failed to decode OIDC discovery document: %w", err)
+	}
+	if cfg.IssuerURL != "" && doc.Issuer != cfg.IssuerURL {
+		return errors.New("OIDC discovery issuer mismatch")
 	}
 	if strings.TrimSpace(cfg.AuthorizationEndpoint) == "" {
 		cfg.AuthorizationEndpoint = doc.AuthorizationEndpoint
@@ -1637,7 +2016,29 @@ func (s *userService) applyOIDCDiscoveryDocument(ctx context.Context, cfg *confi
 	return nil
 }
 
-func (s *userService) exchangeOIDCCode(ctx context.Context, cfg *config.OIDCAuthConfig, code, redirectURI string) (*oidcTokenResponse, error) {
+func (s *userService) exchangeOIDCCode(
+	ctx context.Context,
+	cfg *config.OIDCAuthConfig,
+	code, redirectURI string,
+) (*oidcTokenResponse, error) {
+	if sidTLSUserInfoMode(cfg) {
+		return s.exchangeSIDTLSCode(ctx, cfg, code, redirectURI)
+	}
+	if sidPinnedMode(cfg) {
+		if err := cfg.ValidateSourceIDValidationStrategy(); err != nil {
+			return nil, err
+		}
+		if err := validateSIDPinnedEndpoints(cfg); err != nil {
+			return nil, err
+		}
+		if prepared, _ := ctx.Value(sourceIDPreparedKey).(bool); !prepared {
+			return nil, errors.New("sourceid consumed authorization transaction required")
+		}
+	}
+	basicEncoding, err := cfg.EffectiveSourceIDBasicEncoding()
+	if err != nil {
+		return nil, err
+	}
 	if err := validateOIDCEndpoint("token", cfg.TokenEndpoint, true); err != nil {
 		return nil, err
 	}
@@ -1647,27 +2048,99 @@ func (s *userService) exchangeOIDCCode(ctx context.Context, cfg *config.OIDCAuth
 	form.Set("code", code)
 	form.Set("redirect_uri", redirectURI)
 	form.Set("client_id", cfg.ClientID)
-	form.Set("client_secret", cfg.ClientSecret)
+	if cfg.ClientAuthMethod != "client_secret_basic" {
+		form.Set("client_secret", cfg.ClientSecret)
+	}
+	if verifier, _ := ctx.Value(oidcVerifierKey).(string); verifier != "" {
+		form.Set("code_verifier", verifier)
+	}
+	if cfg.ClientAuthMethod != "" && cfg.ClientAuthMethod != "client_secret_post" &&
+		cfg.ClientAuthMethod != "client_secret_basic" {
+		return nil, errors.New("unsupported OIDC client authentication method")
+	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, cfg.TokenEndpoint, strings.NewReader(form.Encode()))
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		cfg.TokenEndpoint,
+		strings.NewReader(form.Encode()),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OIDC token request: %w", err)
+	}
+	if cfg.ClientAuthMethod == "client_secret_basic" {
+		if basicEncoding == "raw" {
+			req.SetBasicAuth(cfg.ClientID, cfg.ClientSecret)
+		} else {
+			req.SetBasicAuth(url.QueryEscape(cfg.ClientID), url.QueryEscape(cfg.ClientSecret))
+		}
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := newOIDCHTTPClient().Do(req)
+	client := s.oidcProtocolHTTPClient()
+	if sidPinnedMode(cfg) {
+		copyClient := *client
+		copyClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+		client = &copyClient
+	}
+	var tokenTelemetry *sourceIDTokenTelemetry
+	if entry, ok := ctx.Value(sourceIDDiagnosticKey{}).(sourceIDDiagnosticContext); ok &&
+		cfg.SourceIDEnable &&
+		cfg.SourceIDDiagnosticsEnable {
+		req, tokenTelemetry = observeSourceIDTokenRequest(
+			req,
+			entry.ID,
+			cfg.ClientSecret != "",
+			cfg.PKCEEnable,
+			entry.StatePassed,
+			cfg.ClientAuthMethod == "client_secret_basic",
+		)
+		if cfg.ClientAuthMethod == "client_secret_basic" && basicEncoding == "raw" {
+			tokenTelemetry.BasicStrategy = "raw_then_set_basic_auth_base64_once"
+			tokenTelemetry.FormEncoding = false // Credential components; body is still form encoded.
+		}
+		copyClient := *client
+		copyClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+		report := &OIDCProbeReport{}
+		copyClient.Transport = &probeDiagnosticTransport{
+			base:             client.Transport,
+			endpoints:        map[string]string{"token": cfg.TokenEndpoint, "callback": redirectURI},
+			report:           report,
+			callbackReceived: entry.Started,
+			clientAuth:       cfg.ClientAuthMethod,
+			diagnostics:      true,
+			clientID:         cfg.ClientID,
+			beforeSend: func(d *OIDCProbeHTTPDiagnostics) {
+				sourceIDTokenDiagnosticPhase(ctx, "sourceid_token_request", d, tokenTelemetry)
+			},
+		}
+		client = &copyClient
+		defer func() {
+			tokenTelemetry.complete()
+			for i := range report.HTTP {
+				tokenTelemetry.Outcome = sourceIDTokenOutcome(report.HTTP[i])
+				report.HTTP[i].Transport = tokenTelemetry
+			}
+			sourceIDHTTPDiagnostics(ctx, report)
+		}()
+	}
+	resp, err := client.Do(req)
+	if tokenTelemetry != nil {
+		tokenTelemetry.response(resp, err)
+		sourceIDTokenDiagnosticPhase(ctx, "sourceid_token_send", nil, tokenTelemetry)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to exchange OIDC code: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(resp.Body.Close)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 2048))
 		return nil, fmt.Errorf("OIDC token exchange failed: status=%d", resp.StatusCode)
 	}
 
 	var tokenResp oidcTokenResponse
-	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&tokenResp); err != nil {
 		return nil, fmt.Errorf("failed to decode OIDC token response: %w", err)
 	}
 	if strings.TrimSpace(tokenResp.AccessToken) == "" && strings.TrimSpace(tokenResp.IDToken) == "" {
@@ -1676,21 +2149,57 @@ func (s *userService) exchangeOIDCCode(ctx context.Context, cfg *config.OIDCAuth
 	return &tokenResp, nil
 }
 
-func (s *userService) resolveOIDCUserInfo(ctx context.Context, cfg *config.OIDCAuthConfig, tokenResp *oidcTokenResponse) (*types.OIDCUserInfo, error) {
+func (s *userService) resolveOIDCUserInfo(
+	ctx context.Context,
+	cfg *config.OIDCAuthConfig,
+	tokenResp *oidcTokenResponse,
+) (*types.OIDCUserInfo, error) {
+	if sidTLSUserInfoMode(cfg) {
+		return s.resolveSIDTLSUserInfo(ctx, cfg, tokenResp)
+	}
+	if sidPinnedMode(cfg) &&
+		(strings.TrimSpace(tokenResp.AccessToken) == "" || strings.TrimSpace(cfg.UserInfoEndpoint) == "") {
+		return nil, errors.New("SID pinned mode requires UserInfo and current access token")
+	}
 	claims := map[string]interface{}{}
 	verifiedFromIDToken := false
+	if cfg.SourceIDEnable && (tokenResp.IDToken == "" || (!sidPinnedMode(cfg) && cfg.JwksURI == "")) {
+		return nil, errors.New("sourceid requires signed ID Token")
+	}
 
 	if idToken := strings.TrimSpace(tokenResp.IDToken); idToken != "" {
-		if strings.TrimSpace(cfg.JwksURI) == "" {
-			if strings.TrimSpace(cfg.UserInfoEndpoint) == "" || strings.TrimSpace(tokenResp.AccessToken) == "" {
+		if strings.TrimSpace(cfg.JwksURI) == "" && !sidPinnedMode(cfg) {
+			if strings.TrimSpace(cfg.UserInfoEndpoint) == "" ||
+				strings.TrimSpace(tokenResp.AccessToken) == "" {
 				return nil, errors.New("cannot verify OIDC id_token: no jwks_uri configured")
 			}
-			logger.Warnf(ctx, "OIDC id_token ignored: no jwks_uri configured; relying on userinfo endpoint")
+			logger.Warnf(ctx, "OIDC id_token ignored: no jwks_uri configured; relying on userinfo "+
+				"endpoint")
 		} else {
+			stageStarted := time.Now()
 			idTokenClaims, err := s.verifyOIDCIDToken(ctx, cfg, idToken)
 			if err != nil {
+				SourceIDDiagnosticStage(ctx, "id_token", stageStarted, err)
+				sourceIDIDTokenFailureDiagnostic(ctx, err)
 				return nil, fmt.Errorf("OIDC id_token verification failed: %w", err)
 			}
+			expectedNonce, _ := ctx.Value(oidcNonceKey).(string)
+			if cfg.SourceIDEnable && expectedNonce == "" {
+				SourceIDDiagnosticStage(ctx, "id_token", stageStarted, errors.New("missing nonce"))
+				sourceIDIDTokenFailureDiagnostic(ctx, errors.New("missing nonce"))
+				return nil, errors.New("sourceid authorization transaction required")
+			}
+			returnedNonce, _ := idTokenClaims["nonce"].(string)
+			if expectedNonce != "" && returnedNonce != expectedNonce {
+				SourceIDDiagnosticStage(ctx, "id_token", stageStarted, errors.New("OIDC ID Token nonce mismatch"))
+				sourceIDIDTokenFailureDiagnostic(ctx, errors.New("OIDC ID Token nonce mismatch"))
+				return nil, errors.New("OIDC ID Token nonce mismatch")
+			}
+			if err := checkSourceIDReauthentication(ctx, cfg, idTokenClaims); err != nil {
+				return nil, err
+			}
+			SourceIDDiagnosticStage(ctx, "id_token", stageStarted, nil)
+			sourceIDSchemaDiagnostic(ctx, "id_token", idTokenClaims)
 			for k, v := range idTokenClaims {
 				claims[k] = v
 			}
@@ -1698,15 +2207,65 @@ func (s *userService) resolveOIDCUserInfo(ctx context.Context, cfg *config.OIDCA
 		}
 	}
 
+	if cfg.SourceIDEnable && cfg.SourceIDClaimsSource != "" && cfg.SourceIDClaimsSource != "id_token" &&
+		cfg.SourceIDClaimsSource != "userinfo" {
+		return nil, errors.New("unsupported sourceid claims source")
+	}
+	if cfg.SourceIDEnable && cfg.SourceIDClaimsSource == "userinfo" {
+		if cfg.UserInfoEndpoint == "" || tokenResp.AccessToken == "" {
+			return nil, errors.New("sourceid UserInfo required")
+		}
+		// Preserve the verified OIDC identity; business attributes must come from
+		// the explicitly selected source, without mixing conflicting claim sets.
+		for k := range claims {
+			if k != "sub" && k != "iss" && k != "aud" && k != "nonce" && k != "exp" {
+				delete(claims, k)
+			}
+		}
+	}
 	if strings.TrimSpace(cfg.UserInfoEndpoint) != "" && strings.TrimSpace(tokenResp.AccessToken) != "" {
-		userInfoClaims, err := s.fetchOIDCUserInfo(ctx, cfg.UserInfoEndpoint, tokenResp.AccessToken)
+		stageStarted := time.Now()
+		client := s.oidcProtocolHTTPClient()
+		if sidPinnedMode(cfg) {
+			copyClient := *client
+			copyClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+			client = &copyClient
+		}
+		userInfoClaims, err := s.fetchOIDCUserInfoWithClient(
+			ctx,
+			cfg.UserInfoEndpoint,
+			tokenResp.AccessToken,
+			cfg.UserInfoTransport,
+			client,
+		)
 		if err != nil {
-			if !verifiedFromIDToken {
+			SourceIDDiagnosticStage(ctx, "userinfo", stageStarted, err)
+			if !verifiedFromIDToken || (cfg.SourceIDEnable && cfg.SourceIDClaimsSource == "userinfo") {
 				return nil, fmt.Errorf("failed to fetch OIDC userinfo: %w", err)
+			}
+			if cfg.SourceIDEnable {
+				return nil, errors.New("sourceid userinfo unavailable")
 			}
 			logger.Warnf(ctx, "Failed to fetch OIDC userinfo, using verified id_token claims: %v", err)
 		} else {
+			returnedSubject, _ := userInfoClaims["sub"].(string)
+			verifiedSubject, _ := claims["sub"].(string)
+			if verifiedFromIDToken && (returnedSubject == "" || returnedSubject != verifiedSubject) {
+				SourceIDDiagnosticStage(ctx, "userinfo", stageStarted, errors.New("OIDC UserInfo subject mismatch"))
+				return nil, errors.New("OIDC UserInfo subject mismatch")
+			}
+			SourceIDDiagnosticStage(ctx, "userinfo", stageStarted, nil)
+			sourceIDSchemaDiagnostic(ctx, "userinfo", userInfoClaims)
 			for k, v := range userInfoClaims {
+				if (cfg.SourceIDEnable &&
+					cfg.SourceIDClaimsSource != "userinfo") ||
+					k == "iss" ||
+					k == "aud" ||
+					k == "nonce" ||
+					k == "exp" {
+
+					continue
+				}
 				claims[k] = v
 			}
 		}
@@ -1714,6 +2273,13 @@ func (s *userService) resolveOIDCUserInfo(ctx context.Context, cfg *config.OIDCA
 
 	if len(claims) == 0 {
 		return nil, errors.New("OIDC provider returned no user claims")
+	}
+	// Re-read the controlled file after UserInfo: a key revoked or expired
+	// during a slow network call must not reach identity/session writes.
+	if sidPinnedMode(cfg) {
+		if _, err := s.verifyOIDCIDToken(ctx, cfg, tokenResp.IDToken); err != nil {
+			return nil, err
+		}
 	}
 
 	info := &types.OIDCUserInfo{Claims: claims}
@@ -1734,19 +2300,65 @@ func (s *userService) resolveOIDCUserInfo(ctx context.Context, cfg *config.OIDCA
 	return info, nil
 }
 
-func (s *userService) fetchOIDCUserInfo(ctx context.Context, endpoint, accessToken string) (map[string]interface{}, error) {
+func (s *userService) fetchOIDCUserInfo(
+	ctx context.Context,
+	endpoint, accessToken string,
+) (map[string]interface{}, error) {
+	return s.fetchOIDCUserInfoWithTransport(ctx, endpoint, accessToken, "bearer_get")
+}
+
+func (s *userService) fetchOIDCUserInfoWithTransport(
+	ctx context.Context,
+	endpoint, accessToken, transport string,
+) (map[string]interface{}, error) {
+	return s.fetchOIDCUserInfoWithClient(ctx, endpoint, accessToken, transport, s.oidcProtocolHTTPClient())
+}
+
+func (s *userService) fetchOIDCUserInfoWithClient(
+	ctx context.Context,
+	endpoint, accessToken, transport string,
+	client *http.Client,
+) (map[string]interface{}, error) {
 	if err := validateOIDCEndpoint("userinfo", endpoint, true); err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	method := http.MethodGet
+	var body io.Reader
+	contentType := ""
+	switch transport {
+	case "", "bearer_get":
+	case "form_post":
+		method = http.MethodPost
+		body = strings.NewReader(url.Values{"access_token": {accessToken}}.Encode())
+		contentType = "application/x-www-form-urlencoded"
+	case "multipart_post":
+		method = http.MethodPost
+		var payload bytes.Buffer
+		writer := multipart.NewWriter(&payload)
+		if err := writer.WriteField("access_token", accessToken); err != nil {
+			return nil, errors.New("failed to encode OIDC UserInfo request")
+		}
+		if err := writer.Close(); err != nil {
+			return nil, errors.New("failed to encode OIDC UserInfo request")
+		}
+		body = &payload
+		contentType = writer.FormDataContentType()
+	default:
+		return nil, errors.New("unsupported OIDC UserInfo transport")
+	}
+	req, err := http.NewRequestWithContext(ctx, method, endpoint, body)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+accessToken)
+	if method == http.MethodGet {
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+	} else {
+		req.Header.Set("Content-Type", contentType)
+	}
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := newOIDCHTTPClient().Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -1757,7 +2369,7 @@ func (s *userService) fetchOIDCUserInfo(ctx context.Context, endpoint, accessTok
 	}
 
 	var claims map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&claims); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&claims); err != nil {
 		return nil, err
 	}
 	return claims, nil
@@ -2011,7 +2623,7 @@ func (s *userService) fetchOIDCJWKS(ctx context.Context, jwksURI string) (*oidcJ
 	}
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := newOIDCHTTPClient().Do(req)
+	resp, err := s.oidcProtocolHTTPClient().Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -2039,7 +2651,16 @@ const oidcIDTokenLeeway = 2 * time.Minute
 func (s *userService) verifyOIDCIDToken(
 	ctx context.Context, cfg *config.OIDCAuthConfig, idToken string,
 ) (map[string]interface{}, error) {
-	if strings.TrimSpace(cfg.JwksURI) == "" {
+	if sidTLSUserInfoMode(cfg) {
+		return nil, errors.New(
+			"SID TLS verification requires current exchange provenance, not a " +
+				"standalone JWT",
+		)
+	}
+	if err := cfg.ValidateSourceIDValidationStrategy(); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(cfg.JwksURI) == "" && !sidPinnedMode(cfg) {
 		return nil, errors.New("cannot verify OIDC id_token: no jwks_uri configured")
 	}
 	if strings.TrimSpace(cfg.IssuerURL) == "" {
@@ -2049,31 +2670,65 @@ func (s *userService) verifyOIDCIDToken(
 		return nil, errors.New("cannot verify OIDC id_token: client_id is not configured")
 	}
 
-	jwks, err := s.fetchOIDCJWKS(ctx, cfg.JwksURI)
-	if err != nil {
-		return nil, err
+	var jwks *oidcJWKS
+	var pinnedKey *rsa.PublicKey
+	var err error
+	if sidPinnedMode(cfg) {
+		pinnedKey, err = sidPinnedKeyForToken(ctx, cfg, idToken)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		jwks, err = s.fetchOIDCJWKS(ctx, cfg.JwksURI)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %w", errOIDCJWKSFetch, err)
+		}
 	}
-
 	keyFunc := func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("unexpected id_token signing method: %v", token.Header["alg"])
 		}
+		if pinnedKey != nil {
+			return pinnedKey, nil
+		}
 		kid, _ := token.Header["kid"].(string)
-		return jwks.rsaKeyForKid(kid)
+		key, err := jwks.rsaKeyForKid(kid)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %w", errOIDCKeySelection, err)
+		}
+		return key, nil
 	}
 
 	claims := jwt.MapClaims{}
+	methods := []string{"RS256", "RS384", "RS512"}
+	if cfg.SourceIDEnable {
+		methods = []string{"RS256"}
+	}
 	if _, err := jwt.NewParser(
-		jwt.WithValidMethods([]string{"RS256", "RS384", "RS512"}),
+		jwt.WithValidMethods(methods),
 		jwt.WithExpirationRequired(),
+		jwt.WithIssuedAt(),
 		jwt.WithLeeway(oidcIDTokenLeeway),
 		jwt.WithIssuer(strings.TrimSpace(cfg.IssuerURL)),
 		jwt.WithAudience(strings.TrimSpace(cfg.ClientID)),
 	).ParseWithClaims(idToken, claims, keyFunc); err != nil {
 		return nil, fmt.Errorf("id_token verification failed: %w", err)
 	}
+	issuedAt, err := claims.GetIssuedAt()
+	if err != nil || issuedAt == nil {
+		return nil, errors.New("id_token missing issued-at")
+	}
+	azp, azpPresent := claims["azp"]
+	audience, err := claims.GetAudience()
+	if err != nil {
+		return nil, err
+	}
+	if (azpPresent && azp != cfg.ClientID) || (len(audience) > 1 && azp != cfg.ClientID) {
+		return nil, errors.New("id_token authorized party mismatch")
+	}
 	verified := map[string]interface{}(claims)
-	if strings.TrimSpace(extractClaimAsString(verified, "sub")) == "" {
+	subject, err := claims.GetSubject()
+	if err != nil || strings.TrimSpace(subject) == "" {
 		return nil, errors.New("id_token missing sub claim")
 	}
 	return verified, nil
@@ -2125,5 +2780,6 @@ func isUserLookupNotFound(err error) bool {
 	if err == nil {
 		return false
 	}
-	return errors.Is(err, apprepo.ErrUserNotFound) || strings.Contains(strings.ToLower(err.Error()), "user not found")
+	return errors.Is(err, apprepo.ErrUserNotFound) ||
+		strings.Contains(strings.ToLower(err.Error()), "user not found")
 }

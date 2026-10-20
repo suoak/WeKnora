@@ -267,6 +267,7 @@ func RunAsynqServer(params AsynqTaskParams) *asynq.ServeMux {
 
 	// Register document processing handler
 	mux.HandleFunc(types.TypeDocumentProcess, params.KnowledgeService.ProcessDocument)
+	mux.HandleFunc(types.TypeFeishuApplicationProcess, params.KnowledgeService.ProcessDocument)
 	mux.HandleFunc(types.TypeTemporaryDocumentProcess, params.TemporaryDocument.Process)
 
 	// Register manual knowledge processing handler (cleanup + re-indexing)
@@ -369,9 +370,10 @@ type deadLetterKnowledgePayload struct {
 // Question/Summary generation are NOT included: they run after parse_status
 // has already become "completed" and have their own status fields.
 var taskTypesAffectingKnowledgeStatus = map[string]struct{}{
-	types.TypeDocumentProcess:      {},
-	types.TypeKnowledgePostProcess: {},
-	types.TypeManualProcess:        {},
+	types.TypeDocumentProcess:          {},
+	types.TypeFeishuApplicationProcess: {},
+	types.TypeKnowledgePostProcess:     {},
+	types.TypeManualProcess:            {},
 }
 
 // newDeadLetterKnowledgeFailer returns the callback wired into the asynq

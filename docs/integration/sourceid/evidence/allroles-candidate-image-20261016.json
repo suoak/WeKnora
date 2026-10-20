@@ -1,0 +1,9 @@
+{
+  "result": "PASS",
+  "stage": "complete",
+  "revision": "035f35e1d388a2f02615d35cf826bbdcc22e56b0",
+  "image_id": "sha256:2d91336c3f5ba1ba330820801c7bf0573b1c9c45b9280994dd0862d016435286",
+  "runtime_image_id": "sha256:b2751ba9c8797b0c2440b9435ad92ba9ab2c30d4a95b0c28a2b1b34e4a4c3af1",
+  "compiler": "go1.26.7",
+  "live_services_changed": false
+}

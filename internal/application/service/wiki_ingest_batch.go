@@ -810,6 +810,7 @@ func (s *wikiIngestService) ProcessWikiIngest(ctx context.Context, t *asynq.Task
 
 	tailCtx, tailCancel := wikiIngestCleanupContext(ctx)
 	defer tailCancel()
+	tailCtx, firstAddPostErrors := withWikiPostErrors(tailCtx)
 
 	// Sanitize the doc summary pages produced by this batch BEFORE we
 	// rebuild the index. The summary LLM (run during
@@ -897,6 +898,17 @@ func (s *wikiIngestService) ProcessWikiIngest(ctx context.Context, t *asynq.Task
 	// actually landed (vs. dropped because reduce-phase generation
 	// failed).
 	failedAdditionSlugCount := len(failedAdditionSlugs)
+	if firstAddPostErrors.hasFailure() {
+		for _, op := range pendingOps {
+			first, lookupErr := s.isMVPWikiKnowledge(tailCtx, op.KnowledgeID)
+			if lookupErr != nil {
+				return errors.New("wiki first-add post-processing ownership read failed")
+			}
+			if first {
+				unappliedSlugKIDs[op.KnowledgeID] = struct{}{}
+			}
+		}
+	}
 	spanCtx, spanCancel := wikiIngestCleanupContext(ctx)
 	for _, r := range docResults {
 		if r == nil {
@@ -1180,6 +1192,14 @@ func (s *wikiIngestService) ProcessWikiFinalize(ctx context.Context, t *asynq.Ta
 	}
 
 	synthesisModelID := ""
+	firstAddFinalize, firstAddLookupErr := s.hasFirstAddPages(ctx, payload.KnowledgeBaseID, affectedSlugs)
+	if firstAddLookupErr != nil {
+		return errors.New("wiki finalize dependency lookup failed")
+	}
+	ctx, finalizePostErrors := withWikiPostErrors(ctx)
+	if firstAddFinalize {
+		ctx = context.WithValue(ctx, wikiFirstAddFinalizeKey{}, true)
+	}
 	if kb.WikiConfig != nil {
 		synthesisModelID = kb.WikiConfig.SynthesisModelID
 	}
@@ -1187,6 +1207,9 @@ func (s *wikiIngestService) ProcessWikiFinalize(ctx context.Context, t *asynq.Ta
 		synthesisModelID = kb.SummaryModelID
 	}
 	if synthesisModelID == "" {
+		if firstAddFinalize {
+			return errors.New("wiki first-add synthesis model unavailable")
+		}
 		// No model to rebuild the index with; still run the pure-text passes,
 		// then drain. Missing model is a config gap, not a transient error.
 		logger.Warnf(ctx, "wiki finalize: no synthesis model for KB %s, skipping index rebuild", payload.KnowledgeBaseID)
@@ -1199,9 +1222,15 @@ func (s *wikiIngestService) ProcessWikiFinalize(ctx context.Context, t *asynq.Ta
 	if changeDesc.Len() > 0 && synthesisModelID != "" {
 		chatModel, mErr := s.modelService.GetChatModel(ctx, synthesisModelID)
 		if mErr != nil {
+			if firstAddFinalize {
+				return errors.New("wiki first-add synthesis model unavailable")
+			}
 			logger.Warnf(ctx, "wiki finalize: get chat model failed: %v", mErr)
 		} else if err := s.rebuildIndexPage(ctx, chatModel, payload, changeDesc.String(), lang,
 			batchCtx.ContentInstructions); err != nil {
+			if firstAddFinalize {
+				return fmt.Errorf("wiki first-add finalize: %w", err)
+			}
 			logger.Warnf(ctx, "wiki finalize: rebuild index failed: %v", err)
 		} else {
 			indexRebuilt = true
@@ -1211,6 +1240,9 @@ func (s *wikiIngestService) ProcessWikiFinalize(ctx context.Context, t *asynq.Ta
 	if len(affectedSlugs) > 0 {
 		s.cleanDeadLinks(ctx, payload.KnowledgeBaseID, affectedSlugs, batchCtx)
 		s.injectCrossLinks(ctx, payload.KnowledgeBaseID, affectedSlugs, freshRefs, batchCtx)
+	}
+	if firstAddFinalize && finalizePostErrors.hasFailure() {
+		return errors.New("wiki first-add link finalization pending")
 	}
 
 	// A retract may leave one or more generated folders empty. Do not prune
@@ -1954,6 +1986,9 @@ func (s *wikiIngestService) reduceSlugUpdates(
 	}()
 
 	page, err = s.wikiService.GetPageBySlug(ctx, kbID, slug)
+	if err != nil && !errors.Is(err, apprepo.ErrWikiPageNotFound) {
+		return false, "", false, err
+	}
 	exists := (err == nil && page != nil)
 
 	if !exists {
@@ -1983,6 +2018,14 @@ func (s *wikiIngestService) reduceSlugUpdates(
 		// anyway, but be explicit.
 		err = nil
 	}
+	updates, firstAddSources, dependencyErr := s.firstAddDependencies(ctx, page, updates)
+	if dependencyErr != nil {
+		return false, "", false, dependencyErr
+	}
+	if len(updates) == 0 {
+		return false, "", false, nil
+	}
+	firstAddPreviousBody := page.Content
 
 	affectedType = "ingest"
 
@@ -2007,6 +2050,9 @@ func (s *wikiIngestService) reduceSlugUpdates(
 		page.Content = summaryUpdate.SummaryBody
 		page.Summary = summaryUpdate.SummaryLine
 		page.PageType = types.WikiPageTypeSummary
+		if err = markWikiFirstAdd(page, firstAddSources); err != nil {
+			return false, "", false, err
+		}
 		page.SourceRefs = appendUnique(page.SourceRefs, summaryUpdate.SourceRef)
 		// Summary pages don't carry chunk-level citations (they are document-
 		// level synopses generated from the whole content). Clear any stale
@@ -2242,6 +2288,9 @@ func (s *wikiIngestService) reduceSlugUpdates(
 			if updatedSummary != "" {
 				page.Summary = updatedSummary
 			}
+			if len(firstAddSources) > 0 && exists {
+				page.Content = preserveWikiFirstAddBody(firstAddPreviousBody, page.Content)
+			}
 			changed = true
 		} else if err != nil {
 			logger.Warnf(ctx, "wiki ingest: update/retract failed for slug %s: %v", slug, err)
@@ -2265,6 +2314,9 @@ func (s *wikiIngestService) reduceSlugUpdates(
 	// or user-moved pages keep their placement (manual edits are authoritative).
 	// The page's category_path cache is derived from folder_id downstream by
 	// CreatePage/UpdatePage, so assigning the folder id is sufficient here.
+	if len(firstAddSources) > 0 && (additionFailed || (len(additions) > 0 && !changed)) {
+		return false, "", true, errors.New("wiki_first_add_generation_incomplete")
+	}
 	if page.FolderID == "" && batchCtx != nil {
 		if fid := batchCtx.PlannedFolderID[slug]; fid != "" {
 			page.FolderID = fid
@@ -2272,6 +2324,9 @@ func (s *wikiIngestService) reduceSlugUpdates(
 	}
 
 	if changed {
+		if err = markWikiFirstAdd(page, firstAddSources); err != nil {
+			return false, "", false, err
+		}
 		// Refresh chunk refs in-place on the page so they persist alongside
 		// the rest of the row. Retract-only updates (no additions) preserve
 		// the existing refs; addition rounds append the newly-cited chunks

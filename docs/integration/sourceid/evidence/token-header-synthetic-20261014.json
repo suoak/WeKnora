@@ -1,0 +1,13 @@
+{
+  "synthetic_only": true,
+  "real_sid_requests": 0,
+  "cookie_header_present": false,
+  "proxy_authorization_present": false,
+  "authorization_count": 1,
+  "token_body_state_present": false,
+  "form_field_count": 4,
+  "basic_components_match_synthetic": true,
+  "http_status": 401,
+  "observed_mock_requests": 1,
+  "cookie_jar_present": false
+}

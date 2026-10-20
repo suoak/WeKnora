@@ -1,0 +1,240 @@
+{
+  "scope": "Final RC2 reports, safe evidence and declared tool; excludes this checksum file to avoid recursion",
+  "files": [
+    {
+      "path": "evidence/ann-diagnosis.json",
+      "bytes": 1396,
+      "sha256": "a0c3da618b246204c43608f7224ac0a507116c703c2b818e6a8eda0897bbb68e"
+    },
+    {
+      "path": "evidence/ann-exact-reference.json",
+      "bytes": 464,
+      "sha256": "7a77b06a32e7b08b85ced4641d2a12421275e415f4aaf47066506d9c86e92cfd"
+    },
+    {
+      "path": "evidence/ann-point-metadata.json",
+      "bytes": 311,
+      "sha256": "8895dbc700c7bc43242c81ec4f9265b2197d744952b85a11f4ce8a4acdc314ea"
+    },
+    {
+      "path": "evidence/ann-product-parameters.json",
+      "bytes": 1612,
+      "sha256": "08cb81089d4aa0c7c57d5a56a38783239704af92da94a2c3a54c0dec9fb58e6a"
+    },
+    {
+      "path": "evidence/ann-production-sample-comparison.json",
+      "bytes": 5841,
+      "sha256": "55f868e72e2dbd0b0560bf3e7c255f42124b796f3082cc88c20f8dd5336b1061"
+    },
+    {
+      "path": "evidence/ann-scoped-comparison.json",
+      "bytes": 1176,
+      "sha256": "ce36b55e5d8e0458bf70d51828c27b7fa8cf86dd903435b462bb8fc3fe56830e"
+    },
+    {
+      "path": "evidence/ann-source-comparison.json",
+      "bytes": 795,
+      "sha256": "c52be659d90b847b543951675ec11cefba613d3d21fe4ac922f0b532d6655433"
+    },
+    {
+      "path": "evidence/clone-app-startup.json",
+      "bytes": 748,
+      "sha256": "fbf1853d49a029dd32df2b6be7b621427410c2d82c80da03bd0922b8737a39c4"
+    },
+    {
+      "path": "evidence/clone-data-validation-before-repair.json",
+      "bytes": 6116,
+      "sha256": "1584a8ed44ff1648dec40b2f069ecc64a992a1e630636f70ba1dc29656f6e505"
+    },
+    {
+      "path": "evidence/clone-data-validation.json",
+      "bytes": 7763,
+      "sha256": "28a3120d5eb5d4c876b5b59ed0f57c32199ab8f3831f6fad0b887af6b35bb08c"
+    },
+    {
+      "path": "evidence/clone-harness-failure-2026-10-20T00-07-46.110937_00-00.json",
+      "bytes": 712,
+      "sha256": "44775e00caf0266ed4d077456fa11e5be5db02755cdcdb5339f2a727b48df59d"
+    },
+    {
+      "path": "evidence/clone-harness-failure-2026-10-20T00-28-30.706103_00-00.json",
+      "bytes": 10068,
+      "sha256": "fbaa801586adb4592c106d4e894cacd0bfaac97dc9dea215a64dedc574d3318b"
+    },
+    {
+      "path": "evidence/clone-initial-harness-failure.json",
+      "bytes": 712,
+      "sha256": "ad79150c0443a8dae433743b1cc12fc502d254a63c885b716be22a83f29b8f1c"
+    },
+    {
+      "path": "evidence/clone-progress.json",
+      "bytes": 11431,
+      "sha256": "1486d250fb42bc2fe45dbecd72a7fe151978927b5a7c0312409d933ae86672bc"
+    },
+    {
+      "path": "evidence/clone-resource-samples.json",
+      "bytes": 21082,
+      "sha256": "038fe1bf9b5b03bae55943f66081aca32ca5465c4361ee23439a12d5e5c244c2"
+    },
+    {
+      "path": "evidence/clone-restore-shm-failure.json",
+      "bytes": 830,
+      "sha256": "cdf752c3d93d02f5be7c8ed9c82007f18e6d7803bc2bac7147d320a2018156b6"
+    },
+    {
+      "path": "evidence/clone-result.json",
+      "bytes": 11431,
+      "sha256": "1486d250fb42bc2fe45dbecd72a7fe151978927b5a7c0312409d933ae86672bc"
+    },
+    {
+      "path": "evidence/clone-rollback-startup.json",
+      "bytes": 596,
+      "sha256": "2fdd8db6ff563bb549b684bd1b279d5549011b8421f21dfa05b308a896479850"
+    },
+    {
+      "path": "evidence/cloned-source-inventory.json",
+      "bytes": 16200,
+      "sha256": "ba7dd35d319818019964c69160ae0561ddf53feaa5dfa36d6d814ef8ba2dcbb8"
+    },
+    {
+      "path": "evidence/db-locale.json",
+      "bytes": 619,
+      "sha256": "0dd3f072b2fdf9c50e46d21fab4ead68b626be9283e3d15761421e3fb48fb258"
+    },
+    {
+      "path": "evidence/download-manifest.json",
+      "bytes": 4244,
+      "sha256": "913d81b7c61d548f011d9c8310c0623586d6701d148684fc7cb508535d7ebdd5"
+    },
+    {
+      "path": "evidence/fault-observation.json",
+      "bytes": 140,
+      "sha256": "865aae573a5566119d7aa6329a79a73558c160beaa4f5071e8aed224dc00b2b7"
+    },
+    {
+      "path": "evidence/final-runtime-and-cleanup.json",
+      "bytes": 1605,
+      "sha256": "1fdbd3d262d37d09aada50dbd12052e1b6e6216818a2d11038cfb521ca901360"
+    },
+    {
+      "path": "evidence/harness.json",
+      "bytes": 544,
+      "sha256": "788eb2669efbc0ea3d9a39610180ef4bdf14f85c6050e47c34a94a6b7e49b17a"
+    },
+    {
+      "path": "evidence/migration-log-versions.json",
+      "bytes": 1630,
+      "sha256": "d1c21bba9f93264d6001d2311522c52e6d6ea58e94807772fcf51e5df9a1ed60"
+    },
+    {
+      "path": "evidence/migrator-runtime-asset-failure.json",
+      "bytes": 10068,
+      "sha256": "fbaa801586adb4592c106d4e894cacd0bfaac97dc9dea215a64dedc574d3318b"
+    },
+    {
+      "path": "evidence/old-app-identity.json",
+      "bytes": 1002,
+      "sha256": "91dd78676304874c1eced0ceb01c5c74a7051f6ef8e912e080951fd2fc993413"
+    },
+    {
+      "path": "evidence/pg-image-identity.json",
+      "bytes": 6894,
+      "sha256": "89897dd58eeabaa72171ff9b0bed11c4f2f625a7e8c942e2357b77cb61c9fd84"
+    },
+    {
+      "path": "evidence/pg-image.json",
+      "bytes": 327,
+      "sha256": "b6a779bccca02e818dd410bfbdd0fe79ca87fadf83eab4b136686a68e1878838"
+    },
+    {
+      "path": "evidence/preflight.json",
+      "bytes": 431,
+      "sha256": "de89d1a64ca8dc4cee7c032f8c46d3b951788e5ef0a317e3ca77d40e0d862a6d"
+    },
+    {
+      "path": "evidence/production-audit.json",
+      "bytes": 7729,
+      "sha256": "8df7b9b6a6b34c459e0c01ef76dec968261281a1742eb88744253454e7011e88"
+    },
+    {
+      "path": "evidence/production-snapshot.json",
+      "bytes": 1677,
+      "sha256": "c110b2e22dcdc6dbe4d4cd37274dcb3443cb668e937aa17aa635f78c9058ecf3"
+    },
+    {
+      "path": "evidence/rc1-source-manifest.json",
+      "bytes": 908913,
+      "sha256": "1ffa81392e28d83fd31dd0ab853aa250782e9557c88044e1ec03a653c23cd721"
+    },
+    {
+      "path": "evidence/rc2-source-manifest.json",
+      "bytes": 931700,
+      "sha256": "d7626f0e6aeab1873752917ae717dc881fceffad6939f0f289b434db27a7f842"
+    },
+    {
+      "path": "evidence/release-tool-validation.json",
+      "bytes": 3653,
+      "sha256": "d34e100f3b554282102880584f48e6e7266cac436e867413c448775c6f093c86"
+    },
+    {
+      "path": "evidence/restore-repair-progress.json",
+      "bytes": 137,
+      "sha256": "6f2cc9bc02bc4b2b6424d23c4fdbd783e1254f18d2ae207df673aa4f63cde35e"
+    },
+    {
+      "path": "evidence/restore-selector-attempt.json",
+      "bytes": 93,
+      "sha256": "e2a1b79e89806aeef23595ee9dbc6d39a9b7434cde19786c6060c511200dd7e1"
+    },
+    {
+      "path": "evidence/serial-reindex.json",
+      "bytes": 7233,
+      "sha256": "209442d9fa2b483c07c036339320d2ec84d8eae1de0b7585407dc774c1f799d3"
+    },
+    {
+      "path": "evidence/strict-validation.json",
+      "bytes": 8324,
+      "sha256": "baa3a93d4b19119cf49290e04f5eab9a83dd6944d9821ca029deab98cbd0d223"
+    },
+    {
+      "path": "evidence/test-protection.json",
+      "bytes": 1608,
+      "sha256": "53448c2b3cf090ee74f91dc836a22c7cca166e308a92672d11bf59b12b7fe4eb"
+    },
+    {
+      "path": "RC2_CHANGE_MANIFEST.json",
+      "bytes": 73009,
+      "sha256": "ed196de9d076d9136a28cca1be4d95128663f6fd21fa0e49d258d4ac7be2a2fe"
+    },
+    {
+      "path": "RC2_DB3023_3033_VALIDATION.md",
+      "bytes": 10609,
+      "sha256": "1b5bff7290c649c2be0fe014c8972388bed2fa1d18a52d68548aba8637cfb5ff"
+    },
+    {
+      "path": "RC2_PRODUCTION_RUNBOOK.md",
+      "bytes": 6666,
+      "sha256": "5ddfcf25d3ac488093c71f4d953325124e5e3e15b32a4895aded1f1a23edafde"
+    },
+    {
+      "path": "RC2_RELEASE_GATE.md",
+      "bytes": 7394,
+      "sha256": "e43041b0037457c7b503e2076dd7318fa5a969626a0853e122f8b594e76fa991"
+    },
+    {
+      "path": "RC2_WIKI_DRIVE_COMPATIBILITY.md",
+      "bytes": 7373,
+      "sha256": "4b1be84dd8925e1949ae82698b3d38cb8a9a1a1b207bf5e8fb6da34ab7c6d17c"
+    },
+    {
+      "path": "tools/migrate/main.go",
+      "bytes": 3752,
+      "sha256": "d0025cbf1fac9c0033019968feb7d97c4f7d4277bf333ca1a9c034bd70077145"
+    },
+    {
+      "path": "tools/README.md",
+      "bytes": 2271,
+      "sha256": "2395ad8bdac2baf53970a31b9772747e1004945c2db0937ee7d06b3c985195a1"
+    }
+  ]
+}

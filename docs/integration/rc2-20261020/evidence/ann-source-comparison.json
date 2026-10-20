@@ -1,0 +1,32 @@
+{
+  "scope": "bounded read-only metadata and ANN comparison; exact scan only on isolated clone; no model or business-body output",
+  "probe": {
+    "id": 3945,
+    "enabled": true,
+    "dimension": 1024,
+    "vector_md5": "78134d6f8a4fcf41df2eb5ac10ddee1a",
+    "self_distance": 0
+  },
+  "clone_ann": {
+    "rows": 10,
+    "min_distance": 0.31139911438416057
+  },
+  "clone_exact_min": {
+    "min_distance": 0.31139911438416057
+  },
+  "production_probe": {
+    "id": 3945,
+    "enabled": true,
+    "vector_md5": "78134d6f8a4fcf41df2eb5ac10ddee1a",
+    "self_distance": 0
+  },
+  "production_plan_indexes": [
+    "embeddings_pkey",
+    "embeddings_embedding_idx_1024"
+  ],
+  "production_ann": {
+    "rows": 10,
+    "min_distance": 0
+  },
+  "same_stored_probe": true
+}

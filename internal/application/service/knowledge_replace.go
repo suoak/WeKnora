@@ -107,6 +107,17 @@ func (s *knowledgeService) ReplaceKnowledgeFile(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+	if isFeishuAdmissionSource(existing.Channel) {
+		if hash != existing.FileHash || safeFileName != existing.FileName || folderPath != existing.FolderPath {
+			return existing, ErrFeishuStagingRequired
+		}
+		if existing.ParseStatus != types.ParseStatusCompleted && existing.ParseStatus != types.ParseStatusFinalizing {
+			if err := s.ResumeKnowledgeDispatch(ctx, existing); err != nil {
+				return existing, err
+			}
+		}
+		return existing, types.NewDuplicateFileError(existing)
+	}
 	newMetadata, err := mergeKnowledgeMetadata(existing.Metadata, metadata)
 	if err != nil {
 		return nil, err

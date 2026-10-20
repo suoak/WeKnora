@@ -1,0 +1,96 @@
+name: SourceID isolated business test images
+
+on:
+  push:
+    branches: [feature/knowhub-sourceid-oidc]
+    paths: [.github/workflows/sourceid-test-images.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sourceid-test-images-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SOURCE_SHA: ${{ github.sha }}
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [app, frontend]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Verify fixed source and prepare build recipe
+        env:
+          COMPONENT: ${{ matrix.component }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          mkdir -p /tmp/sourceid-image-results
+          git rev-parse HEAD > /tmp/sourceid-image-results/source-sha.txt
+          docker --version > /tmp/sourceid-image-results/docker-version.txt
+          if [ "$COMPONENT" = app ]; then
+            python3 - <<'PY'
+          from pathlib import Path
+          recipe = Path('docker/Dockerfile.app.knowhub-release').read_text()
+          old = 'FROM golang:1.26.7-bookworm@sha256:e8c859f5632dcfde7b32d2012b4351728f6437930887c2f6a91ea242459e5514 AS builder'
+          assert recipe.count(old) == 1
+          recipe = recipe.replace(old, 'FROM golang:1.26.8-bookworm AS builder')
+          recipe = recipe.replace('ARG GO_VERSION_ARG=1.26.7', 'ARG GO_VERSION_ARG=1.26.8')
+          recipe = recipe.replace("grep -F 'go1.26.7'", "grep -F 'go1.26.8'")
+          Path('/tmp/Dockerfile.sourceid-test').write_text(recipe)
+          PY
+            sha256sum /tmp/Dockerfile.sourceid-test > /tmp/sourceid-image-results/recipe-sha256.txt
+          else
+            sha256sum frontend/Dockerfile > /tmp/sourceid-image-results/recipe-sha256.txt
+          fi
+      - name: Build image without deployment credentials
+        env:
+          COMPONENT: ${{ matrix.component }}
+        run: |
+          set -euo pipefail
+          image="knowhub-sourceid-test/$COMPONENT:${SOURCE_SHA:0:9}"
+          if [ "$COMPONENT" = app ]; then
+            docker build --progress=plain --platform linux/amd64 --target runtime \
+              --build-arg VERSION_ARG=0.8.0-sourceid-test-${SOURCE_SHA:0:9} \
+              --build-arg "COMMIT_ID_ARG=$SOURCE_SHA" \
+              --build-arg "REVISION_ARG=$SOURCE_SHA" \
+              --build-arg "BUILD_TIME_ARG=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              --build-arg GO_VERSION_ARG=1.26.8 \
+              -f /tmp/Dockerfile.sourceid-test -t "$image" .
+          else
+            docker build --progress=plain --platform linux/amd64 \
+              --build-arg "VITE_FRONTEND_COMMIT=$SOURCE_SHA" \
+              -f frontend/Dockerfile -t "$image" frontend
+          fi
+      - name: Check packaging without network or service startup
+        env:
+          COMPONENT: ${{ matrix.component }}
+        run: |
+          set -euo pipefail
+          image="knowhub-sourceid-test/$COMPONENT:${SOURCE_SHA:0:9}"
+          if [ "$COMPONENT" = app ]; then
+            docker run --rm --network none --entrypoint sh "$image" -c 'test -x /app/WeKnora && test -x /app/scripts/docker-entrypoint.sh && test ! -e /usr/local/bin/anydoc-runtime-tests && test -f /app/migrations/versioned/003024_sourceid_oidc.up.sql && test -f /app/migrations/versioned/003024_sourceid_oidc.down.sql'
+          else
+            docker run --rm --network none --entrypoint sh "$image" -c 'test -s /usr/share/nginx/html/index.html && test -f /etc/nginx/api-proxy.conf'
+          fi
+          docker image ls --no-trunc --digests --filter "reference=$image" \
+            --format 'image={{.Repository}}:{{.Tag}} id={{.ID}} digest={{.Digest}}' > /tmp/sourceid-image-results/image.txt
+          docker save "$image" | gzip -1 > "/tmp/sourceid-image-results/$COMPONENT-${SOURCE_SHA:0:9}.tar.gz"
+          cd /tmp/sourceid-image-results
+          sha256sum "$COMPONENT-${SOURCE_SHA:0:9}.tar.gz" > archive-sha256.txt
+      - uses: actions/upload-artifact@v6
+        with:
+          name: sourceid-business-${{ matrix.component }}-${{ github.sha }}
+          path: /tmp/sourceid-image-results
+          compression-level: 0
+          retention-days: 7

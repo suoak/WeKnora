@@ -1,0 +1,36 @@
+{
+  "info": {
+    "name": "SID knowhub Token - credential-free request template",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Structure copied from the SID administrator's successful curl. No actual Basic credentials or authorization code are included. Import does not execute a request. Supply credentials locally through an approved protected mechanism. Use only a new, unconsumed code; never reuse a KnowHub callback code already exchanged by the backend. No tests or scripts persist responses."
+  },
+  "variable": [
+    {"key": "SID_BASIC_CREDENTIALS", "value": "", "type": "string"},
+    {"key": "SID_CODE", "value": "", "type": "string"}
+  ],
+  "item": [
+    {
+      "name": "POST /oidc/accessToken - manual execution only",
+      "request": {
+        "auth": {"type": "noauth"},
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/x-www-form-urlencoded", "type": "text"},
+          {"key": "Authorization", "value": "Basic {{SID_BASIC_CREDENTIALS}}", "type": "text"}
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {"key": "grant_type", "value": "authorization_code", "type": "text"},
+            {"key": "client_id", "value": "knowhub", "type": "text"},
+            {"key": "redirect_uri", "value": "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback", "type": "text"},
+            {"key": "code", "value": "{{SID_CODE}}", "type": "text"}
+          ]
+        },
+        "url": "https://sid.ruijie.com.cn/oidc/accessToken",
+        "description": "No client_secret or code_verifier in the form, matching the supplied curl. Authorization is an explicit template header; no second Basic helper should be enabled. No real credentials are stored in this collection."
+      },
+      "response": []
+    }
+  ]
+}

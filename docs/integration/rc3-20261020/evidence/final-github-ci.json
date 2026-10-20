@@ -1,0 +1,138 @@
+{
+  "source_commit": "1e2ded5b67ce9487966210d31011cf9c5b8cdfb9",
+  "retrieved_utc": "2026-10-20T06:51:24.656473+00:00",
+  "job_success": 9,
+  "job_failure": 0,
+  "job_skipped": 3,
+  "runs": [
+    {
+      "id": 39379598604,
+      "name": "Datasource Sync Execution Gate",
+      "status": "completed",
+      "conclusion": "skipped",
+      "html_url": "https://github.com/suoak/WeKnora/actions/runs/39379598604",
+      "jobs": [
+        {
+          "id": 118485412907,
+          "name": "Complete resilience race (${{ matrix.repetition }})",
+          "status": "completed",
+          "conclusion": "skipped",
+          "failed_steps": []
+        },
+        {
+          "id": 118485413163,
+          "name": "verify",
+          "status": "completed",
+          "conclusion": "skipped",
+          "failed_steps": []
+        },
+        {
+          "id": 118485454577,
+          "name": "postgres",
+          "status": "completed",
+          "conclusion": "skipped",
+          "failed_steps": []
+        }
+      ]
+    },
+    {
+      "id": 39379598662,
+      "name": "Frontend",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/suoak/WeKnora/actions/runs/39379598662",
+      "jobs": [
+        {
+          "id": 118485411921,
+          "name": "Test, type-check, and build",
+          "status": "completed",
+          "conclusion": "success",
+          "failed_steps": []
+        },
+        {
+          "id": 118485412102,
+          "name": "Docker multi-stage image",
+          "status": "completed",
+          "conclusion": "success",
+          "failed_steps": []
+        }
+      ]
+    },
+    {
+      "id": 39379598667,
+      "name": "Go Lint",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/suoak/WeKnora/actions/runs/39379598667",
+      "jobs": [
+        {
+          "id": 118485411650,
+          "name": "detect lint modules",
+          "status": "completed",
+          "conclusion": "success",
+          "failed_steps": []
+        },
+        {
+          "id": 118485486118,
+          "name": "golangci-lint (.)",
+          "status": "completed",
+          "conclusion": "success",
+          "failed_steps": []
+        }
+      ]
+    },
+    {
+      "id": 39379598558,
+      "name": "Portal Final Gate",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/suoak/WeKnora/actions/runs/39379598558",
+      "jobs": [
+        {
+          "id": 118485411408,
+          "name": "M1 Linux backend and MCP compatibility",
+          "status": "completed",
+          "conclusion": "success",
+          "failed_steps": []
+        },
+        {
+          "id": 118485411701,
+          "name": "PostgreSQL fresh and existing KnowHub upgrade governance",
+          "status": "completed",
+          "conclusion": "success",
+          "failed_steps": []
+        },
+        {
+          "id": 118485411751,
+          "name": "Portal contracts, RBAC, race, and branding",
+          "status": "completed",
+          "conclusion": "success",
+          "failed_steps": []
+        }
+      ]
+    },
+    {
+      "id": 39379598546,
+      "name": "App",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/suoak/WeKnora/actions/runs/39379598546",
+      "jobs": [
+        {
+          "id": 118485641463,
+          "name": "Format, vet, test, and build",
+          "status": "completed",
+          "conclusion": "success",
+          "failed_steps": []
+        },
+        {
+          "id": 118488201892,
+          "name": "Docker image and production startup smoke",
+          "status": "completed",
+          "conclusion": "success",
+          "failed_steps": []
+        }
+      ]
+    }
+  ]
+}

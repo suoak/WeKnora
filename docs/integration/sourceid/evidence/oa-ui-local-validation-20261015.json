@@ -1,0 +1,19 @@
+{
+  "application_change_sha": "888234eafc8abda2f82137e90aecd2f367388cec",
+  "candidate_sha": "1ba24ef5f9a730bb98d9ade6a5a5d141ea49292b",
+  "local_screenshot_build_sha": "3edd434ec7a9ebd98606e3d6e24d6fbf0f2e8d18",
+  "application_source_identical": true,
+  "unit_callback_i18n_tests": {
+    "pass": 45,
+    "fail": 0
+  },
+  "typecheck": "PASS",
+  "production_baseline_build": "PASS",
+  "production_candidate_build": "PASS",
+  "before_browser_cases": 4,
+  "after_browser_cases": 10,
+  "lint": "NOT_CONFIGURED",
+  "diff_whitespace_check": "PASS",
+  "real_sid_login": "NOT_EXECUTED",
+  "current_services_replaced": false
+}

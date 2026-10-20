@@ -1,0 +1,19 @@
+{
+  "auth-tests.log": {
+    "package_status_lines": [
+      "ok  \tgithub.com/Tencent/WeKnora/internal/application/service\t4.195s",
+      "ok  \tgithub.com/Tencent/WeKnora/internal/handler\t0.833s",
+      "ok  \tgithub.com/Tencent/WeKnora/internal/config\t0.737s",
+      "ok  \tgithub.com/Tencent/WeKnora/internal/middleware\t0.813s",
+      "ok  \tgithub.com/Tencent/WeKnora/internal/utils\t0.013s",
+      "ok  \tgithub.com/Tencent/WeKnora/internal/tracing/langfuse\t0.744s"
+    ],
+    "fail_present": false
+  },
+  "enrollment-tests.log": {
+    "package_status_lines": [
+      "ok  \tgithub.com/Tencent/WeKnora/cmd/sourceid-enroll\t0.763s"
+    ],
+    "fail_present": false
+  }
+}

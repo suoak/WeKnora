@@ -1,0 +1,146 @@
+{
+  "scope": "Explicit sanitized summaries only; no backups, runtime secrets, raw HTTP/model/browser responses or document bodies",
+  "files": [
+    {
+      "file": "final-targeted-gates.json",
+      "bytes": 820,
+      "sha256": "266dea7be0be72cfa1ebea3c80b796f4f1b9f07f4f4bccc463dcacc0baf99ad8"
+    },
+    {
+      "file": "final-test-deployment.json",
+      "bytes": 1256,
+      "sha256": "9cbb737e3377c8b793740306cf11bb126fecc6c81ac537a8468c76844e7ffc6d"
+    },
+    {
+      "file": "native-build-dependency.json",
+      "bytes": 646,
+      "sha256": "ad880c53497c84949f59c8f3933998b36a373cbbc9f369d553d88a1ccafe17ad"
+    },
+    {
+      "file": "backup-verified.json",
+      "bytes": 1034,
+      "sha256": "41c8ae64162282fe6bbe5d0a2de6b24710dcaf79ec1f898cb773ac1ed07d69f6"
+    },
+    {
+      "file": "physical-production-ann-baseline.json",
+      "bytes": 8009,
+      "sha256": "021b2dd375192c280a4cc7b9b1aed23dd7cdbf3f4b7cb7800cf27019233a637a"
+    },
+    {
+      "file": "physical-backup-authorization.json",
+      "bytes": 349,
+      "sha256": "587bec79b72888c66225b3c7021e78ef9a353826bc45a1f7ad54aca32fa820e5"
+    },
+    {
+      "file": "image-backup-result.json",
+      "bytes": 294,
+      "sha256": "03d87bee027d15b004935cbf4bfd97ad8bd0ea347081c460ea99cd56970754f9"
+    },
+    {
+      "file": "test-shared-producer-inventory.json",
+      "bytes": 295,
+      "sha256": "3ba97e6df2a4c0557f417dc6e8519b5c612546e1c02f1e1c9e1e97bb2f78daed"
+    },
+    {
+      "file": "committed-source-manifest.json",
+      "bytes": 909802,
+      "sha256": "5be1a6ed2a3778e7caf34ed161755c0b71e2c7464c918d77175b05cc94a7f8b7"
+    },
+    {
+      "file": "preservation-before.json",
+      "bytes": 1937,
+      "sha256": "847c19785e778d415f537cfa610f5d14c94afb961b05dbc6f773706817f55166"
+    },
+    {
+      "file": "broad-race-interrupted.json",
+      "bytes": 370,
+      "sha256": "4069e87ce9ef8e14f69b16e6e55de8b6e4275a06d53b3feb58569efa733c14bc"
+    },
+    {
+      "file": "physical-recovery.json",
+      "bytes": 6353,
+      "sha256": "f5585df0b66ca2d2417652fd531932af55816535a3bc6655ac6668f360d7e06a"
+    },
+    {
+      "file": "physical-transfer.json",
+      "bytes": 1091,
+      "sha256": "6a036069712cba52ba8741c2af431c0639bcfafc8d519c6539c9677286a6fea2"
+    },
+    {
+      "file": "final-checks.json",
+      "bytes": 2578,
+      "sha256": "d7af04b882fce302aaaeb271fa9fef1c908e4baee5df55941bae845b5b098a92"
+    },
+    {
+      "file": "ensurepip-harness.json",
+      "bytes": 1075,
+      "sha256": "1e1db99bf011d114363cf81c016e4160e6aac3efba1fd78fc5c54f0d4c54109c"
+    },
+    {
+      "file": "physical-acl-bm25.json",
+      "bytes": 5366,
+      "sha256": "f420645447327a0b185741ec5a9a2b57e887abb03c614e776b97c2f0abec1c43"
+    },
+    {
+      "file": "final-data-preservation.json",
+      "bytes": 781,
+      "sha256": "12374d874b18804fd080ca7fad94d2e839f2907b86a7bac5b6d80d696275a283"
+    },
+    {
+      "file": "frozen-oa-concurrency-baseline.json",
+      "bytes": 982,
+      "sha256": "a2517c4ca4426dc8ad5d201b525eead8ee7dd06aadb305b4fccf7e6fa5e87c0b"
+    },
+    {
+      "file": "github-ci-status.json",
+      "bytes": 5460,
+      "sha256": "ac1f618465b056ee726736c5c61f3038475ec9bb2799bc18457836ca904ee136"
+    },
+    {
+      "file": "committed-source-result.json",
+      "bytes": 184,
+      "sha256": "5ffbe73fb230f8b3670936ab1fa7d2e6b388a3dc570f565d60d5f06ecd7b562b"
+    },
+    {
+      "file": "rc3-permission-summary.json",
+      "bytes": 589,
+      "sha256": "34e8d8530b0e76695b66e813d3df5fad4c788d231268ec6fc61258b8bfb4dc3e"
+    },
+    {
+      "file": "rc3-additional-permissions.json",
+      "bytes": 764,
+      "sha256": "4b14254586e2d76f2c042eafdab8ffc2660ab67c2049c68f5a576895bb948797"
+    },
+    {
+      "file": "rc3-import-search-summary.json",
+      "bytes": 1411,
+      "sha256": "6089034af39cca6ecaa733c74d7781d5ed9f1807eb68a7896e320b80830debbd"
+    },
+    {
+      "file": "rc3-rag-summary.json",
+      "bytes": 1084,
+      "sha256": "a32a7419c57cce48fdb69e773c1f50f9eedd37654d5a89731ccd11f3e4a6e956"
+    },
+    {
+      "file": "rc3-rag-sheet-followup-summary.json",
+      "bytes": 409,
+      "sha256": "48e5b35edfe33fd0dc90054c4cc9def4de5331ae7ac35729f125a838b88ed910"
+    },
+    {
+      "file": "rc3-logout-summary.json",
+      "bytes": 106,
+      "sha256": "616a2b4806ddec70b0b142515fce2ef9e2d36727d4da9ad0ae4e25948e3ad6f1"
+    },
+    {
+      "file": "rc3-old-knowledge-summary.json",
+      "bytes": 924,
+      "sha256": "38a24febe4e8212135a3db9f052b42d955be4d320db7fc368b9ceb1eeab49530"
+    },
+    {
+      "file": "rc3-repeat-logout-summary.json",
+      "bytes": 106,
+      "sha256": "616a2b4806ddec70b0b142515fce2ef9e2d36727d4da9ad0ae4e25948e3ad6f1"
+    }
+  ],
+  "hash_representation": "Canonical staged Git blob bytes (LF); working checkout line endings may differ"
+}

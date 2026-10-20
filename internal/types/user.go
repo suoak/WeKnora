@@ -142,6 +142,7 @@ type User struct {
 
 // AuthToken represents an authentication token
 type AuthToken struct {
+	SessionID string `json:"-" gorm:"size:36;index"`
 	// Unique identifier of the token
 	ID string `json:"id"         gorm:"type:varchar(36);primaryKey"`
 	// User ID that owns this token
@@ -180,9 +181,11 @@ type OIDCAuthURLResponse struct {
 }
 
 type OIDCConfigResponse struct {
-	Success             bool   `json:"success"`
-	Enabled             bool   `json:"enabled"`
-	ProviderDisplayName string `json:"provider_display_name,omitempty"`
+	SourceIDBasicEncoding string `json:"sourceid_basic_encoding,omitempty"`
+	RedirectURI           string `json:"redirect_uri,omitempty"`
+	Success               bool   `json:"success"`
+	Enabled               bool   `json:"enabled"`
+	ProviderDisplayName   string `json:"provider_display_name,omitempty"`
 }
 
 type OIDCCallbackResponse struct {

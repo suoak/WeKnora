@@ -1,0 +1,73 @@
+{
+  "sha": "431226c3b1bd5338ec06c1bd0520e637d5fed398",
+  "ci_url": "https://github.com/suoak/WeKnora/actions/runs/38717758880",
+  "status": "completed",
+  "conclusion": "success",
+  "jobs": {
+    "frontend": "success",
+    "postgres": "success",
+    "linux": "success",
+    "browser": "success"
+  },
+  "test_results": {
+    "focused.jsonl": {
+      "pass": 276,
+      "fail": 0,
+      "skip": 9,
+      "skipped_tests": [
+        "TestOIDCProbeChildProcess",
+        "TestSourceIDPostgresAutoEmailBindingConcurrentFirstLogins",
+        "TestSourceIDPostgresEmailBindingApprovalAndMigrationRollback",
+        "TestSourceIDPostgresFeishuOrderedMigrationChain",
+        "TestSourceIDPostgresLocalRefreshRaceAndReplay",
+        "TestSourceIDPostgresLocalConcurrentAccessDoesNotRejectActiveSession",
+        "TestSourceIDPostgresMigrationAndRevocation",
+        "TestSourceIDPostgresConcurrentIdentityAndLogout",
+        "TestSourceIDLocalBrowserBusinessLogin"
+      ],
+      "package_fail": 0
+    },
+    "combined-feishu.jsonl": {
+      "pass": 233,
+      "fail": 0,
+      "skip": 1,
+      "skipped_tests": [
+        "TestSourceIDLocalBrowserBusinessLogin"
+      ],
+      "package_fail": 0
+    },
+    "regression.jsonl": {
+      "pass": 4808,
+      "fail": 0,
+      "skip": 21,
+      "skipped_tests": [
+        "TestListImageAssets_DedupsAndExpandsArrays/postgres",
+        "TestListImageAssets_SkipsForeignDeletedAndMalformedRows/postgres",
+        "TestListImageAssets_PagesStablyThroughTies/postgres",
+        "TestListImageAssets_KeywordSearch/postgres",
+        "TestListImageAssets_AttributeFiltersAndRules/postgres",
+        "TestListImageAssets_SortsByAttribute/postgres",
+        "TestListImageAssets_TriggersFollowChunkWrites/postgres",
+        "TestListImageAssets_MigrationBackfillsExistingChunks/postgres",
+        "TestSyncExecutionPostgres",
+        "TestSourceIDPostgresAutoEmailBindingConcurrentFirstLogins",
+        "TestSourceIDPostgresEmailBindingApprovalAndMigrationRollback",
+        "TestSourceIDPostgresFeishuOrderedMigrationChain",
+        "TestSourceIDPostgresLocalRefreshRaceAndReplay",
+        "TestSourceIDPostgresLocalConcurrentAccessDoesNotRejectActiveSession",
+        "TestSourceIDPostgresMigrationAndRevocation",
+        "TestSourceIDPostgresConcurrentIdentityAndLogout",
+        "TestUsageGovernancePostgresAggregation",
+        "TestSourceIDLocalBrowserBusinessLogin",
+        "TestSyncServicePostgres",
+        "TestRealParserSegmentsAcceptance",
+        "TestCreateStore_DifferentEndpointSameIndex_Allowed"
+      ],
+      "package_fail": 0
+    }
+  },
+  "counting": "Go test JSON pass/skip entries include parents and subtests, not distinct non-overlapping cases",
+  "browser": "PASS; opt-in test is intentionally skipped in other test jobs; see phase-b-local-browser-20261015.json",
+  "deployment": "NOT_EXECUTED",
+  "real_sid_login": "NOT_EXECUTED"
+}

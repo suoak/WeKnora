@@ -92,7 +92,16 @@ func (r *wikiPageRepository) wikiEmptyInLinksPredicate() string {
 
 // Create inserts a new wiki page record
 func (r *wikiPageRepository) Create(ctx context.Context, page *types.WikiPage) error {
-	return r.db.WithContext(ctx).Create(page).Error
+	if err := r.db.WithContext(ctx).Create(page).Error; err != nil {
+		return err
+	}
+	// Read database defaults/JSON normalization before handing back the token.
+	var saved types.WikiPage
+	if err := r.db.WithContext(ctx).Where("id = ?", page.ID).First(&saved).Error; err != nil {
+		return err
+	}
+	*page = saved
+	return nil
 }
 
 // Update updates an existing wiki page record with optimistic locking.
@@ -105,7 +114,7 @@ func (r *wikiPageRepository) Create(ctx context.Context, page *types.WikiPage) e
 // map call *did* write empty status — one inconsistent half-update. The map
 // covers every column UpdatePage mutates, so no UpdateMeta chaser is needed.
 func (r *wikiPageRepository) Update(ctx context.Context, page *types.WikiPage) error {
-	return updateWikiPageRow(r.db.WithContext(ctx), page)
+	return r.guardedWikiWrite(ctx, page, func(tx *gorm.DB) error { return updateWikiPageRow(tx, page) })
 }
 
 // UpdateWithRevision snapshots the version being superseded and applies the
@@ -116,7 +125,7 @@ func (r *wikiPageRepository) Update(ctx context.Context, page *types.WikiPage) e
 func (r *wikiPageRepository) UpdateWithRevision(
 	ctx context.Context, page *types.WikiPage, rev *types.WikiPageRevision,
 ) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.guardedWikiWrite(ctx, page, func(tx *gorm.DB) error {
 		if rev != nil {
 			// An already-present (page_id, version) pair means a concurrent
 			// writer snapshotted the same version first; its copy is
@@ -272,21 +281,23 @@ func (r *wikiPageRepository) DeleteRevisionsByPage(ctx context.Context, pageID s
 // pages appear as v2 on first view and confuse users who expect `version` to
 // correspond to the number of intentional revisions.
 func (r *wikiPageRepository) UpdateAutoLinkedContent(ctx context.Context, page *types.WikiPage) error {
-	result := r.db.WithContext(ctx).
-		Model(page).
-		Where("id = ?", page.ID).
-		Updates(map[string]interface{}{
-			"content":    page.Content,
-			"out_links":  page.OutLinks,
-			"updated_at": page.UpdatedAt,
-		})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return ErrWikiPageNotFound
-	}
-	return nil
+	return r.guardedWikiWrite(ctx, page, func(tx *gorm.DB) error {
+		result := tx.
+			Model(page).
+			Where("id = ?", page.ID).
+			Updates(map[string]interface{}{
+				"content":    page.Content,
+				"out_links":  page.OutLinks,
+				"updated_at": page.UpdatedAt,
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return ErrWikiPageNotFound
+		}
+		return nil
+	})
 }
 
 // UpdateMeta updates bookkeeping / provenance fields WITHOUT incrementing the
@@ -297,32 +308,34 @@ func (r *wikiPageRepository) UpdateAutoLinkedContent(ctx context.Context, page *
 //
 // Used by link maintenance, re-ingest (same-content case), and status changes.
 func (r *wikiPageRepository) UpdateMeta(ctx context.Context, page *types.WikiPage) error {
-	result := r.db.WithContext(ctx).
-		Model(page).
-		Where("id = ?", page.ID).
-		Updates(map[string]interface{}{
-			"in_links":      page.InLinks,
-			"out_links":     page.OutLinks,
-			"aliases":       page.Aliases,
-			"status":        page.Status,
-			"source_refs":   page.SourceRefs,
-			"chunk_refs":    page.ChunkRefs,
-			"page_metadata": page.PageMetadata,
-			"parent_slug":   page.ParentSlug,
-			"folder_id":     page.FolderID,
-			"category_path": page.CategoryPath,
-			"wiki_path":     page.WikiPath,
-			"depth":         page.Depth,
-			"sort_order":    page.SortOrder,
-			"updated_at":    page.UpdatedAt,
-		})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return ErrWikiPageNotFound
-	}
-	return nil
+	return r.guardedWikiWrite(ctx, page, func(tx *gorm.DB) error {
+		result := tx.
+			Model(page).
+			Where("id = ?", page.ID).
+			Updates(map[string]interface{}{
+				"in_links":      page.InLinks,
+				"out_links":     page.OutLinks,
+				"aliases":       page.Aliases,
+				"status":        page.Status,
+				"source_refs":   page.SourceRefs,
+				"chunk_refs":    page.ChunkRefs,
+				"page_metadata": page.PageMetadata,
+				"parent_slug":   page.ParentSlug,
+				"folder_id":     page.FolderID,
+				"category_path": page.CategoryPath,
+				"wiki_path":     page.WikiPath,
+				"depth":         page.Depth,
+				"sort_order":    page.SortOrder,
+				"updated_at":    page.UpdatedAt,
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return ErrWikiPageNotFound
+		}
+		return nil
+	})
 }
 
 // GetByID retrieves a wiki page by its unique ID

@@ -1,0 +1,78 @@
+{
+  "target_sha": "431226c3b1bd5338ec06c1bd0520e637d5fed398",
+  "live_version_changed": false,
+  "live_database_migrated": false,
+  "real_sid_login": "NOT_EXECUTED",
+  "result": "FAILED",
+  "live_schema_before": "3026|f",
+  "database_backup": {
+    "path": "/home/aqyfzx/ai/knowhub-sourceid-phaseb-preflight-431226c3b/private-retry4/backups/test-db-3026.dump",
+    "bytes": 372058,
+    "mode": "0600"
+  },
+  "protected_configuration_backups": [
+    {
+      "source": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+      "backup": "/home/aqyfzx/ai/knowhub-sourceid-phaseb-preflight-431226c3b/private-retry4/backups/0-compose.yml",
+      "mode": "0600"
+    },
+    {
+      "source": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/private/basic-encoding-backups/20261015T112150Z/image-pin.yml",
+      "backup": "/home/aqyfzx/ai/knowhub-sourceid-phaseb-preflight-431226c3b/private-retry4/backups/1-image-pin.yml",
+      "mode": "0600"
+    },
+    {
+      "source": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/private/app.env",
+      "backup": "/home/aqyfzx/ai/knowhub-sourceid-phaseb-preflight-431226c3b/private-retry4/backups/2-app.env",
+      "mode": "0600"
+    },
+    {
+      "source": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/mode.env",
+      "backup": "/home/aqyfzx/ai/knowhub-sourceid-phaseb-preflight-431226c3b/private-retry4/backups/3-mode.env",
+      "mode": "0600"
+    },
+    {
+      "source": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/private/sourceid.env",
+      "backup": "/home/aqyfzx/ai/knowhub-sourceid-phaseb-preflight-431226c3b/private-retry4/backups/4-sourceid.env",
+      "mode": "0600"
+    }
+  ],
+  "candidate_images": {
+    "app": {
+      "reference": "knowhub-sourceid-phaseb/app:431226c3b",
+      "id": "sha256:b2751ba9c8797b0c2440b9435ad92ba9ab2c30d4a95b0c28a2b1b34e4a4c3af1",
+      "revision": "431226c3b1bd5338ec06c1bd0520e637d5fed398"
+    },
+    "frontend": {
+      "reference": "knowhub-sourceid-phaseb/frontend:431226c3b",
+      "id": "sha256:5aa70b6378d4fdbcb173d7a3bd4e4494b1218cafd148e9414684014ca90a3ac1",
+      "revision": "431226c3b1bd5338ec06c1bd0520e637d5fed398"
+    }
+  },
+  "restore_failure_markers": {
+    "role": false,
+    "does not exist": false,
+    "extension": false,
+    "pg_search": false,
+    "vector": false,
+    "already exists": true,
+    "access method": false,
+    "permission": false,
+    "connection": false,
+    "relation": false,
+    "schema": true,
+    "collation": false
+  },
+  "restore_failure_objects": [
+    "paradedb"
+  ],
+  "failure_category": "RuntimeError",
+  "failure_lines": [
+    314
+  ],
+  "isolated_cleanup": {
+    "sourceid-phaseb-rehearsal-431226c3b-postgres": true,
+    "sourceid-phaseb-rehearsal-431226c3b-net": true
+  },
+  "completed_utc": "2026-10-15T11:50:58.840485+00:00"
+}

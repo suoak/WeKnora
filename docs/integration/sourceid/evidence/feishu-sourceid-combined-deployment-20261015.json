@@ -1,0 +1,370 @@
+{
+  "source_sha": "2fcbcaaedfa75fb955bd44dd7fe464ded64eec7c",
+  "ci_url": "https://github.com/suoak/WeKnora/actions/runs/38690335917",
+  "ci_summary": {
+    "combined-feishu.jsonl": {
+      "run": 197,
+      "output": 422,
+      "pass": 197
+    },
+    "focused.jsonl": {
+      "run": 238,
+      "output": 486,
+      "pass": 232,
+      "skip": 6
+    },
+    "regression.jsonl": {
+      "run": 4782,
+      "output": 20012,
+      "pass": 4764,
+      "skip": 18,
+      "pause": 258,
+      "cont": 258
+    },
+    "postgres_pass_entries": 5,
+    "ordered_migration_chain_pass": true
+  },
+  "source_upload": {
+    "host": "172.30.232.42",
+    "build_started": true,
+    "pid": 2753297,
+    "source_sha": "2fcbcaaedfa75fb955bd44dd7fe464ded64eec7c",
+    "directory": "/home/aqyfzx/ai/knowhub-sourceid-token-build-2fcbcaaed",
+    "baseline_unchanged": true
+  },
+  "build_result": {
+    "host": "172.30.232.42",
+    "status": {
+      "state": "COMPLETE",
+      "time_utc": "2026-10-15T06:19:48.709447+00:00",
+      "source": "2fcbcaaed",
+      "compiler": "go1.26.7",
+      "offline_dependency_baseline": "existing-feishu-personal-20261014",
+      "runtime_baseline": "sourceid-8ae91bc44"
+    },
+    "build_container_names": [],
+    "artifact_sizes": {
+      "sheetjs-cache.log": 0,
+      "sourceid-enroll": 35654208,
+      "auth-tests.log": 357,
+      "sourceid-binding": 52529736,
+      "controller-app.log": 83,
+      "anydoc-build.log": 4428,
+      "frontend-build.log": 23933,
+      "npm-ci.log": 768,
+      "app-build.log": 858,
+      "apt-update.log": 558,
+      "WeKnora": 282913376,
+      "frontend-types.log": 55,
+      "enrollment-tests.log": 59,
+      "apt-install.log": 2519,
+      "controller-image_frontend.log": 1334,
+      "controller-frontend.log": 29,
+      "controller-image_app.log": 1706
+    }
+  },
+  "build_tests": {
+    "auth-tests.log": {
+      "package_status_lines": [
+        "ok  \tgithub.com/Tencent/WeKnora/internal/application/service\t3.608s",
+        "ok  \tgithub.com/Tencent/WeKnora/internal/handler\t0.844s",
+        "ok  \tgithub.com/Tencent/WeKnora/internal/config\t0.759s",
+        "ok  \tgithub.com/Tencent/WeKnora/internal/middleware\t0.785s",
+        "ok  \tgithub.com/Tencent/WeKnora/internal/utils\t0.011s",
+        "ok  \tgithub.com/Tencent/WeKnora/internal/tracing/langfuse\t0.738s"
+      ],
+      "fail_present": false
+    },
+    "enrollment-tests.log": {
+      "package_status_lines": [
+        "ok  \tgithub.com/Tencent/WeKnora/cmd/sourceid-enroll\t0.754s"
+      ],
+      "fail_present": false
+    }
+  },
+  "upgrade": {
+    "host": "172.30.232.42",
+    "source_sha": "2fcbcaaedfa75fb955bd44dd7fe464ded64eec7c",
+    "backup_directory": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/upgrade-backups/combined-feishu-sid-20261015T062216Z",
+    "upgraded": true,
+    "before": [
+      {
+        "service": "app",
+        "id": "594e562b3bb86139857972303db8807a33694f7589fdb157dd64c5c9c652fc06",
+        "image": "knowhub-sourceid-business/app:468410e89",
+        "image_id": "sha256:e2feec2c9e25279140a811308ff5a4e61bbf5855e161b8fae39549f7159ee6ea"
+      },
+      {
+        "service": "frontend",
+        "id": "3d7912302b1b992f5a495d724a264d505d70e6a548dc81169556b8c01900f92a",
+        "image": "knowhub-sourceid-business/frontend:468410e89",
+        "image_id": "sha256:f329c19f4c6a87d03caa6421870bc0fabb01b2b0821c6f15f8202b1bf4946919"
+      }
+    ],
+    "database_counts_before": {
+      "users": 1,
+      "tenant_members": 1,
+      "knowledge_bases": 2,
+      "knowledges": 2,
+      "source_id_enrollments": 1,
+      "external_identities": 0,
+      "source_id_sessions": 0
+    },
+    "migration_before": "3024|false",
+    "real_oidc_login": false,
+    "database_backup": {
+      "bytes": 355255,
+      "sha256": "c1e79a79850826495c18c9a82fad120ebd61fb7fd9f03c3df3ccb17568a9c202",
+      "catalog_verified": true,
+      "mode": "0o600",
+      "isolated_restore_verified": true,
+      "restored_clone_migration_verified": true
+    },
+    "rollback_script_syntax": "PASS",
+    "migration_after": "3026|false",
+    "public_config": {
+      "sourceid_basic_encoding": "raw",
+      "redirect_uri": "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback",
+      "success": true,
+      "enabled": true,
+      "provider_display_name": "企业 SID"
+    },
+    "after": [
+      {
+        "service": "app",
+        "id": "03b06efdafe2d7281550b4f070ab6ce79dd91fdd4c8fd6a0d5be07dd3b9e2856",
+        "image": "knowhub-sourceid-business/app:2fcbcaaed",
+        "image_id": "sha256:93f5c831b6e061832d71aa19fe74835c78e16b637d77e7ce18a4283e9ed62daa",
+        "ports": "8080/tcp -> 0.0.0.0:8080"
+      },
+      {
+        "service": "frontend",
+        "id": "dcbeecba4f422149c215c01b1226d8a44801a536b9a38596ad5bdf34cfabd801",
+        "image": "knowhub-sourceid-business/frontend:2fcbcaaed",
+        "image_id": "sha256:4dc1ca5eacbb723000d069e947da4876e7a479f3e95ea5cea4c234a9c295dcba",
+        "ports": "80/tcp -> 0.0.0.0:80"
+      }
+    ],
+    "database_counts_after": {
+      "users": 1,
+      "tenant_members": 1,
+      "knowledge_bases": 2,
+      "knowledges": 2,
+      "source_id_enrollments": 1,
+      "external_identities": 0,
+      "source_id_sessions": 0
+    },
+    "new_table_counts": {
+      "feishu_connections": 0,
+      "feishu_oauth_states": 0,
+      "feishu_personal_imports": 0,
+      "source_id_binding_reviews": 0,
+      "source_id_binding_audits": 0
+    },
+    "other_container_ids_unchanged": true,
+    "rollback_script": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/upgrade-backups/combined-feishu-sid-20261015T062216Z/rollback.sh",
+    "time_utc": "2026-10-15T06:22:41.435917+00:00",
+    "protected_container_count": 45
+  },
+  "acceptance": {
+    "host": "172.30.232.42",
+    "real_sid_login": false,
+    "tests": {
+      "frontend_login_page": 200,
+      "frontend_health_proxy": 200,
+      "existing_isolated_local_account_login": 200,
+      "/api/v1/auth/me": 200,
+      "/api/v1/knowledge-bases": 200,
+      "/api/v1/agents": 200,
+      "/api/v1/models": 200,
+      "/api/v1/mcp-endpoints": 200,
+      "/api/v1/mcp-endpoints/tools": 200,
+      "/api/v1/system/capabilities": 200,
+      "feishu_unconfigured_safe_status": true,
+      "feishu_admin_permission_denied": 403,
+      "feishu_unconfigured_authorize_denied": 400,
+      "knowledge_base_create_status": 201,
+      "feishu_kb_import_route": 200,
+      "manual_draft_create_status": 200,
+      "manual_draft_read_status": 200,
+      "mcp_endpoint_create_status": 201,
+      "mcp_initialize_status": 200,
+      "mcp_tools_list_status": 200,
+      "mcp_tool_call_status": 200,
+      "oidc_public_config": 200,
+      "oidc_enabled_preserved": true,
+      "callback_status": 302,
+      "callback_invalid_state": true,
+      "knowhub-sourceid-business-app-1_privacy": true,
+      "knowhub-sourceid-business-frontend-1_privacy": true,
+      "mcp_cleanup_status": 200,
+      "knowledge_cleanup_status": 200,
+      "local_logout_status": 200,
+      "revoked_local_token_status": 401
+    },
+    "passed": true,
+    "time_utc": "2026-10-15T06:23:04.410187+00:00"
+  },
+  "browser": {
+    "target": "172.30.232.42:80",
+    "real_oidc_login": false,
+    "real_feishu_authorization": false,
+    "checks": {
+      "browser_local_login": true,
+      "feishu_import_entry_and_unconfigured_message": true,
+      "browser_crash_observed": false,
+      "failed_callback_invalid_state": true,
+      "failed_callback_portal_api_requests": 0,
+      "failed_callback_returns_login": true,
+      "all_observed_peers_target": true
+    },
+    "passed": true,
+    "browser_closed": true,
+    "observed_crash": false,
+    "safe_http_statuses": [
+      {
+        "path": "/login",
+        "status": 200
+      },
+      {
+        "path": "/api/v1/auth/oidc/config",
+        "status": 200
+      },
+      {
+        "path": "/api/v1/auth/config",
+        "status": 200
+      },
+      {
+        "path": "/api/v1/auth/login",
+        "status": 200
+      }
+    ],
+    "observed_peers_target": true,
+    "time_utc": "2026-10-15T06:41:25.467Z"
+  },
+  "isolated_failed_callback": {
+    "passed": true,
+    "callback_error": "invalid_state",
+    "portal_api_calls_after_callback": 0,
+    "login_page": true,
+    "production_ip_seen": false,
+    "real_sid_requests": false,
+    "actual_backend_target": "172.30.232.42:80",
+    "browser_closed": true,
+    "all_knownhub_peers_packaging_host": true
+  },
+  "backup_active_data": {
+    "host": "172.30.232.42",
+    "backup_pre_upgrade_active_counts": {
+      "knowledge_bases": 0,
+      "knowledges": 0
+    }
+  },
+  "final": {
+    "host": "172.30.232.42",
+    "selected_public_settings": {
+      "OIDC_AUTH_ENABLE": "true",
+      "SOURCEID_ENABLE": "true",
+      "SOURCEID_PROTOCOL_ONLY": "true",
+      "SOURCEID_CONTRACT_CONFIRMED": "false",
+      "SOURCEID_EMAIL_BINDING_ENABLE": "false",
+      "SOURCEID_AUTO_BINDING_ENABLE": "false",
+      "SOURCEID_EMAIL_CONTRACT_CONFIRMED": "false",
+      "SOURCEID_LOGOUT_ENABLE": "false",
+      "SOURCEID_BASIC_ENCODING": "raw",
+      "SOURCEID_DIAGNOSTICS_ENABLE": "true",
+      "OIDC_AUTH_CLIENT_AUTH_METHOD": "client_secret_basic",
+      "OIDC_AUTH_PKCE_ENABLE": "false",
+      "OIDC_AUTH_SCOPES": "openid",
+      "OIDC_AUTH_ISSUER_URL": "https://sid.ruijie.com.cn",
+      "OIDC_AUTH_DISCOVERY_URL": "https://sid.ruijie.com.cn/oidc/.well-known/openid-configuration",
+      "OIDC_AUTH_REDIRECT_URI": "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback",
+      "OIDC_AUTH_USER_INFO_TRANSPORT": "bearer_get",
+      "AUTO_MIGRATE": "false"
+    },
+    "services": [
+      {
+        "id": "03b06efdafe2d7281550b4f070ab6ce79dd91fdd4c8fd6a0d5be07dd3b9e2856",
+        "image_id": "sha256:93f5c831b6e061832d71aa19fe74835c78e16b637d77e7ce18a4283e9ed62daa",
+        "status": "running",
+        "restart_policy": "unless-stopped",
+        "name": "knowhub-sourceid-business-app-1",
+        "ports": "8080/tcp -> 0.0.0.0:8080"
+      },
+      {
+        "id": "dcbeecba4f422149c215c01b1226d8a44801a536b9a38596ad5bdf34cfabd801",
+        "image_id": "sha256:4dc1ca5eacbb723000d069e947da4876e7a479f3e95ea5cea4c234a9c295dcba",
+        "status": "running",
+        "restart_policy": "unless-stopped",
+        "name": "knowhub-sourceid-business-frontend-1",
+        "ports": "80/tcp -> 0.0.0.0:80"
+      },
+      {
+        "id": "ba1385464699fdb0b21e48b3134e870f99de3bc1d74ff9663a4dc42e5476f624",
+        "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+        "status": "running",
+        "restart_policy": "unless-stopped",
+        "name": "knowhub-sourceid-business-postgres-1",
+        "ports": ""
+      },
+      {
+        "id": "fcc4d64070c73ee198ffa0c5badf6abd1b2d03543243f857be4f84b8605c33ad",
+        "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+        "status": "running",
+        "restart_policy": "unless-stopped",
+        "name": "knowhub-sourceid-business-redis-1",
+        "ports": ""
+      },
+      {
+        "id": "2396325bde68730217152ee1885508ca9294ed8524ef424a7022c8b9a2c2cc90",
+        "image_id": "sha256:8399936620aa78f991b95a0339585f5d2d61f215e6311955e8386a01329beba2",
+        "status": "running",
+        "restart_policy": "unless-stopped",
+        "name": "knowhub-sourceid-business-docreader-1",
+        "ports": ""
+      }
+    ],
+    "docreader": {
+      "process_exit": 0,
+      "list_engines_success": true,
+      "advertised_docx_supported": true,
+      "advertised_txt_supported": false,
+      "read_rpc_pass": true,
+      "markdown_nonempty": true,
+      "error_empty": true
+    },
+    "migration": "3026|false",
+    "database_counts": {
+      "users": 1,
+      "tenant_members": 1,
+      "knowledge_bases": 8,
+      "knowledges": 3,
+      "external_identities": 0,
+      "source_id_sessions": 0,
+      "source_id_binding_reviews": 0,
+      "source_id_binding_audits": 0,
+      "feishu_connections": 0,
+      "feishu_oauth_states": 0,
+      "feishu_personal_imports": 0
+    },
+    "active_data_counts": {
+      "knowledge_bases": 0,
+      "knowledges": 0
+    },
+    "real_sid_login": false,
+    "real_feishu_authorization": false,
+    "time_utc": "2026-10-15T06:42:08.463158+00:00"
+  },
+  "postverify": {
+    "host": "172.30.232.42",
+    "all_other_container_ids_unchanged": true,
+    "log_privacy_after_browser_checks": {
+      "knowhub-sourceid-business-app-1": true,
+      "knowhub-sourceid-business-frontend-1": true
+    },
+    "temporary_migration_containers_running": [],
+    "real_sid_login": false,
+    "time_utc": "2026-10-15T06:42:49.554354+00:00"
+  },
+  "deployment_script_sha256": "3397eced9b3fb1bea5305d49a8a5da0bf98b4fecb8470be9a44a296f246e1b8d"
+}

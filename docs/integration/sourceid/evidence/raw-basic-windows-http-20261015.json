@@ -1,0 +1,25 @@
+{
+  "host": "172.30.232.42",
+  "real_login": false,
+  "checks": {
+    "http://172.30.232.42:80/login": {
+      "status": 200
+    },
+    "http://172.30.232.42:80/health": {
+      "status": 200
+    },
+    "http://172.30.232.42:8080/health": {
+      "status": 200
+    },
+    "http://172.30.232.42:80/api/v1/auth/oidc/config": {
+      "status": 200,
+      "enabled": false,
+      "effective_basic_encoding": "raw"
+    },
+    "http://172.30.232.42:80/api/v1/auth/me": {
+      "status": 401
+    }
+  },
+  "explicit_direct_no_proxy": true,
+  "default_proxy_check": "NON_MATCHING_CONFIG_TARGET_UNKNOWN"
+}

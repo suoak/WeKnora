@@ -841,6 +841,9 @@ func (s *systemSettingService) List(ctx context.Context) ([]*types.SystemSetting
 	}
 	sort.Strings(extraKeys)
 	for _, key := range extraKeys {
+		if key == feishuAppSetting {
+			continue
+		} // dedicated encrypted application editor
 		out = append(out, byKey[key])
 	}
 	return out, nil

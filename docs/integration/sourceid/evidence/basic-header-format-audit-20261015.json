@@ -1,0 +1,120 @@
+{
+  "double_base64_detected": false,
+  "fixtures": [
+    {
+      "basic_ascii_space": true,
+      "fixture": "alphanumeric",
+      "header_unchanged_after_send": true,
+      "oauth_component_escape_changes_input": false,
+      "oauth_equals_raw": true,
+      "one_header": true,
+      "separator_ascii_colon": true,
+      "single_base64_decode_matches_expected_components": true
+    },
+    {
+      "basic_ascii_space": true,
+      "fixture": "url_safe",
+      "header_unchanged_after_send": true,
+      "oauth_component_escape_changes_input": false,
+      "oauth_equals_raw": true,
+      "one_header": true,
+      "separator_ascii_colon": true,
+      "single_base64_decode_matches_expected_components": true
+    },
+    {
+      "basic_ascii_space": true,
+      "fixture": "plus",
+      "header_unchanged_after_send": true,
+      "oauth_component_escape_changes_input": true,
+      "oauth_equals_raw": false,
+      "one_header": true,
+      "separator_ascii_colon": true,
+      "single_base64_decode_matches_expected_components": true
+    },
+    {
+      "basic_ascii_space": true,
+      "fixture": "slash",
+      "header_unchanged_after_send": true,
+      "oauth_component_escape_changes_input": true,
+      "oauth_equals_raw": false,
+      "one_header": true,
+      "separator_ascii_colon": true,
+      "single_base64_decode_matches_expected_components": true
+    },
+    {
+      "basic_ascii_space": true,
+      "fixture": "equals",
+      "header_unchanged_after_send": true,
+      "oauth_component_escape_changes_input": true,
+      "oauth_equals_raw": false,
+      "one_header": true,
+      "separator_ascii_colon": true,
+      "single_base64_decode_matches_expected_components": true
+    },
+    {
+      "basic_ascii_space": true,
+      "fixture": "percent",
+      "header_unchanged_after_send": true,
+      "oauth_component_escape_changes_input": true,
+      "oauth_equals_raw": false,
+      "one_header": true,
+      "separator_ascii_colon": true,
+      "single_base64_decode_matches_expected_components": true
+    },
+    {
+      "basic_ascii_space": true,
+      "fixture": "colon_in_secret",
+      "header_unchanged_after_send": true,
+      "oauth_component_escape_changes_input": true,
+      "oauth_equals_raw": false,
+      "one_header": true,
+      "separator_ascii_colon": true,
+      "single_base64_decode_matches_expected_components": true
+    },
+    {
+      "basic_ascii_space": true,
+      "fixture": "space_in_secret",
+      "header_unchanged_after_send": true,
+      "oauth_component_escape_changes_input": true,
+      "oauth_equals_raw": false,
+      "one_header": true,
+      "separator_ascii_colon": true,
+      "single_base64_decode_matches_expected_components": true
+    },
+    {
+      "basic_ascii_space": true,
+      "fixture": "unicode",
+      "header_unchanged_after_send": true,
+      "oauth_component_escape_changes_input": true,
+      "oauth_equals_raw": false,
+      "one_header": true,
+      "separator_ascii_colon": true,
+      "single_base64_decode_matches_expected_components": true
+    },
+    {
+      "basic_ascii_space": true,
+      "fixture": "literal_percent_encoding",
+      "header_unchanged_after_send": true,
+      "oauth_component_escape_changes_input": true,
+      "oauth_equals_raw": false,
+      "one_header": true,
+      "separator_ascii_colon": true,
+      "single_base64_decode_matches_expected_components": true
+    },
+    {
+      "basic_ascii_space": true,
+      "fixture": "client_id_plus",
+      "header_unchanged_after_send": true,
+      "oauth_component_escape_changes_input": true,
+      "oauth_equals_raw": false,
+      "one_header": true,
+      "separator_ascii_colon": true,
+      "single_base64_decode_matches_expected_components": true
+    }
+  ],
+  "loopback_requests": 22,
+  "real_credential_equivalence": "UNKNOWN",
+  "real_sid_requests": 0,
+  "synthetic_only": true,
+  "unexpected_header_replacement_detected": false
+}

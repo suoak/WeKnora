@@ -3,7 +3,6 @@ package mcp
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -55,7 +54,7 @@ type OAuthRefreshTemporaryError struct {
 }
 
 func (e *OAuthRefreshTemporaryError) Error() string {
-	return fmt.Sprintf("MCP OAuth token refresh temporarily failed: %v", e.Err)
+	return "MCP OAuth token refresh temporarily failed: " + SafeOAuthErrorMessage(e.Err)
 }
 
 func (e *OAuthRefreshTemporaryError) Unwrap() error { return e.Err }
@@ -79,7 +78,8 @@ func newOAuthRuntime(
 	h := transport.NewOAuthHandler(cfg)
 	h.SetBaseURL(baseURL)
 	leaseDuration := oauthRefreshLease
-	if cfg.HTTPClient != nil && cfg.HTTPClient.Timeout > 0 && cfg.HTTPClient.Timeout+15*time.Second > leaseDuration {
+	if cfg.HTTPClient != nil && cfg.HTTPClient.Timeout > 0 &&
+		cfg.HTTPClient.Timeout+15*time.Second > leaseDuration {
 		leaseDuration = cfg.HTTPClient.Timeout + 15*time.Second
 	}
 	return &oauthRuntime{
@@ -113,10 +113,14 @@ func tokenStatus(token *types.MCPOAuthToken, now time.Time) OAuthAuthorizationSt
 	return status
 }
 
-func (r *oauthRuntime) ensureFresh(ctx context.Context, force bool, override *transport.OAuthHandler) error {
+func (r *oauthRuntime) ensureFresh(
+	ctx context.Context,
+	force bool,
+	override *transport.OAuthHandler,
+) error {
 	row, err := r.repo.GetTokenForPrincipal(ctx, r.tenantID, r.principal, r.serviceID)
 	if err != nil {
-		return fmt.Errorf("load MCP OAuth token: %w", err)
+		return safeOAuthError("load MCP OAuth token", err)
 	}
 	if row == nil || row.AccessToken == "" {
 		return &OAuthReauthorizationRequiredError{Reason: "no token is stored"}
@@ -134,7 +138,9 @@ func (r *oauthRuntime) ensureFresh(ctx context.Context, force bool, override *tr
 	}
 	if row.RefreshToken == "" {
 		_ = r.repo.DeleteTokenForPrincipal(ctx, r.tenantID, r.principal, r.serviceID)
-		return &OAuthReauthorizationRequiredError{Reason: "the access token expired and no refresh token is available"}
+		return &OAuthReauthorizationRequiredError{
+			Reason: "the access token expired and no refresh token is available",
+		}
 	}
 	return r.refreshWithLease(ctx, row, override)
 }
@@ -153,7 +159,7 @@ func (r *oauthRuntime) refreshWithLease(
 			ctx, r.tenantID, r.principal, r.serviceID, leaseID, leaseUntil,
 		)
 		if err != nil {
-			return fmt.Errorf("claim MCP OAuth token refresh: %w", err)
+			return safeOAuthError("claim MCP OAuth token refresh", err)
 		}
 		if acquired {
 			return r.refreshAsLeaseOwner(ctx, observed, leaseID, override)
@@ -166,7 +172,7 @@ func (r *oauthRuntime) refreshWithLease(
 		}
 		current, err := r.repo.GetTokenForPrincipal(ctx, r.tenantID, r.principal, r.serviceID)
 		if err != nil {
-			return fmt.Errorf("reload MCP OAuth token after concurrent refresh: %w", err)
+			return safeOAuthError("reload MCP OAuth token after concurrent refresh", err)
 		}
 		if current == nil || current.AccessToken == "" {
 			return &OAuthReauthorizationRequiredError{Reason: "the refresh token is no longer valid"}
@@ -189,13 +195,14 @@ func (r *oauthRuntime) refreshAsLeaseOwner(
 		if err := r.repo.ReleaseTokenRefreshLease(
 			releaseCtx, r.tenantID, r.principal, r.serviceID, leaseID,
 		); err != nil {
-			logger.GetLogger(releaseCtx).Warnf("failed to release MCP OAuth refresh lease: %v", err)
+			logger.GetLogger(releaseCtx).
+				Warnf("failed to release MCP OAuth refresh lease: %s", SafeOAuthErrorMessage(err))
 		}
 	}()
 
 	current, err := r.repo.GetTokenForPrincipal(ctx, r.tenantID, r.principal, r.serviceID)
 	if err != nil {
-		return fmt.Errorf("reload MCP OAuth token before refresh: %w", err)
+		return safeOAuthError("reload MCP OAuth token before refresh", err)
 	}
 	if current == nil || current.AccessToken == "" {
 		return &OAuthReauthorizationRequiredError{Reason: "no token is stored"}
@@ -214,9 +221,15 @@ func (r *oauthRuntime) refreshAsLeaseOwner(
 	if handler == nil {
 		handler = r.handler
 	}
+	// Refresh uses a separately reconstructed handler. Guard its own cached
+	// metadata before SDK dereference, without consuming/replaying the token.
+	if err := validateOAuthDiscovery(ctx, handler, false); err != nil {
+		return &OAuthRefreshTemporaryError{Err: err}
+	}
 	refreshed, refreshErr := handler.RefreshToken(ctx, current.RefreshToken)
 	if refreshErr == nil && refreshed != nil && refreshed.AccessToken != "" {
-		logger.GetLogger(ctx).Infof("MCP OAuth token refreshed: service=%s principal=%s", r.serviceID, r.principal.StorageID())
+		logger.GetLogger(ctx).
+			Infof("MCP OAuth token refreshed: service=%s principal=%s", r.serviceID, r.principal.StorageID())
 		return nil
 	}
 	if refreshErr == nil {
@@ -226,7 +239,7 @@ func (r *oauthRuntime) refreshAsLeaseOwner(
 	if permanent {
 		return r.invalidateToken(ctx, resetClient, "the refresh token or OAuth client is no longer valid")
 	}
-	return &OAuthRefreshTemporaryError{Err: refreshErr}
+	return &OAuthRefreshTemporaryError{Err: safeOAuthError("mcp_oauth_refresh_failed", refreshErr)}
 }
 
 func oauthTokenMaterialChanged(current, observed *types.MCPOAuthToken) bool {
@@ -240,11 +253,11 @@ func oauthTokenMaterialChanged(current, observed *types.MCPOAuthToken) bool {
 
 func (r *oauthRuntime) invalidateToken(ctx context.Context, resetClient bool, reason string) error {
 	if err := r.repo.DeleteTokenForPrincipal(ctx, r.tenantID, r.principal, r.serviceID); err != nil {
-		return fmt.Errorf("delete invalid MCP OAuth token: %w", err)
+		return safeOAuthError("delete invalid MCP OAuth token", err)
 	}
 	if resetClient {
 		if err := r.repo.DeleteClient(ctx, r.tenantID, r.serviceID); err != nil {
-			return fmt.Errorf("delete invalid MCP OAuth client registration: %w", err)
+			return safeOAuthError("delete invalid MCP OAuth client registration", err)
 		}
 	}
 	return &OAuthReauthorizationRequiredError{Reason: reason}

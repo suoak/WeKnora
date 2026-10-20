@@ -114,7 +114,7 @@
             <label class="form-label">{{ $t('embedPublish.name') }}</label>
             <t-input v-model="form.name" :disabled="!isAdmin" :placeholder="$t('embedPublish.namePlaceholder')"
               @focus="channelNameTouched = true" />
-            <p v-if="!editingId" class="form-desc">{{ $t('embedPublish.nameDefaultHint') }}</p>
+            <p v-if="!editingId" class="form-desc">{{ $t('embedPublish.nameDefaultHint', { agent: agents.find(item => item.id === createAgentId)?.name || $t('agent.title') }) }}</p>
             <p v-else class="form-desc">{{ $t('embedPublish.nameDesc') }}</p>
           </div>
 

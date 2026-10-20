@@ -1,0 +1,14 @@
+{
+  "metadata_confirmed": false,
+  "issuer": "",
+  "authorization_endpoint": "",
+  "token_endpoint": "",
+  "jwks_uri": "",
+  "userinfo_endpoint": "",
+  "redirect_uri": "",
+  "client_id": "knowhub",
+  "client_auth_method": "",
+  "userinfo_transport": "",
+  "scopes": ["openid"],
+  "pkce": true
+}

@@ -36,6 +36,7 @@ export const useChatResourcesStore = defineStore('chatResources', () => {
   const allModels = ref<ModelConfig[]>([])
   const webSearchProviders = ref<WebSearchProviderEntity[]>([])
   const sandboxConfigs = ref<SandboxConfigRecord[]>([])
+  const sandboxConfigsError = ref<unknown>(null)
 
   const validKnowledgeBases = computed(() => rawKnowledgeBases.value.filter(isKbModelReady))
   const chatModels = computed(() => allModels.value.filter((m) => m.type === 'KnowledgeQA'))
@@ -105,11 +106,13 @@ export const useChatResourcesStore = defineStore('chatResources', () => {
   // （技能可用性拿不到 ⇒ 技能配置分组直接消失）。
   const sandboxConfigsResource = createCachedResource(
     async () => {
+      sandboxConfigsError.value = null
       try {
         const res = await listSandboxConfigs()
         const rows = Array.isArray(res?.data) ? res.data : []
         return rows.filter((cfg) => isNamedSandboxBackend(cfg.sandbox_type))
-      } catch {
+      } catch (error) {
+        sandboxConfigsError.value = error
         return [] as SandboxConfigRecord[]
       }
     },
@@ -285,6 +288,7 @@ export const useChatResourcesStore = defineStore('chatResources', () => {
       allModels.value = []
       webSearchProviders.value = []
       sandboxConfigs.value = []
+      sandboxConfigsError.value = null
       agentsLoadedLocale = ''
       agentsInflightLocale = ''
       agentKbCache.invalidate()
@@ -302,6 +306,7 @@ export const useChatResourcesStore = defineStore('chatResources', () => {
   }
 
   return {
+    sandboxConfigsError,
     rawKnowledgeBases,
     validKnowledgeBases,
     agents,

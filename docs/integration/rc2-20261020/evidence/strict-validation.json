@@ -1,0 +1,243 @@
+{
+  "utc": "2026-10-20T01:47:51.419072+00:00",
+  "strict_fault_checks": {
+    "dirty_first_migration_3024": true,
+    "actual_statement_timeout": true,
+    "unrelated_failure_not_accepted": true
+  },
+  "recovered_full_database": {
+    "users": 44,
+    "chunks": 4961022,
+    "schema": {
+      "dirty": false,
+      "version": 3033
+    },
+    "knowledge": 4060,
+    "embeddings": 1386916,
+    "invalid_indexes": 0
+  },
+  "legacy_config_acl_token_fingerprints": {
+    "data_sources": {
+      "same": true,
+      "baseline_md5": "35b8890e9ed3e23f8ada2b15faba2786",
+      "upgraded_md5": "35b8890e9ed3e23f8ada2b15faba2786"
+    },
+    "knowledge_bases": {
+      "same": true,
+      "baseline_md5": "36d1136f3ddd1e4ef8f0162293857f1e",
+      "upgraded_md5": "36d1136f3ddd1e4ef8f0162293857f1e"
+    },
+    "models": {
+      "same": true,
+      "baseline_md5": "8a21b18f98d0d3e8abb1e50044427d1a",
+      "upgraded_md5": "8a21b18f98d0d3e8abb1e50044427d1a"
+    },
+    "system_settings": {
+      "same": true,
+      "baseline_md5": "b33e17bf6eaa7ac6baad94772177dff8",
+      "upgraded_md5": "b33e17bf6eaa7ac6baad94772177dff8"
+    },
+    "storage_backends": {
+      "same": true,
+      "baseline_md5": "300aad5ea62cb4ae09214ab88d955621",
+      "upgraded_md5": "300aad5ea62cb4ae09214ab88d955621"
+    },
+    "tenant_api_keys": {
+      "same": true,
+      "baseline_md5": "b5b25728ad004d936eda38bcbae9941f",
+      "upgraded_md5": "b5b25728ad004d936eda38bcbae9941f"
+    },
+    "api_key_kb_scopes": {
+      "same": true,
+      "baseline_md5": "14464544b4dac9606a2f2fcbdbad2133",
+      "upgraded_md5": "14464544b4dac9606a2f2fcbdbad2133"
+    },
+    "api_key_tenant_scopes": {
+      "same": true,
+      "baseline_md5": "8c0a9791b4b234fb830fe70811800314",
+      "upgraded_md5": "8c0a9791b4b234fb830fe70811800314"
+    },
+    "tenant_members": {
+      "same": true,
+      "baseline_md5": "822f3cdabf6b9e4d6da470c15b010240",
+      "upgraded_md5": "822f3cdabf6b9e4d6da470c15b010240"
+    },
+    "knowledge_tag_relations": {
+      "same": true,
+      "baseline_md5": "19a8659bf03aad5723f3496e83885917",
+      "upgraded_md5": "19a8659bf03aad5723f3496e83885917"
+    },
+    "auth_tokens": {
+      "same": true,
+      "baseline_md5": "4f5d1c5eae6d05d1d1e2000033c736d1",
+      "upgraded_md5": "4f5d1c5eae6d05d1d1e2000033c736d1"
+    }
+  },
+  "migrator_binary_sha256": "dfe6de81f586a6b7bb945b570afb63ea77af847d970e07705f4422847ad164a5",
+  "migrator_source_sha256": "267f3b6f4269ae7b612f0e84f02e546185d426708756ee854245f2984b729ed7",
+  "migrator_source": "package main\nimport(\"fmt\";\"os\";\"github.com/Tencent/WeKnora/internal/database\")\nfunc main(){if err:=database.RunMigrations(os.Getenv(\"RC2_CLONE_DSN\"));err!=nil{fmt.Fprintln(os.Stderr,err);os.Exit(1)}}\n",
+  "test_summaries": {
+    "rc2-legacy-race.jsonl": {
+      "counts": {
+        "pass": 16
+      },
+      "sha256": "c1340afb05f9c96bc7ff0b64e590e8ca9a76d84fc2cd0d82e2c5f81f9316037b",
+      "events": [
+        {
+          "Test": "TestFeishuAdmissionFaultRetainsCheckpoint/quota",
+          "Action": "pass",
+          "Elapsed": 0.05,
+          "Time": "2026-10-20T00:02:30.762835351Z"
+        },
+        {
+          "Test": "TestFeishuAdmissionFaultRetainsCheckpoint/bad_request_is_not_permanent",
+          "Action": "pass",
+          "Elapsed": 0,
+          "Time": "2026-10-20T00:02:30.763275272Z"
+        },
+        {
+          "Test": "TestFeishuAdmissionFaultRetainsCheckpoint/database",
+          "Action": "pass",
+          "Elapsed": 0,
+          "Time": "2026-10-20T00:02:30.763670523Z"
+        },
+        {
+          "Test": "TestFeishuAdmissionFaultRetainsCheckpoint/file_storage",
+          "Action": "pass",
+          "Elapsed": 0,
+          "Time": "2026-10-20T00:02:30.764008564Z"
+        },
+        {
+          "Test": "TestFeishuAdmissionFaultRetainsCheckpoint",
+          "Action": "pass",
+          "Elapsed": 0.05,
+          "Time": "2026-10-20T00:02:30.764055994Z"
+        },
+        {
+          "Test": "TestFeishuAdmissionLookupFaultNeverCreates",
+          "Action": "pass",
+          "Elapsed": 0,
+          "Time": "2026-10-20T00:02:30.764201234Z"
+        },
+        {
+          "Test": "TestFeishuAdmissionUnsupportedDoesNotPoisonNextItem",
+          "Action": "pass",
+          "Elapsed": 0,
+          "Time": "2026-10-20T00:02:30.764535975Z"
+        },
+        {
+          "Test": "TestFeishuCheckpointFailureRestoresInMemoryCursor",
+          "Action": "pass",
+          "Elapsed": 0,
+          "Time": "2026-10-20T00:02:30.765050406Z"
+        },
+        {
+          "Test": "TestFeishuReplayPreservesExistingID/completed",
+          "Action": "pass",
+          "Elapsed": 0,
+          "Time": "2026-10-20T00:02:30.770063339Z"
+        },
+        {
+          "Test": "TestFeishuReplayPreservesExistingID/finalizing",
+          "Action": "pass",
+          "Elapsed": 0,
+          "Time": "2026-10-20T00:02:30.770231439Z"
+        },
+        {
+          "Test": "TestFeishuReplayPreservesExistingID/processing",
+          "Action": "pass",
+          "Elapsed": 0,
+          "Time": "2026-10-20T00:02:30.770363319Z"
+        },
+        {
+          "Test": "TestFeishuReplayPreservesExistingID",
+          "Action": "pass",
+          "Elapsed": 0,
+          "Time": "2026-10-20T00:02:30.77041008Z"
+        },
+        {
+          "Test": "TestFeishuChangedReplayNeverDeletesOrReplaces",
+          "Action": "pass",
+          "Elapsed": 0,
+          "Time": "2026-10-20T00:02:30.77056599Z"
+        },
+        {
+          "Test": "TestFeishuDispatchUncertaintyNeverReparsesExistingContent",
+          "Action": "pass",
+          "Elapsed": 0,
+          "Time": "2026-10-20T00:02:30.7707041Z"
+        },
+        {
+          "Test": "TestFeishuAdmissionScopeDoesNotChangeOtherConnectors",
+          "Action": "pass",
+          "Elapsed": 0,
+          "Time": "2026-10-20T00:02:30.770816361Z"
+        },
+        {
+          "Test": "TestFeishuGateBEnqueueFailureMustRecoverOnSameKnowledgeID",
+          "Action": "pass",
+          "Elapsed": 0,
+          "Time": "2026-10-20T00:02:30.770956411Z"
+        }
+      ]
+    },
+    "clone-safety-race.jsonl": {
+      "counts": {
+        "pass": 7,
+        "skip": 1
+      },
+      "sha256": "717f21e079dfcf844b86e46616f39ea5ce86fffb797c589c00425ee34b6163f3",
+      "events": [
+        {
+          "Test": "TestRC2LegacyCloneChangedRevisionPreservesPublishedKnowledge/feishu/14433cdb-fddc-4d6c-a979-ef11c05b61bf",
+          "Action": "pass",
+          "Elapsed": 0.12,
+          "Time": "2026-10-20T01:08:54.193243771Z"
+        },
+        {
+          "Test": "TestRC2LegacyCloneChangedRevisionPreservesPublishedKnowledge/feishu_drive/3e361ce0-b06a-4e8f-ac92-dd9101097045",
+          "Action": "skip",
+          "Elapsed": 0,
+          "Time": "2026-10-20T01:08:54.19413326Z"
+        },
+        {
+          "Test": "TestRC2LegacyCloneChangedRevisionPreservesPublishedKnowledge/feishu_drive/5c7bc873-0ba3-43c7-90a0-32c23e6bd529",
+          "Action": "pass",
+          "Elapsed": 0.03,
+          "Time": "2026-10-20T01:08:54.22654276Z"
+        },
+        {
+          "Test": "TestRC2LegacyCloneChangedRevisionPreservesPublishedKnowledge/feishu_drive/867e5798-1c2b-4547-921d-d43132e3f275",
+          "Action": "pass",
+          "Elapsed": 0.02,
+          "Time": "2026-10-20T01:08:54.247109167Z"
+        },
+        {
+          "Test": "TestRC2LegacyCloneChangedRevisionPreservesPublishedKnowledge/feishu/be5a806a-8ff0-4352-9478-0d9063f7ca95",
+          "Action": "pass",
+          "Elapsed": 0.04,
+          "Time": "2026-10-20T01:08:54.288747438Z"
+        },
+        {
+          "Test": "TestRC2LegacyCloneChangedRevisionPreservesPublishedKnowledge/feishu_drive/c9ec8746-accd-4e77-9615-c0d2e1cc33fd",
+          "Action": "pass",
+          "Elapsed": 0.08,
+          "Time": "2026-10-20T01:08:54.363982448Z"
+        },
+        {
+          "Test": "TestRC2LegacyCloneChangedRevisionPreservesPublishedKnowledge/feishu_drive/eea7e329-708a-4c4b-bc77-b34a254db471",
+          "Action": "pass",
+          "Elapsed": 0.01,
+          "Time": "2026-10-20T01:08:54.370877784Z"
+        },
+        {
+          "Test": "TestRC2LegacyCloneChangedRevisionPreservesPublishedKnowledge",
+          "Action": "pass",
+          "Elapsed": 0.39,
+          "Time": "2026-10-20T01:08:54.371080464Z"
+        }
+      ]
+    }
+  },
+  "production_changed": false
+}

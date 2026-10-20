@@ -1,0 +1,33 @@
+{
+  "target": "172.30.232.42",
+  "application_sha": "431226c3b1bd5338ec06c1bd0520e637d5fed398",
+  "final_result": "DEPLOYED_GATED",
+  "live_migration_up_execution_count": 1,
+  "live_database_schema": 3027,
+  "dirty": false,
+  "automatic_application_rollback_count": 1,
+  "recovered_and_completed": true,
+  "oidc_and_diagnostics_state_preserved": true,
+  "final_flags": {
+    "SOURCEID_BASIC_ENCODING": "oauth_form",
+    "SOURCEID_PROTOCOL_ONLY": "true",
+    "SOURCEID_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_AUTO_BINDING_ENABLE": "false",
+    "SOURCEID_EMAIL_BINDING_ENABLE": "false",
+    "SOURCEID_EMAIL_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_SESSION_MODE": "NOT_SET",
+    "SOURCEID_LOGOUT_ENABLE": "false",
+    "SOURCEID_DIAGNOSTICS_ENABLE": "true",
+    "OIDC_AUTH_ENABLE": "true",
+    "OIDC_AUTH_PKCE_ENABLE": "false",
+    "AUTO_MIGRATE": "false",
+    "AUTO_RECOVER_DIRTY": "false"
+  },
+  "real_sid_login": "NOT_EXECUTED",
+  "real_identity_binding": "NOT_EXECUTED",
+  "local_enterprise_sessions": 0,
+  "feishu_admin_authorized_read": "NOT_TESTED",
+  "feishu_admin_unauthorized_denial_status": 403,
+  "current_active_knowledge_bases": 0,
+  "final_closeout_utc": "2026-10-15T12:20:30.878352+00:00"
+}

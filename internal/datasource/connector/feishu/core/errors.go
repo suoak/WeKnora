@@ -60,9 +60,6 @@ func (e *APIError) Error() string {
 	if e.HTTPStatus != 0 {
 		parts = append(parts, fmt.Sprintf("status=%d", e.HTTPStatus))
 	}
-	if e.Message != "" {
-		parts = append(parts, "msg="+e.Message)
-	}
 	return strings.Join(parts, " ")
 }
 
@@ -98,7 +95,7 @@ func (e *APIError) Is(target error) bool {
 var (
 	knownRateLimitCodes  = map[int]struct{}{99991400: {}}
 	knownAuthCodes       = map[int]struct{}{99991663: {}}
-	knownPermissionCodes = map[int]struct{}{99991672: {}}
+	knownPermissionCodes = map[int]struct{}{99991672: {}, 131006: {}, 1770032: {}, 1069902: {}}
 	knownNotFoundCodes   = map[int]struct{}{1663: {}}
 )
 

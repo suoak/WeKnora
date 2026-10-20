@@ -1,0 +1,278 @@
+{
+  "scope": "18 bounded read-only production ANN queries with per-query 5s timeout, HNSW plan required; no vector/content exported",
+  "results": [
+    {
+      "id": 1551034,
+      "production": {
+        "rows": 31,
+        "min_distance": 0
+      },
+      "serial_clone": {
+        "rows": 0,
+        "min_distance": null
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1566120,
+      "production": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "serial_clone": {
+        "rows": 100,
+        "min_distance": 0.3560662639178688
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 5042587,
+      "production": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "serial_clone": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1992726,
+      "production": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "serial_clone": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1993904,
+      "production": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "serial_clone": {
+        "rows": 100,
+        "min_distance": 0.5702887050094385
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 2006212,
+      "production": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "serial_clone": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1281070,
+      "production": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "serial_clone": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1282633,
+      "production": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "serial_clone": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1284196,
+      "production": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "serial_clone": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1579042,
+      "production": {
+        "rows": 100,
+        "min_distance": 0.271523866042117
+      },
+      "serial_clone": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 5051476,
+      "production": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "serial_clone": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 5112057,
+      "production": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "serial_clone": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1993611,
+      "production": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "serial_clone": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1993701,
+      "production": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "serial_clone": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1993795,
+      "production": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "serial_clone": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1573126,
+      "production": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "serial_clone": {
+        "rows": 100,
+        "min_distance": 0.4583291610370137
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1643857,
+      "production": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "serial_clone": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    },
+    {
+      "id": 1677223,
+      "production": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "serial_clone": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ]
+    }
+  ],
+  "same_probe_metadata": true,
+  "production_self_recall_pass": 17,
+  "production_self_recall_fail": 1
+}

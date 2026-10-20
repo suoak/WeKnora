@@ -127,7 +127,7 @@ func (s *Scheduler) AddOrUpdate(ds *types.DataSource) error {
 		delete(s.entries, ds.ID)
 	}
 
-	if ds.Status != types.DataSourceStatusActive || ds.SyncSchedule == "" {
+	if ds.Status != types.DataSourceStatusActive || ds.SyncSchedule == "" || LegacyFeishuSyncSuspended(ds.Type) {
 		return nil
 	}
 
@@ -152,6 +152,9 @@ func (s *Scheduler) addEntry(ds *types.DataSource) error {
 }
 
 func (s *Scheduler) addEntryLocked(ds *types.DataSource) error {
+	if LegacyFeishuSyncSuspended(ds.Type) {
+		return nil
+	}
 	dsID := ds.ID
 	tenantID := ds.TenantID
 
@@ -181,6 +184,9 @@ func (s *Scheduler) triggerSync(dataSourceID string, tenantID uint64) {
 	ds, err := s.dsRepo.FindByID(ctx, dataSourceID)
 	if err != nil || ds == nil || ds.Status != types.DataSourceStatusActive {
 		logger.Infof(ctx, "[Scheduler] skipping sync for ds=%s (not active or not found)", dataSourceID)
+		return
+	}
+	if LegacyFeishuSyncSuspended(ds.Type) {
 		return
 	}
 

@@ -1,0 +1,36 @@
+{
+  "utc": "2026-10-15T16:45:12.385271+00:00",
+  "target": "172.30.232.42",
+  "result": "PASS",
+  "operation": "cc558c5d-e9fb-4b92-95d8-566c325ce145",
+  "account_created": true,
+  "role": "viewer",
+  "personal_tenant_created": false,
+  "owner_permissions_changed": false,
+  "dry_run_passed": true,
+  "repeat_dry_run_idempotent": true,
+  "business_containers_unchanged": true,
+  "flags": {
+    "SOURCEID_PROTOCOL_ONLY": "true",
+    "SOURCEID_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_EMAIL_BINDING_ENABLE": "false",
+    "SOURCEID_AUTO_BINDING_ENABLE": "false",
+    "SOURCEID_BASIC_ENCODING": "oauth_form"
+  },
+  "aggregates": {
+    "users": 2,
+    "tenants": 1,
+    "owner_members": 1,
+    "identities": 0,
+    "reviews": 0,
+    "sessions": 0,
+    "local_sessions": 0,
+    "active_kbs": 0
+  },
+  "protected_baseline_saved": true,
+  "database_backup_saved": true,
+  "employee_values_exported": false,
+  "sid_login_started": false,
+  "network_rules_changed": false,
+  "binary_sha256": "918c292f29a53afd4ff95a9d158a88e4c52b78fe3566592647804ab7b8fce9f2"
+}

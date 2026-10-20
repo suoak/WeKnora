@@ -43,12 +43,13 @@ function isLiteSpaDefaultEntry(to: RouteLocationNormalized) {
 function hasPendingOIDCCallback() {
   if (typeof window === 'undefined') return false
   const hash = window.location.hash || ''
-  return hash.includes('oidc_result=') || hash.includes('oidc_error=')
+  return hash.includes('oidc_complete=') || hash.includes('oidc_error=')
 }
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
+    { path: '/feishu/callback', component: () => import('../views/auth/FeishuCallback.vue'), meta: { requiresAuth: true, requiresInit: false, requiresTenant: false } },
     {
       path: "/",
       redirect: () => resolveRootLanding(
@@ -262,9 +263,7 @@ function persistLoginResponse(authStore: ReturnType<typeof useAuthStore>, respon
     const homeTenantId = response.user.tenant_id ?? activeTenant?.id ?? ''
     authStore.setUser(userInfoFromApi(response.user, homeTenantId))
     authStore.setToken(response.token)
-    if (response.refresh_token) {
-      authStore.setRefreshToken(response.refresh_token)
-    }
+    authStore.setRefreshToken(response.refresh_token || '')
     if (activeTenant) {
       authStore.setTenant({
         id: String(activeTenant.id) || '',

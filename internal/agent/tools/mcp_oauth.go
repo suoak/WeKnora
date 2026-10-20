@@ -110,7 +110,8 @@ func getOrCreateMCPClientWithOAuthRetry(
 	}
 	defer cancel()
 
-	_ = mcpManager.CloseClient(service.ID)
+	tenantID, _ := types.TenantIDFromContext(retryCtx)
+	_ = mcpManager.CloseOAuthClient(tenantID, types.MCPOAuthPrincipalFromContext(retryCtx), service.ID)
 	return mcpManager.GetOrCreateClient(retryCtx, service)
 }
 

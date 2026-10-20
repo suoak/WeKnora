@@ -1,0 +1,12 @@
+{
+  "result": "PASS",
+  "model_requests": 0,
+  "query_source": "existing stored vector; loopback only",
+  "document_text_exported": false,
+  "embedding_exported": false,
+  "http_status": 200,
+  "hit_count": 3,
+  "success_field": true,
+  "hits_reference_original_documents": true,
+  "logout_invalidates_access": true
+}

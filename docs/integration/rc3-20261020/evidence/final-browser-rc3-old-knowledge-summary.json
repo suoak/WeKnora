@@ -1,0 +1,38 @@
+{
+  "user_id_matches_previous_acceptance": true,
+  "system_admin": false,
+  "kb": "f25931ad-fd02-447c-8334-21883f631b9f",
+  "permission": {
+    "my_permission": null,
+    "creator_is_current_user": false
+  },
+  "results": [
+    {
+      "type": "docx",
+      "knowledge_id": "e3970f9f-a5bf-4988-bd1d-a644d6a79d89",
+      "parse_status": "completed",
+      "portal_hits": 6,
+      "hybrid_hits": 10,
+      "source_url_present": true,
+      "pass": true
+    },
+    {
+      "type": "sheet",
+      "knowledge_id": "9d892d51-2eb1-43b0-a15c-0d6193cec5b8",
+      "parse_status": "completed",
+      "portal_hits": 3,
+      "hybrid_hits": 10,
+      "source_url_present": true,
+      "pass": true
+    },
+    {
+      "type": "bitable",
+      "knowledge_id": "47e00dae-16ae-4823-bcb0-319a27fbb94c",
+      "parse_status": "completed",
+      "portal_hits": 6,
+      "hybrid_hits": 10,
+      "source_url_present": true,
+      "pass": true
+    }
+  ]
+}

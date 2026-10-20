@@ -1,0 +1,74 @@
+package repository
+
+import (
+	"context"
+	"errors"
+
+	"github.com/Tencent/WeKnora/internal/types"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+)
+
+// withWikiDependencies uses a short row lock only around compare + commit.
+// LLM calls and remote requests occur before this transaction. PostgreSQL
+// serializes even writers that UPDATE the row without using this helper.
+func withWikiDependencies(db *gorm.DB, page *types.WikiPage, write func(*gorm.DB) error) error {
+	if page.ReadETag == "" {
+		return ErrWikiPageConflict
+	}
+	originalETag, originalVersion := page.ReadETag, page.Version
+	err := db.Transaction(func(tx *gorm.DB) error {
+		if tx.Name() == "sqlite" {
+			// Acquire the SQLite writer reservation before reading dependencies.
+			if err := tx.Exec("UPDATE wiki_pages SET version = version WHERE id = ?", page.ID).Error; err != nil {
+				return err
+			}
+		}
+		var current types.WikiPage
+		if err := tx.Clauses(
+			clause.Locking{
+				Strength: "UPDATE",
+			},
+		).
+			Where(
+				"id = ?",
+				page.ID,
+			).
+			First(
+				&current,
+			).
+			Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrWikiPageNotFound
+			}
+			return err
+		}
+		if current.ReadETag != page.ReadETag {
+			return ErrWikiPageConflict
+		}
+		if err := write(tx); err != nil {
+			return err
+		}
+		// Reload canonical database values (not a digest of a partially-selected
+		// projection). The next mutation of this object is a new guarded write.
+		var saved types.WikiPage
+		if err := tx.Where("id = ?", page.ID).First(&saved).Error; err != nil {
+			return err
+		}
+		page.ReadETag = saved.ReadETag
+		return nil
+	})
+	if err != nil {
+		page.ReadETag, page.Version = originalETag, originalVersion
+	}
+	return err
+}
+
+// Kept separate so tests can exercise real lock ordering without model mocks.
+func (r *wikiPageRepository) guardedWikiWrite(
+	ctx context.Context,
+	page *types.WikiPage,
+	write func(*gorm.DB) error,
+) error {
+	return withWikiDependencies(r.db.WithContext(ctx), page, write)
+}

@@ -1,0 +1,64 @@
+{
+  "utc": "2026-10-16T06:47:19.151407+00:00",
+  "target": "172.30.232.42",
+  "containers": {
+    "app": {
+      "id": "7e2138ebd613725c2156baff2e509c94ef0212c46fb9fed68e9d596720d6b40e",
+      "image": "sha256:85f9d6c052298e7f52e7d7c4533e131ce19326d461521378e90c6df3b01fa49c",
+      "revision": "479416c9086d91de4484dbbd2cc5f912cdcdb697",
+      "running": true,
+      "health": "healthy"
+    },
+    "frontend": {
+      "id": "7b624ec2ee904cb7a0ab86458954722bae831f20f1f3c9da54c7ca3f5e53c448",
+      "image": "sha256:63146a134fc3be75b663a1ac6ddba205be2b0a3c881891a3ba29a28d6a04f48a",
+      "revision": "1ba24ef5f9a730bb98d9ade6a5a5d141ea49292b",
+      "running": true,
+      "health": "NOT_CONFIGURED"
+    }
+  },
+  "flags": {
+    "SOURCEID_FORCE_REAUTH_PROMPT_LOGIN": "false",
+    "SOURCEID_PROTOCOL_ONLY": "true",
+    "SOURCEID_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_EMAIL_BINDING_ENABLE": "false",
+    "SOURCEID_AUTO_BINDING_ENABLE": "false",
+    "SOURCEID_AUTHORIZATION_RECHECK_CONFIRMED": "false",
+    "SOURCEID_BASIC_ENCODING": "oauth_form",
+    "SOURCEID_SESSION_MODE": "NOT_SET",
+    "SOURCEID_LOGOUT_ENABLE": "false",
+    "OIDC_AUTH_ENABLE": "true",
+    "SOURCEID_DIAGNOSTICS_ENABLE": "true",
+    "AUTO_MIGRATE": "false"
+  },
+  "runtime_changed": false,
+  "login_started": false,
+  "database": [
+    {
+      "version": 3027,
+      "dirty": false
+    },
+    {
+      "active_unconsumed": 0,
+      "users": 2,
+      "bindings": 0,
+      "local_sessions": 0
+    }
+  ],
+  "compose_files_in_order": [
+    "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+    "/home/aqyfzx/ai/knowhub-sourceid-phaseb-preflight-431226c3b/candidate-image-pin.yml",
+    "/home/aqyfzx/ai/knowhub-oa-ui-candidate-1ba24ef5f/frontend-ui-pin.yml",
+    "/home/aqyfzx/ai/knowhub-allroles-035f35e1d/app-release-pin.yml",
+    "/home/aqyfzx/ai/knowhub-prompt-login-479416c90/prompt-login-app-pin.yml"
+  ],
+  "restore_files_present": true,
+  "app_rollback_pin_present": true,
+  "backup_present": true,
+  "health": {
+    "frontend": 200,
+    "app": 200,
+    "proxy_config": 200
+  },
+  "result": "READONLY_PASS"
+}

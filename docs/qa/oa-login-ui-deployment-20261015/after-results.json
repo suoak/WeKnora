@@ -1,0 +1,149 @@
+[
+  {
+    "name": "desktop",
+    "phase": "after",
+    "origin": "http://172.30.232.42",
+    "cacheDisabled": true,
+    "proxyBypassed": true,
+    "layout": {
+      "primary": {
+        "x": 884.390625,
+        "y": 558,
+        "width": 400,
+        "height": 46
+      },
+      "button": {
+        "x": 884.390625,
+        "y": 650,
+        "width": 400,
+        "height": 46
+      },
+      "divider": {
+        "x": 884.390625,
+        "y": 620,
+        "width": 400,
+        "height": 18
+      },
+      "background": "linear-gradient(225deg, rgb(2, 44, 34), rgb(6, 78, 59) 15%, rgb(6, 95, 70) 25%, rgb(4, 120, 87) 38%, rgb(5, 150, 105) 50%, rgb(7, 192, 95) 65%, rgb(16, 185, 129) 78%, rgb(52, 211, 153) 90%, rgb(110, 231, 183))",
+      "primaryColor": "rgb(7, 192, 95)",
+      "buttonBackground": "rgb(233, 248, 236)",
+      "buttonBorder": "rgb(7, 192, 95)",
+      "buttonColor": "rgb(2, 114, 24)",
+      "text": "使用 OA 登录",
+      "horizontalOverflow": false
+    },
+    "assets": [
+      {
+        "path": "/assets/main-CJrpCTow.js",
+        "status": 200,
+        "sha256": "d3f0e3fc4b8185ccacf485840f81219d513a0eb0d4abcc3e18a210ce820066a5"
+      },
+      {
+        "path": "/assets/Login-BwWSdVPg.js",
+        "status": 200,
+        "sha256": "7edd6b3c81750c826c7d51918ef7a1981d3933f90ab08c0904e8be259b84f1f2"
+      }
+    ],
+    "pageErrors": 0,
+    "sidRequests": 0,
+    "result": "PASS"
+  },
+  {
+    "name": "mobile",
+    "phase": "after",
+    "origin": "http://172.30.232.42",
+    "cacheDisabled": true,
+    "proxyBypassed": true,
+    "layout": {
+      "primary": {
+        "x": 40,
+        "y": 970.59375,
+        "width": 310,
+        "height": 46
+      },
+      "button": {
+        "x": 40,
+        "y": 1062.59375,
+        "width": 310,
+        "height": 46
+      },
+      "divider": {
+        "x": 40,
+        "y": 1032.59375,
+        "width": 310,
+        "height": 18
+      },
+      "background": "linear-gradient(225deg, rgb(2, 44, 34), rgb(6, 78, 59) 15%, rgb(6, 95, 70) 25%, rgb(4, 120, 87) 38%, rgb(5, 150, 105) 50%, rgb(7, 192, 95) 65%, rgb(16, 185, 129) 78%, rgb(52, 211, 153) 90%, rgb(110, 231, 183))",
+      "primaryColor": "rgb(7, 192, 95)",
+      "buttonBackground": "rgb(233, 248, 236)",
+      "buttonBorder": "rgb(7, 192, 95)",
+      "buttonColor": "rgb(2, 114, 24)",
+      "text": "使用 OA 登录",
+      "horizontalOverflow": false
+    },
+    "assets": [
+      {
+        "path": "/assets/main-CJrpCTow.js",
+        "status": 200,
+        "sha256": "d3f0e3fc4b8185ccacf485840f81219d513a0eb0d4abcc3e18a210ce820066a5"
+      },
+      {
+        "path": "/assets/Login-BwWSdVPg.js",
+        "status": 200,
+        "sha256": "7edd6b3c81750c826c7d51918ef7a1981d3933f90ab08c0904e8be259b84f1f2"
+      }
+    ],
+    "pageErrors": 0,
+    "sidRequests": 0,
+    "result": "PASS"
+  },
+  {
+    "name": "dark",
+    "phase": "after",
+    "origin": "http://172.30.232.42",
+    "cacheDisabled": true,
+    "proxyBypassed": true,
+    "layout": {
+      "primary": {
+        "x": 884.390625,
+        "y": 558,
+        "width": 400,
+        "height": 46
+      },
+      "button": {
+        "x": 884.390625,
+        "y": 650,
+        "width": 400,
+        "height": 46
+      },
+      "divider": {
+        "x": 884.390625,
+        "y": 620,
+        "width": 400,
+        "height": 18
+      },
+      "background": "linear-gradient(225deg, rgb(1, 26, 20), rgb(3, 46, 34) 15%, rgb(4, 58, 44) 25%, rgb(5, 80, 61) 38%, rgb(4, 102, 71) 50%, rgb(3, 138, 86) 65%, rgb(4, 155, 96) 78%, rgb(6, 160, 106) 90%, rgb(7, 176, 116))",
+      "primaryColor": "rgb(6, 176, 77)",
+      "buttonBackground": "rgba(6, 176, 77, 0.125)",
+      "buttonBorder": "rgb(6, 176, 77)",
+      "buttonColor": "rgb(8, 221, 110)",
+      "text": "使用 OA 登录",
+      "horizontalOverflow": false
+    },
+    "assets": [
+      {
+        "path": "/assets/main-CJrpCTow.js",
+        "status": 200,
+        "sha256": "d3f0e3fc4b8185ccacf485840f81219d513a0eb0d4abcc3e18a210ce820066a5"
+      },
+      {
+        "path": "/assets/Login-BwWSdVPg.js",
+        "status": 200,
+        "sha256": "7edd6b3c81750c826c7d51918ef7a1981d3933f90ab08c0904e8be259b84f1f2"
+      }
+    ],
+    "pageErrors": 0,
+    "sidRequests": 0,
+    "result": "PASS"
+  }
+]

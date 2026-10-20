@@ -165,6 +165,12 @@ func (p *appPolicy) beforeRequest(ctx context.Context) (func(), error) {
 	if err := p.waitCooldown(ctx); err != nil {
 		return nil, err
 	}
+	return p.acquireRequest(ctx)
+}
+
+// Reacquiring a slot after identity I/O must not reserve a second rate token
+// for the same HTTP request. Every nested ACL HTTP call uses beforeRequest.
+func (p *appPolicy) acquireRequest(ctx context.Context) (func(), error) {
 	select {
 	case p.requestGate <- struct{}{}:
 		return func() { <-p.requestGate }, nil

@@ -19,6 +19,7 @@ import { initFont } from "@/composables/useFont";
 import { installTDesignIconOfflineGuard } from "@/utils/tdesign-icon-offline";
 import { installAutofillGuard } from "@/utils/disable-autofill";
 import { useAuthStore } from "@/stores/auth";
+import { oidcCallbackEntry } from "@/utils/oidcCallbackEntry";
 
 // 必须在 Vue 组件挂载之前执行，避免 tdesign-icons 运行时请求 tdesign.gtimg.com
 installTDesignIconOfflineGuard();
@@ -48,6 +49,9 @@ async function bootstrap() {
       // best-effort; capabilities stay at defaults until the next refresh
     }
   }
+
+  const callbackEntry = oidcCallbackEntry(window.location.pathname, window.location.hash);
+  if (callbackEntry) await router.replace(callbackEntry);
 
   app.use(router);
   app.use(i18n);

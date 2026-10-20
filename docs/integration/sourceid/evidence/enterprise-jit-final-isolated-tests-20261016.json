@@ -1,0 +1,29 @@
+{
+  "result": "PASS",
+  "code_sha": "f40b1602f69ce5d88e1e87dc3cefae36e9bde356",
+  "real_sid_called": false,
+  "app_deployed": false,
+  "live_database_migrated": false,
+  "passed_tests": [
+    "TestSourceIDEnterpriseScopeFailsClosedAndKeepsPilot",
+    "TestSourceIDJITLifecycle",
+    "TestSourceIDJITConflictsRollbackAndHistoricalNoFallback",
+    "TestSourceIDJITDisabledCannotRenew",
+    "TestSourceIDPostgresJITConcurrentRegistration",
+    "TestSourceIDPostgresJITDistinctRegistrationCapacity",
+    "TestSourceIDJITExternalOnlyRegistrationKeepsPasswordRegistration",
+    "TestSourceIDJITAccessOnlyHTTP",
+    "TestSourceIDJITExistingAllRolesHTTP"
+  ],
+  "failed_tests": [],
+  "capacity": [
+    {
+      "registrations": 24,
+      "concurrent": 8,
+      "duration_ms": 528,
+      "p95_ms": 193
+    }
+  ],
+  "disposable_database_removed": true,
+  "utc": "2026-10-16T12:26:15.296534+00:00"
+}

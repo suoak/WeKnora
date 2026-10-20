@@ -1,0 +1,339 @@
+{
+  "utc": "2026-10-15T11:14:13.504592+00:00",
+  "app": {
+    "id": "03b06efdafe2d7281550b4f070ab6ce79dd91fdd4c8fd6a0d5be07dd3b9e2856",
+    "name": "/knowhub-sourceid-business-app-1",
+    "image_id": "sha256:93f5c831b6e061832d71aa19fe74835c78e16b637d77e7ce18a4283e9ed62daa",
+    "image_reference": "knowhub-sourceid-business/app:2fcbcaaed",
+    "created": "2026-10-15T06:22:28.443304188Z",
+    "started": "2026-10-15T06:22:28.896515199Z",
+    "running": true,
+    "health": "healthy",
+    "restart_count": 0,
+    "project": "knowhub-sourceid-business",
+    "service": "app",
+    "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+    "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+    "ports": {
+      "8080/tcp": [
+        {
+          "HostIp": "0.0.0.0",
+          "HostPort": "8080"
+        }
+      ]
+    },
+    "mounts": [
+      {
+        "Type": "bind",
+        "Name": null,
+        "Source": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/fixture/ca.pem",
+        "Destination": "/fixture/ca.pem",
+        "RW": false
+      },
+      {
+        "Type": "volume",
+        "Name": "knowhub-sourceid-business_files",
+        "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_files/_data",
+        "Destination": "/data/files",
+        "RW": true
+      },
+      {
+        "Type": "volume",
+        "Name": "knowhub-sourceid-business_doc-tmp",
+        "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_doc-tmp/_data",
+        "Destination": "/tmp/docreader",
+        "RW": false
+      }
+    ]
+  },
+  "project_containers": [
+    {
+      "id": "dcbeecba4f422149c215c01b1226d8a44801a536b9a38596ad5bdf34cfabd801",
+      "name": "/knowhub-sourceid-business-frontend-1",
+      "image_id": "sha256:4dc1ca5eacbb723000d069e947da4876e7a479f3e95ea5cea4c234a9c295dcba",
+      "image_reference": "knowhub-sourceid-business/frontend:2fcbcaaed",
+      "created": "2026-10-15T06:22:28.502804622Z",
+      "started": "2026-10-15T06:22:34.847942743Z",
+      "running": true,
+      "health": "NOT_CONFIGURED",
+      "restart_count": 0,
+      "project": "knowhub-sourceid-business",
+      "service": "frontend",
+      "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+      "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+      "ports": {
+        "80/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "80"
+          }
+        ]
+      },
+      "mounts": []
+    },
+    {
+      "id": "03b06efdafe2d7281550b4f070ab6ce79dd91fdd4c8fd6a0d5be07dd3b9e2856",
+      "name": "/knowhub-sourceid-business-app-1",
+      "image_id": "sha256:93f5c831b6e061832d71aa19fe74835c78e16b637d77e7ce18a4283e9ed62daa",
+      "image_reference": "knowhub-sourceid-business/app:2fcbcaaed",
+      "created": "2026-10-15T06:22:28.443304188Z",
+      "started": "2026-10-15T06:22:28.896515199Z",
+      "running": true,
+      "health": "healthy",
+      "restart_count": 0,
+      "project": "knowhub-sourceid-business",
+      "service": "app",
+      "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+      "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+      "ports": {
+        "8080/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "8080"
+          }
+        ]
+      },
+      "mounts": [
+        {
+          "Type": "volume",
+          "Name": "knowhub-sourceid-business_doc-tmp",
+          "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_doc-tmp/_data",
+          "Destination": "/tmp/docreader",
+          "RW": false
+        },
+        {
+          "Type": "bind",
+          "Name": null,
+          "Source": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/fixture/ca.pem",
+          "Destination": "/fixture/ca.pem",
+          "RW": false
+        },
+        {
+          "Type": "volume",
+          "Name": "knowhub-sourceid-business_files",
+          "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_files/_data",
+          "Destination": "/data/files",
+          "RW": true
+        }
+      ]
+    },
+    {
+      "id": "8b4c423f194a406fe2877c0140c05d3e3a53c8c79e749148ccd721e2c615eaac",
+      "name": "/knowhub-sourceid-business-sid-mock-1",
+      "image_id": "sha256:8bfc2006e22c6a8eee94a45e0c9afe0168cfa72aa4f214291576c95a6d56c39c",
+      "image_reference": "m.daocloud.io/docker.io/library/python:3.10.18-bookworm",
+      "created": "2026-10-14T11:40:44.575707425Z",
+      "started": "2026-10-14T11:40:45.086723889Z",
+      "running": false,
+      "health": "NOT_CONFIGURED",
+      "restart_count": 0,
+      "project": "knowhub-sourceid-business",
+      "service": "sid-mock",
+      "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+      "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+      "ports": {},
+      "mounts": [
+        {
+          "Type": "bind",
+          "Name": null,
+          "Source": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/token-diagnostic-fixture",
+          "Destination": "/fixture",
+          "RW": false
+        }
+      ]
+    },
+    {
+      "id": "ba1385464699fdb0b21e48b3134e870f99de3bc1d74ff9663a4dc42e5476f624",
+      "name": "/knowhub-sourceid-business-postgres-1",
+      "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+      "image_reference": "paradedb/paradedb:v0.22.2-pg17",
+      "created": "2026-10-14T06:41:37.796071356Z",
+      "started": "2026-10-14T06:41:39.06627162Z",
+      "running": true,
+      "health": "healthy",
+      "restart_count": 0,
+      "project": "knowhub-sourceid-business",
+      "service": "postgres",
+      "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+      "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+      "ports": {
+        "5432/tcp": null
+      },
+      "mounts": [
+        {
+          "Type": "volume",
+          "Name": "knowhub-sourceid-business_postgres",
+          "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_postgres/_data",
+          "Destination": "/var/lib/postgresql/data",
+          "RW": true
+        }
+      ]
+    },
+    {
+      "id": "2396325bde68730217152ee1885508ca9294ed8524ef424a7022c8b9a2c2cc90",
+      "name": "/knowhub-sourceid-business-docreader-1",
+      "image_id": "sha256:8399936620aa78f991b95a0339585f5d2d61f215e6311955e8386a01329beba2",
+      "image_reference": "weknora-custom/docreader:v0.8.0-knowhub.6-0a40e3ad",
+      "created": "2026-10-14T06:41:37.795755583Z",
+      "started": "2026-10-14T06:41:38.981189326Z",
+      "running": true,
+      "health": "NOT_CONFIGURED",
+      "restart_count": 0,
+      "project": "knowhub-sourceid-business",
+      "service": "docreader",
+      "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+      "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+      "ports": {
+        "50051/tcp": null
+      },
+      "mounts": [
+        {
+          "Type": "volume",
+          "Name": "knowhub-sourceid-business_doc-tmp",
+          "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_doc-tmp/_data",
+          "Destination": "/tmp/docreader",
+          "RW": true
+        }
+      ]
+    },
+    {
+      "id": "fcc4d64070c73ee198ffa0c5badf6abd1b2d03543243f857be4f84b8605c33ad",
+      "name": "/knowhub-sourceid-business-redis-1",
+      "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+      "image_reference": "redis:7.0-alpine",
+      "created": "2026-10-14T06:41:37.79530949Z",
+      "started": "2026-10-14T06:41:38.801991581Z",
+      "running": true,
+      "health": "NOT_CONFIGURED",
+      "restart_count": 0,
+      "project": "knowhub-sourceid-business",
+      "service": "redis",
+      "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+      "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+      "ports": {
+        "6379/tcp": null
+      },
+      "mounts": [
+        {
+          "Type": "volume",
+          "Name": "knowhub-sourceid-business_redis",
+          "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_redis/_data",
+          "Destination": "/data",
+          "RW": true
+        }
+      ]
+    }
+  ],
+  "flags": {
+    "SOURCEID_BASIC_ENCODING": "raw",
+    "SOURCEID_ENABLE": "true",
+    "SOURCEID_PROTOCOL_ONLY": "true",
+    "SOURCEID_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_EMAIL_BINDING_ENABLE": "false",
+    "SOURCEID_EMAIL_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_AUTO_BINDING_ENABLE": "false",
+    "SOURCEID_LOGOUT_ENABLE": "false",
+    "SOURCEID_SESSION_MODE": "NOT_SET",
+    "SOURCEID_DIAGNOSTICS_ENABLE": "true",
+    "OIDC_AUTH_ENABLE": "true",
+    "OIDC_AUTH_PKCE_ENABLE": "false"
+  },
+  "compose_sources": [
+    {
+      "path": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+      "env_files": [
+        "./private/app.env",
+        "./mode.env",
+        "./private/sourceid.env"
+      ],
+      "explicit_environment_keys": [
+        "OIDC_AUTH_ENABLE",
+        "SOURCEID_DIAGNOSTICS_ENABLE",
+        "SOURCEID_PROTOCOL_ONLY",
+        "SOURCEID_CONTRACT_CONFIRMED",
+        "SOURCEID_LOGOUT_ENABLE",
+        "SOURCEID_BASIC_ENCODING",
+        "SOURCEID_EMAIL_BINDING_ENABLE",
+        "SOURCEID_AUTO_BINDING_ENABLE",
+        "SOURCEID_EMAIL_CONTRACT_CONFIRMED",
+        "AUTO_MIGRATE",
+        "AUTO_RECOVER_DIRTY",
+        "WEKNORA_SANDBOX_DOCKER_ENABLED",
+        "WEKNORA_BOOTSTRAP_SYSTEM_ADMIN_EMAIL",
+        "NEO4J_ENABLE",
+        "LANGFUSE_ENABLED",
+        "LLM_DEBUG_LOG",
+        "GIN_MODE",
+        "LOG_LEVEL",
+        "LOG_PATH"
+      ],
+      "image": "knowhub-sourceid-business/app:2fcbcaaed"
+    }
+  ],
+  "credential_equivalence": "EQUIVALENT=true",
+  "historical_successes_in_current_container": [
+    {
+      "status": 200,
+      "utc": "2026-10-15T06:48:21.081397278Z",
+      "duration_ms": 248,
+      "basic_strategy": "raw_then_set_basic_auth_base64_once"
+    },
+    {
+      "status": 200,
+      "utc": "2026-10-15T06:48:29.664776044Z",
+      "duration_ms": 212,
+      "basic_strategy": "raw_then_set_basic_auth_base64_once"
+    },
+    {
+      "status": 200,
+      "utc": "2026-10-15T06:48:37.739967364Z",
+      "duration_ms": 206,
+      "basic_strategy": "raw_then_set_basic_auth_base64_once"
+    },
+    {
+      "status": 200,
+      "utc": "2026-10-15T06:48:40.707073918Z",
+      "duration_ms": 223,
+      "basic_strategy": "raw_then_set_basic_auth_base64_once"
+    },
+    {
+      "status": 200,
+      "utc": "2026-10-15T06:48:49.614462131Z",
+      "duration_ms": 193,
+      "basic_strategy": "raw_then_set_basic_auth_base64_once"
+    },
+    {
+      "status": 200,
+      "utc": "2026-10-15T06:48:56.736811608Z",
+      "duration_ms": 220,
+      "basic_strategy": "raw_then_set_basic_auth_base64_once"
+    },
+    {
+      "status": 200,
+      "utc": "2026-10-15T06:49:11.674771004Z",
+      "duration_ms": 218,
+      "basic_strategy": "raw_then_set_basic_auth_base64_once"
+    },
+    {
+      "status": 200,
+      "utc": "2026-10-15T06:50:10.536411234Z",
+      "duration_ms": 221,
+      "basic_strategy": "raw_then_set_basic_auth_base64_once"
+    }
+  ],
+  "http": {
+    "app_health": {
+      "status": 200
+    },
+    "frontend": {
+      "status": 200
+    },
+    "proxy_oidc_config": {
+      "status": 200,
+      "success": true,
+      "enabled": true,
+      "sourceid_basic_encoding": "raw",
+      "redirect_uri": "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback"
+    }
+  }
+}

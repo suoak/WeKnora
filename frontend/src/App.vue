@@ -43,14 +43,6 @@ const tdLocaleMap: Record<string, object> = {
 
 const tdGlobalConfig = computed(() => tdLocaleMap[locale.value] || enUSConfig)
 
-const decodeOIDCResult = (encoded: string) => {
-  const normalized = encoded.replace(/-/g, '+').replace(/_/g, '/')
-  const padded = normalized + '='.repeat((4 - normalized.length % 4) % 4)
-  const binary = window.atob(padded)
-  const bytes = Uint8Array.from(binary, char => char.charCodeAt(0))
-  return JSON.parse(new TextDecoder().decode(bytes))
-}
-
 const clearOIDCCallbackState = (path = '/') => {
   window.history.replaceState({}, document.title, path)
 }
@@ -108,9 +100,7 @@ const persistOIDCLoginResponse = async (response: any) => {
   }
 
   authStore.setToken(response.token)
-  if (response.refresh_token) {
-    authStore.setRefreshToken(response.refresh_token)
-  }
+  authStore.setRefreshToken(response.refresh_token || '')
 
   await syncOIDCUserContext()
 
@@ -142,27 +132,41 @@ const handleGlobalOIDCCallback = async () => {
 
   const params = new URLSearchParams(hash)
   const oidcError = params.get('oidc_error')
-  const oidcErrorDescription = params.get('oidc_error_description')
-  const oidcResult = params.get('oidc_result')
+  const oidcComplete = params.get('oidc_complete')
 
-  if (!oidcError && !oidcResult) return
+  if (!oidcError && !oidcComplete) return
 
   if (oidcError) {
     clearOIDCCallbackState('/login')
     await router.replace('/login')
-    MessagePlugin.error(oidcErrorDescription || 'OIDC login failed')
+    const messages: Record<string, [string, string]> = {
+	  identity_contract_pending: ['OIDC protocol verification completed. Employee identity approval is still required; no local login was created.', 'OIDC 协议验证已完成，员工身份契约与审核尚待确认，未创建本地登录会话。'],
+      enrollment_required: ['We could not connect your existing account automatically. Contact an administrator to verify it.', '暂时无法自动关联原账号，请联系管理员核实。'],
+      identity_conflict: ['This SID identity conflicts with an existing binding. Contact an administrator.', '企业身份与现有绑定冲突，请联系管理员。'],
+      account_disabled: ['This employee or KnowHub account is disabled.', '员工身份或知汇账号已停用。'],
+      identity_fields_missing: ['SID did not supply the required employee or session identity. Contact an administrator.', 'SID 未提供必需的工号或会话信息，请联系管理员。'],
+      invalid_state: ['The login request expired. Please sign in again.', '登录请求已失效，请重新登录。'],
+      provider_error: ['SID login was cancelled or is currently unavailable.', 'SID 登录已取消或暂时不可用。'],
+    }
+    const message = messages[oidcError]
+    MessagePlugin.error(message ? message[locale.value === 'zh-CN' ? 1 : 0] : t('auth.oidcLoginFailed'))
     return
   }
 
   try {
-    if (!oidcResult) {
+    if (!oidcComplete) {
       clearOIDCCallbackState('/login')
       await router.replace('/login')
       MessagePlugin.error('OIDC login failed')
       return
     }
 
-    const response = decodeOIDCResult(oidcResult)
+    const result = await fetch('/api/v1/auth/oidc/result', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'X-KnowHub-OIDC-Result': '1' },
+    })
+    if (!result.ok) throw new Error('OIDC login expired; please sign in again')
+    const response = await result.json()
     if (response.success) {
       clearOIDCCallbackState('/')
       await persistOIDCLoginResponse(response)

@@ -1,0 +1,31 @@
+{
+  "deployed": true,
+  "utc": "2026-10-20T03:07:09.819106+00:00",
+  "target": "172.30.232.42 test only",
+  "source_commit": "5156e4b47643535d6ff473c9890be814bd6f7ffe",
+  "source_manifest_sha256": "5be1a6ed2a3778e7caf34ed161755c0b71e2c7464c918d77175b05cc94a7f8b7",
+  "images": {
+    "app": "sha256:20497a6098669044cf78426425361a67976ba3c6a3766dc175b7f5a5c5b11234",
+    "frontend": "sha256:dfb3c7ea4f250de171a8508771e806e3a1ed091062b38b3e469f9a508e3ade48"
+  },
+  "tags": {
+    "app": "knowhub-rc3/app:0.8.0-oa-feishu-rc3-5156e4b47",
+    "frontend": "knowhub-rc3/frontend:0.8.0-oa-feishu-rc3-5156e4b47"
+  },
+  "binary_sha256": "c3bf72a3fe67259e8e96b5bf9b83c332aa360fab6a59799b5b1faf099ffcfbc2",
+  "strategy": "code_flow_tls_userinfo",
+  "lifecycle": "continuous_test",
+  "expires_at": "",
+  "legacy_feishu_suspended": true,
+  "schema": "3033 clean",
+  "postgres_redis_recreated": false,
+  "old_three_resources_hashes_unchanged": true,
+  "app_health": 200,
+  "frontend_health": 200,
+  "rollback_images": {
+    "app": "sha256:67b78b1c5aaf72c3d8e03763bfab57bdeb47bf3cf9d771e8fba60c870246d6cb",
+    "frontend": "sha256:1d1e2c55996ea8be260a1103b22c9a33c06631f5570507076c4504f245e780db"
+  },
+  "real_browser_acceptance": "PENDING",
+  "production_modified": false
+}

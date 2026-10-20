@@ -69,6 +69,7 @@ export const useEditorResourcesStore = defineStore('editorResources', () => {
   const mcpServices = ref<MCPService[]>([])
   const mcpServicesScope = ref('')
   const skills = ref<SkillInfo[]>([])
+  const skillsError = ref<unknown>(null)
   const skillsAvailable = ref(false)
   const skillsConfigId = ref('')
   const skillCatalog = ref<SkillCatalogItem[]>([])
@@ -127,6 +128,7 @@ export const useEditorResourcesStore = defineStore('editorResources', () => {
   let skillsRequestScope: { key: string; configId: string; agent?: AgentScope } = { key: '', configId: '' }
   const skillsResource = createCachedResource(
     async () => {
+      skillsError.value = null
       const scope = skillsRequestScope
       // No sandbox config means no skills, for a shared agent too: its config
       // id is part of the agent config this caller already holds. The backend
@@ -142,7 +144,8 @@ export const useEditorResourcesStore = defineStore('editorResources', () => {
           available: skillsRes.skills_available !== false,
           list: skillsRes.data && skillsRes.data.length > 0 ? skillsRes.data : [],
         }
-      } catch {
+      } catch (error) {
+        skillsError.value = error
         return { key: scope.key, available: false, list: [] as SkillInfo[] }
       }
     },
@@ -326,6 +329,7 @@ export const useEditorResourcesStore = defineStore('editorResources', () => {
       mcpServicesScope.value = ''
       mcpServicesRequestScope = { key: '' }
       skills.value = []
+      skillsError.value = null
       skillsAvailable.value = false
       skillsConfigId.value = ''
       skillsRequestScope = { key: '', configId: '' }
@@ -342,6 +346,7 @@ export const useEditorResourcesStore = defineStore('editorResources', () => {
   }
 
   return {
+    skillsError,
     storageConfig,
     storageStatus,
     storageAllowedProviders,

@@ -1,0 +1,32 @@
+{
+  "checks": [
+    {
+      "name": "wrong-space-document-read",
+      "http": 403,
+      "rejected": true
+    },
+    {
+      "name": "wrong-space-portal-search",
+      "http": 403,
+      "rejected": true
+    },
+    {
+      "name": "wrong-space-hybrid-search",
+      "http": 403,
+      "rejected": true
+    },
+    {
+      "name": "ordinary-system-app-test",
+      "http": 403,
+      "rejected": true
+    },
+    {
+      "name": "same-resource-other-importer-in-existing-kb",
+      "http": 400,
+      "error": "feishu_operation_failed",
+      "rejected": true,
+      "error_class_matches_expected": false,
+      "classification_result": "FAIL: expected specific duplicate error; generic response must be investigated; original assertion failure retained"
+    }
+  ]
+}

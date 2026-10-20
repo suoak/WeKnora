@@ -1,0 +1,19 @@
+{
+  "real_model": true,
+  "ordinary_employee": true,
+  "results": [
+    {
+      "type": "docx",
+      "knowledge_id": "6ce655e8-47dc-4d6f-a957-8f9c1cac1a45",
+      "http": 200,
+      "complete": true,
+      "answer_chars": 732,
+      "truncated": false,
+      "error_events": 0,
+      "references": 4,
+      "expected_kid_referenced": true,
+      "raw_content_exported": false,
+      "pass": true
+    }
+  ]
+}

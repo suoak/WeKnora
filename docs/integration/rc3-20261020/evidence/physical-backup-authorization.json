@@ -1,0 +1,10 @@
+{
+  "source": "Explicit user confirmation in current RC3 conversation",
+  "decision": "Approved the proposed single physical backup and isolated restore",
+  "rate_mib_per_second": 16,
+  "timeout_seconds": 3600,
+  "production_configuration_changes": false,
+  "persistent_slots": false,
+  "production_disk_staging": false,
+  "automatic_retry": false
+}

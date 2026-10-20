@@ -1,0 +1,234 @@
+{
+  "utc": "2026-10-20T00:22:56.602003+00:00",
+  "old_shm_bytes": 67108864,
+  "new_shm_bytes": 4294967296,
+  "container_replaced_only_isolated": true,
+  "all_dump_copy_data_tables": 92,
+  "verified_application_tables": 83,
+  "extension_owned_tables_excluded": [
+    "paradedb._typmod_cache",
+    "pgivm.pg_ivm_immv",
+    "public.spatial_ref_sys",
+    "tiger.geocode_settings",
+    "tiger.pagc_gaz",
+    "tiger.pagc_lex",
+    "tiger.pagc_rules",
+    "topology.layer",
+    "topology.topology"
+  ],
+  "differences": [
+    {
+      "table": "public.api_key_kb_scopes",
+      "dump_rows": 2,
+      "clone_rows": 0
+    },
+    {
+      "table": "public.api_key_tenant_scopes",
+      "dump_rows": 64,
+      "clone_rows": 0
+    },
+    {
+      "table": "public.audit_logs",
+      "dump_rows": 6375,
+      "clone_rows": 0
+    },
+    {
+      "table": "public.chunk_images",
+      "dump_rows": 111738,
+      "clone_rows": 0
+    },
+    {
+      "table": "public.knowledge_processing_spans",
+      "dump_rows": 355677,
+      "clone_rows": 0
+    },
+    {
+      "table": "public.knowledge_tag_relations",
+      "dump_rows": 3244,
+      "clone_rows": 0
+    },
+    {
+      "table": "public.mcp_usage_events",
+      "dump_rows": 604,
+      "clone_rows": 0
+    },
+    {
+      "table": "public.message_suggestion_sets",
+      "dump_rows": 149,
+      "clone_rows": 0
+    },
+    {
+      "table": "public.model_catalog_configs",
+      "dump_rows": 1,
+      "clone_rows": 0
+    },
+    {
+      "table": "public.model_usage_events",
+      "dump_rows": 530013,
+      "clone_rows": 0
+    },
+    {
+      "table": "public.resource_bindings",
+      "dump_rows": 21933,
+      "clone_rows": 0
+    },
+    {
+      "table": "public.resources",
+      "dump_rows": 227232,
+      "clone_rows": 0
+    },
+    {
+      "table": "public.storage_backends",
+      "dump_rows": 20,
+      "clone_rows": 0
+    },
+    {
+      "table": "public.system_settings",
+      "dump_rows": 12,
+      "clone_rows": 0
+    },
+    {
+      "table": "public.task_dead_letters",
+      "dump_rows": 2456,
+      "clone_rows": 0
+    },
+    {
+      "table": "public.task_pending_ops",
+      "dump_rows": 2,
+      "clone_rows": 0
+    },
+    {
+      "table": "public.tenant_api_keys",
+      "dump_rows": 32,
+      "clone_rows": 0
+    },
+    {
+      "table": "public.tenant_invitations",
+      "dump_rows": 1,
+      "clone_rows": 0
+    },
+    {
+      "table": "public.tenant_members",
+      "dump_rows": 145,
+      "clone_rows": 0
+    },
+    {
+      "table": "public.tenant_portal_configs",
+      "dump_rows": 17,
+      "clone_rows": 0
+    },
+    {
+      "table": "public.tenant_portal_stages",
+      "dump_rows": 11,
+      "clone_rows": 0
+    },
+    {
+      "table": "public.usage_resource_links",
+      "dump_rows": 1040846,
+      "clone_rows": 0
+    },
+    {
+      "table": "public.user_resource_favorites",
+      "dump_rows": 2,
+      "clone_rows": 0
+    },
+    {
+      "table": "public.wiki_folders",
+      "dump_rows": 5001,
+      "clone_rows": 0
+    },
+    {
+      "table": "public.wiki_page_revisions",
+      "dump_rows": 58439,
+      "clone_rows": 0
+    }
+  ],
+  "data_verification_seconds": 120.447,
+  "data_complete": false,
+  "table_counts": {
+    "public.agent_shares": 0,
+    "public.api_key_kb_scopes": 0,
+    "public.api_key_tenant_scopes": 0,
+    "public.audit_logs": 0,
+    "public.auth_tokens": 824,
+    "public.browser_devices": 0,
+    "public.browser_pairings": 0,
+    "public.browser_task_interruptions": 0,
+    "public.chunk_images": 0,
+    "public.chunk_revisions": 0,
+    "public.chunks": 4961022,
+    "public.custom_agents": 63,
+    "public.data_sources": 32,
+    "public.embed_channels": 0,
+    "public.embeddings": 1386916,
+    "public.fork_snapshot_leases": 0,
+    "public.im_channel_sessions": 0,
+    "public.im_channels": 0,
+    "public.kb_shares": 0,
+    "public.knowledge_bases": 75,
+    "public.knowledge_processing_spans": 0,
+    "public.knowledge_tag_relations": 0,
+    "public.knowledge_tags": 27,
+    "public.knowledges": 4060,
+    "public.mcp_endpoints": 0,
+    "public.mcp_metadata": 0,
+    "public.mcp_oauth_clients": 0,
+    "public.mcp_oauth_tokens": 0,
+    "public.mcp_services": 0,
+    "public.mcp_tool_approvals": 0,
+    "public.mcp_usage_events": 0,
+    "public.memory_doc_affinity": 0,
+    "public.memory_extraction_sessions": 0,
+    "public.memory_item_embeddings": 0,
+    "public.memory_items": 0,
+    "public.memory_subjects": 0,
+    "public.memory_tombstones": 0,
+    "public.memory_topic_stats": 0,
+    "public.message_artifacts": 0,
+    "public.message_suggestion_events": 0,
+    "public.message_suggestion_sets": 0,
+    "public.messages": 316,
+    "public.model_catalog_configs": 0,
+    "public.model_usage_events": 0,
+    "public.models": 27,
+    "public.organization_join_requests": 0,
+    "public.organization_members_pre_plan3": 0,
+    "public.organization_tenant_members": 0,
+    "public.organizations": 0,
+    "public.resource_access_grants": 0,
+    "public.resource_bindings": 0,
+    "public.resources": 0,
+    "public.schema_migrations": 1,
+    "public.sessions": 425,
+    "public.storage_backends": 0,
+    "public.sync_logs": 396,
+    "public.system_settings": 0,
+    "public.task_dead_letters": 0,
+    "public.task_pending_ops": 0,
+    "public.temporary_documents": 0,
+    "public.tenant_access_requests": 0,
+    "public.tenant_api_keys": 0,
+    "public.tenant_disabled_shared_agents": 0,
+    "public.tenant_invitations": 0,
+    "public.tenant_members": 0,
+    "public.tenant_portal_configs": 0,
+    "public.tenant_portal_stages": 0,
+    "public.tenant_sandbox_configs": 0,
+    "public.tenant_skill_catalog": 0,
+    "public.tenant_skill_snapshots": 0,
+    "public.tenant_skills": 0,
+    "public.tenant_user_env_vars": 0,
+    "public.tenants": 20,
+    "public.usage_resource_links": 0,
+    "public.user_kb_pins": 0,
+    "public.user_resource_favorites": 0,
+    "public.users": 44,
+    "public.vector_stores": 0,
+    "public.web_search_providers": 0,
+    "public.wiki_folders": 0,
+    "public.wiki_page_issues": 0,
+    "public.wiki_page_revisions": 0,
+    "public.wiki_pages": 71652
+  },
+  "original_restore_failure_retained": true
+}

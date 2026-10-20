@@ -1,0 +1,11 @@
+{
+  "kind": "validated native build dependency, not source",
+  "path": "third_party/anydoc-go/lib/linux_amd64_gnu/libanydoc_go.a",
+  "bytes": 30778878,
+  "sha256": "d5543b2cf68400c048992a192475aa70e895fda0abc495b85afb68dfd699122a",
+  "reuse_origin": "same archive used by RC1/RC2 and RC3 Race validation",
+  "cargo_inputs_match_committed_source": true,
+  "cargo_toml_sha256": "c71c5ce8437a1b516ecac7d93912a47ffffaa0ea5a6a4310c040be37675fe23e",
+  "cargo_lock_sha256": "91e0c456e4fe16607b7ec53be0b07be625eb399fd3099724660f85b86bc4366d",
+  "reason": "git archive correctly omits ignored native build artifacts; restore explicit pinned build input"
+}

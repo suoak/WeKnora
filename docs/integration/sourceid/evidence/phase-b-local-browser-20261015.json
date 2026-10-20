@@ -1,0 +1,112 @@
+{
+  "sha": "431226c3b1bd5338ec06c1bd0520e637d5fed398",
+  "ci_url": "https://github.com/suoak/WeKnora/actions/runs/38717758880",
+  "test": "TestSourceIDLocalBrowserBusinessLogin",
+  "result": "PASS",
+  "token_http_statuses": [
+    200,
+    200
+  ],
+  "direct_success_transactions": 1,
+  "browser_success_transactions": 1,
+  "denied_authorization_transactions": 1,
+  "stage_results": [
+    {
+      "stage": "authorize",
+      "pass": true,
+      "category": "none"
+    },
+    {
+      "stage": "callback_state",
+      "pass": true,
+      "category": "none"
+    },
+    {
+      "stage": "token",
+      "pass": true,
+      "category": "none"
+    },
+    {
+      "stage": "id_token",
+      "pass": true,
+      "category": "none"
+    },
+    {
+      "stage": "userinfo",
+      "pass": true,
+      "category": "none"
+    },
+    {
+      "stage": "identity_mapping",
+      "pass": true,
+      "category": "none"
+    },
+    {
+      "stage": "local_session",
+      "pass": true,
+      "category": "none"
+    },
+    {
+      "stage": "callback_result",
+      "pass": true,
+      "category": "none"
+    },
+    {
+      "stage": "authorize",
+      "pass": true,
+      "category": "none"
+    },
+    {
+      "stage": "callback_state",
+      "pass": true,
+      "category": "none"
+    },
+    {
+      "stage": "token",
+      "pass": true,
+      "category": "none"
+    },
+    {
+      "stage": "id_token",
+      "pass": true,
+      "category": "none"
+    },
+    {
+      "stage": "userinfo",
+      "pass": true,
+      "category": "none"
+    },
+    {
+      "stage": "identity_mapping",
+      "pass": true,
+      "category": "none"
+    },
+    {
+      "stage": "local_session",
+      "pass": true,
+      "category": "none"
+    },
+    {
+      "stage": "callback_result",
+      "pass": true,
+      "category": "none"
+    },
+    {
+      "stage": "authorize",
+      "pass": true,
+      "category": "none"
+    },
+    {
+      "stage": "callback_result",
+      "pass": false,
+      "category": "rejected"
+    }
+  ],
+  "literal_leak_scan": {
+    "synthetic_secret_present": false,
+    "synthetic_access_value_present": false,
+    "raw_basic_header_present": false,
+    "jwt_value_present": false
+  },
+  "scope": "Real Vue and real auth Handler/service/repository; bounded Portal API and knowledge fixtures; no real SID/login/production/Docker deployment"
+}

@@ -1,0 +1,40 @@
+[
+  {
+    "id": "38761245408",
+    "sha": "1ba24ef5f9a730bb98d9ade6a5a5d141ea49292b",
+    "status": "completed",
+    "conclusion": "success",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/38761245408",
+    "jobs": [
+      {
+        "name": "ui",
+        "conclusion": "success"
+      }
+    ]
+  },
+  {
+    "id": "38761245288",
+    "sha": "1ba24ef5f9a730bb98d9ade6a5a5d141ea49292b",
+    "status": "completed",
+    "conclusion": "success",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/38761245288",
+    "jobs": [
+      {
+        "name": "browser",
+        "conclusion": "success"
+      },
+      {
+        "name": "postgres",
+        "conclusion": "success"
+      },
+      {
+        "name": "frontend",
+        "conclusion": "success"
+      },
+      {
+        "name": "linux",
+        "conclusion": "success"
+      }
+    ]
+  }
+]

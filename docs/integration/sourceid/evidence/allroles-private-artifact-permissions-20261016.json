@@ -1,0 +1,8 @@
+{
+  "private_directory_mode": "0700",
+  "private_file_mode": "0600",
+  "protected_files": 11,
+  "protected_subdirectories": 1,
+  "temporary_rehearsal_containers_remaining": 0,
+  "result": "PASS"
+}

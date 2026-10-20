@@ -63,3 +63,7 @@ miniprogram/project.private.config.json
 
 # Locally built BrowserSkill runtime and extension bundles
 /artifacts/browserskill/
+
+# Local Playwright artifacts
+frontend/test-results/
+frontend/playwright-report/

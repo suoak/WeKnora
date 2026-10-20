@@ -62,6 +62,8 @@ export interface OIDCAuthURLResponse {
 }
 
 export interface OIDCConfigResponse {
+	redirect_uri?: string
+  sourceid_basic_encoding?: 'oauth_form' | 'raw'
   success: boolean
   enabled: boolean
   provider_display_name?: string

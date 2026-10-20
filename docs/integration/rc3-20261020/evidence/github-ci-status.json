@@ -1,0 +1,158 @@
+[
+  {
+    "id": 39362117322,
+    "name": "Datasource Sync Execution Gate",
+    "status": "completed",
+    "conclusion": "skipped",
+    "html_url": "https://github.com/suoak/WeKnora/actions/runs/39362117322",
+    "jobs": [
+      {
+        "id": 118430441654,
+        "name": "verify",
+        "status": "completed",
+        "conclusion": "skipped",
+        "failed_steps": []
+      },
+      {
+        "id": 118430442282,
+        "name": "Complete resilience race (${{ matrix.repetition }})",
+        "status": "completed",
+        "conclusion": "skipped",
+        "failed_steps": []
+      },
+      {
+        "id": 118430474640,
+        "name": "postgres",
+        "status": "completed",
+        "conclusion": "skipped",
+        "failed_steps": []
+      }
+    ]
+  },
+  {
+    "id": 39362117304,
+    "name": "Frontend",
+    "status": "completed",
+    "conclusion": "failure",
+    "html_url": "https://github.com/suoak/WeKnora/actions/runs/39362117304",
+    "jobs": [
+      {
+        "id": 118430440570,
+        "name": "Docker multi-stage image",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": []
+      },
+      {
+        "id": 118430440693,
+        "name": "Test, type-check, and build",
+        "status": "completed",
+        "conclusion": "failure",
+        "failed_steps": [
+          "Run tests"
+        ],
+        "failure_excerpt": [
+          "2026-10-20T03:02:20.1171994Z \u2714 style guard: brand-rgba does not exceed baseline (0) (63.071523ms)",
+          "2026-10-20T03:02:20.1198544Z \u2714 style guard: legacy-blue-rgba does not exceed baseline (18) (45.864221ms)",
+          "2026-10-20T03:02:20.1244976Z \u2714 style guard: td-token-fallback does not exceed baseline (0) (43.323378ms)",
+          "2026-10-20T03:02:20.1289904Z \u2714 style guard: radius-literal does not exceed baseline (292) (32.974131ms)",
+          "2026-10-20T03:02:20.1318539Z \u2716 style guard: font-size-literal does not exceed baseline (253) (23.640756ms)",
+          "2026-10-20T03:02:20.1320064Z \u2716 style guard: motion-literal does not exceed baseline (81) (33.595458ms)",
+          "2026-10-20T03:02:20.1348538Z \u2714 style guard: transition-all does not exceed baseline (78) (46.661883ms)",
+          "2026-10-20T03:02:20.1385903Z \u2714 style guard: important does not exceed baseline (510) (44.538475ms)",
+          "2026-10-20T03:02:20.1428082Z \u2714 style guard: z-index-important does not exceed baseline (26) (38.199966ms)",
+          "2026-10-20T03:02:20.1458644Z \u2714 style guard: raster-icon does not exceed baseline (10) (48.148063ms)",
+          "2026-10-20T03:03:08.8072159Z \u2716 style guard: font-size-literal does not exceed baseline (253) (23.640756ms)",
+          "2026-10-20T03:03:08.8073478Z   AssertionError [ERR_ASSERTION]: font-size-literal: 254 occurrences > baseline 253.",
+          "2026-10-20T03:03:08.8092355Z \u2716 style guard: motion-literal does not exceed baseline (81) (33.595458ms)",
+          "2026-10-20T03:03:08.8093463Z   AssertionError [ERR_ASSERTION]: motion-literal: 82 occurrences > baseline 81.",
+          "2026-10-20T03:03:08.8110317Z   AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:"
+        ]
+      }
+    ]
+  },
+  {
+    "id": 39362117307,
+    "name": "Go Lint",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/suoak/WeKnora/actions/runs/39362117307",
+    "jobs": [
+      {
+        "id": 118430440351,
+        "name": "detect lint modules",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": []
+      },
+      {
+        "id": 118430498981,
+        "name": "golangci-lint (.)",
+        "status": "completed",
+        "conclusion": "failure",
+        "failed_steps": [
+          "Run golangci/golangci-lint-action@v9"
+        ],
+        "failure_excerpt": []
+      }
+    ]
+  },
+  {
+    "id": 39362117306,
+    "name": "App",
+    "status": "completed",
+    "conclusion": "failure",
+    "html_url": "https://github.com/suoak/WeKnora/actions/runs/39362117306",
+    "jobs": [
+      {
+        "id": 118430440018,
+        "name": "Format, vet, test, and build",
+        "status": "completed",
+        "conclusion": "failure",
+        "failed_steps": [
+          "Vet and test"
+        ],
+        "failure_excerpt": [
+          "2026-10-20T03:08:29.2060579Z --- FAIL: TestSIDTLSUserInfoParallelDifferentTransactions (0.18s)"
+        ]
+      },
+      {
+        "id": 118432687345,
+        "name": "Docker image and production startup smoke",
+        "status": "completed",
+        "conclusion": "skipped",
+        "failed_steps": []
+      }
+    ]
+  },
+  {
+    "id": 39362117336,
+    "name": "Portal Final Gate",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/suoak/WeKnora/actions/runs/39362117336",
+    "jobs": [
+      {
+        "id": 118430440503,
+        "name": "Portal contracts, RBAC, race, and branding",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": []
+      },
+      {
+        "id": 118430440845,
+        "name": "PostgreSQL fresh and existing KnowHub upgrade governance",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": []
+      },
+      {
+        "id": 118430440952,
+        "name": "M1 Linux backend and MCP compatibility",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": []
+      }
+    ]
+  }
+]

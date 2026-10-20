@@ -1,0 +1,45 @@
+{
+  "real_model": true,
+  "ordinary_employee": true,
+  "results": [
+    {
+      "type": "sheet",
+      "knowledge_id": "0b8d40b5-0f08-420e-a17a-9b7ebc0ca298",
+      "http": 200,
+      "complete": true,
+      "answer_chars": 487,
+      "truncated": false,
+      "error_events": 0,
+      "references": 7,
+      "expected_kid_referenced": true,
+      "raw_content_exported": false,
+      "pass": true
+    },
+    {
+      "type": "bitable",
+      "knowledge_id": "0ad72f32-fc37-4856-87ea-ba26489093a4",
+      "http": 200,
+      "complete": true,
+      "answer_chars": 1098,
+      "truncated": true,
+      "error_events": 0,
+      "references": 4,
+      "expected_kid_referenced": true,
+      "raw_content_exported": false,
+      "pass": false
+    },
+    {
+      "type": "docx",
+      "knowledge_id": "51c560b2-a947-4eea-9f4f-040b646f3d9a",
+      "http": 200,
+      "complete": true,
+      "answer_chars": 553,
+      "truncated": false,
+      "error_events": 0,
+      "references": 5,
+      "expected_kid_referenced": true,
+      "raw_content_exported": false,
+      "pass": true
+    }
+  ]
+}

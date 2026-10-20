@@ -1,0 +1,14 @@
+{
+  "result": "FAIL",
+  "model_requests": 0,
+  "query_source": "existing stored vector; loopback only",
+  "document_text_exported": false,
+  "embedding_exported": false,
+  "http_status": 403,
+  "hit_count": 0,
+  "success_field": false,
+  "failure_class": "AssertionError",
+  "failure_lines": [
+    57
+  ]
+}

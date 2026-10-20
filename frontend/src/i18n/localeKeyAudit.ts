@@ -284,6 +284,10 @@ function addTemplatePattern(usage: I18nUsage, template: string): void {
 }
 
 export function collectI18nUsageFromSources(rootDir = SOURCE_ROOT): I18nUsage {
+  return collectI18nUsageFromSourceFiles(getSourceFiles(rootDir))
+}
+
+export function collectI18nUsageFromSourceFiles(files: readonly string[]): I18nUsage {
   const usage: I18nUsage = {
     staticKeys: new Set<string>(),
     prefixes: new Set<string>(EXTRA_PREFIXES),
@@ -291,7 +295,7 @@ export function collectI18nUsageFromSources(rootDir = SOURCE_ROOT): I18nUsage {
   }
   const i18nLiteralPattern = buildI18nLiteralPattern()
 
-  for (const file of getSourceFiles(rootDir)) {
+  for (const file of files) {
     const content = readFileSync(file, 'utf8')
 
     for (const pattern of STATIC_KEY_PATTERNS) {

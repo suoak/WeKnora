@@ -1,0 +1,45 @@
+{
+  "utc": "2026-10-20T01:19:02.089989+00:00",
+  "scope": "actual repository-style KB/document filters, ef_search100/strict_order, inner100/top10 threshold0.5; stored vector only, not model/Portal or ACL acceptance",
+  "raw_global_ann_failure_retained": true,
+  "results": {
+    "rc2baseline": {
+      "kb": {
+        "rows": 10,
+        "min_distance": 0.31139911438416057,
+        "plan_indexes": [
+          "embeddings_pkey",
+          "embeddings_embedding_idx_1024"
+        ]
+      },
+      "document": {
+        "rows": 10,
+        "min_distance": 0,
+        "plan_indexes": [
+          "embeddings_pkey",
+          "idx_embeddings_knowledge_id",
+          "idx_embeddings_knowledge_base_id"
+        ]
+      }
+    },
+    "rc2upgrade": {
+      "kb": {
+        "rows": 10,
+        "min_distance": 0.31139911438416057,
+        "plan_indexes": [
+          "embeddings_pkey",
+          "embeddings_embedding_idx_1024"
+        ]
+      },
+      "document": {
+        "rows": 10,
+        "min_distance": 0,
+        "plan_indexes": [
+          "embeddings_pkey",
+          "idx_embeddings_knowledge_id",
+          "idx_embeddings_knowledge_base_id"
+        ]
+      }
+    }
+  }
+}

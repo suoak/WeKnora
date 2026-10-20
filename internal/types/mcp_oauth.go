@@ -1,6 +1,8 @@
 package types
 
 import (
+	"errors"
+	"strings"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/utils"
@@ -15,7 +17,7 @@ import (
 // on every authorization.
 //
 // One row per (tenant_id, service_id). The client_secret is encrypted at rest
-// (AES-256-GCM) when SYSTEM_AES_KEY is configured.
+// (AES-256-GCM). Nonempty secrets require a valid SYSTEM_AES_KEY.
 type MCPOAuthClient struct {
 	ID           string    `json:"id"            gorm:"type:varchar(36);primaryKey"`
 	TenantID     uint64    `json:"tenant_id"     gorm:"not null;uniqueIndex:idx_mcp_oauth_clients_tenant_svc"`
@@ -37,35 +39,49 @@ func (m *MCPOAuthClient) BeforeCreate(tx *gorm.DB) error {
 	if m.ID == "" {
 		m.ID = uuid.New().String()
 	}
-	m.encryptSecret()
-	return nil
+	return m.encryptSecret()
 }
 
 // BeforeSave re-encrypts the secret on update paths.
 func (m *MCPOAuthClient) BeforeSave(tx *gorm.DB) error {
-	m.encryptSecret()
-	return nil
+	return m.encryptSecret()
 }
 
 // AfterFind decrypts the client secret after loading.
 func (m *MCPOAuthClient) AfterFind(tx *gorm.DB) error {
-	if plain, ok := utils.DecryptStoredSecretLenient(m.ClientSecret); ok {
-		m.ClientSecret = plain
-	} else {
+	// Legacy plaintext remains readable; encrypted credentials must not become
+	// public-client credentials when the key is missing, changed, or corrupted.
+	plain, err := utils.DecryptStoredSecret(m.ClientSecret)
+	if err != nil {
 		m.ClientSecret = ""
+		return errors.New("mcp_oauth_client_decryption_failed")
 	}
+	m.ClientSecret = plain
 	return nil
 }
 
-func (m *MCPOAuthClient) encryptSecret() {
+func (m *MCPOAuthClient) encryptSecret() error {
 	if m.ClientSecret == "" {
-		return
+		return nil
 	}
-	if key := utils.GetAESKey(); key != nil {
-		if enc, err := utils.EncryptAESGCM(m.ClientSecret, key); err == nil {
-			m.ClientSecret = enc
+	key := utils.GetAESKey()
+	if key == nil {
+		return errors.New("mcp_oauth_client_encryption_key_invalid")
+	}
+	// BeforeSave and BeforeCreate both run on Create. Validate ciphertext rather
+	// than accepting arbitrary provider text that happens to start with enc:v1:.
+	if strings.HasPrefix(m.ClientSecret, utils.EncPrefix) {
+		if _, err := utils.DecryptStoredSecret(m.ClientSecret); err != nil {
+			return errors.New("mcp_oauth_client_ciphertext_invalid")
 		}
+		return nil
 	}
+	encrypted, err := utils.EncryptAESGCM(m.ClientSecret, key)
+	if err != nil {
+		return errors.New("mcp_oauth_client_encryption_failed")
+	}
+	m.ClientSecret = encrypted
+	return nil
 }
 
 // MCPOAuthToken stores a per-principal OAuth token for an MCP service. The

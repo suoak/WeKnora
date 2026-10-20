@@ -1,0 +1,103 @@
+{
+  "runtime_source_commit": "4bd5e499f162ec7879f152494e41e94fd3f16a1b",
+  "scope": "isolated Linux native anydoc + PostgreSQL/Redis, test source; not production",
+  "counts_include_subtests_and_repetition": true,
+  "results": [
+    {
+      "artifact": "full-go.jsonl",
+      "bytes": 26430150,
+      "sha256": "c96e11d12157bd6cf5708fb8a6f06c117808222bc2aa45adabfa12118e329f10",
+      "counts": {
+        "pass": 14023,
+        "skip": 80
+      },
+      "failures": []
+    },
+    {
+      "artifact": "oa-deterministic.jsonl",
+      "bytes": 221203,
+      "sha256": "b760bf758354f5b982d574d85b998dce7af04c3da0ce78e364790fef2140f775",
+      "counts": {
+        "pass": 150
+      },
+      "failures": []
+    },
+    {
+      "artifact": "oa-parallel.jsonl",
+      "bytes": 90582,
+      "sha256": "c75ddf82d0900eced89a114a80404ca0035af3987bfb4d9eb531ca22c8b0f466",
+      "counts": {
+        "pass": 100
+      },
+      "failures": []
+    },
+    {
+      "artifact": "duplicate-final.jsonl",
+      "bytes": 30188,
+      "sha256": "df3b1eb1e86273dd168c06e1da549a87885d0aea36212f6f7d1d8ece9fdc0012",
+      "counts": {
+        "pass": 8
+      },
+      "failures": []
+    },
+    {
+      "artifact": "final-broad-race.jsonl",
+      "bytes": 1687394,
+      "sha256": "4b98cdb18567b90d0bebed08ba3db0742fe811d91c2032f488b9ae753714b0b8",
+      "counts": {
+        "pass": 687,
+        "skip": 13
+      },
+      "failures": []
+    },
+    {
+      "artifact": "final-committed-gate-retry.jsonl",
+      "bytes": 64425,
+      "sha256": "c0dc0f249a8b564b6b56d6d5dda21541901cdd750e21b78024513670c67733bd",
+      "counts": {
+        "pass": 47
+      },
+      "failures": []
+    },
+    {
+      "exit_artifact": "full-go.exit",
+      "exit": "0"
+    },
+    {
+      "exit_artifact": "vet.exit",
+      "exit": "0"
+    },
+    {
+      "exit_artifact": "full-dns-preflight.exit",
+      "exit": "0"
+    },
+    {
+      "exit_artifact": "focused3.exit",
+      "exit": "0"
+    },
+    {
+      "exit_artifact": "broad-race.exit",
+      "exit": "0"
+    },
+    {
+      "exit_artifact": "final-committed-gate-retry.exit",
+      "exit": "0"
+    },
+    {
+      "exit_artifact": "final-committed-build-retry.exit",
+      "exit": "0"
+    },
+    {
+      "exit_artifact": "lint-pass.exit",
+      "exit": "0"
+    },
+    {
+      "lint_issue_count": 0,
+      "json_sha256": "8b6b3084755ff46197bdc908dac1a11b5c2d7509fcb50da05b78e6b28b3e2b87",
+      "config_changed": false,
+      "baseline_raised": false
+    }
+  ],
+  "first_clean_archive_build_failure": "missing pinned native link dependency; raw failure retained; dependency restored with verified hash, retry passes",
+  "mock_used_as_real_business_acceptance": false
+}

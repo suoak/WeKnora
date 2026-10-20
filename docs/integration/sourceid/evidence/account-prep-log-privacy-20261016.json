@@ -1,0 +1,22 @@
+{
+  "result": "PASS",
+  "utc": "2026-10-15T16:49:00.834581+00:00",
+  "scope": "bounded post-preparation logs in protected remote memory",
+  "checks": {
+    "app": {
+      "bytes_checked": 0,
+      "employee_email_found": false
+    },
+    "frontend": {
+      "bytes_checked": 0,
+      "employee_email_found": false
+    },
+    "postgres": {
+      "bytes_checked": 355,
+      "employee_email_found": false
+    }
+  },
+  "raw_logs_saved": false,
+  "employee_values_exported": false,
+  "data_changed": false
+}

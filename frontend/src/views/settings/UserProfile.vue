@@ -40,7 +40,7 @@
           <p class="desc">{{ $t('tenant.api.usernameDescription') }}</p>
         </div>
         <div class="setting-control">
-          <span class="info-value">{{ userInfo?.username || '-' }}</span>
+          <span class="info-value">{{ getUserDisplayName(userInfo) || '-' }}</span>
         </div>
       </div>
 
@@ -184,6 +184,7 @@ import {
 import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
 import { newPasswordRules } from '@/utils/passwordPolicy'
+import { getUserDisplayName } from '@/utils/userDisplayName'
 
 const { t, locale } = useI18n()
 const router = useRouter()

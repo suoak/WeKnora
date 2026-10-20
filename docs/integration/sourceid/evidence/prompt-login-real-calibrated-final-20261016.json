@@ -1,0 +1,35 @@
+{
+  "run_id": "b1c1a75a-a661-4f9d-b4e3-40947af37327",
+  "phase": "FINISHED",
+  "reason": "INCOMPLETE_TIMEOUT",
+  "finished": true,
+  "stages": {
+    "authorize": "PASS",
+    "callback": "NOT_EXECUTED",
+    "token": "NOT_EXECUTED",
+    "id_token": "NOT_EXECUTED",
+    "nonce": "NOT_EXECUTED",
+    "userinfo": "NOT_EXECUTED",
+    "protocol_only": "NOT_EXECUTED"
+  },
+  "authorize_trace": "f15819c8-5eaf-4f45-87d6-9af7ae49d3ab",
+  "callback_trace": null,
+  "auth_time": "NOT_CAPTURED",
+  "operator_complete": true,
+  "transaction_bound": true,
+  "wait_seconds": 480,
+  "events": [
+    {
+      "trace": "f15819c8-5eaf-4f45-87d6-9af7ae49d3ab",
+      "stage": "authorize",
+      "pass": true,
+      "duration_ms": 254,
+      "category": "none"
+    }
+  ],
+  "raw_logs_saved": false,
+  "correlation_scope": "one new transaction and one callback trace; not native shared authorize trace",
+  "restore": "PASS",
+  "transaction_cleanup": "EXACT_UNUSED_TRANSACTION_INVALIDATED",
+  "http_events": []
+}

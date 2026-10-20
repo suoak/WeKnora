@@ -1,0 +1,295 @@
+{
+  "result": "PASS",
+  "real_sid_called": false,
+  "clean_pilot_written": false,
+  "original_business_api": {
+    "result": "PASS",
+    "real_sid_login": false,
+    "mock_sid_identity_injected": false,
+    "live_database_switched": false,
+    "health_and_frontend": {
+      "health": 200,
+      "portal_static": 200
+    },
+    "actual_outbound_denied": {
+      "172.30.232.42:80": true,
+      "172.30.232.42:8080": true,
+      "1.1.1.1:443": true
+    },
+    "oidc_config_status": 200,
+    "oidc_config_enabled": false,
+    "oidc_disabled": true,
+    "original_admin": {
+      "same_user_id": true,
+      "same_home_tenant": true,
+      "same_admin_flags": true,
+      "auth_me": 200,
+      "original_kb_access": 200,
+      "document_downloads": [
+        {
+          "status": 200,
+          "nonempty": true
+        },
+        {
+          "status": 200,
+          "nonempty": true
+        },
+        {
+          "status": 200,
+          "nonempty": true
+        }
+      ],
+      "credential": "fresh candidate-only local password; disabled after test"
+    },
+    "vector_recall": {
+      "status": 200,
+      "hits": 3,
+      "original_document_references": true,
+      "model_calls": 0,
+      "text_or_vector_exported": false
+    },
+    "local_logout_invalidates_token": true,
+    "disposable_viewer_acl": {
+      "preparer_dry_run_and_apply": true,
+      "auth_me": 200,
+      "original_allowed_kb": 200,
+      "existing_denied_kb_admin_read": 200,
+      "denied_kb_separate_space": true,
+      "no_membership_or_kb_share": true,
+      "denied_kb_status": 403,
+      "denied_switch_status": 403,
+      "fixtures_in_clean_target": false
+    },
+    "clean_final_counts": {
+      "users": 3,
+      "tenants": 4,
+      "tenant_members": 5,
+      "organization_tenant_members": 0,
+      "knowledge_bases": 2,
+      "knowledges": 3,
+      "chunks": 19786,
+      "embeddings": 2717,
+      "kb_shares": 0,
+      "resources": 3,
+      "resource_bindings": 3
+    },
+    "clean_target_identity_rows": 0,
+    "final_integrity": {
+      "selected_data_and_acl_equal_source": true,
+      "files_equal_source": true,
+      "all_passwords_disabled": true,
+      "all_auth_tokens_revoked": true,
+      "all_api_keys_revoked": true,
+      "schema": "3028|false",
+      "validation_database_dropped": true
+    },
+    "completed_utc": "2026-10-16T11:50:16.430201+00:00"
+  },
+  "old_app_3028_business_compatibility": {
+    "result": "PASS",
+    "real_sid_login": false,
+    "mock_sid_identity_injected": false,
+    "live_database_switched": false,
+    "health_and_frontend": {
+      "health": 200,
+      "portal_static": 200
+    },
+    "actual_outbound_denied": {
+      "172.30.232.42:80": true,
+      "172.30.232.42:8080": true,
+      "1.1.1.1:443": true
+    },
+    "oidc_config_status": 200,
+    "oidc_config_enabled": false,
+    "oidc_disabled": true,
+    "original_admin": {
+      "same_user_id": true,
+      "same_home_tenant": true,
+      "same_admin_flags": true,
+      "auth_me": 200,
+      "original_kb_access": 200,
+      "document_downloads": [
+        {
+          "status": 200,
+          "nonempty": true
+        },
+        {
+          "status": 200,
+          "nonempty": true
+        },
+        {
+          "status": 200,
+          "nonempty": true
+        }
+      ],
+      "credential": "fresh candidate-only local password; disabled after test"
+    },
+    "vector_recall": {
+      "status": 200,
+      "hits": 3,
+      "original_document_references": true,
+      "model_calls": 0,
+      "text_or_vector_exported": false
+    },
+    "local_logout_invalidates_token": true,
+    "disposable_viewer_acl": {
+      "preparer_dry_run_and_apply": true,
+      "auth_me": 200,
+      "original_allowed_kb": 200,
+      "existing_denied_kb_admin_read": 200,
+      "denied_kb_separate_space": true,
+      "no_membership_or_kb_share": true,
+      "denied_kb_status": 403,
+      "denied_switch_status": 403,
+      "fixtures_in_clean_target": false
+    },
+    "clean_final_counts": {
+      "users": 3,
+      "tenants": 4,
+      "tenant_members": 5,
+      "organization_tenant_members": 0,
+      "knowledge_bases": 2,
+      "knowledges": 3,
+      "chunks": 19786,
+      "embeddings": 2717,
+      "kb_shares": 0,
+      "resources": 3,
+      "resource_bindings": 3
+    },
+    "clean_target_identity_rows": 0,
+    "final_integrity": {
+      "selected_data_and_acl_equal_source": true,
+      "files_equal_source": true,
+      "all_passwords_disabled": true,
+      "all_auth_tokens_revoked": true,
+      "all_api_keys_revoked": true,
+      "schema": "3028|false",
+      "validation_database_dropped": true
+    },
+    "completed_utc": "2026-10-16T11:51:56.733034+00:00"
+  },
+  "mock_pilot": {
+    "result": "PASS",
+    "real_sid_called": false,
+    "real_identity_binding": false,
+    "clean_pilot_changed": false,
+    "api": {
+      "login_1": {
+        "same_user_id": true,
+        "same_admin_flags": true,
+        "auth_me": 200,
+        "no_refresh_response_cookie": true
+      },
+      "login_2": {
+        "same_user_id": true,
+        "same_admin_flags": true,
+        "auth_me": 200,
+        "no_refresh_response_cookie": true
+      },
+      "switch_tenant_access_only": true,
+      "switch_does_not_extend_expiry": true,
+      "multi_device_logout_isolated": true,
+      "local_logout_revokes": true,
+      "refresh_rejected": true
+    },
+    "synthetic_candidate_policy": {
+      "sessions": 2,
+      "idle_1800": true,
+      "access_3600": true,
+      "refresh_disabled": true,
+      "absolute_3600": true,
+      "access_bounded": true
+    },
+    "refresh_rows_created": 0,
+    "identities": 1,
+    "permissions_unchanged": true,
+    "role": "original system_admin+owner; other real roles NOT_REAL_DATA_VERIFIED",
+    "disposable_mock_database_removed": true,
+    "utc": "2026-10-16T11:52:31.826940+00:00"
+  },
+  "mock_enterprise_all": {
+    "result": "PASS",
+    "real_sid_called": false,
+    "real_identity_binding": false,
+    "clean_pilot_changed": false,
+    "protected_cli_dry_apply_replay": [
+      {
+        "rows": 1,
+        "changed": 1,
+        "unchanged": 0,
+        "rejected": 0,
+        "applied": false
+      },
+      {
+        "rows": 1,
+        "changed": 1,
+        "unchanged": 0,
+        "rejected": 0,
+        "applied": true
+      },
+      {
+        "rows": 1,
+        "changed": 0,
+        "unchanged": 1,
+        "rejected": 0,
+        "applied": true
+      }
+    ],
+    "api": {
+      "login_1": {
+        "same_user_id": true,
+        "same_admin_flags": true,
+        "auth_me": 200,
+        "no_refresh_response_cookie": true
+      },
+      "login_2": {
+        "same_user_id": true,
+        "same_admin_flags": true,
+        "auth_me": 200,
+        "no_refresh_response_cookie": true
+      },
+      "switch_tenant_access_only": true,
+      "switch_does_not_extend_expiry": true,
+      "multi_device_logout_isolated": true,
+      "local_logout_revokes": true,
+      "refresh_rejected": true,
+      "disabled_ownership_revokes_remaining_device": true
+    },
+    "synthetic_candidate_policy": {
+      "sessions": 2,
+      "idle_1800": true,
+      "access_3600": true,
+      "refresh_disabled": true,
+      "absolute_3600": true,
+      "access_bounded": true
+    },
+    "refresh_rows_created": 0,
+    "identities": 1,
+    "permissions_unchanged": true,
+    "role": "original system_admin+owner; other real roles NOT_REAL_DATA_VERIFIED",
+    "disposable_mock_database_removed": true,
+    "utc": "2026-10-16T11:53:10.490944+00:00"
+  },
+  "postgres_scale": [
+    {
+      "population": 1000,
+      "import_ms": 2932,
+      "indexed_1000_checks_ms": 302
+    },
+    {
+      "population": 10000,
+      "import_ms": 20123,
+      "indexed_1000_checks_ms": 296
+    }
+  ],
+  "postgres_enterprise_tests_passed": [
+    "TestSourceIDPostgresEnterpriseOwnershipScale",
+    "TestSourceIDPostgresEnterpriseConcurrentOwnershipAndBinding",
+    "TestSourceIDPostgresEnterpriseDisableRevokesIssuedSessionAndTokens"
+  ],
+  "candidate_app": "sha256:dbaff4ef55df5759c30e3535bf8be89882bd7ac74f1010d96875b7a3dbb21a6e",
+  "frontend": "sha256:ab7845c89fadeb17ad2b68bd924e892f948b893781a50ab79e48385c319ddbe1",
+  "all_role_http_test_evidence": "offline packaging tests + four-job CI; eight synthetic roles",
+  "original_real_roles": "original system_admin+owner/cross-tenant flags; absent role fixtures NOT_REAL_DATA_VERIFIED",
+  "utc": "2026-10-16T11:53:44.611860+00:00"
+}

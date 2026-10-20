@@ -1,0 +1,28 @@
+{
+  "utc": "2026-10-20T06:49:47.372024+00:00",
+  "user_count": 4,
+  "identity_count": 2,
+  "review_count": 2,
+  "identity": {
+    "user_id_digest": "be8f2be489d82c6d2bd3c2485de76186",
+    "active": true,
+    "system_admin": false,
+    "identity_rows": 1,
+    "employee_identity_present": true,
+    "jit_email_matches": true,
+    "memberships": [
+      {
+        "tenant_id": 10000,
+        "role": "contributor",
+        "status": "active"
+      },
+      {
+        "tenant_id": 10004,
+        "role": "owner",
+        "status": "active"
+      }
+    ],
+    "raw_email_and_binding_fingerprints_withheld": true,
+    "email_and_binding_tuple_unchanged_vs_private_baseline": true
+  }
+}

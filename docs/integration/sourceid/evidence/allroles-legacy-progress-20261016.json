@@ -1,0 +1,67 @@
+{
+  "build": {
+    "utc": "2026-10-16T00:21:18.487542+00:00",
+    "result": "FAIL",
+    "stage": "image",
+    "exit_code": 1
+  },
+  "migration": {
+    "target": "172.30.232.42",
+    "started_utc": "2026-10-16T00:20:07.711403+00:00",
+    "result": "FAILED",
+    "source_database_changed": false,
+    "live_database_changed": false,
+    "real_sid_login": false,
+    "source_counts_before": {
+      "users": 3,
+      "tenants": 4,
+      "tenant_members": 5,
+      "organization_tenant_members": 0,
+      "knowledge_bases": 2,
+      "knowledges": 3,
+      "chunks": 19786,
+      "embeddings": 2717,
+      "kb_shares": 0
+    },
+    "snapshot": {
+      "consistent_pg_dump": true,
+      "file_manifest_stable_during_snapshot": true,
+      "files": 3,
+      "file_bytes": 2554991,
+      "dump_bytes": 21489454,
+      "source_app_stopped": true,
+      "global_atomic_freeze_used": false
+    },
+    "failed_stage": "restore",
+    "failure_class": "RuntimeError",
+    "failure_lines": [
+      74
+    ],
+    "safe_failure_marker": "restore_failed",
+    "completed_utc": "2026-10-16T00:20:37.848270+00:00"
+  },
+  "synthetic_build_error_tail": [
+    "",
+    "#1 [internal] load .dockerignore",
+    "#1 transferring context:",
+    "#1 transferring context: 2B done",
+    "#1 DONE 0.2s",
+    "",
+    "#2 [internal] load build definition from Dockerfile",
+    "#2 transferring dockerfile: 283B 0.0s done",
+    "#2 DONE 0.3s",
+    "",
+    "#3 [internal] load metadata for docker.io/library/sha256:b2751ba9c8797b0c2440b9435ad92ba9ab2c30d4a95b0c28a2b1b34e4a4c3af1",
+    "#3 ERROR: failed to do request: Head \"https://registry-1.docker.io/v2/library/sha256/manifests/b2751ba9c8797b0c2440b9435ad92ba9ab2c30d4a95b0c28a2b1b34e4a4c3af1\": dial tcp 157.240.17.41:443: i/o timeout",
+    "------",
+    " > [internal] load metadata for docker.io/library/sha256:b2751ba9c8797b0c2440b9435ad92ba9ab2c30d4a95b0c28a2b1b34e4a4c3af1:",
+    "------",
+    "Dockerfile:1",
+    "--------------------",
+    "   1 | >>> FROM sha256:b2751ba9c8797b0c2440b9435ad92ba9ab2c30d4a95b0c28a2b1b34e4a4c3af1",
+    "   2 |     COPY artifacts/WeKnora /app/WeKnora",
+    "   3 |     LABEL org.opencontainers.image.revision=\"035f35e1d388a2f02615d35cf826bbdcc22e56b0\" knowhub.environment=\"isolated-legacy-rehearsal\"",
+    "--------------------",
+    "ERROR: failed to solve: DeadlineExceeded: DeadlineExceeded: sha256:b2751ba9c8797b0c2440b9435ad92ba9ab2c30d4a95b0c28a2b1b34e4a4c3af1: failed to do request: Head \"https://registry-1.docker.io/v2/library/sha256/manifests/b2751ba9c8797b0c2440b9435ad92ba9ab2c30d4a95b0c28a2b1b34e4a4c3af1\": dial tcp 157.240.17.41:443: i/o timeout"
+  ]
+}

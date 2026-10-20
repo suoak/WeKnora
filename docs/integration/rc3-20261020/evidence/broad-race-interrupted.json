@@ -1,0 +1,6 @@
+{
+  "utc": "2026-10-20T02:16:23.551181+00:00",
+  "result": "NOT_COMPLETED",
+  "reason": "broad Service Race spent several minutes in unrelated AgentHistory token-counting tests; focused OA/Feishu/dispatch Race and complete non-Race CI will run on final revision; no pass claimed",
+  "artifact_sha256": "2ca734dabb7b1aaf913032cb504a04bfa159b1e491c82aa58b10a4195e88220d"
+}

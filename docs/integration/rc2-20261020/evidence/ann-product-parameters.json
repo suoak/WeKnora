@@ -1,0 +1,50 @@
+{
+  "utc": "2026-10-20T01:11:56.247830+00:00",
+  "original_probe_contract_preserved": true,
+  "ef_search": 100,
+  "iterative_scan": "strict_order",
+  "parameter_source": "internal/application/repository/retriever/postgres/repository.go: expandedTopK max(100,TopK*2) for TopK10; no product defaults changed",
+  "original_probe_issue": "two unsorted independent LIMIT1 subqueries do not guarantee one identical input vector; deterministic diagnostic below does not change ef_search or threshold",
+  "results": {
+    "rc2baseline": {
+      "original": {
+        "rows": 10,
+        "min_distance": 0,
+        "indexes": [
+          "embeddings_embedding_idx_1024"
+        ],
+        "passes_original_strict_distance_threshold": true
+      },
+      "single_deterministic_probe": {
+        "rows": 10,
+        "min_distance": 0.31139911438416057,
+        "indexes": [
+          "embeddings_pkey",
+          "embeddings_embedding_idx_1024"
+        ],
+        "passes_original_strict_distance_threshold": false
+      },
+      "bm25_rows_limit10": 10
+    },
+    "rc2upgrade": {
+      "original": {
+        "rows": 10,
+        "min_distance": 0.31139911438416057,
+        "indexes": [
+          "embeddings_embedding_idx_1024"
+        ],
+        "passes_original_strict_distance_threshold": false
+      },
+      "single_deterministic_probe": {
+        "rows": 10,
+        "min_distance": 0.31139911438416057,
+        "indexes": [
+          "embeddings_pkey",
+          "embeddings_embedding_idx_1024"
+        ],
+        "passes_original_strict_distance_threshold": false
+      },
+      "bm25_rows_limit10": 10
+    }
+  }
+}

@@ -1,0 +1,1123 @@
+{
+  "utc": "2026-10-15T11:35:23.096706+00:00",
+  "app": {
+    "id": "89f47e199a142788e5203e826d3f7298b56bea67515846d35d4d6454e1d0415a",
+    "name": "/knowhub-sourceid-business-app-1",
+    "image_id": "sha256:93f5c831b6e061832d71aa19fe74835c78e16b637d77e7ce18a4283e9ed62daa",
+    "image_reference": "sha256:93f5c831b6e061832d71aa19fe74835c78e16b637d77e7ce18a4283e9ed62daa",
+    "created": "2026-10-15T11:21:50.698859924Z",
+    "started": "2026-10-15T11:21:51.497902773Z",
+    "running": true,
+    "health": "healthy",
+    "restart_count": 0,
+    "project": "knowhub-sourceid-business",
+    "service": "app",
+    "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+    "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml,/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/private/basic-encoding-backups/20261015T112150Z/image-pin.yml",
+    "ports": {
+      "8080/tcp": [
+        {
+          "HostIp": "0.0.0.0",
+          "HostPort": "8080"
+        }
+      ]
+    },
+    "mounts": [
+      {
+        "Type": "volume",
+        "Name": "knowhub-sourceid-business_doc-tmp",
+        "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_doc-tmp/_data",
+        "Destination": "/tmp/docreader",
+        "RW": false
+      },
+      {
+        "Type": "bind",
+        "Name": null,
+        "Source": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/fixture/ca.pem",
+        "Destination": "/fixture/ca.pem",
+        "RW": false
+      },
+      {
+        "Type": "volume",
+        "Name": "knowhub-sourceid-business_files",
+        "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_files/_data",
+        "Destination": "/data/files",
+        "RW": true
+      }
+    ]
+  },
+  "containers": [
+    {
+      "id": "89f47e199a142788e5203e826d3f7298b56bea67515846d35d4d6454e1d0415a",
+      "name": "/knowhub-sourceid-business-app-1",
+      "image_id": "sha256:93f5c831b6e061832d71aa19fe74835c78e16b637d77e7ce18a4283e9ed62daa",
+      "image_reference": "sha256:93f5c831b6e061832d71aa19fe74835c78e16b637d77e7ce18a4283e9ed62daa",
+      "created": "2026-10-15T11:21:50.698859924Z",
+      "started": "2026-10-15T11:21:51.497902773Z",
+      "running": true,
+      "health": "healthy",
+      "restart_count": 0,
+      "project": "knowhub-sourceid-business",
+      "service": "app",
+      "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+      "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml,/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/private/basic-encoding-backups/20261015T112150Z/image-pin.yml",
+      "ports": {
+        "8080/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "8080"
+          }
+        ]
+      },
+      "mounts": [
+        {
+          "Type": "volume",
+          "Name": "knowhub-sourceid-business_doc-tmp",
+          "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_doc-tmp/_data",
+          "Destination": "/tmp/docreader",
+          "RW": false
+        },
+        {
+          "Type": "bind",
+          "Name": null,
+          "Source": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/fixture/ca.pem",
+          "Destination": "/fixture/ca.pem",
+          "RW": false
+        },
+        {
+          "Type": "volume",
+          "Name": "knowhub-sourceid-business_files",
+          "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_files/_data",
+          "Destination": "/data/files",
+          "RW": true
+        }
+      ]
+    },
+    {
+      "id": "dcbeecba4f422149c215c01b1226d8a44801a536b9a38596ad5bdf34cfabd801",
+      "name": "/knowhub-sourceid-business-frontend-1",
+      "image_id": "sha256:4dc1ca5eacbb723000d069e947da4876e7a479f3e95ea5cea4c234a9c295dcba",
+      "image_reference": "knowhub-sourceid-business/frontend:2fcbcaaed",
+      "created": "2026-10-15T06:22:28.502804622Z",
+      "started": "2026-10-15T06:22:34.847942743Z",
+      "running": true,
+      "health": "NOT_CONFIGURED",
+      "restart_count": 0,
+      "project": "knowhub-sourceid-business",
+      "service": "frontend",
+      "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+      "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+      "ports": {
+        "80/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "80"
+          }
+        ]
+      },
+      "mounts": []
+    },
+    {
+      "id": "8b4c423f194a406fe2877c0140c05d3e3a53c8c79e749148ccd721e2c615eaac",
+      "name": "/knowhub-sourceid-business-sid-mock-1",
+      "image_id": "sha256:8bfc2006e22c6a8eee94a45e0c9afe0168cfa72aa4f214291576c95a6d56c39c",
+      "image_reference": "m.daocloud.io/docker.io/library/python:3.10.18-bookworm",
+      "created": "2026-10-14T11:40:44.575707425Z",
+      "started": "2026-10-14T11:40:45.086723889Z",
+      "running": false,
+      "health": "NOT_CONFIGURED",
+      "restart_count": 0,
+      "project": "knowhub-sourceid-business",
+      "service": "sid-mock",
+      "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+      "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+      "ports": {},
+      "mounts": [
+        {
+          "Type": "bind",
+          "Name": null,
+          "Source": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/token-diagnostic-fixture",
+          "Destination": "/fixture",
+          "RW": false
+        }
+      ]
+    },
+    {
+      "id": "ba1385464699fdb0b21e48b3134e870f99de3bc1d74ff9663a4dc42e5476f624",
+      "name": "/knowhub-sourceid-business-postgres-1",
+      "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+      "image_reference": "paradedb/paradedb:v0.22.2-pg17",
+      "created": "2026-10-14T06:41:37.796071356Z",
+      "started": "2026-10-14T06:41:39.06627162Z",
+      "running": true,
+      "health": "healthy",
+      "restart_count": 0,
+      "project": "knowhub-sourceid-business",
+      "service": "postgres",
+      "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+      "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+      "ports": {
+        "5432/tcp": null
+      },
+      "mounts": [
+        {
+          "Type": "volume",
+          "Name": "knowhub-sourceid-business_postgres",
+          "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_postgres/_data",
+          "Destination": "/var/lib/postgresql/data",
+          "RW": true
+        }
+      ]
+    },
+    {
+      "id": "2396325bde68730217152ee1885508ca9294ed8524ef424a7022c8b9a2c2cc90",
+      "name": "/knowhub-sourceid-business-docreader-1",
+      "image_id": "sha256:8399936620aa78f991b95a0339585f5d2d61f215e6311955e8386a01329beba2",
+      "image_reference": "weknora-custom/docreader:v0.8.0-knowhub.6-0a40e3ad",
+      "created": "2026-10-14T06:41:37.795755583Z",
+      "started": "2026-10-14T06:41:38.981189326Z",
+      "running": true,
+      "health": "NOT_CONFIGURED",
+      "restart_count": 0,
+      "project": "knowhub-sourceid-business",
+      "service": "docreader",
+      "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+      "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+      "ports": {
+        "50051/tcp": null
+      },
+      "mounts": [
+        {
+          "Type": "volume",
+          "Name": "knowhub-sourceid-business_doc-tmp",
+          "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_doc-tmp/_data",
+          "Destination": "/tmp/docreader",
+          "RW": true
+        }
+      ]
+    },
+    {
+      "id": "fcc4d64070c73ee198ffa0c5badf6abd1b2d03543243f857be4f84b8605c33ad",
+      "name": "/knowhub-sourceid-business-redis-1",
+      "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+      "image_reference": "redis:7.0-alpine",
+      "created": "2026-10-14T06:41:37.79530949Z",
+      "started": "2026-10-14T06:41:38.801991581Z",
+      "running": true,
+      "health": "NOT_CONFIGURED",
+      "restart_count": 0,
+      "project": "knowhub-sourceid-business",
+      "service": "redis",
+      "working_dir": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+      "compose_files": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+      "ports": {
+        "6379/tcp": null
+      },
+      "mounts": [
+        {
+          "Type": "volume",
+          "Name": "knowhub-sourceid-business_redis",
+          "Source": "/mnt/sata0/lib/docker/volumes/knowhub-sourceid-business_redis/_data",
+          "Destination": "/data",
+          "RW": true
+        }
+      ]
+    }
+  ],
+  "flags": {
+    "SOURCEID_BASIC_ENCODING": "oauth_form",
+    "SOURCEID_ENABLE": "true",
+    "SOURCEID_PROTOCOL_ONLY": "true",
+    "SOURCEID_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_AUTO_BINDING_ENABLE": "false",
+    "SOURCEID_EMAIL_BINDING_ENABLE": "false",
+    "SOURCEID_EMAIL_CONTRACT_CONFIRMED": "false",
+    "SOURCEID_SESSION_MODE": "NOT_SET",
+    "SOURCEID_LOGOUT_ENABLE": "false",
+    "SOURCEID_DIAGNOSTICS_ENABLE": "true",
+    "OIDC_AUTH_ENABLE": "true",
+    "OIDC_AUTH_PKCE_ENABLE": "false",
+    "AUTO_MIGRATE": "false",
+    "AUTO_RECOVER_DIRTY": "false"
+  },
+  "schema": "3026|f",
+  "database_bytes": 34018995,
+  "row_counts": {
+    "users": 1,
+    "tenants": 1,
+    "tenant_members": 1,
+    "knowledge_bases": 8,
+    "auth_tokens": 24,
+    "oidc_transactions": 65,
+    "external_identities": 0,
+    "source_id_sessions": 0,
+    "source_id_binding_reviews": 0,
+    "feishu_connections": 0,
+    "feishu_personal_imports": 0
+  },
+  "compose_files": [
+    {
+      "path": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/compose.yml",
+      "permissions": "0o600",
+      "app_image": "knowhub-sourceid-business/app:2fcbcaaed",
+      "basic_encoding_override": "oauth_form"
+    },
+    {
+      "path": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/private/basic-encoding-backups/20261015T112150Z/image-pin.yml",
+      "permissions": "0o600",
+      "app_image": "sha256:93f5c831b6e061832d71aa19fe74835c78e16b637d77e7ce18a4283e9ed62daa",
+      "basic_encoding_override": "NOT_SET"
+    }
+  ],
+  "images": [
+    {
+      "Repository": "knowhub-sourceid-business/frontend",
+      "Tag": "2fcbcaaed",
+      "ID": "sha256:4dc1ca5eacbb723000d069e947da4876e7a479f3e95ea5cea4c234a9c295dcba",
+      "Size": "105MB"
+    },
+    {
+      "Repository": "knowhub-sourceid-business/app",
+      "Tag": "2fcbcaaed",
+      "ID": "sha256:93f5c831b6e061832d71aa19fe74835c78e16b637d77e7ce18a4283e9ed62daa",
+      "Size": "2.54GB"
+    },
+    {
+      "Repository": "knowhub-sourceid-business/frontend",
+      "Tag": "468410e89",
+      "ID": "sha256:f329c19f4c6a87d03caa6421870bc0fabb01b2b0821c6f15f8202b1bf4946919",
+      "Size": "105MB"
+    },
+    {
+      "Repository": "knowhub-sourceid-business/frontend",
+      "Tag": "rollback-before-combined",
+      "ID": "sha256:f329c19f4c6a87d03caa6421870bc0fabb01b2b0821c6f15f8202b1bf4946919",
+      "Size": "105MB"
+    },
+    {
+      "Repository": "knowhub-sourceid-business/app",
+      "Tag": "468410e89",
+      "ID": "sha256:e2feec2c9e25279140a811308ff5a4e61bbf5855e161b8fae39549f7159ee6ea",
+      "Size": "2.44GB"
+    },
+    {
+      "Repository": "knowhub-sourceid-business/app",
+      "Tag": "rollback-before-combined",
+      "ID": "sha256:e2feec2c9e25279140a811308ff5a4e61bbf5855e161b8fae39549f7159ee6ea",
+      "Size": "2.44GB"
+    },
+    {
+      "Repository": "knowhub-feishu-personal/app",
+      "Tag": "20261014-v5",
+      "ID": "sha256:6cea5e7269419db133d7c609e7b85043317e32539e9137f22292b8b72d185b92",
+      "Size": "2.36GB"
+    },
+    {
+      "Repository": "knowhub-sourceid-business/app",
+      "Tag": "3be5d3f92",
+      "ID": "sha256:0890f309f89397e82ea5b1ecd901f2ddb37de142b78f854e9925a05430c34c1d",
+      "Size": "2.44GB"
+    },
+    {
+      "Repository": "knowhub-sourceid-business/app",
+      "Tag": "rollback-before-raw",
+      "ID": "sha256:0890f309f89397e82ea5b1ecd901f2ddb37de142b78f854e9925a05430c34c1d",
+      "Size": "2.44GB"
+    },
+    {
+      "Repository": "knowhub-sourceid-business/frontend",
+      "Tag": "3be5d3f92",
+      "ID": "sha256:ae4a1207900234b131605ea3cdd4af8e99845faebdd1be87e00af150d34dbf34",
+      "Size": "105MB"
+    },
+    {
+      "Repository": "knowhub-sourceid-business/frontend",
+      "Tag": "rollback-before-raw",
+      "ID": "sha256:ae4a1207900234b131605ea3cdd4af8e99845faebdd1be87e00af150d34dbf34",
+      "Size": "105MB"
+    },
+    {
+      "Repository": "knowhub-sourceid-business/app",
+      "Tag": "db1b2cd05",
+      "ID": "sha256:1085776dac855cf8e84a2eacf005585bbc3226c965b436e72718b46cb724f28a",
+      "Size": "2.44GB"
+    },
+    {
+      "Repository": "knowhub-sourceid-business/app",
+      "Tag": "rollback-db1b2cd05-token-diagnostics",
+      "ID": "sha256:1085776dac855cf8e84a2eacf005585bbc3226c965b436e72718b46cb724f28a",
+      "Size": "2.44GB"
+    },
+    {
+      "Repository": "knowhub-sourceid-business/frontend",
+      "Tag": "db1b2cd05",
+      "ID": "sha256:0ffe6996295c87ca5d0f960f67381d4857751fac69036f60fb94802d417a8e16",
+      "Size": "105MB"
+    },
+    {
+      "Repository": "knowhub-sourceid-business/frontend",
+      "Tag": "rollback-db1b2cd05-token-diagnostics",
+      "ID": "sha256:0ffe6996295c87ca5d0f960f67381d4857751fac69036f60fb94802d417a8e16",
+      "Size": "105MB"
+    },
+    {
+      "Repository": "knowhub-feishu-personal/app",
+      "Tag": "20261014-v4",
+      "ID": "sha256:954cf069a763e0bd17e2ad6b55118fe9e22489bc6c102cbaf0430c578c40e9ad",
+      "Size": "2.36GB"
+    },
+    {
+      "Repository": "knowhub-feishu-personal/frontend",
+      "Tag": "20261014-v4",
+      "ID": "sha256:e2686ca6c72a92e0b90aa5387aefe2b7c700bea94a2afac0045c8197d7402356",
+      "Size": "105MB"
+    },
+    {
+      "Repository": "knowhub-sourceid-test/app",
+      "Tag": "8ae91bc44",
+      "ID": "sha256:b563fd65e09b4d0fc427cc89d6f2c7e336ef80cc0eac67a97cc6ddf0f3a35592",
+      "Size": "1.78GB"
+    },
+    {
+      "Repository": "knowhub-sourceid-test/app",
+      "Tag": "runtime-8ae91bc44",
+      "ID": "sha256:b563fd65e09b4d0fc427cc89d6f2c7e336ef80cc0eac67a97cc6ddf0f3a35592",
+      "Size": "1.78GB"
+    },
+    {
+      "Repository": "knowhub-sourceid-test/frontend",
+      "Tag": "8ae91bc44",
+      "ID": "sha256:fc9c950e324dab2a418266a7ff955bb3bb64ea21cdd7efbbfa57d8d873366453",
+      "Size": "83.4MB"
+    },
+    {
+      "Repository": "weknora-custom/docreader-candidate",
+      "Tag": "v0.8.0-knowhub.24-rc1-854f3b95",
+      "ID": "sha256:bcfa28f10cb1e7b2fafa32fb04049310a8650b2d43b17549ac93365f430a589a",
+      "Size": "3.93GB"
+    },
+    {
+      "Repository": "weknora-custom/docreader",
+      "Tag": "v0.8.0-knowhub.24-rc1-854f3b95",
+      "ID": "sha256:bcfa28f10cb1e7b2fafa32fb04049310a8650b2d43b17549ac93365f430a589a",
+      "Size": "3.93GB"
+    },
+    {
+      "Repository": "weknora-custom/mcp-candidate",
+      "Tag": "v0.8.0-knowhub.24-rc1-854f3b95",
+      "ID": "sha256:a42ddaa7d7be8cf68621f64486d079a756d7ff6d853bc57640136fbdbcc2348c",
+      "Size": "191MB"
+    },
+    {
+      "Repository": "weknora-custom/mcp",
+      "Tag": "v0.8.0-knowhub.24-rc1-854f3b95",
+      "ID": "sha256:a42ddaa7d7be8cf68621f64486d079a756d7ff6d853bc57640136fbdbcc2348c",
+      "Size": "191MB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.24-rc1-854f3b95",
+      "ID": "sha256:81e2f41fcf0f62b364ee4a6d2644a730af21fa56947511c9f7510fa20748000b",
+      "Size": "83.4MB"
+    },
+    {
+      "Repository": "weknora-custom/frontend-candidate",
+      "Tag": "v0.8.0-knowhub.24-rc1-854f3b95",
+      "ID": "sha256:81e2f41fcf0f62b364ee4a6d2644a730af21fa56947511c9f7510fa20748000b",
+      "Size": "83.4MB"
+    },
+    {
+      "Repository": "weknora-custom/app-validation",
+      "Tag": "v0.8.0-knowhub.24-rc1-854f3b95",
+      "ID": "sha256:0f4285609e85def9dbd2b8d23ed7311167d9a15b97c3ff9f5b7e48523e207036",
+      "Size": "1.84GB"
+    },
+    {
+      "Repository": "weknora-custom/app",
+      "Tag": "v0.8.0-knowhub.24-rc1-854f3b95",
+      "ID": "sha256:dc1268591cc4a273b732eacb9cd360f7c44d24ddd33706078a464cc3f90fff52",
+      "Size": "1.82GB"
+    },
+    {
+      "Repository": "weknora-custom/app",
+      "Tag": "v0.8.0-knowhub.23-rc2-ab16c71f",
+      "ID": "sha256:85e4ec09930ca8cdde2a1a9c7ae78b2821b97d3ffaed6a3dd2293ea671fff987",
+      "Size": "1.69GB"
+    },
+    {
+      "Repository": "weknora-custom/app",
+      "Tag": "v0.8.0-knowhub.23-rc1-104f6f6d",
+      "ID": "sha256:ef8995bf1279dbf690a868c858b738e9b9dcc10766484cf823fde82cd93707c4",
+      "Size": "1.69GB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.23-rc1-104f6f6d",
+      "ID": "sha256:e2e5a05b99562a755fbe019f4e3ee5c631f9838700951cf7c5e32c371270818b",
+      "Size": "442MB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.22-rc4-7eb0cb1f",
+      "ID": "sha256:e175ab464e5a3b587b277a8d7ff0532af247038096fe012c3217994f618d4ba1",
+      "Size": "414MB"
+    },
+    {
+      "Repository": "weknora-custom/app",
+      "Tag": "v0.8.0-knowhub.22-rc3-8b25026c",
+      "ID": "sha256:f1b0b25d60758c58195f48b001f99e0f949f038de72f0cebde9be3a1396a1ba7",
+      "Size": "1.69GB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.22-rc3-8b25026c",
+      "ID": "sha256:38509d2f2e3d8ffa3c8a0ec6a193ecd38f880dacf7091303fd2980488a50193e",
+      "Size": "387MB"
+    },
+    {
+      "Repository": "weknora-custom/app",
+      "Tag": "v0.8.0-knowhub.22-rc2-7064149b",
+      "ID": "sha256:50720f918eb42364e2d8edcadb945edd0ad95bc458a9e51c68cd5b7cabdd036f",
+      "Size": "1.69GB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.22-rc2-7064149b",
+      "ID": "sha256:c3dbda6506c6537905bbaac3958198e7b92bf5a03191096c7c8feee6d846c190",
+      "Size": "360MB"
+    },
+    {
+      "Repository": "weknora-custom/app",
+      "Tag": "v0.8.0-knowhub.22-rc1-e14a7c1c",
+      "ID": "sha256:c0e4ce0f60ca208051464c72facfaeff60cc4b9be896048aeff18a78963ff069",
+      "Size": "1.69GB"
+    },
+    {
+      "Repository": "weknora-custom/app",
+      "Tag": "v0.8.0-knowhub.22-rc1-e14a7c1c-invalid-metadata",
+      "ID": "sha256:a06c763da4be594fdb03bb19b29e107098e5913c41ae520fd52f0c2699e5384f",
+      "Size": "1.69GB"
+    },
+    {
+      "Repository": "knowhub-build/debian",
+      "Tag": "12.12-slim-ustc-ca",
+      "ID": "sha256:6caf23c736443112a1f98b59361fc431ec3d267abe63cceedb225c5a9fa84eaf",
+      "Size": "75MB"
+    },
+    {
+      "Repository": "knowhub-build/golang",
+      "Tag": "1.26-bookworm-ustc",
+      "ID": "sha256:2b63ff41b02b21d7b302c2d3ba6b4ab43990181fc7d2221585d2cfa5161553fb",
+      "Size": "833MB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.22-rc1-e14a7c1c",
+      "ID": "sha256:4e7594d076e44a650f20f9183a18d7fe73942d2d43b0b35eeec8a1c4f6b77a3c",
+      "Size": "360MB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.22-rc1-e14a7c1c-invalid-base20",
+      "ID": "sha256:a006b06a261e3d854f74867738c2530b6f2538264c557fe411ed9416cb744f8d",
+      "Size": "333MB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.21-03bd2365",
+      "ID": "sha256:a0c644e326c6ef0c4c98e87eb538a75e3a1a1eb2c8f479ad17c6766f2ccf3274",
+      "Size": "333MB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.20-a19a6bd9",
+      "ID": "sha256:954cd5fdd4474f538d5b6236317e7a5ac303220027d0eca8052252ced3ec7f0c",
+      "Size": "306MB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.19-2ce3b8e8",
+      "ID": "sha256:ba476194a8300fb9d2d831e4e2420bb8ca36adc4dfdf7e7b51e1472f65f73a88",
+      "Size": "279MB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.18-b713bf8e",
+      "ID": "sha256:a4a4fc0f990c5b8586ca897c421c845d430d4bc7dd0d369accc02c442bea7d03",
+      "Size": "252MB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.17-49e8d629",
+      "ID": "sha256:ba06b88fccc46f99852fd9c1dd9c3a498657541bb21d0722ef33ce897eb18e4a",
+      "Size": "225MB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.16-4a887f21",
+      "ID": "sha256:8dee20698a5250fce1e8ee6a3fd5480a33f5ed23cca253fbf0b6c2225b34a4a9",
+      "Size": "198MB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.15-7d53d7a9",
+      "ID": "sha256:bc0bdc8b362a49d3774a6c65b97d782b1b0360a4383df2fba67d025057c3c0a6",
+      "Size": "170MB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.14-af2de9bf",
+      "ID": "sha256:77067f25a549392407c09aab27ec30da9ea08e905cae2a20d9237cdafbb57946",
+      "Size": "143MB"
+    },
+    {
+      "Repository": "weknora-custom/app",
+      "Tag": "v0.8.0-knowhub.13-1e4216e3",
+      "ID": "sha256:9080ba2945c3a8eb3ad0995d8cba629a7e6f506c3453146da5fa8f93c823e2c4",
+      "Size": "1.68GB"
+    },
+    {
+      "Repository": "weknora-custom/app",
+      "Tag": "v0.8.0-knowhub.13-1e4216e3-nometa",
+      "ID": "sha256:58460355746029f69dc34af9afa7bc753f72e4f8fddb186d2103aab56dacd2be",
+      "Size": "1.68GB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.13-1e4216e3",
+      "ID": "sha256:59b177b63a7450cb9ef43c1c073940092163ffb94ab66799ead0648f0376bab4",
+      "Size": "116MB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.12-106704ee",
+      "ID": "sha256:bfbae6311ed1a6cba4d17b817a535ce95fdb51a65ec68aedcac1bb5f0d0104ae",
+      "Size": "116MB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.11-e5c94668",
+      "ID": "sha256:b3e2d45d62a97091e49b2c764f8fbe53f32e1b53e270f32b8df498e21062eb58",
+      "Size": "116MB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.10-9b935c5c",
+      "ID": "sha256:45708f03c2a5cdf98533f0a264d859d83603fcd5ea7e7b33bfcedd3c40142bdc",
+      "Size": "116MB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.9-1229f05c",
+      "ID": "sha256:8d4ab11276dd90865d07611014cca305c692a043339854a5f14ca2ec4bae63de",
+      "Size": "116MB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.8-32e97760",
+      "ID": "sha256:6d9a8a823bc36c42777a4232691cc7c6eb549734b795ade2cce09ede9e71d59b",
+      "Size": "116MB"
+    },
+    {
+      "Repository": "weknora-custom/app",
+      "Tag": "v0.8.0-knowhub.8-32e97760",
+      "ID": "sha256:85974a456adaca280e68e3b1b529c9d6ab07f4ecc2f57fd84fcab5f5d658ffd6",
+      "Size": "1.71GB"
+    },
+    {
+      "Repository": "weknora-custom/app",
+      "Tag": "v0.8.0-knowhub.7-fad357ba",
+      "ID": "sha256:7d4b9c730a5550060b58caa6b3fd62d1bed80d9008c96e0db119f33838ec89a6",
+      "Size": "1.71GB"
+    },
+    {
+      "Repository": "weknora-custom/app",
+      "Tag": "v0.8.0-knowhub.6-0a40e3ad",
+      "ID": "sha256:1ce762ee4da885c449251798d6ac2823362ff61d45499fa7d76adc0a543ce55c",
+      "Size": "1.71GB"
+    },
+    {
+      "Repository": "wechatopenai/weknora-sandbox",
+      "Tag": "main",
+      "ID": "sha256:fe8c2a83ec523b3a4d121fbcbb99bbca2285738dbdb79b92c0f61893108cb26c",
+      "Size": "404MB"
+    },
+    {
+      "Repository": "wechatopenai/weknora-sandbox",
+      "Tag": "v0.8.0-knowhub.6-0a40e3ad",
+      "ID": "sha256:fe8c2a83ec523b3a4d121fbcbb99bbca2285738dbdb79b92c0f61893108cb26c",
+      "Size": "404MB"
+    },
+    {
+      "Repository": "weknora-custom/sandbox",
+      "Tag": "v0.8.0-knowhub.6-0a40e3ad",
+      "ID": "sha256:fe8c2a83ec523b3a4d121fbcbb99bbca2285738dbdb79b92c0f61893108cb26c",
+      "Size": "404MB"
+    },
+    {
+      "Repository": "weknora-custom/mcp",
+      "Tag": "v0.8.0-knowhub.6-0a40e3ad",
+      "ID": "sha256:912e239d37486162c63beb8cda525dd53a6803d78442eed9ee3636f9f25c8721",
+      "Size": "190MB"
+    },
+    {
+      "Repository": "weknora-custom/docreader",
+      "Tag": "v0.8.0-knowhub.6-0a40e3ad",
+      "ID": "sha256:8399936620aa78f991b95a0339585f5d2d61f215e6311955e8386a01329beba2",
+      "Size": "3.93GB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.6-0a40e3ad",
+      "ID": "sha256:f8839885e0f322df6939225d3dc2dcf18aa66f89a92f01f380d9ade1fed6e380",
+      "Size": "89.2MB"
+    },
+    {
+      "Repository": "weknora-custom/app",
+      "Tag": "v0.8.0-knowhub.5-b9942ff5",
+      "ID": "sha256:74c3c62be7664c611eca95a2b212854d339e5d3a34bf7d9c75abf2fa2b848935",
+      "Size": "1.71GB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.5-b9942ff5",
+      "ID": "sha256:140ee1cb70c7020779c4ddb48af0f92d6eac4b943288b3c83b4727b7e46150c5",
+      "Size": "89MB"
+    },
+    {
+      "Repository": "knowhub-node-local-test",
+      "Tag": "22",
+      "ID": "sha256:8cac317106ac8f230c7fe46f271f09f3799fd2c26dfae7c7f7299a2a09757744",
+      "Size": "1.13GB"
+    },
+    {
+      "Repository": "weknora-custom/mcp",
+      "Tag": "v0.8.0-knowhub.4-51e719e2",
+      "ID": "sha256:936fa34111f3ebf832160d5a159f55a62822d5472b3fb2104b0c87e027ac0c23",
+      "Size": "190MB"
+    },
+    {
+      "Repository": "weknora-custom/app",
+      "Tag": "v0.8.0-knowhub.4-51e719e2",
+      "ID": "sha256:d4ecedcd47ca880085fe875e22e065f25b0a8467f4f1051b9aafda003dd926b4",
+      "Size": "1.71GB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.4-51e719e2",
+      "ID": "sha256:110d0240413051da0e51257b4e0a51a23a7e1cd92a1308a64e0391aa47bba57b",
+      "Size": "88.2MB"
+    },
+    {
+      "Repository": "wechatopenai/weknora-sandbox",
+      "Tag": "v0.8.0-knowhub.3-37292f93",
+      "ID": "sha256:8c997f765df9b88d39df74bb1336ddf3739b488d23d48fe5aad5e4c0f7297d59",
+      "Size": "404MB"
+    },
+    {
+      "Repository": "wechatopenai/weknora-sandbox",
+      "Tag": "latest",
+      "ID": "sha256:fa49c53b8d3d6340821bdce81603e768e29280fc5157c96293190062654b429f",
+      "Size": "404MB"
+    },
+    {
+      "Repository": "wechatopenai/weknora-sandbox",
+      "Tag": "v0.8.0-knowhub.4-51e719e2",
+      "ID": "sha256:fa49c53b8d3d6340821bdce81603e768e29280fc5157c96293190062654b429f",
+      "Size": "404MB"
+    },
+    {
+      "Repository": "weknora-custom/app",
+      "Tag": "v0.8.0-knowhub.3-37292f93",
+      "ID": "sha256:b0561b29291c8ba46f9eabd7db1ca8183c8af68a2b54ab461e71103beb6c35e8",
+      "Size": "1.71GB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.3-37292f93",
+      "ID": "sha256:ac23c3c2afaaf593517532b1cb9d29c88a4a417234ed65880ffd570a0162968a",
+      "Size": "88.1MB"
+    },
+    {
+      "Repository": "weknora-custom/app",
+      "Tag": "v0.8.0-knowhub.2-fffb1957",
+      "ID": "sha256:441e82e4e7f1bd160759c60a0715c06d11297a485b56d0f760e0f8129c42a28a",
+      "Size": "1.71GB"
+    },
+    {
+      "Repository": "weknora-custom/mcp",
+      "Tag": "v0.8.0-knowhub.2-fffb1957",
+      "ID": "sha256:7651eed073b96ae04249225f150ea695e657ce064d5f635f5eb44b780689c812",
+      "Size": "182MB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.2-fffb1957",
+      "ID": "sha256:f167673aad78b8b0936e22c15de774bea3cdbf6e48b99d5529da2a11c0a4ada1",
+      "Size": "88.1MB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.8.0-knowhub.1-ecf0b3f1",
+      "ID": "sha256:782b4cf86dd90ec7cf204edf8885ec6516b8e2596f55c86223f0dc66b5780b51",
+      "Size": "87.9MB"
+    },
+    {
+      "Repository": "weknora-custom/app",
+      "Tag": "v0.8.0-knowhub.1-ecf0b3f1",
+      "ID": "sha256:d96b78e37b646a47442657529bd3cf9587cff22043ee80910bd8398d5e7f1368",
+      "Size": "1.71GB"
+    },
+    {
+      "Repository": "weknora-custom/docreader",
+      "Tag": "v0.8.0-knowhub.1-ecf0b3f1",
+      "ID": "sha256:9517f1ad6ac6f6a0b47367651f06c7cb3ca4e54fb0cc14a8b3b4362289d2e7a0",
+      "Size": "3.93GB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.1.0-custom.4-a164946b",
+      "ID": "sha256:2cc26db380037fa88c1fd390c8a30e6ca1cb1e330d4fcfc283482bd4ba77dc61",
+      "Size": "87.8MB"
+    },
+    {
+      "Repository": "weknora-custom/app",
+      "Tag": "v0.1.0-custom.4-a164946b",
+      "ID": "sha256:a6528a44b0da8383c405a9d55f77fde28f78916c3c15a680c864b680a327126a",
+      "Size": "1.71GB"
+    },
+    {
+      "Repository": "weknora-custom/docreader",
+      "Tag": "v0.1.0-custom.4-a164946b",
+      "ID": "sha256:adb88821ab95a83dfee7ade49c15840c9cec4ca7cf1b877014f8493049ed549a",
+      "Size": "3.93GB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.1.0-custom.3-de63657b",
+      "ID": "sha256:a8a74d55a91351e3b76878d3594576b8e11fdc780cc29ac459ebb7d8690dcb2e",
+      "Size": "87.8MB"
+    },
+    {
+      "Repository": "weknora-custom/docreader",
+      "Tag": "v0.1.0-custom.3-de63657b",
+      "ID": "sha256:5158a929065a6811af56b3b3e6b654f3a2cf6e131fe73e93016c7222c93b4659",
+      "Size": "3.93GB"
+    },
+    {
+      "Repository": "weknora-custom/app",
+      "Tag": "v0.1.0-custom.3-de63657b",
+      "ID": "sha256:ec7e167aea6661bc09333126a06998d45cc857e731204104c2924d025a2b02df",
+      "Size": "1.71GB"
+    },
+    {
+      "Repository": "weknora-custom/mcp",
+      "Tag": "v0.1.0-custom.1-7813c605",
+      "ID": "sha256:d9aa6e2c5ba1384252dfe70fb2bbb03ab67d978f8b45462dbaa7df95ce1a0cfa",
+      "Size": "180MB"
+    },
+    {
+      "Repository": "weknora-custom/frontend",
+      "Tag": "v0.1.0-custom.1-7813c605",
+      "ID": "sha256:3d0e054838908f8751610d87c7bfd869e163153cc88e24a9b5a96e9043ae5105",
+      "Size": "87.8MB"
+    },
+    {
+      "Repository": "weknora-custom/docreader",
+      "Tag": "v0.1.0-custom.1-7813c605",
+      "ID": "sha256:2bc48311635ce03cc09b7ac5606e4abff88dfd96beba720774e08cd0c43df521",
+      "Size": "3.93GB"
+    },
+    {
+      "Repository": "weknora-custom/app",
+      "Tag": "v0.1.0-custom.1-7813c605",
+      "ID": "sha256:6b8ebeb21bc24e356ab5326be4c3f48a8d359e423390060e1e662e60ba63255b",
+      "Size": "1.69GB"
+    },
+    {
+      "Repository": "weknora-local/app",
+      "Tag": "4a298383",
+      "ID": "sha256:a3d3d2557c7e28b3c65f3eeb2ea2ed18a44d9466db03c2801c94fa734587818d",
+      "Size": "1.68GB"
+    },
+    {
+      "Repository": "weknora-local/docreader",
+      "Tag": "4a298383",
+      "ID": "sha256:d7f4284bcd815edb48b729ab274a2a0d66dfc6ff1f2791e5604d3238dd733487",
+      "Size": "3.93GB"
+    },
+    {
+      "Repository": "node",
+      "Tag": "22-bookworm",
+      "ID": "sha256:6622b5ce13429346f91fcdb936ec2e026ccc28465409fd25b7f79c623e7a20af",
+      "Size": "1.13GB"
+    },
+    {
+      "Repository": "m.daocloud.io/docker.io/library/node",
+      "Tag": "22-bookworm",
+      "ID": "sha256:6622b5ce13429346f91fcdb936ec2e026ccc28465409fd25b7f79c623e7a20af",
+      "Size": "1.13GB"
+    },
+    {
+      "Repository": "golang",
+      "Tag": "1.26-bookworm",
+      "ID": "sha256:8aece983c4c0cc3fa2680f6ad045ea931f9ab063b9c2d482f1b9cf8f5b0f1846",
+      "Size": "833MB"
+    },
+    {
+      "Repository": "m.daocloud.io/docker.io/library/golang",
+      "Tag": "1.26-bookworm",
+      "ID": "sha256:8aece983c4c0cc3fa2680f6ad045ea931f9ab063b9c2d482f1b9cf8f5b0f1846",
+      "Size": "833MB"
+    },
+    {
+      "Repository": "weknora-mcp",
+      "Tag": "latest",
+      "ID": "sha256:aa880bcfa09a66f201463aa614d7a299fef10b342779335ec08dac29713de337",
+      "Size": "180MB"
+    },
+    {
+      "Repository": "weknora-mcp",
+      "Tag": "mcp-multitenant-v1",
+      "ID": "sha256:aa880bcfa09a66f201463aa614d7a299fef10b342779335ec08dac29713de337",
+      "Size": "180MB"
+    },
+    {
+      "Repository": "wechatopenai/weknora-app",
+      "Tag": "latest",
+      "ID": "sha256:1abaf9dd921aa0648d74efd10efbb6b016f15af411b59bc9b360dde5348e1979",
+      "Size": "1.66GB"
+    },
+    {
+      "Repository": "wechatopenai/weknora-app",
+      "Tag": "poc-20260820",
+      "ID": "sha256:1abaf9dd921aa0648d74efd10efbb6b016f15af411b59bc9b360dde5348e1979",
+      "Size": "1.66GB"
+    },
+    {
+      "Repository": "m.daocloud.io/docker.io/wechatopenai/weknora-app",
+      "Tag": "latest",
+      "ID": "sha256:1abaf9dd921aa0648d74efd10efbb6b016f15af411b59bc9b360dde5348e1979",
+      "Size": "1.66GB"
+    },
+    {
+      "Repository": "wechatopenai/weknora-ui",
+      "Tag": "latest",
+      "ID": "sha256:894e6a32987191e096817194219a00051f4d737c3482c05c8aec41f153eae420",
+      "Size": "87.2MB"
+    },
+    {
+      "Repository": "wechatopenai/weknora-ui",
+      "Tag": "poc-20260820",
+      "ID": "sha256:894e6a32987191e096817194219a00051f4d737c3482c05c8aec41f153eae420",
+      "Size": "87.2MB"
+    },
+    {
+      "Repository": "m.daocloud.io/docker.io/wechatopenai/weknora-ui",
+      "Tag": "latest",
+      "ID": "sha256:894e6a32987191e096817194219a00051f4d737c3482c05c8aec41f153eae420",
+      "Size": "87.2MB"
+    },
+    {
+      "Repository": "wechatopenai/weknora-docreader",
+      "Tag": "latest",
+      "ID": "sha256:1f520c9e7c5890c6a97997523e536e9e312065548aeed826eb8ef600ce988ba9",
+      "Size": "3.92GB"
+    },
+    {
+      "Repository": "wechatopenai/weknora-docreader",
+      "Tag": "poc-20260820",
+      "ID": "sha256:1f520c9e7c5890c6a97997523e536e9e312065548aeed826eb8ef600ce988ba9",
+      "Size": "3.92GB"
+    },
+    {
+      "Repository": "m.daocloud.io/docker.io/wechatopenai/weknora-docreader",
+      "Tag": "latest",
+      "ID": "sha256:1f520c9e7c5890c6a97997523e536e9e312065548aeed826eb8ef600ce988ba9",
+      "Size": "3.92GB"
+    },
+    {
+      "Repository": "nginx",
+      "Tag": "1.30.3-alpine",
+      "ID": "sha256:d0701bd41f8279135aa6c81e23fbcdae7bcc3df591c47741405412a8dcdb2eab",
+      "Size": "62.2MB"
+    },
+    {
+      "Repository": "m.daocloud.io/docker.io/library/nginx",
+      "Tag": "<none>",
+      "ID": "sha256:d0701bd41f8279135aa6c81e23fbcdae7bcc3df591c47741405412a8dcdb2eab",
+      "Size": "62.2MB"
+    },
+    {
+      "Repository": "node",
+      "Tag": "20-slim",
+      "ID": "sha256:9da6b4e352d0d5c94963eba1832408f5b7b08839cd8be9b6610c05de5118c704",
+      "Size": "200MB"
+    }
+  ],
+  "build_directories": [
+    {
+      "directory": "/home/aqyfzx/ai/knowhub-packhost-context-v0.8.0-knowhub.24-rc1-854f3b95",
+      "dockerfiles": []
+    },
+    {
+      "directory": "/home/aqyfzx/ai/knowhub-sourceid-token-build-468410e89",
+      "dockerfiles": [
+        "Dockerfile.frontend",
+        "Dockerfile.app"
+      ]
+    },
+    {
+      "directory": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05",
+      "dockerfiles": []
+    },
+    {
+      "directory": "/home/aqyfzx/ai/knowhub-rc22-evidence-20260921",
+      "dockerfiles": []
+    },
+    {
+      "directory": "/home/aqyfzx/ai/knowhub-sourceid-token-build-2fcbcaaed",
+      "dockerfiles": [
+        "Dockerfile.frontend",
+        "Dockerfile.app"
+      ]
+    },
+    {
+      "directory": "/home/aqyfzx/ai/knowhub-rc24-isolated-health-v0.8.0-knowhub.24-rc1-854f3b95",
+      "dockerfiles": []
+    },
+    {
+      "directory": "/home/aqyfzx/ai/knowhub-frontend-packhost-v0.8.0-knowhub.24-rc1-854f3b95",
+      "dockerfiles": [
+        "Dockerfile.frontend-packhost-v2.2",
+        "Dockerfile.frontend-packhost-v2.1"
+      ]
+    },
+    {
+      "directory": "/home/aqyfzx/ai/WeKnora-build-context-v0.8.0-knowhub.5-b9942ff5",
+      "dockerfiles": []
+    },
+    {
+      "directory": "/home/aqyfzx/ai/knowhub-sourceid-business-cdf4ad9da",
+      "dockerfiles": [
+        "Dockerfile.frontend",
+        "Dockerfile.app"
+      ]
+    },
+    {
+      "directory": "/home/aqyfzx/ai/sourceid-protocol-probe-1505142b47dc-attempt04",
+      "dockerfiles": []
+    },
+    {
+      "directory": "/home/aqyfzx/ai/knowhub-sourceid-build-8ae91bc44",
+      "dockerfiles": [
+        "Dockerfile.sourceid-test"
+      ]
+    },
+    {
+      "directory": "/home/aqyfzx/ai/sourceid-protocol-probe-e10372dee5d2",
+      "dockerfiles": []
+    },
+    {
+      "directory": "/home/aqyfzx/ai/knowhub-docreader-packhost-v0.8.0-knowhub.24-rc1-854f3b95",
+      "dockerfiles": [
+        "Dockerfile.docreader-packhost-v1"
+      ]
+    },
+    {
+      "directory": "/home/aqyfzx/ai/knowhub-sourceid-p6-isolated-8ae91bc44",
+      "dockerfiles": []
+    },
+    {
+      "directory": "/home/aqyfzx/ai/knowhub-mcp-packhost-v0.8.0-knowhub.24-rc1-854f3b95",
+      "dockerfiles": [
+        "Dockerfile.mcp-packhost-v1"
+      ]
+    },
+    {
+      "directory": "/home/aqyfzx/ai/knowhub-packhost-evidence-v0.8.0-knowhub.24-rc1-854f3b95",
+      "dockerfiles": []
+    },
+    {
+      "directory": "/home/aqyfzx/ai/sourceid-protocol-probe-759c6532c342-attempt03",
+      "dockerfiles": []
+    },
+    {
+      "directory": "/home/aqyfzx/ai/knowhub-component-audit-v0.8.0-knowhub.24-rc1-854f3b95",
+      "dockerfiles": [
+        "mcp-server.Dockerfile",
+        "frontend.Dockerfile",
+        "docreader.Dockerfile"
+      ]
+    },
+    {
+      "directory": "/home/aqyfzx/ai/sourceid-protocol-probe-c855338b9530",
+      "dockerfiles": [
+        "runtime.Dockerfile"
+      ]
+    },
+    {
+      "directory": "/home/aqyfzx/ai/sourceid-protocol-probe-1505142b47dc-attempt04-oidc-change",
+      "dockerfiles": []
+    },
+    {
+      "directory": "/home/aqyfzx/ai/knowhub-app-verify-v0.8.0-knowhub.24-rc1-854f3b95",
+      "dockerfiles": []
+    },
+    {
+      "directory": "/home/aqyfzx/ai/WeKnora-release-v0.8.0-knowhub.6-0a40e3ad",
+      "dockerfiles": []
+    },
+    {
+      "directory": "/home/aqyfzx/ai/knowhub-release-set-v0.8.0-knowhub.24-rc1-854f3b95",
+      "dockerfiles": []
+    },
+    {
+      "directory": "/home/aqyfzx/ai/sourceid-protocol-probe-1505142b47dc-attempt05-no-pkce",
+      "dockerfiles": []
+    },
+    {
+      "directory": "/home/aqyfzx/ai/sourceid-protocol-probe-759c6532c342",
+      "dockerfiles": []
+    },
+    {
+      "directory": "/home/aqyfzx/ai/knowhub-feishu-personal-20261014",
+      "dockerfiles": [
+        "Dockerfile.test-frontend",
+        "Dockerfile.test-app"
+      ]
+    },
+    {
+      "directory": "/home/aqyfzx/ai/sourceid-protocol-probe-a4fdb8052df1",
+      "dockerfiles": []
+    },
+    {
+      "directory": "/home/aqyfzx/ai/sourceid-download-cache",
+      "dockerfiles": []
+    },
+    {
+      "directory": "/home/aqyfzx/ai/knowhub-rc22-evidence-20260922",
+      "dockerfiles": []
+    },
+    {
+      "directory": "/home/aqyfzx/ai/WeKnora-build-context-v0.8.0-knowhub.4-51e719e2",
+      "dockerfiles": []
+    },
+    {
+      "directory": "/home/aqyfzx/ai/knowhub-release-inputs-v0.8.0-knowhub.24-rc1-854f3b95",
+      "dockerfiles": []
+    },
+    {
+      "directory": "/home/aqyfzx/ai/knowhub-sourceid-token-build-3be5d3f92",
+      "dockerfiles": [
+        "Dockerfile.frontend",
+        "Dockerfile.app"
+      ]
+    },
+    {
+      "directory": "/home/aqyfzx/ai/sourceid-protocol-probe-1505142b47dc-attempt06-no-pkce-repeat",
+      "dockerfiles": []
+    }
+  ],
+  "free_bytes": 262770565120
+}

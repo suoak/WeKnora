@@ -1,0 +1,185 @@
+{
+  "implementation_sha": "3be5d3f9268fe8819d66485a2b990c6237827e25",
+  "ci_run_id": 38556052305,
+  "ci_url": "https://github.com/suoak/WeKnora/actions/runs/38556052305",
+  "ci_conclusion": "success",
+  "jobs": [
+    {
+      "name": "frontend",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm run type-check",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm test -- src/utils/authRedirect.test.ts src/utils/authRefresh.test.ts src/utils/authLandingContracts.test.ts src/utils/oidcCallbackEntry.test.ts",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm run build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "postgres",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Initialize containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-go@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "PostgreSQL migration and durable session tests",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-go@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "linux",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-go@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Record identity",
+          "conclusion": "success"
+        },
+        {
+          "name": "SourceID and authentication tests with race detection",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate isolated diagnostic report persistence filter",
+          "conclusion": "success"
+        },
+        {
+          "name": "Authentication and MCP regression",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build server and reviewed enrollment utility",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-go@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "local": {
+    "telemetry_stdlib_isolated_tests": "PASS",
+    "project_full_tests_local": "NOT_RUN_LOCAL_TOOLCHAIN_IS_1_24_5",
+    "full_project_validation": "GITHUB_LINUX_GO_1_26_8",
+    "filter_tests": "PASS",
+    "exporter_tests": "PASS",
+    "exporter_stdin_to_file": "PASS",
+    "historical_overwrite_refused": "PASS",
+    "basic_synthetic_cases": 9,
+    "frontend_authentication_tests_passed": 23
+  },
+  "safety": {
+    "new_real_sid_logins": 0,
+    "real_secret_read": false,
+    "deployed": true,
+    "running_authentication_configuration_modified": true,
+    "production_host_accessed": false,
+    "authentication_strategy_changed": false,
+    "synthetic_request_semantics_preserved": true,
+    "synthetic_one_exchange_per_call": true,
+    "real_chrome_crash_reproduced": "NOT_TESTED",
+    "deployment_status": "DEPLOYED_PACKAGING_HOST_ONLY_WITH_SUBSEQUENT_USER_AUTHORIZATION",
+    "configuration_change": "OIDC_AND_DIAGNOSTICS_FINAL_DISABLED; MOCK_ENABLED_ONLY_DURING_SYNTHETIC_ACCEPTANCE"
+  },
+  "previous_validated_sha": "dffc688324cd7e425ecb2b8dad1c51e93ad94627",
+  "previous_ci_url": "https://github.com/suoak/WeKnora/actions/runs/38554347294",
+  "actual_emitted_log_integration_test": "PASS_IN_CI_CONTEXT_OWNED_LOGGER",
+  "deployment_acceptance": "PASS"
+}

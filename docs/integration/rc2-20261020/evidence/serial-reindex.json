@@ -1,0 +1,326 @@
+{
+  "utc": "2026-10-20T01:21:18.785675+00:00",
+  "scope": "one bounded serial REINDEX experiment on rc2recovered only; same index options and stored vectors; baseline/upgrade red evidence retained; no app/production changes",
+  "database": "rc2recovered",
+  "parallel_maintenance_workers": 0,
+  "maintenance_work_mem": "4GB",
+  "state": "complete",
+  "before_point_3945": {
+    "global": {
+      "rows": 100,
+      "min_distance": 0.31139911438416057
+    },
+    "kb": {
+      "rows": 100,
+      "min_distance": 0.31139911438416057
+    }
+  },
+  "original_indexdef": "CREATE INDEX embeddings_embedding_idx_1024 ON public.embeddings USING hnsw (((embedding)::halfvec(1024)) halfvec_cosine_ops) WITH (m='16', ef_construction='64') WHERE (dimension = 1024)",
+  "sample_points": [
+    {
+      "id": 1551034,
+      "row": 1,
+      "total": 22413,
+      "source_id": "14433cdb-fddc-4d6c-a979-ef11c05b61bf"
+    },
+    {
+      "id": 1566120,
+      "row": 11207,
+      "total": 22413,
+      "source_id": "14433cdb-fddc-4d6c-a979-ef11c05b61bf"
+    },
+    {
+      "id": 5042587,
+      "row": 22413,
+      "total": 22413,
+      "source_id": "14433cdb-fddc-4d6c-a979-ef11c05b61bf"
+    },
+    {
+      "id": 1992726,
+      "row": 1,
+      "total": 1835,
+      "source_id": "5c7bc873-0ba3-43c7-90a0-32c23e6bd529"
+    },
+    {
+      "id": 1993904,
+      "row": 918,
+      "total": 1835,
+      "source_id": "5c7bc873-0ba3-43c7-90a0-32c23e6bd529"
+    },
+    {
+      "id": 2006212,
+      "row": 1835,
+      "total": 1835,
+      "source_id": "5c7bc873-0ba3-43c7-90a0-32c23e6bd529"
+    },
+    {
+      "id": 1281070,
+      "row": 1,
+      "total": 3127,
+      "source_id": "867e5798-1c2b-4547-921d-d43132e3f275"
+    },
+    {
+      "id": 1282633,
+      "row": 1564,
+      "total": 3127,
+      "source_id": "867e5798-1c2b-4547-921d-d43132e3f275"
+    },
+    {
+      "id": 1284196,
+      "row": 3127,
+      "total": 3127,
+      "source_id": "867e5798-1c2b-4547-921d-d43132e3f275"
+    },
+    {
+      "id": 1579042,
+      "row": 1,
+      "total": 121162,
+      "source_id": "be5a806a-8ff0-4352-9478-0d9063f7ca95"
+    },
+    {
+      "id": 5051476,
+      "row": 60581,
+      "total": 121162,
+      "source_id": "be5a806a-8ff0-4352-9478-0d9063f7ca95"
+    },
+    {
+      "id": 5112057,
+      "row": 121162,
+      "total": 121162,
+      "source_id": "be5a806a-8ff0-4352-9478-0d9063f7ca95"
+    },
+    {
+      "id": 1993611,
+      "row": 1,
+      "total": 182,
+      "source_id": "c9ec8746-accd-4e77-9615-c0d2e1cc33fd"
+    },
+    {
+      "id": 1993701,
+      "row": 91,
+      "total": 182,
+      "source_id": "c9ec8746-accd-4e77-9615-c0d2e1cc33fd"
+    },
+    {
+      "id": 1993795,
+      "row": 182,
+      "total": 182,
+      "source_id": "c9ec8746-accd-4e77-9615-c0d2e1cc33fd"
+    },
+    {
+      "id": 1573126,
+      "row": 1,
+      "total": 2824,
+      "source_id": "eea7e329-708a-4c4b-bc77-b34a254db471"
+    },
+    {
+      "id": 1643857,
+      "row": 1412,
+      "total": 2824,
+      "source_id": "eea7e329-708a-4c4b-bc77-b34a254db471"
+    },
+    {
+      "id": 1677223,
+      "row": 2824,
+      "total": 2824,
+      "source_id": "eea7e329-708a-4c4b-bc77-b34a254db471"
+    }
+  ],
+  "reindex_exit": 0,
+  "reindex_seconds": 937.579,
+  "indexdef_unchanged": true,
+  "after_point_3945": {
+    "global": {
+      "rows": 100,
+      "min_distance": 0.2893862288332536
+    },
+    "kb": {
+      "rows": 100,
+      "min_distance": 0.3199191520890434
+    }
+  },
+  "sample_results": [
+    {
+      "id": 1551034,
+      "row": 1,
+      "total": 22413,
+      "source_id": "14433cdb-fddc-4d6c-a979-ef11c05b61bf",
+      "result": {
+        "rows": 0,
+        "min_distance": null
+      }
+    },
+    {
+      "id": 1566120,
+      "row": 11207,
+      "total": 22413,
+      "source_id": "14433cdb-fddc-4d6c-a979-ef11c05b61bf",
+      "result": {
+        "rows": 100,
+        "min_distance": 0.3560662639178688
+      }
+    },
+    {
+      "id": 5042587,
+      "row": 22413,
+      "total": 22413,
+      "source_id": "14433cdb-fddc-4d6c-a979-ef11c05b61bf",
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      }
+    },
+    {
+      "id": 1992726,
+      "row": 1,
+      "total": 1835,
+      "source_id": "5c7bc873-0ba3-43c7-90a0-32c23e6bd529",
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      }
+    },
+    {
+      "id": 1993904,
+      "row": 918,
+      "total": 1835,
+      "source_id": "5c7bc873-0ba3-43c7-90a0-32c23e6bd529",
+      "result": {
+        "rows": 100,
+        "min_distance": 0.5702887050094385
+      }
+    },
+    {
+      "id": 2006212,
+      "row": 1835,
+      "total": 1835,
+      "source_id": "5c7bc873-0ba3-43c7-90a0-32c23e6bd529",
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      }
+    },
+    {
+      "id": 1281070,
+      "row": 1,
+      "total": 3127,
+      "source_id": "867e5798-1c2b-4547-921d-d43132e3f275",
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      }
+    },
+    {
+      "id": 1282633,
+      "row": 1564,
+      "total": 3127,
+      "source_id": "867e5798-1c2b-4547-921d-d43132e3f275",
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      }
+    },
+    {
+      "id": 1284196,
+      "row": 3127,
+      "total": 3127,
+      "source_id": "867e5798-1c2b-4547-921d-d43132e3f275",
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      }
+    },
+    {
+      "id": 1579042,
+      "row": 1,
+      "total": 121162,
+      "source_id": "be5a806a-8ff0-4352-9478-0d9063f7ca95",
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      }
+    },
+    {
+      "id": 5051476,
+      "row": 60581,
+      "total": 121162,
+      "source_id": "be5a806a-8ff0-4352-9478-0d9063f7ca95",
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      }
+    },
+    {
+      "id": 5112057,
+      "row": 121162,
+      "total": 121162,
+      "source_id": "be5a806a-8ff0-4352-9478-0d9063f7ca95",
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      }
+    },
+    {
+      "id": 1993611,
+      "row": 1,
+      "total": 182,
+      "source_id": "c9ec8746-accd-4e77-9615-c0d2e1cc33fd",
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      }
+    },
+    {
+      "id": 1993701,
+      "row": 91,
+      "total": 182,
+      "source_id": "c9ec8746-accd-4e77-9615-c0d2e1cc33fd",
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      }
+    },
+    {
+      "id": 1993795,
+      "row": 182,
+      "total": 182,
+      "source_id": "c9ec8746-accd-4e77-9615-c0d2e1cc33fd",
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      }
+    },
+    {
+      "id": 1573126,
+      "row": 1,
+      "total": 2824,
+      "source_id": "eea7e329-708a-4c4b-bc77-b34a254db471",
+      "result": {
+        "rows": 100,
+        "min_distance": 0.4583291610370137
+      }
+    },
+    {
+      "id": 1643857,
+      "row": 1412,
+      "total": 2824,
+      "source_id": "eea7e329-708a-4c4b-bc77-b34a254db471",
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      }
+    },
+    {
+      "id": 1677223,
+      "row": 2824,
+      "total": 2824,
+      "source_id": "eea7e329-708a-4c4b-bc77-b34a254db471",
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      }
+    }
+  ],
+  "pass_points": 14,
+  "failed_points": 4
+}

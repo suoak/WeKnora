@@ -1,0 +1,51 @@
+{
+  "host": "172.30.232.42",
+  "checks": {
+    "no_mock_ca_or_whitelist": true,
+    "basic": true,
+    "pkce_disabled": true,
+    "openid_scope": true,
+    "issuer": true,
+    "discovery": true,
+    "callback": true,
+    "userinfo_bearer_get": true,
+    "client_id": true,
+    "secret_loaded_nonempty_only": true
+  },
+  "credential_validity": "NOT_VERIFIED",
+  "backup_directory": "/home/aqyfzx/ai/knowhub-sourceid-business-test-db1b2cd05/upgrade-backups/persistent-oidc-20261014T120006Z",
+  "real_employee_login_started": false,
+  "production_accessed": false,
+  "oidc_enabled": true,
+  "diagnostics_enabled": true,
+  "protocol_only": true,
+  "contract_confirmed": false,
+  "logout_enabled": false,
+  "public_config": {
+    "redirect_uri": "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback",
+    "success": true,
+    "enabled": true,
+    "provider_display_name": "\u4f01\u4e1a SID"
+  },
+  "diagnostic_window_minutes": 30,
+  "other_services_unchanged": true,
+  "containers": [
+    {
+      "service": "app",
+      "id": "96801825bfb6931c99a89b3d26e06398fb4237ec32e6c80d2194b7f7a2941386",
+      "ports": "8080/tcp -> 0.0.0.0:8080"
+    },
+    {
+      "service": "frontend",
+      "id": "960d98f5202ea0bd0f7b682aaca10c738ff43a087c65e2fdd2134097e180ecf0",
+      "ports": "80/tcp -> 0.0.0.0:80"
+    }
+  ],
+  "completed": true,
+  "time_utc": "2026-10-14T12:00:16.149641+00:00",
+  "time_beijing": "2026-10-14T20:00:16.149672+08:00",
+  "windows_domain_resolution": [
+    "172.30.232.42"
+  ],
+  "domain_host_test_status": 200
+}

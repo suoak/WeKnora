@@ -1,0 +1,41 @@
+{
+  "host": "172.30.232.42",
+  "read_only": true,
+  "real_token_requests": 0,
+  "server_utc": "2026-10-15T03:56:18.038342+00:00",
+  "clock_status": {
+    "NTPSynchronized": "yes",
+    "NTP": "yes",
+    "Timezone": "Etc/UTC"
+  },
+  "container_utc": "2026-10-15T03:56:18Z",
+  "public_jwks_current_samples": [
+    {
+      "status": 200,
+      "date": "Thu, 15 Oct 2026 03:56:18 GMT",
+      "key_count": 1,
+      "keys": [
+        {
+          "kty": "RSA",
+          "kid_present": false,
+          "alg_class": "absent_or_other",
+          "public_key_fingerprint": "9be9d5f6a2ac53cf7a96400bb306e9468ba9f33704d953172703d1c1007ab78b"
+        }
+      ]
+    },
+    {
+      "status": 200,
+      "date": "Thu, 15 Oct 2026 03:56:18 GMT",
+      "key_count": 1,
+      "keys": [
+        {
+          "kty": "RSA",
+          "kid_present": false,
+          "alg_class": "absent_or_other",
+          "public_key_fingerprint": "9be9d5f6a2ac53cf7a96400bb306e9468ba9f33704d953172703d1c1007ab78b"
+        }
+      ]
+    }
+  ],
+  "public_jwks_current_keys_equal": true
+}

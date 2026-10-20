@@ -1,0 +1,22 @@
+{
+  "result": "PASS",
+  "database_downgraded": false,
+  "real_authentication": false,
+  "old_app_health": {
+    "/health": 200,
+    "/login": 200,
+    "/api/v1/auth/oidc/config": 200
+  },
+  "candidate_health": {
+    "/health": 200,
+    "/login": 200,
+    "/api/v1/auth/oidc/config": 200
+  },
+  "old_revision": "832b6652adf541892545a7eac8b68733f846ab95",
+  "candidate_revision": "09e6d86db731953834916e58ac5f3f5985ad0aa1",
+  "candidate_restored": true,
+  "other_container_ids_unchanged": true,
+  "environment_bytes_unchanged": true,
+  "schema": "3028|false",
+  "utc": "2026-10-16T11:54:49.784223+00:00"
+}
