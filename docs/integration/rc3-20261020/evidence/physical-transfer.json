@@ -1,0 +1,28 @@
+{
+  "started_utc": "2026-10-20T02:19:08.018626+00:00",
+  "finished_utc": "2026-10-20T02:42:30.914601+00:00",
+  "elapsed_seconds": 1402.907,
+  "bytes": 23161352192,
+  "sha256": "f5d1372830e004f4c9d5dba1700ca63004765204aea2360e5d1f59c3086b9016",
+  "backup_exit": 0,
+  "destination_exit": 0,
+  "state": "transferred_not_yet_verified",
+  "source_image": "sha256:6396bfd53a97f6c1aad50af05aad4a65b06bb7c07602b42a8b33b5d51cf83ab1",
+  "wal_method": "fetch",
+  "checkpoint": "spread",
+  "rate_mib_per_second": 16,
+  "production_files_staged": false,
+  "production_configuration_changed": false,
+  "slots_created": false,
+  "authorization": {
+    "source": "Explicit user confirmation in current RC3 conversation",
+    "decision": "Approved the proposed single physical backup and isolated restore",
+    "rate_mib_per_second": 16,
+    "timeout_seconds": 3600,
+    "production_configuration_changes": false,
+    "persistent_slots": false,
+    "production_disk_staging": false,
+    "automatic_retry": false
+  },
+  "raw_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

@@ -1,0 +1,6 @@
+{
+  "before": 200,
+  "logout": 200,
+  "old_access_after_logout": 401,
+  "old_refresh_after_logout": null
+}

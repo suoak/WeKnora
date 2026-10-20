@@ -1,0 +1,9 @@
+{
+  "instances": [
+    {
+      "name": "knowhub-mvp-p3-app-1",
+      "image": "sha256:67b78b1c5aaf72c3d8e03763bfab57bdeb47bf3cf9d771e8fba60c870246d6cb"
+    }
+  ],
+  "scope": "running containers with exact test DB_NAME/DB_HOST tuple; external processes remain deployment-control responsibility"
+}

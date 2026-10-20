@@ -1,0 +1,93 @@
+{
+  "lint-final.exit": "127",
+  "standalone-encoding-final.exit": "0",
+  "standalone-encoding2-final.exit": "0",
+  "ci2-final.exit": "1",
+  "standalone-header-final.exit": "0",
+  "ci-final.exit": "1",
+  "vet-final.exit": "0",
+  "ci5-final.exit": "1",
+  "lint2-final.exit": "127",
+  "race-final.exit": "0",
+  "standalone-header2-final.exit": "0",
+  "vet2-final.exit": "0",
+  "vet3-final.exit": "0",
+  "ci2-final.jsonl": {
+    "counts": {
+      "pass": 13819,
+      "skip": 191,
+      "fail": 2
+    },
+    "failures": [
+      {
+        "package": "github.com/Tencent/WeKnora/internal/agent/tools",
+        "test": "TestSkillPythonPackageRecoveryInstallsWithoutPip/ensurepip"
+      },
+      {
+        "package": "github.com/Tencent/WeKnora/internal/agent/tools",
+        "test": "TestSkillPythonPackageRecoveryInstallsWithoutPip"
+      },
+      {
+        "package": "github.com/Tencent/WeKnora/internal/agent/tools",
+        "test": null
+      }
+    ],
+    "sha256": "186bfb1ad0c2267378a1326c7f066f6a35ad990a2941b2c1e65daf9222a59666"
+  },
+  "race-final.jsonl": {
+    "counts": {
+      "pass": 850,
+      "skip": 35
+    },
+    "failures": [],
+    "sha256": "83f96736b07f9d686c8d49dbdda7c6a767ead972d8b909e38b0cd5e12d4a1caa"
+  },
+  "ci5-final.jsonl": {
+    "counts": {
+      "pass": 13820,
+      "skip": 191,
+      "fail": 1
+    },
+    "failures": [
+      {
+        "package": "github.com/Tencent/WeKnora/internal/datasource",
+        "test": "TestValidateConnectorBaseURLAllowsPublicHTTPS"
+      },
+      {
+        "package": "github.com/Tencent/WeKnora/internal/datasource",
+        "test": null
+      }
+    ],
+    "sha256": "1c7bb1a61183bd9eac953aa005c7417deeef63f855d87f38ca2efcc461a615c1"
+  },
+  "ci-final.jsonl": {
+    "counts": {
+      "pass": 13815,
+      "skip": 191,
+      "fail": 3
+    },
+    "failures": [
+      {
+        "package": "github.com/Tencent/WeKnora/internal/handler",
+        "test": "TestDeploymentCapabilityKeysMatchFrontend"
+      },
+      {
+        "package": "github.com/Tencent/WeKnora/internal/handler",
+        "test": null
+      },
+      {
+        "package": "github.com/Tencent/WeKnora/internal/agent/tools",
+        "test": "TestSkillPythonPackageRecoveryInstallsWithoutPip/ensurepip"
+      },
+      {
+        "package": "github.com/Tencent/WeKnora/internal/agent/tools",
+        "test": "TestSkillPythonPackageRecoveryInstallsWithoutPip"
+      },
+      {
+        "package": "github.com/Tencent/WeKnora/internal/agent/tools",
+        "test": null
+      }
+    ],
+    "sha256": "b033688b56fa078162646a72b6bc5d14dc72c0605d0ae61916ef145156dfe0e4"
+  }
+}

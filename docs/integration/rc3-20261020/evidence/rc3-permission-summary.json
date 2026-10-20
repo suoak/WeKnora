@@ -1,0 +1,31 @@
+{
+  "ordinary": true,
+  "auth_http": 200,
+  "system_admin": false,
+  "allowed_kb_http": 200,
+  "denies": [
+    {
+      "name": "wrong-space-kb-read",
+      "http": 403,
+      "rejected": true
+    },
+    {
+      "name": "wrong-space-import",
+      "http": 403,
+      "rejected": true
+    },
+    {
+      "name": "wrong-space-create-kb",
+      "http": 403,
+      "rejected": true
+    },
+    {
+      "name": "system-feishu-config",
+      "http": 403,
+      "rejected": true
+    }
+  ],
+  "application_mode": "application_grant",
+  "application_available": true,
+  "credentials_exposed": false
+}

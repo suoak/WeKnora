@@ -1,10 +1,10 @@
 # RC3 旧 Wiki/Drive 受控暂停审批与操作卡
 
-状态：**待业务负责人批准；未在生产执行暂停或配置切换。**暂停不等于已修复安全更新。保护代码仅在隔离候选中实现，须通过测试和维护窗口核验后才能用于发布。
+当前状态（2026-10-20 更新）：**用户已确认业务接受短期停更，恢复增量更新安排在上线后；未在生产执行暂停或配置切换。**正式窗口、最长允许期限及具名联系人仍待指定，不能据此虚构批准信息。具体确认见 `RC3_BUSINESS_SUSPENSION_CONFIRMATION.md`。保护代码已通过独立 PostgreSQL/Asynq 定向与 Race，并在测试 RC3 启用；不是旧 Worker 的物理围栏，正式窗口仍须排空全部旧消费者。暂停不等于已修复安全更新。
 
 ## 审批对象与影响
 
-下表依据生产只读审计，不包含两条软删除 Drive。KB 创建者及空间 owner/admin ID 见 evidence/physical-preflight.json，仅是协调线索，**不能视为业务暂停批准人**。业务负责人、暂停起止时间、允许陈旧时长、撤权应急人、未来恢复负责人均待逐来源签认。时间来自数据库原值，没有擅自假设其 timezone。
+下表依据生产只读审计，不包含两条软删除 Drive。KB 创建者及空间 owner/admin ID 见 evidence/physical-preflight.json，仅是协调线索，**不能视为业务暂停批准人**。表中 PENDING_APPROVAL 表示具名负责人尚未指定，不否认已经取得的停更方向确认。暂停起止时间、允许陈旧时长及撤权应急人仍待明确。时间来自数据库原值，没有擅自假设其 timezone。
 
 | Source ID | Type | KB ID | Tenant | Knowledge | Last sync (DB) | Cron | Business owner |
 |---|---|---|---:|---:|---|---|---|

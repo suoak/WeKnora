@@ -1,0 +1,29 @@
+{
+  "actual_source_mount": "/home/aqyfzx/ai/knowhub-joint-20261020/source",
+  "count": 100,
+  "race": true,
+  "exit": 1,
+  "test_counts": {
+    "pass": 95,
+    "fail": 5
+  },
+  "failed_tests": [
+    "TestSIDTLSUserInfoParallelDifferentTransactions",
+    "TestSIDTLSUserInfoParallelDifferentTransactions",
+    "TestSIDTLSUserInfoParallelDifferentTransactions",
+    "TestSIDTLSUserInfoParallelDifferentTransactions",
+    "TestSIDTLSUserInfoParallelDifferentTransactions"
+  ],
+  "source_comparison": {
+    "internal/application/service/sourceid_tls_userinfo_test.go": {
+      "identical": true,
+      "sha256": "f622ae56a9dd180a21229e3b6a732b66c874c3ae2691c22dbfea0d51bd6b597a"
+    },
+    "internal/application/repository/sourceid_binding.go": {
+      "identical": true,
+      "sha256": "0939ee9f72b11e33f79b3ef17ad038cead5f72dc1af34e863512a79d54b4490c"
+    }
+  },
+  "raw_log_sha256": "e78831d7888d9447eb1d20278dcf105ed1954d9074541f777258b2ef619ce5a5",
+  "not_a_rc3_green_gate": true
+}

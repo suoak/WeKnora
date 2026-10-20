@@ -20,4 +20,8 @@ RC3 相对 RC2 的产品改动只有旧来源停更屏障（service、scheduler�
 
 本轮源代码扫描未发现新增私钥或 JWT；凭据样式命中已人工复核为样例/配置引用/错误码，不发布真实受控配置。实际数据库备份、文件、Token、Cookie、SSH 凭据及原始请求仅留在受限 Git 外路径。
 
-最终提交、APP/Frontend 镜像及测试环境生效状态由交付记录另行锁定。此报告不把源码 Manifest 等同于提交 SHA 或已完成全部上线门禁。
+最终代码提交为 `5156e4b47643535d6ff473c9890be814bd6f7ffe`，Draft PR [#28](https://github.com/suoak/WeKnora/pull/28)。实际镜像以该提交的 `git archive` 构建，不直接复制未核对的工作树。
+
+最终 Git 源码 Manifest 为 `evidence/committed-source-manifest.json`，5685 文件，SHA256 `5be1a6ed2a3778e7caf34ed161755c0b71e2c7464c918d77175b05cc94a7f8b7`。上面的 bbdf 清单保留为**提交前工作树字节**证据：两份邮箱展示 TS 文件只有 CRLF/LF 差别；所有 Go 文件字节一致。Manifest、源码提交和镜像身份分别记录于 `RC3_CHANGE_MANIFEST.md`，不能混用。
+
+后续本目录验收报告/脱敏证据提交不改变运行源码。测试 APP 已部署，但完整 CI 尚未通过，见 `RC3_RELEASE_GATE.md`；不据此合并 main 或发布生产。

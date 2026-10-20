@@ -1,0 +1,39 @@
+{
+  "committed-gate2": {
+    "counts": {
+      "pass": 25
+    },
+    "exit": "0",
+    "sha256": "839b5bdba09e578f1aa61787285909974d1d7d0791c792970f92eb3aaa006253"
+  },
+  "targeted": {
+    "counts": {
+      "pass": 215
+    },
+    "exit": "0",
+    "sha256": "c0894ca5a674a507aa202695c1690575f960e0941b80352caef4e162808f6228"
+  },
+  "race-final": {
+    "counts": {
+      "pass": 850,
+      "skip": 35
+    },
+    "exit": "0",
+    "sha256": "83f96736b07f9d686c8d49dbdda7c6a767ead972d8b909e38b0cd5e12d4a1caa"
+  },
+  "ci5-final": {
+    "counts": {
+      "pass": 13820,
+      "skip": 191,
+      "fail": 1
+    },
+    "exit": "1",
+    "sha256": "1c7bb1a61183bd9eac953aa005c7417deeef63f855d87f38ca2efcc461a615c1"
+  },
+  "committed-build2.exit": "0",
+  "vet3-final.exit": "0",
+  "health": {
+    "frontend": 200,
+    "app": 200
+  }
+}

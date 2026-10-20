@@ -1,0 +1,278 @@
+{
+  "started_utc": "2026-10-20T02:45:26.385519+00:00",
+  "production_operations": false,
+  "container_network": "none",
+  "schema_migration_executed": false,
+  "archive_sha256": "f5d1372830e004f4c9d5dba1700ca63004765204aea2360e5d1f59c3086b9016",
+  "archive_bytes": 23161352192,
+  "extract_seconds": 217.902,
+  "backup_manifest_sha256": "c80f8d50b48c748d8cf231d20a1053472f43dc325dba1f38db4e283ec1f5c16b",
+  "wal_ranges": [
+    {
+      "Timeline": 1,
+      "Start-LSN": "88/19000028",
+      "End-LSN": "88/19002BB0"
+    }
+  ],
+  "pg_verifybackup_exit": 0,
+  "verify_seconds": 88.352,
+  "copy_seconds": 244.322,
+  "container_id": "bdcce0d4c92a10223c4471cefc72b8ba5865518e88c949bd335878fa2ac4b489",
+  "image": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+  "isolated_overrides": [
+    "network none; no ports",
+    "pg_cron excluded from shared_preload_libraries",
+    "archive_mode off; empty archive/restore/primary_conninfo",
+    "listen_addresses empty; local socket only",
+    "max_parallel_maintenance_workers=0"
+  ],
+  "recovery_startup_seconds": 25.357,
+  "state": {
+    "pg": "17.9 (Debian 17.9-1.pgdg13+1)",
+    "dirty": false,
+    "schema": 3023,
+    "vector": "0.8.1",
+    "timeline": 1,
+    "pg_search": "0.22.2",
+    "in_recovery": false
+  },
+  "same_18_vector_metadata": true,
+  "counts": {
+    "users": 44,
+    "chunks": 4961022,
+    "sources": 32,
+    "knowledge": 4060,
+    "embeddings": 1386916,
+    "wiki_pages": 71652,
+    "index_invalid": 0
+  },
+  "ann_results": [
+    {
+      "id": 1551034,
+      "result": {
+        "rows": 31,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ],
+      "matches_production": true
+    },
+    {
+      "id": 1566120,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ],
+      "matches_production": true
+    },
+    {
+      "id": 5042587,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ],
+      "matches_production": true
+    },
+    {
+      "id": 1992726,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ],
+      "matches_production": true
+    },
+    {
+      "id": 1993904,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ],
+      "matches_production": true
+    },
+    {
+      "id": 2006212,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ],
+      "matches_production": true
+    },
+    {
+      "id": 1281070,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ],
+      "matches_production": true
+    },
+    {
+      "id": 1282633,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ],
+      "matches_production": true
+    },
+    {
+      "id": 1284196,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ],
+      "matches_production": true
+    },
+    {
+      "id": 1579042,
+      "result": {
+        "rows": 100,
+        "min_distance": 0.271523866042117
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ],
+      "matches_production": true
+    },
+    {
+      "id": 5051476,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ],
+      "matches_production": true
+    },
+    {
+      "id": 5112057,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ],
+      "matches_production": true
+    },
+    {
+      "id": 1993611,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ],
+      "matches_production": true
+    },
+    {
+      "id": 1993701,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ],
+      "matches_production": true
+    },
+    {
+      "id": 1993795,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ],
+      "matches_production": true
+    },
+    {
+      "id": 1573126,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ],
+      "matches_production": true
+    },
+    {
+      "id": 1643857,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ],
+      "matches_production": true
+    },
+    {
+      "id": 1677223,
+      "result": {
+        "rows": 100,
+        "min_distance": 0
+      },
+      "plan_indexes": [
+        "embeddings_pkey",
+        "embeddings_embedding_idx_1024"
+      ],
+      "matches_production": true
+    }
+  ],
+  "ann_self_recall_pass": 17,
+  "ann_self_recall_fail": 1,
+  "all_18_results_match_production": true,
+  "source_baseline_pass": 17,
+  "source_baseline_fail": 1,
+  "application_hybrid_rag_acl": "NOT_EXECUTED on this network-isolated physical copy; SQL ANN does not replace product API acceptance",
+  "read_only_recovery_validation_complete": true,
+  "pass": true,
+  "isolated_pg_stopped": true,
+  "finished_utc": "2026-10-20T02:59:57.753966+00:00",
+  "disk_free_bytes": 42824404992
+}
