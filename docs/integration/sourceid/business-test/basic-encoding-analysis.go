@@ -24,9 +24,12 @@ func must(ok bool) {
 func main() {
 	fixtures := []struct{ Name, Secret string }{
 		{"unreserved", "SyntheticOnly-AZ_19.~"},
-		{"plus", "Synthetic+A"}, {"slash", "Synthetic/A"},
-		{"equals", "Synthetic=A"}, {"percent", "Synthetic%A"},
-		{"colon", "Synthetic:A"}, {"space", "Synthetic A"},
+		{"plus", "Synthetic+A"},
+		{"slash", "Synthetic/A"},
+		{"equals", "Synthetic=A"},
+		{"percent", "Synthetic%A"},
+		{"colon", "Synthetic:A"},
+		{"space", "Synthetic A"},
 		{"non_ascii", "Synthetic-测试"},
 		{"already_encoded_literal", "Synthetic%2BA"},
 	}

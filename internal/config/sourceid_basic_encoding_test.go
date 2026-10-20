@@ -8,9 +8,12 @@ func TestSourceIDBasicEncodingConfig(t *testing.T) {
 		value, want string
 		invalid     bool
 	}{
-		{true, "", "oauth_form", false}, {true, "oauth_form", "oauth_form", false},
-		{true, "raw", "raw", false}, {true, "invalid", "", true},
-		{false, "raw", "oauth_form", false}, {false, "invalid", "oauth_form", false},
+		{true, "", "oauth_form", false},
+		{true, "oauth_form", "oauth_form", false},
+		{true, "raw", "raw", false},
+		{true, "invalid", "", true},
+		{false, "raw", "oauth_form", false},
+		{false, "invalid", "oauth_form", false},
 	} {
 		c := &OIDCAuthConfig{SourceIDEnable: tc.sourceID, SourceIDBasicEncoding: tc.value}
 		got, err := c.EffectiveSourceIDBasicEncoding()

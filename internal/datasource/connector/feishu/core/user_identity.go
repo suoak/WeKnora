@@ -2,10 +2,12 @@ package core
 
 import "context"
 
-type userIdentityKey struct{}
-type userIdentity struct {
-	provider func(context.Context) (string, error)
-}
+type (
+	userIdentityKey struct{}
+	userIdentity    struct {
+		provider func(context.Context) (string, error)
+	}
+)
 
 // WithUserIdentity binds every authenticated request (including exports and
 // media downloads) to this provider. Errors NEVER fall back to tenant identity.

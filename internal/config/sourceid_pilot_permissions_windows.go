@@ -1,9 +1,10 @@
 package config
 
 import (
-	"golang.org/x/sys/windows"
 	"os"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 // Windows os.FileMode does not describe NTFS ACLs. Fail closed on broad ACLs;

@@ -534,8 +534,20 @@ func attachUserMCPAuthContext(c *gin.Context, tenantService tenantLookup, user *
 			kbIDs = append(kbIDs, item.KnowledgeBaseID)
 		}
 	}
-	applyAuthSession(c, authSession{User: user, Principal: types.Principal{Type: types.PrincipalWebUser, ID: user.ID}, TenantID: tenantID, Tenant: t, Role: role,
-		APIKeyScope: &types.TenantAPIKeyScope{KeyID: key.ID, ScopeType: key.ScopeType, KnowledgeBaseRestricted: tenantScope.KBScopeMode == types.APIKeyKBScopeSelected, KnowledgeBaseIDs: kbIDs, Capabilities: key.Capabilities}})
+	applyAuthSession(c, authSession{
+		User:      user,
+		Principal: types.Principal{Type: types.PrincipalWebUser, ID: user.ID},
+		TenantID:  tenantID,
+		Tenant:    t,
+		Role:      role,
+		APIKeyScope: &types.TenantAPIKeyScope{
+			KeyID:                   key.ID,
+			ScopeType:               key.ScopeType,
+			KnowledgeBaseRestricted: tenantScope.KBScopeMode == types.APIKeyKBScopeSelected,
+			KnowledgeBaseIDs:        kbIDs,
+			Capabilities:            key.Capabilities,
+		},
+	})
 }
 
 func isPlatformTenantOptionalAPI(path, method string) bool {

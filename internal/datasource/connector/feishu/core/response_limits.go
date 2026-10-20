@@ -6,8 +6,10 @@ import (
 	"io"
 )
 
-const maxFeishuJSONBytes int64 = 16 << 20
-const maxFeishuErrorBytes int64 = 4 << 10
+const (
+	maxFeishuJSONBytes  int64 = 16 << 20
+	maxFeishuErrorBytes int64 = 4 << 10
+)
 
 // ErrResponseTooLarge is deterministic and must never be retried or indexed
 // as a truncated success. No provider response content is retained.

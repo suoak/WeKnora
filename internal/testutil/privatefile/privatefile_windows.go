@@ -1,8 +1,9 @@
 package privatefile
 
 import (
-	"golang.org/x/sys/windows"
 	"os"
+
+	"golang.org/x/sys/windows"
 )
 
 // Synthetic fixture files must use a real protected DACL; os.Chmod(0600)

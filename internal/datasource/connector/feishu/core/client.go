@@ -774,7 +774,6 @@ func (c *Client) ExportAndDownload(ctx context.Context, objToken, objType string
 }
 
 func (c *Client) exportAndDownload(ctx context.Context, objToken, exportType, fileExt string) ([]byte, string, error) {
-
 	// Step 1: create export task
 	ticket, err := c.createExportTask(ctx, objToken, exportType, fileExt)
 	if err != nil {
