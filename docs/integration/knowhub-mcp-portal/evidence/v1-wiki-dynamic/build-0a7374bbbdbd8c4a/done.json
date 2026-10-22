@@ -1,0 +1,1 @@
+{"candidate_sha256": "0a7374bbbdbd8c4a802733811ad3ecbeb70293ba33b89eefa9bd05c36ecbd371", "all_passed": true, "app": "knowhub-v1-wiki-dynamic/app:0a7374bbbdbd8c4a", "frontend": "knowhub-v1-wiki-dynamic/frontend:0a7374bbbdbd8c4a", "build_tags": "sqlite_fts5,anydoc"}

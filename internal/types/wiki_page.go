@@ -299,7 +299,10 @@ func (p *WikiPage) DependencyETag() string {
 }
 
 // AfterFind provides the after find operation.
-func (p *WikiPage) AfterFind(_ *gorm.DB) error {
+func (p *WikiPage) AfterFind(tx *gorm.DB) error {
+	if err := CheckLegacySourceRead(tx, "", p.KnowledgeBaseID); err != nil {
+		return err
+	}
 	p.ReadETag = p.DependencyETag()
 	return nil
 }

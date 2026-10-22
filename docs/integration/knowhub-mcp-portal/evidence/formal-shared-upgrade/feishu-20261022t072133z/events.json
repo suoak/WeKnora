@@ -1,0 +1,17 @@
+[
+  {
+    "name": "scoped-retry-helper",
+    "utc": "2026-10-22T08:11:01.828777+00:00",
+    "source_sha256": "cf32b18b99ed6b23521d943bd3c6400794bcefea3242114a468f60101602c183",
+    "binary_sha256": "8b76dd36a3acccd2a7c153682613509d324cdac1bfa9565eea873f5b90d09844",
+    "wall_backoff_verified": false
+  },
+  {
+    "name": "worker-sync",
+    "utc": "2026-10-22T08:11:05.639036+00:00",
+    "source": "c0a259ba-6d0e-496f-b127-d172ff6f487a",
+    "log_id": "1f99d4d5-9b28-4638-a7b9-17b925dfa5ad",
+    "state": "success",
+    "expected_success": true
+  }
+]

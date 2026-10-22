@@ -25,6 +25,22 @@ type tenantService struct {
 	storageRepo interfaces.StorageBackendRepository
 }
 
+func (s *tenantService) CheckLegacyReadScope(ctx context.Context) error {
+	if gate, ok := s.repo.(interface{ CheckLegacyReadScope(context.Context) error }); ok {
+		return gate.CheckLegacyReadScope(ctx)
+	}
+	return nil
+}
+
+func (s *tenantService) CheckLegacyFileRead(ctx context.Context, tenant uint64, path string) (bool, error) {
+	if gate, ok := s.repo.(interface {
+		CheckLegacyFileRead(context.Context, uint64, string) (bool, error)
+	}); ok {
+		return gate.CheckLegacyFileRead(ctx, tenant, path)
+	}
+	return false, nil
+}
+
 // NewTenantService creates a new tenant service instance
 func NewTenantService(repo interfaces.TenantRepository, storageRepo interfaces.StorageBackendRepository) interfaces.TenantService {
 	return &tenantService{repo: repo, storageRepo: storageRepo}

@@ -1,0 +1,34 @@
+{
+  "candidate_sha256": "d321f68380668125260b57c07cec4f7edf68a267ee714b8606a184b9b18af270",
+  "project": "knowhub-v1-feishu-d321f6838066",
+  "url": "http://127.0.0.1:50041",
+  "mcp_path": "/api/v1/mcp/personal",
+  "port": 50041,
+  "exposure": "build-host loopback only; SSH forwarding required",
+  "database": "knowhub_v1",
+  "model": "SYNTHETIC 1024, not formal Embedding acceptance",
+  "sid": "NOT_CONFIGURED",
+  "rollback_stop": [
+    "docker",
+    "compose",
+    "--project-name",
+    "knowhub-v1-feishu-d321f6838066",
+    "--project-directory",
+    "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/d321f68380668125",
+    "-f",
+    "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/d321f68380668125/compose.yml",
+    "stop"
+  ],
+  "cleanup_after_separate_confirmation": [
+    "docker",
+    "compose",
+    "--project-name",
+    "knowhub-v1-feishu-d321f6838066",
+    "--project-directory",
+    "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/d321f68380668125",
+    "-f",
+    "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/d321f68380668125/compose.yml",
+    "down"
+  ],
+  "volumes_retained": true
+}

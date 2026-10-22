@@ -1,0 +1,17 @@
+{
+  "reason": "superseded source and diagnosed missing public-domain test fixtures; not PASS; volumes and logs retained",
+  "operations": [
+    {
+      "name": "knowhub-next-development-83e47c79bc53",
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "Error response from daemon: No such container: knowhub-next-development-83e47c79bc53\n"
+    },
+    {
+      "name": "knowhub-next-development-83e47c79bc53-full-race",
+      "exit_code": 0,
+      "stdout": "knowhub-next-development-83e47c79bc53-full-race\n",
+      "stderr": ""
+    }
+  ]
+}

@@ -1,0 +1,166 @@
+[
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/login",
+    "status": 200,
+    "elapsed_ms": 81.88243582844734
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/login",
+    "status": 200,
+    "elapsed_ms": 77.13543809950352
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/login",
+    "status": 200,
+    "elapsed_ms": 79.49384488165379
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/login",
+    "status": 200,
+    "elapsed_ms": 75.74236765503883
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/tenants/820099/api-keys",
+    "status": 201,
+    "elapsed_ms": 5.034677684307098
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp/personal",
+    "status": 401,
+    "elapsed_ms": 2.12828628718853,
+    "tool": "list_knowledge_bases",
+    "arguments": {},
+    "is_error": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/system/admin/api-keys",
+    "status": 201,
+    "elapsed_ms": 55.35130947828293
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp/personal",
+    "status": 401,
+    "elapsed_ms": 3.7149544805288315,
+    "tool": "list_knowledge_bases",
+    "arguments": {},
+    "is_error": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mcp-api-keys/scope-options",
+    "status": 200,
+    "elapsed_ms": 62.79350258409977
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp-api-keys",
+    "status": 201,
+    "elapsed_ms": 120.26629969477654
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp/personal",
+    "status": 200,
+    "elapsed_ms": 1159.2863388359547,
+    "tool": "list_knowledge_bases",
+    "arguments": {},
+    "is_error": false
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp/personal",
+    "status": 200,
+    "elapsed_ms": 1056.846771389246,
+    "tool": "read_document",
+    "arguments": {
+      "knowledge_id": "fm-public-two-doc"
+    },
+    "is_error": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mcp-api-keys/scope-options",
+    "status": 200,
+    "elapsed_ms": 6.410108879208565
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp-api-keys",
+    "status": 201,
+    "elapsed_ms": 6.580455228686333
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp/personal",
+    "status": 200,
+    "elapsed_ms": 1227.7020197361708,
+    "tool": "list_knowledge_bases",
+    "arguments": {},
+    "is_error": false
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp/personal",
+    "status": 401,
+    "elapsed_ms": 2.7847737073898315,
+    "tool": "list_knowledge_bases",
+    "arguments": {},
+    "is_error": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp/personal",
+    "status": 200,
+    "elapsed_ms": 1171.3940370827913,
+    "tool": "list_knowledge_bases",
+    "arguments": {},
+    "is_error": false
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/mcp-api-keys/22",
+    "status": 200,
+    "elapsed_ms": 37.929076701402664
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp/personal",
+    "status": 401,
+    "elapsed_ms": 3.3950209617614746,
+    "tool": "list_knowledge_bases",
+    "arguments": {},
+    "is_error": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/tenants/820099/api-keys/19",
+    "status": 200,
+    "elapsed_ms": 5.32105565071106
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/system/admin/api-keys/20",
+    "status": 200,
+    "elapsed_ms": 6.73113577067852
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/mcp-api-keys/21",
+    "status": 200,
+    "elapsed_ms": 460.25719307363033
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/mcp-api-keys/22",
+    "status": 404,
+    "elapsed_ms": 3.6827754229307175
+  }
+]

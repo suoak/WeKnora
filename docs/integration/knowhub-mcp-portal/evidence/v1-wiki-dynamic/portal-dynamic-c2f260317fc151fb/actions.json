@@ -1,0 +1,127 @@
+[
+  {
+    "operation": "synthetic fixture SQL",
+    "query": "SELECT status FROM tenant_members WHERE user_id='A'AND tenant_id=1207",
+    "exit_code": 0
+  },
+  {
+    "operation": "synthetic fixture SQL",
+    "query": "INSERT INTO tenant_portal_configs(tenant_id,status,display_name,created_by,updated_by)VALUES(1207,'draft','Future synthetic Portal','reviewer','reviewer')",
+    "exit_code": 0
+  },
+  {
+    "operation": "read_document",
+    "arguments": {
+      "knowledge_id": "future-private-doc"
+    },
+    "http_status": 200,
+    "is_error": true
+  },
+  {
+    "operation": "list_knowledge_bases",
+    "arguments": {},
+    "http_status": 200,
+    "is_error": false
+  },
+  {
+    "operation": "read_document",
+    "arguments": {
+      "knowledge_id": "future-private-doc"
+    },
+    "http_status": 200,
+    "is_error": false
+  },
+  {
+    "operation": "synthetic fixture SQL",
+    "query": "INSERT INTO knowledge_bases(id,name,tenant_id,embedding_model_id,summary_model_id,type,chunking_config,indexing_strategy)SELECT 'portal-new-kb','New KB after Portal publication',tenant_id,embedding_model_id,summary_model_id,type,chunking_config,indexing_strategy FROM knowledge_bases WHERE id='future-private'",
+    "exit_code": 0
+  },
+  {
+    "operation": "list_knowledge_bases",
+    "arguments": {},
+    "http_status": 200,
+    "is_error": false
+  },
+  {
+    "operation": "synthetic fixture SQL",
+    "query": "INSERT INTO knowledges SELECT(jsonb_populate_record(NULL::knowledges,to_jsonb(k)||jsonb_build_object('id','portal-new-doc','knowledge_base_id','portal-new-kb','title','PORTALNEWCANARY'))).* FROM knowledges k WHERE id='future-private-doc'",
+    "exit_code": 0
+  },
+  {
+    "operation": "synthetic fixture SQL",
+    "query": "INSERT INTO chunks SELECT(jsonb_populate_record(NULL::chunks,to_jsonb(c)||jsonb_build_object('id','portal-new-chunk','seq_id',(SELECT COALESCE(MAX(seq_id),0)+1 FROM chunks),'knowledge_id','portal-new-doc','knowledge_base_id','portal-new-kb','content','PORTALNEWCANARY'))).* FROM chunks c WHERE id='future-private-chunk'",
+    "exit_code": 0
+  },
+  {
+    "operation": "synthetic fixture SQL",
+    "query": "INSERT INTO embeddings SELECT(jsonb_populate_record(NULL::embeddings,to_jsonb(e)||jsonb_build_object('id',nextval(pg_get_serial_sequence('embeddings','id')),'source_id','portal-new-chunk','chunk_id','portal-new-chunk','knowledge_id','portal-new-doc','knowledge_base_id','portal-new-kb','content','PORTALNEWCANARY'))).* FROM embeddings e WHERE knowledge_id='future-private-doc'",
+    "exit_code": 0
+  },
+  {
+    "operation": "search_knowledge",
+    "arguments": {
+      "query": "PORTALNEWCANARY",
+      "mode": "keyword",
+      "knowledge_base_ids": [
+        "portal-new-kb"
+      ],
+      "limit": 10
+    },
+    "http_status": 200,
+    "is_error": false
+  },
+  {
+    "operation": "search_knowledge",
+    "arguments": {
+      "query": "PORTALNEWCANARY",
+      "mode": "semantic",
+      "knowledge_base_ids": [
+        "portal-new-kb"
+      ],
+      "limit": 10
+    },
+    "http_status": 200,
+    "is_error": false
+  },
+  {
+    "operation": "search_knowledge",
+    "arguments": {
+      "query": "PORTALNEWCANARY",
+      "mode": "hybrid",
+      "knowledge_base_ids": [
+        "portal-new-kb"
+      ],
+      "limit": 10
+    },
+    "http_status": 200,
+    "is_error": false
+  },
+  {
+    "operation": "read_document",
+    "arguments": {
+      "knowledge_id": "portal-new-doc"
+    },
+    "http_status": 200,
+    "is_error": true
+  },
+  {
+    "operation": "list_knowledge_bases",
+    "arguments": {},
+    "http_status": 200,
+    "is_error": false
+  },
+  {
+    "operation": "synthetic fixture SQL",
+    "query": "SELECT status FROM tenant_members WHERE user_id='A'AND tenant_id=1207",
+    "exit_code": 0
+  },
+  {
+    "operation": "synthetic fixture SQL",
+    "query": "SELECT count(*) FROM kb_publication_policies WHERE knowledge_base_id IN('portal-new-kb','future-private')",
+    "exit_code": 0
+  },
+  {
+    "operation": "revoke own probe key",
+    "http_status": 200
+  }
+]

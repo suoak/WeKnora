@@ -1,0 +1,10 @@
+{
+  "candidate_sha256": "c2f260317fc151fbab98d9e87b2fe5c9acbd903dd4be2e857e0326565d390d75",
+  "checks": {
+    "wiki_actual_updated_body": true,
+    "drive_actual_updated_body": true,
+    "Hybrid_both_stable_KIDs": true
+  },
+  "exit_code": 0,
+  "synthetic_cloud_only": true
+}

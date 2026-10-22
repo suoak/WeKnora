@@ -1,0 +1,17 @@
+{
+  "exit_code": 0,
+  "candidate_sha256": "0a7374bbbdbd8c4a802733811ad3ecbeb70293ba33b89eefa9bd05c36ecbd371",
+  "checks": {
+    "worker_crash_failure_keeps_old_cursor_and_indices": "PASS",
+    "duplicate_admission_and_stale_generation_fenced": "PASS",
+    "retry_stable_KID_no_duplicates": "PASS",
+    "private_Redis_outage_outbox_and_recovery": "PASS"
+  },
+  "lease_fault": "synthetic age of one test log; no wall-clock claim",
+  "old_execution_fenced": "failed:2:false",
+  "outage_status": 400,
+  "recovery_path": "explicit-retry-after-terminal",
+  "shared_Redis_or_APP_stopped": false,
+  "temporary_no_port_probe_only": true,
+  "production_accessed": false
+}

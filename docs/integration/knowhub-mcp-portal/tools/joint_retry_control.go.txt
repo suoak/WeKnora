@@ -1,0 +1,28 @@
+// Synthetic test orchestration only. Never compiled into the APP or MCP.
+package main
+import (
+ "encoding/json"
+ "fmt"
+ "os"
+ "regexp"
+ "github.com/hibiken/asynq"
+)
+func main(){
+ if os.Getenv("KNOWHUB_SYNTHETIC_RETRY_CONTROL")!="SYNTHETIC_ONLY" || os.Getenv("REDIS_ADDR")!="redis:6379" || len(os.Args)!=3 {panic("requires explicit private synthetic fixture")}
+ valid:=regexp.MustCompile(`^[a-f0-9-]{36}$`)
+ if !valid.MatchString(os.Args[1])||!valid.MatchString(os.Args[2]){panic("exact source and run UUID required")}
+ inspector:=asynq.NewInspector(asynq.RedisClientOpt{Addr:os.Getenv("REDIS_ADDR")});defer inspector.Close()
+ tasks,err:=inspector.ListRetryTasks("sync",asynq.PageSize(1000));if err!=nil{panic(err)}
+ changes:=[]map[string]interface{}{}
+ for _,task:=range tasks{
+  if task.Type!="datasource:sync"{continue}
+  var payload struct{Source string `json:"data_source_id"`;Run string `json:"sync_log_id"`;Tenant uint64 `json:"tenant_id"`}
+  if json.Unmarshal(task.Payload,&payload)!=nil || payload.Source!=os.Args[1]||payload.Run!=os.Args[2]||payload.Tenant!=99 {continue}
+  if task.MaxRetry!=5 || task.Retried<1 || task.Retried>5 {panic("unexpected retry budget; never modify it")}
+  err=inspector.RunTask("sync",task.ID)
+  row:=map[string]interface{}{"task_id":task.ID,"retried":task.Retried,"max_retry":task.MaxRetry,"immediate_retry":err==nil,"payload_changed":false,"authorization_changed":false}
+  if err!=nil{row["race_or_error"]=err.Error()}
+  changes=append(changes,row)
+ }
+ encoded,err:=json.Marshal(changes);if err!=nil{panic(err)};fmt.Println(string(encoded))
+}

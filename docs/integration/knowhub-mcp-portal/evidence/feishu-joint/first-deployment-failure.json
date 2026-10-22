@@ -1,0 +1,12 @@
+{
+  "candidate_sha256": "985bdcb168c46ef5db27a4e54983c0047dab61c2e16e5d7a8ed4f489154682e7",
+  "status": "FAIL",
+  "command": "startup-disabled-edge",
+  "exit_code": 1,
+  "APP_exit_code": 2,
+  "root_cause": "PostgreSQL initial temporary socket server passed socket-only pg_isready; APP TCP connect at 17:40:05 UTC failed, final TCP listener became ready at 17:40:08 UTC",
+  "fix": "TCP pg_isready -h 127.0.0.1",
+  "runtime_source_changed": false,
+  "preserved": true,
+  "replacement_requires_new_source_config_freeze": true
+}

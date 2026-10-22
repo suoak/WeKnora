@@ -1,0 +1,86 @@
+[
+  {
+    "name": "start-synthetic-model",
+    "argv": [
+      "docker",
+      "run",
+      "-d",
+      "--name",
+      "kh-formal-model-20261022t072133z",
+      "--label",
+      "knowhub.formal=synthetic-test-dependency",
+      "--network",
+      "weknora_WeKnora-network",
+      "--network-alias",
+      "formal-model",
+      "-v",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-wiki-dynamic-20261022/0a7374bbbdbd8c4a/source/docs/integration/knowhub-mcp-portal/tools/v1_model_fixture.py:/fixture.py:ro",
+      "--entrypoint",
+      "python",
+      "weknora-custom/mcp-candidate:v0.8.0-knowhub.24-rc1-854f3b95",
+      "/fixture.py"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "start-synthetic-feishu",
+    "argv": [
+      "docker",
+      "run",
+      "-d",
+      "--name",
+      "kh-formal-feishu-20261022t072133z",
+      "--label",
+      "knowhub.formal=synthetic-test-dependency",
+      "--network",
+      "weknora_WeKnora-network",
+      "--network-alias",
+      "formal-feishu",
+      "-v",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-wiki-dynamic-20261022/0a7374bbbdbd8c4a/source/docs/integration/knowhub-mcp-portal/tools/joint_feishu_fixture.py:/fixture.py:ro",
+      "--entrypoint",
+      "python",
+      "weknora-custom/mcp-candidate:v0.8.0-knowhub.24-rc1-854f3b95",
+      "/fixture.py"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "test-only-helper-configuration",
+    "argv": [
+      "docker",
+      "compose",
+      "--project-name",
+      "knowhub-mvp-p3",
+      "--project-directory",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private",
+      "-f",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/compose-upgrade.json",
+      "up",
+      "-d",
+      "--no-deps",
+      "--force-recreate",
+      "app",
+      "frontend"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "seed-only-fm-namespace",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "weknora_WeKnora-network",
+      "--env-file",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/formal-fixture.env",
+      "-v",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/operators:/ops:ro",
+      "--entrypoint",
+      "/ops/formal-seed",
+      "knowhub-v1-wiki-dynamic/app:0a7374bbbdbd8c4a"
+    ],
+    "exit_code": 0
+  }
+]

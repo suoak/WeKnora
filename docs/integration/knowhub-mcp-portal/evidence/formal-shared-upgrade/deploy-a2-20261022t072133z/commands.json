@@ -1,0 +1,13 @@
+[
+  {
+    "name": "capture-live-entry-config",
+    "argv": [
+      "docker",
+      "cp",
+      "knowhub-company-entry-entry-1:/etc/nginx/nginx.conf",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/entry-original.conf"
+    ],
+    "exit_code": 1,
+    "started_utc": "2026-10-22T07:34:00.483985+00:00"
+  }
+]

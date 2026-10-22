@@ -1,0 +1,162 @@
+{
+  "candidate_sha256": "c2f260317fc151fbab98d9e87b2fe5c9acbd903dd4be2e857e0326565d390d75",
+  "images": [
+    {
+      "role": "app",
+      "reference": "knowhub-v1-wiki-dynamic/app:c2f260317fc151fb",
+      "image_id": "sha256:7f7220b7eaa13b8c5d54fe3ec647edc4dbca552f3641bec061392d225a0a13f5",
+      "repo_digests": [],
+      "labels": {
+        "knowhub.candidate": "oa-feishu-rc3",
+        "knowhub.environment": "prompt-login-candidate-not-deployed",
+        "knowhub.release": "V1-isolated-candidate",
+        "knowhub.source.manifest": "864b5c39e54331359a51641ff38108c3ccdf266daea97392fc4a637c20a2ff70",
+        "knowhub.source.sha256": "c2f260317fc151fbab98d9e87b2fe5c9acbd903dd4be2e857e0326565d390d75",
+        "knowhub.version": "0.8.0-knowhub-oa-feishu-rc1",
+        "org.opencontainers.image.created": "2026-10-12T16:45:35Z",
+        "org.opencontainers.image.revision": "1e2ded5b67ce9487966210d31011cf9c5b8cdfb9",
+        "org.opencontainers.image.source": "https://github.com/suoak/WeKnora",
+        "org.opencontainers.image.version": "0.8.0-sourceid-test-8ae91bc44"
+      }
+    },
+    {
+      "role": "frontend",
+      "reference": "knowhub-v1-wiki-dynamic/frontend:c2f260317fc151fb",
+      "image_id": "sha256:8c05063a13a85c1a49e0f87eee7fd8bf191365830f38c57d1873aadb112ad6bd",
+      "repo_digests": [],
+      "labels": {
+        "knowhub.source.sha256": "c2f260317fc151fbab98d9e87b2fe5c9acbd903dd4be2e857e0326565d390d75",
+        "maintainer": "NGINX Docker Maintainers <docker-maint@nginx.com>"
+      }
+    }
+  ],
+  "containers": [
+    {
+      "name": "/knowhub-v1-wiki-dynamic-c2f260317fc1-frontend-1",
+      "id": "3af7232c290bf859d6533a92b4f622e8a449c9e133ee44a753fd67057c11a5d1",
+      "image_id": "sha256:8c05063a13a85c1a49e0f87eee7fd8bf191365830f38c57d1873aadb112ad6bd",
+      "image": "knowhub-v1-wiki-dynamic/frontend:c2f260317fc151fb",
+      "state": "running",
+      "health": null,
+      "ports": {
+        "80/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "55431"
+          }
+        ]
+      },
+      "mounts": [],
+      "networks": [
+        "knowhub-v1-wiki-dynamic-c2f260317fc1_edge",
+        "knowhub-v1-wiki-dynamic-c2f260317fc1_isolated"
+      ]
+    },
+    {
+      "name": "/knowhub-v1-wiki-dynamic-c2f260317fc1-app-1",
+      "id": "0718a190e58ed8973bd2951c84f34b03e7ff61395e7e4195fe295d41565af120",
+      "image_id": "sha256:7f7220b7eaa13b8c5d54fe3ec647edc4dbca552f3641bec061392d225a0a13f5",
+      "image": "knowhub-v1-wiki-dynamic/app:c2f260317fc151fb",
+      "state": "running",
+      "health": "healthy",
+      "ports": {},
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "knowhub-v1-wiki-dynamic-c2f260317fc1_files",
+          "destination": "/data/files"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "destination": "/app/config/config.yaml"
+        }
+      ],
+      "networks": [
+        "knowhub-v1-wiki-dynamic-c2f260317fc1_isolated"
+      ]
+    },
+    {
+      "name": "/knowhub-v1-wiki-dynamic-c2f260317fc1-model-1",
+      "id": "5a81b84489f81317cfcc24cdc48f6613ee5fae4a34a59de1697f9d56d1dfd7a5",
+      "image_id": "sha256:a42ddaa7d7be8cf68621f64486d079a756d7ff6d853bc57640136fbdbcc2348c",
+      "image": "weknora-custom/mcp-candidate:v0.8.0-knowhub.24-rc1-854f3b95",
+      "state": "running",
+      "health": null,
+      "ports": {},
+      "mounts": [
+        {
+          "type": "bind",
+          "name": null,
+          "destination": "/fixture.py"
+        }
+      ],
+      "networks": [
+        "knowhub-v1-wiki-dynamic-c2f260317fc1_isolated"
+      ]
+    },
+    {
+      "name": "/knowhub-v1-wiki-dynamic-c2f260317fc1-postgres-1",
+      "id": "ccb44f5d7350c00f4b4629a27c800722c0f123d0c0f319767aaa6a7d4b8e4df4",
+      "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+      "image": "paradedb/paradedb:v0.22.2-pg17",
+      "state": "running",
+      "health": "healthy",
+      "ports": {},
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "knowhub-v1-wiki-dynamic-c2f260317fc1_pg",
+          "destination": "/var/lib/postgresql/data"
+        },
+        {
+          "type": "volume",
+          "name": "knowhub-v1-wiki-dynamic-c2f260317fc1_pgsocket",
+          "destination": "/var/run/postgresql"
+        }
+      ],
+      "networks": [
+        "knowhub-v1-wiki-dynamic-c2f260317fc1_isolated"
+      ]
+    },
+    {
+      "name": "/knowhub-v1-wiki-dynamic-c2f260317fc1-feishu-1",
+      "id": "26aa8f2b972156b79aa08ad67b2742b781907a64f70875c955d55102d7dc8118",
+      "image_id": "sha256:a42ddaa7d7be8cf68621f64486d079a756d7ff6d853bc57640136fbdbcc2348c",
+      "image": "weknora-custom/mcp-candidate:v0.8.0-knowhub.24-rc1-854f3b95",
+      "state": "running",
+      "health": null,
+      "ports": {},
+      "mounts": [
+        {
+          "type": "bind",
+          "name": null,
+          "destination": "/fixture.py"
+        }
+      ],
+      "networks": [
+        "knowhub-v1-wiki-dynamic-c2f260317fc1_isolated"
+      ]
+    },
+    {
+      "name": "/knowhub-v1-wiki-dynamic-c2f260317fc1-redis-1",
+      "id": "ae06d3a9f2543521744377475783ffe65ae59ee00894899cba9fa9cf5b5c3dc4",
+      "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+      "image": "redis:7.0-alpine",
+      "state": "running",
+      "health": null,
+      "ports": {},
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "knowhub-v1-wiki-dynamic-c2f260317fc1_redis",
+          "destination": "/data"
+        }
+      ],
+      "networks": [
+        "knowhub-v1-wiki-dynamic-c2f260317fc1_isolated"
+      ]
+    }
+  ],
+  "production_input": false
+}

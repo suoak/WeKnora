@@ -1,0 +1,10 @@
+{
+  "exit_code": 1,
+  "error_class": "AssertionError",
+  "message": "ERROR:  duplicate key value violates unique constraint \"idx_chunks_seq_id\"\nDETAIL:  Key (seq_id)=(100000011) already exists.\n",
+  "checks": {
+    "unpublished_new_space_not_public": "PASS",
+    "same_key_discovers_new_published_space_without_membership": "PASS",
+    "published_space_new_empty_KB_automatically_discovered": "PASS"
+  }
+}

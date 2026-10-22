@@ -1,0 +1,22 @@
+{
+  "exit_code": 1,
+  "argv": [
+    "docker",
+    "run",
+    "--rm",
+    "--network",
+    "none",
+    "-v",
+    "knowhub-v1-wiki-dynamic-dev-0a7374bbbdbd8c4a:/v1",
+    "-e",
+    "NODE_OPTIONS=--max-old-space-size=4096",
+    "-w",
+    "/v1/frontend",
+    "node:22-bookworm",
+    "npm",
+    "test"
+  ],
+  "candidate_sha256": "0a7374bbbdbd8c4a802733811ad3ecbeb70293ba33b89eefa9bd05c36ecbd371",
+  "scope": "full npm test, not only personal MCP test selection",
+  "runtime": "Node22 same as deployed candidate build; GitHub workflow Node24 must independently pass"
+}

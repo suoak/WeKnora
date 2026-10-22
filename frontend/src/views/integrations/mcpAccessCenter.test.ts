@@ -7,7 +7,8 @@ const api = readFileSync(new URL('../../api/mcpAccessKeys.ts', import.meta.url),
 const lifecycle = readFileSync(new URL('./mcpAccessLifecycle.ts', import.meta.url), 'utf8')
 
 test('Access Center presents credentials as integrations rather than plaintext API keys', () => {
-  assert.match(view, /我的接入配置/)
+  assert.match(view, /我的个人 MCP Key/)
+  assert.match(view, /历史接入/)
   assert.match(view, /WorkBuddy/)
   assert.match(view, /WorkMate/)
   assert.match(view, /Cursor/)
@@ -33,14 +34,16 @@ test('frontend adapter uses M1 PATCH, rotate, revoke and scope-options contracts
   assert.match(api, /get\('\/api\/v1\/mcp-api-keys\/scope-options'\)/)
 })
 
-test('secret is one-time only and forgotten credentials require rotation', () => {
-  assert.match(view, /Secret 创建后可持续使用，直至过期、被撤销或重新生成/)
-  assert.match(view, /完整 Secret 仅在创建或重新生成时显示一次/)
-  assert.match(view, /服务端不会保存可再次查看的明文 Secret/)
+test('owner can reopen encrypted Secret; legacy hash-only keys require explicit rotation', () => {
+  assert.match(view, /Secret 可长期查看和复制/)
+  assert.match(view, /服务端加密保存，仅当前凭证本人可在此查看/)
+  assert.match(view, /历史凭证未保存可恢复的 Secret/)
   assert.match(view, /重新生成 Secret/)
   assert.match(view, /旧 Secret 将立即失效/)
   assert.match(view, /rotateMCPAccessKey/)
-  assert.doesNotMatch(api, /reveal/i)
+  assert.match(api, /revealMCPAccessKey/)
+  assert.match(view, /if \(!key.secret_available\) return/)
+  assert.match(view, /request === connectionRequest && configVisible.value/)
   assert.doesNotMatch(view, /localStorage|sessionStorage|indexedDB|console\./)
   assert.match(view, /clearPlaintextToken/)
   assert.match(view, /onBeforeUnmount\(clearPlaintextToken\)/)

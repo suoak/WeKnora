@@ -1,0 +1,106 @@
+[
+  {
+    "operation": "wiki_read_page",
+    "arguments": {
+      "slug": "concept/verified",
+      "knowledge_base_id": "private-home"
+    },
+    "http_status": 200,
+    "is_error": false
+  },
+  {
+    "operation": "synthetic SQL old-writer simulation",
+    "query": "SELECT content FROM wiki_pages WHERE id='wiki-private-home'",
+    "exit_code": 0
+  },
+  {
+    "operation": "synthetic SQL old-writer simulation",
+    "query": "UPDATE wiki_pages SET status='archived' WHERE id='wiki-private-home'",
+    "exit_code": 0
+  },
+  {
+    "operation": "wiki_read_page",
+    "arguments": {
+      "slug": "concept/verified",
+      "knowledge_base_id": "private-home"
+    },
+    "http_status": 200,
+    "is_error": true
+  },
+  {
+    "operation": "synthetic SQL old-writer simulation",
+    "query": "UPDATE wiki_pages SET status='published',content='RAW_OLD_WRITER_CANARY' WHERE id='wiki-private-home'",
+    "exit_code": 0
+  },
+  {
+    "operation": "wiki_search",
+    "arguments": {
+      "query": "RAW_OLD_WRITER_CANARY"
+    },
+    "http_status": 200,
+    "is_error": false
+  },
+  {
+    "operation": "synthetic SQL old-writer simulation",
+    "query": "UPDATE wiki_pages SET content='verified private-home Wiki ordinary content' WHERE id='wiki-private-home'",
+    "exit_code": 0
+  },
+  {
+    "operation": "wiki_read_page",
+    "arguments": {
+      "slug": "concept/verified",
+      "knowledge_base_id": "private-home"
+    },
+    "http_status": 200,
+    "is_error": true
+  },
+  {
+    "operation": "wiki_search",
+    "arguments": {
+      "query": "UNTRUSTED_WIKI_CANARY",
+      "knowledge_base_ids": [
+        "public-two"
+      ]
+    },
+    "http_status": 200,
+    "is_error": false
+  },
+  {
+    "operation": "synthetic SQL old-writer simulation",
+    "query": "INSERT INTO wiki_pages(id,tenant_id,knowledge_base_id,slug,title,content,page_type,status)VALUES('no-provenance',1,'public-two','concept/no-proof','NO_REF_CANARY','NO_REF_CANARY','concept','published')",
+    "exit_code": 0
+  },
+  {
+    "operation": "wiki_search",
+    "arguments": {
+      "query": "NO_REF_CANARY",
+      "knowledge_base_ids": [
+        "public-two"
+      ]
+    },
+    "http_status": 200,
+    "is_error": false
+  },
+  {
+    "operation": "wiki_read_page",
+    "arguments": {
+      "slug": "concept/no-proof",
+      "knowledge_base_id": "public-two"
+    },
+    "http_status": 200,
+    "is_error": true
+  },
+  {
+    "operation": "wiki_read_page",
+    "arguments": {
+      "slug": "concept/verified",
+      "knowledge_base_id": "public-two"
+    },
+    "http_status": 200,
+    "is_error": false
+  },
+  {
+    "operation": "revoke own probe key",
+    "http_status": 200
+  }
+]

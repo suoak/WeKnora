@@ -1,0 +1,8 @@
+{
+  "candidate_sha256": "d321f68380668125260b57c07cec4f7edf68a267ee714b8606a184b9b18af270",
+  "command": "python docs/integration/knowhub-mcp-portal/tools/joint_codex.py",
+  "exit_code": 1,
+  "error": "FileNotFoundError: output path still referenced evidence/v1/codex-d321f68380668125",
+  "client_result": "UNKNOWN; process ran but result was not persisted, no PASS claimed",
+  "fix": "new joint evidence path with unique per-attempt directory; runtime source and assertions unchanged"
+}

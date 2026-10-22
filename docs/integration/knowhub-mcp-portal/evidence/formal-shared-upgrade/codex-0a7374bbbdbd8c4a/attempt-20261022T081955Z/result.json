@@ -1,0 +1,102 @@
+{
+  "candidate_sha256": "0a7374bbbdbd8c4a802733811ad3ecbeb70293ba33b89eefa9bd05c36ecbd371",
+  "exit_code": 0,
+  "tool_gate_pass": true,
+  "semantic_assertions": {
+    "wiki_read_page": true,
+    "grep_chunks": true,
+    "wiki_index": true,
+    "list_documents": true,
+    "read_document": true,
+    "wiki_search": true,
+    "search_knowledge": true,
+    "list_knowledge_bases": true,
+    "actual_sensitive_denial": true,
+    "public_and_private_scope": true,
+    "actual_wiki_body": true
+  },
+  "actual_completed_calls": [
+    {
+      "tool": "list_knowledge_bases",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "search_knowledge",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "grep_chunks",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "list_documents",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "read_document",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "wiki_search",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "wiki_read_page",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "wiki_index",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "read_document",
+      "status": "failed",
+      "error": null
+    },
+    {
+      "tool": "search_knowledge",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "read_document",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "read_document",
+      "status": "completed",
+      "error": null
+    }
+  ],
+  "started_utc": "2026-10-22T08:18:53.074522+00:00",
+  "finished_utc": "2026-10-22T08:19:55.502011+00:00",
+  "copied_UI_template_used": true,
+  "credential_in_argv": false,
+  "synthetic_data": true,
+  "source_probe": {
+    "candidate_sha256": "0a7374bbbdbd8c4a802733811ad3ecbeb70293ba33b89eefa9bd05c36ecbd371",
+    "sources": {
+      "wiki": {
+        "source_id": "6670e392-25f2-47de-a88c-32514b853ab5",
+        "knowledge_base_id": "fm-feishu-wiki-a2",
+        "knowledge_id": "fm-legacy-wiki-a2"
+      },
+      "drive": {
+        "source_id": "e94642a2-8dc4-41b5-b046-0231044a49a9",
+        "knowledge_base_id": "fm-feishu-drive-a2",
+        "knowledge_id": "fm-legacy-drive-a2"
+      }
+    },
+    "pending": "browser/CLI then source revoke"
+  },
+  "harness_sha256": "899988c618b5e631f3268bad90efc127fc2ee899817eee23fe96ffcc68e2976a"
+}

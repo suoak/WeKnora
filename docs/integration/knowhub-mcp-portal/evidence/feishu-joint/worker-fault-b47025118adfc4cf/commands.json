@@ -1,0 +1,76 @@
+[
+  {
+    "name": "kill-only-candidate-app",
+    "argv": [
+      "docker",
+      "compose",
+      "--project-name",
+      "knowhub-v1-feishu-b47025118adf",
+      "--project-directory",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf",
+      "-f",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/compose.yml",
+      "kill",
+      "-s",
+      "SIGKILL",
+      "app"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "restart-current-candidate",
+    "argv": [
+      "docker",
+      "compose",
+      "--project-name",
+      "knowhub-v1-feishu-b47025118adf",
+      "--project-directory",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf",
+      "-f",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/compose.yml",
+      "up",
+      "-d",
+      "--wait",
+      "--wait-timeout",
+      "180",
+      "app",
+      "frontend"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "stop-only-candidate-redis",
+    "argv": [
+      "docker",
+      "compose",
+      "--project-name",
+      "knowhub-v1-feishu-b47025118adf",
+      "--project-directory",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf",
+      "-f",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/compose.yml",
+      "stop",
+      "--timeout",
+      "5",
+      "redis"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "restart-only-candidate-redis",
+    "argv": [
+      "docker",
+      "compose",
+      "--project-name",
+      "knowhub-v1-feishu-b47025118adf",
+      "--project-directory",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf",
+      "-f",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/compose.yml",
+      "up",
+      "-d",
+      "redis"
+    ],
+    "exit_code": 0
+  }
+]

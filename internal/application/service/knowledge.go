@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Tencent/WeKnora/internal/application/access"
 	"io"
 	"reflect"
 	"sort"
@@ -48,6 +49,7 @@ var (
 // knowledgeService implements the knowledge service interface
 // service 实现知识服务接口
 type knowledgeService struct {
+	documentACL      *DocumentReadPolicy
 	personalRecovery personalDispatchRunner
 	config           *config.Config
 	retrieveEngine   interfaces.RetrieveEngineRegistry
@@ -439,6 +441,10 @@ func (s *knowledgeService) getParserEngineOverridesFromContext(ctx context.Conte
 // Returns:
 //   - interfaces.KnowledgeRepository: Knowledge repository
 func (s *knowledgeService) GetRepository() interfaces.KnowledgeRepository {
+	if s.DocumentACLReadEnabled() {
+		return &heldDocumentKnowledgeRepository{KnowledgeRepository: s.repo}
+	}
+
 	return s.repo
 }
 
@@ -579,6 +585,10 @@ func defaultChannel(ch string) string {
 
 // GetKnowledgeByID retrieves a knowledge entry by its ID
 func (s *knowledgeService) GetKnowledgeByID(ctx context.Context, id string) (*types.Knowledge, error) {
+	if s.DocumentACLReadEnabled() {
+		return s.readAuthorizedKnowledge(ctx, id)
+	}
+
 	tenantID := ctx.Value(types.TenantIDContextKey).(uint64)
 
 	knowledge, err := s.repo.GetKnowledgeByID(ctx, tenantID, id)
@@ -604,6 +614,10 @@ func (s *knowledgeService) GetKnowledgeByID(ctx context.Context, id string) (*ty
 
 // GetKnowledgeByIDOnly retrieves knowledge by ID without tenant filter (for permission resolution).
 func (s *knowledgeService) GetKnowledgeByIDOnly(ctx context.Context, id string) (*types.Knowledge, error) {
+	if s.DocumentACLReadEnabled() {
+		return s.readAuthorizedKnowledge(ctx, id)
+	}
+
 	return s.repo.GetKnowledgeByIDOnly(ctx, id)
 }
 
@@ -642,6 +656,14 @@ func (s *knowledgeService) GetOwningKBCreatorID(ctx context.Context, knowledgeID
 func (s *knowledgeService) ListKnowledgeByKnowledgeBaseID(ctx context.Context,
 	kbID string,
 ) ([]*types.Knowledge, error) {
+	if s.DocumentACLReadEnabled() {
+		result, err := s.readAuthorizedPage(ctx, kbID, &types.Pagination{Page: 1, PageSize: access.MaxDocumentAllowSet}, types.KnowledgeListFilter{})
+		if err != nil {
+			return nil, err
+		}
+		return result.Data.([]*types.Knowledge), nil
+	}
+
 	return s.repo.ListKnowledgeByKnowledgeBaseID(ctx, ctx.Value(types.TenantIDContextKey).(uint64), kbID)
 }
 
@@ -649,6 +671,10 @@ func (s *knowledgeService) ListKnowledgeByKnowledgeBaseID(ctx context.Context,
 func (s *knowledgeService) ListPagedKnowledgeByKnowledgeBaseID(ctx context.Context,
 	kbID string, page *types.Pagination, filter types.KnowledgeListFilter,
 ) (*types.PageResult, error) {
+	if s.DocumentACLReadEnabled() {
+		return s.readAuthorizedPage(ctx, kbID, page, filter)
+	}
+
 	knowledges, total, err := s.repo.ListPagedKnowledgeByKnowledgeBaseID(ctx,
 		ctx.Value(types.TenantIDContextKey).(uint64), kbID, page, filter)
 	if err != nil {
@@ -683,6 +709,10 @@ func (s *knowledgeService) ListPagedKnowledgeByKnowledgeBaseID(ctx context.Conte
 func (s *knowledgeService) ListKnowledgeFolderTree(ctx context.Context,
 	kbID string,
 ) (*types.KnowledgeFolderTree, error) {
+	if s.DocumentACLReadEnabled() {
+		return nil, access.ErrForbidden
+	}
+
 	counts, err := s.repo.ListKnowledgeFolderCounts(ctx,
 		ctx.Value(types.TenantIDContextKey).(uint64), kbID)
 	if err != nil {
@@ -790,6 +820,10 @@ func normalizeTargetFolderPath(ctx context.Context, folderPath string) (string, 
 
 // GetKnowledgeFile retrieves the physical file associated with a knowledge entry
 func (s *knowledgeService) GetKnowledgeFile(ctx context.Context, id string) (io.ReadCloser, string, error) {
+	if s.DocumentACLReadEnabled() {
+		return nil, "", access.ErrForbidden
+	}
+
 	// Get knowledge record
 	tenantID := ctx.Value(types.TenantIDContextKey).(uint64)
 	knowledge, err := s.repo.GetKnowledgeByID(ctx, tenantID, id)
@@ -892,6 +926,10 @@ func (s *knowledgeService) UpdateKnowledge(ctx context.Context, knowledge *types
 func (s *knowledgeService) GetKnowledgeBatch(ctx context.Context,
 	tenantID uint64, ids []string,
 ) ([]*types.Knowledge, error) {
+	if s.DocumentACLReadEnabled() {
+		return s.readAuthorizedBatch(ctx, ids)
+	}
+
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -903,6 +941,10 @@ func (s *knowledgeService) GetKnowledgeBatch(ctx context.Context,
 func (s *knowledgeService) GetKnowledgeBatchWithSharedAccess(ctx context.Context,
 	tenantID uint64, ids []string,
 ) ([]*types.Knowledge, error) {
+	if s.DocumentACLReadEnabled() {
+		return s.readAuthorizedBatch(ctx, ids)
+	}
+
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -958,6 +1000,18 @@ func (s *knowledgeService) ListKnowledgeIDsByTagIDs(
 	kbID string,
 	tagIDs []string,
 ) ([]string, error) {
+	if s.DocumentACLReadEnabled() {
+		result, err := s.readAuthorizedPage(ctx, kbID, &types.Pagination{Page: 1, PageSize: access.MaxDocumentAllowSet}, types.KnowledgeListFilter{TagIDs: tagIDs})
+		if err != nil {
+			return nil, err
+		}
+		out := []string{}
+		for _, row := range result.Data.([]*types.Knowledge) {
+			out = append(out, row.ID)
+		}
+		return out, nil
+	}
+
 	return s.repo.ListIDsByTagIDs(ctx, tenantID, kbID, tagIDs)
 }
 
@@ -1041,6 +1095,10 @@ func (s *knowledgeService) setAndAttachKnowledgeTags(
 
 // GetKnowledgeTags returns tags for multiple knowledge IDs.
 func (s *knowledgeService) GetKnowledgeTags(ctx context.Context, knowledgeIDs []string) (map[string][]*types.KnowledgeTag, error) {
+	if s.DocumentACLReadEnabled() {
+		return nil, access.ErrForbidden
+	} // Tag epochs/provenance are not certified yet.
+
 	return s.repo.GetKnowledgeTags(ctx, knowledgeIDs)
 }
 
@@ -1154,6 +1212,10 @@ func (s *knowledgeService) UpdateKnowledgeTagBatch(
 // SearchKnowledge searches knowledge items by keyword across the tenant and shared knowledge bases.
 // fileTypes: optional list of file extensions to filter by (e.g., ["csv", "xlsx"])
 func (s *knowledgeService) SearchKnowledge(ctx context.Context, keyword string, offset, limit int, fileTypes []string) ([]*types.Knowledge, bool, int64, error) {
+	if s.DocumentACLReadEnabled() {
+		return nil, false, 0, access.ErrForbidden
+	}
+
 	caller := types.CallerFromContext(ctx)
 	tenantID := caller.TenantID
 	if tenantID == 0 {
@@ -1201,6 +1263,10 @@ func (s *knowledgeService) SearchKnowledge(ctx context.Context, keyword string, 
 
 // SearchKnowledgeForScopes searches knowledge within the given scopes (e.g. for shared agent context).
 func (s *knowledgeService) SearchKnowledgeForScopes(ctx context.Context, scopes []types.KnowledgeSearchScope, keyword string, offset, limit int, fileTypes []string) ([]*types.Knowledge, bool, int64, error) {
+	if s.DocumentACLReadEnabled() {
+		return nil, false, 0, access.ErrForbidden
+	}
+
 	if len(scopes) == 0 {
 		return nil, false, 0, nil
 	}

@@ -1,0 +1,6 @@
+{
+  "exit_code": 1,
+  "error_class": "AssertionError",
+  "message": "legacy Python probe failed: wiki-active",
+  "candidate_sha256": "d321f68380668125260b57c07cec4f7edf68a267ee714b8606a184b9b18af270"
+}

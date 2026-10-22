@@ -86,7 +86,21 @@ func (r *DataSourceRepository) Update(ctx context.Context, ds *types.DataSource)
 		return errors.New("data source id is empty")
 	}
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(ds).Updates(ds).Error; err != nil {
+		if types.LegacyReadGuardsEnabled(tx) {
+			old, err := lockSyncDataSource(tx, ds.ID, ds.TenantID)
+			if err != nil {
+				return err
+			}
+			if legacySourceKind(old.Type) && (!legacyConfigEqual(old.Config, ds.Config) || old.Type != ds.Type || old.KnowledgeBaseID != ds.KnowledgeBaseID) {
+				if old.TenantID != ds.TenantID || old.KnowledgeBaseID != ds.KnowledgeBaseID {
+					return ErrLegacyVersionFence
+				}
+				if err := tx.Model(&types.DataSource{}).Where("id=?", ds.ID).Update("legacy_access_state", "hold").Error; err != nil {
+					return err
+				}
+			}
+		}
+		if err := tx.Model(ds).Omit("LegacyAccessState").Updates(ds).Error; err != nil {
 			return err
 		}
 		// GORM Updates(struct) deliberately skips zero values, which would make
@@ -131,12 +145,20 @@ func (r *DataSourceRepository) Delete(ctx context.Context, id string) error {
 	if id == "" {
 		return errors.New("id is empty")
 	}
-	if err := r.db.WithContext(ctx).
-		Where("id = ?", id).
-		Delete(&types.DataSource{}).Error; err != nil {
-		return err
-	}
-	return nil
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if types.LegacyReadGuardsEnabled(tx) {
+			var source types.DataSource
+			if err := tx.First(&source, "id=?", id).Error; err != nil {
+				return err
+			}
+			if legacySourceKind(source.Type) {
+				if err := tx.Model(&types.DataSource{}).Where("id=?", id).Update("legacy_access_state", "revoked").Error; err != nil {
+					return err
+				}
+			}
+		}
+		return tx.Where("id=?", id).Delete(&types.DataSource{}).Error
+	})
 }
 
 // FindActive retrieves all active data sources (used for scheduling)

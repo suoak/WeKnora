@@ -20,6 +20,10 @@ func TestMultipartFormCleanupRemovesDiskTemporaryFiles(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	tempDir := t.TempDir()
 	t.Setenv("TMPDIR", tempDir)
+	// Unix uses TMPDIR; Windows uses TMP/TEMP. Keep all platforms on
+	// the test's isolated directory without weakening the cleanup assertion.
+	t.Setenv("TMP", tempDir)
+	t.Setenv("TEMP", tempDir)
 
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)

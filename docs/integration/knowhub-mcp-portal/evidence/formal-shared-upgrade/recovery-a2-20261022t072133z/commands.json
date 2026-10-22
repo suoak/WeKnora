@@ -1,0 +1,555 @@
+[
+  {
+    "name": "create-clone",
+    "argv": [
+      "docker",
+      "exec",
+      "-u",
+      "postgres",
+      "WeKnora-postgres",
+      "psql",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-U",
+      "postgres",
+      "-d",
+      "postgres",
+      "-c",
+      "CREATE DATABASE knowhub_formal_denial_restore_20261022t072133z_a2 TEMPLATE template0"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "restore-revoked-test-clone",
+    "argv": [
+      "docker",
+      "exec",
+      "-i",
+      "-u",
+      "postgres",
+      "WeKnora-postgres",
+      "pg_restore",
+      "-U",
+      "postgres",
+      "-d",
+      "knowhub_formal_denial_restore_20261022t072133z_a2"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "clone-test-files",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "none",
+      "-v",
+      "weknora_data-files:/old:ro",
+      "-v",
+      "kh-formal-20261022t072133z-a2_safe_rollback_files:/new",
+      "knowhub-build/golang:1.26-feishu-py311-ensurepip-20261022",
+      "sh",
+      "-c",
+      "cp -a /old/. /new/"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "start-private-redis",
+    "argv": [
+      "docker",
+      "run",
+      "-d",
+      "--name",
+      "kh-rb-redis-0a7374bbbdbd-a2",
+      "--label",
+      "knowhub.next=safe-rollback",
+      "--network",
+      "weknora_WeKnora-network",
+      "redis:7.0-alpine",
+      "redis-server",
+      "--save",
+      "",
+      "--appendonly",
+      "no"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "start-forward",
+    "argv": [
+      "docker",
+      "run",
+      "-d",
+      "--name",
+      "kh-rb-0a7374bbbdbd-forward-a2",
+      "--label",
+      "knowhub.next=safe-rollback",
+      "--network",
+      "weknora_WeKnora-network",
+      "--env-file",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/formal-rollback.env",
+      "-e",
+      "DB_DRIVER=postgres",
+      "-e",
+      "DB_HOST=WeKnora-postgres",
+      "-e",
+      "DB_PORT=5432",
+      "-e",
+      "DB_USER=postgres",
+      "-e",
+      "DB_NAME=knowhub_formal_denial_restore_20261022t072133z_a2",
+      "-e",
+      "REDIS_ADDR=kh-rb-redis-0a7374bbbdbd-a2:6379",
+      "-e",
+      "REDIS_PASSWORD=",
+      "-e",
+      "DUCKDB_SKIP_EXTENSION_LOAD=1",
+      "-e",
+      "AUTO_RECOVER_DIRTY=false",
+      "-e",
+      "FEISHU_LEGACY_SYNC_SUSPENDED=true",
+      "-e",
+      "FEISHU_SAFE_INCREMENTAL_ENABLED=false",
+      "-e",
+      "WEKNORA_TENANT_ENABLE_RBAC=true",
+      "-e",
+      "RETRIEVE_DRIVER=postgres",
+      "-e",
+      "STORAGE_TYPE=local",
+      "-e",
+      "LOCAL_STORAGE_BASE_DIR=/data/files",
+      "-e",
+      "SSRF_WHITELIST=model,feishu",
+      "-v",
+      "kh-formal-20261022t072133z-a2_safe_rollback_files:/data/files",
+      "--entrypoint",
+      "/app/WeKnora",
+      "knowhub-v1-wiki-dynamic/app:0a7374bbbdbd8c4a"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "forward-revoked-REST",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "weknora_WeKnora-network",
+      "--env-file",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/formal-rollback.env",
+      "--entrypoint",
+      "python",
+      "weknora-custom/mcp-candidate:v0.8.0-knowhub.24-rc1-854f3b95",
+      "-c",
+      "import urllib.request,urllib.error,json,os\norigin='http://kh-rb-0a7374bbbdbd-forward-a2:8080'\ndef decode(raw):\n try:return json.loads(raw or b'null')\n except (ValueError,TypeError):return raw.decode(errors='replace')\ndef req(method,path,body=None,token=None):\n h={'Content-Type':'application/json','X-Tenant-ID':'820099'}\n if token:h['Authorization']='Bearer '+token\n r=urllib.request.Request(origin+path,data=json.dumps(body).encode()if body is not None else None,method=method,headers=h)\n try:\n  with urllib.request.urlopen(r,timeout=30)as s:return s.status,decode(s.read())\n except urllib.error.HTTPError as e:return e.code,decode(e.read())\nstatus,auth=req('POST','/api/v1/auth/login',{'email':'fm-owner@example.invalid','password':os.environ['KNOWHUB_V1_TEST_PASSWORD']});assert status==200\nstatus,data=req('GET','/api/v1/knowledge/fm-legacy-drive-a2',None,auth['token']);print(json.dumps({'status':status,'data':data}))\n"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "forward-historical-reference",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "weknora_WeKnora-network",
+      "--env-file",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/formal-rollback.env",
+      "--entrypoint",
+      "python",
+      "weknora-custom/mcp-candidate:v0.8.0-knowhub.24-rc1-854f3b95",
+      "-c",
+      "import urllib.request,urllib.error,json,os\norigin='http://kh-rb-0a7374bbbdbd-forward-a2:8080'\ndef decode(raw):\n try:return json.loads(raw or b'null')\n except (ValueError,TypeError):return raw.decode(errors='replace')\ndef req(method,path,body=None,token=None):\n h={'Content-Type':'application/json','X-Tenant-ID':'820099'}\n if token:h['Authorization']='Bearer '+token\n r=urllib.request.Request(origin+path,data=json.dumps(body).encode()if body is not None else None,method=method,headers=h)\n try:\n  with urllib.request.urlopen(r,timeout=30)as s:return s.status,decode(s.read())\n except urllib.error.HTTPError as e:return e.code,decode(e.read())\nstatus,auth=req('POST','/api/v1/auth/login',{'email':'fm-owner@example.invalid','password':os.environ['KNOWHUB_V1_TEST_PASSWORD']});assert status==200\nstatus,data=req('GET','/api/v1/datasource/e94642a2-8dc4-41b5-b046-0231044a49a9/logs',None,auth['token']);print(json.dumps({'status':status,'data':data}))\n"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "forward-same-unexpired-HMAC",
+    "argv": [
+      "docker",
+      "exec",
+      "-i",
+      "kh-rb-0a7374bbbdbd-forward-a2",
+      "curl",
+      "--config",
+      "-"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "forward-MCP-disabled",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "weknora_WeKnora-network",
+      "--env-file",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/formal-rollback.env",
+      "--entrypoint",
+      "python",
+      "weknora-custom/mcp-candidate:v0.8.0-knowhub.24-rc1-854f3b95",
+      "-c",
+      "import urllib.request,urllib.error,json,os\norigin='http://kh-rb-0a7374bbbdbd-forward-a2:8080'\ndef decode(raw):\n try:return json.loads(raw or b'null')\n except (ValueError,TypeError):return raw.decode(errors='replace')\ndef req(method,path,body=None,token=None):\n h={'Content-Type':'application/json','X-Tenant-ID':'820099'}\n if token:h['Authorization']='Bearer '+token\n r=urllib.request.Request(origin+path,data=json.dumps(body).encode()if body is not None else None,method=method,headers=h)\n try:\n  with urllib.request.urlopen(r,timeout=30)as s:return s.status,decode(s.read())\n except urllib.error.HTTPError as e:return e.code,decode(e.read())\nstatus,auth=req('POST','/api/v1/auth/login',{'email':'fm-owner@example.invalid','password':os.environ['KNOWHUB_V1_TEST_PASSWORD']});assert status==200\nstatus,data=req('GET','/api/v1/mcp/personal',None,auth['token']);print(json.dumps({'status':status,'data':data}))\n"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "forward-APP-log",
+    "argv": [
+      "docker",
+      "logs",
+      "kh-rb-0a7374bbbdbd-forward-a2"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "stop-forward",
+    "argv": [
+      "docker",
+      "stop",
+      "--time",
+      "5",
+      "kh-rb-0a7374bbbdbd-forward-a2"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "start-compatibility",
+    "argv": [
+      "docker",
+      "run",
+      "-d",
+      "--name",
+      "kh-rb-0a7374bbbdbd-compatibility-a2",
+      "--label",
+      "knowhub.next=safe-rollback",
+      "--network",
+      "weknora_WeKnora-network",
+      "--env-file",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/formal-rollback.env",
+      "-e",
+      "DB_DRIVER=postgres",
+      "-e",
+      "DB_HOST=WeKnora-postgres",
+      "-e",
+      "DB_PORT=5432",
+      "-e",
+      "DB_USER=postgres",
+      "-e",
+      "DB_NAME=knowhub_formal_denial_restore_20261022t072133z_a2",
+      "-e",
+      "REDIS_ADDR=kh-rb-redis-0a7374bbbdbd-a2:6379",
+      "-e",
+      "REDIS_PASSWORD=",
+      "-e",
+      "DUCKDB_SKIP_EXTENSION_LOAD=1",
+      "-e",
+      "AUTO_RECOVER_DIRTY=false",
+      "-e",
+      "FEISHU_LEGACY_SYNC_SUSPENDED=true",
+      "-e",
+      "FEISHU_SAFE_INCREMENTAL_ENABLED=false",
+      "-e",
+      "WEKNORA_TENANT_ENABLE_RBAC=true",
+      "-e",
+      "RETRIEVE_DRIVER=postgres",
+      "-e",
+      "STORAGE_TYPE=local",
+      "-e",
+      "LOCAL_STORAGE_BASE_DIR=/data/files",
+      "-e",
+      "SSRF_WHITELIST=model,feishu",
+      "-v",
+      "kh-formal-20261022t072133z-a2_safe_rollback_files:/data/files",
+      "--entrypoint",
+      "/app/WeKnora",
+      "knowhub-safe-rollback/app:2ecd6b90388a258b"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "compatibility-revoked-REST",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "weknora_WeKnora-network",
+      "--env-file",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/formal-rollback.env",
+      "--entrypoint",
+      "python",
+      "weknora-custom/mcp-candidate:v0.8.0-knowhub.24-rc1-854f3b95",
+      "-c",
+      "import urllib.request,urllib.error,json,os\norigin='http://kh-rb-0a7374bbbdbd-compatibility-a2:8080'\ndef decode(raw):\n try:return json.loads(raw or b'null')\n except (ValueError,TypeError):return raw.decode(errors='replace')\ndef req(method,path,body=None,token=None):\n h={'Content-Type':'application/json','X-Tenant-ID':'820099'}\n if token:h['Authorization']='Bearer '+token\n r=urllib.request.Request(origin+path,data=json.dumps(body).encode()if body is not None else None,method=method,headers=h)\n try:\n  with urllib.request.urlopen(r,timeout=30)as s:return s.status,decode(s.read())\n except urllib.error.HTTPError as e:return e.code,decode(e.read())\nstatus,auth=req('POST','/api/v1/auth/login',{'email':'fm-owner@example.invalid','password':os.environ['KNOWHUB_V1_TEST_PASSWORD']});assert status==200\nstatus,data=req('GET','/api/v1/knowledge/fm-legacy-drive-a2',None,auth['token']);print(json.dumps({'status':status,'data':data}))\n"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "compatibility-historical-reference",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "weknora_WeKnora-network",
+      "--env-file",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/formal-rollback.env",
+      "--entrypoint",
+      "python",
+      "weknora-custom/mcp-candidate:v0.8.0-knowhub.24-rc1-854f3b95",
+      "-c",
+      "import urllib.request,urllib.error,json,os\norigin='http://kh-rb-0a7374bbbdbd-compatibility-a2:8080'\ndef decode(raw):\n try:return json.loads(raw or b'null')\n except (ValueError,TypeError):return raw.decode(errors='replace')\ndef req(method,path,body=None,token=None):\n h={'Content-Type':'application/json','X-Tenant-ID':'820099'}\n if token:h['Authorization']='Bearer '+token\n r=urllib.request.Request(origin+path,data=json.dumps(body).encode()if body is not None else None,method=method,headers=h)\n try:\n  with urllib.request.urlopen(r,timeout=30)as s:return s.status,decode(s.read())\n except urllib.error.HTTPError as e:return e.code,decode(e.read())\nstatus,auth=req('POST','/api/v1/auth/login',{'email':'fm-owner@example.invalid','password':os.environ['KNOWHUB_V1_TEST_PASSWORD']});assert status==200\nstatus,data=req('GET','/api/v1/datasource/e94642a2-8dc4-41b5-b046-0231044a49a9/logs',None,auth['token']);print(json.dumps({'status':status,'data':data}))\n"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "compatibility-same-unexpired-HMAC",
+    "argv": [
+      "docker",
+      "exec",
+      "-i",
+      "kh-rb-0a7374bbbdbd-compatibility-a2",
+      "curl",
+      "--config",
+      "-"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "compatibility-MCP-disabled",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "weknora_WeKnora-network",
+      "--env-file",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/formal-rollback.env",
+      "--entrypoint",
+      "python",
+      "weknora-custom/mcp-candidate:v0.8.0-knowhub.24-rc1-854f3b95",
+      "-c",
+      "import urllib.request,urllib.error,json,os\norigin='http://kh-rb-0a7374bbbdbd-compatibility-a2:8080'\ndef decode(raw):\n try:return json.loads(raw or b'null')\n except (ValueError,TypeError):return raw.decode(errors='replace')\ndef req(method,path,body=None,token=None):\n h={'Content-Type':'application/json','X-Tenant-ID':'820099'}\n if token:h['Authorization']='Bearer '+token\n r=urllib.request.Request(origin+path,data=json.dumps(body).encode()if body is not None else None,method=method,headers=h)\n try:\n  with urllib.request.urlopen(r,timeout=30)as s:return s.status,decode(s.read())\n except urllib.error.HTTPError as e:return e.code,decode(e.read())\nstatus,auth=req('POST','/api/v1/auth/login',{'email':'fm-owner@example.invalid','password':os.environ['KNOWHUB_V1_TEST_PASSWORD']});assert status==200\nstatus,data=req('GET','/api/v1/mcp/personal',None,auth['token']);print(json.dumps({'status':status,'data':data}))\n"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "compatibility-APP-log",
+    "argv": [
+      "docker",
+      "logs",
+      "kh-rb-0a7374bbbdbd-compatibility-a2"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "stop-compatibility",
+    "argv": [
+      "docker",
+      "stop",
+      "--time",
+      "5",
+      "kh-rb-0a7374bbbdbd-compatibility-a2"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "start-return",
+    "argv": [
+      "docker",
+      "run",
+      "-d",
+      "--name",
+      "kh-rb-0a7374bbbdbd-return-a2",
+      "--label",
+      "knowhub.next=safe-rollback",
+      "--network",
+      "weknora_WeKnora-network",
+      "--env-file",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/formal-rollback.env",
+      "-e",
+      "DB_DRIVER=postgres",
+      "-e",
+      "DB_HOST=WeKnora-postgres",
+      "-e",
+      "DB_PORT=5432",
+      "-e",
+      "DB_USER=postgres",
+      "-e",
+      "DB_NAME=knowhub_formal_denial_restore_20261022t072133z_a2",
+      "-e",
+      "REDIS_ADDR=kh-rb-redis-0a7374bbbdbd-a2:6379",
+      "-e",
+      "REDIS_PASSWORD=",
+      "-e",
+      "DUCKDB_SKIP_EXTENSION_LOAD=1",
+      "-e",
+      "AUTO_RECOVER_DIRTY=false",
+      "-e",
+      "FEISHU_LEGACY_SYNC_SUSPENDED=true",
+      "-e",
+      "FEISHU_SAFE_INCREMENTAL_ENABLED=false",
+      "-e",
+      "WEKNORA_TENANT_ENABLE_RBAC=true",
+      "-e",
+      "RETRIEVE_DRIVER=postgres",
+      "-e",
+      "STORAGE_TYPE=local",
+      "-e",
+      "LOCAL_STORAGE_BASE_DIR=/data/files",
+      "-e",
+      "SSRF_WHITELIST=model,feishu",
+      "-v",
+      "kh-formal-20261022t072133z-a2_safe_rollback_files:/data/files",
+      "--entrypoint",
+      "/app/WeKnora",
+      "knowhub-v1-wiki-dynamic/app:0a7374bbbdbd8c4a"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "return-revoked-REST",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "weknora_WeKnora-network",
+      "--env-file",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/formal-rollback.env",
+      "--entrypoint",
+      "python",
+      "weknora-custom/mcp-candidate:v0.8.0-knowhub.24-rc1-854f3b95",
+      "-c",
+      "import urllib.request,urllib.error,json,os\norigin='http://kh-rb-0a7374bbbdbd-return-a2:8080'\ndef decode(raw):\n try:return json.loads(raw or b'null')\n except (ValueError,TypeError):return raw.decode(errors='replace')\ndef req(method,path,body=None,token=None):\n h={'Content-Type':'application/json','X-Tenant-ID':'820099'}\n if token:h['Authorization']='Bearer '+token\n r=urllib.request.Request(origin+path,data=json.dumps(body).encode()if body is not None else None,method=method,headers=h)\n try:\n  with urllib.request.urlopen(r,timeout=30)as s:return s.status,decode(s.read())\n except urllib.error.HTTPError as e:return e.code,decode(e.read())\nstatus,auth=req('POST','/api/v1/auth/login',{'email':'fm-owner@example.invalid','password':os.environ['KNOWHUB_V1_TEST_PASSWORD']});assert status==200\nstatus,data=req('GET','/api/v1/knowledge/fm-legacy-drive-a2',None,auth['token']);print(json.dumps({'status':status,'data':data}))\n"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "return-historical-reference",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "weknora_WeKnora-network",
+      "--env-file",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/formal-rollback.env",
+      "--entrypoint",
+      "python",
+      "weknora-custom/mcp-candidate:v0.8.0-knowhub.24-rc1-854f3b95",
+      "-c",
+      "import urllib.request,urllib.error,json,os\norigin='http://kh-rb-0a7374bbbdbd-return-a2:8080'\ndef decode(raw):\n try:return json.loads(raw or b'null')\n except (ValueError,TypeError):return raw.decode(errors='replace')\ndef req(method,path,body=None,token=None):\n h={'Content-Type':'application/json','X-Tenant-ID':'820099'}\n if token:h['Authorization']='Bearer '+token\n r=urllib.request.Request(origin+path,data=json.dumps(body).encode()if body is not None else None,method=method,headers=h)\n try:\n  with urllib.request.urlopen(r,timeout=30)as s:return s.status,decode(s.read())\n except urllib.error.HTTPError as e:return e.code,decode(e.read())\nstatus,auth=req('POST','/api/v1/auth/login',{'email':'fm-owner@example.invalid','password':os.environ['KNOWHUB_V1_TEST_PASSWORD']});assert status==200\nstatus,data=req('GET','/api/v1/datasource/e94642a2-8dc4-41b5-b046-0231044a49a9/logs',None,auth['token']);print(json.dumps({'status':status,'data':data}))\n"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "return-same-unexpired-HMAC",
+    "argv": [
+      "docker",
+      "exec",
+      "-i",
+      "kh-rb-0a7374bbbdbd-return-a2",
+      "curl",
+      "--config",
+      "-"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "return-MCP-disabled",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "weknora_WeKnora-network",
+      "--env-file",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/formal-rollback.env",
+      "--entrypoint",
+      "python",
+      "weknora-custom/mcp-candidate:v0.8.0-knowhub.24-rc1-854f3b95",
+      "-c",
+      "import urllib.request,urllib.error,json,os\norigin='http://kh-rb-0a7374bbbdbd-return-a2:8080'\ndef decode(raw):\n try:return json.loads(raw or b'null')\n except (ValueError,TypeError):return raw.decode(errors='replace')\ndef req(method,path,body=None,token=None):\n h={'Content-Type':'application/json','X-Tenant-ID':'820099'}\n if token:h['Authorization']='Bearer '+token\n r=urllib.request.Request(origin+path,data=json.dumps(body).encode()if body is not None else None,method=method,headers=h)\n try:\n  with urllib.request.urlopen(r,timeout=30)as s:return s.status,decode(s.read())\n except urllib.error.HTTPError as e:return e.code,decode(e.read())\nstatus,auth=req('POST','/api/v1/auth/login',{'email':'fm-owner@example.invalid','password':os.environ['KNOWHUB_V1_TEST_PASSWORD']});assert status==200\nstatus,data=req('GET','/api/v1/mcp/personal',None,auth['token']);print(json.dumps({'status':status,'data':data}))\n"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "return-APP-log",
+    "argv": [
+      "docker",
+      "logs",
+      "kh-rb-0a7374bbbdbd-return-a2"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "stop-return",
+    "argv": [
+      "docker",
+      "stop",
+      "--time",
+      "5",
+      "kh-rb-0a7374bbbdbd-return-a2"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "final-APP-log",
+    "argv": [
+      "docker",
+      "logs",
+      "kh-rb-0a7374bbbdbd-return-a2"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "cleanup-stop-kh-rb-0a7374bbbdbd-return-a2",
+    "argv": [
+      "docker",
+      "stop",
+      "--time",
+      "5",
+      "kh-rb-0a7374bbbdbd-return-a2"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "cleanup-stop-kh-rb-0a7374bbbdbd-compatibility-a2",
+    "argv": [
+      "docker",
+      "stop",
+      "--time",
+      "5",
+      "kh-rb-0a7374bbbdbd-compatibility-a2"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "cleanup-stop-kh-rb-0a7374bbbdbd-forward-a2",
+    "argv": [
+      "docker",
+      "stop",
+      "--time",
+      "5",
+      "kh-rb-0a7374bbbdbd-forward-a2"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "cleanup-stop-kh-rb-redis-0a7374bbbdbd-a2",
+    "argv": [
+      "docker",
+      "stop",
+      "--time",
+      "5",
+      "kh-rb-redis-0a7374bbbdbd-a2"
+    ],
+    "exit_code": 0
+  }
+]

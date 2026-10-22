@@ -41,6 +41,11 @@ var versionedSQLiteTables = []string{
 	"feishu_personal_resources",
 	"feishu_personal_grant_epochs",
 	"feishu_personal_attempts",
+	"enterprise_space_policies",
+	"kb_publication_policies",
+	"knowledge_access_policies",
+	"document_subject_grants",
+	"document_access_epochs",
 }
 
 // versionedSQLiteColumns maps each existing table to the columns that the
@@ -75,7 +80,7 @@ var versionedSQLiteColumns = map[string][]string{
 
 // The full migration runner applies the already accepted personal recovery and
 // application-principal migrations too. Keep their schema assertions above.
-const expectedSQLiteMigrationVersion = 3033
+const expectedSQLiteMigrationVersion = 3037
 
 func TestSQLiteMigrationsCreateVersionedSchema(t *testing.T) {
 	repoRoot := sqliteRepoRoot(t)

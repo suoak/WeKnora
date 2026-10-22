@@ -1,0 +1,7 @@
+{
+  "candidate_sha256": "c2f260317fc151fbab98d9e87b2fe5c9acbd903dd4be2e857e0326565d390d75",
+  "binary_sha256": "ab3c0fadfa008b27a6b19596b6f59270aeffbf0f1c89e2d6b7c36f4aa2ef8124",
+  "built_artifact_equals_image_binary": true,
+  "image_execution": "sha256sum only; APP not started",
+  "inherited_OCI_labels": "base runtime labels retained; authoritative source is knowhub.source.sha256 plus frozen Manifest and binary hash, not old inherited OCI revision"
+}

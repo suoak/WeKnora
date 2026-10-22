@@ -1,0 +1,110 @@
+[
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/login",
+    "status": 200,
+    "elapsed_ms": 79.70510609447956
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mcp-api-keys/scope-options",
+    "status": 200,
+    "elapsed_ms": 10.125629603862762
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp-api-keys",
+    "status": 201,
+    "elapsed_ms": 6.849369034171104
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp/personal",
+    "status": 200,
+    "elapsed_ms": 1232.9319976270199,
+    "tool": "wiki_read_page",
+    "arguments": {
+      "slug": "concept/verified",
+      "knowledge_base_id": "fm-private-home"
+    },
+    "is_error": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp/personal",
+    "status": 200,
+    "elapsed_ms": 1202.7631420642138,
+    "tool": "wiki_read_page",
+    "arguments": {
+      "slug": "concept/verified",
+      "knowledge_base_id": "fm-private-home"
+    },
+    "is_error": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp/personal",
+    "status": 200,
+    "elapsed_ms": 1187.920019030571,
+    "tool": "wiki_read_page",
+    "arguments": {
+      "slug": "concept/verified",
+      "knowledge_base_id": "fm-private-home"
+    },
+    "is_error": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp/personal",
+    "status": 200,
+    "elapsed_ms": 1250.4313811659813,
+    "tool": "wiki_read_page",
+    "arguments": {
+      "slug": "concept/verified",
+      "knowledge_base_id": "fm-private-home"
+    },
+    "is_error": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp/personal",
+    "status": 200,
+    "elapsed_ms": 1194.4454554468393,
+    "tool": "wiki_read_page",
+    "arguments": {
+      "slug": "concept/unknown",
+      "knowledge_base_id": "fm-public-two"
+    },
+    "is_error": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp/personal",
+    "status": 200,
+    "elapsed_ms": 1326.0093536227942,
+    "tool": "wiki_read_page",
+    "arguments": {
+      "slug": "concept/unknown",
+      "knowledge_base_id": "fm-public-two"
+    },
+    "is_error": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp/personal",
+    "status": 200,
+    "elapsed_ms": 1199.192825704813,
+    "tool": "wiki_read_page",
+    "arguments": {
+      "slug": "concept/verified",
+      "knowledge_base_id": "fm-public-two"
+    },
+    "is_error": false
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/mcp-api-keys/17",
+    "status": 200,
+    "elapsed_ms": 6.324300542473793
+  }
+]

@@ -1,0 +1,1419 @@
+{
+  "observed_utc": "2026-10-22T06:54:35.162438+00:00",
+  "mode": "test-active",
+  "read_only": true,
+  "body_accessed": false,
+  "model_or_Feishu_cloud_called": false,
+  "changes": false,
+  "errors": [],
+  "commands": [
+    {
+      "argv": [
+        "docker",
+        "ps",
+        "-a",
+        "--format",
+        "{{json .}}"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "docker",
+        "inspect",
+        "knowhub-mvp-p3-app-1"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "docker",
+        "inspect",
+        "knowhub-mvp-p3-frontend-1"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "docker",
+        "inspect",
+        "knowhub-company-entry-entry-1"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "docker",
+        "inspect",
+        "WeKnora-mcp"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "docker",
+        "inspect",
+        "WeKnora-postgres"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "docker",
+        "inspect",
+        "WeKnora-docreader"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "docker",
+        "inspect",
+        "WeKnora-redis"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "docker",
+        "exec",
+        "knowhub-mvp-p3-app-1",
+        "sha256sum",
+        "/app/WeKnora"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "df",
+        "-h",
+        "/",
+        "/home/aqyfzx"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "ss",
+        "-ltnH"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "docker",
+        "inspect",
+        "WeKnora-postgres"
+      ],
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT table_name,column_name,data_type FROM information_schema.columns WHERE table_schema='public'AND table_name IN('data_sources','sync_logs','knowledge_bases','tenants','models','tenant_portal_configs','users','system_settings','embeddings','feishu_legacy_resources','feishu_legacy_attempts')",
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT version,dirty FROM schema_migrations",
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT extname,extversion FROM pg_extension WHERE extname IN('vector','pg_search')",
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT count(*)AS accounts,count(*)FILTER(WHERE is_active)AS active_accounts FROM users",
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT count(DISTINCT t.id)AS published_active_spaces,count(DISTINCT kb.id)AS live_KBs,count(DISTINCT kb.id)FILTER(WHERE kb.type='document')AS document_KBs,count(DISTINCT kb.id)FILTER(WHERE kb.type='document'AND NOT COALESCE(kb.is_temporary,false))AS non_temporary_document_KBs FROM tenant_portal_configs pc JOIN tenants t ON t.id=pc.tenant_id JOIN knowledge_bases kb ON kb.tenant_id=t.id WHERE pc.status='published'AND t.deleted_at IS NULL AND t.status='active'AND kb.deleted_at IS NULL",
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT substr(md5('knowhub-b7-space:'||t.id::text),1,16)AS space_ref,substr(md5('knowhub-b7-kb:'||kb.id),1,16)AS kb_ref,kb.type,kb.is_temporary,kb.deleted_at IS NOT NULL AS kb_deleted,t.deleted_at IS NOT NULL AS space_deleted,t.status AS space_status,pc.status AS portal_status,(SELECT count(*)FROM knowledges k WHERE k.knowledge_base_id=kb.id AND k.tenant_id=kb.tenant_id AND k.deleted_at IS NULL)AS documents FROM tenant_portal_configs pc JOIN tenants t ON t.id=pc.tenant_id JOIN knowledge_bases kb ON kb.tenant_id=t.id",
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT substr(md5(id),1,16)AS model_ref,type,source,status,is_default,parameters::jsonb->'embedding_parameters'->>'dimension'AS dimension,COALESCE(parameters::jsonb->>'api_key','')<>''AS credential_present,COALESCE(parameters::jsonb->>'base_url','')<>''AS endpoint_present FROM models WHERE deleted_at IS NULL",
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT substr(md5('knowhub-b7-kb:'||kb.id),1,16)AS kb_ref,substr(md5(kb.embedding_model_id),1,16)AS model_ref,m.deleted_at IS NOT NULL AS model_deleted,m.status AS model_status,m.parameters::jsonb->'embedding_parameters'->>'dimension'AS dimension FROM tenant_portal_configs pc JOIN tenants t ON t.id=pc.tenant_id JOIN knowledge_bases kb ON kb.tenant_id=t.id LEFT JOIN models m ON m.id=kb.embedding_model_id WHERE pc.status='published'AND t.deleted_at IS NULL AND t.status='active'AND kb.deleted_at IS NULL",
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT dimension,count(*)AS rows FROM embeddings GROUP BY dimension",
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT indexname,substring(indexdef from 'halfvec\\(([0-9]+)\\)')AS halfvec_dimension FROM pg_indexes WHERE schemaname='public'AND tablename='embeddings'AND indexdef ILIKE '%hnsw%'",
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT substr(md5('knowhub-formal-source:'||id),1,16)AS source_ref,type,status,sync_mode,sync_deletions,last_sync_at,EXTRACT(EPOCH FROM(now()-last_sync_at))/3600 AS hours_since_sync,deleted_at IS NOT NULL AS deleted,COALESCE(error_message,'')<>''AS has_error,last_sync_cursor IS NOT NULL AS has_cursor,md5(COALESCE(last_sync_cursor::text,''))AS cursor_fingerprint,'SCHEMA_UNAVAILABLE'::text AS legacy_access_state FROM data_sources WHERE type IN('feishu','feishu_drive')",
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT substr(md5('knowhub-formal-source:'||l.data_source_id),1,16)AS source_ref,l.status,count(*)AS rows FROM sync_logs l JOIN data_sources d ON d.id=l.data_source_id WHERE d.type IN('feishu','feishu_drive')GROUP BY l.data_source_id,l.status",
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT key,value FROM system_settings WHERE key IN('auth.oidc.enabled','auth.sourceid.enabled','feishu.legacy_sync_suspended','feishu.safe_incremental_enabled')AND COALESCE(is_secret,false)=false",
+      "exit_code": 0
+    }
+  ],
+  "services": [
+    {
+      "name": "knowhub-mvp-p3-app-1",
+      "image": "knowhub-rc3/app:0.8.0-oa-feishu-rc3-1e2ded5b6",
+      "image_id": "sha256:0c84cac5af5103b73102c6261f32130d3e51eeed1b8cbf77fda61de20c4bd983",
+      "running": true,
+      "health": null,
+      "started_at": "2026-10-20T06:27:48.46022346Z",
+      "compose_project": "knowhub-mvp-p3",
+      "compose_service": "app",
+      "working_dir": "/home/aqyfzx/ai/knowhub-feishu-mvp-p3-20261018/private",
+      "compose_files": "/home/aqyfzx/ai/knowhub-feishu-mvp-p3-20261018/private/p3-compose.json,/home/aqyfzx/ai/knowhub-feishu-mvp-p3-20261018/private/ux-general-override.json,/home/aqyfzx/ai/knowhub-feishu-mvp-p4-20261019/private/p4-v5-override.json,/home/aqyfzx/ai/knowhub-feishu-mvp-p4-20261019/private/p4-v6-override.json,/home/aqyfzx/ai/knowhub-feishu-mvp-p4-20261019/private/p4-v7-override.json,/home/aqyfzx/ai/knowhub-sid-tls-userinfo-20261019/private/tls-continuous-test-override.json,/home/aqyfzx/ai/knowhub-joint-20261020/private/joint-test-override.json,/home/aqyfzx/ai/knowhub-rc3-20261020/private/display-name-frontend-override.json,/home/aqyfzx/ai/knowhub-rc3-20261020/private/final-rc3-test-override.json,/home/aqyfzx/ai/knowhub-rc3-final-20261020/private/final-rc3-test-override.json,/home/aqyfzx/ai/knowhub-rc3-final-20261020/private/final3-rc3-test-override.json",
+      "ports": {
+        "8080/tcp": null
+      },
+      "networks": [
+        "knowhub-company-test_isolated",
+        "weknora_WeKnora-network"
+      ],
+      "revision_labels": {
+        "org.opencontainers.image.revision": "1e2ded5b67ce9487966210d31011cf9c5b8cdfb9"
+      },
+      "mounts": [
+        {
+          "type": "bind",
+          "name": null,
+          "destination": "/run/sourceid/ownership",
+          "rw": false
+        },
+        {
+          "type": "volume",
+          "name": "weknora_data-files",
+          "destination": "/data/files",
+          "rw": true
+        },
+        {
+          "type": "volume",
+          "name": "knowhub-mvp-p3-staging",
+          "destination": "/data/feishu-staging",
+          "rw": true
+        },
+        {
+          "type": "volume",
+          "name": "knowhub-company-test_doc-tmp",
+          "destination": "/tmp/docreader",
+          "rw": false
+        }
+      ]
+    },
+    {
+      "name": "knowhub-mvp-p3-frontend-1",
+      "image": "knowhub-rc3/frontend:0.8.0-oa-feishu-rc3-1e2ded5b6",
+      "image_id": "sha256:6a2def24a8dcf69cecac633cfb4e0c2752e472fe500a34ce464edb6db13ffa22",
+      "running": true,
+      "health": null,
+      "started_at": "2026-10-20T06:27:48.164562917Z",
+      "compose_project": "knowhub-mvp-p3",
+      "compose_service": "frontend",
+      "working_dir": "/home/aqyfzx/ai/knowhub-feishu-mvp-p3-20261018/private",
+      "compose_files": "/home/aqyfzx/ai/knowhub-feishu-mvp-p3-20261018/private/p3-compose.json,/home/aqyfzx/ai/knowhub-feishu-mvp-p3-20261018/private/ux-general-override.json,/home/aqyfzx/ai/knowhub-feishu-mvp-p4-20261019/private/p4-v5-override.json,/home/aqyfzx/ai/knowhub-feishu-mvp-p4-20261019/private/p4-v6-override.json,/home/aqyfzx/ai/knowhub-feishu-mvp-p4-20261019/private/p4-v7-override.json,/home/aqyfzx/ai/knowhub-sid-tls-userinfo-20261019/private/tls-continuous-test-override.json,/home/aqyfzx/ai/knowhub-joint-20261020/private/joint-test-override.json,/home/aqyfzx/ai/knowhub-rc3-20261020/private/display-name-frontend-override.json,/home/aqyfzx/ai/knowhub-rc3-20261020/private/final-rc3-test-override.json,/home/aqyfzx/ai/knowhub-rc3-final-20261020/private/final-rc3-test-override.json,/home/aqyfzx/ai/knowhub-rc3-final-20261020/private/final3-rc3-test-override.json",
+      "ports": {},
+      "networks": [
+        "knowhub-company-test_isolated"
+      ],
+      "revision_labels": {
+        "org.opencontainers.image.revision": "1e2ded5b67ce9487966210d31011cf9c5b8cdfb9"
+      },
+      "mounts": []
+    },
+    {
+      "name": "knowhub-company-entry-entry-1",
+      "image": "sha256:ab7845c89fadeb17ad2b68bd924e892f948b893781a50ab79e48385c319ddbe1",
+      "image_id": "sha256:ab7845c89fadeb17ad2b68bd924e892f948b893781a50ab79e48385c319ddbe1",
+      "running": true,
+      "health": null,
+      "started_at": "2026-10-18T15:28:23.797133917Z",
+      "compose_project": "knowhub-company-entry",
+      "compose_service": "entry",
+      "working_dir": "/home/aqyfzx/ai/knowhub-company-entry-20261017/entry",
+      "compose_files": "/home/aqyfzx/ai/knowhub-company-entry-20261017/entry/compose.json,/home/aqyfzx/ai/knowhub-feishu-mvp-p3-20261018/private/p3-entry-override.json",
+      "ports": {
+        "80/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "80"
+          }
+        ],
+        "8080/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "8080"
+          }
+        ]
+      },
+      "networks": [
+        "knowhub-company-test_edge",
+        "knowhub-company-test_isolated"
+      ],
+      "revision_labels": {
+        "org.opencontainers.image.revision": "832b6652adf541892545a7eac8b68733f846ab95"
+      },
+      "mounts": [
+        {
+          "type": "bind",
+          "name": null,
+          "destination": "/etc/nginx/nginx.conf",
+          "rw": false
+        }
+      ]
+    },
+    {
+      "name": "WeKnora-mcp",
+      "image": "weknora-mcp",
+      "image_id": "sha256:aa880bcfa09a66f201463aa614d7a299fef10b342779335ec08dac29713de337",
+      "running": true,
+      "health": null,
+      "started_at": "2026-09-07T02:19:58.102606799Z",
+      "compose_project": "weknora",
+      "compose_service": "mcp",
+      "working_dir": "/home/aqyfzx/ai/WeKnora",
+      "compose_files": "/home/aqyfzx/ai/WeKnora/docker-compose.yml",
+      "ports": {
+        "8000/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "8082"
+          },
+          {
+            "HostIp": "::",
+            "HostPort": "8082"
+          }
+        ]
+      },
+      "networks": [
+        "weknora_WeKnora-network"
+      ],
+      "revision_labels": {},
+      "mounts": []
+    },
+    {
+      "name": "WeKnora-postgres",
+      "image": "paradedb/paradedb:v0.22.2-pg17",
+      "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+      "running": true,
+      "health": "healthy",
+      "started_at": "2026-09-07T02:19:59.220964121Z",
+      "compose_project": "weknora",
+      "compose_service": "postgres",
+      "working_dir": "/home/aqyfzx/ai/WeKnora",
+      "compose_files": "/home/aqyfzx/ai/WeKnora/docker-compose.yml",
+      "ports": {
+        "5432/tcp": null
+      },
+      "networks": [
+        "weknora_WeKnora-network"
+      ],
+      "revision_labels": {},
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "weknora_postgres-data",
+          "destination": "/var/lib/postgresql/data",
+          "rw": true
+        }
+      ]
+    },
+    {
+      "name": "WeKnora-docreader",
+      "image": "wechatopenai/weknora-docreader:latest",
+      "image_id": "sha256:1f520c9e7c5890c6a97997523e536e9e312065548aeed826eb8ef600ce988ba9",
+      "running": true,
+      "health": "healthy",
+      "started_at": "2026-09-07T02:19:58.185858236Z",
+      "compose_project": "weknora",
+      "compose_service": "docreader",
+      "working_dir": "/home/aqyfzx/ai/WeKnora",
+      "compose_files": "/home/aqyfzx/ai/WeKnora/docker-compose.yml",
+      "ports": {
+        "50051/tcp": null
+      },
+      "networks": [
+        "weknora_WeKnora-network"
+      ],
+      "revision_labels": {
+        "org.opencontainers.image.revision": "3d5d8bfcdfeeea266b292b71cea616847af28d0f"
+      },
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "weknora_docreader-tmp",
+          "destination": "/tmp/docreader",
+          "rw": true
+        }
+      ]
+    },
+    {
+      "name": "WeKnora-redis",
+      "image": "redis:7.0-alpine",
+      "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+      "running": true,
+      "health": null,
+      "started_at": "2026-09-07T02:19:59.254730605Z",
+      "compose_project": "weknora",
+      "compose_service": "redis",
+      "working_dir": "/home/aqyfzx/ai/WeKnora",
+      "compose_files": "/home/aqyfzx/ai/WeKnora/docker-compose.yml",
+      "ports": {
+        "6379/tcp": null
+      },
+      "networks": [
+        "weknora_WeKnora-network"
+      ],
+      "revision_labels": {},
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "9f8af58d9cdc3cd0823720c783fcad930265c70c3aa6a96aa90997a408ff546b",
+          "destination": "/data",
+          "rw": true
+        }
+      ]
+    }
+  ],
+  "app_name": "knowhub-mvp-p3-app-1",
+  "app_flags": {
+    "OIDC_AUTH_ENABLE": "true",
+    "SOURCEID_ENABLE": "true",
+    "SOURCEID_PROTOCOL_ONLY": "false",
+    "SOURCEID_JIT_ENABLE": "true",
+    "SOURCEID_CONTRACT_CONFIRMED": "true",
+    "SOURCEID_EMAIL_CONTRACT_CONFIRMED": "true",
+    "SOURCEID_FORCE_REAUTH_PROMPT_LOGIN": "false",
+    "SOURCEID_LOCAL_ACCESS_TTL": "60m",
+    "FEISHU_LEGACY_SYNC_SUSPENDED": "true",
+    "FEISHU_SAFE_INCREMENTAL_ENABLED": "UNSET",
+    "AUTO_MIGRATE": "false",
+    "AUTO_RECOVER_DIRTY": "false",
+    "RETRIEVE_DRIVER": "postgres",
+    "DUCKDB_SKIP_EXTENSION_LOAD": "true",
+    "MCP_AUTH_MODE": "UNSET"
+  },
+  "secret_material_presence": {
+    "SYSTEM_AES_KEY": true,
+    "SYSTEM_SIGNING_KEY": false,
+    "JWT_SECRET": true,
+    "OIDC_CLIENT_SECRET": false,
+    "SOURCEID_CLIENT_SECRET": false
+  },
+  "AES_material_validation": {
+    "present": true,
+    "length": 32,
+    "backup_material_verified": false,
+    "exported": false
+  },
+  "identity_endpoint_origins": {},
+  "identity_callback_paths": {},
+  "app_binary_sha256": "2ce36ff0a4759b5a1a7ed365e198c90b97db9ba35a8cfc20171d641312cdd2ee",
+  "nginx_routes": [
+    {
+      "container": "knowhub-mvp-p3-frontend-1",
+      "nginx_T_exit": 0,
+      "safe_directives": [
+        "listen 80;",
+        "server_name localhost;",
+        "client_max_body_size 101M;",
+        "location = /weknora-widget.js {",
+        "location = /embed.html {",
+        "location ^~ /embed/ {",
+        "location = /_embed-frame-policy {",
+        "proxy_pass http://p3app:8080/api/v1/embed-frame-policy;",
+        "proxy_set_header Host $http_host;",
+        "proxy_set_header X-Forwarded-Proto $scheme;",
+        "location / {",
+        "location ^~ /assets/ {",
+        "location = /files {",
+        "proxy_pass http://p3app:8080/files;",
+        "proxy_set_header Host $host;",
+        "proxy_set_header X-Forwarded-Proto $scheme;",
+        "location ^~ /r/ {",
+        "proxy_pass http://p3app:8080;",
+        "proxy_set_header Host $host;",
+        "proxy_set_header X-Forwarded-Proto $scheme;",
+        "location = /api/v1/local-browser/extension {",
+        "proxy_pass http://p3app:8080;",
+        "proxy_http_version 1.1;",
+        "proxy_set_header Host $host;",
+        "proxy_set_header X-Forwarded-Proto $scheme;",
+        "proxy_set_header Connection \"upgrade\";",
+        "proxy_read_timeout 3600s;",
+        "proxy_send_timeout 3600s;",
+        "proxy_buffering off;",
+        "proxy_request_buffering off;",
+        "location = /api/v1/local-browser/internal {",
+        "location ~ ^/api/v1/sessions/[^/]+/sandbox/(terminal|desktop)$ {",
+        "proxy_pass http://p3app:8080;",
+        "proxy_http_version 1.1;",
+        "proxy_set_header Host $host;",
+        "proxy_set_header X-Forwarded-Proto $scheme;",
+        "proxy_set_header Connection \"upgrade\";",
+        "proxy_read_timeout 3600s;",
+        "proxy_send_timeout 3600s;",
+        "proxy_buffering off;",
+        "proxy_request_buffering off;",
+        "location ~ ^/api/v1/(?:skills/catalog|sandbox-configs/[^/]+/skills)/?$ {",
+        "client_max_body_size 256M;",
+        "proxy_pass http://p3app:8080;",
+        "location ^~ /mcp/ {",
+        "proxy_pass http://p3app:8080;",
+        "location ^~ /api/v1/auth/oidc/ {",
+        "proxy_pass http://p3app:8080;",
+        "location /api/ {",
+        "proxy_pass http://p3app:8080/api/;",
+        "location = /50x.html {",
+        "proxy_set_header Host $http_host;",
+        "proxy_set_header X-Forwarded-Proto $scheme;",
+        "proxy_http_version 1.1;                    # \u4f7f\u7528 HTTP/1.1",
+        "proxy_set_header Connection \"\"; # \u7981\u7528 Connection: close\uff0c\u4fdd\u6301\u8fde\u63a5\u6253\u5f00",
+        "proxy_buffering off;                       # \u5173\u95ed\u7f13\u51b2",
+        "proxy_read_timeout 3600s;                  # \u589e\u52a0\u8bfb\u53d6\u8d85\u65f6\u65f6\u95f4",
+        "proxy_send_timeout 3600s;                  # \u589e\u52a0\u53d1\u9001\u8d85\u65f6\u65f6\u95f4"
+      ]
+    },
+    {
+      "container": "knowhub-company-entry-entry-1",
+      "nginx_T_exit": 0,
+      "safe_directives": []
+    }
+  ],
+  "host_disk": "Filesystem                         Size  Used Avail Use% Mounted on\n/dev/mapper/ubuntu--vg-ubuntu--lv  489G  451G   14G  98% /\n/dev/mapper/ubuntu--vg-ubuntu--lv  489G  451G   14G  98% /\n",
+  "listening_tcp": "LISTEN     0          4096           127.0.0.53%lo:53             0.0.0.0:*     \nLISTEN     0          128                  0.0.0.0:22             0.0.0.0:*     \nLISTEN     0          4096               127.0.0.1:50041          0.0.0.0:*     \nLISTEN     0          4096                 0.0.0.0:18080          0.0.0.0:*     \nLISTEN     0          4096                 0.0.0.0:18081          0.0.0.0:*     \nLISTEN     0          4096               127.0.0.1:32770          0.0.0.0:*     \nLISTEN     0          4096                 0.0.0.0:18082          0.0.0.0:*     \nLISTEN     0          4096               127.0.0.1:32771          0.0.0.0:*     \nLISTEN     0          4096               127.0.0.1:32772          0.0.0.0:*     \nLISTEN     0          70                   0.0.0.0:33060          0.0.0.0:*     \nLISTEN     0          4096               127.0.0.1:32773          0.0.0.0:*     \nLISTEN     0          4096               127.0.0.1:18182          0.0.0.0:*     \nLISTEN     0          4096               127.0.0.1:32774          0.0.0.0:*     \nLISTEN     0          4096               127.0.0.1:55431          0.0.0.0:*     \nLISTEN     0          4096               127.0.0.1:59079          0.0.0.0:*     \nLISTEN     0          4096               127.0.0.1:32775          0.0.0.0:*     \nLISTEN     0          4096               127.0.0.1:32776          0.0.0.0:*     \nLISTEN     0          4096               127.0.0.1:55145          0.0.0.0:*     \nLISTEN     0          4096               127.0.0.1:32777          0.0.0.0:*     \nLISTEN     0          4096               127.0.0.1:18090          0.0.0.0:*     \nLISTEN     0          4096               127.0.0.1:32778          0.0.0.0:*     \nLISTEN     0          300                  0.0.0.0:3306           0.0.0.0:*     \nLISTEN     0          4096               127.0.0.1:60683          0.0.0.0:*     \nLISTEN     0          4096               127.0.0.1:18091          0.0.0.0:*     \nLISTEN     0          4096                 0.0.0.0:80             0.0.0.0:*     \nLISTEN     0          4096                 0.0.0.0:8080           0.0.0.0:*     \nLISTEN     0          4096                 0.0.0.0:8082           0.0.0.0:*     \nLISTEN     0          128                     [::]:22                [::]:*     \nLISTEN     0          4096                    [::]:18080             [::]:*     \nLISTEN     0          4096                    [::]:18081             [::]:*     \nLISTEN     0          4096                    [::]:18082             [::]:*     \nLISTEN     0          4096                    [::]:8082              [::]:*     \n",
+  "database_target": {
+    "container": "WeKnora-postgres",
+    "name": "WeKnora",
+    "app_DB_HOST": "WeKnora-postgres",
+    "not_production_host": true,
+    "data_origin_verified": false
+  },
+  "schema_shape": [
+    {
+      "table_name": "data_sources",
+      "column_name": "id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "tenant_id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "knowledge_base_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "name",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "type",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "sync_schedule",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "sync_mode",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "conflict_strategy",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "sync_deletions",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "last_sync_at",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "last_sync_cursor",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "last_sync_result",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "error_message",
+      "data_type": "text"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "sync_log_retention_days",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "created_at",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "updated_at",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "deleted_at",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "id",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "source_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "source_type",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "chunk_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "knowledge_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "knowledge_base_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "content",
+      "data_type": "text"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "dimension",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "embedding",
+      "data_type": "USER-DEFINED"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "is_enabled",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "tag_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "name",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "description",
+      "data_type": "text"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "tenant_id",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "chunking_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "image_processing_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "embedding_model_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "summary_model_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "cos_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "vlm_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "extract_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "deleted_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "is_temporary",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "type",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "faq_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "question_generation_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "storage_provider_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "is_pinned",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "pinned_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "asr_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "vector_store_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "wiki_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "indexing_strategy",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "creator_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "storage_backend_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "auto_tag_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "profile_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "generated_profile",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "models",
+      "column_name": "id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "models",
+      "column_name": "tenant_id",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "models",
+      "column_name": "name",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "models",
+      "column_name": "display_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "models",
+      "column_name": "type",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "models",
+      "column_name": "source",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "models",
+      "column_name": "description",
+      "data_type": "text"
+    },
+    {
+      "table_name": "models",
+      "column_name": "parameters",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "models",
+      "column_name": "is_default",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "models",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "models",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "models",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "models",
+      "column_name": "deleted_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "models",
+      "column_name": "is_builtin",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "models",
+      "column_name": "managed_by",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "data_source_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "tenant_id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "started_at",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "finished_at",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "items_total",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "items_created",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "items_updated",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "items_deleted",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "items_skipped",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "items_failed",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "error_message",
+      "data_type": "text"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "result",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "created_at",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "updated_at",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "execution_generation",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "execution_claimed",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "key",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "value",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "value_type",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "category",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "description",
+      "data_type": "text"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "is_secret",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "requires_restart",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "last_modified_by",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "tenant_id",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "display_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "description",
+      "data_type": "text"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "category",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "responsible_team",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "contact",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "featured",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "display_order",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "allow_access_request",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "interaction_organization_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "created_by",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "updated_by",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "published_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "id",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "name",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "description",
+      "data_type": "text"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "retriever_engines",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "business",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "storage_quota",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "storage_used",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "agent_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "deleted_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "context_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "conversation_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "web_search_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "parser_engine_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "storage_engine_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "chat_history_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "retrieval_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "credentials",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "api_principal_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "default_storage_backend_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "memory_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "users",
+      "column_name": "id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "users",
+      "column_name": "username",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "users",
+      "column_name": "email",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "users",
+      "column_name": "password_hash",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "users",
+      "column_name": "avatar",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "users",
+      "column_name": "tenant_id",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "users",
+      "column_name": "is_active",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "users",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "users",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "users",
+      "column_name": "deleted_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "users",
+      "column_name": "can_access_all_tenants",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "users",
+      "column_name": "preferences",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "users",
+      "column_name": "is_system_admin",
+      "data_type": "boolean"
+    }
+  ],
+  "schema_version": [
+    {
+      "version": 3033,
+      "dirty": false
+    }
+  ],
+  "extensions": [
+    {
+      "extname": "pg_search",
+      "extversion": "0.22.2"
+    },
+    {
+      "extname": "vector",
+      "extversion": "0.8.1"
+    }
+  ],
+  "account_counts": [
+    {
+      "accounts": 4,
+      "active_accounts": 4
+    }
+  ],
+  "portal_counts": [
+    {
+      "published_active_spaces": 0,
+      "live_kbs": 0,
+      "document_kbs": 0,
+      "non_temporary_document_kbs": 0
+    }
+  ],
+  "portal_inventory": [],
+  "model_registry": [
+    {
+      "model_ref": "b0eb0fdfb35ccf6d",
+      "type": "Embedding",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "1024",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "420efef5c5a080f7",
+      "type": "KnowledgeQA",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "842582a1ae394584",
+      "type": "VLLM",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "d6aab806a1d4a807",
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    }
+  ],
+  "KB_model_bindings": [],
+  "vector_dimensions": [
+    {
+      "dimension": 1024,
+      "rows": 5682
+    }
+  ],
+  "vector_index_dimensions": [
+    {
+      "indexname": "embeddings_embedding_idx_3584",
+      "halfvec_dimension": "3584"
+    },
+    {
+      "indexname": "embeddings_embedding_idx_798",
+      "halfvec_dimension": "798"
+    },
+    {
+      "indexname": "embeddings_embedding_idx_1024",
+      "halfvec_dimension": "1024"
+    }
+  ],
+  "feishu_sources": [
+    {
+      "source_ref": "6937d7bf0d5472fe",
+      "type": "feishu",
+      "status": "paused",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": null,
+      "hours_since_sync": null,
+      "deleted": true,
+      "has_error": false,
+      "has_cursor": false,
+      "cursor_fingerprint": "d41d8cd98f00b204e9800998ecf8427e",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    }
+  ],
+  "feishu_sync_log_counts": [],
+  "safe_runtime_settings": [],
+  "ssh_exit_code": 0,
+  "inspection_script_sha256": "0b0e9dad621674e4ab816a10769d2eb68f4205e8b7aadc057a6f72e723eea016"
+}

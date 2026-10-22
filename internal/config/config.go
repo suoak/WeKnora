@@ -45,6 +45,17 @@ type Config struct {
 	// exclusively from MCP_PUBLIC_URL at startup; an empty or invalid value
 	// disables copy-ready client configuration without exposing other settings.
 	MCPPublicURL string `yaml:"-" json:"-"`
+	// No defaults or automatic role/Key expansion. This optional composition
+	// is enabled explicitly in an isolated candidate configuration only.
+	PersonalMCP *PersonalMCPConfig `yaml:"personal_mcp" json:"personal_mcp"`
+}
+
+type PersonalMCPConfig struct {
+	Enabled           bool   `yaml:"enabled" json:"enabled"`
+	PolicyReference   string `yaml:"policy_reference" json:"policy_reference"`
+	ReviewEnabled     bool   `yaml:"review_enabled" json:"review_enabled"`
+	SystemAdminReview bool   `yaml:"system_admin_review" json:"system_admin_review"`
+	ExceptionsEnabled bool   `yaml:"exceptions_enabled" json:"exceptions_enabled"`
 }
 
 // AgentConfig represents the global agent settings.

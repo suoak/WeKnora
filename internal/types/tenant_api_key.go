@@ -16,17 +16,19 @@ import (
 // choose a target workspace per request. KeyHash is used for authentication
 // lookup; APIKey is stored encrypted when SYSTEM_AES_KEY is set.
 type TenantAPIKey struct {
-	ID               uint64          `json:"id" gorm:"primaryKey;autoIncrement"`
-	TenantID         *uint64         `json:"tenant_id,omitempty" gorm:"index"`
-	OwnerUserID      *string         `json:"owner_user_id,omitempty" gorm:"type:varchar(36);index"`
-	ScopeType        APIKeyScopeType `json:"scope_type" gorm:"type:varchar(16);not null;default:tenant;index"`
-	Name             string          `json:"name" gorm:"type:varchar(128);not null"`
-	ClientType       MCPClientType   `json:"client_type" gorm:"type:varchar(32);not null;default:generic"`
-	KeyHash          string          `json:"-" gorm:"type:varchar(64);not null;uniqueIndex"`
-	APIKey           string          `json:"api_key" gorm:"column:api_key;type:text;not null;default:''"`
-	TokenHint        string          `json:"token_hint" gorm:"type:varchar(16);not null;default:''"`
-	FullAccess       bool            `json:"full_access" gorm:"not null;default:false"`
-	KnowledgeBaseIDs StringArray     `json:"knowledge_base_ids" gorm:"type:jsonb;not null;default:'[]'"`
+	PersonalScopeMode string          `json:"personal_scope_mode" gorm:"type:varchar(16);not null;default:fixed"`
+	ID                uint64          `json:"id" gorm:"primaryKey;autoIncrement"`
+	TenantID          *uint64         `json:"tenant_id,omitempty" gorm:"index"`
+	OwnerUserID       *string         `json:"owner_user_id,omitempty" gorm:"type:varchar(36);index"`
+	ScopeType         APIKeyScopeType `json:"scope_type" gorm:"type:varchar(16);not null;default:tenant;index"`
+	Name              string          `json:"name" gorm:"type:varchar(128);not null"`
+	ClientType        MCPClientType   `json:"client_type" gorm:"type:varchar(32);not null;default:generic"`
+	KeyHash           string          `json:"-" gorm:"type:varchar(64);not null;uniqueIndex"`
+	APIKey            string          `json:"api_key" gorm:"column:api_key;type:text;not null;default:''"`
+	APIKeyEncrypted   bool            `json:"-" gorm:"-"`
+	TokenHint         string          `json:"token_hint" gorm:"type:varchar(16);not null;default:''"`
+	FullAccess        bool            `json:"full_access" gorm:"not null;default:false"`
+	KnowledgeBaseIDs  StringArray     `json:"knowledge_base_ids" gorm:"type:jsonb;not null;default:'[]'"`
 	// Capabilities are bounded grants for non-full-access keys. Each
 	// capability maps to an integration persona (retrieval, chat, ingest,
 	// tenant infrastructure management, and history access). KB scoping
@@ -148,6 +150,9 @@ const (
 	// APIKeyCapabilityRetrieve lets a key read and search knowledge-base data
 	// within its allowed KB scope without granting chat or content writes.
 	APIKeyCapabilityRetrieve APIKeyCapability = "retrieve"
+	// EnterpriseRetrieve is an explicit user_mcp-only public parsed-read grant.
+	// It is never implied by full_access or by the existing retrieve capability.
+	APIKeyCapabilityEnterpriseRetrieve APIKeyCapability = "enterprise_retrieve"
 	// APIKeyCapabilityChat lets a scoped key run the conversation flow
 	// (sessions + agent listing + self identity) without granting broader
 	// tenant management access.
@@ -242,6 +247,8 @@ func NormalizeAPIKeyCapability(c APIKeyCapability) APIKeyCapability {
 	switch APIKeyCapability(strings.ToLower(strings.TrimSpace(string(c)))) {
 	case APIKeyCapabilityRetrieve:
 		return APIKeyCapabilityRetrieve
+	case APIKeyCapabilityEnterpriseRetrieve:
+		return APIKeyCapabilityEnterpriseRetrieve
 	case APIKeyCapabilityChat:
 		return APIKeyCapabilityChat
 	case APIKeyCapabilityReadAgents:
@@ -329,6 +336,7 @@ func (k *TenantAPIKey) BeforeSave(tx *gorm.DB) error {
 }
 
 func (k *TenantAPIKey) AfterFind(tx *gorm.DB) error {
+	k.APIKeyEncrypted = strings.HasPrefix(k.APIKey, utils.EncPrefix)
 	decrypted, err := utils.DecryptStoredSecret(k.APIKey)
 	if err != nil {
 		return fmt.Errorf("decrypt tenant_api_keys.api_key (id=%d): %w", k.ID, err)

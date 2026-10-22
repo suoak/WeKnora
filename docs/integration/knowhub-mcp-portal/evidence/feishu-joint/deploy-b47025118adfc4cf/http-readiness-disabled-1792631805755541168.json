@@ -1,0 +1,9 @@
+{
+  "ready": true,
+  "bounded_seconds": 90,
+  "attempts": [
+    {
+      "http_status": 200
+    }
+  ]
+}

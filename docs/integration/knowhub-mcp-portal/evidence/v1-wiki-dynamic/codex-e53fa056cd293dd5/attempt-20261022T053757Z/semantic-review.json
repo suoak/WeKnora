@@ -1,0 +1,23 @@
+{
+  "candidate_sha256": "e53fa056cd293dd5d5b88857dbc9edc4edac82a1119f180d5b294b854ab44ee9",
+  "checks": {
+    "read_document_body_received": true,
+    "URL_destinations_filtered": true,
+    "grep_chunks_body_received": true,
+    "list_knowledge_bases_body_received": true,
+    "four_scope_KBs": true,
+    "search_knowledge_body_received": true,
+    "cross_space_results": true,
+    "list_documents_body_received": true,
+    "wiki_search_body_received": true,
+    "wiki_safe_search": true,
+    "wiki_read_page_body_received": true,
+    "wiki_actual_body": true,
+    "wiki_index_body_received": true,
+    "wiki_safe_directory": true,
+    "sensitive_direct_id_denied": true
+  },
+  "all_passed": true,
+  "synthetic_only": true,
+  "evidence": "codex.log"
+}

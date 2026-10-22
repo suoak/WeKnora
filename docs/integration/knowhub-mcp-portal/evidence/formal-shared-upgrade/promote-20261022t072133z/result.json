@@ -1,0 +1,16 @@
+{
+  "exit_code": 0,
+  "candidate_sha256": "bf199466752a3a1d75540355dc1fee9fb7f6bdef338c4ad0b62a49485b151661",
+  "runtime_source_sha256": "0a1b5cebe229246b4c646cccc4749f51aa97eb6aec9f5a5a2066f4153406463e",
+  "url": "http://172.30.232.42",
+  "schema": 3037,
+  "image_ids": [
+    "sha256:954ca9badbf0470375419ab60d9a4cbbb78a2239d1d0b39a9856ef5b790eda47",
+    "sha256:d1e031898dc48ae2a67a1b5207b957d20289c2bb41cf8fb00360dd834c557769"
+  ],
+  "actual_binary_sha256": "fdc4d9cfc3fad3fd678a58d5aba53328aff185461f789c1092358ae6f4d4aa50",
+  "Go_and_migrations_unchanged": true,
+  "pre_upgrade_dump_sha256": "55b7363ee66f777605c11748e5316f832e13b0fc81cc61186940b3a50643bbdf",
+  "original_python_preserved": true,
+  "production_accessed": false
+}

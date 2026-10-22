@@ -100,6 +100,7 @@ jobs:
     # Publish on push to main, manual runs (main/tags only), and release tags — never on PRs.
     if: >-
       github.event_name != 'pull_request' &&
+      (github.repository != 'suoak/WeKnora' || vars.KNOWHUB_RELEASE_PUBLISH_ENABLED == 'true') &&
       (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/mcp-server-v'))
     permissions:
       id-token: write

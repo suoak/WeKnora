@@ -1,0 +1,167 @@
+{
+  "only_exact_prior_development_tests": true,
+  "deleted": false,
+  "volumes_and_logs_retained": true,
+  "protected_instances_unchanged": [
+    "RC3",
+    "Python MCP",
+    "5468",
+    "b470"
+  ],
+  "operations": [
+    {
+      "name": "feishu-atomic-1d533edfe339-joint-release-source-pg",
+      "label": "development",
+      "exit_code": 0,
+      "stdout": "feishu-atomic-1d533edfe339-joint-release-source-pg\n",
+      "stderr": ""
+    },
+    {
+      "name": "feishu-atomic-1d533edfe339-joint-release-source-pg-redis",
+      "label": "development",
+      "exit_code": 0,
+      "stdout": "feishu-atomic-1d533edfe339-joint-release-source-pg-redis\n",
+      "stderr": ""
+    },
+    {
+      "name": "feishu-atomic-2ac380a033af-b2-materialized-pg",
+      "label": "development",
+      "exit_code": 0,
+      "stdout": "feishu-atomic-2ac380a033af-b2-materialized-pg\n",
+      "stderr": ""
+    },
+    {
+      "name": "feishu-atomic-2ac380a033af-b2-materialized-pg-redis",
+      "label": "development",
+      "exit_code": 0,
+      "stdout": "feishu-atomic-2ac380a033af-b2-materialized-pg-redis\n",
+      "stderr": ""
+    },
+    {
+      "name": "feishu-atomic-27f24f90c011-joint-canonical-final-pg",
+      "label": "development",
+      "exit_code": 0,
+      "stdout": "feishu-atomic-27f24f90c011-joint-canonical-final-pg\n",
+      "stderr": ""
+    },
+    {
+      "name": "feishu-atomic-27f24f90c011-joint-canonical-final-pg-redis",
+      "label": "development",
+      "exit_code": 0,
+      "stdout": "feishu-atomic-27f24f90c011-joint-canonical-final-pg-redis\n",
+      "stderr": ""
+    },
+    {
+      "name": "feishu-atomic-87a37401145c-joint-canonical2-pg",
+      "label": "development",
+      "exit_code": 0,
+      "stdout": "feishu-atomic-87a37401145c-joint-canonical2-pg\n",
+      "stderr": ""
+    },
+    {
+      "name": "feishu-atomic-87a37401145c-joint-canonical2-pg-redis",
+      "label": "development",
+      "exit_code": 0,
+      "stdout": "feishu-atomic-87a37401145c-joint-canonical2-pg-redis\n",
+      "stderr": ""
+    },
+    {
+      "name": "feishu-atomic-fa2748fde60d-joint-canonical-pg",
+      "label": "development",
+      "exit_code": 0,
+      "stdout": "feishu-atomic-fa2748fde60d-joint-canonical-pg\n",
+      "stderr": ""
+    },
+    {
+      "name": "feishu-atomic-fa2748fde60d-joint-canonical-pg-redis",
+      "label": "development",
+      "exit_code": 0,
+      "stdout": "feishu-atomic-fa2748fde60d-joint-canonical-pg-redis\n",
+      "stderr": ""
+    },
+    {
+      "name": "feishu-atomic-1d7332957205-joint-acceptance-source-pg",
+      "label": "development",
+      "exit_code": 0,
+      "stdout": "feishu-atomic-1d7332957205-joint-acceptance-source-pg\n",
+      "stderr": ""
+    },
+    {
+      "name": "feishu-atomic-1d7332957205-joint-acceptance-source-pg-redis",
+      "label": "development",
+      "exit_code": 0,
+      "stdout": "feishu-atomic-1d7332957205-joint-acceptance-source-pg-redis\n",
+      "stderr": ""
+    },
+    {
+      "name": "feishu-atomic-b78966cf1556-b2-acceptance-source-pg",
+      "label": "development",
+      "exit_code": 0,
+      "stdout": "feishu-atomic-b78966cf1556-b2-acceptance-source-pg\n",
+      "stderr": ""
+    },
+    {
+      "name": "feishu-atomic-b78966cf1556-b2-acceptance-source-pg-redis",
+      "label": "development",
+      "exit_code": 0,
+      "stdout": "feishu-atomic-b78966cf1556-b2-acceptance-source-pg-redis\n",
+      "stderr": ""
+    },
+    {
+      "name": "feishu-atomic-1a0b91b292bb-joint-finalquality2-pg",
+      "label": "development",
+      "exit_code": 0,
+      "stdout": "feishu-atomic-1a0b91b292bb-joint-finalquality2-pg\n",
+      "stderr": ""
+    },
+    {
+      "name": "feishu-atomic-1a0b91b292bb-joint-finalquality2-pg-redis",
+      "label": "development",
+      "exit_code": 0,
+      "stdout": "feishu-atomic-1a0b91b292bb-joint-finalquality2-pg-redis\n",
+      "stderr": ""
+    },
+    {
+      "name": "feishu-atomic-c13e04d95ed7-joint-finalquality-pg",
+      "label": "development",
+      "exit_code": 0,
+      "stdout": "feishu-atomic-c13e04d95ed7-joint-finalquality-pg\n",
+      "stderr": ""
+    },
+    {
+      "name": "feishu-atomic-c13e04d95ed7-joint-finalquality-pg-redis",
+      "label": "development",
+      "exit_code": 0,
+      "stdout": "feishu-atomic-c13e04d95ed7-joint-finalquality-pg-redis\n",
+      "stderr": ""
+    },
+    {
+      "name": "feishu-atomic-6bfb483e922d-b2-finalquality-pg",
+      "label": "development",
+      "exit_code": 0,
+      "stdout": "feishu-atomic-6bfb483e922d-b2-finalquality-pg\n",
+      "stderr": ""
+    },
+    {
+      "name": "feishu-atomic-6bfb483e922d-b2-finalquality-pg-redis",
+      "label": "development",
+      "exit_code": 0,
+      "stdout": "feishu-atomic-6bfb483e922d-b2-finalquality-pg-redis\n",
+      "stderr": ""
+    },
+    {
+      "name": "feishu-atomic-d39c698b5bca-b2-finalquality2-pg",
+      "label": "development",
+      "exit_code": 0,
+      "stdout": "feishu-atomic-d39c698b5bca-b2-finalquality2-pg\n",
+      "stderr": ""
+    },
+    {
+      "name": "feishu-atomic-d39c698b5bca-b2-finalquality2-pg-redis",
+      "label": "development",
+      "exit_code": 0,
+      "stdout": "feishu-atomic-d39c698b5bca-b2-finalquality2-pg-redis\n",
+      "stderr": ""
+    }
+  ]
+}

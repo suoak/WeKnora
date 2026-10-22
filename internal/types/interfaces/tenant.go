@@ -63,16 +63,17 @@ type TenantRepository interface {
 }
 
 type TenantAPIKeyCreateRequest struct {
-	TenantID         uint64
-	ScopeType        types.APIKeyScopeType
-	Name             string
-	ClientType       types.MCPClientType
-	FullAccess       bool
-	KnowledgeBaseIDs []string
-	Capabilities     []string
-	ExpiresAt        *time.Time
-	OwnerUserID      string
-	TenantScopes     []types.APIKeyTenantScope
+	PersonalScopeMode string
+	TenantID          uint64
+	ScopeType         types.APIKeyScopeType
+	Name              string
+	ClientType        types.MCPClientType
+	FullAccess        bool
+	KnowledgeBaseIDs  []string
+	Capabilities      []string
+	ExpiresAt         *time.Time
+	OwnerUserID       string
+	TenantScopes      []types.APIKeyTenantScope
 }
 
 type TenantAPIKeyCreateResult struct {
@@ -137,7 +138,7 @@ type UserMCPAPIKeyRepository interface {
 	GetUserMCPAPIKey(ctx context.Context, userID string, id uint64) (*types.TenantAPIKey, error)
 	GetUserMCPTenantScope(ctx context.Context, keyID, tenantID uint64) (*types.APIKeyTenantScope, error)
 	ReplaceUserMCPAPIKey(ctx context.Context, userID string, key *types.TenantAPIKey) (*types.TenantAPIKey, error)
-	RotateUserMCPAPIKey(ctx context.Context, userID string, id uint64, expectedHash, newHash, tokenHint string, expiresAt *time.Time) (*types.TenantAPIKey, error)
+	RotateUserMCPAPIKey(ctx context.Context, userID string, id uint64, expectedHash, newHash, tokenHint string, expiresAt *time.Time, encryptedSecret ...string) (*types.TenantAPIKey, error)
 	RevokeUserMCPAPIKey(ctx context.Context, userID string, id uint64) error
 }
 

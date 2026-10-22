@@ -1,0 +1,14 @@
+{
+  "exit_code": 0,
+  "candidate_sha256": "0a7374bbbdbd8c4a802733811ad3ecbeb70293ba33b89eefa9bd05c36ecbd371",
+  "checks": {
+    "draft_denied": "PASS",
+    "archived_denied": "PASS",
+    "raw_writer_unproved_body_denied": "PASS",
+    "ABA_does_not_restore_proof": "PASS",
+    "mixed_and_missing_sources_denied": "PASS",
+    "healthy_Wiki_still_readable": "PASS"
+  },
+  "synthetic_only": true,
+  "modified_only_fm_fixture": true
+}

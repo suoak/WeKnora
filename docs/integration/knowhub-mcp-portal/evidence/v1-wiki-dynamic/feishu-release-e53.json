@@ -1,0 +1,6 @@
+{
+  "exists": true,
+  "bytes": 0,
+  "release_condition": "flag existence, created after semantic verification",
+  "write_note": "Paramiko x mode created flag but rejected optional text; no product change"
+}

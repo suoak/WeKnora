@@ -1,0 +1,289 @@
+{
+  "exit_code": 0,
+  "candidate_sha256": "e53fa056cd293dd5d5b88857dbc9edc4edac82a1119f180d5b294b854ab44ee9",
+  "initial_kbs": [
+    "private-home",
+    "private-other",
+    "public-kb",
+    "public-two"
+  ],
+  "actions": [
+    {
+      "rpc_id": 1,
+      "tool": "list_knowledge_bases",
+      "http_status": 200,
+      "elapsed_ms": 174.27070811390877,
+      "is_error": false
+    },
+    {
+      "rpc_id": 2,
+      "tool": "search_knowledge",
+      "http_status": 200,
+      "elapsed_ms": 487.5407796353102,
+      "is_error": false
+    },
+    {
+      "rpc_id": 3,
+      "tool": "search_knowledge",
+      "http_status": 200,
+      "elapsed_ms": 379.97978553175926,
+      "is_error": false
+    },
+    {
+      "rpc_id": 4,
+      "tool": "search_knowledge",
+      "http_status": 200,
+      "elapsed_ms": 569.3773105740547,
+      "is_error": false
+    },
+    {
+      "rpc_id": 5,
+      "tool": "grep_chunks",
+      "http_status": 200,
+      "elapsed_ms": 444.5033259689808,
+      "is_error": false
+    },
+    {
+      "rpc_id": 6,
+      "tool": "list_documents",
+      "http_status": 200,
+      "elapsed_ms": 173.13097789883614,
+      "is_error": false
+    },
+    {
+      "rpc_id": 7,
+      "tool": "search_knowledge",
+      "http_status": 200,
+      "elapsed_ms": 496.200205758214,
+      "is_error": false
+    },
+    {
+      "rpc_id": 8,
+      "tool": "search_knowledge",
+      "http_status": 200,
+      "elapsed_ms": 485.76769977808,
+      "is_error": false
+    },
+    {
+      "rpc_id": 9,
+      "tool": "search_knowledge",
+      "http_status": 200,
+      "elapsed_ms": 734.7480040043592,
+      "is_error": false
+    },
+    {
+      "rpc_id": 10,
+      "tool": "search_knowledge",
+      "http_status": 200,
+      "elapsed_ms": 455.4316494613886,
+      "is_error": false
+    },
+    {
+      "rpc_id": 11,
+      "tool": "search_knowledge",
+      "http_status": 200,
+      "elapsed_ms": 455.0838451832533,
+      "is_error": false
+    },
+    {
+      "rpc_id": 12,
+      "tool": "read_document",
+      "http_status": 200,
+      "elapsed_ms": 168.72370056807995,
+      "is_error": false
+    },
+    {
+      "rpc_id": 13,
+      "tool": "read_document",
+      "http_status": 200,
+      "elapsed_ms": 161.8010774254799,
+      "is_error": true
+    },
+    {
+      "rpc_id": 14,
+      "tool": "read_document",
+      "http_status": 200,
+      "elapsed_ms": 180.9295378625393,
+      "is_error": true
+    },
+    {
+      "rpc_id": 15,
+      "tool": "add_document",
+      "http_status": 200,
+      "elapsed_ms": 47.35278710722923,
+      "is_error": true
+    },
+    {
+      "rpc_id": 16,
+      "tool": "delete_document",
+      "http_status": 200,
+      "elapsed_ms": 52.99175716936588,
+      "is_error": true
+    },
+    {
+      "rpc_id": 17,
+      "tool": "ask",
+      "http_status": 200,
+      "elapsed_ms": 60.98143756389618,
+      "is_error": true
+    },
+    {
+      "rpc_id": 18,
+      "tool": "wiki_search",
+      "http_status": 200,
+      "elapsed_ms": 179.9114402383566,
+      "is_error": false
+    },
+    {
+      "rpc_id": 19,
+      "tool": "wiki_read_page",
+      "http_status": 200,
+      "elapsed_ms": 271.8432229012251,
+      "is_error": false
+    },
+    {
+      "rpc_id": 20,
+      "tool": "wiki_read_page",
+      "http_status": 200,
+      "elapsed_ms": 185.09184941649437,
+      "is_error": false
+    },
+    {
+      "rpc_id": 21,
+      "tool": "wiki_index",
+      "http_status": 200,
+      "elapsed_ms": 187.61986680328846,
+      "is_error": false
+    },
+    {
+      "rpc_id": 22,
+      "tool": "wiki_read_page",
+      "http_status": 200,
+      "elapsed_ms": 177.22289822995663,
+      "is_error": true
+    },
+    {
+      "rpc_id": 23,
+      "tool": "wiki_read_page",
+      "http_status": 200,
+      "elapsed_ms": 186.83000840246677,
+      "is_error": true
+    },
+    {
+      "rpc_id": 24,
+      "tool": "read_document",
+      "http_status": 200,
+      "elapsed_ms": 176.20082758367062,
+      "is_error": true
+    },
+    {
+      "rpc_id": 25,
+      "tool": "read_document",
+      "http_status": 200,
+      "elapsed_ms": 165.22119380533695,
+      "is_error": true
+    },
+    {
+      "rpc_id": 26,
+      "tool": "read_document",
+      "http_status": 200,
+      "elapsed_ms": 171.44719511270523,
+      "is_error": true
+    },
+    {
+      "rpc_id": 27,
+      "tool": "list_knowledge_bases",
+      "http_status": 200,
+      "elapsed_ms": 190.9167543053627,
+      "is_error": false
+    },
+    {
+      "rpc_id": 28,
+      "tool": "search_knowledge",
+      "http_status": 200,
+      "elapsed_ms": 442.13430397212505,
+      "is_error": false
+    },
+    {
+      "rpc_id": 29,
+      "tool": "search_knowledge",
+      "http_status": 200,
+      "elapsed_ms": 415.019990876317,
+      "is_error": false
+    },
+    {
+      "rpc_id": 30,
+      "tool": "search_knowledge",
+      "http_status": 200,
+      "elapsed_ms": 539.1214955598116,
+      "is_error": false
+    },
+    {
+      "rpc_id": 31,
+      "tool": "read_document",
+      "http_status": 200,
+      "elapsed_ms": 186.17797084152699,
+      "is_error": true
+    },
+    {
+      "rpc_id": 32,
+      "tool": "read_document",
+      "http_status": 200,
+      "elapsed_ms": 166.8142583221197,
+      "is_error": true
+    },
+    {
+      "rpc_id": 33,
+      "tool": "read_document",
+      "http_status": 200,
+      "elapsed_ms": 179.16889674961567,
+      "is_error": true
+    },
+    {
+      "rpc_id": 34,
+      "tool": "list_knowledge_bases",
+      "http_status": 200,
+      "elapsed_ms": 212.23751828074455,
+      "is_error": false
+    },
+    {
+      "rpc_id": 35,
+      "tool": "list_knowledge_bases",
+      "http_status": 200,
+      "elapsed_ms": 135.67431084811687,
+      "is_error": false
+    },
+    {
+      "rpc_id": 36,
+      "tool": "read_document",
+      "http_status": 200,
+      "elapsed_ms": 140.27286134660244,
+      "is_error": true
+    },
+    {
+      "rpc_id": 37,
+      "tool": "list_knowledge_bases",
+      "http_status": 401,
+      "elapsed_ms": 1.5507228672504425,
+      "is_error": false
+    },
+    {
+      "rpc_id": 38,
+      "tool": "list_knowledge_bases",
+      "http_status": 200,
+      "elapsed_ms": 169.37807202339172,
+      "is_error": false
+    },
+    {
+      "rpc_id": 39,
+      "tool": "list_knowledge_bases",
+      "http_status": 401,
+      "elapsed_ms": 1.6232412308454514,
+      "is_error": false
+    }
+  ],
+  "old_keys_unchanged": true,
+  "SID": "BLOCKED_NOT_CONFIGURED",
+  "formal_embedding": "BLOCKED_NOT_CONFIGURED",
+  "model": "SYNTHETIC_1024"
+}

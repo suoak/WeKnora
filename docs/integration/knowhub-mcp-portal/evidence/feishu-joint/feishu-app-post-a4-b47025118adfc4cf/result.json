@@ -1,0 +1,7 @@
+{
+  "exit_code": 1,
+  "error_class": "CalledProcessError",
+  "message": "Command '['docker', 'compose', '--project-name', 'knowhub-v1-feishu-b47025118adf', '--project-directory', '/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf', '-f', '/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/compose.yml', 'exec', '-T', 'postgres', 'pg_restore', '-U', 'postgres', '-d', 'knowhub_joint_revoked_restore_post_a4']' returned non-zero exit status 1.",
+  "traceback": "Traceback (most recent call last):\n  File \"/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/feishu-post-harness-263b3535b3eb8a55fd7d85d62d2f1ca5b4d39c46a9adbb7009e00036129e815c.py\", line 187, in <module>\n    subprocess.run(compose+['exec','-T','postgres','pg_restore','-U','postgres','-d',restore_db],stdin=f,check=True)\n  File \"/usr/lib/python3.8/subprocess.py\", line 516, in run\n    raise CalledProcessError(retcode, process.args,\nsubprocess.CalledProcessError: Command '['docker', 'compose', '--project-name', 'knowhub-v1-feishu-b47025118adf', '--project-directory', '/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf', '-f', '/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/compose.yml', 'exec', '-T', 'postgres', 'pg_restore', '-U', 'postgres', '-d', 'knowhub_joint_revoked_restore_post_a4']' returned non-zero exit status 1.\n",
+  "candidate_sha256": "b47025118adfc4cff2d1f75cabc6f98265a0bb9ca1ad816f409099081947f0fc"
+}

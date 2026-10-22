@@ -20,7 +20,9 @@ func withWikiDependencies(db *gorm.DB, page *types.WikiPage, write func(*gorm.DB
 	err := db.Transaction(func(tx *gorm.DB) error {
 		if tx.Name() == "sqlite" {
 			// Acquire the SQLite writer reservation before reading dependencies.
-			if err := tx.Exec("UPDATE wiki_pages SET version = version WHERE id = ?", page.ID).Error; err != nil {
+			// A zero-row UPDATE reserves the writer without firing page mutation
+			// triggers: acquiring a lock must not invalidate provenance or epochs.
+			if err := tx.Exec("UPDATE wiki_pages SET version = version WHERE id = ? AND 1 = 0", page.ID).Error; err != nil {
 				return err
 			}
 		}
@@ -70,5 +72,19 @@ func (r *wikiPageRepository) guardedWikiWrite(
 	page *types.WikiPage,
 	write func(*gorm.DB) error,
 ) error {
-	return withWikiDependencies(r.db.WithContext(ctx), page, write)
+	return withWikiMCPProofWrite(ctx, func() error {
+		return withWikiDependencies(r.db.WithContext(ctx), page, func(tx *gorm.DB) error {
+			if err := beforeWikiMCPMutation(tx, ctx); err != nil {
+				return err
+			}
+			if err := write(tx); err != nil {
+				return err
+			}
+			var saved types.WikiPage
+			if err := tx.Where("id=?", page.ID).First(&saved).Error; err != nil {
+				return err
+			}
+			return sealWikiMCPMutation(tx, ctx, &saved)
+		})
+	})
 }

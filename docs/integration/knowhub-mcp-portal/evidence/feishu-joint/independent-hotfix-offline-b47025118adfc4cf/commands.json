@@ -1,0 +1,480 @@
+[
+  {
+    "name": "create-clone",
+    "argv": [
+      "docker",
+      "compose",
+      "--project-name",
+      "knowhub-v1-feishu-b47025118adf",
+      "--project-directory",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf",
+      "-f",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/compose.yml",
+      "exec",
+      "-T",
+      "postgres",
+      "psql",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-U",
+      "postgres",
+      "-d",
+      "postgres",
+      "-c",
+      "CREATE DATABASE knowhub_hotfix_offline_probe TEMPLATE template0"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "restore-synthetic-clone",
+    "argv": [
+      "docker",
+      "compose",
+      "--project-name",
+      "knowhub-v1-feishu-b47025118adf",
+      "--project-directory",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf",
+      "-f",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/compose.yml",
+      "exec",
+      "-T",
+      "postgres",
+      "pg_restore",
+      "-U",
+      "postgres",
+      "-d",
+      "knowhub_hotfix_offline_probe"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "clone-synthetic-files",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "none",
+      "-v",
+      "knowhub-v1-feishu-b47025118adf_files:/old:ro",
+      "-v",
+      "knowhub-v1-feishu-b47025118adf_hotfix_offline_files:/new",
+      "knowhub-build/golang:1.26-feishu-py311-ensurepip-20261022",
+      "sh",
+      "-c",
+      "cp -a /old/. /new/"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "start-private-redis",
+    "argv": [
+      "docker",
+      "run",
+      "-d",
+      "--name",
+      "knowhub-v1-feishu-b47025118adf-hotfix-offline-redis",
+      "--label",
+      "knowhub.v1=hotfix-probe",
+      "--network",
+      "knowhub-v1-feishu-b47025118adf_isolated",
+      "redis:7.0-alpine",
+      "redis-server",
+      "--save",
+      "",
+      "--appendonly",
+      "no"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "start-independent-hotfix",
+    "argv": [
+      "docker",
+      "run",
+      "-d",
+      "--name",
+      "knowhub-v1-feishu-b47025118adf-hotfix-offline-probe",
+      "--label",
+      "knowhub.v1=hotfix-probe",
+      "--network",
+      "knowhub-v1-feishu-b47025118adf_isolated",
+      "--env-file",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/private/app.env",
+      "-e",
+      "DB_DRIVER=postgres",
+      "-e",
+      "DB_HOST=postgres",
+      "-e",
+      "DB_PORT=5432",
+      "-e",
+      "DB_USER=postgres",
+      "-e",
+      "DB_NAME=knowhub_hotfix_offline_probe",
+      "-e",
+      "REDIS_ADDR=knowhub-v1-feishu-b47025118adf-hotfix-offline-redis:6379",
+      "-e",
+      "REDIS_PASSWORD=",
+      "-e",
+      "DUCKDB_SKIP_EXTENSION_LOAD=1",
+      "-e",
+      "AUTO_RECOVER_DIRTY=false",
+      "-e",
+      "FEISHU_LEGACY_SYNC_SUSPENDED=false",
+      "-e",
+      "FEISHU_SAFE_INCREMENTAL_ENABLED=true",
+      "-e",
+      "FEISHU_DOCX_PARSE_MODE=blocks",
+      "-e",
+      "FEISHU_API_RETRY_MAX=0",
+      "-e",
+      "WEKNORA_TENANT_ENABLE_RBAC=true",
+      "-e",
+      "RETRIEVE_DRIVER=postgres",
+      "-e",
+      "STORAGE_TYPE=local",
+      "-e",
+      "LOCAL_STORAGE_BASE_DIR=/data/files",
+      "-e",
+      "SSRF_WHITELIST=model,feishu",
+      "-v",
+      "knowhub-v1-feishu-b47025118adf_hotfix_offline_files:/data/files",
+      "--entrypoint",
+      "/app/WeKnora",
+      "knowhub-feishu-rc3/app:02a8c5eb187764a9"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "no-personal-Go-MCP",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "knowhub-v1-feishu-b47025118adf_isolated",
+      "--env-file",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/private/app.env",
+      "--entrypoint",
+      "python",
+      "weknora-custom/mcp-candidate:v0.8.0-knowhub.24-rc1-854f3b95",
+      "-c",
+      "import urllib.request,urllib.error,json,os\norigin='http://knowhub-v1-feishu-b47025118adf-hotfix-offline-probe:8080'\ndef decode(raw):\n try:return json.loads(raw or b'null')\n except (ValueError,TypeError):return raw.decode(errors='replace')\ndef req(method,path,body=None,token=None):\n h={'Content-Type':'application/json','X-Tenant-ID':'99'}\n if token:h['Authorization']='Bearer '+token\n r=urllib.request.Request(origin+path,data=json.dumps(body).encode()if body is not None else None,method=method,headers=h)\n try:\n  with urllib.request.urlopen(r,timeout=30)as s:return s.status,decode(s.read())\n except urllib.error.HTTPError as e:return e.code,decode(e.read())\nstatus,auth=req('POST','/api/v1/auth/login',{'email':'owner@example.invalid','password':os.environ['KNOWHUB_V1_TEST_PASSWORD']});assert status==200\nstatus,data=req('GET','/api/v1/mcp/personal',None,auth['token']);print(json.dumps({'status':status,'data':data}))\n"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "revoked-source-REST-denied",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "knowhub-v1-feishu-b47025118adf_isolated",
+      "--env-file",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/private/app.env",
+      "--entrypoint",
+      "python",
+      "weknora-custom/mcp-candidate:v0.8.0-knowhub.24-rc1-854f3b95",
+      "-c",
+      "import urllib.request,urllib.error,json,os\norigin='http://knowhub-v1-feishu-b47025118adf-hotfix-offline-probe:8080'\ndef decode(raw):\n try:return json.loads(raw or b'null')\n except (ValueError,TypeError):return raw.decode(errors='replace')\ndef req(method,path,body=None,token=None):\n h={'Content-Type':'application/json','X-Tenant-ID':'99'}\n if token:h['Authorization']='Bearer '+token\n r=urllib.request.Request(origin+path,data=json.dumps(body).encode()if body is not None else None,method=method,headers=h)\n try:\n  with urllib.request.urlopen(r,timeout=30)as s:return s.status,decode(s.read())\n except urllib.error.HTTPError as e:return e.code,decode(e.read())\nstatus,auth=req('POST','/api/v1/auth/login',{'email':'owner@example.invalid','password':os.environ['KNOWHUB_V1_TEST_PASSWORD']});assert status==200\nstatus,data=req('GET','/api/v1/knowledge/joint-legacy-drive-a4',None,auth['token']);print(json.dumps({'status':status,'data':data}))\n"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "unexpired-anonymous-file-denied",
+    "argv": [
+      "docker",
+      "exec",
+      "-i",
+      "knowhub-v1-feishu-b47025118adf-hotfix-offline-probe",
+      "curl",
+      "--config",
+      "-"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "fixture-wiki-1792555500",
+    "argv": [
+      "docker",
+      "compose",
+      "--project-name",
+      "knowhub-v1-feishu-b47025118adf",
+      "--project-directory",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf",
+      "-f",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/compose.yml",
+      "exec",
+      "-T",
+      "feishu",
+      "python",
+      "-c",
+      "import urllib.request,json;urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8000/control/wiki',data=b'{\"status\": 200, \"block_status\": 200, \"missing\": false, \"delay\": 0, \"revision\": 1792555500, \"text\": \"wiki hotfixcanary verified source text\"}',headers={'Content-Type':'application/json'},method='POST')).read()"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "wiki-update-enqueue",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "knowhub-v1-feishu-b47025118adf_isolated",
+      "--env-file",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/private/app.env",
+      "--entrypoint",
+      "python",
+      "weknora-custom/mcp-candidate:v0.8.0-knowhub.24-rc1-854f3b95",
+      "-c",
+      "import urllib.request,urllib.error,json,os\norigin='http://knowhub-v1-feishu-b47025118adf-hotfix-offline-probe:8080'\ndef decode(raw):\n try:return json.loads(raw or b'null')\n except (ValueError,TypeError):return raw.decode(errors='replace')\ndef req(method,path,body=None,token=None):\n h={'Content-Type':'application/json','X-Tenant-ID':'99'}\n if token:h['Authorization']='Bearer '+token\n r=urllib.request.Request(origin+path,data=json.dumps(body).encode()if body is not None else None,method=method,headers=h)\n try:\n  with urllib.request.urlopen(r,timeout=30)as s:return s.status,decode(s.read())\n except urllib.error.HTTPError as e:return e.code,decode(e.read())\nstatus,auth=req('POST','/api/v1/auth/login',{'email':'owner@example.invalid','password':os.environ['KNOWHUB_V1_TEST_PASSWORD']});assert status==200\nstatus,data=req('POST','/api/v1/datasource/1981af78-db76-49b0-a9b1-22c723a60018/sync',{},auth['token']);print(json.dumps({'status':status,'data':data}))\n"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "fixture-drive-1792555500",
+    "argv": [
+      "docker",
+      "compose",
+      "--project-name",
+      "knowhub-v1-feishu-b47025118adf",
+      "--project-directory",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf",
+      "-f",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/compose.yml",
+      "exec",
+      "-T",
+      "feishu",
+      "python",
+      "-c",
+      "import urllib.request,json;urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8000/control/drive',data=b'{\"status\": 200, \"block_status\": 200, \"missing\": false, \"delay\": 0, \"revision\": 1792555500, \"text\": \"drive hotfixcanary verified source text\"}',headers={'Content-Type':'application/json'},method='POST')).read()"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "drive-source-create",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "knowhub-v1-feishu-b47025118adf_isolated",
+      "--env-file",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/private/app.env",
+      "--entrypoint",
+      "python",
+      "weknora-custom/mcp-candidate:v0.8.0-knowhub.24-rc1-854f3b95",
+      "-c",
+      "import urllib.request,urllib.error,json,os\norigin='http://knowhub-v1-feishu-b47025118adf-hotfix-offline-probe:8080'\ndef decode(raw):\n try:return json.loads(raw or b'null')\n except (ValueError,TypeError):return raw.decode(errors='replace')\ndef req(method,path,body=None,token=None):\n h={'Content-Type':'application/json','X-Tenant-ID':'99'}\n if token:h['Authorization']='Bearer '+token\n r=urllib.request.Request(origin+path,data=json.dumps(body).encode()if body is not None else None,method=method,headers=h)\n try:\n  with urllib.request.urlopen(r,timeout=30)as s:return s.status,decode(s.read())\n except urllib.error.HTTPError as e:return e.code,decode(e.read())\nstatus,auth=req('POST','/api/v1/auth/login',{'email':'owner@example.invalid','password':os.environ['KNOWHUB_V1_TEST_PASSWORD']});assert status==200\nstatus,data=req('POST','/api/v1/datasource',{'name': 'Synthetic independent Drive', 'type': 'feishu_drive', 'knowledge_base_id': 'hotfix-drive-probe', 'sync_mode': 'incremental', 'sync_deletions': True, 'config': {'type': 'feishu_drive', 'credentials': {'app_id': 'synthetic', 'app_secret': 'synthetic-not-secret', 'base_url': 'http://feishu:8000'}, 'resource_ids': ['root']}},auth['token']);print(json.dumps({'status':status,'data':data}))\n"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "drive-first-enqueue",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "knowhub-v1-feishu-b47025118adf_isolated",
+      "--env-file",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/private/app.env",
+      "--entrypoint",
+      "python",
+      "weknora-custom/mcp-candidate:v0.8.0-knowhub.24-rc1-854f3b95",
+      "-c",
+      "import urllib.request,urllib.error,json,os\norigin='http://knowhub-v1-feishu-b47025118adf-hotfix-offline-probe:8080'\ndef decode(raw):\n try:return json.loads(raw or b'null')\n except (ValueError,TypeError):return raw.decode(errors='replace')\ndef req(method,path,body=None,token=None):\n h={'Content-Type':'application/json','X-Tenant-ID':'99'}\n if token:h['Authorization']='Bearer '+token\n r=urllib.request.Request(origin+path,data=json.dumps(body).encode()if body is not None else None,method=method,headers=h)\n try:\n  with urllib.request.urlopen(r,timeout=30)as s:return s.status,decode(s.read())\n except urllib.error.HTTPError as e:return e.code,decode(e.read())\nstatus,auth=req('POST','/api/v1/auth/login',{'email':'owner@example.invalid','password':os.environ['KNOWHUB_V1_TEST_PASSWORD']});assert status==200\nstatus,data=req('POST','/api/v1/datasource/4fb4138c-6804-4cae-8b57-1ede13a6b569/sync',{},auth['token']);print(json.dumps({'status':status,'data':data}))\n"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "fixture-drive-1792555560",
+    "argv": [
+      "docker",
+      "compose",
+      "--project-name",
+      "knowhub-v1-feishu-b47025118adf",
+      "--project-directory",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf",
+      "-f",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/compose.yml",
+      "exec",
+      "-T",
+      "feishu",
+      "python",
+      "-c",
+      "import urllib.request,json;urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8000/control/drive',data=b'{\"status\": 200, \"block_status\": 200, \"missing\": false, \"delay\": 0, \"revision\": 1792555560, \"text\": \"drive hotfixupdatedcanary verified source text\"}',headers={'Content-Type':'application/json'},method='POST')).read()"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "drive-update-enqueue",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "knowhub-v1-feishu-b47025118adf_isolated",
+      "--env-file",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/private/app.env",
+      "--entrypoint",
+      "python",
+      "weknora-custom/mcp-candidate:v0.8.0-knowhub.24-rc1-854f3b95",
+      "-c",
+      "import urllib.request,urllib.error,json,os\norigin='http://knowhub-v1-feishu-b47025118adf-hotfix-offline-probe:8080'\ndef decode(raw):\n try:return json.loads(raw or b'null')\n except (ValueError,TypeError):return raw.decode(errors='replace')\ndef req(method,path,body=None,token=None):\n h={'Content-Type':'application/json','X-Tenant-ID':'99'}\n if token:h['Authorization']='Bearer '+token\n r=urllib.request.Request(origin+path,data=json.dumps(body).encode()if body is not None else None,method=method,headers=h)\n try:\n  with urllib.request.urlopen(r,timeout=30)as s:return s.status,decode(s.read())\n except urllib.error.HTTPError as e:return e.code,decode(e.read())\nstatus,auth=req('POST','/api/v1/auth/login',{'email':'owner@example.invalid','password':os.environ['KNOWHUB_V1_TEST_PASSWORD']});assert status==200\nstatus,data=req('POST','/api/v1/datasource/4fb4138c-6804-4cae-8b57-1ede13a6b569/sync',{},auth['token']);print(json.dumps({'status':status,'data':data}))\n"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "enabled-hotfix-log",
+    "argv": [
+      "docker",
+      "logs",
+      "knowhub-v1-feishu-b47025118adf-hotfix-offline-probe"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "stop-enabled-hotfix",
+    "argv": [
+      "docker",
+      "stop",
+      "--time",
+      "5",
+      "knowhub-v1-feishu-b47025118adf-hotfix-offline-probe"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "start-hardened-RC3-feature-off",
+    "argv": [
+      "docker",
+      "run",
+      "-d",
+      "--name",
+      "knowhub-v1-feishu-b47025118adf-hotfix-offline-probe-off",
+      "--label",
+      "knowhub.v1=hotfix-probe",
+      "--network",
+      "knowhub-v1-feishu-b47025118adf_isolated",
+      "--env-file",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/private/app.env",
+      "-e",
+      "DB_DRIVER=postgres",
+      "-e",
+      "DB_HOST=postgres",
+      "-e",
+      "DB_PORT=5432",
+      "-e",
+      "DB_USER=postgres",
+      "-e",
+      "DB_NAME=knowhub_hotfix_offline_probe",
+      "-e",
+      "REDIS_ADDR=knowhub-v1-feishu-b47025118adf-hotfix-offline-redis:6379",
+      "-e",
+      "REDIS_PASSWORD=",
+      "-e",
+      "DUCKDB_SKIP_EXTENSION_LOAD=1",
+      "-e",
+      "AUTO_RECOVER_DIRTY=false",
+      "-e",
+      "FEISHU_LEGACY_SYNC_SUSPENDED=true",
+      "-e",
+      "FEISHU_SAFE_INCREMENTAL_ENABLED=false",
+      "-e",
+      "FEISHU_DOCX_PARSE_MODE=blocks",
+      "-e",
+      "FEISHU_API_RETRY_MAX=0",
+      "-e",
+      "WEKNORA_TENANT_ENABLE_RBAC=true",
+      "-e",
+      "RETRIEVE_DRIVER=postgres",
+      "-e",
+      "STORAGE_TYPE=local",
+      "-e",
+      "LOCAL_STORAGE_BASE_DIR=/data/files",
+      "-e",
+      "SSRF_WHITELIST=model,feishu",
+      "-v",
+      "knowhub-v1-feishu-b47025118adf_hotfix_offline_files:/data/files",
+      "--entrypoint",
+      "/app/WeKnora",
+      "knowhub-feishu-rc3/app:02a8c5eb187764a9"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "off-revoked-REST-denied",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "knowhub-v1-feishu-b47025118adf_isolated",
+      "--env-file",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/private/app.env",
+      "--entrypoint",
+      "python",
+      "weknora-custom/mcp-candidate:v0.8.0-knowhub.24-rc1-854f3b95",
+      "-c",
+      "import urllib.request,urllib.error,json,os\norigin='http://knowhub-v1-feishu-b47025118adf-hotfix-offline-probe-off:8080'\ndef decode(raw):\n try:return json.loads(raw or b'null')\n except (ValueError,TypeError):return raw.decode(errors='replace')\ndef req(method,path,body=None,token=None):\n h={'Content-Type':'application/json','X-Tenant-ID':'99'}\n if token:h['Authorization']='Bearer '+token\n r=urllib.request.Request(origin+path,data=json.dumps(body).encode()if body is not None else None,method=method,headers=h)\n try:\n  with urllib.request.urlopen(r,timeout=30)as s:return s.status,decode(s.read())\n except urllib.error.HTTPError as e:return e.code,decode(e.read())\nstatus,auth=req('POST','/api/v1/auth/login',{'email':'owner@example.invalid','password':os.environ['KNOWHUB_V1_TEST_PASSWORD']});assert status==200\nstatus,data=req('GET','/api/v1/knowledge/joint-legacy-drive-a4',None,auth['token']);print(json.dumps({'status':status,'data':data}))\n"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "off-unexpired-HMAC-denied",
+    "argv": [
+      "docker",
+      "exec",
+      "-i",
+      "knowhub-v1-feishu-b47025118adf-hotfix-offline-probe-off",
+      "curl",
+      "--config",
+      "-"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "hotfix-app-log",
+    "argv": [
+      "docker",
+      "logs",
+      "knowhub-v1-feishu-b47025118adf-hotfix-offline-probe-off"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "stop-knowhub-v1-feishu-b47025118adf-hotfix-offline-probe-off",
+    "argv": [
+      "docker",
+      "stop",
+      "--time",
+      "5",
+      "knowhub-v1-feishu-b47025118adf-hotfix-offline-probe-off"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "stop-knowhub-v1-feishu-b47025118adf-hotfix-offline-probe",
+    "argv": [
+      "docker",
+      "stop",
+      "--time",
+      "5",
+      "knowhub-v1-feishu-b47025118adf-hotfix-offline-probe"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "stop-knowhub-v1-feishu-b47025118adf-hotfix-offline-redis",
+    "argv": [
+      "docker",
+      "stop",
+      "--time",
+      "5",
+      "knowhub-v1-feishu-b47025118adf-hotfix-offline-redis"
+    ],
+    "exit_code": 0
+  }
+]

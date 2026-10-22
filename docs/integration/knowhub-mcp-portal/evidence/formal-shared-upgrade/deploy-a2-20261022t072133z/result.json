@@ -1,0 +1,9 @@
+{
+  "exit_code": 1,
+  "error_class": "AssertionError",
+  "message": "capture-live-entry-config",
+  "schema_upgraded": false,
+  "maintenance": false,
+  "unsafe_old_APP_not_restarted": true,
+  "production_accessed": false
+}

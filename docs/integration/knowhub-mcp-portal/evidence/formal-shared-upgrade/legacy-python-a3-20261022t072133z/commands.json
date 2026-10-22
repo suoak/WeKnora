@@ -1,0 +1,25 @@
+[
+  {
+    "phase": "active",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "weknora_WeKnora-network",
+      "--env-file",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/original-python-probe-a3.env",
+      "-v",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/original-python-server.py:/legacy.py:ro",
+      "-v",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/original-python-probe-a3.py:/probe.py:ro",
+      "--entrypoint",
+      "python",
+      "sha256:aa880bcfa09a66f201463aa614d7a299fef10b342779335ec08dac29713de337",
+      "/probe.py",
+      "fm-legacy-wiki-a2",
+      "allow"
+    ],
+    "exit_code": 1
+  }
+]

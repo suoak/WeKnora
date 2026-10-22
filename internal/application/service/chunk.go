@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Tencent/WeKnora/internal/application/access"
 	"sort"
 	"strconv"
 	"strings"
@@ -28,6 +29,7 @@ var ErrChunkRevisionConflict = repository.ErrChunkRevisionConflict
 // It provides operations for managing document chunks in the knowledge base
 // Chunks are segments of documents that have been processed and prepared for indexing
 type chunkService struct {
+	documentACL     *DocumentReadPolicy
 	chunkRepository interfaces.ChunkRepository // Repository for chunk data persistence
 	knowledgeRepo   interfaces.KnowledgeRepository
 	kbRepository    interfaces.KnowledgeBaseRepository
@@ -76,6 +78,10 @@ const maxEditableChunkLength = 200000
 // Returns:
 //   - interfaces.ChunkRepository: Chunk repository
 func (s *chunkService) GetRepository() interfaces.ChunkRepository {
+	if s.DocumentACLReadEnabled() {
+		return &heldDocumentChunkRepository{ChunkRepository: s.chunkRepository, service: s}
+	}
+
 	return s.chunkRepository
 }
 
@@ -114,6 +120,10 @@ func (s *chunkService) CreateChunks(ctx context.Context, chunks []*types.Chunk) 
 //   - *types.Chunk: Retrieved chunk if found
 //   - error: Any error encountered during retrieval
 func (s *chunkService) GetChunkByID(ctx context.Context, id string) (*types.Chunk, error) {
+	if s.DocumentACLReadEnabled() {
+		return s.readAuthorizedChunk(ctx, id)
+	}
+
 	tenantID := types.MustTenantIDFromContext(ctx)
 	logger.Infof(ctx, "Getting chunk by ID, ID: %s, tenant ID: %d", id, tenantID)
 	chunk, err := s.chunkRepository.GetChunkByID(ctx, tenantID, id)
@@ -130,6 +140,10 @@ func (s *chunkService) GetChunkByID(ctx context.Context, id string) (*types.Chun
 
 // GetChunkByIDOnly retrieves a chunk by ID without tenant filter (for permission resolution).
 func (s *chunkService) GetChunkByIDOnly(ctx context.Context, id string) (*types.Chunk, error) {
+	if s.DocumentACLReadEnabled() {
+		return s.readAuthorizedChunk(ctx, id)
+	}
+
 	chunk, err := s.chunkRepository.GetChunkByIDOnly(ctx, id)
 	if err != nil {
 		// errors.Is (not string equality) so the sentinel survives wrapping.
@@ -153,6 +167,10 @@ func (s *chunkService) GetChunkByIDOnly(ctx context.Context, id string) (*types.
 //   - []*types.Chunk: List of chunks belonging to the knowledge document
 //   - error: Any error encountered during retrieval
 func (s *chunkService) ListChunksByKnowledgeID(ctx context.Context, knowledgeID string) ([]*types.Chunk, error) {
+	if s.DocumentACLReadEnabled() {
+		return s.readAuthorizedChunks(ctx, knowledgeID)
+	}
+
 	logger.Info(ctx, "Start listing chunks by knowledge ID")
 	logger.Infof(ctx, "Knowledge ID: %s", knowledgeID)
 
@@ -185,6 +203,10 @@ func (s *chunkService) ListChunksByKnowledgeID(ctx context.Context, knowledgeID 
 func (s *chunkService) ListPagedChunksByKnowledgeID(ctx context.Context,
 	knowledgeID string, page *types.Pagination, chunkType []types.ChunkType,
 ) (*types.PageResult, error) {
+	if s.DocumentACLReadEnabled() {
+		return s.readAuthorizedChunkPage(ctx, knowledgeID, page, chunkType)
+	}
+
 	tenantID := types.MustTenantIDFromContext(ctx)
 	chunks, total, err := s.chunkRepository.ListPagedChunksByKnowledgeID(
 		ctx,
@@ -222,6 +244,10 @@ func (s *chunkService) ListImagesByKnowledgeBaseID(
 	page *types.Pagination,
 	filter *types.ImageListFilter,
 ) (*types.PageResult, error) {
+	if s.DocumentACLReadEnabled() {
+		return nil, access.ErrForbidden
+	}
+
 	tenantID := types.MustTenantIDFromContext(ctx)
 
 	rows, total, err := s.chunkRepository.ListImageAssets(ctx, tenantID, kbID, buildImageAssetQuery(filter, page))
@@ -470,6 +496,10 @@ func (s *chunkService) ListChunkByParentID(
 	tenantID uint64,
 	parentID string,
 ) ([]*types.Chunk, error) {
+	if s.DocumentACLReadEnabled() {
+		return s.readAuthorizedChildren(ctx, tenantID, parentID)
+	}
+
 	logger.Info(ctx, "Start listing chunk by parent ID")
 	logger.Infof(ctx, "Parent ID: %s", parentID)
 
@@ -677,6 +707,10 @@ func (s *chunkService) syncEditedChunkImages(ctx context.Context, chunk *types.C
 }
 
 func (s *chunkService) ListChunkRevisions(ctx context.Context, chunkID string) ([]*types.ChunkRevision, error) {
+	if s.DocumentACLReadEnabled() {
+		return nil, access.ErrForbidden
+	}
+
 	return s.chunkRepository.ListChunkRevisions(ctx, types.MustTenantIDFromContext(ctx), chunkID)
 }
 

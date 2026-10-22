@@ -1,0 +1,16 @@
+{
+  "candidate_sha256": "c2f260317fc151fbab98d9e87b2fe5c9acbd903dd4be2e857e0326565d390d75",
+  "checks": {
+    "four_KB_union": true,
+    "actual_document_body_received": true,
+    "unsafe_URL_destinations_removed": true,
+    "all_eight_tools_completed": true,
+    "Wiki_search_actual_body": true,
+    "Wiki_read_actual_body": true,
+    "Wiki_directory_actual_body": true,
+    "sensitive_read_denied": true,
+    "partial_not_misrepresented": true
+  },
+  "exit_code": 0,
+  "scope": "actual redacted Codex tool event results, synthetic data only"
+}

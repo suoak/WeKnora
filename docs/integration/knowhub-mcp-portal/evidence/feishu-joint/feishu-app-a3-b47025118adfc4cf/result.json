@@ -1,0 +1,7 @@
+{
+  "exit_code": 1,
+  "error_class": "AssertionError",
+  "message": "worker did not finish within 180s",
+  "traceback": "Traceback (most recent call last):\n  File \"/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/feishu-harness-58d594862931c3d5c089a20f47aa179285e19ed43dfdea6a628d8542da9d6616.py\", line 164, in <module>\n    run_sync(prior_id,True)\n  File \"/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/feishu-harness-58d594862931c3d5c089a20f47aa179285e19ed43dfdea6a628d8542da9d6616.py\", line 152, in run_sync\n    assert state != 'running', 'worker did not finish within 180s'\nAssertionError: worker did not finish within 180s\n",
+  "candidate_sha256": "b47025118adfc4cff2d1f75cabc6f98265a0bb9ca1ad816f409099081947f0fc"
+}

@@ -129,3 +129,16 @@ func NewDataSourceResponses(dss []*types.DataSource) []*DataSourceResponse {
 	}
 	return out
 }
+
+// RestrictSyncDiagnostics removes stored content-bearing diagnostics without
+// mutating the source or its retry/cursor state. Recovery controls stay usable.
+func (r *DataSourceResponse) RestrictSyncDiagnostics() {
+	if r == nil {
+		return
+	}
+	r.LastSyncCursor = nil
+	r.LastSyncResult = nil
+	r.LatestSyncLog = nil
+	r.ErrorMessage = "source access requires verification"
+	r.Config = nil
+}

@@ -1,0 +1,171 @@
+[
+  {
+    "name": "create-synthetic-clone",
+    "argv": [
+      "docker",
+      "compose",
+      "--project-name",
+      "knowhub-v1-feishu-b47025118adf",
+      "--project-directory",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf",
+      "-f",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/compose.yml",
+      "exec",
+      "-T",
+      "postgres",
+      "psql",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-U",
+      "postgres",
+      "-d",
+      "postgres",
+      "-c",
+      "CREATE DATABASE knowhub_old_offline_probe TEMPLATE template0"
+    ],
+    "exit_code": 0,
+    "log_credentials_redacted": true
+  },
+  {
+    "name": "restore-synthetic-clone",
+    "argv": [
+      "docker",
+      "compose",
+      "--project-name",
+      "knowhub-v1-feishu-b47025118adf",
+      "--project-directory",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf",
+      "-f",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/compose.yml",
+      "exec",
+      "-T",
+      "postgres",
+      "pg_restore",
+      "-U",
+      "postgres",
+      "-d",
+      "knowhub_old_offline_probe"
+    ],
+    "exit_code": 0,
+    "log_credentials_redacted": true
+  },
+  {
+    "name": "start-empty-private-redis",
+    "argv": [
+      "docker",
+      "run",
+      "-d",
+      "--name",
+      "knowhub-v1-feishu-b47025118adf-old-offline-redis",
+      "--label",
+      "knowhub.v1=old-image-probe",
+      "--network",
+      "knowhub-v1-feishu-b47025118adf_isolated",
+      "redis:7.0-alpine",
+      "redis-server",
+      "--save",
+      "",
+      "--appendonly",
+      "no"
+    ],
+    "exit_code": 0,
+    "log_credentials_redacted": true
+  },
+  {
+    "name": "start-unexposed-old-image",
+    "argv": [
+      "docker",
+      "run",
+      "-d",
+      "--name",
+      "knowhub-v1-feishu-b47025118adf-old-offline-probe",
+      "--label",
+      "knowhub.v1=old-image-probe",
+      "--network",
+      "knowhub-v1-feishu-b47025118adf_isolated",
+      "--env-file",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/private/app.env",
+      "-e",
+      "DB_DRIVER=postgres",
+      "-e",
+      "DB_HOST=postgres",
+      "-e",
+      "DB_PORT=5432",
+      "-e",
+      "DB_USER=postgres",
+      "-e",
+      "DB_NAME=knowhub_old_offline_probe",
+      "-e",
+      "REDIS_ADDR=knowhub-v1-feishu-b47025118adf-old-offline-redis:6379",
+      "-e",
+      "REDIS_PASSWORD=",
+      "-e",
+      "DUCKDB_SKIP_EXTENSION_LOAD=1",
+      "-e",
+      "AUTO_RECOVER_DIRTY=false",
+      "-e",
+      "FEISHU_LEGACY_SYNC_SUSPENDED=true",
+      "-e",
+      "FEISHU_SAFE_INCREMENTAL_ENABLED=false",
+      "-e",
+      "STORAGE_TYPE=local",
+      "-e",
+      "LOCAL_STORAGE_BASE_DIR=/data/files",
+      "-v",
+      "knowhub-v1-feishu-b47025118adf_files:/data/files:ro",
+      "--entrypoint",
+      "/app/WeKnora",
+      "knowhub-rc3/app:0.8.0-oa-feishu-rc3-1e2ded5b6"
+    ],
+    "exit_code": 0,
+    "log_credentials_redacted": true
+  },
+  {
+    "name": "old-image-unexpired-file-status",
+    "argv": [
+      "docker",
+      "exec",
+      "-i",
+      "knowhub-v1-feishu-b47025118adf-old-offline-probe",
+      "curl",
+      "--config",
+      "-"
+    ],
+    "exit_code": 0,
+    "log_credentials_redacted": true
+  },
+  {
+    "name": "old-image-startup-log",
+    "argv": [
+      "docker",
+      "logs",
+      "knowhub-v1-feishu-b47025118adf-old-offline-probe"
+    ],
+    "exit_code": 0,
+    "log_credentials_redacted": true
+  },
+  {
+    "name": "stop-knowhub-v1-feishu-b47025118adf-old-offline-probe",
+    "argv": [
+      "docker",
+      "stop",
+      "--time",
+      "5",
+      "knowhub-v1-feishu-b47025118adf-old-offline-probe"
+    ],
+    "exit_code": 0,
+    "log_credentials_redacted": true
+  },
+  {
+    "name": "stop-knowhub-v1-feishu-b47025118adf-old-offline-redis",
+    "argv": [
+      "docker",
+      "stop",
+      "--time",
+      "5",
+      "knowhub-v1-feishu-b47025118adf-old-offline-redis"
+    ],
+    "exit_code": 0,
+    "log_credentials_redacted": true
+  }
+]

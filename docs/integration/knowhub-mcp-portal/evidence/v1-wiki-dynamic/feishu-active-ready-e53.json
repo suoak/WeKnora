@@ -1,0 +1,16 @@
+{
+  "candidate_sha256": "e53fa056cd293dd5d5b88857dbc9edc4edac82a1119f180d5b294b854ab44ee9",
+  "sources": {
+    "wiki": {
+      "source_id": "4e0a1d90-6947-48b7-a7dd-2649e4a737fe",
+      "knowledge_base_id": "joint-feishu-wiki-final-a1",
+      "knowledge_id": "joint-legacy-wiki-final-a1"
+    },
+    "drive": {
+      "source_id": "173999e7-db12-4a47-89e1-9cd4ad09b759",
+      "knowledge_base_id": "joint-feishu-drive-final-a1",
+      "knowledge_id": "joint-legacy-drive-final-a1"
+    }
+  },
+  "pending": "browser/CLI then source revoke"
+}

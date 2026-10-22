@@ -92,16 +92,25 @@ func (r *wikiPageRepository) wikiEmptyInLinksPredicate() string {
 
 // Create inserts a new wiki page record
 func (r *wikiPageRepository) Create(ctx context.Context, page *types.WikiPage) error {
-	if err := r.db.WithContext(ctx).Create(page).Error; err != nil {
-		return err
-	}
-	// Read database defaults/JSON normalization before handing back the token.
-	var saved types.WikiPage
-	if err := r.db.WithContext(ctx).Where("id = ?", page.ID).First(&saved).Error; err != nil {
-		return err
-	}
-	*page = saved
-	return nil
+	return withWikiMCPProofWrite(ctx, func() error {
+		return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			if err := beforeWikiMCPMutation(tx, ctx); err != nil {
+				return err
+			}
+			if err := tx.Create(page).Error; err != nil {
+				return err
+			}
+			var saved types.WikiPage
+			if err := tx.Where("id=?", page.ID).First(&saved).Error; err != nil {
+				return err
+			}
+			if err := sealWikiMCPMutation(tx, ctx, &saved); err != nil {
+				return err
+			}
+			*page = saved
+			return nil
+		})
+	})
 }
 
 // Update updates an existing wiki page record with optimistic locking.

@@ -1,0 +1,40 @@
+[
+  {
+    "name": "restored-AES-verify",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "weknora_WeKnora-network",
+      "--env-file",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/operator-restored-AES-verify.env",
+      "-v",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/operators:/ops:ro",
+      "--entrypoint",
+      "/ops/formal-operator",
+      "knowhub-v1-wiki-dynamic/app:c2f260317fc151fb"
+    ],
+    "exit_code": 0,
+    "started_utc": "2026-10-22T07:37:07.846059+00:00"
+  },
+  {
+    "name": "clone-formal-3033-3037",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "weknora_WeKnora-network",
+      "--env-file",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/operator-clone-formal-3033-3037.env",
+      "-v",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/operators:/ops:ro",
+      "--entrypoint",
+      "/ops/formal-operator",
+      "knowhub-v1-wiki-dynamic/app:c2f260317fc151fb"
+    ],
+    "exit_code": 1,
+    "started_utc": "2026-10-22T07:37:09.506592+00:00"
+  }
+]

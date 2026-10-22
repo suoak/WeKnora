@@ -1,0 +1,8 @@
+{
+  "exit_code": 0,
+  "old_sample_signing_rejected_correctly": true,
+  "new_test_only_signing_configured": true,
+  "AES_unchanged": true,
+  "production_accessed": false,
+  "historical_valid_signing_key_rotated": false
+}

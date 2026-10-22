@@ -1,0 +1,49 @@
+{
+  "only_this_task_disposable_containers": true,
+  "deleted": false,
+  "volumes_and_evidence_retained": true,
+  "operations": [
+    {
+      "name": "knowhub-next-dev-25e89fc1a012-pg",
+      "exit_code": 0,
+      "stdout": "knowhub-next-dev-25e89fc1a012-pg\n",
+      "stderr": ""
+    },
+    {
+      "name": "knowhub-next-dev-815666ed4d2a-pg",
+      "exit_code": 0,
+      "stdout": "knowhub-next-dev-815666ed4d2a-pg\n",
+      "stderr": ""
+    },
+    {
+      "name": "knowhub-next-dev-db5b95a3f01e-pg",
+      "exit_code": 0,
+      "stdout": "knowhub-next-dev-db5b95a3f01e-pg\n",
+      "stderr": ""
+    },
+    {
+      "name": "knowhub-next-dev-86c5565e4953-pg",
+      "exit_code": 0,
+      "stdout": "knowhub-next-dev-86c5565e4953-pg\n",
+      "stderr": ""
+    },
+    {
+      "name": "knowhub-next-dev-11dd696a47fb-pg",
+      "exit_code": 0,
+      "stdout": "knowhub-next-dev-11dd696a47fb-pg\n",
+      "stderr": ""
+    },
+    {
+      "name": "knowhub-next-dev-b039956d6634-pg",
+      "exit_code": 0,
+      "stdout": "knowhub-next-dev-b039956d6634-pg\n",
+      "stderr": ""
+    },
+    {
+      "name": "knowhub-next-dev-48a5a4af6631-pg",
+      "exit_code": 0,
+      "stdout": "knowhub-next-dev-48a5a4af6631-pg\n",
+      "stderr": ""
+    }
+  ]
+}

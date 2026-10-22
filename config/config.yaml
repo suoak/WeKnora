@@ -1,4 +1,15 @@
 # Server configuration
+# Personal read-only MCP is disabled on first deployment. Explicitly enable
+# only in the approved environment; Published is the dynamic public authority.
+# policy_reference identifies that environment's enablement decision, not a
+# per-KB approval. Never enable the historical review workflow for this mode.
+personal_mcp:
+  enabled: false
+  policy_reference: ""
+  review_enabled: false
+  system_admin_review: false
+  exceptions_enabled: false
+
 server:
   port: 8080
   host: "0.0.0.0"

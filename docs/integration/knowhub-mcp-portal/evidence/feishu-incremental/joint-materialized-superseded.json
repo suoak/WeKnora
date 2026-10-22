@@ -1,0 +1,20 @@
+{
+  "candidate_source_sha256": "8bba297348deff5e0679460cabd9dea5d665d293496e0b857b7ec87b03eb4fa3",
+  "reason": "superseded test candidate; failed targeted regression retained; final exact-source complete suite runs independently",
+  "actions": [
+    {
+      "kind": "runner",
+      "pid": 410474,
+      "signal": "SIGTERM"
+    },
+    {
+      "kind": "own_superseded_test_only",
+      "container": "0bad49b089d0",
+      "exit_code": 0
+    }
+  ],
+  "remaining_gates": "NOT_TESTED_SUPERSEDED_NOT_PASS",
+  "files_deleted": false,
+  "volumes_deleted": false,
+  "application_services_stopped": false
+}

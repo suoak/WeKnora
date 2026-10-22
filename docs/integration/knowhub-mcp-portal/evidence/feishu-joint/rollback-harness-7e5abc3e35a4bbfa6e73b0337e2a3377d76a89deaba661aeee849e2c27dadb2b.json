@@ -1,0 +1,6 @@
+{
+  "candidate_sha256": "b47025118adfc4cff2d1f75cabc6f98265a0bb9ca1ad816f409099081947f0fc",
+  "harness_sha256": "7e5abc3e35a4bbfa6e73b0337e2a3377d76a89deaba661aeee849e2c27dadb2b",
+  "matches_frozen": true,
+  "remote": "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/rollback-harness-7e5abc3e35a4bbfa6e73b0337e2a3377d76a89deaba661aeee849e2c27dadb2b.py"
+}

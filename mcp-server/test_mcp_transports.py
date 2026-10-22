@@ -211,14 +211,24 @@ class StdioToolsListTest(unittest.TestCase):
 
 class HttpStatelessSmokeTest(unittest.TestCase):
     def test_initialize_does_not_require_mcp_session_id(self):
+        import json
+        import socket
+        import tempfile
         import time
+        import urllib.error
+        import urllib.request
 
-        port = 19876
+        with socket.socket() as listener:
+            listener.bind(("127.0.0.1", 0))
+            port = listener.getsockname()[1]
         env = {
             **os.environ,
+            "MCP_AUTH_MODE": "shared",
             "MCP_SERVER_AUTH_TOKEN": "test-token",
             "WEKNORA_API_KEY": "test-key",
         }
+        server_log = tempfile.TemporaryFile()
+        self.addCleanup(server_log.close)
         proc = subprocess.Popen(
             [
                 sys.executable,
@@ -232,50 +242,38 @@ class HttpStatelessSmokeTest(unittest.TestCase):
             ],
             cwd=MCP_SERVER_DIR,
             env=env,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=server_log,
+            stderr=subprocess.STDOUT,
         )
         try:
+            # No shell, curl, proxy environment or platform-specific null path.
+            # The actual initialize request and stateless assertions remain.
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            request = urllib.request.Request(
+                f"http://127.0.0.1:{port}/mcp",
+                data=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                    "params": {"protocolVersion": "2025-03-26", "capabilities": {},
+                               "clientInfo": {"name": "t", "version": "1"}}}).encode(),
+                headers={"Authorization": "Bearer test-token", "Content-Type": "application/json",
+                         "Accept": "application/json, text/event-stream"},
+            )
             deadline = time.time() + 10
+            last_error = None
             while time.time() < deadline:
-                probe = subprocess.run(
-                    [
-                        "curl",
-                        "--noproxy",
-                        "*",
-                        "-s",
-                        "-D",
-                        "-",
-                        "-o",
-                        "/dev/null",
-                        "-X",
-                        "POST",
-                        f"http://127.0.0.1:{port}/mcp",
-                        "-H",
-                        "Authorization: Bearer test-token",
-                        "-H",
-                        "Content-Type: application/json",
-                        "-H",
-                        "Accept: application/json, text/event-stream",
-                        "-d",
-                        (
-                            '{"jsonrpc":"2.0","id":1,"method":"initialize",'
-                            '"params":{"protocolVersion":"2025-03-26",'
-                            '"capabilities":{},"clientInfo":{"name":"t","version":"1"}}}'
-                        ),
-                    ],
-                    capture_output=True,
-                    text=True,
-                )
-                if probe.returncode == 0 and "HTTP/" in probe.stdout:
-                    break
+                try:
+                    with opener.open(request, timeout=1) as response:
+                        self.assertEqual(response.status, 200)
+                        self.assertNotIn("mcp-session-id", response.headers)
+                        break
+                except (urllib.error.URLError, TimeoutError) as exc:
+                    last_error = repr(exc)
+                    if proc.poll() is not None:
+                        server_log.seek(0)
+                        self.fail("HTTP server exited: " + server_log.read().decode(errors="replace"))
                 time.sleep(0.2)
             else:
-                self.fail("HTTP server did not become ready in time")
-
-            headers = probe.stdout.lower()
-            self.assertIn("200 ok", headers)
-            self.assertNotIn("mcp-session-id:", headers)
+                server_log.seek(0)
+                self.fail(f"HTTP server did not become ready in time ({last_error}): " + server_log.read().decode(errors="replace"))
         finally:
             proc.terminate()
             try:

@@ -1,0 +1,118 @@
+{
+  "exit_code": 0,
+  "candidate_sha256": "d321f68380668125260b57c07cec4f7edf68a267ee714b8606a184b9b18af270",
+  "initial_kbs": [
+    "private-home",
+    "private-other",
+    "public-kb",
+    "public-two"
+  ],
+  "actions": [
+    {
+      "rpc_id": 1,
+      "tool": "list_knowledge_bases",
+      "http_status": 200,
+      "is_error": false
+    },
+    {
+      "rpc_id": 2,
+      "tool": "search_knowledge",
+      "http_status": 200,
+      "is_error": false
+    },
+    {
+      "rpc_id": 3,
+      "tool": "search_knowledge",
+      "http_status": 200,
+      "is_error": false
+    },
+    {
+      "rpc_id": 4,
+      "tool": "search_knowledge",
+      "http_status": 200,
+      "is_error": false
+    },
+    {
+      "rpc_id": 5,
+      "tool": "grep_chunks",
+      "http_status": 200,
+      "is_error": false
+    },
+    {
+      "rpc_id": 6,
+      "tool": "list_documents",
+      "http_status": 200,
+      "is_error": false
+    },
+    {
+      "rpc_id": 7,
+      "tool": "read_document",
+      "http_status": 200,
+      "is_error": false
+    },
+    {
+      "rpc_id": 8,
+      "tool": "read_document",
+      "http_status": 200,
+      "is_error": true
+    },
+    {
+      "rpc_id": 9,
+      "tool": "read_document",
+      "http_status": 200,
+      "is_error": true
+    },
+    {
+      "rpc_id": 10,
+      "tool": "add_document",
+      "http_status": 200,
+      "is_error": true
+    },
+    {
+      "rpc_id": 11,
+      "tool": "delete_document",
+      "http_status": 200,
+      "is_error": true
+    },
+    {
+      "rpc_id": 12,
+      "tool": "ask",
+      "http_status": 200,
+      "is_error": true
+    },
+    {
+      "rpc_id": 13,
+      "tool": "list_knowledge_bases",
+      "http_status": 200,
+      "is_error": false
+    },
+    {
+      "rpc_id": 14,
+      "tool": "read_document",
+      "http_status": 200,
+      "is_error": true
+    },
+    {
+      "rpc_id": 15,
+      "tool": "list_knowledge_bases",
+      "http_status": 401,
+      "is_error": false
+    },
+    {
+      "rpc_id": 16,
+      "tool": "list_knowledge_bases",
+      "http_status": 200,
+      "is_error": false
+    },
+    {
+      "rpc_id": 17,
+      "tool": "list_knowledge_bases",
+      "http_status": 401,
+      "is_error": false
+    }
+  ],
+  "old_keys_unchanged": true,
+  "SID": "BLOCKED_NOT_CONFIGURED",
+  "formal_embedding": "BLOCKED_NOT_CONFIGURED",
+  "model": "SYNTHETIC_1024"
+}

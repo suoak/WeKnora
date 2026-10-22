@@ -1,0 +1,154 @@
+[
+  {
+    "name": "create-new-restored-clone",
+    "argv": [
+      "docker",
+      "exec",
+      "-u",
+      "postgres",
+      "WeKnora-postgres",
+      "psql",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-U",
+      "postgres",
+      "-d",
+      "postgres",
+      "-c",
+      "CREATE DATABASE knowhub_formal_denial_restore_20261022t072133z_a2_a2 TEMPLATE template0"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "copy-independent-probe-files",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "none",
+      "-v",
+      "kh-formal-20261022t072133z-a2_safe_rollback_files:/old:ro",
+      "-v",
+      "kh-formal-20261022t072133z-a2_safe_rollback_files-a2:/new",
+      "knowhub-build/golang:1.26-feishu-py311-ensurepip-20261022",
+      "sh",
+      "-c",
+      "cp -a /old/. /new/"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "start-private-redis",
+    "argv": [
+      "docker",
+      "run",
+      "-d",
+      "--name",
+      "kh-formal-fault-0a7374bbbdbd-a2-redis",
+      "--network",
+      "weknora_WeKnora-network",
+      "--label",
+      "knowhub.formal=temporary-fault-probe",
+      "redis:7.0-alpine",
+      "redis-server",
+      "--save",
+      "",
+      "--appendonly",
+      "no"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "start-private-candidate-probe",
+    "argv": [
+      "docker",
+      "run",
+      "-d",
+      "--name",
+      "kh-formal-fault-0a7374bbbdbd-a2",
+      "--network",
+      "weknora_WeKnora-network",
+      "--label",
+      "knowhub.formal=temporary-fault-probe",
+      "--env-file",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/formal-rollback.env",
+      "-e",
+      "DB_DRIVER=postgres",
+      "-e",
+      "DB_HOST=WeKnora-postgres",
+      "-e",
+      "DB_PORT=5432",
+      "-e",
+      "DB_NAME=knowhub_formal_denial_restore_20261022t072133z_a2_a2",
+      "-e",
+      "REDIS_ADDR=kh-formal-fault-0a7374bbbdbd-a2-redis:6379",
+      "-e",
+      "REDIS_PASSWORD=",
+      "-e",
+      "FEISHU_LEGACY_SYNC_SUSPENDED=false",
+      "-e",
+      "FEISHU_SAFE_INCREMENTAL_ENABLED=true",
+      "-e",
+      "FEISHU_DOCX_PARSE_MODE=blocks",
+      "-e",
+      "FEISHU_API_RETRY_MAX=0",
+      "-e",
+      "AUTO_RECOVER_DIRTY=false",
+      "-e",
+      "DUCKDB_SKIP_EXTENSION_LOAD=1",
+      "-e",
+      "RETRIEVE_DRIVER=postgres",
+      "-e",
+      "SSRF_WHITELIST=formal-model,formal-feishu",
+      "-e",
+      "LOCAL_STORAGE_BASE_DIR=/data/files",
+      "-v",
+      "kh-formal-20261022t072133z-a2_safe_rollback_files-a2:/data/files",
+      "--entrypoint",
+      "/app/WeKnora",
+      "knowhub-v1-wiki-dynamic/app:0a7374bbbdbd8c4a"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "kill-only-private-probe",
+    "argv": [
+      "docker",
+      "kill",
+      "--signal",
+      "SIGKILL",
+      "kh-formal-fault-0a7374bbbdbd-a2"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "restart-private-probe",
+    "argv": [
+      "docker",
+      "start",
+      "kh-formal-fault-0a7374bbbdbd-a2"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "stop-only-private-redis",
+    "argv": [
+      "docker",
+      "stop",
+      "--time",
+      "3",
+      "kh-formal-fault-0a7374bbbdbd-a2-redis"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "restart-only-private-redis",
+    "argv": [
+      "docker",
+      "start",
+      "kh-formal-fault-0a7374bbbdbd-a2-redis"
+    ],
+    "exit_code": 0
+  }
+]

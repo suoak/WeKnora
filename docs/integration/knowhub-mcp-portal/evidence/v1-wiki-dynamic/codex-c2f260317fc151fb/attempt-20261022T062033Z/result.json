@@ -1,0 +1,89 @@
+{
+  "candidate_sha256": "c2f260317fc151fbab98d9e87b2fe5c9acbd903dd4be2e857e0326565d390d75",
+  "exit_code": 0,
+  "tool_gate_pass": true,
+  "actual_completed_calls": [
+    {
+      "tool": "list_documents",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "grep_chunks",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "search_knowledge",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "read_document",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "list_knowledge_bases",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "search_knowledge",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "wiki_search",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "wiki_read_page",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "wiki_index",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "read_document",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "read_document",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "read_document",
+      "status": "failed",
+      "error": null
+    }
+  ],
+  "started_utc": "2026-10-22T06:19:47.859764+00:00",
+  "finished_utc": "2026-10-22T06:20:33.936743+00:00",
+  "copied_UI_template_used": true,
+  "credential_in_argv": false,
+  "synthetic_data": true,
+  "source_probe": {
+    "candidate_sha256": "c2f260317fc151fbab98d9e87b2fe5c9acbd903dd4be2e857e0326565d390d75",
+    "sources": {
+      "wiki": {
+        "source_id": "6ff99263-0a0c-4582-ab21-2ab54973b9de",
+        "knowledge_base_id": "joint-feishu-wiki-final-c2b",
+        "knowledge_id": "joint-legacy-wiki-final-c2b"
+      },
+      "drive": {
+        "source_id": "a2e0e003-9492-42c4-9402-1fa8a4ab6896",
+        "knowledge_base_id": "joint-feishu-drive-final-c2b",
+        "knowledge_id": "joint-legacy-drive-final-c2b"
+      }
+    },
+    "pending": "browser/CLI then source revoke"
+  },
+  "harness_sha256": "9f7ed25090afae7ef3816b9f64a1a2ff7e74e87a7b272d0908d8fc55d55739bf"
+}

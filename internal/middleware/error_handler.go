@@ -1,11 +1,13 @@
 package middleware
 
 import (
+	stderrors "errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/Tencent/WeKnora/internal/errors"
+	"github.com/Tencent/WeKnora/internal/types"
 )
 
 // ErrorHandler 是一个处理应用错误的中间件
@@ -18,6 +20,10 @@ func ErrorHandler() gin.HandlerFunc {
 		if len(c.Errors) > 0 {
 			// 获取最后一个错误
 			err := c.Errors.Last().Err
+			if stderrors.Is(err, types.ErrLegacySourceRestricted) {
+				c.JSON(http.StatusForbidden, gin.H{"success": false, "error": gin.H{"code": "source_access_restricted", "message": "Source access requires verification"}})
+				return
+			}
 
 			// 检查是否为应用错误
 			if appErr, ok := errors.IsAppError(err); ok {

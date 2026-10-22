@@ -1,0 +1,11 @@
+{
+  "candidate_sha256": "c2f260317fc151fbab98d9e87b2fe5c9acbd903dd4be2e857e0326565d390d75",
+  "runtime_source_sha256": "b702755c033328560bbb28802c93a3a1abce31a43352870b43d8f1fee2d74cdb",
+  "local_source_archive_sha256": "cb08c31f06d1565196ae0bc93458d10069a73e803b08fa2ffe984a8fe3e67437",
+  "remote_source_archive_sha256": "cb08c31f06d1565196ae0bc93458d10069a73e803b08fa2ffe984a8fe3e67437",
+  "archive_matches_frozen": true,
+  "app_image_matches": true,
+  "frontend_image_matches": true,
+  "binary_matches": true,
+  "current_formal_target_deployed": false
+}

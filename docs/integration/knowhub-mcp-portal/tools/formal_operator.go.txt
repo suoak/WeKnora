@@ -1,0 +1,47 @@
+// Test operator only. Uses frozen project's formal migrator and AES routines.
+package main
+
+import (
+ "crypto/sha256"
+ "database/sql"
+ "encoding/hex"
+ "encoding/json"
+ "fmt"
+ "net/url"
+ "os"
+ "strings"
+
+ "github.com/Tencent/WeKnora/internal/database"
+ "github.com/Tencent/WeKnora/internal/utils"
+ _ "github.com/lib/pq"
+)
+
+func run() error {
+ if os.Getenv("FORMAL_TEST_AUTHORIZATION")!="P3_TEST_ONLY_C2" {return fmt.Errorf("test_authorization_required")}
+ dsn:=os.Getenv("FORMAL_TEST_DSN"); u,e:=url.Parse(dsn)
+ if e!=nil || u.Hostname()!="WeKnora-postgres" || !(u.Path=="/WeKnora" || strings.HasPrefix(u.Path,"/knowhub_formal_")) {return fmt.Errorf("pinned_test_database_required")}
+ db,e:=sql.Open("postgres",dsn);if e!=nil{return fmt.Errorf("db_unavailable")};defer db.Close()
+ var actual string;if e=db.QueryRow("SELECT current_database()").Scan(&actual);e!=nil{return fmt.Errorf("db_unavailable")}
+ if "/"+actual!=u.Path{return fmt.Errorf("database_mismatch")}
+ mode:=os.Getenv("FORMAL_OPERATION")
+ if mode=="migrate" {
+  var v int;var dirty bool
+  if e=db.QueryRow("SELECT version,dirty FROM schema_migrations").Scan(&v,&dirty);e!=nil||dirty||v!=3033{return fmt.Errorf("expected_clean_3033")}
+  if e=database.RunMigrationsWithOptions(dsn,database.MigrationOptions{AutoRecoverDirty:false});e!=nil{return fmt.Errorf("formal_migration_failed")}
+  if e=db.QueryRow("SELECT version,dirty FROM schema_migrations").Scan(&v,&dirty);e!=nil||dirty||v!=3037{return fmt.Errorf("target_version_failed")}
+  return json.NewEncoder(os.Stdout).Encode(map[string]any{"formal_migrator":true,"schema":v,"dirty":dirty})
+ }
+ if mode!="verify-keys" {return fmt.Errorf("unknown_operation")}
+ key:=utils.GetAESKey();if key==nil{return fmt.Errorf("aes_key_missing")}
+ sample:="synthetic-restore-key-probe";sealed,e:=utils.EncryptAESGCM(sample,key);if e!=nil{return fmt.Errorf("aes_seal_failed")};plain,e:=utils.DecryptStoredSecret(sealed);if e!=nil||plain!=sample{return fmt.Errorf("aes_roundtrip_failed")}
+ rows,e:=db.Query("SELECT api_key,COALESCE(key_hash,'') FROM tenant_api_keys");if e!=nil{return fmt.Errorf("key_metadata_query_failed")};defer rows.Close()
+ total,encrypted,verified:=0,0,0
+ for rows.Next(){var cipher,hash string;if e=rows.Scan(&cipher,&hash);e!=nil{return fmt.Errorf("key_scan_failed")};total++
+  if !strings.HasPrefix(cipher,utils.EncPrefix){continue};encrypted++
+  value,err:=utils.DecryptStoredSecret(cipher);if err!=nil||value==""{return fmt.Errorf("restored_key_decryption_failed")}
+  digest:=sha256.Sum256([]byte(value));if hash!=""&&hex.EncodeToString(digest[:])!=hash{return fmt.Errorf("restored_key_hash_mismatch")};verified++
+ }
+ if rows.Err()!=nil{return fmt.Errorf("key_scan_failed")}
+ return json.NewEncoder(os.Stdout).Encode(map[string]any{"aes_roundtrip":true,"key_rows":total,"encrypted_rows":encrypted,"verified_encrypted_rows":verified,"secret_exported":false})
+}
+func main(){if err:=run();err!=nil{fmt.Println("test_operator_failed:",err);os.Exit(1)}}

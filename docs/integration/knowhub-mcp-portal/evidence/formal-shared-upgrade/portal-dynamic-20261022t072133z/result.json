@@ -1,0 +1,13 @@
+{
+  "exit_code": 0,
+  "candidate_sha256": "0a7374bbbdbd8c4a802733811ad3ecbeb70293ba33b89eefa9bd05c36ecbd371",
+  "checks": {
+    "same_Key_new_Portal_space": "PASS",
+    "new_KB_automatic_discovery": "PASS",
+    "new_document_indexed_real_PG_three_modes": "PASS",
+    "withdrawal_preserves_private_no_approval_rows": "PASS"
+  },
+  "shared_entry": true,
+  "synthetic_documents_and_1024_vector": true,
+  "real_document_parser_or_formal_model": false
+}

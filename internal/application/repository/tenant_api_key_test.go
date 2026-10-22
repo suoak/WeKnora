@@ -88,6 +88,8 @@ func TestGetUserMCPTenantScopeDropsRevokedSharedGrant(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
 	statements := []string{
+		`CREATE TABLE tenant_api_keys (id INTEGER PRIMARY KEY, personal_scope_mode TEXT NOT NULL DEFAULT 'fixed')`,
+		`INSERT INTO tenant_api_keys (id,personal_scope_mode) VALUES (9,'fixed')`,
 		`CREATE TABLE api_key_tenant_scopes (id INTEGER PRIMARY KEY, api_key_id INTEGER, tenant_id INTEGER, kb_scope_mode TEXT)`,
 		`CREATE TABLE api_key_kb_scopes (id INTEGER PRIMARY KEY, api_key_tenant_scope_id INTEGER, api_key_id INTEGER, tenant_id INTEGER, knowledge_base_id TEXT, source_type TEXT, kb_share_id TEXT)`,
 		`CREATE TABLE kb_shares (id TEXT PRIMARY KEY, knowledge_base_id TEXT, organization_id TEXT, deleted_at DATETIME)`,

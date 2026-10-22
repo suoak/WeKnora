@@ -3,6 +3,7 @@ package types
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -299,14 +300,27 @@ func (c StringArray) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface, used to convert database value to StringArray
 func (c *StringArray) Scan(value interface{}) error {
+	// SQLite TEXT arrives as string; PostgreSQL JSONB commonly arrives as
+	// []byte. Never silently ignore a driver value or retain a previous scope.
+	*c = nil
 	if value == nil {
 		return nil
 	}
-	b, ok := value.([]byte)
-	if !ok {
-		return nil
+	var b []byte
+	switch v := value.(type) {
+	case []byte:
+		b = v
+	case string:
+		b = []byte(v)
+	default:
+		return fmt.Errorf("StringArray: unsupported database value %T", value)
 	}
-	return json.Unmarshal(b, c)
+	var decoded StringArray
+	if err := json.Unmarshal(b, &decoded); err != nil {
+		return err
+	}
+	*c = decoded
+	return nil
 }
 
 // Value implements the driver.Valuer interface, used to convert SummaryConfig to database value

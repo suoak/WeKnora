@@ -24,6 +24,15 @@ type resourceCatalog struct {
 	repo interfaces.ResourceRepository
 }
 
+func (s *resourceCatalog) CheckLegacyFileRead(ctx context.Context, tenant uint64, path string) (bool, error) {
+	if gate, ok := s.repo.(interface {
+		CheckLegacyFileRead(context.Context, uint64, string) (bool, error)
+	}); ok {
+		return gate.CheckLegacyFileRead(ctx, tenant, path)
+	}
+	return false, nil
+}
+
 // NewResourceCatalog creates the stable resource-reference domain service.
 func NewResourceCatalog(repo interfaces.ResourceRepository) interfaces.ResourceCatalog {
 	return &resourceCatalog{repo: repo}

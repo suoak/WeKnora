@@ -1,0 +1,21 @@
+[
+  {
+    "name": "create-backup-directory",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "none",
+      "--entrypoint",
+      "sh",
+      "-v",
+      "/mnt/sata0:/disk",
+      "nginx:1.30.3-alpine",
+      "-c",
+      "mkdir -m 700 /disk/knowhub-formal-c2-20261022t072133z && chown 1000:1000 /disk/knowhub-formal-c2-20261022t072133z"
+    ],
+    "exit_code": 0,
+    "started_utc": "2026-10-22T07:21:37.483022+00:00"
+  }
+]

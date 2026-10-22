@@ -1,0 +1,10 @@
+{
+  "bundle": "E:\\AIData\\Codex\\knowhub-feishu-joint-handoff-b47025118adfc4cf-20261022T022056Z.tar.gz",
+  "bundle_sha256": "8ba08087207516dac79842e2939ebe726b4ee30576fb205827047a8201c68edf",
+  "bundle_bytes": 165341607,
+  "manifest": "E:\\AIData\\Codex\\knowhub-feishu-joint-handoff-b47025118adfc4cf-20261022T022056Z\\MANIFEST.json",
+  "manifest_sha256": "579c9b600b02fdbc3c774bf59d3b107048f02cf37c935dbc4f1388263d522a5b",
+  "supplement_sha256": "3fefcf7c213b4b9e40e0b26e522908d4a77344b0db019bf5b63d2051f3b395c5",
+  "candidate_sha256": "b47025118adfc4cff2d1f75cabc6f98265a0bb9ca1ad816f409099081947f0fc",
+  "runtime_source_sha256": "1d533edfe33957dc6b74960594ff7d12ab33e4cfe670f631d10074fc9e9bad1a"
+}

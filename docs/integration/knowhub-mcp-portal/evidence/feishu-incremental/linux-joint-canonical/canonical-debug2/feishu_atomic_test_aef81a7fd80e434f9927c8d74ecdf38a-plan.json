@@ -1,0 +1,348 @@
+[
+  {
+    "Plan": {
+      "Node Type": "Limit",
+      "Parallel Aware": false,
+      "Async Capable": false,
+      "Startup Cost": 85.95,
+      "Total Cost": 94.13,
+      "Plan Rows": 1,
+      "Plan Width": 718,
+      "Plans": [
+        {
+          "Node Type": "Result",
+          "Parent Relationship": "Outer",
+          "Parallel Aware": false,
+          "Async Capable": false,
+          "Startup Cost": 85.95,
+          "Total Cost": 94.13,
+          "Plan Rows": 1,
+          "Plan Width": 718,
+          "Plans": [
+            {
+              "Node Type": "Sort",
+              "Parent Relationship": "Outer",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 85.95,
+              "Total Cost": 85.95,
+              "Plan Rows": 1,
+              "Plan Width": 686,
+              "Sort Key": ["(paradedb.score(embeddings.id)) DESC"],
+              "Plans": [
+                {
+                  "Node Type": "Nested Loop",
+                  "Parent Relationship": "Outer",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Join Type": "Semi",
+                  "Startup Cost": 11.26,
+                  "Total Cost": 85.94,
+                  "Plan Rows": 1,
+                  "Plan Width": 686,
+                  "Inner Unique": false,
+                  "Join Filter": "(((acl_k.id)::text = (embeddings.knowledge_id)::text) AND ((acl_c.id)::text = (embeddings.chunk_id)::text) AND ((embeddings.content = acl_c.content) OR (embeddings.content = CASE WHEN (COALESCE(acl_c.context_header, ''::text) = ''::text) THEN btrim(acl_c.content, '\t\n\u000b\f\n                  　'::text) ELSE ((acl_c.context_header || '\n\n'::text) || btrim(acl_c.content, '\t\n\u000b\f\n                  　'::text)) END) OR (embeddings.content = CASE WHEN (btrim((COALESCE(acl_k.title, ''::character varying))::text, '\t\n\u000b\f\n                  　'::text) = ''::text) THEN CASE WHEN (COALESCE(acl_c.context_header, ''::text) = ''::text) THEN btrim(acl_c.content, '\t\n\u000b\f\n                  　'::text) ELSE ((acl_c.context_header || '\n\n'::text) || btrim(acl_c.content, '\t\n\u000b\f\n                  　'::text)) END ELSE ((btrim((COALESCE(acl_k.title, ''::character varying))::text, '\t\n\u000b\f\n                  　'::text) || '\n'::text) || CASE WHEN (COALESCE(acl_c.context_header, ''::text) = ''::text) THEN btrim(acl_c.content, '\t\n\u000b\f\n                  　'::text) ELSE ((acl_c.context_header || '\n\n'::text) || btrim(acl_c.content, '\t\n\u000b\f\n                  　'::text)) END) END) OR (embeddings.content = (((COALESCE(acl_k.title, ''::character varying))::text || '\n\n'::text) || CASE WHEN (COALESCE(acl_c.context_header, ''::text) = ''::text) THEN btrim(acl_c.content, '\t\n\u000b\f\n                  　'::text) ELSE ((acl_c.context_header || '\n\n'::text) || btrim(acl_c.content, '\t\n\u000b\f\n                  　'::text)) END))))",
+                  "Plans": [
+                    {
+                      "Node Type": "Custom Scan",
+                      "Parent Relationship": "Outer",
+                      "Custom Plan Provider": "ParadeDB Base Scan",
+                      "Parallel Aware": false,
+                      "Async Capable": false,
+                      "Relation Name": "embeddings",
+                      "Alias": "embeddings",
+                      "Startup Cost": 10.00,
+                      "Total Cost": 10.01,
+                      "Plan Rows": 1,
+                      "Plan Width": 718,
+                      "Table": "embeddings",
+                      "Index": "embeddings_search_idx",
+                      "Segment Count": 1,
+                      "Exec Method": "NormalScanExecState",
+                      "Scores": true,
+                      "Full Index Scan": true,
+                      "Tantivy Query": "{\"boolean\":{\"should\":[\"all\",\"all\",\"all\",\"all\"]}}"
+                    },
+                    {
+                      "Node Type": "Nested Loop",
+                      "Parent Relationship": "Inner",
+                      "Parallel Aware": false,
+                      "Async Capable": false,
+                      "Join Type": "Semi",
+                      "Startup Cost": 1.26,
+                      "Total Cost": 75.84,
+                      "Plan Rows": 1,
+                      "Plan Width": 940,
+                      "Inner Unique": false,
+                      "Plans": [
+                        {
+                          "Node Type": "Nested Loop",
+                          "Parent Relationship": "Outer",
+                          "Parallel Aware": false,
+                          "Async Capable": false,
+                          "Join Type": "Anti",
+                          "Startup Cost": 1.12,
+                          "Total Cost": 67.67,
+                          "Plan Rows": 1,
+                          "Plan Width": 944,
+                          "Inner Unique": false,
+                          "Plans": [
+                            {
+                              "Node Type": "Nested Loop",
+                              "Parent Relationship": "Outer",
+                              "Parallel Aware": false,
+                              "Async Capable": false,
+                              "Join Type": "Anti",
+                              "Startup Cost": 0.98,
+                              "Total Cost": 59.49,
+                              "Plan Rows": 1,
+                              "Plan Width": 944,
+                              "Inner Unique": false,
+                              "Plans": [
+                                {
+                                  "Node Type": "Nested Loop",
+                                  "Parent Relationship": "Outer",
+                                  "Parallel Aware": false,
+                                  "Async Capable": false,
+                                  "Join Type": "Inner",
+                                  "Startup Cost": 0.84,
+                                  "Total Cost": 51.31,
+                                  "Plan Rows": 1,
+                                  "Plan Width": 1034,
+                                  "Inner Unique": false,
+                                  "Plans": [
+                                    {
+                                      "Node Type": "Nested Loop",
+                                      "Parent Relationship": "Outer",
+                                      "Parallel Aware": false,
+                                      "Async Capable": false,
+                                      "Join Type": "Inner",
+                                      "Startup Cost": 0.70,
+                                      "Total Cost": 43.14,
+                                      "Plan Rows": 1,
+                                      "Plan Width": 1038,
+                                      "Inner Unique": false,
+                                      "Plans": [
+                                        {
+                                          "Node Type": "Nested Loop",
+                                          "Parent Relationship": "Outer",
+                                          "Parallel Aware": false,
+                                          "Async Capable": false,
+                                          "Join Type": "Inner",
+                                          "Startup Cost": 0.56,
+                                          "Total Cost": 34.97,
+                                          "Plan Rows": 1,
+                                          "Plan Width": 944,
+                                          "Inner Unique": false,
+                                          "Join Filter": "((acl_c.knowledge_id)::text = (acl_k.id)::text)",
+                                          "Plans": [
+                                            {
+                                              "Node Type": "Nested Loop",
+                                              "Parent Relationship": "Outer",
+                                              "Parallel Aware": false,
+                                              "Async Capable": false,
+                                              "Join Type": "Anti",
+                                              "Startup Cost": 0.42,
+                                              "Total Cost": 26.80,
+                                              "Plan Rows": 1,
+                                              "Plan Width": 700,
+                                              "Inner Unique": false,
+                                              "Plans": [
+                                                {
+                                                  "Node Type": "Index Scan",
+                                                  "Parent Relationship": "Outer",
+                                                  "Parallel Aware": false,
+                                                  "Async Capable": false,
+                                                  "Scan Direction": "Forward",
+                                                  "Index Name": "idx_knowledges_folder_path",
+                                                  "Relation Name": "knowledges",
+                                                  "Alias": "acl_k",
+                                                  "Startup Cost": 0.14,
+                                                  "Total Cost": 8.16,
+                                                  "Plan Rows": 1,
+                                                  "Plan Width": 700,
+                                                  "Index Cond": "((tenant_id = 99) AND ((knowledge_base_id)::text = 'public-kb'::text))",
+                                                  "Filter": "((deleted_at IS NULL) AND ((type)::text = ANY ('{file,manual}'::text[])) AND ((enable_status)::text = 'enabled'::text) AND ((parse_status)::text = 'completed'::text))"
+                                                },
+                                                {
+                                                  "Node Type": "Nested Loop",
+                                                  "Parent Relationship": "Inner",
+                                                  "Parallel Aware": false,
+                                                  "Async Capable": false,
+                                                  "Join Type": "Inner",
+                                                  "Startup Cost": 0.28,
+                                                  "Total Cost": 18.62,
+                                                  "Plan Rows": 1,
+                                                  "Plan Width": 94,
+                                                  "Inner Unique": true,
+                                                  "Plans": [
+                                                    {
+                                                      "Node Type": "Index Scan",
+                                                      "Parent Relationship": "Outer",
+                                                      "Parallel Aware": false,
+                                                      "Async Capable": false,
+                                                      "Scan Direction": "Forward",
+                                                      "Index Name": "idx_knowledges_folder_path",
+                                                      "Relation Name": "knowledges",
+                                                      "Alias": "acl_dk",
+                                                      "Startup Cost": 0.14,
+                                                      "Total Cost": 8.16,
+                                                      "Plan Rows": 1,
+                                                      "Plan Width": 184,
+                                                      "Index Cond": "((tenant_id = 99) AND ((knowledge_base_id)::text = 'public-kb'::text))",
+                                                      "Filter": "(deleted_at IS NULL)"
+                                                    },
+                                                    {
+                                                      "Node Type": "Index Scan",
+                                                      "Parent Relationship": "Inner",
+                                                      "Parallel Aware": false,
+                                                      "Async Capable": false,
+                                                      "Scan Direction": "Forward",
+                                                      "Index Name": "knowledge_access_policies_pkey",
+                                                      "Relation Name": "knowledge_access_policies",
+                                                      "Alias": "acl_dp",
+                                                      "Startup Cost": 0.14,
+                                                      "Total Cost": 8.17,
+                                                      "Plan Rows": 1,
+                                                      "Plan Width": 90,
+                                                      "Index Cond": "((knowledge_id)::text = (acl_dk.id)::text)",
+                                                      "Filter": "(((state)::text = 'revoked'::text) OR ((policy)::text = ANY ('{restricted,mcp_blocked,deny}'::text[])) OR ((content_class)::text = 'mixed'::text) OR ((source_acl_state)::text = 'revoked'::text))"
+                                                    }
+                                                  ]
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "Node Type": "Index Scan",
+                                              "Parent Relationship": "Inner",
+                                              "Parallel Aware": false,
+                                              "Async Capable": false,
+                                              "Scan Direction": "Forward",
+                                              "Index Name": "idx_chunks_kb_tenant",
+                                              "Relation Name": "chunks",
+                                              "Alias": "acl_c",
+                                              "Startup Cost": 0.14,
+                                              "Total Cost": 8.16,
+                                              "Plan Rows": 1,
+                                              "Plan Width": 338,
+                                              "Index Cond": "(((knowledge_base_id)::text = 'public-kb'::text) AND (tenant_id = 99))",
+                                              "Filter": "((deleted_at IS NULL) AND is_enabled AND ((chunk_type)::text = 'text'::text))"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "Node Type": "Index Scan",
+                                          "Parent Relationship": "Inner",
+                                          "Parallel Aware": false,
+                                          "Async Capable": false,
+                                          "Scan Direction": "Forward",
+                                          "Index Name": "idx_knowledge_bases_storage_backend",
+                                          "Relation Name": "knowledge_bases",
+                                          "Alias": "acl_b",
+                                          "Startup Cost": 0.14,
+                                          "Total Cost": 8.16,
+                                          "Plan Rows": 1,
+                                          "Plan Width": 94,
+                                          "Index Cond": "(tenant_id = 99)",
+                                          "Filter": "((deleted_at IS NULL) AND (NOT is_temporary) AND ((id)::text = 'public-kb'::text))"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "Node Type": "Index Scan",
+                                      "Parent Relationship": "Inner",
+                                      "Parallel Aware": false,
+                                      "Async Capable": false,
+                                      "Scan Direction": "Forward",
+                                      "Index Name": "idx_tenants_status",
+                                      "Relation Name": "tenants",
+                                      "Alias": "acl_owner",
+                                      "Startup Cost": 0.14,
+                                      "Total Cost": 8.16,
+                                      "Plan Rows": 1,
+                                      "Plan Width": 4,
+                                      "Index Cond": "((status)::text = 'active'::text)",
+                                      "Filter": "((deleted_at IS NULL) AND (id = 99))"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "Node Type": "Index Scan",
+                                  "Parent Relationship": "Inner",
+                                  "Parallel Aware": false,
+                                  "Async Capable": false,
+                                  "Scan Direction": "Forward",
+                                  "Index Name": "kb_publication_policies_pkey",
+                                  "Relation Name": "kb_publication_policies",
+                                  "Alias": "acl_bp",
+                                  "Startup Cost": 0.14,
+                                  "Total Cost": 8.17,
+                                  "Plan Rows": 1,
+                                  "Plan Width": 90,
+                                  "Index Cond": "((knowledge_base_id)::text = 'public-kb'::text)",
+                                  "Filter": "(((state)::text = 'revoked'::text) OR ((policy)::text = ANY ('{restricted,mcp_blocked,deny}'::text[])) OR ((content_class)::text = 'mixed'::text) OR ((source_acl_state)::text = 'revoked'::text))"
+                                }
+                              ]
+                            },
+                            {
+                              "Node Type": "Index Scan",
+                              "Parent Relationship": "Inner",
+                              "Parallel Aware": false,
+                              "Async Capable": false,
+                              "Scan Direction": "Forward",
+                              "Index Name": "enterprise_space_policies_pkey",
+                              "Relation Name": "enterprise_space_policies",
+                              "Alias": "acl_sp",
+                              "Startup Cost": 0.14,
+                              "Total Cost": 8.17,
+                              "Plan Rows": 1,
+                              "Plan Width": 4,
+                              "Index Cond": "(tenant_id = 99)",
+                              "Filter": "(((state)::text = 'revoked'::text) OR ((policy)::text = ANY ('{restricted,mcp_blocked,deny}'::text[])) OR ((content_class)::text = 'mixed'::text) OR ((source_acl_state)::text = 'revoked'::text))"
+                            }
+                          ]
+                        },
+                        {
+                          "Node Type": "Index Scan",
+                          "Parent Relationship": "Inner",
+                          "Parallel Aware": false,
+                          "Async Capable": false,
+                          "Scan Direction": "Forward",
+                          "Index Name": "idx_tenant_portal_configs_category",
+                          "Relation Name": "tenant_portal_configs",
+                          "Alias": "acl_pc",
+                          "Startup Cost": 0.14,
+                          "Total Cost": 8.16,
+                          "Plan Rows": 1,
+                          "Plan Width": 4,
+                          "Filter": "(tenant_id = 99)"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "Node Type": "Index Scan",
+              "Parent Relationship": "SubPlan",
+              "Subplan Name": "SubPlan 1",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Scan Direction": "Forward",
+              "Index Name": "idx_chunks_knowledge_enabled",
+              "Relation Name": "chunks",
+              "Alias": "acl_projection",
+              "Startup Cost": 0.14,
+              "Total Cost": 8.16,
+              "Plan Rows": 1,
+              "Plan Width": 32,
+              "Index Cond": "((knowledge_id)::text = (embeddings.knowledge_id)::text)",
+              "Filter": "(((id)::text = (embeddings.chunk_id)::text) AND ((knowledge_base_id)::text = (embeddings.knowledge_base_id)::text))"
+            }
+          ]
+        }
+      ]
+    }
+  }
+]

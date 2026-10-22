@@ -1,0 +1,78 @@
+// Isolated synthetic namespace in the authorized shared TEST database only.
+package main
+import(
+ "context"
+ "encoding/json"
+ "fmt"
+ "net/url"
+ "os"
+ "strings"
+ "github.com/Tencent/WeKnora/internal/application/repository"
+ pgdriver "github.com/Tencent/WeKnora/internal/application/repository/retriever/postgres"
+ "github.com/Tencent/WeKnora/internal/types"
+ "golang.org/x/crypto/bcrypt"
+ "gorm.io/driver/postgres"
+ "gorm.io/gorm"
+ "gorm.io/gorm/logger"
+)
+func run()error{
+ if os.Getenv("FORMAL_TEST_AUTHORIZATION")!="P3_TEST_ONLY_C2"{return fmt.Errorf("authorization_required")}
+ dsn:=os.Getenv("FORMAL_TEST_DSN");u,e:=url.Parse(dsn);if e!=nil||u.Hostname()!="WeKnora-postgres"||u.Path!="/WeKnora"{return fmt.Errorf("shared_test_target_required")}
+ db,e:=gorm.Open(postgres.Open(dsn),&gorm.Config{Logger:logger.Discard});if e!=nil{return fmt.Errorf("db_unavailable")}
+ mode:=os.Getenv("FORMAL_SEED_MODE");if mode!="initial"&&mode!="future"{return fmt.Errorf("invalid_mode")}
+ password:=os.Getenv("FORMAL_TEST_PASSWORD");if len(password)<24{return fmt.Errorf("synthetic_password_required")}
+ hash,e:=bcrypt.GenerateFromPassword([]byte(password),bcrypt.DefaultCost);if e!=nil{return e}
+ type entry struct{ID string;Tenant uint64;Text string}
+ entries:=[]entry{{"public-kb",820099,"PUBLIC ordinary Office policy [manual](https://docs.example.test/guide) https://storage.example.test/private?token=FORMAL_URL_SECRET ![private](/files/FORMAL_URL_SECRET)"},{"public-two",820002,"PUBLIC second published space text"},{"private-home",820001,"PUBLIC private home text"},{"private-other",820007,"PUBLIC private second text"},{"sensitive",820099,"FORMAL_SENSITIVE_CANARY"},{"unpublished",820198,"FORMAL_UNPUBLISHED_CANARY"}}
+ if mode=="future"{entries=[]entry{{"future-private",820207,"FUTURE_PRIVATE_CANARY"}}}
+ e=db.Transaction(func(tx *gorm.DB)error{
+  tids:=[]uint64{820001,820002,820007,820099,820198};if mode=="future"{tids=[]uint64{820207}}
+  var n int64;if err:=tx.Table("tenants").Where("id IN ?",tids).Count(&n).Error;err!=nil||n!=0{return fmt.Errorf("synthetic_namespace_already_exists")}
+  for _,tid:=range tids{
+   if err:=tx.Create(&types.Tenant{ID:tid,Name:fmt.Sprintf("Formal synthetic %d",tid),Status:"active"}).Error;err!=nil{return err}
+   if err:=tx.Exec(`UPDATE tenants SET retriever_engines='[{"retriever_type":"keywords","retriever_engine_type":"postgres"},{"retriever_type":"vector","retriever_engine_type":"postgres"}]'WHERE id=?`,tid).Error;err!=nil{return err}
+  }
+  if mode=="initial"{
+   for _,x:=range []struct{ID string;Home uint64;Admin bool}{{"A",820001,false},{"B",820198,false},{"owner",820099,false},{"reviewer",820001,true}}{
+    user:=&types.User{ID:"fm-"+x.ID,Username:"Formal synthetic "+x.ID,Email:"fm-"+x.ID+"@example.invalid",PasswordHash:string(hash),TenantID:x.Home,IsActive:true,IsSystemAdmin:x.Admin}
+    if err:=tx.Create(user).Error;err!=nil{return err}
+    if err:=tx.Exec("INSERT INTO tenant_members(user_id,tenant_id,role,status)VALUES(?,?,'owner','active')",user.ID,x.Home).Error;err!=nil{return err}
+   }
+   for _,m:=range []struct{ID string;Tenant uint64;Role string}{{"fm-A",820007,"viewer"},{"fm-owner",820002,"owner"},{"fm-owner",820001,"viewer"}}{
+    if err:=tx.Exec("INSERT INTO tenant_members(user_id,tenant_id,role,status)VALUES(?,?,?,'active')",m.ID,m.Tenant,m.Role).Error;err!=nil{return err}
+   }
+  }
+  driver:=pgdriver.NewPostgresRetrieveEngineRepository(tx)
+  for _,x:=range entries{
+   kb:="fm-"+x.ID;model:="fm-model-"+x.ID
+   if err:=tx.Create(&types.Model{ID:model,TenantID:x.Tenant,Name:"SYNTHETIC controlled 1024",Type:types.ModelTypeEmbedding,Source:types.ModelSourceRemote,Status:types.ModelStatusActive,Parameters:types.ModelParameters{BaseURL:"http://formal-model:8000/v1",Provider:"openai",EmbeddingParameters:types.EmbeddingParameters{Dimension:1024}}}).Error;err!=nil{return err}
+   if err:=tx.Create(&types.KnowledgeBase{ID:kb,TenantID:x.Tenant,Name:"Formal synthetic "+x.ID,Type:"document",EmbeddingModelID:model,SummaryModelID:"fm-synthetic-chat"}).Error;err!=nil{return err}
+   doc:=&types.Knowledge{ID:kb+"-doc",TenantID:x.Tenant,KnowledgeBaseID:kb,Type:"file",Title:x.Text,Source:"synthetic-local",FileName:"formal.txt",ParseStatus:types.ParseStatusCompleted,EnableStatus:"enabled",Channel:types.ChannelWeb}
+   if err:=tx.Create(doc).Error;err!=nil{return err}
+   chunk:=&types.Chunk{ID:kb+"-chunk",TenantID:x.Tenant,KnowledgeBaseID:kb,KnowledgeID:doc.ID,Content:x.Text,ChunkType:types.ChunkTypeText,IsEnabled:true}
+   if err:=tx.Create(chunk).Error;err!=nil{return err}
+   vector:=make([]float32,1024);vector[0]=1
+   if err:=driver.Save(context.Background(),&types.IndexInfo{SourceID:chunk.ID,SourceType:types.ChunkSourceType,ChunkID:chunk.ID,KnowledgeID:doc.ID,KnowledgeBaseID:kb,Content:x.Text,IsEnabled:true},map[string]any{"embedding":map[string][]float32{chunk.ID:vector}});err!=nil{return err}
+  }
+  if mode=="initial"{
+   if err:=tx.Create(&types.Model{ID:"fm-synthetic-chat",TenantID:820099,Name:"SYNTHETIC chat",Type:types.ModelTypeKnowledgeQA,Source:types.ModelSourceRemote,Status:types.ModelStatusActive,Parameters:types.ModelParameters{BaseURL:"http://formal-model:8000/v1",Provider:"openai"}}).Error;err!=nil{return err}
+   for _,tid:=range []uint64{820002,820099}{if err:=tx.Create(&types.TenantPortalConfig{TenantID:tid,Status:types.PortalStatusPublished,DisplayName:fmt.Sprintf("Formal public %d",tid),CreatedBy:"fm-owner",UpdatedBy:"fm-owner"}).Error;err!=nil{return err}}
+  }
+  return nil
+ });if e!=nil{return fmt.Errorf("scoped_seed_failed: %w",e)}
+ if mode=="initial"{
+  store:=repository.NewEnterpriseAccessRepository(db)
+  if e=store.SetPortalKBPublicBlock(context.Background(),820099,"fm-sensitive","fm-owner","synthetic restricted whole KB",0,true);e!=nil{return fmt.Errorf("synthetic_block_failed")}
+  types.EnableLegacyReadGuards(db);wiki:=repository.NewWikiPageRepository(db)
+  for _,kb:=range []string{"public-two","private-home"}{
+   tenant:=uint64(820002);if kb=="private-home"{tenant=820001}
+   ctx,err:=repository.BeginWikiMCPGeneration(context.Background(),wiki,"fm-"+kb);if err!=nil{return fmt.Errorf("wiki_proof_failed")}
+   page:=&types.WikiPage{ID:"fm-wiki-"+kb,TenantID:tenant,KnowledgeBaseID:"fm-"+kb,Slug:"concept/verified",Title:"verified "+kb,Content:"verified "+kb+" Wiki ordinary content",PageType:types.WikiPageTypeConcept,Status:types.WikiPageStatusPublished,SourceRefs:types.StringArray{"fm-"+kb+"-doc|synthetic source"},Version:1}
+   if err=wiki.Create(ctx,page);err!=nil{return fmt.Errorf("wiki_create_failed")}
+  }
+  unknown:=&types.WikiPage{ID:"fm-wiki-untrusted",TenantID:820002,KnowledgeBaseID:"fm-public-two",Slug:"concept/unknown",Title:"FORMAL_UNTRUSTED_WIKI_CANARY",Content:"FORMAL_UNTRUSTED_WIKI_CANARY",PageType:types.WikiPageTypeConcept,Status:types.WikiPageStatusPublished,SourceRefs:types.StringArray{"fm-public-two-doc|known","fm-sensitive-doc|unknown"},Version:1}
+  if e=wiki.Create(context.Background(),unknown);e!=nil{return fmt.Errorf("unknown_fixture_failed")}
+ }
+ return json.NewEncoder(os.Stdout).Encode(map[string]any{"seed_mode":mode,"namespaced_only":true,"preexisting_accounts_not_modified":true,"real_SID":false,"real_model":false,"knowledge_bases":len(entries),"prefix":strings.TrimSpace("fm-")})
+}
+func main(){if e:=run();e!=nil{fmt.Println("formal_fixture_failed",e);os.Exit(1)}}

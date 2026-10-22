@@ -1,0 +1,281 @@
+{
+  "baseline_candidate_sha256": "b47025118adfc4cff2d1f75cabc6f98265a0bb9ca1ad816f409099081947f0fc",
+  "changes": [
+    {
+      "path": "frontend/src/api/mcpAccessKeys.ts",
+      "before_sha256": "6c3f541a549d14087b6dd3cd9e9e8e88012688f0f3f77be74786823fcee6b8dd",
+      "after_sha256": "cc50b883c6fd021ed732f74739918f781c5b2fe91dbcf386bd6006bd80e279d3"
+    },
+    {
+      "path": "frontend/src/views/integrations/MCPAccessKeys.vue",
+      "before_sha256": "16576c0d6945b0ec7fb72df1f742c7bbb653e2991ef1cc091432dc45803fb2d4",
+      "after_sha256": "694e9d71ff873d6ceaeb07fb0ab73cbdace35b77a6e863d399c48ea513396056"
+    },
+    {
+      "path": "frontend/src/views/integrations/mcpAccessLifecycle.test.ts",
+      "before_sha256": "fe6d26302f8f7e636c6bad85dcd36e7fb5f106594eedc8da99e51b0769ec0bba",
+      "after_sha256": "6a476bcb37b84b53aa7acd167bf035b3e684c79ce30784aef52044eb94f50945"
+    },
+    {
+      "path": "frontend/src/views/integrations/mcpAccessLifecycle.ts",
+      "before_sha256": "fe4ff5e0c3ac8cd2810e50b795ec68fba4db964ae821a6f6cbdc3376b9aa7c37",
+      "after_sha256": "fa43fdebe4b99268a7c27360efcb8eed6f996d3ab7dfc641198a1fd3f9131cae"
+    },
+    {
+      "path": "frontend/src/views/integrations/personalMcpConfig.test.ts",
+      "before_sha256": "8f6c939776d100a71cbc68641e88fb9d03fd1a4f1e99373607a73d5cb2645e2b",
+      "after_sha256": "48e9b984cf3e0307617087bb3fe9d893aa184ca691085bf8606e3f22d74241f4"
+    },
+    {
+      "path": "frontend/src/views/integrations/personalMcpConfig.ts",
+      "before_sha256": "36bed5540f80bbdae4a2d580d47bf2d369c0bf54d12fcf8c081f3c23148399ec",
+      "after_sha256": "cdca9cc69abf2153860aa552033709ecfb09fa9e96b03824c9396a882ea53ca9"
+    },
+    {
+      "path": "internal/application/access/portal_diagnostics.go",
+      "before_sha256": null,
+      "after_sha256": "6ba6d76f3919ad6913cc8a07778e02bd6ec667a91f6cfb8b394a7c3581c96207"
+    },
+    {
+      "path": "internal/application/access/portal_mcp.go",
+      "before_sha256": "69162b67f139161ba033c505bca1471be0386063b6e7655d4e4058b5b27aa033",
+      "after_sha256": "2ee9fc49f037989f212c9d174cacdf9e881ce9ef6ec8803504ad1aead312ea52"
+    },
+    {
+      "path": "internal/application/repository/document_postgres_migration_test.go",
+      "before_sha256": "7b9385d1ac9d8aac0bfacc23637ea65f3d3294e11ce4c9743b677cbc2fb7cf8a",
+      "after_sha256": "be6d6c89eb4e8e2516db07da278109d0ca0b0985105cfe904f75ca41c191c43e"
+    },
+    {
+      "path": "internal/application/repository/feishu_legacy_migration_test.go",
+      "before_sha256": "69c051a4ca7f5248d8c1be14a2e0589ffe7d63ec5367265817bc1cef092ac0d2",
+      "after_sha256": "2c3125cd8a09f4bf59a161bee28d99bc3347468961ca1666250abf00c606363b"
+    },
+    {
+      "path": "internal/application/repository/feishu_legacy_read.go",
+      "before_sha256": "578febd5645d3b1b05c56a32512303af6b4765bcc286466ded800848f003f5ab",
+      "after_sha256": "11b6a8c88fb2e4a8a4b02b7253dad1e900598a0259243b66d7095cde528f9abc"
+    },
+    {
+      "path": "internal/application/repository/knowledgebase.go",
+      "before_sha256": "5edaf3d8b43e9b2422243d1aa0b4f5c293841b0e4695378b8f9d5ae3dab6dead",
+      "after_sha256": "aa73d9309e846a0090207382bcca3e57a3c9d1ff6213258095e77ec1fcdd85e6"
+    },
+    {
+      "path": "internal/application/repository/knowledgebase_read_isolation.go",
+      "before_sha256": null,
+      "after_sha256": "beb7162a9d8d0c1071a3477dc67266f365c4e22ae2fc2c997237ab0eaeae3f04"
+    },
+    {
+      "path": "internal/application/repository/tenant_api_key.go",
+      "before_sha256": "a878befa34ebc86f6d5517eec13381db4678565eaf6210fdd62cf681d492b779",
+      "after_sha256": "bbf3abf600de99ec919eeae281772824221511f7085da1b7c32706241f92c0cf"
+    },
+    {
+      "path": "internal/application/repository/tenant_api_key_test.go",
+      "before_sha256": "6db456aedfda7f5c8689c6b3100d01b05d049af02fcc67dc9438074f2516cecc",
+      "after_sha256": "97e5132abc5981b34a63c73a6495267a725eb61d2166c138a01ffbbaa2fa9f41"
+    },
+    {
+      "path": "internal/application/repository/wiki_mcp_provenance.go",
+      "before_sha256": null,
+      "after_sha256": "dcff1eab4d1a4241079bb12416f9dfeb79a919c83e2a3dde3d7a6bd76af4ce8d"
+    },
+    {
+      "path": "internal/application/repository/wiki_page.go",
+      "before_sha256": "da18997c252eb60b1273a760bce533153fc41cb83234d0e462c2be4fdf34a472",
+      "after_sha256": "c76b88d602ee450a01c414245eadd47782bf42cf1c43e7e65a4cabcf5c892ec8"
+    },
+    {
+      "path": "internal/application/repository/wiki_page_dependencies.go",
+      "before_sha256": "78f0c17cf79433ed2d7eeaad4ee2a2baf9cd00e3edd17ff97a055efe0a1a3e6f",
+      "after_sha256": "97f36717cf5f1e6964dd94458db79d30f1182642bd2ae3175950f0444b4d90e4"
+    },
+    {
+      "path": "internal/application/service/feishu_legacy_model_guard.go",
+      "before_sha256": "439c02675db7ff8a0780207ec7379f07aaa8e5ca22d45276d6e066b32c354688",
+      "after_sha256": "f370a50b0318e9117b9f52c72049c1233bff71a0751242c356ca6ee1ca39337e"
+    },
+    {
+      "path": "internal/application/service/knowledgebase_search.go",
+      "before_sha256": "caa23ed4d6785bc618b0cbc14a22bf5442decd76c3b9517e16e0cf465af3bce4",
+      "after_sha256": "0690442aaa3dd4f765daa473e6c300199b1bc53fe5d9def92db3f5780cf3415e"
+    },
+    {
+      "path": "internal/application/service/model.go",
+      "before_sha256": "24df2e8bf05598444918fb63bcf9a226b96203d1ec20c8099798c4f384285fdf",
+      "after_sha256": "2451ec25b8ce9f1f53d3a61492e75cd8e7ea4950c8b71861053ff3a039b0db85"
+    },
+    {
+      "path": "internal/application/service/portal_mcp.go",
+      "before_sha256": "0c13833258619497aae42b819dd118a245bc396d4b8195d98914e1f80b318744",
+      "after_sha256": "451e2c066ea86398337ed4ed01611e6c2e8bbaa404619f84a3fce03fe8d3f268"
+    },
+    {
+      "path": "internal/application/service/portal_mcp_composition.go",
+      "before_sha256": "ec42f14fb4df5a1d53bbe23d6106ffdbf595a9b060ea58a26e5f45a665bf85f6",
+      "after_sha256": "d9ff5b1e608f23522da2673483e3b6562bc77e1e29441b8fb270ae06497ad1a2"
+    },
+    {
+      "path": "internal/application/service/portal_mcp_wiki.go",
+      "before_sha256": null,
+      "after_sha256": "15e2d2fefcc82a057cb133762caeb8a9097df57da7856ee1240be7b9568b2626"
+    },
+    {
+      "path": "internal/application/service/portal_v1_next_test.go",
+      "before_sha256": null,
+      "after_sha256": "0d28bde539315d2742773d4696d3f3189e47424cc97ed228e8576c6d87586708"
+    },
+    {
+      "path": "internal/application/service/tenant_api_key.go",
+      "before_sha256": "8eb000efea321985fba7cfcd4dcf4f22de9ef4ea230fb7029404229cf9cd40de",
+      "after_sha256": "a35ec14a4154313f303aa3a31cbc7cd506b52e833b281ba3d29257b5f3be1668"
+    },
+    {
+      "path": "internal/application/service/wiki_ingest_batch.go",
+      "before_sha256": "cee9d0f27ea5a7f4db3a0ee6cc95efae750fa51869a54e5f788872fb76a0b145",
+      "after_sha256": "9b6fc58b94b8979f36f5884876002a90574ac894cce1823f76b136f062c80263"
+    },
+    {
+      "path": "internal/application/service/wiki_mcp_generation_context.go",
+      "before_sha256": null,
+      "after_sha256": "882f9178e0f89141bc56250e7ce98cd629f81dbc0de25c7644e14d209a784218"
+    },
+    {
+      "path": "internal/application/service/wiki_mcp_model_guard.go",
+      "before_sha256": null,
+      "after_sha256": "86f8d235e43ceb003bdf8adca00371e3c57f124f59d0ca58fb44da5f191a9c09"
+    },
+    {
+      "path": "internal/application/service/wiki_page.go",
+      "before_sha256": "a7ffa8955a14201dd75f627f63bcfda2536f271f6968b22934621fa334046e52",
+      "after_sha256": "617c027c5755323ddc21565b899158dcd2ca6460809c643e54851286484119bc"
+    },
+    {
+      "path": "internal/database/migration_enterprise_publication_test.go",
+      "before_sha256": "5387b0c143ef27eb71afa2ba81965b44c872b0b618747ab6cd86c0f80a1c82e2",
+      "after_sha256": "f658f02236f6c32137f2d8dea47cc09f1b26d760c33d7539cbf990d34c1e7f29"
+    },
+    {
+      "path": "internal/database/migration_sqlite_versioned_schema_test.go",
+      "before_sha256": "a79efd7faae65d623a6be28ab0709d30e79b923e1d3de48f214e601d4f0a2efb",
+      "after_sha256": "dec0c799fc16f3afa3ee60600ce47de0d1cb45de3f579d0982c3dce5f8b93e00"
+    },
+    {
+      "path": "internal/handler/user_mcp_api_key.go",
+      "before_sha256": "7896066ed742dc8cbe084ba7ac2725711bbb305217c8ed8d94692066a2551934",
+      "after_sha256": "e7daa6711d9ecced2f9d37b4e8db68a28416115f84f47f692f4a12ffcbae5bfc"
+    },
+    {
+      "path": "internal/mcpserver/personal.go",
+      "before_sha256": "da237720e95cefdbd21f4a86f64715ecb1d7dd6b94c016cd174f1047883570eb",
+      "after_sha256": "ce5c2964eaa32606f36d705390070a8adda527525c11ef8bc68465a21852dce5"
+    },
+    {
+      "path": "internal/mcpserver/personal_eight_test.go",
+      "before_sha256": null,
+      "after_sha256": "17bb3fe18923d7aef73ee3bcc3c3037a4641b5c9148b4bb463d2c4de56caefab"
+    },
+    {
+      "path": "internal/middleware/personal_mcp_auth.go",
+      "before_sha256": "85ed846b90257ba3e00d109fdadc0cf288e43a59b613b1ec85c8f4338e25a314",
+      "after_sha256": "a4b3761cf5812ae23442b3e5cdc3131393e0cfb2147cd3ff71a73d164515dbe7"
+    },
+    {
+      "path": "internal/router/feishu_legacy_response.go",
+      "before_sha256": "df3bc00ba04803e515406fe893b3bfa6746ece90625bef83a5c6a743cbd9e0a8",
+      "after_sha256": "bb9d085f6290f5992e70d40ef0fab6ea1138b7e5a0efa36d926d649cab1000e3"
+    },
+    {
+      "path": "internal/router/personal_next_postgres_test.go",
+      "before_sha256": null,
+      "after_sha256": "d74d4a8cd8563eccfbe229e5392d7b96d8e395f8e6ee752a7fc0a3a7a818c5a0"
+    },
+    {
+      "path": "internal/router/personal_wiki_deployed_test.go",
+      "before_sha256": null,
+      "after_sha256": "b2066d7a81189de5fe876d46a59a0edab68c450461d75d0555a0f4d909755131"
+    },
+    {
+      "path": "internal/router/portal_mcp_postgres_test.go",
+      "before_sha256": "b379ccce4d7cfb407afec53276a52f1756861fdf4a094e7f3e1ea34ffa435cb4",
+      "after_sha256": "75df3e5944b43c35b9adf4f1c2ed8571de4c75cb13b177a81e0b682f85cbdd6b"
+    },
+    {
+      "path": "internal/testutil/documentaccess/fixture.go",
+      "before_sha256": "21d9eb03cd44a93d287a59a33f9c5b64a773228d147024b967d5385b383a4f9f",
+      "after_sha256": "56df229d800a1fdc722524168ec955496e6f37e9b4050a7da82d99431052ad35"
+    },
+    {
+      "path": "internal/types/feishu_legacy_read_scope.go",
+      "before_sha256": "853ce9c68d3e358bd40d1205da3516432d820c4e69238a531e68f11f26407df5",
+      "after_sha256": "2508e59879a6e0323eb44c8a1e7e7668d0a7c7d1e2ef9a695cd1d25f0a95ee2a"
+    },
+    {
+      "path": "internal/types/interfaces/tenant.go",
+      "before_sha256": "9cc466d3ac55523fe027c3407ff6055490c9fbb2c17131ccfea0529ac6869ba5",
+      "after_sha256": "f7d3c98c6987583039f1328d8a4ada30ebd0adc9b8be2ba86341e9885d98d34b"
+    },
+    {
+      "path": "internal/types/tenant_api_key.go",
+      "before_sha256": "2c86b7c2723cb41015ffafd6610cd28c39532277b3f04c294488893b9ae8bb45",
+      "after_sha256": "036a43d08d3dabce9d72771aeefb0cf90549d4d1946e39f9b78abc7f64959238"
+    },
+    {
+      "path": "migrations/migration-map.json",
+      "before_sha256": "82058c2949a17a1b0e52ee5861f860a0e21d313f254ece359771dd6ca1e2261e",
+      "after_sha256": "d94765d2ed80c809ccb5dd47332c0cb25b5f569df063e7260ab1341337a9245a"
+    },
+    {
+      "path": "migrations/sqlite/003037_personal_dynamic_wiki.down.sql",
+      "before_sha256": null,
+      "after_sha256": "4afc676d0d07366141d7d62ecd3fc67a61b16519bf3bc1ddb6d6cbe570eda3a8"
+    },
+    {
+      "path": "migrations/sqlite/003037_personal_dynamic_wiki.up.sql",
+      "before_sha256": null,
+      "after_sha256": "b5c97fefae56b3611c429ec765803693562df5403d13fdb6ca00de4653c04d52"
+    },
+    {
+      "path": "migrations/versioned/003037_personal_dynamic_wiki.down.sql",
+      "before_sha256": null,
+      "after_sha256": "453ad5966c9aa0f46a5f0640dec9f49e051fb0ea789836471934992a392bd8db"
+    },
+    {
+      "path": "migrations/versioned/003037_personal_dynamic_wiki.up.sql",
+      "before_sha256": null,
+      "after_sha256": "f6fddc5921ac5cd57ef641a64141573e60118e36a556a173679cc19b5c4d5a36"
+    }
+  ],
+  "current_candidate_sha256": "c2f260317fc151fbab98d9e87b2fe5c9acbd903dd4be2e857e0326565d390d75",
+  "runtime_source_sha256": "b702755c033328560bbb28802c93a3a1abce31a43352870b43d8f1fee2d74cdb",
+  "protected_feishu_writer_files": [
+    {
+      "path": "internal/application/service/feishu_datasource_replay.go",
+      "sha256": "f7fc85b2550fffac22082b1d3944113274fb2784f91bf79187b8152ce94ec2dd",
+      "unchanged_from_b470": true
+    },
+    {
+      "path": "internal/application/service/knowledge_replace.go",
+      "sha256": "34950a08dffa87d5cdc117b8eb1ce75cf4a9e3c735adc027eb7520e86c28bd16",
+      "unchanged_from_b470": true
+    },
+    {
+      "path": "internal/application/service/datasource_service.go",
+      "sha256": "9e33c9988ce120b4a4a43451ffd2b22483d33f1d91f8375132db258a45ca6a44",
+      "unchanged_from_b470": true
+    },
+    {
+      "path": "internal/application/service/datasource_execution.go",
+      "sha256": "ef37eabb7c69a2442465e7f75c525a10c6a15ff028789de9530495c235312bef",
+      "unchanged_from_b470": true
+    }
+  ],
+  "post_freeze_harness_changes": [
+    {
+      "path": "docs/integration/knowhub-mcp-portal/tools/next_deploy_linux.py",
+      "frozen_sha256": "ded57fd27cfa17ea2dfd995e54de9115c834ed2dc8bc77bb7518304f657946fe",
+      "current_sha256": "02b241a840b3634de99883885b171154504f4a622ede5b4a4c254056250d1990"
+    }
+  ]
+}

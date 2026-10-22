@@ -1,0 +1,5 @@
+{
+  "source_sha256": "7ef3265374e1c263c711b4f04ae1e561ac5982644c797423e63cec1b52f2eff6",
+  "harness_sha256": "d8f6655d43587a2a9e4050c84f79284c7df8384676efd516bb390fe287fba017",
+  "reason": "final TCP readiness and container-local public-domain fixtures; network remains none; original failed logs preserved"
+}

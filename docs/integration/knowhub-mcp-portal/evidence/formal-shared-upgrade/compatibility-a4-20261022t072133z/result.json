@@ -1,0 +1,20 @@
+{
+  "exit_code": 0,
+  "candidate_sha256": "0a7374bbbdbd8c4a802733811ad3ecbeb70293ba33b89eefa9bd05c36ecbd371",
+  "unchanged_tests": true,
+  "fix": "Use exact pre-existing disposable Unix socket contract; no assertion modified",
+  "commands": [
+    {
+      "name": "start-fresh-scale-PG",
+      "exit_code": 0
+    },
+    {
+      "name": "fresh-scale-database",
+      "exit_code": 0
+    },
+    {
+      "name": "PG-scale-dimensions-model-failure",
+      "exit_code": 0
+    }
+  ]
+}

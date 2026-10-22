@@ -1,0 +1,371 @@
+{
+  "rows": [
+    {
+      "path": "internal/application/repository/datasource_execution.go",
+      "hot_sha256": "5afca1f83d8497d00728425a959eb35f765595710165058bd30a6a68378d8da1",
+      "joint_sha256": "5afca1f83d8497d00728425a959eb35f765595710165058bd30a6a68378d8da1",
+      "same": true
+    },
+    {
+      "path": "internal/application/repository/datasource_repo.go",
+      "hot_sha256": "2fc42b723ca74295093d731711f65a55bf4db3416c156924f36809c2f93e70e6",
+      "joint_sha256": "2fc42b723ca74295093d731711f65a55bf4db3416c156924f36809c2f93e70e6",
+      "same": true
+    },
+    {
+      "path": "internal/application/repository/feishu_legacy_atomic.go",
+      "hot_sha256": "7f55a4f091381a07f6acf0cc2c9cf3642b7ceb4dbdf7380f39045d4d6b360227",
+      "joint_sha256": "7f55a4f091381a07f6acf0cc2c9cf3642b7ceb4dbdf7380f39045d4d6b360227",
+      "same": true
+    },
+    {
+      "path": "internal/application/repository/feishu_legacy_atomic_test.go",
+      "hot_sha256": "4a1370c73d7283acc0318513d48f84c75c11f8fb667a8772c26a207e5f37d590",
+      "joint_sha256": "4a1370c73d7283acc0318513d48f84c75c11f8fb667a8772c26a207e5f37d590",
+      "same": true
+    },
+    {
+      "path": "internal/application/repository/feishu_legacy_migration_test.go",
+      "hot_sha256": "69c051a4ca7f5248d8c1be14a2e0589ffe7d63ec5367265817bc1cef092ac0d2",
+      "joint_sha256": "69c051a4ca7f5248d8c1be14a2e0589ffe7d63ec5367265817bc1cef092ac0d2",
+      "same": true
+    },
+    {
+      "path": "internal/application/repository/feishu_legacy_quarantine.go",
+      "hot_sha256": "80be96298b56e892645f02c7d38d1adebe2c1db43d2e15bd67ade134da0483a8",
+      "joint_sha256": "80be96298b56e892645f02c7d38d1adebe2c1db43d2e15bd67ade134da0483a8",
+      "same": true
+    },
+    {
+      "path": "internal/application/repository/feishu_legacy_read.go",
+      "hot_sha256": "578febd5645d3b1b05c56a32512303af6b4765bcc286466ded800848f003f5ab",
+      "joint_sha256": "578febd5645d3b1b05c56a32512303af6b4765bcc286466ded800848f003f5ab",
+      "same": true
+    },
+    {
+      "path": "internal/application/repository/retriever/postgres/feishu_legacy.go",
+      "hot_sha256": "3683959ddd9f10bab9b5ca0bd3079e6cc626a4769975425d29b7b2a297d3d1df",
+      "joint_sha256": "3683959ddd9f10bab9b5ca0bd3079e6cc626a4769975425d29b7b2a297d3d1df",
+      "same": true
+    },
+    {
+      "path": "internal/application/repository/retriever/postgres/repository.go",
+      "hot_sha256": "592793120b887f467789b5aebdd2e1d7f7af639a08e130f82acd61f564bf99a2",
+      "joint_sha256": "2ca3efa73df3ce717f7c7ceb6d0e6152efa028895dcb016efc43677da36f8868",
+      "same": false
+    },
+    {
+      "path": "internal/application/service/chat_pipeline/feishu_legacy_graph_test.go",
+      "hot_sha256": "df6fe58b6e7cdbc326affffbac4c69cb9a00fb06fe118ca1cc1e9321ed8d5817",
+      "joint_sha256": "df6fe58b6e7cdbc326affffbac4c69cb9a00fb06fe118ca1cc1e9321ed8d5817",
+      "same": true
+    },
+    {
+      "path": "internal/application/service/chat_pipeline/search_entity.go",
+      "hot_sha256": "489f7e23f61fa6f853defb2fdd7a1ca7699634e80ba83636f13016ca2a55ab0d",
+      "joint_sha256": "489f7e23f61fa6f853defb2fdd7a1ca7699634e80ba83636f13016ca2a55ab0d",
+      "same": true
+    },
+    {
+      "path": "internal/application/service/datasource_execution.go",
+      "hot_sha256": "ef37eabb7c69a2442465e7f75c525a10c6a15ff028789de9530495c235312bef",
+      "joint_sha256": "ef37eabb7c69a2442465e7f75c525a10c6a15ff028789de9530495c235312bef",
+      "same": true
+    },
+    {
+      "path": "internal/application/service/datasource_service.go",
+      "hot_sha256": "9e33c9988ce120b4a4a43451ffd2b22483d33f1d91f8375132db258a45ca6a44",
+      "joint_sha256": "9e33c9988ce120b4a4a43451ffd2b22483d33f1d91f8375132db258a45ca6a44",
+      "same": true
+    },
+    {
+      "path": "internal/application/service/feishu_incremental_delete_failure_test.go",
+      "hot_sha256": "71b04f9fd7488ad683c65069d725f226541990ce6e2d7662cd0b1ae60d0356cb",
+      "joint_sha256": "71b04f9fd7488ad683c65069d725f226541990ce6e2d7662cd0b1ae60d0356cb",
+      "same": true
+    },
+    {
+      "path": "internal/application/service/feishu_legacy_fault_policy_test.go",
+      "hot_sha256": "87ea2722895517f2bbc80daf8c91a842f8f1da54ab3dd4d35b0112f00451a36d",
+      "joint_sha256": "87ea2722895517f2bbc80daf8c91a842f8f1da54ab3dd4d35b0112f00451a36d",
+      "same": true
+    },
+    {
+      "path": "internal/application/service/feishu_legacy_http_postgres_test.go",
+      "hot_sha256": "74c490a149ad865f4b35942fab8479a4c8972a9d3fe22ae54b86cd6c211300b4",
+      "joint_sha256": "74c490a149ad865f4b35942fab8479a4c8972a9d3fe22ae54b86cd6c211300b4",
+      "same": true
+    },
+    {
+      "path": "internal/application/service/feishu_legacy_model_guard.go",
+      "hot_sha256": "439c02675db7ff8a0780207ec7379f07aaa8e5ca22d45276d6e066b32c354688",
+      "joint_sha256": "439c02675db7ff8a0780207ec7379f07aaa8e5ca22d45276d6e066b32c354688",
+      "same": true
+    },
+    {
+      "path": "internal/application/service/feishu_legacy_model_guard_test.go",
+      "hot_sha256": "9ea7fd0ca8be7072c2bb61687c5109cc4bf11b61b391d86866d3077a8ac751b0",
+      "joint_sha256": "9ea7fd0ca8be7072c2bb61687c5109cc4bf11b61b391d86866d3077a8ac751b0",
+      "same": true
+    },
+    {
+      "path": "internal/application/service/feishu_legacy_staging.go",
+      "hot_sha256": "a4ceda4a23b6a8f8bebb7ac350375da707c0424045b8ff00a6c65f9c9278f0ce",
+      "joint_sha256": "a4ceda4a23b6a8f8bebb7ac350375da707c0424045b8ff00a6c65f9c9278f0ce",
+      "same": true
+    },
+    {
+      "path": "internal/application/service/feishu_legacy_staging_postgres_test.go",
+      "hot_sha256": "931a99b8a8d2c6d542561af9f927b0dd61b92f79f3e4a2aefaeae9d32c8b5b52",
+      "joint_sha256": "931a99b8a8d2c6d542561af9f927b0dd61b92f79f3e4a2aefaeae9d32c8b5b52",
+      "same": true
+    },
+    {
+      "path": "internal/application/service/feishu_legacy_storage.go",
+      "hot_sha256": "b958217ae91fd8c82308c243d546664c5d6a98ff31066dd39afe704455b930a8",
+      "joint_sha256": "b958217ae91fd8c82308c243d546664c5d6a98ff31066dd39afe704455b930a8",
+      "same": true
+    },
+    {
+      "path": "internal/application/service/feishu_legacy_sync_postgres_test.go",
+      "hot_sha256": "9998642b5057555c42466476d0068b926027f6c27571f8e62cccfa4a7613ace5",
+      "joint_sha256": "9998642b5057555c42466476d0068b926027f6c27571f8e62cccfa4a7613ace5",
+      "same": true
+    },
+    {
+      "path": "internal/application/service/model.go",
+      "hot_sha256": "24df2e8bf05598444918fb63bcf9a226b96203d1ec20c8099798c4f384285fdf",
+      "joint_sha256": "24df2e8bf05598444918fb63bcf9a226b96203d1ec20c8099798c4f384285fdf",
+      "same": true
+    },
+    {
+      "path": "internal/application/service/resource.go",
+      "hot_sha256": "1a4f69891680c427260ffb784104ce0ed3c39f1848e4de81b45300c9cdea0678",
+      "joint_sha256": "1a4f69891680c427260ffb784104ce0ed3c39f1848e4de81b45300c9cdea0678",
+      "same": true
+    },
+    {
+      "path": "internal/application/service/tenant.go",
+      "hot_sha256": "5637d7acb208df74aa74eac966484214b04a236e34e568fffc6df93e41edb521",
+      "joint_sha256": "5637d7acb208df74aa74eac966484214b04a236e34e568fffc6df93e41edb521",
+      "same": true
+    },
+    {
+      "path": "internal/container/container.go",
+      "hot_sha256": "5a77a508796a613bd0e273009959b9933b529fade92029f92d46f7fbfa3d5599",
+      "joint_sha256": "9dd6094293cc9f9ac852b7b059552ca28a8d7d289aa4742b96a60f7815cf66c9",
+      "same": false
+    },
+    {
+      "path": "internal/database/migration_postgres_test.go",
+      "hot_sha256": "8d3373079d72b5dbd0094060080d82667cc90bf082b9e463538e7678855f8aaf",
+      "joint_sha256": "8d3373079d72b5dbd0094060080d82667cc90bf082b9e463538e7678855f8aaf",
+      "same": true
+    },
+    {
+      "path": "internal/database/migration_sqlite_versioned_schema_test.go",
+      "hot_sha256": "0e15c9989ac1a647aea8ae6674ff0b8d878ed62b614689a8000a506100c4f473",
+      "joint_sha256": "a79efd7faae65d623a6be28ab0709d30e79b923e1d3de48f214e601d4f0a2efb",
+      "same": false
+    },
+    {
+      "path": "internal/datasource/connector/feishu/core/engine.go",
+      "hot_sha256": "a60cac149154908d460bc4103091e1d62200f8ecda2982ab3806d54445867bf9",
+      "joint_sha256": "a60cac149154908d460bc4103091e1d62200f8ecda2982ab3806d54445867bf9",
+      "same": true
+    },
+    {
+      "path": "internal/datasource/connector/feishu/core/engine_checkpoint_failure_test.go",
+      "hot_sha256": "895fbe6ab5f8f8df2b791bd96835446a42c41b4b554ae7ab3cf8e108016debaa",
+      "joint_sha256": "895fbe6ab5f8f8df2b791bd96835446a42c41b4b554ae7ab3cf8e108016debaa",
+      "same": true
+    },
+    {
+      "path": "internal/datasource/connector/feishu/core/engine_move_test.go",
+      "hot_sha256": "a7cdcc567b10ef355ca04cb7336edf94af9d0e79396c61adc1a4b42d92ed7ae6",
+      "joint_sha256": "a7cdcc567b10ef355ca04cb7336edf94af9d0e79396c61adc1a4b42d92ed7ae6",
+      "same": true
+    },
+    {
+      "path": "internal/datasource/connector/feishu/core/shared.go",
+      "hot_sha256": "47ca8e9b5b91b749cfb9722d04f74de85655858c40aedc254cc8263e77e8ec97",
+      "joint_sha256": "47ca8e9b5b91b749cfb9722d04f74de85655858c40aedc254cc8263e77e8ec97",
+      "same": true
+    },
+    {
+      "path": "internal/handler/datasource.go",
+      "hot_sha256": "ab8274add348a6977ec5efe46b05b9c7e345caf2e9aee992784ece028e952a08",
+      "joint_sha256": "ab8274add348a6977ec5efe46b05b9c7e345caf2e9aee992784ece028e952a08",
+      "same": true
+    },
+    {
+      "path": "internal/handler/dto/datasource.go",
+      "hot_sha256": "e76a958d15b60fd15abf5a21f6776b1fe127963b19f7124135b4c1adaa94a835",
+      "joint_sha256": "e76a958d15b60fd15abf5a21f6776b1fe127963b19f7124135b4c1adaa94a835",
+      "same": true
+    },
+    {
+      "path": "internal/handler/dto/feishu_legacy_diagnostics_test.go",
+      "hot_sha256": "48f71b52719d755b45d0d64f6e1c5f43144f7e6945034a2b6f1bcaf8b10ae203",
+      "joint_sha256": "48f71b52719d755b45d0d64f6e1c5f43144f7e6945034a2b6f1bcaf8b10ae203",
+      "same": true
+    },
+    {
+      "path": "internal/middleware/error_handler.go",
+      "hot_sha256": "fc10a12cefe26081f83340a969b030da7faef4e489f8eefa693ac896009d0dde",
+      "joint_sha256": "fc10a12cefe26081f83340a969b030da7faef4e489f8eefa693ac896009d0dde",
+      "same": true
+    },
+    {
+      "path": "internal/router/feishu_legacy_files.go",
+      "hot_sha256": "204d2fad68a30fd1d798ccd6825f74fc2d198f47beb3a5832bfbebb1449063fb",
+      "joint_sha256": "204d2fad68a30fd1d798ccd6825f74fc2d198f47beb3a5832bfbebb1449063fb",
+      "same": true
+    },
+    {
+      "path": "internal/router/feishu_legacy_files_test.go",
+      "hot_sha256": "b84c192378d4d9064862b6b9b8a1d2d2134aa6abec2024d7b4697cca7a8a4e68",
+      "joint_sha256": "b84c192378d4d9064862b6b9b8a1d2d2134aa6abec2024d7b4697cca7a8a4e68",
+      "same": true
+    },
+    {
+      "path": "internal/router/feishu_legacy_response.go",
+      "hot_sha256": "df3bc00ba04803e515406fe893b3bfa6746ece90625bef83a5c6a743cbd9e0a8",
+      "joint_sha256": "df3bc00ba04803e515406fe893b3bfa6746ece90625bef83a5c6a743cbd9e0a8",
+      "same": true
+    },
+    {
+      "path": "internal/router/feishu_legacy_response_test.go",
+      "hot_sha256": "31a77c9ccfa44f3156f2977d109ea07a8676fc9c9f6db4e30648ce8cf7146ad7",
+      "joint_sha256": "31a77c9ccfa44f3156f2977d109ea07a8676fc9c9f6db4e30648ce8cf7146ad7",
+      "same": true
+    },
+    {
+      "path": "internal/router/files.go",
+      "hot_sha256": "dbedf1545429aa7dce29c8a11041bb1aea59372c8f2b4dedbbafb8469d75a344",
+      "joint_sha256": "dbedf1545429aa7dce29c8a11041bb1aea59372c8f2b4dedbbafb8469d75a344",
+      "same": true
+    },
+    {
+      "path": "internal/router/router.go",
+      "hot_sha256": "84b08ef1820063e0525dc897127c050d801bead24cda336f7c91876dbf0175c1",
+      "joint_sha256": "dd5e3df85dc56affe7a4afe9dd7a626e34ce2696b4ddcca7bfa1388018bfe36d",
+      "same": false
+    },
+    {
+      "path": "internal/testutil/feishulegacy/database.go",
+      "hot_sha256": "3d55f712832430b4f4b2700adef98ef918f181e0196868670b67d31d5e0af776",
+      "joint_sha256": "3d55f712832430b4f4b2700adef98ef918f181e0196868670b67d31d5e0af776",
+      "same": true
+    },
+    {
+      "path": "internal/types/datasource.go",
+      "hot_sha256": "da604429dadef1a2a11e99f4968117ad44fbb9c1e6a053da19a0fec3804e5228",
+      "joint_sha256": "da604429dadef1a2a11e99f4968117ad44fbb9c1e6a053da19a0fec3804e5228",
+      "same": true
+    },
+    {
+      "path": "internal/types/feishu_legacy_read.go",
+      "hot_sha256": "eeaaa172c4389cc8a3faf46a5e3b8e2487d44a61da872e137222baffbb5588b7",
+      "joint_sha256": "eeaaa172c4389cc8a3faf46a5e3b8e2487d44a61da872e137222baffbb5588b7",
+      "same": true
+    },
+    {
+      "path": "internal/types/feishu_legacy_read_scope.go",
+      "hot_sha256": "853ce9c68d3e358bd40d1205da3516432d820c4e69238a531e68f11f26407df5",
+      "joint_sha256": "853ce9c68d3e358bd40d1205da3516432d820c4e69238a531e68f11f26407df5",
+      "same": true
+    },
+    {
+      "path": "internal/types/feishu_legacy_version.go",
+      "hot_sha256": "933423fcb851aac690273f93ef942b6a115d7e981ce1c288410e296d88654fab",
+      "joint_sha256": "933423fcb851aac690273f93ef942b6a115d7e981ce1c288410e296d88654fab",
+      "same": true
+    },
+    {
+      "path": "internal/types/wiki_page.go",
+      "hot_sha256": "94a3e07e070a74d5093c0a660891506f8c92f0cf1a1ec8ce1f3dd4476eddf7f1",
+      "joint_sha256": "94a3e07e070a74d5093c0a660891506f8c92f0cf1a1ec8ce1f3dd4476eddf7f1",
+      "same": true
+    },
+    {
+      "path": "migrations/migration-map.json",
+      "hot_sha256": "0090b45a0c1afd8f9b7cb061bc30d7cacfedce0dd4d3bf96140b878138a813f5",
+      "joint_sha256": "82058c2949a17a1b0e52ee5861f860a0e21d313f254ece359771dd6ca1e2261e",
+      "same": false
+    },
+    {
+      "path": "migrations/sqlite/003034_enterprise_publication.down.sql",
+      "hot_sha256": "fbe4f6b784e71eb24e091f4c81f3e7c8268e7d967cbec08f04535483adbd4fbe",
+      "joint_sha256": "fbe4f6b784e71eb24e091f4c81f3e7c8268e7d967cbec08f04535483adbd4fbe",
+      "same": true
+    },
+    {
+      "path": "migrations/sqlite/003034_enterprise_publication.up.sql",
+      "hot_sha256": "b8b0349705626e3b87d7f2d8c0bac862de82c3a34fa6c6638e92360d29c444a6",
+      "joint_sha256": "b8b0349705626e3b87d7f2d8c0bac862de82c3a34fa6c6638e92360d29c444a6",
+      "same": true
+    },
+    {
+      "path": "migrations/sqlite/003035_document_access.down.sql",
+      "hot_sha256": "c2b0b4b7d9c2e54ad718aa30a42865eb8ca7c4981c13e81aa9826ee731b26d92",
+      "joint_sha256": "c2b0b4b7d9c2e54ad718aa30a42865eb8ca7c4981c13e81aa9826ee731b26d92",
+      "same": true
+    },
+    {
+      "path": "migrations/sqlite/003035_document_access.up.sql",
+      "hot_sha256": "70deabc46ca128404243f75f5da6d0b681ca5f471aad6469a908b572f1543f71",
+      "joint_sha256": "70deabc46ca128404243f75f5da6d0b681ca5f471aad6469a908b572f1543f71",
+      "same": true
+    },
+    {
+      "path": "migrations/sqlite/003036_feishu_legacy_atomic.down.sql",
+      "hot_sha256": "38ea426aad94de40aba7edaca0436619d11aa2b5263825d2ed5181f58f6e7520",
+      "joint_sha256": "38ea426aad94de40aba7edaca0436619d11aa2b5263825d2ed5181f58f6e7520",
+      "same": true
+    },
+    {
+      "path": "migrations/sqlite/003036_feishu_legacy_atomic.up.sql",
+      "hot_sha256": "5e590b693fbbc39cd74eec52692e96608e8574ab3cf08c0ce1b73ccb6cbd167c",
+      "joint_sha256": "5e590b693fbbc39cd74eec52692e96608e8574ab3cf08c0ce1b73ccb6cbd167c",
+      "same": true
+    },
+    {
+      "path": "migrations/versioned/003034_enterprise_publication.down.sql",
+      "hot_sha256": "fbe4f6b784e71eb24e091f4c81f3e7c8268e7d967cbec08f04535483adbd4fbe",
+      "joint_sha256": "fbe4f6b784e71eb24e091f4c81f3e7c8268e7d967cbec08f04535483adbd4fbe",
+      "same": true
+    },
+    {
+      "path": "migrations/versioned/003034_enterprise_publication.up.sql",
+      "hot_sha256": "5486bde16bd3f3f6707dde0791191436b1e6cd2a896f07db7ea4005f4fb7b008",
+      "joint_sha256": "5486bde16bd3f3f6707dde0791191436b1e6cd2a896f07db7ea4005f4fb7b008",
+      "same": true
+    },
+    {
+      "path": "migrations/versioned/003035_document_access.down.sql",
+      "hot_sha256": "4d38fcb271f3150af9aed4f80c7ebe960cfd4d5c10fb00956c616e58ec0ed607",
+      "joint_sha256": "4d38fcb271f3150af9aed4f80c7ebe960cfd4d5c10fb00956c616e58ec0ed607",
+      "same": true
+    },
+    {
+      "path": "migrations/versioned/003035_document_access.up.sql",
+      "hot_sha256": "ab4f946568006d6ad80f22d4d6df040477c9811353697e3f6db72475aafe61bd",
+      "joint_sha256": "ab4f946568006d6ad80f22d4d6df040477c9811353697e3f6db72475aafe61bd",
+      "same": true
+    },
+    {
+      "path": "migrations/versioned/003036_feishu_legacy_atomic.down.sql",
+      "hot_sha256": "39624bade065ec555685114e95b664e660b5541cfd80e5b602ec4334c57f7747",
+      "joint_sha256": "39624bade065ec555685114e95b664e660b5541cfd80e5b602ec4334c57f7747",
+      "same": true
+    },
+    {
+      "path": "migrations/versioned/003036_feishu_legacy_atomic.up.sql",
+      "hot_sha256": "7d522e78cc38f82e113f46cf0433ebf152cb00d1fc7cc3ba19fa02da484a2391",
+      "joint_sha256": "7d522e78cc38f82e113f46cf0433ebf152cb00d1fc7cc3ba19fa02da484a2391",
+      "same": true
+    }
+  ],
+  "policy": "V1 auth and DI preserved; migration history unchanged; differing V1 migration tests reviewed separately"
+}

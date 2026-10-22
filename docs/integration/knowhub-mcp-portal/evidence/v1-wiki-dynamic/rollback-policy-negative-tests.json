@@ -1,0 +1,16 @@
+{
+  "exit_code": 0,
+  "checks": [
+    {
+      "scenario": "unsafe-old-reader",
+      "denied": true,
+      "reason": "known unsafe RC3 Reader: revoked HMAC returned 200"
+    },
+    {
+      "scenario": "unverified-build",
+      "denied": true,
+      "reason": "proof identity mismatch"
+    }
+  ],
+  "real_rollback": "NOT_TESTED"
+}

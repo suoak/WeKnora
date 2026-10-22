@@ -1,0 +1,27 @@
+{
+  "exit_code": 0,
+  "candidate_sha256": "0a7374bbbdbd8c4a802733811ad3ecbeb70293ba33b89eefa9bd05c36ecbd371",
+  "schema": 3037,
+  "dirty": false,
+  "url": "http://172.30.232.42",
+  "ports": [
+    80,
+    8080
+  ],
+  "new_MCP_port": false,
+  "actual_binary_sha256": "1214be4c7751a9a610cb36dd6a09b9fc3fabd087a17a5746d7ee7b6b732a8f92",
+  "image_ids": [
+    "sha256:da19dbb14680ea450624dfca0cb3f9ed1d15f64fac6d73d88181a50808969988",
+    "sha256:c8025af250c0e4c15b35af78f505ba9cd3a1bfe8b10bf373bde4877543cd7e3e"
+  ],
+  "original_rows_unchanged": true,
+  "python_container_id": "590102ce51aab2d5950e42965202c44dbb407ef3e1e2f6675a10397bd5e224e0",
+  "python_image_id": "sha256:aa880bcfa09a66f201463aa614d7a299fef10b342779335ec08dac29713de337",
+  "python_running": true,
+  "backup_path": "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3",
+  "maintenance": false,
+  "production_accessed": false,
+  "formal_model": "BLOCKED_CREDENTIAL_APPROVAL",
+  "real_SID": "NOT_REPEATED_EXISTING_EVIDENCE",
+  "real_Feishu": "BLOCKED_TEST_APPLICATION_APPROVAL"
+}

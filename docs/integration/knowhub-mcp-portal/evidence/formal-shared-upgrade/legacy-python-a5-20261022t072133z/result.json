@@ -1,0 +1,12 @@
+{
+  "exit_code": 0,
+  "candidate_sha256": "0a7374bbbdbd8c4a802733811ad3ecbeb70293ba33b89eefa9bd05c36ecbd371",
+  "original_container_preserved": true,
+  "original_image_id": "sha256:aa880bcfa09a66f201463aa614d7a299fef10b342779335ec08dac29713de337",
+  "exact_original_server_sha256": "14004c6eb1da7eba8f1ecfa7280ceb3834620c3d88906493cae9b4c16319072f",
+  "original_two_credential_SSE_and_HTTP": "PASS",
+  "active_source_and_revoked_source_and_revoked_Key": "PASS",
+  "original_credentials_used": false,
+  "legacy_credential_type": "new synthetic legacy tenant key; full_access must still respect persisted source denial; original server does not forward user_mcp tenant headers",
+  "synthetic_only": true
+}

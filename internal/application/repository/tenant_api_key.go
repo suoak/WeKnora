@@ -3,10 +3,12 @@ package repository
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Tencent/WeKnora/internal/utils"
 	"gorm.io/gorm"
 )
 
@@ -98,6 +100,31 @@ func (r *tenantAPIKeyRepository) GetUserMCPAPIKey(ctx context.Context, userID st
 }
 
 func (r *tenantAPIKeyRepository) GetUserMCPTenantScope(ctx context.Context, keyID, tenantID uint64) (*types.APIKeyTenantScope, error) {
+	// Dynamic scope is a persisted, explicit new-key opt-in. It never derives
+	// from client headers or extends a historical fixed credential.
+	var live struct{ PersonalScopeMode string }
+	if err := r.db.WithContext(ctx).Table("tenant_api_keys").Select("personal_scope_mode").Where("id=?", keyID).Take(&live).Error; err != nil {
+		return nil, err
+	}
+	if live.PersonalScopeMode == "dynamic_all" {
+		var count int64
+		err := r.db.WithContext(ctx).Table("tenant_api_keys k").
+			Joins("JOIN users u ON u.id=k.owner_user_id AND u.deleted_at IS NULL AND u.is_active=true").
+			Joins("JOIN tenant_members m ON m.user_id=u.id AND m.tenant_id=? AND m.status='active' AND m.deleted_at IS NULL", tenantID).
+			Joins("JOIN tenants t ON t.id=m.tenant_id AND t.status='active' AND t.deleted_at IS NULL").
+			Where("k.id=? AND k.scope_type='user_mcp' AND k.full_access=false AND k.revoked_at IS NULL AND (k.expires_at IS NULL OR k.expires_at>?)", keyID, time.Now().UTC()).Count(&count).Error
+		if err != nil {
+			return nil, err
+		}
+		if count != 1 {
+			return nil, ErrTenantAPIKeyNotFound
+		}
+		return &types.APIKeyTenantScope{APIKeyID: keyID, TenantID: tenantID, KBScopeMode: types.APIKeyKBScopeAll}, nil
+	}
+	if live.PersonalScopeMode != "" && live.PersonalScopeMode != "fixed" {
+		return nil, ErrTenantAPIKeyNotFound
+	}
+
 	var scope types.APIKeyTenantScope
 	err := r.db.WithContext(ctx).Preload("KnowledgeBases").Where("api_key_id=? AND tenant_id=?", keyID, tenantID).First(&scope).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -199,14 +226,25 @@ func (r *tenantAPIKeyRepository) RotateUserMCPAPIKey(
 	id uint64,
 	expectedHash, newHash, tokenHint string,
 	expiresAt *time.Time,
+	encryptedSecret ...string,
 ) (*types.TenantAPIKey, error) {
+	secret := ""
+	if len(encryptedSecret) > 1 {
+		return nil, errors.New("invalid encrypted MCP secret")
+	}
+	if len(encryptedSecret) == 1 {
+		secret = encryptedSecret[0]
+		if secret != "" && !strings.HasPrefix(secret, utils.EncPrefix) {
+			return nil, errors.New("MCP secret must be encrypted")
+		}
+	}
 	res := r.db.WithContext(ctx).Model(&types.TenantAPIKey{}).
 		Where("id=? AND owner_user_id=? AND scope_type=? AND revoked_at IS NULL AND key_hash=?",
 			id, userID, types.APIKeyScopeUserMCP, expectedHash).
 		Updates(map[string]any{
 			"key_hash":   newHash,
 			"token_hint": tokenHint,
-			"api_key":    "",
+			"api_key":    secret,
 			"expires_at": expiresAt,
 		})
 	if res.Error != nil {

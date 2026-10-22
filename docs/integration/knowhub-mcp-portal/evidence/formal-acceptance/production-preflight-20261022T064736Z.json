@@ -1,0 +1,3288 @@
+{
+  "observed_utc": "2026-10-22T06:47:38.999232+00:00",
+  "mode": "production",
+  "read_only": true,
+  "body_accessed": false,
+  "model_or_Feishu_cloud_called": false,
+  "changes": false,
+  "errors": [],
+  "commands": [
+    {
+      "argv": [
+        "docker",
+        "ps",
+        "-a",
+        "--format",
+        "{{json .}}"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "docker",
+        "inspect",
+        "WeKnora-app"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "docker",
+        "inspect",
+        "WeKnora-frontend"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "docker",
+        "inspect",
+        "WeKnora-mcp"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "docker",
+        "inspect",
+        "WeKnora-docreader"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "docker",
+        "inspect",
+        "WeKnora-postgres"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "docker",
+        "inspect",
+        "WeKnora-redis"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "docker",
+        "inspect",
+        "WeKnora-neo4j"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "docker",
+        "exec",
+        "WeKnora-app",
+        "sha256sum",
+        "/app/WeKnora"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "df",
+        "-h",
+        "/",
+        "/home/aqyfzx"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "ss",
+        "-ltnH"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "docker",
+        "inspect",
+        "WeKnora-postgres"
+      ],
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT table_name,column_name,data_type FROM information_schema.columns WHERE table_schema='public'AND table_name IN('data_sources','sync_logs','knowledge_bases','tenants','models','tenant_portal_configs','users','system_settings','embeddings','feishu_legacy_resources','feishu_legacy_attempts')",
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT version,dirty FROM schema_migrations",
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT extname,extversion FROM pg_extension WHERE extname IN('vector','pg_search')",
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT count(*)AS accounts,count(*)FILTER(WHERE is_active)AS active_accounts FROM users",
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT count(DISTINCT t.id)AS published_active_spaces,count(DISTINCT kb.id)AS live_KBs,count(DISTINCT kb.id)FILTER(WHERE kb.type='document')AS document_KBs,count(DISTINCT kb.id)FILTER(WHERE kb.type='document'AND NOT COALESCE(kb.is_temporary,false))AS non_temporary_document_KBs FROM tenant_portal_configs pc JOIN tenants t ON t.id=pc.tenant_id JOIN knowledge_bases kb ON kb.tenant_id=t.id WHERE pc.status='published'AND t.deleted_at IS NULL AND t.status='active'AND kb.deleted_at IS NULL",
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT substr(md5('knowhub-b7-space:'||t.id::text),1,16)AS space_ref,substr(md5('knowhub-b7-kb:'||kb.id),1,16)AS kb_ref,kb.type,kb.is_temporary,kb.deleted_at IS NOT NULL AS kb_deleted,t.deleted_at IS NOT NULL AS space_deleted,t.status AS space_status,pc.status AS portal_status,(SELECT count(*)FROM knowledges k WHERE k.knowledge_base_id=kb.id AND k.tenant_id=kb.tenant_id AND k.deleted_at IS NULL)AS documents FROM tenant_portal_configs pc JOIN tenants t ON t.id=pc.tenant_id JOIN knowledge_bases kb ON kb.tenant_id=t.id",
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT substr(md5(id),1,16)AS model_ref,type,source,status,is_default,parameters::jsonb->'embedding_parameters'->>'dimension'AS dimension,COALESCE(parameters::jsonb->>'api_key','')<>''AS credential_present,COALESCE(parameters::jsonb->>'base_url','')<>''AS endpoint_present FROM models WHERE deleted_at IS NULL",
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT substr(md5('knowhub-b7-kb:'||kb.id),1,16)AS kb_ref,substr(md5(kb.embedding_model_id),1,16)AS model_ref,m.deleted_at IS NOT NULL AS model_deleted,m.status AS model_status,m.parameters::jsonb->'embedding_parameters'->>'dimension'AS dimension FROM tenant_portal_configs pc JOIN tenants t ON t.id=pc.tenant_id JOIN knowledge_bases kb ON kb.tenant_id=t.id LEFT JOIN models m ON m.id=kb.embedding_model_id WHERE pc.status='published'AND t.deleted_at IS NULL AND t.status='active'AND kb.deleted_at IS NULL",
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT dimension,count(*)AS rows FROM embeddings GROUP BY dimension",
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT indexname,substring(indexdef from 'halfvec\\(([0-9]+)\\)')AS halfvec_dimension FROM pg_indexes WHERE schemaname='public'AND tablename='embeddings'AND indexdef ILIKE '%hnsw%'",
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT substr(md5('knowhub-formal-source:'||id),1,16)AS source_ref,type,status,sync_mode,sync_deletions,last_sync_at,EXTRACT(EPOCH FROM(now()-last_sync_at))/3600 AS hours_since_sync,deleted_at IS NOT NULL AS deleted,COALESCE(error_message,'')<>''AS has_error,last_sync_cursor IS NOT NULL AS has_cursor,md5(COALESCE(last_sync_cursor::text,''))AS cursor_fingerprint,'SCHEMA_UNAVAILABLE'::text AS legacy_access_state FROM data_sources WHERE type IN('feishu','feishu_drive')",
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT substr(md5('knowhub-formal-source:'||l.data_source_id),1,16)AS source_ref,l.status,count(*)AS rows FROM sync_logs l JOIN data_sources d ON d.id=l.data_source_id WHERE d.type IN('feishu','feishu_drive')GROUP BY l.data_source_id,l.status",
+      "exit_code": 0
+    },
+    {
+      "operation": "SQL metadata READ ONLY",
+      "query": "SELECT key,value FROM system_settings WHERE key IN('auth.oidc.enabled','auth.sourceid.enabled','feishu.legacy_sync_suspended','feishu.safe_incremental_enabled')AND COALESCE(is_secret,false)=false",
+      "exit_code": 0
+    }
+  ],
+  "services": [
+    {
+      "name": "WeKnora-app",
+      "image": "weknora-custom/app:v0.8.0-knowhub-rc3-username1-97806d7d3200",
+      "image_id": "sha256:f4f0511ac8373038fc743b857117dba28ce1cf2887e036f888a39df67f200c4e",
+      "running": true,
+      "health": "healthy",
+      "started_at": "2026-10-21T03:55:51.850055217Z",
+      "compose_project": "release-package",
+      "compose_service": "app",
+      "working_dir": "/home/aqyfzx/release-package",
+      "compose_files": "/home/aqyfzx/release-package/docker-compose.rc23-rc1.candidate.yml,/home/aqyfzx/release-package/docker-compose.rc24-rc1.override.yml,/home/aqyfzx/release-package/docker-compose.rc3-e62b17e2d.production.override.json,/home/aqyfzx/release-package/docker-compose.rc3-username1-97806d7d3200.override.json",
+      "ports": {
+        "8080/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "8080"
+          },
+          {
+            "HostIp": "::",
+            "HostPort": "8080"
+          }
+        ]
+      },
+      "networks": [
+        "release-package_WeKnora-network"
+      ],
+      "revision_labels": {
+        "org.opencontainers.image.revision": "e62b17e2d305358467821aeff1cce63ce1d61254+username-97806d7d3200"
+      },
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "release-package_docreader-tmp",
+          "destination": "/tmp/docreader",
+          "rw": false
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "destination": "/app/config/config.yaml",
+          "rw": false
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "destination": "/var/run/docker.sock",
+          "rw": true
+        },
+        {
+          "type": "volume",
+          "name": "release-package_feishu-personal-private",
+          "destination": "/data/feishu-personal-private",
+          "rw": true
+        },
+        {
+          "type": "volume",
+          "name": "release-package_data-files",
+          "destination": "/data/files",
+          "rw": true
+        }
+      ]
+    },
+    {
+      "name": "WeKnora-frontend",
+      "image": "weknora-custom/frontend:v0.8.0-knowhub-rc3-e62b17e2d",
+      "image_id": "sha256:538b2cda230265048c0f648c3ab200253a2b484163a4e14641580661a05a94ac",
+      "running": true,
+      "health": null,
+      "started_at": "2026-10-20T12:11:08.422292557Z",
+      "compose_project": "release-package",
+      "compose_service": "frontend",
+      "working_dir": "/home/aqyfzx/release-package",
+      "compose_files": "/home/aqyfzx/release-package/docker-compose.rc23-rc1.candidate.yml,/home/aqyfzx/release-package/docker-compose.rc24-rc1.override.yml,/home/aqyfzx/release-package/docker-compose.rc3-e62b17e2d.production.override.json",
+      "ports": {
+        "80/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "80"
+          },
+          {
+            "HostIp": "::",
+            "HostPort": "80"
+          }
+        ]
+      },
+      "networks": [
+        "release-package_WeKnora-network"
+      ],
+      "revision_labels": {
+        "org.opencontainers.image.revision": "e62b17e2d305358467821aeff1cce63ce1d61254"
+      },
+      "mounts": []
+    },
+    {
+      "name": "WeKnora-mcp",
+      "image": "weknora-custom/mcp:v0.8.0-knowhub.24-rc1-854f3b95",
+      "image_id": "sha256:14de96093a80c84863f73cb273a7982cc99a40989560f7d8432450a831a338b9",
+      "running": true,
+      "health": null,
+      "started_at": "2026-10-07T15:24:59.589899965Z",
+      "compose_project": "release-package",
+      "compose_service": "mcp",
+      "working_dir": "/home/aqyfzx/release-package",
+      "compose_files": "/home/aqyfzx/release-package/docker-compose.rc23-rc1.candidate.yml,/home/aqyfzx/release-package/docker-compose.rc24-rc1.override.yml",
+      "ports": {
+        "8000/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "8082"
+          },
+          {
+            "HostIp": "::",
+            "HostPort": "8082"
+          }
+        ]
+      },
+      "networks": [
+        "release-package_WeKnora-network"
+      ],
+      "revision_labels": {
+        "org.opencontainers.image.revision": "854f3b956ae3600e12a3ffd2fc40d4fe624ced74"
+      },
+      "mounts": []
+    },
+    {
+      "name": "WeKnora-docreader",
+      "image": "weknora-custom/docreader:v0.8.0-knowhub.24-rc1-854f3b95",
+      "image_id": "sha256:b975d2798ac0fed84baaaf1d12e1ee106de4bcdd69da552288677131bd6f19fd",
+      "running": true,
+      "health": "healthy",
+      "started_at": "2026-10-09T08:10:37.490473984Z",
+      "compose_project": "release-package",
+      "compose_service": "docreader",
+      "working_dir": "/home/aqyfzx/release-package",
+      "compose_files": "/home/aqyfzx/release-package/docker-compose.rc23-rc1.candidate.yml,/home/aqyfzx/release-package/docker-compose.rc24-rc1.override.yml",
+      "ports": {
+        "50051/tcp": null
+      },
+      "networks": [
+        "release-package_WeKnora-network"
+      ],
+      "revision_labels": {
+        "org.opencontainers.image.revision": "854f3b956ae3600e12a3ffd2fc40d4fe624ced74"
+      },
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "release-package_docreader-tmp",
+          "destination": "/tmp/docreader",
+          "rw": true
+        }
+      ]
+    },
+    {
+      "name": "WeKnora-postgres",
+      "image": "paradedb/paradedb:v0.22.2-pg17",
+      "image_id": "sha256:6396bfd53a97f6c1aad50af05aad4a65b06bb7c07602b42a8b33b5d51cf83ab1",
+      "running": true,
+      "health": "healthy",
+      "started_at": "2026-10-07T15:12:54.696270274Z",
+      "compose_project": "release-package",
+      "compose_service": "postgres",
+      "working_dir": "/home/aqyfzx/release-package",
+      "compose_files": "/home/aqyfzx/release-package/docker-compose.offline.yml",
+      "ports": {
+        "5432/tcp": null
+      },
+      "networks": [
+        "release-package_WeKnora-network"
+      ],
+      "revision_labels": {},
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "release-package_postgres-data",
+          "destination": "/var/lib/postgresql/data",
+          "rw": true
+        }
+      ]
+    },
+    {
+      "name": "WeKnora-redis",
+      "image": "redis:7.0-alpine",
+      "image_id": "sha256:0d6b984b7dbeae6cab3c9bc4ac774972c823e63ecbc6936377774fc6ca1f1e65",
+      "running": true,
+      "health": null,
+      "started_at": "2026-10-07T15:12:55.670537914Z",
+      "compose_project": "release-package",
+      "compose_service": "redis",
+      "working_dir": "/home/aqyfzx/release-package",
+      "compose_files": "/home/aqyfzx/release-package/docker-compose.offline.yml",
+      "ports": {
+        "6379/tcp": null
+      },
+      "networks": [
+        "release-package_WeKnora-network"
+      ],
+      "revision_labels": {},
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "release-package_redis-data",
+          "destination": "/data",
+          "rw": true
+        }
+      ]
+    },
+    {
+      "name": "WeKnora-neo4j",
+      "image": "neo4j:2025.10.1",
+      "image_id": "sha256:cb832bb915967ce41039b502ae429c20aca1b4d174c33645ccb7a08011f25760",
+      "running": true,
+      "health": null,
+      "started_at": "2026-10-07T15:19:07.397107714Z",
+      "compose_project": "release-package",
+      "compose_service": "neo4j",
+      "working_dir": "/home/aqyfzx/release-package",
+      "compose_files": "/home/aqyfzx/release-package/docker-compose.offline.yml",
+      "ports": {
+        "7473/tcp": null,
+        "7474/tcp": null,
+        "7687/tcp": null
+      },
+      "networks": [
+        "release-package_WeKnora-network"
+      ],
+      "revision_labels": {},
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "11603b9a649c051a4fd39f280a3ef4fa852fb1e0cf75d120764cb564eda45a2c",
+          "destination": "/logs",
+          "rw": true
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "destination": "/plugins",
+          "rw": false
+        },
+        {
+          "type": "volume",
+          "name": "release-package_neo4j-data",
+          "destination": "/data",
+          "rw": true
+        }
+      ]
+    }
+  ],
+  "app_name": "WeKnora-app",
+  "app_flags": {
+    "OIDC_AUTH_ENABLE": "true",
+    "SOURCEID_ENABLE": "true",
+    "SOURCEID_PROTOCOL_ONLY": "false",
+    "SOURCEID_JIT_ENABLE": "true",
+    "SOURCEID_CONTRACT_CONFIRMED": "true",
+    "SOURCEID_EMAIL_CONTRACT_CONFIRMED": "true",
+    "SOURCEID_FORCE_REAUTH_PROMPT_LOGIN": "false",
+    "SOURCEID_LOCAL_ACCESS_TTL": "60m",
+    "FEISHU_LEGACY_SYNC_SUSPENDED": "true",
+    "FEISHU_SAFE_INCREMENTAL_ENABLED": "UNSET",
+    "AUTO_MIGRATE": "true",
+    "AUTO_RECOVER_DIRTY": "false",
+    "RETRIEVE_DRIVER": "postgres",
+    "DUCKDB_SKIP_EXTENSION_LOAD": "UNSET",
+    "MCP_AUTH_MODE": "weknora_api_key"
+  },
+  "secret_material_presence": {
+    "SYSTEM_AES_KEY": true,
+    "SYSTEM_SIGNING_KEY": false,
+    "JWT_SECRET": true,
+    "OIDC_CLIENT_SECRET": false,
+    "SOURCEID_CLIENT_SECRET": false
+  },
+  "AES_material_validation": {
+    "present": true,
+    "length": 32,
+    "backup_material_verified": false,
+    "exported": false
+  },
+  "identity_endpoint_origins": {
+    "MCP_PUBLIC_URL": "http://10.51.134.114:8082"
+  },
+  "identity_callback_paths": {},
+  "app_binary_sha256": "4063f233b4785ebc6ea13bb7df3e311ed164580ea6e3a86c9216277765e02f66",
+  "nginx_routes": [
+    {
+      "container": "WeKnora-frontend",
+      "nginx_T_exit": 0,
+      "safe_directives": [
+        "listen 80;",
+        "server_name localhost;",
+        "client_max_body_size 101M;",
+        "location = /weknora-widget.js {",
+        "location = /embed.html {",
+        "location ^~ /embed/ {",
+        "location = /_embed-frame-policy {",
+        "proxy_pass http://app:8080/api/v1/embed-frame-policy;",
+        "proxy_set_header Host $http_host;",
+        "proxy_set_header X-Forwarded-Proto $scheme;",
+        "location / {",
+        "location ^~ /assets/ {",
+        "location = /files {",
+        "proxy_pass http://app:8080/files;",
+        "proxy_set_header Host $host;",
+        "proxy_set_header X-Forwarded-Proto $scheme;",
+        "location ^~ /r/ {",
+        "proxy_pass http://app:8080;",
+        "proxy_set_header Host $host;",
+        "proxy_set_header X-Forwarded-Proto $scheme;",
+        "location = /api/v1/local-browser/extension {",
+        "proxy_pass http://app:8080;",
+        "proxy_http_version 1.1;",
+        "proxy_set_header Host $host;",
+        "proxy_set_header X-Forwarded-Proto $scheme;",
+        "proxy_set_header Connection \"upgrade\";",
+        "proxy_read_timeout 3600s;",
+        "proxy_send_timeout 3600s;",
+        "proxy_buffering off;",
+        "proxy_request_buffering off;",
+        "location = /api/v1/local-browser/internal {",
+        "location ~ ^/api/v1/sessions/[^/]+/sandbox/(terminal|desktop)$ {",
+        "proxy_pass http://app:8080;",
+        "proxy_http_version 1.1;",
+        "proxy_set_header Host $host;",
+        "proxy_set_header X-Forwarded-Proto $scheme;",
+        "proxy_set_header Connection \"upgrade\";",
+        "proxy_read_timeout 3600s;",
+        "proxy_send_timeout 3600s;",
+        "proxy_buffering off;",
+        "proxy_request_buffering off;",
+        "location ~ ^/api/v1/(?:skills/catalog|sandbox-configs/[^/]+/skills)/?$ {",
+        "client_max_body_size 256M;",
+        "proxy_pass http://app:8080;",
+        "location ^~ /mcp/ {",
+        "proxy_pass http://app:8080;",
+        "location ^~ /api/v1/auth/oidc/ {",
+        "proxy_pass http://app:8080;",
+        "location /api/ {",
+        "proxy_pass http://app:8080/api/;",
+        "location = /50x.html {",
+        "proxy_set_header Host $http_host;",
+        "proxy_set_header X-Forwarded-Proto $scheme;",
+        "proxy_http_version 1.1;                    # \u4f7f\u7528 HTTP/1.1",
+        "proxy_set_header Connection \"\"; # \u7981\u7528 Connection: close\uff0c\u4fdd\u6301\u8fde\u63a5\u6253\u5f00",
+        "proxy_buffering off;                       # \u5173\u95ed\u7f13\u51b2",
+        "proxy_read_timeout 3600s;                  # \u589e\u52a0\u8bfb\u53d6\u8d85\u65f6\u65f6\u95f4",
+        "proxy_send_timeout 3600s;                  # \u589e\u52a0\u53d1\u9001\u8d85\u65f6\u65f6\u95f4"
+      ]
+    }
+  ],
+  "host_disk": "Filesystem                         Size  Used Avail Use% Mounted on\n/dev/mapper/ubuntu--vg-ubuntu--lv   96G   81G   11G  89% /\n/dev/mapper/ubuntu--vg-ubuntu--lv   96G   81G   11G  89% /\n",
+  "listening_tcp": "LISTEN 0      4096       127.0.0.1:42445 0.0.0.0:*\nLISTEN 0      4096         0.0.0.0:80    0.0.0.0:*\nLISTEN 0      4096         0.0.0.0:8082  0.0.0.0:*\nLISTEN 0      4096         0.0.0.0:8080  0.0.0.0:*\nLISTEN 0      4096   127.0.0.53%lo:53    0.0.0.0:*\nLISTEN 0      4096      127.0.0.54:53    0.0.0.0:*\nLISTEN 0      4096            [::]:80       [::]:*\nLISTEN 0      4096               *:22          *:*\nLISTEN 0      4096            [::]:8082     [::]:*\nLISTEN 0      4096            [::]:8080     [::]:*\n",
+  "database_target": {
+    "container": "WeKnora-postgres",
+    "name": "weknora",
+    "app_DB_HOST": "postgres",
+    "not_production": false
+  },
+  "schema_shape": [
+    {
+      "table_name": "data_sources",
+      "column_name": "id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "tenant_id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "knowledge_base_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "name",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "type",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "sync_schedule",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "sync_mode",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "conflict_strategy",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "sync_deletions",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "last_sync_at",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "last_sync_cursor",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "last_sync_result",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "error_message",
+      "data_type": "text"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "sync_log_retention_days",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "created_at",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "updated_at",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "data_sources",
+      "column_name": "deleted_at",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "id",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "source_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "source_type",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "chunk_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "knowledge_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "knowledge_base_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "content",
+      "data_type": "text"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "dimension",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "embedding",
+      "data_type": "USER-DEFINED"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "is_enabled",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "embeddings",
+      "column_name": "tag_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "name",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "description",
+      "data_type": "text"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "tenant_id",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "chunking_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "image_processing_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "embedding_model_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "summary_model_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "cos_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "vlm_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "extract_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "deleted_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "is_temporary",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "type",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "faq_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "question_generation_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "storage_provider_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "is_pinned",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "pinned_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "asr_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "vector_store_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "wiki_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "indexing_strategy",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "creator_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "storage_backend_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "auto_tag_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "profile_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "knowledge_bases",
+      "column_name": "generated_profile",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "models",
+      "column_name": "id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "models",
+      "column_name": "tenant_id",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "models",
+      "column_name": "name",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "models",
+      "column_name": "display_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "models",
+      "column_name": "type",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "models",
+      "column_name": "source",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "models",
+      "column_name": "description",
+      "data_type": "text"
+    },
+    {
+      "table_name": "models",
+      "column_name": "parameters",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "models",
+      "column_name": "is_default",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "models",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "models",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "models",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "models",
+      "column_name": "deleted_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "models",
+      "column_name": "is_builtin",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "models",
+      "column_name": "managed_by",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "data_source_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "tenant_id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "started_at",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "finished_at",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "items_total",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "items_created",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "items_updated",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "items_deleted",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "items_skipped",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "items_failed",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "error_message",
+      "data_type": "text"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "result",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "created_at",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "updated_at",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "execution_generation",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "sync_logs",
+      "column_name": "execution_claimed",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "key",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "value",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "value_type",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "category",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "description",
+      "data_type": "text"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "is_secret",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "requires_restart",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "last_modified_by",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "system_settings",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "tenant_id",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "display_name",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "description",
+      "data_type": "text"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "category",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "responsible_team",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "contact",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "featured",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "display_order",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "allow_access_request",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "interaction_organization_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "created_by",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "updated_by",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "published_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "tenant_portal_configs",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "id",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "name",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "description",
+      "data_type": "text"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "retriever_engines",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "business",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "storage_quota",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "storage_used",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "agent_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "deleted_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "context_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "conversation_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "web_search_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "parser_engine_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "storage_engine_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "chat_history_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "retrieval_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "credentials",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "api_principal_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "default_storage_backend_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "tenants",
+      "column_name": "memory_config",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "users",
+      "column_name": "id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "users",
+      "column_name": "username",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "users",
+      "column_name": "email",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "users",
+      "column_name": "password_hash",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "users",
+      "column_name": "avatar",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "users",
+      "column_name": "tenant_id",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "users",
+      "column_name": "is_active",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "users",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "users",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "users",
+      "column_name": "deleted_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "users",
+      "column_name": "can_access_all_tenants",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "users",
+      "column_name": "preferences",
+      "data_type": "jsonb"
+    },
+    {
+      "table_name": "users",
+      "column_name": "is_system_admin",
+      "data_type": "boolean"
+    }
+  ],
+  "schema_version": [
+    {
+      "version": 3033,
+      "dirty": false
+    }
+  ],
+  "extensions": [
+    {
+      "extname": "pg_search",
+      "extversion": "0.22.2"
+    },
+    {
+      "extname": "vector",
+      "extversion": "0.8.1"
+    }
+  ],
+  "account_counts": [
+    {
+      "accounts": 45,
+      "active_accounts": 45
+    }
+  ],
+  "portal_counts": [
+    {
+      "published_active_spaces": 17,
+      "live_kbs": 47,
+      "document_kbs": 47,
+      "non_temporary_document_kbs": 47
+    }
+  ],
+  "portal_inventory": [
+    {
+      "space_ref": "dcff65efa8eb2558",
+      "kb_ref": "3dd7ba57bb37d9b1",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": true,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 0
+    },
+    {
+      "space_ref": "2710f69e168a8cea",
+      "kb_ref": "0cdad698e7d34e39",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": true,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 0
+    },
+    {
+      "space_ref": "bd8ee239c2a55d53",
+      "kb_ref": "ff5f6e7d7bf11928",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": true,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 0
+    },
+    {
+      "space_ref": "577ed42ff1827535",
+      "kb_ref": "cd9e9417c1cb4d8f",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 67
+    },
+    {
+      "space_ref": "bd8ee239c2a55d53",
+      "kb_ref": "1d7d6e247a3ba1f9",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 7
+    },
+    {
+      "space_ref": "bd8ee239c2a55d53",
+      "kb_ref": "2c6c99c53809899e",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": true,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 0
+    },
+    {
+      "space_ref": "d053c98331d87bad",
+      "kb_ref": "9a71f5769984ff1c",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 6
+    },
+    {
+      "space_ref": "577ed42ff1827535",
+      "kb_ref": "d773e4aebcc4bf84",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 31
+    },
+    {
+      "space_ref": "dcff65efa8eb2558",
+      "kb_ref": "8b27c19dc6b935b9",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": true,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 0
+    },
+    {
+      "space_ref": "dcff65efa8eb2558",
+      "kb_ref": "2a4faed25b550071",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": true,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 0
+    },
+    {
+      "space_ref": "dcff65efa8eb2558",
+      "kb_ref": "0e850bf3c22f9f4a",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": true,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 0
+    },
+    {
+      "space_ref": "2710f69e168a8cea",
+      "kb_ref": "5a7b6cf7a35e9bca",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": true,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 0
+    },
+    {
+      "space_ref": "dcff65efa8eb2558",
+      "kb_ref": "15e8d9b0e303ac17",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 3
+    },
+    {
+      "space_ref": "a5deebbf81accaed",
+      "kb_ref": "7e041c11868ab011",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 69
+    },
+    {
+      "space_ref": "22673a278ff27dc0",
+      "kb_ref": "2fcbb50feb6953bc",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 6
+    },
+    {
+      "space_ref": "2710f69e168a8cea",
+      "kb_ref": "f034561e089714e6",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": true,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 0
+    },
+    {
+      "space_ref": "76181f49d309736a",
+      "kb_ref": "963a61db37383e3d",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": true,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 0
+    },
+    {
+      "space_ref": "a5deebbf81accaed",
+      "kb_ref": "8883eb86cef2b058",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 16
+    },
+    {
+      "space_ref": "7039fbf30f0d8f5e",
+      "kb_ref": "64513f900ee424ab",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": true,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 0
+    },
+    {
+      "space_ref": "bd8ee239c2a55d53",
+      "kb_ref": "6850dc6dd419aa40",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": true,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 0
+    },
+    {
+      "space_ref": "2710f69e168a8cea",
+      "kb_ref": "004a49cf4b16abe7",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": true,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 0
+    },
+    {
+      "space_ref": "0161caba9c217779",
+      "kb_ref": "7cb055ba8831f44d",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 1
+    },
+    {
+      "space_ref": "bd8ee239c2a55d53",
+      "kb_ref": "2388ff185a8e5b92",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": true,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 0
+    },
+    {
+      "space_ref": "4c789a464eed0190",
+      "kb_ref": "7ed7c1f17cca50b3",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 1
+    },
+    {
+      "space_ref": "7fdb857cd308fd2a",
+      "kb_ref": "87686beb2c8e34c7",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 3
+    },
+    {
+      "space_ref": "013e0b40dfa3cb04",
+      "kb_ref": "e59c71b4e3a3f6b5",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": true,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 0
+    },
+    {
+      "space_ref": "2710f69e168a8cea",
+      "kb_ref": "9dff4ac4df5a0677",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": true,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 0
+    },
+    {
+      "space_ref": "d053c98331d87bad",
+      "kb_ref": "3b16182c27e09cee",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 101
+    },
+    {
+      "space_ref": "d053c98331d87bad",
+      "kb_ref": "c3a4b52ba3e18b73",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 1
+    },
+    {
+      "space_ref": "bd8ee239c2a55d53",
+      "kb_ref": "a539c370c956609b",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 1
+    },
+    {
+      "space_ref": "7039fbf30f0d8f5e",
+      "kb_ref": "a923589cfd99d0c6",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 864
+    },
+    {
+      "space_ref": "2710f69e168a8cea",
+      "kb_ref": "e4a9d1a40365aab1",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": true,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 0
+    },
+    {
+      "space_ref": "67fdb6cc1730f0da",
+      "kb_ref": "39d6036b202c28af",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 108
+    },
+    {
+      "space_ref": "2710f69e168a8cea",
+      "kb_ref": "7a33393470190acc",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": true,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 0
+    },
+    {
+      "space_ref": "2710f69e168a8cea",
+      "kb_ref": "674b7cc1d2116144",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 0
+    },
+    {
+      "space_ref": "76181f49d309736a",
+      "kb_ref": "d90b8f6b50547cba",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": true,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 0
+    },
+    {
+      "space_ref": "76181f49d309736a",
+      "kb_ref": "430cad290ea6410d",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": true,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 0
+    },
+    {
+      "space_ref": "577ed42ff1827535",
+      "kb_ref": "fe19745f37c16bcf",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 15
+    },
+    {
+      "space_ref": "d053c98331d87bad",
+      "kb_ref": "b2a9e666fb172856",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 3
+    },
+    {
+      "space_ref": "577ed42ff1827535",
+      "kb_ref": "05950c40b236d319",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 67
+    },
+    {
+      "space_ref": "577ed42ff1827535",
+      "kb_ref": "c038694dbbcc6786",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 6
+    },
+    {
+      "space_ref": "577ed42ff1827535",
+      "kb_ref": "96f46e9a3d917b17",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 10
+    },
+    {
+      "space_ref": "d053c98331d87bad",
+      "kb_ref": "827d62fca3dd1a8e",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 12
+    },
+    {
+      "space_ref": "577ed42ff1827535",
+      "kb_ref": "9bb5ed4dde366344",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 8
+    },
+    {
+      "space_ref": "dcff65efa8eb2558",
+      "kb_ref": "41a0fad7142d7b27",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 5
+    },
+    {
+      "space_ref": "4c789a464eed0190",
+      "kb_ref": "e830a4dfae8ecf18",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 0
+    },
+    {
+      "space_ref": "dcff65efa8eb2558",
+      "kb_ref": "2ce285f3cd82bd41",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 6
+    },
+    {
+      "space_ref": "dcff65efa8eb2558",
+      "kb_ref": "bab8f08c0ca6f4df",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 6
+    },
+    {
+      "space_ref": "dcff65efa8eb2558",
+      "kb_ref": "5626e081c5b5254d",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 5
+    },
+    {
+      "space_ref": "ea8dcd2dcfb33946",
+      "kb_ref": "7efa7addd14c67e9",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 10
+    },
+    {
+      "space_ref": "22673a278ff27dc0",
+      "kb_ref": "0301306ebaac033d",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 7
+    },
+    {
+      "space_ref": "22673a278ff27dc0",
+      "kb_ref": "3936a7505100785f",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 1
+    },
+    {
+      "space_ref": "22673a278ff27dc0",
+      "kb_ref": "021a2ae153b707d8",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 1
+    },
+    {
+      "space_ref": "2710f69e168a8cea",
+      "kb_ref": "ce72a47c8fde1f7a",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 115
+    },
+    {
+      "space_ref": "c299cbe088e92274",
+      "kb_ref": "f183937fe3a7c4f4",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 339
+    },
+    {
+      "space_ref": "0161caba9c217779",
+      "kb_ref": "124565a72723681d",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 3
+    },
+    {
+      "space_ref": "bd8ee239c2a55d53",
+      "kb_ref": "64aa712e7a226724",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 2
+    },
+    {
+      "space_ref": "4c789a464eed0190",
+      "kb_ref": "7ef84efb56bca3bd",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 1
+    },
+    {
+      "space_ref": "9c3e57f5e0e9c43a",
+      "kb_ref": "26d6c0d42a114a64",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 266
+    },
+    {
+      "space_ref": "013e0b40dfa3cb04",
+      "kb_ref": "372074350498326d",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 290
+    },
+    {
+      "space_ref": "67fdb6cc1730f0da",
+      "kb_ref": "4fb85f99fd251bb0",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 191
+    },
+    {
+      "space_ref": "9c3e57f5e0e9c43a",
+      "kb_ref": "3ea3edf1574f69dd",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 0
+    },
+    {
+      "space_ref": "2710f69e168a8cea",
+      "kb_ref": "3eddd0f9d92bc6ca",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 2
+    },
+    {
+      "space_ref": "2710f69e168a8cea",
+      "kb_ref": "fb18f376fdc8bbc7",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 46
+    },
+    {
+      "space_ref": "2710f69e168a8cea",
+      "kb_ref": "0ab7575ec70ab29b",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 1
+    },
+    {
+      "space_ref": "76181f49d309736a",
+      "kb_ref": "ea559f499c26dc1e",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 9
+    },
+    {
+      "space_ref": "dcff65efa8eb2558",
+      "kb_ref": "0acd39fd5cb7159c",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": false,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 8
+    },
+    {
+      "space_ref": "577ed42ff1827535",
+      "kb_ref": "c2edb6e0b65ad3d9",
+      "type": "document",
+      "is_temporary": false,
+      "kb_deleted": true,
+      "space_deleted": false,
+      "space_status": "active",
+      "portal_status": "published",
+      "documents": 0
+    }
+  ],
+  "model_registry": [
+    {
+      "model_ref": "9c9b6a1f1e03c920",
+      "type": "KnowledgeQA",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "1fbf1c0731623488",
+      "type": "VLLM",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "0b9d8dc3802401bd",
+      "type": "KnowledgeQA",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "3ebea35e5cc18871",
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "787c6aeee031d08a",
+      "type": "KnowledgeQA",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "81214bc7f3202d9a",
+      "type": "Embedding",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "1024",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "891f6a48c63236c7",
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "44c3e32d37b599cc",
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "f52054edac9eb93b",
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "1a92e2155f716d44",
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "ba254903e6369509",
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "66ac8a2b3476a469",
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "f0023b9c8e10f4ac",
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "6b0a8e6d33cf5c5e",
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "500f3646a22d6431",
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "740d027a1134d24a",
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "430ba354e328f94e",
+      "type": "Embedding",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "1024",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "6859e2af244b479e",
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "010aad406a268011",
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "86a352f086d86709",
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "8f214704f2dc1ee3",
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "155642b649e3d6d5",
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "04486df7a93360a3",
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "3aa636d298c2e583",
+      "type": "KnowledgeQA",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    },
+    {
+      "model_ref": "274e485df8725e36",
+      "type": "KnowledgeQA",
+      "source": "remote",
+      "status": "active",
+      "is_default": false,
+      "dimension": "0",
+      "credential_present": true,
+      "endpoint_present": true
+    }
+  ],
+  "KB_model_bindings": [
+    {
+      "kb_ref": "ea559f499c26dc1e",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "7efa7addd14c67e9",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "7ed7c1f17cca50b3",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "e830a4dfae8ecf18",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "7ef84efb56bca3bd",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "f183937fe3a7c4f4",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "15e8d9b0e303ac17",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "41a0fad7142d7b27",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "2ce285f3cd82bd41",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "bab8f08c0ca6f4df",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "5626e081c5b5254d",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "0acd39fd5cb7159c",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "2fcbb50feb6953bc",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "0301306ebaac033d",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "3936a7505100785f",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "021a2ae153b707d8",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "674b7cc1d2116144",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "ce72a47c8fde1f7a",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "3eddd0f9d92bc6ca",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "fb18f376fdc8bbc7",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "0ab7575ec70ab29b",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "26d6c0d42a114a64",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "3ea3edf1574f69dd",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "39d6036b202c28af",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "4fb85f99fd251bb0",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "cd9e9417c1cb4d8f",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "d773e4aebcc4bf84",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "fe19745f37c16bcf",
+      "model_ref": "81214bc7f3202d9a",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "05950c40b236d319",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "c038694dbbcc6786",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "96f46e9a3d917b17",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "9bb5ed4dde366344",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "1d7d6e247a3ba1f9",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "a539c370c956609b",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "64aa712e7a226724",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "87686beb2c8e34c7",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "372074350498326d",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "9a71f5769984ff1c",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "3b16182c27e09cee",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "c3a4b52ba3e18b73",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "b2a9e666fb172856",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "827d62fca3dd1a8e",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "7e041c11868ab011",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "8883eb86cef2b058",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "a923589cfd99d0c6",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "7cb055ba8831f44d",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    },
+    {
+      "kb_ref": "124565a72723681d",
+      "model_ref": "430ba354e328f94e",
+      "model_deleted": false,
+      "model_status": "active",
+      "dimension": "1024"
+    }
+  ],
+  "vector_dimensions": [
+    {
+      "dimension": 1024,
+      "rows": 1393111
+    }
+  ],
+  "vector_index_dimensions": [
+    {
+      "indexname": "embeddings_embedding_idx_3584",
+      "halfvec_dimension": "3584"
+    },
+    {
+      "indexname": "embeddings_embedding_idx_798",
+      "halfvec_dimension": "798"
+    },
+    {
+      "indexname": "embeddings_embedding_idx_1024",
+      "halfvec_dimension": "1024"
+    }
+  ],
+  "feishu_sources": [
+    {
+      "source_ref": "644ef71bf01304a3",
+      "type": "feishu",
+      "status": "paused",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": null,
+      "hours_since_sync": null,
+      "deleted": true,
+      "has_error": false,
+      "has_cursor": false,
+      "cursor_fingerprint": "d41d8cd98f00b204e9800998ecf8427e",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "feeb74e8bf4180a6",
+      "type": "feishu_drive",
+      "status": "paused",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": null,
+      "hours_since_sync": null,
+      "deleted": true,
+      "has_error": false,
+      "has_cursor": false,
+      "cursor_fingerprint": "d41d8cd98f00b204e9800998ecf8427e",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "1f9afaa178420115",
+      "type": "feishu_drive",
+      "status": "active",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": "2026-10-20T10:00:06.984412",
+      "hours_since_sync": 44.79388247805556,
+      "deleted": false,
+      "has_error": false,
+      "has_cursor": true,
+      "cursor_fingerprint": "c43f083a4651bc9354347edb7a81d9ba",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "4ecd23a4d40b85c7",
+      "type": "feishu_drive",
+      "status": "active",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": "2026-09-28T06:16:55.773889",
+      "hours_since_sync": 576.5136631788889,
+      "deleted": true,
+      "has_error": false,
+      "has_cursor": true,
+      "cursor_fingerprint": "22215a326a290d440f8d287f8290914d",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "5ed09f2c3c7a0b5f",
+      "type": "feishu",
+      "status": "paused",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": null,
+      "hours_since_sync": null,
+      "deleted": true,
+      "has_error": false,
+      "has_cursor": false,
+      "cursor_fingerprint": "d41d8cd98f00b204e9800998ecf8427e",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "7389567a18221c50",
+      "type": "feishu_drive",
+      "status": "error",
+      "sync_mode": "full",
+      "sync_deletions": true,
+      "last_sync_at": "2026-09-22T10:00:01.746937",
+      "hours_since_sync": 716.7953373322222,
+      "deleted": true,
+      "has_error": true,
+      "has_cursor": true,
+      "cursor_fingerprint": "a08ef3c5b1a585b1be49bfe7b88cffa4",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "bd80cfbbf4beb0c6",
+      "type": "feishu",
+      "status": "paused",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": null,
+      "hours_since_sync": null,
+      "deleted": true,
+      "has_error": false,
+      "has_cursor": false,
+      "cursor_fingerprint": "d41d8cd98f00b204e9800998ecf8427e",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "2643d95951c40ec3",
+      "type": "feishu",
+      "status": "paused",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": null,
+      "hours_since_sync": null,
+      "deleted": true,
+      "has_error": false,
+      "has_cursor": false,
+      "cursor_fingerprint": "d41d8cd98f00b204e9800998ecf8427e",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "27974a0fe779f9ec",
+      "type": "feishu_drive",
+      "status": "paused",
+      "sync_mode": "full",
+      "sync_deletions": true,
+      "last_sync_at": "2026-09-17T06:55:41.181118",
+      "hours_since_sync": 839.8677167263888,
+      "deleted": true,
+      "has_error": false,
+      "has_cursor": true,
+      "cursor_fingerprint": "6b1239367fb656ddff03be17f1dcc7a6",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "ce8765258386f74e",
+      "type": "feishu",
+      "status": "paused",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": null,
+      "hours_since_sync": null,
+      "deleted": true,
+      "has_error": false,
+      "has_cursor": false,
+      "cursor_fingerprint": "d41d8cd98f00b204e9800998ecf8427e",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "04855308a4cfa9b3",
+      "type": "feishu_drive",
+      "status": "error",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": "2026-09-28T05:46:58.421669",
+      "hours_since_sync": 577.0129276844444,
+      "deleted": true,
+      "has_error": true,
+      "has_cursor": true,
+      "cursor_fingerprint": "5a3a0be6b542e7efb214b8191d742751",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "db3913932bda7a28",
+      "type": "feishu_drive",
+      "status": "paused",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": null,
+      "hours_since_sync": null,
+      "deleted": true,
+      "has_error": false,
+      "has_cursor": false,
+      "cursor_fingerprint": "d41d8cd98f00b204e9800998ecf8427e",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "c34c255b31f86646",
+      "type": "feishu",
+      "status": "paused",
+      "sync_mode": "full",
+      "sync_deletions": true,
+      "last_sync_at": "2026-09-19T18:00:08.593946",
+      "hours_since_sync": 780.7934353852778,
+      "deleted": false,
+      "has_error": false,
+      "has_cursor": true,
+      "cursor_fingerprint": "353722f4ac27606afb8dd26046f5ce9d",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "9ba9f3da99b4ec45",
+      "type": "feishu",
+      "status": "paused",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": null,
+      "hours_since_sync": null,
+      "deleted": true,
+      "has_error": false,
+      "has_cursor": false,
+      "cursor_fingerprint": "d41d8cd98f00b204e9800998ecf8427e",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "2d3cc33d2f09880b",
+      "type": "feishu_drive",
+      "status": "paused",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": "2026-09-19T18:00:06.883628",
+      "hours_since_sync": 780.7939104736112,
+      "deleted": false,
+      "has_error": false,
+      "has_cursor": true,
+      "cursor_fingerprint": "1a98e29984b51fecf76b279360adaec1",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "0c21467888f948ee",
+      "type": "feishu_drive",
+      "status": "active",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": "2026-09-29T04:00:01.952106",
+      "hours_since_sync": 554.7952803408333,
+      "deleted": true,
+      "has_error": false,
+      "has_cursor": true,
+      "cursor_fingerprint": "4a18e35a971183e7972ff54ad412ed61",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "0372f153302f02c3",
+      "type": "feishu_drive",
+      "status": "error",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": "2026-10-13T06:48:19.903165",
+      "hours_since_sync": 215.99029393555554,
+      "deleted": false,
+      "has_error": true,
+      "has_cursor": true,
+      "cursor_fingerprint": "88b4e0df7b7e6430a368d3b1b50eac8f",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "ebad6a622c04c7a3",
+      "type": "feishu_drive",
+      "status": "active",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": "2026-10-12T06:04:09.838192",
+      "hours_since_sync": 240.72642309472224,
+      "deleted": false,
+      "has_error": true,
+      "has_cursor": true,
+      "cursor_fingerprint": "cfb6e97f0309d94251462b23b10e67f5",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "985d28b94bbf03fc",
+      "type": "feishu",
+      "status": "error",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": "2026-10-08T02:03:48.4398",
+      "hours_since_sync": 340.7323670925,
+      "deleted": true,
+      "has_error": true,
+      "has_cursor": true,
+      "cursor_fingerprint": "6a7742122754de5533c11aa90deb24ec",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "510373b040da38e8",
+      "type": "feishu_drive",
+      "status": "active",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": "2026-10-20T10:00:07.930811",
+      "hours_since_sync": 44.79361958944445,
+      "deleted": false,
+      "has_error": false,
+      "has_cursor": true,
+      "cursor_fingerprint": "3c08db1e2784852ea538f6a2ecb9ab2c",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "ba83a2db926f6572",
+      "type": "feishu_drive",
+      "status": "active",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": "2026-10-20T10:00:05.94916",
+      "hours_since_sync": 44.794170048055555,
+      "deleted": false,
+      "has_error": false,
+      "has_cursor": true,
+      "cursor_fingerprint": "5238772f88356cb83b69246f791b8999",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "7e8ff67ac30646aa",
+      "type": "feishu",
+      "status": "error",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": "2026-10-12T04:05:45.467056",
+      "hours_since_sync": 242.6998595213889,
+      "deleted": false,
+      "has_error": true,
+      "has_cursor": true,
+      "cursor_fingerprint": "9457023c5e8b27f2bbb2b2a88312e5e9",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "29dfe8cf9c4c5d7b",
+      "type": "feishu",
+      "status": "active",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": "2026-10-19T18:00:19.127664",
+      "hours_since_sync": 60.7905093525,
+      "deleted": false,
+      "has_error": false,
+      "has_cursor": true,
+      "cursor_fingerprint": "73df70d1130d4b33019af2320b210200",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "db6a16d9d9b0358c",
+      "type": "feishu",
+      "status": "paused",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": null,
+      "hours_since_sync": null,
+      "deleted": true,
+      "has_error": false,
+      "has_cursor": false,
+      "cursor_fingerprint": "d41d8cd98f00b204e9800998ecf8427e",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "88aa6f62b68e84e2",
+      "type": "feishu",
+      "status": "error",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": "2026-10-09T16:20:16.435654",
+      "hours_since_sync": 302.4579237997222,
+      "deleted": false,
+      "has_error": true,
+      "has_cursor": true,
+      "cursor_fingerprint": "053bc208087ac5d17c205f959c5196c4",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "b1174b7ccba13fae",
+      "type": "feishu",
+      "status": "paused",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": null,
+      "hours_since_sync": null,
+      "deleted": true,
+      "has_error": false,
+      "has_cursor": false,
+      "cursor_fingerprint": "d41d8cd98f00b204e9800998ecf8427e",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "cf79306f596c6eb3",
+      "type": "feishu",
+      "status": "paused",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": null,
+      "hours_since_sync": null,
+      "deleted": true,
+      "has_error": false,
+      "has_cursor": false,
+      "cursor_fingerprint": "d41d8cd98f00b204e9800998ecf8427e",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "bd1561572ce89f81",
+      "type": "feishu_drive",
+      "status": "active",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": "2026-10-10T06:17:13.433587",
+      "hours_since_sync": 288.50875770722223,
+      "deleted": false,
+      "has_error": false,
+      "has_cursor": true,
+      "cursor_fingerprint": "8ad349c3501b8c166de28f80eff8ab3a",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "372fc53713973a5a",
+      "type": "feishu",
+      "status": "paused",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": null,
+      "hours_since_sync": null,
+      "deleted": true,
+      "has_error": false,
+      "has_cursor": false,
+      "cursor_fingerprint": "d41d8cd98f00b204e9800998ecf8427e",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "89926d424dc76872",
+      "type": "feishu",
+      "status": "active",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": "2026-10-20T10:05:08.457077",
+      "hours_since_sync": 44.71014007111111,
+      "deleted": false,
+      "has_error": true,
+      "has_cursor": true,
+      "cursor_fingerprint": "047e8b2b34ff0a2effa2fc4f480e800d",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    }
+  ],
+  "feishu_sync_log_counts": [
+    {
+      "source_ref": "7e8ff67ac30646aa",
+      "status": "failed",
+      "rows": 3
+    },
+    {
+      "source_ref": "04855308a4cfa9b3",
+      "status": "canceled",
+      "rows": 2
+    },
+    {
+      "source_ref": "29dfe8cf9c4c5d7b",
+      "status": "success",
+      "rows": 15
+    },
+    {
+      "source_ref": "27974a0fe779f9ec",
+      "status": "partial",
+      "rows": 1
+    },
+    {
+      "source_ref": "985d28b94bbf03fc",
+      "status": "partial",
+      "rows": 14
+    },
+    {
+      "source_ref": "510373b040da38e8",
+      "status": "success",
+      "rows": 35
+    },
+    {
+      "source_ref": "4ecd23a4d40b85c7",
+      "status": "success",
+      "rows": 2
+    },
+    {
+      "source_ref": "7389567a18221c50",
+      "status": "partial",
+      "rows": 18
+    },
+    {
+      "source_ref": "0c21467888f948ee",
+      "status": "success",
+      "rows": 6
+    },
+    {
+      "source_ref": "0372f153302f02c3",
+      "status": "partial",
+      "rows": 3
+    },
+    {
+      "source_ref": "29dfe8cf9c4c5d7b",
+      "status": "failed",
+      "rows": 1
+    },
+    {
+      "source_ref": "bd1561572ce89f81",
+      "status": "failed",
+      "rows": 1
+    },
+    {
+      "source_ref": "c34c255b31f86646",
+      "status": "success",
+      "rows": 6
+    },
+    {
+      "source_ref": "7e8ff67ac30646aa",
+      "status": "partial",
+      "rows": 3
+    },
+    {
+      "source_ref": "1f9afaa178420115",
+      "status": "success",
+      "rows": 35
+    },
+    {
+      "source_ref": "ebad6a622c04c7a3",
+      "status": "partial",
+      "rows": 6
+    },
+    {
+      "source_ref": "2d3cc33d2f09880b",
+      "status": "success",
+      "rows": 4
+    },
+    {
+      "source_ref": "04855308a4cfa9b3",
+      "status": "success",
+      "rows": 2
+    },
+    {
+      "source_ref": "985d28b94bbf03fc",
+      "status": "failed",
+      "rows": 3
+    },
+    {
+      "source_ref": "0372f153302f02c3",
+      "status": "success",
+      "rows": 5
+    },
+    {
+      "source_ref": "88aa6f62b68e84e2",
+      "status": "partial",
+      "rows": 10
+    },
+    {
+      "source_ref": "7389567a18221c50",
+      "status": "failed",
+      "rows": 1
+    },
+    {
+      "source_ref": "89926d424dc76872",
+      "status": "partial",
+      "rows": 36
+    },
+    {
+      "source_ref": "88aa6f62b68e84e2",
+      "status": "failed",
+      "rows": 1
+    },
+    {
+      "source_ref": "0372f153302f02c3",
+      "status": "failed",
+      "rows": 4
+    },
+    {
+      "source_ref": "04855308a4cfa9b3",
+      "status": "partial",
+      "rows": 1
+    },
+    {
+      "source_ref": "27974a0fe779f9ec",
+      "status": "success",
+      "rows": 1
+    },
+    {
+      "source_ref": "ebad6a622c04c7a3",
+      "status": "failed",
+      "rows": 2
+    },
+    {
+      "source_ref": "bd1561572ce89f81",
+      "status": "success",
+      "rows": 5
+    },
+    {
+      "source_ref": "ba83a2db926f6572",
+      "status": "success",
+      "rows": 36
+    }
+  ],
+  "safe_runtime_settings": [],
+  "ssh_exit_code": 0,
+  "inspection_script_sha256": "b4d7ba0faf3433dd2065c833d5a419d4db4d2bdec0297c509cedd88e4bffee68"
+}

@@ -32,9 +32,9 @@ func RegisterChunkRoutes(r *gin.RouterGroup, handler *handler.ChunkHandler, g *r
 	chunkRead := chunks.With(apiKeyRetrieve(apiKeyFullAccess()))
 	{
 		// 获取分块列表 — Viewer+ 且对父 KB 有 read 权限（own / shared / via shared agent）
-		chunkRead.GET("/:knowledge_id", g.Viewer(), g.KBAccessReadFromKnowledgeIDParam("knowledge_id"), handler.ListKnowledgeChunks)
+		chunkRead.GET("/:knowledge_id", g.Viewer(), g.DocumentReadFromKnowledge("knowledge_id"), handler.ListKnowledgeChunks)
 		// 通过chunk_id获取单个chunk（不需要knowledge_id） — Viewer+ 且对父 KB 有 read 权限
-		chunkRead.GET("/by-id/:id", g.Viewer(), g.KBAccessReadFromChunkIDParam("id"), handler.GetChunkByIDOnly)
+		chunkRead.GET("/by-id/:id", g.Viewer(), g.DocumentReadFromChunk("id"), handler.GetChunkByIDOnly)
 		chunkRead.GET("/:knowledge_id/:id/revisions", g.Viewer(), g.KBAccessReadFromKnowledgeIDParam("knowledge_id"), handler.ListChunkRevisions)
 		// 删除分块 — KB owner OR Admin+，且对父 KB 有 write 权限
 		chunks.DELETE("/:knowledge_id/:id", g.OwnedChunkKBOrAdmin(), g.KBAccessWriteFromKnowledgeIDParam("knowledge_id"), handler.DeleteChunk)
@@ -73,7 +73,7 @@ func RegisterKnowledgeRoutes(r *gin.RouterGroup, handler *handler.KnowledgeHandl
 		kb.POST("/file", g.OwnedKBOrAdmin(), g.KBAccessWrite("id"), handler.CreateKnowledgeFromFile)
 		kb.POST("/url", g.OwnedKBOrAdmin(), g.KBAccessWrite("id"), handler.CreateKnowledgeFromURL)
 		kb.POST("/manual", g.OwnedKBOrAdmin(), g.KBAccessWrite("id"), handler.CreateManualKnowledge)
-		kbRead.GET("", g.Viewer(), g.KBAccessRead("id"), handler.ListKnowledge)
+		kbRead.GET("", g.Viewer(), g.DocumentReadFromKB("id"), handler.ListKnowledge)
 		// 原始文件下载沿用单文件下载的 Contributor + Editor 权限边界。
 		kbRead.POST("/batch-download", g.Contributor(), g.KBAccessWrite("id"), handler.BatchDownloadKnowledge)
 		kbRead.GET("/folders", g.Viewer(), g.KBAccessRead("id"), handler.ListKnowledgeFolders)
@@ -116,7 +116,7 @@ func RegisterKnowledgeRoutes(r *gin.RouterGroup, handler *handler.KnowledgeHandl
 		// ingest capability, matching their single-document siblings
 		// (k.DELETE("/:id"), k.POST("/:id/reparse"), k.PUT("/:id")).
 		kRead.GET("/batch", g.Viewer(), handler.GetKnowledgeBatch)
-		kRead.GET("/:id", g.Viewer(), g.KBAccessReadFromKnowledgeIDParam("id"), handler.GetKnowledge)
+		kRead.GET("/:id", g.Viewer(), g.DocumentReadFromKnowledge("id"), handler.GetKnowledge)
 		kRead.GET("/:id/stages", g.Viewer(), g.KBAccessReadFromKnowledgeIDParam("id"), handler.GetKnowledgeSpans)
 		kRead.GET("/:id/spans", g.Viewer(), g.KBAccessReadFromKnowledgeIDParam("id"), handler.GetKnowledgeSpans)
 		k.DELETE("/:id", g.OwnedKnowledgeKBOrAdmin(), g.KBAccessWriteFromKnowledgeIDParam("id"), handler.DeleteKnowledge)

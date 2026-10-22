@@ -524,6 +524,14 @@ func (s *wikiIngestService) ProcessWikiIngest(ctx context.Context, t *asynq.Task
 		wikiConfig = kb.WikiConfig
 	}
 
+	if proofErr := s.checkPersonalWikiPending(pendingOps); proofErr != nil {
+		return proofErr
+	}
+	proofCtx, proofErr := s.personalWikiProofContext(ctx, payload.KnowledgeBaseID)
+	if proofErr != nil {
+		return proofErr
+	}
+	ctx = proofCtx
 	batchCtx := s.newWikiBatchContext(payload.KnowledgeBaseID, wikiConfig)
 
 	// 1. MAP PHASE (Parallel extraction and generation of updates)
@@ -1215,8 +1223,17 @@ func (s *wikiIngestService) ProcessWikiFinalize(ctx context.Context, t *asynq.Ta
 		logger.Warnf(ctx, "wiki finalize: no synthesis model for KB %s, skipping index rebuild", payload.KnowledgeBaseID)
 	}
 
+	proofCtx, proofErr := s.personalWikiProofContext(ctx, payload.KnowledgeBaseID)
+	if proofErr != nil {
+		return proofErr
+	}
+	ctx = proofCtx
 	batchCtx := s.newWikiBatchContext(payload.KnowledgeBaseID, kb.WikiConfig)
 	lang := types.LanguageNameFromContext(ctx)
+	verifiedDescription, verifiedRefs := s.personalWikiFinalizeInputs(changeDesc.String(), freshRefs)
+	changeDesc.Reset()
+	changeDesc.WriteString(verifiedDescription)
+	freshRefs = verifiedRefs
 
 	indexRebuilt := false
 	if changeDesc.Len() > 0 && synthesisModelID != "" {

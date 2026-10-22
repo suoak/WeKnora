@@ -1,0 +1,6 @@
+{
+  "exit_code": 1,
+  "error_class": "AssertionError",
+  "message": "independent RC3 hotfix did not cold-start",
+  "production_changes": false
+}

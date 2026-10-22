@@ -2,6 +2,7 @@ package handler
 
 import (
 	stderrors "errors"
+	"github.com/Tencent/WeKnora/internal/application/access"
 	"net/http"
 
 	"github.com/Tencent/WeKnora/internal/application/service"
@@ -51,6 +52,11 @@ func NewChunkHandler(service interfaces.ChunkService, kgService interfaces.Knowl
 // @Security     ApiKeyAuth
 // @Router       /chunks/by-id/{id} [get]
 func (h *ChunkHandler) GetChunkByIDOnly(c *gin.Context) {
+	if guarded, ok := h.service.(interface{ DocumentACLReadEnabled() bool }); ok && guarded.DocumentACLReadEnabled() && !access.HasDocumentReadOutput(c.Request.Context()) {
+		c.Error(errors.NewForbiddenError("Document output boundary required"))
+		return
+	}
+
 	ctx := c.Request.Context()
 	logger.Info(ctx, "Start retrieving chunk by ID only")
 
@@ -97,6 +103,11 @@ func (h *ChunkHandler) GetChunkByIDOnly(c *gin.Context) {
 // @Security     ApiKeyAuth
 // @Router       /chunks/{knowledge_id} [get]
 func (h *ChunkHandler) ListKnowledgeChunks(c *gin.Context) {
+	if guarded, ok := h.service.(interface{ DocumentACLReadEnabled() bool }); ok && guarded.DocumentACLReadEnabled() && !access.HasDocumentReadOutput(c.Request.Context()) {
+		c.Error(errors.NewForbiddenError("Document output boundary required"))
+		return
+	}
+
 	ctx := c.Request.Context()
 	logger.Info(ctx, "Start retrieving knowledge chunks list")
 

@@ -1,0 +1,41 @@
+[
+  {
+    "name": "compose-validate",
+    "argv": [
+      "docker",
+      "compose",
+      "--project-name",
+      "knowhub-v1-feishu-985bdcb168c4",
+      "--project-directory",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/985bdcb168c46ef5",
+      "-f",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/985bdcb168c46ef5/compose.yml",
+      "config",
+      "--quiet"
+    ],
+    "started_utc": "2026-10-21T17:39:55.874701+00:00",
+    "exit_code": 0,
+    "finished_utc": "2026-10-21T17:39:56.139726+00:00"
+  },
+  {
+    "name": "startup-disabled-edge",
+    "argv": [
+      "docker",
+      "compose",
+      "--project-name",
+      "knowhub-v1-feishu-985bdcb168c4",
+      "--project-directory",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/985bdcb168c46ef5",
+      "-f",
+      "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/985bdcb168c46ef5/compose.yml",
+      "up",
+      "-d",
+      "--wait",
+      "--wait-timeout",
+      "180"
+    ],
+    "started_utc": "2026-10-21T17:39:56.140132+00:00",
+    "exit_code": 1,
+    "finished_utc": "2026-10-21T17:40:06.075401+00:00"
+  }
+]

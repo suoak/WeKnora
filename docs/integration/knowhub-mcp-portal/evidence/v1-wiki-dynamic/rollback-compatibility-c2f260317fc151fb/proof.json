@@ -1,0 +1,28 @@
+{
+  "exit_code": 0,
+  "candidate_sha256": "c2f260317fc151fbab98d9e87b2fe5c9acbd903dd4be2e857e0326565d390d75",
+  "image_id": "sha256:fbac4d811054356cd0aa1d8a99fdc7d58466d590ab156efce007492a868a3c0c",
+  "schema": 3037,
+  "checks": {
+    "forward_upgrade": "PASS",
+    "restore_denial_persisted": "PASS",
+    "compatibility_cold_start": "PASS",
+    "return_to_candidate": "PASS",
+    "revoked_hmac_denied": "PASS",
+    "revoked_rest_denied": "PASS",
+    "historical_reference_denied": "PASS",
+    "feature_off_denied": "PASS",
+    "schema_retained": "PASS"
+  },
+  "authority_digests_preserved": {
+    "credential_authority": "9b84fed873fd38926eae20f075b3b6be",
+    "tenant_scopes": "ce12f819ed6e2b714ef9ae849946b8f5",
+    "kb_scopes": "8b59a900fbe835d0b22d5fdf6257748b",
+    "source_denials": "e046b501d0420ef60797028a1fc3314f"
+  },
+  "production_input": false,
+  "old_unsafe_image_executed": false,
+  "schema_down_executed": false,
+  "source": "new candidate synthetic revoked backup only",
+  "limitation": "fallback disables personal Go MCP; retains hardened source reads; not a production deployment authorization"
+}

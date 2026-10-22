@@ -11,12 +11,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func TestUserMCPExpiryDefaultsToNinetyDays(t *testing.T) {
-	before := time.Now().UTC().Add(90 * 24 * time.Hour)
+func TestUserMCPExpiryDefaultsToNever(t *testing.T) {
 	expires, err := userMCPExpiry(userMCPKeyRequest{})
-	after := time.Now().UTC().Add(90 * 24 * time.Hour)
-	if err != nil || expires == nil || expires.Before(before) || expires.After(after) {
-		t.Fatalf("expiry = %v, err = %v; want approximately 90 days", expires, err)
+	if err != nil || expires != nil {
+		t.Fatalf("expiry = %v, err = %v; want no expiry", expires, err)
+	}
+}
+
+func TestUserMCPExpiryHonorsExplicitDate(t *testing.T) {
+	future := time.Now().UTC().Add(90 * 24 * time.Hour).Unix()
+	expires, err := userMCPExpiry(userMCPKeyRequest{ExpiresAt: &future})
+	if err != nil || expires == nil || expires.Unix() != future {
+		t.Fatalf("expiry = %v, err = %v; want exact requested date %d", expires, err, future)
 	}
 }
 

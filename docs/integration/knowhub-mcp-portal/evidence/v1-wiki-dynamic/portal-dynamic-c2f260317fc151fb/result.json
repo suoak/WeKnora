@@ -1,0 +1,14 @@
+{
+  "exit_code": 0,
+  "candidate_sha256": "c2f260317fc151fbab98d9e87b2fe5c9acbd903dd4be2e857e0326565d390d75",
+  "checks": {
+    "unpublished_new_space_not_public": "PASS",
+    "same_key_discovers_new_published_space_without_membership": "PASS",
+    "published_space_new_empty_KB_automatically_discovered": "PASS",
+    "new_indexed_document_keyword_vector_Hybrid": "PASS",
+    "Portal_withdrawal_revokes_public_not_independent_private": "PASS",
+    "no_membership_or_duplicate_approval_created": "PASS"
+  },
+  "synthetic_only": true,
+  "indexing_scope": "real PG indexes with controlled 1024 fixture vector, not real document parser/cloud model"
+}

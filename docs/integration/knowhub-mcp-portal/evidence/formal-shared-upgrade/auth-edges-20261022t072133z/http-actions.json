@@ -1,0 +1,53 @@
+[
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/login",
+    "status": 200,
+    "elapsed_ms": 245.71756273508072
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/login",
+    "status": 200,
+    "elapsed_ms": 85.84233187139034
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/login",
+    "status": 200,
+    "elapsed_ms": 79.68693412840366
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/login",
+    "status": 200,
+    "elapsed_ms": 76.28228701651096
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/tenants/820099/api-keys",
+    "status": 201,
+    "elapsed_ms": 120.7720935344696
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp/personal",
+    "status": 401,
+    "elapsed_ms": 27.10445411503315,
+    "tool": "list_knowledge_bases",
+    "arguments": {},
+    "is_error": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/system/admin/api-keys",
+    "status": 403,
+    "elapsed_ms": 2.796970307826996
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/tenants/820099/api-keys/18",
+    "status": 200,
+    "elapsed_ms": 17.40220934152603
+  }
+]

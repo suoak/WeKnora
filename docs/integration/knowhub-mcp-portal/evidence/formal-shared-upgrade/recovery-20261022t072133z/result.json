@@ -1,0 +1,7 @@
+{
+  "exit_code": 1,
+  "error_class": "TypeError",
+  "message": "unsupported operand type(s) for /: 'str' and 'str'",
+  "checks": {},
+  "production_input": false
+}

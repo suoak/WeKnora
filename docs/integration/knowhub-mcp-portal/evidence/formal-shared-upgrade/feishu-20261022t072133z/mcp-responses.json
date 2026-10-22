@@ -1,0 +1,45 @@
+{
+  "synthetic_only": true,
+  "frames": [
+    {
+      "rpc_id": 2001,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "fm-legacy-wiki"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2001,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"chunks\":[{\"tenant_id\":820099,\"space\":\"Formal synthetic 820099\",\"knowledge_base_id\":\"fm-feishu-wiki\",\"knowledge_base_name\":\"Synthetic Feishu wiki\",\"knowledge_id\":\"fm-legacy-wiki\",\"chunk_id\":\"fm-legacy-wiki-chunk\",\"title\":\"RC3 synthetic baseline\",\"content\":\"rc3baselinecanary old source text\",\"reference\":\"knowhub:tenant:820099:kb:fm-feishu-wiki:document:fm-legacy-wiki\",\"rank_score\":0}],\"total\":1}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2002,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "fm-legacy-wiki"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2002,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"chunks\":[{\"tenant_id\":820099,\"space\":\"Formal synthetic 820099\",\"knowledge_base_id\":\"fm-feishu-wiki\",\"knowledge_base_name\":\"Synthetic Feishu wiki\",\"knowledge_id\":\"fm-legacy-wiki\",\"chunk_id\":\"fea6ee76-82c4-495f-bb46-88fd683b126c\",\"title\":\"Synthetic Wiki\",\"content\":\"wiki initialcanary ordinary text\\n\",\"reference\":\"knowhub:tenant:820099:kb:fm-feishu-wiki:document:fm-legacy-wiki\",\"rank_score\":0}],\"total\":1}"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "reason": "superseded by afed source safety fix; stop obsolete test containers to avoid competing builds, not a PASS",
+  "operations": [
+    {
+      "name": "knowhub-next-development-0d198247cb9c",
+      "exit_code": 0,
+      "stdout": "knowhub-next-development-0d198247cb9c\n",
+      "stderr": ""
+    },
+    {
+      "name": "knowhub-next-development-0d198247cb9c-full-race",
+      "exit_code": 0,
+      "stdout": "knowhub-next-development-0d198247cb9c-full-race\n",
+      "stderr": ""
+    }
+  ]
+}

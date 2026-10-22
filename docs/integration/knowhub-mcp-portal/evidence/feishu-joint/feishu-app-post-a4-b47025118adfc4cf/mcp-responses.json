@@ -1,0 +1,90 @@
+{
+  "synthetic_only": true,
+  "frames": [
+    {
+      "rpc_id": 2001,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "joint-legacy-drive-a4"
+      },
+      "http_status": 403,
+      "response": {
+        "error": {
+          "http_status": 403,
+          "message": "personal MCP denied\n"
+        }
+      }
+    },
+    {
+      "rpc_id": 2002,
+      "tool": "list_documents",
+      "arguments": {
+        "knowledge_base_id": "joint-feishu-drive-a4"
+      },
+      "http_status": 403,
+      "response": {
+        "error": {
+          "http_status": 403,
+          "message": "personal MCP denied\n"
+        }
+      }
+    },
+    {
+      "rpc_id": 2003,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "keyword",
+        "knowledge_base_ids": [
+          "joint-feishu-drive-a4"
+        ],
+        "limit": 10
+      },
+      "http_status": 403,
+      "response": {
+        "error": {
+          "http_status": 403,
+          "message": "personal MCP denied\n"
+        }
+      }
+    },
+    {
+      "rpc_id": 2004,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "semantic",
+        "knowledge_base_ids": [
+          "joint-feishu-drive-a4"
+        ],
+        "limit": 10
+      },
+      "http_status": 403,
+      "response": {
+        "error": {
+          "http_status": 403,
+          "message": "personal MCP denied\n"
+        }
+      }
+    },
+    {
+      "rpc_id": 2005,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "hybrid",
+        "knowledge_base_ids": [
+          "joint-feishu-drive-a4"
+        ],
+        "limit": 10
+      },
+      "http_status": 403,
+      "response": {
+        "error": {
+          "http_status": 403,
+          "message": "personal MCP denied\n"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "reason": "known missing key-table fixture fixed in 83e47; stop superseded runs, preserve original FAIL and partial logs; not PASS",
+  "operations": [
+    {
+      "name": "knowhub-next-development-afed42193deb",
+      "exit_code": 0,
+      "stdout": "knowhub-next-development-afed42193deb\n",
+      "stderr": ""
+    },
+    {
+      "name": "knowhub-next-development-afed42193deb-full-race",
+      "exit_code": 0,
+      "stdout": "knowhub-next-development-afed42193deb-full-race\n",
+      "stderr": ""
+    },
+    {
+      "name": "knowhub-next-development-9fb6e900664e",
+      "exit_code": 0,
+      "stdout": "knowhub-next-development-9fb6e900664e\n",
+      "stderr": ""
+    },
+    {
+      "name": "knowhub-next-development-9fb6e900664e-full-race",
+      "exit_code": 0,
+      "stdout": "knowhub-next-development-9fb6e900664e-full-race\n",
+      "stderr": ""
+    }
+  ]
+}

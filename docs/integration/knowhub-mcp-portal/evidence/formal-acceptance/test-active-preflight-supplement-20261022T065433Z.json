@@ -1,0 +1,172 @@
+{
+  "observed_utc": "2026-10-22T06:54:35.263845+00:00",
+  "read_only": true,
+  "mode": "test-active",
+  "changes": false,
+  "cloud_calls": false,
+  "identity_config": {
+    "OIDC_AUTH_ISSUER_URL": "https://sid.ruijie.com.cn",
+    "OIDC_AUTH_DISCOVERY_URL": "https://sid.ruijie.com.cn/oidc/.well-known/openid-configuration",
+    "OIDC_AUTH_REDIRECT_URI": "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback"
+  },
+  "identity_credential_presence": {
+    "OIDC_AUTH_CLIENT_ID": true,
+    "OIDC_AUTH_CLIENT_SECRET": true
+  },
+  "identity_env_only_not_live_login": true,
+  "model_endpoint_metadata": [
+    {
+      "type": "Embedding",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    },
+    {
+      "type": "KnowledgeQA",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    },
+    {
+      "type": "VLLM",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    },
+    {
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    }
+  ],
+  "identity_table_counts": {
+    "oidc_transactions": 138
+  },
+  "http_probes": [
+    {
+      "url": "http://127.0.0.1:80/health",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:80/api/v1/auth/oidc/config",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:80/api/v1/mcp/personal",
+      "status": 401
+    },
+    {
+      "url": "http://127.0.0.1:8080/health",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:8080/api/v1/auth/oidc/config",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:8080/api/v1/mcp/personal",
+      "status": 401
+    },
+    {
+      "url": "http://127.0.0.1:18091/health",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18091/api/v1/auth/oidc/config",
+      "status": 404
+    },
+    {
+      "url": "http://127.0.0.1:18091/api/v1/mcp/personal",
+      "status": 404
+    }
+  ],
+  "entry_nginx_T_exit": 0,
+  "entry_safe_directives": [
+    "listen 80;",
+    "proxy_pass http://$upstream;",
+    "proxy_http_version 1.1;",
+    "proxy_buffering off;",
+    "proxy_read_timeout 3600s;",
+    "listen 8080;",
+    "proxy_pass http://$upstream;",
+    "proxy_http_version 1.1;",
+    "proxy_buffering off;",
+    "proxy_read_timeout 3600s;"
+  ],
+  "entry_literal_upstreams": [
+    "p3app:8080",
+    "p3frontend:80"
+  ],
+  "entry_network_members": [
+    {
+      "network": "knowhub-company-test_edge",
+      "members": [
+        {
+          "name": "knowhub-company-test-frontend-1",
+          "ip": "172.20.0.2/16"
+        },
+        {
+          "name": "knowhub-company-entry-entry-1",
+          "ip": "172.20.0.3/16"
+        }
+      ]
+    },
+    {
+      "network": "knowhub-company-test_isolated",
+      "members": [
+        {
+          "name": "knowhub-mvp-p3-frontend-1",
+          "ip": "192.168.224.8/20"
+        },
+        {
+          "name": "knowhub-company-test-frontend-1",
+          "ip": "192.168.224.6/20"
+        },
+        {
+          "name": "knowhub-company-test-redis-1",
+          "ip": "192.168.224.3/20"
+        },
+        {
+          "name": "knowhub-company-test-postgres-1",
+          "ip": "192.168.224.5/20"
+        },
+        {
+          "name": "knowhub-company-entry-entry-1",
+          "ip": "192.168.224.7/20"
+        },
+        {
+          "name": "knowhub-company-test-sid-network-1",
+          "ip": "192.168.224.4/20"
+        },
+        {
+          "name": "knowhub-mvp-p3-app-1",
+          "ip": "192.168.224.9/20"
+        },
+        {
+          "name": "knowhub-company-test-docreader-1",
+          "ip": "192.168.224.2/20"
+        }
+      ]
+    }
+  ],
+  "frozen_candidate": {
+    "app_image_id": "sha256:7f7220b7eaa13b8c5d54fe3ec647edc4dbca552f3641bec061392d225a0a13f5",
+    "running": true,
+    "binary_sha256": "ab3c0fadfa008b27a6b19596b6f59270aeffbf0f1c89e2d6b7c36f4aa2ef8124",
+    "frontend_image_id": "sha256:8c05063a13a85c1a49e0f87eee7fd8bf191365830f38c57d1873aadb112ad6bd",
+    "source_archive_sha256": "cb08c31f06d1565196ae0bc93458d10069a73e803b08fa2ffe984a8fe3e67437"
+  },
+  "test_backup_evidence": {
+    "latest_current_shared_backup": "UNKNOWN",
+    "restore_on_3037": "NOT_EXECUTED_ON_SHARED_TARGET",
+    "AES_escrow_verified": false,
+    "no_backup_or_key_export": true
+  },
+  "ssh_exit_code": 0,
+  "inspection_script_sha256": "57535a5e0f87d115d9eb30f5c37ace6cc3a5a963a9ba1d8d34eb984d00fa348a"
+}

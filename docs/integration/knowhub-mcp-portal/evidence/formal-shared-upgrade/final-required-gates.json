@@ -1,0 +1,93 @@
+{
+  "candidate_sha256": "bf199466752a3a1d75540355dc1fee9fb7f6bdef338c4ad0b62a49485b151661",
+  "runtime_source_sha256": "0a1b5cebe229246b4c646cccc4749f51aa97eb6aec9f5a5a2066f4153406463e",
+  "required_local_test_gates_pass": true,
+  "checks": {
+    "backup-a3": {
+      "status": "PASS",
+      "result_sha256": "1ac887297693bd26aba4d559a1f556da7c7d053f46cbebbd66908a286b8f0dd7"
+    },
+    "deploy-a4": {
+      "status": "PASS",
+      "result_sha256": "3759d0878e9ca15504a04974182b8ba94d629d7ddaa106866ca91da498a2a9b0"
+    },
+    "business": {
+      "status": "PASS",
+      "result_sha256": "0a00530b37c167d835683741e9bc3f4c36706ce1fbb8df0a54d9c2039806c9a9"
+    },
+    "portal-dynamic": {
+      "status": "PASS",
+      "result_sha256": "c4ac9fceaace1c7838532212db3eabb3a1a6f390f4908ebb009c592fb7073632"
+    },
+    "wiki-negative": {
+      "status": "PASS",
+      "result_sha256": "3ec5d45814f2165cb57f8a9d66046efdbfdec733529139d0eef8f6a390755485"
+    },
+    "feishu-a2": {
+      "status": "PASS",
+      "result_sha256": "0aac1632b44eac8c126ba4d1d74f45d082226ed3cd27241f090c58100bd37803"
+    },
+    "recovery-a3": {
+      "status": "PASS",
+      "result_sha256": "8463edab22a54eb6f5f309bc02a0a295981b5a2285fa0fae2fef8bd7411e31f9"
+    },
+    "worker-fault-a2": {
+      "status": "PASS",
+      "result_sha256": "29ff1b9ae5355d0d951cdf3049492143222a6f4f11f7bceb0ad3879a2f3ae0c1"
+    },
+    "auth-edges-a2": {
+      "status": "PASS",
+      "result_sha256": "8d770f0ed344bac55da86f58690aadc9f3ce4686e9d8cb3aeaccc1aa21da15c4"
+    },
+    "legacy-python-a5": {
+      "status": "PASS",
+      "result_sha256": "a63f2463cac543047d6997cabed8738443197009c9ff5f1075cafe6fb282011f"
+    },
+    "polish": {
+      "status": "PASS",
+      "result_sha256": "25db44c5867565a34dc8a9c8cf317836440fe6041a06eb623cd8247dc5c19e89"
+    },
+    "ci-preflight": {
+      "status": "PASS",
+      "result_sha256": "8eca3fd1ba71034c3d3a20085b1774f3e1ae1fc7d3921a085045a1244fc3ea97"
+    },
+    "compatibility-a4": {
+      "status": "PASS",
+      "result_sha256": "9e9935bd5f8d0680423f75fda1f2468056d51553ccaa4b7ce4c3a3174ad6b578"
+    },
+    "promote": {
+      "status": "PASS",
+      "result_sha256": "71d2ce84c0f9fb819a8e2e47606cc6e772029e119fd1c2dc29fa509c9a461e32"
+    },
+    "final-smoke": {
+      "status": "PASS",
+      "result_sha256": "2481ed76189e96251eae91d64bf66e4d9b47f283f5d02ed86523ab2ce5b0a607"
+    },
+    "browser": {
+      "status": "PASS",
+      "path": "docs/integration/knowhub-mcp-portal/evidence/formal-shared-upgrade/browser-bf199466752a3a1d/attempt-2026-10-22T09-12-50-061Z/result.json",
+      "sha256": "6fa8b90eb2ef0b8826f899b83323ac2c071a9a2638e359d67cd5a9e32c89ad22"
+    },
+    "codex": {
+      "status": "PASS",
+      "path": "docs/integration/knowhub-mcp-portal/evidence/formal-shared-upgrade/codex-bf199466752a3a1d/attempt-20261022T091439Z/result.json",
+      "sha256": "4d7ec868eed45732418a7dbaaea2e80a6a53d3a7270146c80783fd9595c7fc19"
+    }
+  },
+  "post_freeze_release_guard_delta": {
+    ".github/workflows/docker-image.yml": {
+      "frozen": "2d9de111261a81e8c709a693dea03ac6e093606f1794607669fbe029d732f8ba",
+      "current": "4a1ce856f15bc14cdec7204d079fd98190e16f6033289d80617fb0151944013c"
+    },
+    ".github/workflows/mcp-server.yml": {
+      "frozen": "ba5e6a6db921866b0c2c51f4e9a35c22a2934efca9e186d7c396e34d657b11d1",
+      "current": "352cbcf405b0945f981ffadb79e8d7afb4776b58ffdbc10d1eaefbdb75acbb4e"
+    }
+  },
+  "formal_model": "BLOCKED_NOT_AUTHORIZED",
+  "real_Feishu_cloud": "BLOCKED_NOT_AUTHORIZED",
+  "production_release_allowed": false,
+  "production_sync_resume_allowed": false,
+  "PR_creation_allowed": true,
+  "main_merge_requires_CI_and_review": true
+}

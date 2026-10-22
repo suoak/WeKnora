@@ -15,6 +15,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Tencent/WeKnora/internal/utils"
 )
 
 // apiKeyLastUsedMinInterval bounds how often we persist last_used_at per key.
@@ -35,6 +36,24 @@ func (s *tenantAPIKeyService) CreateAPIKey(
 	ctx context.Context, req interfaces.TenantAPIKeyCreateRequest,
 ) (*interfaces.TenantAPIKeyCreateResult, error) {
 	scopeType := types.NormalizeAPIKeyScopeType(req.ScopeType)
+	mode := req.PersonalScopeMode
+	if mode == "" {
+		mode = "fixed"
+	}
+	if mode != "fixed" && mode != "dynamic_all" {
+		return nil, errors.New("invalid personal scope mode")
+	}
+	if mode == "dynamic_all" && (scopeType != types.APIKeyScopeUserMCP || req.FullAccess) {
+		return nil, errors.New("dynamic scope requires a real personal read-only key")
+	}
+	if mode == "dynamic_all" {
+		for _, scope := range req.TenantScopes {
+			if scope.KBScopeMode != types.APIKeyKBScopeAll || len(scope.KnowledgeBases) > 0 {
+				return nil, errors.New("dynamic all cannot contain a selected KB restriction")
+			}
+		}
+	}
+
 	if scopeType == types.APIKeyScopeTenant && req.TenantID == 0 {
 		return nil, errors.New("tenant_id is required")
 	}
@@ -87,21 +106,26 @@ func (s *tenantAPIKeyService) CreateAPIKey(
 		ownerUserID = &v
 	}
 	key := &types.TenantAPIKey{
-		TenantID:         tenantID,
-		ScopeType:        scopeType,
-		Name:             name,
-		ClientType:       clientType,
-		KeyHash:          hashTenantAPIKey(token),
-		APIKey:           token,
-		FullAccess:       req.FullAccess,
-		KnowledgeBaseIDs: normalizeAPIKeyIDs(req.KnowledgeBaseIDs),
-		Capabilities:     capabilities,
-		ExpiresAt:        expiresAt,
-		OwnerUserID:      ownerUserID,
-		TenantScopes:     req.TenantScopes,
+		PersonalScopeMode: mode,
+		TenantID:          tenantID,
+		ScopeType:         scopeType,
+		Name:              name,
+		ClientType:        clientType,
+		KeyHash:           hashTenantAPIKey(token),
+		APIKey:            token,
+		FullAccess:        req.FullAccess,
+		KnowledgeBaseIDs:  normalizeAPIKeyIDs(req.KnowledgeBaseIDs),
+		Capabilities:      capabilities,
+		ExpiresAt:         expiresAt,
+		OwnerUserID:       ownerUserID,
+		TenantScopes:      req.TenantScopes,
 	}
 	if scopeType == types.APIKeyScopeUserMCP {
-		key.APIKey = ""
+		key.APIKey, err = recoverableUserMCPSecret(token)
+		if err != nil {
+			return nil, err
+		}
+		key.APIKeyEncrypted = key.APIKey != ""
 		key.TokenHint = tenantAPIKeyTokenHint(token)
 	}
 	if key.FullAccess {
@@ -166,11 +190,25 @@ func (s *tenantAPIKeyService) RotateUserMCPAPIKey(ctx context.Context, userID st
 	if err != nil {
 		return nil, err
 	}
-	rotated, err := repo.RotateUserMCPAPIKey(ctx, userID, id, current.KeyHash, hashTenantAPIKey(token), tenantAPIKeyTokenHint(token), expiresAt)
+	encrypted, err := recoverableUserMCPSecret(token)
+	if err != nil {
+		return nil, err
+	}
+	rotated, err := repo.RotateUserMCPAPIKey(ctx, userID, id, current.KeyHash, hashTenantAPIKey(token), tenantAPIKeyTokenHint(token), expiresAt, encrypted)
 	if err != nil {
 		return nil, err
 	}
 	return &interfaces.TenantAPIKeyCreateResult{APIKey: rotated, Token: token}, nil
+}
+
+// Hash authentication remains usable without an encryption key, but no
+// recoverable secret is persisted in that case. Never fall back to plaintext.
+func recoverableUserMCPSecret(token string) (string, error) {
+	key := utils.GetAESKey()
+	if key == nil {
+		return "", nil
+	}
+	return utils.EncryptAESGCM(token, key)
 }
 func (s *tenantAPIKeyService) RevokeUserMCPAPIKey(ctx context.Context, userID string, id uint64) error {
 	return s.repo.(interfaces.UserMCPAPIKeyRepository).RevokeUserMCPAPIKey(ctx, userID, id)
@@ -344,13 +382,18 @@ func normalizeUserMCPCapabilities(in []string, useDefault bool) (types.StringArr
 	}
 	for _, capability := range normalized {
 		switch types.APIKeyCapability(capability) {
-		case types.APIKeyCapabilityRetrieve, types.APIKeyCapabilityChat, types.APIKeyCapabilityReadAgents:
+		case types.APIKeyCapabilityRetrieve, types.APIKeyCapabilityChat, types.APIKeyCapabilityReadAgents, types.APIKeyCapabilityEnterpriseRetrieve:
 		default:
 			return nil, errors.New("unsupported user_mcp capability")
 		}
 	}
 	if len(normalized) == 0 {
 		return nil, errors.New("at least one capability is required")
+	}
+	if (types.TenantAPIKeyScope{Capabilities: normalized}).HasCapability(types.APIKeyCapabilityEnterpriseRetrieve) {
+		if !(types.TenantAPIKeyScope{Capabilities: normalized}).HasCapability(types.APIKeyCapabilityRetrieve) {
+			return nil, errors.New("enterprise_retrieve requires retrieve")
+		}
 	}
 	return normalized, nil
 }

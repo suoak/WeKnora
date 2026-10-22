@@ -1,0 +1,6 @@
+{
+  "candidate_sha256": "b47025118adfc4cff2d1f75cabc6f98265a0bb9ca1ad816f409099081947f0fc",
+  "harness_sha256": "d81a238a7558dbde9dc42c2c1f30741393b67944f012bb2f02d9ef62208f40f8",
+  "path": "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/python-source-probe-harness-d81a238a7558dbde9dc42c2c1f30741393b67944f012bb2f02d9ef62208f40f8.py",
+  "reason": "use the same mcp2 HTTP client factory as existing verified SDK tests; no server/authentication change"
+}

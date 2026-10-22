@@ -1,0 +1,14 @@
+{
+  "exit_code": 0,
+  "candidate_sha256": "bf199466752a3a1d75540355dc1fee9fb7f6bdef338c4ad0b62a49485b151661",
+  "checks": {
+    "same_source_APP_frontend_revised_candidate_actual_eight_readonly_tools": "PASS",
+    "public_private_union_and_restricted_denials": "PASS",
+    "partial_source_isolation_and_Wiki_no_write": "PASS",
+    "persistent_REST_and_unexpired_file_revoke": "PASS",
+    "Key_revoke_next_request": "PASS"
+  },
+  "same_backend_Go_source_rebuilt_with_new_version_label": true,
+  "synthetic_only": true,
+  "production_accessed": false
+}

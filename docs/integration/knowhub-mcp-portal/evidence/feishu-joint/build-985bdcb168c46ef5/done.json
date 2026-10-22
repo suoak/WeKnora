@@ -1,0 +1,1 @@
+{"candidate_sha256": "985bdcb168c46ef5db27a4e54983c0047dab61c2e16e5d7a8ed4f489154682e7", "all_passed": true, "app": "knowhub-v1-feishu/app:985bdcb168c46ef5", "frontend": "knowhub-v1-feishu/frontend:985bdcb168c46ef5", "build_tags": "sqlite_fts5,anydoc"}

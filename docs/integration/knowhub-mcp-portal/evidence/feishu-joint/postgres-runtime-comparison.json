@@ -1,0 +1,12 @@
+{
+  "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+  "tags": [
+    "paradedb/paradedb:v0.22.2-pg17",
+    "m.daocloud.io/docker.io/paradedb/paradedb:v0.22.2-pg17"
+  ],
+  "digests": [
+    "m.daocloud.io/docker.io/paradedb/paradedb@sha256:af585013f97f622715de01e48d00558f7edf17055d7b40deafc9f98ca8d99a56"
+  ],
+  "production_last_observed_image": "sha256:6396bfd53a97f6c1aad50af05aad4a65b06bb7c07602b42a8b33b5d51cf83ab1",
+  "matches_last_observed_production_db_image": false
+}

@@ -1,0 +1,10 @@
+{
+  "image_id": "sha256:fbac4d811054356cd0aa1d8a99fdc7d58466d590ab156efce007492a868a3c0c",
+  "candidate_sha256": "c2f260317fc151fbab98d9e87b2fe5c9acbd903dd4be2e857e0326565d390d75",
+  "schema": 3037,
+  "proof_sha256": "08c03ead73dc8f65ae316aa3195eb1083ff704bad24fe1db3b4b2f33f58d4e6d",
+  "admitted": true,
+  "down_migration_allowed": false,
+  "limitation": "admission is not production deployment authorization",
+  "scope": "isolated synthetic compatibility rollback only; production deployment remains unauthorized"
+}

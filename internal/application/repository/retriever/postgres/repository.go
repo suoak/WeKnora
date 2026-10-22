@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/common"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -39,13 +40,19 @@ func (r *pgRepository) Support() []types.RetrieverType {
 
 // calculateIndexStorageSize calculates storage size for a single index entry
 func (g *pgRepository) calculateIndexStorageSize(embeddingDB *pgVector) int64 {
+	return EstimateIndexStorageSize(embeddingDB.Content, embeddingDB.Dimension)
+}
+
+// EstimateIndexStorageSize is the shared accounting rule for normal indexing
+// and fenced source publication. Keep both writers on the existing quota model.
+func EstimateIndexStorageSize(content string, dimension int) int64 {
 	// 1. Text content size
-	contentSizeBytes := int64(len(embeddingDB.Content))
+	contentSizeBytes := int64(len(content))
 
 	// 2. Vector storage size (2 bytes per dimension for half-precision float)
 	var vectorSizeBytes int64 = 0
-	if embeddingDB.Dimension > 0 {
-		vectorSizeBytes = int64(embeddingDB.Dimension * 2)
+	if dimension > 0 {
+		vectorSizeBytes = int64(dimension * 2)
 	}
 
 	// 3. Metadata size (fixed overhead for IDs, timestamps etc.)
@@ -190,8 +197,19 @@ func (g *pgRepository) Retrieve(ctx context.Context, params types.RetrieveParams
 func (g *pgRepository) KeywordsRetrieve(ctx context.Context,
 	params types.RetrieveParams,
 ) ([]*types.RetrieveResult, error) {
+	var guardErr error
+	params, guardErr = access.GuardDocumentRetrieval(ctx, types.PostgresRetrieverEngineType, params)
+	if guardErr != nil {
+		return nil, guardErr
+	}
 	logger.GetLogger(ctx).Infof("[Postgres] Keywords retrieval: query=%s, topK=%d", params.Query, params.TopK)
 	conds := make([]clause.Expression, 0)
+	if types.LegacyReadGuardsEnabled(g.db) {
+		conds = append(conds, clause.Expr{SQL: legacySourceCandidatePredicate})
+	}
+	if tenant, protected := access.PortalRetrievalTenant(ctx); protected {
+		conds = append(conds, clause.Expr{SQL: portalCanonicalPredicate("?", access.PortalRetrievalPublic(ctx), access.PortalRetrievalPublishedDefaults(ctx)), Vars: []interface{}{tenant, types.ChunkSourceType}})
+	}
 
 	// KnowledgeBaseIDs and KnowledgeIDs use AND logic
 	// - If only KnowledgeBaseIDs: search entire knowledge bases
@@ -220,11 +238,15 @@ func (g *pgRepository) KeywordsRetrieve(ctx context.Context,
 		})
 	}
 
-	// Use ParadeDB's ||| operator for matching any token
-	conds = append(conds, clause.Expr{
-		SQL:  "content ||| ?",
-		Vars: []interface{}{params.Query},
-	})
+	// Keep complex authorization predicates outside ParadeDB's custom scan.
+	// Its OR pushdown can drop correlated predicates in 0.22.2. A MATERIALIZED
+	// lexical relation below keeps native PostgreSQL authorization BEFORE LIMIT.
+	guarded := types.LegacyReadGuardsEnabled(g.db)
+	_, portalProtected := access.PortalRetrievalTenant(ctx)
+	guarded = guarded || portalProtected
+	if !guarded {
+		conds = append(conds, clause.Expr{SQL: "content ||| ?", Vars: []interface{}{params.Query}})
+	}
 
 	// Filter by is_enabled = true or NULL (NULL means enabled for historical data)
 	conds = append(conds, clause.Expr{
@@ -236,20 +258,34 @@ func (g *pgRepository) KeywordsRetrieve(ctx context.Context,
 	}})
 
 	var embeddingDBList []pgVectorWithScore
-	err := g.db.WithContext(ctx).Clauses(conds...).
-		Select([]string{
-			"paradedb.score(id) as score",
-			"id",
-			"content",
-			"source_id",
-			"source_type",
-			"chunk_id",
-			"knowledge_id",
-			"knowledge_base_id",
-			"tag_id",
-		}).
-		Limit(int(params.TopK)).
-		Find(&embeddingDBList).Error
+	contentProjection := "content"
+	if _, protected := access.PortalRetrievalTenant(ctx); protected {
+		contentProjection = portalCanonicalTextProjection() + " AS content"
+	}
+	query := g.db.WithContext(ctx)
+	columns := []string{"paradedb.score(id) as score", "id", contentProjection, "source_id", "source_type", "chunk_id", "knowledge_id", "knowledge_base_id", "tag_id"}
+	var err error
+	if guarded {
+		columns[0] = "score"
+		outer := query.Session(&gorm.Session{DryRun: true}).Table("lexical AS embeddings").Clauses(conds...).Select(columns).Limit(int(params.TopK)).Find(&embeddingDBList).Statement
+		vars := append([]interface{}{}, outer.Vars...)
+		vars = append(vars, params.Query)
+		lexicalWhere := fmt.Sprintf("content ||| $%d", len(vars))
+		// A coarse optimization only: the authoritative KB/ID/tenant/state checks
+		// remain outside the materialization as well. No pre-authorization LIMIT.
+		if len(params.KnowledgeBaseIDs) > 0 {
+			marks := make([]string, 0, len(params.KnowledgeBaseIDs))
+			for _, id := range params.KnowledgeBaseIDs {
+				vars = append(vars, id)
+				marks = append(marks, fmt.Sprintf("$%d", len(vars)))
+			}
+			lexicalWhere += " AND knowledge_base_id IN (" + strings.Join(marks, ",") + ")"
+		}
+		sql := "WITH lexical AS MATERIALIZED (SELECT embeddings.*,paradedb.score(id) AS score FROM embeddings WHERE " + lexicalWhere + ") " + outer.SQL.String()
+		err = query.Raw(sql, vars...).Scan(&embeddingDBList).Error
+	} else {
+		err = query.Clauses(conds...).Select(columns).Limit(int(params.TopK)).Find(&embeddingDBList).Error
+	}
 
 	if err == gorm.ErrRecordNotFound {
 		logger.GetLogger(ctx).Warnf("[Postgres] No records found for keywords query: %s", params.Query)
@@ -265,6 +301,7 @@ func (g *pgRepository) KeywordsRetrieve(ctx context.Context,
 	const maxKeywordResultLog = 8
 	for i := range embeddingDBList {
 		results[i] = fromDBVectorEmbeddingWithScore(&embeddingDBList[i], types.MatchTypeKeywords)
+		types.RecordLegacyCandidateRead(ctx, results[i].KnowledgeBaseID)
 		if i < maxKeywordResultLog {
 			logger.GetLogger(ctx).Debugf("[Postgres] Keywords result %d: chunk=%s, score=%f",
 				i, results[i].ChunkID, results[i].Score)
@@ -291,11 +328,43 @@ func (g *pgRepository) KeywordsRetrieve(ctx context.Context,
 func (g *pgRepository) VectorRetrieve(ctx context.Context,
 	params types.RetrieveParams,
 ) ([]*types.RetrieveResult, error) {
+	var guardErr error
+	params, guardErr = access.GuardDocumentRetrieval(ctx, types.PostgresRetrieverEngineType, params)
+	if guardErr != nil {
+		return nil, guardErr
+	}
+	if _, protected := access.PortalRetrievalTenant(ctx); protected && (len(params.Embedding) == 0 || len(params.Embedding) > 4096) {
+		return nil, access.ErrDocumentFilterDenied
+	}
 	logger.GetLogger(ctx).Infof("[Postgres] Vector retrieval: dim=%d, topK=%d, threshold=%.4f",
 		len(params.Embedding), params.TopK, params.Threshold)
 
 	dimension := len(params.Embedding)
 	queryVector := pgvector.NewHalfVector(params.Embedding)
+	if tenant, protected := access.PortalRetrievalTenant(ctx); protected {
+		// Do not silently report a successful empty/partial vector search when
+		// the certified KB contains only a historical, incompatible dimension.
+		// This count sees the same canonical authorized relation as candidates;
+		// it cannot inspect another tenant/KB or cause a model fallback.
+		var shape struct {
+			Total    int64
+			Matching int64
+		}
+		q := g.db.WithContext(ctx).Table("embeddings").
+			Select("COUNT(*) AS total, COUNT(*) FILTER (WHERE dimension = ?) AS matching", dimension).
+			Where(portalCanonicalPredicate("?", access.PortalRetrievalPublic(ctx), access.PortalRetrievalPublishedDefaults(ctx)), tenant, types.ChunkSourceType).
+			Where("knowledge_base_id IN ?", params.KnowledgeBaseIDs).
+			Where("is_enabled IS NULL OR is_enabled = true")
+		if len(params.KnowledgeIDs) > 0 {
+			q = q.Where("knowledge_id IN ?", params.KnowledgeIDs)
+		}
+		if err := q.Scan(&shape).Error; err != nil {
+			return nil, err
+		}
+		if shape.Total != shape.Matching || shape.Total == 0 && access.PortalRetrievalHasDocuments(ctx) {
+			return nil, fmt.Errorf("personal MCP vector index dimension does not match the bound model")
+		}
+	}
 
 	// Build WHERE conditions for filtering
 	whereParts := make([]string, 0)
@@ -307,6 +376,10 @@ func (g *pgRepository) VectorRetrieve(ctx context.Context,
 	// Dimension filter (required for HNSW index WHERE clause)
 	whereParts = append(whereParts, fmt.Sprintf("dimension = $%d", len(allVars)+1))
 	allVars = append(allVars, dimension)
+	if tenant, protected := access.PortalRetrievalTenant(ctx); protected {
+		whereParts = append(whereParts, portalCanonicalPredicate(fmt.Sprintf("$%d", len(allVars)+1), access.PortalRetrievalPublic(ctx), access.PortalRetrievalPublishedDefaults(ctx)))
+		allVars = append(allVars, tenant, types.ChunkSourceType)
+	}
 
 	// KnowledgeBaseIDs and KnowledgeIDs use AND logic
 	// - If only KnowledgeBaseIDs: search entire knowledge bases
@@ -354,6 +427,10 @@ func (g *pgRepository) VectorRetrieve(ctx context.Context,
 		}
 		whereParts = append(whereParts, fmt.Sprintf("tag_id IN (%s)",
 			strings.Join(placeholders, ", ")))
+	}
+
+	if types.LegacyReadGuardsEnabled(g.db) {
+		whereParts = append(whereParts, legacySourceCandidatePredicate)
 	}
 
 	// is_enabled filter
@@ -417,6 +494,17 @@ func (g *pgRepository) VectorRetrieve(ctx context.Context,
 		ORDER BY distance ASC
 		LIMIT $%[5]d
 	`, dimension, whereClause, subqueryLimitParam, thresholdParam, finalLimitParam)
+
+	if _, protected := access.PortalRetrievalTenant(ctx); protected {
+		querySQL = fmt.Sprintf(`WITH authorized AS MATERIALIZED (
+		 SELECT id,%s AS content,source_id,source_type,chunk_id,knowledge_id,knowledge_base_id,tag_id,embedding
+		 FROM embeddings %s
+		) SELECT id,content,source_id,source_type,chunk_id,knowledge_id,knowledge_base_id,tag_id,
+		 (1-(embedding::halfvec(%d) <=> $1::halfvec(%d))) AS score
+		 FROM authorized WHERE $%d::int > 0 AND (embedding::halfvec(%d) <=> $1::halfvec(%d)) <= $%d
+		 ORDER BY (embedding::halfvec(%d) <=> $1::halfvec(%d)),id LIMIT $%d`,
+			portalCanonicalTextProjection(), whereClause, dimension, dimension, subqueryLimitParam, dimension, dimension, thresholdParam, dimension, dimension, finalLimitParam)
+	}
 
 	allVars = append(allVars, expandedTopK)       // LIMIT in subquery
 	allVars = append(allVars, 1-params.Threshold) // Distance threshold
@@ -487,6 +575,7 @@ func (g *pgRepository) VectorRetrieve(ctx context.Context,
 	const maxVectorResultLog = 8
 	for i := range embeddingDBList {
 		results[i] = fromDBVectorEmbeddingWithScore(&embeddingDBList[i], types.MatchTypeEmbedding)
+		types.RecordLegacyCandidateRead(ctx, results[i].KnowledgeBaseID)
 		if i < maxVectorResultLog {
 			logger.GetLogger(ctx).Debugf("[Postgres] Vector search result %d: chunk_id %s, score %.4f",
 				i, results[i].ChunkID, results[i].Score)

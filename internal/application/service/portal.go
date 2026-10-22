@@ -35,12 +35,14 @@ var (
 )
 
 type portalService struct {
-	db        *gorm.DB
-	repo      interfaces.PortalRepository
-	tenantSvc interfaces.TenantService
-	memberSvc interfaces.TenantMemberService
-	orgRepo   interfaces.OrganizationRepository
-	audit     interfaces.AuditLogService
+	db                         *gorm.DB
+	repo                       interfaces.PortalRepository
+	tenantSvc                  interfaces.TenantService
+	memberSvc                  interfaces.TenantMemberService
+	orgRepo                    interfaces.OrganizationRepository
+	audit                      interfaces.AuditLogService
+	publicationConfig          PortalPolicyAuthorityConfig
+	publicationExceptionConfig PortalPolicyAuthorityConfig
 }
 
 func NewPortalService(
