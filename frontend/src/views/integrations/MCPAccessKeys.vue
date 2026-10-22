@@ -4,7 +4,7 @@
       <div><div class="eyebrow"><t-icon name="link" /> KNOWHUB MCP</div><h1>MCP 接入</h1><p>将 KnowHub 企业知识连接到常用 AI 工具。</p></div>
       <t-button theme="primary" size="large" :disabled="loading || !!loadError" @click="openPersonalCreate"><template #icon><t-icon name="add" /></template>创建个人 Key</t-button>
     </header>
-    <section class="security-note service-summary"><span><t-icon name="secured" /></span><div><strong>内置 Go MCP Server <small>Streamable HTTP · 八个只读工具</small></strong><p>自动检索 Portal 已发布的公共知识，以及当前 Key 授权范围内的私人知识。公共空间和知识库动态发现，无需逐库配置。</p><div class="service-url"><code>{{ unifiedURL || '/api/v1/mcp/personal' }}</code><t-button size="small" variant="outline" :disabled="!unifiedURL" @click="copyURL">复制地址</t-button></div><p class="service-footnote">只读检索与阅读，不提供上传、修改、删除或管理操作。凭证状态不代表客户端连接状态。</p></div></section>
+    <section class="security-note service-summary"><span><t-icon name="secured" /></span><div><strong>内置 Go MCP Server <small>Streamable HTTP</small></strong><p>使用个人 Key，将可用知识连接到常用 AI 工具。</p><div class="service-url"><code>{{ unifiedURL || '/api/v1/mcp/personal' }}</code><t-button size="small" variant="outline" :disabled="!unifiedURL" @click="copyURL">复制地址</t-button></div><p class="service-footnote">只读检索与阅读，不提供上传、修改、删除或管理操作。凭证状态不代表客户端连接状态。</p></div></section>
     <div class="connect-steps" aria-label="连接步骤"><span><b>1</b> 创建个人 Key</span><span><b>2</b> 复制客户端配置</span><span><b>3</b> 在 AI 工具中检索知识</span></div>
     <t-alert v-if="!publicUrl && !loading" theme="warning" class="url-warning">服务地址尚未配置，请联系管理员。你仍可管理已有凭证。</t-alert>
 
@@ -13,28 +13,31 @@
       <div v-if="keys.length" class="credential-filters" aria-label="凭证状态筛选"><button v-for="filter in statusFilters" :key="filter.value" type="button" :class="{ active: statusFilter === filter.value }" @click="statusFilter = filter.value">{{ filter.label }}<span>{{ filter.count }}</span></button></div>
       <div v-if="loading && !keys.length" class="state-panel"><t-loading size="medium" />正在加载接入配置…</div>
       <div v-else-if="loadError" class="state-panel column"><t-icon name="error-circle" /><strong>加载失败</strong><span>{{ loadError }}</span><t-button variant="outline" @click="load">重试</t-button></div>
-      <div v-else-if="!keys.length" class="state-panel column"><span class="empty-mark"><t-icon name="link" /></span><h3>连接你的企业知识</h3><p>创建个人 Key，复制配置到 AI 工具，即可检索公共知识与本人有权访问的私人知识。</p><t-button theme="primary" @click="openPersonalCreate">创建个人 Key</t-button></div>
+      <div v-else-if="!keys.length" class="state-panel column"><span class="empty-mark"><t-icon name="link" /></span><h3>连接你的企业知识</h3><p>创建个人 Key，复制配置到 AI 工具，即可开始检索知识。</p><t-button theme="primary" @click="openPersonalCreate">创建个人 Key</t-button></div>
       <div v-else-if="!filteredKeys.length" class="state-panel column compact"><t-icon name="filter" /><strong>当前筛选下没有接入配置</strong><button type="button" class="clear-filter" @click="statusFilter = 'all'">查看全部</button></div>
       <div v-else class="credential-list">
         <p v-if="!personalKeys.length" class="personal-empty">还没有当前筛选状态的个人 Key。历史接入保留在下方，可继续管理。</p>
         <article v-for="key in personalKeys" :key="key.id" class="credential-card personal-card">
-          <div class="identity"><span class="client-mark"><t-icon name="key" /></span><div><h3 :title="key.name">{{ key.name }}</h3><p><i :class="`is-${lifecycleState(key)}`" /> {{ statusLabel(lifecycleState(key)) }} · {{ key.personal_scope_mode === 'dynamic_all' ? '动态全部个人授权' : '历史固定范围' }}</p></div></div>
+          <div class="identity"><span class="client-mark"><t-icon name="key" /></span><div><h3 :title="key.name">{{ key.name }}</h3><p><i :class="`is-${lifecycleState(key)}`" /> {{ statusLabel(lifecycleState(key)) }} · {{ personalRangeLabel(key) }}</p></div></div>
           <dl class="meta"><div><dt>最近使用</dt><dd>{{ relativeTime(key.last_used_at) }}</dd></div><div><dt>有效期</dt><dd>{{ key.expires_at ? formatDate(key.expires_at) : '永不过期' }}</dd></div><div><dt>凭证</dt><dd class="token-hint">{{ key.token_hint || '未记录' }}</dd></div></dl>
           <div class="actions"><t-button v-if="lifecycleState(key) !== 'revoked'" variant="outline" :disabled="!publicUrl" @click="showTemplate(key)">连接配置</t-button><t-button variant="text" @click="openDetails(key)">管理</t-button></div>
         </article>
-        <details v-if="legacyKeys.length" class="legacy-access"><summary>历史接入 · {{ legacyKeys.length }} 个凭证</summary><p>保留原有客户端、私人范围和能力，不自动升级为统一公共检索。客户端名称仅是历史配置标记。</p><article v-for="key in legacyKeys" :key="key.id" class="credential-card personal-card"><div class="identity"><span class="client-mark"><t-icon :name="clientMeta(key.client_type).icon" /></span><div><h3>{{ key.name }}</h3><p>{{ clientMeta(key.client_type).label }} · {{ statusLabel(lifecycleState(key)) }}</p></div></div><dl class="meta"><div><dt>最近使用</dt><dd>{{ relativeTime(key.last_used_at) }}</dd></div><div><dt>有效期</dt><dd>{{ key.expires_at ? formatDate(key.expires_at) : '永不过期' }}</dd></div><div><dt>Token Hint</dt><dd>{{ key.token_hint || '未记录' }}</dd></div></dl><div class="actions"><t-button v-if="lifecycleState(key) !== 'revoked'" variant="outline" :disabled="!publicUrl" @click="showTemplate(key)">兼容配置</t-button><t-button variant="text" @click="openDetails(key)">管理</t-button></div></article></details>
+        <details v-if="legacyKeys.length" class="legacy-access"><summary>历史接入 · {{ legacyKeys.length }} 个凭证</summary><p>保留原有客户端、授权范围和能力。客户端名称仅是历史配置标记。</p><article v-for="key in legacyKeys" :key="key.id" class="credential-card personal-card"><div class="identity"><span class="client-mark"><t-icon :name="clientMeta(key.client_type).icon" /></span><div><h3>{{ key.name }}</h3><p>{{ clientMeta(key.client_type).label }} · {{ statusLabel(lifecycleState(key)) }}</p></div></div><dl class="meta"><div><dt>最近使用</dt><dd>{{ relativeTime(key.last_used_at) }}</dd></div><div><dt>有效期</dt><dd>{{ key.expires_at ? formatDate(key.expires_at) : '永不过期' }}</dd></div><div><dt>Token Hint</dt><dd>{{ key.token_hint || '未记录' }}</dd></div></dl><div class="actions"><t-button v-if="lifecycleState(key) !== 'revoked'" variant="outline" :disabled="!publicUrl" @click="showTemplate(key)">兼容配置</t-button><t-button variant="text" @click="openDetails(key)">管理</t-button></div></article></details>
       </div>
     </section>
 
-    <t-dialog v-model:visible="personalCreateVisible" header="创建个人 Key" width="min(560px, 94vw)" :footer="false">
-      <p>动态全部个人授权空间：自动包含你现在及以后有权读取的私人知识；失去权限后同步收回。Portal 已发布公共知识自动合并。</p>
+    <t-dialog v-model:visible="personalCreateVisible" :header="personalEditingID ? '修改指定范围' : '创建个人 Key'" width="min(640px, 94vw)" :footer="false">
+      <p>填写名称、有效期和知识范围，保存后即可复制连接配置。</p>
       <div class="field"><label>接入名称</label><t-input v-model="name" maxlength="128" placeholder="例如：我的 Codex" :disabled="saving" /></div>
       <div class="field"><label>有效期</label><t-radio-group v-model="expiryMode" :disabled="saving"><t-radio value="90">90 天</t-radio><t-radio value="custom">指定日期</t-radio><t-radio value="never">永不过期</t-radio></t-radio-group><input v-if="expiryMode === 'custom'" v-model="customExpiry" class="native-datetime" type="datetime-local" :disabled="saving" /></div>
-      <footer class="wizard-footer"><t-button variant="outline" :disabled="saving" @click="personalCreateVisible = false">取消</t-button><span /><t-button theme="primary" :loading="saving" @click="savePersonal">创建个人 Key</t-button></footer>
+      <div class="field"><label>知识范围</label><t-radio-group v-model="personalRange" :disabled="saving || !!personalEditingID"><t-radio value="default">默认范围</t-radio><t-radio value="selected">指定范围</t-radio></t-radio-group></div>
+      <p v-if="personalRange === 'default'">自动使用当前可用的知识范围。</p>
+      <section v-else class="private-range-picker" aria-label="选择私人知识库"><p>仅检索所选且当前有权读取的私人知识。新增授权不会自动扩大此 Key 的指定范围。</p><section v-for="option in selectablePrivateOptions" :key="option.tenant_id" class="scope-card"><header><strong>{{ option.tenant_name }}</strong></header><t-checkbox-group v-model="privateSelections[option.tenant_id]" :disabled="saving"><t-checkbox v-for="kb in option.owned_knowledge_bases" :key="ownedRef(kb.id)" :value="ownedRef(kb.id)">{{ kb.name }}</t-checkbox><t-checkbox v-for="share in option.shared_knowledge_bases" :key="sharedRef(share.knowledge_base.id, share.share_id)" :value="sharedRef(share.knowledge_base.id, share.share_id)">{{ share.knowledge_base.name }} · 共享给此空间</t-checkbox></t-checkbox-group></section><t-button size="small" variant="text" :disabled="saving" @click="privateSelections = {}">清空选择</t-button><p v-if="!selectablePrivateOptions.length">当前没有可选的私人知识库。</p></section>
+      <footer class="wizard-footer"><t-button variant="outline" :disabled="saving" @click="personalCreateVisible = false">取消</t-button><span /><t-button theme="primary" :loading="saving" @click="savePersonal">{{ personalEditingID ? '保存修改' : '创建个人 Key' }}</t-button></footer>
     </t-dialog>
 
     <t-dialog v-model:visible="privateScopeVisible" header="更新私人空间范围" width="min(600px, 94vw)" :confirm-btn="{ content: '添加选中的私人空间', disabled: !scopeAdditions.length, loading: privateScopeSaving }" @confirm="savePrivateScope">
-      <p>公共知识自动更新，无需在这里配置。新加入的私人空间需要你主动添加；原 Key 的知识库限制和有效期保持不变。</p>
+      <p>新加入的私人空间需要你主动添加；原 Key 的知识库限制和有效期保持不变。</p>
       <p v-if="scopeKey">当前私人范围：{{ scopeSummary(scopeKey) }}</p>
       <t-checkbox-group v-model="scopeAdditions"><t-checkbox v-for="option in newPrivateOptions" :key="option.tenant_id" :value="option.tenant_id">{{ option.tenant_name }}</t-checkbox></t-checkbox-group>
       <p v-if="!newPrivateOptions.length">没有可添加的新私人空间。</p>
@@ -78,7 +81,7 @@ import { copyWithToast } from '@/utils/clipboard'
 import { buildMCPServers, stringifyMCPConfig, verifiedConfigPreset, type MCPConfigSpace } from './mcpConfig'
 import { availableKBRefs, invalidCredentialScopes } from './mcpAccessScope'
 import { credentialToEditDraft } from './mcpAccessEditor'
-import { isUnifiedPersonalKey, personalPrivateScopeUpdate } from './personalMcpPresentation'
+import { isUnifiedPersonalKey, personalKnowledgeRangePayload, personalPrivateScopeUpdate, type PersonalKnowledgeRange } from './personalMcpPresentation'
 import { createReconnectAndReveal, credentialLifecycleActions, credentialMatchesStatusFilter, credentialToReconnectPayload, getCredentialLifecycleState, type CredentialStatusFilter } from './mcpAccessLifecycle'
 
 const auth = useAuthStore()
@@ -90,10 +93,12 @@ const clients: Array<{ value: MCPClientType; label: string; icon: string; descri
 import { personalCodexConfig, personalMcpConfig, personalMcpURL, testPersonalMcpConnection } from './personalMcpConfig'
 const personalConfig = ref(false), testingPersonal = ref(false), personalConnection = ref('')
 const personalCreateVisible = ref(false)
+const personalRange = ref<PersonalKnowledgeRange>('default'), personalEditingID = ref<number | null>(null)
+const privateSelections = ref<Record<number, string[]>>({})
 const revealingSecret = ref(false)
 let connectionRequest = 0
 const personalConfigFormat = ref<'generic' | 'codex'>('codex')
-async function testPersonalConnection() { testingPersonal.value = true; personalConnection.value = ''; try { const tools = await testPersonalMcpConnection(personalMcpURL(publicUrl.value), token.value); personalConnection.value = `服务鉴权与 ${tools.length} 个只读工具发现通过；尚未验证客户端会话调用。` } catch (e) { personalConnection.value = e instanceof Error ? e.message : '连接失败' } finally { testingPersonal.value = false } }
+async function testPersonalConnection() { testingPersonal.value = true; personalConnection.value = ''; try { await testPersonalMcpConnection(personalMcpURL(publicUrl.value), token.value); personalConnection.value = '服务鉴权与只读工具发现通过；尚未验证客户端会话调用。' } catch (e) { personalConnection.value = e instanceof Error ? e.message : '连接失败' } finally { testingPersonal.value = false } }
 const capabilityOptions: Array<{ value: MCPCapability; label: string; description: string }> = [
   { value: 'retrieve', label: '知识检索', description: '检索授权知识库中的内容' }, { value: 'chat', label: '知识问答', description: '基于授权知识进行问答' }, { value: 'read_agents', label: '智能体访问', description: '读取并使用有权访问的智能体' },
 ]
@@ -104,6 +109,7 @@ const unifiedURL = computed(() => publicUrl.value ? personalMcpURL(publicUrl.val
 const privateScopeVisible = ref(false), privateScopeSaving = ref(false), scopeAdditions = ref<number[]>([])
 const scopeKey = ref<MCPAccessKey | null>(null)
 const newPrivateOptions = computed(() => options.value.filter(option => !scopeKey.value?.tenant_scopes.some(scope => scope.tenant_id === option.tenant_id)))
+const selectablePrivateOptions = computed(() => options.value.filter(option => option.owned_knowledge_bases.length || option.shared_knowledge_bases.length))
 const rotateVisible = ref(false), rotating = ref(false), rotateKey = ref<MCPAccessKey | null>(null)
 const reconnectVisible = ref(false), reconnecting = ref(false), reconnectKey = ref<MCPAccessKey | null>(null)
 const rotateExpiryMode = ref<'preserve' | 'custom' | 'never'>('preserve'), rotateCustomExpiry = ref('')
@@ -145,6 +151,9 @@ function spacesForScopes(scopes: MCPAccessKey['tenant_scopes']) { return scopes.
 function resetEditor() { editingID.value = null; step.value = 0; name.value = ''; clientType.value = 'workbuddy'; capabilities.value = ['retrieve', 'chat']; selectedTenantIds.value = []; draftScopes.value = {}; expiryMode.value = 'never'; customExpiry.value = '' }
 function openPersonalCreate() {
   resetEditor()
+  personalEditingID.value = null
+  personalRange.value = 'default'
+  privateSelections.value = Object.fromEntries(options.value.map(option => [option.tenant_id, []]))
   const home = Number(auth.user?.tenant_id)
   if (!home || !options.value.some(option => option.tenant_id === home)) return void MessagePlugin.warning('请先确认当前账号具有有效的个人空间')
   capabilities.value = ['retrieve', 'enterprise_retrieve']
@@ -157,19 +166,44 @@ async function savePersonal() {
   if (saving.value) return
   const error = validation(0) || validation(4)
   if (error) return void MessagePlugin.warning(error)
+  let range: ReturnType<typeof personalKnowledgeRangePayload>
+  try { range = personalKnowledgeRangePayload(personalRange.value, privateSelections.value, options.value) }
+  catch (error) { return void MessagePlugin.warning(error instanceof Error ? error.message : '请选择有效的知识范围') }
   saving.value = true
   try {
-    // Scope options come from the existing server-authorized personal Key API.
-    // Public Portal KBs are resolved at request time, never copied into scopes.
-    const response = await createMCPAccessKey({ personal_scope_mode: 'dynamic_all', name: name.value.trim(), client_type: 'generic', capabilities: ['retrieve', 'enterprise_retrieve'], tenant_scopes: options.value.map(option => ({ tenant_id: option.tenant_id, kb_scope_mode: 'all', knowledge_bases: [] })), ...expiryPayload() })
-    if (!response.data?.token) throw new Error('服务端未返回一次性 Secret')
+    if (personalEditingID.value) {
+      await updateMCPAccessKey(personalEditingID.value, { name: name.value.trim(), tenant_scopes: range.tenant_scopes, ...expiryPayload() })
+      personalCreateVisible.value = false
+      await load()
+      MessagePlugin.success('指定范围已更新')
+      return
+    }
+    const response = await createMCPAccessKey({ ...range, name: name.value.trim(), client_type: 'generic', ...expiryPayload() })
+    if (!response.data?.token) throw new Error('服务端未返回 Secret')
     personalCreateVisible.value = false
     showSecret(response.data)
     await load()
   } catch (error) { MessagePlugin.error(error instanceof Error ? error.message : '创建失败') }
   finally { saving.value = false }
 }
-function openEdit(key: MCPAccessKey) { if (key.personal_scope_mode === 'dynamic_all') return void MessagePlugin.info('动态模式无需配置空间，系统每次使用当前实际权限'); if (isUnifiedPersonalKey(key)) { scopeKey.value = key; scopeAdditions.value = []; detailsVisible.value = false; privateScopeVisible.value = true; return } const draft = credentialToEditDraft(key); resetEditor(); editingID.value = draft.id; name.value = draft.name; clientType.value = draft.clientType; capabilities.value = draft.capabilities; selectedTenantIds.value = draft.selectedTenantIds; draftScopes.value = draft.scopes; expiryMode.value = draft.expiryMode; customExpiry.value = draft.customExpiry; detailsVisible.value = false; editorVisible.value = true }
+function personalRangeLabel(key: MCPAccessKey) { return key.personal_scope_mode === 'dynamic_all' ? '默认范围' : key.capabilities.includes('enterprise_retrieve') ? '历史固定范围' : '指定范围' }
+function openEdit(key: MCPAccessKey) {
+  if (key.personal_scope_mode === 'dynamic_all') return void MessagePlugin.info('默认范围随当前授权自动更新，无需配置空间')
+  if (isUnifiedPersonalKey(key) && !key.capabilities.includes('enterprise_retrieve')) {
+    resetEditor(); personalEditingID.value = key.id; personalRange.value = 'selected'; name.value = key.name
+    privateSelections.value = Object.fromEntries(options.value.map(option => [option.tenant_id, []]))
+    for (const scope of key.tenant_scopes) {
+      const option = options.value.find(item => item.tenant_id === scope.tenant_id)
+      privateSelections.value[scope.tenant_id] = scope.kb_scope_mode === 'all'
+        ? option ? [...option.owned_knowledge_bases.map(kb => ownedRef(kb.id)), ...option.shared_knowledge_bases.map(share => sharedRef(share.knowledge_base.id, share.share_id))] : []
+        : scope.knowledge_bases.map(kb => kb.source_type === 'owned' ? ownedRef(kb.knowledge_base_id) : sharedRef(kb.knowledge_base_id, kb.kb_share_id || ''))
+    }
+    expiryMode.value = key.expires_at ? 'custom' : 'never'; customExpiry.value = key.expires_at ? toDatetimeLocal(key.expires_at) : ''
+    detailsVisible.value = false; personalCreateVisible.value = true; return
+  }
+  if (isUnifiedPersonalKey(key)) { scopeKey.value = key; scopeAdditions.value = []; detailsVisible.value = false; privateScopeVisible.value = true; return }
+  const draft = credentialToEditDraft(key); resetEditor(); editingID.value = draft.id; name.value = draft.name; clientType.value = draft.clientType; capabilities.value = draft.capabilities; selectedTenantIds.value = draft.selectedTenantIds; draftScopes.value = draft.scopes; expiryMode.value = draft.expiryMode; customExpiry.value = draft.customExpiry; detailsVisible.value = false; editorVisible.value = true
+}
 async function savePrivateScope() {
   if (!scopeKey.value || !scopeAdditions.value.length) return
   privateScopeSaving.value = true
@@ -213,7 +247,7 @@ async function load() { loading.value = true; loadError.value = ''; try { const 
 function actionOptions(key: MCPAccessKey) { return credentialLifecycleActions(key).map(action => action === 'edit' ? { content: '修改范围', value: action } : action === 'rotate' ? { content: '重新生成 Secret', value: action } : action === 'reconnect' ? { content: '重新接入', value: action } : { content: '停用接入', value: action, theme: 'error' }) }
 function handleAction(event: { value: string }, key: MCPAccessKey) { if (event.value === 'edit') openEdit(key); else if (event.value === 'rotate') requestRotate(key); else if (event.value === 'reconnect') requestReconnect(key); else if (event.value === 'revoke') openDetails(key) }
 function knowledgeBaseCount(key: MCPAccessKey) { return key.tenant_scopes.reduce((sum, scope) => { if (scope.kb_scope_mode === 'selected') return sum + scope.knowledge_bases.length; const option = options.value.find(item => item.tenant_id === scope.tenant_id); return sum + (option ? option.owned_knowledge_bases.length + option.shared_knowledge_bases.length : 0) }, 0) }
-function scopeSummary(key: MCPAccessKey) { if (key.personal_scope_mode === 'dynamic_all') return '动态全部个人授权空间（随当前权限变化）'; const invalid = invalidCredentialScopes(key, options.value); return key.tenant_scopes.map(scope => { const option = options.value.find(item => item.tenant_id === scope.tenant_id); if (invalid.invalidTenantIds.includes(scope.tenant_id)) return `空间 #${scope.tenant_id}（已失效 / 无权限）`; const invalidCount = invalid.invalidKBRefs[scope.tenant_id]?.length || 0; const range = scope.kb_scope_mode === 'all' ? '动态全部' : `${scope.knowledge_bases.length} 个知识库${invalidCount ? `，${invalidCount} 个已失效` : ''}`; return `${option?.tenant_name || scope.tenant_id}（${range}）` }).join('、') }
+function scopeSummary(key: MCPAccessKey) { if (key.personal_scope_mode === 'dynamic_all') return '默认范围（随当前授权更新）'; const invalid = invalidCredentialScopes(key, options.value); return key.tenant_scopes.map(scope => { const option = options.value.find(item => item.tenant_id === scope.tenant_id); if (invalid.invalidTenantIds.includes(scope.tenant_id)) return `空间 #${scope.tenant_id}（已失效 / 无权限）`; const invalidCount = invalid.invalidKBRefs[scope.tenant_id]?.length || 0; const range = scope.kb_scope_mode === 'all' ? '全部已授权知识库' : `${scope.knowledge_bases.length} 个知识库${invalidCount ? `，${invalidCount} 个已失效` : ''}`; return `${option?.tenant_name || scope.tenant_id}（${range}）` }).join('、') }
 function formatTime(value: string) { return new Date(value).toLocaleString() } function formatDate(value: string) { return new Date(value).toLocaleDateString() }
 function relativeTime(value?: string) { if (!value) return '尚未使用'; const delta = Date.now() - new Date(value).getTime(); if (delta < 60_000) return '刚刚'; if (delta < 86400_000) return `${Math.max(1, Math.floor(delta / 3600_000))} 小时前`; return formatDate(value) }
 function toDatetimeLocal(value: string) { const date = new Date(value); return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16) }
@@ -231,6 +265,7 @@ watch(configVisible, visible => { if (!visible) clearPlaintextToken() }); onBefo
 @media(max-width:1480px){.mcp-access-center{padding-inline:clamp(20px,3vw,40px)}.credential-card{grid-template-columns:minmax(210px,1.15fr) minmax(220px,1.3fr) minmax(160px,.85fr);grid-template-areas:"identity scope capabilities" "meta meta actions";gap:16px 20px}.identity{grid-area:identity}.scope{grid-area:scope}.capabilities{grid-area:capabilities}.meta{grid-area:meta}.actions{grid-area:actions}.meta{grid-column:auto}.actions{grid-column:auto;grid-row:auto}}
 @media(max-width:980px){.credential-card{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"identity scope" "capabilities capabilities" "meta meta" "actions actions"}.actions{justify-content:flex-start}.client-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:760px){.credential-card{grid-template-areas:"identity" "scope" "capabilities" "meta" "actions"}.meta{grid-template-columns:1fr}.client-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.private-range-picker{display:grid;gap:12px;max-height:360px;overflow:auto;margin-top:16px}.private-range-picker :deep(.t-checkbox-group){display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-top:12px}.private-range-picker :deep(.t-checkbox__label){white-space:normal;overflow-wrap:anywhere}
 </style>
 
 <style scoped>
@@ -243,4 +278,5 @@ watch(configVisible, visible => { if (!visible) clearPlaintextToken() }); onBefo
 .legacy-access{margin-top:20px;border-top:1px solid var(--td-component-border);padding-top:18px}.legacy-access summary{cursor:pointer;font-weight:600}.legacy-access>p,.personal-empty{color:var(--td-text-color-secondary);font-size:var(--app-text-md)}.legacy-access article{margin-top:12px}
 @media(max-width:980px){.credential-card.personal-card{grid-template-columns:1fr;grid-template-areas:"identity" "meta" "actions"}.personal-card .actions{justify-content:flex-start;flex-wrap:wrap}.connect-steps{gap:14px;flex-wrap:wrap}}
 @media(max-width:760px){.service-url{align-items:stretch;flex-direction:column}.service-summary{align-items:flex-start}.token-row{align-items:stretch;flex-direction:column}.token-row code{overflow-wrap:anywhere}.connect-steps{font-size:var(--app-text-sm);gap:10px}}
+.private-range-picker{display:grid;gap:12px;max-height:360px;overflow:auto;margin-top:16px}.private-range-picker :deep(.t-checkbox-group){display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-top:12px}.private-range-picker :deep(.t-checkbox__label){white-space:normal;overflow-wrap:anywhere}
 </style>
