@@ -31,6 +31,8 @@ type RouterParams struct {
 	dig.In
 
 	Config                       *config.Config
+	DocumentReadBoundary         *middleware.DocumentReadBoundary     `optional:"true"`
+	DocumentCoreReadBoundary     *middleware.DocumentCoreReadBoundary `optional:"true"`
 	FileService                  interfaces.FileService
 	UserService                  interfaces.UserService
 	KBService                    interfaces.KnowledgeBaseService
@@ -88,6 +90,7 @@ type RouterParams struct {
 	MCPEndpointHandler           *handler.MCPEndpointHandler
 	MCPEndpointService           interfaces.MCPEndpointService
 	MCPServer                    *mcpserver.Server
+	PersonalMCPServer            *mcpserver.PersonalServer `optional:"true"`
 	RedisClient                  *redis.Client
 	DataSourceHandler            *handler.DataSourceHandler
 	FeishuPersonalHandler        *handler.FeishuPersonalHandler
@@ -103,6 +106,15 @@ type RouterParams struct {
 func NewRouter(params RouterParams) *gin.Engine {
 	r := gin.New()
 	r.ContextWithFallback = true
+	r.Use(legacyReadScopeMiddleware(params.TenantService))
+	// Unregistered by default. An explicitly injected M3 isolation boundary
+	// also covers anonymous routes registered before normal authentication.
+	if params.DocumentReadBoundary != nil {
+		r.Use(params.DocumentReadBoundary.Outer())
+	}
+	if params.DocumentCoreReadBoundary != nil {
+		r.Use(params.DocumentCoreReadBoundary.Outer())
+	}
 	// 清理 FormFile/MultipartForm 解析产生的 multipart 临时文件，避免容器 /tmp 持续增长。
 	r.Use(middleware.MultipartFormCleanup())
 
@@ -192,6 +204,7 @@ func NewRouter(params RouterParams) *gin.Engine {
 	// Workspace MCP server surface (/mcp/:endpoint_id): bearer-token auth per
 	// endpoint, so it must precede the global Auth middleware.
 	RegisterMCPServerRoutes(r, params.MCPServer, params.MCPEndpointService, params.TenantService)
+	RegisterPersonalMCPRoutes(r, params.PersonalMCPServer, params.TenantService, params.UserService, params.TenantMemberService, params.TenantAPIKeyService, params.Config)
 
 	// Short-lived capability URLs for IM and other clients that cannot attach
 	// WeKnora authentication headers.
@@ -209,6 +222,12 @@ func NewRouter(params RouterParams) *gin.Engine {
 
 	// 认证中间件
 	r.Use(middleware.Auth(params.TenantService, params.UserService, params.TenantMemberService, params.TenantAPIKeyService, params.Config))
+	if params.DocumentReadBoundary != nil {
+		r.Use(params.DocumentReadBoundary.Inner())
+	}
+	if params.DocumentCoreReadBoundary != nil {
+		r.Use(params.DocumentCoreReadBoundary.Inner())
+	}
 
 	// 文件服务：统一代理本地/MinIO/COS/TOS存储后端（需要认证）
 	serveFilesWithResources(r, params.FileService, params.StorageBackendResolver, params.ResourceCatalog)

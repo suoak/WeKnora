@@ -9,6 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/models/embedding"
 	"github.com/Tencent/WeKnora/internal/models/utils"
@@ -62,6 +63,11 @@ func (v *KeywordsVectorHybridRetrieveEngineService) EngineType() types.Retriever
 func (v *KeywordsVectorHybridRetrieveEngineService) Retrieve(ctx context.Context,
 	params types.RetrieveParams,
 ) ([]*types.RetrieveResult, error) {
+	var err error
+	params, err = access.GuardDocumentRetrieval(ctx, v.engineType, params)
+	if err != nil {
+		return nil, err
+	}
 	return v.indexRepository.Retrieve(ctx, params)
 }
 

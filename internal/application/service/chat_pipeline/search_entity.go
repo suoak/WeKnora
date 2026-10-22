@@ -71,6 +71,13 @@ func (p *PluginSearchEntity) OnEvent(ctx context.Context,
 			wg.Add(1)
 			go func(knowledgeBaseID, knowledgeID string) {
 				defer wg.Done()
+				if gate, ok := p.knowledgeRepo.(interface {
+					CheckLegacyKBRead(context.Context, string) error
+				}); ok {
+					if err := gate.CheckLegacyKBRead(ctx, knowledgeBaseID); err != nil {
+						return
+					}
+				}
 
 				graph, err := p.graphRepo.SearchNode(ctx, types.NameSpace{
 					KnowledgeBase: knowledgeBaseID,
@@ -102,6 +109,13 @@ func (p *PluginSearchEntity) OnEvent(ctx context.Context,
 			wg.Add(1)
 			go func(knowledgeBaseID string) {
 				defer wg.Done()
+				if gate, ok := p.knowledgeRepo.(interface {
+					CheckLegacyKBRead(context.Context, string) error
+				}); ok {
+					if err := gate.CheckLegacyKBRead(ctx, knowledgeBaseID); err != nil {
+						return
+					}
+				}
 
 				graph, err := p.graphRepo.SearchNode(ctx, types.NameSpace{KnowledgeBase: knowledgeBaseID}, entity)
 				if err != nil {

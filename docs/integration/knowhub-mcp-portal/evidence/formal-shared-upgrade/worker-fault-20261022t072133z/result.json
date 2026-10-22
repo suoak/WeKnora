@@ -1,0 +1,7 @@
+{
+  "exit_code": 1,
+  "error_class": "AssertionError",
+  "message": "running:1:true",
+  "traceback": "Traceback (most recent call last):\n  File \"/home/aqyfzx/ai/knowhub-formal-c2-20261022/20261022t072133z/worker-fault-8357427b6108d0c7713d0f28bd0da813b980c23072e12714a253b646376fa0a4.py\", line 78, in <module>\n    assert recovered=='failed:'+str(generation+1)+':false',recovered\nAssertionError: running:1:true\n",
+  "checks": {}
+}

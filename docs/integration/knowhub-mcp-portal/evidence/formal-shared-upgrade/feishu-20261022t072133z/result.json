@@ -1,0 +1,7 @@
+{
+  "exit_code": 1,
+  "error_class": "AssertionError",
+  "message": "",
+  "traceback": "Traceback (most recent call last):\n  File \"/home/aqyfzx/ai/knowhub-formal-c2-20261022/20261022t072133z/feishu-89c3a070bfb89819c476bf40b67f00dbd3a0f6b6245d257d83ef2c32252d415e.py\", line 212, in <module>\n    assert file_status(old_file)[0] == 200\nAssertionError\n",
+  "candidate_sha256": "0a7374bbbdbd8c4a802733811ad3ecbeb70293ba33b89eefa9bd05c36ecbd371"
+}

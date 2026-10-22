@@ -1,0 +1,21 @@
+{
+  "exit_code": 0,
+  "argv": [
+    "docker",
+    "build",
+    "--network",
+    "none",
+    "--pull=false",
+    "-t",
+    "knowhub-feishu-rc3/app:02a8c5eb187764a9",
+    "/home/aqyfzx/ai/WeKnora-release-build/knowhub-feishu-rc3-hotfix-20261022/02a8c5eb187764a9/context"
+  ],
+  "candidate_sha256": "02a8c5eb187764a93381bc5d794d69a86fd046145fce7ab29c18f686b2434c2c",
+  "runtime_source_sha256": "2ac380a033af80f022d98a3b45cd5e30645b148d07cde8c76c46cce94787392b",
+  "binary_sha256": "979d7fb49123dce328521ecf118d2f3bc49aa1ab64c999891552aee72fdb812b",
+  "deployed": false,
+  "includes_personal_Go_MCP": false,
+  "image": "knowhub-feishu-rc3/app:02a8c5eb187764a9",
+  "image_id": "sha256:0a0117c920c4fed402e7f744578b539a5ef5e6ef8da7c141ff5e9ac15031b73d",
+  "repo_digests": []
+}

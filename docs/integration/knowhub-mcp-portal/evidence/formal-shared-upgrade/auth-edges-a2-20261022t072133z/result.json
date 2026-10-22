@@ -1,0 +1,11 @@
+{
+  "exit_code": 0,
+  "candidate_sha256": "0a7374bbbdbd8c4a802733811ad3ecbeb70293ba33b89eefa9bd05c36ecbd371",
+  "checks": {
+    "real_tenant_platform_keys_and_forged_identity_headers_denied": "PASS",
+    "legacy_retrieve_only_has_private_scope_without_public_expansion": "PASS",
+    "account_disable_and_Key_revoke_revalidated_auth_me_denied": "PASS"
+  },
+  "created_and_modified_only_synthetic_subjects": true,
+  "production_accessed": false
+}

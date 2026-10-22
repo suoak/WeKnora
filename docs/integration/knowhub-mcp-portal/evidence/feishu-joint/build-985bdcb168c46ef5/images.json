@@ -1,0 +1,18 @@
+[
+  {
+    "image": [
+      "knowhub-v1-feishu/app:985bdcb168c46ef5"
+    ],
+    "id": "sha256:dafa25404440158a54100abd30fd1126909e46b657e21863ef30f4dd5dc093f0",
+    "repo_digests": [],
+    "source": "985bdcb168c46ef5db27a4e54983c0047dab61c2e16e5d7a8ed4f489154682e7"
+  },
+  {
+    "image": [
+      "knowhub-v1-feishu/frontend:985bdcb168c46ef5"
+    ],
+    "id": "sha256:4315a89cff0e250d5a35de9c501aa4409b41693801d98074f7d7df7fa48da726",
+    "repo_digests": [],
+    "source": "985bdcb168c46ef5db27a4e54983c0047dab61c2e16e5d7a8ed4f489154682e7"
+  }
+]

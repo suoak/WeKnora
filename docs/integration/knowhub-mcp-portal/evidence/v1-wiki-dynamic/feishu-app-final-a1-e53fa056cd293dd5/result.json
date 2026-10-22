@@ -1,0 +1,10 @@
+{
+  "exit_code": 0,
+  "candidate_sha256": "e53fa056cd293dd5d5b88857dbc9edc4edac82a1119f180d5b294b854ab44ee9",
+  "runtime_source_sha256": "7ef3265374e1c263c711b4f04ae1e561ac5982644c797423e63cec1b52f2eff6",
+  "real_app_worker": true,
+  "real_postgres_paradedb": true,
+  "cloud": "SYNTHETIC_HTTP_ONLY",
+  "formal_model": "NOT_TESTED",
+  "real_SID": "NOT_TESTED"
+}

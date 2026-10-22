@@ -1,0 +1,53 @@
+{
+  "candidate_sha256": "c2f260317fc151fbab98d9e87b2fe5c9acbd903dd4be2e857e0326565d390d75",
+  "runtime_source_sha256": "b702755c033328560bbb28802c93a3a1abce31a43352870b43d8f1fee2d74cdb",
+  "checks": {
+    "development": true,
+    "complete_relevant_race": true,
+    "build": true,
+    "deploy": true,
+    "concentrated_commands": true,
+    "http_business": true,
+    "backup_restore": true,
+    "image_binary_binding": true,
+    "wiki-negatives": true,
+    "portal-dynamic": true,
+    "browser": true,
+    "actual_codex_eight_semantics": true,
+    "actual_codex_both_feishu_sources": true,
+    "real_APP_worker_synthetic_feishu": true,
+    "safe_rollback": true,
+    "rollback_admission": true,
+    "runtime_matches_developed_built_candidate": true,
+    "post_freeze_changes_are_documentation_or_harness_only": true
+  },
+  "missing": [],
+  "isolated_synthetic_gate_pass": true,
+  "production_approved": false,
+  "post_freeze_documentation_or_harness": [
+    {
+      "path": "docs/integration/knowhub-mcp-portal/V1_WIKI_DYNAMIC_EXECUTION.md",
+      "frozen_sha256": "170d8d3671580eade6d8269654c157836fc3a396fecf6d4061e924ac50c7e2c0",
+      "current_sha256": "8712ab270f7dbe2ae913a0a29c63dcadeb7cb4e049b4a6e0a2121ce2bd8650be"
+    },
+    {
+      "path": "docs/integration/knowhub-mcp-portal/V1_WIKI_DYNAMIC_REQUIREMENTS.md",
+      "frozen_sha256": "ed256500d59071b0c1c5d091fe08a45e28f1850181f498ce21fc06bb6cf672f8",
+      "current_sha256": "223f0d9b3491a424eddd6562865e87f06b39686b5cad3183845ad35201adb554"
+    },
+    {
+      "path": "docs/integration/knowhub-mcp-portal/tools/next_deploy_linux.py",
+      "frozen_sha256": "ded57fd27cfa17ea2dfd995e54de9115c834ed2dc8bc77bb7518304f657946fe",
+      "current_sha256": "02b241a840b3634de99883885b171154504f4a622ede5b4a4c254056250d1990"
+    },
+    {
+      "path": "docs/integration/knowhub-mcp-portal/tools/next_portal_dynamic_linux.py",
+      "frozen_sha256": "39387f499f0304b944303a4c05d3b3d147934334528af7d2413889a15e83b851",
+      "current_sha256": "d860e1927d44047b9543e8ade8299e3ad82717af29683471cf77b6b63a315fca"
+    }
+  ],
+  "real_SID": "NOT_TESTED",
+  "formal_model": "NOT_TESTED",
+  "real_Feishu_cloud": "NOT_TESTED",
+  "production_backlog": "NOT_TESTED"
+}

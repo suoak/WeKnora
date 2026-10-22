@@ -1,0 +1,13 @@
+CREATE TEMP TABLE feishu_down_guard(n INTEGER CHECK(n=0));
+INSERT INTO feishu_down_guard SELECT (SELECT count(*) FROM feishu_legacy_resources)+(SELECT count(*) FROM data_sources WHERE legacy_access_state<>'unmanaged');
+DROP TABLE feishu_down_guard;
+DROP TRIGGER feishu_legacy_chunk_delete_fence;
+DROP TRIGGER feishu_legacy_chunk_update_fence;
+DROP TRIGGER feishu_legacy_chunk_insert_fence;
+DROP TRIGGER feishu_legacy_knowledge_delete_fence;
+DROP TRIGGER feishu_legacy_knowledge_update_fence;
+DROP TRIGGER feishu_legacy_knowledge_insert_fence;
+DROP TABLE feishu_legacy_index_candidates;
+DROP TABLE feishu_legacy_attempts;
+DROP TABLE feishu_legacy_resources;
+ALTER TABLE data_sources DROP COLUMN legacy_access_state;

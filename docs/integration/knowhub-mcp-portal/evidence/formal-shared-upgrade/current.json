@@ -1,0 +1,9 @@
+{
+  "candidate_sha256": "bf199466752a3a1d75540355dc1fee9fb7f6bdef338c4ad0b62a49485b151661",
+  "remote": "/home/aqyfzx/ai/knowhub-formal-c2-20261022/20261022t072133z",
+  "production_authorized": false,
+  "original_candidate_sha256": "c2f260317fc151fbab98d9e87b2fe5c9acbd903dd4be2e857e0326565d390d75",
+  "runtime_source_sha256": "0a1b5cebe229246b4c646cccc4749f51aa97eb6aec9f5a5a2066f4153406463e",
+  "candidate_remote": "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-wiki-dynamic-20261022/bf199466752a3a1d",
+  "prior_deployed_candidate_sha256": "0a7374bbbdbd8c4a802733811ad3ecbeb70293ba33b89eefa9bd05c36ecbd371"
+}

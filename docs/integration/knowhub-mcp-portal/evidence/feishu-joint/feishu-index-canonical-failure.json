@@ -1,0 +1,19 @@
+{
+  "exit_code": 0,
+  "result": {
+    "document": "joint-legacy-wiki-a3",
+    "bm25_rows": 1,
+    "canonical": [
+      {
+        "raw_equal": false,
+        "trusted_title_context_equal": false,
+        "chunk_bytes": 72,
+        "index_bytes": 87,
+        "source_id_matches": true
+      }
+    ]
+  },
+  "query": "SELECT json_build_object('document','joint-legacy-wiki-a3','bm25_rows',(SELECT count(*) FROM embeddings WHERE knowledge_id='joint-legacy-wiki-a3' AND content ||| 'updatedcanary'),'canonical',(SELECT json_agg(json_build_object('raw_equal',e.content=c.content,'trusted_title_context_equal',e.content=k.title||E'\\n\\n'||coalesce(c.context_header||E'\\n\\n','')||btrim(c.content),'chunk_bytes',octet_length(c.content),'index_bytes',octet_length(e.content),'source_id_matches',e.source_id=c.id)) FROM embeddings e JOIN chunks c ON c.id=e.chunk_id JOIN knowledges k ON k.id=c.knowledge_id WHERE e.knowledge_id='joint-legacy-wiki-a3'));",
+  "synthetic_database_only": true,
+  "runtime_source_sha256": "1d733295720560c773624954b41353889c5081bf0fb596dada7055da98ed2440"
+}

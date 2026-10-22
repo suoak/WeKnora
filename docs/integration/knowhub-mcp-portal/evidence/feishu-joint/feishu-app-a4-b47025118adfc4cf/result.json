@@ -1,0 +1,7 @@
+{
+  "exit_code": 1,
+  "error_class": "AssertionError",
+  "message": "",
+  "traceback": "Traceback (most recent call last):\n  File \"/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/feishu-harness-c40ca2b26c9936eb789f830ebcc4020d7c969e65c9e66be3a176d832acd9c6b9.py\", line 266, in <module>\n    assert status == 200\nAssertionError\n",
+  "candidate_sha256": "b47025118adfc4cff2d1f75cabc6f98265a0bb9ca1ad816f409099081947f0fc"
+}

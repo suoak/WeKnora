@@ -606,6 +606,9 @@ func (s *modelService) GetEmbeddingModel(ctx context.Context, modelId string) (e
 	}
 
 	logger.Info(ctx, "Embedding model initialized successfully")
+	if gate, ok := s.repo.(legacyModelInputGate); ok {
+		return &wikiGuardedEmbedder{Embedder: embedder, gate: gate, tenant: model.TenantID}, nil
+	}
 	return embedder, nil
 }
 
@@ -654,6 +657,9 @@ func (s *modelService) GetEmbeddingModelForTenant(ctx context.Context, modelId s
 	}
 
 	logger.Info(ctx, "Cross-tenant embedding model initialized successfully")
+	if gate, ok := s.repo.(legacyModelInputGate); ok {
+		return &wikiGuardedEmbedder{Embedder: embedder, gate: gate, tenant: model.TenantID}, nil
+	}
 	return embedder, nil
 }
 
@@ -683,6 +689,9 @@ func (s *modelService) GetRerankModel(ctx context.Context, modelId string) (rera
 	}
 
 	logger.Info(ctx, "Rerank model initialized successfully")
+	if gate, ok := s.repo.(legacyModelInputGate); ok {
+		return &legacyGuardedRerank{Reranker: reranker, gate: gate, tenant: types.MustTenantIDFromContext(ctx)}, nil
+	}
 	return reranker, nil
 }
 
@@ -725,7 +734,11 @@ func (s *modelService) GetChatModel(ctx context.Context, modelId string) (chat.C
 		return nil, err
 	}
 
-	return &usageRecordingChat{inner: chatModel, recorder: s.usageAnalytics, modelID: model.ID, modelType: string(model.Type)}, nil
+	var result chat.Chat = &usageRecordingChat{inner: chatModel, recorder: s.usageAnalytics, modelID: model.ID, modelType: string(model.Type)}
+	if gate, ok := s.repo.(legacyModelInputGate); ok {
+		result = &legacyGuardedChat{inner: result, gate: gate, tenant: tenantID}
+	}
+	return result, nil
 }
 
 // GetVLMModel retrieves and initializes a vision language model instance.

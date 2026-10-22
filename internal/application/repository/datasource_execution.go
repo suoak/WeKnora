@@ -129,6 +129,21 @@ func (r *SyncLogRepository) WriteExecution(
 		if updated.RowsAffected == 0 {
 			return nil
 		}
+		if err := validateLegacyCursorReceipts(tx, ctx); err != nil {
+			return err
+		}
+		if types.LegacyFullReconciliation(ctx) {
+			var unresolved int64
+			if err := tx.Model(&types.FeishuLegacyResource{}).Where("data_source_id=? AND state IN ('hold','revoked')", e.DataSourceID).Count(&unresolved).Error; err != nil {
+				return err
+			}
+			if unresolved != 0 {
+				return types.ErrLegacySourceRestricted
+			}
+			if err := tx.Model(&types.DataSource{}).Where("id=? AND legacy_access_state <> 'revoked'", e.DataSourceID).Update("legacy_access_state", "active").Error; err != nil {
+				return err
+			}
+		}
 		status := ds.Status
 		// A user's pause during execution must not be overwritten by an old snapshot.
 		if current.Status == types.DataSourceStatusPaused {

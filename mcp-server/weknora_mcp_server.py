@@ -21,6 +21,7 @@ import threading
 import time
 import uuid
 from typing import Any, Dict
+from urllib.parse import parse_qs
 
 import urllib3
 import requests
@@ -146,6 +147,53 @@ class MCPAuthMiddleware:
         self.token = token
         self.auth_mode = auth_mode or network_auth_mode()
         self.api_key_validator = api_key_validator or validate_weknora_api_key
+        # Only live, server-issued SSE endpoints are registered. The key is a
+        # one-way credential/workspace digest plus the server's session ID.
+        self._sse_auth_channels = {}
+
+    async def _reject_sse_rpc(self, scope, receive, principal_id):
+        """Complete a denied RPC on its authenticated stream; never dispatch it.
+
+        Some legacy SDKs swallow a message POST's HTTPStatusError, leaving the
+        RPC pending on the separate GET stream. Keep POST 401 and send only an
+        authentication error on the exact original principal/session channel.
+        """
+        if scope.get("method") != "POST":
+            return
+        query = parse_qs(scope.get("query_string", b"").decode("ascii", errors="ignore"))
+        session_id = query.get("session_id", [""])[0]
+        channel = self._sse_auth_channels.get((principal_id, session_id))
+        if channel is None:
+            return
+
+        async def read_rpc():
+            body = bytearray()
+            while True:
+                message = await receive()
+                if message.get("type") != "http.request":
+                    return None
+                body.extend(message.get("body", b""))
+                if len(body) > 65536:
+                    return None
+                if not message.get("more_body", False):
+                    return json.loads(body)
+
+        try:
+            rpc = await asyncio.wait_for(read_rpc(), 1)
+            if not isinstance(rpc, dict) or rpc.get("jsonrpc") != "2.0":
+                return
+            rpc_id = rpc.get("id")
+            if isinstance(rpc_id, bool) or not isinstance(rpc_id, (str, int)):
+                return
+            if isinstance(rpc_id, str) and len(rpc_id) > 256:
+                return
+            error = {"jsonrpc": "2.0", "id": rpc_id, "error": {
+                "code": -32001, "message": "Authentication failed; reconnect with a valid credential"}}
+            frame = ("event: message\r\ndata: " + json.dumps(error) + "\r\n\r\n").encode()
+            await asyncio.wait_for(channel({"type": "http.response.body", "body": frame, "more_body": True}), 2)
+        except (ValueError, TypeError, OSError, RuntimeError, asyncio.TimeoutError):
+            # Disconnected or malformed requests remain denied with HTTP 401.
+            return
 
     async def __call__(self, scope, receive, send):
         if scope.get("type") != "http":
@@ -163,6 +211,7 @@ class MCPAuthMiddleware:
         elif "x-mcp-auth-token" in headers:
             provided = headers["x-mcp-auth-token"]
         tenant_id = headers.get("x-tenant-id", "").strip()
+        principal_id = hashlib.sha256(f"{provided}:{tenant_id}".encode("utf-8")).hexdigest()
 
         body_parts: list[bytes] = []
         invocation_token = None
@@ -212,6 +261,8 @@ class MCPAuthMiddleware:
                 return
 
         if not authorized:
+            if provided and self.auth_mode == "weknora_api_key":
+                await self._reject_sse_rpc(scope, receive, principal_id)
             body = b'{"error":"unauthorized"}'
             await send(
                 {
@@ -224,6 +275,54 @@ class MCPAuthMiddleware:
             return
 
         request_key_token = None
+        registered_channels = []
+        send_lock = asyncio.Lock()
+        endpoint_bytes = bytearray()
+        stream_closed = asyncio.Event()
+
+        async def reject_and_close(message):
+            async with send_lock:
+                if stream_closed.is_set():
+                    return
+                await send(message)
+                await send({"type": "http.response.body", "body": b"", "more_body": False})
+                stream_closed.set()
+
+        async def receive_until_closed():
+            if scope.get("method") != "GET":
+                return await receive_with_invocation_id()
+            incoming = asyncio.create_task(receive_with_invocation_id())
+            closing = asyncio.create_task(stream_closed.wait())
+            try:
+                done, _ = await asyncio.wait((incoming, closing), return_when=asyncio.FIRST_COMPLETED)
+                if closing in done:
+                    return {"type": "http.disconnect"}
+                return incoming.result()
+            finally:
+                for task in (incoming, closing):
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(incoming, closing, return_exceptions=True)
+
+        async def send_with_auth_channel(message):
+            async with send_lock:
+                if stream_closed.is_set():
+                    return
+                await send(message)
+                if (scope.get("method") == "GET" and scope.get("path", "").rstrip("/").endswith("/sse")
+                        and message.get("type") == "http.response.body" and not registered_channels):
+                    endpoint_bytes.extend(message.get("body", b""))
+                    if len(endpoint_bytes) > 8192:
+                        endpoint_bytes.clear()
+                        return
+                    match = re.search(rb"event: endpoint\r?\ndata: ([^\r\n]+)", endpoint_bytes)
+                    if match:
+                        query = match.group(1).decode("ascii").partition("?")[2]
+                        session_id = parse_qs(query).get("session_id", [""])[0]
+                        if re.fullmatch(r"[a-fA-F0-9]{32}", session_id):
+                            key = (principal_id, session_id)
+                            self._sse_auth_channels[key] = reject_and_close
+                            registered_channels.append(key)
         if self.auth_mode == "weknora_api_key":
             # MCP's legacy SSE transport binds message POSTs to the principal
             # that opened the stream by comparing scope["user"].  Use only a
@@ -240,8 +339,11 @@ class MCPAuthMiddleware:
             request_key_token = _request_api_key.set(provided)
             request_tenant_token = _request_tenant_id.set(tenant_id)
         try:
-            await self.app(scope, receive_with_invocation_id, send)
+            await self.app(scope, receive_until_closed, send_with_auth_channel)
         finally:
+            for key in registered_channels:
+                if self._sse_auth_channels.get(key) is reject_and_close:
+                    self._sse_auth_channels.pop(key, None)
             if invocation_token is not None:
                 _request_invocation_id.reset(invocation_token)
             if request_key_token is not None:

@@ -1,0 +1,30 @@
+{
+  "material_sha256": "2ecd6b90388a258bbb854c9351700d0316de9a37c064c146c5003d1fb2ca85dc",
+  "base": "knowhub-feishu-rc3/app:02a8c5eb187764a9",
+  "base_id": "sha256:0a0117c920c4fed402e7f744578b539a5ef5e6ef8da7c141ff5e9ac15031b73d",
+  "files": {
+    "migrations/migration-map.json": "d94765d2ed80c809ccb5dd47332c0cb25b5f569df063e7260ab1341337a9245a",
+    "migrations/versioned/003037_personal_dynamic_wiki.up.sql": "e4b7199a9cd282f38bf43f33ba5975dd8f5b8d61ae955ac214434be807659024",
+    "migrations/versioned/003037_personal_dynamic_wiki.down.sql": "453ad5966c9aa0f46a5f0640dec9f49e051fb0ea789836471934992a392bd8db",
+    "migrations/sqlite/003037_personal_dynamic_wiki.up.sql": "7e88ba21fae6b6bd4ad261c9ca569d47593764a26f04daf9fd05db5ddf7d4e86",
+    "migrations/sqlite/003037_personal_dynamic_wiki.down.sql": "4afc676d0d07366141d7d62ecd3fc67a61b16519bf3bc1ddb6d6cbe570eda3a8"
+  },
+  "remote": "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-safe-rollback-20261022/2ecd6b90388a258b",
+  "rollback_approved": false,
+  "reason": "requires isolated same-link and REST denial, forward and restore evidence",
+  "schema": 3037,
+  "binary_source": "independent RC3 Feishu hardened patch; no new personal MCP product features",
+  "argv": [
+    "docker",
+    "build",
+    "--network",
+    "none",
+    "--pull=false",
+    "-t",
+    "knowhub-safe-rollback/app:2ecd6b90388a258b",
+    "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-safe-rollback-20261022/2ecd6b90388a258b"
+  ],
+  "exit_code": 0,
+  "image": "knowhub-safe-rollback/app:2ecd6b90388a258b",
+  "image_id": "sha256:d5c17d6b2d7c84ff463453a3f6809b4b921c97c621d83d3ce7f73d9fcd1fb1b8"
+}

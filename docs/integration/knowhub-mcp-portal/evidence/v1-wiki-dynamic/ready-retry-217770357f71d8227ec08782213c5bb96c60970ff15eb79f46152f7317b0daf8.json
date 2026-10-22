@@ -1,0 +1,5 @@
+{
+  "source_sha256": "0d198247cb9c39b8f92232d2aa3622d9e49245f9297c08ca1a0cd2e9afb1c7b8",
+  "harness_sha256": "217770357f71d8227ec08782213c5bb96c60970ff15eb79f46152f7317b0daf8",
+  "reason": "wait for final TCP server, not init socket; original failed logs preserved"
+}

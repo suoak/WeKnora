@@ -1,0 +1,66 @@
+{
+  "candidate_sha256": "bf199466752a3a1d75540355dc1fee9fb7f6bdef338c4ad0b62a49485b151661",
+  "synthetic_account": true,
+  "sid_login": "NOT_REPEATED_PRODUCTION_CALLBACK",
+  "actions": [
+    {
+      "name": "real SPA original route, create, copy TOML/JSON, owner reopens encrypted Secret, rotate, desktop/narrow",
+      "status": "PASS",
+      "scope_count": 2
+    }
+  ],
+  "started_utc": "2026-10-22T09:12:50.061Z",
+  "http": [
+    {
+      "path": "/api/v1/mcp-api-keys",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/mcp-api-keys/scope-options",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/mcp-api-keys",
+      "method": "POST",
+      "status": 201
+    },
+    {
+      "path": "/api/v1/mcp-api-keys",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/mcp-api-keys/scope-options",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/mcp-api-keys/28/reveal",
+      "method": "POST",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/mcp-api-keys/28/rotate",
+      "method": "POST",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/mcp-api-keys",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/mcp-api-keys/scope-options",
+      "method": "GET",
+      "status": 200
+    }
+  ],
+  "page_errors": [],
+  "console_errors": [],
+  "messages_after_click": [],
+  "clipboard_comparison": "actual HTTP legacy copy and paste; Windows CRLF normalized to LF",
+  "exit_code": 0,
+  "finished_utc": "2026-10-22T09:13:15.448Z"
+}

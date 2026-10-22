@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/golang-migrate/migrate/v4"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -46,19 +48,37 @@ func TestPostgresMigrationsServeAgentHistory(t *testing.T) {
 	requirePostgresIndexValid(t, db)
 
 	// Down and up again: DROP/CREATE INDEX CONCURRENTLY through golang-migrate.
-	m, err := migrate.New("file://migrations/versioned", dsn)
+	// Use a second disposable database at the real index-introduction baseline.
+	// This test is not an authorization to downgrade unrelated SID product
+	// migrations below production RC3. The latest database above remains intact.
+	indexName := "feishu_index_contract_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	_, err = db.Exec("CREATE DATABASE " + indexName)
+	require.NoError(t, err)
+	indexURL, err := url.Parse(dsn)
+	require.NoError(t, err)
+	indexURL.Path = "/" + indexName
+	indexDB, err := sql.Open("postgres", indexURL.String())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = indexDB.Close() })
+	m, err := migrate.New("file://migrations/versioned", indexURL.String())
 	require.NoError(t, err)
 	t.Cleanup(func() { _, _ = m.Close() })
-	require.NoError(t, m.Steps(-1))
+	require.NoError(t, m.Migrate(3014))
+	requirePostgresIndexValid(t, indexDB)
+	// This index belongs to KnowHub 3014 (ported from upstream 000106).
+	// Later product migrations must not turn a single down-step into a test
+	// of an unrelated migration.
+	require.NoError(t, m.Migrate(3013))
 	var indexes int
-	require.NoError(t, db.QueryRow(
+	require.NoError(t, indexDB.QueryRow(
 		"SELECT count(*) FROM pg_class WHERE relname = 'idx_messages_session_created_id'").Scan(&indexes))
 	require.Zero(t, indexes, "the down migration drops the index")
-	require.NoError(t, m.Steps(1))
-	requirePostgresIndexValid(t, db)
+	require.NoError(t, m.Migrate(3014))
+	requirePostgresIndexValid(t, indexDB)
+	require.NoError(t, m.Up())
 
 	ctx := context.Background()
-	conn, err := db.Conn(ctx)
+	conn, err := indexDB.Conn(ctx)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = conn.Close() })
 	// An empty table is always cheapest to scan; rule the scan out to see

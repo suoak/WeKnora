@@ -1,0 +1,20 @@
+{
+  "exit_code": 0,
+  "candidate_sha256": "b47025118adfc4cff2d1f75cabc6f98265a0bb9ca1ad816f409099081947f0fc",
+  "probe": "completed isolated compatibility observation; NOT old rollback approval",
+  "old_image": "knowhub-rc3/app:0.8.0-oa-feishu-rc3-1e2ded5b6",
+  "old_image_id": "sha256:0c84cac5af5103b73102c6261f32130d3e51eeed1b8cbf77fda61de20c4bd983",
+  "old_image_source_head": "UNKNOWN_binary_not_relabelled_as_current_HEAD",
+  "schema_clone": 3036,
+  "health": null,
+  "old_file_http_status": null,
+  "drop_in_rollback": "NOT_VERIFIED_SAFE",
+  "old_startup_exit_code": 0,
+  "no_host_ports": true,
+  "new_synthetic_DB": true,
+  "new_empty_Redis": true,
+  "files_readonly": true,
+  "schema_down": false,
+  "production_changes": false,
+  "recommended_rollback": "retain hardened APP/schema, close MCP/safe-sync and suspend legacy sync; old image requires maintenance isolation and separate data/state reconciliation"
+}

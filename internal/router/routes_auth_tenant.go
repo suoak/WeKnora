@@ -150,6 +150,11 @@ func RegisterTenantRoutes(
 
 func RegisterUserMCPAPIKeyRoutes(r *gin.RouterGroup, handler *handler.TenantHandler) {
 	g := r.Group("/mcp-api-keys")
+	g.Use(middleware.DenyAPIKeyPrincipal(), func(c *gin.Context) {
+		c.Header("Cache-Control", "no-store, private")
+		c.Header("Pragma", "no-cache")
+		c.Next()
+	})
 	g.GET("", handler.ListUserMCPAPIKeys)
 	g.GET("/scope-options", handler.UserMCPAPIKeyScopeOptions)
 	g.GET("/:id", handler.GetUserMCPAPIKey)
@@ -157,6 +162,7 @@ func RegisterUserMCPAPIKeyRoutes(r *gin.RouterGroup, handler *handler.TenantHand
 	g.PUT("/:id", handler.UpdateUserMCPAPIKey)
 	g.PATCH("/:id", handler.PatchUserMCPAPIKey)
 	g.POST("/:id/rotate", handler.RotateUserMCPAPIKey)
+	g.POST("/:id/reveal", handler.RevealUserMCPAPIKey)
 	g.DELETE("/:id", handler.RevokeUserMCPAPIKey)
 }
 

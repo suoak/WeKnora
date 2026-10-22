@@ -1,0 +1,47 @@
+{
+  "schema": "3033:false",
+  "users": {
+    "count": 4,
+    "fingerprint": "aaa9d7d42fe505e92aac07437bda8d9d"
+  },
+  "tenants": {
+    "count": 5,
+    "fingerprint": "78c0770da4074a9a98db50318f5e375f"
+  },
+  "tenant_members": {
+    "count": 7,
+    "fingerprint": "27d119c101a746ed47f21592c5f86c7c"
+  },
+  "tenant_api_keys": {
+    "count": 6,
+    "fingerprint": "1e66a3aa3cb55c6d545e2a08a6f0374a"
+  },
+  "api_key_tenant_scopes": {
+    "count": 0,
+    "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "api_key_kb_scopes": {
+    "count": 0,
+    "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "tenant_portal_configs": {
+    "count": 0,
+    "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "knowledges": {
+    "count": 19,
+    "fingerprint": "0860624b7581158b92b75554f6368c7f"
+  },
+  "chunks": {
+    "count": 22001,
+    "fingerprint": "e280b774a9bef817d592f854438ddf6c"
+  },
+  "embeddings": {
+    "count": 5682,
+    "fingerprint": "f190958a5039a4049ff15e4a89d85139"
+  },
+  "data_sources": {
+    "count": 1,
+    "fingerprint": "2e5df9cd52446291eb3eeb7e0bce4b64"
+  }
+}

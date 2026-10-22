@@ -1,0 +1,16 @@
+{
+  "candidate_sha256": "b47025118adfc4cff2d1f75cabc6f98265a0bb9ca1ad816f409099081947f0fc",
+  "harness_sha256": "098760b7426de886a3a70356b13f21860e59015c45c0d4b9a82302f12a74955d",
+  "artifacts": {
+    "joint_retry_control.go.txt": {
+      "path": "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/test-artifact-53f8c85e6587991931d7dfd0ade712f37c20786a8bbb9f28f50af672b9938237-retry-control.go",
+      "sha256": "53f8c85e6587991931d7dfd0ade712f37c20786a8bbb9f28f50af672b9938237"
+    },
+    "joint_feishu_fixture.py": {
+      "path": "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/test-artifact-6879ee51b256bfbdc0f9c90156b4794ff9586702b6d32ac7e5181270b4fc9c36-feishu.py",
+      "sha256": "6879ee51b256bfbdc0f9c90156b4794ff9586702b6d32ac7e5181270b4fc9c36"
+    }
+  },
+  "changes_application_code": false,
+  "reason": "consistent synthetic fallback fault; real retry counts retained; only test queue timing accelerated"
+}

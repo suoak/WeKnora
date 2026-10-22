@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/Tencent/WeKnora/internal/application/access"
 	"slices"
 	"strings"
 	"sync"
@@ -24,6 +25,10 @@ func (s *knowledgeService) ListFAQEntries(ctx context.Context,
 	kbID string, page *types.Pagination, tagUUIDs []string, legacyTagSeqID int64, keyword string, searchField string, sortOrder string,
 	isEnabled *bool,
 ) (*types.PageResult, error) {
+	if s.DocumentACLReadEnabled() {
+		return nil, access.ErrForbidden
+	} // HOLD until candidate filtering/provenance is certified.
+
 	if page == nil {
 		page = &types.Pagination{}
 	}
@@ -260,6 +265,10 @@ func (s *knowledgeService) CreateFAQEntry(ctx context.Context,
 func (s *knowledgeService) GetFAQEntry(ctx context.Context,
 	kbID string, entrySeqID int64,
 ) (*types.FAQEntry, error) {
+	if s.DocumentACLReadEnabled() {
+		return nil, access.ErrForbidden
+	} // HOLD until candidate filtering/provenance is certified.
+
 	if entrySeqID <= 0 {
 		return nil, werrors.NewBadRequestError("条目ID不能为空")
 	}
@@ -907,6 +916,10 @@ func (s *knowledgeService) UpdateFAQEntryTagBatch(ctx context.Context, kbID stri
 func (s *knowledgeService) SearchFAQEntries(ctx context.Context,
 	kbID string, req *types.FAQSearchRequest,
 ) ([]*types.FAQEntry, error) {
+	if s.DocumentACLReadEnabled() {
+		return nil, access.ErrForbidden
+	} // HOLD until candidate filtering/provenance is certified.
+
 	// Validate FAQ knowledge base
 	kb, err := s.validateFAQKnowledgeBase(ctx, kbID)
 	if err != nil {
@@ -1302,6 +1315,10 @@ func (s *knowledgeService) DeleteFAQEntries(ctx context.Context,
 // 机器人回答(必填-多个用##分隔), 是否全部回复(选填-默认FALSE), 是否停用(选填-默认FALSE),
 // 是否禁止被推荐(选填-默认False 可被推荐)
 func (s *knowledgeService) ExportFAQEntries(ctx context.Context, kbID string) ([]byte, error) {
+	if s.DocumentACLReadEnabled() {
+		return nil, access.ErrForbidden
+	} // HOLD until candidate filtering/provenance is certified.
+
 	kb, err := s.validateFAQKnowledgeBase(ctx, kbID)
 	if err != nil {
 		return nil, err
@@ -1335,6 +1352,10 @@ func (s *knowledgeService) ExportFAQEntries(ctx context.Context, kbID string) ([
 // ExportFAQEntriesJSON 以 JSON 数组形式导出 FAQ 知识库下的全部条目，
 // 字段与 FAQEntryPayload 兼容，便于"导出 → 编辑 → 重新 append 导入"循环。
 func (s *knowledgeService) ExportFAQEntriesJSON(ctx context.Context, kbID string) ([]byte, error) {
+	if s.DocumentACLReadEnabled() {
+		return nil, access.ErrForbidden
+	} // HOLD until candidate filtering/provenance is certified.
+
 	kb, err := s.validateFAQKnowledgeBase(ctx, kbID)
 	if err != nil {
 		return nil, err

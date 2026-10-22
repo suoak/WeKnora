@@ -1,0 +1,9 @@
+{
+  "source_archives": "PASS",
+  "supplement_files_checked": 1852,
+  "supplement": "PASS",
+  "protected_V1_runtime_compared_with_frozen_tar": 5164,
+  "protected_V1_mismatches": [],
+  "hotfix_runtime_unchanged": true,
+  "note": "5468 is original frozen candidate identity; do not compare with a newly defined all-files runtime hash algorithm"
+}

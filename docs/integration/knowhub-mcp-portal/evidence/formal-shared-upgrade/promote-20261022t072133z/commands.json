@@ -1,0 +1,40 @@
+[
+  {
+    "name": "stop-current-test-APP-Worker",
+    "argv": [
+      "docker",
+      "compose",
+      "--project-name",
+      "knowhub-mvp-p3",
+      "--project-directory",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private",
+      "-f",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/compose-upgrade.json",
+      "stop",
+      "--timeout",
+      "20",
+      "app"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "promote-same-source-APP-frontend",
+    "argv": [
+      "docker",
+      "compose",
+      "--project-name",
+      "knowhub-mvp-p3",
+      "--project-directory",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private",
+      "-f",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/compose-upgrade.json",
+      "up",
+      "-d",
+      "--no-deps",
+      "--force-recreate",
+      "app",
+      "frontend"
+    ],
+    "exit_code": 0
+  }
+]

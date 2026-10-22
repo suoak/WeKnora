@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Tencent/WeKnora/internal/application/access"
 	"strings"
 	"time"
 
@@ -226,10 +227,22 @@ func (r *knowledgeRepository) ListPagedKnowledgeByKnowledgeBaseID(
 	page *types.Pagination,
 	filter types.KnowledgeListFilter,
 ) ([]*types.Knowledge, int64, error) {
+	ids, protected, scopeErr := access.GuardDocumentReadQuery(ctx, tenantID, kbID)
+	if scopeErr != nil {
+		return nil, 0, scopeErr
+	}
 	var knowledges []*types.Knowledge
 	var total int64
 
 	scope := func(q *gorm.DB) *gorm.DB {
+		if protected {
+			if len(ids) == 0 {
+				q = q.Where("1=0")
+			} else {
+				q = q.Where("id IN ?", ids)
+			}
+		}
+
 		return applyKnowledgeListFilter(
 			q.Where("tenant_id = ? AND knowledge_base_id = ?", tenantID, kbID),
 			filter,

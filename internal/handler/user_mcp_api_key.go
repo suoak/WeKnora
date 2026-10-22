@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	stderrors "errors"
 	"io"
@@ -29,12 +31,13 @@ type userMCPTenantScopeRequest struct {
 	KnowledgeBases []userMCPKBRequest      `json:"knowledge_bases"`
 }
 type userMCPKeyRequest struct {
-	Name         string                      `json:"name"`
-	ClientType   types.MCPClientType         `json:"client_type"`
-	Capabilities []string                    `json:"capabilities"`
-	ExpiresAt    *int64                      `json:"expires_at_unix"`
-	NeverExpires bool                        `json:"never_expires"`
-	TenantScopes []userMCPTenantScopeRequest `json:"tenant_scopes"`
+	PersonalScopeMode string                      `json:"personal_scope_mode"`
+	Name              string                      `json:"name"`
+	ClientType        types.MCPClientType         `json:"client_type"`
+	Capabilities      []string                    `json:"capabilities"`
+	ExpiresAt         *int64                      `json:"expires_at_unix"`
+	NeverExpires      bool                        `json:"never_expires"`
+	TenantScopes      []userMCPTenantScopeRequest `json:"tenant_scopes"`
 }
 
 type userMCPKeyPatchRequest struct {
@@ -145,8 +148,9 @@ func userMCPExpiry(req userMCPKeyRequest) (*time.Time, error) {
 		return nil, nil
 	}
 	if req.ExpiresAt == nil {
-		v := time.Now().UTC().Add(90 * 24 * time.Hour)
-		return &v, nil
+		// New personal credentials are unlimited unless the user chooses a date.
+		// PATCH and rotate keep their existing explicit change/preserve contract.
+		return nil, nil
 	}
 	v := time.Unix(*req.ExpiresAt, 0).UTC()
 	if !v.After(time.Now().UTC()) {
@@ -205,7 +209,9 @@ func userMCPResponse(k *types.TenantAPIKey) gin.H {
 		"id": k.ID, "scope_type": k.ScopeType, "name": k.Name,
 		"client_type": types.NormalizeMCPClientType(k.ClientType), "status": status,
 		"token_hint": k.TokenHint, "capabilities": k.Capabilities,
-		"tenant_scopes": k.TenantScopes, "last_used_at": k.LastUsedAt,
+		"secret_available":    k.APIKeyEncrypted && k.APIKey != "" && status == "active",
+		"personal_scope_mode": k.PersonalScopeMode,
+		"tenant_scopes":       k.TenantScopes, "last_used_at": k.LastUsedAt,
 		"expires_at": k.ExpiresAt, "revoked_at": k.RevokedAt,
 		"created_at": k.CreatedAt, "updated_at": k.UpdatedAt,
 	}
@@ -244,7 +250,8 @@ func userMCPAuditDetails(key *types.TenantAPIKey, scopes []types.APIKeyTenantSco
 	}
 	details, _ := json.Marshal(gin.H{
 		"credential_id": key.ID, "key_name": key.Name,
-		"client_type": types.NormalizeMCPClientType(key.ClientType), "token_hint": key.TokenHint,
+		"personal_scope_mode": key.PersonalScopeMode,
+		"client_type":         types.NormalizeMCPClientType(key.ClientType), "token_hint": key.TokenHint,
 		"tenant_ids": tenantIDs, "knowledge_base_ids": kbIDs, "capabilities": key.Capabilities,
 	})
 	return types.JSON(details)
@@ -307,6 +314,57 @@ func (h *TenantHandler) GetUserMCPAPIKey(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": userMCPResponse(row)})
 }
+
+// Reveal is separate from metadata listing. The owner must authenticate with
+// their current KnowHub user session; a personal/machine Key cannot reveal keys.
+func (h *TenantHandler) RevealUserMCPAPIKey(c *gin.Context) {
+	c.Header("Cache-Control", "no-store, private")
+	c.Header("Pragma", "no-cache")
+	if _, machine := types.TenantAPIKeyScopeFromContext(c.Request.Context()); machine {
+		c.AbortWithStatus(http.StatusForbidden)
+		return
+	}
+	uid := c.GetString(types.UserIDContextKey.String())
+	if uid == "" || h.userService == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	user, err := h.userService.GetUserByID(c.Request.Context(), uid)
+	if err != nil || user == nil || !user.IsActive {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	svc, ok := h.userMCPKeyService()
+	if !ok {
+		c.AbortWithStatus(http.StatusServiceUnavailable)
+		return
+	}
+	key, err := svc.GetUserMCPAPIKey(c.Request.Context(), uid, id)
+	if err != nil || key == nil || !key.IsUserMCP() || key.OwnerUserID == nil || *key.OwnerUserID != uid {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	if key.RevokedAt != nil || key.ExpiresAt != nil && !key.ExpiresAt.After(time.Now().UTC()) {
+		c.AbortWithStatus(http.StatusForbidden)
+		return
+	}
+	if !key.APIKeyEncrypted || key.APIKey == "" {
+		c.AbortWithStatusJSON(http.StatusConflict, gin.H{"error": "此历史凭证未保存可恢复的 Secret，请主动轮换；如服务未配置加密保存，请联系管理员。"})
+		return
+	}
+	hash := sha256.Sum256([]byte(key.APIKey))
+	if hex.EncodeToString(hash[:]) != key.KeyHash {
+		c.AbortWithStatus(http.StatusConflict)
+		return
+	}
+	h.auditUserMCPKey(c, types.AuditActionUserMCPKeyRevealed, uid, key, key.TenantScopes)
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"token": key.APIKey}})
+}
 func (h *TenantHandler) CreateUserMCPAPIKey(c *gin.Context) {
 	var req userMCPKeyRequest
 	if e := c.ShouldBindJSON(&req); e != nil {
@@ -328,7 +386,7 @@ func (h *TenantHandler) CreateUserMCPAPIKey(c *gin.Context) {
 		c.Error(e)
 		return
 	}
-	result, e := h.apiKeyService.CreateAPIKey(c.Request.Context(), interfaces.TenantAPIKeyCreateRequest{ScopeType: types.APIKeyScopeUserMCP, OwnerUserID: uid, Name: req.Name, ClientType: req.ClientType, Capabilities: req.Capabilities, ExpiresAt: exp, TenantScopes: scopes})
+	result, e := h.apiKeyService.CreateAPIKey(c.Request.Context(), interfaces.TenantAPIKeyCreateRequest{PersonalScopeMode: req.PersonalScopeMode, ScopeType: types.APIKeyScopeUserMCP, OwnerUserID: uid, Name: req.Name, ClientType: req.ClientType, Capabilities: req.Capabilities, ExpiresAt: exp, TenantScopes: scopes})
 	if e != nil {
 		c.Error(errors.NewValidationError(e.Error()))
 		return
@@ -369,6 +427,11 @@ func (h *TenantHandler) UpdateUserMCPAPIKey(c *gin.Context) {
 			capabilities = append([]string(nil), oldKey.Capabilities...)
 		}
 	}
+	if req.PersonalScopeMode != "" {
+		c.Error(errors.NewValidationError("personal scope mode is immutable; create an explicit new key"))
+		return
+	}
+
 	scopes, e := h.validateUserMCPScopes(c, uid, req.TenantScopes)
 	if e != nil {
 		c.Error(e)

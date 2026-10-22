@@ -1,0 +1,67 @@
+{
+  "synthetic_only": true,
+  "frames": [
+    {
+      "rpc_id": 2001,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "joint-legacy-wiki-a3"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2001,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"chunks\":[{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-wiki-a3\",\"knowledge_base_name\":\"Synthetic Feishu wiki\",\"knowledge_id\":\"joint-legacy-wiki-a3\",\"chunk_id\":\"joint-legacy-wiki-a3-chunk\",\"title\":\"RC3 synthetic baseline\",\"content\":\"rc3baselinecanary old source text\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-wiki-a3:document:joint-legacy-wiki-a3\",\"rank_score\":0}],\"total\":1}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2002,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "joint-legacy-wiki-a3"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2002,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"chunks\":[{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-wiki-a3\",\"knowledge_base_name\":\"Synthetic Feishu wiki\",\"knowledge_id\":\"joint-legacy-wiki-a3\",\"chunk_id\":\"d5c28210-e4e2-4c52-aa72-cb0cc12eba28\",\"title\":\"Synthetic Wiki\",\"content\":\"wiki initialcanary ordinary text\\n\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-wiki-a3:document:joint-legacy-wiki-a3\",\"rank_score\":0}],\"total\":1}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2003,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "keyword",
+        "limit": 30
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2003,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"results\":[],\"searched_kbs\":7,\"failed_kbs\":0,\"status\":\"complete\"}"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -46,7 +46,7 @@ func (h *DataSourceHandler) getOwnedKnowledgeBase(
 		return nil, http.StatusBadRequest, "kb_id is required"
 	}
 
-	kb, err := h.kbService.GetKnowledgeBaseByID(ctx, kbID)
+	kb, err := h.kbService.GetKnowledgeBaseByID(types.WithLegacyKBAdminMetadata(ctx, kbID), kbID)
 	if err != nil || kb == nil {
 		return nil, http.StatusNotFound, "knowledge base not found"
 	}
@@ -76,6 +76,19 @@ func (h *DataSourceHandler) getOwnedDataSource(
 	}
 
 	return ds, http.StatusOK, ""
+}
+
+// Recovery controls may inspect source identity while its content is on HOLD.
+// Historical diagnostics can contain titles or cursor resource IDs, so they
+// require the normal live content check and never inherit that exception.
+func (h *DataSourceHandler) sourceResponse(ctx context.Context, ds *types.DataSource) *dto.DataSourceResponse {
+	response := dto.NewDataSourceResponse(ds)
+	if ds != nil {
+		if _, err := h.kbService.GetKnowledgeBaseByID(ctx, ds.KnowledgeBaseID); err != nil {
+			response.RestrictSyncDiagnostics()
+		}
+	}
+	return response
 }
 
 // CreateDataSource godoc
@@ -118,7 +131,7 @@ func (h *DataSourceHandler) CreateDataSource(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, dto.NewDataSourceResponse(ds))
+	c.JSON(http.StatusCreated, h.sourceResponse(ctx, ds))
 }
 
 // GetDataSource godoc
@@ -146,7 +159,7 @@ func (h *DataSourceHandler) GetDataSource(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.NewDataSourceResponse(ds))
+	c.JSON(http.StatusOK, h.sourceResponse(ctx, ds))
 }
 
 // ListDataSources godoc
@@ -182,7 +195,11 @@ func (h *DataSourceHandler) ListDataSources(c *gin.Context) {
 	if dataSources == nil {
 		dataSources = make([]*types.DataSource, 0)
 	}
-	c.JSON(http.StatusOK, dto.NewDataSourceResponses(dataSources))
+	responses := make([]*dto.DataSourceResponse, 0, len(dataSources))
+	for _, ds := range dataSources {
+		responses = append(responses, h.sourceResponse(ctx, ds))
+	}
+	c.JSON(http.StatusOK, responses)
 }
 
 // UpdateDataSource godoc
@@ -227,7 +244,7 @@ func (h *DataSourceHandler) UpdateDataSource(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.NewDataSourceResponse(ds))
+	c.JSON(http.StatusOK, h.sourceResponse(ctx, ds))
 }
 
 // DeleteDataSource godoc
@@ -531,8 +548,14 @@ func (h *DataSourceHandler) GetSyncLogs(c *gin.Context) {
 
 	id := c.Param("id")
 
-	if _, status, msg := h.getOwnedDataSource(ctx, tenantID, id); status != http.StatusOK {
+	ds, status, msg := h.getOwnedDataSource(ctx, tenantID, id)
+	if status != http.StatusOK {
 		c.JSON(status, gin.H{"error": msg})
+		return
+	}
+
+	if _, err := h.kbService.GetKnowledgeBaseByID(ctx, ds.KnowledgeBaseID); err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "source diagnostics require verified access"})
 		return
 	}
 
@@ -591,11 +614,16 @@ func (h *DataSourceHandler) GetSyncLog(c *gin.Context) {
 		return
 	}
 
-	if _, status, msg := h.getOwnedDataSource(ctx, tenantID, log.DataSourceID); status != http.StatusOK {
+	ds, status, msg := h.getOwnedDataSource(ctx, tenantID, log.DataSourceID)
+	if status != http.StatusOK {
 		c.JSON(status, gin.H{"error": msg})
 		return
 	}
 
+	if _, err := h.kbService.GetKnowledgeBaseByID(ctx, ds.KnowledgeBaseID); err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "source diagnostics require verified access"})
+		return
+	}
 	c.JSON(http.StatusOK, log)
 }
 

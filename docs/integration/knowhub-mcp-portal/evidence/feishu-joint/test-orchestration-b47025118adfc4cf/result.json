@@ -1,0 +1,76 @@
+{
+  "exit_code": 0,
+  "artifacts": {
+    "joint_retry_control.go.txt": {
+      "path": "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/test-artifact-53f8c85e6587991931d7dfd0ade712f37c20786a8bbb9f28f50af672b9938237-retry-control.go",
+      "sha256": "53f8c85e6587991931d7dfd0ade712f37c20786a8bbb9f28f50af672b9938237"
+    },
+    "joint_feishu_fixture.py": {
+      "path": "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/test-artifact-6879ee51b256bfbdc0f9c90156b4794ff9586702b6d32ac7e5181270b4fc9c36-feishu.py",
+      "sha256": "6879ee51b256bfbdc0f9c90156b4794ff9586702b6d32ac7e5181270b4fc9c36"
+    }
+  },
+  "commands": [
+    {
+      "name": "retry-controller-build",
+      "exit_code": 0,
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/source:/source:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/test-artifact-53f8c85e6587991931d7dfd0ade712f37c20786a8bbb9f28f50af672b9938237-retry-control.go:/retry-control.go:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/artifacts:/artifacts",
+        "-v",
+        "knowhub-mcp-b7-20261021-102200-data:/prior",
+        "-v",
+        "/home/aqyfzx/go/pkg/mod:/home/aqyfzx/go/pkg/mod:ro",
+        "-e",
+        "GOPATH=/home/aqyfzx/go",
+        "-e",
+        "GOCACHE=/prior/go-cache",
+        "-e",
+        "GOTOOLCHAIN=local",
+        "-e",
+        "CGO_ENABLED=0",
+        "-w",
+        "/source",
+        "knowhub-build/golang:1.26-feishu-py311-ensurepip-20261022",
+        "go",
+        "build",
+        "-o",
+        "/artifacts/retry-control",
+        "/retry-control.go"
+      ]
+    },
+    {
+      "name": "replace-private-synthetic-fixture-only",
+      "exit_code": 0,
+      "argv": [
+        "docker",
+        "compose",
+        "--project-name",
+        "knowhub-v1-feishu-b47025118adf",
+        "--project-directory",
+        "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf",
+        "-f",
+        "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/compose.yml",
+        "-f",
+        "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-feishu-20261022/b47025118adfc4cf/fixture-override-6879ee51b256bfbdc0f9c90156b4794ff9586702b6d32ac7e5181270b4fc9c36.compose.json",
+        "up",
+        "-d",
+        "--force-recreate",
+        "feishu"
+      ]
+    }
+  ],
+  "original_APP_images_unchanged": true,
+  "authorization_unchanged": true,
+  "retry_count_and_payload_unchanged": true,
+  "timing": "Inspector.RunTask only for exact synthetic datasource/log retry; wall backoff not verified"
+}

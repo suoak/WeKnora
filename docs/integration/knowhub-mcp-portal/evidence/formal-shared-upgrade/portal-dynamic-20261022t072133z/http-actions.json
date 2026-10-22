@@ -1,0 +1,143 @@
+[
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/login",
+    "status": 200,
+    "elapsed_ms": 98.82024116814137
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/login",
+    "status": 200,
+    "elapsed_ms": 75.83799213171005
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mcp-api-keys/scope-options",
+    "status": 200,
+    "elapsed_ms": 10.508609935641289
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp-api-keys",
+    "status": 201,
+    "elapsed_ms": 8.021280169487
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp/personal",
+    "status": 200,
+    "elapsed_ms": 964.0031345188618,
+    "tool": "read_document",
+    "arguments": {
+      "knowledge_id": "fm-future-private-doc"
+    },
+    "is_error": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/system/admin/portal/spaces/820207/publish",
+    "status": 200,
+    "elapsed_ms": 4.923980683088303
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp/personal",
+    "status": 200,
+    "elapsed_ms": 1051.8638174980879,
+    "tool": "read_document",
+    "arguments": {
+      "knowledge_id": "fm-future-private-doc"
+    },
+    "is_error": false
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp/personal",
+    "status": 200,
+    "elapsed_ms": 1037.2510571032763,
+    "tool": "list_knowledge_bases",
+    "arguments": {},
+    "is_error": false
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp/personal",
+    "status": 200,
+    "elapsed_ms": 1111.5265507251024,
+    "tool": "search_knowledge",
+    "arguments": {
+      "query": "AFTERPUBLISH_CANARY",
+      "mode": "keyword",
+      "knowledge_base_ids": [
+        "fm-after-publish"
+      ],
+      "limit": 10
+    },
+    "is_error": false
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp/personal",
+    "status": 200,
+    "elapsed_ms": 828.5426609218121,
+    "tool": "search_knowledge",
+    "arguments": {
+      "query": "AFTERPUBLISH_CANARY",
+      "mode": "semantic",
+      "knowledge_base_ids": [
+        "fm-after-publish"
+      ],
+      "limit": 10
+    },
+    "is_error": false
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp/personal",
+    "status": 200,
+    "elapsed_ms": 865.9417144954205,
+    "tool": "search_knowledge",
+    "arguments": {
+      "query": "AFTERPUBLISH_CANARY",
+      "mode": "hybrid",
+      "knowledge_base_ids": [
+        "fm-after-publish"
+      ],
+      "limit": 10
+    },
+    "is_error": false
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/system/admin/portal/spaces/820207/unpublish",
+    "status": 200,
+    "elapsed_ms": 5.018800497055054
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp/personal",
+    "status": 200,
+    "elapsed_ms": 975.764425471425,
+    "tool": "read_document",
+    "arguments": {
+      "knowledge_id": "fm-after-publish-doc"
+    },
+    "is_error": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp/personal",
+    "status": 200,
+    "elapsed_ms": 1000.5594119429588,
+    "tool": "list_knowledge_bases",
+    "arguments": {},
+    "is_error": false
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/mcp-api-keys/10",
+    "status": 200,
+    "elapsed_ms": 7.5850412249565125
+  }
+]

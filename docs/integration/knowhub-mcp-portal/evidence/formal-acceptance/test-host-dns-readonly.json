@@ -1,0 +1,16 @@
+{
+  "read_only": true,
+  "cloud_requests": false,
+  "ssh_exit_code": 0,
+  "resolved": {
+    "knowhub.ruijie.com.cn": [
+      "10.51.134.114"
+    ],
+    "sid.ruijie.com.cn": [
+      "39.107.195.76"
+    ],
+    "uniapi.ruijie.com.cn": [
+      "39.107.195.76"
+    ]
+  }
+}

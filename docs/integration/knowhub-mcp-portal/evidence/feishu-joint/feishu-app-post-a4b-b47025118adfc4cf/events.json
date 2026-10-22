@@ -1,0 +1,30 @@
+[
+  {
+    "name": "resume-after-observed-204",
+    "utc": "2026-10-22T01:55:38.644030+00:00",
+    "prior_results": "feishu-app-a4",
+    "lifecycle_scope": "real APP/worker synthetic Wiki and Drive",
+    "source_revocation_not_undone": true
+  },
+  {
+    "name": "source-MCP-deny-boundaries",
+    "utc": "2026-10-22T01:55:38.852087+00:00",
+    "knowledge_base_id": "joint-feishu-drive-a4",
+    "knowledge_id": "joint-legacy-drive-a4",
+    "phase": "trusted-local-delete",
+    "operations": [
+      "read",
+      "list",
+      "keyword",
+      "semantic",
+      "hybrid"
+    ]
+  },
+  {
+    "name": "durable-revocation-backup-restore",
+    "utc": "2026-10-22T01:55:57.381274+00:00",
+    "schema": 3036,
+    "revocation_preserved": true,
+    "production_data": false
+  }
+]

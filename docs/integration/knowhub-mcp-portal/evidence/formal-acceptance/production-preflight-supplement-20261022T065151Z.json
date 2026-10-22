@@ -1,0 +1,208 @@
+{
+  "observed_utc": "2026-10-22T06:51:52.990347+00:00",
+  "read_only": true,
+  "mode": "production",
+  "changes": false,
+  "cloud_calls": false,
+  "identity_config": {
+    "OIDC_AUTH_ISSUER_URL": "https://sid.ruijie.com.cn",
+    "OIDC_AUTH_DISCOVERY_URL": "https://sid.ruijie.com.cn/oidc/.well-known/openid-configuration",
+    "OIDC_AUTH_REDIRECT_URI": "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback"
+  },
+  "identity_credential_presence": {
+    "OIDC_AUTH_CLIENT_ID": true,
+    "OIDC_AUTH_CLIENT_SECRET": true
+  },
+  "identity_env_only_not_live_login": true,
+  "model_endpoint_metadata": [
+    {
+      "type": "KnowledgeQA",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    },
+    {
+      "type": "VLLM",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    },
+    {
+      "type": "KnowledgeQA",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "http://10.51.135.15:8180"
+    },
+    {
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    },
+    {
+      "type": "KnowledgeQA",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "http://10.51.135.15:8180"
+    },
+    {
+      "type": "Embedding",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    },
+    {
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    },
+    {
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    },
+    {
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    },
+    {
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    },
+    {
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    },
+    {
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    },
+    {
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    },
+    {
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    },
+    {
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    },
+    {
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    },
+    {
+      "type": "Embedding",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    },
+    {
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    },
+    {
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    },
+    {
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    },
+    {
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    },
+    {
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    },
+    {
+      "type": "Rerank",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "https://uniapi.ruijie.com.cn"
+    },
+    {
+      "type": "KnowledgeQA",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "http://10.51.135.15:8180"
+    },
+    {
+      "type": "KnowledgeQA",
+      "source": "remote",
+      "status": "active",
+      "credential_present": true,
+      "endpoint_origin": "http://10.51.135.15:8180"
+    }
+  ],
+  "identity_table_counts": {
+    "oidc_transactions": 121
+  },
+  "changed_KB_metadata": [
+    {
+      "kb_ref": "c2edb6e0b65ad3d9",
+      "deleted_at": "2026-10-21T08:17:55.031141+00:00",
+      "updated_at": "2026-10-21T07:19:06.492463+00:00",
+      "deleted_documents": 3,
+      "live_documents": 0
+    }
+  ],
+  "ssh_exit_code": 0,
+  "inspection_script_sha256": "a4a11c178fcd4d4ea4db07894bde53fe9de887740f80275581becb200d28e141"
+}

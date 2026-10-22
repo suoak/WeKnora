@@ -16,12 +16,14 @@ export interface MCPTenantScope {
 }
 
 export interface MCPAccessKey {
+  personal_scope_mode?: 'fixed' | 'dynamic_all'
   id: number
   name: string
   scope_type: 'user_mcp'
   client_type: MCPClientType
   status: MCPAccessStatus
   token_hint: string
+  secret_available?: boolean
   capabilities: MCPCapability[]
   token?: string
   tenant_scopes: MCPTenantScope[]
@@ -34,7 +36,7 @@ export interface MCPAccessKey {
 
 export type MCPClientType = 'workbuddy' | 'workmate' | 'cursor' | 'codebuddy' | 'generic'
 export type MCPAccessStatus = 'active' | 'expired' | 'revoked'
-export type MCPCapability = 'retrieve' | 'chat' | 'read_agents'
+export type MCPCapability = 'retrieve' | 'chat' | 'read_agents' | 'enterprise_retrieve'
 
 export interface KnowledgeBaseOption {
   id: string
@@ -58,6 +60,7 @@ export interface MCPScopeOption {
 }
 
 export interface MCPKeyPayload {
+  personal_scope_mode?: 'fixed' | 'dynamic_all'
   name: string
   client_type: MCPClientType
   capabilities: MCPCapability[]
@@ -89,5 +92,6 @@ export const listMCPAccessKeys = () => get('/api/v1/mcp-api-keys') as Promise<MC
 export const createMCPAccessKey = (payload: MCPKeyPayload) => post('/api/v1/mcp-api-keys', payload) as Promise<MCPKeyResponse<MCPSecretResult>>
 export const updateMCPAccessKey = (id: number, payload: MCPKeyPatchPayload) => patch(`/api/v1/mcp-api-keys/${id}`, payload) as Promise<MCPKeyResponse<MCPAccessKey>>
 export const rotateMCPAccessKey = (id: number, payload: MCPRotatePayload = {}) => post(`/api/v1/mcp-api-keys/${id}/rotate`, payload) as Promise<MCPKeyResponse<MCPSecretResult>>
+export const revealMCPAccessKey = (id: number) => post(`/api/v1/mcp-api-keys/${id}/reveal`, {}) as Promise<MCPKeyResponse<{ token: string }>>
 export const revokeMCPAccessKey = (id: number) => del(`/api/v1/mcp-api-keys/${id}`) as Promise<MCPKeyResponse<never>>
 export const getMCPAccessKeyScopeOptions = () => get('/api/v1/mcp-api-keys/scope-options') as Promise<MCPKeyResponse<MCPScopeOption[]>>

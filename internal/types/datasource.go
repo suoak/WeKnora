@@ -63,6 +63,9 @@ const (
 
 // DataSource represents a configured external data source for synchronization
 type DataSource struct {
+	// Source-local access quarantine, independent from scheduler status.
+	// Generic datasource edits cannot write this server-owned field.
+	LegacyAccessState string `json:"-" gorm:"default:unmanaged"`
 	// Unique identifier
 	ID string `json:"id" gorm:"type:varchar(36);primaryKey"`
 

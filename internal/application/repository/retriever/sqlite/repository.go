@@ -8,6 +8,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/common"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -369,6 +370,11 @@ func (r *sqliteRepository) BatchUpdateChunkTagID(ctx context.Context, chunkTagMa
 // --- Retrieve ---
 
 func (r *sqliteRepository) Retrieve(ctx context.Context, params types.RetrieveParams) ([]*types.RetrieveResult, error) {
+	var err error
+	params, err = access.GuardDocumentRetrieval(ctx, types.SQLiteRetrieverEngineType, params)
+	if err != nil {
+		return nil, err
+	}
 	var results []*types.RetrieveResult
 
 	if params.RetrieverType == types.KeywordsRetrieverType || params.RetrieverType == "" {
@@ -411,7 +417,7 @@ func (r *sqliteRepository) keywordsRetrieve(ctx context.Context, params types.Re
 
 	args := []interface{}{ftsQuery}
 
-	for _, wp := range buildFilterWhere(params, "e") {
+	for _, wp := range documentFilterWhere(ctx, params, "e") {
 		sql += " AND " + wp.clause
 		args = append(args, wp.args...)
 	}
@@ -484,34 +490,45 @@ func (r *sqliteRepository) vectorRetrieve(ctx context.Context, params types.Retr
 	tbl := vecTableName(dim)
 
 	// ⚠️ sqlite-vec 要求必须有 k = ?
-	vecSQL := fmt.Sprintf(`
-		SELECT v.rowid, v.distance,
-			e.source_id, e.source_type, e.chunk_id,
-			e.knowledge_id, e.knowledge_base_id,
-			e.tag_id, e.content
-		FROM %s v
-		JOIN lite_embeddings e ON e.id = v.rowid
-		WHERE v.embedding MATCH ?
-		AND k = ?
-		AND v.rowid IN (
-			SELECT filtered.id
-			FROM lite_embeddings filtered
-			WHERE (filtered.is_enabled IS NULL OR filtered.is_enabled = 1)
-	`, tbl)
-
-	args := []interface{}{
-		queryBlob,
-		params.TopK, // 这里就是 k
-	}
-
-	// 追加过滤条件
-	for _, wp := range buildFilterWhere(params, "filtered") {
-		vecSQL += " AND " + wp.clause
+	// Isolate KNN from the JOIN so SQLite cannot defer the allow-set until
+	// after TopK. The materialized candidate set contains only current rows.
+	candidates := "SELECT filtered.id FROM lite_embeddings filtered WHERE (filtered.is_enabled IS NULL OR filtered.is_enabled = 1)"
+	args := []interface{}{}
+	for _, wp := range documentFilterWhere(ctx, params, "filtered") {
+		candidates += " AND " + wp.clause
 		args = append(args, wp.args...)
 	}
-
-	// ⚠️ 这里仍然建议加 ORDER BY，虽然 vec0 已经按距离返回
-	vecSQL += ") ORDER BY v.distance ASC"
+	vecSQL := fmt.Sprintf(
+		`WITH allowed_candidates AS MATERIALIZED (%s),
+		nearest AS MATERIALIZED (
+		 SELECT rowid, distance FROM %s
+		 WHERE embedding MATCH ? AND k = ?
+		 AND rowid IN (SELECT id FROM allowed_candidates)
+		)
+		SELECT nearest.rowid, nearest.distance, e.source_id, e.source_type,
+		 e.chunk_id, e.knowledge_id, e.knowledge_base_id, e.tag_id, e.content
+		FROM nearest JOIN lite_embeddings e ON e.id=nearest.rowid
+		ORDER BY nearest.distance ASC`, candidates, tbl)
+	args = append(args, queryBlob, params.TopK)
+	if _, protected := access.ProtectedDocumentTenant(ctx); protected {
+		// Runtime SQLite version alone is insufficient: sqlite-vec compiled
+		// against headers older than 3.38 omits IN filtering entirely. Require
+		// the actual planner's VEC0_IDXSTR_KIND_KNN_ROWID_IN ([___) contract.
+		// Unknown/changed extension plans are HOLD, never final-result fallback.
+		var plan []struct{ Detail string }
+		if err := r.db.WithContext(ctx).Raw("EXPLAIN QUERY PLAN "+vecSQL, args...).Scan(&plan).Error; err != nil {
+			return nil, err
+		}
+		preFiltered := false
+		for _, step := range plan {
+			if strings.Contains(step.Detail, "VIRTUAL TABLE INDEX") && strings.Contains(step.Detail, "[___") {
+				preFiltered = true
+			}
+		}
+		if !preFiltered {
+			return nil, fmt.Errorf("SQLite vector allow-set planner capability unavailable: HOLD")
+		}
+	}
 
 	type row struct {
 		Rowid           uint
@@ -650,6 +667,23 @@ func (r *sqliteRepository) syncFTS5Insert(db *gorm.DB, row *sqliteEmbedding) {
 type whereClause struct {
 	clause string
 	args   []interface{}
+}
+
+// The scoped path joins the authoritative owning tenant and canonical current
+// text before FTS/vector TopK. Stale index bodies, disabled/deleted chunks and
+// generated question/summary rows cannot cross this boundary.
+func documentFilterWhere(ctx context.Context, params types.RetrieveParams, alias string) []whereClause {
+	parts := buildFilterWhere(params, alias)
+	if tenant, protected := access.ProtectedDocumentTenant(ctx); protected {
+		parts = append(parts, whereClause{clause: `EXISTS (SELECT 1 FROM chunks acl_c JOIN knowledges acl_k ON acl_k.id=acl_c.knowledge_id WHERE acl_c.id=` + alias + `.chunk_id AND acl_c.knowledge_id=` + alias + `.knowledge_id AND acl_k.knowledge_base_id=` + alias + `.knowledge_base_id AND acl_c.knowledge_base_id=acl_k.knowledge_base_id AND acl_k.tenant_id=? AND acl_c.tenant_id=acl_k.tenant_id AND acl_k.deleted_at IS NULL AND acl_c.deleted_at IS NULL AND acl_k.enable_status='enabled' AND acl_k.parse_status='completed' AND acl_c.is_enabled=1 AND acl_c.chunk_type='text' AND acl_c.content=` + alias + `.content AND ` + alias + `.source_type=?)`, args: []interface{}{tenant, types.ChunkSourceType}})
+	}
+	if len(params.ExcludeKnowledgeIDs) > 0 {
+		parts = append(parts, whereClause{clause: alias + ".knowledge_id NOT IN (" + placeholders(len(params.ExcludeKnowledgeIDs)) + ")", args: toInterfaceSlice(params.ExcludeKnowledgeIDs)})
+	}
+	if len(params.ExcludeChunkIDs) > 0 {
+		parts = append(parts, whereClause{clause: alias + ".chunk_id NOT IN (" + placeholders(len(params.ExcludeChunkIDs)) + ")", args: toInterfaceSlice(params.ExcludeChunkIDs)})
+	}
+	return parts
 }
 
 func buildFilterWhere(params types.RetrieveParams, tableAlias string) []whereClause {

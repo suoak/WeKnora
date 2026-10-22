@@ -105,6 +105,27 @@ func runSync[N any](
 	}
 
 	newTimes := make(map[string]map[string]string)
+	// Retain unvisited/deferred removals in intermediate checkpoints. A crash
+	// must not acknowledge a disappearance before its access restriction commits.
+	for root, previous := range prevTimes {
+		newTimes[root] = make(map[string]string)
+		for token, edited := range previous {
+			newTimes[root][token] = edited
+		}
+	}
+	seenAnywhere := make(map[string]bool)
+	var missing []types.FetchedItem
+	configured := make(map[string]bool)
+	for _, root := range resourceIDs {
+		configured[root] = true
+	}
+	for root, previous := range prevTimes {
+		if !configured[root] {
+			for token := range previous {
+				missing = append(missing, types.FetchedItem{ExternalID: token, IsDeleted: true, SourceResourceID: root})
+			}
+		}
+	}
 	lastSync := time.Now()
 
 	processed := 0
@@ -122,7 +143,9 @@ func runSync[N any](
 			}
 		}
 
-		newTimes[resourceID] = make(map[string]string)
+		if newTimes[resourceID] == nil {
+			newTimes[resourceID] = make(map[string]string)
+		}
 		// On a partial listing, carry prior edit times forward so a later full
 		// listing can still detect changes and deletions.
 		if partial != nil && prevTimes != nil {
@@ -138,6 +161,7 @@ func runSync[N any](
 		for i, node := range nodes {
 			tok := ops.Token(node)
 			currentNodes[tok] = true
+			seenAnywhere[tok] = true
 			editTimeStr := ops.EditTime(node)
 
 			var prevEdit string
@@ -194,7 +218,10 @@ func runSync[N any](
 			processed++
 			if processed%FeishuStreamCheckpointInterval == 0 || time.Since(lastCheckpoint) >= FeishuStreamCheckpointMaxInterval {
 				if cerr := h.Checkpoint(ctx, ops.EncodeCursor(newTimes, lastSync)); cerr != nil {
-					logger.Warnf(ctx, "%s stream Checkpoint failed: %v", ops.LogTag(), cerr)
+					// A checkpoint is durable admission, not optional progress.
+					// In particular, a lost execution fence must stop further fetch,
+					// ingest and deletion before another worker owns this source.
+					return nil, fmt.Errorf("feishu sync checkpoint unconfirmed: %w", cerr)
 				}
 				lastCheckpoint = time.Now()
 			}
@@ -211,13 +238,11 @@ func runSync[N any](
 			if prev, ok := prevTimes[resourceID]; ok {
 				for tok := range prev {
 					if !currentNodes[tok] {
-						if eerr := h.Emit(ctx, types.FetchedItem{
+						missing = append(missing, types.FetchedItem{
 							ExternalID:       tok,
 							IsDeleted:        true,
 							SourceResourceID: resourceID,
-						}); eerr != nil {
-							return nil, eerr
-						}
+						})
 					}
 				}
 			}
@@ -225,6 +250,14 @@ func runSync[N any](
 		logger.Infof(ctx, "%s stream summary resource=%s %s", ops.LogTag(), resourceID, tally.summary())
 	}
 
+	for _, item := range missing {
+		if !seenAnywhere[item.ExternalID] {
+			if err := h.Emit(ctx, item); err != nil {
+				return nil, err
+			}
+		}
+		delete(newTimes[item.SourceResourceID], item.ExternalID)
+	}
 	return ops.EncodeCursor(newTimes, lastSync), nil
 }
 

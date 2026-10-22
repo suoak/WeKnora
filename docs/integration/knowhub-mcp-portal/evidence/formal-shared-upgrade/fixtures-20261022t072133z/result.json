@@ -1,0 +1,19 @@
+{
+  "exit_code": 0,
+  "synthetic_only": true,
+  "APP_image_unchanged": true,
+  "new_APP_or_port": false,
+  "new_user_prefix": "fm-",
+  "existing_users_passwords_not_reset": true,
+  "existing_private_scopes_not_expanded": true,
+  "fixture_tenants": [
+    820001,
+    820002,
+    820007,
+    820099,
+    820198
+  ],
+  "formal_model": "BLOCKED_CREDENTIAL_APPROVAL",
+  "real_Feishu": "BLOCKED_TEST_APP_APPROVAL",
+  "production_accessed": false
+}

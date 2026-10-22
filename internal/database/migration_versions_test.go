@@ -17,7 +17,8 @@ import (
 func TestMigrationDirectoriesLoad(t *testing.T) {
 	root := sqliteRepoRoot(t)
 	for _, dir := range []string{"versioned", "sqlite"} {
-		src, err := source.Open("file://" + filepath.Join(root, "migrations", dir))
+		// URL paths use slashes even when the source directory is on Windows.
+		src, err := source.Open("file://" + filepath.ToSlash(filepath.Join(root, "migrations", dir)))
 		require.NoError(t, err, "migrations/%s must load", dir)
 		require.NoError(t, src.Close())
 	}

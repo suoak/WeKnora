@@ -1,0 +1,42 @@
+{
+  "candidate_sha256": "b47025118adfc4cff2d1f75cabc6f98265a0bb9ca1ad816f409099081947f0fc",
+  "exit_code": 0,
+  "tool_gate_pass": true,
+  "actual_completed_calls": [
+    {
+      "tool": "list_knowledge_bases",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "search_knowledge",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "grep_chunks",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "list_documents",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "read_document",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "read_document",
+      "status": "failed",
+      "error": null
+    }
+  ],
+  "started_utc": "2026-10-22T01:51:27.880136+00:00",
+  "finished_utc": "2026-10-22T01:52:25.618845+00:00",
+  "copied_UI_template_used": true,
+  "credential_in_argv": false,
+  "synthetic_data": true
+}

@@ -208,6 +208,10 @@ func newFileServeHandler(
 			return
 		}
 
+		managed, allowed := legacyFilePreflight(c, resourceCatalog, tenant.ID, filePath)
+		if !allowed {
+			return
+		}
 		reader, err := fileSvc.GetFile(c.Request.Context(), filePath)
 		if err != nil {
 			logger.Warnf(c.Request.Context(), "[Router] /files get file failed: tenant_id=%d provider=%s path=%q err=%v",
@@ -217,7 +221,11 @@ func newFileServeHandler(
 		}
 
 		contentType, inline := secutils.SafeContentTypeByFilename(filePath)
-		streamStoredFile(c, reader, contentType, inline, "public, max-age=86400", "/files", filePath)
+		cache := "public, max-age=86400"
+		if managed {
+			cache = "private, no-store"
+		}
+		streamStoredFile(c, guardLegacyFileReader(c, resourceCatalog, tenant.ID, filePath, reader, managed), contentType, inline, cache, "/files", filePath)
 	}
 }
 
@@ -295,6 +303,10 @@ func serveResourceGrants(
 			c.Status(http.StatusNotFound)
 			return
 		}
+		managed, allowed := legacyFilePreflight(c, tenantService, resource.TenantID, resource.PhysicalPath)
+		if !allowed {
+			return
+		}
 		reader, err := fileSvc.GetFile(ctx, resource.PhysicalPath)
 		if err != nil {
 			c.Status(http.StatusNotFound)
@@ -306,7 +318,11 @@ func serveResourceGrants(
 			fileName = resource.PhysicalPath
 		}
 		contentType, inline := secutils.SafeContentTypeByFilename(fileName)
-		streamStoredFile(c, reader, contentType, inline, "private, max-age=300",
+		cache := "private, max-age=300"
+		if managed {
+			cache = "private, no-store"
+		}
+		streamStoredFile(c, guardLegacyFileReader(c, tenantService, resource.TenantID, resource.PhysicalPath, reader, managed), contentType, inline, cache,
 			"resource grant (resource_id="+resource.ID+")", fileName)
 	}
 	r.GET("/r/:token", handler)
@@ -445,11 +461,16 @@ func serveAuthorizedFile(c *gin.Context, file access.FileAccess, tenants interfa
 		c.Status(http.StatusBadRequest)
 		return
 	}
+	managed, allowed := legacyFilePreflight(c, tenants, file.OwnerTenantID, file.Path)
+	if !allowed {
+		return
+	}
 	reader, err := svc.GetFile(ctx, file.Path)
 	if err != nil {
 		c.Status(http.StatusNotFound)
 		return
 	}
+	reader = guardLegacyFileReader(c, tenants, file.OwnerTenantID, file.Path, reader, managed)
 	if err := filetransport.Serve(c.Writer, c.Request, reader, filetransport.Options{
 		Filename: file.Filename, CacheControl: "private, no-store",
 	}); err != nil {
@@ -607,6 +628,10 @@ func presignedFileHandler(tenantService interfaces.TenantService, absDir string,
 		// for HEAD would risk reporting 200 for a signed URL that no longer
 		// points at a real object, making subsequent GETs from the same client
 		// mysteriously fail.
+		managed, allowed := legacyFilePreflight(c, tenantService, tenantID, filePath)
+		if !allowed {
+			return
+		}
 		reader, err := fileSvc.GetFile(ctx, filePath)
 		if err != nil {
 			logger.Warnf(ctx, "[Router] /files/presigned get file failed: client_ip=%s tenant_id=%d provider=%s path=%q err=%v",
@@ -616,7 +641,11 @@ func presignedFileHandler(tenantService interfaces.TenantService, absDir string,
 		}
 
 		contentType, inline := secutils.SafeContentTypeByFilename(filePath)
-		streamStoredFile(c, reader, contentType, inline, "public, max-age=86400", "/files/presigned")
+		cache := "public, max-age=86400"
+		if managed {
+			cache = "private, no-store"
+		}
+		streamStoredFile(c, guardLegacyFileReader(c, tenantService, tenantID, filePath, reader, managed), contentType, inline, cache, "/files/presigned")
 	}
 }
 
@@ -675,6 +704,9 @@ func servePresignedPreview(
 			}
 
 			backendID, provider := parseStorageTarget(filePath)
+			if _, allowed := legacyFilePreflight(c, resourceCatalog, tenant.ID, filePath); !allowed {
+				return
+			}
 			fileSvc, resolvedProvider, err := resolveFileService(ctx, tenant, backendID, provider, absDir, storageResolver)
 			if err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{

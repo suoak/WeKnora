@@ -1,0 +1,1380 @@
+{
+  "synthetic_only": true,
+  "frames": [
+    {
+      "rpc_id": 2001,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "joint-legacy-wiki-final-c2b"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2001,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"chunks\":[{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-wiki-final-c2b\",\"knowledge_base_name\":\"Synthetic Feishu wiki\",\"knowledge_id\":\"joint-legacy-wiki-final-c2b\",\"chunk_id\":\"joint-legacy-wiki-final-c2b-chunk\",\"title\":\"RC3 synthetic baseline\",\"content\":\"rc3baselinecanary old source text\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-wiki-final-c2b:document:joint-legacy-wiki-final-c2b\",\"rank_score\":0}],\"total\":1}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2002,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "joint-legacy-wiki-final-c2b"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2002,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"chunks\":[{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-wiki-final-c2b\",\"knowledge_base_name\":\"Synthetic Feishu wiki\",\"knowledge_id\":\"joint-legacy-wiki-final-c2b\",\"chunk_id\":\"4fed0660-723a-4674-9889-464fcfdbad94\",\"title\":\"Synthetic Wiki\",\"content\":\"wiki initialcanary ordinary text\\n\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-wiki-final-c2b:document:joint-legacy-wiki-final-c2b\",\"rank_score\":0}],\"total\":1}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2003,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "keyword",
+        "limit": 30
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2003,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"results\":[{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-wiki-final-c2b\",\"knowledge_base_name\":\"Synthetic Feishu wiki\",\"knowledge_id\":\"joint-legacy-wiki-final-c2b\",\"chunk_id\":\"8aada49c-c717-424c-b359-623aa269f780\",\"title\":\"Synthetic Wiki\",\"content\":\"wiki updatedcanary ordinary linked policy\\n\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-wiki-final-c2b:document:joint-legacy-wiki-final-c2b\",\"rank_score\":0.01639344262295082}],\"searched_kbs\":6,\"failed_kbs\":0,\"status\":\"complete\"}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2004,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "semantic",
+        "limit": 30
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2004,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"results\":[{\"tenant_id\":1,\"space\":\"synthetic-1\",\"knowledge_base_id\":\"private-home\",\"knowledge_base_name\":\"private-home\",\"knowledge_id\":\"private-home-doc\",\"chunk_id\":\"private-home-chunk\",\"title\":\"PUBLIC_M5_APPROVED-private-home\",\"content\":\"PUBLIC_M5_APPROVED-private-home\",\"reference\":\"knowhub:tenant:1:kb:private-home:document:private-home-doc\",\"rank_score\":0.01639344262295082},{\"tenant_id\":1,\"space\":\"synthetic-1\",\"knowledge_base_id\":\"public-two\",\"knowledge_base_name\":\"public-two\",\"knowledge_id\":\"public-two-doc\",\"chunk_id\":\"public-two-chunk\",\"title\":\"PUBLIC_M5_APPROVED-public-two\",\"content\":\"PUBLIC_M5_APPROVED-public-two\",\"reference\":\"knowhub:tenant:1:kb:public-two:document:public-two-doc\",\"rank_score\":0.01639344262295082},{\"tenant_id\":7,\"space\":\"V1 second private\",\"knowledge_base_id\":\"private-other\",\"knowledge_base_name\":\"V1 second private\",\"knowledge_id\":\"private-other-doc\",\"chunk_id\":\"private-other-chunk\",\"title\":\"PUBLIC private second\",\"content\":\"PUBLIC private second text\",\"reference\":\"knowhub:tenant:7:kb:private-other:document:private-other-doc\",\"rank_score\":0.01639344262295082},{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-wiki-final-c2b\",\"knowledge_base_name\":\"Synthetic Feishu wiki\",\"knowledge_id\":\"joint-legacy-wiki-final-c2b\",\"chunk_id\":\"8aada49c-c717-424c-b359-623aa269f780\",\"title\":\"Synthetic Wiki\",\"content\":\"wiki updatedcanary ordinary linked policy\\n\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-wiki-final-c2b:document:joint-legacy-wiki-final-c2b\",\"rank_score\":0.01639344262295082},{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"public-kb\",\"knowledge_base_name\":\"public-kb\",\"knowledge_id\":\"public-doc\",\"chunk_id\":\"public-doc-chunk\",\"title\":\"PUBLIC_M5_APPROVED\",\"content\":\"PUBLIC ordinary Office policy manual [link omitted] [image omitted]\",\"reference\":\"knowhub:tenant:99:kb:public-kb:document:public-doc\",\"rank_score\":0.01639344262295082}],\"searched_kbs\":5,\"failed_kbs\":1,\"status\":\"partial\"}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2005,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "hybrid",
+        "limit": 30
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2005,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"results\":[{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-wiki-final-c2b\",\"knowledge_base_name\":\"Synthetic Feishu wiki\",\"knowledge_id\":\"joint-legacy-wiki-final-c2b\",\"chunk_id\":\"8aada49c-c717-424c-b359-623aa269f780\",\"title\":\"Synthetic Wiki\",\"content\":\"wiki updatedcanary ordinary linked policy\\n\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-wiki-final-c2b:document:joint-legacy-wiki-final-c2b\",\"rank_score\":0.03278688524590164},{\"tenant_id\":1,\"space\":\"synthetic-1\",\"knowledge_base_id\":\"private-home\",\"knowledge_base_name\":\"private-home\",\"knowledge_id\":\"private-home-doc\",\"chunk_id\":\"private-home-chunk\",\"title\":\"PUBLIC_M5_APPROVED-private-home\",\"content\":\"PUBLIC_M5_APPROVED-private-home\",\"reference\":\"knowhub:tenant:1:kb:private-home:document:private-home-doc\",\"rank_score\":0.01639344262295082},{\"tenant_id\":1,\"space\":\"synthetic-1\",\"knowledge_base_id\":\"public-two\",\"knowledge_base_name\":\"public-two\",\"knowledge_id\":\"public-two-doc\",\"chunk_id\":\"public-two-chunk\",\"title\":\"PUBLIC_M5_APPROVED-public-two\",\"content\":\"PUBLIC_M5_APPROVED-public-two\",\"reference\":\"knowhub:tenant:1:kb:public-two:document:public-two-doc\",\"rank_score\":0.01639344262295082},{\"tenant_id\":7,\"space\":\"V1 second private\",\"knowledge_base_id\":\"private-other\",\"knowledge_base_name\":\"V1 second private\",\"knowledge_id\":\"private-other-doc\",\"chunk_id\":\"private-other-chunk\",\"title\":\"PUBLIC private second\",\"content\":\"PUBLIC private second text\",\"reference\":\"knowhub:tenant:7:kb:private-other:document:private-other-doc\",\"rank_score\":0.01639344262295082},{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"public-kb\",\"knowledge_base_name\":\"public-kb\",\"knowledge_id\":\"public-doc\",\"chunk_id\":\"public-doc-chunk\",\"title\":\"PUBLIC_M5_APPROVED\",\"content\":\"PUBLIC ordinary Office policy manual [link omitted] [image omitted]\",\"reference\":\"knowhub:tenant:99:kb:public-kb:document:public-doc\",\"rank_score\":0.01639344262295082}],\"searched_kbs\":5,\"failed_kbs\":1,\"status\":\"partial\"}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2006,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "joint-legacy-wiki-final-c2b"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2006,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"chunks\":[{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-wiki-final-c2b\",\"knowledge_base_name\":\"Synthetic Feishu wiki\",\"knowledge_id\":\"joint-legacy-wiki-final-c2b\",\"chunk_id\":\"8aada49c-c717-424c-b359-623aa269f780\",\"title\":\"Synthetic Wiki\",\"content\":\"wiki updatedcanary ordinary linked policy\\n\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-wiki-final-c2b:document:joint-legacy-wiki-final-c2b\",\"rank_score\":0}],\"total\":1}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2007,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "joint-legacy-wiki-final-c2b"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2007,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"chunks\":[{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-wiki-final-c2b\",\"knowledge_base_name\":\"Synthetic Feishu wiki\",\"knowledge_id\":\"joint-legacy-wiki-final-c2b\",\"chunk_id\":\"8aada49c-c717-424c-b359-623aa269f780\",\"title\":\"Synthetic Wiki\",\"content\":\"wiki updatedcanary ordinary linked policy\\n\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-wiki-final-c2b:document:joint-legacy-wiki-final-c2b\",\"rank_score\":0}],\"total\":1}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2008,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "joint-legacy-wiki-final-c2b"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2008,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2009,
+      "tool": "list_documents",
+      "arguments": {
+        "knowledge_base_id": "joint-feishu-wiki-final-c2b"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2009,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2010,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "keyword",
+        "knowledge_base_ids": [
+          "joint-feishu-wiki-final-c2b"
+        ],
+        "limit": 10
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2010,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2011,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "semantic",
+        "knowledge_base_ids": [
+          "joint-feishu-wiki-final-c2b"
+        ],
+        "limit": 10
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2011,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2012,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "hybrid",
+        "knowledge_base_ids": [
+          "joint-feishu-wiki-final-c2b"
+        ],
+        "limit": 10
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2012,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2013,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "PUBLIC",
+        "mode": "hybrid",
+        "limit": 30
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2013,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"results\":[{\"tenant_id\":1,\"space\":\"synthetic-1\",\"knowledge_base_id\":\"private-home\",\"knowledge_base_name\":\"private-home\",\"knowledge_id\":\"private-home-doc\",\"chunk_id\":\"private-home-chunk\",\"title\":\"PUBLIC_M5_APPROVED-private-home\",\"content\":\"PUBLIC_M5_APPROVED-private-home\",\"reference\":\"knowhub:tenant:1:kb:private-home:document:private-home-doc\",\"rank_score\":0.03278688524590164},{\"tenant_id\":1,\"space\":\"synthetic-1\",\"knowledge_base_id\":\"public-two\",\"knowledge_base_name\":\"public-two\",\"knowledge_id\":\"public-two-doc\",\"chunk_id\":\"public-two-chunk\",\"title\":\"PUBLIC_M5_APPROVED-public-two\",\"content\":\"PUBLIC_M5_APPROVED-public-two\",\"reference\":\"knowhub:tenant:1:kb:public-two:document:public-two-doc\",\"rank_score\":0.03278688524590164},{\"tenant_id\":7,\"space\":\"V1 second private\",\"knowledge_base_id\":\"private-other\",\"knowledge_base_name\":\"V1 second private\",\"knowledge_id\":\"private-other-doc\",\"chunk_id\":\"private-other-chunk\",\"title\":\"PUBLIC private second\",\"content\":\"PUBLIC private second text\",\"reference\":\"knowhub:tenant:7:kb:private-other:document:private-other-doc\",\"rank_score\":0.03278688524590164},{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"public-kb\",\"knowledge_base_name\":\"public-kb\",\"knowledge_id\":\"public-doc\",\"chunk_id\":\"public-doc-chunk\",\"title\":\"PUBLIC_M5_APPROVED\",\"content\":\"PUBLIC ordinary Office policy manual [link omitted] [image omitted]\",\"reference\":\"knowhub:tenant:99:kb:public-kb:document:public-doc\",\"rank_score\":0.03278688524590164}],\"searched_kbs\":4,\"failed_kbs\":1,\"status\":\"partial\"}"
+            },
+            {
+              "type": "text",
+              "text": "Partial knowledge scope: one or more sources require verification or have been revoked and were excluded. Results do not cover all knowledge."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2014,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "public-two-doc"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2014,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"chunks\":[{\"tenant_id\":1,\"space\":\"synthetic-1\",\"knowledge_base_id\":\"public-two\",\"knowledge_base_name\":\"public-two\",\"knowledge_id\":\"public-two-doc\",\"chunk_id\":\"public-two-chunk\",\"title\":\"PUBLIC_M5_APPROVED-public-two\",\"content\":\"PUBLIC_M5_APPROVED-public-two\",\"reference\":\"knowhub:tenant:1:kb:public-two:document:public-two-doc\",\"rank_score\":0}],\"total\":1}"
+            },
+            {
+              "type": "text",
+              "text": "Partial knowledge scope: one or more sources require verification or have been revoked and were excluded. Results do not cover all knowledge."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2015,
+      "tool": "wiki_read_page",
+      "arguments": {
+        "slug": "concept/verified",
+        "knowledge_base_id": "public-two"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2015,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"pages\":[{\"tenant_id\":1,\"knowledge_base_id\":\"public-two\",\"slug\":\"concept/verified\",\"title\":\"verified public-two\",\"content\":\"verified public-two Wiki ordinary content\"}],\"status\":\"partial\",\"warning\":\"Some sources or generated pages are unavailable pending verified regeneration; this is not the complete knowledge scope.\",\"truncated\":true}"
+            },
+            {
+              "type": "text",
+              "text": "Partial knowledge scope: one or more sources require verification or have been revoked and were excluded. Results do not cover all knowledge."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2016,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "joint-legacy-wiki-final-c2b"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2016,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"chunks\":[{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-wiki-final-c2b\",\"knowledge_base_name\":\"Synthetic Feishu wiki\",\"knowledge_id\":\"joint-legacy-wiki-final-c2b\",\"chunk_id\":\"8aada49c-c717-424c-b359-623aa269f780\",\"title\":\"Synthetic Wiki\",\"content\":\"wiki updatedcanary ordinary linked policy\\n\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-wiki-final-c2b:document:joint-legacy-wiki-final-c2b\",\"rank_score\":0}],\"total\":1}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2017,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "joint-legacy-wiki-final-c2b"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2017,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2018,
+      "tool": "list_documents",
+      "arguments": {
+        "knowledge_base_id": "joint-feishu-wiki-final-c2b"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2018,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2019,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "keyword",
+        "knowledge_base_ids": [
+          "joint-feishu-wiki-final-c2b"
+        ],
+        "limit": 10
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2019,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2020,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "semantic",
+        "knowledge_base_ids": [
+          "joint-feishu-wiki-final-c2b"
+        ],
+        "limit": 10
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2020,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2021,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "hybrid",
+        "knowledge_base_ids": [
+          "joint-feishu-wiki-final-c2b"
+        ],
+        "limit": 10
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2021,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2022,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "PUBLIC",
+        "mode": "hybrid",
+        "limit": 30
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2022,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"results\":[{\"tenant_id\":1,\"space\":\"synthetic-1\",\"knowledge_base_id\":\"private-home\",\"knowledge_base_name\":\"private-home\",\"knowledge_id\":\"private-home-doc\",\"chunk_id\":\"private-home-chunk\",\"title\":\"PUBLIC_M5_APPROVED-private-home\",\"content\":\"PUBLIC_M5_APPROVED-private-home\",\"reference\":\"knowhub:tenant:1:kb:private-home:document:private-home-doc\",\"rank_score\":0.03278688524590164},{\"tenant_id\":1,\"space\":\"synthetic-1\",\"knowledge_base_id\":\"public-two\",\"knowledge_base_name\":\"public-two\",\"knowledge_id\":\"public-two-doc\",\"chunk_id\":\"public-two-chunk\",\"title\":\"PUBLIC_M5_APPROVED-public-two\",\"content\":\"PUBLIC_M5_APPROVED-public-two\",\"reference\":\"knowhub:tenant:1:kb:public-two:document:public-two-doc\",\"rank_score\":0.03278688524590164},{\"tenant_id\":7,\"space\":\"V1 second private\",\"knowledge_base_id\":\"private-other\",\"knowledge_base_name\":\"V1 second private\",\"knowledge_id\":\"private-other-doc\",\"chunk_id\":\"private-other-chunk\",\"title\":\"PUBLIC private second\",\"content\":\"PUBLIC private second text\",\"reference\":\"knowhub:tenant:7:kb:private-other:document:private-other-doc\",\"rank_score\":0.03278688524590164},{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"public-kb\",\"knowledge_base_name\":\"public-kb\",\"knowledge_id\":\"public-doc\",\"chunk_id\":\"public-doc-chunk\",\"title\":\"PUBLIC_M5_APPROVED\",\"content\":\"PUBLIC ordinary Office policy manual [link omitted] [image omitted]\",\"reference\":\"knowhub:tenant:99:kb:public-kb:document:public-doc\",\"rank_score\":0.03278688524590164}],\"searched_kbs\":4,\"failed_kbs\":1,\"status\":\"partial\"}"
+            },
+            {
+              "type": "text",
+              "text": "Partial knowledge scope: one or more sources require verification or have been revoked and were excluded. Results do not cover all knowledge."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2023,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "public-two-doc"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2023,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"chunks\":[{\"tenant_id\":1,\"space\":\"synthetic-1\",\"knowledge_base_id\":\"public-two\",\"knowledge_base_name\":\"public-two\",\"knowledge_id\":\"public-two-doc\",\"chunk_id\":\"public-two-chunk\",\"title\":\"PUBLIC_M5_APPROVED-public-two\",\"content\":\"PUBLIC_M5_APPROVED-public-two\",\"reference\":\"knowhub:tenant:1:kb:public-two:document:public-two-doc\",\"rank_score\":0}],\"total\":1}"
+            },
+            {
+              "type": "text",
+              "text": "Partial knowledge scope: one or more sources require verification or have been revoked and were excluded. Results do not cover all knowledge."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2024,
+      "tool": "wiki_read_page",
+      "arguments": {
+        "slug": "concept/verified",
+        "knowledge_base_id": "public-two"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2024,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"pages\":[{\"tenant_id\":1,\"knowledge_base_id\":\"public-two\",\"slug\":\"concept/verified\",\"title\":\"verified public-two\",\"content\":\"verified public-two Wiki ordinary content\"}],\"status\":\"partial\",\"warning\":\"Some sources or generated pages are unavailable pending verified regeneration; this is not the complete knowledge scope.\",\"truncated\":true}"
+            },
+            {
+              "type": "text",
+              "text": "Partial knowledge scope: one or more sources require verification or have been revoked and were excluded. Results do not cover all knowledge."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2025,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "joint-legacy-wiki-final-c2b"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2025,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"chunks\":[{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-wiki-final-c2b\",\"knowledge_base_name\":\"Synthetic Feishu wiki\",\"knowledge_id\":\"joint-legacy-wiki-final-c2b\",\"chunk_id\":\"a9c485f6-966c-4975-83ef-cae624806ab3\",\"title\":\"Synthetic Wiki\",\"content\":\"wiki updatedcanary ordinary linked policy\\n\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-wiki-final-c2b:document:joint-legacy-wiki-final-c2b\",\"rank_score\":0}],\"total\":1}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2026,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "joint-legacy-drive-final-c2b"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2026,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"chunks\":[{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-drive-final-c2b\",\"knowledge_base_name\":\"Synthetic Feishu drive\",\"knowledge_id\":\"joint-legacy-drive-final-c2b\",\"chunk_id\":\"joint-legacy-drive-final-c2b-chunk\",\"title\":\"RC3 synthetic baseline\",\"content\":\"rc3baselinecanary old source text\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-drive-final-c2b:document:joint-legacy-drive-final-c2b\",\"rank_score\":0}],\"total\":1}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2027,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "joint-legacy-drive-final-c2b"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2027,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"chunks\":[{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-drive-final-c2b\",\"knowledge_base_name\":\"Synthetic Feishu drive\",\"knowledge_id\":\"joint-legacy-drive-final-c2b\",\"chunk_id\":\"35fca15f-701b-4a9d-9912-e7bbc9388fe7\",\"title\":\"Synthetic Drive\",\"content\":\"drive initialcanary ordinary text\\n\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-drive-final-c2b:document:joint-legacy-drive-final-c2b\",\"rank_score\":0}],\"total\":1}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2028,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "keyword",
+        "limit": 30
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2028,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"results\":[{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-drive-final-c2b\",\"knowledge_base_name\":\"Synthetic Feishu drive\",\"knowledge_id\":\"joint-legacy-drive-final-c2b\",\"chunk_id\":\"cdd9c99f-ba15-4d9c-b74d-e7388d53ee52\",\"title\":\"Synthetic Drive\",\"content\":\"drive updatedcanary ordinary linked policy\\n\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-drive-final-c2b:document:joint-legacy-drive-final-c2b\",\"rank_score\":0.01639344262295082},{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-wiki-final-c2b\",\"knowledge_base_name\":\"Synthetic Feishu wiki\",\"knowledge_id\":\"joint-legacy-wiki-final-c2b\",\"chunk_id\":\"a9c485f6-966c-4975-83ef-cae624806ab3\",\"title\":\"Synthetic Wiki\",\"content\":\"wiki updatedcanary ordinary linked policy\\n\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-wiki-final-c2b:document:joint-legacy-wiki-final-c2b\",\"rank_score\":0.01639344262295082}],\"searched_kbs\":7,\"failed_kbs\":0,\"status\":\"complete\"}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2029,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "semantic",
+        "limit": 30
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2029,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"results\":[{\"tenant_id\":1,\"space\":\"synthetic-1\",\"knowledge_base_id\":\"private-home\",\"knowledge_base_name\":\"private-home\",\"knowledge_id\":\"private-home-doc\",\"chunk_id\":\"private-home-chunk\",\"title\":\"PUBLIC_M5_APPROVED-private-home\",\"content\":\"PUBLIC_M5_APPROVED-private-home\",\"reference\":\"knowhub:tenant:1:kb:private-home:document:private-home-doc\",\"rank_score\":0.01639344262295082},{\"tenant_id\":1,\"space\":\"synthetic-1\",\"knowledge_base_id\":\"public-two\",\"knowledge_base_name\":\"public-two\",\"knowledge_id\":\"public-two-doc\",\"chunk_id\":\"public-two-chunk\",\"title\":\"PUBLIC_M5_APPROVED-public-two\",\"content\":\"PUBLIC_M5_APPROVED-public-two\",\"reference\":\"knowhub:tenant:1:kb:public-two:document:public-two-doc\",\"rank_score\":0.01639344262295082},{\"tenant_id\":7,\"space\":\"V1 second private\",\"knowledge_base_id\":\"private-other\",\"knowledge_base_name\":\"V1 second private\",\"knowledge_id\":\"private-other-doc\",\"chunk_id\":\"private-other-chunk\",\"title\":\"PUBLIC private second\",\"content\":\"PUBLIC private second text\",\"reference\":\"knowhub:tenant:7:kb:private-other:document:private-other-doc\",\"rank_score\":0.01639344262295082},{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-drive-final-c2b\",\"knowledge_base_name\":\"Synthetic Feishu drive\",\"knowledge_id\":\"joint-legacy-drive-final-c2b\",\"chunk_id\":\"cdd9c99f-ba15-4d9c-b74d-e7388d53ee52\",\"title\":\"Synthetic Drive\",\"content\":\"drive updatedcanary ordinary linked policy\\n\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-drive-final-c2b:document:joint-legacy-drive-final-c2b\",\"rank_score\":0.01639344262295082},{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-wiki-final-c2b\",\"knowledge_base_name\":\"Synthetic Feishu wiki\",\"knowledge_id\":\"joint-legacy-wiki-final-c2b\",\"chunk_id\":\"a9c485f6-966c-4975-83ef-cae624806ab3\",\"title\":\"Synthetic Wiki\",\"content\":\"wiki updatedcanary ordinary linked policy\\n\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-wiki-final-c2b:document:joint-legacy-wiki-final-c2b\",\"rank_score\":0.01639344262295082},{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"public-kb\",\"knowledge_base_name\":\"public-kb\",\"knowledge_id\":\"public-doc\",\"chunk_id\":\"public-doc-chunk\",\"title\":\"PUBLIC_M5_APPROVED\",\"content\":\"PUBLIC ordinary Office policy manual [link omitted] [image omitted]\",\"reference\":\"knowhub:tenant:99:kb:public-kb:document:public-doc\",\"rank_score\":0.01639344262295082}],\"searched_kbs\":6,\"failed_kbs\":1,\"status\":\"partial\"}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2030,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "hybrid",
+        "limit": 30
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2030,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"results\":[{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-drive-final-c2b\",\"knowledge_base_name\":\"Synthetic Feishu drive\",\"knowledge_id\":\"joint-legacy-drive-final-c2b\",\"chunk_id\":\"cdd9c99f-ba15-4d9c-b74d-e7388d53ee52\",\"title\":\"Synthetic Drive\",\"content\":\"drive updatedcanary ordinary linked policy\\n\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-drive-final-c2b:document:joint-legacy-drive-final-c2b\",\"rank_score\":0.03278688524590164},{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-wiki-final-c2b\",\"knowledge_base_name\":\"Synthetic Feishu wiki\",\"knowledge_id\":\"joint-legacy-wiki-final-c2b\",\"chunk_id\":\"a9c485f6-966c-4975-83ef-cae624806ab3\",\"title\":\"Synthetic Wiki\",\"content\":\"wiki updatedcanary ordinary linked policy\\n\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-wiki-final-c2b:document:joint-legacy-wiki-final-c2b\",\"rank_score\":0.03278688524590164},{\"tenant_id\":1,\"space\":\"synthetic-1\",\"knowledge_base_id\":\"private-home\",\"knowledge_base_name\":\"private-home\",\"knowledge_id\":\"private-home-doc\",\"chunk_id\":\"private-home-chunk\",\"title\":\"PUBLIC_M5_APPROVED-private-home\",\"content\":\"PUBLIC_M5_APPROVED-private-home\",\"reference\":\"knowhub:tenant:1:kb:private-home:document:private-home-doc\",\"rank_score\":0.01639344262295082},{\"tenant_id\":1,\"space\":\"synthetic-1\",\"knowledge_base_id\":\"public-two\",\"knowledge_base_name\":\"public-two\",\"knowledge_id\":\"public-two-doc\",\"chunk_id\":\"public-two-chunk\",\"title\":\"PUBLIC_M5_APPROVED-public-two\",\"content\":\"PUBLIC_M5_APPROVED-public-two\",\"reference\":\"knowhub:tenant:1:kb:public-two:document:public-two-doc\",\"rank_score\":0.01639344262295082},{\"tenant_id\":7,\"space\":\"V1 second private\",\"knowledge_base_id\":\"private-other\",\"knowledge_base_name\":\"V1 second private\",\"knowledge_id\":\"private-other-doc\",\"chunk_id\":\"private-other-chunk\",\"title\":\"PUBLIC private second\",\"content\":\"PUBLIC private second text\",\"reference\":\"knowhub:tenant:7:kb:private-other:document:private-other-doc\",\"rank_score\":0.01639344262295082},{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"public-kb\",\"knowledge_base_name\":\"public-kb\",\"knowledge_id\":\"public-doc\",\"chunk_id\":\"public-doc-chunk\",\"title\":\"PUBLIC_M5_APPROVED\",\"content\":\"PUBLIC ordinary Office policy manual [link omitted] [image omitted]\",\"reference\":\"knowhub:tenant:99:kb:public-kb:document:public-doc\",\"rank_score\":0.01639344262295082}],\"searched_kbs\":6,\"failed_kbs\":1,\"status\":\"partial\"}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2031,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "joint-legacy-drive-final-c2b"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2031,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"chunks\":[{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-drive-final-c2b\",\"knowledge_base_name\":\"Synthetic Feishu drive\",\"knowledge_id\":\"joint-legacy-drive-final-c2b\",\"chunk_id\":\"cdd9c99f-ba15-4d9c-b74d-e7388d53ee52\",\"title\":\"Synthetic Drive\",\"content\":\"drive updatedcanary ordinary linked policy\\n\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-drive-final-c2b:document:joint-legacy-drive-final-c2b\",\"rank_score\":0}],\"total\":1}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2032,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "joint-legacy-drive-final-c2b"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2032,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"chunks\":[{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-drive-final-c2b\",\"knowledge_base_name\":\"Synthetic Feishu drive\",\"knowledge_id\":\"joint-legacy-drive-final-c2b\",\"chunk_id\":\"cdd9c99f-ba15-4d9c-b74d-e7388d53ee52\",\"title\":\"Synthetic Drive\",\"content\":\"drive updatedcanary ordinary linked policy\\n\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-drive-final-c2b:document:joint-legacy-drive-final-c2b\",\"rank_score\":0}],\"total\":1}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2033,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "joint-legacy-drive-final-c2b"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2033,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2034,
+      "tool": "list_documents",
+      "arguments": {
+        "knowledge_base_id": "joint-feishu-drive-final-c2b"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2034,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2035,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "keyword",
+        "knowledge_base_ids": [
+          "joint-feishu-drive-final-c2b"
+        ],
+        "limit": 10
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2035,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2036,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "semantic",
+        "knowledge_base_ids": [
+          "joint-feishu-drive-final-c2b"
+        ],
+        "limit": 10
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2036,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2037,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "hybrid",
+        "knowledge_base_ids": [
+          "joint-feishu-drive-final-c2b"
+        ],
+        "limit": 10
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2037,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2038,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "PUBLIC",
+        "mode": "hybrid",
+        "limit": 30
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2038,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"results\":[{\"tenant_id\":1,\"space\":\"synthetic-1\",\"knowledge_base_id\":\"private-home\",\"knowledge_base_name\":\"private-home\",\"knowledge_id\":\"private-home-doc\",\"chunk_id\":\"private-home-chunk\",\"title\":\"PUBLIC_M5_APPROVED-private-home\",\"content\":\"PUBLIC_M5_APPROVED-private-home\",\"reference\":\"knowhub:tenant:1:kb:private-home:document:private-home-doc\",\"rank_score\":0.03278688524590164},{\"tenant_id\":1,\"space\":\"synthetic-1\",\"knowledge_base_id\":\"public-two\",\"knowledge_base_name\":\"public-two\",\"knowledge_id\":\"public-two-doc\",\"chunk_id\":\"public-two-chunk\",\"title\":\"PUBLIC_M5_APPROVED-public-two\",\"content\":\"PUBLIC_M5_APPROVED-public-two\",\"reference\":\"knowhub:tenant:1:kb:public-two:document:public-two-doc\",\"rank_score\":0.03278688524590164},{\"tenant_id\":7,\"space\":\"V1 second private\",\"knowledge_base_id\":\"private-other\",\"knowledge_base_name\":\"V1 second private\",\"knowledge_id\":\"private-other-doc\",\"chunk_id\":\"private-other-chunk\",\"title\":\"PUBLIC private second\",\"content\":\"PUBLIC private second text\",\"reference\":\"knowhub:tenant:7:kb:private-other:document:private-other-doc\",\"rank_score\":0.03278688524590164},{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"public-kb\",\"knowledge_base_name\":\"public-kb\",\"knowledge_id\":\"public-doc\",\"chunk_id\":\"public-doc-chunk\",\"title\":\"PUBLIC_M5_APPROVED\",\"content\":\"PUBLIC ordinary Office policy manual [link omitted] [image omitted]\",\"reference\":\"knowhub:tenant:99:kb:public-kb:document:public-doc\",\"rank_score\":0.03278688524590164},{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-wiki-final-c2b\",\"knowledge_base_name\":\"Synthetic Feishu wiki\",\"knowledge_id\":\"joint-legacy-wiki-final-c2b\",\"chunk_id\":\"a9c485f6-966c-4975-83ef-cae624806ab3\",\"title\":\"Synthetic Wiki\",\"content\":\"wiki updatedcanary ordinary linked policy\\n\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-wiki-final-c2b:document:joint-legacy-wiki-final-c2b\",\"rank_score\":0.01639344262295082}],\"searched_kbs\":5,\"failed_kbs\":1,\"status\":\"partial\"}"
+            },
+            {
+              "type": "text",
+              "text": "Partial knowledge scope: one or more sources require verification or have been revoked and were excluded. Results do not cover all knowledge."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2039,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "public-two-doc"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2039,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"chunks\":[{\"tenant_id\":1,\"space\":\"synthetic-1\",\"knowledge_base_id\":\"public-two\",\"knowledge_base_name\":\"public-two\",\"knowledge_id\":\"public-two-doc\",\"chunk_id\":\"public-two-chunk\",\"title\":\"PUBLIC_M5_APPROVED-public-two\",\"content\":\"PUBLIC_M5_APPROVED-public-two\",\"reference\":\"knowhub:tenant:1:kb:public-two:document:public-two-doc\",\"rank_score\":0}],\"total\":1}"
+            },
+            {
+              "type": "text",
+              "text": "Partial knowledge scope: one or more sources require verification or have been revoked and were excluded. Results do not cover all knowledge."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2040,
+      "tool": "wiki_read_page",
+      "arguments": {
+        "slug": "concept/verified",
+        "knowledge_base_id": "public-two"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2040,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"pages\":[{\"tenant_id\":1,\"knowledge_base_id\":\"public-two\",\"slug\":\"concept/verified\",\"title\":\"verified public-two\",\"content\":\"verified public-two Wiki ordinary content\"}],\"status\":\"partial\",\"warning\":\"Some sources or generated pages are unavailable pending verified regeneration; this is not the complete knowledge scope.\",\"truncated\":true}"
+            },
+            {
+              "type": "text",
+              "text": "Partial knowledge scope: one or more sources require verification or have been revoked and were excluded. Results do not cover all knowledge."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2041,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "joint-legacy-drive-final-c2b"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2041,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"chunks\":[{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-drive-final-c2b\",\"knowledge_base_name\":\"Synthetic Feishu drive\",\"knowledge_id\":\"joint-legacy-drive-final-c2b\",\"chunk_id\":\"cdd9c99f-ba15-4d9c-b74d-e7388d53ee52\",\"title\":\"Synthetic Drive\",\"content\":\"drive updatedcanary ordinary linked policy\\n\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-drive-final-c2b:document:joint-legacy-drive-final-c2b\",\"rank_score\":0}],\"total\":1}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2042,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "joint-legacy-drive-final-c2b"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2042,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2043,
+      "tool": "list_documents",
+      "arguments": {
+        "knowledge_base_id": "joint-feishu-drive-final-c2b"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2043,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2044,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "keyword",
+        "knowledge_base_ids": [
+          "joint-feishu-drive-final-c2b"
+        ],
+        "limit": 10
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2044,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2045,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "semantic",
+        "knowledge_base_ids": [
+          "joint-feishu-drive-final-c2b"
+        ],
+        "limit": 10
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2045,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2046,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "hybrid",
+        "knowledge_base_ids": [
+          "joint-feishu-drive-final-c2b"
+        ],
+        "limit": 10
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2046,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2047,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "PUBLIC",
+        "mode": "hybrid",
+        "limit": 30
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2047,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"results\":[{\"tenant_id\":1,\"space\":\"synthetic-1\",\"knowledge_base_id\":\"private-home\",\"knowledge_base_name\":\"private-home\",\"knowledge_id\":\"private-home-doc\",\"chunk_id\":\"private-home-chunk\",\"title\":\"PUBLIC_M5_APPROVED-private-home\",\"content\":\"PUBLIC_M5_APPROVED-private-home\",\"reference\":\"knowhub:tenant:1:kb:private-home:document:private-home-doc\",\"rank_score\":0.03278688524590164},{\"tenant_id\":1,\"space\":\"synthetic-1\",\"knowledge_base_id\":\"public-two\",\"knowledge_base_name\":\"public-two\",\"knowledge_id\":\"public-two-doc\",\"chunk_id\":\"public-two-chunk\",\"title\":\"PUBLIC_M5_APPROVED-public-two\",\"content\":\"PUBLIC_M5_APPROVED-public-two\",\"reference\":\"knowhub:tenant:1:kb:public-two:document:public-two-doc\",\"rank_score\":0.03278688524590164},{\"tenant_id\":7,\"space\":\"V1 second private\",\"knowledge_base_id\":\"private-other\",\"knowledge_base_name\":\"V1 second private\",\"knowledge_id\":\"private-other-doc\",\"chunk_id\":\"private-other-chunk\",\"title\":\"PUBLIC private second\",\"content\":\"PUBLIC private second text\",\"reference\":\"knowhub:tenant:7:kb:private-other:document:private-other-doc\",\"rank_score\":0.03278688524590164},{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"public-kb\",\"knowledge_base_name\":\"public-kb\",\"knowledge_id\":\"public-doc\",\"chunk_id\":\"public-doc-chunk\",\"title\":\"PUBLIC_M5_APPROVED\",\"content\":\"PUBLIC ordinary Office policy manual [link omitted] [image omitted]\",\"reference\":\"knowhub:tenant:99:kb:public-kb:document:public-doc\",\"rank_score\":0.03278688524590164},{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-wiki-final-c2b\",\"knowledge_base_name\":\"Synthetic Feishu wiki\",\"knowledge_id\":\"joint-legacy-wiki-final-c2b\",\"chunk_id\":\"a9c485f6-966c-4975-83ef-cae624806ab3\",\"title\":\"Synthetic Wiki\",\"content\":\"wiki updatedcanary ordinary linked policy\\n\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-wiki-final-c2b:document:joint-legacy-wiki-final-c2b\",\"rank_score\":0.01639344262295082}],\"searched_kbs\":5,\"failed_kbs\":1,\"status\":\"partial\"}"
+            },
+            {
+              "type": "text",
+              "text": "Partial knowledge scope: one or more sources require verification or have been revoked and were excluded. Results do not cover all knowledge."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2048,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "public-two-doc"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2048,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"chunks\":[{\"tenant_id\":1,\"space\":\"synthetic-1\",\"knowledge_base_id\":\"public-two\",\"knowledge_base_name\":\"public-two\",\"knowledge_id\":\"public-two-doc\",\"chunk_id\":\"public-two-chunk\",\"title\":\"PUBLIC_M5_APPROVED-public-two\",\"content\":\"PUBLIC_M5_APPROVED-public-two\",\"reference\":\"knowhub:tenant:1:kb:public-two:document:public-two-doc\",\"rank_score\":0}],\"total\":1}"
+            },
+            {
+              "type": "text",
+              "text": "Partial knowledge scope: one or more sources require verification or have been revoked and were excluded. Results do not cover all knowledge."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2049,
+      "tool": "wiki_read_page",
+      "arguments": {
+        "slug": "concept/verified",
+        "knowledge_base_id": "public-two"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2049,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"pages\":[{\"tenant_id\":1,\"knowledge_base_id\":\"public-two\",\"slug\":\"concept/verified\",\"title\":\"verified public-two\",\"content\":\"verified public-two Wiki ordinary content\"}],\"status\":\"partial\",\"warning\":\"Some sources or generated pages are unavailable pending verified regeneration; this is not the complete knowledge scope.\",\"truncated\":true}"
+            },
+            {
+              "type": "text",
+              "text": "Partial knowledge scope: one or more sources require verification or have been revoked and were excluded. Results do not cover all knowledge."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2050,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "joint-legacy-drive-final-c2b"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2050,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"chunks\":[{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-drive-final-c2b\",\"knowledge_base_name\":\"Synthetic Feishu drive\",\"knowledge_id\":\"joint-legacy-drive-final-c2b\",\"chunk_id\":\"48190f78-1a8f-478f-9df0-2f87151677d4\",\"title\":\"Synthetic Drive\",\"content\":\"drive updatedcanary ordinary linked policy\\n\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-drive-final-c2b:document:joint-legacy-drive-final-c2b\",\"rank_score\":0}],\"total\":1}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2051,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "joint-legacy-drive-final-c2b"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2051,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2052,
+      "tool": "list_documents",
+      "arguments": {
+        "knowledge_base_id": "joint-feishu-drive-final-c2b"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2052,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2053,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "keyword",
+        "knowledge_base_ids": [
+          "joint-feishu-drive-final-c2b"
+        ],
+        "limit": 10
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2053,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2054,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "semantic",
+        "knowledge_base_ids": [
+          "joint-feishu-drive-final-c2b"
+        ],
+        "limit": 10
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2054,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2055,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "updatedcanary",
+        "mode": "hybrid",
+        "knowledge_base_ids": [
+          "joint-feishu-drive-final-c2b"
+        ],
+        "limit": 10
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2055,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2056,
+      "tool": "search_knowledge",
+      "arguments": {
+        "query": "PUBLIC",
+        "mode": "hybrid",
+        "limit": 30
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2056,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"results\":[{\"tenant_id\":1,\"space\":\"synthetic-1\",\"knowledge_base_id\":\"private-home\",\"knowledge_base_name\":\"private-home\",\"knowledge_id\":\"private-home-doc\",\"chunk_id\":\"private-home-chunk\",\"title\":\"PUBLIC_M5_APPROVED-private-home\",\"content\":\"PUBLIC_M5_APPROVED-private-home\",\"reference\":\"knowhub:tenant:1:kb:private-home:document:private-home-doc\",\"rank_score\":0.03278688524590164},{\"tenant_id\":1,\"space\":\"synthetic-1\",\"knowledge_base_id\":\"public-two\",\"knowledge_base_name\":\"public-two\",\"knowledge_id\":\"public-two-doc\",\"chunk_id\":\"public-two-chunk\",\"title\":\"PUBLIC_M5_APPROVED-public-two\",\"content\":\"PUBLIC_M5_APPROVED-public-two\",\"reference\":\"knowhub:tenant:1:kb:public-two:document:public-two-doc\",\"rank_score\":0.03278688524590164},{\"tenant_id\":7,\"space\":\"V1 second private\",\"knowledge_base_id\":\"private-other\",\"knowledge_base_name\":\"V1 second private\",\"knowledge_id\":\"private-other-doc\",\"chunk_id\":\"private-other-chunk\",\"title\":\"PUBLIC private second\",\"content\":\"PUBLIC private second text\",\"reference\":\"knowhub:tenant:7:kb:private-other:document:private-other-doc\",\"rank_score\":0.03278688524590164},{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"public-kb\",\"knowledge_base_name\":\"public-kb\",\"knowledge_id\":\"public-doc\",\"chunk_id\":\"public-doc-chunk\",\"title\":\"PUBLIC_M5_APPROVED\",\"content\":\"PUBLIC ordinary Office policy manual [link omitted] [image omitted]\",\"reference\":\"knowhub:tenant:99:kb:public-kb:document:public-doc\",\"rank_score\":0.03278688524590164},{\"tenant_id\":99,\"space\":\"synthetic-99\",\"knowledge_base_id\":\"joint-feishu-wiki-final-c2b\",\"knowledge_base_name\":\"Synthetic Feishu wiki\",\"knowledge_id\":\"joint-legacy-wiki-final-c2b\",\"chunk_id\":\"a9c485f6-966c-4975-83ef-cae624806ab3\",\"title\":\"Synthetic Wiki\",\"content\":\"wiki updatedcanary ordinary linked policy\\n\",\"reference\":\"knowhub:tenant:99:kb:joint-feishu-wiki-final-c2b:document:joint-legacy-wiki-final-c2b\",\"rank_score\":0.01639344262295082}],\"searched_kbs\":5,\"failed_kbs\":1,\"status\":\"partial\"}"
+            },
+            {
+              "type": "text",
+              "text": "Partial knowledge scope: one or more sources require verification or have been revoked and were excluded. Results do not cover all knowledge."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2057,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "public-two-doc"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2057,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"chunks\":[{\"tenant_id\":1,\"space\":\"synthetic-1\",\"knowledge_base_id\":\"public-two\",\"knowledge_base_name\":\"public-two\",\"knowledge_id\":\"public-two-doc\",\"chunk_id\":\"public-two-chunk\",\"title\":\"PUBLIC_M5_APPROVED-public-two\",\"content\":\"PUBLIC_M5_APPROVED-public-two\",\"reference\":\"knowhub:tenant:1:kb:public-two:document:public-two-doc\",\"rank_score\":0}],\"total\":1}"
+            },
+            {
+              "type": "text",
+              "text": "Partial knowledge scope: one or more sources require verification or have been revoked and were excluded. Results do not cover all knowledge."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2058,
+      "tool": "wiki_read_page",
+      "arguments": {
+        "slug": "concept/verified",
+        "knowledge_base_id": "public-two"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2058,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"pages\":[{\"tenant_id\":1,\"knowledge_base_id\":\"public-two\",\"slug\":\"concept/verified\",\"title\":\"verified public-two\",\"content\":\"verified public-two Wiki ordinary content\"}],\"status\":\"partial\",\"warning\":\"Some sources or generated pages are unavailable pending verified regeneration; this is not the complete knowledge scope.\",\"truncated\":true}"
+            },
+            {
+              "type": "text",
+              "text": "Partial knowledge scope: one or more sources require verification or have been revoked and were excluded. Results do not cover all knowledge."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rpc_id": 2059,
+      "tool": "read_document",
+      "arguments": {
+        "knowledge_id": "joint-legacy-drive-final-c2b"
+      },
+      "http_status": 200,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2059,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "resource denied or unavailable"
+            }
+          ],
+          "isError": true
+        }
+      }
+    },
+    {
+      "rpc_id": 2060,
+      "tool": "list_knowledge_bases",
+      "arguments": {},
+      "http_status": 401,
+      "response": null
+    }
+  ]
+}

@@ -12,6 +12,14 @@ import {
 
 const NOW = Date.parse('2026-09-22T00:00:00Z')
 
+test('reconnect preserves explicit dynamic mode and never upgrades a historical credential', () => {
+  const dynamic = credentialToReconnectPayload(credential({ personal_scope_mode: 'dynamic_all', tenant_scopes: [{ tenant_id: 11, kb_scope_mode: 'all', knowledge_bases: [] }], expires_at: undefined }), NOW)
+  assert.equal(dynamic.personal_scope_mode, 'dynamic_all')
+  const historical = credentialToReconnectPayload(credential({ expires_at: undefined }), NOW)
+  assert.equal(historical.personal_scope_mode, undefined)
+  assert.equal(historical.tenant_scopes[0].kb_scope_mode, 'selected')
+})
+
 function credential(overrides: Partial<MCPAccessKey> = {}): MCPAccessKey {
   return {
     id: 7,

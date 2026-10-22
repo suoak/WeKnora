@@ -1,0 +1,17 @@
+{
+  "exit_code": 0,
+  "candidate_sha256": "0a7374bbbdbd8c4a802733811ad3ecbeb70293ba33b89eefa9bd05c36ecbd371",
+  "checks": {
+    "eight_readonly_tools_public_private_union_and_denials": "PASS",
+    "public_without_membership_or_duplicate_KB_approval": "PASS",
+    "Wiki_all_sources_slug_ambiguity_and_no_index_writes": "PASS",
+    "dynamic_future_private_join_and_revoke_fixed_and_other_user_unchanged": "PASS",
+    "Portal_new_publication_dynamic_discovery_withdrawal_preserves_private": "PASS",
+    "infinite_expiry_encrypted_owner_reveal_rotate_revoke": "PASS"
+  },
+  "actual_shared_APP_and_80_entry": true,
+  "synthetic_only": true,
+  "real_SID": "NOT_REPEATED",
+  "formal_model": "BLOCKED_CREDENTIAL_APPROVAL",
+  "cloud_Feishu": "BLOCKED_TEST_APPLICATION_APPROVAL"
+}

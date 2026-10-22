@@ -1,0 +1,13 @@
+{
+  "image_id": "sha256:d5c17d6b2d7c84ff463453a3f6809b4b921c97c621d83d3ce7f73d9fcd1fb1b8",
+  "schema": 3037,
+  "candidate_sha256": "bf199466752a3a1d75540355dc1fee9fb7f6bdef338c4ad0b62a49485b151661",
+  "proof_sha256": "8463edab22a54eb6f5f309bc02a0a295981b5a2285fa0fae2fef8bd7411e31f9",
+  "admission": {
+    "admitted": true,
+    "image_id": "sha256:d5c17d6b2d7c84ff463453a3f6809b4b921c97c621d83d3ce7f73d9fcd1fb1b8",
+    "schema": 3037,
+    "down_migration_allowed": false,
+    "limitation": "admission is not production deployment authorization"
+  }
+}

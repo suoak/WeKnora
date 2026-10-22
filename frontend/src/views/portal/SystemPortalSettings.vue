@@ -4,7 +4,7 @@
     <main><div class="title"><div><span>{{ t('portal.admin.eyebrow') }}</span><h1>{{ t('portal.admin.title') }}</h1><p>{{ t('portal.admin.description') }}</p></div><t-button variant="outline" :loading="loading" @click="load">{{ t('portal.admin.refresh') }}</t-button></div>
       <div class="layout">
         <aside><button v-for="space in spaces" :key="space.tenant_id" :class="{active:space.tenant_id===selectedId}" @click="selectedId=space.tenant_id"><span><strong>{{ space.tenant_name }}</strong><small>{{ space.display_name||t('portal.admin.unconfigured') }}</small></span><t-tag size="small" :theme="space.status==='published'?'success':'default'">{{ t(`portal.admin.statuses.${space.status}`) }}</t-tag></button></aside>
-        <PortalConfigEditor :config="selected" :stages="stages" :organizations="organizations" :saving="saving" :transitioning="transitioning" @save="save" @status="setStatus" />
+        <div><PortalConfigEditor :config="selected" :stages="stages" :organizations="organizations" :saving="saving" :transitioning="transitioning" @save="save" @status="setStatus" /><PortalKnowledgePublication v-if="selectedId" :tenant-id="selectedId" /></div>
       </div>
     </main>
   </div>
@@ -15,6 +15,7 @@ import { useI18n } from 'vue-i18n'
 import { MessagePlugin } from 'tdesign-vue-next'
 import UserMenu from '@/components/UserMenu.vue'
 import PortalConfigEditor from '@/components/portal/PortalConfigEditor.vue'
+import PortalKnowledgePublication from '@/components/portal/PortalPublicKnowledge.vue'
 import { listAdminPortalSpaces,listPortalOrganizationOptions,listPortalStages,transitionAdminPortalStatus,updateAdminPortalConfig,type PortalAdminSpace,type PortalConfigPayload,type PortalOrganizationOption,type PortalStage } from '@/api/portal'
 import { usePortalStore } from '@/stores/portal'
 const spaces=ref<PortalAdminSpace[]>([]),stages=ref<PortalStage[]>([]),organizations=ref<PortalOrganizationOption[]>([])

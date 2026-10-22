@@ -1,0 +1,18 @@
+{
+  "files": {
+    ".github/workflows/docker-image.yml": "4a1ce856f15bc14cdec7204d079fd98190e16f6033289d80617fb0151944013c",
+    ".github/workflows/mcp-server.yml": "352cbcf405b0945f981ffadb79e8d7afb4776b58ffdbc10d1eaefbdb75acbb4e"
+  },
+  "Docker_publishing_jobs_guarded": [
+    "build-ui",
+    "build-docreader",
+    "build-sandbox",
+    "build-app",
+    "merge"
+  ],
+  "variable_on_repository": "UNSET_verified_HTTP404",
+  "fork_default_publishing": false,
+  "APP_Frontend_test_CI_changed": false,
+  "production_or_repository_variable_changed": false,
+  "tested_runtime_source_changed": false
+}

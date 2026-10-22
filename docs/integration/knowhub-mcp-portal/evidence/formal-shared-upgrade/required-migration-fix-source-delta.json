@@ -1,0 +1,24 @@
+{
+  "base_candidate_sha256": "c2f260317fc151fbab98d9e87b2fe5c9acbd903dd4be2e857e0326565d390d75",
+  "runtime_before": "b702755c033328560bbb28802c93a3a1abce31a43352870b43d8f1fee2d74cdb",
+  "runtime_after": "090216bc1a7d0c547235df30eef6f425050b9260fadba9791329b6c267a24783",
+  "changes": [
+    {
+      "path": "internal/application/repository/feishu_legacy_migration_test.go",
+      "before_sha256": "2c3125cd8a09f4bf59a161bee28d99bc3347468961ca1666250abf00c606363b",
+      "after_sha256": "2d470c8688babb513edc0e630156385957d2e6663f2e9746fded4c40d93c71b5"
+    },
+    {
+      "path": "migrations/sqlite/003037_personal_dynamic_wiki.up.sql",
+      "before_sha256": "b5c97fefae56b3611c429ec765803693562df5403d13fdb6ca00de4653c04d52",
+      "after_sha256": "7e88ba21fae6b6bd4ad261c9ca569d47593764a26f04daf9fd05db5ddf7d4e86"
+    },
+    {
+      "path": "migrations/versioned/003037_personal_dynamic_wiki.up.sql",
+      "before_sha256": "f6fddc5921ac5cd57ef641a64141573e60118e36a556a173679cc19b5c4d5a36",
+      "after_sha256": "e4b7199a9cd282f38bf43f33ba5975dd8f5b8d61ae955ac214434be807659024"
+    }
+  ],
+  "frozen_c2_modified": false,
+  "reason": "real restored P3 database has multiple Wiki pages per KB; DISTINCT random expression violates epoch PK"
+}

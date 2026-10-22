@@ -1,0 +1,90 @@
+[
+  {
+    "name": "create-clone",
+    "argv": [
+      "docker",
+      "exec",
+      "-u",
+      "postgres",
+      "WeKnora-postgres",
+      "psql",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-U",
+      "postgres",
+      "-d",
+      "postgres",
+      "-c",
+      "CREATE DATABASE knowhub_formal_denial_restore_20261022t072133z TEMPLATE template0"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "restore-revoked-test-clone",
+    "argv": [
+      "docker",
+      "exec",
+      "-i",
+      "-u",
+      "postgres",
+      "WeKnora-postgres",
+      "pg_restore",
+      "-U",
+      "postgres",
+      "-d",
+      "knowhub_formal_denial_restore_20261022t072133z"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "clone-test-files",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "none",
+      "-v",
+      "weknora_data-files:/old:ro",
+      "-v",
+      "kh-formal-20261022t072133z_safe_rollback_files:/new",
+      "knowhub-build/golang:1.26-feishu-py311-ensurepip-20261022",
+      "sh",
+      "-c",
+      "cp -a /old/. /new/"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "start-private-redis",
+    "argv": [
+      "docker",
+      "run",
+      "-d",
+      "--name",
+      "kh-rb-redis-0a7374bbbdbd",
+      "--label",
+      "knowhub.next=safe-rollback",
+      "--network",
+      "weknora_WeKnora-network",
+      "redis:7.0-alpine",
+      "redis-server",
+      "--save",
+      "",
+      "--appendonly",
+      "no"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "cleanup-stop-kh-rb-redis-0a7374bbbdbd",
+    "argv": [
+      "docker",
+      "stop",
+      "--time",
+      "5",
+      "kh-rb-redis-0a7374bbbdbd"
+    ],
+    "exit_code": 0
+  }
+]

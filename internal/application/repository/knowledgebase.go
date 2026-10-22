@@ -65,11 +65,11 @@ func (r *knowledgeBaseRepository) GetKnowledgeBaseByIDs(ctx context.Context, ids
 
 // ListKnowledgeBases lists all knowledge bases
 func (r *knowledgeBaseRepository) ListKnowledgeBases(ctx context.Context) ([]*types.KnowledgeBase, error) {
-	var kbs []*types.KnowledgeBase
-	if err := r.db.WithContext(ctx).Find(&kbs).Error; err != nil {
+	var ids []string
+	if err := r.db.WithContext(ctx).Table("knowledge_bases").Where("deleted_at IS NULL").Order("id").Pluck("id", &ids).Error; err != nil {
 		return nil, err
 	}
-	return kbs, nil
+	return r.GetReadKnowledgeBasesByIDs(ctx, ids)
 }
 
 // ListKnowledgeBasesByTenantID lists all knowledge bases by tenant id.
@@ -80,15 +80,12 @@ func (r *knowledgeBaseRepository) ListKnowledgeBases(ctx context.Context) ([]*ty
 // now per (user, kb) and applied by the service layer after enrichment.
 // We keep `created_at DESC` here so callers that don't enrich (chat
 // pipeline, agent editor, IM commands) still get a stable ordering.
-func (r *knowledgeBaseRepository) ListKnowledgeBasesByTenantID(
-	ctx context.Context, tenantID uint64,
-) ([]*types.KnowledgeBase, error) {
-	var kbs []*types.KnowledgeBase
-	if err := r.db.WithContext(ctx).Where("tenant_id = ? AND is_temporary = ?", tenantID, false).
-		Order("created_at DESC").Find(&kbs).Error; err != nil {
+func (r *knowledgeBaseRepository) ListKnowledgeBasesByTenantID(ctx context.Context, tenantID uint64) ([]*types.KnowledgeBase, error) {
+	var ids []string
+	if err := r.db.WithContext(ctx).Table("knowledge_bases").Where("tenant_id=? AND is_temporary=false AND deleted_at IS NULL", tenantID).Order("created_at DESC,id").Pluck("id", &ids).Error; err != nil {
 		return nil, err
 	}
-	return kbs, nil
+	return r.GetReadKnowledgeBasesByIDs(ctx, ids)
 }
 
 // userKBPinRow mirrors the user_kb_pins table. Kept local to the

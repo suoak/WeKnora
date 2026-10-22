@@ -1,0 +1,19 @@
+{
+  "exit_code": 0,
+  "candidate_sha256": "02a8c5eb187764a93381bc5d794d69a86fd046145fce7ab29c18f686b2434c2c",
+  "runtime_source_sha256": "2ac380a033af80f022d98a3b45cd5e30645b148d07cde8c76c46cce94787392b",
+  "image": "knowhub-feishu-rc3/app:02a8c5eb187764a9",
+  "image_id": "sha256:0a0117c920c4fed402e7f744578b539a5ef5e6ef8da7c141ff5e9ac15031b73d",
+  "cold_start": true,
+  "duckdb_extensions": "SKIP_existing_offline_startup_option_excel_not_verified",
+  "real_Wiki_Drive_Worker": true,
+  "stable_knowledge_ids": true,
+  "personal_Go_MCP_included": false,
+  "revoked_REST_denied": true,
+  "original_unexpired_HMAC_denied": true,
+  "feature_off_hardened_reads": true,
+  "schema": "3036:false",
+  "source_data": "synthetic backup clone only",
+  "production_changes": false,
+  "formal_cloud": "NOT_TESTED"
+}

@@ -160,6 +160,11 @@ func FeishuErrorItemMeta(err error, extra map[string]string) map[string]string {
 		m["error_reason_code_value"] = codeValue
 	}
 	maps.Copy(m, extra)
+	if classified, ok := asAPIError(err); ok {
+		m["feishu_error_category"] = string(classified.Category)
+	} else {
+		m["feishu_error_category"] = "unclassified"
+	}
 	return m
 }
 

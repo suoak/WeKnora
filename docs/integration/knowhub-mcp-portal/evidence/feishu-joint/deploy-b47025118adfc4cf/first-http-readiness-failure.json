@@ -1,0 +1,9 @@
+{
+  "candidate_sha256": "b47025118adfc4cff2d1f75cabc6f98265a0bb9ca1ad816f409099081947f0fc",
+  "status": "FAIL",
+  "exception": "ConnectionResetError",
+  "stage": "first Nginx HTTP /health after Compose reports running",
+  "launcher": "deploy-launcher-afef7a04efd940b85cb973a68b2930129def521134656d924e0dd3e27bbb187a.log",
+  "launcher_sha256": "23aba924087fb5b262c4d583e710b493e572136479b0520d3eae49d98839822b",
+  "code_or_authorization_assertions_relaxed": false
+}

@@ -1,0 +1,18 @@
+[
+  {
+    "image": [
+      "knowhub-v1-wiki-dynamic/app:0a7374bbbdbd8c4a"
+    ],
+    "id": "sha256:da19dbb14680ea450624dfca0cb3f9ed1d15f64fac6d73d88181a50808969988",
+    "repo_digests": [],
+    "source": "0a7374bbbdbd8c4a802733811ad3ecbeb70293ba33b89eefa9bd05c36ecbd371"
+  },
+  {
+    "image": [
+      "knowhub-v1-wiki-dynamic/frontend:0a7374bbbdbd8c4a"
+    ],
+    "id": "sha256:c8025af250c0e4c15b35af78f505ba9cd3a1bfe8b10bf373bde4877543cd7e3e",
+    "repo_digests": [],
+    "source": "0a7374bbbdbd8c4a802733811ad3ecbeb70293ba33b89eefa9bd05c36ecbd371"
+  }
+]

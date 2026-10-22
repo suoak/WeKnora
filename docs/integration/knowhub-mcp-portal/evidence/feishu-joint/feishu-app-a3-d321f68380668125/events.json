@@ -1,0 +1,26 @@
+[
+  {
+    "name": "worker-sync",
+    "utc": "2026-10-21T18:17:03.960027+00:00",
+    "source": "0de7fe75-7fca-42b5-a487-e2c7570263cf",
+    "log_id": "86e8e53e-00e0-4089-80db-8355ad34072b",
+    "state": "success",
+    "expected_success": true
+  },
+  {
+    "name": "worker-sync",
+    "utc": "2026-10-21T18:17:11.447923+00:00",
+    "source": "0de7fe75-7fca-42b5-a487-e2c7570263cf",
+    "log_id": "2f378556-60d1-4cb3-af39-da8d0c8f11b2",
+    "state": "success",
+    "expected_success": true
+  },
+  {
+    "name": "worker-sync",
+    "utc": "2026-10-21T18:17:12.103869+00:00",
+    "source": "0de7fe75-7fca-42b5-a487-e2c7570263cf",
+    "log_id": "5190a5fc-d740-4fa3-bbb5-5ca8c4b9a295",
+    "state": "success",
+    "expected_success": true
+  }
+]

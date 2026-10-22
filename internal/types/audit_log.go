@@ -145,6 +145,7 @@ const (
 	AuditActionUserMCPKeyScopeChanged        AuditAction = "mcp.user_key_scope_changed"
 	AuditActionUserMCPKeyCapabilitiesChanged AuditAction = "mcp.user_key_capabilities_changed"
 	AuditActionUserMCPKeyRotated             AuditAction = "mcp.user_key_rotated"
+	AuditActionUserMCPKeyRevealed            AuditAction = "mcp.user_key_revealed"
 	AuditActionUserMCPKeyRevoked             AuditAction = "mcp.user_key_revoked"
 
 	// Runtime queue mutations are privileged SystemAdmin actions. Retrying an

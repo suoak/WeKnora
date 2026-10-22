@@ -185,6 +185,7 @@
 
       </div>
 
+      <PortalKnowledgePublication v-if="canEditTenant && tenantInfo?.id" :tenant-id="Number(tenantInfo.id)" owner-view />
       <aside v-if="showLeaveDangerZone" class="leave-space-panel" :aria-label="$t('tenant.leaveDangerZone.title')">
         <div class="leave-space-panel-inner">
           <div class="leave-space-panel-text">
@@ -239,6 +240,7 @@
 </template>
 
 <script setup lang="ts">
+import PortalKnowledgePublication from '@/components/portal/PortalPublicKnowledge.vue'
 import { ref, computed, onMounted, watch } from 'vue'
 import { DialogPlugin, MessagePlugin } from 'tdesign-vue-next'
 import { getCurrentUser, type TenantInfo } from '@/api/auth'

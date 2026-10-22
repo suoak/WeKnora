@@ -1,0 +1,10 @@
+{
+  "exit_code": 1,
+  "error_class": "AssertionError",
+  "message": "compatibility-revoked-REST",
+  "checks": {
+    "forward_upgrade": "PASS",
+    "restore_denial_persisted": "PASS"
+  },
+  "production_input": false
+}

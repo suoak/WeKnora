@@ -1,0 +1,14 @@
+{
+  "previous_candidate_sha256": "e53fa056cd293dd5d5b88857dbc9edc4edac82a1119f180d5b294b854ab44ee9",
+  "previous_runtime_sha256": "7ef3265374e1c263c711b4f04ae1e561ac5982644c797423e63cec1b52f2eff6",
+  "next_runtime_sha256": "b702755c033328560bbb28802c93a3a1abce31a43352870b43d8f1fee2d74cdb",
+  "changes": [
+    {
+      "path": "internal/application/repository/document_postgres_migration_test.go",
+      "before_sha256": "8fd261cf4901464d48648f35fe44f0188161c6ce01d25f5832a44baf710353fc",
+      "after_sha256": "be6d6c89eb4e8e2516db07da278109d0ca0b0985105cfe904f75ca41c191c43e"
+    }
+  ],
+  "production_code_or_migrations_changed": false,
+  "reason": "tagged migration fixture explicitly checks new fixed metadata and compares every pre-existing column; original FAIL retained; complete affected migration suite must pass"
+}

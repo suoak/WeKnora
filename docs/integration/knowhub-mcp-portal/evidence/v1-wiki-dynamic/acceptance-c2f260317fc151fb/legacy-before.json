@@ -1,0 +1,59 @@
+{
+  "success": true,
+  "data": [
+    {
+      "capabilities": [
+        "retrieve"
+      ],
+      "client_type": "generic",
+      "created_at": "2026-10-22T06:12:50.190118Z",
+      "expires_at": null,
+      "id": 3,
+      "last_used_at": null,
+      "name": "synthetic-3",
+      "personal_scope_mode": "fixed",
+      "revoked_at": null,
+      "scope_type": "user_mcp",
+      "secret_available": false,
+      "status": "active",
+      "tenant_scopes": [
+        {
+          "id": 3,
+          "api_key_id": 3,
+          "tenant_id": 1,
+          "kb_scope_mode": "all"
+        }
+      ],
+      "token_hint": "",
+      "updated_at": "2026-10-22T06:12:50.190118Z"
+    },
+    {
+      "capabilities": [
+        "retrieve",
+        "enterprise_retrieve"
+      ],
+      "client_type": "generic",
+      "created_at": "2026-10-22T06:12:50.185906Z",
+      "expires_at": null,
+      "id": 1,
+      "last_used_at": null,
+      "name": "synthetic-1",
+      "personal_scope_mode": "fixed",
+      "revoked_at": null,
+      "scope_type": "user_mcp",
+      "secret_available": false,
+      "status": "active",
+      "tenant_scopes": [
+        {
+          "id": 1,
+          "api_key_id": 1,
+          "tenant_id": 1,
+          "kb_scope_mode": "all"
+        }
+      ],
+      "token_hint": "",
+      "updated_at": "2026-10-22T06:12:50.185906Z"
+    }
+  ],
+  "mcp_public_url": "http://127.0.0.1:55431"
+}

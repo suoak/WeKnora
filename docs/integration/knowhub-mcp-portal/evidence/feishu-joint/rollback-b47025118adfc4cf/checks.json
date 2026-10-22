@@ -1,0 +1,9 @@
+{
+  "disabled_mcp": 403,
+  "hardened_REST_denied": true,
+  "unexpired_anonymous_file_denied": true,
+  "schema": "3036:false",
+  "production_changes": false,
+  "old_unprotected_image": "NOT_EXECUTED_UNSAFE_AFTER_REVOCATION",
+  "old_image_recovery_requirement": "maintenance isolation or retained hardened reader plus denial-state reconciliation"
+}

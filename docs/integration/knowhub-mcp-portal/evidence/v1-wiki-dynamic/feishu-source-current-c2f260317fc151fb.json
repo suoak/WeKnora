@@ -1,0 +1,19 @@
+{
+  "candidate_sha256": "c2f260317fc151fbab98d9e87b2fe5c9acbd903dd4be2e857e0326565d390d75",
+  "results_dir": "feishu-app-final-c2b",
+  "sources": {
+    "wiki": {
+      "source_id": "6ff99263-0a0c-4582-ab21-2ab54973b9de",
+      "knowledge_base_id": "joint-feishu-wiki-final-c2b",
+      "knowledge_id": "joint-legacy-wiki-final-c2b"
+    },
+    "drive": {
+      "source_id": "a2e0e003-9492-42c4-9402-1fa8a4ab6896",
+      "knowledge_base_id": "joint-feishu-drive-final-c2b",
+      "knowledge_id": "joint-legacy-drive-final-c2b"
+    }
+  },
+  "backup": "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-wiki-dynamic-20261022/c2f260317fc151fb/private/feishu-revoked-final-c2b.dump",
+  "revoked_file_reference": "/home/aqyfzx/ai/WeKnora-release-build/knowhub-v1-wiki-dynamic-20261022/c2f260317fc151fb/private/revoked-file-final-c2b.txt",
+  "revoked_file_sha256": "71993ad4c71a7c433ab2370a13c04b5b730182ab1055bbb0c87d33729dade7ff"
+}

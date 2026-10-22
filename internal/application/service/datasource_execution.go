@@ -41,7 +41,7 @@ func (s *DataSourceService) ProcessSync(ctx context.Context, task *asynq.Task) (
 			payload.DataSourceID, payload.SyncLogID)
 		return nil
 	}
-	ctx = types.WithSyncExecution(ctx, e)
+	ctx = types.WithLegacyReceiptSet(types.WithSyncExecution(ctx, e))
 	workerCtx, cancel := context.WithCancel(ctx)
 	stop := make(chan struct{})
 	done := make(chan struct{})

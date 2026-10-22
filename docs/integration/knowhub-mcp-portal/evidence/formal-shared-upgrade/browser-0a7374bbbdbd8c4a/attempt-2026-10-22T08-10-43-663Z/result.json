@@ -1,0 +1,26 @@
+{
+  "candidate_sha256": "0a7374bbbdbd8c4a802733811ad3ecbeb70293ba33b89eefa9bd05c36ecbd371",
+  "synthetic_account": true,
+  "sid_login": "NOT_REPEATED_PRODUCTION_CALLBACK",
+  "actions": [],
+  "started_utc": "2026-10-22T08:10:43.664Z",
+  "http": [
+    {
+      "path": "/api/v1/mcp-api-keys",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/mcp-api-keys/scope-options",
+      "method": "GET",
+      "status": 200
+    }
+  ],
+  "page_errors": [],
+  "console_errors": [],
+  "exit_code": 1,
+  "error": "TimeoutError: locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: '???? Key', exact: true }).first() to be visible\u001b[22m\n",
+  "visible_messages": [],
+  "create_input": "",
+  "finished_utc": "2026-10-22T08:11:16.340Z"
+}

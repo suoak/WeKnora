@@ -415,7 +415,7 @@ func (r *fakeTenantAPIKeyRepo) ReplaceUserMCPAPIKey(_ context.Context, userID st
 	return nil, apprepo.ErrTenantAPIKeyNotFound
 }
 
-func (r *fakeTenantAPIKeyRepo) RotateUserMCPAPIKey(_ context.Context, userID string, id uint64, expectedHash, newHash, tokenHint string, expiresAt *time.Time) (*types.TenantAPIKey, error) {
+func (r *fakeTenantAPIKeyRepo) RotateUserMCPAPIKey(_ context.Context, userID string, id uint64, expectedHash, newHash, tokenHint string, expiresAt *time.Time, encryptedSecret ...string) (*types.TenantAPIKey, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	key, ok := r.byHash[expectedHash]
@@ -424,6 +424,9 @@ func (r *fakeTenantAPIKeyRepo) RotateUserMCPAPIKey(_ context.Context, userID str
 	}
 	delete(r.byHash, expectedHash)
 	key.KeyHash, key.TokenHint, key.APIKey, key.ExpiresAt = newHash, tokenHint, "", expiresAt
+	if len(encryptedSecret) == 1 {
+		key.APIKey = encryptedSecret[0]
+	}
 	r.byHash[newHash] = key
 	cp := *key
 	return &cp, nil

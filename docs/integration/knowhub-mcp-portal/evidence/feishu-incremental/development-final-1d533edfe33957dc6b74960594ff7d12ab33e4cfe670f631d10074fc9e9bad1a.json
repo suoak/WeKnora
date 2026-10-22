@@ -1,0 +1,2391 @@
+{
+  "source_sha256": "1d533edfe33957dc6b74960594ff7d12ab33e4cfe670f631d10074fc9e9bad1a",
+  "base_sha": "e62b17e2d305358467821aeff1cce63ce1d61254",
+  "branch": "integration/knowhub-v1-feishu-20261021",
+  "all_21_commands_exit_zero": true,
+  "skipped_cases": {
+    "service-complete": [
+      "--- SKIP: TestApplicationGrantGeneralAccessPreservesKBAndAdminBoundaries (0.00s)",
+      "--- SKIP: TestApplicationGrantFirstCreatePinsVerifiedParserPerDocument (0.00s)",
+      "--- SKIP: TestApplicationGrantRevokedBetweenExportAndDownload (0.00s)",
+      "--- SKIP: TestApplicationGrantSameSourceDifferentKBs (0.00s)",
+      "--- SKIP: TestApplicationGrantCommitUnknownRetainsOriginalKnowledge/1 (0.00s)",
+      "--- SKIP: TestApplicationGrantCommitUnknownRetainsOriginalKnowledge/2 (0.00s)",
+      "--- SKIP: TestApplicationGrantNoConnectionStableFirstCreate (0.00s)",
+      "--- SKIP: TestApplicationGrantRevocationAndConfigChangePreserveKnowledge/source_acl (0.00s)",
+      "--- SKIP: TestApplicationGrantRevocationAndConfigChangePreserveKnowledge/config (0.00s)",
+      "--- SKIP: TestApplicationGrantRevocationAndConfigChangePreserveKnowledge/system_admin (0.00s)",
+      "--- SKIP: TestApplicationGrantRevocationAndConfigChangePreserveKnowledge/kb_allowlist (0.00s)",
+      "--- SKIP: TestApplicationGrantModeConfusionAndOldTaskRejected (0.00s)",
+      "--- SKIP: TestApplicationGrantConcurrentSameResourceAndChangedRevision (0.00s)",
+      "--- SKIP: TestApplicationGrantRealDocxFirstCreate (0.00s)",
+      "--- SKIP: TestP4LiveBitableAttachmentManifest (0.00s)",
+      "--- SKIP: TestP4LiveSheetAttachmentManifest (0.00s)",
+      "--- SKIP: TestP4ApplicationSheetUsesOriginalFirstCreateProtocol (0.00s)",
+      "--- SKIP: TestP4ApplicationBitableUsesOriginalFirstCreateProtocol (0.00s)",
+      "--- SKIP: TestApplicationGrantPGVectorBM25AndWikiHandoff/wiki_false (0.00s)",
+      "--- SKIP: TestApplicationGrantPGVectorBM25AndWikiHandoff/wiki_true (0.00s)",
+      "--- SKIP: TestRC2LegacyCloneChangedRevisionPreservesPublishedKnowledge (0.00s)",
+      "--- SKIP: TestRC3ApplicationDuplicateNonOwnerContributor (0.00s)",
+      "--- SKIP: TestRealParserSegmentsAcceptance (0.00s)",
+      "--- SKIP: TestSkillPythonVerifierReportsAnUnreadableScript (0.00s)",
+      "--- SKIP: TestCreateStore_DifferentEndpointSameIndex_Allowed (0.00s)"
+    ],
+    "feishu-complete": [
+      "--- SKIP: TestP4LiveApplicationTableRead (0.00s)",
+      "--- SKIP: TestP4LiveApplicationSheetArtifact (0.00s)"
+    ],
+    "database-complete": [
+      "--- SKIP: TestApplicationGrantFreshAndOffline3031Upgrade/FRESH (0.00s)",
+      "--- SKIP: TestApplicationGrantFreshAndOffline3031Upgrade/CLONE (0.00s)",
+      "--- SKIP: TestFeishuPersonalRecoveryMigrationsPostgres/FRESH (0.00s)",
+      "--- SKIP: TestFeishuPersonalRecoveryMigrationsPostgres/CLONE (0.00s)"
+    ]
+  },
+  "skips_are_not_verified": true,
+  "changed_files": [
+    {
+      "path": "config/config.yaml",
+      "operation": "MODIFY",
+      "sha256": "0441928a75c56efd97a14d86d95698ec125ef22a4e3ebf255e1b3b04697a6089",
+      "base_sha256": "a748d14035c31464f1861f2cfc110f4a057832a1ef0159352d8b155dbb1f9fd5"
+    },
+    {
+      "path": "frontend/nginx.conf",
+      "operation": "MODIFY",
+      "sha256": "7ebe2baee6030936e6ba75244d3a1c33e03c30d0f90c0b80d51abb60dd9bda11",
+      "base_sha256": "8893c9f12341ce99c7d880617e3348f6392be96b92a50217b44a9e39f236e459"
+    },
+    {
+      "path": "frontend/src/api/mcpAccessKeys.ts",
+      "operation": "MODIFY",
+      "sha256": "6c3f541a549d14087b6dd3cd9e9e8e88012688f0f3f77be74786823fcee6b8dd",
+      "base_sha256": "321f7c34fe04aba0481dd401e1958307c9c55e885dac21862f5cb0d8438b2a0d"
+    },
+    {
+      "path": "frontend/src/components/portal/PortalKnowledgePublication.vue",
+      "operation": "ADD",
+      "sha256": "676e50e865299c723aadc7a92c6814e95c620b9b05a49da4a34ae0bd2b438eb4",
+      "base_sha256": null
+    },
+    {
+      "path": "frontend/src/components/portal/PortalKnowledgeReview.vue",
+      "operation": "ADD",
+      "sha256": "6599c08aab35d62e4010f5cf4ea211d7f0238725ae1781a1f73b1ad33e37eb86",
+      "base_sha256": null
+    },
+    {
+      "path": "frontend/src/components/portal/PortalPublicKnowledge.vue",
+      "operation": "ADD",
+      "sha256": "3a8f69a67a33029f54cf55bfe386b7f1079731974e65b42edd6afb38baa2611f",
+      "base_sha256": null
+    },
+    {
+      "path": "frontend/src/components/portal/publicationWorkflow.test.ts",
+      "operation": "ADD",
+      "sha256": "83775c0dfd93b3a0a666daf14c79ae8ef51f2dd56bf28baf9b9c22c99855f9ef",
+      "base_sha256": null
+    },
+    {
+      "path": "frontend/src/components/portal/publicationWorkflow.ts",
+      "operation": "ADD",
+      "sha256": "85d80c23cad12becee31f3d5af34e64efe547e192ef7b4165c5ed0e330fd427b",
+      "base_sha256": null
+    },
+    {
+      "path": "frontend/src/views/integrations/MCPAccessKeys.vue",
+      "operation": "MODIFY",
+      "sha256": "16576c0d6945b0ec7fb72df1f742c7bbb653e2991ef1cc091432dc45803fb2d4",
+      "base_sha256": "8c9f897800f28bb61ed6ed5f3b09e77166c14cb5ea0253377ab8e92932d85aed"
+    },
+    {
+      "path": "frontend/src/views/integrations/mcpAccessCenter.test.ts",
+      "operation": "MODIFY",
+      "sha256": "5b5cb51fd5d91aa40283b1d910bfec685410b977d2caeb5c33944d492de4cfde",
+      "base_sha256": "04d54d9846de34258caad7ba5436071b21c154df560cc8b66422be024d5bad76"
+    },
+    {
+      "path": "frontend/src/views/integrations/mcpConfig.test.ts",
+      "operation": "MODIFY",
+      "sha256": "4b539bf82ccbb27cb5b4d180621030ee9b1b3c69304d29061eb0b45605df8530",
+      "base_sha256": "e4b7c5d5a17d74e99263aabd73919d8fba4710cb94f8ffd6556a6314af8d3115"
+    },
+    {
+      "path": "frontend/src/views/integrations/personalMcpConfig.test.ts",
+      "operation": "ADD",
+      "sha256": "8f6c939776d100a71cbc68641e88fb9d03fd1a4f1e99373607a73d5cb2645e2b",
+      "base_sha256": null
+    },
+    {
+      "path": "frontend/src/views/integrations/personalMcpConfig.ts",
+      "operation": "ADD",
+      "sha256": "36bed5540f80bbdae4a2d580d47bf2d369c0bf54d12fcf8c081f3c23148399ec",
+      "base_sha256": null
+    },
+    {
+      "path": "frontend/src/views/integrations/personalMcpPresentation.test.ts",
+      "operation": "ADD",
+      "sha256": "aeb287312ff4ab2826b5302484184a5a91057f3fe256b816018a77c53be8e57a",
+      "base_sha256": null
+    },
+    {
+      "path": "frontend/src/views/integrations/personalMcpPresentation.ts",
+      "operation": "ADD",
+      "sha256": "229787abcb1b8ad0b961f86ea276314705f0f73eeac1a70cbc501f37892a36a9",
+      "base_sha256": null
+    },
+    {
+      "path": "frontend/src/views/portal/SystemPortalSettings.vue",
+      "operation": "MODIFY",
+      "sha256": "96d4020748027fa9dc6daf5c397606abd1b73a5ddc00830186784912eaf845f7",
+      "base_sha256": "43230e4bfbb069dda74ed0c43e4feaea30279957c4e1cbba6bd7b17762db5dc4"
+    },
+    {
+      "path": "frontend/src/views/settings/TenantInfo.vue",
+      "operation": "MODIFY",
+      "sha256": "492373ca4061fe4fd54078a86ee38ee414463f5ec1675ce3800ba50f11e90c42",
+      "base_sha256": "ec3e6e3ce743053b145d1f88d910165eb980c7c85f8b4eb7a2a78e416554da0a"
+    },
+    {
+      "path": "frontend/tests/portal-review.html",
+      "operation": "ADD",
+      "sha256": "b7b18c207b8c984d79406f3ce7a381cd7153bb79c8546c207d39ffac237358b2",
+      "base_sha256": null
+    },
+    {
+      "path": "frontend/tests/portal-review.ts",
+      "operation": "ADD",
+      "sha256": "0537a97cab870d75ff290ef37774bab49318fa18c1b9986e6c1437355c62b8a4",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/access/document_access.go",
+      "operation": "ADD",
+      "sha256": "f6f506c7fc4a3a255a84f7459e6608e9114466562b7f7ae564f892f23fd9d11f",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/access/document_base.go",
+      "operation": "ADD",
+      "sha256": "795793056cadd716ad3187435272c9444964350b349c3154af18c93c319512fc",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/access/document_base_test.go",
+      "operation": "ADD",
+      "sha256": "a5af1def7483aaca84b04427f53db1f625752dbde25c35bbf826b8c8fa254946",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/access/document_filter.go",
+      "operation": "ADD",
+      "sha256": "1ed75297851b0ed9a3ac91ebea0f2c72e951a5b21d3a1be4eb9dbcc60f11954c",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/access/document_filter_test.go",
+      "operation": "ADD",
+      "sha256": "0ae3a76ebdb0d79d010449091188080a9df28065088725dda937dc1dfa52cd51",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/access/document_read_output.go",
+      "operation": "ADD",
+      "sha256": "67aff6a2a4499966c34a66c3b17adace4df34ff6ffc7057dd8f86e554f901e11",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/access/document_read_scope.go",
+      "operation": "ADD",
+      "sha256": "a89953fbf1a2c349155ca9a836ccdc28123d72b7501f874aeb41547c9fb40487",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/access/document_resources.go",
+      "operation": "ADD",
+      "sha256": "36043fb9765cd368552cec8956ba505b31e3bea287f318fb98c901714f41ce28",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/access/document_search.go",
+      "operation": "ADD",
+      "sha256": "93287e73072c6196e2ae83a58307505e836b05535dcec31731083a58d211ff19",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/access/enterprise_public.go",
+      "operation": "ADD",
+      "sha256": "85b6034c9713a2afc5db3d0d24fff5444ab6d328e87a03a719590027ef85a987",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/access/httpboundary/boundary.go",
+      "operation": "ADD",
+      "sha256": "ad5e979ff786556fc7490ce8f49463a97d3af771e5a0de8570d4ced6f3ce4c6b",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/access/portal_mcp.go",
+      "operation": "ADD",
+      "sha256": "69162b67f139161ba033c505bca1471be0386063b6e7655d4e4058b5b27aa033",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/access/portal_published.go",
+      "operation": "ADD",
+      "sha256": "97b318c6586a2546d9e3e65d2b7228c9c3985764c9b66cdd2726432e295fd3b0",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/access/portal_text.go",
+      "operation": "ADD",
+      "sha256": "deb53fc8a8ba113df7d6311e25e437240d2284aa804c57d04e721d7d3373219c",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/access/portal_text_test.go",
+      "operation": "ADD",
+      "sha256": "19ad6a707a038f9c08669a1a866888b75e8f7d0c4791b83b8d7a209f46363057",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/datasource_execution.go",
+      "operation": "MODIFY",
+      "sha256": "5afca1f83d8497d00728425a959eb35f765595710165058bd30a6a68378d8da1",
+      "base_sha256": "162961ab708a26132eeaff8a87021c0547211b455e96974d951fd66734f864ad"
+    },
+    {
+      "path": "internal/application/repository/datasource_repo.go",
+      "operation": "MODIFY",
+      "sha256": "2fc42b723ca74295093d731711f65a55bf4db3416c156924f36809c2f93e70e6",
+      "base_sha256": "e34aadcec5c529b5aade0dd875d3ac822a93554261a9a69614e3c8d5bcd67c28"
+    },
+    {
+      "path": "internal/application/repository/document_access.go",
+      "operation": "ADD",
+      "sha256": "d11f1643c2f18bb2e0bca4b2e27dbebcd3a19cba0e490b398831a2bd1072e293",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/document_access_test.go",
+      "operation": "ADD",
+      "sha256": "ef54edc84fbbe0d2d26132748cecadc67847a9c8a390b89e84051ae6a81b6e9d",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/document_old_sqlite_test.go",
+      "operation": "ADD",
+      "sha256": "cd288deccc449c67772292a3337ee2562a6787ba808998838a9902f92d428d83",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/document_postgres_migration_test.go",
+      "operation": "ADD",
+      "sha256": "7b9385d1ac9d8aac0bfacc23637ea65f3d3294e11ce4c9743b677cbc2fb7cf8a",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/document_python_integration_test.go",
+      "operation": "ADD",
+      "sha256": "449ac36f7c02567ccd8b315da64af51bc0cc8148240c2bb8517c2f3a48ca74fc",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/document_resources_test.go",
+      "operation": "ADD",
+      "sha256": "17e2a5c8176238158a191de87eeebfa4f58b93f5ce10dd4ab7ed2e79c5de2e1b",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/document_retrieval_integration_test.go",
+      "operation": "ADD",
+      "sha256": "274a2e09918b7360e9cc8a4c7331d25cc3027dd52e2412ea7c33177c2f1d6b44",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/enterprise_access.go",
+      "operation": "ADD",
+      "sha256": "c4cc2e8a6190e6aa583d1bbb09a294153d19cced425b064bd04b7581330dcf4b",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/enterprise_access_test.go",
+      "operation": "ADD",
+      "sha256": "952f251e740296b9e6afb356aa1587f44919f5e2d5cd5848bec3f239298d01b8",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/enterprise_account.go",
+      "operation": "ADD",
+      "sha256": "0f0dcd4a1f6047a47e88ae12f3b45b7fb40b874cc3fe2ecb465b858271415e97",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/enterprise_account_test.go",
+      "operation": "ADD",
+      "sha256": "f1345de854b68efb6354eb4f0dcd7796f26dfe8880ede0e8ee3e8bde61446dbb",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/enterprise_employee.go",
+      "operation": "ADD",
+      "sha256": "df7b709faa09c755c2680ca9274a51f8557dc3f997965ec137f956431ddf0f90",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/enterprise_employee_test.go",
+      "operation": "ADD",
+      "sha256": "1f21613cafd7eb52fd0bd99479a1d39a020c23454d798047831c2cc807fbb23b",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/enterprise_inheritance.go",
+      "operation": "ADD",
+      "sha256": "4ea9417b9f5ba39499ac5a00fa0f5ab415e4b9f3cc483c6266efc8cbc135b9ca",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/enterprise_inheritance_test.go",
+      "operation": "ADD",
+      "sha256": "58310521b5b2dab8937f5d6098343ef972069c05e8617b16ba6dbec57697d94b",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/enterprise_review_snapshot.go",
+      "operation": "ADD",
+      "sha256": "150ce0e6bd68e8a4902980f2f0322d13d11084652c1132266f2ffcebe3dcbfa6",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/enterprise_snapshot_batch.go",
+      "operation": "ADD",
+      "sha256": "7e4ec37be3c178109e0334a70040abbb315fdbc29eaf64de021de4241a7af834",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/enterprise_snapshot_batch_test.go",
+      "operation": "ADD",
+      "sha256": "b3321c7ca1d50e8888274ffd12a2d5d5f52f45f328dda43114ee9d084ab2455e",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/feishu_legacy_atomic.go",
+      "operation": "ADD",
+      "sha256": "7f55a4f091381a07f6acf0cc2c9cf3642b7ceb4dbdf7380f39045d4d6b360227",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/feishu_legacy_atomic_test.go",
+      "operation": "ADD",
+      "sha256": "4a1370c73d7283acc0318513d48f84c75c11f8fb667a8772c26a207e5f37d590",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/feishu_legacy_migration_test.go",
+      "operation": "ADD",
+      "sha256": "69c051a4ca7f5248d8c1be14a2e0589ffe7d63ec5367265817bc1cef092ac0d2",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/feishu_legacy_quarantine.go",
+      "operation": "ADD",
+      "sha256": "80be96298b56e892645f02c7d38d1adebe2c1db43d2e15bd67ade134da0483a8",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/feishu_legacy_read.go",
+      "operation": "ADD",
+      "sha256": "578febd5645d3b1b05c56a32512303af6b4765bcc286466ded800848f003f5ab",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/knowledge.go",
+      "operation": "MODIFY",
+      "sha256": "859cdc2a49de4b027d12eb24bfd894588bafc392fafe90587b5ca5ede183e805",
+      "base_sha256": "2e5f1103efa9379238dc9cb94434fc3854818b40dbd0169ea329304e2d561924"
+    },
+    {
+      "path": "internal/application/repository/portal_mcp.go",
+      "operation": "ADD",
+      "sha256": "b14fd1b8e42dd42c9d49c96d9b36ed69a7ba36add1560003bfddac3ffe2e28b0",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/portal_public_exception.go",
+      "operation": "ADD",
+      "sha256": "f349380aa35bd8bb342fb4408921ae99655fc247c13c9fdd81f5730f9cb3a9a1",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/retriever/postgres/feishu_legacy.go",
+      "operation": "ADD",
+      "sha256": "3683959ddd9f10bab9b5ca0bd3079e6cc626a4769975425d29b7b2a297d3d1df",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/retriever/postgres/portal_scope.go",
+      "operation": "ADD",
+      "sha256": "3d0397171323819c71f8f8f4f43924315e0c5b73259b427cdea25781ff515d22",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/repository/retriever/postgres/repository.go",
+      "operation": "MODIFY",
+      "sha256": "da28e95d54f3f939f1f200c5526aeb4050b5814c0339998635abc922fd734411",
+      "base_sha256": "28e63362525005c64558313eb22d3289915e702d25721bda70fe53c9c52896bf"
+    },
+    {
+      "path": "internal/application/repository/retriever/sqlite/repository.go",
+      "operation": "MODIFY",
+      "sha256": "9c95750ec6dfe9ad879158bdc2d0b0f7717aebce18aed20cdb7032ee8a7ea857",
+      "base_sha256": "6da32a0cea9351532f80af66710c00d35c708885fcb60a3b94a8dac53b541703"
+    },
+    {
+      "path": "internal/application/repository/tenant_api_key.go",
+      "operation": "MODIFY",
+      "sha256": "a878befa34ebc86f6d5517eec13381db4678565eaf6210fdd62cf681d492b779",
+      "base_sha256": "bdf4cae2ee51b564563e069e2215eda38b256c881a06db0c6f68b7936435c0be"
+    },
+    {
+      "path": "internal/application/service/chat_pipeline/feishu_legacy_graph_test.go",
+      "operation": "ADD",
+      "sha256": "df6fe58b6e7cdbc326affffbac4c69cb9a00fb06fe118ca1cc1e9321ed8d5817",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/chat_pipeline/search_entity.go",
+      "operation": "MODIFY",
+      "sha256": "489f7e23f61fa6f853defb2fdd7a1ca7699634e80ba83636f13016ca2a55ab0d",
+      "base_sha256": "ad4c6f08c25c62d35c615b8663a62909c3219717d04512abc8ea679f4f5f1155"
+    },
+    {
+      "path": "internal/application/service/chunk.go",
+      "operation": "MODIFY",
+      "sha256": "3bc9355c9c4a71af6ad993efc8f60e1107e7dbe2a3ea68dcbd0af7e650e22b4f",
+      "base_sha256": "26068e879c1a6f52b1b4a3713eb6d83418410cf6ca2cb98dfafca08833d37cb7"
+    },
+    {
+      "path": "internal/application/service/datasource_execution.go",
+      "operation": "MODIFY",
+      "sha256": "ef37eabb7c69a2442465e7f75c525a10c6a15ff028789de9530495c235312bef",
+      "base_sha256": "ee125e6846210de5696a33b90117a0677d3fe2ab0e8108e7b8078b2dc9612862"
+    },
+    {
+      "path": "internal/application/service/datasource_service.go",
+      "operation": "MODIFY",
+      "sha256": "9e33c9988ce120b4a4a43451ffd2b22483d33f1d91f8375132db258a45ca6a44",
+      "base_sha256": "7c708b404b31958a365979cc745a41adfa2e6f591251996c503c425b19001c36"
+    },
+    {
+      "path": "internal/application/service/document_read_access.go",
+      "operation": "ADD",
+      "sha256": "6f23850e38c196009c616d666fa88ce89968ed5936c876324f595591fd378b8c",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/document_read_access_test.go",
+      "operation": "ADD",
+      "sha256": "0b475feb858c3e97adf761efbee1f82156d5ca1c60a4c0430f00f3a6a26325d0",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/document_repository_hold.go",
+      "operation": "ADD",
+      "sha256": "4967b3f6a9e550f380a427f665c8c75580f467060362996ca71fcd7f2bcbbce6",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/enterprise_capability_test.go",
+      "operation": "ADD",
+      "sha256": "36a171a892f0b899518f2966df86e6c2ebb02366f081915d18eb69ff236a9077",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/feishu_incremental_delete_failure_test.go",
+      "operation": "ADD",
+      "sha256": "71b04f9fd7488ad683c65069d725f226541990ce6e2d7662cd0b1ae60d0356cb",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/feishu_legacy_fault_policy_test.go",
+      "operation": "ADD",
+      "sha256": "87ea2722895517f2bbc80daf8c91a842f8f1da54ab3dd4d35b0112f00451a36d",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/feishu_legacy_http_postgres_test.go",
+      "operation": "ADD",
+      "sha256": "74c490a149ad865f4b35942fab8479a4c8972a9d3fe22ae54b86cd6c211300b4",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/feishu_legacy_model_guard.go",
+      "operation": "ADD",
+      "sha256": "439c02675db7ff8a0780207ec7379f07aaa8e5ca22d45276d6e066b32c354688",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/feishu_legacy_model_guard_test.go",
+      "operation": "ADD",
+      "sha256": "9ea7fd0ca8be7072c2bb61687c5109cc4bf11b61b391d86866d3077a8ac751b0",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/feishu_legacy_staging.go",
+      "operation": "ADD",
+      "sha256": "a4ceda4a23b6a8f8bebb7ac350375da707c0424045b8ff00a6c65f9c9278f0ce",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/feishu_legacy_staging_postgres_test.go",
+      "operation": "ADD",
+      "sha256": "931a99b8a8d2c6d542561af9f927b0dd61b92f79f3e4a2aefaeae9d32c8b5b52",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/feishu_legacy_storage.go",
+      "operation": "ADD",
+      "sha256": "b958217ae91fd8c82308c243d546664c5d6a98ff31066dd39afe704455b930a8",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/feishu_legacy_sync_postgres_test.go",
+      "operation": "ADD",
+      "sha256": "9998642b5057555c42466476d0068b926027f6c27571f8e62cccfa4a7613ace5",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/knowledge.go",
+      "operation": "MODIFY",
+      "sha256": "fce8466619d325711ba251f20986eff4ab425b8cbc8cf4d5b45105dc0fa4ad38",
+      "base_sha256": "185c5d05ff1c63da7c855fdf72ca5d6a39ba5edd0d7459ab31350495d8806aaf"
+    },
+    {
+      "path": "internal/application/service/knowledge_faq.go",
+      "operation": "MODIFY",
+      "sha256": "b7046cce9a9c535ab63245099512e8400688c0516dab7f93709c5cf2f4e74317",
+      "base_sha256": "dbafb0f14c8f237a0b185342580669fe403bd293bb6b43fcc886e3ab09863d35"
+    },
+    {
+      "path": "internal/application/service/knowledgebase.go",
+      "operation": "MODIFY",
+      "sha256": "501143a9bfcb6000f98e9d03b3404caa61ff6c4b54bc773904ea5243e8bb471d",
+      "base_sha256": "da47825058d1b0b485a40dd2a12e4fdce05ed287ec92b183f79bc066ed1a244b"
+    },
+    {
+      "path": "internal/application/service/knowledgebase_search.go",
+      "operation": "MODIFY",
+      "sha256": "caa23ed4d6785bc618b0cbc14a22bf5442decd76c3b9517e16e0cf465af3bce4",
+      "base_sha256": "577a7959ce4ad3b2c288ad13ee058b264f5d227371f20c24e4d7cc5deb0674a0"
+    },
+    {
+      "path": "internal/application/service/knowledgebase_search_rerank.go",
+      "operation": "MODIFY",
+      "sha256": "8dc69ef46bdabad2d0f876df64dd01c595a8d6f4d10c25c8e05e43fee1834a58",
+      "base_sha256": "ca595c901667dd0c53ed431ffea3f65e7235d0853f8239a14c435782780e1766"
+    },
+    {
+      "path": "internal/application/service/mcp_endpoint_shared_revalidation_test.go",
+      "operation": "ADD",
+      "sha256": "f71643489034cac1ff9dc73af6424c4853618b34816f505d965f731f7b7195dc",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/model.go",
+      "operation": "MODIFY",
+      "sha256": "24df2e8bf05598444918fb63bcf9a226b96203d1ec20c8099798c4f384285fdf",
+      "base_sha256": "7d2d98a40f372f8d27234d90f8f1787f44c079eb5e9f549a340d5e0d4cfbb6b0"
+    },
+    {
+      "path": "internal/application/service/portal.go",
+      "operation": "MODIFY",
+      "sha256": "a1a8369461cb850804f86058f28af184f6816b169e682d035ef96fe5d7e6f581",
+      "base_sha256": "24bba39f960817162dc2092995aea663dd9db54fbca46735bd6d9af4184941c7"
+    },
+    {
+      "path": "internal/application/service/portal_mcp.go",
+      "operation": "ADD",
+      "sha256": "0c13833258619497aae42b819dd118a245bc396d4b8195d98914e1f80b318744",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/portal_mcp_composition.go",
+      "operation": "ADD",
+      "sha256": "ec42f14fb4df5a1d53bbe23d6106ffdbf595a9b060ea58a26e5f45a665bf85f6",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/portal_mcp_models.go",
+      "operation": "ADD",
+      "sha256": "12376cc953ca266142285828a4e3bed5b5193e256c232e615afa0d5018842a3a",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/portal_mcp_test.go",
+      "operation": "ADD",
+      "sha256": "28697dc461be70f4db385bdae0442f91bed8efc97197426da09714795224e739",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/portal_policy_authority.go",
+      "operation": "ADD",
+      "sha256": "8042431ad8132160eac08e7235bbe9823360823592e51b37f441d57873ca8f91",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/portal_policy_authority_test.go",
+      "operation": "ADD",
+      "sha256": "5b9499b49d44496681a66089bcfa6ea02e1bad7c3510264a4bea82d9253a4082",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/portal_public_scope.go",
+      "operation": "ADD",
+      "sha256": "1354c89d4d2dda48450133b4e8caa805f332289f081968fcaec7ed98d05eae5f",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/portal_publication_review.go",
+      "operation": "ADD",
+      "sha256": "c9cfe1c76345e7b93cd5442defb71c503234dcc23a754b4962ccfa1cd8cdc540",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/portal_publication_review_test.go",
+      "operation": "ADD",
+      "sha256": "913ee6259f5a0e0abab9355c6b844c09972e627ebacc1773f221202cf31825ae",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/portal_publication_workflow.go",
+      "operation": "ADD",
+      "sha256": "b5e035f278d8b63db0b3da93ecc24c667a7307231922055036a188b002a6858e",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/portal_published_feishu_postgres_test.go",
+      "operation": "ADD",
+      "sha256": "a8fbb32e1fc9cb3a4e4874721ec3ce6c01d0dc3769859bd77a9b5a25d6e6bb71",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/portal_published_test.go",
+      "operation": "ADD",
+      "sha256": "fa28a921b8c1e5e2d47b650a2c0a1cae3e0aa745f00fd11b81eb9488316ec1a3",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/portal_v1_models_test.go",
+      "operation": "ADD",
+      "sha256": "238600a522c4eff0529cd4857486f101e3b55e4a8dc13138cf93285bd3d47474",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/portal_v1_text_test.go",
+      "operation": "ADD",
+      "sha256": "0abce92644a9e4500f27c671f3745167faab80df055ddcefb41c1b47b1b89697",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/application/service/resource.go",
+      "operation": "MODIFY",
+      "sha256": "1a4f69891680c427260ffb784104ce0ed3c39f1848e4de81b45300c9cdea0678",
+      "base_sha256": "6653301df0f4f2f97876f5c45af117cc4c1cb7434e1cc21235155d8f67773a13"
+    },
+    {
+      "path": "internal/application/service/retriever/keywords_vector_hybrid_indexer.go",
+      "operation": "MODIFY",
+      "sha256": "9740a74b7477a1be410c110c267fbf0605ca8d77c00806e7193d529036cda80b",
+      "base_sha256": "fff4812ee21249022e9e8e81120ac01a2e32f2d037c0b0cc45cef543906a7ef6"
+    },
+    {
+      "path": "internal/application/service/tenant.go",
+      "operation": "MODIFY",
+      "sha256": "5637d7acb208df74aa74eac966484214b04a236e34e568fffc6df93e41edb521",
+      "base_sha256": "b6c9fabf2acd4fe2a2af9b2092756e6a441de0cd16dab36087041d2a9056031a"
+    },
+    {
+      "path": "internal/application/service/tenant_api_key.go",
+      "operation": "MODIFY",
+      "sha256": "8eb000efea321985fba7cfcd4dcf4f22de9ef4ea230fb7029404229cf9cd40de",
+      "base_sha256": "836e667f36cebacfad45b0d7ef833e8840eaf5936c20ecdc187023ebeb81ae01"
+    },
+    {
+      "path": "internal/application/service/tenant_api_key_test.go",
+      "operation": "MODIFY",
+      "sha256": "04db7c440a59e049ab9cc9c0a39e2ec8a42483d841b217515ccb63c358b0ff36",
+      "base_sha256": "f76427f2a28018bb07ae85a4afc2d6ac7af106890bfff66d8f9b4ae5d7e8321a"
+    },
+    {
+      "path": "internal/config/config.go",
+      "operation": "MODIFY",
+      "sha256": "92fd9b251995930eb5104a42160231ebfa9201214a0ed9ec59180e45fc0673fd",
+      "base_sha256": "22ad37511b7d1aca4019a725f816b687dbd94fd7093f7c35d2009a20630f2fa4"
+    },
+    {
+      "path": "internal/container/container.go",
+      "operation": "MODIFY",
+      "sha256": "9dd6094293cc9f9ac852b7b059552ca28a8d7d289aa4742b96a60f7815cf66c9",
+      "base_sha256": "e956e0b6d54b8c25f430c9e728a35639a25b15a363c1da9d0f7429d274f9e7ef"
+    },
+    {
+      "path": "internal/database/migration_enterprise_publication_test.go",
+      "operation": "ADD",
+      "sha256": "5387b0c143ef27eb71afa2ba81965b44c872b0b618747ab6cd86c0f80a1c82e2",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/database/migration_postgres_test.go",
+      "operation": "MODIFY",
+      "sha256": "8d3373079d72b5dbd0094060080d82667cc90bf082b9e463538e7678855f8aaf",
+      "base_sha256": "486134ba143313dae5613a55aba36fcddcba541f9d3c9b02b64b80f0375262da"
+    },
+    {
+      "path": "internal/database/migration_sqlite_versioned_schema_test.go",
+      "operation": "MODIFY",
+      "sha256": "a79efd7faae65d623a6be28ab0709d30e79b923e1d3de48f214e601d4f0a2efb",
+      "base_sha256": "c90cfd2ff70da67002a86d962182045a9535d4292ffd20970bf3c600098f3a71"
+    },
+    {
+      "path": "internal/database/migration_versions_test.go",
+      "operation": "MODIFY",
+      "sha256": "7047042b8647f2e73fd2e907cf265849cfe283369501e32ebd411b3ce55b989a",
+      "base_sha256": "f1db66b250e0b04b9468b5ec9c0e0d7eaf56dbfbb35ee8f1353a4e7c72c3e14e"
+    },
+    {
+      "path": "internal/datasource/connector/feishu/core/engine.go",
+      "operation": "MODIFY",
+      "sha256": "a60cac149154908d460bc4103091e1d62200f8ecda2982ab3806d54445867bf9",
+      "base_sha256": "bd0a42b2d16421baa070da010148d5e662cc6d51cf94687127b29027f297eb39"
+    },
+    {
+      "path": "internal/datasource/connector/feishu/core/engine_checkpoint_failure_test.go",
+      "operation": "ADD",
+      "sha256": "895fbe6ab5f8f8df2b791bd96835446a42c41b4b554ae7ab3cf8e108016debaa",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/datasource/connector/feishu/core/engine_move_test.go",
+      "operation": "ADD",
+      "sha256": "a7cdcc567b10ef355ca04cb7336edf94af9d0e79396c61adc1a4b42d92ed7ae6",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/datasource/connector/feishu/core/shared.go",
+      "operation": "MODIFY",
+      "sha256": "47ca8e9b5b91b749cfb9722d04f74de85655858c40aedc254cc8263e77e8ec97",
+      "base_sha256": "eab2b8e3bd01b7f480602f095962f3be2bd901588d345318983bee5f86865daf"
+    },
+    {
+      "path": "internal/handler/chunk.go",
+      "operation": "MODIFY",
+      "sha256": "d51c38856d3ed0f9547dcc230b3df90f5ee01be40dbf9656ea6d5141f37e5759",
+      "base_sha256": "37f6178f1c9b815536a416e012e452d1d730e2b815586a1f07aa5c18c89e4e72"
+    },
+    {
+      "path": "internal/handler/datasource.go",
+      "operation": "MODIFY",
+      "sha256": "ab8274add348a6977ec5efe46b05b9c7e345caf2e9aee992784ece028e952a08",
+      "base_sha256": "a0cecdf29ac5e1261fe3d4d9fc5c6119b88e5135d2be77ad3098cdd655811690"
+    },
+    {
+      "path": "internal/handler/dto/datasource.go",
+      "operation": "MODIFY",
+      "sha256": "e76a958d15b60fd15abf5a21f6776b1fe127963b19f7124135b4c1adaa94a835",
+      "base_sha256": "b6d2748d385bdf5442f4a2e65b7fdf1272bbd91f45d3ec2be542441be7683257"
+    },
+    {
+      "path": "internal/handler/dto/feishu_legacy_diagnostics_test.go",
+      "operation": "ADD",
+      "sha256": "f60913b50ea3cfc38dcf8e8eb97a8ae336c0c7c68d8c9a549721b925b9c226df",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/handler/knowledge.go",
+      "operation": "MODIFY",
+      "sha256": "09ad1ebf08890b3037246be479e18625fe4f3a2c0117d98dcbe3d7f19b8851f4",
+      "base_sha256": "fc548bff43fe832ef7abc8e7a2478fb55d4e710d91f39ea2fbffd28cfec62cc5"
+    },
+    {
+      "path": "internal/handler/portal.go",
+      "operation": "MODIFY",
+      "sha256": "c576e32aeb7de513edc5b5ae16927d86fcd069482b5acaee9385176392484482",
+      "base_sha256": "2b0f75978fea26903764a26fe062c247e360e80d7c83217ae987af26a6776881"
+    },
+    {
+      "path": "internal/handler/user_mcp_api_key.go",
+      "operation": "MODIFY",
+      "sha256": "7896066ed742dc8cbe084ba7ac2725711bbb305217c8ed8d94692066a2551934",
+      "base_sha256": "7730a8f48c0e79edf5f3d32cce5f5b0528f23c2876b310a1a24c0231bd364bf0"
+    },
+    {
+      "path": "internal/handler/user_mcp_api_key_test.go",
+      "operation": "MODIFY",
+      "sha256": "16cf629fe1fc37d5178f9c01bb2f517415ddb4c83a0606c665ccb58be6f3e82c",
+      "base_sha256": "e2e4dbbc1ee706a6650c3ff0b286cfdc77e4830675fdfb5cd214a06d45bc6ab0"
+    },
+    {
+      "path": "internal/mcpserver/personal.go",
+      "operation": "ADD",
+      "sha256": "da237720e95cefdbd21f4a86f64715ecb1d7dd6b94c016cd174f1047883570eb",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/mcpserver/personal_config.go",
+      "operation": "ADD",
+      "sha256": "744b4b4de4cbd4a2b9c8b4cfeb09fca60d3e9cf41fec14b991f9a2c10927a94a",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/mcpserver/personal_test.go",
+      "operation": "ADD",
+      "sha256": "52b455a046ef904fc5a88a3bc232d0cc5e04ac7125df9d41988109da4370c428",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/mcpserver/shared_scope_revalidation_test.go",
+      "operation": "ADD",
+      "sha256": "eac55054548cda1af87fbabb5f3dc2b033f21d6502cf664f58dee322e67b84f1",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/middleware/document_core_reads.go",
+      "operation": "ADD",
+      "sha256": "bbdbac7370524e4becf1f7d4b3e5430b2782e40bb2ed3fe9e022eda3a4fe71c6",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/middleware/document_read_boundary.go",
+      "operation": "ADD",
+      "sha256": "0adc21bf4b714ebfd053de7d621f38e93b33fa1436cfad8052355730eb706668",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/middleware/document_read_boundary_test.go",
+      "operation": "ADD",
+      "sha256": "9781971657d466035018919b3eb142c25ebf2da9aa1f42efb9681194ad1ef1a5",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/middleware/error_handler.go",
+      "operation": "MODIFY",
+      "sha256": "fc10a12cefe26081f83340a969b030da7faef4e489f8eefa693ac896009d0dde",
+      "base_sha256": "92a208df15a919e3281fdd9e94397ba12e929e5b6be4acf57e902b07323aa2d5"
+    },
+    {
+      "path": "internal/middleware/multipart_cleanup_test.go",
+      "operation": "MODIFY",
+      "sha256": "657635f39eb43f0681d2141fabba41c3aac9b4fb28c67fe65651e00d0c68b460",
+      "base_sha256": "2761c1b8a7854ba4dffda0313090ec42dcaf1c2121dffb61f6f27ec347922875"
+    },
+    {
+      "path": "internal/middleware/personal_mcp_auth.go",
+      "operation": "ADD",
+      "sha256": "85ed846b90257ba3e00d109fdadc0cf288e43a59b613b1ec85c8f4338e25a314",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/router/document_python_integration_test.go",
+      "operation": "ADD",
+      "sha256": "4ebe8d2d3f22579f7a5f6b3ec3d3b4f2bc71497458621ca48b06e98312a3dcb2",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/router/document_reads.go",
+      "operation": "ADD",
+      "sha256": "7a7dceed4c1a27f40c43db812ff6152e68245dfd872704e0ae619231b79ef2b6",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/router/document_reads_test.go",
+      "operation": "ADD",
+      "sha256": "c67246d5fe05aa35f9710460ad02f20545787d5324393154392b164587b067a2",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/router/feishu_legacy_files.go",
+      "operation": "ADD",
+      "sha256": "204d2fad68a30fd1d798ccd6825f74fc2d198f47beb3a5832bfbebb1449063fb",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/router/feishu_legacy_files_test.go",
+      "operation": "ADD",
+      "sha256": "b84c192378d4d9064862b6b9b8a1d2d2134aa6abec2024d7b4697cca7a8a4e68",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/router/feishu_legacy_response.go",
+      "operation": "ADD",
+      "sha256": "df3bc00ba04803e515406fe893b3bfa6746ece90625bef83a5c6a743cbd9e0a8",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/router/feishu_legacy_response_test.go",
+      "operation": "ADD",
+      "sha256": "31a77c9ccfa44f3156f2977d109ea07a8676fc9c9f6db4e30648ce8cf7146ad7",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/router/files.go",
+      "operation": "MODIFY",
+      "sha256": "dbedf1545429aa7dce29c8a11041bb1aea59372c8f2b4dedbbafb8469d75a344",
+      "base_sha256": "34c752ff9ee5941233dc86b8c680bab71e47f0cf0b1252df077ec5535a70ea1f"
+    },
+    {
+      "path": "internal/router/portal_canonical_postgres_test.go",
+      "operation": "ADD",
+      "sha256": "fafa2c42a2baf62d0c776a5ae9281036db628c9af0b8defc2d0689b02c8e0d72",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/router/portal_mcp_client_fixture_test.go",
+      "operation": "ADD",
+      "sha256": "3f5883c76aea2be3a77836adf1bbd91bc9580cc6198956949debba5bcce6f118",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/router/portal_mcp_postgres_test.go",
+      "operation": "ADD",
+      "sha256": "b379ccce4d7cfb407afec53276a52f1756861fdf4a094e7f3e1ea34ffa435cb4",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/router/portal_mcp_scale_postgres_test.go",
+      "operation": "ADD",
+      "sha256": "e061eafba0212d9a4e4375a21cf557cb833e34c37982a33ec0278ff1dee65a6b",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/router/portal_publication_http_test.go",
+      "operation": "ADD",
+      "sha256": "5f31f72daa0792f5fae6722f70c277681ecd83f8c80fc6c7e3408777181ade79",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/router/portal_published_postgres_test.go",
+      "operation": "ADD",
+      "sha256": "b929983e6ea73ecc1693034ec83cc1f8ed7f91bb5968f475eb9ed1a9b17e0787",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/router/portal_v1_deployed_test.go",
+      "operation": "ADD",
+      "sha256": "86386c8152f2fec1a71bacd1453bb246f8beb2dcda1d50416dbf0a07e9b3f466",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/router/portal_v1_postgres_test.go",
+      "operation": "ADD",
+      "sha256": "94e685a3a05df17cb023a80b308da5be7d56000722c68d59bfb360efb74eaea1",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/router/router.go",
+      "operation": "MODIFY",
+      "sha256": "dd5e3df85dc56affe7a4afe9dd7a626e34ce2696b4ddcca7bfa1388018bfe36d",
+      "base_sha256": "369ed46499cad882e2194cda66f5a680d0bd44ad868e4e59f46bd0387b9d6929"
+    },
+    {
+      "path": "internal/router/routes_auth_tenant.go",
+      "operation": "MODIFY",
+      "sha256": "49220f515712671c5222a563b50c7f5f1aefb75ed6181a19b0ef896899f773c5",
+      "base_sha256": "eec1a63418d8441d3c84f48ccec3d4227a0338d04d4b3fc4ffa70111c559fe84"
+    },
+    {
+      "path": "internal/router/routes_knowledge.go",
+      "operation": "MODIFY",
+      "sha256": "79829bc40932597423850fd461bc8105f70ee832722e0e69b0415a190bf17809",
+      "base_sha256": "4bbf651ef9781a2e32dc75cd743f1757479f63725d6ae008b1857742e67bf050"
+    },
+    {
+      "path": "internal/router/routes_personal_mcp.go",
+      "operation": "ADD",
+      "sha256": "614cd762644e6ea23a309ca86ae651186e01b085767d981f65af9d593711b39f",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/router/routes_personal_mcp_test.go",
+      "operation": "ADD",
+      "sha256": "1f7dbda16fc25b647e2a6a093151a4fbd8d5b3e18c85cee853243cb0f77886dc",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/router/routes_portal.go",
+      "operation": "MODIFY",
+      "sha256": "3b972bb6bef1cabe4663887adf31f78766181f5a299f1374b188f045fe8aa8fb",
+      "base_sha256": "05f9dfdd2d8285745874e18b62cb26a1b48c396696e75416a506af7f7789c2ef"
+    },
+    {
+      "path": "internal/router/user_mcp_secret_test.go",
+      "operation": "ADD",
+      "sha256": "cc6eda6f09ffee88d94d50335a2085774784b7707d348507b89b7724788b2d37",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/testutil/documentaccess/fixture.go",
+      "operation": "ADD",
+      "sha256": "21d9eb03cd44a93d287a59a33f9c5b64a773228d147024b967d5385b383a4f9f",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/testutil/documentaccess/portal.go",
+      "operation": "ADD",
+      "sha256": "21a17e527dc61f15e107c0fc3de0fbcf5580d7eb17e5c1acdf8fddc2873bce1a",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/testutil/documentaccess/published.go",
+      "operation": "ADD",
+      "sha256": "c268ff4db0a888d9d0a6adcb814441fbebf5dd168d2f589865093430a179dea6",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/testutil/feishulegacy/database.go",
+      "operation": "ADD",
+      "sha256": "3d55f712832430b4f4b2700adef98ef918f181e0196868670b67d31d5e0af776",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/types/audit_log.go",
+      "operation": "MODIFY",
+      "sha256": "e64f8a9781420ac27389f746c3a865d593b8112716fcd956b1ce359d412d10b2",
+      "base_sha256": "c360db0ce24d5d9735ff232b968d3d7a63b4dff792974342967f9928e32991df"
+    },
+    {
+      "path": "internal/types/datasource.go",
+      "operation": "MODIFY",
+      "sha256": "da604429dadef1a2a11e99f4968117ad44fbb9c1e6a053da19a0fec3804e5228",
+      "base_sha256": "3f882515531cf6e1e058017043c65a0942789da6c6936ae39f6b9cc54be001f2"
+    },
+    {
+      "path": "internal/types/document_access.go",
+      "operation": "ADD",
+      "sha256": "2c18192c9410cb54c3029135cfea8c2bca1d0ca4da93fd80941cfe54e4fcecc7",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/types/enterprise_access.go",
+      "operation": "ADD",
+      "sha256": "d3942cae7138f043292d16703325d35b6756703707efcd1e6567b94205517d9b",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/types/feishu_legacy_read.go",
+      "operation": "ADD",
+      "sha256": "eeaaa172c4389cc8a3faf46a5e3b8e2487d44a61da872e137222baffbb5588b7",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/types/feishu_legacy_read_scope.go",
+      "operation": "ADD",
+      "sha256": "853ce9c68d3e358bd40d1205da3516432d820c4e69238a531e68f11f26407df5",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/types/feishu_legacy_version.go",
+      "operation": "ADD",
+      "sha256": "933423fcb851aac690273f93ef942b6a115d7e981ce1c288410e296d88654fab",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/types/interfaces/tenant.go",
+      "operation": "MODIFY",
+      "sha256": "9cc466d3ac55523fe027c3407ff6055490c9fbb2c17131ccfea0529ac6869ba5",
+      "base_sha256": "d5d827a451ade15369748e60e72f06bc0a2e4bbcd1fbcd701f94480c9b25ea0d"
+    },
+    {
+      "path": "internal/types/session.go",
+      "operation": "MODIFY",
+      "sha256": "2b17e9e6fae6caacf0e35c823023c7b62390aadaf58c2d1f1723c703046a217f",
+      "base_sha256": "8d207baac056388313816af2f7ef9144d54cdfca389678296653ef7bc10b40f9"
+    },
+    {
+      "path": "internal/types/string_array_security_test.go",
+      "operation": "ADD",
+      "sha256": "4da48363de2fc43404647108f98d9af68995821372d474ac1e3c80e06e0e62b8",
+      "base_sha256": null
+    },
+    {
+      "path": "internal/types/tenant_api_key.go",
+      "operation": "MODIFY",
+      "sha256": "2c86b7c2723cb41015ffafd6610cd28c39532277b3f04c294488893b9ae8bb45",
+      "base_sha256": "20d5c156ffe356746e35c5f5cf78b7c181573e9aebc2971796acc7a1cf434ee3"
+    },
+    {
+      "path": "internal/types/wiki_page.go",
+      "operation": "MODIFY",
+      "sha256": "94a3e07e070a74d5093c0a660891506f8c92f0cf1a1ec8ce1f3dd4476eddf7f1",
+      "base_sha256": "ed6554d818ab05fead300f2f0daf0ef33f937277605ca9f39266b3a06f453a5b"
+    },
+    {
+      "path": "mcp-server/test_file_path_security.py",
+      "operation": "MODIFY",
+      "sha256": "7e4faf57be88a737565d717ce38b41eb9b97a8582a7296acb839b75d8e16aeea",
+      "base_sha256": "27e455183ac0faead4486f4bf9d032e64cc52b9ec3714bc30f1bfd27906e39b8"
+    },
+    {
+      "path": "mcp-server/test_mcp_transports.py",
+      "operation": "MODIFY",
+      "sha256": "9a1e6f9f3c9d3830425deee05bafe285fe6640724200d85733884a55997e4656",
+      "base_sha256": "c144670d72247fe0fa00a9588190ea71b216b61d0ee94bdded6caf5533572864"
+    },
+    {
+      "path": "mcp-server/test_sse_auth_revocation.py",
+      "operation": "ADD",
+      "sha256": "e1acf0184a360add583c81d15f52d82d42392a38dce6b43be87fa619e5bae122",
+      "base_sha256": null
+    },
+    {
+      "path": "mcp-server/weknora_mcp_server.py",
+      "operation": "MODIFY",
+      "sha256": "7fee77ee6dd5179c2d8cfde4ca5c9ef444d4cabc9f5e316df2db236892226739",
+      "base_sha256": "c0d2b07a68a0f1501bec7434abc2b3ad9e4b75f82e0be40aa18263f367db0a55"
+    },
+    {
+      "path": "migrations/migration-map.json",
+      "operation": "MODIFY",
+      "sha256": "82058c2949a17a1b0e52ee5861f860a0e21d313f254ece359771dd6ca1e2261e",
+      "base_sha256": "caf85bb68d1b9adfec752bd9b51c284723ec8ef168878b6ac49cabe55700899e"
+    },
+    {
+      "path": "migrations/sqlite/003034_enterprise_publication.down.sql",
+      "operation": "ADD",
+      "sha256": "fbe4f6b784e71eb24e091f4c81f3e7c8268e7d967cbec08f04535483adbd4fbe",
+      "base_sha256": null
+    },
+    {
+      "path": "migrations/sqlite/003034_enterprise_publication.up.sql",
+      "operation": "ADD",
+      "sha256": "b8b0349705626e3b87d7f2d8c0bac862de82c3a34fa6c6638e92360d29c444a6",
+      "base_sha256": null
+    },
+    {
+      "path": "migrations/sqlite/003035_document_access.down.sql",
+      "operation": "ADD",
+      "sha256": "c2b0b4b7d9c2e54ad718aa30a42865eb8ca7c4981c13e81aa9826ee731b26d92",
+      "base_sha256": null
+    },
+    {
+      "path": "migrations/sqlite/003035_document_access.up.sql",
+      "operation": "ADD",
+      "sha256": "70deabc46ca128404243f75f5da6d0b681ca5f471aad6469a908b572f1543f71",
+      "base_sha256": null
+    },
+    {
+      "path": "migrations/sqlite/003036_feishu_legacy_atomic.down.sql",
+      "operation": "ADD",
+      "sha256": "38ea426aad94de40aba7edaca0436619d11aa2b5263825d2ed5181f58f6e7520",
+      "base_sha256": null
+    },
+    {
+      "path": "migrations/sqlite/003036_feishu_legacy_atomic.up.sql",
+      "operation": "ADD",
+      "sha256": "5e590b693fbbc39cd74eec52692e96608e8574ab3cf08c0ce1b73ccb6cbd167c",
+      "base_sha256": null
+    },
+    {
+      "path": "migrations/versioned/003034_enterprise_publication.down.sql",
+      "operation": "ADD",
+      "sha256": "fbe4f6b784e71eb24e091f4c81f3e7c8268e7d967cbec08f04535483adbd4fbe",
+      "base_sha256": null
+    },
+    {
+      "path": "migrations/versioned/003034_enterprise_publication.up.sql",
+      "operation": "ADD",
+      "sha256": "5486bde16bd3f3f6707dde0791191436b1e6cd2a896f07db7ea4005f4fb7b008",
+      "base_sha256": null
+    },
+    {
+      "path": "migrations/versioned/003035_document_access.down.sql",
+      "operation": "ADD",
+      "sha256": "4d38fcb271f3150af9aed4f80c7ebe960cfd4d5c10fb00956c616e58ec0ed607",
+      "base_sha256": null
+    },
+    {
+      "path": "migrations/versioned/003035_document_access.up.sql",
+      "operation": "ADD",
+      "sha256": "ab4f946568006d6ad80f22d4d6df040477c9811353697e3f6db72475aafe61bd",
+      "base_sha256": null
+    },
+    {
+      "path": "migrations/versioned/003036_feishu_legacy_atomic.down.sql",
+      "operation": "ADD",
+      "sha256": "39624bade065ec555685114e95b664e660b5541cfd80e5b602ec4334c57f7747",
+      "base_sha256": null
+    },
+    {
+      "path": "migrations/versioned/003036_feishu_legacy_atomic.up.sql",
+      "operation": "ADD",
+      "sha256": "7d522e78cc38f82e113f46cf0433ebf152cb00d1fc7cc3ba19fa02da484a2391",
+      "base_sha256": null
+    }
+  ],
+  "results": [
+    {
+      "name": "init",
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--label",
+        "knowhub.feishu=development",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/fixture-hosts:/etc/hosts:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/source:/source:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/results:/results",
+        "-v",
+        "feishu-incremental-1d533edfe339:/work",
+        "-v",
+        "/home/aqyfzx/go/pkg/mod:/home/aqyfzx/go/pkg/mod:ro",
+        "-v",
+        "/home/aqyfzx/ai/knowhub-rc3-final-20261020/committed-source3/third_party/anydoc-go/lib/linux_amd64_gnu:/native:ro",
+        "-v",
+        "knowhub-mcp-b7-20261021-102200-data:/prior",
+        "-e",
+        "GOPATH=/home/aqyfzx/go",
+        "-e",
+        "GOCACHE=/prior/go-cache",
+        "-e",
+        "GOTMPDIR=/work/tmp",
+        "-e",
+        "GOTOOLCHAIN=local",
+        "-e",
+        "CGO_CFLAGS=-O2 -g -I/work/sqlite-headers",
+        "-e",
+        "CGO_LDFLAGS=-L/native",
+        "-w",
+        "/source",
+        "knowhub-build/golang:1.26-feishu-py311-ensurepip-20261022",
+        "sh",
+        "-c",
+        "mkdir -p /work/tmp /work/sqlite-headers; cp /home/aqyfzx/go/pkg/mod/github.com/mattn/go-sqlite3@v1.14.24/sqlite3-binding.h /work/sqlite-headers/sqlite3.h; cp /home/aqyfzx/go/pkg/mod/github.com/mattn/go-sqlite3@v1.14.24/sqlite3ext.h /work/sqlite-headers/"
+      ],
+      "exit_code": 0,
+      "seconds": 0.867
+    },
+    {
+      "name": "go-version",
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--label",
+        "knowhub.feishu=development",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/fixture-hosts:/etc/hosts:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/source:/source:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/results:/results",
+        "-v",
+        "feishu-incremental-1d533edfe339:/work",
+        "-v",
+        "/home/aqyfzx/go/pkg/mod:/home/aqyfzx/go/pkg/mod:ro",
+        "-v",
+        "/home/aqyfzx/ai/knowhub-rc3-final-20261020/committed-source3/third_party/anydoc-go/lib/linux_amd64_gnu:/native:ro",
+        "-v",
+        "knowhub-mcp-b7-20261021-102200-data:/prior",
+        "-e",
+        "GOPATH=/home/aqyfzx/go",
+        "-e",
+        "GOCACHE=/prior/go-cache",
+        "-e",
+        "GOTMPDIR=/work/tmp",
+        "-e",
+        "GOTOOLCHAIN=local",
+        "-e",
+        "CGO_CFLAGS=-O2 -g -I/work/sqlite-headers",
+        "-e",
+        "CGO_LDFLAGS=-L/native",
+        "-w",
+        "/source",
+        "knowhub-build/golang:1.26-feishu-py311-ensurepip-20261022",
+        "go",
+        "version"
+      ],
+      "exit_code": 0,
+      "seconds": 0.667
+    },
+    {
+      "name": "new-core-contract",
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--label",
+        "knowhub.feishu=development",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/fixture-hosts:/etc/hosts:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/source:/source:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/results:/results",
+        "-v",
+        "feishu-incremental-1d533edfe339:/work",
+        "-v",
+        "/home/aqyfzx/go/pkg/mod:/home/aqyfzx/go/pkg/mod:ro",
+        "-v",
+        "/home/aqyfzx/ai/knowhub-rc3-final-20261020/committed-source3/third_party/anydoc-go/lib/linux_amd64_gnu:/native:ro",
+        "-v",
+        "knowhub-mcp-b7-20261021-102200-data:/prior",
+        "-e",
+        "GOPATH=/home/aqyfzx/go",
+        "-e",
+        "GOCACHE=/prior/go-cache",
+        "-e",
+        "GOTMPDIR=/work/tmp",
+        "-e",
+        "GOTOOLCHAIN=local",
+        "-e",
+        "CGO_CFLAGS=-O2 -g -I/work/sqlite-headers",
+        "-e",
+        "CGO_LDFLAGS=-L/native",
+        "-w",
+        "/source",
+        "knowhub-build/golang:1.26-feishu-py311-ensurepip-20261022",
+        "go",
+        "test",
+        "-count=1",
+        "-v",
+        "./internal/datasource/connector/feishu/core",
+        "-run",
+        "TestIncremental"
+      ],
+      "exit_code": 0,
+      "seconds": 7.285
+    },
+    {
+      "name": "new-service-contract",
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--label",
+        "knowhub.feishu=development",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/fixture-hosts:/etc/hosts:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/source:/source:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/results:/results",
+        "-v",
+        "feishu-incremental-1d533edfe339:/work",
+        "-v",
+        "/home/aqyfzx/go/pkg/mod:/home/aqyfzx/go/pkg/mod:ro",
+        "-v",
+        "/home/aqyfzx/ai/knowhub-rc3-final-20261020/committed-source3/third_party/anydoc-go/lib/linux_amd64_gnu:/native:ro",
+        "-v",
+        "knowhub-mcp-b7-20261021-102200-data:/prior",
+        "-e",
+        "GOPATH=/home/aqyfzx/go",
+        "-e",
+        "GOCACHE=/prior/go-cache",
+        "-e",
+        "GOTMPDIR=/work/tmp",
+        "-e",
+        "GOTOOLCHAIN=local",
+        "-e",
+        "CGO_CFLAGS=-O2 -g -I/work/sqlite-headers",
+        "-e",
+        "CGO_LDFLAGS=-L/native",
+        "-w",
+        "/source",
+        "knowhub-build/golang:1.26-feishu-py311-ensurepip-20261022",
+        "go",
+        "test",
+        "-tags",
+        "sqlite_fts5",
+        "-p",
+        "2",
+        "-count=1",
+        "-v",
+        "./internal/application/service",
+        "-run",
+        "TestIncremental"
+      ],
+      "exit_code": 0,
+      "seconds": 24.278
+    },
+    {
+      "name": "router-compile",
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--label",
+        "knowhub.feishu=development",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/fixture-hosts:/etc/hosts:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/source:/source:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/results:/results",
+        "-v",
+        "feishu-incremental-1d533edfe339:/work",
+        "-v",
+        "/home/aqyfzx/go/pkg/mod:/home/aqyfzx/go/pkg/mod:ro",
+        "-v",
+        "/home/aqyfzx/ai/knowhub-rc3-final-20261020/committed-source3/third_party/anydoc-go/lib/linux_amd64_gnu:/native:ro",
+        "-v",
+        "knowhub-mcp-b7-20261021-102200-data:/prior",
+        "-e",
+        "GOPATH=/home/aqyfzx/go",
+        "-e",
+        "GOCACHE=/prior/go-cache",
+        "-e",
+        "GOTMPDIR=/work/tmp",
+        "-e",
+        "GOTOOLCHAIN=local",
+        "-e",
+        "CGO_CFLAGS=-O2 -g -I/work/sqlite-headers",
+        "-e",
+        "CGO_LDFLAGS=-L/native",
+        "-w",
+        "/source",
+        "knowhub-build/golang:1.26-feishu-py311-ensurepip-20261022",
+        "go",
+        "test",
+        "-tags",
+        "sqlite_fts5",
+        "-p",
+        "2",
+        "./internal/router",
+        "./internal/middleware",
+        "-run",
+        "^TestLegacyFile"
+      ],
+      "exit_code": 0,
+      "seconds": 30.127
+    },
+    {
+      "name": "pg-create",
+      "argv": [
+        "docker",
+        "run",
+        "-d",
+        "--name",
+        "feishu-atomic-1d533edfe339-joint-release-source-pg",
+        "--label",
+        "knowhub.feishu=development",
+        "--network",
+        "none",
+        "--tmpfs",
+        "/var/lib/postgresql/data",
+        "-e",
+        "POSTGRES_HOST_AUTH_METHOD=trust",
+        "-e",
+        "POSTGRES_DB=feishu_atomic_test",
+        "paradedb/paradedb:v0.22.2-pg17"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "redis-create",
+      "argv": [
+        "docker",
+        "run",
+        "-d",
+        "--name",
+        "feishu-atomic-1d533edfe339-joint-release-source-pg-redis",
+        "--label",
+        "knowhub.feishu=development",
+        "--restart",
+        "always",
+        "--network",
+        "container:feishu-atomic-1d533edfe339-joint-release-source-pg",
+        "redis:7.0-alpine",
+        "redis-server",
+        "--save",
+        "",
+        "--appendonly",
+        "no"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "atomic-postgres",
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "container:feishu-atomic-1d533edfe339-joint-release-source-pg",
+        "--label",
+        "knowhub.feishu=development",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/fixture-hosts:/etc/hosts:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/source:/source:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/results:/results",
+        "-v",
+        "feishu-incremental-1d533edfe339:/work",
+        "-v",
+        "/home/aqyfzx/go/pkg/mod:/home/aqyfzx/go/pkg/mod:ro",
+        "-v",
+        "/home/aqyfzx/ai/knowhub-rc3-final-20261020/committed-source3/third_party/anydoc-go/lib/linux_amd64_gnu:/native:ro",
+        "-v",
+        "knowhub-mcp-b7-20261021-102200-data:/prior",
+        "-e",
+        "GOPATH=/home/aqyfzx/go",
+        "-e",
+        "GOCACHE=/prior/go-cache",
+        "-e",
+        "GOTMPDIR=/work/tmp",
+        "-e",
+        "GOTOOLCHAIN=local",
+        "-e",
+        "CGO_CFLAGS=-O2 -g -I/work/sqlite-headers",
+        "-e",
+        "CGO_LDFLAGS=-L/native",
+        "-e",
+        "FEISHU_DISPATCH_REDIS_ADDR=knowhub-p1-dispatch-redis-20261018:6379",
+        "-e",
+        "FEISHU_LEGACY_TEST_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "SYNC_EXECUTION_POSTGRES_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "REQUIRE_SYNC_EXECUTION_POSTGRES=1",
+        "-w",
+        "/source",
+        "knowhub-build/golang:1.26-feishu-py311-ensurepip-20261022",
+        "go",
+        "test",
+        "-tags",
+        "sqlite_fts5",
+        "-p",
+        "2",
+        "-count=1",
+        "-v",
+        "./internal/application/repository",
+        "-run",
+        "TestFeishuLegacyAtomicPostgres"
+      ],
+      "exit_code": 0,
+      "seconds": 5.427
+    },
+    {
+      "name": "parser-model-postgres",
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "container:feishu-atomic-1d533edfe339-joint-release-source-pg",
+        "--label",
+        "knowhub.feishu=development",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/fixture-hosts:/etc/hosts:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/source:/source:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/results:/results",
+        "-v",
+        "feishu-incremental-1d533edfe339:/work",
+        "-v",
+        "/home/aqyfzx/go/pkg/mod:/home/aqyfzx/go/pkg/mod:ro",
+        "-v",
+        "/home/aqyfzx/ai/knowhub-rc3-final-20261020/committed-source3/third_party/anydoc-go/lib/linux_amd64_gnu:/native:ro",
+        "-v",
+        "knowhub-mcp-b7-20261021-102200-data:/prior",
+        "-e",
+        "GOPATH=/home/aqyfzx/go",
+        "-e",
+        "GOCACHE=/prior/go-cache",
+        "-e",
+        "GOTMPDIR=/work/tmp",
+        "-e",
+        "GOTOOLCHAIN=local",
+        "-e",
+        "CGO_CFLAGS=-O2 -g -I/work/sqlite-headers",
+        "-e",
+        "CGO_LDFLAGS=-L/native",
+        "-e",
+        "FEISHU_DISPATCH_REDIS_ADDR=knowhub-p1-dispatch-redis-20261018:6379",
+        "-e",
+        "FEISHU_LEGACY_TEST_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "SYNC_EXECUTION_POSTGRES_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "REQUIRE_SYNC_EXECUTION_POSTGRES=1",
+        "-w",
+        "/source",
+        "knowhub-build/golang:1.26-feishu-py311-ensurepip-20261022",
+        "go",
+        "test",
+        "-tags",
+        "sqlite_fts5",
+        "-p",
+        "2",
+        "-count=1",
+        "-v",
+        "./internal/application/service",
+        "-run",
+        "TestFeishuLegacyRealParserEmbeddingPostgres"
+      ],
+      "exit_code": 0,
+      "seconds": 36.141
+    },
+    {
+      "name": "formal-migrations",
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "container:feishu-atomic-1d533edfe339-joint-release-source-pg",
+        "--label",
+        "knowhub.feishu=development",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/fixture-hosts:/etc/hosts:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/source:/source:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/results:/results",
+        "-v",
+        "feishu-incremental-1d533edfe339:/work",
+        "-v",
+        "/home/aqyfzx/go/pkg/mod:/home/aqyfzx/go/pkg/mod:ro",
+        "-v",
+        "/home/aqyfzx/ai/knowhub-rc3-final-20261020/committed-source3/third_party/anydoc-go/lib/linux_amd64_gnu:/native:ro",
+        "-v",
+        "knowhub-mcp-b7-20261021-102200-data:/prior",
+        "-e",
+        "GOPATH=/home/aqyfzx/go",
+        "-e",
+        "GOCACHE=/prior/go-cache",
+        "-e",
+        "GOTMPDIR=/work/tmp",
+        "-e",
+        "GOTOOLCHAIN=local",
+        "-e",
+        "CGO_CFLAGS=-O2 -g -I/work/sqlite-headers",
+        "-e",
+        "CGO_LDFLAGS=-L/native",
+        "-e",
+        "FEISHU_DISPATCH_REDIS_ADDR=knowhub-p1-dispatch-redis-20261018:6379",
+        "-e",
+        "FEISHU_LEGACY_TEST_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "SYNC_EXECUTION_POSTGRES_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "REQUIRE_SYNC_EXECUTION_POSTGRES=1",
+        "-w",
+        "/source",
+        "knowhub-build/golang:1.26-feishu-py311-ensurepip-20261022",
+        "go",
+        "test",
+        "-tags",
+        "sqlite_fts5",
+        "-p",
+        "2",
+        "-count=1",
+        "-v",
+        "./internal/application/repository",
+        "-run",
+        "TestFeishuLegacyFormalMigrationChain"
+      ],
+      "exit_code": 0,
+      "seconds": 16.964
+    },
+    {
+      "name": "graph-guard",
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "container:feishu-atomic-1d533edfe339-joint-release-source-pg",
+        "--label",
+        "knowhub.feishu=development",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/fixture-hosts:/etc/hosts:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/source:/source:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/results:/results",
+        "-v",
+        "feishu-incremental-1d533edfe339:/work",
+        "-v",
+        "/home/aqyfzx/go/pkg/mod:/home/aqyfzx/go/pkg/mod:ro",
+        "-v",
+        "/home/aqyfzx/ai/knowhub-rc3-final-20261020/committed-source3/third_party/anydoc-go/lib/linux_amd64_gnu:/native:ro",
+        "-v",
+        "knowhub-mcp-b7-20261021-102200-data:/prior",
+        "-e",
+        "GOPATH=/home/aqyfzx/go",
+        "-e",
+        "GOCACHE=/prior/go-cache",
+        "-e",
+        "GOTMPDIR=/work/tmp",
+        "-e",
+        "GOTOOLCHAIN=local",
+        "-e",
+        "CGO_CFLAGS=-O2 -g -I/work/sqlite-headers",
+        "-e",
+        "CGO_LDFLAGS=-L/native",
+        "-e",
+        "FEISHU_DISPATCH_REDIS_ADDR=knowhub-p1-dispatch-redis-20261018:6379",
+        "-e",
+        "FEISHU_LEGACY_TEST_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "SYNC_EXECUTION_POSTGRES_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "REQUIRE_SYNC_EXECUTION_POSTGRES=1",
+        "-w",
+        "/source",
+        "knowhub-build/golang:1.26-feishu-py311-ensurepip-20261022",
+        "go",
+        "test",
+        "-tags",
+        "sqlite_fts5",
+        "-p",
+        "2",
+        "-count=1",
+        "./internal/application/service/chat_pipeline",
+        "-run",
+        "TestFeishuLegacyHoldStopsGraphCandidateReads"
+      ],
+      "exit_code": 0,
+      "seconds": 6.929
+    },
+    {
+      "name": "database-complete",
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "container:feishu-atomic-1d533edfe339-joint-release-source-pg",
+        "--label",
+        "knowhub.feishu=development",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/fixture-hosts:/etc/hosts:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/source:/source:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/results:/results",
+        "-v",
+        "feishu-incremental-1d533edfe339:/work",
+        "-v",
+        "/home/aqyfzx/go/pkg/mod:/home/aqyfzx/go/pkg/mod:ro",
+        "-v",
+        "/home/aqyfzx/ai/knowhub-rc3-final-20261020/committed-source3/third_party/anydoc-go/lib/linux_amd64_gnu:/native:ro",
+        "-v",
+        "knowhub-mcp-b7-20261021-102200-data:/prior",
+        "-e",
+        "GOPATH=/home/aqyfzx/go",
+        "-e",
+        "GOCACHE=/prior/go-cache",
+        "-e",
+        "GOTMPDIR=/work/tmp",
+        "-e",
+        "GOTOOLCHAIN=local",
+        "-e",
+        "CGO_CFLAGS=-O2 -g -I/work/sqlite-headers",
+        "-e",
+        "CGO_LDFLAGS=-L/native",
+        "-e",
+        "FEISHU_DISPATCH_REDIS_ADDR=knowhub-p1-dispatch-redis-20261018:6379",
+        "-e",
+        "FEISHU_LEGACY_TEST_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "SYNC_EXECUTION_POSTGRES_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "REQUIRE_SYNC_EXECUTION_POSTGRES=1",
+        "-e",
+        "WEKNORA_MIGRATION_TEST_POSTGRES_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-w",
+        "/source",
+        "knowhub-build/golang:1.26-feishu-py311-ensurepip-20261022",
+        "go",
+        "test",
+        "-tags",
+        "sqlite_fts5",
+        "-p",
+        "2",
+        "-count=1",
+        "-v",
+        "./internal/database"
+      ],
+      "exit_code": 0,
+      "seconds": 25.165
+    },
+    {
+      "name": "atomic-postgres-race",
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "container:feishu-atomic-1d533edfe339-joint-release-source-pg",
+        "--label",
+        "knowhub.feishu=development",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/fixture-hosts:/etc/hosts:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/source:/source:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/results:/results",
+        "-v",
+        "feishu-incremental-1d533edfe339:/work",
+        "-v",
+        "/home/aqyfzx/go/pkg/mod:/home/aqyfzx/go/pkg/mod:ro",
+        "-v",
+        "/home/aqyfzx/ai/knowhub-rc3-final-20261020/committed-source3/third_party/anydoc-go/lib/linux_amd64_gnu:/native:ro",
+        "-v",
+        "knowhub-mcp-b7-20261021-102200-data:/prior",
+        "-e",
+        "GOPATH=/home/aqyfzx/go",
+        "-e",
+        "GOCACHE=/prior/go-cache",
+        "-e",
+        "GOTMPDIR=/work/tmp",
+        "-e",
+        "GOTOOLCHAIN=local",
+        "-e",
+        "CGO_CFLAGS=-O2 -g -I/work/sqlite-headers",
+        "-e",
+        "CGO_LDFLAGS=-L/native",
+        "-e",
+        "FEISHU_DISPATCH_REDIS_ADDR=knowhub-p1-dispatch-redis-20261018:6379",
+        "-e",
+        "FEISHU_LEGACY_TEST_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "SYNC_EXECUTION_POSTGRES_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "REQUIRE_SYNC_EXECUTION_POSTGRES=1",
+        "-e",
+        "WEKNORA_MIGRATION_TEST_POSTGRES_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-w",
+        "/source",
+        "knowhub-build/golang:1.26-feishu-py311-ensurepip-20261022",
+        "go",
+        "test",
+        "-race",
+        "-tags",
+        "sqlite_fts5",
+        "-p",
+        "2",
+        "-count=1",
+        "-v",
+        "./internal/application/repository",
+        "-run",
+        "TestFeishuLegacyAtomicPostgres"
+      ],
+      "exit_code": 0,
+      "seconds": 25.818
+    },
+    {
+      "name": "feishu-all",
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "container:feishu-atomic-1d533edfe339-joint-release-source-pg",
+        "--label",
+        "knowhub.feishu=development",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/fixture-hosts:/etc/hosts:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/source:/source:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/results:/results",
+        "-v",
+        "feishu-incremental-1d533edfe339:/work",
+        "-v",
+        "/home/aqyfzx/go/pkg/mod:/home/aqyfzx/go/pkg/mod:ro",
+        "-v",
+        "/home/aqyfzx/ai/knowhub-rc3-final-20261020/committed-source3/third_party/anydoc-go/lib/linux_amd64_gnu:/native:ro",
+        "-v",
+        "knowhub-mcp-b7-20261021-102200-data:/prior",
+        "-e",
+        "GOPATH=/home/aqyfzx/go",
+        "-e",
+        "GOCACHE=/prior/go-cache",
+        "-e",
+        "GOTMPDIR=/work/tmp",
+        "-e",
+        "GOTOOLCHAIN=local",
+        "-e",
+        "CGO_CFLAGS=-O2 -g -I/work/sqlite-headers",
+        "-e",
+        "CGO_LDFLAGS=-L/native",
+        "-e",
+        "FEISHU_DISPATCH_REDIS_ADDR=knowhub-p1-dispatch-redis-20261018:6379",
+        "-e",
+        "FEISHU_LEGACY_TEST_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "SYNC_EXECUTION_POSTGRES_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "REQUIRE_SYNC_EXECUTION_POSTGRES=1",
+        "-e",
+        "WEKNORA_MIGRATION_TEST_POSTGRES_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-w",
+        "/source",
+        "knowhub-build/golang:1.26-feishu-py311-ensurepip-20261022",
+        "go",
+        "test",
+        "-tags",
+        "sqlite_fts5",
+        "-p",
+        "2",
+        "-count=1",
+        "-v",
+        "./internal/datasource/...",
+        "-run",
+        "Feishu|Drive|FetchStream|Incremental|Application|Client|Policy|Error|Workbook|Bitable|Docx|Markdown|Region|Cursor|Block|Tally"
+      ],
+      "exit_code": 0,
+      "seconds": 123.825
+    },
+    {
+      "name": "service-fencing",
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "container:feishu-atomic-1d533edfe339-joint-release-source-pg",
+        "--label",
+        "knowhub.feishu=development",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/fixture-hosts:/etc/hosts:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/source:/source:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/results:/results",
+        "-v",
+        "feishu-incremental-1d533edfe339:/work",
+        "-v",
+        "/home/aqyfzx/go/pkg/mod:/home/aqyfzx/go/pkg/mod:ro",
+        "-v",
+        "/home/aqyfzx/ai/knowhub-rc3-final-20261020/committed-source3/third_party/anydoc-go/lib/linux_amd64_gnu:/native:ro",
+        "-v",
+        "knowhub-mcp-b7-20261021-102200-data:/prior",
+        "-e",
+        "GOPATH=/home/aqyfzx/go",
+        "-e",
+        "GOCACHE=/prior/go-cache",
+        "-e",
+        "GOTMPDIR=/work/tmp",
+        "-e",
+        "GOTOOLCHAIN=local",
+        "-e",
+        "CGO_CFLAGS=-O2 -g -I/work/sqlite-headers",
+        "-e",
+        "CGO_LDFLAGS=-L/native",
+        "-e",
+        "FEISHU_DISPATCH_REDIS_ADDR=knowhub-p1-dispatch-redis-20261018:6379",
+        "-e",
+        "FEISHU_LEGACY_TEST_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "SYNC_EXECUTION_POSTGRES_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "REQUIRE_SYNC_EXECUTION_POSTGRES=1",
+        "-e",
+        "WEKNORA_MIGRATION_TEST_POSTGRES_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-w",
+        "/source",
+        "knowhub-build/golang:1.26-feishu-py311-ensurepip-20261022",
+        "go",
+        "test",
+        "-tags",
+        "sqlite_fts5",
+        "-p",
+        "2",
+        "-count=1",
+        "-v",
+        "./internal/application/service",
+        "-run",
+        "Feishu|DataSource|ProcessSync|SyncExecution|Incremental|ReplaceKnowledge"
+      ],
+      "exit_code": 0,
+      "seconds": 229.677
+    },
+    {
+      "name": "service-complete",
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "container:feishu-atomic-1d533edfe339-joint-release-source-pg",
+        "--label",
+        "knowhub.feishu=development",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/fixture-hosts:/etc/hosts:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/source:/source:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/results:/results",
+        "-v",
+        "feishu-incremental-1d533edfe339:/work",
+        "-v",
+        "/home/aqyfzx/go/pkg/mod:/home/aqyfzx/go/pkg/mod:ro",
+        "-v",
+        "/home/aqyfzx/ai/knowhub-rc3-final-20261020/committed-source3/third_party/anydoc-go/lib/linux_amd64_gnu:/native:ro",
+        "-v",
+        "knowhub-mcp-b7-20261021-102200-data:/prior",
+        "-e",
+        "GOPATH=/home/aqyfzx/go",
+        "-e",
+        "GOCACHE=/prior/go-cache",
+        "-e",
+        "GOTMPDIR=/work/tmp",
+        "-e",
+        "GOTOOLCHAIN=local",
+        "-e",
+        "CGO_CFLAGS=-O2 -g -I/work/sqlite-headers",
+        "-e",
+        "CGO_LDFLAGS=-L/native",
+        "-e",
+        "FEISHU_DISPATCH_REDIS_ADDR=knowhub-p1-dispatch-redis-20261018:6379",
+        "-e",
+        "FEISHU_LEGACY_TEST_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "SYNC_EXECUTION_POSTGRES_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "REQUIRE_SYNC_EXECUTION_POSTGRES=1",
+        "-e",
+        "WEKNORA_MIGRATION_TEST_POSTGRES_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-w",
+        "/source",
+        "knowhub-build/golang:1.26-feishu-py311-ensurepip-20261022",
+        "go",
+        "test",
+        "-tags",
+        "sqlite_fts5",
+        "-p",
+        "2",
+        "-count=1",
+        "-v",
+        "./internal/application/service"
+      ],
+      "exit_code": 0,
+      "seconds": 843.138
+    },
+    {
+      "name": "feishu-complete",
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "container:feishu-atomic-1d533edfe339-joint-release-source-pg",
+        "--label",
+        "knowhub.feishu=development",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/fixture-hosts:/etc/hosts:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/source:/source:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/results:/results",
+        "-v",
+        "feishu-incremental-1d533edfe339:/work",
+        "-v",
+        "/home/aqyfzx/go/pkg/mod:/home/aqyfzx/go/pkg/mod:ro",
+        "-v",
+        "/home/aqyfzx/ai/knowhub-rc3-final-20261020/committed-source3/third_party/anydoc-go/lib/linux_amd64_gnu:/native:ro",
+        "-v",
+        "knowhub-mcp-b7-20261021-102200-data:/prior",
+        "-e",
+        "GOPATH=/home/aqyfzx/go",
+        "-e",
+        "GOCACHE=/prior/go-cache",
+        "-e",
+        "GOTMPDIR=/work/tmp",
+        "-e",
+        "GOTOOLCHAIN=local",
+        "-e",
+        "CGO_CFLAGS=-O2 -g -I/work/sqlite-headers",
+        "-e",
+        "CGO_LDFLAGS=-L/native",
+        "-e",
+        "FEISHU_DISPATCH_REDIS_ADDR=knowhub-p1-dispatch-redis-20261018:6379",
+        "-e",
+        "FEISHU_LEGACY_TEST_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "SYNC_EXECUTION_POSTGRES_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "REQUIRE_SYNC_EXECUTION_POSTGRES=1",
+        "-e",
+        "WEKNORA_MIGRATION_TEST_POSTGRES_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-w",
+        "/source",
+        "knowhub-build/golang:1.26-feishu-py311-ensurepip-20261022",
+        "go",
+        "test",
+        "-tags",
+        "sqlite_fts5",
+        "-p",
+        "2",
+        "-count=1",
+        "-v",
+        "./internal/datasource/connector/feishu/...",
+        "./internal/datasource"
+      ],
+      "exit_code": 0,
+      "seconds": 183.279
+    },
+    {
+      "name": "go-complete",
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "container:feishu-atomic-1d533edfe339-joint-release-source-pg",
+        "--label",
+        "knowhub.feishu=development",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/fixture-hosts:/etc/hosts:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/source:/source:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/results:/results",
+        "-v",
+        "feishu-incremental-1d533edfe339:/work",
+        "-v",
+        "/home/aqyfzx/go/pkg/mod:/home/aqyfzx/go/pkg/mod:ro",
+        "-v",
+        "/home/aqyfzx/ai/knowhub-rc3-final-20261020/committed-source3/third_party/anydoc-go/lib/linux_amd64_gnu:/native:ro",
+        "-v",
+        "knowhub-mcp-b7-20261021-102200-data:/prior",
+        "-e",
+        "GOPATH=/home/aqyfzx/go",
+        "-e",
+        "GOCACHE=/prior/go-cache",
+        "-e",
+        "GOTMPDIR=/work/tmp",
+        "-e",
+        "GOTOOLCHAIN=local",
+        "-e",
+        "CGO_CFLAGS=-O2 -g -I/work/sqlite-headers",
+        "-e",
+        "CGO_LDFLAGS=-L/native",
+        "-e",
+        "FEISHU_DISPATCH_REDIS_ADDR=knowhub-p1-dispatch-redis-20261018:6379",
+        "-e",
+        "FEISHU_LEGACY_TEST_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "SYNC_EXECUTION_POSTGRES_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "REQUIRE_SYNC_EXECUTION_POSTGRES=1",
+        "-e",
+        "WEKNORA_MIGRATION_TEST_POSTGRES_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-w",
+        "/source",
+        "knowhub-build/golang:1.26-feishu-py311-ensurepip-20261022",
+        "go",
+        "test",
+        "-tags",
+        "sqlite_fts5",
+        "-p",
+        "2",
+        "-count=1",
+        "./..."
+      ],
+      "exit_code": 0,
+      "seconds": 816.92
+    },
+    {
+      "name": "race",
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "container:feishu-atomic-1d533edfe339-joint-release-source-pg",
+        "--label",
+        "knowhub.feishu=development",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/fixture-hosts:/etc/hosts:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/source:/source:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/results:/results",
+        "-v",
+        "feishu-incremental-1d533edfe339:/work",
+        "-v",
+        "/home/aqyfzx/go/pkg/mod:/home/aqyfzx/go/pkg/mod:ro",
+        "-v",
+        "/home/aqyfzx/ai/knowhub-rc3-final-20261020/committed-source3/third_party/anydoc-go/lib/linux_amd64_gnu:/native:ro",
+        "-v",
+        "knowhub-mcp-b7-20261021-102200-data:/prior",
+        "-e",
+        "GOPATH=/home/aqyfzx/go",
+        "-e",
+        "GOCACHE=/prior/go-cache",
+        "-e",
+        "GOTMPDIR=/work/tmp",
+        "-e",
+        "GOTOOLCHAIN=local",
+        "-e",
+        "CGO_CFLAGS=-O2 -g -I/work/sqlite-headers",
+        "-e",
+        "CGO_LDFLAGS=-L/native",
+        "-e",
+        "FEISHU_DISPATCH_REDIS_ADDR=knowhub-p1-dispatch-redis-20261018:6379",
+        "-e",
+        "FEISHU_LEGACY_TEST_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "SYNC_EXECUTION_POSTGRES_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "REQUIRE_SYNC_EXECUTION_POSTGRES=1",
+        "-e",
+        "WEKNORA_MIGRATION_TEST_POSTGRES_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-w",
+        "/source",
+        "knowhub-build/golang:1.26-feishu-py311-ensurepip-20261022",
+        "go",
+        "test",
+        "-race",
+        "-tags",
+        "sqlite_fts5",
+        "-p",
+        "2",
+        "-count=1",
+        "./internal/datasource/connector/feishu/...",
+        "./internal/application/service",
+        "-run",
+        "Incremental|FeishuRC3|FeishuReplay|FeishuAdmission|FeishuDispatch|SyncExecution"
+      ],
+      "exit_code": 0,
+      "seconds": 121.04
+    },
+    {
+      "name": "vet",
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "container:feishu-atomic-1d533edfe339-joint-release-source-pg",
+        "--label",
+        "knowhub.feishu=development",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/fixture-hosts:/etc/hosts:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/source:/source:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/results:/results",
+        "-v",
+        "feishu-incremental-1d533edfe339:/work",
+        "-v",
+        "/home/aqyfzx/go/pkg/mod:/home/aqyfzx/go/pkg/mod:ro",
+        "-v",
+        "/home/aqyfzx/ai/knowhub-rc3-final-20261020/committed-source3/third_party/anydoc-go/lib/linux_amd64_gnu:/native:ro",
+        "-v",
+        "knowhub-mcp-b7-20261021-102200-data:/prior",
+        "-e",
+        "GOPATH=/home/aqyfzx/go",
+        "-e",
+        "GOCACHE=/prior/go-cache",
+        "-e",
+        "GOTMPDIR=/work/tmp",
+        "-e",
+        "GOTOOLCHAIN=local",
+        "-e",
+        "CGO_CFLAGS=-O2 -g -I/work/sqlite-headers",
+        "-e",
+        "CGO_LDFLAGS=-L/native",
+        "-e",
+        "FEISHU_DISPATCH_REDIS_ADDR=knowhub-p1-dispatch-redis-20261018:6379",
+        "-e",
+        "FEISHU_LEGACY_TEST_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "SYNC_EXECUTION_POSTGRES_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "REQUIRE_SYNC_EXECUTION_POSTGRES=1",
+        "-e",
+        "WEKNORA_MIGRATION_TEST_POSTGRES_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-w",
+        "/source",
+        "knowhub-build/golang:1.26-feishu-py311-ensurepip-20261022",
+        "go",
+        "vet",
+        "-tags",
+        "sqlite_fts5",
+        "./internal/datasource/connector/feishu/...",
+        "./internal/application/service"
+      ],
+      "exit_code": 0,
+      "seconds": 9.285
+    },
+    {
+      "name": "app-build",
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "container:feishu-atomic-1d533edfe339-joint-release-source-pg",
+        "--label",
+        "knowhub.feishu=development",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/fixture-hosts:/etc/hosts:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/source:/source:ro",
+        "-v",
+        "/home/aqyfzx/ai/WeKnora-release-build/feishu-safe-incremental-20261021/joint-release-source-1d533edfe33957dc/results:/results",
+        "-v",
+        "feishu-incremental-1d533edfe339:/work",
+        "-v",
+        "/home/aqyfzx/go/pkg/mod:/home/aqyfzx/go/pkg/mod:ro",
+        "-v",
+        "/home/aqyfzx/ai/knowhub-rc3-final-20261020/committed-source3/third_party/anydoc-go/lib/linux_amd64_gnu:/native:ro",
+        "-v",
+        "knowhub-mcp-b7-20261021-102200-data:/prior",
+        "-e",
+        "GOPATH=/home/aqyfzx/go",
+        "-e",
+        "GOCACHE=/prior/go-cache",
+        "-e",
+        "GOTMPDIR=/work/tmp",
+        "-e",
+        "GOTOOLCHAIN=local",
+        "-e",
+        "CGO_CFLAGS=-O2 -g -I/work/sqlite-headers",
+        "-e",
+        "CGO_LDFLAGS=-L/native",
+        "-e",
+        "FEISHU_DISPATCH_REDIS_ADDR=knowhub-p1-dispatch-redis-20261018:6379",
+        "-e",
+        "FEISHU_LEGACY_TEST_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "SYNC_EXECUTION_POSTGRES_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-e",
+        "REQUIRE_SYNC_EXECUTION_POSTGRES=1",
+        "-e",
+        "WEKNORA_MIGRATION_TEST_POSTGRES_DSN=postgres://postgres@127.0.0.1:5432/feishu_atomic_test?sslmode=disable",
+        "-w",
+        "/source",
+        "knowhub-build/golang:1.26-feishu-py311-ensurepip-20261022",
+        "go",
+        "build",
+        "-tags",
+        "sqlite_fts5,anydoc",
+        "-o",
+        "/results/WeKnora",
+        "./cmd/server"
+      ],
+      "exit_code": 0,
+      "seconds": 51.723
+    }
+  ]
+}

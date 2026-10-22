@@ -1,0 +1,15 @@
+{
+  "exit_code": 0,
+  "read_only_production": true,
+  "production_accessed": false,
+  "backup_on_data_disk": "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3",
+  "free_bytes_after": 1545771855872,
+  "restore_database": "knowhub_formal_restore_20261022t072133z",
+  "schema": "3033:false",
+  "protected_rows_equal": true,
+  "AES_material_preserved": true,
+  "key_decryption_verified": false,
+  "private_files_exported": false,
+  "dump_sha256": "51b1ef074c05570fcf49272881f3bfa452005064c246b93757497bcc9b78a4fc",
+  "storage_archives": 2
+}

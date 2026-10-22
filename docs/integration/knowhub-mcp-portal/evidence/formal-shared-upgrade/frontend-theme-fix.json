@@ -1,0 +1,11 @@
+{
+  "file": "frontend/src/views/integrations/MCPAccessKeys.vue",
+  "before_sha256": "694e9d71ff873d6ceaeb07fb0ab73cbdace35b77a6e863d399c48ea513396056",
+  "after_sha256": "614cdec90ac79da12636a21825b84515727905484404c2f275acb9333c7e9dbc",
+  "change": "Replace literal sizes with existing theme tokens of exactly the same pixel values; no DOM/script/permission change",
+  "matched": {
+    "font-size": 35,
+    "border-radius": 21
+  },
+  "baseline_assertions_unchanged": true
+}

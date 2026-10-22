@@ -1,0 +1,13 @@
+{
+  "exit_code": 0,
+  "candidate_sha256": "b47025118adfc4cff2d1f75cabc6f98265a0bb9ca1ad816f409099081947f0fc",
+  "stable_knowledge_id": "joint-legacy-wiki-a4",
+  "real_APP_worker_killed": true,
+  "fault_boundary": "connector HTTP in flight, before staging",
+  "lease_expiry": "synthetic single-log 31 minute age injection; no wall-clock claim",
+  "old_execution_fenced": "failed:2:false",
+  "real_private_Redis_outage": true,
+  "outage_http_status": 400,
+  "redis_recovery_path": "explicit-retry-after-terminal-failure",
+  "production_changes": false
+}

@@ -1,0 +1,25 @@
+{
+  "exit_code": 0,
+  "base_candidate_sha256": "0a7374bbbdbd8c4a802733811ad3ecbeb70293ba33b89eefa9bd05c36ecbd371",
+  "patch_sha256": "614cdec90ac79da12636a21825b84515727905484404c2f275acb9333c7e9dbc",
+  "tests_and_baselines_unchanged": true,
+  "complete_parent_source_present": true,
+  "commands": [
+    {
+      "name": "prepare-full-source",
+      "exit_code": 0
+    },
+    {
+      "name": "frontend-full",
+      "exit_code": 0
+    },
+    {
+      "name": "frontend-types",
+      "exit_code": 0
+    },
+    {
+      "name": "frontend-build",
+      "exit_code": 0
+    }
+  ]
+}

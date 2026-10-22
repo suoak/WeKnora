@@ -2,8 +2,20 @@
 import os
 import tempfile
 import unittest
+from contextlib import contextmanager
 
 from upload_paths import clear_active_transport, resolve_upload_file_path, set_active_transport
+
+
+@contextmanager
+def working_directory(path):
+    """Restore cwd before TemporaryDirectory tries to remove its directory."""
+    previous = os.getcwd()
+    try:
+        os.chdir(path)
+        yield
+    finally:
+        os.chdir(previous)
 
 
 class ResolveUploadFilePathTest(unittest.TestCase):
@@ -27,8 +39,7 @@ class ResolveUploadFilePathTest(unittest.TestCase):
 
     def test_network_transport_blocks_path_outside_cwd(self):
         os.environ["MCP_TRANSPORT"] = "http"
-        with tempfile.TemporaryDirectory() as tmp:
-            os.chdir(tmp)
+        with tempfile.TemporaryDirectory() as tmp, working_directory(tmp):
             allowed = os.path.join(tmp, "note.txt")
             with open(allowed, "w", encoding="utf-8") as handle:
                 handle.write("ok")
@@ -42,8 +53,7 @@ class ResolveUploadFilePathTest(unittest.TestCase):
     def test_active_transport_without_env_blocks_path_outside_cwd(self):
         """CLI --transport http sets active transport without MCP_TRANSPORT env."""
         set_active_transport("http")
-        with tempfile.TemporaryDirectory() as tmp:
-            os.chdir(tmp)
+        with tempfile.TemporaryDirectory() as tmp, working_directory(tmp):
             allowed = os.path.join(tmp, "note.txt")
             with open(allowed, "w", encoding="utf-8") as handle:
                 handle.write("ok")
@@ -57,15 +67,15 @@ class ResolveUploadFilePathTest(unittest.TestCase):
     def test_stdio_rejects_outside_files_and_symlinks(self):
         set_active_transport("stdio")
         os.environ.pop("MCP_ALLOWED_UPLOAD_DIRS", None)
-        with tempfile.TemporaryDirectory() as root, tempfile.TemporaryDirectory() as outside:
-            os.chdir(root)
+        with tempfile.TemporaryDirectory() as root, tempfile.TemporaryDirectory() as outside, working_directory(root):
             secret = os.path.join(outside, "secret.txt")
             with open(secret, "w") as handle:
                 handle.write("synthetic")
+            with self.assertRaises(ValueError):
+                resolve_upload_file_path(secret)
             os.symlink(secret, "escape.txt")
-            for path in [secret, "escape.txt"]:
-                with self.assertRaises(ValueError):
-                    resolve_upload_file_path(path)
+            with self.assertRaises(ValueError):
+                resolve_upload_file_path("escape.txt")
 
     def test_explicit_allowed_roots(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -2030,3 +2030,14 @@ func (s *wikiPageService) RebuildIndexPage(ctx context.Context, kbID string) err
 	_ = kbID
 	return nil
 }
+
+// Optional proof capture for the real generation worker. A legacy or incomplete
+// source closure cannot be retrospectively blessed by this operation.
+func (s *wikiPageService) personalWikiGenerationContext(ctx context.Context, kb string) (context.Context, error) {
+	fresh, err := repository.BeginWikiMCPGeneration(ctx, s.repo, kb)
+	if err != nil {
+		logger.Warnf(ctx, "wiki personal-read provenance unavailable; generated pages remain restricted: %v", err)
+		return nil, err
+	}
+	return fresh, nil
+}

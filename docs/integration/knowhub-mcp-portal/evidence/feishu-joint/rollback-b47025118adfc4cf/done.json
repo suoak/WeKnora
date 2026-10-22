@@ -1,0 +1,1 @@
+{"all_passed": true, "rollback_scope": "feature-off with hardened reads, not unprotected old image", "schema_down_executed": false, "production_changes": false}

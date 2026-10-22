@@ -1,0 +1,31 @@
+{
+  "scope": "development frontend checks; no browser/client or production claim",
+  "checks": {
+    "front_tests": {
+      "exit_code": 0,
+      "tests": 45
+    },
+    "types": {
+      "exit_code": 0,
+      "command": "node vue-tsc/bin/vue-tsc.js --project frontend/tsconfig.app.json --noEmit --tsBuildInfoFile E:/AIData/Codex/knowhub-next-wiki-dynamic-types.tsbuildinfo"
+    },
+    "build": {
+      "exit_code": 0,
+      "command": "node vite/bin/vite.js build --configLoader runner --outDir E:/AIData/Codex/knowhub-next-frontend-dev-dist",
+      "note": "development build only; final Linux image must rebuild from frozen source"
+    }
+  },
+  "logs": {
+    "frontend-types.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "frontend-full-tests.log": "82bf27dd9bb52749d4b1bb30e06a19427ceff2aa590259e28fdd91f292bdc8b9",
+    "frontend-tests-20261022.log": "d7af7dc0a00579f410645c83aaca134203b070c6dd7a77f435f0ba3cf195e251"
+  },
+  "files": {
+    "frontend/src/api/mcpAccessKeys.ts": "cc50b883c6fd021ed732f74739918f781c5b2fe91dbcf386bd6006bd80e279d3",
+    "frontend/src/views/integrations/MCPAccessKeys.vue": "694e9d71ff873d6ceaeb07fb0ab73cbdace35b77a6e863d399c48ea513396056",
+    "frontend/src/views/integrations/mcpAccessLifecycle.test.ts": "6a476bcb37b84b53aa7acd167bf035b3e684c79ce30784aef52044eb94f50945",
+    "frontend/src/views/integrations/mcpAccessLifecycle.ts": "fa43fdebe4b99268a7c27360efcb8eed6f996d3ab7dfc641198a1fd3f9131cae",
+    "frontend/src/views/integrations/personalMcpConfig.test.ts": "48e9b984cf3e0307617087bb3fe9d893aa184ca691085bf8606e3f22d74241f4",
+    "frontend/src/views/integrations/personalMcpConfig.ts": "cdca9cc69abf2153860aa552033709ecfb09fa9e96b03824c9396a882ea53ca9"
+  }
+}

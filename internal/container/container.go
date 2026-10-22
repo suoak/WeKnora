@@ -88,6 +88,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/mcp"
 	"github.com/Tencent/WeKnora/internal/mcpserver"
+	"github.com/Tencent/WeKnora/internal/middleware"
 	"github.com/Tencent/WeKnora/internal/models/api"
 	"github.com/Tencent/WeKnora/internal/models/embedding"
 	"github.com/Tencent/WeKnora/internal/models/limiter" // register built-in vendors
@@ -235,7 +236,7 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	must(container.Provide(service.NewTenantAPIKeyService))
 	must(container.Provide(service.NewTenantMemberService))
 	must(container.Provide(service.NewTenantInvitationService))
-	must(container.Provide(service.NewPortalService))
+	must(container.Provide(service.NewConfiguredPortalService))
 	must(container.Provide(service.NewAuditLogService))
 	must(container.Provide(service.NewAuditLogRetentionRunner))
 	// Usage analytics is a cross-cutting service used by AgentService, the chat
@@ -249,6 +250,13 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	must(container.Provide(service.NewKnowledgeService))
 	must(container.Provide(service.NewSpanTracker))
 	must(container.Provide(service.NewChunkService))
+	must(container.Provide(func() *service.DocumentReadPolicy { return service.NewDocumentReadPolicy(false, nil) }))
+	must(container.Decorate(service.ConfigureKnowledgeDocumentReads))
+	must(container.Decorate(service.ConfigureChunkDocumentReads))
+	must(container.Decorate(service.ConfigureKnowledgeBaseDocumentReads))
+	must(container.Provide(middleware.NewDocumentCoreReadBoundary))
+	must(container.Provide(service.NewPortalPersonalKnowledge))
+	must(container.Provide(mcpserver.NewConfiguredPersonalServer))
 	must(container.Provide(service.NewKnowledgeTagService))
 	must(container.Provide(embedding.NewBatchEmbedder))
 	must(container.Provide(service.NewModelService))
@@ -968,7 +976,23 @@ func initDatabase(cfg *config.Config) (*gorm.DB, error) {
 		sqlDB.SetMaxIdleConns(10)
 	}
 	sqlDB.SetConnMaxLifetime(time.Duration(10) * time.Minute)
-
+	// Source read guards remain installed when the ingestion feature is turned
+	// off; disabling updates must never reopen a persisted quarantine.
+	var sourceSchema bool
+	if db.Dialector.Name() == "postgres" {
+		if err := db.Raw("SELECT to_regclass('public.feishu_legacy_resources') IS NOT NULL").Scan(&sourceSchema).Error; err != nil {
+			return nil, err
+		}
+	} else {
+		var count int64
+		if err := db.Raw("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='feishu_legacy_resources'").Scan(&count).Error; err != nil {
+			return nil, err
+		}
+		sourceSchema = count > 0
+	}
+	if sourceSchema {
+		db = types.EnableLegacyReadGuards(db)
+	}
 	return db, nil
 }
 

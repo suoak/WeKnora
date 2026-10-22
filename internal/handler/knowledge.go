@@ -184,6 +184,17 @@ func (h *KnowledgeHandler) resolveKnowledgeAndValidateKBAccess(
 	requiredPermission types.OrgMemberRole,
 ) (*types.Knowledge, context.Context, error) {
 	ctx := c.Request.Context()
+	if svc, ok := h.kgService.(service.KnowledgeDocumentReadService); ok && svc.DocumentACLReadEnabled() && requiredPermission == types.OrgRoleViewer {
+		if !access.HasDocumentReadOutput(ctx) {
+			return nil, ctx, errors.NewForbiddenError("Document output boundary required")
+		}
+		row, err := h.kgService.GetKnowledgeByIDOnly(ctx, knowledgeID)
+		if err != nil || row == nil {
+			return nil, ctx, errors.NewForbiddenError("Document read denied")
+		}
+		return row, types.WithExecutionTenant(ctx, row.TenantID), nil
+	}
+
 	request := middleware.KBAccessRequest(c)
 	if request.Caller.TenantID == 0 {
 		return nil, ctx, errors.NewUnauthorizedError("Unauthorized")
@@ -671,6 +682,11 @@ func (h *KnowledgeHandler) GetKnowledge(c *gin.Context) {
 // segments. Subspans (multimodal.image[i], generation.*) ride along under
 // each stage as children when present.
 func (h *KnowledgeHandler) GetKnowledgeSpans(c *gin.Context) {
+	if svc, ok := h.kgService.(service.KnowledgeDocumentReadService); ok && svc.DocumentACLReadEnabled() {
+		c.Error(errors.NewForbiddenError("Historical processing content is not certified"))
+		return
+	}
+
 	ctx := c.Request.Context()
 
 	id := secutils.SanitizeForLog(c.Param("id"))
@@ -1017,15 +1033,28 @@ func (h *KnowledgeHandler) ListKnowledge(c *gin.Context) {
 
 	logger.Info(ctx, "Start retrieving knowledge list")
 
-	// Validate access to the knowledge base (read access - any permission level)
-	_, kbID, effectiveTenantID, _, err := h.validateKnowledgeBaseAccess(c)
+	var kbID string
+	var effectiveTenantID uint64
+	var err error
+	if svc, ok := h.kgService.(service.KnowledgeDocumentReadService); ok && svc.DocumentACLReadEnabled() {
+		if !access.HasDocumentReadOutput(ctx) {
+			c.Error(errors.NewForbiddenError("Document output boundary required"))
+			return
+		}
+		kbID = c.Param("id")
+		ctx, err = svc.DocumentKBReadContext(ctx, kbID)
+		if err == nil {
+			effectiveTenantID = types.MustTenantIDFromContext(ctx)
+		}
+	} else {
+		_, kbID, effectiveTenantID, _, err = h.validateKnowledgeBaseAccess(c)
+	}
 	if err != nil {
-		c.Error(err)
+		c.Error(errors.NewForbiddenError("Document list denied"))
 		return
 	}
-
 	// Update context with effective tenant ID for shared KB access
-	ctx = types.WithExecutionTenant(c.Request.Context(), effectiveTenantID)
+	ctx = types.WithExecutionTenant(ctx, effectiveTenantID)
 
 	// Parse pagination parameters from query string
 	var pagination types.Pagination
@@ -1967,6 +1996,39 @@ func (h *KnowledgeHandler) GetKnowledgeBatch(c *gin.Context) {
 		c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
+	if svc, ok := h.kgService.(service.KnowledgeDocumentReadService); ok && svc.DocumentACLReadEnabled() {
+		if !access.HasDocumentReadOutput(ctx) {
+			c.Error(errors.NewForbiddenError("Document output boundary required"))
+			return
+		}
+		if req.AgentID != "" {
+			c.Error(errors.NewForbiddenError("Agent-derived document scope is not certified"))
+			return
+		}
+		if req.KBID != "" {
+			if _, err := svc.DocumentKBReadContext(ctx, req.KBID); err != nil {
+				c.Error(errors.NewForbiddenError("Document scope denied"))
+				return
+			}
+		}
+		rows, err := h.kgService.GetKnowledgeBatch(ctx, effectiveTenantID, req.IDs)
+		if err != nil {
+			c.Error(errors.NewForbiddenError("Document batch denied"))
+			return
+		}
+		if req.KBID != "" {
+			filtered := make([]*types.Knowledge, 0, len(rows))
+			for _, row := range rows {
+				if row.KnowledgeBaseID == req.KBID {
+					filtered = append(filtered, row)
+				}
+			}
+			rows = filtered
+		}
+		c.JSON(http.StatusOK, gin.H{"success": true, "data": rows})
+		return
+	}
+
 	if _, parseErr := types.ParseAgentSourceTenantID(c.Query(types.AgentSourceTenantIDParam)); parseErr != nil {
 		c.Error(errors.NewBadRequestError(parseErr.Error()))
 		return

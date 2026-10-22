@@ -74,6 +74,9 @@ export function credentialToReconnectPayload(
     capabilities: Array.isArray(credential.capabilities) ? [...credential.capabilities] : [],
     tenant_scopes: cloneTenantScopes(credential.tenant_scopes),
   }
+  // Explicit dynamic opt-in survives reconnect. Missing historical metadata
+  // remains fixed; no label, client type or current membership upgrades it.
+  if (credential.personal_scope_mode === 'dynamic_all') payload.personal_scope_mode = 'dynamic_all'
 
   const hasExpiryField = Object.prototype.hasOwnProperty.call(credential, 'expires_at')
   if (!hasExpiryField && credential.expires_at === undefined) {

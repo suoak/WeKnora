@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/Tencent/WeKnora/internal/application/access"
 
 	"github.com/Tencent/WeKnora/internal/application/service/retriever"
 	apperrors "github.com/Tencent/WeKnora/internal/errors"
@@ -24,6 +25,10 @@ const maxRetrievalPoolSize = 500
 // the result across multiple KBs that share the same embedding model to avoid
 // redundant embedding API calls.
 func (s *knowledgeBaseService) GetQueryEmbedding(ctx context.Context, kbID string, queryText string) ([]float32, error) {
+	if s.documentACL != nil && s.documentACL.enabled {
+		return nil, access.ErrForbidden
+	} // HOLD until candidate filtering/provenance is certified.
+
 	kb, err := s.repo.GetKnowledgeBaseByID(ctx, kbID)
 	if err != nil {
 		return nil, err
@@ -126,6 +131,10 @@ func (s *knowledgeBaseService) HybridSearch(ctx context.Context,
 	id string,
 	params types.SearchParams,
 ) ([]*types.SearchResult, error) {
+	if s.documentACL != nil && s.documentACL.enabled {
+		return nil, access.ErrForbidden
+	} // HOLD until candidate filtering/provenance is certified.
+
 	// Normalize once, before anything reads MatchCount. params is a value
 	// copy, so this stays local to the call.
 	params.MatchCount = normalizedMatchCount(params.MatchCount)
@@ -172,7 +181,15 @@ func (s *knowledgeBaseService) hybridSearchCandidates(ctx context.Context,
 	// repository layer so that Organization-shared KBs (owned by a
 	// different tenant) can be loaded here; authorization for each
 	// returned row is enforced explicitly below.
-	kbs, err := s.repo.GetKnowledgeBaseByIDs(ctx, searchKBIDs)
+	var kbs []*types.KnowledgeBase
+	var err error
+	if isolated, ok := s.repo.(interface {
+		GetReadKnowledgeBasesByIDs(context.Context, []string) ([]*types.KnowledgeBase, error)
+	}); ok {
+		kbs, err = isolated.GetReadKnowledgeBasesByIDs(ctx, searchKBIDs)
+	} else {
+		kbs, err = s.repo.GetKnowledgeBaseByIDs(ctx, searchKBIDs)
+	}
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"knowledge_base_ids": searchKBIDs,

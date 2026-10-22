@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/application/service"
 	apperrors "github.com/Tencent/WeKnora/internal/errors"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -21,6 +23,156 @@ type PortalHandler struct{ service interfaces.PortalService }
 
 func NewPortalHandler(service interfaces.PortalService) *PortalHandler {
 	return &PortalHandler{service: service}
+}
+
+type portalPublicScopeProvider interface {
+	PublicKnowledgeScope(context.Context, uint64) (*service.PortalPublicScope, error)
+	SetPublicKnowledgeException(context.Context, uint64, string, bool, int64, string) error
+}
+
+func (h *PortalHandler) PublicKnowledgeScope(c *gin.Context) {
+	tenant, ok := portalTenantID(c)
+	if !ok {
+		return
+	}
+	p, ok := h.service.(portalPublicScopeProvider)
+	if !ok {
+		c.AbortWithStatus(http.StatusServiceUnavailable)
+		return
+	}
+	row, err := p.PublicKnowledgeScope(c.Request.Context(), tenant)
+	if err != nil {
+		portalError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": row})
+}
+
+func (h *PortalHandler) SetPublicKnowledgeException(c *gin.Context) {
+	tenant, ok := portalTenantID(c)
+	if !ok {
+		return
+	}
+	p, ok := h.service.(portalPublicScopeProvider)
+	if !ok {
+		c.AbortWithStatus(http.StatusServiceUnavailable)
+		return
+	}
+	var body struct {
+		Blocked  *bool  `json:"public_blocked"`
+		Revision *int64 `json:"revision"`
+		Reason   string `json:"reason"`
+	}
+	if err := bindStrictPortalJSON(c, &body); err != nil || body.Blocked == nil || body.Revision == nil || *body.Revision < 0 || strings.TrimSpace(body.Reason) == "" || len(body.Reason) > 512 {
+		portalError(c, service.ErrPortalInvalidConfig)
+		return
+	}
+	if err := p.SetPublicKnowledgeException(c.Request.Context(), tenant, c.Param("kb_id"), *body.Blocked, *body.Revision, body.Reason); err != nil {
+		portalError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+// This existing management route exposes review metadata, never content or
+// policy mutation. System administration is not enterprise publication approval.
+func (h *PortalHandler) PublicationInventory(c *gin.Context) {
+	tenant, ok := portalTenantID(c)
+	if !ok {
+		return
+	}
+	provider, ok := h.service.(interface {
+		PublicationInventory(context.Context, uint64) ([]service.PortalPublicationInventory, error)
+		PublicationPermissions(context.Context, uint64) (service.PortalPublicationPermissions, error)
+	})
+	if !ok {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "publication inventory unavailable"})
+		return
+	}
+	permissions, err := provider.PublicationPermissions(c.Request.Context(), tenant)
+	if err != nil {
+		portalError(c, err)
+		return
+	}
+	rows, err := provider.PublicationInventory(c.Request.Context(), tenant)
+	if err != nil {
+		portalError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": rows, "public_mcp_enabled": false, "review_authority": "EXPLICIT_POLICY_AUTHORITY_REQUIRED", "approval_mutations_enabled": permissions.MutationsEnabled, "permissions": permissions})
+}
+
+type portalPublicationWorkflow interface {
+	PublicationReviewSnapshot(context.Context, uint64, string) (*service.PortalPublicationReviewSnapshot, error)
+	PublicationHistory(context.Context, uint64, string) ([]service.PortalPublicationAudit, error)
+	ChangePublication(context.Context, service.PortalReviewRequest) error
+}
+
+func (h *PortalHandler) PublicationReviewSnapshot(c *gin.Context) {
+	tenant, ok := portalTenantID(c)
+	if !ok {
+		return
+	}
+	w, ok := h.service.(portalPublicationWorkflow)
+	if !ok {
+		c.AbortWithStatus(http.StatusServiceUnavailable)
+		return
+	}
+	row, err := w.PublicationReviewSnapshot(c.Request.Context(), tenant, c.Param("kb_id"))
+	if err != nil {
+		portalError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": row})
+}
+
+func (h *PortalHandler) PublicationHistory(c *gin.Context) {
+	tenant, ok := portalTenantID(c)
+	if !ok {
+		return
+	}
+	w, ok := h.service.(portalPublicationWorkflow)
+	if !ok {
+		c.AbortWithStatus(http.StatusServiceUnavailable)
+		return
+	}
+	rows, err := w.PublicationHistory(c.Request.Context(), tenant, c.Param("kb_id"))
+	if err != nil {
+		portalError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": rows, "limit": 50})
+}
+
+func (h *PortalHandler) ChangePublication(c *gin.Context) {
+	tenant, ok := portalTenantID(c)
+	if !ok {
+		return
+	}
+	w, ok := h.service.(portalPublicationWorkflow)
+	if !ok {
+		c.AbortWithStatus(http.StatusServiceUnavailable)
+		return
+	}
+	var body struct {
+		Reason             string                         `json:"reason"`
+		InheritNewOrdinary bool                           `json:"inherit_new_ordinary"`
+		Resources          []service.PortalReviewResource `json:"resources"`
+	}
+	if err := bindStrictPortalJSON(c, &body); err != nil {
+		portalError(c, service.ErrPortalInvalidConfig)
+		return
+	}
+	if strings.TrimSpace(body.Reason) == "" || len(body.Reason) > 512 {
+		portalError(c, service.ErrPortalInvalidReason)
+		return
+	}
+	err := w.ChangePublication(c.Request.Context(), service.PortalReviewRequest{TenantID: tenant, KBID: c.Param("kb_id"), Action: c.Param("action"), Reason: body.Reason, InheritNewOrdinary: body.InheritNewOrdinary, Resources: body.Resources})
+	if err != nil {
+		portalError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
 func portalActor(c *gin.Context) (string, uint64) {
@@ -46,6 +198,10 @@ func portalTenantID(c *gin.Context) (uint64, bool) {
 func portalError(c *gin.Context, err error) {
 	var appErr *apperrors.AppError
 	switch {
+	case errors.Is(err, access.ErrForbidden), errors.Is(err, access.ErrUnauthorized):
+		_ = c.Error(apperrors.NewForbiddenError("publication authority denied or unavailable"))
+	case errors.Is(err, types.ErrEnterprisePolicyConflict):
+		_ = c.Error(apperrors.NewConflictError("publication changed; reload and confirm the current version"))
 	case errors.As(err, &appErr):
 		_ = c.Error(appErr)
 	case errors.Is(err, service.ErrPortalNotFound), errors.Is(err, service.ErrPortalRequestNotFound):

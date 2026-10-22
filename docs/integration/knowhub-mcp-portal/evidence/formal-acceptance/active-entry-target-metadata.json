@@ -1,0 +1,290 @@
+[
+  {
+    "name": "knowhub-mvp-p3-app-1",
+    "image": "knowhub-rc3/app:0.8.0-oa-feishu-rc3-1e2ded5b6",
+    "image_id": "sha256:0c84cac5af5103b73102c6261f32130d3e51eeed1b8cbf77fda61de20c4bd983",
+    "running": true,
+    "health": null,
+    "project": "knowhub-mvp-p3",
+    "working_dir": "/home/aqyfzx/ai/knowhub-feishu-mvp-p3-20261018/private",
+    "compose_files": "/home/aqyfzx/ai/knowhub-feishu-mvp-p3-20261018/private/p3-compose.json,/home/aqyfzx/ai/knowhub-feishu-mvp-p3-20261018/private/ux-general-override.json,/home/aqyfzx/ai/knowhub-feishu-mvp-p4-20261019/private/p4-v5-override.json,/home/aqyfzx/ai/knowhub-feishu-mvp-p4-20261019/private/p4-v6-override.json,/home/aqyfzx/ai/knowhub-feishu-mvp-p4-20261019/private/p4-v7-override.json,/home/aqyfzx/ai/knowhub-sid-tls-userinfo-20261019/private/tls-continuous-test-override.json,/home/aqyfzx/ai/knowhub-joint-20261020/private/joint-test-override.json,/home/aqyfzx/ai/knowhub-rc3-20261020/private/display-name-frontend-override.json,/home/aqyfzx/ai/knowhub-rc3-20261020/private/final-rc3-test-override.json,/home/aqyfzx/ai/knowhub-rc3-final-20261020/private/final-rc3-test-override.json,/home/aqyfzx/ai/knowhub-rc3-final-20261020/private/final3-rc3-test-override.json",
+    "db_target": {
+      "DB_HOST": "WeKnora-postgres",
+      "DB_NAME": "WeKnora",
+      "DB_DRIVER": "postgres"
+    },
+    "ports": {
+      "8080/tcp": null
+    },
+    "networks": [
+      "knowhub-company-test_isolated",
+      "weknora_WeKnora-network"
+    ]
+  },
+  {
+    "name": "knowhub-mvp-p3-frontend-1",
+    "image": "knowhub-rc3/frontend:0.8.0-oa-feishu-rc3-1e2ded5b6",
+    "image_id": "sha256:6a2def24a8dcf69cecac633cfb4e0c2752e472fe500a34ce464edb6db13ffa22",
+    "running": true,
+    "health": null,
+    "project": "knowhub-mvp-p3",
+    "working_dir": "/home/aqyfzx/ai/knowhub-feishu-mvp-p3-20261018/private",
+    "compose_files": "/home/aqyfzx/ai/knowhub-feishu-mvp-p3-20261018/private/p3-compose.json,/home/aqyfzx/ai/knowhub-feishu-mvp-p3-20261018/private/ux-general-override.json,/home/aqyfzx/ai/knowhub-feishu-mvp-p4-20261019/private/p4-v5-override.json,/home/aqyfzx/ai/knowhub-feishu-mvp-p4-20261019/private/p4-v6-override.json,/home/aqyfzx/ai/knowhub-feishu-mvp-p4-20261019/private/p4-v7-override.json,/home/aqyfzx/ai/knowhub-sid-tls-userinfo-20261019/private/tls-continuous-test-override.json,/home/aqyfzx/ai/knowhub-joint-20261020/private/joint-test-override.json,/home/aqyfzx/ai/knowhub-rc3-20261020/private/display-name-frontend-override.json,/home/aqyfzx/ai/knowhub-rc3-20261020/private/final-rc3-test-override.json,/home/aqyfzx/ai/knowhub-rc3-final-20261020/private/final-rc3-test-override.json,/home/aqyfzx/ai/knowhub-rc3-final-20261020/private/final3-rc3-test-override.json",
+    "db_target": {
+      "DB_HOST": null,
+      "DB_NAME": null,
+      "DB_DRIVER": null
+    },
+    "ports": {},
+    "networks": [
+      "knowhub-company-test_isolated"
+    ]
+  },
+  {
+    "name": "knowhub-mvp-p3-ux-contributor",
+    "image": "sha256:739e5dfbf18b84a3d357b87bc3fd842b885c19a11ad4e35a9989d6d73917aaed",
+    "image_id": "sha256:739e5dfbf18b84a3d357b87bc3fd842b885c19a11ad4e35a9989d6d73917aaed",
+    "running": false,
+    "health": null,
+    "project": null,
+    "working_dir": null,
+    "compose_files": null,
+    "db_target": {
+      "DB_HOST": null,
+      "DB_NAME": null,
+      "DB_DRIVER": null
+    },
+    "ports": {},
+    "networks": [
+      "knowhub-mvp-p3-ux-validation"
+    ]
+  },
+  {
+    "name": "knowhub-mvp-p3-ux-builder",
+    "image": "sha256:739e5dfbf18b84a3d357b87bc3fd842b885c19a11ad4e35a9989d6d73917aaed",
+    "image_id": "sha256:739e5dfbf18b84a3d357b87bc3fd842b885c19a11ad4e35a9989d6d73917aaed",
+    "running": false,
+    "health": null,
+    "project": null,
+    "working_dir": null,
+    "compose_files": null,
+    "db_target": {
+      "DB_HOST": null,
+      "DB_NAME": null,
+      "DB_DRIVER": null
+    },
+    "ports": {},
+    "networks": [
+      "none"
+    ]
+  },
+  {
+    "name": "knowhub-mvp-p3-ux-green",
+    "image": "sha256:739e5dfbf18b84a3d357b87bc3fd842b885c19a11ad4e35a9989d6d73917aaed",
+    "image_id": "sha256:739e5dfbf18b84a3d357b87bc3fd842b885c19a11ad4e35a9989d6d73917aaed",
+    "running": false,
+    "health": null,
+    "project": null,
+    "working_dir": null,
+    "compose_files": null,
+    "db_target": {
+      "DB_HOST": null,
+      "DB_NAME": null,
+      "DB_DRIVER": null
+    },
+    "ports": {},
+    "networks": [
+      "knowhub-mvp-p3-ux-validation"
+    ]
+  },
+  {
+    "name": "knowhub-mvp-p3-ux-red",
+    "image": "sha256:739e5dfbf18b84a3d357b87bc3fd842b885c19a11ad4e35a9989d6d73917aaed",
+    "image_id": "sha256:739e5dfbf18b84a3d357b87bc3fd842b885c19a11ad4e35a9989d6d73917aaed",
+    "running": false,
+    "health": null,
+    "project": null,
+    "working_dir": null,
+    "compose_files": null,
+    "db_target": {
+      "DB_HOST": null,
+      "DB_NAME": null,
+      "DB_DRIVER": null
+    },
+    "ports": {},
+    "networks": [
+      "knowhub-mvp-p3-ux-validation"
+    ]
+  },
+  {
+    "name": "knowhub-mvp-p3-ux-redis",
+    "image": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+    "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+    "running": true,
+    "health": null,
+    "project": null,
+    "working_dir": null,
+    "compose_files": null,
+    "db_target": {
+      "DB_HOST": null,
+      "DB_NAME": null,
+      "DB_DRIVER": null
+    },
+    "ports": {},
+    "networks": [
+      "knowhub-mvp-p3-ux-validation"
+    ]
+  },
+  {
+    "name": "knowhub-mvp-p3-ux-pg",
+    "image": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+    "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+    "running": true,
+    "health": null,
+    "project": null,
+    "working_dir": null,
+    "compose_files": null,
+    "db_target": {
+      "DB_HOST": null,
+      "DB_NAME": null,
+      "DB_DRIVER": null
+    },
+    "ports": {},
+    "networks": [
+      "knowhub-mvp-p3-ux-validation"
+    ]
+  },
+  {
+    "name": "knowhub-mvp-p3-builder-anydoc-20261018",
+    "image": "sha256:739e5dfbf18b84a3d357b87bc3fd842b885c19a11ad4e35a9989d6d73917aaed",
+    "image_id": "sha256:739e5dfbf18b84a3d357b87bc3fd842b885c19a11ad4e35a9989d6d73917aaed",
+    "running": false,
+    "health": null,
+    "project": null,
+    "working_dir": null,
+    "compose_files": null,
+    "db_target": {
+      "DB_HOST": null,
+      "DB_NAME": null,
+      "DB_DRIVER": null
+    },
+    "ports": {},
+    "networks": [
+      "none"
+    ]
+  },
+  {
+    "name": "knowhub-mvp-p3-original-redis-restore-v3",
+    "image": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+    "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+    "running": false,
+    "health": null,
+    "project": null,
+    "working_dir": null,
+    "compose_files": null,
+    "db_target": {
+      "DB_HOST": null,
+      "DB_NAME": null,
+      "DB_DRIVER": null
+    },
+    "ports": {},
+    "networks": [
+      "none"
+    ]
+  },
+  {
+    "name": "knowhub-mvp-p3-original-redis-restore-v2",
+    "image": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+    "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+    "running": false,
+    "health": null,
+    "project": null,
+    "working_dir": null,
+    "compose_files": null,
+    "db_target": {
+      "DB_HOST": null,
+      "DB_NAME": null,
+      "DB_DRIVER": null
+    },
+    "ports": {},
+    "networks": [
+      "none"
+    ]
+  },
+  {
+    "name": "knowhub-mvp-p3-original-redis-restore",
+    "image": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+    "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+    "running": false,
+    "health": null,
+    "project": null,
+    "working_dir": null,
+    "compose_files": null,
+    "db_target": {
+      "DB_HOST": null,
+      "DB_NAME": null,
+      "DB_DRIVER": null
+    },
+    "ports": {},
+    "networks": [
+      "none"
+    ]
+  },
+  {
+    "name": "knowhub-mvp-p3-builder-20261018",
+    "image": "sha256:739e5dfbf18b84a3d357b87bc3fd842b885c19a11ad4e35a9989d6d73917aaed",
+    "image_id": "sha256:739e5dfbf18b84a3d357b87bc3fd842b885c19a11ad4e35a9989d6d73917aaed",
+    "running": false,
+    "health": null,
+    "project": null,
+    "working_dir": null,
+    "compose_files": null,
+    "db_target": {
+      "DB_HOST": null,
+      "DB_NAME": null,
+      "DB_DRIVER": null
+    },
+    "ports": {},
+    "networks": [
+      "none"
+    ]
+  },
+  {
+    "name": "knowhub-mvp-p3-migrate-tool-20261018",
+    "image": "sha256:0994762cd32f4289dc397757f9123bafd3cc913b407c05927c7ee064b32ade2b",
+    "image_id": "sha256:0994762cd32f4289dc397757f9123bafd3cc913b407c05927c7ee064b32ade2b",
+    "running": false,
+    "health": null,
+    "project": null,
+    "working_dir": null,
+    "compose_files": null,
+    "db_target": {
+      "DB_HOST": null,
+      "DB_NAME": null,
+      "DB_DRIVER": null
+    },
+    "ports": {},
+    "networks": [
+      "none"
+    ]
+  },
+  {
+    "name": "knowhub-mvp-p3-restore-pg-20261018",
+    "image": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+    "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+    "running": false,
+    "health": null,
+    "project": null,
+    "working_dir": null,
+    "compose_files": null,
+    "db_target": {
+      "DB_HOST": null,
+      "DB_NAME": null,
+      "DB_DRIVER": null
+    },
+    "ports": {},
+    "networks": [
+      "none"
+    ]
+  }
+]

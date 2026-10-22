@@ -1,0 +1,182 @@
+{
+  "observed_utc": "2026-10-22T06:47:38.999232+00:00",
+  "read_only": true,
+  "old_evidence_sha256": "b8b985906d167e79d0019811347f9d841aeabb0abbd09599d392d3030443c49c",
+  "old_count": 48,
+  "current_count": 47,
+  "removed": [
+    {
+      "kb_ref": "c2edb6e0b65ad3d9",
+      "historical": {
+        "space_ref": "577ed42ff1827535",
+        "kb_ref": "c2edb6e0b65ad3d9",
+        "type": "document",
+        "is_temporary": false,
+        "documents": 3,
+        "ready_documents": 3,
+        "source_channels": {
+          "feishu_personal": 3
+        }
+      },
+      "current": {
+        "space_ref": "577ed42ff1827535",
+        "kb_ref": "c2edb6e0b65ad3d9",
+        "type": "document",
+        "is_temporary": false,
+        "kb_deleted": true,
+        "space_deleted": false,
+        "space_status": "active",
+        "portal_status": "published",
+        "documents": 0
+      }
+    }
+  ],
+  "added": [],
+  "deletion_metadata": [
+    {
+      "kb_ref": "c2edb6e0b65ad3d9",
+      "deleted_at": "2026-10-21T08:17:55.031141+00:00",
+      "updated_at": "2026-10-21T07:19:06.492463+00:00",
+      "deleted_documents": 3,
+      "live_documents": 0
+    }
+  ],
+  "active_sources": [
+    {
+      "source_ref": "1f9afaa178420115",
+      "type": "feishu_drive",
+      "status": "active",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": "2026-10-20T10:00:06.984412",
+      "hours_since_sync": 44.79388247805556,
+      "deleted": false,
+      "has_error": false,
+      "has_cursor": true,
+      "cursor_fingerprint": "c43f083a4651bc9354347edb7a81d9ba",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "ebad6a622c04c7a3",
+      "type": "feishu_drive",
+      "status": "active",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": "2026-10-12T06:04:09.838192",
+      "hours_since_sync": 240.72642309472224,
+      "deleted": false,
+      "has_error": true,
+      "has_cursor": true,
+      "cursor_fingerprint": "cfb6e97f0309d94251462b23b10e67f5",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "510373b040da38e8",
+      "type": "feishu_drive",
+      "status": "active",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": "2026-10-20T10:00:07.930811",
+      "hours_since_sync": 44.79361958944445,
+      "deleted": false,
+      "has_error": false,
+      "has_cursor": true,
+      "cursor_fingerprint": "3c08db1e2784852ea538f6a2ecb9ab2c",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "ba83a2db926f6572",
+      "type": "feishu_drive",
+      "status": "active",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": "2026-10-20T10:00:05.94916",
+      "hours_since_sync": 44.794170048055555,
+      "deleted": false,
+      "has_error": false,
+      "has_cursor": true,
+      "cursor_fingerprint": "5238772f88356cb83b69246f791b8999",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "29dfe8cf9c4c5d7b",
+      "type": "feishu",
+      "status": "active",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": "2026-10-19T18:00:19.127664",
+      "hours_since_sync": 60.7905093525,
+      "deleted": false,
+      "has_error": false,
+      "has_cursor": true,
+      "cursor_fingerprint": "73df70d1130d4b33019af2320b210200",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "bd1561572ce89f81",
+      "type": "feishu_drive",
+      "status": "active",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": "2026-10-10T06:17:13.433587",
+      "hours_since_sync": 288.50875770722223,
+      "deleted": false,
+      "has_error": false,
+      "has_cursor": true,
+      "cursor_fingerprint": "8ad349c3501b8c166de28f80eff8ab3a",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    },
+    {
+      "source_ref": "89926d424dc76872",
+      "type": "feishu",
+      "status": "active",
+      "sync_mode": "incremental",
+      "sync_deletions": true,
+      "last_sync_at": "2026-10-20T10:05:08.457077",
+      "hours_since_sync": 44.71014007111111,
+      "deleted": false,
+      "has_error": true,
+      "has_cursor": true,
+      "cursor_fingerprint": "047e8b2b34ff0a2effa2fc4f480e800d",
+      "legacy_access_state": "SCHEMA_UNAVAILABLE"
+    }
+  ],
+  "all_undeleted_source_count": 12,
+  "source_state_counts": [
+    {
+      "type": "feishu_drive",
+      "status": "active",
+      "count": 5
+    },
+    {
+      "type": "feishu",
+      "status": "paused",
+      "count": 1
+    },
+    {
+      "type": "feishu_drive",
+      "status": "paused",
+      "count": 1
+    },
+    {
+      "type": "feishu_drive",
+      "status": "error",
+      "count": 1
+    },
+    {
+      "type": "feishu",
+      "status": "error",
+      "count": 2
+    },
+    {
+      "type": "feishu",
+      "status": "active",
+      "count": 2
+    }
+  ],
+  "production_sync_suspended": "true",
+  "backlog_event_count": "UNKNOWN",
+  "cloud_revocations": "UNKNOWN",
+  "historical_individual_source_mapping": "UNKNOWN_AGGREGATE_ONLY",
+  "production_changed": false
+}

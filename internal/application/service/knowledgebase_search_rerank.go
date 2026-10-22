@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/Tencent/WeKnora/internal/application/access"
 
 	apperrors "github.com/Tencent/WeKnora/internal/errors"
 	"github.com/Tencent/WeKnora/internal/logger"
@@ -67,6 +68,10 @@ func (s *knowledgeBaseService) HybridSearchWithRerank(ctx context.Context,
 	id string,
 	params types.SearchParams,
 ) (*types.RetrievalResult, error) {
+	if s.documentACL != nil && s.documentACL.enabled {
+		return nil, access.ErrForbidden
+	} // HOLD until candidate filtering/provenance is certified.
+
 	if !params.Rerank.IsEnabled() {
 		results, err := s.HybridSearch(ctx, id, params)
 		if err != nil {

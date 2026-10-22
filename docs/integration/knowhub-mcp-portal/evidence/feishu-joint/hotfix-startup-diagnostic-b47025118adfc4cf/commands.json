@@ -1,0 +1,93 @@
+[
+  {
+    "name": "start-knowhub-v1-feishu-b47025118adf-hotfix-redis",
+    "argv": [
+      "docker",
+      "start",
+      "knowhub-v1-feishu-b47025118adf-hotfix-redis"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "start-knowhub-v1-feishu-b47025118adf-hotfix-probe",
+    "argv": [
+      "docker",
+      "start",
+      "knowhub-v1-feishu-b47025118adf-hotfix-probe"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "health",
+    "argv": [
+      "docker",
+      "exec",
+      "knowhub-v1-feishu-b47025118adf-hotfix-probe",
+      "curl",
+      "-s",
+      "--max-time",
+      "3",
+      "-o",
+      "/dev/null",
+      "-w",
+      "%{http_code}",
+      "http://127.0.0.1:8080/health"
+    ],
+    "exit_code": 7
+  },
+  {
+    "name": "stats",
+    "argv": [
+      "docker",
+      "stats",
+      "--no-stream",
+      "--format",
+      "{{.Name}} {{.CPUPerc}} {{.MemUsage}} {{.PIDs}}",
+      "knowhub-v1-feishu-b47025118adf-hotfix-redis",
+      "knowhub-v1-feishu-b47025118adf-hotfix-probe"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "stack-dump",
+    "argv": [
+      "docker",
+      "kill",
+      "--signal",
+      "SIGQUIT",
+      "knowhub-v1-feishu-b47025118adf-hotfix-probe"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "app-log",
+    "argv": [
+      "docker",
+      "logs",
+      "knowhub-v1-feishu-b47025118adf-hotfix-probe"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "stop-knowhub-v1-feishu-b47025118adf-hotfix-probe",
+    "argv": [
+      "docker",
+      "stop",
+      "--time",
+      "5",
+      "knowhub-v1-feishu-b47025118adf-hotfix-probe"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "stop-knowhub-v1-feishu-b47025118adf-hotfix-redis",
+    "argv": [
+      "docker",
+      "stop",
+      "--time",
+      "5",
+      "knowhub-v1-feishu-b47025118adf-hotfix-redis"
+    ],
+    "exit_code": 0
+  }
+]

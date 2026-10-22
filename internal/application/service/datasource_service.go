@@ -814,6 +814,11 @@ func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.
 
 	if fetchErr != nil {
 		// Persist connector cursor even when fetch failed so transient outages
+		if legacyFetchNeedsHold(fetchErr) {
+			if err := s.legacySourceUncertain(ctx, ds, true); err != nil {
+				fetchErr = errors.Join(fetchErr, err)
+			}
+		}
 		// (e.g. RSS feed downtime) do not force a full re-ingest on recovery.
 		if nextCursor != nil && !isFeishuAdmissionSource(ds.Type) {
 			if cursorJSON, cerr := nextCursor.ToJSON(); cerr == nil {
@@ -963,6 +968,11 @@ func (s *DataSourceService) applyFetchedItem(
 	tagIDs []string, result *types.SyncResult,
 ) error {
 	if item.IsDeleted {
+		if safeLegacyIncrementalEnabled() && legacyWikiDrive(ds.Type) {
+			result.Failed++
+			result.DeletionFailed++
+			return &dataSourceIngestError{cause: s.legacyMissingItem(ctx, ds, item)}
+		}
 		if !ds.SyncDeletions {
 			// Sync deletion disabled: neither count nor delete.
 			return nil
@@ -988,6 +998,9 @@ func (s *DataSourceService) applyFetchedItem(
 				Code:    "deletion_lookup_failed",
 				Message: "Failed to look up the item before deletion; see server logs",
 			})
+			if isFeishuAdmissionSource(ds.Type) {
+				return &dataSourceIngestError{cause: lookupErr}
+			}
 			return nil
 		}
 		if existing == nil {
@@ -1009,6 +1022,9 @@ func (s *DataSourceService) applyFetchedItem(
 				Code:    "deletion_failed",
 				Message: "Deletion failed; see server logs",
 			})
+			if isFeishuAdmissionSource(ds.Type) {
+				return &dataSourceIngestError{cause: deleteErr}
+			}
 			return nil
 		}
 		if herr := repo.HardDeleteKnowledge(ctx, ds.TenantID, existing.ID); herr != nil {
@@ -1021,6 +1037,9 @@ func (s *DataSourceService) applyFetchedItem(
 				Code:    "deletion_failed",
 				Message: "Deletion failed; see server logs",
 			})
+			if isFeishuAdmissionSource(ds.Type) {
+				return &dataSourceIngestError{cause: herr}
+			}
 			return nil
 		}
 		result.Deleted++
@@ -1030,6 +1049,11 @@ func (s *DataSourceService) applyFetchedItem(
 	if len(item.Content) == 0 && item.URL == "" {
 		// Check if this is an error item from the connector (failed to fetch content)
 		if errMsg, hasErr := item.Metadata["error"]; hasErr {
+			if legacyItemNeedsHold(item) {
+				if err := s.legacySourceUncertain(ctx, ds, true); err != nil {
+					return &dataSourceIngestError{cause: err}
+				}
+			}
 			logger.Warnf(
 				ctx,
 				"item %q (external_id=%s) fetch failed: %s",
@@ -1225,7 +1249,8 @@ func (s *DataSourceService) processSyncStreaming(
 
 	autoTagIDs := s.resolveAutoTagIDs(ctx, ds)
 
-	forceFull := payload.ForceFull || ds.SyncMode == types.SyncModeFull
+	forceFull := payload.ForceFull || ds.SyncMode == types.SyncModeFull ||
+		(safeLegacyIncrementalEnabled() && legacyWikiDrive(ds.Type) && ds.LegacyAccessState == "hold")
 	attempt, _ := asynq.GetRetryCount(ctx)
 	if owner, ok := types.SyncExecutionFromContext(ctx); ok {
 		// Durable attempts also cover Lite/recovery, whose queue counters may
@@ -1262,6 +1287,11 @@ func (s *DataSourceService) processSyncStreaming(
 		if errors.As(fetchErr, &admissionErr) {
 			return s.recordUnacceptedSync(ctx, ds, syncLog, result, fetchErr, wasPaused)
 		}
+		if legacyFetchNeedsHold(fetchErr) {
+			if err := s.legacySourceUncertain(ctx, ds, true); err != nil {
+				return s.recordUnacceptedSync(ctx, ds, syncLog, result, errors.Join(fetchErr, err), wasPaused)
+			}
+		}
 		// Progress so far is already checkpointed onto ds.LastSyncCursor; leave
 		// it in place so the Asynq retry resumes from there. Persist counts.
 		logger.Errorf(ctx, "streaming fetch failed: %v", fetchErr)
@@ -1287,6 +1317,11 @@ func (s *DataSourceService) processSyncStreaming(
 	}
 
 	// Persist the final cursor for the next incremental sync.
+	if forceFull {
+		if safeLegacyIncrementalEnabled() && legacyWikiDrive(ds.Type) {
+			ctx = types.WithLegacyFullReconciliation(ctx)
+		}
+	}
 	if nextCursor != nil {
 		if cursorJSON, cerr := nextCursor.ToJSON(); cerr == nil {
 			ds.LastSyncCursor = cursorJSON
@@ -1455,6 +1490,27 @@ func (s *DataSourceService) ingestItem(
 	item *types.FetchedItem,
 	tagIDs []string,
 ) (bool, error) {
+	if safeLegacyIncrementalEnabled() && legacyWikiDrive(ds.Type) {
+		writer, ok := s.knowledgeService.(interface {
+			StageFeishuLegacyItem(context.Context, *types.DataSource, *types.FetchedItem, []string) (*types.FeishuLegacyReceipt, error)
+		})
+		if !ok {
+			return false, ErrFeishuStagingRequired
+		}
+		receipt, err := writer.StageFeishuLegacyItem(ctx, ds, item, tagIDs)
+		if err != nil {
+			var duplicate *types.DuplicateKnowledgeError
+			if errors.As(err, &duplicate) && receipt != nil {
+				types.AddLegacyReceipt(ctx, *receipt)
+			}
+			return false, err
+		}
+		if receipt == nil || receipt.KnowledgeID == "" || receipt.Chunks < 1 || receipt.Vectors != receipt.Chunks || receipt.BM25Rows != receipt.Chunks {
+			return false, ErrFeishuDispatchUnconfirmed
+		}
+		types.AddLegacyReceipt(ctx, *receipt)
+		return !receipt.Created, nil
+	}
 	// Channel decides the knowledge "source" label shown in the UI. Prefer the
 	// connector-supplied metadata["channel"] (e.g. Feishu Drive sets it to
 	// "feishu" so Drive docs share the wiki's "飞书" label instead of showing

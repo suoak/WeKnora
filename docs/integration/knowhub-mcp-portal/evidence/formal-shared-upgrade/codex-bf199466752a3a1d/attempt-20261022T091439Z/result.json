@@ -1,0 +1,72 @@
+{
+  "candidate_sha256": "bf199466752a3a1d75540355dc1fee9fb7f6bdef338c4ad0b62a49485b151661",
+  "exit_code": 0,
+  "tool_gate_pass": true,
+  "semantic_assertions": {
+    "list_knowledge_bases": true,
+    "search_knowledge": true,
+    "read_document": true,
+    "wiki_search": true,
+    "wiki_read_page": true,
+    "grep_chunks": true,
+    "list_documents": true,
+    "wiki_index": true,
+    "actual_sensitive_denial": true,
+    "public_and_private_scope": true,
+    "actual_wiki_body": true
+  },
+  "actual_completed_calls": [
+    {
+      "tool": "list_knowledge_bases",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "grep_chunks",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "wiki_search",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "list_documents",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "wiki_read_page",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "read_document",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "read_document",
+      "status": "failed",
+      "error": null
+    },
+    {
+      "tool": "wiki_index",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "tool": "search_knowledge",
+      "status": "completed",
+      "error": null
+    }
+  ],
+  "started_utc": "2026-10-22T09:13:33.001013+00:00",
+  "finished_utc": "2026-10-22T09:14:39.364217+00:00",
+  "copied_UI_template_used": true,
+  "credential_in_argv": false,
+  "synthetic_data": true,
+  "source_probe": null,
+  "harness_sha256": "899988c618b5e631f3268bad90efc127fc2ee899817eee23fe96ffcc68e2976a"
+}

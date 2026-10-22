@@ -1,0 +1,303 @@
+[
+  {
+    "name": "restored-AES-verify",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "weknora_WeKnora-network",
+      "--env-file",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/operator-restored-AES-verify.env",
+      "-v",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/operators:/ops:ro",
+      "--entrypoint",
+      "/ops/formal-operator",
+      "knowhub-v1-wiki-dynamic/app:0a7374bbbdbd8c4a"
+    ],
+    "exit_code": 0,
+    "started_utc": "2026-10-22T08:00:40.558184+00:00"
+  },
+  {
+    "name": "clone-formal-3033-3037",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "weknora_WeKnora-network",
+      "--env-file",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/operator-clone-formal-3033-3037.env",
+      "-v",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/operators:/ops:ro",
+      "--entrypoint",
+      "/ops/formal-operator",
+      "knowhub-v1-wiki-dynamic/app:0a7374bbbdbd8c4a"
+    ],
+    "exit_code": 0,
+    "started_utc": "2026-10-22T08:00:46.557257+00:00"
+  },
+  {
+    "name": "migrated-clone-AES-verify",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "weknora_WeKnora-network",
+      "--env-file",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/operator-migrated-clone-AES-verify.env",
+      "-v",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/operators:/ops:ro",
+      "--entrypoint",
+      "/ops/formal-operator",
+      "knowhub-v1-wiki-dynamic/app:0a7374bbbdbd8c4a"
+    ],
+    "exit_code": 0,
+    "started_utc": "2026-10-22T08:00:49.028390+00:00"
+  },
+  {
+    "name": "compose-validate",
+    "argv": [
+      "docker",
+      "compose",
+      "--project-name",
+      "knowhub-mvp-p3",
+      "--project-directory",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private",
+      "-f",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/compose-upgrade.json",
+      "config",
+      "--quiet"
+    ],
+    "exit_code": 0,
+    "started_utc": "2026-10-22T08:00:51.135306+00:00"
+  },
+  {
+    "name": "entry-compose-validate",
+    "argv": [
+      "docker",
+      "compose",
+      "--project-name",
+      "knowhub-company-entry",
+      "--project-directory",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private",
+      "-f",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/entry-upgrade.json",
+      "config",
+      "--quiet"
+    ],
+    "exit_code": 0,
+    "started_utc": "2026-10-22T08:00:51.752058+00:00"
+  },
+  {
+    "name": "maintenance-enable",
+    "argv": [
+      "docker",
+      "compose",
+      "--project-name",
+      "knowhub-company-entry",
+      "--project-directory",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private",
+      "-f",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/entry-upgrade.json",
+      "up",
+      "-d",
+      "--no-deps",
+      "--force-recreate",
+      "entry"
+    ],
+    "exit_code": 0,
+    "started_utc": "2026-10-22T08:00:51.900631+00:00"
+  },
+  {
+    "name": "maintenance-nginx-check",
+    "argv": [
+      "docker",
+      "exec",
+      "knowhub-company-entry-entry-1",
+      "nginx",
+      "-t"
+    ],
+    "exit_code": 0,
+    "started_utc": "2026-10-22T08:01:04.247510+00:00"
+  },
+  {
+    "name": "stop-old-APP-and-workers",
+    "argv": [
+      "docker",
+      "stop",
+      "--time",
+      "60",
+      "knowhub-mvp-p3-app-1"
+    ],
+    "exit_code": 0,
+    "started_utc": "2026-10-22T08:01:05.466936+00:00"
+  },
+  {
+    "name": "actual-formal-3033-3037",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "weknora_WeKnora-network",
+      "--env-file",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/operator-actual-formal-3033-3037.env",
+      "-v",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/operators:/ops:ro",
+      "--entrypoint",
+      "/ops/formal-operator",
+      "knowhub-v1-wiki-dynamic/app:0a7374bbbdbd8c4a"
+    ],
+    "exit_code": 0,
+    "started_utc": "2026-10-22T08:01:31.024951+00:00"
+  },
+  {
+    "name": "actual-AES-verify",
+    "argv": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "weknora_WeKnora-network",
+      "--env-file",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/operator-actual-AES-verify.env",
+      "-v",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/operators:/ops:ro",
+      "--entrypoint",
+      "/ops/formal-operator",
+      "knowhub-v1-wiki-dynamic/app:0a7374bbbdbd8c4a"
+    ],
+    "exit_code": 0,
+    "started_utc": "2026-10-22T08:01:41.693403+00:00"
+  },
+  {
+    "name": "start-candidate-disabled",
+    "argv": [
+      "docker",
+      "compose",
+      "--project-name",
+      "knowhub-mvp-p3",
+      "--project-directory",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private",
+      "-f",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/compose-upgrade.json",
+      "up",
+      "-d",
+      "--no-deps",
+      "app",
+      "frontend"
+    ],
+    "exit_code": 0,
+    "started_utc": "2026-10-22T08:01:43.508219+00:00"
+  },
+  {
+    "name": "app-http-11",
+    "argv": [
+      "docker",
+      "exec",
+      "knowhub-mvp-p3-app-1",
+      "curl",
+      "-s",
+      "--max-time",
+      "5",
+      "-o",
+      "/dev/null",
+      "-w",
+      "%{http_code}",
+      "http://127.0.0.1:8080/api/v1/mcp/personal"
+    ],
+    "exit_code": 0,
+    "started_utc": "2026-10-22T08:01:48.965558+00:00"
+  },
+  {
+    "name": "actual-candidate-binary",
+    "argv": [
+      "docker",
+      "exec",
+      "knowhub-mvp-p3-app-1",
+      "sha256sum",
+      "/app/WeKnora"
+    ],
+    "exit_code": 0,
+    "started_utc": "2026-10-22T08:01:49.123945+00:00"
+  },
+  {
+    "name": "enable-personal-MCP",
+    "argv": [
+      "docker",
+      "compose",
+      "--project-name",
+      "knowhub-mvp-p3",
+      "--project-directory",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private",
+      "-f",
+      "/mnt/sata0/knowhub-formal-c2-20261022t072133z-a3/private/compose-upgrade.json",
+      "up",
+      "-d",
+      "--no-deps",
+      "--force-recreate",
+      "app",
+      "frontend"
+    ],
+    "exit_code": 0,
+    "started_utc": "2026-10-22T08:01:51.127628+00:00"
+  },
+  {
+    "name": "app-http-14",
+    "argv": [
+      "docker",
+      "exec",
+      "knowhub-mvp-p3-app-1",
+      "curl",
+      "-s",
+      "--max-time",
+      "5",
+      "-o",
+      "/dev/null",
+      "-w",
+      "%{http_code}",
+      "http://127.0.0.1:8080/api/v1/mcp/personal"
+    ],
+    "exit_code": 0,
+    "started_utc": "2026-10-22T08:01:58.149089+00:00"
+  },
+  {
+    "name": "frontend-nginx-check",
+    "argv": [
+      "docker",
+      "exec",
+      "knowhub-mvp-p3-frontend-1",
+      "nginx",
+      "-t"
+    ],
+    "exit_code": 0,
+    "started_utc": "2026-10-22T08:01:58.289430+00:00"
+  },
+  {
+    "name": "restore-entry-nginx-check",
+    "argv": [
+      "docker",
+      "exec",
+      "knowhub-company-entry-entry-1",
+      "nginx",
+      "-t"
+    ],
+    "exit_code": 0,
+    "started_utc": "2026-10-22T08:01:58.416887+00:00"
+  },
+  {
+    "name": "maintenance-end",
+    "argv": [
+      "docker",
+      "exec",
+      "knowhub-company-entry-entry-1",
+      "nginx",
+      "-s",
+      "reload"
+    ],
+    "exit_code": 0,
+    "started_utc": "2026-10-22T08:01:58.552964+00:00"
+  }
+]
