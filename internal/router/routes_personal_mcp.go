@@ -30,6 +30,9 @@ func RegisterPersonalMCPRoutes(r *gin.Engine, srv *mcpserver.PersonalServer, ten
 func personalPerformanceTrace(c *gin.Context) {
 	ctx, trace := perftrace.New(c.Request.Context())
 	c.Request = c.Request.WithContext(ctx)
+	if trace != nil {
+		c.Header("X-KnowHub-Perf-ID", trace.ID())
+	}
 	defer func() {
 		if trace != nil {
 			raw, err := json.Marshal(trace.Summary())

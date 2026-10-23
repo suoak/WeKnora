@@ -42,6 +42,14 @@ type Trace struct {
 	count    [stageCount]uint64
 }
 
+// ID is an immutable, server-generated correlation ID, never a principal ID.
+func (t *Trace) ID() string {
+	if t == nil {
+		return ""
+	}
+	return t.id
+}
+
 // New creates a server-generated identifier, independent of caller headers.
 func New(ctx context.Context) (context.Context, *Trace) {
 	var id [16]byte
