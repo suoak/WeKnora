@@ -160,7 +160,7 @@ func TestFeishuLegacyRealParserEmbeddingPostgres(t *testing.T) {
 			if scenario.parent {
 				require.Greater(t, second.Chunks, second.Vectors)
 				var invalid, parentVectors int64
-				require.NoError(t, db.Raw("SELECT count(*) FROM chunks c LEFT JOIN chunks p ON p.id=c.parent_chunk_id WHERE c.knowledge_id=? AND c.chunk_type='text' AND (p.id IS NULL OR p.chunk_type<>'parent_text' OR p.knowledge_id<>c.knowledge_id)", first.KnowledgeID).Scan(&invalid).Error)
+				require.NoError(t, db.Raw("SELECT count(*) FROM chunks c LEFT JOIN chunks p ON p.id=c.parent_chunk_id WHERE c.knowledge_id=? AND c.deleted_at IS NULL AND c.chunk_type='text' AND (p.id IS NULL OR p.deleted_at IS NOT NULL OR p.chunk_type<>'parent_text' OR p.knowledge_id<>c.knowledge_id)", first.KnowledgeID).Scan(&invalid).Error)
 				require.Zero(t, invalid)
 				require.NoError(t, db.Raw("SELECT count(*) FROM embeddings e JOIN chunks c ON c.id=e.chunk_id WHERE c.knowledge_id=? AND c.chunk_type='parent_text'", first.KnowledgeID).Scan(&parentVectors).Error)
 				require.Zero(t, parentVectors, "parents must never become vector/BM25 search hits")

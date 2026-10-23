@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: feishu-p1-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   isolated-regression:
     runs-on: ubuntu-latest
@@ -62,7 +66,7 @@ jobs:
           cat p1-baseline-reproducer.log
           test "$status" -ne 0
           grep -q 'P1-same-high-water-timestamp-change-rejected' p1-baseline-reproducer.log
-          grep -q 'An error is expected but got nil' p1-baseline-reproducer.log
+          grep -q 'in chain but got nil' p1-baseline-reproducer.log
           git diff --exit-code -- internal/application/repository/feishu_legacy_atomic.go
       - name: Version fences and real parent graph PostgreSQL and ParadeDB faults
         run: go test -tags sqlite_fts5 ./internal/application/repository -run 'TestLegacyParentGraphP1|TestFeishuParentAtomicPostgresP1|TestFeishuLegacyAtomicPostgres$' -count=1 -timeout=10m
