@@ -25,7 +25,8 @@ func TestLegacyResponseUsesAuthenticatedRequestContext(t *testing.T) {
 	r := gin.New()
 	r.Use(legacyReadScopeMiddleware(authenticatedLegacyGate{}))
 	r.Use(func(c *gin.Context) {
-		ctx := types.WithCaller(c.Request.Context(), types.Caller{TenantID: 1, UserID: "member", Role: types.TenantRoleViewer})
+		caller := types.Caller{TenantID: 1, UserID: "member", Role: types.TenantRoleViewer}
+		ctx := types.WithCaller(c.Request.Context(), caller)
 		principal := types.Principal{Type: types.PrincipalWebUser, ID: "member"}
 		c.Request = c.Request.WithContext(types.WithPrincipal(ctx, principal))
 		c.Next()

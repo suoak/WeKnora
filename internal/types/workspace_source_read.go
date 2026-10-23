@@ -8,7 +8,8 @@ import "context"
 func WorkspaceWebReadTenant(ctx context.Context) uint64 {
 	p, ok := ctx.Value(PrincipalContextKey).(Principal)
 	caller := CallerFromContext(ctx)
-	if !ok || p.Type != PrincipalWebUser || p.ID == "" || p.ID != caller.UserID || caller.TenantID == 0 || !caller.Role.IsValid() {
+	if !ok || p.Type != PrincipalWebUser || p.ID == "" || p.ID != caller.UserID ||
+		caller.TenantID == 0 || !caller.Role.IsValid() {
 		return 0
 	}
 	if _, keyed := TenantAPIKeyScopeFromContext(ctx); keyed {
