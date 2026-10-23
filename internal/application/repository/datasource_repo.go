@@ -166,7 +166,7 @@ func (r *DataSourceRepository) FindActive(ctx context.Context) ([]*types.DataSou
 	var dataSources []*types.DataSource
 	if err := r.db.WithContext(ctx).
 		Where("status IN ?", []string{types.DataSourceStatusActive, types.DataSourceStatusError}).
-		Where("legacy_access_state IS NULL OR legacy_access_state <> ?", "revoked").
+		Where("legacy_access_state IS NULL OR legacy_access_state NOT IN ?", []string{"hold", "revoked"}).
 		Where("deleted_at IS NULL").
 		Where("sync_schedule != ''").
 		Order("created_at DESC").
