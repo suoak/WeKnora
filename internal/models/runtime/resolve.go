@@ -452,6 +452,17 @@ func resolveEmbeddings(
 		}
 		ApplyCompat(&settings, overlay)
 	}
+	if raw := strings.TrimSpace(ref.Extra[models.ExtraEmbeddingMaxBatchSize]); raw != "" {
+		limit, err := strconv.Atoi(raw)
+		if err != nil || limit <= 0 {
+			return nil, fmt.Errorf("catalog: %s must be a positive integer", models.ExtraEmbeddingMaxBatchSize)
+		}
+		// A gateway override may tighten, never relax, a vendor's ceiling.
+		if settings.MaxBatchSize <= 0 || limit < settings.MaxBatchSize {
+			settings.MaxBatchSize = limit
+		}
+	}
+
 	// The row may carry a truncation budget, but the extension is vLLM's and
 	// appears in no managed vendor's schema. Dropping it where the vendor
 	// does not implement it is the quiet direction on purpose: unlike the

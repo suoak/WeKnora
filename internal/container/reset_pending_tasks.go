@@ -169,6 +169,9 @@ func stuckSyncLogQuery(db *gorm.DB, distributed bool, staleCutoff time.Time) *go
 	q := db.Model(&types.SyncLog{}).
 		Where("status = ?", types.SyncLogStatusRunning)
 	if distributed {
+		// A pending/retry delivery has no worker heartbeat. Its age is not a
+		// lease expiry; queue-aware reconciliation handles abandoned deliveries.
+		q = q.Where("execution_claimed = ?", true)
 		// Heartbeats/checkpoints distinguish a live long-running worker from
 		// an abandoned attempt. Legacy NULL timestamps fall back to started_at.
 		if db.Name() == "sqlite" {

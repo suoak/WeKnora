@@ -23,6 +23,7 @@ func syncSchedulerSuite(t *testing.T, dialect string) {
 		ds := &types.DataSource{
 			ID: uuid.NewString(), TenantID: 1, KnowledgeBaseID: "kb", Name: "sync",
 			Type: types.ConnectorTypeFeishu, Status: types.DataSourceStatusActive,
+			SyncSchedule: "0 0 0 * * *",
 		}
 		require.NoError(t, dsRepo.Create(context.Background(), ds))
 		queue := &fakeTaskEnqueuer{}

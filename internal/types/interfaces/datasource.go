@@ -92,7 +92,8 @@ type DataSourceRepository interface {
 	// Delete performs a soft delete
 	Delete(ctx context.Context, id string) error
 
-	// FindActive retrieves all active data sources (used for scheduling)
+	// FindActive retrieves scheduled active/error sources, excluding paused
+	// and revoked sources. The method name is retained for compatibility.
 	FindActive(ctx context.Context) ([]*types.DataSource, error)
 }
 
