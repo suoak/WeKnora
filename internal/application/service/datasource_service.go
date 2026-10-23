@@ -16,6 +16,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/application/access"
 	apprepo "github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/datasource"
+	"github.com/Tencent/WeKnora/internal/feishusafety"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/tracing/langfuse"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -517,6 +518,9 @@ func (s *DataSourceService) ManualSync(ctx context.Context, dsID string) (*types
 	if !datasource.LegacyFeishuSourceAllowed(ds.Type, ds.ID) {
 		return nil, datasource.ErrLegacyFeishuSourceNotAllowed
 	}
+	if err := feishusafety.CheckLegacy(ctx, ds.Type, ds.ID); err != nil {
+		return nil, err
+	}
 
 	if ds.Status != types.DataSourceStatusActive &&
 		ds.Status != types.DataSourceStatusError &&
@@ -749,6 +753,12 @@ func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.
 		syncLog.Status = types.SyncLogStatusCanceled
 		syncLog.FinishedAt = timePtr(time.Now().UTC())
 		syncLog.ErrorMessage = datasource.ErrLegacyFeishuSourceNotAllowed.Error()
+		return s.writeSyncExecution(ctx, ds, syncLog, true)
+	}
+	if err := feishusafety.Check(ctx); err != nil {
+		syncLog.Status = types.SyncLogStatusCanceled
+		syncLog.FinishedAt = timePtr(time.Now().UTC())
+		syncLog.ErrorMessage = "Feishu safety gate closed; checkpoint retained"
 		return s.writeSyncExecution(ctx, ds, syncLog, true)
 	}
 	// A scheduled delivery may have been queued before the user paused the
