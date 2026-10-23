@@ -565,7 +565,10 @@ func (h *KnowledgeBaseHandler) ListKnowledgeBases(c *gin.Context) {
 	}
 
 	// Get all knowledge bases for this tenant
-	kbs, err := h.service.ListKnowledgeBases(ctx)
+	// Source verification can restrict content, but must not hide existing
+	// knowledge bases from their authenticated tenant's management catalog.
+	listCtx := types.WithKnowledgeBaseCatalog(ctx, types.MustTenantIDFromContext(ctx))
+	kbs, err := h.service.ListKnowledgeBases(listCtx)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
 		c.Error(apperrors.NewInternalServerError(err.Error()))
