@@ -70,7 +70,7 @@ func fixture(t *testing.T, cfg Config) (*Guard, *redis.Client) {
 		InstallDefault(nil)
 		keys, _ := client.Keys(context.Background(), g.prefix+"*").Result()
 		if len(keys) > 0 {
-			client.Del(context.Background(), keys...)
+			_ = client.Del(context.Background(), keys...).Err()
 		}
 	})
 	return g, client
@@ -147,10 +147,10 @@ func TestSafetyStopsDuringResponseRead(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	done := make(chan error, 1)
 	go func() { _, err := io.Copy(io.Discard, resp.Body); done <- err }()
-	client.Del(context.Background(), g.PermitKey())
+	_ = client.Del(context.Background(), g.PermitKey()).Err()
 	select {
 	case err := <-done:
 		if err == nil {
@@ -164,22 +164,23 @@ func TestSafetyStopsDuringResponseRead(t *testing.T) {
 func TestSafetyMissingStateAndMismatch(t *testing.T) {
 	g, client := fixture(t, Config{})
 	ctx := context.Background()
-	client.Set(ctx, g.PermitKey(), "another-worker-config", time.Second)
+	_ = client.Set(ctx, g.PermitKey(), "another-worker-config", time.Second).Err()
 	if g.Check(ctx) == nil {
 		t.Fatal("fingerprint mismatch accepted")
 	}
-	client.Del(ctx, g.PermitKey())
+	_ = client.Del(ctx, g.PermitKey()).Err()
 	if g.Check(ctx) == nil {
 		t.Fatal("missing controller accepted")
 	}
-	client.Set(ctx, g.PermitKey(), g.Fingerprint(), 20*time.Millisecond)
+	_ = client.Set(ctx, g.PermitKey(), g.Fingerprint(), 20*time.Millisecond).Err()
 	time.Sleep(35 * time.Millisecond)
 	// miniredis only advances TTL explicitly; remove permit to simulate expiry.
-	client.Del(ctx, g.PermitKey())
+	_ = client.Del(ctx, g.PermitKey()).Err()
 	if g.Check(ctx) == nil {
 		t.Fatal("expired controller accepted")
 	}
-	if _, err := New(client, Config{Namespace: "unknown", EndpointHost: "gateway.invalid", InFlight: 1, RPM: 1, TPM: 1}); err == nil {
+	unknown := Config{Namespace: "unknown", EndpointHost: "gateway.invalid", InFlight: 1, RPM: 1, TPM: 1}
+	if _, err := New(client, unknown); err == nil {
 		t.Fatal("unknown token contract accepted")
 	}
 }
@@ -188,7 +189,7 @@ func TestSafetyHTTPFaultAndOnlineIsolation(t *testing.T) {
 	for _, status := range []int{500, 503, 408, 402} {
 		t.Run(http.StatusText(status), func(t *testing.T) {
 			server := httptest.NewServer(
-				http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(status) }),
+				http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(status) }),
 			)
 			defer server.Close()
 			g, _ := fixture(t, Config{EndpointHost: strings.TrimPrefix(server.URL, "http://")})
@@ -211,7 +212,7 @@ func TestSafetyHTTPFaultAndOnlineIsolation(t *testing.T) {
 			if err != nil {
 				t.Fatal("online affected", err)
 			}
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		})
 	}
 }
@@ -219,8 +220,8 @@ func TestSafetyHTTPFaultAndOnlineIsolation(t *testing.T) {
 func TestSafetyControllerLossCancelsActiveHTTP(t *testing.T) {
 	entered := make(chan struct{})
 	canceled := make(chan struct{})
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.Copy(io.Discard, r.Body)
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
 		close(entered)
 		select {
 		case <-r.Context().Done():
@@ -241,12 +242,12 @@ func TestSafetyControllerLossCancelsActiveHTTP(t *testing.T) {
 	go func() {
 		resp, err := (&http.Client{Transport: Transport{Embedding: true}}).Do(req)
 		if resp != nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 		finished <- err
 	}()
 	<-entered
-	client.Del(context.Background(), g.PermitKey())
+	_ = client.Del(context.Background(), g.PermitKey()).Err()
 	select {
 	case err := <-finished:
 		if err == nil {
@@ -266,7 +267,7 @@ func TestSafetyRedisLossAndEmergencyStop(t *testing.T) {
 	for _, loss := range []string{"redis", "trip"} {
 		t.Run(loss, func(t *testing.T) {
 			entered := make(chan struct{})
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 				close(entered)
 				select {
 				case <-r.Context().Done():
@@ -286,13 +287,13 @@ func TestSafetyRedisLossAndEmergencyStop(t *testing.T) {
 			go func() {
 				resp, err := (&http.Client{Transport: Transport{}}).Do(req)
 				if resp != nil {
-					resp.Body.Close()
+					_ = resp.Body.Close()
 				}
 				finished <- err
 			}()
 			<-entered
 			if loss == "redis" {
-				client.Close()
+				_ = client.Close()
 			} else {
 				if err := g.Trip(context.Background(), "isolated_test_stop"); err != nil {
 					t.Fatal(err)
@@ -312,7 +313,7 @@ func TestSafetyRedisLossAndEmergencyStop(t *testing.T) {
 
 func TestSafetyBodyAndTokenAccounting(t *testing.T) {
 	server := httptest.NewServer(
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { io.WriteString(w, `{"data":[]}`) }),
+		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = io.WriteString(w, `{"data":[]}`) }),
 	)
 	defer server.Close()
 	g, _ := fixture(t, Config{EndpointHost: strings.TrimPrefix(server.URL, "http://"), TPM: 8, TokenOverhead: 1})
@@ -328,8 +329,8 @@ func TestSafetyBodyAndTokenAccounting(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	io.Copy(io.Discard, resp.Body)
-	resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+	_ = resp.Body.Close()
 	snapshot, err := g.Snapshot(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -393,17 +394,19 @@ func TestSafetyRPSQueuesAcrossWorkers(t *testing.T) {
 }
 
 func TestSafety429RetryBudget(t *testing.T) {
-	for _, kind := range []string{"recover", "exhaust", "retry_after_seconds", "retry_after_date", "short_seconds", "short_date", "cancel"} {
+	for _, kind := range []string{
+		"recover", "exhaust", "retry_after_seconds", "retry_after_date", "short_seconds", "short_date", "cancel",
+	} {
 		t.Run(kind, func(t *testing.T) {
 			var calls atomic.Int32
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				n := calls.Add(1)
 				if (kind == "short_seconds" || kind == "short_date") && n == 2 {
-					io.WriteString(w, `{"data":[]}`)
+					_, _ = io.WriteString(w, `{"data":[]}`)
 					return
 				}
 				if kind == "recover" && n == 3 {
-					io.WriteString(w, `{"data":[]}`)
+					_, _ = io.WriteString(w, `{"data":[]}`)
 					return
 				}
 				if kind == "retry_after_seconds" {
@@ -446,9 +449,10 @@ func TestSafety429RetryBudget(t *testing.T) {
 			)
 			resp, err := (&http.Client{Transport: transport}).Do(req)
 			if resp != nil {
-				resp.Body.Close()
+				_ = resp.Body.Close()
 			}
-			if kind == "short_seconds" || kind == "short_date" {
+			switch kind {
+			case "short_seconds", "short_date":
 				if err != nil || calls.Load() != 2 || len(waits) != 1 {
 					t.Fatal("RetryAfter did not recover", err, calls.Load(), waits)
 				}
@@ -458,19 +462,20 @@ func TestSafety429RetryBudget(t *testing.T) {
 				if kind == "short_date" && waits[0] < 3*time.Second {
 					t.Fatal(waits)
 				}
-			} else if kind == "recover" {
-				if err != nil || calls.Load() != 3 || len(waits) != 2 || waits[0] != time.Second || waits[1] != 2*time.Second {
+			case "recover":
+				if err != nil || calls.Load() != 3 || len(waits) != 2 ||
+					waits[0] != time.Second || waits[1] != 2*time.Second {
 					t.Fatal("retry recovery", err, calls.Load(), waits)
 				}
 				snapshot, _ := g.Snapshot(context.Background())
 				if snapshot["rpm_used"] != int64(3) || snapshot["tpm_used"] != int64(3) {
 					t.Fatal("retry attempts not fully charged", snapshot)
 				}
-			} else if kind == "exhaust" {
+			case "exhaust":
 				if err == nil || calls.Load() != 3 || g.Check(context.Background()) == nil {
 					t.Fatal("exhaustion did not latch", err, calls.Load())
 				}
-			} else {
+			default:
 				if err == nil || calls.Load() != 1 {
 					t.Fatal("unexpected premature retry", err, calls.Load())
 				}
@@ -486,7 +491,7 @@ func TestSafetySequentialEmbeddingQueuesWithoutTrip(t *testing.T) {
 	var calls atomic.Int32
 	server := httptest.NewServer(
 		http.HandlerFunc(
-			func(w http.ResponseWriter, r *http.Request) { calls.Add(1); io.WriteString(w, `{"data":[]}`) },
+			func(w http.ResponseWriter, _ *http.Request) { calls.Add(1); _, _ = io.WriteString(w, `{"data":[]}`) },
 		),
 	)
 	defer server.Close()
@@ -505,8 +510,8 @@ func TestSafetySequentialEmbeddingQueuesWithoutTrip(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		io.Copy(io.Discard, resp.Body)
-		resp.Body.Close()
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
 	}
 	if calls.Load() != 2 || time.Since(start) < 900*time.Millisecond || g.Check(context.Background()) != nil {
 		t.Fatal("ordinary serial batches tripped or bypassed RPS", calls.Load(), time.Since(start))
@@ -516,7 +521,7 @@ func TestSafetySequentialEmbeddingQueuesWithoutTrip(t *testing.T) {
 func TestSafetySource429DoesNotRetry(t *testing.T) {
 	var calls atomic.Int32
 	server := httptest.NewServer(
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls.Add(1); w.WriteHeader(429) }),
+		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { calls.Add(1); w.WriteHeader(429) }),
 	)
 	defer server.Close()
 	g, _ := fixture(t, Config{})

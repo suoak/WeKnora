@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/common"
 	"github.com/Tencent/WeKnora/internal/feishusafety"
 	"github.com/redis/go-redis/v9"
 )
@@ -38,6 +39,7 @@ func main() {
 		Addr: os.Getenv("REDIS_ADDR"), DB: db,
 		Username: os.Getenv("REDIS_USERNAME"), Password: os.Getenv("REDIS_PASSWORD"),
 		MaxRetries: -1, DialTimeout: time.Second, ReadTimeout: time.Second, WriteTimeout: time.Second,
+		TLSConfig: common.RedisTLSConfig(),
 	})
 	defer func() { _ = client.Close() }()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

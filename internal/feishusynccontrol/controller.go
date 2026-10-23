@@ -42,7 +42,8 @@ type Metrics struct {
 	OnlineP95Ratio     float64 `json:"online_p95_ratio"`
 }
 
-var ErrNotReady = errors.New("Feishu controller not ready")
+// ErrNotReady means a rollout cannot safely issue an outbound permission.
+var ErrNotReady = errors.New("feishu controller not ready")
 
 // Event is content-free evidence; Audit must deliver it to the configured alert
 // sink or return an error. Log-only wiring is not production alert verification.
@@ -54,19 +55,21 @@ type Event struct {
 	QueuePaused bool
 }
 
+// Controller validates inventory/telemetry and executes an idempotent stop loop.
 type Controller struct {
-	mu          sync.Mutex
-	Client      redis.UniversalClient
-	Guard       *feishusafety.Guard
-	Config      Config
-	Stop        func(context.Context) error
-	Audit       func(Event) error
-	prefix      string
-	fingerprint string
-	incarnation string
-	started     time.Time
-	admitted    bool
-	lastEvent   string
+	mu           sync.Mutex
+	Client       redis.UniversalClient
+	Guard        *feishusafety.Guard
+	Config       Config
+	Stop         func(context.Context) error
+	Audit        func(Event) error
+	prefix       string
+	fingerprint  string
+	incarnation  string
+	started      time.Time
+	admitted     bool
+	lastEvent    string
+	lastAlertAck time.Time
 }
 
 // New requires a single explicit scope, complete worker inventory and pinned
@@ -127,7 +130,12 @@ redis.call('HSET',KEYS[1],ARGV[1],ARGV[2]);redis.call('ZADD',KEYS[2],now+2000,AR
 var permit = redis.NewScript(`
 local t=redis.call('TIME');local now=t[1]*1000+math.floor(t[2]/1000)
 if redis.call('EXISTS',KEYS[5])==1 then return redis.error_reply('TRIPPED') end
-if redis.call('GET',KEYS[3])~=ARGV[3] or redis.call('PTTL',KEYS[3])<=0 then return redis.error_reply('STALE_METRICS') end
+local ttl=redis.call('PTTL',KEYS[3])
+if redis.call('GET',KEYS[3])~=ARGV[3] or ttl<=0 or ttl>2000 then
+ return redis.error_reply('STALE_METRICS')
+end
+local sample=cjson.decode(ARGV[3])
+if now-sample.observed_unix_ms>2000 then return redis.error_reply('STALE_METRICS') end
 local active=redis.call('ZRANGEBYSCORE',KEYS[2],now,'+inf')
 if #active~=#ARGV-3 then return redis.error_reply('INVENTORY_NOT_READY') end
 for i=4,#ARGV do
@@ -164,6 +172,12 @@ func (c *Controller) Step(ctx context.Context) error {
 		metrics.QuotaExceeded == nil || *metrics.QuotaExceeded || metrics.OnlineP95Ratio <= 0 ||
 		metrics.OnlineP95Ratio > 1.2 || metrics.ObservedUnixMS > now+100 || now-metrics.ObservedUnixMS > 2000 {
 		return c.freeze(ctx, "metrics_unhealthy_or_unknown", true)
+	}
+	if time.Since(c.lastAlertAck) > time.Second {
+		if err := c.Audit(Event{Kind: "feishu_safety_heartbeat", Reason: "controller_alive", WorkerID: c.Config.WorkerID}); err != nil {
+			return c.freeze(ctx, "alert_receiver_unavailable", true)
+		}
+		c.lastAlertAck = time.Now()
 	}
 	args := []any{c.fingerprint, c.Guard.Fingerprint(), raw}
 	for _, id := range c.Config.ExpectedWorkers {

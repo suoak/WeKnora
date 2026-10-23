@@ -28,6 +28,21 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 	}
 	ctx := context.Background()
 	feishusafety.InstallDefault(nil)
+	configured := false
+	defer func() {
+		if configured {
+			return
+		}
+		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if rdb != nil {
+			_ = rdb.Set(stopCtx, "asynq:{sync}:paused", "invalid_feishu_safety_configuration", 0).Err()
+		}
+		feishusynccontrol.CancelLocal()
+		if _, err := repository.FenceLegacySyncExecutions(stopCtx, db); err != nil {
+			logger.Errorf(ctx, "[FeishuSafety] invalid configuration stop fencing incomplete")
+		}
+	}()
 	var policy feishusafety.Config
 	decoder := json.NewDecoder(strings.NewReader(os.Getenv("FEISHU_SYNC_SAFETY_POLICY_JSON")))
 	decoder.DisallowUnknownFields()
@@ -44,6 +59,11 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 		logger.Errorf(ctx, "[FeishuSafety] verified budget contract missing; outbound closed")
 		return
 	}
+	alert, err := feishusynccontrol.NewAlertSink(os.Getenv("FEISHU_SYNC_SAFETY_ALERT_URL"), nil)
+	if err != nil {
+		logger.Errorf(ctx, "[FeishuSafety] acknowledged alert receiver missing; outbound closed")
+		return
+	}
 	allocation := types.ResolveWorkerPoolConcurrency(func(key, env string, fallback int) int {
 		return int(settings.GetInt(ctx, key, env, int64(fallback)))
 	})
@@ -57,17 +77,16 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 		_, fenceErr := repository.FenceLegacySyncExecutions(stopCtx, db)
 		return fenceErr
 	}, func(event feishusynccontrol.Event) error {
-		// Deployment must connect structured errors to an alert receiver; this
-		// log is durable local evidence, not a claim that paging was delivered.
 		logger.Errorf(context.Background(), "[FeishuSafety] event=%s reason=%s worker=%s fenced=%t queue_paused=%t",
 			event.Kind, event.Reason, event.WorkerID, event.Fenced, event.QueuePaused)
-		return nil
+		return alert(event)
 	})
 	if err != nil {
 		logger.Errorf(ctx, "[FeishuSafety] worker inventory or effective concurrency invalid; outbound closed")
 		return
 	}
 	feishusafety.InstallDefault(guard)
+	configured = true
 	runCtx, cancel := context.WithCancel(ctx)
 	done := make(chan struct{})
 	go func() { defer close(done); controller.Run(runCtx) }()

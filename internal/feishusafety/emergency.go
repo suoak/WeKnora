@@ -16,7 +16,11 @@ func EmergencyBlock(ctx context.Context, client redis.UniversalClient, namespace
 		return fmt.Errorf("%w: invalid emergency scope", ErrClosed)
 	}
 	prefix := "feishu:safety:{" + namespace + "}:"
-	blockErr := redis.NewScript(`redis.call('SET',KEYS[1],'operator_emergency_stop');redis.call('DEL',KEYS[2]);redis.call('XADD',KEYS[3],'MAXLEN','~',1000,'*','event','emergency_stop');return 1`).
+	blockErr := redis.NewScript(`
+redis.call('SET',KEYS[1],'operator_emergency_stop')
+redis.call('DEL',KEYS[2])
+redis.call('XADD',KEYS[3],'MAXLEN','~',1000,'*','event','emergency_stop')
+return 1`).
 		Run(ctx, client,
 			[]string{prefix + "trip", prefix + "permit", prefix + "audit"}).
 		Err()

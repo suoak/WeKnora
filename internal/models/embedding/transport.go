@@ -37,5 +37,7 @@ func validateEmbeddingBaseURL(baseURL string) error {
 func newEmbeddingHTTPClient(timeout time.Duration) *http.Client {
 	cfg := secutils.DefaultSSRFSafeHTTPClientConfig()
 	cfg.Timeout = timeout
-	return secutils.NewSSRFSafeHTTPClientWithTransport(cfg, feishusafety.Transport{Base: sharedEmbeddingHTTPTransport, Embedding: true})
+	return secutils.NewSSRFSafeHTTPClientWithTransport(cfg, feishusafety.Transport{
+		Base: sharedEmbeddingHTTPTransport, Embedding: true,
+	})
 }

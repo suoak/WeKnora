@@ -27,7 +27,7 @@ func newControlFixture(t *testing.T) *controlFixture {
 	t.Helper()
 	server := miniredis.RunT(t)
 	client := redis.NewClient(&redis.Options{Addr: server.Addr(), MaxRetries: -1})
-	t.Cleanup(func() { client.Close() })
+	t.Cleanup(func() { _ = client.Close() })
 	guard, err := feishusafety.New(
 		client,
 		feishusafety.Config{
@@ -166,12 +166,15 @@ func TestControllerScopeNoneAndMismatch(t *testing.T) {
 }
 
 func TestControllerUnhealthyAndMissingMetrics(t *testing.T) {
-	for _, kind := range []string{"missing", "stale", "gateway_unknown", "gateway_down", "online_p95", "quota_or_429", "scope_violation", "missing_field"} {
+	for _, kind := range []string{
+		"missing", "stale", "gateway_unknown", "gateway_down", "online_p95",
+		"quota_or_429", "scope_violation", "missing_field",
+	} {
 		t.Run(kind, func(t *testing.T) {
 			f := newControlFixture(t)
 			a, _ := f.admit(t)
 			if kind == "missing" {
-				f.client.Del(context.Background(), a.MetricsKey())
+				_ = f.client.Del(context.Background(), a.MetricsKey()).Err()
 			} else {
 				f.metrics(t, a, func(m *Metrics) {
 					bad, one := false, 1
@@ -226,7 +229,7 @@ func TestControllerDuplicateIdentityAndMissingWorker(t *testing.T) {
 	t.Run("lost_worker", func(t *testing.T) {
 		f := newControlFixture(t)
 		a, _ := f.admit(t)
-		f.client.ZAdd(context.Background(), a.prefix+"leases", redis.Z{Score: 0, Member: "worker-b"})
+		_ = f.client.ZAdd(context.Background(), a.prefix+"leases", redis.Z{Score: 0, Member: "worker-b"}).Err()
 		if a.Step(context.Background()) == nil {
 			t.Fatal("missing live worker accepted")
 		}
@@ -245,6 +248,30 @@ func TestControllerAuditFailureRetried(t *testing.T) {
 	_ = a.EmergencyStop(context.Background())
 	if attempts != 2 {
 		t.Fatalf("failed alert attempts=%d, want retry", attempts)
+	}
+}
+
+func TestControllerAlertHeartbeatFailureClosesPermit(t *testing.T) {
+	f := newControlFixture(t)
+	a, _ := f.admit(t)
+	a.lastAlertAck = time.Time{}
+	a.Audit = func(Event) error { return errors.New("isolated alert unavailable") }
+	if a.Step(context.Background()) == nil || f.guard.Check(context.Background()) == nil {
+		t.Fatal("lost acknowledged alert path left outbound permission")
+	}
+}
+
+func TestControllerMetricsRejectAmbiguousJSON(t *testing.T) {
+	for _, raw := range []string{
+		`{"observed_unix_ms":1,"observed_unix_ms":2}`,
+		`{} {}`,
+		`{"unknown":true}`,
+		`[]`,
+	} {
+		var metrics Metrics
+		if decodeMetrics(raw, &metrics) == nil {
+			t.Fatalf("ambiguous metrics accepted: %s", raw)
+		}
 	}
 }
 

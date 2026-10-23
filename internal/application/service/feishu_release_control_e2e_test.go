@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -105,16 +106,23 @@ func TestFeishuReleaseStopRedisPostgres(t *testing.T) {
 
 	entered, networkCanceled, release := make(chan struct{}), make(chan struct{}), make(chan struct{})
 	var enteredOnce, canceledOnce, releasedOnce sync.Once
+	fixtureDone := make(chan struct{})
 	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/online" {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
+		// Consume the request body so net/http can observe peer disconnects
+		// while this synthetic upstream intentionally withholds its response.
+		_, _ = io.Copy(io.Discard, r.Body)
 		enteredOnce.Do(func() { close(entered) })
-		<-r.Context().Done()
-		canceledOnce.Do(func() { close(networkCanceled) })
+		select {
+		case <-r.Context().Done():
+			canceledOnce.Do(func() { close(networkCanceled) })
+		case <-fixtureDone:
+		}
 	}))
-	t.Cleanup(gateway.Close)
+	t.Cleanup(func() { close(fixtureDone); gateway.Close() })
 	u, err := url.Parse(gateway.URL)
 	require.NoError(t, err)
 	policy := feishusafety.Config{
@@ -139,11 +147,26 @@ func TestFeishuReleaseStopRedisPostgres(t *testing.T) {
 		return fenceErr
 	}
 	var audited atomic.Int64
+	var delivered atomic.Int64
+	alertReceiver := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var event feishusynccontrol.Event
+		if json.NewDecoder(r.Body).Decode(&event) != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if event.Fenced && event.QueuePaused {
+			delivered.Add(1)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(alertReceiver.Close)
+	sendAlert, err := feishusynccontrol.NewAlertSink(alertReceiver.URL, alertReceiver.Client())
+	require.NoError(t, err)
 	audit := func(event feishusynccontrol.Event) error {
 		if event.Fenced && event.QueuePaused {
 			audited.Add(1)
 		}
-		return nil
+		return sendAlert(event)
 	}
 	config := feishusynccontrol.Config{
 		WorkerID: "app-a", ExpectedWorkers: []string{"app-a", "app-b"},
@@ -245,6 +268,7 @@ func TestFeishuReleaseStopRedisPostgres(t *testing.T) {
 	require.Equal(t, ds.SyncSchedule, savedSource.SyncSchedule)
 	require.NotEqual(t, types.DataSourceStatusPaused, savedSource.Status)
 	require.Eventually(t, func() bool { return audited.Load() > 0 }, time.Second, 20*time.Millisecond)
+	require.Eventually(t, func() bool { return delivered.Load() > 0 }, time.Second, 20*time.Millisecond)
 	_, err = client.Enqueue(asynq.NewTask("release:low", nil), asynq.Queue(types.QueueMaintenance))
 	require.NoError(t, err)
 	require.Eventually(t, func() bool { return low.Load() == 1 }, 3*time.Second, 20*time.Millisecond)

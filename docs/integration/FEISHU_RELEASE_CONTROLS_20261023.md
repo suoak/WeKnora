@@ -57,6 +57,7 @@ python scripts/feishu-release/check_manifest.py reviewed-manifest.json
 | `FEISHU_SYNC_WORKER_ID` | 每个进程唯一稳定 ID，同 ID 存活冲突必须关闭；重启产生新的 incarnation |
 | `FEISHU_SYNC_EXPECTED_WORKERS` | 逗号分隔完整 Worker 清单，各副本一致，不是当前恰能看到的局部列表；同时与 CMDB/Redis 注册核对 |
 | `FEISHU_SYNC_SOURCE_SHA` | 40 位最终源码 SHA，所有实例一致，并与独立镜像证据吻合 |
+| `FEISHU_SYNC_SAFETY_ALERT_URL` | 显式 HTTPS 接收器；默认 SSRF 安全客户端，每秒健康回执及停止事件要求 2xx；失联关闭许可。禁止 URL 内嵌凭证；生产告警路由及权限仍需验收 |
 | `FEISHU_LEGACY_SYNC_ALLOWED_SOURCE_IDS` | 起步 `none`；后续只能一个已批准的规范 UUID；不是运行中任务即时终止开关 |
 | maintenance 实际并发 | 新控制器要求每实例实际解析为 1；DB 设置优先于 ENV，且仍与 low 共用。多实例总槽位不能声称等于 1，硬预算跨实例共享 |
 
