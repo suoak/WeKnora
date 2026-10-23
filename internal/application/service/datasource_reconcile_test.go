@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -17,6 +18,27 @@ type syncQueueProbe struct {
 	live   map[string]bool
 	err    error
 	before func()
+}
+
+func TestSyncReconcilePaginationP0(t *testing.T) {
+	db := syncdb.Open(t, "sqlite")
+	old := time.Now().UTC().Add(-2 * time.Hour).Truncate(time.Microsecond)
+	live := map[string]bool{}
+	for i := 0; i < 201; i++ {
+		ds := &types.DataSource{ID: uuid.NewString(), TenantID: 1, Status: types.DataSourceStatusActive, Config: types.JSON(`{}`)}
+		require.NoError(t, db.Create(ds).Error)
+		log := &types.SyncLog{ID: fmt.Sprintf("page-%03d", i), DataSourceID: ds.ID, TenantID: 1, Status: types.SyncLogStatusRunning, ExecutionGeneration: 1, StartedAt: old, UpdatedAt: old}
+		require.NoError(t, db.Create(log).Error)
+		if i < 200 {
+			live[types.SyncTaskKey(1, ds.ID, log.ID)] = true
+		}
+	}
+	n, err := ReconcileDataSourceSyncs(context.Background(), db, syncQueueProbe{live: live})
+	require.NoError(t, err)
+	require.Equal(t, 1, n, "a full page of live rows cannot starve a later orphan")
+	var count int64
+	require.NoError(t, db.Model(&types.SyncLog{}).Where("status=?", types.SyncLogStatusRunning).Count(&count).Error)
+	require.EqualValues(t, 200, count)
 }
 
 func (p syncQueueProbe) LiveSyncTasks(context.Context) (map[string]bool, error) {

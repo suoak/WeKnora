@@ -18,31 +18,52 @@ func ReconcileDataSourceSyncs(ctx context.Context, db *gorm.DB, inspector interf
 	if inspector == nil {
 		return 0, nil
 	}
-	var logs []*types.SyncLog
-	if err := db.WithContext(ctx).Where("status=? AND updated_at<?", types.SyncLogStatusRunning,
-		time.Now().UTC().Add(-types.SyncExecutionStaleAfter)).Order("updated_at").Limit(200).Find(&logs).Error; err != nil {
-		return 0, err
-	}
-	if len(logs) == 0 {
-		return 0, nil
-	}
-	live, err := inspector.LiveSyncTasks(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("sync queue reconciliation probe: %w", err)
-	}
 	repo := repository.NewSyncLogRepository(db).(*repository.SyncLogRepository)
+	cutoff := time.Now().UTC().Add(-types.SyncExecutionStaleAfter)
+	var afterTime time.Time
+	afterID := ""
+	var live map[string]bool
 	count := 0
-	for _, log := range logs {
-		if live[types.SyncTaskKey(log.TenantID, log.DataSourceID, log.ID)] {
-			continue
+	for {
+		var logs []*types.SyncLog
+		query := db.WithContext(ctx).Where("status=? AND updated_at<?", types.SyncLogStatusRunning, cutoff)
+		if afterID != "" {
+			query = query.Where("updated_at>? OR (updated_at=? AND id>?)", afterTime, afterTime, afterID)
 		}
-		changed, err := repo.ReconcileOrphan(ctx, log)
-		if err != nil {
+		if err := query.Order("updated_at,id").Limit(200).Find(&logs).Error; err != nil {
 			return count, err
 		}
-		if changed {
-			count++
+		if len(logs) == 0 {
+			return count, nil
+		}
+		if live == nil {
+			var err error
+			live, err = inspector.LiveSyncTasks(ctx)
+			if err != nil {
+				return count, fmt.Errorf("sync queue reconciliation probe: %w", err)
+			}
+			if live == nil {
+				return count, fmt.Errorf("sync queue probe returned no snapshot")
+			}
+		}
+		// Keyset pagination prevents old, legitimately queued rows at the front
+		// of the result from starving later orphaned rows on every sweep.
+		last := logs[len(logs)-1]
+		afterTime, afterID = last.UpdatedAt, last.ID
+		for _, log := range logs {
+			if live[types.SyncTaskKey(log.TenantID, log.DataSourceID, log.ID)] {
+				continue
+			}
+			changed, err := repo.ReconcileOrphan(ctx, log)
+			if err != nil {
+				return count, err
+			}
+			if changed {
+				count++
+			}
+		}
+		if len(logs) < 200 {
+			return count, nil
 		}
 	}
-	return count, nil
 }
