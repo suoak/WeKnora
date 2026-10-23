@@ -97,8 +97,8 @@ func TestGracefulLocalCancelDoesNotCreateGlobalTrip(t *testing.T) {
 	}
 }
 
-func TestSource403404DoNotTripOtherSources(t *testing.T) {
-	for _, status := range []int{403, 404} {
+func TestSource400401403404DoNotTripOtherSources(t *testing.T) {
+	for _, status := range []int{400, 401, 403, 404} {
 		t.Run(http.StatusText(status), func(t *testing.T) {
 			g, client := fixture(t, Config{})
 			InstallDefault(g)
@@ -121,6 +121,19 @@ func TestSource403404DoNotTripOtherSources(t *testing.T) {
 			if client.Exists(context.Background(), g.key("trip")).Val() != 0 ||
 				g.Check(context.Background()) != nil {
 				t.Fatal("one missing/forbidden source globally stopped synchronization")
+			}
+			other, err := http.NewRequestWithContext(
+				WithScope(context.Background(), "source-b"), "GET", "https://source.invalid/other", nil,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			response, err = (Transport{Base: sourceStatusTransport{status: http.StatusOK}}).RoundTrip(other)
+			if err != nil || response.StatusCode != http.StatusOK {
+				t.Fatal("independent source blocked", err)
+			}
+			if err = response.Body.Close(); err != nil {
+				t.Fatal(err)
 			}
 		})
 	}
@@ -161,9 +174,14 @@ func TestTripPreservesFirstCauseAndSingleAudit(t *testing.T) {
 	}
 }
 
-func TestHTTP400ReasonIdentifiesEndpointFamily(t *testing.T) {
-	for _, embedding := range []bool{false, true} {
-		t.Run(fmt.Sprint(embedding), func(t *testing.T) {
+func TestGlobalHTTPReasonIdentifiesEndpointFamily(t *testing.T) {
+	for _, tc := range []struct {
+		embedding bool
+		status    int
+	}{
+		{true, 400}, {true, 401}, {false, 429}, {false, 500}, {false, 503},
+	} {
+		t.Run(fmt.Sprintf("embedding%t/status%d", tc.embedding, tc.status), func(t *testing.T) {
 			g, client := fixture(t, Config{})
 			InstallDefault(g)
 			request, _ := http.NewRequestWithContext(
@@ -172,13 +190,13 @@ func TestHTTP400ReasonIdentifiesEndpointFamily(t *testing.T) {
 				"https://gateway.invalid/endpoint",
 				strings.NewReader(`{"input":["text"]}`),
 			)
-			_, err := (Transport{Base: sourceStatusTransport{status: 400}, Embedding: embedding}).RoundTrip(request)
+			_, err := (Transport{Base: sourceStatusTransport{status: tc.status}, Embedding: tc.embedding}).RoundTrip(request)
 			if err == nil {
-				t.Fatal("HTTP400 unexpectedly succeeded")
+				t.Fatal("global HTTP failure unexpectedly succeeded")
 			}
-			want := "feishu_http_400"
-			if embedding {
-				want = "embedding_http_400"
+			want := fmt.Sprintf("feishu_http_%d", tc.status)
+			if tc.embedding {
+				want = fmt.Sprintf("embedding_http_%d", tc.status)
 			}
 			if got := client.Get(context.Background(), g.key("trip")).Val(); got != want {
 				t.Fatal("lost endpoint family", got, want)

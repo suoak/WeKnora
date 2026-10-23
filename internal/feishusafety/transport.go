@@ -237,9 +237,12 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 		resp.Body = http.NoBody
 		return resp, nil
 	}
-	// Missing/inaccessible source resources are connector-level failures, not a
-	// shared gateway incident. Preserve their response for normal source retry.
-	if !t.Embedding && (resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusNotFound) {
+	// Invalid source queries/identities and missing/inaccessible resources are
+	// connector-level failures. Preserve status/body for the connector's typed
+	// diagnosis without globally stopping independent sources or identities.
+	if !t.Embedding && (resp.StatusCode == http.StatusBadRequest ||
+		resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden ||
+		resp.StatusCode == http.StatusNotFound) {
 		if resp.Body == nil {
 			finish()
 		} else {
