@@ -1,0 +1,3 @@
+WARNING: Your kernel does not support swap limit capabilities or the cgroup is not mounted. Memory limited without swap.
+ok  	github.com/Tencent/WeKnora/internal/perftrace	1.013s
+ok  	github.com/Tencent/WeKnora/internal/router	2.220s

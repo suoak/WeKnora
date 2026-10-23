@@ -1,0 +1,143 @@
+{
+  "principal": "test",
+  "key_name": "test01",
+  "scope_modified": false,
+  "requests": [
+    {
+      "id": 1,
+      "method": "initialize",
+      "HTTP": 200,
+      "seconds": 0.49920891877263784,
+      "perf_id": "0b90ce05ff251866546af718c0901c93",
+      "started_epoch": 1792742344.4641936
+    },
+    {
+      "id": 2,
+      "method": "tools/call",
+      "HTTP": 200,
+      "seconds": 1.3579130079597235,
+      "perf_id": "ef85bbd80324770ea323c9200c75a637",
+      "started_epoch": 1792742344.9634485
+    },
+    {
+      "id": 3,
+      "method": "tools/call",
+      "HTTP": 200,
+      "seconds": 0.9835280068218708,
+      "perf_id": "fe18e8f9642ca56dd24ef191b93f7223",
+      "started_epoch": 1792742346.3214493
+    },
+    {
+      "id": 4,
+      "method": "tools/call",
+      "HTTP": 200,
+      "seconds": 1.4579794146120548,
+      "perf_id": "166c6d5d2a8ad2a9fec1c99cdc003133",
+      "started_epoch": 1792742347.3050492
+    },
+    {
+      "id": 5,
+      "method": "tools/call",
+      "HTTP": 200,
+      "seconds": 0.9854720653966069,
+      "perf_id": "b05fb9273b715ce8491d3ce60bc52637",
+      "started_epoch": 1792742348.908002
+    },
+    {
+      "id": 6,
+      "method": "tools/call",
+      "HTTP": 200,
+      "seconds": 1.2422265019267797,
+      "perf_id": "67dba1fde8558b8d495dc29085c575a3",
+      "started_epoch": 1792742350.0354931
+    },
+    {
+      "id": 7,
+      "method": "tools/call",
+      "HTTP": 200,
+      "seconds": 1.4233258347958326,
+      "perf_id": "f1663f9615370ca6aad1615a557e0579",
+      "started_epoch": 1792742351.4317322
+    },
+    {
+      "id": 8,
+      "method": "tools/call",
+      "HTTP": 200,
+      "seconds": 0.3837248804047704,
+      "perf_id": "f99b36bac34de1457fd14a55e39e0d4f",
+      "started_epoch": 1792742352.8551326
+    },
+    {
+      "id": 9,
+      "method": "tools/call",
+      "HTTP": 200,
+      "seconds": 1.101370849646628,
+      "perf_id": "11df70c4266b6133a4d22f70553dc3c5",
+      "started_epoch": 1792742353.3910246
+    },
+    {
+      "id": 10,
+      "method": "tools/call",
+      "HTTP": 200,
+      "seconds": 1.3609458645805717,
+      "perf_id": "bf51ea4947597d3397123198d80b4a5a",
+      "started_epoch": 1792742354.4924335
+    },
+    {
+      "id": 11,
+      "method": "tools/call",
+      "HTTP": 200,
+      "seconds": 1.2109532626345754,
+      "perf_id": "7fb5ee6e75cbb7ddc0093b93e605538c",
+      "started_epoch": 1792742355.8534193
+    },
+    {
+      "id": 12,
+      "method": "initialize",
+      "HTTP": 200,
+      "seconds": 0.018971364945173264,
+      "perf_id": null,
+      "started_epoch": 1792742357.217977
+    },
+    {
+      "id": 13,
+      "method": "tools/list",
+      "HTTP": 200,
+      "seconds": 0.01911762449890375,
+      "perf_id": null,
+      "started_epoch": 1792742357.2370026
+    }
+  ],
+  "tests": [
+    {
+      "case": "exact_fixed_KB_scope",
+      "status": "PASS",
+      "KBs": 3
+    },
+    {
+      "case": "list_and_read_current_authorized_document",
+      "status": "PASS",
+      "chunks": 2
+    },
+    {
+      "case": "unauthorized_KB_and_direct_ID",
+      "status": "PASS",
+      "deleted_ID": "DENIED"
+    },
+    {
+      "case": "write_tool",
+      "status": "DENIED"
+    },
+    {
+      "case": "Wiki_reads_no_writes",
+      "status": "PASS",
+      "verified_body": "NOT_TESTED_NO_VERIFIED_PAGE"
+    },
+    {
+      "case": "legacy_Python_initialize_and_tools_list",
+      "status": "PASS",
+      "tools": 31
+    }
+  ],
+  "exit_code": 0
+}

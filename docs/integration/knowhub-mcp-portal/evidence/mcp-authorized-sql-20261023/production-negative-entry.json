@@ -1,0 +1,1 @@
+{"tests": [{"port": 80, "case": "anonymous", "status": 401}, {"port": 80, "case": "invalid_key", "status": 401}, {"port": 8080, "case": "anonymous", "status": 401}, {"port": 8080, "case": "invalid_key", "status": 401}], "exit_code": 0}

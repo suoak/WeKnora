@@ -1,0 +1,31 @@
+{
+  "events": [
+    {
+      "name": "BEFORE_LOAD",
+      "beijing": "2026-10-23T15:50:56.567447+08:00"
+    },
+    {
+      "name": "APP_REPLACEMENT_START",
+      "beijing": "2026-10-23T15:54:08.375792+08:00"
+    },
+    {
+      "name": "APP_READY",
+      "beijing": "2026-10-23T15:54:17.668151+08:00"
+    }
+  ],
+  "schema_migrated": false,
+  "frontend_replaced": false,
+  "authorization_scope_changed": false,
+  "root_free_before_load": 10942521344,
+  "build_image_config_id": "sha256:c3514813e4049beca4ace718a8b1f9f5a96cae5667f2d1f32128489e27ffe56d",
+  "production_image_id": "sha256:ad905a87fbfd4b9fe3621b04f60251af0c51061b4351b0e083ef657c361f50c6",
+  "binary_sha256": "a563115976e498bc61a26ef34912fe6b823f1d3780b8d345f7d24cf7ca283021",
+  "source_commit": "3479b97d461d0b3d5a0ac572c25c1f72941864e6",
+  "source_sha256": "04c2b02b8a0ab35825f6b943288e970bec470ed8f585512882da68aaa0ff16c9",
+  "source_metadata_changed_during_live_window": false,
+  "source_note": "No source/Cursor writes by this script; ordinary scheduled workers may progress concurrently.",
+  "exit_code": 0,
+  "other_containers_unchanged": true,
+  "source_states_not_edited": true,
+  "function_flags_unchanged": true
+}

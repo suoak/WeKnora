@@ -1,0 +1,127 @@
+{
+  "principal": "test",
+  "key_name": "test01",
+  "scope_modified": false,
+  "requests": [
+    {
+      "id": 1,
+      "method": "initialize",
+      "HTTP": 200,
+      "seconds": 13.398002667352557,
+      "perf_id": "da5d4c50644010029022532eb52a55fe",
+      "started_epoch": 1792742092.7545516
+    },
+    {
+      "id": 2,
+      "method": "tools/list",
+      "HTTP": 200,
+      "seconds": 0.5065343165770173,
+      "perf_id": "2c74c97b8a38515a6f1d9d35fc16fdf2",
+      "started_epoch": 1792742106.1526062
+    },
+    {
+      "id": 3,
+      "method": "tools/call",
+      "HTTP": 200,
+      "seconds": 5.2417288683354855,
+      "perf_id": "c9083a36cda10b47f1853561ec2cb49b",
+      "started_epoch": 1792742106.6591918
+    },
+    {
+      "id": 4,
+      "method": "tools/call",
+      "HTTP": 200,
+      "seconds": 9.416780224069953,
+      "perf_id": "1b3baa5179707f2ba05a7a6550549853",
+      "started_epoch": 1792742116.9014852
+    },
+    {
+      "id": 5,
+      "method": "tools/call",
+      "HTTP": 200,
+      "seconds": 12.060516188852489,
+      "perf_id": "6c08a390a65fb1b71087ea8142b1a418",
+      "started_epoch": 1792742131.3188055
+    },
+    {
+      "id": 6,
+      "method": "tools/call",
+      "HTTP": 200,
+      "seconds": 1.5743953892961144,
+      "perf_id": "1e12cc2e6867609b1b9aa9be888c4425",
+      "started_epoch": 1792742148.3798127
+    },
+    {
+      "id": 7,
+      "method": "tools/call",
+      "HTTP": 200,
+      "seconds": 1.1597256436944008,
+      "perf_id": "94cc37ee3a051bc63ab68fae34a9b57d",
+      "started_epoch": 1792742152.9544306
+    },
+    {
+      "id": 8,
+      "method": "tools/call",
+      "HTTP": 200,
+      "seconds": 1.8407937586307526,
+      "perf_id": "0f3dac175f58e44d58b24dec4b3fe98e",
+      "started_epoch": 1792742157.1144636
+    }
+  ],
+  "tests": [],
+  "tool_count": 8,
+  "samples": [
+    {
+      "mode": "keyword",
+      "seconds": 5.241881709545851,
+      "hits": 3,
+      "ordered_resource_score_fingerprint": "cde32161d39567b136e24053edfc632201d70ec84333d19137bcc036fd3211b5",
+      "result_status": "complete",
+      "perf_id": "c9083a36cda10b47f1853561ec2cb49b",
+      "rank_score_fingerprint": "6dffe3eefcf16f9dd4c7efc67daf8256f91c8de9af759166e47128dbd04b6f0e",
+      "legacy_fingerprint_note": "baseline score field absent; legacy fingerprint compares resource IDs/order only"
+    },
+    {
+      "mode": "semantic",
+      "seconds": 9.416986670345068,
+      "hits": 3,
+      "ordered_resource_score_fingerprint": "db59b53b33491477201bfb23bb51ac327794ae87691b57829717fd7d2b2db57e",
+      "result_status": "complete",
+      "perf_id": "1b3baa5179707f2ba05a7a6550549853",
+      "rank_score_fingerprint": "152c470e3e3628a4b6c1d7460b294cac8f0da1de9b1cdcd90421306c5e783656",
+      "legacy_fingerprint_note": "baseline score field absent; legacy fingerprint compares resource IDs/order only"
+    },
+    {
+      "mode": "hybrid",
+      "seconds": 12.060677306726575,
+      "hits": 3,
+      "ordered_resource_score_fingerprint": "f6f645736a5dcbb233270f54fb8b5f54bde8499446114bf1714461a76f353044",
+      "result_status": "complete",
+      "perf_id": "6c08a390a65fb1b71087ea8142b1a418",
+      "rank_score_fingerprint": "df1c370e730c87e5527dfa9edd7bccc7c5779ac30c6552814c0cbd8f24187cca",
+      "legacy_fingerprint_note": "baseline score field absent; legacy fingerprint compares resource IDs/order only"
+    },
+    {
+      "KB_size": "small",
+      "mode": "keyword",
+      "seconds": 1.5744762551039457,
+      "hits": 0,
+      "perf_id": "1e12cc2e6867609b1b9aa9be888c4425"
+    },
+    {
+      "KB_size": "small",
+      "mode": "semantic",
+      "seconds": 1.1599114006385207,
+      "hits": 3,
+      "perf_id": "94cc37ee3a051bc63ab68fae34a9b57d"
+    },
+    {
+      "KB_size": "small",
+      "mode": "hybrid",
+      "seconds": 1.8409755658358335,
+      "hits": 3,
+      "perf_id": "0f3dac175f58e44d58b24dec4b3fe98e"
+    }
+  ],
+  "exit_code": 0
+}

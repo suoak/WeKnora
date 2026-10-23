@@ -1,0 +1,6 @@
+{
+  "exit_code": 0,
+  "seconds": 398.63964511081576,
+  "command": "set -e\ngo test -tags sqlite_fts5,anydoc -race -p 2 -count=1 ./internal/perftrace ./internal/application/access ./internal/application/repository/retriever/postgres ./internal/application/repository ./internal/middleware ./internal/mcpserver\ngo test -tags sqlite_fts5,anydoc -race -p 2 -count=1 ./internal/application/service -run 'TestPortal|TestValidateQueryEmbeddingDimension|Test.*LiveDocument|Test.*Dynamic|Test.*Personal'\ngo test -tags sqlite_fts5,anydoc -p 2 -count=1 ./internal/router -run Personal\ngo vet -tags sqlite_fts5,anydoc -p 2 ./internal/perftrace ./internal/application/access ./internal/application/repository/retriever/postgres ./internal/application/repository ./internal/middleware ./internal/mcpserver ./internal/application/service ./internal/router\ngo build -mod=readonly -tags sqlite_fts5,anydoc -o /artifacts/WeKnora ./cmd/server\n",
+  "cleanup_exit": 0
+}

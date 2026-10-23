@@ -1,0 +1,75 @@
+{
+  "sha": "3479b97d461d0b3d5a0ac572c25c1f72941864e6",
+  "checks": [
+    {
+      "name": "Docker image and production startup smoke",
+      "status": "completed",
+      "conclusion": "success",
+      "id": 120288957663,
+      "details_url": "https://github.com/suoak/WeKnora/actions/runs/39915021854/job/120288957663"
+    },
+    {
+      "name": "M1 Linux backend and MCP compatibility",
+      "status": "completed",
+      "conclusion": "success",
+      "id": 120286871400,
+      "details_url": "https://github.com/suoak/WeKnora/actions/runs/39915021882/job/120286871400"
+    },
+    {
+      "name": "Portal contracts, RBAC, race, and branding",
+      "status": "completed",
+      "conclusion": "success",
+      "id": 120286871311,
+      "details_url": "https://github.com/suoak/WeKnora/actions/runs/39915021882/job/120286871311"
+    },
+    {
+      "name": "PostgreSQL fresh and existing KnowHub upgrade governance",
+      "status": "completed",
+      "conclusion": "success",
+      "id": 120286870971,
+      "details_url": "https://github.com/suoak/WeKnora/actions/runs/39915021882/job/120286870971"
+    },
+    {
+      "name": "Format, vet, test, and build",
+      "status": "completed",
+      "conclusion": "success",
+      "id": 120286870334,
+      "details_url": "https://github.com/suoak/WeKnora/actions/runs/39915021854/job/120286870334"
+    },
+    {
+      "name": "golangci-lint (.)",
+      "status": "completed",
+      "conclusion": "success",
+      "id": 120286745597,
+      "details_url": "https://github.com/suoak/WeKnora/actions/runs/39915021856/job/120286745597"
+    },
+    {
+      "name": "detect lint modules",
+      "status": "completed",
+      "conclusion": "success",
+      "id": 120286680359,
+      "details_url": "https://github.com/suoak/WeKnora/actions/runs/39915021856/job/120286680359"
+    },
+    {
+      "name": "postgres",
+      "status": "completed",
+      "conclusion": "skipped",
+      "id": 120286575717,
+      "details_url": "https://github.com/suoak/WeKnora/actions/runs/39915021857/job/120286575717"
+    },
+    {
+      "name": "Complete resilience race (${{ matrix.repetition }})",
+      "status": "completed",
+      "conclusion": "skipped",
+      "id": 120286573503,
+      "details_url": "https://github.com/suoak/WeKnora/actions/runs/39915021857/job/120286573503"
+    },
+    {
+      "name": "verify",
+      "status": "completed",
+      "conclusion": "skipped",
+      "id": 120286537162,
+      "details_url": "https://github.com/suoak/WeKnora/actions/runs/39915021857/job/120286537162"
+    }
+  ]
+}
