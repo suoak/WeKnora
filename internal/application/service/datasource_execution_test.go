@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -28,15 +29,23 @@ func (q *syncExecutionQueue) Enqueue(_ *asynq.Task, _ ...asynq.Option) (*asynq.T
 
 type syncExecutionConnector struct {
 	deletedItemConnector
-	calls   atomic.Int64
-	entered chan struct{}
-	proceed chan struct{}
+	calls        atomic.Int64
+	entered      chan struct{}
+	proceed      chan struct{}
+	fetchErr     error
+	panicOnFetch bool
 }
 
 func (c *syncExecutionConnector) FetchAll(
 	ctx context.Context, _ *types.DataSourceConfig, _ []string,
 ) ([]types.FetchedItem, error) {
 	c.calls.Add(1)
+	if c.panicOnFetch {
+		panic("injected sync worker panic")
+	}
+	if c.fetchErr != nil {
+		return nil, c.fetchErr
+	}
 	select {
 	case c.entered <- struct{}{}:
 	default:
@@ -74,6 +83,69 @@ func syncServiceSuite(t *testing.T, dialect string) {
 			tenantRepo: &processSyncTenantRepo{tenant: &types.Tenant{ID: 1}}, tagService: &processSyncTagService{},
 		}
 		return svc, ds, queue, connector
+	}
+	t.Run("panic_final_P0", func(t *testing.T) {
+		svc, ds, _, connector := makeSvc()
+		connector.panicOnFetch = true
+		log, err := svc.ManualSync(context.Background(), ds.ID)
+		require.NoError(t, err)
+		payload, _ := json.Marshal(types.DataSourceSyncPayload{DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: 1})
+		require.ErrorContains(t, svc.ProcessSync(context.Background(), asynq.NewTask(types.TypeDataSourceSync, payload)), "panicked")
+		stored, err := logs.FindByID(context.Background(), log.ID)
+		require.NoError(t, err)
+		require.Equal(t, types.SyncLogStatusFailed, stored.Status)
+		require.False(t, stored.ExecutionClaimed)
+		_, err = svc.ManualSync(context.Background(), ds.ID)
+		require.NoError(t, err, "failure cannot permanently block admission")
+	})
+	t.Run("pause_after_enqueue_P0", func(t *testing.T) {
+		svc, ds, _, connector := makeSvc()
+		ds.SyncSchedule = "0 0 0 * * *"
+		require.NoError(t, dsRepo.Update(context.Background(), ds))
+		log, err := svc.ManualSync(context.Background(), ds.ID)
+		require.NoError(t, err)
+		ds.Status = types.DataSourceStatusPaused
+		require.NoError(t, dsRepo.Update(context.Background(), ds))
+		payload, _ := json.Marshal(types.DataSourceSyncPayload{DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: 1, Trigger: "schedule"})
+		require.NoError(t, svc.ProcessSync(context.Background(), asynq.NewTask(types.TypeDataSourceSync, payload)))
+		require.Zero(t, connector.calls.Load())
+		stored, err := logs.FindByID(context.Background(), log.ID)
+		require.NoError(t, err)
+		require.Equal(t, types.SyncLogStatusCanceled, stored.Status)
+	})
+	for _, recoverOnRetry := range []bool{false, true} {
+		t.Run(fmt.Sprintf("failure_retry_P0/recover%t", recoverOnRetry), func(t *testing.T) {
+			svc, ds, _, connector := makeSvc()
+			connector.fetchErr = context.DeadlineExceeded
+			log, err := svc.ManualSync(context.Background(), ds.ID)
+			require.NoError(t, err)
+			payload, _ := json.Marshal(types.DataSourceSyncPayload{DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: 1})
+			task := asynq.NewTask(types.TypeDataSourceSync, payload)
+			require.Error(t, svc.ProcessSync(types.WithTaskRetryMetadata(context.Background(), 0, 1), task))
+			waiting, err := logs.FindByID(context.Background(), log.ID)
+			require.NoError(t, err)
+			require.Equal(t, types.SyncLogStatusRunning, waiting.Status)
+			require.False(t, waiting.ExecutionClaimed)
+			if recoverOnRetry {
+				connector.fetchErr = nil
+				close(connector.proceed)
+			}
+			err = svc.ProcessSync(types.WithTaskRetryMetadata(context.Background(), 1, 1), task)
+			if recoverOnRetry {
+				require.NoError(t, err)
+			} else {
+				require.Error(t, err)
+			}
+			finished, err := logs.FindByID(context.Background(), log.ID)
+			require.NoError(t, err)
+			require.False(t, finished.ExecutionClaimed)
+			require.Greater(t, finished.ExecutionGeneration, waiting.ExecutionGeneration)
+			if recoverOnRetry {
+				require.Equal(t, types.SyncLogStatusSuccess, finished.Status)
+			} else {
+				require.Equal(t, types.SyncLogStatusFailed, finished.Status)
+			}
+		})
 	}
 	t.Run("manual_20", func(t *testing.T) {
 		svc, ds, queue, _ := makeSvc()

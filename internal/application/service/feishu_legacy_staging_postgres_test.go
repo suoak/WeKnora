@@ -158,7 +158,8 @@ func TestFeishuLegacyRealParserEmbeddingPostgres(t *testing.T) {
 			_, e = ks.StageFeishuLegacyItem(ctx, ds, item, nil)
 			require.ErrorAs(t, e, &duplicate)
 			require.Equal(t, before, calls.Load(), "root location alone must not rebuild unchanged content")
-			var oldChunks, oldVectors string
+			var oldChunks, oldVectors, oldKnowledge string
+			require.NoError(t, db.Raw("SELECT to_jsonb(k)::text FROM knowledges k WHERE id=?", first.KnowledgeID).Scan(&oldKnowledge).Error)
 			require.NoError(t, db.Raw("SELECT coalesce(jsonb_agg(to_jsonb(c) ORDER BY c.id)::text,'[]') FROM chunks c WHERE knowledge_id=?", first.KnowledgeID).Scan(&oldChunks).Error)
 			require.NoError(t, db.Raw("SELECT coalesce(jsonb_agg(to_jsonb(e) ORDER BY to_jsonb(e)::text)::text,'[]') FROM embeddings e WHERE knowledge_id=?", first.KnowledgeID).Scan(&oldVectors).Error)
 			// More than 20 default-sized chunks force a successful first batch
@@ -171,11 +172,15 @@ func TestFeishuLegacyRealParserEmbeddingPostgres(t *testing.T) {
 			require.Error(t, e)
 			fail.Store(false)
 			require.EqualValues(t, 2, failureCalls.Load(), "failure must occur in the middle batch")
-			var currentChunks, currentVectors string
+			var currentChunks, currentVectors, currentKnowledge string
+			require.NoError(t, db.Raw("SELECT to_jsonb(k)::text FROM knowledges k WHERE id=?", first.KnowledgeID).Scan(&currentKnowledge).Error)
 			require.NoError(t, db.Raw("SELECT coalesce(jsonb_agg(to_jsonb(c) ORDER BY c.id)::text,'[]') FROM chunks c WHERE knowledge_id=?", first.KnowledgeID).Scan(&currentChunks).Error)
 			require.NoError(t, db.Raw("SELECT coalesce(jsonb_agg(to_jsonb(e) ORDER BY to_jsonb(e)::text)::text,'[]') FROM embeddings e WHERE knowledge_id=?", first.KnowledgeID).Scan(&currentVectors).Error)
 			require.JSONEq(t, oldChunks, currentChunks, "old chunks unchanged after candidate failure")
 			require.JSONEq(t, oldVectors, currentVectors, "old searchable vectors unchanged after candidate failure")
+			require.JSONEq(t, oldKnowledge, currentKnowledge, "old document and its metadata must remain unchanged")
+			require.NoError(t, db.Raw("SELECT count(*) FROM embeddings WHERE knowledge_id=? AND content LIKE '%mustnotpublish%'", first.KnowledgeID).Scan(&n).Error)
+			require.Zero(t, n, "unpublished candidate must not be searchable")
 			require.NoError(t, db.Raw("SELECT count(*) FROM embeddings WHERE knowledge_id=? AND content ||| 'newparsercanary'", first.KnowledgeID).Scan(&n).Error)
 			require.Positive(t, n)
 			oldFile, e := ks.resolveFileServiceForPath(ctx, kb, oldPath).GetFile(ctx, oldPath)
