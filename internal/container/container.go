@@ -650,7 +650,7 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	// to exist, then run that hook first so a slow cron stop cannot leave
 	// the daemon alive until the process is killed.
 	must(container.Invoke(func(cleaner interfaces.ResourceCleaner, _ *browserskill.Manager) {
-		cleaner.Promote("BrowserSkill")
+		prioritizeProcessCleanup(cleaner)
 	}))
 
 	logger.Infof(ctx, "[Container] Container initialization completed successfully")

@@ -74,3 +74,46 @@ func TestCleanupAlreadyCanceledContextStillRunsHooks(t *testing.T) {
 		t.Fatalf("ran %d hooks, want 2", n)
 	}
 }
+
+func TestFeishuDrainPrecedesWorkerAndSchedulerShutdown(t *testing.T) {
+	cleaner := NewResourceCleaner()
+	var ran []string
+	consumerActive, schedulerActive, safetyDrained := true, true, false
+	// Match actual construction: Browser and safety are registered before cron
+	// and the Asynq pool. Reverse cleanup alone incorrectly kills Asynq first.
+	cleaner.RegisterWithName("BrowserSkill", func() error {
+		ran = append(ran, "browser")
+		return nil
+	})
+	cleaner.RegisterWithName("FeishuSyncSafety", func() error {
+		if !consumerActive || !schedulerActive {
+			return errors.New("consumer disappeared before graceful safety drain")
+		}
+		safetyDrained = true
+		ran = append(ran, "safety")
+		return nil
+	})
+	cleaner.RegisterWithName("DataSourceScheduler", func() error {
+		if !safetyDrained {
+			return errors.New("scheduler stopped before safety drain")
+		}
+		schedulerActive = false
+		ran = append(ran, "scheduler")
+		return nil
+	})
+	cleaner.RegisterWithName("MaintenanceAsynqServer", func() error {
+		if !safetyDrained {
+			return errors.New("Asynq stopped before safety drain")
+		}
+		consumerActive = false
+		ran = append(ran, "worker")
+		return nil
+	})
+	prioritizeProcessCleanup(cleaner)
+	if errs := cleaner.Cleanup(context.Background()); len(errs) != 0 {
+		t.Fatal(errs)
+	}
+	if len(ran) != 4 || ran[0] != "browser" || ran[1] != "safety" || ran[2] != "worker" || ran[3] != "scheduler" {
+		t.Fatalf("actual cleaner order %v; want browser, safety, worker, scheduler", ran)
+	}
+}
