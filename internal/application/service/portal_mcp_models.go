@@ -6,6 +6,7 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/application/service/retriever"
+	"github.com/Tencent/WeKnora/internal/perftrace"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 )
@@ -77,7 +78,9 @@ func BindPortalMCPAdapters(s *PortalMCPKnowledge, kbs interfaces.KnowledgeBaseRe
 		if err != nil {
 			return nil, err
 		}
+		done := perftrace.Measure(ctx, perftrace.Embedding)
 		vector, err := embedder.Embed(types.WithEmbedQuery(owner), query)
+		done()
 		if err != nil {
 			return nil, err
 		}

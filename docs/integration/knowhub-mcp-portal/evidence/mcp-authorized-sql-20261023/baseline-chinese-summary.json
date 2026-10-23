@@ -1,0 +1,104 @@
+[
+  {
+    "mode": "keyword",
+    "seconds": 4.499809835106134,
+    "hits": 3,
+    "sql": [
+      {
+        "queryid": "7802980565473652694",
+        "category": "BM25",
+        "calls": 1,
+        "exec_ms": 2743.1142649999965,
+        "rows": 100,
+        "shared_reads": 155947,
+        "read_ms": 0
+      },
+      {
+        "queryid": "-1359118066720071620",
+        "category": "other",
+        "calls": 124,
+        "exec_ms": 84.23436199999924,
+        "rows": 21133,
+        "shared_reads": 0,
+        "read_ms": 0
+      },
+      {
+        "queryid": "-8483076782686490164",
+        "category": "other",
+        "calls": 14,
+        "exec_ms": 80.40328100000033,
+        "rows": 15652,
+        "shared_reads": 627,
+        "read_ms": 0
+      }
+    ]
+  },
+  {
+    "mode": "semantic",
+    "seconds": 13.699554177932441,
+    "hits": 3,
+    "sql": [
+      {
+        "queryid": "7207853259669143064",
+        "category": "vector_authorized",
+        "calls": 1,
+        "exec_ms": 6084.742456,
+        "rows": 100,
+        "shared_reads": 165150,
+        "read_ms": 0
+      },
+      {
+        "queryid": "4970370706869698635",
+        "category": "policy",
+        "calls": 1,
+        "exec_ms": 4995.51096,
+        "rows": 1,
+        "shared_reads": 42920,
+        "read_ms": 0
+      },
+      {
+        "queryid": "-1359118066720071620",
+        "category": "other",
+        "calls": 124,
+        "exec_ms": 89.31789599999956,
+        "rows": 21133,
+        "shared_reads": 0,
+        "read_ms": 0
+      }
+    ]
+  },
+  {
+    "mode": "hybrid",
+    "seconds": 16.510513937100768,
+    "hits": 3,
+    "sql": [
+      {
+        "queryid": "7207853259669143064",
+        "category": "vector_authorized",
+        "calls": 1,
+        "exec_ms": 6236.875139000003,
+        "rows": 100,
+        "shared_reads": 165109,
+        "read_ms": 0
+      },
+      {
+        "queryid": "4970370706869698635",
+        "category": "policy",
+        "calls": 1,
+        "exec_ms": 5044.367631000001,
+        "rows": 1,
+        "shared_reads": 42234,
+        "read_ms": 0
+      },
+      {
+        "queryid": "7802980565473652694",
+        "category": "BM25",
+        "calls": 1,
+        "exec_ms": 2735.0939599999983,
+        "rows": 100,
+        "shared_reads": 156401,
+        "read_ms": 0
+      }
+    ]
+  }
+]

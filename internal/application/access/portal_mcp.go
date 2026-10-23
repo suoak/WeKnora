@@ -5,6 +5,7 @@ import (
 	"errors"
 	"reflect"
 
+	"github.com/Tencent/WeKnora/internal/perftrace"
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
@@ -57,6 +58,7 @@ func (t *PortalKBTarget) DocumentIDs() []string {
 	return ids
 }
 func (r *PortalMCPResolver) Resolve(ctx context.Context, requested []string) ([]*PortalKBTarget, error) {
+	defer perftrace.Measure(ctx, perftrace.Resolve)()
 	ctx, diagnostics := WithPortalDiagnostics(ctx)
 	if r == nil || !r.Enabled || r.Directory == nil || r.Store == nil || r.Public == nil || r.Documents == nil || r.Employees == nil {
 		return nil, ErrForbidden
