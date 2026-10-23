@@ -93,7 +93,7 @@ func (r *DataSourceRepository) Update(ctx context.Context, ds *types.DataSource)
 			}
 			if legacySourceKind(old.Type) && (!legacyConfigEqual(old.Config, ds.Config) || old.Type != ds.Type || old.KnowledgeBaseID != ds.KnowledgeBaseID) {
 				if old.TenantID != ds.TenantID || old.KnowledgeBaseID != ds.KnowledgeBaseID {
-					return ErrLegacyVersionFence
+					return legacyFence("source_tenant_or_kb_rebind_denied")
 				}
 				if err := tx.Model(&types.DataSource{}).Where("id=?", ds.ID).Update("legacy_access_state", "hold").Error; err != nil {
 					return err
