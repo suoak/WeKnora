@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -112,8 +113,18 @@ func TestFeishuLegacyRealParserEmbeddingPostgres(t *testing.T) {
 	kb := &types.KnowledgeBase{ID: uuid.NewString(), TenantID: tenant.ID, Name: "synthetic-private", Type: "document", EmbeddingModelID: model.ID}
 	require.NoError(t, db.Create(kb).Error)
 	ks := &knowledgeService{config: &config.Config{}, repo: repository.NewKnowledgeRepository(db), kbService: &legacyLiveKB{db: db}, modelService: &legacyLiveModel{db: db}, tenantService: &legacyNoCloud{}, fileSvc: files.NewLocalFileService(t.TempDir(), "")}
-	for sourceIndex, kind := range []string{"feishu", "feishu_drive"} {
-		t.Run(kind, func(t *testing.T) {
+	for sourceIndex, scenario := range []struct {
+		kind   string
+		parent bool
+	}{{"feishu", false}, {"feishu_drive", false}, {"feishu", true}, {"feishu_drive", true}} {
+		kind := scenario.kind
+		t.Run(fmt.Sprintf("%s/parent=%v", kind, scenario.parent), func(t *testing.T) {
+			kb.ChunkingConfig.EnableParentChild = scenario.parent
+			kb.ChunkingConfig.ParentChunkSize = 4096
+			kb.ChunkingConfig.ChildChunkSize = 1024
+			chunkConfig, err := json.Marshal(kb.ChunkingConfig)
+			require.NoError(t, err)
+			require.NoError(t, db.Model(kb).UpdateColumn("chunking_config", types.JSON(chunkConfig)).Error)
 			if kind == "feishu_drive" {
 				backend := &types.StorageBackend{TenantID: tenant.ID, Name: "registered local", Provider: "local", Config: types.StorageBackendConfig{}, Status: types.StorageBackendStatusActive}
 				require.NoError(t, repository.NewStorageBackendRepository(db).Create(context.Background(), backend))
@@ -146,6 +157,14 @@ func TestFeishuLegacyRealParserEmbeddingPostgres(t *testing.T) {
 			require.NoError(t, e)
 			require.Equal(t, first.KnowledgeID, second.KnowledgeID)
 			require.False(t, second.Created)
+			if scenario.parent {
+				require.Greater(t, second.Chunks, second.Vectors)
+				var invalid, parentVectors int64
+				require.NoError(t, db.Raw("SELECT count(*) FROM chunks c LEFT JOIN chunks p ON p.id=c.parent_chunk_id WHERE c.knowledge_id=? AND c.chunk_type='text' AND (p.id IS NULL OR p.chunk_type<>'parent_text' OR p.knowledge_id<>c.knowledge_id)", first.KnowledgeID).Scan(&invalid).Error)
+				require.Zero(t, invalid)
+				require.NoError(t, db.Raw("SELECT count(*) FROM embeddings e JOIN chunks c ON c.id=e.chunk_id WHERE c.knowledge_id=? AND c.chunk_type='parent_text'", first.KnowledgeID).Scan(&parentVectors).Error)
+				require.Zero(t, parentVectors, "parents must never become vector/BM25 search hits")
+			}
 			var n int64
 			require.NoError(t, db.Raw("SELECT count(*) FROM embeddings WHERE knowledge_id=? AND content ||| 'newparsercanary'", first.KnowledgeID).Scan(&n).Error)
 			require.Positive(t, n)

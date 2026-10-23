@@ -116,6 +116,22 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 	require.Zero(t, visible("rc3baselinecanary"), "old committed version must not mix with the new version")
 	_, err = store.Receipt(ctx, r, a)
 	require.NoError(t, err, "lost-ACK reconciliation must use durable receipt")
+	t.Run("P1-same-high-water-timestamp-change-rejected", func(t *testing.T) {
+		// Reproduction: same bytes at a later source time reuse the published
+		// attempt, leaving its original Revision behind the resource high-water.
+		later := time.Date(2026, 10, 21, 1, 1, 30, 0, time.UTC)
+		h := sha256.Sum256([]byte("oldcanary"))
+		_, duplicate, e := store.Begin(ctx, ds, &types.FetchedItem{ExternalID: "same-cloud-id", UpdatedAt: later}, hex.EncodeToString(h[:]))
+		require.NoError(t, e)
+		require.Equal(t, a.ID, duplicate.ID)
+		changed := sha256.Sum256([]byte("ambiguous changed bytes"))
+		_, _, e = store.Begin(ctx, ds, &types.FetchedItem{ExternalID: "same-cloud-id", UpdatedAt: later}, hex.EncodeToString(changed[:]))
+		require.ErrorIs(t, e, ErrLegacyVersionFence)
+		var diagnostic *LegacyFenceError
+		require.ErrorAs(t, e, &diagnostic)
+		require.Equal(t, "source_revision_content_conflict", diagnostic.Reason)
+		require.EqualValues(t, 1, visible("oldcanary"))
+	})
 	t.Run("legacy-worker-mutations-denied", func(t *testing.T) {
 		for _, sql := range []string{"DELETE FROM embeddings WHERE knowledge_id=?", "UPDATE chunks SET content='stale' WHERE knowledge_id=?", "UPDATE knowledges SET title='stale' WHERE id=?"} {
 			require.Error(t, db.Exec(sql, kid).Error)
@@ -127,6 +143,9 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 		require.Error(t, store.Prepare(ctx, ds, next, candidate, [][]float32{{1, 0}}))
 		require.EqualValues(t, 1, visible("oldcanary"))
 		require.NoError(t, store.Abandon(ctx, next))
+		_, retry, retriedCandidate := makeVersion("invalidvector", 2)
+		require.NoError(t, store.Prepare(ctx, ds, retry, retriedCandidate, [][]float32{{1, 0, 0}}), "same-high-water same-content failed attempt must remain retryable")
+		require.NoError(t, store.Abandon(ctx, retry))
 	})
 	t.Run("partial-public-index-write-rolls-back", func(t *testing.T) {
 		_, next, candidate := makeVersion("faultcanary", 3)
