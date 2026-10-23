@@ -50,7 +50,11 @@ func legacyReadScopeMiddleware(service any) gin.HandlerFunc {
 		ctx := types.WithLegacyReadScope(c.Request.Context())
 		c.Request = c.Request.WithContext(ctx)
 		if gate, ok := service.(legacyReadScopeGate); ok {
-			c.Writer = &legacyScopedResponse{ResponseWriter: c.Writer, ctx: ctx, gate: gate, requestContext: func() context.Context { return c.Request.Context() }}
+			c.Writer = &legacyScopedResponse{
+				ResponseWriter: c.Writer,
+				ctx:            ctx, gate: gate,
+				requestContext: func() context.Context { return c.Request.Context() },
+			}
 		}
 		c.Next()
 	}

@@ -21,7 +21,9 @@ INSERT INTO tenants(id,status) VALUES(1,'active'),(2,'active');`).Error)
 	}{
 		{"held", "hold", 1}, {"revoked", "revoked", 1}, {"ready", "active", 1}, {"other", "hold", 2},
 	} {
-		require.NoError(t, db.Exec(`INSERT INTO knowledge_bases(id,name,tenant_id,embedding_model_id,summary_model_id,generated_profile) VALUES(?,?,?,'embed','summary','{}')`, row.id, row.id, row.tenant).Error)
+		require.NoError(t, db.Exec(`INSERT INTO knowledge_bases(
+id,name,tenant_id,embedding_model_id,summary_model_id,generated_profile)
+VALUES(?,?,?,'embed','summary','{}')`, row.id, row.id, row.tenant).Error)
 		require.NoError(t, db.Exec(`INSERT INTO data_sources VALUES(?,?,'feishu',?)`, row.id, row.id, row.state).Error)
 	}
 	require.NoError(t, db.Exec(`INSERT INTO knowledges(id,knowledge_base_id) VALUES('doc','held')`).Error)
@@ -49,31 +51,40 @@ INSERT INTO tenants(id,status) VALUES(1,'active'),(2,'active');`).Error)
 	require.ErrorIs(t, err, types.ErrLegacySourceRestricted, "catalog context must not authorize document content")
 
 	t.Run("workspace-browser-keeps-existing-documents", func(t *testing.T) {
-		web := types.WithPrincipal(types.WithCaller(types.WithLegacyReadScope(ctx), types.Caller{TenantID: 1, UserID: "member", Role: types.TenantRoleViewer}), types.Principal{Type: types.PrincipalWebUser, ID: "member"})
+		caller := types.Caller{TenantID: 1, UserID: "member", Role: types.TenantRoleViewer}
+		principal := types.Principal{Type: types.PrincipalWebUser, ID: "member"}
+		web := types.WithPrincipal(types.WithCaller(types.WithLegacyReadScope(ctx), caller), principal)
 		_, err := r.GetKnowledgeBaseByID(web, "held")
 		require.NoError(t, err, "a source sync hold does not revoke workspace membership")
 		var stored types.Knowledge
 		require.NoError(t, guarded.WithContext(web).First(&stored, "id=?", "doc").Error)
 		require.NoError(t, types.CheckLegacyReadScope(guarded.WithContext(web)))
 		_, err = r.GetKnowledgeBaseByID(web, "other")
-		require.ErrorIs(t, err, types.ErrLegacySourceRestricted, "other workspace sources remain protected")
+		require.ErrorIs(t, err, types.ErrLegacySourceRestricted,
+			"other workspace sources remain protected")
 		keyed := types.WithTenantAPIKeyScope(web, types.TenantAPIKeyScope{KeyID: 1, ScopeType: types.APIKeyScopeUserMCP})
 		_, err = r.GetKnowledgeBaseByID(keyed, "held")
-		require.ErrorIs(t, err, types.ErrLegacySourceRestricted, "MCP does not inherit browser membership rights")
+		require.ErrorIs(t, err, types.ErrLegacySourceRestricted,
+			"MCP does not inherit browser membership rights")
 		require.NoError(t, db.Exec(`UPDATE data_sources SET legacy_access_state='revoked' WHERE id='held'`).Error)
 		_, err = r.GetKnowledgeBaseByID(web, "held")
 		require.ErrorIs(t, err, types.ErrLegacySourceRestricted)
-		require.ErrorIs(t, types.CheckLegacyReadScope(guarded.WithContext(web)), types.ErrLegacySourceRestricted, "revocation after read is checked before output")
+		require.ErrorIs(t, types.CheckLegacyReadScope(guarded.WithContext(web)), types.ErrLegacySourceRestricted,
+			"revocation after read is checked before output")
 		require.NoError(t, db.Exec(`UPDATE data_sources SET legacy_access_state='hold' WHERE id='held'`).Error)
-		require.NoError(t, db.Exec(`INSERT INTO feishu_legacy_resources VALUES('held','hold','not-yet-imported')`).Error)
+		require.NoError(t, db.Exec(`INSERT INTO feishu_legacy_resources
+VALUES('held','hold','not-yet-imported')`).Error)
 		_, err = r.GetKnowledgeBaseByID(web, "held")
 		require.NoError(t, err, "an unfinished import without stored content must not hide the workspace KB")
 		require.NoError(t, guarded.WithContext(web).First(&stored, "id=?", "doc").Error)
 		require.NoError(t, types.CheckLegacyReadScope(guarded.WithContext(web)))
 		_, err = r.GetKnowledgeBaseByID(ctx, "held")
-		require.ErrorIs(t, err, types.ErrLegacySourceRestricted, "strict external readers still deny uncertain imports")
-		require.NoError(t, db.Exec(`UPDATE feishu_legacy_resources SET knowledge_id='doc' WHERE knowledge_base_id='held'`).Error)
+		require.ErrorIs(t, err, types.ErrLegacySourceRestricted,
+			"strict external readers still deny uncertain imports")
+		require.NoError(t, db.Exec(`UPDATE feishu_legacy_resources
+SET knowledge_id='doc' WHERE knowledge_base_id='held'`).Error)
 		_, err = r.GetKnowledgeBaseByID(web, "held")
-		require.ErrorIs(t, err, types.ErrLegacySourceRestricted, "document quarantine is independent of source sync hold")
+		require.ErrorIs(t, err, types.ErrLegacySourceRestricted,
+			"document quarantine is independent of source sync hold")
 	})
 }
