@@ -740,6 +740,14 @@ func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.
 		}
 		return errors.Join(asynq.SkipRetry, datasource.ErrLegacyFeishuSyncSuspended)
 	}
+	// A scheduled delivery may have been queued before the user paused the
+	// source. Recheck at execution; explicit manual sync keeps its old contract.
+	if payload.Trigger == "schedule" && !ds.AutoSyncEnabled() {
+		syncLog.Status = types.SyncLogStatusCanceled
+		syncLog.FinishedAt = timePtr(time.Now().UTC())
+		syncLog.ErrorMessage = "Scheduled sync disabled before execution"
+		return s.writeSyncExecution(ctx, ds, syncLog, true)
+	}
 
 	kb, kbErr := s.kbService.GetKnowledgeBaseByID(ctx, ds.KnowledgeBaseID)
 	if kbErr != nil {

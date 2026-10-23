@@ -3,6 +3,7 @@ package types
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -12,6 +13,10 @@ var ErrStaleSyncExecution = errors.New("stale datasource sync execution")
 // SyncExecutionStaleAfter is the stale window used by startup recovery; timestamps are liveness only,
 // never the ownership identity used to fence writes.
 const SyncExecutionStaleAfter = 30 * time.Minute
+
+func SyncTaskKey(tenant uint64, sourceID, logID string) string {
+	return fmt.Sprintf("%d/%s/%s", tenant, sourceID, logID)
+}
 
 // SyncExecution is a DB-issued attempt identity, never a timestamp or queue ID.
 type SyncExecution struct {

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -76,11 +77,12 @@ func TestFeishuLegacyRealParserEmbeddingPostgres(t *testing.T) {
 	utils.ResetSSRFWhitelistForTest()
 	t.Cleanup(utils.ResetSSRFWhitelistForTest)
 	var fail atomic.Bool
+	var failureCalls atomic.Int32
 	var calls atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
-		if fail.Load() {
-			http.Error(w, "synthetic model unavailable", http.StatusServiceUnavailable)
+		if fail.Load() && failureCalls.Add(1) == 2 {
+			http.Error(w, "synthetic middle batch rejected", http.StatusBadRequest)
 			return
 		}
 		var req struct {
@@ -156,12 +158,24 @@ func TestFeishuLegacyRealParserEmbeddingPostgres(t *testing.T) {
 			_, e = ks.StageFeishuLegacyItem(ctx, ds, item, nil)
 			require.ErrorAs(t, e, &duplicate)
 			require.Equal(t, before, calls.Load(), "root location alone must not rebuild unchanged content")
-			item.Content = []byte("mustnotpublish embedding failure")
+			var oldChunks, oldVectors string
+			require.NoError(t, db.Raw("SELECT coalesce(jsonb_agg(to_jsonb(c) ORDER BY c.id)::text,'[]') FROM chunks c WHERE knowledge_id=?", first.KnowledgeID).Scan(&oldChunks).Error)
+			require.NoError(t, db.Raw("SELECT coalesce(jsonb_agg(to_jsonb(e) ORDER BY to_jsonb(e)::text)::text,'[]') FROM embeddings e WHERE knowledge_id=?", first.KnowledgeID).Scan(&oldVectors).Error)
+			// More than 20 default-sized chunks force a successful first batch
+			// followed by an injected second-batch failure, before publication.
+			item.Content = []byte(strings.Repeat("mustnotpublish embedding failure content. ", 10000))
 			item.UpdatedAt = item.UpdatedAt.Add(time.Minute)
+			failureCalls.Store(0)
 			fail.Store(true)
 			_, e = ks.StageFeishuLegacyItem(ctx, ds, item, nil)
 			require.Error(t, e)
 			fail.Store(false)
+			require.EqualValues(t, 2, failureCalls.Load(), "failure must occur in the middle batch")
+			var currentChunks, currentVectors string
+			require.NoError(t, db.Raw("SELECT coalesce(jsonb_agg(to_jsonb(c) ORDER BY c.id)::text,'[]') FROM chunks c WHERE knowledge_id=?", first.KnowledgeID).Scan(&currentChunks).Error)
+			require.NoError(t, db.Raw("SELECT coalesce(jsonb_agg(to_jsonb(e) ORDER BY to_jsonb(e)::text)::text,'[]') FROM embeddings e WHERE knowledge_id=?", first.KnowledgeID).Scan(&currentVectors).Error)
+			require.JSONEq(t, oldChunks, currentChunks, "old chunks unchanged after candidate failure")
+			require.JSONEq(t, oldVectors, currentVectors, "old searchable vectors unchanged after candidate failure")
 			require.NoError(t, db.Raw("SELECT count(*) FROM embeddings WHERE knowledge_id=? AND content ||| 'newparsercanary'", first.KnowledgeID).Scan(&n).Error)
 			require.Positive(t, n)
 			oldFile, e := ks.resolveFileServiceForPath(ctx, kb, oldPath).GetFile(ctx, oldPath)

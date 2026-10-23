@@ -3,6 +3,8 @@ package models
 // Extra-config keys honoured by Resolve. They predate the catalog and stay
 // supported so existing model rows keep working unchanged.
 const (
+	// ExtraEmbeddingMaxBatchSize caps requests to a model behind a custom gateway.
+	ExtraEmbeddingMaxBatchSize = "embedding_max_batch_size"
 	// ExtraAPI forces a protocol ("openai-responses", "anthropic-messages", ...).
 	ExtraAPI = "api"
 	// ExtraRemoteModelName sends a different model id on the wire.

@@ -65,6 +65,13 @@ func newGenericProvider() *Definition {
 			types.ModelTypeASR,
 		},
 		ExtraFields: []ExtraField{{
+			Key:         models.ExtraEmbeddingMaxBatchSize,
+			Label:       "Embedding maximum batch size",
+			Labels:      map[string]string{"zh-CN": "向量接口每批最大输入数"},
+			Type:        "number",
+			Placeholder: "e.g. 20; empty keeps the model default",
+			ModelTypes:  []types.ModelType{types.ModelTypeEmbedding},
+		}, {
 			Key:    models.ExtraScoreScale,
 			Label:  "Rerank score scale",
 			Labels: map[string]string{"zh-CN": "Rerank 分数标度"},

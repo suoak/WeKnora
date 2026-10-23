@@ -70,7 +70,7 @@ func (r *fakeDataSourceRepo) FindActive(_ context.Context) ([]*types.DataSource,
 	defer r.mu.Unlock()
 	var result []*types.DataSource
 	for _, ds := range r.dataSources {
-		if ds.Status == types.DataSourceStatusActive && ds.SyncSchedule != "" {
+		if ds.AutoSyncEnabled() {
 			result = append(result, ds)
 		}
 	}
@@ -118,7 +118,7 @@ func TestSchedulerAtomicAdmission(t *testing.T) {
 	repo := newFakeDataSourceRepo()
 	for _, id := range []string{"same", "other"} {
 		_ = repo.Create(context.Background(), &types.DataSource{
-			ID: id, TenantID: 1, Status: types.DataSourceStatusActive,
+			ID: id, TenantID: 1, Status: types.DataSourceStatusActive, SyncSchedule: "0 0 0 * * *",
 		})
 	}
 	logs := newFakeSyncLogRepo()
@@ -142,7 +142,7 @@ func TestSchedulerAtomicAdmission(t *testing.T) {
 func TestSchedulerAdmissionFailsClosed(t *testing.T) {
 	repo := newFakeDataSourceRepo()
 	_ = repo.Create(context.Background(), &types.DataSource{
-		ID: "same", TenantID: 1, Status: types.DataSourceStatusActive,
+		ID: "same", TenantID: 1, Status: types.DataSourceStatusActive, SyncSchedule: "0 0 0 * * *",
 	})
 	logs := newFakeSyncLogRepo()
 	logs.claimErr = fmt.Errorf("database unavailable")
