@@ -14,6 +14,21 @@
 
 首轮提交 881299438 的隔离 CI：故障注入/SQLite/PostgreSQL x3、真实解析器/原子发布、race 均通过。普通全量回归发现新增模型字段缺中文 placeholder，已补齐。首轮还将强制 PostgreSQL 变量泄漏到了未配置其专用 Redis 的历史集成用例，已把普通全量步骤与强制 P0 集成步骤的环境隔离；这些历史专用 Redis 集成测试不记为通过。
 
+最终验收代码：`ba63d57ba5660336c91b7862ed0c3224d9067c63`，基于 main `e3cc0d39c`。分支：`fix/feishu-sync-reliability-p0-20261023`。后续提交仅更新本报告，运行代码与该验收 SHA 相同。
+
+完整证据：[Feishu Sync Reliability P0 最终隔离 CI](https://github.com/suoak/WeKnora/actions/runs/39930148598)。四项验证步骤均为 success：
+
+| 检查 | 实际结果与覆盖范围 |
+|---|---|
+|Fault injection and SQLite/PostgreSQL fencing|PASS，重复 3 次。覆盖指定 6 种输入规模、两条拆批路径、中间批失败、真实 Asynq＋Redis 7 租约过期归档、SQLite/PostgreSQL 对账、generation/心跳竞争、暂停、失败后成功和连续失败、重启恢复、201 条跨页记录与空心跳历史记录。PostgreSQL 在此步骤强制开启，不能静默跳过。|
+|Real parser and atomic publication preservation|PASS。真实解析器＋ParadeDB/PostgreSQL 向量/BM25，Wiki/Drive 两条来源路径；第二批失败后旧知识、Chunk、向量保持相同 JSON，旧索引仍可检索，未发布 canary 不可见，原文件和权限保护继续生效。|
+|Race regression|PASS。定向 P0 与既有执行领取、并发准入、重复执行、成功/失败收尾测试均运行 Go race detector，包含真实 Redis 7＋PostgreSQL 的租约归档恢复。|
+|Complete internal regression|PASS：`go test -p 2 ./internal/... -count=1 -timeout=20m`。普通全量环境与强制 P0 集成环境分开；没有配置专用环境的历史可选集成测试依照原有规则跳过，不声称已运行这些用例。|
+
+测试在 GitHub 托管的隔离 Linux runner 执行，临时 Redis 7 和 ParadeDB v0.22.2-pg17，Go 1.26；测试凭证只属于这些临时服务。Windows 本地原生链接依赖不完整，不能作为服务层全量通过依据；本地 miniredis＋真实 Asynq 的租约故障复现另已通过，最终验收以以上隔离 CI 为准。
+
+本阶段没有合入 main、没有构建或替换生产镜像、没有修改生产配置或权限、没有触发生产同步。仅对指定归档任务补读一次元数据以确认直接失败原因，未导出 payload、文档正文或凭证。未清理旧来源或生产备份。
+
 ## 历史事故的进一步只读核验
 
 2026-10-23 16:38 的只读补查解码了“项目信息”归档任务中保存的 Asynq protobuf 元数据（未导出 payload/凭证）：
@@ -22,13 +37,13 @@
 {"state":"archived","task_type":"datasource:sync","max_retry":5,"retried":5,"timeout_seconds":7200,"last_failed_utc":"2026-10-23T04:14:18+00:00","last_error":"asynq: task lease expired"}
 ```
 
-确定的直接原因：Asynq 任务租约过期且已耗尽重试；其 recoverer 在 handler 外直接调用 broker.Archive，不执行应用 handler 的 defer 或 mux 死信 middleware。依据本项目锁定的 asynq v0.26.0 源码 internal/recoverer.go 的 recoverLeaseExpiredTasks / archive，可完整解释 Redis archived 与数据库 claimed=true/running 脱节。应用只有知识文档的死信回调，且没有周期性数据源队列对账，故不能保证收尾。此次新增的对账不依赖 handler/dead-letter 回调是否得到执行。
+确定的直接原因：Asynq 任务租约过期且已耗尽重试。锁定依赖 asynq v0.26.0 的 processor 和 recoverer 都能产生这个错误，单凭保留的任务记录不能唯一确定由哪一个执行归档。其中 internal/recoverer.go 的 recoverLeaseExpiredTasks / archive 可在 handler 外直接调用 broker.Archive，不执行应用 handler 的 defer 或 mux 死信 middleware；真实故障注入已复现这一路径，可解释 Redis archived 与数据库 claimed=true/running 脱节。应用只有知识文档的死信回调，且没有周期性数据源队列对账，故不能保证收尾。此次新增的对账不依赖 handler/dead-letter 回调是否得到执行。
 
 租约为什么没有续期（进程退出、Redis 网络中断、资源阻塞等）仍需当时基础设施日志，不能从归档错误唯一推断。错误与失效 generation 的修复不需要放松或延长租约。
 
 ## 最终实现与兼容性
 
-1. `models.ExtraEmbeddingMaxBatchSize` / runtime.resolveEmbeddings 接受 `parameters.extra_config.embedding_max_batch_size="20"`。必须为正整数；只允许收紧供应商已声明的上限。generic 的模型表单显示此字段并提供中文说明。未设置的普通模型调用保持原行为。
+1. `models.ExtraEmbeddingMaxBatchSize` / runtime.resolveEmbeddings 接受 `parameters.extra_config.embedding_max_batch_size="20"`。必须为正整数；只允许收紧当前解析所得上限，未设置则沿用原供应商、模型及显式 override 规则。generic 的模型表单显示此字段并提供中文说明。未设置的普通模型调用保持原行为。
 2. 飞书安全暂存使用 `embedding.BatchEmbedBounded(...,20)`，历史未配上限的模型也能满足该网关约束。串行累计、按原顺序返回；中间批失败或数量不符时返回 nil/error，不进入文件写入及原子发布。内部 BatchEmbed 仍可按更低模型上限继续拆批。
 3. ProcessSync 的 defer 补充终态时对已释放 generation 的 CAS 收尾。正常成功/失败、取消及 panic 继续使用原执行协议。
 4. 独立的 DataSourceSyncReconciliation 启动时及每分钟运行，单轮 45 秒超时；只检查超过原 30 分钟陈旧窗口的 running。Redis 通过原子 Lua 获取 pending/active/scheduled/retry 集合，归档/完成/消失任务不算存活。Redis 异常、无法完成查询、超过队列安全上限则不修改数据库。
@@ -38,6 +53,23 @@
 8. 领取中的超时执行仍保留原租约失效恢复；没有 claim 的排队/重试记录不再仅按年龄被准入或启动清理误杀，交给队列对账确认。
 
 无需数据库迁移：不新增或回填列，不改模型既有参数，不改用户 cron/paused 设置，复用已有 generation/claim 字段及日志。extra_config 仅新增可选键；回滚旧代码会忽略它。
+
+## 具体源码位置
+
+以下位置对应已验收运行代码提交 ba63d57ba5660336c91b7862ed0c3224d9067c63，后续仅更新报告。
+
+| 项目 | 源码位置 |
+|---|---|
+|批量配置入口与解析|internal/models/providers/generic.go:68；internal/models/runtime/resolve.go:455|
+|安全暂存拆批及完整返回|internal/models/embedding/bounded.go:11；internal/application/service/feishu_legacy_staging.go:290|
+|原有重试写回与补充收尾|internal/application/service/datasource_execution.go:88|
+|队列存活原子快照|internal/router/sync_task_inspector.go:15|
+|周期对账与租约/时间戳 CAS|internal/application/service/datasource_reconcile.go:17；internal/application/repository/datasource_reconcile.go:14、31、35|
+|应用生命周期接入|internal/container/datasource_reconcile.go:13；internal/container/container.go:503|
+|调度资格及历史配置解释|internal/types/datasource.go:149；internal/application/repository/datasource_repo.go:165|
+|计划 tick 的退避及暂停复核|internal/datasource/scheduler.go:262；internal/application/service/datasource_service.go:743|
+
+兼容性补充：空 updated_at 通过 started_at 回退；SQLite 比较实际时刻而非不同 UTC offset 的文本；分页按有效心跳及 ID 继续读取，不让前 200 条合法等待记录阻塞后续孤立记录。历史数据无需回填，老 generation 与已推进的心跳仍拒绝旧快照写回。
 
 ## 必测用例与故障注入
 
