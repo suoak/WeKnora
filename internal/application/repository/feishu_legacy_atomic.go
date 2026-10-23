@@ -566,7 +566,7 @@ func (s *FeishuLegacyStore) Publish(
 		}
 		if stamp == "" || stamp != m.ModelStamp {
 			return fmt.Errorf(
-				"Feishu embedding model configuration changed: %w",
+				"feishu embedding model configuration changed: %w",
 				legacyFence("model_configuration_changed"),
 			)
 		}
@@ -635,7 +635,7 @@ func (s *FeishuLegacyStore) Publish(
 		}
 		if usableIndexes < 1 {
 			return fmt.Errorf(
-				"Feishu candidate vector index dimension %d unavailable: %w",
+				"feishu candidate vector index dimension %d unavailable: %w",
 				m.Dimension,
 				legacyFence("vector_index_unavailable"),
 			)
