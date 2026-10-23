@@ -514,6 +514,9 @@ func (s *DataSourceService) ManualSync(ctx context.Context, dsID string) (*types
 	if datasource.LegacyFeishuSyncSuspended(ds.Type) {
 		return nil, datasource.ErrLegacyFeishuSyncSuspended
 	}
+	if !datasource.LegacyFeishuSourceAllowed(ds.Type, ds.ID) {
+		return nil, datasource.ErrLegacyFeishuSourceNotAllowed
+	}
 
 	if ds.Status != types.DataSourceStatusActive &&
 		ds.Status != types.DataSourceStatusError &&
@@ -739,6 +742,14 @@ func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.
 			return err
 		}
 		return errors.Join(asynq.SkipRetry, datasource.ErrLegacyFeishuSyncSuspended)
+	}
+	if !datasource.LegacyFeishuSourceAllowed(ds.Type, ds.ID) {
+		// The execution fence owns this cancellation. Keep source health,
+		// cursor and schedule intact; do not retry excluded deliveries.
+		syncLog.Status = types.SyncLogStatusCanceled
+		syncLog.FinishedAt = timePtr(time.Now().UTC())
+		syncLog.ErrorMessage = datasource.ErrLegacyFeishuSourceNotAllowed.Error()
+		return s.writeSyncExecution(ctx, ds, syncLog, true)
 	}
 	// A scheduled delivery may have been queued before the user paused the
 	// source. Recheck at execution; explicit manual sync keeps its old contract.

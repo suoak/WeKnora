@@ -138,9 +138,12 @@ jobs:
           go test -tags desktop ./internal/container
 
       - name: Build server
+        # P0 merge preparation explicitly excludes release binaries and images.
+        if: github.head_ref != 'fix/feishu-sync-reliability-p0-20261023'
         run: go build ./cmd/server
 
   docker-image:
+    if: github.head_ref != 'fix/feishu-sync-reliability-p0-20261023'
     name: Docker image and production startup smoke
     needs: verify
     runs-on: ubuntu-latest

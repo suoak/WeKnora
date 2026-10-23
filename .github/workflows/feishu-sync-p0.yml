@@ -44,7 +44,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y build-essential libsqlite3-dev
       - name: Record identity and format
         run: |
-          git rev-parse HEAD
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git rev-parse HEAD | tee tested-source-sha.txt
           git diff --check
           test -z "$(gofmt -l internal/models/embedding/bounded*.go internal/models/runtime/embedding_batch_test.go internal/application/{service,repository}/datasource_reconcile*.go internal/router/sync_task_inspector*.go internal/container/datasource_reconcile.go internal/datasource/scheduler_p0_test.go)"
       - name: Fault injection and SQLite/PostgreSQL fencing
@@ -60,3 +61,8 @@ jobs:
           SYNC_EXECUTION_POSTGRES_DSN: ""
           REQUIRE_SYNC_EXECUTION_POSTGRES: "0"
         run: go test -p 2 ./internal/... -count=1 -timeout=20m
+      - name: Preserve tested source identity
+        uses: actions/upload-artifact@v4
+        with:
+          name: feishu-p0-tested-source
+          path: tested-source-sha.txt

@@ -127,7 +127,7 @@ func (s *Scheduler) AddOrUpdate(ds *types.DataSource) error {
 		delete(s.entries, ds.ID)
 	}
 
-	if !ds.AutoSyncEnabled() || LegacyFeishuSyncSuspended(ds.Type) {
+	if !ds.AutoSyncEnabled() || LegacyFeishuSyncSuspended(ds.Type) || !LegacyFeishuSourceAllowed(ds.Type, ds.ID) {
 		return nil
 	}
 
@@ -152,7 +152,7 @@ func (s *Scheduler) addEntry(ds *types.DataSource) error {
 }
 
 func (s *Scheduler) addEntryLocked(ds *types.DataSource) error {
-	if LegacyFeishuSyncSuspended(ds.Type) {
+	if LegacyFeishuSyncSuspended(ds.Type) || !LegacyFeishuSourceAllowed(ds.Type, ds.ID) {
 		return nil
 	}
 	dsID := ds.ID
@@ -186,7 +186,7 @@ func (s *Scheduler) triggerSync(dataSourceID string, tenantID uint64) {
 		logger.Infof(ctx, "[Scheduler] skipping sync for ds=%s (not active or not found)", dataSourceID)
 		return
 	}
-	if LegacyFeishuSyncSuspended(ds.Type) {
+	if LegacyFeishuSyncSuspended(ds.Type) || !LegacyFeishuSourceAllowed(ds.Type, ds.ID) {
 		return
 	}
 	// Keep the user's cron. Repeated failures suppress only ticks inside a
