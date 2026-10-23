@@ -47,7 +47,9 @@ func (c *Controller) automaticStep(ctx context.Context) error {
 		c.lastAlertAck = time.Now()
 	}
 	ids, err := c.Consumers(ctx)
+	stage := "consumer_probe"
 	if err == nil {
+		stage = "permit"
 		args := []any{c.fingerprint, c.Guard.Fingerprint()}
 		for _, id := range ids {
 			args = append(args, id)
@@ -70,7 +72,7 @@ func (c *Controller) automaticStep(ctx context.Context) error {
 			_ = c.Client.Del(ctx, c.Guard.PermitKey()).Err()
 			return ErrNotReady
 		}
-		return c.freeze(ctx, "automatic_consumer_or_registry_unhealthy", true)
+		return c.freeze(ctx, automaticFailureReason(stage, err), true)
 	}
 	c.admitted = true
 	return nil

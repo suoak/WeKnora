@@ -16,23 +16,23 @@ func SyncConsumers(client redis.UniversalClient) func(context.Context) ([]string
 	inspector := asynq.NewInspectorFromRedisClient(client)
 	return func(ctx context.Context) ([]string, error) {
 		if err := client.Ping(ctx).Err(); err != nil {
-			return nil, err
+			return nil, &probeFailure{stage: "redis_ping", cause: err}
 		}
 		servers, err := inspector.Servers()
 		if err != nil {
-			return nil, err
+			return nil, &probeFailure{stage: "asynq_inspection", cause: err}
 		}
 		var ids []string
 		for _, server := range servers {
 			if server.Queues["sync"] > 0 {
 				if server.Status != "active" || server.Concurrency < 1 {
-					return nil, fmt.Errorf("sync consumer not active")
+					return nil, &probeFailure{stage: "asynq_consumer", cause: errConsumerInactive}
 				}
 				ids = append(ids, fmt.Sprintf("%s:%d", server.Host, server.PID))
 			}
 		}
 		if len(ids) == 0 {
-			return nil, fmt.Errorf("no active sync consumer")
+			return nil, &probeFailure{stage: "asynq_consumer", cause: errConsumerAbsent}
 		}
 		return ids, nil
 	}

@@ -175,7 +175,7 @@ func (c *Controller) Step(ctx context.Context) error {
 	now, err := register.Run(ctx, c.Client, []string{c.prefix + "workers", c.prefix + "leases"},
 		c.Config.WorkerID, c.fingerprint+":"+c.incarnation).Int64()
 	if err != nil {
-		return c.freeze(ctx, "registry_unavailable", true)
+		return c.freeze(ctx, "registry_"+failureClass(err), true)
 	}
 	if c.Config.Scope == "none" {
 		return c.freeze(ctx, "scope_none", false)
