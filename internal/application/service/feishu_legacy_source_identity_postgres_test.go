@@ -189,7 +189,8 @@ func TestFeishuDOCXSourceIdentityServicePostgresP1(t *testing.T) {
 	} {
 		item.Metadata = meta
 		_, _, err = ks.beginLegacySourceIdentity(ctx, kb, store, ds, item)
-		require.ErrorIs(t, err, repository.ErrLegacyVersionFence, "unconfirmed export paths retain the raw hash contract")
+		require.ErrorIs(t, err, repository.ErrLegacyVersionFence,
+			"unconfirmed export paths retain the raw hash contract")
 	}
 	item.Metadata = map[string]string{"obj_type": "docx"}
 	assertRecall := func() {

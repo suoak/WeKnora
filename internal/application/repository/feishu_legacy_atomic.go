@@ -334,7 +334,8 @@ func (s *FeishuLegacyStore) BeginWithSourceIdentity(
 					if !matched {
 						if identity != nil && proof == nil {
 							var priorManifest types.FeishuLegacyManifest
-							if json.Unmarshal(expectedAttempt.Manifest, &priorManifest) == nil && priorManifest.SourceIdentity == nil {
+							if json.Unmarshal(expectedAttempt.Manifest, &priorManifest) == nil &&
+								priorManifest.SourceIdentity == nil {
 								return legacyFence("source_identity_legacy_proof_required")
 							}
 						}

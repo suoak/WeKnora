@@ -31,7 +31,10 @@ func LegacyDOCXSourceIdentity(content []byte, name, title string) (*types.Feishu
 	}
 	b, _ := json.Marshal([]any{digest, name, title})
 	h := sha256.Sum256(b)
-	return &types.FeishuLegacySourceIdentity{Algorithm: legacyDOCXIdentityAlgorithm, Digest: hex.EncodeToString(h[:])}, nil
+	return &types.FeishuLegacySourceIdentity{
+		Algorithm: legacyDOCXIdentityAlgorithm,
+		Digest:    hex.EncodeToString(h[:]),
+	}, nil
 }
 
 // LegacySourceIdentityBaseline is a snapshot of a published raw-contract source.
@@ -144,7 +147,8 @@ func legacyAttemptSourceMatches(
 	b := proof.baseline
 	if a.ID != b.attempt.ID || a.ResourceID != b.resource.ID || a.Generation != b.attempt.Generation ||
 		a.SourceHash != b.attempt.SourceHash || string(a.Manifest) != string(b.attempt.Manifest) ||
-		r.ID != b.resource.ID || r.Generation != b.resource.Generation || r.SourceRevision != b.resource.SourceRevision ||
+		r.ID != b.resource.ID || r.Generation != b.resource.Generation ||
+		r.SourceRevision != b.resource.SourceRevision ||
 		r.ActiveAttempt != a.ID || r.State != "active" || a.Status != "published" {
 		return false, legacyFence("source_identity_legacy_proof_stale")
 	}
