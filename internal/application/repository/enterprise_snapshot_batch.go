@@ -18,7 +18,9 @@ func populateDocumentVersions(tx *gorm.DB, docs []types.EnterpriseDocumentState)
 	return populateDocumentVersionsCached(tx, docs, nil)
 }
 
-func populateDocumentVersionsCached(tx *gorm.DB, docs []types.EnterpriseDocumentState, cache *documentVersionCache) error {
+func populateDocumentVersionsCached(
+	tx *gorm.DB, docs []types.EnterpriseDocumentState, cache *documentVersionCache,
+) error {
 	if err := checkDocumentEpochCoverage(tx); err != nil {
 		return err
 	}
@@ -88,7 +90,10 @@ func populateDocumentVersionsCached(tx *gorm.DB, docs []types.EnterpriseDocument
 		if !ok || r.TenantID == 0 || r.UpdatedAt.IsZero() || e.Generation <= 0 || len(e.Incarnation) != 32 {
 			return errors.New("document version unavailable: HOLD")
 		}
-		stamp := documentVersionStamp{ID: d.ID, TenantID: r.TenantID, KBID: r.KBID, UpdatedAt: r.UpdatedAt, Generation: e.Generation, Incarnation: e.Incarnation}
+		stamp := documentVersionStamp{
+			ID: d.ID, TenantID: r.TenantID, KBID: r.KBID, UpdatedAt: r.UpdatedAt,
+			Generation: e.Generation, Incarnation: e.Incarnation,
+		}
 		stamps[d.ID] = stamp
 		d.EnterprisePolicy = pm[d.ID]
 		if version, hit := cache.get(stamp); hit {
@@ -102,7 +107,9 @@ func populateDocumentVersionsCached(tx *gorm.DB, docs []types.EnterpriseDocument
 		return nil
 	}
 	var chunks []map[string]interface{}
-	if err := tx.Table("chunks").Select("knowledge_id,id,content_revision,updated_at,is_enabled,deleted_at").Where("knowledge_id IN ?", missing).Order("knowledge_id,id").Find(&chunks).Error; err != nil {
+	if err := tx.Table("chunks").
+		Select("knowledge_id,id,content_revision,updated_at,is_enabled,deleted_at").
+		Where("knowledge_id IN ?", missing).Order("knowledge_id,id").Find(&chunks).Error; err != nil {
 		return err
 	}
 	cm := map[string][]map[string]interface{}{}

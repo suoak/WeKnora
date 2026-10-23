@@ -23,7 +23,9 @@ func TestDocumentVersionCacheKeepsCanonicalHashAndInvalidatesRawWrites(t *testin
 	}))
 	load := func() string {
 		var docs []types.EnterpriseDocumentState
-		require.NoError(t, f.db.Table("knowledges").Select("id,tenant_id,knowledge_base_id,type,parse_status,enable_status,channel").Where("deleted_at IS NULL").Find(&docs).Error)
+		require.NoError(t, f.db.Table("knowledges").
+			Select("id,tenant_id,knowledge_base_id,type,parse_status,enable_status,channel").
+			Where("deleted_at IS NULL").Find(&docs).Error)
 		require.Len(t, docs, 1)
 		require.NoError(t, populateDocumentVersionsCached(f.db, docs, cache))
 		return docs[0].CurrentVersion
@@ -45,7 +47,10 @@ func TestDocumentVersionCacheKeepsCanonicalHashAndInvalidatesRawWrites(t *testin
 		"UPDATE chunks SET deleted_at='2026-10-23 00:00:00' WHERE id='chunk'",
 		"DELETE FROM chunks WHERE id='chunk'",
 		"UPDATE knowledges SET channel='api' WHERE id='doc'",
-		"INSERT INTO chunks(id,tenant_id,knowledge_base_id,knowledge_id,content,content_revision,is_enabled,chunk_type,chunk_index,updated_at) VALUES('new-chunk',99,'public-kb','doc','new text',1,true,'text',0,'2026-10-20 00:00:00')",
+		"INSERT INTO chunks(id,tenant_id,knowledge_base_id,knowledge_id,content" +
+			",content_revision,is_enabled,chunk_type,chunk_index,updated_at) VALUES" +
+			"('new-chunk',99,'public-kb','doc','new text',1,true,'text',0,'2026-10-" +
+			"20 00:00:00')",
 	} {
 		require.NoError(t, f.db.Exec(mutation).Error)
 		chunkQueries = 0
@@ -58,14 +63,17 @@ func TestDocumentVersionCacheKeepsCanonicalHashAndInvalidatesRawWrites(t *testin
 
 	require.NoError(t, f.db.Exec("DELETE FROM chunks").Error)
 	require.NoError(t, f.db.Exec("DELETE FROM knowledges WHERE id='doc'").Error)
-	require.NoError(t, f.db.Exec("INSERT INTO knowledges VALUES('doc',99,'public-kb','file','completed','enabled','web','2026-10-20 00:00:00',NULL)").Error)
+	require.NoError(t, f.db.Exec("INSERT INTO knowledges VALUES('doc',99,'public-kb','file','completed',"+
+		"'enabled','web','2026-10-20 00:00:00',NULL)").Error)
 	recreated := load()
 	require.NotEqual(t, previous, recreated, "recreating an ID must invalidate its cached version")
 	canonical(recreated)
 	require.NoError(t, f.db.Exec("DROP TRIGGER document_epoch_chunks_update").Error)
 	var docs []types.EnterpriseDocumentState
 	require.NoError(t, f.db.Table("knowledges").Find(&docs).Error)
-	require.Error(t, populateDocumentVersionsCached(f.db, docs, cache), "warm cache must not bypass missing trigger coverage")
+	require.Error(t, populateDocumentVersionsCached(f.db, docs, cache),
+		"warm cache must not bypass missing trigger coverage",
+	)
 }
 
 func TestDocumentVersionCacheDoesNotCacheAuthorizationFacts(t *testing.T) {
@@ -80,9 +88,13 @@ func TestDocumentVersionCacheDoesNotCacheAuthorizationFacts(t *testing.T) {
 	require.NoError(t, f.db.Exec("UPDATE users SET is_active=false WHERE id='A'").Error)
 	require.NoError(t, f.db.Exec("UPDATE tenant_api_keys SET revoked_at='2026-10-23 00:00:00' WHERE id=1").Error)
 	require.NoError(t, f.db.Exec("UPDATE tenant_portal_configs SET status='draft' WHERE tenant_id=99").Error)
-	require.NoError(t, f.db.Exec("INSERT INTO knowledge_access_policies(knowledge_id,state,policy,content_class,source_acl_state,revision,updated_by) VALUES('doc','pending_review','deny','ordinary','local',1,'owner')").Error)
+	require.NoError(t, f.db.Exec("INSERT INTO knowledge_access_policies(knowledge_id,state,policy,conten"+
+		"t_class,source_acl_state,revision,updated_by) VALUES('doc','pending_re"+
+		"view','deny','ordinary','local',1,'owner')").Error)
 	after := load()
-	require.Equal(t, before.Documents[0].CurrentVersion, after.Documents[0].CurrentVersion, "content version remains reusable")
+	require.Equal(t, before.Documents[0].CurrentVersion, after.Documents[0].CurrentVersion,
+		"content version remains reusable",
+	)
 	require.False(t, after.UserActive)
 	require.False(t, after.PortalPublished)
 	require.NotNil(t, after.Credential.RevokedAt)
