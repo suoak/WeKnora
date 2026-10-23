@@ -55,7 +55,15 @@ func TestSyncLiveQueueProbeP0(t *testing.T) {
 }
 
 func TestArchivedSyncDatabaseRecoveryP0(t *testing.T) {
-	db := syncdb.Open(t, "sqlite")
+	archivedSyncDatabaseRecoveryP0(t, "sqlite")
+}
+
+func TestArchivedSyncDatabaseRecoveryPostgresP0(t *testing.T) {
+	archivedSyncDatabaseRecoveryP0(t, "postgres")
+}
+
+func archivedSyncDatabaseRecoveryP0(t *testing.T, dialect string) {
+	db := syncdb.Open(t, dialect)
 	srv := miniredis.RunT(t)
 	rc := redis.NewClient(&redis.Options{Addr: srv.Addr()})
 	defer rc.Close()
