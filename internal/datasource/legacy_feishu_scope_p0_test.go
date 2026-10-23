@@ -48,6 +48,9 @@ func TestLegacyFeishuScopeSchedulerPostgresP0(t *testing.T) {
 }
 
 func legacyFeishuScopeSchedulerP0(t *testing.T, dialect string) {
+	// Isolate source-allowlist scheduling with an in-memory queue; the real
+	// Redis/controller safety integration has its own enabled-mode tests.
+	t.Setenv("FEISHU_SYNC_SAFETY_ENABLED", "false")
 	t.Setenv("FEISHU_LEGACY_SYNC_SUSPENDED", "false")
 	db := syncdb.Open(t, dialect)
 	ctx := context.Background()
