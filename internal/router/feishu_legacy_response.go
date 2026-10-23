@@ -11,20 +11,25 @@ import (
 type legacyReadScopeGate interface{ CheckLegacyReadScope(context.Context) error }
 type legacyScopedResponse struct {
 	gin.ResponseWriter
-	ctx    context.Context
-	gate   legacyReadScopeGate
-	denied bool
+	ctx            context.Context
+	requestContext func() context.Context
+	gate           legacyReadScopeGate
+	denied         bool
 }
 
 func (w *legacyScopedResponse) Write(body []byte) (int, error) {
-	if types.LegacyReadPartial(w.ctx) {
+	ctx := w.ctx
+	if w.requestContext != nil {
+		ctx = w.requestContext()
+	}
+	if types.LegacyReadPartial(ctx) {
 		w.Header().Set("X-KnowHub-Knowledge-Scope", "partial")
 		w.Header().Set("Warning", `299 KnowHub "Unavailable sources excluded; results do not cover all knowledge"`)
 	}
 	if w.denied {
 		return 0, types.ErrLegacySourceRestricted
 	}
-	if err := w.gate.CheckLegacyReadScope(w.ctx); err != nil {
+	if err := w.gate.CheckLegacyReadScope(ctx); err != nil {
 		w.denied = true
 		w.Header().Set("Cache-Control", "private, no-store")
 		if !w.Written() {
@@ -45,7 +50,7 @@ func legacyReadScopeMiddleware(service any) gin.HandlerFunc {
 		ctx := types.WithLegacyReadScope(c.Request.Context())
 		c.Request = c.Request.WithContext(ctx)
 		if gate, ok := service.(legacyReadScopeGate); ok {
-			c.Writer = &legacyScopedResponse{ResponseWriter: c.Writer, ctx: ctx, gate: gate}
+			c.Writer = &legacyScopedResponse{ResponseWriter: c.Writer, ctx: ctx, gate: gate, requestContext: func() context.Context { return c.Request.Context() }}
 		}
 		c.Next()
 	}

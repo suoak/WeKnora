@@ -11,6 +11,31 @@ import (
 
 type legacyResponseTestGate struct{ denied bool }
 
+type authenticatedLegacyGate struct{}
+
+func (authenticatedLegacyGate) CheckLegacyReadScope(ctx context.Context) error {
+	if types.WorkspaceWebReadTenant(ctx) != 1 {
+		return types.ErrLegacySourceRestricted
+	}
+	return nil
+}
+
+func TestLegacyResponseUsesAuthenticatedRequestContext(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(legacyReadScopeMiddleware(authenticatedLegacyGate{}))
+	r.Use(func(c *gin.Context) {
+		ctx := types.WithCaller(c.Request.Context(), types.Caller{TenantID: 1, UserID: "member", Role: types.TenantRoleViewer})
+		c.Request = c.Request.WithContext(types.WithPrincipal(ctx, types.Principal{Type: types.PrincipalWebUser, ID: "member"}))
+		c.Next()
+	})
+	r.GET("/", func(c *gin.Context) { c.JSON(200, gin.H{"documents": 266}) })
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest("GET", "/", nil))
+	require.Equal(t, 200, w.Code)
+	require.Contains(t, w.Body.String(), `"documents":266`)
+}
+
 func (g *legacyResponseTestGate) CheckLegacyReadScope(context.Context) error {
 	if g.denied {
 		return types.ErrLegacySourceRestricted
