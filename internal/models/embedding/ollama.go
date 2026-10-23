@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/feishusafety"
+
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/models/utils/ollama"
 	ollamaapi "github.com/ollama/ollama/api"
@@ -72,6 +74,9 @@ func (e *OllamaEmbedder) SetSupportsDimensionOverride(supported bool) {
 
 // Embed converts text to vector
 func (e *OllamaEmbedder) Embed(ctx context.Context, text string) ([]float32, error) {
+	if feishusafety.Scoped(ctx) {
+		return nil, feishusafety.ErrClosed
+	}
 	embedding, err := e.BatchEmbed(ctx, []string{text})
 	if err != nil {
 		return nil, fmt.Errorf("failed to embed text: %w", err)
@@ -86,6 +91,9 @@ func (e *OllamaEmbedder) Embed(ctx context.Context, text string) ([]float32, err
 
 // BatchEmbed converts multiple texts to vectors in batch
 func (e *OllamaEmbedder) BatchEmbed(ctx context.Context, texts []string) ([][]float32, error) {
+	if feishusafety.Scoped(ctx) {
+		return nil, feishusafety.ErrClosed
+	}
 	// Ensure model is available
 	if err := e.ensureModelAvailable(ctx); err != nil {
 		return nil, err
