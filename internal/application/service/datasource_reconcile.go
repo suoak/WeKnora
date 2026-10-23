@@ -25,12 +25,8 @@ func ReconcileDataSourceSyncs(ctx context.Context, db *gorm.DB, inspector interf
 	var live map[string]bool
 	count := 0
 	for {
-		var logs []*types.SyncLog
-		query := db.WithContext(ctx).Where("status=? AND updated_at<?", types.SyncLogStatusRunning, cutoff)
-		if afterID != "" {
-			query = query.Where("updated_at>? OR (updated_at=? AND id>?)", afterTime, afterTime, afterID)
-		}
-		if err := query.Order("updated_at,id").Limit(200).Find(&logs).Error; err != nil {
+		logs, err := repo.StaleExecutionsPage(ctx, cutoff, afterTime, afterID)
+		if err != nil {
 			return count, err
 		}
 		if len(logs) == 0 {
@@ -50,6 +46,9 @@ func ReconcileDataSourceSyncs(ctx context.Context, db *gorm.DB, inspector interf
 		// of the result from starving later orphaned rows on every sweep.
 		last := logs[len(logs)-1]
 		afterTime, afterID = last.UpdatedAt, last.ID
+		if afterTime.IsZero() {
+			afterTime = last.StartedAt
+		}
 		for _, log := range logs {
 			if live[types.SyncTaskKey(log.TenantID, log.DataSourceID, log.ID)] {
 				continue

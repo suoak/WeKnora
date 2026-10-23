@@ -9,6 +9,22 @@ import (
 	"gorm.io/gorm"
 )
 
+// StaleExecutionsPage preserves the legacy NULL-heartbeat fallback and compares
+// instants on SQLite, whose timestamp text may carry different UTC offsets.
+func (r *SyncLogRepository) StaleExecutionsPage(ctx context.Context, cutoff, after time.Time, afterID string) ([]*types.SyncLog, error) {
+	clock, argument := "COALESCE(updated_at, started_at)", "?"
+	if r.db.Name() == "sqlite" {
+		clock, argument = "julianday("+clock+")", "julianday(?)"
+	}
+	q := r.db.WithContext(ctx).Where("status=? AND "+clock+"<"+argument, types.SyncLogStatusRunning, cutoff)
+	if afterID != "" {
+		q = q.Where("("+clock+">"+argument+" OR ("+clock+"="+argument+" AND id>?))", after, after, afterID)
+	}
+	var logs []*types.SyncLog
+	err := q.Order(clock + ", id").Limit(200).Find(&logs).Error
+	return logs, err
+}
+
 // ReconcileOrphan fences the exact observed generation AND heartbeat. A worker
 // reclaim/heartbeat or a previous reconciler makes this a no-op. Never write a
 // checkpoint, content, permission state or last-success timestamp here.
@@ -34,10 +50,16 @@ func (r *SyncLogRepository) finalizeObservedExecution(ctx context.Context, snaps
 			return err
 		}
 		now := time.Now().UTC()
-		result := tx.Model(&types.SyncLog{}).
-			Where("id=? AND data_source_id=? AND tenant_id=? AND status=? AND execution_generation=? AND execution_claimed=? AND updated_at=?",
+		observed := tx.Model(&types.SyncLog{}).
+			Where("id=? AND data_source_id=? AND tenant_id=? AND status=? AND execution_generation=? AND execution_claimed=?",
 				snapshot.ID, snapshot.DataSourceID, snapshot.TenantID, types.SyncLogStatusRunning,
-				snapshot.ExecutionGeneration, snapshot.ExecutionClaimed, snapshot.UpdatedAt).
+				snapshot.ExecutionGeneration, snapshot.ExecutionClaimed)
+		if snapshot.UpdatedAt.IsZero() {
+			observed = observed.Where("updated_at IS NULL AND started_at=?", snapshot.StartedAt)
+		} else {
+			observed = observed.Where("updated_at=?", snapshot.UpdatedAt)
+		}
+		result := observed.
 			Updates(map[string]any{"status": types.SyncLogStatusFailed, "execution_claimed": false,
 				"execution_generation": gorm.Expr("execution_generation + 1"), "finished_at": now, "updated_at": now,
 				"error_message": reason})

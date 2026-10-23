@@ -54,7 +54,7 @@ func syncReconcileP0(t *testing.T, dialect string) {
 	db := syncdb.Open(t, dialect)
 	ctx := context.Background()
 	repo := repository.NewSyncLogRepository(db).(*repository.SyncLogRepository)
-	for _, scenario := range []string{"archived", "absent", "redis_error", "live_retry", "live_pending", "heartbeat_race", "new_generation", "paused", "newer_success"} {
+	for _, scenario := range []string{"archived", "absent", "legacy_null_heartbeat", "redis_error", "live_retry", "live_pending", "heartbeat_race", "new_generation", "paused", "newer_success"} {
 		t.Run(scenario, func(t *testing.T) {
 			ds := &types.DataSource{ID: uuid.NewString(), TenantID: 1, Status: types.DataSourceStatusActive, Config: types.JSON(`{}`), LastSyncCursor: types.JSON(`{"canary":"keep"}`)}
 			if scenario == "paused" {
@@ -64,6 +64,9 @@ func syncReconcileP0(t *testing.T, dialect string) {
 			old := time.Now().UTC().Add(-2 * time.Hour).Truncate(time.Microsecond)
 			log := &types.SyncLog{ID: uuid.NewString(), DataSourceID: ds.ID, TenantID: 1, Status: types.SyncLogStatusRunning, ExecutionGeneration: 6, ExecutionClaimed: true, StartedAt: old, UpdatedAt: old}
 			require.NoError(t, db.Create(log).Error)
+			if scenario == "legacy_null_heartbeat" {
+				require.NoError(t, db.Model(log).UpdateColumn("updated_at", nil).Error)
+			}
 			key := types.SyncTaskKey(1, ds.ID, log.ID)
 			probe := syncQueueProbe{live: map[string]bool{}}
 			if scenario == "live_retry" || scenario == "live_pending" {
@@ -98,7 +101,7 @@ func syncReconcileP0(t *testing.T, dialect string) {
 			}
 			got, err := repo.FindByID(ctx, log.ID)
 			require.NoError(t, err)
-			shouldFail := scenario == "archived" || scenario == "absent" || scenario == "paused" || scenario == "newer_success"
+			shouldFail := scenario == "archived" || scenario == "absent" || scenario == "legacy_null_heartbeat" || scenario == "paused" || scenario == "newer_success"
 			if shouldFail {
 				require.Equal(t, types.SyncLogStatusFailed, got.Status)
 				require.False(t, got.ExecutionClaimed)
