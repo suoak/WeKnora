@@ -25,9 +25,22 @@ func TestSyncReconcilePaginationP0(t *testing.T) {
 	old := time.Now().UTC().Add(-2 * time.Hour).Truncate(time.Microsecond)
 	live := map[string]bool{}
 	for i := 0; i < 201; i++ {
-		ds := &types.DataSource{ID: uuid.NewString(), TenantID: 1, Status: types.DataSourceStatusActive, Config: types.JSON(`{}`)}
+		ds := &types.DataSource{
+			ID:       uuid.NewString(),
+			TenantID: 1,
+			Status:   types.DataSourceStatusActive,
+			Config:   types.JSON(`{}`),
+		}
 		require.NoError(t, db.Create(ds).Error)
-		log := &types.SyncLog{ID: fmt.Sprintf("page-%03d", i), DataSourceID: ds.ID, TenantID: 1, Status: types.SyncLogStatusRunning, ExecutionGeneration: 1, StartedAt: old, UpdatedAt: old}
+		log := &types.SyncLog{
+			ID:                  fmt.Sprintf("page-%03d", i),
+			DataSourceID:        ds.ID,
+			TenantID:            1,
+			Status:              types.SyncLogStatusRunning,
+			ExecutionGeneration: 1,
+			StartedAt:           old,
+			UpdatedAt:           old,
+		}
 		require.NoError(t, db.Create(log).Error)
 		if i < 200 {
 			live[types.SyncTaskKey(1, ds.ID, log.ID)] = true
@@ -54,15 +67,33 @@ func syncReconcileP0(t *testing.T, dialect string) {
 	db := syncdb.Open(t, dialect)
 	ctx := context.Background()
 	repo := repository.NewSyncLogRepository(db).(*repository.SyncLogRepository)
-	for _, scenario := range []string{"archived", "absent", "legacy_null_heartbeat", "redis_error", "live_retry", "live_pending", "heartbeat_race", "new_generation", "paused", "newer_success"} {
+	for _, scenario := range []string{
+		"archived", "absent", "legacy_null_heartbeat", "redis_error", "live_retry", "live_pending",
+		"heartbeat_race", "new_generation", "paused", "newer_success",
+	} {
 		t.Run(scenario, func(t *testing.T) {
-			ds := &types.DataSource{ID: uuid.NewString(), TenantID: 1, Status: types.DataSourceStatusActive, Config: types.JSON(`{}`), LastSyncCursor: types.JSON(`{"canary":"keep"}`)}
+			ds := &types.DataSource{
+				ID:             uuid.NewString(),
+				TenantID:       1,
+				Status:         types.DataSourceStatusActive,
+				Config:         types.JSON(`{}`),
+				LastSyncCursor: types.JSON(`{"canary":"keep"}`),
+			}
 			if scenario == "paused" {
 				ds.Status = types.DataSourceStatusPaused
 			}
 			require.NoError(t, db.Create(ds).Error)
 			old := time.Now().UTC().Add(-2 * time.Hour).Truncate(time.Microsecond)
-			log := &types.SyncLog{ID: uuid.NewString(), DataSourceID: ds.ID, TenantID: 1, Status: types.SyncLogStatusRunning, ExecutionGeneration: 6, ExecutionClaimed: true, StartedAt: old, UpdatedAt: old}
+			log := &types.SyncLog{
+				ID:                  uuid.NewString(),
+				DataSourceID:        ds.ID,
+				TenantID:            1,
+				Status:              types.SyncLogStatusRunning,
+				ExecutionGeneration: 6,
+				ExecutionClaimed:    true,
+				StartedAt:           old,
+				UpdatedAt:           old,
+			}
 			require.NoError(t, db.Create(log).Error)
 			if scenario == "legacy_null_heartbeat" {
 				require.NoError(t, db.Model(log).UpdateColumn("updated_at", nil).Error)
@@ -91,7 +122,17 @@ func syncReconcileP0(t *testing.T, dialect string) {
 				}
 			}
 			if scenario == "newer_success" {
-				require.NoError(t, db.Create(&types.SyncLog{DataSourceID: ds.ID, TenantID: 1, Status: types.SyncLogStatusSuccess, StartedAt: time.Now().UTC()}).Error)
+				require.NoError(
+					t,
+					db.Create(
+						&types.SyncLog{
+							DataSourceID: ds.ID,
+							TenantID:     1,
+							Status:       types.SyncLogStatusSuccess,
+							StartedAt:    time.Now().UTC(),
+						},
+					).Error,
+				)
 			}
 			_, err := ReconcileDataSourceSyncs(ctx, db, probe)
 			if scenario == "redis_error" {
@@ -101,7 +142,9 @@ func syncReconcileP0(t *testing.T, dialect string) {
 			}
 			got, err := repo.FindByID(ctx, log.ID)
 			require.NoError(t, err)
-			shouldFail := scenario == "archived" || scenario == "absent" || scenario == "legacy_null_heartbeat" || scenario == "paused" || scenario == "newer_success"
+			shouldFail := scenario == "archived" || scenario == "absent" || scenario == "legacy_null_heartbeat" ||
+				scenario == "paused" ||
+				scenario == "newer_success"
 			if shouldFail {
 				require.Equal(t, types.SyncLogStatusFailed, got.Status)
 				require.False(t, got.ExecutionClaimed)

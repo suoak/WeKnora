@@ -39,7 +39,12 @@ func TestGatewayBatchLimitP0(t *testing.T) {
 					require.NoError(t, json.NewEncoder(w).Encode(map[string]any{"data": data}))
 				}))
 				defer srv.Close()
-				config := Config{Source: types.ModelSourceRemote, Provider: "generic", BaseURL: srv.URL, ModelName: "text-embedding-v4"}
+				config := Config{
+					Source:    types.ModelSourceRemote,
+					Provider:  "generic",
+					BaseURL:   srv.URL,
+					ModelName: "text-embedding-v4",
+				}
 				if !bounded {
 					config.ExtraConfig = map[string]string{models.ExtraEmbeddingMaxBatchSize: "20"}
 				}
@@ -88,7 +93,12 @@ func TestGatewayMiddleBatchFailureReturnsNoCandidateP0(t *testing.T) {
 				_ = json.NewEncoder(w).Encode(map[string]any{"data": data})
 			}))
 			defer srv.Close()
-			config := Config{Source: types.ModelSourceRemote, Provider: "generic", BaseURL: srv.URL, ModelName: "synthetic"}
+			config := Config{
+				Source:    types.ModelSourceRemote,
+				Provider:  "generic",
+				BaseURL:   srv.URL,
+				ModelName: "synthetic",
+			}
 			if !bounded {
 				config.ExtraConfig = map[string]string{models.ExtraEmbeddingMaxBatchSize: "20"}
 			}

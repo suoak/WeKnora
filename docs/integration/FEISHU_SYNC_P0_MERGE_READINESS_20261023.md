@@ -17,7 +17,7 @@
 |---|---|---|
 |Embedding 超限|generic 未声明网关批量约束，暂存直接整份调用；`internal/models/providers/generic.go`、`internal/models/runtime/resolve.go`、`internal/application/service/feishu_legacy_staging.go`|模型 `extra_config.embedding_max_batch_size` 可收紧模型原上限；`internal/models/embedding/bounded.go` 在旧飞书暂存路径再串行限制 20；数量/顺序校验，任一批失败不发布|
 |Redis archived / DB running|生产归档元数据明确 `asynq: task lease expired` 且重试耗尽；Asynq recoverer 可在业务 handler 未执行时归档，defer 无机会收尾。最初导致续租失败的基础设施原因仍未确定|`datasource_execution.go` 补最终写回；`datasource_reconcile.go`（service/repository）、`router/sync_task_inspector.go` 对 Redis 活跃队列快照及陈旧 DB 任务进行 CAS 对账；活跃/证据不全不清理，老 generation 不得覆盖新执行|
-|失败重启后无 cron|原 `FindActive` 与 Scheduler 将 status=active 等同启用；error 被排除|`types/datasource.go`、`repository/datasource.go`、`datasource/scheduler.go` 从现有 cron/status/revoked 推导资格，无默认字段回填；5/10/20/40/60 分钟冷却，只在原 cron tick 重试，保留 paused|
+|失败重启后无 cron|原 `FindActive` 与 Scheduler 将 status=active 等同启用；error 被排除|`types/datasource.go`、`repository/datasource_repo.go`、`datasource/scheduler.go` 从现有 cron/status/revoked 推导资格，无默认字段回填；5/10/20/40/60 分钟冷却，只在原 cron tick 重试，保留 paused|
 |首次恢复范围|总暂停只能全关；队列可能含老任务|`datasource/legacy_feishu_scope.go`、scheduler、service 三处同步准入覆盖注册/入队/执行。被排除任务 canceled，不重试；源健康、cursor、最近成功、cron、权限不改|
 
 原子暂存/发布、资源归属、SSRF、访问权限、claim/generation/lease 均保留。白名单不授权访问，也不恢复 paused/revoked。无迁移、无知识重抓、无旧来源删除。白名单的 unset 与严格的空字符串保持兼容；空格、`*`、无效 UUID、混有坏值或尾逗号均拒绝全部旧飞书源。`none` 为明确的全部拒绝值。只接受数据源自身 UUID，不能填 tenant ID、知识库 ID 或名称。
@@ -36,6 +36,8 @@
 |既有安全回归|PR Portal 权限/迁移检查及全量 internal，暂存原子发布、CAS 过期任务 fencing、paused-after-enqueue、连续失败/再次成功/并发重复、重启恢复均需通过|
 
 专项 PG 通过 `REQUIRE_SYNC_EXECUTION_POSTGRES=1` 强制，不能跳过。全量 internal 清除专项 DSN，其他依赖专用 fixture 的历史可选集成测试按原规则跳过，不声称它们已经执行。Redis 只使用专用 loopback 变量，不继承生产连接，不 FLUSHDB。原 1/20/21/40/41/100 分块、反序 wire 响应、第二批 HTTP 400、归档 lease 过期、分页/NULL 心跳/并发 CAS 的验证继续保留。
+
+首轮 PR 增量 lint 发现 53 项：41 个长行、3 个 gofumpt、3 个导出注释、6 个测试 Close 返回值。已按仓库规则修正本 PR 引入的问题，没有放宽 lint 配置或处理无关历史积压；SQL 快照查询仅提取相同字符串常量，测试关闭资源增加错误断言。最终新 SHA 必须重新完成全部验收，首轮中间通过不能代替。
 
 P0 push CI 测试确切 HEAD。通用 PR 工作流默认检出 GitHub 临时 merge ref；在 main 是候选祖先且 base 未变化时，合并树应与候选树一致。两种身份分别记录，不把 PR merge SHA 说成提交 SHA。合并前若 base 或 head 变化，必须重新核验并触发新候选测试。本 PR 显式跳过 App 的 server 发布二进制及镜像 smoke 构建，不发布任何包或镜像；合并后的正式镜像/startup smoke 是后续另行授权发布前的必要门禁。
 

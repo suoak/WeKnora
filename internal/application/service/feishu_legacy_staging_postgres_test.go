@@ -159,9 +159,14 @@ func TestFeishuLegacyRealParserEmbeddingPostgres(t *testing.T) {
 			require.ErrorAs(t, e, &duplicate)
 			require.Equal(t, before, calls.Load(), "root location alone must not rebuild unchanged content")
 			var oldChunks, oldVectors, oldKnowledge string
-			require.NoError(t, db.Raw("SELECT to_jsonb(k)::text FROM knowledges k WHERE id=?", first.KnowledgeID).Scan(&oldKnowledge).Error)
-			require.NoError(t, db.Raw("SELECT coalesce(jsonb_agg(to_jsonb(c) ORDER BY c.id)::text,'[]') FROM chunks c WHERE knowledge_id=?", first.KnowledgeID).Scan(&oldChunks).Error)
-			require.NoError(t, db.Raw("SELECT coalesce(jsonb_agg(to_jsonb(e) ORDER BY to_jsonb(e)::text)::text,'[]') FROM embeddings e WHERE knowledge_id=?", first.KnowledgeID).Scan(&oldVectors).Error)
+			const knowledgeSQL = "SELECT to_jsonb(k)::text FROM knowledges k WHERE id=?"
+			const chunksSQL = "SELECT coalesce(jsonb_agg(to_jsonb(c) ORDER BY c.id)::text,'[]') " +
+				"FROM chunks c WHERE knowledge_id=?"
+			const vectorsSQL = "SELECT coalesce(jsonb_agg(to_jsonb(e) ORDER BY to_jsonb(e)::text)::text,'[]') " +
+				"FROM embeddings e WHERE knowledge_id=?"
+			require.NoError(t, db.Raw(knowledgeSQL, first.KnowledgeID).Scan(&oldKnowledge).Error)
+			require.NoError(t, db.Raw(chunksSQL, first.KnowledgeID).Scan(&oldChunks).Error)
+			require.NoError(t, db.Raw(vectorsSQL, first.KnowledgeID).Scan(&oldVectors).Error)
 			// More than 20 default-sized chunks force a successful first batch
 			// followed by an injected second-batch failure, before publication.
 			item.Content = []byte(strings.Repeat("mustnotpublish embedding failure content. ", 10000))
@@ -173,13 +178,15 @@ func TestFeishuLegacyRealParserEmbeddingPostgres(t *testing.T) {
 			fail.Store(false)
 			require.EqualValues(t, 2, failureCalls.Load(), "failure must occur in the middle batch")
 			var currentChunks, currentVectors, currentKnowledge string
-			require.NoError(t, db.Raw("SELECT to_jsonb(k)::text FROM knowledges k WHERE id=?", first.KnowledgeID).Scan(&currentKnowledge).Error)
-			require.NoError(t, db.Raw("SELECT coalesce(jsonb_agg(to_jsonb(c) ORDER BY c.id)::text,'[]') FROM chunks c WHERE knowledge_id=?", first.KnowledgeID).Scan(&currentChunks).Error)
-			require.NoError(t, db.Raw("SELECT coalesce(jsonb_agg(to_jsonb(e) ORDER BY to_jsonb(e)::text)::text,'[]') FROM embeddings e WHERE knowledge_id=?", first.KnowledgeID).Scan(&currentVectors).Error)
+			require.NoError(t, db.Raw(knowledgeSQL, first.KnowledgeID).Scan(&currentKnowledge).Error)
+			require.NoError(t, db.Raw(chunksSQL, first.KnowledgeID).Scan(&currentChunks).Error)
+			require.NoError(t, db.Raw(vectorsSQL, first.KnowledgeID).Scan(&currentVectors).Error)
 			require.JSONEq(t, oldChunks, currentChunks, "old chunks unchanged after candidate failure")
 			require.JSONEq(t, oldVectors, currentVectors, "old searchable vectors unchanged after candidate failure")
 			require.JSONEq(t, oldKnowledge, currentKnowledge, "old document and its metadata must remain unchanged")
-			require.NoError(t, db.Raw("SELECT count(*) FROM embeddings WHERE knowledge_id=? AND content LIKE '%mustnotpublish%'", first.KnowledgeID).Scan(&n).Error)
+			require.NoError(t, db.Raw(
+				"SELECT count(*) FROM embeddings WHERE knowledge_id=? AND content LIKE '%mustnotpublish%'",
+				first.KnowledgeID).Scan(&n).Error)
 			require.Zero(t, n, "unpublished candidate must not be searchable")
 			require.NoError(t, db.Raw("SELECT count(*) FROM embeddings WHERE knowledge_id=? AND content ||| 'newparsercanary'", first.KnowledgeID).Scan(&n).Error)
 			require.Positive(t, n)

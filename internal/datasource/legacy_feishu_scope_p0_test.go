@@ -17,14 +17,23 @@ func TestLegacyFeishuScopeP0(t *testing.T) {
 		raw  string
 		want bool
 	}{
-		{"", true}, {id, true}, {other, false}, {"none", false},
-		{other + ", " + id, true}, {id + ",broken", false},
-		{id + ",", false}, {"*", false}, {" ", false},
+		{"", true},
+		{id, true},
+		{other, false},
+		{"none", false},
+		{other + ", " + id, true},
+		{id + ",broken", false},
+		{id + ",", false},
+		{"*", false},
+		{" ", false},
 		{"{" + id + "}", false},
 	} {
 		t.Run(tc.raw, func(t *testing.T) {
 			t.Setenv("FEISHU_LEGACY_SYNC_ALLOWED_SOURCE_IDS", tc.raw)
-			for _, kind := range []string{types.ConnectorTypeFeishu, types.ConnectorTypeFeishuDrive, types.ConnectorTypeLark, types.ConnectorTypeLarkDrive} {
+			for _, kind := range []string{
+				types.ConnectorTypeFeishu, types.ConnectorTypeFeishuDrive,
+				types.ConnectorTypeLark, types.ConnectorTypeLarkDrive,
+			} {
 				require.Equal(t, tc.want, LegacyFeishuSourceAllowed(kind, id))
 			}
 			require.True(t, LegacyFeishuSourceAllowed(types.ConnectorTypeRSS, id))
@@ -45,8 +54,17 @@ func legacyFeishuScopeSchedulerP0(t *testing.T, dialect string) {
 	allowed := uuid.NewString()
 	t.Setenv("FEISHU_LEGACY_SYNC_ALLOWED_SOURCE_IDS", allowed)
 	var blocked *types.DataSource
-	for i, status := range []string{types.DataSourceStatusError, types.DataSourceStatusError, types.DataSourceStatusPaused} {
-		ds := &types.DataSource{ID: uuid.NewString(), TenantID: 1, Type: types.ConnectorTypeFeishuDrive, Status: status, SyncSchedule: "0 0 0 * * *", Config: types.JSON(`{}`)}
+	for i, status := range []string{
+		types.DataSourceStatusError, types.DataSourceStatusError, types.DataSourceStatusPaused,
+	} {
+		ds := &types.DataSource{
+			ID:           uuid.NewString(),
+			TenantID:     1,
+			Type:         types.ConnectorTypeFeishuDrive,
+			Status:       status,
+			SyncSchedule: "0 0 0 * * *",
+			Config:       types.JSON(`{}`),
+		}
 		if i == 0 {
 			ds.ID = allowed
 		}

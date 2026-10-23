@@ -20,8 +20,17 @@ func syncScheduleP0(t *testing.T, dialect string) {
 	sources := repository.NewDataSourceRepository(db)
 	logs := repository.NewSyncLogRepository(db)
 	var errorSource *types.DataSource
-	for _, status := range []string{types.DataSourceStatusActive, types.DataSourceStatusError, types.DataSourceStatusPaused, types.DataSourceStatusDeleted} {
-		ds := &types.DataSource{ID: uuid.NewString(), TenantID: 1, Status: status, SyncSchedule: "0 0 0 * * *", Config: types.JSON(`{}`)}
+	for _, status := range []string{
+		types.DataSourceStatusActive, types.DataSourceStatusError,
+		types.DataSourceStatusPaused, types.DataSourceStatusDeleted,
+	} {
+		ds := &types.DataSource{
+			ID:           uuid.NewString(),
+			TenantID:     1,
+			Status:       status,
+			SyncSchedule: "0 0 0 * * *",
+			Config:       types.JSON(`{}`),
+		}
 		require.NoError(t, sources.Create(ctx, ds))
 		if status == types.DataSourceStatusError {
 			errorSource = ds
@@ -36,12 +45,21 @@ func syncScheduleP0(t *testing.T, dialect string) {
 	queue := &fakeTaskEnqueuer{}
 	s := NewScheduler(sources, logs, queue)
 	old := time.Now().UTC().Add(-10 * time.Minute)
-	failed := &types.SyncLog{DataSourceID: errorSource.ID, TenantID: 1, Status: types.SyncLogStatusFailed, StartedAt: old, FinishedAt: &old}
+	failed := &types.SyncLog{
+		DataSourceID: errorSource.ID,
+		TenantID:     1,
+		Status:       types.SyncLogStatusFailed,
+		StartedAt:    old,
+		FinishedAt:   &old,
+	}
 	require.NoError(t, logs.Create(ctx, failed))
 	s.triggerSync(errorSource.ID, 1)
 	require.EqualValues(t, 1, queue.count.Load(), "failed source must retry after cooldown")
 	var running types.SyncLog
-	require.NoError(t, db.Where("data_source_id=? AND status=?", errorSource.ID, types.SyncLogStatusRunning).First(&running).Error)
+	require.NoError(
+		t,
+		db.Where("data_source_id=? AND status=?", errorSource.ID, types.SyncLogStatusRunning).First(&running).Error,
+	)
 	// Simulate success; a subsequent tick can run, without changing cron/config.
 	running.Status = types.SyncLogStatusSuccess
 	require.NoError(t, logs.Update(ctx, &running))

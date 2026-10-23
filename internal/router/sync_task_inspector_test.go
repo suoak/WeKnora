@@ -23,11 +23,11 @@ import (
 func TestSyncLiveQueueProbeP0(t *testing.T) {
 	srv := miniredis.RunT(t)
 	rc := redis.NewClient(&redis.Options{Addr: srv.Addr()})
-	defer rc.Close()
+	defer func() { require.NoError(t, rc.Close()) }()
 	inspector := &asynqTaskInspector{inspector: asynq.NewInspectorFromRedisClient(rc), redis: rc}
-	defer inspector.inspector.Close()
+	defer func() { require.NoError(t, inspector.inspector.Close()) }()
 	client := asynq.NewClientFromRedisClient(rc)
-	defer client.Close()
+	defer func() { require.NoError(t, client.Close()) }()
 	ctx := context.Background()
 	live, err := inspector.LiveSyncTasks(ctx)
 	require.NoError(t, err)
@@ -74,18 +74,37 @@ func archivedSyncDatabaseRecoveryP0(t *testing.T, dialect string) {
 		addr = isolated
 	}
 	rc := redis.NewClient(&redis.Options{Addr: addr})
-	defer rc.Close()
+	defer func() { require.NoError(t, rc.Close()) }()
 	probe := &asynqTaskInspector{inspector: asynq.NewInspectorFromRedisClient(rc), redis: rc}
-	defer probe.inspector.Close()
+	defer func() { require.NoError(t, probe.inspector.Close()) }()
 	client := asynq.NewClientFromRedisClient(rc)
-	defer client.Close()
-	ds := &types.DataSource{ID: uuid.NewString(), TenantID: 1, Status: types.DataSourceStatusActive, Config: types.JSON(`{}`)}
+	defer func() { require.NoError(t, client.Close()) }()
+	ds := &types.DataSource{
+		ID:       uuid.NewString(),
+		TenantID: 1,
+		Status:   types.DataSourceStatusActive,
+		Config:   types.JSON(`{}`),
+	}
 	require.NoError(t, db.Create(ds).Error)
 	old := time.Now().UTC().Add(-2 * time.Hour)
-	log := &types.SyncLog{ID: uuid.NewString(), DataSourceID: ds.ID, TenantID: 1, Status: types.SyncLogStatusRunning, ExecutionGeneration: 6, ExecutionClaimed: true, StartedAt: old, UpdatedAt: old}
+	log := &types.SyncLog{
+		ID:                  uuid.NewString(),
+		DataSourceID:        ds.ID,
+		TenantID:            1,
+		Status:              types.SyncLogStatusRunning,
+		ExecutionGeneration: 6,
+		ExecutionClaimed:    true,
+		StartedAt:           old,
+		UpdatedAt:           old,
+	}
 	require.NoError(t, db.Create(log).Error)
 	payload, _ := json.Marshal(types.DataSourceSyncPayload{DataSourceID: ds.ID, TenantID: 1, SyncLogID: log.ID})
-	_, err := client.Enqueue(asynq.NewTask(types.TypeDataSourceSync, payload), asynq.TaskID(log.ID), asynq.Queue(types.QueueSync), asynq.MaxRetry(5))
+	_, err := client.Enqueue(
+		asynq.NewTask(types.TypeDataSourceSync, payload),
+		asynq.TaskID(log.ID),
+		asynq.Queue(types.QueueSync),
+		asynq.MaxRetry(5),
+	)
 	require.NoError(t, err)
 	defer func() { _ = probe.inspector.DeleteTask(types.QueueSync, log.ID) }()
 	n, err := service.ReconcileDataSourceSyncs(context.Background(), db, probe)
@@ -103,10 +122,20 @@ func archivedSyncDatabaseRecoveryP0(t *testing.T, dialect string) {
 	require.NoError(t, rc.HSet(ctx, prefix+"t:"+log.ID, "msg", message, "state", "active").Err())
 	require.NoError(t, rc.LRem(ctx, prefix+"pending", 0, log.ID).Err())
 	require.NoError(t, rc.LPush(ctx, prefix+"active", log.ID).Err())
-	require.NoError(t, rc.ZAdd(ctx, prefix+"lease", redis.Z{Score: float64(time.Now().Add(-2 * time.Minute).Unix()), Member: log.ID}).Err())
+	require.NoError(
+		t,
+		rc.ZAdd(ctx, prefix+"lease", redis.Z{Score: float64(time.Now().Add(-2 * time.Minute).Unix()), Member: log.ID}).
+			Err(),
+	)
 	var handlerCalls atomic.Int64
-	worker := asynq.NewServer(asynq.RedisClientOpt{Addr: addr}, asynq.Config{Concurrency: 1, Queues: map[string]int{types.QueueSync: 1}, ShutdownTimeout: time.Second})
-	require.NoError(t, worker.Start(asynq.HandlerFunc(func(context.Context, *asynq.Task) error { handlerCalls.Add(1); return nil })))
+	worker := asynq.NewServer(
+		asynq.RedisClientOpt{Addr: addr},
+		asynq.Config{Concurrency: 1, Queues: map[string]int{types.QueueSync: 1}, ShutdownTimeout: time.Second},
+	)
+	require.NoError(
+		t,
+		worker.Start(asynq.HandlerFunc(func(context.Context, *asynq.Task) error { handlerCalls.Add(1); return nil })),
+	)
 	defer worker.Shutdown()
 	require.Eventually(t, func() bool {
 		info, err := probe.inspector.GetTaskInfo(types.QueueSync, log.ID)

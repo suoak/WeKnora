@@ -10,7 +10,11 @@ import (
 	"gorm.io/gorm"
 )
 
-func startDataSourceSyncReconciliation(db *gorm.DB, tasks interfaces.TaskInspector, cleaner interfaces.ResourceCleaner) {
+func startDataSourceSyncReconciliation(
+	db *gorm.DB,
+	tasks interfaces.TaskInspector,
+	cleaner interfaces.ResourceCleaner,
+) {
 	probe, ok := tasks.(interfaces.SyncTaskInspector)
 	if !ok {
 		return

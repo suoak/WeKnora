@@ -90,7 +90,8 @@ func syncServiceSuite(t *testing.T, dialect string) {
 		log, err := svc.ManualSync(context.Background(), ds.ID)
 		require.NoError(t, err)
 		payload, _ := json.Marshal(types.DataSourceSyncPayload{DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: 1})
-		require.ErrorContains(t, svc.ProcessSync(context.Background(), asynq.NewTask(types.TypeDataSourceSync, payload)), "panicked")
+		require.ErrorContains(t,
+			svc.ProcessSync(context.Background(), asynq.NewTask(types.TypeDataSourceSync, payload)), "panicked")
 		stored, err := logs.FindByID(context.Background(), log.ID)
 		require.NoError(t, err)
 		require.Equal(t, types.SyncLogStatusFailed, stored.Status)
@@ -106,7 +107,9 @@ func syncServiceSuite(t *testing.T, dialect string) {
 		require.NoError(t, err)
 		ds.Status = types.DataSourceStatusPaused
 		require.NoError(t, dsRepo.Update(context.Background(), ds))
-		payload, _ := json.Marshal(types.DataSourceSyncPayload{DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: 1, Trigger: "schedule"})
+		payload, _ := json.Marshal(types.DataSourceSyncPayload{
+			DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: 1, Trigger: "schedule",
+		})
 		require.NoError(t, svc.ProcessSync(context.Background(), asynq.NewTask(types.TypeDataSourceSync, payload)))
 		require.Zero(t, connector.calls.Load())
 		stored, err := logs.FindByID(context.Background(), log.ID)

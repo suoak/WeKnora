@@ -9,7 +9,10 @@ import (
 	"github.com/google/uuid"
 )
 
-var ErrLegacyFeishuSourceNotAllowed = errors.New("legacy Feishu source excluded by deployment synchronization allowlist")
+// ErrLegacyFeishuSourceNotAllowed reports a rollout admission rejection.
+var ErrLegacyFeishuSourceNotAllowed = errors.New(
+	"legacy Feishu source excluded by deployment synchronization allowlist",
+)
 
 // LegacyFeishuSourceAllowed limits rollout admission, including old deliveries.
 // Empty preserves compatibility; "none" blocks all legacy sources. Every entry

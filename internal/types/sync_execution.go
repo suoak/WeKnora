@@ -14,6 +14,7 @@ var ErrStaleSyncExecution = errors.New("stale datasource sync execution")
 // never the ownership identity used to fence writes.
 const SyncExecutionStaleAfter = 30 * time.Minute
 
+// SyncTaskKey identifies the tenant, source and logical run in queue snapshots.
 func SyncTaskKey(tenant uint64, sourceID, logID string) string {
 	return fmt.Sprintf("%d/%s/%s", tenant, sourceID, logID)
 }

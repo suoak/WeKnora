@@ -11,7 +11,11 @@ import (
 
 // StaleExecutionsPage preserves the legacy NULL-heartbeat fallback and compares
 // instants on SQLite, whose timestamp text may carry different UTC offsets.
-func (r *SyncLogRepository) StaleExecutionsPage(ctx context.Context, cutoff, after time.Time, afterID string) ([]*types.SyncLog, error) {
+func (r *SyncLogRepository) StaleExecutionsPage(
+	ctx context.Context,
+	cutoff, after time.Time,
+	afterID string,
+) ([]*types.SyncLog, error) {
 	clock, argument := "COALESCE(updated_at, started_at)", "?"
 	if r.db.Name() == "sqlite" {
 		clock, argument = "julianday("+clock+")", "julianday(?)"
@@ -32,6 +36,8 @@ func (r *SyncLogRepository) ReconcileOrphan(ctx context.Context, snapshot *types
 	return r.finalizeObservedExecution(ctx, snapshot, "Sync task no longer live in queue; checkpoint retained")
 }
 
+// FinalizeReleasedExecution terminalizes an exhausted delivery only if the
+// observed released execution still owns the exact generation and heartbeat.
 func (r *SyncLogRepository) FinalizeReleasedExecution(ctx context.Context, snapshot *types.SyncLog) (bool, error) {
 	if snapshot.ExecutionClaimed {
 		return false, nil
@@ -39,7 +45,11 @@ func (r *SyncLogRepository) FinalizeReleasedExecution(ctx context.Context, snaps
 	return r.finalizeObservedExecution(ctx, snapshot, "Sync retries exhausted; checkpoint retained")
 }
 
-func (r *SyncLogRepository) finalizeObservedExecution(ctx context.Context, snapshot *types.SyncLog, reason string) (bool, error) {
+func (r *SyncLogRepository) finalizeObservedExecution(
+	ctx context.Context,
+	snapshot *types.SyncLog,
+	reason string,
+) (bool, error) {
 	changed := false
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		ds, err := lockSyncDataSource(tx, snapshot.DataSourceID, snapshot.TenantID)
@@ -51,7 +61,8 @@ func (r *SyncLogRepository) finalizeObservedExecution(ctx context.Context, snaps
 		}
 		now := time.Now().UTC()
 		observed := tx.Model(&types.SyncLog{}).
-			Where("id=? AND data_source_id=? AND tenant_id=? AND status=? AND execution_generation=? AND execution_claimed=?",
+			Where("id=? AND data_source_id=? AND tenant_id=? AND status=? "+
+				"AND execution_generation=? AND execution_claimed=?",
 				snapshot.ID, snapshot.DataSourceID, snapshot.TenantID, types.SyncLogStatusRunning,
 				snapshot.ExecutionGeneration, snapshot.ExecutionClaimed)
 		if snapshot.UpdatedAt.IsZero() {
@@ -60,9 +71,11 @@ func (r *SyncLogRepository) finalizeObservedExecution(ctx context.Context, snaps
 			observed = observed.Where("updated_at=?", snapshot.UpdatedAt)
 		}
 		result := observed.
-			Updates(map[string]any{"status": types.SyncLogStatusFailed, "execution_claimed": false,
+			Updates(map[string]any{
+				"status": types.SyncLogStatusFailed, "execution_claimed": false,
 				"execution_generation": gorm.Expr("execution_generation + 1"), "finished_at": now, "updated_at": now,
-				"error_message": reason})
+				"error_message": reason,
+			})
 		if result.Error != nil {
 			return result.Error
 		}
@@ -72,7 +85,8 @@ func (r *SyncLogRepository) finalizeObservedExecution(ctx context.Context, snaps
 		changed = true
 		var newer int64
 		if err := tx.Model(&types.SyncLog{}).Where("data_source_id=? AND id<>? AND (started_at>=? OR status=?)",
-			snapshot.DataSourceID, snapshot.ID, snapshot.StartedAt, types.SyncLogStatusRunning).Count(&newer).Error; err != nil {
+			snapshot.DataSourceID, snapshot.ID, snapshot.StartedAt, types.SyncLogStatusRunning,
+		).Count(&newer).Error; err != nil {
 			return err
 		}
 		if newer != 0 {
