@@ -34,6 +34,14 @@ func NewResourceCleaner() interfaces.ResourceCleaner {
 	}
 }
 
+// prioritizeProcessCleanup runs only after all workers/cron hooks are registered.
+// BrowserSkill retains first priority; the Feishu controller must close/fence
+// and leave its registry before Asynq stops advertising a healthy consumer.
+func prioritizeProcessCleanup(cleaner interfaces.ResourceCleaner) {
+	cleaner.Promote("FeishuSyncSafety")
+	cleaner.Promote("BrowserSkill")
+}
+
 // Register registers a cleanup function.
 // The cleanup function runs in reverse order (the last registered runs first).
 func (c *ResourceCleaner) Register(cleanup types.CleanupFunc) {

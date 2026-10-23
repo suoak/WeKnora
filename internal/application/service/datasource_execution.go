@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/feishusafety"
+	"github.com/Tencent/WeKnora/internal/feishusynccontrol"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
@@ -43,6 +45,15 @@ func (s *DataSourceService) ProcessSync(ctx context.Context, task *asynq.Task) (
 	}
 	ctx = types.WithLegacyReceiptSet(types.WithSyncExecution(ctx, e))
 	workerCtx, cancel := context.WithCancel(ctx)
+	if feishusafety.Enabled() {
+		if source, readErr := s.dsRepo.FindByID(ctx, payload.DataSourceID); readErr == nil {
+			workerCtx = feishusafety.LegacyContext(workerCtx, source.Type, source.ID)
+			if feishusafety.Scoped(workerCtx) {
+				untrack := feishusynccontrol.Track(cancel)
+				defer untrack()
+			}
+		}
+	}
 	stop := make(chan struct{})
 	done := make(chan struct{})
 	go func() {
@@ -67,8 +78,17 @@ func (s *DataSourceService) ProcessSync(ctx context.Context, task *asynq.Task) (
 		}
 	}()
 	defer func() {
-		if recover() != nil {
+		panicked := recover() != nil
+		if panicked {
 			runErr = errors.New("sync worker panicked")
+		}
+		if panicked && feishusafety.Scoped(workerCtx) && feishusafety.Default() != nil {
+			// An unclassified process panic is a global unknown-state incident.
+			// Ordinary source/business errors retain their own retry and do not
+			// stop unrelated sources. Transport/controller own other global trips.
+			tripCtx, tripCancel := context.WithTimeout(context.Background(), time.Second)
+			_ = feishusafety.Default().Trip(tripCtx, "sync_execution_panicked")
+			tripCancel()
 		}
 		close(stop)
 		cancel()

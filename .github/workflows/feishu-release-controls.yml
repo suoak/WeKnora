@@ -1,0 +1,75 @@
+name: Feishu Release Controls
+
+on:
+  push:
+    branches: [fix/feishu-sync-p0-release-controls-20261023]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-stop-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+      postgres:
+        image: paradedb/paradedb:v0.22.2-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: feishu_atomic_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d feishu_atomic_test"
+          --health-interval 10s --health-timeout 5s --health-retries 12
+    env:
+      FEISHU_SAFETY_REDIS_ADDR: 127.0.0.1:6379
+      FEISHU_P0_REDIS_ADDR: 127.0.0.1:6379
+      SYNC_EXECUTION_POSTGRES_DSN: postgres://postgres:postgres@localhost:5432/feishu_atomic_test?sslmode=disable
+      REQUIRE_SYNC_EXECUTION_POSTGRES: "1"
+      FEISHU_LEGACY_TEST_DSN: postgres://postgres:postgres@localhost:5432/feishu_atomic_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26"
+          cache: true
+      - name: Native test dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential libsqlite3-dev
+      - name: Exact source identity and offline release gates
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git rev-parse HEAD | tee tested-source-sha.txt
+          git diff --check
+          python3 -m unittest discover -s scripts/feishu-release -p 'test_*.py' -v
+      - name: Shared budget, fail-closed transport and controller fault injection
+        run: go test ./internal/feishusafety ./internal/feishusynccontrol -count=3 -timeout=5m -v
+      - name: Real Asynq Redis PostgreSQL HTTP automatic-stop chain
+        run: go test -tags sqlite_fts5 ./internal/application/service -run '^TestFeishuReleaseStopRedisPostgres$' -count=1 -timeout=3m -v
+      - name: Accepted P0 and execution regression
+        run: |
+          go test -tags sqlite_fts5 ./internal/models/... ./internal/datasource ./internal/application/repository ./internal/application/service ./internal/router ./internal/container -run 'P0|TestSync(Execution|Service|Scheduler|Recovery)(SQLite|Postgres)$' -count=3 -timeout=15m
+      - name: Real parser and old-version retrieval preservation
+        run: go test -tags sqlite_fts5 ./internal/application/service -run '^TestFeishuLegacyRealParserEmbeddingPostgres$' -count=1 -timeout=10m
+      - name: Race and stop-chain regression
+        run: |
+          go test -race -tags sqlite_fts5 ./internal/feishusafety ./internal/feishusynccontrol ./internal/models/embedding ./internal/models/runtime ./internal/datasource ./internal/application/repository ./internal/application/service ./internal/router -run 'Safety|Controller|ReleaseStop|P0|TestSync(Execution|Service|Scheduler)(SQLite|Postgres)$' -count=1 -timeout=15m
+      - name: Complete backend regression
+        env:
+          FEISHU_SAFETY_REDIS_ADDR: ""
+          FEISHU_P0_REDIS_ADDR: ""
+          FEISHU_LEGACY_TEST_DSN: ""
+          SYNC_EXECUTION_POSTGRES_DSN: ""
+          REQUIRE_SYNC_EXECUTION_POSTGRES: "0"
+        run: go test -p 2 ./internal/... -count=1 -timeout=20m
+      - uses: actions/upload-artifact@v4
+        with:
+          name: feishu-release-controls-tested-source
+          path: tested-source-sha.txt

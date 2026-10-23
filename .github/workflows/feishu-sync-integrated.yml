@@ -1,0 +1,154 @@
+name: Feishu Integrated Release Gate
+
+on:
+  push:
+    branches: [integration/feishu-sync-integrated-20261023]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: feishu-integrated-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: "1.26"
+  GOPROXY: https://proxy.golang.org,direct
+  # Evaluate the complete integration delta, not just the most recent commit
+  # or a stacked PR base which would omit its already-reviewed dependencies.
+  LINT_BASE: b64ab3b6b6dc4dde12adba5dd929be26fb9a16c8
+
+jobs:
+  strict-lint:
+    name: Actual integrated lint (blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Verify exact integration identity and lint ancestry
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git merge-base --is-ancestor "$LINT_BASE" HEAD
+          git diff --check
+      - name: Lint complete integration changes without continue-on-error
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.2
+          only-new-issues: false
+          args: --new-from-merge-base=${{ env.LINT_BASE }}
+
+  isolated-combined-regression:
+    name: Combined real Redis PostgreSQL safety and version gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+      postgres:
+        image: paradedb/paradedb:v0.22.2-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: feishu_atomic_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d feishu_atomic_test"
+          --health-interval 10s --health-timeout 5s --health-retries 12
+    env:
+      FEISHU_SAFETY_REDIS_ADDR: 127.0.0.1:6379
+      FEISHU_P0_REDIS_ADDR: 127.0.0.1:6379
+      SYNC_EXECUTION_POSTGRES_DSN: postgres://postgres:postgres@localhost:5432/feishu_atomic_test?sslmode=disable
+      REQUIRE_SYNC_EXECUTION_POSTGRES: "1"
+      FEISHU_LEGACY_TEST_DSN: postgres://postgres:postgres@localhost:5432/feishu_atomic_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Install native test dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential libsqlite3-dev
+      - name: Record exact source and disposable service identities
+        run: |
+          mkdir -p evidence
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git rev-parse HEAD | tee evidence/tested-source-sha.txt
+          git diff --check
+          docker ps --format '{{.Image}} {{.Ports}}' | tee evidence/isolated-service-images.txt
+          python3 -m unittest discover -s scripts/feishu-release -p 'test_*.py' -v
+      - name: Shared wire budgets and controller fault injection
+        run: |
+          set -o pipefail
+          go test -json ./internal/feishusafety ./internal/feishusynccontrol ./internal/datasource/connector/feishu/core -count=3 -timeout=5m | tee evidence/safety-controller.jsonl
+      - name: Real Asynq Redis PostgreSQL HTTP automatic stop chain
+        run: |
+          set -o pipefail
+          go test -json -tags sqlite_fts5 ./internal/application/service -run '^TestFeishuReleaseStopRedisPostgres$' -count=1 -timeout=3m | tee evidence/automatic-stop.jsonl
+      - name: P0 batching execution recovery and schedule restoration
+        env:
+          FEISHU_SYNC_SAFETY_ENABLED: "false"
+        run: |
+          set -o pipefail
+          go test -json -tags sqlite_fts5 ./internal/models/... ./internal/datasource ./internal/application/repository ./internal/application/service ./internal/router ./internal/container -run 'P0|TestSync(Execution|Service|Scheduler|Recovery)(SQLite|Postgres)$' -count=1 -timeout=15m | tee evidence/p0-focused.jsonl
+      - name: P1 complete parent graph and version atomicity
+        # The unchanged old-baseline missing-fence demonstrations were already
+        # proven in P1 CI. Here every test executes the actual integrated code.
+        run: |
+          set -o pipefail
+          go test -json -tags sqlite_fts5 ./internal/application/repository -run 'TestLegacyParentGraphP1|TestFeishuParentAtomicPostgresP1|TestFeishuLegacyAtomicPostgres$' -count=1 -timeout=10m | tee evidence/p1-atomic.jsonl
+      - name: Real parser child vectors BM25 and mid-batch old-version protection
+        env:
+          FEISHU_SYNC_SAFETY_ENABLED: "false"
+        run: |
+          set -o pipefail
+          go test -json -tags sqlite_fts5 ./internal/application/service -run '^TestFeishuLegacyRealParserEmbeddingPostgres$' -count=1 -timeout=10m | tee evidence/real-parser.jsonl
+      - name: One combined race pass
+        env:
+          FEISHU_SYNC_SAFETY_ENABLED: "false"
+        run: |
+          set -o pipefail
+          go test -json -race -tags sqlite_fts5 ./internal/feishusafety ./internal/feishusynccontrol ./internal/models/embedding ./internal/models/runtime ./internal/datasource ./internal/datasource/connector/feishu/core ./internal/application/repository ./internal/application/service ./internal/router -run 'Safety|Controller|ReleaseStop|SourceHTTP400401|Source400401403404|GlobalHTTPReason|P0|P1|TestFeishuLegacyAtomicPostgres$|TestFeishuLegacyRealParserEmbeddingPostgres$|TestSync(Execution|Service|Scheduler)(SQLite|Postgres)$' -count=1 -timeout=20m | tee evidence/combined-race.jsonl
+      - name: Full backend regression
+        env:
+          FEISHU_SYNC_SAFETY_ENABLED: "false"
+          FEISHU_SAFETY_REDIS_ADDR: ""
+          FEISHU_P0_REDIS_ADDR: ""
+          FEISHU_LEGACY_TEST_DSN: ""
+          SYNC_EXECUTION_POSTGRES_DSN: ""
+          REQUIRE_SYNC_EXECUTION_POSTGRES: "0"
+        run: |
+          set -o pipefail
+          go test -json -p 2 ./internal/... -count=1 -timeout=20m | tee evidence/full-backend.jsonl
+      - name: Build complete test server from the tested source
+        run: |
+          go build -o "$RUNNER_TEMP/weknora-integrated-test-server" ./cmd/server
+          go version -m "$RUNNER_TEMP/weknora-integrated-test-server" | tee evidence/test-server-build-info.txt
+          test -z "$(git status --porcelain --untracked-files=no)"
+      - name: Retain exact-SHA validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: feishu-integrated-${{ github.sha }}
+          path: evidence/
+          if-no-files-found: error
+
+  integrated-gate:
+    name: Integrated source validation passed
+    needs: [strict-lint, isolated-combined-regression]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record required successful gates
+        run: echo "Exact source $GITHUB_SHA passed blocking lint and combined isolated regression."

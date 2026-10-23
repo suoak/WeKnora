@@ -16,6 +16,7 @@ func TestEmbeddingGatewayLimitP0(t *testing.T) {
 	}{
 		{"generic", "", 0, false},
 		{"generic", "20", 20, false},
+		{"generic", "10", 10, false},
 		{"openai", "4000", 2048, false},
 		{"openai", "10", 10, false},
 		{"generic", "0", 0, true},

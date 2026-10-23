@@ -42,7 +42,7 @@ func (s *FeishuLegacyStore) SetSourceUncertain(ctx context.Context, ds *types.Da
 // connector absence alone. The returned bool reports a durable terminal deny.
 func (s *FeishuLegacyStore) RestrictSource(ctx context.Context, ds *types.DataSource, external string, confirmed bool) (terminal bool, err error) {
 	if external == "" {
-		return false, ErrLegacyVersionFence
+		return false, legacyFence("restriction_identity_missing")
 	}
 	// Deny commits before redaction/cleanup. A failed snapshot, trigger or
 	// projection write must not roll the access restriction back to readable.
@@ -70,7 +70,7 @@ func (s *FeishuLegacyStore) RestrictSource(ctx context.Context, ds *types.DataSo
 				return nil
 			}
 			if len(rows) != 1 {
-				return ErrLegacyVersionFence
+				return legacyFence("restriction_identity_ambiguous")
 			}
 			k := rows[0]
 			r = types.FeishuLegacyResource{ID: id, TenantID: ds.TenantID, KnowledgeBaseID: ds.KnowledgeBaseID, DataSourceID: ds.ID, ExternalID: external, KnowledgeID: k.ID, OriginalFilePath: k.FilePath, State: "active", QuarantineSnapshot: json.RawMessage(`{}`)}

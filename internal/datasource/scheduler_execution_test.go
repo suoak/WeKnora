@@ -16,6 +16,9 @@ func TestSyncSchedulerSQLite(t *testing.T)   { syncSchedulerSuite(t, "sqlite") }
 func TestSyncSchedulerPostgres(t *testing.T) { syncSchedulerSuite(t, "postgres") }
 
 func syncSchedulerSuite(t *testing.T, dialect string) {
+	// This suite proves concurrent DB admission, not distributed egress safety.
+	// Its queue is an in-memory recorder and no HTTP work is dispatched.
+	t.Setenv("FEISHU_SYNC_SAFETY_ENABLED", "false")
 	db := syncdb.Open(t, dialect)
 	dsRepo := repository.NewDataSourceRepository(db)
 	logs := repository.NewSyncLogRepository(db)

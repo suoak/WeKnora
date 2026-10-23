@@ -16,6 +16,8 @@ import (
 	"github.com/Tencent/WeKnora/internal/application/access"
 	apprepo "github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/datasource"
+	"github.com/Tencent/WeKnora/internal/feishusafety"
+	"github.com/Tencent/WeKnora/internal/feishusynccontrol"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/tracing/langfuse"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -186,6 +188,14 @@ func (s *DataSourceService) UpdateDataSource(
 	if ds.TenantID != existing.TenantID {
 		return nil, datasource.ErrDataSourceInvalid
 	}
+	if ds.Type == "" {
+		ds.Type = existing.Type
+	}
+	if len(ds.Config) == 0 && ds.Type != existing.Type {
+		// A type change needs its explicit matching configuration and normal
+		// validation; an omitted config must not reuse a different connector's.
+		return nil, datasource.ErrDataSourceInvalid
+	}
 	if err := datasource.ValidateSyncSchedule(ds.SyncSchedule); err != nil {
 		return nil, err
 	}
@@ -228,6 +238,13 @@ func (s *DataSourceService) UpdateDataSource(
 	configActuallyChanged := true
 	if mergedCfg != nil && existingParsedCfg != nil {
 		configActuallyChanged = !reflect.DeepEqual(*mergedCfg, *existingParsedCfg)
+	}
+	if len(ds.Config) == 0 || !configActuallyChanged {
+		// AES-GCM serialization generates a fresh nonce even for unchanged
+		// credentials. Preserve stored bytes for cron/name-only updates so the
+		// repository's configuration fence does not mistake re-encryption for
+		// a source identity/permission change. Genuine config edits still fence.
+		ds.Config = existing.Config
 	}
 	hasCreds := mergedCfg != nil && mergedCfg.HasConfiguredCredentials(ds.Type)
 	if hasCreds && (ds.Type != existing.Type || configActuallyChanged) {
@@ -517,6 +534,9 @@ func (s *DataSourceService) ManualSync(ctx context.Context, dsID string) (*types
 	if !datasource.LegacyFeishuSourceAllowed(ds.Type, ds.ID) {
 		return nil, datasource.ErrLegacyFeishuSourceNotAllowed
 	}
+	if err := feishusafety.CheckLegacy(ctx, ds.Type, ds.ID); err != nil {
+		return nil, err
+	}
 
 	if ds.Status != types.DataSourceStatusActive &&
 		ds.Status != types.DataSourceStatusError &&
@@ -686,7 +706,7 @@ func (s *DataSourceService) GetSyncLog(ctx context.Context, syncLogID string) (*
 }
 
 // ProcessSync handles the actual sync operation (called by asynq task)
-func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.Task) error {
+func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.Task) (runErr error) {
 	var payload types.DataSourceSyncPayload
 	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
 		logger.Errorf(ctx, "failed to unmarshal sync payload: %v", err)
@@ -723,6 +743,21 @@ func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.
 		return nil
 	}
 
+	// Re-mark after the authoritative source load as well: a transient failure
+	// in the wrapper's optional early read must never create an unguarded path.
+	marked := feishusafety.LegacyContext(ctx, ds.Type, ds.ID)
+	if feishusafety.Scoped(marked) && !feishusafety.Scoped(ctx) {
+		localCtx, cancel := context.WithCancel(marked)
+		untrack := feishusynccontrol.Track(cancel)
+		defer untrack()
+		defer cancel()
+		ctx = localCtx
+	} else {
+		ctx = marked
+	}
+	// Connector/parse/version errors belong to this source and retain normal
+	// task retry. Global transport/controller failures own the safety trip; a
+	// failed task must neither overwrite its first cause nor stop unrelated sources.
 	// Get sync log
 	syncLog, err := s.syncLogRepo.FindByID(ctx, payload.SyncLogID)
 	if err != nil {
@@ -749,6 +784,12 @@ func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.
 		syncLog.Status = types.SyncLogStatusCanceled
 		syncLog.FinishedAt = timePtr(time.Now().UTC())
 		syncLog.ErrorMessage = datasource.ErrLegacyFeishuSourceNotAllowed.Error()
+		return s.writeSyncExecution(ctx, ds, syncLog, true)
+	}
+	if err := feishusafety.Check(ctx); err != nil {
+		syncLog.Status = types.SyncLogStatusCanceled
+		syncLog.FinishedAt = timePtr(time.Now().UTC())
+		syncLog.ErrorMessage = "Feishu safety gate closed; checkpoint retained"
 		return s.writeSyncExecution(ctx, ds, syncLog, true)
 	}
 	// A scheduled delivery may have been queued before the user paused the
@@ -1524,7 +1565,7 @@ func (s *DataSourceService) ingestItem(
 			}
 			return false, err
 		}
-		if receipt == nil || receipt.KnowledgeID == "" || receipt.Chunks < 1 || receipt.Vectors != receipt.Chunks || receipt.BM25Rows != receipt.Chunks {
+		if !legacyReceiptConfirmed(receipt) {
 			return false, ErrFeishuDispatchUnconfirmed
 		}
 		types.AddLegacyReceipt(ctx, *receipt)

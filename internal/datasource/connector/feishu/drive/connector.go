@@ -470,12 +470,10 @@ func parseDriveResourceID(resourceID string) (rootFolderToken, fileToken string)
 // A resourceID is either a bare root folderToken (sync the whole subtree) or
 // "rootFolderToken:fileToken" (sync a single selected file or sub-folder).
 //
-// For a single-file selection we cannot pass the fileToken to
-// ListDriveFilesRecursiveFrom - that API expects a folder and returns 1061002
-// (params error) for a file token. Instead we walk the root folder subtree (the
-// file's parent) and filter to just the selected fileToken. This mirrors the
-// wiki connector, which resolves a single selected node via GetWikiNode; Drive
-// has no single-file meta API, so filtering the subtree walk is the equivalent.
+// Direct children are resolved first through their authorized root listing,
+// stopping at the matching page. A file selection never probes that document
+// as a folder or visits unrelated sub-folders. Nested historical selections
+// retain the existing subtree fallback because their encoded ID lacks a parent.
 //
 // A sub-folder selection (fileToken is itself a folder) is handled by walking
 // that sub-folder's subtree directly - ListDriveFilesRecursiveFrom accepts a
@@ -486,6 +484,26 @@ func listDriveFilesForResource(
 	rootFolderToken, fileToken := parseDriveResourceID(resourceID)
 	if fileToken == "" {
 		return client.ListDriveFilesRecursiveFrom(ctx, rootFolderToken)
+	}
+	direct, err := client.FindDriveFileInFolder(ctx, rootFolderToken, fileToken)
+	if err != nil {
+		return nil, err
+	}
+	if direct != nil {
+		switch direct.Type {
+		case "folder":
+			return client.ListDriveFilesRecursiveFrom(ctx, direct.Token)
+		case "shortcut":
+			// Match normal traversal: the listed shortcut proves membership;
+			// only its declared document target is eligible for content fetch.
+			if direct.ShortcutInfo == nil || direct.ShortcutInfo.TargetToken == "" ||
+				direct.ShortcutInfo.TargetType == "folder" {
+				return nil, fmt.Errorf("selected drive shortcut target is unconfirmed")
+			}
+			direct.Token = direct.ShortcutInfo.TargetToken
+			direct.Type = direct.ShortcutInfo.TargetType
+		}
+		return []core.DriveFile{*direct}, nil
 	}
 	files, err := client.ListDriveFilesRecursiveFrom(ctx, fileToken)
 	if err == nil {

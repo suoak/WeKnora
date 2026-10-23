@@ -93,7 +93,7 @@ func (r *DataSourceRepository) Update(ctx context.Context, ds *types.DataSource)
 			}
 			if legacySourceKind(old.Type) && (!legacyConfigEqual(old.Config, ds.Config) || old.Type != ds.Type || old.KnowledgeBaseID != ds.KnowledgeBaseID) {
 				if old.TenantID != ds.TenantID || old.KnowledgeBaseID != ds.KnowledgeBaseID {
-					return ErrLegacyVersionFence
+					return legacyFence("source_tenant_or_kb_rebind_denied")
 				}
 				if err := tx.Model(&types.DataSource{}).Where("id=?", ds.ID).Update("legacy_access_state", "hold").Error; err != nil {
 					return err
@@ -166,7 +166,7 @@ func (r *DataSourceRepository) FindActive(ctx context.Context) ([]*types.DataSou
 	var dataSources []*types.DataSource
 	if err := r.db.WithContext(ctx).
 		Where("status IN ?", []string{types.DataSourceStatusActive, types.DataSourceStatusError}).
-		Where("legacy_access_state IS NULL OR legacy_access_state <> ?", "revoked").
+		Where("legacy_access_state IS NULL OR legacy_access_state NOT IN ?", []string{"hold", "revoked"}).
 		Where("deleted_at IS NULL").
 		Where("sync_schedule != ''").
 		Order("created_at DESC").

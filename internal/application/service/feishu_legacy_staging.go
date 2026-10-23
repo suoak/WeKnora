@@ -16,6 +16,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/datasource"
 	feishucore "github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/Tencent/WeKnora/internal/infrastructure/chunker"
+	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/models/embedding"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/google/uuid"
@@ -25,6 +26,7 @@ func safeLegacyIncrementalEnabled() bool {
 	v, e := strconv.ParseBool(os.Getenv("FEISHU_SAFE_INCREMENTAL_ENABLED"))
 	return e == nil && v
 }
+
 func legacyWikiDrive(kind string) bool {
 	return kind == "feishu" || kind == "feishu_drive" || kind == "lark" || kind == "lark_drive"
 }
@@ -54,7 +56,11 @@ func (s *DataSourceService) legacySourceUncertain(ctx context.Context, ds *types
 	return store.SetSourceUncertain(context.WithoutCancel(ctx), ds, uncertain)
 }
 
-func (s *DataSourceService) legacyMissingItem(ctx context.Context, ds *types.DataSource, item *types.FetchedItem) error {
+func (s *DataSourceService) legacyMissingItem(
+	ctx context.Context,
+	ds *types.DataSource,
+	item *types.FetchedItem,
+) error {
 	store, err := repository.FeishuLegacyStoreFor(s.knowledgeService.GetRepository())
 	if err != nil {
 		return err
@@ -69,8 +75,19 @@ func (s *DataSourceService) legacyMissingItem(ctx context.Context, ds *types.Dat
 	return types.ErrLegacySourceRestricted
 }
 
-func (s *knowledgeService) restrictLegacyUnverifiedChildren(ctx context.Context, ds *types.DataSource, item *types.FetchedItem, store *repository.FeishuLegacyStore) error {
-	children, err := s.repo.FindByMetadataKeyPrefix(ctx, ds.TenantID, ds.KnowledgeBaseID, "external_id", types.SubtreeChildPrefix(item.ExternalID))
+func (s *knowledgeService) restrictLegacyUnverifiedChildren(
+	ctx context.Context,
+	ds *types.DataSource,
+	item *types.FetchedItem,
+	store *repository.FeishuLegacyStore,
+) error {
+	children, err := s.repo.FindByMetadataKeyPrefix(
+		ctx,
+		ds.TenantID,
+		ds.KnowledgeBaseID,
+		"external_id",
+		types.SubtreeChildPrefix(item.ExternalID),
+	)
 	if err != nil {
 		return err
 	}
@@ -97,8 +114,31 @@ func (s *knowledgeService) restrictLegacyUnverifiedChildren(ctx context.Context,
 // StageFeishuLegacyItem is synchronous at the cursor boundary, but its private
 // database artifacts survive retries/crashes. It does not call ReparseKnowledge
 // or dispatch the unsafe stable-KID delete/recreate pipeline.
-func (s *knowledgeService) StageFeishuLegacyItem(ctx context.Context, ds *types.DataSource, item *types.FetchedItem, tagIDs []string) (receipt *types.FeishuLegacyReceipt, err error) {
-	if !safeLegacyIncrementalEnabled() || !legacyWikiDrive(ds.Type) || len(item.Content) == 0 || item.IsDeleted || item.ExternalID == "" {
+func (s *knowledgeService) StageFeishuLegacyItem(
+	ctx context.Context,
+	ds *types.DataSource,
+	item *types.FetchedItem,
+	tagIDs []string,
+) (receipt *types.FeishuLegacyReceipt, err error) {
+	defer func() {
+		var fence *repository.LegacyFenceError
+		if errors.As(err, &fence) {
+			// IDs and a stable reason only: no content, URLs, credentials or nonce.
+			execution, _ := types.SyncExecutionFromContext(ctx)
+			logger.Warnf(
+				ctx,
+				"feishu_version_fence reason=%s tenant_id=%d datasource_id=%s "+
+					"sync_log_id=%s execution_generation=%d",
+				fence.Reason,
+				ds.TenantID,
+				ds.ID,
+				execution.SyncLogID,
+				execution.Generation,
+			)
+		}
+	}()
+	if !safeLegacyIncrementalEnabled() || !legacyWikiDrive(ds.Type) || len(item.Content) == 0 || item.IsDeleted ||
+		item.ExternalID == "" {
 		return nil, ErrFeishuStagingRequired
 	}
 	if datasource.LegacyFeishuSyncSuspended(ds.Type) {
@@ -111,7 +151,8 @@ func (s *knowledgeService) StageFeishuLegacyItem(ctx context.Context, ds *types.
 	if err != nil {
 		return nil, err
 	}
-	if kb.TenantID != ds.TenantID || kb.Type != types.KnowledgeBaseTypeDocument || kb.VectorStoreID != nil || !kb.NeedsEmbeddingModel() {
+	if kb.TenantID != ds.TenantID || kb.Type != types.KnowledgeBaseTypeDocument || kb.VectorStoreID != nil ||
+		!kb.NeedsEmbeddingModel() {
 		return nil, ErrFeishuStagingRequired
 	}
 	store, err := repository.FeishuLegacyStoreFor(s.repo)
@@ -198,11 +239,6 @@ func (s *knowledgeService) StageFeishuLegacyItem(ctx context.Context, ds *types.
 	if err != nil {
 		return nil, err
 	}
-	// Parent/child and asynchronous media/enrichment require a versioned
-	// derivative contract; unsupported configurations remain explicitly closed.
-	if eff.ChunkingConfig.EnableParentChild {
-		return nil, ErrFeishuStagingRequired
-	}
 	engine := eff.ChunkingConfig.ResolveParserEngine(fileType)
 	parserOverrides := MergeParserEngineOverrides(s.getParserEngineOverridesFromContext(ctx), nil)
 	if overrides != nil {
@@ -219,11 +255,25 @@ func (s *knowledgeService) StageFeishuLegacyItem(ctx context.Context, ds *types.
 	if err = store.CheckOwner(ctx, ds, attempt); err != nil {
 		return nil, err
 	}
-	parsed, err := s.callDocReaderWithTimeout(ctx, reader, &types.ReadRequest{FileContent: item.Content, FileName: item.FileName, FileType: fileType, Title: item.Title, ParserEngine: engine, ParserEngineOverrides: parserOverrides, RequestID: attempt.ID, ParserSemanticChunkMaxChars: types.DefaultParserSemanticChunkMaxChars})
+	parsed, err := s.callDocReaderWithTimeout(
+		ctx,
+		reader,
+		&types.ReadRequest{
+			FileContent:                 item.Content,
+			FileName:                    item.FileName,
+			FileType:                    fileType,
+			Title:                       item.Title,
+			ParserEngine:                engine,
+			ParserEngineOverrides:       parserOverrides,
+			RequestID:                   attempt.ID,
+			ParserSemanticChunkMaxChars: types.DefaultParserSemanticChunkMaxChars,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
-	if parsed == nil || parsed.Error != "" || parsed.IsAudio || len(parsed.ImageRefs) > 0 || strings.TrimSpace(parsed.MarkdownContent) == "" {
+	if parsed == nil || parsed.Error != "" || parsed.IsAudio || len(parsed.ImageRefs) > 0 ||
+		strings.TrimSpace(parsed.MarkdownContent) == "" {
 		return nil, ErrFeishuStagingRequired
 	}
 	sanitizeReadResult(parsed)
@@ -233,8 +283,17 @@ func (s *knowledgeService) StageFeishuLegacyItem(ctx context.Context, ds *types.
 		return nil, err
 	}
 	var parts []types.ParsedChunk
+	var parents []types.ParsedParentChunk
+	baseConfig := buildSplitterConfigFromChunking(eff.ChunkingConfig)
+	parentConfig, childConfig := buildParentChildConfigs(eff.ChunkingConfig, baseConfig)
 	if segmented {
-		parts, _, err = splitMaterializedParserSegments(segments, buildSplitterConfigFromChunking(eff.ChunkingConfig), false, chunker.SplitterConfig{}, chunker.SplitterConfig{})
+		parts, parents, err = splitMaterializedParserSegments(
+			segments,
+			baseConfig,
+			eff.ChunkingConfig.EnableParentChild,
+			parentConfig,
+			childConfig,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -244,20 +303,55 @@ func (s *knowledgeService) StageFeishuLegacyItem(ctx context.Context, ds *types.
 		if err != nil {
 			return nil, err
 		}
-		if !controlled {
-			for _, p := range chunker.Split(parsed.MarkdownContent, buildSplitterConfigFromChunking(eff.ChunkingConfig)) {
-				parts = append(parts, types.ParsedChunk{Content: p.Content, ContextHeader: p.ContextHeader, Seq: p.Seq, Start: p.Start, End: p.End})
+		if !controlled && eff.ChunkingConfig.EnableParentChild {
+			pc := chunker.SplitParentChild(parsed.MarkdownContent, parentConfig, childConfig)
+			for _, p := range pc.Parents {
+				parents = append(parents, types.ParsedParentChunk{
+					Content: p.Content, Seq: p.Seq, Start: p.Start, End: p.End,
+				})
+			}
+			for _, p := range pc.Children {
+				parts = append(parts, types.ParsedChunk{
+					Content:       p.Content,
+					ContextHeader: p.ContextHeader,
+					Seq:           p.Seq,
+					Start:         p.Start,
+					End:           p.End,
+					ParentIndex:   p.ParentIndex,
+				})
+			}
+		} else if !controlled {
+			for _, p := range chunker.Split(parsed.MarkdownContent, baseConfig) {
+				parts = append(parts, types.ParsedChunk{
+					Content: p.Content, ContextHeader: p.ContextHeader, Seq: p.Seq, Start: p.Start, End: p.End,
+				})
 			}
 		}
 	}
-	if len(parts) == 0 || len(parts) > 10000 {
+	if len(parts) == 0 || len(parts)+len(parents) > 10000 {
 		return nil, ErrFeishuStagingRequired
 	}
 	chunks := make([]*types.Chunk, len(parts))
 	headers := map[string]string{}
 	texts := make([]string, len(parts))
 	for i, p := range parts {
-		chunks[i] = &types.Chunk{ID: uuid.NewString(), TenantID: ds.TenantID, KnowledgeID: resource.KnowledgeID, KnowledgeBaseID: kb.ID, Content: p.Content, ChunkIndex: i, ChunkType: types.ChunkTypeText, IsEnabled: true, IndexStatus: "ready", Status: int(types.ChunkStatusIndexed), StartAt: p.Start, EndAt: p.End, Metadata: types.JSON(`{}`), RelationChunks: types.JSON(`[]`), IndirectRelationChunks: types.JSON(`[]`)}
+		chunks[i] = &types.Chunk{
+			ID:                     uuid.NewString(),
+			TenantID:               ds.TenantID,
+			KnowledgeID:            resource.KnowledgeID,
+			KnowledgeBaseID:        kb.ID,
+			Content:                p.Content,
+			ChunkIndex:             i,
+			ChunkType:              types.ChunkTypeText,
+			IsEnabled:              true,
+			IndexStatus:            "ready",
+			Status:                 int(types.ChunkStatusIndexed),
+			StartAt:                p.Start,
+			EndAt:                  p.End,
+			Metadata:               mergeParserChunkMetadata(nil, p.Metadata),
+			RelationChunks:         types.JSON(`[]`),
+			IndirectRelationChunks: types.JSON(`[]`),
+		}
 		if len(tagIDs) == 1 {
 			chunks[i].TagID = tagIDs[0]
 		}
@@ -266,14 +360,52 @@ func (s *knowledgeService) StageFeishuLegacyItem(ctx context.Context, ds *types.
 		headers[chunks[i].ID] = p.ContextHeader
 		texts[i] = item.Title + "\n\n" + chunks[i].EmbeddingContent()
 	}
-	for i, c := range chunks {
-		if i > 0 {
-			c.PreChunkID = chunks[i-1].ID
-		}
-		if i+1 < len(chunks) {
-			c.NextChunkID = chunks[i+1].ID
+	// Match ordinary parent-child ingestion: only parent context has
+	// adjacency; child retrieval expands its exact parent, not sibling text.
+	if len(parents) == 0 {
+		for i, c := range chunks {
+			if i > 0 {
+				c.PreChunkID = chunks[i-1].ID
+			}
+			if i+1 < len(chunks) {
+				c.NextChunkID = chunks[i+1].ID
+			}
 		}
 	}
+	// Each candidate owns fresh parent IDs; no lookup can attach children to
+	// an old public parent. Only the text slice above is sent for embedding.
+	parentChunks := make([]*types.Chunk, len(parents))
+	for i, p := range parents {
+		parentChunks[i] = &types.Chunk{
+			ID:              uuid.NewString(),
+			TenantID:        ds.TenantID,
+			KnowledgeID:     resource.KnowledgeID,
+			KnowledgeBaseID: kb.ID,
+			Content:         p.Content,
+			ChunkIndex:      p.Seq,
+			ChunkType:       types.ChunkTypeParentText,
+			IsEnabled:       true,
+			StartAt:         p.Start,
+			EndAt:           p.End,
+			Metadata:        mergeParserChunkMetadata(nil, p.Metadata),
+			SourceLocators:  p.SourceLocators,
+		}
+		if len(tagIDs) == 1 {
+			parentChunks[i].TagID = tagIDs[0]
+		}
+		if i > 0 {
+			parentChunks[i].PreChunkID = parentChunks[i-1].ID
+			parentChunks[i-1].NextChunkID = parentChunks[i].ID
+		}
+	}
+	if len(parentChunks) > 0 {
+		for i, p := range parts {
+			if p.ParentIndex >= 0 && p.ParentIndex < len(parentChunks) {
+				chunks[i].ParentChunkID = parentChunks[p.ParentIndex].ID
+			}
+		}
+	}
+	chunks = append(chunks, parentChunks...)
 	stamp, err := store.ModelStamp(ctx, kb.EmbeddingModelID)
 	if err != nil {
 		return nil, err
@@ -317,8 +449,31 @@ func (s *knowledgeService) StageFeishuLegacyItem(ctx context.Context, ds *types.
 	if err != nil {
 		return nil, err
 	}
-	k := types.Knowledge{ID: resource.KnowledgeID, TenantID: ds.TenantID, KnowledgeBaseID: kb.ID, Type: "file", Title: item.Title, Source: item.URL, Channel: ds.Type, FileName: item.FileName, FileType: fileType, FileSize: int64(len(item.Content)), FileHash: md5hash, FilePath: path, EmbeddingModelID: kb.EmbeddingModelID, Metadata: types.JSON(b)}
-	m := types.FeishuLegacyManifest{Knowledge: k, Chunks: chunks, ChunkHeaders: headers, EmbeddingModelID: kb.EmbeddingModelID, KBConfigSHA256: repository.LegacyKBConfigHash(kb), ModelStamp: stamp, Dimension: model.GetDimensions()}
+	k := types.Knowledge{
+		ID:               resource.KnowledgeID,
+		TenantID:         ds.TenantID,
+		KnowledgeBaseID:  kb.ID,
+		Type:             "file",
+		Title:            item.Title,
+		Source:           item.URL,
+		Channel:          ds.Type,
+		FileName:         item.FileName,
+		FileType:         fileType,
+		FileSize:         int64(len(item.Content)),
+		FileHash:         md5hash,
+		FilePath:         path,
+		EmbeddingModelID: kb.EmbeddingModelID,
+		Metadata:         types.JSON(b),
+	}
+	m := types.FeishuLegacyManifest{
+		Knowledge:        k,
+		Chunks:           chunks,
+		ChunkHeaders:     headers,
+		EmbeddingModelID: kb.EmbeddingModelID,
+		KBConfigSHA256:   repository.LegacyKBConfigHash(kb),
+		ModelStamp:       stamp,
+		Dimension:        model.GetDimensions(),
+	}
 	m.StorageBackendID = storageID
 	m.StorageStamp = storageStamp
 	if err = store.Prepare(ctx, ds, attempt, m, vectors); err != nil {

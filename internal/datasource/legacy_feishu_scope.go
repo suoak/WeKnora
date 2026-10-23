@@ -15,7 +15,7 @@ var ErrLegacyFeishuSourceNotAllowed = errors.New(
 )
 
 // LegacyFeishuSourceAllowed limits rollout admission, including old deliveries.
-// Empty preserves compatibility; "none" blocks all legacy sources. Every entry
+// Empty and "all" permit eligible sources; "none" blocks all legacy sources. Every entry
 // must be a canonical UUID: a malformed list fails closed, never partially opens.
 // This does not drain in-flight work or override suspension, ACLs or user pause.
 func LegacyFeishuSourceAllowed(connectorType, sourceID string) bool {
@@ -26,7 +26,7 @@ func LegacyFeishuSourceAllowed(connectorType, sourceID string) bool {
 		return true
 	}
 	raw := os.Getenv("FEISHU_LEGACY_SYNC_ALLOWED_SOURCE_IDS")
-	if raw == "" {
+	if raw == "" || raw == "all" {
 		return true
 	}
 	allowed := false

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/feishusafety"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/runtime"
 	"github.com/Tencent/WeKnora/internal/tracing/langfuse"
@@ -187,6 +188,10 @@ func (s *Scheduler) triggerSync(dataSourceID string, tenantID uint64) {
 		return
 	}
 	if LegacyFeishuSyncSuspended(ds.Type) || !LegacyFeishuSourceAllowed(ds.Type, ds.ID) {
+		return
+	}
+	if err := feishusafety.CheckLegacy(ctx, ds.Type, ds.ID); err != nil {
+		logger.Warnf(ctx, "[Scheduler] sync safety gate closed ds=%s", ds.ID)
 		return
 	}
 	// Keep the user's cron. Repeated failures suppress only ticks inside a

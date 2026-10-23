@@ -1,0 +1,95 @@
+{
+  "schema": 1,
+  "observed_at": "2026-10-23T12:00:00+00:00",
+  "max_age_seconds": 120,
+  "inventory_complete": false,
+  "inventory_evidence": "UNKNOWN",
+  "expected_sha": "0000000000000000000000000000000000000000",
+  "stage": "scope-none",
+  "allowed_source_ids": "none",
+  "expected_instances": [
+    "app-a"
+  ],
+  "expected_redis_endpoints": [
+    "isolated/redis-db0"
+  ],
+  "instances": [
+    {
+      "id": "app-a",
+      "redis_endpoint": "isolated/redis-db0",
+      "sha": "0000000000000000000000000000000000000000",
+      "scope": "none",
+      "scope_supported": false,
+      "scheduler": true,
+      "worker": true,
+      "maintenance_db": null,
+      "maintenance_env": "1",
+      "model_db": null,
+      "model_env": "8",
+      "observed_maintenance": 1,
+      "control_policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "evidence": "UNKNOWN",
+      "safety": {
+        "alert_url": "UNKNOWN",
+        "enabled": false,
+        "worker_id": "app-a",
+        "expected_workers": [
+          "app-a"
+        ],
+        "source_sha": "0000000000000000000000000000000000000000",
+        "policy": {
+          "Namespace": "isolated-fixture",
+          "EndpointHost": "fake-gateway.test",
+          "InFlight": null,
+          "RPM": null,
+          "RPS": 1,
+          "TPM": null,
+          "WaitBudgetDuration": 65000000000,
+          "TokenBoundVerified": false,
+          "TokenOverhead": 0
+        }
+      }
+    }
+  ],
+  "redis_endpoints": [
+    {
+      "id": "isolated/redis-db0",
+      "evidence": "fixture/asynq",
+      "sync_paused": true,
+      "sync_active": 0,
+      "live_pools": [
+        {
+          "id": "asynq-a",
+          "instance_id": "app-a",
+          "pool": "maintenance",
+          "concurrency": 1,
+          "queues": {
+            "sync": 2,
+            "low": 1
+          }
+        }
+      ]
+    }
+  ],
+  "controls": {
+    "gateway_budget_confirmed": false,
+    "hard_egress_verified": false,
+    "controller_e2e_verified": false,
+    "metrics_fresh": false,
+    "watchdog_fail_closed": false,
+    "pause_authority_exercised_in_isolation": false,
+    "fencing_verified": false,
+    "backup_restore_verified": false,
+    "startup_smoke_verified": false,
+    "evidence": "UNKNOWN"
+  },
+  "canary": {
+    "source_uuid": null,
+    "noncritical_confirmed": false,
+    "no_parent_child": false,
+    "version_safe": false,
+    "read_export_acl_verified": false,
+    "dns_verified": false,
+    "evidence": "not-selected"
+  }
+}

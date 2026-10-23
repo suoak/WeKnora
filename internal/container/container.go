@@ -499,6 +499,7 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	must(container.Provide(initConnectorRegistry))
 	must(container.Provide(datasource.NewScheduler))
 	must(container.Provide(service.NewDataSourceService))
+	must(container.Invoke(startFeishuSyncControl))
 	must(container.Invoke(startDataSourceScheduler))
 	must(container.Invoke(startDataSourceSyncReconciliation))
 	logger.Debugf(ctx, "[Container] Data source sync framework registered")
@@ -649,7 +650,7 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	// to exist, then run that hook first so a slow cron stop cannot leave
 	// the daemon alive until the process is killed.
 	must(container.Invoke(func(cleaner interfaces.ResourceCleaner, _ *browserskill.Manager) {
-		cleaner.Promote("BrowserSkill")
+		prioritizeProcessCleanup(cleaner)
 	}))
 
 	logger.Infof(ctx, "[Container] Container initialization completed successfully")

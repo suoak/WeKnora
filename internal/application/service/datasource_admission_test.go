@@ -9,6 +9,9 @@ import (
 )
 
 func TestManualSyncRejectsExistingRunningLogBeforeEnqueue(t *testing.T) {
+	// Exercise DB admission independently of the separately tested egress gate.
+	// This fixture has no Redis/controller or outbound connector dependency.
+	t.Setenv("FEISHU_SYNC_SAFETY_ENABLED", "false")
 	f := newSQLiteDataSourceDeleteFixture(t)
 	// No queue dependency is needed: a rejected admission must never enqueue.
 	svc := &DataSourceService{dsRepo: f.dsRepo, syncLogRepo: f.syncLogRepo}
