@@ -30,6 +30,7 @@
       "control_policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "evidence": "UNKNOWN",
       "safety": {
+        "alert_url": "UNKNOWN",
         "enabled": false,
         "worker_id": "app-a",
         "expected_workers": [

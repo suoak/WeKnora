@@ -11,6 +11,7 @@ import json
 import re
 import sys
 import uuid
+from urllib.parse import urlsplit
 
 
 class Invalid(ValueError):
@@ -132,11 +133,19 @@ def check(m, now=None):
             failures.append(iid + ': role not identified')
         actual_endpoints.add(text(instance['redis_endpoint'], 'redis_endpoint'))
         safety = instance['safety']
-        shape(safety, ['enabled', 'worker_id', 'expected_workers', 'source_sha', 'policy'], 'safety')
+        shape(safety, ['enabled', 'worker_id', 'expected_workers', 'source_sha', 'alert_url', 'policy'], 'safety')
         if (safety['enabled'] is not True or safety['worker_id'] != iid
                 or safety['source_sha'] != m['expected_sha']
                 or unique(safety['expected_workers'], 'safety.expected_workers') != instance_ids):
             failures.append(iid + ': runtime safety identity/inventory mismatch')
+        alert_url = text(safety['alert_url'], 'safety.alert_url')
+        alert = urlsplit(alert_url)
+        if (alert.scheme != 'https' or not alert.hostname or alert.username is not None
+                or alert.password is not None or alert.fragment or '#' in alert_url
+                or any(char.isspace() or ord(char) < 32 for char in alert_url)):
+            raise Invalid('safety.alert_url: explicit HTTPS without credentials/fragment required')
+        # Force port syntax validation too; URL parsing otherwise defers it.
+        _ = alert.port
         policy = safety['policy']
         shape(policy, ['Namespace', 'EndpointHost', 'InFlight', 'RPM', 'RPS', 'TPM',
                        'WaitBudgetDuration', 'TokenBoundVerified', 'TokenOverhead'], 'safety.policy')
@@ -165,7 +174,7 @@ def check(m, now=None):
         if not re.fullmatch(r'[0-9a-f]{64}', policy):
             raise Invalid('invalid control policy hash')
         fingerprints.add((instance['sha'], instance['scope'], policy,
-                          json.dumps(safety['policy'], sort_keys=True)))
+                          json.dumps(safety['policy'], sort_keys=True), alert_url))
         text(instance['evidence'], 'instance.evidence')
     if observed != instance_ids or actual_endpoints != redis_ids:
         failures.append('inventory/observed instance or Redis endpoint set mismatch')

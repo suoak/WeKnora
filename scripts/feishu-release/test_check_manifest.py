@@ -23,7 +23,7 @@ def fixture():
             'model_env': '8', 'observed_maintenance': 1,
             'control_policy_sha256': 'a' * 64, 'evidence': 'fixture/runtime-app-a',
             'safety': {'enabled': True, 'worker_id': 'app-a', 'expected_workers': ['app-a'],
-                       'source_sha': '7' * 40, 'policy': {
+                       'source_sha': '7' * 40, 'alert_url': 'https://alerts.example.test/feishu', 'policy': {
                            'Namespace': 'isolated-fixture', 'EndpointHost': 'fake-gateway.test',
                            'InFlight': 1, 'RPM': 2, 'RPS': 1, 'TPM': 10,
                            'WaitBudgetDuration': 65000000000,
@@ -128,6 +128,21 @@ class GateTests(unittest.TestCase):
         self.assertEqual(check(m, NOW)['decision'], 'MANIFEST-CONSISTENT')
         other['safety']['policy']['RPM'] = 3
         self.assertIn('multi-instance policy fingerprint mismatch', check(m, NOW)['failures'])
+        other['safety']['policy']['RPM'] = 2
+        other['safety']['alert_url'] = 'https://other-alert.example.test/feishu'
+        self.assertIn('multi-instance policy fingerprint mismatch', check(m, NOW)['failures'])
+
+    def test_alert_url_required_and_safe(self):
+        m = fixture(); del m['instances'][0]['safety']['alert_url']
+        with self.assertRaises(Invalid):
+            check(m, NOW)
+        for url in ['', 'UNKNOWN', 'http://alerts.test/', 'https:///missing-host',
+                    'https://user:secret@alerts.test/', 'https://user@alerts.test/',
+                    'https://alerts.test/#fragment', 'https://alerts.test/#',
+                    'https://alerts.test:bad/', 'https://alerts.test/\n']:
+            m = fixture(); m['instances'][0]['safety']['alert_url'] = url
+            with self.subTest(url=url), self.assertRaises(ValueError):
+                check(m, NOW)
 
     def test_unknown_or_missing_fields(self):
         for path in [None, 'controls', 'canary']:
