@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -65,7 +66,14 @@ func TestArchivedSyncDatabaseRecoveryPostgresP0(t *testing.T) {
 func archivedSyncDatabaseRecoveryP0(t *testing.T, dialect string) {
 	db := syncdb.Open(t, dialect)
 	srv := miniredis.RunT(t)
-	rc := redis.NewClient(&redis.Options{Addr: srv.Addr()})
+	addr := srv.Addr()
+	if isolated := os.Getenv("FEISHU_P0_REDIS_ADDR"); isolated != "" {
+		// Only the workflow's explicitly provided disposable loopback service.
+		// Never inherit REDIS_ADDR or any application's credentials/config.
+		require.Equal(t, "127.0.0.1:6379", isolated)
+		addr = isolated
+	}
+	rc := redis.NewClient(&redis.Options{Addr: addr})
 	defer rc.Close()
 	probe := &asynqTaskInspector{inspector: asynq.NewInspectorFromRedisClient(rc), redis: rc}
 	defer probe.inspector.Close()
@@ -79,6 +87,7 @@ func archivedSyncDatabaseRecoveryP0(t *testing.T, dialect string) {
 	payload, _ := json.Marshal(types.DataSourceSyncPayload{DataSourceID: ds.ID, TenantID: 1, SyncLogID: log.ID})
 	_, err := client.Enqueue(asynq.NewTask(types.TypeDataSourceSync, payload), asynq.TaskID(log.ID), asynq.Queue(types.QueueSync), asynq.MaxRetry(5))
 	require.NoError(t, err)
+	defer func() { _ = probe.inspector.DeleteTask(types.QueueSync, log.ID) }()
 	n, err := service.ReconcileDataSourceSyncs(context.Background(), db, probe)
 	require.NoError(t, err)
 	require.Zero(t, n, "pending delivery is still live, however old its DB row")
@@ -96,7 +105,7 @@ func archivedSyncDatabaseRecoveryP0(t *testing.T, dialect string) {
 	require.NoError(t, rc.LPush(ctx, prefix+"active", log.ID).Err())
 	require.NoError(t, rc.ZAdd(ctx, prefix+"lease", redis.Z{Score: float64(time.Now().Add(-2 * time.Minute).Unix()), Member: log.ID}).Err())
 	var handlerCalls atomic.Int64
-	worker := asynq.NewServer(asynq.RedisClientOpt{Addr: srv.Addr()}, asynq.Config{Concurrency: 1, Queues: map[string]int{types.QueueSync: 1}, ShutdownTimeout: time.Second})
+	worker := asynq.NewServer(asynq.RedisClientOpt{Addr: addr}, asynq.Config{Concurrency: 1, Queues: map[string]int{types.QueueSync: 1}, ShutdownTimeout: time.Second})
 	require.NoError(t, worker.Start(asynq.HandlerFunc(func(context.Context, *asynq.Task) error { handlerCalls.Add(1); return nil })))
 	defer worker.Shutdown()
 	require.Eventually(t, func() bool {

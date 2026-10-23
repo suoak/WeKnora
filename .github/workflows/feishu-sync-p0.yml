@@ -13,6 +13,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     services:
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 12
       postgres:
         image: paradedb/paradedb:v0.22.2-pg17
         env:
@@ -24,6 +30,7 @@ jobs:
           --health-cmd "pg_isready -U postgres -d feishu_atomic_test"
           --health-interval 10s --health-timeout 5s --health-retries 12
     env:
+      FEISHU_P0_REDIS_ADDR: 127.0.0.1:6379
       SYNC_EXECUTION_POSTGRES_DSN: postgres://postgres:postgres@localhost:5432/feishu_atomic_test?sslmode=disable
       REQUIRE_SYNC_EXECUTION_POSTGRES: "1"
       FEISHU_LEGACY_TEST_DSN: postgres://postgres:postgres@localhost:5432/feishu_atomic_test?sslmode=disable

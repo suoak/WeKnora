@@ -53,6 +53,8 @@
 
 专用 P0 集成步骤强制要求 PostgreSQL，不能跳过冒充通过。普通全量步骤清除集成环境变量，其未配置的历史专用环境测试会按原规则跳过；这是与本阶段定向 PostgreSQL 验证分开的覆盖范围。
 
+隔离 CI 提供临时 Redis 7 与 ParadeDB/PostgreSQL 服务；租约过期端到端用例组合真实 Asynq recoverer、Redis 7 和 PostgreSQL。它只读取专用 FEISHU_P0_REDIS_ADDR，拒绝非工作流约定的 loopback 地址，不继承应用 REDIS_ADDR、密码或生产配置，不执行 FLUSHDB。普通本地无该变量时使用 miniredis；Redis 断连故障注入使用 miniredis，便于安全停止实例。
+
 ## 生产部署与验证方案（未执行）
 
 前置条件：最终代码 SHA 的 P0 故障注入、PostgreSQL 原子发布、race、普通全量回归均通过；评审本报告；由用户另行批准部署。
