@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
+	pgretrieve "github.com/Tencent/WeKnora/internal/application/repository/retriever/postgres"
 	files "github.com/Tencent/WeKnora/internal/application/service/file"
 	"github.com/Tencent/WeKnora/internal/config"
 	"github.com/Tencent/WeKnora/internal/database"
@@ -251,6 +252,34 @@ func TestFeishuLegacyRealParserEmbeddingPostgres(t *testing.T) {
 			require.Equal(t, receipts[0].Chunks, receipts[0].ParentChunks+receipts[0].IndexedChunks)
 			require.Equal(t, receipts[0].IndexedChunks, receipts[0].Vectors)
 			require.Equal(t, receipts[0].IndexedChunks, receipts[0].BM25Rows)
+			// A cron-only service update must preserve access and real recall.
+			guardedScheduleDB := types.EnableLegacyReadGuards(db)
+			scheduleRepo := repository.NewDataSourceRepository(guardedScheduleDB)
+			schedule := datasource.NewScheduler(scheduleRepo, repository.NewSyncLogRepository(db), nil)
+			admin := &DataSourceService{dsRepo: scheduleRepo, scheduler: schedule}
+			_, e = admin.UpdateDataSource(context.Background(), &types.DataSource{
+				ID: ds.ID, Type: ds.Type, SyncSchedule: "0 30 * * * *", Config: ds.Config,
+			})
+			require.NoError(t, e)
+			liveSource, e := scheduleRepo.FindByID(context.Background(), ds.ID)
+			require.NoError(t, e)
+			require.NotEqual(t, "hold", liveSource.LegacyAccessState)
+			engine := pgretrieve.NewPostgresRetrieveEngineRepository(guardedScheduleDB)
+			for _, kind := range []types.RetrieverType{types.KeywordsRetrieverType, types.VectorRetrieverType} {
+				query := make([]float32, 1024)
+				query[0] = 1
+				rows, e := engine.Retrieve(types.WithLegacyReadScope(context.Background()), types.RetrieveParams{
+					Query: "newparsercanary", Embedding: query, KnowledgeBaseIDs: []string{kb.ID},
+					KnowledgeIDs: []string{first.KnowledgeID}, TopK: 5, Threshold: 0, RetrieverType: kind,
+				})
+				require.NoError(t, e)
+				found := 0
+				for _, row := range rows {
+					require.NoError(t, row.Error)
+					found += len(row.Results)
+				}
+				require.Positive(t, found, "cron-only updates preserve actual BM25/vector retrieval")
+			}
 			if scenario.parent {
 				require.Greater(t, second.Chunks, second.Vectors)
 				var invalid, parentVectors int64

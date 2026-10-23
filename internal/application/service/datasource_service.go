@@ -188,6 +188,14 @@ func (s *DataSourceService) UpdateDataSource(
 	if ds.TenantID != existing.TenantID {
 		return nil, datasource.ErrDataSourceInvalid
 	}
+	if ds.Type == "" {
+		ds.Type = existing.Type
+	}
+	if len(ds.Config) == 0 && ds.Type != existing.Type {
+		// A type change needs its explicit matching configuration and normal
+		// validation; an omitted config must not reuse a different connector's.
+		return nil, datasource.ErrDataSourceInvalid
+	}
 	if err := datasource.ValidateSyncSchedule(ds.SyncSchedule); err != nil {
 		return nil, err
 	}
@@ -230,6 +238,13 @@ func (s *DataSourceService) UpdateDataSource(
 	configActuallyChanged := true
 	if mergedCfg != nil && existingParsedCfg != nil {
 		configActuallyChanged = !reflect.DeepEqual(*mergedCfg, *existingParsedCfg)
+	}
+	if len(ds.Config) == 0 || !configActuallyChanged {
+		// AES-GCM serialization generates a fresh nonce even for unchanged
+		// credentials. Preserve stored bytes for cron/name-only updates so the
+		// repository's configuration fence does not mistake re-encryption for
+		// a source identity/permission change. Genuine config edits still fence.
+		ds.Config = existing.Config
 	}
 	hasCreds := mergedCfg != nil && mergedCfg.HasConfiguredCredentials(ds.Type)
 	if hasCreds && (ds.Type != existing.Type || configActuallyChanged) {
