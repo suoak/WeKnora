@@ -40,15 +40,16 @@ func TestNewEmbeddingHTTPClient_ReusesTransport(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected SSRF-validating transport, got %T", second.Transport)
 	}
-	if firstGuard.Base != secondGuard.Base {
-		t.Fatal("expected embedding HTTP clients to share a base transport")
-	}
 	safety, ok := firstGuard.Base.(feishusafety.Transport)
 	if !ok || !safety.Embedding {
 		t.Fatal("expected embedding safety wrapper inside SSRF validation")
 	}
 	if safety.Base != http.RoundTripper(sharedEmbeddingHTTPTransport) {
 		t.Fatal("expected embedding HTTP client to use the shared transport")
+	}
+	secondSafety, ok := secondGuard.Base.(feishusafety.Transport)
+	if !ok || !secondSafety.Embedding || safety.Base != secondSafety.Base {
+		t.Fatal("expected embedding HTTP clients to share the underlying connection pool")
 	}
 	if first.Timeout != firstTimeout {
 		t.Fatalf("unexpected first client timeout: got %v, want %v", first.Timeout, firstTimeout)
