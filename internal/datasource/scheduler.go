@@ -77,7 +77,7 @@ func (s *Scheduler) Start(ctx context.Context) error {
 	}
 
 	for _, ds := range dataSources {
-		if ds.SyncSchedule == "" {
+		if !ds.AutoSyncEnabled() {
 			continue
 		}
 		if err := s.addEntry(ds); err != nil {
@@ -114,7 +114,7 @@ func (s *Scheduler) StopWithin(timeout time.Duration) {
 func (s *Scheduler) AddOrUpdate(ds *types.DataSource) error {
 	// Reject an invalid replacement before removing the working entry. Inactive
 	// sources must still be removable even if their stored schedule is invalid.
-	if ds.Status == types.DataSourceStatusActive {
+	if ds.AutoSyncEnabled() {
 		if err := ValidateSyncSchedule(ds.SyncSchedule); err != nil {
 			return err
 		}
@@ -127,7 +127,7 @@ func (s *Scheduler) AddOrUpdate(ds *types.DataSource) error {
 		delete(s.entries, ds.ID)
 	}
 
-	if ds.Status != types.DataSourceStatusActive || ds.SyncSchedule == "" || LegacyFeishuSyncSuspended(ds.Type) {
+	if !ds.AutoSyncEnabled() || LegacyFeishuSyncSuspended(ds.Type) || !LegacyFeishuSourceAllowed(ds.Type, ds.ID) {
 		return nil
 	}
 
@@ -152,7 +152,7 @@ func (s *Scheduler) addEntry(ds *types.DataSource) error {
 }
 
 func (s *Scheduler) addEntryLocked(ds *types.DataSource) error {
-	if LegacyFeishuSyncSuspended(ds.Type) {
+	if LegacyFeishuSyncSuspended(ds.Type) || !LegacyFeishuSourceAllowed(ds.Type, ds.ID) {
 		return nil
 	}
 	dsID := ds.ID
@@ -182,11 +182,22 @@ func (s *Scheduler) triggerSync(dataSourceID string, tenantID uint64) {
 	ctx := context.Background()
 
 	ds, err := s.dsRepo.FindByID(ctx, dataSourceID)
-	if err != nil || ds == nil || ds.Status != types.DataSourceStatusActive {
+	if err != nil || !ds.AutoSyncEnabled() {
 		logger.Infof(ctx, "[Scheduler] skipping sync for ds=%s (not active or not found)", dataSourceID)
 		return
 	}
-	if LegacyFeishuSyncSuspended(ds.Type) {
+	if LegacyFeishuSyncSuspended(ds.Type) || !LegacyFeishuSourceAllowed(ds.Type, ds.ID) {
+		return
+	}
+	// Keep the user's cron. Repeated failures suppress only ticks inside a
+	// bounded cooldown; successful/manual runs reset the failure streak.
+	history, err := s.syncLogRepo.FindByDataSource(ctx, dataSourceID, 6, 0)
+	if err != nil {
+		logger.Warnf(ctx, "[Scheduler] cannot read retry history ds=%s: %v", dataSourceID, err)
+		return
+	}
+	if !syncRetryDue(history, time.Now().UTC()) {
+		logger.Infof(ctx, "[Scheduler] skipping sync ds=%s phase=cooldown category=recent_failures", dataSourceID)
 		return
 	}
 
@@ -246,6 +257,28 @@ func (s *Scheduler) triggerSync(dataSourceID string, tenantID uint64) {
 	}
 
 	logger.Infof(ctx, "[Scheduler] sync task enqueued for ds=%s syncLog=%s", dataSourceID, syncLog.ID)
+}
+
+func syncRetryDue(history []*types.SyncLog, now time.Time) bool {
+	streak := 0
+	var failedAt time.Time
+	for _, log := range history {
+		if log.Status != types.SyncLogStatusFailed {
+			break
+		}
+		if streak == 0 {
+			failedAt = log.UpdatedAt
+			if log.FinishedAt != nil {
+				failedAt = *log.FinishedAt
+			}
+		}
+		streak++
+	}
+	if streak == 0 || failedAt.IsZero() {
+		return true
+	}
+	delay := min(5*time.Minute*time.Duration(1<<min(streak-1, 4)), time.Hour)
+	return !now.Before(failedAt.Add(delay))
 }
 
 // EntryCount returns the number of active cron entries (for testing/monitoring).

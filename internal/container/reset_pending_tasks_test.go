@@ -273,8 +273,8 @@ func TestResetPendingTasks_SyncLogStaleRunning(t *testing.T) {
 	require.NoError(t, db.Raw(
 		`SELECT status, finished_at FROM sync_logs WHERE id = ?`, "sync-1",
 	).Row().Scan(&status, &finishedAt))
-	assert.Equal(t, types.SyncLogStatusFailed, status)
-	require.NotNil(t, finishedAt)
+	assert.Equal(t, types.SyncLogStatusRunning, status, "unclaimed backlog requires a queue probe")
+	require.Nil(t, finishedAt)
 }
 
 func TestResetPendingTasks_SyncLogLiteMode(t *testing.T) {

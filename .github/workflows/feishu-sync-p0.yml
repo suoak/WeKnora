@@ -1,0 +1,68 @@
+name: Feishu Sync Reliability P0
+
+on:
+  push:
+    branches: [fix/feishu-sync-reliability-p0-20261023]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+      postgres:
+        image: paradedb/paradedb:v0.22.2-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: feishu_atomic_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d feishu_atomic_test"
+          --health-interval 10s --health-timeout 5s --health-retries 12
+    env:
+      FEISHU_P0_REDIS_ADDR: 127.0.0.1:6379
+      SYNC_EXECUTION_POSTGRES_DSN: postgres://postgres:postgres@localhost:5432/feishu_atomic_test?sslmode=disable
+      REQUIRE_SYNC_EXECUTION_POSTGRES: "1"
+      FEISHU_LEGACY_TEST_DSN: postgres://postgres:postgres@localhost:5432/feishu_atomic_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26"
+          cache: true
+      - name: Install isolated test dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential libsqlite3-dev
+      - name: Record identity and format
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git rev-parse HEAD | tee tested-source-sha.txt
+          git diff --check
+          test -z "$(gofmt -l internal/models/embedding/bounded*.go internal/models/runtime/embedding_batch_test.go internal/application/{service,repository}/datasource_reconcile*.go internal/router/sync_task_inspector*.go internal/container/datasource_reconcile.go internal/datasource/scheduler_p0_test.go)"
+      - name: Fault injection and SQLite/PostgreSQL fencing
+        run: |
+          go test -tags sqlite_fts5 ./internal/models/... ./internal/datasource ./internal/application/repository ./internal/application/service ./internal/router ./internal/container -run 'P0|TestSync(Execution|Service|Scheduler|Recovery)(SQLite|Postgres)$' -count=3 -timeout=15m
+      - name: Real parser and atomic publication preservation
+        run: go test -tags sqlite_fts5 ./internal/application/service -run '^TestFeishuLegacyRealParserEmbeddingPostgres$' -count=1 -timeout=10m
+      - name: Race regression
+        run: go test -race -tags sqlite_fts5 ./internal/models/embedding ./internal/models/runtime ./internal/datasource ./internal/application/repository ./internal/application/service ./internal/router -run 'P0|TestSync(Execution|Service|Scheduler)(SQLite|Postgres)$' -count=1 -timeout=15m
+      - name: Complete internal regression
+        env:
+          FEISHU_LEGACY_TEST_DSN: ""
+          SYNC_EXECUTION_POSTGRES_DSN: ""
+          REQUIRE_SYNC_EXECUTION_POSTGRES: "0"
+        run: go test -p 2 ./internal/... -count=1 -timeout=20m
+      - name: Preserve tested source identity
+        uses: actions/upload-artifact@v4
+        with:
+          name: feishu-p0-tested-source
+          path: tested-source-sha.txt

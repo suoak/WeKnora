@@ -165,7 +165,8 @@ func (r *DataSourceRepository) Delete(ctx context.Context, id string) error {
 func (r *DataSourceRepository) FindActive(ctx context.Context) ([]*types.DataSource, error) {
 	var dataSources []*types.DataSource
 	if err := r.db.WithContext(ctx).
-		Where("status = ?", types.DataSourceStatusActive).
+		Where("status IN ?", []string{types.DataSourceStatusActive, types.DataSourceStatusError}).
+		Where("legacy_access_state IS NULL OR legacy_access_state <> ?", "revoked").
 		Where("deleted_at IS NULL").
 		Where("sync_schedule != ''").
 		Order("created_at DESC").
@@ -213,6 +214,7 @@ func (r *SyncLogRepository) CreateIfNoRunning(ctx context.Context, log *types.Sy
 		// Reuse startup's stale-heartbeat policy at admission as well: a worker
 		// crash must not wedge this datasource until another process restart.
 		if err := tx.Model(&types.SyncLog{}).
+			Where("execution_claimed = ?", true).
 			Where("data_source_id = ? AND status = ? AND "+staleSyncHeartbeatSQL(tx),
 				log.DataSourceID, types.SyncLogStatusRunning, time.Now().UTC().Add(-types.SyncExecutionStaleAfter)).
 			Updates(map[string]interface{}{

@@ -84,6 +84,20 @@ func (s *DataSourceService) ProcessSync(ctx context.Context, task *asynq.Task) (
 			}
 			return
 		}
+		// Admission failures may already have released the execution while
+		// retaining running for a retry. On a terminal delivery finalize only
+		// this observed, released generation; never reacquire it to write.
+		if log.Status == types.SyncLogStatusRunning && !log.ExecutionClaimed &&
+			log.ExecutionGeneration == e.Generation && !syncTaskCanRetry(ctx, runErr) {
+			if finalizer, ok := repo.(interface {
+				FinalizeReleasedExecution(context.Context, *types.SyncLog) (bool, error)
+			}); ok {
+				if _, err := finalizer.FinalizeReleasedExecution(finishCtx, log); err != nil {
+					runErr = err
+				}
+			}
+			return
+		}
 		if log.Status != types.SyncLogStatusRunning || !log.ExecutionClaimed ||
 			log.ExecutionGeneration != e.Generation {
 			if log.ExecutionGeneration != e.Generation || errors.Is(runErr, types.ErrStaleSyncExecution) {

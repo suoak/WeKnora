@@ -16,6 +16,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/datasource"
 	feishucore "github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/Tencent/WeKnora/internal/infrastructure/chunker"
+	"github.com/Tencent/WeKnora/internal/models/embedding"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/google/uuid"
 )
@@ -284,7 +285,9 @@ func (s *knowledgeService) StageFeishuLegacyItem(ctx context.Context, ds *types.
 	if err = store.CheckOwner(ctx, ds, attempt); err != nil {
 		return nil, err
 	}
-	vectors, err := model.BatchEmbed(ctx, texts)
+	// Historical generic model rows have no gateway limit. Bound this direct
+	// path as well; a configured model limit can split these batches further.
+	vectors, err := embedding.BatchEmbedBounded(ctx, model, texts, 20)
 	if err != nil {
 		return nil, err
 	}

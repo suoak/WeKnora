@@ -144,6 +144,14 @@ func (d *DataSource) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
+// AutoSyncEnabled interprets the existing persisted user controls independently
+// from execution health. No migration/backfill changes historical pause choices.
+func (d *DataSource) AutoSyncEnabled() bool {
+	return d != nil && d.SyncSchedule != "" &&
+		(d.Status == DataSourceStatusActive || d.Status == DataSourceStatusError) &&
+		d.LegacyAccessState != "revoked"
+}
+
 // SyncLog records the execution of a sync task
 type SyncLog struct {
 	// Unique identifier
