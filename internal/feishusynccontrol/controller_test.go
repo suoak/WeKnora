@@ -87,6 +87,7 @@ func (f *controlFixture) metrics(t *testing.T, c *Controller, mutate func(*Metri
 		ObservedUnixMS:     now.UnixMilli(),
 		GatewayBudgetKnown: &yes,
 		GatewayHealthy:     &yes,
+		ConsumerHealthy:    &yes,
 		OnlineHealthy:      &yes,
 		ScopeViolations:    &zero,
 		QuotaExceeded:      &no,
@@ -168,7 +169,7 @@ func TestControllerScopeNoneAndMismatch(t *testing.T) {
 func TestControllerUnhealthyAndMissingMetrics(t *testing.T) {
 	for _, kind := range []string{
 		"missing", "stale", "gateway_unknown", "gateway_down", "online_p95",
-		"quota_or_429", "scope_violation", "missing_field",
+		"quota_or_429", "scope_violation", "missing_field", "consumer_unhealthy", "consumer_unknown",
 	} {
 		t.Run(kind, func(t *testing.T) {
 			f := newControlFixture(t)
@@ -185,6 +186,10 @@ func TestControllerUnhealthyAndMissingMetrics(t *testing.T) {
 						m.GatewayBudgetKnown = &bad
 					case "gateway_down":
 						m.GatewayHealthy = &bad
+					case "consumer_unhealthy":
+						m.ConsumerHealthy = &bad
+					case "consumer_unknown":
+						m.ConsumerHealthy = nil
 					case "online_p95":
 						m.OnlineP95Ratio = 1.21
 					case "quota_or_429":

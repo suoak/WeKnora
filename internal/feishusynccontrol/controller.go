@@ -37,6 +37,7 @@ type Metrics struct {
 	GatewayBudgetKnown *bool   `json:"gateway_budget_known"`
 	GatewayHealthy     *bool   `json:"gateway_healthy"`
 	OnlineHealthy      *bool   `json:"online_healthy"`
+	ConsumerHealthy    *bool   `json:"consumer_healthy"`
 	ScopeViolations    *int    `json:"scope_violations"`
 	QuotaExceeded      *bool   `json:"quota_exceeded"`
 	OnlineP95Ratio     float64 `json:"online_p95_ratio"`
@@ -168,7 +169,8 @@ func (c *Controller) Step(ctx context.Context) error {
 	err = decodeMetrics(raw, &metrics)
 	healthy := func(v *bool) bool { return v != nil && *v }
 	if err != nil || !healthy(metrics.GatewayBudgetKnown) || !healthy(metrics.GatewayHealthy) ||
-		!healthy(metrics.OnlineHealthy) || metrics.ScopeViolations == nil || *metrics.ScopeViolations != 0 ||
+		!healthy(metrics.OnlineHealthy) || !healthy(metrics.ConsumerHealthy) ||
+		metrics.ScopeViolations == nil || *metrics.ScopeViolations != 0 ||
 		metrics.QuotaExceeded == nil || *metrics.QuotaExceeded || metrics.OnlineP95Ratio <= 0 ||
 		metrics.OnlineP95Ratio > 1.2 || metrics.ObservedUnixMS > now+100 || now-metrics.ObservedUnixMS > 2000 {
 		return c.freeze(ctx, "metrics_unhealthy_or_unknown", true)

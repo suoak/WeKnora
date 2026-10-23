@@ -59,6 +59,12 @@ func (c *releaseHTTPConnector) FetchAll(ctx context.Context, _ *types.DataSource
 // Asynq/Redis7, PostgreSQL, two controllers and real HTTP. No production fallback
 // or live Feishu/gateway endpoint is permitted.
 func TestFeishuReleaseStopRedisPostgres(t *testing.T) {
+	for _, failure := range []string{"quota", "consumer", "metrics_missing", "alert_unavailable"} {
+		t.Run(failure, func(t *testing.T) { releaseStopRedisPostgres(t, failure) })
+	}
+}
+
+func releaseStopRedisPostgres(t *testing.T, failure string) {
 	addr := os.Getenv("FEISHU_SAFETY_REDIS_ADDR")
 	if addr == "" {
 		if os.Getenv("REQUIRE_SYNC_EXECUTION_POSTGRES") == "1" {
@@ -152,6 +158,7 @@ func TestFeishuReleaseStopRedisPostgres(t *testing.T) {
 	}
 	var audited atomic.Int64
 	var delivered atomic.Int64
+	var unhealthy atomic.Bool
 	alertReceiver := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var event feishusynccontrol.Event
 		if json.NewDecoder(r.Body).Decode(&event) != nil {
@@ -160,6 +167,10 @@ func TestFeishuReleaseStopRedisPostgres(t *testing.T) {
 		}
 		if event.Fenced && event.QueuePaused {
 			delivered.Add(1)
+		}
+		if failure == "alert_unavailable" && unhealthy.Load() {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}))
@@ -181,7 +192,6 @@ func TestFeishuReleaseStopRedisPostgres(t *testing.T) {
 	config.WorkerID = "app-b"
 	b, err := feishusynccontrol.New(rdb, otherGuard, config, stop, audit)
 	require.NoError(t, err)
-	var unhealthy atomic.Bool
 	runCtx, cancel := context.WithCancel(ctx)
 	var workers sync.WaitGroup
 	for _, controller := range []*feishusynccontrol.Controller{a, b} {
@@ -193,11 +203,16 @@ func TestFeishuReleaseStopRedisPostgres(t *testing.T) {
 		defer workers.Done()
 		for {
 			serverTime, clockErr := rdb.Time(runCtx).Result()
-			if clockErr == nil {
+			missing := failure == "metrics_missing" && unhealthy.Load()
+			if missing {
+				_ = rdb.Del(runCtx, a.MetricsKey()).Err()
+			} else if clockErr == nil {
 				sample, _ := json.Marshal(map[string]any{
 					"observed_unix_ms":     serverTime.UnixMilli(),
 					"gateway_budget_known": true, "gateway_healthy": true, "online_healthy": true,
-					"scope_violations": 0, "quota_exceeded": unhealthy.Load(), "online_p95_ratio": 1.0,
+					"consumer_healthy": !(failure == "consumer" && unhealthy.Load()),
+					"scope_violations": 0, "quota_exceeded": failure == "quota" && unhealthy.Load(),
+					"online_p95_ratio": 1.0,
 				})
 				_ = rdb.Set(runCtx, a.MetricsKey(), sample, time.Second).Err()
 			}

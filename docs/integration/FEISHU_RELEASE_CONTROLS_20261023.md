@@ -61,7 +61,7 @@ python scripts/feishu-release/check_manifest.py reviewed-manifest.json
 | `FEISHU_LEGACY_SYNC_ALLOWED_SOURCE_IDS` | 起步 `none`；后续只能一个已批准的规范 UUID；不是运行中任务即时终止开关 |
 | maintenance 实际并发 | 新控制器要求每实例实际解析为 1；DB 设置优先于 ENV，且仍与 low 共用。多实例总槽位不能声称等于 1，硬预算跨实例共享 |
 
-监控收集者向部署 Namespace 对应 `MetricsKey()` 写严格 JSON，并给每次样本设置 2 秒 TTL。字段为 `observed_unix_ms`、`gateway_budget_known`、`gateway_healthy`、`online_healthy`、`scope_violations`、`quota_exceeded`、`online_p95_ratio`；布尔项和 scope 计数必须明确存在。`online_p95_ratio` 必须正数且 <=1.2，时间戳最多落后 Redis 2 秒、超前 100ms。样本来自可信监控身份，不能用飞书 Worker 自报“健康”代替外部指标。发布前还需确认 TTL、时钟、采样链路与报警接收实际符合此契约。
+监控收集者向部署 Namespace 对应 `MetricsKey()` 写严格 JSON，并给每次样本设置 2 秒 TTL。字段为 `observed_unix_ms`、`gateway_budget_known`、`gateway_healthy`、`online_healthy`、`consumer_healthy`、`scope_violations`、`quota_exceeded`、`online_p95_ratio`；布尔项和 scope 计数必须明确存在。`consumer_healthy` 必须来自全部预期 Asynq 消费者的真实运行/错误/积压监控，不能拿 APP 控制器心跳替代，异常或未知必须 false；未提供该字段也关闭门禁。`online_p95_ratio` 必须正数且 <=1.2，时间戳最多落后 Redis 2 秒、超前 100ms。重复字段、未知字段和尾随 JSON 被拒绝。样本来自可信监控身份，不能用飞书 Worker 自报“健康”代替外部指标。发布前还需确认 TTL、时钟、采样链路与报警接收实际符合此契约。
 
 控制器每约 200ms 运行，注册租约 2 秒、出站许可 750ms，最多 10 秒 bootstrap 期间仍保持闭门；缺样本、缺 Worker 或配置漂移不能放行。trip 持久锁存，不提供自动解锁；`none`、队列暂停、进程退出与恢复 Redis 都不能视为授权恢复。需要受限 Redis ACL：监控身份只能写对应 metrics，Worker 不得伪造外部 metrics 或清 trip，控制身份的 permit/trip/队列暂停及审计权限须由运维核验，不能仅引用代码声称已隔离。
 
