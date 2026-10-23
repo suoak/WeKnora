@@ -96,6 +96,16 @@ func CheckLegacyReadScope(db *gorm.DB) error {
 	if invalid {
 		return ErrLegacySourceRestricted
 	}
+	// Apply the workspace/source distinction again before browser output;
+	// retain the batched strict check for API/MCP requests.
+	if WorkspaceWebReadTenant(db.Statement.Context) != 0 {
+		for _, kb := range ids {
+			if err := CheckLegacySourceRead(db, "", kb); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	var denied bool
 	err := db.Raw(`SELECT EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE knowledge_base_id IN ? AND state IN ('hold','revoked')) OR EXISTS(SELECT 1 FROM data_sources WHERE knowledge_base_id IN ? AND legacy_access_state IN ('hold','revoked'))`, ids, ids).Scan(&denied).Error
 	if err != nil {

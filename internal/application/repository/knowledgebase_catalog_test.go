@@ -47,4 +47,26 @@ INSERT INTO tenants(id,status) VALUES(1,'active'),(2,'active');`).Error)
 	var doc types.Knowledge
 	err = guarded.WithContext(types.WithKnowledgeBaseCatalog(ctx, 1)).First(&doc, "id=?", "doc").Error
 	require.ErrorIs(t, err, types.ErrLegacySourceRestricted, "catalog context must not authorize document content")
+
+	t.Run("workspace-browser-keeps-existing-documents", func(t *testing.T) {
+		web := types.WithPrincipal(types.WithCaller(types.WithLegacyReadScope(ctx), types.Caller{TenantID: 1, UserID: "member", Role: types.TenantRoleViewer}), types.Principal{Type: types.PrincipalWebUser, ID: "member"})
+		_, err := r.GetKnowledgeBaseByID(web, "held")
+		require.NoError(t, err, "a source sync hold does not revoke workspace membership")
+		var stored types.Knowledge
+		require.NoError(t, guarded.WithContext(web).First(&stored, "id=?", "doc").Error)
+		require.NoError(t, types.CheckLegacyReadScope(guarded.WithContext(web)))
+		_, err = r.GetKnowledgeBaseByID(web, "other")
+		require.ErrorIs(t, err, types.ErrLegacySourceRestricted, "other workspace sources remain protected")
+		keyed := types.WithTenantAPIKeyScope(web, types.TenantAPIKeyScope{KeyID: 1, ScopeType: types.APIKeyScopeUserMCP})
+		_, err = r.GetKnowledgeBaseByID(keyed, "held")
+		require.ErrorIs(t, err, types.ErrLegacySourceRestricted, "MCP does not inherit browser membership rights")
+		require.NoError(t, db.Exec(`UPDATE data_sources SET legacy_access_state='revoked' WHERE id='held'`).Error)
+		_, err = r.GetKnowledgeBaseByID(web, "held")
+		require.ErrorIs(t, err, types.ErrLegacySourceRestricted)
+		require.ErrorIs(t, types.CheckLegacyReadScope(guarded.WithContext(web)), types.ErrLegacySourceRestricted, "revocation after read is checked before output")
+		require.NoError(t, db.Exec(`UPDATE data_sources SET legacy_access_state='hold' WHERE id='held'`).Error)
+		require.NoError(t, db.Exec(`INSERT INTO feishu_legacy_resources VALUES('held','hold')`).Error)
+		_, err = r.GetKnowledgeBaseByID(web, "held")
+		require.ErrorIs(t, err, types.ErrLegacySourceRestricted, "document quarantine is independent of source sync hold")
+	})
 }

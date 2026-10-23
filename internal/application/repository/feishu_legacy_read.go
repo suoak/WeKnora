@@ -17,8 +17,12 @@ func legacyTenantModelGate(ctx context.Context, db *gorm.DB, tenant uint64) erro
 		return err
 	}
 	var denied bool
+	sourceStates := []string{"hold", "revoked"}
+	if types.WorkspaceWebReadTenant(ctx) == tenant {
+		sourceStates = []string{"revoked"}
+	}
 	err := db.WithContext(ctx).Raw(`SELECT EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE tenant_id=? AND state IN ('hold','revoked'))
- OR EXISTS(SELECT 1 FROM data_sources WHERE tenant_id=? AND legacy_access_state IN ('hold','revoked'))`, tenant, tenant).Scan(&denied).Error
+ OR EXISTS(SELECT 1 FROM data_sources WHERE tenant_id=? AND legacy_access_state IN ?)`, tenant, tenant, sourceStates).Scan(&denied).Error
 	if err != nil {
 		return err
 	}
