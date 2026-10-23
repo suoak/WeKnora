@@ -12,7 +12,7 @@ func TestKnowledgeBaseCatalogKeepsRestrictedSourcesVisible(t *testing.T) {
 	db := setupKBTestDB(t)
 	require.NoError(t, db.Exec(`CREATE TABLE tenants(id INTEGER PRIMARY KEY,status TEXT,deleted_at DATETIME);
 CREATE TABLE data_sources(id TEXT,knowledge_base_id TEXT,type TEXT,legacy_access_state TEXT);
-CREATE TABLE feishu_legacy_resources(knowledge_base_id TEXT,state TEXT);
+CREATE TABLE feishu_legacy_resources(knowledge_base_id TEXT,state TEXT,knowledge_id TEXT);
 CREATE TABLE knowledges(id TEXT,knowledge_base_id TEXT,deleted_at DATETIME);
 INSERT INTO tenants(id,status) VALUES(1,'active'),(2,'active');`).Error)
 	for _, row := range []struct {
@@ -65,7 +65,14 @@ INSERT INTO tenants(id,status) VALUES(1,'active'),(2,'active');`).Error)
 		require.ErrorIs(t, err, types.ErrLegacySourceRestricted)
 		require.ErrorIs(t, types.CheckLegacyReadScope(guarded.WithContext(web)), types.ErrLegacySourceRestricted, "revocation after read is checked before output")
 		require.NoError(t, db.Exec(`UPDATE data_sources SET legacy_access_state='hold' WHERE id='held'`).Error)
-		require.NoError(t, db.Exec(`INSERT INTO feishu_legacy_resources VALUES('held','hold')`).Error)
+		require.NoError(t, db.Exec(`INSERT INTO feishu_legacy_resources VALUES('held','hold','not-yet-imported')`).Error)
+		_, err = r.GetKnowledgeBaseByID(web, "held")
+		require.NoError(t, err, "an unfinished import without stored content must not hide the workspace KB")
+		require.NoError(t, guarded.WithContext(web).First(&stored, "id=?", "doc").Error)
+		require.NoError(t, types.CheckLegacyReadScope(guarded.WithContext(web)))
+		_, err = r.GetKnowledgeBaseByID(ctx, "held")
+		require.ErrorIs(t, err, types.ErrLegacySourceRestricted, "strict external readers still deny uncertain imports")
+		require.NoError(t, db.Exec(`UPDATE feishu_legacy_resources SET knowledge_id='doc' WHERE knowledge_base_id='held'`).Error)
 		_, err = r.GetKnowledgeBaseByID(web, "held")
 		require.ErrorIs(t, err, types.ErrLegacySourceRestricted, "document quarantine is independent of source sync hold")
 	})

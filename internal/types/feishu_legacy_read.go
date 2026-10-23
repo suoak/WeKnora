@@ -93,8 +93,9 @@ func CheckLegacySourceRead(db *gorm.DB, knowledgeID, kbID string) error {
 	if WorkspaceWebReadTenant(db.Statement.Context) == valid.TenantID {
 		sourceStates = []string{"revoked"}
 	}
-	err := db.Raw(`SELECT EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE knowledge_base_id=? AND state IN ('hold','revoked'))
- OR EXISTS(SELECT 1 FROM data_sources WHERE knowledge_base_id=? AND legacy_access_state IN ?)`, kbID, kbID, sourceStates).Scan(&denied).Error
+	err := db.Raw(`SELECT EXISTS(SELECT 1 FROM feishu_legacy_resources lr WHERE knowledge_base_id=? AND state IN ('hold','revoked')
+ AND (?=0 OR EXISTS(SELECT 1 FROM knowledges existing_doc WHERE existing_doc.id=lr.knowledge_id AND existing_doc.deleted_at IS NULL)))
+ OR EXISTS(SELECT 1 FROM data_sources WHERE knowledge_base_id=? AND legacy_access_state IN ?)`, kbID, WorkspaceWebReadTenant(db.Statement.Context), kbID, sourceStates).Scan(&denied).Error
 	if err != nil {
 		return err
 	}
