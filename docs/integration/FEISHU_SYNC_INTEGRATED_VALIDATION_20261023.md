@@ -6,7 +6,7 @@ Integration order: PR #35 → #37 → #36, based on main `b64ab3b6b6dc4dde12adba
 
 - Selecting one Drive file previously traversed unrelated folders. Selected direct children now stop discovery at the matching page; existing nested selection compatibility remains.
 - Automatic shutdown registered safety cleanup before workers, so reverse cleanup stopped consumers first. Safety now drains before workers; normal departure fences execution and removes only its own incarnation. Unexpected loss remains latched.
-- Any source failure triggered global stop in two service layers. Source permission/parser/version failures retain normal task retry; gateway, Redis, control failure and unclassified panic remain global stops. Invalid Embedding results are stopped at the model boundary.
+- Any source failure triggered global stop in two service layers. Source permission/parser/version failures retain normal task retry; gateway, Redis, control failure and unclassified panic remain global stops. Invalid Embedding results are stopped at the model boundary. Isolated reproduction additionally confirmed that Feishu HTTP 400/401 must retain their typed source error, as 403/404 already do; Embedding 400/401 and Feishu 429/5xx continue to stop the shared gate.
 - Repeated trips overwrote the initial cause and filled the bounded audit stream. First cause is retained; duplicate trips still close permission. Diagnostics use fixed categories and omit credentials/content.
 - A first unpublished resource was enrolled as access `hold`, hiding already published siblings. Only first resources without historical public knowledge enroll as active; candidate content remains private until atomic publication. Existing hold/revoked/source quarantine and all read guards remain intact.
 - Cron-only edits re-encrypted unchanged credentials with a new AES-GCM nonce, which the configuration fence incorrectly treated as a source identity change. Semantically unchanged configuration now retains its existing stored bytes; actual resource/credential changes still quarantine.
@@ -22,7 +22,7 @@ The gateway rejected 20 synthetic inputs with HTTP 400 / InvalidParameter and ex
 
 Shared test budget: in-flight 1, RPS 1, RPM 30, conservative UTF-8 input bound TPM 30,000; Redis is authoritative across workers. Online queries remain outside the background guard.
 
-Observed results before final restart acceptance:
+Observed isolated acceptance results:
 
 - Flat first/incremental recovery: two public documents, 162 chunks and vectors; successful terminal status, no failed items.
 - Online vector retrieval returned both selected document identities.
@@ -31,7 +31,11 @@ Observed results before final restart acceptance:
 - Isolated pg_dump restore succeeded into a separate template0 database: all five checked table counts matched (documents, chunks, vectors, resources, attempts). The restored database has no APP/Worker attached.
 
 - Same-namespace real APP restart preserved identity summaries for all 6 documents, 542 chunks and 504 vectors; permission recovered without clearing a latch. The test error source executed successfully twice after restart; the explicit paused source stayed paused with zero executions.
-- Deployed provider-independent emergency CLI latched stop, removed outbound permission and paused sync; manual admission was rejected, in-flight was zero and online retrieval from an unaffected knowledge base still returned 5 matches. A cron-edit quarantine defect was found separately and is being validated on the follow-up candidate.
+- Deployed provider-independent emergency CLI latched stop, removed outbound permission and paused sync; manual admission was rejected, in-flight was zero and online retrieval from an unaffected knowledge base still returned 5 matches.
+- After the cron-edit fix was deployed, setting and clearing a cron through the actual API retained identical credential ciphertext and access state; retrieval returned 5 matches before and after both changes.
+- Actual frontend API proxy retrieval returned 5 matches. A separate test user without added membership received HTTP 403 when targeting the protected workspace.
+
+Candidate `cc311aa4b6f9a05bb91cc35188555d74b4c13e30` passed the complete integrated Redis/PostgreSQL/ParadeDB, race and full backend gate (run 39981804467), and APP image/Startup Smoke (run 39981898300). Portal full regression identified three old fixtures missing explicit safety dependencies; these fixtures now isolate their pure admission/scheduling assertions without changing production defaults. Linux deployed-builder verification of the service admission fixture passed. Follow-up source-error and held-schedule fixes require a new exact-candidate CI run before merge.
 
 ## Release sequence
 

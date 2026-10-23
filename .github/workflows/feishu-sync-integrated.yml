@@ -92,7 +92,7 @@ jobs:
       - name: Shared wire budgets and controller fault injection
         run: |
           set -o pipefail
-          go test -json ./internal/feishusafety ./internal/feishusynccontrol -count=3 -timeout=5m | tee evidence/safety-controller.jsonl
+          go test -json ./internal/feishusafety ./internal/feishusynccontrol ./internal/datasource/connector/feishu/core -count=3 -timeout=5m | tee evidence/safety-controller.jsonl
       - name: Real Asynq Redis PostgreSQL HTTP automatic stop chain
         run: |
           set -o pipefail
@@ -120,7 +120,7 @@ jobs:
           FEISHU_SYNC_SAFETY_ENABLED: "false"
         run: |
           set -o pipefail
-          go test -json -race -tags sqlite_fts5 ./internal/feishusafety ./internal/feishusynccontrol ./internal/models/embedding ./internal/models/runtime ./internal/datasource ./internal/application/repository ./internal/application/service ./internal/router -run 'Safety|Controller|ReleaseStop|P0|P1|TestFeishuLegacyAtomicPostgres$|TestFeishuLegacyRealParserEmbeddingPostgres$|TestSync(Execution|Service|Scheduler)(SQLite|Postgres)$' -count=1 -timeout=20m | tee evidence/combined-race.jsonl
+          go test -json -race -tags sqlite_fts5 ./internal/feishusafety ./internal/feishusynccontrol ./internal/models/embedding ./internal/models/runtime ./internal/datasource ./internal/datasource/connector/feishu/core ./internal/application/repository ./internal/application/service ./internal/router -run 'Safety|Controller|ReleaseStop|SourceHTTP400401|Source400401403404|GlobalHTTPReason|P0|P1|TestFeishuLegacyAtomicPostgres$|TestFeishuLegacyRealParserEmbeddingPostgres$|TestSync(Execution|Service|Scheduler)(SQLite|Postgres)$' -count=1 -timeout=20m | tee evidence/combined-race.jsonl
       - name: Full backend regression
         env:
           FEISHU_SYNC_SAFETY_ENABLED: "false"
