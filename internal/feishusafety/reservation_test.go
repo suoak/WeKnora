@@ -190,7 +190,8 @@ func TestGlobalHTTPReasonIdentifiesEndpointFamily(t *testing.T) {
 				"https://gateway.invalid/endpoint",
 				strings.NewReader(`{"input":["text"]}`),
 			)
-			_, err := (Transport{Base: sourceStatusTransport{status: tc.status}, Embedding: tc.embedding}).RoundTrip(request)
+			transport := Transport{Base: sourceStatusTransport{status: tc.status}, Embedding: tc.embedding}
+			_, err := transport.RoundTrip(request)
 			if err == nil {
 				t.Fatal("global HTTP failure unexpectedly succeeded")
 			}
