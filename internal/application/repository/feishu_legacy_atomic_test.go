@@ -132,6 +132,19 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 		require.Equal(t, "source_revision_content_conflict", diagnostic.Reason)
 		require.EqualValues(t, 1, visible("oldcanary"))
 	})
+	t.Run("P1-active-duplicate-preserves-live-owner", func(t *testing.T) {
+		candidateTime := time.Date(2026, 10, 21, 1, 1, 45, 0, time.UTC)
+		candidateHash := sha256.Sum256([]byte("live candidate"))
+		_, live, e := store.Begin(ctx, ds, &types.FetchedItem{ExternalID: "same-cloud-id", UpdatedAt: candidateTime}, hex.EncodeToString(candidateHash[:]))
+		require.NoError(t, e)
+		defer store.Abandon(ctx, live)
+		oldHash := sha256.Sum256([]byte("oldcanary"))
+		_, _, e = store.Begin(ctx, ds, &types.FetchedItem{ExternalID: "same-cloud-id", UpdatedAt: candidateTime.Add(5 * time.Second)}, hex.EncodeToString(oldHash[:]))
+		require.ErrorIs(t, e, ErrLegacyVersionBusy, "duplicate active bytes cannot overtake a live candidate")
+		var watermark string
+		require.NoError(t, db.Raw("SELECT source_revision FROM feishu_legacy_resources WHERE id=?", r.ID).Scan(&watermark).Error)
+		require.Equal(t, candidateTime.Format(time.RFC3339Nano), watermark)
+	})
 	t.Run("legacy-worker-mutations-denied", func(t *testing.T) {
 		for _, sql := range []string{"DELETE FROM embeddings WHERE knowledge_id=?", "UPDATE chunks SET content='stale' WHERE knowledge_id=?", "UPDATE knowledges SET title='stale' WHERE id=?"} {
 			require.Error(t, db.Exec(sql, kid).Error)

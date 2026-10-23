@@ -84,6 +84,11 @@ func TestFeishuParentAtomicPostgresP1(t *testing.T) {
 	}
 	before := snapshot()
 	_, next, candidate := begin("newparentcanary", 2)
+	_, _, err = store.Begin(ctx, ds, item(3), hash("oldparentcanary"))
+	require.ErrorIs(t, err, ErrLegacyVersionBusy, "active duplicate must not move watermark past a live unpublished candidate")
+	var watermark string
+	require.NoError(t, db.Raw("SELECT source_revision FROM feishu_legacy_resources WHERE id=?", r.ID).Scan(&watermark).Error)
+	require.Equal(t, item(2).UpdatedAt.Format(time.RFC3339Nano), watermark)
 	var wg sync.WaitGroup
 	errs := make(chan error, 8)
 	for i := 0; i < 8; i++ {

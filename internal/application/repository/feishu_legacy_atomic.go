@@ -236,6 +236,26 @@ func (s *FeishuLegacyStore) Begin(ctx context.Context, ds *types.DataSource, ite
 				}
 			}
 		}
+		// Even unchanged active bytes cannot advance the watermark while a
+		// different live candidate may still publish at an older revision.
+		if r.CurrentAttempt != "" {
+			var prior types.FeishuLegacyAttempt
+			if e = tx.First(&prior, "id=?", r.CurrentAttempt).Error; e != nil {
+				return e
+			}
+			if prior.Status == "staging" || prior.Status == "ready" {
+				var now time.Time
+				if e = tx.Raw("SELECT clock_timestamp()").Scan(&now).Error; e != nil {
+					return e
+				}
+				if prior.LeaseUntil.After(now) {
+					return ErrLegacyVersionBusy
+				}
+				if e = tx.Model(&prior).Update("status", "obsolete").Error; e != nil {
+					return e
+				}
+			}
+		}
 		if r.ActiveAttempt != "" {
 			var active types.FeishuLegacyAttempt
 			if e = tx.First(&active, "id=?", r.ActiveAttempt).Error; e != nil {
@@ -257,24 +277,7 @@ func (s *FeishuLegacyStore) Begin(ctx context.Context, ds *types.DataSource, ite
 				return nil
 			}
 		}
-		if r.CurrentAttempt != "" {
-			var prior types.FeishuLegacyAttempt
-			if e = tx.First(&prior, "id=?", r.CurrentAttempt).Error; e != nil {
-				return e
-			}
-			if prior.Status == "staging" || prior.Status == "ready" {
-				var now time.Time
-				if e = tx.Raw("SELECT clock_timestamp()").Scan(&now).Error; e != nil {
-					return e
-				}
-				if prior.LeaseUntil.After(now) {
-					return ErrLegacyVersionBusy
-				}
-				if e = tx.Model(&prior).Update("status", "obsolete").Error; e != nil {
-					return e
-				}
-			}
-		}
+
 		var old types.Knowledge
 		e = tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&old, "id=? AND tenant_id=?", r.KnowledgeID, r.TenantID).Error
 		if e != nil && !errors.Is(e, gorm.ErrRecordNotFound) {

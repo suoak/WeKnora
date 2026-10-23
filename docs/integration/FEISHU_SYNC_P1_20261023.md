@@ -29,6 +29,8 @@ No database migration is required. No user chunking or permission configuration 
 
 The revision fence binds the resource high-water timestamp to the current attempt hash when that attempt owns the high-water, otherwise to the active published hash after a duplicate-content timestamp advance. This protects both initial unpublished candidates and previously published documents. Exact-byte retry at a failed candidate's timestamp remains admissible after its owner lease is released; a changed hash at that timestamp remains ambiguous and is rejected. A later revision remains necessary to confirm changed source content. No document content or hash is logged.
 
+The related active-duplicate fast path must also respect a different live candidate. Previously it could advance the watermark past that candidate while the candidate still owned a valid publication lease. The existing live-candidate check now precedes duplicate reuse, leaving the watermark unchanged and returning Busy. The workflow reproduces this second missing fence against the accepted baseline in a separate fresh database, then runs both regressions against the fix.
+
 ## Version fence trigger inventory
 
 `feishu_legacy_atomic.go` now returns typed `LegacyFenceError` values while preserving `errors.Is(ErrLegacyVersionFence)`. `StageFeishuLegacyItem` emits `feishu_version_fence` with a stable reason, tenant/source/log IDs and execution generation only.

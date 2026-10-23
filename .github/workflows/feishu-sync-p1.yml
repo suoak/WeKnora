@@ -58,15 +58,18 @@ jobs:
         run: |
           cp internal/application/repository/feishu_legacy_atomic.go /tmp/p1-fixed-atomic.go
           git show 70c7d56765e1b1ca2a6e3d33c8d7047a15422c71:internal/application/repository/feishu_legacy_atomic.go > internal/application/repository/feishu_legacy_atomic.go
-          set +e
-          go test -tags sqlite_fts5 ./internal/application/repository -run '^TestFeishuLegacyAtomicPostgres$/P1-same-high-water-timestamp-change-rejected$' -count=1 -timeout=5m > p1-baseline-reproducer.log 2>&1
-          status=$?
-          set -e
+          : > p1-baseline-reproducer.log
+          for repro in P1-same-high-water-timestamp-change-rejected P1-active-duplicate-preserves-live-owner; do
+            set +e
+            go test -tags sqlite_fts5 ./internal/application/repository -run "^TestFeishuLegacyAtomicPostgres$/$repro$" -count=1 -timeout=5m > p1-current-reproducer.log 2>&1
+            status=$?
+            set -e
+            cat p1-current-reproducer.log | tee -a p1-baseline-reproducer.log
+            test "$status" -ne 0
+            grep -q "$repro" p1-current-reproducer.log
+            grep -q 'in chain but got nil' p1-current-reproducer.log
+          done
           cp /tmp/p1-fixed-atomic.go internal/application/repository/feishu_legacy_atomic.go
-          cat p1-baseline-reproducer.log
-          test "$status" -ne 0
-          grep -q 'P1-same-high-water-timestamp-change-rejected' p1-baseline-reproducer.log
-          grep -q 'in chain but got nil' p1-baseline-reproducer.log
           git diff --exit-code -- internal/application/repository/feishu_legacy_atomic.go
       - name: Version fences and real parent graph PostgreSQL and ParadeDB faults
         run: go test -tags sqlite_fts5 ./internal/application/repository -run 'TestLegacyParentGraphP1|TestFeishuParentAtomicPostgresP1|TestFeishuLegacyAtomicPostgres$' -count=1 -timeout=10m
