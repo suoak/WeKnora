@@ -14,6 +14,7 @@ type key struct{}
 // Stage is a fixed label; callers cannot put knowledge or credential data in it.
 type Stage uint8
 
+// Fixed stages describe work within a personal MCP request.
 const (
 	Auth Stage = iota
 	Resolve
