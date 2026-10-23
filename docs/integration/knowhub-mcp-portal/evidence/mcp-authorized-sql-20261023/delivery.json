@@ -1,0 +1,12 @@
+{
+  "source_sha256": "04c2b02b8a0ab35825f6b943288e970bec470ed8f585512882da68aaa0ff16c9",
+  "source_commit": "3479b97d461d0b3d5a0ac572c25c1f72941864e6",
+  "binary_sha256": "a563115976e498bc61a26ef34912fe6b823f1d3780b8d345f7d24cf7ca283021",
+  "image": "knowhub-mcp-authorized-sql/app:04c2b02b8a0ab358",
+  "build_config_id": "sha256:c3514813e4049beca4ace718a8b1f9f5a96cae5667f2d1f32128489e27ffe56d",
+  "image_archive_sha256": "d3ce05afe37ccc2702e7a9c2c307f5c3b040998590f799c0b6125a71d0167f26",
+  "image_archive_bytes": 2679485510,
+  "seconds": 276.68687918409705,
+  "exit_code": 0,
+  "includes_pr32": true
+}

@@ -1,0 +1,6 @@
+{
+  "exit_code": 0,
+  "seconds": 155.88411047309637,
+  "command": "set -e\ngo test -tags sqlite_fts5,anydoc -race -p 2 -count=1 ./internal/perftrace ./internal/router -run 'TestTrace|TestPersonal'\ngo vet -tags sqlite_fts5,anydoc -p 2 ./internal/perftrace ./internal/router\ngo build -mod=readonly -tags sqlite_fts5,anydoc -o /artifacts/WeKnora ./cmd/server\n",
+  "cleanup_exit": 0
+}

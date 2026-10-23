@@ -1,0 +1,21 @@
+{
+  "full_suite_source": "a11ac3bbdb748a26f736a76d6db89ddb5cbd0ef4c1cc3abf6c7d7681c67f4c88",
+  "final_source": "04c2b02b8a0ab35825f6b943288e970bec470ed8f585512882da68aaa0ff16c9",
+  "go_delta": [
+    "internal/perftrace/trace.go",
+    "internal/router/personal_performance_trace_test.go",
+    "internal/router/routes_personal_mcp.go"
+  ],
+  "full_quality": {
+    "exit_code": 0,
+    "seconds": 398.63964511081576,
+    "command": "set -e\ngo test -tags sqlite_fts5,anydoc -race -p 2 -count=1 ./internal/perftrace ./internal/application/access ./internal/application/repository/retriever/postgres ./internal/application/repository ./internal/middleware ./internal/mcpserver\ngo test -tags sqlite_fts5,anydoc -race -p 2 -count=1 ./internal/application/service -run 'TestPortal|TestValidateQueryEmbeddingDimension|Test.*LiveDocument|Test.*Dynamic|Test.*Personal'\ngo test -tags sqlite_fts5,anydoc -p 2 -count=1 ./internal/router -run Personal\ngo vet -tags sqlite_fts5,anydoc -p 2 ./internal/perftrace ./internal/application/access ./internal/application/repository/retriever/postgres ./internal/application/repository ./internal/middleware ./internal/mcpserver ./internal/application/service ./internal/router\ngo build -mod=readonly -tags sqlite_fts5,anydoc -o /artifacts/WeKnora ./cmd/server\n",
+    "cleanup_exit": 0
+  },
+  "delta_quality": {
+    "exit_code": 0,
+    "seconds": 155.88411047309637,
+    "command": "set -e\ngo test -tags sqlite_fts5,anydoc -race -p 2 -count=1 ./internal/perftrace ./internal/router -run 'TestTrace|TestPersonal'\ngo vet -tags sqlite_fts5,anydoc -p 2 ./internal/perftrace ./internal/router\ngo build -mod=readonly -tags sqlite_fts5,anydoc -o /artifacts/WeKnora ./cmd/server\n",
+    "cleanup_exit": 0
+  }
+}

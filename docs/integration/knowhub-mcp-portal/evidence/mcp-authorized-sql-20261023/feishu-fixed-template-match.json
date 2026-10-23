@@ -1,0 +1,14 @@
+[
+  {
+    "file": "internal\\application\\service\\datasource_ingest_error.go",
+    "line": 34,
+    "fixed_error_template": "Item admission failed; checkpoint retained",
+    "error_sha256": "9df3a31279c6eb5b51d41379fe52a02df499c59ea6b30795b5be8f15e16a73c2"
+  },
+  {
+    "file": "internal\\application\\service\\datasource_ingest_error.go",
+    "line": 50,
+    "fixed_error_template": "Item admission failed; retrying from accepted checkpoint",
+    "error_sha256": "5a0a7a8a2146c88ee047fdb33f6833fb404ab0717cd9b0088373200c2e7fe991"
+  }
+]

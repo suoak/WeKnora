@@ -1,0 +1,76 @@
+{
+  "principal": "test",
+  "key_name": "test01",
+  "scope_modified": false,
+  "requests": [
+    {
+      "id": 1,
+      "method": "initialize",
+      "HTTP": 200,
+      "seconds": 23.117896211333573,
+      "perf_id": null,
+      "started_epoch": 1792739151.3500044
+    },
+    {
+      "id": 2,
+      "method": "tools/list",
+      "HTTP": 200,
+      "seconds": 0.5537128476426005,
+      "perf_id": null,
+      "started_epoch": 1792739174.4679236
+    },
+    {
+      "id": 3,
+      "method": "tools/call",
+      "HTTP": 200,
+      "seconds": 8.857361685484648,
+      "perf_id": null,
+      "started_epoch": 1792739175.021694
+    },
+    {
+      "id": 4,
+      "method": "tools/call",
+      "HTTP": 200,
+      "seconds": 13.581259828992188,
+      "perf_id": null,
+      "started_epoch": 1792739188.8796265
+    },
+    {
+      "id": 5,
+      "method": "tools/call",
+      "HTTP": 200,
+      "seconds": 16.887235035188496,
+      "perf_id": null,
+      "started_epoch": 1792739207.4613595
+    }
+  ],
+  "tests": [],
+  "tool_count": 8,
+  "samples": [
+    {
+      "mode": "keyword",
+      "seconds": 8.857527337037027,
+      "hits": 3,
+      "ordered_resource_score_fingerprint": "cde32161d39567b136e24053edfc632201d70ec84333d19137bcc036fd3211b5",
+      "result_status": "complete",
+      "perf_id": null
+    },
+    {
+      "mode": "semantic",
+      "seconds": 13.581406832672656,
+      "hits": 3,
+      "ordered_resource_score_fingerprint": "db59b53b33491477201bfb23bb51ac327794ae87691b57829717fd7d2b2db57e",
+      "result_status": "complete",
+      "perf_id": null
+    },
+    {
+      "mode": "hybrid",
+      "seconds": 16.887391443364322,
+      "hits": 3,
+      "ordered_resource_score_fingerprint": "f6f645736a5dcbb233270f54fb8b5f54bde8499446114bf1714461a76f353044",
+      "result_status": "complete",
+      "perf_id": null
+    }
+  ],
+  "exit_code": 0
+}
