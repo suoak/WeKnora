@@ -24,10 +24,11 @@ import (
 	gormlog "gorm.io/gorm/logger"
 )
 
-var (
-	ErrLegacyVersionFence = errors.New("Feishu source version ownership lost or unconfirmed")
-	ErrLegacyVersionBusy  = errors.New("Feishu source version already being prepared")
-)
+// ErrLegacyVersionFence means source ownership or publication integrity was not confirmed.
+var ErrLegacyVersionFence = errors.New("Feishu source version ownership lost or unconfirmed")
+
+// ErrLegacyVersionBusy indicates that another candidate still owns a live lease.
+var ErrLegacyVersionBusy = errors.New("Feishu source version already being prepared")
 
 func legacySourceKind(kind string) bool {
 	return kind == "feishu" || kind == "feishu_drive" || kind == "lark" || kind == "lark_drive"
@@ -136,13 +137,14 @@ func (s *FeishuLegacyStore) StorageStamp(ctx context.Context, tenant uint64, id 
 	return stamp, err
 }
 
+// CheckOwner verifies the execution claim and candidate generation/lease.
 func (s *FeishuLegacyStore) CheckOwner(
 	ctx context.Context,
 	ds *types.DataSource,
 	owner *types.FeishuLegacyAttempt,
 ) error {
 	return s.db.WithContext(ctx).
-		Transaction(func(tx *gorm.DB) error { _, _, err := s.owned(tx, ctx, ds, owner); return err })
+		Transaction(func(tx *gorm.DB) error { _, _, err := s.owned(ctx, tx, ds, owner); return err })
 }
 
 // Lock ordering matches sync execution: datasource, synclog, resource, knowledge.
@@ -181,6 +183,7 @@ func (s *FeishuLegacyStore) execution(tx *gorm.DB, ctx context.Context, ds *type
 	return err
 }
 
+// Begin claims a private candidate after checking the source revision watermark.
 func (s *FeishuLegacyStore) Begin(
 	ctx context.Context,
 	ds *types.DataSource,
@@ -376,8 +379,8 @@ func (s *FeishuLegacyStore) Begin(
 }
 
 func (s *FeishuLegacyStore) owned(
-	tx *gorm.DB,
 	ctx context.Context,
+	tx *gorm.DB,
 	ds *types.DataSource,
 	owner *types.FeishuLegacyAttempt,
 ) (*types.FeishuLegacyResource, *types.FeishuLegacyAttempt, error) {
@@ -431,6 +434,7 @@ func (s *FeishuLegacyStore) owned(
 	return &r, &a, nil
 }
 
+// Prepare persists a complete version manifest and child-only index candidates.
 func (s *FeishuLegacyStore) Prepare(
 	ctx context.Context,
 	ds *types.DataSource,
@@ -454,7 +458,7 @@ func (s *FeishuLegacyStore) Prepare(
 	}
 	m.SHA256 = h
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		r, a, e := s.owned(tx, ctx, ds, owner)
+		r, a, e := s.owned(ctx, tx, ds, owner)
 		if e != nil {
 			return e
 		}
@@ -522,7 +526,7 @@ func (s *FeishuLegacyStore) Publish(
 ) (*types.FeishuLegacyReceipt, error) {
 	var receipt types.FeishuLegacyReceipt
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		r, a, e := s.owned(tx, ctx, ds, owner)
+		r, a, e := s.owned(ctx, tx, ds, owner)
 		if e != nil {
 			return e
 		}
@@ -536,7 +540,7 @@ func (s *FeishuLegacyStore) Publish(
 		h, e := LegacyManifestHash(m)
 		if e != nil || h != m.SHA256 {
 			return fmt.Errorf(
-				"Feishu candidate manifest integrity mismatch: %w",
+				"feishu candidate manifest integrity mismatch: %w",
 				legacyFence("manifest_integrity_mismatch"),
 			)
 		}
@@ -551,7 +555,7 @@ func (s *FeishuLegacyStore) Publish(
 			kb.VectorStoreID != nil ||
 			kb.Type != types.KnowledgeBaseTypeDocument {
 			return fmt.Errorf(
-				"Feishu KB configuration or model binding changed: %w",
+				"feishu KB configuration or model binding changed: %w",
 				legacyFence("kb_configuration_changed"),
 			)
 		}
@@ -731,7 +735,8 @@ func (s *FeishuLegacyStore) Publish(
 		}
 		if e = tx.Exec(`INSERT INTO embeddings(source_id,source_type,chunk_id,knowledge_id,knowledge_base_id,
 content,dimension,embedding,is_enabled)
- SELECT chunk_id,?,chunk_id,?,?,content,dimension,embedding,true FROM feishu_legacy_index_candidates WHERE attempt_id=?`,
+ SELECT chunk_id,?,chunk_id,?,?,content,dimension,embedding,true
+ FROM feishu_legacy_index_candidates WHERE attempt_id=?`,
 			int(types.ChunkSourceType), r.KnowledgeID, r.KnowledgeBaseID, a.ID,
 		).Error; e != nil {
 			return e
