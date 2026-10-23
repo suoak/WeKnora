@@ -39,6 +39,8 @@
 
 首轮 PR 增量 lint 发现 53 项：41 个长行、3 个 gofumpt、3 个导出注释、6 个测试 Close 返回值。已按仓库规则修正本 PR 引入的问题，没有放宽 lint 配置或处理无关历史积压；SQL 快照查询仅提取相同字符串常量，测试关闭资源增加错误断言。最终新 SHA 必须重新完成全部验收，首轮中间通过不能代替。
 
+第二轮 lint 已通过，但测试清理断言暴露出共享连接契约：Asynq 的 NewClientFromRedisClient / NewInspectorFromRedisClient 不拥有 Redis 连接，Close 会明确拒绝。测试只由 `rc` 所有者关闭连接并校验返回值，移除无效 wrapper Close；不改变生产代码的连接或生命周期。这项修正也重新进行最终 SHA 全套验证。
+
 P0 push CI 测试确切 HEAD。通用 PR 工作流默认检出 GitHub 临时 merge ref；在 main 是候选祖先且 base 未变化时，合并树应与候选树一致。两种身份分别记录，不把 PR merge SHA 说成提交 SHA。合并前若 base 或 head 变化，必须重新核验并触发新候选测试。本 PR 显式跳过 App 的 server 发布二进制及镜像 smoke 构建，不发布任何包或镜像；合并后的正式镜像/startup smoke 是后续另行授权发布前的必要门禁。
 
 ## 恢复请求量、并发与网关风险

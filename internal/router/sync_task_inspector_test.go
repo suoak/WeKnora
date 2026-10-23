@@ -24,10 +24,9 @@ func TestSyncLiveQueueProbeP0(t *testing.T) {
 	srv := miniredis.RunT(t)
 	rc := redis.NewClient(&redis.Options{Addr: srv.Addr()})
 	defer func() { require.NoError(t, rc.Close()) }()
+	// Shared-connection wrappers own no connection; only rc may close it.
 	inspector := &asynqTaskInspector{inspector: asynq.NewInspectorFromRedisClient(rc), redis: rc}
-	defer func() { require.NoError(t, inspector.inspector.Close()) }()
 	client := asynq.NewClientFromRedisClient(rc)
-	defer func() { require.NoError(t, client.Close()) }()
 	ctx := context.Background()
 	live, err := inspector.LiveSyncTasks(ctx)
 	require.NoError(t, err)
@@ -75,10 +74,9 @@ func archivedSyncDatabaseRecoveryP0(t *testing.T, dialect string) {
 	}
 	rc := redis.NewClient(&redis.Options{Addr: addr})
 	defer func() { require.NoError(t, rc.Close()) }()
+	// Both Asynq wrappers borrow rc; closing them would reject shared ownership.
 	probe := &asynqTaskInspector{inspector: asynq.NewInspectorFromRedisClient(rc), redis: rc}
-	defer func() { require.NoError(t, probe.inspector.Close()) }()
 	client := asynq.NewClientFromRedisClient(rc)
-	defer func() { require.NoError(t, client.Close()) }()
 	ds := &types.DataSource{
 		ID:       uuid.NewString(),
 		TenantID: 1,
