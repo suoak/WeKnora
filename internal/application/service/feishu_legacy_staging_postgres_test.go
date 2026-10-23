@@ -150,7 +150,7 @@ func TestFeishuLegacyRealParserEmbeddingPostgres(t *testing.T) {
 			ctx = context.WithValue(ctx, types.TenantIDContextKey, tenant.ID)
 			item := &types.FetchedItem{ExternalID: "stable-source", FileName: "source.md", Title: "synthetic source", Content: []byte("# Normal knowledge\n\noldparsercanary normal content."), UpdatedAt: time.Date(2026, 10, 21, 2, sourceIndex, 0, 0, time.UTC)}
 			if scenario.parent {
-				item.Content = []byte(strings.Repeat("oldparsercanary normal content. ", 300))
+				item.Content = []byte(strings.Repeat("oldparsercanary normal content.\n\n", 300))
 			}
 			first, e := ks.StageFeishuLegacyItem(ctx, ds, item, nil)
 			require.NoError(t, e)
@@ -160,7 +160,7 @@ func TestFeishuLegacyRealParserEmbeddingPostgres(t *testing.T) {
 			require.NoError(t, db.Model(&types.Knowledge{}).Select("file_path").Where("id=?", first.KnowledgeID).Scan(&oldPath).Error)
 			item.Content = []byte("# Normal knowledge\n\nnewparsercanary updated content.")
 			if scenario.parent {
-				item.Content = []byte(strings.Repeat("newparsercanary updated content. ", 300))
+				item.Content = []byte(strings.Repeat("newparsercanary updated content.\n\n", 300))
 			}
 			item.UpdatedAt = item.UpdatedAt.Add(time.Minute)
 			second, e := ks.StageFeishuLegacyItem(ctx, ds, item, nil)
@@ -170,7 +170,7 @@ func TestFeishuLegacyRealParserEmbeddingPostgres(t *testing.T) {
 			if scenario.parent {
 				require.Greater(t, second.Chunks, second.Vectors)
 				var invalid, parentVectors int64
-				require.NoError(t, db.Raw("SELECT count(*) FROM chunks c LEFT JOIN chunks p ON p.id=c.parent_chunk_id WHERE c.knowledge_id=? AND c.deleted_at IS NULL AND c.chunk_type='text' AND (p.id IS NULL OR p.deleted_at IS NOT NULL OR p.chunk_type<>'parent_text' OR p.knowledge_id<>c.knowledge_id)", first.KnowledgeID).Scan(&invalid).Error)
+				require.NoError(t, db.Raw("SELECT count(*) FROM chunks c LEFT JOIN chunks p ON p.id=c.parent_chunk_id WHERE c.knowledge_id=? AND c.deleted_at IS NULL AND c.chunk_type='text' AND c.parent_chunk_id<>'' AND (p.id IS NULL OR p.deleted_at IS NOT NULL OR p.chunk_type<>'parent_text' OR p.knowledge_id<>c.knowledge_id)", first.KnowledgeID).Scan(&invalid).Error)
 				require.Zero(t, invalid)
 				require.NoError(t, db.Raw("SELECT count(*) FROM chunks WHERE knowledge_id=? AND deleted_at IS NULL AND chunk_type='text' AND (pre_chunk_id<>'' OR next_chunk_id<>'')", first.KnowledgeID).Scan(&invalid).Error)
 				require.Zero(t, invalid, "parent-child children must retain ordinary ingestion adjacency semantics")
@@ -201,6 +201,9 @@ func TestFeishuLegacyRealParserEmbeddingPostgres(t *testing.T) {
 			// More than 20 default-sized chunks force a successful first batch
 			// followed by an injected second-batch failure, before publication.
 			item.Content = []byte(strings.Repeat("mustnotpublish embedding failure content. ", 10000))
+			if scenario.parent {
+				item.Content = []byte(strings.Repeat("mustnotpublish embedding failure content.\n\n", 10000))
+			}
 			item.UpdatedAt = item.UpdatedAt.Add(time.Minute)
 			failureCalls.Store(0)
 			fail.Store(true)
