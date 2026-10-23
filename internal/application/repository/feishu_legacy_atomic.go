@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"path"
 	"sort"
 	"strings"
 	"time"
@@ -190,8 +191,27 @@ func (s *FeishuLegacyStore) Begin(
 	item *types.FetchedItem,
 	sourceHash string,
 ) (r *types.FeishuLegacyResource, a *types.FeishuLegacyAttempt, err error) {
+	return s.BeginWithSourceIdentity(ctx, ds, item, sourceHash, nil, nil)
+}
+
+// BeginWithSourceIdentity preserves raw hashes while admitting proven canonical package equivalence.
+func (s *FeishuLegacyStore) BeginWithSourceIdentity(
+	ctx context.Context, ds *types.DataSource, item *types.FetchedItem, sourceHash string,
+	identity *types.FeishuLegacySourceIdentity, proof *LegacySourceIdentityProof,
+) (r *types.FeishuLegacyResource, a *types.FeishuLegacyAttempt, err error) {
 	if item.ExternalID == "" || item.UpdatedAt.IsZero() || len(sourceHash) != 64 {
 		return nil, nil, legacyFence("invalid_source_revision")
+	}
+	if !legacyIdentityValid(identity) {
+		return nil, nil, legacyFence("source_identity_algorithm_unconfirmed")
+	}
+	if identity != nil && (item.Metadata["obj_type"] != "docx" || item.Metadata["attachment"] == "true" ||
+		!strings.EqualFold(path.Ext(item.FileName), ".docx")) {
+		return nil, nil, legacyFence("source_identity_path_unconfirmed")
+	}
+	if identity != nil {
+		copyIdentity := *identity
+		identity = &copyIdentity
 	}
 	r = &types.FeishuLegacyResource{}
 	a = &types.FeishuLegacyAttempt{}
@@ -200,8 +220,8 @@ func (s *FeishuLegacyStore) Begin(
 			return e
 		}
 		id := legacyResourceID(ds, item.ExternalID)
-		identity := fmt.Sprintf("%d:%s:%s:%s", ds.TenantID, ds.KnowledgeBaseID, ds.ID, item.ExternalID)
-		if e := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", identity).Error; e != nil {
+		lockIdentity := fmt.Sprintf("%d:%s:%s:%s", ds.TenantID, ds.KnowledgeBaseID, ds.ID, item.ExternalID)
+		if e := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", lockIdentity).Error; e != nil {
 			return e
 		}
 		// Enrollment is serialized with identity lookup and never allocates a
@@ -269,6 +289,7 @@ func (s *FeishuLegacyStore) Begin(
 			highWater, _ := time.Parse(time.RFC3339Nano, r.SourceRevision)
 			if item.UpdatedAt.Equal(highWater) {
 				expectedHash := ""
+				var expectedAttempt *types.FeishuLegacyAttempt
 				if r.CurrentAttempt != "" {
 					var observed types.FeishuLegacyAttempt
 					if e = tx.First(&observed, "id=?", r.CurrentAttempt).Error; e != nil {
@@ -289,6 +310,7 @@ func (s *FeishuLegacyStore) Begin(
 					// Revalidation must still match the active content watermark.
 					if observedTime.Equal(highWater) && !withdrawal {
 						expectedHash = observed.SourceHash
+						expectedAttempt = &observed
 					}
 				}
 				// Duplicate active bytes may advance only SourceRevision; a
@@ -299,12 +321,25 @@ func (s *FeishuLegacyStore) Begin(
 						return e
 					}
 					expectedHash = active.SourceHash
+					expectedAttempt = &active
 				}
 				if expectedHash == "" {
 					return legacyFence("source_revision_hash_unconfirmed")
 				}
 				if expectedHash != sourceHash {
-					return legacyFence("source_revision_content_conflict")
+					matched, matchErr := legacyAttemptSourceMatches(tx, r, expectedAttempt, sourceHash, identity, proof)
+					if matchErr != nil {
+						return matchErr
+					}
+					if !matched {
+						if identity != nil && proof == nil {
+							var priorManifest types.FeishuLegacyManifest
+							if json.Unmarshal(expectedAttempt.Manifest, &priorManifest) == nil && priorManifest.SourceIdentity == nil {
+								return legacyFence("source_identity_legacy_proof_required")
+							}
+						}
+						return legacyFence("source_revision_content_conflict")
+					}
 				}
 			}
 		}
@@ -340,7 +375,11 @@ func (s *FeishuLegacyStore) Begin(
 			if item.UpdatedAt.Before(previous) {
 				return legacyFence("source_revision_regressed")
 			}
-			if active.SourceHash == sourceHash && r.State == "active" {
+			matched, matchErr := legacyAttemptSourceMatches(tx, r, &active, sourceHash, identity, proof)
+			if matchErr != nil {
+				return matchErr
+			}
+			if matched && r.State == "active" {
 				r.SourceRevision = item.UpdatedAt.UTC().Format(time.RFC3339Nano)
 				if e = tx.Model(r).Update("source_revision", r.SourceRevision).Error; e != nil {
 					return e
@@ -361,6 +400,17 @@ func (s *FeishuLegacyStore) Begin(
 		r.SourceRevision = item.UpdatedAt.UTC().Format(time.RFC3339Nano)
 		r.CurrentAttempt = uuid.NewString()
 		r.UpdatedAt = time.Now().UTC()
+		initial := types.FeishuLegacyManifest{SourceIdentity: identity}
+		if identity != nil {
+			initial.SHA256, e = LegacyManifestHash(initial)
+			if e != nil {
+				return e
+			}
+		}
+		initialManifest, e := json.Marshal(initial)
+		if e != nil {
+			return e
+		}
 		*a = types.FeishuLegacyAttempt{
 			ID:           r.CurrentAttempt,
 			ResourceID:   r.ID,
@@ -370,7 +420,7 @@ func (s *FeishuLegacyStore) Begin(
 			Revision:     item.UpdatedAt.UTC().Format(time.RFC3339Nano),
 			SourceHash:   sourceHash,
 			ExpectedHash: old.FileHash,
-			Manifest:     json.RawMessage(`{}`),
+			Manifest:     initialManifest,
 			Receipt:      json.RawMessage(`{}`),
 		}
 		if e = tx.Raw("SELECT clock_timestamp() + interval '20 minutes'").Scan(&a.LeaseUntil).Error; e != nil {
@@ -458,11 +508,6 @@ func (s *FeishuLegacyStore) Prepare(
 	if len(indexed) != len(vectors) {
 		return legacyFence("vector_count_mismatch")
 	}
-	h, err := LegacyManifestHash(m)
-	if err != nil {
-		return err
-	}
-	m.SHA256 = h
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		r, a, e := s.owned(ctx, tx, ds, owner)
 		if e != nil {
@@ -471,6 +516,25 @@ func (s *FeishuLegacyStore) Prepare(
 		if a.Status != "staging" {
 			return legacyFence("attempt_not_staging")
 		}
+		var initial types.FeishuLegacyManifest
+		if e = json.Unmarshal(a.Manifest, &initial); e != nil {
+			return e
+		}
+		if initial.SourceIdentity != nil {
+			hash, hashErr := LegacyManifestHash(initial)
+			if hashErr != nil || hash != initial.SHA256 {
+				return legacyFence("source_identity_manifest_unconfirmed")
+			}
+		}
+		if m.SourceIdentity != nil && !legacyIdentityEqual(m.SourceIdentity, initial.SourceIdentity) {
+			return legacyFence("source_identity_manifest_changed")
+		}
+		m.SourceIdentity = initial.SourceIdentity
+		h, e := LegacyManifestHash(m)
+		if e != nil {
+			return e
+		}
+		m.SHA256 = h
 		if m.Knowledge.ID != r.KnowledgeID || m.Knowledge.TenantID != r.TenantID ||
 			m.Knowledge.KnowledgeBaseID != r.KnowledgeBaseID {
 			return legacyFence("manifest_document_mismatch")

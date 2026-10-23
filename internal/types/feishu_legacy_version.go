@@ -46,16 +46,23 @@ func (FeishuLegacyAttempt) TableName() string { return "feishu_legacy_attempts" 
 
 // Payloads live exclusively in private tables until a single PostgreSQL commit.
 type FeishuLegacyManifest struct {
-	Knowledge        Knowledge         `json:"knowledge"`
-	Chunks           []*Chunk          `json:"chunks"`
-	ChunkHeaders     map[string]string `json:"chunk_headers"`
-	EmbeddingModelID string            `json:"embedding_model_id"`
-	KBConfigSHA256   string            `json:"kb_config_sha256"`
-	ModelStamp       string            `json:"model_stamp"`
-	StorageBackendID string            `json:"storage_backend_id,omitempty"`
-	StorageStamp     string            `json:"storage_stamp,omitempty"`
-	Dimension        int               `json:"dimension"`
-	SHA256           string            `json:"sha256"`
+	SourceIdentity   *FeishuLegacySourceIdentity `json:"source_identity,omitempty"`
+	Knowledge        Knowledge                   `json:"knowledge"`
+	Chunks           []*Chunk                    `json:"chunks"`
+	ChunkHeaders     map[string]string           `json:"chunk_headers"`
+	EmbeddingModelID string                      `json:"embedding_model_id"`
+	KBConfigSHA256   string                      `json:"kb_config_sha256"`
+	ModelStamp       string                      `json:"model_stamp"`
+	StorageBackendID string                      `json:"storage_backend_id,omitempty"`
+	StorageStamp     string                      `json:"storage_stamp,omitempty"`
+	Dimension        int                         `json:"dimension"`
+	SHA256           string                      `json:"sha256"`
+}
+
+// FeishuLegacySourceIdentity binds a versioned canonical package digest to its source name and title.
+type FeishuLegacySourceIdentity struct {
+	Algorithm string `json:"algorithm"`
+	Digest    string `json:"digest"`
 }
 type FeishuLegacyReceipt struct {
 	Created        bool      `json:"created"`

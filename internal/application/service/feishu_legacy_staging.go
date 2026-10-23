@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"os"
@@ -176,12 +174,7 @@ func (s *knowledgeService) StageFeishuLegacyItem(
 	// Root traversal location is not document content. A move between roots
 	// already authorized by this same datasource must not force re-embedding.
 	// Datasource configuration and the source-owned identity stay fenced.
-	sourceBytes, err := json.Marshal([]any{item.Content, item.FileName, item.Title})
-	if err != nil {
-		return nil, err
-	}
-	h := sha256.Sum256(sourceBytes)
-	resource, attempt, err := store.Begin(ctx, ds, item, hex.EncodeToString(h[:]))
+	resource, attempt, err := s.beginLegacySourceIdentity(ctx, kb, store, ds, item)
 	if err != nil {
 		return nil, err
 	}
