@@ -65,6 +65,8 @@ type FeishuLegacyReceipt struct {
 	KnowledgeID    string    `json:"knowledge_id"`
 	ManifestSHA256 string    `json:"manifest_sha256"`
 	Chunks         int64     `json:"chunks"`
+	ParentChunks   int64     `json:"parent_chunks,omitempty"`
+	IndexedChunks  int64     `json:"indexed_chunks,omitempty"`
 	Vectors        int64     `json:"vectors"`
 	BM25Rows       int64     `json:"bm25_rows"`
 	Dimension      int       `json:"dimension"`
@@ -75,20 +77,26 @@ type LegacyReceiptSet struct {
 	mu       sync.Mutex
 	receipts map[string]FeishuLegacyReceipt
 }
-type legacyReceiptContextKey struct{}
-type legacyReconciliationContextKey struct{}
+type (
+	legacyReceiptContextKey        struct{}
+	legacyReconciliationContextKey struct{}
+)
 
 func WithLegacyFullReconciliation(ctx context.Context) context.Context {
 	return context.WithValue(ctx, legacyReconciliationContextKey{}, true)
 }
+
 func LegacyFullReconciliation(ctx context.Context) bool {
 	confirmed, _ := ctx.Value(legacyReconciliationContextKey{}).(bool)
 	return confirmed
 }
 
 func WithLegacyReceiptSet(ctx context.Context) context.Context {
-	return context.WithValue(ctx, legacyReceiptContextKey{}, &LegacyReceiptSet{receipts: map[string]FeishuLegacyReceipt{}})
+	return context.WithValue(ctx, legacyReceiptContextKey{}, &LegacyReceiptSet{
+		receipts: map[string]FeishuLegacyReceipt{},
+	})
 }
+
 func AddLegacyReceipt(ctx context.Context, r FeishuLegacyReceipt) {
 	if s, ok := ctx.Value(legacyReceiptContextKey{}).(*LegacyReceiptSet); ok {
 		s.mu.Lock()
@@ -96,6 +104,7 @@ func AddLegacyReceipt(ctx context.Context, r FeishuLegacyReceipt) {
 		s.receipts[r.ResourceID] = r
 	}
 }
+
 func LegacyReceipts(ctx context.Context) []FeishuLegacyReceipt {
 	s, ok := ctx.Value(legacyReceiptContextKey{}).(*LegacyReceiptSet)
 	if !ok {

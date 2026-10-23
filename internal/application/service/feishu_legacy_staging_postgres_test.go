@@ -238,6 +238,19 @@ func TestFeishuLegacyRealParserEmbeddingPostgres(t *testing.T) {
 			require.NoError(t, e)
 			require.Equal(t, first.KnowledgeID, second.KnowledgeID)
 			require.False(t, second.Created)
+			// Exercise the datasource adapter on a genuinely changed version,
+			// not only the direct staging writer or its duplicate fast path.
+			ingest := &DataSourceService{knowledgeService: ks}
+			item.UpdatedAt = item.UpdatedAt.Add(time.Minute)
+			item.Content = append(item.Content, []byte("\n\nconfirmed datasource receipt update")...)
+			updated, e := ingest.ingestItem(ctx, ds, item, nil)
+			require.NoError(t, e, "published parent context must pass durable receipt admission")
+			require.True(t, updated)
+			receipts := types.LegacyReceipts(ctx)
+			require.NotEmpty(t, receipts)
+			require.Equal(t, receipts[0].Chunks, receipts[0].ParentChunks+receipts[0].IndexedChunks)
+			require.Equal(t, receipts[0].IndexedChunks, receipts[0].Vectors)
+			require.Equal(t, receipts[0].IndexedChunks, receipts[0].BM25Rows)
 			if scenario.parent {
 				require.Greater(t, second.Chunks, second.Vectors)
 				var invalid, parentVectors int64

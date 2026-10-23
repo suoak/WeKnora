@@ -1550,7 +1550,7 @@ func (s *DataSourceService) ingestItem(
 			}
 			return false, err
 		}
-		if receipt == nil || receipt.KnowledgeID == "" || receipt.Chunks < 1 || receipt.Vectors != receipt.Chunks || receipt.BM25Rows != receipt.Chunks {
+		if !legacyReceiptConfirmed(receipt) {
 			return false, ErrFeishuDispatchUnconfirmed
 		}
 		types.AddLegacyReceipt(ctx, *receipt)

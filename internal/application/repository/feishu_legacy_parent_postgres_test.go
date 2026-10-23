@@ -148,8 +148,40 @@ func TestFeishuParentAtomicPostgresP1(t *testing.T) {
 	require.EqualValues(t, 3, receipt.Chunks)
 	require.EqualValues(t, 2, receipt.Vectors)
 	require.EqualValues(t, 2, receipt.BM25Rows)
+	require.EqualValues(t, 1, receipt.ParentChunks)
+	require.EqualValues(t, 2, receipt.IndexedChunks)
 	_, err = store.Receipt(ctx, r, a)
 	require.NoError(t, err)
+	t.Run("historical-parent-receipt-is-revalidated-against-complete-live-graph", func(t *testing.T) {
+		saved := *receipt
+		old := saved
+		old.IndexedChunks, old.ParentChunks = 0, 0
+		raw, e := json.Marshal(old)
+		require.NoError(t, e)
+		require.NoError(
+			t,
+			db.Model(&types.FeishuLegacyAttempt{}).Where("id=?", a.ID).UpdateColumn("receipt", raw).Error,
+		)
+		recovered, e := store.Receipt(ctx, r, a)
+		require.NoError(t, e)
+		require.EqualValues(t, 1, recovered.ParentChunks)
+		require.EqualValues(t, 2, recovered.IndexedChunks)
+		old.Vectors--
+		raw, e = json.Marshal(old)
+		require.NoError(t, e)
+		require.NoError(
+			t,
+			db.Model(&types.FeishuLegacyAttempt{}).Where("id=?", a.ID).UpdateColumn("receipt", raw).Error,
+		)
+		_, e = store.Receipt(ctx, r, a)
+		require.ErrorIs(t, e, ErrLegacyVersionFence, "partial indexed receipt remains refused")
+		raw, e = json.Marshal(saved)
+		require.NoError(t, e)
+		require.NoError(
+			t,
+			db.Model(&types.FeishuLegacyAttempt{}).Where("id=?", a.ID).UpdateColumn("receipt", raw).Error,
+		)
+	})
 	t.Run("first-private-sibling-never-hides-published-knowledge", func(t *testing.T) {
 		// Reproduce the real-APP failure: a second, wholly new document is
 		// admitted while the first already has public parents/children/indexes.

@@ -774,6 +774,8 @@ content,dimension,embedding,is_enabled)
 			KnowledgeID:    r.KnowledgeID,
 			ManifestSHA256: m.SHA256,
 			Chunks:         n,
+			ParentChunks:   n - int64(len(indexed)),
+			IndexedChunks:  int64(len(indexed)),
 			Vectors:        vectors,
 			BM25Rows:       vectors,
 			Dimension:      m.Dimension,
@@ -822,12 +824,50 @@ func (s *FeishuLegacyStore) Receipt(
 		if out.KnowledgeID != r.KnowledgeID || out.AttemptID != a.ID {
 			return legacyFence("receipt_identity_mismatch")
 		}
-		var chunks, vectors int64
-		if e := tx.Model(&types.Chunk{}).Where("tenant_id=? AND knowledge_id=?",
-			r.TenantID,
-			r.KnowledgeID).Count(&chunks).Error; e != nil {
+		var manifest types.FeishuLegacyManifest
+		if e := json.Unmarshal(current.Manifest, &manifest); e != nil {
 			return e
 		}
+		manifestHash, e := LegacyManifestHash(manifest)
+		if e != nil || manifestHash != manifest.SHA256 || manifestHash != out.ManifestSHA256 {
+			return legacyFence("receipt_manifest_mismatch")
+		}
+		indexed, e := legacyIndexedChunks(manifest.Chunks)
+		if e != nil {
+			return e
+		}
+		var public []*types.Chunk
+		if e := tx.Where("tenant_id=? AND knowledge_id=?", r.TenantID, r.KnowledgeID).Find(&public).Error; e != nil {
+			return e
+		}
+		publicIndexed, e := legacyIndexedChunks(public)
+		if e != nil {
+			return e
+		}
+		chunks := int64(len(public))
+		indexedCount := int64(len(indexed))
+		parents := int64(len(manifest.Chunks)) - indexedCount
+		if out.IndexedChunks == 0 && out.ParentChunks == 0 {
+			// Old receipts are revalidated against their immutable manifest and
+			// the live graph, never repaired by trusting loose count inequalities.
+			out.IndexedChunks, out.ParentChunks = indexedCount, parents
+		}
+		if out.Chunks != int64(len(manifest.Chunks)) || out.Chunks != out.ParentChunks+out.IndexedChunks ||
+			out.ParentChunks != parents || out.IndexedChunks != indexedCount ||
+			int64(len(publicIndexed)) != indexedCount || out.Vectors != indexedCount || out.BM25Rows != indexedCount {
+			return legacyFence("receipt_graph_count_mismatch")
+		}
+		manifestByID := make(map[string]*types.Chunk, len(manifest.Chunks))
+		for _, chunk := range manifest.Chunks {
+			manifestByID[chunk.ID] = chunk
+		}
+		for _, chunk := range public {
+			owned := manifestByID[chunk.ID]
+			if owned == nil || owned.ChunkType != chunk.ChunkType || owned.ParentChunkID != chunk.ParentChunkID {
+				return legacyFence("receipt_public_graph_mismatch")
+			}
+		}
+		var vectors int64
 		if e := tx.Raw("SELECT count(*) FROM embeddings WHERE knowledge_base_id=? AND "+
 			"knowledge_id=? AND dimension=?",
 			r.KnowledgeBaseID,
