@@ -200,6 +200,42 @@ func (s *FeishuLegacyStore) Begin(ctx context.Context, ds *types.DataSource, ite
 				return legacyFence("source_revision_regressed")
 			}
 		}
+		// A high-water timestamp must bind to one content identity even when
+		// the last candidate failed before any version was ever published.
+		if r.SourceRevision != "" {
+			highWater, _ := time.Parse(time.RFC3339Nano, r.SourceRevision)
+			if item.UpdatedAt.Equal(highWater) {
+				expectedHash := ""
+				if r.CurrentAttempt != "" {
+					var observed types.FeishuLegacyAttempt
+					if e = tx.First(&observed, "id=?", r.CurrentAttempt).Error; e != nil {
+						return e
+					}
+					observedTime, parseObserved := time.Parse(time.RFC3339Nano, observed.Revision)
+					if parseObserved != nil {
+						return legacyFence("invalid_source_revision")
+					}
+					if observedTime.Equal(highWater) {
+						expectedHash = observed.SourceHash
+					}
+				}
+				// Duplicate active bytes may advance only SourceRevision; a
+				// current attempt at an older revision cannot bind that watermark.
+				if expectedHash == "" && r.ActiveAttempt != "" {
+					var active types.FeishuLegacyAttempt
+					if e = tx.First(&active, "id=?", r.ActiveAttempt).Error; e != nil {
+						return e
+					}
+					expectedHash = active.SourceHash
+				}
+				if expectedHash == "" {
+					return legacyFence("source_revision_hash_unconfirmed")
+				}
+				if expectedHash != sourceHash {
+					return legacyFence("source_revision_content_conflict")
+				}
+			}
+		}
 		if r.ActiveAttempt != "" {
 			var active types.FeishuLegacyAttempt
 			if e = tx.First(&active, "id=?", r.ActiveAttempt).Error; e != nil {
@@ -209,29 +245,8 @@ func (s *FeishuLegacyStore) Begin(ctx context.Context, ds *types.DataSource, ite
 			if parse != nil {
 				return parse
 			}
-			highWater, parseHighWater := time.Parse(time.RFC3339Nano, r.SourceRevision)
-			if parseHighWater != nil {
-				return legacyFence("invalid_source_revision")
-			}
-			expectedHash := active.SourceHash
-			// SourceRevision can belong to a failed/staging current attempt,
-			// whose exact-byte retry must remain admissible. A duplicate of the
-			// active version may instead advance only the observed high-water.
-			if r.CurrentAttempt != "" && r.CurrentAttempt != active.ID {
-				var observed types.FeishuLegacyAttempt
-				if e = tx.First(&observed, "id=?", r.CurrentAttempt).Error; e != nil {
-					return e
-				}
-				observedTime, parseObserved := time.Parse(time.RFC3339Nano, observed.Revision)
-				if parseObserved != nil {
-					return legacyFence("invalid_source_revision")
-				}
-				if observedTime.Equal(highWater) {
-					expectedHash = observed.SourceHash
-				}
-			}
-			if item.UpdatedAt.Before(previous) || item.UpdatedAt.Equal(highWater) && expectedHash != sourceHash {
-				return legacyFence("source_revision_content_conflict")
+			if item.UpdatedAt.Before(previous) {
+				return legacyFence("source_revision_regressed")
 			}
 			if active.SourceHash == sourceHash && r.State == "active" {
 				r.SourceRevision = item.UpdatedAt.UTC().Format(time.RFC3339Nano)

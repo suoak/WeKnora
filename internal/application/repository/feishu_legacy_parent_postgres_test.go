@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	pgretrieve "github.com/Tencent/WeKnora/internal/application/repository/retriever/postgres"
 	"github.com/Tencent/WeKnora/internal/database"
 	"github.com/Tencent/WeKnora/internal/testutil/feishulegacy"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -63,6 +64,8 @@ func TestFeishuParentAtomicPostgresP1(t *testing.T) {
 	}
 	vectors := [][]float32{{1, 0, 0}, {0, 1, 0}}
 	r, a, m := begin("oldparentcanary", 1)
+	_, _, err = store.Begin(ctx, ds, item(1), hash("ambiguous-first-attempt"))
+	require.ErrorIs(t, err, ErrLegacyVersionFence, "unpublished initial high-water also binds one hash")
 	require.NoError(t, store.Prepare(ctx, ds, a, m, vectors))
 	var n int64
 	require.NoError(t, db.Model(&types.Chunk{}).Where("knowledge_id=?", r.KnowledgeID).Count(&n).Error)
@@ -135,6 +138,21 @@ func TestFeishuParentAtomicPostgresP1(t *testing.T) {
 	require.EqualValues(t, 2, n)
 	require.NoError(t, db.Raw("SELECT count(*) FROM embeddings e JOIN chunks c ON c.id=e.chunk_id WHERE c.knowledge_id=? AND c.chunk_type='parent_text'", r.KnowledgeID).Scan(&n).Error)
 	require.Zero(t, n)
+	engine := pgretrieve.NewPostgresRetrieveEngineRepository(types.EnableLegacyReadGuards(db))
+	for _, kind := range []types.RetrieverType{types.KeywordsRetrieverType, types.VectorRetrieverType} {
+		rows, e := engine.Retrieve(types.WithLegacyReadScope(ctx), types.RetrieveParams{Query: "newparentcanary", Embedding: []float32{1, 0, 0}, KnowledgeBaseIDs: []string{kb.ID}, KnowledgeIDs: []string{r.KnowledgeID}, TopK: 10, Threshold: 0, RetrieverType: kind})
+		require.NoError(t, e)
+		found := 0
+		for _, row := range rows {
+			require.NoError(t, row.Error)
+			for _, hit := range row.Results {
+				found++
+				require.NotEqual(t, candidate.Chunks[0].ID, hit.ChunkID)
+				require.Contains(t, hit.Content, "newparentcanary")
+			}
+		}
+		require.Positive(t, found, "real BM25 and vector engines must retrieve only current children")
+	}
 	_, err = store.Publish(ctx, ds, a)
 	require.ErrorIs(t, err, ErrLegacyVersionFence)
 	_, stale, third := begin("expiredparentcanary", 3)
