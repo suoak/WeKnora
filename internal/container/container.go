@@ -499,6 +499,7 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	must(container.Provide(initConnectorRegistry))
 	must(container.Provide(datasource.NewScheduler))
 	must(container.Provide(service.NewDataSourceService))
+	must(container.Invoke(startFeishuSyncControl))
 	must(container.Invoke(startDataSourceScheduler))
 	must(container.Invoke(startDataSourceSyncReconciliation))
 	logger.Debugf(ctx, "[Container] Data source sync framework registered")

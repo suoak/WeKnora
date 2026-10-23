@@ -16,6 +16,8 @@ import (
 	"github.com/Tencent/WeKnora/internal/application/access"
 	apprepo "github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/datasource"
+	"github.com/Tencent/WeKnora/internal/feishusafety"
+	"github.com/Tencent/WeKnora/internal/feishusynccontrol"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/tracing/langfuse"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -517,6 +519,9 @@ func (s *DataSourceService) ManualSync(ctx context.Context, dsID string) (*types
 	if !datasource.LegacyFeishuSourceAllowed(ds.Type, ds.ID) {
 		return nil, datasource.ErrLegacyFeishuSourceNotAllowed
 	}
+	if err := feishusafety.CheckLegacy(ctx, ds.Type, ds.ID); err != nil {
+		return nil, err
+	}
 
 	if ds.Status != types.DataSourceStatusActive &&
 		ds.Status != types.DataSourceStatusError &&
@@ -686,7 +691,7 @@ func (s *DataSourceService) GetSyncLog(ctx context.Context, syncLogID string) (*
 }
 
 // ProcessSync handles the actual sync operation (called by asynq task)
-func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.Task) error {
+func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.Task) (runErr error) {
 	var payload types.DataSourceSyncPayload
 	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
 		logger.Errorf(ctx, "failed to unmarshal sync payload: %v", err)
@@ -723,6 +728,25 @@ func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.
 		return nil
 	}
 
+	// Re-mark after the authoritative source load as well: a transient failure
+	// in the wrapper's optional early read must never create an unguarded path.
+	marked := feishusafety.LegacyContext(ctx, ds.Type, ds.ID)
+	if feishusafety.Scoped(marked) && !feishusafety.Scoped(ctx) {
+		localCtx, cancel := context.WithCancel(marked)
+		untrack := feishusynccontrol.Track(cancel)
+		defer untrack()
+		defer cancel()
+		ctx = localCtx
+	} else {
+		ctx = marked
+	}
+	defer func() {
+		if runErr != nil && feishusafety.Scoped(ctx) && feishusafety.Default() != nil {
+			stopCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			_ = feishusafety.Default().Trip(stopCtx, "sync_execution_failed")
+		}
+	}()
 	// Get sync log
 	syncLog, err := s.syncLogRepo.FindByID(ctx, payload.SyncLogID)
 	if err != nil {
@@ -749,6 +773,12 @@ func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.
 		syncLog.Status = types.SyncLogStatusCanceled
 		syncLog.FinishedAt = timePtr(time.Now().UTC())
 		syncLog.ErrorMessage = datasource.ErrLegacyFeishuSourceNotAllowed.Error()
+		return s.writeSyncExecution(ctx, ds, syncLog, true)
+	}
+	if err := feishusafety.Check(ctx); err != nil {
+		syncLog.Status = types.SyncLogStatusCanceled
+		syncLog.FinishedAt = timePtr(time.Now().UTC())
+		syncLog.ErrorMessage = "Feishu safety gate closed; checkpoint retained"
 		return s.writeSyncExecution(ctx, ds, syncLog, true)
 	}
 	// A scheduled delivery may have been queued before the user paused the

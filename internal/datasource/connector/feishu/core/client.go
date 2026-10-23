@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/datasource"
+	"github.com/Tencent/WeKnora/internal/feishusafety"
 	"github.com/Tencent/WeKnora/internal/logger"
 )
 
@@ -79,7 +80,7 @@ func NewClient(config *Config) *Client {
 		appID:      config.AppID,
 		appSecret:  config.AppSecret,
 		location:   resolveLocation(config.Timezone),
-		httpClient: datasource.NewConnectorHTTPClientWithTLSFallback(30 * time.Second),
+		httpClient: newSafetyHTTPClient(),
 		retry:      rp,
 	}
 	c.policy = sharedAppPolicy(c.baseURL, c.appID, rp)
@@ -103,8 +104,14 @@ func (c *Client) ensureRuntime() {
 		c.token = &tokenState{}
 	}
 	if c.httpClient == nil {
-		c.httpClient = datasource.NewConnectorHTTPClientWithTLSFallback(30 * time.Second)
+		c.httpClient = newSafetyHTTPClient()
 	}
+}
+
+func newSafetyHTTPClient() *http.Client {
+	client := datasource.NewConnectorHTTPClientWithTLSFallback(30 * time.Second)
+	client.Transport = feishusafety.Transport{Base: client.Transport}
+	return client
 }
 
 // GetTenantAccessToken retrieves (or returns cached) tenant access token.
