@@ -210,7 +210,7 @@ func releaseStopRedisPostgres(t *testing.T, failure string) {
 				sample, _ := json.Marshal(map[string]any{
 					"observed_unix_ms":     serverTime.UnixMilli(),
 					"gateway_budget_known": true, "gateway_healthy": true, "online_healthy": true,
-					"consumer_healthy": !(failure == "consumer" && unhealthy.Load()),
+					"consumer_healthy": failure != "consumer" || !unhealthy.Load(),
 					"scope_violations": 0, "quota_exceeded": failure == "quota" && unhealthy.Load(),
 					"online_p95_ratio": 1.0,
 				})
