@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -141,6 +142,7 @@ func (e *protocolEmbedder) BatchEmbed(ctx context.Context, texts []string) ([][]
 		return nil, fmt.Errorf("%s embedding: %w", e.modelName, err)
 	}
 	out := make([][]float32, len(texts))
+	resultWidth := 0
 	// Serial on purpose. BatchEmbedWithPool and the per-model concurrency
 	// gate already bound how many requests are in flight; fanning out again
 	// here would multiply past both, and a one-text-per-request vendor would
@@ -172,10 +174,27 @@ func (e *protocolEmbedder) BatchEmbed(ctx context.Context, texts []string) ([][]
 				}
 			}
 			if err != nil {
+				feishusafety.EmbeddingResultFailed(ctx, "embedding_response_invalid_or_business_error")
 				return nil, err
 			}
 			if len(vectors) != len(part) {
+				feishusafety.EmbeddingResultFailed(ctx, "embedding_result_count_mismatch")
 				return nil, fmt.Errorf("%s embedding: %d vectors for %d inputs", e.modelName, len(vectors), len(part))
+			}
+			if feishusafety.Scoped(ctx) {
+				for _, vector := range vectors {
+					if resultWidth == 0 {
+						resultWidth = len(vector)
+					}
+					valid := len(vector) > 0 && len(vector) == resultWidth
+					for _, value := range vector {
+						valid = valid && !math.IsNaN(float64(value)) && !math.IsInf(float64(value), 0)
+					}
+					if !valid {
+						feishusafety.EmbeddingResultFailed(ctx, "embedding_result_vector_invalid")
+						return nil, fmt.Errorf("%s embedding: invalid vector shape or value", e.modelName)
+					}
+				}
 			}
 			copy(out[offset:], vectors)
 			offset += len(part)

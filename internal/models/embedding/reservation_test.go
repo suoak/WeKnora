@@ -3,7 +3,9 @@ package embedding
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -18,6 +20,50 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 )
+
+type invalidResultEmbedder struct {
+	vectors [][]float32
+	err     error
+}
+
+func (e invalidResultEmbedder) Embed(context.Context, []string, api.EmbedInputType) ([][]float32, error) {
+	return e.vectors, e.err
+}
+
+func TestScopedEmbeddingInvalidResultStopsAtEmbeddingBoundaryP0(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		vectors [][]float32
+		err     error
+	}{
+		{name: "business_quota", err: errors.New("embedding business quota rejected")},
+		{name: "count", vectors: [][]float32{{1}}},
+		{name: "empty", vectors: [][]float32{{}, {}}},
+		{name: "width", vectors: [][]float32{{1}, {1, 2}}},
+		{name: "nan", vectors: [][]float32{{float32(math.NaN())}, {1}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			model, _, client, g, _ := reservationEmbedder(t, 0, time.Second)
+			model.inner = invalidResultEmbedder{vectors: tc.vectors, err: tc.err}
+			ctx := feishusafety.WithScope(context.Background(), "source")
+			vectors, err := model.BatchEmbed(ctx, []string{"one", "two"})
+			if err == nil || vectors != nil {
+				t.Fatal("invalid candidate returned", vectors, err)
+			}
+			if g.Check(ctx) == nil {
+				t.Fatal("embedding response error failed to stop")
+			}
+			stats, err := g.Snapshot(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.HasPrefix(stats["trip"].(string), "embedding_") {
+				t.Fatal("not embedding-specific cause", stats)
+			}
+			_ = client
+		})
+	}
+}
 
 func reservationEmbedder(
 	t *testing.T,
@@ -59,6 +105,10 @@ func reservationEmbedder(
 		if failure == -1 && n == 1 {
 			w.Header().Set("Retry-After", "0")
 			http.Error(w, "busy", http.StatusTooManyRequests)
+			return
+		}
+		if failure == -2 {
+			_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{"message": "quota exceeded"}})
 			return
 		}
 		var data []any
@@ -179,5 +229,21 @@ func TestReserved429FreshWireBudgetP0(t *testing.T) {
 	_ = client
 	if stats["inflight"].(int64) != 0 {
 		t.Fatal("leaked retry slot", stats)
+	}
+}
+
+func TestEmbeddingHTTP200BusinessQuotaStopsP0(t *testing.T) {
+	model, _, _, guard, calls := reservationEmbedder(t, -2, time.Second)
+	ctx := feishusafety.WithScope(context.Background(), "source")
+	vectors, err := model.BatchEmbed(ctx, []string{"0:quota"})
+	if err == nil || vectors != nil || calls.Load() != 1 {
+		t.Fatal("HTTP200 business rejection not propagated", err, calls.Load())
+	}
+	stats, err := guard.Snapshot(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats["trip"] != "embedding_response_invalid_or_business_error" {
+		t.Fatal("HTTP200 business rejection did not close embedding boundary", stats)
 	}
 }

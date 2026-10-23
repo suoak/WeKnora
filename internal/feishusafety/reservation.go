@@ -56,6 +56,20 @@ type (
 
 func inputDigest(inputs []string) [32]byte { raw, _ := json.Marshal(inputs); return sha256.Sum256(raw) }
 
+// EmbeddingResultFailed belongs at the embedding response boundary, never the
+// datasource boundary. Error bodies are not inspected or logged. Deliberate
+// caller cancellation and graceful local drain are not new global incidents.
+func EmbeddingResultFailed(ctx context.Context, reason string) {
+	if !Scoped(ctx) || ctx.Err() != nil {
+		return
+	}
+	g := Default()
+	if g == nil || g.localClosed.Load() {
+		return
+	}
+	trip(g, reason)
+}
+
 // ReserveEmbedding waits BEFORE the SDK/http.Client request timeout begins.
 // Cleanup releases only an unused ticket; a consumed ticket belongs to the wire
 // until its body is closed. RPM/TPM are intentionally never refunded.
