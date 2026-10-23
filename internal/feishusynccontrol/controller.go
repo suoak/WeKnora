@@ -71,6 +71,7 @@ type Controller struct {
 	prefix       string
 	fingerprint  string
 	incarnation  string
+	departed     bool
 	started      time.Time
 	admitted     bool
 	lastEvent    string
@@ -92,7 +93,7 @@ func New(client redis.UniversalClient, guard *feishusafety.Guard, cfg Config,
 	if _, err := hex.DecodeString(cfg.SourceSHA); !cfg.Automatic && err != nil {
 		return nil, fmt.Errorf("%w: source identity", ErrNotReady)
 	}
-	if cfg.Scope != "none" && !(cfg.Automatic && cfg.Scope == "all") {
+	if cfg.Scope != "none" && (!cfg.Automatic || cfg.Scope != "all") {
 		for _, entry := range strings.Split(cfg.Scope, ",") {
 			id, err := uuid.Parse(strings.TrimSpace(entry))
 			if err != nil || id.String() != strings.TrimSpace(entry) ||
@@ -168,6 +169,9 @@ redis.call('SET',KEYS[4],ARGV[2],'PX',750);return 1`)
 func (c *Controller) Step(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.departed {
+		return ErrNotReady
+	}
 	now, err := register.Run(ctx, c.Client, []string{c.prefix + "workers", c.prefix + "leases"},
 		c.Config.WorkerID, c.fingerprint+":"+c.incarnation).Int64()
 	if err != nil {
@@ -299,12 +303,20 @@ func (c *Controller) Run(ctx context.Context) {
 	ticker := time.NewTicker(200 * time.Millisecond)
 	defer ticker.Stop()
 	for {
-		stepCtx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+		// Graceful lifecycle cancellation is handled by Drain below. Do not
+		// misclassify that cancellation as Redis/metrics failure inside Step.
+		stepCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 500*time.Millisecond)
 		_ = c.Step(stepCtx)
 		cancel()
 		select {
 		case <-ctx.Done():
-			CancelLocal()
+			if c.Config.Automatic {
+				stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+				_ = c.Drain(stopCtx)
+				stopCancel()
+			} else {
+				CancelLocal()
+			}
 			return // controller loss leaves only a short-lived permit
 		case <-ticker.C:
 		}

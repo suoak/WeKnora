@@ -42,15 +42,17 @@ func SplitEmbeddingInputs(ctx context.Context, texts []string) ([][]string, erro
 	return append(out, texts[start:]), nil
 }
 
-type reservationKey struct{}
-type embeddingReservation struct {
-	mu      sync.Mutex
-	guard   *Guard
-	digest  [32]byte
-	tokens  int
-	phase   int // 0 reserved, 1 owned by wire, 2 released
-	release func()
-}
+type (
+	reservationKey       struct{}
+	embeddingReservation struct {
+		mu      sync.Mutex
+		guard   *Guard
+		digest  [32]byte
+		tokens  int
+		phase   int // 0 reserved, 1 owned by wire, 2 released
+		release func()
+	}
+)
 
 func inputDigest(inputs []string) [32]byte { raw, _ := json.Marshal(inputs); return sha256.Sum256(raw) }
 

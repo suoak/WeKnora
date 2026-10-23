@@ -1,9 +1,13 @@
 package feishusafety
 
 import (
+	"bytes"
 	"context"
+	"io"
+	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestReservationChineseSplitting(t *testing.T) {
@@ -41,6 +45,79 @@ func TestReservationChineseSplitting(t *testing.T) {
 	parts, err := SplitEmbeddingInputs(context.Background(), plain)
 	if err != nil || len(parts) != 1 || len(parts[0]) != 100 {
 		t.Fatal("unmarked batch changed")
+	}
+}
+
+type sourceStatusTransport struct{ status int }
+
+func (s sourceStatusTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	return &http.Response{
+		StatusCode: s.status,
+		Header:     make(http.Header),
+		Body:       io.NopCloser(bytes.NewBufferString(`{"error":"source unavailable"}`)),
+		Request:    r,
+	}, nil
+}
+
+type gracefulWaitTransport struct{ started chan struct{} }
+
+func (s gracefulWaitTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	close(s.started)
+	<-r.Context().Done()
+	return nil, r.Context().Err()
+}
+
+func TestGracefulLocalCancelDoesNotCreateGlobalTrip(t *testing.T) {
+	g, client := fixture(t, Config{})
+	InstallDefault(g)
+	started, done := make(chan struct{}), make(chan error, 1)
+	request, _ := http.NewRequestWithContext(
+		WithScope(context.Background(), "source"),
+		"GET",
+		"https://source.invalid/doc",
+		nil,
+	)
+	go func() {
+		_, err := (Transport{Base: gracefulWaitTransport{started: started}}).RoundTrip(request)
+		done <- err
+	}()
+	<-started
+	g.CloseLocal()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("local departure did not cancel wire")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("wire did not drain")
+	}
+	if client.Exists(context.Background(), g.key("trip")).Val() != 0 {
+		t.Fatal("normal local drain globally tripped other workers")
+	}
+}
+
+func TestSource403404DoNotTripOtherSources(t *testing.T) {
+	for _, status := range []int{403, 404} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			g, client := fixture(t, Config{})
+			InstallDefault(g)
+			request, _ := http.NewRequestWithContext(
+				WithScope(context.Background(), "source-a"),
+				"GET",
+				"https://source.invalid/doc",
+				nil,
+			)
+			response, err := (Transport{Base: sourceStatusTransport{status: status}}).RoundTrip(request)
+			if err != nil || response.StatusCode != status {
+				t.Fatal("source error not preserved", err)
+			}
+			io.Copy(io.Discard, response.Body)
+			response.Body.Close()
+			if client.Exists(context.Background(), g.key("trip")).Val() != 0 ||
+				g.Check(context.Background()) != nil {
+				t.Fatal("one missing/forbidden source globally stopped synchronization")
+			}
+		})
 	}
 }
 

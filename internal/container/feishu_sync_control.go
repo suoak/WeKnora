@@ -169,7 +169,7 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 		cancel()
 		select {
 		case <-done:
-		case <-time.After(2 * time.Second):
+		case <-time.After(7 * time.Second):
 		}
 		feishusafety.InstallDefault(nil)
 		return nil

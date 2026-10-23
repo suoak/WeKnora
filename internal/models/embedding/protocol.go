@@ -165,7 +165,9 @@ func (e *protocolEmbedder) BatchEmbed(ctx context.Context, texts []string) ([][]
 				if !feishusafety.Scoped(ctx) || !errors.As(err, &httpErr) || httpErr.StatusCode != 429 {
 					break
 				}
-				if err = feishusafety.WaitEmbeddingRetry(ctx, httpErr.Header.Get("Retry-After"), attempt, &waited); err != nil {
+				if err = feishusafety.WaitEmbeddingRetry(
+					ctx, httpErr.Header.Get("Retry-After"), attempt, &waited,
+				); err != nil {
 					return nil, err
 				}
 			}

@@ -19,12 +19,20 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func reservationEmbedder(t *testing.T, failure int, timeout time.Duration) (*protocolEmbedder, *miniredis.Miniredis, *redis.Client, *feishusafety.Guard, *atomic.Int32) {
+func reservationEmbedder(
+	t *testing.T,
+	failure int,
+	timeout time.Duration,
+) (*protocolEmbedder, *miniredis.Miniredis, *redis.Client, *feishusafety.Guard, *atomic.Int32) {
 	t.Helper()
 	allowLoopback(t)
 	server := miniredis.RunT(t)
 	client := redis.NewClient(&redis.Options{Addr: server.Addr()})
-	t.Cleanup(func() { client.Close() })
+	t.Cleanup(func() {
+		if err := client.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	var calls atomic.Int32
 	clock := time.Now()
 	server.SetTime(clock)
@@ -45,12 +53,12 @@ func reservationEmbedder(t *testing.T, failure int, timeout time.Duration) (*pro
 			t.Errorf("unsafe wire cost %d/%d", cost, len(payload.Input))
 		}
 		if failure == n {
-			http.Error(w, "injected", 500)
+			http.Error(w, "injected", http.StatusInternalServerError)
 			return
 		}
 		if failure == -1 && n == 1 {
 			w.Header().Set("Retry-After", "0")
-			http.Error(w, "busy", 429)
+			http.Error(w, "busy", http.StatusTooManyRequests)
 			return
 		}
 		var data []any
@@ -78,8 +86,23 @@ func reservationEmbedder(t *testing.T, failure int, timeout time.Duration) (*pro
 	}
 	feishusafety.InstallDefault(g)
 	t.Cleanup(func() { feishusafety.InstallDefault(nil) })
-	inner := openaiembeddings.New(openaiembeddings.Config{Endpoint: api.Endpoint{BaseURL: srv.URL, Model: "m", Client: &http.Client{Timeout: timeout, Transport: feishusafety.Transport{Base: http.DefaultTransport, Embedding: true}}}})
-	return &protocolEmbedder{inner: inner, settings: api.EmbeddingsSettings{MaxBatchSize: 20}, modelName: "m"}, server, client, g, &calls
+	inner := openaiembeddings.New(
+		openaiembeddings.Config{
+			Endpoint: api.Endpoint{
+				BaseURL: srv.URL,
+				Model:   "m",
+				Client: &http.Client{
+					Timeout:   timeout,
+					Transport: feishusafety.Transport{Base: http.DefaultTransport, Embedding: true},
+				},
+			},
+		},
+	)
+	return &protocolEmbedder{
+		inner:     inner,
+		settings:  api.EmbeddingsSettings{MaxBatchSize: 20},
+		modelName: "m",
+	}, server, client, g, &calls
 }
 
 func TestReservedChineseBatchesP0(t *testing.T) {

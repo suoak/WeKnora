@@ -82,6 +82,10 @@ func New(client redis.UniversalClient, config Config) (*Guard, error) {
 // Fingerprint identifies the complete local budget and token-bound policy.
 func (g *Guard) Fingerprint() string { return g.fingerprint }
 
+// CloseLocal stops this process during a fenced graceful departure without
+// clearing or creating a deployment-global trip latch.
+func (g *Guard) CloseLocal() { g.localClosed.Store(true) }
+
 // PermitKey is exposed for the controller to issue short-lived permissions ONLY
 // after validating the complete expected worker inventory and metric freshness.
 func (g *Guard) PermitKey() string      { return g.prefix + "permit" }

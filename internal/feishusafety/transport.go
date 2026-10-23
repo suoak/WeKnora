@@ -224,13 +224,27 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 	resp, err := base.RoundTrip(req)
 	if err != nil {
 		finish()
-		trip(g, "outbound_network_timeout_or_failure")
+		// Graceful local departure already closed/fenced this process. Its
+		// deliberate cancellation must not turn a normal restart into global trip.
+		if !g.localClosed.Load() {
+			trip(g, "outbound_network_timeout_or_failure")
+		}
 		return nil, err
 	}
 	if t.Embedding && resp.StatusCode == 429 {
 		_ = resp.Body.Close()
 		finish()
 		resp.Body = http.NoBody
+		return resp, nil
+	}
+	// Missing/inaccessible source resources are connector-level failures, not a
+	// shared gateway incident. Preserve their response for normal source retry.
+	if !t.Embedding && (resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusNotFound) {
+		if resp.Body == nil {
+			finish()
+		} else {
+			resp.Body = &guardedBody{ReadCloser: resp.Body, finish: finish, guard: g}
+		}
 		return resp, nil
 	}
 	// Fail closed for all non-2xx, including quota errors not expressed as 429.
@@ -258,7 +272,7 @@ func (b *guardedBody) Read(p []byte) (int, error) {
 	n, err := b.ReadCloser.Read(p)
 	if err != nil {
 		b.finish()
-		if err != io.EOF {
+		if err != io.EOF && !b.guard.localClosed.Load() {
 			trip(b.guard, "outbound_response_failure")
 		}
 	}
