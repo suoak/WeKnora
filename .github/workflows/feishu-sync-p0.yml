@@ -50,4 +50,6 @@ jobs:
       - name: Complete internal regression
         env:
           FEISHU_LEGACY_TEST_DSN: ""
+          SYNC_EXECUTION_POSTGRES_DSN: ""
+          REQUIRE_SYNC_EXECUTION_POSTGRES: "0"
         run: go test -p 2 ./internal/... -count=1 -timeout=20m

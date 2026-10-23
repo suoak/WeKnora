@@ -197,6 +197,7 @@ func (s *Scheduler) triggerSync(dataSourceID string, tenantID uint64) {
 		return
 	}
 	if !syncRetryDue(history, time.Now().UTC()) {
+		logger.Infof(ctx, "[Scheduler] skipping sync ds=%s phase=cooldown category=recent_failures", dataSourceID)
 		return
 	}
 

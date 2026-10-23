@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"encoding/json"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protowire"
 )
 
 func TestSyncLiveQueueProbeP0(t *testing.T) {
@@ -67,12 +69,33 @@ func TestArchivedSyncDatabaseRecoveryP0(t *testing.T) {
 	log := &types.SyncLog{ID: uuid.NewString(), DataSourceID: ds.ID, TenantID: 1, Status: types.SyncLogStatusRunning, ExecutionGeneration: 6, ExecutionClaimed: true, StartedAt: old, UpdatedAt: old}
 	require.NoError(t, db.Create(log).Error)
 	payload, _ := json.Marshal(types.DataSourceSyncPayload{DataSourceID: ds.ID, TenantID: 1, SyncLogID: log.ID})
-	_, err := client.Enqueue(asynq.NewTask(types.TypeDataSourceSync, payload), asynq.TaskID(log.ID), asynq.Queue(types.QueueSync))
+	_, err := client.Enqueue(asynq.NewTask(types.TypeDataSourceSync, payload), asynq.TaskID(log.ID), asynq.Queue(types.QueueSync), asynq.MaxRetry(5))
 	require.NoError(t, err)
 	n, err := service.ReconcileDataSourceSyncs(context.Background(), db, probe)
 	require.NoError(t, err)
 	require.Zero(t, n, "pending delivery is still live, however old its DB row")
-	require.NoError(t, probe.inspector.ArchiveTask(types.QueueSync, log.ID))
+	// Reproduce the production trigger: a lost worker leaves an expired queue
+	// lease on the final retry. Asynq's real recoverer archives it outside the
+	// handler/middleware, so the application DB remains running without a sweep.
+	ctx := context.Background()
+	prefix := "asynq:{" + types.QueueSync + "}:"
+	message, err := rc.HGet(ctx, prefix+"t:"+log.ID, "msg").Bytes()
+	require.NoError(t, err)
+	message = protowire.AppendTag(message, 6, protowire.VarintType)
+	message = protowire.AppendVarint(message, 5)
+	require.NoError(t, rc.HSet(ctx, prefix+"t:"+log.ID, "msg", message, "state", "active").Err())
+	require.NoError(t, rc.LRem(ctx, prefix+"pending", 0, log.ID).Err())
+	require.NoError(t, rc.LPush(ctx, prefix+"active", log.ID).Err())
+	require.NoError(t, rc.ZAdd(ctx, prefix+"lease", redis.Z{Score: float64(time.Now().Add(-2 * time.Minute).Unix()), Member: log.ID}).Err())
+	var handlerCalls atomic.Int64
+	worker := asynq.NewServer(asynq.RedisClientOpt{Addr: srv.Addr()}, asynq.Config{Concurrency: 1, Queues: map[string]int{types.QueueSync: 1}, ShutdownTimeout: time.Second})
+	require.NoError(t, worker.Start(asynq.HandlerFunc(func(context.Context, *asynq.Task) error { handlerCalls.Add(1); return nil })))
+	defer worker.Shutdown()
+	require.Eventually(t, func() bool {
+		info, err := probe.inspector.GetTaskInfo(types.QueueSync, log.ID)
+		return err == nil && info.State == asynq.TaskStateArchived && info.LastErr == asynq.ErrLeaseExpired.Error()
+	}, 5*time.Second, 20*time.Millisecond)
+	require.Zero(t, handlerCalls.Load(), "recoverer must bypass the application handler")
 	n, err = service.ReconcileDataSourceSyncs(context.Background(), db, probe)
 	require.NoError(t, err)
 	require.Equal(t, 1, n)
