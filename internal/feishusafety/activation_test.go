@@ -2,11 +2,21 @@ package feishusafety
 
 import (
 	"context"
+	"os"
 	"testing"
 )
 
 func TestSafetyActivationAndEmergency(t *testing.T) {
-	for _, value := range []string{"true", "invalid"} {
+	// Save/restore inherited CI settings, but genuinely remove activation to
+	// verify production's default rather than inheriting fixture bypass mode.
+	t.Setenv("FEISHU_SYNC_SAFETY_ENABLED", "")
+	if err := os.Unsetenv("FEISHU_SYNC_SAFETY_ENABLED"); err != nil {
+		t.Fatal(err)
+	}
+	if !Enabled() {
+		t.Fatal("absent activation must enable hard protection")
+	}
+	for _, value := range []string{"", "true", "invalid"} {
 		t.Setenv("FEISHU_SYNC_SAFETY_ENABLED", value)
 		InstallDefault(nil)
 		if CheckLegacy(context.Background(), "feishu_drive", "source") == nil {

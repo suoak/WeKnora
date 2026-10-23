@@ -6,13 +6,13 @@ import (
 	"strconv"
 )
 
-// Enabled preserves the accepted P0 behavior until explicitly configured.
+// Enabled defaults to hard protection for legacy background synchronization.
 // Malformed nonempty activation is treated as enabled, so missing configuration
 // closes Feishu rather than silently bypassing protection.
 func Enabled() bool {
 	raw := os.Getenv("FEISHU_SYNC_SAFETY_ENABLED")
 	if raw == "" {
-		return false
+		return true
 	}
 	value, err := strconv.ParseBool(raw)
 	return err != nil || value

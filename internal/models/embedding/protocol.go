@@ -2,10 +2,12 @@ package embedding
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/feishusafety"
 	"github.com/Tencent/WeKnora/internal/models/api"
 	"github.com/Tencent/WeKnora/internal/models/api/arkembeddings"
 	"github.com/Tencent/WeKnora/internal/models/api/dashscopeembeddings"
@@ -144,16 +146,38 @@ func (e *protocolEmbedder) BatchEmbed(ctx context.Context, texts []string) ([][]
 	// here would multiply past both, and a one-text-per-request vendor would
 	// turn every pool chunk into a burst.
 	for _, batch := range batches {
-		vectors, err := e.inner.Embed(ctx, batch.Items, kind)
-		if err != nil {
-			return nil, err
+		parts, splitErr := feishusafety.SplitEmbeddingInputs(ctx, batch.Items)
+		if splitErr != nil {
+			return nil, splitErr
 		}
-		if len(vectors) != len(batch.Items) {
-			return nil, fmt.Errorf(
-				"%s embedding: %d vectors for %d inputs", e.modelName, len(vectors), len(batch.Items),
-			)
+		offset := batch.Start
+		for _, part := range parts {
+			var vectors [][]float32
+			var waited time.Duration
+			for attempt := 0; ; attempt++ {
+				requestCtx, release, reserveErr := feishusafety.ReserveEmbedding(ctx, part)
+				if reserveErr != nil {
+					return nil, reserveErr
+				}
+				vectors, err = e.inner.Embed(requestCtx, part, kind)
+				release()
+				var httpErr *api.HTTPError
+				if !feishusafety.Scoped(ctx) || !errors.As(err, &httpErr) || httpErr.StatusCode != 429 {
+					break
+				}
+				if err = feishusafety.WaitEmbeddingRetry(ctx, httpErr.Header.Get("Retry-After"), attempt, &waited); err != nil {
+					return nil, err
+				}
+			}
+			if err != nil {
+				return nil, err
+			}
+			if len(vectors) != len(part) {
+				return nil, fmt.Errorf("%s embedding: %d vectors for %d inputs", e.modelName, len(vectors), len(part))
+			}
+			copy(out[offset:], vectors)
+			offset += len(part)
 		}
-		copy(out[batch.Start:], vectors)
 	}
 	return out, nil
 }

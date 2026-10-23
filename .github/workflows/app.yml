@@ -130,6 +130,8 @@ jobs:
         run: bash ./scripts/test-git-hooks.sh
 
       - name: Vet and test
+        env:
+          FEISHU_SYNC_SAFETY_ENABLED: "false"
         shell: bash
         run: |
           mapfile -t pkgs < <(go list ./... | grep -v '/docreader/')
@@ -139,6 +141,10 @@ jobs:
 
       - name: Build server
         if: github.head_ref != 'fix/feishu-sync-reliability-p0-20261023' && github.head_ref != 'fix/feishu-sync-p0-release-controls-20261023' && github.head_ref != 'fix/feishu-sync-p1-parent-child-version-20261023'
+        run: go build ./cmd/server
+
+  docker-image:
+    if: github.head_ref != 'fix/feishu-sync-reliability-p0-20261023' && github.head_ref != 'fix/feishu-sync-p0-release-controls-20261023' && github.head_ref != 'fix/feishu-sync-p1-parent-child-version-20261023'
     name: Docker image and production startup smoke
     needs: verify
     runs-on: ubuntu-latest

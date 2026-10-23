@@ -3,8 +3,10 @@ package container
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -43,8 +45,22 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 			logger.Errorf(ctx, "[FeishuSafety] invalid configuration stop fencing incomplete")
 		}
 	}()
-	var policy feishusafety.Config
-	decoder := json.NewDecoder(strings.NewReader(os.Getenv("FEISHU_SYNC_SAFETY_POLICY_JSON")))
+	mode := os.Getenv("FEISHU_SYNC_SAFETY_MODE")
+	if mode != "" && mode != "automatic" && mode != "strict" {
+		logger.Errorf(ctx, "[FeishuSafety] unknown safety mode; outbound closed")
+		return
+	}
+	automatic := mode != "strict"
+	policy := feishusafety.DefaultConfig()
+	if !automatic {
+		policy = feishusafety.Config{}
+	}
+	policyJSON := os.Getenv("FEISHU_SYNC_SAFETY_POLICY_JSON")
+	if policyJSON == "" && automatic {
+		encoded, _ := json.Marshal(policy)
+		policyJSON = string(encoded)
+	}
+	decoder := json.NewDecoder(strings.NewReader(policyJSON))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&policy); err != nil || rdb == nil {
 		logger.Errorf(ctx, "[FeishuSafety] configuration invalid; all marked Feishu outbound closed")
@@ -59,7 +75,11 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 		logger.Errorf(ctx, "[FeishuSafety] verified budget contract missing; outbound closed")
 		return
 	}
-	alert, err := feishusynccontrol.NewAlertSink(os.Getenv("FEISHU_SYNC_SAFETY_ALERT_URL"), nil)
+	var alert func(feishusynccontrol.Event) error
+	alertURL := os.Getenv("FEISHU_SYNC_SAFETY_ALERT_URL")
+	if alertURL != "" || !automatic {
+		alert, err = feishusynccontrol.NewAlertSink(alertURL, nil)
+	}
 	if err != nil {
 		logger.Errorf(ctx, "[FeishuSafety] acknowledged alert receiver missing; outbound closed")
 		return
@@ -68,22 +88,77 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 		return int(settings.GetInt(ctx, key, env, int64(fallback)))
 	})
 	cfg := feishusynccontrol.Config{
+		Automatic:       automatic,
 		WorkerID:        os.Getenv("FEISHU_SYNC_WORKER_ID"),
 		ExpectedWorkers: strings.Split(os.Getenv("FEISHU_SYNC_EXPECTED_WORKERS"), ","),
 		SourceSHA:       os.Getenv("FEISHU_SYNC_SOURCE_SHA"),
 		Scope:           os.Getenv("FEISHU_LEGACY_SYNC_ALLOWED_SOURCE_IDS"), Maintenance: allocation.Maintenance,
 	}
+	if automatic {
+		host, hostErr := os.Hostname()
+		if hostErr != nil {
+			return
+		}
+		// Asynq registry uses this same physical process identity.
+		if cfg.WorkerID == "" {
+			cfg.WorkerID = fmt.Sprintf("%s:%d", host, os.Getpid())
+		}
+		cfg.ExpectedWorkers = nil
+		if cfg.Scope == "" {
+			cfg.Scope = "all"
+		}
+		if cfg.SourceSHA == "" {
+			cfg.SourceSHA = "build-unversioned"
+			if info, ok := debug.ReadBuildInfo(); ok {
+				for _, setting := range info.Settings {
+					if setting.Key == "vcs.revision" {
+						cfg.SourceSHA = setting.Value
+					}
+				}
+			}
+		}
+	}
 	controller, err := feishusynccontrol.New(rdb, guard, cfg, func(stopCtx context.Context) error {
 		_, fenceErr := repository.FenceLegacySyncExecutions(stopCtx, db)
 		return fenceErr
 	}, func(event feishusynccontrol.Event) error {
-		logger.Errorf(context.Background(), "[FeishuSafety] event=%s reason=%s worker=%s fenced=%t queue_paused=%t",
-			event.Kind, event.Reason, event.WorkerID, event.Fenced, event.QueuePaused)
-		return alert(event)
+		if event.Kind == "feishu_safety_heartbeat" {
+			logger.Debugf(
+				context.Background(),
+				"[FeishuSafety] event=%s reason=%s worker=%s",
+				event.Kind,
+				event.Reason,
+				event.WorkerID,
+			)
+		} else {
+			logger.Errorf(context.Background(), "[FeishuSafety] event=%s reason=%s worker=%s fenced=%t queue_paused=%t",
+				event.Kind, event.Reason, event.WorkerID, event.Fenced, event.QueuePaused)
+		}
+		if alert != nil {
+			return alert(event)
+		}
+		// The default sink is durable Redis audit plus structured application logs.
+		// It is not a claim of external paging/online health monitoring.
+		auditCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		return rdb.XAdd(auditCtx, &redis.XAddArgs{
+			Stream: strings.TrimSuffix(guard.PermitKey(), "permit") + "events", MaxLen: 1000, Approx: true,
+			Values: map[string]any{
+				"kind":         event.Kind,
+				"reason":       event.Reason,
+				"worker_id":    event.WorkerID,
+				"fenced":       event.Fenced,
+				"queue_paused": event.QueuePaused,
+			},
+		}).
+			Err()
 	})
 	if err != nil {
 		logger.Errorf(ctx, "[FeishuSafety] worker inventory or effective concurrency invalid; outbound closed")
 		return
+	}
+	if automatic {
+		controller.Consumers = feishusynccontrol.SyncConsumers(rdb)
 	}
 	feishusafety.InstallDefault(guard)
 	configured = true

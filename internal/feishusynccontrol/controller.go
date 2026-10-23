@@ -20,8 +20,9 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// Config is an operator-attested inventory, not automatic cluster discovery.
+// Config selects a strict attested inventory or automatic Asynq/lease discovery.
 type Config struct {
+	Automatic       bool
 	WorkerID        string
 	ExpectedWorkers []string
 	SourceSHA       string
@@ -58,12 +59,15 @@ type Event struct {
 
 // Controller validates inventory/telemetry and executes an idempotent stop loop.
 type Controller struct {
-	mu           sync.Mutex
-	Client       redis.UniversalClient
-	Guard        *feishusafety.Guard
-	Config       Config
-	Stop         func(context.Context) error
-	Audit        func(Event) error
+	mu     sync.Mutex
+	Client redis.UniversalClient
+	Guard  *feishusafety.Guard
+	Config Config
+	Stop   func(context.Context) error
+	Audit  func(Event) error
+	// Consumers returns actual healthy Asynq sync consumers as host:pid IDs.
+	// Automatic mode validates their registry leases, never synthesizes metrics.
+	Consumers    func(context.Context) ([]string, error)
 	prefix       string
 	fingerprint  string
 	incarnation  string
@@ -73,29 +77,33 @@ type Controller struct {
 	lastAlertAck time.Time
 }
 
-// New requires a single explicit scope, complete worker inventory and pinned
-// source identity. Multiple sources require a separately reviewed expansion.
+// New preserves strict explicit-inventory mode. Automatic mode permits all or
+// a canonical UUID list and validates discovered consumers on every step.
 func New(client redis.UniversalClient, guard *feishusafety.Guard, cfg Config,
 	stop func(context.Context) error, audit func(Event) error,
 ) (*Controller, error) {
-	if client == nil || guard == nil || stop == nil || audit == nil || cfg.Maintenance != 1 {
+	if client == nil || guard == nil || stop == nil || audit == nil || cfg.Maintenance < 1 ||
+		(!cfg.Automatic && cfg.Maintenance != 1) {
 		return nil, fmt.Errorf("%w: incomplete controller or canary concurrency", ErrNotReady)
 	}
-	if len(cfg.SourceSHA) != 40 {
+	if !cfg.Automatic && len(cfg.SourceSHA) != 40 {
 		return nil, fmt.Errorf("%w: source identity", ErrNotReady)
 	}
-	if _, err := hex.DecodeString(cfg.SourceSHA); err != nil {
+	if _, err := hex.DecodeString(cfg.SourceSHA); !cfg.Automatic && err != nil {
 		return nil, fmt.Errorf("%w: source identity", ErrNotReady)
 	}
-	if cfg.Scope != "none" {
-		id, err := uuid.Parse(cfg.Scope)
-		if err != nil || id.String() != cfg.Scope {
-			return nil, fmt.Errorf("%w: scope must be none or one canonical UUID", ErrNotReady)
+	if cfg.Scope != "none" && !(cfg.Automatic && cfg.Scope == "all") {
+		for _, entry := range strings.Split(cfg.Scope, ",") {
+			id, err := uuid.Parse(strings.TrimSpace(entry))
+			if err != nil || id.String() != strings.TrimSpace(entry) ||
+				(!cfg.Automatic && strings.Contains(cfg.Scope, ",")) {
+				return nil, fmt.Errorf("%w: scope must be none or one canonical UUID", ErrNotReady)
+			}
 		}
 	}
 	workers := append([]string(nil), cfg.ExpectedWorkers...)
 	sort.Strings(workers)
-	if len(workers) == 0 || len(workers) > 64 {
+	if (len(workers) == 0 && !cfg.Automatic) || len(workers) > 64 {
 		return nil, fmt.Errorf("%w: expected inventory", ErrNotReady)
 	}
 	found := false
@@ -105,11 +113,18 @@ func New(client redis.UniversalClient, guard *feishusafety.Guard, cfg Config,
 		}
 		found = found || id == cfg.WorkerID
 	}
-	if !found {
+	if !found && !cfg.Automatic {
 		return nil, fmt.Errorf("%w: worker absent from inventory", ErrNotReady)
 	}
 	cfg.ExpectedWorkers = workers
-	raw, _ := json.Marshal([]any{cfg.SourceSHA, cfg.Scope, cfg.Maintenance, workers, guard.Fingerprint()})
+	if cfg.Automatic && (cfg.WorkerID == "" || strings.ContainsAny(cfg.WorkerID, " \t\r\n{}")) {
+		return nil, fmt.Errorf("%w: worker identity", ErrNotReady)
+	}
+	identity := []any{cfg.SourceSHA, cfg.Scope, cfg.Maintenance, workers, guard.Fingerprint()}
+	if cfg.Automatic {
+		identity = []any{"automatic", cfg.SourceSHA, cfg.Scope, guard.Fingerprint()}
+	}
+	raw, _ := json.Marshal(identity)
 	hash := sha256.Sum256(raw)
 	return &Controller{
 		Client: client, Guard: guard, Config: cfg, Stop: stop, Audit: audit,
@@ -160,6 +175,9 @@ func (c *Controller) Step(ctx context.Context) error {
 	}
 	if c.Config.Scope == "none" {
 		return c.freeze(ctx, "scope_none", false)
+	}
+	if c.Config.Automatic {
+		return c.automaticStep(ctx)
 	}
 	raw, err := c.Client.Get(ctx, c.MetricsKey()).Result()
 	if err != nil {

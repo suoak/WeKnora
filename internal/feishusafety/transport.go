@@ -33,6 +33,10 @@ func trip(g *Guard, reason string) {
 // A terminal failure latches the gate, so protocol transport retries cannot
 // generate additional network attempts. Each retry reacquires all wire budgets.
 func (t Transport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Protocol-owned reservations also own retry/queue waits, outside Client.Do.
+	if t.Embedding && Scoped(req.Context()) && hasReservation(req.Context()) {
+		return t.roundTripAttempt(req)
+	}
 	if !t.Embedding || !Scoped(req.Context()) {
 		return t.roundTripAttempt(req)
 	}
@@ -172,7 +176,11 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 		for _, input := range inputs {
 			tokens += len(input) + g.config.TokenOverhead
 		}
-		release, err = g.begin(req.Context(), tokens)
+		var reserved bool
+		release, reserved, err = consumeReservation(req.Context(), g, inputs)
+		if !reserved {
+			release, err = g.begin(req.Context(), tokens)
+		}
 		if err != nil {
 			if req.Context().Err() == nil {
 				trip(g, "embedding_budget_or_state_unavailable")

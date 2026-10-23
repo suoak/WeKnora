@@ -95,6 +95,7 @@ func releaseStopRedisPostgres(t *testing.T, failure string) {
 	}
 	require.NoError(t, sources.Create(ctx, ds))
 	t.Setenv("FEISHU_SYNC_SAFETY_ENABLED", "true")
+	t.Setenv("FEISHU_SYNC_SAFETY_MODE", "strict")
 	t.Setenv("FEISHU_LEGACY_SYNC_SUSPENDED", "false")
 	t.Setenv("FEISHU_LEGACY_SYNC_ALLOWED_SOURCE_IDS", "none")
 	feishusafety.InstallDefault(nil)

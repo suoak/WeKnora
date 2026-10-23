@@ -18,6 +18,7 @@ func TestLegacyFeishuScopeP0(t *testing.T) {
 		want bool
 	}{
 		{"", true},
+		{"all", true},
 		{id, true},
 		{other, false},
 		{"none", false},
