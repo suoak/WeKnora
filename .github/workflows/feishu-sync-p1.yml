@@ -1,0 +1,93 @@
+name: Feishu Sync Parent Child and Version P1
+
+on:
+  push:
+    branches: [fix/feishu-sync-p1-parent-child-version-20261023]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: feishu-p1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  isolated-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+      postgres:
+        image: paradedb/paradedb:v0.22.2-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: feishu_atomic_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d feishu_atomic_test"
+          --health-interval 10s --health-timeout 5s --health-retries 12
+    env:
+      FEISHU_P0_REDIS_ADDR: 127.0.0.1:6379
+      SYNC_EXECUTION_POSTGRES_DSN: postgres://postgres:postgres@localhost:5432/feishu_atomic_test?sslmode=disable
+      REQUIRE_SYNC_EXECUTION_POSTGRES: "1"
+      FEISHU_LEGACY_TEST_DSN: postgres://postgres:postgres@localhost:5432/feishu_atomic_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26"
+          cache: true
+      - name: Install isolated test dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential libsqlite3-dev
+      - name: Record identity and format
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git rev-parse HEAD | tee tested-source-sha.txt
+          git diff --check
+          test -z "$(gofmt -l internal/application/repository/feishu_legacy_*.go internal/application/service/feishu_legacy_staging*.go)"
+      - name: Reproduce high-water conflict on accepted P0 before fixed checks
+        run: |
+          cp internal/application/repository/feishu_legacy_atomic.go /tmp/p1-fixed-atomic.go
+          git show 70c7d56765e1b1ca2a6e3d33c8d7047a15422c71:internal/application/repository/feishu_legacy_atomic.go > internal/application/repository/feishu_legacy_atomic.go
+          : > p1-baseline-reproducer.log
+          for repro in P1-same-high-water-timestamp-change-rejected P1-active-duplicate-preserves-live-owner; do
+            set +e
+            go test -tags sqlite_fts5 ./internal/application/repository -run "^TestFeishuLegacyAtomicPostgres$/$repro$" -count=1 -timeout=5m > p1-current-reproducer.log 2>&1
+            status=$?
+            set -e
+            cat p1-current-reproducer.log | tee -a p1-baseline-reproducer.log
+            test "$status" -ne 0
+            grep -q "$repro" p1-current-reproducer.log
+            grep -q 'in chain but got nil' p1-current-reproducer.log
+          done
+          cp /tmp/p1-fixed-atomic.go internal/application/repository/feishu_legacy_atomic.go
+          git diff --exit-code -- internal/application/repository/feishu_legacy_atomic.go
+      - name: Version fences and real parent graph PostgreSQL and ParadeDB faults
+        run: go test -tags sqlite_fts5 ./internal/application/repository -run 'TestLegacyParentGraphP1|TestFeishuParentAtomicPostgresP1|TestFeishuLegacyAtomicPostgres$' -count=1 -timeout=10m
+      - name: Real parser child-only Embedding and mid-batch preservation
+        run: go test -tags sqlite_fts5 ./internal/application/service -run '^TestFeishuLegacyRealParserEmbeddingPostgres$' -count=1 -timeout=10m
+      - name: Race parent graph and real PostgreSQL concurrency
+        run: go test -race -tags sqlite_fts5 ./internal/application/repository ./internal/application/service -run 'TestLegacyParentGraphP1|TestFeishuParentAtomicPostgresP1|TestFeishuLegacyRealParserEmbeddingPostgres$' -count=1 -timeout=15m
+      - name: Complete internal regression
+        env:
+          FEISHU_LEGACY_TEST_DSN: ""
+          SYNC_EXECUTION_POSTGRES_DSN: ""
+          REQUIRE_SYNC_EXECUTION_POSTGRES: "0"
+        run: go test -p 2 ./internal/... -count=1 -timeout=20m
+      - name: Preserve tested source identity
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: feishu-p1-tested-source
+          path: |
+            tested-source-sha.txt
+            p1-baseline-reproducer.log
