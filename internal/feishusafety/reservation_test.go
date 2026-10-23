@@ -111,8 +111,12 @@ func TestSource403404DoNotTripOtherSources(t *testing.T) {
 			if err != nil || response.StatusCode != status {
 				t.Fatal("source error not preserved", err)
 			}
-			io.Copy(io.Discard, response.Body)
-			response.Body.Close()
+			if _, err := io.Copy(io.Discard, response.Body); err != nil {
+				t.Fatal(err)
+			}
+			if err := response.Body.Close(); err != nil {
+				t.Fatal(err)
+			}
 			if client.Exists(context.Background(), g.key("trip")).Val() != 0 ||
 				g.Check(context.Background()) != nil {
 				t.Fatal("one missing/forbidden source globally stopped synchronization")
