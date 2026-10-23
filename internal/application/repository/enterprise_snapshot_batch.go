@@ -15,6 +15,10 @@ import (
 // number of SQL statements rather than per-document queries. No content read.
 // Missing epochs/trigger coverage deny; never approximate with updated_at.
 func populateDocumentVersions(tx *gorm.DB, docs []types.EnterpriseDocumentState) error {
+	return populateDocumentVersionsCached(tx, docs, nil)
+}
+
+func populateDocumentVersionsCached(tx *gorm.DB, docs []types.EnterpriseDocumentState, cache *documentVersionCache) error {
 	if err := checkDocumentEpochCoverage(tx); err != nil {
 		return err
 	}
@@ -72,8 +76,33 @@ func populateDocumentVersions(tx *gorm.DB, docs []types.EnterpriseDocumentState)
 	for _, e := range epochs {
 		em[e.KnowledgeID] = e
 	}
+	// The epoch is read afresh, not cached. A change made by any covered writer
+	// invalidates the calculation even if updated_at/content_revision is kept.
+	missing := make([]string, 0, len(docs))
+	stamps := make(map[string]documentVersionStamp, len(docs))
+	resolved := make(map[string]bool, len(docs))
+	for i := range docs {
+		d := &docs[i]
+		r, ok := rm[d.ID]
+		e := em[d.ID]
+		if !ok || r.TenantID == 0 || r.UpdatedAt.IsZero() || e.Generation <= 0 || len(e.Incarnation) != 32 {
+			return errors.New("document version unavailable: HOLD")
+		}
+		stamp := documentVersionStamp{ID: d.ID, TenantID: r.TenantID, KBID: r.KBID, UpdatedAt: r.UpdatedAt, Generation: e.Generation, Incarnation: e.Incarnation}
+		stamps[d.ID] = stamp
+		d.EnterprisePolicy = pm[d.ID]
+		if version, hit := cache.get(stamp); hit {
+			d.CurrentVersion = version
+			resolved[d.ID] = true
+		} else {
+			missing = append(missing, d.ID)
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
 	var chunks []map[string]interface{}
-	if err := tx.Table("chunks").Select("knowledge_id,id,content_revision,updated_at,is_enabled,deleted_at").Where("knowledge_id IN ?", ids).Order("knowledge_id,id").Find(&chunks).Error; err != nil {
+	if err := tx.Table("chunks").Select("knowledge_id,id,content_revision,updated_at,is_enabled,deleted_at").Where("knowledge_id IN ?", missing).Order("knowledge_id,id").Find(&chunks).Error; err != nil {
 		return err
 	}
 	cm := map[string][]map[string]interface{}{}
@@ -87,6 +116,9 @@ func populateDocumentVersions(tx *gorm.DB, docs []types.EnterpriseDocumentState)
 	}
 	for i := range docs {
 		d := &docs[i]
+		if resolved[d.ID] {
+			continue
+		}
 		r, ok := rm[d.ID]
 		e := em[d.ID]
 		if !ok || r.TenantID == 0 || r.UpdatedAt.IsZero() || e.Generation <= 0 || len(e.Incarnation) != 32 {
@@ -114,6 +146,7 @@ func populateDocumentVersions(tx *gorm.DB, docs []types.EnterpriseDocumentState)
 		sum := sha256.Sum256(encoded)
 		d.CurrentVersion = hex.EncodeToString(sum[:])
 		d.EnterprisePolicy = pm[d.ID]
+		cache.put(stamps[d.ID], d.CurrentVersion)
 	}
 	return nil
 }

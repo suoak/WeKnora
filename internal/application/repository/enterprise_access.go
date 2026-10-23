@@ -17,10 +17,13 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-type EnterpriseAccessRepository struct{ db *gorm.DB }
+type EnterpriseAccessRepository struct {
+	db       *gorm.DB
+	versions *documentVersionCache
+}
 
 func NewEnterpriseAccessRepository(db *gorm.DB) *EnterpriseAccessRepository {
-	return &EnterpriseAccessRepository{db: db}
+	return &EnterpriseAccessRepository{db: db, versions: newDocumentVersionCache(65536)}
 }
 
 // resourceVersion binds review to persisted resource/chunk revision metadata.
@@ -289,7 +292,7 @@ func (r *EnterpriseAccessRepository) loadReadSnapshot(ctx context.Context, userI
 		if err := tx.Table("knowledges").Select("id,tenant_id,knowledge_base_id,type,parse_status,enable_status,channel").Where("knowledge_base_id=? AND deleted_at IS NULL", kbID).Order("id").Find(&s.Documents).Error; err != nil {
 			return err
 		}
-		if err := populateDocumentVersions(tx, s.Documents); err != nil {
+		if err := populateDocumentVersionsCached(tx, s.Documents, r.versions); err != nil {
 			return err
 		}
 
