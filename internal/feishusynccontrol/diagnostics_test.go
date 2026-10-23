@@ -30,7 +30,9 @@ func TestAutomaticCanonicalFailureDiagnostics(t *testing.T) {
 			"automatic_asynq_consumer_consumer_inactive",
 		},
 		{
-			"consumer_probe", &probeFailure{stage: "asynq_inspection", cause: errors.New("redis://secret:user@host body")},
+			"consumer_probe", &probeFailure{
+				stage: "asynq_inspection", cause: errors.New("redis://secret:user@host body"),
+			},
 			"automatic_asynq_inspection_redis_or_probe_error",
 		},
 	} {

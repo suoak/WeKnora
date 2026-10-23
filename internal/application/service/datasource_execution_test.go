@@ -111,7 +111,9 @@ func syncServiceSuite(t *testing.T, dialect string) {
 		close(otherConnector.proceed)
 		otherLog, err := otherSvc.ManualSync(ctx, otherDS.ID)
 		require.NoError(t, err)
-		body, err = json.Marshal(types.DataSourceSyncPayload{DataSourceID: otherDS.ID, SyncLogID: otherLog.ID, TenantID: 1})
+		body, err = json.Marshal(types.DataSourceSyncPayload{
+			DataSourceID: otherDS.ID, SyncLogID: otherLog.ID, TenantID: 1,
+		})
 		require.NoError(t, err)
 		require.NoError(t, otherSvc.ProcessSync(ctx, asynq.NewTask(types.TypeDataSourceSync, body)))
 		finished, err := logs.FindByID(ctx, otherLog.ID)

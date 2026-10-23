@@ -78,14 +78,16 @@ func (s *DataSourceService) ProcessSync(ctx context.Context, task *asynq.Task) (
 		}
 	}()
 	defer func() {
-		if recover() != nil {
+		panicked := recover() != nil
+		if panicked {
 			runErr = errors.New("sync worker panicked")
 		}
-		if runErr != nil && feishusafety.Scoped(workerCtx) && feishusafety.Default() != nil {
-			// A provider may return HTTP200 with invalid vectors or a business
-			// failure. Freeze the rollout even if the transport could not classify it.
+		if panicked && feishusafety.Scoped(workerCtx) && feishusafety.Default() != nil {
+			// An unclassified process panic is a global unknown-state incident.
+			// Ordinary source/business errors retain their own retry and do not
+			// stop unrelated sources. Transport/controller own other global trips.
 			tripCtx, tripCancel := context.WithTimeout(context.Background(), time.Second)
-			_ = feishusafety.Default().Trip(tripCtx, "sync_execution_failed")
+			_ = feishusafety.Default().Trip(tripCtx, "sync_execution_panicked")
 			tripCancel()
 		}
 		close(stop)
