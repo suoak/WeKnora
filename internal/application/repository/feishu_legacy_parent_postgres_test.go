@@ -183,4 +183,10 @@ func TestFeishuParentAtomicPostgresP1(t *testing.T) {
 	_, _, err = store.Begin(ctx, ds, item(3), hash("rollback"))
 	require.ErrorAs(t, err, &diagnostic)
 	require.Equal(t, "source_revision_regressed", diagnostic.Reason)
+	_, err = store.RestrictSource(ctx, ds, "parent-cloud", false)
+	require.NoError(t, err)
+	_, recovery, recoveryManifest := begin("finalparentcanary", 5)
+	require.NoError(t, store.Prepare(ctx, ds, recovery, recoveryManifest, vectors))
+	_, err = store.Publish(ctx, ds, recovery)
+	require.NoError(t, err, "redaction receipt must not replace the content hash identity")
 }

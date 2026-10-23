@@ -215,7 +215,13 @@ func (s *FeishuLegacyStore) Begin(ctx context.Context, ds *types.DataSource, ite
 					if parseObserved != nil {
 						return legacyFence("invalid_source_revision")
 					}
-					if observedTime.Equal(highWater) {
+					var restricted struct {
+						Restricted bool `json:"restricted"`
+					}
+					withdrawal := r.State == "hold" && observed.Status == "published" && observed.SourceHash == "withdrawal" && json.Unmarshal(observed.Receipt, &restricted) == nil && restricted.Restricted
+					// A trusted redaction receipt is not a new content observation.
+					// Revalidation must still match the active content watermark.
+					if observedTime.Equal(highWater) && !withdrawal {
 						expectedHash = observed.SourceHash
 					}
 				}

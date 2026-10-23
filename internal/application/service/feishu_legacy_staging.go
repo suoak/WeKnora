@@ -281,12 +281,16 @@ func (s *knowledgeService) StageFeishuLegacyItem(ctx context.Context, ds *types.
 		headers[chunks[i].ID] = p.ContextHeader
 		texts[i] = item.Title + "\n\n" + chunks[i].EmbeddingContent()
 	}
-	for i, c := range chunks {
-		if i > 0 {
-			c.PreChunkID = chunks[i-1].ID
-		}
-		if i+1 < len(chunks) {
-			c.NextChunkID = chunks[i+1].ID
+	// Match ordinary parent-child ingestion: only parent context has
+	// adjacency; child retrieval expands its exact parent, not sibling text.
+	if len(parents) == 0 {
+		for i, c := range chunks {
+			if i > 0 {
+				c.PreChunkID = chunks[i-1].ID
+			}
+			if i+1 < len(chunks) {
+				c.NextChunkID = chunks[i+1].ID
+			}
 		}
 	}
 	// Each candidate owns fresh parent IDs; no lookup can attach children to

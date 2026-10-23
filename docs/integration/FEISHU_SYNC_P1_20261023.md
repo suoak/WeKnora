@@ -31,6 +31,8 @@ The revision fence binds the resource high-water timestamp to the current attemp
 
 The related active-duplicate fast path must also respect a different live candidate. Previously it could advance the watermark past that candidate while the candidate still owned a valid publication lease. The existing live-candidate check now precedes duplicate reuse, leaving the watermark unchanged and returning Busy. The workflow reproduces this second missing fence against the accepted baseline in a separate fresh database, then runs both regressions against the fix.
 
+A published trusted withdrawal/redaction receipt (`restricted=true`, source hash sentinel `withdrawal`, resource state hold) is not a content observation. It must not replace the active content hash when matching an unchanged revalidated document at the same timestamp. Recovery still compares the active hash, creates a newly owned complete version, and retains the source-wide hold until full reconciliation; revoked resources remain rejected. A real synthetic HTTP permission-loss / absence / same-version recovery regression covers this distinction. Each parser matrix case owns a separate disposable database and storage root to prevent prior case holds, catalog state or backend names leaking between cases.
+
 ## Version fence trigger inventory
 
 `feishu_legacy_atomic.go` now returns typed `LegacyFenceError` values while preserving `errors.Is(ErrLegacyVersionFence)`. `StageFeishuLegacyItem` emits `feishu_version_fence` with a stable reason, tenant/source/log IDs and execution generation only.
