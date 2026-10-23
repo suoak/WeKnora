@@ -11,6 +11,7 @@ func WithKnowledgeBaseCatalog(ctx context.Context, tenantID uint64) context.Cont
 	return context.WithValue(ctx, knowledgeBaseCatalogKey{}, tenantID)
 }
 
+// KnowledgeBaseCatalogTenant returns the server-authorized catalog's owning tenant.
 func KnowledgeBaseCatalogTenant(ctx context.Context) uint64 {
 	tenantID, _ := ctx.Value(knowledgeBaseCatalogKey{}).(uint64)
 	return tenantID

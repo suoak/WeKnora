@@ -62,7 +62,8 @@ VALUES(?,?,?,'embed','summary','{}')`, row.id, row.id, row.tenant).Error)
 		_, err = r.GetKnowledgeBaseByID(web, "other")
 		require.ErrorIs(t, err, types.ErrLegacySourceRestricted,
 			"other workspace sources remain protected")
-		keyed := types.WithTenantAPIKeyScope(web, types.TenantAPIKeyScope{KeyID: 1, ScopeType: types.APIKeyScopeUserMCP})
+		keyScope := types.TenantAPIKeyScope{KeyID: 1, ScopeType: types.APIKeyScopeUserMCP}
+		keyed := types.WithTenantAPIKeyScope(web, keyScope)
 		_, err = r.GetKnowledgeBaseByID(keyed, "held")
 		require.ErrorIs(t, err, types.ErrLegacySourceRestricted,
 			"MCP does not inherit browser membership rights")

@@ -27,7 +27,14 @@ func (legacyReadGuardPlugin) Initialize(db *gorm.DB) error {
 		table := tx.Statement.Table
 		switch table {
 		case "wiki_pages", "wiki_page_revisions", "wiki_folders", "wiki_page_issues":
-			tx.Statement.AddClause(clause.Where{Exprs: []clause.Expression{clause.Expr{SQL: `NOT EXISTS (SELECT 1 FROM feishu_legacy_resources lr WHERE lr.knowledge_base_id=` + table + `.knowledge_base_id AND lr.state IN ('hold','revoked')) AND NOT EXISTS (SELECT 1 FROM data_sources ld WHERE ld.knowledge_base_id=` + table + `.knowledge_base_id AND (ld.legacy_access_state='revoked' OR (ld.legacy_access_state='hold' AND NOT EXISTS (SELECT 1 FROM knowledge_bases owner_kb WHERE owner_kb.id=ld.knowledge_base_id AND owner_kb.tenant_id=?))))`, Vars: []interface{}{WorkspaceWebReadTenant(tx.Statement.Context)}}}})
+			predicate := `NOT EXISTS (SELECT 1 FROM feishu_legacy_resources lr WHERE lr.knowledge_base_id=` + table +
+				`.knowledge_base_id AND lr.state IN ('hold','revoked'))
+AND NOT EXISTS (SELECT 1 FROM data_sources ld WHERE ld.knowledge_base_id=` + table + `.knowledge_base_id
+AND (ld.legacy_access_state='revoked' OR (ld.legacy_access_state='hold' AND NOT EXISTS (
+SELECT 1 FROM knowledge_bases owner_kb WHERE owner_kb.id=ld.knowledge_base_id AND owner_kb.tenant_id=?))))`
+			tx.Statement.AddClause(clause.Where{Exprs: []clause.Expression{clause.Expr{
+				SQL: predicate, Vars: []interface{}{WorkspaceWebReadTenant(tx.Statement.Context)},
+			}}})
 		}
 	}
 	if err := db.Callback().Query().Before("gorm:query").Register(legacyReadGuardSetting, filter); err != nil {
@@ -82,7 +89,9 @@ func CheckLegacySourceRead(db *gorm.DB, knowledgeID, kbID string) error {
 		return nil
 	}
 	var valid struct{ TenantID uint64 }
-	if err := db.Raw("SELECT k.tenant_id FROM knowledge_bases k JOIN tenants t ON t.id=k.tenant_id WHERE k.id=? AND k.deleted_at IS NULL AND t.status='active' AND t.deleted_at IS NULL", kbID).Scan(&valid).Error; err != nil {
+	err := db.Raw(`SELECT k.tenant_id FROM knowledge_bases k JOIN tenants t ON t.id=k.tenant_id
+WHERE k.id=? AND k.deleted_at IS NULL AND t.status='active' AND t.deleted_at IS NULL`, kbID).Scan(&valid).Error
+	if err != nil {
 		return err
 	}
 	if valid.TenantID == 0 {
@@ -93,8 +102,10 @@ func CheckLegacySourceRead(db *gorm.DB, knowledgeID, kbID string) error {
 	if WorkspaceWebReadTenant(db.Statement.Context) == valid.TenantID {
 		sourceStates = []string{"revoked"}
 	}
-	err := db.Raw(`SELECT EXISTS(SELECT 1 FROM feishu_legacy_resources lr WHERE knowledge_base_id=? AND state IN ('hold','revoked')
- AND (?=0 OR EXISTS(SELECT 1 FROM knowledges existing_doc WHERE existing_doc.id=lr.knowledge_id AND existing_doc.deleted_at IS NULL)))
+	err = db.Raw(`SELECT EXISTS(SELECT 1 FROM feishu_legacy_resources lr
+WHERE knowledge_base_id=? AND state IN ('hold','revoked')
+ AND (?=0 OR EXISTS(SELECT 1 FROM knowledges existing_doc
+ WHERE existing_doc.id=lr.knowledge_id AND existing_doc.deleted_at IS NULL)))
  OR EXISTS(SELECT 1 FROM data_sources WHERE knowledge_base_id=? AND legacy_access_state IN ?)`,
 		kbID, WorkspaceWebReadTenant(db.Statement.Context), kbID, sourceStates).Scan(&denied).Error
 	if err != nil {
