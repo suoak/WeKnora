@@ -174,7 +174,8 @@ func (c *Controller) Step(ctx context.Context) error {
 		return c.freeze(ctx, "metrics_unhealthy_or_unknown", true)
 	}
 	if time.Since(c.lastAlertAck) > time.Second {
-		if err := c.Audit(Event{Kind: "feishu_safety_heartbeat", Reason: "controller_alive", WorkerID: c.Config.WorkerID}); err != nil {
+		heartbeat := Event{Kind: "feishu_safety_heartbeat", Reason: "controller_alive", WorkerID: c.Config.WorkerID}
+		if err := c.Audit(heartbeat); err != nil {
 			return c.freeze(ctx, "alert_receiver_unavailable", true)
 		}
 		c.lastAlertAck = time.Now()
