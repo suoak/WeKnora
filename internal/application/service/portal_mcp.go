@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
+	"github.com/Tencent/WeKnora/internal/perftrace"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 )
@@ -299,6 +300,7 @@ func (s *PortalMCPKnowledge) Search(ctx context.Context, ids []string, query, mo
 			aggregate[key] = hit
 		}
 	}
+	mergeDone := perftrace.Measure(ctx, perftrace.Merge)
 	for _, hit := range aggregate {
 		result.Results = append(result.Results, *hit)
 	}
@@ -312,6 +314,7 @@ func (s *PortalMCPKnowledge) Search(ctx context.Context, ids []string, query, mo
 	if len(result.Results) > limit {
 		result.Results = result.Results[:limit]
 	}
+	mergeDone()
 	if diagnostics.Partial() {
 		result.Status = "partial"
 	}

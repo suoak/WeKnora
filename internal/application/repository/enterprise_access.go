@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/perftrace"
 	"github.com/Tencent/WeKnora/internal/types"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -227,6 +228,7 @@ func (r *EnterpriseAccessRepository) loadReadSnapshot(ctx context.Context, userI
 	if r == nil || r.db == nil {
 		return nil, errors.New("enterprise policy store unavailable")
 	}
+	defer perftrace.Measure(ctx, perftrace.Snapshot)()
 	s := &types.EnterpriseReadSnapshot{UserID: userID, KBID: kbID}
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var user struct{ IsActive bool }

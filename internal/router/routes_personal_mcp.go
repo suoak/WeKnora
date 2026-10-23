@@ -1,9 +1,13 @@
 package router
 
 import (
+	"encoding/json"
+
 	"github.com/Tencent/WeKnora/internal/config"
+	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/mcpserver"
 	"github.com/Tencent/WeKnora/internal/middleware"
+	"github.com/Tencent/WeKnora/internal/perftrace"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/gin-gonic/gin"
 )
@@ -18,6 +22,21 @@ func RegisterPersonalMCPRoutes(r *gin.Engine, srv *mcpserver.PersonalServer, ten
 			r.Handle(method, "/api/v1/mcp/personal", gin.WrapH(srv.Handler()))
 			continue
 		}
-		r.Handle(method, "/api/v1/mcp/personal", auth, gin.WrapH(srv.Handler()))
+		r.Handle(method, "/api/v1/mcp/personal", personalPerformanceTrace, auth, gin.WrapH(srv.Handler()))
 	}
+}
+
+// personalPerformanceTrace emits one bounded metrics record, without RPC inputs.
+func personalPerformanceTrace(c *gin.Context) {
+	ctx, trace := perftrace.New(c.Request.Context())
+	c.Request = c.Request.WithContext(ctx)
+	defer func() {
+		if trace != nil {
+			raw, err := json.Marshal(trace.Summary())
+			if err == nil {
+				logger.Infof(ctx, "[PersonalMCPPerf] %s", string(raw))
+			}
+		}
+	}()
+	c.Next()
 }

@@ -1,0 +1,958 @@
+{
+  "at_utc": "2026-10-23T06:42:19.450779+00:00",
+  "read_only": true,
+  "query_vector": "synthetic unit vector; no external model call",
+  "plans": [
+    {
+      "name": "old_dimension",
+      "exit_code": 0,
+      "wall_seconds": 9.691215416416526,
+      "execution_ms": 9474.976,
+      "planning_ms": 60.066,
+      "nodes": [
+        {
+          "Node Type": "Aggregate",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 1,
+          "Shared Hit Blocks": 1722144,
+          "Shared Read Blocks": 62700
+        },
+        {
+          "Node Type": "Gather",
+          "Plan Rows": 2,
+          "Actual Rows": 3,
+          "Actual Loops": 1,
+          "Shared Hit Blocks": 1722144,
+          "Shared Read Blocks": 62700
+        },
+        {
+          "Node Type": "Aggregate",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 3,
+          "Shared Hit Blocks": 1722144,
+          "Shared Read Blocks": 62700
+        },
+        {
+          "Node Type": "Hash Join",
+          "Plan Rows": 1,
+          "Actual Rows": 29262,
+          "Actual Loops": 3,
+          "Shared Hit Blocks": 1722144,
+          "Shared Read Blocks": 62700
+        },
+        {
+          "Node Type": "Bitmap Heap Scan",
+          "Relation Name": "embeddings",
+          "Plan Rows": 188,
+          "Actual Rows": 29998,
+          "Actual Loops": 3,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 10356
+        },
+        {
+          "Node Type": "Bitmap Index Scan",
+          "Index Name": "idx_embeddings_knowledge_base_id",
+          "Plan Rows": 90216,
+          "Actual Rows": 89994,
+          "Actual Loops": 1,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 141
+        },
+        {
+          "Node Type": "Hash",
+          "Plan Rows": 1,
+          "Actual Rows": 87786,
+          "Actual Loops": 3,
+          "Shared Hit Blocks": 1613224,
+          "Shared Read Blocks": 40509
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 87786,
+          "Actual Loops": 3,
+          "Shared Hit Blocks": 1613224,
+          "Shared Read Blocks": 40509
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 87786,
+          "Actual Loops": 3,
+          "Shared Hit Blocks": 1086506,
+          "Shared Read Blocks": 40509
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 87786,
+          "Actual Loops": 3,
+          "Shared Hit Blocks": 559788,
+          "Shared Read Blocks": 40509
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 1118,
+          "Actual Loops": 3,
+          "Shared Hit Blocks": 455,
+          "Shared Read Blocks": 177
+        },
+        {
+          "Node Type": "Bitmap Heap Scan",
+          "Relation Name": "knowledges",
+          "Plan Rows": 277,
+          "Actual Rows": 1118,
+          "Actual Loops": 3,
+          "Rows Removed by Filter": 7,
+          "Shared Hit Blocks": 455,
+          "Shared Read Blocks": 177
+        },
+        {
+          "Node Type": "Bitmap Index Scan",
+          "Index Name": "idx_knowledges_folder_path",
+          "Plan Rows": 316,
+          "Actual Rows": 1125,
+          "Actual Loops": 3,
+          "Shared Hit Blocks": 14,
+          "Shared Read Blocks": 3
+        },
+        {
+          "Node Type": "Materialize",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 3354,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 3,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Seq Scan",
+          "Relation Name": "knowledge_access_policies",
+          "Plan Rows": 6,
+          "Actual Rows": 0,
+          "Actual Loops": 3,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "knowledges",
+          "Index Name": "knowledges_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 0,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Bitmap Heap Scan",
+          "Relation Name": "chunks",
+          "Plan Rows": 1,
+          "Actual Rows": 79,
+          "Actual Loops": 3354,
+          "Rows Removed by Filter": 3,
+          "Shared Hit Blocks": 559333,
+          "Shared Read Blocks": 40332
+        },
+        {
+          "Node Type": "BitmapAnd",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 3354,
+          "Shared Hit Blocks": 525449,
+          "Shared Read Blocks": 1394
+        },
+        {
+          "Node Type": "Bitmap Index Scan",
+          "Index Name": "idx_chunks_knowledge_enabled",
+          "Plan Rows": 477,
+          "Actual Rows": 82,
+          "Actual Loops": 3354,
+          "Shared Hit Blocks": 12436,
+          "Shared Read Blocks": 1243
+        },
+        {
+          "Node Type": "Bitmap Index Scan",
+          "Index Name": "idx_chunks_kb_tenant",
+          "Plan Rows": 1815,
+          "Actual Rows": 104991,
+          "Actual Loops": 3354,
+          "Shared Hit Blocks": 513013,
+          "Shared Read Blocks": 151
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "knowledge_bases",
+          "Index Name": "knowledge_bases_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 263358,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 526718,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "tenants",
+          "Index Name": "tenants_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 263358,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 526718,
+          "Shared Read Blocks": 0
+        }
+      ]
+    },
+    {
+      "name": "new_dimension",
+      "exit_code": 0,
+      "wall_seconds": 1.536128755658865,
+      "execution_ms": 1360.25,
+      "planning_ms": 16.121,
+      "nodes": [
+        {
+          "Node Type": "Result",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 1,
+          "Shared Hit Blocks": 16,
+          "Shared Read Blocks": 10372
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "embeddings",
+          "Index Name": "idx_embeddings_knowledge_base_id",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 1,
+          "Rows Removed by Filter": 89994,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 10356
+        },
+        {
+          "Node Type": "Result",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 0,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 0,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 0,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 0,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 0,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "knowledges",
+          "Index Name": "knowledges_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 0,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 0,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Seq Scan",
+          "Relation Name": "knowledge_access_policies",
+          "Plan Rows": 6,
+          "Actual Rows": 0,
+          "Actual Loops": 0,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Memoize",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 0,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "knowledges",
+          "Index Name": "knowledges_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 0,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "chunks",
+          "Index Name": "chunks_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 0,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "knowledge_bases",
+          "Index Name": "knowledge_bases_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 0,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "tenants",
+          "Index Name": "tenants_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 0,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "embeddings",
+          "Index Name": "idx_embeddings_knowledge_base_id",
+          "Plan Rows": 45108,
+          "Actual Rows": 1,
+          "Actual Loops": 1,
+          "Rows Removed by Filter": 2,
+          "Shared Hit Blocks": 16,
+          "Shared Read Blocks": 16
+        },
+        {
+          "Node Type": "Result",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 3,
+          "Shared Hit Blocks": 12,
+          "Shared Read Blocks": 16
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 3,
+          "Shared Hit Blocks": 12,
+          "Shared Read Blocks": 16
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 3,
+          "Shared Hit Blocks": 10,
+          "Shared Read Blocks": 16
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 3,
+          "Shared Hit Blocks": 9,
+          "Shared Read Blocks": 15
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 3,
+          "Shared Hit Blocks": 6,
+          "Shared Read Blocks": 3
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "knowledges",
+          "Index Name": "knowledges_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 3,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 6,
+          "Shared Read Blocks": 3
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 3,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Seq Scan",
+          "Relation Name": "knowledge_access_policies",
+          "Plan Rows": 6,
+          "Actual Rows": 0,
+          "Actual Loops": 3,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Memoize",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 0,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "knowledges",
+          "Index Name": "knowledges_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 0,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "chunks",
+          "Index Name": "chunks_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 3,
+          "Rows Removed by Filter": 1,
+          "Shared Hit Blocks": 3,
+          "Shared Read Blocks": 12
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "knowledge_bases",
+          "Index Name": "knowledge_bases_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 1,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 1,
+          "Shared Read Blocks": 1
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "tenants",
+          "Index Name": "tenants_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 1,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 2,
+          "Shared Read Blocks": 0
+        }
+      ]
+    },
+    {
+      "name": "old_vector",
+      "exit_code": 0,
+      "wall_seconds": 6.183440899476409,
+      "execution_ms": 6009.896,
+      "planning_ms": 14.7,
+      "nodes": [
+        {
+          "Node Type": "Limit",
+          "Plan Rows": 1,
+          "Actual Rows": 3,
+          "Actual Loops": 1,
+          "Shared Hit Blocks": 2989145,
+          "Shared Read Blocks": 163126
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 87786,
+          "Actual Loops": 1,
+          "Shared Hit Blocks": 2649109,
+          "Shared Read Blocks": 133026
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 87786,
+          "Actual Loops": 1,
+          "Shared Hit Blocks": 1068974,
+          "Shared Read Blocks": 133013
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 89994,
+          "Actual Loops": 1,
+          "Shared Hit Blocks": 163,
+          "Shared Read Blocks": 10194
+        },
+        {
+          "Node Type": "Gather",
+          "Plan Rows": 451,
+          "Actual Rows": 89994,
+          "Actual Loops": 1,
+          "Shared Hit Blocks": 162,
+          "Shared Read Blocks": 10194
+        },
+        {
+          "Node Type": "Bitmap Heap Scan",
+          "Relation Name": "embeddings",
+          "Plan Rows": 188,
+          "Actual Rows": 29998,
+          "Actual Loops": 3,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 162,
+          "Shared Read Blocks": 10194
+        },
+        {
+          "Node Type": "Bitmap Index Scan",
+          "Index Name": "idx_embeddings_knowledge_base_id",
+          "Plan Rows": 90216,
+          "Actual Rows": 89994,
+          "Actual Loops": 1,
+          "Shared Hit Blocks": 141,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Materialize",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 89994,
+          "Shared Hit Blocks": 1,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Seq Scan",
+          "Relation Name": "feishu_legacy_resources",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 1,
+          "Rows Removed by Filter": 6,
+          "Shared Hit Blocks": 1,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 89994,
+          "Shared Hit Blocks": 1068811,
+          "Shared Read Blocks": 122819
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 89994,
+          "Shared Hit Blocks": 893239,
+          "Shared Read Blocks": 122819
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 89994,
+          "Shared Hit Blocks": 717667,
+          "Shared Read Blocks": 122819
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 89994,
+          "Shared Hit Blocks": 269592,
+          "Shared Read Blocks": 390
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "knowledges",
+          "Index Name": "knowledges_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 89994,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 269592,
+          "Shared Read Blocks": 390
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 89994,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Seq Scan",
+          "Relation Name": "knowledge_access_policies",
+          "Plan Rows": 6,
+          "Actual Rows": 0,
+          "Actual Loops": 89994,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "knowledges",
+          "Index Name": "knowledges_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 0,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "chunks",
+          "Index Name": "chunks_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 89994,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 336034,
+          "Shared Read Blocks": 113936
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "knowledge_bases",
+          "Index Name": "knowledge_bases_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 87786,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 175572,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "tenants",
+          "Index Name": "tenants_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 87786,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 175572,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Seq Scan",
+          "Relation Name": "data_sources",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 87786,
+          "Rows Removed by Filter": 32,
+          "Shared Hit Blocks": 1141205,
+          "Shared Read Blocks": 13
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "chunks",
+          "Index Name": "chunks_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 87786,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 438930,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Sort",
+          "Plan Rows": 1,
+          "Actual Rows": 3,
+          "Actual Loops": 1,
+          "Shared Hit Blocks": 2989145,
+          "Shared Read Blocks": 163126,
+          "Sort Method": "top-N heapsort",
+          "Sort Space Used": 29,
+          "Sort Space Type": "Memory"
+        },
+        {
+          "Node Type": "CTE Scan",
+          "Plan Rows": 1,
+          "Actual Rows": 2357,
+          "Actual Loops": 1,
+          "Rows Removed by Filter": 85429,
+          "Shared Hit Blocks": 2989139,
+          "Shared Read Blocks": 163126
+        }
+      ]
+    },
+    {
+      "name": "new_vector",
+      "exit_code": 0,
+      "wall_seconds": 6.369891078211367,
+      "execution_ms": 6192.565,
+      "planning_ms": 11.913,
+      "nodes": [
+        {
+          "Node Type": "Limit",
+          "Plan Rows": 1,
+          "Actual Rows": 3,
+          "Actual Loops": 1,
+          "Shared Hit Blocks": 2990568,
+          "Shared Read Blocks": 161703
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 87786,
+          "Actual Loops": 1,
+          "Shared Hit Blocks": 2650418,
+          "Shared Read Blocks": 131717
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 87786,
+          "Actual Loops": 1,
+          "Shared Hit Blocks": 1070270,
+          "Shared Read Blocks": 131717
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "embeddings",
+          "Index Name": "idx_embeddings_knowledge_base_id",
+          "Plan Rows": 45108,
+          "Actual Rows": 87786,
+          "Actual Loops": 1,
+          "Rows Removed by Filter": 2208,
+          "Shared Hit Blocks": 1070270,
+          "Shared Read Blocks": 131716
+        },
+        {
+          "Node Type": "Result",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 89994,
+          "Shared Hit Blocks": 1070269,
+          "Shared Read Blocks": 121361
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 89994,
+          "Shared Hit Blocks": 1070269,
+          "Shared Read Blocks": 121361
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 89994,
+          "Shared Hit Blocks": 894697,
+          "Shared Read Blocks": 121361
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 89994,
+          "Shared Hit Blocks": 719125,
+          "Shared Read Blocks": 121361
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 89994,
+          "Shared Hit Blocks": 269712,
+          "Shared Read Blocks": 270
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "knowledges",
+          "Index Name": "knowledges_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 89994,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 269712,
+          "Shared Read Blocks": 270
+        },
+        {
+          "Node Type": "Nested Loop",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 89994,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Seq Scan",
+          "Relation Name": "knowledge_access_policies",
+          "Plan Rows": 6,
+          "Actual Rows": 0,
+          "Actual Loops": 89994,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Memoize",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 0,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "knowledges",
+          "Index Name": "knowledges_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 0,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "chunks",
+          "Index Name": "chunks_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 89994,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 337465,
+          "Shared Read Blocks": 112505
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "knowledge_bases",
+          "Index Name": "knowledge_bases_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 87786,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 175572,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "tenants",
+          "Index Name": "tenants_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 87786,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 175572,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Materialize",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 87786,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 1
+        },
+        {
+          "Node Type": "Seq Scan",
+          "Relation Name": "feishu_legacy_resources",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 1,
+          "Rows Removed by Filter": 6,
+          "Shared Hit Blocks": 0,
+          "Shared Read Blocks": 1
+        },
+        {
+          "Node Type": "Seq Scan",
+          "Relation Name": "data_sources",
+          "Plan Rows": 1,
+          "Actual Rows": 0,
+          "Actual Loops": 87786,
+          "Rows Removed by Filter": 32,
+          "Shared Hit Blocks": 1141218,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Index Scan",
+          "Relation Name": "chunks",
+          "Index Name": "chunks_pkey",
+          "Plan Rows": 1,
+          "Actual Rows": 1,
+          "Actual Loops": 87786,
+          "Rows Removed by Filter": 0,
+          "Shared Hit Blocks": 438930,
+          "Shared Read Blocks": 0
+        },
+        {
+          "Node Type": "Sort",
+          "Plan Rows": 1,
+          "Actual Rows": 3,
+          "Actual Loops": 1,
+          "Shared Hit Blocks": 2990568,
+          "Shared Read Blocks": 161703,
+          "Sort Method": "top-N heapsort",
+          "Sort Space Used": 29,
+          "Sort Space Type": "Memory"
+        },
+        {
+          "Node Type": "CTE Scan",
+          "Plan Rows": 1,
+          "Actual Rows": 2357,
+          "Actual Loops": 1,
+          "Rows Removed by Filter": 85429,
+          "Shared Hit Blocks": 2990562,
+          "Shared Read Blocks": 161703
+        }
+      ]
+    }
+  ]
+}

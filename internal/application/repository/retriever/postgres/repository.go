@@ -9,6 +9,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/common"
 	"github.com/Tencent/WeKnora/internal/logger"
+	"github.com/Tencent/WeKnora/internal/perftrace"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/google/uuid"
@@ -265,6 +266,7 @@ func (g *pgRepository) KeywordsRetrieve(ctx context.Context,
 	query := g.db.WithContext(ctx)
 	columns := []string{"paradedb.score(id) as score", "id", contentProjection, "source_id", "source_type", "chunk_id", "knowledge_id", "knowledge_base_id", "tag_id"}
 	var err error
+	bm25Done := perftrace.Measure(ctx, perftrace.BM25SQL)
 	if guarded {
 		columns[0] = "score"
 		outer := query.Session(&gorm.Session{DryRun: true}).Table("lexical AS embeddings").Clauses(conds...).Select(columns).Limit(int(params.TopK)).Find(&embeddingDBList).Statement
@@ -287,6 +289,7 @@ func (g *pgRepository) KeywordsRetrieve(ctx context.Context,
 		err = query.Clauses(conds...).Select(columns).Limit(int(params.TopK)).Find(&embeddingDBList).Error
 	}
 
+	bm25Done()
 	if err == gorm.ErrRecordNotFound {
 		logger.GetLogger(ctx).Warnf("[Postgres] No records found for keywords query: %s", params.Query)
 		return nil, nil
@@ -344,24 +347,36 @@ func (g *pgRepository) VectorRetrieve(ctx context.Context,
 	if tenant, protected := access.PortalRetrievalTenant(ctx); protected {
 		// Do not silently report a successful empty/partial vector search when
 		// the certified KB contains only a historical, incompatible dimension.
-		// This count sees the same canonical authorized relation as candidates;
+		// These probes see the same canonical authorized relation as candidates;
 		// it cannot inspect another tenant/KB or cause a model fallback.
 		var shape struct {
-			Total    int64
-			Matching int64
+			Incompatible bool
+			Matching     bool
 		}
-		q := g.db.WithContext(ctx).Table("embeddings").
-			Select("COUNT(*) AS total, COUNT(*) FILTER (WHERE dimension = ?) AS matching", dimension).
-			Where(portalCanonicalPredicate("?", access.PortalRetrievalPublic(ctx), access.PortalRetrievalPublishedDefaults(ctx)), tenant, types.ChunkSourceType).
-			Where("knowledge_base_id IN ?", params.KnowledgeBaseIDs).
-			Where("is_enabled IS NULL OR is_enabled = true")
-		if len(params.KnowledgeIDs) > 0 {
-			q = q.Where("knowledge_id IN ?", params.KnowledgeIDs)
+		relation := func() *gorm.DB {
+			q := g.db.WithContext(ctx).Table("embeddings").Select("1").
+				Where(portalDimensionCanonicalPredicate("?", access.PortalRetrievalPublic(ctx),
+					access.PortalRetrievalPublishedDefaults(ctx)), tenant, types.ChunkSourceType).
+				Where("knowledge_base_id IN ?", params.KnowledgeBaseIDs).
+				Where("is_enabled IS NULL OR is_enabled = true")
+			if len(params.KnowledgeIDs) > 0 {
+				q = q.Where("knowledge_id IN ?", params.KnowledgeIDs)
+			}
+			return q
 		}
-		if err := q.Scan(&shape).Error; err != nil {
+		// NULL dimensions were included in COUNT(*) but not COUNT FILTER.
+		// IS DISTINCT FROM preserves their incompatible (fail-closed) result.
+		incompatible := relation().Where("dimension IS DISTINCT FROM ?", dimension)
+		matching := relation().Where("dimension = ?", dimension)
+		dimensionDone := perftrace.Measure(ctx, perftrace.DimensionSQL)
+		err := g.db.WithContext(ctx).Raw(
+			"SELECT EXISTS (?) AS incompatible, EXISTS (?) AS matching", incompatible, matching,
+		).Scan(&shape).Error
+		dimensionDone()
+		if err != nil {
 			return nil, err
 		}
-		if shape.Total != shape.Matching || shape.Total == 0 && access.PortalRetrievalHasDocuments(ctx) {
+		if shape.Incompatible || !shape.Matching && access.PortalRetrievalHasDocuments(ctx) {
 			return nil, fmt.Errorf("personal MCP vector index dimension does not match the bound model")
 		}
 	}
@@ -510,6 +525,8 @@ func (g *pgRepository) VectorRetrieve(ctx context.Context,
 	allVars = append(allVars, 1-params.Threshold) // Distance threshold
 	allVars = append(allVars, params.TopK)        // Final LIMIT
 
+	vectorDone := perftrace.Measure(ctx, perftrace.VectorSQL)
+	defer vectorDone()
 	// HNSW's `ef_search` defaults to 40, which is much smaller than our
 	// `expandedTopK` budget (up to 1000). Without raising it, HNSW would only
 	// return ~40 candidates per scan and our outer threshold/filter step would

@@ -81,3 +81,12 @@ func portalCanonicalTextProjection() string {
  WHERE acl_projection.id=embeddings.chunk_id AND acl_projection.knowledge_id=embeddings.knowledge_id
  AND acl_projection.knowledge_base_id=embeddings.knowledge_base_id)`
 }
+
+// Preserve a correlated probe for dimension EXISTS checks, rather than letting
+// PostgreSQL flatten the canonical relation into a misestimated whole-KB join.
+// OFFSET 0 does not remove predicates or limit the authorized relation. The
+// candidate BM25/vector query shape is deliberately unchanged.
+func portalDimensionCanonicalPredicate(tenant string, public bool, defaults ...bool) string {
+	predicate := portalCanonicalPredicate(tenant, public, defaults...)
+	return strings.TrimSuffix(predicate, ")") + " OFFSET 0)"
+}

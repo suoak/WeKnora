@@ -10,6 +10,7 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/application/service"
+	"github.com/Tencent/WeKnora/internal/perftrace"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -61,6 +62,7 @@ func (s *PersonalServer) Handler() http.Handler {
 			http.Error(w, "personal MCP busy; retry later", http.StatusTooManyRequests)
 			return
 		}
+		perftrace.Authenticated(r.Context())
 		bounded, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
 		ctx, _ := access.WithPortalDiagnostics(bounded)
@@ -119,7 +121,9 @@ func (s *PersonalServer) guard(next server.ToolHandlerFunc) server.ToolHandlerFu
 		return mcp.NewToolResultError("authorization changed"), nil
 	}
 }
-func personalJSON(value any) (*mcp.CallToolResult, error) {
+func personalJSON(ctx context.Context, value any) (*mcp.CallToolResult, error) {
+	done := perftrace.Measure(ctx, perftrace.Serialize)
+	defer done()
 	b, err := json.Marshal(value)
 	if err != nil {
 		return nil, err
@@ -141,7 +145,7 @@ func (s *PersonalServer) call(ctx context.Context, r mcp.CallToolRequest) (*mcp.
 			d := t.Descriptor()
 			rows = append(rows, map[string]any{"id": d.ID, "tenant_id": d.TenantID, "name": d.Name, "space": d.SpaceName, "public": t.Public(), "capabilities": []string{"keyword", "semantic", "hybrid"}})
 		}
-		return personalJSON(rows)
+		return personalJSON(ctx, rows)
 	case "list_documents":
 		rows, e := s.knowledge.ListDocuments(ctx, r.GetString("knowledge_base_id", ""))
 		if e != nil {
@@ -169,7 +173,7 @@ func (s *PersonalServer) call(ctx context.Context, r mcp.CallToolRequest) (*mcp.
 		if end > len(rows) {
 			end = len(rows)
 		}
-		return personalJSON(map[string]any{"total": len(rows), "documents": rows[start:end]})
+		return personalJSON(ctx, map[string]any{"total": len(rows), "documents": rows[start:end]})
 	case "read_document":
 		rows, e := s.knowledge.ReadDocument(ctx, r.GetString("knowledge_id", ""))
 		if e != nil {
@@ -208,7 +212,7 @@ func (s *PersonalServer) call(ctx context.Context, r mcp.CallToolRequest) (*mcp.
 		if end > len(rows) {
 			end = len(rows)
 		}
-		return personalJSON(map[string]any{"total": len(rows), "chunks": rows[offset:end]})
+		return personalJSON(ctx, map[string]any{"total": len(rows), "chunks": rows[offset:end]})
 	case "wiki_search", "wiki_read_page", "wiki_index":
 		if _, present := r.GetArguments()["regex"]; present && r.GetBool("regex", false) {
 			return mcp.NewToolResultError("Personal wiki_search supports bounded literal text; regex is not available"), nil
@@ -219,7 +223,7 @@ func (s *PersonalServer) call(ctx context.Context, r mcp.CallToolRequest) (*mcp.
 		if e != nil {
 			return fail()
 		}
-		return personalJSON(rows)
+		return personalJSON(ctx, rows)
 	case "search_knowledge", "grep_chunks":
 		ids := r.GetStringSlice("knowledge_base_ids", nil)
 		mode := r.GetString("mode", "hybrid")
@@ -230,7 +234,7 @@ func (s *PersonalServer) call(ctx context.Context, r mcp.CallToolRequest) (*mcp.
 		if e != nil {
 			return fail()
 		}
-		return personalJSON(rows)
+		return personalJSON(ctx, rows)
 	}
 	return fail()
 }
