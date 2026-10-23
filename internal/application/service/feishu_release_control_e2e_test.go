@@ -75,6 +75,10 @@ func TestFeishuReleaseStopRedisPostgres(t *testing.T) {
 	require.Zero(t, rdb.LLen(ctx, "asynq:{sync}:active").Val())
 	require.Zero(t, rdb.LLen(ctx, "asynq:{sync}:pending").Val())
 	require.Zero(t, rdb.Exists(ctx, "asynq:{sync}:paused").Val())
+	// The race step reuses this disposable database after the first proof. Only
+	// remove the fixture-owned pause after workers/controllers have shut down;
+	// keep the production controller stop-only and never delete queued tasks.
+	t.Cleanup(func() { _ = rdb.Del(ctx, "asynq:{sync}:paused").Err() })
 	sources, logs := repository.NewDataSourceRepository(db), repository.NewSyncLogRepository(db)
 	ds := &types.DataSource{
 		ID: uuid.NewString(), TenantID: 1, KnowledgeBaseID: "release-kb",
