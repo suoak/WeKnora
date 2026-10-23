@@ -27,7 +27,11 @@ func legacyIndexedChunks(chunks []*types.Chunk) ([]*types.Chunk, error) {
 	for _, c := range chunks {
 		if c.ParentChunkID != "" {
 			p := byID[c.ParentChunkID]
-			if c.ChunkType != types.ChunkTypeText || p == nil || p.ChunkType != types.ChunkTypeParentText || p.ParentChunkID != "" || p.KnowledgeID != c.KnowledgeID || p.KnowledgeBaseID != c.KnowledgeBaseID || p.TenantID != c.TenantID {
+			if c.ChunkType != types.ChunkTypeText || p == nil || p.ChunkType != types.ChunkTypeParentText ||
+				p.ParentChunkID != "" ||
+				p.KnowledgeID != c.KnowledgeID ||
+				p.KnowledgeBaseID != c.KnowledgeBaseID ||
+				p.TenantID != c.TenantID {
 				return nil, legacyFence("cross_version_parent")
 			}
 			children[p.ID]++
@@ -35,7 +39,9 @@ func legacyIndexedChunks(chunks []*types.Chunk) ([]*types.Chunk, error) {
 		for _, id := range []string{c.PreChunkID, c.NextChunkID} {
 			if id != "" {
 				n := byID[id]
-				if n == nil || n.ID == c.ID || n.ChunkType != c.ChunkType || n.KnowledgeID != c.KnowledgeID || n.KnowledgeBaseID != c.KnowledgeBaseID || n.TenantID != c.TenantID {
+				if n == nil || n.ID == c.ID || n.ChunkType != c.ChunkType || n.KnowledgeID != c.KnowledgeID ||
+					n.KnowledgeBaseID != c.KnowledgeBaseID ||
+					n.TenantID != c.TenantID {
 					return nil, legacyFence("cross_version_adjacency")
 				}
 			}

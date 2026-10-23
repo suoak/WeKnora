@@ -57,6 +57,8 @@ The final workflow must pass: real PostgreSQL/ParadeDB version/parent tests; Wik
 
 On Windows, repository graph tests passed. Native service linking is unavailable because installed MinGW lacks `rstrtmgr`; the dedicated Linux CI is authoritative for service, PostgreSQL and race results. General App CI packaging steps are excluded for this P1 branch; Go test compilation is allowed, production executable/image building is not. Earlier automatic App runs were canceled before their Build server step; Docker jobs executed no steps.
 
+Review correction: the initially reported Go Lint workflow success at candidate `362e165f` masked a failing root lint job because the repository workflow uses continue-on-error. That candidate's tests passed, but lint was not accepted. The next candidate only reformats long lines and checks deferred test cleanup results/unused test parameters; it must repeat the complete isolated test matrix and verify each actual lint job/step rather than the overall workflow conclusion. Final dynamic evidence is recorded in PR #36.
+
 Rollback to the approved P0 binary must keep synchronization frozen and drain/fence active executions first. The new code adds no schema or incompatible receipt fields; ordinary parent-child reads already exist in the baseline. A P0 worker cannot safely continue preparing parent-child updates and must not be restarted as a recovery worker. Preserve published knowledge and all prior candidates/history/files; never restore an old entire database over later successful writes. Isolation tests validate rollback of failed database publication, not a production image rollback or production recovery acceptance.
 
 ## Release boundary
