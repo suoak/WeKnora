@@ -103,7 +103,10 @@ func TestDocumentVersionCacheDoesNotCacheAuthorizationFacts(t *testing.T) {
 
 func TestDocumentVersionCacheConcurrentBoundedAndExact(t *testing.T) {
 	cache := newDocumentVersionCache(3)
-	stamp := documentVersionStamp{ID: "doc", KBID: "kb", TenantID: 1, Generation: 1, Incarnation: "incarnation", UpdatedAt: time.Now()}
+	stamp := documentVersionStamp{
+		ID: "doc", KBID: "kb", TenantID: 1, Generation: 1,
+		Incarnation: "incarnation", UpdatedAt: time.Now(),
+	}
 	cache.put(stamp, "original")
 	changed := stamp
 	changed.Generation++
