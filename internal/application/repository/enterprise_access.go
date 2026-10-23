@@ -17,6 +17,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// EnterpriseAccessRepository loads live access facts and persists audited policy changes.
 type EnterpriseAccessRepository struct {
 	db       *gorm.DB
 	versions *documentVersionCache
