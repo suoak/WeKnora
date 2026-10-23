@@ -121,9 +121,9 @@ func (g *Guard) Trip(ctx context.Context, reason string) error {
 		reason = "unspecified_safety_stop"
 	}
 	return redis.NewScript(`
-redis.call('SET',KEYS[1],ARGV[1])
+local first=redis.call('SET',KEYS[1],ARGV[1],'NX')
 redis.call('DEL',KEYS[2])
-redis.call('XADD',KEYS[3],'MAXLEN','~',1000,'*','event','trip','reason',ARGV[1])
+if first then redis.call('XADD',KEYS[3],'MAXLEN','~',1000,'*','event','trip','reason',ARGV[1]) end
 return 1`).
 		Run(ctx, g.client, []string{g.key("trip"), g.PermitKey(), g.key("audit")}, reason).
 		Err()

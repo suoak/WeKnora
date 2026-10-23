@@ -740,13 +740,9 @@ func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.
 	} else {
 		ctx = marked
 	}
-	defer func() {
-		if runErr != nil && feishusafety.Scoped(ctx) && feishusafety.Default() != nil {
-			stopCtx, cancel := context.WithTimeout(context.Background(), time.Second)
-			defer cancel()
-			_ = feishusafety.Default().Trip(stopCtx, "sync_execution_failed")
-		}
-	}()
+	// Connector/parse/version errors belong to this source and retain normal
+	// task retry. Global transport/controller failures own the safety trip; a
+	// failed task must neither overwrite its first cause nor stop unrelated sources.
 	// Get sync log
 	syncLog, err := s.syncLogRepo.FindByID(ctx, payload.SyncLogID)
 	if err != nil {

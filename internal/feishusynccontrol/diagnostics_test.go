@@ -17,16 +17,31 @@ func TestAutomaticCanonicalFailureDiagnostics(t *testing.T) {
 	}{
 		{"permit", context.DeadlineExceeded, "automatic_permit_context_deadline"},
 		{"permit", context.Canceled, "automatic_permit_context_canceled"},
-		{"consumer_probe", &probeFailure{stage: "redis_ping", cause: context.DeadlineExceeded}, "automatic_redis_ping_context_deadline"},
-		{"consumer_probe", &probeFailure{stage: "asynq_consumer", cause: errConsumerAbsent}, "automatic_asynq_consumer_consumer_absent"},
-		{"consumer_probe", &probeFailure{stage: "asynq_consumer", cause: errConsumerInactive}, "automatic_asynq_consumer_consumer_inactive"},
-		{"consumer_probe", &probeFailure{stage: "asynq_inspection", cause: errors.New("redis://secret:user@host body")}, "automatic_asynq_inspection_redis_or_probe_error"},
+		{
+			"consumer_probe", &probeFailure{stage: "redis_ping", cause: context.DeadlineExceeded},
+			"automatic_redis_ping_context_deadline",
+		},
+		{
+			"consumer_probe", &probeFailure{stage: "asynq_consumer", cause: errConsumerAbsent},
+			"automatic_asynq_consumer_consumer_absent",
+		},
+		{
+			"consumer_probe", &probeFailure{stage: "asynq_consumer", cause: errConsumerInactive},
+			"automatic_asynq_consumer_consumer_inactive",
+		},
+		{
+			"consumer_probe", &probeFailure{stage: "asynq_inspection", cause: errors.New("redis://secret:user@host body")},
+			"automatic_asynq_inspection_redis_or_probe_error",
+		},
 	} {
 		if got := automaticFailureReason(tc.stage, tc.err); got != tc.want {
 			t.Errorf("got %s want %s", got, tc.want)
 		}
 	}
-	for _, code := range []string{"POLICY_MISMATCH", "WORKER_LOST", "CONSUMER_LOST", "UNREGISTERED_CONSUMER", "CONSUMERS_NOT_READY", "WORKER_ID_CONFLICT", "TRIPPED"} {
+	for _, code := range []string{
+		"POLICY_MISMATCH", "WORKER_LOST", "CONSUMER_LOST", "UNREGISTERED_CONSUMER",
+		"CONSUMERS_NOT_READY", "WORKER_ID_CONFLICT", "TRIPPED",
+	} {
 		err := fmt.Errorf("ERR %s secret-body-credential", code)
 		want := "automatic_permit_" + strings.ToLower(code)
 		if got := automaticFailureReason("permit", err); got != want {

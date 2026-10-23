@@ -3,6 +3,7 @@ package feishusafety
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -120,6 +121,67 @@ func TestSource403404DoNotTripOtherSources(t *testing.T) {
 			if client.Exists(context.Background(), g.key("trip")).Val() != 0 ||
 				g.Check(context.Background()) != nil {
 				t.Fatal("one missing/forbidden source globally stopped synchronization")
+			}
+		})
+	}
+}
+
+func TestTripPreservesFirstCauseAndSingleAudit(t *testing.T) {
+	g, client := fixture(t, Config{})
+	ctx := context.Background()
+	if err := g.Trip(ctx, "embedding_http_400"); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 1100; i++ {
+		if err := g.Trip(ctx, "automatic_permit_tripped"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := client.Get(ctx, g.key("trip")).Val(); got != "embedding_http_400" {
+		t.Fatal("first cause overwritten", got)
+	}
+	if got := client.XLen(ctx, g.key("audit")).Val(); got != 1 {
+		t.Fatal("duplicate trip audit flooding", got)
+	}
+	if err := client.Set(ctx, g.PermitKey(), g.Fingerprint(), time.Second).Err(); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.Trip(ctx, "duplicate"); err != nil {
+		t.Fatal(err)
+	}
+	if client.Exists(ctx, g.PermitKey()).Val() != 0 || g.Check(ctx) == nil {
+		t.Fatal("repeated trip left permit open")
+	}
+	if err := EmergencyBlock(ctx, client, g.config.Namespace); err != nil {
+		t.Fatal(err)
+	}
+	if client.Get(ctx, g.key("trip")).Val() != "embedding_http_400" ||
+		client.Exists(ctx, "asynq:{sync}:paused").Val() != 1 {
+		t.Fatal("emergency stop lost the original cause or failed to pause")
+	}
+}
+
+func TestHTTP400ReasonIdentifiesEndpointFamily(t *testing.T) {
+	for _, embedding := range []bool{false, true} {
+		t.Run(fmt.Sprint(embedding), func(t *testing.T) {
+			g, client := fixture(t, Config{})
+			InstallDefault(g)
+			request, _ := http.NewRequestWithContext(
+				WithScope(context.Background(), "source"),
+				http.MethodPost,
+				"https://gateway.invalid/endpoint",
+				strings.NewReader(`{"input":["text"]}`),
+			)
+			_, err := (Transport{Base: sourceStatusTransport{status: 400}, Embedding: embedding}).RoundTrip(request)
+			if err == nil {
+				t.Fatal("HTTP400 unexpectedly succeeded")
+			}
+			want := "feishu_http_400"
+			if embedding {
+				want = "embedding_http_400"
+			}
+			if got := client.Get(context.Background(), g.key("trip")).Val(); got != want {
+				t.Fatal("lost endpoint family", got, want)
 			}
 		})
 	}

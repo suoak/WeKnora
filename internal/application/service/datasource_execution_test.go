@@ -12,11 +12,14 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/datasource"
+	"github.com/Tencent/WeKnora/internal/feishusafety"
 	"github.com/Tencent/WeKnora/internal/testutil/syncdb"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/alicebob/miniredis/v2"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )
 
@@ -84,6 +87,38 @@ func syncServiceSuite(t *testing.T, dialect string) {
 		}
 		return svc, ds, queue, connector
 	}
+	t.Run("source_failure_keeps_other_sources_admitted_P0", func(t *testing.T) {
+		t.Setenv("FEISHU_SYNC_SAFETY_ENABLED", "true")
+		server := miniredis.RunT(t)
+		client := redis.NewClient(&redis.Options{Addr: server.Addr()})
+		t.Cleanup(func() { _ = client.Close(); feishusafety.InstallDefault(nil) })
+		policy := feishusafety.DefaultConfig()
+		policy.Namespace = uuid.NewString()
+		guard, err := feishusafety.New(client, policy)
+		require.NoError(t, err)
+		ctx := feishusafety.WithScope(context.Background(), "marked-test-source")
+		require.NoError(t, client.Set(ctx, guard.PermitKey(), guard.Fingerprint(), time.Minute).Err())
+		feishusafety.InstallDefault(guard)
+		svc, ds, _, connector := makeSvc()
+		connector.fetchErr = errors.New("source HTTP 403: existing identity cannot read document")
+		log, err := svc.ManualSync(ctx, ds.ID)
+		require.NoError(t, err)
+		body, err := json.Marshal(types.DataSourceSyncPayload{DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: 1})
+		require.NoError(t, err)
+		require.Error(t, svc.ProcessSync(ctx, asynq.NewTask(types.TypeDataSourceSync, body)))
+		require.NoError(t, guard.Check(ctx), "ordinary source failure must not trip shared egress")
+		otherSvc, otherDS, _, otherConnector := makeSvc()
+		close(otherConnector.proceed)
+		otherLog, err := otherSvc.ManualSync(ctx, otherDS.ID)
+		require.NoError(t, err)
+		body, err = json.Marshal(types.DataSourceSyncPayload{DataSourceID: otherDS.ID, SyncLogID: otherLog.ID, TenantID: 1})
+		require.NoError(t, err)
+		require.NoError(t, otherSvc.ProcessSync(ctx, asynq.NewTask(types.TypeDataSourceSync, body)))
+		finished, err := logs.FindByID(ctx, otherLog.ID)
+		require.NoError(t, err)
+		require.Equal(t, types.SyncLogStatusSuccess, finished.Status)
+		require.NoError(t, guard.Check(ctx))
+	})
 	t.Run("panic_final_P0", func(t *testing.T) {
 		svc, ds, _, connector := makeSvc()
 		connector.panicOnFetch = true

@@ -39,7 +39,10 @@ func failureClass(err error) string {
 	if errors.As(err, &timeout) && timeout.Timeout() {
 		return "redis_timeout"
 	}
-	for _, code := range []string{"POLICY_MISMATCH", "WORKER_LOST", "CONSUMER_LOST", "UNREGISTERED_CONSUMER", "CONSUMERS_NOT_READY", "WORKER_ID_CONFLICT", "TRIPPED", "INCARNATION_CONFLICT"} {
+	for _, code := range []string{
+		"POLICY_MISMATCH", "WORKER_LOST", "CONSUMER_LOST", "UNREGISTERED_CONSUMER",
+		"CONSUMERS_NOT_READY", "WORKER_ID_CONFLICT", "TRIPPED", "INCARNATION_CONFLICT",
+	} {
 		if err != nil && strings.Contains(err.Error(), code) {
 			return strings.ToLower(code)
 		}

@@ -16,57 +16,59 @@ import (
 
 func TestGatewayBatchLimitP0(t *testing.T) {
 	allowLoopback(t)
-	for _, n := range []int{1, 20, 21, 40, 41, 100} {
-		for _, bounded := range []bool{false, true} {
-			t.Run(fmt.Sprintf("n%d/staging%t", n, bounded), func(t *testing.T) {
-				var sizes []int
-				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					var body struct {
-						Input []string `json:"input"`
+	for _, limit := range []int{10, 20} {
+		for _, n := range []int{1, 20, 21, 40, 41, 100} {
+			for _, bounded := range []bool{false, true} {
+				t.Run(fmt.Sprintf("limit%d/n%d/staging%t", limit, n, bounded), func(t *testing.T) {
+					var sizes []int
+					srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						var body struct {
+							Input []string `json:"input"`
+						}
+						require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+						sizes = append(sizes, len(body.Input))
+						if len(body.Input) > limit {
+							http.Error(w, "batch exceeds configured upstream limit", http.StatusBadRequest)
+							return
+						}
+						// Reverse the wire result to verify protocol index ordering too.
+						data := []any{}
+						for i := len(body.Input) - 1; i >= 0; i-- {
+							value, _ := strconv.Atoi(body.Input[i])
+							data = append(data, map[string]any{"index": i, "embedding": []float32{float32(value)}})
+						}
+						require.NoError(t, json.NewEncoder(w).Encode(map[string]any{"data": data}))
+					}))
+					defer srv.Close()
+					config := Config{
+						Source:    types.ModelSourceRemote,
+						Provider:  "generic",
+						BaseURL:   srv.URL,
+						ModelName: "text-embedding-v4",
 					}
-					require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
-					sizes = append(sizes, len(body.Input))
-					if len(body.Input) > 20 {
-						http.Error(w, "batch exceeds 20", 400)
-						return
+					if !bounded || limit < 20 {
+						config.ExtraConfig = map[string]string{models.ExtraEmbeddingMaxBatchSize: strconv.Itoa(limit)}
 					}
-					// Reverse the wire result to verify protocol index ordering too.
-					data := []any{}
-					for i := len(body.Input) - 1; i >= 0; i-- {
-						value, _ := strconv.Atoi(body.Input[i])
-						data = append(data, map[string]any{"index": i, "embedding": []float32{float32(value)}})
+					model, err := newEmbedder(config, nil, nil)
+					require.NoError(t, err)
+					texts := make([]string, n)
+					for i := range texts {
+						texts[i] = strconv.Itoa(i)
 					}
-					require.NoError(t, json.NewEncoder(w).Encode(map[string]any{"data": data}))
-				}))
-				defer srv.Close()
-				config := Config{
-					Source:    types.ModelSourceRemote,
-					Provider:  "generic",
-					BaseURL:   srv.URL,
-					ModelName: "text-embedding-v4",
-				}
-				if !bounded {
-					config.ExtraConfig = map[string]string{models.ExtraEmbeddingMaxBatchSize: "20"}
-				}
-				model, err := newEmbedder(config, nil, nil)
-				require.NoError(t, err)
-				texts := make([]string, n)
-				for i := range texts {
-					texts[i] = strconv.Itoa(i)
-				}
-				var vectors [][]float32
-				if bounded {
-					vectors, err = BatchEmbedBounded(context.Background(), model, texts, 20)
-				} else {
-					vectors, err = model.BatchEmbed(context.Background(), texts)
-				}
-				require.NoError(t, err)
-				require.Len(t, vectors, n)
-				require.Len(t, sizes, (n+19)/20)
-				for i := range vectors {
-					require.Equal(t, []float32{float32(i)}, vectors[i])
-				}
-			})
+					var vectors [][]float32
+					if bounded {
+						vectors, err = BatchEmbedBounded(context.Background(), model, texts, 20)
+					} else {
+						vectors, err = model.BatchEmbed(context.Background(), texts)
+					}
+					require.NoError(t, err)
+					require.Len(t, vectors, n)
+					require.Len(t, sizes, (n+limit-1)/limit)
+					for i := range vectors {
+						require.Equal(t, []float32{float32(i)}, vectors[i])
+					}
+				})
+			}
 		}
 	}
 }

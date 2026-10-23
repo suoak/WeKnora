@@ -17,7 +17,7 @@ func EmergencyBlock(ctx context.Context, client redis.UniversalClient, namespace
 	}
 	prefix := "feishu:safety:{" + namespace + "}:"
 	blockErr := redis.NewScript(`
-redis.call('SET',KEYS[1],'operator_emergency_stop')
+redis.call('SET',KEYS[1],'operator_emergency_stop','NX')
 redis.call('DEL',KEYS[2])
 redis.call('XADD',KEYS[3],'MAXLEN','~',1000,'*','event','emergency_stop')
 return 1`).

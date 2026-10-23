@@ -222,6 +222,12 @@ func (s *FeishuLegacyStore) Begin(
 			}
 			kid := uuid.NewString()
 			state := "hold"
+			if len(old) == 0 {
+				// Successful source fetch, no historical public knowledge:
+				// staging progress is not an access-withdrawal event. This
+				// resource still has no public document/index until Publish.
+				state = "active"
+			}
 			if len(old) == 1 {
 				kid = old[0].ID
 				state = "active"

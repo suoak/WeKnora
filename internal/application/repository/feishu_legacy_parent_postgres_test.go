@@ -150,6 +150,49 @@ func TestFeishuParentAtomicPostgresP1(t *testing.T) {
 	require.EqualValues(t, 2, receipt.BM25Rows)
 	_, err = store.Receipt(ctx, r, a)
 	require.NoError(t, err)
+	t.Run("first-private-sibling-never-hides-published-knowledge", func(t *testing.T) {
+		// Reproduce the real-APP failure: a second, wholly new document is
+		// admitted while the first already has public parents/children/indexes.
+		other := &types.FetchedItem{
+			ExternalID: "second-private-cloud", UpdatedAt: item(1).UpdatedAt,
+		}
+		sibling, pending, e := store.Begin(ctx, ds, other, hash("private sibling"))
+		require.NoError(t, e)
+		require.Equal(t, "active", sibling.State)
+		require.Empty(t, sibling.ActiveAttempt, "access state is not a publication receipt")
+		guardDB := types.EnableLegacyReadGuards(db.Session(&gorm.Session{NewDB: true}))
+		readCtx := types.WithLegacyReadScope(context.Background())
+		engine := pgretrieve.NewPostgresRetrieveEngineRepository(guardDB)
+		check := func() {
+			require.NoError(t, types.CheckLegacySourceRead(guardDB.WithContext(readCtx), r.KnowledgeID, kb.ID))
+			require.NoError(t, legacyTenantModelGate(readCtx, guardDB, tenant.ID))
+			for _, kind := range []types.RetrieverType{types.KeywordsRetrieverType, types.VectorRetrieverType} {
+				rows, err := engine.Retrieve(readCtx, types.RetrieveParams{
+					Query: "oldparentcanary", Embedding: []float32{1, 0, 0},
+					KnowledgeBaseIDs: []string{kb.ID}, TopK: 10, Threshold: 0, RetrieverType: kind,
+				})
+				require.NoError(t, err)
+				found := 0
+				for _, row := range rows {
+					require.NoError(t, row.Error)
+					for _, hit := range row.Results {
+						found++
+						require.Equal(t, r.KnowledgeID, hit.KnowledgeID)
+						require.Contains(t, hit.Content, "oldparentcanary")
+					}
+				}
+				require.Positive(t, found, "real vector and BM25 must retain the published sibling")
+			}
+			require.NoError(t, types.CheckLegacyReadScope(guardDB.WithContext(readCtx)))
+			var public int64
+			require.NoError(t, db.Model(&types.Knowledge{}).Where("id=?", sibling.KnowledgeID).Count(&public).Error)
+			require.Zero(t, public, "unpublished candidate cannot become visible through access state")
+		}
+		check()
+		require.ErrorIs(t, store.Prepare(ctx, ds, pending, types.FeishuLegacyManifest{}, nil), ErrLegacyVersionFence)
+		require.NoError(t, store.Abandon(ctx, pending))
+		check()
+	})
 	snapshot := func() string {
 		var raw string
 		require.NoError(
@@ -342,4 +385,40 @@ FOR EACH ROW EXECUTE FUNCTION parent_fail();`,
 	require.NoError(t, store.Prepare(ctx, ds, recovery, recoveryManifest, vectors))
 	_, err = store.Publish(ctx, ds, recovery)
 	require.NoError(t, err, "redaction receipt must not replace the content hash identity")
+	_, err = store.RestrictSource(ctx, ds, "parent-cloud", false)
+	require.NoError(t, err)
+	_, quarantined, _ := begin("finalparentcanary", 5)
+	var held types.FeishuLegacyResource
+	require.NoError(t, db.First(&held, "id=?", r.ID).Error)
+	require.Equal(t, "hold", held.State, "retry must not turn an existing quarantine active")
+	require.NoError(t, store.Abandon(ctx, quarantined))
+	guardDB := types.EnableLegacyReadGuards(db.Session(&gorm.Session{NewDB: true}))
+	require.ErrorIs(t, types.CheckLegacySourceRead(guardDB, r.KnowledgeID, kb.ID), types.ErrLegacySourceRestricted)
+	t.Run("historical-document-enrollment-cannot-release-source-quarantine", func(t *testing.T) {
+		metadata, err := json.Marshal(map[string]string{
+			"datasource_id": ds.ID, "external_id": "historical-without-manifest",
+		})
+		require.NoError(t, err)
+		historical := &types.Knowledge{
+			ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID,
+			Title: "synthetic restricted historical document", Type: "file", Channel: "feishu",
+			FileHash: "historical-hash", EnableStatus: "disabled", Metadata: types.JSON(metadata),
+		}
+		require.NoError(t, db.WithContext(ctx).Create(historical).Error)
+		resource, attempt, err := store.Begin(ctx, ds, &types.FetchedItem{
+			ExternalID: "historical-without-manifest", UpdatedAt: item(6).UpdatedAt,
+		}, hash("fresh successful fetch"))
+		require.NoError(t, err)
+		require.Equal(t, historical.ID, resource.KnowledgeID, "existing source identity remains enrolled")
+		require.Empty(t, resource.ActiveAttempt, "enrollment never invents an old publication receipt")
+		var preserved types.Knowledge
+		require.NoError(t, db.WithContext(ctx).First(&preserved, "id=?", historical.ID).Error)
+		require.Equal(t, "disabled", preserved.EnableStatus)
+		require.Equal(t, "historical-hash", preserved.FileHash)
+		require.ErrorIs(t, types.CheckLegacySourceRead(guardDB, historical.ID, kb.ID), types.ErrLegacySourceRestricted)
+		var source types.DataSource
+		require.NoError(t, db.WithContext(ctx).First(&source, "id=?", ds.ID).Error)
+		require.Equal(t, "hold", source.LegacyAccessState, "successful fetch cannot clear source quarantine")
+		require.NoError(t, store.Abandon(ctx, attempt))
+	})
 }
