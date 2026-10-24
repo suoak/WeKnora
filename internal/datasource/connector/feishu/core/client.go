@@ -191,6 +191,13 @@ func (c *Client) doRequestBytes(
 	ctx context.Context, operation, method, path string, bodyBytes []byte,
 	authenticated, binary bool, maxBytes int64,
 ) ([]byte, error) {
+	return c.doRequestBytesWithOptions(ctx, operation, method, path, bodyBytes, authenticated, binary, maxBytes, nil)
+}
+
+func (c *Client) doRequestBytesWithOptions(
+	ctx context.Context, operation, method, path string, bodyBytes []byte,
+	authenticated, binary bool, maxBytes int64, options *requestByteOptions,
+) ([]byte, error) {
 	c.ensureRuntime()
 	var token string
 	var err error
@@ -322,6 +329,11 @@ func (c *Client) doRequestBytes(
 		if authenticated {
 			req.Header.Set("Authorization", "Bearer "+token)
 		}
+		if options != nil {
+			for name, values := range options.headers {
+				req.Header[name] = append([]string(nil), values...)
+			}
+		}
 
 		resp, requestErr := c.httpClient.Do(req)
 		if requestErr != nil {
@@ -348,6 +360,9 @@ func (c *Client) doRequestBytes(
 				}
 				if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 					limit = maxFeishuErrorBytes
+				}
+				if resp.StatusCode == http.StatusPartialContent && options != nil && options.partialLimit > 0 {
+					limit = min(limit, options.partialLimit)
 				}
 			}
 			responseBody, readErr := readFeishuCapped(resp.Body, limit)
@@ -378,6 +393,11 @@ func (c *Client) doRequestBytes(
 					envelope.Code = feishuRateLimitCode
 				}
 				if resp.StatusCode >= 200 && resp.StatusCode < 300 && envelope.Code == 0 {
+					if options != nil && options.validate != nil {
+						if err := options.validate(resp, responseBody); err != nil {
+							return nil, err
+						}
+					}
 					logger.Infof(ctx, "[Feishu] API request succeeded operation=%s status=%d bytes=%d",
 						operation, resp.StatusCode, len(responseBody))
 					return responseBody, nil
@@ -771,7 +791,7 @@ func (c *Client) getExportTaskStatus(ctx context.Context, ticket string, token s
 // The file must be downloaded within 10 minutes of export completion.
 func (c *Client) downloadExportFile(ctx context.Context, fileToken string) ([]byte, error) {
 	path := fmt.Sprintf("/open-apis/drive/v1/export_tasks/file/%s/download", fileToken)
-	return c.downloadRawBytesOperation(ctx, "download_export_file", path)
+	return c.downloadExportRanges(ctx, path, feishuExportDownloadPartBytes)
 }
 
 // ExportAndDownload is a high-level helper that creates an export task, polls until
