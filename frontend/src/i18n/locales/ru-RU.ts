@@ -799,6 +799,12 @@ const messages = {
     }
   },
   datasource: {
+    documentDeferred: 'Deferred',
+    documentUnchanged: 'Unchanged',
+    documentUnsupported: 'Unsupported',
+    retryAfterAuthorization: 'Retry after authorization',
+    deferredRetryFailed: 'Retry could not start; verify source state and reload',
+
     title: 'Источники данных',
     description: 'Настройте внешние источники данных для автоматической синхронизации контента',
     add: 'Добавить источник',
@@ -1025,6 +1031,7 @@ const messages = {
       failed: 'ошибок'
     },
     logStatus: {
+      deferred: 'Deferred',
       running: 'Синхронизация',
       success: 'Успешно',
       partial: 'Частично',

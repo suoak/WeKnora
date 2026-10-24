@@ -74,6 +74,17 @@ type StreamHandler interface {
 	Checkpoint(ctx context.Context, cursor *types.SyncCursor) error
 }
 
+// DocumentDeferralHandler is optional and does not weaken Emit admission errors.
+// Only the service's explicit, audited policy can defer a document before fetch.
+type DocumentDeferralHandler interface {
+	DocumentDeferrals(context.Context) ([]types.SyncDocumentDeferral, error)
+}
+
+// StreamObservationHandler records listing outcomes without acknowledging ingestion.
+type StreamObservationHandler interface {
+	ObserveDocument(root, externalID, disposition string)
+}
+
 // StreamingConnector is an optional interface. Connectors that implement it let
 // the service interleave fetch→ingest→checkpoint so a large sync persists
 // incrementally and resumes after a timeout, rather than holding every item in

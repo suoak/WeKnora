@@ -109,6 +109,12 @@ jobs:
         run: |
           set -o pipefail
           go test -json -tags sqlite_fts5 ./internal/application/repository -run 'TestLegacyParentGraphP1|TestFeishuParentAtomicPostgresP1|TestFeishuLegacyAtomicPostgres$' -count=1 -timeout=10m | tee evidence/p1-atomic.jsonl
+      - name: Document deferral cursor recovery and real PostgreSQL policy fencing
+        env:
+          FEISHU_SYNC_SAFETY_ENABLED: "false"
+        run: |
+          set -o pipefail
+          go test -json -race -tags sqlite_fts5 ./internal/types ./internal/datasource/connector/feishu/core ./internal/application/repository ./internal/application/service ./internal/handler ./internal/router -run DocumentDeferral -count=1 -timeout=10m | tee evidence/document-deferral.jsonl
       - name: Real parser child vectors BM25 and mid-batch old-version protection
         env:
           FEISHU_SYNC_SAFETY_ENABLED: "false"

@@ -1,0 +1,2 @@
+-- Keep policy and retry audit information on an application rollback.
+-- Older applications must stay sync-frozen; do not discard pending work.

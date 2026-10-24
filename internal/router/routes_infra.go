@@ -318,6 +318,8 @@ func RegisterDataSourceRoutes(
 		ds.GET("", g.Viewer(), handler.ListDataSources)
 		ds.GET("/:id", g.Viewer(), handler.GetDataSource)
 		ds.PUT("/:id", g.Admin(), handler.UpdateDataSource)
+		ds.GET("/:id/document-deferrals", g.Admin(), handler.GetDocumentDeferrals)
+		ds.PUT("/:id/document-deferrals", g.Admin(), handler.PutDocumentDeferrals)
 		ds.DELETE("/:id", g.Admin(), handler.DeleteDataSource)
 
 		// Credential subresource. Single logical field "credentials" because

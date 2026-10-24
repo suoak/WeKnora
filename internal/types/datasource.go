@@ -53,6 +53,7 @@ const (
 	SyncLogStatusRunning  = "running"
 	SyncLogStatusSuccess  = "success"
 	SyncLogStatusPartial  = "partial"
+	SyncLogStatusDeferred = "deferred"
 	SyncLogStatusFailed   = "failed"
 	SyncLogStatusCanceled = "canceled"
 
@@ -63,6 +64,8 @@ const (
 
 // DataSource represents a configured external data source for synchronization
 type DataSource struct {
+	// Server-owned document policy. Generic edits must not replace it or change ACLs.
+	DocumentDeferrals JSON `json:"-" gorm:"type:jsonb;not null;default:'[]'"`
 	// Source-local access quarantine, independent from scheduler status.
 	// Generic datasource edits cannot write this server-owned field.
 	LegacyAccessState string `json:"-" gorm:"default:unmanaged"`
@@ -433,6 +436,11 @@ type SyncCursor struct {
 
 // SyncResult summarizes the outcome of a sync operation
 type SyncResult struct {
+	Discovered        int                    `json:"discovered,omitempty"`
+	Unchanged         int                    `json:"unchanged,omitempty"`
+	Unsupported       int                    `json:"unsupported,omitempty"`
+	Deferred          int                    `json:"deferred,omitempty"`
+	DeferredDocuments []SyncDocumentDeferral `json:"deferred_documents,omitempty"`
 	// Total items processed
 	Total int `json:"total"`
 
