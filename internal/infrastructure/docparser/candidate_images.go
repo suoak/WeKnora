@@ -20,6 +20,7 @@ type candidateImageEdit struct {
 	replacement string
 }
 
+// ErrCandidateImageData identifies a deterministic document-local image refusal.
 var ErrCandidateImageData = errors.New("candidate image data unavailable or invalid")
 
 func candidateImageInvalid(reason string) error {

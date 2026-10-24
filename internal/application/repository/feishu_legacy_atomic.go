@@ -935,6 +935,13 @@ func (s *FeishuLegacyStore) Receipt(
 		if e != nil {
 			return e
 		}
+		if len(manifest.Assets) > 0 {
+			publicManifest := manifest
+			publicManifest.Chunks = public
+			if e := validateLegacyAssets(tx, &live, &current, &publicManifest, false); e != nil {
+				return e
+			}
+		}
 		chunks := int64(len(public))
 		indexedCount := int64(len(indexed))
 		parents := int64(len(manifest.Chunks)) - indexedCount

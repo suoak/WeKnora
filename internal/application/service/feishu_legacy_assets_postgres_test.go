@@ -103,6 +103,27 @@ func exerciseLegacyCandidateImages(t *testing.T, db *gorm.DB, ks *knowledgeServi
 		Content: []byte("# Asset canary\n\nimageoldcanary old knowledge.\n\n" +
 			"![first](" + url + ")\n\n![repeat](" + url + ")"),
 	}
+	gate := repository.NewTenantRepository(types.EnableLegacyReadGuards(db)).(interface {
+		CheckLegacyFileRead(context.Context, uint64, string) (bool, error)
+	})
+	fake.before = func() {
+		fake.before = nil
+		var privatePath string
+		require.NoError(t, db.Raw("SELECT a.manifest->'assets'->0->>'path' FROM feishu_legacy_resources r "+
+			"JOIN feishu_legacy_attempts a ON a.id=r.current_attempt WHERE r.data_source_id=? AND r.external_id=?",
+			ds.ID, item.ExternalID).Scan(&privatePath).Error)
+		require.NotEmpty(t, privatePath, "verified asset inventory is durable before OCR")
+		_, readErr := gate.CheckLegacyFileRead(ctx, ds.TenantID, privatePath)
+		require.ErrorIs(t, readErr, types.ErrLegacySourceRestricted, "uploaded candidate image is not public")
+		if ks.resourceCatalog != nil {
+			resource, e := ks.resourceCatalog.Resolve(ctx, privatePath)
+			require.NoError(t, e)
+			bound, e := repository.NewResourceRepository(db).IsReferencedByKnowledgeBase(
+				ctx, ds.TenantID, kb.ID, resource.ID)
+			require.NoError(t, e)
+			require.False(t, bound, "upload did not bind to the stable knowledge")
+		}
+	}
 	receipt, err := ks.StageFeishuLegacyItem(ctx, ds, item, nil)
 	require.NoError(t, err)
 	var attempt types.FeishuLegacyAttempt
@@ -111,12 +132,17 @@ func exerciseLegacyCandidateImages(t *testing.T, db *gorm.DB, ks *knowledgeServi
 	require.NoError(t, json.Unmarshal(attempt.Manifest, &manifest))
 	require.Len(t, manifest.Assets, 1, "same bytes upload once per attempt")
 	oldAsset := manifest.Assets[0]
-	gate := repository.NewTenantRepository(types.EnableLegacyReadGuards(db)).(interface {
-		CheckLegacyFileRead(context.Context, uint64, string) (bool, error)
-	})
 	managed, err := gate.CheckLegacyFileRead(ctx, ds.TenantID, oldAsset.Path)
 	require.NoError(t, err)
 	require.True(t, managed)
+	if ks.resourceCatalog != nil {
+		resource, e := ks.resourceCatalog.Resolve(ctx, oldAsset.Path)
+		require.NoError(t, e)
+		bound, e := repository.NewResourceRepository(db).IsReferencedByKnowledgeBase(
+			ctx, ds.TenantID, kb.ID, resource.ID)
+		require.NoError(t, e)
+		require.True(t, bound, "atomic publication bound the image to the real knowledge")
+	}
 	files := ks.resolveFileServiceForPath(ctx, kb, oldAsset.Path)
 	read := func(p string) []byte {
 		f, e := files.GetFile(ctx, p)
@@ -197,8 +223,8 @@ func exerciseLegacyCandidateImages(t *testing.T, db *gorm.DB, ks *knowledgeServi
 	require.NoError(t, db.Raw("SELECT count(*) FROM embeddings WHERE knowledge_id=? "+
 		"AND content ||| 'imagenewcanary'", receipt.KnowledgeID).Scan(&hits).Error)
 	require.Positive(t, hits)
-	// Start a second, genuinely newer candidate while the first is in its
-	// private VLM stage. The obsolete caller cannot replace the winner's graph.
+	// A newer revision cannot steal a live candidate lease. Once that candidate
+	// finishes, a normal retry publishes the newer complete image graph.
 	outer := *item
 	outer.UpdatedAt = outer.UpdatedAt.Add(time.Minute)
 	outer.Content = append(append([]byte{}, item.Content...), []byte("\n\nobsolete overlapping update")...)
@@ -210,12 +236,14 @@ func exerciseLegacyCandidateImages(t *testing.T, db *gorm.DB, ks *knowledgeServi
 		fake.before = nil
 		var publishErr error
 		winning, publishErr = ks.StageFeishuLegacyItem(ctx, ds, &winner, nil)
-		require.NoError(t, publishErr)
+		require.ErrorIs(t, publishErr, repository.ErrLegacyVersionBusy)
 	}
-	_, err = ks.StageFeishuLegacyItem(ctx, ds, &outer, nil)
-	require.ErrorAs(t, err, &fence)
-	require.Equal(t, "attempt_generation_or_owner_changed", fence.Reason)
+	outerReceipt, err := ks.StageFeishuLegacyItem(ctx, ds, &outer, nil)
+	require.NoError(t, err)
+	winning, err = ks.StageFeishuLegacyItem(ctx, ds, &winner, nil)
+	require.NoError(t, err)
 	require.NotNil(t, winning)
+	require.NotEqual(t, outerReceipt.AttemptID, winning.AttemptID)
 	require.NoError(t, db.First(&kept, "id=?", receipt.ResourceID).Error)
 	require.Equal(t, winning.AttemptID, kept.ActiveAttempt)
 	var winningAttempt types.FeishuLegacyAttempt

@@ -62,7 +62,7 @@ type FeishuLegacyManifest struct {
 	VLMModelStamp    string                      `json:"vlm_model_stamp,omitempty"`
 }
 
-// Assets are immutable files in the owning attempt's private directory. The
+// FeishuLegacyAsset is an immutable file in its attempt's private directory. The
 // database publication pointer, never the filesystem upload, admits reads.
 type FeishuLegacyAsset struct {
 	Path     string `json:"path"`

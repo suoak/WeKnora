@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 	"time"
 
@@ -67,7 +68,9 @@ func (f *legacyAssetFiles) SaveBytes(ctx context.Context, data []byte, tenant ui
 		f.byHash = map[string]string{}
 	}
 	f.byHash[digest] = path
-	f.assets = append(f.assets, types.FeishuLegacyAsset{Path: path, SHA256: digest, Bytes: int64(len(data))})
+	f.assets = append(f.assets, types.FeishuLegacyAsset{
+		Path: path, SHA256: digest, Bytes: int64(len(data)), MimeType: http.DetectContentType(data),
+	})
 	return path, nil
 }
 
