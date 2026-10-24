@@ -58,7 +58,9 @@ func TestSafetyCallerCancellationDoesNotTripIndependentSources(t *testing.T) {
 				}
 				started, done := make(chan struct{}), make(chan error, 1)
 				go func() {
-					transport := Transport{Base: cancellationTransport{headers, started}, Embedding: embedding}
+					transport := Transport{
+						Base: cancellationTransport{headers, started}, Embedding: embedding,
+					}
 					resp, err := transport.RoundTrip(req)
 					if err == nil {
 						_, err = io.ReadAll(resp.Body)
