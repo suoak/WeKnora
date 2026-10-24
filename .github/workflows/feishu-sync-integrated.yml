@@ -115,6 +115,13 @@ jobs:
         run: |
           set -o pipefail
           go test -json -tags sqlite_fts5 ./internal/application/service -run '^TestFeishuLegacyRealParserEmbeddingPostgres$' -count=1 -timeout=10m | tee evidence/real-parser.jsonl
+      - name: DOCX package identity and real PostgreSQL legacy compatibility
+        env:
+          FEISHU_SYNC_SAFETY_ENABLED: "false"
+        run: |
+          set -o pipefail
+          go test -json -race ./internal/feishudocx -count=1 -timeout=5m | tee evidence/docx-package-identity.jsonl
+          go test -json -race -tags sqlite_fts5 ./internal/application/repository ./internal/application/service -run 'DOCX|SourceIdentity' -count=1 -timeout=10m | tee evidence/docx-source-identity.jsonl
       - name: One combined race pass
         env:
           FEISHU_SYNC_SAFETY_ENABLED: "false"
