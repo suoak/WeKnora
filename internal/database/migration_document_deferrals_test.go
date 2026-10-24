@@ -26,7 +26,8 @@ func TestDocumentDeferralSQLiteMigrationRetainsExistingState(t *testing.T) {
 			_, err = db.Exec(string(up))
 			require.NoError(t, err)
 			var status, config, cursor, policy string
-			require.NoError(t, db.QueryRow(`SELECT status,config,last_sync_cursor,document_deferrals FROM data_sources`).
+			require.NoError(t, db.QueryRow(`SELECT status,config,last_sync_cursor,document_deferrals
+ FROM data_sources`).
 				Scan(&status, &config, &cursor, &policy))
 			require.Equal(t, "paused", status)
 			require.Equal(t, `{"scope":"kept"}`, config)

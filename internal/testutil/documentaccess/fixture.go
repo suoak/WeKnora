@@ -19,6 +19,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// Synthetic document bodies exercise public, private and restricted retrieval boundaries.
 const (
 	PublicText = "PUBLIC_M5_APPROVED"
 	Canary     = "SECRET_M5_SENSITIVE_CANARY"

@@ -52,7 +52,7 @@ func prepareDocumentPlan(
 		}
 		for _, entry := range entries {
 			if !allowed[entry.SourceResourceID] || entry.ExternalID == "" || p.active[entry.Key()].ExternalID != "" {
-				return nil, errors.New("Feishu document deferral outside configured scope")
+				return nil, errors.New("feishu document deferral outside configured scope")
 			}
 			p.active[entry.Key()] = entry
 			p.pending[entry.Key()] = entry
