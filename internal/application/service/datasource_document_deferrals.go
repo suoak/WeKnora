@@ -129,6 +129,9 @@ func streamingSyncOutcome(result *types.SyncResult) (string, string) {
 		result.Unsupported == 0 {
 		status = types.SyncLogStatusDeferred
 	}
+	if result.Failed > 0 && result.Created+result.Updated+result.Deleted+result.Skipped+result.Unchanged == 0 {
+		status = types.SyncLogStatusFailed
+	}
 	if result.DeletionFailed > 0 {
 		message += fmt.Sprintf("; %d deletion failure(s) will only retry on the next full sync", result.DeletionFailed)
 	}

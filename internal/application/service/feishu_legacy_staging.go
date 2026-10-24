@@ -265,9 +265,17 @@ func (s *knowledgeService) StageFeishuLegacyItem(
 	if err != nil {
 		return nil, err
 	}
-	if parsed == nil || parsed.Error != "" || parsed.IsAudio || len(parsed.ImageRefs) > 0 ||
-		strings.TrimSpace(parsed.MarkdownContent) == "" {
-		return nil, ErrFeishuStagingRequired
+	if parsed == nil || parsed.Error != "" {
+		return nil, &feishuStagingRefusal{reason: "parser_result_unavailable"}
+	}
+	if parsed.IsAudio {
+		return nil, &feishuStagingRefusal{reason: "audio_not_supported"}
+	}
+	if len(parsed.ImageRefs) > 0 {
+		return nil, &feishuStagingRefusal{reason: "versioned_image_staging_required"}
+	}
+	if strings.TrimSpace(parsed.MarkdownContent) == "" {
+		return nil, &feishuStagingRefusal{reason: "empty_parsed_content"}
 	}
 	sanitizeReadResult(parsed)
 	// Reuse the production parser span validation and segment boundaries.
@@ -322,7 +330,7 @@ func (s *knowledgeService) StageFeishuLegacyItem(
 		}
 	}
 	if len(parts) == 0 || len(parts)+len(parents) > 10000 {
-		return nil, ErrFeishuStagingRequired
+		return nil, &feishuStagingRefusal{reason: "chunk_count_out_of_bounds"}
 	}
 	chunks := make([]*types.Chunk, len(parts))
 	headers := map[string]string{}

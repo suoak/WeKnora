@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -131,7 +132,7 @@ func runSync[N any](
 	if err != nil {
 		return nil, err
 	}
-	documentRecovery := len(plan.active) > 0 || len(plan.pending) > 0
+	documentRecovery := len(plan.active) > 0 || len(plan.pending) > 0 || len(plan.failed) > 0
 	encodeCursor := func() *types.SyncCursor { return plan.cursor(ops.EncodeCursor(newTimes, lastSync)) }
 	if len(plan.active) > 0 {
 		// Persist pending work before any fetch/list can fail or policy can be removed.
@@ -225,12 +226,33 @@ func runSync[N any](
 				newTimes[resourceID][tok] = editTimeStr
 				if len(items) > 0 {
 					tally.fetch()
+					accepted := true
 					for _, it := range items {
 						if eerr := h.Emit(ctx, *it); eerr != nil {
-							return nil, eerr
+							var local *datasource.DocumentFailureError
+							if !errors.As(eerr, &local) {
+								return nil, eerr
+							}
+							if err := ctx.Err(); err != nil {
+								return nil, err
+							}
+							if err := plan.rejected(resourceID, tok, local.Code); err != nil {
+								return nil, err
+							}
+							// A failed document never acknowledges the fetched edit time.
+							if hadPrev {
+								newTimes[resourceID][tok] = prevEdit
+							} else {
+								delete(newTimes[resourceID], tok)
+							}
+							accepted = false
+							documentRecovery = true
+							break
 						}
 					}
-					plan.accepted(resourceID, tok)
+					if accepted {
+						plan.accepted(resourceID, tok)
+					}
 				} else {
 					// Unsupported type (mindnote/slides/…): no item.
 					tally.Skip(ops.ObjType(node))

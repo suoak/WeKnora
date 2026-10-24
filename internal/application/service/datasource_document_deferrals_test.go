@@ -18,6 +18,8 @@ func TestDocumentDeferralOutcomes(t *testing.T) {
 		{"partial_unchanged", types.SyncResult{Deferred: 1, Unchanged: 2}, types.SyncLogStatusPartial},
 		{"partial_unsupported", types.SyncResult{Unsupported: 2}, types.SyncLogStatusPartial},
 		{"success", types.SyncResult{Created: 2, Unchanged: 3}, types.SyncLogStatusSuccess},
+		{"failed_only", types.SyncResult{Failed: 1}, types.SyncLogStatusFailed},
+		{"partial_failure", types.SyncResult{Failed: 1, Unchanged: 2}, types.SyncLogStatusPartial},
 	} {
 		t.Run(tc.name,
 			func(t *testing.T) {
