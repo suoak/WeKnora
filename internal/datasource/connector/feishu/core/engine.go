@@ -318,6 +318,18 @@ func runSync[N any](
 		}
 		delete(newTimes[item.SourceResourceID], item.ExternalID)
 	}
+	// Pending work absent from a later listing is still unresolved. Preserve
+	// its identity and do not report a complete success or confirmed deletion.
+	for _, entry := range plan.failed {
+		if !seenAnywhere[entry.ExternalID] && !plan.deferred(entry.SourceResourceID, entry.ExternalID) {
+			observeDocument(h, entry.SourceResourceID, entry.ExternalID, "pending_unlisted")
+		}
+	}
+	for _, entry := range plan.pending {
+		if !seenAnywhere[entry.ExternalID] && !plan.deferred(entry.SourceResourceID, entry.ExternalID) {
+			observeDocument(h, entry.SourceResourceID, entry.ExternalID, "pending_unlisted")
+		}
+	}
 	return encodeCursor(), nil
 }
 

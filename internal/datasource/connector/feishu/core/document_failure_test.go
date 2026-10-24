@@ -125,3 +125,35 @@ func TestDocumentFailureTransientFetchDoesNotBlockLaterDocuments(t *testing.T) {
 	require.Equal(t, []string{"bad"}, resumed.fetched)
 	require.NotContains(t, final.ConnectorCursor, failedDocumentCursorKey)
 }
+
+type unlistedDocumentHandler struct {
+	transientDocumentHandler
+	unresolved []string
+}
+
+func (h *unlistedDocumentHandler) ObserveDocument(_ string, id, disposition string) {
+	if disposition == "pending_unlisted" {
+		h.unresolved = append(h.unresolved, id)
+	}
+}
+
+func TestDocumentFailureUnlistedRemainsPending(t *testing.T) {
+	ctx := context.Background()
+	ops := &deferralTestOps{nodes: []string{"bad", "good"}, fail: "bad"}
+	first := &unlistedDocumentHandler{transientDocumentHandler: transientDocumentHandler{unavailable: true}}
+	pending, err := runSync(ctx, &Client{}, &types.DataSourceConfig{}, []string{"root"}, nil, first, ops)
+	require.NoError(t, err)
+	nextHandler := &unlistedDocumentHandler{}
+	next, err := runSync(ctx, &Client{}, &types.DataSourceConfig{}, []string{"root"}, pending, nextHandler,
+		&deferralTestOps{nodes: []string{"good"}})
+	require.NoError(t, err)
+	require.Equal(t, []string{"bad"}, nextHandler.unresolved)
+	require.Contains(t, next.ConnectorCursor, failedDocumentCursorKey)
+	// An explicit authorization deferral takes precedence over the prior failure.
+	deferred := &unlistedDocumentHandler{}
+	deferred.policy = []types.SyncDocumentDeferral{deferralEntry()}
+	_, err = runSync(ctx, &Client{}, &types.DataSourceConfig{}, []string{"root"}, next, deferred,
+		&deferralTestOps{nodes: []string{"good"}})
+	require.NoError(t, err)
+	require.Empty(t, deferred.unresolved)
+}

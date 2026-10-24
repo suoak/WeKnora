@@ -70,3 +70,13 @@ func TestFeishuDocumentFetchFailureClassification(t *testing.T) {
 	item.IsDeleted = true
 	require.Empty(t, feishuDocumentFetchFailureCode(ds, item))
 }
+
+func TestFeishuDocumentFailureUnlistedIsNotSuccess(t *testing.T) {
+	h := &streamSyncHandler{result: &types.SyncResult{Unchanged: 1}}
+	h.ObserveDocument("root", "unlisted-doc", "pending_unlisted")
+	h.ObserveDocument("overlapping-root", "unlisted-doc", "pending_unlisted")
+	require.Equal(t, 1, h.result.Failed)
+	require.Equal(t, "feishu_document_pending_unlisted", h.result.Errors[0].Code)
+	status, _ := streamingSyncOutcome(h.result)
+	require.Equal(t, types.SyncLogStatusPartial, status)
+}

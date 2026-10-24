@@ -34,7 +34,9 @@ No schema migration or datasource/KB configuration change is required.
 - Keep failed, deferred, partial and success distinct. The four existing
   explicitly authorized deferrals are unchanged. A failed fetch is not a
   deferral or successful publication, and a pending retry overrides the
-  unchanged-time shortcut after restart.
+  unchanged-time shortcut after restart. Pending identities missing from a later
+  listing remain explicit unresolved failures rather than a false full success;
+  active authorization deferrals retain precedence and are not double-counted.
 
 No new general retry loop or service. The existing finite HTTP retries,
 controller, conservative shared limits, SSRF protection, task timeout and
