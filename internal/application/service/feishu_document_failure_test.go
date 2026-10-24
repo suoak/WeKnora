@@ -19,7 +19,10 @@ func TestFeishuDocumentFailureClassification(t *testing.T) {
 		code string
 	}{
 		{&repository.LegacyFenceError{Reason: "source_revision_content_conflict"}, "source_revision_content_conflict"},
-		{&feishuStagingRefusal{reason: "versioned_image_staging_required"}, "safe_staging_versioned_image_staging_required"},
+		{
+			&feishuStagingRefusal{reason: "versioned_image_staging_required"},
+			"safe_staging_versioned_image_staging_required",
+		},
 		{&repository.LegacyFenceError{Reason: "source_revision_regressed"}, ""},
 		{&repository.LegacyFenceError{Reason: "cross_version_parent"}, ""},
 		{&feishuStagingRefusal{reason: "parser_result_unavailable"}, ""},
@@ -31,5 +34,6 @@ func TestFeishuDocumentFailureClassification(t *testing.T) {
 		require.Equal(t, tc.code, feishuDocumentFailureCode(ds, item, tc.err))
 	}
 	item.IsDeleted = true
-	require.Empty(t, feishuDocumentFailureCode(ds, item, &repository.LegacyFenceError{Reason: "source_revision_content_conflict"}))
+	require.Empty(t, feishuDocumentFailureCode(ds, item,
+		&repository.LegacyFenceError{Reason: "source_revision_content_conflict"}))
 }

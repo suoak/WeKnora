@@ -18,7 +18,8 @@ func feishuDocumentFailureCode(ds *types.DataSource, item *types.FetchedItem, er
 	var refusal *feishuStagingRefusal
 	if errors.As(err, &refusal) {
 		switch refusal.reason {
-		case "versioned_image_staging_required", "audio_not_supported", "empty_parsed_content", "chunk_count_out_of_bounds":
+		case "versioned_image_staging_required", "audio_not_supported",
+			"empty_parsed_content", "chunk_count_out_of_bounds":
 			return "safe_staging_" + refusal.reason
 		}
 	}

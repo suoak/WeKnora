@@ -50,7 +50,8 @@ func TestDocumentFailureContinuesAndRetriesAfterRestart(t *testing.T) {
 	require.NoError(t, json.Unmarshal(encoded, &restarted))
 	ops2 := &deferralTestOps{nodes: []string{"bad", "good"}}
 	h2 := &documentFailureHandler{}
-	final, err := runSync(context.Background(), &Client{}, &types.DataSourceConfig{}, []string{"root"}, &restarted, h2, ops2)
+	final, err := runSync(context.Background(), &Client{}, &types.DataSourceConfig{},
+		[]string{"root"}, &restarted, h2, ops2)
 	require.NoError(t, err)
 	require.Equal(t, []string{"bad"}, ops2.fetched)
 	require.NotContains(t, final.ConnectorCursor, failedDocumentCursorKey)
@@ -60,7 +61,9 @@ func TestDocumentFailureFatalAndCheckpointFences(t *testing.T) {
 	for _, kind := range []string{"unknown", "stale", "checkpoint", "canceled"} {
 		t.Run(kind, func(t *testing.T) {
 			ops := &deferralTestOps{nodes: []string{"bad", "good"}}
-			h := &documentFailureHandler{failure: &datasource.DocumentFailureError{Code: "source_revision_content_conflict"}}
+			h := &documentFailureHandler{failure: &datasource.DocumentFailureError{
+				Code: "source_revision_content_conflict",
+			}}
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			switch kind {
@@ -83,7 +86,9 @@ func TestDocumentFailureFatalAndCheckpointFences(t *testing.T) {
 
 func TestDocumentFailureNewItemDoesNotAdvanceCursor(t *testing.T) {
 	ops := &deferralTestOps{nodes: []string{"bad", "good"}}
-	h := &documentFailureHandler{failure: &datasource.DocumentFailureError{Code: "safe_staging_versioned_image_staging_required"}}
+	h := &documentFailureHandler{failure: &datasource.DocumentFailureError{
+		Code: "safe_staging_versioned_image_staging_required",
+	}}
 	next, err := runSync(context.Background(), &Client{}, &types.DataSourceConfig{}, []string{"root"}, nil, h, ops)
 	require.NoError(t, err)
 	require.NotContains(t, ops.DecodeCursorTimes(next.ConnectorCursor)["root"], "bad")
