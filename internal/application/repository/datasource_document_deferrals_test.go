@@ -18,12 +18,14 @@ func TestDocumentDeferralRepositorySQLite(t *testing.T) { documentDeferralReposi
 func TestDocumentDeferralRepositoryPostgres(t *testing.T) {
 	documentDeferralRepositorySuite(t, "postgres")
 }
+
 func documentDeferralRepositorySuite(t *testing.T, dialect string) {
 	db := syncdb.Open(t, dialect)
 	repo := &DataSourceRepository{db: db}
 	ctx := context.Background()
 	makeSource := func() *types.DataSource {
-		s := &types.DataSource{ID: uuid.NewString(),
+		s := &types.DataSource{
+			ID:                uuid.NewString(),
 			TenantID:          1,
 			KnowledgeBaseID:   "kb",
 			Type:              types.ConnectorTypeFeishu,
@@ -31,12 +33,14 @@ func documentDeferralRepositorySuite(t *testing.T, dialect string) {
 			LegacyAccessState: "unmanaged",
 			Config:            types.JSON(`{"resource_ids":["root"],"credentials":{"app_secret":"synthetic-kept"}}`),
 			LastSyncCursor:    types.JSON(`{"accepted":"kept"}`),
-			SyncSchedule:      "0 0 * * * *"}
+			SyncSchedule:      "0 0 * * * *",
+		}
 		require.NoError(t, db.Create(s).Error)
 		return s
 	}
 	entry := func(s *types.DataSource) types.SyncDocumentDeferral {
-		return types.SyncDocumentDeferral{TenantID: s.TenantID,
+		return types.SyncDocumentDeferral{
+			TenantID:         s.TenantID,
 			DataSourceID:     s.ID,
 			KnowledgeBaseID:  s.KnowledgeBaseID,
 			SourceResourceID: "root",
@@ -45,7 +49,8 @@ func documentDeferralRepositorySuite(t *testing.T, dialect string) {
 			Reason:           "owner authorization pending",
 			RequestedBy:      "synthetic-author",
 			RequestedAt:      time.Now().UTC(),
-			Reference:        "synthetic-request"}
+			Reference:        "synthetic-request",
+		}
 	}
 	t.Run("policy_only_preserves_scope_and_checkpoint", func(t *testing.T) {
 		s := makeSource()
@@ -76,9 +81,9 @@ func documentDeferralRepositorySuite(t *testing.T, dialect string) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				copy := *s
+				candidate := *s
 				if repo.ReplaceDocumentDeferrals(ctx,
-					&copy,
+					&candidate,
 					types.DocumentDeferralHash(nil),
 					[]types.SyncDocumentDeferral{entry(s)}) == nil {
 					winners.Add(1)
@@ -91,8 +96,11 @@ func documentDeferralRepositorySuite(t *testing.T, dialect string) {
 	t.Run("pending_cursor_survives_jsonb", func(t *testing.T) {
 		s := makeSource()
 		e := entry(s)
-		cursor := map[string]any{"accepted": "kept",
-			"connector_cursor": map[string]any{"feishu_pending_documents_v1": map[string]types.SyncDocumentDeferral{e.Key(): e}}}
+		pending := map[string]types.SyncDocumentDeferral{e.Key(): e}
+		cursor := map[string]any{
+			"accepted":         "kept",
+			"connector_cursor": map[string]any{"feishu_pending_documents_v1": pending},
+		}
 		blob, err := json.Marshal(cursor)
 		require.NoError(t, err)
 		s.LastSyncCursor = blob
@@ -112,9 +120,11 @@ func documentDeferralRepositorySuite(t *testing.T, dialect string) {
 				require.NoError(t, db.Model(s).Update("legacy_access_state", state).Error)
 			case "running":
 				require.NoError(t,
-					db.Create(&types.SyncLog{DataSourceID: s.ID,
-						TenantID: 1,
-						Status:   types.SyncLogStatusRunning}).Error)
+					db.Create(&types.SyncLog{
+						DataSourceID: s.ID,
+						TenantID:     1,
+						Status:       types.SyncLogStatusRunning,
+					}).Error)
 			case "wrong_scope":
 				e.TenantID = 2
 			}

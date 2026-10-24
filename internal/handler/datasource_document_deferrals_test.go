@@ -21,35 +21,35 @@ func (s *documentDeferralHTTPService) ReplaceDocumentDeferrals(ctx context.Conte
 	id,
 	hash string,
 	entries []types.SyncDocumentDeferral) (*types.DataSource,
-	error) {
+	error,
+) {
 	return s.replace(ctx, id, hash, entries)
 }
 
 func TestDocumentDeferralHTTPIdentityAndConflict(t *testing.T) {
-	for _, scenario := range []string{"get",
+	for _, scenario := range []string{
+		"get",
 		"replace",
 		"missing_tenant",
 		"cross_tenant",
 		"hold_diagnostics",
 		"stale_policy",
-		"missing_hash"} {
+		"missing_hash",
+	} {
 		t.Run(scenario, func(t *testing.T) {
-			source := &types.DataSource{ID: "ds",
+			source := &types.DataSource{
+				ID:              "ds",
 				TenantID:        1,
 				KnowledgeBaseID: "kb",
-				Config:          types.JSON(`{"resource_ids":["root"]}`)}
+				Config:          types.JSON(`{"resource_ids":["root"]}`),
+			}
 			called := false
-			svc := &documentDeferralHTTPService{stubDataSourceService: stubDataSourceService{getDataSource: func(context.Context,
-				string) (*types.DataSource,
-				error) {
-				return source,
-					nil
-			}}}
-			svc.replace = func(_ context.Context,
-				id,
-				hash string,
-				entries []types.SyncDocumentDeferral) (*types.DataSource,
-				error) {
+			svc := &documentDeferralHTTPService{stubDataSourceService: stubDataSourceService{
+				getDataSource: func(context.Context, string) (*types.DataSource, error) { return source, nil },
+			}}
+			svc.replace = func(
+				_ context.Context, id, hash string, entries []types.SyncDocumentDeferral,
+			) (*types.DataSource, error) {
 				called = true
 				require.Equal(t, "ds", id)
 				require.Equal(t, types.DocumentDeferralHash(nil), hash)

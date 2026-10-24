@@ -69,6 +69,7 @@ func (p *documentPlan) deferred(_ string, externalID string) bool {
 	}
 	return false
 }
+
 func (p *documentPlan) retry(_ string, externalID string) bool {
 	for _, entry := range p.pending {
 		if entry.ExternalID == externalID {
@@ -77,6 +78,7 @@ func (p *documentPlan) retry(_ string, externalID string) bool {
 	}
 	return false
 }
+
 func (p *documentPlan) accepted(_ string, externalID string) {
 	for key, entry := range p.pending {
 		if entry.ExternalID == externalID {

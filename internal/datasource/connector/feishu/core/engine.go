@@ -239,7 +239,8 @@ func runSync[N any](
 			}
 
 			processed++
-			if documentRecovery || processed%FeishuStreamCheckpointInterval == 0 || time.Since(lastCheckpoint) >= FeishuStreamCheckpointMaxInterval {
+			if documentRecovery || processed%FeishuStreamCheckpointInterval == 0 ||
+				time.Since(lastCheckpoint) >= FeishuStreamCheckpointMaxInterval {
 				if cerr := h.Checkpoint(ctx, encodeCursor()); cerr != nil {
 					// A checkpoint is durable admission, not optional progress.
 					// In particular, a lost execution fence must stop further fetch,

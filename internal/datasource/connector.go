@@ -80,6 +80,7 @@ type DocumentDeferralHandler interface {
 	DocumentDeferrals(context.Context) ([]types.SyncDocumentDeferral, error)
 }
 
+// StreamObservationHandler records listing outcomes without acknowledging ingestion.
 type StreamObservationHandler interface {
 	ObserveDocument(root, externalID, disposition string)
 }

@@ -22,6 +22,7 @@ func (o *deferralTestOps) List(context.Context, *Client, string) ([]string, erro
 	o.lists++
 	return o.nodes, nil, nil
 }
+
 func (o *deferralTestOps) Fetch(_ context.Context, _ *Client, node, root string, _ bool) ([]*types.FetchedItem, error) {
 	o.fetched = append(o.fetched, node)
 	if node == o.fail {
@@ -29,12 +30,14 @@ func (o *deferralTestOps) Fetch(_ context.Context, _ *Client, node, root string,
 	}
 	return []*types.FetchedItem{{ExternalID: node, SourceResourceID: root, Content: []byte("accepted body")}}, nil
 }
+
 func (*deferralTestOps) DecodeCursorTimes(m map[string]interface{}) map[string]map[string]string {
 	b, _ := json.Marshal(m)
 	var c FeishuCursor
 	_ = json.Unmarshal(b, &c)
 	return c.SpaceNodeTimes
 }
+
 func (*deferralTestOps) EncodeCursor(m map[string]map[string]string, t time.Time) *types.SyncCursor {
 	b, _ := json.Marshal(FeishuCursor{SpaceNodeTimes: m, LastSyncTime: t})
 	var v map[string]interface{}
@@ -52,6 +55,7 @@ type deferralTestHandler struct {
 func (h *deferralTestHandler) DocumentDeferrals(context.Context) ([]types.SyncDocumentDeferral, error) {
 	return h.policy, nil
 }
+
 func (h *deferralTestHandler) Emit(_ context.Context, item types.FetchedItem) error {
 	if item.Metadata["error"] != "" {
 		return errors.New("unaccepted document")
@@ -59,6 +63,7 @@ func (h *deferralTestHandler) Emit(_ context.Context, item types.FetchedItem) er
 	h.items = append(h.items, item)
 	return nil
 }
+
 func (h *deferralTestHandler) Checkpoint(_ context.Context, c *types.SyncCursor) error {
 	if h.checkpointErr != nil {
 		return h.checkpointErr
@@ -69,11 +74,15 @@ func (h *deferralTestHandler) Checkpoint(_ context.Context, c *types.SyncCursor)
 	h.checkpoints = append(h.checkpoints, &copy)
 	return nil
 }
+
 func deferralEntry() types.SyncDocumentDeferral {
-	return types.SyncDocumentDeferral{SourceResourceID: "root",
-		ExternalID: "bad",
-		ReasonCode: types.DocumentDeferralAwaitingAuthorization}
+	return types.SyncDocumentDeferral{
+		SourceResourceID: "root",
+		ExternalID:       "bad",
+		ReasonCode:       types.DocumentDeferralAwaitingAuthorization,
+	}
 }
+
 func TestDocumentDeferralSharedEngine(t *testing.T) {
 	ctx := context.Background()
 	ops := &deferralTestOps{nodes: []string{"bad", "good"}, fail: "bad"}
@@ -99,6 +108,7 @@ func TestDocumentDeferralSharedEngine(t *testing.T) {
 	require.Equal(t, []string{"bad"}, ops2.fetched)
 	require.NotContains(t, final.ConnectorCursor, pendingDocumentCursorKey)
 }
+
 func TestDocumentDeferralDoesNotIgnoreUnknownFailure(t *testing.T) {
 	ops := &deferralTestOps{nodes: []string{"bad", "unknown", "later"}, fail: "unknown"}
 	h := &deferralTestHandler{policy: []types.SyncDocumentDeferral{deferralEntry()}}
@@ -108,6 +118,7 @@ func TestDocumentDeferralDoesNotIgnoreUnknownFailure(t *testing.T) {
 	require.Equal(t, []string{"unknown"}, ops.fetched)
 	require.Len(t, h.checkpoints, 1)
 }
+
 func TestDocumentDeferralCheckpointAndScopeFailClosed(t *testing.T) {
 	for _, kind := range []string{"checkpoint", "scope", "corrupt_cursor"} {
 		t.Run(kind, func(t *testing.T) {
@@ -137,6 +148,7 @@ func TestDocumentDeferralCheckpointAndScopeFailClosed(t *testing.T) {
 		})
 	}
 }
+
 func TestDocumentDeferralMissingDocumentIsNotDeleted(t *testing.T) {
 	ops := &deferralTestOps{nodes: []string{"good"}}
 	h := &deferralTestHandler{policy: []types.SyncDocumentDeferral{deferralEntry()}}
@@ -157,8 +169,10 @@ func TestDocumentDeferralOverlappingRootsDoNotFetchDeferredIdentity(t *testing.T
 		err := runSync(context.Background(),
 		&Client{},
 		&types.DataSourceConfig{},
-		[]string{"root",
-			"overlapping"},
+		[]string{
+			"root",
+			"overlapping",
+		},
 		nil,
 		h,
 		ops)

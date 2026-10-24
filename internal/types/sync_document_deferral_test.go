@@ -10,7 +10,8 @@ import (
 
 func TestDocumentDeferralPolicyValidation(t *testing.T) {
 	s := &DataSource{ID: "ds", TenantID: 1, KnowledgeBaseID: "kb", Config: JSON(`{"resource_ids":["root"]}`)}
-	e := SyncDocumentDeferral{TenantID: 1,
+	e := SyncDocumentDeferral{
+		TenantID:         1,
 		DataSourceID:     "ds",
 		KnowledgeBaseID:  "kb",
 		SourceResourceID: "root",
@@ -19,8 +20,10 @@ func TestDocumentDeferralPolicyValidation(t *testing.T) {
 		Reason:           "awaiting owner",
 		RequestedBy:      "operator",
 		RequestedAt:      time.Now().UTC(),
-		Reference:        "explicit request"}
-	for _, kind := range []string{"valid",
+		Reference:        "explicit request",
+	}
+	for _, kind := range []string{
+		"valid",
 		"other_tenant",
 		"other_source",
 		"other_kb",
@@ -28,7 +31,8 @@ func TestDocumentDeferralPolicyValidation(t *testing.T) {
 		"reason",
 		"no_author",
 		"duplicate",
-		"null"} {
+		"null",
+	} {
 		t.Run(kind, func(t *testing.T) {
 			entry := e
 			switch kind {

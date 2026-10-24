@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// ReplaceDocumentDeferrals serializes policy edits with source execution claims.
 func (r *DataSourceRepository) ReplaceDocumentDeferrals(
 	ctx context.Context, source *types.DataSource, expected string, entries []types.SyncDocumentDeferral,
 ) error {

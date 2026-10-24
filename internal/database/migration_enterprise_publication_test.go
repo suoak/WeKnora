@@ -51,7 +51,7 @@ func TestSQLiteEnterprisePublicationRealRunnerUpgradeDownUp(t *testing.T) {
 	chdirAndRestore(t, root)
 	require.NoError(t, RunMigrationsWithOptions("sqlite3://unused", MigrationOptions{SQLiteDBPath: path}))
 	version, dirty = sqliteMigrationState(t, db)
-	require.Equal(t, 3037, version)
+	require.Equal(t, 3038, version)
 	require.False(t, dirty)
 	for _, table := range []string{"enterprise_space_policies", "kb_publication_policies", "knowledge_access_policies", "document_subject_grants"} {
 		var count int
@@ -74,7 +74,7 @@ func TestSQLiteEnterprisePublicationRealRunnerUpgradeDownUp(t *testing.T) {
 	}
 	require.NoError(t, m.Up())
 	version, dirty = sqliteMigrationState(t, db)
-	require.Equal(t, 3037, version)
+	require.Equal(t, 3038, version)
 	require.False(t, dirty)
 	require.NoError(t, db.QueryRow(`SELECT capabilities,api_key FROM tenant_api_keys WHERE name='m2-old-key'`).Scan(&caps, &secret))
 	require.Equal(t, `["retrieve"]`, caps)
@@ -154,7 +154,7 @@ func TestSQLiteEnterpriseMigrationFailureAndSnapshotRecovery(t *testing.T) {
 	require.NoError(t, RunMigrationsWithOptions("sqlite3://unused", MigrationOptions{SQLiteDBPath: recovered}))
 	version, dirty, ok = CachedMigrationVersion()
 	require.True(t, ok)
-	require.Equal(t, uint(3037), version)
+	require.Equal(t, uint(3038), version)
 	require.False(t, dirty)
 	require.Empty(t, CachedMigrationError())
 }

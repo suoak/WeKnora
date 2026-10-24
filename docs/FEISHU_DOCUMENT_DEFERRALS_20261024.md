@@ -77,7 +77,8 @@ snapshots. Enable eligible sources through the existing controlled release flow,
 then observe real terminal results and resource inventory before reporting counts.
 
 Rollback retains the new policy column and pending cursor for audit and recovery.
-The down migration intentionally preserves policy data. An old APP does not
+The PostgreSQL down migration intentionally preserves policy data. SQLite
+downgrade refuses active policies or pending retries before dropping an empty column. An old APP does not
 understand deferrals, so it must remain sync-frozen during rollback; stopping old
 workers and blocking outbound requests is required. Never resume old consumers
 under an assumed document policy. No source or backup cleanup is authorized.

@@ -10,6 +10,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 )
 
+// ReplaceDocumentDeferrals records an authenticated administrator's exact-document policy.
 func (s *DataSourceService) ReplaceDocumentDeferrals(
 	ctx context.Context, id, expected string, entries []types.SyncDocumentDeferral,
 ) (*types.DataSource, error) {
@@ -69,10 +70,12 @@ func (s *DataSourceService) ReplaceDocumentDeferrals(
 		"data_source",
 		source.ID,
 		types.AuditOutcomeSuccess,
-		map[string]any{"changed_fields": []string{"document_deferrals"},
+		map[string]any{
+			"changed_fields":       []string{"document_deferrals"},
 			"previous_policy_hash": expected,
 			"policy_hash":          types.DocumentDeferralHash(current),
-			"document_count":       len(current)})
+			"document_count":       len(current),
+		})
 	return source, nil
 }
 
