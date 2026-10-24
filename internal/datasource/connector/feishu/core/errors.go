@@ -1,8 +1,10 @@
 package core
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -59,6 +61,11 @@ func (e *APIError) Error() string {
 	}
 	if e.HTTPStatus != 0 {
 		parts = append(parts, fmt.Sprintf("status=%d", e.HTTPStatus))
+	}
+	var timeout net.Error
+	if errors.Is(e.Cause, context.DeadlineExceeded) ||
+		(errors.As(e.Cause, &timeout) && timeout.Timeout()) {
+		parts = append(parts, "cause=timeout")
 	}
 	return strings.Join(parts, " ")
 }

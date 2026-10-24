@@ -92,29 +92,41 @@ func TestSafetyCallerCancellationDoesNotTripIndependentSources(t *testing.T) {
 	}
 }
 
-func TestSafetyCallerDeadlineStillTrips(t *testing.T) {
+func TestSafetyCallerDeadlinePolicy(t *testing.T) {
 	for _, headers := range []bool{false, true} {
-		g, client := fixture(t, Config{})
-		InstallDefault(g)
-		ctx, cancel := context.WithTimeout(
-			WithScope(context.Background(), "timed-out-source"), 200*time.Millisecond,
-		)
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://source.invalid/doc", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		resp, err := (Transport{Base: cancellationTransport{headers, make(chan struct{})}}).RoundTrip(req)
-		if err == nil {
-			_, err = io.ReadAll(resp.Body)
-			_ = resp.Body.Close()
-		}
-		cancel()
-		if !errors.Is(err, context.DeadlineExceeded) {
-			t.Fatalf("deadline failure lost: %v", err)
-		}
-		if client.Exists(context.Background(), g.key("trip")).Val() != 1 ||
-			g.Check(context.Background()) == nil {
-			t.Fatal("timeout failed open")
+		for _, embedding := range []bool{false, true} {
+			g, client := fixture(t, Config{})
+			InstallDefault(g)
+			ctx, cancel := context.WithTimeout(
+				WithScope(context.Background(), "timed-out-source"), 200*time.Millisecond,
+			)
+			req, err := http.NewRequestWithContext(
+				ctx, http.MethodPost, "https://gateway.invalid/embeddings",
+				strings.NewReader(`{"input":["test"]}`),
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp, err := (Transport{
+				Base: cancellationTransport{headers, make(chan struct{})}, Embedding: embedding,
+			}).RoundTrip(req)
+			if err == nil {
+				_, err = io.ReadAll(resp.Body)
+				_ = resp.Body.Close()
+			}
+			cancel()
+			if !errors.Is(err, context.DeadlineExceeded) {
+				t.Fatalf("deadline failure lost: %v", err)
+			}
+			if embedding {
+				if client.Exists(context.Background(), g.key("trip")).Val() != 1 ||
+					g.Check(context.Background()) == nil {
+					t.Fatal("embedding timeout failed open")
+				}
+			} else if client.Exists(context.Background(), g.key("trip")).Val() != 0 ||
+				g.Check(context.Background()) != nil {
+				t.Fatal("source timeout globally stopped independent sources")
+			}
 		}
 	}
 }
@@ -193,7 +205,7 @@ func TestSafetyRequestFailureCategoriesStayClosed(t *testing.T) {
 		{"truncated_response", io.ErrUnexpectedEOF, false, false, "feishu_response_unexpected_eof"},
 		{"embedding_truncated", io.ErrUnexpectedEOF, false, true, "embedding_response_unexpected_eof"},
 		{"corruption_after_cancel", io.ErrUnexpectedEOF, true, false, "feishu_response_unexpected_eof"},
-		{"deadline_after_cancel", context.DeadlineExceeded, true, false, "feishu_response_timeout"},
+		{"deadline_after_cancel", context.DeadlineExceeded, true, true, "embedding_response_timeout"},
 		{"other_failure", errors.New("secret response"), false, true, "embedding_response_io_failure"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -212,5 +224,69 @@ func TestSafetyRequestFailureCategoriesStayClosed(t *testing.T) {
 				t.Fatal("unconfirmed network failure did not close outbound")
 			}
 		})
+	}
+}
+
+func TestSafetySourceTimeoutUnconfirmedGateStillTrips(t *testing.T) {
+	for _, redisUnavailable := range []bool{false, true} {
+		g, client := fixture(t, Config{})
+		if redisUnavailable {
+			if err := client.Close(); err != nil {
+				t.Fatal(err)
+			}
+		} else if err := client.Del(context.Background(), g.PermitKey()).Err(); err != nil {
+			t.Fatal(err)
+		}
+		tripRequestFailure(context.Background(), g, context.DeadlineExceeded, false, "response")
+		if !g.localClosed.Load() || g.Check(context.Background()) == nil {
+			t.Fatal("source timeout classification failed open on unconfirmed gate")
+		}
+		if !redisUnavailable {
+			want := "feishu_response_timeout_state_unconfirmed"
+			if got := client.Get(context.Background(), g.key("trip")).Val(); got != want {
+				t.Fatalf("unconfirmed source timeout reason = %q", got)
+			}
+		}
+	}
+}
+
+func TestSafetyHTTPDeadlineBodyCancellation(t *testing.T) {
+	for _, embedding := range []bool{false, true} {
+		g, client := fixture(t, Config{})
+		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+		defer cancel()
+		// A client deadline can cancel the body transport before net/http wraps
+		// the returned error as its final timeout. Preserve deadline evidence.
+		tripRequestFailure(ctx, g, context.Canceled, embedding, "response")
+		tripped := client.Exists(context.Background(), g.key("trip")).Val() != 0
+		if tripped != embedding {
+			t.Fatalf("deadline-triggered body cancellation: embedding=%v trip=%v", embedding, tripped)
+		}
+	}
+}
+
+type delayedDeadlineContext struct {
+	context.Context
+	deadline time.Time
+}
+
+func (c delayedDeadlineContext) Deadline() (time.Time, bool) { return c.deadline, true }
+
+func TestSafetyDeadlineBeforeTimerPropagation(t *testing.T) {
+	for _, embedding := range []bool{false, true} {
+		g, client := fixture(t, Config{})
+		ctx := delayedDeadlineContext{Context: context.Background(), deadline: time.Now().Add(-time.Second)}
+		// The monotonic deadline can expire before its timer propagates Err.
+		tripRequestFailure(ctx, g, errors.New("net/http: request canceled"), embedding, "response")
+		tripped := client.Exists(context.Background(), g.key("trip")).Val() != 0
+		if tripped != embedding {
+			t.Fatal("deadline propagation race changed source/gateway policy")
+		}
+	}
+	g, client := fixture(t, Config{})
+	ctx := delayedDeadlineContext{Context: context.Background(), deadline: time.Now().Add(-time.Second)}
+	tripRequestFailure(ctx, g, io.ErrUnexpectedEOF, false, "response")
+	if got := client.Get(context.Background(), g.key("trip")).Val(); got != "feishu_response_unexpected_eof" {
+		t.Fatal("an expired deadline hid a corrupted response", got)
 	}
 }
