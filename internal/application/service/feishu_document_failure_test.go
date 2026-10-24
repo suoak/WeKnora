@@ -37,3 +37,12 @@ func TestFeishuDocumentFailureClassification(t *testing.T) {
 	require.Empty(t, feishuDocumentFailureCode(ds, item,
 		&repository.LegacyFenceError{Reason: "source_revision_content_conflict"}))
 }
+
+func TestFeishuDocumentFailureWithUnchangedDocumentsIsPartial(t *testing.T) {
+	result := &types.SyncResult{Total: 1, Failed: 1, Unchanged: 2}
+	require.NoError(t, allFetchedItemsFailedError(result))
+	status, _ := streamingSyncOutcome(result)
+	require.Equal(t, types.SyncLogStatusPartial, status)
+	result.Unchanged = 0
+	require.Error(t, allFetchedItemsFailedError(result))
+}

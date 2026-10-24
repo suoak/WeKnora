@@ -1489,7 +1489,7 @@ func allFetchedItemsFailedError(result *types.SyncResult) error {
 		return nil
 	}
 	if result.Failed != result.Total || result.Created != 0 || result.Updated != 0 ||
-		result.Deleted != 0 || result.Skipped != 0 {
+		result.Deleted != 0 || result.Skipped != 0 || result.Unchanged != 0 {
 		return nil
 	}
 
