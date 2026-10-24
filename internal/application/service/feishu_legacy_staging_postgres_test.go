@@ -433,7 +433,7 @@ func TestFeishuLegacyRealParserEmbeddingPostgres(t *testing.T) {
 				require.True(t, bound, "atomic publication must bind the real stable Knowledge ID")
 			}
 			store := repository.NewFeishuLegacyStore(db)
-			exerciseLegacyCandidateImages(t, db, ks, ctx, ds, func(enabled bool) {
+			exerciseLegacyCandidateImages(ctx, t, db, ks, ds, func(enabled bool) {
 				failureCalls.Store(0)
 				fail.Store(enabled)
 			})

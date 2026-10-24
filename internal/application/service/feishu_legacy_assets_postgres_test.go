@@ -62,8 +62,8 @@ func (f assetUploadFault) SaveFile(context.Context, *multipart.FileHeader, uint6
 
 // Called by the existing real parser/ParadeDB harness for local and registered
 // local storage, with both flat and parent-child chunking enabled.
-func exerciseLegacyCandidateImages(t *testing.T, db *gorm.DB, ks *knowledgeService,
-	ctx context.Context, ds *types.DataSource, failEmbedding func(bool),
+func exerciseLegacyCandidateImages(ctx context.Context, t *testing.T, db *gorm.DB,
+	ks *knowledgeService, ds *types.DataSource, failEmbedding func(bool),
 ) {
 	t.Helper()
 	kb, err := ks.kbService.GetKnowledgeBaseByID(ctx, ds.KnowledgeBaseID)
@@ -147,7 +147,7 @@ func exerciseLegacyCandidateImages(t *testing.T, db *gorm.DB, ks *knowledgeServi
 	read := func(p string) []byte {
 		f, e := files.GetFile(ctx, p)
 		require.NoError(t, e)
-		defer f.Close()
+		defer func() { require.NoError(t, f.Close()) }()
 		b, e := io.ReadAll(f)
 		require.NoError(t, e)
 		return b

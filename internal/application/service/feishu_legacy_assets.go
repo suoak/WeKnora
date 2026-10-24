@@ -14,6 +14,7 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/infrastructure/docparser"
+	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/models/vlm"
 	"github.com/Tencent/WeKnora/internal/searchutil"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -53,8 +54,12 @@ func (f *legacyAssetFiles) SaveBytes(ctx context.Context, data []byte, tenant ui
 	if err != nil {
 		return "", err
 	}
-	defer form.RemoveAll()
-	path, err := f.FileService.SaveFile(ctx, file, tenant, f.attempt)
+	defer func() {
+		if err := form.RemoveAll(); err != nil {
+			logger.Warnf(ctx, "Feishu candidate temporary file cleanup failed: %v", err)
+		}
+	}()
+	path, err := f.SaveFile(ctx, file, tenant, f.attempt)
 	if err != nil {
 		return "", err
 	}
@@ -83,12 +88,12 @@ func legacyStagingCapacity(ctx context.Context, files interfaces.FileService, by
 	return types.ErrFeishuStagingCapacity
 }
 
-func (f *legacyAssetFiles) verify(ctx context.Context, path, digest string, size int64) error {
-	reader, err := f.FileService.GetFile(ctx, path)
+func (f *legacyAssetFiles) verify(ctx context.Context, path, digest string, size int64) (err error) {
+	reader, err := f.GetFile(ctx, path)
 	if err != nil {
 		return err
 	}
-	defer reader.Close()
+	defer func() { err = errors.Join(err, reader.Close()) }()
 	h := sha256.New()
 	n, err := io.Copy(h, io.LimitReader(reader, size+1))
 	if err != nil {

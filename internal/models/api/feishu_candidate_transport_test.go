@@ -15,7 +15,7 @@ func TestCandidateModelTransportClosedAndOnlineUnaffected(t *testing.T) {
 	feishusafety.InstallDefault(nil)
 	t.Cleanup(func() { feishusafety.InstallDefault(nil) })
 	var sent atomic.Int32
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		sent.Add(1)
 		w.WriteHeader(http.StatusOK)
 	}))

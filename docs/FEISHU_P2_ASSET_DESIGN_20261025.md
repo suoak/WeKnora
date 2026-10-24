@@ -63,3 +63,12 @@ Required validation: real parser + local files + PostgreSQL/ParadeDB, duplicate
 images, exact span remapping, OCR/upload/readback/embedding failures, mid-batch
 failure, expired owner, concurrent publisher, hold/revocation, pre-publication
 file denial, superseded file denial, vector/BM25/gallery consistency and race.
+
+Native parser prerequisite: CI identified RUSTSEC-2026-0367/0368/0369 in
+the existing ZIP 8.6.0 dependency. Keep anydoc 0.2.4 and its C ABI, pin its
+materialized ZIP dependency to 9.0.0, and build with the committed Cargo.lock.
+Apply the pin to cached patched-anydoc trees too. Rebuild the native static
+archive and verify its lockfile, build-script and archive hashes before linking;
+an old archive must not be reused with the updated lockfile. Run the native
+parser tests and cargo audit, without suppressing these advisories. The native
+build script now requires Python 3 in addition to its existing Rust toolchain.

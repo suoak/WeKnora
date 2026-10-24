@@ -107,6 +107,23 @@ fi
 echo "Building anydoc $anydoc_version archive for $target"
 prepare_patched_anydoc
 
+# Keep the pinned upstream parser and its public C ABI, but replace its ZIP
+# dependency with the release fixing RUSTSEC-2026-0367/0368/0369. Apply this
+# outside the cached-copy fast path so an existing 0.2.4 tree is upgraded too.
+python3 - "$crate_dir/patched-anydoc/Cargo.toml" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+manifest = Path(sys.argv[1])
+text = manifest.read_text()
+pattern = r'(?m)(^\[dependencies\.zip\]\nversion = )"([^"]+)"'
+matches = list(re.finditer(pattern, text))
+if len(matches) != 1 or matches[0][2] not in ("8.6.0", "=9.0.0"):
+    raise SystemExit("unexpected anydoc ZIP dependency; review before rebuilding")
+manifest.write_text(re.sub(pattern, lambda m: m[1] + '"=9.0.0"', text))
+PY
+
 # --locked: build exactly the dependency versions in the committed Cargo.lock.
 # That lockfile is what pins the patched pdf-inspector/lopdf, so a silent
 # resolver drift must fail the build rather than ship an unaudited tree.
