@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/feishusafety"
+
 	secutils "github.com/Tencent/WeKnora/internal/utils"
 )
 
@@ -59,5 +61,5 @@ var httpTransport = &http.Transport{
 // HTTPClient is the shared SSRF-safe client every protocol uses.
 var HTTPClient = secutils.NewSSRFSafeHTTPClientWithTransport(
 	secutils.SSRFSafeHTTPClientConfig{Timeout: 0, MaxRedirects: 10},
-	httpTransport,
+	feishusafety.Transport{Base: httpTransport, BackgroundModel: true},
 )

@@ -57,6 +57,18 @@ type FeishuLegacyManifest struct {
 	StorageStamp     string                      `json:"storage_stamp,omitempty"`
 	Dimension        int                         `json:"dimension"`
 	SHA256           string                      `json:"sha256"`
+	Assets           []FeishuLegacyAsset         `json:"assets,omitempty"`
+	VLMModelID       string                      `json:"vlm_model_id,omitempty"`
+	VLMModelStamp    string                      `json:"vlm_model_stamp,omitempty"`
+}
+
+// Assets are immutable files in the owning attempt's private directory. The
+// database publication pointer, never the filesystem upload, admits reads.
+type FeishuLegacyAsset struct {
+	Path     string `json:"path"`
+	SHA256   string `json:"sha256"`
+	Bytes    int64  `json:"bytes"`
+	MimeType string `json:"mime_type"`
 }
 
 // FeishuLegacySourceIdentity binds a versioned canonical package digest to its source name and title.
@@ -77,6 +89,7 @@ type FeishuLegacyReceipt struct {
 	Vectors        int64     `json:"vectors"`
 	BM25Rows       int64     `json:"bm25_rows"`
 	Dimension      int       `json:"dimension"`
+	Assets         int       `json:"assets,omitempty"`
 	PublishedAt    time.Time `json:"published_at"`
 }
 

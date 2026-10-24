@@ -82,6 +82,7 @@ func LegacyKBConfigHash(kb *types.KnowledgeBase) string {
 			kb.VectorStoreID,
 			kb.Type,
 			kb.ImageProcessingConfig,
+			kb.VLMConfig,
 			kb.QuestionGenerationConfig,
 			kb.IndexingStrategy,
 			kb.StorageBackendID,
@@ -544,6 +545,9 @@ func (s *FeishuLegacyStore) Prepare(
 		if metadata["datasource_id"] != r.DataSourceID || metadata["external_id"] != r.ExternalID {
 			return legacyFence("manifest_source_mismatch")
 		}
+		if e = validateLegacyAssets(tx, r, a, &m, false); e != nil {
+			return e
+		}
 		seen := map[string]bool{}
 		for _, c := range m.Chunks {
 			if c == nil || seen[c.ID] || c.ID == "" || c.KnowledgeID != r.KnowledgeID ||
@@ -641,6 +645,18 @@ func (s *FeishuLegacyStore) Publish(
 				legacyFence("model_configuration_changed"),
 			)
 		}
+		if m.VLMModelID != "" {
+			var vlmStamp string
+			e = tx.Raw("SELECT md5(row_to_json(m)::text) FROM models m WHERE id=? "+
+				"AND (tenant_id=? OR is_builtin=true) AND deleted_at IS NULL FOR SHARE",
+				m.VLMModelID, r.TenantID).Scan(&vlmStamp).Error
+			if e != nil {
+				return e
+			}
+			if vlmStamp == "" || vlmStamp != m.VLMModelStamp {
+				return legacyFence("image_model_configuration_changed")
+			}
+		}
 		if m.StorageBackendID != "" {
 			var currentStorage string
 			if e = tx.Raw("SELECT md5(row_to_json(b)::text) FROM storage_backends b WHERE id=? AND "+
@@ -653,6 +669,9 @@ func (s *FeishuLegacyStore) Publish(
 			}
 		}
 		var old types.Knowledge
+		if e = validateLegacyAssets(tx, r, a, &m, true); e != nil {
+			return e
+		}
 		e = tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			First(&old, "id=? AND tenant_id=?", r.KnowledgeID, r.TenantID).
 			Error
@@ -844,6 +863,7 @@ content,dimension,embedding,is_enabled)
 			Vectors:        vectors,
 			BM25Rows:       vectors,
 			Dimension:      m.Dimension,
+			Assets:         len(m.Assets),
 			PublishedAt:    time.Now().UTC(),
 		}
 		b, _ := json.Marshal(receipt)
@@ -899,6 +919,12 @@ func (s *FeishuLegacyStore) Receipt(
 		}
 		indexed, e := legacyIndexedChunks(manifest.Chunks)
 		if e != nil {
+			return e
+		}
+		if out.Assets != len(manifest.Assets) {
+			return legacyFence("receipt_asset_count_mismatch")
+		}
+		if e := validateLegacyAssets(tx, &live, &current, &manifest, false); e != nil {
 			return e
 		}
 		var public []*types.Chunk

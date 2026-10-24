@@ -19,10 +19,13 @@ import (
 // Transport surrounds the existing SSRF-safe transport, preserving its DNS,
 // redirect and address protections. Each underlying retry is admitted separately.
 type Transport struct {
-	Base        http.RoundTripper
-	Embedding   bool
-	retrySleep  func(context.Context, time.Duration) error
-	retryJitter func() time.Duration
+	Base      http.RoundTripper
+	Embedding bool
+	// BackgroundModel shares cluster request/concurrency budgets for marked
+	// candidate OCR/VLM calls. Image token use is not claimed as embedding TPM.
+	BackgroundModel bool
+	retrySleep      func(context.Context, time.Duration) error
+	retryJitter     func() time.Duration
 }
 
 func trip(g *Guard, reason string) {
@@ -184,6 +187,13 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 	release := func() {}
+	if t.BackgroundModel && !t.Embedding {
+		var err error
+		release, err = g.begin(req.Context(), 0)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if t.Embedding {
 		if !strings.EqualFold(req.URL.Host, g.config.EndpointHost) {
 			trip(g, "embedding_endpoint_mismatch")
