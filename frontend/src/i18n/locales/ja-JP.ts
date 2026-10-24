@@ -6650,6 +6650,12 @@ const messages = {
     daysAgo: '{days}日前'
   },
   datasource: {
+    documentDeferred: 'Deferred',
+    documentUnchanged: 'Unchanged',
+    documentUnsupported: 'Unsupported',
+    retryAfterAuthorization: 'Retry after authorization',
+    deferredRetryFailed: 'Retry could not start; verify source state and reload',
+
     title: 'データソース',
     description: 'このナレッジベースにコンテンツを同期する外部データソースを設定します',
     add: 'データソースを追加',
@@ -6734,6 +6740,7 @@ const messages = {
     refreshLogs: 'ログを更新',
     noLogs: '同期記録はまだありません',
     logStatus: {
+      deferred: 'Deferred',
       running: '同期中',
       success: '成功',
       partial: '一部成功',

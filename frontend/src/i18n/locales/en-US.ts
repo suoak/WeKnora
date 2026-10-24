@@ -6749,6 +6749,12 @@ export default {
     daysAgo: '{days} days ago'
   },
   datasource: {
+    documentDeferred: 'Deferred',
+    documentUnchanged: 'Unchanged',
+    documentUnsupported: 'Unsupported',
+    retryAfterAuthorization: 'Retry after authorization',
+    deferredRetryFailed: 'Retry could not start; verify source state and reload',
+
     title: 'Data Sources',
     description: 'Configure external data sources to sync content into this knowledge base',
     add: 'Add Data Source',
@@ -6833,6 +6839,7 @@ export default {
     refreshLogs: 'Refresh logs',
     noLogs: 'No sync records yet',
     logStatus: {
+      deferred: 'Deferred',
       running: 'Syncing',
       success: 'Success',
       partial: 'Partial',

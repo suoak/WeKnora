@@ -799,6 +799,12 @@ const messages = {
     }
   },
   datasource: {
+    documentDeferred: 'Deferred',
+    documentUnchanged: 'Unchanged',
+    documentUnsupported: 'Unsupported',
+    retryAfterAuthorization: 'Retry after authorization',
+    deferredRetryFailed: 'Retry could not start; verify source state and reload',
+
     title: '데이터 소스 관리',
     description: '외부 데이터 소스를 구성하여 콘텐츠를 지식베이스에 자동 동기화',
     add: '데이터 소스 추가',
@@ -1025,6 +1031,7 @@ const messages = {
       failed: '실패'
     },
     logStatus: {
+      deferred: 'Deferred',
       running: '동기화 중',
       success: '성공',
       partial: '부분 성공',

@@ -844,6 +844,14 @@ func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.
 	if sc, ok := connector.(datasource.StreamingConnector); ok {
 		return s.processSyncStreaming(ctx, sc, ds, syncLog, config, payload, wasPaused)
 	}
+	if legacyWikiDrive(ds.Type) {
+		policy, policyErr := ds.ParseDocumentDeferrals()
+		if policyErr != nil || len(policy) > 0 {
+			return s.failSyncAttempt(ctx, ds, syncLog,
+				errors.New("document deferrals require the streaming admission path"),
+				"Document policy cannot be honored")
+		}
+	}
 
 	// Fetch items based on sync mode
 	var items []types.FetchedItem
@@ -1209,12 +1217,13 @@ func streamStartCursor(ds *types.DataSource, forceFull bool, attempt int) (*type
 // Emit ingests each item as it arrives (bounding memory) and Checkpoint persists
 // the connector cursor plus live progress counts at page boundaries.
 type streamSyncHandler struct {
-	svc       *DataSourceService
-	ds        *types.DataSource
-	tagIDs    []string
-	result    *types.SyncResult
-	syncLog   *types.SyncLog
-	ingestErr error
+	svc          *DataSourceService
+	ds           *types.DataSource
+	tagIDs       []string
+	result       *types.SyncResult
+	syncLog      *types.SyncLog
+	ingestErr    error
+	observations map[string]bool
 }
 
 // Emit stops before confirming unaccepted Feishu work. A latched failure
@@ -1377,7 +1386,7 @@ func (s *DataSourceService) processSyncStreaming(
 	}
 
 	// Persist the final cursor for the next incremental sync.
-	if forceFull {
+	if forceFull && result.Deferred == 0 && result.Unsupported == 0 && result.Failed == 0 {
 		if safeLegacyIncrementalEnabled() && legacyWikiDrive(ds.Type) {
 			ctx = types.WithLegacyFullReconciliation(ctx)
 		}
@@ -1387,8 +1396,6 @@ func (s *DataSourceService) processSyncStreaming(
 			ds.LastSyncCursor = cursorJSON
 		}
 	}
-	ds.LastSyncAt = timePtr(time.Now().UTC())
-
 	// Surface per-document failures as a partial sync (not silent success), so
 	// the sync-log drawer's failure detail explains which docs didn't make it —
 	// the visibility gap behind "status normal but not everything syncs"
@@ -1396,17 +1403,9 @@ func (s *DataSourceService) processSyncStreaming(
 	// page is checkpointed, so the next run retries them; deletion failures are
 	// past the cursor and only retry on a full sync in the normal case (see
 	// applyFetchedItem).
-	status := types.SyncLogStatusSuccess
-	errMsg := ""
-	if result.Failed > 0 {
-		status = types.SyncLogStatusPartial
-		errMsg = fmt.Sprintf("%d document(s) failed to sync", result.Failed)
-		if result.DeletionFailed > 0 {
-			errMsg += fmt.Sprintf(
-				"; %d deletion failure(s) will only retry on the next full sync",
-				result.DeletionFailed,
-			)
-		}
+	status, errMsg := streamingSyncOutcome(result)
+	if status == types.SyncLogStatusSuccess {
+		ds.LastSyncAt = timePtr(time.Now().UTC())
 	}
 	if err := s.updateSyncRunResult(ctx, ds, syncLog, result, resultJSON, status, errMsg, wasPaused); err != nil {
 		return err
@@ -1438,7 +1437,7 @@ func (s *DataSourceService) updateSyncRunResult(
 	syncLog.ErrorMessage = errorMessage
 	syncLog.Result = resultJSON
 
-	if status == types.SyncLogStatusFailed {
+	if status == types.SyncLogStatusFailed || status == types.SyncLogStatusDeferred {
 		if !wasPaused {
 			ds.Status = types.DataSourceStatusError
 		}
@@ -1457,7 +1456,7 @@ func (s *DataSourceService) updateSyncRunResult(
 	if status == types.SyncLogStatusFailed {
 		action = types.AuditActionDataSourceSyncFailed
 		outcome = types.AuditOutcomeFailed
-	} else if status == types.SyncLogStatusPartial {
+	} else if status == types.SyncLogStatusPartial || status == types.SyncLogStatusDeferred {
 		outcome = types.AuditOutcomePartial
 	}
 	recordKBActivity(ctx, s.audit, ds.TenantID, ds.KnowledgeBaseID, action,
@@ -1466,6 +1465,7 @@ func (s *DataSourceService) updateSyncRunResult(
 			"name": ds.Name, "type": ds.Type, "sync_log_id": syncLog.ID,
 			"total": result.Total, "created": result.Created, "updated": result.Updated,
 			"deleted": result.Deleted, "skipped": result.Skipped, "failed": result.Failed,
+			"deferred": result.Deferred, "unchanged": result.Unchanged, "unsupported": result.Unsupported,
 		})
 	return nil
 }

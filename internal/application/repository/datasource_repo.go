@@ -100,7 +100,7 @@ func (r *DataSourceRepository) Update(ctx context.Context, ds *types.DataSource)
 				}
 			}
 		}
-		if err := tx.Model(ds).Omit("LegacyAccessState").Updates(ds).Error; err != nil {
+		if err := tx.Model(ds).Omit("LegacyAccessState", "DocumentDeferrals").Updates(ds).Error; err != nil {
 			return err
 		}
 		// GORM Updates(struct) deliberately skips zero values, which would make

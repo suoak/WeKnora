@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { getSyncLogs, type SyncLog, type SyncItemError } from '@/api/datasource'
+import { getSyncLogs, getDocumentDeferrals, replaceDocumentDeferrals, triggerSync, type SyncLog, type SyncItemError, type SyncDocumentDeferral } from '@/api/datasource'
+import { MessagePlugin } from 'tdesign-vue-next'
+import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps<{
   dataSourceId: string
@@ -9,6 +11,32 @@ const props = defineProps<{
 }>()
 const visible = defineModel<boolean>('visible', { default: false })
 const { t } = useI18n()
+const authStore = useAuthStore()
+const canRetryDeferred = computed(() => authStore.hasRole('admin'))
+const retryingDeferred = ref('')
+
+async function retryDeferred(document: SyncDocumentDeferral) {
+  if (document.data_source_id !== props.dataSourceId || retryingDeferred.value) return
+  retryingDeferred.value = document.external_id
+  try {
+    const response = await getDocumentDeferrals(props.dataSourceId)
+    const policy = response?.data || response
+    const remaining = policy.documents.filter((entry: SyncDocumentDeferral) =>
+      entry.source_resource_id !== document.source_resource_id || entry.external_id !== document.external_id)
+    if (remaining.length !== policy.documents.length) {
+      await replaceDocumentDeferrals(props.dataSourceId, policy.policy_hash, remaining)
+    }
+    // The pending cursor forces a re-read even when source time is unchanged.
+    // Existing sync admission still rejects paused/hold/revoked sources.
+    await triggerSync(props.dataSourceId)
+    MessagePlugin.success(t('datasource.syncTriggered'))
+    await fetchLogs(true)
+  } catch {
+    MessagePlugin.error(t('datasource.deferredRetryFailed'))
+  } finally {
+    retryingDeferred.value = ''
+  }
+}
 
 const logs = ref<SyncLog[]>([])
 const loading = ref(false)
@@ -72,6 +100,7 @@ function statusIcon(status: string) {
     case 'running': return 'loading'
     case 'failed': return 'close-circle-filled'
     case 'partial': return 'error-circle-filled'
+    case 'deferred': return 'pause-circle'
     case 'canceled': return 'minus-circle-filled'
     default: return 'info-circle-filled'
   }
@@ -83,6 +112,7 @@ function statusColor(status: string) {
     case 'running': return 'var(--td-brand-color)'
     case 'failed': return 'var(--td-error-color)'
     case 'partial': return 'var(--td-warning-color)'
+    case 'deferred': return 'var(--td-warning-color)'
     default: return 'var(--td-text-color-placeholder)'
   }
 }
@@ -128,7 +158,7 @@ function duration(log: SyncLog) {
 }
 
 function hasPills(log: SyncLog) {
-  return log.items_created > 0 || log.items_updated > 0 || log.items_deleted > 0 || log.items_skipped > 0 || log.items_failed > 0
+  return log.items_created > 0 || log.items_updated > 0 || log.items_deleted > 0 || log.items_skipped > 0 || log.items_failed > 0 || (log.result?.deferred || 0) > 0 || (log.result?.unchanged || 0) > 0 || (log.result?.unsupported || 0) > 0
 }
 
 // Cap the per-item failure list so a sync that failed thousands of documents
@@ -261,10 +291,21 @@ const groupedLogs = computed(() => {
                 <span v-if="log.items_deleted > 0" class="pill deleted">-{{ log.items_deleted }}</span>
                 <span v-if="log.items_skipped > 0" class="pill skipped">{{ log.items_skipped }} {{ t('datasource.logMetric.skipped') }}</span>
                 <span v-if="log.items_failed > 0" class="pill failed">{{ log.items_failed }} {{ t('datasource.logMetric.failed') }}</span>
+                <span v-if="log.result?.deferred" class="pill skipped">{{ log.result.deferred }} {{ t('datasource.documentDeferred') }}</span>
+                <span v-if="log.result?.unchanged" class="pill skipped">{{ log.result.unchanged }} {{ t('datasource.documentUnchanged') }}</span>
+                <span v-if="log.result?.unsupported" class="pill failed">{{ log.result.unsupported }} {{ t('datasource.documentUnsupported') }}</span>
               </div>
 
               <!-- Expanded -->
               <div v-if="expandedId === log.id" class="tl-detail" @click.stop>
+                <div v-for="document in log.result?.deferred_documents || []" :key="document.source_resource_id + ':' + document.external_id" class="tl-failed-item">
+                  <div>{{ document.title || document.external_id }}: {{ document.reason }}</div>
+                  <div>{{ document.reference }} · {{ formatTime(document.requested_at) }}</div>
+                  <t-button v-if="canRetryDeferred && log.status !== 'running'" size="small" variant="text"
+                    :loading="retryingDeferred === document.external_id" @click="retryDeferred(document)">
+                    {{ t('datasource.retryAfterAuthorization') }}
+                  </t-button>
+                </div>
                 <div class="detail-row">
                   <span class="detail-label">{{ t('datasource.logDetail.startTime') }}</span>
                   <span>{{ formatTime(log.started_at) }}</span>

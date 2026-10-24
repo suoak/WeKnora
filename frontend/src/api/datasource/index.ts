@@ -39,6 +39,11 @@ export interface SyncItemError {
 }
 
 export interface SyncResultDetail {
+	deferred?: number
+	deferred_documents?: SyncDocumentDeferral[]
+	discovered?: number
+	unchanged?: number
+	unsupported?: number
   total?: number
   created?: number
   updated?: number
@@ -52,7 +57,7 @@ export interface SyncResultDetail {
 export interface SyncLog {
   id: string
   data_source_id: string
-  status: 'running' | 'success' | 'partial' | 'failed' | 'canceled'
+  status: 'running' | 'success' | 'partial' | 'deferred' | 'failed' | 'canceled'
   started_at: string
   finished_at: string | null
   items_total: number
@@ -63,6 +68,30 @@ export interface SyncLog {
   items_failed: number
   error_message: string
   result?: SyncResultDetail
+}
+
+export interface SyncDocumentDeferral {
+  tenant_id: number
+  data_source_id: string
+  knowledge_base_id: string
+  source_resource_id: string
+  external_id: string
+  title?: string
+  reason_code: string
+  reason: string
+  requested_by: string
+  requested_at: string
+  reference: string
+}
+
+export function getDocumentDeferrals(id: string) {
+  return get(`/api/v1/datasource/${id}/document-deferrals`)
+}
+
+export function replaceDocumentDeferrals(id: string, expectedPolicyHash: string, documents: SyncDocumentDeferral[]) {
+  return put(`/api/v1/datasource/${id}/document-deferrals`, {
+    expected_policy_hash: expectedPolicyHash, documents,
+  })
 }
 
 export interface ConnectorMeta {

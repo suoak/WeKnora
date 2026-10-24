@@ -868,6 +868,12 @@ export default {
     }
   },
   datasource: {
+    documentDeferred: '暂缓',
+    documentUnchanged: '无变化',
+    documentUnsupported: '未支持',
+    retryAfterAuthorization: '授权后重试',
+    deferredRetryFailed: '未能启动重试，请核对数据源状态并刷新',
+
     title: '数据源管理',
     description: '配置外部数据源，自动同步内容到知识库',
     add: '添加数据源',
@@ -1096,6 +1102,7 @@ export default {
       failed: '失败'
     },
     logStatus: {
+      deferred: '暂缓处理',
       running: '同步中',
       success: '成功',
       partial: '部分成功',

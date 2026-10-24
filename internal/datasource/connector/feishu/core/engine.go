@@ -127,6 +127,18 @@ func runSync[N any](
 		}
 	}
 	lastSync := time.Now()
+	plan, err := prepareDocumentPlan(ctx, cursor, resourceIDs, h)
+	if err != nil {
+		return nil, err
+	}
+	documentRecovery := len(plan.active) > 0 || len(plan.pending) > 0
+	encodeCursor := func() *types.SyncCursor { return plan.cursor(ops.EncodeCursor(newTimes, lastSync)) }
+	if len(plan.active) > 0 {
+		// Persist pending work before any fetch/list can fail or policy can be removed.
+		if err := h.Checkpoint(ctx, encodeCursor()); err != nil {
+			return nil, err
+		}
+	}
 
 	processed := 0
 	lastCheckpoint := time.Now()
@@ -163,6 +175,10 @@ func runSync[N any](
 			currentNodes[tok] = true
 			seenAnywhere[tok] = true
 			editTimeStr := ops.EditTime(node)
+			observeDocument(h, resourceID, tok, "discovered")
+			if plan.deferred(resourceID, tok) {
+				continue
+			}
 
 			var prevEdit string
 			var hadPrev bool
@@ -175,8 +191,13 @@ func runSync[N any](
 			// Resume/incremental fast-path: a node recorded at its current edit
 			// time is unchanged (or already synced this run) - keep the record
 			// and Skip re-fetching.
-			if hadPrev && prevEdit == editTimeStr {
+			if hadPrev && prevEdit == editTimeStr && !plan.retry(resourceID, tok) {
 				newTimes[resourceID][tok] = editTimeStr
+				if IsSupportedDocType(ops.ObjType(node)) {
+					observeDocument(h, resourceID, tok, "unchanged")
+				} else {
+					observeDocument(h, resourceID, tok, "unsupported")
+				}
 				continue
 			}
 
@@ -209,15 +230,17 @@ func runSync[N any](
 							return nil, eerr
 						}
 					}
+					plan.accepted(resourceID, tok)
 				} else {
 					// Unsupported type (mindnote/slides/…): no item.
 					tally.Skip(ops.ObjType(node))
+					observeDocument(h, resourceID, tok, "unsupported")
 				}
 			}
 
 			processed++
-			if processed%FeishuStreamCheckpointInterval == 0 || time.Since(lastCheckpoint) >= FeishuStreamCheckpointMaxInterval {
-				if cerr := h.Checkpoint(ctx, ops.EncodeCursor(newTimes, lastSync)); cerr != nil {
+			if documentRecovery || processed%FeishuStreamCheckpointInterval == 0 || time.Since(lastCheckpoint) >= FeishuStreamCheckpointMaxInterval {
+				if cerr := h.Checkpoint(ctx, encodeCursor()); cerr != nil {
 					// A checkpoint is durable admission, not optional progress.
 					// In particular, a lost execution fence must stop further fetch,
 					// ingest and deletion before another worker owns this source.
@@ -251,14 +274,18 @@ func runSync[N any](
 	}
 
 	for _, item := range missing {
+		if plan.deferred(item.SourceResourceID, item.ExternalID) {
+			continue
+		}
 		if !seenAnywhere[item.ExternalID] {
 			if err := h.Emit(ctx, item); err != nil {
 				return nil, err
 			}
+			plan.accepted(item.SourceResourceID, item.ExternalID)
 		}
 		delete(newTimes[item.SourceResourceID], item.ExternalID)
 	}
-	return ops.EncodeCursor(newTimes, lastSync), nil
+	return encodeCursor(), nil
 }
 
 // FetchStreamEngine runs the streaming sync. FetchStream / FetchIncremental
