@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand/v2"
 	"net/http"
@@ -90,7 +91,7 @@ func ReserveEmbedding(ctx context.Context, inputs []string) (context.Context, fu
 	}
 	release, err := g.begin(ctx, tokens)
 	if err != nil {
-		if ctx.Err() == nil {
+		if ctx.Err() == nil && !errors.Is(err, ErrBudgetBusy) {
 			trip(g, "embedding_reservation_unavailable")
 		}
 		return ctx, nil, err

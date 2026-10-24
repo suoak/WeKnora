@@ -215,6 +215,34 @@ func TestReservationWaitOutsideHTTPTimeoutP0(t *testing.T) {
 	}
 }
 
+func TestSafetyKnownBudgetBusyReturnsNoVectorsP0(t *testing.T) {
+	model, _, client, _, calls := reservationEmbedder(t, 0, time.Second)
+	policy := feishusafety.DefaultConfig()
+	policy.Namespace = "known-budget-protocol"
+	policy.WaitBudgetDuration = 10 * time.Millisecond
+	guard, err := feishusafety.New(client, policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := feishusafety.WithScope(context.Background(), "source")
+	if err = client.Set(ctx, guard.PermitKey(), guard.Fingerprint(), time.Minute).Err(); err != nil {
+		t.Fatal(err)
+	}
+	feishusafety.InstallDefault(guard)
+	_, release, err := feishusafety.ReserveEmbedding(ctx, []string{"first"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
+	vectors, err := model.BatchEmbed(ctx, []string{"next"})
+	if !errors.Is(err, feishusafety.ErrBudgetBusy) || vectors != nil || calls.Load() != 0 {
+		t.Fatalf("budget refusal reached the wire or returned partial vectors: %v", err)
+	}
+	if guard.Check(ctx) != nil {
+		t.Fatal("protocol escalated known backpressure into a global stop")
+	}
+}
+
 func TestReserved429FreshWireBudgetP0(t *testing.T) {
 	model, _, client, g, calls := reservationEmbedder(t, -1, 100*time.Millisecond)
 	ctx := feishusafety.WithScope(context.Background(), "source")

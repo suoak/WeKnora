@@ -220,7 +220,12 @@ func (g *Guard) begin(ctx context.Context, tokens int) (func(), error) {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-deadline.C:
-			return nil, fmt.Errorf("%w: budget wait expired", ErrClosed)
+			// Known backpressure is different from an unconfirmed Redis/permit
+			// state. Recheck the gate before returning a retryable local refusal.
+			if err := g.Check(ctx); err != nil {
+				return nil, err
+			}
+			return nil, fmt.Errorf("%w: budget wait expired", ErrBudgetBusy)
 		case <-time.After(100 * time.Millisecond):
 		}
 	}

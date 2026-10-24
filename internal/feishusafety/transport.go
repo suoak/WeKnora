@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand/v2"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -27,6 +29,31 @@ func trip(g *Guard, reason string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	_ = g.Trip(ctx, reason)
+}
+
+// A caller may cancel one source after a claim/version failure or an explicit
+// task cancellation. That must drain this request without disabling unrelated
+// sources. Deadlines and errors not caused by that caller remain fail-closed.
+// Reasons are fixed categories; never include URLs, response bodies or errors.
+func tripRequestFailure(caller context.Context, g *Guard, err error, embedding bool, phase string) {
+	if g.localClosed.Load() ||
+		(errors.Is(err, context.Canceled) && errors.Is(caller.Err(), context.Canceled)) {
+		return
+	}
+	family, category := "feishu", "io_failure"
+	if embedding {
+		family = "embedding"
+	}
+	var networkError net.Error
+	switch {
+	case errors.Is(err, context.DeadlineExceeded), errors.As(err, &networkError) && networkError.Timeout():
+		category = "timeout"
+	case errors.Is(err, io.ErrUnexpectedEOF):
+		category = "unexpected_eof"
+	case errors.Is(err, context.Canceled):
+		category = "canceled_without_caller"
+	}
+	trip(g, family+"_"+phase+"_"+category)
 }
 
 // RoundTrip owns the only retry budget for marked Embedding 429 responses.
@@ -182,13 +209,14 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 			release, err = g.begin(req.Context(), tokens)
 		}
 		if err != nil {
-			if req.Context().Err() == nil {
+			if req.Context().Err() == nil && !errors.Is(err, ErrBudgetBusy) {
 				trip(g, "embedding_budget_or_state_unavailable")
 			}
 			return nil, err
 		}
 	}
-	ctx, cancel := context.WithCancel(req.Context())
+	caller := req.Context()
+	ctx, cancel := context.WithCancel(caller)
 	req = req.Clone(ctx)
 	done := make(chan struct{})
 	var once sync.Once
@@ -224,11 +252,7 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 	resp, err := base.RoundTrip(req)
 	if err != nil {
 		finish()
-		// Graceful local departure already closed/fenced this process. Its
-		// deliberate cancellation must not turn a normal restart into global trip.
-		if !g.localClosed.Load() {
-			trip(g, "outbound_network_timeout_or_failure")
-		}
+		tripRequestFailure(caller, g, err, t.Embedding, "headers")
 		return nil, err
 	}
 	if t.Embedding && resp.StatusCode == 429 {
@@ -246,7 +270,9 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 		if resp.Body == nil {
 			finish()
 		} else {
-			resp.Body = &guardedBody{ReadCloser: resp.Body, finish: finish, guard: g}
+			resp.Body = &guardedBody{
+				ReadCloser: resp.Body, finish: finish, guard: g, caller: caller, embedding: t.Embedding,
+			}
 		}
 		return resp, nil
 	}
@@ -265,22 +291,26 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 		finish()
 		return resp, nil
 	}
-	resp.Body = &guardedBody{ReadCloser: resp.Body, finish: finish, guard: g}
+	resp.Body = &guardedBody{
+		ReadCloser: resp.Body, finish: finish, guard: g, caller: caller, embedding: t.Embedding,
+	}
 	return resp, nil
 }
 
 type guardedBody struct {
 	io.ReadCloser
-	finish func()
-	guard  *Guard
+	finish    func()
+	guard     *Guard
+	caller    context.Context
+	embedding bool
 }
 
 func (b *guardedBody) Read(p []byte) (int, error) {
 	n, err := b.ReadCloser.Read(p)
 	if err != nil {
 		b.finish()
-		if err != io.EOF && !b.guard.localClosed.Load() {
-			trip(b.guard, "outbound_response_failure")
+		if err != io.EOF {
+			tripRequestFailure(b.caller, b.guard, err, b.embedding, "response")
 		}
 	}
 	return n, err
