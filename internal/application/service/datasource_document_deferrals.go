@@ -111,6 +111,12 @@ func (h *streamSyncHandler) ObserveDocument(_ string, externalID, disposition st
 		h.result.Unchanged++
 	case "unsupported":
 		h.result.Unsupported++
+	case "pending_unlisted":
+		h.result.Failed++
+		recordSyncError(h.result, types.SyncItemError{
+			Title: externalID, Code: "feishu_document_pending_unlisted",
+			Message: "Document remains pending but is absent from the current listing; deletion is not confirmed",
+		})
 	}
 }
 

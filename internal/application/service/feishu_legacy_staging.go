@@ -420,7 +420,10 @@ func (s *knowledgeService) StageFeishuLegacyItem(
 	}
 	// Historical generic model rows have no gateway limit. Bound this direct
 	// path as well; a configured model limit can split these batches further.
-	vectors, err := embedding.BatchEmbedBounded(ctx, model, texts, 20)
+	leaseModel := &legacyLeaseEmbedder{Embedder: model, renew: func(check context.Context) error {
+		return store.Renew(check, ds, attempt)
+	}}
+	vectors, err := embedding.BatchEmbedBounded(ctx, leaseModel, texts, 20)
 	if err != nil {
 		return nil, err
 	}

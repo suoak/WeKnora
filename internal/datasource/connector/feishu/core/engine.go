@@ -216,9 +216,19 @@ func runSync[N any](
 					ExternalID:       tok,
 					Title:            ops.Title(node),
 					SourceResourceID: resourceID,
-					Metadata:         FeishuErrorItemMeta(ferr, nil),
+					Metadata:         FeishuErrorItemMeta(ferr, map[string]string{"failure_stage": "fetch_document"}),
 				}); eerr != nil {
-					return nil, eerr
+					var local *datasource.DocumentFailureError
+					if !errors.As(eerr, &local) {
+						return nil, eerr
+					}
+					if err := ctx.Err(); err != nil {
+						return nil, err
+					}
+					if err := plan.rejected(resourceID, tok, local.Code); err != nil {
+						return nil, err
+					}
+					documentRecovery = true
 				}
 			} else {
 				// Fetched, or an unsupported type (nothing to fetch): record
@@ -307,6 +317,18 @@ func runSync[N any](
 			plan.accepted(item.SourceResourceID, item.ExternalID)
 		}
 		delete(newTimes[item.SourceResourceID], item.ExternalID)
+	}
+	// Pending work absent from a later listing is still unresolved. Preserve
+	// its identity and do not report a complete success or confirmed deletion.
+	for _, entry := range plan.failed {
+		if !seenAnywhere[entry.ExternalID] && !plan.deferred(entry.SourceResourceID, entry.ExternalID) {
+			observeDocument(h, entry.SourceResourceID, entry.ExternalID, "pending_unlisted")
+		}
+	}
+	for _, entry := range plan.pending {
+		if !seenAnywhere[entry.ExternalID] && !plan.deferred(entry.SourceResourceID, entry.ExternalID) {
+			observeDocument(h, entry.SourceResourceID, entry.ExternalID, "pending_unlisted")
+		}
 	}
 	return encodeCursor(), nil
 }

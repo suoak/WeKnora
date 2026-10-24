@@ -1131,6 +1131,12 @@ func (s *DataSourceService) applyFetchedItem(
 			)
 			result.Failed++
 			recordSyncError(result, fetchFailureSyncError(item, errMsg))
+			if code := feishuDocumentFetchFailureCode(ds, item); code != "" {
+				if err := s.checkSyncExecution(ctx); err != nil {
+					return err
+				}
+				return &datasource.DocumentFailureError{Code: code}
+			}
 			if isFeishuAdmissionSource(ds.Type) {
 				return &dataSourceIngestError{cause: errors.New("source item fetch failed")}
 			}
