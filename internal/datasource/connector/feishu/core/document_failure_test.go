@@ -94,3 +94,34 @@ func TestDocumentFailureNewItemDoesNotAdvanceCursor(t *testing.T) {
 	require.NotContains(t, ops.DecodeCursorTimes(next.ConnectorCursor)["root"], "bad")
 	require.Contains(t, next.ConnectorCursor, failedDocumentCursorKey)
 }
+
+type transientDocumentHandler struct {
+	deferralTestHandler
+	unavailable bool
+}
+
+func (h *transientDocumentHandler) Emit(ctx context.Context, item types.FetchedItem) error {
+	if item.Metadata["failure_stage"] == "fetch_document" && h.unavailable {
+		return &datasource.DocumentFailureError{Code: "feishu_document_fetch_transient"}
+	}
+	return h.deferralTestHandler.Emit(ctx, item)
+}
+
+func TestDocumentFailureTransientFetchDoesNotBlockLaterDocuments(t *testing.T) {
+	ops := &deferralTestOps{nodes: []string{"bad", "good"}, fail: "bad"}
+	h := &transientDocumentHandler{unavailable: true}
+	next, err := runSync(context.Background(), &Client{}, &types.DataSourceConfig{}, []string{"root"}, nil, h, ops)
+	require.NoError(t, err)
+	require.Len(t, h.items, 1)
+	require.Equal(t, "good", h.items[0].ExternalID)
+	require.NotContains(t, ops.DecodeCursorTimes(next.ConnectorCursor)["root"], "bad")
+	require.Contains(t, next.ConnectorCursor, failedDocumentCursorKey)
+	require.NotEmpty(t, h.checkpoints)
+	resumed := &deferralTestOps{nodes: []string{"bad", "good"}}
+	recovered := &transientDocumentHandler{}
+	final, err := runSync(context.Background(), &Client{}, &types.DataSourceConfig{},
+		[]string{"root"}, next, recovered, resumed)
+	require.NoError(t, err)
+	require.Equal(t, []string{"bad"}, resumed.fetched)
+	require.NotContains(t, final.ConnectorCursor, failedDocumentCursorKey)
+}

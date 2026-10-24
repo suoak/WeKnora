@@ -216,9 +216,19 @@ func runSync[N any](
 					ExternalID:       tok,
 					Title:            ops.Title(node),
 					SourceResourceID: resourceID,
-					Metadata:         FeishuErrorItemMeta(ferr, nil),
+					Metadata:         FeishuErrorItemMeta(ferr, map[string]string{"failure_stage": "fetch_document"}),
 				}); eerr != nil {
-					return nil, eerr
+					var local *datasource.DocumentFailureError
+					if !errors.As(eerr, &local) {
+						return nil, eerr
+					}
+					if err := ctx.Err(); err != nil {
+						return nil, err
+					}
+					if err := plan.rejected(resourceID, tok, local.Code); err != nil {
+						return nil, err
+					}
+					documentRecovery = true
 				}
 			} else {
 				// Fetched, or an unsupported type (nothing to fetch): record

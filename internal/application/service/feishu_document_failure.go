@@ -31,3 +31,18 @@ func feishuDocumentFailureCode(ds *types.DataSource, item *types.FetchedItem, er
 	}
 	return ""
 }
+
+func feishuDocumentFetchFailureCode(ds *types.DataSource, item *types.FetchedItem) string {
+	if !safeLegacyIncrementalEnabled() || !legacyWikiDrive(ds.Type) || item.IsDeleted ||
+		item.ExternalID == "" || item.SourceResourceID == "" || item.Metadata["failure_stage"] != "fetch_document" {
+		return ""
+	}
+	switch item.Metadata["feishu_error_category"] {
+	case "transient":
+		return "feishu_document_fetch_transient"
+	case "rate_limit":
+		return "feishu_document_fetch_rate_limited"
+	default:
+		return ""
+	}
+}

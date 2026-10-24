@@ -49,3 +49,24 @@ func TestFeishuDocumentFailureWithUnchangedDocumentsIsPartial(t *testing.T) {
 	result.Unchanged = 0
 	require.Error(t, allFetchedItemsFailedError(result))
 }
+
+func TestFeishuDocumentFetchFailureClassification(t *testing.T) {
+	t.Setenv("FEISHU_SAFE_INCREMENTAL_ENABLED", "true")
+	ds := &types.DataSource{Type: "feishu_drive"}
+	item := &types.FetchedItem{ExternalID: "doc", SourceResourceID: "root", Metadata: map[string]string{
+		"failure_stage": "fetch_document", "feishu_error_category": "transient",
+	}}
+	require.Equal(t, "feishu_document_fetch_transient", feishuDocumentFetchFailureCode(ds, item))
+	item.Metadata["feishu_error_category"] = "rate_limit"
+	require.Equal(t, "feishu_document_fetch_rate_limited", feishuDocumentFetchFailureCode(ds, item))
+	for _, category := range []string{"auth", "permission", "not_found", "unclassified", "permanent"} {
+		item.Metadata["feishu_error_category"] = category
+		require.Empty(t, feishuDocumentFetchFailureCode(ds, item))
+	}
+	item.Metadata["feishu_error_category"] = "transient"
+	item.Metadata["failure_stage"] = "list_children"
+	require.Empty(t, feishuDocumentFetchFailureCode(ds, item), "partial listings stay fatal")
+	item.Metadata["failure_stage"] = "fetch_document"
+	item.IsDeleted = true
+	require.Empty(t, feishuDocumentFetchFailureCode(ds, item))
+}
