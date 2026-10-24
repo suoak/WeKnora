@@ -249,3 +249,18 @@ func TestSafetySourceTimeoutUnconfirmedGateStillTrips(t *testing.T) {
 		}
 	}
 }
+
+func TestSafetyHTTPDeadlineBodyCancellation(t *testing.T) {
+	for _, embedding := range []bool{false, true} {
+		g, client := fixture(t, Config{})
+		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+		defer cancel()
+		// A client deadline can cancel the body transport before net/http wraps
+		// the returned error as its final timeout. Preserve deadline evidence.
+		tripRequestFailure(ctx, g, context.Canceled, embedding, "response")
+		tripped := client.Exists(context.Background(), g.key("trip")).Val() != 0
+		if tripped != embedding {
+			t.Fatalf("deadline-triggered body cancellation: embedding=%v trip=%v", embedding, tripped)
+		}
+	}
+}
