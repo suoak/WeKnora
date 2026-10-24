@@ -109,14 +109,53 @@ func documentDeferralRepositorySuite(t *testing.T, dialect string) {
 		require.NoError(t, err)
 		require.JSONEq(t, string(blob), string(stored.LastSyncCursor))
 	})
-	for _, state := range []string{"paused", "hold", "revoked", "running", "wrong_scope"} {
+	t.Run("held_source_additions_preserve_protection", func(t *testing.T) {
+		s := makeSource()
+		first := entry(s)
+		require.NoError(t, repo.ReplaceDocumentDeferrals(ctx, s, types.DocumentDeferralHash(nil),
+			[]types.SyncDocumentDeferral{first}))
+		require.NoError(t, db.Model(s).Update("legacy_access_state", "hold").Error)
+		before, err := repo.FindByID(ctx, s.ID)
+		require.NoError(t, err)
+		old, err := before.ParseDocumentDeferrals()
+		require.NoError(t, err)
+		second := entry(s)
+		second.ExternalID = "two"
+		both := append(append([]types.SyncDocumentDeferral{}, old...), second)
+		require.NoError(t, repo.ReplaceDocumentDeferrals(ctx, s, types.DocumentDeferralHash(old), both))
+		after, err := repo.FindByID(ctx, s.ID)
+		require.NoError(t, err)
+		require.Equal(t, "hold", after.LegacyAccessState)
+		require.Equal(t, before.Status, after.Status)
+		require.Equal(t, string(before.Config), string(after.Config))
+		require.Equal(t, string(before.LastSyncCursor), string(after.LastSyncCursor))
+		require.Equal(t, before.SyncSchedule, after.SyncSchedule)
+		require.Equal(t, before.SyncMode, after.SyncMode)
+		require.Equal(t, before.SyncDeletions, after.SyncDeletions)
+		require.False(t, after.AutoSyncEnabled())
+		stored, err := after.ParseDocumentDeferrals()
+		require.NoError(t, err)
+		require.Len(t, stored, 2)
+		// An owner can later remove the policy for a real permission retry;
+		// policy removal must not release source access or enable scheduling.
+		require.NoError(t, repo.ReplaceDocumentDeferrals(ctx, s, types.DocumentDeferralHash(stored), nil))
+		latest, err := repo.FindByID(ctx, s.ID)
+		require.NoError(t, err)
+		policy, err := latest.ParseDocumentDeferrals()
+		require.NoError(t, err)
+		require.Empty(t, policy)
+		require.Equal(t, "hold", latest.LegacyAccessState)
+		require.Equal(t, string(before.LastSyncCursor), string(latest.LastSyncCursor))
+		require.False(t, latest.AutoSyncEnabled())
+	})
+	for _, state := range []string{"paused", "revoked", "running", "wrong_scope"} {
 		t.Run(state, func(t *testing.T) {
 			s := makeSource()
 			e := entry(s)
 			switch state {
 			case "paused":
 				require.NoError(t, db.Model(s).Update("status", types.DataSourceStatusPaused).Error)
-			case "hold", "revoked":
+			case "revoked":
 				require.NoError(t, db.Model(s).Update("legacy_access_state", state).Error)
 			case "running":
 				require.NoError(t,

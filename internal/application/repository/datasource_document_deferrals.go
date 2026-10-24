@@ -22,7 +22,6 @@ func (r *DataSourceRepository) ReplaceDocumentDeferrals(
 		if !legacySourceKind(current.Type) || current.KnowledgeBaseID != source.KnowledgeBaseID ||
 			(current.Status != types.DataSourceStatusActive &&
 				current.Status != types.DataSourceStatusError) ||
-			current.LegacyAccessState == "hold" ||
 			current.LegacyAccessState == "revoked" ||
 			current.DeletedAt.Valid {
 			return errors.New("source is not eligible for document policy changes")
@@ -44,6 +43,9 @@ func (r *DataSourceRepository) ReplaceDocumentDeferrals(
 		if expected == "" || types.DocumentDeferralHash(old) != expected {
 			return errors.New("document policy changed; reload before editing")
 		}
+		// A held source may need a document policy to reconcile its access.
+		// Adding or removing a policy never releases that hold. Pending cursor
+		// entries survive removal and require a fresh, authorized fetch.
 		if entries == nil {
 			entries = []types.SyncDocumentDeferral{}
 		}
