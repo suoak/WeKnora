@@ -7,10 +7,12 @@ import (
 	"github.com/hibiken/asynq"
 )
 
+// DataSourceDocumentDeferralService authorizes and audits exact-document policy changes.
 type DataSourceDocumentDeferralService interface {
 	ReplaceDocumentDeferrals(context.Context, string, string, []types.SyncDocumentDeferral) (*types.DataSource, error)
 }
 
+// DataSourceDocumentDeferralRepository fences policy replacement against running syncs.
 type DataSourceDocumentDeferralRepository interface {
 	ReplaceDocumentDeferrals(context.Context, *types.DataSource, string, []types.SyncDocumentDeferral) error
 }

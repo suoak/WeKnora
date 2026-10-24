@@ -93,11 +93,11 @@ func (p *documentPlan) cursor(cursor *types.SyncCursor) *types.SyncCursor {
 	}
 	if len(p.pending) > 0 {
 		// Checkpoint handlers may keep snapshots; never share the mutable map.
-		copy := make(map[string]types.SyncDocumentDeferral, len(p.pending))
+		snapshot := make(map[string]types.SyncDocumentDeferral, len(p.pending))
 		for k, v := range p.pending {
-			copy[k] = v
+			snapshot[k] = v
 		}
-		cursor.ConnectorCursor[pendingDocumentCursorKey] = copy
+		cursor.ConnectorCursor[pendingDocumentCursorKey] = snapshot
 	} else {
 		delete(cursor.ConnectorCursor, pendingDocumentCursorKey)
 	}

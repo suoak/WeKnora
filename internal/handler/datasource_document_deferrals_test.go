@@ -60,7 +60,7 @@ func TestDocumentDeferralHTTPIdentityAndConflict(t *testing.T) {
 				return source, nil
 			}
 			kbCalls := 0
-			kb := &stubKBServiceForDS{getByID: func(ctx context.Context, _ string) (*types.KnowledgeBase, error) {
+			kb := &stubKBServiceForDS{getByID: func(_ context.Context, _ string) (*types.KnowledgeBase, error) {
 				kbCalls++
 				if scenario == "hold_diagnostics" && kbCalls > 1 {
 					return nil, errors.New("hold")

@@ -19,6 +19,7 @@ func documentPolicyResponse(source *types.DataSource) (gin.H, error) {
 	return gin.H{"data": gin.H{"documents": policy, "policy_hash": types.DocumentDeferralHash(policy)}}, nil
 }
 
+// GetDocumentDeferrals returns a source's audited policy and compare-and-swap hash.
 func (h *DataSourceHandler) GetDocumentDeferrals(c *gin.Context) {
 	if h.getTenantID(c) == 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
@@ -43,6 +44,7 @@ func (h *DataSourceHandler) GetDocumentDeferrals(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+// PutDocumentDeferrals replaces an eligible source policy using its current hash.
 func (h *DataSourceHandler) PutDocumentDeferrals(c *gin.Context) {
 	if h.getTenantID(c) == 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})

@@ -10,6 +10,7 @@ import (
 	"time"
 )
 
+// DocumentDeferralAwaitingAuthorization is the only supported explicit deferral reason.
 const DocumentDeferralAwaitingAuthorization = "awaiting_document_owner_authorization"
 
 // SyncDocumentDeferral names one exact source-owned document, never a title match.
@@ -28,6 +29,7 @@ type SyncDocumentDeferral struct {
 	Reference        string    `json:"reference"`
 }
 
+// Key identifies one root/document pair using a JSONB-safe digest.
 func (d SyncDocumentDeferral) Key() string {
 	// JSONB cannot store NUL even in escaped map keys. Use a domain-separated digest.
 	sum := sha256.Sum256([]byte(d.SourceResourceID + "\x00" + d.ExternalID))
@@ -85,6 +87,7 @@ func validDeferralID(id string) bool {
 	return id != "" && len(id) <= 512 && id == strings.TrimSpace(id) && !strings.ContainsAny(id, "\x00\r\n")
 }
 
+// DocumentDeferralHash provides a stable compare-and-swap token for a policy.
 func DocumentDeferralHash(policy []SyncDocumentDeferral) string {
 	if policy == nil {
 		policy = []SyncDocumentDeferral{}

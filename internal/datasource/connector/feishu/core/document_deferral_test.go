@@ -69,9 +69,9 @@ func (h *deferralTestHandler) Checkpoint(_ context.Context, c *types.SyncCursor)
 		return h.checkpointErr
 	}
 	b, _ := json.Marshal(c)
-	var copy types.SyncCursor
-	_ = json.Unmarshal(b, &copy)
-	h.checkpoints = append(h.checkpoints, &copy)
+	var snapshot types.SyncCursor
+	_ = json.Unmarshal(b, &snapshot)
+	h.checkpoints = append(h.checkpoints, &snapshot)
 	return nil
 }
 

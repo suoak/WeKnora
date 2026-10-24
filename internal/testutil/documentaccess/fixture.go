@@ -19,8 +19,10 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-const PublicText = "PUBLIC_M5_APPROVED"
-const Canary = "SECRET_M5_SENSITIVE_CANARY"
+const (
+	PublicText = "PUBLIC_M5_APPROVED"
+	Canary     = "SECRET_M5_SENSITIVE_CANARY"
+)
 
 type Fixture struct {
 	DB     *gorm.DB
@@ -41,16 +43,19 @@ func (authority) AuthorizeEnterprisePolicyChange(_ context.Context, actor string
 	}
 	return access.ErrForbidden
 }
+
 func (authority) AuthorizeDocumentGrantChange(_ context.Context, actor string, _ types.DocumentGrantChange) error {
 	if actor == "reviewer" {
 		return nil
 	}
 	return access.ErrForbidden
 }
+
 func Web(user string, tenant uint64) context.Context {
 	ctx := types.WithPrincipal(types.WithCaller(context.Background(), types.Caller{TenantID: tenant, UserID: user, Role: types.TenantRoleViewer}), types.Principal{Type: types.PrincipalWebUser, ID: user})
 	return types.WithExecutionTenant(ctx, tenant)
 }
+
 func Key(user string, tenant, key uint64, enterprise bool) context.Context {
 	caps := types.StringArray{"retrieve"}
 	if enterprise {
@@ -58,6 +63,7 @@ func Key(user string, tenant, key uint64, enterprise bool) context.Context {
 	}
 	return types.WithTenantAPIKeyScope(Web(user, tenant), types.TenantAPIKeyScope{KeyID: key, ScopeType: types.APIKeyScopeUserMCP, Capabilities: caps})
 }
+
 func New(t *testing.T) *Fixture {
 	t.Helper()
 	cwd, err := os.Getwd()
@@ -149,11 +155,12 @@ func Seed(t *testing.T, db *gorm.DB) *Fixture {
 	var version int
 	var dirty bool
 	require.NoError(t, db.Raw("SELECT version,dirty FROM schema_migrations").Row().Scan(&version, &dirty))
-	require.Equal(t, 3037, version)
+	require.Equal(t, 3038, version)
 	require.False(t, dirty)
-	t.Log("synthetic real migration state: version=3037 dirty=false")
+	t.Log("synthetic real migration state: version=3038 dirty=false")
 	return f
 }
+
 func (f *Fixture) Approve(t *testing.T, kind, id, policy, class string) {
 	t.Helper()
 	target := types.EnterprisePolicyTarget{Kind: kind, ID: id}
@@ -166,6 +173,7 @@ func (f *Fixture) Approve(t *testing.T, kind, id, policy, class string) {
 	_, err = access.ChangeEnterprisePolicy(Web("reviewer", 1), f.Store, authority{}, types.EnterprisePolicyChange{Target: target, Action: "approve", ExpectedRevision: proposed.Revision, Reason: "synthetic independent approval"})
 	require.NoError(t, err)
 }
+
 func (f *Fixture) Subject(t *testing.T, doc, user, state string, revision int64) *types.DocumentSubjectGrant {
 	t.Helper()
 	snapshot, err := f.Store.LoadDocumentReadSnapshot(context.Background(), user, 0, "private-kb")

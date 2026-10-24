@@ -17,9 +17,11 @@ func TestDocumentDeferralSQLiteMigrationRetainsExistingState(t *testing.T) {
 	for _, state := range []string{"empty", "policy", "pending"} {
 		t.Run(state, func(t *testing.T) {
 			db := openSQLiteDB(t, filepath.Join(t.TempDir(), "deferral.db"))
-			_, err := db.Exec(`CREATE TABLE data_sources(id TEXT, status TEXT, config TEXT, last_sync_cursor TEXT)`)
+			_, err := db.Exec(`CREATE TABLE data_sources(
+			 id TEXT, status TEXT, config TEXT, last_sync_cursor TEXT)`)
 			require.NoError(t, err)
-			_, err = db.Exec(`INSERT INTO data_sources VALUES('source','paused','{"scope":"kept"}','{"accepted":"kept"}')`)
+			_, err = db.Exec(`INSERT INTO data_sources
+			 VALUES('source','paused','{"scope":"kept"}','{"accepted":"kept"}')`)
 			require.NoError(t, err)
 			_, err = db.Exec(string(up))
 			require.NoError(t, err)
