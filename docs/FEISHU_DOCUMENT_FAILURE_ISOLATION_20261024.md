@@ -13,6 +13,8 @@ image references is claimed without a fresh structured refusal observation.
 
 Only these recorded ingest failures may continue to another document:
 
+- Known `feishusafety.ErrBudgetBusy` backpressure; denied requests stay denied,
+  Redis/permit/guard failures remain fatal.
 - Exact `LegacyFenceError.Reason == source_revision_content_conflict`.
 - Typed safe staging shape refusals: versioned image staging required, audio,
   empty parsed content, or chunk count outside the supported atomic graph cap.

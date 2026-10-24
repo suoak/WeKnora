@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
+	"github.com/Tencent/WeKnora/internal/feishusafety"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
 )
@@ -26,6 +27,8 @@ func TestFeishuDocumentFailureClassification(t *testing.T) {
 		{&repository.LegacyFenceError{Reason: "source_revision_regressed"}, ""},
 		{&repository.LegacyFenceError{Reason: "cross_version_parent"}, ""},
 		{&feishuStagingRefusal{reason: "parser_result_unavailable"}, ""},
+		{feishusafety.ErrBudgetBusy, "embedding_budget_busy"},
+		{feishusafety.ErrClosed, ""},
 		{types.ErrStaleSyncExecution, ""},
 		{ErrFeishuStagingRequired, ""},
 		{context.Canceled, ""},
