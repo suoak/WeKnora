@@ -30,8 +30,10 @@ func (c cancellationTransport) RoundTrip(r *http.Request) (*http.Response, error
 		<-r.Context().Done()
 		return nil, r.Context().Err()
 	}
-	return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header),
-		Body: cancellationBody{ctx: r.Context()}, Request: r}, nil
+	return &http.Response{
+		StatusCode: http.StatusOK, Header: make(http.Header),
+		Body: cancellationBody{ctx: r.Context()}, Request: r,
+	}, nil
 }
 
 func TestSafetyCallerCancellationDoesNotTripIndependentSources(t *testing.T) {
@@ -201,7 +203,7 @@ func TestSafetyRequestFailureCategoriesStayClosed(t *testing.T) {
 			if tc.cancel {
 				cancel()
 			}
-			tripRequestFailure(g, ctx, tc.err, tc.embedding, "response")
+			tripRequestFailure(ctx, g, tc.err, tc.embedding, "response")
 			if got := client.Get(context.Background(), g.key("trip")).Val(); got != tc.want {
 				t.Fatalf("failure category = %q, want %q", got, tc.want)
 			}

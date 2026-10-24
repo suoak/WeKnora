@@ -35,7 +35,7 @@ func trip(g *Guard, reason string) {
 // task cancellation. That must drain this request without disabling unrelated
 // sources. Deadlines and errors not caused by that caller remain fail-closed.
 // Reasons are fixed categories; never include URLs, response bodies or errors.
-func tripRequestFailure(g *Guard, caller context.Context, err error, embedding bool, phase string) {
+func tripRequestFailure(caller context.Context, g *Guard, err error, embedding bool, phase string) {
 	if g.localClosed.Load() ||
 		(errors.Is(err, context.Canceled) && errors.Is(caller.Err(), context.Canceled)) {
 		return
@@ -252,7 +252,7 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 	resp, err := base.RoundTrip(req)
 	if err != nil {
 		finish()
-		tripRequestFailure(g, caller, err, t.Embedding, "headers")
+		tripRequestFailure(caller, g, err, t.Embedding, "headers")
 		return nil, err
 	}
 	if t.Embedding && resp.StatusCode == 429 {
@@ -310,7 +310,7 @@ func (b *guardedBody) Read(p []byte) (int, error) {
 	if err != nil {
 		b.finish()
 		if err != io.EOF {
-			tripRequestFailure(b.guard, b.caller, err, b.embedding, "response")
+			tripRequestFailure(b.caller, b.guard, err, b.embedding, "response")
 		}
 	}
 	return n, err
