@@ -40,6 +40,11 @@ parent cancellation while allowing reliable classification. Attempt contexts
 are canceled after every error or response-body close. API error presentation
 adds only the fixed `cause=timeout` marker and never includes the underlying
 error string, response body or credentials.
+Combined race testing also exposed the timer-propagation window: a monotonic
+request deadline can expire before `Context.Err` reflects it. Classification
+checks that existing deadline too, while unexpected EOF still trips even after
+deadline expiry. The real HTTP retry/recovery and deadline-race scenarios passed
+30 consecutive isolated Linux race repetitions after this correction.
 All added tests contain `Safety` for the integrated real Redis/race selection.
 Windows safety tests pass; full connector tests use Linux because the local
 MinGW pg_query link dependency lacks `__stack_chk_fail`.

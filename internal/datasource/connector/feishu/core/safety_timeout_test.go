@@ -62,17 +62,19 @@ func TestSafetySourceReadTimeoutUsesFiniteRetry(t *testing.T) {
 			)
 			if recovery {
 				if err != nil || calls.Load() != 2 {
-					t.Fatalf("transient source did not recover: calls=%d err=%v", calls.Load(), err)
+					stats, _ := guard.Snapshot(context.Background())
+					t.Fatalf("source did not recover: calls=%d err=%v state=%v", calls.Load(), err, stats)
 				}
 			} else if !errors.Is(err, ErrTransient) || calls.Load() != 3 {
 				stats, _ := guard.Snapshot(context.Background())
-				t.Fatalf("source retry not finite/typed: calls=%d err=%v state=%v", calls.Load(), err, stats)
+				t.Fatalf("retry not finite/typed: calls=%d err=%v state=%v", calls.Load(), err, stats)
 			}
 			if !recovery && !strings.Contains(err.Error(), "cause=timeout") {
 				t.Fatal("source timeout lost its content-free UI diagnosis", err)
 			}
 			if err = guard.Check(context.Background()); err != nil {
-				t.Fatal("source timeout stopped independent sources", err)
+				stats, _ := guard.Snapshot(context.Background())
+				t.Fatal("source timeout stopped independent sources", err, stats)
 			}
 			_, err = client.doRequestBytes(feishusafety.WithScope(context.Background(), "source-b"),
 				"other_read", http.MethodGet, "/other", nil, false, false, 0)

@@ -264,3 +264,29 @@ func TestSafetyHTTPDeadlineBodyCancellation(t *testing.T) {
 		}
 	}
 }
+
+type delayedDeadlineContext struct {
+	context.Context
+	deadline time.Time
+}
+
+func (c delayedDeadlineContext) Deadline() (time.Time, bool) { return c.deadline, true }
+
+func TestSafetyDeadlineBeforeTimerPropagation(t *testing.T) {
+	for _, embedding := range []bool{false, true} {
+		g, client := fixture(t, Config{})
+		ctx := delayedDeadlineContext{Context: context.Background(), deadline: time.Now().Add(-time.Second)}
+		// The monotonic deadline can expire before its timer propagates Err.
+		tripRequestFailure(ctx, g, errors.New("net/http: request canceled"), embedding, "response")
+		tripped := client.Exists(context.Background(), g.key("trip")).Val() != 0
+		if tripped != embedding {
+			t.Fatal("deadline propagation race changed source/gateway policy")
+		}
+	}
+	g, client := fixture(t, Config{})
+	ctx := delayedDeadlineContext{Context: context.Background(), deadline: time.Now().Add(-time.Second)}
+	tripRequestFailure(ctx, g, io.ErrUnexpectedEOF, false, "response")
+	if got := client.Get(context.Background(), g.key("trip")).Val(); got != "feishu_response_unexpected_eof" {
+		t.Fatal("an expired deadline hid a corrupted response", got)
+	}
+}
