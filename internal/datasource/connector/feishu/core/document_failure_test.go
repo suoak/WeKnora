@@ -26,9 +26,16 @@ func (h *documentFailureHandler) Emit(ctx context.Context, item types.FetchedIte
 }
 
 func TestDocumentFailureContinuesAndRetriesAfterRestart(t *testing.T) {
+	for _, code := range []string{"source_revision_content_conflict", "safe_staging_parser_semantic_row_too_large"} {
+		t.Run(code, func(t *testing.T) { documentFailureContinuesAndRetries(t, code) })
+	}
+}
+
+func documentFailureContinuesAndRetries(t *testing.T, code string) {
+	t.Helper()
 	ops := &deferralTestOps{nodes: []string{"bad", "good"}}
 	h := &documentFailureHandler{failure: fmt.Errorf("wrapped: %w", &datasource.DocumentFailureError{
-		Code: "source_revision_content_conflict", Cause: errors.New("old version retained"),
+		Code: code, Cause: errors.New("old version retained"),
 	})}
 	initial := ops.EncodeCursor(map[string]map[string]string{"root": {"bad": "old"}}, time.Now())
 	next, err := runSync(context.Background(), &Client{}, &types.DataSourceConfig{}, []string{"root"}, initial, h, ops)
