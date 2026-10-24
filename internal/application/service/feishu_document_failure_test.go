@@ -50,6 +50,38 @@ func TestFeishuDocumentFailureWithUnchangedDocumentsIsPartial(t *testing.T) {
 	require.Error(t, allFetchedItemsFailedError(result))
 }
 
+func TestFeishuDocumentFailureParserRowLimit(t *testing.T) {
+	t.Setenv("FEISHU_SAFE_INCREMENTAL_ENABLED", "true")
+	ds := &types.DataSource{Type: "feishu"}
+	item := &types.FetchedItem{ExternalID: "oversized-row", SourceResourceID: "root"}
+	const detail = "sheet='synthetic', row=40, size=7888, hard_max_chars=7500)"
+	for _, prefix := range []string{
+		"parser semantic chunk too large; set xlsx_context_column_count to enable cell-level splitting (",
+		"parser semantic chunk too large; xlsx_context_column_count must leave at least one payload column (",
+	} {
+		for _, kind := range []string{"xls", "xlsx", "xlsm"} {
+			err := feishuDocumentParserRefusal(&types.ReadResult{Error: prefix + detail}, kind)
+			require.Error(t, err)
+			require.Equal(t, "safe_staging_parser_semantic_row_too_large", feishuDocumentFailureCode(ds, item, err))
+		}
+	}
+	for _, result := range []*types.ReadResult{
+		nil,
+		{Error: "backend unavailable"},
+		{Error: "PermissionError"},
+		{Error: "parser semantic chunk too large; unrecognized error"},
+		{Error: "parser semantic chunk too large; set xlsx_context_column_count to enable cell-level splitting ("},
+	} {
+		err := feishuDocumentParserRefusal(result, "xls")
+		require.Error(t, err)
+		require.Empty(t, feishuDocumentFailureCode(ds, item, err), "unknown parser faults still abort")
+	}
+	require.NoError(t, feishuDocumentParserRefusal(&types.ReadResult{MarkdownContent: "complete content"}, "xls"))
+	require.Empty(t, feishuDocumentFailureCode(ds, item, feishuDocumentParserRefusal(
+		&types.ReadResult{Error: "parser semantic chunk too large; set " +
+			"xlsx_context_column_count to enable cell-level splitting (" + detail}, "docx")))
+}
+
 func TestFeishuDocumentFetchFailureClassification(t *testing.T) {
 	t.Setenv("FEISHU_SAFE_INCREMENTAL_ENABLED", "true")
 	ds := &types.DataSource{Type: "feishu_drive"}

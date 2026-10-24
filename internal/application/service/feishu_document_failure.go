@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/feishusafety"
@@ -25,11 +26,35 @@ func feishuDocumentFailureCode(ds *types.DataSource, item *types.FetchedItem, er
 	if errors.As(err, &refusal) {
 		switch refusal.reason {
 		case "versioned_image_staging_required", "audio_not_supported",
-			"empty_parsed_content", "chunk_count_out_of_bounds":
+			"empty_parsed_content", "chunk_count_out_of_bounds", "parser_semantic_row_too_large":
 			return "safe_staging_" + refusal.reason
 		}
 	}
 	return ""
+}
+
+func feishuDocumentParserRefusal(parsed *types.ReadResult, fileType string) error {
+	if parsed == nil {
+		return &feishuStagingRefusal{reason: "parser_result_unavailable"}
+	}
+	if parsed.Error == "" {
+		return nil
+	}
+	// These exact Excel parser refusals are deterministic document limits.
+	// Preserve the configured limit and context columns, never publish a
+	// truncated row, and keep unknown parser/backend failures fatal.
+	if fileType == "xls" || fileType == "xlsx" || fileType == "xlsm" {
+		for _, prefix := range []string{
+			"parser semantic chunk too large; set xlsx_context_column_count to enable cell-level splitting (",
+			"parser semantic chunk too large; xlsx_context_column_count must leave at least one payload column (",
+		} {
+			if strings.HasPrefix(parsed.Error, prefix) && strings.Contains(parsed.Error, "hard_max_chars=") &&
+				strings.HasSuffix(parsed.Error, ")") {
+				return &feishuStagingRefusal{reason: "parser_semantic_row_too_large"}
+			}
+		}
+	}
+	return &feishuStagingRefusal{reason: "parser_result_unavailable"}
 }
 
 func feishuDocumentFetchFailureCode(ds *types.DataSource, item *types.FetchedItem) string {

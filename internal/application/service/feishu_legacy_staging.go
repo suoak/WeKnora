@@ -265,8 +265,8 @@ func (s *knowledgeService) StageFeishuLegacyItem(
 	if err != nil {
 		return nil, err
 	}
-	if parsed == nil || parsed.Error != "" {
-		return nil, &feishuStagingRefusal{reason: "parser_result_unavailable"}
+	if err := feishuDocumentParserRefusal(parsed, fileType); err != nil {
+		return nil, err
 	}
 	if parsed.IsAudio {
 		return nil, &feishuStagingRefusal{reason: "audio_not_supported"}
