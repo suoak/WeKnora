@@ -206,7 +206,7 @@ func (g *pgRepository) KeywordsRetrieve(ctx context.Context,
 	logger.GetLogger(ctx).Infof("[Postgres] Keywords retrieval: query=%s, topK=%d", params.Query, params.TopK)
 	conds := make([]clause.Expression, 0)
 	if types.LegacyReadGuardsEnabled(g.db) {
-		conds = append(conds, clause.Expr{SQL: legacySourceCandidatePredicate})
+		conds = append(conds, clause.Expr{SQL: legacySourceCandidatePredicate(ctx)})
 	}
 	if tenant, protected := access.PortalRetrievalTenant(ctx); protected {
 		conds = append(conds, clause.Expr{SQL: portalCanonicalPredicate("?", access.PortalRetrievalPublic(ctx), access.PortalRetrievalPublishedDefaults(ctx)), Vars: []interface{}{tenant, types.ChunkSourceType}})
@@ -445,7 +445,7 @@ func (g *pgRepository) VectorRetrieve(ctx context.Context,
 	}
 
 	if types.LegacyReadGuardsEnabled(g.db) {
-		whereParts = append(whereParts, legacySourceCandidatePredicate)
+		whereParts = append(whereParts, legacySourceCandidatePredicate(ctx))
 	}
 
 	// is_enabled filter
