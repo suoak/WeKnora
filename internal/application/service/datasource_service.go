@@ -1184,11 +1184,20 @@ func (s *DataSourceService) applyFetchedItem(
 				err,
 			)
 			result.Failed++
+			code := "ingest_failed"
+			local := feishuDocumentFailureCode(ds, item, err)
+			if local != "" {
+				code = local
+			}
 			recordSyncError(result, types.SyncItemError{
-				Title:   item.Title,
-				Code:    "ingest_failed",
-				Message: "Ingest failed; see server logs",
+				Title: item.Title, Code: code, Message: "Ingest failed; see server logs",
 			})
+			if local != "" {
+				if fenceErr := s.checkSyncExecution(ctx); fenceErr != nil {
+					return fenceErr
+				}
+				return &datasource.DocumentFailureError{Code: local, Cause: err}
+			}
 			if isFeishuAdmissionSource(ds.Type) {
 				return &dataSourceIngestError{cause: err}
 			}
@@ -1237,8 +1246,13 @@ func (h *streamSyncHandler) Emit(ctx context.Context, item types.FetchedItem) er
 		return h.ingestErr
 	}
 	h.result.Total++
-	h.ingestErr = h.svc.applyFetchedItem(withKBActivitySuppressed(ctx), h.ds, &item, h.tagIDs, h.result)
-	return h.ingestErr
+	err := h.svc.applyFetchedItem(withKBActivitySuppressed(ctx), h.ds, &item, h.tagIDs, h.result)
+	var documentErr *datasource.DocumentFailureError
+	if errors.As(err, &documentErr) {
+		return err
+	}
+	h.ingestErr = err
+	return err
 }
 
 // Checkpoint persists the connector cursor onto the data source and mirrors the

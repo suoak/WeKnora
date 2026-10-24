@@ -225,6 +225,31 @@ func TestFeishuLegacyRealParserEmbeddingPostgres(t *testing.T) {
 			require.NoError(t, e)
 			require.Equal(t, 1024, first.Dimension)
 			require.True(t, first.Created)
+			// A proven document-local conflict must not latch the streaming
+			// handler or publish its bytes. A different normal document can
+			// still finish through the real parser, vector writer and receipt.
+			isolated := &DataSourceService{knowledgeService: ks, syncLogRepo: repository.NewSyncLogRepository(db)}
+			isolatedResult := &types.SyncResult{}
+			handler := newStreamHandler(isolated, ds, isolatedResult, log)
+			conflicting := *item
+			conflicting.Content = []byte("same revision conflicting content must remain private")
+			conflictErr := handler.Emit(ctx, conflicting)
+			var localFailure *datasource.DocumentFailureError
+			require.ErrorAs(t, conflictErr, &localFailure)
+			require.Equal(t, "source_revision_content_conflict", localFailure.Code)
+			require.Nil(t, handler.ingestErr)
+			healthy := *item
+			healthy.ExternalID = "independent-healthy-document"
+			require.NoError(t, handler.Emit(ctx, healthy))
+			require.Equal(t, 1, isolatedResult.Failed)
+			require.Equal(t, 1, isolatedResult.Created)
+			var protected types.Knowledge
+			require.NoError(t, db.First(&protected, "id=?", first.KnowledgeID).Error)
+			require.Equal(t, int64(len(item.Content)), protected.FileSize)
+			var unsafeRows int64
+			require.NoError(t, db.Raw("SELECT count(*) FROM embeddings WHERE knowledge_id=? AND content LIKE ?",
+				first.KnowledgeID, "%same revision conflicting content%").Scan(&unsafeRows).Error)
+			require.Zero(t, unsafeRows)
 			var oldPath string
 			require.NoError(
 				t,
