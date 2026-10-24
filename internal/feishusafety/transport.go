@@ -47,7 +47,7 @@ func tripRequestFailure(caller context.Context, g *Guard, err error, embedding b
 	var networkError net.Error
 	timedOut := errors.Is(err, context.DeadlineExceeded) ||
 		(errors.As(err, &networkError) && networkError.Timeout()) ||
-		(errors.Is(err, context.Canceled) && errors.Is(caller.Err(), context.DeadlineExceeded))
+		(errors.Is(caller.Err(), context.DeadlineExceeded) && !errors.Is(err, io.ErrUnexpectedEOF))
 	if !embedding && timedOut {
 		// Source HTTP timeouts belong to the existing connector's bounded
 		// retry/backoff. No response is accepted and no candidate is published.

@@ -301,8 +301,18 @@ func (c *Client) doRequestBytes(
 		if bodyBytes != nil {
 			bodyReader = bytes.NewReader(bodyBytes)
 		}
-		req, reqErr := http.NewRequestWithContext(ctx, method, requestURL, bodyReader)
+		// A wrapped RoundTripper is not recognized by net/http's timeout
+		// optimization, which can otherwise report only a legacy cancellation
+		// inside the body. Express the existing client timeout in the attempt
+		// context so the safety boundary can identify a source deadline reliably.
+		attemptCtx := ctx
+		cancelAttempt := func() {}
+		if c.httpClient.Timeout > 0 {
+			attemptCtx, cancelAttempt = context.WithTimeout(ctx, c.httpClient.Timeout)
+		}
+		req, reqErr := http.NewRequestWithContext(attemptCtx, method, requestURL, bodyReader)
 		if reqErr != nil {
+			cancelAttempt()
 			release()
 			return nil, fmt.Errorf("create feishu request: %w", reqErr)
 		}
@@ -315,6 +325,7 @@ func (c *Client) doRequestBytes(
 
 		resp, requestErr := c.httpClient.Do(req)
 		if requestErr != nil {
+			cancelAttempt()
 			release()
 			if ctxErr := ctx.Err(); ctxErr != nil {
 				return nil, ctxErr
@@ -342,6 +353,7 @@ func (c *Client) doRequestBytes(
 			responseBody, readErr := readFeishuCapped(resp.Body, limit)
 			requestErr = readErr
 			closeErr := resp.Body.Close()
+			cancelAttempt()
 			if requestErr == nil {
 				requestErr = closeErr
 			}

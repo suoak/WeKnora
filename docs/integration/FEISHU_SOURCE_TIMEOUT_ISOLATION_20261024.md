@@ -32,6 +32,14 @@ Verification includes source/embedding header and body deadline policy, missing
 permit/Redis failure, and real local HTTP client body timeouts that recover or
 exhaust exactly three fixture attempts while an independent source remains live.
 The core production retry count and delays are reused without modification.
+The existing client timeout is also expressed as each attempt's context
+deadline. Go's HTTP client does not recognize the wrapped transport as a built-in
+transport and can otherwise report a legacy body cancellation before wrapping it
+as a timeout. Explicit attempt deadlines preserve the same timeout duration and
+parent cancellation while allowing reliable classification. Attempt contexts
+are canceled after every error or response-body close. API error presentation
+adds only the fixed `cause=timeout` marker and never includes the underlying
+error string, response body or credentials.
 All added tests contain `Safety` for the integrated real Redis/race selection.
 Windows safety tests pass; full connector tests use Linux because the local
 MinGW pg_query link dependency lacks `__stack_chk_fail`.

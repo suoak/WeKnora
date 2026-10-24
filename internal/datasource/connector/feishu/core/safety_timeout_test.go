@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -64,7 +65,11 @@ func TestSafetySourceReadTimeoutUsesFiniteRetry(t *testing.T) {
 					t.Fatalf("transient source did not recover: calls=%d err=%v", calls.Load(), err)
 				}
 			} else if !errors.Is(err, ErrTransient) || calls.Load() != 3 {
-				t.Fatalf("source retry not finite/typed: calls=%d err=%v", calls.Load(), err)
+				stats, _ := guard.Snapshot(context.Background())
+				t.Fatalf("source retry not finite/typed: calls=%d err=%v state=%v", calls.Load(), err, stats)
+			}
+			if !recovery && !strings.Contains(err.Error(), "cause=timeout") {
+				t.Fatal("source timeout lost its content-free UI diagnosis", err)
 			}
 			if err = guard.Check(context.Background()); err != nil {
 				t.Fatal("source timeout stopped independent sources", err)
