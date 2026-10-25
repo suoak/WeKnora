@@ -57,9 +57,9 @@ func TestFeishuV2PostgresCollectionPageAdmissionAndRestart(t *testing.T) {
 	require.Equal(t, []string{"first"}, visible[0].Links[0].Path)
 	_, err = f.s.CollectionPages(f.userContext("B"), "kb", row.ID, 0)
 	require.Error(t, err)
-	var paths []core.DiscoveredLink
+	var paths feishuCollectionEvidence
 	require.NoError(t, openFeishu(pages[0].Provenance, &paths))
-	require.Equal(t, []string{"first"}, paths[0].Path)
+	require.Equal(t, []string{"first"}, paths.Links[0].Path)
 	// A new service instance continues the durable second provider page.
 	restarted := *f.s
 	require.NoError(t, restarted.ReconcileCollections(context.Background()))
@@ -134,4 +134,61 @@ func TestFeishuV2PostgresCollectionRollbackAndPauseFence(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFeishuV2PostgresCollectionDeniedChildPreservesHealthySiblings(t *testing.T) {
+	f := v2PostgresFixture(t)
+	require.NoError(t, f.db.Exec("INSERT INTO feishu_private_kbs(kb_id,owner_id) VALUES('kb','A')").Error)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer access-A" {
+			http.Error(w, "wrong identity", 403)
+			return
+		}
+		var files []map[string]any
+		switch r.URL.Query().Get("folder_token") {
+		case "root":
+			files = []map[string]any{{"token": "denied", "type": "folder"}, {"token": "healthy", "type": "folder"}}
+		case "denied":
+			http.Error(w, "permission denied", 403)
+			return
+		case "healthy":
+			files = []map[string]any{
+				{"token": "document", "type": "file", "url": "https://test.feishu.cn/file/document"},
+			}
+		default:
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).
+			Encode(map[string]any{"code": 0, "data": map[string]any{"files": files, "has_more": false}})
+	}))
+	defer server.Close()
+	f.s.newClient = func(cfg *core.Config) *core.Client { cfg.BaseURL = server.URL; return core.NewClient(cfg) }
+	row, err := f.s.CreateCollection(f.ctx, "kb", FeishuResourceQuery{
+		AuthMode: types.FeishuUserOAuth, Kind: "drive", Parent: "root",
+	})
+	require.NoError(t, err)
+	for i := 0; i < 3; i++ {
+		require.NoError(t, f.s.ReconcileCollections(context.Background()))
+	}
+	var current types.FeishuCollection
+	require.NoError(t, f.db.Where("id = ?", row.ID).First(&current).Error)
+	require.True(t, current.Truncated)
+	require.Equal(t, "source_permission_required", current.ErrorCategory)
+	var frontier core.DiscoveryFrontier
+	require.NoError(t, openFeishu(current.Frontier, &frontier))
+	require.Empty(t, frontier.Queue)
+	require.Len(t, frontier.Deferred, 1)
+	require.Equal(t, "denied", frontier.Deferred[0].Parent)
+	pages, err := f.s.CollectionPages(f.ctx, "kb", row.ID, 0)
+	require.NoError(t, err)
+	require.Len(t, pages, 3)
+	require.NotNil(t, pages[0].BatchID, "healthy sibling still gets a normal import batch")
+	require.Equal(t, []string{"healthy", "document"}, pages[0].Links[0].Path)
+	require.Equal(t, []string{"denied"}, pages[1].BlockedPath)
+	require.Equal(t, "source_permission_required", pages[1].ErrorCategory)
+	require.NoError(t, f.s.CollectionAction(f.ctx, "kb", row.ID, "discover"))
+	require.NoError(t, f.s.ReconcileCollections(context.Background()))
+	require.NoError(t, f.db.Where("id = ?", row.ID).First(&current).Error)
+	require.Equal(t, "hold", current.State, "a partial cycle cannot be automatically restarted as complete")
 }

@@ -34,14 +34,16 @@ func (FeishuCollection) TableName() string { return "feishu_collections" }
 
 // FeishuCollectionPage retains each page's admitted batch and directory paths.
 type FeishuCollectionPage struct {
-	Links        []FeishuDiscoveredLink `gorm:"-" json:"links"`
-	ID           string                 `gorm:"primaryKey" json:"id"`
-	CollectionID string                 `                  json:"collection_id"`
-	Cycle        int64                  `                  json:"cycle"`
-	Ordinal      int                    `                  json:"ordinal"`
-	BatchID      *string                `                  json:"batch_id,omitempty"`
-	Provenance   string                 `                  json:"-"`
-	CreatedAt    time.Time              `                  json:"created_at"`
+	Links         []FeishuDiscoveredLink `gorm:"-" json:"links"`
+	BlockedPath   []string               `gorm:"-" json:"blocked_path,omitempty"`
+	ErrorCategory string                 `gorm:"-" json:"error_category,omitempty"`
+	ID            string                 `gorm:"primaryKey" json:"id"`
+	CollectionID  string                 `                  json:"collection_id"`
+	Cycle         int64                  `                  json:"cycle"`
+	Ordinal       int                    `                  json:"ordinal"`
+	BatchID       *string                `                  json:"batch_id,omitempty"`
+	Provenance    string                 `                  json:"-"`
+	CreatedAt     time.Time              `                  json:"created_at"`
 }
 
 // FeishuDiscoveredLink carries directory provenance, never credentials.

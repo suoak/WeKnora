@@ -75,6 +75,7 @@
       <t-button v-if="moreCollections" variant="text" :disabled="busy" @click="refreshCollections(true)">{{ t('more') }}</t-button>
       <div v-for="page in collectionPages" :key="page.id">
         <p>{{ page.cycle }} / {{ page.ordinal }} <t-button v-if="page.batch_id" variant="text" :disabled="busy" @click="openBatch(page.batch_id)">{{ t('viewBatch') }}</t-button></p>
+        <p v-if="page.error_category">{{ page.blocked_path?.join(' / ') }} · {{ label(page.error_category) }}</p>
         <ul><li v-for="link in page.links" :key="link.url">{{ link.path.join(' / ') }} · <a v-if="isFeishuDocumentURL(link.url)" :href="link.url" target="_blank" rel="noopener noreferrer">{{ link.url }}</a></li></ul>
       </div>
       <t-button v-if="moreCollectionPages && selectedCollection" variant="text" :disabled="busy" @click="showCollectionPages(selectedCollection,true)">{{ t('more') }}</t-button>

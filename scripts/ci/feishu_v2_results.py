@@ -6,6 +6,7 @@ from pathlib import Path
 required = {
 	"TestFeishuV2PostgresCollectionPageAdmissionAndRestart",
 	"TestFeishuV2PostgresCollectionRollbackAndPauseFence",
+	"TestFeishuV2PostgresCollectionDeniedChildPreservesHealthySiblings",
     "TestFeishuV2PostgresSharedAdmissionRequiresRevisionApproval",
     "TestFeishuV2PostgresBatchConcurrentIdempotencyAndAliasRecovery",
     "TestFeishuV2PostgresSourceReadAndCommitRevocation",

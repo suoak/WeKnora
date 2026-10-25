@@ -14,6 +14,12 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+type feishuCollectionEvidence struct {
+	Links         []types.FeishuDiscoveredLink
+	BlockedPath   []string
+	ErrorCategory string
+}
+
 // CreateCollection admits one explicit tree. Personal discovery is restricted to
 // the owner's private KB; publishing a changing tree cannot infer sharing grants.
 func (s *FeishuPersonalService) CreateCollection(
@@ -180,9 +186,12 @@ func (s *FeishuPersonalService) CollectionPages(
 		return nil, err
 	}
 	for i := range pages {
-		if err = openFeishu(pages[i].Provenance, &pages[i].Links); err != nil {
+		var evidence feishuCollectionEvidence
+		if err = openFeishu(pages[i].Provenance, &evidence); err != nil {
 			return nil, err
 		}
+		pages[i].Links, pages[i].BlockedPath, pages[i].ErrorCategory = evidence.Links, evidence.BlockedPath,
+			evidence.ErrorCategory
 	}
 	return pages, nil
 }
@@ -260,6 +269,7 @@ func (s *FeishuPersonalService) advanceCollection(ctx context.Context, row *type
 	remote, cancel := context.WithTimeout(remote, 30*time.Second)
 	defer cancel()
 	next, links, err := core.AdvanceDiscovery(remote, client, frontier)
+	evidence := feishuCollectionEvidence{Links: []types.FeishuDiscoveredLink{}}
 	if err != nil {
 		// Preserve denied child directories for review and continue healthy
 		// siblings. Root or identity failures still hold the entire discovery.
@@ -273,12 +283,17 @@ func (s *FeishuPersonalService) advanceCollection(ctx context.Context, row *type
 		next.Pages++
 		next.Truncated = true
 		links = nil
+		evidence.BlockedPath = frontier.Queue[0].Path
+		evidence.ErrorCategory = "source_permission_required"
 	}
 	encoded, err := sealFeishu(next)
 	if err != nil {
 		return err
 	}
-	provenance, err := sealFeishu(links)
+	for _, link := range links {
+		evidence.Links = append(evidence.Links, types.FeishuDiscoveredLink{URL: link.URL, Path: link.Path})
+	}
+	provenance, err := sealFeishu(evidence)
 	if err != nil {
 		return err
 	}

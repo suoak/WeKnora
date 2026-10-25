@@ -37,7 +37,7 @@ export type FeishuSharingApproval = { id: string; resource_type: string; revisio
 export const listFeishuSharingApprovals = (kb: string, offset = 0) => get<FeishuSharingApproval[]>(`/api/v1/knowledge-bases/${encodeURIComponent(kb)}/feishu/sharing-approvals`, { params: { offset } })
 export const revokeFeishuSharingApproval = (kb: string, id: string) => post(`/api/v1/knowledge-bases/${encodeURIComponent(kb)}/feishu/sharing-approvals/${encodeURIComponent(id)}/revoke`, {})
 export type FeishuCollection = { id: string; kind: string; root_id: string; space_id: string; state: string; cycle: number; pages: number; discovered: number; truncated: boolean; error_category?: string; next_run_at: string }
-export type FeishuCollectionPage = { id: string; cycle: number; ordinal: number; batch_id?: string; links: { url: string; path: string[] }[] }
+export type FeishuCollectionPage = { id: string; cycle: number; ordinal: number; batch_id?: string; links: { url: string; path: string[] }[]; blocked_path?: string[]; error_category?: string }
 export const createFeishuCollection = (kb: string, params: { auth_mode: FeishuAuthMode; connection_id: string; kind: string; parent_id: string; space_id: string }) => post<FeishuCollection>(`/api/v1/knowledge-bases/${encodeURIComponent(kb)}/feishu/collections`, params)
 export const listFeishuCollections = (kb: string, offset = 0) => get<FeishuCollection[]>(`/api/v1/knowledge-bases/${encodeURIComponent(kb)}/feishu/collections`, { params: { offset } })
 export const feishuCollectionAction = (kb: string, id: string, action: 'pause' | 'resume' | 'discover') => post(`/api/v1/knowledge-bases/${encodeURIComponent(kb)}/feishu/collections/${encodeURIComponent(id)}/${action}`, {})
