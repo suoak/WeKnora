@@ -49,6 +49,12 @@ type v2PipelineModel struct {
 	pool embedding.EmbedderPooler
 }
 
+type v2PipelineKB struct{ legacyLiveKB }
+
+func (s *v2PipelineKB) GetKnowledgeBaseByIDOnly(ctx context.Context, id string) (*types.KnowledgeBase, error) {
+	return s.GetKnowledgeBaseByID(ctx, id)
+}
+
 func (s *v2PipelineModel) GetEmbeddingModelForTenant(
 	ctx context.Context, id string, tenant uint64,
 ) (embedding.Embedder, error) {
@@ -160,7 +166,7 @@ func runV2NativeReferencePipeline(t *testing.T, firstCreate bool) {
 	t.Cleanup(pool.Release)
 	ks := &knowledgeService{
 		config: &config.Config{}, repo: repository.NewKnowledgeRepository(db),
-		kbService: &legacyLiveKB{db: db},
+		kbService: &v2PipelineKB{legacyLiveKB{db: db}},
 		modelService: &v2PipelineModel{
 			legacyLiveModel: legacyLiveModel{db: db},
 			pool:            embedding.NewBatchEmbedder(pool),
