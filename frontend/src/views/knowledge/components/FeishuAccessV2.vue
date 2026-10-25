@@ -57,6 +57,15 @@
     </div>
     <p v-if="message" role="status">{{ message }}</p>
     <details>
+      <summary @click="refreshApprovals(false)">{{ t('approvalHistory') }}</summary>
+      <p>{{ t('approvalWithdrawalScope') }}</p>
+      <div v-for="row in approvals" :key="row.id">
+        <p>{{ row.resource_type }} · {{ row.revision }} · {{ row.reason }} · {{ label(row.state) }} · {{ new Date(row.expires_at).toLocaleString() }}</p>
+        <t-button v-if="row.state === 'approved'" variant="text" :disabled="busy" @click="withdrawApproval(row.id)">{{ t('withdrawApproval') }}</t-button>
+      </div>
+      <t-button v-if="moreApprovals" variant="text" :disabled="busy" @click="refreshApprovals(true)">{{ t('more') }}</t-button>
+    </details>
+    <details>
       <summary @click="refreshBatchHistory(false)">{{ t('batchHistory') }}</summary>
       <div v-for="row in batchHistory" :key="row.id">
         {{ new Date(row.created_at).toLocaleString() }} · {{ t(row.auth_mode === 'user_oauth' ? 'personalMode' : 'applicationMode') }}
@@ -85,6 +94,7 @@ import { computed, ref, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { feishuBatchKey } from '@/utils/feishuBatchKey'
+import { listFeishuSharingApprovals, revokeFeishuSharingApproval, type FeishuSharingApproval } from '@/api/feishuPersonal'
 import { createPrivateFeishuKB } from '@/api/feishuPersonal'
 import { listFeishuCollaboration, recordFeishuCollaboration, type FeishuCollaboration } from '@/api/feishuPersonal'
 import { listFeishuBatches, type FeishuBatchHistory } from '@/api/feishuPersonal'
@@ -111,6 +121,7 @@ const batch = ref<FeishuBatch>(), submissionKey = ref('')
 const imports = ref<FeishuImport[]>([])
 const collaboration = ref<FeishuCollaboration[]>([]), contact = ref(''), collaborationNote = ref('')
 const batchHistory = ref<FeishuBatchHistory[]>([]), moreBatchHistory = ref(false)
+const approvals = ref<FeishuSharingApproval[]>([]), moreApprovals = ref(false)
 let timer: ReturnType<typeof setTimeout> | undefined
 let generation = 0, scopeEpoch = 0, connectionsVersion = 0, mounted = true
 function scope() { const epoch = scopeEpoch; return { kb: props.kbId, mode: mode.value, connection: connection.value?.id || '', links: [...links.value], current: () => mounted && epoch === scopeEpoch } }
@@ -119,7 +130,7 @@ onUnmounted(() => { mounted = false; stop() })
 function toggle(entry: FeishuResource, value: boolean) { if (value) selected.value.set(entry.id, entry); else selected.value.delete(entry.id) }
 async function refreshConnections() { const version = ++connectionsVersion, rows = await feishuConnections(); if (!mounted || version !== connectionsVersion) return; connections.value = rows; if (!rows.some(c => c.kind === mode.value) && rows[0]) mode.value = rows[0].kind }
 watch(() => props.status, () => refreshConnections().catch(() => { message.value = t('failed') }), { immediate: true, deep: true })
-watch([mode, kind, () => props.kbId], () => { scopeEpoch++; stop(); submissionKey.value = ''; entries.value = []; cursor.value = ''; selected.value.clear(); trail.value = []; location.value = { parent: '', space: '' }; previews.value = []; batch.value = undefined; imports.value = []; collaboration.value = []; batchHistory.value = []; moreBatchHistory.value = false }, { flush: 'sync' })
+watch([mode, kind, () => props.kbId], () => { scopeEpoch++; stop(); submissionKey.value = ''; entries.value = []; cursor.value = ''; selected.value.clear(); trail.value = []; location.value = { parent: '', space: '' }; previews.value = []; batch.value = undefined; imports.value = []; collaboration.value = []; batchHistory.value = []; moreBatchHistory.value = false; approvals.value = []; moreApprovals.value = false }, { flush: 'sync' })
 watch(linksText, () => { scopeEpoch++; submissionKey.value = ''; previews.value = []; confirmSharing.value = false }, { flush: 'sync' })
 function query(parent = location.value.parent, space = location.value.space, next = '') { return { auth_mode: mode.value, connection_id: connection.value?.id || '', kind: kind.value, parent_id: parent, space_id: space, cursor: next, page_size: 50 } }
 async function act(action: () => Promise<void>) { if (busy.value) return; const epoch = scopeEpoch; busy.value = true; message.value = ''; try { await action() } catch (error: any) { if (mounted && epoch === scopeEpoch) message.value = error?.message || t('failed') } finally { busy.value = false } }
@@ -163,6 +174,8 @@ async function refreshCollaboration() { const id = batch.value?.batch.id, s = sc
 async function collaborate(item: string, action: 'note'|'reported'|'recheck') { const id = batch.value?.batch.id, s = scope(); if (!id) return; await act(async () => { await recordFeishuCollaboration(id, item, action, contact.value, collaborationNote.value); if (s.current()) await refreshCollaboration() }) }
 async function refreshBatchHistory(append: boolean) { const s = scope(), offset = append ? batchHistory.value.length : 0; await act(async () => { const rows = await listFeishuBatches(s.kb, offset); if (!s.current()) return; batchHistory.value = append ? [...batchHistory.value, ...rows] : rows; moreBatchHistory.value = rows.length === 20 && batchHistory.value.length <= 10000 }) }
 async function openBatch(id: string) { const s = scope(); stop(); const version = generation; await act(async () => { const row = await getFeishuBatch(id); if (!s.current() || version !== generation) return; batch.value = row; collaboration.value = []; void poll(id, version) }) }
+async function refreshApprovals(append: boolean) { const s = scope(), offset = append ? approvals.value.length : 0; await act(async () => { const rows = await listFeishuSharingApprovals(s.kb, offset); if (!s.current()) return; approvals.value = append ? [...approvals.value, ...rows] : rows; moreApprovals.value = rows.length === 20 && approvals.value.length <= 10000 }) }
+async function withdrawApproval(id: string) { const s = scope(); await act(async () => { await revokeFeishuSharingApproval(s.kb, id); if (!s.current()) return; approvals.value = approvals.value.map(row => row.id === id ? { ...row, state: 'revoked' } : row); previews.value = [] }) }
 </script>
 <style scoped>
 .browse-controls { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }

@@ -1,4 +1,6 @@
 const en = {
+  approvalHistory: 'My sharing approvals', withdrawApproval: 'Withdraw approval', approved: 'Approved',
+  approvalWithdrawalScope: 'Withdrawal blocks future imports and publication. Already published knowledge remains subject to the knowledge base permissions; manage or remove it separately when required.',
   api_scope_missing: 'Ask the application administrator to enable the required Feishu API permission.',
   sharing_approval_required: 'Use a private knowledge base, or obtain explicit sharing approval for this document revision.',
   reconnect_required: 'Reconnect your Feishu account before trying again.',
@@ -38,6 +40,8 @@ const en = {
   app: 'Feishu document application', appID: 'App ID', secret: 'App Secret (leave empty to keep)', callback: 'OAuth callback URL', enabled: 'Enable personal imports', save: 'Save', test: 'Test saved application credentials', saved: 'Configuration saved', tested: 'Application credentials valid.',
 }
 const zh = {
+  approvalHistory: '我的共享发布批准', withdrawApproval: '撤回批准', approved: '已批准',
+  approvalWithdrawalScope: '撤回后阻止后续导入和发布。已经发布的知识仍按知识库权限访问；如需停止其访问，请另行调整权限或下架知识。',
   api_scope_missing: '请联系应用管理员开通所需的飞书 API 权限。',
   sharing_approval_required: '请使用私人知识库，或为当前文档版本取得明确的共享发布批准。',
   reconnect_required: '请先重新连接自己的飞书账号，再尝试操作。',

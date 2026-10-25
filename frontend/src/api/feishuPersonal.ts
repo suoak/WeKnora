@@ -33,6 +33,9 @@ export type FeishuCollaboration = { id: string; item_id: string; action: string;
 export const listFeishuCollaboration = (id: string) => get<FeishuCollaboration[]>(`/api/v1/feishu/batches/${encodeURIComponent(id)}/collaboration`)
 export const recordFeishuCollaboration = (id: string, item: string, action: 'note' | 'reported' | 'recheck', contact: string, note: string) => post<FeishuCollaboration>(`/api/v1/feishu/batches/${encodeURIComponent(id)}/items/${encodeURIComponent(item)}/collaboration`, { action, contact, note }, { timeout: 45000 })
 export const approveFeishuSharing = (kb: string, connection_id: string, url: string, reason: string, confirmed: boolean) => post(`/api/v1/knowledge-bases/${encodeURIComponent(kb)}/feishu/sharing-approvals`, { connection_id, url, reason, confirmed }, { timeout: 45000 })
+export type FeishuSharingApproval = { id: string; resource_type: string; revision: string; state: string; reason: string; created_at: string; expires_at: string }
+export const listFeishuSharingApprovals = (kb: string, offset = 0) => get<FeishuSharingApproval[]>(`/api/v1/knowledge-bases/${encodeURIComponent(kb)}/feishu/sharing-approvals`, { params: { offset } })
+export const revokeFeishuSharingApproval = (kb: string, id: string) => post(`/api/v1/knowledge-bases/${encodeURIComponent(kb)}/feishu/sharing-approvals/${encodeURIComponent(id)}/revoke`, {})
 export function isFeishuDocumentURL(value: string): boolean {
   try { const u = new URL(value); return u.protocol === 'https:' && (u.hostname === 'feishu.cn' || u.hostname.endsWith('.feishu.cn')) } catch { return false }
 }

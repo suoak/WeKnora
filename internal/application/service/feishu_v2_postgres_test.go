@@ -61,15 +61,18 @@ func TestFeishuV2PostgresSharedAdmissionRequiresRevisionApproval(t *testing.T) {
 	m, err := f.s.ImportWithIdentity(f.ctx, "kb", links[0], types.FeishuUserOAuth)
 	require.NoError(t, err)
 	require.NotEmpty(t, m.AttemptID)
+	history, err := f.s.ListSharingApprovals(f.ctx, "kb", 0)
+	require.NoError(t, err)
+	require.Len(t, history, 1)
+	require.Equal(t, approval.ID, history[0].ID)
+	other, err := f.s.ListSharingApprovals(f.userContext("B"), "kb", 0)
+	require.NoError(t, err)
+	require.Empty(t, other)
+	require.Error(t, f.s.RevokeSharingApproval(f.userContext("B"), "kb", approval.ID))
 	// Revocation closes the existing attempt's next authorization, preserving
 	// the original records instead of resetting any lease or cursor.
-	require.NoError(
-		t,
-		f.db.Model(&types.FeishuSharingApproval{}).
-			Where("id = ?", approval.ID).
-			Update("state", "revoked").
-			Error,
-	)
+	require.NoError(t, f.s.RevokeSharingApproval(f.ctx, "kb", approval.ID))
+	require.NoError(t, f.s.RevokeSharingApproval(f.ctx, "kb", approval.ID), "revocation is idempotent")
 	_, _, attempt, err := f.p.repo.Load(f.ctx, m.AttemptID)
 	require.NoError(t, err)
 	_, err = f.p.authorize(f.ctx, m, attempt)
