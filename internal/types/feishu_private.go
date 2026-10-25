@@ -1,12 +1,24 @@
 package types
 
 import (
+	"context"
 	"errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 var ErrPrivateKnowledgeBase = errors.New("private_knowledge_base_forbidden")
+
+type privateKBCreationKey struct{}
+
+func WithPrivateKBCreation(ctx context.Context, owner string) context.Context {
+	return context.WithValue(ctx, privateKBCreationKey{}, owner)
+}
+
+func PrivateKBCreationOwner(ctx context.Context) string {
+	owner, _ := ctx.Value(privateKBCreationKey{}).(string)
+	return owner
+}
 
 const privateKBGuard = "knowhub.private_kb_guard"
 

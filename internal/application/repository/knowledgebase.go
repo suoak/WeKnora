@@ -24,6 +24,18 @@ func NewKnowledgeBaseRepository(db *gorm.DB) interfaces.KnowledgeBaseRepository 
 
 // CreateKnowledgeBase creates a new knowledge base
 func (r *knowledgeBaseRepository) CreateKnowledgeBase(ctx context.Context, kb *types.KnowledgeBase) error {
+	if owner := types.PrivateKBCreationOwner(ctx); owner != "" {
+		user, ok := types.UserIDFromContext(ctx)
+		if !ok || user != owner || types.IsSyntheticUserID(user) || !types.PrivateKBGuardsEnabled(r.db) {
+			return types.ErrPrivateKnowledgeBase
+		}
+		return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			if err := tx.Create(kb).Error; err != nil {
+				return err
+			}
+			return tx.Exec("INSERT INTO feishu_private_kbs(kb_id,owner_id) VALUES (?,?)", kb.ID, owner).Error
+		})
+	}
 	return r.db.WithContext(ctx).Create(kb).Error
 }
 

@@ -29,11 +29,8 @@ func (s *FeishuPersonalService) CreatePrivateKnowledgeBase(ctx context.Context, 
 	}
 	// Only new, empty KBs can become private; existing public data never changes
 	// visibility as a side effect of enabling Feishu.
-	kb, err := s.kbs.CreateKnowledgeBase(ctx, &types.KnowledgeBase{Name: name, Type: types.KnowledgeBaseTypeDocument})
+	kb, err := s.kbs.CreateKnowledgeBase(types.WithPrivateKBCreation(ctx, user), &types.KnowledgeBase{Name: name, Type: types.KnowledgeBaseTypeDocument})
 	if err != nil {
-		return nil, err
-	}
-	if err = s.db.WithContext(ctx).Exec("INSERT INTO feishu_private_kbs(kb_id,owner_id) VALUES (?,?)", kb.ID, user).Error; err != nil {
 		return nil, err
 	}
 	kb.PrivateOwnerID = user
