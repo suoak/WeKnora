@@ -73,6 +73,7 @@ for line in pathlib.Path('go.sum').read_text().splitlines():
 print('Copied checksum-addressed module cache files:',copied)
 PY
 fi
+go mod download github.com/mattn/go-sqlite3
 go mod verify
 sqlite_module=$(go list -m -f '{{.Dir}}' github.com/mattn/go-sqlite3)
 test -n "$sqlite_module"

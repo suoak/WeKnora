@@ -90,7 +90,8 @@ func (s *FeishuPersonalService) EnsurePrivateKnowledgeBase(ctx context.Context) 
 		var ids []string
 		if e := tx.Table("feishu_private_kbs AS fp").Select("fp.kb_id").
 			Joins("JOIN knowledge_bases kb ON kb.id = fp.kb_id").
-			Where("fp.owner_id = ? AND kb.tenant_id = ? AND kb.creator_id = ? AND kb.deleted_at IS NULL", user, tenant, user).
+			Where("fp.owner_id = ? AND kb.tenant_id = ? AND kb.creator_id = ? AND kb.deleted_at IS NULL",
+				user, tenant, user).
 			Order("fp.kb_id").Limit(100).Pluck("fp.kb_id", &ids).Error; e != nil {
 			return e
 		}
