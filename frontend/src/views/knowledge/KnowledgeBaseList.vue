@@ -8,14 +8,18 @@
           </div>
           <p class="header-subtitle" style="--wails-draggable: drag">{{ $t('knowledgeList.subtitle') }}</p>
         </div>
-        <t-button v-if="authStore.hasRole('contributor')" theme="primary" class="kb-create-btn header-create-btn"
+        <div v-if="authStore.hasRole('contributor')" class="kb-header-actions">
+        <t-button variant="outline" style="--wails-draggable: no-drag" @click="feishuImportVisible = true">导入飞书文档</t-button>
+        <t-button theme="primary" class="kb-create-btn header-create-btn"
           data-guide="kb-list-create" style="--wails-draggable: no-drag" @click="handleCreateKnowledgeBase">
           <template #icon><t-icon name="folder-add" /></template>{{ $t('knowledgeList.create') }}
         </t-button>
+        </div>
       </div>
       <ResourceListToolbar :hide-scopes="authStore.isLiteMode" v-model="spaceSelection" v-model:query="keyword" :count-all="allKnowledgeBases"
       :count-mine="kbs.length" :count-by-org="effectiveSharedCountByOrg" :count-favorites="kbFavoritesCount"
       :count-recents="kbRecentsCount" />
+      <FeishuImportDialog v-model:visible="feishuImportVisible" kb-id="" :initial-url="feishuDraft" @imported="fetchList(true)" />
       <div class="kb-list-main">
         <EmptyState v-if="keyword.trim() && !(loading || spaceKbsLoading) && visibleResultCount === 0" icon="search"
           :title="$t('common.noResult')">
@@ -710,6 +714,8 @@ import { onMounted, onUnmounted, ref, computed, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { MessagePlugin, Icon as TIcon } from 'tdesign-vue-next'
 import EmptyState from '@/components/EmptyState.vue'
+import FeishuImportDialog from './components/FeishuImportDialog.vue'
+import { FEISHU_PENDING } from '@/i18n/feishuPersonal'
 import ResourceIcon from '@/components/icons/ResourceIcon.vue'
 import { useConfirmDelete } from '@/components/settings/useConfirmDelete'
 import { deleteKnowledgeBase, duplicateKnowledgeBase, togglePinKnowledgeBase } from '@/api/knowledge-base'
@@ -739,6 +745,17 @@ import {
 } from './kbExperience'
 
 const router = useRouter()
+const feishuImportVisible = ref(false), feishuDraft = ref('')
+onMounted(() => {
+  try {
+    const pending = JSON.parse(sessionStorage.getItem(FEISHU_PENDING) || '{}')
+    if (pending.kbId === '' && pending.path === location.pathname) {
+      sessionStorage.removeItem(FEISHU_PENDING)
+      feishuDraft.value = typeof pending.url === 'string' ? pending.url : ''
+      void nextTick(() => { feishuImportVisible.value = true })
+    }
+  } catch { sessionStorage.removeItem(FEISHU_PENDING) }
+})
 const route = useRoute()
 const uiStore = useUIStore()
 const authStore = useAuthStore()
@@ -1606,6 +1623,8 @@ watch(keyword, () => { collapsedKbSections.value = new Set() })
 </script>
 
 <style scoped lang="less">
+.kb-header-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.header { flex-wrap:wrap; gap:12px; }
 @import (reference) '@/components/css/resource-card.less';
 
 .kb-list-container {

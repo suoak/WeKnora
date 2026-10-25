@@ -65,3 +65,27 @@ Example invocation (the DPAPI path and SHA are supplied by the operator):
 Keep local manifests outside the repository. PowerShell `Tee-Object` can produce
 UTF-16 JSON; manifest readers handle UTF-16 BOM and UTF-8. Never pass passwords,
 application secrets, access tokens or model keys in process arguments.
+
+For an existing isolated site, use `feishu_v2_upgrade_site.py` with the original
+site manifest and the new candidate manifest. `prepare` verifies all five exact
+SHA gates and image provenance; `apply` stops both workers, takes a private
+backup and restores into a new database before changing images. `finish` checks
+the migrated application and starts both workers and the restricted entry.
+`rollback` restores the retained Compose/environment files without deleting
+business data. This path preserves test users, OAuth connections, Redis, files,
+encryption keys and cursors. Keep `preparation.json` as the original project
+identity; the private upgrade state records the new deployed source.
+
+The build helper can reuse an explicitly supplied previous successful isolated
+builder's cache with `--reuse-cache-manifest` and `--reuse-cache-attempt`.
+It checks the source manifest, stopped container, successful exit, pinned builder
+image, compile-only label, owned volume and absence of running cache consumers.
+Go module checksums and current native-library/source fingerprints are still
+verified; this never mounts application storage or application credentials.
+
+After an upgrade, startup and synthetic privacy probes accept the original
+`--manifest` plus `--candidate-manifest`. `--retry-stalled-synthetic` reparses only
+the helper's own stored canary once for that candidate; it never resets a real
+Feishu resource. The privacy probe exercises real gateway vectors, BM25 and
+hybrid retrieval, plus short-lived synthetic personal MCP credentials. It does
+not attest real Feishu OAuth or business documents.

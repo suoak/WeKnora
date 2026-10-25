@@ -153,15 +153,25 @@ else:
  temp='knowhub-feishu-v2-build-temp-'+root.name+'-'+str(ATTEMPT)
  volumes=[cache,temp]
  if REUSE_ATTEMPT is not None:
-  prior=run(['docker','inspect','knowhub-feishu-v2-build-'+root.name+'-'+str(REUSE_ATTEMPT)])
+  reuse_root=pathlib.Path(REUSE_ROOT) if REUSE_ROOT else root
+  reuse_sha=REUSE_SHA or SOURCE_SHA
+  if reuse_root.is_symlink() or reuse_root.resolve().parent!=base.resolve():raise ValueError('unexpected_cache_root')
+  owner_manifest=json.loads((reuse_root/'source-manifest.json').read_text())
+  if owner_manifest['source_sha']!=reuse_sha:raise ValueError('cache_manifest_identity_mismatch')
+  prior=run(['docker','inspect','knowhub-feishu-v2-build-'+reuse_root.name+'-'+str(REUSE_ATTEMPT)])
   if prior.returncode: raise ValueError('cache_owner_build_missing')
   prior=json.loads(prior.stdout)[0]
-  if prior['State']['Status']!='exited' or prior['Config'].get('Labels',{}).get('knowhub.source-sha')!=SOURCE_SHA:
+  if prior['State']['Status']!='exited' or prior['Config'].get('Labels',{}).get('knowhub.source-sha')!=reuse_sha:
    raise ValueError('cache_owner_build_not_stopped')
-  cache='knowhub-feishu-v2-build-cache-'+root.name+'-'+str(REUSE_ATTEMPT)
+  if reuse_sha!=SOURCE_SHA and (prior['State']['ExitCode']!=0 or prior['Image']!=image
+   or prior['Config'].get('Labels',{}).get('knowhub.phase')!='compile-only'):
+   raise ValueError('cross_source_cache_requires_successful_owned_builder')
+  cache='knowhub-feishu-v2-build-cache-'+reuse_root.name+'-'+str(REUSE_ATTEMPT)
   volume=run(['docker','volume','inspect',cache])
-  if volume.returncode or json.loads(volume.stdout)[0].get('Labels',{}).get('knowhub.source-sha')!=SOURCE_SHA:
+  if volume.returncode or json.loads(volume.stdout)[0].get('Labels',{}).get('knowhub.source-sha')!=reuse_sha:
    raise ValueError('cache_source_identity_mismatch')
+  active=run(['docker','ps','--filter','volume='+cache,'--format','{{.ID}}'])
+  if active.returncode or active.stdout.strip():raise ValueError('cache_must_have_no_running_consumers')
   volumes=[temp]
  for volume in volumes:
   if run(['docker','volume','inspect',volume]).returncode==0:
@@ -223,8 +233,11 @@ def main():
     parser.add_argument("--native-package", type=Path)
     parser.add_argument("--attempt", type=int, choices=range(1, 11), default=1)
     parser.add_argument("--reuse-cache-attempt", type=int, choices=range(1, 11))
+    parser.add_argument("--reuse-cache-manifest", type=Path)
     args = parser.parse_args()
-    if args.reuse_cache_attempt is not None and args.reuse_cache_attempt >= args.attempt:
+    if args.reuse_cache_manifest and args.reuse_cache_attempt is None:
+        parser.error('cache manifest requires an explicit stopped build attempt')
+    if not args.reuse_cache_manifest and args.reuse_cache_attempt is not None and args.reuse_cache_attempt >= args.attempt:
         parser.error('cache reuse must refer to an earlier stopped attempt of this source')
     encoded_manifest = args.manifest.read_bytes()
     manifest = json.loads(encoded_manifest.decode("utf-16") if encoded_manifest.startswith((b"\xff\xfe", b"\xfe\xff"))
@@ -235,6 +248,14 @@ def main():
         raise SystemExit("invalid staged source manifest")
     if not re.fullmatch(sha[:12] + r"-[a-f0-9]{8}", root.name):
         raise SystemExit("invalid isolated build directory")
+    reuse_root, reuse_sha = None, None
+    if args.reuse_cache_manifest:
+        raw=args.reuse_cache_manifest.read_bytes()
+        reuse=json.loads(raw.decode('utf-16') if raw.startswith((b'\xff\xfe',b'\xfe\xff')) else raw.decode('utf-8-sig'))
+        reuse_sha=reuse['source_sha'];reuse_root=PurePosixPath(reuse['source_directory']).parent
+        if (not re.fullmatch('[a-f0-9]{40}',reuse_sha) or reuse_root.parent!=root.parent
+            or not re.fullmatch(reuse_sha[:12]+r'-[a-f0-9]{8}',reuse_root.name)):
+            raise SystemExit('invalid cache owner manifest')
     native_manifest = None
     if args.native_package:
         native_manifest = json.loads((args.native_package / 'manifest.json').read_text(encoding='utf-8'))
@@ -296,6 +317,7 @@ def main():
         prefix = "BUILD_ROOT=" + repr(str(root)) + "\nSOURCE_SHA=" + repr(sha) + "\nSCRIPT=" + repr(script) + "\n"
         prefix += 'NATIVE_MANIFEST=' + repr(native_manifest) + '\nATTEMPT=' + repr(args.attempt) + '\n'
         prefix += 'REUSE_ATTEMPT=' + repr(args.reuse_cache_attempt) + '\n'
+        prefix += 'REUSE_ROOT=' + repr(str(reuse_root) if reuse_root else None) + '\nREUSE_SHA=' + repr(reuse_sha) + '\n'
         import textwrap
         guarded = 'try:\n' + textwrap.indent(REMOTE, ' ')
         guarded += "\nexcept Exception as error:\n print(json.dumps({'remote_error_type':type(error).__name__,"
