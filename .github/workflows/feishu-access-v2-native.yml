@@ -74,6 +74,7 @@ jobs:
           python3 scripts/ci/feishu_v2_results.py evidence/native-source-tests.jsonl
           python3 -c 'import json; e=[json.loads(l) for l in open("evidence/native-source-tests.jsonl") if l.startswith("{")]; assert any(x.get("Action")=="pass" and x.get("Test")=="TestFeishuLegacyRealParserEmbeddingPostgres" for x in e)'
           python3 -c 'import json; e=[json.loads(l) for l in open("evidence/native-source-tests.jsonl") if l.startswith("{")]; assert any(x.get("Action")=="pass" and x.get("Test")=="TestFeishuV2NativeHandoffRecoversWithoutReset" for x in e)'
+          python3 -c 'import json; e=[json.loads(l) for l in open("evidence/native-source-tests.jsonl") if l.startswith("{")]; assert any(x.get("Action")=="pass" and x.get("Test")=="TestFeishuV2NativeReferenceUpdatesPreservePublishedVersion" for x in e)'
       - name: Full application regression with native parser
         env:
           FEISHU_SYNC_SAFETY_ENABLED: "false"

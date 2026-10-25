@@ -181,12 +181,18 @@ func (s *FeishuPersonalService) EnableImportSource(
 				if verified[0].IndexStatus != "verified" || verified[0].Status != "synced" {
 					return errors.New("indexed_import_required")
 				}
+				metadataMatch := "metadata = ?"
+				if tx.Dialector.Name() == "postgres" {
+					// Both historical json and current jsonb columns must support
+					// the compare-and-swap; PostgreSQL json has no equality operator.
+					metadataMatch = "CAST(metadata AS jsonb) = CAST(? AS jsonb)"
+				}
 				change := tx.
 					Model(&types.Knowledge{}).
-					Where("id = ? AND file_hash = ? AND metadata = ?",
+					Where("id = ? AND file_hash = ?",
 						k.ID,
-						k.FileHash,
-						k.Metadata).
+						k.FileHash).
+					Where(metadataMatch, string(k.Metadata)).
 					Update("metadata",
 						types.JSON(updated))
 				if change.Error != nil {
