@@ -52,7 +52,7 @@ func TestFeishuV2PostgresSourceHandoffIsAtomicAndFencesOldWorker(t *testing.T) {
 	require.NoError(t, f.p.Process(f.ctx, f.payload(m.AttemptID)))
 	var before types.FeishuPersonalResource
 	require.NoError(t, f.db.Where("import_id = ?", m.ID).First(&before).Error)
-	require.NoError(t, f.db.Model(&types.FeishuPersonalImport{}).Where("id = ?", m.ID).Update("status", "synced").Error)
+	require.NoError(t, f.db.Model(&types.FeishuPersonalImport{}).Where("id = ?", m.ID).Update("status", "indexed").Error)
 	lease := time.Now().Add(time.Minute)
 	require.NoError(t, f.db.Model(&types.FeishuPersonalAttempt{}).Where("id = ?", m.AttemptID).Update("lease_until", lease).Error)
 	called := false

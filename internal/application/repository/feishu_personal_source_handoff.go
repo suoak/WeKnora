@@ -35,7 +35,7 @@ func (r *PersonalRecoveryRepository) HandoffSource(ctx context.Context, id, user
 		if m.Status == "paused" || m.Status == "hold" || m.Status == "revoked" || attempt.LeaseUntil != nil && attempt.LeaseUntil.After(time.Now()) {
 			return ErrPersonalBusy
 		}
-		if m.Status != "synced" && m.Status != "completed" {
+		if m.Status != "indexed" && m.Status != "synced" && m.Status != "completed" {
 			return ErrPersonalIdentity
 		}
 		if m.KnowledgeID == "" || attempt.LogicalKnowledgeID != m.KnowledgeID || attempt.Status == "obsolete" || attempt.Status == "needs_attention" {

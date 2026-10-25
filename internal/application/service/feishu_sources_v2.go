@@ -117,6 +117,20 @@ func (s *FeishuPersonalService) EnableImportSource(ctx context.Context, kbID, im
 		if current.KnowledgeID != k.ID || current.SourceModified != m.SourceModified {
 			return errors.New("source_revision_changed")
 		}
+		// "synced" is a computed view; the persisted first-create state is
+		// "indexed". Recheck the real receipt and Wiki completion in the
+		// handoff transaction instead of expecting the display status in SQL.
+		transactionService := *s
+		transactionService.db = tx
+		transactionRecovery := *s.recovery
+		transactionRecovery.service = &transactionService
+		verified := []types.FeishuPersonalImport{*current}
+		if e := transactionRecovery.firstCreateStatuses(tx.Statement.Context, verified); e != nil {
+			return e
+		}
+		if verified[0].IndexStatus != "verified" || verified[0].Status != "synced" {
+			return errors.New("indexed_import_required")
+		}
 		change := tx.Model(&types.Knowledge{}).Where("id = ? AND file_hash = ? AND metadata = ?", k.ID, k.FileHash, k.Metadata).Update("metadata", types.JSON(updated))
 		if change.Error != nil {
 			return change.Error
