@@ -27,8 +27,8 @@ func v2PostgresFixture(t *testing.T) *personalRecoveryFixture {
 	// This admission fixture has no parser/index worker. Supply the deployed
 	// vector column type for read-only progress counts; native tests exercise
 	// the complete embedding schema, BM25 and publication receipts.
-	require.NoError(t, f.db.Exec("CREATE EXTENSION IF NOT EXISTS vector").Error)
-	require.NoError(t, f.db.Exec("CREATE TABLE embeddings(knowledge_id varchar(64),embedding halfvec)").Error)
+	require.NoError(t, f.db.Exec("CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public").Error)
+	require.NoError(t, f.db.Exec("CREATE TABLE embeddings(knowledge_id varchar(64),embedding public.halfvec)").Error)
 	ddl, err := os.ReadFile("../../../migrations/versioned/003039_feishu_access_v2.up.sql")
 	require.NoError(t, err)
 	require.NoError(t, f.db.Exec(string(ddl)).Error)
