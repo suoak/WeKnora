@@ -133,7 +133,7 @@ jobs:
           FEISHU_SYNC_SAFETY_ENABLED: "false"
         run: |
           set -o pipefail
-          go test -json -race -tags sqlite_fts5 ./internal/infrastructure/docparser ./internal/application/repository ./internal/application/service ./internal/application/service/file ./internal/models/api ./internal/feishusafety -run 'CandidateImages|CandidateModel|LegacyAsset|TestFeishuLegacyRealParserEmbeddingPostgres$' -count=1 -timeout=10m | tee evidence/p2-image-assets.jsonl
+          go test -json -race -tags sqlite_fts5 ./internal/infrastructure/docparser ./internal/application/repository ./internal/application/service ./internal/application/service/file ./internal/models/api ./internal/models/vlm ./internal/feishusafety -run 'CandidateImages|CandidateModel|LegacyAsset|FeishuVLM|TestFeishuLegacyRealParserEmbeddingPostgres$' -count=1 -timeout=10m | tee evidence/p2-image-assets.jsonl
       - name: One combined race pass
         env:
           FEISHU_SYNC_SAFETY_ENABLED: "false"
