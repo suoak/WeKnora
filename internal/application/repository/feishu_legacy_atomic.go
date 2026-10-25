@@ -153,6 +153,31 @@ func (s *FeishuLegacyStore) CheckOwner(
 // The row lock is retained through the actual public index write, not released
 // after a preflight check. Database triggers protect old unmodified workers too.
 func (s *FeishuLegacyStore) execution(tx *gorm.DB, ctx context.Context, ds *types.DataSource) error {
+	if err := s.executionFence(tx, ctx, ds); err != nil {
+		return err
+	}
+	var config types.DataSourceConfig
+	if len(ds.Config) > 0 && json.Unmarshal(ds.Config, &config) != nil {
+		return legacyFence("source_configuration_invalid")
+	}
+	ref, err := types.ParseFeishuSourceReference(&config)
+	if err != nil {
+		return err
+	}
+	if ref != nil {
+		guard, ok := types.FeishuSourceGuardFromContext(ctx)
+		if !ok {
+			return legacyFence("credential_reference_unvalidated")
+		}
+		return guard(tx)
+	}
+	return nil
+}
+
+// Restrictive operations retain the same configuration, generation and claim
+// fence, while remaining possible after the remote credential is withdrawn.
+// Restoring access and publishing still require execution's credential guard.
+func (s *FeishuLegacyStore) executionFence(tx *gorm.DB, ctx context.Context, ds *types.DataSource) error {
 	e, ok := types.SyncExecutionFromContext(ctx)
 	if !ok || e.DataSourceID != ds.ID || e.TenantID != ds.TenantID || tx.Dialector.Name() != "postgres" {
 		return legacyFence("execution_context_invalid")
@@ -184,25 +209,6 @@ func (s *FeishuLegacyStore) execution(tx *gorm.DB, ctx context.Context, ds *type
 	}
 	if err != nil {
 		return err
-	}
-	var config types.DataSourceConfig
-	if len(current.Config) > 0 {
-		if json.Unmarshal(current.Config, &config) != nil {
-			return legacyFence("source_configuration_invalid")
-		}
-	}
-	ref, parseErr := types.ParseFeishuSourceReference(&config)
-	if parseErr != nil {
-		return parseErr
-	}
-	if ref != nil {
-		guard, ok := types.FeishuSourceGuardFromContext(ctx)
-		if !ok {
-			return legacyFence("credential_reference_unvalidated")
-		}
-		if err := guard(tx); err != nil {
-			return err
-		}
 	}
 	return err
 }

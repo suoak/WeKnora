@@ -1,7 +1,7 @@
 import { get, post, put, del } from '@/utils/request'
 export type FeishuAuthMode = 'user_oauth' | 'application_grant'
 export type FeishuCapabilities = { application_enabled: boolean; personal_enabled: boolean }
-export type FeishuStatus = { auth_mode?: FeishuAuthMode; v2?: boolean; capabilities?: FeishuCapabilities; configured: boolean; available: boolean; connected: boolean; supported_resource_types?: string[] }
+export type FeishuStatus = { auth_mode?: FeishuAuthMode; v2?: boolean; capabilities?: FeishuCapabilities; configured: boolean; available: boolean; connected: boolean; supported_resource_types?: string[]; test_http_callback?: boolean; test_http_callback_expires_at?: string }
 export type FeishuImport = { id: string; url: string; resource_type: string; knowledge_id: string; status: string; coverage: string; index_status?: string; wiki_status?: string; error_category?: string; data_source_id?: string; source_status?: string }
 export const feishuStatus = () => get<FeishuStatus>('/api/v1/me/feishu')
 export const authorizeFeishu = () => post<{ authorization_url: string }>('/api/v1/me/feishu/authorize')

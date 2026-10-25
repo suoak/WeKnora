@@ -856,6 +856,11 @@ func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.
 
 	ctx, err = s.bindFeishuSource(ctx, ds)
 	if err != nil {
+		if legacyFetchNeedsHold(err) {
+			if restrictionErr := s.legacySourceUncertain(ctx, ds, true); restrictionErr != nil {
+				err = errors.Join(err, restrictionErr)
+			}
+		}
 		return s.failSyncAttempt(ctx, ds, syncLog, err, "Feishu credential reference unavailable")
 	}
 	kb, kbErr := s.kbService.GetKnowledgeBaseByID(ctx, ds.KnowledgeBaseID)

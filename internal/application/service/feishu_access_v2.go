@@ -34,6 +34,9 @@ func (c *FeishuAppConfig) modeEnabled(mode string) bool {
 	if c == nil || !c.Enabled || mode != types.FeishuUserOAuth && mode != types.FeishuApplicationGrant {
 		return false
 	}
+	if mode == types.FeishuUserOAuth && feishuNonLoopbackHTTP(c.RedirectURI) && !feishuTestHTTPCallbackAllowed(c) {
+		return false
+	}
 	if c.Capabilities == nil {
 		return types.FeishuAuthMode(c.AuthMode) == mode
 	}

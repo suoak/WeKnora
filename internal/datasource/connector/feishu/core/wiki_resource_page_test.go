@@ -84,7 +84,8 @@ func TestWikiResourcePageShortcutIsExplicitBoundedAndIdentityBound(t *testing.T)
 				case "/open-apis/wiki/v2/spaces/200/nodes":
 					require.Equal(t, "origin", r.URL.Query().Get("parent_node_token"))
 					require.Equal(t, "2", r.URL.Query().Get("page_size"))
-					_, _ = fmt.Fprint(w, `{"code":0,"data":{"items":[{"node_token":"child","title":"Child","obj_type":"docx"}]}}`)
+					_, _ = fmt.Fprint(w,
+						`{"code":0,"data":{"items":[{"node_token":"child","title":"Child","obj_type":"docx"}]}}`)
 				default:
 					t.Errorf("unexpected endpoint: %s", r.URL.Path)
 					w.WriteHeader(500)
@@ -92,7 +93,9 @@ func TestWikiResourcePageShortcutIsExplicitBoundedAndIdentityBound(t *testing.T)
 			}))
 			defer server.Close()
 			client := NewClient(&Config{AppID: "app", AppSecret: "no-fallback", BaseURL: server.URL})
-			ctx := WithUserIdentity(context.Background(), func(context.Context) (string, error) { return "user-only", nil })
+			ctx := WithUserIdentity(context.Background(), func(context.Context) (string, error) {
+				return "user-only", nil
+			})
 			root, err := client.ReadResourcePage(ctx, "wiki", "", "100", "", 2)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, calls.Load(), "listing a page must not eagerly expand shortcuts")

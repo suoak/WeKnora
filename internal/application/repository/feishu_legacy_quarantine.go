@@ -18,7 +18,11 @@ import (
 // remain authoritative even then. Ordinary datasource edits cannot write it.
 func (s *FeishuLegacyStore) SetSourceUncertain(ctx context.Context, ds *types.DataSource, uncertain bool) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := s.execution(tx, ctx, ds); err != nil {
+		check := s.execution
+		if uncertain {
+			check = s.executionFence
+		}
+		if err := check(tx, ctx, ds); err != nil {
 			return err
 		}
 		state := "hold"

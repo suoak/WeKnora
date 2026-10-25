@@ -148,7 +148,9 @@ func validateFeishuApp(cfg *FeishuAppConfig) error {
 	}
 	if u.Scheme != "https" &&
 		(u.Scheme != "http" || u.Hostname() != "localhost" && u.Hostname() != "127.0.0.1") {
-		return errors.New("callback requires HTTPS (HTTP allowed only on loopback)")
+		if !feishuTestHTTPCallbackAllowed(cfg) {
+			return errors.New("callback requires HTTPS (HTTP allowed only on loopback or an isolated test allowlist)")
+		}
 	}
 	if !strings.HasPrefix(cfg.AppID, "cli_") || len(cfg.AppID) > 128 || cfg.Secret == "" ||
 		len(cfg.Secret) > 1024 {
@@ -319,6 +321,10 @@ func (s *FeishuPersonalService) Status(ctx context.Context) map[string]any {
 		}
 		result["available"] = personal || application
 		result["v2"] = true
+		result["test_http_callback"] = feishuTestHTTPCallbackAllowed(cfg)
+		if feishuTestHTTPCallbackAllowed(cfg) {
+			result["test_http_callback_expires_at"] = os.Getenv("FEISHU_TEST_HTTP_CALLBACK_EXPIRES_AT")
+		}
 		if user, ok := types.UserIDFromContext(ctx); ok && personal {
 			var c types.FeishuConnection
 			result["connected"] = s.db.WithContext(ctx).Where("user_id = ? AND app_id = ?", user, cfg.AppID).
