@@ -85,6 +85,11 @@ func TestFeishuV2PostgresCollectionPageAdmissionAndRestart(t *testing.T) {
 	require.Equal(t, "paused", duplicate.State)
 	require.NoError(t, f.s.ReconcileCollections(context.Background()))
 	require.EqualValues(t, 2, calls.Load())
+	require.NoError(t, f.s.CollectionAction(f.ctx, "kb", row.ID, "resume"))
+	require.NoError(t, f.s.ReconcileCollections(context.Background()))
+	require.NoError(t, f.db.Where("id = ?", row.ID).First(&stored).Error)
+	require.Equal(t, int64(2), stored.Cycle, "an explicit resume starts the next observation cycle")
+	require.Equal(t, 1, stored.Pages)
 }
 
 func TestFeishuV2PostgresCollectionRollbackAndPauseFence(t *testing.T) {
@@ -238,6 +243,7 @@ func TestFeishuV2PostgresDiscoveryNeverReentersManagedFirstCreate(t *testing.T) 
 	// Even an old/late admission bypassing the service fast path is fenced.
 	var persisted types.FeishuPersonalImport
 	require.NoError(t, f.db.Where("id = ?", m.ID).First(&persisted).Error)
+	require.Equal(t, "1", persisted.SourceModified, "discovery cannot acknowledge a newer indexed revision")
 	_, _, attempt, err := f.p.repo.Load(f.ctx, m.AttemptID)
 	require.NoError(t, err)
 	_, _, err = f.p.repo.Prepare(f.ctx, &persisted, attempt)

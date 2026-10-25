@@ -19,10 +19,13 @@ import (
 	"github.com/Tencent/WeKnora/internal/config"
 	"github.com/Tencent/WeKnora/internal/database"
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
+	"github.com/Tencent/WeKnora/internal/models/embedding"
 	"github.com/Tencent/WeKnora/internal/testutil/feishulegacy"
 	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/Tencent/WeKnora/internal/utils"
 	"github.com/google/uuid"
+	"github.com/hibiken/asynq"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -31,6 +34,25 @@ import (
 // Synthetic Feishu and model responses, real identity fences, parser, database,
 // vectors and publisher. This is independent of the trusted-receipt handoff test.
 func TestFeishuV2NativeReferenceUpdatesPreservePublishedVersion(t *testing.T) {
+	runV2NativeReferencePipeline(t, false)
+}
+
+func TestFeishuV2NativeFirstCreateHandoffAndIncrementalPublication(t *testing.T) {
+	runV2NativeReferencePipeline(t, true)
+}
+
+type v2PipelineModel struct{ legacyLiveModel }
+
+func (s *v2PipelineModel) GetEmbeddingModel(ctx context.Context, id string) (embedding.Embedder, error) {
+	var model types.Model
+	if err := s.db.WithContext(ctx).Where("id = ?", id).First(&model).Error; err != nil {
+		return nil, err
+	}
+	return s.GetEmbeddingModelForTenant(ctx, id, model.TenantID)
+}
+
+func runV2NativeReferencePipeline(t *testing.T, firstCreate bool) {
+	t.Helper()
 	dsn := feishulegacy.PrivateDSN(t)
 	root, err := filepath.Abs("../../..")
 	require.NoError(t, err)
@@ -113,12 +135,15 @@ func TestFeishuV2NativeReferenceUpdatesPreservePublishedVersion(t *testing.T) {
 	kb := &types.KnowledgeBase{
 		ID: uuid.NewString(), TenantID: tenant.ID, CreatorID: user.ID, Name: "private-v2",
 		Type: "document", EmbeddingModelID: model.ID,
+		IndexingStrategy: types.IndexingStrategy{VectorEnabled: true, KeywordEnabled: true},
 	}
 	require.NoError(t, db.Create(kb).Error)
 	require.NoError(t, db.Exec("INSERT INTO feishu_private_kbs(kb_id,owner_id) VALUES(?,?)", kb.ID, user.ID).Error)
 	ks := &knowledgeService{
 		config: &config.Config{}, repo: repository.NewKnowledgeRepository(db),
-		kbService: &legacyLiveKB{db: db}, modelService: &legacyLiveModel{db: db}, tenantService: &legacyNoCloud{},
+		kbService: &legacyLiveKB{db: db}, modelService: &v2PipelineModel{legacyLiveModel{db: db}},
+		tenantService: &legacyNoCloud{}, tenantRepo: repository.NewTenantRepository(db),
+		chunkRepo: repository.NewChunkRepository(db), task: &dispatchQueue{}, graphEngine: parentChildGraphRepo{},
 		fileSvc: files.NewLocalFileService(t.TempDir(), ""),
 	}
 	s := NewFeishuPersonalService(db, repository.NewSystemSettingRepository(db), ks, ks.kbService, nil)
@@ -171,7 +196,42 @@ func TestFeishuV2NativeReferenceUpdatesPreservePublishedVersion(t *testing.T) {
 		ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID,
 		Name: "v2-native", Type: types.ConnectorTypeFeishu, Status: types.DataSourceStatusActive, Config: blob,
 	}
-	require.NoError(t, db.Create(ds).Error)
+	expectedKnowledgeID := ""
+	if firstCreate {
+		f := &personalRecoveryFixture{t: t, db: db, s: s, p: s.recovery, ks: ks, ctx: ctx}
+		m, e := s.ImportWithIdentity(ctx, kb.ID, link, types.FeishuUserOAuth)
+		require.NoError(t, e)
+		require.NoError(t, f.p.Process(ctx, f.payload(m.AttemptID)))
+		var k types.Knowledge
+		require.NoError(t, db.WithContext(ctx).Where("id = ?", m.LogicalKnowledgeID).First(&k).Error)
+		op, e := ks.repo.(interfaces.KnowledgeDispatchRepository).GetKnowledgeDispatch(ctx, tenant.ID, k.ID)
+		require.NoError(t, e)
+		var intent types.KnowledgeDispatch
+		require.NoError(t, json.Unmarshal(op.Payload, &intent))
+		payload := intent.Task
+		no := false
+		require.NoError(t, k.SetProcessOverrides(&types.KnowledgeProcessOverrides{SummaryEnabled: &no}))
+		require.NoError(t, ks.repo.UpdateKnowledge(ctx, &k))
+		body, e := json.Marshal(payload)
+		require.NoError(t, e)
+		require.NoError(t, ks.ProcessDocument(ctx, asynq.NewTask(types.TypeDocumentProcess, body)))
+		post := NewKnowledgePostProcessService(ks.repo, ks.kbService, nil, ks.chunkRepo, ks.task,
+			repository.NewTaskPendingOpsRepository(db), nil, nil)
+		body, e = json.Marshal(types.KnowledgePostProcessPayload{
+			TenantID: tenant.ID, KnowledgeBaseID: kb.ID,
+			KnowledgeID: k.ID, Attempt: payload.Attempt,
+		})
+		require.NoError(t, e)
+		require.NoError(t, post.Handle(ctx, asynq.NewTask(types.TypeKnowledgePostProcess, body)))
+		s.dataSources = &v2HandoffSources{db: db}
+		ds, e = s.EnableImportSource(ctx, kb.ID, m.ID, "")
+		require.NoError(t, e)
+		require.Equal(t, types.DataSourceStatusActive, ds.Status)
+		expectedKnowledgeID = k.ID
+		revision.Add(60)
+	} else {
+		require.NoError(t, db.Create(ds).Error)
+	}
 	log := &types.SyncLog{
 		ID: uuid.NewString(), DataSourceID: ds.ID, TenantID: tenant.ID,
 		Status: types.SyncLogStatusRunning, ExecutionGeneration: 1, ExecutionClaimed: true,
@@ -200,10 +260,13 @@ func TestFeishuV2NativeReferenceUpdatesPreservePublishedVersion(t *testing.T) {
 	bound, item := cycle()
 	updated, err := ingest.ingestItem(bound, ds, item, nil)
 	require.NoError(t, err)
-	require.False(t, updated)
+	require.Equal(t, firstCreate, updated)
 	receipts := types.LegacyReceipts(bound)
 	require.Len(t, receipts, 1)
 	id := receipts[0].KnowledgeID
+	if expectedKnowledgeID != "" {
+		require.Equal(t, expectedKnowledgeID, id, "first-create, handoff and changed update retain one Knowledge ID")
+	}
 	require.Positive(t, receipts[0].Vectors)
 	require.Equal(t, receipts[0].Vectors, receipts[0].BM25Rows)
 	calls := modelCalls.Load()
