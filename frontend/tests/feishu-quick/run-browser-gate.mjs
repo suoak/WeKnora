@@ -67,6 +67,7 @@ try {
       progressReads++
       const done=progressReads>1
       body={batch:{id:'progress-batch',kb_id:'existing-team-kb',auth_mode:'user_oauth'},status:done?'succeeded':'running',items:[{id:'item',ordinal:0,status:done?'succeeded':'dispatched',stage:done?'completed':'embedding',last_progress_at:new Date().toISOString(),index_verified:done,knowledge_id:'verified-document',chunk_count:6,vector_count:done?6:0}],counts:{}}
+      if(page.url().includes('failure')) body={batch:{id:'progress-batch',kb_id:'existing-team-kb',auth_mode:'user_oauth'},status:'partial_failed',items:[{id:'item',ordinal:0,status:'blocked',error_category:'sharing_approval_required'}],counts:{blocked:1}}
     }
     if (path === '/api/v1/me/feishu/imports') {
       const payload = request.postDataJSON()
@@ -118,6 +119,8 @@ try {
   await page.getByText('第 1 篇：已验证成功入库',{exact:true}).waitFor()
   assert.equal(progressReads,2)
   await page.getByRole('link',{name:'在知识库中查看'}).waitFor()
+  await page.goto(origin + '/__feishu-gate?history&failure')
+  await page.getByText('缺少当前版本的共享发布批准，请在高级设置中处理。',{exact:true}).waitFor()
   assert.deepEqual(errors, [])
   await page.close()
   console.log(JSON.stringify({status:'PASS',qualification:'mocked_http_actual_vue_dialog_and_history',links:10,submissions:submissions.length,explicit_target_required:true,empty_targets_blocked:true,automatic_progress_reads:progressReads,preview_calls:0,viewports:[1280,390],real_oauth:'NOT_EXECUTED'}))

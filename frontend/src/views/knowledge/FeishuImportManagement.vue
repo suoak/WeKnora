@@ -51,8 +51,11 @@ function itemStatus(item:FeishuBatchItem) {
   return labels[item.stage || ''] || '任务已交接，等待后台状态'
 }
 function failure(code:string) {
-  if(code==='authorization_expired') return '飞书授权已失效，请重新连接账号。'
-  if(code==='export_permission_required') return '缺少文档读取或导出权限，请联系文档所有者。'
+  if(['authorization_expired','reconnect_required'].includes(code)) return '飞书授权已失效，请重新连接账号。'
+  if(['export_permission_required','source_permission_required'].includes(code)) return '缺少文档读取或导出权限，请联系文档所有者。'
+  if(code==='sharing_approval_required') return '缺少当前版本的共享发布批准，请在高级设置中处理。'
+  if(code==='kb_permission_required') return '目标知识库不可写，请申请访问权限。'
+  if(code==='api_scope_missing') return '飞书应用缺少所需权限，请联系管理员。'
   if(code==='parse_failed') return '文档解析失败，请查看详情。'
   if(code==='index_failed') return '文档索引失败，请查看详情。'
   const labels:Record<string,string>={storage_permission_denied:'文件暂存目录不可写，请联系管理员。',storage_unavailable:'文件暂存服务不可用，请联系管理员。',authorization_revalidation_failed:'授权检查未通过，请重新连接飞书并检查文档权限。',candidate_content_incomplete:'文档读取不完整，请检查导出权限。',source_version_changed:'文档版本已变化，需要重新检查。',temporary_failure:'服务暂时不可用，系统将有限重试。',retry_exhausted:'自动重试次数已用完，请查看详情。',parse_or_index_failed:'解析或索引失败，请查看详情。',candidate_requires_review:'文档处理未完成，请联系管理员查看详情。'}
