@@ -21,18 +21,32 @@ func (FeishuBatch) TableName() string { return "feishu_import_batches" }
 
 // FeishuBatchItem records one independently leased import admission.
 type FeishuBatchItem struct {
-	ID            string     `gorm:"primaryKey" json:"id"`
-	BatchID       string     `                  json:"batch_id"`
-	Ordinal       int        `                  json:"ordinal"`
-	URL           string     `                  json:"url"`
-	Canonical     string     `                  json:"-"`
-	Status        string     `                  json:"status"`
-	ErrorCategory string     `                  json:"error_category,omitempty"`
-	ImportID      string     `                  json:"import_id,omitempty"`
-	RetryCount    int        `                  json:"retry_count"`
-	LeaseOwner    string     `                  json:"-"`
-	LeaseUntil    *time.Time `                  json:"-"`
-	UpdatedAt     time.Time  `                  json:"updated_at"`
+	ID                string     `gorm:"primaryKey" json:"id"`
+	BatchID           string     `                  json:"batch_id"`
+	Ordinal           int        `                  json:"ordinal"`
+	URL               string     `                  json:"url"`
+	Canonical         string     `                  json:"-"`
+	Status            string     `                  json:"status"`
+	ErrorCategory     string     `                  json:"error_category,omitempty"`
+	ImportID          string     `                  json:"import_id,omitempty"`
+	RetryCount        int        `                  json:"retry_count"`
+	LeaseOwner        string     `                  json:"-"`
+	LeaseUntil        *time.Time `                  json:"-"`
+	UpdatedAt         time.Time  `                  json:"updated_at"`
+	Stage             string     `gorm:"-"          json:"stage"`
+	LastProgressAt    *time.Time `gorm:"-"          json:"last_progress_at,omitempty"`
+	LastActivityAt    *time.Time `gorm:"-"          json:"last_activity_at,omitempty"`
+	RetryAfter        *time.Time `gorm:"-"          json:"retry_after,omitempty"`
+	AttemptRetryCount int        `gorm:"-"          json:"attempt_retry_count"`
+	KnowledgeID       string     `gorm:"-"          json:"knowledge_id,omitempty"`
+	ParseStatus       string     `gorm:"-"          json:"parse_status,omitempty"`
+	ChunkCount        int64      `gorm:"-"          json:"chunk_count"`
+	VectorCount       int64      `gorm:"-"          json:"vector_count"`
+	IndexVerified     bool       `gorm:"-"          json:"index_verified"`
+	WikiStatus        string     `gorm:"-"          json:"wiki_status,omitempty"`
+	LeaseActive       bool       `gorm:"-"          json:"lease_active"`
+	QueueActive       bool       `gorm:"-"          json:"queue_active"`
+	Stalled           bool       `gorm:"-"          json:"stalled"`
 }
 
 // TableName returns the batch item control table.

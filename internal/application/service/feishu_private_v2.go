@@ -12,6 +12,59 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
+// ErrFeishuTargetRequired rejects implicit destination creation or substitution.
+var ErrFeishuTargetRequired = errors.New("feishu_target_knowledge_base_required")
+
+// FeishuImportTarget exposes only destinations with a fresh editor decision.
+type FeishuImportTarget struct {
+	ID                      string `json:"id"`
+	Name                    string `json:"name"`
+	RequiresSharingApproval bool   `json:"requires_sharing_approval"`
+}
+
+// ImportTargets lists owned and organization-shared existing writable KBs.
+func (s *FeishuPersonalService) ImportTargets(ctx context.Context) ([]FeishuImportTarget, error) {
+	caller := types.CallerFromContext(ctx)
+	if !caller.Role.HasPermission(types.TenantRoleContributor) {
+		return []FeishuImportTarget{}, nil
+	}
+	kbs, err := s.kbs.ListKnowledgeBases(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if s.recovery == nil {
+		return nil, ErrFeishuStagingRequired
+	}
+	if s.recovery.shares != nil {
+		shared, e := s.recovery.shares.ListSharedKnowledgeBases(ctx, caller.TenantID, caller.Role)
+		if e != nil {
+			return nil, e
+		}
+		for _, row := range shared {
+			if row != nil && row.KnowledgeBase != nil {
+				kbs = append(kbs, row.KnowledgeBase)
+			}
+		}
+	}
+	result := []FeishuImportTarget{}
+	seen := map[string]bool{}
+	for _, kb := range kbs {
+		if kb == nil || seen[kb.ID] || kb.Type == types.KnowledgeBaseTypeFAQ || kb.IsTemporary {
+			continue
+		}
+		if _, e := access.ResolveKB(ctx, access.KBRequest{Caller: caller}, kb, types.OrgRoleEditor,
+			s.recovery.shares, nil); e != nil {
+			continue
+		}
+		seen[kb.ID] = true
+		result = append(
+			result,
+			FeishuImportTarget{ID: kb.ID, Name: kb.Name, RequiresSharingApproval: kb.PrivateOwnerID != caller.UserID},
+		)
+	}
+	return result, nil
+}
+
 // CreatePrivateKnowledgeBase creates a new KB with an atomic privacy marker.
 func (s *FeishuPersonalService) CreatePrivateKnowledgeBase(
 	ctx context.Context,
@@ -116,6 +169,9 @@ func (s *FeishuPersonalService) QuickImport(
 	kb, key string,
 	links []string,
 ) (*FeishuBatchView, error) {
+	if strings.TrimSpace(kb) == "" {
+		return nil, ErrFeishuTargetRequired
+	}
 	if len(links) < 1 || len(links) > 100 || len(key) < 1 || len(key) > 128 {
 		return nil, errors.New("invalid_batch_limits")
 	}
@@ -125,13 +181,6 @@ func (s *FeishuPersonalService) QuickImport(
 	_, _, ref, err := s.ResolveCredentialReference(ctx, types.FeishuUserOAuth, "")
 	if err != nil {
 		return nil, err
-	}
-	if kb == "" {
-		base, e := s.EnsurePrivateKnowledgeBase(ctx)
-		if e != nil {
-			return nil, e
-		}
-		kb = base.ID
 	}
 	base, err := s.kbs.GetKnowledgeBaseByID(ctx, kb)
 	if err != nil {

@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -187,6 +188,16 @@ func (h *FeishuPersonalHandler) Collaborate(c *gin.Context) {
 	c.JSON(201, row)
 }
 
+// ImportTargets lists existing writable destinations without creating a KB.
+func (h *FeishuPersonalHandler) ImportTargets(c *gin.Context) {
+	rows, err := h.svc.ImportTargets(c.Request.Context())
+	if err != nil {
+		feishuFailureResponse(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, rows)
+}
+
 // QuickImport persists a personal batch without a preview token or remote read.
 func (h *FeishuPersonalHandler) QuickImport(c *gin.Context) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 256<<10)
@@ -196,6 +207,10 @@ func (h *FeishuPersonalHandler) QuickImport(c *gin.Context) {
 	}
 	if c.ShouldBindJSON(&in) != nil {
 		c.JSON(400, gin.H{"error": "invalid_batch"})
+		return
+	}
+	if strings.TrimSpace(in.KBID) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "feishu_target_knowledge_base_required", "message": "请选择目标知识库"})
 		return
 	}
 	row, err := h.svc.QuickImport(c.Request.Context(), in.KBID, c.GetHeader("Idempotency-Key"), in.Links)

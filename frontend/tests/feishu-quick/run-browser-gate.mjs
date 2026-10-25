@@ -22,9 +22,11 @@ import TDesign from 'tdesign-vue-next';
 import 'tdesign-vue-next/es/style/index.css';
 import {createRouter,createMemoryHistory} from 'vue-router';
 import Dialog from '/src/views/knowledge/components/FeishuImportDialog.vue';
+import Management from '/src/views/knowledge/FeishuImportManagement.vue';
 import i18n from '/src/i18n/index.ts';
 const router=createRouter({history:createMemoryHistory(),routes:[{path:'/',component:{render:()=>null}}]});
-const app=createApp({setup(){const visible=ref(false);nextTick(()=>visible.value=true);return()=>h(Dialog,{visible:visible.value,'onUpdate:visible':value=>visible.value=value,kbId:'existing-team-kb'})}});
+const params=new URLSearchParams(location.search);
+const app=createApp({setup(){const visible=ref(false);nextTick(()=>visible.value=true);return()=>params.has('history')?h(Management):h(Dialog,{visible:visible.value,'onUpdate:visible':value=>visible.value=value,kbId:params.has('choose')?'':'existing-team-kb'})}});
 app.use(router);app.use(TDesign);app.use(i18n);app.mount('#app');`
 const server = await createServer({
   root, configFile: false, plugins: [vue(), {
@@ -51,6 +53,7 @@ try {
   const page = await browser.newPage()
   page.setDefaultTimeout(20000)
   const errors = [], submissions = [], requests = []
+  let targets = [{id:'existing-team-kb',name:'Existing target',requires_sharing_approval:true}], progressReads=0
   page.on('pageerror', error => { errors.push(error.message); console.error('Browser:',error.message) })
   await page.route('**/api/v1/**', async route => {
     const request = route.request(), path = new URL(request.url()).pathname
@@ -58,6 +61,13 @@ try {
     let body = []
     if (path === '/api/v1/me/feishu') body = { v2:true,available:true,configured:true,connected:true,test_http_callback:true }
     if (path === '/api/v1/me/feishu/connections') body = [{kind:'user_oauth',connected:true,id:'synthetic-connection'}]
+    if (path === '/api/v1/me/feishu/import-targets') body = targets
+    if (path === '/api/v1/me/feishu/batches') body = [{id:'progress-batch',kb_id:'existing-team-kb',created_at:new Date().toISOString()}]
+    if (path === '/api/v1/feishu/batches/progress-batch') {
+      progressReads++
+      const done=progressReads>1
+      body={batch:{id:'progress-batch',kb_id:'existing-team-kb',auth_mode:'user_oauth'},status:done?'succeeded':'running',items:[{id:'item',ordinal:0,status:done?'succeeded':'dispatched',stage:done?'completed':'embedding',last_progress_at:new Date().toISOString(),index_verified:done,knowledge_id:'verified-document',chunk_count:6,vector_count:done?6:0}],counts:{}}
+    }
     if (path === '/api/v1/me/feishu/imports') {
       const payload = request.postDataJSON()
       submissions.push({ payload, key:request.headers()['idempotency-key'] })
@@ -70,7 +80,7 @@ try {
   await page.getByText('已连接飞书账号', {exact:true}).waitFor()
   assert.equal(await page.getByText('权限预检', {exact:true}).count(), 0)
   assert.equal(await page.getByText('创建私人知识库', {exact:true}).count(), 0)
-  assert.equal(await page.locator('.t-select').count(), 0)
+  assert.equal(await page.locator('.t-select').count(), 1)
   const links = Array.from({length:10}, (_,i)=>`https://team.feishu.cn/${['docx','sheets','base','wiki'][i%4]}/token${i}`)
   await page.locator('textarea').fill([...links, links[0]+'?from=share','invalid',''].join('\n'))
   await page.getByText('1 条链接格式有误，将跳过；其余链接仍可导入。').waitFor()
@@ -78,7 +88,7 @@ try {
   await page.getByText('已添加 10 篇文档到导入队列，系统将在后台自动处理。可以关闭页面。', {exact:true}).waitFor()
   assert.equal(submissions.length, 1)
   assert.equal(submissions[0].payload.links.length, 10)
-  assert.equal(submissions[0].payload.kb_id, undefined)
+  assert.equal(submissions[0].payload.kb_id, 'existing-team-kb')
   assert.match(submissions[0].key, /^[a-f0-9]{32}$/)
   assert.equal(requests.some(path => path.includes('preview')), false)
   for (const width of [1280,390]) {
@@ -89,6 +99,25 @@ try {
     assert.equal(overflowing, false)
     if (output) await page.screenshot({path:resolve(output,`quick-import-${width}.png`),fullPage:true})
   }
+  await page.goto(origin + '/__feishu-gate?choose')
+  await page.locator('textarea').fill(links[0])
+  await page.getByText('已连接飞书账号', {exact:true}).waitFor()
+  assert.equal(await page.getByRole('button',{name:/一键导入/}).isDisabled(),true)
+  await page.locator('.quick-import .t-select').click()
+  await page.locator('.t-select-option').filter({hasText:'Existing target'}).click()
+  await page.getByRole('button',{name:/一键导入/}).click()
+  await page.getByText('已添加 1 篇文档到导入队列，系统将在后台自动处理。可以关闭页面。',{exact:true}).waitFor()
+  assert.equal(submissions[1].payload.kb_id,'existing-team-kb')
+  targets=[]
+  await page.goto(origin + '/__feishu-gate?choose')
+  await page.getByText(/暂无可写知识库/).waitFor()
+  assert.equal(await page.getByRole('button',{name:/一键导入/}).isDisabled(),true)
+  assert.equal(requests.some(path=>path.includes('private-knowledge-base')),false)
+  await page.goto(origin + '/__feishu-gate?history')
+  await page.getByText('第 1 篇：正在建立索引',{exact:true}).waitFor()
+  await page.getByText('第 1 篇：已验证成功入库',{exact:true}).waitFor()
+  assert.equal(progressReads,2)
+  await page.getByRole('link',{name:'在知识库中查看'}).waitFor()
   assert.deepEqual(errors, [])
   await page.close()
   console.log(JSON.stringify({status:'PASS',qualification:'mocked_http_actual_vue_dialog',links:10,submissions:1,preview_calls:0,viewports:[1280,390],real_oauth:'NOT_EXECUTED'}))

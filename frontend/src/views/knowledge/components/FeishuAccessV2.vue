@@ -2,14 +2,19 @@
   <section class="quick-import">
     <p v-if="status.test_http_callback" class="warning" role="status">隔离测试站使用 HTTP，授权与会话可能被窃听。请仅使用测试资料。</p>
     <p v-if="connected" class="account">已连接飞书账号</p>
-    <t-button v-else :disabled="busy" @click="emit('connect', linksText)">连接飞书账号</t-button>
+    <t-button v-else :disabled="busy" @click="connect">连接飞书账号</t-button>
+    <label for="feishu-target">保存到知识库</label>
+    <t-select id="feishu-target" v-model="targetID" :options="targets.map(row => ({label:row.name,value:row.id}))" :disabled="busy || !!kbId" placeholder="请选择已有知识库" />
+    <p v-if="targetsLoaded && !targets.length" class="warning">暂无可写知识库，请先创建或申请访问知识库。<router-link to="/platform/knowledge-bases">前往知识库</router-link></p>
+    <p v-if="kbId && targetsLoaded && !target" class="warning">当前知识库不可写，请申请访问权限。</p>
+    <p v-if="target?.requires_sharing_approval" class="warning">此目标需要文档共享发布批准；未获批准的文档将不会发布。</p>
     <label for="feishu-links">飞书文档链接</label>
     <t-textarea id="feishu-links" v-model="linksText" :disabled="busy" :autosize="{ minRows: 5, maxRows: 8 }" placeholder="每行一个链接，支持 Wiki、Docx、Sheet 和 Bitable，最多 100 篇" />
-    <p class="hint">保存到「我的飞书知识」，仅自己可见。首次导入时自动创建。</p>
+    <p class="hint">仅导入你提交的文档，系统不会自动创建或切换知识库。</p>
     <p v-if="input.invalid.length" class="warning">{{ input.invalid.length }} 条链接格式有误，将跳过；其余链接仍可导入。</p>
     <details v-if="input.invalid.length"><summary>查看错误链接</summary><ul><li v-for="url in input.invalid" :key="url">{{ url }}</li></ul></details>
     <div class="actions">
-      <t-button :loading="busy" :disabled="!connected || !input.valid.length || input.valid.length > 100 || accepted" @click="submit">一键导入<span v-if="input.valid.length">（{{ input.valid.length }}）</span></t-button>
+      <t-button :loading="busy" :disabled="!connected || !target || !input.valid.length || input.valid.length > 100 || accepted" @click="submit">一键导入<span v-if="input.valid.length">（{{ input.valid.length }}）</span></t-button>
       <t-button variant="text" :disabled="!connected || busy" @click="showBrowser = !showBrowser; showBrowser && browse()">从飞书选择文档</t-button>
     </div>
     <section v-if="showBrowser" class="browser" aria-label="从飞书选择文档">
@@ -29,32 +34,41 @@
 </template>
 <script setup lang="ts">
 import { computed, ref, watch, onUnmounted } from 'vue'
-import { feishuConnections, quickImportFeishu, feishuResources, type FeishuStatus, type FeishuResource } from '@/api/feishuPersonal'
+import { feishuConnections, feishuImportTargets, quickImportFeishu, feishuResources, type FeishuStatus, type FeishuResource, type FeishuImportTarget } from '@/api/feishuPersonal'
 import { normalizeFeishuLinks } from '@/utils/feishuQuickImport'
 import { feishuBatchKey } from '@/utils/feishuBatchKey'
 const props = defineProps<{ kbId: string; status: FeishuStatus; initialUrl?: string }>()
 const emit = defineEmits<{ connect: [links: string]; imported: [] }>()
 const linksText = ref(props.initialUrl || ''), connected = ref(props.status.connected), busy = ref(false), message = ref(''), accepted = ref(false)
 const input = computed(() => normalizeFeishuLinks(linksText.value))
+const targets = ref<FeishuImportTarget[]>([]), targetsLoaded = ref(false), targetID = ref(props.kbId)
+try { if (!props.kbId) targetID.value = sessionStorage.getItem('feishu-import-target-draft') || '' } catch { /* Optional draft only. */ }
+const target = computed(() => targets.value.find(row => row.id === targetID.value))
+feishuImportTargets().then(rows => { if (mounted) { targets.value = rows; targetsLoaded.value = true } }).catch(() => { if (mounted) message.value = '无法读取可写知识库，请重新打开导入窗口。' })
 const recent = ref<{id:string;kb:string}>(), showBrowser = ref(false), kind = ref('drive')
 const entries = ref<FeishuResource[]>([]), cursor = ref(''), location = ref({parent:'',space:''}), trail = ref<{parent:string;space:string}[]>([])
 let mounted = true, epoch = 0, key = ''
 onUnmounted(() => { mounted = false; epoch++ })
 watch(linksText, () => { key = ''; accepted.value = false; message.value = '' })
+watch(targetID, () => { key = ''; accepted.value = false })
 watch(() => props.initialUrl, value => { linksText.value = value || '' })
 watch(() => props.status, async () => { const version = ++epoch; try { const rows = await feishuConnections(); if (mounted && version === epoch) connected.value = rows.some(row => row.kind === 'user_oauth' && row.connected) } catch { if (mounted) message.value = '暂时无法读取连接状态，请稍后再试。' } }, {immediate:true,deep:true})
 async function submit() {
- if (busy.value || accepted.value || !input.value.valid.length || input.value.valid.length > 100) return
+ if (busy.value || accepted.value || !target.value || !input.value.valid.length || input.value.valid.length > 100) return
  busy.value = true; message.value = ''
  if (!key) key = feishuBatchKey()
  try {
-  const result = await quickImportFeishu(input.value.valid, key)
+  const result = await quickImportFeishu(input.value.valid, key, targetID.value)
   if (!mounted) return
   recent.value = {id:result.batch.id,kb:result.batch.kb_id}; accepted.value = true
   message.value = `已添加 ${result.items.length} 篇文档到导入队列，系统将在后台自动处理。可以关闭页面。`
   emit('imported')
  } catch { if (mounted) message.value = '提交暂未确认，请稍后再次点击；重复提交不会重复导入。若授权已失效，请重新连接飞书。' }
  finally { busy.value = false }
+}
+function connect() {
+ try { sessionStorage.setItem('feishu-import-target-draft',targetID.value) } catch { /* Optional draft only. */ }
+ emit('connect',linksText.value)
 }
 function selected(url: string) { return input.value.valid.includes(normalizeFeishuLinks(url).valid[0]) }
 function choose(url: string) { const normalized = normalizeFeishuLinks(url).valid[0]; if (!normalized) return; const found = new Set(input.value.valid); if (found.has(normalized)) found.delete(normalized); else found.add(normalized); linksText.value = [...found,...input.value.invalid].join('\n') }

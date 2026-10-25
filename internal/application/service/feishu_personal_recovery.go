@@ -534,6 +534,11 @@ func (p *PersonalRecovery) processPrivateManifest(
 		if _, authErr := p.authorize(cleanup, m, a); personalAuthorizationLost(authErr) ||
 			personalAuthorizationLost(finishErr) {
 			category := "authorization_revalidation_failed"
+			if errors.Is(finishErr, core.ErrAuth) || errors.Is(finishErr, ErrFeishuReconnect) {
+				category = "authorization_expired"
+			} else if errors.Is(finishErr, core.ErrPermission) {
+				category = "export_permission_required"
+			}
 			if errors.Is(finishErr, core.ErrApplicationTableMedia) {
 				category = "candidate_media_not_supported"
 			} else if errors.Is(
@@ -553,6 +558,12 @@ func (p *PersonalRecovery) processPrivateManifest(
 			owner,
 			0,
 			func(tx *gorm.DB, current *types.FeishuPersonalAttempt) error {
+				category, retryable := personalCandidateFailure(finishErr)
+				// A committed manifest can be adopted after an ambiguous commit;
+				// this does not repeat the external read.
+				if _, readErr := p.store.read(current); readErr == nil {
+					retryable = true
+				}
 				current.Status = "recovery"
 				current.RetryCount++
 				delay := time.Duration(1<<min(current.RetryCount, 8)) * time.Second
@@ -560,16 +571,48 @@ func (p *PersonalRecovery) processPrivateManifest(
 				current.RetryAfter = &next
 				current.LeaseUntil = nil
 				current.OwnerNonce = ""
-				current.LastErrorCategory = "candidate_fetch_or_commit_unconfirmed"
+				current.LastErrorCategory = category
+				if !retryable || current.RetryCount > 3 {
+					current.Status = "needs_attention"
+					current.RetryAfter = nil
+					if retryable {
+						current.LastErrorCategory = "retry_exhausted"
+					}
+					if err := tx.Model(&types.FeishuPersonalImport{}).Where("id = ?", current.ImportID).
+						Update("status", "needs_attention").Error; err != nil {
+						return err
+					}
+				}
 				return tx.Model(&types.TaskPendingOp{}).
 					Where("scope = ? AND scope_id = ?", types.KnowledgeDispatchScope, current.CandidateVersionID).
-					Update("op", "recovery").
+					Update("op", current.Status).
 					Error
 			},
 		)
 		return errors.Join(finishErr, persistErr)
 	}
 	return nil
+}
+
+func personalCandidateFailure(err error) (string, bool) {
+	if os.IsPermission(err) {
+		return "storage_permission_denied", false
+	}
+	var pathErr *os.PathError
+	if errors.As(err, &pathErr) {
+		return "storage_unavailable", false
+	}
+	if errors.Is(err, core.ErrRateLimited) || errors.Is(err, core.ErrTransient) ||
+		errors.Is(err, context.DeadlineExceeded) {
+		return "temporary_failure", true
+	}
+	if errors.Is(err, context.Canceled) {
+		return "worker_interrupted", true
+	}
+	if err != nil && err.Error() == "personal_resource_revision_changed" {
+		return "source_version_changed", false
+	}
+	return "candidate_requires_review", false
 }
 
 func (p *PersonalRecovery) fetchCandidate(

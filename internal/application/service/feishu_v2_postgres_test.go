@@ -317,7 +317,7 @@ func (s *v2QuickKB) CreateKnowledgeBase(ctx context.Context, kb *types.Knowledge
 	return kb, repository.NewKnowledgeBaseRepository(s.db).CreateKnowledgeBase(ctx, kb)
 }
 
-func TestFeishuV2PostgresQuickImportCreatesOneProvenPrivateKB(t *testing.T) {
+func TestFeishuV2PostgresQuickImportRequiresExplicitTarget(t *testing.T) {
 	f := v2PostgresFixture(t)
 	require.NoError(t, f.db.AutoMigrate(&types.KnowledgeBase{}))
 	f.s.kbs = &v2QuickKB{db: f.db}
@@ -333,14 +333,18 @@ func TestFeishuV2PostgresQuickImportCreatesOneProvenPrivateKB(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
-	require.NoError(t, errs[0])
-	require.NoError(t, errs[1])
-	require.Equal(t, results[0].Batch.ID, results[1].Batch.ID)
-	kbID := results[0].Batch.KBID
-	require.NotEqual(t, "kb", kbID)
+	require.ErrorIs(t, errs[0], ErrFeishuTargetRequired)
+	require.ErrorIs(t, errs[1], ErrFeishuTargetRequired)
+	require.Nil(t, results[0])
 	var count int64
 	require.NoError(t, f.db.Table("feishu_private_kbs").Where("owner_id = ?", "A").Count(&count).Error)
-	require.EqualValues(t, 1, count)
+	require.Zero(t, count)
+	kb, err := f.s.CreatePrivateKnowledgeBase(f.ctx, "explicit-private")
+	require.NoError(t, err)
+	results[0], err = f.s.QuickImport(f.ctx, kb.ID, "explicit-target", []string{"https://test.feishu.cn/file/real"})
+	require.NoError(t, err)
+	kbID := results[0].Batch.KBID
+	require.Equal(t, kb.ID, kbID)
 	owner, err := types.PrivateKBOwner(f.db, kbID)
 	require.NoError(t, err)
 	require.Equal(t, "A", owner)
@@ -353,4 +357,35 @@ func TestFeishuV2PostgresQuickImportCreatesOneProvenPrivateKB(t *testing.T) {
 	view, err := f.s.Batch(f.ctx, results[0].Batch.ID)
 	require.NoError(t, err)
 	require.Equal(t, "dispatched", view.Items[0].Status)
+}
+
+func TestFeishuV2PostgresBatchReportsActualFailureWithoutPollingProgress(t *testing.T) {
+	f := v2PostgresFixture(t)
+	_, _, ref, err := f.s.ResolveCredentialReference(f.ctx, types.FeishuUserOAuth, "")
+	require.NoError(t, err)
+	link := "https://test.feishu.cn/file/real"
+	_, err = f.s.ApproveSharing(f.ctx, "kb", ref.ConnectionID, link, "controlled test", true)
+	require.NoError(t, err)
+	view, err := f.s.QuickImport(f.ctx, "kb", "actual-progress", []string{link})
+	require.NoError(t, err)
+	require.Equal(t, "queued", view.Items[0].Stage)
+	require.NoError(t, f.s.ReconcileBatches(context.Background()))
+	view, err = f.s.Batch(f.ctx, view.Batch.ID)
+	require.NoError(t, err)
+	lastProgress := *view.Items[0].LastProgressAt
+	require.False(t, view.Items[0].IndexVerified)
+	require.Equal(t, "dispatched", view.Items[0].Status)
+	require.NoError(t, f.db.Model(&types.FeishuBatchItem{}).Where("id = ?", view.Items[0].ID).
+		Update("updated_at", time.Now().Add(time.Hour)).Error)
+	view, err = f.s.Batch(f.ctx, view.Batch.ID)
+	require.NoError(t, err)
+	require.True(t, lastProgress.Equal(*view.Items[0].LastProgressAt))
+	require.NoError(t, f.db.Model(&types.FeishuPersonalAttempt{}).Where("import_id = ?", view.Items[0].ImportID).
+		Updates(map[string]interface{}{"status": "needs_attention", "last_error_category": "storage_permission_denied"}).
+		Error)
+	view, err = f.s.Batch(f.ctx, view.Batch.ID)
+	require.NoError(t, err)
+	require.Equal(t, "failed", view.Items[0].Status)
+	require.Equal(t, "needs_attention", view.Items[0].Stage)
+	require.Equal(t, "storage_permission_denied", view.Items[0].ErrorCategory)
 }

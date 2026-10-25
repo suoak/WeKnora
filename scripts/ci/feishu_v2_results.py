@@ -4,6 +4,9 @@ import sys
 from pathlib import Path
 
 required = {
+    "TestFeishuV2PostgresQuickImportRequiresExplicitTarget",
+    "TestFeishuV2PostgresStorageFailureTerminatesOriginalAttempt",
+    "TestFeishuV2PostgresBatchReportsActualFailureWithoutPollingProgress",
 	"TestFeishuV2PostgresCollectionPageAdmissionAndRestart",
 	"TestFeishuV2PostgresCollectionRollbackAndPauseFence",
 	"TestFeishuV2PostgresCollectionDeniedChildPreservesHealthySiblings",

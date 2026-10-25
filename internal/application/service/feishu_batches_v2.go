@@ -234,6 +234,7 @@ func (s *FeishuPersonalService) Batch(ctx context.Context, id string) (*FeishuBa
 		}
 	}
 
+	queue := &batchQueueProgress{}
 	for i := range view.Items {
 		item := &view.Items[i]
 		if (item.Status == "dispatched" || item.Status == "duplicate") && item.ImportID != "" {
@@ -250,6 +251,14 @@ func (s *FeishuPersonalService) Batch(ctx context.Context, id string) (*FeishuBa
 					}
 				}
 			}
+		}
+		var current *types.FeishuPersonalImport
+		if m, ok := byImport[item.ImportID]; ok {
+			value := m
+			current = &value
+		}
+		if err := s.batchItemProgress(ctx, item, current, view.Batch.CreatedAt, queue); err != nil {
+			return nil, err
 		}
 		view.Counts[item.Status]++
 	}

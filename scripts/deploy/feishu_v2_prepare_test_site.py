@@ -117,9 +117,18 @@ health={'test':['CMD','curl','-fsS','http://127.0.0.1:8080/health'],
 common={'image':app,'env_file':['app.env'],'volumes':['files:/data/files','staging:/data/feishu-staging',
  './config.yaml:/app/config/config.yaml:ro'],'restart':'unless-stopped',
  'healthcheck':health,'mem_limit':'3g','cpus':2,'pids_limit':512,
- 'depends_on':{'postgres':{'condition':'service_healthy'},'redis':{'condition':'service_started'}},
+ 'depends_on':{'postgres':{'condition':'service_healthy'},'redis':{'condition':'service_started'},
+ 'staging-init':{'condition':'service_completed_successfully'}},
  'labels':{'knowhub.source-sha':SHA,'knowhub.environment':'isolated-test'}}
 services={
+ 'staging-init':{'image':app,'user':'0:0','network_mode':'none','read_only':True,
+  'cap_drop':['ALL'],'cap_add':['CHOWN','FOWNER'],'volumes':['staging:/staging'],
+  'entrypoint':['/bin/sh','-c'],
+  'command':['test ! -L /staging && '
+   'if test "$(stat -c %u:%g /staging)" = "0:0" && test -z "$(find /staging -mindepth 1 -print -quit)"; '
+   'then chown 1000:1000 /staging && chmod 0700 /staging; fi && '
+   'test "$(stat -c %u:%g:%a /staging)" = "1000:1000:700"'],
+  'restart':'no','labels':{'knowhub.source-sha':SHA,'knowhub.environment':'isolated-test'}},
  'postgres':{'image':pg,'env_file':['postgres.env'],'volumes':['postgres:/var/lib/postgresql/data'],
   'restart':'unless-stopped','mem_limit':'2g','cpus':2,
   'healthcheck':{'test':['CMD-SHELL','pg_isready -U postgres -d knowhub_feishu_v2_test'],
