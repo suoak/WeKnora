@@ -19,6 +19,7 @@ func (s *FeishuPersonalService) PrivateTaskMiddleware(next asynq.Handler) asynq.
 	return asynq.HandlerFunc(s.WrapPrivateTaskHandler(next.ProcessTask))
 }
 
+// WrapPrivateTaskHandler applies the same fresh private-owner checks to Lite workers.
 func (s *FeishuPersonalService) WrapPrivateTaskHandler(
 	next func(context.Context, *asynq.Task) error,
 ) func(context.Context, *asynq.Task) error {

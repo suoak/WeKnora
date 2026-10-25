@@ -34,6 +34,17 @@ func (s *FeishuPersonalService) ListBatches(ctx context.Context, kbID string, of
 	if offset < 0 || offset > 10000 {
 		return nil, errors.New("invalid_batch_history_offset")
 	}
+	if kbID == "" {
+		rows := []types.FeishuBatch{}
+		err := s.db.WithContext(ctx).
+			Where("owner_id = ? AND tenant_id = ?", user, types.CallerFromContext(ctx).TenantID).
+			Order("created_at DESC, id DESC").
+			Offset(offset).
+			Limit(20).
+			Find(&rows).
+			Error
+		return rows, err
+	}
 	kb, err := s.kbs.GetKnowledgeBaseByID(ctx, kbID)
 	if err != nil {
 		return nil, err
@@ -179,6 +190,15 @@ func (s *FeishuPersonalService) Batch(ctx context.Context, id string) (*FeishuBa
 	if err != nil {
 		return nil, err
 	}
+	if s.recovery == nil {
+		return nil, ErrFeishuStagingRequired
+	}
+	grant, err := access.ResolveKB(ctx, access.KBRequest{Caller: types.CallerFromContext(ctx)},
+		kb, types.OrgRoleEditor, s.recovery.shares, nil)
+	if err != nil {
+		return nil, err
+	}
+	ctx = grant.Context(ctx)
 	if err = access.RequireKBWrite(ctx, kb); err != nil {
 		return nil, err
 	}
@@ -216,7 +236,9 @@ func (s *FeishuPersonalService) Batch(ctx context.Context, id string) (*FeishuBa
 
 	for i := range view.Items {
 		item := &view.Items[i]
-		if item.Status == "dispatched" && item.ImportID != "" {
+		if (item.Status == "dispatched" || item.Status == "duplicate") && item.ImportID != "" {
+			// An alias is deduplicated admission, not completed ingestion.
+			item.Status = "dispatched"
 			for _, m := range byImport {
 				if m.ID == item.ImportID {
 					switch m.Status {

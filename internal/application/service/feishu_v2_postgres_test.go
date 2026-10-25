@@ -199,8 +199,7 @@ func TestFeishuV2PostgresBatchConcurrentIdempotencyAndAliasRecovery(t *testing.T
 	wg.Wait()
 	view, err := f.s.Batch(f.ctx, ids[0])
 	require.NoError(t, err)
-	require.Equal(t, 1, view.Counts["duplicate"])
-	require.Equal(t, 1, view.Counts["dispatched"])
+	require.Equal(t, 2, view.Counts["dispatched"], "aliases cannot claim completion before indexing")
 	var imports int64
 	require.NoError(t, f.db.Model(&types.FeishuPersonalImport{}).Count(&imports).Error)
 	require.EqualValues(t, 1, imports)
@@ -231,7 +230,10 @@ func TestFeishuV2PostgresDirectBatchIsolatesInvalidAndRestoresLease(t *testing.T
 	require.Equal(t, "invalid_feishu_url", view.Items[1].ErrorCategory)
 	// A crashed worker's durable claim expires; a replacement worker picks it up.
 	require.NoError(t, f.db.Model(&types.FeishuBatchItem{}).Where("id = ?", view.Items[0].ID).
-		Updates(map[string]any{"status": "processing", "lease_owner": "crashed-worker", "lease_until": time.Now().Add(-time.Minute)}).
+		Updates(map[string]any{
+			"status": "processing", "lease_owner": "crashed-worker",
+			"lease_until": time.Now().Add(-time.Minute),
+		}).
 		Error)
 	require.NoError(t, f.s.ReconcileBatches(context.Background()))
 	view, err = f.s.Batch(f.ctx, view.Batch.ID)

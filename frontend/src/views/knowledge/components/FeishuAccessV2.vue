@@ -24,7 +24,7 @@
     </section>
     <p v-if="message" role="status">{{ message }}</p>
     <router-link v-if="recent" :to="{path:'/platform/feishu/imports',query:{kb:recent.kb, batch:recent.id}}">查看最近导入任务</router-link>
-    <router-link v-else :to="{path:'/platform/feishu/imports',query:{kb:kbId}}">导入历史与设置</router-link>
+    <router-link v-else to="/platform/feishu/imports">导入历史与设置</router-link>
   </section>
 </template>
 <script setup lang="ts">

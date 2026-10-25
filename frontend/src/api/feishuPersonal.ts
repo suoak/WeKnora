@@ -28,6 +28,7 @@ export const createFeishuBatch = (kb: string, auth_mode: FeishuAuthMode, connect
 export const getFeishuBatch = (id: string) => get<FeishuBatch>(`/api/v1/feishu/batches/${encodeURIComponent(id)}`)
 export type FeishuBatchHistory = { id: string; kb_id: string; auth_mode: FeishuAuthMode; created_at: string }
 export const listFeishuBatches = (kb: string, offset = 0) => get<FeishuBatchHistory[]>(`/api/v1/knowledge-bases/${encodeURIComponent(kb)}/feishu/batches`, { params: { offset } })
+export const listMyFeishuBatches = (offset = 0) => get<FeishuBatchHistory[]>('/api/v1/me/feishu/batches', {params:{offset}})
 export const retryFeishuBatch = (id: string) => post(`/api/v1/feishu/batches/${encodeURIComponent(id)}/retry`)
 export type FeishuCollaboration = { id: string; item_id: string; action: string; contact: string; note: string; result: string; created_at: string }
 export const listFeishuCollaboration = (id: string) => get<FeishuCollaboration[]>(`/api/v1/feishu/batches/${encodeURIComponent(id)}/collaboration`)

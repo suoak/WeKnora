@@ -4,7 +4,7 @@
     <p><router-link to="/platform/knowledge-bases">返回知识库</router-link></p>
     <p>任务在后台持续执行。可以关闭页面，稍后再查看。</p>
     <p v-if="message" role="status">{{ message }}</p>
-    <template v-if="status && kb">
+    <template v-if="status">
       <div v-for="row in history" :key="row.id" class="history-row">
         <span>{{ new Date(row.created_at).toLocaleString() }}</span>
         <t-button variant="text" @click="showBatch(row.id)">查看任务</t-button>
@@ -16,15 +16,15 @@
         <p v-for="item in batch.items" :key="item.id">第 {{ item.ordinal + 1 }} 篇：{{ simpleStatus(item.status) }}</p>
         <t-button variant="text" @click="showBatch(batch.batch.id)">刷新状态</t-button>
       </section>
-      <details><summary>高级设置与安全详情</summary><FeishuAccessManagement :kb-id="kb" :status="status" @connect="connect" /></details>
+      <details v-if="kb"><summary>高级设置与安全详情</summary><FeishuAccessManagement :kb-id="kb" :status="status" @connect="connect" /></details>
     </template>
-    <p v-else-if="!kb">请从飞书导入入口打开对应历史。</p>
+    <p v-else>正在读取导入记录。</p>
   </main>
 </template>
 <script setup lang="ts">
 import {ref,onMounted,onUnmounted} from 'vue'
 import {useRoute} from 'vue-router'
-import {feishuStatus,authorizeFeishu,listFeishuBatches,getFeishuBatch,type FeishuStatus,type FeishuBatch,type FeishuBatchHistory} from '@/api/feishuPersonal'
+import {feishuStatus,authorizeFeishu,listFeishuBatches,listMyFeishuBatches,getFeishuBatch,type FeishuStatus,type FeishuBatch,type FeishuBatchHistory} from '@/api/feishuPersonal'
 import {FEISHU_PENDING} from '@/i18n/feishuPersonal'
 import FeishuAccessManagement from './components/FeishuAccessManagement.vue'
 const route=useRoute(), kb=typeof route.query.kb === 'string' ? route.query.kb : '', status=ref<FeishuStatus>()
@@ -40,16 +40,16 @@ function simpleStatus(state:string) {
 onMounted(async()=>{
   try {
     status.value=await feishuStatus()
-    if(kb) await loadHistory(false)
+    await loadHistory(false)
     if(typeof route.query.batch==='string') await showBatch(route.query.batch)
   } catch {message.value='暂时无法读取导入记录，请稍后刷新。'}
 })
 async function loadHistory(append:boolean) {
-  try {const rows=await listFeishuBatches(kb,append?history.value.length:0); if(!mounted)return; history.value=append?[...history.value,...rows]:rows; more.value=rows.length===20}
+  try {const offset=append?history.value.length:0; const rows=await (kb?listFeishuBatches(kb,offset):listMyFeishuBatches(offset)); if(!mounted)return; history.value=append?[...history.value,...rows]:rows; more.value=rows.length===20}
   catch {if(mounted)message.value='暂时无法读取导入记录，请稍后刷新。'}
 }
 async function showBatch(id:string) {
-  try {const row=await getFeishuBatch(id); if(mounted && row.batch.kb_id===kb)batch.value=row}
+  try {const row=await getFeishuBatch(id); if(mounted && (!kb || row.batch.kb_id===kb))batch.value=row}
   catch {if(mounted)message.value='暂时无法读取任务，请稍后刷新。'}
 }
 async function connect(links:string) { sessionStorage.setItem(FEISHU_PENDING,JSON.stringify({kbId:kb,url:links,path:location.pathname+location.search})); const result=await authorizeFeishu(), target=new URL(result.authorization_url); if(target.origin==='https://accounts.feishu.cn') location.assign(target.href) }
