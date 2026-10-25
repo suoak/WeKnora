@@ -15,7 +15,9 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/application/repository"
+	pgretrieve "github.com/Tencent/WeKnora/internal/application/repository/retriever/postgres"
 	files "github.com/Tencent/WeKnora/internal/application/service/file"
+	"github.com/Tencent/WeKnora/internal/application/service/retriever"
 	"github.com/Tencent/WeKnora/internal/config"
 	"github.com/Tencent/WeKnora/internal/database"
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
@@ -145,6 +147,10 @@ func runV2NativeReferencePipeline(t *testing.T, firstCreate bool) {
 		tenantService: &legacyNoCloud{}, tenantRepo: repository.NewTenantRepository(db),
 		chunkRepo: repository.NewChunkRepository(db), task: &dispatchQueue{}, graphEngine: parentChildGraphRepo{},
 		fileSvc: files.NewLocalFileService(t.TempDir(), ""),
+	}
+	ks.retrieveEngine = parentChildRetrieveRegistry{
+		engine: retriever.NewKVHybridRetrieveEngine(pgretrieve.NewPostgresRetrieveEngineRepository(db),
+			types.PostgresRetrieverEngineType),
 	}
 	s := NewFeishuPersonalService(db, repository.NewSystemSettingRepository(db), ks, ks.kbService, nil)
 	require.NoError(t, EnablePersonalRecovery(s, ks, nil, t.TempDir()))
