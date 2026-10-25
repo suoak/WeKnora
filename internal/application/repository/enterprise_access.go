@@ -231,6 +231,9 @@ func (r *EnterpriseAccessRepository) loadReadSnapshot(ctx context.Context, userI
 	defer perftrace.Measure(ctx, perftrace.Snapshot)()
 	s := &types.EnterpriseReadSnapshot{UserID: userID, KBID: kbID}
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := types.CheckPrivateKBRead(tx, "", kbID); err != nil {
+			return err
+		}
 		var user struct{ IsActive bool }
 		if err := tx.Table("users").Select("is_active").Where("id = ? AND deleted_at IS NULL", userID).Take(&user).Error; err != nil {
 			return err

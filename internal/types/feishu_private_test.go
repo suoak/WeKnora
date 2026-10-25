@@ -58,6 +58,25 @@ func TestPrivateKBGuardsDenyOtherUsersKeysAndWikiProjections(t *testing.T) {
 		}
 		var public KnowledgeBase
 		require.NoError(t, call.Where("id = ?", "public").First(&public).Error)
+		// Portal/MCP directory queries and counts use aliases and projections,
+		// so model AfterFind hooks cannot enforce these read boundaries.
+		for _, table := range []string{"knowledge_bases kb", "knowledge_bases AS kb", `"knowledge_bases" AS kb`} {
+			var ids []string
+			require.NoError(t, call.Table(table).Select("kb.id").Order("kb.id").Scan(&ids).Error)
+			if user == "A" {
+				require.Equal(t, []string{"private", "public"}, ids)
+			} else {
+				require.Equal(t, []string{"public"}, ids)
+			}
+		}
+		var files int64
+		require.NoError(t, call.Table("knowledges AS k").Select("COUNT(k.id)").
+			Joins("JOIN knowledge_bases kb ON kb.id=k.knowledge_base_id").Scan(&files).Error)
+		if user == "A" {
+			require.EqualValues(t, 1, files)
+		} else {
+			require.Zero(t, files)
+		}
 	}
 	// The source feature switch is unrelated to persisted read protection.
 	t.Setenv("FEISHU_ACCESS_V2_ENABLED", "")

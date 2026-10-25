@@ -3,6 +3,7 @@ package types
 import (
 	"context"
 	"errors"
+	"regexp"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -42,6 +43,10 @@ const privateKBGuard = "knowhub.private_kb_guard"
 
 type privateKBPlugin struct{}
 
+var privateKBTableExpression = regexp.MustCompile(
+	"(?i)^[\"`]?([a-z][a-z0-9_]*)[\"`]?(?:\\s+(?:AS\\s+)?[\"`]?([a-z][a-z0-9_]*)[\"`]?)?$",
+)
+
 func (privateKBPlugin) Name() string { return privateKBGuard }
 func (privateKBPlugin) Initialize(db *gorm.DB) error {
 	filter := func(tx *gorm.DB) {
@@ -49,8 +54,17 @@ func (privateKBPlugin) Initialize(db *gorm.DB) error {
 			return
 		}
 		table := tx.Statement.Table
+		base := table
+		if expression := tx.Statement.TableExpr; expression != nil {
+			if parts := privateKBTableExpression.FindStringSubmatch(expression.SQL); parts != nil {
+				base, table = parts[1], parts[1]
+				if parts[2] != "" {
+					table = parts[2]
+				}
+			}
+		}
 		column := "knowledge_base_id"
-		switch table {
+		switch base {
 		case "knowledge_bases":
 			column = "id"
 		case "knowledges",
@@ -68,9 +82,8 @@ func (privateKBPlugin) Initialize(db *gorm.DB) error {
 			clause.Where{
 				Exprs: []clause.Expression{
 					clause.Expr{
-						SQL: "NOT EXISTS (SELECT 1 FROM feishu_private_kbs fp WHERE fp.kb_id=" +
-							table + "." + column + " AND fp.owner_id <> ?)",
-						Vars: []any{user},
+						SQL:  "NOT EXISTS (SELECT 1 FROM feishu_private_kbs fp WHERE fp.kb_id = ? AND fp.owner_id <> ?)",
+						Vars: []any{clause.Column{Table: table, Name: column}, user},
 					},
 				},
 			},

@@ -182,7 +182,7 @@ func (s *FeishuPersonalService) EnableImportSource(
 					return errors.New("indexed_import_required")
 				}
 				metadataMatch := "metadata = ?"
-				if tx.Dialector.Name() == "postgres" {
+				if tx.Name() == "postgres" {
 					// Both historical json and current jsonb columns must support
 					// the compare-and-swap; PostgreSQL json has no equality operator.
 					metadataMatch = "CAST(metadata AS jsonb) = CAST(? AS jsonb)"
