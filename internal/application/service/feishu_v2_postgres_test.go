@@ -17,6 +17,9 @@ func v2PostgresFixture(t *testing.T) *personalRecoveryFixture {
 	ddl, err := os.ReadFile("../../../migrations/versioned/003039_feishu_access_v2.up.sql")
 	require.NoError(t, err)
 	require.NoError(t, f.db.Exec(string(ddl)).Error)
+	ddl, err = os.ReadFile("../../../migrations/versioned/003040_feishu_permission_collaboration.up.sql")
+	require.NoError(t, err)
+	require.NoError(t, f.db.Exec(string(ddl)).Error)
 	f.db = types.EnablePrivateKBGuards(f.db)
 	f.s.db = f.db
 	cfg, err := f.s.app(f.ctx)
@@ -54,6 +57,41 @@ func TestFeishuV2PostgresSharedAdmissionRequiresRevisionApproval(t *testing.T) {
 	var count int64
 	require.NoError(t, f.db.Model(&types.Knowledge{}).Count(&count).Error)
 	require.Zero(t, count)
+}
+
+func TestFeishuV2PostgresCollaborationNeverGrantsOrRetries(t *testing.T) {
+	f := v2PostgresFixture(t)
+	_, _, ref, err := f.s.ResolveCredentialReference(f.ctx, types.FeishuUserOAuth, "")
+	require.NoError(t, err)
+	view, err := f.s.CreateBatch(f.ctx, "kb", types.FeishuUserOAuth, ref.ConnectionID, "collaboration", []string{"https://test.feishu.cn/file/real"})
+	require.NoError(t, err)
+	require.NoError(t, f.s.ReconcileBatches(context.Background()))
+	view, err = f.s.Batch(f.ctx, view.Batch.ID)
+	require.NoError(t, err)
+	require.Equal(t, "blocked", view.Items[0].Status)
+	item := view.Items[0]
+	row, err := f.s.Collaborate(f.ctx, view.Batch.ID, item.ID, "reported", "Document owner", "Owner reports access updated")
+	require.NoError(t, err)
+	require.Equal(t, "reported_unverified", row.Result)
+	row, err = f.s.Collaborate(f.ctx, view.Batch.ID, item.ID, "recheck", "Document owner", "")
+	require.NoError(t, err)
+	require.Equal(t, "sharing_approval_required", row.Result)
+	_, err = f.s.Collaboration(f.userContext("B"), view.Batch.ID)
+	require.Error(t, err)
+	_, err = f.s.Collaborate(f.userContext("B"), view.Batch.ID, item.ID, "reported", "", "must deny")
+	require.Error(t, err)
+	_, err = f.s.Collaborate(f.ctx, view.Batch.ID, "another-item", "reported", "", "must deny")
+	require.Error(t, err)
+	rows, err := f.s.Collaboration(f.ctx, view.Batch.ID)
+	require.NoError(t, err)
+	require.Len(t, rows, 2)
+	var current types.FeishuBatchItem
+	require.NoError(t, f.db.Where("id = ?", item.ID).First(&current).Error)
+	require.Equal(t, "blocked", current.Status)
+	require.Zero(t, current.RetryCount)
+	var approvals int64
+	require.NoError(t, f.db.Model(&types.FeishuSharingApproval{}).Count(&approvals).Error)
+	require.Zero(t, approvals)
 }
 
 func TestFeishuV2PostgresBatchConcurrentIdempotencyAndAliasRecovery(t *testing.T) {

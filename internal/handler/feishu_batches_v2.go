@@ -97,3 +97,31 @@ func (h *FeishuPersonalHandler) SourceAction(c *gin.Context) {
 	}
 	c.JSON(202, gin.H{"accepted": true})
 }
+
+func (h *FeishuPersonalHandler) Collaboration(c *gin.Context) {
+	rows, err := h.svc.Collaboration(c.Request.Context(), c.Param("batchID"))
+	if err != nil {
+		feishuFailureResponse(c, err)
+		return
+	}
+	c.JSON(200, rows)
+}
+
+func (h *FeishuPersonalHandler) Collaborate(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4096)
+	var in struct {
+		Action  string `json:"action"`
+		Contact string `json:"contact"`
+		Note    string `json:"note"`
+	}
+	if c.ShouldBindJSON(&in) != nil {
+		c.JSON(400, gin.H{"error": "invalid_permission_collaboration"})
+		return
+	}
+	row, err := h.svc.Collaborate(c.Request.Context(), c.Param("batchID"), c.Param("itemID"), in.Action, in.Contact, in.Note)
+	if err != nil {
+		feishuFailureResponse(c, err)
+		return
+	}
+	c.JSON(201, row)
+}

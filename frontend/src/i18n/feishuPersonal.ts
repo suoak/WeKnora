@@ -1,4 +1,5 @@
 const en = {
+  permissionChecklist: 'Permission collaboration checklist', collaborationExplanation: 'Record who will help with source permissions. A reported fix grants no access; recheck and explicitly retry after permission is confirmed. No message is sent.', permissionContact: 'Source owner or contact', permissionNote: 'Request or progress note', recordContact: 'Record request', reportedPermission: 'Record reported fix', recheckPermission: 'Recheck my access',
   syncNow: 'Sync now', pauseSource: 'Pause', resumeSource: 'Resume after checking access', rebindSource: 'Bind my current connection again',
   sources: 'My knowledge sources', enableUpdates: 'Enable controlled updates', sourceActive: 'Automatic updates', sourcePaused: 'Source paused or needs attention',
   createPrivateKB: 'Create a private knowledge base', privateKBName: 'My Feishu knowledge',
@@ -18,6 +19,7 @@ const en = {
   app: 'Feishu document application', appID: 'App ID', secret: 'App Secret (leave empty to keep)', callback: 'OAuth callback URL', enabled: 'Enable personal imports', save: 'Save', test: 'Test saved application credentials', saved: 'Configuration saved', tested: 'Application credentials valid.',
 }
 const zh = {
+  permissionChecklist: '权限协作清单', collaborationExplanation: '记录需要联系的源文档负责人。标记已处理不会授予权限；请重新预检，确认后明确重试。此操作不会发送消息。', permissionContact: '源文档负责人或联系人', permissionNote: '需要处理的问题或进展', recordContact: '记录协作请求', reportedPermission: '记录已处理反馈', recheckPermission: '重新检查我的权限',
   syncNow: '立即同步', pauseSource: '暂停', resumeSource: '验证权限并恢复', rebindSource: '重新绑定我的当前连接',
   sources: '我的知识来源', enableUpdates: '启用受控自动更新', sourceActive: '自动更新中', sourcePaused: '来源已暂停或需要处理',
   createPrivateKB: '创建私人知识库', privateKBName: '我的飞书知识',

@@ -40,6 +40,19 @@
       <p>{{ Object.entries(batch.counts).map(([key, value]) => `${key}: ${value}`).join(' · ') }}</p>
       <ul><li v-for="item in batch.items" :key="item.id">{{ item.ordinal + 1 }} · {{ item.status }} <span v-if="item.error_category">· {{ item.error_category }}</span></li></ul>
       <t-button :disabled="busy" @click="retry">{{ t('retryBatch') }}</t-button>
+      <details v-if="batch.items.some(item => ['blocked','failed'].includes(item.status))">
+        <summary @click="refreshCollaboration">{{ t('permissionChecklist') }}</summary>
+        <p>{{ t('collaborationExplanation') }}</p>
+        <t-input v-model="contact" :placeholder="t('permissionContact')" :maxlength="128" :disabled="busy" />
+        <t-input v-model="collaborationNote" :placeholder="t('permissionNote')" :maxlength="512" :disabled="busy" />
+        <div v-for="item in batch.items.filter(item => ['blocked','failed'].includes(item.status))" :key="item.id">
+          <p>{{ item.ordinal + 1 }} · {{ item.error_category }}</p>
+          <t-button :disabled="busy || !collaborationNote.trim()" variant="text" @click="collaborate(item.id,'note')">{{ t('recordContact') }}</t-button>
+          <t-button :disabled="busy || !collaborationNote.trim()" variant="text" @click="collaborate(item.id,'reported')">{{ t('reportedPermission') }}</t-button>
+          <t-button :disabled="busy" variant="text" @click="collaborate(item.id,'recheck')">{{ t('recheckPermission') }}</t-button>
+          <ul><li v-for="event in collaboration.filter(event => event.item_id === item.id)" :key="event.id">{{ event.contact }} · {{ event.note }} · {{ event.result }}</li></ul>
+        </div>
+      </details>
     </div>
     <p v-if="message" role="status">{{ message }}</p>
     <details>
@@ -63,6 +76,7 @@ import { computed, ref, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { createPrivateFeishuKB } from '@/api/feishuPersonal'
+import { listFeishuCollaboration, recordFeishuCollaboration, type FeishuCollaboration } from '@/api/feishuPersonal'
 import { listFeishuImports, enableFeishuSource, feishuSourceAction, type FeishuImport } from '@/api/feishuPersonal'
 import { feishuMessages } from '@/i18n/feishuPersonal'
 import { feishuConnections, feishuResources, disconnectFeishu, previewFeishu, createFeishuBatch, getFeishuBatch, retryFeishuBatch, approveFeishuSharing, isFeishuDocumentURL, type FeishuAuthMode, type FeishuConnection, type FeishuResource, type FeishuPreview, type FeishuBatch, type FeishuStatus } from '@/api/feishuPersonal'
@@ -83,6 +97,7 @@ const links = computed(() => [...new Set(linksText.value.split(/\s+/).map(s => s
 const canSubmit = computed(() => connection.value?.connected && links.value.length > 0 && links.value.length <= 100)
 const batch = ref<FeishuBatch>(), submissionKey = ref('')
 const imports = ref<FeishuImport[]>([])
+const collaboration = ref<FeishuCollaboration[]>([]), contact = ref(''), collaborationNote = ref('')
 let timer: ReturnType<typeof setTimeout> | undefined
 let generation = 0, scopeEpoch = 0, mounted = true
 function scope() { const epoch = scopeEpoch; return { kb: props.kbId, mode: mode.value, connection: connection.value?.id || '', links: [...links.value], current: () => mounted && epoch === scopeEpoch } }
@@ -131,6 +146,8 @@ async function approve() { await act(async () => { const s = scope(), rows = [..
 async function poll(id: string, version: number) { try { const next = await getFeishuBatch(id); if (!mounted || version !== generation) return; batch.value = next; if (next.status === 'succeeded' || next.status === 'partial_failed') { emit('imported'); return } } catch { /* A read failure never resubmits a batch. */ } if (mounted && version === generation) timer = setTimeout(() => poll(id, version), 4000) }
 async function submit() { await act(async () => { const s = scope(); if (!submissionKey.value) submissionKey.value = crypto.randomUUID(); const next = await createFeishuBatch(s.kb, s.mode, s.connection, s.links, submissionKey.value); if (!s.current()) return; batch.value = next; stop(); void poll(next.batch.id, generation) }) }
 async function retry() { if (batch.value) { const id = batch.value.batch.id, s = scope(); await act(async () => { await retryFeishuBatch(id); if (!s.current()) return; stop(); void poll(id, generation) }) } }
+async function refreshCollaboration() { const id = batch.value?.batch.id, s = scope(); if (!id) return; try { const rows = await listFeishuCollaboration(id); if (s.current() && batch.value?.batch.id === id) collaboration.value = rows } catch { if (s.current()) message.value = t('failed') } }
+async function collaborate(item: string, action: 'note'|'reported'|'recheck') { const id = batch.value?.batch.id, s = scope(); if (!id) return; await act(async () => { await recordFeishuCollaboration(id, item, action, contact.value, collaborationNote.value); if (s.current()) await refreshCollaboration() }) }
 </script>
 <style scoped>
 .browse-controls { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }

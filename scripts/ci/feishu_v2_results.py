@@ -8,6 +8,7 @@ required = {
     "TestFeishuV2PostgresBatchConcurrentIdempotencyAndAliasRecovery",
     "TestFeishuV2PostgresSourceReadAndCommitRevocation",
     "TestFeishuV2PostgresSourceHandoffIsAtomicAndFencesOldWorker",
+    "TestFeishuV2PostgresCollaborationNeverGrantsOrRetries",
 }
 failed = False
 for filename in sys.argv[1:]:

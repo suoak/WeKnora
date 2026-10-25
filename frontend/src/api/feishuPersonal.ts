@@ -27,6 +27,9 @@ export const previewFeishu = (kb: string, auth_mode: FeishuAuthMode, connection_
 export const createFeishuBatch = (kb: string, auth_mode: FeishuAuthMode, connection_id: string, links: string[], key: string) => post<FeishuBatch>(`/api/v1/knowledge-bases/${encodeURIComponent(kb)}/feishu/batches`, { auth_mode, connection_id, links }, { headers: { 'Idempotency-Key': key } })
 export const getFeishuBatch = (id: string) => get<FeishuBatch>(`/api/v1/feishu/batches/${encodeURIComponent(id)}`)
 export const retryFeishuBatch = (id: string) => post(`/api/v1/feishu/batches/${encodeURIComponent(id)}/retry`)
+export type FeishuCollaboration = { id: string; item_id: string; action: string; contact: string; note: string; result: string; created_at: string }
+export const listFeishuCollaboration = (id: string) => get<FeishuCollaboration[]>(`/api/v1/feishu/batches/${encodeURIComponent(id)}/collaboration`)
+export const recordFeishuCollaboration = (id: string, item: string, action: 'note' | 'reported' | 'recheck', contact: string, note: string) => post<FeishuCollaboration>(`/api/v1/feishu/batches/${encodeURIComponent(id)}/items/${encodeURIComponent(item)}/collaboration`, { action, contact, note }, { timeout: 45000 })
 export const approveFeishuSharing = (kb: string, connection_id: string, url: string, reason: string, confirmed: boolean) => post(`/api/v1/knowledge-bases/${encodeURIComponent(kb)}/feishu/sharing-approvals`, { connection_id, url, reason, confirmed }, { timeout: 45000 })
 export function isFeishuDocumentURL(value: string): boolean {
   try { const u = new URL(value); return u.protocol === 'https:' && (u.hostname === 'feishu.cn' || u.hostname.endsWith('.feishu.cn')) } catch { return false }
