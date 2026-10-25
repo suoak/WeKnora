@@ -62,7 +62,9 @@ func (r *AnydocReader) Read(ctx context.Context, req *types.ReadRequest) (*types
 	return materializeAnydocResult(ctx, converted, format, req.FileName)
 }
 
-func materializeAnydocResult(ctx context.Context, converted *anydoc.Result, format, filename string) (*types.ReadResult, error) {
+func materializeAnydocResult(ctx context.Context, converted *anydoc.Result,
+	format, filename string,
+) (*types.ReadResult, error) {
 	if converted.AssetsError != nil {
 		if feishusafety.Scoped(ctx) {
 			// Native conversion can fall back to text after image extraction

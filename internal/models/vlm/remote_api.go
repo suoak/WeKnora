@@ -134,7 +134,8 @@ func (v *RemoteAPIVLM) Predict(ctx context.Context, imgBytesList [][]byte, promp
 		// must also fail scoped extraction instead of becoming a published
 		// image child. Keep the historical non-Feishu behavior otherwise.
 		return "", fmt.Errorf(
-			"VLM completion truncated at %d tokens (finish_reason=length, visible_bytes=%d, reasoning_bytes=%d, completion_tokens=%d)",
+			"VLM completion truncated at %d tokens "+
+				"(finish_reason=length, visible_bytes=%d, reasoning_bytes=%d, completion_tokens=%d)",
 			defaultMaxToks, len(content), len(resp.ReasoningContent), resp.Usage.CompletionTokens,
 		)
 	}
