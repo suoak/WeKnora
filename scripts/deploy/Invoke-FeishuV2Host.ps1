@@ -4,11 +4,12 @@ param(
         'feishu_v2_build_candidate.py','feishu_v2_runtime_image.py','feishu_v2_remote_gateway_probe.py',
         'feishu_v2_prepare_test_site.py','feishu_v2_test_site_preflight.py','feishu_v2_network_plan.py',
         'feishu_v2_configure_gateway.py','feishu_v2_bootstrap_site.py','feishu_v2_entry.py',
-        'feishu_v2_site_smoke.py','feishu_v2_private_http_probe.py','feishu_v2_upgrade_site.py','feishu_v2_real_diagnostic.py','feishu_v2_fix_staging.py')][string]$Script,
+        'feishu_v2_site_smoke.py','feishu_v2_private_http_probe.py','feishu_v2_upgrade_site.py','feishu_v2_real_diagnostic.py','feishu_v2_fix_staging.py','feishu_v2_real_mcp_probe.py')][string]$Script,
     [string[]]$ScriptArguments=@(),
     [string]$GatewayCredentialPath,
     [string]$AppIdPath,
-    [string]$AppSecretPath
+    [string]$AppSecretPath,
+    [string]$McpCredentialPath
 )
 
 # DPAPI belongs to the current Windows user. Plaintext is streamed only to the
@@ -29,6 +30,13 @@ try {
     }
     $taskProgram=Join-Path $PSScriptRoot $Script
     $taskPayload=@{host='172.30.232.42';user='aqyfzx';password=$taskPassword}
+    if($McpCredentialPath){
+        if($Script -ne 'feishu_v2_real_mcp_probe.py'){throw 'MCP credential only allowed for scoped real probe.'}
+        $taskMcpSecure=(Get-Content -Raw -LiteralPath $McpCredentialPath).Trim() | ConvertTo-SecureString
+        $taskMcpPointer=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($taskMcpSecure)
+        try {$taskPayload.mcp_token=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($taskMcpPointer)}
+        finally {[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($taskMcpPointer)}
+    }
     if($GatewayCredentialPath){
         if($Script -ne 'feishu_v2_configure_gateway.py'){throw 'Gateway credential only allowed for gateway configuration.'}
         $taskGatewaySecure=(Get-Content -Raw -LiteralPath $GatewayCredentialPath).Trim() | ConvertTo-SecureString

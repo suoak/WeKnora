@@ -23,3 +23,9 @@
 目录修复后的原始任务恢复观察：两个真实导入均使用原先预留的 Knowledge 标识完成解析及发布（脱敏标识分别为 `3663d886f314`、`070925df4104`）；每篇均为 parse completed、enabled、summary completed、6 个 Chunk、6 条 1024 维向量。对应 personal_index_receipt 为 verified，正式文档 outbox 为 processed，原候选 outbox 为 completed；attempt 经受控来源交接成为 obsolete，历史重试计数保留为 10/39，无需重建任务或更换 Knowledge ID。三个批次中的两个条目引用同一个去重后的导入。此观察证明原始真实任务恢复，尚不等同于 Portal/MCP 检索验收通过。
 
 2026-10-25 本轮产品约束覆盖早期第 10 节说明：快速导入必须指定已有知识库，不再调用 EnsurePrivateKnowledgeBase；已有自动创建的私人 KB、Knowledge、任务、索引和文件全部保留。清理需先完成引用核对，再单独批准；本轮不执行清理。
+
+真实检索的进一步核查：两篇原始文档的原生 BM25 查询分别命中 5 条索引；使用 test 现有合法个人凭据调用 Go 个人 MCP，keyword 均命中。首次 semantic/hybrid 返回 failed（没有伪报成功）。定位到 PortalMCP 模型适配器拒绝了知识库明确绑定的系统内置 Embedding 模型：该模型 active、1024 维、is_builtin=true，模型所在系统租户与 KB 租户不同；现有 ModelRepository.GetByID 与 GetEmbeddingModelForTenant 本来允许该内置模型。修复仅允许精确绑定且经现有模型服务可见的内置模型，仍拒绝其他租户普通模型、不同模型 ID、非 active 模型及维度错误。相关反向测试一并保留。
+
+使用真实 Python MCP hybrid_search 工具函数（实际 REST 请求，test 原有凭据，非合成内容）已命中两篇原始文档。Go 个人 MCP 修复部署后的 semantic/hybrid 复测尚待完成，不能用 Python 入口的成功代替。
+
+用户新增两条 Wiki 链接已以 test 的现有个人授权只读获取节点元数据，均为 HTTP 200、飞书 code 0，类型分别为 sheet、bitable。此步骤仅证明节点可读，不表示正文导出、解析、发布或检索已通过。新批次等待用户明确选择已有目标 KB，避免再次隐式选择目标。

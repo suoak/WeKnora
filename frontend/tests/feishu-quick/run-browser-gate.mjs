@@ -66,7 +66,7 @@ try {
     if (path === '/api/v1/feishu/batches/progress-batch') {
       progressReads++
       const done=progressReads>1
-      body={batch:{id:'progress-batch',kb_id:'existing-team-kb',auth_mode:'user_oauth'},status:done?'succeeded':'running',items:[{id:'item',ordinal:0,status:done?'succeeded':'dispatched',stage:done?'completed':'embedding',last_progress_at:new Date().toISOString(),index_verified:done,knowledge_id:'verified-document',chunk_count:6,vector_count:done?6:0}],counts:{}}
+      body={batch:{id:'progress-batch',kb_id:'existing-team-kb',auth_mode:'user_oauth'},status:done?'succeeded':'running',items:[{id:'item',ordinal:0,status:done?'succeeded':'dispatched',stage:done?'completed':'embedding',last_progress_at:new Date().toISOString(),retry_after:'2026-01-01T00:00:00Z',index_verified:done,knowledge_id:'verified-document',chunk_count:6,vector_count:done?6:0}],counts:{}}
       if(page.url().includes('failure')) body={batch:{id:'progress-batch',kb_id:'existing-team-kb',auth_mode:'user_oauth'},status:'partial_failed',items:[{id:'item',ordinal:0,status:'blocked',error_category:'sharing_approval_required'}],counts:{blocked:1}}
     }
     if (path === '/api/v1/me/feishu/imports') {
@@ -119,6 +119,7 @@ try {
   await page.getByText('第 1 篇：已验证成功入库',{exact:true}).waitFor()
   assert.equal(progressReads,2)
   await page.getByRole('link',{name:'在知识库中查看'}).waitFor()
+  assert.equal(await page.getByText(/自动重试时间/).count(),0)
   await page.goto(origin + '/__feishu-gate?history&failure')
   await page.getByText('缺少当前版本的共享发布批准，请在高级设置中处理。',{exact:true}).waitFor()
   assert.deepEqual(errors, [])

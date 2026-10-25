@@ -1,0 +1,22 @@
+{
+  "status": "READ_ONLY",
+  "private_kb_dependencies": [
+    {
+      "kb_id": "a90e27c4ebbd",
+      "knowledge_count": 1,
+      "batch_count": 1,
+      "import_count": 1,
+      "chunk_count": 6,
+      "vector_count": 6
+    }
+  ],
+  "selected_target_check": [
+    {
+      "id": "9beada7ab2b3",
+      "tenant_id": "56acd2f85500",
+      "creator_id": "15dd7f4fae5d",
+      "proven_private_owner": false,
+      "active_member": true
+    }
+  ]
+}

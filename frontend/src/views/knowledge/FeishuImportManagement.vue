@@ -19,7 +19,7 @@
           <p v-if="item.last_activity_at">后台状态更新：{{ formatTime(item.last_activity_at) }}</p>
           <p v-if="item.stalled" class="warning" role="status">处理异常，请查看详情。后台正在检查任务状态，不会擅自取消任务。</p>
           <p v-if="item.error_category" class="warning">{{ failure(item.error_category) }}</p>
-          <p v-if="item.retry_after">自动重试时间：{{ formatTime(item.retry_after) }}</p>
+          <p v-if="item.retry_after && item.status === 'dispatched'">自动重试时间：{{ formatTime(item.retry_after) }}</p>
           <p v-if="item.chunk_count || item.vector_count">已解析 {{ item.chunk_count || 0 }} 个片段，已建立 {{ item.vector_count || 0 }} 条向量索引。</p>
           <router-link v-if="item.status === 'succeeded' && item.index_verified && item.knowledge_id" :to="{path:'/platform/knowledge-bases/'+batch.batch.kb_id,query:{knowledge_id:item.knowledge_id}}">在知识库中查看</router-link>
           <details v-if="item.error_category"><summary>高级详情</summary><p>原因码：{{ item.error_category }}；自动重试：{{ item.attempt_retry_count || 0 }} 次</p></details>
@@ -43,6 +43,7 @@ let mounted=true, selectedID='', timer:ReturnType<typeof setTimeout>|undefined, 
 onUnmounted(()=>{mounted=false;clearTimeout(timer)})
 function formatTime(value:string) { return new Date(value).toLocaleString() }
 function itemStatus(item:FeishuBatchItem) {
+  if(item.status==='succeeded' && !item.index_verified) return '等待索引验证'
   if(item.stage==='publication_pending') return '解析已完成，正在验证索引和发布'
   if(item.stage==='wiki_finishing') return '索引已验证，正在完成知识发布'
   if(item.status==='processing') return '正在检查和准备'
@@ -62,7 +63,8 @@ function failure(code:string) {
   return labels[code] || '文档需要处理，请在高级详情中查看原因。'
 }
 function simpleStatus(state:string) {
-  if (['succeeded','existing','duplicate'].includes(state)) return '已验证成功入库'
+  if (state==='succeeded') return '已验证成功入库'
+  if (['existing','duplicate'].includes(state)) return '已去重，等待验证'
   if (['failed','blocked','partial_failed','needs_attention'].includes(state)) return '需要处理'
   if (state==='processing') return '正在检查和准备'
   if (['dispatched','running'].includes(state)) return '后台处理中，详情见各文档阶段'

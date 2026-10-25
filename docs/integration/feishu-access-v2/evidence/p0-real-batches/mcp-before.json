@@ -1,0 +1,145 @@
+{
+    "status":  "CHECKED",
+    "qualification":  "real_owner_personal_go_mcp",
+    "checks":  [
+                   {
+                       "knowledge_id_hash":  "070925df4104",
+                       "operation":  "keyword_search",
+                       "http_status":  200,
+                       "status":  "PASS"
+                   },
+                   {
+                       "knowledge_id_hash":  "070925df4104",
+                       "operation":  "semantic_search",
+                       "http_status":  200,
+                       "status":  "NO_AUTHORIZED_HIT"
+                   },
+                   {
+                       "knowledge_id_hash":  "070925df4104",
+                       "operation":  "hybrid_search",
+                       "http_status":  200,
+                       "status":  "NO_AUTHORIZED_HIT"
+                   },
+                   {
+                       "knowledge_id_hash":  "3663d886f314",
+                       "operation":  "keyword_search",
+                       "http_status":  200,
+                       "status":  "PASS"
+                   },
+                   {
+                       "knowledge_id_hash":  "3663d886f314",
+                       "operation":  "semantic_search",
+                       "http_status":  200,
+                       "status":  "NO_AUTHORIZED_HIT"
+                   },
+                   {
+                       "knowledge_id_hash":  "3663d886f314",
+                       "operation":  "hybrid_search",
+                       "http_status":  200,
+                       "status":  "NO_AUTHORIZED_HIT"
+                   }
+               ],
+    "index_shapes":  [
+                         {
+                             "kb_hash":  "9beada7ab2b3",
+                             "bound_model":  {
+                                                 "is_builtin":  true,
+                                                 "same_tenant":  false,
+                                                 "type":  "Embedding",
+                                                 "status":  "active",
+                                                 "dimension":  1024
+                                             },
+                             "dimensions":  [
+                                                {
+                                                    "dimension":  1024,
+                                                    "count":  6
+                                                }
+                                            ]
+                         },
+                         {
+                             "kb_hash":  "a90e27c4ebbd",
+                             "bound_model":  {
+                                                 "is_builtin":  true,
+                                                 "same_tenant":  false,
+                                                 "type":  "Embedding",
+                                                 "status":  "active",
+                                                 "dimension":  1024
+                                             },
+                             "dimensions":  [
+                                                {
+                                                    "dimension":  1024,
+                                                    "count":  6
+                                                }
+                                            ]
+                         }
+                     ],
+    "log_categories":  {
+                           "app":  {
+                                       "column":  0,
+                                       "does not exist":  0,
+                                       "embedding":  21,
+                                       "no model":  0,
+                                       "model not found":  0,
+                                       "retrieve":  0,
+                                       "SQLSTATE":  0,
+                                       "dimension":  13,
+                                       "permission denied":  0,
+                                       "Unauthorized":  0,
+                                       "401":  0,
+                                       "403":  1,
+                                       "connection refused":  0,
+                                       "context deadline":  0,
+                                       "invalid":  0,
+                                       "error":  0,
+                                       "failed":  20,
+                                       "sqlstates":  [
+
+                                                     ],
+                                       "query_dimensions":  [
+
+                                                            ],
+                                       "dimension_mismatch_count":  0
+                                   },
+                           "worker2":  {
+                                           "column":  0,
+                                           "does not exist":  0,
+                                           "embedding":  0,
+                                           "no model":  0,
+                                           "model not found":  0,
+                                           "retrieve":  0,
+                                           "SQLSTATE":  0,
+                                           "dimension":  0,
+                                           "permission denied":  0,
+                                           "Unauthorized":  0,
+                                           "401":  0,
+                                           "403":  1,
+                                           "connection refused":  0,
+                                           "context deadline":  0,
+                                           "invalid":  0,
+                                           "error":  0,
+                                           "failed":  5,
+                                           "sqlstates":  [
+
+                                                         ],
+                                           "query_dimensions":  [
+
+                                                                ],
+                                           "dimension_mismatch_count":  0
+                                       }
+                       },
+    "imports_created":  false,
+    "python_mcp":  {
+                       "qualification":  "actual_python_mcp_hybrid_tool_real_owner",
+                       "checks":  [
+                                      {
+                                          "knowledge_id_hash":  "070925df4104",
+                                          "status":  "PASS"
+                                      },
+                                      {
+                                          "knowledge_id_hash":  "3663d886f314",
+                                          "status":  "PASS"
+                                      }
+                                  ]
+                   },
+    "portal":  "NOT_EXECUTED"
+}

@@ -53,6 +53,17 @@ bids=','.join(quoted(r['id']) for r in batches) or "''"
 items=rows('feishu_import_batch_items',['id','batch_id','ordinal','status','error_category','import_id','retry_count','lease_until','updated_at'], 'batch_id IN ('+bids+') ORDER BY updated_at DESC')
 iids=','.join(quoted(r['import_id']) for r in items if r.get('import_id')) or "''"
 imports=rows('feishu_personal_imports',['id','kb_id','knowledge_id','resource_type','status','updated_at','error_category'], 'id IN ('+iids+')')
+targets=query("SELECT coalesce(json_agg(q),'[]') FROM (SELECT kb.id,kb.tenant_id,kb.creator_id,"+
+ "coalesce(fp.owner_id='"+uid+"',false) AS proven_private_owner,"+
+ "EXISTS(SELECT 1 FROM tenant_members tm WHERE tm.user_id='"+uid+"' AND tm.tenant_id=kb.tenant_id AND tm.status='active' AND tm.deleted_at IS NULL) AS active_member "+
+ "FROM knowledge_bases kb LEFT JOIN feishu_private_kbs fp ON fp.kb_id=kb.id WHERE kb.name='test001' AND kb.deleted_at IS NULL LIMIT 10) q")
+private_dependencies=query("SELECT coalesce(json_agg(q),'[]') FROM (SELECT fp.kb_id,"+
+ "(SELECT count(*) FROM knowledges k WHERE k.knowledge_base_id=fp.kb_id AND k.deleted_at IS NULL) AS knowledge_count,"+
+ "(SELECT count(*) FROM feishu_import_batches b WHERE b.kb_id=fp.kb_id) AS batch_count,"+
+ "(SELECT count(*) FROM feishu_personal_imports m WHERE m.kb_id=fp.kb_id) AS import_count,"+
+ "(SELECT count(*) FROM chunks c WHERE c.knowledge_base_id=fp.kb_id AND c.deleted_at IS NULL) AS chunk_count,"+
+ "(SELECT count(*) FROM embeddings e WHERE e.knowledge_base_id=fp.kb_id) AS vector_count "+
+ "FROM feishu_private_kbs fp WHERE fp.owner_id='"+uid+"' LIMIT 10) q")
 attempts=rows('feishu_personal_attempts',['id','import_id','logical_knowledge_id','candidate_version_id','manifest_key','status','retry_after','retry_count','last_error_category','lease_until','created_at','updated_at','manifest_size'], 'import_id IN ('+iids+')')
 kids=sorted({r.get('knowledge_id') for r in imports if r.get('knowledge_id')}|{r.get('logical_knowledge_id') for r in attempts if r.get('logical_knowledge_id')})
 kids=sorted(set(kids)|{r.get('candidate_version_id') for r in attempts if r.get('candidate_version_id')})
@@ -63,8 +74,8 @@ chunks=query('SELECT coalesce(json_agg(q),\'[]\') FROM (SELECT knowledge_id,coun
 vectors=query('SELECT coalesce(json_agg(q),\'[]\') FROM (SELECT knowledge_id,dimension,count(*) AS count FROM embeddings WHERE knowledge_id IN ('+klist+') GROUP BY knowledge_id,dimension) q')
 bm25=[]
 for kid in sorted({r.get('knowledge_id') for r in imports if r.get('knowledge_id')}):
- term=query("SELECT to_json(substring(content from '[A-Za-z]{4,}')) FROM embeddings WHERE knowledge_id="+quoted(kid)+" AND substring(content from '[A-Za-z]{4,}') IS NOT NULL LIMIT 1")
- if term and re.fullmatch('[A-Za-z]{4,}',term):
+ term=query("SELECT to_json(coalesce(substring(content from '[A-Za-z]{4,}'),substring(content from '[一-鿿]{2,8}'))) FROM embeddings WHERE knowledge_id="+quoted(kid)+" AND content IS NOT NULL LIMIT 1")
+ if term and re.fullmatch(r'[A-Za-z]{4,}|[\u4e00-\u9fff]{2,8}',term):
   count=query("SELECT to_json(count(*)) FROM embeddings WHERE knowledge_id="+quoted(kid)+" AND content ||| '"+term+"'")
   bm25.append({'knowledge_id':kid,'matching_index_rows':count,'status':'PASS' if count else 'NO_MATCH'})
  else:bm25.append({'knowledge_id':kid,'status':'NO_SAFE_QUERY_TERM'})
@@ -188,7 +199,7 @@ if APPROVED_LINKS:
 state={'user_id':uid,'batches':batches,'items':items,'imports':imports,'attempts':attempts,'knowledge':knowledge}
 # Store identifiers/status only in the existing private site; do not alter jobs.
 path=site/'real-batch-readonly-state.json';path.write_text(json.dumps(state));path.chmod(0o600)
-print(json.dumps({'status':'READ_ONLY','batches':safe(batches),'items':safe(items),'imports':safe(imports),'attempts':safe(attempts),'knowledge':safe(knowledge),'outbox':safe(ops),'chunks':safe(chunks),'vectors':safe(vectors),'bm25':safe(bm25),'approved_link_metadata':metadata,'logs':logreports}))
+print(json.dumps({'status':'READ_ONLY','private_kb_dependencies':safe(private_dependencies),'selected_target_check':safe(targets),'batches':safe(batches),'items':safe(items),'imports':safe(imports),'attempts':safe(attempts),'knowledge':safe(knowledge),'outbox':safe(ops),'chunks':safe(chunks),'vectors':safe(vectors),'bm25':safe(bm25),'approved_link_metadata':metadata,'logs':logreports}))
 """
 
 

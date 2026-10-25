@@ -1,0 +1,11 @@
+{
+    "status":  "FIXED",
+    "scope":  "isolated_staging_volume_root_only",
+    "owner_uid":  1000,
+    "owner_gid":  1000,
+    "mode":  "0700",
+    "recursive_change":  false,
+    "business_rows_modified":  false,
+    "tasks_reset":  false,
+    "knowledge_ids_replaced":  false
+}
