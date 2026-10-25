@@ -1,0 +1,33 @@
+﻿{
+    "base":  "ce699bb5065ebaaaa5e180c589e80e5f2aa9f334",
+    "changed_files":  [
+                          "docs/integration/feishu-access-v2/01_CURRENT_BASELINE.md",
+                          "docs/integration/feishu-access-v2/02_UPSTREAM_COMPARISON.md",
+                          "docs/integration/feishu-access-v2/03_FEISHU_API_PERMISSION_POC.md",
+                          "docs/integration/feishu-access-v2/04_DUAL_IDENTITY_ARCHITECTURE.md",
+                          "docs/integration/feishu-access-v2/05_BATCH_IMPORT_DESIGN.md",
+                          "docs/integration/feishu-access-v2/06_PERMISSION_WORKFLOW.md",
+                          "docs/integration/feishu-access-v2/07_PR_IMPLEMENTATION_PLAN.md",
+                          "docs/integration/feishu-access-v2/08_TEST_AND_ROLLBACK.md",
+                          "docs/integration/feishu-access-v2/evidence/change-boundary.json",
+                          "docs/integration/feishu-access-v2/evidence/go-identity-tests.txt",
+                          "docs/integration/feishu-access-v2/evidence/live-application-probe.json",
+                          "docs/integration/feishu-access-v2/evidence/python-probe-tests.txt",
+                          "docs/integration/feishu-access-v2/evidence/remote-baseline.json",
+                          "docs/integration/feishu-access-v2/evidence/validation.txt",
+                          "docs/integration/feishu-access-v2/poc/.gitignore",
+                          "docs/integration/feishu-access-v2/poc/application_credentials_probe.py",
+                          "docs/integration/feishu-access-v2/poc/manifest.example.json",
+                          "docs/integration/feishu-access-v2/poc/preflight-result.json",
+                          "docs/integration/feishu-access-v2/poc/readonly_probe.py",
+                          "docs/integration/feishu-access-v2/poc/test_readonly_probe.py",
+                          "internal/types/feishu_access.go",
+                          "internal/types/feishu_access_test.go"
+                      ],
+    "pr50_head":  "2a532132eb038e0efd5c5564f2f35693577986b6",
+    "overlap":  [
+
+                ],
+    "runtime_routes_modified":  false,
+    "production_mutations_executed":  false
+}

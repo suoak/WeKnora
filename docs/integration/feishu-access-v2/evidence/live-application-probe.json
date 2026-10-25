@@ -1,0 +1,32 @@
+﻿{
+  "status": "PASS",
+  "executed": true,
+  "identity": "application_grant",
+  "role": "application_probe",
+  "cases": [
+    {
+      "case": 1,
+      "operation": "root",
+      "fixture_hash": "ea1f474d60c54357fdb58c0f0acd779d14d2ded3f551e4ffe69490258ba9f679",
+      "expected": "allowed",
+      "status": "PASS",
+      "http_status": 200,
+      "provider_code": 0
+    },
+    {
+      "case": 2,
+      "operation": "wiki_spaces",
+      "fixture_hash": "79e325b3af1ada252ee1179e2c0ebb5b31df08ac40e534104429c4d9d2e5c501",
+      "expected": "allowed",
+      "status": "PASS",
+      "http_status": 200,
+      "provider_code": 0,
+      "has_more": true
+    }
+  ],
+  "time_utc": "2026-10-25T03:53:57.106856+00:00",
+  "scope": "one_page_reads_only_not_import_export_or_oauth_acceptance",
+  "application_credentials": "PASS",
+  "employee_oauth": "BLOCKED",
+  "document_content_export_import": "BLOCKED"
+}

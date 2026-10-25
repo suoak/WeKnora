@@ -1,0 +1,133 @@
+﻿{
+    "checked_utc":  "2026-10-25T03:47:17.0495109Z",
+    "origin_main":  "ce699bb5065ebaaaa5e180c589e80e5f2aa9f334",
+    "upstream_main":  "e1f9a6166a593a4804a2f99f1d942919c9cc8ea7",
+    "production_live_recheck":  "BLOCKED: no approved read-only runtime endpoint identified",
+    "pull_requests":  [
+                          {
+                              "repo":  "suoak/WeKnora",
+                              "number":  50,
+                              "state":  "open",
+                              "merged":  false,
+                              "head":  "2a532132eb038e0efd5c5564f2f35693577986b6",
+                              "base":  "ce699bb5065ebaaaa5e180c589e80e5f2aa9f334",
+                              "merge":  "106139536193a63963caa5545e4dfae21fb8dfe5",
+                              "url":  "https://github.com/suoak/WeKnora/pull/50",
+                              "files":  [
+                                            "docs/FEISHU_P2_ASSET_DESIGN_20261025.md",
+                                            "internal/application/service/feishu_legacy_staging.go",
+                                            "internal/infrastructure/docparser/anydoc_candidate_test.go",
+                                            "internal/infrastructure/docparser/anydoc_reader.go",
+                                            "internal/models/vlm/remote_api.go"
+                                        ]
+                          },
+                          {
+                              "repo":  "Tencent/WeKnora",
+                              "number":  3312,
+                              "state":  "open",
+                              "merged":  false,
+                              "head":  "524f03d4754ec5585fb08c1e74298a3af51b94a9",
+                              "base":  "e179f4444592929f9e95be98713883d6c14a7677",
+                              "merge":  null,
+                              "url":  "https://github.com/Tencent/WeKnora/pull/3312",
+                              "files":  [
+                                            "frontend/src/api/datasource/index.ts",
+                                            "frontend/src/i18n/locales/en-US.ts",
+                                            "frontend/src/i18n/locales/ja-JP.ts",
+                                            "frontend/src/i18n/locales/ko-KR.ts",
+                                            "frontend/src/i18n/locales/ru-RU.ts",
+                                            "frontend/src/i18n/locales/zh-CN.ts",
+                                            "frontend/src/views/knowledge/KnowledgeBase.vue",
+                                            "frontend/src/views/knowledge/components/DocumentCardView.vue",
+                                            "frontend/src/views/knowledge/components/DocumentListView.vue",
+                                            "frontend/src/views/knowledge/settings/DataSourceEditorDialog.vue",
+                                            "frontend/src/views/knowledge/settings/datasourceIcons.ts",
+                                            "internal/container/container.go",
+                                            "internal/datasource/connector.go",
+                                            "internal/datasource/connector/feishu/core/client.go",
+                                            "internal/datasource/connector/feishu/core/region.go",
+                                            "internal/datasource/connector/feishu/core/types.go",
+                                            "internal/datasource/connector/feishu/core/url.go",
+                                            "internal/datasource/connector/feishu/core/url_test.go",
+                                            "internal/datasource/connector/feishu/links/connector.go",
+                                            "internal/datasource/connector/feishu/links/connector_test.go",
+                                            "internal/datasource/connector/feishu/links/helpers_test.go",
+                                            "internal/types/datasource.go",
+                                            "internal/types/knowledge.go",
+                                            "website-docs/03-features/10-datasource.md"
+                                        ]
+                          },
+                          {
+                              "repo":  "Tencent/WeKnora",
+                              "number":  4547,
+                              "state":  "open",
+                              "merged":  false,
+                              "head":  "ae14468099237c0f6a2b67a93d2fd6805df81c64",
+                              "base":  "0eb298467d071423dd507606216ced4e0d07bd96",
+                              "merge":  null,
+                              "url":  "https://github.com/Tencent/WeKnora/pull/4547",
+                              "files":  [
+                                            ".env.example",
+                                            "internal/application/service/datasource_recursive.go",
+                                            "internal/application/service/datasource_recursive_test.go",
+                                            "internal/application/service/datasource_service.go",
+                                            "internal/datasource/connector/feishu/core/engine.go",
+                                            "internal/datasource/connector/feishu/core/recursive.go",
+                                            "internal/datasource/connector/feishu/core/recursive_api.go",
+                                            "internal/datasource/connector/feishu/core/recursive_children.go",
+                                            "internal/datasource/connector/feishu/core/recursive_engine_test.go",
+                                            "internal/datasource/connector/feishu/core/recursive_fetch.go",
+                                            "internal/datasource/connector/feishu/core/recursive_test.go",
+                                            "internal/datasource/connector/feishu/core/types.go",
+                                            "internal/datasource/connector/feishu/drive/connector.go",
+                                            "internal/datasource/connector/feishu/drive/recursive.go",
+                                            "internal/datasource/connector/feishu/wiki/connector.go",
+                                            "internal/datasource/connector/feishu/wiki/recursive.go",
+                                            "website-docs/03-features/feishu-recursive-links.md"
+                                        ]
+                          },
+                          {
+                              "repo":  "Tencent/WeKnora",
+                              "number":  4400,
+                              "state":  "closed",
+                              "merged":  true,
+                              "head":  "61feb8d8d82a7cceb8947cba8864fe208ed35282",
+                              "base":  "e07a190219a98bbebd87f6ec60701682ef0df093",
+                              "merge":  "b373374bf38a1437281d475109089962e1cb8389",
+                              "url":  "https://github.com/Tencent/WeKnora/pull/4400",
+                              "files":  [
+                                            "internal/datasource/connector/feishu/core/markdown.go",
+                                            "internal/datasource/connector/feishu/core/markdown_cell_nested_test.go"
+                                        ]
+                          },
+                          {
+                              "repo":  "Tencent/WeKnora",
+                              "number":  4565,
+                              "state":  "closed",
+                              "merged":  true,
+                              "head":  "76748e380af982df8155e99a8dc8210bbcfa0e65",
+                              "base":  "1bcc004a5e5e4e96b7aedba455f3b7a29651e091",
+                              "merge":  "f0e93abafa7f51a1c2a67517640e6563ec17f0d5",
+                              "url":  "https://github.com/Tencent/WeKnora/pull/4565",
+                              "files":  [
+                                            "internal/datasource/connector/feishu/core/types.go",
+                                            "internal/datasource/connector/feishu/core/wiki_shortcuts.go",
+                                            "internal/datasource/connector/feishu/wiki/connector.go"
+                                        ]
+                          },
+                          {
+                              "repo":  "Tencent/WeKnora",
+                              "number":  4399,
+                              "state":  "closed",
+                              "merged":  true,
+                              "head":  "b5d74fe29249033bb17758fe0cb789440c21c316",
+                              "base":  "e07a190219a98bbebd87f6ec60701682ef0df093",
+                              "merge":  "2c0d8384398ca756ee414eef01b71caf91e2caa6",
+                              "url":  "https://github.com/Tencent/WeKnora/pull/4399",
+                              "files":  [
+                                            "internal/datasource/connector/feishu/core/client.go",
+                                            "internal/datasource/connector/feishu/core/token_log_test.go"
+                                        ]
+                          }
+                      ]
+}
