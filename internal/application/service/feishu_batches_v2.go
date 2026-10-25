@@ -10,6 +10,7 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
+	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -525,6 +526,9 @@ func (s *FeishuPersonalService) reconcileBatchUpdates(ctx context.Context) error
 			for _, progress := range view.Items {
 				if progress.ID != item.ID {
 					continue
+				}
+				if progress.Stalled {
+					logger.Warnf(fresh, "Feishu import stalled: no live document lease, recent activity or queued task")
 				}
 				switch progress.Status {
 				case "succeeded":

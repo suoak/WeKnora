@@ -7,6 +7,8 @@ required = {
     "TestFeishuV2PostgresQuickImportRequiresExplicitTarget",
     "TestFeishuV2PostgresStorageFailureTerminatesOriginalAttempt",
     "TestFeishuV2PostgresBatchReportsActualFailureWithoutPollingProgress",
+    "TestFeishuV2PostgresStallRequiresAbsentLeaseHeartbeatAndQueue",
+    "TestFeishuV2PostgresTemporaryCandidateFailureHasFiniteRetries",
 	"TestFeishuV2PostgresCollectionPageAdmissionAndRestart",
 	"TestFeishuV2PostgresCollectionRollbackAndPauseFence",
 	"TestFeishuV2PostgresCollectionDeniedChildPreservesHealthySiblings",

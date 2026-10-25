@@ -43,6 +43,8 @@ let mounted=true, selectedID='', timer:ReturnType<typeof setTimeout>|undefined, 
 onUnmounted(()=>{mounted=false;clearTimeout(timer)})
 function formatTime(value:string) { return new Date(value).toLocaleString() }
 function itemStatus(item:FeishuBatchItem) {
+  if(item.stage==='publication_pending') return '解析已完成，正在验证索引和发布'
+  if(item.stage==='wiki_finishing') return '索引已验证，正在完成知识发布'
   if(item.status==='processing') return '正在检查和准备'
   if(item.status!=='dispatched') return simpleStatus(item.status)
   const labels:Record<string,string>={queued:'排队中',checking:'正在检查和准备',preparing:'正在准备文档',fetching:'正在读取飞书文档',retry_wait:'等待自动重试',downloaded:'文档已读取，等待解析',parse_queued:'等待解析',parsing:'正在解析',docreader:'正在解析',chunking:'正在切分文档',embedding:'正在建立索引',multimodal:'正在处理图片',postprocess:'正在完成发布',finalizing:'正在完成发布',completed:'已验证成功入库',needs_attention:'需要处理'}

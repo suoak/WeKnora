@@ -22,7 +22,9 @@ func (s *FeishuPersonalService) batchItemProgress(ctx context.Context, item *typ
 ) error {
 	item.Stage = "queued"
 	item.LastProgressAt = &accepted
-	item.LeaseActive = item.LeaseUntil != nil && item.LeaseUntil.After(time.Now())
+	// A dispatched item's short reconciliation claim is bookkeeping, not a
+	// document worker heartbeat and must not conceal an abandoned downstream job.
+	item.LeaseActive = item.Status == "processing" && item.LeaseUntil != nil && item.LeaseUntil.After(time.Now())
 	if item.Status == "processing" {
 		item.Stage = "checking"
 	}
@@ -92,6 +94,12 @@ func (s *FeishuPersonalService) batchItemProgress(ctx context.Context, item *typ
 		}
 		if k.ParseStatus == types.ParseStatusFinalizing {
 			item.Stage = "finalizing"
+		}
+		if k.ParseStatus == types.ParseStatusCompleted {
+			item.Stage = "publication_pending"
+			if item.IndexVerified {
+				item.Stage = "wiki_finishing"
+			}
 		}
 		if e := s.db.WithContext(ctx).Model(&types.Chunk{}).
 			Where("knowledge_id = ?", k.ID).Count(&item.ChunkCount).Error; e != nil {

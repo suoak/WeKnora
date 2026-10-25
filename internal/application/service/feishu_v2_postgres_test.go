@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -44,6 +45,82 @@ func v2PostgresFixture(t *testing.T) *personalRecoveryFixture {
 	admin := context.WithValue(f.ctx, types.SystemAdminContextKey, true)
 	require.NoError(t, f.s.SaveApp(admin, cfg))
 	return f
+}
+
+type batchProgressInspector struct {
+	interfaces.TaskInspector
+	ids map[string]struct{}
+	err error
+}
+
+func (p *batchProgressInspector) QueuedKnowledgeIDs(context.Context) (map[string]struct{}, error) {
+	return p.ids, p.err
+}
+
+func TestFeishuV2PostgresStallRequiresAbsentLeaseHeartbeatAndQueue(t *testing.T) {
+	f := v2PostgresFixture(t)
+	_, _, ref, err := f.s.ResolveCredentialReference(f.ctx, types.FeishuUserOAuth, "")
+	require.NoError(t, err)
+	link := "https://test.feishu.cn/file/real"
+	_, err = f.s.ApproveSharing(f.ctx, "kb", ref.ConnectionID, link, "controlled test", true)
+	require.NoError(t, err)
+	view, err := f.s.QuickImport(f.ctx, "kb", "stall-check", []string{link})
+	require.NoError(t, err)
+	require.NoError(t, f.s.ReconcileBatches(context.Background()))
+	view, err = f.s.Batch(f.ctx, view.Batch.ID)
+	require.NoError(t, err)
+	importID := view.Items[0].ImportID
+	var attempt types.FeishuPersonalAttempt
+	require.NoError(t, f.db.Where("import_id = ?", importID).First(&attempt).Error)
+	old := time.Now().Add(-20 * time.Minute)
+	probe := &batchProgressInspector{ids: map[string]struct{}{}}
+	f.ks.taskInspector = probe
+	for _, tc := range []struct {
+		name      string
+		lease     bool
+		heartbeat bool
+		queued    bool
+		unknown   bool
+		stalled   bool
+	}{
+		{"abandoned", false, false, false, false, true},
+		{"long document lease", true, false, false, false, false},
+		{"worker heartbeat", false, true, false, false, false},
+		{"queued or active", false, false, true, false, false},
+		{"queue unavailable", false, false, false, true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var lease *time.Time
+			if tc.lease {
+				until := time.Now().Add(time.Minute)
+				lease = &until
+			}
+			activity := old
+			if tc.heartbeat {
+				activity = time.Now()
+			}
+			probe.ids = map[string]struct{}{}
+			if tc.queued {
+				probe.ids[attempt.CandidateVersionID] = struct{}{}
+			}
+			probe.err = nil
+			if tc.unknown {
+				probe.err = errors.New("queue unavailable")
+			}
+			require.NoError(t, f.db.Model(&types.FeishuPersonalImport{}).Where("id = ?", importID).
+				UpdateColumn("updated_at", old).Error)
+			require.NoError(t, f.db.Model(&types.FeishuPersonalAttempt{}).Where("id = ?", attempt.ID).
+				UpdateColumns(map[string]interface{}{"updated_at": activity, "lease_until": lease}).Error)
+			// Reconciler claims are not downstream worker activity.
+			until := time.Now().Add(time.Minute)
+			require.NoError(t, f.db.Model(&types.FeishuBatchItem{}).Where("id = ?", view.Items[0].ID).
+				UpdateColumns(map[string]interface{}{"updated_at": time.Now(), "lease_until": &until}).Error)
+			current, e := f.s.Batch(f.ctx, view.Batch.ID)
+			require.NoError(t, e)
+			require.Equal(t, tc.stalled, current.Items[0].Stalled)
+			require.Equal(t, "dispatched", current.Items[0].Status, "observing a stall never cancels the job")
+		})
+	}
 }
 
 func TestFeishuV2PostgresSharedAdmissionRequiresRevisionApproval(t *testing.T) {
@@ -225,7 +302,14 @@ func TestFeishuV2PostgresDirectBatchIsolatesInvalidAndRestoresLease(t *testing.T
 		"http://127.0.0.1/file/private",
 		"",
 	}
-	view, err := f.s.CreateBatch(f.ctx, "kb", types.FeishuUserOAuth, ref.ConnectionID, "direct-no-preview", links)
+	view, err := f.s.CreateBatch(
+		f.ctx,
+		"kb",
+		types.FeishuUserOAuth,
+		ref.ConnectionID,
+		"direct-no-preview",
+		links,
+	)
 	require.NoError(t, err)
 	require.Len(t, view.Items, 2)
 	require.Equal(t, "pending", view.Items[0].Status)
@@ -244,7 +328,14 @@ func TestFeishuV2PostgresDirectBatchIsolatesInvalidAndRestoresLease(t *testing.T
 	require.Equal(t, "dispatched", view.Items[0].Status)
 	require.NotEmpty(t, view.Items[0].ImportID)
 	require.Equal(t, "blocked", view.Items[1].Status)
-	repeated, err := f.s.CreateBatch(f.ctx, "kb", types.FeishuUserOAuth, ref.ConnectionID, "direct-no-preview", links)
+	repeated, err := f.s.CreateBatch(
+		f.ctx,
+		"kb",
+		types.FeishuUserOAuth,
+		ref.ConnectionID,
+		"direct-no-preview",
+		links,
+	)
 	require.NoError(t, err)
 	require.Equal(t, view.Batch.ID, repeated.Batch.ID)
 	require.Equal(t, view.Items[0].ImportID, repeated.Items[0].ImportID)
@@ -254,7 +345,10 @@ func TestFeishuV2PostgresBatchAutomaticallyRetriesOnlyTemporaryFailures(t *testi
 	for _, code := range []int{http.StatusServiceUnavailable, http.StatusForbidden} {
 		t.Run(http.StatusText(code), func(t *testing.T) {
 			f := v2PostgresFixture(t)
-			require.NoError(t, f.db.Exec("INSERT INTO feishu_private_kbs(kb_id,owner_id) VALUES('kb','A')").Error)
+			require.NoError(
+				t,
+				f.db.Exec("INSERT INTO feishu_private_kbs(kb_id,owner_id) VALUES('kb','A')").Error,
+			)
 			server := httptest.NewServer(
 				http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(code) }),
 			)
@@ -314,7 +408,10 @@ func (s *v2QuickKB) GetKnowledgeBaseByID(ctx context.Context, id string) (*types
 	return repository.NewKnowledgeBaseRepository(s.db).GetKnowledgeBaseByID(ctx, id)
 }
 
-func (s *v2QuickKB) CreateKnowledgeBase(ctx context.Context, kb *types.KnowledgeBase) (*types.KnowledgeBase, error) {
+func (s *v2QuickKB) CreateKnowledgeBase(
+	ctx context.Context,
+	kb *types.KnowledgeBase,
+) (*types.KnowledgeBase, error) {
 	kb.ID = uuid.NewString()
 	kb.TenantID = types.CallerFromContext(ctx).TenantID
 	kb.CreatorID, _ = types.UserIDFromContext(ctx)
@@ -333,7 +430,12 @@ func TestFeishuV2PostgresQuickImportRequiresExplicitTarget(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			results[i], errs[i] = f.s.QuickImport(f.ctx, "", "quick-once", []string{"https://test.feishu.cn/file/real"})
+			results[i], errs[i] = f.s.QuickImport(
+				f.ctx,
+				"",
+				"quick-once",
+				[]string{"https://test.feishu.cn/file/real"},
+			)
 		}(i)
 	}
 	wg.Wait()
@@ -345,7 +447,12 @@ func TestFeishuV2PostgresQuickImportRequiresExplicitTarget(t *testing.T) {
 	require.Zero(t, count)
 	kb, err := f.s.CreatePrivateKnowledgeBase(f.ctx, "explicit-private")
 	require.NoError(t, err)
-	results[0], err = f.s.QuickImport(f.ctx, kb.ID, "explicit-target", []string{"https://test.feishu.cn/file/real"})
+	results[0], err = f.s.QuickImport(
+		f.ctx,
+		kb.ID,
+		"explicit-target",
+		[]string{"https://test.feishu.cn/file/real"},
+	)
 	require.NoError(t, err)
 	kbID := results[0].Batch.KBID
 	require.Equal(t, kb.ID, kbID)
@@ -384,11 +491,14 @@ func TestFeishuV2PostgresBatchReportsActualFailureWithoutPollingProgress(t *test
 	view, err = f.s.Batch(f.ctx, view.Batch.ID)
 	require.NoError(t, err)
 	require.True(t, lastProgress.Equal(*view.Items[0].LastProgressAt))
-	require.NoError(t, f.db.Model(&types.FeishuPersonalAttempt{}).Where("import_id = ?", view.Items[0].ImportID).
-		Updates(map[string]interface{}{
-			"status": "needs_attention", "last_error_category": "storage_permission_denied",
-		}).
-		Error)
+	require.NoError(
+		t,
+		f.db.Model(&types.FeishuPersonalAttempt{}).Where("import_id = ?", view.Items[0].ImportID).
+			Updates(map[string]interface{}{
+				"status": "needs_attention", "last_error_category": "storage_permission_denied",
+			}).
+			Error,
+	)
 	view, err = f.s.Batch(f.ctx, view.Batch.ID)
 	require.NoError(t, err)
 	require.Equal(t, "failed", view.Items[0].Status)

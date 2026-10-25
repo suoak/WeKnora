@@ -583,9 +583,13 @@ func (p *PersonalRecovery) processPrivateManifest(
 						return err
 					}
 				}
+				op := "recovery"
+				if current.Status == "needs_attention" {
+					op = "attention"
+				}
 				return tx.Model(&types.TaskPendingOp{}).
 					Where("scope = ? AND scope_id = ?", types.KnowledgeDispatchScope, current.CandidateVersionID).
-					Update("op", current.Status).
+					Update("op", op).
 					Error
 			},
 		)
