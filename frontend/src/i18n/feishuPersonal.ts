@@ -1,4 +1,11 @@
 const en = {
+  directoryDiscovery: 'Folder and Wiki discovery', discoverThisFolder: 'Enable discovery for this folder',
+  confirmDiscovery: 'Import new documents found under this selected directory into this knowledge base.',
+  discoveryScope: 'Checks the selected tree every 15 minutes, one page at a time. Personal discovery requires your private knowledge base. Content updates are enabled separately for each imported document below. Pausing discovery stops new page admission; already admitted batches and document update sources are managed separately.',
+  discoveryCounts: '{pages} pages checked, {count} entries discovered in this cycle',
+  discoveryTruncated: 'Discovery is incomplete because a subtree needs permission review or the depth limit was reached. Check the error and select a smaller authorized subtree.',
+  discoverNow: 'Discover now', pauseDiscovery: 'Pause discovery', discoveryPages: 'Directory paths and batches',
+  discoveryAccepted: 'Directory discovery submitted. Open discovery history to check progress and per-page import batches.',
   approvalHistory: 'My sharing approvals', withdrawApproval: 'Withdraw approval', approved: 'Approved',
   approvalWithdrawalScope: 'Withdrawal blocks future imports and publication. Already published knowledge remains subject to the knowledge base permissions; manage or remove it separately when required.',
   api_scope_missing: 'Ask the application administrator to enable the required Feishu API permission.',
@@ -40,6 +47,13 @@ const en = {
   app: 'Feishu document application', appID: 'App ID', secret: 'App Secret (leave empty to keep)', callback: 'OAuth callback URL', enabled: 'Enable personal imports', save: 'Save', test: 'Test saved application credentials', saved: 'Configuration saved', tested: 'Application credentials valid.',
 }
 const zh = {
+  directoryDiscovery: '文件夹与 Wiki 持续发现', discoverThisFolder: '启用当前目录持续发现',
+  confirmDiscovery: '将此选定目录下新发现的文档导入当前知识库。',
+  discoveryScope: '每 15 分钟检查选定目录，逐页处理。个人身份只允许导入本人的私人知识库；已有文档的内容更新需在下方逐篇启用。暂停发现会阻止新页接纳，已接纳批次和文档更新来源需分别管理。',
+  discoveryCounts: '本轮已检查 {pages} 页，发现 {count} 个条目',
+  discoveryTruncated: '部分子目录需要权限复核或已达到深度上限，本轮发现不完整，请核对错误并缩小已授权子目录范围。',
+  discoverNow: '立即发现', pauseDiscovery: '暂停发现', discoveryPages: '查看目录路径与批次',
+  discoveryAccepted: '目录发现已提交，请在发现历史中查看进度和逐页导入批次。',
   approvalHistory: '我的共享发布批准', withdrawApproval: '撤回批准', approved: '已批准',
   approvalWithdrawalScope: '撤回后阻止后续导入和发布。已经发布的知识仍按知识库权限访问；如需停止其访问，请另行调整权限或下架知识。',
   api_scope_missing: '请联系应用管理员开通所需的飞书 API 权限。',

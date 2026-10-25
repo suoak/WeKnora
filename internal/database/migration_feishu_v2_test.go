@@ -84,3 +84,54 @@ func TestFeishuV2SQLiteMigrationsPreservePrivacyAndAuditOnRollback(t *testing.T)
 		})
 	}
 }
+
+func TestFeishuV2SQLiteCollectionRollbackRetainsDiscoveryAndOldSources(t *testing.T) {
+	root := sqliteRepoRoot(t)
+	for _, populated := range []bool{false, true} {
+		t.Run(map[bool]string{false: "empty", true: "discovery_state"}[populated], func(t *testing.T) {
+			db := openSQLiteDB(t, filepath.Join(t.TempDir(), "collection.db"))
+			for _, sql := range []string{
+				"CREATE TABLE users(id TEXT PRIMARY KEY)",
+				"CREATE TABLE tenants(id INTEGER PRIMARY KEY)",
+				"CREATE TABLE knowledge_bases(id TEXT PRIMARY KEY)",
+				"CREATE TABLE feishu_import_batches(id TEXT PRIMARY KEY)",
+				"CREATE TABLE data_sources(id TEXT,status TEXT,last_sync_cursor TEXT)",
+				"INSERT INTO users VALUES('A')", "INSERT INTO tenants VALUES(1)",
+				"INSERT INTO knowledge_bases VALUES('kb')",
+				`INSERT INTO data_sources VALUES('protected','paused','{"retained":true}')`,
+			} {
+				_, err := db.Exec(sql)
+				require.NoError(t, err)
+			}
+			up, err := os.ReadFile(filepath.Join(root, "migrations/sqlite/003041_feishu_collections.up.sql"))
+			require.NoError(t, err)
+			_, err = db.Exec(string(up))
+			require.NoError(t, err)
+			if populated {
+				_, err = db.Exec(`INSERT INTO feishu_collections(id,owner_id,tenant_id,kb_id,auth_mode,
+				connection_id,config_version,kind,root_id,state,frontier)
+				VALUES('collection','A',1,'kb','user_oauth','ref','v1','drive','root','hold','encrypted-state')`)
+				require.NoError(t, err)
+			}
+			down, err := os.ReadFile(filepath.Join(root, "migrations/sqlite/003041_feishu_collections.down.sql"))
+			require.NoError(t, err)
+			tx, err := db.Begin()
+			require.NoError(t, err)
+			_, err = tx.Exec(string(down))
+			if populated {
+				require.Error(t, err)
+				require.NoError(t, tx.Rollback())
+				var state string
+				require.NoError(t, db.QueryRow("SELECT state FROM feishu_collections").Scan(&state))
+				require.Equal(t, "hold", state)
+			} else {
+				require.NoError(t, err)
+				require.NoError(t, tx.Commit())
+			}
+			var status, cursor string
+			require.NoError(t, db.QueryRow("SELECT status,last_sync_cursor FROM data_sources").Scan(&status, &cursor))
+			require.Equal(t, "paused", status)
+			require.Equal(t, `{"retained":true}`, cursor)
+		})
+	}
+}

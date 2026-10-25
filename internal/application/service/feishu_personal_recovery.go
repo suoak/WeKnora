@@ -680,6 +680,9 @@ func (p *PersonalRecovery) fetchCandidate(
 func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 	var after string
 	var failures []error
+	if err := p.service.ReconcileCollections(ctx); err != nil {
+		failures = append(failures, err)
+	}
 	if err := p.service.ReconcileBatches(ctx); err != nil {
 		failures = append(failures, err)
 	}

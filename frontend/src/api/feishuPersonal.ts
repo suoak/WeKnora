@@ -36,6 +36,12 @@ export const approveFeishuSharing = (kb: string, connection_id: string, url: str
 export type FeishuSharingApproval = { id: string; resource_type: string; revision: string; state: string; reason: string; created_at: string; expires_at: string }
 export const listFeishuSharingApprovals = (kb: string, offset = 0) => get<FeishuSharingApproval[]>(`/api/v1/knowledge-bases/${encodeURIComponent(kb)}/feishu/sharing-approvals`, { params: { offset } })
 export const revokeFeishuSharingApproval = (kb: string, id: string) => post(`/api/v1/knowledge-bases/${encodeURIComponent(kb)}/feishu/sharing-approvals/${encodeURIComponent(id)}/revoke`, {})
+export type FeishuCollection = { id: string; kind: string; root_id: string; space_id: string; state: string; cycle: number; pages: number; discovered: number; truncated: boolean; error_category?: string; next_run_at: string }
+export type FeishuCollectionPage = { id: string; cycle: number; ordinal: number; batch_id?: string; links: { url: string; path: string[] }[] }
+export const createFeishuCollection = (kb: string, params: { auth_mode: FeishuAuthMode; connection_id: string; kind: string; parent_id: string; space_id: string }) => post<FeishuCollection>(`/api/v1/knowledge-bases/${encodeURIComponent(kb)}/feishu/collections`, params)
+export const listFeishuCollections = (kb: string, offset = 0) => get<FeishuCollection[]>(`/api/v1/knowledge-bases/${encodeURIComponent(kb)}/feishu/collections`, { params: { offset } })
+export const feishuCollectionAction = (kb: string, id: string, action: 'pause' | 'resume' | 'discover') => post(`/api/v1/knowledge-bases/${encodeURIComponent(kb)}/feishu/collections/${encodeURIComponent(id)}/${action}`, {})
+export const listFeishuCollectionPages = (kb: string, id: string, offset = 0) => get<FeishuCollectionPage[]>(`/api/v1/knowledge-bases/${encodeURIComponent(kb)}/feishu/collections/${encodeURIComponent(id)}/pages`, { params: { offset } })
 export function isFeishuDocumentURL(value: string): boolean {
   try { const u = new URL(value); return u.protocol === 'https:' && (u.hostname === 'feishu.cn' || u.hostname.endsWith('.feishu.cn')) } catch { return false }
 }

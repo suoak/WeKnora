@@ -16,6 +16,10 @@
         <t-select v-model="filter" :options="[{label:t('allTypes'),value:''},...['docx','sheet','bitable'].map(value=>({label:value,value}))]" />
       </div>
       <p>{{ t('partialCoverage') }}</p>
+      <p v-if="location.parent || (kind === 'wiki' && location.space)">
+        <t-checkbox v-model="confirmDiscovery" :disabled="busy">{{ t('confirmDiscovery') }}</t-checkbox>
+        <t-button :disabled="busy || !confirmDiscovery" variant="outline" @click="createCollection">{{ t('discoverThisFolder') }}</t-button>
+      </p>
       <div class="resources">
         <div v-for="entry in visibleEntries" :key="`${entry.space_id}:${entry.id}`" class="resource-row">
           <t-checkbox :checked="selected.has(entry.id)" :disabled="busy" @change="toggle(entry, !selected.has(entry.id))" />
@@ -57,6 +61,25 @@
     </div>
     <p v-if="message" role="status">{{ message }}</p>
     <details>
+      <summary @click="refreshCollections(false)">{{ t('directoryDiscovery') }}</summary>
+      <p>{{ t('discoveryScope') }}</p>
+      <div v-for="row in collections" :key="row.id">
+        <p>{{ row.kind }} / {{ row.space_id }} / {{ row.root_id }} · {{ label(row.state) }} · {{ t('discoveryCounts', { pages: row.pages, count: row.discovered }) }}</p>
+        <p v-if="row.truncated">{{ t('discoveryTruncated') }}</p>
+        <p v-if="row.error_category">{{ label(row.error_category) }}</p>
+        <t-button v-if="row.state === 'active'" variant="text" :disabled="busy" @click="collectionAction(row.id,'discover')">{{ t('discoverNow') }}</t-button>
+        <t-button v-if="row.state === 'active'" variant="text" :disabled="busy" @click="collectionAction(row.id,'pause')">{{ t('pauseDiscovery') }}</t-button>
+        <t-button v-if="row.state === 'paused'" variant="text" :disabled="busy" @click="collectionAction(row.id,'resume')">{{ t('resumeSource') }}</t-button>
+        <t-button variant="text" :disabled="busy" @click="showCollectionPages(row.id,false)">{{ t('discoveryPages') }}</t-button>
+      </div>
+      <t-button v-if="moreCollections" variant="text" :disabled="busy" @click="refreshCollections(true)">{{ t('more') }}</t-button>
+      <div v-for="page in collectionPages" :key="page.id">
+        <p>{{ page.cycle }} / {{ page.ordinal }} <t-button v-if="page.batch_id" variant="text" :disabled="busy" @click="openBatch(page.batch_id)">{{ t('viewBatch') }}</t-button></p>
+        <ul><li v-for="link in page.links" :key="link.url">{{ link.path.join(' / ') }} · <a v-if="isFeishuDocumentURL(link.url)" :href="link.url" target="_blank" rel="noopener noreferrer">{{ link.url }}</a></li></ul>
+      </div>
+      <t-button v-if="moreCollectionPages && selectedCollection" variant="text" :disabled="busy" @click="showCollectionPages(selectedCollection,true)">{{ t('more') }}</t-button>
+    </details>
+    <details>
       <summary @click="refreshApprovals(false)">{{ t('approvalHistory') }}</summary>
       <p>{{ t('approvalWithdrawalScope') }}</p>
       <div v-for="row in approvals" :key="row.id">
@@ -94,6 +117,7 @@ import { computed, ref, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { feishuBatchKey } from '@/utils/feishuBatchKey'
+import { createFeishuCollection, listFeishuCollections, feishuCollectionAction, listFeishuCollectionPages, type FeishuCollection, type FeishuCollectionPage } from '@/api/feishuPersonal'
 import { listFeishuSharingApprovals, revokeFeishuSharingApproval, type FeishuSharingApproval } from '@/api/feishuPersonal'
 import { createPrivateFeishuKB } from '@/api/feishuPersonal'
 import { listFeishuCollaboration, recordFeishuCollaboration, type FeishuCollaboration } from '@/api/feishuPersonal'
@@ -122,6 +146,8 @@ const imports = ref<FeishuImport[]>([])
 const collaboration = ref<FeishuCollaboration[]>([]), contact = ref(''), collaborationNote = ref('')
 const batchHistory = ref<FeishuBatchHistory[]>([]), moreBatchHistory = ref(false)
 const approvals = ref<FeishuSharingApproval[]>([]), moreApprovals = ref(false)
+const collections = ref<FeishuCollection[]>([]), moreCollections = ref(false), confirmDiscovery = ref(false)
+const collectionPages = ref<FeishuCollectionPage[]>([]), moreCollectionPages = ref(false), selectedCollection = ref('')
 let timer: ReturnType<typeof setTimeout> | undefined
 let generation = 0, scopeEpoch = 0, connectionsVersion = 0, mounted = true
 function scope() { const epoch = scopeEpoch; return { kb: props.kbId, mode: mode.value, connection: connection.value?.id || '', links: [...links.value], current: () => mounted && epoch === scopeEpoch } }
@@ -132,6 +158,8 @@ async function refreshConnections() { const version = ++connectionsVersion, rows
 watch(() => props.status, () => refreshConnections().catch(() => { message.value = t('failed') }), { immediate: true, deep: true })
 watch([mode, kind, () => props.kbId], () => { scopeEpoch++; stop(); submissionKey.value = ''; entries.value = []; cursor.value = ''; selected.value.clear(); trail.value = []; location.value = { parent: '', space: '' }; previews.value = []; batch.value = undefined; imports.value = []; collaboration.value = []; batchHistory.value = []; moreBatchHistory.value = false; approvals.value = []; moreApprovals.value = false }, { flush: 'sync' })
 watch(linksText, () => { scopeEpoch++; submissionKey.value = ''; previews.value = []; confirmSharing.value = false }, { flush: 'sync' })
+watch([mode, kind, () => props.kbId], () => { collections.value = []; collectionPages.value = []; moreCollections.value = false; moreCollectionPages.value = false; selectedCollection.value = ''; confirmDiscovery.value = false }, { flush: 'sync' })
+watch(location, () => { confirmDiscovery.value = false }, { deep: true, flush: 'sync' })
 function query(parent = location.value.parent, space = location.value.space, next = '') { return { auth_mode: mode.value, connection_id: connection.value?.id || '', kind: kind.value, parent_id: parent, space_id: space, cursor: next, page_size: 50 } }
 async function act(action: () => Promise<void>) { if (busy.value) return; const epoch = scopeEpoch; busy.value = true; message.value = ''; try { await action() } catch (error: any) { if (mounted && epoch === scopeEpoch) message.value = error?.message || t('failed') } finally { busy.value = false } }
 async function loadPage(append = false) { await act(async () => { const s = scope(); const page = await feishuResources(query(undefined, undefined, append ? cursor.value : '')); if (!s.current()) return; entries.value = append ? [...entries.value, ...page.items] : page.items; cursor.value = page.cursor || '' }) }
@@ -176,6 +204,10 @@ async function refreshBatchHistory(append: boolean) { const s = scope(), offset 
 async function openBatch(id: string) { const s = scope(); stop(); const version = generation; await act(async () => { const row = await getFeishuBatch(id); if (!s.current() || version !== generation) return; batch.value = row; collaboration.value = []; void poll(id, version) }) }
 async function refreshApprovals(append: boolean) { const s = scope(), offset = append ? approvals.value.length : 0; await act(async () => { const rows = await listFeishuSharingApprovals(s.kb, offset); if (!s.current()) return; approvals.value = append ? [...approvals.value, ...rows] : rows; moreApprovals.value = rows.length === 20 && approvals.value.length <= 10000 }) }
 async function withdrawApproval(id: string) { const s = scope(); await act(async () => { await revokeFeishuSharingApproval(s.kb, id); if (!s.current()) return; approvals.value = approvals.value.map(row => row.id === id ? { ...row, state: 'revoked' } : row); previews.value = [] }) }
+async function refreshCollections(append: boolean) { const s = scope(), offset = append ? collections.value.length : 0; await act(async () => { const rows = await listFeishuCollections(s.kb, offset); if (!s.current()) return; collections.value = append ? [...collections.value,...rows] : rows; moreCollections.value = rows.length === 20 && collections.value.length <= 10000 }) }
+async function createCollection() { const s = scope(), position = { ...location.value }, resourceKind = kind.value; await act(async () => { const row = await createFeishuCollection(s.kb, { auth_mode:s.mode, connection_id:s.connection, kind:resourceKind, parent_id:position.parent, space_id:position.space }); if (!s.current()) return; collections.value = [row,...collections.value.filter(item => item.id !== row.id)]; confirmDiscovery.value = false; message.value = t('discoveryAccepted') }) }
+async function collectionAction(id: string, action: 'pause'|'resume'|'discover') { const s = scope(); await act(async () => { await feishuCollectionAction(s.kb,id,action); const rows = await listFeishuCollections(s.kb); if (s.current()) { collections.value = rows; moreCollections.value = rows.length === 20 } }) }
+async function showCollectionPages(id: string, append: boolean) { const s = scope(), offset = append ? collectionPages.value.length : 0; await act(async () => { const pages = await listFeishuCollectionPages(s.kb,id,offset); if (!s.current()) return; selectedCollection.value = id; collectionPages.value = append ? [...collectionPages.value,...pages] : pages; moreCollectionPages.value = pages.length === 20 && collectionPages.value.length <= 10000 }) }
 </script>
 <style scoped>
 .browse-controls { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }

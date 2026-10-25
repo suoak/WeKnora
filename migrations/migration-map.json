@@ -43,7 +43,7 @@
     "versioned": {
       "directory": "migrations/versioned",
       "database": "postgresql",
-      "current_latest": 3040,
+      "current_latest": 3041,
       "existing_knowhub_baseline": 3000,
       "immutable_through": 96,
       "immutable_file_count": 194,
@@ -52,7 +52,7 @@
     "sqlite": {
       "directory": "migrations/sqlite",
       "database": "sqlite",
-      "current_latest": 3040,
+      "current_latest": 3041,
       "existing_knowhub_baseline": 3000,
       "immutable_through": 17,
       "immutable_file_count": 36,
@@ -60,6 +60,7 @@
     }
   },
   "logical_parity": [
+    {"logical_id": "feishu_collections", "versioned": 3041, "sqlite": 3041},
     {"logical_id": "feishu_permission_collaboration", "versioned": 3040, "sqlite": 3040},
     {"logical_id": "feishu_access_v2", "versioned": 3039, "sqlite": 3039},
     {"logical_id": "feishu_document_deferrals", "versioned": 3038, "sqlite": 3038},
