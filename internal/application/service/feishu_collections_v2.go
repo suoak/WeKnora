@@ -233,6 +233,20 @@ func (s *FeishuPersonalService) ReconcileCollections(ctx context.Context) error 
 	}
 	if values["error_category"] != "temporary_failure" {
 		values["state"] = "hold"
+	} else {
+		var frontier core.DiscoveryFrontier
+		if e := openFeishu(row.Frontier, &frontier); e != nil {
+			return e
+		}
+		frontier.RetryCount++
+		encoded, e := sealFeishu(frontier)
+		if e != nil {
+			return e
+		}
+		values["frontier"] = encoded
+		if frontier.RetryCount >= 3 {
+			values["state"] = "hold"
+		}
 	}
 	cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
@@ -259,7 +273,7 @@ func (s *FeishuPersonalService) advanceCollection(ctx context.Context, row *type
 	cycle := row.Cycle
 	if len(frontier.Queue) == 0 {
 		if frontier.Truncated || len(frontier.Deferred) > 0 {
-			return errors.New("discovery_depth_requires_review")
+			return core.ErrDiscoveryReview
 		}
 		frontier, err = core.NewDiscoveryFrontier(row.Kind, row.RootID, row.SpaceID)
 		if err != nil {
@@ -287,6 +301,7 @@ func (s *FeishuPersonalService) advanceCollection(ctx context.Context, row *type
 		evidence.BlockedPath = frontier.Queue[0].Path
 		evidence.ErrorCategory = "source_permission_required"
 	}
+	next.RetryCount = 0
 	encoded, err := sealFeishu(next)
 	if err != nil {
 		return err

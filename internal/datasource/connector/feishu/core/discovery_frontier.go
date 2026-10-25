@@ -5,6 +5,9 @@ import (
 	"errors"
 )
 
+// ErrDiscoveryReview retains the frontier when tree identity or capacity needs review.
+var ErrDiscoveryReview = errors.New("feishu_discovery_requires_review")
+
 // DiscoveryPosition is one level/page in an explicitly selected tree. Tokens
 // remain server-side. The resolved target binds pages across Wiki shortcuts.
 type DiscoveryPosition struct {
@@ -24,6 +27,7 @@ type DiscoveryFrontier struct {
 	Discovered int
 	Truncated  bool
 	Deferred   []DiscoveryPosition
+	RetryCount int
 }
 
 // DiscoveredLink keeps directory provenance separately from canonical content
@@ -68,8 +72,8 @@ func AdvanceDiscovery(
 	if len(current.Queue) == 0 {
 		return current, nil, nil
 	}
-	if current.Pages >= 1000 || current.Discovered >= 10000 || len(current.Queue) > 10000 {
-		return current, nil, errors.New("discovery_capacity_requires_review")
+	if current.Pages >= 1000 || current.Discovered >= 1000 || len(current.Queue) > 1000 {
+		return current, nil, ErrDiscoveryReview
 	}
 	position := current.Queue[0]
 	page, err := reader.ReadResourcePage(ctx, current.Kind, position.Parent, position.Space, position.Page, 50)
@@ -78,7 +82,7 @@ func AdvanceDiscovery(
 	}
 	if position.Page != "" && (position.ResolvedParent != page.ResolvedParent ||
 		position.ResolvedSpace != page.ResolvedSpace) {
-		return current, nil, errors.New("discovery_parent_changed")
+		return current, nil, ErrDiscoveryReview
 	}
 	if len(page.Items) > 50 || page.HasMore && (page.NextPage == "" || page.NextPage == position.Page) {
 		return current, nil, errors.New("invalid_resource_pagination")
@@ -138,8 +142,8 @@ func AdvanceDiscovery(
 		// Finish the current directory's pagination before expanding children.
 		next.Queue = append([]DiscoveryPosition{position}, next.Queue...)
 	}
-	if next.Discovered > 10000 || len(next.Queue) > 10000 {
-		return current, nil, errors.New("discovery_capacity_requires_review")
+	if next.Discovered > 1000 || len(next.Queue) > 1000 {
+		return current, nil, ErrDiscoveryReview
 	}
 	return next, links, nil
 }

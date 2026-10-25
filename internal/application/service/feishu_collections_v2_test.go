@@ -243,3 +243,45 @@ func TestFeishuV2PostgresDiscoveryNeverReentersManagedFirstCreate(t *testing.T) 
 	_, _, err = f.p.repo.Prepare(f.ctx, &persisted, attempt)
 	require.ErrorIs(t, err, repository.ErrPersonalSourceManaged)
 }
+
+func TestFeishuV2PostgresCollectionTransientRetryBudget(t *testing.T) {
+	f := v2PostgresFixture(t)
+	t.Setenv("FEISHU_API_RETRY_MAX", "0") // Isolate the outer durable retry budget.
+	require.NoError(t, f.db.Exec("INSERT INTO feishu_private_kbs(kb_id,owner_id) VALUES('kb','A')").Error)
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		http.Error(w, "synthetic unavailable", http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+	f.s.newClient = func(cfg *core.Config) *core.Client { cfg.BaseURL = server.URL; return core.NewClient(cfg) }
+	row, err := f.s.CreateCollection(f.ctx, "kb", FeishuResourceQuery{
+		AuthMode: types.FeishuUserOAuth, Kind: "drive", Parent: "root",
+	})
+	require.NoError(t, err)
+	var original core.DiscoveryFrontier
+	require.NoError(t, openFeishu(row.Frontier, &original))
+	for attempt := 1; attempt <= 3; attempt++ {
+		if attempt > 1 {
+			// Explicit user action advances only the due time, never the cursor.
+			require.NoError(t, f.s.CollectionAction(f.ctx, "kb", row.ID, "discover"))
+		}
+		require.NoError(t, f.s.ReconcileCollections(context.Background()))
+		var current types.FeishuCollection
+		require.NoError(t, f.db.Where("id = ?", row.ID).First(&current).Error)
+		var frontier core.DiscoveryFrontier
+		require.NoError(t, openFeishu(current.Frontier, &frontier))
+		require.Equal(t, attempt, frontier.RetryCount)
+		require.Equal(t, original.Queue, frontier.Queue)
+		require.Zero(t, frontier.Pages)
+		if attempt < 3 {
+			require.Equal(t, "active", current.State)
+			require.True(t, current.NextRunAt.After(time.Now().Add(50*time.Second)))
+		} else {
+			require.Equal(t, "hold", current.State)
+		}
+	}
+	require.NoError(t, f.s.ReconcileCollections(context.Background()))
+	require.EqualValues(t, 3, calls.Load(), "exhausted pages must not retry forever")
+	require.Error(t, f.s.CollectionAction(f.ctx, "kb", row.ID, "resume"))
+}

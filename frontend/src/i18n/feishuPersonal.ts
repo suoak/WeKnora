@@ -1,4 +1,5 @@
 const en = {
+  discovery_review_required: 'The directory changed or reached the discovery limit. Review the retained directory paths and choose a smaller authorized subtree.',
   existing: 'Already imported; content updates are managed by its source',
   directoryDiscovery: 'Folder and Wiki discovery', discoverThisFolder: 'Enable discovery for this folder',
   confirmDiscovery: 'Import new documents found under this selected directory into this knowledge base.',
@@ -48,6 +49,7 @@ const en = {
   app: 'Feishu document application', appID: 'App ID', secret: 'App Secret (leave empty to keep)', callback: 'OAuth callback URL', enabled: 'Enable personal imports', save: 'Save', test: 'Test saved application credentials', saved: 'Configuration saved', tested: 'Application credentials valid.',
 }
 const zh = {
+  discovery_review_required: '目录目标发生变化或已达到发现上限，请复核已保留的目录路径，并选择较小的已授权子目录。',
   existing: '已有知识，内容更新由对应来源管理',
   directoryDiscovery: '文件夹与 Wiki 持续发现', discoverThisFolder: '启用当前目录持续发现',
   confirmDiscovery: '将此选定目录下新发现的文档导入当前知识库。',

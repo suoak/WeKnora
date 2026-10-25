@@ -29,6 +29,7 @@
 | `5a49b4e9054f607e823ced0119751ed2c8147d51` | [Portal 全套门禁](https://github.com/suoak/WeKnora/actions/runs/40172043924) | PASS；Portal contracts/RBAC/race、迁移新建与升级、完整 internal 后端与 MCP 兼容性 job；不代表全部可选外部集成测试已执行 |
 | `9a2c1267909c3cb1fc40a27ae401bf9035b5a4ed` | [Python MCP](https://github.com/suoak/WeKnora/actions/runs/40171577746) | PASS；Python 3.10/3.11/3.12/3.13 测试与 wheel，发布步骤 SKIPPED；不是实际业务检索验收 |
 | `cf1e56f853f0139f09efe2b85427c79d5a3eb7be` | [独立 V2 门禁](https://github.com/suoak/WeKnora/actions/runs/40175081099) | PASS；含批准撤回与跨用户拒绝、Portal/MCP 私有别名过滤、真实 PG/竞态、迁移、前端；不包含后续新增的目录持续发现 |
+| `b3e7e3f43bd8ebc26dd107295a5d8363eb80d843` | [原生完整回归及构建](https://github.com/suoak/WeKnora/actions/runs/40174957284) | PASS；定向 PG 20 条 PASS 事件、旧身份/Asynq 恢复 166 条 PASS 和 1 条真实 Docx 缺配置 SKIP；全量 14441 条 PASS、238 条 SKIP、无 FAIL。条数包含子测试；可选外部集成的 SKIP 不算覆盖 |
 | `282df329a79dc357fc88ee446faad010e5ef06ab` | [原生定向 PG 门禁](https://github.com/suoak/WeKnora/actions/runs/40172962188) | 定向步骤 PASS：真实解析/向量发布、新引用来源的变更/不变/失败保留版本/断连拒绝、接管恢复。飞书与模型响应为合成数据；完整原生应用回归仍在执行。该 SHA 的独立门禁 lint 有一项 QF1008，已在后续提交修复，不能标为整套 PASS |
 | 后续提交 | 全量/原生/权限回归 | 持续执行中；不得沿用前一个 SHA 的 PASS |
 
@@ -68,6 +69,7 @@ HTTP 无法保护网络传输：授权码、KnowHub 会话、请求和页面内�
 ## 尚未完成
 
 - 目录持续发现实现待当前 SHA 的 Linux PG/竞态验证。已有本地单页遍历、重启序列、快捷方式循环/目标变化及 SQLite 迁移回滚证据。内容更新仍逐文档明确启用；目录权限失败不切换身份，达到容量/深度限制显示不完整并要求复核。
+- 后续发现已经交给来源管理的文档时只返回“已有知识”，不再分配首次创建 attempt。来源的暂停、保护和增量版本仍由原引擎处理。单轮发现最多 1000 个条目、1000 页、10 层；瞬时错误保留当前页并有限重试三次，耗尽后保持 HOLD。上述新边界正在当前 SHA 回归，不能沿用旧 SHA 的 PASS。
 - 新增迁移 3041 只创建目录发现及路径审计表，历史来源游标、租约与索引不改；有目录状态或审计数据时拒绝向下删除这些表。最新版本断言与治理清单同步更新。
 - 新凭据引用到真实解析、向量及发布链路已有合成接口/真实 PG 的变更、不变、失败保留旧版本与断连测试。真实首次入库到接管再到增量更新的完整串联，以及实际网页、Portal、Go MCP、Python MCP 业务检索仍待验收。
 - Portal/MCP 目录与计数使用的表别名已补私有范围过滤；策略快照也在事务开始时检查私人归属。新增 SQLite/PG 回归已提交，当前 SHA 的完整门禁仍在执行。

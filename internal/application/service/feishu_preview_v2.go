@@ -34,6 +34,8 @@ func feishuV2Error(err error) string {
 		return "api_scope_missing"
 	}
 	switch {
+	case errors.Is(err, core.ErrDiscoveryReview):
+		return "discovery_review_required"
 	case errors.Is(err, ErrFeishuSharingApproval):
 		return "sharing_approval_required"
 	case errors.Is(err, ErrFeishuReconnect), errors.Is(err, core.ErrAuth):
@@ -42,7 +44,7 @@ func feishuV2Error(err error) string {
 		return "source_permission_required"
 	case errors.Is(err, core.ErrRateLimited),
 		errors.Is(err, core.ErrTransient),
-		errors.Is(err, context.DeadlineExceeded):
+		errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled):
 		return "temporary_failure"
 	case errors.Is(err, access.ErrForbidden):
 		return "kb_permission_required"
