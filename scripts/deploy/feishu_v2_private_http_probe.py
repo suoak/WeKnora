@@ -172,6 +172,23 @@ if not denied.get('error') and not denied.get('result',{}).get('isError'):raise 
 found=json.dumps(rpc(key_a,'search_knowledge',{'query':'v2privacycanary','mode':'hybrid','knowledge_base_ids':[kb_id],'limit':10}))
 if kid not in found:raise ValueError('personal_mcp_owner_search_missing')
 checks.append({'check':'personal_mcp_owner_hybrid_search_and_other_admin_catalog_isolation','status':'PASS'})
+status,targets_a=api('GET','/api/v1/me/feishu/import-targets',token=token_a)
+status_b,targets_b=api('GET','/api/v1/me/feishu/import-targets',token=token_b)
+if status!=200 or status_b!=200 or not isinstance(targets_a,list) or not isinstance(targets_b,list):raise ValueError('writable_target_api_failed')
+if kb_id not in {v['id'] for v in targets_a} or kb_id in {v['id'] for v in targets_b}:raise ValueError('writable_target_private_boundary_failed')
+checks.append({'check':'live_writable_target_api_private_owner_boundary','status':'PASS'})
+def private_count():
+ statement="BEGIN READ ONLY; SELECT count(*) FROM feishu_private_kbs WHERE owner_id=(SELECT owner_id FROM feishu_private_kbs WHERE kb_id='"+kb_id+"'); COMMIT;"
+ p=subprocess.run(['docker','compose','--project-name',project,'--file',str(release/'compose.json'),'exec','-T','postgres','psql','-qX','-v','ON_ERROR_STOP=1','-U','postgres','-d','knowhub_feishu_v2_test','-At'],input=statement,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,timeout=20)
+ if p.returncode:raise ValueError('private_count_read_failed')
+ return int(p.stdout.strip())
+before=private_count()
+from concurrent.futures import ThreadPoolExecutor
+with ThreadPoolExecutor(max_workers=4) as pool:
+ codes=list(pool.map(lambda _:api('POST','/api/v1/me/feishu/imports',{'links':['https://test.feishu.cn/docx/synthetic']},token_a)[0],range(8)))
+after=private_count()
+if any(code!=400 for code in codes) or before!=after:raise ValueError('implicit_target_creation_regression')
+checks.append({'check':'live_concurrent_missing_kb_400_without_private_creation','requests':len(codes),'private_kb_delta':after-before,'status':'PASS'})
 result={'status':'PASS','source_sha':SHA,'project':project,'scope':'synthetic_manual_ingest_gateway_and_private_http_acl',
  'checks':checks,'indexed_rows':counts[0],'vector_rows_1024':counts[1],'bm25_canary_rows':counts[2],
  'real_feishu_oauth':'NOT_EXECUTED','real_feishu_document_import':'NOT_EXECUTED',

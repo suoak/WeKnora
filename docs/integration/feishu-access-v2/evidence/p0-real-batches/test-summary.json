@@ -1,0 +1,24 @@
+{
+  "source_sha": "111b87e3db87fe359bb43cd1155a6d668dac5d0f",
+  "frontend": {
+    "tests": 1592,
+    "passed": 1591,
+    "skipped": 1,
+    "failed": 0
+  },
+  "postgres_v2": {
+    "passed": 53,
+    "skipped": 0,
+    "failed": 0
+  },
+  "postgres_race": {
+    "passed": 28,
+    "skipped": 0,
+    "failed": 0
+  },
+  "native_v2": {
+    "passed": 61,
+    "skipped": 0,
+    "failed": 0
+  }
+}

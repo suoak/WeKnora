@@ -53,6 +53,9 @@ bids=','.join(quoted(r['id']) for r in batches) or "''"
 items=rows('feishu_import_batch_items',['id','batch_id','ordinal','status','error_category','import_id','retry_count','lease_until','updated_at'], 'batch_id IN ('+bids+') ORDER BY updated_at DESC')
 iids=','.join(quoted(r['import_id']) for r in items if r.get('import_id')) or "''"
 imports=rows('feishu_personal_imports',['id','kb_id','knowledge_id','resource_type','status','updated_at','error_category'], 'id IN ('+iids+')')
+canonical_count=query('SELECT to_json(count(DISTINCT (resource_type,document_token))) FROM feishu_personal_imports WHERE id IN ('+iids+')')
+kb_list=','.join(quoted(v['kb_id']) for v in imports) or "''"
+wiki_configuration=query("SELECT coalesce(json_agg(q),'[]') FROM (SELECT id AS kb_id,coalesce((indexing_strategy->>'wiki_enabled')::boolean,false) AS wiki_enabled FROM knowledge_bases WHERE id IN ("+kb_list+") ) q")
 targets=query("SELECT coalesce(json_agg(q),'[]') FROM (SELECT kb.id,kb.tenant_id,kb.creator_id,"+
  "coalesce(fp.owner_id='"+uid+"',false) AS proven_private_owner,"+
  "EXISTS(SELECT 1 FROM tenant_members tm WHERE tm.user_id='"+uid+"' AND tm.tenant_id=kb.tenant_id AND tm.status='active' AND tm.deleted_at IS NULL) AS active_member "+
@@ -199,7 +202,7 @@ if APPROVED_LINKS:
 state={'user_id':uid,'batches':batches,'items':items,'imports':imports,'attempts':attempts,'knowledge':knowledge}
 # Store identifiers/status only in the existing private site; do not alter jobs.
 path=site/'real-batch-readonly-state.json';path.write_text(json.dumps(state));path.chmod(0o600)
-print(json.dumps({'status':'READ_ONLY','private_kb_dependencies':safe(private_dependencies),'selected_target_check':safe(targets),'batches':safe(batches),'items':safe(items),'imports':safe(imports),'attempts':safe(attempts),'knowledge':safe(knowledge),'outbox':safe(ops),'chunks':safe(chunks),'vectors':safe(vectors),'bm25':safe(bm25),'approved_link_metadata':metadata,'logs':logreports}))
+print(json.dumps({'status':'READ_ONLY','canonical_resource_count':canonical_count,'wiki_configuration':safe(wiki_configuration),'private_kb_dependencies':safe(private_dependencies),'selected_target_check':safe(targets),'batches':safe(batches),'items':safe(items),'imports':safe(imports),'attempts':safe(attempts),'knowledge':safe(knowledge),'outbox':safe(ops),'chunks':safe(chunks),'vectors':safe(vectors),'bm25':safe(bm25),'approved_link_metadata':metadata,'logs':logreports}))
 """
 
 
