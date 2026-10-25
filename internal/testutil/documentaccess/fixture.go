@@ -156,9 +156,9 @@ func Seed(t *testing.T, db *gorm.DB) *Fixture {
 	var version int
 	var dirty bool
 	require.NoError(t, db.Raw("SELECT version,dirty FROM schema_migrations").Row().Scan(&version, &dirty))
-	require.Equal(t, 3038, version)
+	require.Equal(t, 3040, version)
 	require.False(t, dirty)
-	t.Log("synthetic real migration state: version=3038 dirty=false")
+	t.Log("synthetic real migration state: version=3040 dirty=false")
 	return f
 }
 

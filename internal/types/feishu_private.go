@@ -93,7 +93,13 @@ func EnablePrivateKBGuards(db *gorm.DB) *gorm.DB {
 }
 
 // PrivateKBGuardsEnabled reports whether persisted privacy state is protected.
-func PrivateKBGuardsEnabled(db *gorm.DB) bool { _, ok := db.Plugins[privateKBGuard]; return ok }
+func PrivateKBGuardsEnabled(db *gorm.DB) bool {
+	if db == nil || db.Config == nil {
+		return false
+	}
+	_, ok := db.Plugins[privateKBGuard]
+	return ok
+}
 
 // PrivateKBOwner loads the persisted owner; an ordinary KB has no private owner.
 func PrivateKBOwner(db *gorm.DB, kb string) (string, error) {

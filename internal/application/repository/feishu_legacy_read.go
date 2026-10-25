@@ -11,6 +11,9 @@ import (
 )
 
 func legacyTenantModelGate(ctx context.Context, db *gorm.DB, tenant uint64) error {
+	if !types.LegacyReadGuardsEnabled(db) && !types.PrivateKBGuardsEnabled(db) {
+		return nil
+	}
 	if err := types.CheckLegacyReadScope(db.WithContext(ctx)); err != nil {
 		return err
 	}
