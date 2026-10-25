@@ -148,8 +148,12 @@ else:
  for name in ['app','worker2','frontend','entry']:
   r=container(name)
   state['containers'][name]={'image':r['Image'],'running':r['State']['Running'],'health':r['State'].get('Health',{}).get('Status')}
+ if TEST_USERNAME:
+  if not __import__('re').fullmatch('[A-Za-z0-9_.@-]{1,64}',TEST_USERNAME):raise ValueError('invalid_test_username')
+  query="SELECT json_build_object('exists',count(*)>0,'active',coalesce(bool_or(u.is_active),false),'connection_record_present',coalesce(bool_or(EXISTS(SELECT 1 FROM feishu_connections c WHERE c.user_id=u.id)),false)) FROM users u WHERE u.username='"+TEST_USERNAME+"' AND u.deleted_at IS NULL;"
+  state['test_account']=json.loads(sql(query))
 print(json.dumps({'status':state['phase'],'source_sha':SHA,'project':project,'backup_sha256':state.get('backup_sha256'),
- 'business_restore_verified':bool(state.get('restore_database')),'containers':state.get('containers'),
+ 'business_restore_verified':bool(state.get('restore_database')),'containers':state.get('containers'),'test_account':state.get('test_account'),
  'scope':'existing_isolated_project_only','secrets_rotated':False,'cursor_reset':False}))
 '''
 
@@ -164,6 +168,7 @@ def main():
     parser.add_argument('--manifest', type=Path, required=True)
     parser.add_argument('--candidate-manifest', type=Path, required=True)
     parser.add_argument('--release-gates', type=Path)
+    parser.add_argument('--test-username')
     parser.add_argument('--mode', choices=['prepare', 'apply', 'finish', 'status', 'rollback'], required=True)
     args = parser.parse_args()
     old, new = read_json(args.manifest), read_json(args.candidate_manifest)
@@ -188,7 +193,7 @@ def main():
         credential.clear()
         values = {'ROOT': str(PurePosixPath(old['source_directory']).parent), 'CANDIDATE': str(PurePosixPath(new['source_directory']).parent),
                   'OLD_SHA': old['source_sha'], 'SHA': new['source_sha'], 'MODE': args.mode,
-                  'GATES': read_json(args.release_gates) if args.release_gates else {}}
+                  'GATES': read_json(args.release_gates) if args.release_gates else {}, 'TEST_USERNAME':args.test_username}
         guarded = 'try:\n' + textwrap.indent(REMOTE, ' ')
         guarded += "\nexcept Exception as error:\n print(json.dumps({'status':'BLOCKED','reason':str(error) if isinstance(error,ValueError) else 'isolated_upgrade_operation_failed','error_type':type(error).__name__}))\n raise SystemExit(2)\n"
         code = base64.b64encode(('\n'.join(k + '=' + repr(v) for k, v in values.items()) + '\n' + guarded).encode()).decode()

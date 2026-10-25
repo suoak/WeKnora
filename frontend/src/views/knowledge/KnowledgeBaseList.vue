@@ -8,9 +8,9 @@
           </div>
           <p class="header-subtitle" style="--wails-draggable: drag">{{ $t('knowledgeList.subtitle') }}</p>
         </div>
-        <div v-if="authStore.hasRole('contributor')" class="kb-header-actions">
-        <t-button variant="outline" style="--wails-draggable: no-drag" @click="feishuImportVisible = true">导入飞书文档</t-button>
-        <t-button theme="primary" class="kb-create-btn header-create-btn"
+        <div class="kb-header-actions">
+        <t-button v-if="authStore.hasRole('contributor')" variant="outline" style="--wails-draggable: no-drag" @click="feishuImportVisible = true">导入飞书文档</t-button>
+        <t-button v-if="authStore.hasRole('contributor')" theme="primary" class="kb-create-btn header-create-btn"
           data-guide="kb-list-create" style="--wails-draggable: no-drag" @click="handleCreateKnowledgeBase">
           <template #icon><t-icon name="folder-add" /></template>{{ $t('knowledgeList.create') }}
         </t-button>
