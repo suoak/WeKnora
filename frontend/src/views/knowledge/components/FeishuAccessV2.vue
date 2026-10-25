@@ -42,6 +42,20 @@
       <t-button :disabled="busy" @click="retry">{{ t('retryBatch') }}</t-button>
     </div>
     <p v-if="message" role="status">{{ message }}</p>
+    <details>
+      <summary @click="refreshImports">{{ t('sources') }}</summary>
+      <div v-for="row in imports" :key="row.id">
+        <p>{{ row.resource_type }} · {{ row.status }} · {{ row.source_status || '' }}</p>
+        <t-button v-if="row.index_status === 'verified' && ['synced','completed'].includes(row.status) && !row.data_source_id" :disabled="busy" variant="outline" @click="enableUpdates(row.id)">{{ t('enableUpdates') }}</t-button>
+        <template v-if="row.data_source_id">
+          <span>{{ t(row.source_status === 'active' ? 'sourceActive' : 'sourcePaused') }}</span>
+          <t-button v-if="row.source_status === 'active'" variant="text" :disabled="busy" @click="sourceAction(row.id,'sync')">{{ t('syncNow') }}</t-button>
+          <t-button v-if="row.source_status === 'active'" variant="text" :disabled="busy" @click="sourceAction(row.id,'pause')">{{ t('pauseSource') }}</t-button>
+          <t-button v-if="['paused','error'].includes(row.source_status || '')" variant="text" :disabled="busy" @click="sourceAction(row.id,'rebind')">{{ t('rebindSource') }}</t-button>
+          <t-button v-if="['paused','error'].includes(row.source_status || '')" variant="text" :disabled="busy" @click="sourceAction(row.id,'resume')">{{ t('resumeSource') }}</t-button>
+        </template>
+      </div>
+    </details>
   </section>
 </template>
 <script setup lang="ts">
@@ -49,6 +63,7 @@ import { computed, ref, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { createPrivateFeishuKB } from '@/api/feishuPersonal'
+import { listFeishuImports, enableFeishuSource, feishuSourceAction, type FeishuImport } from '@/api/feishuPersonal'
 import { feishuMessages } from '@/i18n/feishuPersonal'
 import { feishuConnections, feishuResources, disconnectFeishu, previewFeishu, createFeishuBatch, getFeishuBatch, retryFeishuBatch, approveFeishuSharing, isFeishuDocumentURL, type FeishuAuthMode, type FeishuConnection, type FeishuResource, type FeishuPreview, type FeishuBatch, type FeishuStatus } from '@/api/feishuPersonal'
 const props = defineProps<{ kbId: string; status: FeishuStatus; initialUrl?: string }>()
@@ -67,22 +82,25 @@ const linksText = ref(props.initialUrl || ''), previews = ref<FeishuPreview[]>([
 const links = computed(() => [...new Set(linksText.value.split(/\s+/).map(s => s.trim()).filter(Boolean))])
 const canSubmit = computed(() => connection.value?.connected && links.value.length > 0 && links.value.length <= 100)
 const batch = ref<FeishuBatch>(), submissionKey = ref('')
+const imports = ref<FeishuImport[]>([])
 let timer: ReturnType<typeof setTimeout> | undefined
-let generation = 0, mounted = true
+let generation = 0, scopeEpoch = 0, mounted = true
+function scope() { const epoch = scopeEpoch; return { kb: props.kbId, mode: mode.value, connection: connection.value?.id || '', links: [...links.value], current: () => mounted && epoch === scopeEpoch } }
 function stop() { generation++; if (timer) clearTimeout(timer); timer = undefined }
 onUnmounted(() => { mounted = false; stop() })
 function toggle(entry: FeishuResource, value: boolean) { if (value) selected.value.set(entry.id, entry); else selected.value.delete(entry.id) }
 async function refreshConnections() { connections.value = await feishuConnections(); if (!connections.value.some(c => c.kind === mode.value) && connections.value[0]) mode.value = connections.value[0].kind }
 watch(() => props.status, () => refreshConnections().catch(() => { message.value = t('failed') }), { immediate: true, deep: true })
-watch([mode, kind, () => props.kbId], () => { stop(); entries.value = []; cursor.value = ''; selected.value.clear(); trail.value = []; location.value = { parent: '', space: '' }; previews.value = []; batch.value = undefined })
-watch(linksText, () => { submissionKey.value = ''; previews.value = []; confirmSharing.value = false })
+watch([mode, kind, () => props.kbId], () => { scopeEpoch++; stop(); submissionKey.value = ''; entries.value = []; cursor.value = ''; selected.value.clear(); trail.value = []; location.value = { parent: '', space: '' }; previews.value = []; batch.value = undefined; imports.value = [] }, { flush: 'sync' })
+watch(linksText, () => { scopeEpoch++; submissionKey.value = ''; previews.value = []; confirmSharing.value = false }, { flush: 'sync' })
 function query(parent = location.value.parent, space = location.value.space, next = '') { return { auth_mode: mode.value, connection_id: connection.value?.id || '', kind: kind.value, parent_id: parent, space_id: space, cursor: next, page_size: 50 } }
 async function act(action: () => Promise<void>) { busy.value = true; message.value = ''; try { await action() } catch (error: any) { message.value = error?.message || t('failed') } finally { busy.value = false } }
-async function loadPage(append = false) { await act(async () => { const page = await feishuResources(query(undefined, undefined, append ? cursor.value : '')); entries.value = append ? [...entries.value, ...page.items] : page.items; cursor.value = page.cursor || '' }) }
+async function loadPage(append = false) { await act(async () => { const s = scope(); const page = await feishuResources(query(undefined, undefined, append ? cursor.value : '')); if (!s.current()) return; entries.value = append ? [...entries.value, ...page.items] : page.items; cursor.value = page.cursor || '' }) }
 async function loadRoot() { trail.value = []; location.value = { parent: '', space: '' }; await loadPage() }
 async function open(entry: FeishuResource) { trail.value.push({ ...location.value }); location.value = entry.type === 'wiki_space' ? { parent: '', space: entry.id } : { parent: entry.id, space: entry.space_id || location.value.space }; await loadPage() }
 async function goParent() { location.value = trail.value.pop() || { parent: '', space: '' }; await loadPage() }
 async function addSelected() { await act(async () => {
+  const s = scope(), baseQuery = query()
   const found = new Set(links.value), queue: {parent: string;space: string;cursor: string}[] = [], visited = new Set<string>()
   function collect(entry: FeishuResource) {
     if (!['folder','wiki_space'].includes(entry.type) && entry.url && isFeishuDocumentURL(entry.url)) found.add(entry.url)
@@ -95,7 +113,8 @@ async function addSelected() { await act(async () => {
     const next = queue.shift()!, key = `${next.space}:${next.parent}:${next.cursor}`
     if (visited.has(key)) continue
     visited.add(key)
-    const page = await feishuResources(query(next.parent, next.space, next.cursor))
+    const page = await feishuResources({ ...baseQuery, parent_id: next.parent, space_id: next.space, cursor: next.cursor })
+    if (!s.current()) return
     page.items.forEach(collect)
     if (page.cursor) queue.push({ ...next, cursor: page.cursor })
   }
@@ -104,11 +123,14 @@ async function addSelected() { await act(async () => {
 }) }
 async function disconnect() { await act(async () => { await disconnectFeishu(); await refreshConnections(); entries.value = []; selected.value.clear() }) }
 async function createPrivate() { await act(async () => { const kb = await createPrivateFeishuKB(t('privateKBName')); await router.push(`/platform/knowledge-bases/${encodeURIComponent(kb.id)}`) }) }
-async function preview() { await act(async () => { previews.value = await previewFeishu(props.kbId, mode.value, connection.value?.id || '', links.value) }) }
-async function approve() { await act(async () => { for (const row of previews.value.filter(p => p.error_category === 'sharing_approval_required')) await approveFeishuSharing(props.kbId, connection.value?.id || '', row.url, reason.value, confirmSharing.value); previews.value = await previewFeishu(props.kbId, mode.value, connection.value?.id || '', links.value); confirmSharing.value = false }) }
+async function refreshImports() { const kb = props.kbId; try { const rows = await listFeishuImports(kb); if (kb === props.kbId) imports.value = rows } catch { message.value = t('failed') } }
+async function enableUpdates(id: string) { await act(async () => { await enableFeishuSource(props.kbId, id); await refreshImports() }) }
+async function sourceAction(id: string, action: 'sync'|'pause'|'resume'|'rebind') { await act(async () => { await feishuSourceAction(props.kbId, id, action); await refreshImports() }) }
+async function preview() { await act(async () => { const s = scope(); const rows = await previewFeishu(s.kb, s.mode, s.connection, s.links); if (s.current()) previews.value = rows }) }
+async function approve() { await act(async () => { const s = scope(), rows = [...previews.value], note = reason.value, confirmed = confirmSharing.value; for (const row of rows.filter(p => p.error_category === 'sharing_approval_required')) { if (!s.current()) return; await approveFeishuSharing(s.kb, s.connection, row.url, note, confirmed) } if (!s.current()) return; const next = await previewFeishu(s.kb, s.mode, s.connection, s.links); if (s.current()) { previews.value = next; confirmSharing.value = false } }) }
 async function poll(id: string, version: number) { try { const next = await getFeishuBatch(id); if (!mounted || version !== generation) return; batch.value = next; if (next.status === 'succeeded' || next.status === 'partial_failed') { emit('imported'); return } } catch { /* A read failure never resubmits a batch. */ } if (mounted && version === generation) timer = setTimeout(() => poll(id, version), 4000) }
-async function submit() { await act(async () => { if (!submissionKey.value) submissionKey.value = crypto.randomUUID(); batch.value = await createFeishuBatch(props.kbId, mode.value, connection.value?.id || '', links.value, submissionKey.value); stop(); void poll(batch.value.batch.id, generation) }) }
-async function retry() { if (batch.value) await act(async () => { await retryFeishuBatch(batch.value!.batch.id); stop(); void poll(batch.value!.batch.id, generation) }) }
+async function submit() { await act(async () => { const s = scope(); if (!submissionKey.value) submissionKey.value = crypto.randomUUID(); const next = await createFeishuBatch(s.kb, s.mode, s.connection, s.links, submissionKey.value); if (!s.current()) return; batch.value = next; stop(); void poll(next.batch.id, generation) }) }
+async function retry() { if (batch.value) { const id = batch.value.batch.id, s = scope(); await act(async () => { await retryFeishuBatch(id); if (!s.current()) return; stop(); void poll(id, generation) }) } }
 </script>
 <style scoped>
 .browse-controls { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }

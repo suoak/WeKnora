@@ -7,6 +7,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/models/chat"
 	"github.com/Tencent/WeKnora/internal/models/embedding"
+	"github.com/Tencent/WeKnora/internal/types"
 )
 
 func sanitizeWikiGenerationMessages(ctx context.Context, msgs []chat.Message) ([]chat.Message, error) {
@@ -36,6 +37,9 @@ type wikiGuardedEmbedder struct {
 }
 
 func (m *wikiGuardedEmbedder) texts(ctx context.Context, texts []string) ([]string, error) {
+	if err := types.CheckFeishuSourceRead(ctx); err != nil {
+		return nil, err
+	}
 	if _, ok := repository.WikiMCPGenerationTenant(ctx); !ok {
 		return texts, nil
 	}
@@ -67,6 +71,9 @@ func (m *wikiGuardedEmbedder) BatchEmbed(ctx context.Context, texts []string) ([
 	return m.Embedder.BatchEmbed(ctx, clean)
 }
 func (m *wikiGuardedEmbedder) BatchEmbedWithPool(ctx context.Context, model embedding.Embedder, texts []string) ([][]float32, error) {
+	if err := types.CheckFeishuSourceRead(ctx); err != nil {
+		return nil, err
+	}
 	if _, ok := repository.WikiMCPGenerationTenant(ctx); ok {
 		return m.BatchEmbed(ctx, texts)
 	}

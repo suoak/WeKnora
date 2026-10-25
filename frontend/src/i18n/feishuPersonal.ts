@@ -1,4 +1,6 @@
 const en = {
+  syncNow: 'Sync now', pauseSource: 'Pause', resumeSource: 'Resume after checking access', rebindSource: 'Bind my current connection again',
+  sources: 'My knowledge sources', enableUpdates: 'Enable controlled updates', sourceActive: 'Automatic updates', sourcePaused: 'Source paused or needs attention',
   createPrivateKB: 'Create a private knowledge base', privateKBName: 'My Feishu knowledge',
   selectionLimit: 'Selection exceeds 100 documents or 20 pages. Select a smaller subtree or import in batches.',
   dualIdentity: 'Application and personal access', myDocuments: 'My Feishu documents', drive: 'My space', wiki: 'Wiki spaces', browse: 'Browse', parent: 'Parent folder', more: 'Load next page', allTypes: 'All types', selectedCount: 'Selected: {count}', addSelected: 'Add selected links', multipleLinks: 'One Feishu link per line, up to 100', preview: 'Check access', createBatch: 'Import batch', retryBatch: 'Retry eligible failures', sharingConfirm: 'I approve publishing these personal documents to readers of this knowledge base.', sharingReason: 'Reason for sharing', approveSharing: 'Approve sharing of blocked documents', exportPending: 'Metadata access checked; export is checked during import.', partialCoverage: 'This list covers accessible API folders and Wiki spaces. Paste links for resources not listed.', batchState: 'Batch status',
@@ -16,6 +18,8 @@ const en = {
   app: 'Feishu document application', appID: 'App ID', secret: 'App Secret (leave empty to keep)', callback: 'OAuth callback URL', enabled: 'Enable personal imports', save: 'Save', test: 'Test saved application credentials', saved: 'Configuration saved', tested: 'Application credentials valid.',
 }
 const zh = {
+  syncNow: '立即同步', pauseSource: '暂停', resumeSource: '验证权限并恢复', rebindSource: '重新绑定我的当前连接',
+  sources: '我的知识来源', enableUpdates: '启用受控自动更新', sourceActive: '自动更新中', sourcePaused: '来源已暂停或需要处理',
   createPrivateKB: '创建私人知识库', privateKBName: '我的飞书知识',
   selectionLimit: '选择超过 100 篇文档或 20 页，请缩小子目录范围或分批导入。',
   dualIdentity: '应用与个人身份共存', myDocuments: '我的飞书文档', drive: '我的空间', wiki: 'Wiki 空间', browse: '浏览', parent: '上一级', more: '加载下一页', allTypes: '全部类型', selectedCount: '已选：{count}', addSelected: '添加选中文档链接', multipleLinks: '每行一个飞书链接，最多 100 条', preview: '权限预检', createBatch: '批量导入', retryBatch: '重试可恢复失败', sharingConfirm: '我明确批准将这些个人文档发布给当前知识库的读者。', sharingReason: '共享发布理由', approveSharing: '批准待确认文档的共享发布', exportPending: '已核对元数据权限；导出权限将在导入时验证。', partialCoverage: '这里展示 API 可访问的文件夹与 Wiki 空间；未列出的资源可通过链接接入。', batchState: '批次状态',

@@ -8,6 +8,24 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
+func (c *FeishuAppConfig) identityVersion(mode string) string {
+	if c.Capabilities != nil {
+		if mode == types.FeishuUserOAuth && c.PersonalVersion != "" {
+			return c.PersonalVersion
+		}
+		if mode == types.FeishuApplicationGrant && c.ApplicationVersion != "" {
+			return c.ApplicationVersion
+		}
+	}
+	return c.Version
+}
+func (c *FeishuAppConfig) modeConfigured(mode string) bool {
+	if c.Capabilities == nil {
+		return types.FeishuAuthMode(c.AuthMode) == mode
+	}
+	return mode == types.FeishuUserOAuth && c.Capabilities.PersonalEnabled || mode == types.FeishuApplicationGrant && c.Capabilities.ApplicationEnabled
+}
+
 // V2 is opt-in at both the server and encrypted application configuration.
 // Nil capabilities retain the exact legacy single-mode interpretation.
 func (c *FeishuAppConfig) modeEnabled(mode string) bool {

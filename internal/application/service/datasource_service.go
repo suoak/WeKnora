@@ -28,6 +28,7 @@ import (
 
 // DataSourceService implements the DataSourceService interface
 type DataSourceService struct {
+	feishuIdentity    *FeishuPersonalService
 	dsRepo            interfaces.DataSourceRepository
 	syncLogRepo       interfaces.SyncLogRepository
 	knowledgeService  interfaces.KnowledgeService
@@ -182,6 +183,9 @@ func (s *DataSourceService) UpdateDataSource(
 		return nil, fmt.Errorf("changing knowledge base is not allowed")
 	}
 
+	if e := checkFeishuSourceOwner(ctx, existing); e != nil {
+		return nil, e
+	}
 	if ds.TenantID == 0 {
 		ds.TenantID = existing.TenantID
 	}
@@ -245,6 +249,30 @@ func (s *DataSourceService) UpdateDataSource(
 		// repository's configuration fence does not mistake re-encryption for
 		// a source identity/permission change. Genuine config edits still fence.
 		ds.Config = existing.Config
+	}
+	oldConfig, oldParseErr := existing.ParseConfig()
+	if oldParseErr != nil {
+		return nil, oldParseErr
+	}
+	oldRef, refErr := types.ParseFeishuSourceReference(oldConfig)
+	if refErr != nil {
+		return nil, refErr
+	}
+	newConfig, newParseErr := ds.ParseConfig()
+	if newParseErr != nil {
+		return nil, newParseErr
+	}
+	newRef, refErr := types.ParseFeishuSourceReference(newConfig)
+	if refErr != nil {
+		return nil, refErr
+	}
+	if oldRef != nil && (newRef == nil || newRef.OwnerUserID != oldRef.OwnerUserID || newRef.Kind != oldRef.Kind || newRef.AppID != oldRef.AppID) {
+		return nil, types.ErrFeishuIdentityReference
+	}
+	if newRef != nil && configActuallyChanged {
+		if e := s.validateDataSourceConfig(ctx, ds); e != nil {
+			return nil, e
+		}
 	}
 	hasCreds := mergedCfg != nil && mergedCfg.HasConfiguredCredentials(ds.Type)
 	if hasCreds && (ds.Type != existing.Type || configActuallyChanged) {
@@ -437,6 +465,10 @@ func (s *DataSourceService) ValidateConnection(ctx context.Context, dsID string)
 		return datasource.ErrInvalidConfig
 	}
 
+	ctx, err = s.bindFeishuSource(ctx, ds)
+	if err != nil {
+		return err
+	}
 	// Validate connection
 	if err := connector.Validate(ctx, config); err != nil {
 		// Update data source with error
@@ -479,6 +511,10 @@ func (s *DataSourceService) ListAvailableResources(
 		return nil, datasource.ErrInvalidConfig
 	}
 
+	ctx, err = s.bindFeishuSource(ctx, ds)
+	if err != nil {
+		return nil, err
+	}
 	// List resources
 	resources, err := connector.ListResources(ctx, config, parentID)
 	if err != nil {
@@ -513,6 +549,10 @@ func (s *DataSourceService) ResolveResourceAncestors(
 		return nil, datasource.ErrInvalidConfig
 	}
 
+	ctx, err = s.bindFeishuSource(ctx, ds)
+	if err != nil {
+		return nil, err
+	}
 	ancestors, err := connector.ResolveResourceAncestors(ctx, config, resourceIDs)
 	if err != nil {
 		logger.Errorf(ctx, "failed to resolve resource ancestors: %v", err)
@@ -527,6 +567,9 @@ func (s *DataSourceService) ManualSync(ctx context.Context, dsID string) (*types
 	ds, err := s.GetDataSource(ctx, dsID)
 	if err != nil {
 		return nil, err
+	}
+	if e := checkFeishuSourceOwner(ctx, ds); e != nil {
+		return nil, e
 	}
 	if datasource.LegacyFeishuSyncSuspended(ds.Type) {
 		return nil, datasource.ErrLegacyFeishuSyncSuspended
@@ -655,6 +698,12 @@ func (s *DataSourceService) PauseDataSource(ctx context.Context, id string) erro
 func (s *DataSourceService) ResumeDataSource(ctx context.Context, id string) error {
 	ds, err := s.GetDataSource(ctx, id)
 	if err != nil {
+		return err
+	}
+	if e := checkFeishuSourceOwner(ctx, ds); e != nil {
+		return e
+	}
+	if _, err = s.bindFeishuSource(ctx, ds); err != nil {
 		return err
 	}
 	if datasource.LegacyFeishuSyncSuspended(ds.Type) {
@@ -801,6 +850,10 @@ func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.
 		return s.writeSyncExecution(ctx, ds, syncLog, true)
 	}
 
+	ctx, err = s.bindFeishuSource(ctx, ds)
+	if err != nil {
+		return s.failSyncAttempt(ctx, ds, syncLog, err, "Feishu credential reference unavailable")
+	}
 	kb, kbErr := s.kbService.GetKnowledgeBaseByID(ctx, ds.KnowledgeBaseID)
 	if kbErr != nil {
 		if !errors.Is(kbErr, apprepo.ErrKnowledgeBaseNotFound) {
@@ -1552,6 +1605,10 @@ func (s *DataSourceService) validateDataSourceConfig(ctx context.Context, ds *ty
 		return datasource.ErrInvalidConfig
 	}
 
+	ctx, err = s.bindFeishuSource(ctx, ds)
+	if err != nil {
+		return err
+	}
 	return connector.Validate(ctx, config)
 }
 
@@ -1570,6 +1627,13 @@ func (s *DataSourceService) ingestItem(
 	item *types.FetchedItem,
 	tagIDs []string,
 ) (bool, error) {
+	if cfg, e := ds.ParseConfig(); e != nil {
+		return false, e
+	} else if ref, e := types.ParseFeishuSourceReference(cfg); e != nil {
+		return false, e
+	} else if ref != nil && !safeLegacyIncrementalEnabled() {
+		return false, ErrFeishuStagingRequired
+	}
 	if safeLegacyIncrementalEnabled() && legacyWikiDrive(ds.Type) {
 		writer, ok := s.knowledgeService.(interface {
 			StageFeishuLegacyItem(context.Context, *types.DataSource, *types.FetchedItem, []string) (*types.FeishuLegacyReceipt, error)

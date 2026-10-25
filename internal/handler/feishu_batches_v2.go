@@ -75,3 +75,25 @@ func (h *FeishuPersonalHandler) ApproveSharing(c *gin.Context) {
 	}
 	c.JSON(201, row)
 }
+func (h *FeishuPersonalHandler) EnableSource(c *gin.Context) {
+	var in struct {
+		Schedule string `json:"schedule"`
+	}
+	if c.ShouldBindJSON(&in) != nil {
+		c.JSON(400, gin.H{"error": "invalid_source_schedule"})
+		return
+	}
+	ds, err := h.svc.EnableImportSource(c.Request.Context(), c.Param("id"), c.Param("importID"), in.Schedule)
+	if err != nil {
+		feishuFailureResponse(c, err)
+		return
+	}
+	c.JSON(201, gin.H{"id": ds.ID, "status": ds.Status, "schedule": ds.SyncSchedule})
+}
+func (h *FeishuPersonalHandler) SourceAction(c *gin.Context) {
+	if err := h.svc.ImportSourceAction(c.Request.Context(), c.Param("id"), c.Param("importID"), c.Param("action")); err != nil {
+		feishuFailureResponse(c, err)
+		return
+	}
+	c.JSON(202, gin.H{"accepted": true})
+}

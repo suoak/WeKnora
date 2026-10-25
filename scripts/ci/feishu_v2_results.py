@@ -6,6 +6,8 @@ from pathlib import Path
 required = {
     "TestFeishuV2PostgresSharedAdmissionRequiresRevisionApproval",
     "TestFeishuV2PostgresBatchConcurrentIdempotencyAndAliasRecovery",
+    "TestFeishuV2PostgresSourceReadAndCommitRevocation",
+    "TestFeishuV2PostgresSourceHandoffIsAtomicAndFencesOldWorker",
 }
 failed = False
 for filename in sys.argv[1:]:

@@ -123,7 +123,7 @@ func (s *FeishuPersonalService) checkSharingApproval(tx *gorm.DB, cfg *FeishuApp
 		}
 	}
 	var approval types.FeishuSharingApproval
-	err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("owner_id = ? AND kb_id = ? AND app_id = ? AND resource_type = ? AND resource_token = ? AND revision = ? AND config_version = ? AND state = ? AND expires_at > ?", m.UserID, m.KBID, m.AppID, m.ResourceType, m.DocumentToken, revision, cfg.Version, "approved", time.Now()).First(&approval).Error
+	err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("owner_id = ? AND kb_id = ? AND app_id = ? AND resource_type = ? AND resource_token = ? AND revision = ? AND config_version = ? AND state = ? AND expires_at > ?", m.UserID, m.KBID, m.AppID, m.ResourceType, m.DocumentToken, revision, cfg.identityVersion(types.FeishuUserOAuth), "approved", time.Now()).First(&approval).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrFeishuSharingApproval

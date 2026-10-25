@@ -182,6 +182,28 @@ func (s *FeishuLegacyStore) execution(tx *gorm.DB, ctx context.Context, ds *type
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return legacyFence("execution_generation_or_claim_lost")
 	}
+	if err != nil {
+		return err
+	}
+	var config types.DataSourceConfig
+	if len(current.Config) > 0 {
+		if json.Unmarshal(current.Config, &config) != nil {
+			return legacyFence("source_configuration_invalid")
+		}
+	}
+	ref, parseErr := types.ParseFeishuSourceReference(&config)
+	if parseErr != nil {
+		return parseErr
+	}
+	if ref != nil {
+		guard, ok := types.FeishuSourceGuardFromContext(ctx)
+		if !ok {
+			return legacyFence("credential_reference_unvalidated")
+		}
+		if err := guard(tx); err != nil {
+			return err
+		}
+	}
 	return err
 }
 
@@ -599,6 +621,9 @@ func (s *FeishuLegacyStore) Publish(
 	ds *types.DataSource,
 	owner *types.FeishuLegacyAttempt,
 ) (*types.FeishuLegacyReceipt, error) {
+	if err := types.CheckFeishuSourceRead(ctx); err != nil {
+		return nil, err
+	}
 	var receipt types.FeishuLegacyReceipt
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		r, a, e := s.owned(ctx, tx, ds, owner)

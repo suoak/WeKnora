@@ -36,6 +36,9 @@ func (r *tenantRepository) CheckLegacyReadScope(ctx context.Context) error {
 	return types.CheckLegacyReadScope(r.db.WithContext(ctx))
 }
 func (r *modelRepository) CheckLegacyModelInputs(ctx context.Context, tenant uint64) error {
+	if err := types.CheckFeishuSourceRead(ctx); err != nil {
+		return err
+	}
 	if scoped, err := checkWikiMCPModelInputs(r.db, ctx, tenant); scoped {
 		return err
 	}
@@ -51,10 +54,12 @@ func (r *resourceRepository) CheckLegacyFileRead(ctx context.Context, tenant uin
 // File paths of enrolled versions are a revocable reference, including links
 // signed before an update/withdrawal. It never grants access to a new path.
 func (r *tenantRepository) CheckLegacyFileRead(ctx context.Context, tenant uint64, path string) (bool, error) {
-	if !types.LegacyReadGuardsEnabled(r.db) {
+	legacy := types.LegacyReadGuardsEnabled(r.db)
+	private := types.PrivateKBGuardsEnabled(r.db)
+	if !legacy && !private {
 		return false, nil
 	}
-	if r.db.Dialector.Name() != "postgres" {
+	if legacy && r.db.Dialector.Name() != "postgres" {
 		// SQLite has schema parity but cannot publish this feature. Preserve
 		// ordinary file compatibility without attempting PostgreSQL jsonb SQL;
 		// any managed state on an unsupported backend remains closed.
@@ -66,17 +71,26 @@ func (r *tenantRepository) CheckLegacyFileRead(ctx context.Context, tenant uint6
 		if managed {
 			return true, types.ErrLegacySourceRestricted
 		}
-		return false, nil
+		if !private {
+			return false, nil
+		}
 	}
 	type binding struct{ State, ActiveAttempt, Attempt, Path, KBID string }
 	var bindings []binding
-	bindingSQL := `SELECT state,active_attempt,'' AS attempt,original_file_path AS path,knowledge_base_id AS kb_id
+	bindingSQL := ""
+	bindingArgs := []any{}
+	if legacy && r.db.Dialector.Name() == "postgres" {
+		bindingSQL = `SELECT state,active_attempt,'' AS attempt,original_file_path AS path,knowledge_base_id AS kb_id
  FROM feishu_legacy_resources WHERE tenant_id=?
  UNION ALL SELECT r.state,r.active_attempt,a.id AS attempt,a.manifest->'knowledge'->>'file_path' AS path,r.knowledge_base_id AS kb_id
  FROM feishu_legacy_resources r JOIN feishu_legacy_attempts a ON a.resource_id=r.id WHERE r.tenant_id=?`
-	bindingArgs := []any{tenant, tenant}
-	if types.PrivateKBGuardsEnabled(r.db) {
-		bindingSQL += ` UNION ALL SELECT 'active' AS state,'' AS active_attempt,'' AS attempt,k.file_path AS path,k.knowledge_base_id AS kb_id FROM knowledges k JOIN feishu_private_kbs p ON p.kb_id=k.knowledge_base_id WHERE k.tenant_id=? AND k.deleted_at IS NULL`
+		bindingArgs = []any{tenant, tenant}
+	}
+	if private {
+		if bindingSQL != "" {
+			bindingSQL += " UNION ALL "
+		}
+		bindingSQL += `SELECT 'active' AS state,'' AS active_attempt,'' AS attempt,k.file_path AS path,k.knowledge_base_id AS kb_id FROM knowledges k JOIN feishu_private_kbs p ON p.kb_id=k.knowledge_base_id WHERE k.tenant_id=? AND k.deleted_at IS NULL`
 		bindingArgs = append(bindingArgs, tenant)
 	}
 	err := r.db.WithContext(ctx).Raw(bindingSQL, bindingArgs...).Scan(&bindings).Error
@@ -147,6 +161,9 @@ func (r *tenantRepository) CheckLegacyFileRead(ctx context.Context, tenant uint6
 			return true, e
 		}
 		return true, nil
+	}
+	if !legacy || r.db.Dialector.Name() != "postgres" {
+		return false, nil
 	}
 	// Even a not-yet-prepared attempt is private. SaveFile namespaces all its
 	// artifacts under the attempt ID; never authorize an unpublished directory.

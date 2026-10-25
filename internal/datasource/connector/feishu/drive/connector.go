@@ -48,6 +48,16 @@ func (c *DriveConnector) Validate(ctx context.Context, config *types.DataSourceC
 	}
 
 	client := core.NewClient(feishuConfig)
+	if ref, e := types.ParseFeishuSourceReference(config); e != nil {
+		return e
+	} else if ref != nil {
+		root := driveRootFolderToken(config)
+		if root == "" {
+			return fmt.Errorf("folder_token is required")
+		}
+		_, e = client.ReadResourcePage(ctx, "drive", root, "", "", 1)
+		return e
+	}
 	if err := client.Ping(ctx); err != nil {
 		return fmt.Errorf("%s connection failed: %w", c.region.Label, err)
 	}

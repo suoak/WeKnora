@@ -149,7 +149,7 @@ func (p *PersonalRecovery) authorizeLocal(
 	if err != nil {
 		return nil, nil, err
 	}
-	if !cfg.Enabled || cfg.Version != a.AppConfigVersion || cfg.AppID != m.AppID ||
+	if !cfg.Enabled || cfg.identityVersion(types.FeishuAuthMode(m.AuthMode)) != a.AppConfigVersion || cfg.AppID != m.AppID ||
 		!cfg.modeEnabled(types.FeishuAuthMode(m.AuthMode)) ||
 		types.FeishuAuthMode(a.AuthMode) != types.FeishuAuthMode(m.AuthMode) {
 		return nil, nil, repository.ErrPersonalIdentity
@@ -272,7 +272,7 @@ func (p *PersonalRecovery) prepareWithIdentity(
 	a := types.FeishuPersonalAttempt{
 		AuthMode:         mode,
 		CallerTenantID:   types.CallerFromContext(ctx).TenantID,
-		AppConfigVersion: cfg.Version,
+		AppConfigVersion: cfg.identityVersion(mode),
 	}
 	switch mode {
 	case types.FeishuApplicationGrant:
@@ -410,6 +410,9 @@ func (p *PersonalRecovery) Process(ctx context.Context, payload types.DocumentPr
 	}
 	if !applicationPayloadMatches(m, payload) {
 		return repository.ErrPersonalIdentity
+	}
+	if m.Status == "source_managed" {
+		return nil
 	}
 	ctx, err = p.privateWorkerContext(ctx, m, a)
 	if err != nil {
@@ -675,6 +678,9 @@ func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 				continue
 			}
 			m, _, current, err := p.repo.Load(ctx, a.ID)
+			if err == nil && m.Status == "source_managed" {
+				continue
+			}
 			if err == nil {
 				_, err = p.authorize(ctx, m, current)
 			}
@@ -858,7 +864,7 @@ func (p *PersonalRecovery) mutate(
 		if err = openFeishu(cipher, &cfg); err != nil {
 			return err
 		}
-		if !cfg.Enabled || cfg.Version != a.AppConfigVersion || cfg.AppID != m.AppID ||
+		if !cfg.Enabled || cfg.identityVersion(types.FeishuAuthMode(m.AuthMode)) != a.AppConfigVersion || cfg.AppID != m.AppID ||
 			!cfg.modeEnabled(types.FeishuAuthMode(m.AuthMode)) ||
 			types.FeishuAuthMode(a.AuthMode) != types.FeishuAuthMode(m.AuthMode) {
 			return repository.ErrPersonalIdentity

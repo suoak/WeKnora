@@ -30,6 +30,8 @@ func RegisterFeishuPersonalRoutes(r *gin.RouterGroup, h *handler.FeishuPersonalH
 	kb.POST("/preview", h.Preview)
 	kb.POST("/batches", h.CreateBatch)
 	kb.POST("/sharing-approvals", h.ApproveSharing)
+	kb.POST("/imports/:importID/source", h.EnableSource)
+	kb.POST("/imports/:importID/source/:action", h.SourceAction)
 	batch := r.Group("/feishu/batches")
 	batch.GET("/:batchID", h.Batch)
 	batch.POST("/:batchID/retry", h.RetryBatch)

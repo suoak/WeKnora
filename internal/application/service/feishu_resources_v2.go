@@ -36,7 +36,7 @@ func (s *FeishuPersonalService) ResolveCredentialReference(ctx context.Context, 
 	if cfg.Capabilities == nil || !cfg.modeEnabled(mode) {
 		return ctx, nil, ref, types.ErrFeishuIdentityDisabled
 	}
-	ref = types.FeishuCredentialRef{Version: 1, Kind: mode, AppID: cfg.AppID, ConfigVersion: cfg.Version}
+	ref = types.FeishuCredentialRef{Version: 1, Kind: mode, AppID: cfg.AppID, ConfigVersion: cfg.identityVersion(mode)}
 	client := s.client(&core.Config{AppID: cfg.AppID, AppSecret: cfg.Secret})
 	if mode == types.FeishuUserOAuth {
 		var c types.FeishuConnection
@@ -51,7 +51,7 @@ func (s *FeishuPersonalService) ResolveCredentialReference(ctx context.Context, 
 		if !applicationGrantEnabled() || !applicationUserAllowed(types.IsSystemAdminFromContext(ctx)) {
 			return ctx, nil, ref, ErrFeishuApplicationRestricted
 		}
-		ref.ConnectionID = connectionID(mode, cfg.AppID, cfg.Version)
+		ref.ConnectionID = connectionID(mode, cfg.AppID, cfg.identityVersion(mode))
 	}
 	if id != "" && id != ref.ConnectionID {
 		return ctx, nil, ref, access.ErrForbidden
@@ -61,7 +61,7 @@ func (s *FeishuPersonalService) ResolveCredentialReference(ctx context.Context, 
 	}
 	validate := func(call context.Context) error {
 		current, e := s.app(call)
-		if e != nil || current.Version != ref.ConfigVersion || current.AppID != ref.AppID || !current.modeEnabled(mode) {
+		if e != nil || current.identityVersion(mode) != ref.ConfigVersion || current.AppID != ref.AppID || !current.modeEnabled(mode) {
 			return ErrFeishuReconnect
 		}
 		if mode == types.FeishuUserOAuth {
@@ -176,7 +176,7 @@ func (s *FeishuPersonalService) Connections(ctx context.Context) ([]map[string]a
 		rows = append(rows, row)
 	}
 	if cfg.modeEnabled(types.FeishuApplicationGrant) && applicationGrantEnabled() && applicationUserAllowed(types.IsSystemAdminFromContext(ctx)) {
-		rows = append(rows, map[string]any{"kind": types.FeishuApplicationGrant, "id": connectionID(types.FeishuApplicationGrant, cfg.AppID, cfg.Version), "connected": true})
+		rows = append(rows, map[string]any{"kind": types.FeishuApplicationGrant, "id": connectionID(types.FeishuApplicationGrant, cfg.AppID, cfg.identityVersion(types.FeishuApplicationGrant)), "connected": true})
 	}
 	return rows, nil
 }

@@ -43,6 +43,27 @@ func (c *Connector) Validate(ctx context.Context, config *types.DataSourceConfig
 	}
 
 	client := core.NewClient(feishuConfig)
+	if links, reference, e := core.ReferenceLinks(config); reference || e != nil {
+		if e != nil {
+			return e
+		}
+		for _, link := range links {
+			r, e := core.ParsePersonalResourceURL(link)
+			if e != nil {
+				return e
+			}
+			if _, e = client.ResolveBoundResource(ctx, r); e != nil {
+				return e
+			}
+		}
+		return nil
+	}
+	if ref, e := types.ParseFeishuSourceReference(config); e != nil {
+		return e
+	} else if ref != nil {
+		_, e = client.ReadResourcePage(ctx, "wiki", "", "", "", 1)
+		return e
+	}
 	if err := client.Ping(ctx); err != nil {
 		return fmt.Errorf("feishu connection failed: %w", err)
 	}
@@ -68,6 +89,24 @@ func (c *Connector) ListResources(
 	}
 
 	client := core.NewClient(feishuConfig)
+	if links, reference, e := core.ReferenceLinks(config); reference || e != nil {
+		if e != nil {
+			return nil, e
+		}
+		out := []types.Resource{}
+		for _, link := range links {
+			r, e := core.ParsePersonalResourceURL(link)
+			if e != nil {
+				return nil, e
+			}
+			r, e = client.ResolveBoundResource(ctx, r)
+			if e != nil {
+				return nil, e
+			}
+			out = append(out, types.Resource{ExternalID: "links", Name: r.Title, Type: r.Type, URL: r.URL})
+		}
+		return out, nil
+	}
 
 	if parentID == "" {
 		spaces, err := client.ListWikiSpaces(ctx)
@@ -171,6 +210,12 @@ func (c *Connector) FetchAll(ctx context.Context, config *types.DataSourceConfig
 		return nil, err
 	}
 	client := core.NewClient(feishuConfig)
+	if links, reference, e := core.ReferenceLinks(config); reference || e != nil {
+		if e != nil {
+			return nil, e
+		}
+		return core.FetchAllEngine(ctx, client, config, resourceIDs, core.ReferenceLinkOps{Links: links})
+	}
 	return core.FetchAllEngine(ctx, client, config, resourceIDs, wikiOps{region: c.region})
 }
 
@@ -185,6 +230,12 @@ func (c *Connector) FetchIncremental(ctx context.Context, config *types.DataSour
 		return nil, nil, err
 	}
 	client := core.NewClient(feishuConfig)
+	if links, reference, e := core.ReferenceLinks(config); reference || e != nil {
+		if e != nil {
+			return nil, nil, e
+		}
+		return core.FetchIncrementalEngine(ctx, client, config, cursor, core.ReferenceLinkOps{Links: links})
+	}
 	ops := wikiOps{region: c.region}
 	if len(config.ResourceIDs) == 0 {
 		return nil, nil, errors.New(ops.EmptyResourceIDsError())
@@ -209,6 +260,12 @@ func (c *Connector) FetchStream(
 		return nil, err
 	}
 	client := core.NewClient(feishuConfig)
+	if links, reference, e := core.ReferenceLinks(config); reference || e != nil {
+		if e != nil {
+			return nil, e
+		}
+		return core.FetchStreamEngine(ctx, client, config, cursor, h, core.ReferenceLinkOps{Links: links})
+	}
 	ops := wikiOps{region: c.region}
 	if len(config.ResourceIDs) == 0 {
 		return nil, errors.New(ops.EmptyResourceIDsError())

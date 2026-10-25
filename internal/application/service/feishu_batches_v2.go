@@ -138,7 +138,7 @@ func (s *FeishuPersonalService) Batch(ctx context.Context, id string) (*FeishuBa
 		if item.Status == "dispatched" && item.ImportID != "" {
 			for _, m := range byImport {
 				if m.ID == item.ImportID {
-					if m.Status == "synced" || m.Status == "completed" {
+					if m.Status == "synced" || m.Status == "completed" || m.Status == "source_managed" {
 						item.Status = "succeeded"
 					} else if m.Status == "needs_attention" || m.Status == "attention" {
 						item.Status = "failed"
@@ -239,7 +239,7 @@ func (s *FeishuPersonalService) ReconcileBatches(ctx context.Context) error {
 		if err == nil {
 			var cfg *FeishuAppConfig
 			cfg, err = s.app(fresh)
-			if err == nil && cfg.Version != b.ConfigVersion {
+			if err == nil && cfg.identityVersion(b.AuthMode) != b.ConfigVersion {
 				err = ErrFeishuReconnect
 			}
 		}

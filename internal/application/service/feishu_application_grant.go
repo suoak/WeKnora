@@ -336,7 +336,7 @@ func (p *PersonalRecovery) validateApplicationIdentityTx(
 	if err = openFeishu(cipher, &cfg); err != nil {
 		return err
 	}
-	if !cfg.modeEnabled(types.FeishuApplicationGrant) || cfg.Version != a.AppConfigVersion ||
+	if !cfg.modeEnabled(types.FeishuApplicationGrant) || cfg.identityVersion(types.FeishuApplicationGrant) != a.AppConfigVersion ||
 		cfg.AppID != m.AppID ||
 		m.ApplicationID != cfg.AppID ||
 		a.ApplicationID != cfg.AppID {
