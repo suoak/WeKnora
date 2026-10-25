@@ -550,7 +550,8 @@ func (s *FeishuPersonalService) reconcileBatchUpdates(ctx context.Context) error
 			next = time.Now().Add(time.Duration(1<<retries) * 30 * time.Second)
 		}
 		change := s.db.WithContext(ctx).Model(&types.FeishuBatchItem{}).
-			Where("id = ? AND status = ? AND lease_owner = ? AND lease_until > ?", item.ID, "dispatched", item.LeaseOwner, time.Now()).
+			Where("id = ? AND status = ? AND lease_owner = ? AND lease_until > ?",
+				item.ID, "dispatched", item.LeaseOwner, time.Now()).
 			Updates(map[string]any{
 				"status": status, "error_category": category, "retry_count": retries,
 				"updated_at": next, "lease_owner": "", "lease_until": nil,

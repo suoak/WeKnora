@@ -30,8 +30,15 @@
 | `9a2c1267909c3cb1fc40a27ae401bf9035b5a4ed` | [Python MCP](https://github.com/suoak/WeKnora/actions/runs/40171577746) | PASS；Python 3.10/3.11/3.12/3.13 测试与 wheel，发布步骤 SKIPPED；不是实际业务检索验收 |
 | `cf1e56f853f0139f09efe2b85427c79d5a3eb7be` | [独立 V2 门禁](https://github.com/suoak/WeKnora/actions/runs/40175081099) | PASS；含批准撤回与跨用户拒绝、Portal/MCP 私有别名过滤、真实 PG/竞态、迁移、前端；不包含后续新增的目录持续发现 |
 | `b3e7e3f43bd8ebc26dd107295a5d8363eb80d843` | [原生完整回归及构建](https://github.com/suoak/WeKnora/actions/runs/40174957284) | PASS；定向 PG 20 条 PASS 事件、旧身份/Asynq 恢复 166 条 PASS 和 1 条真实 Docx 缺配置 SKIP；全量 14441 条 PASS、238 条 SKIP、无 FAIL。条数包含子测试；可选外部集成的 SKIP 不算覆盖 |
+| `d6e99d894d3a6318df876b9480ac131828dbdc7b` | [独立 V2 门禁](https://github.com/suoak/WeKnora/actions/runs/40185975014) | PASS；lint、真实 PostgreSQL、竞态、迁移、前端测试/类型/构建，以及固定基础镜像的前端镜像构建 |
+| `d6e99d894d3a6318df876b9480ac131828dbdc7b` | [原生完整回归及构建](https://github.com/suoak/WeKnora/actions/runs/40185975885) | PASS；定向 PG/串联用例 28 PASS、原子发布/配置保护 18 PASS，均无 SKIP；旧身份/Asynq 166 PASS、1 SKIP；全量 14453 PASS、245 SKIP，无 FAIL；条数含子测试。真实 Docx 缺配置及其他可选集成 SKIP 不算业务覆盖 |
+| `2832f38d610554bd1bbf385b2728c35358920e7e` | [Portal 全套门禁](https://github.com/suoak/WeKnora/actions/runs/40185663309) | PASS；后续测试夹具调整后的精确版本正在重跑，不能沿用为新 SHA 结果 |
 | `282df329a79dc357fc88ee446faad010e5ef06ab` | [原生定向 PG 门禁](https://github.com/suoak/WeKnora/actions/runs/40172962188) | 定向步骤 PASS：真实解析/向量发布、新引用来源的变更/不变/失败保留版本/断连拒绝、接管恢复。飞书与模型响应为合成数据；完整原生应用回归仍在执行。该 SHA 的独立门禁 lint 有一项 QF1008，已在后续提交修复，不能标为整套 PASS |
 | 后续提交 | 全量/原生/权限回归 | 持续执行中；不得沿用前一个 SHA 的 PASS |
+
+补充验证记录：`cf529baf41fc99c8a9afdbe14fd213ccb71ea649` 的[原生门禁](https://github.com/suoak/WeKnora/actions/runs/40181984853)中，`TestFeishuV2NativeFirstCreateHandoffAndIncrementalPublication` 已 PASS：串联真实首次解析/Embedding/索引、来源接管、保留 Knowledge ID 的变更更新、未变更不重复 Embedding、失败保留旧版本与断连拒绝。接口响应为合成数据，不能算真实飞书验收。该 run 整体仍 FAIL：另加的两个配置冲突测试使用了无效摘要；后续修正摘要后，已有数据库触发器又正确拒绝了未持有 nonce 的测试写入。最终夹具保留该拒绝断言，再通过持有当前有效 nonce 的竞争写入验证配置比较，不禁用触发器。全套结果待最终 SHA 回归。
+
+串联用例还定位并修复了处理配置的类型丢失：旧候选适配器把 `process_overrides` 的对象投影成字符串，导致第二次更新无法解析。修复位于仓储的候选准备与发布边界，在 manifest 哈希前还原已确认的结构化配置，发布锁内再次比较；配置变化时拒绝候选，旧知识和索引不变。PR #50 正在修改的 staging 文件未改动。
 
 本地 types、资源分页/快捷方式、引用版本与游标、SQLite 迁移检查及前端类型检查有通过记录。Windows 本地无法完成的原生链接测试由 Linux 门禁验证，不标记为本地 PASS。
 
@@ -65,13 +72,18 @@ HTTP 无法保护网络传输：授权码、KnowHub 会话、请求和页面内�
 - 已核对已有构建镜像 ID 和原生库摘要。旧库源码指纹未与当前源确认一致，不将旧库直接充当当前版本的构建产物。
 - 再次以 LF 规范化后比较：Cargo.toml、build.rs、Rust 源码和 C 头文件一致，但 Cargo.lock 和原生构建脚本仍不同。当前构建脚本包含 ZIP 依赖安全修复，因此必须按当前锁文件重建，不能直接复用旧库。
 - 部署前仍需独立 Compose 项目、PostgreSQL/ParadeDB、Redis/Asynq、卷、网络与索引，验证迁移、备份恢复、应用启动和服务回滚后才能切换入口。
+- 用户指定的模型网关已分别在本机和打包服务器的无应用挂载一次性容器中验证：HTTPS 请求返回 200，`text-embedding-v4` 返回 1024 维。每处只发送一条合成输入；密钥保存在本机 DPAPI，探测仅经 stdin 传入，不写仓库、镜像环境或报告。不代表真实文档已完成解析检索。
+- 服务器直连 Rust 安装源失败，TLS 校验保持开启。Linux CI 现导出当前 SHA 的已审计原生库、Go 1.26.9 SDK、源码文件指纹与 SHA-256 清单；服务器仍需完成最终链接及运行时兼容验证。前端通过当前固定基础镜像 Dockerfile 构建并导出带源码 SHA 标签的镜像。
+- Windows 的 `core.autocrlf=true` 会影响 `git archive` 文本字节，已在准备脚本中明确关闭该转换，使 Linux 归档与 CI 的 LF 指纹一致。先前不匹配的归档未用于部署。
+- `d6e99d894d3a6318df876b9480ac131828dbdc7b` 已在服务器完成最终编译，二进制 SHA-256 为 `6ce60f11327113f6f06676e9a2f6f8241b07f60fa149e6da19f5707628b48277`。构建镜像缺少 SQLite 开发头文件，使用同一 `go.sum` 锁定的 go-sqlite3 模块所附头文件后重试成功；未修改共享构建镜像。
+- APP 镜像 `sha256:4accd7dd510af587a5abe70f05b5baf29d170f768773b9490e949d2db072b881` 的 Debian 运行时链接检查通过，容器内二进制摘要一致。Docker 23 不支持把本地 config ID 直接作为 BuildKit 的 `FROM sha256:…` 引用；已先验证基础镜像完整 ID，再创建专用本地标签，使用离线本地构建。未更换基础镜像或关闭 TLS。
 
 ## 尚未完成
 
-- 目录持续发现实现待当前 SHA 的 Linux PG/竞态验证。已有本地单页遍历、重启序列、快捷方式循环/目标变化及 SQLite 迁移回滚证据。内容更新仍逐文档明确启用；目录权限失败不切换身份，达到容量/深度限制显示不完整并要求复核。
+- 目录持续发现已通过 `d6e99d894…` 的 Linux PG/竞态验证。已有本地单页遍历、重启序列、快捷方式循环/目标变化及 SQLite 迁移回滚证据。内容更新仍逐文档明确启用；目录权限失败不切换身份，达到容量/深度限制显示不完整并要求复核。
 - 后续发现已经交给来源管理的文档时只返回“已有知识”，不再分配首次创建 attempt。来源的暂停、保护和增量版本仍由原引擎处理。单轮发现最多 1000 个条目、1000 页、10 层；瞬时错误保留当前页并有限重试三次，耗尽后保持 HOLD。上述新边界正在当前 SHA 回归，不能沿用旧 SHA 的 PASS。
 - 新增迁移 3041 只创建目录发现及路径审计表，历史来源游标、租约与索引不改；有目录状态或审计数据时拒绝向下删除这些表。最新版本断言与治理清单同步更新。
-- 新凭据引用到真实解析、向量及发布链路已有合成接口/真实 PG 的变更、不变、失败保留旧版本与断连测试。真实首次入库到接管再到增量更新的完整串联，以及实际网页、Portal、Go MCP、Python MCP 业务检索仍待验收。
+- 新凭据引用及首次入库到接管再到增量更新的完整串联已通过合成接口、真实解析/Embedding 代码与真实 PG 验证。实际网页、Portal、Go MCP、Python MCP 业务检索仍待测试站验收。
 - Portal/MCP 目录与计数使用的表别名已补私有范围过滤；策略快照也在事务开始时检查私人归属。新增 SQLite/PG 回归已提交，当前 SHA 的完整门禁仍在执行。
 - PR #50 仍 open，解析质量扩展等待其最终集成条件，不能修改其正在处理的文件。
 - 测试站尚未部署，单个真实飞书账号尚未完成 OAuth、Docx/Sheet/Bitable/Wiki/Drive、修改更新、网页和 MCP 验收。
