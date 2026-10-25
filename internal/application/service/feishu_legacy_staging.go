@@ -14,6 +14,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/datasource"
 	feishucore "github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/Tencent/WeKnora/internal/infrastructure/chunker"
+	"github.com/Tencent/WeKnora/internal/infrastructure/docparser"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/models/embedding"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -166,6 +167,9 @@ func (s *knowledgeService) StageFeishuLegacyItem(
 		}
 		return nil, err
 	}
+	if err = legacyStagingCapacity(ctx, fileSvc, int64(len(item.Content))); err != nil {
+		return nil, err
+	}
 	// Old attachment rows cannot outlive a now-missing/unverifiable parent
 	// dependency. Quarantine, never invoke the old physical subtree sweep.
 	if err := s.restrictLegacyUnverifiedChildren(ctx, ds, item, store); err != nil {
@@ -271,8 +275,19 @@ func (s *knowledgeService) StageFeishuLegacyItem(
 	if parsed.IsAudio {
 		return nil, &feishuStagingRefusal{reason: "audio_not_supported"}
 	}
-	if len(parsed.ImageRefs) > 0 {
-		return nil, &feishuStagingRefusal{reason: "versioned_image_staging_required"}
+	assetFiles := &legacyAssetFiles{
+		FileService: fileSvc, tenant: ds.TenantID, attempt: attempt.ID,
+		renew: func(check context.Context) error { return store.Renew(check, ds, attempt) },
+	}
+	images, err := docparser.ResolveCandidateImages(ctx, parsed, assetFiles, ds.TenantID)
+	if err != nil {
+		if errors.Is(err, docparser.ErrCandidateImageData) {
+			return nil, &feishuStagingRefusal{reason: "image_assets_unavailable"}
+		}
+		return nil, err
+	}
+	if err = store.CheckpointAssets(ctx, ds, attempt, assetFiles.assets, storageID, storageStamp); err != nil {
+		return nil, err
 	}
 	if strings.TrimSpace(parsed.MarkdownContent) == "" {
 		return nil, &feishuStagingRefusal{reason: "empty_parsed_content"}
@@ -407,6 +422,25 @@ func (s *knowledgeService) StageFeishuLegacyItem(
 		}
 	}
 	chunks = append(chunks, parentChunks...)
+	vlmStamp := ""
+	if eff.EnableMultimodel && len(images) > 0 && eff.VLMConfig.ModelID != "" {
+		vlmStamp, err = store.ModelStamp(ctx, eff.VLMConfig.ModelID)
+		if err != nil {
+			return nil, err
+		}
+	}
+	chunks, err = s.enrichLegacyImages(ctx, ds, kb, eff, store, attempt, assetFiles, images, chunks)
+	if err != nil {
+		return nil, err
+	}
+	// The complete graph now includes candidate OCR/caption children. Parent
+	// context remains unindexed; image children follow their ordinary semantics.
+	texts = nil
+	for _, c := range chunks {
+		if c.ChunkType != types.ChunkTypeParentText {
+			texts = append(texts, item.Title+"\n\n"+c.EmbeddingContent())
+		}
+	}
 	stamp, err := store.ModelStamp(ctx, kb.EmbeddingModelID)
 	if err != nil {
 		return nil, err
@@ -480,7 +514,20 @@ func (s *knowledgeService) StageFeishuLegacyItem(
 	}
 	m.StorageBackendID = storageID
 	m.StorageStamp = storageStamp
+	m.Assets = assetFiles.assets
+	if vlmStamp != "" {
+		m.VLMModelID = eff.VLMConfig.ModelID
+		m.VLMModelStamp = vlmStamp
+	}
+	for _, asset := range m.Assets {
+		if err = assetFiles.verify(ctx, asset.Path, asset.SHA256, asset.Bytes); err != nil {
+			return nil, err
+		}
+	}
 	if err = store.Prepare(ctx, ds, attempt, m, vectors); err != nil {
+		return nil, err
+	}
+	if err = legacyStagingCapacity(ctx, fileSvc, int64(len(item.Content))); err != nil {
 		return nil, err
 	}
 	if _, err = store.Publish(ctx, ds, attempt); err != nil {

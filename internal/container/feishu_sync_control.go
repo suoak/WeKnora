@@ -163,6 +163,7 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 	feishusafety.InstallDefault(guard)
 	configured = true
 	runCtx, cancel := context.WithCancel(ctx)
+	go monitorFeishuStorage(runCtx, rdb, strings.TrimSuffix(guard.PermitKey(), "permit"))
 	done := make(chan struct{})
 	go func() { defer close(done); controller.Run(runCtx) }()
 	cleaner.RegisterWithName("FeishuSyncSafety", func() error {

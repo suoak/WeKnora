@@ -18,6 +18,9 @@ func feishuDocumentFailureCode(ds *types.DataSource, item *types.FetchedItem, er
 	if errors.Is(err, feishusafety.ErrBudgetBusy) {
 		return "embedding_budget_busy"
 	}
+	if errors.Is(err, types.ErrFeishuStagingCapacity) {
+		return "safe_staging_capacity_insufficient"
+	}
 	var fence *repository.LegacyFenceError
 	if errors.As(err, &fence) && fence.Reason == "source_revision_content_conflict" {
 		return fence.Reason
@@ -26,7 +29,8 @@ func feishuDocumentFailureCode(ds *types.DataSource, item *types.FetchedItem, er
 	if errors.As(err, &refusal) {
 		switch refusal.reason {
 		case "versioned_image_staging_required", "audio_not_supported",
-			"empty_parsed_content", "chunk_count_out_of_bounds", "parser_semantic_row_too_large":
+			"empty_parsed_content", "chunk_count_out_of_bounds", "parser_semantic_row_too_large",
+			"image_enrichment_failed", "image_assets_unavailable":
 			return "safe_staging_" + refusal.reason
 		}
 	}

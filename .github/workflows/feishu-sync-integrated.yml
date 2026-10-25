@@ -128,6 +128,12 @@ jobs:
           set -o pipefail
           go test -json -race ./internal/feishudocx -count=1 -timeout=5m | tee evidence/docx-package-identity.jsonl
           go test -json -race -tags sqlite_fts5 ./internal/application/repository ./internal/application/service -run 'DOCX|SourceIdentity' -count=1 -timeout=10m | tee evidence/docx-source-identity.jsonl
+      - name: P2 private image assets capacity admission and candidate model egress
+        env:
+          FEISHU_SYNC_SAFETY_ENABLED: "false"
+        run: |
+          set -o pipefail
+          go test -json -race -tags sqlite_fts5 ./internal/infrastructure/docparser ./internal/application/repository ./internal/application/service ./internal/application/service/file ./internal/models/api ./internal/feishusafety -run 'CandidateImages|CandidateModel|LegacyAsset|TestFeishuLegacyRealParserEmbeddingPostgres$' -count=1 -timeout=10m | tee evidence/p2-image-assets.jsonl
       - name: One combined race pass
         env:
           FEISHU_SYNC_SAFETY_ENABLED: "false"

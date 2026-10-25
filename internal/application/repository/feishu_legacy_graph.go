@@ -15,11 +15,12 @@ func legacyIndexedChunks(chunks []*types.Chunk) ([]*types.Chunk, error) {
 		if c == nil || c.ID == "" || byID[c.ID] != nil {
 			return nil, legacyFence("invalid_chunk_identity")
 		}
-		if c.ChunkType != types.ChunkTypeText && c.ChunkType != types.ChunkTypeParentText {
+		if c.ChunkType != types.ChunkTypeText && c.ChunkType != types.ChunkTypeParentText &&
+			c.ChunkType != types.ChunkTypeImageOCR && c.ChunkType != types.ChunkTypeImageCaption {
 			return nil, legacyFence("unsupported_chunk_kind")
 		}
 		byID[c.ID] = c
-		if c.ChunkType == types.ChunkTypeText {
+		if c.ChunkType != types.ChunkTypeParentText {
 			indexed = append(indexed, c)
 		}
 	}
@@ -27,8 +28,11 @@ func legacyIndexedChunks(chunks []*types.Chunk) ([]*types.Chunk, error) {
 	for _, c := range chunks {
 		if c.ParentChunkID != "" {
 			p := byID[c.ParentChunkID]
-			if c.ChunkType != types.ChunkTypeText || p == nil || p.ChunkType != types.ChunkTypeParentText ||
-				p.ParentChunkID != "" ||
+			imageChild := c.ChunkType == types.ChunkTypeImageOCR || c.ChunkType == types.ChunkTypeImageCaption
+			validParent := p != nil && ((imageChild && p.ChunkType == types.ChunkTypeText) ||
+				(c.ChunkType == types.ChunkTypeText && p.ChunkType == types.ChunkTypeParentText &&
+					p.ParentChunkID == ""))
+			if !validParent ||
 				p.KnowledgeID != c.KnowledgeID ||
 				p.KnowledgeBaseID != c.KnowledgeBaseID ||
 				p.TenantID != c.TenantID {
