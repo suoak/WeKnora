@@ -28,7 +28,10 @@ func v2PostgresFixture(t *testing.T) *personalRecoveryFixture {
 	// vector column type for read-only progress counts; native tests exercise
 	// the complete embedding schema, BM25 and publication receipts.
 	require.NoError(t, f.db.Exec("CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public").Error)
-	require.NoError(t, f.db.Exec("CREATE TABLE embeddings(knowledge_id varchar(64),embedding public.halfvec)").Error)
+	require.NoError(t, f.db.Exec("CREATE TABLE embeddings(id bigserial PRIMARY KEY,created_at timestamptz,"+
+		"updated_at timestamptz,source_id varchar(64),source_type integer,chunk_id varchar(64),"+
+		"knowledge_id varchar(64),knowledge_base_id varchar(64),tag_id text,content text,"+
+		"dimension integer,embedding public.halfvec,is_enabled boolean)").Error)
 	ddl, err := os.ReadFile("../../../migrations/versioned/003039_feishu_access_v2.up.sql")
 	require.NoError(t, err)
 	require.NoError(t, f.db.Exec(string(ddl)).Error)
