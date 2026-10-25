@@ -271,10 +271,18 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 				require.NoError(t, store.Prepare(ctx, ds, attempt, manifest, [][]float32{{1, 0, 0}}))
 			}
 			require.NoError(t, old.SetProcessOverrides(&types.KnowledgeProcessOverrides{SummaryEnabled: &yes}))
-			require.NoError(
-				t,
-				db.Model(&types.Knowledge{}).Where("id=?", old.ID).Update("metadata", old.Metadata).Error,
-			)
+			// An ordinary editor is already denied by the database's source
+			// ownership fence. Inject a competing write with this live owner's
+			// nonce to exercise the additional configuration comparison without
+			// disabling any trigger or changing the source generation.
+			require.Error(t, db.Model(&types.Knowledge{}).Where("id=?", old.ID).Update("metadata", old.Metadata).Error)
+			require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
+				if e := tx.Exec(`SELECT set_config('knowhub.feishu_attempt',?,true),
+					set_config('knowhub.feishu_nonce',?,true)`, attempt.ID, attempt.OwnerNonce).Error; e != nil {
+					return e
+				}
+				return tx.Model(&types.Knowledge{}).Where("id=?", old.ID).Update("metadata", old.Metadata).Error
+			}))
 			snapshot := func() string {
 				var state string
 				require.NoError(t, db.Raw(`SELECT jsonb_build_object('knowledge',
