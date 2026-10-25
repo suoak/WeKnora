@@ -71,8 +71,9 @@ jobs:
           sha256sum third_party/anydoc-go/lib/linux_amd64_gnu/libanydoc_go.a | tee evidence/native-library.sha256
       - name: Audit actual native dependency tree
         run: |
-          if ! cargo audit --version 2>/dev/null | grep -q 'cargo-audit 0.22.2'; then
-            cargo install cargo-audit --version 0.22.2 --locked
+          audit_version="$(cargo audit --version 2>/dev/null || true)"
+          if [ "$audit_version" != 'cargo-audit 0.22.2' ] && [ "$audit_version" != 'cargo-audit-audit 0.22.2' ]; then
+            cargo install cargo-audit --version 0.22.2 --locked --force
           fi
           cargo audit --version
           cd third_party/anydoc-go
