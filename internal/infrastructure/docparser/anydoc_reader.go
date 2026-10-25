@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Tencent/WeKnora/internal/feishusafety"
 	"github.com/Tencent/WeKnora/internal/infrastructure/docparser/anydoc"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -58,9 +59,18 @@ func (r *AnydocReader) Read(ctx context.Context, req *types.ReadRequest) (*types
 	if err != nil {
 		return nil, fmt.Errorf("anydoc conversion failed for %q: %w", req.FileName, err)
 	}
+	return materializeAnydocResult(ctx, converted, format, req.FileName)
+}
+
+func materializeAnydocResult(ctx context.Context, converted *anydoc.Result, format, filename string) (*types.ReadResult, error) {
 	if converted.AssetsError != nil {
+		if feishusafety.Scoped(ctx) {
+			// Native conversion can fall back to text after image extraction
+			// fails. A candidate version must never publish that lossy fallback.
+			return nil, candidateImageInvalid("parser asset extraction failed")
+		}
 		logger.Warnf(ctx, "[anydoc] %q parsed as text but its images were dropped: %v",
-			req.FileName, converted.AssetsError)
+			filename, converted.AssetsError)
 	}
 
 	return &types.ReadResult{

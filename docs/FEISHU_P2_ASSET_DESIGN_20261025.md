@@ -72,3 +72,9 @@ archive and verify its lockfile, build-script and archive hashes before linking;
 an old archive must not be reused with the updated lockfile. Run the native
 parser tests and cargo audit, without suppressing these advisories. The native
 build script now requires Python 3 in addition to its existing Rust toolchain.
+# Native image extraction failure
+
+The native converter can return text with `AssetsError` after document-model image extraction fails. Feishu-scoped reads must reject this fallback with `ErrCandidateImageData`; safe staging maps it to the existing document-local `image_assets_unavailable` refusal. The previous active version remains published and other documents continue. Ordinary reader fallback retains its existing behavior. A successful conversion with no embedded images remains valid.
+
+VLM truncation diagnostics include only visible/reasoning byte counts and the reported completion-token count, never response text or reasoning content. A nonzero reasoning count despite a per-request off switch is a gateway capability/configuration question; it must not be resolved by publishing reasoning as OCR or accepting a truncated result.
+
