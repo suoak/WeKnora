@@ -31,6 +31,7 @@ jobs:
         image: redis:7-alpine
         ports: ["6379:6379"]
         options: >-
+          --restart always
           --health-cmd "redis-cli ping"
           --health-interval 5s --health-timeout 3s --health-retries 20
     env:
@@ -75,6 +76,16 @@ jobs:
           python3 -c 'import json; e=[json.loads(l) for l in open("evidence/native-source-tests.jsonl") if l.startswith("{")]; assert any(x.get("Action")=="pass" and x.get("Test")=="TestFeishuLegacyRealParserEmbeddingPostgres" for x in e)'
           python3 -c 'import json; e=[json.loads(l) for l in open("evidence/native-source-tests.jsonl") if l.startswith("{")]; assert any(x.get("Action")=="pass" and x.get("Test")=="TestFeishuV2NativeHandoffRecoversWithoutReset" for x in e)'
           python3 -c 'import json; e=[json.loads(l) for l in open("evidence/native-source-tests.jsonl") if l.startswith("{")]; assert any(x.get("Action")=="pass" and x.get("Test")=="TestFeishuV2NativeReferenceUpdatesPreservePublishedVersion" for x in e)'
+      - name: Legacy identity rotation and first-create Asynq recovery
+        # Existing destructive Redis tests require this exact isolated alias.
+        # Map it to this job's disposable service, never relax their target guard.
+        env:
+          FEISHU_SYNC_SAFETY_ENABLED: "false"
+          FEISHU_DISPATCH_REDIS_ADDR: knowhub-p1-dispatch-redis-20261018:6379
+        run: |
+          echo '127.0.0.1 knowhub-p1-dispatch-redis-20261018' | sudo tee -a /etc/hosts
+          go test -p 2 -json -tags anydoc,sqlite_fts5 ./internal/application/service -run '^TestFeishuPersonal|^TestMVP|^TestRC3|^TestApplicationGrant|^TestFeishuDispatch' -count=1 -timeout=15m | tee evidence/legacy-identity-recovery-tests.jsonl
+          python3 scripts/ci/feishu_identity_recovery_results.py evidence/legacy-identity-recovery-tests.jsonl
       - name: Full application regression with native parser
         env:
           FEISHU_SYNC_SAFETY_ENABLED: "false"

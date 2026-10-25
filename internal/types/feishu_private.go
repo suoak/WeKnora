@@ -82,7 +82,8 @@ func (privateKBPlugin) Initialize(db *gorm.DB) error {
 			clause.Where{
 				Exprs: []clause.Expression{
 					clause.Expr{
-						SQL:  "NOT EXISTS (SELECT 1 FROM feishu_private_kbs fp WHERE fp.kb_id = ? AND fp.owner_id <> ?)",
+						SQL: "NOT EXISTS (SELECT 1 FROM feishu_private_kbs fp " +
+							"WHERE fp.kb_id = ? AND fp.owner_id <> ?)",
 						Vars: []any{clause.Column{Table: table, Name: column}, user},
 					},
 				},
