@@ -64,6 +64,11 @@ jobs:
           cd third_party/anydoc-go
           cargo audit
       - name: V2 and real parser publication with PostgreSQL
+        # The existing parser fixture constructs services without a safety
+        # controller. Its explicit activation matches the integrated workflow;
+        # real Redis/controller behavior has its own integration and race gate.
+        env:
+          FEISHU_SYNC_SAFETY_ENABLED: "false"
         run: |
           go test -p 2 -json -tags anydoc,sqlite_fts5 ./internal/application/service -run '^TestFeishuV2|^TestFeishuLegacyRealParserEmbeddingPostgres$' -count=1 -timeout=15m | tee evidence/native-source-tests.jsonl
           python3 scripts/ci/feishu_v2_results.py evidence/native-source-tests.jsonl
