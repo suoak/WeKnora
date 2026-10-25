@@ -2,13 +2,22 @@ package service
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
+
+	"github.com/Tencent/WeKnora/internal/application/access"
+	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func v2PostgresFixture(t *testing.T) *personalRecoveryFixture {
@@ -234,4 +243,128 @@ func TestFeishuV2PostgresDirectBatchIsolatesInvalidAndRestoresLease(t *testing.T
 	require.NoError(t, err)
 	require.Equal(t, view.Batch.ID, repeated.Batch.ID)
 	require.Equal(t, view.Items[0].ImportID, repeated.Items[0].ImportID)
+}
+
+func TestFeishuV2PostgresBatchAutomaticallyRetriesOnlyTemporaryFailures(t *testing.T) {
+	for _, code := range []int{http.StatusServiceUnavailable, http.StatusForbidden} {
+		t.Run(http.StatusText(code), func(t *testing.T) {
+			f := v2PostgresFixture(t)
+			require.NoError(t, f.db.Exec("INSERT INTO feishu_private_kbs(kb_id,owner_id) VALUES('kb','A')").Error)
+			server := httptest.NewServer(
+				http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(code) }),
+			)
+			t.Cleanup(server.Close)
+			original := f.s.newClient
+			f.s.newClient = func(cfg *core.Config) *core.Client { cfg.BaseURL = server.URL; return core.NewClient(cfg) }
+			view, err := f.s.CreateBatch(
+				f.ctx,
+				"kb",
+				types.FeishuUserOAuth,
+				"",
+				"retry-classification",
+				[]string{"https://test.feishu.cn/file/real"},
+			)
+			require.NoError(t, err)
+			require.NoError(t, f.s.ReconcileBatches(context.Background()))
+			view, err = f.s.Batch(f.ctx, view.Batch.ID)
+			require.NoError(t, err)
+			item := view.Items[0]
+			if code == http.StatusForbidden {
+				require.Equal(t, "blocked", item.Status)
+				require.Zero(t, item.RetryCount)
+				f.s.newClient = original
+				require.NoError(t, f.s.ReconcileBatches(context.Background()))
+				var current types.FeishuBatchItem
+				require.NoError(t, f.db.Where("id = ?", item.ID).First(&current).Error)
+				require.Equal(t, "blocked", current.Status)
+				return
+			}
+			require.Equal(t, "pending", item.Status)
+			require.Equal(t, 1, item.RetryCount)
+			require.True(t, item.UpdatedAt.After(time.Now()))
+			// Simulate the durable retry becoming due after a worker restart.
+			f.s.newClient = original
+			require.NoError(
+				t,
+				f.db.Model(&types.FeishuBatchItem{}).
+					Where("id = ?", item.ID).
+					Update("updated_at", time.Now().Add(-time.Second)).
+					Error,
+			)
+			require.NoError(t, f.s.ReconcileBatches(context.Background()))
+			view, err = f.s.Batch(f.ctx, view.Batch.ID)
+			require.NoError(t, err)
+			require.Equal(t, "dispatched", view.Items[0].Status)
+			require.Equal(t, 1, view.Items[0].RetryCount)
+		})
+	}
+}
+
+type v2QuickKB struct {
+	interfaces.KnowledgeBaseService
+	db *gorm.DB
+}
+
+func (s *v2QuickKB) GetKnowledgeBaseByID(ctx context.Context, id string) (*types.KnowledgeBase, error) {
+	return repository.NewKnowledgeBaseRepository(s.db).GetKnowledgeBaseByID(ctx, id)
+}
+
+func (s *v2QuickKB) CreateKnowledgeBase(ctx context.Context, kb *types.KnowledgeBase) (*types.KnowledgeBase, error) {
+	kb.ID = uuid.NewString()
+	kb.TenantID = types.CallerFromContext(ctx).TenantID
+	kb.CreatorID, _ = types.UserIDFromContext(ctx)
+	return kb, repository.NewKnowledgeBaseRepository(s.db).CreateKnowledgeBase(ctx, kb)
+}
+
+func TestFeishuV2PostgresQuickImportCreatesOneProvenPrivateKB(t *testing.T) {
+	f := v2PostgresFixture(t)
+	require.NoError(t, f.db.AutoMigrate(&types.KnowledgeBase{}))
+	f.s.kbs = &v2QuickKB{db: f.db}
+	// Leave the ordinary existing KB public. It must never be relabeled or used.
+	var results [2]*FeishuBatchView
+	var errs [2]error
+	var wg sync.WaitGroup
+	for i := range results {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			results[i], errs[i] = f.s.QuickImport(f.ctx, "", "quick-once", []string{"https://test.feishu.cn/file/real"})
+		}(i)
+	}
+	wg.Wait()
+	require.NoError(t, errs[0])
+	require.NoError(t, errs[1])
+	require.Equal(t, results[0].Batch.ID, results[1].Batch.ID)
+	kbID := results[0].Batch.KBID
+	require.NotEqual(t, "kb", kbID)
+	var count int64
+	require.NoError(t, f.db.Table("feishu_private_kbs").Where("owner_id = ?", "A").Count(&count).Error)
+	require.EqualValues(t, 1, count)
+	owner, err := types.PrivateKBOwner(f.db, kbID)
+	require.NoError(t, err)
+	require.Equal(t, "A", owner)
+	owner, err = types.PrivateKBOwner(f.db, "kb")
+	require.NoError(t, err)
+	require.Empty(t, owner)
+	_, err = f.s.kbs.GetKnowledgeBaseByID(f.userContext("B"), kbID)
+	require.Error(t, err)
+	require.NoError(t, f.s.ReconcileBatches(context.Background()))
+	view, err := f.s.Batch(f.ctx, results[0].Batch.ID)
+	// Batch lookup resolves a KB grant at the API boundary in normal use.
+	if err != nil {
+		base, e := f.s.kbs.GetKnowledgeBaseByID(f.ctx, kbID)
+		require.NoError(t, e)
+		grant, e := access.ResolveKB(
+			f.ctx,
+			access.KBRequest{Caller: types.CallerFromContext(f.ctx)},
+			base,
+			types.OrgRoleEditor,
+			nil,
+			nil,
+		)
+		require.NoError(t, e)
+		view, err = f.s.Batch(grant.Context(f.ctx), results[0].Batch.ID)
+	}
+	require.NoError(t, err)
+	require.Equal(t, "dispatched", view.Items[0].Status)
 }

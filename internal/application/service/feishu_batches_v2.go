@@ -486,7 +486,16 @@ func (s *FeishuPersonalService) reconcileBatchUpdates(ctx context.Context) error
 			status, category := "dispatched", ""
 			switch progress.Status {
 			case "succeeded":
-				_, err = s.EnableImportSource(fresh, b.KBID, item.ImportID, "")
+				// Automatic enrollment keeps the exact identity admitted by this
+				// batch. Reconnection/configuration changes require human review.
+				_, _, ref, credentialErr := s.ResolveCredentialReference(fresh, b.AuthMode, b.ConnectionID)
+				err = credentialErr
+				if err == nil && ref.ConfigVersion != b.ConfigVersion {
+					err = ErrFeishuReconnect
+				}
+				if err == nil {
+					_, err = s.EnableImportSource(fresh, b.KBID, item.ImportID, "")
+				}
 				if err == nil {
 					status = "succeeded"
 				} else {
