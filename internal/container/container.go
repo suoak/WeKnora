@@ -995,6 +995,9 @@ func initDatabase(cfg *config.Config) (*gorm.DB, error) {
 	if sourceSchema {
 		db = types.EnableLegacyReadGuards(db)
 	}
+	if db.Migrator().HasTable("feishu_private_kbs") {
+		db = types.EnablePrivateKBGuards(db)
+	}
 	return db, nil
 }
 

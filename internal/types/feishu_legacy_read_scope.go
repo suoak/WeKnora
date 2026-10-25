@@ -80,6 +80,11 @@ func CheckLegacyReadScope(db *gorm.DB) error {
 		return nil
 	}
 	ids := legacyReadKBs(db.Statement.Context)
+	for _, kb := range ids {
+		if err := CheckPrivateKBRead(db, "", kb); err != nil {
+			return err
+		}
+	}
 	if len(ids) == 0 {
 		return nil
 	}

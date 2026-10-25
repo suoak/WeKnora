@@ -57,6 +57,7 @@ const (
 
 // KnowledgeBase represents a knowledge base entity
 type KnowledgeBase struct {
+	PrivateOwnerID string `json:"private_owner_id,omitempty" gorm:"-"`
 	// Unique identifier of the knowledge base
 	ID string `yaml:"id"                      json:"id"                      gorm:"type:varchar(36);primaryKey"`
 	// Name of the knowledge base

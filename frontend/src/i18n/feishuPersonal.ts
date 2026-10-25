@@ -1,4 +1,7 @@
 const en = {
+  createPrivateKB: 'Create a private knowledge base', privateKBName: 'My Feishu knowledge',
+  selectionLimit: 'Selection exceeds 100 documents or 20 pages. Select a smaller subtree or import in batches.',
+  dualIdentity: 'Application and personal access', myDocuments: 'My Feishu documents', drive: 'My space', wiki: 'Wiki spaces', browse: 'Browse', parent: 'Parent folder', more: 'Load next page', allTypes: 'All types', selectedCount: 'Selected: {count}', addSelected: 'Add selected links', multipleLinks: 'One Feishu link per line, up to 100', preview: 'Check access', createBatch: 'Import batch', retryBatch: 'Retry eligible failures', sharingConfirm: 'I approve publishing these personal documents to readers of this knowledge base.', sharingReason: 'Reason for sharing', approveSharing: 'Approve sharing of blocked documents', exportPending: 'Metadata access checked; export is checked during import.', partialCoverage: 'This list covers accessible API folders and Wiki spaces. Paste links for resources not listed.', batchState: 'Batch status',
   applicationTablesInstructions: 'Add 文档小助手 to the Feishu document first. Supports Docx, Sheet and Bitable; media requires complete parsing.',
   sharingShort: 'Imported content is shared according to this knowledge base’s permissions.', source: 'Original document',
   candidate_media_not_supported: 'Images or attachments cannot be fully imported yet. Export and review the file before uploading.', candidate_content_incomplete: 'Content was incomplete or changed during reading. Retry after the source is stable.', recoveryReview: 'Processing needs review. Existing content has been preserved.',
@@ -13,6 +16,9 @@ const en = {
   app: 'Feishu document application', appID: 'App ID', secret: 'App Secret (leave empty to keep)', callback: 'OAuth callback URL', enabled: 'Enable personal imports', save: 'Save', test: 'Test saved application credentials', saved: 'Configuration saved', tested: 'Application credentials valid.',
 }
 const zh = {
+  createPrivateKB: '创建私人知识库', privateKBName: '我的飞书知识',
+  selectionLimit: '选择超过 100 篇文档或 20 页，请缩小子目录范围或分批导入。',
+  dualIdentity: '应用与个人身份共存', myDocuments: '我的飞书文档', drive: '我的空间', wiki: 'Wiki 空间', browse: '浏览', parent: '上一级', more: '加载下一页', allTypes: '全部类型', selectedCount: '已选：{count}', addSelected: '添加选中文档链接', multipleLinks: '每行一个飞书链接，最多 100 条', preview: '权限预检', createBatch: '批量导入', retryBatch: '重试可恢复失败', sharingConfirm: '我明确批准将这些个人文档发布给当前知识库的读者。', sharingReason: '共享发布理由', approveSharing: '批准待确认文档的共享发布', exportPending: '已核对元数据权限；导出权限将在导入时验证。', partialCoverage: '这里展示 API 可访问的文件夹与 Wiki 空间；未列出的资源可通过链接接入。', batchState: '批次状态',
   applicationTablesInstructions: '请先在飞书文档中添加“文档小助手”。支持 Docx、电子表格和多维表格，图片及附件需完整解析。',
   sharingShort: '导入内容按当前知识库权限共享。', source: '查看原文',
   candidate_media_not_supported: '图片或附件尚不能完整导入，请手动导出核对后上传。', candidate_content_incomplete: '读取不完整或源内容发生变化，请稍后重试。', recoveryReview: '处理需要核查，已有内容已保留。',

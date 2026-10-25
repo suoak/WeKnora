@@ -10,6 +10,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/application/service"
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
+	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/gin-gonic/gin"
 )
 
@@ -27,6 +28,18 @@ func feishuFailureResponse(c *gin.Context, err error) {
 	// Service errors from storage/ingestion can contain internal details. Stable
 	// client errors carry no provider-controlled error bodies or credentials.
 	if err != nil {
+		if errors.Is(err, types.ErrPrivateKnowledgeBase) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "private_knowledge_base_forbidden"})
+			return
+		}
+		if errors.Is(err, service.ErrFeishuSharingApproval) {
+			c.JSON(http.StatusConflict, gin.H{"error": "sharing_approval_required", "message": "个人文档发布到当前知识库需要明确的共享发布批准"})
+			return
+		}
+		if errors.Is(err, types.ErrFeishuIdentityRequired) || errors.Is(err, types.ErrFeishuIdentityDisabled) {
+			c.JSON(http.StatusConflict, gin.H{"error": "feishu_identity_unavailable", "message": "请选择明确且已启用的飞书身份"})
+			return
+		}
 		// Preserve the service's live authorization decision. In particular, a
 		// failed KB check is not a provider/export failure or duplicate verdict.
 		switch {
@@ -168,13 +181,14 @@ func (h *FeishuPersonalHandler) Disconnect(c *gin.Context) {
 // Import provides the import operation.
 func (h *FeishuPersonalHandler) Import(c *gin.Context) {
 	var input struct {
-		URL string `json:"url"`
+		URL      string `json:"url"`
+		AuthMode string `json:"auth_mode"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(400, gin.H{"error": "invalid_url"})
 		return
 	}
-	row, err := h.svc.Import(c.Request.Context(), c.Param("id"), input.URL)
+	row, err := h.svc.ImportWithIdentity(c.Request.Context(), c.Param("id"), input.URL, input.AuthMode)
 	if err != nil {
 		feishuFailureResponse(c, err)
 		return

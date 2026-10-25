@@ -1,0 +1,79 @@
+name: Feishu Access V2 Isolated Gate
+on:
+  push:
+    branches: [feature/knowhub-feishu-access-v2]
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+concurrency:
+  group: feishu-access-v2-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  linux-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: paradedb/paradedb:v0.22.2-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: isolated-test-only
+          POSTGRES_DB: feishu_v2_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d feishu_v2_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      SYNC_EXECUTION_POSTGRES_DSN: postgres://postgres:isolated-test-only@localhost:5432/feishu_v2_test?sslmode=disable
+      REQUIRE_SYNC_EXECUTION_POSTGRES: "1"
+      FEISHU_LEGACY_TEST_DSN: postgres://postgres:isolated-test-only@localhost:5432/feishu_v2_test?sslmode=disable
+      FEISHU_P0_REDIS_ADDR: 127.0.0.1:6379
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          cache: true
+      - run: sudo apt-get update && sudo apt-get install -y build-essential libsqlite3-dev
+      - name: Record exact source
+        run: git rev-parse HEAD | tee tested-sha.txt
+      - name: Identity, resource and privacy boundaries
+        run: go test -json ./internal/types ./internal/application/access ./internal/datasource/connector/feishu/... -count=1 -timeout=10m | tee core-tests.jsonl
+      - name: Real PostgreSQL batch and approval tests
+        run: go test -json -tags sqlite_fts5 ./internal/application/service -run '^TestFeishuV2' -count=1 -timeout=10m | tee service-tests.jsonl
+      - name: Race real PostgreSQL claims
+        run: go test -race -json -tags sqlite_fts5 ./internal/application/service -run '^TestFeishuV2Postgres' -count=1 -timeout=10m | tee race-tests.jsonl
+      - name: Reject missing or skipped required integration tests
+        run: python3 scripts/ci/feishu_v2_results.py service-tests.jsonl race-tests.jsonl
+      - name: Probe tooling
+        run: python3 -m unittest discover -s docs/integration/feishu-access-v2/poc -v
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: feishu-v2-linux-evidence
+          path: |
+            tested-sha.txt
+            *-tests.jsonl
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+        working-directory: frontend
+      - run: npm run type-check && npm run build
+        working-directory: frontend

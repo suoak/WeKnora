@@ -34,6 +34,9 @@ func WithKBTransfer(
 	taskID string,
 	create bool,
 ) (context.Context, error) {
+	if source != nil && source.PrivateOwnerID != "" && (target == nil || target.PrivateOwnerID != source.PrivateOwnerID) {
+		return ctx, ErrForbidden
+	}
 	caller := types.CallerFromContext(ctx)
 	if taskID == "" {
 		return ctx, ErrForbidden
@@ -66,6 +69,9 @@ func WithKBTransferTask(
 	taskID string,
 	create bool,
 ) (context.Context, error) {
+	if source != nil && source.PrivateOwnerID != "" && (target == nil || target.PrivateOwnerID != source.PrivateOwnerID) {
+		return ctx, ErrForbidden
+	}
 	if taskID == "" {
 		return ctx, ErrForbidden
 	}

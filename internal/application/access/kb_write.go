@@ -13,6 +13,9 @@ func RequireKBWrite(ctx context.Context, kb *types.KnowledgeBase) error {
 	if kb == nil || kb.ID == "" || kb.TenantID == 0 {
 		return ErrNotFound
 	}
+	if kb.PrivateOwnerID != "" && kb.PrivateOwnerID != types.CallerFromContext(ctx).UserID {
+		return ErrForbidden
+	}
 	if scope, ok := types.TenantAPIKeyScopeFromContext(ctx); ok && !scope.FullAccess &&
 		!scope.HasCapability(types.APIKeyCapabilityIngest) {
 		return ErrForbidden

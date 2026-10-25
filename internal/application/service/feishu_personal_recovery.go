@@ -116,6 +116,7 @@ func (p *PersonalRecovery) authorizeLocal(
 	if err := db.Where("id = ? AND status = ?", a.CallerTenantID, "active").First(&tenant).Error; err != nil {
 		return nil, nil, personalAccessError(err)
 	}
+	db = db.WithContext(context.WithValue(ctx, types.UserIDContextKey, user.ID))
 	var kb types.KnowledgeBase
 	if err := db.Where("id = ?", m.KBID).First(&kb).Error; err != nil {
 		return nil, nil, personalAccessError(err)
@@ -149,9 +150,12 @@ func (p *PersonalRecovery) authorizeLocal(
 		return nil, nil, err
 	}
 	if !cfg.Enabled || cfg.Version != a.AppConfigVersion || cfg.AppID != m.AppID ||
-		types.FeishuAuthMode(cfg.AuthMode) != types.FeishuAuthMode(m.AuthMode) ||
+		!cfg.modeEnabled(types.FeishuAuthMode(m.AuthMode)) ||
 		types.FeishuAuthMode(a.AuthMode) != types.FeishuAuthMode(m.AuthMode) {
 		return nil, nil, repository.ErrPersonalIdentity
+	}
+	if err := p.service.checkSharingApproval(db, cfg, m, a.Revision); err != nil {
+		return nil, nil, err
 	}
 	return fresh, cfg, nil
 }
@@ -232,9 +236,9 @@ func (p *PersonalRecovery) authorize(
 	}), nil
 }
 
-func (p *PersonalRecovery) prepare(
+func (p *PersonalRecovery) prepareWithIdentity(
 	ctx context.Context,
-	kbID, rawURL string,
+	kbID, rawURL, requested string,
 ) (*types.FeishuPersonalImport, error) {
 	user, ok := types.UserIDFromContext(ctx)
 	if !ok {
@@ -251,7 +255,10 @@ func (p *PersonalRecovery) prepare(
 	if err != nil {
 		return nil, err
 	}
-	mode := types.FeishuAuthMode(cfg.AuthMode)
+	mode, err := cfg.importMode(requested)
+	if err != nil {
+		return nil, err
+	}
 	m := types.FeishuPersonalImport{
 		ID:        uuid.NewString(),
 		AuthMode:  mode,
@@ -320,6 +327,18 @@ func (p *PersonalRecovery) prepare(
 	}
 	m.ResourceType, m.DocumentToken, m.URL = resource.Type, resource.Token, resource.URL
 	a.Revision = resource.Modified
+	if cfg.Capabilities != nil {
+		var protected int64
+		if e := p.service.db.WithContext(ctx).Model(&types.FeishuPersonalImport{}).Where("app_id = ? AND kb_id = ? AND resource_type = ? AND document_token = ? AND status IN ?", m.AppID, m.KBID, m.ResourceType, m.DocumentToken, []string{"paused", "hold", "revoked"}).Count(&protected).Error; e != nil {
+			return nil, e
+		}
+		if protected > 0 {
+			return nil, repository.ErrPersonalIdentity
+		}
+	}
+	if err := p.service.checkSharingApproval(p.service.db.WithContext(ctx), cfg, &m, a.Revision); err != nil {
+		return nil, err
+	}
 	resourceState, accepted, err := p.repo.Prepare(ctx, &m, &a)
 	if err != nil {
 		return nil, err
@@ -385,12 +404,16 @@ func (p *PersonalRecovery) Dispatchable(ctx context.Context, intent types.Knowle
 
 // Process provides the process operation.
 func (p *PersonalRecovery) Process(ctx context.Context, payload types.DocumentProcessPayload) error {
-	m, _, _, err := p.repo.Load(ctx, payload.PersonalAttemptID)
+	m, _, a, err := p.repo.Load(ctx, payload.PersonalAttemptID)
 	if err != nil {
 		return err
 	}
 	if !applicationPayloadMatches(m, payload) {
 		return repository.ErrPersonalIdentity
+	}
+	ctx, err = p.privateWorkerContext(ctx, m, a)
+	if err != nil {
+		return err
 	}
 	if p.firstCreateOnly && payload.FirstCreate {
 		return p.processFirstCreateDocument(ctx, payload)
@@ -635,6 +658,9 @@ func (p *PersonalRecovery) fetchCandidate(
 func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 	var after string
 	var failures []error
+	if err := p.service.ReconcileBatches(ctx); err != nil {
+		failures = append(failures, err)
+	}
 	for {
 		rows, err := p.repo.List(ctx, after, 100)
 		if err != nil {
@@ -786,6 +812,7 @@ func (p *PersonalRecovery) mutate(
 			Error; err != nil {
 			return personalAccessError(err)
 		}
+		tx = tx.WithContext(context.WithValue(tx.Statement.Context, types.UserIDContextKey, user.ID))
 		var kb types.KnowledgeBase
 		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ?", m.KBID).First(&kb).Error; err != nil {
 			return personalAccessError(err)
@@ -832,13 +859,16 @@ func (p *PersonalRecovery) mutate(
 			return err
 		}
 		if !cfg.Enabled || cfg.Version != a.AppConfigVersion || cfg.AppID != m.AppID ||
-			types.FeishuAuthMode(cfg.AuthMode) != types.FeishuAuthMode(m.AuthMode) ||
+			!cfg.modeEnabled(types.FeishuAuthMode(m.AuthMode)) ||
 			types.FeishuAuthMode(a.AuthMode) != types.FeishuAuthMode(m.AuthMode) {
 			return repository.ErrPersonalIdentity
 		}
 		if types.FeishuAuthMode(m.AuthMode) == types.FeishuApplicationGrant &&
 			(!applicationUserAllowed(user.IsSystemAdmin) || !applicationKBAllowed(m.KBID)) {
 			return ErrFeishuApplicationRestricted
+		}
+		if err := p.service.checkSharingApproval(tx, &cfg, &m, a.Revision); err != nil {
+			return err
 		}
 		if fn != nil {
 			return fn(tx, a)

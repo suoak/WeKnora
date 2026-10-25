@@ -70,10 +70,16 @@ func (r *tenantRepository) CheckLegacyFileRead(ctx context.Context, tenant uint6
 	}
 	type binding struct{ State, ActiveAttempt, Attempt, Path, KBID string }
 	var bindings []binding
-	err := r.db.WithContext(ctx).Raw(`SELECT state,active_attempt,'' AS attempt,original_file_path AS path,knowledge_base_id AS kb_id
+	bindingSQL := `SELECT state,active_attempt,'' AS attempt,original_file_path AS path,knowledge_base_id AS kb_id
  FROM feishu_legacy_resources WHERE tenant_id=?
  UNION ALL SELECT r.state,r.active_attempt,a.id AS attempt,a.manifest->'knowledge'->>'file_path' AS path,r.knowledge_base_id AS kb_id
- FROM feishu_legacy_resources r JOIN feishu_legacy_attempts a ON a.resource_id=r.id WHERE r.tenant_id=?`, tenant, tenant).Scan(&bindings).Error
+ FROM feishu_legacy_resources r JOIN feishu_legacy_attempts a ON a.resource_id=r.id WHERE r.tenant_id=?`
+	bindingArgs := []any{tenant, tenant}
+	if types.PrivateKBGuardsEnabled(r.db) {
+		bindingSQL += ` UNION ALL SELECT 'active' AS state,'' AS active_attempt,'' AS attempt,k.file_path AS path,k.knowledge_base_id AS kb_id FROM knowledges k JOIN feishu_private_kbs p ON p.kb_id=k.knowledge_base_id WHERE k.tenant_id=? AND k.deleted_at IS NULL`
+		bindingArgs = append(bindingArgs, tenant)
+	}
+	err := r.db.WithContext(ctx).Raw(bindingSQL, bindingArgs...).Scan(&bindings).Error
 	if err != nil {
 		return false, err
 	}

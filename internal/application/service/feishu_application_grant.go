@@ -61,6 +61,15 @@ func applicationKBAllowed(kb string) bool {
 }
 
 func validateFeishuModeConfig(cfg *FeishuAppConfig) error {
+	if cfg.Capabilities != nil {
+		if cfg.Capabilities.PersonalEnabled {
+			return validateFeishuApp(cfg)
+		}
+		if !strings.HasPrefix(cfg.AppID, "cli_") || len(cfg.AppID) > 128 || cfg.Secret == "" || len(cfg.Secret) > 1024 {
+			return errors.New("invalid application credentials")
+		}
+		return nil
+	}
 	switch types.FeishuAuthMode(cfg.AuthMode) {
 	case types.FeishuUserOAuth:
 		return validateFeishuApp(cfg)
@@ -327,8 +336,7 @@ func (p *PersonalRecovery) validateApplicationIdentityTx(
 	if err = openFeishu(cipher, &cfg); err != nil {
 		return err
 	}
-	if !cfg.Enabled || cfg.Version != a.AppConfigVersion ||
-		types.FeishuAuthMode(cfg.AuthMode) != types.FeishuApplicationGrant ||
+	if !cfg.modeEnabled(types.FeishuApplicationGrant) || cfg.Version != a.AppConfigVersion ||
 		cfg.AppID != m.AppID ||
 		m.ApplicationID != cfg.AppID ||
 		a.ApplicationID != cfg.AppID {

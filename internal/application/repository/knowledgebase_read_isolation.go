@@ -14,6 +14,9 @@ func (r *knowledgeBaseRepository) GetReadKnowledgeBasesByIDs(ctx context.Context
 	out := []*types.KnowledgeBase{}
 	for _, id := range ids {
 		kb, e := r.GetKnowledgeBaseByID(ctx, id)
+		if errors.Is(e, types.ErrPrivateKnowledgeBase) || errors.Is(e, ErrKnowledgeBaseNotFound) {
+			continue
+		}
 		// Catalog visibility is independent of source-content authorization.
 		// Retry only a source rejection, only in the catalog's tenant, and
 		// strip generated content. All other callers keep strict reads.
