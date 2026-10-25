@@ -35,14 +35,14 @@ func privateTaskFixture(t *testing.T) (*FeishuPersonalService, *asynq.Task) {
 	for _, statement := range []string{
 		"CREATE TABLE users(id TEXT PRIMARY KEY,is_active BOOLEAN,deleted_at DATETIME)",
 		"CREATE TABLE tenants(id INTEGER PRIMARY KEY,status TEXT,deleted_at DATETIME)",
-		"CREATE TABLE tenant_members(user_id TEXT,tenant_id INTEGER,role TEXT,status TEXT,deleted_at DATETIME)",
+		"CREATE TABLE tenant_members(id INTEGER PRIMARY KEY,user_id TEXT,tenant_id INTEGER,role TEXT,status TEXT,deleted_at DATETIME)",
 		"CREATE TABLE knowledge_bases(id TEXT PRIMARY KEY,tenant_id INTEGER,creator_id TEXT,deleted_at DATETIME)",
 		"CREATE TABLE knowledges(id TEXT PRIMARY KEY,tenant_id INTEGER,knowledge_base_id TEXT," +
 			"channel TEXT,metadata TEXT,deleted_at DATETIME)",
 		"CREATE TABLE feishu_private_kbs(kb_id TEXT PRIMARY KEY,owner_id TEXT)",
 		"INSERT INTO users VALUES('A',true,NULL),('B',true,NULL)",
 		"INSERT INTO tenants VALUES(1,'active',NULL)",
-		"INSERT INTO tenant_members VALUES('A',1,'owner','active',NULL),('B',1,'admin','active',NULL)",
+		"INSERT INTO tenant_members VALUES(1,'A',1,'owner','active',NULL),(2,'B',1,'admin','active',NULL)",
 		"INSERT INTO knowledge_bases VALUES('private',1,'A',NULL),('other',1,'B',NULL)",
 		"INSERT INTO feishu_private_kbs VALUES('private','A'),('other','B')",
 		"INSERT INTO knowledges VALUES('doc',1,'private','web','{}',NULL),('other-doc',1,'other','web','{}',NULL)",

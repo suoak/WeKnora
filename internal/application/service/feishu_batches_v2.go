@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
@@ -74,19 +75,32 @@ func (s *FeishuPersonalService) CreateBatch(
 		return nil, err
 	}
 	unique := []string{}
+	invalid := map[string]bool{}
 	seen := map[string]bool{}
 	for _, link := range links {
+		link = strings.TrimSpace(link)
+		if link == "" {
+			continue
+		}
 		if len(link) > 4096 {
 			return nil, errors.New("invalid_link_length")
 		}
 		r, e := core.ParsePersonalResourceURL(link)
 		if e != nil {
-			return nil, e
+			if !seen[link] {
+				unique = append(unique, link)
+				seen[link] = true
+				invalid[link] = true
+			}
+			continue
 		}
 		if !seen[r.URL] {
 			unique = append(unique, r.URL)
 			seen[r.URL] = true
 		}
+	}
+	if len(unique) == 0 {
+		return nil, errors.New("invalid_batch_limits")
 	}
 	payload, _ := json.Marshal([]any{kb, mode, ref.ConnectionID, unique})
 	b := types.FeishuBatch{
@@ -131,6 +145,10 @@ func (s *FeishuPersonalService) CreateBatch(
 				Status:    "pending",
 				UpdatedAt: time.Now(),
 			}
+			if invalid[link] {
+				row.Status = "blocked"
+				row.ErrorCategory = "invalid_feishu_url"
+			}
 			if e := tx.Create(&row).Error; e != nil {
 				return e
 			}
@@ -140,6 +158,7 @@ func (s *FeishuPersonalService) CreateBatch(
 	if err != nil {
 		return nil, err
 	}
+	// Admission performs no remote metadata, download or indexing work.
 	return s.Batch(ctx, b.ID)
 }
 
@@ -314,6 +333,9 @@ func (s *FeishuPersonalService) ReconcileBatches(ctx context.Context) error {
 	if !s.db.Migrator().HasTable(&types.FeishuBatch{}) {
 		return errors.New("feishu_v2_migration_required")
 	}
+	if err := s.reconcileBatchUpdates(ctx); err != nil {
+		return err
+	}
 	for n := 0; n < 2; n++ {
 		var item types.FeishuBatchItem
 		err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -322,10 +344,8 @@ func (s *FeishuPersonalService) ReconcileBatches(ctx context.Context) error {
 					Strength: "UPDATE",
 					Options:  "SKIP LOCKED",
 				}).
-				Where("status = ? OR (status = ? AND lease_until < ?)",
-					"pending",
-					"processing",
-					time.Now()).
+				Where("(status = ? AND updated_at <= ?) OR (status = ? AND lease_until < ?)",
+					"pending", time.Now(), "processing", time.Now()).
 				Order("updated_at,id").
 				First(&item).Error; e != nil {
 				return e
@@ -366,6 +386,9 @@ func (s *FeishuPersonalService) ReconcileBatches(ctx context.Context) error {
 			status, category = "blocked", feishuV2Error(err)
 			if category == "temporary_failure" {
 				status = "failed"
+				if item.RetryCount < 3 {
+					status = "pending"
+				}
 			}
 		}
 		if imported != nil {
@@ -410,10 +433,73 @@ func (s *FeishuPersonalService) ReconcileBatches(ctx context.Context) error {
 					"import_id":      importID,
 					"lease_owner":    "",
 					"lease_until":    nil,
-					"updated_at":     time.Now(),
+					"updated_at":     batchNextAttempt(status, item.RetryCount),
+					"retry_count":    batchRetryCount(status, item.RetryCount),
 				}).Error
 		}); e != nil {
 			return e
+		}
+	}
+	return nil
+}
+
+// Retry delays are durable; leases and retry counters survive worker restarts.
+func batchNextAttempt(status string, retries int) time.Time {
+	if status == "pending" {
+		return time.Now().Add(time.Duration(1<<retries) * 30 * time.Second)
+	}
+	return time.Now()
+}
+
+func batchRetryCount(status string, retries int) int {
+	if status == "pending" {
+		return retries + 1
+	}
+	return retries
+}
+
+// Enroll only explicitly imported and verified resources. No directory discovery,
+// source resume or cursor reset occurs here. Existing handoff fences remain authoritative.
+func (s *FeishuPersonalService) reconcileBatchUpdates(ctx context.Context) error {
+	var items []types.FeishuBatchItem
+	if err := s.db.WithContext(ctx).Where("status = ? AND import_id <> ?", "dispatched", "").
+		Order("updated_at,id").Limit(2).Find(&items).Error; err != nil {
+		return err
+	}
+	for _, item := range items {
+		var b types.FeishuBatch
+		if err := s.db.WithContext(ctx).Where("id = ?", item.BatchID).First(&b).Error; err != nil {
+			return err
+		}
+		fresh, err := s.batchContext(ctx, &b)
+		if err != nil {
+			continue
+		}
+		view, err := s.Batch(fresh, b.ID)
+		if err != nil {
+			continue
+		}
+		for _, progress := range view.Items {
+			if progress.ID != item.ID {
+				continue
+			}
+			status, category := "dispatched", ""
+			switch progress.Status {
+			case "succeeded":
+				_, err = s.EnableImportSource(fresh, b.KBID, item.ImportID, "")
+				if err == nil {
+					status = "succeeded"
+				} else {
+					status, category = "blocked", feishuV2Error(err)
+				}
+			case "failed":
+				status, category = "failed", progress.ErrorCategory
+			}
+			if err := s.db.WithContext(ctx).Model(&types.FeishuBatchItem{}).
+				Where("id = ? AND status = ? AND import_id = ?", item.ID, "dispatched", item.ImportID).
+				Updates(map[string]any{"status": status, "error_category": category, "updated_at": time.Now()}).Error; err != nil {
+				return err
+			}
 		}
 	}
 	return nil

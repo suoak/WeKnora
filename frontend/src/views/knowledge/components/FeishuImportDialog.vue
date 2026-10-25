@@ -1,5 +1,5 @@
 <template>
-  <t-dialog :visible="visible" :header="t('title')" :footer="false" @close="emit('update:visible', false)">
+  <t-dialog :visible="visible" :header="t('title')" :footer="false" width="min(560px, calc(100vw - 32px))" @close="emit('update:visible', false)">
     <p v-if="!status.available">{{ t('unavailable') }}</p>
     <FeishuAccessV2 v-else-if="status.v2" :kb-id="kbId" :status="status" :initial-url="initialUrl" @connect="connect" @imported="emit('imported')" />
     <template v-else>

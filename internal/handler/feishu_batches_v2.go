@@ -186,3 +186,22 @@ func (h *FeishuPersonalHandler) Collaborate(c *gin.Context) {
 	}
 	c.JSON(201, row)
 }
+
+// QuickImport persists a personal batch without a preview token or remote read.
+func (h *FeishuPersonalHandler) QuickImport(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 256<<10)
+	var in struct {
+		KBID  string   `json:"kb_id"`
+		Links []string `json:"links"`
+	}
+	if c.ShouldBindJSON(&in) != nil {
+		c.JSON(400, gin.H{"error": "invalid_batch"})
+		return
+	}
+	row, err := h.svc.QuickImport(c.Request.Context(), in.KBID, c.GetHeader("Idempotency-Key"), in.Links)
+	if err != nil {
+		feishuFailureResponse(c, err)
+		return
+	}
+	c.JSON(http.StatusAccepted, row)
+}

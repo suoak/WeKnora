@@ -5,6 +5,7 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
@@ -200,4 +201,37 @@ func TestFeishuV2PostgresBatchConcurrentIdempotencyAndAliasRecovery(t *testing.T
 	require.NoError(t, f.s.ReconcileBatches(context.Background()))
 	require.NoError(t, f.db.Model(&types.FeishuPersonalImport{}).Count(&imports).Error)
 	require.EqualValues(t, 1, imports)
+}
+
+func TestFeishuV2PostgresDirectBatchIsolatesInvalidAndRestoresLease(t *testing.T) {
+	f := v2PostgresFixture(t)
+	require.NoError(t, f.db.Exec("INSERT INTO feishu_private_kbs(kb_id,owner_id) VALUES('kb','A')").Error)
+	_, _, ref, err := f.s.ResolveCredentialReference(f.ctx, types.FeishuUserOAuth, "")
+	require.NoError(t, err)
+	links := []string{
+		"https://test.feishu.cn/file/real?from=share",
+		"https://test.feishu.cn/file/real",
+		"http://127.0.0.1/file/private",
+		"",
+	}
+	view, err := f.s.CreateBatch(f.ctx, "kb", types.FeishuUserOAuth, ref.ConnectionID, "direct-no-preview", links)
+	require.NoError(t, err)
+	require.Len(t, view.Items, 2)
+	require.Equal(t, "pending", view.Items[0].Status)
+	require.Equal(t, "blocked", view.Items[1].Status)
+	require.Equal(t, "invalid_feishu_url", view.Items[1].ErrorCategory)
+	// A crashed worker's durable claim expires; a replacement worker picks it up.
+	require.NoError(t, f.db.Model(&types.FeishuBatchItem{}).Where("id = ?", view.Items[0].ID).
+		Updates(map[string]any{"status": "processing", "lease_owner": "crashed-worker", "lease_until": time.Now().Add(-time.Minute)}).
+		Error)
+	require.NoError(t, f.s.ReconcileBatches(context.Background()))
+	view, err = f.s.Batch(f.ctx, view.Batch.ID)
+	require.NoError(t, err)
+	require.Equal(t, "dispatched", view.Items[0].Status)
+	require.NotEmpty(t, view.Items[0].ImportID)
+	require.Equal(t, "blocked", view.Items[1].Status)
+	repeated, err := f.s.CreateBatch(f.ctx, "kb", types.FeishuUserOAuth, ref.ConnectionID, "direct-no-preview", links)
+	require.NoError(t, err)
+	require.Equal(t, view.Batch.ID, repeated.Batch.ID)
+	require.Equal(t, view.Items[0].ImportID, repeated.Items[0].ImportID)
 }

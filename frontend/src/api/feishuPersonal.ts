@@ -45,3 +45,5 @@ export const listFeishuCollectionPages = (kb: string, id: string, offset = 0) =>
 export function isFeishuDocumentURL(value: string): boolean {
   try { const u = new URL(value); return u.protocol === 'https:' && (u.hostname === 'feishu.cn' || u.hostname.endsWith('.feishu.cn')) } catch { return false }
 }
+
+export const quickImportFeishu = (links: string[], key: string, kb_id?: string) => post<FeishuBatch>('/api/v1/me/feishu/imports', {links, kb_id}, {headers:{'Idempotency-Key':key}})

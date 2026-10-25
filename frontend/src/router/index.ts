@@ -119,6 +119,7 @@ const router = createRouter({
       component: () => import("../views/platform/index.vue"),
       meta: { requiresInit: true, requiresAuth: true },
       children: [
+ { path: "feishu/imports", component: () => import("../views/knowledge/FeishuImportManagement.vue"), meta: {requiresAuth:true,requiresInit:true} },
         {
           path: "tenant",
           redirect: "/platform/settings"

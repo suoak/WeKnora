@@ -19,6 +19,7 @@ func RegisterFeishuPersonalRoutes(r *gin.RouterGroup, h *handler.FeishuPersonalH
 	me := r.Group("/me/feishu")
 	me.GET("", h.Status)
 	me.GET("/connections", h.Connections)
+	me.POST("/imports", h.QuickImport)
 	me.GET("/resources", h.Resources)
 	me.POST("/private-knowledge-base", h.CreatePrivateKB)
 	me.POST("/authorize", h.Authorize)
