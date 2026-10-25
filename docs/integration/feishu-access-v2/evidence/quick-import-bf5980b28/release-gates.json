@@ -1,0 +1,37 @@
+{
+  "v2": {
+    "conclusion": "success",
+    "databaseId": 40197678810,
+    "headSha": "bf5980b281244b7ce87d61d9af2bd69b411f3b82",
+    "status": "completed",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/40197678810"
+  },
+  "native": {
+    "conclusion": "success",
+    "databaseId": 40197679651,
+    "headSha": "bf5980b281244b7ce87d61d9af2bd69b411f3b82",
+    "status": "completed",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/40197679651"
+  },
+  "integrated": {
+    "conclusion": "success",
+    "databaseId": 40197682703,
+    "headSha": "bf5980b281244b7ce87d61d9af2bd69b411f3b82",
+    "status": "completed",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/40197682703"
+  },
+  "portal": {
+    "conclusion": "success",
+    "databaseId": 40197685431,
+    "headSha": "bf5980b281244b7ce87d61d9af2bd69b411f3b82",
+    "status": "completed",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/40197685431"
+  },
+  "python_mcp": {
+    "conclusion": "success",
+    "databaseId": 40197688555,
+    "headSha": "bf5980b281244b7ce87d61d9af2bd69b411f3b82",
+    "status": "completed",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/40197688555"
+  }
+}

@@ -140,25 +140,35 @@ def personal_key(label,jwt):
  state['mcp_'+label]={'id':row['id'],'token':row['token'],'expires':expires};save()
  return row['token']
 
-def rpc(token,name,arguments):
+initialized=set()
+def rpc(token,name,arguments,initialize=False,allow_error=False):
+ if not initialize and token not in initialized:
+  rpc(token,None,{},initialize=True);initialized.add(token)
+ params={'protocolVersion':'2024-11-05','capabilities':{},'clientInfo':{'name':'knowhub-synthetic-probe','version':'1'}} if initialize else {'name':name,'arguments':arguments}
  request=urllib.request.Request('http://127.0.0.1:28480/api/v1/mcp/personal',method='POST',
   headers={'Authorization':'Bearer '+token,'Content-Type':'application/json','Accept':'application/json, text/event-stream'},
-  data=json.dumps({'jsonrpc':'2.0','id':1,'method':'tools/call','params':{'name':name,'arguments':arguments}}).encode())
- with opener.open(request,timeout=45) as response:
-  raw=response.read(2*1024*1024+1)
-  if len(raw)>2*1024*1024:raise ValueError('mcp_probe_response_limit')
-  text=raw.decode()
-  if text.lstrip().startswith('{'):result=json.loads(text)
-  else:
-   rows=[json.loads(line[5:].strip()) for line in text.splitlines() if line.startswith('data:')]
-   if len(rows)!=1:raise ValueError('mcp_probe_stream_shape')
-   result=rows[0]
- if result.get('error') or result.get('result',{}).get('isError'):raise ValueError('mcp_probe_tool_failed')
+  data=json.dumps({'jsonrpc':'2.0','id':1,'method':'initialize' if initialize else 'tools/call','params':params}).encode())
+ try:
+  with opener.open(request,timeout=45) as response:
+   raw=response.read(2*1024*1024+1)
+   if len(raw)>2*1024*1024:raise ValueError('mcp_probe_response_limit')
+   text=raw.decode()
+   if text.lstrip().startswith('{'):result=json.loads(text)
+   else:
+    rows=[json.loads(line[5:].strip()) for line in text.splitlines() if line.startswith('data:')]
+    if len(rows)!=1:raise ValueError('mcp_probe_stream_shape')
+    result=rows[0]
+ except urllib.error.HTTPError as error:
+  if allow_error and error.code in [401,403,404]:return {'error':{'code':error.code}}
+  raise ValueError('mcp_probe_http_failed')
+ if not allow_error and (result.get('error') or result.get('result',{}).get('isError')):raise ValueError('mcp_probe_tool_failed')
  return result
 key_a=personal_key('a',token_a);key_b=personal_key('b',token_b)
 catalog_a=json.dumps(rpc(key_a,'list_knowledge_bases',{}))
 catalog_b=json.dumps(rpc(key_b,'list_knowledge_bases',{}))
 if kb_id not in catalog_a or public_id not in catalog_b or kb_id in catalog_b:raise ValueError('personal_mcp_private_catalog_boundary_failed')
+denied=rpc(key_b,'read_document',{'knowledge_id':kid},allow_error=True)
+if not denied.get('error') and not denied.get('result',{}).get('isError'):raise ValueError('personal_mcp_private_document_scope_expanded')
 found=json.dumps(rpc(key_a,'search_knowledge',{'query':'v2privacycanary','mode':'hybrid','knowledge_base_ids':[kb_id],'limit':10}))
 if kid not in found:raise ValueError('personal_mcp_owner_search_missing')
 checks.append({'check':'personal_mcp_owner_hybrid_search_and_other_admin_catalog_isolation','status':'PASS'})

@@ -89,3 +89,8 @@ the helper's own stored canary once for that candidate; it never resets a real
 Feishu resource. The privacy probe exercises real gateway vectors, BM25 and
 hybrid retrieval, plus short-lived synthetic personal MCP credentials. It does
 not attest real Feishu OAuth or business documents.
+
+Use `feishu_v2_prepare_test_site.py --images-only` when upgrading an existing
+project. This verifies and loads the exact candidate images and retains the
+frontend manifest without requiring the old site's preview ports to be free or
+creating a second Compose stack.

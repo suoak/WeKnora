@@ -45,6 +45,17 @@ if existing.returncode:
 frontend=inspect(FRONTEND['image_id'])
 if frontend['Config'].get('Labels',{}).get('org.opencontainers.image.revision')!=SHA:
  raise ValueError('frontend_image_source_mismatch')
+manifest_path=package/'manifest.json'
+if manifest_path.is_symlink():raise ValueError('unexpected_frontend_manifest_path')
+if manifest_path.exists():
+ if json.loads(manifest_path.read_text())!=FRONTEND:raise ValueError('existing_frontend_manifest_mismatch')
+else:
+ fd=os.open(str(manifest_path),os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+ with os.fdopen(fd,'w') as output:json.dump(FRONTEND,output,indent=2)
+if IMAGES_ONLY:
+ print(json.dumps({'status':'IMAGES_VERIFIED','source_sha':SHA,'app_image':app,
+  'frontend_image':FRONTEND['image_id'],'services_started':False,'public_ports_exposed':False}))
+ raise SystemExit(0)
 pg=inspect('paradedb/paradedb:v0.22.2-pg17')['Id']
 redis=inspect('redis:7.0-alpine')['Id']
 project='knowhub-feishu-v2-'+SHA[:12]
@@ -142,6 +153,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--manifest', type=Path, required=True)
     parser.add_argument('--frontend-package', type=Path, required=True)
+    parser.add_argument('--images-only', action='store_true')
     args = parser.parse_args()
     raw = args.manifest.read_bytes()
     staging = json.loads(raw.decode('utf-16') if raw.startswith((b'\xff\xfe', b'\xfe\xff')) else raw.decode('utf-8-sig'))
@@ -187,7 +199,7 @@ def main():
                 with transfer.open(remote,'wx') as output, archive.open('rb') as incoming:
                     output.set_pipelined(True)
                     while part := incoming.read(1024*1024): output.write(part)
-        prefix = 'ROOT='+repr(str(root))+'\nSHA='+repr(sha)+'\nFRONTEND='+repr(frontend)+'\n'
+        prefix = 'ROOT='+repr(str(root))+'\nSHA='+repr(sha)+'\nFRONTEND='+repr(frontend)+'\nIMAGES_ONLY='+repr(args.images_only)+'\n'
         guarded = 'try:\n'+textwrap.indent(REMOTE,' ')
         guarded += "\nexcept Exception as error:\n print(json.dumps({'status':'BLOCKED','error_type':type(error).__name__,"
         guarded += "'reason':str(error) if isinstance(error,ValueError) else 'isolated_site_prepare_failed'}))\n raise SystemExit(2)\n"
@@ -195,7 +207,7 @@ def main():
         _, out, _ = client.exec_command("python3 -c \"import base64;exec(base64.b64decode('"+code+"'))\"",timeout=240)
         report = json.loads(out.read(65536))
         print(json.dumps(report,indent=2))
-        return 0 if report.get('status') == 'PREPARED' else 2
+        return 0 if report.get('status') in ('PREPARED','IMAGES_VERIFIED') else 2
     except (OSError,ValueError,KeyError,TypeError,paramiko.SSHException):
         print(json.dumps({'status':'BLOCKED','reason':'verified_isolated_site_prepare_unavailable'}))
         return 2

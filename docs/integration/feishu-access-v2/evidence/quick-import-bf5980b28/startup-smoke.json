@@ -1,0 +1,117 @@
+{
+  "status": "PASS",
+  "source_sha": "bf5980b281244b7ce87d61d9af2bd69b411f3b82",
+  "project": "knowhub-feishu-v2-d6e99d894d3a",
+  "scope": "synthetic_isolated_startup_only",
+  "checks": [
+    {
+      "port": 28480,
+      "path": "/health",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "port": 28481,
+      "path": "/",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "port": 28580,
+      "path": "/",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "port": 28581,
+      "path": "/health",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "port": 28480,
+      "path": "/api/v1/me/feishu",
+      "status": 401,
+      "expected": 401
+    },
+    {
+      "port": 28480,
+      "path": "/api/v1/mcp/personal",
+      "status": 401,
+      "expected": 401
+    },
+    {
+      "port": 28481,
+      "path": "/feishu/callback",
+      "callback_headers_valid": true,
+      "status": 200
+    },
+    {
+      "port": 28580,
+      "path": "/feishu/callback",
+      "callback_headers_valid": true,
+      "status": 200
+    }
+  ],
+  "backend_sha_verified": true,
+  "frontend_display_commit": "bf5980b",
+  "live_worker_pools": [
+    {
+      "name": "core",
+      "concurrency": 2,
+      "queue_count": 2,
+      "instances": 2,
+      "cluster_capacity": 4,
+      "active": 0,
+      "utilization": 0
+    },
+    {
+      "name": "postprocess",
+      "concurrency": 1,
+      "queue_count": 1,
+      "instances": 2,
+      "cluster_capacity": 2,
+      "active": 0,
+      "utilization": 0
+    },
+    {
+      "name": "enrichment",
+      "concurrency": 1,
+      "queue_count": 5,
+      "instances": 2,
+      "cluster_capacity": 2,
+      "active": 0,
+      "utilization": 0
+    },
+    {
+      "name": "maintenance",
+      "concurrency": 1,
+      "queue_count": 2,
+      "instances": 2,
+      "cluster_capacity": 2,
+      "active": 0,
+      "utilization": 0
+    },
+    {
+      "name": "shared",
+      "concurrency": 1,
+      "queue_count": 7,
+      "instances": 2,
+      "cluster_capacity": 2,
+      "active": 0,
+      "utilization": 0
+    },
+    {
+      "name": "wiki",
+      "concurrency": 1,
+      "queue_count": 1,
+      "instances": 2,
+      "cluster_capacity": 2,
+      "active": 0,
+      "utilization": 0
+    }
+  ],
+  "real_personal_oauth": "NOT_EXECUTED",
+  "real_document_search": "NOT_EXECUTED",
+  "existing_entry_changed": false
+}

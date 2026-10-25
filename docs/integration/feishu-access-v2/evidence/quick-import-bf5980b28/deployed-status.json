@@ -1,0 +1,37 @@
+{
+  "status": "RUNNING",
+  "source_sha": "bf5980b281244b7ce87d61d9af2bd69b411f3b82",
+  "project": "knowhub-feishu-v2-d6e99d894d3a",
+  "backup_sha256": "7d6dfb3d2ace8268e1d15e789d4775edf631aa8137cd5c7b0dea58f87f5fd3eb",
+  "business_restore_verified": true,
+  "containers": {
+    "app": {
+      "image": "sha256:fe07752b1b8617b6e4cfcfa89466bcc4ef1eb6334c4320ce241070387747c0df",
+      "running": true,
+      "health": "healthy"
+    },
+    "worker2": {
+      "image": "sha256:fe07752b1b8617b6e4cfcfa89466bcc4ef1eb6334c4320ce241070387747c0df",
+      "running": true,
+      "health": "healthy"
+    },
+    "frontend": {
+      "image": "sha256:1db0a0185dde734766048484dabe29819a747ca13721921aa0fc95b832740b8e",
+      "running": true,
+      "health": null
+    },
+    "entry": {
+      "image": "sha256:1db0a0185dde734766048484dabe29819a747ca13721921aa0fc95b832740b8e",
+      "running": true,
+      "health": null
+    }
+  },
+  "test_account": {
+    "exists": true,
+    "active": true,
+    "connection_record_present": true
+  },
+  "scope": "existing_isolated_project_only",
+  "secrets_rotated": false,
+  "cursor_reset": false
+}
