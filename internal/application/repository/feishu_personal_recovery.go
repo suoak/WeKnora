@@ -37,6 +37,8 @@ var (
 	ErrPersonalAlreadyImported = errors.New("personal_document_already_imported_by_another_user")
 	// ErrPersonalReviewRequired requires review before resuming partial public ingestion.
 	ErrPersonalReviewRequired = errors.New("personal_first_create_requires_review")
+	// ErrPersonalSourceManaged fences first-create after datasource handoff.
+	ErrPersonalSourceManaged = errors.New("personal_document_managed_by_source")
 )
 
 // NewPersonalRecoveryRepository constructs PersonalRecoveryRepository.
@@ -91,6 +93,9 @@ func (r *PersonalRecoveryRepository) Prepare(
 				}
 				if prior.UserID != m.UserID {
 					return ErrPersonalAlreadyImported
+				}
+				if prior.Status == "source_managed" {
+					return ErrPersonalSourceManaged
 				}
 				if prior.KnowledgeID != "" && prior.SourceModified != a.Revision {
 					return ErrPersonalUpdateDisabled

@@ -21,7 +21,7 @@ func TestDiscoveryFrontierPersistsOnePageWithoutReplayingPriorDirectory(t *testi
 	frontier, err := NewDiscoveryFrontier("drive", "root", "")
 	require.NoError(t, err)
 	var positions []string
-	read := discoveryPageFunc(func(_ context.Context, kind, parent, space, page string, size int) (ResourcePage, error) {
+	read := discoveryPageFunc(func(_ context.Context, kind, parent, _, page string, size int) (ResourcePage, error) {
 		require.Equal(t, "drive", kind)
 		require.Equal(t, 50, size)
 		positions = append(positions, parent+":"+page)

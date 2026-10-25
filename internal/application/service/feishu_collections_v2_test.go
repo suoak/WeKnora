@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
@@ -21,7 +22,7 @@ func TestFeishuV2PostgresCollectionPageAdmissionAndRestart(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
 		if r.Header.Get("Authorization") != "Bearer access-A" || r.URL.Path != "/open-apis/drive/v1/files" {
-			http.Error(w, "wrong identity or path", 403)
+			http.Error(w, "wrong identity or path", http.StatusForbidden)
 			return
 		}
 		more := r.URL.Query().Get("page_token") == ""
@@ -141,7 +142,7 @@ func TestFeishuV2PostgresCollectionDeniedChildPreservesHealthySiblings(t *testin
 	require.NoError(t, f.db.Exec("INSERT INTO feishu_private_kbs(kb_id,owner_id) VALUES('kb','A')").Error)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer access-A" {
-			http.Error(w, "wrong identity", 403)
+			http.Error(w, "wrong identity", http.StatusForbidden)
 			return
 		}
 		var files []map[string]any
@@ -149,7 +150,7 @@ func TestFeishuV2PostgresCollectionDeniedChildPreservesHealthySiblings(t *testin
 		case "root":
 			files = []map[string]any{{"token": "denied", "type": "folder"}, {"token": "healthy", "type": "folder"}}
 		case "denied":
-			http.Error(w, "permission denied", 403)
+			http.Error(w, "permission denied", http.StatusForbidden)
 			return
 		case "healthy":
 			files = []map[string]any{
@@ -191,4 +192,54 @@ func TestFeishuV2PostgresCollectionDeniedChildPreservesHealthySiblings(t *testin
 	require.NoError(t, f.s.ReconcileCollections(context.Background()))
 	require.NoError(t, f.db.Where("id = ?", row.ID).First(&current).Error)
 	require.Equal(t, "hold", current.State, "a partial cycle cannot be automatically restarted as complete")
+}
+
+func TestFeishuV2PostgresDiscoveryNeverReentersManagedFirstCreate(t *testing.T) {
+	f := v2PostgresFixture(t)
+	require.NoError(t, f.db.Exec("INSERT INTO feishu_private_kbs(kb_id,owner_id) VALUES('kb','A')").Error)
+	link := "https://test.feishu.cn/file/real"
+	m, err := f.s.ImportWithIdentity(f.ctx, "kb", link, types.FeishuUserOAuth)
+	require.NoError(t, err)
+	require.NoError(t, f.p.Process(f.ctx, f.payload(m.AttemptID)))
+	// This fixture tests post-handoff admission only. Actual handoff and
+	// parser/index correctness have separate native PostgreSQL tests.
+	require.NoError(t, f.db.Model(&types.FeishuPersonalImport{}).Where("id = ?", m.ID).
+		Update("status", "source_managed").Error)
+	require.NoError(t, f.db.Model(&types.FeishuPersonalAttempt{}).Where("id = ?", m.AttemptID).
+		Update("status", "obsolete").Error)
+	var before int64
+	require.NoError(t, f.db.Model(&types.FeishuPersonalAttempt{}).Count(&before).Error)
+	for _, revision := range []int64{1, 2} {
+		f.revision.Store(revision)
+		existing, err := f.s.ImportWithIdentity(f.ctx, "kb", link, types.FeishuUserOAuth)
+		require.NoError(t, err)
+		require.Equal(t, m.ID, existing.ID)
+		require.Equal(t, m.LogicalKnowledgeID, existing.KnowledgeID)
+		require.Equal(t, "source_managed", existing.Status)
+	}
+	_, _, ref, err := f.s.ResolveCredentialReference(f.ctx, types.FeishuUserOAuth, "")
+	require.NoError(t, err)
+	batch, err := f.s.CreateBatch(
+		f.ctx,
+		"kb",
+		types.FeishuUserOAuth,
+		ref.ConnectionID,
+		"observed-again",
+		[]string{link},
+	)
+	require.NoError(t, err)
+	require.NoError(t, f.s.ReconcileBatches(context.Background()))
+	batch, err = f.s.Batch(f.ctx, batch.Batch.ID)
+	require.NoError(t, err)
+	require.Equal(t, "existing", batch.Items[0].Status)
+	var after int64
+	require.NoError(t, f.db.Model(&types.FeishuPersonalAttempt{}).Count(&after).Error)
+	require.Equal(t, before, after, "discovery cannot allocate a new first-create attempt after handoff")
+	// Even an old/late admission bypassing the service fast path is fenced.
+	var persisted types.FeishuPersonalImport
+	require.NoError(t, f.db.Where("id = ?", m.ID).First(&persisted).Error)
+	_, _, attempt, err := f.p.repo.Load(f.ctx, m.AttemptID)
+	require.NoError(t, err)
+	_, _, err = f.p.repo.Prepare(f.ctx, &persisted, attempt)
+	require.ErrorIs(t, err, repository.ErrPersonalSourceManaged)
 }

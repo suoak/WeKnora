@@ -124,13 +124,14 @@ func (s *FeishuPersonalService) CollectionAction(ctx context.Context, kbID, id, 
 		return access.ErrNotFound
 	}
 	values := map[string]any{"updated_at": time.Now()}
-	if action == "pause" {
+	switch action {
+	case "pause":
 		// Pausing never replaces a restrictive hold or revocation.
 		if row.State != "active" && row.State != "paused" {
 			return access.ErrForbidden
 		}
 		values["state"] = "paused"
-	} else if action == "resume" || action == "discover" {
+	case "resume", "discover":
 		if row.State == "hold" || row.State == "revoked" || action == "discover" && row.State != "active" {
 			return access.ErrForbidden
 		}
@@ -142,7 +143,7 @@ func (s *FeishuPersonalService) CollectionAction(ctx context.Context, kbID, id, 
 			return ErrFeishuReconnect
 		}
 		values["state"], values["next_run_at"] = "active", time.Now()
-	} else {
+	default:
 		return errors.New("invalid_collection_action")
 	}
 	change := s.db.WithContext(ctx).Model(&types.FeishuCollection{}).

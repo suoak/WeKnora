@@ -7,6 +7,7 @@ required = {
 	"TestFeishuV2PostgresCollectionPageAdmissionAndRestart",
 	"TestFeishuV2PostgresCollectionRollbackAndPauseFence",
 	"TestFeishuV2PostgresCollectionDeniedChildPreservesHealthySiblings",
+	"TestFeishuV2PostgresDiscoveryNeverReentersManagedFirstCreate",
     "TestFeishuV2PostgresSharedAdmissionRequiresRevisionApproval",
     "TestFeishuV2PostgresBatchConcurrentIdempotencyAndAliasRecovery",
     "TestFeishuV2PostgresSourceReadAndCommitRevocation",

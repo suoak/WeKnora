@@ -1,4 +1,5 @@
 const en = {
+  existing: 'Already imported; content updates are managed by its source',
   directoryDiscovery: 'Folder and Wiki discovery', discoverThisFolder: 'Enable discovery for this folder',
   confirmDiscovery: 'Import new documents found under this selected directory into this knowledge base.',
   discoveryScope: 'Checks the selected tree every 15 minutes, one page at a time. Personal discovery requires your private knowledge base. Content updates are enabled separately for each imported document below. Pausing discovery stops new page admission; already admitted batches and document update sources are managed separately.',
@@ -47,6 +48,7 @@ const en = {
   app: 'Feishu document application', appID: 'App ID', secret: 'App Secret (leave empty to keep)', callback: 'OAuth callback URL', enabled: 'Enable personal imports', save: 'Save', test: 'Test saved application credentials', saved: 'Configuration saved', tested: 'Application credentials valid.',
 }
 const zh = {
+  existing: '已有知识，内容更新由对应来源管理',
   directoryDiscovery: '文件夹与 Wiki 持续发现', discoverThisFolder: '启用当前目录持续发现',
   confirmDiscovery: '将此选定目录下新发现的文档导入当前知识库。',
   discoveryScope: '每 15 分钟检查选定目录，逐页处理。个人身份只允许导入本人的私人知识库；已有文档的内容更新需在下方逐篇启用。暂停发现会阻止新页接纳，已接纳批次和文档更新来源需分别管理。',

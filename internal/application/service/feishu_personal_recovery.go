@@ -358,6 +358,22 @@ func (p *PersonalRecovery) prepareWithIdentity(
 	if err := p.service.checkSharingApproval(p.service.db.WithContext(ctx), cfg, &m, a.Revision); err != nil {
 		return nil, err
 	}
+	if cfg.Capabilities != nil {
+		var managed types.FeishuPersonalImport
+		err := p.service.db.WithContext(ctx).
+			Where("user_id = ? AND app_id = ? AND kb_id = ? AND auth_mode = ? AND "+
+				"resource_type = ? AND document_token = ? AND status = ?",
+				user, m.AppID, kbID, mode, m.ResourceType, m.DocumentToken, "source_managed").
+			First(&managed).Error
+		if err == nil {
+			// Discovery observes existing knowledge; its independent datasource
+			// owns all updates, pauses, holds and cursor/version transitions.
+			return &managed, nil
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+	}
 	resourceState, accepted, err := p.repo.Prepare(ctx, &m, &a)
 	if err != nil {
 		return nil, err

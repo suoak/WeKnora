@@ -370,6 +370,9 @@ func (s *FeishuPersonalService) ReconcileBatches(ctx context.Context) error {
 		}
 		if imported != nil {
 			importID = imported.ID
+			if imported.Status == "source_managed" {
+				status = "existing"
+			}
 		}
 		if e := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			var locked types.FeishuBatch
