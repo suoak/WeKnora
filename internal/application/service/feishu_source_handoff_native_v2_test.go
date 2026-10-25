@@ -76,6 +76,7 @@ func TestFeishuV2NativeHandoffRecoversWithoutReset(t *testing.T) {
 	ds, err := sources.GetDataSource(f.ctx, m.ID)
 	require.NoError(t, err)
 	require.Equal(t, types.DataSourceStatusPaused, ds.Status)
+	require.Equal(t, "0 */15 * * * *", ds.SyncSchedule)
 	require.False(t, ds.SyncDeletions)
 	checkpoint := types.JSON(`{"accepted":"must survive recovery"}`)
 	require.NoError(t, f.db.Model(ds).Update("last_sync_cursor", checkpoint).Error)

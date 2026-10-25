@@ -29,7 +29,7 @@ func (s *FeishuPersonalService) EnableImportSource(
 		return nil, ErrFeishuStagingRequired
 	}
 	if schedule == "" {
-		schedule = "*/15 * * * *"
+		schedule = "0 */15 * * * *"
 	}
 	if err := datasource.ValidateSyncSchedule(schedule); err != nil {
 		return nil, err
