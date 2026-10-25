@@ -153,7 +153,7 @@ func (s *FeishuLegacyStore) CheckOwner(
 // The row lock is retained through the actual public index write, not released
 // after a preflight check. Database triggers protect old unmodified workers too.
 func (s *FeishuLegacyStore) execution(tx *gorm.DB, ctx context.Context, ds *types.DataSource) error {
-	if err := s.executionFence(tx, ctx, ds); err != nil {
+	if err := s.executionFence(ctx, tx, ds); err != nil {
 		return err
 	}
 	var config types.DataSourceConfig
@@ -177,7 +177,7 @@ func (s *FeishuLegacyStore) execution(tx *gorm.DB, ctx context.Context, ds *type
 // Restrictive operations retain the same configuration, generation and claim
 // fence, while remaining possible after the remote credential is withdrawn.
 // Restoring access and publishing still require execution's credential guard.
-func (s *FeishuLegacyStore) executionFence(tx *gorm.DB, ctx context.Context, ds *types.DataSource) error {
+func (s *FeishuLegacyStore) executionFence(ctx context.Context, tx *gorm.DB, ds *types.DataSource) error {
 	e, ok := types.SyncExecutionFromContext(ctx)
 	if !ok || e.DataSourceID != ds.ID || e.TenantID != ds.TenantID || tx.Dialector.Name() != "postgres" {
 		return legacyFence("execution_context_invalid")
