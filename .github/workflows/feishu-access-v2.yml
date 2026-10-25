@@ -21,10 +21,10 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: isolated-test-only
-          POSTGRES_DB: feishu_v2_test
+          POSTGRES_DB: feishu_atomic_test
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U postgres -d feishu_v2_test"
+          --health-cmd "pg_isready -U postgres -d feishu_atomic_test"
           --health-interval 5s --health-timeout 5s --health-retries 20
       redis:
         image: redis:7-alpine
@@ -33,9 +33,9 @@ jobs:
           --health-cmd "redis-cli ping"
           --health-interval 5s --health-timeout 3s --health-retries 20
     env:
-      SYNC_EXECUTION_POSTGRES_DSN: postgres://postgres:isolated-test-only@localhost:5432/feishu_v2_test?sslmode=disable
+      SYNC_EXECUTION_POSTGRES_DSN: postgres://postgres:isolated-test-only@localhost:5432/feishu_atomic_test?sslmode=disable
       REQUIRE_SYNC_EXECUTION_POSTGRES: "1"
-      FEISHU_LEGACY_TEST_DSN: postgres://postgres:isolated-test-only@localhost:5432/feishu_v2_test?sslmode=disable
+      FEISHU_LEGACY_TEST_DSN: postgres://postgres:isolated-test-only@localhost:5432/feishu_atomic_test?sslmode=disable
       FEISHU_P0_REDIS_ADDR: 127.0.0.1:6379
     steps:
       - uses: actions/checkout@v6
