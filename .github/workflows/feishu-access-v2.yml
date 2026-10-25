@@ -51,7 +51,7 @@ jobs:
       - name: Real PostgreSQL batch and approval tests
         run: go test -json -tags sqlite_fts5 ./internal/application/service -run '^TestFeishuV2' -count=1 -timeout=10m | tee service-tests.jsonl
       - name: Private files with legacy protection disabled
-        run: go test -json -tags sqlite_fts5 ./internal/application/repository -run '^TestFeishuV2Private' -count=1 -timeout=5m | tee private-files-tests.jsonl
+        run: go test -json -tags sqlite_fts5 ./internal/application/repository ./internal/application/repository/retriever/postgres -run '^TestFeishuV2Private' -count=1 -timeout=5m | tee private-files-tests.jsonl
       - name: Migration governance and V2 rollback state preservation
         run: go test -json ./internal/database -run 'TestFeishuV2SQLite|TestMigrationNumbers|TestSQLiteMigrations' -count=1 -timeout=5m | tee migration-tests.jsonl
       - name: Race real PostgreSQL claims

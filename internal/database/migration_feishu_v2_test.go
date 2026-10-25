@@ -42,9 +42,13 @@ func TestFeishuV2SQLiteMigrationsPreservePrivacyAndAuditOnRollback(t *testing.T)
 			}
 			if state == "collaboration" {
 				for _, ddl := range []string{
-					`INSERT INTO feishu_import_batches(id,owner_id,tenant_id,kb_id,auth_mode,connection_id,config_version,idempotency_key,payload_hash) VALUES('batch','A',1,'kb','user_oauth','ref','version','key','hash')`,
-					`INSERT INTO feishu_import_batch_items(id,batch_id,ordinal,url,status) VALUES('item','batch',0,'https://test.feishu.cn/file/real','blocked')`,
-					`INSERT INTO feishu_permission_collaboration(id,batch_id,item_id,actor_id,action,result) VALUES('event','batch','item','A','reported','reported_unverified')`,
+					`INSERT INTO feishu_import_batches(id,owner_id,tenant_id,kb_id,auth_mode,connection_id,` +
+						`config_version,idempotency_key,payload_hash) ` +
+						`VALUES('batch','A',1,'kb','user_oauth','ref','version','key','hash')`,
+					`INSERT INTO feishu_import_batch_items(id,batch_id,ordinal,url,status) ` +
+						`VALUES('item','batch',0,'https://test.feishu.cn/file/real','blocked')`,
+					`INSERT INTO feishu_permission_collaboration(id,batch_id,item_id,actor_id,action,result) ` +
+						`VALUES('event','batch','item','A','reported','reported_unverified')`,
 				} {
 					_, err := db.Exec(ddl)
 					require.NoError(t, err)

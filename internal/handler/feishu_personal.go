@@ -33,7 +33,10 @@ func feishuFailureResponse(c *gin.Context, err error) {
 			return
 		}
 		if errors.Is(err, service.ErrFeishuSharingApproval) {
-			c.JSON(http.StatusConflict, gin.H{"error": "sharing_approval_required", "message": "个人文档发布到当前知识库需要明确的共享发布批准"})
+			c.JSON(http.StatusConflict, gin.H{
+				"error":   "sharing_approval_required",
+				"message": "个人文档发布到当前知识库需要明确的共享发布批准",
+			})
 			return
 		}
 		if errors.Is(err, types.ErrFeishuIdentityRequired) || errors.Is(err, types.ErrFeishuIdentityDisabled) {

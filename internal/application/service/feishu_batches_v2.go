@@ -262,6 +262,7 @@ func (s *FeishuPersonalService) batchContext(
 	fresh := context.WithValue(ctx, types.KBGrantsContextKey, nil)
 	fresh = types.WithCaller(fresh, types.Caller{TenantID: b.TenantID, UserID: b.OwnerID, Role: member.Role})
 	fresh = context.WithValue(fresh, types.UserIDContextKey, b.OwnerID)
+	fresh = types.WithPrincipal(fresh, types.Principal{Type: types.PrincipalWebUser, ID: b.OwnerID})
 	fresh = context.WithValue(fresh, types.SystemAdminContextKey, user.IsSystemAdmin)
 	kb, err := s.kbs.GetKnowledgeBaseByID(fresh, b.KBID)
 	if err != nil {

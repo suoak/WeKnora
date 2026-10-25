@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Connections lists the caller's enabled Feishu identities.
 func (h *FeishuPersonalHandler) Connections(c *gin.Context) {
 	rows, err := h.svc.Connections(c.Request.Context())
 	if err != nil {
@@ -16,6 +17,7 @@ func (h *FeishuPersonalHandler) Connections(c *gin.Context) {
 	c.JSON(200, rows)
 }
 
+// Resources browses one bounded page with the selected identity.
 func (h *FeishuPersonalHandler) Resources(c *gin.Context) {
 	size := 50
 	if raw := c.Query("page_size"); raw != "" {
@@ -45,6 +47,7 @@ func (h *FeishuPersonalHandler) Resources(c *gin.Context) {
 	c.JSON(200, rows)
 }
 
+// CreatePrivateKB creates a new KB with its private owner marker atomically.
 func (h *FeishuPersonalHandler) CreatePrivateKB(c *gin.Context) {
 	var in struct {
 		Name string `json:"name"`

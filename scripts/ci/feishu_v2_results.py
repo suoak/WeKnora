@@ -9,6 +9,7 @@ required = {
     "TestFeishuV2PostgresSourceReadAndCommitRevocation",
     "TestFeishuV2PostgresSourceHandoffIsAtomicAndFencesOldWorker",
     "TestFeishuV2PostgresCollaborationNeverGrantsOrRetries",
+    "TestFeishuV2PostgresResourceCursorRejectsMovedShortcut",
 }
 failed = False
 for filename in sys.argv[1:]:

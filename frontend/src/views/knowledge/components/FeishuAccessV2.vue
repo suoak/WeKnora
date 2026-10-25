@@ -18,7 +18,7 @@
       <div class="resources">
         <div v-for="entry in visibleEntries" :key="`${entry.space_id}:${entry.id}`" class="resource-row">
           <t-checkbox :checked="selected.has(entry.id)" :disabled="busy" @change="toggle(entry, !selected.has(entry.id))" />
-          <span>{{ entry.name }} · {{ entry.type }}</span>
+          <span>{{ entry.name }} · {{ entry.type }} <small v-if="entry.is_shortcut">({{ t('shortcut') }})</small></span>
           <t-button v-if="entry.has_children" variant="text" :disabled="busy" @click="open(entry)">{{ t('browse') }}</t-button>
         </div>
       </div>

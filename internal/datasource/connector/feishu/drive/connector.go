@@ -596,7 +596,7 @@ func driveRootFolderToken(config *types.DataSourceConfig) string {
 // form.config.resource_ids = [folderToken]. A "token:token" encoding would
 // break selection matching on edit.
 func (c *DriveConnector) driveFolderToResource(
-	rootFolderToken, parentToken, folderToken, name string,
+	rootFolderToken, _, folderToken, name string,
 ) types.Resource {
 	if name == "" {
 		name = folderToken

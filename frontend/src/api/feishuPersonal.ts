@@ -15,7 +15,7 @@ export const getFeishuApp = () => get<{ configured: boolean; v2_available?: bool
 export const saveFeishuApp = (config: { capabilities?: FeishuCapabilities; auth_mode?: FeishuAuthMode; app_id: string; client_secret: string; redirect_uri: string; enabled: boolean }) => put('/api/v1/system/admin/feishu', config)
 export const testFeishuApp = () => post('/api/v1/system/admin/feishu/test')
 export type FeishuConnection = { id?: string; kind: FeishuAuthMode; connected: boolean }
-export type FeishuResource = { id: string; name: string; type: string; url?: string; has_children: boolean; space_id?: string }
+export type FeishuResource = { id: string; name: string; type: string; url?: string; has_children: boolean; space_id?: string; is_shortcut?: boolean }
 export type FeishuResourcePage = { items: FeishuResource[]; has_more: boolean; cursor?: string; coverage: string }
 export type FeishuPreview = { url: string; resource_type?: string; revision?: string; status: string; error_category?: string }
 export type FeishuBatchItem = { id: string; ordinal: number; url: string; status: string; error_category?: string; import_id?: string; retry_count: number }

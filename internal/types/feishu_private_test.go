@@ -66,4 +66,13 @@ func TestPrivateKBGuardsDenyOtherUsersKeysAndWikiProjections(t *testing.T) {
 		CheckPrivateKBRead(db.WithContext(context.Background()), "doc", ""),
 		ErrPrivateKnowledgeBase,
 	)
+	owner := WithLegacyReadScope(context.WithValue(context.Background(), UserIDContextKey, "A"))
+	require.NoError(t, CheckPrivateKBRead(db.WithContext(owner), "doc", ""))
+	contradictory := WithCaller(owner, Caller{TenantID: 1, UserID: "B"})
+	require.Equal(t, "", PrivateKBReadUser(contradictory))
+	require.ErrorIs(t, CheckLegacyReadScope(db.WithContext(contradictory)), ErrPrivateKnowledgeBase)
+	wrongPrincipal := WithPrincipal(owner, Principal{Type: PrincipalWebUser, ID: "B"})
+	require.ErrorIs(t, CheckLegacyReadScope(db.WithContext(wrongPrincipal)), ErrPrivateKnowledgeBase)
+	machine := WithPrincipal(owner, Principal{Type: PrincipalAPITenant, ID: "A"})
+	require.ErrorIs(t, CheckLegacyReadScope(db.WithContext(machine)), ErrPrivateKnowledgeBase)
 }

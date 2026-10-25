@@ -24,6 +24,20 @@ func PrivateKBCreationOwner(ctx context.Context) string {
 	return owner
 }
 
+// PrivateKBReadUser returns a consistent authenticated human identity. Other
+// principal types and contradictory caller contexts cannot inherit its access.
+func PrivateKBReadUser(ctx context.Context) string {
+	user, ok := UserIDFromContext(ctx)
+	if !ok || IsSyntheticUserID(user) || CallerFromContext(ctx).UserID != user {
+		return ""
+	}
+	principal, ok := PrincipalFromContext(ctx)
+	if !ok || principal.Type != PrincipalWebUser || principal.ID != user {
+		return ""
+	}
+	return user
+}
+
 const privateKBGuard = "knowhub.private_kb_guard"
 
 type privateKBPlugin struct{}
@@ -49,7 +63,7 @@ func (privateKBPlugin) Initialize(db *gorm.DB) error {
 		default:
 			return
 		}
-		user, _ := UserIDFromContext(tx.Statement.Context)
+		user := PrivateKBReadUser(tx.Statement.Context)
 		tx.Statement.AddClause(
 			clause.Where{
 				Exprs: []clause.Expression{
@@ -111,8 +125,7 @@ func CheckPrivateKBRead(db *gorm.DB, knowledge, kb string) error {
 	if owner == "" {
 		return nil
 	}
-	user, ok := UserIDFromContext(db.Statement.Context)
-	if !ok || user != owner || IsSyntheticUserID(user) {
+	if PrivateKBReadUser(db.Statement.Context) != owner {
 		return ErrPrivateKnowledgeBase
 	}
 	recordLegacyRead(db.Statement.Context, kb)

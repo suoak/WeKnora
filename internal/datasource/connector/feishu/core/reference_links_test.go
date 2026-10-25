@@ -25,7 +25,7 @@ func TestReferenceSourceRevisionAndIdentityNeverFallBack(t *testing.T) {
 		requests.Add(1)
 		require.Equal(t, "Bearer owned-user", r.Header.Get("Authorization"))
 		require.Equal(t, "/open-apis/drive/v1/metas/batch_query", r.URL.Path)
-		fmt.Fprintf(
+		_, _ = fmt.Fprintf(
 			w,
 			`{"code":0,"data":{"metas":[{"doc_type":"file","doc_token":"real","title":"co`+
 				`ntrolled.pdf","latest_modify_time":"%d"}]}}`,

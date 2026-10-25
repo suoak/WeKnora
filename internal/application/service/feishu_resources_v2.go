@@ -121,13 +121,15 @@ type FeishuResourceQuery struct {
 	Size         int
 }
 type feishuResourceCursor struct {
-	User       string
-	Connection string
-	Kind       string
-	Parent     string
-	Space      string
-	Page       string
-	Expires    time.Time
+	User           string
+	Connection     string
+	Kind           string
+	Parent         string
+	Space          string
+	Page           string
+	Expires        time.Time
+	ResolvedParent string
+	ResolvedSpace  string
 }
 
 // FeishuResourcePage returns a bounded page and an encrypted continuation cursor.
@@ -153,6 +155,7 @@ func (s *FeishuPersonalService) Resources(
 	}
 	user, _ := types.UserIDFromContext(ctx)
 	page := ""
+	var previous feishuResourceCursor
 	if len(q.Cursor) > 8192 {
 		return out, errors.New("invalid_resource_cursor")
 	}
@@ -166,6 +169,7 @@ func (s *FeishuPersonalService) Resources(
 			return out, errors.New("invalid_resource_cursor")
 		}
 		page = c.Page
+		previous = c
 	}
 	if q.Size == 0 {
 		q.Size = 50
@@ -176,17 +180,23 @@ func (s *FeishuPersonalService) Resources(
 	if err != nil {
 		return out, err
 	}
+	if page != "" && (previous.ResolvedParent != result.ResolvedParent ||
+		previous.ResolvedSpace != result.ResolvedSpace) {
+		return out, errors.New("resource_parent_changed_restart_browse")
+	}
 	out.Items, out.HasMore = result.Items, result.HasMore
 	if result.HasMore {
 		out.Cursor, err = sealFeishu(
 			feishuResourceCursor{
-				user,
-				ref.ConnectionID,
-				q.Kind,
-				q.Parent,
-				q.Space,
-				result.NextPage,
-				time.Now().Add(10 * time.Minute),
+				User:           user,
+				Connection:     ref.ConnectionID,
+				Kind:           q.Kind,
+				Parent:         q.Parent,
+				Space:          q.Space,
+				Page:           result.NextPage,
+				Expires:        time.Now().Add(10 * time.Minute),
+				ResolvedParent: result.ResolvedParent,
+				ResolvedSpace:  result.ResolvedSpace,
 			},
 		)
 	}

@@ -52,7 +52,7 @@ func TestFeishuV2OAuthStateSurvivesUnrelatedApplicationCapabilityChange(t *testi
 	})}
 	info := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "Bearer synthetic-access", r.Header.Get("Authorization"))
-		io.WriteString(w, `{"code":0,"data":{"open_id":"open-A"}}`)
+		_, _ = io.WriteString(w, `{"code":0,"data":{"open_id":"open-A"}}`)
 	}))
 	defer info.Close()
 	s.newClient = func(c *core.Config) *core.Client { c.BaseURL = info.URL; return core.NewClient(c) }

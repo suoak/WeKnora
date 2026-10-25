@@ -11,11 +11,11 @@ import (
 )
 
 func legacyTenantModelGate(ctx context.Context, db *gorm.DB, tenant uint64) error {
-	if !types.LegacyReadGuardsEnabled(db) {
-		return nil
-	}
 	if err := types.CheckLegacyReadScope(db.WithContext(ctx)); err != nil {
 		return err
+	}
+	if !types.LegacyReadGuardsEnabled(db) {
+		return nil
 	}
 	var denied bool
 	sourceStates := []string{"hold", "revoked"}

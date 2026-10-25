@@ -16,13 +16,16 @@ type ResourceEntry struct {
 	URL         string `json:"url,omitempty"`
 	HasChildren bool   `json:"has_children"`
 	SpaceID     string `json:"space_id,omitempty"`
+	IsShortcut  bool   `json:"is_shortcut,omitempty"`
 }
 
 // ResourcePage holds one bounded level of Drive or Wiki metadata.
 type ResourcePage struct {
-	Items    []ResourceEntry `json:"items"`
-	HasMore  bool            `json:"has_more"`
-	NextPage string          `json:"-"`
+	Items          []ResourceEntry `json:"items"`
+	HasMore        bool            `json:"has_more"`
+	NextPage       string          `json:"-"`
+	ResolvedParent string          `json:"-"`
+	ResolvedSpace  string          `json:"-"`
 }
 
 // ReadResourcePage reads one level and one bounded page. It never uses the
@@ -67,6 +70,7 @@ func (c *Client) ReadResourcePage(
 			parent = root.Data.Token
 		}
 		q.Set("folder_token", parent)
+		result.ResolvedParent = parent
 		var body struct {
 			Data struct {
 				Files []struct {
@@ -131,8 +135,14 @@ func (c *Client) ReadResourcePage(
 			}
 		} else {
 			if parent != "" {
+				var err error
+				space, parent, err = c.resolveWikiPageParent(ctx, space, parent)
+				if err != nil {
+					return result, err
+				}
 				q.Set("parent_node_token", parent)
 			}
+			result.ResolvedParent, result.ResolvedSpace = parent, space
 			var body struct {
 				Data struct {
 					Items []struct {
@@ -140,6 +150,7 @@ func (c *Client) ReadResourcePage(
 						Title    string `json:"title"`
 						Type     string `json:"obj_type"`
 						HasChild bool   `json:"has_child"`
+						NodeType string `json:"node_type"`
 					} `json:"items"`
 					HasMore bool   `json:"has_more"`
 					Next    string `json:"page_token"`
@@ -162,7 +173,8 @@ func (c *Client) ReadResourcePage(
 						Name:        n.Title,
 						Type:        n.Type,
 						URL:         "https://feishu.cn/wiki/" + n.ID,
-						HasChildren: n.HasChild,
+						HasChildren: n.HasChild || n.NodeType == "shortcut",
+						IsShortcut:  n.NodeType == "shortcut",
 						SpaceID:     space,
 					})
 			}
@@ -174,4 +186,29 @@ func (c *Client) ReadResourcePage(
 		return ResourcePage{}, errors.New("invalid_resource_pagination")
 	}
 	return result, nil
+}
+
+// Resolve only the explicitly opened node. This bounded walk never enumerates
+// descendants or retries a failed origin through another identity.
+func (c *Client) resolveWikiPageParent(ctx context.Context, space, parent string) (string, string, error) {
+	visited := map[string]bool{}
+	for hop := 0; hop < 8; hop++ {
+		key := space + ":" + parent
+		if visited[key] || !resourceTokenPattern.MatchString(space) || !resourceTokenPattern.MatchString(parent) {
+			return "", "", errors.New("invalid_wiki_shortcut_chain")
+		}
+		visited[key] = true
+		node, err := c.GetWikiNode(ctx, space, parent)
+		if err != nil {
+			return "", "", err
+		}
+		if node.NodeToken != parent || node.SpaceID != space {
+			return "", "", errors.New("wiki_parent_identity_changed")
+		}
+		if node.NodeType != "shortcut" {
+			return space, parent, nil
+		}
+		space, parent = node.OriginSpaceID, node.OriginNodeID
+	}
+	return "", "", errors.New("wiki_shortcut_depth_exceeded")
 }

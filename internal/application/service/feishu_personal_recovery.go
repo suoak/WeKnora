@@ -116,7 +116,12 @@ func (p *PersonalRecovery) authorizeLocal(
 	if err := db.Where("id = ? AND status = ?", a.CallerTenantID, "active").First(&tenant).Error; err != nil {
 		return nil, nil, personalAccessError(err)
 	}
-	db = db.WithContext(context.WithValue(ctx, types.UserIDContextKey, user.ID))
+	ownerContext := context.WithValue(ctx, types.UserIDContextKey, user.ID)
+	ownerContext = types.WithCaller(ownerContext, types.Caller{
+		TenantID: member.TenantID, UserID: user.ID, Role: member.Role,
+	})
+	ownerContext = types.WithPrincipal(ownerContext, types.Principal{Type: types.PrincipalWebUser, ID: user.ID})
+	db = db.WithContext(ownerContext)
 	var kb types.KnowledgeBase
 	if err := db.Where("id = ?", m.KBID).First(&kb).Error; err != nil {
 		return nil, nil, personalAccessError(err)
@@ -127,7 +132,7 @@ func (p *PersonalRecovery) authorizeLocal(
 	caller := types.Caller{TenantID: member.TenantID, UserID: user.ID, Role: member.Role}
 	// Replace inherited caller/grants, then let the canonical resolver issue a
 	// fresh grant. Incoming task contexts have no user authority whatsoever.
-	fresh := context.WithValue(ctx, types.KBGrantsContextKey, nil)
+	fresh := context.WithValue(ownerContext, types.KBGrantsContextKey, nil)
 	fresh = types.WithCaller(fresh, caller)
 	fresh = context.WithValue(fresh, types.UserIDContextKey, user.ID)
 	grant, err := access.ResolveKB(
@@ -832,7 +837,12 @@ func (p *PersonalRecovery) mutate(
 			Error; err != nil {
 			return personalAccessError(err)
 		}
-		tx = tx.WithContext(context.WithValue(tx.Statement.Context, types.UserIDContextKey, user.ID))
+		ownerContext := context.WithValue(tx.Statement.Context, types.UserIDContextKey, user.ID)
+		ownerContext = types.WithCaller(ownerContext, types.Caller{
+			TenantID: member.TenantID, UserID: user.ID, Role: member.Role,
+		})
+		ownerContext = types.WithPrincipal(ownerContext, types.Principal{Type: types.PrincipalWebUser, ID: user.ID})
+		tx = tx.WithContext(ownerContext)
 		var kb types.KnowledgeBase
 		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ?", m.KBID).First(&kb).Error; err != nil {
 			return personalAccessError(err)
