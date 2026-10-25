@@ -68,8 +68,8 @@
       <summary @click="refreshImports">{{ t('sources') }}</summary>
       <div v-for="row in imports" :key="row.id">
         <p>{{ row.resource_type }} · {{ row.status }} · {{ row.source_status || '' }}</p>
-        <t-button v-if="row.index_status === 'verified' && ['synced','completed'].includes(row.status) && !row.data_source_id" :disabled="busy" variant="outline" @click="enableUpdates(row.id)">{{ t('enableUpdates') }}</t-button>
-        <template v-if="row.data_source_id">
+        <t-button v-if="row.index_status === 'verified' && ['synced','completed'].includes(row.status)" :disabled="busy" variant="outline" @click="enableUpdates(row.id)">{{ t('enableUpdates') }}</t-button>
+        <template v-if="row.data_source_id && row.status === 'source_managed'">
           <span>{{ t(row.source_status === 'active' ? 'sourceActive' : 'sourcePaused') }}</span>
           <t-button v-if="row.source_status === 'active'" variant="text" :disabled="busy" @click="sourceAction(row.id,'sync')">{{ t('syncNow') }}</t-button>
           <t-button v-if="row.source_status === 'active'" variant="text" :disabled="busy" @click="sourceAction(row.id,'pause')">{{ t('pauseSource') }}</t-button>
