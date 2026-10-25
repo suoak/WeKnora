@@ -266,7 +266,11 @@ func (s *DataSourceService) UpdateDataSource(
 	if refErr != nil {
 		return nil, refErr
 	}
-	if oldRef != nil && (newRef == nil || newRef.OwnerUserID != oldRef.OwnerUserID || newRef.Kind != oldRef.Kind || newRef.AppID != oldRef.AppID) {
+	if oldRef != nil &&
+		(newRef == nil ||
+			newRef.OwnerUserID != oldRef.OwnerUserID ||
+			newRef.Kind != oldRef.Kind ||
+			newRef.AppID != oldRef.AppID) {
 		return nil, types.ErrFeishuIdentityReference
 	}
 	if newRef != nil && configActuallyChanged {
@@ -1636,7 +1640,11 @@ func (s *DataSourceService) ingestItem(
 	}
 	if safeLegacyIncrementalEnabled() && legacyWikiDrive(ds.Type) {
 		writer, ok := s.knowledgeService.(interface {
-			StageFeishuLegacyItem(context.Context, *types.DataSource, *types.FetchedItem, []string) (*types.FeishuLegacyReceipt, error)
+			StageFeishuLegacyItem(context.Context,
+				*types.DataSource,
+				*types.FetchedItem,
+				[]string) (*types.FeishuLegacyReceipt,
+				error)
 		})
 		if !ok {
 			return false, ErrFeishuStagingRequired
@@ -1719,7 +1727,11 @@ func (s *DataSourceService) ingestItem(
 			)
 			// Non-fatal: proceed with creation (may produce duplicate)
 		} else if existing != nil {
-			logger.Infof(ctx, "found existing knowledge %s for external_id=%s, deleting for update", existing.ID, item.ExternalID)
+			logger.
+				Infof(ctx,
+					"found existing knowledge %s for external_id=%s, deleting for update",
+					existing.ID,
+					item.ExternalID)
 			if err := s.knowledgeService.DeleteKnowledge(ctx, existing.ID); err != nil {
 				logger.Warnf(ctx, "failed to delete existing knowledge %s: %v", existing.ID, err)
 			} else {

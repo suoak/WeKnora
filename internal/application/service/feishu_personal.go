@@ -238,7 +238,10 @@ func (s *FeishuPersonalService) AdminConfig(ctx context.Context) (map[string]any
 	}
 	cfg, err := s.app(ctx)
 	if err != nil {
-		return map[string]any{"configured": false, "v2_available": os.Getenv("FEISHU_ACCESS_V2_ENABLED") == "1"}, nil
+		return map[string]any{
+			"configured":   false,
+			"v2_available": os.Getenv("FEISHU_ACCESS_V2_ENABLED") == "1",
+		}, nil
 	}
 	return map[string]any{
 		"auth_mode":    types.FeishuAuthMode(cfg.AuthMode),
@@ -310,7 +313,10 @@ func (s *FeishuPersonalService) Status(ctx context.Context) map[string]any {
 		application := cfg.modeEnabled(types.FeishuApplicationGrant) && s.recovery != nil &&
 			s.recovery.firstCreateOnly && applicationGrantEnabled() && applicationGrantEngineAvailable() &&
 			applicationUserAllowed(types.IsSystemAdminFromContext(ctx))
-		result["capabilities"] = map[string]bool{"personal_enabled": personal, "application_enabled": application}
+		result["capabilities"] = map[string]bool{
+			"personal_enabled":    personal,
+			"application_enabled": application,
+		}
 		result["available"] = personal || application
 		result["v2"] = true
 		if user, ok := types.UserIDFromContext(ctx); ok && personal {
@@ -514,7 +520,9 @@ func (s *FeishuPersonalService) Complete(ctx context.Context, state, code string
 		RefreshExpiresAt: time.Now().Add(time.Duration(t.RefreshExpires) * time.Second),
 	}
 	latest, err := s.app(ctx)
-	if err != nil || latest.identityVersion(types.FeishuUserOAuth) != cfg.identityVersion(types.FeishuUserOAuth) || !latest.modeEnabled(types.FeishuUserOAuth) {
+	if err != nil ||
+		latest.identityVersion(types.FeishuUserOAuth) != cfg.identityVersion(types.FeishuUserOAuth) ||
+		!latest.modeEnabled(types.FeishuUserOAuth) {
 		return errors.New("feishu_application_changed")
 	}
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -696,7 +704,11 @@ func (s *FeishuPersonalService) ListImports(
 	return s.decorateFeishuImports(ctx, rows, err)
 }
 
-func (s *FeishuPersonalService) decorateFeishuImports(ctx context.Context, rows []types.FeishuPersonalImport, err error) ([]types.FeishuPersonalImport, error) {
+func (s *FeishuPersonalService) decorateFeishuImports(
+	ctx context.Context,
+	rows []types.FeishuPersonalImport,
+	err error,
+) ([]types.FeishuPersonalImport, error) {
 	if err == nil && s.knowledge != nil {
 		for i := range rows {
 			if rows[i].Status == "queued" && rows[i].KnowledgeID != "" {
@@ -847,7 +859,8 @@ func (s *FeishuPersonalService) Import(
 	if s.recovery != nil {
 		return s.ImportWithIdentity(ctx, kbID, rawURL, "")
 	}
-	if cfg, err := s.app(ctx); err == nil && (cfg.Capabilities != nil || !cfg.modeEnabled(types.FeishuUserOAuth)) {
+	if cfg, err := s.app(ctx); err == nil &&
+		(cfg.Capabilities != nil || !cfg.modeEnabled(types.FeishuUserOAuth)) {
 		return nil, ErrFeishuApplicationRestricted
 	}
 	user, ok := types.UserIDFromContext(ctx)

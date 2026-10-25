@@ -14,8 +14,10 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// ErrFeishuSharingApproval requires an explicit approval for the current revision.
 var ErrFeishuSharingApproval = errors.New("feishu_sharing_approval_required")
 
+// FeishuPreviewItem reports metadata preflight without claiming export success.
 type FeishuPreviewItem struct {
 	URL           string `json:"url"`
 	ResourceType  string `json:"resource_type,omitempty"`
@@ -38,7 +40,9 @@ func feishuV2Error(err error) string {
 		return "reconnect_required"
 	case errors.Is(err, core.ErrPermission), errors.Is(err, core.ErrNotFound):
 		return "source_permission_required"
-	case errors.Is(err, core.ErrRateLimited), errors.Is(err, core.ErrTransient), errors.Is(err, context.DeadlineExceeded):
+	case errors.Is(err, core.ErrRateLimited),
+		errors.Is(err, core.ErrTransient),
+		errors.Is(err, context.DeadlineExceeded):
 		return "temporary_failure"
 	case errors.Is(err, access.ErrForbidden):
 		return "kb_permission_required"
@@ -49,7 +53,12 @@ func feishuV2Error(err error) string {
 	}
 }
 
-func (s *FeishuPersonalService) Preview(ctx context.Context, kbID, mode, id string, links []string) ([]FeishuPreviewItem, error) {
+// Preview checks a bounded set of links using only the selected owned identity.
+func (s *FeishuPersonalService) Preview(
+	ctx context.Context,
+	kbID, mode, id string,
+	links []string,
+) ([]FeishuPreviewItem, error) {
 	if len(links) < 1 || len(links) > 100 {
 		return nil, errors.New("feishu_batch_size_invalid")
 	}
@@ -94,7 +103,14 @@ func (s *FeishuPersonalService) Preview(ctx context.Context, kbID, mode, id stri
 		seen[item.Canonical] = true
 		item.Status = "metadata_readable_export_pending"
 		if mode == types.FeishuUserOAuth {
-			m := types.FeishuPersonalImport{UserID: user, KBID: kbID, AppID: ref.AppID, AuthMode: mode, ResourceType: r.Type, DocumentToken: r.Token}
+			m := types.FeishuPersonalImport{
+				UserID:        user,
+				KBID:          kbID,
+				AppID:         ref.AppID,
+				AuthMode:      mode,
+				ResourceType:  r.Type,
+				DocumentToken: r.Token,
+			}
 			cfg, loadErr := s.app(ctx)
 			if loadErr != nil {
 				return nil, loadErr
@@ -109,8 +125,14 @@ func (s *FeishuPersonalService) Preview(ctx context.Context, kbID, mode, id stri
 	return out, nil
 }
 
-func (s *FeishuPersonalService) checkSharingApproval(tx *gorm.DB, cfg *FeishuAppConfig, m *types.FeishuPersonalImport, revision string) error {
-	if cfg.Capabilities == nil || types.FeishuAuthMode(m.AuthMode) != types.FeishuUserOAuth || m.DocumentToken == "" {
+func (s *FeishuPersonalService) checkSharingApproval(
+	tx *gorm.DB,
+	cfg *FeishuAppConfig,
+	m *types.FeishuPersonalImport,
+	revision string,
+) error {
+	if cfg.Capabilities == nil || types.FeishuAuthMode(m.AuthMode) != types.FeishuUserOAuth ||
+		m.DocumentToken == "" {
 		return nil
 	}
 	if types.PrivateKBGuardsEnabled(tx) {
@@ -123,7 +145,21 @@ func (s *FeishuPersonalService) checkSharingApproval(tx *gorm.DB, cfg *FeishuApp
 		}
 	}
 	var approval types.FeishuSharingApproval
-	err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("owner_id = ? AND kb_id = ? AND app_id = ? AND resource_type = ? AND resource_token = ? AND revision = ? AND config_version = ? AND state = ? AND expires_at > ?", m.UserID, m.KBID, m.AppID, m.ResourceType, m.DocumentToken, revision, cfg.identityVersion(types.FeishuUserOAuth), "approved", time.Now()).First(&approval).Error
+	err := tx.Clauses(clause.Locking{Strength: "SHARE"}).
+		Where("owner_id = ? AND kb_id = ? AND app_id = ? AND resource_type = ? AND resource"+
+			"_token = ? AND revision = ? AND config_version = ? AND state = ? AND expires"+
+			"_at > ?",
+			m.UserID,
+			m.KBID,
+			m.AppID,
+			m.ResourceType,
+			m.DocumentToken,
+			revision,
+			cfg.identityVersion(types.FeishuUserOAuth),
+			"approved",
+			time.Now()).
+		First(&approval).
+		Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrFeishuSharingApproval
@@ -136,7 +172,11 @@ func (s *FeishuPersonalService) checkSharingApproval(tx *gorm.DB, cfg *FeishuApp
 // ApproveSharing is an explicit, audited grant to the destination KB's current
 // readers. It requires both the source user's identity and KB owner/admin
 // authority; a reader can request collaboration but cannot grant for others.
-func (s *FeishuPersonalService) ApproveSharing(ctx context.Context, kbID, id, link, reason string, confirmed bool) (*types.FeishuSharingApproval, error) {
+func (s *FeishuPersonalService) ApproveSharing(
+	ctx context.Context,
+	kbID, id, link, reason string,
+	confirmed bool,
+) (*types.FeishuSharingApproval, error) {
 	user, ok := types.UserIDFromContext(ctx)
 	if !ok {
 		return nil, access.ErrUnauthorized
@@ -152,7 +192,8 @@ func (s *FeishuPersonalService) ApproveSharing(ctx context.Context, kbID, id, li
 		return nil, err
 	}
 	caller := types.CallerFromContext(ctx)
-	if caller.TenantID != kb.TenantID || kb.CreatorID != user && !caller.Role.HasPermission(types.TenantRoleAdmin) {
+	if caller.TenantID != kb.TenantID ||
+		kb.CreatorID != user && !caller.Role.HasPermission(types.TenantRoleAdmin) {
 		return nil, access.ErrForbidden
 	}
 	remote, client, ref, err := s.ResolveCredentialReference(ctx, types.FeishuUserOAuth, id)
@@ -172,7 +213,21 @@ func (s *FeishuPersonalService) ApproveSharing(ctx context.Context, kbID, id, li
 	if r.Modified == "" {
 		return nil, errors.New("source_revision_required")
 	}
-	approval := &types.FeishuSharingApproval{ID: uuid.NewString(), OwnerID: user, KBID: kbID, AppID: ref.AppID, ResourceType: r.Type, ResourceToken: r.Token, Revision: r.Modified, ConfigVersion: ref.ConfigVersion, State: "approved", ApprovedBy: user, Reason: reason, CreatedAt: time.Now(), ExpiresAt: time.Now().Add(24 * time.Hour)}
+	approval := &types.FeishuSharingApproval{
+		ID:            uuid.NewString(),
+		OwnerID:       user,
+		KBID:          kbID,
+		AppID:         ref.AppID,
+		ResourceType:  r.Type,
+		ResourceToken: r.Token,
+		Revision:      r.Modified,
+		ConfigVersion: ref.ConfigVersion,
+		State:         "approved",
+		ApprovedBy:    user,
+		Reason:        reason,
+		CreatedAt:     time.Now(),
+		ExpiresAt:     time.Now().Add(24 * time.Hour),
+	}
 	if err = s.db.WithContext(ctx).Create(approval).Error; err != nil {
 		return nil, err
 	}

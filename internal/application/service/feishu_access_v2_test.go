@@ -3,9 +3,6 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
-	"github.com/Tencent/WeKnora/internal/types"
-	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +10,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
+	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/stretchr/testify/require"
 )
 
 type v2OAuthTransport func(*http.Request) (*http.Response, error)
@@ -38,7 +39,16 @@ func TestFeishuV2OAuthStateSurvivesUnrelatedApplicationCapabilityChange(t *testi
 	require.Equal(t, personalVersion, cfg.identityVersion(types.FeishuUserOAuth))
 	s.api = &http.Client{Transport: v2OAuthTransport(func(r *http.Request) (*http.Response, error) {
 		require.Equal(t, "https://accounts.feishu.cn/oauth/v3/token", r.URL.String())
-		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"code":0,"access_token":"synthetic-access","refresh_token":"synthetic-refresh","expires_in":7200,"refresh_token_expires_in":86400}`)), Header: make(http.Header)}, nil
+		return &http.Response{
+			StatusCode: 200,
+			Body: io.NopCloser(
+				strings.NewReader(
+					`{"code":0,"access_token":"synthetic-access","refresh_token":"synthetic-refre` +
+						`sh","expires_in":7200,"refresh_token_expires_in":86400}`,
+				),
+			),
+			Header: make(http.Header),
+		}, nil
 	})}
 	info := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "Bearer synthetic-access", r.Header.Get("Authorization"))
@@ -84,10 +94,27 @@ func TestFeishuV2CredentialReferencesAreOwnerBoundAndRevocable(t *testing.T) {
 	admin := context.WithValue(personalUser("A"), types.SystemAdminContextKey, true)
 	require.NoError(t, s.SaveApp(admin, cfg))
 	for _, user := range []string{"A", "B"} {
-		cipher, e := sealFeishu(feishuTokens{UserID: user, Access: "synthetic-" + user, Refresh: "synthetic-refresh"})
+		cipher, e := sealFeishu(
+			feishuTokens{UserID: user, Access: "synthetic-" + user, Refresh: "synthetic-refresh"},
+		)
 		require.NoError(t, e)
-		require.NoError(t, s.db.Create(&types.FeishuConnection{UserID: user, AppID: cfg.AppID, OpenID: "openid-" + user, Tokens: cipher, ExpiresAt: time.Now().Add(time.Hour), RefreshExpiresAt: time.Now().Add(time.Hour)}).Error)
-		require.NoError(t, s.db.Create(&types.FeishuPersonalGrantEpoch{UserID: user, Epoch: "epoch-" + user}).Error)
+		require.NoError(
+			t,
+			s.db.Create(
+				&types.FeishuConnection{
+					UserID:           user,
+					AppID:            cfg.AppID,
+					OpenID:           "openid-" + user,
+					Tokens:           cipher,
+					ExpiresAt:        time.Now().Add(time.Hour),
+					RefreshExpiresAt: time.Now().Add(time.Hour),
+				},
+			).Error,
+		)
+		require.NoError(
+			t,
+			s.db.Create(&types.FeishuPersonalGrantEpoch{UserID: user, Epoch: "epoch-" + user}).Error,
+		)
 	}
 	remote, client, ref, err := s.ResolveCredentialReference(personalUser("A"), types.FeishuUserOAuth, "")
 	require.NoError(t, err)
@@ -122,7 +149,12 @@ func TestFeishuV2EncryptedConfigAndIndependentOAuth(t *testing.T) {
 	require.NoError(t, err)
 	cfg.Capabilities.PersonalEnabled = false
 	require.NoError(t, s.SaveApp(admin, cfg))
-	require.Equal(t, appVersion, cfg.identityVersion(types.FeishuApplicationGrant), "personal capability changes must not fence application attempts")
+	require.Equal(
+		t,
+		appVersion,
+		cfg.identityVersion(types.FeishuApplicationGrant),
+		"personal capability changes must not fence application attempts",
+	)
 	_, err = s.Authorize(personalUser("A"))
 	require.Error(t, err)
 	// Disconnection must still delete the user's grant after an admin disables OAuth.

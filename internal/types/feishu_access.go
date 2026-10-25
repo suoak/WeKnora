@@ -17,9 +17,12 @@ type FeishuCredentialRef struct {
 }
 
 var (
+	// ErrFeishuIdentityReference rejects malformed or foreign credential references.
 	ErrFeishuIdentityReference = errors.New("feishu_identity_reference_invalid")
-	ErrFeishuIdentityDisabled  = errors.New("feishu_identity_disabled")
-	ErrFeishuIdentityRequired  = errors.New("feishu_identity_required")
+	// ErrFeishuIdentityDisabled rejects an identity whose capability is disabled.
+	ErrFeishuIdentityDisabled = errors.New("feishu_identity_disabled")
+	// ErrFeishuIdentityRequired requires callers to select an explicit V2 identity.
+	ErrFeishuIdentityRequired = errors.New("feishu_identity_required")
 )
 
 // Validate checks a server-loaded reference against the authenticated owner.

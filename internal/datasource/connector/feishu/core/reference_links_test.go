@@ -25,11 +25,19 @@ func TestReferenceSourceRevisionAndIdentityNeverFallBack(t *testing.T) {
 		requests.Add(1)
 		require.Equal(t, "Bearer owned-user", r.Header.Get("Authorization"))
 		require.Equal(t, "/open-apis/drive/v1/metas/batch_query", r.URL.Path)
-		fmt.Fprintf(w, `{"code":0,"data":{"metas":[{"doc_type":"file","doc_token":"real","title":"controlled.pdf","latest_modify_time":"%d"}]}}`, revision.Load())
+		fmt.Fprintf(
+			w,
+			`{"code":0,"data":{"metas":[{"doc_type":"file","doc_token":"real","title":"co`+
+				`ntrolled.pdf","latest_modify_time":"%d"}]}}`,
+			revision.Load(),
+		)
 	}))
 	defer server.Close()
 	client := NewClient(&Config{AppID: "synthetic-app", AppSecret: "must-not-be-used", BaseURL: server.URL})
-	ctx := WithUserIdentity(context.Background(), func(context.Context) (string, error) { return "owned-user", nil })
+	ctx := WithUserIdentity(
+		context.Background(),
+		func(context.Context) (string, error) { return "owned-user", nil },
+	)
 	resource, err := ParsePersonalResourceURL("https://test.feishu.cn/file/real")
 	require.NoError(t, err)
 	expected, err := client.ResolveBoundResource(ctx, resource)
@@ -48,8 +56,20 @@ func TestReferenceSourceRevisionAndIdentityNeverFallBack(t *testing.T) {
 }
 
 func TestReferenceLinksBoundedConfigAndCursorRoundTrip(t *testing.T) {
-	ref := types.FeishuSourceReference{Version: 1, OwnerUserID: "A", Kind: types.FeishuUserOAuth, ConnectionID: "opaque", AppID: "app", IdentityVersion: "version"}
-	config := &types.DataSourceConfig{Settings: map[string]interface{}{"credential_reference": ref, "links": []string{"https://test.feishu.cn/file/real"}}}
+	ref := types.FeishuSourceReference{
+		Version:         1,
+		OwnerUserID:     "A",
+		Kind:            types.FeishuUserOAuth,
+		ConnectionID:    "opaque",
+		AppID:           "app",
+		IdentityVersion: "version",
+	}
+	config := &types.DataSourceConfig{
+		Settings: map[string]interface{}{
+			"credential_reference": ref,
+			"links":                []string{"https://test.feishu.cn/file/real"},
+		},
+	}
 	links, reference, err := ReferenceLinks(config)
 	require.NoError(t, err)
 	require.True(t, reference)

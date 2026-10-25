@@ -18,7 +18,8 @@ func TestFeishuV2PrivateFilesRemainGuardedWithoutLegacyPlugin(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 	for _, ddl := range []string{
-		"CREATE TABLE knowledges(id TEXT, tenant_id INTEGER, knowledge_base_id TEXT, file_path TEXT, deleted_at DATETIME)",
+		"CREATE TABLE knowledges(id TEXT, tenant_id INTEGER, knowledge_base_id TEXT, " +
+			"file_path TEXT, deleted_at DATETIME)",
 		"CREATE TABLE feishu_private_kbs(kb_id TEXT, owner_id TEXT)",
 		"INSERT INTO feishu_private_kbs VALUES('private','A')",
 		"INSERT INTO knowledges VALUES('doc',1,'private','/isolated-test/private-doc/source.pdf',NULL)",
@@ -54,9 +55,18 @@ func TestFeishuV2PrivateKBCreationRollsBackPublicRowOnMarkerFailure(t *testing.T
 	require.NoError(t, db.AutoMigrate(&types.KnowledgeBase{}))
 	require.NoError(t, db.Exec("CREATE TABLE feishu_private_kbs(kb_id TEXT PRIMARY KEY,owner_id TEXT)").Error)
 	db = types.EnablePrivateKBGuards(db)
-	require.NoError(t, db.Exec("CREATE TRIGGER fail_private_marker BEFORE INSERT ON feishu_private_kbs BEGIN SELECT RAISE(ABORT, 'injected marker failure'); END").Error)
+	require.NoError(
+		t,
+		db.Exec(
+			"CREATE TRIGGER fail_private_marker BEFORE INSERT ON feishu_private_kbs BEGIN"+
+				" SELECT RAISE(ABORT, 'injected marker failure'); END",
+		).Error,
+	)
 	repo := NewKnowledgeBaseRepository(db)
-	ctx := types.WithPrivateKBCreation(context.WithValue(context.Background(), types.UserIDContextKey, "A"), "A")
+	ctx := types.WithPrivateKBCreation(
+		context.WithValue(context.Background(), types.UserIDContextKey, "A"),
+		"A",
+	)
 	err = repo.CreateKnowledgeBase(ctx, &types.KnowledgeBase{ID: "private", Name: "Private"})
 	require.Error(t, err)
 	var count int64
@@ -65,6 +75,9 @@ func TestFeishuV2PrivateKBCreationRollsBackPublicRowOnMarkerFailure(t *testing.T
 	require.NoError(t, db.Exec("DROP TRIGGER fail_private_marker").Error)
 	require.NoError(t, repo.CreateKnowledgeBase(ctx, &types.KnowledgeBase{ID: "private", Name: "Private"}))
 	var owner string
-	require.NoError(t, db.Raw("SELECT owner_id FROM feishu_private_kbs WHERE kb_id='private'").Scan(&owner).Error)
+	require.NoError(
+		t,
+		db.Raw("SELECT owner_id FROM feishu_private_kbs WHERE kb_id='private'").Scan(&owner).Error,
+	)
 	require.Equal(t, "A", owner)
 }

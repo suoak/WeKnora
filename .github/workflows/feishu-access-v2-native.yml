@@ -1,0 +1,89 @@
+name: Feishu Access V2 Native Regression
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/knowhub-feishu-access-v2]
+    paths: [.github/workflows/feishu-access-v2-native.yml]
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+concurrency:
+  group: feishu-v2-native-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    services:
+      postgres:
+        image: paradedb/paradedb:v0.22.2-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: isolated-native-only
+          POSTGRES_DB: feishu_v2_native
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d feishu_v2_native"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      SYNC_EXECUTION_POSTGRES_DSN: postgres://postgres:isolated-native-only@localhost:5432/feishu_v2_native?sslmode=disable
+      REQUIRE_SYNC_EXECUTION_POSTGRES: "1"
+      FEISHU_LEGACY_TEST_DSN: postgres://postgres:isolated-native-only@localhost:5432/feishu_v2_native?sslmode=disable
+      FEISHU_P0_REDIS_ADDR: 127.0.0.1:6379
+      FEISHU_SAFETY_REDIS_ADDR: 127.0.0.1:6379
+      GOMAXPROCS: "2"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          cache: true
+      - uses: dtolnay/rust-toolchain@stable
+      - run: sudo apt-get update && sudo apt-get install -y build-essential libsqlite3-dev
+      - name: Record source and toolchains
+        run: |
+          mkdir -p evidence
+          git rev-parse HEAD | tee evidence/tested-sha.txt
+          go version | tee evidence/go-version.txt
+          rustc --version | tee evidence/rust-version.txt
+      - name: Build native parser from this source
+        run: |
+          bash scripts/build-anydoc-lib.sh
+          sha256sum third_party/anydoc-go/lib/linux_amd64_gnu/libanydoc_go.a | tee evidence/native-library.sha256
+      - name: Audit actual native dependency tree
+        run: |
+          cargo install cargo-audit --locked
+          cd third_party/anydoc-go
+          cargo audit
+      - name: V2 and real parser publication with PostgreSQL
+        run: |
+          go test -p 2 -json -tags anydoc,sqlite_fts5 ./internal/application/service -run '^TestFeishuV2|^TestFeishuLegacyRealParserEmbeddingPostgres$' -count=1 -timeout=15m | tee evidence/native-source-tests.jsonl
+          python3 scripts/ci/feishu_v2_results.py evidence/native-source-tests.jsonl
+          python3 -c 'import json; e=[json.loads(l) for l in open("evidence/native-source-tests.jsonl") if l.startswith("{")]; assert any(x.get("Action")=="pass" and x.get("Test")=="TestFeishuLegacyRealParserEmbeddingPostgres" for x in e)'
+      - name: Full application regression with native parser
+        env:
+          FEISHU_SYNC_SAFETY_ENABLED: "false"
+          FEISHU_SAFETY_REDIS_ADDR: ""
+          FEISHU_P0_REDIS_ADDR: ""
+          FEISHU_LEGACY_TEST_DSN: ""
+          SYNC_EXECUTION_POSTGRES_DSN: ""
+          REQUIRE_SYNC_EXECUTION_POSTGRES: "0"
+        run: go test -p 2 -json -tags anydoc,sqlite_fts5 ./... -count=1 -timeout=25m | tee evidence/full-application-tests.jsonl
+      - name: Build application from tested source
+        run: |
+          go build -tags anydoc -o "$RUNNER_TEMP/knowhub-v2" ./cmd/server
+          go version -m "$RUNNER_TEMP/knowhub-v2" | tee evidence/server-build-info.txt
+          test -z "$(git status --porcelain --untracked-files=no)"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: feishu-v2-native-${{ github.sha }}
+          path: evidence/

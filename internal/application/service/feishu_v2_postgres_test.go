@@ -40,16 +40,36 @@ func TestFeishuV2PostgresSharedAdmissionRequiresRevisionApproval(t *testing.T) {
 	require.Equal(t, "sharing_approval_required", preview[0].ErrorCategory)
 	_, err = f.s.ImportWithIdentity(f.ctx, "kb", links[0], types.FeishuUserOAuth)
 	require.ErrorIs(t, err, ErrFeishuSharingApproval)
-	_, err = f.s.ApproveSharing(f.ctx, "kb", ref.ConnectionID, links[0], "controlled shared publication", false)
+	_, err = f.s.ApproveSharing(
+		f.ctx,
+		"kb",
+		ref.ConnectionID,
+		links[0],
+		"controlled shared publication",
+		false,
+	)
 	require.Error(t, err)
-	approval, err := f.s.ApproveSharing(f.ctx, "kb", ref.ConnectionID, links[0], "controlled shared publication", true)
+	approval, err := f.s.ApproveSharing(
+		f.ctx,
+		"kb",
+		ref.ConnectionID,
+		links[0],
+		"controlled shared publication",
+		true,
+	)
 	require.NoError(t, err)
 	m, err := f.s.ImportWithIdentity(f.ctx, "kb", links[0], types.FeishuUserOAuth)
 	require.NoError(t, err)
 	require.NotEmpty(t, m.AttemptID)
 	// Revocation closes the existing attempt's next authorization, preserving
 	// the original records instead of resetting any lease or cursor.
-	require.NoError(t, f.db.Model(&types.FeishuSharingApproval{}).Where("id = ?", approval.ID).Update("state", "revoked").Error)
+	require.NoError(
+		t,
+		f.db.Model(&types.FeishuSharingApproval{}).
+			Where("id = ?", approval.ID).
+			Update("state", "revoked").
+			Error,
+	)
 	_, _, attempt, err := f.p.repo.Load(f.ctx, m.AttemptID)
 	require.NoError(t, err)
 	_, err = f.p.authorize(f.ctx, m, attempt)
@@ -63,14 +83,28 @@ func TestFeishuV2PostgresCollaborationNeverGrantsOrRetries(t *testing.T) {
 	f := v2PostgresFixture(t)
 	_, _, ref, err := f.s.ResolveCredentialReference(f.ctx, types.FeishuUserOAuth, "")
 	require.NoError(t, err)
-	view, err := f.s.CreateBatch(f.ctx, "kb", types.FeishuUserOAuth, ref.ConnectionID, "collaboration", []string{"https://test.feishu.cn/file/real"})
+	view, err := f.s.CreateBatch(
+		f.ctx,
+		"kb",
+		types.FeishuUserOAuth,
+		ref.ConnectionID,
+		"collaboration",
+		[]string{"https://test.feishu.cn/file/real"},
+	)
 	require.NoError(t, err)
 	require.NoError(t, f.s.ReconcileBatches(context.Background()))
 	view, err = f.s.Batch(f.ctx, view.Batch.ID)
 	require.NoError(t, err)
 	require.Equal(t, "blocked", view.Items[0].Status)
 	item := view.Items[0]
-	row, err := f.s.Collaborate(f.ctx, view.Batch.ID, item.ID, "reported", "Document owner", "Owner reports access updated")
+	row, err := f.s.Collaborate(
+		f.ctx,
+		view.Batch.ID,
+		item.ID,
+		"reported",
+		"Document owner",
+		"Owner reports access updated",
+	)
 	require.NoError(t, err)
 	require.Equal(t, "reported_unverified", row.Result)
 	row, err = f.s.Collaborate(f.ctx, view.Batch.ID, item.ID, "recheck", "Document owner", "")
@@ -107,7 +141,14 @@ func TestFeishuV2PostgresBatchConcurrentIdempotencyAndAliasRecovery(t *testing.T
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			view, e := f.s.CreateBatch(f.ctx, "kb", types.FeishuUserOAuth, ref.ConnectionID, "same-request", links)
+			view, e := f.s.CreateBatch(
+				f.ctx,
+				"kb",
+				types.FeishuUserOAuth,
+				ref.ConnectionID,
+				"same-request",
+				links,
+			)
 			errs[i] = e
 			if view != nil {
 				ids[i] = view.Batch.ID

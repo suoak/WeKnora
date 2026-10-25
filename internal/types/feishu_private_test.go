@@ -15,7 +15,7 @@ func TestPrivateKBGuardsDenyOtherUsersKeysAndWikiProjections(t *testing.T) {
 	require.NoError(t, err)
 	pool, err := db.DB()
 	require.NoError(t, err)
-	t.Cleanup(func() { pool.Close() })
+	t.Cleanup(func() { _ = pool.Close() })
 	for _, sql := range []string{
 		"CREATE TABLE knowledge_bases(id TEXT PRIMARY KEY,tenant_id INTEGER,creator_id TEXT,deleted_at DATETIME)",
 		"CREATE TABLE knowledges(id TEXT PRIMARY KEY,knowledge_base_id TEXT,deleted_at DATETIME)",
@@ -61,5 +61,9 @@ func TestPrivateKBGuardsDenyOtherUsersKeysAndWikiProjections(t *testing.T) {
 	}
 	// The source feature switch is unrelated to persisted read protection.
 	t.Setenv("FEISHU_ACCESS_V2_ENABLED", "")
-	require.ErrorIs(t, CheckPrivateKBRead(db.WithContext(context.Background()), "doc", ""), ErrPrivateKnowledgeBase)
+	require.ErrorIs(
+		t,
+		CheckPrivateKBRead(db.WithContext(context.Background()), "doc", ""),
+		ErrPrivateKnowledgeBase,
+	)
 }

@@ -21,8 +21,14 @@ func TestFeishuAccessCapabilitiesRequireExplicitEnabledIdentity(t *testing.T) {
 }
 
 func TestFeishuCredentialRefOwnerAndKindIsolation(t *testing.T) {
-	user := FeishuCredentialRef{Version: 1, Kind: FeishuUserOAuth, ConnectionID: "connection",
-		AppID: "cli_test", OwnerID: "A", OpenID: "private-open-id", GrantEpoch: "private-epoch", ConfigVersion: "private-config"}
+	user := FeishuCredentialRef{
+		Version: 1, Kind: FeishuUserOAuth, ConnectionID: "connection",
+		AppID:         "cli_test",
+		OwnerID:       "A",
+		OpenID:        "private-open-id",
+		GrantEpoch:    "private-epoch",
+		ConfigVersion: "private-config",
+	}
 	if err := user.Validate("A"); err != nil {
 		t.Fatal(err)
 	}

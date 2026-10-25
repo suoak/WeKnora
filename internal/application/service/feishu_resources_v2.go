@@ -23,7 +23,10 @@ func connectionID(parts ...string) string {
 
 // ResolveCredentialReference loads only the current user's grant. No request
 // accepts owner/open_id/epoch fields, and user failures never select app tokens.
-func (s *FeishuPersonalService) ResolveCredentialReference(ctx context.Context, mode, id string) (context.Context, *core.Client, types.FeishuCredentialRef, error) {
+func (s *FeishuPersonalService) ResolveCredentialReference(
+	ctx context.Context,
+	mode, id string,
+) (context.Context, *core.Client, types.FeishuCredentialRef, error) {
 	var ref types.FeishuCredentialRef
 	user, ok := types.UserIDFromContext(ctx)
 	if !ok {
@@ -36,12 +39,20 @@ func (s *FeishuPersonalService) ResolveCredentialReference(ctx context.Context, 
 	if cfg.Capabilities == nil || !cfg.modeEnabled(mode) {
 		return ctx, nil, ref, types.ErrFeishuIdentityDisabled
 	}
-	ref = types.FeishuCredentialRef{Version: 1, Kind: mode, AppID: cfg.AppID, ConfigVersion: cfg.identityVersion(mode)}
+	ref = types.FeishuCredentialRef{
+		Version:       1,
+		Kind:          mode,
+		AppID:         cfg.AppID,
+		ConfigVersion: cfg.identityVersion(mode),
+	}
 	client := s.client(&core.Config{AppID: cfg.AppID, AppSecret: cfg.Secret})
 	if mode == types.FeishuUserOAuth {
 		var c types.FeishuConnection
 		var epoch types.FeishuPersonalGrantEpoch
-		if s.db.WithContext(ctx).Where("user_id = ? AND app_id = ?", user, cfg.AppID).First(&c).Error != nil ||
+		if s.db.WithContext(ctx).
+			Where("user_id = ? AND app_id = ?", user, cfg.AppID).
+			First(&c).
+			Error != nil ||
 			s.db.WithContext(ctx).Where("user_id = ?", user).First(&epoch).Error != nil {
 			return ctx, nil, ref, ErrFeishuReconnect
 		}
@@ -61,12 +72,19 @@ func (s *FeishuPersonalService) ResolveCredentialReference(ctx context.Context, 
 	}
 	validate := func(call context.Context) error {
 		current, e := s.app(call)
-		if e != nil || current.identityVersion(mode) != ref.ConfigVersion || current.AppID != ref.AppID || !current.modeEnabled(mode) {
+		if e != nil || current.identityVersion(mode) != ref.ConfigVersion || current.AppID != ref.AppID ||
+			!current.modeEnabled(mode) {
 			return ErrFeishuReconnect
 		}
 		if mode == types.FeishuUserOAuth {
 			var n int64
-			if e = s.db.WithContext(call).Model(&types.FeishuPersonalGrantEpoch{}).Where("user_id = ? AND epoch = ?", user, ref.GrantEpoch).Count(&n).Error; e != nil {
+			if e = s.db.
+				WithContext(call).
+				Model(&types.FeishuPersonalGrantEpoch{}).
+				Where("user_id = ? AND epoch = ?",
+					user,
+					ref.GrantEpoch).
+				Count(&n).Error; e != nil {
 				return e
 			}
 			if n != 1 {
@@ -92,6 +110,7 @@ func (s *FeishuPersonalService) ResolveCredentialReference(ctx context.Context, 
 	return ctx, client, ref, nil
 }
 
+// FeishuResourceQuery selects one identity-bound resource page.
 type FeishuResourceQuery struct {
 	AuthMode     string
 	ConnectionID string
@@ -110,6 +129,8 @@ type feishuResourceCursor struct {
 	Page       string
 	Expires    time.Time
 }
+
+// FeishuResourcePage returns a bounded page and an encrypted continuation cursor.
 type FeishuResourcePage struct {
 	Items    []core.ResourceEntry `json:"items"`
 	HasMore  bool                 `json:"has_more"`
@@ -117,8 +138,15 @@ type FeishuResourcePage struct {
 	Coverage string               `json:"coverage"`
 }
 
-func (s *FeishuPersonalService) Resources(ctx context.Context, q FeishuResourceQuery) (FeishuResourcePage, error) {
-	out := FeishuResourcePage{Items: []core.ResourceEntry{}, Coverage: "current_identity_one_level; shared_with_me_is_not_exhaustive"}
+// Resources browses only the selected identity's accessible Drive or Wiki page.
+func (s *FeishuPersonalService) Resources(
+	ctx context.Context,
+	q FeishuResourceQuery,
+) (FeishuResourcePage, error) {
+	out := FeishuResourcePage{
+		Items:    []core.ResourceEntry{},
+		Coverage: "current_identity_one_level; shared_with_me_is_not_exhaustive",
+	}
 	remote, client, ref, err := s.ResolveCredentialReference(ctx, q.AuthMode, q.ConnectionID)
 	if err != nil {
 		return out, err
@@ -130,7 +158,11 @@ func (s *FeishuPersonalService) Resources(ctx context.Context, q FeishuResourceQ
 	}
 	if q.Cursor != "" {
 		var c feishuResourceCursor
-		if openFeishu(q.Cursor, &c) != nil || c.User != user || c.Connection != ref.ConnectionID || c.Kind != q.Kind || c.Parent != q.Parent || c.Space != q.Space || !c.Expires.After(time.Now()) {
+		if openFeishu(q.Cursor, &c) != nil || c.User != user || c.Connection != ref.ConnectionID ||
+			c.Kind != q.Kind ||
+			c.Parent != q.Parent ||
+			c.Space != q.Space ||
+			!c.Expires.After(time.Now()) {
 			return out, errors.New("invalid_resource_cursor")
 		}
 		page = c.Page
@@ -146,11 +178,22 @@ func (s *FeishuPersonalService) Resources(ctx context.Context, q FeishuResourceQ
 	}
 	out.Items, out.HasMore = result.Items, result.HasMore
 	if result.HasMore {
-		out.Cursor, err = sealFeishu(feishuResourceCursor{user, ref.ConnectionID, q.Kind, q.Parent, q.Space, result.NextPage, time.Now().Add(10 * time.Minute)})
+		out.Cursor, err = sealFeishu(
+			feishuResourceCursor{
+				user,
+				ref.ConnectionID,
+				q.Kind,
+				q.Parent,
+				q.Space,
+				result.NextPage,
+				time.Now().Add(10 * time.Minute),
+			},
+		)
 	}
 	return out, err
 }
 
+// Connections returns the caller's available identities without bearer tokens.
 func (s *FeishuPersonalService) Connections(ctx context.Context) ([]map[string]any, error) {
 	user, ok := types.UserIDFromContext(ctx)
 	if !ok {
@@ -168,15 +211,30 @@ func (s *FeishuPersonalService) Connections(ctx context.Context) ([]map[string]a
 		row := map[string]any{"kind": types.FeishuUserOAuth, "connected": false}
 		var c types.FeishuConnection
 		var epoch types.FeishuPersonalGrantEpoch
-		if s.db.WithContext(ctx).Where("user_id = ? AND app_id = ?", user, cfg.AppID).First(&c).Error == nil &&
+		if s.db.WithContext(ctx).
+			Where("user_id = ? AND app_id = ?", user, cfg.AppID).
+			First(&c).
+			Error == nil &&
 			s.db.WithContext(ctx).Where("user_id = ?", user).First(&epoch).Error == nil {
 			row["id"] = connectionID(types.FeishuUserOAuth, user, cfg.AppID, c.OpenID, epoch.Epoch)
 			row["connected"] = c.RefreshExpiresAt.After(time.Now())
 		}
 		rows = append(rows, row)
 	}
-	if cfg.modeEnabled(types.FeishuApplicationGrant) && applicationGrantEnabled() && applicationUserAllowed(types.IsSystemAdminFromContext(ctx)) {
-		rows = append(rows, map[string]any{"kind": types.FeishuApplicationGrant, "id": connectionID(types.FeishuApplicationGrant, cfg.AppID, cfg.identityVersion(types.FeishuApplicationGrant)), "connected": true})
+	if cfg.modeEnabled(types.FeishuApplicationGrant) && applicationGrantEnabled() &&
+		applicationUserAllowed(types.IsSystemAdminFromContext(ctx)) {
+		rows = append(
+			rows,
+			map[string]any{
+				"kind": types.FeishuApplicationGrant,
+				"id": connectionID(
+					types.FeishuApplicationGrant,
+					cfg.AppID,
+					cfg.identityVersion(types.FeishuApplicationGrant),
+				),
+				"connected": true,
+			},
+		)
 	}
 	return rows, nil
 }

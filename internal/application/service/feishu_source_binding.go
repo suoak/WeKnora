@@ -3,20 +3,25 @@ package service
 import (
 	"context"
 	"errors"
+	"time"
+
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/Tencent/WeKnora/internal/types"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"time"
 )
 
+// SetFeishuIdentityService binds reference resolution to the existing sync engine.
 func (s *DataSourceService) SetFeishuIdentityService(personal *FeishuPersonalService) {
 	s.feishuIdentity = personal
 	personal.dataSources = s
 }
 
-func (s *DataSourceService) bindFeishuSource(ctx context.Context, ds *types.DataSource) (context.Context, error) {
+func (s *DataSourceService) bindFeishuSource(
+	ctx context.Context,
+	ds *types.DataSource,
+) (context.Context, error) {
 	config, err := ds.ParseConfig()
 	if err != nil {
 		return ctx, err
@@ -31,7 +36,8 @@ func (s *DataSourceService) bindFeishuSource(ctx context.Context, ds *types.Data
 	if ds.LegacyAccessState == "hold" || ds.LegacyAccessState == "revoked" {
 		return ctx, access.ErrForbidden
 	}
-	if s.feishuIdentity == nil || s.feishuIdentity.recovery == nil || ds.Type != types.ConnectorTypeFeishu && ds.Type != types.ConnectorTypeFeishuDrive {
+	if s.feishuIdentity == nil || s.feishuIdentity.recovery == nil ||
+		ds.Type != types.ConnectorTypeFeishu && ds.Type != types.ConnectorTypeFeishuDrive {
 		return ctx, types.ErrFeishuIdentityDisabled
 	}
 	if execution, internal := types.SyncExecutionFromContext(ctx); !internal {
@@ -42,11 +48,18 @@ func (s *DataSourceService) bindFeishuSource(ctx context.Context, ds *types.Data
 	} else if execution.DataSourceID != ds.ID || execution.TenantID != ds.TenantID {
 		return ctx, access.ErrForbidden
 	}
-	fresh, err := s.feishuIdentity.batchContext(ctx, &types.FeishuBatch{OwnerID: ref.OwnerUserID, TenantID: ds.TenantID, KBID: ds.KnowledgeBaseID})
+	fresh, err := s.feishuIdentity.batchContext(
+		ctx,
+		&types.FeishuBatch{OwnerID: ref.OwnerUserID, TenantID: ds.TenantID, KBID: ds.KnowledgeBaseID},
+	)
 	if err != nil {
 		return ctx, err
 	}
-	remote, client, credential, err := s.feishuIdentity.ResolveCredentialReference(fresh, ref.Kind, ref.ConnectionID)
+	remote, client, credential, err := s.feishuIdentity.ResolveCredentialReference(
+		fresh,
+		ref.Kind,
+		ref.ConnectionID,
+	)
 	if err != nil {
 		return ctx, err
 	}
@@ -93,7 +106,11 @@ func (s *DataSourceService) bindFeishuSource(ctx context.Context, ds *types.Data
 	}
 	guard := func(tx *gorm.DB) error {
 		var setting types.SystemSetting
-		if e := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("key = ?", feishuAppSetting).First(&setting).Error; e != nil {
+		if e := tx.
+			Clauses(clause.Locking{Strength: "SHARE"}).
+			Where("key = ?",
+				feishuAppSetting).
+			First(&setting).Error; e != nil {
 			return e
 		}
 		cipher, e := setting.AsString()
@@ -104,48 +121,96 @@ func (s *DataSourceService) bindFeishuSource(ctx context.Context, ds *types.Data
 		if e = openFeishu(cipher, &cfg); e != nil {
 			return e
 		}
-		if cfg.AppID != ref.AppID || !cfg.modeEnabled(ref.Kind) || cfg.identityVersion(ref.Kind) != ref.IdentityVersion {
+		if cfg.AppID != ref.AppID || !cfg.modeEnabled(ref.Kind) ||
+			cfg.identityVersion(ref.Kind) != ref.IdentityVersion {
 			return ErrFeishuReconnect
 		}
 		var user types.User
 		var member types.TenantMember
 		var tenant types.Tenant
 		var kb types.KnowledgeBase
-		if e = tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ? AND is_active = ?", ref.OwnerUserID, true).First(&user).Error; e != nil {
+		if e = tx.
+			Clauses(clause.Locking{Strength: "SHARE"}).
+			Where("id = ? AND is_active = ?",
+				ref.OwnerUserID,
+				true).
+			First(&user).Error; e != nil {
 			return access.ErrForbidden
 		}
-		if e = tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("user_id = ? AND tenant_id = ? AND status = ?", ref.OwnerUserID, ds.TenantID, types.TenantMemberStatusActive).First(&member).Error; e != nil {
+		if e = tx.
+			Clauses(clause.Locking{Strength: "SHARE"}).
+			Where("user_id = ? AND tenant_id = ? AND status = ?",
+				ref.OwnerUserID,
+				ds.TenantID,
+				types.TenantMemberStatusActive).
+			First(&member).Error; e != nil {
 			return access.ErrForbidden
 		}
 		if !member.Role.HasPermission(types.TenantRoleContributor) {
 			return access.ErrForbidden
 		}
-		if e = tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ? AND status = ?", ds.TenantID, "active").First(&tenant).Error; e != nil {
+		if e = tx.
+			Clauses(clause.Locking{Strength: "SHARE"}).
+			Where("id = ? AND status = ?",
+				ds.TenantID,
+				"active").
+			First(&tenant).Error; e != nil {
 			return access.ErrForbidden
 		}
-		owned := tx.WithContext(context.WithValue(tx.Statement.Context, types.UserIDContextKey, ref.OwnerUserID))
-		if e = owned.Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ? AND tenant_id = ?", ds.KnowledgeBaseID, ds.TenantID).First(&kb).Error; e != nil {
+		owned := tx.WithContext(
+			context.WithValue(tx.Statement.Context, types.UserIDContextKey, ref.OwnerUserID),
+		)
+		if e = owned.
+			Clauses(clause.Locking{Strength: "SHARE"}).
+			Where("id = ? AND tenant_id = ?",
+				ds.KnowledgeBaseID,
+				ds.TenantID).
+			First(&kb).Error; e != nil {
 			return e
 		}
 		if ref.Kind == types.FeishuApplicationGrant {
-			if !applicationGrantEnabled() || !applicationUserAllowed(user.IsSystemAdmin) || !applicationKBAllowed(ds.KnowledgeBaseID) {
+			if !applicationGrantEnabled() || !applicationUserAllowed(user.IsSystemAdmin) ||
+				!applicationKBAllowed(ds.KnowledgeBaseID) {
 				return ErrFeishuApplicationRestricted
 			}
 			return nil
 		}
 		var conn types.FeishuConnection
 		var epoch types.FeishuPersonalGrantEpoch
-		if e = tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("user_id = ? AND app_id = ? AND open_id = ?", ref.OwnerUserID, credential.AppID, credential.OpenID).First(&conn).Error; e != nil {
+		if e = tx.
+			Clauses(clause.Locking{Strength: "SHARE"}).
+			Where("user_id = ? AND app_id = ? AND open_id = ?",
+				ref.OwnerUserID,
+				credential.AppID,
+				credential.OpenID).
+			First(&conn).Error; e != nil {
 			return ErrFeishuReconnect
 		}
-		if e = tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("user_id = ? AND epoch = ?", ref.OwnerUserID, credential.GrantEpoch).First(&epoch).Error; e != nil {
+		if e = tx.
+			Clauses(clause.Locking{Strength: "SHARE"}).
+			Where("user_id = ? AND epoch = ?",
+				ref.OwnerUserID,
+				credential.GrantEpoch).
+			First(&epoch).Error; e != nil {
 			return ErrFeishuReconnect
 		}
 		if !conn.ExpiresAt.After(time.Now()) && !conn.RefreshExpiresAt.After(time.Now()) {
 			return ErrFeishuReconnect
 		}
 		if reference {
-			return s.feishuIdentity.checkSharingApproval(owned, &cfg, &types.FeishuPersonalImport{UserID: ref.OwnerUserID, KBID: ds.KnowledgeBaseID, AppID: ref.AppID, AuthMode: ref.Kind, ResourceType: expected.Type, DocumentToken: expected.Token}, expected.Modified)
+			return s.feishuIdentity.checkSharingApproval(
+				owned,
+				&cfg,
+				&types.FeishuPersonalImport{
+					UserID:        ref.OwnerUserID,
+					KBID:          ds.KnowledgeBaseID,
+					AppID:         ref.AppID,
+					AuthMode:      ref.Kind,
+					ResourceType:  expected.Type,
+					DocumentToken: expected.Token,
+				},
+				expected.Modified,
+			)
 		}
 		return nil
 	}

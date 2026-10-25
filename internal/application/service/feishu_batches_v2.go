@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
@@ -16,6 +15,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// FeishuBatchView combines durable admission state with verified import progress.
 type FeishuBatchView struct {
 	Batch  types.FeishuBatch       `json:"batch"`
 	Items  []types.FeishuBatchItem `json:"items"`
@@ -23,7 +23,12 @@ type FeishuBatchView struct {
 	Status string                  `json:"status"`
 }
 
-func (s *FeishuPersonalService) CreateBatch(ctx context.Context, kb, mode, id, key string, links []string) (*FeishuBatchView, error) {
+// CreateBatch admits a bounded, owned batch using a caller-supplied idempotency key.
+func (s *FeishuPersonalService) CreateBatch(
+	ctx context.Context,
+	kb, mode, id, key string,
+	links []string,
+) (*FeishuBatchView, error) {
 	user, ok := types.UserIDFromContext(ctx)
 	if !ok {
 		return nil, access.ErrUnauthorized
@@ -61,7 +66,18 @@ func (s *FeishuPersonalService) CreateBatch(ctx context.Context, kb, mode, id, k
 		}
 	}
 	payload, _ := json.Marshal([]any{kb, mode, ref.ConnectionID, unique})
-	b := types.FeishuBatch{ID: uuid.NewString(), OwnerID: user, TenantID: types.CallerFromContext(ctx).TenantID, KBID: kb, AuthMode: mode, ConnectionID: ref.ConnectionID, ConfigVersion: ref.ConfigVersion, IdempotencyKey: key, PayloadHash: connectionID(string(payload)), CreatedAt: time.Now()}
+	b := types.FeishuBatch{
+		ID:             uuid.NewString(),
+		OwnerID:        user,
+		TenantID:       types.CallerFromContext(ctx).TenantID,
+		KBID:           kb,
+		AuthMode:       mode,
+		ConnectionID:   ref.ConnectionID,
+		ConfigVersion:  ref.ConfigVersion,
+		IdempotencyKey: key,
+		PayloadHash:    connectionID(string(payload)),
+		CreatedAt:      time.Now(),
+	}
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		insert := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&b)
 		if insert.Error != nil {
@@ -69,7 +85,12 @@ func (s *FeishuPersonalService) CreateBatch(ctx context.Context, kb, mode, id, k
 		}
 		if insert.RowsAffected == 0 {
 			var existing types.FeishuBatch
-			if e := tx.Where("owner_id = ? AND kb_id = ? AND idempotency_key = ?", user, kb, key).First(&existing).Error; e != nil {
+			if e := tx.
+				Where("owner_id = ? AND kb_id = ? AND idempotency_key = ?",
+					user,
+					kb,
+					key).
+				First(&existing).Error; e != nil {
 				return e
 			}
 			if existing.PayloadHash != b.PayloadHash {
@@ -79,7 +100,14 @@ func (s *FeishuPersonalService) CreateBatch(ctx context.Context, kb, mode, id, k
 			return nil
 		}
 		for i, link := range unique {
-			row := types.FeishuBatchItem{ID: uuid.NewString(), BatchID: b.ID, Ordinal: i, URL: link, Status: "pending", UpdatedAt: time.Now()}
+			row := types.FeishuBatchItem{
+				ID:        uuid.NewString(),
+				BatchID:   b.ID,
+				Ordinal:   i,
+				URL:       link,
+				Status:    "pending",
+				UpdatedAt: time.Now(),
+			}
 			if e := tx.Create(&row).Error; e != nil {
 				return e
 			}
@@ -92,6 +120,7 @@ func (s *FeishuPersonalService) CreateBatch(ctx context.Context, kb, mode, id, k
 	return s.Batch(ctx, b.ID)
 }
 
+// Batch returns only the authenticated owner's progress after checking KB write access.
 func (s *FeishuPersonalService) Batch(ctx context.Context, id string) (*FeishuBatchView, error) {
 	user, ok := types.UserIDFromContext(ctx)
 	if !ok {
@@ -111,7 +140,13 @@ func (s *FeishuPersonalService) Batch(ctx context.Context, id string) (*FeishuBa
 	if err = access.RequireKBWrite(ctx, kb); err != nil {
 		return nil, err
 	}
-	if err = s.db.WithContext(ctx).Where("batch_id = ?", id).Order("ordinal").Limit(100).Find(&view.Items).Error; err != nil {
+	if err = s.db.
+		WithContext(ctx).
+		Where("batch_id = ?",
+			id).
+		Order("ordinal").
+		Limit(100).
+		Find(&view.Items).Error; err != nil {
 		return nil, err
 	}
 	byImport := map[string]types.FeishuPersonalImport{}
@@ -123,7 +158,11 @@ func (s *FeishuPersonalService) Batch(ctx context.Context, id string) (*FeishuBa
 	}
 	if len(ids) > 0 {
 		imports := []types.FeishuPersonalImport{}
-		e := s.db.WithContext(ctx).Where("id IN ? AND user_id = ? AND kb_id = ?", ids, user, view.Batch.KBID).Limit(100).Find(&imports).Error
+		e := s.db.WithContext(ctx).
+			Where("id IN ? AND user_id = ? AND kb_id = ?", ids, user, view.Batch.KBID).
+			Limit(100).
+			Find(&imports).
+			Error
 		imports, e = s.decorateFeishuImports(ctx, imports, e)
 		if e != nil {
 			return nil, e
@@ -138,9 +177,10 @@ func (s *FeishuPersonalService) Batch(ctx context.Context, id string) (*FeishuBa
 		if item.Status == "dispatched" && item.ImportID != "" {
 			for _, m := range byImport {
 				if m.ID == item.ImportID {
-					if m.Status == "synced" || m.Status == "completed" || m.Status == "source_managed" {
+					switch m.Status {
+					case "synced", "completed", "source_managed":
 						item.Status = "succeeded"
-					} else if m.Status == "needs_attention" || m.Status == "attention" {
+					case "needs_attention", "attention":
 						item.Status = "failed"
 						item.ErrorCategory = "review_required"
 					}
@@ -159,6 +199,7 @@ func (s *FeishuPersonalService) Batch(ctx context.Context, id string) (*FeishuBa
 	return view, nil
 }
 
+// RetryBatch explicitly retries bounded failures without resetting source state.
 func (s *FeishuPersonalService) RetryBatch(ctx context.Context, id string) error {
 	view, err := s.Batch(ctx, id)
 	if err != nil {
@@ -170,20 +211,49 @@ func (s *FeishuPersonalService) RetryBatch(ctx context.Context, id string) error
 	}
 	// Explicit retry re-enters live preflight; it never resets a source cursor,
 	// attempts, fences, or a partially published document requiring review.
-	return s.db.WithContext(ctx).Model(&types.FeishuBatchItem{}).Where("batch_id = ? AND status IN ? AND retry_count < 3 AND import_id = ?", id, []string{"failed", "blocked"}, "").Updates(map[string]any{"status": "pending", "error_category": "", "retry_count": gorm.Expr("retry_count + 1"), "updated_at": time.Now()}).Error
+	return s.db.WithContext(ctx).
+		Model(&types.FeishuBatchItem{}).
+		Where("batch_id = ? AND status IN ? AND retry_count < 3 AND import_id = ?",
+			id,
+			[]string{
+				"failed",
+				"blocked",
+			},
+			"").
+		Updates(map[string]any{
+			"status":         "pending",
+			"error_category": "",
+			"retry_count":    gorm.Expr("retry_count + 1"),
+			"updated_at":     time.Now(),
+		}).
+		Error
 }
 
-func (s *FeishuPersonalService) batchContext(ctx context.Context, b *types.FeishuBatch) (context.Context, error) {
+func (s *FeishuPersonalService) batchContext(
+	ctx context.Context,
+	b *types.FeishuBatch,
+) (context.Context, error) {
 	var user types.User
 	var member types.TenantMember
 	var tenant types.Tenant
 	if err := s.db.WithContext(ctx).Where("id = ? AND is_active = ?", b.OwnerID, true).First(&user).Error; err != nil {
 		return ctx, access.ErrForbidden
 	}
-	if err := s.db.WithContext(ctx).Where("id = ? AND status = ?", b.TenantID, "active").First(&tenant).Error; err != nil {
+	if err := s.db.
+		WithContext(ctx).
+		Where("id = ? AND status = ?",
+			b.TenantID,
+			"active").
+		First(&tenant).Error; err != nil {
 		return ctx, access.ErrForbidden
 	}
-	if err := s.db.WithContext(ctx).Where("user_id = ? AND tenant_id = ? AND status = ?", b.OwnerID, b.TenantID, types.TenantMemberStatusActive).First(&member).Error; err != nil {
+	if err := s.db.
+		WithContext(ctx).
+		Where("user_id = ? AND tenant_id = ? AND status = ?",
+			b.OwnerID,
+			b.TenantID,
+			types.TenantMemberStatusActive).
+		First(&member).Error; err != nil {
 		return ctx, access.ErrForbidden
 	}
 	if !member.Role.HasPermission(types.TenantRoleContributor) {
@@ -197,7 +267,14 @@ func (s *FeishuPersonalService) batchContext(ctx context.Context, b *types.Feish
 	if err != nil {
 		return ctx, err
 	}
-	grant, err := access.ResolveKB(fresh, access.KBRequest{Caller: types.CallerFromContext(fresh)}, kb, types.OrgRoleEditor, s.recovery.shares, nil)
+	grant, err := access.ResolveKB(
+		fresh,
+		access.KBRequest{Caller: types.CallerFromContext(fresh)},
+		kb,
+		types.OrgRoleEditor,
+		s.recovery.shares,
+		nil,
+	)
 	if err != nil {
 		return ctx, err
 	}
@@ -216,7 +293,17 @@ func (s *FeishuPersonalService) ReconcileBatches(ctx context.Context) error {
 	for n := 0; n < 2; n++ {
 		var item types.FeishuBatchItem
 		err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			if e := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).Where("status = ? OR (status = ? AND lease_until < ?)", "pending", "processing", time.Now()).Order("updated_at,id").First(&item).Error; e != nil {
+			if e := tx.
+				Clauses(clause.Locking{
+					Strength: "UPDATE",
+					Options:  "SKIP LOCKED",
+				}).
+				Where("status = ? OR (status = ? AND lease_until < ?)",
+					"pending",
+					"processing",
+					time.Now()).
+				Order("updated_at,id").
+				First(&item).Error; e != nil {
 				return e
 			}
 			nonce := uuid.NewString()
@@ -262,24 +349,45 @@ func (s *FeishuPersonalService) ReconcileBatches(ctx context.Context) error {
 		}
 		if e := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			var locked types.FeishuBatch
-			if e := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", b.ID).First(&locked).Error; e != nil {
+			if e := tx.
+				Clauses(clause.Locking{Strength: "UPDATE"}).
+				Where("id = ?",
+					b.ID).
+				First(&locked).Error; e != nil {
 				return e
 			}
 			if importID != "" {
 				var count int64
-				if e := tx.Model(&types.FeishuBatchItem{}).Where("batch_id = ? AND id <> ? AND import_id = ?", b.ID, item.ID, importID).Count(&count).Error; e != nil {
+				if e := tx.
+					Model(&types.FeishuBatchItem{}).
+					Where("batch_id = ? AND id <> ? AND import_id = ?",
+						b.ID,
+						item.ID,
+						importID).
+					Count(&count).Error; e != nil {
 					return e
 				}
 				if count > 0 {
 					status = "duplicate"
 				}
 			}
-			return tx.Model(&types.FeishuBatchItem{}).Where("id = ? AND lease_owner = ? AND lease_until > ?", item.ID, item.LeaseOwner, time.Now()).Updates(map[string]any{"status": status, "error_category": category, "import_id": importID, "lease_owner": "", "lease_until": nil, "updated_at": time.Now()}).Error
+			return tx.
+				Model(&types.FeishuBatchItem{}).
+				Where("id = ? AND lease_owner = ? AND lease_until > ?",
+					item.ID,
+					item.LeaseOwner,
+					time.Now()).
+				Updates(map[string]any{
+					"status":         status,
+					"error_category": category,
+					"import_id":      importID,
+					"lease_owner":    "",
+					"lease_until":    nil,
+					"updated_at":     time.Now(),
+				}).Error
 		}); e != nil {
 			return e
 		}
 	}
 	return nil
 }
-
-func normalizeFeishuLinks(raw string) []string { return strings.Fields(raw) }

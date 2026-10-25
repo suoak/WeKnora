@@ -19,12 +19,25 @@ func TestFeishuV2PostgresSourceReadAndCommitRevocation(t *testing.T) {
 	_, _, ref, err := f.s.ResolveCredentialReference(f.ctx, types.FeishuUserOAuth, "")
 	require.NoError(t, err)
 	cfg := &types.DataSourceConfig{Settings: map[string]interface{}{
-		"credential_reference": types.FeishuSourceReference{Version: 1, OwnerUserID: "A", Kind: ref.Kind, ConnectionID: ref.ConnectionID, AppID: ref.AppID, IdentityVersion: ref.ConfigVersion},
-		"links":                []string{"https://test.feishu.cn/file/real"},
+		"credential_reference": types.FeishuSourceReference{
+			Version:         1,
+			OwnerUserID:     "A",
+			Kind:            ref.Kind,
+			ConnectionID:    ref.ConnectionID,
+			AppID:           ref.AppID,
+			IdentityVersion: ref.ConfigVersion,
+		},
+		"links": []string{"https://test.feishu.cn/file/real"},
 	}}
 	blob, err := cfg.ToJSON()
 	require.NoError(t, err)
-	ds := &types.DataSource{ID: "source", TenantID: 1, KnowledgeBaseID: "kb", Type: types.ConnectorTypeFeishu, Config: blob}
+	ds := &types.DataSource{
+		ID:              "source",
+		TenantID:        1,
+		KnowledgeBaseID: "kb",
+		Type:            types.ConnectorTypeFeishu,
+		Config:          blob,
+	}
 	s := &DataSourceService{feishuIdentity: f.s}
 	_, err = s.bindFeishuSource(f.userContext("B"), ds)
 	require.Error(t, err)
@@ -35,11 +48,19 @@ func TestFeishuV2PostgresSourceReadAndCommitRevocation(t *testing.T) {
 	require.True(t, ok)
 	require.NoError(t, f.db.WithContext(bound).Transaction(commit))
 	f.revision.Store(2)
-	require.Error(t, types.CheckFeishuSourceRead(bound), "a changed revision must never publish a stale candidate")
+	require.Error(
+		t,
+		types.CheckFeishuSourceRead(bound),
+		"a changed revision must never publish a stale candidate",
+	)
 	f.revision.Store(1)
 	require.NoError(t, f.s.Disconnect(f.ctx))
 	require.Error(t, types.CheckFeishuSourceRead(bound))
-	require.Error(t, f.db.WithContext(bound).Transaction(commit), "the local commit fence also rejects a deleted grant")
+	require.Error(
+		t,
+		f.db.WithContext(bound).Transaction(commit),
+		"the local commit fence also rejects a deleted grant",
+	)
 }
 
 // This tests the transactional handoff primitive; indexing verification remains
@@ -52,11 +73,20 @@ func TestFeishuV2PostgresSourceHandoffIsAtomicAndFencesOldWorker(t *testing.T) {
 	require.NoError(t, f.p.Process(f.ctx, f.payload(m.AttemptID)))
 	var before types.FeishuPersonalResource
 	require.NoError(t, f.db.Where("import_id = ?", m.ID).First(&before).Error)
-	require.NoError(t, f.db.Model(&types.FeishuPersonalImport{}).Where("id = ?", m.ID).Update("status", "indexed").Error)
+	require.NoError(
+		t,
+		f.db.Model(&types.FeishuPersonalImport{}).Where("id = ?", m.ID).Update("status", "indexed").Error,
+	)
 	lease := time.Now().Add(time.Minute)
-	require.NoError(t, f.db.Model(&types.FeishuPersonalAttempt{}).Where("id = ?", m.AttemptID).Update("lease_until", lease).Error)
+	require.NoError(
+		t,
+		f.db.Model(&types.FeishuPersonalAttempt{}).
+			Where("id = ?", m.AttemptID).
+			Update("lease_until", lease).
+			Error,
+	)
 	called := false
-	callback := func(tx *gorm.DB, current *types.FeishuPersonalImport) error {
+	callback := func(_ *gorm.DB, current *types.FeishuPersonalImport) error {
 		called = true
 		require.Equal(t, m.LogicalKnowledgeID, current.KnowledgeID)
 		return nil
@@ -64,15 +94,31 @@ func TestFeishuV2PostgresSourceHandoffIsAtomicAndFencesOldWorker(t *testing.T) {
 	err = f.p.repo.HandoffSource(f.ctx, m.ID, "A", callback)
 	require.ErrorIs(t, err, repository.ErrPersonalBusy)
 	require.False(t, called)
-	require.NoError(t, f.db.Model(&types.FeishuPersonalAttempt{}).Where("id = ?", m.AttemptID).Update("lease_until", nil).Error)
+	require.NoError(
+		t,
+		f.db.Model(&types.FeishuPersonalAttempt{}).
+			Where("id = ?", m.AttemptID).
+			Update("lease_until", nil).
+			Error,
+	)
 	fault := errors.New("handoff rollback")
 	err = f.p.repo.HandoffSource(f.ctx, m.ID, "A", func(tx *gorm.DB, _ *types.FeishuPersonalImport) error {
-		require.NoError(t, tx.Model(&types.Knowledge{}).Where("id = ?", m.LogicalKnowledgeID).Update("title", "must roll back").Error)
+		require.NoError(
+			t,
+			tx.Model(&types.Knowledge{}).
+				Where("id = ?", m.LogicalKnowledgeID).
+				Update("title", "must roll back").
+				Error,
+		)
 		return fault
 	})
 	require.ErrorIs(t, err, fault)
 	var knowledge types.Knowledge
-	require.ErrorIs(t, f.db.Where("id = ?", m.LogicalKnowledgeID).First(&knowledge).Error, gorm.ErrRecordNotFound)
+	require.ErrorIs(
+		t,
+		f.db.Where("id = ?", m.LogicalKnowledgeID).First(&knowledge).Error,
+		gorm.ErrRecordNotFound,
+	)
 	require.NoError(t, f.db.WithContext(f.ctx).Where("id = ?", m.LogicalKnowledgeID).First(&knowledge).Error)
 	require.NotEqual(t, "must roll back", knowledge.Title)
 	require.NoError(t, f.p.repo.HandoffSource(f.ctx, m.ID, "A", callback))

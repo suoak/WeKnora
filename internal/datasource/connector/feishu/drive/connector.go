@@ -110,11 +110,17 @@ func (c *DriveConnector) ListResources(
 		// folder_token so the picker still renders something usable.
 		folderName := rootFolderToken
 		if meta, mErr := client.GetDriveFolderMeta(ctx, rootFolderToken); mErr != nil {
-			logger.Warnf(ctx, "[FeishuDrive] resolve root folder name failed: %v (falling back to token)", mErr)
+			logger.Warnf(
+				ctx,
+				"[FeishuDrive] resolve root folder name failed: %v (falling back to token)",
+				mErr,
+			)
 		} else if meta.Data.Name != "" {
 			folderName = meta.Data.Name
 		}
-		return []types.Resource{c.driveFolderToResource(rootFolderToken, "", rootFolderToken, folderName)}, nil
+		return []types.Resource{
+			c.driveFolderToResource(rootFolderToken, "", rootFolderToken, folderName),
+		}, nil
 	}
 
 	// Lazy load: list only the direct children of the given folder.
@@ -299,7 +305,11 @@ type driveOps struct {
 	region core.Region
 }
 
-func (o driveOps) List(ctx context.Context, client *core.Client, resourceID string) ([]core.DriveFile, error, error) {
+func (o driveOps) List(
+	ctx context.Context,
+	client *core.Client,
+	resourceID string,
+) ([]core.DriveFile, error, error) {
 	files, err := listDriveFilesForResource(ctx, client, resourceID)
 	if err == nil {
 		return files, nil, nil
@@ -316,7 +326,13 @@ func (o driveOps) Title(n core.DriveFile) string    { return n.Name }
 func (o driveOps) ObjType(n core.DriveFile) string  { return n.Type }
 func (o driveOps) EditTime(n core.DriveFile) string { return n.ModifiedTime }
 
-func (o driveOps) Fetch(ctx context.Context, client *core.Client, n core.DriveFile, resourceID string, multimodal bool) ([]*types.FetchedItem, error) {
+func (o driveOps) Fetch(
+	ctx context.Context,
+	client *core.Client,
+	n core.DriveFile,
+	resourceID string,
+	multimodal bool,
+) ([]*types.FetchedItem, error) {
 	return fetchDriveFileContent(ctx, client, n, resourceID, multimodal, o.region)
 }
 
@@ -366,7 +382,12 @@ func (o driveOps) EncodeCursor(times map[string]map[string]string, lastSync time
 //   - file                   -> DownloadDriveFile -> original file
 //   - mindnote/slides/board  -> Skip (no API), returns (nil, nil)
 func fetchDriveFileContent(
-	ctx context.Context, client *core.Client, file core.DriveFile, resourceID string, multimodalEnabled bool, region core.Region,
+	ctx context.Context,
+	client *core.Client,
+	file core.DriveFile,
+	resourceID string,
+	multimodalEnabled bool,
+	region core.Region,
 ) ([]*types.FetchedItem, error) {
 	if !core.IsSupportedDocType(file.Type) {
 		return nil, nil
@@ -574,7 +595,9 @@ func driveRootFolderToken(config *types.DataSourceConfig) string {
 // suffix) so it matches the resource_id the user saved in
 // form.config.resource_ids = [folderToken]. A "token:token" encoding would
 // break selection matching on edit.
-func (c *DriveConnector) driveFolderToResource(rootFolderToken, parentToken, folderToken, name string) types.Resource {
+func (c *DriveConnector) driveFolderToResource(
+	rootFolderToken, parentToken, folderToken, name string,
+) types.Resource {
 	if name == "" {
 		name = folderToken
 	}
@@ -630,7 +653,11 @@ func (c *DriveConnector) driveFileToResource(rootFolderToken string, file core.D
 // appendDriveFileListFailureItems converts Drive listing failures into error
 // FetchedItems so the sync log surfaces which sub-folders could not be listed.
 // Mirrors appendWikiNodeListFailureItems.
-func appendDriveFileListFailureItems(items []types.FetchedItem, resourceID, channel string, failures []core.DriveFileListFailure) []types.FetchedItem {
+func appendDriveFileListFailureItems(
+	items []types.FetchedItem,
+	resourceID, channel string,
+	failures []core.DriveFileListFailure,
+) []types.FetchedItem {
 	for _, failure := range failures {
 		items = append(items, types.FetchedItem{
 			ExternalID:       failure.FolderToken,

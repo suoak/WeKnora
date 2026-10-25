@@ -149,7 +149,8 @@ func (p *PersonalRecovery) authorizeLocal(
 	if err != nil {
 		return nil, nil, err
 	}
-	if !cfg.Enabled || cfg.identityVersion(types.FeishuAuthMode(m.AuthMode)) != a.AppConfigVersion || cfg.AppID != m.AppID ||
+	if !cfg.Enabled || cfg.identityVersion(types.FeishuAuthMode(m.AuthMode)) != a.AppConfigVersion ||
+		cfg.AppID != m.AppID ||
 		!cfg.modeEnabled(types.FeishuAuthMode(m.AuthMode)) ||
 		types.FeishuAuthMode(a.AuthMode) != types.FeishuAuthMode(m.AuthMode) {
 		return nil, nil, repository.ErrPersonalIdentity
@@ -329,7 +330,20 @@ func (p *PersonalRecovery) prepareWithIdentity(
 	a.Revision = resource.Modified
 	if cfg.Capabilities != nil {
 		var protected int64
-		if e := p.service.db.WithContext(ctx).Model(&types.FeishuPersonalImport{}).Where("app_id = ? AND kb_id = ? AND resource_type = ? AND document_token = ? AND status IN ?", m.AppID, m.KBID, m.ResourceType, m.DocumentToken, []string{"paused", "hold", "revoked"}).Count(&protected).Error; e != nil {
+		if e := p.service.db.
+			WithContext(ctx).
+			Model(&types.FeishuPersonalImport{}).
+			Where("app_id = ? AND kb_id = ? AND resource_type = ? AND document_token = ? AND status IN ?",
+				m.AppID,
+				m.KBID,
+				m.ResourceType,
+				m.DocumentToken,
+				[]string{
+					"paused",
+					"hold",
+					"revoked",
+				}).
+			Count(&protected).Error; e != nil {
 			return nil, e
 		}
 		if protected > 0 {
@@ -864,7 +878,8 @@ func (p *PersonalRecovery) mutate(
 		if err = openFeishu(cipher, &cfg); err != nil {
 			return err
 		}
-		if !cfg.Enabled || cfg.identityVersion(types.FeishuAuthMode(m.AuthMode)) != a.AppConfigVersion || cfg.AppID != m.AppID ||
+		if !cfg.Enabled || cfg.identityVersion(types.FeishuAuthMode(m.AuthMode)) != a.AppConfigVersion ||
+			cfg.AppID != m.AppID ||
 			!cfg.modeEnabled(types.FeishuAuthMode(m.AuthMode)) ||
 			types.FeishuAuthMode(a.AuthMode) != types.FeishuAuthMode(m.AuthMode) {
 			return repository.ErrPersonalIdentity

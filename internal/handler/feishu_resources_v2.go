@@ -1,9 +1,10 @@
 package handler
 
 import (
+	"strconv"
+
 	"github.com/Tencent/WeKnora/internal/application/service"
 	"github.com/gin-gonic/gin"
-	"strconv"
 )
 
 func (h *FeishuPersonalHandler) Connections(c *gin.Context) {
@@ -14,6 +15,7 @@ func (h *FeishuPersonalHandler) Connections(c *gin.Context) {
 	}
 	c.JSON(200, rows)
 }
+
 func (h *FeishuPersonalHandler) Resources(c *gin.Context) {
 	size := 50
 	if raw := c.Query("page_size"); raw != "" {
@@ -24,13 +26,25 @@ func (h *FeishuPersonalHandler) Resources(c *gin.Context) {
 		}
 		size = n
 	}
-	rows, err := h.svc.Resources(c.Request.Context(), service.FeishuResourceQuery{AuthMode: c.Query("auth_mode"), ConnectionID: c.Query("connection_id"), Kind: c.DefaultQuery("kind", "drive"), Parent: c.Query("parent_id"), Space: c.Query("space_id"), Cursor: c.Query("cursor"), Size: size})
+	rows, err := h.svc.Resources(
+		c.Request.Context(),
+		service.FeishuResourceQuery{
+			AuthMode:     c.Query("auth_mode"),
+			ConnectionID: c.Query("connection_id"),
+			Kind:         c.DefaultQuery("kind", "drive"),
+			Parent:       c.Query("parent_id"),
+			Space:        c.Query("space_id"),
+			Cursor:       c.Query("cursor"),
+			Size:         size,
+		},
+	)
 	if err != nil {
 		feishuFailureResponse(c, err)
 		return
 	}
 	c.JSON(200, rows)
 }
+
 func (h *FeishuPersonalHandler) CreatePrivateKB(c *gin.Context) {
 	var in struct {
 		Name string `json:"name"`

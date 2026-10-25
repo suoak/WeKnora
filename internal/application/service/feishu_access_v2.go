@@ -19,11 +19,13 @@ func (c *FeishuAppConfig) identityVersion(mode string) string {
 	}
 	return c.Version
 }
+
 func (c *FeishuAppConfig) modeConfigured(mode string) bool {
 	if c.Capabilities == nil {
 		return types.FeishuAuthMode(c.AuthMode) == mode
 	}
-	return mode == types.FeishuUserOAuth && c.Capabilities.PersonalEnabled || mode == types.FeishuApplicationGrant && c.Capabilities.ApplicationEnabled
+	return mode == types.FeishuUserOAuth && c.Capabilities.PersonalEnabled ||
+		mode == types.FeishuApplicationGrant && c.Capabilities.ApplicationEnabled
 }
 
 // V2 is opt-in at both the server and encrypted application configuration.
@@ -56,7 +58,10 @@ func (c *FeishuAppConfig) importMode(requested string) (string, error) {
 
 // ImportWithIdentity is the V2 admission adapter. It never falls back to another
 // identity after a token/ACL error. Legacy callers keep using Import.
-func (s *FeishuPersonalService) ImportWithIdentity(ctx context.Context, kb, link, requested string) (*types.FeishuPersonalImport, error) {
+func (s *FeishuPersonalService) ImportWithIdentity(
+	ctx context.Context,
+	kb, link, requested string,
+) (*types.FeishuPersonalImport, error) {
 	cfg, err := s.app(ctx)
 	if err != nil {
 		return nil, err
