@@ -72,7 +72,8 @@ func TestFeishuV2PostgresSourceHandoffIsAtomicAndFencesOldWorker(t *testing.T) {
 	})
 	require.ErrorIs(t, err, fault)
 	var knowledge types.Knowledge
-	require.NoError(t, f.db.Where("id = ?", m.LogicalKnowledgeID).First(&knowledge).Error)
+	require.ErrorIs(t, f.db.Where("id = ?", m.LogicalKnowledgeID).First(&knowledge).Error, gorm.ErrRecordNotFound)
+	require.NoError(t, f.db.WithContext(f.ctx).Where("id = ?", m.LogicalKnowledgeID).First(&knowledge).Error)
 	require.NotEqual(t, "must roll back", knowledge.Title)
 	require.NoError(t, f.p.repo.HandoffSource(f.ctx, m.ID, "A", callback))
 	var after types.FeishuPersonalResource

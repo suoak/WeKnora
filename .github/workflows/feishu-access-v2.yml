@@ -50,6 +50,8 @@ jobs:
         run: go test -json ./internal/types ./internal/application/access ./internal/datasource/connector/feishu/... -count=1 -timeout=10m | tee core-tests.jsonl
       - name: Real PostgreSQL batch and approval tests
         run: go test -json -tags sqlite_fts5 ./internal/application/service -run '^TestFeishuV2' -count=1 -timeout=10m | tee service-tests.jsonl
+      - name: Private files with legacy protection disabled
+        run: go test -json -tags sqlite_fts5 ./internal/application/repository -run '^TestFeishuV2Private' -count=1 -timeout=5m | tee private-files-tests.jsonl
       - name: Race real PostgreSQL claims
         run: go test -race -json -tags sqlite_fts5 ./internal/application/service -run '^TestFeishuV2Postgres' -count=1 -timeout=10m | tee race-tests.jsonl
       - name: Reject missing or skipped required integration tests
