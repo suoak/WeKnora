@@ -1,5 +1,7 @@
 # 验证与回滚
 
+> 本文件是 PR-A 审计时的验证/回滚快照，不是当前运行时实现清单。当前精确 SHA、Linux 门禁、HTTP 临时回调方案及尚未完成的验收见 [09_IMPLEMENTATION_PROGRESS.md](09_IMPLEMENTATION_PROGRESS.md)。真实验收已按用户要求调整为单个飞书账号；不把真实跨员工场景标为 PASS。
+
 本轮仅新增身份契约和离线默认的开发探针，不接入产品请求、worker、数据库迁移或 UI。测试记录详见 evidence/validation.txt；真实账号、生产运行版本复核和 Linux 集成不能从本地单测推导。
 
 用户提供应用凭据后，真实获取应用 Token、读取应用根目录元数据和 Wiki 首批空间列表已通过。详见 03 与 evidence/live-application-probe.json。未执行具体文档正文、导出、员工 OAuth 或业务导入。

@@ -23,6 +23,10 @@
 | `75b737f046b1003fd9fe9ae68d84e586e1efc2a1` | [独立 V2 CI](https://github.com/suoak/WeKnora/actions/runs/40169067578) | PASS；service 10 条 PASS 事件、race 6 条 PASS 事件，均无 SKIP/FAIL；私有文件、迁移、前端也通过 |
 | `e0b76c09ed88dd792cf0fe2a079ba1f23c85fc6c` | [原生引擎 CI](https://github.com/suoak/WeKnora/actions/runs/40168561236) | PASS；源码构建 AnyDoc、cargo audit、解析器测试、带引擎的服务构建；不包含真实个人 OAuth |
 | `75b737f046b1003fd9fe9ae68d84e586e1efc2a1` | [原生 PG 门禁首轮](https://github.com/suoak/WeKnora/actions/runs/40169067622) | FAIL；隔离数据库名称不符合已有测试安全夹具的要求。保留拒绝检查，改用夹具规定的临时数据库名称重跑 |
+| `532a3a047e925bc698614603db4ca6e53404cb4b` | [独立 V2 门禁](https://github.com/suoak/WeKnora/actions/runs/40172482785) | PASS；lint、真实 PostgreSQL、竞态、迁移、前端完整测试/类型/构建均通过；后续修改须独立验证 |
+| `5a49b4e9054f607e823ced0119751ed2c8147d51` | [Portal 全套门禁](https://github.com/suoak/WeKnora/actions/runs/40172043924) | PASS；Portal contracts/RBAC/race、迁移新建与升级、完整 internal 后端与 MCP 兼容性 job；不代表全部可选外部集成测试已执行 |
+| `9a2c1267909c3cb1fc40a27ae401bf9035b5a4ed` | [Python MCP](https://github.com/suoak/WeKnora/actions/runs/40171577746) | PASS；Python 3.10/3.11/3.12/3.13 测试与 wheel，发布步骤 SKIPPED；不是实际业务检索验收 |
+| `282df329a79dc357fc88ee446faad010e5ef06ab` | [原生定向 PG 门禁](https://github.com/suoak/WeKnora/actions/runs/40172962188) | 定向步骤 PASS：真实解析/向量发布、新引用来源的变更/不变/失败保留版本/断连拒绝、接管恢复。飞书与模型响应为合成数据；完整原生应用回归仍在执行。该 SHA 的独立门禁 lint 有一项 QF1008，已在后续提交修复，不能标为整套 PASS |
 | 后续提交 | 全量/原生/权限回归 | 持续执行中；不得沿用前一个 SHA 的 PASS |
 
 本地 types、资源分页/快捷方式、引用版本与游标、SQLite 迁移检查及前端类型检查有通过记录。Windows 本地无法完成的原生链接测试由 Linux 门禁验证，不标记为本地 PASS。
@@ -47,18 +51,22 @@
 
 HTTP 无法保护网络传输：授权码、KnowHub 会话、请求和页面内容可能被同网段攻击者窃听或篡改。state、一次性授权码及服务端 Secret 不能消除会话窃取风险。只允许受控测试账号和测试文档；无法保持可信隔离网络时改用 HTTPS 反向代理，后端 8080 可保持 HTTP。测试入口应禁用带 query 的访问日志并发送 `Referrer-Policy: no-referrer`；回调页面已经立即清除地址栏参数。
 
+浏览器还有单独的兼容性限制：`crypto.randomUUID()` 需要安全上下文，不能假定 HTTP 内网地址可用。批次幂等键已改为 128 位 `getRandomValues()` 随机值；缺少安全随机源时拒绝提交，不回退到 `Math.random()`。定向测试两条通过，类型检查通过。Nginx 的精确回调页面现发送 `no-referrer` 与 `Cache-Control: no-store`；上线前仍需在实际隔离入口检查响应头。
+
 ## 打包服务器与切换授权
 
 - 用户已授权覆盖打包服务器现有 80/8080 服务；这不授权复用或修改现有数据库与业务文件。
 - 这两个端口当前属于同一个入口容器。已记录入口镜像 ID、端口与只读配置挂载路径，尚未停止或替换它。
 - 历史构建目录所在分区剩余约 1.4GB，Docker 所在 `/mnt/sata0` 约 1.2TB 可用。后续使用该挂载点的新目录。
 - 已核对已有构建镜像 ID 和原生库摘要。旧库源码指纹未与当前源确认一致，不将旧库直接充当当前版本的构建产物。
+- 再次以 LF 规范化后比较：Cargo.toml、build.rs、Rust 源码和 C 头文件一致，但 Cargo.lock 和原生构建脚本仍不同。当前构建脚本包含 ZIP 依赖安全修复，因此必须按当前锁文件重建，不能直接复用旧库。
 - 部署前仍需独立 Compose 项目、PostgreSQL/ParadeDB、Redis/Asynq、卷、网络与索引，验证迁移、备份恢复、应用启动和服务回滚后才能切换入口。
 
 ## 尚未完成
 
 - 文件夹/Wiki 当前支持受限选择和首次批次，其后逐文档可启用受控更新；目录新增文档的持续发现还未完成，不能称为完整目录持续同步。
-- 尚需真实索引接管后的变更/不变/失败保留旧版本端到端测试，以及完整 Portal、Go MCP、Python MCP 与多 Worker 回归。
+- 新凭据引用到真实解析、向量及发布链路已有合成接口/真实 PG 的变更、不变、失败保留旧版本与断连测试。真实首次入库到接管再到增量更新的完整串联，以及实际网页、Portal、Go MCP、Python MCP 业务检索仍待验收。
+- Portal/MCP 目录与计数使用的表别名已补私有范围过滤；策略快照也在事务开始时检查私人归属。新增 SQLite/PG 回归已提交，当前 SHA 的完整门禁仍在执行。
 - PR #50 仍 open，解析质量扩展等待其最终集成条件，不能修改其正在处理的文件。
 - 测试站尚未部署，单个真实飞书账号尚未完成 OAuth、Docx/Sheet/Bitable/Wiki/Drive、修改更新、网页和 MCP 验收。
 - 真实跨员工场景按用户调整记为 NOT_TESTED，使用隔离 KnowHub 用户、模拟 OpenID 与真实数据库补充安全测试。

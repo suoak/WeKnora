@@ -1,5 +1,7 @@
 # PR 拆分与本轮交付
 
+> 本文件保留 `d2181f3e4` 的 PR-A 审计/设计快照，下面的“本轮”和未实现状态指当时批次。当前开发与验证状态见 [09_IMPLEMENTATION_PROGRESS.md](09_IMPLEMENTATION_PROGRESS.md)。后续用户已明确真实验收仅用一个飞书账号，多用户隔离以模拟 OpenID、隔离 KnowHub 用户和真实数据库补充；不再要求三个真实员工账号。
+
 分支：feature/knowhub-feishu-access-v2；没有推送、创建远端 PR、合并 main 或部署生产。
 
 | PR | 内容 | 前置和回滚 |

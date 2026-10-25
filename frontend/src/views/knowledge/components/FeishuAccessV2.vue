@@ -35,11 +35,11 @@
       <t-input v-model="reason" :placeholder="t('sharingReason')" :maxlength="512" :disabled="busy" />
       <t-button :disabled="busy || !confirmSharing || !reason.trim()" @click="approve">{{ t('approveSharing') }}</t-button>
     </div>
-    <ul v-if="previews.length"><li v-for="(row, i) in previews" :key="i">{{ row.resource_type }} · {{ row.error_category || row.status }}</li></ul>
+    <ul v-if="previews.length"><li v-for="(row, i) in previews" :key="i"><a v-if="isFeishuDocumentURL(row.url)" :href="row.url" target="_blank" rel="noopener noreferrer">{{ row.url }}</a> · {{ row.resource_type }} · {{ label(row.error_category || row.status) }}</li></ul>
     <div v-if="batch">
-      <h4>{{ t('batchState') }} · {{ batch.status }}</h4>
-      <p>{{ Object.entries(batch.counts).map(([key, value]) => `${key}: ${value}`).join(' · ') }}</p>
-      <ul><li v-for="item in batch.items" :key="item.id">{{ item.ordinal + 1 }} · {{ item.status }} <span v-if="item.error_category">· {{ item.error_category }}</span></li></ul>
+      <h4>{{ t('batchState') }} · {{ label(batch.status) }}</h4>
+      <p>{{ Object.entries(batch.counts).map(([key, value]) => `${label(key)}: ${value}`).join(' · ') }}</p>
+      <ul><li v-for="item in batch.items" :key="item.id">{{ item.ordinal + 1 }} · <a v-if="isFeishuDocumentURL(item.url)" :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.url }}</a> · {{ label(item.status) }} <span v-if="item.error_category">· {{ label(item.error_category || 'operation_failed') }}</span></li></ul>
       <t-button :disabled="busy" @click="retry">{{ t('retryBatch') }}</t-button>
       <details v-if="batch.items.some(item => ['blocked','failed'].includes(item.status))">
         <summary @click="refreshCollaboration">{{ t('permissionChecklist') }}</summary>
@@ -47,11 +47,11 @@
         <t-input v-model="contact" :placeholder="t('permissionContact')" :maxlength="128" :disabled="busy" />
         <t-input v-model="collaborationNote" :placeholder="t('permissionNote')" :maxlength="512" :disabled="busy" />
         <div v-for="item in batch.items.filter(item => ['blocked','failed'].includes(item.status))" :key="item.id">
-          <p>{{ item.ordinal + 1 }} · {{ item.error_category }}</p>
+          <p>{{ item.ordinal + 1 }} · {{ label(item.error_category || 'operation_failed') }}</p>
           <t-button :disabled="busy || !collaborationNote.trim()" variant="text" @click="collaborate(item.id,'note')">{{ t('recordContact') }}</t-button>
           <t-button :disabled="busy || !collaborationNote.trim()" variant="text" @click="collaborate(item.id,'reported')">{{ t('reportedPermission') }}</t-button>
           <t-button :disabled="busy" variant="text" @click="collaborate(item.id,'recheck')">{{ t('recheckPermission') }}</t-button>
-          <ul><li v-for="event in collaboration.filter(event => event.item_id === item.id)" :key="event.id">{{ event.contact }} · {{ event.note }} · {{ event.result }}</li></ul>
+          <ul><li v-for="event in collaboration.filter(event => event.item_id === item.id)" :key="event.id">{{ event.contact }} · {{ event.note }} · {{ label(event.result) }}</li></ul>
         </div>
       </details>
     </div>
@@ -67,7 +67,7 @@
     <details>
       <summary @click="refreshImports">{{ t('sources') }}</summary>
       <div v-for="row in imports" :key="row.id">
-        <p>{{ row.resource_type }} · {{ row.status }} · {{ row.source_status || '' }}</p>
+        <p><a v-if="isFeishuDocumentURL(row.url)" :href="row.url" target="_blank" rel="noopener noreferrer">{{ row.url }}</a> · {{ row.resource_type }} · {{ label(row.status) }} · {{ row.source_status ? label(row.source_status) : '' }}</p>
         <t-button v-if="row.index_status === 'verified' && ['synced','completed'].includes(row.status)" :disabled="busy" variant="outline" @click="enableUpdates(row.id)">{{ t('enableUpdates') }}</t-button>
         <template v-if="row.data_source_id && row.status === 'source_managed'">
           <span>{{ t(row.source_status === 'active' ? 'sourceActive' : 'sourcePaused') }}</span>
@@ -93,8 +93,9 @@ import { feishuMessages } from '@/i18n/feishuPersonal'
 import { feishuConnections, feishuResources, disconnectFeishu, previewFeishu, createFeishuBatch, getFeishuBatch, retryFeishuBatch, approveFeishuSharing, isFeishuDocumentURL, type FeishuAuthMode, type FeishuConnection, type FeishuResource, type FeishuPreview, type FeishuBatch, type FeishuStatus } from '@/api/feishuPersonal'
 const props = defineProps<{ kbId: string; status: FeishuStatus; initialUrl?: string }>()
 const emit = defineEmits<{ connect: [links: string]; imported: [] }>()
-const { t } = useI18n({ useScope: 'local', messages: feishuMessages })
+const { t, te } = useI18n({ useScope: 'local', messages: feishuMessages })
 const router = useRouter()
+function label(value: string) { return te(value) ? t(value) : t('needs_attention') }
 const connections = ref<FeishuConnection[]>([]), mode = ref<FeishuAuthMode>('user_oauth')
 const modes = computed(() => connections.value.map(c => ({ label: t(c.kind === 'user_oauth' ? 'personalMode' : 'applicationMode'), value: c.kind })))
 const connection = computed(() => connections.value.find(c => c.kind === mode.value))
