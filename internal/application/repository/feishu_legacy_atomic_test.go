@@ -247,9 +247,10 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 				knowledge_base_id,content,dimension,embedding,is_enabled)
 				VALUES(?,0,?,?,?,'configbeforecanary',3,'[1,0,0]'::halfvec,true)`,
 				chunk.ID, chunk.ID, old.ID, kb.ID).Error)
+			candidateHash := sha256.Sum256([]byte("config-next"))
 			_, attempt, e := store.Begin(ctx, ds, &types.FetchedItem{
 				ExternalID: "config-" + window, UpdatedAt: time.Date(2026, 10, 21, 1, 1, 0, 0, time.UTC),
-			}, "config-next")
+			}, hex.EncodeToString(candidateHash[:]))
 			require.NoError(t, e)
 			candidate := old
 			candidate.FileHash = "config-next"
@@ -261,7 +262,10 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 					ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID,
 					KnowledgeID: old.ID, ChunkType: types.ChunkTypeText, Content: "confignextcanary", IsEnabled: true,
 				}},
-				EmbeddingModelID: kb.EmbeddingModelID, KBConfigSHA256: LegacyKBConfigHash(kb), ModelStamp: stamp, Dimension: 3,
+				EmbeddingModelID: kb.EmbeddingModelID,
+				KBConfigSHA256:   LegacyKBConfigHash(kb),
+				ModelStamp:       stamp,
+				Dimension:        3,
 			}
 			if window == "publish" {
 				require.NoError(t, store.Prepare(ctx, ds, attempt, manifest, [][]float32{{1, 0, 0}}))
@@ -276,7 +280,8 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 				require.NoError(t, db.Raw(`SELECT jsonb_build_object('knowledge',
 					(SELECT to_jsonb(k) FROM knowledges k WHERE id=?),'chunks',
 					(SELECT jsonb_agg(to_jsonb(c) ORDER BY c.id) FROM chunks c WHERE knowledge_id=?),'embeddings',
-					(SELECT jsonb_agg(to_jsonb(v) ORDER BY to_jsonb(v)::text) FROM embeddings v WHERE knowledge_id=?))::text`,
+					(SELECT jsonb_agg(to_jsonb(v) ORDER BY to_jsonb(v)::text)
+					 FROM embeddings v WHERE knowledge_id=?))::text`,
 					old.ID, old.ID, old.ID).Scan(&state).Error)
 				return state
 			}
