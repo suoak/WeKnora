@@ -75,7 +75,9 @@ func (s *FeishuPersonalService) batchItemProgress(ctx context.Context, item *typ
 	}
 	if m.KnowledgeID != "" {
 		var k types.Knowledge
-		if e := s.db.WithContext(ctx).Where("id = ? AND knowledge_base_id = ?", m.KnowledgeID, m.KBID).First(&k).Error; e != nil {
+		if e := s.db.WithContext(ctx).
+			Where("id = ? AND knowledge_base_id = ?", m.KnowledgeID, m.KBID).
+			First(&k).Error; e != nil {
 			return e
 		}
 		item.ParseStatus = k.ParseStatus
@@ -91,10 +93,13 @@ func (s *FeishuPersonalService) batchItemProgress(ctx context.Context, item *typ
 		if k.ParseStatus == types.ParseStatusFinalizing {
 			item.Stage = "finalizing"
 		}
-		if e := s.db.WithContext(ctx).Model(&types.Chunk{}).Where("knowledge_id = ?", k.ID).Count(&item.ChunkCount).Error; e != nil {
+		if e := s.db.WithContext(ctx).Model(&types.Chunk{}).
+			Where("knowledge_id = ?", k.ID).Count(&item.ChunkCount).Error; e != nil {
 			return e
 		}
-		if e := s.db.WithContext(ctx).Table("embeddings").Where("knowledge_id = ? AND embedding IS NOT NULL", k.ID).Count(&item.VectorCount).Error; e != nil {
+		if e := s.db.WithContext(ctx).Table("embeddings").
+			Where("knowledge_id = ? AND embedding IS NOT NULL", k.ID).
+			Count(&item.VectorCount).Error; e != nil {
 			return e
 		}
 		if s.db.Migrator().HasTable(&types.KnowledgeProcessingSpan{}) {
@@ -139,8 +144,9 @@ func (s *FeishuPersonalService) batchItemProgress(ctx context.Context, item *typ
 		(m.Status == "synced" || m.Status == "completed" || m.Status == "source_managed") {
 		item.Status, item.Stage, item.ErrorCategory = "succeeded", "completed", ""
 		var receipt types.TaskPendingOp
-		if e := s.db.WithContext(ctx).Where("scope = ? AND scope_id = ? AND op = ?",
-			personalIndexReceiptScope, m.KnowledgeID, "verified").Order("enqueued_at DESC").First(&receipt).Error; e == nil {
+		if e := s.db.WithContext(ctx).
+			Where("scope = ? AND scope_id = ? AND op = ?", personalIndexReceiptScope, m.KnowledgeID, "verified").
+			Order("enqueued_at DESC").First(&receipt).Error; e == nil {
 			t := receipt.EnqueuedAt
 			item.LastProgressAt = &t
 		}

@@ -23,6 +23,10 @@ func v2PostgresFixture(t *testing.T) *personalRecoveryFixture {
 	t.Helper()
 	t.Setenv("FEISHU_ACCESS_V2_ENABLED", "1")
 	f := newMVPFixture(t)
+	// This admission fixture has no parser/index worker. Supply the deployed
+	// vector column type for read-only progress counts; native tests exercise
+	// the complete embedding schema, BM25 and publication receipts.
+	require.NoError(t, f.db.Exec("CREATE TABLE embeddings(knowledge_id varchar(64),embedding halfvec)").Error)
 	ddl, err := os.ReadFile("../../../migrations/versioned/003039_feishu_access_v2.up.sql")
 	require.NoError(t, err)
 	require.NoError(t, f.db.Exec(string(ddl)).Error)
@@ -381,7 +385,9 @@ func TestFeishuV2PostgresBatchReportsActualFailureWithoutPollingProgress(t *test
 	require.NoError(t, err)
 	require.True(t, lastProgress.Equal(*view.Items[0].LastProgressAt))
 	require.NoError(t, f.db.Model(&types.FeishuPersonalAttempt{}).Where("import_id = ?", view.Items[0].ImportID).
-		Updates(map[string]interface{}{"status": "needs_attention", "last_error_category": "storage_permission_denied"}).
+		Updates(map[string]interface{}{
+			"status": "needs_attention", "last_error_category": "storage_permission_denied",
+		}).
 		Error)
 	view, err = f.s.Batch(f.ctx, view.Batch.ID)
 	require.NoError(t, err)

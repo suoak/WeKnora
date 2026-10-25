@@ -236,7 +236,8 @@ func TestFeishuV2PostgresDiscoveryNeverReentersManagedFirstCreate(t *testing.T) 
 	require.NoError(t, f.s.ReconcileBatches(context.Background()))
 	batch, err = f.s.Batch(f.ctx, batch.Batch.ID)
 	require.NoError(t, err)
-	require.Equal(t, "existing", batch.Items[0].Status)
+	require.Equal(t, "dispatched", batch.Items[0].Status,
+		"deduplicated admission without an index receipt is not verified success")
 	var after int64
 	require.NoError(t, f.db.Model(&types.FeishuPersonalAttempt{}).Count(&after).Error)
 	require.Equal(t, before, after, "discovery cannot allocate a new first-create attempt after handoff")

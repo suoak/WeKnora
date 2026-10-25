@@ -120,7 +120,7 @@ try {
   await page.getByRole('link',{name:'在知识库中查看'}).waitFor()
   assert.deepEqual(errors, [])
   await page.close()
-  console.log(JSON.stringify({status:'PASS',qualification:'mocked_http_actual_vue_dialog',links:10,submissions:1,preview_calls:0,viewports:[1280,390],real_oauth:'NOT_EXECUTED'}))
+  console.log(JSON.stringify({status:'PASS',qualification:'mocked_http_actual_vue_dialog_and_history',links:10,submissions:submissions.length,explicit_target_required:true,empty_targets_blocked:true,automatic_progress_reads:progressReads,preview_calls:0,viewports:[1280,390],real_oauth:'NOT_EXECUTED'}))
 } catch (error) {
   console.error(error)
   throw error

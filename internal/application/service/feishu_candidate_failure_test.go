@@ -19,8 +19,14 @@ func TestFeishuV2CandidateFailurePolicy(t *testing.T) {
 		category string
 		retry    bool
 	}{
-		{"storage permission", &os.PathError{Op: "mkdir", Path: "private", Err: os.ErrPermission}, "storage_permission_denied", false},
-		{"storage missing", &os.PathError{Op: "open", Path: "private", Err: os.ErrNotExist}, "storage_unavailable", false},
+		{
+			"storage permission", &os.PathError{Op: "mkdir", Path: "private", Err: os.ErrPermission},
+			"storage_permission_denied", false,
+		},
+		{
+			"storage missing", &os.PathError{Op: "open", Path: "private", Err: os.ErrNotExist},
+			"storage_unavailable", false,
+		},
 		{"timeout", context.DeadlineExceeded, "temporary_failure", true},
 		{"rate limit", core.ErrRateLimited, "temporary_failure", true},
 		{"temporary API", core.ErrTransient, "temporary_failure", true},

@@ -61,6 +61,13 @@ knowledge=rows('knowledges',['id','knowledge_base_id','parse_status','enable_sta
 ops=rows('task_pending_ops',['id','scope','scope_id','task_type','op','fail_count','enqueued_at','claimed_at'], 'scope_id IN ('+klist+')'+(' OR '+ ' OR '.join("payload::text LIKE '%"+x+"%'" for x in kids) if kids else ''))
 chunks=query('SELECT coalesce(json_agg(q),\'[]\') FROM (SELECT knowledge_id,count(*) AS count FROM chunks WHERE knowledge_id IN ('+klist+') GROUP BY knowledge_id) q')
 vectors=query('SELECT coalesce(json_agg(q),\'[]\') FROM (SELECT knowledge_id,dimension,count(*) AS count FROM embeddings WHERE knowledge_id IN ('+klist+') GROUP BY knowledge_id,dimension) q')
+bm25=[]
+for kid in sorted({r.get('knowledge_id') for r in imports if r.get('knowledge_id')}):
+ term=query("SELECT to_json(substring(content from '[A-Za-z]{4,}')) FROM embeddings WHERE knowledge_id="+quoted(kid)+" AND substring(content from '[A-Za-z]{4,}') IS NOT NULL LIMIT 1")
+ if term and re.fullmatch('[A-Za-z]{4,}',term):
+  count=query("SELECT to_json(count(*)) FROM embeddings WHERE knowledge_id="+quoted(kid)+" AND content ||| '"+term+"'")
+  bm25.append({'knowledge_id':kid,'matching_index_rows':count,'status':'PASS' if count else 'NO_MATCH'})
+ else:bm25.append({'knowledge_id':kid,'status':'NO_SAFE_QUERY_TERM'})
 logreports={}
 for service in []:
  p=run(compose+['logs','--no-color','--since','30m','--tail','1500',service],45)
@@ -145,10 +152,43 @@ for service in ['app','worker2']:
  logreports[service]={'process_users':process.stdout.strip().splitlines(), 'staging_owner_mode':run(compose+['exec','-T',service,'stat','-c','%u:%g:%a','/data/feishu-staging']).stdout.strip()}
 
 
+metadata=[]
+if APPROVED_LINKS:
+ import base64,urllib.request,urllib.error,urllib.parse
+ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+ links=[]
+ for value in APPROVED_LINKS:
+  u=urllib.parse.urlsplit(value)
+  if u.scheme!='https' or u.netloc!='ruijie.feishu.cn' or not re.fullmatch('/wiki/[A-Za-z0-9]+',u.path) or u.query or u.fragment:raise ValueError('approved_wiki_url_required')
+  links.append(u.path.rsplit('/',1)[1])
+ if len(links)>10:raise ValueError('approved_link_limit')
+ record=query("SELECT row_to_json(c) FROM (SELECT tokens,expires_at FROM feishu_connections WHERE user_id="+quoted(uid)+") c")
+ if not record:metadata=[{'ordinal':i,'error_category':'authorization_missing'} for i in range(len(links))]
+ elif datetime.datetime.fromisoformat(record['expires_at'])<=datetime.datetime.now(datetime.timezone.utc):
+  metadata=[{'ordinal':i,'error_category':'authorization_expired','api_called':False} for i in range(len(links))]
+ else:
+  environment=dict(line.split('=',1) for line in (site/'app.env').read_text().splitlines() if '=' in line)
+  cipher=record['tokens']
+  if not cipher.startswith('enc:v1:'):raise ValueError('encrypted_connection_required')
+  raw=base64.urlsafe_b64decode(cipher[7:]+'='*((-len(cipher[7:]))%4))
+  credential=json.loads(AESGCM(environment['SYSTEM_AES_KEY'].encode()).decrypt(raw[:12],raw[12:],None))
+  if credential.get('owner')!=uid:raise ValueError('connection_owner_mismatch')
+  class NoRedirect(urllib.request.HTTPRedirectHandler):
+   def redirect_request(self,*args,**kwargs):return None
+  opener=urllib.request.build_opener(NoRedirect())
+  for i,token in enumerate(links):
+   request=urllib.request.Request('https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token='+token,headers={'Authorization':'Bearer '+credential['access_token']})
+   try:
+    with opener.open(request,timeout=15) as response:
+     result=json.loads(response.read(1024*1024));code=result.get('code')
+     metadata.append({'ordinal':i,'http_status':response.status,'feishu_code':code,'resource_type':result.get('data',{}).get('node',{}).get('obj_type'),'status':'PASS' if code==0 else 'REJECTED'})
+   except urllib.error.HTTPError as error:metadata.append({'ordinal':i,'http_status':error.code,'error_category':'feishu_api_rejected'})
+   except urllib.error.URLError:metadata.append({'ordinal':i,'error_category':'network_failure'})
+  credential.clear();environment.clear()
 state={'user_id':uid,'batches':batches,'items':items,'imports':imports,'attempts':attempts,'knowledge':knowledge}
 # Store identifiers/status only in the existing private site; do not alter jobs.
 path=site/'real-batch-readonly-state.json';path.write_text(json.dumps(state));path.chmod(0o600)
-print(json.dumps({'status':'READ_ONLY','batches':safe(batches),'items':safe(items),'imports':safe(imports),'attempts':safe(attempts),'knowledge':safe(knowledge),'outbox':safe(ops),'chunks':safe(chunks),'vectors':safe(vectors),'logs':logreports}))
+print(json.dumps({'status':'READ_ONLY','batches':safe(batches),'items':safe(items),'imports':safe(imports),'attempts':safe(attempts),'knowledge':safe(knowledge),'outbox':safe(ops),'chunks':safe(chunks),'vectors':safe(vectors),'bm25':safe(bm25),'approved_link_metadata':metadata,'logs':logreports}))
 """
 
 
@@ -163,6 +203,7 @@ def main():
     parser.add_argument('--candidate-manifest', type=Path, required=True)
     parser.add_argument('--release-gates', type=Path)
     parser.add_argument('--test-username')
+    parser.add_argument('--approved-links-file',type=Path)
     parser.add_argument('--mode', choices=['prepare', 'apply', 'finish', 'status', 'rollback'], required=True)
     args = parser.parse_args()
     old, new = read_json(args.manifest), read_json(args.candidate_manifest)
@@ -187,7 +228,8 @@ def main():
         credential.clear()
         values = {'ROOT': str(PurePosixPath(old['source_directory']).parent), 'CANDIDATE': str(PurePosixPath(new['source_directory']).parent),
                   'OLD_SHA': old['source_sha'], 'SHA': new['source_sha'], 'MODE': args.mode,
-                  'GATES': read_json(args.release_gates) if args.release_gates else {}, 'TEST_USERNAME':args.test_username}
+                  'GATES': read_json(args.release_gates) if args.release_gates else {}, 'TEST_USERNAME':args.test_username,
+                  'APPROVED_LINKS':read_json(args.approved_links_file) if args.approved_links_file else []}
         guarded = 'try:\n' + textwrap.indent(REMOTE, ' ')
         guarded += "\nexcept Exception as error:\n print(json.dumps({'status':'BLOCKED','reason':str(error) if isinstance(error,ValueError) else 'isolated_upgrade_operation_failed','error_type':type(error).__name__}))\n raise SystemExit(2)\n"
         code = base64.b64encode(('\n'.join(k + '=' + repr(v) for k, v in values.items()) + '\n' + guarded).encode()).decode()
