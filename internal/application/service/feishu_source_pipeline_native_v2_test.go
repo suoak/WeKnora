@@ -231,10 +231,42 @@ func runV2NativeReferencePipeline(t *testing.T, firstCreate bool) {
 	}
 	expectedKnowledgeID := ""
 	if firstCreate {
+		// A real serialized ordinary processing task arrives without the
+		// owner's HTTP context, just like an Asynq delivery in the deployed site.
+		manualContext := types.WithExecutionTenant(ctx, tenant.ID)
+		manualContext = context.WithValue(manualContext, types.TenantInfoContextKey, tenant)
+		noSummary := false
+		manualText := "# Private manual worker\n\nnativeprivateworkercanary remains owner-only."
+		manual, e := ks.CreateKnowledgeFromManual(manualContext, kb.ID, &types.ManualKnowledgePayload{
+			Title: "Private worker canary", Content: manualText, Status: types.ManualKnowledgeStatusPublish,
+			ProcessConfig: &types.KnowledgeProcessOverrides{SummaryEnabled: &noSummary},
+		}, "web")
+		require.NoError(t, e)
+		manualBody, e := json.Marshal(types.ManualProcessPayload{
+			TenantID: tenant.ID, KnowledgeBaseID: kb.ID, KnowledgeID: manual.ID, Content: manualText,
+		})
+		require.NoError(t, e)
+		require.NoError(t, s.WrapPrivateTaskHandler(ks.ProcessManualUpdate)(context.Background(),
+			asynq.NewTask(types.TypeManualProcess, manualBody)))
+		manualPost := NewKnowledgePostProcessService(ks.repo, ks.kbService, nil, ks.chunkRepo, ks.task,
+			repository.NewTaskPendingOpsRepository(db), nil, nil)
+		manualBody, e = json.Marshal(types.KnowledgePostProcessPayload{
+			TenantID: tenant.ID, KnowledgeBaseID: kb.ID, KnowledgeID: manual.ID,
+		})
+		require.NoError(t, e)
+		require.NoError(t, s.WrapPrivateTaskHandler(manualPost.Handle)(context.Background(),
+			asynq.NewTask(types.TypeKnowledgePostProcess, manualBody)))
+		var manualStored types.Knowledge
+		require.NoError(t, db.WithContext(ctx).Where("id=?", manual.ID).First(&manualStored).Error)
+		require.Equal(t, types.ParseStatusCompleted, manualStored.ParseStatus)
+		var manualVectors int64
+		require.NoError(t, db.Raw("SELECT count(*) FROM embeddings WHERE knowledge_id=? AND dimension=1024",
+			manual.ID).Scan(&manualVectors).Error)
+		require.Positive(t, manualVectors)
 		f := &personalRecoveryFixture{t: t, db: db, s: s, p: s.recovery, ks: ks, ctx: ctx}
 		m, e := s.ImportWithIdentity(ctx, kb.ID, link, types.FeishuUserOAuth)
 		require.NoError(t, e)
-		require.NoError(t, f.p.Process(ctx, f.payload(m.AttemptID)))
+		require.NoError(t, f.p.Process(context.Background(), f.payload(m.AttemptID)))
 		var k types.Knowledge
 		require.NoError(t, db.WithContext(ctx).Where("id = ?", m.LogicalKnowledgeID).First(&k).Error)
 		op, e := ks.repo.(interfaces.KnowledgeDispatchRepository).GetKnowledgeDispatch(ctx, tenant.ID, k.ID)
@@ -247,7 +279,8 @@ func runV2NativeReferencePipeline(t *testing.T, firstCreate bool) {
 		require.NoError(t, ks.repo.UpdateKnowledge(ctx, &k))
 		body, e := json.Marshal(payload)
 		require.NoError(t, e)
-		require.NoError(t, ks.ProcessDocument(ctx, asynq.NewTask(types.TypeDocumentProcess, body)))
+		require.NoError(t, s.WrapPrivateTaskHandler(ks.ProcessDocument)(context.Background(),
+			asynq.NewTask(types.TypeDocumentProcess, body)))
 		post := NewKnowledgePostProcessService(ks.repo, ks.kbService, nil, ks.chunkRepo, ks.task,
 			repository.NewTaskPendingOpsRepository(db), nil, nil)
 		body, e = json.Marshal(types.KnowledgePostProcessPayload{
@@ -255,7 +288,8 @@ func runV2NativeReferencePipeline(t *testing.T, firstCreate bool) {
 			KnowledgeID: k.ID, Attempt: payload.Attempt,
 		})
 		require.NoError(t, e)
-		require.NoError(t, post.Handle(ctx, asynq.NewTask(types.TypeKnowledgePostProcess, body)))
+		require.NoError(t, s.WrapPrivateTaskHandler(post.Handle)(context.Background(),
+			asynq.NewTask(types.TypeKnowledgePostProcess, body)))
 		s.dataSources = &v2HandoffSources{db: db}
 		ds, e = s.EnableImportSource(ctx, kb.ID, m.ID, "")
 		require.NoError(t, e)
