@@ -132,6 +132,8 @@ jobs:
           python3 -c 'import json; e=[json.loads(l) for l in open("evidence/native-source-tests.jsonl") if l.startswith("{")]; assert any(x.get("Action")=="pass" and x.get("Test")=="TestFeishuV2NativeHandoffRecoversWithoutReset" for x in e)'
           python3 -c 'import json; e=[json.loads(l) for l in open("evidence/native-source-tests.jsonl") if l.startswith("{")]; assert any(x.get("Action")=="pass" and x.get("Test")=="TestFeishuV2NativeReferenceUpdatesPreservePublishedVersion" for x in e)'
           python3 -c 'import json; e=[json.loads(l) for l in open("evidence/native-source-tests.jsonl") if l.startswith("{")]; assert any(x.get("Action")=="pass" and x.get("Test")=="TestFeishuV2NativeFirstCreateHandoffAndIncrementalPublication" for x in e)'
+          go test -p 2 -json -tags anydoc,sqlite_fts5 ./internal/application/repository -run '^TestFeishuLegacyAtomicPostgres$|^TestFeishuLegacyProcessMetadata' -count=1 -timeout=10m | tee evidence/native-atomic-metadata-tests.jsonl
+          python3 -c 'import json; e=[json.loads(l) for l in open("evidence/native-atomic-metadata-tests.jsonl") if l.startswith("{")]; p={x.get("Test") for x in e if x.get("Action")=="pass"}; assert {"TestFeishuLegacyAtomicPostgres/process-config-edit-before-prepare","TestFeishuLegacyAtomicPostgres/process-config-edit-before-publish"} <= p'
       - name: Legacy identity rotation and first-create Asynq recovery
         # Existing destructive Redis tests require this exact isolated alias.
         # Map it to this job's disposable service, never relax their target guard.

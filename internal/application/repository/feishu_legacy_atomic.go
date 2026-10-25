@@ -560,6 +560,18 @@ func (s *FeishuLegacyStore) Prepare(
 			return legacyFence("source_identity_manifest_changed")
 		}
 		m.SourceIdentity = initial.SourceIdentity
+		var previous types.Knowledge
+		loadErr := tx.Clauses(clause.Locking{Strength: "SHARE"}).
+			First(&previous, "id=? AND tenant_id=?", r.KnowledgeID, r.TenantID).Error
+		if loadErr != nil && !errors.Is(loadErr, gorm.ErrRecordNotFound) {
+			return loadErr
+		}
+		if previous.FileHash != a.ExpectedHash {
+			return legacyFence("public_file_hash_changed")
+		}
+		if e = legacyProcessMetadata(&previous, &m.Knowledge, true); e != nil {
+			return e
+		}
 		h, e := LegacyManifestHash(m)
 		if e != nil {
 			return e
@@ -711,6 +723,9 @@ func (s *FeishuLegacyStore) Publish(
 		}
 		if old.FileHash != a.ExpectedHash {
 			return legacyFence("public_file_hash_changed")
+		}
+		if e = legacyProcessMetadata(&old, &m.Knowledge, false); e != nil {
+			return e
 		}
 		indexed, e := legacyIndexedChunks(m.Chunks)
 		if e != nil {
