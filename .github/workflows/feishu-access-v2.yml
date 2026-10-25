@@ -97,6 +97,16 @@ jobs:
         working-directory: frontend
       - run: npm test && npm run type-check && npm run build
         working-directory: frontend
+      - name: One-click import dialog in desktop and narrow Chromium
+        working-directory: frontend
+        run: |
+          npx playwright install --with-deps chromium
+          FEISHU_UI_EVIDENCE_DIR="$RUNNER_TEMP/feishu-quick-ui" node tests/feishu-quick/run-browser-gate.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: feishu-v2-quick-import-ui-${{ github.sha }}
+          path: ${{ runner.temp }}/feishu-quick-ui/
       - name: Build pinned frontend candidate image
         run: |
           image="knowhub-feishu-v2/frontend:${GITHUB_SHA}"

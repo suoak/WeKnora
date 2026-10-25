@@ -483,54 +483,80 @@ func batchRetryCount(status string, retries int) int {
 // Enroll only explicitly imported and verified resources. No directory discovery,
 // source resume or cursor reset occurs here. Existing handoff fences remain authoritative.
 func (s *FeishuPersonalService) reconcileBatchUpdates(ctx context.Context) error {
-	var items []types.FeishuBatchItem
-	if err := s.db.WithContext(ctx).Where("status = ? AND import_id <> ?", "dispatched", "").
-		Order("updated_at,id").Limit(2).Find(&items).Error; err != nil {
-		return err
-	}
-	for _, item := range items {
-		var b types.FeishuBatch
-		if err := s.db.WithContext(ctx).Where("id = ?", item.BatchID).First(&b).Error; err != nil {
+	for n := 0; n < 2; n++ {
+		var item types.FeishuBatchItem
+		err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			if e := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
+				Where("status = ? AND import_id <> ? AND updated_at <= ? AND (lease_until IS NULL OR lease_until < ?)",
+					"dispatched", "", time.Now(), time.Now()).Order("updated_at,id").First(&item).Error; e != nil {
+				return e
+			}
+			until := time.Now().Add(3 * time.Minute)
+			item.LeaseOwner, item.LeaseUntil = uuid.NewString(), &until
+			return tx.Save(&item).Error
+		})
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		if err != nil {
 			return err
 		}
-		fresh, err := s.batchContext(ctx, &b)
-		if err != nil {
-			continue
+		status, category := "dispatched", ""
+		var b types.FeishuBatch
+		err = s.db.WithContext(ctx).Where("id = ?", item.BatchID).First(&b).Error
+		var fresh context.Context
+		if err == nil {
+			fresh, err = s.batchContext(ctx, &b)
 		}
-		view, err := s.Batch(fresh, b.ID)
-		if err != nil {
-			continue
+		var view *FeishuBatchView
+		if err == nil {
+			view, err = s.Batch(fresh, b.ID)
 		}
-		for _, progress := range view.Items {
-			if progress.ID != item.ID {
-				continue
-			}
-			status, category := "dispatched", ""
-			switch progress.Status {
-			case "succeeded":
-				// Automatic enrollment keeps the exact identity admitted by this
-				// batch. Reconnection/configuration changes require human review.
-				_, _, ref, credentialErr := s.ResolveCredentialReference(fresh, b.AuthMode, b.ConnectionID)
-				err = credentialErr
-				if err == nil && ref.ConfigVersion != b.ConfigVersion {
-					err = ErrFeishuReconnect
+		if err == nil {
+			for _, progress := range view.Items {
+				if progress.ID != item.ID {
+					continue
 				}
-				if err == nil {
-					_, err = s.EnableImportSource(fresh, b.KBID, item.ImportID, "")
+				switch progress.Status {
+				case "succeeded":
+					// Retain exactly the identity/version admitted by the original batch.
+					var ref types.FeishuCredentialRef
+					_, _, ref, err = s.ResolveCredentialReference(fresh, b.AuthMode, b.ConnectionID)
+					if err == nil && ref.ConfigVersion != b.ConfigVersion {
+						err = ErrFeishuReconnect
+					}
+					if err == nil {
+						_, err = s.EnableImportSource(fresh, b.KBID, item.ImportID, "")
+					}
+					if err == nil {
+						status = "succeeded"
+					}
+				case "failed":
+					status, category = "failed", progress.ErrorCategory
 				}
-				if err == nil {
-					status = "succeeded"
-				} else {
-					status, category = "blocked", feishuV2Error(err)
-				}
-			case "failed":
-				status, category = "failed", progress.ErrorCategory
 			}
-			if err := s.db.WithContext(ctx).Model(&types.FeishuBatchItem{}).
-				Where("id = ? AND status = ? AND import_id = ?", item.ID, "dispatched", item.ImportID).
-				Updates(map[string]any{"status": status, "error_category": category, "updated_at": time.Now()}).Error; err != nil {
-				return err
+		}
+		retries := item.RetryCount
+		if err != nil {
+			status, category = "blocked", feishuV2Error(err)
+			if category == "temporary_failure" && retries < 3 {
+				status = "dispatched"
+				retries++
 			}
+		}
+		// A bounded delay gives other documents a turn while indexing/enrollment waits.
+		next := time.Now().Add(30 * time.Second)
+		if category == "temporary_failure" {
+			next = time.Now().Add(time.Duration(1<<retries) * 30 * time.Second)
+		}
+		change := s.db.WithContext(ctx).Model(&types.FeishuBatchItem{}).
+			Where("id = ? AND status = ? AND lease_owner = ? AND lease_until > ?", item.ID, "dispatched", item.LeaseOwner, time.Now()).
+			Updates(map[string]any{
+				"status": status, "error_category": category, "retry_count": retries,
+				"updated_at": next, "lease_owner": "", "lease_until": nil,
+			})
+		if change.Error != nil {
+			return change.Error
 		}
 	}
 	return nil

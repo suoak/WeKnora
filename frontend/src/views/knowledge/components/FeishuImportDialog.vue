@@ -84,6 +84,7 @@ watch(() => props.visible, async value => {
   try {
     const next = await feishuStatus()
     if (props.visible && props.kbId === kb) status.value = next
+    if (next.v2) return
     const imports = await listFeishuImports(kb)
     if (props.visible && props.kbId === kb) rows.value = imports
     if (mounted && props.visible && props.kbId === kb) historyTimer = setTimeout(() => refreshHistory(kb), 5000)

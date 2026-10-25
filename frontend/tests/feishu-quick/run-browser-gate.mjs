@@ -1,0 +1,101 @@
+// Actual Vue dialog, mocked HTTP only. Never opens a real OAuth session.
+import assert from 'node:assert/strict'
+import { mkdirSync } from 'node:fs'
+import { resolve, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { createServer } from 'vite'
+import vue from '@vitejs/plugin-vue'
+import { chromium } from '@playwright/test'
+import net from 'node:net'
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
+const output = process.env.FEISHU_UI_EVIDENCE_DIR
+if (output) mkdirSync(output, { recursive: true })
+const port = await new Promise((resolve, reject) => {
+  const probe = net.createServer()
+  probe.once('error', reject)
+  probe.listen(0, '127.0.0.1', () => { const port = probe.address().port; probe.close(() => resolve(port)) })
+})
+const entry = `
+import {createApp,ref,nextTick,h} from 'vue';
+import TDesign from 'tdesign-vue-next';
+import 'tdesign-vue-next/es/style/index.css';
+import {createRouter,createMemoryHistory} from 'vue-router';
+import Dialog from '/src/views/knowledge/components/FeishuImportDialog.vue';
+import i18n from '/src/i18n/index.ts';
+const router=createRouter({history:createMemoryHistory(),routes:[{path:'/',component:{render:()=>null}}]});
+const app=createApp({setup(){const visible=ref(false);nextTick(()=>visible.value=true);return()=>h(Dialog,{visible:visible.value,'onUpdate:visible':value=>visible.value=value,kbId:'existing-team-kb'})}});
+app.use(router);app.use(TDesign);app.use(i18n);app.mount('#app');`
+const server = await createServer({
+  root, configFile: false, plugins: [vue(), {
+    name: 'feishu-quick-browser-harness',
+    resolveId(id) { if (id === '/__feishu-gate-entry.js') return '\0feishu-gate' },
+    load(id) { if (id === '\0feishu-gate') return entry },
+    configureServer(server) {
+      server.middlewares.use('/__feishu-gate', async (_req, response) => {
+        response.setHeader('Content-Type', 'text/html; charset=utf-8')
+        response.end(await server.transformIndexHtml('/__feishu-gate', '<html><body><div id="app"></div><script type="module" src="/__feishu-gate-entry.js"></script></body></html>'))
+      })
+    },
+  }], resolve: { alias: { '@': resolve(root, 'src') } },
+  define: { __FRONTEND_VERSION__: '"test"', __FRONTEND_COMMIT__: '"test"' },
+  optimizeDeps: { entries:[], include:['vue','vue-router','tdesign-vue-next'] },
+  server: { host: '127.0.0.1', port, strictPort:true },
+})
+let browser
+try {
+  await server.listen()
+  const address = server.httpServer.address()
+  const origin = `http://127.0.0.1:${address.port}`
+  browser = await chromium.launch({ headless: true })
+  const page = await browser.newPage()
+  page.setDefaultTimeout(20000)
+  const errors = [], submissions = [], requests = []
+  page.on('pageerror', error => { errors.push(error.message); console.error('Browser:',error.message) })
+  await page.route('**/api/v1/**', async route => {
+    const request = route.request(), path = new URL(request.url()).pathname
+    requests.push(path)
+    let body = []
+    if (path === '/api/v1/me/feishu') body = { v2:true,available:true,configured:true,connected:true,test_http_callback:true }
+    if (path === '/api/v1/me/feishu/connections') body = [{kind:'user_oauth',connected:true,id:'synthetic-connection'}]
+    if (path === '/api/v1/me/feishu/imports') {
+      const payload = request.postDataJSON()
+      submissions.push({ payload, key:request.headers()['idempotency-key'] })
+      body = {batch:{id:'synthetic-batch',kb_id:'private-kb',auth_mode:'user_oauth'},items:payload.links.map((url,index)=>({id:String(index),url,status:'pending'})),counts:{pending:payload.links.length},status:'running'}
+    }
+    await route.fulfill({status:path === '/api/v1/me/feishu/imports'?202:200,contentType:'application/json',body:JSON.stringify(body)})
+  })
+  await page.goto(origin + '/__feishu-gate')
+  console.log('Harness loaded')
+  await page.getByText('已连接飞书账号', {exact:true}).waitFor()
+  assert.equal(await page.getByText('权限预检', {exact:true}).count(), 0)
+  assert.equal(await page.getByText('创建私人知识库', {exact:true}).count(), 0)
+  assert.equal(await page.locator('.t-select').count(), 0)
+  const links = Array.from({length:10}, (_,i)=>`https://team.feishu.cn/${['docx','sheets','base','wiki'][i%4]}/token${i}`)
+  await page.locator('textarea').fill([...links, links[0]+'?from=share','invalid',''].join('\n'))
+  await page.getByText('1 条链接格式有误，将跳过；其余链接仍可导入。').waitFor()
+  await page.getByRole('button', {name:/一键导入/}).click()
+  await page.getByText('已添加 10 篇文档到导入队列，系统将在后台自动处理。可以关闭页面。', {exact:true}).waitFor()
+  assert.equal(submissions.length, 1)
+  assert.equal(submissions[0].payload.links.length, 10)
+  assert.equal(submissions[0].payload.kb_id, undefined)
+  assert.match(submissions[0].key, /^[a-f0-9]{32}$/)
+  assert.equal(requests.some(path => path.includes('preview')), false)
+  for (const width of [1280,390]) {
+    await page.setViewportSize({width,height:900})
+    const bounds = await page.locator('.t-dialog').boundingBox()
+    assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= width + 1, `dialog fits ${width}px`)
+    const overflowing = await page.locator('.quick-import').evaluate(el=>el.scrollWidth > el.clientWidth + 1)
+    assert.equal(overflowing, false)
+    if (output) await page.screenshot({path:resolve(output,`quick-import-${width}.png`),fullPage:true})
+  }
+  assert.deepEqual(errors, [])
+  await page.close()
+  console.log(JSON.stringify({status:'PASS',qualification:'mocked_http_actual_vue_dialog',links:10,submissions:1,preview_calls:0,viewports:[1280,390],real_oauth:'NOT_EXECUTED'}))
+} catch (error) {
+  console.error(error)
+  throw error
+} finally {
+  if (browser) await browser.close()
+  await Promise.race([server.close(), new Promise(resolve=>setTimeout(resolve,3000))])
+}

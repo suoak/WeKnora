@@ -11,7 +11,6 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 
-	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
@@ -352,21 +351,6 @@ func TestFeishuV2PostgresQuickImportCreatesOneProvenPrivateKB(t *testing.T) {
 	require.Error(t, err)
 	require.NoError(t, f.s.ReconcileBatches(context.Background()))
 	view, err := f.s.Batch(f.ctx, results[0].Batch.ID)
-	// Batch lookup resolves a KB grant at the API boundary in normal use.
-	if err != nil {
-		base, e := f.s.kbs.GetKnowledgeBaseByID(f.ctx, kbID)
-		require.NoError(t, e)
-		grant, e := access.ResolveKB(
-			f.ctx,
-			access.KBRequest{Caller: types.CallerFromContext(f.ctx)},
-			base,
-			types.OrgRoleEditor,
-			nil,
-			nil,
-		)
-		require.NoError(t, e)
-		view, err = f.s.Batch(grant.Context(f.ctx), results[0].Batch.ID)
-	}
 	require.NoError(t, err)
 	require.Equal(t, "dispatched", view.Items[0].Status)
 }
