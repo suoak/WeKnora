@@ -89,6 +89,7 @@ func TestFeishuV2PostgresSourceHandoffIsAtomicAndFencesOldWorker(t *testing.T) {
 	callback := func(_ *gorm.DB, current *types.FeishuPersonalImport) error {
 		called = true
 		require.Equal(t, m.LogicalKnowledgeID, current.KnowledgeID)
+		require.Equal(t, m.AttemptID, current.AttemptID)
 		return nil
 	}
 	err = f.p.repo.HandoffSource(f.ctx, m.ID, "A", callback)

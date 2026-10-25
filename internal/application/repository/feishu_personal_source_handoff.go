@@ -65,6 +65,10 @@ func (r *PersonalRecoveryRepository) HandoffSource(
 		if err := r.lockPrincipal(tx, &m, &attempt); err != nil {
 			return err
 		}
+		// These fields are computed views, not persisted import columns. Use
+		// the attempt selected under the resource lock for receipt verification.
+		m.AttemptID = attempt.ID
+		m.LogicalKnowledgeID = resource.LogicalKnowledgeID
 		if err := fn(tx, &m); err != nil {
 			return err
 		}
