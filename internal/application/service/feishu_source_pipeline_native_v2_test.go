@@ -28,6 +28,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/utils"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
+	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -43,7 +44,20 @@ func TestFeishuV2NativeFirstCreateHandoffAndIncrementalPublication(t *testing.T)
 	runV2NativeReferencePipeline(t, true)
 }
 
-type v2PipelineModel struct{ legacyLiveModel }
+type v2PipelineModel struct {
+	legacyLiveModel
+	pool embedding.EmbedderPooler
+}
+
+func (s *v2PipelineModel) GetEmbeddingModelForTenant(
+	ctx context.Context, id string, tenant uint64,
+) (embedding.Embedder, error) {
+	var model types.Model
+	if err := s.db.WithContext(ctx).Where("id = ? AND tenant_id = ?", id, tenant).First(&model).Error; err != nil {
+		return nil, err
+	}
+	return embedding.NewEmbedder(embedding.ConfigFromModel(&model, "", ""), s.pool, nil)
+}
 
 func (s *v2PipelineModel) GetEmbeddingModel(ctx context.Context, id string) (embedding.Embedder, error) {
 	var model types.Model
@@ -141,9 +155,16 @@ func runV2NativeReferencePipeline(t *testing.T, firstCreate bool) {
 	}
 	require.NoError(t, db.Create(kb).Error)
 	require.NoError(t, db.Exec("INSERT INTO feishu_private_kbs(kb_id,owner_id) VALUES(?,?)", kb.ID, user.ID).Error)
+	pool, err := ants.NewPool(2)
+	require.NoError(t, err)
+	t.Cleanup(pool.Release)
 	ks := &knowledgeService{
 		config: &config.Config{}, repo: repository.NewKnowledgeRepository(db),
-		kbService: &legacyLiveKB{db: db}, modelService: &v2PipelineModel{legacyLiveModel{db: db}},
+		kbService: &legacyLiveKB{db: db},
+		modelService: &v2PipelineModel{
+			legacyLiveModel: legacyLiveModel{db: db},
+			pool:            embedding.NewBatchEmbedder(pool),
+		},
 		tenantService: &legacyNoCloud{}, tenantRepo: repository.NewTenantRepository(db),
 		chunkRepo: repository.NewChunkRepository(db), task: &dispatchQueue{}, graphEngine: parentChildGraphRepo{},
 		fileSvc: files.NewLocalFileService(t.TempDir(), ""),
