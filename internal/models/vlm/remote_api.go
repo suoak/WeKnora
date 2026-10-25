@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/feishusafety"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/models/chat"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -111,21 +112,29 @@ func (v *RemoteAPIVLM) Predict(ctx context.Context, imgBytesList [][]byte, promp
 
 	ctx, cancel := context.WithTimeout(ctx, vlmHTTPTimeout())
 	defer cancel()
-	resp, err := v.chat.Chat(ctx, []chat.Message{{Role: "user", MultiContent: parts}}, &chat.ChatOptions{
+	opts := &chat.ChatOptions{
 		Temperature: v.temperature,
 		MaxTokens:   defaultMaxToks,
-	})
+	}
+	extraction := feishusafety.Scoped(ctx)
+	if extraction {
+		// Background extraction needs visible OCR/caption output within its
+		// existing budget. The catalog maps this switch to each vendor's
+		// supported dialect; no shared model or online chat setting changes.
+		thinking := false
+		opts.Thinking = &thinking
+	}
+	resp, err := v.chat.Chat(ctx, []chat.Message{{Role: "user", MultiContent: parts}}, opts)
 	if err != nil {
 		return "", fmt.Errorf("VLM request: %w", err)
 	}
 	content := resp.Content
-	if strings.TrimSpace(content) == "" && resp.FinishReason == "length" {
-		// Reasoning models spend the completion budget on reasoning before any
-		// visible output, so an exhausted budget yields an empty message rather
-		// than an API error. Returning "" here would be recorded as
-		// "no_extracted_content" and look identical to an image with no text.
+	if resp.FinishReason == "length" && (extraction || strings.TrimSpace(content) == "") {
+		// Reasoning may exhaust the budget before visible output. Partial OCR
+		// must also fail scoped extraction instead of becoming a published
+		// image child. Keep the historical non-Feishu behavior otherwise.
 		return "", fmt.Errorf(
-			"VLM returned no content: completion truncated at %d tokens (finish_reason=length)",
+			"VLM completion truncated at %d tokens (finish_reason=length)",
 			defaultMaxToks,
 		)
 	}
