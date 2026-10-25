@@ -29,6 +29,7 @@ func RegisterFeishuPersonalRoutes(r *gin.RouterGroup, h *handler.FeishuPersonalH
 	kb.POST("", h.Import)
 	kb.POST("/preview", h.Preview)
 	kb.POST("/batches", h.CreateBatch)
+	kb.GET("/batches", h.ListBatches)
 	kb.POST("/sharing-approvals", h.ApproveSharing)
 	kb.POST("/imports/:importID/source", h.EnableSource)
 	kb.POST("/imports/:importID/source/:action", h.SourceAction)

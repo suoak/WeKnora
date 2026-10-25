@@ -23,6 +23,29 @@ type FeishuBatchView struct {
 	Status string                  `json:"status"`
 }
 
+// ListBatches recovers the owner's batch handles after a page or worker restart.
+// Progress is read separately so listing history never replays an admission.
+func (s *FeishuPersonalService) ListBatches(ctx context.Context, kbID string, offset int) ([]types.FeishuBatch, error) {
+	user, ok := types.UserIDFromContext(ctx)
+	if !ok {
+		return nil, access.ErrUnauthorized
+	}
+	if offset < 0 || offset > 10000 {
+		return nil, errors.New("invalid_batch_history_offset")
+	}
+	kb, err := s.kbs.GetKnowledgeBaseByID(ctx, kbID)
+	if err != nil {
+		return nil, err
+	}
+	if err = access.RequireKBWrite(ctx, kb); err != nil {
+		return nil, err
+	}
+	rows := []types.FeishuBatch{}
+	err = s.db.WithContext(ctx).Where("owner_id = ? AND kb_id = ? AND tenant_id = ?", user, kbID, kb.TenantID).
+		Order("created_at DESC, id DESC").Offset(offset).Limit(20).Find(&rows).Error
+	return rows, err
+}
+
 // CreateBatch admits a bounded, owned batch using a caller-supplied idempotency key.
 func (s *FeishuPersonalService) CreateBatch(
 	ctx context.Context,

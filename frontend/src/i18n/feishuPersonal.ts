@@ -1,4 +1,5 @@
 const en = {
+  batchHistory: 'My import batches', viewBatch: 'View progress',
   testHTTPWarning: 'Temporary HTTP test environment: authorization codes, KnowHub sessions and page content can be intercepted or modified. Use only controlled test documents on a trusted network. Exception expires at:',
   shortcut: 'Shortcut',
   permissionChecklist: 'Permission collaboration checklist', collaborationExplanation: 'Record who will help with source permissions. A reported fix grants no access; recheck and explicitly retry after permission is confirmed. No message is sent.', permissionContact: 'Source owner or contact', permissionNote: 'Request or progress note', recordContact: 'Record request', reportedPermission: 'Record reported fix', recheckPermission: 'Recheck my access',
@@ -21,6 +22,7 @@ const en = {
   app: 'Feishu document application', appID: 'App ID', secret: 'App Secret (leave empty to keep)', callback: 'OAuth callback URL', enabled: 'Enable personal imports', save: 'Save', test: 'Test saved application credentials', saved: 'Configuration saved', tested: 'Application credentials valid.',
 }
 const zh = {
+  batchHistory: '我的导入批次', viewBatch: '查看进度',
   testHTTPWarning: '临时 HTTP 测试环境：授权码、KnowHub 会话和页面内容可能被窃听或篡改。仅在可信网络中使用受控测试文档。例外到期时间：',
   shortcut: '快捷方式',
   permissionChecklist: '权限协作清单', collaborationExplanation: '记录需要联系的源文档负责人。标记已处理不会授予权限；请重新预检，确认后明确重试。此操作不会发送消息。', permissionContact: '源文档负责人或联系人', permissionNote: '需要处理的问题或进展', recordContact: '记录协作请求', reportedPermission: '记录已处理反馈', recheckPermission: '重新检查我的权限',

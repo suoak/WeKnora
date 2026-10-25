@@ -2,9 +2,25 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
+
+// ListBatches returns only the current owner's bounded KB batch history.
+func (h *FeishuPersonalHandler) ListBatches(c *gin.Context) {
+	offset, err := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "invalid_batch_history_offset"})
+		return
+	}
+	rows, err := h.svc.ListBatches(c.Request.Context(), c.Param("id"), offset)
+	if err != nil {
+		feishuFailureResponse(c, err)
+		return
+	}
+	c.JSON(200, rows)
+}
 
 // Preview checks metadata access for a bounded set of links.
 func (h *FeishuPersonalHandler) Preview(c *gin.Context) {
