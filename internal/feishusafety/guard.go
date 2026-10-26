@@ -136,7 +136,9 @@ local first=redis.call('SET',KEYS[1],ARGV[1],'NX')
 redis.call('DEL',KEYS[2])
 if first then redis.call('XADD',KEYS[3],'MAXLEN','~',1000,'*','event','trip','reason',ARGV[1]) end
 return 1`).
-		Run(ctx, client, []string{g.key("trip"), g.PermitKey(), g.key("audit")}, reason).
+		// Stop must not depend on an EVALSHA/NOSCRIPT round trip. A stalled
+		// cache probe could exhaust the deadline before the latch was written.
+		Eval(ctx, client, []string{g.key("trip"), g.PermitKey(), g.key("audit")}, reason).
 		Err()
 }
 
