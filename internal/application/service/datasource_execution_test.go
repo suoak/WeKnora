@@ -87,6 +87,35 @@ func syncServiceSuite(t *testing.T, dialect string) {
 		}
 		return svc, ds, queue, connector
 	}
+	t.Run("sharing_denial_terminates_without_checkpoint_or_retry", func(t *testing.T) {
+		svc, ds, _, _ := makeSvc()
+		ds.LastSyncCursor = types.JSON(`{"connector_cursor":{"approved":"old-version"}}`)
+		require.NoError(t, dsRepo.Update(context.Background(), ds))
+		log, err := svc.ManualSync(context.Background(), ds.ID)
+		require.NoError(t, err)
+		executor, err := svc.executionRepo()
+		require.NoError(t, err)
+		execution, claimed, err := executor.ClaimExecution(context.Background(), ds.ID, log.ID, ds.TenantID)
+		require.NoError(t, err)
+		require.True(t, claimed)
+		ctx := types.WithSyncExecution(types.WithTaskRetryMetadata(context.Background(), 0, 5), execution)
+		result := &types.SyncResult{Total: 1, Failed: 1, Errors: []types.SyncItemError{{Code: "ingest_failed"}}}
+		err = svc.recordUnacceptedSync(ctx, ds, log, result,
+			&dataSourceIngestError{cause: ErrFeishuSharingApproval}, false)
+		require.ErrorIs(t, err, ErrFeishuSharingApproval)
+		require.ErrorIs(t, err, asynq.SkipRetry)
+		require.False(t, syncTaskCanRetry(ctx, err))
+		stored, err := logs.FindByID(context.Background(), log.ID)
+		require.NoError(t, err)
+		require.Equal(t, types.SyncLogStatusFailed, stored.Status)
+		require.False(t, stored.ExecutionClaimed)
+		require.NotNil(t, stored.FinishedAt)
+		require.Equal(t, ErrFeishuSharingApproval.Error(), stored.ErrorMessage)
+		require.Contains(t, string(stored.Result), "sharing_approval_required")
+		source, err := dsRepo.FindByID(context.Background(), ds.ID)
+		require.NoError(t, err)
+		require.Equal(t, ds.LastSyncCursor, source.LastSyncCursor)
+	})
 	t.Run("source_failure_keeps_other_sources_admitted_P0", func(t *testing.T) {
 		t.Setenv("FEISHU_SYNC_SAFETY_ENABLED", "true")
 		server := miniredis.RunT(t)
@@ -319,6 +348,8 @@ func syncServiceSuite(t *testing.T, dialect string) {
 func TestSyncTaskRetryMetadata(t *testing.T) {
 	infra := errors.New("infrastructure failure")
 	require.True(t, syncTaskCanRetry(types.WithTaskRetryMetadata(context.Background(), 0, 2), infra))
+	require.False(t, syncTaskCanRetry(types.WithTaskRetryMetadata(context.Background(), 0, 5),
+		&dataSourceIngestError{cause: ErrFeishuSharingApproval}))
 	require.False(t, syncTaskCanRetry(types.WithTaskRetryMetadata(context.Background(), 2, 2), infra))
 	require.False(t, syncTaskCanRetry(types.WithTaskRetryMetadata(context.Background(), 0, 2),
 		errors.Join(asynq.SkipRetry, infra)))

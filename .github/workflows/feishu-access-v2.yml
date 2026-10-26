@@ -71,6 +71,8 @@ jobs:
         run: go test -race -json ./internal/feishusynccontrol -count=1 -timeout=3m | tee control-tests.jsonl
       - name: Bound OAuth refresh and precise upstream error evidence
         run: go test -json -tags sqlite_fts5 ./internal/application/service -run '^TestFeishu(Refresh|OAuth|RemoteFailure|V2API)' -count=1 -timeout=5m | tee oauth-tests.jsonl
+      - name: Sharing denial ends sync without retry or checkpoint advance
+        run: go test -json -tags sqlite_fts5 ./internal/application/service -run '^(TestSyncTaskRetryMetadata|TestSyncServiceSQLite|TestSyncServicePostgres)$' -count=1 -timeout=5m | tee sharing-denial-tests.jsonl
       - name: Private files with legacy protection disabled
         run: go test -json -tags sqlite_fts5 ./internal/application/repository ./internal/application/repository/retriever/postgres -run '^TestFeishuV2Private' -count=1 -timeout=5m | tee private-files-tests.jsonl
       - name: Migration governance and V2 rollback state preservation

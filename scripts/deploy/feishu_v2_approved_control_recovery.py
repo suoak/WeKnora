@@ -147,6 +147,17 @@ def sync_history(rows):
   codes=re.findall(r'\bcode=(\d+)',message);row['provider_codes']=sorted(set(map(int,codes)))
  return values
 
+def approval_receipts(rows):
+ selected=','.join("'"+v['id']+"'" for v in rows)
+ values=sql("SELECT coalesce(json_agg(q),'[]') FROM (SELECT m.id AS source_id,a.id,a.state,a.revision,a.created_at,a.expires_at,"+
+  "a.expires_at > now() AS unexpired FROM feishu_personal_imports m JOIN feishu_sharing_approvals a ON "+
+  "a.owner_id=m.user_id AND a.kb_id=m.kb_id AND a.app_id=m.app_id AND a.resource_type=m.resource_type "+
+  "AND a.resource_token=m.document_token WHERE m.id IN ("+selected+") ORDER BY a.created_at DESC LIMIT 12) q")
+ for row in values:
+  row['source_hash']=mask(row.pop('source_id'));row['approval_hash']=mask(row.pop('id'))
+  row['revision_hash']=mask(row.pop('revision'))
+ return values
+
 def activity(rows):
  if not state or not state.get('resumed_at'):return []
  result=[]
@@ -155,6 +166,17 @@ def activity(rows):
   for line in logs.splitlines():
    stamp=re.search(r'\d{4}-\d{2}-\d{2}T[0-9:.]+Z',line)
    at=stamp.group() if stamp else None
+   if '/feishu/sharing-approvals' in line:
+    result.append({'service':service,'at':at,'kind':'sharing_approval_http',
+     'is_post':'POST' in line,'is_get':'GET' in line,
+     'http_status_candidates':re.findall(r'\b(?:[245]\d\d)\b',line)[:4]})
+   if 'failed to ingest item' in line:
+    known=['feishu safe staging writer is not available for changed source version',
+     'feishu durable dispatch is not confirmed','feishu_sharing_approval_required',
+     'permission denied','context deadline exceeded','personal_resource_revision_changed']
+    matches=[value for value in known if value in line]
+    result.append({'service':service,'at':at,'kind':'item_admission_failed',
+     'known_causes':matches,'unclassified':not bool(matches)})
    if '[Feishu] API request' in line:
     operation=re.search(r'operation=([a-z_]+)',line);status=re.search(r'status=(\d+)',line);code=re.search(r'code=(\d+)',line)
     if operation and status:
@@ -357,7 +379,7 @@ result={'status':state['phase'] if state else 'NOT_PREPARED','at':utc(clock()),'
   'config_hash':v['config_hash'],'cursor_hash':v['cursor_hash'],'status':v['status'],
   'legacy_access_state':v['legacy_access_state']} for v in rows],
  'indexes':[dict(v,id=mask(v['id'])) for v in indexes(rows)],
- 'cursor_receipts':cursor_receipts(rows),'sync_history':sync_history(rows),
+ 'cursor_receipts':cursor_receipts(rows),'sync_history':sync_history(rows),'approval_receipts':approval_receipts(rows),
  'activity_since_resume':activity(rows),
  'scope_edited':False,'cursor_reset':False,'budgets_reset':False,'publication_approval_written':False}
 connection.close();print(json.dumps(result))

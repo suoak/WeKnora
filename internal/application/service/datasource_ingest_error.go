@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/hibiken/asynq"
 )
 
 type dataSourceIngestError struct{ cause error }
@@ -22,6 +24,19 @@ func (s *DataSourceService) recordUnacceptedSync(
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	message := "Item admission failed; checkpoint retained"
+	if errors.Is(cause, ErrFeishuSharingApproval) {
+		// Keep the checkpoint before the rejected version. Approval must be
+		// supplied by the owner; replaying exports cannot create permission.
+		message = ErrFeishuSharingApproval.Error()
+		cause = errors.Join(asynq.SkipRetry, cause)
+		for i := range result.Errors {
+			if result.Errors[i].Code == "ingest_failed" {
+				result.Errors[i].Code = "sharing_approval_required"
+				result.Errors[i].Message = "当前版本需要共享发布授权"
+			}
+		}
+	}
 	resultJSON, _ := result.ToJSON()
 	if !syncTaskCanRetry(ctx, cause) {
 		if err := s.updateSyncRunResult(
@@ -31,7 +46,7 @@ func (s *DataSourceService) recordUnacceptedSync(
 			result,
 			resultJSON,
 			types.SyncLogStatusFailed,
-			"Item admission failed; checkpoint retained",
+			message,
 			wasPaused,
 		); err != nil {
 			return err
