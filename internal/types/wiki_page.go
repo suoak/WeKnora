@@ -194,6 +194,9 @@ type WikiPage struct {
 	// ReadETag binds a read-modify-write to all persisted dependencies, including
 	// meta/link fields whose updates do not increment the public revision.
 	ReadETag string `json:"-" gorm:"-"`
+	// ReadBodyETag permits server generation to merge only derived backlinks
+	// written while a model call was in flight. Public edits still use ReadETag.
+	ReadBodyETag string `json:"-" gorm:"-"`
 	// Unique identifier (UUID)
 	ID string `json:"id" gorm:"type:varchar(36);primaryKey"`
 	// Workspace ID for multi-workspace isolation
@@ -298,18 +301,28 @@ func (p *WikiPage) DependencyETag() string {
 	return hex.EncodeToString(h[:])
 }
 
+// BodyDependencyETag excludes only derived incoming links. Content, outgoing
+// links, sources, status, hierarchy, version and ownership remain dependencies.
+func (p *WikiPage) BodyDependencyETag() string {
+	cloned := *p
+	cloned.InLinks = nil
+	return cloned.DependencyETag()
+}
+
 // AfterFind provides the after find operation.
 func (p *WikiPage) AfterFind(tx *gorm.DB) error {
 	if err := CheckLegacySourceRead(tx, "", p.KnowledgeBaseID); err != nil {
 		return err
 	}
 	p.ReadETag = p.DependencyETag()
+	p.ReadBodyETag = p.BodyDependencyETag()
 	return nil
 }
 
 // AfterCreate provides the after create operation.
 func (p *WikiPage) AfterCreate(_ *gorm.DB) error {
 	p.ReadETag = p.DependencyETag()
+	p.ReadBodyETag = p.BodyDependencyETag()
 	return nil
 }
 

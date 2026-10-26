@@ -46,7 +46,12 @@ func withWikiDependencies(db *gorm.DB, page *types.WikiPage, write func(*gorm.DB
 			return err
 		}
 		if current.ReadETag != page.ReadETag {
-			return ErrWikiPageConflict
+			_, proved := WikiMCPGenerationTenant(db.Statement.Context)
+			if !proved || page.ReadBodyETag == "" || page.ReadBodyETag != current.BodyDependencyETag() {
+				return ErrWikiPageConflict
+			}
+			// Merge only incoming links and retain every content dependency.
+			page.InLinks = append(types.StringArray(nil), current.InLinks...)
 		}
 		if err := write(tx); err != nil {
 			return err
@@ -58,6 +63,7 @@ func withWikiDependencies(db *gorm.DB, page *types.WikiPage, write func(*gorm.DB
 			return err
 		}
 		page.ReadETag = saved.ReadETag
+		page.ReadBodyETag = saved.ReadBodyETag
 		return nil
 	})
 	if err != nil {
