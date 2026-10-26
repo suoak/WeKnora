@@ -12,6 +12,27 @@ import feishu_v2_membership_recovery as recovery
 
 
 class MembershipRecoveryTests(unittest.TestCase):
+    def test_only_terminal_existing_deliveries_survive_reset(self):
+        tree = ast.parse(recovery.program())
+        function = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'terminal_pending_ids')
+        def check(payload, terminal):
+            names = {
+                'queue': 'asynq:{sync}:', 'state': {'sources': [{'id': 'sheet'}, {'id': 'bitable'}]},
+                'redis': lambda command, *_: [b'task'] if command == 'LRANGE' else json.dumps(payload).encode(),
+                'fields': lambda raw: {1: [b'datasource:sync'], 2: [raw]},
+                'sql': lambda query: int(terminal), 'json': json, 're': re,
+            }
+            exec(compile(ast.Module(body=[function], type_ignores=[]), '<terminal-queue>', 'exec'), names)
+            return names['terminal_pending_ids']()
+        item = dict(data_source_id='sheet', sync_log_id='canceled-log', force_full=False)
+        self.assertEqual(['task'], check(item, True))
+        for payload, terminal in [(item, False), ({**item, 'force_full': True}, True),
+                ({**item, 'data_source_id': 'outside'}, True), ({**item, 'sync_log_id': "unsafe'"}, True)]:
+            with self.subTest(payload=payload, terminal=terminal), self.assertRaises(ValueError):
+                check(payload, terminal)
+        self.assertIn('PENDING_CHANGED', recovery.reset_program())
+        self.assertNotIn("redis.call('DEL',KEYS[10])", recovery.reset_program())
+
     def check_pending(self, payloads, log_pending=True):
         tree = ast.parse(recovery.program())
         function = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'pending_in_scope')
