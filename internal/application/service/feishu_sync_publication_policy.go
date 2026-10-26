@@ -25,6 +25,8 @@ type FeishuSyncPublicationPolicy struct {
 	ResourceType, ResourceToken, SourceConfigHash, AudienceHash     string
 	InitialApprovalID, AuthorizationRef, Operator, State            string
 	GrantEpoch                                                      string
+	ReconciliationLogID                                             string
+	ReconciliationExpiresAt                                         time.Time
 	TenantID                                                        uint64
 	CreatedAt, ExpiresAt                                            time.Time
 }
@@ -66,6 +68,22 @@ func syncPolicyAudience(tx *gorm.DB, kbID string) (string, error) {
 func (s *FeishuPersonalService) ApproveSourceUpdates(
 	ctx context.Context, sourceID, operator, authorizationRef string, expires time.Time,
 ) (*FeishuSyncPublicationPolicy, error) {
+	return s.approveSourceUpdates(ctx, sourceID, operator, authorizationRef, expires, "")
+}
+
+// ApproveSourceReconciliation prepares a single, explicitly approved full run for
+// a held personal source. It never clears hold or enqueues work. The normal sync
+// fence, permission checks, staging, indexes and full-reconciliation publication
+// must succeed before the existing repository can release the source's hold.
+func (s *FeishuPersonalService) ApproveSourceReconciliation(
+	ctx context.Context, sourceID, operator, authorizationRef string, expires time.Time,
+) (*FeishuSyncPublicationPolicy, error) {
+	return s.approveSourceUpdates(ctx, sourceID, operator, authorizationRef, expires, uuid.NewString())
+}
+
+func (s *FeishuPersonalService) approveSourceUpdates(
+	ctx context.Context, sourceID, operator, authorizationRef string, expires time.Time, reconciliationLog string,
+) (*FeishuSyncPublicationPolicy, error) {
 	admin, _ := ctx.Value(types.SystemAdminContextKey).(bool)
 	if !admin || operator == "" || authorizationRef == "" || !expires.After(time.Now()) ||
 		expires.After(time.Now().Add(90*24*time.Hour)) {
@@ -78,7 +96,8 @@ func (s *FeishuPersonalService) ApproveSourceUpdates(
 			Where("id = ?", sourceID).First(&ds).Error; err != nil {
 			return err
 		}
-		if !legacyWikiDrive(ds.Type) || ds.LegacyAccessState == "hold" || ds.LegacyAccessState == "revoked" ||
+		if !legacyWikiDrive(ds.Type) || ds.LegacyAccessState == "revoked" ||
+			(ds.LegacyAccessState == "hold") != (reconciliationLog != "") ||
 			ds.Status != types.DataSourceStatusActive && ds.Status != types.DataSourceStatusError {
 			return access.ErrForbidden
 		}
@@ -130,6 +149,26 @@ func (s *FeishuPersonalService) ApproveSourceUpdates(
 			GrantEpoch:       epoch.Epoch,
 			AuthorizationRef: authorizationRef, Operator: operator, State: "approved",
 			CreatedAt: time.Now(), ExpiresAt: expires,
+		}
+		if reconciliationLog != "" {
+			var running int64
+			if err := tx.Model(&types.SyncLog{}).Where("data_source_id = ? AND status = ?",
+				ds.ID, types.SyncLogStatusRunning).Count(&running).Error; err != nil {
+				return err
+			}
+			if running != 0 {
+				return access.ErrForbidden
+			}
+			policy.ReconciliationLogID = reconciliationLog
+			policy.ReconciliationExpiresAt = minTime(expires, time.Now().Add(15*time.Minute))
+			// The grant and run are one transaction. The approved operator can
+			// retry enqueue of this same durable run; another log cannot use it.
+			if err := tx.Create(&types.SyncLog{
+				ID: reconciliationLog, DataSourceID: ds.ID, TenantID: ds.TenantID,
+				Status: types.SyncLogStatusRunning, StartedAt: time.Now(),
+			}).Error; err != nil {
+				return err
+			}
 		}
 		cipher, err := sealFeishu(policy)
 		if err != nil {
@@ -187,9 +226,23 @@ func checkSourcePublicationPolicy(
 		return err
 	}
 	if current.Status != types.DataSourceStatusActive && current.Status != types.DataSourceStatusError ||
-		current.LegacyAccessState == "hold" || current.LegacyAccessState == "revoked" ||
+		current.LegacyAccessState == "revoked" ||
 		policy.SourceConfigHash != syncPolicyHash(current.Config) {
 		return ErrFeishuSharingApproval
+	}
+	if current.LegacyAccessState == "hold" {
+		if execution.SyncLogID == "" || execution.SyncLogID != policy.ReconciliationLogID ||
+			execution.Generation < 1 || !policy.ReconciliationExpiresAt.After(time.Now()) {
+			return ErrFeishuSharingApproval
+		}
+		var run types.SyncLog
+		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where(
+			"id = ? AND data_source_id = ? AND tenant_id = ? AND status = ?"+
+				" AND execution_generation = ? AND execution_claimed = ?",
+			execution.SyncLogID, ds.ID, ds.TenantID, types.SyncLogStatusRunning, execution.Generation, true,
+		).First(&run).Error; err != nil {
+			return ErrFeishuSharingApproval
+		}
 	}
 	var epoch types.FeishuPersonalGrantEpoch
 	if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).
@@ -211,4 +264,27 @@ func checkSourcePublicationPolicy(
 		return ErrFeishuSharingApproval
 	}
 	return nil
+}
+
+func minTime(a, b time.Time) time.Time {
+	if a.Before(b) {
+		return a
+	}
+	return b
+}
+
+func (s *FeishuPersonalService) checkHeldSourceReconciliation(
+	ctx context.Context, ds *types.DataSource, ref *types.FeishuSourceReference,
+) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var imported types.FeishuPersonalImport
+		if err := tx.Where("id = ? AND user_id = ? AND kb_id = ? AND app_id = ? AND auth_mode = ?",
+			ds.ID, ref.OwnerUserID, ds.KnowledgeBaseID, ref.AppID, types.FeishuUserOAuth).
+			First(&imported).Error; err != nil {
+			return ErrFeishuSharingApproval
+		}
+		return checkSourcePublicationPolicy(tx, ds, ref, core.PersonalResource{
+			Type: imported.ResourceType, Token: imported.DocumentToken, Modified: "reconciliation-preflight",
+		})
+	})
 }

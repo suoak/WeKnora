@@ -135,6 +135,38 @@ telemetry['io_pressure']=pathlib.Path('/proc/pressure/io').read_text() if pathli
 result['read_only_dependency_telemetry']=telemetry
 result['personal_authorization_configuration']={'http_callback_expires_at':callback_expiry,
  'permission_auth_scope_requested':callback_scope_enabled}
+def readonly_sql(statement):
+ payload="BEGIN READ ONLY; SET LOCAL statement_timeout='10s'; "+statement+'; COMMIT;'
+ return json.loads(run(compose+['exec','-T','postgres','psql','-qX','-v','ON_ERROR_STOP=1','-U','postgres','-d','knowhub_feishu_v2_test','-At'],payload).strip() or 'null')
+sources=readonly_sql("SELECT coalesce(json_agg(q),'[]') FROM (SELECT ds.id,ds.status,ds.legacy_access_state,ds.updated_at,ds.last_sync_at,md5(ds.config::text) AS config_digest,md5(ds.last_sync_cursor::text) AS cursor_digest,m.resource_type,m.knowledge_id FROM data_sources ds JOIN feishu_personal_imports m ON m.id=ds.id JOIN users u ON u.id=m.user_id JOIN knowledge_bases kb ON kb.id=m.kb_id WHERE u.username='test' AND kb.name='test001' AND m.resource_type IN ('sheet','bitable') AND ds.deleted_at IS NULL) q")
+if any(not re.fullmatch('[a-f0-9-]{36}',row['id']) for row in sources):raise ValueError('source_identifier_invalid')
+ids=','.join("'"+row['id']+"'" for row in sources) or "''"
+events=readonly_sql("SELECT coalesce(json_agg(q),'[]') FROM (SELECT action,outcome,created_at,target_id,actor_user_id,details->'changed_fields' AS changed_fields FROM audit_logs WHERE target_id IN ("+ids+") ORDER BY created_at DESC LIMIT 60) q")
+for row in events:
+ row['source_hash']=mask(row.pop('target_id'));row['actor_hash']=mask(row.pop('actor_user_id'))
+ if row['changed_fields'] is not None and (not isinstance(row['changed_fields'],list) or any(not re.fullmatch('[a-z_]{1,64}',str(v)) for v in row['changed_fields'])):row['changed_fields']=['unrecognized_field_names_omitted']
+for row in sources:
+ row['source_hash']=mask(row.pop('id'));row['knowledge_hash']=mask(row.pop('knowledge_id'))
+result['two_source_readonly_forensics']={'sources':sources,'audit_events':events}
+history=readonly_sql("SELECT coalesce(json_agg(q),'[]') FROM (SELECT id,data_source_id,status,created_at,finished_at,error_message,result FROM sync_logs WHERE data_source_id IN ("+ids+") ORDER BY created_at DESC LIMIT 12) q")
+for row in history:
+ row['sync_hash']=mask(row.pop('id'));row['source_hash']=mask(row.pop('data_source_id'))
+ detail=json.dumps(row.pop('result'),ensure_ascii=False);message=row.pop('error_message') or ''
+ row['fixed_error_matches']=[v for v in ['sharing_approval_required','feishu_sharing_approval_required','source item fetch failed','safety gate','Feishu safety','context deadline','stopped','feishu controller','permission','reconnect','refresh','staging','capacity','version','fence'] if v.lower() in (detail+' '+message).lower()]
+ row['provider_codes']=sorted(set(re.findall(r'\b(?:code[=: ]+|feishu_error_code[^0-9]{1,8})([0-9]{4,9})\b',detail+' '+message)))
+ try:
+  parsed=json.loads(detail);errors=(parsed or {}).get('errors',[])
+  row['error_codes']=[v.get('code') for v in errors if isinstance(v,dict) and re.fullmatch('[a-z_]{1,80}',v.get('code',''))]
+  row['provider_codes']=sorted(set(row['provider_codes']+[str(v.get('params',{}).get('code')) for v in errors if isinstance(v,dict) and re.fullmatch('[0-9]{1,12}',str(v.get('params',{}).get('code','')))]))
+ except (ValueError,AttributeError,TypeError):row['error_codes']=[]
+result['two_source_readonly_forensics']['sync_failure_categories']=history
+samples=[]
+for _ in range(80):
+ start=__import__('time').perf_counter();redis('GET',prefix+'membership_revision')
+ samples.append((__import__('time').perf_counter()-start)*1000)
+ __import__('time').sleep(0.05)
+samples.sort()
+result['membership_get_latency_sample']={'count':len(samples),'p50_ms':round(samples[len(samples)//2],3),'p95_ms':round(samples[int(len(samples)*0.95)-1],3),'max_ms':round(max(samples),3),'scope':'current_sample_only_not_historical_root_cause'}
 connection.close();print(json.dumps(result))
 '''
 

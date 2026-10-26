@@ -33,6 +33,7 @@ environment=dict(v.split('=',1) for v in app['Config']['Env'] if '=' in v)
 if environment.get('DB_NAME')!='knowhub_feishu_v2_test':raise ValueError('database_scope_mismatch')
 environment['FEISHU_DIAGNOSTIC_ISOLATED']='1'
 environment['FEISHU_DIAGNOSTIC_APP_SCOPES_ONLY']='1' if MODE=='health' else '0'
+environment['FEISHU_DIAGNOSTIC_COMPARE_CONTENT_PATHS']='1' if COMPARE_CONTENT_PATHS else '0'
 network=list(app['NetworkSettings']['Networks'])
 if len(network)!=1:raise ValueError('ambiguous_network')
 name='knowhub-feishu-personal-diagnostic-'+SHA[:12]+'-'+MODE+'-'+__import__('uuid').uuid4().hex[:8]
@@ -63,7 +64,9 @@ finally:
 '''
 
 if __name__ == '__main__':
+    compare = '--compare-content-paths' in sys.argv
+    if compare:sys.argv.remove('--compare-content-paths')
     if '--mode' not in sys.argv or sys.argv[sys.argv.index('--mode') + 1] not in ['status','health']:
         raise SystemExit('status probes personal export; health audits application scopes only')
-    transport.REMOTE = REMOTE
+    transport.REMOTE = 'COMPARE_CONTENT_PATHS='+repr(compare)+'\n'+REMOTE
     raise SystemExit(transport.main())

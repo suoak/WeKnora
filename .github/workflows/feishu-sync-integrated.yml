@@ -114,7 +114,7 @@ jobs:
           FEISHU_SYNC_SAFETY_ENABLED: "false"
         run: |
           set -o pipefail
-          go test -json -race -tags sqlite_fts5 ./internal/types ./internal/datasource/connector/feishu/core ./internal/application/repository ./internal/application/repository/retriever/postgres ./internal/application/service ./internal/handler ./internal/router -run 'DocumentFailure|DocumentDeferral|LegacyLease|DocumentFetchFailure|ExportRange' -count=1 -timeout=10m | tee evidence/document-deferral.jsonl
+          go test -json -race -tags sqlite_fts5 ./internal/types ./internal/datasource/connector/feishu/core ./internal/application/repository ./internal/application/repository/retriever/postgres ./internal/application/service ./internal/handler ./internal/router -run 'DocumentFailure|DocumentDeferral|LegacyLease|DocumentFetchFailure|ExportRange|ApprovedHeldSourceReconciliation|ContinuingSourcePublicationPolicy|TestSyncExecutionPostgres' -count=1 -timeout=10m | tee evidence/document-deferral.jsonl
       - name: Real parser child vectors BM25 and mid-batch old-version protection
         env:
           FEISHU_SYNC_SAFETY_ENABLED: "false"

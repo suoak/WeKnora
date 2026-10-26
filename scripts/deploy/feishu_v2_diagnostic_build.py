@@ -27,6 +27,10 @@ go version -m feishu-diagnostic > candidate-diagnostic-build-info.txt
 '''
 
 if __name__ == '__main__':
+    diagnostics = '--verify-permission-diagnostics' in sys.argv
+    if diagnostics:
+        sys.argv.remove('--verify-permission-diagnostics')
+        sys.argv.append('--verify-first-consent')
     if '--verify-first-consent' in sys.argv:
         sys.argv.remove('--verify-first-consent')
         verification = r'''
@@ -40,4 +44,12 @@ pathlib.Path('candidate-first-consent-test-summary.json').write_text(json.dumps(
 PY
 '''
         build.BUILD_SCRIPT = build.BUILD_SCRIPT.replace('\ngo build ', '\n' + verification + '\ngo build ', 1)
+        if diagnostics:
+            build.BUILD_SCRIPT = build.BUILD_SCRIPT.replace(
+                "^TestFeishuV2OAuthRequestsCompleteReadOnlyImportScopes$",
+                "^TestFeishu(V2OAuthRequestsCompleteReadOnlyImportScopes|FailureDetails|RemoteFailure)")
+            build.BUILD_SCRIPT = build.BUILD_SCRIPT.replace(
+                "assert len(passed)==1 and not any(r.get('Action')=='fail' for r in rows)",
+                "assert len(passed)==1 and not any(r.get('Action')=='fail' for r in rows)\n"
+                "assert any(r.get('Action')=='pass' and r.get('Test')=='TestFeishuFailureDetailsUseOnlyExactOwnerAttemptEvidence' for r in rows)")
     raise SystemExit(build.main())

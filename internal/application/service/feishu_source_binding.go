@@ -33,12 +33,20 @@ func (s *DataSourceService) bindFeishuSource(
 	if !safeLegacyIncrementalEnabled() {
 		return ctx, ErrFeishuStagingRequired
 	}
-	if ds.LegacyAccessState == "hold" || ds.LegacyAccessState == "revoked" {
+	if ds.LegacyAccessState == "revoked" {
 		return ctx, access.ErrForbidden
 	}
 	if s.feishuIdentity == nil || s.feishuIdentity.recovery == nil ||
 		ds.Type != types.ConnectorTypeFeishu && ds.Type != types.ConnectorTypeFeishuDrive {
 		return ctx, types.ErrFeishuIdentityDisabled
+	}
+	reconciling := ds.LegacyAccessState == "hold"
+	if reconciling {
+		// Only the DB-issued run named by a separate administrator grant may
+		// inspect a held source. Ordinary sync, import and UI actions stay closed.
+		if err := s.feishuIdentity.checkHeldSourceReconciliation(ctx, ds, ref); err != nil {
+			return ctx, access.ErrForbidden
+		}
 	}
 	if execution, internal := types.SyncExecutionFromContext(ctx); !internal {
 		user, ok := types.UserIDFromContext(ctx)
@@ -91,6 +99,18 @@ func (s *DataSourceService) bindFeishuSource(
 		}
 		remote = core.WithExpectedLink(remote, expected)
 		remote = types.WithFeishuSourceReadGuard(remote, func(check context.Context) error {
+			if reconciling {
+				if e := s.feishuIdentity.checkHeldSourceReconciliation(check, ds, ref); e != nil {
+					return e
+				}
+				permissions, e := client.InspectPersonalPermissions(check, expected)
+				if e != nil {
+					return e
+				}
+				if !permissions.View || !permissions.Copy || !permissions.Export {
+					return core.ErrPersonalBlocksPolicyUnverified
+				}
+			}
 			_, e := client.ResolveBoundResource(check, expected)
 			return e
 		})
@@ -198,6 +218,11 @@ func (s *DataSourceService) bindFeishuSource(
 			return ErrFeishuReconnect
 		}
 		if reference {
+			if reconciling {
+				// Even an exact-version approval cannot replace this one-run
+				// recovery grant or authorize a different execution to lift hold.
+				return checkSourcePublicationPolicy(owned, ds, ref, expected)
+			}
 			err := s.feishuIdentity.checkSharingApproval(
 				owned,
 				&cfg,
