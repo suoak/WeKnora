@@ -146,7 +146,13 @@ func (h *controlHook) record(
 ) error {
 	start := time.Now().UTC()
 	before := h.client.PoolStats().WaitDurationNs
-	err := run(h.bound(ctx))
+	bounded := h.bound(ctx)
+	err := run(bounded)
+	// A successful response arriving after the caller's budget is not a valid
+	// control acknowledgement. This also fences post-read scheduling delays.
+	if err == nil {
+		err = bounded.Err()
+	}
 	timing := CommandTiming{
 		Operation: operation, Started: start, Finished: time.Now().UTC(),
 		PoolWaitNS: h.client.PoolStats().WaitDurationNs - before, Failed: err != nil,

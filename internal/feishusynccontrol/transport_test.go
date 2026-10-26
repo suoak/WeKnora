@@ -33,6 +33,28 @@ type delayReplyHook struct {
 	command string
 }
 
+type latePermitAckHook struct{ enabled atomic.Bool }
+
+func (h *latePermitAckHook) DialHook(next redis.DialHook) redis.DialHook { return next }
+
+func (h *latePermitAckHook) ProcessPipelineHook(
+	next redis.ProcessPipelineHook,
+) redis.ProcessPipelineHook {
+	return next
+}
+
+func (h *latePermitAckHook) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
+	return func(ctx context.Context, cmd redis.Cmder) error {
+		err := next(ctx, cmd)
+		args := cmd.Args()
+		if h.enabled.Load() && err == nil && cmd.Name() == "evalsha" && len(args) > 1 &&
+			args[1] == automaticPermit.Hash() {
+			time.Sleep(80 * time.Millisecond)
+		}
+		return err
+	}
+}
+
 func (h *delayReplyHook) DialHook(next redis.DialHook) redis.DialHook {
 	return func(ctx context.Context, n, a string) (net.Conn, error) {
 		c, e := next(ctx, n, a)
@@ -174,12 +196,42 @@ func TestControlTransportBusinessPoolStarvationCannotDelayAudit(t *testing.T) {
 	}).Err()
 	commands, _ := transport.finish()
 	if err != nil || len(commands) != 1 || commands[0].PoolWaitNS >= int64(20*time.Millisecond) {
-		t.Fatalf("business pool starvation leaked into control audit: failed=%t commands=%d", err != nil, len(commands))
+		t.Fatalf(
+			"business pool starvation leaked into control audit: failed=%t commands=%d",
+			err != nil,
+			len(commands),
+		)
 	}
 	if err = control.LPush(context.Background(), "held-business-connection", "release").Err(); err != nil {
 		t.Fatal(err)
 	}
 	if err = <-done; err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestControlTransportLatePermitAcknowledgementCannotOpenOutbound(t *testing.T) {
+	f := newControlFixture(t)
+	client, transport := NewControlClient(f.client)
+	t.Cleanup(func() { _ = client.Close() })
+	hook := &latePermitAckHook{}
+	client.AddHook(hook)
+	c := f.automaticController(t, "app:1")
+	c.Client, c.Transport = client, transport
+	c.Consumers = func(context.Context) ([]string, error) { return []string{"app:1"}, nil }
+	if err := c.Step(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	hook.enabled.Store(true)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	if c.Step(ctx) == nil || f.guard.Check(context.Background()) == nil {
+		t.Fatal("a late successful permit acknowledgement allowed outbound work")
+	}
+	if f.client.Get(context.Background(), c.prefix+"trip").
+		Val() !=
+		"automatic_permit_context_deadline" ||
+		f.client.Exists(context.Background(), c.Guard.PermitKey()).Val() != 0 {
+		t.Fatal("late permit acknowledgement was not revoked and latched")
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -16,6 +17,36 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
 )
+
+// redisPauseHook pauses the disposable CI Redis once immediately before a
+// selected command. This exercises real socket read deadlines, not a sleep in
+// the controller's own Read implementation. Never enabled for a test-site DB.
+type redisPauseHook struct {
+	client  *redis.Client
+	command string
+	once    atomic.Bool
+}
+
+func (h *redisPauseHook) DialHook(next redis.DialHook) redis.DialHook { return next }
+
+func (h *redisPauseHook) ProcessPipelineHook(
+	next redis.ProcessPipelineHook,
+) redis.ProcessPipelineHook {
+	return next
+}
+
+func (h *redisPauseHook) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
+	return func(ctx context.Context, cmd redis.Cmder) error {
+		if h.command != "" && cmd.Name() == h.command && h.once.CompareAndSwap(false, true) {
+			pause, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			if err := h.client.Do(pause, "CLIENT", "PAUSE", 650, "ALL").Err(); err != nil {
+				return err
+			}
+		}
+		return next(ctx, cmd)
+	}
+}
 
 func TestAutomaticRealConsumerChild(_ *testing.T) {
 	if os.Getenv("FEISHU_CONTROL_CHILD") != "1" {
@@ -63,6 +94,9 @@ func TestAutomaticRealRedisTwoProcessBudgetFaults(t *testing.T) {
 func runAutomaticRealRedisTwoProcess(t *testing.T, faultStage string) {
 	if os.Getenv("FEISHU_CONTROL_REAL_REDIS") != "1" {
 		t.Skip("explicit disposable Redis gate required")
+	}
+	if faultStage != "consumer_loss" && os.Getenv("GITHUB_ACTIONS") != "true" {
+		t.Fatal("server pause requires the disposable GitHub Actions Redis service")
 	}
 	address := os.Getenv("FEISHU_P0_REDIS_ADDR")
 	if address != "127.0.0.1:6379" {
@@ -128,7 +162,7 @@ func runAutomaticRealRedisTwoProcess(t *testing.T, faultStage string) {
 		return result
 	}
 	aProcess, bProcess := spawn(), spawn()
-	hooks := map[string]*delayReplyHook{}
+	hooks := map[string]*redisPauseHook{}
 	controller := func(process *child) *Controller {
 		t.Helper()
 		host, err := os.Hostname()
@@ -142,7 +176,7 @@ func runAutomaticRealRedisTwoProcess(t *testing.T, faultStage string) {
 		inspector := asynq.NewInspectorFromRedisClient(client)
 		control, transport := NewControlClient(client)
 		t.Cleanup(func() { _ = control.Close() })
-		hook := &delayReplyHook{}
+		hook := &redisPauseHook{client: client}
 		control.AddHook(hook)
 		hooks[cfg.WorkerID] = hook
 		c, err := New(
@@ -206,9 +240,8 @@ func runAutomaticRealRedisTwoProcess(t *testing.T, faultStage string) {
 	}
 	if faultStage != "consumer_loss" {
 		hook := hooks[a.Config.WorkerID]
-		// Use the production Step budget, with response delay injected at the
-		// real TCP read boundary. No test-site Redis or stop latch is touched.
-		hook.latency.Store(int64(650 * time.Millisecond))
+		// The actual CI Redis pauses 650ms; use the production 500ms Step
+		// deadline. It expires before Redis resumes to acknowledge the audit.
 		hook.command = "evalsha"
 		wantStage, wantTrip := "registry", "registry_network_timeout"
 		if faultStage == "audit" {
