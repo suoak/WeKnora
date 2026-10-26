@@ -85,7 +85,7 @@ elif MODE=='apply':
   raise ValueError('site_configuration_changed_since_prepare')
  checked(compose+['stop','--timeout','45','entry','app','worker2'],120)
  try:
-  if sql("SELECT version::text||':'||dirty::text FROM schema_migrations;")!='3041:false':raise ValueError('unexpected_schema')
+  if sql("SELECT version::text||':'||dirty::text FROM schema_migrations;") not in ('3041:false','3042:false'):raise ValueError('unexpected_schema')
   backup=upgrade/'before-upgrade.dump'
   fd=os.open(str(backup),os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
   with os.fdopen(fd,'wb') as output:

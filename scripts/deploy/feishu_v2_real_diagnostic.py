@@ -112,7 +112,11 @@ if DB_ONLY:
      if re.search(pattern,line):
       status=re.search(r'status_code[=:\s"]+([0-9]{3})',line)
       events.append({'route':name,'http_status':int(status.group(1)) if status else None})
-   admission.append({'service':service,'route_counts':{name:sum(bool(re.search(pattern,line)) for line in lines) for name,pattern in patterns.items()},'events':events,'scanned_lines':len(lines)})
+   failure_lines=[line for line in lines if re.search(r'\b(ERROR|WARN)\b',line)]
+   failure_markers=['Failed to convert','failed to convert','Failed to process','failed to process','unsupported','not supported','permission denied','SQLSTATE','does not exist','no such','empty','spreadsheet','data table','duckdb','DuckDB','xlsx','failed to load','cannot','refused','timeout','deadline','invalid','safety','budget','receipt','partial','requires review']
+   failure_markers+=['not connected','not configured','not available','unavailable','docreader','DocReader','anydoc','excel','failed','schema','driver','connection','rpc','EOF','Unimplemented']
+   diagnostics=[{'locations':re.findall(r'[A-Za-z0-9_]+\.go:[0-9]+',line),'codes':re.findall(r'\bcode=([a-zA-Z0-9_]+)',line),'markers':[v for v in failure_markers if v in line],'sqlstates':re.findall(r'SQLSTATE ([A-Z0-9]{5})',line),'fingerprint':mask(line)} for line in failure_lines]
+   admission.append({'service':service,'route_counts':{name:sum(bool(re.search(pattern,line)) for line in lines) for name,pattern in patterns.items()},'events':events,'failure_diagnostics':diagnostics,'scanned_lines':len(lines)})
  state={'user_id':uid,'batches':batches,'items':items,'imports':imports,'attempts':attempts,'knowledge':knowledge}
  path=site/'real-batch-readonly-state.json';path.write_text(json.dumps(state));path.chmod(0o600)
  print(json.dumps({'status':'READ_ONLY','approved_link_matches':link_matches,'admission_routes':admission,'approval_summary':approval_summary,'canonical_resource_count':canonical_count,

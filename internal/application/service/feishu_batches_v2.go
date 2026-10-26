@@ -406,6 +406,9 @@ func (s *FeishuPersonalService) ReconcileBatches(ctx context.Context) error {
 	if !s.db.Migrator().HasTable(&types.FeishuBatch{}) {
 		return errors.New("feishu_v2_migration_required")
 	}
+	if err := s.requeueUnavailableParserBatches(ctx); err != nil {
+		return err
+	}
 	if err := s.reconcileBatchUpdates(ctx); err != nil {
 		return err
 	}
