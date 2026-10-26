@@ -56,4 +56,22 @@
 
 最终候选产品源码 `56fc87ee576098cd326ce4331189edbf0c0e2f63` 额外要求 copy 权限，对应 12 类兜底用例已本地通过。已推送 V2 分支并启动该 SHA 的五组门禁；五组全部完成前不能宣布回归通过。早期候选取消或失败的 CI 不计作最终证据。测试站当时仍为原已部署 `2a7f651e6ed078fcf5113905a9358a82084d7d17`；本篇须在门禁结束与实际升级后补记，不能预先宣称已部署。
 
-剩余业务证据：用户 Scope 发布后的真实 Docx 权限/Blocks/发布/检索；第二次停止的完整根因与单独受控恢复；Bitable hold 核查；两来源持续策略实际生效后的改值发布、Knowledge ID 不变及 Portal/Go/Python MCP 新值对账。以上未完成前不进入最终发布。
+剩余业务证据：个人 OAuth 实际获得所需 Scope 后的真实 Docx 权限/Blocks/发布/检索；第二次停止的完整根因与单独受控恢复；Bitable hold 核查；两来源持续策略实际生效后的改值发布、Knowledge ID 不变及 Portal/Go/Python MCP 新值对账。以上未完成前不进入最终发布。
+
+## 18:45 后续：五组通过、实际部署与个人授权补充
+
+后端 `56fc87ee576098cd326ce4331189edbf0c0e2f63` 的[五组精确 SHA 门禁](evidence/export-blocks-release-five-gates-20261026.json)全部通过，包含原生解析、真实 PostgreSQL、重试及共享策略、Portal、Python MCP 回归。18:45 已升级原隔离测试项目；[部署回执](evidence/export-blocks-release-deployment-20261026.json)确认 RUNNING、数据库停机备份及业务计数恢复校验通过，没有重置 Cursor、轮换密钥或切换 namespace。只有隔离站被升级，未部署生产或合并 main。
+
+18:18:13 原 HTTP 回调测试窗口已经到期；18:47 的新诊断因此在发起 Feishu 请求前返回 `reconnect_required`，不能把这一次失败认作用户撤权。18:49 为继续本轮既有隔离验收，将**相同测试应用、同一 IP/路径**的窗口续至 **2026-10-27 00:49:10 北京时间**，并开启 `FEISHU_PERSONAL_PERMISSION_AUTH_SCOPE_ENABLED=true`。[配置回执](evidence/personal-scope-test-window-20261026.json)包含原/新期限及配置摘要，保留备份；没有改个人 grant、来源 hold、停止锁或共享批准。仍然是有期限的 HTTP 测试例外，生产 HTTPS 校验保持原样。
+
+18:51 [实际候选代码诊断](evidence/export-blocks-release-personal-probe-20261026.json)：同身份对照 Docx 成功导出，10.879 秒；新增只读 Docx 耗时 1.916 秒，创建导出任务 `403 / 1069902`，随后 `check_personal_view_permission` 返回 `400 / 99991679`，仍为 `source_policy_verification_required`。没有读取 Blocks、没有创建 Knowledge。此次控制请求确认为已部署最终后端对应的诊断源码，而非只测旧导出实现。
+
+当前应用已具有该权限记录，与用户反馈一致；实际个人 grant 仍缺少 `docs:permission.member:auth`。新授权请求现在包含这个 Scope，但**配置请求 Scope 不等于用户已经授予**。不能通过刷新旧 grant 擅自增加权限，也不要求用户先断开账号。前端补充入口 `9abb934721a5095b5866c469574eba12dd5041a9` 仅在导入历史的相关授权错误下显示“补充飞书授权”，走已有 OAuth 回调并返回原历史页，保留 KB 选择，不加入普通导入向导或长提示。4 项既有批量输入测试及本地 Vue 类型检查通过；其前端构建与隔离前端更新结果应在后续补记，不能预先算作已部署。
+
+### 当前真实检索结果与安全停止状态
+
+[部署后数据库只读快照](evidence/export-blocks-release-db-readonly-20261026.json)确认原四个正式 Knowledge 仍为解析完成/启用状态，Docx、Sheet、Bitable 原 ID 和索引保留；新增只读 Docx 没有正式 Knowledge。`test001` 的 Bitable 来源仍为 `hold`，另一个相关私人 KB 的 Docx 来源为 `revoked`；没有解除任一状态。
+
+[真实 MCP 回执](evidence/export-blocks-release-mcp-denied-20261026.json)中，Go MCP 初始化返回 `403 / personal MCP denied`；Python 依赖该合法入口，没有可执行检索用例，不能将空列表记为通过。代码 `PortalMCPResolver` 对受限来源跳过整个相关 KB；所有剩余可检索目标均被来源门禁排除时拒绝初始化，与本次两个相关 KB 的 hold/revoked 状态吻合。这是当前真实结果，不沿用 16:22 的成功检索结论。尚不能声明新值 Portal/MCP 检索验收通过。
+
+升级后仍保留 `automatic_membership_probe_context_deadline` 和 `feishu_safety_stop`。没有复用先前恢复批准解除第二次停止。第二次停止的底层资源延迟根因和 Bitable hold 的恢复条件仍需独立核验。

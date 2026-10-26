@@ -1,0 +1,14 @@
+{
+  "status": "CONFIGURED",
+  "source_sha": "56fc87ee576098cd326ce4331189edbf0c0e2f63",
+  "at": "2026-10-26T10:49:10.997133+00:00",
+  "previous_callback_expiry": "2026-10-26T10:18:13.791623+00:00",
+  "callback_expires_at": "2026-10-26T16:49:10.997133+00:00",
+  "permission_auth_scope_requested": true,
+  "environment_sha256": "7cdd925d9c6dd10e32a00fe381b40b065a5bd58d21a99cf90274417686ecb117",
+  "scope": "existing_isolated_callback_only",
+  "oauth_grants_modified": false,
+  "sync_locks_modified": false,
+  "source_holds_modified": false,
+  "publication_modified": false
+}

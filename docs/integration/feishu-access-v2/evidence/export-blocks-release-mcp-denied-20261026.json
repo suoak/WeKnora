@@ -1,0 +1,99 @@
+{
+  "status": "CHECKED",
+  "deployed_source_sha": "56fc87ee576098cd326ce4331189edbf0c0e2f63",
+  "qualification": "real_owner_personal_go_mcp",
+  "checks": [
+    {
+      "operation": "initialize",
+      "http_status": 403,
+      "status": "DENIED",
+      "denial_category": "personal MCP denied"
+    }
+  ],
+  "index_shapes": [
+    {
+      "kb_hash": "a90e27c4ebbd",
+      "bound_model": {
+        "is_builtin": true,
+        "same_tenant": false,
+        "type": "Embedding",
+        "status": "active",
+        "dimension": 1024
+      },
+      "dimensions": [
+        {
+          "dimension": 1024,
+          "count": 6
+        }
+      ]
+    },
+    {
+      "kb_hash": "9beada7ab2b3",
+      "bound_model": {
+        "is_builtin": true,
+        "same_tenant": false,
+        "type": "Embedding",
+        "status": "active",
+        "dimension": 1024
+      },
+      "dimensions": [
+        {
+          "dimension": 1024,
+          "count": 55
+        }
+      ]
+    }
+  ],
+  "log_categories": {
+    "app": {
+      "column": 0,
+      "does not exist": 0,
+      "embedding": 5,
+      "no model": 0,
+      "model not found": 0,
+      "retrieve": 3,
+      "SQLSTATE": 0,
+      "dimension": 1,
+      "permission denied": 0,
+      "Unauthorized": 0,
+      "401": 0,
+      "403": 1,
+      "connection refused": 0,
+      "context deadline": 0,
+      "invalid": 0,
+      "error": 3,
+      "failed": 4,
+      "sqlstates": [],
+      "query_dimensions": [],
+      "dimension_mismatch_count": 0
+    },
+    "worker2": {
+      "column": 0,
+      "does not exist": 0,
+      "embedding": 1,
+      "no model": 0,
+      "model not found": 0,
+      "retrieve": 3,
+      "SQLSTATE": 0,
+      "dimension": 0,
+      "permission denied": 0,
+      "Unauthorized": 0,
+      "401": 0,
+      "403": 0,
+      "connection refused": 0,
+      "context deadline": 0,
+      "invalid": 0,
+      "error": 3,
+      "failed": 3,
+      "sqlstates": [],
+      "query_dimensions": [],
+      "dimension_mismatch_count": 0
+    }
+  },
+  "imports_created": false,
+  "python_mcp": {
+    "qualification": "actual_python_mcp_hybrid_tool_real_owner",
+    "checks": []
+  },
+  "portal": "NOT_EXECUTED"
+}
