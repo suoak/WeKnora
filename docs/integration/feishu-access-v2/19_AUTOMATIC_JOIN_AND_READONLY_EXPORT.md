@@ -29,7 +29,9 @@
 
 用原代码 overlay 重放新加入场景得到失败：`healthy joining consumer was treated as a consumer loss`；修复后加入、期限、过时快照、异常 incarnation 与既有控制测试通过。真实 Redis 的两个独立 Asynq 子进程回归也通过，验证等待新消费者和真正消费者丢失的不同结果。
 
-### 隔离恢复方案（待用户确认，未执行）
+### 隔离恢复方案（后续已获批准并执行）
+
+下列为原提交确认的方案。用户随后明确批准仅恢复两个来源，2026-10-26 16:02 完成受控恢复；执行和自然同步验收见[报告 20](20_APPROVED_AUTOMATIC_RECOVERY.md)。此前各时间点的未恢复快照仍作为历史证据保留。
 
 恢复仅适用于项目 `knowhub-feishu-v2-d6e99d894d3a`、原 namespace `legacy-feishu`、原两个来源 `6d1698a6e0d9` / `1dcf458346ba`。不放开其他来源。
 
@@ -111,6 +113,6 @@
 
 用户可刷新测试站，进入 `test001` 后粘贴链接一键提交，或从导入历史查看失败原因。无需编辑权限、无需预检向导；缺少发布授权或源端导出能力的资源仍显示需要处理。原只读 Docx 历史错误码不伪造回填，重试后的新失败才产生新的分阶段审计。
 
-仍未通过的业务项：停止锁尚未获准恢复后的自然无变化调度；受控字段修改后的安全发布、Knowledge ID 保持与 Portal/Go/Python MCP 新值对账；新增 Docx 的源端导出授权与可核验的“只读且允许导出”真实正例。没有这些证据，不进入最终发布验收。PR #50 仍 OPEN，head=`2a532132eb038e0efd5c5564f2f35693577986b6`，保护文件与 origin/main 对比无差异。
+本篇成稿时未通过的业务项：停止锁恢复后的自然无变化调度；受控字段修改后的安全发布、Knowledge ID 保持与 Portal/Go/Python MCP 新值对账；新增 Docx 的源端导出授权与可核验的“只读且允许导出”真实正例。**后续更新：用户已批准限定恢复，16:15 两个来源自然无变化同步均成功，执行证据见[报告 20](20_APPROVED_AUTOMATIC_RECOVERY.md)**。真实改值和新增只读 Docx 正例仍未完成，不进入最终发布验收。PR #50 仍 OPEN，head=`2a532132eb038e0efd5c5564f2f35693577986b6`，保护文件与 origin/main 对比无差异。
 
 官方依据：[飞书错误分类源码](https://github.com/larksuite/cli/blob/main/internal/output/lark_errors.go)、[云文档安全默认权限](https://www.feishu.cn/hc/zh-CN/articles/265017155035)、[创建导出任务](https://open.feishu.cn/document/server-docs/docs/drive-v1/export_task/create)。源端复制/下载设置与阅读/编辑角色是不同维度，本报告的具体 403/code/阶段依据来自以上真实请求回执。
