@@ -1,0 +1,57 @@
+{
+  "automatic-stop.jsonl": {
+    "pass": 5,
+    "fail": 0,
+    "skip": 0
+  },
+  "combined-race.jsonl": {
+    "pass": 305,
+    "fail": 0,
+    "skip": 0
+  },
+  "document-deferral.jsonl": {
+    "pass": 103,
+    "fail": 0,
+    "skip": 0
+  },
+  "docx-package-identity.jsonl": {
+    "pass": 27,
+    "fail": 0,
+    "skip": 0
+  },
+  "docx-source-identity.jsonl": {
+    "pass": 17,
+    "fail": 0,
+    "skip": 0
+  },
+  "full-backend.jsonl": {
+    "pass": 14391,
+    "fail": 0,
+    "skip": 257
+  },
+  "p0-focused.jsonl": {
+    "pass": 160,
+    "fail": 0,
+    "skip": 0
+  },
+  "p1-atomic.jsonl": {
+    "pass": 27,
+    "fail": 0,
+    "skip": 0
+  },
+  "p2-image-assets.jsonl": {
+    "pass": 18,
+    "fail": 0,
+    "skip": 0
+  },
+  "real-parser.jsonl": {
+    "pass": 5,
+    "fail": 0,
+    "skip": 0
+  },
+  "safety-controller.jsonl": {
+    "pass": 948,
+    "fail": 0,
+    "skip": 9
+  }
+}

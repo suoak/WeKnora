@@ -1,0 +1,6 @@
+{
+  "original_source_sha": "d947f88d9047f03392555aab1b2bdeb140b3c2d7",
+  "fixed_product_sha": "2a7f651e6ed078fcf5113905a9358a82084d7d17",
+  "original_overlay_failure": "--- FAIL: TestAutomaticLateConsumerJoinWithdrawsPermitWithoutTrip (0.01s)\n    automatic_join_test.go:43: healthy joining consumer was treated as a consumer loss\nFAIL\nFAIL\tgithub.com/Tencent/WeKnora/internal/feishusynccontrol\t0.107s\nFAIL\n",
+  "fixed_full_core_result": "ok  \tgithub.com/Tencent/WeKnora/internal/datasource/connector/feishu/core\t3.469s\nok  \tgithub.com/Tencent/WeKnora/internal/feishusynccontrol\t1.198s\n"
+}
