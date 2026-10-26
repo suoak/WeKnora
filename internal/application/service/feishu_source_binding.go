@@ -130,6 +130,9 @@ func (s *DataSourceService) bindFeishuSource(
 		}
 	}
 	guard := func(tx *gorm.DB) error {
+		if e := checkRebindPublication(tx, ds.ID, ref.ConnectionID); e != nil {
+			return e
+		}
 		var setting types.SystemSetting
 		if e := tx.
 			Clauses(clause.Locking{Strength: "SHARE"}).

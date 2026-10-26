@@ -49,6 +49,16 @@ func TestAutomaticRealConsumerChild(_ *testing.T) {
 // Uses two separate OS processes and real Redis/Asynq heartbeats. DB13 must be
 // empty in this disposable CI service; no command addresses the test site's DB.
 func TestAutomaticRealRedisTwoProcessJoiningAndLoss(t *testing.T) {
+	runAutomaticRealRedisTwoProcess(t, "consumer_loss")
+}
+
+func TestAutomaticRealRedisTwoProcessBudgetFaults(t *testing.T) {
+	for _, stage := range []string{"registry", "audit"} {
+		t.Run(stage, func(t *testing.T) { runAutomaticRealRedisTwoProcess(t, stage) })
+	}
+}
+
+func runAutomaticRealRedisTwoProcess(t *testing.T, faultStage string) {
 	if os.Getenv("FEISHU_CONTROL_REAL_REDIS") != "1" {
 		t.Skip("explicit disposable Redis gate required")
 	}
@@ -112,6 +122,7 @@ func TestAutomaticRealRedisTwoProcessJoiningAndLoss(t *testing.T) {
 		return result
 	}
 	aProcess, bProcess := spawn(), spawn()
+	hooks := map[string]*delayReplyHook{}
 	controller := func(process *child) *Controller {
 		t.Helper()
 		host, err := os.Hostname()
@@ -123,17 +134,26 @@ func TestAutomaticRealRedisTwoProcessJoiningAndLoss(t *testing.T) {
 			SourceSHA: strings.Repeat("a", 40), Scope: "all", Maintenance: 1,
 		}
 		inspector := asynq.NewInspectorFromRedisClient(client)
+		control, transport := NewControlClient(client)
+		t.Cleanup(func() { _ = control.Close() })
+		hook := &delayReplyHook{}
+		control.AddHook(hook)
+		hooks[cfg.WorkerID] = hook
 		c, err := New(
-			client,
+			control,
 			guard,
 			cfg,
 			func(context.Context) error { return inspector.PauseQueue("sync") },
-			func(Event) error { return nil },
+			func(e Event) error {
+				return control.XAdd(e.Context(), &redis.XAddArgs{Stream: "control-test-audit", Values: map[string]any{"event": e.Kind}}).
+					Err()
+			},
 		)
 		if err != nil {
 			t.Fatal(err)
 		}
-		c.Consumers = SyncConsumers(client)
+		c.Transport = transport
+		c.Consumers = SyncConsumers(control)
 		return c
 	}
 	a, b := controller(aProcess), controller(bProcess)
@@ -176,6 +196,45 @@ func TestAutomaticRealRedisTwoProcessJoiningAndLoss(t *testing.T) {
 	}
 	if guard.Check(ctx) != nil {
 		t.Fatal("complete topology remained closed")
+	}
+	if faultStage != "consumer_loss" {
+		hook := hooks[a.Config.WorkerID]
+		hook.command = "evalsha"
+		wantStage, wantTrip := "registry", "registry_network_timeout"
+		if faultStage == "audit" {
+			hook.command = "xadd"
+			a.lastAlertAck = time.Time{}
+			wantStage, wantTrip = "audit", "audit_unavailable"
+		}
+		var evidence StepTiming
+		a.Observe = func(v StepTiming) { evidence = v }
+		bounded, cancelStep := context.WithTimeout(ctx, 20*time.Millisecond)
+		err := a.Step(bounded)
+		cancelStep()
+		if err == nil || guard.Check(ctx) == nil || client.Exists(ctx, "asynq:{sync}:paused").Val() != 1 {
+			t.Fatal("injected response delay did not stop both real processes")
+		}
+		trip := client.Get(ctx, a.prefix+"trip").Val()
+		if faultStage == "audit" && trip != wantTrip {
+			t.Fatal("audit deadline was misclassified", trip)
+		}
+		if len(evidence.Stages) == 0 || evidence.Stages[0].Stage != "registry" || evidence.ID == "" {
+			t.Fatal("missing exact-instance timing evidence")
+		}
+		found := false
+		for _, stage := range evidence.Stages {
+			if stage.Stage == wantStage {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatal("missing delayed phase evidence")
+		}
+		hook.command = ""
+		if b.Step(ctx) == nil || guard.Check(ctx) == nil || client.Exists(ctx, a.Guard.PermitKey()).Val() != 0 {
+			t.Fatal("healthy peer or delayed acknowledgement reopened the stopped gate")
+		}
+		return
 	}
 	send(bProcess, "stop", "stopped") // controller still heartbeats: isolate consumer-only loss.
 	deadline = time.Now().Add(12 * time.Second)

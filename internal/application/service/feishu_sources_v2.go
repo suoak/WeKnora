@@ -269,35 +269,9 @@ func (s *FeishuPersonalService) ImportSourceAction(ctx context.Context, kbID, id
 		}
 		return s.dataSources.ResumeDataSource(ctx, id)
 	case "rebind":
-		config, e := ds.ParseConfig()
-		if e != nil {
-			return e
-		}
-		old, e := types.ParseFeishuSourceReference(config)
-		if e != nil || old == nil {
-			return types.ErrFeishuIdentityReference
-		}
-		_, _, ref, e := s.ResolveCredentialReference(ctx, old.Kind, "")
-		if e != nil {
-			return e
-		}
-		if ref.AppID != old.AppID {
-			return types.ErrFeishuIdentityReference
-		}
-		config.Settings["credential_reference"] = types.FeishuSourceReference{
-			Version:         1,
-			OwnerUserID:     user,
-			Kind:            ref.Kind,
-			ConnectionID:    ref.ConnectionID,
-			AppID:           ref.AppID,
-			IdentityVersion: ref.ConfigVersion,
-		}
-		ds.Config, e = config.ToJSON()
-		if e != nil {
-			return e
-		}
-		_, e = s.dataSources.UpdateDataSource(ctx, ds)
-		return e // Rebinding never resumes the source.
+		// Same-App matching cannot prove same-account continuity. Only the
+		// independently authorized transactional operator path may migrate.
+		return ErrFeishuSourceRebindRequired
 	default:
 		return errors.New("invalid_source_action")
 	}

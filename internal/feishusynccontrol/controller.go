@@ -50,6 +50,8 @@ var ErrNotReady = errors.New("feishu controller not ready")
 // Event is content-free evidence; Audit must deliver it to the configured alert
 // sink or return an error. Log-only wiring is not production alert verification.
 type Event struct {
+	StepID      string `json:",omitempty"`
+	Incarnation string `json:",omitempty"`
 	Kind        string
 	Reason      string
 	WorkerID    string
@@ -90,9 +92,13 @@ type Controller struct {
 	lastAlertAck time.Time
 	stepStarted  time.Time
 	probeStage   string
+	Transport    *ControlTransport
+	Observe      func(StepTiming)
+	timings      StepTiming
 }
 
 func (c *Controller) audit(ctx context.Context, event Event) error {
+	event.StepID, event.Incarnation = c.timings.ID, c.incarnation
 	event.ctx = ctx
 	if err := c.Audit(event); err != nil {
 		return err
@@ -195,10 +201,15 @@ redis.call('SET',KEYS[4],ARGV[2],'PX',750);return 1`)
 // Step registers this process, validates fresh metrics and atomically grants a
 // 750ms permit. A 10s closed bootstrap window allows expected workers to join;
 // it never resumes sync or bypasses outbound gating during startup.
-func (c *Controller) Step(ctx context.Context) error {
+func (c *Controller) Step(ctx context.Context) (result error) {
+	requested := time.Now().UTC()
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.stepStarted, c.probeStage = time.Now(), "registry"
+	c.stepStarted = time.Now()
+	c.beginTiming(ctx)
+	c.timings.Requested = requested
+	c.timings.LockWaitNS = c.timings.Started.Sub(requested).Nanoseconds()
+	defer func() { c.finishTiming(result) }()
 	defer func() { c.probeStage = "" }()
 	if c.departed {
 		return ErrNotReady
@@ -217,6 +228,7 @@ func (c *Controller) Step(ctx context.Context) error {
 	if c.Config.Automatic {
 		return c.automaticStep(ctx)
 	}
+	c.stage(ctx, "metrics")
 	raw, err := c.Client.Get(ctx, c.MetricsKey()).Result()
 	if err != nil {
 		return c.freeze(ctx, "metrics_missing", c.admitted || time.Since(c.started) > 10*time.Second)
@@ -237,7 +249,7 @@ func (c *Controller) Step(ctx context.Context) error {
 			Reason:   "controller_alive",
 			WorkerID: c.Config.WorkerID,
 		}
-		c.probeStage = "audit"
+		c.stage(ctx, "audit")
 		if err := c.audit(ctx, heartbeat); err != nil {
 			return c.freeze(ctx, "alert_receiver_unavailable", true)
 		}
@@ -247,6 +259,7 @@ func (c *Controller) Step(ctx context.Context) error {
 	for _, id := range c.Config.ExpectedWorkers {
 		args = append(args, id)
 	}
+	c.stage(ctx, "permit")
 	err = permit.Run(ctx, c.Client, []string{
 		c.prefix + "workers", c.prefix + "leases", c.MetricsKey(),
 		c.Guard.PermitKey(), c.prefix + "trip",
@@ -261,10 +274,12 @@ func (c *Controller) Step(ctx context.Context) error {
 }
 
 func (c *Controller) freeze(ctx context.Context, reason string, latch bool) error {
+	failedStage := c.probeStage
 	elapsedMS := int64(0)
 	if !c.stepStarted.IsZero() && c.probeStage != "" {
 		elapsedMS = time.Since(c.stepStarted).Milliseconds()
 	}
+	c.stage(ctx, "stop")
 	// Monitoring timeouts must not cancel the independent stop/fencing work.
 	// Outbound permit expires while a slower dependency stop is in progress.
 	stopCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
@@ -282,9 +297,10 @@ func (c *Controller) freeze(ctx context.Context, reason string, latch bool) erro
 	fenced := c.Stop(ctx)
 	failures = append(failures, fenced)
 	event := Event{
+		StepID: c.timings.ID, Incarnation: c.incarnation,
 		Kind: "feishu_safety_stop", Reason: reason, WorkerID: c.Config.WorkerID,
 		Fenced: fenced == nil, QueuePaused: paused == nil,
-		ProbeStage: c.probeStage, ElapsedMS: elapsedMS,
+		ProbeStage: failedStage, ElapsedMS: elapsedMS,
 	}
 	// Repeated unsuccessful actions are reported, never misrepresented as done.
 	if c.lastEvent != reason || paused != nil || fenced != nil {
@@ -294,6 +310,7 @@ func (c *Controller) freeze(ctx context.Context, reason string, latch bool) erro
 				"event": event.Kind, "reason": event.Reason,
 				"worker_id": event.WorkerID, "fenced": event.Fenced, "queue_paused": event.QueuePaused,
 				"probe_stage": event.ProbeStage, "step_elapsed_ms": event.ElapsedMS,
+				"step_id": event.StepID, "incarnation": event.Incarnation,
 			},
 		}).Err()
 		alert := c.audit(ctx, event)

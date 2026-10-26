@@ -112,6 +112,9 @@ func (s *FeishuPersonalService) approveSourceUpdates(
 		if err := validatePersonalSourceBinding(tx, ref); err != nil {
 			return err
 		}
+		if err := checkRebindPublication(tx, ds.ID, ref.ConnectionID); err != nil {
+			return err
+		}
 		var epoch types.FeishuPersonalGrantEpoch
 		if err = tx.Clauses(clause.Locking{Strength: "SHARE"}).
 			Where("user_id = ?", ref.OwnerUserID).First(&epoch).Error; err != nil {

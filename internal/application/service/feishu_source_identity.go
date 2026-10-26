@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 
 	"github.com/Tencent/WeKnora/internal/types"
@@ -38,4 +39,43 @@ func validatePersonalSourceBinding(tx *gorm.DB, ref *types.FeishuSourceReference
 		return ErrFeishuSourceRebindRequired
 	}
 	return nil
+}
+
+// SourceBindingAttention is owner-scoped, read-only inventory. OAuth status can
+// surface stale references immediately after consent without invoking a worker,
+// modifying sources, or treating a normal token refresh as reauthorization.
+func (s *FeishuPersonalService) SourceBindingAttention(ctx context.Context) (int, error) {
+	user, ok := types.UserIDFromContext(ctx)
+	if !ok {
+		return 0, nil
+	}
+	if !s.db.Migrator().HasTable(&types.DataSource{}) || !s.db.Migrator().HasTable(&types.FeishuPersonalGrantEpoch{}) {
+		return 0, nil
+	}
+	var rows []types.DataSource
+	if err := s.db.WithContext(ctx).Where("id IN (?)", s.db.Model(&types.FeishuPersonalImport{}).
+		Select("id").Where("user_id = ? AND auth_mode = ?", user, types.FeishuUserOAuth)).Find(&rows).Error; err != nil {
+		return 0, err
+	}
+	count := 0
+	for _, row := range rows {
+		config, err := row.ParseConfig()
+		if err != nil {
+			return 0, err
+		}
+		ref, err := types.ParseFeishuSourceReference(config)
+		if err != nil {
+			return 0, err
+		}
+		if ref == nil || ref.OwnerUserID != user || ref.Kind != types.FeishuUserOAuth {
+			continue
+		}
+		err = validatePersonalSourceBinding(s.db.WithContext(ctx), ref)
+		if errors.Is(err, ErrFeishuSourceRebindRequired) || errors.Is(err, ErrFeishuReconnect) {
+			count++
+		} else if err != nil {
+			return 0, err
+		}
+	}
+	return count, nil
 }

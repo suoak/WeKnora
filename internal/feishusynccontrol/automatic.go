@@ -56,7 +56,7 @@ func (c *Controller) automaticStep(ctx context.Context) error {
 		return c.freeze(ctx, "consumer_probe_missing", true)
 	}
 	if time.Since(c.lastAlertAck) > time.Second {
-		c.probeStage = "audit"
+		c.stage(ctx, "audit")
 		event := Event{
 			Kind:     "feishu_safety_heartbeat",
 			Reason:   "controller_alive",
@@ -70,17 +70,17 @@ func (c *Controller) automaticStep(ctx context.Context) error {
 	// Pair the external Asynq snapshot with membership revision. A peer may
 	// register or first admit a consumer while this process is inspecting it.
 	// Such an obsolete snapshot closes permission but cannot prove consumer loss.
-	c.probeStage = "membership_probe"
+	c.stage(ctx, "membership_probe")
 	revision, err := c.Client.Get(ctx, c.prefix+"membership_revision").Result()
 	if err != nil {
 		return c.freeze(ctx, automaticFailureReason("membership_probe", err), true)
 	}
-	c.probeStage = "consumer_probe"
+	c.stage(ctx, "consumer_probe")
 	ids, err := c.Consumers(ctx)
 	stage := "consumer_probe"
 	if err == nil {
 		stage = "permit"
-		c.probeStage = stage
+		c.stage(ctx, stage)
 		args := []any{c.fingerprint, c.Guard.Fingerprint(), revision}
 		for _, id := range ids {
 			args = append(args, id)

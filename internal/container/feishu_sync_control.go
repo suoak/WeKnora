@@ -118,7 +118,14 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 			}
 		}
 	}
-	controller, err := feishusynccontrol.New(rdb, guard, cfg, func(stopCtx context.Context) error {
+	controlRedis, transport := feishusynccontrol.NewControlClient(rdb)
+	keepControlRedis := false
+	defer func() {
+		if !keepControlRedis {
+			_ = controlRedis.Close()
+		}
+	}()
+	controller, err := feishusynccontrol.New(controlRedis, guard, cfg, func(stopCtx context.Context) error {
 		_, fenceErr := repository.FenceLegacySyncExecutions(stopCtx, db)
 		return fenceErr
 	}, func(event feishusynccontrol.Event) error {
@@ -141,9 +148,10 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 		// It is not a claim of external paging/online health monitoring.
 		auditCtx, cancel := context.WithTimeout(event.Context(), time.Second)
 		defer cancel()
-		return rdb.XAdd(auditCtx, &redis.XAddArgs{
+		return controlRedis.XAdd(auditCtx, &redis.XAddArgs{
 			Stream: strings.TrimSuffix(guard.PermitKey(), "permit") + "events", MaxLen: 1000, Approx: true,
 			Values: map[string]any{
+				"step_id": event.StepID, "incarnation": event.Incarnation,
 				"kind":         event.Kind,
 				"reason":       event.Reason,
 				"worker_id":    event.WorkerID,
@@ -158,8 +166,41 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 		return
 	}
 	if automatic {
-		controller.Consumers = feishusynccontrol.SyncConsumers(rdb)
+		controller.Consumers = feishusynccontrol.SyncConsumers(controlRedis)
 	}
+	diagnosticCtx, diagnosticCancel := context.WithCancel(ctx)
+	controller.Transport = transport
+	if os.Getenv("FEISHU_SYNC_CONTROL_DIAGNOSTICS") == "1" {
+		// Never block the safety loop on log output. Bounded sampling also keeps
+		// retained-trip loops from generating unbounded diagnostic traffic.
+		samples := make(chan feishusynccontrol.StepTiming, 8)
+		lastSample := time.Time{}
+		controller.Observe = func(t feishusynccontrol.StepTiming) {
+			if t.Finished.Sub(t.Started) < 100*time.Millisecond && time.Since(lastSample) < time.Minute {
+				return
+			}
+			if time.Since(lastSample) < time.Second {
+				return
+			}
+			select {
+			case samples <- t:
+				lastSample = time.Now()
+			default:
+			}
+		}
+		go func() {
+			for {
+				select {
+				case <-diagnosticCtx.Done():
+					return
+				case t := <-samples:
+					encoded, _ := json.Marshal(t)
+					logger.Infof(context.Background(), "[FeishuControlTiming] %s", encoded)
+				}
+			}
+		}()
+	}
+	keepControlRedis = true
 	feishusafety.InstallDefault(guard)
 	configured = true
 	runCtx, cancel := context.WithCancel(ctx)
@@ -172,7 +213,8 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 		case <-done:
 		case <-time.After(7 * time.Second):
 		}
+		diagnosticCancel()
 		feishusafety.InstallDefault(nil)
-		return nil
+		return controlRedis.Close()
 	})
 }

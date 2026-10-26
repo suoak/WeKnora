@@ -102,10 +102,10 @@
         <p><a v-if="isFeishuDocumentURL(row.url)" :href="row.url" target="_blank" rel="noopener noreferrer">{{ row.url }}</a> · {{ row.resource_type }} · {{ label(row.status) }} · {{ row.source_status ? label(row.source_status) : '' }}</p>
         <t-button v-if="row.index_status === 'verified' && ['synced','completed'].includes(row.status)" :disabled="busy" variant="outline" @click="enableUpdates(row.id)">{{ t('enableUpdates') }}</t-button>
         <template v-if="row.data_source_id && row.status === 'source_managed'">
+		  <span v-if="row.error_category === 'source_identity_rebind_required'">飞书授权已更新，请联系管理员更新此来源的授权绑定。</span>
           <span>{{ t(row.source_status === 'active' ? 'sourceActive' : 'sourcePaused') }}</span>
           <t-button v-if="row.source_status === 'active'" variant="text" :disabled="busy" @click="sourceAction(row.id,'sync')">{{ t('syncNow') }}</t-button>
           <t-button v-if="row.source_status === 'active'" variant="text" :disabled="busy" @click="sourceAction(row.id,'pause')">{{ t('pauseSource') }}</t-button>
-          <t-button v-if="['paused','error'].includes(row.source_status || '')" variant="text" :disabled="busy" @click="sourceAction(row.id,'rebind')">{{ t('rebindSource') }}</t-button>
           <t-button v-if="['paused','error'].includes(row.source_status || '')" variant="text" :disabled="busy" @click="sourceAction(row.id,'resume')">{{ t('resumeSource') }}</t-button>
         </template>
       </div>

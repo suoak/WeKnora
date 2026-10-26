@@ -312,6 +312,11 @@ func (s *FeishuPersonalService) Status(ctx context.Context) map[string]any {
 		"available":  available,
 		"connected":  connected,
 	}
+	if count, inventoryErr := s.SourceBindingAttention(ctx); inventoryErr == nil {
+		result["sources_requiring_rebind"] = count
+	} else {
+		result["source_binding_status"] = "unavailable"
+	}
 	if mode == types.FeishuApplicationGrant {
 		supported := []string{"docx"}
 		if os.Getenv("FEISHU_APPLICATION_TABLES_ENABLED") == "1" {
@@ -749,6 +754,11 @@ func (s *FeishuPersonalService) UserToken(ctx context.Context, user, appID, open
 			return err
 		}
 		next.UserID = user
+		// OAuth refresh may omit an unchanged scope inventory. This preserves
+		// evidence from the original grant; a nonempty reduced scope replaces it.
+		if next.Scope == "" {
+			next.Scope = t.Scope
+		}
 		c.Tokens, err = sealFeishu(next)
 		if err != nil {
 			return err
@@ -882,6 +892,17 @@ func (s *FeishuPersonalService) decorateFeishuImports(
 		}
 		for i := range rows {
 			if ds := byID[rows[i].ID]; ds != nil {
+				if config, parseErr := ds.ParseConfig(); parseErr == nil {
+					if ref, refErr := types.ParseFeishuSourceReference(config); refErr == nil && ref != nil &&
+						ref.OwnerUserID == rows[i].UserID {
+						if bindingErr := validatePersonalSourceBinding(s.db.WithContext(ctx), ref); errors.Is(
+							bindingErr,
+							ErrFeishuSourceRebindRequired,
+						) {
+							rows[i].ErrorCategory = "source_identity_rebind_required"
+						}
+					}
+				}
 				rows[i].DataSourceID = ds.ID
 				rows[i].SourceStatus = ds.Status
 				if ds.LegacyAccessState == "hold" || ds.LegacyAccessState == "revoked" {
