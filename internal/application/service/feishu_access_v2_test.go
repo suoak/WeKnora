@@ -18,7 +18,7 @@ import (
 
 type v2OAuthTransport func(*http.Request) (*http.Response, error)
 
-func TestFeishuV2OAuthPermissionProbeScopeRequiresPublishedDeploymentOptIn(t *testing.T) {
+func TestFeishuV2OAuthRequestsCompleteReadOnlyImportScopes(t *testing.T) {
 	s, _ := feishuFixture(t)
 	t.Setenv("FEISHU_ACCESS_V2_ENABLED", "1")
 	cfg, err := s.app(context.Background())
@@ -26,14 +26,24 @@ func TestFeishuV2OAuthPermissionProbeScopeRequiresPublishedDeploymentOptIn(t *te
 	cfg.Capabilities = &types.FeishuAccessCapabilities{PersonalEnabled: true, ApplicationEnabled: true}
 	admin := context.WithValue(personalUser("A"), types.SystemAdminContextKey, true)
 	require.NoError(t, s.SaveApp(admin, cfg))
-	for _, enabled := range []string{"false", "true"} {
+	for _, enabled := range []string{"", "false", "true"} {
 		t.Setenv("FEISHU_PERSONAL_PERMISSION_AUTH_SCOPE_ENABLED", enabled)
 		authorization, err := s.Authorize(personalUser("A"))
 		require.NoError(t, err)
 		parsed, err := url.Parse(authorization)
 		require.NoError(t, err)
-		require.Equal(t, enabled == "true",
-			strings.Contains(parsed.Query().Get("scope"), "docs:permission.member:auth"))
+		scopes := strings.Fields(parsed.Query().Get("scope"))
+		for _, required := range []string{
+			"docx:document:readonly", "docs:document:export", "docs:document.media:download",
+			"drive:drive.metadata:readonly", "drive:file:readonly", "wiki:wiki:readonly",
+			"sheets:spreadsheet:readonly", "bitable:app:readonly", "offline_access",
+			"space:document:retrieve", "docs:permission.member:auth",
+		} {
+			require.Contains(t, scopes, required)
+		}
+		for _, writeScope := range []string{"docx:document", "drive:drive", "sheets:spreadsheet", "bitable:app"} {
+			require.NotContains(t, scopes, writeScope)
+		}
 	}
 }
 

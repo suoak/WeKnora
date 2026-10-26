@@ -391,13 +391,10 @@ func (s *FeishuPersonalService) Authorize(ctx context.Context) (string, error) {
 	}
 	scopes := feishuScopes
 	if cfg.Capabilities != nil {
-		scopes += " space:document:retrieve"
-		// Optional until the application's USER identity scope is published.
-		// The blocks fallback stays closed without an effective permission
-		// receipt; enabling this only requests that scope on the next consent.
-		if os.Getenv("FEISHU_PERSONAL_PERMISSION_AUTH_SCOPE_ENABLED") == "true" {
-			scopes += " docs:permission.member:auth"
-		}
+		// V2 requests its complete read/import scope set at the first consent.
+		// This permission inspects the user's effective source rights; it grants
+		// neither document editing nor permission to bypass an export denial.
+		scopes += " space:document:retrieve docs:permission.member:auth"
 	}
 	q := url.Values{
 		"client_id":     {cfg.AppID},

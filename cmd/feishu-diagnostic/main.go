@@ -182,6 +182,18 @@ func run() error {
 		}
 		doc["metadata_readable"] = fetchErr == nil
 		if fetchErr == nil {
+			if resource.Type == "docx" {
+				rights := map[string]any{}
+				for _, action := range []string{"view", "export", "copy"} {
+					allowed, checkErr := client.PersonalResourcePermission(ctx, resource, action)
+					if checkErr != nil {
+						rights[action] = map[string]any{"verified": false, "error": safeError(checkErr)}
+					} else {
+						rights[action] = map[string]any{"verified": true, "allowed": allowed}
+					}
+				}
+				doc["effective_personal_permissions"] = rights
+			}
 			policy, permissionErr := client.PersonalExportPolicy(ctx, resource)
 			if permissionErr != nil {
 				doc["policy_inspection_error"] = safeError(permissionErr)
