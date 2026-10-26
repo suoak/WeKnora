@@ -22,6 +22,7 @@
           <p v-if="item.last_activity_at">后台状态更新：{{ formatTime(item.last_activity_at) }}</p>
           <p v-if="item.stalled" class="warning" role="status">处理异常，请查看详情。后台正在检查任务状态，不会擅自取消任务。</p>
           <p v-if="item.error_category" class="warning">{{ failure(item.error_category) }}</p>
+          <t-button v-if="['source_policy_verification_required','user_scope_missing','reconnect_required','authorization_expired'].includes(item.error_category || '')" variant="text" :loading="authorizationBusy" @click="connect('')">补充飞书授权</t-button>
           <p v-if="item.retry_after && item.status === 'dispatched'">自动重试时间：{{ formatTime(item.retry_after) }}</p>
           <p v-if="item.chunk_count || item.vector_count">已解析 {{ item.chunk_count || 0 }} 个片段，已建立 {{ item.vector_count || 0 }} 条向量索引。</p>
           <router-link v-if="item.status === 'succeeded' && item.index_verified && item.knowledge_id" :to="{path:'/platform/knowledge-bases/'+batch.batch.kb_id,query:{knowledge_id:item.knowledge_id}}">在知识库中查看</router-link>
@@ -43,6 +44,7 @@ import FeishuAccessManagement from './components/FeishuAccessManagement.vue'
 const route=useRoute(), kb=typeof route.query.kb === 'string' ? route.query.kb : '', status=ref<FeishuStatus>()
 const history=ref<FeishuBatchHistory[]>([]), batch=ref<FeishuBatch>(), more=ref(false), message=ref('')
 const advancedOpen=ref(false), approvalKB=computed(()=>kb || batch.value?.batch.kb_id || '')
+const authorizationBusy=ref(false)
 let mounted=true, selectedID='', timer:ReturnType<typeof setTimeout>|undefined, loading=false
 onUnmounted(()=>{mounted=false;clearTimeout(timer)})
 function formatTime(value:string) { return new Date(value).toLocaleString() }
@@ -110,7 +112,17 @@ async function showBatch(id:string) {
     if(mounted && selectedID && (!batch.value || batch.value.batch.id!==selectedID || batch.value.items.some(item=>['pending','processing','dispatched'].includes(item.status))))timer=setTimeout(()=>showBatch(selectedID),4000)
   }
 }
-async function connect(links:string) { sessionStorage.setItem(FEISHU_PENDING,JSON.stringify({kbId:kb,url:links,path:location.pathname+location.search})); const result=await authorizeFeishu(), target=new URL(result.authorization_url); if(target.origin==='https://accounts.feishu.cn') location.assign(target.href) }
+async function connect(links:string) {
+  if(authorizationBusy.value)return
+  authorizationBusy.value=true
+  sessionStorage.setItem(FEISHU_PENDING,JSON.stringify({kbId:approvalKB.value,url:links,path:location.pathname+location.search}))
+  try {
+    const result=await authorizeFeishu(), target=new URL(result.authorization_url)
+    if(target.origin!=='https://accounts.feishu.cn')throw new Error('invalid_authorization_origin')
+    location.assign(target.href)
+  } catch { message.value='暂时无法连接飞书，请稍后重试。' }
+  finally { authorizationBusy.value=false }
+}
 </script>
 <style scoped>
 .management {max-width:960px;margin:24px auto;padding:0 20px;overflow-wrap:anywhere;}
