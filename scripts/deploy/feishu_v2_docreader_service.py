@@ -7,7 +7,6 @@ import re
 import sys
 from pathlib import Path, PurePosixPath
 
-import paramiko
 
 REMOTE = r'''
 import json,os,pathlib,subprocess,re,hashlib
@@ -130,6 +129,8 @@ def read_json(path):
 
 
 def main():
+    import paramiko
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--manifest', type=Path, required=True)
     parser.add_argument('--source-manifest', type=Path, required=True)
