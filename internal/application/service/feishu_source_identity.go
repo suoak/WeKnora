@@ -53,8 +53,9 @@ func (s *FeishuPersonalService) SourceBindingAttention(ctx context.Context) (int
 		return 0, nil
 	}
 	var rows []types.DataSource
-	if err := s.db.WithContext(ctx).Where("id IN (?)", s.db.Model(&types.FeishuPersonalImport{}).
-		Select("id").Where("user_id = ? AND auth_mode = ?", user, types.FeishuUserOAuth)).Find(&rows).Error; err != nil {
+	owned := s.db.Model(&types.FeishuPersonalImport{}).Select("id").
+		Where("user_id = ? AND auth_mode = ?", user, types.FeishuUserOAuth)
+	if err := s.db.WithContext(ctx).Where("id IN (?)", owned).Find(&rows).Error; err != nil {
 		return 0, err
 	}
 	count := 0

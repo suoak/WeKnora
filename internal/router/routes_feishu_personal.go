@@ -8,7 +8,11 @@ import (
 // RegisterFeishuPersonalRoutes provides the register feishu personal routes operation.
 // JWT users only: these routes deliberately do not declare API key policies.
 // KB writes depend on the Editor grant; no system/space-admin role is required.
-func RegisterFeishuPersonalRoutes(r *gin.RouterGroup, h *handler.FeishuPersonalHandler, g *rbacGuards) {
+func RegisterFeishuPersonalRoutes(
+	r *gin.RouterGroup,
+	h *handler.FeishuPersonalHandler,
+	g *rbacGuards,
+) {
 	if h == nil {
 		return
 	}
@@ -16,6 +20,7 @@ func RegisterFeishuPersonalRoutes(r *gin.RouterGroup, h *handler.FeishuPersonalH
 	admin.GET("", h.Config)
 	admin.PUT("", h.SaveConfig)
 	admin.POST("/test", h.TestConfig)
+	admin.POST("/sources/rebind/:action", h.SourceRebind)
 	me := r.Group("/me/feishu")
 	me.GET("", h.Status)
 	me.GET("/connections", h.Connections)

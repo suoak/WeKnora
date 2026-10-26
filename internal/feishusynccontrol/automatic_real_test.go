@@ -145,8 +145,9 @@ func runAutomaticRealRedisTwoProcess(t *testing.T, faultStage string) {
 			cfg,
 			func(context.Context) error { return inspector.PauseQueue("sync") },
 			func(e Event) error {
-				return control.XAdd(e.Context(), &redis.XAddArgs{Stream: "control-test-audit", Values: map[string]any{"event": e.Kind}}).
-					Err()
+				return control.XAdd(e.Context(), &redis.XAddArgs{
+					Stream: "control-test-audit", Values: map[string]any{"event": e.Kind},
+				}).Err()
 			},
 		)
 		if err != nil {

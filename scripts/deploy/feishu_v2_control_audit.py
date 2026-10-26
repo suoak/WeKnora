@@ -167,6 +167,26 @@ for _ in range(80):
  __import__('time').sleep(0.05)
 samples.sort()
 result['membership_get_latency_sample']={'count':len(samples),'p50_ms':round(samples[len(samples)//2],3),'p95_ms':round(samples[int(len(samples)*0.95)-1],3),'max_ms':round(max(samples),3),'scope':'current_sample_only_not_historical_root_cause'}
+def numeric_info(section,allowed):
+ raw=redis('INFO',section).decode();values={}
+ for line in raw.splitlines():
+  key,sep,value=line.partition(':')
+  if sep and key in allowed and re.fullmatch(r'-?[0-9]+(?:\.[0-9]+)?',value):values[key]=float(value) if '.' in value else int(value)
+ return values
+result['redis_current_health']={
+ 'persistence':numeric_info('persistence',{'aof_enabled','aof_pending_bio_fsync','aof_delayed_fsync','aof_last_write_status','rdb_last_bgsave_time_sec','aof_last_rewrite_time_sec','rdb_bgsave_in_progress','aof_rewrite_in_progress'}),
+ 'clients':numeric_info('clients',{'connected_clients','blocked_clients','maxclients'}),
+ 'stats':numeric_info('stats',{'total_connections_received','rejected_connections','total_error_replies','instantaneous_ops_per_sec','latest_fork_usec'}),
+ 'scope':'current_counters_do_not_attribute_historical_fault'}
+slow=[]
+for entry in redis('SLOWLOG','GET',128):
+ # Never serialize command arguments, client address or client name.
+ command=entry[3][0].decode(errors='replace').lower() if entry[3] else ''
+ slow.append({'id':entry[0],'started_unix_seconds':entry[1],'server_duration_us':entry[2],
+  'command':command if re.fullmatch('[a-z]{1,24}',command) else 'other'})
+result['redis_slowlog']=slow
+result['redis_latency_events']=[{'event':v[0].decode(),'last_unix_seconds':v[1],'last_ms':v[2],'max_ms':v[3]}
+ for v in redis('LATENCY','LATEST') if v[0].decode() in {'command','fast-command','fork','aof-write','aof-fsync-always','aof-write-pending-fsync'}]
 connection.close();print(json.dumps(result))
 '''
 

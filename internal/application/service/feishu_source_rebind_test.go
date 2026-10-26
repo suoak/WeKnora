@@ -24,6 +24,7 @@ func TestFeishuV2PostgresControlledSourceRebind(t *testing.T) {
 		"concurrent_one_winner", "rollback_after_index_change",
 	} {
 		t.Run(scenario, func(t *testing.T) {
+			t.Setenv("FEISHU_SOURCE_REBIND_OPERATIONS_ENABLED", "1")
 			f := v2PostgresFixture(t)
 			require.NoError(t, f.db.AutoMigrate(&types.DataSource{}, &types.SyncLog{}))
 			require.NoError(
@@ -167,6 +168,10 @@ func TestFeishuV2PostgresControlledSourceRebind(t *testing.T) {
 			}
 			proposal, err := f.s.PrepareSourceRebind(admin, ids, "operator")
 			require.NoError(t, err)
+			plan, err := readRebindPlan(proposal)
+			require.NoError(t, err)
+			require.Equal(t, old.AppID, plan.Items[0].Import.AppID)
+			require.Equal(t, old.OpenID, plan.Items[0].Import.OpenID)
 			grant, err := f.s.AuthorizeSourceRebindPublication(
 				admin,
 				proposal,
@@ -204,7 +209,9 @@ func TestFeishuV2PostgresControlledSourceRebind(t *testing.T) {
 				require.NoError(
 					t,
 					f.db.Model(&types.Knowledge{}).
-						Where("id = (?)", f.db.Model(&types.FeishuPersonalImport{}).Select("knowledge_id").Where("id = ?", ids[1])).
+						Where("id = (?)", f.db.Model(&types.FeishuPersonalImport{}).
+							Select("knowledge_id").
+							Where("id = ?", ids[1])).
 						Update("title", "changed after proposal").
 						Error,
 				)
@@ -266,7 +273,9 @@ func TestFeishuV2PostgresControlledSourceRebind(t *testing.T) {
 					require.NoError(
 						t,
 						f.db.Model(&types.Knowledge{}).
-							Where("id = (?)", f.db.Model(&types.FeishuPersonalImport{}).Select("knowledge_id").Where("id = ?", ids[0])).
+							Where("id = (?)", f.db.Model(&types.FeishuPersonalImport{}).
+								Select("knowledge_id").
+								Where("id = ?", ids[0])).
 							Update("title", "published change").
 							Error,
 					)

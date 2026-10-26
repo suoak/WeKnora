@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -37,13 +38,14 @@ type sourceRebindItem struct {
 	IndexHash                                                string
 	// Credential's non-JSON fields are deliberately serialized only inside the
 	// encrypted operator proposal. Public API refs omit them by design.
-	OpenID, GrantEpoch, ConfigVersion string
-	SourceState                       string
-	SourceDeferrals                   types.JSON
+	OpenID, GrantEpoch, ConfigVersion, AppID string
+	SourceState                              string
+	SourceDeferrals                          types.JSON
 }
 
 type sourceRebindGrant struct {
 	ID, PlanHash, AuthorizationRef, Operator string
+	Plan                                     string
 	Approvals                                map[string]string
 	ExpiresAt                                time.Time
 }
@@ -107,7 +109,7 @@ func sourceExecutionHash(tx *gorm.DB, id string) (string, error) {
 // embedding body leaves the DB. A changed published/index row blocks migration
 // or rollback. It does not rebuild or rewrite any retrieval structure.
 func sourceRebindIndexHash(tx *gorm.DB, knowledgeID string) (string, error) {
-	if tx.Dialector.Name() != "postgres" {
+	if tx.Name() != "postgres" {
 		return "", access.ErrForbidden
 	}
 	parts := []string{}
@@ -214,7 +216,10 @@ func (s *FeishuPersonalService) inspectSourceRebind(
 		return nil, core.ErrPersonalBlocksPolicyUnverified
 	}
 	var connection types.FeishuConnection
-	if err = s.db.WithContext(ctx).Where("user_id = ? AND app_id = ? AND open_id = ?", ref.OwnerUserID, ref.AppID, current.OpenID).First(&connection).Error; err != nil {
+	if err = s.db.WithContext(ctx).
+		Where("user_id = ? AND app_id = ? AND open_id = ?", ref.OwnerUserID, ref.AppID, current.OpenID).
+		First(&connection).
+		Error; err != nil {
 		return nil, err
 	}
 	var tokens feishuTokens
@@ -228,7 +233,7 @@ func (s *FeishuPersonalService) inspectSourceRebind(
 	}
 	item := &sourceRebindItem{
 		Source: ds, Import: imported, Credential: current, OpenID: current.OpenID,
-		GrantEpoch: current.GrantEpoch, ConfigVersion: current.ConfigVersion,
+		GrantEpoch: current.GrantEpoch, ConfigVersion: current.ConfigVersion, AppID: current.AppID,
 		ScopeHash: syncPolicyHash([]byte(tokens.Scope)), Revision: r.Modified,
 		SourceState: ds.LegacyAccessState, SourceDeferrals: ds.DocumentDeferrals,
 	}
@@ -283,7 +288,20 @@ func readRebindPlan(cipher string) (*sourceRebindPlan, error) {
 		!plan.ExpiresAt.After(time.Now()) {
 		return nil, access.ErrForbidden
 	}
+	restoreRebindIdentity(&plan)
 	return &plan, nil
+}
+
+// Public source/import DTOs deliberately omit identity fields. Restore them
+// only from explicit fields within this AES-GCM authenticated operator plan.
+func restoreRebindIdentity(plan *sourceRebindPlan) {
+	for i := range plan.Items {
+		item := &plan.Items[i]
+		item.Import.AppID, item.Import.OpenID = item.AppID, item.OpenID
+		item.Credential.OpenID, item.Credential.GrantEpoch = item.OpenID, item.GrantEpoch
+		item.Credential.ConfigVersion = item.ConfigVersion
+		item.Source.LegacyAccessState, item.Source.DocumentDeferrals = item.SourceState, item.SourceDeferrals
+	}
 }
 
 func rebindDigest(value any) string { b, _ := json.Marshal(value); return syncPolicyHash(b) }
@@ -323,7 +341,12 @@ func checkRebindSnapshot(tx *gorm.DB, item sourceRebindItem) error {
 		imported.SyncLease != "" {
 		return ErrFeishuRebindConflict
 	}
-	if err := lockBatchPublicationAuthority(tx, &types.FeishuBatch{OwnerID: item.Import.UserID, TenantID: ds.TenantID, KBID: ds.KnowledgeBaseID}); err != nil {
+	batch := &types.FeishuBatch{
+		OwnerID:  item.Import.UserID,
+		TenantID: ds.TenantID,
+		KBID:     ds.KnowledgeBaseID,
+	}
+	if err := lockBatchPublicationAuthority(tx, batch); err != nil {
 		return err
 	}
 	var connection types.FeishuConnection
@@ -346,11 +369,16 @@ func checkRebindSnapshot(tx *gorm.DB, item sourceRebindItem) error {
 		return err
 	}
 	var epoch types.FeishuPersonalGrantEpoch
-	if err := tx.Where("user_id = ? AND epoch = ?", item.Import.UserID, item.GrantEpoch).First(&epoch).Error; err != nil {
+	if err := tx.Where("user_id = ? AND epoch = ?", item.Import.UserID, item.GrantEpoch).
+		First(&epoch).
+		Error; err != nil {
 		return ErrFeishuReconnect
 	}
 	var setting types.SystemSetting
-	if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("key = ?", feishuAppSetting).First(&setting).Error; err != nil {
+	if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).
+		Where("key = ?", feishuAppSetting).
+		First(&setting).
+		Error; err != nil {
 		return err
 	}
 	cipher, err := setting.AsString()
@@ -394,7 +422,9 @@ func (s *FeishuPersonalService) AuthorizeSourceRebindPublication(
 	proposal, operator, authorization string,
 	expires time.Time,
 ) (string, error) {
-	if !types.IsSystemAdminFromContext(ctx) || operator == "" ||
+	if os.Getenv("FEISHU_SOURCE_REBIND_OPERATIONS_ENABLED") != "1" ||
+		!types.IsSystemAdminFromContext(ctx) ||
+		operator == "" ||
 		strings.TrimSpace(authorization) == "" ||
 		!expires.After(time.Now()) ||
 		expires.After(time.Now().Add(24*time.Hour)) {
@@ -405,6 +435,7 @@ func (s *FeishuPersonalService) AuthorizeSourceRebindPublication(
 		return "", err
 	}
 	grant := sourceRebindGrant{
+		Plan:             proposal,
 		ID:               uuid.NewString(),
 		PlanHash:         syncPolicyHash([]byte(proposal)),
 		Operator:         operator,
@@ -420,8 +451,10 @@ func (s *FeishuPersonalService) AuthorizeSourceRebindPublication(
 				}
 				approval := types.FeishuSharingApproval{
 					ID: uuid.NewString(), OwnerID: item.Import.UserID, KBID: item.Import.KBID,
-					AppID: item.Import.AppID, ResourceType: item.Import.ResourceType, ResourceToken: item.Import.DocumentToken,
-					Revision: item.Revision, ConfigVersion: item.ConfigVersion, State: "approved", ApprovedBy: operator,
+					AppID: item.Import.AppID, ResourceType: item.Import.ResourceType,
+					ResourceToken: item.Import.DocumentToken,
+					Revision:      item.Revision, ConfigVersion: item.ConfigVersion,
+					State: "approved", ApprovedBy: operator,
 					Reason: authorization, CreatedAt: time.Now().UTC(), ExpiresAt: expires,
 				}
 				if err := tx.Create(&approval).Error; err != nil {
@@ -441,7 +474,10 @@ func (s *FeishuPersonalService) ApplySourceRebind(
 	ctx context.Context,
 	proposal, grantID, operator, migrationApproval, backupSHA string,
 ) (string, error) {
-	if !types.IsSystemAdminFromContext(ctx) || operator == "" || migrationApproval == "" ||
+	if os.Getenv("FEISHU_SOURCE_REBIND_OPERATIONS_ENABLED") != "1" ||
+		!types.IsSystemAdminFromContext(ctx) ||
+		operator == "" ||
+		migrationApproval == "" ||
 		len(backupSHA) != 64 {
 		return "", access.ErrForbidden
 	}
@@ -465,7 +501,10 @@ func (s *FeishuPersonalService) ApplySourceRebind(
 	err = s.db.WithContext(types.WithLegacyKBAdminMetadata(ctx, plan.Items[0].Source.KnowledgeBaseID)).
 		Transaction(func(tx *gorm.DB) error {
 			var row types.SystemSetting
-			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("key = ?", sourceRebindPrefix+"grant."+grantID).First(&row).Error; err != nil {
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+				Where("key = ?", sourceRebindPrefix+"grant."+grantID).
+				First(&row).
+				Error; err != nil {
 				return err
 			}
 			cipher, e := row.AsString()
@@ -530,7 +569,9 @@ func (s *FeishuPersonalService) ApplySourceRebind(
 					if e = tx.Create(&old).Error; e != nil {
 						return e
 					}
-					if e = tx.Where("key = ?", feishuSyncPolicyPrefix+item.Source.ID).Delete(&types.SystemSetting{}).Error; e != nil {
+					if e = tx.Where("key = ?", feishuSyncPolicyPrefix+item.Source.ID).
+						Delete(&types.SystemSetting{}).
+						Error; e != nil {
 						return e
 					}
 				}
@@ -563,9 +604,16 @@ func writeRebindMarker(tx *gorm.DB, id, operator string, value any) error {
 	if err != nil {
 		return err
 	}
-	return tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "key"}}, DoUpdates: clause.Assignments(map[string]any{"value": types.JSON(raw), "last_modified_by": operator})}).
+	update := clause.OnConflict{
+		Columns: []clause.Column{{Name: "key"}},
+		DoUpdates: clause.Assignments(
+			map[string]any{"value": types.JSON(raw), "last_modified_by": operator},
+		),
+	}
+	return tx.Clauses(update).
 		Create(&types.SystemSetting{
-			Key: sourceRebindPrefix + "current." + id, Value: raw, ValueType: "string", Category: "integration", IsSecret: true, LastModifiedBy: operator,
+			Key: sourceRebindPrefix + "current." + id, Value: raw, ValueType: "string", Category: "integration",
+			IsSecret: true, LastModifiedBy: operator,
 		}).
 		Error
 }
@@ -591,7 +639,10 @@ func checkRebindPublication(tx *gorm.DB, sourceID, connectionID string) error {
 		return ErrFeishuSharingApproval
 	}
 	var grantRow types.SystemSetting
-	if err = tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("key = ?", sourceRebindPrefix+"grant."+marker.GrantID).First(&grantRow).Error; err != nil {
+	if err = tx.Clauses(clause.Locking{Strength: "SHARE"}).
+		Where("key = ?", sourceRebindPrefix+"grant."+marker.GrantID).
+		First(&grantRow).
+		Error; err != nil {
 		return err
 	}
 	cipher, err = grantRow.AsString()
@@ -602,8 +653,42 @@ func checkRebindPublication(tx *gorm.DB, sourceID, connectionID string) error {
 	if openFeishu(cipher, &grant) != nil || !grant.ExpiresAt.After(time.Now()) {
 		return ErrFeishuSharingApproval
 	}
+	var plan sourceRebindPlan
+	if openFeishu(grant.Plan, &plan) != nil {
+		return ErrFeishuSharingApproval
+	}
+	restoreRebindIdentity(&plan)
+	matched := false
+	for _, item := range plan.Items {
+		if item.Source.ID != sourceID {
+			continue
+		}
+		if item.Credential.ConnectionID != connectionID {
+			return ErrFeishuSharingApproval
+		}
+		audience, e := syncPolicyAudience(tx, item.Source.KnowledgeBaseID)
+		if e != nil {
+			return e
+		}
+		if audience != item.Audience {
+			return ErrFeishuSharingApproval
+		}
+		var epoch types.FeishuPersonalGrantEpoch
+		if e = tx.Clauses(clause.Locking{Strength: "SHARE"}).
+			Where("user_id = ? AND epoch = ?", item.Import.UserID, item.GrantEpoch).
+			First(&epoch).Error; e != nil {
+			return ErrFeishuSharingApproval
+		}
+		matched = true
+	}
+	if !matched {
+		return ErrFeishuSharingApproval
+	}
 	var approval types.FeishuSharingApproval
-	if err = tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ? AND state = ? AND expires_at > ?", grant.Approvals[sourceID], "approved", time.Now()).First(&approval).Error; err != nil {
+	if err = tx.Clauses(clause.Locking{Strength: "SHARE"}).
+		Where("id = ? AND state = ? AND expires_at > ?", grant.Approvals[sourceID], "approved", time.Now()).
+		First(&approval).
+		Error; err != nil {
 		return ErrFeishuSharingApproval
 	}
 	return nil
@@ -617,12 +702,18 @@ func (s *FeishuPersonalService) RollbackSourceRebind(
 	ctx context.Context,
 	receiptID, operator, approvalRef string,
 ) error {
-	if !types.IsSystemAdminFromContext(ctx) || operator == "" || approvalRef == "" {
+	if os.Getenv("FEISHU_SOURCE_REBIND_OPERATIONS_ENABLED") != "1" ||
+		!types.IsSystemAdminFromContext(ctx) ||
+		operator == "" ||
+		approvalRef == "" {
 		return access.ErrForbidden
 	}
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var row types.SystemSetting
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("key = ?", sourceRebindPrefix+"receipt."+receiptID).First(&row).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("key = ?", sourceRebindPrefix+"receipt."+receiptID).
+			First(&row).
+			Error; err != nil {
 			return err
 		}
 		cipher, err := row.AsString()
@@ -637,9 +728,12 @@ func (s *FeishuPersonalService) RollbackSourceRebind(
 		if openFeishu(receipt.Plan, &plan) != nil {
 			return access.ErrForbidden
 		}
+		restoreRebindIdentity(&plan)
 		for _, item := range plan.Items {
 			var current types.DataSource
-			if err = tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&current, "id = ?", item.Source.ID).Error; err != nil {
+			if err = tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+				First(&current, "id = ?", item.Source.ID).
+				Error; err != nil {
 				return err
 			}
 			if rebindDigest(current) != receipt.After[item.Source.ID] ||
@@ -662,7 +756,9 @@ func (s *FeishuPersonalService) RollbackSourceRebind(
 				return ErrFeishuRebindConflict
 			}
 			var imported types.FeishuPersonalImport
-			if e = tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&imported, "id = ?", item.Source.ID).Error; e != nil {
+			if e = tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+				First(&imported, "id = ?", item.Source.ID).
+				Error; e != nil {
 				return e
 			}
 			if rebindDigest(imported) != rebindDigest(item.Import) ||
@@ -677,12 +773,18 @@ func (s *FeishuPersonalService) RollbackSourceRebind(
 			if policy != "absent" {
 				return ErrFeishuRebindConflict
 			}
-			if e = tx.Model(&types.DataSource{}).Where("id = ? AND config = ?", current.ID, string(current.Config)).UpdateColumn("config", item.Source.Config).Error; e != nil {
+			if e = tx.Model(&types.DataSource{}).
+				Where("id = ? AND config = ?", current.ID, string(current.Config)).
+				UpdateColumn("config", item.Source.Config).
+				Error; e != nil {
 				return e
 			}
 		}
 		var grantRow types.SystemSetting
-		if err = tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("key = ?", sourceRebindPrefix+"grant."+receipt.PublicationGrant).First(&grantRow).Error; err != nil {
+		if err = tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("key = ?", sourceRebindPrefix+"grant."+receipt.PublicationGrant).
+			First(&grantRow).
+			Error; err != nil {
 			return err
 		}
 		grantCipher, err := grantRow.AsString()
@@ -694,7 +796,10 @@ func (s *FeishuPersonalService) RollbackSourceRebind(
 			return access.ErrForbidden
 		}
 		for _, id := range grant.Approvals {
-			if err = tx.Model(&types.FeishuSharingApproval{}).Where("id = ?", id).Update("state", "revoked").Error; err != nil {
+			if err = tx.Model(&types.FeishuSharingApproval{}).
+				Where("id = ?", id).
+				Update("state", "revoked").
+				Error; err != nil {
 				return err
 			}
 		}

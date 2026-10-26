@@ -48,7 +48,15 @@ jobs:
           go-version: '1.26.9'
           cache: true
       - uses: dtolnay/rust-toolchain@1.99.1
-      - run: sudo apt-get update && sudo apt-get install -y build-essential libsqlite3-dev
+      - name: Verify native build prerequisites
+        timeout-minutes: 8
+        run: |
+          if [ "$(dpkg-query -W -f='${db:Status-Status}\n' build-essential libsqlite3-dev 2>/dev/null | grep -c '^installed$')" != 2 ]; then
+            sudo timeout 240 apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 update
+            sudo timeout 180 apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 install -y build-essential libsqlite3-dev
+          fi
+          gcc --version
+          test -r /usr/include/sqlite3.h
       - uses: actions/cache/restore@v4
         id: native-cache
         with:

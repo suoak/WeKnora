@@ -45,8 +45,10 @@ func NewControlClient(base *redis.Client) (*redis.Client, *ControlTransport) {
 	opts.PoolSize, opts.MinIdleConns, opts.MaxIdleConns = 2, 0, 2
 	opts.MaxActiveConns = 2
 	opts.ContextTimeoutEnabled = true
-	opts.DialTimeout, opts.ReadTimeout, opts.WriteTimeout, opts.PoolTimeout =
-		500*time.Millisecond, 500*time.Millisecond, 500*time.Millisecond, 500*time.Millisecond
+	opts.DialTimeout = 500 * time.Millisecond
+	opts.ReadTimeout = 500 * time.Millisecond
+	opts.WriteTimeout = 500 * time.Millisecond
+	opts.PoolTimeout = 500 * time.Millisecond
 	opts.MaxRetries = -1
 	// The initialized default dialer closes over the original Options. Rebuild
 	// it with the bounded options, preserving TLS settings.

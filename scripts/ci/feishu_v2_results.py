@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 required = {
+	"TestFeishuV2PostgresControlledSourceRebind",
     "TestFeishuV2PostgresApprovedHeldSourceReconciliation",
     "TestFeishuV2PostgresContinuingSourcePublicationPolicy",
     "TestFeishuV2PostgresParserOutageRecoveryPreservesKnowledgeAndFences",

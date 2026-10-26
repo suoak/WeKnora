@@ -55,7 +55,7 @@ func (h *delayReplyHook) ProcessPipelineHook(
 func TestControlTransportBoundsInspectorBackgroundAndMeasuresReply(t *testing.T) {
 	f := newControlFixture(t)
 	client, transport := NewControlClient(f.client)
-	defer client.Close()
+	t.Cleanup(func() { _ = client.Close() })
 	if client.Options().DB != f.client.Options().DB ||
 		client.Options().Addr != f.client.Options().Addr ||
 		!client.Options().ContextTimeoutEnabled ||
@@ -93,7 +93,7 @@ func TestControlTransportBoundsInspectorBackgroundAndMeasuresReply(t *testing.T)
 func TestControlTransportIndependentPoolAndAuditFailureStayClosed(t *testing.T) {
 	f := newControlFixture(t)
 	client, transport := NewControlClient(f.client)
-	defer client.Close()
+	t.Cleanup(func() { _ = client.Close() })
 	c := f.automaticController(t, "app:1")
 	hook := &delayReplyHook{}
 	client.AddHook(hook)
@@ -102,8 +102,9 @@ func TestControlTransportIndependentPoolAndAuditFailureStayClosed(t *testing.T) 
 	var timing StepTiming
 	c.Observe = func(v StepTiming) { timing = v }
 	c.Audit = func(event Event) error {
-		return client.XAdd(event.Context(), &redis.XAddArgs{Stream: c.prefix + "test-events", Values: map[string]any{"kind": event.Kind}}).
-			Err()
+		return client.XAdd(event.Context(), &redis.XAddArgs{
+			Stream: c.prefix + "test-events", Values: map[string]any{"kind": event.Kind},
+		}).Err()
 	}
 	if err := c.Step(context.Background()); err != nil {
 		t.Fatal(err)
@@ -129,5 +130,50 @@ func TestControlTransportIndependentPoolAndAuditFailureStayClosed(t *testing.T) 
 		if s.Stage == "permit" {
 			t.Fatal("audit failure reached permit phase")
 		}
+	}
+}
+
+func TestControlTransportBusinessPoolStarvationCannotDelayAudit(t *testing.T) {
+	f := newControlFixture(t)
+	base := redis.NewClient(
+		&redis.Options{Addr: f.server.Addr(), PoolSize: 1, MaxActiveConns: 1, MaxRetries: -1},
+	)
+	t.Cleanup(func() { _ = base.Close() })
+	control, transport := NewControlClient(base)
+	t.Cleanup(func() { _ = control.Close() })
+	if err := control.Ping(context.Background()).Err(); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- base.BLPop(context.Background(), time.Second, "held-business-connection").Err() }()
+	deadline := time.Now().Add(time.Second)
+	for base.PoolStats().TotalConns != 1 || base.PoolStats().IdleConns != 0 {
+		if time.Now().After(deadline) {
+			t.Fatal("business connection was not claimed")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	if base.XAdd(ctx, &redis.XAddArgs{Stream: "shared-audit", Values: map[string]any{"event": "test"}}).
+		Err() ==
+		nil {
+		t.Fatal("fault injection did not exhaust the shared business pool")
+	}
+	bounded, cancelControl := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancelControl()
+	transport.begin(bounded)
+	err := control.XAdd(bounded, &redis.XAddArgs{
+		Stream: "isolated-control-audit", Values: map[string]any{"event": "test"},
+	}).Err()
+	commands, _ := transport.finish()
+	if err != nil || len(commands) != 1 || commands[0].PoolWaitNS >= int64(20*time.Millisecond) {
+		t.Fatalf("business pool starvation leaked into control audit: failed=%t commands=%d", err != nil, len(commands))
+	}
+	if err = control.LPush(context.Background(), "held-business-connection", "release").Err(); err != nil {
+		t.Fatal(err)
+	}
+	if err = <-done; err != nil {
+		t.Fatal(err)
 	}
 }
