@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/Tencent/WeKnora/internal/agent"
+	"github.com/Tencent/WeKnora/internal/common/wikilock"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/models/chat"
 	"github.com/Tencent/WeKnora/internal/searchutil"
@@ -727,7 +728,7 @@ func wikiIngestCleanupContext(ctx context.Context) (context.Context, context.Can
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	return context.WithTimeout(context.WithoutCancel(ctx), wikiIngestCleanupTimeout)
+	return wikilock.Detached(ctx, wikiIngestCleanupTimeout)
 }
 
 // Publishing proved pages revalidates their input closure on every write.
@@ -748,7 +749,7 @@ func wikiIngestPostProcessContext(ctx context.Context, pages int) (context.Conte
 			timeout += time.Duration(pages) * 2 * time.Second
 		}
 	}
-	return context.WithTimeout(context.WithoutCancel(ctx), timeout)
+	return wikilock.Detached(ctx, timeout)
 }
 
 func (s *wikiIngestService) clearDeletedKnowledgeBasePendingOps(ctx context.Context, kbID string) error {

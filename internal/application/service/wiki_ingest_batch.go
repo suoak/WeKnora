@@ -257,7 +257,7 @@ func (s *wikiIngestService) newWikiBatchContext(
 	}
 }
 
-func (s *wikiIngestService) ProcessWikiIngest(ctx context.Context, t *asynq.Task) (retErr error) {
+func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task) (retErr error) {
 	taskStartedAt := time.Now()
 	retryCount, _ := asynq.GetRetryCount(ctx)
 	maxRetry, _ := asynq.GetMaxRetry(ctx)
@@ -1057,7 +1057,7 @@ func (s *wikiIngestService) ProcessWikiIngest(ctx context.Context, t *asynq.Task
 // the finalize lane of task_pending_ops (written by ProcessWikiIngest via
 // enqueueFinalize) so a burst of documents rebuilds the index ONCE instead of
 // once per 5-doc batch.
-func (s *wikiIngestService) ProcessWikiFinalize(ctx context.Context, t *asynq.Task) error {
+func (s *wikiIngestService) processWikiFinalize(ctx context.Context, t *asynq.Task) error {
 	startedAt := time.Now()
 	var payload WikiIngestPayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {

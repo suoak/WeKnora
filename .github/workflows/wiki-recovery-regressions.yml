@@ -6,12 +6,18 @@ on:
     paths:
       - "internal/application/service/wiki*.go"
       - "internal/application/repository/wiki*.go"
+      - "internal/common/wikilock/**"
+      - "internal/types/wiki_page.go"
+      - "cmd/wiki-regenerate/**"
       - ".github/workflows/wiki-recovery-regressions.yml"
   push:
     branches: [main]
     paths:
       - "internal/application/service/wiki*.go"
       - "internal/application/repository/wiki*.go"
+      - "internal/common/wikilock/**"
+      - "internal/types/wiki_page.go"
+      - "cmd/wiki-regenerate/**"
       - ".github/workflows/wiki-recovery-regressions.yml"
   workflow_dispatch:
 
@@ -27,9 +33,25 @@ jobs:
     name: Wiki recovery and provenance regression
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synthetic-wiki-only
+          POSTGRES_DB: wiki_regression
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d wiki_regression"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     env:
       GOTOOLCHAIN: local
       CGO_ENABLED: "1"
+      SYNC_EXECUTION_POSTGRES_DSN: postgres://postgres:synthetic-wiki-only@127.0.0.1:5432/wiki_regression?sslmode=disable
+      REQUIRE_SYNC_EXECUTION_POSTGRES: "1"
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
@@ -39,5 +61,7 @@ jobs:
       - name: Run Wiki recovery and provenance regressions with race detection
         run: >-
           go test -race -count=1 -timeout=15m
-          ./internal/application/service ./internal/application/repository
+          ./internal/application/service ./internal/application/repository ./internal/common/wikilock
           -run 'Wiki|PortalV1Next'
+      - name: Build operator regeneration command
+        run: go build -o /tmp/wiki-regenerate ./cmd/wiki-regenerate
