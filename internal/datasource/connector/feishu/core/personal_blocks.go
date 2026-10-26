@@ -20,10 +20,14 @@ var ErrPersonalBlocksIncomplete = errors.New("feishu_blocks_content_requires_rev
 
 var (
 	// ErrPersonalReadDenied means the current personal identity cannot view the resource.
-	ErrPersonalReadDenied        = errors.New("feishu_source_read_denied")
-	ErrPersonalCopyExportDenied  = errors.New("feishu_source_copy_export_denied")
-	ErrPersonalCopyDenied        = errors.New("feishu_source_copy_denied")
-	ErrPersonalCopyOnlyReview    = errors.New("feishu_source_copy_only_requires_policy")
+	ErrPersonalReadDenied = errors.New("feishu_source_read_denied")
+	// ErrPersonalCopyExportDenied means both effective content reuse actions were denied.
+	ErrPersonalCopyExportDenied = errors.New("feishu_source_copy_export_denied")
+	// ErrPersonalCopyDenied means the source denies copying despite its other action results.
+	ErrPersonalCopyDenied = errors.New("feishu_source_copy_denied")
+	// ErrPersonalCopyOnlyReview leaves copying without export blocked pending formal policy evidence.
+	ErrPersonalCopyOnlyReview = errors.New("feishu_source_copy_only_requires_policy")
+	// ErrPersonalAcquisitionReview means the failed acquisition has no proven alternative route.
 	ErrPersonalAcquisitionReview = errors.New("feishu_source_acquisition_requires_review")
 )
 
