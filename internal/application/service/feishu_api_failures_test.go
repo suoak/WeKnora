@@ -56,6 +56,7 @@ func TestFeishuRefreshRejectedGenerationUsesPersistedOwnerGrant(t *testing.T) {
 
 func TestFeishuRemoteFailureSeparatesScopeTokenAndExportStages(t *testing.T) {
 	for cause, category := range map[error]string{
+		ErrFeishuSourceRebindRequired:    "source_identity_rebind_required",
 		core.ErrPersonalReadDenied:       "source_read_denied",
 		core.ErrPersonalCopyExportDenied: "source_copy_export_denied",
 		core.ErrPersonalCopyDenied:       "source_copy_denied",

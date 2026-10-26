@@ -15,6 +15,8 @@ import (
 // conflating application/user scopes with a document's export security policy.
 func feishuRemoteFailureCategory(err error) string {
 	switch {
+	case errors.Is(err, ErrFeishuSourceRebindRequired):
+		return "source_identity_rebind_required"
 	case errors.Is(err, core.ErrPersonalReadDenied):
 		return "source_read_denied"
 	case errors.Is(err, core.ErrPersonalCopyExportDenied):

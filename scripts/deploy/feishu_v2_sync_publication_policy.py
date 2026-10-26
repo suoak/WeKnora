@@ -25,7 +25,15 @@ def main():
         if options.approval_reference != reference:
             raise SystemExit('new explicit report25 approval required')
         policy += "\nenvironment['FEISHU_DIAGNOSTIC_RECONCILIATION_APPROVAL']=" + repr(reference)
-    probe.transport.REMOTE = probe.REMOTE.replace(marker, policy)
+    remote = probe.REMOTE.replace(marker, policy)
+    if options.operation == 'prepare_reconciliation':
+        # Enrollment runs after approved drain, using the stopped container's
+        # pinned image/environment; never restart consumers to inspect them.
+        anchor = "compose+['ps','--quiet','app']"
+        if remote.count(anchor) != 1:
+            raise SystemExit('stopped operator container discovery anchor changed')
+        remote = remote.replace(anchor, "compose+['ps','--all','--quiet','app']")
+    probe.transport.REMOTE = 'COMPARE_CONTENT_PATHS=False\n' + remote
     sys.argv = [sys.argv[0], *remaining, '--mode', 'status']
     return probe.transport.main()
 

@@ -109,6 +109,9 @@ func (s *FeishuPersonalService) approveSourceUpdates(
 		if err != nil || ref == nil || ref.Kind != types.FeishuUserOAuth {
 			return access.ErrForbidden
 		}
+		if err := validatePersonalSourceBinding(tx, ref); err != nil {
+			return err
+		}
 		var epoch types.FeishuPersonalGrantEpoch
 		if err = tx.Clauses(clause.Locking{Strength: "SHARE"}).
 			Where("user_id = ?", ref.OwnerUserID).First(&epoch).Error; err != nil {
@@ -195,6 +198,9 @@ func checkSourcePublicationPolicy(
 	execution, ok := types.SyncExecutionFromContext(tx.Statement.Context)
 	if !ok || execution.DataSourceID != ds.ID || execution.TenantID != ds.TenantID || resource.Modified == "" {
 		return ErrFeishuSharingApproval
+	}
+	if err := validatePersonalSourceBinding(tx, ref); err != nil {
+		return errors.Join(ErrFeishuSharingApproval, err)
 	}
 	var row types.SystemSetting
 	err := tx.Clauses(clause.Locking{Strength: "SHARE"}).

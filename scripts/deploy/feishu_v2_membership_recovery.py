@@ -73,6 +73,35 @@ def quiet():''')
     remote = replace_once(remote,
         "redis('EVAL',RESET,len(keys()),*keys(),state['plan_id'],revision,APPROVAL,FIX)",
         "redis('EVAL',RESET,len(keys()),*keys(),state['plan_id'],revision,APPROVAL,FIX,*terminal_pending_ids())")
+    remote = replace_once(remote, "elif OPERATION=='reset':", r'''
+elif OPERATION=='backup':
+ if state['phase']!='QUIESCED' or not quiet():raise ValueError('proven_quiescence_required')
+ invariant()
+ backup=directory/('before-'+state['plan_id']+'.dump')
+ restored='feishu_report25_restore_'+state['plan_id'][:12]
+ if state.get('backup_verified'):raise ValueError('verified_backup_already_exists')
+ fd=__import__('os').open(str(backup),__import__('os').O_WRONLY|__import__('os').O_CREAT|__import__('os').O_EXCL,0o600)
+ with __import__('os').fdopen(fd,'wb') as output:
+  p=subprocess.run(compose+['exec','-T','postgres','pg_dump','-U','postgres','-Fc','--no-owner','--no-acl','knowhub_feishu_v2_test'],stdout=output,stderr=subprocess.PIPE,timeout=180)
+ if p.returncode:raise ValueError('recovery_backup_failed')
+ run(compose+['exec','-T','postgres','createdb','-U','postgres','--template=template0',restored])
+ with backup.open('rb') as incoming:
+  p=subprocess.run(compose+['exec','-T','postgres','pg_restore','--exit-on-error','--no-owner','--no-acl','-U','postgres','-d',restored],stdin=incoming,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,timeout=180)
+ if p.returncode:raise ValueError('recovery_restore_validation_failed')
+ counts={}
+ for table in ['users','feishu_connections','feishu_personal_imports','data_sources','sync_logs','knowledges','chunks','embeddings']:
+  query='SELECT count(*) FROM '+table
+  actual=sql(query)
+  recovered=int(run(compose+['exec','-T','postgres','psql','-qX','-v','ON_ERROR_STOP=1','-U','postgres','-d',restored,'-At'],query+';').strip())
+  if recovered!=actual:raise ValueError('recovery_restored_counts_mismatch')
+  counts[table]=actual
+ state.update(backup_verified=True,backup_sha256=hashlib.sha256(backup.read_bytes()).hexdigest(),backup_business_counts=counts)
+ save()
+elif OPERATION=='reset':
+ if not state.get('backup_verified'):raise ValueError('verified_recovery_backup_required')
+ backup=directory/('before-'+state['plan_id']+'.dump')
+ if backup.is_symlink() or hashlib.sha256(backup.read_bytes()).hexdigest()!=state['backup_sha256']:raise ValueError('recovery_backup_changed')
+''')
     remote = replace_once(remote,
         "row['status']!='active' or row['legacy_access_state'] in ['paused','hold','revoked'] or row['auth_mode']!='user_oauth'",
         "row['status'] not in ['active','error'] or row['auth_mode']!='user_oauth' or "
@@ -118,6 +147,32 @@ for task_id in redis('LRANGE',queue+'pending',0,9):
    receipt['execution']=sql("SELECT row_to_json(q) FROM (SELECT status,execution_claimed,execution_generation FROM sync_logs WHERE id='"+log+"' AND data_source_id='"+source+"') q")
  pending_receipts.append(receipt)
 result['pending_task_receipts']=pending_receipts
+result['backup_verified']=bool(state and state.get('backup_verified'))
+result['backup_sha256']=state.get('backup_sha256') if state else None
+signals=[]
+markers=['forbidden','feishu_identity_disabled','feishu_staging_required','feishu_sharing_approval_required',
+ 'feishu_personal_reconnect_required','record not found','invalid memory','panic','context deadline exceeded',
+ 'feishu credential reference unavailable','source access requires verification','redis','permission denied',
+ 'oauth','scope','skip retry','audit_unavailable','stale datasource sync execution']
+for service in ['app','worker2']:
+ record=json.loads(run(['docker','inspect',run(compose+['ps','--all','--quiet',service]).strip()]))[0]
+ output=subprocess.run(['docker','logs','--since',state.get('resumed_at','10m') if state else '10m','--tail','500',record['Id']],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,timeout=20)
+ for line in (output.stdout+'\n'+output.stderr).splitlines():
+  classes=[marker for marker in markers if marker in line.lower()]
+  if classes:
+   at=re.search(r'\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}',line)
+   signals.append({'service':service,'at':at[0] if at else None,'classes':classes})
+result['worker_failure_signals']=signals[-60:]
+bindings=sql("SELECT coalesce(json_agg(q),'[]') FROM (SELECT ds.id,ds.config->'settings'->'credential_reference' AS reference,c.user_id,c.app_id,c.open_id,e.epoch FROM data_sources ds JOIN feishu_personal_imports m ON m.id=ds.id JOIN feishu_connections c ON c.user_id=m.user_id JOIN feishu_personal_grant_epochs e ON e.user_id=c.user_id JOIN users u ON u.id=m.user_id JOIN knowledge_bases kb ON kb.id=m.kb_id WHERE u.username='test' AND kb.name='test001' AND m.resource_type IN ('sheet','bitable')) q")
+binding_receipts=[]
+for binding in bindings:
+ if mask(binding['id']) not in EXPECTED:continue
+ ref=binding['reference'] or {}
+ current=hashlib.sha256(b''.join(str(v).encode()+b'\x00' for v in ['user_oauth',binding['user_id'],binding['app_id'],binding['open_id'],binding['epoch']])).hexdigest()
+ binding_receipts.append({'source_hash':mask(binding['id']),'owner_matches':ref.get('owner_user_id')==binding['user_id'],
+  'app_matches':ref.get('app_id')==binding['app_id'],'connection_matches_current_grant':ref.get('connection_id')==current,
+  'stored_connection_hash':mask(ref.get('connection_id','')),'current_connection_hash':mask(current)})
+result['personal_identity_binding_receipts']=binding_receipts
 connection.close();print(json.dumps(result))
 ''')
     return ("if OPERATION not in ['status','self-test'] and SHA!=" + repr(FIXED_RUNTIME) +
@@ -126,7 +181,7 @@ connection.close();print(json.dumps(result))
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, add_help=False)
-    parser.add_argument('--operation', choices=['status', 'self-test', 'prepare', 'quiesce', 'reset', 'restart', 'resume'], default='status')
+    parser.add_argument('--operation', choices=['status', 'self-test', 'prepare', 'quiesce', 'backup', 'reset', 'restart', 'resume'], default='status')
     parser.add_argument('--approval-reference')
     parser.add_argument('--reconciliation-log-hash', default='')
     options, remaining = parser.parse_known_args()

@@ -58,6 +58,7 @@ function itemStatus(item:FeishuBatchItem) {
   return labels[item.stage || ''] || '任务已交接，等待后台状态'
 }
 function failure(code:string) {
+	if(code==='source_identity_rebind_required') return '飞书授权已更新，请联系管理员更新此来源的授权绑定。'
 	if(code==='source_copy_export_denied') return '当前账号可以阅读该文档，但没有复制或导出权限。请联系文档所有者开放相应权限，无需申请编辑权限。'
 	if(code==='source_read_denied') return '当前账号没有文档阅读权限，请联系文档所有者。'
 	if(code==='source_copy_denied') return '当前账号没有文档复制权限，请联系文档所有者。'

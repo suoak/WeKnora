@@ -40,6 +40,11 @@ func (s *DataSourceService) bindFeishuSource(
 		ds.Type != types.ConnectorTypeFeishu && ds.Type != types.ConnectorTypeFeishuDrive {
 		return ctx, types.ErrFeishuIdentityDisabled
 	}
+	if err := s.feishuIdentity.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return validatePersonalSourceBinding(tx, ref)
+	}); err != nil {
+		return ctx, err
+	}
 	reconciling := ds.LegacyAccessState == "hold"
 	if reconciling {
 		// Only the DB-issued run named by a separate administrator grant may

@@ -76,7 +76,7 @@ def safe_events(key):
  result=[]
  for record in redis('XRANGE',key,'-','+','COUNT',1000):
   values=dict(zip(record[1][::2],record[1][1::2]));row={'at':utc(int(record[0].split(b'-')[0]))}
-  for name in ['kind','event','reason','fenced','queue_paused']:
+  for name in ['kind','event','reason','fenced','queue_paused','probe_stage','step_elapsed_ms']:
    value=values.get(name.encode(),b'').decode()
    if value and re.fullmatch('[a-zA-Z0-9_:.-]{1,100}',value):row[name]=value
   if values.get(b'worker_id'):row['worker_hash']=mask(values[b'worker_id'].decode())

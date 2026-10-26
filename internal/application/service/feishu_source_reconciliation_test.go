@@ -47,6 +47,26 @@ func TestFeishuV2PostgresApprovedHeldSourceReconciliation(t *testing.T) {
 	require.NoError(t, f.db.First(ds, "id = ?", ds.ID).Error)
 	beforeCursor, beforeConfig := string(ds.LastSyncCursor), string(ds.Config)
 	admin := context.WithValue(f.ctx, types.SystemAdminContextKey, true)
+	var originalEpoch types.FeishuPersonalGrantEpoch
+	require.NoError(t, f.db.Where("user_id = ?", "A").First(&originalEpoch).Error)
+	require.NoError(t, f.db.Model(&types.FeishuPersonalGrantEpoch{}).Where("user_id = ?", "A").
+		Update("epoch", "supplemented-grant").Error)
+	_, err = f.s.ApproveSourceReconciliation(
+		admin,
+		ds.ID,
+		"operator",
+		"new-explicit-approval",
+		time.Now().Add(time.Hour),
+	)
+	require.ErrorIs(t, err, ErrFeishuSourceRebindRequired, "stale binding cannot receive a recovery grant")
+	var runCount, policyCount int64
+	require.NoError(t, f.db.Model(&types.SyncLog{}).Where("data_source_id = ?", ds.ID).Count(&runCount).Error)
+	require.NoError(t, f.db.Model(&types.SystemSetting{}).Where("key = ?", feishuSyncPolicyPrefix+ds.ID).
+		Count(&policyCount).Error)
+	require.Zero(t, runCount)
+	require.Zero(t, policyCount)
+	require.NoError(t, f.db.Model(&types.FeishuPersonalGrantEpoch{}).Where("user_id = ?", "A").
+		Update("epoch", originalEpoch.Epoch).Error)
 	_, err = f.s.ApproveSourceReconciliation(
 		f.ctx,
 		ds.ID,
