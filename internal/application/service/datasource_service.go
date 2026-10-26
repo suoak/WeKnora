@@ -1533,6 +1533,11 @@ func (s *DataSourceService) updateSyncRunResult(
 	if err := s.writeSyncExecution(ctx, ds, syncLog, true); err != nil {
 		return err
 	}
+	if status == types.SyncLogStatusSuccess && ds.LegacyAccessState == "hold" && types.LegacyFullReconciliation(ctx) {
+		if err := s.refreshSourceSchedule(ctx, ds.ID); err != nil {
+			logger.Warnf(ctx, "[Scheduler] reconciled source schedule registration failed: %v", err)
+		}
+	}
 	action := types.AuditActionDataSourceSyncCompleted
 	outcome := types.AuditOutcomeSuccess
 	if status == types.SyncLogStatusFailed {

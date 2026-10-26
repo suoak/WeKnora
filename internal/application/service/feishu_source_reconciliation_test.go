@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/application/repository"
+	"github.com/Tencent/WeKnora/internal/datasource"
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
@@ -154,4 +156,18 @@ func TestFeishuV2PostgresApprovedHeldSourceReconciliation(t *testing.T) {
 			core.PersonalResource{Type: "file", Token: "real", Modified: "2"},
 		)
 	}), ErrFeishuSharingApproval)
+	// Recovery must make the persisted schedule effective without another
+	// process restart, while rechecking a concurrent pause/revocation.
+	svc.dsRepo = repository.NewDataSourceRepository(f.db)
+	svc.scheduler = datasource.NewScheduler(svc.dsRepo, nil, nil)
+	defer svc.scheduler.Stop()
+	require.NoError(t, f.db.Model(ds).Update("sync_schedule", "0 */15 * * * *").Error)
+	require.NoError(t, svc.refreshSourceSchedule(f.ctx, ds.ID))
+	require.Zero(t, svc.scheduler.EntryCount())
+	require.NoError(t, f.db.Model(ds).Update("legacy_access_state", "active").Error)
+	require.NoError(t, svc.refreshSourceSchedule(f.ctx, ds.ID))
+	require.Equal(t, 1, svc.scheduler.EntryCount())
+	require.NoError(t, f.db.Model(ds).Update("status", types.DataSourceStatusPaused).Error)
+	require.NoError(t, svc.refreshSourceSchedule(f.ctx, ds.ID))
+	require.Zero(t, svc.scheduler.EntryCount())
 }

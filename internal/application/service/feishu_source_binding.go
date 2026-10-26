@@ -261,3 +261,16 @@ func checkFeishuSourceOwner(ctx context.Context, ds *types.DataSource) error {
 	}
 	return nil
 }
+
+// Refresh only from persisted controls after successful reconciliation. A source
+// loaded as held at startup has no cron entry; do not require another app restart.
+func (s *DataSourceService) refreshSourceSchedule(ctx context.Context, id string) error {
+	if s.scheduler == nil || s.dsRepo == nil {
+		return nil
+	}
+	current, err := s.dsRepo.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	return s.scheduler.AddOrUpdate(current)
+}
