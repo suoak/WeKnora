@@ -13,9 +13,8 @@
       <t-button v-if="more" variant="text" @click="loadHistory(true)">加载更多</t-button>
       <section v-if="batch" aria-label="导入进度">
         <h3>{{ simpleStatus(batch.status) }}</h3>
-        <section v-if="batch.can_continue_publication" class="continue" aria-label="继续原导入任务">
-          <p>发布范围：{{ batch.target_name || '所选知识库' }} 的现有读者。点击“一键继续导入”，即同意发布本批所选文档的当前版本，系统将自动继续原任务。</p>
-          <t-button :loading="continuing" @click="continueBatch">一键继续导入</t-button>
+        <section v-if="batch.can_continue_publication" class="continue" aria-label="处理共享审批">
+          <t-button variant="text" @click="advancedOpen = true">处理共享审批</t-button>
         </section>
         <article v-for="item in batch.items" :key="item.id" class="item">
           <p>第 {{ item.ordinal + 1 }} 篇：{{ itemStatus(item) }}</p>
@@ -30,20 +29,20 @@
         </article>
         <t-button variant="text" @click="showBatch(batch.batch.id)">刷新状态</t-button>
       </section>
-      <details v-if="kb"><summary>高级设置与安全详情</summary><FeishuAccessManagement :kb-id="kb" :status="status" @connect="connect" /></details>
+      <details v-if="approvalKB" :open="advancedOpen" @toggle="advancedOpen = ($event.target as HTMLDetailsElement).open"><summary>高级设置与安全详情</summary><FeishuAccessManagement v-if="advancedOpen" :kb-id="approvalKB" :status="status" @connect="connect" /></details>
     </template>
     <p v-else>正在读取导入记录。</p>
   </main>
 </template>
 <script setup lang="ts">
-import {ref,onMounted,onUnmounted} from 'vue'
+import {computed,ref,onMounted,onUnmounted} from 'vue'
 import {useRoute} from 'vue-router'
-import {feishuStatus,authorizeFeishu,listFeishuBatches,listMyFeishuBatches,getFeishuBatch,continueFeishuBatch,type FeishuStatus,type FeishuBatch,type FeishuBatchHistory,type FeishuBatchItem} from '@/api/feishuPersonal'
+import {feishuStatus,authorizeFeishu,listFeishuBatches,listMyFeishuBatches,getFeishuBatch,type FeishuStatus,type FeishuBatch,type FeishuBatchHistory,type FeishuBatchItem} from '@/api/feishuPersonal'
 import {FEISHU_PENDING} from '@/i18n/feishuPersonal'
 import FeishuAccessManagement from './components/FeishuAccessManagement.vue'
 const route=useRoute(), kb=typeof route.query.kb === 'string' ? route.query.kb : '', status=ref<FeishuStatus>()
 const history=ref<FeishuBatchHistory[]>([]), batch=ref<FeishuBatch>(), more=ref(false), message=ref('')
-const continuing=ref(false)
+const advancedOpen=ref(false), approvalKB=computed(()=>kb || batch.value?.batch.kb_id || '')
 let mounted=true, selectedID='', timer:ReturnType<typeof setTimeout>|undefined, loading=false
 onUnmounted(()=>{mounted=false;clearTimeout(timer)})
 function formatTime(value:string) { return new Date(value).toLocaleString() }
@@ -59,7 +58,7 @@ function itemStatus(item:FeishuBatchItem) {
 function failure(code:string) {
   if(['authorization_expired','reconnect_required'].includes(code)) return '飞书授权已失效，请重新连接账号。'
   if(['export_permission_required','source_permission_required'].includes(code)) return '缺少文档读取或导出权限，请联系文档所有者。'
-  if(code==='sharing_approval_required') return batch.value?.can_continue_publication ? '本批任务尚未发布，点击“一键继续导入”即可继续。' : '文档版本或发布授权已变化，请重新发起导入。'
+  if(code==='sharing_approval_required') return '需要共享发布授权，请联系知识库管理员。'
   if(code==='publication_confirmation_expired') return '本次导入确认已过期，请重新发起导入。'
   if(code==='kb_permission_required') return '目标知识库不可写，请申请访问权限。'
   if(code==='api_scope_missing') return '飞书应用缺少所需权限，请联系管理员。'
@@ -100,14 +99,6 @@ async function showBatch(id:string) {
   }
 }
 async function connect(links:string) { sessionStorage.setItem(FEISHU_PENDING,JSON.stringify({kbId:kb,url:links,path:location.pathname+location.search})); const result=await authorizeFeishu(), target=new URL(result.authorization_url); if(target.origin==='https://accounts.feishu.cn') location.assign(target.href) }
-async function continueBatch() {
-  if(continuing.value || !batch.value?.can_continue_publication) return
-  const id=batch.value.batch.id
-  continuing.value=true
-  try { await continueFeishuBatch(id); await showBatch(id); if(mounted)message.value='已恢复原导入任务，系统将在后台自动处理。可以关闭页面。' }
-  catch {if(mounted)message.value='暂未能继续任务，请检查飞书连接和知识库发布权限后再试。'}
-  finally {continuing.value=false}
-}
 </script>
 <style scoped>
 .management {max-width:960px;margin:24px auto;padding:0 20px;overflow-wrap:anywhere;}

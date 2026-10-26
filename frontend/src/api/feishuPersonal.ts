@@ -49,5 +49,4 @@ export function isFeishuDocumentURL(value: string): boolean {
 
 export type FeishuImportTarget = { id: string; name: string; requires_sharing_approval: boolean }
 export const feishuImportTargets = () => get<FeishuImportTarget[]>('/api/v1/me/feishu/import-targets')
-export const quickImportFeishu = (links: string[], key: string, kb_id: string, publish_to_readers = false) => post<FeishuBatch>('/api/v1/me/feishu/imports', {links, kb_id, publish_to_readers}, {headers:{'Idempotency-Key':key}})
-export const continueFeishuBatch = (id: string) => post<{accepted:boolean}>(`/api/v1/feishu/batches/${encodeURIComponent(id)}/continue`, {publish_to_readers:true})
+export const quickImportFeishu = (links: string[], key: string, kb_id: string) => post<FeishuBatch>('/api/v1/me/feishu/imports', {links, kb_id}, {headers:{'Idempotency-Key':key}})

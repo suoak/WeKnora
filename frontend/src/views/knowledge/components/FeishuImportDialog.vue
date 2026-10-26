@@ -93,7 +93,7 @@ watch(() => props.visible, async value => {
 async function connect(pendingLinks?: string | MouseEvent) {
   busy.value = true
   try {
-    sessionStorage.setItem(FEISHU_PENDING, JSON.stringify({ kbId: props.kbId, url: typeof pendingLinks === 'string' ? pendingLinks : url.value, path: location.pathname }))
+    sessionStorage.setItem(FEISHU_PENDING, JSON.stringify({ kbId: props.kbId, url: typeof pendingLinks === 'string' ? pendingLinks : url.value, path: location.pathname + location.search }))
     const result = await authorizeFeishu(), target = new URL(result.authorization_url)
     if (target.origin !== 'https://accounts.feishu.cn') throw new Error('invalid_authorization_origin')
     location.assign(target.href)

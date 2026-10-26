@@ -1,7 +1,6 @@
 <template>
   <section>
     <h4>{{ t('myDocuments') }}</h4>
-    <p v-if="props.status.test_http_callback" role="status" style="color: var(--td-warning-color)">{{ t('testHTTPWarning') }} {{ props.status.test_http_callback_expires_at }}</p>
     <p><t-button variant="outline" :disabled="busy" @click="createPrivate">{{ t('createPrivateKB') }}</t-button></p>
     <t-select v-model="mode" :options="modes" :disabled="busy" />
     <p v-if="mode === 'user_oauth'">

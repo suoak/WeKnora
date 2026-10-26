@@ -1,16 +1,13 @@
 <template>
   <section class="quick-import">
-    <p v-if="status.test_http_callback" class="warning" role="status">隔离测试站使用 HTTP，授权与会话可能被窃听。请仅使用测试资料。</p>
     <p v-if="connected" class="account">已连接飞书账号</p>
     <t-button v-else :disabled="busy" @click="connect">连接飞书账号</t-button>
     <label for="feishu-target">保存到知识库</label>
     <t-select id="feishu-target" v-model="targetID" :options="targets.map(row => ({label:row.name,value:row.id}))" :disabled="busy || !!kbId" placeholder="请选择已有知识库" />
     <p v-if="targetsLoaded && !targets.length" class="warning">暂无可写知识库，请先创建或申请访问知识库。<router-link to="/platform/knowledge-bases">前往知识库</router-link></p>
     <p v-if="kbId && targetsLoaded && !target" class="warning">当前知识库不可写，请申请访问权限。</p>
-    <p v-if="target?.requires_sharing_approval" class="warning" role="note">发布范围：{{ target.name }} 的现有读者。点击“一键导入”，即同意将本次所选文档的当前版本发布到此知识库。</p>
     <label for="feishu-links">飞书文档链接</label>
     <t-textarea id="feishu-links" v-model="linksText" :disabled="busy" :autosize="{ minRows: 5, maxRows: 8 }" placeholder="每行一个链接，支持 Wiki、Docx、Sheet 和 Bitable，最多 100 篇" />
-    <p class="hint">仅导入你提交的文档，系统不会自动创建或切换知识库。</p>
     <p v-if="input.invalid.length" class="warning">{{ input.invalid.length }} 条链接格式有误，将跳过；其余链接仍可导入。</p>
     <details v-if="input.invalid.length"><summary>查看错误链接</summary><ul><li v-for="url in input.invalid" :key="url">{{ url }}</li></ul></details>
     <div class="actions">
@@ -19,7 +16,6 @@
     </div>
     <section v-if="showBrowser" class="browser" aria-label="从飞书选择文档">
       <div class="actions"><t-select v-model="kind" :options="[{label:'我的空间',value:'drive'},{label:'Wiki 空间',value:'wiki'}]" :disabled="busy" @change="resetBrowser" /><t-button v-if="trail.length" variant="text" :disabled="busy" @click="back">上一级</t-button></div>
-      <p class="hint">仅选择当前文档；不会自动接入整个文件夹或空间。</p>
       <div v-for="entry in entries" :key="entry.id" class="resource">
         <t-checkbox v-if="entry.url && !['folder','wiki_space'].includes(entry.type)" :checked="selected(entry.url)" :disabled="busy" @change="choose(entry.url!)">{{ entry.name }}</t-checkbox>
         <span v-else>{{ entry.name }}</span>
@@ -58,7 +54,7 @@ async function submit() {
  busy.value = true; message.value = ''
  if (!key) key = feishuBatchKey()
  try {
-  const result = await quickImportFeishu(input.value.valid, key, targetID.value, !!target.value.requires_sharing_approval)
+  const result = await quickImportFeishu(input.value.valid, key, targetID.value)
   if (!mounted) return
   recent.value = {id:result.batch.id,kb:result.batch.kb_id}; accepted.value = true
   message.value = `已添加 ${result.items.length} 篇文档到导入队列，系统将在后台自动处理。可以关闭页面。`
