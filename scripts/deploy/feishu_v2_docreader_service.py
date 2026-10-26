@@ -1,6 +1,7 @@
 """Build and add the missing structured DocReader only to the existing isolated site."""
 import argparse
 import base64
+import hashlib
 import json
 import re
 import sys
@@ -59,9 +60,21 @@ if MODE in ['build','status']:
    result['failure_markers']=[v for v in ['Could not resolve','Connection refused','failed to solve','No matching distribution','ResolutionImpossible','No space left','timed out','TLS','uv.lock','libreoffice'] if v in text]
    tail=re.sub(r'https?://[^\s]+','[url]',text[-3000:])
    result['build_log_tail']='\n'.join('[sensitive_error_omitted]' if re.search(r'password|authorization|secret',line,re.I) else line for line in tail.splitlines())
+elif MODE=='load':
+ package=source.parent/'docreader-package';archive=package/'docreader-image.tar.gz'
+ if archive.is_symlink() or archive.stat().st_size!=PACKAGE['archive_bytes']:raise ValueError('image_archive_mismatch')
+ digest=hashlib.sha256()
+ with archive.open('rb') as f:
+  for part in iter(lambda:f.read(1024*1024),b''):digest.update(part)
+ if digest.hexdigest()!=PACKAGE['archive_sha256']:raise ValueError('image_archive_checksum_mismatch')
+ checked(['docker','load','--input',str(archive)],600)
+ record=inspect(PACKAGE['image_id'])
+ if record['Config']['Labels'].get('org.opencontainers.image.revision')!=SHA:raise ValueError('image_source_mismatch')
+ (work/'ci-image.id').write_text(record['Id']);result.update(status='CI_IMAGE_VERIFIED',image_id=record['Id'])
 elif MODE=='start':
- if not (work/'build.exit').exists() or int((work/'build.exit').read_text())!=0:raise ValueError('verified_docreader_build_required')
- record=inspect(image)
+ ci=work/'ci-image.id'
+ if not ci.exists() and (not (work/'build.exit').exists() or int((work/'build.exit').read_text())!=0):raise ValueError('verified_docreader_build_required')
+ record=inspect(ci.read_text().strip() if ci.exists() else image)
  if record['Config']['Labels'].get('org.opencontainers.image.revision')!=SHA:raise ValueError('image_source_mismatch')
  backup=work/'compose.before.json'
  if not backup.exists():
@@ -98,8 +111,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--manifest', type=Path, required=True)
     parser.add_argument('--source-manifest', type=Path, required=True)
-    parser.add_argument('--mode', choices=['build', 'status', 'start', 'health'], required=True)
+    parser.add_argument('--mode', choices=['build', 'status', 'load', 'start', 'health'], required=True)
     parser.add_argument('--attempt', type=int, choices=[1, 2], default=1)
+    parser.add_argument('--image-package', type=Path)
     args = parser.parse_args()
     base, source = read_json(args.manifest), read_json(args.source_manifest)
     for value in [base, source]:
@@ -119,13 +133,40 @@ def main():
         client.connect(credential['host'], username=credential['user'], password=credential['password'], timeout=15,
                        auth_timeout=15, banner_timeout=15, allow_agent=False, look_for_keys=False)
         credential.clear()
+        package = None
+        if args.mode == 'load':
+            if args.image_package is None:
+                raise ValueError('image_package_required')
+            package = read_json(args.image_package / 'manifest.json')
+            archive = args.image_package / 'docreader-image.tar.gz'
+            if package.get('source_sha') != source['source_sha'] or package.get('target') != 'linux/amd64' or package.get('qualification') != 'source_pinned_isolated_structured_docreader':
+                raise ValueError('image_package_provenance_mismatch')
+            digest = hashlib.sha256()
+            with archive.open('rb') as incoming:
+                for part in iter(lambda: incoming.read(1024 * 1024), b''):
+                    digest.update(part)
+            if archive.is_symlink() or not 0 < archive.stat().st_size <= 4 * 1024**3 or archive.stat().st_size != package['archive_bytes'] or digest.hexdigest() != package['archive_sha256']:
+                raise ValueError('local_archive_checksum_mismatch')
+            transfer = client.open_sftp()
+            directory = str(PurePosixPath(source['source_directory']).parent / 'docreader-package')
+            try:
+                try:
+                    transfer.mkdir(directory, 0o700)
+                except OSError:
+                    if not __import__('stat').S_ISDIR(transfer.lstat(directory).st_mode):
+                        raise ValueError('unexpected_package_directory')
+                transfer.put(str(archive), directory + '/docreader-image.tar.gz')
+                transfer.chmod(directory + '/docreader-image.tar.gz', 0o600)
+            finally:
+                transfer.close()
         values = {'ROOT': str(PurePosixPath(base['source_directory']).parent), 'SOURCE': source['source_directory'],
-                  'BASE_SHA': base['source_sha'], 'SHA': source['source_sha'], 'MODE': args.mode, 'ATTEMPT': args.attempt}
+                  'BASE_SHA': base['source_sha'], 'SHA': source['source_sha'], 'MODE': args.mode, 'ATTEMPT': args.attempt,
+                  'PACKAGE': package}
         prefix = '\n'.join(k + '=' + repr(v) for k, v in values.items()) + '\n'
         import textwrap
         code = prefix + 'try:\n' + textwrap.indent(REMOTE, ' ') + "\nexcept Exception as e:\n print(json.dumps({'status':'BLOCKED','error_type':type(e).__name__,'reason':str(e) if isinstance(e,ValueError) else 'isolated_docreader_failed'}))\n"
         encoded = base64.b64encode(code.encode()).decode()
-        _, out, _ = client.exec_command("python3 -c \"import base64;exec(base64.b64decode('" + encoded + "'))\"", timeout=180)
+        _, out, _ = client.exec_command("python3 -c \"import base64;exec(base64.b64decode('" + encoded + "'))\"", timeout=900)
         result = json.loads(out.read(65536))
         print(json.dumps(result, indent=2))
         return 2 if result['status'] in ['BLOCKED', 'BUILD_FAILED'] else 0
