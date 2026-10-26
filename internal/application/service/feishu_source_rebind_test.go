@@ -30,7 +30,7 @@ func TestFeishuV2PostgresControlledSourceRebind(t *testing.T) {
 				t,
 				f.db.Model(&types.User{}).
 					Where("id = ?", "A").
-					Update("is_system_admin", true).
+					UpdateColumn("is_system_admin", true).
 					Error,
 			)
 			require.NoError(t, f.db.AutoMigrate(&types.DataSource{}, &types.SyncLog{}))

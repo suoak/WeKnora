@@ -279,11 +279,11 @@ func (c *Controller) freeze(ctx context.Context, reason string, latch bool) erro
 	if !c.stepStarted.IsZero() && c.probeStage != "" {
 		elapsedMS = time.Since(c.stepStarted).Milliseconds()
 	}
-	c.stage(ctx, "stop")
 	// Monitoring timeouts must not cancel the independent stop/fencing work.
 	// Outbound permit expires while a slower dependency stop is in progress.
 	stopCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
+	c.stage(stopCtx, "stop")
 	ctx = stopCtx
 	var failures []error
 	if latch {
