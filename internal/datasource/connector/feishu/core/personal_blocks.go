@@ -28,7 +28,8 @@ func (c *Client) PersonalResourcePermission(ctx context.Context, r PersonalResou
 	if _, ok := ctx.Value(userIdentityKey{}).(userIdentity); !ok {
 		return false, ErrAuth
 	}
-	if !resourceTokenPattern.MatchString(r.Token) || r.Type != "docx" || action != "view" && action != "export" {
+	if !resourceTokenPattern.MatchString(r.Token) || r.Type != "docx" ||
+		action != "view" && action != "export" && action != "copy" {
 		return false, ErrPermanent
 	}
 	var response struct {
@@ -49,7 +50,7 @@ func (c *Client) PersonalResourcePermission(ctx context.Context, r PersonalResou
 }
 
 func (c *Client) personalBlocksPermission(ctx context.Context, r PersonalResource) (bool, error) {
-	for _, action := range []string{"view", "export"} {
+	for _, action := range []string{"view", "export", "copy"} {
 		allowed, err := c.PersonalResourcePermission(ctx, r, action)
 		if err != nil {
 			return false, errors.Join(ErrPersonalBlocksPolicyUnverified, err)

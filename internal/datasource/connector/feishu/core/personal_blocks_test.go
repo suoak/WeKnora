@@ -12,7 +12,7 @@ import (
 
 func TestPersonalBlocksFallbackRequiresSourcePermissionAndCompleteBody(t *testing.T) {
 	for _, scenario := range []string{
-		"allowed", "export_denied", "policy_scope_missing", "policy_field_missing", "permission_revoked",
+		"allowed", "export_denied", "copy_denied", "policy_scope_missing", "policy_field_missing", "permission_revoked",
 		"changed_revision", "image", "unknown_inline", "incomplete_page", "cycle", "transient_export",
 	} {
 		t.Run(scenario, func(t *testing.T) {
@@ -40,7 +40,8 @@ func TestPersonalBlocksFallbackRequiresSourcePermissionAndCompleteBody(t *testin
 					calls = append(calls, "permission")
 					permissionCalls++
 					allowed := (scenario != "export_denied" || r.URL.Query().Get("action") != "export") &&
-						(scenario != "permission_revoked" || permissionCalls <= 2)
+						(scenario != "copy_denied" || r.URL.Query().Get("action") != "copy") &&
+						(scenario != "permission_revoked" || permissionCalls <= 3)
 					value = map[string]any{"code": 0, "data": map[string]any{"auth_result": allowed}}
 					switch scenario {
 					case "policy_scope_missing":
@@ -107,7 +108,7 @@ func TestPersonalBlocksFallbackRequiresSourcePermissionAndCompleteBody(t *testin
 			}
 			if scenario == "allowed" {
 				if err != nil || name != "test.md" || !strings.Contains(string(body), "Readable authorized text") ||
-					permissionCalls != 4 || blockCalls != 1 {
+					permissionCalls != 6 || blockCalls != 1 {
 					t.Fatalf(
 						"allowed fallback failed: name=%s err=%v permissions=%d blocks=%d",
 						name,
@@ -122,7 +123,7 @@ func TestPersonalBlocksFallbackRequiresSourcePermissionAndCompleteBody(t *testin
 				t.Fatal("unverified/partial content must never be returned as an import")
 			}
 			switch scenario {
-			case "export_denied", "policy_scope_missing", "policy_field_missing", "transient_export":
+			case "export_denied", "copy_denied", "policy_scope_missing", "policy_field_missing", "transient_export":
 				if blockCalls != 0 {
 					t.Fatal("read route bypassed source permission or retry gate")
 				}
