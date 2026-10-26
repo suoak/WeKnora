@@ -110,6 +110,7 @@ type usernameAlwaysTaken struct{ interfaces.UserRepository }
 func (r usernameAlwaysTaken) GetUserByUsername(context.Context, string) (*types.User, error) {
 	return &types.User{ID: "synthetic-existing"}, nil
 }
+
 func TestSourceIDJITUsernameExhaustedCreatesNoAccount(t *testing.T) {
 	s, db := usernameJITService(t)
 	_, err := s.sourceIDJITProvisioner("employee@example.test")(context.Background(), usernameAlwaysTaken{s.userRepo})
