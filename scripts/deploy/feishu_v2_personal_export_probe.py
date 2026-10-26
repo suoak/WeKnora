@@ -35,7 +35,7 @@ environment['FEISHU_DIAGNOSTIC_ISOLATED']='1'
 environment['FEISHU_DIAGNOSTIC_APP_SCOPES_ONLY']='1' if MODE=='health' else '0'
 network=list(app['NetworkSettings']['Networks'])
 if len(network)!=1:raise ValueError('ambiguous_network')
-name='knowhub-feishu-personal-diagnostic-'+SHA[:12]+'-'+MODE
+name='knowhub-feishu-personal-diagnostic-'+SHA[:12]+'-'+MODE+'-'+__import__('uuid').uuid4().hex[:8]
 if subprocess.run(['docker','inspect',name],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode==0:
  raise ValueError('diagnostic_already_exists')
 handle,path=tempfile.mkstemp(prefix='personal-diagnostic-',dir=str(site));os.chmod(path,0o600)

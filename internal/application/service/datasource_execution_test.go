@@ -114,7 +114,7 @@ func syncServiceSuite(t *testing.T, dialect string) {
 		require.Contains(t, string(stored.Result), "sharing_approval_required")
 		source, err := dsRepo.FindByID(context.Background(), ds.ID)
 		require.NoError(t, err)
-		require.Equal(t, ds.LastSyncCursor, source.LastSyncCursor)
+		require.JSONEq(t, string(ds.LastSyncCursor), string(source.LastSyncCursor))
 	})
 	t.Run("source_failure_keeps_other_sources_admitted_P0", func(t *testing.T) {
 		t.Setenv("FEISHU_SYNC_SAFETY_ENABLED", "true")

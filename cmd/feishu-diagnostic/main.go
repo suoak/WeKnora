@@ -1,5 +1,6 @@
 // Command feishu-diagnostic reproduces authorized export requests in the isolated
-// test site. It never publishes, creates Knowledge, or changes a sync stop latch.
+// test site. Its explicit policy operation can enroll the separately authorized
+// two-source continuing grant; it never creates Knowledge or changes a stop latch.
 package main
 
 import (
@@ -77,6 +78,9 @@ func run() error {
 	var cfg service.FeishuAppConfig
 	if json.Unmarshal([]byte(plain), &cfg) != nil || cfg.AppID != connection.AppID {
 		return errors.New("application_identity_mismatch")
+	}
+	if action := os.Getenv("FEISHU_DIAGNOSTIC_SYNC_POLICY_ACTION"); action != "" {
+		return syncPublicationPolicies(ctx, db, settings, action)
 	}
 	if os.Getenv("FEISHU_DIAGNOSTIC_APP_SCOPES_ONLY") == "1" {
 		return applicationScopes(ctx, &cfg)

@@ -198,7 +198,7 @@ func (s *DataSourceService) bindFeishuSource(
 			return ErrFeishuReconnect
 		}
 		if reference {
-			return s.feishuIdentity.checkSharingApproval(
+			err := s.feishuIdentity.checkSharingApproval(
 				owned,
 				&cfg,
 				&types.FeishuPersonalImport{
@@ -211,6 +211,10 @@ func (s *DataSourceService) bindFeishuSource(
 				},
 				expected.Modified,
 			)
+			if errors.Is(err, ErrFeishuSharingApproval) {
+				return checkSourcePublicationPolicy(owned, ds, ref, expected)
+			}
+			return err
 		}
 		return nil
 	}
