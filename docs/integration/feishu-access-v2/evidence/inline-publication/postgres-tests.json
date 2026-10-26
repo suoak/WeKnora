@@ -1,0 +1,35 @@
+{
+  "source_sha": "ddd804192d2ede693e21f6aa103db66017d9bb7b",
+  "tests": {
+    "service": {
+      "pass": 59,
+      "fail": 0,
+      "skip": 0,
+      "failed_packages": []
+    },
+    "race": {
+      "pass": 34,
+      "fail": 0,
+      "skip": 0,
+      "failed_packages": []
+    },
+    "migration": {
+      "pass": 16,
+      "fail": 0,
+      "skip": 0,
+      "failed_packages": []
+    },
+    "private-files": {
+      "pass": 8,
+      "fail": 0,
+      "skip": 0,
+      "failed_packages": []
+    },
+    "core": {
+      "pass": 1132,
+      "fail": 0,
+      "skip": 2,
+      "failed_packages": []
+    }
+  }
+}
