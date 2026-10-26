@@ -83,3 +83,5 @@
 GitHub 镜像产物下载遭遇间歇性网络失败，因此使用本地成功构建的静态包；打包校验统一为与 Linux staging 一致的 `core.autocrlf=false` 归档。原有前端部署器核对精确 SHA、整个前端源码树摘要、Dockerfile 和运行配置，并基于测试站已验证的固定前端运行镜像离线构建。没有关闭或放宽部署门禁。[部署回执](evidence/supplemental-authorization-frontend-deployment-20261026.json)确认 RUNNING，80 入口及三个内部健康检查均为 HTTP 200，APP/worker2 容器和后端配置保持不变，没有数据库写入或停止锁变更。后端仍为已通过五组回归的 `56fc87ee576098cd326ce4331189edbf0c0e2f63`。
 
 已请用户用 `test` 在原失败任务点击一次“补充飞书授权”，无需先断开连接、重新发布应用或重新提交链接。这是首次补齐个人 Scope 的账号本人 OAuth 确认，不是每篇文档审批。当前尚未收到该操作完成的回执，不能宣称新 Scope 已获得，也不能宣称这篇只读 Docx 已导入。
+
+后续：用户已完成本次补充授权。报告 [22：首次完整授权与实际权限](22_FIRST_CONSENT_AND_EFFECTIVE_PERMISSIONS.md)记录 grant 已包含核验 Scope；飞书实际返回目标文档 `view=true, export=false, copy=false`，对照文档三项均为 true。不再要求用户补充同一权限，也没有通过 Blocks 绕过源端拒绝。

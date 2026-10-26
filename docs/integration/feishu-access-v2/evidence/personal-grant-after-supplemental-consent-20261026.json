@@ -1,0 +1,325 @@
+{
+  "access_expired_before": false,
+  "access_valid_after_refresh": true,
+  "application_token_fallback": false,
+  "at": "2026-10-26T11:08:13.748392347Z",
+  "connection_updated_at": "2026-10-26T19:07:02.174078+08:00",
+  "documents": [
+    {
+      "blocks_fallback_used": false,
+      "duration_ms": 4392,
+      "export_bytes": 36946,
+      "export_sha256_prefix": "b40dd9409580",
+      "export_succeeded": true,
+      "import_hash": "fdb0268083e0",
+      "knowledge_hash": "070925df4104",
+      "metadata_readable": true,
+      "policy_inspection_error": {
+        "operation": "get_export_policy",
+        "category": "user_scope_missing",
+        "http_status": 400,
+        "code": 99991679,
+        "required_scopes": [
+          "drive:drive",
+          "drive:drive:readonly",
+          "drive:file",
+          "docs:doc",
+          "sheets:spreadsheet",
+          "wiki:wiki",
+          "bitable:bitable",
+          "docs:permission.setting:read"
+        ]
+      },
+      "previous_status": "source_managed",
+      "requests": [
+        {
+          "operation": "get_wiki_node",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "4839c221561d"
+        },
+        {
+          "operation": "resolve_personal_resource",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "166be12d316a"
+        },
+        {
+          "operation": "get_export_policy",
+          "category": "user_scope_missing",
+          "http_status": 400,
+          "code": 99991679,
+          "request_id_hash": "f650e32556ff",
+          "required_scopes": [
+            "drive:drive",
+            "drive:drive:readonly",
+            "drive:file",
+            "docs:doc",
+            "sheets:spreadsheet",
+            "wiki:wiki",
+            "bitable:bitable",
+            "docs:permission.setting:read"
+          ]
+        },
+        {
+          "operation": "create_export_task",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "a0354801309a"
+        },
+        {
+          "operation": "get_export_task_status",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "561e57c51555"
+        },
+        {
+          "operation": "get_export_task_status",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "5a3d04e4ef2b"
+        },
+        {
+          "operation": "download_export_file",
+          "category": "",
+          "http_status": 206,
+          "code": 0,
+          "request_id_hash": "7935f029504f"
+        }
+      ],
+      "revision_hash": "bd24d7af91ee",
+      "same_personal_identity": true
+    },
+    {
+      "blocks_fallback_used": false,
+      "duration_ms": 2573,
+      "error": {
+        "operation": "create_export_task",
+        "category": "permission",
+        "http_status": 403,
+        "code": 1069902
+      },
+      "export_succeeded": false,
+      "import_hash": "675195cf454e",
+      "knowledge_hash": "",
+      "metadata_readable": true,
+      "policy_inspection_error": {
+        "operation": "get_export_policy",
+        "category": "user_scope_missing",
+        "http_status": 400,
+        "code": 99991679,
+        "required_scopes": [
+          "drive:drive",
+          "drive:drive:readonly",
+          "drive:file",
+          "docs:doc",
+          "sheets:spreadsheet",
+          "wiki:wiki",
+          "bitable:bitable",
+          "docs:permission.setting:read"
+        ]
+      },
+      "previous_status": "needs_attention",
+      "requests": [
+        {
+          "operation": "get_wiki_node",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "831bd7060ea6"
+        },
+        {
+          "operation": "resolve_personal_resource",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "8a4721a89e58"
+        },
+        {
+          "operation": "get_export_policy",
+          "category": "user_scope_missing",
+          "http_status": 400,
+          "code": 99991679,
+          "request_id_hash": "427b929fbb56",
+          "required_scopes": [
+            "drive:drive",
+            "drive:drive:readonly",
+            "drive:file",
+            "docs:doc",
+            "sheets:spreadsheet",
+            "wiki:wiki",
+            "bitable:bitable",
+            "docs:permission.setting:read"
+          ]
+        },
+        {
+          "operation": "create_export_task",
+          "category": "permission",
+          "http_status": 403,
+          "code": 1069902,
+          "request_id_hash": "a4e3f532cad5"
+        },
+        {
+          "operation": "check_personal_view_permission",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "bbe63195f576"
+        },
+        {
+          "operation": "check_personal_export_permission",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "600e592df529"
+        }
+      ],
+      "revision_hash": "",
+      "same_personal_identity": true
+    }
+  ],
+  "granted_scopes_before": [
+    "auth:user.id:read",
+    "bitable:app:readonly",
+    "calendar:calendar",
+    "calendar:calendar:readonly",
+    "contact:contact.base:readonly",
+    "docs:document.media:download",
+    "docs:document:export",
+    "docs:permission.member:auth",
+    "docx:document:readonly",
+    "drive:drive.metadata:readonly",
+    "drive:file:readonly",
+    "offline_access",
+    "sheets:spreadsheet:readonly",
+    "space:document:retrieve",
+    "wiki:wiki:readonly"
+  ],
+  "identity": "existing_personal_oauth",
+  "knowledge_writes": false,
+  "original_provider_receipt": "not_recorded_by_original_binary",
+  "refresh_valid_after_refresh": true,
+  "refresh_valid_before": true,
+  "requests": [
+    {
+      "operation": "get_wiki_node",
+      "category": "",
+      "http_status": 200,
+      "code": 0,
+      "request_id_hash": "4839c221561d"
+    },
+    {
+      "operation": "resolve_personal_resource",
+      "category": "",
+      "http_status": 200,
+      "code": 0,
+      "request_id_hash": "166be12d316a"
+    },
+    {
+      "operation": "get_export_policy",
+      "category": "user_scope_missing",
+      "http_status": 400,
+      "code": 99991679,
+      "request_id_hash": "f650e32556ff",
+      "required_scopes": [
+        "drive:drive",
+        "drive:drive:readonly",
+        "drive:file",
+        "docs:doc",
+        "sheets:spreadsheet",
+        "wiki:wiki",
+        "bitable:bitable",
+        "docs:permission.setting:read"
+      ]
+    },
+    {
+      "operation": "create_export_task",
+      "category": "",
+      "http_status": 200,
+      "code": 0,
+      "request_id_hash": "a0354801309a"
+    },
+    {
+      "operation": "get_export_task_status",
+      "category": "",
+      "http_status": 200,
+      "code": 0,
+      "request_id_hash": "561e57c51555"
+    },
+    {
+      "operation": "get_export_task_status",
+      "category": "",
+      "http_status": 200,
+      "code": 0,
+      "request_id_hash": "5a3d04e4ef2b"
+    },
+    {
+      "operation": "download_export_file",
+      "category": "",
+      "http_status": 206,
+      "code": 0,
+      "request_id_hash": "7935f029504f"
+    },
+    {
+      "operation": "get_wiki_node",
+      "category": "",
+      "http_status": 200,
+      "code": 0,
+      "request_id_hash": "831bd7060ea6"
+    },
+    {
+      "operation": "resolve_personal_resource",
+      "category": "",
+      "http_status": 200,
+      "code": 0,
+      "request_id_hash": "8a4721a89e58"
+    },
+    {
+      "operation": "get_export_policy",
+      "category": "user_scope_missing",
+      "http_status": 400,
+      "code": 99991679,
+      "request_id_hash": "427b929fbb56",
+      "required_scopes": [
+        "drive:drive",
+        "drive:drive:readonly",
+        "drive:file",
+        "docs:doc",
+        "sheets:spreadsheet",
+        "wiki:wiki",
+        "bitable:bitable",
+        "docs:permission.setting:read"
+      ]
+    },
+    {
+      "operation": "create_export_task",
+      "category": "permission",
+      "http_status": 403,
+      "code": 1069902,
+      "request_id_hash": "a4e3f532cad5"
+    },
+    {
+      "operation": "check_personal_view_permission",
+      "category": "",
+      "http_status": 200,
+      "code": 0,
+      "request_id_hash": "bbe63195f576"
+    },
+    {
+      "operation": "check_personal_export_permission",
+      "category": "",
+      "http_status": 200,
+      "code": 0,
+      "request_id_hash": "600e592df529"
+    }
+  ],
+  "status": "DIAGNOSTIC_ONLY",
+  "sync_control_writes": false,
+  "diagnostic_source_sha": "56fc87ee576098cd326ce4331189edbf0c0e2f63",
+  "binary_sha256": "d540f4abf442add7aff575f62acd5b41200d460a1a25c848bf39d381a57203ee"
+}

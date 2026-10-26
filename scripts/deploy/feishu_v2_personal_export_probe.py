@@ -54,6 +54,9 @@ try:
  if p.returncode and len(lines)!=1:raise ValueError('personal_export_diagnostic_failed')
  if len(lines)!=1:raise ValueError('diagnostic_receipt_missing')
  result=json.loads(lines[0]);result['diagnostic_source_sha']=SHA;result['binary_sha256']=digest
+ test_summary=source/'candidate-first-consent-test-summary.json'
+ if test_summary.is_file() and not test_summary.is_symlink():
+  result['first_consent_scope_regression']=json.loads(test_summary.read_text())
  print(json.dumps(result))
 finally:
  os.unlink(path)
