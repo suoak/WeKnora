@@ -267,6 +267,9 @@ func (s *knowledgeService) StageFeishuLegacyItem(
 		},
 	)
 	if err != nil {
+		if errors.Is(err, docparser.ErrCandidateImageData) {
+			return nil, &feishuStagingRefusal{reason: "image_assets_unavailable"}
+		}
 		return nil, err
 	}
 	if err := feishuDocumentParserRefusal(parsed, fileType); err != nil {
