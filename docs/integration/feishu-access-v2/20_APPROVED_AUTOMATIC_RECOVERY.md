@@ -56,3 +56,5 @@ APP 为 Bitable 入队并执行 Sheet，worker2 为 Sheet 入队并执行 Bitabl
 后续受控改值仍须使用有权源账号，并遵守新版本的发布授权。当前批准是恢复两个既有来源，不能被解释为所有未来版本的隐式共享批准。Portal/Go/Python MCP 新值验证必须建立在真实安全发布完成之后。
 
 新增只读 Docx 的 HTTP 403/code 1069902 及 Scope 核查结论保持报告 19 所述，未以此次控制恢复绕过源端导出拒绝。
+
+**后续实测更新：** 16:30 真实改值触发共享授权拒绝，17:01 又发生独立的 Redis membership probe 超时停止。此处成功结论仅限 16:15 无变化同步；最新状态见[报告 21](21_EXPORT_BLOCKS_AND_CONTINUING_PUBLICATION.md)，不能据本篇宣布自动改值更新已验收。

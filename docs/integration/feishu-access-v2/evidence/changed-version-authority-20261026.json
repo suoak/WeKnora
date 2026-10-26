@@ -1,0 +1,1042 @@
+{
+  "status": "RESUMED",
+  "at": "2026-10-26T09:31:26.090000+00:00",
+  "operation": "status",
+  "project": "knowhub-feishu-v2-d6e99d894d3a",
+  "source_sha": "2a7f651e6ed078fcf5113905a9358a82084d7d17",
+  "approval_ref": "user:call_085aca217ce54805be1d8372feec744b:approved_two_sources",
+  "plan_id": "8a959aaecf5c49d3813fffe4f037d711",
+  "trip": "automatic_membership_probe_context_deadline",
+  "sync_paused": true,
+  "permit_ttl_ms": -2,
+  "queues": {
+    "active": 0,
+    "pending": 2,
+    "scheduled": 0,
+    "retry": 0
+  },
+  "processes": {
+    "app": {
+      "running": true,
+      "health": "healthy",
+      "container_hash": "4350bdbe4518"
+    },
+    "worker2": {
+      "running": true,
+      "health": "healthy",
+      "container_hash": "e6d1dd41a7f8"
+    }
+  },
+  "sources": [
+    {
+      "source_hash": "1dcf458346ba",
+      "knowledge_hash": "f48df03f6510",
+      "last_sync_at": "2026-10-26T08:15:12.986545",
+      "config_hash": "4cd258fe90d889c84c1f4b571a918c01",
+      "cursor_hash": "3e3d26e2874a8abf283252e8e1336fe1",
+      "status": "error",
+      "legacy_access_state": "hold"
+    },
+    {
+      "source_hash": "6d1698a6e0d9",
+      "knowledge_hash": "d0c4602a75ca",
+      "last_sync_at": "2026-10-26T08:15:08.432915",
+      "config_hash": "82b3cb65b7a6ec50fd2cd56c5f7fa45e",
+      "cursor_hash": "4432c02be06179a9cb98afd64a1f50bc",
+      "status": "error",
+      "legacy_access_state": "unmanaged"
+    }
+  ],
+  "indexes": [
+    {
+      "id": "d0c4602a75ca",
+      "parse_status": "completed",
+      "updated_at": "2026-10-26T03:27:15.039406+00:00",
+      "chunks": 24,
+      "vectors": 22,
+      "vector_ids_hash": "7c38a4c1b9f272abeabc541ecf97154f"
+    },
+    {
+      "id": "f48df03f6510",
+      "parse_status": "completed",
+      "updated_at": "2026-10-26T03:27:21.378761+00:00",
+      "chunks": 30,
+      "vectors": 27,
+      "vector_ids_hash": "e896eda14f85620f9b2bce70984cfb42"
+    }
+  ],
+  "cursor_receipts": [
+    {
+      "source_hash": "1dcf458346ba",
+      "cursor_present": true,
+      "last_scan_time": "2026-10-26T16:15:12.437441077+08:00",
+      "selected_object_count": 1,
+      "reference_revision_digest": "65b8c65e4846a454d0ddbccf601b04ed1cd7b7d089e1ae4c495cde4bb31dfd28"
+    },
+    {
+      "source_hash": "6d1698a6e0d9",
+      "cursor_present": true,
+      "last_scan_time": "2026-10-26T16:15:05.197129379+08:00",
+      "selected_object_count": 1,
+      "reference_revision_digest": "eecbd07bf022ff1a45dfca275bf263b1da61fa441183fcb59fd11faefac0e3ee"
+    }
+  ],
+  "sync_history": [
+    {
+      "id": "39cc459aa078",
+      "data_source_id": "1dcf458346ba",
+      "status": "canceled",
+      "started_at": "2026-10-26T09:00:00.031609",
+      "finished_at": "2026-10-26T09:01:42.21809",
+      "items_total": 1,
+      "items_created": 0,
+      "items_updated": 0,
+      "items_deleted": 0,
+      "items_skipped": 0,
+      "items_failed": 1,
+      "execution_claimed": false,
+      "execution_generation": 3,
+      "created_at": "2026-10-26T09:00:00.033789",
+      "has_error": true,
+      "error_classes": [],
+      "provider_codes": []
+    },
+    {
+      "id": "6c32694183a9",
+      "data_source_id": "6d1698a6e0d9",
+      "status": "canceled",
+      "started_at": "2026-10-26T09:00:00.020438",
+      "finished_at": "2026-10-26T09:01:42.219845",
+      "items_total": 1,
+      "items_created": 0,
+      "items_updated": 0,
+      "items_deleted": 0,
+      "items_skipped": 0,
+      "items_failed": 1,
+      "execution_claimed": false,
+      "execution_generation": 3,
+      "created_at": "2026-10-26T09:00:00.027792",
+      "has_error": true,
+      "error_classes": [],
+      "provider_codes": []
+    },
+    {
+      "id": "29842fb91de8",
+      "data_source_id": "1dcf458346ba",
+      "status": "failed",
+      "started_at": "2026-10-26T08:30:00.023778",
+      "finished_at": "2026-10-26T08:40:48.733668",
+      "items_total": 1,
+      "items_created": 0,
+      "items_updated": 0,
+      "items_deleted": 0,
+      "items_skipped": 0,
+      "items_failed": 1,
+      "execution_claimed": false,
+      "execution_generation": 6,
+      "created_at": "2026-10-26T08:30:00.027357",
+      "has_error": true,
+      "error_classes": [],
+      "provider_codes": []
+    },
+    {
+      "id": "19d30539cb0d",
+      "data_source_id": "6d1698a6e0d9",
+      "status": "failed",
+      "started_at": "2026-10-26T08:30:00.005033",
+      "finished_at": "2026-10-26T08:41:16.980829",
+      "items_total": 1,
+      "items_created": 0,
+      "items_updated": 0,
+      "items_deleted": 0,
+      "items_skipped": 0,
+      "items_failed": 1,
+      "execution_claimed": false,
+      "execution_generation": 6,
+      "created_at": "2026-10-26T08:30:00.015022",
+      "has_error": true,
+      "error_classes": [],
+      "provider_codes": []
+    },
+    {
+      "id": "a5ce4281c7a7",
+      "data_source_id": "6d1698a6e0d9",
+      "status": "success",
+      "started_at": "2026-10-26T08:15:00.026468",
+      "finished_at": "2026-10-26T08:15:08.432916",
+      "items_total": 0,
+      "items_created": 0,
+      "items_updated": 0,
+      "items_deleted": 0,
+      "items_skipped": 0,
+      "items_failed": 0,
+      "execution_claimed": false,
+      "execution_generation": 1,
+      "created_at": "2026-10-26T08:15:00.028508",
+      "has_error": false,
+      "error_classes": [],
+      "provider_codes": []
+    },
+    {
+      "id": "16397dbdc3f0",
+      "data_source_id": "1dcf458346ba",
+      "status": "success",
+      "started_at": "2026-10-26T08:15:00.025493",
+      "finished_at": "2026-10-26T08:15:12.986546",
+      "items_total": 0,
+      "items_created": 0,
+      "items_updated": 0,
+      "items_deleted": 0,
+      "items_skipped": 0,
+      "items_failed": 0,
+      "execution_claimed": false,
+      "execution_generation": 1,
+      "created_at": "2026-10-26T08:15:00.027873",
+      "has_error": false,
+      "error_classes": [],
+      "provider_codes": []
+    }
+  ],
+  "approval_receipts": [
+    {
+      "state": "approved",
+      "created_at": "2026-10-26T02:03:05.850318+00:00",
+      "expires_at": "2026-10-27T02:03:03.134382+00:00",
+      "unexpired": true,
+      "source_hash": "1dcf458346ba",
+      "approval_hash": "1060c509b717",
+      "revision_hash": "79f81bd1a2f8"
+    },
+    {
+      "state": "approved",
+      "created_at": "2026-10-26T02:03:04.206696+00:00",
+      "expires_at": "2026-10-27T02:03:03.134382+00:00",
+      "unexpired": true,
+      "source_hash": "6d1698a6e0d9",
+      "approval_hash": "c5dcf5fa9020",
+      "revision_hash": "7617fb34bf39"
+    }
+  ],
+  "publication_authority_receipts": [
+    {
+      "is_active": true,
+      "role": "owner",
+      "member_status": "active",
+      "tenant_status": "active",
+      "owner_is_kb_creator": true,
+      "status": "error",
+      "legacy_access_state": "hold",
+      "source_hash": "1dcf458346ba"
+    },
+    {
+      "is_active": true,
+      "role": "owner",
+      "member_status": "active",
+      "tenant_status": "active",
+      "owner_is_kb_creator": true,
+      "status": "error",
+      "legacy_access_state": "unmanaged",
+      "source_hash": "6d1698a6e0d9"
+    }
+  ],
+  "activity_since_resume": [
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:15:08.514982982Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:15:12.781107579Z",
+      "kind": "feishu_api",
+      "operation": "get_wiki_node",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:15:12.986461228Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:15:12.989542722Z",
+      "kind": "worker_completed",
+      "source_hash": "1dcf458346ba"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:30:00.030446054Z",
+      "kind": "duplicate_tick_suppressed",
+      "source_hash": "1dcf458346ba"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:30:00.030574864Z",
+      "kind": "duplicate_tick_suppressed",
+      "source_hash": "6d1698a6e0d9"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:30:01.156155093Z",
+      "kind": "feishu_api",
+      "operation": "get_wiki_node",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:30:01.384332706Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:30:01.690879638Z",
+      "kind": "feishu_api",
+      "operation": "get_wiki_node",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:30:02.000788967Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:30:02.919432774Z",
+      "kind": "feishu_api",
+      "operation": "create_export_task",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:30:03.221600451Z",
+      "kind": "feishu_api",
+      "operation": "get_export_task_status",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:30:05.472124442Z",
+      "kind": "feishu_api",
+      "operation": "get_export_task_status",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:30:06.008675505Z",
+      "kind": "feishu_api",
+      "operation": "download_export_file",
+      "http_status": 206,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:30:06.293860747Z",
+      "kind": "feishu_api",
+      "operation": "verify_personal_sheets",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:30:06.458389658Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:30:06.474630604Z",
+      "kind": "item_admission_failed",
+      "known_causes": [
+        "feishu_sharing_approval_required"
+      ],
+      "unclassified": false
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:30:23.804497173Z",
+      "kind": "feishu_api",
+      "operation": "get_wiki_node",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:30:24.019439039Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:30:29.418407768Z",
+      "kind": "feishu_api",
+      "operation": "get_wiki_node",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:30:29.617346100Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:30:29.958366126Z",
+      "kind": "feishu_api",
+      "operation": "create_export_task",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:30:30.189695337Z",
+      "kind": "feishu_api",
+      "operation": "get_export_task_status",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:30:32.413024036Z",
+      "kind": "feishu_api",
+      "operation": "get_export_task_status",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:30:32.921075343Z",
+      "kind": "feishu_api",
+      "operation": "download_export_file",
+      "http_status": 206,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:30:33.290267324Z",
+      "kind": "feishu_api",
+      "operation": "verify_personal_bitable_tables",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:30:33.517828875Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:30:33.525094404Z",
+      "kind": "item_admission_failed",
+      "known_causes": [
+        "feishu_sharing_approval_required"
+      ],
+      "unclassified": false
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:31:18.710577102Z",
+      "kind": "feishu_api",
+      "operation": "get_wiki_node",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:31:18.919446056Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:31:19.194738515Z",
+      "kind": "feishu_api",
+      "operation": "get_wiki_node",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:31:19.473326189Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:31:20.275422977Z",
+      "kind": "feishu_api",
+      "operation": "create_export_task",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:31:20.512264395Z",
+      "kind": "feishu_api",
+      "operation": "get_export_task_status",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:31:22.799544838Z",
+      "kind": "feishu_api",
+      "operation": "get_export_task_status",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:31:23.372433469Z",
+      "kind": "feishu_api",
+      "operation": "download_export_file",
+      "http_status": 206,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:31:23.634917558Z",
+      "kind": "feishu_api",
+      "operation": "verify_personal_bitable_tables",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:31:23.889722740Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:31:23.896754377Z",
+      "kind": "item_admission_failed",
+      "known_causes": [
+        "feishu_sharing_approval_required"
+      ],
+      "unclassified": false
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:31:43.517208005Z",
+      "kind": "feishu_api",
+      "operation": "get_wiki_node",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:31:43.724114886Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:31:44.149649502Z",
+      "kind": "feishu_api",
+      "operation": "get_wiki_node",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:31:44.328148532Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:31:44.958027477Z",
+      "kind": "feishu_api",
+      "operation": "create_export_task",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:31:45.350683596Z",
+      "kind": "feishu_api",
+      "operation": "get_export_task_status",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:31:47.598738721Z",
+      "kind": "feishu_api",
+      "operation": "get_export_task_status",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:31:48.023958220Z",
+      "kind": "feishu_api",
+      "operation": "download_export_file",
+      "http_status": 206,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:31:48.307671100Z",
+      "kind": "feishu_api",
+      "operation": "verify_personal_sheets",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:31:48.577181280Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:31:48.589019155Z",
+      "kind": "item_admission_failed",
+      "known_causes": [
+        "feishu_sharing_approval_required"
+      ],
+      "unclassified": false
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:35:49.725234015Z",
+      "kind": "feishu_api",
+      "operation": "get_wiki_node",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:35:49.933378702Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:35:50.228861952Z",
+      "kind": "feishu_api",
+      "operation": "get_wiki_node",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:35:50.373062044Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:35:51.066826044Z",
+      "kind": "feishu_api",
+      "operation": "create_export_task",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:35:51.437666093Z",
+      "kind": "feishu_api",
+      "operation": "get_export_task_status",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:35:53.691958321Z",
+      "kind": "feishu_api",
+      "operation": "get_export_task_status",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:35:54.144727972Z",
+      "kind": "feishu_api",
+      "operation": "download_export_file",
+      "http_status": 206,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:35:54.413511924Z",
+      "kind": "feishu_api",
+      "operation": "verify_personal_bitable_tables",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:35:54.591712317Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:35:54.599323214Z",
+      "kind": "item_admission_failed",
+      "known_causes": [
+        "feishu_sharing_approval_required"
+      ],
+      "unclassified": false
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:36:53.399458538Z",
+      "kind": "feishu_api",
+      "operation": "get_wiki_node",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:36:53.580662916Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:41:04.518981283Z",
+      "kind": "feishu_api",
+      "operation": "get_wiki_node",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:41:04.704985419Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:41:12.779526480Z",
+      "kind": "feishu_api",
+      "operation": "get_wiki_node",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:41:13.097023602Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:41:13.509453989Z",
+      "kind": "feishu_api",
+      "operation": "create_export_task",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:41:13.738174100Z",
+      "kind": "feishu_api",
+      "operation": "get_export_task_status",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:41:15.952470256Z",
+      "kind": "feishu_api",
+      "operation": "get_export_task_status",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:41:16.563530067Z",
+      "kind": "feishu_api",
+      "operation": "download_export_file",
+      "http_status": 206,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:41:16.827206923Z",
+      "kind": "feishu_api",
+      "operation": "verify_personal_sheets",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:41:16.970734187Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:41:16.980883468Z",
+      "kind": "item_admission_failed",
+      "known_causes": [
+        "feishu_sharing_approval_required"
+      ],
+      "unclassified": false
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:00:00.029993521Z",
+      "kind": "natural_enqueue",
+      "source_hash": "6d1698a6e0d9"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:00:00.037388898Z",
+      "kind": "duplicate_tick_suppressed",
+      "source_hash": "1dcf458346ba"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:00:01.502817484Z",
+      "kind": "feishu_api",
+      "operation": "get_wiki_node",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:00:01.721456221Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:00:02.090825287Z",
+      "kind": "feishu_api",
+      "operation": "get_wiki_node",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:00:02.268749128Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:00:02.905365263Z",
+      "kind": "feishu_api",
+      "operation": "create_export_task",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:00:03.247317816Z",
+      "kind": "feishu_api",
+      "operation": "get_export_task_status",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:00:05.563775462Z",
+      "kind": "feishu_api",
+      "operation": "get_export_task_status",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:00:06.134359069Z",
+      "kind": "feishu_api",
+      "operation": "download_export_file",
+      "http_status": 206,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:00:20.210981034Z",
+      "kind": "feishu_api",
+      "operation": "verify_personal_bitable_tables",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:00:20.470451977Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:00:20.482200150Z",
+      "kind": "item_admission_failed",
+      "known_causes": [
+        "feishu_sharing_approval_required"
+      ],
+      "unclassified": false
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:00:35.061974179Z",
+      "kind": "feishu_api",
+      "operation": "get_wiki_node",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:00:35.248272994Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:00:40.612870925Z",
+      "kind": "feishu_api",
+      "operation": "get_wiki_node",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:00:40.817695906Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:00:41.243862057Z",
+      "kind": "feishu_api",
+      "operation": "create_export_task",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:00:41.490410723Z",
+      "kind": "feishu_api",
+      "operation": "get_export_task_status",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:00:43.740476008Z",
+      "kind": "feishu_api",
+      "operation": "get_export_task_status",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:00:44.215791743Z",
+      "kind": "feishu_api",
+      "operation": "download_export_file",
+      "http_status": 206,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:00:44.492927018Z",
+      "kind": "feishu_api",
+      "operation": "verify_personal_sheets",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:00:44.675537947Z",
+      "kind": "feishu_api",
+      "operation": "resolve_personal_resource",
+      "http_status": 200,
+      "code": 0
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:00:44.741937592Z",
+      "kind": "item_admission_failed",
+      "known_causes": [
+        "feishu_sharing_approval_required"
+      ],
+      "unclassified": false
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:15:00.016147689Z",
+      "kind": "safety_gate_closed",
+      "source_hash": "6d1698a6e0d9"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T09:30:00.008259616Z",
+      "kind": "safety_gate_closed",
+      "source_hash": "6d1698a6e0d9"
+    }
+  ],
+  "scope_edited": false,
+  "cursor_reset": false,
+  "budgets_reset": false,
+  "publication_approval_written": false
+}
