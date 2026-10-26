@@ -1,0 +1,25 @@
+{
+  "source_sha": "b11a0b7f1d89cf8ec640bb4eb6c61322f1d47e37",
+  "files": {
+    "core-tests.jsonl": {
+      "pass": 1132,
+      "skip": 2
+    },
+    "migration-tests.jsonl": {
+      "pass": 16
+    },
+    "private-files-tests.jsonl": {
+      "pass": 8
+    },
+    "race-tests.jsonl": {
+      "pass": 41
+    },
+    "service-tests.jsonl": {
+      "pass": 66
+    }
+  },
+  "required_recovery_tests": {
+    "TestFeishuV2PostgresParserOutageRecoveryPreservesKnowledgeAndFences": "pass",
+    "TestFeishuV2PostgresParserOutageNeverResumesPartialOrRevoked": "pass"
+  }
+}

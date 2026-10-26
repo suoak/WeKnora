@@ -82,6 +82,8 @@ processing_stages=rows('knowledge_processing_spans',['knowledge_id','attempt','k
 knowledge=rows('knowledges',['id','knowledge_base_id','parse_status','enable_status','summary_status','created_at','updated_at','process_started_at','process_completed_at'], 'id IN ('+klist+')')
 ops=rows('task_pending_ops',['id','scope','scope_id','task_type','op','fail_count','enqueued_at','claimed_at'], 'scope_id IN ('+klist+')'+(' OR '+ ' OR '.join("payload::text LIKE '%"+x+"%'" for x in kids) if kids else ''))
 chunks=query('SELECT coalesce(json_agg(q),\'[]\') FROM (SELECT knowledge_id,count(*) AS count FROM chunks WHERE knowledge_id IN ('+klist+') GROUP BY knowledge_id) q')
+chunk_shapes=query("SELECT coalesce(json_agg(q),'[]') FROM (SELECT knowledge_id,chunk_type,index_status,is_enabled,count(*) AS count FROM chunks WHERE knowledge_id IN ("+klist+") AND deleted_at IS NULL GROUP BY knowledge_id,chunk_type,index_status,is_enabled) q")
+sync_history=rows('sync_logs',['id','data_source_id','status','started_at','finished_at','items_total','items_created','items_updated','items_deleted','items_skipped','items_failed','execution_generation','execution_claimed','created_at','updated_at'],'data_source_id IN ('+iids+') ORDER BY created_at DESC')
 vectors=query('SELECT coalesce(json_agg(q),\'[]\') FROM (SELECT knowledge_id,dimension,count(*) AS count FROM embeddings WHERE knowledge_id IN ('+klist+') GROUP BY knowledge_id,dimension) q')
 bm25=[]
 for kid in sorted({r.get('knowledge_id') for r in imports if r.get('knowledge_id')}):
@@ -157,28 +159,55 @@ if XLSX_AUDIT:
   sheets=[]
   with zipfile.ZipFile(io.BytesIO(data)) as archive:
    if sum(i.file_size for i in archive.infolist())>100*1024*1024:raise ValueError('workbook_expanded_limit')
+   date_styles=set()
+   if 'xl/styles.xml' in archive.namelist():
+    styles=ET.fromstring(archive.read('xl/styles.xml'))
+    formats={int(f.get('numFmtId')):f.get('formatCode','') for f in styles.findall('s:numFmts/s:numFmt',ns)}
+    for style_index,style in enumerate(styles.findall('s:cellXfs/s:xf',ns)):
+     format_id=int(style.get('numFmtId','0'));format_code=formats.get(format_id,'')
+     if 14<=format_id<=22 or (format_id>=164 and re.search(r'[yd]',re.sub(r'"[^"]*"','',format_code),re.I)):date_styles.add(style_index)
+   workbook=ET.fromstring(archive.read('xl/workbook.xml'))
+   sheet_names=[s.get('name') for s in workbook.findall('s:sheets/s:sheet',ns)]
+   properties=workbook.find('s:workbookPr',ns)
+   date_epoch=datetime.datetime(1904,1,1) if properties is not None and properties.get('date1904') in ['1','true'] else datetime.datetime(1899,12,30)
    strings=[]
    if 'xl/sharedStrings.xml' in archive.namelist():
     strings=[''.join(t.text or '' for t in el.findall('.//s:t',ns)) for el in ET.fromstring(archive.read('xl/sharedStrings.xml')).findall('s:si',ns)]
    names=sorted(n for n in archive.namelist() if re.fullmatch(r'xl/worksheets/sheet[0-9]+\.xml',n))
    for ordinal,name in enumerate(names):
-    workbook_rows=[];formula_count=0
+    workbook_rows=[];positioned_rows=[];formula_count=0;date_cells=0
     for row in ET.fromstring(archive.read(name)).findall('.//s:sheetData/s:row',ns):
-     cells=[]
+     cells=[];positioned={}
      for cell in row.findall('s:c',ns):
       value=cell.find('s:v',ns);text=value.text if value is not None else ''
       if cell.get('t')=='s':text=strings[int(text)] if text else ''
       if cell.get('t')=='inlineStr':text=''.join(t.text or '' for t in cell.findall('.//s:t',ns))
+      if text and cell.get('t') not in ['s','inlineStr'] and int(cell.get('s','0')) in date_styles:
+       value=date_epoch+datetime.timedelta(days=float(text));text=value.isoformat(sep=' ',timespec='seconds')
+       if text.endswith(' 00:00:00'):text=text[:10]
+       date_cells+=1
       if cell.find('s:f',ns) is not None:formula_count+=1
-      if text and text.strip():cells.append(text.strip())
-     if cells:workbook_rows.append(cells)
+      if text and text.strip():
+       cells.append(text.strip());positioned[re.sub('[0-9]+$','',cell.get('r',''))]=text.strip()
+     if cells:
+      workbook_rows.append(cells);positioned_rows.append((int(row.get('r')),positioned))
     headers=workbook_rows[0] if workbook_rows else []
     for row_ordinal,row_values in enumerate(workbook_rows[1:2],1):
      comparable=[v for v in row_values if len(v.strip())>=2 and not re.search(r'https?://',v)]
      if len(comparable)>=2:
       table_query_cases.append({'kid':imported['knowledge_id'],'kb':imported['kb_id'],'sheet_ordinal':ordinal,'row_ordinal':row_ordinal,'query':comparable[0][:60],'expected':comparable[1:3]})
     values=[v for row in workbook_rows[1:] for v in row if len(v)>=2]
-    sheets.append({'sheet_ordinal':ordinal,'nonempty_rows':len(workbook_rows),'header_cells':len(headers),'nonempty_data_cells':sum(len(r) for r in workbook_rows[1:]),'formula_cells':formula_count,'header_values_found_in_chunks':sum(v in joined for v in headers),'comparable_values':len(values),'values_found_in_chunks':sum(v in joined for v in values)})
+    aligned_rows=0;field_pairs=0;matched_pairs=0
+    column_headers=positioned_rows[0][1] if positioned_rows else {}
+    for physical_row,row_cells in positioned_rows[1:]:
+     candidates=[c.get('content','') for c in parsed if isinstance(c.get('metadata'),dict) and c['metadata'].get('parser.sheet')==sheet_names[ordinal] and str(c['metadata'].get('parser.row'))==str(physical_row)]
+     if any(all(v in content for v in row_cells.values()) for content in candidates):aligned_rows+=1
+     for column,value in row_cells.items():
+      if column not in column_headers:continue
+      field_pairs+=1
+      if any(column_headers[column]+': '+value in content for content in candidates):matched_pairs+=1
+    sheets.append({'sheet_ordinal':ordinal,'nonempty_rows':len(workbook_rows),'header_cells':len(headers),'nonempty_data_cells':sum(len(r) for r in workbook_rows[1:]),'formula_cells':formula_count,'date_cells_normalized_from_excel_serial':date_cells,'header_values_found_in_chunks':sum(v in joined for v in headers),'comparable_values':len(values),'values_found_in_chunks':sum(v in joined for v in values)})
+    sheets[-1].update(data_rows_with_all_values_at_original_row=aligned_rows,field_value_pairs=field_pairs,field_value_pairs_at_original_row=matched_pairs)
   row_metadata=sum(bool((c.get('metadata') or {}).get('parser.row')) for c in parsed if isinstance(c.get('metadata'),dict))
   source_audit={}
   try:
@@ -218,6 +247,19 @@ if XLSX_AUDIT:
  with __import__('os').fdopen(fd,'w') as output:json.dump(table_query_cases,output)
  path.chmod(0o600)
 if DB_ONLY:
+ runtime_scheduler=[]
+ for service in ['app','worker2']:
+  cid=run(compose+['ps','--quiet',service]).stdout.strip()
+  info=json.loads(run(['docker','inspect',cid]).stdout)[0]
+  env=dict(line.split('=',1) for line in info['Config']['Env'] if '=' in line)
+  scope=env.get('FEISHU_LEGACY_SYNC_ALLOWED_SOURCE_IDS','')
+  scope_ids=[v for v in scope.split(',') if re.fullmatch('[a-f0-9-]{36}',v)]
+  log=run(compose+['logs','--no-color','--since','20m','--tail','8000',service]).stdout
+  registered=re.findall(r'\[Scheduler\] started with (\d+) cron entries',log)
+  runtime_scheduler.append({'service':service,'running':info['State']['Running'],'health':info['State'].get('Health',{}).get('Status'),'docreader_address_configured':env.get('DOCREADER_ADDR')=='docreader:50051','allowed_source_hashes':sorted(mask(v) for v in scope_ids),'unrestricted_source_scope':scope in ['', 'all'],'latest_registered_cron_entries':int(registered[-1]) if registered else None,'sync_safety_enabled':env.get('FEISHU_SYNC_SAFETY_ENABLED')=='true'})
+  runtime_scheduler[-1]['safety_events']=[{'event':event,'reason':reason} for event,reason in re.findall(r'\[FeishuSafety\] event=([a-z_0-9]+) reason=([a-z_0-9]+)',log)][-12:]
+  runtime_scheduler[-1]['scheduled_source_gate_closed']=[{'source_hash':mask(source),'count':sum('sync safety gate closed' in line and source in line for line in log.splitlines())} for source in scope_ids]
+  env.clear()
  link_matches=[]
  if APPROVED_LINKS:
   import urllib.parse
@@ -250,7 +292,7 @@ if DB_ONLY:
    admission.append({'service':service,'route_counts':{name:sum(bool(re.search(pattern,line)) for line in lines) for name,pattern in patterns.items()},'events':events,'failure_diagnostics':diagnostics,'scanned_lines':len(lines)})
  state={'user_id':uid,'batches':batches,'items':items,'imports':imports,'attempts':attempts,'knowledge':knowledge}
  path=site/'real-batch-readonly-state.json';path.write_text(json.dumps(state));path.chmod(0o600)
- print(json.dumps({'status':'READ_ONLY','processing_stages':safe(processing_stages),'resource_states':safe(resource_states),'sources':safe(sources),'source_cursor_checks':safe(cursor_checks),'table_audit':table_audit,'approved_link_matches':link_matches,'admission_routes':admission,'approval_summary':approval_summary,'canonical_resource_count':canonical_count,
+ print(json.dumps({'status':'READ_ONLY','runtime_scheduler':runtime_scheduler,'wiki_configuration':safe(wiki_configuration),'sync_history':safe(sync_history),'chunk_shapes':safe(chunk_shapes),'processing_stages':safe(processing_stages),'resource_states':safe(resource_states),'sources':safe(sources),'source_cursor_checks':safe(cursor_checks),'table_audit':table_audit,'approved_link_matches':link_matches,'admission_routes':admission,'approval_summary':approval_summary,'canonical_resource_count':canonical_count,
   'batches':safe(batches),'items':safe(items),'imports':safe(imports),'attempts':safe(attempts),
   'knowledge':safe(knowledge),'chunks':safe(chunks),'vectors':safe(vectors),'bm25':safe(bm25),'outbox':safe(ops)}))
  raise SystemExit(0)

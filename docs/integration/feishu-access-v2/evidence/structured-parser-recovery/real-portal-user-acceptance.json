@@ -1,0 +1,9 @@
+﻿{
+    "qualification":  "user_reported_real_portal_web",
+    "account":  "test",
+    "knowledge_base":  "test001",
+    "reported_at_local":  "2026-10-26T11:42:29",
+    "timezone":  "Asia/Shanghai",
+    "header_and_familiar_row_search":  "correct_document_and_row_confirmed_by_user",
+    "automated_browser_replay":  false
+}
