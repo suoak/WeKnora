@@ -67,6 +67,7 @@ jobs:
         run: |
           go test -json -tags sqlite_fts5 ./internal/application/service -run '^TestFeishuV2PostgresControlledSourceRebind$' -count=1 -timeout=3m | tee p0-rebind-tests.jsonl
           go test -race -json ./internal/feishusynccontrol -run '^Test(ControlTransport|AutomaticRealRedisTwoProcessBudgetFaults)' -count=1 -timeout=2m | tee p0-control-tests.jsonl
+          go test -race -json ./internal/feishusafety -run '^TestControlTrip' -count=1 -timeout=1m | tee p0-stop-tests.jsonl
       - name: Identity, resource and privacy boundaries
         run: go test -json ./internal/types ./internal/application/access ./internal/datasource/connector/feishu/... -count=1 -timeout=10m | tee core-tests.jsonl
       - name: Real PostgreSQL batch and approval tests

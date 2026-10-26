@@ -287,7 +287,7 @@ func (c *Controller) freeze(ctx context.Context, reason string, latch bool) erro
 	ctx = stopCtx
 	var failures []error
 	if latch {
-		failures = append(failures, c.Guard.Trip(ctx, reason))
+		failures = append(failures, c.Guard.TripUsing(ctx, c.Client, reason))
 	} else {
 		failures = append(failures, c.Client.Del(ctx, c.Guard.PermitKey()).Err())
 	}
