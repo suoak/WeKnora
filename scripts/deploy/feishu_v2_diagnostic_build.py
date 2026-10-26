@@ -26,6 +26,22 @@ sha256sum feishu-diagnostic > candidate-diagnostic.sha256
 go version -m feishu-diagnostic > candidate-diagnostic-build-info.txt
 '''
 
+# Test output is redirected to a receipt file; retain named pass/fail evidence
+# on inspection without printing assertion values or upstream response bodies.
+build.REMOTE = build.REMOTE.replace('print(json.dumps(result))', r'''
+test_receipt=source/'candidate-first-consent-tests.jsonl'
+if test_receipt.is_file() and not test_receipt.is_symlink():
+ events=[]
+ for line in test_receipt.read_text().splitlines():
+  try:events.append(json.loads(line))
+  except ValueError:continue
+ result['diagnostic_test_receipt']={
+  'passed':[{'test':e['Test'],'elapsed':e.get('Elapsed')} for e in events if e.get('Action')=='pass' and e.get('Test')],
+  'failed':[e.get('Test','package') for e in events if e.get('Action')=='fail'],
+  'skipped':[e['Test'] for e in events if e.get('Action')=='skip' and e.get('Test')]}
+print(json.dumps(result))
+''')
+
 if __name__ == '__main__':
     diagnostics = '--verify-permission-diagnostics' in sys.argv
     if diagnostics:

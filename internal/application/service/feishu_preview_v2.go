@@ -29,7 +29,8 @@ type FeishuPreviewItem struct {
 }
 
 func feishuV2Error(err error) string {
-	if errors.Is(err, core.ErrPersonalBlocksPolicyUnverified) || errors.Is(err, core.ErrPersonalBlocksIncomplete) ||
+	if errors.Is(err, ErrFeishuSourceRebindRequired) ||
+		errors.Is(err, core.ErrPersonalBlocksPolicyUnverified) || errors.Is(err, core.ErrPersonalBlocksIncomplete) ||
 		errors.Is(err, core.ErrPersonalReadDenied) || errors.Is(err, core.ErrPersonalCopyExportDenied) ||
 		errors.Is(err, core.ErrPersonalCopyDenied) || errors.Is(err, core.ErrPersonalCopyOnlyReview) ||
 		errors.Is(err, core.ErrPersonalAcquisitionReview) {

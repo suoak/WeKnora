@@ -163,6 +163,15 @@ for service in ['app','worker2']:
    at=re.search(r'\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}',line)
    signals.append({'service':service,'at':at[0] if at else None,'classes':classes})
 result['worker_failure_signals']=signals[-60:]
+redis_record=json.loads(run(['docker','inspect',run(compose+['ps','--all','--quiet','redis']).strip()]))[0]
+persistence_logs=subprocess.run(['docker','logs','--timestamps','--since',state.get('resumed_at','10m') if state else '10m','--tail','500',redis_record['Id']],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,timeout=20)
+redis_events=[]
+for line in (persistence_logs.stdout+'\n'+persistence_logs.stderr).splitlines():
+ classes=[marker for marker in ['fsync is taking too long','background saving started','background saving terminated with success','background saving error','background append only file rewriting','asynchronous aof','rdb saved'] if marker in line.lower()]
+ if classes:
+  at=re.search(r'\d{4}-\d{2}-\d{2}T[0-9:.]+Z',line)
+  redis_events.append({'at':at[0] if at else None,'classes':classes})
+result['redis_persistence_events']=redis_events[-40:]
 bindings=sql("SELECT coalesce(json_agg(q),'[]') FROM (SELECT ds.id,ds.config->'settings'->'credential_reference' AS reference,c.user_id,c.app_id,c.open_id,e.epoch FROM data_sources ds JOIN feishu_personal_imports m ON m.id=ds.id JOIN feishu_connections c ON c.user_id=m.user_id JOIN feishu_personal_grant_epochs e ON e.user_id=c.user_id JOIN users u ON u.id=m.user_id JOIN knowledge_bases kb ON kb.id=m.kb_id WHERE u.username='test' AND kb.name='test001' AND m.resource_type IN ('sheet','bitable')) q")
 binding_receipts=[]
 for binding in bindings:
@@ -173,6 +182,9 @@ for binding in bindings:
   'app_matches':ref.get('app_id')==binding['app_id'],'connection_matches_current_grant':ref.get('connection_id')==current,
   'stored_connection_hash':mask(ref.get('connection_id','')),'current_connection_hash':mask(current)})
 result['personal_identity_binding_receipts']=binding_receipts
+result['recovery_phase']=result['status']
+if OPERATION=='status' and result.get('trip') and state and state.get('phase')=='RESUMED':
+ result['status']='STOPPED_AFTER_RESUME'
 connection.close();print(json.dumps(result))
 ''')
     return ("if OPERATION not in ['status','self-test'] and SHA!=" + repr(FIXED_RUNTIME) +

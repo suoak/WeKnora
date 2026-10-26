@@ -12,6 +12,25 @@ import feishu_v2_membership_recovery as recovery
 
 
 class MembershipRecoveryTests(unittest.TestCase):
+    def test_stopped_operator_enrollment_disables_document_probes(self):
+        import feishu_v2_sync_publication_policy as policy
+        with mock.patch.object(sys, 'argv', ['policy', '--operation', 'prepare_reconciliation',
+                '--approval-reference', recovery.APPROVAL]), \
+                mock.patch.object(policy.probe.transport, 'main', return_value=0), \
+                mock.patch.object(policy.probe.transport, 'REMOTE', ''):
+            self.assertEqual(0, policy.main())
+            remote = policy.probe.transport.REMOTE
+            self.assertTrue(remote.startswith('COMPARE_CONTENT_PATHS=False\n'))
+            self.assertIn("compose+['ps','--all','--quiet','app']", remote)
+            compile(remote, '<stopped-policy-operator>', 'exec')
+
+    def test_reset_requires_verified_backup_before_latch_mutation(self):
+        program = recovery.program()
+        self.assertLess(program.index('verified_recovery_backup_required'),
+                        program.index("redis('EVAL',RESET,len(keys())"))
+        self.assertIn('recovery_restored_counts_mismatch', program)
+        self.assertIn('recovery_backup_changed', program)
+
     def test_only_terminal_existing_deliveries_survive_reset(self):
         tree = ast.parse(recovery.program())
         function = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'terminal_pending_ids')
