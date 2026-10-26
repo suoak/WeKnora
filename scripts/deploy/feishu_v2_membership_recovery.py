@@ -11,6 +11,7 @@ import feishu_v2_approved_control_recovery as prior
 
 APPROVAL = 'user:report25:approved-membership-and-held-source-reconciliation'
 STOP = 'automatic_membership_probe_context_deadline'
+FIXED_RUNTIME = '2607fbec7b7ee63ee66d83fb0e199f02945074fb'
 
 
 def replace_once(value, before, after):
@@ -20,7 +21,12 @@ def replace_once(value, before, after):
 
 
 def program():
+    # The audit transport deliberately stays read-only. Opt into only the
+    # additional commands this separate, explicitly approved protocol needs.
     remote = replace_once(prior.REMOTE,
+        "'ZCARD','INFO','LATENCY','SLOWLOG']",
+        "'ZCARD','INFO','LATENCY','SLOWLOG','HLEN','LRANGE','HGET','EVAL']")
+    remote = replace_once(remote,
         "APPROVAL='user:call_085aca217ce54805be1d8372feec744b:approved_two_sources'",
         'APPROVAL=' + repr(APPROVAL))
     remote = replace_once(remote, "directory=site/'approved-control-recovery-20261026'",
@@ -52,7 +58,8 @@ def program():
         "allowed={v['id'] for v in state['sources']}\n reconciliation_seen=False\n")
     remote = replace_once(remote, "return [v.decode() for v in ids]",
         "if not reconciliation_seen:raise ValueError('approved_reconciliation_must_be_queued')\n return [v.decode() for v in ids]")
-    return remote
+    return ("if OPERATION not in ['status','self-test'] and SHA!=" + repr(FIXED_RUNTIME) +
+        ":raise ValueError('approved_fixed_runtime_required')\n" + remote)
 
 
 def main():

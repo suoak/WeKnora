@@ -56,6 +56,15 @@ class MembershipRecoveryTests(unittest.TestCase):
 
     def test_separate_incident_preserves_cas_and_hold(self):
         program = recovery.program()
+        self.assertIn("SHA!=" + repr(recovery.FIXED_RUNTIME), program)
+        self.assertIn("approved_fixed_runtime_required", program)
+        tree = ast.parse(program)
+        dispatch = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'redis')
+        allowed = set(ast.literal_eval(dispatch.body[0].test.comparators[0]))
+        self.assertTrue({'HLEN', 'LRANGE', 'HGET', 'EVAL'} <= allowed)
+        self.assertFalse({'DEL', 'SET', 'HSET', 'HDEL', 'ZREM'} & allowed)
+        # The reusable diagnostic audit itself must continue refusing mutation.
+        self.assertNotIn("'EVAL'", recovery.prior.audit.REMOTE[:recovery.prior.audit.REMOTE.index('clock=')])
         self.assertNotIn('automatic_permit_consumer_lost', program)
         self.assertIn('approved-membership-recovery-report25', program)
         self.assertIn("row['legacy_access_state']!='hold'", program)
