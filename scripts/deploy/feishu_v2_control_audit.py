@@ -100,6 +100,17 @@ def latch(key):
  value=redis('GET',key)
  return {'present':value is not None,'value':value.decode() if value and re.fullmatch(b'[a-zA-Z0-9_:-]{1,100}',value) else None,'ttl_ms':redis('PTTL',key)}
 result={'status':'READ_ONLY','at':utc(now),'namespace':'legacy-feishu','containers':containers,'controllers':registry,'asynq_servers':servers,'draining':[{'worker_hash':mask(k.decode()),'until':utc(v),'remaining_ms':int(float(v)-now)} for k,v in drains.items()],'trip':latch(prefix+'trip'),'stop_latch_key_is_trip':True,'permit':latch(prefix+'permit'),'sync_queue_pause':latch('asynq:{sync}:paused'),'control_audit':safe_events(prefix+'control_audit'),'guard_audit':safe_events(prefix+'audit'),'recent_audit':safe_events(prefix+'events')[-30:],'lifecycle_logs':sorted(log_events,key=lambda r:r.get('at') or ''),'oauth':oauth,'redis_mutations':False}
+builders=[]
+for cid in run(['docker','ps','-a','--filter','label=knowhub.phase=compile-only','--format','{{.ID}}']).splitlines():
+ record=json.loads(run(['docker','inspect',cid]))[0]
+ if record['Config']['Labels'].get('knowhub.source-sha')!=SHA:continue
+ caches=[]
+ for mount in record['Mounts']:
+  if mount['Destination']=='/cache' and mount['Type']=='volume':
+   volume=json.loads(run(['docker','volume','inspect',mount['Name']]))[0]
+   caches.append({'volume_name':mount['Name'],'owner_source_sha':volume.get('Labels',{}).get('knowhub.source-sha')})
+ builders.append({'name':record['Name'],'state':record['State']['Status'],'exit_code':record['State'].get('ExitCode'),'caches':caches})
+result['reference_build_caches']=builders
 connection.close();print(json.dumps(result))
 '''
 

@@ -2,7 +2,8 @@
 
 Source documents and Knowledge are read-only. The existing UserToken service may
 rotate its own persisted OAuth grant; Feishu may create temporary export jobs.
-No application identity, publication, worker start or sync-control mutation.
+The separate health mode audits application scopes only, without document calls.
+No identity fallback, publication, worker start or sync-control mutation.
 """
 import sys
 
@@ -31,9 +32,10 @@ if app['Config']['Labels'].get('com.docker.compose.project')!=project:raise Valu
 environment=dict(v.split('=',1) for v in app['Config']['Env'] if '=' in v)
 if environment.get('DB_NAME')!='knowhub_feishu_v2_test':raise ValueError('database_scope_mismatch')
 environment['FEISHU_DIAGNOSTIC_ISOLATED']='1'
+environment['FEISHU_DIAGNOSTIC_APP_SCOPES_ONLY']='1' if MODE=='health' else '0'
 network=list(app['NetworkSettings']['Networks'])
 if len(network)!=1:raise ValueError('ambiguous_network')
-name='knowhub-feishu-personal-diagnostic-'+SHA[:12]
+name='knowhub-feishu-personal-diagnostic-'+SHA[:12]+'-'+MODE
 if subprocess.run(['docker','inspect',name],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode==0:
  raise ValueError('diagnostic_already_exists')
 handle,path=tempfile.mkstemp(prefix='personal-diagnostic-',dir=str(site));os.chmod(path,0o600)
@@ -58,7 +60,7 @@ finally:
 '''
 
 if __name__ == '__main__':
-    if '--mode' not in sys.argv or sys.argv[sys.argv.index('--mode') + 1] != 'status':
-        raise SystemExit('personal export diagnostic supports status only')
+    if '--mode' not in sys.argv or sys.argv[sys.argv.index('--mode') + 1] not in ['status','health']:
+        raise SystemExit('status probes personal export; health audits application scopes only')
     transport.REMOTE = REMOTE
     raise SystemExit(transport.main())

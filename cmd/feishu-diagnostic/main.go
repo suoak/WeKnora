@@ -9,8 +9,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -75,6 +77,9 @@ func run() error {
 	var cfg service.FeishuAppConfig
 	if json.Unmarshal([]byte(plain), &cfg) != nil || cfg.AppID != connection.AppID {
 		return errors.New("application_identity_mismatch")
+	}
+	if os.Getenv("FEISHU_DIAGNOSTIC_APP_SCOPES_ONLY") == "1" {
+		return applicationScopes(ctx, &cfg)
 	}
 	var grant struct {
 		Scope string `json:"scope"`
@@ -196,6 +201,42 @@ func run() error {
 		documents = append(documents, doc)
 	}
 	result["requests"], result["documents"] = observations, documents
+	return json.NewEncoder(os.Stdout).Encode(result)
+}
+
+// This separate administrative audit reads only the application's published
+// scope inventory. It never resolves or exports documents using an app token,
+// and is never a fallback from a rejected personal document request.
+func applicationScopes(ctx context.Context, cfg *service.FeishuAppConfig) error {
+	var requests []core.APIObservation
+	ctx = core.WithAPIObserver(ctx, func(event core.APIObservation) { requests = append(requests, event) })
+	client := core.NewClient(&core.Config{AppID: cfg.AppID, AppSecret: cfg.Secret})
+	var response struct {
+		Data struct {
+			Scopes []struct {
+				Name        string `json:"scope_name"`
+				GrantStatus int    `json:"grant_status"`
+				Type        string `json:"scope_type"`
+			} `json:"scopes"`
+		} `json:"data"`
+	}
+	err := client.DoRequest(ctx, http.MethodGet, "/open-apis/application/v6/scopes", nil, &response)
+	result := map[string]any{
+		"status": "APPLICATION_CONFIG_AUDIT_ONLY", "at": time.Now().UTC(),
+		"document_requests": 0, "knowledge_writes": false, "sync_control_writes": false,
+		"personal_identity_fallback": false, "requests": requests,
+	}
+	if err != nil {
+		result["error"] = safeError(err)
+	} else {
+		pattern := regexp.MustCompile(`^[a-z][a-z0-9_.:-]{1,128}$`)
+		for _, scope := range response.Data.Scopes {
+			if !pattern.MatchString(scope.Name) || (scope.Type != "user" && scope.Type != "tenant") {
+				return errors.New("invalid_scope_inventory_response")
+			}
+		}
+		result["published_scopes"] = response.Data.Scopes
+	}
 	return json.NewEncoder(os.Stdout).Encode(result)
 }
 
