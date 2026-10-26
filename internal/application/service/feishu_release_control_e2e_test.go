@@ -113,9 +113,20 @@ func releaseStopRedisPostgres(t *testing.T, failure string) {
 	require.NoError(t, svc.ProcessSync(ctx, asynq.NewTask(types.TypeDataSourceSync, body)))
 	stored, err := logs.FindByID(ctx, old.ID)
 	require.NoError(t, err)
-	require.Equal(t, types.SyncLogStatusCanceled, stored.Status, "scope=none cancels an old delivery before KB access")
+	require.Equal(
+		t,
+		types.SyncLogStatusCanceled,
+		stored.Status,
+		"scope=none cancels an old delivery before KB access",
+	)
 
-	entered, networkCanceled, release := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	entered, networkCanceled, release := make(
+		chan struct{},
+	), make(
+		chan struct{},
+	), make(
+		chan struct{},
+	)
 	var enteredOnce, canceledOnce, releasedOnce sync.Once
 	fixtureDone := make(chan struct{})
 	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -160,21 +171,23 @@ func releaseStopRedisPostgres(t *testing.T, failure string) {
 	var audited atomic.Int64
 	var delivered atomic.Int64
 	var unhealthy atomic.Bool
-	alertReceiver := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var event feishusynccontrol.Event
-		if json.NewDecoder(r.Body).Decode(&event) != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		if event.Fenced && event.QueuePaused {
-			delivered.Add(1)
-		}
-		if failure == "alert_unavailable" && unhealthy.Load() {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
-	}))
+	alertReceiver := httptest.NewTLSServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var event feishusynccontrol.Event
+			if json.NewDecoder(r.Body).Decode(&event) != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			if event.Fenced && event.QueuePaused {
+				delivered.Add(1)
+			}
+			if failure == "alert_unavailable" && unhealthy.Load() {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+		}),
+	)
 	t.Cleanup(alertReceiver.Close)
 	sendAlert, err := feishusynccontrol.NewAlertSink(alertReceiver.URL, alertReceiver.Client())
 	require.NoError(t, err)
@@ -193,6 +206,12 @@ func releaseStopRedisPostgres(t *testing.T, failure string) {
 	config.WorkerID = "app-b"
 	b, err := feishusynccontrol.New(rdb, otherGuard, config, stop, audit)
 	require.NoError(t, err)
+	// A permit from one controller is not proof that the peer has finished
+	// its bootstrap fencing. Resume this disposable queue only after both
+	// actual loops have completed a successful Step, matching rollout readiness.
+	var aReady, bReady atomic.Bool
+	a.Observe = func(step feishusynccontrol.StepTiming) { aReady.Store(!step.Failed) }
+	b.Observe = func(step feishusynccontrol.StepTiming) { bReady.Store(!step.Failed) }
 	runCtx, cancel := context.WithCancel(ctx)
 	var workers sync.WaitGroup
 	for _, controller := range []*feishusynccontrol.Controller{a, b} {
@@ -225,7 +244,9 @@ func releaseStopRedisPostgres(t *testing.T, failure string) {
 		}
 	}()
 	t.Cleanup(func() { cancel(); workers.Wait(); releasedOnce.Do(func() { close(release) }) })
-	require.Eventually(t, func() bool { return guard.Check(ctx) == nil }, 4*time.Second, 20*time.Millisecond)
+	require.Eventually(t, func() bool {
+		return aReady.Load() && bReady.Load() && guard.Check(ctx) == nil
+	}, 4*time.Second, 20*time.Millisecond)
 	// Only the isolated fixture explicitly resumes its dedicated test queue.
 	// The controller never resumes consumption, including after healthy samples.
 	require.NoError(t, rdb.Del(ctx, "asynq:{sync}:paused").Err())
@@ -233,18 +254,40 @@ func releaseStopRedisPostgres(t *testing.T, failure string) {
 	client := asynq.NewClient(options)
 	t.Cleanup(func() { _ = client.Close() })
 	registry := datasource.NewConnectorRegistry()
-	require.NoError(t, registry.Register(&releaseHTTPConnector{endpoint: gateway.URL, release: release}))
+	require.NoError(
+		t,
+		registry.Register(&releaseHTTPConnector{endpoint: gateway.URL, release: release}),
+	)
 	svc.taskEnqueuer, svc.connectorRegistry = client, registry
-	svc.kbService = &processSyncKBService{kb: &types.KnowledgeBase{ID: ds.KnowledgeBaseID, TenantID: 1}}
-	svc.tenantRepo, svc.tagService = &processSyncTenantRepo{tenant: &types.Tenant{ID: 1}}, &processSyncTagService{}
+	svc.kbService = &processSyncKBService{
+		kb: &types.KnowledgeBase{ID: ds.KnowledgeBaseID, TenantID: 1},
+	}
+	svc.tenantRepo, svc.tagService = &processSyncTenantRepo{
+		tenant: &types.Tenant{ID: 1},
+	}, &processSyncTagService{}
 	server := asynq.NewServer(options, asynq.Config{
 		Concurrency: 1,
-		Queues:      map[string]int{types.QueueSync: 2, types.QueueMaintenance: 1}, ShutdownTimeout: time.Second,
+		Queues: map[string]int{
+			types.QueueSync:        2,
+			types.QueueMaintenance: 1,
+		}, ShutdownTimeout: time.Second,
 	})
 	mux := asynq.NewServeMux()
-	mux.HandleFunc(types.TypeDataSourceSync, svc.ProcessSync)
+	var handlerStarted, handlerFinished atomic.Int64
+	mux.HandleFunc(
+		types.TypeDataSourceSync,
+		func(handlerCtx context.Context, task *asynq.Task) error {
+			handlerStarted.Add(1)
+			err := svc.ProcessSync(handlerCtx, task)
+			handlerFinished.Add(1)
+			return err
+		},
+	)
 	var low atomic.Int64
-	mux.HandleFunc("release:low", func(context.Context, *asynq.Task) error { low.Add(1); return nil })
+	mux.HandleFunc(
+		"release:low",
+		func(context.Context, *asynq.Task) error { low.Add(1); return nil },
+	)
 	require.NoError(t, server.Start(mux))
 	t.Cleanup(server.Shutdown)
 	run, err := svc.ManualSync(ctx, ds.ID)
@@ -252,6 +295,30 @@ func releaseStopRedisPostgres(t *testing.T, failure string) {
 	select {
 	case <-entered:
 	case <-time.After(5 * time.Second):
+		trip := rdb.Get(ctx, strings.TrimSuffix(guard.PermitKey(), "permit")+"trip").Val()
+		state, readErr := logs.FindByID(ctx, run.ID)
+		t.Logf(
+			"activation counters started=%d finished=%d queue_pending=%d queue_active=%d queue_paused=%d "+
+				"a_ready=%t b_ready=%t trip=%s state_available=%t",
+			handlerStarted.Load(),
+			handlerFinished.Load(),
+			rdb.LLen(ctx, "asynq:{sync}:pending").Val(),
+			rdb.LLen(ctx, "asynq:{sync}:active").
+				Val(),
+			rdb.Exists(ctx, "asynq:{sync}:paused").Val(),
+			aReady.Load(),
+			bReady.Load(),
+			trip,
+			readErr == nil,
+		)
+		if readErr == nil {
+			t.Logf(
+				"activation execution status=%s claimed=%t generation=%d",
+				state.Status,
+				state.ExecutionClaimed,
+				state.ExecutionGeneration,
+			)
+		}
 		t.Fatal("actual Asynq handler did not reach isolated HTTP gateway")
 	}
 	claimed, err := logs.FindByID(ctx, run.ID)
@@ -287,11 +354,26 @@ func releaseStopRedisPostgres(t *testing.T, failure string) {
 	require.JSONEq(t, string(ds.LastSyncResult), string(savedSource.LastSyncResult))
 	require.Equal(t, ds.SyncSchedule, savedSource.SyncSchedule)
 	require.NotEqual(t, types.DataSourceStatusPaused, savedSource.Status)
-	require.Eventually(t, func() bool { return audited.Load() > 0 }, time.Second, 20*time.Millisecond)
-	require.Eventually(t, func() bool { return delivered.Load() > 0 }, time.Second, 20*time.Millisecond)
+	require.Eventually(
+		t,
+		func() bool { return audited.Load() > 0 },
+		time.Second,
+		20*time.Millisecond,
+	)
+	require.Eventually(
+		t,
+		func() bool { return delivered.Load() > 0 },
+		time.Second,
+		20*time.Millisecond,
+	)
 	_, err = client.Enqueue(asynq.NewTask("release:low", nil), asynq.Queue(types.QueueMaintenance))
 	require.NoError(t, err)
-	require.Eventually(t, func() bool { return low.Load() == 1 }, 3*time.Second, 20*time.Millisecond)
+	require.Eventually(
+		t,
+		func() bool { return low.Load() == 1 },
+		3*time.Second,
+		20*time.Millisecond,
+	)
 	// The same transport still allows unmarked online traffic after the latch.
 	online := &http.Client{Transport: feishusafety.Transport{Embedding: true}}
 	response, err := online.Get(gateway.URL + "/online")
