@@ -108,7 +108,7 @@ def sources():
  selected=[v for v in values if mask(v['id']) in EXPECTED]
  if len(selected)!=2 or {mask(v['id']) for v in selected}!=EXPECTED:raise ValueError('approved_sources_missing')
  for row in selected:
-  if row['status']!='active' or row['legacy_access_state'] in ['paused','hold','revoked'] or row['auth_mode']!='user_oauth':
+  if OPERATION!='status' and (row['status']!='active' or row['legacy_access_state'] in ['paused','hold','revoked'] or row['auth_mode']!='user_oauth'):
    raise ValueError('source_is_not_eligible_for_control_recovery')
  return sorted(selected,key=lambda row:row['id'])
 
@@ -121,6 +121,52 @@ def indexes(rows):
   "(SELECT count(*) FROM embeddings e WHERE e.knowledge_id=k.id) AS vectors,"+
   "(SELECT md5(string_agg(e.id::text,',' ORDER BY e.id::text)) FROM embeddings e WHERE e.knowledge_id=k.id) AS vector_ids_hash "+
   "FROM knowledges k WHERE k.id IN ("+selected+") ORDER BY k.id) q")
+
+def cursor_receipts(rows):
+ selected=','.join("'"+v['id']+"'" for v in rows)
+ values=sql("SELECT coalesce(json_agg(q),'[]') FROM (SELECT id,last_sync_cursor FROM data_sources WHERE id IN ("+selected+")) q")
+ result=[]
+ for row in values:
+  cursor=row['last_sync_cursor']
+  if isinstance(cursor,str):cursor=json.loads(cursor)
+  cursor=cursor or {};revision=cursor.get('connector_cursor',{}).get('reference_times',{})
+  result.append({'source_hash':mask(row['id']),'cursor_present':bool(cursor),
+   'last_scan_time':cursor.get('last_sync_time'),'selected_object_count':sum(len(v) for v in revision.values()),
+   'reference_revision_digest':hashlib.sha256(json.dumps(revision,sort_keys=True,separators=(',',':')).encode()).hexdigest()})
+ return result
+
+def sync_history(rows):
+ selected=','.join("'"+v['id']+"'" for v in rows)
+ values=sql("SELECT coalesce(json_agg(q),'[]') FROM (SELECT id,data_source_id,status,started_at,finished_at,"+
+  "items_total,items_created,items_updated,items_deleted,items_skipped,items_failed,execution_claimed,execution_generation,"+
+  "created_at,error_message FROM sync_logs WHERE data_source_id IN ("+selected+") ORDER BY created_at DESC LIMIT 20) q")
+ for row in values:
+  row['id']=mask(row['id']);row['data_source_id']=mask(row['data_source_id']);message=row.pop('error_message') or ''
+  row['has_error']=bool(message)
+  row['error_classes']=[v for v in ['sharing_approval','permission','scope','token','timeout','lease','fence','version','revoked','rate_limit','staging'] if v in message.lower()]
+  codes=re.findall(r'\bcode=(\d+)',message);row['provider_codes']=sorted(set(map(int,codes)))
+ return values
+
+def activity(rows):
+ if not state or not state.get('resumed_at'):return []
+ result=[]
+ for service in ['app','worker2']:
+  logs=run(compose+['logs','--timestamps','--no-color','--since',state['resumed_at'],'--tail','2500',service])
+  for line in logs.splitlines():
+   stamp=re.search(r'\d{4}-\d{2}-\d{2}T[0-9:.]+Z',line)
+   at=stamp.group() if stamp else None
+   if '[Feishu] API request' in line:
+    operation=re.search(r'operation=([a-z_]+)',line);status=re.search(r'status=(\d+)',line);code=re.search(r'code=(\d+)',line)
+    if operation and status:
+     result.append({'service':service,'at':at,'kind':'feishu_api','operation':operation[1],
+      'http_status':int(status[1]),'code':int(code[1]) if code else 0})
+   for row in rows:
+    if row['id'] not in line:continue
+    for marker,label in [('sync task enqueued','natural_enqueue'),('sync already queued or running','duplicate_tick_suppressed'),
+      ('streaming sync completed','worker_completed'),('data source sync completed','worker_completed'),
+      ('sync safety gate closed','safety_gate_closed')]:
+     if marker in line:result.append({'service':service,'at':at,'kind':label,'source_hash':mask(row['id'])})
+ return result[-100:]
 
 def configuration():
  records={name:inspect(name) for name in ['app','worker2']}
@@ -287,6 +333,10 @@ elif OPERATION=='restart':
 elif OPERATION=='resume':
  if state['phase']!='STARTING':raise ValueError('fresh_process_restart_required')
  cfg=invariant()
+ current_sources=sources()
+ identity_fields=['id','config_hash','knowledge_id','auth_mode']
+ if [[v[k] for k in identity_fields] for v in current_sources]!=[[v[k] for k in identity_fields] for v in state['sources']]:
+  raise ValueError('source_identity_changed_after_approved_snapshot')
  if any(v['health']!='healthy' for v in cfg.values()):raise ValueError('fresh_process_health_not_ready')
  members=topology();permit=text_value(prefix+'permit')
  if not re.fullmatch('[a-f0-9]{64}',permit or '') or redis('PTTL',prefix+'permit')<100:raise ValueError('live_permit_not_ready')
@@ -304,8 +354,11 @@ result={'status':state['phase'] if state else 'NOT_PREPARED','at':utc(clock()),'
  'permit_ttl_ms':redis('PTTL',prefix+'permit'),'queues':queue_counts(),
  'processes':{name:{'running':v['running'],'health':v['health'],'container_hash':mask(v['container_id'])} for name,v in current.items()},
  'sources':[{'source_hash':mask(v['id']),'knowledge_hash':mask(v['knowledge_id']),'last_sync_at':v['last_sync_at'],
-  'config_hash':v['config_hash'],'cursor_hash':v['cursor_hash']} for v in rows],
+  'config_hash':v['config_hash'],'cursor_hash':v['cursor_hash'],'status':v['status'],
+  'legacy_access_state':v['legacy_access_state']} for v in rows],
  'indexes':[dict(v,id=mask(v['id'])) for v in indexes(rows)],
+ 'cursor_receipts':cursor_receipts(rows),'sync_history':sync_history(rows),
+ 'activity_since_resume':activity(rows),
  'scope_edited':False,'cursor_reset':False,'budgets_reset':False,'publication_approval_written':False}
 connection.close();print(json.dumps(result))
 '''
