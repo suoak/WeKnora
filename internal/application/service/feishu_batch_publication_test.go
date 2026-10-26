@@ -113,7 +113,7 @@ func TestFeishuV2PostgresInlinePublicationFencesLeaseAndLiveAuthority(t *testing
 	require.NoError(t, f.db.Save(&item).Error)
 	require.NoError(
 		t,
-		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "A").Update("role", "viewer").Error,
+		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "A").UpdateColumn("role", "viewer").Error,
 	)
 	require.ErrorIs(t, f.s.bindBatchPublication(f.ctx, &view.Batch, &item), access.ErrForbidden)
 	var count int64
@@ -121,7 +121,7 @@ func TestFeishuV2PostgresInlinePublicationFencesLeaseAndLiveAuthority(t *testing
 	require.Zero(t, count)
 	require.NoError(
 		t,
-		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "A").Update("role", "admin").Error,
+		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "A").UpdateColumn("role", "admin").Error,
 	)
 	old := time.Now().Add(-25 * time.Hour)
 	view.Batch.PublicationConsentAt = &old
@@ -166,7 +166,7 @@ func TestFeishuV2PostgresInlinePublicationRejectsWriteOnlyAndKeepsPrivate(t *tes
 	f := v2PostgresFixture(t)
 	require.NoError(
 		t,
-		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "B").Update("role", "contributor").Error,
+		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "B").UpdateColumn("role", "contributor").Error,
 	)
 	links := []string{"https://test.feishu.cn/file/real"}
 	_, err := f.s.QuickImport(f.userContext("B"), "kb", "writer-cannot-publish", links, true)
