@@ -26,6 +26,13 @@ func TestFeishuV2PostgresControlledSourceRebind(t *testing.T) {
 		t.Run(scenario, func(t *testing.T) {
 			t.Setenv("FEISHU_SOURCE_REBIND_OPERATIONS_ENABLED", "1")
 			f := v2PostgresFixture(t)
+			require.NoError(
+				t,
+				f.db.Model(&types.User{}).
+					Where("id = ?", "A").
+					Update("is_system_admin", true).
+					Error,
+			)
 			require.NoError(t, f.db.AutoMigrate(&types.DataSource{}, &types.SyncLog{}))
 			require.NoError(
 				t,
@@ -144,10 +151,12 @@ func TestFeishuV2PostgresControlledSourceRebind(t *testing.T) {
 					Error,
 			)
 			admin := context.WithValue(f.ctx, types.SystemAdminContextKey, true)
+			_, err = f.s.PrepareSourceRebind(admin, ids, "not-the-session-actor")
+			require.Error(t, err)
 			count, err := f.s.SourceBindingAttention(f.ctx)
 			require.NoError(t, err)
 			require.Equal(t, 2, count)
-			_, err = f.s.PrepareSourceRebind(f.ctx, ids, "operator")
+			_, err = f.s.PrepareSourceRebind(f.ctx, ids, "A")
 			require.Error(t, err)
 			if scenario == "changed_account" {
 				require.NoError(
@@ -157,17 +166,17 @@ func TestFeishuV2PostgresControlledSourceRebind(t *testing.T) {
 						Update("open_id", "another-account").
 						Error,
 				)
-				_, err = f.s.PrepareSourceRebind(admin, ids, "operator")
+				_, err = f.s.PrepareSourceRebind(admin, ids, "A")
 				require.Error(t, err)
 				return
 			}
 			if scenario == "permission_denied" {
 				deny.Store(true)
-				_, err = f.s.PrepareSourceRebind(admin, ids, "operator")
+				_, err = f.s.PrepareSourceRebind(admin, ids, "A")
 				require.Error(t, err)
 				return
 			}
-			proposal, err := f.s.PrepareSourceRebind(admin, ids, "operator")
+			proposal, err := f.s.PrepareSourceRebind(admin, ids, "A")
 			require.NoError(t, err)
 			plan, err := readRebindPlan(proposal)
 			require.NoError(t, err)
@@ -176,7 +185,7 @@ func TestFeishuV2PostgresControlledSourceRebind(t *testing.T) {
 			grant, err := f.s.AuthorizeSourceRebindPublication(
 				admin,
 				proposal,
-				"operator",
+				"A",
 				"NEW-publication-approval",
 				time.Now().Add(time.Hour),
 			)
@@ -222,7 +231,7 @@ func TestFeishuV2PostgresControlledSourceRebind(t *testing.T) {
 					admin,
 					proposal,
 					grant,
-					"operator",
+					"A",
 					"NEW-migration-approval",
 					strings.Repeat("a", 64),
 				)
@@ -265,7 +274,7 @@ func TestFeishuV2PostgresControlledSourceRebind(t *testing.T) {
 						f.s.RollbackSourceRebind(
 							admin,
 							receipt,
-							"operator",
+							"A",
 							"NEW-rollback-approval",
 						),
 					)
@@ -285,7 +294,7 @@ func TestFeishuV2PostgresControlledSourceRebind(t *testing.T) {
 						f.s.RollbackSourceRebind(
 							admin,
 							receipt,
-							"operator",
+							"A",
 							"NEW-rollback-approval",
 						),
 					)

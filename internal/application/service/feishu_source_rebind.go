@@ -22,6 +22,21 @@ const sourceRebindPrefix = "integration.feishu.rebind."
 // ErrFeishuRebindConflict rejects a proposal whose protected snapshot changed.
 var ErrFeishuRebindConflict = errors.New("feishu_source_rebind_snapshot_changed")
 
+func requireRebindOperator(tx *gorm.DB, ctx context.Context, operator string) error {
+	actor, ok := types.UserIDFromContext(ctx)
+	if !ok || actor != operator || !types.IsSystemAdminFromContext(ctx) {
+		return access.ErrForbidden
+	}
+	var user types.User
+	if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).
+		Where("id = ? AND is_active = ? AND is_system_admin = ?", operator, true, true).
+		First(&user).
+		Error; err != nil {
+		return access.ErrForbidden
+	}
+	return nil
+}
+
 // A sealed plan is an expiring proposal, not an authorization. It is never
 // returned through ordinary user APIs and contains no OAuth bearer tokens.
 type sourceRebindPlan struct {
@@ -65,6 +80,9 @@ func (s *FeishuPersonalService) PrepareSourceRebind(
 ) (string, error) {
 	if !types.IsSystemAdminFromContext(ctx) || operator == "" || len(ids) == 0 || len(ids) > 16 {
 		return "", access.ErrForbidden
+	}
+	if err := requireRebindOperator(s.db.WithContext(ctx), ctx, operator); err != nil {
+		return "", err
 	}
 	ids = append([]string(nil), ids...)
 	sort.Strings(ids)
@@ -445,6 +463,9 @@ func (s *FeishuPersonalService) AuthorizeSourceRebindPublication(
 	}
 	err = s.db.WithContext(types.WithLegacyKBAdminMetadata(ctx, plan.Items[0].Source.KnowledgeBaseID)).
 		Transaction(func(tx *gorm.DB) error {
+			if err := requireRebindOperator(tx, ctx, operator); err != nil {
+				return err
+			}
 			for _, item := range plan.Items {
 				if err := checkRebindSnapshot(tx, item); err != nil {
 					return err
@@ -481,6 +502,9 @@ func (s *FeishuPersonalService) ApplySourceRebind(
 		len(backupSHA) != 64 {
 		return "", access.ErrForbidden
 	}
+	if err := requireRebindOperator(s.db.WithContext(ctx), ctx, operator); err != nil {
+		return "", err
+	}
 	plan, err := readRebindPlan(proposal)
 	if err != nil {
 		return "", err
@@ -500,6 +524,9 @@ func (s *FeishuPersonalService) ApplySourceRebind(
 	}
 	err = s.db.WithContext(types.WithLegacyKBAdminMetadata(ctx, plan.Items[0].Source.KnowledgeBaseID)).
 		Transaction(func(tx *gorm.DB) error {
+			if err := requireRebindOperator(tx, ctx, operator); err != nil {
+				return err
+			}
 			var row types.SystemSetting
 			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 				Where("key = ?", sourceRebindPrefix+"grant."+grantID).
@@ -709,6 +736,9 @@ func (s *FeishuPersonalService) RollbackSourceRebind(
 		return access.ErrForbidden
 	}
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := requireRebindOperator(tx, ctx, operator); err != nil {
+			return err
+		}
 		var row types.SystemSetting
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			Where("key = ?", sourceRebindPrefix+"receipt."+receiptID).
