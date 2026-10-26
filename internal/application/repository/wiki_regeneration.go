@@ -98,6 +98,20 @@ func PrepareWikiRegeneration(
 		if expected != plan.Snapshot {
 			return errors.New("regeneration snapshot changed; preview again")
 		}
+		type documentEpoch struct {
+			KnowledgeID string
+			Generation  int64
+			Incarnation string
+		}
+		epochs := make(map[string]documentEpoch, len(docs))
+		for _, doc := range docs {
+			var e documentEpoch
+			if err := tx.Table("document_access_epochs").Clauses(clause.Locking{Strength: "UPDATE"}).
+				Where("knowledge_id=?", doc.ID).Take(&e).Error; err != nil {
+				return err
+			}
+			epochs[doc.ID] = e
+		}
 		batch := uuid.NewString()
 		now := time.Now()
 		for _, page := range pages {
@@ -148,9 +162,20 @@ func PrepareWikiRegeneration(
 		if err != nil {
 			return err
 		}
-		if wikiDigest(fresh.Sources) != wikiDigest(proof.Sources) ||
-			wikiDigest(fresh.Epochs) != wikiDigest(proof.Epochs) {
+		if wikiDigest(fresh.Sources) != wikiDigest(proof.Sources) {
 			return errors.New("source inputs changed during regeneration")
+		}
+		// Seeding a slot legitimately advances each document epoch twice (OLD
+		// and NEW trigger branches). Require exactly those writes, rather than
+		// comparing versions that intentionally include the new processing state.
+		for id, before := range epochs {
+			var after documentEpoch
+			if err := tx.Table("document_access_epochs").Where("knowledge_id=?", id).Take(&after).Error; err != nil {
+				return err
+			}
+			if after.Incarnation != before.Incarnation || after.Generation != before.Generation+2 {
+				return errors.New("unexpected document epoch change during regeneration")
+			}
 		}
 		plan.Applied = true
 		return nil
