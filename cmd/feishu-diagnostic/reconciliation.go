@@ -45,7 +45,7 @@ func enqueueApprovedReconciliation(
 		Password: os.Getenv("REDIS_PASSWORD"), DB: database, TLSConfig: common.RedisTLSConfig(),
 	}
 	probe := redis.NewClient(options)
-	defer probe.Close()
+	defer func() { _ = probe.Close() }()
 	gate := "feishu:safety:{legacy-feishu}:"
 	trip, err := probe.Exists(ctx, gate+"trip").Result()
 	if err != nil || trip != 0 {
@@ -70,7 +70,7 @@ func enqueueApprovedReconciliation(
 		Addr: options.Addr, Username: options.Username, Password: options.Password, DB: options.DB,
 		TLSConfig: options.TLSConfig,
 	})
-	defer queue.Close()
+	defer func() { _ = queue.Close() }()
 	_, err = queue.EnqueueContext(ctx, asynq.NewTask(types.TypeDataSourceSync, payload),
 		asynq.TaskID("feishu-approved-reconciliation:"+policy.ReconciliationLogID),
 		asynq.Queue(types.QueueSync), asynq.MaxRetry(3), asynq.Timeout(15*time.Minute))
