@@ -92,7 +92,7 @@ func TestWikiRecoveryPublicationBudgetSurvivesCancelledModelContext(t *testing.T
 
 func TestWikiRecoveryPublicationBudgetIsBoundedForOversizedBatch(t *testing.T) {
 	for _, n := range []int{-1, 0, 1, 200, int(^uint(0) >> 1)} {
-		ctx, cancel := wikiIngestPostProcessContext(nil, n)
+		ctx, cancel := wikiIngestPostProcessContext(context.Background(), n)
 		deadline, ok := ctx.Deadline()
 		require.True(t, ok)
 		require.Greater(t, time.Until(deadline), 20*time.Second)
