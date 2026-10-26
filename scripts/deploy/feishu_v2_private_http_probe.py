@@ -177,6 +177,7 @@ status_b,targets_b=api('GET','/api/v1/me/feishu/import-targets',token=token_b)
 if status!=200 or status_b!=200 or not isinstance(targets_a,list) or not isinstance(targets_b,list):raise ValueError('writable_target_api_failed')
 if kb_id not in {v['id'] for v in targets_a} or kb_id in {v['id'] for v in targets_b}:raise ValueError('writable_target_private_boundary_failed')
 checks.append({'check':'live_writable_target_api_private_owner_boundary','status':'PASS'})
+checks.append({'check':'live_target_publication_flags','public_requires_sharing':next((v.get('requires_sharing_approval') for v in targets_a if v['id']==public_id),None),'private_requires_sharing':next((v.get('requires_sharing_approval') for v in targets_a if v['id']==kb_id),None)})
 def private_count():
  statement="BEGIN READ ONLY; SELECT count(*) FROM feishu_private_kbs WHERE owner_id=(SELECT owner_id FROM feishu_private_kbs WHERE kb_id='"+kb_id+"'); COMMIT;"
  p=subprocess.run(['docker','compose','--project-name',project,'--file',str(release/'compose.json'),'exec','-T','postgres','psql','-qX','-v','ON_ERROR_STOP=1','-U','postgres','-d','knowhub_feishu_v2_test','-At'],input=statement,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,timeout=20)

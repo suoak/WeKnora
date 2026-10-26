@@ -87,9 +87,35 @@ for kid in sorted({r.get('knowledge_id') for r in imports if r.get('knowledge_id
   bm25.append({'knowledge_id':kid,'matching_index_rows':count,'status':'PASS' if count else 'NO_MATCH'})
  else:bm25.append({'knowledge_id':kid,'status':'NO_SAFE_QUERY_TERM'})
 if DB_ONLY:
+ link_matches=[]
+ if APPROVED_LINKS:
+  import urllib.parse
+  def canonical_link(value):
+   u=urllib.parse.urlsplit(value)
+   return (u.scheme.lower(),u.netloc.lower(),u.path.rstrip('/'))
+  allowed=[canonical_link(v) for v in APPROVED_LINKS]
+  for row in rows('feishu_import_batch_items',['id','url'],'batch_id IN ('+bids+')'):
+   value=canonical_link(row['url'])
+   link_matches.append({'item_id':mask(row['id']),'approved_link_ordinal':allowed.index(value) if value in allowed else None})
+ admission=[]
+ if batches:
+  timestamp=datetime.datetime.fromisoformat(batches[0]['created_at'])
+  since=(timestamp-datetime.timedelta(seconds=30)).isoformat()
+  until=(timestamp+datetime.timedelta(seconds=60)).isoformat()
+  for service in ['app','worker2']:
+   p=run(compose+['logs','--no-color','--timestamps','--since',since,'--until',until,'--tail','3000',service],30)
+   lines=re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]','',p.stdout+p.stderr).splitlines()
+   patterns={'quick_import':r'POST.*?/api/v1/me/feishu/imports','advanced_batch':r'POST.*?/api/v1/knowledge-bases/[^/\s"]+/feishu/batches','continue_batch':r'POST.*?/api/v1/feishu/batches/[^/\s"]+/continue'}
+   events=[]
+   for name,pattern in patterns.items():
+    for line in lines:
+     if re.search(pattern,line):
+      status=re.search(r'status_code[=:\s"]+([0-9]{3})',line)
+      events.append({'route':name,'http_status':int(status.group(1)) if status else None})
+   admission.append({'service':service,'route_counts':{name:sum(bool(re.search(pattern,line)) for line in lines) for name,pattern in patterns.items()},'events':events,'scanned_lines':len(lines)})
  state={'user_id':uid,'batches':batches,'items':items,'imports':imports,'attempts':attempts,'knowledge':knowledge}
  path=site/'real-batch-readonly-state.json';path.write_text(json.dumps(state));path.chmod(0o600)
- print(json.dumps({'status':'READ_ONLY','approval_summary':approval_summary,'canonical_resource_count':canonical_count,
+ print(json.dumps({'status':'READ_ONLY','approved_link_matches':link_matches,'admission_routes':admission,'approval_summary':approval_summary,'canonical_resource_count':canonical_count,
   'batches':safe(batches),'items':safe(items),'imports':safe(imports),'attempts':safe(attempts),
   'knowledge':safe(knowledge),'chunks':safe(chunks),'vectors':safe(vectors),'bm25':safe(bm25),'outbox':safe(ops)}))
  raise SystemExit(0)
