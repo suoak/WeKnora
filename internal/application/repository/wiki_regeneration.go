@@ -41,7 +41,7 @@ func PrepareWikiRegeneration(
 			return err
 		}
 		if !anchor.IsWikiEnabled() {
-			return errors.New("Wiki is not enabled for this knowledge base")
+			return errors.New("wiki is not enabled for this knowledge base")
 		}
 		if err := checkWikiMCPEpochCoverage(tx); err != nil {
 			return err

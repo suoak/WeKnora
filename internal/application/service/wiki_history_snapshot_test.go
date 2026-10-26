@@ -29,8 +29,8 @@ func testWikiHistoryRegeneration(t *testing.T, f *fixture.Fixture) {
 	f.PreparePublished(t)
 	db := f.DB
 	require.NoError(t, db.AutoMigrate(&types.TaskPendingOp{}, &types.KnowledgeProcessingSpan{}))
-	require.NoError(t, db.Exec(`UPDATE knowledge_bases SET indexing_strategy='{"wiki_enabled":true}'
-		WHERE id='public-two'`).Error)
+	require.NoError(t, db.Model(&types.KnowledgeBase{}).Where("id='public-two'").
+		Update("indexing_strategy", types.IndexingStrategy{WikiEnabled: true}).Error)
 	repo := repository.NewWikiPageRepository(db)
 	ctx := context.Background()
 	old := &types.WikiPage{
@@ -83,8 +83,8 @@ func TestWikiHistoryRegenerationRejectsChangedAndDeniedSources(t *testing.T) {
 	f.PreparePublished(t)
 	db := f.DB
 	require.NoError(t, db.AutoMigrate(&types.TaskPendingOp{}, &types.KnowledgeProcessingSpan{}))
-	require.NoError(t, db.Exec(`UPDATE knowledge_bases SET indexing_strategy='{"wiki_enabled":true}'
-		WHERE id='public-two'`).Error)
+	require.NoError(t, db.Model(&types.KnowledgeBase{}).Where("id='public-two'").
+		Update("indexing_strategy", types.IndexingStrategy{WikiEnabled: true}).Error)
 	ctx := context.Background()
 	plan, err := repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", "", false)
 	require.NoError(t, err)
@@ -154,7 +154,7 @@ func TestWikiHistoryPostgres(t *testing.T) {
 	require.NoError(t, err)
 	pool, err := admin.DB()
 	require.NoError(t, err)
-	defer pool.Close()
+	defer func() { require.NoError(t, pool.Close()) }()
 	for _, tc := range []struct {
 		name string
 		run  func(*testing.T, *fixture.Fixture)

@@ -42,7 +42,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	defer pool.Close()
+	defer func() { _ = pool.Close() }()
 	if os.Getenv("REDIS_ADDR") == "" {
 		return errors.New("REDIS_ADDR required; offline Lite maintenance is not supported by this command")
 	}
@@ -52,7 +52,7 @@ func run() error {
 	}
 	opts := asynq.RedisClientOpt{Addr: os.Getenv("REDIS_ADDR"), Password: os.Getenv("REDIS_PASSWORD"), DB: redisDB}
 	rc := redis.NewClient(&redis.Options{Addr: opts.Addr, Password: opts.Password, DB: opts.DB})
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	var plan *repository.WikiRegenerationPlan
@@ -73,7 +73,7 @@ func run() error {
 	// Durable ops and slots already committed atomically. Housekeeping re-arms
 	// this trigger if Redis is unavailable; rerunning apply cannot duplicate ops.
 	client := asynq.NewClient(opts)
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 	payload, err := json.Marshal(map[string]any{"tenant_id": *tenant, "knowledge_base_id": *kb, "language": "zh-CN"})
 	if err != nil {
 		return err

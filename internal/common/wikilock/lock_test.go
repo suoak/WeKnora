@@ -15,7 +15,7 @@ import (
 func TestSharedWikiLeaseAndLostOwnership(t *testing.T) {
 	server := miniredis.RunT(t)
 	client := redis.NewClient(&redis.Options{Addr: server.Addr()})
-	defer client.Close()
+	defer func() { require.NoError(t, client.Close()) }()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	err := With(ctx, client, "kb", func(locked context.Context) error {
@@ -38,7 +38,7 @@ func TestSharedWikiLeaseAndLostOwnership(t *testing.T) {
 func TestWikiLeaseLossCancelsDetachedWrites(t *testing.T) {
 	server := miniredis.RunT(t)
 	client := redis.NewClient(&redis.Options{Addr: server.Addr()})
-	defer client.Close()
+	defer func() { require.NoError(t, client.Close()) }()
 	err := redislock.WithRenewableLock(context.Background(), client, "lost", time.Second,
 		10*time.Millisecond, func(locked context.Context) error {
 			cleanup, cancel := Detached(locked, time.Second)
