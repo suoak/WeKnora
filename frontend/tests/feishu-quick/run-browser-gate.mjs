@@ -73,7 +73,7 @@ try {
       progressReads++
       const done=progressReads>1
       body={batch:{id:'progress-batch',kb_id:'existing-team-kb',auth_mode:'user_oauth'},status:done?'succeeded':'running',items:[{id:'item',ordinal:0,status:done?'succeeded':'dispatched',stage:done?'completed':'embedding',last_progress_at:new Date().toISOString(),retry_after:'2026-01-01T00:00:00Z',index_verified:done,knowledge_id:'verified-document',chunk_count:6,vector_count:done?6:0}],counts:{}}
-      if(page.url().includes('failure')) body={batch:{id:'progress-batch',kb_id:'existing-team-kb',auth_mode:'user_oauth'},target_name:'Existing target',can_continue_publication:true,status:'partial_failed',items:[{id:'item',ordinal:0,status:'blocked',error_category:'sharing_approval_required'}],counts:{blocked:1}}
+      if(page.url().includes('failure')) body={batch:{id:'progress-batch',kb_id:'existing-team-kb',auth_mode:'user_oauth'},target_name:'Existing target',can_continue_publication:!page.url().includes('export-denied'),status:'partial_failed',items:[{id:'item',ordinal:0,status:'blocked',error_category:page.url().includes('export-denied')?'export_permission_required':'sharing_approval_required'}],counts:{blocked:1}}
     }
     if (path === '/api/v1/me/feishu/imports') {
       const payload = request.postDataJSON()
@@ -141,6 +141,9 @@ try {
   assert.equal(await page.getByRole('button',{name:'一键继续导入',exact:true}).count(),0)
   assert.equal(requests.filter(path=>path.endsWith('/continue')).length,0)
   assert.equal(requests.some(path=>path.includes('preview') || path.includes('sharing-approvals') || path.endsWith('/retry')),false)
+  await page.goto(origin + '/__feishu-gate?history&failure&export-denied')
+  await page.getByText('缺少导出权限，请联系文档所有者。',{exact:true}).waitFor()
+  assert.equal(await page.getByRole('button',{name:'一键继续导入',exact:true}).count(),0)
   targets=[{id:'existing-team-kb',name:'Existing target',requires_sharing_approval:true}]
   await page.goto(origin + '/__feishu-gate?unconnected&return=original')
   await page.getByRole('button',{name:'连接飞书账号',exact:true}).waitFor()

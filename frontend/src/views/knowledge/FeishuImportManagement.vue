@@ -57,7 +57,8 @@ function itemStatus(item:FeishuBatchItem) {
 }
 function failure(code:string) {
   if(['authorization_expired','reconnect_required'].includes(code)) return '飞书授权已失效，请重新连接账号。'
-  if(['export_permission_required','source_permission_required'].includes(code)) return '缺少文档读取或导出权限，请联系文档所有者。'
+  if(code==='export_permission_required') return '缺少导出权限，请联系文档所有者。'
+  if(code==='source_permission_required') return '无法读取文档，请联系文档所有者。'
   if(code==='sharing_approval_required') return '需要共享发布授权，请联系知识库管理员。'
   if(code==='publication_confirmation_expired') return '本次导入确认已过期，请重新发起导入。'
   if(code==='kb_permission_required') return '目标知识库不可写，请申请访问权限。'
