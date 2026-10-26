@@ -72,7 +72,18 @@ APPROVAL='user:call_085aca217ce54805be1d8372feec744b:approved_two_sources'
 EXPECTED={'6d1698a6e0d9','1dcf458346ba'}
 prefix='feishu:safety:{legacy-feishu}:'
 queue='asynq:{sync}:'
-if SHA!=FIX or project!='knowhub-feishu-v2-d6e99d894d3a':raise ValueError('approved_project_source_mismatch')
+if project!='knowhub-feishu-v2-d6e99d894d3a':raise ValueError('approved_project_source_mismatch')
+if SHA!=FIX:
+ if OPERATION!='status':raise ValueError('recovery_mutations_bound_to_original_approved_source')
+ candidate=pathlib.Path(SOURCE).parent
+ if json.loads((candidate/'source-manifest.json').read_text()).get('source_sha')!=SHA:
+  raise ValueError('monitor_source_manifest_mismatch')
+ APP=(candidate/'runtime-image.id').read_text().strip()
+ if not re.fullmatch(r'sha256:[a-f0-9]{64}',APP):raise ValueError('monitor_image_receipt_invalid')
+ checked=json.loads(run(['docker','image','inspect',APP]))[0]
+ if checked['Config'].get('Labels',{}).get('org.opencontainers.image.revision')!=SHA:
+  raise ValueError('monitor_image_provenance_mismatch')
+ FIX=SHA
 directory=site/'approved-control-recovery-20261026'
 if directory.is_symlink():raise ValueError('unexpected_recovery_directory')
 directory.mkdir(mode=0o700,exist_ok=True)

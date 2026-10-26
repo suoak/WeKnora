@@ -96,7 +96,7 @@ go version -m WeKnora > candidate-server-build-info.txt
 '''
 
 REMOTE = r'''
-import base64,hashlib,json,os,pathlib,shutil,subprocess,tarfile
+import base64,hashlib,json,os,pathlib,re,shutil,subprocess,tarfile
 root=pathlib.Path(BUILD_ROOT)
 source=root/'source'
 base=pathlib.Path('/mnt/sata0/knowhub-feishu-v2-builds')
@@ -168,9 +168,21 @@ else:
   if reuse_sha!=SOURCE_SHA and (prior['State']['ExitCode']!=0 or prior['Image']!=image
    or prior['Config'].get('Labels',{}).get('knowhub.phase')!='compile-only'):
    raise ValueError('cross_source_cache_requires_successful_owned_builder')
-  cache='knowhub-feishu-v2-build-cache-'+reuse_root.name+'-'+str(REUSE_ATTEMPT)
+  # A successful builder may itself have reused an older owned cache. Inspect
+  # its actual mount instead of inventing a volume owned by that newer SHA.
+  mounted=[m for m in prior.get('Mounts',[]) if m.get('Destination')=='/cache' and m.get('Type')=='volume']
+  if len(mounted)!=1:raise ValueError('cache_owner_mount_ambiguous')
+  cache=mounted[0].get('Name','')
+  match=re.fullmatch(r'knowhub-feishu-v2-build-cache-([a-f0-9]{12}-[a-f0-9]{8})-(\d+)',cache)
+  if not match:raise ValueError('cache_volume_outside_build_namespace')
   volume=run(['docker','volume','inspect',cache])
-  if volume.returncode or json.loads(volume.stdout)[0].get('Labels',{}).get('knowhub.source-sha')!=reuse_sha:
+  owner_root=base/match[1]
+  if owner_root.is_symlink() or owner_root.resolve().parent!=base.resolve():
+   raise ValueError('cache_original_owner_outside_build_root')
+  owner_sha=json.loads((owner_root/'source-manifest.json').read_text()).get('source_sha','')
+  if not re.fullmatch('[a-f0-9]{40}',owner_sha) or not owner_sha.startswith(match[1][:12]):
+   raise ValueError('cache_original_owner_manifest_mismatch')
+  if volume.returncode or json.loads(volume.stdout)[0].get('Labels',{}).get('knowhub.source-sha')!=owner_sha:
    raise ValueError('cache_source_identity_mismatch')
   active=run(['docker','ps','--filter','volume='+cache,'--format','{{.ID}}'])
   if active.returncode or active.stdout.strip():raise ValueError('cache_must_have_no_running_consumers')

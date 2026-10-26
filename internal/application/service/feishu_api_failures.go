@@ -15,6 +15,10 @@ import (
 // conflating application/user scopes with a document's export security policy.
 func feishuRemoteFailureCategory(err error) string {
 	switch {
+	case errors.Is(err, core.ErrPersonalBlocksPolicyUnverified):
+		return "source_policy_verification_required"
+	case errors.Is(err, core.ErrPersonalBlocksIncomplete):
+		return "blocks_content_requires_review"
 	case errors.Is(err, ErrFeishuRefreshExpired):
 		return "refresh_token_expired"
 	case errors.Is(err, ErrFeishuRefreshRejected):

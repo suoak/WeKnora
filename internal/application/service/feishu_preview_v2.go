@@ -29,6 +29,9 @@ type FeishuPreviewItem struct {
 }
 
 func feishuV2Error(err error) string {
+	if errors.Is(err, core.ErrPersonalBlocksPolicyUnverified) || errors.Is(err, core.ErrPersonalBlocksIncomplete) {
+		return feishuRemoteFailureCategory(err)
+	}
 	if errors.Is(err, errBatchPublicationExpired) {
 		return "publication_confirmation_expired"
 	}

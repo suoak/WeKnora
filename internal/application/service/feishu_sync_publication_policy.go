@@ -16,7 +16,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// A policy is an administrator's explicit continuing publication authorization,
+// FeishuSyncPublicationPolicy is explicit continuing publication authorization,
 // separate from the owner's revision-bound first-import approval. No policy is
 // created by import, sync, or a writable-KB check. It authorizes one existing
 // personal source in its original destination and never grants source access.
@@ -74,7 +74,8 @@ func (s *FeishuPersonalService) ApproveSourceUpdates(
 	var policy FeishuSyncPublicationPolicy
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var ds types.DataSource
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", sourceID).First(&ds).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ?", sourceID).First(&ds).Error; err != nil {
 			return err
 		}
 		if !legacyWikiDrive(ds.Type) || ds.LegacyAccessState == "hold" || ds.LegacyAccessState == "revoked" ||
@@ -105,7 +106,8 @@ func (s *FeishuPersonalService) ApproveSourceUpdates(
 		}
 		var imported types.FeishuPersonalImport
 		if err = tx.Where("id = ? AND user_id = ? AND kb_id = ? AND app_id = ? AND auth_mode = ?",
-			ds.ID, ref.OwnerUserID, ds.KnowledgeBaseID, ref.AppID, types.FeishuUserOAuth).First(&imported).Error; err != nil {
+			ds.ID, ref.OwnerUserID, ds.KnowledgeBaseID, ref.AppID, types.FeishuUserOAuth).
+			First(&imported).Error; err != nil {
 			return err
 		}
 		var initial types.FeishuSharingApproval
@@ -126,7 +128,8 @@ func (s *FeishuPersonalService) ApproveSourceUpdates(
 			ResourceType: imported.ResourceType, ResourceToken: imported.DocumentToken,
 			SourceConfigHash: syncPolicyHash(ds.Config), AudienceHash: audience, InitialApprovalID: initial.ID,
 			GrantEpoch:       epoch.Epoch,
-			AuthorizationRef: authorizationRef, Operator: operator, State: "approved", CreatedAt: time.Now(), ExpiresAt: expires,
+			AuthorizationRef: authorizationRef, Operator: operator, State: "approved",
+			CreatedAt: time.Now(), ExpiresAt: expires,
 		}
 		cipher, err := sealFeishu(policy)
 		if err != nil {
@@ -138,7 +141,8 @@ func (s *FeishuPersonalService) ApproveSourceUpdates(
 		}
 		return tx.Create(&types.SystemSetting{
 			Key: feishuSyncPolicyPrefix + ds.ID, Value: value, ValueType: "string", Category: "integration",
-			Description: "Explicit source-scoped continuing publication policy", IsSecret: true, LastModifiedBy: operator,
+			Description: "Explicit source-scoped continuing publication policy",
+			IsSecret:    true, LastModifiedBy: operator,
 		}).Error
 	})
 	return &policy, err
@@ -173,7 +177,8 @@ func checkSourcePublicationPolicy(
 		policy.AuthorizationRef == "" || policy.Operator == "" || !policy.ExpiresAt.After(time.Now()) ||
 		policy.SourceID != ds.ID || policy.KBID != ds.KnowledgeBaseID || policy.TenantID != ds.TenantID ||
 		policy.OwnerID != ref.OwnerUserID || policy.AppID != ref.AppID || policy.ConnectionID != ref.ConnectionID ||
-		policy.ConfigVersion != ref.IdentityVersion || policy.ResourceType != resource.Type || policy.ResourceToken != resource.Token ||
+		policy.ConfigVersion != ref.IdentityVersion || policy.ResourceType != resource.Type ||
+		policy.ResourceToken != resource.Token ||
 		policy.SourceConfigHash != syncPolicyHash(ds.Config) || ref.Kind != types.FeishuUserOAuth {
 		return ErrFeishuSharingApproval
 	}

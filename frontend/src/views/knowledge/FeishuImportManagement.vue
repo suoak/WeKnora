@@ -56,6 +56,8 @@ function itemStatus(item:FeishuBatchItem) {
   return labels[item.stage || ''] || '任务已交接，等待后台状态'
 }
 function failure(code:string) {
+	if(code==='source_policy_verification_required') return '无法确认文档导出权限，请联系管理员。'
+	if(code==='blocks_content_requires_review') return '文档含暂不支持的内容，请联系管理员处理。'
   if(['authorization_expired','reconnect_required'].includes(code)) return '飞书授权已失效，请重新连接账号。'
   if(code==='export_permission_required') return '缺少导出权限，请联系文档所有者。'
   if(code==='source_permission_required') return '无法读取文档，请联系文档所有者。'
