@@ -24,13 +24,16 @@ func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 // routes the given target path to h, so tests can drive DoRequest's retry loop.
 func retryTestServer(target string, h http.HandlerFunc) (*httptest.Server, *Config) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/open-apis/auth/v3/tenant_access_token/internal", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, TokenResponse{
-			ApiResponse:       ApiResponse{Code: 0},
-			TenantAccessToken: "fake-token",
-			Expire:            7200,
-		})
-	})
+	mux.HandleFunc(
+		"/open-apis/auth/v3/tenant_access_token/internal",
+		func(w http.ResponseWriter, r *http.Request) {
+			writeJSON(w, TokenResponse{
+				ApiResponse:       ApiResponse{Code: 0},
+				TenantAccessToken: "fake-token",
+				Expire:            7200,
+			})
+		},
+	)
 	mux.HandleFunc(target, h)
 	ts := httptest.NewServer(mux)
 	return ts, &Config{AppID: "a", AppSecret: "b", BaseURL: ts.URL}
@@ -192,7 +195,7 @@ func TestNoRetryOnPermissionError(t *testing.T) {
 	var attempts int
 	ts, cfg := retryTestServer("/target", func(w http.ResponseWriter, _ *http.Request) {
 		attempts++
-		writeJSON(w, ApiResponse{Code: 99991672, Msg: "permission denied"})
+		writeJSON(w, ApiResponse{Code: 1069902, Msg: "permission denied"})
 	})
 	defer ts.Close()
 
@@ -400,11 +403,17 @@ func TestSharedCooldown(t *testing.T) {
 func TestConcurrentTokenRefreshSingleflight(t *testing.T) {
 	var tokenCalls atomic.Int64
 	mux := http.NewServeMux()
-	mux.HandleFunc("/open-apis/auth/v3/tenant_access_token/internal", func(w http.ResponseWriter, _ *http.Request) {
-		tokenCalls.Add(1)
-		time.Sleep(10 * time.Millisecond)
-		writeJSON(w, TokenResponse{ApiResponse: ApiResponse{Code: 0}, TenantAccessToken: "shared", Expire: 7200})
-	})
+	mux.HandleFunc(
+		"/open-apis/auth/v3/tenant_access_token/internal",
+		func(w http.ResponseWriter, _ *http.Request) {
+			tokenCalls.Add(1)
+			time.Sleep(10 * time.Millisecond)
+			writeJSON(
+				w,
+				TokenResponse{ApiResponse: ApiResponse{Code: 0}, TenantAccessToken: "shared", Expire: 7200},
+			)
+		},
+	)
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 	c := fastRetryClient(&Config{AppID: "singleflight", AppSecret: "secret", BaseURL: ts.URL}, 1)

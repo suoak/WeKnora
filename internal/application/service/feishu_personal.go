@@ -40,6 +40,13 @@ const (
 // ErrFeishuReconnect reports feishu reconnect.
 var ErrFeishuReconnect = errors.New("feishu_reconnect_required")
 
+// Refresh failures do not imply that an otherwise readable document forbids export.
+var (
+	ErrFeishuRefreshExpired     = fmt.Errorf("%w: refresh_token_expired", ErrFeishuReconnect)
+	ErrFeishuRefreshRejected    = fmt.Errorf("%w: refresh_rejected", ErrFeishuReconnect)
+	ErrFeishuOAuthConfiguration = errors.New("feishu_oauth_application_configuration")
+)
+
 // FeishuAppConfig defines feishu app config state.
 // A compound encrypted setting avoids partially applied application credentials.
 // It deliberately bypasses the general tunable registry: only this dedicated
@@ -149,7 +156,9 @@ func validateFeishuApp(cfg *FeishuAppConfig) error {
 	if u.Scheme != "https" &&
 		(u.Scheme != "http" || u.Hostname() != "localhost" && u.Hostname() != "127.0.0.1") {
 		if !feishuTestHTTPCallbackAllowed(cfg) {
-			return errors.New("callback requires HTTPS (HTTP allowed only on loopback or an isolated test allowlist)")
+			return errors.New(
+				"callback requires HTTPS (HTTP allowed only on loopback or an isolated test allowlist)",
+			)
 		}
 	}
 	if !strings.HasPrefix(cfg.AppID, "cli_") || len(cfg.AppID) > 128 || cfg.Secret == "" ||
@@ -411,6 +420,12 @@ func (s *FeishuPersonalService) oauthRequest(
 	payload map[string]string,
 	v2 ...bool,
 ) (*feishuTokens, error) {
+	operation := "exchange_user_code"
+	if payload["grant_type"] == "refresh_token" {
+		operation = "refresh_user_token"
+	}
+	observation := core.APIObservation{Operation: operation}
+	defer func() { core.RecordAPIObservation(ctx, observation) }()
 	b, _ := json.Marshal(payload)
 	endpoint := "https://open.feishu.cn/open-apis/authen/v2/oauth/token"
 	if len(v2) > 0 && v2[0] {
@@ -428,28 +443,78 @@ func (s *FeishuPersonalService) oauthRequest(
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := s.api.Do(req)
 	if err != nil {
-		return nil, errors.New("feishu_oauth_temporarily_unavailable")
+		observation.Category = core.ErrorCategoryTransient
+		return nil, &core.APIError{Category: core.ErrorCategoryTransient, Operation: operation, Cause: err}
 	}
 	defer func(cleanup func() error) { _ = cleanup() }(resp.Body.Close)
+	observation.HTTPStatus = resp.StatusCode
+	observation.RequestID = core.ResponseRequestID(resp.Header)
+	observation.Category = core.ErrorCategoryPermanent
+	if resp.StatusCode == 429 {
+		observation.Category = core.ErrorCategoryRateLimit
+	} else if resp.StatusCode >= 500 {
+		observation.Category = core.ErrorCategoryTransient
+	}
 	var token feishuTokens
 	body, readErr := io.ReadAll(io.LimitReader(resp.Body, 1024*1024+1))
 	if readErr != nil {
-		return nil, errors.New("feishu_oauth_invalid_response")
+		observation.Category = core.ErrorCategoryTransient
+		return nil, &core.APIError{
+			Category: core.ErrorCategoryTransient, Operation: operation,
+			HTTPStatus: resp.StatusCode, RequestID: observation.RequestID, Cause: readErr,
+		}
 	}
 	if len(body) > 1024*1024 {
 		return nil, core.ErrResponseTooLarge
 	}
 	if err := json.Unmarshal(body, &token); err != nil {
+		if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+			return nil, &core.APIError{
+				Category: observation.Category, Operation: operation,
+				HTTPStatus: resp.StatusCode, RequestID: observation.RequestID,
+			}
+		}
 		return nil, errors.New("feishu_oauth_invalid_response")
 	}
+	category := core.ErrorCategory("")
+	if resp.StatusCode != 200 || token.Code != 0 || token.Error != "" {
+		category = core.ErrorCategoryAuth
+	}
+	oauthError := ""
+	for _, known := range []string{"invalid_grant", "invalid_client", "invalid_scope", "invalid_request", "temporarily_unavailable", "access_denied"} {
+		if token.Error == known {
+			oauthError = known
+		}
+	}
+	observation.Category, observation.Code, observation.OAuthError = category, token.Code, oauthError
 	if resp.StatusCode == 429 || resp.StatusCode >= 500 {
-		return nil, errors.New("feishu_oauth_temporarily_unavailable")
+		kind := core.ErrorCategoryTransient
+		if resp.StatusCode == 429 {
+			kind = core.ErrorCategoryRateLimit
+		}
+		observation.Category = kind
+		return nil, &core.APIError{
+			Category: kind, Operation: operation, HTTPStatus: resp.StatusCode,
+			Code: token.Code, RequestID: core.ResponseRequestID(resp.Header),
+		}
 	}
 	if resp.StatusCode != 200 || token.Code != 0 || token.Error != "" || token.Access == "" ||
 		token.Refresh == "" ||
 		token.Expires <= 0 ||
 		token.RefreshExpires <= 0 {
-		return nil, ErrFeishuReconnect
+		observation.Category = core.ErrorCategoryAuth
+		cause := error(ErrFeishuReconnect)
+		if operation == "refresh_user_token" {
+			cause = ErrFeishuRefreshRejected
+		}
+		if oauthError == "invalid_client" {
+			cause = ErrFeishuOAuthConfiguration
+		}
+		return nil, errors.Join(cause, &core.APIError{
+			Category:  core.ErrorCategoryAuth,
+			Operation: operation, HTTPStatus: resp.StatusCode, Code: token.Code,
+			RequestID: core.ResponseRequestID(resp.Header),
+		})
 	}
 	return &token, nil
 }
@@ -655,12 +720,14 @@ func (s *FeishuPersonalService) UserToken(ctx context.Context, user, appID, open
 		if err := openFeishu(c.Tokens, &t); err != nil || t.UserID != user {
 			return ErrFeishuReconnect
 		}
-		if c.ExpiresAt.After(time.Now().Add(time.Minute)) {
+		accessHash := sha256.Sum256([]byte(t.Access))
+		forceRefresh := core.UserTokenRefreshFingerprint(ctx) == hex.EncodeToString(accessHash[:])
+		if c.ExpiresAt.After(time.Now().Add(time.Minute)) && !forceRefresh {
 			result = t.Access
 			return nil
 		}
 		if !c.RefreshExpiresAt.After(time.Now()) {
-			return ErrFeishuReconnect
+			return ErrFeishuRefreshExpired
 		}
 		next, err := s.oauthRequest(
 			ctx,

@@ -34,9 +34,16 @@ func feishuV2Error(err error) string {
 	}
 	var api *core.APIError
 	if errors.As(err, &api) && api.Code == 99991672 {
-		return "api_scope_missing"
+		return "app_scope_missing"
 	}
 	switch {
+	case errors.Is(err, core.ErrAppScope):
+		return "app_scope_missing"
+	case errors.Is(err, core.ErrUserScope):
+		return "user_scope_missing"
+	case errors.Is(err, ErrFeishuRefreshExpired), errors.Is(err, ErrFeishuRefreshRejected),
+		errors.Is(err, ErrFeishuOAuthConfiguration):
+		return feishuRemoteFailureCategory(err)
 	case errors.Is(err, core.ErrDiscoveryReview):
 		return "discovery_review_required"
 	case errors.Is(err, ErrFeishuSharingApproval):

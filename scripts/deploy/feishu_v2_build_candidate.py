@@ -89,6 +89,8 @@ BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 export GO_VERSION
 GO_VERSION=$(go version)
 make build-prod GO_BUILD_TAGS=anydoc
+go build -tags anydoc -o feishu-diagnostic ./cmd/feishu-diagnostic
+sha256sum feishu-diagnostic > candidate-diagnostic.sha256
 sha256sum WeKnora > candidate-server.sha256
 go version -m WeKnora > candidate-server-build-info.txt
 '''

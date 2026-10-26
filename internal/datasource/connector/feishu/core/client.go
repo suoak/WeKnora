@@ -159,7 +159,12 @@ const maxFeishuDownloadBytes = 512 * 1024 * 1024 // 512 MB
 // DoRequest executes an authenticated JSON API request. It is kept as the
 // compatibility entry point used by integration helpers; connector operations
 // call doRequest with an explicit operation name for structured logs.
-func (c *Client) DoRequest(ctx context.Context, method, path string, body interface{}, result interface{}) error {
+func (c *Client) DoRequest(
+	ctx context.Context,
+	method, path string,
+	body interface{},
+	result interface{},
+) error {
 	return c.doRequest(ctx, requestOperation(method, path), method, path, body, result)
 }
 
@@ -191,7 +196,17 @@ func (c *Client) doRequestBytes(
 	ctx context.Context, operation, method, path string, bodyBytes []byte,
 	authenticated, binary bool, maxBytes int64,
 ) ([]byte, error) {
-	return c.doRequestBytesWithOptions(ctx, operation, method, path, bodyBytes, authenticated, binary, maxBytes, nil)
+	return c.doRequestBytesWithOptions(
+		ctx,
+		operation,
+		method,
+		path,
+		bodyBytes,
+		authenticated,
+		binary,
+		maxBytes,
+		nil,
+	)
 }
 
 func (c *Client) doRequestBytesWithOptions(
@@ -221,17 +236,26 @@ func (c *Client) doRequestBytesWithOptions(
 	}
 
 	requestURL := c.baseURL + path
+	refreshHint := ""
+	var rejectedTokenError error
 	for attempt := 0; attempt <= c.retry.maxRetries; attempt++ {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
 		if authenticated && personal {
-			token, err = identity.provider(ctx)
+			providerContext := ctx
+			if refreshHint != "" {
+				providerContext = context.WithValue(ctx, userRefreshHintKey{}, refreshHint)
+			}
+			token, err = identity.provider(providerContext)
 			if err != nil {
 				return nil, err
 			}
 			if strings.TrimSpace(token) == "" {
 				return nil, ErrAuth
+			}
+			if refreshHint != "" && tokenFingerprint(token) == refreshHint {
+				return nil, rejectedTokenError
 			}
 		}
 		// Quota and identity are independent. Never call the tenant resolver
@@ -382,7 +406,7 @@ func (c *Client) doRequestBytesWithOptions(
 				}
 				err = &APIError{
 					Category: ErrorCategoryTransient, HTTPStatus: resp.StatusCode,
-					Operation: operation, Cause: requestErr,
+					Operation: operation, Cause: requestErr, RequestID: ResponseRequestID(resp.Header),
 				}
 			} else {
 				var envelope ApiResponse
@@ -393,6 +417,10 @@ func (c *Client) doRequestBytesWithOptions(
 					envelope.Code = feishuRateLimitCode
 				}
 				if resp.StatusCode >= 200 && resp.StatusCode < 300 && envelope.Code == 0 {
+					RecordAPIObservation(ctx, APIObservation{
+						Operation: operation, HTTPStatus: resp.StatusCode,
+						RequestID: ResponseRequestID(resp.Header),
+					})
 					if options != nil && options.validate != nil {
 						if err := options.validate(resp, responseBody); err != nil {
 							return nil, err
@@ -413,13 +441,37 @@ func (c *Client) doRequestBytesWithOptions(
 					Message:    envelope.Msg,
 					HTTPStatus: resp.StatusCode,
 					Operation:  operation,
+					RequestID:  ResponseRequestID(resp.Header),
+					Scopes:     requiredScopes(envelope.Msg),
 					RetryAfter: retryAfter,
 				}
 			}
 		}
 
 		apiErr, _ := asAPIError(err)
+		if apiErr == nil {
+			return nil, err
+		}
+		RecordAPIObservation(ctx, APIObservation{
+			Operation: operation, Category: apiErr.Category,
+			HTTPStatus: apiErr.HTTPStatus, Code: apiErr.Code, RequestID: apiErr.RequestID, RequiredScopes: apiErr.Scopes,
+		})
+		if authenticated && personal && !application && refreshHint == "" &&
+			apiErr.Category == ErrorCategoryAuth && attempt < c.retry.maxRetries &&
+			(apiErr.Code == 99991663 || apiErr.Code == 99991668 || apiErr.Code == 99991677 || apiErr.HTTPStatus == 401) {
+			refreshHint, rejectedTokenError = tokenFingerprint(token), err
+			continue // one persisted, same-user refresh; never a tenant-token fallback
+		}
 		if !isRetryableAPIError(err) {
+			logger.Warnf(
+				ctx,
+				"[Feishu] API request failed operation=%s category=%s code=%d status=%d request_id_hash=%s",
+				operation,
+				apiErr.Category,
+				apiErr.Code,
+				apiErr.HTTPStatus,
+				requestIDHash(apiErr.RequestID),
+			)
 			return nil, err
 		}
 		delay := c.retry.delay(attempt, apiErr.RetryAfter)
@@ -429,16 +481,31 @@ func (c *Client) doRequestBytesWithOptions(
 			c.policy.extendCooldown(max(delay, c.retry.delay(attempt, 0)))
 		}
 		if attempt >= c.retry.maxRetries {
-			logger.Errorf(ctx, "[Feishu] API retry exhausted operation=%s category=%s code=%d status=%d attempts=%d",
-				operation, apiErr.Category, apiErr.Code, apiErr.HTTPStatus, attempt+1)
+			logger.Errorf(
+				ctx,
+				"[Feishu] API retry exhausted operation=%s category=%s code=%d status=%d attempts=%d",
+				operation,
+				apiErr.Category,
+				apiErr.Code,
+				apiErr.HTTPStatus,
+				attempt+1,
+			)
 			return nil, err
 		}
 
 		c.policy.retryCount.Add(1)
-		logger.Warnf(ctx,
+		logger.Warnf(
+			ctx,
 			"[Feishu] API request retry operation=%s category=%s code=%d "+
 				"status=%d attempt=%d max_attempts=%d backoff=%s",
-			operation, apiErr.Category, apiErr.Code, apiErr.HTTPStatus, attempt+1, c.retry.maxRetries+1, delay)
+			operation,
+			apiErr.Category,
+			apiErr.Code,
+			apiErr.HTTPStatus,
+			attempt+1,
+			c.retry.maxRetries+1,
+			delay,
+		)
 		if !errors.Is(err, ErrRateLimited) {
 			if sleepErr := c.retry.sleep(ctx, delay); sleepErr != nil {
 				return nil, sleepErr
@@ -521,9 +588,21 @@ func (c *Client) ListWikiSpaces(ctx context.Context) ([]WikiSpace, error) {
 			return nil, fmt.Errorf("list wiki spaces: %w", err)
 		}
 
-		logger.Infof(ctx, "[Feishu] ListWikiSpaces: got %d spaces, has_more=%v", len(resp.Data.Items), resp.Data.HasMore)
+		logger.Infof(
+			ctx,
+			"[Feishu] ListWikiSpaces: got %d spaces, has_more=%v",
+			len(resp.Data.Items),
+			resp.Data.HasMore,
+		)
 		for i, s := range resp.Data.Items {
-			logger.Infof(ctx, "[Feishu]   space[%d]: id=%s name=%q visibility=%s", i, s.SpaceID, s.Name, s.Visibility)
+			logger.Infof(
+				ctx,
+				"[Feishu]   space[%d]: id=%s name=%q visibility=%s",
+				i,
+				s.SpaceID,
+				s.Name,
+				s.Visibility,
+			)
 		}
 
 		allSpaces = append(allSpaces, resp.Data.Items...)
@@ -544,7 +623,11 @@ func (c *Client) ListWikiSpaces(ctx context.Context) ([]WikiSpace, error) {
 
 // ListWikiNodes returns all nodes (documents) under a wiki space.
 // If parentNodeToken is empty, returns top-level nodes.
-func (c *Client) ListWikiNodes(ctx context.Context, spaceID string, parentNodeToken string) ([]WikiNode, error) {
+func (c *Client) ListWikiNodes(
+	ctx context.Context,
+	spaceID string,
+	parentNodeToken string,
+) ([]WikiNode, error) {
 	var allNodes []WikiNode
 	pageToken := ""
 	seenPageTokens := make(map[string]struct{})
@@ -646,7 +729,11 @@ func (c *Client) listAllWikiNodesRecursive(ctx context.Context, spaceID string) 
 }
 
 // ListWikiNodesRecursiveFrom returns a wiki node and all descendants below it.
-func (c *Client) ListWikiNodesRecursiveFrom(ctx context.Context, spaceID string, nodeToken string) ([]WikiNode, error) {
+func (c *Client) ListWikiNodesRecursiveFrom(
+	ctx context.Context,
+	spaceID string,
+	nodeToken string,
+) ([]WikiNode, error) {
 	if nodeToken == "" {
 		return c.listAllWikiNodesRecursive(ctx, spaceID)
 	}
@@ -663,7 +750,11 @@ func (c *Client) ListWikiNodesRecursiveFrom(ctx context.Context, spaceID string,
 	return append([]WikiNode{root}, nodes...), nil
 }
 
-func (c *Client) listWikiNodeDescendants(ctx context.Context, spaceID string, root WikiNode) ([]WikiNode, error) {
+func (c *Client) listWikiNodeDescendants(
+	ctx context.Context,
+	spaceID string,
+	root WikiNode,
+) ([]WikiNode, error) {
 	if !root.HasChild {
 		return nil, nil
 	}
@@ -767,7 +858,11 @@ func (c *Client) createExportTask(ctx context.Context, token, objType, fileExten
 // getExportTaskStatus polls the status of an export task.
 // Returns (fileToken, fileName, error). fileToken is non-empty only when the job succeeds.
 // The token parameter is the obj_token of the document being exported (required by the API).
-func (c *Client) getExportTaskStatus(ctx context.Context, ticket string, token string) (string, string, error) {
+func (c *Client) getExportTaskStatus(
+	ctx context.Context,
+	ticket string,
+	token string,
+) (string, string, error) {
 	path := fmt.Sprintf("/open-apis/drive/v1/export_tasks/%s?token=%s", ticket, token)
 
 	var resp ExportTaskStatusResponse
@@ -812,7 +907,10 @@ func (c *Client) ExportAndDownload(ctx context.Context, objToken, objType string
 	return c.exportAndDownload(ctx, objToken, exportType, fileExt)
 }
 
-func (c *Client) exportAndDownload(ctx context.Context, objToken, exportType, fileExt string) ([]byte, string, error) {
+func (c *Client) exportAndDownload(
+	ctx context.Context,
+	objToken, exportType, fileExt string,
+) ([]byte, string, error) {
 	// Step 1: create export task
 	ticket, err := c.createExportTask(ctx, objToken, exportType, fileExt)
 	if err != nil {
@@ -932,7 +1030,10 @@ func (c *Client) listDriveFiles(
 // only returns the folder's children, not the folder itself.
 //
 // GET /open-apis/drive/explorer/v2/folder/:folderToken/meta
-func (c *Client) GetDriveFolderMeta(ctx context.Context, folderToken string) (driveFolderMetaResponse, error) {
+func (c *Client) GetDriveFolderMeta(
+	ctx context.Context,
+	folderToken string,
+) (driveFolderMetaResponse, error) {
 	var resp driveFolderMetaResponse
 	if folderToken == "" {
 		return resp, fmt.Errorf("root folder not supported; specify a concrete folder_token")

@@ -215,7 +215,7 @@ func (p *PersonalRecovery) authorize(
 		return nil, ErrFeishuReconnect
 	}
 	if !connection.ExpiresAt.After(time.Now()) && !connection.RefreshExpiresAt.After(time.Now()) {
-		return nil, ErrFeishuReconnect
+		return nil, ErrFeishuRefreshExpired
 	}
 	return core.WithUserIdentity(fresh, func(call context.Context) (string, error) {
 		// This check runs for every API request, including image/export polling.
@@ -542,17 +542,18 @@ func (p *PersonalRecovery) processPrivateManifest(
 		}
 	}()
 	defer func() { close(done); cancel(); <-stopped }()
-	finishErr := p.fetchCandidate(work, m, owner)
+	observedWork := core.WithAPIObserver(work, func(event core.APIObservation) {
+		p.service.recordFeishuAPIError(work, m, owner, event)
+	})
+	finishErr := p.fetchCandidate(observedWork, m, owner)
 	if finishErr != nil {
 		cleanup, stop := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer stop()
 		if _, authErr := p.authorize(cleanup, m, a); personalAuthorizationLost(authErr) ||
 			personalAuthorizationLost(finishErr) {
 			category := "authorization_revalidation_failed"
-			if errors.Is(finishErr, core.ErrAuth) || errors.Is(finishErr, ErrFeishuReconnect) {
-				category = "authorization_expired"
-			} else if errors.Is(finishErr, core.ErrPermission) {
-				category = "export_permission_required"
+			if precise := feishuRemoteFailureCategory(finishErr); precise != "" {
+				category = precise
 			}
 			if errors.Is(finishErr, core.ErrApplicationTableMedia) {
 				category = "candidate_media_not_supported"
@@ -838,6 +839,8 @@ func personalAuthorizationLost(err error) bool {
 		errors.Is(err, ErrFeishuReconnect) ||
 		errors.Is(err, repository.ErrPersonalIdentity) ||
 		errors.Is(err, core.ErrAuth) ||
+		errors.Is(err, core.ErrAppScope) || errors.Is(err, core.ErrUserScope) ||
+		errors.Is(err, ErrFeishuOAuthConfiguration) ||
 		errors.Is(err, core.ErrPermission) ||
 		errors.Is(err, core.ErrNotFound)
 }

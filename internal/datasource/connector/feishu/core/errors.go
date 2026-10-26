@@ -18,6 +18,8 @@ type ErrorCategory string
 const (
 	ErrorCategoryRateLimit  ErrorCategory = "rate_limit"
 	ErrorCategoryAuth       ErrorCategory = "auth"
+	ErrorCategoryAppScope   ErrorCategory = "app_scope_missing"
+	ErrorCategoryUserScope  ErrorCategory = "user_scope_missing"
 	ErrorCategoryPermission ErrorCategory = "permission"
 	ErrorCategoryNotFound   ErrorCategory = "not_found"
 	ErrorCategoryTransient  ErrorCategory = "transient"
@@ -29,6 +31,8 @@ const (
 var (
 	ErrRateLimited = errors.New("feishu rate limited")
 	ErrAuth        = errors.New("feishu authentication failed")
+	ErrAppScope    = errors.New("feishu application scope missing")
+	ErrUserScope   = errors.New("feishu user scope missing")
 	ErrPermission  = errors.New("feishu permission denied")
 	ErrNotFound    = errors.New("feishu resource not found")
 	ErrTransient   = errors.New("feishu transient failure")
@@ -44,6 +48,8 @@ type APIError struct {
 	Message    string
 	HTTPStatus int
 	Operation  string
+	RequestID  string
+	Scopes     []string
 	RetryAfter time.Duration
 	Cause      error
 }
@@ -61,6 +67,9 @@ func (e *APIError) Error() string {
 	}
 	if e.HTTPStatus != 0 {
 		parts = append(parts, fmt.Sprintf("status=%d", e.HTTPStatus))
+	}
+	if e.RequestID != "" {
+		parts = append(parts, "request_id_hash="+tokenFingerprint(e.RequestID)[:12])
 	}
 	var timeout net.Error
 	if errors.Is(e.Cause, context.DeadlineExceeded) ||
@@ -82,6 +91,10 @@ func (e *APIError) Is(target error) bool {
 		return e.Category == ErrorCategoryRateLimit
 	case ErrAuth:
 		return e.Category == ErrorCategoryAuth
+	case ErrAppScope:
+		return e.Category == ErrorCategoryAppScope
+	case ErrUserScope:
+		return e.Category == ErrorCategoryUserScope
 	case ErrPermission:
 		return e.Category == ErrorCategoryPermission
 	case ErrNotFound:
@@ -100,13 +113,27 @@ func (e *APIError) Is(target error) bool {
 // Only codes already evidenced by this connector's API fixtures are listed.
 // Unknown application codes stay UnknownAPI rather than being guessed.
 var (
-	knownRateLimitCodes  = map[int]struct{}{99991400: {}}
-	knownAuthCodes       = map[int]struct{}{99991663: {}}
-	knownPermissionCodes = map[int]struct{}{99991672: {}, 131006: {}, 1770032: {}, 1069902: {}}
+	knownRateLimitCodes = map[int]struct{}{99991400: {}}
+	knownAuthCodes      = map[int]struct{}{
+		99991661: {},
+		99991663: {},
+		99991668: {},
+		99991671: {},
+		99991677: {},
+	}
+	knownPermissionCodes = map[int]struct{}{131006: {}, 1770032: {}, 1069902: {}}
 	knownNotFoundCodes   = map[int]struct{}{1663: {}}
 )
 
 func classifyAPIError(httpStatus, code int) ErrorCategory {
+	// These are scope errors even when the provider uses HTTP 400/403. They
+	// must never become a document-owner export refusal or trigger a token swap.
+	if code == 99991672 {
+		return ErrorCategoryAppScope
+	}
+	if code == 99991676 || code == 99991679 {
+		return ErrorCategoryUserScope
+	}
 	if _, ok := knownRateLimitCodes[code]; ok || httpStatus == http.StatusTooManyRequests {
 		return ErrorCategoryRateLimit
 	}

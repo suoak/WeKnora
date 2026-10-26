@@ -32,7 +32,10 @@ func TestAPIErrorClassificationKnownCodesAndHTTPStatuses(t *testing.T) {
 		{name: "http rate limit", status: http.StatusTooManyRequests, want: ErrRateLimited},
 		{name: "known auth", status: http.StatusOK, code: 99991663, want: ErrAuth},
 		{name: "http auth", status: http.StatusUnauthorized, want: ErrAuth},
-		{name: "known permission", status: http.StatusOK, code: 99991672, want: ErrPermission},
+		{name: "application scope", status: http.StatusForbidden, code: 99991672, want: ErrAppScope},
+		{name: "user token scope", status: http.StatusForbidden, code: 99991676, want: ErrUserScope},
+		{name: "user grant scope", status: http.StatusOK, code: 99991679, want: ErrUserScope},
+		{name: "export permission", status: http.StatusForbidden, code: 1069902, want: ErrPermission},
 		{name: "http permission", status: http.StatusForbidden, want: ErrPermission},
 		{name: "known not found", status: http.StatusOK, code: 1663, want: ErrNotFound},
 		{name: "http not found", status: http.StatusNotFound, want: ErrNotFound},
@@ -42,7 +45,11 @@ func TestAPIErrorClassificationKnownCodesAndHTTPStatuses(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := &APIError{Category: classifyAPIError(tt.status, tt.code), Code: tt.code, HTTPStatus: tt.status}
+			err := &APIError{
+				Category:   classifyAPIError(tt.status, tt.code),
+				Code:       tt.code,
+				HTTPStatus: tt.status,
+			}
 			if !errors.Is(err, tt.want) {
 				t.Fatalf("category=%q does not match %v", err.Category, tt.want)
 			}

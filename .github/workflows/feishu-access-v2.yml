@@ -53,6 +53,7 @@ jobs:
       REQUIRE_SYNC_EXECUTION_POSTGRES: "1"
       FEISHU_LEGACY_TEST_DSN: postgres://postgres:isolated-test-only@localhost:5432/feishu_atomic_test?sslmode=disable
       FEISHU_P0_REDIS_ADDR: 127.0.0.1:6379
+      FEISHU_CONTROL_REAL_REDIS: "1"
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
@@ -66,6 +67,10 @@ jobs:
         run: go test -json ./internal/types ./internal/application/access ./internal/datasource/connector/feishu/... -count=1 -timeout=10m | tee core-tests.jsonl
       - name: Real PostgreSQL batch and approval tests
         run: go test -json -tags sqlite_fts5 ./internal/application/service -run '^TestFeishuV2' -count=1 -timeout=10m | tee service-tests.jsonl
+      - name: Automatic control startup race and real two-process Asynq loss
+        run: go test -race -json ./internal/feishusynccontrol -count=1 -timeout=3m | tee control-tests.jsonl
+      - name: Bound OAuth refresh and precise upstream error evidence
+        run: go test -json -tags sqlite_fts5 ./internal/application/service -run '^TestFeishu(Refresh|OAuth|RemoteFailure|V2API)' -count=1 -timeout=5m | tee oauth-tests.jsonl
       - name: Private files with legacy protection disabled
         run: go test -json -tags sqlite_fts5 ./internal/application/repository ./internal/application/repository/retriever/postgres -run '^TestFeishuV2Private' -count=1 -timeout=5m | tee private-files-tests.jsonl
       - name: Migration governance and V2 rollback state preservation

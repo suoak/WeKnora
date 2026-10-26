@@ -142,6 +142,11 @@ var register = redis.NewScript(`
 local t=redis.call('TIME');local now=t[1]*1000+math.floor(t[2]/1000)
 local old=redis.call('HGET',KEYS[1],ARGV[1]);local alive=redis.call('ZSCORE',KEYS[2],ARGV[1])
 if old and old~=ARGV[2] and alive and tonumber(alive)>now then return redis.error_reply('WORKER_ID_CONFLICT') end
+local admitted=redis.call('HGET',KEYS[4],ARGV[1])
+if admitted and admitted~=ARGV[2] then return redis.error_reply('ADMITTED_INCARNATION_CONFLICT') end
+if old~=ARGV[2] then
+ redis.call('ZADD',KEYS[3],now+30000,ARGV[1]);redis.call('INCR',KEYS[5])
+end
 redis.call('HSET',KEYS[1],ARGV[1],ARGV[2]);redis.call('ZADD',KEYS[2],now+2000,ARGV[1]);return now`)
 
 var permit = redis.NewScript(`
@@ -172,7 +177,10 @@ func (c *Controller) Step(ctx context.Context) error {
 	if c.departed {
 		return ErrNotReady
 	}
-	now, err := register.Run(ctx, c.Client, []string{c.prefix + "workers", c.prefix + "leases"},
+	now, err := register.Run(ctx, c.Client, []string{
+		c.prefix + "workers", c.prefix + "leases", c.prefix + "joining",
+		c.prefix + "admitted", c.prefix + "membership_revision",
+	},
 		c.Config.WorkerID, c.fingerprint+":"+c.incarnation).Int64()
 	if err != nil {
 		return c.freeze(ctx, "registry_"+failureClass(err), true)
@@ -198,7 +206,11 @@ func (c *Controller) Step(ctx context.Context) error {
 		return c.freeze(ctx, "metrics_unhealthy_or_unknown", true)
 	}
 	if time.Since(c.lastAlertAck) > time.Second {
-		heartbeat := Event{Kind: "feishu_safety_heartbeat", Reason: "controller_alive", WorkerID: c.Config.WorkerID}
+		heartbeat := Event{
+			Kind:     "feishu_safety_heartbeat",
+			Reason:   "controller_alive",
+			WorkerID: c.Config.WorkerID,
+		}
 		if err := c.Audit(heartbeat); err != nil {
 			return c.freeze(ctx, "alert_receiver_unavailable", true)
 		}
