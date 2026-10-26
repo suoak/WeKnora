@@ -1,0 +1,47 @@
+{
+  "source_sha": "020a2fb068e371783c402a2c104039d6c3c837a0",
+  "all_gates_passed": false,
+  "deployed": false,
+  "runs": [
+    {
+      "id": 40348524787,
+      "name": "Build & Publish (mcp-server)",
+      "head_sha": "020a2fb068e371783c402a2c104039d6c3c837a0",
+      "status": "queued",
+      "conclusion": null,
+      "html_url": "https://github.com/suoak/WeKnora/actions/runs/40348524787"
+    },
+    {
+      "id": 40348519878,
+      "name": "Portal Final Gate",
+      "head_sha": "020a2fb068e371783c402a2c104039d6c3c837a0",
+      "status": "in_progress",
+      "conclusion": null,
+      "html_url": "https://github.com/suoak/WeKnora/actions/runs/40348519878"
+    },
+    {
+      "id": 40348514476,
+      "name": "Feishu Integrated Release Gate",
+      "head_sha": "020a2fb068e371783c402a2c104039d6c3c837a0",
+      "status": "in_progress",
+      "conclusion": null,
+      "html_url": "https://github.com/suoak/WeKnora/actions/runs/40348514476"
+    },
+    {
+      "id": 40348506675,
+      "name": "Feishu Access V2 Native Regression",
+      "head_sha": "020a2fb068e371783c402a2c104039d6c3c837a0",
+      "status": "in_progress",
+      "conclusion": null,
+      "html_url": "https://github.com/suoak/WeKnora/actions/runs/40348506675"
+    },
+    {
+      "id": 40347984269,
+      "name": "Feishu Access V2 Isolated Gate",
+      "head_sha": "020a2fb068e371783c402a2c104039d6c3c837a0",
+      "status": "in_progress",
+      "conclusion": null,
+      "html_url": "https://github.com/suoak/WeKnora/actions/runs/40347984269"
+    }
+  ]
+}

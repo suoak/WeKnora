@@ -172,14 +172,14 @@ for line in (persistence_logs.stdout+'\n'+persistence_logs.stderr).splitlines():
   at=re.search(r'\d{4}-\d{2}-\d{2}T[0-9:.]+Z',line)
   redis_events.append({'at':at[0] if at else None,'classes':classes})
 result['redis_persistence_events']=redis_events[-40:]
-bindings=sql("SELECT coalesce(json_agg(q),'[]') FROM (SELECT ds.id,ds.config->'settings'->'credential_reference' AS reference,c.user_id,c.app_id,c.open_id,e.epoch FROM data_sources ds JOIN feishu_personal_imports m ON m.id=ds.id JOIN feishu_connections c ON c.user_id=m.user_id JOIN feishu_personal_grant_epochs e ON e.user_id=c.user_id JOIN users u ON u.id=m.user_id JOIN knowledge_bases kb ON kb.id=m.kb_id WHERE u.username='test' AND kb.name='test001' AND m.resource_type IN ('sheet','bitable')) q")
+bindings=sql("SELECT coalesce(json_agg(q),'[]') FROM (SELECT ds.id,ds.config->'settings'->'credential_reference' AS reference,c.user_id,c.app_id,c.open_id,m.open_id AS imported_open_id,e.epoch FROM data_sources ds JOIN feishu_personal_imports m ON m.id=ds.id JOIN feishu_connections c ON c.user_id=m.user_id JOIN feishu_personal_grant_epochs e ON e.user_id=c.user_id JOIN users u ON u.id=m.user_id JOIN knowledge_bases kb ON kb.id=m.kb_id WHERE u.username='test' AND kb.name='test001' AND m.resource_type IN ('sheet','bitable')) q")
 binding_receipts=[]
 for binding in bindings:
  if mask(binding['id']) not in EXPECTED:continue
  ref=binding['reference'] or {}
  current=hashlib.sha256(b''.join(str(v).encode()+b'\x00' for v in ['user_oauth',binding['user_id'],binding['app_id'],binding['open_id'],binding['epoch']])).hexdigest()
  binding_receipts.append({'source_hash':mask(binding['id']),'owner_matches':ref.get('owner_user_id')==binding['user_id'],
-  'app_matches':ref.get('app_id')==binding['app_id'],'connection_matches_current_grant':ref.get('connection_id')==current,
+  'app_matches':ref.get('app_id')==binding['app_id'],'same_feishu_account':binding['imported_open_id']==binding['open_id'],'connection_matches_current_grant':ref.get('connection_id')==current,
   'stored_connection_hash':mask(ref.get('connection_id','')),'current_connection_hash':mask(current)})
 result['personal_identity_binding_receipts']=binding_receipts
 result['recovery_phase']=result['status']

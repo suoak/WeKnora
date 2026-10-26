@@ -1,0 +1,107 @@
+{
+  "status": "READ_ONLY",
+  "at": "2026-10-26T15:08:32.676000+00:00",
+  "trip": {
+    "present": true,
+    "value": "audit_unavailable",
+    "ttl_ms": -1
+  },
+  "permit": {
+    "present": false,
+    "value": null,
+    "ttl_ms": -2
+  },
+  "sync_queue_pause": {
+    "present": true,
+    "value": "feishu_safety_stop",
+    "ttl_ms": -1
+  },
+  "read_only_dependency_telemetry": {
+    "persistence": {
+      "rdb_last_bgsave_status": "ok",
+      "rdb_last_bgsave_time_sec": "0",
+      "rdb_current_bgsave_time_sec": "-1",
+      "rdb_last_cow_size": "925696",
+      "aof_enabled": "1",
+      "aof_last_bgrewrite_status": "ok",
+      "aof_last_write_status": "ok",
+      "aof_pending_bio_fsync": "0",
+      "aof_delayed_fsync": "85"
+    },
+    "stats": {
+      "rejected_connections": "0",
+      "latest_fork_usec": "672",
+      "total_forks": "386"
+    },
+    "clients": {
+      "connected_clients": "57",
+      "blocked_clients": "0"
+    },
+    "latency_events": [],
+    "slow_commands": [],
+    "host_load": [
+      "2.09",
+      "3.17",
+      "3.19"
+    ],
+    "cpu_pressure": "some avg10=0.46 avg60=0.54 avg300=0.63 total=12466242775\n",
+    "io_pressure": "some avg10=0.00 avg60=0.05 avg300=2.56 total=572861980179\nfull avg10=0.00 avg60=0.04 avg300=2.36 total=567090248290\n"
+  },
+  "membership_get_latency_sample": {
+    "count": 80,
+    "p50_ms": 0.125,
+    "p95_ms": 0.225,
+    "max_ms": 0.318,
+    "scope": "current_sample_only_not_historical_root_cause"
+  },
+  "new_stop_events": [
+    {
+      "at": "2026-10-26T14:57:12.899000+00:00",
+      "event": "feishu_safety_recovery_reset"
+    },
+    {
+      "at": "2026-10-26T14:58:11.941000+00:00",
+      "event": "feishu_safety_recovery_resumed"
+    },
+    {
+      "at": "2026-10-26T15:00:22.347000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "audit_unavailable",
+      "fenced": "1",
+      "queue_paused": "1",
+      "probe_stage": "audit",
+      "step_elapsed_ms": "712",
+      "worker_hash": "33483c0305f1"
+    },
+    {
+      "at": "2026-10-26T15:00:22.350000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_permit_tripped",
+      "fenced": "1",
+      "queue_paused": "1",
+      "probe_stage": "permit",
+      "step_elapsed_ms": "2",
+      "worker_hash": "33483c0305f1"
+    },
+    {
+      "at": "2026-10-26T15:00:22.351000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "audit_unavailable",
+      "fenced": "1",
+      "queue_paused": "1",
+      "probe_stage": "audit",
+      "step_elapsed_ms": "664",
+      "worker_hash": "fc628b37f57f"
+    },
+    {
+      "at": "2026-10-26T15:00:22.355000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_permit_tripped",
+      "fenced": "1",
+      "queue_paused": "1",
+      "probe_stage": "permit",
+      "step_elapsed_ms": "2",
+      "worker_hash": "fc628b37f57f"
+    }
+  ]
+}
