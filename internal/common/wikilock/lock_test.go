@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/common/redislock"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
@@ -32,6 +33,26 @@ func TestSharedWikiLeaseAndLostOwnership(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.False(t, server.Exists("wiki:proof:generation:kb"))
+}
+
+func TestWikiLeaseLossCancelsDetachedWrites(t *testing.T) {
+	server := miniredis.RunT(t)
+	client := redis.NewClient(&redis.Options{Addr: server.Addr()})
+	defer client.Close()
+	err := redislock.WithRenewableLock(context.Background(), client, "lost", time.Second,
+		10*time.Millisecond, func(locked context.Context) error {
+			cleanup, cancel := Detached(locked, time.Second)
+			defer cancel()
+			server.Del("lost")
+			select {
+			case <-cleanup.Done():
+				require.ErrorIs(t, cleanup.Err(), context.Canceled)
+			case <-time.After(500 * time.Millisecond):
+				t.Fatal("detached write context ignored lost ownership")
+			}
+			return nil
+		})
+	require.ErrorIs(t, err, redislock.ErrLockOwnershipLost)
 }
 
 func TestLiteWikiLeaseHonorsCanceledWaiter(t *testing.T) {

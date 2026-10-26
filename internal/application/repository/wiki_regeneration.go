@@ -90,7 +90,7 @@ func PrepareWikiRegeneration(
 		plan = &WikiRegenerationPlan{
 			TenantID: tenant, KnowledgeBaseID: kb,
 			Documents: len(docs), HistoricalPages: len(pages),
-			Snapshot: wikiDigest([]any{proof.Sources, proof.Epochs, docs, pages, epoch}),
+			Snapshot: wikiDigest([]any{anchor, proof.Sources, proof.Epochs, docs, pages, epoch}),
 		}
 		if !apply {
 			return nil
