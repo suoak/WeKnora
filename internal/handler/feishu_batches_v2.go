@@ -89,6 +89,23 @@ func (h *FeishuPersonalHandler) RetryBatch(c *gin.Context) {
 	c.JSON(202, gin.H{"accepted": true})
 }
 
+// ContinueBatch keeps an existing batch and combines consent with safe requeue.
+func (h *FeishuPersonalHandler) ContinueBatch(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1024)
+	var in struct {
+		PublishToReaders bool `json:"publish_to_readers"`
+	}
+	if c.ShouldBindJSON(&in) != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_publication_confirmation"})
+		return
+	}
+	if err := h.svc.ContinueBatch(c.Request.Context(), c.Param("batchID"), in.PublishToReaders); err != nil {
+		feishuFailureResponse(c, err)
+		return
+	}
+	c.JSON(http.StatusAccepted, gin.H{"accepted": true})
+}
+
 // ApproveSharing records explicit publication approval for one source revision.
 func (h *FeishuPersonalHandler) ApproveSharing(c *gin.Context) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 16<<10)
@@ -202,18 +219,23 @@ func (h *FeishuPersonalHandler) ImportTargets(c *gin.Context) {
 func (h *FeishuPersonalHandler) QuickImport(c *gin.Context) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 256<<10)
 	var in struct {
-		KBID  string   `json:"kb_id"`
-		Links []string `json:"links"`
+		KBID             string   `json:"kb_id"`
+		Links            []string `json:"links"`
+		PublishToReaders bool     `json:"publish_to_readers"`
 	}
 	if c.ShouldBindJSON(&in) != nil {
 		c.JSON(400, gin.H{"error": "invalid_batch"})
 		return
 	}
 	if strings.TrimSpace(in.KBID) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "feishu_target_knowledge_base_required", "message": "请选择目标知识库"})
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{"error": "feishu_target_knowledge_base_required", "message": "请选择目标知识库"},
+		)
 		return
 	}
-	row, err := h.svc.QuickImport(c.Request.Context(), in.KBID, c.GetHeader("Idempotency-Key"), in.Links)
+	row, err := h.svc.QuickImport(c.Request.Context(), in.KBID, c.GetHeader("Idempotency-Key"),
+		in.Links, in.PublishToReaders)
 	if err != nil {
 		feishuFailureResponse(c, err)
 		return

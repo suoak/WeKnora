@@ -34,7 +34,8 @@ func (c *FeishuAppConfig) modeEnabled(mode string) bool {
 	if c == nil || !c.Enabled || mode != types.FeishuUserOAuth && mode != types.FeishuApplicationGrant {
 		return false
 	}
-	if mode == types.FeishuUserOAuth && feishuNonLoopbackHTTP(c.RedirectURI) && !feishuTestHTTPCallbackAllowed(c) {
+	if mode == types.FeishuUserOAuth && feishuNonLoopbackHTTP(c.RedirectURI) &&
+		!feishuTestHTTPCallbackAllowed(c) {
 		return false
 	}
 	if c.Capabilities == nil {
@@ -64,6 +65,7 @@ func (c *FeishuAppConfig) importMode(requested string) (string, error) {
 func (s *FeishuPersonalService) ImportWithIdentity(
 	ctx context.Context,
 	kb, link, requested string,
+	expected ...types.FeishuCredentialRef,
 ) (*types.FeishuPersonalImport, error) {
 	cfg, err := s.app(ctx)
 	if err != nil {
@@ -79,5 +81,5 @@ func (s *FeishuPersonalService) ImportWithIdentity(
 		}
 		return s.Import(ctx, kb, link)
 	}
-	return s.recovery.prepareWithIdentity(ctx, kb, link, mode)
+	return s.recovery.prepareWithIdentity(ctx, kb, link, mode, expected...)
 }

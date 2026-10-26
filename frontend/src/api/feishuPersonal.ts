@@ -19,7 +19,7 @@ export type FeishuResource = { id: string; name: string; type: string; url?: str
 export type FeishuResourcePage = { items: FeishuResource[]; has_more: boolean; cursor?: string; coverage: string }
 export type FeishuPreview = { url: string; resource_type?: string; revision?: string; status: string; error_category?: string }
 export type FeishuBatchItem = { id: string; ordinal: number; url: string; status: string; error_category?: string; import_id?: string; retry_count: number; stage?: string; last_progress_at?: string; last_activity_at?: string; retry_after?: string; attempt_retry_count?: number; knowledge_id?: string; parse_status?: string; chunk_count?: number; vector_count?: number; index_verified?: boolean; stalled?: boolean; lease_active?: boolean; queue_active?: boolean }
-export type FeishuBatch = { batch: { id: string; kb_id: string; auth_mode: FeishuAuthMode }; items: FeishuBatchItem[]; counts: Record<string, number>; status: string }
+export type FeishuBatch = { batch: { id: string; kb_id: string; auth_mode: FeishuAuthMode }; items: FeishuBatchItem[]; counts: Record<string, number>; status: string; target_name?: string; can_continue_publication?: boolean }
 export const feishuConnections = () => get<FeishuConnection[]>('/api/v1/me/feishu/connections')
 export const createPrivateFeishuKB = (name: string) => post<{ id: string }>('/api/v1/me/feishu/private-knowledge-base', { name })
 export const feishuResources = (params: Record<string, string | number>) => get<FeishuResourcePage>('/api/v1/me/feishu/resources', { params })
@@ -49,4 +49,5 @@ export function isFeishuDocumentURL(value: string): boolean {
 
 export type FeishuImportTarget = { id: string; name: string; requires_sharing_approval: boolean }
 export const feishuImportTargets = () => get<FeishuImportTarget[]>('/api/v1/me/feishu/import-targets')
-export const quickImportFeishu = (links: string[], key: string, kb_id: string) => post<FeishuBatch>('/api/v1/me/feishu/imports', {links, kb_id}, {headers:{'Idempotency-Key':key}})
+export const quickImportFeishu = (links: string[], key: string, kb_id: string, publish_to_readers = false) => post<FeishuBatch>('/api/v1/me/feishu/imports', {links, kb_id, publish_to_readers}, {headers:{'Idempotency-Key':key}})
+export const continueFeishuBatch = (id: string) => post<{accepted:boolean}>(`/api/v1/feishu/batches/${encodeURIComponent(id)}/continue`, {publish_to_readers:true})

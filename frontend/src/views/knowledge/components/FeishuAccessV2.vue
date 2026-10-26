@@ -7,7 +7,7 @@
     <t-select id="feishu-target" v-model="targetID" :options="targets.map(row => ({label:row.name,value:row.id}))" :disabled="busy || !!kbId" placeholder="请选择已有知识库" />
     <p v-if="targetsLoaded && !targets.length" class="warning">暂无可写知识库，请先创建或申请访问知识库。<router-link to="/platform/knowledge-bases">前往知识库</router-link></p>
     <p v-if="kbId && targetsLoaded && !target" class="warning">当前知识库不可写，请申请访问权限。</p>
-    <p v-if="target?.requires_sharing_approval" class="warning">此目标需要文档共享发布批准；未获批准的文档将不会发布。</p>
+    <p v-if="target?.requires_sharing_approval" class="warning" role="note">发布范围：{{ target.name }} 的现有读者。点击“一键导入”，即同意将本次所选文档的当前版本发布到此知识库。</p>
     <label for="feishu-links">飞书文档链接</label>
     <t-textarea id="feishu-links" v-model="linksText" :disabled="busy" :autosize="{ minRows: 5, maxRows: 8 }" placeholder="每行一个链接，支持 Wiki、Docx、Sheet 和 Bitable，最多 100 篇" />
     <p class="hint">仅导入你提交的文档，系统不会自动创建或切换知识库。</p>
@@ -58,7 +58,7 @@ async function submit() {
  busy.value = true; message.value = ''
  if (!key) key = feishuBatchKey()
  try {
-  const result = await quickImportFeishu(input.value.valid, key, targetID.value)
+  const result = await quickImportFeishu(input.value.valid, key, targetID.value, !!target.value.requires_sharing_approval)
   if (!mounted) return
   recent.value = {id:result.batch.id,kb:result.batch.kb_id}; accepted.value = true
   message.value = `已添加 ${result.items.length} 篇文档到导入队列，系统将在后台自动处理。可以关闭页面。`

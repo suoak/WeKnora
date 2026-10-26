@@ -120,7 +120,10 @@ func (p *PersonalRecovery) authorizeLocal(
 	ownerContext = types.WithCaller(ownerContext, types.Caller{
 		TenantID: member.TenantID, UserID: user.ID, Role: member.Role,
 	})
-	ownerContext = types.WithPrincipal(ownerContext, types.Principal{Type: types.PrincipalWebUser, ID: user.ID})
+	ownerContext = types.WithPrincipal(
+		ownerContext,
+		types.Principal{Type: types.PrincipalWebUser, ID: user.ID},
+	)
 	db = db.WithContext(ownerContext)
 	var kb types.KnowledgeBase
 	if err := db.Where("id = ?", m.KBID).First(&kb).Error; err != nil {
@@ -245,6 +248,7 @@ func (p *PersonalRecovery) authorize(
 func (p *PersonalRecovery) prepareWithIdentity(
 	ctx context.Context,
 	kbID, rawURL, requested string,
+	expected ...types.FeishuCredentialRef,
 ) (*types.FeishuPersonalImport, error) {
 	user, ok := types.UserIDFromContext(ctx)
 	if !ok {
@@ -312,6 +316,17 @@ func (p *PersonalRecovery) prepareWithIdentity(
 		a.GrantEpoch = epoch.Epoch
 	default:
 		return nil, repository.ErrPersonalIdentity
+	}
+	if len(expected) > 0 {
+		ref := expected[0]
+		connection := connectionID(mode, cfg.AppID, a.AppConfigVersion)
+		if mode == types.FeishuUserOAuth {
+			connection = connectionID(mode, user, cfg.AppID, m.OpenID, a.GrantEpoch)
+		}
+		if ref.ConnectionID != connection || ref.ConfigVersion != a.AppConfigVersion ||
+			ref.AppID != cfg.AppID {
+			return nil, ErrFeishuReconnect
+		}
 	}
 
 	remote, err := p.authorize(ctx, &m, &a)
@@ -907,7 +922,10 @@ func (p *PersonalRecovery) mutate(
 		ownerContext = types.WithCaller(ownerContext, types.Caller{
 			TenantID: member.TenantID, UserID: user.ID, Role: member.Role,
 		})
-		ownerContext = types.WithPrincipal(ownerContext, types.Principal{Type: types.PrincipalWebUser, ID: user.ID})
+		ownerContext = types.WithPrincipal(
+			ownerContext,
+			types.Principal{Type: types.PrincipalWebUser, ID: user.ID},
+		)
 		tx = tx.WithContext(ownerContext)
 		var kb types.KnowledgeBase
 		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ?", m.KBID).First(&kb).Error; err != nil {

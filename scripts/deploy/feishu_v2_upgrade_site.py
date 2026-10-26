@@ -122,6 +122,11 @@ elif MODE=='apply':
   save()
   checked(compose+['up','-d','--no-build','--pull','never','app'],120)
  except Exception:
+  # Additive schema state and publication audits must never be silently lost
+  # by restoring a pre-migration database or starting an incompatible migrator.
+  if sql("SELECT version::text||':'||dirty::text FROM schema_migrations;")=='3042:false':
+   state['phase']='APPLIED';state['recovery']='new_schema_retained';save()
+   raise
   compose_path.write_bytes((upgrade/'compose.before.json').read_bytes())
   env_path.write_bytes((upgrade/'app.before.env').read_bytes())
   run(compose+['up','-d','--no-build','--pull','never','app','worker2','frontend','entry'],180)
@@ -131,13 +136,15 @@ elif MODE=='finish':
  if state['phase'] not in ['APPLIED','RUNNING']:raise ValueError('applied_upgrade_required')
  record=container('app')
  if record['Image']!=state['app_image'] or record['State'].get('Health',{}).get('Status')!='healthy':raise ValueError('new_app_not_healthy')
- if sql("SELECT version::text||':'||dirty::text FROM schema_migrations;")!='3041:false':raise ValueError('migration_drift')
+ if sql("SELECT version::text||':'||dirty::text FROM schema_migrations;")!='3042:false':raise ValueError('migration_drift')
  checked(compose+['up','-d','--no-build','--pull','never','worker2','frontend','entry-preview','entry'],180)
  records={name:container(name) for name in ['app','worker2','frontend','entry']}
  ready=all(r['State']['Running'] for r in records.values()) and all(records[n]['State'].get('Health',{}).get('Status')=='healthy' for n in ['app','worker2'])
  state['phase']='RUNNING' if ready else 'APPLIED';save()
 elif MODE=='rollback':
  if state['phase'] not in ['APPLIED','RUNNING']:raise ValueError('applied_upgrade_required')
+ if sql("SELECT version::text||':'||dirty::text FROM schema_migrations;")!='3041:false':
+  raise ValueError('schema_compatible_rollback_required_no_data_restored')
  checked(compose+['stop','--timeout','45','entry','app','worker2'],120)
  compose_path.write_bytes((upgrade/'compose.before.json').read_bytes())
  env_path.write_bytes((upgrade/'app.before.env').read_bytes())

@@ -29,6 +29,9 @@ type FeishuPreviewItem struct {
 }
 
 func feishuV2Error(err error) string {
+	if errors.Is(err, errBatchPublicationExpired) {
+		return "publication_confirmation_expired"
+	}
 	var api *core.APIError
 	if errors.As(err, &api) && api.Code == 99991672 {
 		return "api_scope_missing"
@@ -179,6 +182,23 @@ func (s *FeishuPersonalService) ApproveSharing(
 	kbID, id, link, reason string,
 	confirmed bool,
 ) (*types.FeishuSharingApproval, error) {
+	approval, err := s.sharingApprovalCandidate(ctx, kbID, id, link, reason, confirmed)
+	if err != nil {
+		return nil, err
+	}
+	if err = s.db.WithContext(ctx).Create(approval).Error; err != nil {
+		return nil, err
+	}
+	return approval, nil
+}
+
+// Resolve metadata without committing a grant. Batch admission uses this same
+// authority check, then atomically binds the grant to its independently leased item.
+func (s *FeishuPersonalService) sharingApprovalCandidate(
+	ctx context.Context,
+	kbID, id, link, reason string,
+	confirmed bool,
+) (*types.FeishuSharingApproval, error) {
 	user, ok := types.UserIDFromContext(ctx)
 	if !ok {
 		return nil, access.ErrUnauthorized
@@ -229,9 +249,6 @@ func (s *FeishuPersonalService) ApproveSharing(
 		Reason:        reason,
 		CreatedAt:     time.Now(),
 		ExpiresAt:     time.Now().Add(24 * time.Hour),
-	}
-	if err = s.db.WithContext(ctx).Create(approval).Error; err != nil {
-		return nil, err
 	}
 	return approval, nil
 }

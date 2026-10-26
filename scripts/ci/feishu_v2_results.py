@@ -4,6 +4,12 @@ import sys
 from pathlib import Path
 
 required = {
+    "TestFeishuV2PostgresInlinePublicationPersistsBeforeRemoteWork",
+    "TestFeishuV2PostgresInlinePublicationNeverRebindsVersionOrRevocation",
+    "TestFeishuV2PostgresInlinePublicationFencesLeaseAndLiveAuthority",
+    "TestFeishuV2PostgresInlineContinuePreservesOriginalBatch",
+    "TestFeishuV2PostgresInlinePublicationRejectsWriteOnlyAndKeepsPrivate",
+    "TestFeishuV2PostgresInlinePublicationPinsConnectionThroughPrepare",
     "TestFeishuV2PostgresQuickImportRequiresExplicitTarget",
     "TestFeishuV2PostgresStorageFailureTerminatesOriginalAttempt",
     "TestFeishuV2PostgresBatchReportsActualFailureWithoutPollingProgress",

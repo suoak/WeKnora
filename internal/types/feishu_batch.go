@@ -4,16 +4,17 @@ import "time"
 
 // FeishuBatch binds durable batch admission to one owner, KB and identity.
 type FeishuBatch struct {
-	ID             string    `gorm:"primaryKey" json:"id"`
-	OwnerID        string    `                  json:"-"`
-	TenantID       uint64    `                  json:"-"`
-	KBID           string    `                  json:"kb_id"`
-	AuthMode       string    `                  json:"auth_mode"`
-	ConnectionID   string    `                  json:"-"`
-	ConfigVersion  string    `                  json:"-"`
-	IdempotencyKey string    `                  json:"-"`
-	PayloadHash    string    `                  json:"-"`
-	CreatedAt      time.Time `                  json:"created_at"`
+	ID                   string     `gorm:"primaryKey" json:"id"`
+	OwnerID              string     `                  json:"-"`
+	TenantID             uint64     `                  json:"-"`
+	KBID                 string     `                  json:"kb_id"`
+	AuthMode             string     `                  json:"auth_mode"`
+	ConnectionID         string     `                  json:"-"`
+	ConfigVersion        string     `                  json:"-"`
+	IdempotencyKey       string     `                  json:"-"`
+	PayloadHash          string     `                  json:"-"`
+	CreatedAt            time.Time  `                  json:"created_at"`
+	PublicationConsentAt *time.Time `                  json:"publication_consent_at,omitempty"`
 }
 
 // TableName returns the durable batch control table.
@@ -47,6 +48,7 @@ type FeishuBatchItem struct {
 	LeaseActive       bool       `gorm:"-"          json:"lease_active"`
 	QueueActive       bool       `gorm:"-"          json:"queue_active"`
 	Stalled           bool       `gorm:"-"          json:"stalled"`
+	SharingApprovalID *string    `                  json:"-"`
 }
 
 // TableName returns the batch item control table.

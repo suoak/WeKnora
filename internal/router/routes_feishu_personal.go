@@ -45,6 +45,7 @@ func RegisterFeishuPersonalRoutes(r *gin.RouterGroup, h *handler.FeishuPersonalH
 	batch := r.Group("/feishu/batches")
 	batch.GET("/:batchID", h.Batch)
 	batch.POST("/:batchID/retry", h.RetryBatch)
+	batch.POST("/:batchID/continue", h.ContinueBatch)
 	batch.GET("/:batchID/collaboration", h.Collaboration)
 	batch.POST("/:batchID/items/:itemID/collaboration", h.Collaborate)
 }

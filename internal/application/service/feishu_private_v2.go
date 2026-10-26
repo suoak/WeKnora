@@ -59,7 +59,11 @@ func (s *FeishuPersonalService) ImportTargets(ctx context.Context) ([]FeishuImpo
 		seen[kb.ID] = true
 		result = append(
 			result,
-			FeishuImportTarget{ID: kb.ID, Name: kb.Name, RequiresSharingApproval: kb.PrivateOwnerID != caller.UserID},
+			FeishuImportTarget{
+				ID:                      kb.ID,
+				Name:                    kb.Name,
+				RequiresSharingApproval: kb.PrivateOwnerID != caller.UserID,
+			},
 		)
 	}
 	return result, nil
@@ -125,7 +129,9 @@ func (p *PersonalRecovery) privateWorkerContext(
 
 // EnsurePrivateKnowledgeBase serializes first-use creation per tenant and human
 // owner. Only an atomic private marker plus the existing access policy proves privacy.
-func (s *FeishuPersonalService) EnsurePrivateKnowledgeBase(ctx context.Context) (*types.KnowledgeBase, error) {
+func (s *FeishuPersonalService) EnsurePrivateKnowledgeBase(
+	ctx context.Context,
+) (*types.KnowledgeBase, error) {
 	user, ok := types.UserIDFromContext(ctx)
 	if !ok || types.IsSyntheticUserID(user) {
 		return nil, access.ErrUnauthorized
@@ -168,6 +174,7 @@ func (s *FeishuPersonalService) QuickImport(
 	ctx context.Context,
 	kb, key string,
 	links []string,
+	publication ...bool,
 ) (*FeishuBatchView, error) {
 	if strings.TrimSpace(kb) == "" {
 		return nil, ErrFeishuTargetRequired
@@ -195,5 +202,5 @@ func (s *FeishuPersonalService) QuickImport(
 		return nil, err
 	}
 	ctx = grant.Context(ctx)
-	return s.CreateBatch(ctx, kb, types.FeishuUserOAuth, ref.ConnectionID, key, links)
+	return s.CreateBatch(ctx, kb, types.FeishuUserOAuth, ref.ConnectionID, key, links, publication...)
 }

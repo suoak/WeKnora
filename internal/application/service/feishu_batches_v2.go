@@ -19,15 +19,21 @@ import (
 
 // FeishuBatchView combines durable admission state with verified import progress.
 type FeishuBatchView struct {
-	Batch  types.FeishuBatch       `json:"batch"`
-	Items  []types.FeishuBatchItem `json:"items"`
-	Counts map[string]int          `json:"counts"`
-	Status string                  `json:"status"`
+	Batch                  types.FeishuBatch       `json:"batch"`
+	Items                  []types.FeishuBatchItem `json:"items"`
+	Counts                 map[string]int          `json:"counts"`
+	Status                 string                  `json:"status"`
+	TargetName             string                  `json:"target_name"`
+	CanContinuePublication bool                    `json:"can_continue_publication"`
 }
 
 // ListBatches recovers the owner's batch handles after a page or worker restart.
 // Progress is read separately so listing history never replays an admission.
-func (s *FeishuPersonalService) ListBatches(ctx context.Context, kbID string, offset int) ([]types.FeishuBatch, error) {
+func (s *FeishuPersonalService) ListBatches(
+	ctx context.Context,
+	kbID string,
+	offset int,
+) ([]types.FeishuBatch, error) {
 	user, ok := types.UserIDFromContext(ctx)
 	if !ok {
 		return nil, access.ErrUnauthorized
@@ -54,8 +60,13 @@ func (s *FeishuPersonalService) ListBatches(ctx context.Context, kbID string, of
 		return nil, err
 	}
 	rows := []types.FeishuBatch{}
-	err = s.db.WithContext(ctx).Where("owner_id = ? AND kb_id = ? AND tenant_id = ?", user, kbID, kb.TenantID).
-		Order("created_at DESC, id DESC").Offset(offset).Limit(20).Find(&rows).Error
+	err = s.db.WithContext(ctx).
+		Where("owner_id = ? AND kb_id = ? AND tenant_id = ?", user, kbID, kb.TenantID).
+		Order("created_at DESC, id DESC").
+		Offset(offset).
+		Limit(20).
+		Find(&rows).
+		Error
 	return rows, err
 }
 
@@ -64,6 +75,7 @@ func (s *FeishuPersonalService) CreateBatch(
 	ctx context.Context,
 	kb, mode, id, key string,
 	links []string,
+	publication ...bool,
 ) (*FeishuBatchView, error) {
 	user, ok := types.UserIDFromContext(ctx)
 	if !ok {
@@ -78,6 +90,15 @@ func (s *FeishuPersonalService) CreateBatch(
 	}
 	if err = access.RequireKBWrite(ctx, base); err != nil {
 		return nil, err
+	}
+	consent := len(publication) > 0 && publication[0]
+	if consent {
+		if mode != types.FeishuUserOAuth {
+			return nil, access.ErrForbidden
+		}
+		if err = s.requireSharingAuthority(ctx, kb); err != nil {
+			return nil, err
+		}
 	}
 	if s.recovery == nil || !s.recovery.firstCreateOnly || s.db.Name() != "postgres" {
 		return nil, errors.New("feishu_safe_pipeline_required")
@@ -114,7 +135,11 @@ func (s *FeishuPersonalService) CreateBatch(
 	if len(unique) == 0 {
 		return nil, errors.New("invalid_batch_limits")
 	}
-	payload, _ := json.Marshal([]any{kb, mode, ref.ConnectionID, unique})
+	identity := []any{kb, mode, ref.ConnectionID, unique}
+	if consent {
+		identity = append(identity, "explicit-kb-readers-v1")
+	}
+	payload, _ := json.Marshal(identity)
 	b := types.FeishuBatch{
 		ID:             uuid.NewString(),
 		OwnerID:        user,
@@ -127,7 +152,16 @@ func (s *FeishuPersonalService) CreateBatch(
 		PayloadHash:    connectionID(string(payload)),
 		CreatedAt:      time.Now(),
 	}
+	if consent {
+		now := time.Now()
+		b.PublicationConsentAt = &now
+	}
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if consent {
+			if e := lockBatchPublicationAuthority(tx, &b); e != nil {
+				return e
+			}
+		}
 		insert := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&b)
 		if insert.Error != nil {
 			return insert.Error
@@ -191,6 +225,7 @@ func (s *FeishuPersonalService) Batch(ctx context.Context, id string) (*FeishuBa
 	if err != nil {
 		return nil, err
 	}
+	view.TargetName = kb.Name
 	if s.recovery == nil {
 		return nil, ErrFeishuStagingRequired
 	}
@@ -262,6 +297,12 @@ func (s *FeishuPersonalService) Batch(ctx context.Context, id string) (*FeishuBa
 			return nil, err
 		}
 		view.Counts[item.Status]++
+		if item.Status == "blocked" && item.ErrorCategory == "sharing_approval_required" &&
+			item.ImportID == "" && item.SharingApprovalID == nil && item.RetryCount < 3 &&
+			view.Batch.AuthMode == types.FeishuUserOAuth && (view.Batch.PublicationConsentAt == nil ||
+			view.Batch.PublicationConsentAt.Add(24*time.Hour).After(time.Now())) {
+			view.CanContinuePublication = true
+		}
 	}
 	view.Status = "running"
 	if view.Counts["pending"]+view.Counts["processing"]+view.Counts["dispatched"] == 0 {
@@ -408,9 +449,13 @@ func (s *FeishuPersonalService) ReconcileBatches(ctx context.Context) error {
 		}
 		var imported *types.FeishuPersonalImport
 		if err == nil {
-			_, _, _, err = s.ResolveCredentialReference(fresh, b.AuthMode, b.ConnectionID)
+			var ref types.FeishuCredentialRef
+			_, _, ref, err = s.ResolveCredentialReference(fresh, b.AuthMode, b.ConnectionID)
 			if err == nil {
-				imported, err = s.ImportWithIdentity(fresh, b.KBID, item.URL, b.AuthMode)
+				err = s.bindBatchPublication(fresh, &b, &item)
+			}
+			if err == nil {
+				imported, err = s.ImportWithIdentity(fresh, b.KBID, item.URL, b.AuthMode, ref)
 			}
 		}
 		status, category, importID := "dispatched", "", ""
@@ -528,7 +573,10 @@ func (s *FeishuPersonalService) reconcileBatchUpdates(ctx context.Context) error
 					continue
 				}
 				if progress.Stalled {
-					logger.Warnf(fresh, "Feishu import stalled: no live document lease, recent activity or queued task")
+					logger.Warnf(
+						fresh,
+						"Feishu import stalled: no live document lease, recent activity or queued task",
+					)
 				}
 				switch progress.Status {
 				case "succeeded":

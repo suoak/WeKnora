@@ -53,7 +53,7 @@ try {
   const page = await browser.newPage()
   page.setDefaultTimeout(20000)
   const errors = [], submissions = [], requests = []
-  let targets = [{id:'existing-team-kb',name:'Existing target',requires_sharing_approval:true}], progressReads=0
+  let targets = [{id:'existing-team-kb',name:'Existing target',requires_sharing_approval:true}], progressReads=0, continued=false
   page.on('pageerror', error => { errors.push(error.message); console.error('Browser:',error.message) })
   await page.route('**/api/v1/**', async route => {
     const request = route.request(), path = new URL(request.url()).pathname
@@ -67,7 +67,12 @@ try {
       progressReads++
       const done=progressReads>1
       body={batch:{id:'progress-batch',kb_id:'existing-team-kb',auth_mode:'user_oauth'},status:done?'succeeded':'running',items:[{id:'item',ordinal:0,status:done?'succeeded':'dispatched',stage:done?'completed':'embedding',last_progress_at:new Date().toISOString(),retry_after:'2026-01-01T00:00:00Z',index_verified:done,knowledge_id:'verified-document',chunk_count:6,vector_count:done?6:0}],counts:{}}
-      if(page.url().includes('failure')) body={batch:{id:'progress-batch',kb_id:'existing-team-kb',auth_mode:'user_oauth'},status:'partial_failed',items:[{id:'item',ordinal:0,status:'blocked',error_category:'sharing_approval_required'}],counts:{blocked:1}}
+      if(page.url().includes('failure') && !continued) body={batch:{id:'progress-batch',kb_id:'existing-team-kb',auth_mode:'user_oauth'},target_name:'Existing target',can_continue_publication:true,status:'partial_failed',items:[{id:'item',ordinal:0,status:'blocked',error_category:'sharing_approval_required'}],counts:{blocked:1}}
+    }
+    if (path === '/api/v1/feishu/batches/progress-batch/continue') {
+      assert.equal(request.method(),'POST')
+      assert.deepEqual(request.postDataJSON(),{publish_to_readers:true})
+      continued=true; body={accepted:true}
     }
     if (path === '/api/v1/me/feishu/imports') {
       const payload = request.postDataJSON()
@@ -90,6 +95,8 @@ try {
   assert.equal(submissions.length, 1)
   assert.equal(submissions[0].payload.links.length, 10)
   assert.equal(submissions[0].payload.kb_id, 'existing-team-kb')
+  assert.equal(submissions[0].payload.publish_to_readers, true)
+  await page.getByText(/点击“一键导入”，即同意/).waitFor()
   assert.match(submissions[0].key, /^[a-f0-9]{32}$/)
   assert.equal(requests.some(path => path.includes('preview')), false)
   for (const width of [1280,390]) {
@@ -109,6 +116,14 @@ try {
   await page.getByRole('button',{name:/一键导入/}).click()
   await page.getByText('已添加 1 篇文档到导入队列，系统将在后台自动处理。可以关闭页面。',{exact:true}).waitFor()
   assert.equal(submissions[1].payload.kb_id,'existing-team-kb')
+  targets=[{id:'existing-team-kb',name:'Private target',requires_sharing_approval:false}]
+  await page.goto(origin + '/__feishu-gate')
+  await page.getByText('已连接飞书账号',{exact:true}).waitFor()
+  await page.locator('textarea').fill(links[0])
+  await page.getByRole('button',{name:/一键导入/}).click()
+  await page.getByText(/已添加 1 篇文档到导入队列/).waitFor()
+  assert.equal(submissions[2].payload.publish_to_readers,false)
+  assert.equal(await page.getByText(/点击“一键导入”，即同意/).count(),0)
   targets=[]
   await page.goto(origin + '/__feishu-gate?choose')
   await page.getByText(/暂无可写知识库/).waitFor()
@@ -121,7 +136,11 @@ try {
   await page.getByRole('link',{name:'在知识库中查看'}).waitFor()
   assert.equal(await page.getByText(/自动重试时间/).count(),0)
   await page.goto(origin + '/__feishu-gate?history&failure')
-  await page.getByText('缺少当前版本的共享发布批准，请在高级设置中处理。',{exact:true}).waitFor()
+  await page.getByText('本批任务尚未发布，点击“一键继续导入”即可继续。',{exact:true}).waitFor()
+  await page.getByRole('button',{name:'一键继续导入',exact:true}).click()
+  await page.getByText('已恢复原导入任务，系统将在后台自动处理。可以关闭页面。',{exact:true}).waitFor()
+  assert.equal(requests.filter(path=>path.endsWith('/continue')).length,1)
+  assert.equal(requests.some(path=>path.includes('preview') || path.includes('sharing-approvals') || path.endsWith('/retry')),false)
   assert.deepEqual(errors, [])
   await page.close()
   console.log(JSON.stringify({status:'PASS',qualification:'mocked_http_actual_vue_dialog_and_history',links:10,submissions:submissions.length,explicit_target_required:true,empty_targets_blocked:true,automatic_progress_reads:progressReads,preview_calls:0,viewports:[1280,390],real_oauth:'NOT_EXECUTED'}))

@@ -42,6 +42,9 @@ func v2PostgresFixture(t *testing.T) *personalRecoveryFixture {
 	require.NoError(t, err)
 	require.NoError(t, f.db.Exec(string(ddl)).Error)
 	f.db = types.EnablePrivateKBGuards(f.db)
+	ddl, err = os.ReadFile("../../../migrations/versioned/003042_feishu_inline_publication.up.sql")
+	require.NoError(t, err)
+	require.NoError(t, f.db.Exec(string(ddl)).Error)
 	f.s.db = f.db
 	cfg, err := f.s.app(f.ctx)
 	require.NoError(t, err)

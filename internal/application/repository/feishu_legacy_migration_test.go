@@ -100,7 +100,7 @@ func TestFeishuLegacyFormalMigrationChain(t *testing.T) {
 			require.NoError(t, e)
 			version, dirty, e := m.Version()
 			require.NoError(t, e)
-			require.EqualValues(t, 3041, version)
+			require.EqualValues(t, 3042, version)
 			require.False(t, dirty)
 			var saved types.TenantAPIKey
 			var persistedMode string
@@ -148,7 +148,7 @@ func TestFeishuLegacyFormalMigrationChain(t *testing.T) {
 			require.NoError(t, database.RunMigrations(dsn))
 			version, dirty, e = m.Version()
 			require.NoError(t, e)
-			require.EqualValues(t, 3041, version)
+			require.EqualValues(t, 3042, version)
 			require.False(t, dirty)
 		})
 	}

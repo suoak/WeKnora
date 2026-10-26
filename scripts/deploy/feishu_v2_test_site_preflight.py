@@ -117,7 +117,7 @@ elif PHASE=='restore':
  if not record or record['State'].get('Health',{}).get('Status')!='healthy':
   raise ValueError('healthy_migrated_test_app_required')
  state=sql('SELECT version::text||\':\'||dirty::text FROM schema_migrations;')
- if state!='3041:false': raise ValueError('unexpected_or_dirty_migration_state')
+ if state!='3042:false': raise ValueError('unexpected_or_dirty_migration_state')
  result['migration_state']=state
  backup=snapshot('after-migration')
  restored=release/'restore-verification.json'

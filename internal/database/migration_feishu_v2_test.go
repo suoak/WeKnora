@@ -8,6 +8,64 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestFeishuV2SQLiteInlinePublicationPreservesOldBatchesAndAudits(t *testing.T) {
+	root := sqliteRepoRoot(t)
+	for _, state := range []string{"old_unconfirmed", "consent", "binding"} {
+		t.Run(state, func(t *testing.T) {
+			db := openSQLiteDB(t, filepath.Join(t.TempDir(), "publication.db"))
+			for _, sql := range []string{
+				"CREATE TABLE feishu_import_batches(id TEXT PRIMARY KEY)",
+				"CREATE TABLE feishu_import_batch_items(id TEXT PRIMARY KEY)",
+				"CREATE TABLE feishu_sharing_approvals(id TEXT PRIMARY KEY)",
+				"INSERT INTO feishu_import_batches VALUES('old-batch')",
+				"INSERT INTO feishu_import_batch_items VALUES('old-item')",
+				"INSERT INTO feishu_sharing_approvals VALUES('retained-audit')",
+			} {
+				_, err := db.Exec(sql)
+				require.NoError(t, err)
+			}
+			up, err := os.ReadFile(
+				filepath.Join(root, "migrations/sqlite/003042_feishu_inline_publication.up.sql"),
+			)
+			require.NoError(t, err)
+			_, err = db.Exec(string(up))
+			require.NoError(t, err)
+			var unconfirmed bool
+			require.NoError(
+				t,
+				db.QueryRow("SELECT publication_consent_at IS NULL FROM feishu_import_batches").
+					Scan(&unconfirmed),
+			)
+			require.True(t, unconfirmed, "migration cannot infer consent for old submissions")
+			if state == "consent" {
+				_, err = db.Exec("UPDATE feishu_import_batches SET publication_consent_at=CURRENT_TIMESTAMP")
+				require.NoError(t, err)
+			}
+			if state == "binding" {
+				_, err = db.Exec("UPDATE feishu_import_batch_items SET sharing_approval_id='retained-audit'")
+				require.NoError(t, err)
+			}
+			down, err := os.ReadFile(
+				filepath.Join(root, "migrations/sqlite/003042_feishu_inline_publication.down.sql"),
+			)
+			require.NoError(t, err)
+			tx, err := db.Begin()
+			require.NoError(t, err)
+			_, err = tx.Exec(string(down))
+			if state == "old_unconfirmed" {
+				require.NoError(t, err)
+				require.NoError(t, tx.Commit())
+			} else {
+				require.Error(t, err)
+				require.NoError(t, tx.Rollback())
+			}
+			var audits int
+			require.NoError(t, db.QueryRow("SELECT count(*) FROM feishu_sharing_approvals").Scan(&audits))
+			require.Equal(t, 1, audits)
+		})
+	}
+}
+
 func TestFeishuV2SQLiteMigrationsPreservePrivacyAndAuditOnRollback(t *testing.T) {
 	root := sqliteRepoRoot(t)
 	read := func(name string) string {
@@ -61,7 +119,10 @@ func TestFeishuV2SQLiteMigrationsPreservePrivacyAndAuditOnRollback(t *testing.T)
 				require.Error(t, err)
 				require.NoError(t, tx.Rollback())
 				var result string
-				require.NoError(t, db.QueryRow("SELECT result FROM feishu_permission_collaboration").Scan(&result))
+				require.NoError(
+					t,
+					db.QueryRow("SELECT result FROM feishu_permission_collaboration").Scan(&result),
+				)
 				require.Equal(t, "reported_unverified", result)
 			} else {
 				require.NoError(t, err)
@@ -78,7 +139,10 @@ func TestFeishuV2SQLiteMigrationsPreservePrivacyAndAuditOnRollback(t *testing.T)
 				}
 			}
 			var status, cursor string
-			require.NoError(t, db.QueryRow("SELECT status,last_sync_cursor FROM data_sources").Scan(&status, &cursor))
+			require.NoError(
+				t,
+				db.QueryRow("SELECT status,last_sync_cursor FROM data_sources").Scan(&status, &cursor),
+			)
 			require.Equal(t, "paused", status)
 			require.Equal(t, `{"checkpoint":"retained"}`, cursor)
 		})
@@ -113,7 +177,9 @@ func TestFeishuV2SQLiteCollectionRollbackRetainsDiscoveryAndOldSources(t *testin
 				VALUES('collection','A',1,'kb','user_oauth','ref','v1','drive','root','hold','encrypted-state')`)
 				require.NoError(t, err)
 			}
-			down, err := os.ReadFile(filepath.Join(root, "migrations/sqlite/003041_feishu_collections.down.sql"))
+			down, err := os.ReadFile(
+				filepath.Join(root, "migrations/sqlite/003041_feishu_collections.down.sql"),
+			)
 			require.NoError(t, err)
 			tx, err := db.Begin()
 			require.NoError(t, err)
@@ -129,7 +195,10 @@ func TestFeishuV2SQLiteCollectionRollbackRetainsDiscoveryAndOldSources(t *testin
 				require.NoError(t, tx.Commit())
 			}
 			var status, cursor string
-			require.NoError(t, db.QueryRow("SELECT status,last_sync_cursor FROM data_sources").Scan(&status, &cursor))
+			require.NoError(
+				t,
+				db.QueryRow("SELECT status,last_sync_cursor FROM data_sources").Scan(&status, &cursor),
+			)
 			require.Equal(t, "paused", status)
 			require.Equal(t, `{"retained":true}`, cursor)
 		})
