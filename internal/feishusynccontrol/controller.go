@@ -55,6 +55,18 @@ type Event struct {
 	WorkerID    string
 	Fenced      bool
 	QueuePaused bool
+	ProbeStage  string `json:",omitempty"`
+	ElapsedMS   int64  `json:",omitempty"`
+	ctx         context.Context
+}
+
+// Context carries the bounded control operation to its audit sink. Standalone
+// diagnostic events retain the sink's existing fallback timeout.
+func (e Event) Context() context.Context {
+	if e.ctx != nil {
+		return e.ctx
+	}
+	return context.Background()
 }
 
 // Controller validates inventory/telemetry and executes an idempotent stop loop.
@@ -76,6 +88,18 @@ type Controller struct {
 	admitted     bool
 	lastEvent    string
 	lastAlertAck time.Time
+	stepStarted  time.Time
+	probeStage   string
+}
+
+func (c *Controller) audit(ctx context.Context, event Event) error {
+	event.ctx = ctx
+	if err := c.Audit(event); err != nil {
+		return err
+	}
+	// A custom sink may ignore cancellation. Never proceed to a new probe or
+	// grant a permit after its acknowledged audit has exhausted this step.
+	return ctx.Err()
 }
 
 // New preserves strict explicit-inventory mode. Automatic mode permits all or
@@ -174,6 +198,8 @@ redis.call('SET',KEYS[4],ARGV[2],'PX',750);return 1`)
 func (c *Controller) Step(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.stepStarted, c.probeStage = time.Now(), "registry"
+	defer func() { c.probeStage = "" }()
 	if c.departed {
 		return ErrNotReady
 	}
@@ -211,7 +237,8 @@ func (c *Controller) Step(ctx context.Context) error {
 			Reason:   "controller_alive",
 			WorkerID: c.Config.WorkerID,
 		}
-		if err := c.Audit(heartbeat); err != nil {
+		c.probeStage = "audit"
+		if err := c.audit(ctx, heartbeat); err != nil {
 			return c.freeze(ctx, "alert_receiver_unavailable", true)
 		}
 		c.lastAlertAck = time.Now()
@@ -234,6 +261,10 @@ func (c *Controller) Step(ctx context.Context) error {
 }
 
 func (c *Controller) freeze(ctx context.Context, reason string, latch bool) error {
+	elapsedMS := int64(0)
+	if !c.stepStarted.IsZero() && c.probeStage != "" {
+		elapsedMS = time.Since(c.stepStarted).Milliseconds()
+	}
 	// Monitoring timeouts must not cancel the independent stop/fencing work.
 	// Outbound permit expires while a slower dependency stop is in progress.
 	stopCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
@@ -253,6 +284,7 @@ func (c *Controller) freeze(ctx context.Context, reason string, latch bool) erro
 	event := Event{
 		Kind: "feishu_safety_stop", Reason: reason, WorkerID: c.Config.WorkerID,
 		Fenced: fenced == nil, QueuePaused: paused == nil,
+		ProbeStage: c.probeStage, ElapsedMS: elapsedMS,
 	}
 	// Repeated unsuccessful actions are reported, never misrepresented as done.
 	if c.lastEvent != reason || paused != nil || fenced != nil {
@@ -261,9 +293,10 @@ func (c *Controller) freeze(ctx context.Context, reason string, latch bool) erro
 			Approx: true, Values: map[string]any{
 				"event": event.Kind, "reason": event.Reason,
 				"worker_id": event.WorkerID, "fenced": event.Fenced, "queue_paused": event.QueuePaused,
+				"probe_stage": event.ProbeStage, "step_elapsed_ms": event.ElapsedMS,
 			},
 		}).Err()
-		alert := c.Audit(event)
+		alert := c.audit(ctx, event)
 		failures = append(failures, record, alert)
 		if record == nil && alert == nil {
 			c.lastEvent = reason

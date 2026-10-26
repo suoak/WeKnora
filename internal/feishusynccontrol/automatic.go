@@ -56,12 +56,13 @@ func (c *Controller) automaticStep(ctx context.Context) error {
 		return c.freeze(ctx, "consumer_probe_missing", true)
 	}
 	if time.Since(c.lastAlertAck) > time.Second {
+		c.probeStage = "audit"
 		event := Event{
 			Kind:     "feishu_safety_heartbeat",
 			Reason:   "controller_alive",
 			WorkerID: c.Config.WorkerID,
 		}
-		if err := c.Audit(event); err != nil {
+		if err := c.audit(ctx, event); err != nil {
 			return c.freeze(ctx, "audit_unavailable", true)
 		}
 		c.lastAlertAck = time.Now()
@@ -69,14 +70,17 @@ func (c *Controller) automaticStep(ctx context.Context) error {
 	// Pair the external Asynq snapshot with membership revision. A peer may
 	// register or first admit a consumer while this process is inspecting it.
 	// Such an obsolete snapshot closes permission but cannot prove consumer loss.
+	c.probeStage = "membership_probe"
 	revision, err := c.Client.Get(ctx, c.prefix+"membership_revision").Result()
 	if err != nil {
 		return c.freeze(ctx, automaticFailureReason("membership_probe", err), true)
 	}
+	c.probeStage = "consumer_probe"
 	ids, err := c.Consumers(ctx)
 	stage := "consumer_probe"
 	if err == nil {
 		stage = "permit"
+		c.probeStage = stage
 		args := []any{c.fingerprint, c.Guard.Fingerprint(), revision}
 		for _, id := range ids {
 			args = append(args, id)
@@ -130,7 +134,7 @@ func (c *Controller) Drain(ctx context.Context) error {
 	if err := c.Stop(ctx); err != nil {
 		return err
 	}
-	if err := c.Audit(Event{
+	if err := c.audit(ctx, Event{
 		Kind: "feishu_safety_drain", Reason: "graceful_fenced_departure",
 		WorkerID: c.Config.WorkerID, Fenced: true,
 	}); err != nil {

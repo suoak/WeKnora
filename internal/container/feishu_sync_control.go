@@ -139,7 +139,7 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 		}
 		// The default sink is durable Redis audit plus structured application logs.
 		// It is not a claim of external paging/online health monitoring.
-		auditCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+		auditCtx, cancel := context.WithTimeout(event.Context(), time.Second)
 		defer cancel()
 		return rdb.XAdd(auditCtx, &redis.XAddArgs{
 			Stream: strings.TrimSuffix(guard.PermitKey(), "permit") + "events", MaxLen: 1000, Approx: true,
