@@ -29,6 +29,11 @@ type FeishuBatchItem struct {
 	Canonical         string     `                  json:"-"`
 	Status            string     `                  json:"status"`
 	ErrorCategory     string     `                  json:"error_category,omitempty"`
+	ProviderCode      int        `gorm:"-"          json:"provider_code,omitempty"`
+	Operation         string     `gorm:"-"          json:"operation,omitempty"`
+	Retryable         bool       `gorm:"-"          json:"retryable"`
+	UserAction        string     `gorm:"-"          json:"user_action,omitempty"`
+	RequestIDHash     string     `gorm:"-"          json:"request_id_hash,omitempty"`
 	ImportID          string     `                  json:"import_id,omitempty"`
 	RetryCount        int        `                  json:"retry_count"`
 	LeaseOwner        string     `                  json:"-"`
