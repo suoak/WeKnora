@@ -26,13 +26,7 @@ import (
 // Actual Wiki/Drive HTTP connector -> ProcessSync -> private parser/index ->
 // atomic publish. Only the remote Feishu server and embedding endpoint are
 // synthetic; this is not evidence of real Feishu cloud permission validation.
-func exerciseLegacyHTTPConnector(
-	t *testing.T,
-	db *gorm.DB,
-	ks *knowledgeService,
-	tenant uint64,
-	kbID, kind string,
-) {
+func exerciseLegacyHTTPConnector(t *testing.T, db *gorm.DB, ks *knowledgeService, tenant uint64, kbID, kind string) {
 	t.Helper()
 	t.Setenv("FEISHU_DOCX_PARSE_MODE", "blocks")
 	var revision atomic.Int64
@@ -61,16 +55,7 @@ func exerciseLegacyHTTPConnector(
 			if kind == "feishu" {
 				rows := []core.WikiNode{}
 				if !missing.Load() {
-					rows = append(
-						rows,
-						core.WikiNode{
-							NodeToken:   "http-document",
-							ObjToken:    "http-object",
-							ObjType:     "docx",
-							Title:       "synthetic HTTP",
-							ObjEditTime: strconv.FormatInt(revision.Load(), 10),
-						},
-					)
+					rows = append(rows, core.WikiNode{NodeToken: "http-document", ObjToken: "http-object", ObjType: "docx", Title: "synthetic HTTP", ObjEditTime: strconv.FormatInt(revision.Load(), 10)})
 				}
 				write(core.WikiNodeListResponse{Data: core.WikiNodeListData{Items: rows}})
 			} else {
@@ -84,99 +69,34 @@ func exerciseLegacyHTTPConnector(
 		}
 		if strings.Contains(r.URL.Path, "/blocks") {
 			blocks.Add(1)
-			write(
-				core.DocxBlocksResponse{
-					Data: core.DocxBlocksData{
-						Items: []core.DocxBlock{
-							{BlockID: "page", BlockType: core.BlockTypePage, Children: []string{"text"}},
-							{
-								BlockID:   "text",
-								ParentID:  "page",
-								BlockType: core.BlockTypeText,
-								Text: &core.BlockText{
-									Elements: []core.TextElement{
-										{TextRun: &core.TextRun{Content: body.Load().(string)}},
-									},
-								},
-							},
-						},
-					},
-				},
-			)
+			write(core.DocxBlocksResponse{Data: core.DocxBlocksData{Items: []core.DocxBlock{{BlockID: "page", BlockType: core.BlockTypePage, Children: []string{"text"}}, {BlockID: "text", ParentID: "page", BlockType: core.BlockTypeText, Text: &core.BlockText{Elements: []core.TextElement{{TextRun: &core.TextRun{Content: body.Load().(string)}}}}}}}})
 			return
 		}
 		http.NotFound(w, r)
 	}))
 	defer server.Close()
-	region := core.Region{
-		ConnectorType: kind,
-		OpenBaseURL:   server.URL,
-		WebBaseURL:    server.URL,
-		Label:         "SyntheticHTTP",
-	}
+	region := core.Region{ConnectorType: kind, OpenBaseURL: server.URL, WebBaseURL: server.URL, Label: "SyntheticHTTP"}
 	registry := datasource.NewConnectorRegistry()
 	if kind == "feishu" {
 		require.NoError(t, registry.Register(wiki.NewConnector(region)))
 	} else {
 		require.NoError(t, registry.Register(drive.NewDriveConnector(region)))
 	}
-	config := types.DataSourceConfig{
-		Type: kind,
-		Credentials: map[string]interface{}{
-			"app_id":     "synthetic",
-			"app_secret": "synthetic-not-a-secret",
-			"base_url":   server.URL,
-		},
-		ResourceIDs: []string{"root"},
-	}
+	config := types.DataSourceConfig{Type: kind, Credentials: map[string]interface{}{"app_id": "synthetic", "app_secret": "synthetic-not-a-secret", "base_url": server.URL}, ResourceIDs: []string{"root"}}
 	encoded, e := config.ToJSON()
 	require.NoError(t, e)
-	ds := &types.DataSource{
-		ID:              uuid.NewString(),
-		TenantID:        tenant,
-		KnowledgeBaseID: kbID,
-		Name:            "HTTP fixture",
-		Type:            kind,
-		Status:          "active",
-		Config:          encoded,
-		SyncMode:        types.SyncModeIncremental,
-	}
+	ds := &types.DataSource{ID: uuid.NewString(), TenantID: tenant, KnowledgeBaseID: kbID, Name: "HTTP fixture", Type: kind, Status: "active", Config: encoded, SyncMode: types.SyncModeIncremental}
 	require.NoError(t, db.Create(ds).Error)
-	svc := &DataSourceService{
-		dsRepo:            repository.NewDataSourceRepository(db),
-		syncLogRepo:       repository.NewSyncLogRepository(db),
-		knowledgeService:  ks,
-		kbService:         ks.kbService,
-		tenantRepo:        repository.NewTenantRepository(db),
-		tagService:        &legacyNoAutoTag{},
-		connectorRegistry: registry,
-	}
+	svc := &DataSourceService{dsRepo: repository.NewDataSourceRepository(db), syncLogRepo: repository.NewSyncLogRepository(db), knowledgeService: ks, kbService: ks.kbService, tenantRepo: repository.NewTenantRepository(db), tagService: &legacyNoAutoTag{}, connectorRegistry: registry}
 	run := func(full bool) error {
-		log := &types.SyncLog{
-			ID:           uuid.NewString(),
-			TenantID:     tenant,
-			DataSourceID: ds.ID,
-			Status:       types.SyncLogStatusRunning,
-		}
+		log := &types.SyncLog{ID: uuid.NewString(), TenantID: tenant, DataSourceID: ds.ID, Status: types.SyncLogStatusRunning}
 		require.NoError(t, db.Create(log).Error)
-		payload, _ := json.Marshal(
-			types.DataSourceSyncPayload{
-				TenantID:     tenant,
-				DataSourceID: ds.ID,
-				SyncLogID:    log.ID,
-				ForceFull:    full,
-			},
-		)
+		payload, _ := json.Marshal(types.DataSourceSyncPayload{TenantID: tenant, DataSourceID: ds.ID, SyncLogID: log.ID, ForceFull: full})
 		return svc.ProcessSync(context.Background(), asynq.NewTask("datasource:sync", payload))
 	}
 	require.NoError(t, run(false))
 	var kid string
-	require.NoError(
-		t,
-		db.Raw("SELECT id FROM knowledges WHERE metadata->>'datasource_id'=? AND metadata->>'external_id'='http-document'", ds.ID).
-			Scan(&kid).
-			Error,
-	)
+	require.NoError(t, db.Raw("SELECT id FROM knowledges WHERE metadata->>'datasource_id'=? AND metadata->>'external_id'='http-document'", ds.ID).Scan(&kid).Error)
 	require.NotEmpty(t, kid)
 	seen := blocks.Load()
 	require.NoError(t, run(false))
@@ -185,18 +105,10 @@ func exerciseLegacyHTTPConnector(
 	body.Store("httpnewcanary updated Feishu content")
 	require.NoError(t, run(false))
 	var savedKID string
-	require.NoError(
-		t,
-		db.Raw("SELECT id FROM knowledges WHERE metadata->>'datasource_id'=?", ds.ID).Scan(&savedKID).Error,
-	)
+	require.NoError(t, db.Raw("SELECT id FROM knowledges WHERE metadata->>'datasource_id'=?", ds.ID).Scan(&savedKID).Error)
 	require.Equal(t, kid, savedKID)
 	var count int64
-	require.NoError(
-		t,
-		db.Raw("SELECT count(*) FROM embeddings WHERE knowledge_id=? AND content ||| 'httpnewcanary'", kid).
-			Scan(&count).
-			Error,
-	)
+	require.NoError(t, db.Raw("SELECT count(*) FROM embeddings WHERE knowledge_id=? AND content ||| 'httpnewcanary'", kid).Scan(&count).Error)
 	require.Positive(t, count)
 	var saved types.DataSource
 	require.NoError(t, db.First(&saved, "id=?", ds.ID).Error)

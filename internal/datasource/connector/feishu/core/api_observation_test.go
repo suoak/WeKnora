@@ -79,7 +79,7 @@ func TestScopeAndExportDenialsNeverRefreshOrChangeIdentity(t *testing.T) {
 	for _, code := range []int{99991672, 99991676, 99991679, 1069902} {
 		t.Run(fmt.Sprint(code), func(t *testing.T) {
 			calls := 0
-			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				calls++
 				w.WriteHeader(http.StatusForbidden)
 				_, _ = fmt.Fprintf(

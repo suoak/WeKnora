@@ -25,6 +25,9 @@ import (
 )
 
 func mask(value string) string {
+	if value == "" {
+		return ""
+	}
 	digest := sha256.Sum256([]byte(value))
 	return hex.EncodeToString(digest[:])[:12]
 }
@@ -73,7 +76,6 @@ func run() error {
 	if json.Unmarshal([]byte(plain), &cfg) != nil || cfg.AppID != connection.AppID {
 		return errors.New("application_identity_mismatch")
 	}
-	plain = ""
 	var grant struct {
 		Scope string `json:"scope"`
 	}
@@ -81,7 +83,6 @@ func run() error {
 	if err != nil || json.Unmarshal([]byte(grantPlain), &grant) != nil {
 		return errors.New("grant_unreadable")
 	}
-	grantPlain = ""
 	result := map[string]any{
 		"status": "DIAGNOSTIC_ONLY", "at": time.Now().UTC(),
 		"identity": "existing_personal_oauth", "access_expired_before": !connection.ExpiresAt.After(time.Now()),
@@ -103,6 +104,13 @@ func run() error {
 		result["requests"] = observations
 		return json.NewEncoder(os.Stdout).Encode(result)
 	}
+	var refreshed types.FeishuConnection
+	if db.Where("user_id = ?", user.ID).First(&refreshed).Error != nil {
+		return errors.New("refreshed_connection_unavailable")
+	}
+	result["access_valid_after_refresh"] = refreshed.ExpiresAt.After(time.Now())
+	result["refresh_valid_after_refresh"] = refreshed.RefreshExpiresAt.After(time.Now())
+	result["connection_updated_at"] = refreshed.UpdatedAt
 	ctx = core.WithUserIdentity(ctx, func(ctx context.Context) (string, error) {
 		return svc.UserToken(ctx, user.ID, connection.AppID, connection.OpenID)
 	})
@@ -139,6 +147,10 @@ func run() error {
 		if mask(item.KnowledgeID) != "070925df4104" && item.ID != failedImport {
 			continue
 		}
+		if item.AppID != connection.AppID || item.OpenID != connection.OpenID ||
+			(item.AuthMode != "" && item.AuthMode != types.FeishuUserOAuth) {
+			return errors.New("source_not_bound_to_current_personal_identity")
+		}
 		var kb types.KnowledgeBase
 		if db.Where("id = ? AND name = ? AND deleted_at IS NULL", item.KBID, "test001").
 			First(&kb).
@@ -152,6 +164,8 @@ func run() error {
 			"previous_status": item.Status,
 			"knowledge_hash":  mask(item.KnowledgeID),
 		}
+		doc["same_personal_identity"] = true
+		doc["revision_hash"] = mask(item.SourceModified)
 		resource, fetchErr := core.ParsePersonalResourceURL(item.URL)
 		if fetchErr == nil {
 			resource, fetchErr = client.ResolvePersonalResource(ctx, resource)
@@ -194,9 +208,10 @@ func safeError(err error) any {
 		}
 	}
 	for name, target := range map[string]error{
-		"refresh_expired":  service.ErrFeishuRefreshExpired,
-		"refresh_rejected": service.ErrFeishuRefreshRejected, "oauth_app_configuration": service.ErrFeishuOAuthConfiguration,
-		"reconnect_required": service.ErrFeishuReconnect,
+		"refresh_expired":         service.ErrFeishuRefreshExpired,
+		"refresh_rejected":        service.ErrFeishuRefreshRejected,
+		"oauth_app_configuration": service.ErrFeishuOAuthConfiguration,
+		"reconnect_required":      service.ErrFeishuReconnect,
 	} {
 		if errors.Is(err, target) {
 			return name

@@ -454,11 +454,13 @@ func (c *Client) doRequestBytesWithOptions(
 		}
 		RecordAPIObservation(ctx, APIObservation{
 			Operation: operation, Category: apiErr.Category,
-			HTTPStatus: apiErr.HTTPStatus, Code: apiErr.Code, RequestID: apiErr.RequestID, RequiredScopes: apiErr.Scopes,
+			HTTPStatus: apiErr.HTTPStatus, Code: apiErr.Code,
+			RequestID: apiErr.RequestID, RequiredScopes: apiErr.Scopes,
 		})
 		if authenticated && personal && !application && refreshHint == "" &&
 			apiErr.Category == ErrorCategoryAuth && attempt < c.retry.maxRetries &&
-			(apiErr.Code == 99991663 || apiErr.Code == 99991668 || apiErr.Code == 99991677 || apiErr.HTTPStatus == 401) {
+			(apiErr.Code == 99991663 || apiErr.Code == 99991668 ||
+				apiErr.Code == 99991677 || apiErr.HTTPStatus == 401) {
 			refreshHint, rejectedTokenError = tokenFingerprint(token), err
 			continue // one persisted, same-user refresh; never a tenant-token fallback
 		}
@@ -1030,10 +1032,7 @@ func (c *Client) listDriveFiles(
 // only returns the folder's children, not the folder itself.
 //
 // GET /open-apis/drive/explorer/v2/folder/:folderToken/meta
-func (c *Client) GetDriveFolderMeta(
-	ctx context.Context,
-	folderToken string,
-) (driveFolderMetaResponse, error) {
+func (c *Client) GetDriveFolderMeta(ctx context.Context, folderToken string) (driveFolderMetaResponse, error) {
 	var resp driveFolderMetaResponse
 	if folderToken == "" {
 		return resp, fmt.Errorf("root folder not supported; specify a concrete folder_token")

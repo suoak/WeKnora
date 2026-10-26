@@ -5,12 +5,54 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
+	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
 )
+
+func TestFeishuRefreshRejectedGenerationUsesPersistedOwnerGrant(t *testing.T) {
+	s, _ := feishuFixture(t)
+	encrypted, err := sealFeishu(feishuTokens{UserID: "A", Access: "old-access", Refresh: "existing-refresh"})
+	require.NoError(t, err)
+	require.NoError(t, s.db.Create(&types.FeishuConnection{
+		UserID: "A", AppID: "cli_test", OpenID: "open-A",
+		Tokens: encrypted, ExpiresAt: time.Now().Add(time.Hour), RefreshExpiresAt: time.Now().Add(24 * time.Hour),
+	}).Error)
+	refreshes, requests := 0, 0
+	s.api = &http.Client{Transport: feishuTestTransport(func(*http.Request) (*http.Response, error) {
+		refreshes++
+		return feishuTokenResponse(), nil
+	})}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		if r.Header.Get("Authorization") == "Bearer old-access" {
+			_, _ = io.WriteString(w, `{"code":99991677}`)
+			return
+		}
+		require.Equal(t, "Bearer new-access", r.Header.Get("Authorization"))
+		_, _ = io.WriteString(w, `{"code":0}`)
+	}))
+	defer server.Close()
+	ctx := core.WithUserIdentity(personalUser("A"), func(ctx context.Context) (string, error) {
+		return s.UserToken(ctx, "A", "cli_test", "open-A")
+	})
+	err = core.NewClient(&core.Config{BaseURL: server.URL}).DoRequest(ctx, http.MethodGet, "/resource", nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, refreshes)
+	require.Equal(t, 2, requests)
+	token, err := s.UserToken(personalUser("A"), "A", "cli_test", "open-A")
+	require.NoError(t, err)
+	require.Equal(t, "new-access", token)
+	require.Equal(t, 1, refreshes)
+	_, err = s.UserToken(personalUser("B"), "A", "cli_test", "open-A")
+	require.Error(t, err)
+	require.Equal(t, 1, refreshes)
+}
 
 func TestFeishuRemoteFailureSeparatesScopeTokenAndExportStages(t *testing.T) {
 	for operation, want := range map[string]string{
@@ -48,7 +90,10 @@ func TestFeishuOAuthRefreshFailuresKeepSafeRequestEvidence(t *testing.T) {
 		want     error
 		category core.ErrorCategory
 	}{
-		{`{"error":"invalid_grant","error_description":"sensitive"}`, 400, ErrFeishuRefreshRejected, core.ErrorCategoryAuth},
+		{
+			`{"error":"invalid_grant","error_description":"sensitive"}`,
+			400, ErrFeishuRefreshRejected, core.ErrorCategoryAuth,
+		},
 		{`{"error":"invalid_client"}`, 400, ErrFeishuOAuthConfiguration, core.ErrorCategoryAuth},
 		{`upstream unavailable`, 503, core.ErrTransient, core.ErrorCategoryTransient},
 		{`rate limited`, 429, core.ErrRateLimited, core.ErrorCategoryRateLimit},

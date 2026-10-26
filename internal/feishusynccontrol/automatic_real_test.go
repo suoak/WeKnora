@@ -17,7 +17,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func TestAutomaticRealConsumerChild(t *testing.T) {
+func TestAutomaticRealConsumerChild(_ *testing.T) {
 	if os.Getenv("FEISHU_CONTROL_CHILD") != "1" {
 		return
 	}

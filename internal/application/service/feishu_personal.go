@@ -481,7 +481,10 @@ func (s *FeishuPersonalService) oauthRequest(
 		category = core.ErrorCategoryAuth
 	}
 	oauthError := ""
-	for _, known := range []string{"invalid_grant", "invalid_client", "invalid_scope", "invalid_request", "temporarily_unavailable", "access_denied"} {
+	for _, known := range []string{
+		"invalid_grant", "invalid_client", "invalid_scope", "invalid_request",
+		"temporarily_unavailable", "access_denied",
+	} {
 		if token.Error == known {
 			oauthError = known
 		}
