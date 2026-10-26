@@ -81,7 +81,8 @@ func TestFeishuRemoteFailureSeparatesScopeTokenAndExportStages(t *testing.T) {
 	require.Equal(t, "refresh_token_expired", feishuRemoteFailureCategory(ErrFeishuRefreshExpired))
 	require.Equal(t, "refresh_rejected", feishuRemoteFailureCategory(ErrFeishuRefreshRejected))
 	require.Equal(t, "oauth_app_configuration", feishuRemoteFailureCategory(ErrFeishuOAuthConfiguration))
-	policy := errors.Join(core.ErrPersonalBlocksPolicyUnverified, &core.APIError{Category: core.ErrorCategoryPermission})
+	policy := errors.Join(core.ErrPersonalBlocksPolicyUnverified,
+		&core.APIError{Category: core.ErrorCategoryPermission})
 	require.Equal(t, "source_policy_verification_required", feishuRemoteFailureCategory(policy))
 	require.Equal(t, "source_policy_verification_required", feishuV2Error(policy))
 	require.Equal(t, "blocks_content_requires_review", feishuV2Error(core.ErrPersonalBlocksIncomplete))

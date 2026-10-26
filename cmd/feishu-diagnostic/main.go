@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -17,11 +16,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/application/service"
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/utils"
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	gormlog "gorm.io/gorm/logger"
@@ -188,7 +189,9 @@ func run() error {
 				doc["security_entity"] = policy
 			}
 			var data []byte
-			data, _, fetchErr = client.ExportAndDownload(ctx, resource.Token, resource.Type)
+			var name string
+			data, name, fetchErr = client.DownloadPersonalResource(ctx, resource)
+			doc["blocks_fallback_used"] = strings.HasSuffix(name, ".md")
 			if fetchErr == nil {
 				doc["export_bytes"] = len(data)
 				doc["export_sha256_prefix"] = mask(string(data))
@@ -245,6 +248,21 @@ func applicationScopes(ctx context.Context, cfg *service.FeishuAppConfig) error 
 }
 
 func safeError(err error) any {
+	var database *pgconn.PgError
+	if errors.As(err, &database) {
+		return map[string]string{"category": "database", "sqlstate": database.Code}
+	}
+	for name, target := range map[string]error{
+		"sharing_approval_required": service.ErrFeishuSharingApproval,
+		"forbidden":                 access.ErrForbidden, "unauthorized": access.ErrUnauthorized,
+		"source_policy_verification_required": core.ErrPersonalBlocksPolicyUnverified,
+		"blocks_content_requires_review":      core.ErrPersonalBlocksIncomplete,
+		"not_found":                           gorm.ErrRecordNotFound,
+	} {
+		if errors.Is(err, target) {
+			return name
+		}
+	}
 	var api *core.APIError
 	if errors.As(err, &api) {
 		return core.APIObservation{
@@ -267,7 +285,11 @@ func safeError(err error) any {
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Fprintln(os.Stderr, "feishu_diagnostic_failed")
+		// Provider/DB text may contain sensitive resources; only a typed safe
+		// category is returned to the operator, never the raw error string.
+		_ = json.NewEncoder(os.Stdout).Encode(map[string]any{
+			"status": "BLOCKED", "error": safeError(err),
+		})
 		os.Exit(1)
 	}
 }

@@ -50,8 +50,8 @@ try:
   '--memory','768m','--cpus','1','--pids-limit','128','--tmpfs','/tmp:rw,nosuid,nodev,size=32m',
   '--volume',str(binary)+':/diagnostic:ro','--entrypoint','/diagnostic',app['Image']]
  p=subprocess.run(args,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,timeout=270)
- if p.returncode:raise ValueError('personal_export_diagnostic_failed')
  lines=[v for v in p.stdout.splitlines() if v.startswith('{')]
+ if p.returncode and len(lines)!=1:raise ValueError('personal_export_diagnostic_failed')
  if len(lines)!=1:raise ValueError('diagnostic_receipt_missing')
  result=json.loads(lines[0]);result['diagnostic_source_sha']=SHA;result['binary_sha256']=digest
  print(json.dumps(result))

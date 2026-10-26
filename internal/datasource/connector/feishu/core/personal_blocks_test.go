@@ -39,13 +39,14 @@ func TestPersonalBlocksFallbackRequiresSourcePermissionAndCompleteBody(t *testin
 				case "/open-apis/drive/v1/permissions/real/members/auth":
 					calls = append(calls, "permission")
 					permissionCalls++
-					allowed := !(scenario == "export_denied" && r.URL.Query().Get("action") == "export") &&
-						!(scenario == "permission_revoked" && permissionCalls > 2)
+					allowed := (scenario != "export_denied" || r.URL.Query().Get("action") != "export") &&
+						(scenario != "permission_revoked" || permissionCalls <= 2)
 					value = map[string]any{"code": 0, "data": map[string]any{"auth_result": allowed}}
-					if scenario == "policy_scope_missing" {
+					switch scenario {
+					case "policy_scope_missing":
 						w.WriteHeader(400)
 						value = map[string]any{"code": 99991679}
-					} else if scenario == "policy_field_missing" {
+					case "policy_field_missing":
 						value = map[string]any{"code": 0, "data": map[string]any{}}
 					}
 				case "/open-apis/docx/v1/documents/real/blocks":
@@ -61,12 +62,13 @@ func TestPersonalBlocksFallbackRequiresSourcePermissionAndCompleteBody(t *testin
 							"text_run": map[string]any{"content": "Readable authorized text"},
 						}}},
 					}
-					if scenario == "image" {
+					switch scenario {
+					case "image":
 						paragraph = map[string]any{
 							"block_id": "paragraph", "block_type": 27,
 							"image": map[string]any{"token": "image-token"},
 						}
-					} else if scenario == "unknown_inline" {
+					case "unknown_inline":
 						paragraph["text"] = map[string]any{"elements": []any{map[string]any{
 							"equation": map[string]any{"content": "x^2"},
 						}}}

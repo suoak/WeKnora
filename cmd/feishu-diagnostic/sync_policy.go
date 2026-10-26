@@ -51,7 +51,7 @@ func syncPublicationPolicies(
 			}
 			return nil
 		}); err != nil {
-			return errors.New("policy_enrollment_refused")
+			return err
 		}
 	}
 	var receipts []map[string]any
