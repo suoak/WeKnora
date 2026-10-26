@@ -486,8 +486,13 @@ func (s *wikiPageService) GetIndexView(
 	limit int,
 	cursor string,
 ) (*types.WikiIndexResponse, error) {
-	indexPage, err := s.GetIndex(ctx, kbID)
-	if err != nil {
+	// Reading the directory must not initialize a persistent index. A new
+	// unproved row would change the Wiki epoch underneath an active generation
+	// and block its next retry. Only the generation worker creates the index.
+	indexPage, err := s.repo.GetBySlug(ctx, kbID, "index")
+	if errors.Is(err, repository.ErrWikiPageNotFound) {
+		indexPage = &types.WikiPage{}
+	} else if err != nil {
 		return nil, fmt.Errorf("load index page: %w", err)
 	}
 

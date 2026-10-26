@@ -730,6 +730,27 @@ func wikiIngestCleanupContext(ctx context.Context) (context.Context, context.Can
 	return context.WithTimeout(context.WithoutCancel(ctx), wikiIngestCleanupTimeout)
 }
 
+// Publishing proved pages revalidates their input closure on every write.
+// It is normal post-processing, not the ten-second emergency claim cleanup.
+// Give larger batches a bounded budget without inheriting an expired model
+// call context; claim release and queue cleanup keep their short timeout.
+func wikiIngestPostProcessContext(ctx context.Context, pages int) (context.Context, context.CancelFunc) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	const base = 30 * time.Second
+	const maximum = 10 * time.Minute
+	timeout := base
+	if pages > 0 {
+		if pages >= int((maximum-base)/(2*time.Second)) {
+			timeout = maximum
+		} else {
+			timeout += time.Duration(pages) * 2 * time.Second
+		}
+	}
+	return context.WithTimeout(context.WithoutCancel(ctx), timeout)
+}
+
 func (s *wikiIngestService) clearDeletedKnowledgeBasePendingOps(ctx context.Context, kbID string) error {
 	cleaner, ok := s.pendingRepo.(interfaces.TaskPendingOpsScopeCleaner)
 	if !ok || kbID == "" {
