@@ -54,6 +54,9 @@ items=rows('feishu_import_batch_items',['id','batch_id','ordinal','status','erro
 iids=','.join(quoted(r['import_id']) for r in items if r.get('import_id')) or "''"
 imports=rows('feishu_personal_imports',['id','kb_id','knowledge_id','resource_type','status','updated_at','error_category'], 'id IN ('+iids+')')
 canonical_count=query('SELECT to_json(count(DISTINCT (resource_type,document_token))) FROM feishu_personal_imports WHERE id IN ('+iids+')')
+resource_states=rows('feishu_personal_resources',['import_id','logical_knowledge_id','active_version_id','candidate_version_id','current_attempt_id','generation'],'import_id IN ('+iids+')')
+sources=rows('data_sources',['id','knowledge_base_id','type','status','legacy_access_state','sync_mode','sync_schedule','last_sync_at','updated_at'],'id IN ('+iids+')')
+cursor_checks=query("SELECT coalesce(json_agg(q),'[]') FROM (SELECT id,last_sync_cursor IS NOT NULL AND last_sync_cursor::text NOT IN ('null','{}','') AS has_cursor FROM data_sources WHERE id IN ("+iids+")) q")
 kb_list=','.join(quoted(v['kb_id']) for v in imports) or "''"
 wiki_configuration=query("SELECT coalesce(json_agg(q),'[]') FROM (SELECT id AS kb_id,coalesce((indexing_strategy->>'wiki_enabled')::boolean,false) AS wiki_enabled FROM knowledge_bases WHERE id IN ("+kb_list+") ) q")
 targets=query("SELECT coalesce(json_agg(q),'[]') FROM (SELECT kb.id,kb.tenant_id,kb.creator_id,"+
@@ -75,6 +78,7 @@ attempts=rows('feishu_personal_attempts',['id','import_id','logical_knowledge_id
 kids=sorted({r.get('knowledge_id') for r in imports if r.get('knowledge_id')}|{r.get('logical_knowledge_id') for r in attempts if r.get('logical_knowledge_id')})
 kids=sorted(set(kids)|{r.get('candidate_version_id') for r in attempts if r.get('candidate_version_id')})
 klist=','.join(quoted(x) for x in kids) or "''"
+processing_stages=rows('knowledge_processing_spans',['knowledge_id','attempt','kind','name','status','error_code','started_at','finished_at','duration_ms'],"knowledge_id IN ("+klist+") AND kind IN ('root','stage') ORDER BY attempt DESC,id DESC")
 knowledge=rows('knowledges',['id','knowledge_base_id','parse_status','enable_status','summary_status','created_at','updated_at','process_started_at','process_completed_at'], 'id IN ('+klist+')')
 ops=rows('task_pending_ops',['id','scope','scope_id','task_type','op','fail_count','enqueued_at','claimed_at'], 'scope_id IN ('+klist+')'+(' OR '+ ' OR '.join("payload::text LIKE '%"+x+"%'" for x in kids) if kids else ''))
 chunks=query('SELECT coalesce(json_agg(q),\'[]\') FROM (SELECT knowledge_id,count(*) AS count FROM chunks WHERE knowledge_id IN ('+klist+') GROUP BY knowledge_id) q')
@@ -86,6 +90,133 @@ for kid in sorted({r.get('knowledge_id') for r in imports if r.get('knowledge_id
   count=query("SELECT to_json(count(*)) FROM embeddings WHERE knowledge_id="+quoted(kid)+" AND content ||| '"+term+"'")
   bm25.append({'knowledge_id':kid,'matching_index_rows':count,'status':'PASS' if count else 'NO_MATCH'})
  else:bm25.append({'knowledge_id':kid,'status':'NO_SAFE_QUERY_TERM'})
+table_audit=[];table_query_cases=[]
+if XLSX_AUDIT:
+ import io,zipfile,xml.etree.ElementTree as ET
+ environment=dict(line.split('=',1) for line in (site/'app.env').read_text().splitlines() if '=' in line)
+ staging=pathlib.PurePosixPath(environment['FEISHU_PERSONAL_STAGING_DIR'])
+ if not staging.is_absolute():raise ValueError('invalid_staging_root')
+ ns={'s':'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+ source_credential=None
+ connection=query("SELECT row_to_json(c) FROM (SELECT tokens,expires_at FROM feishu_connections WHERE user_id="+quoted(uid)+") c")
+ if connection and datetime.datetime.fromisoformat(connection['expires_at'])>datetime.datetime.now(datetime.timezone.utc):
+  import base64,urllib.request,urllib.error,urllib.parse
+  from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+  cipher=connection['tokens']
+  if not cipher.startswith('enc:v1:'):raise ValueError('encrypted_connection_required')
+  encrypted=base64.urlsafe_b64decode(cipher[7:]+'='*((-len(cipher[7:]))%4))
+  source_credential=json.loads(AESGCM(environment['SYSTEM_AES_KEY'].encode()).decrypt(encrypted[:12],encrypted[12:],None))
+  if source_credential.get('owner')!=uid:raise ValueError('connection_owner_mismatch')
+  class NoAuditRedirect(urllib.request.HTTPRedirectHandler):
+   def redirect_request(self,*args,**kwargs):return None
+  source_opener=urllib.request.build_opener(NoAuditRedirect())
+ def source_get(path,body=None):
+  if not source_credential:raise ValueError('authorization_expired_or_missing')
+  if not path.startswith('/open-apis/') or '#' in path:raise ValueError('unexpected_source_api')
+  headers={'Authorization':'Bearer '+source_credential['access_token']}
+  if body is not None:headers['Content-Type']='application/json'
+  request=urllib.request.Request('https://open.feishu.cn'+path,headers=headers,data=json.dumps(body).encode() if body is not None else None)
+  try:
+   with source_opener.open(request,timeout=20) as response:
+    content=response.read(4*1024*1024+1)
+    if len(content)>4*1024*1024:raise ValueError('source_response_limit')
+    result=json.loads(content)
+    if result.get('code')!=0:raise ValueError('feishu_api_code_'+str(int(result.get('code',-1))))
+    return result['data']
+  except urllib.error.HTTPError as failure:raise ValueError('feishu_http_'+str(failure.code))
+  except urllib.error.URLError:raise ValueError('source_network_failure')
+ def source_list(path):
+  result=[];page='';seen=set()
+  for iteration in range(20):
+   data=source_get(path+'?page_size=100'+('&page_token='+urllib.parse.quote(page,safe='') if page else ''))
+   result.extend(data['items'])
+   if not data.get('has_more'):
+    if data.get('total') is not None and len(result)!=data['total']:raise ValueError('source_count_changed')
+    return result
+   page=data.get('page_token')
+   if not page or page in seen:raise ValueError('source_pagination_invalid')
+   seen.add(page)
+  raise ValueError('source_page_limit')
+ for imported in imports:
+  if imported['resource_type'] not in ['sheet','bitable']:continue
+  related=[a for a in attempts if a['import_id']==imported['id']]
+  if len(related)!=1:raise ValueError('ambiguous_table_attempt')
+  attempt=related[0]
+  key=attempt['manifest_key'] or ''
+  if not re.fullmatch(r'[a-f0-9-]{36}/[a-f0-9-]{36}/[A-Za-z0-9_-]+',key):raise ValueError('unsafe_manifest_key')
+  directory=staging/key
+  def read_candidate(name):
+   response=subprocess.run(compose+['exec','-T','app','cat',str(directory/name)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=30)
+   if response.returncode or len(response.stdout)>50*1024*1024:raise ValueError('candidate_read_failed')
+   return response.stdout
+  manifest=json.loads(read_candidate('manifest.json'));data=read_candidate('content')
+  if manifest['attempt_id']!=attempt['id'] or manifest['candidate_id']!=attempt['candidate_version_id'] or manifest['import_id']!=imported['id']:raise ValueError('candidate_owner_mismatch')
+  if manifest.get('assets') or len(data)!=manifest['size'] or hashlib.sha256(data).hexdigest()!=manifest['sha256']:raise ValueError('candidate_integrity_mismatch')
+  parsed=rows('chunks',['content','metadata'],'knowledge_id='+quoted(imported['knowledge_id'])+' AND deleted_at IS NULL ORDER BY chunk_index')
+  joined='\n'.join(str(c.get('content') or '') for c in parsed)
+  sheets=[]
+  with zipfile.ZipFile(io.BytesIO(data)) as archive:
+   if sum(i.file_size for i in archive.infolist())>100*1024*1024:raise ValueError('workbook_expanded_limit')
+   strings=[]
+   if 'xl/sharedStrings.xml' in archive.namelist():
+    strings=[''.join(t.text or '' for t in el.findall('.//s:t',ns)) for el in ET.fromstring(archive.read('xl/sharedStrings.xml')).findall('s:si',ns)]
+   names=sorted(n for n in archive.namelist() if re.fullmatch(r'xl/worksheets/sheet[0-9]+\.xml',n))
+   for ordinal,name in enumerate(names):
+    workbook_rows=[];formula_count=0
+    for row in ET.fromstring(archive.read(name)).findall('.//s:sheetData/s:row',ns):
+     cells=[]
+     for cell in row.findall('s:c',ns):
+      value=cell.find('s:v',ns);text=value.text if value is not None else ''
+      if cell.get('t')=='s':text=strings[int(text)] if text else ''
+      if cell.get('t')=='inlineStr':text=''.join(t.text or '' for t in cell.findall('.//s:t',ns))
+      if cell.find('s:f',ns) is not None:formula_count+=1
+      if text and text.strip():cells.append(text.strip())
+     if cells:workbook_rows.append(cells)
+    headers=workbook_rows[0] if workbook_rows else []
+    for row_ordinal,row_values in enumerate(workbook_rows[1:2],1):
+     comparable=[v for v in row_values if len(v.strip())>=2 and not re.search(r'https?://',v)]
+     if len(comparable)>=2:
+      table_query_cases.append({'kid':imported['knowledge_id'],'kb':imported['kb_id'],'sheet_ordinal':ordinal,'row_ordinal':row_ordinal,'query':comparable[0][:60],'expected':comparable[1:3]})
+    values=[v for row in workbook_rows[1:] for v in row if len(v)>=2]
+    sheets.append({'sheet_ordinal':ordinal,'nonempty_rows':len(workbook_rows),'header_cells':len(headers),'nonempty_data_cells':sum(len(r) for r in workbook_rows[1:]),'formula_cells':formula_count,'header_values_found_in_chunks':sum(v in joined for v in headers),'comparable_values':len(values),'values_found_in_chunks':sum(v in joined for v in values)})
+  row_metadata=sum(bool((c.get('metadata') or {}).get('parser.row')) for c in parsed if isinstance(c.get('metadata'),dict))
+  source_audit={}
+  try:
+   identity=query('SELECT row_to_json(x) FROM (SELECT document_token,source_modified FROM feishu_personal_imports WHERE id='+quoted(imported['id'])+') x')
+   token=identity['document_token']
+   if not re.fullmatch('[A-Za-z0-9]+',token):raise ValueError('invalid_source_identity')
+   def metadata_revision():
+    metadata=source_get('/open-apis/drive/v1/metas/batch_query',{'request_docs':[{'doc_token':token,'doc_type':imported['resource_type']}],'with_url':False})
+    if metadata.get('failed_list') or len(metadata.get('metas',[]))!=1:raise ValueError('source_metadata_unconfirmed')
+    value=metadata['metas'][0]
+    if value['doc_token']!=token or value['doc_type']!=imported['resource_type']:raise ValueError('source_metadata_identity_changed')
+    return value['latest_modify_time']
+   before_revision=metadata_revision()
+   if imported['resource_type']=='bitable':
+    base='/open-apis/bitable/v1/apps/'+token+'/tables'
+    tables=source_list(base);source_tables=[]
+    for index,table in enumerate(tables):
+     table_id=table['table_id']
+     if not re.fullmatch('[A-Za-z0-9]+',table_id):raise ValueError('invalid_table_identity')
+     fields=source_list(base+'/'+table_id+'/fields');records=source_list(base+'/'+table_id+'/records')
+     relationships=[f for f in fields if f.get('type') in [18,21]]
+     source_tables.append({'table_ordinal':index,'field_count':len(fields),'record_count':len(records),'relation_fields':len(relationships),'fields_with_stable_id':sum(bool(f.get('field_id')) for f in fields),'records_with_stable_id':sum(bool(r.get('record_id')) for r in records),'relation_properties_in_chunks':sum(bool(f.get('property')) and json.dumps(f['property'],ensure_ascii=False) in joined for f in relationships)})
+    source_audit={'status':'READ_SUCCESS','tables':source_tables,'xlsx_alone_proves_stable_source_identity_storage':False}
+   else:
+    response=source_get('/open-apis/sheets/v3/spreadsheets/'+token+'/sheets/query')
+    source_audit={'status':'READ_SUCCESS','sheet_count':len(response['sheets']),'grid_cells':sum(s.get('grid_properties',{}).get('row_count',0)*s.get('grid_properties',{}).get('column_count',0) for s in response['sheets'])}
+   after_revision=metadata_revision()
+   source_audit['revision_unchanged_during_audit']=before_revision==after_revision
+   source_audit['revision_matches_import']=str(before_revision)==str(identity['source_modified'])
+  except ValueError as error:source_audit={'status':'UNCONFIRMED','error_category':str(error)}
+  table_audit.append({'knowledge_id':mask(imported['knowledge_id']),'resource_type':imported['resource_type'],'candidate_integrity':'PASS','export_bytes':len(data),'sheets':sheets,'source_api':source_audit,'chunks_examined':len(parsed),'chunk_sample_limit':100,'chunks_with_row_metadata':row_metadata,'scope':'exported_workbook_to_chunks_and_readonly_source_inventory'})
+ if source_credential:source_credential.clear()
+ environment.clear()
+ path=site/'real-table-query-cases.json'
+ if path.is_symlink():raise ValueError('unexpected_query_case_path')
+ fd=__import__('os').open(str(path),__import__('os').O_WRONLY|__import__('os').O_CREAT|__import__('os').O_TRUNC,0o600)
+ with __import__('os').fdopen(fd,'w') as output:json.dump(table_query_cases,output)
+ path.chmod(0o600)
 if DB_ONLY:
  link_matches=[]
  if APPROVED_LINKS:
@@ -119,7 +250,7 @@ if DB_ONLY:
    admission.append({'service':service,'route_counts':{name:sum(bool(re.search(pattern,line)) for line in lines) for name,pattern in patterns.items()},'events':events,'failure_diagnostics':diagnostics,'scanned_lines':len(lines)})
  state={'user_id':uid,'batches':batches,'items':items,'imports':imports,'attempts':attempts,'knowledge':knowledge}
  path=site/'real-batch-readonly-state.json';path.write_text(json.dumps(state));path.chmod(0o600)
- print(json.dumps({'status':'READ_ONLY','approved_link_matches':link_matches,'admission_routes':admission,'approval_summary':approval_summary,'canonical_resource_count':canonical_count,
+ print(json.dumps({'status':'READ_ONLY','processing_stages':safe(processing_stages),'resource_states':safe(resource_states),'sources':safe(sources),'source_cursor_checks':safe(cursor_checks),'table_audit':table_audit,'approved_link_matches':link_matches,'admission_routes':admission,'approval_summary':approval_summary,'canonical_resource_count':canonical_count,
   'batches':safe(batches),'items':safe(items),'imports':safe(imports),'attempts':safe(attempts),
   'knowledge':safe(knowledge),'chunks':safe(chunks),'vectors':safe(vectors),'bm25':safe(bm25),'outbox':safe(ops)}))
  raise SystemExit(0)
@@ -260,6 +391,7 @@ def main():
     parser.add_argument('--test-username')
     parser.add_argument('--approved-links-file',type=Path)
     parser.add_argument('--db-only',action='store_true')
+    parser.add_argument('--xlsx-audit',action='store_true')
     parser.add_argument('--mode', choices=['prepare', 'apply', 'finish', 'status', 'rollback'], required=True)
     args = parser.parse_args()
     old, new = read_json(args.manifest), read_json(args.candidate_manifest)
@@ -286,7 +418,7 @@ def main():
                   'OLD_SHA': old['source_sha'], 'SHA': new['source_sha'], 'MODE': args.mode,
                   'GATES': read_json(args.release_gates) if args.release_gates else {}, 'TEST_USERNAME':args.test_username,
                   'APPROVED_LINKS':read_json(args.approved_links_file) if args.approved_links_file else [],
-                  'DB_ONLY':args.db_only}
+                  'DB_ONLY':args.db_only,'XLSX_AUDIT':args.xlsx_audit}
         guarded = 'try:\n' + textwrap.indent(REMOTE, ' ')
         guarded += "\nexcept Exception as error:\n print(json.dumps({'status':'BLOCKED','reason':str(error) if isinstance(error,ValueError) else 'isolated_upgrade_operation_failed','error_type':type(error).__name__}))\n raise SystemExit(2)\n"
         code = base64.b64encode(('\n'.join(k + '=' + repr(v) for k, v in values.items()) + '\n' + guarded).encode()).decode()

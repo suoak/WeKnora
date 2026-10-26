@@ -46,6 +46,8 @@ if MODE=='build' and not (work/'build.pid').exists():
  process=subprocess.Popen(['/bin/bash','-c',wrapper],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,stdin=subprocess.DEVNULL,start_new_session=True)
  (work/'build.pid').write_text(str(process.pid))
 result={'source_sha':SHA,'project':project,'host_ports_added':False,'scope':'existing_isolated_project_only'}
+incoming_archive=source.parent/'docreader-package/docreader-image.tar.gz'
+if MODE=='status' and incoming_archive.is_file() and not incoming_archive.is_symlink():result['received_archive_bytes']=incoming_archive.stat().st_size
 if MODE in ['build','status']:
  done=work/'build.exit'
  result['status']='NOT_STARTED' if not (work/'build.pid').exists() else 'BUILDING'
@@ -155,8 +157,17 @@ def main():
                 except OSError:
                     if not __import__('stat').S_ISDIR(transfer.lstat(directory).st_mode):
                         raise ValueError('unexpected_package_directory')
-                transfer.put(str(archive), directory + '/docreader-image.tar.gz')
-                transfer.chmod(directory + '/docreader-image.tar.gz', 0o600)
+                remote = directory + '/docreader-image.tar.gz'
+                try:
+                    existing = transfer.lstat(remote)
+                    if not __import__('stat').S_ISREG(existing.st_mode) or existing.st_size != archive.stat().st_size:
+                        raise ValueError('existing_package_payload_mismatch')
+                except FileNotFoundError:
+                    with transfer.open(remote, 'wx') as output, archive.open('rb') as incoming:
+                        output.set_pipelined(True)
+                        while part := incoming.read(1024 * 1024):
+                            output.write(part)
+                transfer.chmod(remote, 0o600)
             finally:
                 transfer.close()
         values = {'ROOT': str(PurePosixPath(base['source_directory']).parent), 'SOURCE': source['source_directory'],

@@ -1,0 +1,9 @@
+{
+  "source_sha": "b11a0b7f1d89cf8ec640bb4eb6c61322f1d47e37",
+  "target": "linux/amd64",
+  "qualification": "source_pinned_isolated_structured_docreader",
+  "image_id": "sha256:6bd74bcf12a2bf712b7747e25fa89cc18530b571e06b6f1a71b2ac7841ac0f63",
+  "archive_sha256": "8129219394664707463f1f8e907d8ced3a36d0ca39ae8355b1c7bc989e2dc7d9",
+  "archive_bytes": 1693142155,
+  "dockerfile_sha256": "5aa2d34d9701f005a4f5b6c8ebd842ffbf254649e3554c90939847b6fd2add49"
+}

@@ -44,6 +44,19 @@ def rpc(tenant,method,params):
    return response.status,result
  except urllib.error.HTTPError as error:return error.code,{}
 checks=[]
+case_path=site/'real-table-query-cases.json'
+table_cases=json.loads(case_path.read_text()) if case_path.is_file() and not case_path.is_symlink() else []
+def matching_rows(value,kid):
+ if isinstance(value,dict):
+  if value.get('knowledge_id')==kid:return [value]
+  result=[]
+  for child in value.values():result.extend(matching_rows(child,kid))
+  return result
+ if isinstance(value,list):return [row for child in value for row in matching_rows(child,kid)]
+ if isinstance(value,str) and value.lstrip().startswith(('{','[')):
+  try:return matching_rows(json.loads(value),kid)
+  except ValueError:return []
+ return []
 for tenant in tenants:
  status,result=rpc(tenant,'initialize',{'protocolVersion':'2024-11-05','capabilities':{},'clientInfo':{'name':'knowhub-real-owner-probe','version':'1'}})
  if status!=200 or result.get('error'):
@@ -57,11 +70,14 @@ for tenant in tenants:
    checks.append({'knowledge_id_hash':masked,'operation':'catalog','status':'OUT_OF_CREDENTIAL_SCOPE'});continue
   term=query("SELECT to_json(coalesce(substring(content from '[A-Za-z]{4,}'),substring(content from '[一-鿿]{2,8}'))) FROM embeddings WHERE knowledge_id='"+kid+"' AND content IS NOT NULL LIMIT 1")
   if not term or not re.fullmatch(r'[A-Za-z]{4,}|[\u4e00-\u9fff]{2,8}',term):raise ValueError('no_safe_search_term')
-  python_inputs.append({'tenant':tenant,'kid':kid,'kb':kb,'query':term})
-  for mode in ['keyword','semantic','hybrid']:
-   status,found=rpc(tenant,'tools/call',{'name':'search_knowledge','arguments':{'query':term,'mode':mode,'knowledge_base_ids':[kb],'limit':20}})
-   encoded=json.dumps(found)
-   checks.append({'knowledge_id_hash':masked,'operation':mode+'_search','http_status':status,'status':'PASS' if status==200 and kid in encoded and not found.get('error') and not found.get('result',{}).get('isError') else 'NO_AUTHORIZED_HIT'})
+  cases=[c for c in table_cases if c['kid']==kid] or [{'query':term,'expected':[]}]
+  for case_ordinal,case in enumerate(cases):
+   python_inputs.append({'tenant':tenant,'kid':kid,'kb':kb,'query':case['query'],'expected':case['expected'],'case_ordinal':case_ordinal})
+   for mode in ['keyword','semantic','hybrid']:
+    status,found=rpc(tenant,'tools/call',{'name':'search_knowledge','arguments':{'query':case['query'],'mode':mode,'knowledge_base_ids':[kb],'limit':20}})
+    hits=matching_rows(found,kid)
+    correct=any(all(v in json.dumps(hit,ensure_ascii=False) for v in case['expected']) for hit in hits)
+    checks.append({'knowledge_id_hash':masked,'case_ordinal':case_ordinal,'operation':mode+'_search','http_status':status,'authorized_source_hit':bool(hits),'expected_value_count':len(case['expected']),'same_hit_contains_expected_values':correct,'status':'PASS' if status==200 and correct and not found.get('error') and not found.get('result',{}).get('isError') else 'NO_CORRECT_AUTHORIZED_HIT'})
 logs={}
 for service in ['app','worker2']:
  p=subprocess.run(compose+['logs','--no-color','--since','5m','--tail','1500',service],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,timeout=20)
@@ -139,13 +155,22 @@ def python_adapter():
     sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'mcp-server'))
     import weknora_mcp_server as adapter
     payload=json.loads(sys.stdin.read(65536));checks=[]
+    def matching_rows(value,kid):
+        if isinstance(value,dict):
+            if value.get('knowledge_id')==kid:return [value]
+            return [row for child in value.values() for row in matching_rows(child,kid)]
+        if isinstance(value,list):return [row for child in value for row in matching_rows(child,kid)]
+        return []
     for row in payload['items']:
         adapter.WEKNORA_TENANT_ID=str(row['tenant'])
         adapter.client=adapter.WeKnoraClient('http://172.30.232.42/api/v1',payload['token'])
         try:
             result=adapter.hybrid_search(row['kb'],row['query'],vector_threshold=-1,keyword_threshold=0,match_count=20)
-            hit=row['kid'] in json.dumps(result)
+            hits=matching_rows(result,row['kid'])
+            hit=any(all(v in json.dumps(found,ensure_ascii=False) for v in row.get('expected',[])) for found in hits)
             checks.append({'knowledge_id_hash':hashlib.sha256(row['kid'].encode()).hexdigest()[:12],
+                'case_ordinal':row.get('case_ordinal'),'expected_value_count':len(row.get('expected',[])),
+                'same_hit_contains_expected_values':hit,
                 'status':'PASS' if hit else 'NO_AUTHORIZED_HIT'})
         except Exception as error:
             checks.append({'knowledge_id_hash':hashlib.sha256(row['kid'].encode()).hexdigest()[:12],
