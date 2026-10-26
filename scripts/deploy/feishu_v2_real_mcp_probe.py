@@ -42,7 +42,11 @@ def rpc(tenant,method,params):
    text=raw.decode()
    result=json.loads(text) if text.lstrip().startswith('{') else next(json.loads(line[5:].strip()) for line in text.splitlines() if line.startswith('data:'))
    return response.status,result
- except urllib.error.HTTPError as error:return error.code,{}
+ except urllib.error.HTTPError as error:
+  raw=error.read(8192).decode(errors='replace')
+  known=['personal MCP denied','personal MCP disabled','API key does not allow target workspace','owner is not an active workspace member',
+   'invalid API key','User MCP key service is not configured','Invalid target workspace ID']
+  return error.code,{'denial_category':next((value for value in known if value in raw),'unclassified_denial')}
 checks=[]
 case_path=site/'real-table-query-cases.json'
 table_cases=json.loads(case_path.read_text()) if case_path.is_file() and not case_path.is_symlink() else []
@@ -60,7 +64,8 @@ def matching_rows(value,kid):
 for tenant in tenants:
  status,result=rpc(tenant,'initialize',{'protocolVersion':'2024-11-05','capabilities':{},'clientInfo':{'name':'knowhub-real-owner-probe','version':'1'}})
  if status!=200 or result.get('error'):
-  checks.append({'operation':'initialize','http_status':status,'status':'DENIED'});continue
+  checks.append({'operation':'initialize','http_status':status,'status':'DENIED',
+   'denial_category':result.get('denial_category')});continue
  status,catalog=rpc(tenant,'tools/call',{'name':'list_knowledge_bases','arguments':{}})
  serialized=json.dumps(catalog)
  for kid,kb in kids.items():

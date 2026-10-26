@@ -86,6 +86,9 @@ containers=[];log_events=[]
 for name in ['app','worker2']:
  info=inspect(name);environment=dict(v.split('=',1) for v in info['Config']['Env'] if '=' in v)
  scope=environment.get('FEISHU_LEGACY_SYNC_ALLOWED_SOURCE_IDS','')
+ if name=='app':
+  callback_expiry=environment.get('FEISHU_TEST_HTTP_CALLBACK_EXPIRES_AT')
+  callback_scope_enabled=environment.get('FEISHU_PERSONAL_PERMISSION_AUTH_SCOPE_ENABLED')=='true'
  containers.append({'service':name,'container_hash':mask(info['Id']),'hostname_hash':mask(info['Config']['Hostname']),'started_at':info['State']['StartedAt'],'health':info['State'].get('Health',{}).get('Status'),'source_sha':info['Config']['Labels'].get('knowhub.source-sha'),'configured_worker_hash':mask(environment['FEISHU_SYNC_WORKER_ID']) if environment.get('FEISHU_SYNC_WORKER_ID') else None,'scope_hashes':[mask(v) for v in scope.split(',') if re.fullmatch('[a-f0-9-]{36}',v)],'scope_unrestricted':scope in ['','all'],'safety_mode':environment.get('FEISHU_SYNC_SAFETY_MODE'),'maintenance_concurrency':environment.get('WEKNORA_ASYNQ_MAINTENANCE_CONCURRENCY')})
  text=run(compose+['logs','--timestamps','--no-color','--since','2026-10-26T00:00:00Z',name])
  for line in text.splitlines():
@@ -130,6 +133,8 @@ telemetry['host_load']=pathlib.Path('/proc/loadavg').read_text().split()[:3]
 telemetry['cpu_pressure']=pathlib.Path('/proc/pressure/cpu').read_text() if pathlib.Path('/proc/pressure/cpu').is_file() else None
 telemetry['io_pressure']=pathlib.Path('/proc/pressure/io').read_text() if pathlib.Path('/proc/pressure/io').is_file() else None
 result['read_only_dependency_telemetry']=telemetry
+result['personal_authorization_configuration']={'http_callback_expires_at':callback_expiry,
+ 'permission_auth_scope_requested':callback_scope_enabled}
 connection.close();print(json.dumps(result))
 '''
 

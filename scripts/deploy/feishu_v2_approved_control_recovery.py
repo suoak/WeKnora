@@ -180,6 +180,15 @@ def publication_authority_receipts(rows):
  for row in values:row['source_hash']=mask(row.pop('id'))
  return values
 
+def personal_mcp_scope_receipts():
+ values=sql("SELECT coalesce(json_agg(q),'[]') FROM (SELECT k.id,k.scope_type,k.personal_scope_mode,"+
+  "k.capabilities,k.revoked_at IS NOT NULL AS revoked,k.expires_at<now() AS expired,"+
+  "(SELECT count(*) FROM api_key_tenant_scopes s WHERE s.api_key_id=k.id) AS tenant_scope_count "+
+  "FROM tenant_api_keys k JOIN users u ON u.id=k.owner_user_id WHERE u.username='test' "+
+  "ORDER BY k.id DESC LIMIT 10) q")
+ for row in values:row['key_hash']=mask(row.pop('id'))
+ return values
+
 def activity(rows):
  if not state or not state.get('resumed_at'):return []
  result=[]
@@ -403,6 +412,7 @@ result={'status':state['phase'] if state else 'NOT_PREPARED','at':utc(clock()),'
  'indexes':[dict(v,id=mask(v['id'])) for v in indexes(rows)],
  'cursor_receipts':cursor_receipts(rows),'sync_history':sync_history(rows),'approval_receipts':approval_receipts(rows),
  'publication_authority_receipts':publication_authority_receipts(rows),
+ 'personal_mcp_scope_receipts':personal_mcp_scope_receipts(),
  'activity_since_resume':activity(rows),
  'scope_edited':False,'cursor_reset':False,'budgets_reset':False,'publication_approval_written':False}
 connection.close();print(json.dumps(result))
