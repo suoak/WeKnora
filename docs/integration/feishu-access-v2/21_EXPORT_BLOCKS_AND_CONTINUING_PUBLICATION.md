@@ -38,7 +38,7 @@
 - 同账号对照 Docx 导出成功：创建与轮询 HTTP 200/code 0，下载 HTTP 206，4.485 秒。
 - 用户新增 Docx：Wiki/元数据 HTTP 200/code 0；创建导出任务 HTTP 403/code 1069902；接着 `check_personal_view_permission` HTTP 400/code 99991679。耗时 1.668 秒，没有调用 Blocks，没有创建 Knowledge。内部分类为 `source_policy_verification_required`。
 - 账号 access 曾过期，合法刷新成功，refresh 仍有效；故障不能归因于必须编辑或必须重新连接。
-- 当前应用 `docs:permission.member:auth` 只在 tenant 身份范围已发布，用户身份范围未发布。用户原 grant 含 `docx:document:readonly`、`docs:document:export` 等，但没有该权限。管理员需发布用户身份的 `docs:permission.member:auth`；部署端随后启用 `FEISHU_PERSONAL_PERMISSION_AUTH_SCOPE_ENABLED=true`，下一次正常用户授权才请求该 Scope。默认关闭以免未发布的 Scope 破坏既有连接入口。
+- 当前应用清单中 `docs:permission.member:auth` 返回 `grant_status=1, scope_type=tenant`；用户原 grant 含 `docx:document:readonly`、`docs:document:export` 等，但没有该权限。用户明确说明应用已开通、不需重新发布，17:50 复查也确认权限存在，不能把用户令牌缺 Scope 直接等同于应用未开通。下一步先核验个人授权请求及实际 grant，不再先要求重新发布。部署端 `FEISHU_PERSONAL_PERMISSION_AUTH_SCOPE_ENABLED=true` 可让下一次正常用户授权请求该 Scope；默认关闭以免未经验证的 Scope 影响既有连接入口。是否只需补一次用户授权仍需真实回调证明。
 
 官方[判断用户权限](https://open.feishu.cn/document/server-docs/docs/permission/permission-member/auth)支持用户身份并分别核验 view/export/copy 等动作；[创建导出任务](https://open.feishu.cn/document/server-docs/docs/drive-v1/export_task/create)接受 `docs:document:export` 或 `drive:export:readonly`。不能仅凭错误 1069902 或元数据可读断言文档所有者禁止导出；也不能以 Blocks 能返回数据推断源端允许复制发布。
 
