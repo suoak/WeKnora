@@ -12,7 +12,8 @@ import (
 
 func TestPersonalBlocksFallbackRequiresSourcePermissionAndCompleteBody(t *testing.T) {
 	for _, scenario := range []string{
-		"allowed", "export_denied", "copy_denied", "policy_scope_missing", "policy_field_missing", "permission_revoked",
+		"allowed", "view_denied", "export_denied", "copy_denied", "copy_and_export_denied",
+		"policy_scope_missing", "policy_field_missing", "permission_revoked",
 		"changed_revision", "image", "unknown_inline", "incomplete_page", "cycle", "transient_export",
 	} {
 		t.Run(scenario, func(t *testing.T) {
@@ -39,8 +40,11 @@ func TestPersonalBlocksFallbackRequiresSourcePermissionAndCompleteBody(t *testin
 				case "/open-apis/drive/v1/permissions/real/members/auth":
 					calls = append(calls, "permission")
 					permissionCalls++
-					allowed := (scenario != "export_denied" || r.URL.Query().Get("action") != "export") &&
-						(scenario != "copy_denied" || r.URL.Query().Get("action") != "copy") &&
+					action := r.URL.Query().Get("action")
+					allowed := (scenario != "view_denied" || action != "view") &&
+						(scenario != "export_denied" || action != "export") &&
+						(scenario != "copy_denied" || action != "copy") &&
+						(scenario != "copy_and_export_denied" || action == "view") &&
 						(scenario != "permission_revoked" || permissionCalls <= 3)
 					value = map[string]any{"code": 0, "data": map[string]any{"auth_result": allowed}}
 					switch scenario {
@@ -123,7 +127,8 @@ func TestPersonalBlocksFallbackRequiresSourcePermissionAndCompleteBody(t *testin
 				t.Fatal("unverified/partial content must never be returned as an import")
 			}
 			switch scenario {
-			case "export_denied", "copy_denied", "policy_scope_missing", "policy_field_missing", "transient_export":
+			case "view_denied", "export_denied", "copy_denied", "copy_and_export_denied",
+				"policy_scope_missing", "policy_field_missing", "transient_export":
 				if blockCalls != 0 {
 					t.Fatal("read route bypassed source permission or retry gate")
 				}

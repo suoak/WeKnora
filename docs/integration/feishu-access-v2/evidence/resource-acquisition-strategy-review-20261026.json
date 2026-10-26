@@ -1,0 +1,36 @@
+{
+  "status": "PASS",
+  "scope": "code_review_and_local_synthetic_regression_only",
+  "reviewed_branch_head": "fc4d740fbedcd8778d3071186d3be4859df9bdc8",
+  "upstream_reviewed_sha": "e1f9a6166a593a4804a2f99f1d942919c9cc8ea7",
+  "upstream_file_sha256": {
+    "shared.go": "bd74f658d4ecc308981a75ab5caf3a8f1290679ebc0e3b70fc20afae8c6d04a1",
+    "markdown.go": "6d2e8b9afd2c4d9f3dd0f1ac668a127881ea72a87b142124bf4cd6850f18b148",
+    "blocks.go": "3ffd047e9177c3e32447a7d9e6206ae1c1c957425d4c90c5f4e7adb64ead223f"
+  },
+  "passed_scenario_count": 14,
+  "passed_scenarios": [
+    "allowed",
+    "view_denied",
+    "export_denied",
+    "copy_denied",
+    "copy_and_export_denied",
+    "policy_scope_missing",
+    "policy_field_missing",
+    "permission_revoked",
+    "changed_revision",
+    "image",
+    "unknown_inline",
+    "incomplete_page",
+    "cycle",
+    "transient_export"
+  ],
+  "failed_scenarios": [],
+  "package_elapsed_seconds": 2.004,
+  "runtime_permission_gate_changed": false,
+  "copy_only_policy_enabled": false,
+  "known_copy_and_export_denied_document_fetched": false,
+  "existing_sources_reconfigured": false,
+  "sync_stop_latch_modified": false,
+  "deployment_performed": false
+}
