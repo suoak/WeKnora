@@ -75,3 +75,11 @@
 [真实 MCP 回执](evidence/export-blocks-release-mcp-denied-20261026.json)中，Go MCP 初始化返回 `403 / personal MCP denied`；Python 依赖该合法入口，没有可执行检索用例，不能将空列表记为通过。代码 `PortalMCPResolver` 对受限来源跳过整个相关 KB；所有剩余可检索目标均被来源门禁排除时拒绝初始化，与本次两个相关 KB 的 hold/revoked 状态吻合。这是当前真实结果，不沿用 16:22 的成功检索结论。尚不能声明新值 Portal/MCP 检索验收通过。
 
 升级后仍保留 `automatic_membership_probe_context_deadline` 和 `feishu_safety_stop`。没有复用先前恢复批准解除第二次停止。第二次停止的底层资源延迟根因和 Bitable hold 的恢复条件仍需独立核验。
+
+### 补充授权入口最终部署
+
+最终前端源码为 **`6c6da3a7149f39d116325b37c690f6df870136fd`**，还兼容原任务保留的 `export_create_denied` / `export_permission_required`，用户不必新建批次才能看到补充授权入口。该 SHA 的[前端 CI](evidence/supplemental-authorization-frontend-gate-20261026.json)已完成测试、类型检查、生产构建及桌面/窄屏 Chromium 回归。
+
+GitHub 镜像产物下载遭遇间歇性网络失败，因此使用本地成功构建的静态包；打包校验统一为与 Linux staging 一致的 `core.autocrlf=false` 归档。原有前端部署器核对精确 SHA、整个前端源码树摘要、Dockerfile 和运行配置，并基于测试站已验证的固定前端运行镜像离线构建。没有关闭或放宽部署门禁。[部署回执](evidence/supplemental-authorization-frontend-deployment-20261026.json)确认 RUNNING，80 入口及三个内部健康检查均为 HTTP 200，APP/worker2 容器和后端配置保持不变，没有数据库写入或停止锁变更。后端仍为已通过五组回归的 `56fc87ee576098cd326ce4331189edbf0c0e2f63`。
+
+已请用户用 `test` 在原失败任务点击一次“补充飞书授权”，无需先断开连接、重新发布应用或重新提交链接。这是首次补齐个人 Scope 的账号本人 OAuth 确认，不是每篇文档审批。当前尚未收到该操作完成的回执，不能宣称新 Scope 已获得，也不能宣称这篇只读 Docx 已导入。
