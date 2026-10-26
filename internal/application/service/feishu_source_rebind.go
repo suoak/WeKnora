@@ -330,7 +330,7 @@ func checkRebindSnapshot(tx *gorm.DB, item sourceRebindItem) error {
 		return err
 	}
 	if rebindDigest(ds) != rebindDigest(item.Source) || ds.LegacyAccessState != item.SourceState ||
-		string(ds.DocumentDeferrals) != string(item.SourceDeferrals) {
+		rebindDigest(ds.DocumentDeferrals) != rebindDigest(item.SourceDeferrals) {
 		return ErrFeishuRebindConflict
 	}
 	var imported types.FeishuPersonalImport
@@ -738,7 +738,7 @@ func (s *FeishuPersonalService) RollbackSourceRebind(
 			}
 			if rebindDigest(current) != receipt.After[item.Source.ID] ||
 				current.LegacyAccessState != item.SourceState ||
-				string(current.DocumentDeferrals) != string(item.SourceDeferrals) {
+				rebindDigest(current.DocumentDeferrals) != rebindDigest(item.SourceDeferrals) {
 				return ErrFeishuRebindConflict
 			}
 			execution, e := sourceExecutionHash(tx, current.ID)

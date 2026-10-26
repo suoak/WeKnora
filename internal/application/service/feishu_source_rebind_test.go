@@ -112,6 +112,7 @@ func TestFeishuV2PostgresControlledSourceRebind(t *testing.T) {
 					Type:              "feishu",
 					Status:            types.DataSourceStatusError,
 					LegacyAccessState: "hold",
+					DocumentDeferrals: types.JSON(`[{"resource":"protected", "state":"hold"}]`),
 					Config:            config,
 					LastSyncCursor:    types.JSON(`{"accepted":"old"}`),
 				}

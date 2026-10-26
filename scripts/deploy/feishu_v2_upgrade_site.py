@@ -44,6 +44,15 @@ def sql(query,database='knowhub_feishu_v2_test'):
 def private_write(path,data):
  fd=os.open(str(path),os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
  with os.fdopen(fd,'wb') as out:out.write(data)
+
+def upgraded_environment(before,sha,diagnostics):
+ lines=[]
+ for line in before.splitlines():
+  if line.startswith('FEISHU_SYNC_SOURCE_SHA='):line='FEISHU_SYNC_SOURCE_SHA='+sha
+  if diagnostics and line.startswith('FEISHU_SYNC_CONTROL_DIAGNOSTICS='):continue
+  lines.append(line)
+ if diagnostics:lines.append('FEISHU_SYNC_CONTROL_DIAGNOSTICS=1')
+ return '\n'.join(lines)+'\n'
 upgrade=site/('upgrade-'+SHA[:12])
 upgrade.mkdir(mode=0o700,exist_ok=True)
 if upgrade.is_symlink():raise ValueError('unexpected_upgrade_directory')
@@ -77,7 +86,7 @@ if MODE=='prepare':
  if state['phase']=='NEW':
   private_write(upgrade/'compose.before.json',compose_path.read_bytes())
   private_write(upgrade/'app.before.env',env_path.read_bytes())
-  state.update(phase='PREPARED',app_image=app,frontend_image=manifest['image_id'],gates=GATES)
+  state.update(phase='PREPARED',app_image=app,frontend_image=manifest['image_id'],gates=GATES,control_diagnostics=CONTROL_DIAGNOSTICS)
   save()
 elif MODE=='apply':
  if state['phase']!='PREPARED':raise ValueError('prepared_upgrade_required')
@@ -97,11 +106,17 @@ elif MODE=='apply':
    p=subprocess.run(compose+['exec','-T','postgres','pg_restore','--exit-on-error','--no-owner','--no-acl','-U','postgres','-d',restored],stdin=incoming,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,timeout=180)
   if p.returncode:raise ValueError('upgrade_restore_failed')
   counts={}
-  for table in ['users','feishu_connections','feishu_private_kbs','feishu_personal_imports','knowledges']:
+  for table in ['users','feishu_connections','feishu_private_kbs','feishu_personal_imports','data_sources','sync_logs','knowledges','chunks','embeddings']:
    query='SELECT count(*) FROM '+table+';'
    actual=sql(query)
    if sql(query,restored)!=actual:raise ValueError('restored_business_counts_mismatch')
    counts[table]=int(actual)
+  restored_digests={}
+  for table in ['data_sources','sync_logs','knowledges','chunks','embeddings']:
+   query="SELECT md5(COALESCE(string_agg(md5(row_to_json(t)::text),'' ORDER BY id::text),'')) FROM (SELECT * FROM "+table+") t;"
+   actual=sql(query)
+   if sql(query,restored)!=actual:raise ValueError('restored_protected_rows_mismatch')
+   restored_digests[table]=actual
   plan=json.loads((upgrade/'compose.before.json').read_text())
   for service in ['app','worker2']:
    plan['services'][service]['image']=state['app_image']
@@ -109,16 +124,13 @@ elif MODE=='apply':
   for service in ['frontend','entry','entry-preview']:
    plan['services'][service]['image']=state['frontend_image']
    plan['services'][service].setdefault('labels',{})['knowhub.source-sha']=SHA
-  newenv=[]
-  for line in (upgrade/'app.before.env').read_text().splitlines():
-   if line.startswith('FEISHU_SYNC_SOURCE_SHA='):line='FEISHU_SYNC_SOURCE_SHA='+SHA
-   newenv.append(line)
+  newenv=upgraded_environment((upgrade/'app.before.env').read_text(),SHA,state.get('control_diagnostics'))
   private_write(upgrade/'compose.after.json',(json.dumps(plan,indent=2)+'\n').encode())
-  private_write(upgrade/'app.after.env',('\n'.join(newenv)+'\n').encode())
+  private_write(upgrade/'app.after.env',newenv.encode())
   compose_path.write_bytes((upgrade/'compose.after.json').read_bytes())
   env_path.write_bytes((upgrade/'app.after.env').read_bytes())
   checked(compose+['config','--quiet'])
-  state.update(phase='APPLIED',backup_sha256=hashlib.sha256(backup.read_bytes()).hexdigest(),restore_database=restored,business_counts=counts)
+  state.update(phase='APPLIED',backup_sha256=hashlib.sha256(backup.read_bytes()).hexdigest(),restore_database=restored,business_counts=counts,restored_row_digests=restored_digests)
   save()
   checked(compose+['up','-d','--no-build','--pull','never','app'],120)
  except Exception:
@@ -176,6 +188,7 @@ def main():
     parser.add_argument('--candidate-manifest', type=Path, required=True)
     parser.add_argument('--release-gates', type=Path)
     parser.add_argument('--test-username')
+    parser.add_argument('--control-diagnostics', action='store_true', help='Enable content-free sampled timing only in this isolated project')
     parser.add_argument('--mode', choices=['prepare', 'apply', 'finish', 'status', 'rollback'], required=True)
     args = parser.parse_args()
     old, new = read_json(args.manifest), read_json(args.candidate_manifest)
@@ -200,7 +213,8 @@ def main():
         credential.clear()
         values = {'ROOT': str(PurePosixPath(old['source_directory']).parent), 'CANDIDATE': str(PurePosixPath(new['source_directory']).parent),
                   'OLD_SHA': old['source_sha'], 'SHA': new['source_sha'], 'MODE': args.mode,
-                  'GATES': read_json(args.release_gates) if args.release_gates else {}, 'TEST_USERNAME':args.test_username}
+                  'GATES': read_json(args.release_gates) if args.release_gates else {}, 'TEST_USERNAME':args.test_username,
+                  'CONTROL_DIAGNOSTICS':args.control_diagnostics}
         guarded = 'try:\n' + textwrap.indent(REMOTE, ' ')
         guarded += "\nexcept Exception as error:\n print(json.dumps({'status':'BLOCKED','reason':str(error) if isinstance(error,ValueError) else 'isolated_upgrade_operation_failed','error_type':type(error).__name__}))\n raise SystemExit(2)\n"
         code = base64.b64encode(('\n'.join(k + '=' + repr(v) for k, v in values.items()) + '\n' + guarded).encode()).decode()

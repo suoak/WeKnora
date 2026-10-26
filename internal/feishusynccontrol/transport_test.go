@@ -12,18 +12,24 @@ import (
 
 type delayedReadConn struct {
 	net.Conn
-	delay *atomic.Bool
+	delay   *atomic.Bool
+	latency *atomic.Int64
 }
 
 func (c *delayedReadConn) Read(b []byte) (int, error) {
 	if c.delay.Swap(false) {
-		time.Sleep(80 * time.Millisecond)
+		delay := time.Duration(c.latency.Load())
+		if delay == 0 {
+			delay = 80 * time.Millisecond
+		}
+		time.Sleep(delay)
 	}
 	return c.Conn.Read(b)
 }
 
 type delayReplyHook struct {
 	delay   atomic.Bool
+	latency atomic.Int64
 	command string
 }
 
@@ -33,7 +39,7 @@ func (h *delayReplyHook) DialHook(next redis.DialHook) redis.DialHook {
 		if e != nil {
 			return nil, e
 		}
-		return &delayedReadConn{Conn: c, delay: &h.delay}, nil
+		return &delayedReadConn{Conn: c, delay: &h.delay, latency: &h.latency}, nil
 	}
 }
 

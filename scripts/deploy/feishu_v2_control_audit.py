@@ -82,7 +82,7 @@ def safe_events(key):
   if values.get(b'worker_id'):row['worker_hash']=mask(values[b'worker_id'].decode())
   result.append(row)
  return result
-containers=[];log_events=[]
+containers=[];log_events=[];step_timings=[]
 for name in ['app','worker2']:
  info=inspect(name);environment=dict(v.split('=',1) for v in info['Config']['Env'] if '=' in v)
  scope=environment.get('FEISHU_LEGACY_SYNC_ALLOWED_SOURCE_IDS','')
@@ -92,6 +92,17 @@ for name in ['app','worker2']:
  containers.append({'service':name,'container_hash':mask(info['Id']),'hostname_hash':mask(info['Config']['Hostname']),'started_at':info['State']['StartedAt'],'health':info['State'].get('Health',{}).get('Status'),'source_sha':info['Config']['Labels'].get('knowhub.source-sha'),'configured_worker_hash':mask(environment['FEISHU_SYNC_WORKER_ID']) if environment.get('FEISHU_SYNC_WORKER_ID') else None,'scope_hashes':[mask(v) for v in scope.split(',') if re.fullmatch('[a-f0-9-]{36}',v)],'scope_unrestricted':scope in ['','all'],'safety_mode':environment.get('FEISHU_SYNC_SAFETY_MODE'),'maintenance_concurrency':environment.get('WEKNORA_ASYNQ_MAINTENANCE_CONCURRENCY')})
  text=run(compose+['logs','--timestamps','--no-color','--since','2026-10-26T00:00:00Z',name])
  for line in text.splitlines():
+  if '[FeishuControlTiming] ' in line:
+   try:
+    timing=json.loads(line.split('[FeishuControlTiming] ',1)[1])
+    timing['service']=name
+    timing['worker_hash']=mask(str(timing.pop('worker_id','')))
+    timing['incarnation_hash']=mask(str(timing.pop('incarnation','')))
+    # This source-pinned producer contains fixed phase/command enums and
+    # numeric timings, never command arguments, source bodies or error strings.
+    if set(timing)-{'id','requested','lock_wait_ns','started','finished','stages','commands','io','failed','service','worker_hash','incarnation_hash'}:raise ValueError('unexpected_timing_fields')
+    step_timings.append(timing)
+   except (ValueError,TypeError,KeyError):pass
   timestamp=re.search(r'\d{4}-\d{2}-\d{2}T[0-9:.]+Z',line)
   event=re.search(r'\[FeishuSafety\] event=([a-z_]+) reason=([a-z_]+) worker=([^\s]+)',line)
   if event:log_events.append({'service':name,'at':timestamp.group() if timestamp else None,'event':event[1],'reason':event[2],'worker_hash':mask(event[3])})
@@ -103,6 +114,7 @@ def latch(key):
  value=redis('GET',key)
  return {'present':value is not None,'value':value.decode() if value and re.fullmatch(b'[a-zA-Z0-9_:-]{1,100}',value) else None,'ttl_ms':redis('PTTL',key)}
 result={'status':'READ_ONLY','at':utc(now),'namespace':'legacy-feishu','containers':containers,'controllers':registry,'asynq_servers':servers,'draining':[{'worker_hash':mask(k.decode()),'until':utc(v),'remaining_ms':int(float(v)-now)} for k,v in drains.items()],'trip':latch(prefix+'trip'),'stop_latch_key_is_trip':True,'permit':latch(prefix+'permit'),'sync_queue_pause':latch('asynq:{sync}:paused'),'control_audit':safe_events(prefix+'control_audit'),'guard_audit':safe_events(prefix+'audit'),'recent_audit':safe_events(prefix+'events')[-30:],'lifecycle_logs':sorted(log_events,key=lambda r:r.get('at') or ''),'oauth':oauth,'redis_mutations':False}
+result['control_step_timings']=step_timings[-40:]
 builders=[]
 for cid in run(['docker','ps','-a','--filter','label=knowhub.phase=compile-only','--format','{{.ID}}']).splitlines():
  record=json.loads(run(['docker','inspect',cid]))[0]

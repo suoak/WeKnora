@@ -34,7 +34,9 @@ func TestAutomaticRealConsumerChild(_ *testing.T) {
 			ShutdownTimeout: time.Second,
 		},
 	)
-	if server.Start(asynq.HandlerFunc(func(context.Context, *asynq.Task) error { return nil })) != nil {
+	if server.Start(
+		asynq.HandlerFunc(func(context.Context, *asynq.Task) error { return nil }),
+	) != nil {
 		os.Exit(3)
 	}
 	fmt.Println("started")
@@ -100,7 +102,11 @@ func runAutomaticRealRedisTwoProcess(t *testing.T, faultStage string) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		command := exec.CommandContext(ctx, executable, "-test.run=^TestAutomaticRealConsumerChild$")
+		command := exec.CommandContext(
+			ctx,
+			executable,
+			"-test.run=^TestAutomaticRealConsumerChild$",
+		)
 		command.Env = append(os.Environ(), "FEISHU_CONTROL_CHILD=1")
 		input, err := command.StdinPipe()
 		if err != nil {
@@ -200,6 +206,9 @@ func runAutomaticRealRedisTwoProcess(t *testing.T, faultStage string) {
 	}
 	if faultStage != "consumer_loss" {
 		hook := hooks[a.Config.WorkerID]
+		// Use the production Step budget, with response delay injected at the
+		// real TCP read boundary. No test-site Redis or stop latch is touched.
+		hook.latency.Store(int64(650 * time.Millisecond))
 		hook.command = "evalsha"
 		wantStage, wantTrip := "registry", "registry_network_timeout"
 		if faultStage == "audit" {
@@ -209,17 +218,19 @@ func runAutomaticRealRedisTwoProcess(t *testing.T, faultStage string) {
 		}
 		var evidence StepTiming
 		a.Observe = func(v StepTiming) { evidence = v }
-		bounded, cancelStep := context.WithTimeout(ctx, 20*time.Millisecond)
+		bounded, cancelStep := context.WithTimeout(ctx, 500*time.Millisecond)
 		err := a.Step(bounded)
 		cancelStep()
-		if err == nil || guard.Check(ctx) == nil || client.Exists(ctx, "asynq:{sync}:paused").Val() != 1 {
+		if err == nil || guard.Check(ctx) == nil ||
+			client.Exists(ctx, "asynq:{sync}:paused").Val() != 1 {
 			t.Fatal("injected response delay did not stop both real processes")
 		}
 		trip := client.Get(ctx, a.prefix+"trip").Val()
 		if faultStage == "audit" && trip != wantTrip {
 			t.Fatal("audit deadline was misclassified", trip)
 		}
-		if len(evidence.Stages) == 0 || evidence.Stages[0].Stage != "registry" || evidence.ID == "" {
+		if len(evidence.Stages) == 0 || evidence.Stages[0].Stage != "registry" ||
+			evidence.ID == "" {
 			t.Fatal("missing exact-instance timing evidence")
 		}
 		found := false
@@ -231,8 +242,22 @@ func runAutomaticRealRedisTwoProcess(t *testing.T, faultStage string) {
 		if !found {
 			t.Fatal("missing delayed phase evidence")
 		}
+		for _, stage := range evidence.Stages {
+			if stage.Stage == wantStage {
+				t.Logf(
+					"CONTROL_BUDGET_FAULT stage=%s budget_ms=500 elapsed_ms=%d remaining_at_start_ms=%d "+
+						"commands=%d io_spans=%d outbound_closed=true trip_retained=true",
+					wantStage,
+					stage.Finished.Sub(stage.Started).Milliseconds(),
+					stage.RemainingMS,
+					len(evidence.Commands),
+					len(evidence.IO),
+				)
+			}
+		}
 		hook.command = ""
-		if b.Step(ctx) == nil || guard.Check(ctx) == nil || client.Exists(ctx, a.Guard.PermitKey()).Val() != 0 {
+		if b.Step(ctx) == nil || guard.Check(ctx) == nil ||
+			client.Exists(ctx, a.Guard.PermitKey()).Val() != 0 {
 			t.Fatal("healthy peer or delayed acknowledgement reopened the stopped gate")
 		}
 		return
