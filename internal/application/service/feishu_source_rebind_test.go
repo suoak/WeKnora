@@ -21,7 +21,7 @@ func TestFeishuV2PostgresControlledSourceRebind(t *testing.T) {
 	for _, scenario := range []string{
 		"atomic_success_and_rollback", "second_source_conflict", "revoked_new_approval",
 		"changed_epoch", "changed_index", "changed_account", "permission_denied",
-		"concurrent_one_winner", "rollback_after_index_change",
+		"concurrent_one_winner", "rollback_after_index_change", "revoked_operator",
 	} {
 		t.Run(scenario, func(t *testing.T) {
 			t.Setenv("FEISHU_SOURCE_REBIND_OPERATIONS_ENABLED", "1")
@@ -191,6 +191,14 @@ func TestFeishuV2PostgresControlledSourceRebind(t *testing.T) {
 			)
 			require.NoError(t, err)
 			switch scenario {
+			case "revoked_operator":
+				require.NoError(
+					t,
+					f.db.Model(&types.User{}).
+						Where("id = ?", "A").
+						UpdateColumn("is_system_admin", false).
+						Error,
+				)
 			case "second_source_conflict":
 				require.NoError(
 					t,

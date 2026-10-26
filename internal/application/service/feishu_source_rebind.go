@@ -22,7 +22,7 @@ const sourceRebindPrefix = "integration.feishu.rebind."
 // ErrFeishuRebindConflict rejects a proposal whose protected snapshot changed.
 var ErrFeishuRebindConflict = errors.New("feishu_source_rebind_snapshot_changed")
 
-func requireRebindOperator(tx *gorm.DB, ctx context.Context, operator string) error {
+func requireRebindOperator(ctx context.Context, tx *gorm.DB, operator string) error {
 	actor, ok := types.UserIDFromContext(ctx)
 	if !ok || actor != operator || !types.IsSystemAdminFromContext(ctx) {
 		return access.ErrForbidden
@@ -81,7 +81,7 @@ func (s *FeishuPersonalService) PrepareSourceRebind(
 	if !types.IsSystemAdminFromContext(ctx) || operator == "" || len(ids) == 0 || len(ids) > 16 {
 		return "", access.ErrForbidden
 	}
-	if err := requireRebindOperator(s.db.WithContext(ctx), ctx, operator); err != nil {
+	if err := requireRebindOperator(ctx, s.db.WithContext(ctx), operator); err != nil {
 		return "", err
 	}
 	ids = append([]string(nil), ids...)
@@ -463,7 +463,7 @@ func (s *FeishuPersonalService) AuthorizeSourceRebindPublication(
 	}
 	err = s.db.WithContext(types.WithLegacyKBAdminMetadata(ctx, plan.Items[0].Source.KnowledgeBaseID)).
 		Transaction(func(tx *gorm.DB) error {
-			if err := requireRebindOperator(tx, ctx, operator); err != nil {
+			if err := requireRebindOperator(ctx, tx, operator); err != nil {
 				return err
 			}
 			for _, item := range plan.Items {
@@ -502,7 +502,7 @@ func (s *FeishuPersonalService) ApplySourceRebind(
 		len(backupSHA) != 64 {
 		return "", access.ErrForbidden
 	}
-	if err := requireRebindOperator(s.db.WithContext(ctx), ctx, operator); err != nil {
+	if err := requireRebindOperator(ctx, s.db.WithContext(ctx), operator); err != nil {
 		return "", err
 	}
 	plan, err := readRebindPlan(proposal)
@@ -524,7 +524,7 @@ func (s *FeishuPersonalService) ApplySourceRebind(
 	}
 	err = s.db.WithContext(types.WithLegacyKBAdminMetadata(ctx, plan.Items[0].Source.KnowledgeBaseID)).
 		Transaction(func(tx *gorm.DB) error {
-			if err := requireRebindOperator(tx, ctx, operator); err != nil {
+			if err := requireRebindOperator(ctx, tx, operator); err != nil {
 				return err
 			}
 			var row types.SystemSetting
@@ -736,7 +736,7 @@ func (s *FeishuPersonalService) RollbackSourceRebind(
 		return access.ErrForbidden
 	}
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := requireRebindOperator(tx, ctx, operator); err != nil {
+		if err := requireRebindOperator(ctx, tx, operator); err != nil {
 			return err
 		}
 		var row types.SystemSetting
@@ -803,11 +803,14 @@ func (s *FeishuPersonalService) RollbackSourceRebind(
 			if policy != "absent" {
 				return ErrFeishuRebindConflict
 			}
-			if e = tx.Model(&types.DataSource{}).
+			restored := tx.Model(&types.DataSource{}).
 				Where("id = ? AND config = ?", current.ID, string(current.Config)).
-				UpdateColumn("config", item.Source.Config).
-				Error; e != nil {
-				return e
+				UpdateColumn("config", item.Source.Config)
+			if restored.Error != nil {
+				return restored.Error
+			}
+			if restored.RowsAffected != 1 {
+				return ErrFeishuRebindConflict
 			}
 		}
 		var grantRow types.SystemSetting
