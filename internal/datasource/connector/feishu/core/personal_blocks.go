@@ -19,6 +19,7 @@ var ErrPersonalBlocksPolicyUnverified = errors.New("feishu_blocks_source_policy_
 var ErrPersonalBlocksIncomplete = errors.New("feishu_blocks_content_requires_review")
 
 var (
+	// ErrPersonalReadDenied means the current personal identity cannot view the resource.
 	ErrPersonalReadDenied        = errors.New("feishu_source_read_denied")
 	ErrPersonalCopyExportDenied  = errors.New("feishu_source_copy_export_denied")
 	ErrPersonalCopyDenied        = errors.New("feishu_source_copy_denied")
@@ -66,6 +67,8 @@ func (c *Client) PersonalResourcePermission(ctx context.Context, r PersonalResou
 	return *response.Data.Allowed, nil
 }
 
+// InspectPersonalPermissions checks each effective action using the same personal identity.
+// A failed check leaves authorization unproven even if earlier actions were allowed.
 func (c *Client) InspectPersonalPermissions(ctx context.Context, r PersonalResource) (PersonalPermissions, error) {
 	var permissions PersonalPermissions
 	for _, action := range []string{"view", "export", "copy"} {

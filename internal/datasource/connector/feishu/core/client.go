@@ -431,7 +431,9 @@ func (c *Client) doRequestBytesWithOptions(
 					return responseBody, nil
 				}
 				retryAfter := parseRetryAfterAt(resp.Header.Get("Retry-After"), 0, c.retry.now())
-				category, providerReason := classifyOperationAPIError(operation, resp.StatusCode, envelope.Code, envelope.Msg)
+				category, providerReason := classifyOperationAPIError(
+					operation, resp.StatusCode, envelope.Code, envelope.Msg,
+				)
 				if category == ErrorCategoryRateLimit {
 					retryAfter = feishuRateLimitWait(resp.Header, c.retry.now())
 					if providerReason == "export_throttled" {
