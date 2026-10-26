@@ -48,7 +48,7 @@ def safe(rows):
 users=rows('users',['id','is_active'],"username='test' AND deleted_at IS NULL")
 if len(users)!=1:raise ValueError('expected_test_user_missing')
 uid=users[0]['id']
-batches=rows('feishu_import_batches',['id','kb_id','auth_mode','created_at','publication_consent_at'],"owner_id="+quoted(uid)+' ORDER BY created_at DESC')[:5]
+batches=rows('feishu_import_batches',['id','kb_id','auth_mode','created_at','publication_consent_at'],"owner_id="+quoted(uid)+' ORDER BY created_at DESC')[:10]
 bids=','.join(quoted(r['id']) for r in batches) or "''"
 items=rows('feishu_import_batch_items',['id','batch_id','ordinal','status','error_category','import_id','retry_count','lease_until','updated_at','sharing_approval_id'], 'batch_id IN ('+bids+') ORDER BY updated_at DESC')
 iids=','.join(quoted(r['import_id']) for r in items if r.get('import_id')) or "''"
