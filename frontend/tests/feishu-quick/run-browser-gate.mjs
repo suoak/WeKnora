@@ -45,13 +45,15 @@ const server = await createServer({
   server: { host: '127.0.0.1', port, strictPort:true },
 })
 let browser
+setTimeout(() => { console.error('Browser gate deadline exceeded'); process.exit(1) }, 180000).unref()
 try {
   await server.listen()
   const address = server.httpServer.address()
   const origin = `http://127.0.0.1:${address.port}`
-  browser = await chromium.launch({ headless: true })
+  browser = await chromium.launch({ headless: true, executablePath:process.env.FEISHU_UI_BROWSER_PATH })
   const page = await browser.newPage()
   page.setDefaultTimeout(20000)
+  page.setDefaultNavigationTimeout(60000)
   const errors = [], submissions = [], requests = []
   let targets = [{id:'existing-team-kb',name:'Existing target',requires_sharing_approval:true}], progressReads=0
   let authorizationDraft
