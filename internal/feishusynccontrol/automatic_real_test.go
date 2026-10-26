@@ -25,6 +25,7 @@ type redisPauseHook struct {
 	client  *redis.Client
 	command string
 	once    atomic.Bool
+	paused  atomic.Bool
 }
 
 func (h *redisPauseHook) DialHook(next redis.DialHook) redis.DialHook { return next }
@@ -43,6 +44,7 @@ func (h *redisPauseHook) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
 			if err := h.client.Do(pause, "CLIENT", "PAUSE", 650, "ALL").Err(); err != nil {
 				return err
 			}
+			h.paused.Store(true)
 		}
 		return next(ctx, cmd)
 	}
@@ -275,8 +277,14 @@ func runAutomaticRealRedisTwoProcess(t *testing.T, faultStage string) {
 		if !found {
 			t.Fatal("missing delayed phase evidence")
 		}
+		if !hook.paused.Load() {
+			t.Fatal("Redis did not acknowledge actual server pause injection")
+		}
 		for _, stage := range evidence.Stages {
 			if stage.Stage == wantStage {
+				if stage.Finished.Sub(stage.Started) < 400*time.Millisecond {
+					t.Fatal("injected server pause did not exercise the production control budget")
+				}
 				t.Logf(
 					"CONTROL_BUDGET_FAULT stage=%s budget_ms=500 elapsed_ms=%d remaining_at_start_ms=%d "+
 						"commands=%d io_spans=%d outbound_closed=true trip_retained=true",
