@@ -169,6 +169,17 @@ def approval_receipts(rows):
   row['revision_hash']=mask(row.pop('revision'))
  return values
 
+def publication_authority_receipts(rows):
+ selected=','.join("'"+v['id']+"'" for v in rows)
+ values=sql("SELECT coalesce(json_agg(q),'[]') FROM (SELECT ds.id,u.is_active,tm.role,tm.status AS member_status,"+
+  "t.status AS tenant_status,kb.creator_id=u.id AS owner_is_kb_creator,ds.status,ds.legacy_access_state "+
+  "FROM data_sources ds JOIN feishu_personal_imports m ON m.id=ds.id JOIN users u ON u.id=m.user_id "+
+  "JOIN knowledge_bases kb ON kb.id=m.kb_id JOIN tenants t ON t.id=ds.tenant_id "+
+  "LEFT JOIN tenant_members tm ON tm.user_id=m.user_id AND tm.tenant_id=ds.tenant_id "+
+  "WHERE ds.id IN ("+selected+")) q")
+ for row in values:row['source_hash']=mask(row.pop('id'))
+ return values
+
 def activity(rows):
  if not state or not state.get('resumed_at'):return []
  result=[]
@@ -391,6 +402,7 @@ result={'status':state['phase'] if state else 'NOT_PREPARED','at':utc(clock()),'
   'legacy_access_state':v['legacy_access_state']} for v in rows],
  'indexes':[dict(v,id=mask(v['id'])) for v in indexes(rows)],
  'cursor_receipts':cursor_receipts(rows),'sync_history':sync_history(rows),'approval_receipts':approval_receipts(rows),
+ 'publication_authority_receipts':publication_authority_receipts(rows),
  'activity_since_resume':activity(rows),
  'scope_edited':False,'cursor_reset':False,'budgets_reset':False,'publication_approval_written':False}
 connection.close();print(json.dumps(result))

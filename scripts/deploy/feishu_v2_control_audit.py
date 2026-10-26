@@ -19,7 +19,7 @@ redis_info=inspect('redis');ip=next(iter(redis_info['NetworkSettings']['Networks
 secret=re.search(r'^requirepass (.+)$',(site/'redis.conf').read_text(),re.M).group(1)
 connection=socket.create_connection((ip,6379),timeout=10);stream=connection.makefile('rb')
 def redis(*args):
- if args[0] not in ['AUTH','TIME','GET','HGETALL','ZRANGE','ZRANGEBYSCORE','PTTL','TYPE','SCAN','XRANGE','XREVRANGE','LLEN','ZCARD']:raise ValueError('non_readonly_command_refused')
+ if args[0] not in ['AUTH','TIME','GET','HGETALL','ZRANGE','ZRANGEBYSCORE','PTTL','TYPE','SCAN','XRANGE','XREVRANGE','LLEN','ZCARD','INFO','LATENCY','SLOWLOG']:raise ValueError('non_readonly_command_refused')
  parts=[str(a).encode() for a in args];connection.sendall(b'*'+str(len(parts)).encode()+b'\r\n'+b''.join(b'$'+str(len(p)).encode()+b'\r\n'+p+b'\r\n' for p in parts))
  def read():
   line=stream.readline();kind=line[:1];value=line[1:-2]
@@ -111,6 +111,25 @@ for cid in run(['docker','ps','-a','--filter','label=knowhub.phase=compile-only'
    caches.append({'volume_name':mount['Name'],'owner_source_sha':volume.get('Labels',{}).get('knowhub.source-sha')})
  builders.append({'name':record['Name'],'state':record['State']['Status'],'exit_code':record['State'].get('ExitCode'),'caches':caches})
 result['reference_build_caches']=builders
+telemetry={}
+for section in ['persistence','stats','clients']:
+ raw=redis('INFO',section).decode();values={}
+ for line in raw.splitlines():
+  if ':' not in line:continue
+  key,value=line.split(':',1)
+  allowed=['latest_fork_usec','total_forks','aof_delayed_fsync','aof_pending_bio_fsync','aof_last_write_status',
+   'aof_last_bgrewrite_status','aof_enabled','rdb_last_bgsave_status','rdb_last_bgsave_time_sec',
+   'rdb_last_cow_size','rdb_current_bgsave_time_sec','blocked_clients','connected_clients','rejected_connections']
+  if key in allowed:values[key]=value
+ telemetry[section]=values
+telemetry['latency_events']=redis('LATENCY','LATEST')
+telemetry['latency_events']=[[x.decode() if isinstance(x,bytes) else x for x in row] for row in telemetry['latency_events']]
+telemetry['slow_commands']=[{'at':row[1],'duration_us':row[2],
+ 'command':row[3][0].decode() if row[3] else 'unknown'} for row in redis('SLOWLOG','GET','12')]
+telemetry['host_load']=pathlib.Path('/proc/loadavg').read_text().split()[:3]
+telemetry['cpu_pressure']=pathlib.Path('/proc/pressure/cpu').read_text() if pathlib.Path('/proc/pressure/cpu').is_file() else None
+telemetry['io_pressure']=pathlib.Path('/proc/pressure/io').read_text() if pathlib.Path('/proc/pressure/io').is_file() else None
+result['read_only_dependency_telemetry']=telemetry
 connection.close();print(json.dumps(result))
 '''
 
