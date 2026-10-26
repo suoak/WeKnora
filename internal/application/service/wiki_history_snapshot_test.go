@@ -3,16 +3,29 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
+	"github.com/Tencent/WeKnora/internal/database"
 	fixture "github.com/Tencent/WeKnora/internal/testutil/documentaccess"
 	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func TestWikiHistoryRegenerationIsolatesWithoutCertifyingOldText(t *testing.T) {
 	f := fixture.New(t)
+	testWikiHistoryRegeneration(t, f)
+}
+
+func testWikiHistoryRegeneration(t *testing.T, f *fixture.Fixture) {
 	f.PreparePublished(t)
 	db := f.DB
 	require.NoError(t, db.AutoMigrate(&types.TaskPendingOp{}, &types.KnowledgeProcessingSpan{}))
@@ -90,6 +103,10 @@ func TestWikiHistoryRegenerationRejectsChangedAndDeniedSources(t *testing.T) {
 
 func TestWikiSnapshotGenerationMergesOnlyBacklinks(t *testing.T) {
 	f := fixture.New(t)
+	testWikiSnapshotGeneration(t, f)
+}
+
+func testWikiSnapshotGeneration(t *testing.T, f *fixture.Fixture) {
 	f.PreparePublished(t)
 	db := f.DB
 	repo := repository.NewWikiPageRepository(db)
@@ -126,4 +143,41 @@ func TestWikiSnapshotGenerationMergesOnlyBacklinks(t *testing.T) {
 	stale.Content = "stale overwrite"
 	_, err = svc.UpdatePage(ctx, stale)
 	require.ErrorIs(t, err, repository.ErrWikiPageConflict)
+}
+
+func TestWikiHistoryPostgres(t *testing.T) {
+	dsn := os.Getenv("WIKI_HISTORY_POSTGRES_DSN")
+	if dsn == "" {
+		t.Skip("isolated Wiki PostgreSQL fixture not configured")
+	}
+	admin, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Discard})
+	require.NoError(t, err)
+	pool, err := admin.DB()
+	require.NoError(t, err)
+	defer pool.Close()
+	for _, tc := range []struct {
+		name string
+		run  func(*testing.T, *fixture.Fixture)
+	}{{"regeneration", testWikiHistoryRegeneration}, {"snapshot", testWikiSnapshotGeneration}} {
+		t.Run(tc.name, func(t *testing.T) {
+			name := "wiki_history_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+			require.NoError(t, admin.Exec("CREATE DATABASE "+name).Error)
+			t.Cleanup(func() { require.NoError(t, admin.Exec("DROP DATABASE "+name+" WITH (FORCE)").Error) })
+			parsed, err := url.Parse(dsn)
+			require.NoError(t, err)
+			parsed.Path = "/" + name
+			cwd, err := os.Getwd()
+			require.NoError(t, err)
+			require.NoError(t, os.Chdir(filepath.Join(cwd, "../../..")))
+			err = database.RunMigrations(parsed.String())
+			require.NoError(t, os.Chdir(cwd))
+			require.NoError(t, err)
+			db, err := gorm.Open(postgres.Open(parsed.String()), &gorm.Config{Logger: logger.Discard})
+			require.NoError(t, err)
+			conn, err := db.DB()
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = conn.Close() })
+			tc.run(t, fixture.Seed(t, db))
+		})
+	}
 }

@@ -81,7 +81,7 @@ func run() error {
 	_, err = client.EnqueueContext(ctx, asynq.NewTask("wiki:ingest", payload),
 		asynq.Queue("wiki"), asynq.MaxRetry(10), asynq.Timeout(time.Hour))
 	if err != nil {
-		return errors.New("reset committed; durable Wiki operations saved, trigger enqueue failed; housekeeping will retry")
+		return errors.New("reset committed; trigger enqueue failed; durable operations saved for housekeeping")
 	}
 	return nil
 }

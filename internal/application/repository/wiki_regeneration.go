@@ -56,7 +56,8 @@ func PrepareWikiRegeneration(
 		}
 		var docs []types.Knowledge
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-			Where("knowledge_base_id=? AND tenant_id=?", kb, tenant).Order("id").Limit(2049).Find(&docs).Error; err != nil {
+			Where("knowledge_base_id=? AND tenant_id=?", kb, tenant).
+			Order("id").Limit(2049).Find(&docs).Error; err != nil {
 			return err
 		}
 		for _, doc := range docs {
@@ -75,7 +76,8 @@ func PrepareWikiRegeneration(
 		}
 		var pages []types.WikiPage
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-			Where("knowledge_base_id=? AND tenant_id=?", kb, tenant).Order("id").Limit(1001).Find(&pages).Error; err != nil {
+			Where("knowledge_base_id=? AND tenant_id=?", kb, tenant).
+			Order("id").Limit(1001).Find(&pages).Error; err != nil {
 			return err
 		}
 		if len(pages) > 1000 {
@@ -120,7 +122,8 @@ func PrepareWikiRegeneration(
 			if err != nil {
 				return err
 			}
-			res := tx.Model(&types.Knowledge{}).Where("id=? AND parse_status='completed' AND pending_subtasks_count=0", doc.ID).
+			res := tx.Model(&types.Knowledge{}).
+				Where("id=? AND parse_status='completed' AND pending_subtasks_count=0", doc.ID).
 				Updates(map[string]any{
 					"parse_status": "finalizing", "pending_subtasks_count": 1,
 					"error_message": "", "updated_at": now,
@@ -145,7 +148,8 @@ func PrepareWikiRegeneration(
 		if err != nil {
 			return err
 		}
-		if wikiDigest(fresh.Sources) != wikiDigest(proof.Sources) || wikiDigest(fresh.Epochs) != wikiDigest(proof.Epochs) {
+		if wikiDigest(fresh.Sources) != wikiDigest(proof.Sources) ||
+			wikiDigest(fresh.Epochs) != wikiDigest(proof.Epochs) {
 			return errors.New("source inputs changed during regeneration")
 		}
 		plan.Applied = true
