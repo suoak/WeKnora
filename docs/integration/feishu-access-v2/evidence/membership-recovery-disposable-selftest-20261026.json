@@ -1,0 +1,20 @@
+{
+  "status": "SELF_TEST_PASS",
+  "checks": [
+    "STOP_CHANGED",
+    "CONTROLLER_NOT_QUIESCENT",
+    "LEASE_NOT_QUIESCENT",
+    "1",
+    "NO_LIVE_PERMIT",
+    "STOP_REAPPEARED",
+    "NO_LIVE_LEASE",
+    "INCARNATION_CHANGED",
+    "1",
+    "PENDING_CHANGED",
+    "1"
+  ],
+  "disposable_redis_only": true,
+  "network": "none",
+  "existing_redis_mutations": false,
+  "operator_source_sha": "80add81ddb9c2c235f7654dcab3464f83b94936a"
+}
