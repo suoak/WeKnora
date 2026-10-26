@@ -20,6 +20,9 @@ type batchQueueProgress struct {
 func (s *FeishuPersonalService) batchItemProgress(ctx context.Context, item *types.FeishuBatchItem,
 	m *types.FeishuPersonalImport, accepted time.Time, queue *batchQueueProgress,
 ) error {
+	failureAttemptID := ""
+	var failureTenant uint64
+	defer func() { s.decorateFeishuFailure(ctx, item, m, failureAttemptID, failureTenant) }()
 	item.Stage = "queued"
 	item.LastProgressAt = &accepted
 	// A dispatched item's short reconciliation claim is bookkeeping, not a
@@ -56,6 +59,8 @@ func (s *FeishuPersonalService) batchItemProgress(ctx context.Context, item *typ
 		return e
 	}
 	item.AttemptRetryCount, item.RetryAfter = a.RetryCount, a.RetryAfter
+	failureAttemptID = a.ID
+	failureTenant = a.CallerTenantID
 	value := a.UpdatedAt
 	item.LastActivityAt = &value
 	item.LeaseActive = item.LeaseActive || a.LeaseUntil != nil && a.LeaseUntil.After(time.Now())

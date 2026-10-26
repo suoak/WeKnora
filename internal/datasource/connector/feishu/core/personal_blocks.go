@@ -18,6 +18,22 @@ var ErrPersonalBlocksPolicyUnverified = errors.New("feishu_blocks_source_policy_
 // unsupported rich content, or detached image/attachment placeholders.
 var ErrPersonalBlocksIncomplete = errors.New("feishu_blocks_content_requires_review")
 
+var (
+	ErrPersonalReadDenied        = errors.New("feishu_source_read_denied")
+	ErrPersonalCopyExportDenied  = errors.New("feishu_source_copy_export_denied")
+	ErrPersonalCopyDenied        = errors.New("feishu_source_copy_denied")
+	ErrPersonalCopyOnlyReview    = errors.New("feishu_source_copy_only_requires_policy")
+	ErrPersonalAcquisitionReview = errors.New("feishu_source_acquisition_requires_review")
+)
+
+// PersonalPermissions contains effective action results, not a document role.
+// It is usable only when InspectPersonalPermissions returns no error.
+type PersonalPermissions struct {
+	View   bool `json:"view"`
+	Export bool `json:"export"`
+	Copy   bool `json:"copy"`
+}
+
 // PersonalResourcePermission asks Feishu for the CURRENT user's effective action
 // permission. A missing field, failed call or false result never grants access.
 // https://open.feishu.cn/document/server-docs/docs/permission/permission-member/auth
@@ -28,7 +44,8 @@ func (c *Client) PersonalResourcePermission(ctx context.Context, r PersonalResou
 	if _, ok := ctx.Value(userIdentityKey{}).(userIdentity); !ok {
 		return false, ErrAuth
 	}
-	if !resourceTokenPattern.MatchString(r.Token) || r.Type != "docx" ||
+	if !resourceTokenPattern.MatchString(r.Token) ||
+		r.Type != "docx" && r.Type != "sheet" && r.Type != "bitable" && r.Type != "file" ||
 		action != "view" && action != "export" && action != "copy" {
 		return false, ErrPermanent
 	}
@@ -38,7 +55,7 @@ func (c *Client) PersonalResourcePermission(ctx context.Context, r PersonalResou
 		} `json:"data"`
 	}
 	err := c.doRequest(ctx, "check_personal_"+action+"_permission", http.MethodGet,
-		"/open-apis/drive/v1/permissions/"+url.PathEscape(r.Token)+"/members/auth?type=docx&action="+action,
+		"/open-apis/drive/v1/permissions/"+url.PathEscape(r.Token)+"/members/auth?type="+r.Type+"&action="+action,
 		nil, &response)
 	if err != nil {
 		return false, err
@@ -49,15 +66,39 @@ func (c *Client) PersonalResourcePermission(ctx context.Context, r PersonalResou
 	return *response.Data.Allowed, nil
 }
 
-func (c *Client) personalBlocksPermission(ctx context.Context, r PersonalResource) (bool, error) {
+func (c *Client) InspectPersonalPermissions(ctx context.Context, r PersonalResource) (PersonalPermissions, error) {
+	var permissions PersonalPermissions
 	for _, action := range []string{"view", "export", "copy"} {
 		allowed, err := c.PersonalResourcePermission(ctx, r, action)
 		if err != nil {
-			return false, errors.Join(ErrPersonalBlocksPolicyUnverified, err)
+			return permissions, errors.Join(ErrPersonalBlocksPolicyUnverified, err)
 		}
-		if !allowed {
-			return false, nil
+		switch action {
+		case "view":
+			permissions.View = allowed
+		case "export":
+			permissions.Export = allowed
+		case "copy":
+			permissions.Copy = allowed
 		}
+	}
+	return permissions, nil
+}
+
+func (c *Client) personalBlocksPermission(ctx context.Context, r PersonalResource) (bool, error) {
+	permissions, err := c.InspectPersonalPermissions(ctx, r)
+	if err != nil {
+		return false, err
+	}
+	switch {
+	case !permissions.View:
+		return false, ErrPersonalReadDenied
+	case !permissions.Export && !permissions.Copy:
+		return false, ErrPersonalCopyExportDenied
+	case !permissions.Copy:
+		return false, ErrPersonalCopyDenied
+	case !permissions.Export:
+		return false, ErrPersonalCopyOnlyReview
 	}
 	return true, nil
 }
@@ -86,6 +127,12 @@ func (c *Client) personalBlocksFallback(
 	}
 	if !allowed {
 		return nil, "", exportErr
+	}
+	// A readable API is not permission to bypass an unexplained export denial.
+	// Only this documented format-capability error is currently accepted for
+	// automatic fallback. Scope, unknown 403 and overloaded 9499 stay closed.
+	if api.Code != 1069918 || api.Category != ErrorCategoryPermanent {
+		return nil, "", errors.Join(ErrPersonalAcquisitionReview, exportErr)
 	}
 	blocks, err := c.personalDocumentBlocks(ctx, r.Token)
 	if err != nil {

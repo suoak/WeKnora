@@ -55,6 +55,23 @@ func TestFeishuRefreshRejectedGenerationUsesPersistedOwnerGrant(t *testing.T) {
 }
 
 func TestFeishuRemoteFailureSeparatesScopeTokenAndExportStages(t *testing.T) {
+	for cause, category := range map[error]string{
+		core.ErrPersonalReadDenied:       "source_read_denied",
+		core.ErrPersonalCopyExportDenied: "source_copy_export_denied",
+		core.ErrPersonalCopyDenied:       "source_copy_denied",
+		core.ErrPersonalCopyOnlyReview:   "source_copy_only_requires_policy",
+	} {
+		require.Equal(t, category, feishuRemoteFailureCategory(cause))
+		require.Equal(t, category, feishuV2Error(cause))
+	}
+	for cause, category := range map[error]string{
+		core.ErrUserScope: "user_scope_missing", core.ErrAppScope: "app_scope_missing",
+		core.ErrTransient: "temporary_failure", core.ErrRateLimited: "temporary_failure",
+	} {
+		err := errors.Join(core.ErrPersonalBlocksPolicyUnverified, cause)
+		require.Equal(t, category, feishuRemoteFailureCategory(err))
+		require.Equal(t, category, feishuV2Error(err))
+	}
 	for operation, want := range map[string]string{
 		"create_export_task":     "export_create_denied",
 		"get_export_task_status": "export_status_denied", "download_export_file": "export_download_denied",

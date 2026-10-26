@@ -119,6 +119,10 @@ jobs:
           name: feishu-v2-native-library-${{ github.sha }}
           path: ${{ runner.temp }}/native-distribution/
           retention-days: 14
+      - name: Preserve merged PR50 native image refusal
+        run: |
+          go test -p 2 -json -tags anydoc,sqlite_fts5 ./internal/infrastructure/docparser -run '^TestCandidateImages' -count=1 -timeout=5m | tee evidence/pr50-image-refusal-tests.jsonl
+          python3 -c 'import json; e=[json.loads(l) for l in open("evidence/pr50-image-refusal-tests.jsonl") if l.startswith("{")]; assert sum(x.get("Action")=="pass" and x.get("Test", "").startswith("TestCandidateImages") for x in e)==2; assert not any(x.get("Action")=="fail" for x in e)'
       - name: V2 and real parser publication with PostgreSQL
         # The existing parser fixture constructs services without a safety
         # controller. Its explicit activation matches the integrated workflow;

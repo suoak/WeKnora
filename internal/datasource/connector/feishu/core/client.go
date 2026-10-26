@@ -431,19 +431,24 @@ func (c *Client) doRequestBytesWithOptions(
 					return responseBody, nil
 				}
 				retryAfter := parseRetryAfterAt(resp.Header.Get("Retry-After"), 0, c.retry.now())
-				if classifyAPIError(resp.StatusCode, envelope.Code) == ErrorCategoryRateLimit {
+				category, providerReason := classifyOperationAPIError(operation, resp.StatusCode, envelope.Code, envelope.Msg)
+				if category == ErrorCategoryRateLimit {
 					retryAfter = feishuRateLimitWait(resp.Header, c.retry.now())
+					if providerReason == "export_throttled" {
+						retryAfter = max(retryAfter, time.Minute)
+					}
 					gate.cooldown(retryAfter)
 				}
 				err = &APIError{
-					Category:   classifyAPIError(resp.StatusCode, envelope.Code),
-					Code:       envelope.Code,
-					Message:    envelope.Msg,
-					HTTPStatus: resp.StatusCode,
-					Operation:  operation,
-					RequestID:  ResponseRequestID(resp.Header),
-					Scopes:     requiredScopes(envelope.Msg),
-					RetryAfter: retryAfter,
+					Category:       category,
+					Code:           envelope.Code,
+					Message:        envelope.Msg,
+					HTTPStatus:     resp.StatusCode,
+					Operation:      operation,
+					RequestID:      ResponseRequestID(resp.Header),
+					Scopes:         requiredScopes(envelope.Msg),
+					RetryAfter:     retryAfter,
+					ProviderReason: providerReason,
 				}
 			}
 		}
@@ -456,6 +461,7 @@ func (c *Client) doRequestBytesWithOptions(
 			Operation: operation, Category: apiErr.Category,
 			HTTPStatus: apiErr.HTTPStatus, Code: apiErr.Code,
 			RequestID: apiErr.RequestID, RequiredScopes: apiErr.Scopes,
+			ProviderReason: apiErr.ProviderReason,
 		})
 		if authenticated && personal && !application && refreshHint == "" &&
 			apiErr.Category == ErrorCategoryAuth && attempt < c.retry.maxRetries &&
@@ -521,6 +527,12 @@ func requestOperation(method, path string) string {
 	cleanPath := path
 	if idx := strings.IndexByte(cleanPath, '?'); idx >= 0 {
 		cleanPath = cleanPath[:idx]
+	}
+	if strings.HasPrefix(cleanPath, "/open-apis/docs_ai/v1/documents/") && strings.HasSuffix(cleanPath, "/fetch") {
+		return "fetch_personal_docx_content"
+	}
+	if strings.HasPrefix(cleanPath, "/open-apis/docx/v1/documents/") && strings.HasSuffix(cleanPath, "/blocks") {
+		return "inspect_personal_docx_blocks"
 	}
 	return strings.ToLower(method) + " " + cleanPath
 }

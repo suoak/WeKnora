@@ -15,6 +15,7 @@ func TestPersonalBlocksFallbackRequiresSourcePermissionAndCompleteBody(t *testin
 		"allowed", "view_denied", "export_denied", "copy_denied", "copy_and_export_denied",
 		"policy_scope_missing", "policy_field_missing", "permission_revoked",
 		"changed_revision", "image", "unknown_inline", "incomplete_page", "cycle", "transient_export",
+		"ambiguous_export_denied",
 	} {
 		t.Run(scenario, func(t *testing.T) {
 			var calls []string
@@ -34,8 +35,12 @@ func TestPersonalBlocksFallbackRequiresSourcePermissionAndCompleteBody(t *testin
 						w.WriteHeader(503)
 						value = map[string]any{"code": 1069999}
 					} else {
-						w.WriteHeader(403)
-						value = map[string]any{"code": 1069902}
+						code, status := 1069918, http.StatusBadRequest
+						if scenario == "ambiguous_export_denied" {
+							code, status = 1069902, http.StatusForbidden
+						}
+						w.WriteHeader(status)
+						value = map[string]any{"code": code}
 					}
 				case "/open-apis/drive/v1/permissions/real/members/auth":
 					calls = append(calls, "permission")
@@ -126,9 +131,16 @@ func TestPersonalBlocksFallbackRequiresSourcePermissionAndCompleteBody(t *testin
 			if err == nil || len(body) != 0 || name != "" {
 				t.Fatal("unverified/partial content must never be returned as an import")
 			}
+			wantDenial := map[string]error{
+				"view_denied": ErrPersonalReadDenied, "export_denied": ErrPersonalCopyOnlyReview,
+				"copy_denied": ErrPersonalCopyDenied, "copy_and_export_denied": ErrPersonalCopyExportDenied,
+			}[scenario]
+			if wantDenial != nil && !errors.Is(err, wantDenial) {
+				t.Fatalf("lost effective permission classification: %v", err)
+			}
 			switch scenario {
 			case "view_denied", "export_denied", "copy_denied", "copy_and_export_denied",
-				"policy_scope_missing", "policy_field_missing", "transient_export":
+				"policy_scope_missing", "policy_field_missing", "transient_export", "ambiguous_export_denied":
 				if blockCalls != 0 {
 					t.Fatal("read route bypassed source permission or retry gate")
 				}

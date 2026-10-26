@@ -43,15 +43,29 @@ var (
 // APIError preserves the structured fields needed by retry policy, logging and
 // UI-safe error mapping. Body and credentials are deliberately not retained.
 type APIError struct {
-	Category   ErrorCategory
-	Code       int
-	Message    string
-	HTTPStatus int
-	Operation  string
-	RequestID  string
-	Scopes     []string
-	RetryAfter time.Duration
-	Cause      error
+	Category       ErrorCategory
+	Code           int
+	Message        string
+	HTTPStatus     int
+	Operation      string
+	RequestID      string
+	Scopes         []string
+	RetryAfter     time.Duration
+	ProviderReason string
+	Cause          error
+}
+
+// Export 9499 is overloaded. Only the CLI-evidenced exact rate-limit messages
+// at export task endpoints change its category; its raw message is not logged.
+func classifyOperationAPIError(operation string, status, code int, message string) (ErrorCategory, string) {
+	if code == 9499 && (operation == "create_export_task" || operation == "get_export_task_status") {
+		normalized := strings.Trim(strings.ToLower(strings.TrimSpace(message)), " .")
+		if normalized == "too many request" || normalized == "too many requests" {
+			return ErrorCategoryRateLimit, "export_throttled"
+		}
+		return classifyAPIError(status, code), "export_9499_unclassified"
+	}
+	return classifyAPIError(status, code), ""
 }
 
 func (e *APIError) Error() string {

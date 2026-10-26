@@ -22,11 +22,11 @@
           <p v-if="item.last_activity_at">后台状态更新：{{ formatTime(item.last_activity_at) }}</p>
           <p v-if="item.stalled" class="warning" role="status">处理异常，请查看详情。后台正在检查任务状态，不会擅自取消任务。</p>
           <p v-if="item.error_category" class="warning">{{ failure(item.error_category) }}</p>
-          <t-button v-if="['source_policy_verification_required','user_scope_missing','reconnect_required','authorization_expired','export_create_denied','export_permission_required'].includes(item.error_category || '')" variant="text" :loading="authorizationBusy" @click="connect('')">补充飞书授权</t-button>
+          <t-button v-if="['user_scope_missing','reconnect_required','authorization_expired'].includes(item.error_category || '')" variant="text" :loading="authorizationBusy" @click="connect('')">补充飞书授权</t-button>
           <p v-if="item.retry_after && item.status === 'dispatched'">自动重试时间：{{ formatTime(item.retry_after) }}</p>
           <p v-if="item.chunk_count || item.vector_count">已解析 {{ item.chunk_count || 0 }} 个片段，已建立 {{ item.vector_count || 0 }} 条向量索引。</p>
           <router-link v-if="item.status === 'succeeded' && item.index_verified && item.knowledge_id" :to="{path:'/platform/knowledge-bases/'+batch.batch.kb_id,query:{knowledge_id:item.knowledge_id}}">在知识库中查看</router-link>
-          <details v-if="item.error_category"><summary>高级详情</summary><p>原因码：{{ item.error_category }}；自动重试：{{ item.attempt_retry_count || 0 }} 次</p></details>
+          <details v-if="item.error_category"><summary>高级详情</summary><p>原因码：{{ item.error_category }}；自动重试：{{ item.attempt_retry_count || 0 }} 次</p><p v-if="item.provider_code">接口错误码：{{ item.provider_code }}；处理阶段：{{ item.operation }}</p><p v-if="item.request_id_hash">请求指纹：{{ item.request_id_hash }}</p></details>
         </article>
         <t-button variant="text" @click="showBatch(batch.batch.id)">刷新状态</t-button>
       </section>
@@ -58,6 +58,11 @@ function itemStatus(item:FeishuBatchItem) {
   return labels[item.stage || ''] || '任务已交接，等待后台状态'
 }
 function failure(code:string) {
+	if(code==='source_copy_export_denied') return '当前账号可以阅读该文档，但没有复制或导出权限。请联系文档所有者开放相应权限，无需申请编辑权限。'
+	if(code==='source_read_denied') return '当前账号没有文档阅读权限，请联系文档所有者。'
+	if(code==='source_copy_denied') return '当前账号没有文档复制权限，请联系文档所有者。'
+	if(code==='source_copy_only_requires_policy') return '文档允许复制但导出受限，暂不能导入，请联系管理员。'
+	if(code==='source_acquisition_requires_review') return '文档获取方式需要核查，请联系管理员。'
 	if(code==='source_policy_verification_required') return '无法确认文档导出权限，请联系管理员。'
 	if(code==='blocks_content_requires_review') return '文档含暂不支持的内容，请联系管理员处理。'
   if(['authorization_expired','reconnect_required'].includes(code)) return '飞书授权已失效，请重新连接账号。'

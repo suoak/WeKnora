@@ -15,8 +15,16 @@ import (
 // conflating application/user scopes with a document's export security policy.
 func feishuRemoteFailureCategory(err error) string {
 	switch {
-	case errors.Is(err, core.ErrPersonalBlocksPolicyUnverified):
-		return "source_policy_verification_required"
+	case errors.Is(err, core.ErrPersonalReadDenied):
+		return "source_read_denied"
+	case errors.Is(err, core.ErrPersonalCopyExportDenied):
+		return "source_copy_export_denied"
+	case errors.Is(err, core.ErrPersonalCopyDenied):
+		return "source_copy_denied"
+	case errors.Is(err, core.ErrPersonalCopyOnlyReview):
+		return "source_copy_only_requires_policy"
+	case errors.Is(err, core.ErrPersonalAcquisitionReview):
+		return "source_acquisition_requires_review"
 	case errors.Is(err, core.ErrPersonalBlocksIncomplete):
 		return "blocks_content_requires_review"
 	case errors.Is(err, ErrFeishuRefreshExpired):
@@ -33,6 +41,11 @@ func feishuRemoteFailureCategory(err error) string {
 		return "authorization_invalid"
 	case errors.Is(err, ErrFeishuReconnect):
 		return "reconnect_required"
+	case errors.Is(err, core.ErrRateLimited), errors.Is(err, core.ErrTransient),
+		errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled):
+		return "temporary_failure"
+	case errors.Is(err, core.ErrPersonalBlocksPolicyUnverified):
+		return "source_policy_verification_required"
 	case errors.Is(err, core.ErrPermission):
 		var api *core.APIError
 		if errors.As(err, &api) {

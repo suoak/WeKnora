@@ -194,6 +194,10 @@ func run() error {
 				}
 				doc["effective_personal_permissions"] = rights
 			}
+			if os.Getenv("FEISHU_DIAGNOSTIC_COMPARE_CONTENT_PATHS") == "1" &&
+				mask(item.KnowledgeID) == "070925df4104" {
+				doc["content_path_comparison"] = comparePersonalContentPaths(ctx, client, resource)
+			}
 			policy, permissionErr := client.PersonalExportPolicy(ctx, resource)
 			if permissionErr != nil {
 				doc["policy_inspection_error"] = safeError(permissionErr)
