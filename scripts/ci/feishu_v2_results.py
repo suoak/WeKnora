@@ -10,6 +10,7 @@ required = {
     "TestFeishuV2PostgresInlineContinuePreservesOriginalBatch",
     "TestFeishuV2PostgresInlinePublicationRejectsWriteOnlyAndKeepsPrivate",
     "TestFeishuV2PostgresInlinePublicationPinsConnectionThroughPrepare",
+    "TestFeishuV2PostgresInlinePublicationCannotBorrowAnotherVersionApproval",
     "TestFeishuV2PostgresQuickImportRequiresExplicitTarget",
     "TestFeishuV2PostgresStorageFailureTerminatesOriginalAttempt",
     "TestFeishuV2PostgresBatchReportsActualFailureWithoutPollingProgress",

@@ -13,6 +13,15 @@ import (
 
 var errBatchPublicationExpired = errors.New("publication_confirmation_expired")
 
+type batchPublicationApprovalKey struct{}
+
+func batchPublicationContext(ctx context.Context, item *types.FeishuBatchItem) context.Context {
+	if item.SharingApprovalID == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, batchPublicationApprovalKey{}, *item.SharingApprovalID)
+}
+
 // Write access alone never constitutes source publication authority.
 func (s *FeishuPersonalService) requireSharingAuthority(ctx context.Context, kbID string) error {
 	user, ok := types.UserIDFromContext(ctx)
@@ -89,7 +98,8 @@ func (s *FeishuPersonalService) bindBatchPublication(
 		return ErrFeishuReconnect
 	}
 	approval.ExpiresAt = expires
-	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	bound := ""
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var current types.FeishuBatchItem
 		if e := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			Where("id = ? AND batch_id = ? AND status = ? AND lease_owner = ? AND lease_until > ?",
@@ -97,6 +107,7 @@ func (s *FeishuPersonalService) bindBatchPublication(
 			return e
 		}
 		if current.SharingApprovalID != nil {
+			bound = *current.SharingApprovalID
 			return nil
 		}
 		if !expires.After(time.Now()) {
@@ -108,8 +119,16 @@ func (s *FeishuPersonalService) bindBatchPublication(
 		if e := tx.Create(approval).Error; e != nil {
 			return e
 		}
-		return tx.Model(&current).Update("sharing_approval_id", approval.ID).Error
+		if e := tx.Model(&current).Update("sharing_approval_id", approval.ID).Error; e != nil {
+			return e
+		}
+		bound = approval.ID
+		return nil
 	})
+	if err == nil && bound != "" {
+		item.SharingApprovalID = &bound
+	}
+	return err
 }
 
 // ContinueBatch combines explicit publication intent and requeue for an old

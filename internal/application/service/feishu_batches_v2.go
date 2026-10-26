@@ -455,6 +455,7 @@ func (s *FeishuPersonalService) ReconcileBatches(ctx context.Context) error {
 				err = s.bindBatchPublication(fresh, &b, &item)
 			}
 			if err == nil {
+				fresh = batchPublicationContext(fresh, &item)
 				imported, err = s.ImportWithIdentity(fresh, b.KBID, item.URL, b.AuthMode, ref)
 			}
 		}

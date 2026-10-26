@@ -203,3 +203,46 @@ func TestFeishuV2PostgresInlinePublicationPinsConnectionThroughPrepare(t *testin
 	require.NoError(t, f.db.Model(&types.FeishuPersonalAttempt{}).Count(&attempts).Error)
 	require.Zero(t, attempts)
 }
+
+func TestFeishuV2PostgresInlinePublicationCannotBorrowAnotherVersionApproval(t *testing.T) {
+	f := v2PostgresFixture(t)
+	view, err := f.s.QuickImport(
+		f.ctx,
+		"kb",
+		"fixed-version",
+		[]string{"https://test.feishu.cn/file/real"},
+		true,
+	)
+	require.NoError(t, err)
+	item := view.Items[0]
+	item.Status, item.LeaseOwner = "processing", "worker-before-crash"
+	until := time.Now().Add(time.Minute)
+	item.LeaseUntil = &until
+	require.NoError(t, f.db.Save(&item).Error)
+	require.NoError(t, f.s.bindBatchPublication(f.ctx, &view.Batch, &item))
+	require.NotNil(t, item.SharingApprovalID)
+	f.revision.Store(2)
+	_, err = f.s.ApproveSharing(
+		f.ctx,
+		"kb",
+		view.Batch.ConnectionID,
+		item.URL,
+		"separate newer version approval",
+		true,
+	)
+	require.NoError(t, err)
+	// The original item must still fail before creating an attempt, even when
+	// another explicit operation has approved the newer version to the same KB.
+	_, err = f.s.ImportWithIdentity(
+		batchPublicationContext(f.ctx, &item),
+		"kb",
+		item.URL,
+		types.FeishuUserOAuth,
+	)
+	require.ErrorIs(t, err, ErrFeishuSharingApproval)
+	var count int64
+	require.NoError(t, f.db.Model(&types.FeishuPersonalAttempt{}).Count(&count).Error)
+	require.Zero(t, count)
+	require.NoError(t, f.db.Model(&types.FeishuSharingApproval{}).Count(&count).Error)
+	require.EqualValues(t, 2, count, "a retry cannot issue a third approval")
+}

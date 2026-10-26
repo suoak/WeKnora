@@ -136,11 +136,13 @@ func (s *FeishuPersonalService) checkSharingApproval(
 	m *types.FeishuPersonalImport,
 	revision string,
 ) error {
-	if cfg.Capabilities == nil || types.FeishuAuthMode(m.AuthMode) != types.FeishuUserOAuth ||
+	binding, _ := tx.Statement.Context.Value(batchPublicationApprovalKey{}).(string)
+	if cfg.Capabilities == nil && binding == "" ||
+		types.FeishuAuthMode(m.AuthMode) != types.FeishuUserOAuth ||
 		m.DocumentToken == "" {
 		return nil
 	}
-	if types.PrivateKBGuardsEnabled(tx) {
+	if binding == "" && types.PrivateKBGuardsEnabled(tx) {
 		owner, err := types.PrivateKBOwner(tx, m.KBID)
 		if err != nil {
 			return err
@@ -150,7 +152,7 @@ func (s *FeishuPersonalService) checkSharingApproval(
 		}
 	}
 	var approval types.FeishuSharingApproval
-	err := tx.Clauses(clause.Locking{Strength: "SHARE"}).
+	query := tx.Clauses(clause.Locking{Strength: "SHARE"}).
 		Where("owner_id = ? AND kb_id = ? AND app_id = ? AND resource_type = ? AND resource"+
 			"_token = ? AND revision = ? AND config_version = ? AND state = ? AND expires"+
 			"_at > ?",
@@ -162,9 +164,11 @@ func (s *FeishuPersonalService) checkSharingApproval(
 			revision,
 			cfg.identityVersion(types.FeishuUserOAuth),
 			"approved",
-			time.Now()).
-		First(&approval).
-		Error
+			time.Now())
+	if binding != "" {
+		query = query.Where("id = ?", binding)
+	}
+	err := query.First(&approval).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrFeishuSharingApproval
