@@ -285,6 +285,9 @@ func (s *wikiIngestService) ProcessWikiIngest(ctx context.Context, t *asynq.Task
 	loggedMaxInflight := 0
 
 	defer func() {
+		if retErr != nil && exitStatus == "success" {
+			exitStatus = "failed"
+		}
 		logger.Infof(
 			ctx,
 			"wiki ingest stats: kb=%s tenant=%d retry=%d/%d status=%s elapsed=%s mode=%s pending_ops=%d ops(ingest=%d,retract=%d) ingest(success=%d,failed=%d) retract_handled=%d pages(total=%d) followup=%v tunables(batch=%d,map_par=%d,reduce_par=%d,max_inflight=%d) preview=%s",
@@ -816,7 +819,7 @@ func (s *wikiIngestService) ProcessWikiIngest(ctx context.Context, t *asynq.Task
 	}
 	_ = egReduce.Wait()
 
-	tailCtx, tailCancel := wikiIngestCleanupContext(ctx)
+	tailCtx, tailCancel := wikiIngestPostProcessContext(ctx, len(allPagesAffected))
 	defer tailCancel()
 	tailCtx, firstAddPostErrors := withWikiPostErrors(tailCtx)
 
