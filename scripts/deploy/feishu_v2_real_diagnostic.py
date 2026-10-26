@@ -67,6 +67,10 @@ private_dependencies=query("SELECT coalesce(json_agg(q),'[]') FROM (SELECT fp.kb
  "(SELECT count(*) FROM chunks c WHERE c.knowledge_base_id=fp.kb_id AND c.deleted_at IS NULL) AS chunk_count,"+
  "(SELECT count(*) FROM embeddings e WHERE e.knowledge_base_id=fp.kb_id) AS vector_count "+
  "FROM feishu_private_kbs fp WHERE fp.owner_id='"+uid+"' LIMIT 10) q")
+target_ids=','.join(quoted(v['id']) for v in targets) or "''"
+approval_summary=query("SELECT coalesce(json_agg(q),'[]') FROM (SELECT resource_type,state,"+
+ "expires_at>clock_timestamp() AS within_validity,count(*) AS count FROM feishu_sharing_approvals "+
+ "WHERE owner_id="+quoted(uid)+" AND kb_id IN ("+target_ids+") GROUP BY resource_type,state,within_validity) q")
 attempts=rows('feishu_personal_attempts',['id','import_id','logical_knowledge_id','candidate_version_id','manifest_key','status','retry_after','retry_count','last_error_category','lease_until','created_at','updated_at','manifest_size'], 'import_id IN ('+iids+')')
 kids=sorted({r.get('knowledge_id') for r in imports if r.get('knowledge_id')}|{r.get('logical_knowledge_id') for r in attempts if r.get('logical_knowledge_id')})
 kids=sorted(set(kids)|{r.get('candidate_version_id') for r in attempts if r.get('candidate_version_id')})
@@ -82,6 +86,13 @@ for kid in sorted({r.get('knowledge_id') for r in imports if r.get('knowledge_id
   count=query("SELECT to_json(count(*)) FROM embeddings WHERE knowledge_id="+quoted(kid)+" AND content ||| '"+term+"'")
   bm25.append({'knowledge_id':kid,'matching_index_rows':count,'status':'PASS' if count else 'NO_MATCH'})
  else:bm25.append({'knowledge_id':kid,'status':'NO_SAFE_QUERY_TERM'})
+if DB_ONLY:
+ state={'user_id':uid,'batches':batches,'items':items,'imports':imports,'attempts':attempts,'knowledge':knowledge}
+ path=site/'real-batch-readonly-state.json';path.write_text(json.dumps(state));path.chmod(0o600)
+ print(json.dumps({'status':'READ_ONLY','approval_summary':approval_summary,'canonical_resource_count':canonical_count,
+  'batches':safe(batches),'items':safe(items),'imports':safe(imports),'attempts':safe(attempts),
+  'knowledge':safe(knowledge),'chunks':safe(chunks),'vectors':safe(vectors),'bm25':safe(bm25),'outbox':safe(ops)}))
+ raise SystemExit(0)
 logreports={}
 for service in []:
  p=run(compose+['logs','--no-color','--since','30m','--tail','1500',service],45)
@@ -218,6 +229,7 @@ def main():
     parser.add_argument('--release-gates', type=Path)
     parser.add_argument('--test-username')
     parser.add_argument('--approved-links-file',type=Path)
+    parser.add_argument('--db-only',action='store_true')
     parser.add_argument('--mode', choices=['prepare', 'apply', 'finish', 'status', 'rollback'], required=True)
     args = parser.parse_args()
     old, new = read_json(args.manifest), read_json(args.candidate_manifest)
@@ -243,7 +255,8 @@ def main():
         values = {'ROOT': str(PurePosixPath(old['source_directory']).parent), 'CANDIDATE': str(PurePosixPath(new['source_directory']).parent),
                   'OLD_SHA': old['source_sha'], 'SHA': new['source_sha'], 'MODE': args.mode,
                   'GATES': read_json(args.release_gates) if args.release_gates else {}, 'TEST_USERNAME':args.test_username,
-                  'APPROVED_LINKS':read_json(args.approved_links_file) if args.approved_links_file else []}
+                  'APPROVED_LINKS':read_json(args.approved_links_file) if args.approved_links_file else [],
+                  'DB_ONLY':args.db_only}
         guarded = 'try:\n' + textwrap.indent(REMOTE, ' ')
         guarded += "\nexcept Exception as error:\n print(json.dumps({'status':'BLOCKED','reason':str(error) if isinstance(error,ValueError) else 'isolated_upgrade_operation_failed','error_type':type(error).__name__}))\n raise SystemExit(2)\n"
         code = base64.b64encode(('\n'.join(k + '=' + repr(v) for k, v in values.items()) + '\n' + guarded).encode()).decode()
