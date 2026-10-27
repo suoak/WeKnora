@@ -9,7 +9,6 @@
       <t-button v-if="status.auth_mode !== 'application_grant' && !status.connected" :loading="busy" @click="connect">{{ t('connect') }}</t-button>
       <div v-else-if="status.auth_mode !== 'application_grant'">{{ t('connected') }} <t-button variant="text" :disabled="busy" @click="disconnect">{{ t('disconnect') }}</t-button></div>
       <t-input v-model="url" :placeholder="t('url')" :disabled="busy" style="margin: 16px 0" />
-      <p style="font-size: var(--app-text-sm); color: var(--td-text-color-secondary)">{{ t('sharingShort') }}</p>
       <t-button :disabled="!canImport || !url.trim()" :loading="busy" @click="runImport">{{ t('import') }}</t-button>
       <details v-if="rows.length" style="margin-top: 16px">
         <summary>{{ t('recent') }}</summary>

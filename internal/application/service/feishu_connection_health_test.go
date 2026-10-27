@@ -183,7 +183,7 @@ func TestFeishuOAuthRevocationHintNeverDeletesRenewableGrant(t *testing.T) {
 	)
 	_, h, err = loadFeishuHealth(s.db, "A")
 	require.NoError(t, err)
-	require.Equal(t, after, h.CheckAfter)
+	require.True(t, after.Equal(h.CheckAfter), "ignored events preserve the exact check deadline")
 	// A late result from a failed refresh cannot overwrite a new encrypted grant.
 	var old types.FeishuConnection
 	require.NoError(t, s.db.Where("user_id = ?", "A").First(&old).Error)
