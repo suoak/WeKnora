@@ -155,9 +155,9 @@ func validateFeishuApp(cfg *FeishuAppConfig) error {
 	}
 	if u.Scheme != "https" &&
 		(u.Scheme != "http" || u.Hostname() != "localhost" && u.Hostname() != "127.0.0.1") {
-		if !feishuTestHTTPCallbackAllowed(cfg) {
+		if !feishuTestHTTPCallbackAllowed(cfg) && !feishuInternalHTTPCallbackAllowed(cfg) {
 			return errors.New(
-				"callback requires HTTPS (HTTP allowed only on loopback or an isolated test allowlist)",
+				"callback requires HTTPS or an explicitly approved exact HTTP callback policy",
 			)
 		}
 	}
@@ -187,6 +187,30 @@ func (s *FeishuPersonalService) SaveApp(ctx context.Context, cfg *FeishuAppConfi
 	cfg.AuthMode = types.FeishuAuthMode(cfg.AuthMode)
 	if err := validateFeishuModeConfig(cfg); err != nil {
 		return err
+	}
+	if err := verifyFeishuInternalHTTPCallback(ctx, cfg); err != nil {
+		return err
+	}
+	if feishuInternalHTTPCallbackAllowed(cfg) {
+		if s.audit == nil {
+			return errors.New("feishu_internal_callback_audit_required")
+		}
+		actor, _ := types.UserIDFromContext(ctx)
+		details, err := json.Marshal(map[string]any{
+			"approval_ref":    os.Getenv("FEISHU_INTERNAL_HTTP_CALLBACK_APPROVAL_REF"),
+			"callback_digest": stateHash(cfg.RedirectURI), "app_digest": stateHash(cfg.AppID),
+			"private_address_digest": stateHash(os.Getenv("FEISHU_INTERNAL_HTTP_CALLBACK_IPV4")),
+		})
+		if err != nil {
+			return err
+		}
+		if err := s.audit.Log(ctx, &types.AuditLog{
+			ActorUserID: actor, ActorRole: "system_admin", Action: types.AuditAction("feishu.http_callback_policy_verified"),
+			TargetType: "system_setting", TargetID: feishuAppSetting,
+			Outcome: types.AuditOutcomeSuccess, Details: types.JSON(details),
+		}); err != nil {
+			return errors.New("feishu_internal_callback_audit_unavailable")
+		}
 	}
 	cfg.Version = uuid.NewString()
 	if cfg.Capabilities != nil {
@@ -369,6 +393,9 @@ func (s *FeishuPersonalService) Authorize(ctx context.Context) (string, error) {
 	if !cfg.Enabled || len(utils.GetAESKey()) != 32 {
 		return "", errors.New("feishu_app_unavailable")
 	}
+	if err := verifyFeishuInternalHTTPCallback(ctx, cfg); err != nil {
+		return "", err
+	}
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
@@ -542,6 +569,9 @@ func (s *FeishuPersonalService) Complete(ctx context.Context, state, code string
 	}
 	if !cfg.modeEnabled(types.FeishuUserOAuth) {
 		return ErrFeishuApplicationRestricted
+	}
+	if err := verifyFeishuInternalHTTPCallback(ctx, cfg); err != nil {
+		return err
 	}
 
 	// Atomic consume is supported by both PostgreSQL and SQLite. Only the owner

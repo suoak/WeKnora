@@ -35,7 +35,7 @@ func (c *FeishuAppConfig) modeEnabled(mode string) bool {
 		return false
 	}
 	if mode == types.FeishuUserOAuth && feishuNonLoopbackHTTP(c.RedirectURI) &&
-		!feishuTestHTTPCallbackAllowed(c) {
+		!feishuTestHTTPCallbackAllowed(c) && !feishuInternalHTTPCallbackAllowed(c) {
 		return false
 	}
 	if c.Capabilities == nil {

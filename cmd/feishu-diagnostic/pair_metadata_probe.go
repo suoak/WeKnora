@@ -53,5 +53,5 @@ func inspectPairMetadata(ctx context.Context, db *gorm.DB, svc *service.FeishuPe
 		)
 	}
 	return json.NewEncoder(os.Stdout).
-		Encode(map[string]any{"operation": "metadata-probe", "results": results, "knowledge_writes": false, "sync_control_writes": false})
+		Encode(map[string]any{"status": "CHECKED", "operation": "metadata-probe", "results": results, "knowledge_writes": false, "sync_control_writes": false})
 }
