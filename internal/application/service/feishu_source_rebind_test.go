@@ -22,6 +22,7 @@ func TestFeishuV2PostgresControlledSourceRebind(t *testing.T) {
 		"atomic_success_and_rollback", "second_source_conflict", "revoked_new_approval",
 		"changed_epoch", "changed_index", "changed_account", "permission_denied",
 		"concurrent_one_winner", "rollback_after_index_change", "revoked_operator",
+		"renew_terminal_reconciliation",
 	} {
 		t.Run(scenario, func(t *testing.T) {
 			t.Setenv("FEISHU_SOURCE_REBIND_OPERATIONS_ENABLED", "1")
@@ -264,6 +265,37 @@ func TestFeishuV2PostgresControlledSourceRebind(t *testing.T) {
 				require.EqualValues(t, 1, winners.Load())
 			} else {
 				receipt, err = apply()
+			}
+			if scenario == "renew_terminal_reconciliation" {
+				require.NoError(t, err)
+				policy, createErr := f.s.ApproveSourceReconciliation(
+					admin, ids[0], "A", "NEW-run-authorization", time.Now().Add(time.Hour),
+				)
+				require.NoError(t, createErr)
+				_, renewErr := f.s.RenewSourceReconciliation(
+					admin, ids[0], "A", "NEW-recovery-authorization", time.Now().Add(time.Hour),
+				)
+				require.Error(t, renewErr, "a running execution cannot be replaced")
+				require.NoError(t, f.db.Model(&types.SyncLog{}).
+					Where("id = ?", policy.ReconciliationLogID).
+					UpdateColumn("status", types.SyncLogStatusCanceled).Error)
+				next, renewErr := f.s.RenewSourceReconciliation(
+					admin, ids[0], "A", "NEW-recovery-authorization", time.Now().Add(time.Hour),
+				)
+				require.NoError(t, renewErr)
+				require.NotEqual(t, policy.ReconciliationLogID, next.ReconciliationLogID)
+				var oldRun types.SyncLog
+				require.NoError(t, f.db.First(&oldRun, "id = ?", policy.ReconciliationLogID).Error)
+				require.Equal(t, types.SyncLogStatusCanceled, oldRun.Status)
+				var current types.DataSource
+				require.NoError(t, f.db.First(&current, "id = ?", ids[0]).Error)
+				require.Equal(t, "hold", current.LegacyAccessState)
+				require.Equal(
+					t,
+					string(original[ids[0]].LastSyncCursor),
+					string(current.LastSyncCursor),
+				)
+				return
 			}
 			if scenario == "atomic_success_and_rollback" ||
 				scenario == "rollback_after_index_change" ||

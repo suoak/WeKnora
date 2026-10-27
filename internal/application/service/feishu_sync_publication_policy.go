@@ -117,7 +117,9 @@ func (s *FeishuPersonalService) RenewSourceReconciliation(
 		}
 		var run types.SyncLog
 		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).
-			Where("id = ? AND data_source_id = ?", previous.ReconciliationLogID, sourceID).First(&run).Error; err != nil {
+			Where("id = ? AND data_source_id = ?", previous.ReconciliationLogID, sourceID).
+			First(&run).
+			Error; err != nil {
 			return err
 		}
 		if run.ExecutionClaimed ||
