@@ -92,6 +92,6 @@ func TestFeishuRevocationEventAuthenticityAndChallenge(t *testing.T) {
 		),
 	)
 	require.Equal(t, 401, send([]byte(`{"encrypt":"`+strings.Repeat("?", 20)+`"}`), now, "forged"))
-	malformed := encryptRevocationFixture(t, "}{", "synthetic-encryption-key")
+	malformed := encryptRevocationFixture(t, "}x{", "synthetic-encryption-key")
 	require.NotPanics(t, func() { require.Equal(t, 401, send(malformed, now, "forged")) })
 }
