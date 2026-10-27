@@ -1,0 +1,28 @@
+{
+  "local_controller_package": {
+    "status": "PASS",
+    "platform": "windows_amd64",
+    "command": "go test -p 2 -ldflags=-extldflags=-lssp ./internal/feishusynccontrol -count=1",
+    "real_redis_gate": "not_enabled_locally; separately required in Linux CI"
+  },
+  "admin_mutation_disabled_handler_test": {
+    "status": "PASS",
+    "test": "TestSourceRebindRequiresAdminAndSeparateOperationEnablement"
+  },
+  "python_poc_suite": {
+    "status": "PASS",
+    "test_count": 16,
+    "third_party_packages_enabled": false,
+    "command": "python -S -m unittest discover -s docs/integration/feishu-access-v2/poc -q"
+  },
+  "original_candidate_complete_ci": "report27-original-candidate-complete-ci-20261027.json",
+  "runtime_database_migrations": false,
+  "real_source_rebinding": false,
+  "trip_reset": false,
+  "hold_recovery": false,
+  "local_safety_package": {
+    "status": "PASS",
+    "platform": "windows_amd64",
+    "command": "go test -p 2 -ldflags=-extldflags=-lssp ./internal/feishusafety -count=1"
+  }
+}

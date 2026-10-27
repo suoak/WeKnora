@@ -1,0 +1,5858 @@
+{
+  "at": "2026-10-27T00:47:50.466000+00:00",
+  "containers": [
+    {
+      "service": "app",
+      "container_hash": "7edd5500c29c",
+      "hostname_hash": "1619ae85f9e5",
+      "started_at": "2026-10-27T00:44:03.679193663Z",
+      "health": "healthy",
+      "source_sha": "b2cd0a63eb806648730c241edc875ff0f80cd822",
+      "configured_worker_hash": null,
+      "scope_hashes": [
+        "1dcf458346ba",
+        "6d1698a6e0d9"
+      ],
+      "scope_unrestricted": false,
+      "safety_mode": "automatic",
+      "maintenance_concurrency": "1"
+    },
+    {
+      "service": "worker2",
+      "container_hash": "6e689709c802",
+      "hostname_hash": "fc2f95714b0b",
+      "started_at": "2026-10-27T00:44:22.793084858Z",
+      "health": "healthy",
+      "source_sha": "b2cd0a63eb806648730c241edc875ff0f80cd822",
+      "configured_worker_hash": null,
+      "scope_hashes": [
+        "1dcf458346ba",
+        "6d1698a6e0d9"
+      ],
+      "scope_unrestricted": false,
+      "safety_mode": "automatic",
+      "maintenance_concurrency": "1"
+    }
+  ],
+  "controllers": [
+    {
+      "worker_hash": "572894e018a5",
+      "policy_fingerprint": "320bc9c8fd4dd8bf352bf9a2cdc638370e20a20c062f247302bb90b959d85c7c",
+      "incarnation_hash": "1a46faf5381d",
+      "lease_until": "2026-10-27T00:47:52.414000+00:00",
+      "lease_remaining_ms": 1948
+    },
+    {
+      "worker_hash": "56c3c4aab52b",
+      "policy_fingerprint": "320bc9c8fd4dd8bf352bf9a2cdc638370e20a20c062f247302bb90b959d85c7c",
+      "incarnation_hash": "5a45242990f7",
+      "lease_until": "2026-10-27T00:47:52.322000+00:00",
+      "lease_remaining_ms": 1856
+    }
+  ],
+  "asynq_servers": [
+    {
+      "worker_hash": "56c3c4aab52b",
+      "server_hash": "fd5e92b638e6",
+      "pid": 1,
+      "status": "active",
+      "concurrency": 1,
+      "queues": {
+        "question": 1,
+        "memory": 1,
+        "summary": 2,
+        "multimodal": 1,
+        "graph": 1
+      },
+      "registry_expires_at": "2026-10-27T00:47:56+00:00",
+      "registry_remaining_ms": 5534,
+      "started_at": "2026-10-27T00:44:06+00:00"
+    },
+    {
+      "worker_hash": "56c3c4aab52b",
+      "server_hash": "217437153ace",
+      "pid": 1,
+      "status": "active",
+      "concurrency": 1,
+      "queues": {
+        "sync": 2,
+        "low": 1
+      },
+      "registry_expires_at": "2026-10-27T00:47:56+00:00",
+      "registry_remaining_ms": 5534,
+      "started_at": "2026-10-27T00:44:06+00:00"
+    },
+    {
+      "worker_hash": "56c3c4aab52b",
+      "server_hash": "543a836287ba",
+      "pid": 1,
+      "status": "active",
+      "concurrency": 2,
+      "queues": {
+        "default": 1,
+        "chat_attachment": 3
+      },
+      "registry_expires_at": "2026-10-27T00:47:56+00:00",
+      "registry_remaining_ms": 5534,
+      "started_at": "2026-10-27T00:44:06+00:00"
+    },
+    {
+      "worker_hash": "56c3c4aab52b",
+      "server_hash": "6487293faea6",
+      "pid": 1,
+      "status": "active",
+      "concurrency": 1,
+      "queues": {
+        "wiki": 1
+      },
+      "registry_expires_at": "2026-10-27T00:47:56+00:00",
+      "registry_remaining_ms": 5534,
+      "started_at": "2026-10-27T00:44:06+00:00"
+    },
+    {
+      "worker_hash": "56c3c4aab52b",
+      "server_hash": "a4711d706fd5",
+      "pid": 1,
+      "status": "active",
+      "concurrency": 1,
+      "queues": {
+        "chat_attachment": 3,
+        "summary": 2,
+        "multimodal": 1,
+        "graph": 1,
+        "question": 1,
+        "memory": 1,
+        "default": 3
+      },
+      "registry_expires_at": "2026-10-27T00:47:56+00:00",
+      "registry_remaining_ms": 5534,
+      "started_at": "2026-10-27T00:44:06+00:00"
+    },
+    {
+      "worker_hash": "56c3c4aab52b",
+      "server_hash": "d8a48b4efba5",
+      "pid": 1,
+      "status": "active",
+      "concurrency": 1,
+      "queues": {
+        "postprocess": 1
+      },
+      "registry_expires_at": "2026-10-27T00:47:56+00:00",
+      "registry_remaining_ms": 5534,
+      "started_at": "2026-10-27T00:44:06+00:00"
+    },
+    {
+      "worker_hash": "572894e018a5",
+      "server_hash": "94c5c032a42b",
+      "pid": 1,
+      "status": "active",
+      "concurrency": 1,
+      "queues": {
+        "postprocess": 1
+      },
+      "registry_expires_at": "2026-10-27T00:47:59+00:00",
+      "registry_remaining_ms": 8534,
+      "started_at": "2026-10-27T00:44:24+00:00"
+    },
+    {
+      "worker_hash": "572894e018a5",
+      "server_hash": "7e9508e1cf19",
+      "pid": 1,
+      "status": "active",
+      "concurrency": 1,
+      "queues": {
+        "wiki": 1
+      },
+      "registry_expires_at": "2026-10-27T00:47:59+00:00",
+      "registry_remaining_ms": 8534,
+      "started_at": "2026-10-27T00:44:24+00:00"
+    },
+    {
+      "worker_hash": "572894e018a5",
+      "server_hash": "8d77fb8aad92",
+      "pid": 1,
+      "status": "active",
+      "concurrency": 1,
+      "queues": {
+        "multimodal": 1,
+        "graph": 1,
+        "question": 1,
+        "memory": 1,
+        "default": 3,
+        "chat_attachment": 3,
+        "summary": 2
+      },
+      "registry_expires_at": "2026-10-27T00:47:59+00:00",
+      "registry_remaining_ms": 8534,
+      "started_at": "2026-10-27T00:44:24+00:00"
+    },
+    {
+      "worker_hash": "572894e018a5",
+      "server_hash": "7af68aa43f82",
+      "pid": 1,
+      "status": "active",
+      "concurrency": 1,
+      "queues": {
+        "sync": 2,
+        "low": 1
+      },
+      "registry_expires_at": "2026-10-27T00:47:59+00:00",
+      "registry_remaining_ms": 8534,
+      "started_at": "2026-10-27T00:44:24+00:00"
+    },
+    {
+      "worker_hash": "572894e018a5",
+      "server_hash": "27fc40291d8a",
+      "pid": 1,
+      "status": "active",
+      "concurrency": 2,
+      "queues": {
+        "default": 1,
+        "chat_attachment": 3
+      },
+      "registry_expires_at": "2026-10-27T00:47:59+00:00",
+      "registry_remaining_ms": 8534,
+      "started_at": "2026-10-27T00:44:24+00:00"
+    },
+    {
+      "worker_hash": "572894e018a5",
+      "server_hash": "7a896b520583",
+      "pid": 1,
+      "status": "active",
+      "concurrency": 1,
+      "queues": {
+        "summary": 2,
+        "multimodal": 1,
+        "graph": 1,
+        "question": 1,
+        "memory": 1
+      },
+      "registry_expires_at": "2026-10-27T00:47:59+00:00",
+      "registry_remaining_ms": 8534,
+      "started_at": "2026-10-27T00:44:24+00:00"
+    }
+  ],
+  "draining": [
+    {
+      "worker_hash": "79f2e2320688",
+      "until": "2026-10-25T13:48:57.407000+00:00",
+      "remaining_ms": -125933059
+    },
+    {
+      "worker_hash": "10e4dc62e95b",
+      "until": "2026-10-25T13:48:58.086000+00:00",
+      "remaining_ms": -125932380
+    },
+    {
+      "worker_hash": "c86c9761c58d",
+      "until": "2026-10-25T16:41:17.456000+00:00",
+      "remaining_ms": -115593010
+    },
+    {
+      "worker_hash": "8612038275e1",
+      "until": "2026-10-25T16:41:18.242000+00:00",
+      "remaining_ms": -115592224
+    },
+    {
+      "worker_hash": "a0cfa0eab997",
+      "until": "2026-10-26T01:02:06.389000+00:00",
+      "remaining_ms": -85544077
+    },
+    {
+      "worker_hash": "dc4938d9a1b8",
+      "until": "2026-10-26T01:02:08.063000+00:00",
+      "remaining_ms": -85542403
+    },
+    {
+      "worker_hash": "53abe4da5185",
+      "until": "2026-10-26T03:26:50.186000+00:00",
+      "remaining_ms": -76860280
+    },
+    {
+      "worker_hash": "d28b446df0a6",
+      "until": "2026-10-26T03:26:50.838000+00:00",
+      "remaining_ms": -76859628
+    },
+    {
+      "worker_hash": "754329609ca3",
+      "until": "2026-10-26T03:31:16.599000+00:00",
+      "remaining_ms": -76593867
+    },
+    {
+      "worker_hash": "e8d3b3bb1a3a",
+      "until": "2026-10-26T03:31:17.015000+00:00",
+      "remaining_ms": -76593451
+    },
+    {
+      "worker_hash": "99c9a311f352",
+      "until": "2026-10-26T07:32:17.232000+00:00",
+      "remaining_ms": -62133234
+    },
+    {
+      "worker_hash": "a5edb0cb2192",
+      "until": "2026-10-26T07:32:17.748000+00:00",
+      "remaining_ms": -62132718
+    },
+    {
+      "worker_hash": "bbc71529718f",
+      "until": "2026-10-26T10:44:37.474000+00:00",
+      "remaining_ms": -50592992
+    },
+    {
+      "worker_hash": "3ee25d12be2e",
+      "until": "2026-10-26T10:44:39.584000+00:00",
+      "remaining_ms": -50590882
+    },
+    {
+      "worker_hash": "956f115705ed",
+      "until": "2026-10-26T10:49:41.323000+00:00",
+      "remaining_ms": -50289143
+    },
+    {
+      "worker_hash": "b3fcc90ee6c6",
+      "until": "2026-10-26T10:49:43.536000+00:00",
+      "remaining_ms": -50286930
+    },
+    {
+      "worker_hash": "ff50b1881a3b",
+      "until": "2026-10-26T14:37:37.695000+00:00",
+      "remaining_ms": -36612771
+    },
+    {
+      "worker_hash": "36990173fab6",
+      "until": "2026-10-26T14:37:38.398000+00:00",
+      "remaining_ms": -36612068
+    },
+    {
+      "worker_hash": "fc628b37f57f",
+      "until": "2026-10-27T00:44:19.229000+00:00",
+      "remaining_ms": -211237
+    },
+    {
+      "worker_hash": "33483c0305f1",
+      "until": "2026-10-27T00:44:19.925000+00:00",
+      "remaining_ms": -210541
+    }
+  ],
+  "trip": {
+    "present": true,
+    "value": "audit_unavailable",
+    "ttl_ms": -1
+  },
+  "permit": {
+    "present": false,
+    "value": null,
+    "ttl_ms": -2
+  },
+  "sync_queue_pause": {
+    "present": true,
+    "value": "feishu_safety_stop",
+    "ttl_ms": -1
+  },
+  "recent_audit": [
+    {
+      "at": "2026-10-27T00:47:14.614000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "572894e018a5"
+    },
+    {
+      "at": "2026-10-27T00:47:15.122000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "56c3c4aab52b"
+    },
+    {
+      "at": "2026-10-27T00:47:15.814000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "572894e018a5"
+    },
+    {
+      "at": "2026-10-27T00:47:16.322000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "56c3c4aab52b"
+    },
+    {
+      "at": "2026-10-27T00:47:17.013000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "572894e018a5"
+    },
+    {
+      "at": "2026-10-27T00:47:17.522000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "56c3c4aab52b"
+    },
+    {
+      "at": "2026-10-27T00:47:18.214000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "572894e018a5"
+    },
+    {
+      "at": "2026-10-27T00:47:18.722000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "56c3c4aab52b"
+    },
+    {
+      "at": "2026-10-27T00:47:19.414000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "572894e018a5"
+    },
+    {
+      "at": "2026-10-27T00:47:19.723000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "56c3c4aab52b"
+    },
+    {
+      "at": "2026-10-27T00:47:20.414000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "572894e018a5"
+    },
+    {
+      "at": "2026-10-27T00:47:20.922000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "56c3c4aab52b"
+    },
+    {
+      "at": "2026-10-27T00:47:21.614000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "572894e018a5"
+    },
+    {
+      "at": "2026-10-27T00:47:22.122000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "56c3c4aab52b"
+    },
+    {
+      "at": "2026-10-27T00:47:22.814000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "572894e018a5"
+    },
+    {
+      "at": "2026-10-27T00:47:23.322000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "56c3c4aab52b"
+    },
+    {
+      "at": "2026-10-27T00:47:24.014000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "572894e018a5"
+    },
+    {
+      "at": "2026-10-27T00:47:24.521000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "56c3c4aab52b"
+    },
+    {
+      "at": "2026-10-27T00:47:25.214000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "572894e018a5"
+    },
+    {
+      "at": "2026-10-27T00:47:25.522000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "56c3c4aab52b"
+    },
+    {
+      "at": "2026-10-27T00:47:26.414000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "572894e018a5"
+    },
+    {
+      "at": "2026-10-27T00:47:26.522000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "56c3c4aab52b"
+    },
+    {
+      "at": "2026-10-27T00:47:27.414000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "572894e018a5"
+    },
+    {
+      "at": "2026-10-27T00:47:27.722000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "56c3c4aab52b"
+    },
+    {
+      "at": "2026-10-27T00:47:28.614000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "572894e018a5"
+    },
+    {
+      "at": "2026-10-27T00:47:28.922000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "56c3c4aab52b"
+    },
+    {
+      "at": "2026-10-27T00:47:29.814000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "572894e018a5"
+    },
+    {
+      "at": "2026-10-27T00:47:29.922000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "56c3c4aab52b"
+    },
+    {
+      "at": "2026-10-27T00:47:30.814000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "572894e018a5"
+    },
+    {
+      "at": "2026-10-27T00:47:31.122000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "56c3c4aab52b"
+    }
+  ],
+  "lifecycle_logs": [
+    {
+      "service": "app",
+      "at": "2026-10-27T00:44:05.123123311Z",
+      "phase": "[Scheduler] started"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-27T00:44:06.144642055Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-27T00:44:06.144730785Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-27T00:44:06.144779525Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-27T00:44:06.144784085Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-27T00:44:06.144811775Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-27T00:44:06.145298475Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-27T00:44:06.324563388Z",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_permit_tripped",
+      "worker_hash": "56c3c4aab52b"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-27T00:44:23.814847419Z",
+      "phase": "[Scheduler] started"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-27T00:44:23.829652085Z",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_permit_tripped",
+      "worker_hash": "572894e018a5"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-27T00:44:24.203126608Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-27T00:44:24.203178258Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-27T00:44:24.203188018Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-27T00:44:24.203202628Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-27T00:44:24.203209438Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-27T00:44:24.203276048Z",
+      "phase": "Starting processing"
+    }
+  ],
+  "control_step_timings": [
+    {
+      "requested": "2026-10-27T00:44:05.121529662Z",
+      "lock_wait_ns": 16710,
+      "id": "1ad21f92-92a4-4ce0-8c2e-9c6915c98fb6",
+      "started": "2026-10-27T00:44:05.121546372Z",
+      "finished": "2026-10-27T00:44:05.123460031Z",
+      "stages": [
+        {
+          "stage": "registry",
+          "started": "2026-10-27T00:44:05.121546832Z",
+          "finished": "2026-10-27T00:44:05.122420311Z",
+          "remaining_ms": 499
+        },
+        {
+          "stage": "audit",
+          "started": "2026-10-27T00:44:05.122420311Z",
+          "finished": "2026-10-27T00:44:05.122827891Z",
+          "remaining_ms": 499
+        },
+        {
+          "stage": "membership_probe",
+          "started": "2026-10-27T00:44:05.122827891Z",
+          "finished": "2026-10-27T00:44:05.122917351Z",
+          "remaining_ms": 498
+        },
+        {
+          "stage": "consumer_probe",
+          "started": "2026-10-27T00:44:05.122917351Z",
+          "finished": "2026-10-27T00:44:05.123460031Z",
+          "remaining_ms": 498
+        }
+      ],
+      "commands": [
+        {
+          "operation": "hello",
+          "started": "2026-10-27T00:44:05.122057752Z",
+          "finished": "2026-10-27T00:44:05.122202031Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "pipeline",
+          "started": "2026-10-27T00:44:05.122208751Z",
+          "finished": "2026-10-27T00:44:05.122275371Z",
+          "pool_wait_ns": 0,
+          "failed": true
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:44:05.121555442Z",
+          "finished": "2026-10-27T00:44:05.122416611Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "xadd",
+          "started": "2026-10-27T00:44:05.122442991Z",
+          "finished": "2026-10-27T00:44:05.122825451Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:44:05.122834751Z",
+          "finished": "2026-10-27T00:44:05.122915891Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "ping",
+          "started": "2026-10-27T00:44:05.122919171Z",
+          "finished": "2026-10-27T00:44:05.122983811Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:44:05.123001431Z",
+          "finished": "2026-10-27T00:44:05.123159871Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:44:05.123168411Z",
+          "finished": "2026-10-27T00:44:05.123336761Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "del",
+          "started": "2026-10-27T00:44:05.123342991Z",
+          "finished": "2026-10-27T00:44:05.123455861Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        }
+      ],
+      "io": [
+        {
+          "operation": "dial",
+          "started": "2026-10-27T00:44:05.121588762Z",
+          "finished": "2026-10-27T00:44:05.122039562Z",
+          "bytes": 0,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:05.122073402Z",
+          "finished": "2026-10-27T00:44:05.122115812Z",
+          "bytes": 100,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:05.122118892Z",
+          "finished": "2026-10-27T00:44:05.122195751Z",
+          "bytes": 148,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:05.122214901Z",
+          "finished": "2026-10-27T00:44:05.122239311Z",
+          "bytes": 123,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:05.122240351Z",
+          "finished": "2026-10-27T00:44:05.122268531Z",
+          "bytes": 106,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:05.122280111Z",
+          "finished": "2026-10-27T00:44:05.122307741Z",
+          "bytes": 434,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:05.122309191Z",
+          "finished": "2026-10-27T00:44:05.122414181Z",
+          "bytes": 16,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:05.122452671Z",
+          "finished": "2026-10-27T00:44:05.122488681Z",
+          "bytes": 367,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:05.122490491Z",
+          "finished": "2026-10-27T00:44:05.122821871Z",
+          "bytes": 22,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:05.122838931Z",
+          "finished": "2026-10-27T00:44:05.122873771Z",
+          "bytes": 69,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:05.122875991Z",
+          "finished": "2026-10-27T00:44:05.122914151Z",
+          "bytes": 8,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:05.122922551Z",
+          "finished": "2026-10-27T00:44:05.122953621Z",
+          "bytes": 14,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:05.122955361Z",
+          "finished": "2026-10-27T00:44:05.122981941Z",
+          "bytes": 7,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:05.123005811Z",
+          "finished": "2026-10-27T00:44:05.123032601Z",
+          "bytes": 108,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:05.123033751Z",
+          "finished": "2026-10-27T00:44:05.123155921Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:05.123175841Z",
+          "finished": "2026-10-27T00:44:05.123208251Z",
+          "bytes": 108,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:05.123209571Z",
+          "finished": "2026-10-27T00:44:05.123334831Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:05.123346651Z",
+          "finished": "2026-10-27T00:44:05.123374361Z",
+          "bytes": 56,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:05.123381981Z",
+          "finished": "2026-10-27T00:44:05.123454451Z",
+          "bytes": 4,
+          "failed": false
+        }
+      ],
+      "failed": true,
+      "service": "app",
+      "worker_hash": "56c3c4aab52b",
+      "incarnation_hash": "5a45242990f7"
+    },
+    {
+      "requested": "2026-10-27T00:45:05.121543197Z",
+      "lock_wait_ns": 7460,
+      "id": "2c71c10e-231f-42d9-8f10-f6d455cccf01",
+      "started": "2026-10-27T00:45:05.121550657Z",
+      "finished": "2026-10-27T00:45:05.124872096Z",
+      "stages": [
+        {
+          "stage": "registry",
+          "started": "2026-10-27T00:45:05.121551377Z",
+          "finished": "2026-10-27T00:45:05.121729047Z",
+          "remaining_ms": 499
+        },
+        {
+          "stage": "membership_probe",
+          "started": "2026-10-27T00:45:05.121729047Z",
+          "finished": "2026-10-27T00:45:05.121789727Z",
+          "remaining_ms": 499
+        },
+        {
+          "stage": "consumer_probe",
+          "started": "2026-10-27T00:45:05.121789727Z",
+          "finished": "2026-10-27T00:45:05.123364806Z",
+          "remaining_ms": 499
+        },
+        {
+          "stage": "permit",
+          "started": "2026-10-27T00:45:05.123364806Z",
+          "finished": "2026-10-27T00:45:05.123543246Z",
+          "remaining_ms": 498
+        },
+        {
+          "stage": "stop",
+          "started": "2026-10-27T00:45:05.123543246Z",
+          "finished": "2026-10-27T00:45:05.124872096Z",
+          "remaining_ms": 4999
+        }
+      ],
+      "commands": [
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:45:05.121557397Z",
+          "finished": "2026-10-27T00:45:05.121726907Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:05.121732317Z",
+          "finished": "2026-10-27T00:45:05.121789047Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "ping",
+          "started": "2026-10-27T00:45:05.121791697Z",
+          "finished": "2026-10-27T00:45:05.121836677Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:45:05.121841597Z",
+          "finished": "2026-10-27T00:45:05.121930907Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:05.121934747Z",
+          "finished": "2026-10-27T00:45:05.121982787Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:05.122012997Z",
+          "finished": "2026-10-27T00:45:05.122062437Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:05.122069507Z",
+          "finished": "2026-10-27T00:45:05.122117927Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:05.122126547Z",
+          "finished": "2026-10-27T00:45:05.122214237Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:05.122221627Z",
+          "finished": "2026-10-27T00:45:05.122275347Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:05.122284647Z",
+          "finished": "2026-10-27T00:45:05.122332347Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:05.122337997Z",
+          "finished": "2026-10-27T00:45:05.122383817Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:05.122389427Z",
+          "finished": "2026-10-27T00:45:05.122451617Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:05.122457387Z",
+          "finished": "2026-10-27T00:45:05.122504787Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:05.122513867Z",
+          "finished": "2026-10-27T00:45:05.122571387Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:05.122581247Z",
+          "finished": "2026-10-27T00:45:05.122633737Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:05.122640837Z",
+          "finished": "2026-10-27T00:45:05.122690277Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:45:05.122699547Z",
+          "finished": "2026-10-27T00:45:05.122791947Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:45:05.122795127Z",
+          "finished": "2026-10-27T00:45:05.122842137Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:45:05.122844387Z",
+          "finished": "2026-10-27T00:45:05.122887577Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:45:05.122888437Z",
+          "finished": "2026-10-27T00:45:05.122930007Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:45:05.122931267Z",
+          "finished": "2026-10-27T00:45:05.122973077Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:45:05.122974017Z",
+          "finished": "2026-10-27T00:45:05.123017917Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:45:05.123018857Z",
+          "finished": "2026-10-27T00:45:05.123060727Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:45:05.123061767Z",
+          "finished": "2026-10-27T00:45:05.123106067Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:45:05.123106967Z",
+          "finished": "2026-10-27T00:45:05.123149207Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:45:05.123150157Z",
+          "finished": "2026-10-27T00:45:05.123193877Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:45:05.123196397Z",
+          "finished": "2026-10-27T00:45:05.123237867Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:45:05.123238707Z",
+          "finished": "2026-10-27T00:45:05.123295866Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:45:05.123299236Z",
+          "finished": "2026-10-27T00:45:05.123349146Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:45:05.123370826Z",
+          "finished": "2026-10-27T00:45:05.123524946Z",
+          "pool_wait_ns": 0,
+          "failed": true
+        },
+        {
+          "operation": "eval",
+          "started": "2026-10-27T00:45:05.123558756Z",
+          "finished": "2026-10-27T00:45:05.123723436Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "set",
+          "started": "2026-10-27T00:45:05.123729106Z",
+          "finished": "2026-10-27T00:45:05.123846586Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        }
+      ],
+      "io": [
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.121563807Z",
+          "finished": "2026-10-27T00:45:05.121581487Z",
+          "bytes": 434,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.121583267Z",
+          "finished": "2026-10-27T00:45:05.121722987Z",
+          "bytes": 16,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.121735797Z",
+          "finished": "2026-10-27T00:45:05.121750277Z",
+          "bytes": 69,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.121752007Z",
+          "finished": "2026-10-27T00:45:05.121786897Z",
+          "bytes": 8,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.121793777Z",
+          "finished": "2026-10-27T00:45:05.121805477Z",
+          "bytes": 14,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.121807007Z",
+          "finished": "2026-10-27T00:45:05.121835627Z",
+          "bytes": 7,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.121844627Z",
+          "finished": "2026-10-27T00:45:05.121856257Z",
+          "bytes": 108,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.121856957Z",
+          "finished": "2026-10-27T00:45:05.121926537Z",
+          "bytes": 893,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.121936847Z",
+          "finished": "2026-10-27T00:45:05.121948087Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.121949777Z",
+          "finished": "2026-10-27T00:45:05.121981377Z",
+          "bytes": 151,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.122016077Z",
+          "finished": "2026-10-27T00:45:05.122029287Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.122030007Z",
+          "finished": "2026-10-27T00:45:05.122060757Z",
+          "bytes": 103,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.122071887Z",
+          "finished": "2026-10-27T00:45:05.122084307Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.122084977Z",
+          "finished": "2026-10-27T00:45:05.122115707Z",
+          "bytes": 119,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.122128657Z",
+          "finished": "2026-10-27T00:45:05.122166357Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.122167217Z",
+          "finished": "2026-10-27T00:45:05.122203467Z",
+          "bytes": 94,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.122224467Z",
+          "finished": "2026-10-27T00:45:05.122239407Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.122240277Z",
+          "finished": "2026-10-27T00:45:05.122272277Z",
+          "bytes": 185,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.122286667Z",
+          "finished": "2026-10-27T00:45:05.122299777Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.122300587Z",
+          "finished": "2026-10-27T00:45:05.122330757Z",
+          "bytes": 101,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.122340067Z",
+          "finished": "2026-10-27T00:45:05.122352067Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.122352807Z",
+          "finished": "2026-10-27T00:45:05.122382437Z",
+          "bytes": 101,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.122391497Z",
+          "finished": "2026-10-27T00:45:05.122403427Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.122404177Z",
+          "finished": "2026-10-27T00:45:05.122449877Z",
+          "bytes": 94,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.122459387Z",
+          "finished": "2026-10-27T00:45:05.122471697Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.122472427Z",
+          "finished": "2026-10-27T00:45:05.122503087Z",
+          "bytes": 185,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.122515957Z",
+          "finished": "2026-10-27T00:45:05.122527837Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.122528607Z",
+          "finished": "2026-10-27T00:45:05.122569337Z",
+          "bytes": 103,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.122584477Z",
+          "finished": "2026-10-27T00:45:05.122599387Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.122600287Z",
+          "finished": "2026-10-27T00:45:05.122632147Z",
+          "bytes": 119,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.122643057Z",
+          "finished": "2026-10-27T00:45:05.122656137Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.122656977Z",
+          "finished": "2026-10-27T00:45:05.122688717Z",
+          "bytes": 151,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.122702267Z",
+          "finished": "2026-10-27T00:45:05.122714887Z",
+          "bytes": 108,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.122715727Z",
+          "finished": "2026-10-27T00:45:05.122785347Z",
+          "bytes": 893,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.122797287Z",
+          "finished": "2026-10-27T00:45:05.122808977Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.122810007Z",
+          "finished": "2026-10-27T00:45:05.122841067Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.122846237Z",
+          "finished": "2026-10-27T00:45:05.122856757Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.122857417Z",
+          "finished": "2026-10-27T00:45:05.122886357Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.122890227Z",
+          "finished": "2026-10-27T00:45:05.122901037Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.122903687Z",
+          "finished": "2026-10-27T00:45:05.122929067Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.122933117Z",
+          "finished": "2026-10-27T00:45:05.122943717Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.122944417Z",
+          "finished": "2026-10-27T00:45:05.122972197Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.122975807Z",
+          "finished": "2026-10-27T00:45:05.122986497Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.122987127Z",
+          "finished": "2026-10-27T00:45:05.123016897Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.123020847Z",
+          "finished": "2026-10-27T00:45:05.123031347Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.123031977Z",
+          "finished": "2026-10-27T00:45:05.123059677Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.123063547Z",
+          "finished": "2026-10-27T00:45:05.123074327Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.123074997Z",
+          "finished": "2026-10-27T00:45:05.123105077Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.123109027Z",
+          "finished": "2026-10-27T00:45:05.123119417Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.123120157Z",
+          "finished": "2026-10-27T00:45:05.123148317Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.123152037Z",
+          "finished": "2026-10-27T00:45:05.123162597Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.123163257Z",
+          "finished": "2026-10-27T00:45:05.123192937Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.123198417Z",
+          "finished": "2026-10-27T00:45:05.123209257Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.123209977Z",
+          "finished": "2026-10-27T00:45:05.123236927Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.123240407Z",
+          "finished": "2026-10-27T00:45:05.123250886Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.123251496Z",
+          "finished": "2026-10-27T00:45:05.123293366Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.123303326Z",
+          "finished": "2026-10-27T00:45:05.123318476Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.123319426Z",
+          "finished": "2026-10-27T00:45:05.123348156Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.123374246Z",
+          "finished": "2026-10-27T00:45:05.123388826Z",
+          "bytes": 625,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.123390156Z",
+          "finished": "2026-10-27T00:45:05.123520286Z",
+          "bytes": 14,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.123572526Z",
+          "finished": "2026-10-27T00:45:05.123594316Z",
+          "bytes": 371,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.123595786Z",
+          "finished": "2026-10-27T00:45:05.123720976Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:05.123733336Z",
+          "finished": "2026-10-27T00:45:05.123754226Z",
+          "bytes": 64,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:05.123755726Z",
+          "finished": "2026-10-27T00:45:05.123844476Z",
+          "bytes": 5,
+          "failed": false
+        }
+      ],
+      "failed": true,
+      "service": "app",
+      "worker_hash": "56c3c4aab52b",
+      "incarnation_hash": "5a45242990f7"
+    },
+    {
+      "requested": "2026-10-27T00:46:05.322398759Z",
+      "lock_wait_ns": 8250,
+      "id": "5f0c3289-5fbf-4a40-a692-5fc904c98acc",
+      "started": "2026-10-27T00:46:05.322407009Z",
+      "finished": "2026-10-27T00:46:05.324622848Z",
+      "stages": [
+        {
+          "stage": "registry",
+          "started": "2026-10-27T00:46:05.322407679Z",
+          "finished": "2026-10-27T00:46:05.322625239Z",
+          "remaining_ms": 499
+        },
+        {
+          "stage": "membership_probe",
+          "started": "2026-10-27T00:46:05.322625239Z",
+          "finished": "2026-10-27T00:46:05.322682329Z",
+          "remaining_ms": 499
+        },
+        {
+          "stage": "consumer_probe",
+          "started": "2026-10-27T00:46:05.322682329Z",
+          "finished": "2026-10-27T00:46:05.324073159Z",
+          "remaining_ms": 499
+        },
+        {
+          "stage": "permit",
+          "started": "2026-10-27T00:46:05.324073159Z",
+          "finished": "2026-10-27T00:46:05.324163789Z",
+          "remaining_ms": 498
+        },
+        {
+          "stage": "stop",
+          "started": "2026-10-27T00:46:05.324163789Z",
+          "finished": "2026-10-27T00:46:05.324622848Z",
+          "remaining_ms": 4999
+        }
+      ],
+      "commands": [
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:46:05.322416729Z",
+          "finished": "2026-10-27T00:46:05.322622819Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:05.322628219Z",
+          "finished": "2026-10-27T00:46:05.322681579Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "ping",
+          "started": "2026-10-27T00:46:05.322684859Z",
+          "finished": "2026-10-27T00:46:05.322728399Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:46:05.322733399Z",
+          "finished": "2026-10-27T00:46:05.322822969Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:05.322827169Z",
+          "finished": "2026-10-27T00:46:05.322873989Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:05.322897559Z",
+          "finished": "2026-10-27T00:46:05.322944499Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:05.322951049Z",
+          "finished": "2026-10-27T00:46:05.322995999Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:05.323001929Z",
+          "finished": "2026-10-27T00:46:05.323047209Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:05.323053249Z",
+          "finished": "2026-10-27T00:46:05.323099329Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:05.323107899Z",
+          "finished": "2026-10-27T00:46:05.323152589Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:05.323157579Z",
+          "finished": "2026-10-27T00:46:05.323201639Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:05.323206799Z",
+          "finished": "2026-10-27T00:46:05.323250589Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:05.323255739Z",
+          "finished": "2026-10-27T00:46:05.323299389Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:05.323309519Z",
+          "finished": "2026-10-27T00:46:05.323354449Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:05.323360359Z",
+          "finished": "2026-10-27T00:46:05.323404139Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:05.323409429Z",
+          "finished": "2026-10-27T00:46:05.323453959Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:46:05.323462309Z",
+          "finished": "2026-10-27T00:46:05.323538829Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:46:05.323541149Z",
+          "finished": "2026-10-27T00:46:05.323585949Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:46:05.323587939Z",
+          "finished": "2026-10-27T00:46:05.323633639Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:46:05.323634509Z",
+          "finished": "2026-10-27T00:46:05.323675679Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:46:05.323676559Z",
+          "finished": "2026-10-27T00:46:05.323719839Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:46:05.323720709Z",
+          "finished": "2026-10-27T00:46:05.323761799Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:46:05.323762569Z",
+          "finished": "2026-10-27T00:46:05.323805259Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:46:05.323806169Z",
+          "finished": "2026-10-27T00:46:05.323847439Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:46:05.323848289Z",
+          "finished": "2026-10-27T00:46:05.323891609Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:46:05.323892509Z",
+          "finished": "2026-10-27T00:46:05.323933419Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:46:05.323934279Z",
+          "finished": "2026-10-27T00:46:05.323977079Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:46:05.323977919Z",
+          "finished": "2026-10-27T00:46:05.324018439Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:46:05.324019219Z",
+          "finished": "2026-10-27T00:46:05.324062009Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:46:05.324077019Z",
+          "finished": "2026-10-27T00:46:05.324153599Z",
+          "pool_wait_ns": 0,
+          "failed": true
+        },
+        {
+          "operation": "eval",
+          "started": "2026-10-27T00:46:05.324170279Z",
+          "finished": "2026-10-27T00:46:05.324235539Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "set",
+          "started": "2026-10-27T00:46:05.324237689Z",
+          "finished": "2026-10-27T00:46:05.324291289Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        }
+      ],
+      "io": [
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.322428709Z",
+          "finished": "2026-10-27T00:46:05.322484379Z",
+          "bytes": 434,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.322488709Z",
+          "finished": "2026-10-27T00:46:05.322618729Z",
+          "bytes": 16,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.322630729Z",
+          "finished": "2026-10-27T00:46:05.322643779Z",
+          "bytes": 69,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.322645619Z",
+          "finished": "2026-10-27T00:46:05.322679419Z",
+          "bytes": 8,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.322687149Z",
+          "finished": "2026-10-27T00:46:05.322698099Z",
+          "bytes": 14,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.322699709Z",
+          "finished": "2026-10-27T00:46:05.322727249Z",
+          "bytes": 7,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.322736359Z",
+          "finished": "2026-10-27T00:46:05.322748069Z",
+          "bytes": 108,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.322748779Z",
+          "finished": "2026-10-27T00:46:05.322818509Z",
+          "bytes": 893,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.322829369Z",
+          "finished": "2026-10-27T00:46:05.322840769Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.322842319Z",
+          "finished": "2026-10-27T00:46:05.322872509Z",
+          "bytes": 151,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.322899759Z",
+          "finished": "2026-10-27T00:46:05.322912689Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.322913379Z",
+          "finished": "2026-10-27T00:46:05.322942909Z",
+          "bytes": 103,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.322953119Z",
+          "finished": "2026-10-27T00:46:05.322965259Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.322966019Z",
+          "finished": "2026-10-27T00:46:05.322994349Z",
+          "bytes": 119,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.323003829Z",
+          "finished": "2026-10-27T00:46:05.323015789Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.323016449Z",
+          "finished": "2026-10-27T00:46:05.323045839Z",
+          "bytes": 94,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.323055239Z",
+          "finished": "2026-10-27T00:46:05.323067069Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.323067799Z",
+          "finished": "2026-10-27T00:46:05.323096259Z",
+          "bytes": 185,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.323109849Z",
+          "finished": "2026-10-27T00:46:05.323122139Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.323122889Z",
+          "finished": "2026-10-27T00:46:05.323151279Z",
+          "bytes": 101,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.323159459Z",
+          "finished": "2026-10-27T00:46:05.323171049Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.323171739Z",
+          "finished": "2026-10-27T00:46:05.323200229Z",
+          "bytes": 101,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.323208669Z",
+          "finished": "2026-10-27T00:46:05.323220439Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.323221139Z",
+          "finished": "2026-10-27T00:46:05.323249159Z",
+          "bytes": 94,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.323257719Z",
+          "finished": "2026-10-27T00:46:05.323269659Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.323270419Z",
+          "finished": "2026-10-27T00:46:05.323298059Z",
+          "bytes": 185,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.323311499Z",
+          "finished": "2026-10-27T00:46:05.323323759Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.323324489Z",
+          "finished": "2026-10-27T00:46:05.323353049Z",
+          "bytes": 103,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.323362269Z",
+          "finished": "2026-10-27T00:46:05.323374269Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.323374989Z",
+          "finished": "2026-10-27T00:46:05.323402779Z",
+          "bytes": 119,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.323411359Z",
+          "finished": "2026-10-27T00:46:05.323423149Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.323423889Z",
+          "finished": "2026-10-27T00:46:05.323452409Z",
+          "bytes": 151,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.323464799Z",
+          "finished": "2026-10-27T00:46:05.323476959Z",
+          "bytes": 108,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.323477719Z",
+          "finished": "2026-10-27T00:46:05.323535289Z",
+          "bytes": 893,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.323543109Z",
+          "finished": "2026-10-27T00:46:05.323554099Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.323554949Z",
+          "finished": "2026-10-27T00:46:05.323584959Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.323590129Z",
+          "finished": "2026-10-27T00:46:05.323600679Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.323601289Z",
+          "finished": "2026-10-27T00:46:05.323632559Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.323636539Z",
+          "finished": "2026-10-27T00:46:05.323647059Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.323649139Z",
+          "finished": "2026-10-27T00:46:05.323674679Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.323678349Z",
+          "finished": "2026-10-27T00:46:05.323688789Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.323689439Z",
+          "finished": "2026-10-27T00:46:05.323718789Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.323722649Z",
+          "finished": "2026-10-27T00:46:05.323733299Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.323733979Z",
+          "finished": "2026-10-27T00:46:05.323760759Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.323764239Z",
+          "finished": "2026-10-27T00:46:05.323774409Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.323775139Z",
+          "finished": "2026-10-27T00:46:05.323804319Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.323808039Z",
+          "finished": "2026-10-27T00:46:05.323818509Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.323819219Z",
+          "finished": "2026-10-27T00:46:05.323846459Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.323850229Z",
+          "finished": "2026-10-27T00:46:05.323860899Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.323861579Z",
+          "finished": "2026-10-27T00:46:05.323890669Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.323894409Z",
+          "finished": "2026-10-27T00:46:05.323904779Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.323905449Z",
+          "finished": "2026-10-27T00:46:05.323932449Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.323936159Z",
+          "finished": "2026-10-27T00:46:05.323946589Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.323947259Z",
+          "finished": "2026-10-27T00:46:05.323976109Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.323979849Z",
+          "finished": "2026-10-27T00:46:05.323990389Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.323991129Z",
+          "finished": "2026-10-27T00:46:05.324017519Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.324020899Z",
+          "finished": "2026-10-27T00:46:05.324031159Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.324031849Z",
+          "finished": "2026-10-27T00:46:05.324061009Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.324080079Z",
+          "finished": "2026-10-27T00:46:05.324092399Z",
+          "bytes": 625,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.324093209Z",
+          "finished": "2026-10-27T00:46:05.324151769Z",
+          "bytes": 14,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.324173279Z",
+          "finished": "2026-10-27T00:46:05.324186519Z",
+          "bytes": 371,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.324187229Z",
+          "finished": "2026-10-27T00:46:05.324234379Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:05.324239959Z",
+          "finished": "2026-10-27T00:46:05.324251099Z",
+          "bytes": 64,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:05.324251879Z",
+          "finished": "2026-10-27T00:46:05.324290219Z",
+          "bytes": 5,
+          "failed": false
+        }
+      ],
+      "failed": true,
+      "service": "app",
+      "worker_hash": "56c3c4aab52b",
+      "incarnation_hash": "5a45242990f7"
+    },
+    {
+      "requested": "2026-10-27T00:47:05.522167086Z",
+      "lock_wait_ns": 7840,
+      "id": "208a6bd6-67cf-4ea0-adb3-2db37330270a",
+      "started": "2026-10-27T00:47:05.522174926Z",
+      "finished": "2026-10-27T00:47:05.524474275Z",
+      "stages": [
+        {
+          "stage": "registry",
+          "started": "2026-10-27T00:47:05.522190036Z",
+          "finished": "2026-10-27T00:47:05.522400646Z",
+          "remaining_ms": 499
+        },
+        {
+          "stage": "membership_probe",
+          "started": "2026-10-27T00:47:05.522400646Z",
+          "finished": "2026-10-27T00:47:05.522460946Z",
+          "remaining_ms": 499
+        },
+        {
+          "stage": "consumer_probe",
+          "started": "2026-10-27T00:47:05.522460946Z",
+          "finished": "2026-10-27T00:47:05.523912025Z",
+          "remaining_ms": 499
+        },
+        {
+          "stage": "permit",
+          "started": "2026-10-27T00:47:05.523912025Z",
+          "finished": "2026-10-27T00:47:05.524008965Z",
+          "remaining_ms": 498
+        },
+        {
+          "stage": "stop",
+          "started": "2026-10-27T00:47:05.524008965Z",
+          "finished": "2026-10-27T00:47:05.524474275Z",
+          "remaining_ms": 4999
+        }
+      ],
+      "commands": [
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:47:05.522199176Z",
+          "finished": "2026-10-27T00:47:05.522397866Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:05.522403596Z",
+          "finished": "2026-10-27T00:47:05.522460256Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "ping",
+          "started": "2026-10-27T00:47:05.522464836Z",
+          "finished": "2026-10-27T00:47:05.522508886Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:47:05.522513496Z",
+          "finished": "2026-10-27T00:47:05.522602126Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:05.522606456Z",
+          "finished": "2026-10-27T00:47:05.522653576Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:05.522680026Z",
+          "finished": "2026-10-27T00:47:05.522727436Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:05.522735156Z",
+          "finished": "2026-10-27T00:47:05.522780816Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:05.522787196Z",
+          "finished": "2026-10-27T00:47:05.522835156Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:05.522841296Z",
+          "finished": "2026-10-27T00:47:05.522894816Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:05.522905186Z",
+          "finished": "2026-10-27T00:47:05.522952736Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:05.522958196Z",
+          "finished": "2026-10-27T00:47:05.523003646Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:05.523008786Z",
+          "finished": "2026-10-27T00:47:05.523053806Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:05.523058776Z",
+          "finished": "2026-10-27T00:47:05.523103736Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:05.523113836Z",
+          "finished": "2026-10-27T00:47:05.523159005Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:05.523164575Z",
+          "finished": "2026-10-27T00:47:05.523211965Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:05.523217625Z",
+          "finished": "2026-10-27T00:47:05.523262845Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:47:05.523271185Z",
+          "finished": "2026-10-27T00:47:05.523348095Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:47:05.523350325Z",
+          "finished": "2026-10-27T00:47:05.523395045Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:47:05.523396755Z",
+          "finished": "2026-10-27T00:47:05.523440815Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:47:05.523441735Z",
+          "finished": "2026-10-27T00:47:05.523482805Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:47:05.523483635Z",
+          "finished": "2026-10-27T00:47:05.523527055Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:47:05.523528015Z",
+          "finished": "2026-10-27T00:47:05.523568925Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:47:05.523569825Z",
+          "finished": "2026-10-27T00:47:05.523627325Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:47:05.523628225Z",
+          "finished": "2026-10-27T00:47:05.523674525Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:47:05.523675305Z",
+          "finished": "2026-10-27T00:47:05.523719845Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:47:05.523720795Z",
+          "finished": "2026-10-27T00:47:05.523764075Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:47:05.523764915Z",
+          "finished": "2026-10-27T00:47:05.523808575Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:47:05.523809395Z",
+          "finished": "2026-10-27T00:47:05.523852605Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:47:05.523853485Z",
+          "finished": "2026-10-27T00:47:05.523899325Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:47:05.523916025Z",
+          "finished": "2026-10-27T00:47:05.523999075Z",
+          "pool_wait_ns": 0,
+          "failed": true
+        },
+        {
+          "operation": "eval",
+          "started": "2026-10-27T00:47:05.524015415Z",
+          "finished": "2026-10-27T00:47:05.524084705Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "set",
+          "started": "2026-10-27T00:47:05.524086405Z",
+          "finished": "2026-10-27T00:47:05.524149375Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        }
+      ],
+      "io": [
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.522210636Z",
+          "finished": "2026-10-27T00:47:05.522245946Z",
+          "bytes": 434,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.522248946Z",
+          "finished": "2026-10-27T00:47:05.522394176Z",
+          "bytes": 16,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.522407326Z",
+          "finished": "2026-10-27T00:47:05.522422136Z",
+          "bytes": 69,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.522423956Z",
+          "finished": "2026-10-27T00:47:05.522458246Z",
+          "bytes": 8,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.522466836Z",
+          "finished": "2026-10-27T00:47:05.522478306Z",
+          "bytes": 14,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.522479846Z",
+          "finished": "2026-10-27T00:47:05.522507826Z",
+          "bytes": 7,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.522516446Z",
+          "finished": "2026-10-27T00:47:05.522527996Z",
+          "bytes": 108,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.522528696Z",
+          "finished": "2026-10-27T00:47:05.522597996Z",
+          "bytes": 893,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.522608506Z",
+          "finished": "2026-10-27T00:47:05.522619446Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.522620806Z",
+          "finished": "2026-10-27T00:47:05.522652036Z",
+          "bytes": 151,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.522682346Z",
+          "finished": "2026-10-27T00:47:05.522695496Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.522696306Z",
+          "finished": "2026-10-27T00:47:05.522725926Z",
+          "bytes": 103,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.522737236Z",
+          "finished": "2026-10-27T00:47:05.522749506Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.522750176Z",
+          "finished": "2026-10-27T00:47:05.522779226Z",
+          "bytes": 119,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.522789226Z",
+          "finished": "2026-10-27T00:47:05.522801246Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.522801976Z",
+          "finished": "2026-10-27T00:47:05.522833796Z",
+          "bytes": 94,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.522843396Z",
+          "finished": "2026-10-27T00:47:05.522855246Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.522856096Z",
+          "finished": "2026-10-27T00:47:05.522885206Z",
+          "bytes": 185,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.522907336Z",
+          "finished": "2026-10-27T00:47:05.522920796Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.522921536Z",
+          "finished": "2026-10-27T00:47:05.522951356Z",
+          "bytes": 101,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.522960316Z",
+          "finished": "2026-10-27T00:47:05.522972326Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.522973036Z",
+          "finished": "2026-10-27T00:47:05.523002316Z",
+          "bytes": 101,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.523010716Z",
+          "finished": "2026-10-27T00:47:05.523022656Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.523023326Z",
+          "finished": "2026-10-27T00:47:05.523052396Z",
+          "bytes": 94,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.523060886Z",
+          "finished": "2026-10-27T00:47:05.523072846Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.523073616Z",
+          "finished": "2026-10-27T00:47:05.523102346Z",
+          "bytes": 185,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.523115936Z",
+          "finished": "2026-10-27T00:47:05.523128326Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.523129086Z",
+          "finished": "2026-10-27T00:47:05.523157655Z",
+          "bytes": 103,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.523166535Z",
+          "finished": "2026-10-27T00:47:05.523178475Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.523179205Z",
+          "finished": "2026-10-27T00:47:05.523210445Z",
+          "bytes": 119,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.523219685Z",
+          "finished": "2026-10-27T00:47:05.523231755Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.523232505Z",
+          "finished": "2026-10-27T00:47:05.523261315Z",
+          "bytes": 151,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.523273825Z",
+          "finished": "2026-10-27T00:47:05.523286375Z",
+          "bytes": 108,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.523287165Z",
+          "finished": "2026-10-27T00:47:05.523344695Z",
+          "bytes": 893,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.523352265Z",
+          "finished": "2026-10-27T00:47:05.523363375Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.523364325Z",
+          "finished": "2026-10-27T00:47:05.523394035Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.523398545Z",
+          "finished": "2026-10-27T00:47:05.523409165Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.523409835Z",
+          "finished": "2026-10-27T00:47:05.523439845Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.523443595Z",
+          "finished": "2026-10-27T00:47:05.523453945Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.523456135Z",
+          "finished": "2026-10-27T00:47:05.523481865Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.523485505Z",
+          "finished": "2026-10-27T00:47:05.523495845Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.523496485Z",
+          "finished": "2026-10-27T00:47:05.523526055Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.523529845Z",
+          "finished": "2026-10-27T00:47:05.523540225Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.523540855Z",
+          "finished": "2026-10-27T00:47:05.523567935Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.523571565Z",
+          "finished": "2026-10-27T00:47:05.523581925Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.523582605Z",
+          "finished": "2026-10-27T00:47:05.523626375Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.523630115Z",
+          "finished": "2026-10-27T00:47:05.523640565Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.523641265Z",
+          "finished": "2026-10-27T00:47:05.523673565Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.523677075Z",
+          "finished": "2026-10-27T00:47:05.523687275Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.523687985Z",
+          "finished": "2026-10-27T00:47:05.523718865Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.523722715Z",
+          "finished": "2026-10-27T00:47:05.523733005Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.523733645Z",
+          "finished": "2026-10-27T00:47:05.523763095Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.523766725Z",
+          "finished": "2026-10-27T00:47:05.523777205Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.523777835Z",
+          "finished": "2026-10-27T00:47:05.523807585Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.523811275Z",
+          "finished": "2026-10-27T00:47:05.523822065Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.523822755Z",
+          "finished": "2026-10-27T00:47:05.523851675Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.523855255Z",
+          "finished": "2026-10-27T00:47:05.523865635Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.523866235Z",
+          "finished": "2026-10-27T00:47:05.523898275Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.523919255Z",
+          "finished": "2026-10-27T00:47:05.523931745Z",
+          "bytes": 625,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.523932715Z",
+          "finished": "2026-10-27T00:47:05.523997195Z",
+          "bytes": 14,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.524018755Z",
+          "finished": "2026-10-27T00:47:05.524032155Z",
+          "bytes": 371,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.524032955Z",
+          "finished": "2026-10-27T00:47:05.524083485Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:05.524089095Z",
+          "finished": "2026-10-27T00:47:05.524100125Z",
+          "bytes": 64,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:05.524100835Z",
+          "finished": "2026-10-27T00:47:05.524148265Z",
+          "bytes": 5,
+          "failed": false
+        }
+      ],
+      "failed": true,
+      "service": "app",
+      "worker_hash": "56c3c4aab52b",
+      "incarnation_hash": "5a45242990f7"
+    },
+    {
+      "requested": "2026-10-27T00:44:23.81333267Z",
+      "lock_wait_ns": 12530,
+      "id": "ffb37f04-daee-44f8-a71b-22a72921027b",
+      "started": "2026-10-27T00:44:23.8133452Z",
+      "finished": "2026-10-27T00:44:23.829672505Z",
+      "stages": [
+        {
+          "stage": "registry",
+          "started": "2026-10-27T00:44:23.81334567Z",
+          "finished": "2026-10-27T00:44:23.814378829Z",
+          "remaining_ms": 499
+        },
+        {
+          "stage": "audit",
+          "started": "2026-10-27T00:44:23.814378829Z",
+          "finished": "2026-10-27T00:44:23.814512019Z",
+          "remaining_ms": 498
+        },
+        {
+          "stage": "membership_probe",
+          "started": "2026-10-27T00:44:23.814512019Z",
+          "finished": "2026-10-27T00:44:23.814574239Z",
+          "remaining_ms": 498
+        },
+        {
+          "stage": "consumer_probe",
+          "started": "2026-10-27T00:44:23.814574239Z",
+          "finished": "2026-10-27T00:44:23.816295549Z",
+          "remaining_ms": 498
+        },
+        {
+          "stage": "permit",
+          "started": "2026-10-27T00:44:23.816295549Z",
+          "finished": "2026-10-27T00:44:23.816426439Z",
+          "remaining_ms": 497
+        },
+        {
+          "stage": "stop",
+          "started": "2026-10-27T00:44:23.816426439Z",
+          "finished": "2026-10-27T00:44:23.829672505Z",
+          "remaining_ms": 4999
+        }
+      ],
+      "commands": [
+        {
+          "operation": "hello",
+          "started": "2026-10-27T00:44:23.81379809Z",
+          "finished": "2026-10-27T00:44:23.81389918Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "pipeline",
+          "started": "2026-10-27T00:44:23.81390471Z",
+          "finished": "2026-10-27T00:44:23.81397029Z",
+          "pool_wait_ns": 0,
+          "failed": true
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:44:23.81335313Z",
+          "finished": "2026-10-27T00:44:23.814374869Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "xadd",
+          "started": "2026-10-27T00:44:23.814392569Z",
+          "finished": "2026-10-27T00:44:23.814509399Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:44:23.814517799Z",
+          "finished": "2026-10-27T00:44:23.814572889Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "ping",
+          "started": "2026-10-27T00:44:23.814575639Z",
+          "finished": "2026-10-27T00:44:23.814627009Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:44:23.814640759Z",
+          "finished": "2026-10-27T00:44:23.814740609Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:44:23.814744229Z",
+          "finished": "2026-10-27T00:44:23.814801699Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:44:23.814966959Z",
+          "finished": "2026-10-27T00:44:23.815045189Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:44:23.815054779Z",
+          "finished": "2026-10-27T00:44:23.815395429Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:44:23.815404359Z",
+          "finished": "2026-10-27T00:44:23.815519649Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:44:23.815528309Z",
+          "finished": "2026-10-27T00:44:23.815704399Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:44:23.815716529Z",
+          "finished": "2026-10-27T00:44:23.815784909Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:44:23.815793719Z",
+          "finished": "2026-10-27T00:44:23.815881629Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:44:23.815888059Z",
+          "finished": "2026-10-27T00:44:23.815940209Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:44:23.815941179Z",
+          "finished": "2026-10-27T00:44:23.815986039Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:44:23.815990279Z",
+          "finished": "2026-10-27T00:44:23.816051599Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:44:23.816052599Z",
+          "finished": "2026-10-27T00:44:23.816110179Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:44:23.816115539Z",
+          "finished": "2026-10-27T00:44:23.816218379Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:44:23.816219589Z",
+          "finished": "2026-10-27T00:44:23.816290269Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:44:23.816304969Z",
+          "finished": "2026-10-27T00:44:23.816411009Z",
+          "pool_wait_ns": 0,
+          "failed": true
+        },
+        {
+          "operation": "eval",
+          "started": "2026-10-27T00:44:23.816433099Z",
+          "finished": "2026-10-27T00:44:23.816540469Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "set",
+          "started": "2026-10-27T00:44:23.816542499Z",
+          "finished": "2026-10-27T00:44:23.816617189Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "xadd",
+          "started": "2026-10-27T00:44:23.829332875Z",
+          "finished": "2026-10-27T00:44:23.829514565Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "xadd",
+          "started": "2026-10-27T00:44:23.829567795Z",
+          "finished": "2026-10-27T00:44:23.829667255Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        }
+      ],
+      "io": [
+        {
+          "operation": "dial",
+          "started": "2026-10-27T00:44:23.81340231Z",
+          "finished": "2026-10-27T00:44:23.8137834Z",
+          "bytes": 0,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.8138063Z",
+          "finished": "2026-10-27T00:44:23.81384273Z",
+          "bytes": 100,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.81385082Z",
+          "finished": "2026-10-27T00:44:23.81389358Z",
+          "bytes": 148,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.81390747Z",
+          "finished": "2026-10-27T00:44:23.8139315Z",
+          "bytes": 123,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.81393546Z",
+          "finished": "2026-10-27T00:44:23.81396333Z",
+          "bytes": 106,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.81397356Z",
+          "finished": "2026-10-27T00:44:23.81399447Z",
+          "bytes": 434,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.81399773Z",
+          "finished": "2026-10-27T00:44:23.814372679Z",
+          "bytes": 16,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.814407989Z",
+          "finished": "2026-10-27T00:44:23.814445699Z",
+          "bytes": 367,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.814447829Z",
+          "finished": "2026-10-27T00:44:23.814506309Z",
+          "bytes": 22,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.814521059Z",
+          "finished": "2026-10-27T00:44:23.814544289Z",
+          "bytes": 69,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.814545509Z",
+          "finished": "2026-10-27T00:44:23.814571239Z",
+          "bytes": 8,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.814578169Z",
+          "finished": "2026-10-27T00:44:23.814598369Z",
+          "bytes": 14,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.814599569Z",
+          "finished": "2026-10-27T00:44:23.814625729Z",
+          "bytes": 7,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.814644579Z",
+          "finished": "2026-10-27T00:44:23.814667869Z",
+          "bytes": 108,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.814669099Z",
+          "finished": "2026-10-27T00:44:23.814736059Z",
+          "bytes": 448,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.814747379Z",
+          "finished": "2026-10-27T00:44:23.814769519Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.814770779Z",
+          "finished": "2026-10-27T00:44:23.814799349Z",
+          "bytes": 151,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.814971599Z",
+          "finished": "2026-10-27T00:44:23.815005439Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.815012629Z",
+          "finished": "2026-10-27T00:44:23.815043359Z",
+          "bytes": 103,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.815057789Z",
+          "finished": "2026-10-27T00:44:23.815086779Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.815088019Z",
+          "finished": "2026-10-27T00:44:23.815393549Z",
+          "bytes": 119,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.815408299Z",
+          "finished": "2026-10-27T00:44:23.815436689Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.815437969Z",
+          "finished": "2026-10-27T00:44:23.815517549Z",
+          "bytes": 94,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.815531949Z",
+          "finished": "2026-10-27T00:44:23.815563319Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.815564809Z",
+          "finished": "2026-10-27T00:44:23.815702259Z",
+          "bytes": 185,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.815720089Z",
+          "finished": "2026-10-27T00:44:23.815745779Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.815747059Z",
+          "finished": "2026-10-27T00:44:23.815783259Z",
+          "bytes": 101,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.815797379Z",
+          "finished": "2026-10-27T00:44:23.815824879Z",
+          "bytes": 108,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.815826149Z",
+          "finished": "2026-10-27T00:44:23.815878129Z",
+          "bytes": 448,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.815891349Z",
+          "finished": "2026-10-27T00:44:23.815919229Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.815920399Z",
+          "finished": "2026-10-27T00:44:23.815938959Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.815943659Z",
+          "finished": "2026-10-27T00:44:23.815968189Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.815969199Z",
+          "finished": "2026-10-27T00:44:23.815984969Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.815992799Z",
+          "finished": "2026-10-27T00:44:23.816009759Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.816010599Z",
+          "finished": "2026-10-27T00:44:23.816050259Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.816055449Z",
+          "finished": "2026-10-27T00:44:23.816070369Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.816071259Z",
+          "finished": "2026-10-27T00:44:23.816108929Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.816118319Z",
+          "finished": "2026-10-27T00:44:23.816133609Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.816134559Z",
+          "finished": "2026-10-27T00:44:23.816211719Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.816223089Z",
+          "finished": "2026-10-27T00:44:23.816244319Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.816245779Z",
+          "finished": "2026-10-27T00:44:23.816288829Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.816309649Z",
+          "finished": "2026-10-27T00:44:23.816330029Z",
+          "bytes": 604,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.816331429Z",
+          "finished": "2026-10-27T00:44:23.816408129Z",
+          "bytes": 14,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.816437909Z",
+          "finished": "2026-10-27T00:44:23.816458899Z",
+          "bytes": 371,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.816460199Z",
+          "finished": "2026-10-27T00:44:23.816538829Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.816546979Z",
+          "finished": "2026-10-27T00:44:23.816567189Z",
+          "bytes": 64,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.816568409Z",
+          "finished": "2026-10-27T00:44:23.816615849Z",
+          "bytes": 5,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.829345175Z",
+          "finished": "2026-10-27T00:44:23.829379435Z",
+          "bytes": 437,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.829382075Z",
+          "finished": "2026-10-27T00:44:23.829510765Z",
+          "bytes": 22,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:44:23.829574465Z",
+          "finished": "2026-10-27T00:44:23.829598105Z",
+          "bytes": 370,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:44:23.829599795Z",
+          "finished": "2026-10-27T00:44:23.829665065Z",
+          "bytes": 22,
+          "failed": false
+        }
+      ],
+      "failed": true,
+      "service": "worker2",
+      "worker_hash": "572894e018a5",
+      "incarnation_hash": "1a46faf5381d"
+    },
+    {
+      "requested": "2026-10-27T00:45:24.01335579Z",
+      "lock_wait_ns": 12970,
+      "id": "68acd3bc-d23b-48aa-9c7d-f263698477cf",
+      "started": "2026-10-27T00:45:24.01336876Z",
+      "finished": "2026-10-27T00:45:24.015850239Z",
+      "stages": [
+        {
+          "stage": "registry",
+          "started": "2026-10-27T00:45:24.01336949Z",
+          "finished": "2026-10-27T00:45:24.0135828Z",
+          "remaining_ms": 499
+        },
+        {
+          "stage": "membership_probe",
+          "started": "2026-10-27T00:45:24.0135828Z",
+          "finished": "2026-10-27T00:45:24.0136691Z",
+          "remaining_ms": 499
+        },
+        {
+          "stage": "consumer_probe",
+          "started": "2026-10-27T00:45:24.0136691Z",
+          "finished": "2026-10-27T00:45:24.015253849Z",
+          "remaining_ms": 499
+        },
+        {
+          "stage": "permit",
+          "started": "2026-10-27T00:45:24.015253849Z",
+          "finished": "2026-10-27T00:45:24.015366759Z",
+          "remaining_ms": 498
+        },
+        {
+          "stage": "stop",
+          "started": "2026-10-27T00:45:24.015366759Z",
+          "finished": "2026-10-27T00:45:24.015850239Z",
+          "remaining_ms": 4999
+        }
+      ],
+      "commands": [
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:45:24.01338842Z",
+          "finished": "2026-10-27T00:45:24.01357944Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:24.01358527Z",
+          "finished": "2026-10-27T00:45:24.01366835Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "ping",
+          "started": "2026-10-27T00:45:24.01367134Z",
+          "finished": "2026-10-27T00:45:24.01371608Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:45:24.01372075Z",
+          "finished": "2026-10-27T00:45:24.01380885Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:24.01381308Z",
+          "finished": "2026-10-27T00:45:24.01385981Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:24.01388184Z",
+          "finished": "2026-10-27T00:45:24.01392886Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:24.01393467Z",
+          "finished": "2026-10-27T00:45:24.01398108Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:24.0139941Z",
+          "finished": "2026-10-27T00:45:24.01404377Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:24.01405005Z",
+          "finished": "2026-10-27T00:45:24.01409616Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:24.01410519Z",
+          "finished": "2026-10-27T00:45:24.01416357Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:24.0141718Z",
+          "finished": "2026-10-27T00:45:24.01422293Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:24.01423011Z",
+          "finished": "2026-10-27T00:45:24.014279Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:24.01428491Z",
+          "finished": "2026-10-27T00:45:24.01433958Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:24.01434612Z",
+          "finished": "2026-10-27T00:45:24.01440872Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:24.01441404Z",
+          "finished": "2026-10-27T00:45:24.0144641Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:45:24.01447183Z",
+          "finished": "2026-10-27T00:45:24.0145202Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:45:24.01452702Z",
+          "finished": "2026-10-27T00:45:24.01460947Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:45:24.01461416Z",
+          "finished": "2026-10-27T00:45:24.014660469Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:45:24.014662379Z",
+          "finished": "2026-10-27T00:45:24.014704409Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:45:24.014705309Z",
+          "finished": "2026-10-27T00:45:24.014746559Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:45:24.014747479Z",
+          "finished": "2026-10-27T00:45:24.014788419Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:45:24.014789259Z",
+          "finished": "2026-10-27T00:45:24.014832949Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:45:24.014833909Z",
+          "finished": "2026-10-27T00:45:24.014875359Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:45:24.014876179Z",
+          "finished": "2026-10-27T00:45:24.014919619Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:45:24.014920529Z",
+          "finished": "2026-10-27T00:45:24.014982449Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:45:24.014983299Z",
+          "finished": "2026-10-27T00:45:24.015070119Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:45:24.015070949Z",
+          "finished": "2026-10-27T00:45:24.015122829Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:45:24.015123609Z",
+          "finished": "2026-10-27T00:45:24.015183229Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:45:24.015184789Z",
+          "finished": "2026-10-27T00:45:24.015241269Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:45:24.015260569Z",
+          "finished": "2026-10-27T00:45:24.015357539Z",
+          "pool_wait_ns": 0,
+          "failed": true
+        },
+        {
+          "operation": "eval",
+          "started": "2026-10-27T00:45:24.015374139Z",
+          "finished": "2026-10-27T00:45:24.015450959Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "set",
+          "started": "2026-10-27T00:45:24.015452869Z",
+          "finished": "2026-10-27T00:45:24.015502719Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        }
+      ],
+      "io": [
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.01339697Z",
+          "finished": "2026-10-27T00:45:24.01342826Z",
+          "bytes": 434,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.01343Z",
+          "finished": "2026-10-27T00:45:24.01357576Z",
+          "bytes": 16,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.01358878Z",
+          "finished": "2026-10-27T00:45:24.01360319Z",
+          "bytes": 69,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.01360521Z",
+          "finished": "2026-10-27T00:45:24.01366609Z",
+          "bytes": 8,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.01367355Z",
+          "finished": "2026-10-27T00:45:24.01368474Z",
+          "bytes": 14,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.01368662Z",
+          "finished": "2026-10-27T00:45:24.01371504Z",
+          "bytes": 7,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.01372396Z",
+          "finished": "2026-10-27T00:45:24.01373553Z",
+          "bytes": 108,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.01373639Z",
+          "finished": "2026-10-27T00:45:24.01380371Z",
+          "bytes": 893,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.01381507Z",
+          "finished": "2026-10-27T00:45:24.01382624Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.01382808Z",
+          "finished": "2026-10-27T00:45:24.0138584Z",
+          "bytes": 101,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.01388401Z",
+          "finished": "2026-10-27T00:45:24.01389657Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.01389727Z",
+          "finished": "2026-10-27T00:45:24.01392743Z",
+          "bytes": 94,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.01393673Z",
+          "finished": "2026-10-27T00:45:24.01394863Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.01394935Z",
+          "finished": "2026-10-27T00:45:24.01397952Z",
+          "bytes": 185,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.01399633Z",
+          "finished": "2026-10-27T00:45:24.01400929Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.01401005Z",
+          "finished": "2026-10-27T00:45:24.01404226Z",
+          "bytes": 103,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.01405215Z",
+          "finished": "2026-10-27T00:45:24.01406418Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.01406486Z",
+          "finished": "2026-10-27T00:45:24.01409357Z",
+          "bytes": 119,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.01410734Z",
+          "finished": "2026-10-27T00:45:24.0141198Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.01412051Z",
+          "finished": "2026-10-27T00:45:24.01415896Z",
+          "bytes": 151,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.01417416Z",
+          "finished": "2026-10-27T00:45:24.01418771Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.0141885Z",
+          "finished": "2026-10-27T00:45:24.01422148Z",
+          "bytes": 151,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.01423212Z",
+          "finished": "2026-10-27T00:45:24.01424438Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.01424517Z",
+          "finished": "2026-10-27T00:45:24.0142775Z",
+          "bytes": 103,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.01428696Z",
+          "finished": "2026-10-27T00:45:24.01429889Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.01429961Z",
+          "finished": "2026-10-27T00:45:24.0143382Z",
+          "bytes": 119,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.01434837Z",
+          "finished": "2026-10-27T00:45:24.01436039Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.01436107Z",
+          "finished": "2026-10-27T00:45:24.0144073Z",
+          "bytes": 94,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.01441606Z",
+          "finished": "2026-10-27T00:45:24.0144278Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.01442855Z",
+          "finished": "2026-10-27T00:45:24.01446265Z",
+          "bytes": 185,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.01447378Z",
+          "finished": "2026-10-27T00:45:24.01448583Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.01448656Z",
+          "finished": "2026-10-27T00:45:24.01451884Z",
+          "bytes": 101,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.01452965Z",
+          "finished": "2026-10-27T00:45:24.01454152Z",
+          "bytes": 108,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.01454238Z",
+          "finished": "2026-10-27T00:45:24.0146061Z",
+          "bytes": 893,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.01461632Z",
+          "finished": "2026-10-27T00:45:24.0146279Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.01462884Z",
+          "finished": "2026-10-27T00:45:24.014659359Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.014664269Z",
+          "finished": "2026-10-27T00:45:24.014675029Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.014675719Z",
+          "finished": "2026-10-27T00:45:24.014703469Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.014707079Z",
+          "finished": "2026-10-27T00:45:24.014717479Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.014719509Z",
+          "finished": "2026-10-27T00:45:24.014745599Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.014749279Z",
+          "finished": "2026-10-27T00:45:24.014759529Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.014760209Z",
+          "finished": "2026-10-27T00:45:24.014787529Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.014790999Z",
+          "finished": "2026-10-27T00:45:24.014801329Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.014801959Z",
+          "finished": "2026-10-27T00:45:24.014831989Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.014835779Z",
+          "finished": "2026-10-27T00:45:24.014846199Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.014846899Z",
+          "finished": "2026-10-27T00:45:24.014874419Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.014877909Z",
+          "finished": "2026-10-27T00:45:24.014888249Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.014888959Z",
+          "finished": "2026-10-27T00:45:24.014918659Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.014922399Z",
+          "finished": "2026-10-27T00:45:24.014933089Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.014933849Z",
+          "finished": "2026-10-27T00:45:24.014981559Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.014985039Z",
+          "finished": "2026-10-27T00:45:24.014993599Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.014994279Z",
+          "finished": "2026-10-27T00:45:24.015069199Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.015072719Z",
+          "finished": "2026-10-27T00:45:24.015081029Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.015081659Z",
+          "finished": "2026-10-27T00:45:24.015121859Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.015125299Z",
+          "finished": "2026-10-27T00:45:24.015135909Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.015136579Z",
+          "finished": "2026-10-27T00:45:24.015181819Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.015188029Z",
+          "finished": "2026-10-27T00:45:24.015200549Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.015201439Z",
+          "finished": "2026-10-27T00:45:24.015240039Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.015264059Z",
+          "finished": "2026-10-27T00:45:24.015278789Z",
+          "bytes": 625,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.015279619Z",
+          "finished": "2026-10-27T00:45:24.015355539Z",
+          "bytes": 14,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.015377639Z",
+          "finished": "2026-10-27T00:45:24.015391359Z",
+          "bytes": 371,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.015392069Z",
+          "finished": "2026-10-27T00:45:24.015449729Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:45:24.015455179Z",
+          "finished": "2026-10-27T00:45:24.015466529Z",
+          "bytes": 64,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:45:24.015467269Z",
+          "finished": "2026-10-27T00:45:24.015501659Z",
+          "bytes": 5,
+          "failed": false
+        }
+      ],
+      "failed": true,
+      "service": "worker2",
+      "worker_hash": "572894e018a5",
+      "incarnation_hash": "1a46faf5381d"
+    },
+    {
+      "requested": "2026-10-27T00:46:24.014337232Z",
+      "lock_wait_ns": 7330,
+      "id": "4d0d1fda-7aea-42b4-aad9-8cfd18c023c7",
+      "started": "2026-10-27T00:46:24.014344562Z",
+      "finished": "2026-10-27T00:46:24.016621611Z",
+      "stages": [
+        {
+          "stage": "registry",
+          "started": "2026-10-27T00:46:24.014345522Z",
+          "finished": "2026-10-27T00:46:24.014544302Z",
+          "remaining_ms": 499
+        },
+        {
+          "stage": "membership_probe",
+          "started": "2026-10-27T00:46:24.014544302Z",
+          "finished": "2026-10-27T00:46:24.014607312Z",
+          "remaining_ms": 499
+        },
+        {
+          "stage": "consumer_probe",
+          "started": "2026-10-27T00:46:24.014607312Z",
+          "finished": "2026-10-27T00:46:24.016032911Z",
+          "remaining_ms": 499
+        },
+        {
+          "stage": "permit",
+          "started": "2026-10-27T00:46:24.016032911Z",
+          "finished": "2026-10-27T00:46:24.016117661Z",
+          "remaining_ms": 498
+        },
+        {
+          "stage": "stop",
+          "started": "2026-10-27T00:46:24.016117661Z",
+          "finished": "2026-10-27T00:46:24.016621611Z",
+          "remaining_ms": 4999
+        }
+      ],
+      "commands": [
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:46:24.014352842Z",
+          "finished": "2026-10-27T00:46:24.014542302Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:24.014546332Z",
+          "finished": "2026-10-27T00:46:24.014606472Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "ping",
+          "started": "2026-10-27T00:46:24.014609632Z",
+          "finished": "2026-10-27T00:46:24.014654162Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:46:24.014658222Z",
+          "finished": "2026-10-27T00:46:24.014753422Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:24.014756962Z",
+          "finished": "2026-10-27T00:46:24.014804882Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:24.014826622Z",
+          "finished": "2026-10-27T00:46:24.014873512Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:24.014880632Z",
+          "finished": "2026-10-27T00:46:24.014929812Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:24.014938612Z",
+          "finished": "2026-10-27T00:46:24.014984312Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:24.014989812Z",
+          "finished": "2026-10-27T00:46:24.015036672Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:24.015043132Z",
+          "finished": "2026-10-27T00:46:24.015091142Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:24.015098352Z",
+          "finished": "2026-10-27T00:46:24.015143522Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:24.015150672Z",
+          "finished": "2026-10-27T00:46:24.015195772Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:24.015201222Z",
+          "finished": "2026-10-27T00:46:24.015249672Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:24.015256292Z",
+          "finished": "2026-10-27T00:46:24.015302202Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:24.015307192Z",
+          "finished": "2026-10-27T00:46:24.015352612Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:46:24.015360532Z",
+          "finished": "2026-10-27T00:46:24.015408142Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:46:24.015414682Z",
+          "finished": "2026-10-27T00:46:24.015495842Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:46:24.015498162Z",
+          "finished": "2026-10-27T00:46:24.015544232Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:46:24.015547062Z",
+          "finished": "2026-10-27T00:46:24.015589782Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:46:24.015590622Z",
+          "finished": "2026-10-27T00:46:24.015632582Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:46:24.015633432Z",
+          "finished": "2026-10-27T00:46:24.015674812Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:46:24.015675622Z",
+          "finished": "2026-10-27T00:46:24.015716992Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:46:24.015717812Z",
+          "finished": "2026-10-27T00:46:24.015759852Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:46:24.015760662Z",
+          "finished": "2026-10-27T00:46:24.015804472Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:46:24.015805272Z",
+          "finished": "2026-10-27T00:46:24.015847322Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:46:24.015848422Z",
+          "finished": "2026-10-27T00:46:24.015892222Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:46:24.015893102Z",
+          "finished": "2026-10-27T00:46:24.015934211Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:46:24.015935031Z",
+          "finished": "2026-10-27T00:46:24.015978691Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:46:24.015979561Z",
+          "finished": "2026-10-27T00:46:24.016021461Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:46:24.016036991Z",
+          "finished": "2026-10-27T00:46:24.016109411Z",
+          "pool_wait_ns": 0,
+          "failed": true
+        },
+        {
+          "operation": "eval",
+          "started": "2026-10-27T00:46:24.016124911Z",
+          "finished": "2026-10-27T00:46:24.016189251Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "set",
+          "started": "2026-10-27T00:46:24.016191431Z",
+          "finished": "2026-10-27T00:46:24.016245161Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        }
+      ],
+      "io": [
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.014375922Z",
+          "finished": "2026-10-27T00:46:24.014404632Z",
+          "bytes": 434,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.014406612Z",
+          "finished": "2026-10-27T00:46:24.014537622Z",
+          "bytes": 16,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.014552572Z",
+          "finished": "2026-10-27T00:46:24.014567942Z",
+          "bytes": 69,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.014569652Z",
+          "finished": "2026-10-27T00:46:24.014604522Z",
+          "bytes": 8,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.014611552Z",
+          "finished": "2026-10-27T00:46:24.014622452Z",
+          "bytes": 14,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.014625492Z",
+          "finished": "2026-10-27T00:46:24.014653092Z",
+          "bytes": 7,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.014663082Z",
+          "finished": "2026-10-27T00:46:24.014674602Z",
+          "bytes": 108,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.014675432Z",
+          "finished": "2026-10-27T00:46:24.014748612Z",
+          "bytes": 893,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.014758812Z",
+          "finished": "2026-10-27T00:46:24.014770232Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.014772962Z",
+          "finished": "2026-10-27T00:46:24.014803352Z",
+          "bytes": 101,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.014828792Z",
+          "finished": "2026-10-27T00:46:24.014841172Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.014841952Z",
+          "finished": "2026-10-27T00:46:24.014872052Z",
+          "bytes": 94,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.014882632Z",
+          "finished": "2026-10-27T00:46:24.014894532Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.014895202Z",
+          "finished": "2026-10-27T00:46:24.014928312Z",
+          "bytes": 185,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.014940852Z",
+          "finished": "2026-10-27T00:46:24.014952922Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.014953702Z",
+          "finished": "2026-10-27T00:46:24.014982992Z",
+          "bytes": 103,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.014991762Z",
+          "finished": "2026-10-27T00:46:24.015003842Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.015004592Z",
+          "finished": "2026-10-27T00:46:24.015033702Z",
+          "bytes": 119,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.015045042Z",
+          "finished": "2026-10-27T00:46:24.015057092Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.015057792Z",
+          "finished": "2026-10-27T00:46:24.015089412Z",
+          "bytes": 151,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.015100502Z",
+          "finished": "2026-10-27T00:46:24.015112292Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.015113042Z",
+          "finished": "2026-10-27T00:46:24.015142162Z",
+          "bytes": 151,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.015152642Z",
+          "finished": "2026-10-27T00:46:24.015164982Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.015165752Z",
+          "finished": "2026-10-27T00:46:24.015194352Z",
+          "bytes": 103,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.015203162Z",
+          "finished": "2026-10-27T00:46:24.015214922Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.015215712Z",
+          "finished": "2026-10-27T00:46:24.015248252Z",
+          "bytes": 119,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.015258552Z",
+          "finished": "2026-10-27T00:46:24.015270652Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.015271362Z",
+          "finished": "2026-10-27T00:46:24.015300792Z",
+          "bytes": 94,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.015309242Z",
+          "finished": "2026-10-27T00:46:24.015321152Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.015321832Z",
+          "finished": "2026-10-27T00:46:24.015351172Z",
+          "bytes": 185,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.015362492Z",
+          "finished": "2026-10-27T00:46:24.015374302Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.015374982Z",
+          "finished": "2026-10-27T00:46:24.015406722Z",
+          "bytes": 101,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.015417452Z",
+          "finished": "2026-10-27T00:46:24.015429692Z",
+          "bytes": 108,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.015430502Z",
+          "finished": "2026-10-27T00:46:24.015492322Z",
+          "bytes": 893,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.015500252Z",
+          "finished": "2026-10-27T00:46:24.015511122Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.015512102Z",
+          "finished": "2026-10-27T00:46:24.015543182Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.015548802Z",
+          "finished": "2026-10-27T00:46:24.015559582Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.015560322Z",
+          "finished": "2026-10-27T00:46:24.015588772Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.015592412Z",
+          "finished": "2026-10-27T00:46:24.015602662Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.015604912Z",
+          "finished": "2026-10-27T00:46:24.015631652Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.015635592Z",
+          "finished": "2026-10-27T00:46:24.015645842Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.015646472Z",
+          "finished": "2026-10-27T00:46:24.015673872Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.015677232Z",
+          "finished": "2026-10-27T00:46:24.015687412Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.015688102Z",
+          "finished": "2026-10-27T00:46:24.015716022Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.015719462Z",
+          "finished": "2026-10-27T00:46:24.015729792Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.015730482Z",
+          "finished": "2026-10-27T00:46:24.015758872Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.015762372Z",
+          "finished": "2026-10-27T00:46:24.015772652Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.015773282Z",
+          "finished": "2026-10-27T00:46:24.015803452Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.015807392Z",
+          "finished": "2026-10-27T00:46:24.015817822Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.015818512Z",
+          "finished": "2026-10-27T00:46:24.015846362Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.015850022Z",
+          "finished": "2026-10-27T00:46:24.015860232Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.015860902Z",
+          "finished": "2026-10-27T00:46:24.015891252Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.015894982Z",
+          "finished": "2026-10-27T00:46:24.015905272Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.015905972Z",
+          "finished": "2026-10-27T00:46:24.015933302Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.015936691Z",
+          "finished": "2026-10-27T00:46:24.015946831Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.015947531Z",
+          "finished": "2026-10-27T00:46:24.015977651Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.015981411Z",
+          "finished": "2026-10-27T00:46:24.015991801Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.015992471Z",
+          "finished": "2026-10-27T00:46:24.016020511Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.016039861Z",
+          "finished": "2026-10-27T00:46:24.016052001Z",
+          "bytes": 625,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.016052821Z",
+          "finished": "2026-10-27T00:46:24.016107621Z",
+          "bytes": 14,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.016127771Z",
+          "finished": "2026-10-27T00:46:24.016141291Z",
+          "bytes": 371,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.016142051Z",
+          "finished": "2026-10-27T00:46:24.016188061Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:46:24.016193521Z",
+          "finished": "2026-10-27T00:46:24.016204221Z",
+          "bytes": 64,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:46:24.016205011Z",
+          "finished": "2026-10-27T00:46:24.016244181Z",
+          "bytes": 5,
+          "failed": false
+        }
+      ],
+      "failed": true,
+      "service": "worker2",
+      "worker_hash": "572894e018a5",
+      "incarnation_hash": "1a46faf5381d"
+    },
+    {
+      "requested": "2026-10-27T00:47:24.213356597Z",
+      "lock_wait_ns": 4910,
+      "id": "66b2fca5-29d3-4ab5-9e1a-572be929418b",
+      "started": "2026-10-27T00:47:24.213361507Z",
+      "finished": "2026-10-27T00:47:24.216350245Z",
+      "stages": [
+        {
+          "stage": "registry",
+          "started": "2026-10-27T00:47:24.213362067Z",
+          "finished": "2026-10-27T00:47:24.213526796Z",
+          "remaining_ms": 499
+        },
+        {
+          "stage": "membership_probe",
+          "started": "2026-10-27T00:47:24.213526796Z",
+          "finished": "2026-10-27T00:47:24.213588936Z",
+          "remaining_ms": 499
+        },
+        {
+          "stage": "consumer_probe",
+          "started": "2026-10-27T00:47:24.213588936Z",
+          "finished": "2026-10-27T00:47:24.215709055Z",
+          "remaining_ms": 499
+        },
+        {
+          "stage": "permit",
+          "started": "2026-10-27T00:47:24.215709055Z",
+          "finished": "2026-10-27T00:47:24.215831525Z",
+          "remaining_ms": 497
+        },
+        {
+          "stage": "stop",
+          "started": "2026-10-27T00:47:24.215831525Z",
+          "finished": "2026-10-27T00:47:24.216350245Z",
+          "remaining_ms": 4999
+        }
+      ],
+      "commands": [
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:47:24.213366026Z",
+          "finished": "2026-10-27T00:47:24.213524566Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:24.213528996Z",
+          "finished": "2026-10-27T00:47:24.213588146Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "ping",
+          "started": "2026-10-27T00:47:24.213590736Z",
+          "finished": "2026-10-27T00:47:24.213670416Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:47:24.213675326Z",
+          "finished": "2026-10-27T00:47:24.213784396Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:24.213787346Z",
+          "finished": "2026-10-27T00:47:24.213836916Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:24.213852956Z",
+          "finished": "2026-10-27T00:47:24.213907476Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:24.213916696Z",
+          "finished": "2026-10-27T00:47:24.214015486Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:24.214028306Z",
+          "finished": "2026-10-27T00:47:24.214090926Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:24.214099066Z",
+          "finished": "2026-10-27T00:47:24.214185396Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:24.214195576Z",
+          "finished": "2026-10-27T00:47:24.214253926Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:24.214262046Z",
+          "finished": "2026-10-27T00:47:24.214317836Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:24.214327186Z",
+          "finished": "2026-10-27T00:47:24.214424536Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:24.214431616Z",
+          "finished": "2026-10-27T00:47:24.214496266Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:24.214507786Z",
+          "finished": "2026-10-27T00:47:24.214563836Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:24.214570346Z",
+          "finished": "2026-10-27T00:47:24.214635646Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "get",
+          "started": "2026-10-27T00:47:24.214645726Z",
+          "finished": "2026-10-27T00:47:24.214713726Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:47:24.214736176Z",
+          "finished": "2026-10-27T00:47:24.214850155Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:47:24.214853175Z",
+          "finished": "2026-10-27T00:47:24.214909025Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:47:24.214910995Z",
+          "finished": "2026-10-27T00:47:24.214962775Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:47:24.214964455Z",
+          "finished": "2026-10-27T00:47:24.215022045Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:47:24.215023325Z",
+          "finished": "2026-10-27T00:47:24.215075085Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:47:24.215076205Z",
+          "finished": "2026-10-27T00:47:24.215130635Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:47:24.215131765Z",
+          "finished": "2026-10-27T00:47:24.215224085Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:47:24.215225055Z",
+          "finished": "2026-10-27T00:47:24.215289735Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:47:24.215290905Z",
+          "finished": "2026-10-27T00:47:24.215452635Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:47:24.215454065Z",
+          "finished": "2026-10-27T00:47:24.215510025Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:47:24.215511425Z",
+          "finished": "2026-10-27T00:47:24.215580895Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:47:24.215582045Z",
+          "finished": "2026-10-27T00:47:24.215631225Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "hvals",
+          "started": "2026-10-27T00:47:24.215632495Z",
+          "finished": "2026-10-27T00:47:24.215700685Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "evalsha",
+          "started": "2026-10-27T00:47:24.215712815Z",
+          "finished": "2026-10-27T00:47:24.215822585Z",
+          "pool_wait_ns": 0,
+          "failed": true
+        },
+        {
+          "operation": "eval",
+          "started": "2026-10-27T00:47:24.215838465Z",
+          "finished": "2026-10-27T00:47:24.215963255Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        },
+        {
+          "operation": "set",
+          "started": "2026-10-27T00:47:24.215965095Z",
+          "finished": "2026-10-27T00:47:24.216051265Z",
+          "pool_wait_ns": 0,
+          "failed": false
+        }
+      ],
+      "io": [
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.213372386Z",
+          "finished": "2026-10-27T00:47:24.213392906Z",
+          "bytes": 434,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.213394576Z",
+          "finished": "2026-10-27T00:47:24.213522166Z",
+          "bytes": 16,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.213532416Z",
+          "finished": "2026-10-27T00:47:24.213545566Z",
+          "bytes": 69,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.213547546Z",
+          "finished": "2026-10-27T00:47:24.213586016Z",
+          "bytes": 8,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.213593076Z",
+          "finished": "2026-10-27T00:47:24.213604856Z",
+          "bytes": 14,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.213606536Z",
+          "finished": "2026-10-27T00:47:24.213668506Z",
+          "bytes": 7,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.213679476Z",
+          "finished": "2026-10-27T00:47:24.213693526Z",
+          "bytes": 108,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.213694486Z",
+          "finished": "2026-10-27T00:47:24.213780166Z",
+          "bytes": 893,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.213789736Z",
+          "finished": "2026-10-27T00:47:24.213801276Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.213803086Z",
+          "finished": "2026-10-27T00:47:24.213835436Z",
+          "bytes": 101,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.213855006Z",
+          "finished": "2026-10-27T00:47:24.213867556Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.213868356Z",
+          "finished": "2026-10-27T00:47:24.213905126Z",
+          "bytes": 94,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.213919896Z",
+          "finished": "2026-10-27T00:47:24.213934176Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.213935386Z",
+          "finished": "2026-10-27T00:47:24.214013726Z",
+          "bytes": 185,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.214031156Z",
+          "finished": "2026-10-27T00:47:24.214045276Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.214046396Z",
+          "finished": "2026-10-27T00:47:24.214088956Z",
+          "bytes": 103,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.214102266Z",
+          "finished": "2026-10-27T00:47:24.214115156Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.214116116Z",
+          "finished": "2026-10-27T00:47:24.214182656Z",
+          "bytes": 119,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.214198066Z",
+          "finished": "2026-10-27T00:47:24.214214676Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.214215606Z",
+          "finished": "2026-10-27T00:47:24.214252246Z",
+          "bytes": 151,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.214264486Z",
+          "finished": "2026-10-27T00:47:24.214276766Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.214277636Z",
+          "finished": "2026-10-27T00:47:24.214315856Z",
+          "bytes": 151,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.214330666Z",
+          "finished": "2026-10-27T00:47:24.214344346Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.214345516Z",
+          "finished": "2026-10-27T00:47:24.214422806Z",
+          "bytes": 103,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.214434146Z",
+          "finished": "2026-10-27T00:47:24.214447976Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.214449006Z",
+          "finished": "2026-10-27T00:47:24.214494056Z",
+          "bytes": 119,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.214511146Z",
+          "finished": "2026-10-27T00:47:24.214525576Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.214526546Z",
+          "finished": "2026-10-27T00:47:24.214562006Z",
+          "bytes": 94,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.214572866Z",
+          "finished": "2026-10-27T00:47:24.214586176Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.214587196Z",
+          "finished": "2026-10-27T00:47:24.214634096Z",
+          "bytes": 185,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.214648486Z",
+          "finished": "2026-10-27T00:47:24.214660736Z",
+          "bytes": 87,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.214661626Z",
+          "finished": "2026-10-27T00:47:24.214712216Z",
+          "bytes": 101,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.214738866Z",
+          "finished": "2026-10-27T00:47:24.214752246Z",
+          "bytes": 108,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.214753106Z",
+          "finished": "2026-10-27T00:47:24.214846355Z",
+          "bytes": 893,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.214856015Z",
+          "finished": "2026-10-27T00:47:24.214867785Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.214868775Z",
+          "finished": "2026-10-27T00:47:24.214907935Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.214913205Z",
+          "finished": "2026-10-27T00:47:24.214924375Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.214925105Z",
+          "finished": "2026-10-27T00:47:24.214961215Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.214967775Z",
+          "finished": "2026-10-27T00:47:24.214980105Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.214986925Z",
+          "finished": "2026-10-27T00:47:24.215020755Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.215025925Z",
+          "finished": "2026-10-27T00:47:24.215037735Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.215038675Z",
+          "finished": "2026-10-27T00:47:24.215073855Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.215078535Z",
+          "finished": "2026-10-27T00:47:24.215089935Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.215090855Z",
+          "finished": "2026-10-27T00:47:24.215129255Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.215134345Z",
+          "finished": "2026-10-27T00:47:24.215146095Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.215147025Z",
+          "finished": "2026-10-27T00:47:24.215222885Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.215227535Z",
+          "finished": "2026-10-27T00:47:24.215239195Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.215240165Z",
+          "finished": "2026-10-27T00:47:24.215288565Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.215293255Z",
+          "finished": "2026-10-27T00:47:24.215305245Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.215306275Z",
+          "finished": "2026-10-27T00:47:24.215450995Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.215457185Z",
+          "finished": "2026-10-27T00:47:24.215468475Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.215469385Z",
+          "finished": "2026-10-27T00:47:24.215508595Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.215514565Z",
+          "finished": "2026-10-27T00:47:24.215526475Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.215527565Z",
+          "finished": "2026-10-27T00:47:24.215579675Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.215584665Z",
+          "finished": "2026-10-27T00:47:24.215595385Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.215596215Z",
+          "finished": "2026-10-27T00:47:24.215629935Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.215635145Z",
+          "finished": "2026-10-27T00:47:24.215647035Z",
+          "bytes": 89,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.215647985Z",
+          "finished": "2026-10-27T00:47:24.215699585Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.215716055Z",
+          "finished": "2026-10-27T00:47:24.215728865Z",
+          "bytes": 625,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.215729705Z",
+          "finished": "2026-10-27T00:47:24.215820665Z",
+          "bytes": 14,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.215841995Z",
+          "finished": "2026-10-27T00:47:24.215856635Z",
+          "bytes": 371,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.215857565Z",
+          "finished": "2026-10-27T00:47:24.215962045Z",
+          "bytes": 4,
+          "failed": false
+        },
+        {
+          "operation": "write",
+          "started": "2026-10-27T00:47:24.215967555Z",
+          "finished": "2026-10-27T00:47:24.215978735Z",
+          "bytes": 64,
+          "failed": false
+        },
+        {
+          "operation": "read",
+          "started": "2026-10-27T00:47:24.215979575Z",
+          "finished": "2026-10-27T00:47:24.216050185Z",
+          "bytes": 5,
+          "failed": false
+        }
+      ],
+      "failed": true,
+      "service": "worker2",
+      "worker_hash": "572894e018a5",
+      "incarnation_hash": "1a46faf5381d"
+    }
+  ],
+  "membership_get_latency_sample": {
+    "count": 80,
+    "p50_ms": 0.136,
+    "p95_ms": 0.305,
+    "max_ms": 0.437,
+    "scope": "current_sample_only_not_historical_root_cause"
+  },
+  "redis_current_health": {
+    "persistence": {
+      "rdb_bgsave_in_progress": 0,
+      "rdb_last_bgsave_time_sec": 0,
+      "aof_enabled": 1,
+      "aof_rewrite_in_progress": 0,
+      "aof_last_rewrite_time_sec": 0,
+      "aof_pending_bio_fsync": 0,
+      "aof_delayed_fsync": 98
+    },
+    "clients": {
+      "connected_clients": 61,
+      "maxclients": 10000,
+      "blocked_clients": 0
+    },
+    "stats": {
+      "total_connections_received": 1318,
+      "instantaneous_ops_per_sec": 630,
+      "rejected_connections": 0,
+      "latest_fork_usec": 319,
+      "total_error_replies": 726965
+    },
+    "scope": "current_counters_do_not_attribute_historical_fault"
+  },
+  "redis_slowlog": [
+    {
+      "id": 0,
+      "started_unix_seconds": 1793043746,
+      "server_duration_us": 19627,
+      "command": "evalsha"
+    }
+  ],
+  "redis_latency_events": []
+}

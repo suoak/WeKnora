@@ -1,0 +1,43 @@
+{
+  "redis_current_health": {
+    "persistence": {
+      "rdb_bgsave_in_progress": 0,
+      "rdb_last_bgsave_time_sec": 0,
+      "aof_enabled": 1,
+      "aof_rewrite_in_progress": 0,
+      "aof_last_rewrite_time_sec": 0,
+      "aof_pending_bio_fsync": 0,
+      "aof_delayed_fsync": 96
+    },
+    "clients": {
+      "connected_clients": 51,
+      "maxclients": 10000,
+      "blocked_clients": 0
+    },
+    "stats": {
+      "total_connections_received": 1253,
+      "instantaneous_ops_per_sec": 636,
+      "rejected_connections": 0,
+      "latest_fork_usec": 382,
+      "total_error_replies": 711248
+    },
+    "scope": "current_counters_do_not_attribute_historical_fault"
+  },
+  "membership_get_latency_sample": {
+    "count": 80,
+    "p50_ms": 0.126,
+    "p95_ms": 0.31,
+    "max_ms": 0.431,
+    "scope": "current_sample_only_not_historical_root_cause"
+  },
+  "redis_slowlog": [
+    {
+      "id": 0,
+      "started_unix_seconds": 1793043746,
+      "server_duration_us": 19627,
+      "command": "evalsha"
+    }
+  ],
+  "redis_latency_events": [],
+  "scope": "read_only_pre_upgrade_sample; historic_physical_cause_not_proven"
+}
