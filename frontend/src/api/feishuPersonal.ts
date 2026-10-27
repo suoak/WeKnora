@@ -1,12 +1,35 @@
 import { get, post, put, del } from '@/utils/request'
+import { getApiBaseUrl } from '@/utils/api-base'
 export type FeishuAuthMode = 'user_oauth' | 'application_grant'
 export type FeishuCapabilities = { application_enabled: boolean; personal_enabled: boolean }
 export type FeishuStatus = { auth_mode?: FeishuAuthMode; v2?: boolean; capabilities?: FeishuCapabilities; configured: boolean; available: boolean; connected: boolean; supported_resource_types?: string[]; test_http_callback?: boolean; test_http_callback_expires_at?: string }
 export type FeishuImport = { id: string; url: string; resource_type: string; knowledge_id: string; status: string; coverage: string; index_status?: string; wiki_status?: string; error_category?: string; data_source_id?: string; source_status?: string }
-export const feishuStatus = () => get<FeishuStatus>('/api/v1/me/feishu')
+export const feishuStatus = () => get<FeishuStatus & { authorization_revision?: string; connection_state?: string }>('/api/v1/me/feishu')
 export const authorizeFeishu = () => post<{ authorization_url: string }>('/api/v1/me/feishu/authorize')
 export const disconnectFeishu = () => del('/api/v1/me/feishu')
-export const completeFeishu = (state: string, code: string) => post('/api/v1/me/feishu/callback', {}, { params: { state, code } })
+// A one-use code must never be replayed by the general axios refresh interceptor.
+// Keep callback errors on its status page instead of silently navigating to login.
+export async function callbackRequest<T>(path: string, params?: { state: string; code: string }): Promise<T> {
+  const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 20000)
+  try {
+    const headers: Record<string, string> = { Accept: 'application/json' }
+    const token = localStorage.getItem('weknora_token')
+    if (!token) throw { status: 401 }
+    headers.Authorization = `Bearer ${token}`
+    const tenant = localStorage.getItem('weknora_selected_tenant_id')
+    if (tenant && /^[1-9]\d*$/.test(tenant)) headers['X-Tenant-ID'] = tenant
+    const query = params ? `?${new URLSearchParams(params)}` : ''
+    const response = await fetch(`${getApiBaseUrl()}${path}${query}`, { method: params ? 'POST' : 'GET', headers, signal: controller.signal, redirect: 'error', cache: 'no-store' })
+    const body = await response.json()
+    if (!response.ok) throw { status: response.status, error: typeof body.error === 'string' ? body.error : '' }
+    return body as T
+  } catch (error: any) {
+    if (error?.status) throw error
+    throw { category: controller.signal.aborted ? 'timeout' : 'network' }
+  } finally { clearTimeout(timer) }
+}
+export const completeFeishu = (state: string, code: string) => callbackRequest<{ connected: boolean }>('/api/v1/me/feishu/callback', { state, code })
+export const callbackFeishuStatus = () => callbackRequest<{ connected: boolean; authorization_revision?: string }>('/api/v1/me/feishu')
 export const importFeishu = (kb: string, url: string, auth_mode?: FeishuAuthMode) => post<FeishuImport>(`/api/v1/knowledge-bases/${encodeURIComponent(kb)}/feishu`, { url, auth_mode }, { timeout: 180000 })
 export const listFeishuImports = (kb: string) => get<FeishuImport[]>(`/api/v1/knowledge-bases/${encodeURIComponent(kb)}/feishu`)
 export const enableFeishuSource = (kb: string, id: string) => post<{ id: string; status: string; schedule: string }>(`/api/v1/knowledge-bases/${encodeURIComponent(kb)}/feishu/imports/${encodeURIComponent(id)}/source`, {})
@@ -18,7 +41,7 @@ export type FeishuConnection = { id?: string; kind: FeishuAuthMode; connected: b
 export type FeishuResource = { id: string; name: string; type: string; url?: string; has_children: boolean; space_id?: string; is_shortcut?: boolean }
 export type FeishuResourcePage = { items: FeishuResource[]; has_more: boolean; cursor?: string; coverage: string }
 export type FeishuPreview = { url: string; resource_type?: string; revision?: string; status: string; error_category?: string }
-export type FeishuBatchItem = { id: string; ordinal: number; url: string; status: string; error_category?: string; provider_code?: number; operation?: string; retryable?: boolean; user_action?: string; request_id_hash?: string; import_id?: string; retry_count: number; stage?: string; last_progress_at?: string; last_activity_at?: string; retry_after?: string; attempt_retry_count?: number; knowledge_id?: string; parse_status?: string; chunk_count?: number; vector_count?: number; index_verified?: boolean; stalled?: boolean; lease_active?: boolean; queue_active?: boolean }
+export type FeishuBatchItem = { id: string; document_name?: string; resource_type?: string; ordinal: number; url: string; status: string; error_category?: string; provider_code?: number; operation?: string; retryable?: boolean; user_action?: string; request_id_hash?: string; import_id?: string; retry_count: number; stage?: string; last_progress_at?: string; last_activity_at?: string; retry_after?: string; attempt_retry_count?: number; knowledge_id?: string; parse_status?: string; chunk_count?: number; vector_count?: number; index_verified?: boolean; stalled?: boolean; lease_active?: boolean; queue_active?: boolean }
 export type FeishuBatch = { batch: { id: string; kb_id: string; auth_mode: FeishuAuthMode }; items: FeishuBatchItem[]; counts: Record<string, number>; status: string; target_name?: string; can_continue_publication?: boolean }
 export const feishuConnections = () => get<FeishuConnection[]>('/api/v1/me/feishu/connections')
 export const createPrivateFeishuKB = (name: string) => post<{ id: string }>('/api/v1/me/feishu/private-knowledge-base', { name })
@@ -26,7 +49,7 @@ export const feishuResources = (params: Record<string, string | number>) => get<
 export const previewFeishu = (kb: string, auth_mode: FeishuAuthMode, connection_id: string, links: string[]) => post<FeishuPreview[]>(`/api/v1/knowledge-bases/${encodeURIComponent(kb)}/feishu/preview`, { auth_mode, connection_id, links }, { timeout: 45000 })
 export const createFeishuBatch = (kb: string, auth_mode: FeishuAuthMode, connection_id: string, links: string[], key: string) => post<FeishuBatch>(`/api/v1/knowledge-bases/${encodeURIComponent(kb)}/feishu/batches`, { auth_mode, connection_id, links }, { headers: { 'Idempotency-Key': key } })
 export const getFeishuBatch = (id: string) => get<FeishuBatch>(`/api/v1/feishu/batches/${encodeURIComponent(id)}`)
-export type FeishuBatchHistory = { id: string; kb_id: string; auth_mode: FeishuAuthMode; created_at: string }
+export type FeishuBatchHistory = { document_names?: string[]; target_name?: string; status?: string; id: string; kb_id: string; auth_mode: FeishuAuthMode; created_at: string }
 export const listFeishuBatches = (kb: string, offset = 0) => get<FeishuBatchHistory[]>(`/api/v1/knowledge-bases/${encodeURIComponent(kb)}/feishu/batches`, { params: { offset } })
 export const listMyFeishuBatches = (offset = 0) => get<FeishuBatchHistory[]>('/api/v1/me/feishu/batches', {params:{offset}})
 export const retryFeishuBatch = (id: string) => post(`/api/v1/feishu/batches/${encodeURIComponent(id)}/retry`)

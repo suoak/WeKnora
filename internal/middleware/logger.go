@@ -191,7 +191,8 @@ func Logger() gin.HandlerFunc {
 		path := c.Request.URL.Path
 		raw := c.Request.URL.RawQuery
 
-		isWikiStats := strings.HasPrefix(path, "/api/v1/knowledgebase/") && strings.HasSuffix(path, "/wiki/stats")
+		isWikiStats := strings.HasPrefix(path, "/api/v1/knowledgebase/") &&
+			strings.HasSuffix(path, "/wiki/stats")
 		if strings.HasPrefix(path, "/assets/") || isWikiStats {
 			c.Next()
 			return
@@ -201,11 +202,12 @@ func Logger() gin.HandlerFunc {
 		// Keep access metadata, but never read or buffer these request/response bodies.
 		browserTraffic := strings.HasPrefix(path, "/api/v1/local-browser/") ||
 			path == "/api/v1/me/browser" || strings.HasSuffix(path, "/local-browser")
-		authTraffic := secutils.IsAuthenticationPath(path)
+		authTraffic := secutils.IsAuthenticationPath(path) || path == "/api/v1/feishu/events"
 		privateTraffic := browserTraffic || authTraffic
 		// 读取请求体（在Next之前读取，因为Next会消费body）
 		var requestBody string
-		if !privateTraffic && (c.Request.Method == "POST" || c.Request.Method == "PUT" || c.Request.Method == "PATCH") {
+		if !privateTraffic &&
+			(c.Request.Method == "POST" || c.Request.Method == "PUT" || c.Request.Method == "PATCH") {
 			requestBody = readRequestBody(c)
 		}
 

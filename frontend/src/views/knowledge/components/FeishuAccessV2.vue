@@ -1,7 +1,18 @@
 <template>
   <section class="quick-import">
-    <p v-if="connected" class="account">已连接飞书账号</p>
-    <t-button v-else :disabled="busy" @click="connect">连接飞书账号</t-button>
+    <div class="connection-row">
+      <span>飞书账号</span>
+      <div class="connection-actions">
+        <t-tag v-if="connected" theme="success" variant="light">飞书已连接</t-tag>
+        <template v-else-if="connectionState === 'unknown'"><span>暂时无法检查连接状态</span><t-button variant="text" :loading="checking" @click="refreshConnection">重试</t-button></template>
+        <template v-else-if="connectionState === 'reauthorize'"><span>飞书授权已失效</span><t-button :disabled="busy" @click="connect">重新连接</t-button></template>
+        <t-button v-else :disabled="busy" @click="connect">连接飞书</t-button>
+        <t-dropdown v-if="connected" :options="[{ content: '解除连接', onClick: () => { disconnectConfirm = true } }]">
+          <t-button variant="text" aria-label="飞书账号管理">···</t-button>
+        </t-dropdown>
+      </div>
+    </div>
+    <t-dialog v-if="disconnectConfirm" :visible="disconnectConfirm" header="解除飞书连接" body="解除后将停止后续导入和自动更新，已导入的文档不会自动删除。" :confirm-btn="{ content: '解除连接', theme: 'danger', loading: checking }" @confirm="disconnect" @close="disconnectConfirm = false" @cancel="disconnectConfirm = false" />
     <label for="feishu-target">保存到知识库</label>
     <t-select id="feishu-target" v-model="targetID" :options="targets.map(row => ({label:row.name,value:row.id}))" :disabled="busy || !!kbId" placeholder="请选择已有知识库" />
     <p v-if="targetsLoaded && !targets.length" class="warning">暂无可写知识库，请先创建或申请访问知识库。<router-link to="/platform/knowledge-bases">前往知识库</router-link></p>
@@ -25,30 +36,49 @@
     </section>
     <p v-if="message" role="status">{{ message }}</p>
     <router-link v-if="recent" :to="{path:'/platform/feishu/imports',query:{kb:recent.kb, batch:recent.id}}">查看最近导入任务</router-link>
-    <router-link v-else to="/platform/feishu/imports">导入历史与设置</router-link>
+    <router-link v-else to="/platform/feishu/imports">导入历史</router-link>
   </section>
 </template>
 <script setup lang="ts">
-import { computed, ref, watch, onUnmounted } from 'vue'
-import { feishuConnections, feishuImportTargets, quickImportFeishu, feishuResources, type FeishuStatus, type FeishuResource, type FeishuImportTarget } from '@/api/feishuPersonal'
+import { computed, ref, watch, onUnmounted, onMounted } from 'vue'
+import { feishuStatus, disconnectFeishu, feishuImportTargets, quickImportFeishu, feishuResources, type FeishuStatus, type FeishuResource, type FeishuImportTarget } from '@/api/feishuPersonal'
 import { normalizeFeishuLinks } from '@/utils/feishuQuickImport'
 import { feishuBatchKey } from '@/utils/feishuBatchKey'
+import { FEISHU_TARGET } from '@/utils/feishuOAuthFlow'
 const props = defineProps<{ kbId: string; status: FeishuStatus; initialUrl?: string }>()
 const emit = defineEmits<{ connect: [links: string]; imported: [] }>()
 const linksText = ref(props.initialUrl || ''), connected = ref(props.status.connected), busy = ref(false), message = ref(''), accepted = ref(false)
+const connectionState = ref(props.status.connected ? 'connected' : 'disconnected'), checking = ref(false), disconnectConfirm = ref(false)
 const input = computed(() => normalizeFeishuLinks(linksText.value))
 const targets = ref<FeishuImportTarget[]>([]), targetsLoaded = ref(false), targetID = ref(props.kbId)
-try { if (!props.kbId) targetID.value = sessionStorage.getItem('feishu-import-target-draft') || '' } catch { /* Optional draft only. */ }
+try { if (!props.kbId) { targetID.value = sessionStorage.getItem(FEISHU_TARGET) || ''; sessionStorage.removeItem(FEISHU_TARGET) } } catch { /* Optional draft only. */ }
 const target = computed(() => targets.value.find(row => row.id === targetID.value))
 feishuImportTargets().then(rows => { if (mounted) { targets.value = rows; targetsLoaded.value = true } }).catch(() => { if (mounted) message.value = '无法读取可写知识库，请重新打开导入窗口。' })
 const recent = ref<{id:string;kb:string}>(), showBrowser = ref(false), kind = ref('drive')
 const entries = ref<FeishuResource[]>([]), cursor = ref(''), location = ref({parent:'',space:''}), trail = ref<{parent:string;space:string}[]>([])
 let mounted = true, epoch = 0, key = ''
-onUnmounted(() => { mounted = false; epoch++ })
+let connectionTimer: ReturnType<typeof setInterval> | undefined, lastCheck = 0
+onMounted(() => { window.addEventListener('focus', onFocus); connectionTimer = setInterval(refreshConnection, 5 * 60 * 1000) })
+onUnmounted(() => { mounted = false; epoch++; clearInterval(connectionTimer); window.removeEventListener('focus', onFocus) })
 watch(linksText, () => { key = ''; accepted.value = false; message.value = '' })
 watch(targetID, () => { key = ''; accepted.value = false })
 watch(() => props.initialUrl, value => { linksText.value = value || '' })
-watch(() => props.status, async () => { const version = ++epoch; try { const rows = await feishuConnections(); if (mounted && version === epoch) connected.value = rows.some(row => row.kind === 'user_oauth' && row.connected) } catch { if (mounted) message.value = '暂时无法读取连接状态，请稍后再试。' } }, {immediate:true,deep:true})
+watch(() => props.status, () => { void refreshConnection() }, {immediate:true,deep:true})
+function onFocus() { if (Date.now() - lastCheck > 10000) void refreshConnection() }
+async function refreshConnection() {
+ if (checking.value) return
+ checking.value = true; lastCheck = Date.now()
+ try { const status = await feishuStatus(); if (mounted) { connected.value = status.connected; connectionState.value = status.connection_state || (status.connected ? 'connected' : 'disconnected') } }
+ catch { if (mounted) { connected.value = false; connectionState.value = 'unknown' } }
+ finally { checking.value = false }
+}
+async function disconnect() {
+ if (checking.value) return
+ checking.value = true
+ try { await disconnectFeishu(); if (mounted) { connected.value = false; connectionState.value = 'disconnected'; disconnectConfirm.value = false } }
+ catch { if (mounted) message.value = '暂时无法解除连接，请稍后重试。' }
+ finally { checking.value = false }
+}
 async function submit() {
  if (busy.value || accepted.value || !target.value || !input.value.valid.length || input.value.valid.length > 100) return
  busy.value = true; message.value = ''
@@ -63,7 +93,7 @@ async function submit() {
  finally { busy.value = false }
 }
 function connect() {
- try { sessionStorage.setItem('feishu-import-target-draft',targetID.value) } catch { /* Optional draft only. */ }
+ try { sessionStorage.setItem(FEISHU_TARGET,targetID.value) } catch { /* Optional draft only. */ }
  emit('connect',linksText.value)
 }
 function selected(url: string) { return input.value.valid.includes(normalizeFeishuLinks(url).valid[0]) }
@@ -79,7 +109,12 @@ async function open(entry:FeishuResource) { if (busy.value) return; epoch++; tra
 async function back() { if (busy.value) return; epoch++; location.value = trail.value.pop() || {parent:'',space:''}; await browse() }
 </script>
 <style scoped>
-.quick-import { display:flex; flex-direction:column; gap:12px; min-width:0; }
+.quick-import { display:flex; flex-direction:column; gap:16px; min-width:0; max-width:960px; margin:0 auto; padding:8px 0; }
+.connection-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-bottom:16px; border-bottom:1px solid var(--td-component-border); }
+.connection-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+label { font-weight:500; color:var(--td-text-color-primary); }
+.quick-import > :deep(.t-select__wrap), .quick-import > :deep(.t-textarea) { width:100%; }
+.actions { margin-top:4px; }
 p { margin:0; line-height:1.6; }
 .hint { color:var(--td-text-color-secondary); font-size:var(--app-text-sm); }
 .warning { color:var(--td-warning-color); }

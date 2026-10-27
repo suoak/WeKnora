@@ -11,7 +11,6 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 // ErrFeishuSharingApproval requires an explicit approval for the current revision.
@@ -30,7 +29,10 @@ type FeishuPreviewItem struct {
 
 func feishuV2Error(err error) string {
 	if errors.Is(err, ErrFeishuSourceRebindRequired) ||
-		errors.Is(err, core.ErrPersonalBlocksPolicyUnverified) || errors.Is(err, core.ErrPersonalBlocksIncomplete) ||
+		errors.Is(
+			err,
+			core.ErrPersonalBlocksPolicyUnverified,
+		) || errors.Is(err, core.ErrPersonalBlocksIncomplete) ||
 		errors.Is(err, core.ErrPersonalReadDenied) || errors.Is(err, core.ErrPersonalCopyExportDenied) ||
 		errors.Is(err, core.ErrPersonalCopyDenied) || errors.Is(err, core.ErrPersonalCopyOnlyReview) ||
 		errors.Is(err, core.ErrPersonalAcquisitionReview) {
@@ -148,48 +150,15 @@ func (s *FeishuPersonalService) checkSharingApproval(
 	tx *gorm.DB,
 	cfg *FeishuAppConfig,
 	m *types.FeishuPersonalImport,
-	revision string,
+	_ string,
 ) error {
-	binding, _ := tx.Statement.Context.Value(batchPublicationApprovalKey{}).(string)
-	if cfg.Capabilities == nil && binding == "" ||
-		types.FeishuAuthMode(m.AuthMode) != types.FeishuUserOAuth ||
-		m.DocumentToken == "" {
+	// Historical name retained for stored attempts and callers. Independent
+	// revision-sharing grants no longer authorize ordinary imports or updates.
+	// Legacy single-identity installations keep their original authorization.
+	if cfg.Capabilities == nil || types.FeishuAuthMode(m.AuthMode) != types.FeishuUserOAuth {
 		return nil
 	}
-	if binding == "" && types.PrivateKBGuardsEnabled(tx) {
-		owner, err := types.PrivateKBOwner(tx, m.KBID)
-		if err != nil {
-			return err
-		}
-		if owner == m.UserID {
-			return nil
-		}
-	}
-	var approval types.FeishuSharingApproval
-	query := tx.Clauses(clause.Locking{Strength: "SHARE"}).
-		Where("owner_id = ? AND kb_id = ? AND app_id = ? AND resource_type = ? AND resource"+
-			"_token = ? AND revision = ? AND config_version = ? AND state = ? AND expires"+
-			"_at > ?",
-			m.UserID,
-			m.KBID,
-			m.AppID,
-			m.ResourceType,
-			m.DocumentToken,
-			revision,
-			cfg.identityVersion(types.FeishuUserOAuth),
-			"approved",
-			time.Now())
-	if binding != "" {
-		query = query.Where("id = ?", binding)
-	}
-	err := query.First(&approval).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrFeishuSharingApproval
-		}
-		return err
-	}
-	return nil
+	return s.requireImportWriter(tx, m.UserID, m.KBID, types.CallerFromContext(tx.Statement.Context).TenantID)
 }
 
 // ApproveSharing is an explicit, audited grant to the destination KB's current

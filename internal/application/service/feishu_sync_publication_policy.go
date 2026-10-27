@@ -272,6 +272,9 @@ func checkSourcePublicationPolicy(
 	ref *types.FeishuSourceReference,
 	resource core.PersonalResource,
 ) error {
+	// Retained only for explicitly controlled hold reconciliation. Ordinary
+	// reference updates use the same live KB write ACL as their first import;
+	// removing revision approvals must never release a hold or its stop fence.
 	// This exception belongs only to the server-owned sync execution. It cannot
 	// approve a new quick-import batch, another resource or a manual identity.
 	execution, ok := types.SyncExecutionFromContext(tx.Statement.Context)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/Tencent/WeKnora/internal/types"
 	"gorm.io/gorm"
 )
@@ -24,10 +25,14 @@ func (s *FeishuPersonalService) batchItemProgress(ctx context.Context, item *typ
 	var failureTenant uint64
 	defer func() { s.decorateFeishuFailure(ctx, item, m, failureAttemptID, failureTenant) }()
 	item.Stage = "queued"
+	if resource, err := core.ParsePersonalResourceURL(item.URL); err == nil {
+		item.ResourceType = resource.Type
+	}
 	item.LastProgressAt = &accepted
 	// A dispatched item's short reconciliation claim is bookkeeping, not a
 	// document worker heartbeat and must not conceal an abandoned downstream job.
-	item.LeaseActive = item.Status == "processing" && item.LeaseUntil != nil && item.LeaseUntil.After(time.Now())
+	item.LeaseActive = item.Status == "processing" && item.LeaseUntil != nil &&
+		item.LeaseUntil.After(time.Now())
 	if item.Status == "processing" {
 		item.Stage = "checking"
 	}
@@ -38,6 +43,7 @@ func (s *FeishuPersonalService) batchItemProgress(ctx context.Context, item *typ
 		return nil
 	}
 	item.KnowledgeID, item.WikiStatus = m.KnowledgeID, m.WikiStatus
+	item.ResourceType = m.ResourceType
 	item.IndexVerified = m.IndexStatus == "verified"
 	if !item.IndexVerified && (item.Status == "succeeded" || item.Status == "existing") {
 		item.Status = "dispatched"
@@ -45,6 +51,9 @@ func (s *FeishuPersonalService) batchItemProgress(ctx context.Context, item *typ
 	if !m.UpdatedAt.IsZero() {
 		value := m.UpdatedAt
 		item.LastProgressAt = &value
+	}
+	if m.Status == "source_managed" {
+		return s.sourceManagedProgress(ctx, item, m)
 	}
 	var resource types.FeishuPersonalResource
 	if e := s.db.WithContext(ctx).Where("import_id = ?", m.ID).First(&resource).Error; e != nil {
@@ -88,6 +97,7 @@ func (s *FeishuPersonalService) batchItemProgress(ctx context.Context, item *typ
 			return e
 		}
 		item.ParseStatus = k.ParseStatus
+		item.DocumentName = k.Title
 		failureCategory := "parse_or_index_failed"
 		if k.CreatedAt.After(*item.LastProgressAt) {
 			t := k.CreatedAt

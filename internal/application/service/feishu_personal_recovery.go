@@ -163,6 +163,11 @@ func (p *PersonalRecovery) authorizeLocal(
 		types.FeishuAuthMode(a.AuthMode) != types.FeishuAuthMode(m.AuthMode) {
 		return nil, nil, repository.ErrPersonalIdentity
 	}
+	if types.FeishuAuthMode(m.AuthMode) == types.FeishuUserOAuth {
+		if err := p.service.assertConnectionHealth(db, m.UserID); err != nil {
+			return nil, nil, err
+		}
+	}
 	if err := p.service.checkSharingApproval(db, cfg, m, a.Revision); err != nil {
 		return nil, nil, err
 	}
@@ -759,6 +764,9 @@ func (p *PersonalRecovery) fetchCandidate(
 func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 	var after string
 	var failures []error
+	if err := p.service.reconcileConnectionHealth(ctx); err != nil {
+		failures = append(failures, err)
+	}
 	if err := p.service.ReconcileCollections(ctx); err != nil {
 		failures = append(failures, err)
 	}
@@ -934,21 +942,8 @@ func (p *PersonalRecovery) mutate(
 		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ?", m.KBID).First(&kb).Error; err != nil {
 			return personalAccessError(err)
 		}
-		if kb.TenantID == member.TenantID {
-			if !member.Role.HasPermission(types.TenantRoleAdmin) && kb.CreatorID != m.UserID {
-				return access.ErrForbidden
-			}
-		} else {
-			if p.shares == nil {
-				return access.ErrForbidden
-			}
-			permission, shared, err := p.shares.CheckTenantKBPermission(ctx, kb.ID, a.CallerTenantID, member.Role)
-			if err != nil {
-				return err
-			}
-			if !shared || !permission.HasPermission(types.OrgRoleEditor) {
-				return access.ErrForbidden
-			}
+		if err := p.service.requireImportWriter(tx, m.UserID, m.KBID, a.CallerTenantID); err != nil {
+			return err
 		}
 		var setting types.SystemSetting
 		if err := tx.Clauses(
@@ -987,6 +982,11 @@ func (p *PersonalRecovery) mutate(
 		}
 		if err := p.service.checkSharingApproval(tx, &cfg, &m, a.Revision); err != nil {
 			return err
+		}
+		if types.FeishuAuthMode(m.AuthMode) == types.FeishuUserOAuth {
+			if err := p.service.assertConnectionHealth(tx, m.UserID); err != nil {
+				return err
+			}
 		}
 		if fn != nil {
 			return fn(tx, a)

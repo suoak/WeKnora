@@ -47,6 +47,9 @@ func (s *FeishuPersonalService) ResolveCredentialReference(
 	}
 	client := s.client(&core.Config{AppID: cfg.AppID, AppSecret: cfg.Secret})
 	if mode == types.FeishuUserOAuth {
+		if err := s.assertConnectionHealth(s.db.WithContext(ctx), user); err != nil {
+			return ctx, nil, ref, err
+		}
 		var c types.FeishuConnection
 		var epoch types.FeishuPersonalGrantEpoch
 		if s.db.WithContext(ctx).
@@ -228,6 +231,13 @@ func (s *FeishuPersonalService) Connections(ctx context.Context) ([]map[string]a
 			s.db.WithContext(ctx).Where("user_id = ?", user).First(&epoch).Error == nil {
 			row["id"] = connectionID(types.FeishuUserOAuth, user, cfg.AppID, c.OpenID, epoch.Epoch)
 			row["connected"] = c.RefreshExpiresAt.After(time.Now())
+			if feishuHealthEnabled() {
+				health, err := s.inspectConnection(ctx, user)
+				row["connected"], row["connection_state"] = false, "unknown"
+				if err == nil && health != nil {
+					row["connected"], row["connection_state"] = health.State == "connected", health.State
+				}
+			}
 		}
 		rows = append(rows, row)
 	}

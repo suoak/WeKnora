@@ -254,6 +254,9 @@ func RegisterSyncHandlers(params SyncTaskParams) {
 	register(types.TypeChunkExtract, params.ChunkExtractor.Handle)
 	register(types.TypeDataTableSummary, params.DataTableSummary.Handle)
 	register(types.TypeDocumentProcess, params.KnowledgeService.ProcessDocument)
+	if params.FeishuPersonalService != nil {
+		register(types.TypeFeishuConnectionCheck, params.FeishuPersonalService.ProcessConnectionCheck)
+	}
 	register(types.TypeTemporaryDocumentProcess, params.TemporaryDocument.Process)
 	register(types.TypeManualProcess, params.KnowledgeService.ProcessManualUpdate)
 	register(types.TypeFAQImport, params.KnowledgeService.ProcessFAQImport)

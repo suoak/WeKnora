@@ -42,7 +42,7 @@ async function bootstrap() {
   // Capabilities (can_create_tenant, auto_accept_invitation) are not cached
   // in localStorage — reconcile once before first paint when a session exists.
   const authStore = useAuthStore();
-  if (localStorage.getItem("weknora_token")) {
+  if (window.location.pathname !== '/feishu/callback' && localStorage.getItem("weknora_token")) {
     try {
       await authStore.refreshFromAuthMe();
     } catch {

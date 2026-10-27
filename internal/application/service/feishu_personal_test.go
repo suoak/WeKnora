@@ -125,6 +125,37 @@ func TestFeishuAppEncryptedAdminOnlyAndStatusRedacted(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestFeishuOAuthAuthorizationRevisionChangesOnlyOnConsent(t *testing.T) {
+	s, _ := feishuFixture(t)
+	require.NoError(t, s.db.Create(&types.FeishuConnection{
+		UserID: "A", AppID: "cli_test", OpenID: "open-A", Tokens: "sealed-not-returned",
+		ExpiresAt: time.Now().Add(time.Hour), RefreshExpiresAt: time.Now().Add(24 * time.Hour),
+	}).Error)
+	require.NoError(t, s.db.Create(&types.FeishuPersonalGrantEpoch{UserID: "A", Epoch: "consent-one"}).Error)
+	before := s.Status(personalUser("A"))["authorization_revision"]
+	require.NotEmpty(t, before)
+	require.NotContains(t, before, "consent-one")
+	require.NoError(t, s.db.Model(&types.FeishuConnection{}).Where("user_id = ?", "A").
+		Updates(map[string]any{"tokens": "refreshed-sealed", "updated_at": time.Now()}).Error)
+	require.Equal(
+		t,
+		before,
+		s.Status(personalUser("A"))["authorization_revision"],
+		"token refresh cannot confirm a new consent",
+	)
+	require.NoError(
+		t,
+		s.db.Model(&types.FeishuPersonalGrantEpoch{}).
+			Where("user_id = ?", "A").
+			Update("epoch", "consent-two").
+			Error,
+	)
+	require.NotEqual(t, before, s.Status(personalUser("A"))["authorization_revision"])
+	require.Nil(t, s.Status(personalUser("B"))["authorization_revision"])
+	require.NoError(t, s.Disconnect(personalUser("A")))
+	require.Nil(t, s.Status(personalUser("A"))["authorization_revision"])
+}
+
 func TestFeishuOAuthStateOwnerReplayExpiryAndDisconnect(t *testing.T) {
 	s, _ := feishuFixture(t)
 	cfg, err := s.app(context.Background())

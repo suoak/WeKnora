@@ -272,6 +272,9 @@ func RunAsynqServer(params AsynqTaskParams) *asynq.ServeMux {
 	// Register document processing handler
 	mux.HandleFunc(types.TypeDocumentProcess, params.KnowledgeService.ProcessDocument)
 	mux.HandleFunc(types.TypeFeishuApplicationProcess, params.KnowledgeService.ProcessDocument)
+	if params.FeishuPersonalService != nil {
+		mux.HandleFunc(types.TypeFeishuConnectionCheck, params.FeishuPersonalService.ProcessConnectionCheck)
+	}
 	mux.HandleFunc(types.TypeTemporaryDocumentProcess, params.TemporaryDocument.Process)
 
 	// Register manual knowledge processing handler (cleanup + re-indexing)
@@ -389,7 +392,10 @@ var taskTypesAffectingKnowledgeStatus = map[string]struct{}{
 // errors are logged and swallowed. The dead-letter record is the source of
 // truth — this is purely a UX shortcut so users don't wait for the
 // housekeeping cron's next sweep.
-func newDeadLetterKnowledgeFailer(ks interfaces.KnowledgeService, tracker service.SpanTracker) asynqdl.OnDeadLetter {
+func newDeadLetterKnowledgeFailer(
+	ks interfaces.KnowledgeService,
+	tracker service.SpanTracker,
+) asynqdl.OnDeadLetter {
 	if ks == nil {
 		return nil
 	}
@@ -428,8 +434,12 @@ func newDeadLetterKnowledgeFailer(ks interfaces.KnowledgeService, tracker servic
 		// raced it): failing it would kill a run that is still healthy.
 		if tracker != nil && probe.Attempt > 0 &&
 			tracker.LatestAttempt(ctx, probe.KnowledgeID) > probe.Attempt {
-			logger.Infof(ctx, "dead-letter callback: attempt %d of knowledge %s superseded, leaving row alone",
-				probe.Attempt, probe.KnowledgeID)
+			logger.Infof(
+				ctx,
+				"dead-letter callback: attempt %d of knowledge %s superseded, leaving row alone",
+				probe.Attempt,
+				probe.KnowledgeID,
+			)
 			return
 		}
 		errMsg := "task " + t.Type() + " exhausted retries: " + taskErr.Error()
@@ -456,7 +466,12 @@ func newDeadLetterKnowledgeFailer(ks interfaces.KnowledgeService, tracker servic
 			tracker.FinalizeAttempt(ctx, probe.KnowledgeID, probe.Attempt,
 				types.SpanStatusFailed, nil, "TASK_TIMEOUT", errMsg)
 		}
-		logger.Infof(ctx, "dead-letter callback: marked knowledge %s as failed (task=%s)", probe.KnowledgeID, t.Type())
+		logger.Infof(
+			ctx,
+			"dead-letter callback: marked knowledge %s as failed (task=%s)",
+			probe.KnowledgeID,
+			t.Type(),
+		)
 	}
 }
 

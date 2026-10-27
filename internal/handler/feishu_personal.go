@@ -39,8 +39,12 @@ func feishuFailureResponse(c *gin.Context, err error) {
 			})
 			return
 		}
-		if errors.Is(err, types.ErrFeishuIdentityRequired) || errors.Is(err, types.ErrFeishuIdentityDisabled) {
-			c.JSON(http.StatusConflict, gin.H{"error": "feishu_identity_unavailable", "message": "请选择明确且已启用的飞书身份"})
+		if errors.Is(err, types.ErrFeishuIdentityRequired) ||
+			errors.Is(err, types.ErrFeishuIdentityDisabled) {
+			c.JSON(
+				http.StatusConflict,
+				gin.H{"error": "feishu_identity_unavailable", "message": "请选择明确且已启用的飞书身份"},
+			)
 			return
 		}
 		// Preserve the service's live authorization decision. In particular, a
@@ -58,6 +62,10 @@ func feishuFailureResponse(c *gin.Context, err error) {
 		}
 		code, message := "feishu_operation_failed", "请检查飞书授权、文档权限和知识库配置后重试"
 		switch {
+		case err.Error() == "invalid_oauth_callback", err.Error() == "invalid_or_expired_oauth_state":
+			code, message = err.Error(), "本次授权已过期或已使用，请重新连接飞书"
+		case errors.Is(err, service.ErrFeishuOAuthConfiguration), err.Error() == "feishu_app_unavailable":
+			code, message = "feishu_oauth_application_configuration", "飞书应用配置暂不可用，请联系管理员"
 		case errors.Is(err, core.ErrApplicationTableMedia):
 			code, message = "feishu_table_media_not_supported", "表格包含尚未支持完整解析的图片或附件，请手动导"+
 				"出核对后上传"

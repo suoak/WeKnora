@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -24,6 +25,7 @@ func v2PostgresFixture(t *testing.T) *personalRecoveryFixture {
 	t.Helper()
 	t.Setenv("FEISHU_ACCESS_V2_ENABLED", "1")
 	f := newMVPFixture(t)
+	require.NoError(t, f.db.AutoMigrate(&types.FeishuLegacyResource{}, &types.FeishuLegacyAttempt{}))
 	// This admission fixture has no parser/index worker. Supply the deployed
 	// vector column type for read-only progress counts; native tests exercise
 	// the complete embedding schema, BM25 and publication receipts.
@@ -130,56 +132,33 @@ func TestFeishuV2PostgresStallRequiresAbsentLeaseHeartbeatAndQueue(t *testing.T)
 	}
 }
 
-func TestFeishuV2PostgresSharedAdmissionRequiresRevisionApproval(t *testing.T) {
+func TestFeishuV2PostgresSharedAdmissionUsesDestinationWriteACL(t *testing.T) {
 	f := v2PostgresFixture(t)
 	_, _, ref, err := f.s.ResolveCredentialReference(f.ctx, types.FeishuUserOAuth, "")
 	require.NoError(t, err)
-	links := []string{"https://test.feishu.cn/file/real"}
-	preview, err := f.s.Preview(f.ctx, "kb", types.FeishuUserOAuth, ref.ConnectionID, links)
-	require.NoError(t, err)
-	require.Equal(t, "sharing_approval_required", preview[0].ErrorCategory)
-	_, err = f.s.ImportWithIdentity(f.ctx, "kb", links[0], types.FeishuUserOAuth)
-	require.ErrorIs(t, err, ErrFeishuSharingApproval)
-	_, err = f.s.ApproveSharing(
+	preview, err := f.s.Preview(
 		f.ctx,
 		"kb",
+		types.FeishuUserOAuth,
 		ref.ConnectionID,
-		links[0],
-		"controlled shared publication",
-		false,
-	)
-	require.Error(t, err)
-	approval, err := f.s.ApproveSharing(
-		f.ctx,
-		"kb",
-		ref.ConnectionID,
-		links[0],
-		"controlled shared publication",
-		true,
+		[]string{"https://test.feishu.cn/file/real"},
 	)
 	require.NoError(t, err)
-	m, err := f.s.ImportWithIdentity(f.ctx, "kb", links[0], types.FeishuUserOAuth)
+	require.Empty(t, preview[0].ErrorCategory)
+	m, err := f.s.ImportWithIdentity(f.ctx, "kb", "https://test.feishu.cn/file/real", types.FeishuUserOAuth)
 	require.NoError(t, err)
 	require.NotEmpty(t, m.AttemptID)
-	history, err := f.s.ListSharingApprovals(f.ctx, "kb", 0)
-	require.NoError(t, err)
-	require.Len(t, history, 1)
-	require.Equal(t, approval.ID, history[0].ID)
-	other, err := f.s.ListSharingApprovals(f.userContext("B"), "kb", 0)
-	require.NoError(t, err)
-	require.Empty(t, other)
-	require.Error(t, f.s.RevokeSharingApproval(f.userContext("B"), "kb", approval.ID))
-	// Revocation closes the existing attempt's next authorization, preserving
-	// the original records instead of resetting any lease or cursor.
-	require.NoError(t, f.s.RevokeSharingApproval(f.ctx, "kb", approval.ID))
-	require.NoError(t, f.s.RevokeSharingApproval(f.ctx, "kb", approval.ID), "revocation is idempotent")
+	var count int64
+	require.NoError(t, f.db.Model(&types.FeishuSharingApproval{}).Count(&count).Error)
+	require.Zero(t, count)
 	_, _, attempt, err := f.p.repo.Load(f.ctx, m.AttemptID)
 	require.NoError(t, err)
+	require.NoError(
+		t,
+		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "A").UpdateColumn("role", "viewer").Error,
+	)
 	_, err = f.p.authorize(f.ctx, m, attempt)
-	require.ErrorIs(t, err, ErrFeishuSharingApproval)
-	var count int64
-	require.NoError(t, f.db.Model(&types.Knowledge{}).Count(&count).Error)
-	require.Zero(t, count)
+	require.Error(t, err, "live write revocation still blocks publication")
 }
 
 func TestFeishuV2PostgresCollaborationNeverGrantsOrRetries(t *testing.T) {
@@ -195,7 +174,13 @@ func TestFeishuV2PostgresCollaborationNeverGrantsOrRetries(t *testing.T) {
 		[]string{"https://test.feishu.cn/file/real"},
 	)
 	require.NoError(t, err)
-	require.NoError(t, f.s.ReconcileBatches(context.Background()))
+	require.NoError(
+		t,
+		f.db.Model(&types.FeishuBatchItem{}).
+			Where("id = ?", view.Items[0].ID).
+			Updates(map[string]any{"status": "blocked", "error_category": "sharing_approval_required"}).
+			Error,
+	)
 	view, err = f.s.Batch(f.ctx, view.Batch.ID)
 	require.NoError(t, err)
 	require.Equal(t, "blocked", view.Items[0].Status)
@@ -212,7 +197,7 @@ func TestFeishuV2PostgresCollaborationNeverGrantsOrRetries(t *testing.T) {
 	require.Equal(t, "reported_unverified", row.Result)
 	row, err = f.s.Collaborate(f.ctx, view.Batch.ID, item.ID, "recheck", "Document owner", "")
 	require.NoError(t, err)
-	require.Equal(t, "sharing_approval_required", row.Result)
+	require.Equal(t, "metadata_readable_export_pending", row.Result)
 	_, err = f.s.Collaboration(f.userContext("B"), view.Batch.ID)
 	require.Error(t, err)
 	_, err = f.s.Collaborate(f.userContext("B"), view.Batch.ID, item.ID, "reported", "", "must deny")
@@ -511,4 +496,110 @@ func TestFeishuV2PostgresBatchReportsActualFailureWithoutPollingProgress(t *test
 	require.Equal(t, "failed", view.Items[0].Status)
 	require.Equal(t, "needs_attention", view.Items[0].Stage)
 	require.Equal(t, "storage_permission_denied", view.Items[0].ErrorCategory)
+}
+
+func TestFeishuV2PostgresExistingHistoryRequiresVerifiedReceipt(t *testing.T) {
+	f := v2PostgresFixture(t)
+	view, err := f.s.QuickImport(f.ctx, "kb", "existing-history-receipt", []string{"https://test.feishu.cn/file/real"})
+	require.NoError(t, err)
+	require.NoError(t, f.s.ReconcileBatches(context.Background()))
+	var item types.FeishuBatchItem
+	require.NoError(t, f.db.Where("id = ?", view.Items[0].ID).First(&item).Error)
+	require.NotEmpty(t, item.ImportID)
+	require.NoError(t, f.db.Model(&item).UpdateColumn("status", "existing").Error)
+	knowledge := types.Knowledge{
+		ID:              "verified-history-knowledge",
+		TenantID:        1,
+		KnowledgeBaseID: "kb",
+		Title:           "Existing document",
+		ParseStatus:     types.ParseStatusCompleted,
+	}
+	require.NoError(t, f.db.Create(&knowledge).Error)
+	require.NoError(t, f.db.Model(&types.FeishuPersonalImport{}).Where("id = ?", item.ImportID).
+		Updates(map[string]any{"knowledge_id": knowledge.ID, "status": "source_managed"}).Error)
+	history, err := f.s.ListBatches(f.ctx, "kb", 0)
+	require.NoError(t, err)
+	require.Len(t, history, 1)
+	require.Equal(t, "processing", history[0].Status, "completed parse without index receipt is not success")
+	receipt := types.TaskPendingOp{
+		TenantID:   1,
+		TaskType:   "personal:index",
+		Scope:      personalIndexReceiptScope,
+		ScopeID:    knowledge.ID,
+		Op:         "verified",
+		EnqueuedAt: time.Now(),
+	}
+	var attempt types.FeishuPersonalAttempt
+	require.NoError(t, f.db.Where("import_id = ?", item.ImportID).First(&attempt).Error)
+	receipt.DedupKey = "index-" + attempt.ID
+	require.NoError(t, f.db.Create(&receipt).Error)
+	history, err = f.s.ListBatches(f.ctx, "kb", 0)
+	require.NoError(t, err)
+	require.Equal(t, "succeeded", history[0].Status)
+	require.Equal(t, []string{knowledge.Title}, history[0].DocumentNames)
+	detail, err := f.s.Batch(f.ctx, view.Batch.ID)
+	require.NoError(t, err)
+	require.True(t, detail.Items[0].IndexVerified)
+	require.Equal(t, "completed", detail.Items[0].Stage)
+	require.False(t, detail.Items[0].Stalled)
+	require.NoError(t, f.db.Delete(&receipt).Error)
+	history, err = f.s.ListBatches(f.ctx, "kb", 0)
+	require.NoError(t, err)
+	require.Equal(t, "processing", history[0].Status, "receipt removal cannot leave a stale success summary")
+}
+
+func TestFeishuV2PostgresManagedProgressUsesActivePublication(t *testing.T) {
+	f := v2PostgresFixture(t)
+	require.NoError(t, f.db.AutoMigrate(&types.FeishuLegacyResource{}, &types.FeishuLegacyAttempt{}))
+	k := types.Knowledge{
+		ID: "managed-knowledge", TenantID: 1, KnowledgeBaseID: "kb",
+		Title: "Published document", ParseStatus: types.ParseStatusCompleted,
+	}
+	require.NoError(t, f.db.Create(&k).Error)
+	m := &types.FeishuPersonalImport{
+		ID: "source", KBID: "kb", KnowledgeID: k.ID,
+		Status: "source_managed", AttemptID: "first-attempt",
+	}
+	check := func(want bool) {
+		t.Helper()
+		item := &types.FeishuBatchItem{Status: "existing"}
+		require.NoError(t, f.s.sourceManagedProgress(f.ctx, item, m))
+		require.Equal(t, want, item.IndexVerified)
+		require.Equal(t, want, item.Status == "succeeded")
+		require.False(t, item.Stalled)
+	}
+	check(false)
+	first := types.TaskPendingOp{
+		TenantID: 1, Scope: personalIndexReceiptScope, ScopeID: k.ID,
+		DedupKey: "index-first-attempt", Op: "verified", EnqueuedAt: time.Now(),
+	}
+	require.NoError(t, f.db.Create(&first).Error)
+	check(true) // Initial verified handoff has no versioned source resource yet.
+	r := types.FeishuLegacyResource{
+		ID: "resource", TenantID: 1, KnowledgeBaseID: "kb",
+		DataSourceID: m.ID, KnowledgeID: k.ID, Generation: 8, State: "hold", ActiveAttempt: "published",
+	}
+	require.NoError(t, f.db.Create(&r).Error)
+	check(false) // An invalid source pointer cannot fall back to the old receipt.
+	receipt := types.FeishuLegacyReceipt{
+		ResourceID: r.ID, AttemptID: r.ActiveAttempt,
+		KnowledgeID: k.ID, Generation: 7, ManifestSHA256: "manifest", Chunks: 2,
+		Vectors: 2, BM25Rows: 2, Dimension: 1024, PublishedAt: time.Now(),
+	}
+	raw, err := json.Marshal(receipt)
+	require.NoError(t, err)
+	a := types.FeishuLegacyAttempt{
+		ID: r.ActiveAttempt, ResourceID: r.ID, Generation: 7,
+		Status: "published", Receipt: raw,
+	}
+	require.NoError(t, f.db.Create(&a).Error)
+	check(true) // A newer candidate/hold does not remove the published version.
+	receipt.KnowledgeID = "another-document"
+	raw, err = json.Marshal(receipt)
+	require.NoError(t, err)
+	require.NoError(t, f.db.Model(&a).UpdateColumn("receipt", raw).Error)
+	check(false)
+	require.NoError(t, f.db.First(&r, "id = ?", r.ID).Error)
+	require.Equal(t, "hold", r.State, "polling must not resume a protected source")
+	require.Equal(t, int64(8), r.Generation)
 }

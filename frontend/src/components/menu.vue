@@ -1396,9 +1396,10 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
         margin-right: -4px;
         padding-right: 4px;
 
-        // Claude 风格细滚动条：默认透明，悬浮时显示一条圆角细灰条
+        // Keep the scroll affordance visible for long menus and keyboard users.
+        scrollbar-gutter: stable;
         scrollbar-width: thin;
-        scrollbar-color: transparent transparent;
+        scrollbar-color: var(--td-scrollbar-color) transparent;
         transition: scrollbar-color var(--app-motion-base) ease;
 
         &::-webkit-scrollbar {
@@ -1410,7 +1411,7 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
         }
 
         &::-webkit-scrollbar-thumb {
-            background-color: transparent;
+            background-color: var(--td-scrollbar-color);
             border-radius: var(--app-radius-sm);
             transition: background-color var(--app-motion-base) ease;
         }
@@ -1971,11 +1972,11 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
 </style>
 <style lang="less">
 // Dark mode: 滚动条在深色背景下需要更亮的颜色才看得见
-html[theme-mode="dark"] .aside_box .menu_top:hover {
+html[theme-mode="dark"] .aside_box .menu_top {
     scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
 }
 
-html[theme-mode="dark"] .aside_box .menu_top:hover::-webkit-scrollbar-thumb {
+html[theme-mode="dark"] .aside_box .menu_top::-webkit-scrollbar-thumb {
     background-color: rgba(255, 255, 255, 0.22);
 }
 
