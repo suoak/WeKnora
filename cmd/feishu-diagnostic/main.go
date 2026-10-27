@@ -83,6 +83,9 @@ func run() error {
 	if action := os.Getenv("FEISHU_DIAGNOSTIC_SYNC_POLICY_ACTION"); action != "" {
 		return syncPublicationPolicies(ctx, db, settings, action)
 	}
+	if action := os.Getenv("FEISHU_DIAGNOSTIC_RECOVERY_ACTION"); action != "" {
+		return recoverExistingPair(ctx, db, settings, action)
+	}
 	if os.Getenv("FEISHU_DIAGNOSTIC_APP_SCOPES_ONLY") == "1" {
 		return applicationScopes(ctx, &cfg)
 	}
