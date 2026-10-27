@@ -244,7 +244,7 @@ func (s *FeishuPersonalService) approveSourceUpdates(
 			// retry enqueue of this same durable run; another log cannot use it.
 			if err := tx.Create(&types.SyncLog{
 				ID: reconciliationLog, DataSourceID: ds.ID, TenantID: ds.TenantID,
-				Status: types.SyncLogStatusRunning, StartedAt: time.Now(),
+				Status: types.SyncLogStatusRunning, StartedAt: time.Now().UTC(),
 			}).Error; err != nil {
 				return err
 			}

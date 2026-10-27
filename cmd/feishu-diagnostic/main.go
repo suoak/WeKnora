@@ -47,7 +47,10 @@ func run() error {
 	}
 	db, err := gorm.Open(
 		postgres.Open(dsn.String()),
-		&gorm.Config{Logger: gormlog.Default.LogMode(gormlog.Silent)},
+		&gorm.Config{
+			Logger:  gormlog.Default.LogMode(gormlog.Silent),
+			NowFunc: func() time.Time { return time.Now().UTC() },
+		},
 	)
 	if err != nil {
 		return errors.New("isolated_database_unavailable")
