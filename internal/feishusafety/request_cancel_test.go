@@ -14,6 +14,39 @@ import (
 
 type cancellationBody struct{ ctx context.Context }
 
+func TestSafetyPermitWatchdogCancellationRetainsItsCause(t *testing.T) {
+	g, client := fixture(t, Config{})
+	InstallDefault(g)
+	started := make(chan struct{})
+	transport := Transport{Base: cancellationTransport{headers: false, started: started}}
+	req, err := http.NewRequestWithContext(
+		WithScope(context.Background(), "source"),
+		http.MethodGet,
+		"https://source.invalid/metadata",
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { _, err := transport.RoundTrip(req); done <- err }()
+	<-started
+	if err := client.Del(context.Background(), g.PermitKey()).Err(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-done:
+		if !errors.Is(err, ErrClosed) {
+			t.Fatalf("watchdog failure lost its safety cause: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("watchdog did not cancel the request")
+	}
+	if got := client.Get(context.Background(), g.key("trip")).Val(); got != "feishu_request_permit_unconfirmed" {
+		t.Fatalf("trip = %q", got)
+	}
+}
+
 func TestSafetyKnownPreHeaderDisconnectDoesNotDisableIndependentSources(t *testing.T) {
 	for _, cause := range []error{io.EOF, syscall.ECONNRESET, syscall.EPIPE} {
 		t.Run(cause.Error(), func(t *testing.T) {

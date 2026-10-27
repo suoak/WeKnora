@@ -250,7 +250,8 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 		}
 	}
 	caller := req.Context()
-	ctx, cancel := context.WithCancel(caller)
+	ctx, cancelCause := context.WithCancelCause(caller)
+	cancel := func() { cancelCause(context.Canceled) }
 	req = req.Clone(ctx)
 	done := make(chan struct{})
 	var once sync.Once
@@ -277,7 +278,7 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 				}
 				checkCancel()
 				if err != nil {
-					cancel()
+					cancelCause(ErrClosed)
 					return
 				}
 			}
@@ -285,7 +286,14 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 	}()
 	resp, err := base.RoundTrip(req)
 	if err != nil {
+		gateCanceled := errors.Is(context.Cause(ctx), ErrClosed)
 		finish()
+		if gateCanceled {
+			if !g.localClosed.Load() {
+				trip(g, "feishu_request_permit_unconfirmed")
+			}
+			return nil, fmt.Errorf("%w: request_permit_check_failed", ErrClosed)
+		}
 		tripRequestFailure(caller, g, err, t.Embedding, "headers")
 		return nil, err
 	}

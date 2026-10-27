@@ -38,13 +38,23 @@ for row in rows:row['source_hash']=mask(row.pop('id'))
 result['source_schedules']=rows
 network_failures=[]
 for service in ['app','worker2']:
- logs=run(compose+['logs','--timestamps','--no-color','--since','2026-10-27T02:44:45Z','--tail','500',service])
+ logs=run(compose+['logs','--timestamps','--no-color','--since','2026-10-27T02:44:58Z','--until','2026-10-27T02:45:02Z',service])
  for line in logs.splitlines():
   categories=[v for v in ['unexpected EOF','EOF','connection reset','connection refused','broken pipe','TLS handshake','certificate','x509','no such host','server misbehaving','context canceled','context deadline','request canceled','headers_io_failure','GOAWAY','INTERNAL_ERROR','stream error','http2','i/o timeout','transient','retry'] if v in line]
   if not categories:continue
   at=re.search(r'\d{4}-\d{2}-\d{2}T[0-9:.]+Z',line)
   network_failures.append({'service':service,'at':at[0] if at else None,'categories':categories,'line_digest':hashlib.sha256(line.encode()).hexdigest()[:12]})
 result['network_failure_categories']=network_failures[-60:]
+episode=[]
+for service in ['app','worker2']:
+ logs=run(compose+['logs','--timestamps','--no-color','--since','2026-10-27T02:44:59Z','--until','2026-10-27T02:45:01Z',service])
+ for line in logs.splitlines():
+  if '[FeishuControlTiming] ' not in line:continue
+  try:timing=json.loads(line.split('[FeishuControlTiming] ',1)[1])
+  except ValueError:continue
+  episode.append({'service':service,'started':timing.get('started'),'finished':timing.get('finished'),'failed':timing.get('failed'),
+   'stages':timing.get('stages'),'commands':timing.get('commands'),'io':timing.get('io')})
+result['incident_control_timings']=episode
 '''
 
 CONFIGURE = r'''
