@@ -205,7 +205,8 @@ func (s *FeishuPersonalService) SaveApp(ctx context.Context, cfg *FeishuAppConfi
 			return err
 		}
 		if err := s.audit.Log(ctx, &types.AuditLog{
-			ActorUserID: actor, ActorRole: "system_admin", Action: types.AuditAction("feishu.http_callback_policy_verified"),
+			ActorUserID: actor, ActorRole: "system_admin",
+			Action:     types.AuditAction("feishu.http_callback_policy_verified"),
 			TargetType: "system_setting", TargetID: feishuAppSetting,
 			Outcome: types.AuditOutcomeSuccess, Details: types.JSON(details),
 		}); err != nil {

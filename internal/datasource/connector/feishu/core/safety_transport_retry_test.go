@@ -37,7 +37,8 @@ func TestSourceHeaderDisconnectUsesExistingBoundedRetry(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := rc.Set(context.Background(), guard.PermitKey(), guard.Fingerprint(), 10*time.Second).Err(); err != nil {
+			err = rc.Set(context.Background(), guard.PermitKey(), guard.Fingerprint(), 10*time.Second).Err()
+			if err != nil {
 				t.Fatal(err)
 			}
 			feishusafety.InstallDefault(guard)

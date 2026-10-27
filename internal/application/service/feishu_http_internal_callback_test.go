@@ -35,7 +35,10 @@ func TestFeishuV2InternalHTTPRequiresIndependentExactDeploymentPolicy(t *testing
 	require.NoError(t, validateFeishuApp(cfg))
 	require.True(t, cfg.modeEnabled(types.FeishuUserOAuth))
 	require.False(t, feishuTestHTTPCallbackAllowed(cfg))
-	for _, key := range []string{"KNOWHUB_ENVIRONMENT", "FEISHU_INTERNAL_HTTP_CALLBACK_ENABLED", "FEISHU_INTERNAL_HTTP_CALLBACK_APP_ID", "FEISHU_INTERNAL_HTTP_CALLBACK_URL", "FEISHU_INTERNAL_HTTP_CALLBACK_IPV4", "FEISHU_INTERNAL_HTTP_CALLBACK_APPROVAL_REF"} {
+	for _, key := range []string{
+		"KNOWHUB_ENVIRONMENT", "FEISHU_INTERNAL_HTTP_CALLBACK_ENABLED", "FEISHU_INTERNAL_HTTP_CALLBACK_APP_ID",
+		"FEISHU_INTERNAL_HTTP_CALLBACK_URL", "FEISHU_INTERNAL_HTTP_CALLBACK_IPV4", "FEISHU_INTERNAL_HTTP_CALLBACK_APPROVAL_REF",
+	} {
 		t.Run(key, func(t *testing.T) {
 			t.Setenv(key, "")
 			require.Error(t, validateFeishuApp(cfg))
