@@ -95,7 +95,11 @@ func (s *FeishuPersonalService) batchHistorySummaries(ctx context.Context, rows 
 			IndexStatus string
 		}
 		if err := s.db.WithContext(ctx).Table("feishu_import_batch_items AS bi").
-			Select("k.title, bi.status, pi.index_status").
+			Select("k.title, bi.status, CASE WHEN k.parse_status = 'completed'"+
+				" AND pi.status IN ('synced','completed','source_managed')"+
+				" AND EXISTS (SELECT 1 FROM task_pending_ops AS receipt WHERE receipt.scope = 'personal_index_receipt'"+
+				" AND receipt.scope_id = pi.knowledge_id AND receipt.op = 'verified')"+
+				" THEN 'verified' ELSE '' END AS index_status").
 			Joins("LEFT JOIN feishu_personal_imports AS pi ON pi.id = bi.import_id AND pi.user_id = ? AND pi.kb_id = ?", batch.OwnerID, batch.KBID).
 			Joins("LEFT JOIN knowledges AS k ON k.id = pi.knowledge_id AND k.knowledge_base_id = ? AND k.deleted_at IS NULL", batch.KBID).
 			Where("bi.batch_id = ?", batch.ID).Order("bi.ordinal").Limit(100).Scan(&items).Error; err != nil {
@@ -109,7 +113,7 @@ func (s *FeishuPersonalService) batchHistorySummaries(ctx context.Context, rows 
 			if item.Status == "failed" || item.Status == "blocked" {
 				batch.Status = "failed"
 			}
-			if batch.Status != "failed" && (item.Status != "succeeded" || item.IndexStatus != "verified") {
+			if batch.Status != "failed" && (item.Status != "succeeded" && item.Status != "dispatched" && item.Status != "duplicate" || item.IndexStatus != "verified") {
 				batch.Status = "processing"
 			}
 		}
