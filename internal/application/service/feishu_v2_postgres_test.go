@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -24,6 +25,7 @@ func v2PostgresFixture(t *testing.T) *personalRecoveryFixture {
 	t.Helper()
 	t.Setenv("FEISHU_ACCESS_V2_ENABLED", "1")
 	f := newMVPFixture(t)
+	require.NoError(t, f.db.AutoMigrate(&types.FeishuLegacyResource{}, &types.FeishuLegacyAttempt{}))
 	// This admission fixture has no parser/index worker. Supply the deployed
 	// vector column type for read-only progress counts; native tests exercise
 	// the complete embedding schema, BM25 and publication receipts.
@@ -527,13 +529,77 @@ func TestFeishuV2PostgresExistingHistoryRequiresVerifiedReceipt(t *testing.T) {
 		Op:         "verified",
 		EnqueuedAt: time.Now(),
 	}
+	var attempt types.FeishuPersonalAttempt
+	require.NoError(t, f.db.Where("import_id = ?", item.ImportID).First(&attempt).Error)
+	receipt.DedupKey = "index-" + attempt.ID
 	require.NoError(t, f.db.Create(&receipt).Error)
 	history, err = f.s.ListBatches(f.ctx, "kb", 0)
 	require.NoError(t, err)
 	require.Equal(t, "succeeded", history[0].Status)
 	require.Equal(t, []string{knowledge.Title}, history[0].DocumentNames)
+	detail, err := f.s.Batch(f.ctx, view.Batch.ID)
+	require.NoError(t, err)
+	require.True(t, detail.Items[0].IndexVerified)
+	require.Equal(t, "completed", detail.Items[0].Stage)
+	require.False(t, detail.Items[0].Stalled)
 	require.NoError(t, f.db.Delete(&receipt).Error)
 	history, err = f.s.ListBatches(f.ctx, "kb", 0)
 	require.NoError(t, err)
 	require.Equal(t, "processing", history[0].Status, "receipt removal cannot leave a stale success summary")
+}
+
+func TestFeishuV2PostgresManagedProgressUsesActivePublication(t *testing.T) {
+	f := v2PostgresFixture(t)
+	require.NoError(t, f.db.AutoMigrate(&types.FeishuLegacyResource{}, &types.FeishuLegacyAttempt{}))
+	k := types.Knowledge{
+		ID: "managed-knowledge", TenantID: 1, KnowledgeBaseID: "kb",
+		Title: "Published document", ParseStatus: types.ParseStatusCompleted,
+	}
+	require.NoError(t, f.db.Create(&k).Error)
+	m := &types.FeishuPersonalImport{
+		ID: "source", KBID: "kb", KnowledgeID: k.ID,
+		Status: "source_managed", AttemptID: "first-attempt",
+	}
+	check := func(want bool) {
+		t.Helper()
+		item := &types.FeishuBatchItem{Status: "existing"}
+		require.NoError(t, f.s.sourceManagedProgress(f.ctx, item, m))
+		require.Equal(t, want, item.IndexVerified)
+		require.Equal(t, want, item.Status == "succeeded")
+		require.False(t, item.Stalled)
+	}
+	check(false)
+	first := types.TaskPendingOp{
+		TenantID: 1, Scope: personalIndexReceiptScope, ScopeID: k.ID,
+		DedupKey: "index-first-attempt", Op: "verified", EnqueuedAt: time.Now(),
+	}
+	require.NoError(t, f.db.Create(&first).Error)
+	check(true) // Initial verified handoff has no versioned source resource yet.
+	r := types.FeishuLegacyResource{
+		ID: "resource", TenantID: 1, KnowledgeBaseID: "kb",
+		DataSourceID: m.ID, KnowledgeID: k.ID, Generation: 8, State: "hold", ActiveAttempt: "published",
+	}
+	require.NoError(t, f.db.Create(&r).Error)
+	check(false) // An invalid source pointer cannot fall back to the old receipt.
+	receipt := types.FeishuLegacyReceipt{
+		ResourceID: r.ID, AttemptID: r.ActiveAttempt,
+		KnowledgeID: k.ID, Generation: 7, ManifestSHA256: "manifest", Chunks: 2,
+		Vectors: 2, BM25Rows: 2, Dimension: 1024, PublishedAt: time.Now(),
+	}
+	raw, err := json.Marshal(receipt)
+	require.NoError(t, err)
+	a := types.FeishuLegacyAttempt{
+		ID: r.ActiveAttempt, ResourceID: r.ID, Generation: 7,
+		Status: "published", Receipt: raw,
+	}
+	require.NoError(t, f.db.Create(&a).Error)
+	check(true) // A newer candidate/hold does not remove the published version.
+	receipt.KnowledgeID = "another-document"
+	raw, err = json.Marshal(receipt)
+	require.NoError(t, err)
+	require.NoError(t, f.db.Model(&a).UpdateColumn("receipt", raw).Error)
+	check(false)
+	require.NoError(t, f.db.First(&r, "id = ?", r.ID).Error)
+	require.Equal(t, "hold", r.State, "polling must not resume a protected source")
+	require.Equal(t, int64(8), r.Generation)
 }

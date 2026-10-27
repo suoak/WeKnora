@@ -52,6 +52,9 @@ func (s *FeishuPersonalService) batchItemProgress(ctx context.Context, item *typ
 		value := m.UpdatedAt
 		item.LastProgressAt = &value
 	}
+	if m.Status == "source_managed" {
+		return s.sourceManagedProgress(ctx, item, m)
+	}
 	var resource types.FeishuPersonalResource
 	if e := s.db.WithContext(ctx).Where("import_id = ?", m.ID).First(&resource).Error; e != nil {
 		if errors.Is(e, gorm.ErrRecordNotFound) {
