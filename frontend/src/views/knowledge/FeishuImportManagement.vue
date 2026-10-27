@@ -1,17 +1,17 @@
 <template>
-  <main class="management">
-    <h2>飞书导入历史</h2>
-    <p><router-link to="/platform/knowledge-bases">返回知识库</router-link></p>
+  <main class="management-scroll" aria-label="飞书导入历史" tabindex="0">
+    <div class="management">
+    <header class="history-header"><h2>飞书导入历史</h2><t-button variant="outline" @click="router.push('/platform/knowledge-bases')">返回知识库</t-button></header>
     <p>任务在后台持续执行。可以关闭页面，稍后再查看。</p>
     <p v-if="message" role="status">{{ message }}</p>
     <template v-if="status">
       <div v-for="row in history" :key="row.id" class="history-row">
         <div class="history-summary"><strong>{{ row.document_names?.length ? row.document_names.join('、') : '飞书文档导入' }}</strong><span>{{ row.target_name || '知识库' }} · {{ new Date(row.created_at).toLocaleString() }}</span><t-tag :theme="row.status === 'succeeded' ? 'success' : row.status === 'failed' ? 'danger' : 'primary'" variant="light">{{ row.status === 'succeeded' ? '导入成功' : row.status === 'failed' ? '失败' : '处理中' }}</t-tag></div>
-        <t-button variant="text" @click="showBatch(row.id)">查看进度</t-button>
+        <t-button variant="text" @click="openBatch(row.id)">查看进度</t-button>
       </div>
       <p v-if="!history.length">暂无导入记录。</p>
       <t-button v-if="more" variant="text" @click="loadHistory(true)">加载更多</t-button>
-      <section v-if="batch" aria-label="导入进度">
+      <section v-if="batch" ref="details" aria-label="导入进度" tabindex="-1">
         <h3>{{ batch.target_name || '导入进度' }} · {{ simpleStatus(batch.status) }}</h3>
         <article v-for="item in batch.items" :key="item.id" class="item">
           <p><strong>{{ item.document_name || `第 ${item.ordinal + 1} 篇文档` }}</strong><t-tag size="small" variant="light">{{ item.resource_type || '文档' }}</t-tag><span>{{ itemStatus(item) }}</span></p>
@@ -24,15 +24,17 @@
       </section>
     </template>
     <p v-else>正在读取导入记录。</p>
+    </div>
   </main>
 </template>
 <script setup lang="ts">
-import {computed,ref,onMounted,onUnmounted} from 'vue'
-import {useRoute} from 'vue-router'
+import {computed,ref,onMounted,onUnmounted,nextTick} from 'vue'
+import {useRoute,useRouter} from 'vue-router'
 import {feishuStatus,authorizeFeishu,listFeishuBatches,listMyFeishuBatches,getFeishuBatch,retryFeishuBatch,type FeishuStatus,type FeishuBatch,type FeishuBatchHistory,type FeishuBatchItem} from '@/api/feishuPersonal'
 import {saveFeishuDraft,takeFeishuDraft} from '@/utils/feishuOAuthFlow'
 const route=useRoute(), kb=typeof route.query.kb === 'string' ? route.query.kb : '', status=ref<FeishuStatus>()
 const history=ref<FeishuBatchHistory[]>([]), batch=ref<FeishuBatch>(), more=ref(false), message=ref('')
+const router=useRouter(), details=ref<HTMLElement>()
 const approvalKB=computed(()=>kb || batch.value?.batch.kb_id || ''), retryBusy=ref(false)
 const authorizationBusy=ref(false)
 let mounted=true, selectedID='', timer:ReturnType<typeof setTimeout>|undefined, loading=false
@@ -90,13 +92,21 @@ onMounted(async()=>{
   try {
     status.value=await feishuStatus()
     await loadHistory(false)
-    if(typeof route.query.batch==='string') await showBatch(route.query.batch)
+    if(typeof route.query.batch==='string') await openBatch(route.query.batch)
     else if(history.value.length) await showBatch(history.value[0].id)
   } catch {message.value='暂时无法读取导入记录，请稍后刷新。'}
 })
 async function loadHistory(append:boolean) {
   try {const offset=append?history.value.length:0; const rows=await (kb?listFeishuBatches(kb,offset):listMyFeishuBatches(offset)); if(!mounted)return; history.value=append?[...history.value,...rows]:rows; more.value=rows.length===20}
   catch {if(mounted)message.value='暂时无法读取导入记录，请稍后刷新。'}
+}
+async function openBatch(id:string) {
+  await showBatch(id)
+  await nextTick()
+  if(mounted && selectedID===id && batch.value?.batch.id===id) {
+    details.value?.focus({preventScroll:true})
+    details.value?.scrollIntoView({block:'start'})
+  }
 }
 async function showBatch(id:string) {
   selectedID=id; clearTimeout(timer)
@@ -130,12 +140,16 @@ async function connect(links:string) {
 }
 </script>
 <style scoped>
-.management {width:100%;max-width:960px;box-sizing:border-box;margin:32px auto;padding:0 24px 40px;overflow-wrap:anywhere;}
+.management-scroll {flex:1;min-width:0;min-height:0;width:100%;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable;overscroll-behavior:contain;scrollbar-color:var(--td-scrollbar-color) transparent;}
+.management {width:100%;max-width:960px;box-sizing:border-box;margin:0 auto;padding:32px 24px 40px;overflow-wrap:anywhere;}
+.history-header {display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+.history-header h2 {margin:0;font-size:24px;line-height:1.4;}
 .history-summary {display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0;}
 .history-summary span {font-size:13px;color:var(--td-text-color-secondary);}
 .history-row,.item {padding:20px;border:1px solid var(--td-component-border);border-radius:10px;background:var(--td-bg-color-container);margin:12px 0;}
+.history-row {display:flex;align-items:center;justify-content:space-between;gap:16px;}
 .item > p:first-child {display:flex;flex-wrap:wrap;align-items:center;gap:12px;}
-@media(max-width:600px){.management{padding:0 16px}.history-row{align-items:flex-start}.item{padding:16px}}
+@media(max-width:600px){.management{padding:56px 16px 32px}.history-row{align-items:flex-start;flex-direction:column;gap:12px}.item{padding:16px}}
 .history-row {display:flex;justify-content:space-between;align-items:center;gap:16px;}
 details {margin-top:24px;}
 summary {cursor:pointer;}

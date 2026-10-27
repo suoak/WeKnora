@@ -23,10 +23,14 @@ import 'tdesign-vue-next/es/style/index.css';
 import {createRouter,createMemoryHistory} from 'vue-router';
 import Dialog from '/src/views/knowledge/components/FeishuImportDialog.vue';
 import Management from '/src/views/knowledge/FeishuImportManagement.vue';
+import MenuStyles from '/src/components/menu.vue';
 import i18n from '/src/i18n/index.ts';
 const router=createRouter({history:createMemoryHistory(),routes:[{path:'/',component:{render:()=>null}}]});
 const params=new URLSearchParams(location.search);
-const app=createApp({setup(){const visible=ref(false);nextTick(()=>visible.value=true);return()=>params.has('history')?h(Management):h(Dialog,{visible:visible.value,'onUpdate:visible':value=>visible.value=value,kbId:params.has('choose')?'':'existing-team-kb'})}});
+const scoped=MenuStyles.__scopeId?{[MenuStyles.__scopeId]:''}:{};
+const historyView=()=>h('div',{class:'platform-route-outlet',style:{display:'flex',flexDirection:'column',height:'100dvh',minHeight:0,overflow:'hidden'}},[h(Management)]);
+const sidebarView=()=>h('div',{style:{height:'100dvh',display:'flex'}},[h('aside',{class:'aside_box',...scoped},[h('div',{class:'menu_top',...scoped},Array.from({length:50},(_,i)=>h('button',{style:{flexShrink:0,height:'38px'}},'菜单 '+(i+1))))])]);
+const app=createApp({setup(){const visible=ref(false);nextTick(()=>visible.value=true);return()=>params.has('sidebar')?sidebarView():params.has('history')?historyView():h(Dialog,{visible:visible.value,'onUpdate:visible':value=>visible.value=value,kbId:params.has('choose')?'':'existing-team-kb'})}});
 app.use(router);app.use(TDesign);app.use(i18n);app.mount('#app');`
 const server = await createServer({
   root, configFile: false, plugins: [vue(), {
@@ -36,12 +40,12 @@ const server = await createServer({
     configureServer(server) {
       server.middlewares.use('/__feishu-gate', async (_req, response) => {
         response.setHeader('Content-Type', 'text/html; charset=utf-8')
-        response.end(await server.transformIndexHtml('/__feishu-gate', '<html><body><div id="app"></div><script type="module" src="/__feishu-gate-entry.js"></script></body></html>'))
+        response.end(await server.transformIndexHtml('/__feishu-gate', '<html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body,#app{height:100%;margin:0}</style></head><body><div id="app"></div><script type="module" src="/__feishu-gate-entry.js"></script></body></html>'))
       })
     },
   }], resolve: { alias: { '@': resolve(root, 'src') } },
   define: { __FRONTEND_VERSION__: '"test"', __FRONTEND_COMMIT__: '"test"' },
-  optimizeDeps: { entries:[], include:['vue','vue-router','tdesign-vue-next'] },
+  optimizeDeps: { entries:[], include:['vue','vue-router','tdesign-vue-next','vue-i18n','axios','pinia','tdesign-icons-vue-next'] },
   server: { host: '127.0.0.1', port, strictPort:true },
 })
 let browser
@@ -71,7 +75,10 @@ try {
       body={authorization_url:'https://accounts.feishu.cn/authorize?state=synthetic'}
     }
     if (path === '/api/v1/me/feishu/import-targets') body = targets
-    if (path === '/api/v1/me/feishu/batches') body = [{id:'progress-batch',kb_id:'existing-team-kb',created_at:new Date().toISOString()}]
+    if (path === '/api/v1/me/feishu/batches') {
+      const offset=Number(new URL(request.url()).searchParams.get('offset') || 0)
+      body=page.url().includes('long')?Array.from({length:offset?3:20},(_,i)=>({id:i+offset?'history-batch-'+(i+offset):'progress-batch',kb_id:'existing-team-kb',document_names:['文档 '+(i+offset+1)],target_name:'Existing target',created_at:new Date().toISOString(),status:'succeeded'})):[{id:'progress-batch',kb_id:'existing-team-kb',created_at:new Date().toISOString()}]
+    }
     if (path === '/api/v1/feishu/batches/progress-batch') {
       progressReads++
       const done=progressReads>1
@@ -139,6 +146,33 @@ try {
   assert.equal(progressReads,2)
   await page.getByRole('link',{name:'在知识库中查看'}).waitFor()
   assert.equal(await page.getByText(/自动重试时间/).count(),0)
+  for(const width of [1280,390]) {
+    await page.setViewportSize({width,height:700})
+    await page.goto(origin+'/__feishu-gate?history&long')
+    await page.locator('.history-row').nth(19).waitFor({state:'attached'})
+    const scroll=page.getByRole('main',{name:'飞书导入历史'})
+    assert.equal(await scroll.evaluate(e=>e.scrollHeight>e.clientHeight && e.clientHeight<=innerHeight),true)
+    await scroll.focus()
+    await page.keyboard.press('PageDown')
+    await page.waitForFunction(()=>document.querySelector('.management-scroll').scrollTop>0)
+    await page.getByRole('button',{name:'加载更多',exact:true}).click()
+    await page.locator('.history-row').nth(22).waitFor({state:'attached'})
+    assert.equal(await page.locator('.history-row').count(),23)
+    await page.locator('.history-row').first().getByRole('button',{name:'查看进度'}).click()
+    await page.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='导入进度')
+    assert.equal(await page.getByRole('region',{name:'导入进度'}).evaluate(e=>{const r=e.getBoundingClientRect();return r.top>=-1 && r.top<innerHeight}),true)
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true)
+    if(output)await page.screenshot({path:resolve(output,'history-scroll-'+width+'.png')})
+  }
+  await page.setViewportSize({width:1280,height:700})
+  await page.goto(origin+'/__feishu-gate?sidebar')
+  const sidebar=page.locator('.menu_top')
+  await sidebar.locator('button').last().waitFor({state:'attached'})
+  assert.equal(await sidebar.evaluate(e=>e.scrollHeight>e.clientHeight),true)
+  assert.notEqual(await sidebar.evaluate(e=>getComputedStyle(e).scrollbarColor),'rgba(0, 0, 0, 0) rgba(0, 0, 0, 0)')
+  await sidebar.hover()
+  await page.mouse.wheel(0,2000)
+  await page.waitForFunction(()=>document.querySelector('.menu_top').scrollTop>0)
   await page.goto(origin + '/__feishu-gate?history&failure')
   await page.getByText('请点击重新尝试，系统将重新检查文档和知识库权限。',{exact:true}).waitFor()
   assert.equal(await page.getByRole('button',{name:'一键继续导入',exact:true}).count(),0)
