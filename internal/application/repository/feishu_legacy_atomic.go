@@ -153,6 +153,31 @@ func (s *FeishuLegacyStore) CheckOwner(
 // The row lock is retained through the actual public index write, not released
 // after a preflight check. Database triggers protect old unmodified workers too.
 func (s *FeishuLegacyStore) execution(tx *gorm.DB, ctx context.Context, ds *types.DataSource) error {
+	if err := s.executionFence(ctx, tx, ds); err != nil {
+		return err
+	}
+	var config types.DataSourceConfig
+	if len(ds.Config) > 0 && json.Unmarshal(ds.Config, &config) != nil {
+		return legacyFence("source_configuration_invalid")
+	}
+	ref, err := types.ParseFeishuSourceReference(&config)
+	if err != nil {
+		return err
+	}
+	if ref != nil {
+		guard, ok := types.FeishuSourceGuardFromContext(ctx)
+		if !ok {
+			return legacyFence("credential_reference_unvalidated")
+		}
+		return guard(tx)
+	}
+	return nil
+}
+
+// Restrictive operations retain the same configuration, generation and claim
+// fence, while remaining possible after the remote credential is withdrawn.
+// Restoring access and publishing still require execution's credential guard.
+func (s *FeishuLegacyStore) executionFence(ctx context.Context, tx *gorm.DB, ds *types.DataSource) error {
 	e, ok := types.SyncExecutionFromContext(ctx)
 	if !ok || e.DataSourceID != ds.ID || e.TenantID != ds.TenantID || tx.Dialector.Name() != "postgres" {
 		return legacyFence("execution_context_invalid")
@@ -181,6 +206,9 @@ func (s *FeishuLegacyStore) execution(tx *gorm.DB, ctx context.Context, ds *type
 	err = ownedSyncLog(tx, e).Clauses(clause.Locking{Strength: "UPDATE"}).First(&log).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return legacyFence("execution_generation_or_claim_lost")
+	}
+	if err != nil {
+		return err
 	}
 	return err
 }
@@ -532,6 +560,18 @@ func (s *FeishuLegacyStore) Prepare(
 			return legacyFence("source_identity_manifest_changed")
 		}
 		m.SourceIdentity = initial.SourceIdentity
+		var previous types.Knowledge
+		loadErr := tx.Clauses(clause.Locking{Strength: "SHARE"}).
+			First(&previous, "id=? AND tenant_id=?", r.KnowledgeID, r.TenantID).Error
+		if loadErr != nil && !errors.Is(loadErr, gorm.ErrRecordNotFound) {
+			return loadErr
+		}
+		if previous.FileHash != a.ExpectedHash {
+			return legacyFence("public_file_hash_changed")
+		}
+		if e = legacyProcessMetadata(&previous, &m.Knowledge, true); e != nil {
+			return e
+		}
 		h, e := LegacyManifestHash(m)
 		if e != nil {
 			return e
@@ -599,6 +639,9 @@ func (s *FeishuLegacyStore) Publish(
 	ds *types.DataSource,
 	owner *types.FeishuLegacyAttempt,
 ) (*types.FeishuLegacyReceipt, error) {
+	if err := types.CheckFeishuSourceRead(ctx); err != nil {
+		return nil, err
+	}
 	var receipt types.FeishuLegacyReceipt
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		r, a, e := s.owned(ctx, tx, ds, owner)
@@ -680,6 +723,9 @@ func (s *FeishuLegacyStore) Publish(
 		}
 		if old.FileHash != a.ExpectedHash {
 			return legacyFence("public_file_hash_changed")
+		}
+		if e = legacyProcessMetadata(&old, &m.Knowledge, false); e != nil {
+			return e
 		}
 		indexed, e := legacyIndexedChunks(m.Chunks)
 		if e != nil {

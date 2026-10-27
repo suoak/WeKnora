@@ -1,0 +1,368 @@
+{
+  "status": "CHECKED",
+  "deployed_source_sha": "2a7f651e6ed078fcf5113905a9358a82084d7d17",
+  "qualification": "real_owner_personal_go_mcp",
+  "checks": [
+    {
+      "knowledge_id_hash": "070925df4104",
+      "case_ordinal": 0,
+      "operation": "keyword_search",
+      "http_status": 200,
+      "authorized_source_hit": true,
+      "expected_value_count": 0,
+      "same_hit_contains_expected_values": true,
+      "status": "PASS"
+    },
+    {
+      "knowledge_id_hash": "070925df4104",
+      "case_ordinal": 0,
+      "operation": "semantic_search",
+      "http_status": 200,
+      "authorized_source_hit": true,
+      "expected_value_count": 0,
+      "same_hit_contains_expected_values": true,
+      "status": "PASS"
+    },
+    {
+      "knowledge_id_hash": "070925df4104",
+      "case_ordinal": 0,
+      "operation": "hybrid_search",
+      "http_status": 200,
+      "authorized_source_hit": true,
+      "expected_value_count": 0,
+      "same_hit_contains_expected_values": true,
+      "status": "PASS"
+    },
+    {
+      "knowledge_id_hash": "3663d886f314",
+      "operation": "catalog",
+      "status": "OUT_OF_CREDENTIAL_SCOPE"
+    },
+    {
+      "knowledge_id_hash": "d0c4602a75ca",
+      "case_ordinal": 0,
+      "operation": "keyword_search",
+      "http_status": 200,
+      "authorized_source_hit": true,
+      "expected_value_count": 2,
+      "same_hit_contains_expected_values": true,
+      "status": "PASS"
+    },
+    {
+      "knowledge_id_hash": "d0c4602a75ca",
+      "case_ordinal": 0,
+      "operation": "semantic_search",
+      "http_status": 200,
+      "authorized_source_hit": true,
+      "expected_value_count": 2,
+      "same_hit_contains_expected_values": true,
+      "status": "PASS"
+    },
+    {
+      "knowledge_id_hash": "d0c4602a75ca",
+      "case_ordinal": 0,
+      "operation": "hybrid_search",
+      "http_status": 200,
+      "authorized_source_hit": true,
+      "expected_value_count": 2,
+      "same_hit_contains_expected_values": true,
+      "status": "PASS"
+    },
+    {
+      "knowledge_id_hash": "d0c4602a75ca",
+      "case_ordinal": 1,
+      "operation": "keyword_search",
+      "http_status": 200,
+      "authorized_source_hit": true,
+      "expected_value_count": 2,
+      "same_hit_contains_expected_values": true,
+      "status": "PASS"
+    },
+    {
+      "knowledge_id_hash": "d0c4602a75ca",
+      "case_ordinal": 1,
+      "operation": "semantic_search",
+      "http_status": 200,
+      "authorized_source_hit": true,
+      "expected_value_count": 2,
+      "same_hit_contains_expected_values": true,
+      "status": "PASS"
+    },
+    {
+      "knowledge_id_hash": "d0c4602a75ca",
+      "case_ordinal": 1,
+      "operation": "hybrid_search",
+      "http_status": 200,
+      "authorized_source_hit": true,
+      "expected_value_count": 2,
+      "same_hit_contains_expected_values": true,
+      "status": "PASS"
+    },
+    {
+      "knowledge_id_hash": "f48df03f6510",
+      "case_ordinal": 0,
+      "operation": "keyword_search",
+      "http_status": 200,
+      "authorized_source_hit": true,
+      "expected_value_count": 2,
+      "same_hit_contains_expected_values": true,
+      "status": "PASS"
+    },
+    {
+      "knowledge_id_hash": "f48df03f6510",
+      "case_ordinal": 0,
+      "operation": "semantic_search",
+      "http_status": 200,
+      "authorized_source_hit": true,
+      "expected_value_count": 2,
+      "same_hit_contains_expected_values": true,
+      "status": "PASS"
+    },
+    {
+      "knowledge_id_hash": "f48df03f6510",
+      "case_ordinal": 0,
+      "operation": "hybrid_search",
+      "http_status": 200,
+      "authorized_source_hit": true,
+      "expected_value_count": 2,
+      "same_hit_contains_expected_values": true,
+      "status": "PASS"
+    },
+    {
+      "knowledge_id_hash": "f48df03f6510",
+      "case_ordinal": 1,
+      "operation": "keyword_search",
+      "http_status": 200,
+      "authorized_source_hit": true,
+      "expected_value_count": 2,
+      "same_hit_contains_expected_values": true,
+      "status": "PASS"
+    },
+    {
+      "knowledge_id_hash": "f48df03f6510",
+      "case_ordinal": 1,
+      "operation": "semantic_search",
+      "http_status": 200,
+      "authorized_source_hit": true,
+      "expected_value_count": 2,
+      "same_hit_contains_expected_values": true,
+      "status": "PASS"
+    },
+    {
+      "knowledge_id_hash": "f48df03f6510",
+      "case_ordinal": 1,
+      "operation": "hybrid_search",
+      "http_status": 200,
+      "authorized_source_hit": true,
+      "expected_value_count": 2,
+      "same_hit_contains_expected_values": true,
+      "status": "PASS"
+    },
+    {
+      "knowledge_id_hash": "f48df03f6510",
+      "case_ordinal": 2,
+      "operation": "keyword_search",
+      "http_status": 200,
+      "authorized_source_hit": true,
+      "expected_value_count": 2,
+      "same_hit_contains_expected_values": true,
+      "status": "PASS"
+    },
+    {
+      "knowledge_id_hash": "f48df03f6510",
+      "case_ordinal": 2,
+      "operation": "semantic_search",
+      "http_status": 200,
+      "authorized_source_hit": true,
+      "expected_value_count": 2,
+      "same_hit_contains_expected_values": true,
+      "status": "PASS"
+    },
+    {
+      "knowledge_id_hash": "f48df03f6510",
+      "case_ordinal": 2,
+      "operation": "hybrid_search",
+      "http_status": 200,
+      "authorized_source_hit": true,
+      "expected_value_count": 2,
+      "same_hit_contains_expected_values": true,
+      "status": "PASS"
+    },
+    {
+      "knowledge_id_hash": "f48df03f6510",
+      "case_ordinal": 3,
+      "operation": "keyword_search",
+      "http_status": 200,
+      "authorized_source_hit": true,
+      "expected_value_count": 1,
+      "same_hit_contains_expected_values": true,
+      "status": "PASS"
+    },
+    {
+      "knowledge_id_hash": "f48df03f6510",
+      "case_ordinal": 3,
+      "operation": "semantic_search",
+      "http_status": 200,
+      "authorized_source_hit": true,
+      "expected_value_count": 1,
+      "same_hit_contains_expected_values": true,
+      "status": "PASS"
+    },
+    {
+      "knowledge_id_hash": "f48df03f6510",
+      "case_ordinal": 3,
+      "operation": "hybrid_search",
+      "http_status": 200,
+      "authorized_source_hit": true,
+      "expected_value_count": 1,
+      "same_hit_contains_expected_values": true,
+      "status": "PASS"
+    }
+  ],
+  "index_shapes": [
+    {
+      "kb_hash": "9beada7ab2b3",
+      "bound_model": {
+        "is_builtin": true,
+        "same_tenant": false,
+        "type": "Embedding",
+        "status": "active",
+        "dimension": 1024
+      },
+      "dimensions": [
+        {
+          "dimension": 1024,
+          "count": 55
+        }
+      ]
+    },
+    {
+      "kb_hash": "a90e27c4ebbd",
+      "bound_model": {
+        "is_builtin": true,
+        "same_tenant": false,
+        "type": "Embedding",
+        "status": "active",
+        "dimension": 1024
+      },
+      "dimensions": [
+        {
+          "dimension": 1024,
+          "count": 6
+        }
+      ]
+    }
+  ],
+  "log_categories": {
+    "app": {
+      "column": 0,
+      "does not exist": 0,
+      "embedding": 67,
+      "no model": 0,
+      "model not found": 0,
+      "retrieve": 0,
+      "SQLSTATE": 0,
+      "dimension": 13,
+      "permission denied": 0,
+      "Unauthorized": 0,
+      "401": 2,
+      "403": 2,
+      "connection refused": 0,
+      "context deadline": 0,
+      "invalid": 0,
+      "error": 0,
+      "failed": 2,
+      "sqlstates": [],
+      "query_dimensions": [
+        "1024",
+        "1024",
+        "1024",
+        "1024",
+        "1024",
+        "1024",
+        "1024",
+        "1024",
+        "1024"
+      ],
+      "dimension_mismatch_count": 0
+    },
+    "worker2": {
+      "column": 0,
+      "does not exist": 0,
+      "embedding": 0,
+      "no model": 0,
+      "model not found": 0,
+      "retrieve": 0,
+      "SQLSTATE": 0,
+      "dimension": 0,
+      "permission denied": 0,
+      "Unauthorized": 0,
+      "401": 0,
+      "403": 0,
+      "connection refused": 0,
+      "context deadline": 0,
+      "invalid": 0,
+      "error": 0,
+      "failed": 5,
+      "sqlstates": [],
+      "query_dimensions": [],
+      "dimension_mismatch_count": 0
+    }
+  },
+  "imports_created": false,
+  "python_mcp": {
+    "qualification": "actual_python_mcp_hybrid_tool_real_owner",
+    "checks": [
+      {
+        "knowledge_id_hash": "070925df4104",
+        "case_ordinal": 0,
+        "expected_value_count": 0,
+        "same_hit_contains_expected_values": true,
+        "status": "PASS"
+      },
+      {
+        "knowledge_id_hash": "d0c4602a75ca",
+        "case_ordinal": 0,
+        "expected_value_count": 2,
+        "same_hit_contains_expected_values": true,
+        "status": "PASS"
+      },
+      {
+        "knowledge_id_hash": "d0c4602a75ca",
+        "case_ordinal": 1,
+        "expected_value_count": 2,
+        "same_hit_contains_expected_values": true,
+        "status": "PASS"
+      },
+      {
+        "knowledge_id_hash": "f48df03f6510",
+        "case_ordinal": 0,
+        "expected_value_count": 2,
+        "same_hit_contains_expected_values": true,
+        "status": "PASS"
+      },
+      {
+        "knowledge_id_hash": "f48df03f6510",
+        "case_ordinal": 1,
+        "expected_value_count": 2,
+        "same_hit_contains_expected_values": true,
+        "status": "PASS"
+      },
+      {
+        "knowledge_id_hash": "f48df03f6510",
+        "case_ordinal": 2,
+        "expected_value_count": 2,
+        "same_hit_contains_expected_values": true,
+        "status": "PASS"
+      },
+      {
+        "knowledge_id_hash": "f48df03f6510",
+        "case_ordinal": 3,
+        "expected_value_count": 1,
+        "same_hit_contains_expected_values": true,
+        "status": "PASS"
+      }
+    ]
+  },
+  "portal": "NOT_EXECUTED"
+}

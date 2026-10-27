@@ -1,0 +1,150 @@
+{
+  "source_sha": "b2cd0a63eb806648730c241edc875ff0f80cd822",
+  "workflow_run": 40425146786,
+  "job": 121928917208,
+  "status": "PASS",
+  "rebind_pass_count_including_parent_and_race_repeat": 33,
+  "rebind_passes": [
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/atomic_success_and_rollback",
+      "elapsed_seconds": 7.16
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/second_source_conflict",
+      "elapsed_seconds": 5.15
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/revoked_new_approval",
+      "elapsed_seconds": 7.15
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/changed_epoch",
+      "elapsed_seconds": 5.14
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/changed_index",
+      "elapsed_seconds": 7.14
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/changed_account",
+      "elapsed_seconds": 0.14
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/permission_denied",
+      "elapsed_seconds": 1.13
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/concurrent_one_winner",
+      "elapsed_seconds": 19.15
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/rollback_after_index_change",
+      "elapsed_seconds": 7.15
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/revoked_operator",
+      "elapsed_seconds": 3.15
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind",
+      "elapsed_seconds": 62.46
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/atomic_success_and_rollback",
+      "elapsed_seconds": 7.16
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/second_source_conflict",
+      "elapsed_seconds": 5.16
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/revoked_new_approval",
+      "elapsed_seconds": 7.15
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/changed_epoch",
+      "elapsed_seconds": 5.15
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/changed_index",
+      "elapsed_seconds": 7.15
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/changed_account",
+      "elapsed_seconds": 0.14
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/permission_denied",
+      "elapsed_seconds": 1.14
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/concurrent_one_winner",
+      "elapsed_seconds": 19.16
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/rollback_after_index_change",
+      "elapsed_seconds": 7.16
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/revoked_operator",
+      "elapsed_seconds": 3.16
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind",
+      "elapsed_seconds": 62.52
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/atomic_success_and_rollback",
+      "elapsed_seconds": 7.21
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/second_source_conflict",
+      "elapsed_seconds": 7.18
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/revoked_new_approval",
+      "elapsed_seconds": 7.19
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/changed_epoch",
+      "elapsed_seconds": 5.18
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/changed_index",
+      "elapsed_seconds": 5.18
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/changed_account",
+      "elapsed_seconds": 0.24
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/permission_denied",
+      "elapsed_seconds": 1.18
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/concurrent_one_winner",
+      "elapsed_seconds": 19.19
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/rollback_after_index_change",
+      "elapsed_seconds": 7.21
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind/revoked_operator",
+      "elapsed_seconds": 3.21
+    },
+    {
+      "test": "TestFeishuV2PostgresControlledSourceRebind",
+      "elapsed_seconds": 62.97
+    }
+  ],
+  "real_redis_fault_receipts": [
+    "automatic_real_test.go:288: CONTROL_BUDGET_FAULT stage=registry budget_ms=500 elapsed_ms=500 remaining_at_start_ms=499 commands=8 io_spans=17 outbound_closed=true trip_retained=true",
+    "automatic_real_test.go:288: CONTROL_BUDGET_FAULT stage=audit budget_ms=500 elapsed_ms=500 remaining_at_start_ms=499 commands=9 io_spans=19 outbound_closed=true trip_retained=true",
+    "automatic_real_test.go:288: CONTROL_BUDGET_FAULT stage=registry budget_ms=500 elapsed_ms=500 remaining_at_start_ms=499 commands=8 io_spans=17 outbound_closed=true trip_retained=true",
+    "automatic_real_test.go:288: CONTROL_BUDGET_FAULT stage=audit budget_ms=500 elapsed_ms=500 remaining_at_start_ms=499 commands=9 io_spans=19 outbound_closed=true trip_retained=true"
+  ],
+  "source_rebind_on_test_site": false,
+  "trip_reset_on_test_site": false,
+  "hold_recovery_on_test_site": false
+}

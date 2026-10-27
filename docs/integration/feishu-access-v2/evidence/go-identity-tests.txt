@@ -1,0 +1,6 @@
+=== RUN   TestFeishuAccessCapabilitiesRequireExplicitEnabledIdentity
+--- PASS: TestFeishuAccessCapabilitiesRequireExplicitEnabledIdentity (0.00s)
+=== RUN   TestFeishuCredentialRefOwnerAndKindIsolation
+--- PASS: TestFeishuCredentialRefOwnerAndKindIsolation (0.00s)
+PASS
+ok  	github.com/Tencent/WeKnora/internal/types	1.856s

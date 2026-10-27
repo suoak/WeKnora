@@ -1,0 +1,10 @@
+{
+  "identity": "user_oauth",
+  "role": "B_reader",
+  "cases": [
+    {"operation": "root", "expected": "allowed"},
+    {"operation": "folder", "resource": "REPLACE_TEST_FOLDER", "expected": "allowed"},
+    {"operation": "wiki_spaces", "expected": "allowed"},
+    {"operation": "docx_blocks", "resource": "REPLACE_TEST_DOCX", "expected": "allowed"}
+  ]
+}

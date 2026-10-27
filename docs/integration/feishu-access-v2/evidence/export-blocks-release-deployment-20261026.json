@@ -1,0 +1,12 @@
+{
+  "status": "RUNNING",
+  "source_sha": "56fc87ee576098cd326ce4331189edbf0c0e2f63",
+  "project": "knowhub-feishu-v2-d6e99d894d3a",
+  "backup_sha256": "805cfd1c281190d38d7d91632ca26ed52421fd8cbc238561913d3b87077dd3b7",
+  "business_restore_verified": true,
+  "containers": null,
+  "test_account": null,
+  "scope": "existing_isolated_project_only",
+  "secrets_rotated": false,
+  "cursor_reset": false
+}

@@ -1,0 +1,1126 @@
+{
+  "status": "READ_ONLY",
+  "at": "2026-10-26T08:02:25.585000+00:00",
+  "namespace": "legacy-feishu",
+  "containers": [
+    {
+      "service": "app",
+      "container_hash": "4350bdbe4518",
+      "hostname_hash": "6e4a24b10f1a",
+      "started_at": "2026-10-26T08:00:35.198940323Z",
+      "health": "healthy",
+      "source_sha": "2a7f651e6ed078fcf5113905a9358a82084d7d17",
+      "configured_worker_hash": null,
+      "scope_hashes": [
+        "1dcf458346ba",
+        "6d1698a6e0d9"
+      ],
+      "scope_unrestricted": false,
+      "safety_mode": "automatic",
+      "maintenance_concurrency": "1"
+    },
+    {
+      "service": "worker2",
+      "container_hash": "e6d1dd41a7f8",
+      "hostname_hash": "30c925dba331",
+      "started_at": "2026-10-26T08:00:51.337418524Z",
+      "health": "healthy",
+      "source_sha": "2a7f651e6ed078fcf5113905a9358a82084d7d17",
+      "configured_worker_hash": null,
+      "scope_hashes": [
+        "1dcf458346ba",
+        "6d1698a6e0d9"
+      ],
+      "scope_unrestricted": false,
+      "safety_mode": "automatic",
+      "maintenance_concurrency": "1"
+    }
+  ],
+  "controllers": [
+    {
+      "worker_hash": "bbc71529718f",
+      "policy_fingerprint": "8e01b074ce4bf6e4fcd823552c948cdc4f04b4904e918121898b7a972e8bd2a6",
+      "incarnation_hash": "d516c88d3960",
+      "lease_until": "2026-10-26T08:02:27.537000+00:00",
+      "lease_remaining_ms": 1952
+    },
+    {
+      "worker_hash": "3ee25d12be2e",
+      "policy_fingerprint": "8e01b074ce4bf6e4fcd823552c948cdc4f04b4904e918121898b7a972e8bd2a6",
+      "incarnation_hash": "1436d4cf5e90",
+      "lease_until": "2026-10-26T08:02:27.531000+00:00",
+      "lease_remaining_ms": 1946
+    }
+  ],
+  "asynq_servers": [
+    {
+      "worker_hash": "3ee25d12be2e",
+      "server_hash": "77e004d1f409",
+      "pid": 1,
+      "status": "active",
+      "concurrency": 1,
+      "queues": {
+        "summary": 2,
+        "multimodal": 1,
+        "graph": 1,
+        "question": 1,
+        "memory": 1
+      },
+      "registry_expires_at": "2026-10-26T08:02:32+00:00",
+      "registry_remaining_ms": 6415,
+      "started_at": "2026-10-26T08:00:37+00:00"
+    },
+    {
+      "worker_hash": "3ee25d12be2e",
+      "server_hash": "27da3d994403",
+      "pid": 1,
+      "status": "active",
+      "concurrency": 1,
+      "queues": {
+        "memory": 1,
+        "default": 3,
+        "chat_attachment": 3,
+        "summary": 2,
+        "multimodal": 1,
+        "graph": 1,
+        "question": 1
+      },
+      "registry_expires_at": "2026-10-26T08:02:32+00:00",
+      "registry_remaining_ms": 6415,
+      "started_at": "2026-10-26T08:00:37+00:00"
+    },
+    {
+      "worker_hash": "3ee25d12be2e",
+      "server_hash": "cd706f9b37cc",
+      "pid": 1,
+      "status": "active",
+      "concurrency": 1,
+      "queues": {
+        "postprocess": 1
+      },
+      "registry_expires_at": "2026-10-26T08:02:32+00:00",
+      "registry_remaining_ms": 6415,
+      "started_at": "2026-10-26T08:00:37+00:00"
+    },
+    {
+      "worker_hash": "3ee25d12be2e",
+      "server_hash": "e55c5c074700",
+      "pid": 1,
+      "status": "active",
+      "concurrency": 2,
+      "queues": {
+        "chat_attachment": 3,
+        "default": 1
+      },
+      "registry_expires_at": "2026-10-26T08:02:32+00:00",
+      "registry_remaining_ms": 6415,
+      "started_at": "2026-10-26T08:00:37+00:00"
+    },
+    {
+      "worker_hash": "3ee25d12be2e",
+      "server_hash": "0e5a55410473",
+      "pid": 1,
+      "status": "active",
+      "concurrency": 1,
+      "queues": {
+        "sync": 2,
+        "low": 1
+      },
+      "registry_expires_at": "2026-10-26T08:02:32+00:00",
+      "registry_remaining_ms": 6415,
+      "started_at": "2026-10-26T08:00:37+00:00"
+    },
+    {
+      "worker_hash": "3ee25d12be2e",
+      "server_hash": "8307b1cde1af",
+      "pid": 1,
+      "status": "active",
+      "concurrency": 1,
+      "queues": {
+        "wiki": 1
+      },
+      "registry_expires_at": "2026-10-26T08:02:32+00:00",
+      "registry_remaining_ms": 6415,
+      "started_at": "2026-10-26T08:00:37+00:00"
+    },
+    {
+      "worker_hash": "bbc71529718f",
+      "server_hash": "da8fc343a7b4",
+      "pid": 1,
+      "status": "active",
+      "concurrency": 1,
+      "queues": {
+        "postprocess": 1
+      },
+      "registry_expires_at": "2026-10-26T08:02:33+00:00",
+      "registry_remaining_ms": 7415,
+      "started_at": "2026-10-26T08:00:53+00:00"
+    },
+    {
+      "worker_hash": "bbc71529718f",
+      "server_hash": "18af238b8c9f",
+      "pid": 1,
+      "status": "active",
+      "concurrency": 2,
+      "queues": {
+        "default": 1,
+        "chat_attachment": 3
+      },
+      "registry_expires_at": "2026-10-26T08:02:33+00:00",
+      "registry_remaining_ms": 7415,
+      "started_at": "2026-10-26T08:00:53+00:00"
+    },
+    {
+      "worker_hash": "bbc71529718f",
+      "server_hash": "4eb84a22a953",
+      "pid": 1,
+      "status": "active",
+      "concurrency": 1,
+      "queues": {
+        "question": 1,
+        "memory": 1,
+        "summary": 2,
+        "multimodal": 1,
+        "graph": 1
+      },
+      "registry_expires_at": "2026-10-26T08:02:33+00:00",
+      "registry_remaining_ms": 7415,
+      "started_at": "2026-10-26T08:00:53+00:00"
+    },
+    {
+      "worker_hash": "bbc71529718f",
+      "server_hash": "dbf5f79c611a",
+      "pid": 1,
+      "status": "active",
+      "concurrency": 1,
+      "queues": {
+        "wiki": 1
+      },
+      "registry_expires_at": "2026-10-26T08:02:33+00:00",
+      "registry_remaining_ms": 7415,
+      "started_at": "2026-10-26T08:00:53+00:00"
+    },
+    {
+      "worker_hash": "bbc71529718f",
+      "server_hash": "b09c55b1a751",
+      "pid": 1,
+      "status": "active",
+      "concurrency": 1,
+      "queues": {
+        "sync": 2,
+        "low": 1
+      },
+      "registry_expires_at": "2026-10-26T08:02:33+00:00",
+      "registry_remaining_ms": 7415,
+      "started_at": "2026-10-26T08:00:53+00:00"
+    },
+    {
+      "worker_hash": "bbc71529718f",
+      "server_hash": "e3755e76ccdf",
+      "pid": 1,
+      "status": "active",
+      "concurrency": 1,
+      "queues": {
+        "multimodal": 1,
+        "graph": 1,
+        "question": 1,
+        "memory": 1,
+        "default": 3,
+        "chat_attachment": 3,
+        "summary": 2
+      },
+      "registry_expires_at": "2026-10-26T08:02:33+00:00",
+      "registry_remaining_ms": 7415,
+      "started_at": "2026-10-26T08:00:53+00:00"
+    }
+  ],
+  "draining": [
+    {
+      "worker_hash": "79f2e2320688",
+      "until": "2026-10-25T13:48:57.407000+00:00",
+      "remaining_ms": -65608178
+    },
+    {
+      "worker_hash": "10e4dc62e95b",
+      "until": "2026-10-25T13:48:58.086000+00:00",
+      "remaining_ms": -65607499
+    },
+    {
+      "worker_hash": "c86c9761c58d",
+      "until": "2026-10-25T16:41:17.456000+00:00",
+      "remaining_ms": -55268129
+    },
+    {
+      "worker_hash": "8612038275e1",
+      "until": "2026-10-25T16:41:18.242000+00:00",
+      "remaining_ms": -55267343
+    },
+    {
+      "worker_hash": "a0cfa0eab997",
+      "until": "2026-10-26T01:02:06.389000+00:00",
+      "remaining_ms": -25219196
+    },
+    {
+      "worker_hash": "dc4938d9a1b8",
+      "until": "2026-10-26T01:02:08.063000+00:00",
+      "remaining_ms": -25217522
+    },
+    {
+      "worker_hash": "53abe4da5185",
+      "until": "2026-10-26T03:26:50.186000+00:00",
+      "remaining_ms": -16535399
+    },
+    {
+      "worker_hash": "d28b446df0a6",
+      "until": "2026-10-26T03:26:50.838000+00:00",
+      "remaining_ms": -16534747
+    },
+    {
+      "worker_hash": "754329609ca3",
+      "until": "2026-10-26T03:31:16.599000+00:00",
+      "remaining_ms": -16268986
+    },
+    {
+      "worker_hash": "e8d3b3bb1a3a",
+      "until": "2026-10-26T03:31:17.015000+00:00",
+      "remaining_ms": -16268570
+    },
+    {
+      "worker_hash": "99c9a311f352",
+      "until": "2026-10-26T07:32:17.232000+00:00",
+      "remaining_ms": -1808353
+    },
+    {
+      "worker_hash": "a5edb0cb2192",
+      "until": "2026-10-26T07:32:17.748000+00:00",
+      "remaining_ms": -1807837
+    },
+    {
+      "worker_hash": "bbc71529718f",
+      "until": "2026-10-26T08:00:22.767000+00:00",
+      "remaining_ms": -122818
+    },
+    {
+      "worker_hash": "3ee25d12be2e",
+      "until": "2026-10-26T08:00:23.169000+00:00",
+      "remaining_ms": -122416
+    }
+  ],
+  "trip": {
+    "present": false,
+    "value": null,
+    "ttl_ms": -2
+  },
+  "stop_latch_key_is_trip": true,
+  "permit": {
+    "present": true,
+    "value": "5ca44495ff7c2e5bd64ffece5f52f22e6c6be3fb84ee95c8d52d84b5d2568d3d",
+    "ttl_ms": 610
+  },
+  "sync_queue_pause": {
+    "present": true,
+    "value": "feishu_safety_stop",
+    "ttl_ms": -1
+  },
+  "control_audit": [
+    {
+      "at": "2026-10-25T11:20:53.533000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "scope_none",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "10e4dc62e95b"
+    },
+    {
+      "at": "2026-10-25T11:23:32.442000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "scope_none",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "79f2e2320688"
+    },
+    {
+      "at": "2026-10-25T13:48:39.229000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "scope_none",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "8612038275e1"
+    },
+    {
+      "at": "2026-10-25T13:49:44.437000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "scope_none",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "c86c9761c58d"
+    },
+    {
+      "at": "2026-10-25T16:41:02.535000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "scope_none",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "dc4938d9a1b8"
+    },
+    {
+      "at": "2026-10-25T16:41:22.389000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "scope_none",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "a0cfa0eab997"
+    },
+    {
+      "at": "2026-10-26T01:02:01.583000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "scope_none",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "d28b446df0a6"
+    },
+    {
+      "at": "2026-10-26T01:02:23.041000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "scope_none",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "53abe4da5185"
+    },
+    {
+      "at": "2026-10-26T03:26:34.857000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "scope_none",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "754329609ca3"
+    },
+    {
+      "at": "2026-10-26T03:27:07.388000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "scope_none",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "e8d3b3bb1a3a"
+    },
+    {
+      "at": "2026-10-26T03:31:05.271000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_permit_consumer_lost",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "a5edb0cb2192"
+    },
+    {
+      "at": "2026-10-26T03:31:05.450000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_permit_tripped",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "99c9a311f352"
+    },
+    {
+      "at": "2026-10-26T03:31:05.470000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_permit_tripped",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "a5edb0cb2192"
+    },
+    {
+      "at": "2026-10-26T04:01:00.350000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_redis_ping_context_deadline",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "99c9a311f352"
+    },
+    {
+      "at": "2026-10-26T04:01:00.354000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_permit_tripped",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "99c9a311f352"
+    },
+    {
+      "at": "2026-10-26T04:01:47.807000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_redis_ping_context_deadline",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "99c9a311f352"
+    },
+    {
+      "at": "2026-10-26T04:01:47.807000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_redis_ping_context_deadline",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "a5edb0cb2192"
+    },
+    {
+      "at": "2026-10-26T04:01:47.809000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_permit_tripped",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "99c9a311f352"
+    },
+    {
+      "at": "2026-10-26T04:01:47.810000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_permit_tripped",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "a5edb0cb2192"
+    },
+    {
+      "at": "2026-10-26T05:00:13.171000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_redis_ping_context_deadline",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "a5edb0cb2192"
+    },
+    {
+      "at": "2026-10-26T05:00:13.171000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_redis_ping_context_deadline",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "99c9a311f352"
+    },
+    {
+      "at": "2026-10-26T05:00:13.175000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_permit_tripped",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "99c9a311f352"
+    },
+    {
+      "at": "2026-10-26T05:00:13.175000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_permit_tripped",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "a5edb0cb2192"
+    },
+    {
+      "at": "2026-10-26T05:01:44.738000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_redis_ping_context_deadline",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "99c9a311f352"
+    },
+    {
+      "at": "2026-10-26T05:01:44.738000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_redis_ping_context_deadline",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "a5edb0cb2192"
+    },
+    {
+      "at": "2026-10-26T05:01:44.741000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_permit_tripped",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "99c9a311f352"
+    },
+    {
+      "at": "2026-10-26T05:01:44.741000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_permit_tripped",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "a5edb0cb2192"
+    },
+    {
+      "at": "2026-10-26T07:01:30.349000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_redis_ping_context_deadline",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "a5edb0cb2192"
+    },
+    {
+      "at": "2026-10-26T07:01:30.349000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_redis_ping_context_deadline",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "99c9a311f352"
+    },
+    {
+      "at": "2026-10-26T07:01:30.359000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_permit_tripped",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "a5edb0cb2192"
+    },
+    {
+      "at": "2026-10-26T07:01:30.359000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_permit_tripped",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "99c9a311f352"
+    },
+    {
+      "at": "2026-10-26T07:17:58.349000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_redis_ping_context_deadline",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "99c9a311f352"
+    },
+    {
+      "at": "2026-10-26T07:17:58.366000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_redis_ping_context_deadline",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "a5edb0cb2192"
+    },
+    {
+      "at": "2026-10-26T07:17:58.369000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_permit_tripped",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "99c9a311f352"
+    },
+    {
+      "at": "2026-10-26T07:17:58.370000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_permit_tripped",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "a5edb0cb2192"
+    },
+    {
+      "at": "2026-10-26T07:32:00.071000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_permit_tripped",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "3ee25d12be2e"
+    },
+    {
+      "at": "2026-10-26T07:33:16.112000+00:00",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_permit_tripped",
+      "fenced": "1",
+      "queue_paused": "1",
+      "worker_hash": "bbc71529718f"
+    },
+    {
+      "at": "2026-10-26T08:00:23.596000+00:00",
+      "event": "feishu_safety_recovery_reset"
+    }
+  ],
+  "guard_audit": [
+    {
+      "at": "2026-10-26T03:31:05.269000+00:00",
+      "event": "trip",
+      "reason": "automatic_permit_consumer_lost"
+    }
+  ],
+  "recent_audit": [
+    {
+      "at": "2026-10-26T08:01:56.932000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "3ee25d12be2e"
+    },
+    {
+      "at": "2026-10-26T08:01:56.937000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "bbc71529718f"
+    },
+    {
+      "at": "2026-10-26T08:01:58.131000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "3ee25d12be2e"
+    },
+    {
+      "at": "2026-10-26T08:01:58.136000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "bbc71529718f"
+    },
+    {
+      "at": "2026-10-26T08:01:59.137000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "bbc71529718f"
+    },
+    {
+      "at": "2026-10-26T08:01:59.330000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "3ee25d12be2e"
+    },
+    {
+      "at": "2026-10-26T08:02:00.331000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "3ee25d12be2e"
+    },
+    {
+      "at": "2026-10-26T08:02:00.336000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "bbc71529718f"
+    },
+    {
+      "at": "2026-10-26T08:02:01.531000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "3ee25d12be2e"
+    },
+    {
+      "at": "2026-10-26T08:02:01.535000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "bbc71529718f"
+    },
+    {
+      "at": "2026-10-26T08:02:02.537000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "bbc71529718f"
+    },
+    {
+      "at": "2026-10-26T08:02:02.731000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "3ee25d12be2e"
+    },
+    {
+      "at": "2026-10-26T08:02:03.731000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "3ee25d12be2e"
+    },
+    {
+      "at": "2026-10-26T08:02:03.735000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "bbc71529718f"
+    },
+    {
+      "at": "2026-10-26T08:02:04.735000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "bbc71529718f"
+    },
+    {
+      "at": "2026-10-26T08:02:04.931000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "3ee25d12be2e"
+    },
+    {
+      "at": "2026-10-26T08:02:05.754000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "bbc71529718f"
+    },
+    {
+      "at": "2026-10-26T08:02:06.131000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "3ee25d12be2e"
+    },
+    {
+      "at": "2026-10-26T08:02:06.936000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "bbc71529718f"
+    },
+    {
+      "at": "2026-10-26T08:02:07.131000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "3ee25d12be2e"
+    },
+    {
+      "at": "2026-10-26T08:02:08.135000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "bbc71529718f"
+    },
+    {
+      "at": "2026-10-26T08:02:08.331000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "3ee25d12be2e"
+    },
+    {
+      "at": "2026-10-26T08:02:09.336000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "bbc71529718f"
+    },
+    {
+      "at": "2026-10-26T08:02:09.531000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "3ee25d12be2e"
+    },
+    {
+      "at": "2026-10-26T08:02:10.349000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "bbc71529718f"
+    },
+    {
+      "at": "2026-10-26T08:02:10.731000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "3ee25d12be2e"
+    },
+    {
+      "at": "2026-10-26T08:02:11.535000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "bbc71529718f"
+    },
+    {
+      "at": "2026-10-26T08:02:11.930000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "3ee25d12be2e"
+    },
+    {
+      "at": "2026-10-26T08:02:12.546000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "bbc71529718f"
+    },
+    {
+      "at": "2026-10-26T08:02:12.931000+00:00",
+      "kind": "feishu_safety_heartbeat",
+      "reason": "controller_alive",
+      "fenced": "0",
+      "queue_paused": "0",
+      "worker_hash": "3ee25d12be2e"
+    }
+  ],
+  "lifecycle_logs": [
+    {
+      "service": "app",
+      "at": "2026-10-26T07:31:58.870505861Z",
+      "phase": "[Scheduler] started"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-26T07:31:59.874908648Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-26T07:31:59.875018218Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-26T07:31:59.875209128Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-26T07:31:59.875239718Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-26T07:31:59.875258428Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-26T07:31:59.875309948Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-26T07:32:00.071742410Z",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_permit_tripped",
+      "worker_hash": "3ee25d12be2e"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T07:33:16.095036816Z",
+      "phase": "[Scheduler] started"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T07:33:16.112507834Z",
+      "event": "feishu_safety_stop",
+      "reason": "automatic_permit_tripped",
+      "worker_hash": "bbc71529718f"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T07:33:16.482116189Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T07:33:16.482247549Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T07:33:16.482323249Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T07:33:16.482343419Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T07:33:16.482353069Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T07:33:16.482599569Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T07:59:52.764932803Z",
+      "phase": "Stopping processor"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T07:59:52.764969232Z",
+      "phase": "Stopping processor"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T07:59:52.764973882Z",
+      "phase": "Stopping processor"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T07:59:52.764977292Z",
+      "phase": "Stopping processor"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T07:59:52.764980622Z",
+      "phase": "Stopping processor"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T07:59:52.764983802Z",
+      "phase": "Stopping processor"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T07:59:52.766876968Z",
+      "event": "feishu_safety_drain",
+      "reason": "graceful_fenced_departure",
+      "worker_hash": "bbc71529718f"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-26T07:59:53.166891748Z",
+      "phase": "Stopping processor"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-26T07:59:53.166946857Z",
+      "phase": "Stopping processor"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-26T07:59:53.166950967Z",
+      "phase": "Stopping processor"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-26T07:59:53.166954547Z",
+      "phase": "Stopping processor"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-26T07:59:53.166958527Z",
+      "phase": "Stopping processor"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-26T07:59:53.166961757Z",
+      "phase": "Stopping processor"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-26T07:59:53.169116951Z",
+      "event": "feishu_safety_drain",
+      "reason": "graceful_fenced_departure",
+      "worker_hash": "3ee25d12be2e"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-26T08:00:36.935978840Z",
+      "phase": "[Scheduler] started"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-26T08:00:37.378069364Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-26T08:00:37.378264432Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-26T08:00:37.378282722Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-26T08:00:37.378292232Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-26T08:00:37.378294982Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "app",
+      "at": "2026-10-26T08:00:37.378312512Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:00:52.615028418Z",
+      "phase": "[Scheduler] started"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:00:53.013776212Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:00:53.013784632Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:00:53.013792842Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:00:53.013801502Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:00:53.013810122Z",
+      "phase": "Starting processing"
+    },
+    {
+      "service": "worker2",
+      "at": "2026-10-26T08:00:53.013820302Z",
+      "phase": "Starting processing"
+    }
+  ],
+  "oauth": {
+    "access_valid": true,
+    "refresh_valid": true,
+    "access_expires_at": "2026-10-26T09:09:14.789337+00:00",
+    "refresh_expires_at": "2026-11-02T07:09:14.789337+00:00"
+  },
+  "redis_mutations": false,
+  "reference_build_caches": [
+    {
+      "name": "/knowhub-feishu-v2-build-2a7f651e6ed0-866e94ba-1",
+      "state": "exited",
+      "exit_code": 0,
+      "caches": [
+        {
+          "volume_name": "knowhub-feishu-v2-build-cache-f6dc660d43b0-4c88a997-1",
+          "owner_source_sha": "f6dc660d43b0f5d853f87987e2cfd84b2fe0ebcf"
+        }
+      ]
+    }
+  ]
+}

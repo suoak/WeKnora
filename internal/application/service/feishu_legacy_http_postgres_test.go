@@ -49,7 +49,7 @@ func exerciseLegacyHTTPConnector(t *testing.T, db *gorm.DB, ks *knowledgeService
 		if strings.Contains(r.URL.Path, "/nodes") || r.URL.Path == "/open-apis/drive/v1/files" {
 			if forbidden.Load() {
 				w.WriteHeader(403)
-				write(map[string]any{"code": 99991672, "msg": "synthetic temporary access failure"})
+				write(map[string]any{"code": 1069902, "msg": "synthetic temporary access failure"})
 				return
 			}
 			if kind == "feishu" {

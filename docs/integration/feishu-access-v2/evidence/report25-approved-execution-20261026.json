@@ -1,0 +1,742 @@
+{
+  "approval_received": true,
+  "approval_message_reference": "call_92c64f81683044a8802044a6f9f7d878",
+  "scope": "report25_two_existing_isolated_sources_only",
+  "production_touched": false,
+  "execution_receipts": [
+    {
+      "receipt": "approved-preflight",
+      "status": "NOT_PREPARED",
+      "at": "2026-10-26T14:54:14.332000+00:00",
+      "operation": "status",
+      "project": "knowhub-feishu-v2-d6e99d894d3a",
+      "source_sha": "2607fbec7b7ee63ee66d83fb0e199f02945074fb",
+      "approval_ref": "user:report25:approved-membership-and-held-source-reconciliation",
+      "plan_id": null,
+      "trip": "automatic_membership_probe_context_deadline",
+      "sync_paused": true,
+      "permit_ttl_ms": -2,
+      "queues": {
+        "active": 0,
+        "pending": 2,
+        "scheduled": 0,
+        "retry": 0
+      },
+      "processes": {
+        "app": {
+          "running": true,
+          "health": "healthy",
+          "container_hash": "a92f332be6ab"
+        },
+        "worker2": {
+          "running": true,
+          "health": "healthy",
+          "container_hash": "868d8477f470"
+        }
+      },
+      "sources": [
+        {
+          "source_hash": "1dcf458346ba",
+          "knowledge_hash": "f48df03f6510",
+          "last_sync_at": "2026-10-26T08:15:12.986545",
+          "config_hash": "4cd258fe90d889c84c1f4b571a918c01",
+          "cursor_hash": "3e3d26e2874a8abf283252e8e1336fe1",
+          "status": "error",
+          "legacy_access_state": "hold"
+        },
+        {
+          "source_hash": "6d1698a6e0d9",
+          "knowledge_hash": "d0c4602a75ca",
+          "last_sync_at": "2026-10-26T08:15:08.432915",
+          "config_hash": "82b3cb65b7a6ec50fd2cd56c5f7fa45e",
+          "cursor_hash": "4432c02be06179a9cb98afd64a1f50bc",
+          "status": "error",
+          "legacy_access_state": "unmanaged"
+        }
+      ],
+      "indexes": [
+        {
+          "id": "d0c4602a75ca",
+          "parse_status": "completed",
+          "updated_at": "2026-10-26T03:27:15.039406+00:00",
+          "chunks": 24,
+          "vectors": 22,
+          "vector_ids_hash": "7c38a4c1b9f272abeabc541ecf97154f"
+        },
+        {
+          "id": "f48df03f6510",
+          "parse_status": "completed",
+          "updated_at": "2026-10-26T03:27:21.378761+00:00",
+          "chunks": 30,
+          "vectors": 27,
+          "vector_ids_hash": "e896eda14f85620f9b2bce70984cfb42"
+        }
+      ],
+      "pending_task_receipts": [
+        {
+          "task_hash": "a95963bae4f1",
+          "payload_available": true,
+          "task_type": "datasource:sync",
+          "source_hash": "1dcf458346ba",
+          "log_hash": "39cc459aa078",
+          "force_full": false,
+          "execution": {
+            "status": "canceled",
+            "execution_claimed": false,
+            "execution_generation": 3
+          }
+        },
+        {
+          "task_hash": "d69a91f12596",
+          "payload_available": true,
+          "task_type": "datasource:sync",
+          "source_hash": "6d1698a6e0d9",
+          "log_hash": "6c32694183a9",
+          "force_full": false,
+          "execution": {
+            "status": "canceled",
+            "execution_claimed": false,
+            "execution_generation": 3
+          }
+        }
+      ]
+    },
+    {
+      "receipt": "prepared",
+      "status": "PREPARED",
+      "at": "2026-10-26T14:55:10.300000+00:00",
+      "operation": "prepare",
+      "project": "knowhub-feishu-v2-d6e99d894d3a",
+      "source_sha": "2607fbec7b7ee63ee66d83fb0e199f02945074fb",
+      "approval_ref": "user:report25:approved-membership-and-held-source-reconciliation",
+      "plan_id": "7905679959374f919f4d743ca06e3dbe",
+      "trip": "automatic_membership_probe_context_deadline",
+      "sync_paused": true,
+      "permit_ttl_ms": -2,
+      "queues": {
+        "active": 0,
+        "pending": 2,
+        "scheduled": 0,
+        "retry": 0
+      },
+      "processes": {
+        "app": {
+          "running": true,
+          "health": "healthy",
+          "container_hash": "a92f332be6ab"
+        },
+        "worker2": {
+          "running": true,
+          "health": "healthy",
+          "container_hash": "868d8477f470"
+        }
+      },
+      "sources": [
+        {
+          "source_hash": "1dcf458346ba",
+          "knowledge_hash": "f48df03f6510",
+          "last_sync_at": "2026-10-26T08:15:12.986545",
+          "config_hash": "4cd258fe90d889c84c1f4b571a918c01",
+          "cursor_hash": "3e3d26e2874a8abf283252e8e1336fe1",
+          "status": "error",
+          "legacy_access_state": "hold"
+        },
+        {
+          "source_hash": "6d1698a6e0d9",
+          "knowledge_hash": "d0c4602a75ca",
+          "last_sync_at": "2026-10-26T08:15:08.432915",
+          "config_hash": "82b3cb65b7a6ec50fd2cd56c5f7fa45e",
+          "cursor_hash": "4432c02be06179a9cb98afd64a1f50bc",
+          "status": "error",
+          "legacy_access_state": "unmanaged"
+        }
+      ],
+      "indexes": [
+        {
+          "id": "d0c4602a75ca",
+          "parse_status": "completed",
+          "updated_at": "2026-10-26T03:27:15.039406+00:00",
+          "chunks": 24,
+          "vectors": 22,
+          "vector_ids_hash": "7c38a4c1b9f272abeabc541ecf97154f"
+        },
+        {
+          "id": "f48df03f6510",
+          "parse_status": "completed",
+          "updated_at": "2026-10-26T03:27:21.378761+00:00",
+          "chunks": 30,
+          "vectors": 27,
+          "vector_ids_hash": "e896eda14f85620f9b2bce70984cfb42"
+        }
+      ],
+      "pending_task_receipts": [
+        {
+          "task_hash": "a95963bae4f1",
+          "payload_available": true,
+          "task_type": "datasource:sync",
+          "source_hash": "1dcf458346ba",
+          "log_hash": "39cc459aa078",
+          "force_full": false,
+          "execution": {
+            "status": "canceled",
+            "execution_claimed": false,
+            "execution_generation": 3
+          }
+        },
+        {
+          "task_hash": "d69a91f12596",
+          "payload_available": true,
+          "task_type": "datasource:sync",
+          "source_hash": "6d1698a6e0d9",
+          "log_hash": "6c32694183a9",
+          "force_full": false,
+          "execution": {
+            "status": "canceled",
+            "execution_claimed": false,
+            "execution_generation": 3
+          }
+        }
+      ]
+    },
+    {
+      "receipt": "quiesced",
+      "status": "QUIESCED",
+      "at": "2026-10-26T14:55:48.125000+00:00",
+      "operation": "quiesce",
+      "project": "knowhub-feishu-v2-d6e99d894d3a",
+      "source_sha": "2607fbec7b7ee63ee66d83fb0e199f02945074fb",
+      "approval_ref": "user:report25:approved-membership-and-held-source-reconciliation",
+      "plan_id": "7905679959374f919f4d743ca06e3dbe",
+      "trip": "automatic_membership_probe_context_deadline",
+      "sync_paused": true,
+      "permit_ttl_ms": -2,
+      "queues": {
+        "active": 0,
+        "pending": 2,
+        "scheduled": 0,
+        "retry": 0
+      },
+      "processes": {
+        "app": {
+          "running": false,
+          "health": "unhealthy",
+          "container_hash": "a92f332be6ab"
+        },
+        "worker2": {
+          "running": false,
+          "health": "unhealthy",
+          "container_hash": "868d8477f470"
+        }
+      },
+      "sources": [
+        {
+          "source_hash": "1dcf458346ba",
+          "knowledge_hash": "f48df03f6510",
+          "last_sync_at": "2026-10-26T08:15:12.986545",
+          "config_hash": "4cd258fe90d889c84c1f4b571a918c01",
+          "cursor_hash": "3e3d26e2874a8abf283252e8e1336fe1",
+          "status": "error",
+          "legacy_access_state": "hold"
+        },
+        {
+          "source_hash": "6d1698a6e0d9",
+          "knowledge_hash": "d0c4602a75ca",
+          "last_sync_at": "2026-10-26T08:15:08.432915",
+          "config_hash": "82b3cb65b7a6ec50fd2cd56c5f7fa45e",
+          "cursor_hash": "4432c02be06179a9cb98afd64a1f50bc",
+          "status": "error",
+          "legacy_access_state": "unmanaged"
+        }
+      ],
+      "indexes": [
+        {
+          "id": "d0c4602a75ca",
+          "parse_status": "completed",
+          "updated_at": "2026-10-26T03:27:15.039406+00:00",
+          "chunks": 24,
+          "vectors": 22,
+          "vector_ids_hash": "7c38a4c1b9f272abeabc541ecf97154f"
+        },
+        {
+          "id": "f48df03f6510",
+          "parse_status": "completed",
+          "updated_at": "2026-10-26T03:27:21.378761+00:00",
+          "chunks": 30,
+          "vectors": 27,
+          "vector_ids_hash": "e896eda14f85620f9b2bce70984cfb42"
+        }
+      ],
+      "pending_task_receipts": [
+        {
+          "task_hash": "a95963bae4f1",
+          "payload_available": true,
+          "task_type": "datasource:sync",
+          "source_hash": "1dcf458346ba",
+          "log_hash": "39cc459aa078",
+          "force_full": false,
+          "execution": {
+            "status": "canceled",
+            "execution_claimed": false,
+            "execution_generation": 3
+          }
+        },
+        {
+          "task_hash": "d69a91f12596",
+          "payload_available": true,
+          "task_type": "datasource:sync",
+          "source_hash": "6d1698a6e0d9",
+          "log_hash": "6c32694183a9",
+          "force_full": false,
+          "execution": {
+            "status": "canceled",
+            "execution_claimed": false,
+            "execution_generation": 3
+          }
+        }
+      ],
+      "backup_verified": false,
+      "backup_sha256": null
+    },
+    {
+      "receipt": "backup",
+      "status": "QUIESCED",
+      "at": "2026-10-26T14:56:12.748000+00:00",
+      "operation": "backup",
+      "project": "knowhub-feishu-v2-d6e99d894d3a",
+      "source_sha": "2607fbec7b7ee63ee66d83fb0e199f02945074fb",
+      "approval_ref": "user:report25:approved-membership-and-held-source-reconciliation",
+      "plan_id": "7905679959374f919f4d743ca06e3dbe",
+      "trip": "automatic_membership_probe_context_deadline",
+      "sync_paused": true,
+      "permit_ttl_ms": -2,
+      "queues": {
+        "active": 0,
+        "pending": 2,
+        "scheduled": 0,
+        "retry": 0
+      },
+      "processes": {
+        "app": {
+          "running": false,
+          "health": "unhealthy",
+          "container_hash": "a92f332be6ab"
+        },
+        "worker2": {
+          "running": false,
+          "health": "unhealthy",
+          "container_hash": "868d8477f470"
+        }
+      },
+      "sources": [
+        {
+          "source_hash": "1dcf458346ba",
+          "knowledge_hash": "f48df03f6510",
+          "last_sync_at": "2026-10-26T08:15:12.986545",
+          "config_hash": "4cd258fe90d889c84c1f4b571a918c01",
+          "cursor_hash": "3e3d26e2874a8abf283252e8e1336fe1",
+          "status": "error",
+          "legacy_access_state": "hold"
+        },
+        {
+          "source_hash": "6d1698a6e0d9",
+          "knowledge_hash": "d0c4602a75ca",
+          "last_sync_at": "2026-10-26T08:15:08.432915",
+          "config_hash": "82b3cb65b7a6ec50fd2cd56c5f7fa45e",
+          "cursor_hash": "4432c02be06179a9cb98afd64a1f50bc",
+          "status": "error",
+          "legacy_access_state": "unmanaged"
+        }
+      ],
+      "indexes": [
+        {
+          "id": "d0c4602a75ca",
+          "parse_status": "completed",
+          "updated_at": "2026-10-26T03:27:15.039406+00:00",
+          "chunks": 24,
+          "vectors": 22,
+          "vector_ids_hash": "7c38a4c1b9f272abeabc541ecf97154f"
+        },
+        {
+          "id": "f48df03f6510",
+          "parse_status": "completed",
+          "updated_at": "2026-10-26T03:27:21.378761+00:00",
+          "chunks": 30,
+          "vectors": 27,
+          "vector_ids_hash": "e896eda14f85620f9b2bce70984cfb42"
+        }
+      ],
+      "pending_task_receipts": [
+        {
+          "task_hash": "a95963bae4f1",
+          "payload_available": true,
+          "task_type": "datasource:sync",
+          "source_hash": "1dcf458346ba",
+          "log_hash": "39cc459aa078",
+          "force_full": false,
+          "execution": {
+            "status": "canceled",
+            "execution_claimed": false,
+            "execution_generation": 3
+          }
+        },
+        {
+          "task_hash": "d69a91f12596",
+          "payload_available": true,
+          "task_type": "datasource:sync",
+          "source_hash": "6d1698a6e0d9",
+          "log_hash": "6c32694183a9",
+          "force_full": false,
+          "execution": {
+            "status": "canceled",
+            "execution_claimed": false,
+            "execution_generation": 3
+          }
+        }
+      ],
+      "backup_verified": true,
+      "backup_sha256": "489bb83a0adac747077babab26660e71e69c308d4109b38f47f2c7e5d3d2bb41"
+    },
+    {
+      "receipt": "reset",
+      "status": "RESET",
+      "at": "2026-10-26T14:57:13.471000+00:00",
+      "operation": "reset",
+      "project": "knowhub-feishu-v2-d6e99d894d3a",
+      "source_sha": "2607fbec7b7ee63ee66d83fb0e199f02945074fb",
+      "approval_ref": "user:report25:approved-membership-and-held-source-reconciliation",
+      "plan_id": "7905679959374f919f4d743ca06e3dbe",
+      "trip": null,
+      "sync_paused": true,
+      "permit_ttl_ms": -2,
+      "queues": {
+        "active": 0,
+        "pending": 2,
+        "scheduled": 0,
+        "retry": 0
+      },
+      "processes": {
+        "app": {
+          "running": false,
+          "health": "unhealthy",
+          "container_hash": "a92f332be6ab"
+        },
+        "worker2": {
+          "running": false,
+          "health": "unhealthy",
+          "container_hash": "868d8477f470"
+        }
+      },
+      "sources": [
+        {
+          "source_hash": "1dcf458346ba",
+          "knowledge_hash": "f48df03f6510",
+          "last_sync_at": "2026-10-26T08:15:12.986545",
+          "config_hash": "4cd258fe90d889c84c1f4b571a918c01",
+          "cursor_hash": "3e3d26e2874a8abf283252e8e1336fe1",
+          "status": "error",
+          "legacy_access_state": "hold"
+        },
+        {
+          "source_hash": "6d1698a6e0d9",
+          "knowledge_hash": "d0c4602a75ca",
+          "last_sync_at": "2026-10-26T08:15:08.432915",
+          "config_hash": "82b3cb65b7a6ec50fd2cd56c5f7fa45e",
+          "cursor_hash": "4432c02be06179a9cb98afd64a1f50bc",
+          "status": "error",
+          "legacy_access_state": "unmanaged"
+        }
+      ],
+      "indexes": [
+        {
+          "id": "d0c4602a75ca",
+          "parse_status": "completed",
+          "updated_at": "2026-10-26T03:27:15.039406+00:00",
+          "chunks": 24,
+          "vectors": 22,
+          "vector_ids_hash": "7c38a4c1b9f272abeabc541ecf97154f"
+        },
+        {
+          "id": "f48df03f6510",
+          "parse_status": "completed",
+          "updated_at": "2026-10-26T03:27:21.378761+00:00",
+          "chunks": 30,
+          "vectors": 27,
+          "vector_ids_hash": "e896eda14f85620f9b2bce70984cfb42"
+        }
+      ],
+      "pending_task_receipts": [
+        {
+          "task_hash": "a95963bae4f1",
+          "payload_available": true,
+          "task_type": "datasource:sync",
+          "source_hash": "1dcf458346ba",
+          "log_hash": "39cc459aa078",
+          "force_full": false,
+          "execution": {
+            "status": "canceled",
+            "execution_claimed": false,
+            "execution_generation": 3
+          }
+        },
+        {
+          "task_hash": "d69a91f12596",
+          "payload_available": true,
+          "task_type": "datasource:sync",
+          "source_hash": "6d1698a6e0d9",
+          "log_hash": "6c32694183a9",
+          "force_full": false,
+          "execution": {
+            "status": "canceled",
+            "execution_claimed": false,
+            "execution_generation": 3
+          }
+        }
+      ],
+      "backup_verified": true,
+      "backup_sha256": "489bb83a0adac747077babab26660e71e69c308d4109b38f47f2c7e5d3d2bb41"
+    },
+    {
+      "receipt": "restart",
+      "status": "STARTING",
+      "at": "2026-10-26T14:57:43.537000+00:00",
+      "operation": "restart",
+      "project": "knowhub-feishu-v2-d6e99d894d3a",
+      "source_sha": "2607fbec7b7ee63ee66d83fb0e199f02945074fb",
+      "approval_ref": "user:report25:approved-membership-and-held-source-reconciliation",
+      "plan_id": "7905679959374f919f4d743ca06e3dbe",
+      "trip": null,
+      "sync_paused": true,
+      "permit_ttl_ms": 647,
+      "queues": {
+        "active": 0,
+        "pending": 2,
+        "scheduled": 0,
+        "retry": 0
+      },
+      "processes": {
+        "app": {
+          "running": true,
+          "health": "healthy",
+          "container_hash": "a92f332be6ab"
+        },
+        "worker2": {
+          "running": true,
+          "health": "starting",
+          "container_hash": "868d8477f470"
+        }
+      },
+      "sources": [
+        {
+          "source_hash": "1dcf458346ba",
+          "knowledge_hash": "f48df03f6510",
+          "last_sync_at": "2026-10-26T08:15:12.986545",
+          "config_hash": "4cd258fe90d889c84c1f4b571a918c01",
+          "cursor_hash": "3e3d26e2874a8abf283252e8e1336fe1",
+          "status": "error",
+          "legacy_access_state": "hold"
+        },
+        {
+          "source_hash": "6d1698a6e0d9",
+          "knowledge_hash": "d0c4602a75ca",
+          "last_sync_at": "2026-10-26T08:15:08.432915",
+          "config_hash": "82b3cb65b7a6ec50fd2cd56c5f7fa45e",
+          "cursor_hash": "4432c02be06179a9cb98afd64a1f50bc",
+          "status": "error",
+          "legacy_access_state": "unmanaged"
+        }
+      ],
+      "indexes": [
+        {
+          "id": "d0c4602a75ca",
+          "parse_status": "completed",
+          "updated_at": "2026-10-26T03:27:15.039406+00:00",
+          "chunks": 24,
+          "vectors": 22,
+          "vector_ids_hash": "7c38a4c1b9f272abeabc541ecf97154f"
+        },
+        {
+          "id": "f48df03f6510",
+          "parse_status": "completed",
+          "updated_at": "2026-10-26T03:27:21.378761+00:00",
+          "chunks": 30,
+          "vectors": 27,
+          "vector_ids_hash": "e896eda14f85620f9b2bce70984cfb42"
+        }
+      ],
+      "pending_task_receipts": [
+        {
+          "task_hash": "a95963bae4f1",
+          "payload_available": true,
+          "task_type": "datasource:sync",
+          "source_hash": "1dcf458346ba",
+          "log_hash": "39cc459aa078",
+          "force_full": false,
+          "execution": {
+            "status": "canceled",
+            "execution_claimed": false,
+            "execution_generation": 3
+          }
+        },
+        {
+          "task_hash": "d69a91f12596",
+          "payload_available": true,
+          "task_type": "datasource:sync",
+          "source_hash": "6d1698a6e0d9",
+          "log_hash": "6c32694183a9",
+          "force_full": false,
+          "execution": {
+            "status": "canceled",
+            "execution_claimed": false,
+            "execution_generation": 3
+          }
+        }
+      ],
+      "backup_verified": true,
+      "backup_sha256": "489bb83a0adac747077babab26660e71e69c308d4109b38f47f2c7e5d3d2bb41"
+    },
+    {
+      "receipt": "resumed",
+      "status": "RESUMED",
+      "at": "2026-10-26T14:58:12.574000+00:00",
+      "operation": "resume",
+      "project": "knowhub-feishu-v2-d6e99d894d3a",
+      "source_sha": "2607fbec7b7ee63ee66d83fb0e199f02945074fb",
+      "approval_ref": "user:report25:approved-membership-and-held-source-reconciliation",
+      "plan_id": "7905679959374f919f4d743ca06e3dbe",
+      "trip": null,
+      "sync_paused": false,
+      "permit_ttl_ms": 658,
+      "queues": {
+        "active": 0,
+        "pending": 0,
+        "scheduled": 0,
+        "retry": 0
+      },
+      "processes": {
+        "app": {
+          "running": true,
+          "health": "healthy",
+          "container_hash": "a92f332be6ab"
+        },
+        "worker2": {
+          "running": true,
+          "health": "healthy",
+          "container_hash": "868d8477f470"
+        }
+      },
+      "sources": [
+        {
+          "source_hash": "1dcf458346ba",
+          "knowledge_hash": "f48df03f6510",
+          "last_sync_at": "2026-10-26T08:15:12.986545",
+          "config_hash": "4cd258fe90d889c84c1f4b571a918c01",
+          "cursor_hash": "3e3d26e2874a8abf283252e8e1336fe1",
+          "status": "error",
+          "legacy_access_state": "hold"
+        },
+        {
+          "source_hash": "6d1698a6e0d9",
+          "knowledge_hash": "d0c4602a75ca",
+          "last_sync_at": "2026-10-26T08:15:08.432915",
+          "config_hash": "82b3cb65b7a6ec50fd2cd56c5f7fa45e",
+          "cursor_hash": "4432c02be06179a9cb98afd64a1f50bc",
+          "status": "error",
+          "legacy_access_state": "unmanaged"
+        }
+      ],
+      "indexes": [
+        {
+          "id": "d0c4602a75ca",
+          "parse_status": "completed",
+          "updated_at": "2026-10-26T03:27:15.039406+00:00",
+          "chunks": 24,
+          "vectors": 22,
+          "vector_ids_hash": "7c38a4c1b9f272abeabc541ecf97154f"
+        },
+        {
+          "id": "f48df03f6510",
+          "parse_status": "completed",
+          "updated_at": "2026-10-26T03:27:21.378761+00:00",
+          "chunks": 30,
+          "vectors": 27,
+          "vector_ids_hash": "e896eda14f85620f9b2bce70984cfb42"
+        }
+      ],
+      "pending_task_receipts": [],
+      "backup_verified": true,
+      "backup_sha256": "489bb83a0adac747077babab26660e71e69c308d4109b38f47f2c7e5d3d2bb41"
+    },
+    {
+      "receipt": "followup",
+      "status": "RESUMED",
+      "at": "2026-10-26T15:04:07.493000+00:00",
+      "operation": "status",
+      "project": "knowhub-feishu-v2-d6e99d894d3a",
+      "source_sha": "2607fbec7b7ee63ee66d83fb0e199f02945074fb",
+      "approval_ref": "user:report25:approved-membership-and-held-source-reconciliation",
+      "plan_id": "7905679959374f919f4d743ca06e3dbe",
+      "trip": "audit_unavailable",
+      "sync_paused": true,
+      "permit_ttl_ms": -2,
+      "queues": {
+        "active": 0,
+        "pending": 0,
+        "scheduled": 0,
+        "retry": 0
+      },
+      "processes": {
+        "app": {
+          "running": true,
+          "health": "healthy",
+          "container_hash": "a92f332be6ab"
+        },
+        "worker2": {
+          "running": true,
+          "health": "healthy",
+          "container_hash": "868d8477f470"
+        }
+      },
+      "sources": [
+        {
+          "source_hash": "1dcf458346ba",
+          "knowledge_hash": "f48df03f6510",
+          "last_sync_at": "2026-10-26T08:15:12.986545",
+          "config_hash": "4cd258fe90d889c84c1f4b571a918c01",
+          "cursor_hash": "3e3d26e2874a8abf283252e8e1336fe1",
+          "status": "error",
+          "legacy_access_state": "hold"
+        },
+        {
+          "source_hash": "6d1698a6e0d9",
+          "knowledge_hash": "d0c4602a75ca",
+          "last_sync_at": "2026-10-26T08:15:08.432915",
+          "config_hash": "82b3cb65b7a6ec50fd2cd56c5f7fa45e",
+          "cursor_hash": "4432c02be06179a9cb98afd64a1f50bc",
+          "status": "error",
+          "legacy_access_state": "hold"
+        }
+      ],
+      "indexes": [
+        {
+          "id": "d0c4602a75ca",
+          "parse_status": "completed",
+          "updated_at": "2026-10-26T03:27:15.039406+00:00",
+          "chunks": 24,
+          "vectors": 22,
+          "vector_ids_hash": "7c38a4c1b9f272abeabc541ecf97154f"
+        },
+        {
+          "id": "f48df03f6510",
+          "parse_status": "completed",
+          "updated_at": "2026-10-26T03:27:21.378761+00:00",
+          "chunks": 30,
+          "vectors": 27,
+          "vector_ids_hash": "e896eda14f85620f9b2bce70984cfb42"
+        }
+      ],
+      "pending_task_receipts": [],
+      "backup_verified": true,
+      "backup_sha256": "489bb83a0adac747077babab26660e71e69c308d4109b38f47f2c7e5d3d2bb41"
+    }
+  ]
+}

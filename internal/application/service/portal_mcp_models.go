@@ -67,7 +67,9 @@ func BindPortalMCPAdapters(s *PortalMCPKnowledge, kbs interfaces.KnowledgeBaseRe
 		}
 		owner := types.WithExecutionTenant(ctx, d.TenantID)
 		model, err := models.GetModelByID(owner, d.EmbeddingModelID)
-		if err != nil || model == nil || model.TenantID != d.TenantID || model.Type != types.ModelTypeEmbedding || model.Status != types.ModelStatusActive {
+		if err != nil || model == nil || model.ID != d.EmbeddingModelID ||
+			(model.TenantID != d.TenantID && !model.IsBuiltin) ||
+			model.Type != types.ModelTypeEmbedding || model.Status != types.ModelStatusActive {
 			return nil, access.ErrForbidden
 		}
 		dimension := model.Parameters.EmbeddingParameters.Dimension

@@ -30,7 +30,12 @@ func NewAlertSink(endpoint string, client *http.Client) (func(Event) error, erro
 		if marshalErr != nil {
 			return marshalErr
 		}
-		request, requestErr := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(body))
+		request, requestErr := http.NewRequestWithContext(
+			event.Context(),
+			http.MethodPost,
+			endpoint,
+			bytes.NewReader(body),
+		)
 		if requestErr != nil {
 			return requestErr
 		}

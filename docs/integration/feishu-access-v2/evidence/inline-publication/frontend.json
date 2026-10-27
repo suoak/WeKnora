@@ -1,0 +1,24 @@
+{
+  "source_sha": "ddd804192d2ede693e21f6aa103db66017d9bb7b",
+  "frontend": {
+    "tests": 1592,
+    "pass": 1591,
+    "fail": 0,
+    "skipped": 1
+  },
+  "browser": {
+    "status": "PASS",
+    "qualification": "mocked_http_actual_vue_dialog_and_history",
+    "links": 10,
+    "submissions": 3,
+    "explicit_target_required": true,
+    "empty_targets_blocked": true,
+    "automatic_progress_reads": 4,
+    "preview_calls": 0,
+    "viewports": [
+      1280,
+      390
+    ],
+    "real_oauth": "NOT_EXECUTED"
+  }
+}

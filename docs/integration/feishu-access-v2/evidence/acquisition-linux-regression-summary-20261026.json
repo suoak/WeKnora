@@ -1,0 +1,76 @@
+{
+  "source_sha": "2607fbec7b7ee63ee66d83fb0e199f02945074fb",
+  "run_id": 40337052952,
+  "archive_source_verified": true,
+  "suites": {
+    "core-tests.jsonl": {
+      "test_pass_events": 1166,
+      "failure_events": 0,
+      "skipped_tests": [
+        "TestP4LiveApplicationSheetArtifact",
+        "TestP4LiveApplicationTableRead"
+      ],
+      "required_reconciliation": []
+    },
+    "migration-tests.jsonl": {
+      "test_pass_events": 16,
+      "failure_events": 0,
+      "skipped_tests": [],
+      "required_reconciliation": []
+    },
+    "control-tests.jsonl": {
+      "test_pass_events": 39,
+      "failure_events": 0,
+      "skipped_tests": [],
+      "required_reconciliation": []
+    },
+    "oauth-tests.jsonl": {
+      "test_pass_events": 7,
+      "failure_events": 0,
+      "skipped_tests": [],
+      "required_reconciliation": []
+    },
+    "private-files-tests.jsonl": {
+      "test_pass_events": 8,
+      "failure_events": 0,
+      "skipped_tests": [],
+      "required_reconciliation": []
+    },
+    "race-tests.jsonl": {
+      "test_pass_events": 43,
+      "failure_events": 0,
+      "skipped_tests": [],
+      "required_reconciliation": [
+        {
+          "test": "TestFeishuV2PostgresApprovedHeldSourceReconciliation",
+          "elapsed": 3.28
+        },
+        {
+          "test": "TestFeishuV2PostgresContinuingSourcePublicationPolicy",
+          "elapsed": 0.69
+        }
+      ]
+    },
+    "service-tests.jsonl": {
+      "test_pass_events": 69,
+      "failure_events": 0,
+      "skipped_tests": [],
+      "required_reconciliation": [
+        {
+          "test": "TestFeishuV2PostgresApprovedHeldSourceReconciliation",
+          "elapsed": 3.22
+        },
+        {
+          "test": "TestFeishuV2PostgresContinuingSourcePublicationPolicy",
+          "elapsed": 0.65
+        }
+      ]
+    },
+    "sharing-denial-tests.jsonl": {
+      "test_pass_events": 25,
+      "failure_events": 0,
+      "skipped_tests": [],
+      "required_reconciliation": []
+    }
+  }
+}

@@ -1,0 +1,234 @@
+{
+    "status":  "READ_ONLY",
+    "batches":  [
+                    {
+                        "id":  "89e9b3e0c05c",
+                        "kb_id":  "a90e27c4ebbd",
+                        "auth_mode":  "user_oauth",
+                        "created_at":  "2026-10-25T14:14:19.026508+00:00"
+                    },
+                    {
+                        "id":  "002abcce1bcd",
+                        "kb_id":  "9beada7ab2b3",
+                        "auth_mode":  "user_oauth",
+                        "created_at":  "2026-10-25T11:59:25.682438+00:00"
+                    },
+                    {
+                        "id":  "4d5f533801f3",
+                        "kb_id":  "9beada7ab2b3",
+                        "auth_mode":  "user_oauth",
+                        "created_at":  "2026-10-25T11:53:39.331811+00:00"
+                    }
+                ],
+    "items":  [
+                  {
+                      "id":  "3910d0e328c5",
+                      "batch_id":  "89e9b3e0c05c",
+                      "ordinal":  0,
+                      "status":  "dispatched",
+                      "error_category":  "",
+                      "import_id":  "575034e7aa73",
+                      "retry_count":  0,
+                      "lease_until":  null,
+                      "updated_at":  "2026-10-25T14:35:14.992967+00:00"
+                  },
+                  {
+                      "id":  "05484e5c0022",
+                      "batch_id":  "002abcce1bcd",
+                      "ordinal":  0,
+                      "status":  "dispatched",
+                      "error_category":  "",
+                      "import_id":  "fdb0268083e0",
+                      "retry_count":  0,
+                      "lease_until":  null,
+                      "updated_at":  "2026-10-25T14:35:10.300289+00:00"
+                  },
+                  {
+                      "id":  "c37d3d796379",
+                      "batch_id":  "4d5f533801f3",
+                      "ordinal":  0,
+                      "status":  "dispatched",
+                      "error_category":  "",
+                      "import_id":  "fdb0268083e0",
+                      "retry_count":  0,
+                      "lease_until":  null,
+                      "updated_at":  "2026-10-25T14:35:10.294989+00:00"
+                  }
+              ],
+    "imports":  [
+                    {
+                        "id":  "fdb0268083e0",
+                        "kb_id":  "9beada7ab2b3",
+                        "knowledge_id":  null,
+                        "resource_type":  "docx",
+                        "status":  "accepted",
+                        "updated_at":  "2026-10-25T11:53:55.107242+00:00"
+                    },
+                    {
+                        "id":  "575034e7aa73",
+                        "kb_id":  "a90e27c4ebbd",
+                        "knowledge_id":  null,
+                        "resource_type":  "docx",
+                        "status":  "accepted",
+                        "updated_at":  "2026-10-25T14:14:42.235724+00:00"
+                    }
+                ],
+    "attempts":  [
+                     {
+                         "id":  "05afae7d7f4c",
+                         "import_id":  "575034e7aa73",
+                         "logical_knowledge_id":  "3663d886f314",
+                         "candidate_version_id":  "1cff22ece91b",
+                         "manifest_key":  true,
+                         "status":  "recovery",
+                         "retry_after":  "2026-10-25T14:35:10.259742+00:00",
+                         "retry_count":  9,
+                         "last_error_category":  "candidate_fetch_or_commit_unconfirmed",
+                         "lease_until":  null,
+                         "created_at":  "2026-10-25T14:14:42.233582+00:00",
+                         "updated_at":  "2026-10-25T14:30:54.26031+00:00",
+                         "manifest_size":  0
+                     },
+                     {
+                         "id":  "37a5e471ce11",
+                         "import_id":  "fdb0268083e0",
+                         "logical_knowledge_id":  "070925df4104",
+                         "candidate_version_id":  "19bf0ca0cb32",
+                         "manifest_key":  true,
+                         "status":  "recovery",
+                         "retry_after":  "2026-10-25T14:39:05.895755+00:00",
+                         "retry_count":  39,
+                         "last_error_category":  "candidate_fetch_or_commit_unconfirmed",
+                         "lease_until":  null,
+                         "created_at":  "2026-10-25T11:53:55.104578+00:00",
+                         "updated_at":  "2026-10-25T14:34:49.895994+00:00",
+                         "manifest_size":  0
+                     }
+                 ],
+    "knowledge":  [
+
+                  ],
+    "outbox":  [
+                   {
+                       "id":  "6b86b273ff34",
+                       "scope":  "knowledge_dispatch",
+                       "scope_id":  "19bf0ca0cb32",
+                       "task_type":  "document:process",
+                       "op":  "recovery",
+                       "fail_count":  0,
+                       "enqueued_at":  "2026-10-25T11:53:55.106412+00:00",
+                       "claimed_at":  null
+                   },
+                   {
+                       "id":  "d4735e3a265e",
+                       "scope":  "knowledge_dispatch",
+                       "scope_id":  "1cff22ece91b",
+                       "task_type":  "document:process",
+                       "op":  "dispatched",
+                       "fail_count":  0,
+                       "enqueued_at":  "2026-10-25T14:14:42.234738+00:00",
+                       "claimed_at":  null
+                   }
+               ],
+    "chunks":  [
+
+               ],
+    "vectors":  [
+
+                ],
+    "logs":  {
+                 "redis":  {
+                               "queues":  [
+                                              {
+                                                  "queue_key_hash":  "80caa2cb01b6",
+                                                  "kind":  "zset",
+                                                  "count":  12
+                                              },
+                                              {
+                                                  "queue_key_hash":  "c105c2cc37f9",
+                                                  "kind":  "zset",
+                                                  "count":  1
+                                              },
+                                              {
+                                                  "queue_key_hash":  "80b605595f9d",
+                                                  "kind":  "list",
+                                                  "count":  1
+                                              },
+                                              {
+                                                  "queue_key_hash":  "68e9670832d1",
+                                                  "kind":  "zset",
+                                                  "count":  1
+                                              },
+                                              {
+                                                  "queue_key_hash":  "d4a4f2f5c48f",
+                                                  "kind":  "zset",
+                                                  "count":  12
+                                              }
+                                          ],
+                               "tasks":  [
+                                             {
+                                                 "task_id_hash":  "335f9963207d",
+                                                 "status":  "active",
+                                                 "error_category":  "permission denied",
+                                                 "error_fingerprint":  null,
+                                                 "fields":  [
+                                                                "msg",
+                                                                "state"
+                                                            ],
+                                                 "wire_error_categories":  [
+                                                                               {
+                                                                                   "field":  7,
+                                                                                   "permission_denied":  true,
+                                                                                   "operation":  "mkdir",
+                                                                                   "staging_path":  true,
+                                                                                   "tmp_path":  false,
+                                                                                   "path_component":  "other"
+                                                                               }
+                                                                           ]
+                                             },
+                                             {
+                                                 "task_id_hash":  "3a09bb0ce7b1",
+                                                 "status":  "archived",
+                                                 "error_category":  "permission denied",
+                                                 "error_fingerprint":  null,
+                                                 "fields":  [
+                                                                "msg",
+                                                                "state"
+                                                            ],
+                                                 "wire_error_categories":  [
+                                                                               {
+                                                                                   "field":  7,
+                                                                                   "permission_denied":  true,
+                                                                                   "operation":  "mkdir",
+                                                                                   "staging_path":  true,
+                                                                                   "tmp_path":  false,
+                                                                                   "path_component":  "other"
+                                                                               }
+                                                                           ]
+                                             }
+                                         ]
+                           },
+                 "app":  {
+                             "process_users":  [
+                                                   "Name:\tWeKnora",
+                                                   "Uid:\t1000\t1000\t1000\t1000",
+                                                   "Gid:\t1000\t1000\t1000\t1000",
+                                                   "Name:\tsh",
+                                                   "Uid:\t0\t0\t0\t0",
+                                                   "Gid:\t0\t0\t0\t0"
+                                               ],
+                             "staging_owner_mode":  "0:0:755"
+                         },
+                 "worker2":  {
+                                 "process_users":  [
+                                                       "Name:\tWeKnora",
+                                                       "Uid:\t1000\t1000\t1000\t1000",
+                                                       "Gid:\t1000\t1000\t1000\t1000",
+                                                       "Name:\tsh",
+                                                       "Uid:\t0\t0\t0\t0",
+                                                       "Gid:\t0\t0\t0\t0"
+                                                   ],
+                                 "staging_owner_mode":  "0:0:755"
+                             }
+             }
+}

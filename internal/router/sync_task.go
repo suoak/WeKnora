@@ -220,51 +220,58 @@ func (e *SyncTaskExecutor) Enqueue(task *asynq.Task, opts ...asynq.Option) (*asy
 type SyncTaskParams struct {
 	dig.In
 
-	Executor             *SyncTaskExecutor
-	KnowledgeService     interfaces.KnowledgeService
-	KnowledgeBaseService interfaces.KnowledgeBaseService
-	TagService           interfaces.KnowledgeTagService
-	DataSourceService    interfaces.DataSourceService
-	SpanTracker          service.SpanTracker
-	ChunkExtractor       interfaces.TaskHandler `name:"chunkExtractor"`
-	DataTableSummary     interfaces.TaskHandler `name:"dataTableSummary"`
-	ImageMultimodal      interfaces.TaskHandler `name:"imageMultimodal"`
-	KnowledgePostProcess interfaces.TaskHandler `name:"knowledgePostProcess"`
-	KnowledgeAutoTag     interfaces.TaskHandler `name:"knowledgeAutoTag"`
-	KnowledgeBaseProfile interfaces.TaskHandler `name:"knowledgeBaseProfile"`
-	WikiIngest           interfaces.TaskHandler `name:"wikiIngest"`
-	TemporaryDocument    interfaces.TemporaryDocumentService
-	MemoryService        interfaces.MemoryService
+	Executor              *SyncTaskExecutor
+	KnowledgeService      interfaces.KnowledgeService
+	FeishuPersonalService *service.FeishuPersonalService `optional:"true"`
+	KnowledgeBaseService  interfaces.KnowledgeBaseService
+	TagService            interfaces.KnowledgeTagService
+	DataSourceService     interfaces.DataSourceService
+	SpanTracker           service.SpanTracker
+	ChunkExtractor        interfaces.TaskHandler `name:"chunkExtractor"`
+	DataTableSummary      interfaces.TaskHandler `name:"dataTableSummary"`
+	ImageMultimodal       interfaces.TaskHandler `name:"imageMultimodal"`
+	KnowledgePostProcess  interfaces.TaskHandler `name:"knowledgePostProcess"`
+	KnowledgeAutoTag      interfaces.TaskHandler `name:"knowledgeAutoTag"`
+	KnowledgeBaseProfile  interfaces.TaskHandler `name:"knowledgeBaseProfile"`
+	WikiIngest            interfaces.TaskHandler `name:"wikiIngest"`
+	TemporaryDocument     interfaces.TemporaryDocumentService
+	MemoryService         interfaces.MemoryService
 }
 
 // RegisterSyncHandlers registers all task handlers on the SyncTaskExecutor.
 // Used in Lite mode instead of RunAsynqServer.
 func RegisterSyncHandlers(params SyncTaskParams) {
+	register := func(pattern string, handler func(context.Context, *asynq.Task) error) {
+		if params.FeishuPersonalService != nil {
+			handler = params.FeishuPersonalService.WrapPrivateTaskHandler(handler)
+		}
+		params.Executor.RegisterHandler(pattern, handler)
+	}
 	// Same callback the asynq dead-letter middleware runs in standard mode.
 	if failer := newDeadLetterKnowledgeFailer(params.KnowledgeService, params.SpanTracker); failer != nil {
 		params.Executor.SetFinalFailureHook(failer)
 	}
-	params.Executor.RegisterHandler(types.TypeChunkExtract, params.ChunkExtractor.Handle)
-	params.Executor.RegisterHandler(types.TypeDataTableSummary, params.DataTableSummary.Handle)
-	params.Executor.RegisterHandler(types.TypeDocumentProcess, params.KnowledgeService.ProcessDocument)
-	params.Executor.RegisterHandler(types.TypeTemporaryDocumentProcess, params.TemporaryDocument.Process)
-	params.Executor.RegisterHandler(types.TypeManualProcess, params.KnowledgeService.ProcessManualUpdate)
-	params.Executor.RegisterHandler(types.TypeFAQImport, params.KnowledgeService.ProcessFAQImport)
-	params.Executor.RegisterHandler(types.TypeQuestionGeneration, params.KnowledgeService.ProcessQuestionGeneration)
-	params.Executor.RegisterHandler(types.TypeSummaryGeneration, params.KnowledgeService.ProcessSummaryGeneration)
-	params.Executor.RegisterHandler(types.TypeKBClone, params.KnowledgeService.ProcessKBClone)
-	params.Executor.RegisterHandler(types.TypeKnowledgeMove, params.KnowledgeService.ProcessKnowledgeMove)
-	params.Executor.RegisterHandler(types.TypeKnowledgeListDelete, params.KnowledgeService.ProcessKnowledgeListDelete)
-	params.Executor.RegisterHandler(types.TypeKnowledgeListReparse, params.KnowledgeService.ProcessKnowledgeListReparse)
-	params.Executor.RegisterHandler(types.TypeIndexDelete, params.TagService.ProcessIndexDelete)
-	params.Executor.RegisterHandler(types.TypeKBDelete, params.KnowledgeBaseService.ProcessKBDelete)
-	params.Executor.RegisterHandler(types.TypeImageMultimodal, params.ImageMultimodal.Handle)
-	params.Executor.RegisterHandler(types.TypeKnowledgePostProcess, params.KnowledgePostProcess.Handle)
-	params.Executor.RegisterHandler(types.TypeKnowledgeAutoTag, params.KnowledgeAutoTag.Handle)
-	params.Executor.RegisterHandler(types.TypeKnowledgeBaseProfile, params.KnowledgeBaseProfile.Handle)
-	params.Executor.RegisterHandler(types.TypeDataSourceSync, params.DataSourceService.ProcessSync)
-	params.Executor.RegisterHandler(types.TypeWikiIngest, params.WikiIngest.Handle)
-	params.Executor.RegisterHandler(types.TypeWikiFinalize, params.WikiIngest.Handle)
-	params.Executor.RegisterHandler(types.TypeMemoryExtract, params.MemoryService.Handle)
+	register(types.TypeChunkExtract, params.ChunkExtractor.Handle)
+	register(types.TypeDataTableSummary, params.DataTableSummary.Handle)
+	register(types.TypeDocumentProcess, params.KnowledgeService.ProcessDocument)
+	register(types.TypeTemporaryDocumentProcess, params.TemporaryDocument.Process)
+	register(types.TypeManualProcess, params.KnowledgeService.ProcessManualUpdate)
+	register(types.TypeFAQImport, params.KnowledgeService.ProcessFAQImport)
+	register(types.TypeQuestionGeneration, params.KnowledgeService.ProcessQuestionGeneration)
+	register(types.TypeSummaryGeneration, params.KnowledgeService.ProcessSummaryGeneration)
+	register(types.TypeKBClone, params.KnowledgeService.ProcessKBClone)
+	register(types.TypeKnowledgeMove, params.KnowledgeService.ProcessKnowledgeMove)
+	register(types.TypeKnowledgeListDelete, params.KnowledgeService.ProcessKnowledgeListDelete)
+	register(types.TypeKnowledgeListReparse, params.KnowledgeService.ProcessKnowledgeListReparse)
+	register(types.TypeIndexDelete, params.TagService.ProcessIndexDelete)
+	register(types.TypeKBDelete, params.KnowledgeBaseService.ProcessKBDelete)
+	register(types.TypeImageMultimodal, params.ImageMultimodal.Handle)
+	register(types.TypeKnowledgePostProcess, params.KnowledgePostProcess.Handle)
+	register(types.TypeKnowledgeAutoTag, params.KnowledgeAutoTag.Handle)
+	register(types.TypeKnowledgeBaseProfile, params.KnowledgeBaseProfile.Handle)
+	register(types.TypeDataSourceSync, params.DataSourceService.ProcessSync)
+	register(types.TypeWikiIngest, params.WikiIngest.Handle)
+	register(types.TypeWikiFinalize, params.WikiIngest.Handle)
+	register(types.TypeMemoryExtract, params.MemoryService.Handle)
 	logger.Infof(context.Background(), "[SyncTask] All task handlers registered (Lite mode, no Redis)")
 }

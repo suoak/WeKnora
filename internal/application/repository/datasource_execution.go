@@ -94,8 +94,9 @@ func ownedSyncLog(tx *gorm.DB, e types.SyncExecution) *gorm.DB {
 }
 
 // WriteExecution atomically fences BOTH the log and datasource metadata. A
-// failed CAS is a no-op. Database errors roll back both writes. No callback or
-// external API runs here. A retry release keeps status=running but clears claim;
+// failed CAS is a no-op. Database errors roll back both writes. Full reconciliation
+// rechecks the local publication guard; no external API runs here. A retry release
+// keeps status=running but clears claim;
 // its next claim increments generation. Terminal runs cannot be reclaimed.
 func (r *SyncLogRepository) WriteExecution(
 	ctx context.Context, e types.SyncExecution, ds *types.DataSource, log *types.SyncLog, release bool,
@@ -115,6 +116,20 @@ func (r *SyncLogRepository) WriteExecution(
 		}
 		if err != nil {
 			return err
+		}
+		if types.LegacyFullReconciliation(ctx) {
+			if guard, ok := types.FeishuSourceGuardFromContext(ctx); ok {
+				var owned int64
+				if err := ownedSyncLog(tx, e).Count(&owned).Error; err != nil {
+					return err
+				}
+				if owned != 1 {
+					return nil
+				}
+				if err := guard(tx); err != nil {
+					return err
+				}
+			}
 		}
 		updated := ownedSyncLog(tx, e).Updates(map[string]interface{}{
 			"status": log.Status, "finished_at": log.FinishedAt, "items_total": log.ItemsTotal,

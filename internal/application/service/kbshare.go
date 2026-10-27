@@ -86,6 +86,9 @@ func (s *kbShareService) ShareKnowledgeBase(ctx context.Context, kbID string, or
 	if kb.TenantID != tenantID {
 		return nil, ErrNotKBOwner
 	}
+	if kb.PrivateOwnerID != "" {
+		return nil, ErrSharePermissionDenied
+	}
 
 	_, err = s.orgRepo.GetByID(ctx, orgID)
 	if err != nil {

@@ -1,6 +1,7 @@
 <template>
-  <t-dialog :visible="visible" :header="t('title')" :footer="false" @close="emit('update:visible', false)">
+  <t-dialog :visible="visible" :header="t('title')" :footer="false" width="min(560px, calc(100vw - 32px))" @close="emit('update:visible', false)">
     <p v-if="!status.available">{{ t('unavailable') }}</p>
+    <FeishuAccessV2 v-else-if="status.v2" :kb-id="kbId" :status="status" :initial-url="initialUrl" @connect="connect" @imported="emit('imported')" />
     <template v-else>
       <p v-if="status.auth_mode === 'application_grant'">{{ t(tablesEnabled ? 'applicationTablesInstructions' : 'applicationInstructions') }}</p>
       <t-button v-if="status.auth_mode !== 'application_grant' && !status.connected" :loading="busy" @click="connect">{{ t('connect') }}</t-button>
@@ -24,6 +25,7 @@
 </template>
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue'
+import FeishuAccessV2 from './FeishuAccessV2.vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { useI18n } from 'vue-i18n'
 import { feishuMessages, FEISHU_PENDING } from '@/i18n/feishuPersonal'
@@ -82,15 +84,16 @@ watch(() => props.visible, async value => {
   try {
     const next = await feishuStatus()
     if (props.visible && props.kbId === kb) status.value = next
+    if (next.v2) return
     const imports = await listFeishuImports(kb)
     if (props.visible && props.kbId === kb) rows.value = imports
     if (mounted && props.visible && props.kbId === kb) historyTimer = setTimeout(() => refreshHistory(kb), 5000)
   } catch { if (props.visible && props.kbId === kb) resultMessage.value = t('failed') }
 })
-async function connect() {
+async function connect(pendingLinks?: string | MouseEvent) {
   busy.value = true
   try {
-    sessionStorage.setItem(FEISHU_PENDING, JSON.stringify({ kbId: props.kbId, url: url.value, path: location.pathname }))
+    sessionStorage.setItem(FEISHU_PENDING, JSON.stringify({ kbId: props.kbId, url: typeof pendingLinks === 'string' ? pendingLinks : url.value, path: location.pathname + location.search }))
     const result = await authorizeFeishu(), target = new URL(result.authorization_url)
     if (target.origin !== 'https://accounts.feishu.cn') throw new Error('invalid_authorization_origin')
     location.assign(target.href)

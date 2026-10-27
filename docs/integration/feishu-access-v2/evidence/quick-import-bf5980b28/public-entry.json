@@ -1,0 +1,20 @@
+[
+  {
+    "url": "http://172.30.232.42/",
+    "status": 200,
+    "referrer_policy": "no-referrer",
+    "cache_control": "no-cache, must-revalidate"
+  },
+  {
+    "url": "http://172.30.232.42:8080/health",
+    "status": 200,
+    "referrer_policy": "no-referrer",
+    "cache_control": null
+  },
+  {
+    "url": "http://172.30.232.42/feishu/callback",
+    "status": 200,
+    "referrer_policy": "no-referrer",
+    "cache_control": "no-store"
+  }
+]

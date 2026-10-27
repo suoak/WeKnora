@@ -1,0 +1,34 @@
+{
+  "source_sha": "020a2fb068e371783c402a2c104039d6c3c837a0",
+  "status": "exited",
+  "exit_code": 0,
+  "application_services_started": false,
+  "diagnostic_test_receipt": {
+    "passed": [
+      {
+        "test": "TestFeishuV2OAuthRequestsCompleteReadOnlyImportScopes",
+        "elapsed": 0.83
+      },
+      {
+        "test": "TestFeishuRemoteFailureSeparatesScopeTokenAndExportStages",
+        "elapsed": 0
+      },
+      {
+        "test": "TestFeishuFailureDetailsUseOnlyExactOwnerAttemptEvidence",
+        "elapsed": 0.06
+      },
+      {
+        "test": "TestFeishuRemoteFailureSourceBindingSeparatesReauthorizationFromRefresh",
+        "elapsed": 0.05
+      }
+    ],
+    "failed": [],
+    "skipped": []
+  },
+  "deployed": false,
+  "offline_tests": {
+    "count": 15,
+    "status": "PASS",
+    "command": "python -S -m unittest discover -s docs/integration/feishu-access-v2/poc -v"
+  }
+}

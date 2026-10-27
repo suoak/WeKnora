@@ -1,0 +1,1048 @@
+{
+  "at": "2026-10-26T09:34:56.886788107Z",
+  "document_requests": 0,
+  "knowledge_writes": false,
+  "personal_identity_fallback": false,
+  "published_scopes": [
+    {
+      "scope_name": "contact:department.base:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "docs:permission.setting:write_only",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "calendar:calendar",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "im:message:update",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "docs:doc:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "calendar:calendar.event:reply",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "docs:document:copy",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "docs:document.comment:update",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "vc:meeting",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "calendar:settings.workhour:read",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "vc:reserve:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "vc:reserve",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "wiki:node:read",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "base:role:delete",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "calendar:calendar.acl:create",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "contact:contact.base:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "im:message:recall",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "base:field:delete",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "drive:export:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "sheets:spreadsheet:write_only",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "contact:contact:readonly_as_app",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "wiki:wiki",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "drive:drive",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "im:message.p2p_msg:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "sheets:spreadsheet:create",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "im:message.group_at_msg:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "calendar:calendar.acl:delete",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "calendar:time_off:create",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "wiki:space:read",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "base:record:delete",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "calendar:calendar.event:read",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "contact:user.base:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "base:record:create",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "calendar:calendar.event:create",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "contact:user.employee_id:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "docs:permission.setting:read",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "bitable:app:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "docs:document.comment:create",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "calendar:calendar.acl:read",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "calendar:calendar:update",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "sheets:spreadsheet",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "docs:permission.setting:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "docs:permission.member:delete",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "base:record:update",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "vc:room:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "im:message:send_multi_depts",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "sheets:spreadsheet:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "calendar:calendar:subscribe",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "calendar:calendar.event:delete",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "space:document:retrieve",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "base:form:read",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "contact:user.id:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "docs:document.comment:write_only",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "docs:permission.setting",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "bitable:app",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "base:record:read",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "im:chat",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "vc:record:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "space:document:move",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "im:message:send_as_bot",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "im:message:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "docs:doc",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "calendar:exchange.bindings:delete",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "base:field:read",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "calendar:calendar:read",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "base:app:create",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "docx:document:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "vc:report:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "contact:department.organize:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "docs:document.comment:read",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "base:field:update",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "base:app:read",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "base:table:read",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "calendar:calendar:create",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "contact:user.email:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "im:resource",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "docs:document:export",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "docs:permission.member:transfer",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "base:app:copy",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "drive:file",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "drive:drive.search:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "calendar:exchange.bindings:read",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "drive:drive:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "calendar:calendar.free_busy:read",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "event:ip_list",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "docx:document:create",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "docs:document:import",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "docs:permission.member:update",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "space:document:delete",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "wiki:wiki:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "im:chat:create",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "base:record:retrieve",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "calendar:time_off:delete",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "calendar:settings.caldav:create",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "docs:permission.member:auth",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "base:role:create",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "im:app_feed_card:write",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "contact:role:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "calendar:calendar:delete",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "contact:user.department:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "sheets:spreadsheet.meta:write_only",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "calendar:timeoff",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "base:app:update",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "wiki:space:retrieve",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "contact:user.employee:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "base:table:delete",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "base:field:create",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "base:role:update",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "im:message:send_multi_users",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "base:table:update",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "base:table:create",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "docs:permission.member:create",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "contact:user.phone:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "calendar:exchange.bindings:create",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "docs:permission.member:retrieve",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "contact:user.gender:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "vc:meeting:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "admin:app.info:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "sheets:spreadsheet.meta:read",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "base:role:read",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "calendar:calendar:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "docx:document",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "drive:drive:version",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "base:form:update",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "im:chat:update",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "calendar:calendar.event:update",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "im:chat:read",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "im:chat:readonly",
+      "grant_status": 1,
+      "scope_type": "tenant"
+    },
+    {
+      "scope_name": "contact:department.base:readonly",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "vc:room",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "calendar:calendar",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "docs:doc:readonly",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "calendar:calendar.event:reply",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "im:chat.members:read",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "calendar:settings.workhour:read",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "calendar:calendar.acl:create",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "contact:contact.base:readonly",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "drive:export:readonly",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "contact:contact:readonly_as_app",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "wiki:wiki",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "drive:drive",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "calendar:calendar.acl:delete",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "calendar:time_off:create",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "calendar:calendar.event:read",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "contact:user.base:readonly",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "base:record:create",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "calendar:calendar.event:create",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "contact:user.employee_id:readonly",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "bitable:app:readonly",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "calendar:calendar.acl:read",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "calendar:calendar:update",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "sheets:spreadsheet",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "base:record:update",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "vc:room:readonly",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "sheets:spreadsheet:readonly",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "calendar:calendar:subscribe",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "calendar:calendar.event:delete",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "space:document:retrieve",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "contact:user.id:readonly",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "docs:document.comment:write_only",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "bitable:app",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "docs:document.media:download",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "im:message:readonly",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "docs:doc",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "calendar:exchange.bindings:delete",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "base:field:read",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "offline_access",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "calendar:calendar:read",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "base:app:create",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "docx:document:readonly",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "contact:department.organize:readonly",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "docs:document.comment:read",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "base:table:read",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "calendar:calendar:create",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "contact:user.email:readonly",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "drive:file:readonly",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "calendar:exchange.bindings:read",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "drive:drive:readonly",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "calendar:calendar.free_busy:read",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "event:ip_list",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "docx:document:create",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "docs:document:import",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "wiki:wiki:readonly",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "base:record:retrieve",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "calendar:time_off:delete",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "calendar:settings.caldav:create",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "calendar:calendar:delete",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "contact:user.department:readonly",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "contact:user.employee:readonly",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "search:docs:read",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "base:table:create",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "docs:permission.member:create",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "contact:user.phone:readonly",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "calendar:exchange.bindings:create",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "contact:user:search",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "drive:drive.metadata:readonly",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "contact:user.gender:readonly",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "vc:meeting:readonly",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "calendar:calendar:readonly",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "docx:document",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "drive:drive:version",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "docs:document.media:upload",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "calendar:calendar.event:update",
+      "grant_status": 1,
+      "scope_type": "user"
+    },
+    {
+      "scope_name": "im:chat:read",
+      "grant_status": 1,
+      "scope_type": "user"
+    }
+  ],
+  "requests": [
+    {
+      "operation": "refresh_app_token",
+      "category": "",
+      "http_status": 200,
+      "code": 0,
+      "request_id_hash": "12ec1ed7bfe4"
+    },
+    {
+      "operation": "get /open-apis/application/v6/scopes",
+      "category": "",
+      "http_status": 200,
+      "code": 0,
+      "request_id_hash": "bc44c91edc67"
+    }
+  ],
+  "status": "APPLICATION_CONFIG_AUDIT_ONLY",
+  "sync_control_writes": false,
+  "diagnostic_source_sha": "b35c4898a0f735b76f037a2a79d6be41be684300",
+  "binary_sha256": "f35a340d098800d7ea6c29d507175dfbd96aea8217d8961ebcb8f0eb348fb6aa"
+}

@@ -43,6 +43,27 @@ func (c *Connector) Validate(ctx context.Context, config *types.DataSourceConfig
 	}
 
 	client := core.NewClient(feishuConfig)
+	if links, reference, e := core.ReferenceLinks(config); reference || e != nil {
+		if e != nil {
+			return e
+		}
+		for _, link := range links {
+			r, e := core.ParsePersonalResourceURL(link)
+			if e != nil {
+				return e
+			}
+			if _, e = client.ResolveBoundResource(ctx, r); e != nil {
+				return e
+			}
+		}
+		return nil
+	}
+	if ref, e := types.ParseFeishuSourceReference(config); e != nil {
+		return e
+	} else if ref != nil {
+		_, e = client.ReadResourcePage(ctx, "wiki", "", "", "", 1)
+		return e
+	}
 	if err := client.Ping(ctx); err != nil {
 		return fmt.Errorf("feishu connection failed: %w", err)
 	}
@@ -68,6 +89,24 @@ func (c *Connector) ListResources(
 	}
 
 	client := core.NewClient(feishuConfig)
+	if links, reference, e := core.ReferenceLinks(config); reference || e != nil {
+		if e != nil {
+			return nil, e
+		}
+		out := []types.Resource{}
+		for _, link := range links {
+			r, e := core.ParsePersonalResourceURL(link)
+			if e != nil {
+				return nil, e
+			}
+			r, e = client.ResolveBoundResource(ctx, r)
+			if e != nil {
+				return nil, e
+			}
+			out = append(out, types.Resource{ExternalID: "links", Name: r.Title, Type: r.Type, URL: r.URL})
+		}
+		return out, nil
+	}
 
 	if parentID == "" {
 		spaces, err := client.ListWikiSpaces(ctx)
@@ -165,12 +204,22 @@ func (c *Connector) ResolveResourceAncestors(
 // FetchAll performs a full sync of all documents from the specified wiki spaces.
 // Defensive fallback path - the service prefers FetchStream when the connector
 // implements StreamingConnector.
-func (c *Connector) FetchAll(ctx context.Context, config *types.DataSourceConfig, resourceIDs []string) ([]types.FetchedItem, error) {
+func (c *Connector) FetchAll(
+	ctx context.Context,
+	config *types.DataSourceConfig,
+	resourceIDs []string,
+) ([]types.FetchedItem, error) {
 	feishuConfig, err := core.ParseFeishuConfig(config, c.region)
 	if err != nil {
 		return nil, err
 	}
 	client := core.NewClient(feishuConfig)
+	if links, reference, e := core.ReferenceLinks(config); reference || e != nil {
+		if e != nil {
+			return nil, e
+		}
+		return core.FetchAllEngine(ctx, client, config, resourceIDs, core.ReferenceLinkOps{Links: links})
+	}
 	return core.FetchAllEngine(ctx, client, config, resourceIDs, wikiOps{region: c.region})
 }
 
@@ -179,12 +228,22 @@ func (c *Connector) FetchAll(ctx context.Context, config *types.DataSourceConfig
 // prefers FetchStream. Routed through the same engine, so the #2136
 // failure-doesn't-advance-cursor semantics apply here too (previously this path
 // advanced the cursor before fetching, a latent #2136 bug).
-func (c *Connector) FetchIncremental(ctx context.Context, config *types.DataSourceConfig, cursor *types.SyncCursor) ([]types.FetchedItem, *types.SyncCursor, error) {
+func (c *Connector) FetchIncremental(
+	ctx context.Context,
+	config *types.DataSourceConfig,
+	cursor *types.SyncCursor,
+) ([]types.FetchedItem, *types.SyncCursor, error) {
 	feishuConfig, err := core.ParseFeishuConfig(config, c.region)
 	if err != nil {
 		return nil, nil, err
 	}
 	client := core.NewClient(feishuConfig)
+	if links, reference, e := core.ReferenceLinks(config); reference || e != nil {
+		if e != nil {
+			return nil, nil, e
+		}
+		return core.FetchIncrementalEngine(ctx, client, config, cursor, core.ReferenceLinkOps{Links: links})
+	}
 	ops := wikiOps{region: c.region}
 	if len(config.ResourceIDs) == 0 {
 		return nil, nil, errors.New(ops.EmptyResourceIDsError())
@@ -209,6 +268,12 @@ func (c *Connector) FetchStream(
 		return nil, err
 	}
 	client := core.NewClient(feishuConfig)
+	if links, reference, e := core.ReferenceLinks(config); reference || e != nil {
+		if e != nil {
+			return nil, e
+		}
+		return core.FetchStreamEngine(ctx, client, config, cursor, h, core.ReferenceLinkOps{Links: links})
+	}
 	ops := wikiOps{region: c.region}
 	if len(config.ResourceIDs) == 0 {
 		return nil, errors.New(ops.EmptyResourceIDsError())
@@ -223,7 +288,11 @@ type wikiOps struct {
 	region core.Region
 }
 
-func (o wikiOps) List(ctx context.Context, client *core.Client, resourceID string) ([]core.WikiNode, error, error) {
+func (o wikiOps) List(
+	ctx context.Context,
+	client *core.Client,
+	resourceID string,
+) ([]core.WikiNode, error, error) {
 	spaceID, nodeToken := parseWikiResourceID(resourceID)
 	nodes, err := client.ListWikiNodesRecursiveFrom(ctx, spaceID, nodeToken)
 	if err == nil {
@@ -253,7 +322,13 @@ func (o wikiOps) EditTime(n core.WikiNode) string {
 	return n.NodeEditTime
 }
 
-func (o wikiOps) Fetch(ctx context.Context, client *core.Client, n core.WikiNode, resourceID string, multimodal bool) ([]*types.FetchedItem, error) {
+func (o wikiOps) Fetch(
+	ctx context.Context,
+	client *core.Client,
+	n core.WikiNode,
+	resourceID string,
+	multimodal bool,
+) ([]*types.FetchedItem, error) {
 	spaceID, _ := parseWikiResourceID(resourceID)
 	return fetchNodeContent(ctx, client, n, spaceID, resourceID, multimodal, o.region)
 }
@@ -288,7 +363,12 @@ func (o wikiOps) EncodeCursor(times map[string]map[string]string, lastSync time.
 	return &types.SyncCursor{LastSyncTime: lastSync, ConnectorCursor: m}
 }
 
-func appendWikiNodeListFailureItems(items []types.FetchedItem, spaceID string, resourceID string, failures []core.WikiNodeListFailure) []types.FetchedItem {
+func appendWikiNodeListFailureItems(
+	items []types.FetchedItem,
+	spaceID string,
+	resourceID string,
+	failures []core.WikiNodeListFailure,
+) []types.FetchedItem {
 	for _, failure := range failures {
 		node := failure.Node
 		title := node.Title
@@ -319,7 +399,15 @@ func appendWikiNodeListFailureItems(items []types.FetchedItem, spaceID string, r
 //   - file       → drive download → original file (PDF/Word/image/etc.)
 //   - mindnote   → Skip (no API)
 //   - slides     → Skip (no API)
-func fetchNodeContent(ctx context.Context, client *core.Client, node core.WikiNode, spaceID string, resourceID string, multimodalEnabled bool, region core.Region) ([]*types.FetchedItem, error) {
+func fetchNodeContent(
+	ctx context.Context,
+	client *core.Client,
+	node core.WikiNode,
+	spaceID string,
+	resourceID string,
+	multimodalEnabled bool,
+	region core.Region,
+) ([]*types.FetchedItem, error) {
 	if !core.IsSupportedDocType(node.ObjType) {
 		return nil, nil
 	}
@@ -370,7 +458,15 @@ func fetchNodeContent(ctx context.Context, client *core.Client, node core.WikiNo
 
 // fetchViaExport exports a doc/sheet/bitable node via the async export API and
 // returns a single FetchedItem containing the exported binary.
-func fetchViaExport(ctx context.Context, client *core.Client, node core.WikiNode, resourceID string, editTime time.Time, baseMeta map[string]string, region core.Region) (*types.FetchedItem, error) {
+func fetchViaExport(
+	ctx context.Context,
+	client *core.Client,
+	node core.WikiNode,
+	resourceID string,
+	editTime time.Time,
+	baseMeta map[string]string,
+	region core.Region,
+) (*types.FetchedItem, error) {
 	// Export as a file via the async export API
 	data, fileName, err := client.ExportAndDownload(ctx, node.ObjToken, node.ObjType)
 	if err != nil {
@@ -401,7 +497,15 @@ func fetchViaExport(ctx context.Context, client *core.Client, node core.WikiNode
 
 // fetchDriveFile downloads an original uploaded file from Drive and returns a
 // single FetchedItem containing the raw bytes.
-func fetchDriveFile(ctx context.Context, client *core.Client, node core.WikiNode, resourceID string, editTime time.Time, baseMeta map[string]string, region core.Region) (*types.FetchedItem, error) {
+func fetchDriveFile(
+	ctx context.Context,
+	client *core.Client,
+	node core.WikiNode,
+	resourceID string,
+	editTime time.Time,
+	baseMeta map[string]string,
+	region core.Region,
+) (*types.FetchedItem, error) {
 	// Download the original uploaded file from Drive
 	data, err := client.DownloadDriveFile(ctx, node.ObjToken)
 	if err != nil {

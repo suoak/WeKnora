@@ -7,11 +7,72 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
 
 type cancellationBody struct{ ctx context.Context }
+
+func TestSafetyPermitWatchdogCancellationRetainsItsCause(t *testing.T) {
+	g, client := fixture(t, Config{})
+	InstallDefault(g)
+	started := make(chan struct{})
+	transport := Transport{Base: cancellationTransport{headers: false, started: started}}
+	req, err := http.NewRequestWithContext(
+		WithScope(context.Background(), "source"),
+		http.MethodGet,
+		"https://source.invalid/metadata",
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { _, err := transport.RoundTrip(req); done <- err }()
+	<-started
+	if err := client.Del(context.Background(), g.PermitKey()).Err(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-done:
+		if !errors.Is(err, ErrClosed) {
+			t.Fatalf("watchdog failure lost its safety cause: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("watchdog did not cancel the request")
+	}
+	if got := client.Get(context.Background(), g.key("trip")).Val(); got != "feishu_request_permit_unconfirmed" {
+		t.Fatalf("trip = %q", got)
+	}
+}
+
+func TestSafetyKnownPreHeaderDisconnectDoesNotDisableIndependentSources(t *testing.T) {
+	for _, cause := range []error{io.EOF, syscall.ECONNRESET, syscall.EPIPE} {
+		t.Run(cause.Error(), func(t *testing.T) {
+			g, client := fixture(t, Config{})
+			tripRequestFailure(context.Background(), g, cause, false, "headers")
+			if client.Exists(context.Background(), g.key("trip")).Val() != 0 || g.Check(context.Background()) != nil {
+				t.Fatal("known source pre-header disconnect latched the shared gate")
+			}
+			tripRequestFailure(context.Background(), g, cause, false, "response")
+			if g.Check(context.Background()) == nil {
+				t.Fatal("partial response was admitted")
+			}
+		})
+	}
+}
+
+func TestSafetyPreHeaderDisconnectCannotOutlivePermit(t *testing.T) {
+	g, client := fixture(t, Config{})
+	if err := client.Del(context.Background(), g.PermitKey()).Err(); err != nil {
+		t.Fatal(err)
+	}
+	tripRequestFailure(context.Background(), g, io.EOF, false, "headers")
+	if !g.localClosed.Load() || g.Check(context.Background()) == nil {
+		t.Fatal("disconnect bypassed unavailable permit")
+	}
+}
 
 func (b cancellationBody) Read([]byte) (int, error) {
 	<-b.ctx.Done()

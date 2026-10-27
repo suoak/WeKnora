@@ -1,0 +1,14 @@
+test_application_credential_probe_does_not_output_secret_or_token (test_readonly_probe.ReadonlyProbeTests) ... ok
+test_default_and_missing_credentials_never_call_network (test_readonly_probe.ReadonlyProbeTests) ... ok
+test_identity_mismatch_stops_before_resource_read (test_readonly_probe.ReadonlyProbeTests) ... ok
+test_invalid_fixture_and_unbounded_manifest_rejected (test_readonly_probe.ReadonlyProbeTests) ... ok
+test_no_redirect_handler (test_readonly_probe.ReadonlyProbeTests) ... ok
+test_oauth_success_does_not_prove_resource_read (test_readonly_probe.ReadonlyProbeTests) ... ok
+test_only_explicit_permission_denial_counts_as_expected_denial (test_readonly_probe.ReadonlyProbeTests) ... ok
+test_success_has_no_content_identity_or_token_in_report (test_readonly_probe.ReadonlyProbeTests) ... ok
+test_user_cannot_select_application_probe_role (test_readonly_probe.ReadonlyProbeTests) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.503s
+
+OK

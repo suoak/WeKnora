@@ -112,7 +112,18 @@ func (g *Guard) Check(ctx context.Context) error {
 // Trip closes this process immediately, persists a latch, removes the permit and
 // records a bounded, content-free reason. It never clears itself automatically.
 func (g *Guard) Trip(ctx context.Context, reason string) error {
+	return g.TripUsing(ctx, g.client, reason)
+}
+
+// TripUsing permits the controller to persist the same latch through its
+// isolated transport when the business pool is unavailable. The caller must
+// supply a client for the same Redis endpoint and DB; no namespace is replaced.
+// The ordinary Trip path and budget client remain unchanged.
+func (g *Guard) TripUsing(ctx context.Context, client redis.UniversalClient, reason string) error {
 	g.localClosed.Store(true)
+	if client == nil {
+		return ErrClosed
+	}
 	if len(reason) > 128 ||
 		strings.IndexFunc(
 			reason,
@@ -125,7 +136,9 @@ local first=redis.call('SET',KEYS[1],ARGV[1],'NX')
 redis.call('DEL',KEYS[2])
 if first then redis.call('XADD',KEYS[3],'MAXLEN','~',1000,'*','event','trip','reason',ARGV[1]) end
 return 1`).
-		Run(ctx, g.client, []string{g.key("trip"), g.PermitKey(), g.key("audit")}, reason).
+		// Stop must not depend on an EVALSHA/NOSCRIPT round trip. A stalled
+		// cache probe could exhaust the deadline before the latch was written.
+		Eval(ctx, client, []string{g.key("trip"), g.PermitKey(), g.key("audit")}, reason).
 		Err()
 }
 

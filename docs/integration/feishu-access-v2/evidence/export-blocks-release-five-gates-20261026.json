@@ -1,0 +1,42 @@
+{
+  "v2": {
+    "conclusion": "success",
+    "databaseId": 40302205720,
+    "headSha": "56fc87ee576098cd326ce4331189edbf0c0e2f63",
+    "name": "Feishu Access V2 Isolated Gate",
+    "status": "completed",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/40302205720"
+  },
+  "native": {
+    "conclusion": "success",
+    "databaseId": 40302316482,
+    "headSha": "56fc87ee576098cd326ce4331189edbf0c0e2f63",
+    "name": "Feishu Access V2 Native Regression",
+    "status": "completed",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/40302316482"
+  },
+  "integrated": {
+    "conclusion": "success",
+    "databaseId": 40302329815,
+    "headSha": "56fc87ee576098cd326ce4331189edbf0c0e2f63",
+    "name": "Feishu Integrated Release Gate",
+    "status": "completed",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/40302329815"
+  },
+  "portal": {
+    "conclusion": "success",
+    "databaseId": 40302655607,
+    "headSha": "56fc87ee576098cd326ce4331189edbf0c0e2f63",
+    "name": "Portal Final Gate",
+    "status": "completed",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/40302655607"
+  },
+  "python_mcp": {
+    "conclusion": "success",
+    "databaseId": 40302365097,
+    "headSha": "56fc87ee576098cd326ce4331189edbf0c0e2f63",
+    "name": "Build & Publish (mcp-server)",
+    "status": "completed",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/40302365097"
+  }
+}

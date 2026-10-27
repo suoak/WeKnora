@@ -1,0 +1,54 @@
+{
+  "status": "PASS",
+  "source_sha": "111b87e3db87fe359bb43cd1155a6d668dac5d0f",
+  "project": "knowhub-feishu-v2-d6e99d894d3a",
+  "scope": "synthetic_manual_ingest_gateway_and_private_http_acl",
+  "checks": [
+    {
+      "check": "same_tenant_admin_b_denied_private_kb",
+      "status": 404
+    },
+    {
+      "check": "same_tenant_admin_b_denied_private_document",
+      "status": 404
+    },
+    {
+      "check": "same_tenant_admin_b_can_read_public_control",
+      "status": 200
+    },
+    {
+      "check": "private_kb_hidden_from_same_tenant_catalog",
+      "status": 200
+    },
+    {
+      "check": "same_tenant_admin_b_denied_private_search",
+      "status": 404
+    },
+    {
+      "check": "owner_hybrid_search_finds_synthetic_document",
+      "status": 200
+    },
+    {
+      "check": "personal_mcp_owner_hybrid_search_and_other_admin_catalog_isolation",
+      "status": "PASS"
+    },
+    {
+      "check": "live_writable_target_api_private_owner_boundary",
+      "status": "PASS"
+    },
+    {
+      "check": "live_concurrent_missing_kb_400_without_private_creation",
+      "requests": 8,
+      "private_kb_delta": 0,
+      "status": "PASS"
+    }
+  ],
+  "indexed_rows": 1,
+  "vector_rows_1024": 1,
+  "bm25_canary_rows": 1,
+  "real_feishu_oauth": "NOT_EXECUTED",
+  "real_feishu_document_import": "NOT_EXECUTED",
+  "real_cross_employee_feishu_acl": "NOT_TESTED",
+  "synthetic_go_personal_mcp": "PASS",
+  "business_mcp_search": "NOT_EXECUTED"
+}

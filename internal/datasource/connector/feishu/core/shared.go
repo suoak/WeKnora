@@ -218,7 +218,16 @@ func ParseFeishuConfig(config *types.DataSourceConfig, region Region) (*Config, 
 		return nil, fmt.Errorf("parse %s credentials: %w", region.ConnectorType, err)
 	}
 
-	if feishuConfig.AppID == "" || feishuConfig.AppSecret == "" {
+	ref, refErr := types.ParseFeishuSourceReference(config)
+	if refErr != nil {
+		return nil, refErr
+	}
+	if ref != nil {
+		feishuConfig.AppID = ref.AppID
+		feishuConfig.AppSecret = ""
+		feishuConfig.BaseURL = region.OpenBaseURL
+	}
+	if feishuConfig.AppID == "" || feishuConfig.AppSecret == "" && ref == nil {
 		return nil, fmt.Errorf("%s app_id and app_secret are required", region.ConnectorType)
 	}
 

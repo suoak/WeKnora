@@ -205,6 +205,11 @@ func (g *pgRepository) KeywordsRetrieve(ctx context.Context,
 	}
 	logger.GetLogger(ctx).Infof("[Postgres] Keywords retrieval: query=%s, topK=%d", params.Query, params.TopK)
 	conds := make([]clause.Expression, 0)
+	if types.PrivateKBGuardsEnabled(g.db) {
+		conds = append(conds, clause.Expr{
+			SQL: privateSourceCandidatePredicate("?"), Vars: []any{types.PrivateKBReadUser(ctx)},
+		})
+	}
 	if types.LegacyReadGuardsEnabled(g.db) {
 		conds = append(conds, clause.Expr{SQL: legacySourceCandidatePredicate(ctx)})
 	}
@@ -242,7 +247,7 @@ func (g *pgRepository) KeywordsRetrieve(ctx context.Context,
 	// Keep complex authorization predicates outside ParadeDB's custom scan.
 	// Its OR pushdown can drop correlated predicates in 0.22.2. A MATERIALIZED
 	// lexical relation below keeps native PostgreSQL authorization BEFORE LIMIT.
-	guarded := types.LegacyReadGuardsEnabled(g.db)
+	guarded := types.LegacyReadGuardsEnabled(g.db) || types.PrivateKBGuardsEnabled(g.db)
 	_, portalProtected := access.PortalRetrievalTenant(ctx)
 	guarded = guarded || portalProtected
 	if !guarded {
@@ -446,6 +451,11 @@ func (g *pgRepository) VectorRetrieve(ctx context.Context,
 
 	if types.LegacyReadGuardsEnabled(g.db) {
 		whereParts = append(whereParts, legacySourceCandidatePredicate(ctx))
+	}
+	if types.PrivateKBGuardsEnabled(g.db) {
+		placeholder := fmt.Sprintf("$%d", len(allVars)+1)
+		whereParts = append(whereParts, privateSourceCandidatePredicate(placeholder))
+		allVars = append(allVars, types.PrivateKBReadUser(ctx))
 	}
 
 	// is_enabled filter

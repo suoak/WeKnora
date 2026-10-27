@@ -24,11 +24,26 @@ func NewKnowledgeBaseRepository(db *gorm.DB) interfaces.KnowledgeBaseRepository 
 
 // CreateKnowledgeBase creates a new knowledge base
 func (r *knowledgeBaseRepository) CreateKnowledgeBase(ctx context.Context, kb *types.KnowledgeBase) error {
+	if owner := types.PrivateKBCreationOwner(ctx); owner != "" {
+		user, ok := types.UserIDFromContext(ctx)
+		if !ok || user != owner || types.IsSyntheticUserID(user) || !types.PrivateKBGuardsEnabled(r.db) {
+			return types.ErrPrivateKnowledgeBase
+		}
+		return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			if err := tx.Create(kb).Error; err != nil {
+				return err
+			}
+			return tx.Exec("INSERT INTO feishu_private_kbs(kb_id,owner_id) VALUES (?,?)", kb.ID, owner).Error
+		})
+	}
 	return r.db.WithContext(ctx).Create(kb).Error
 }
 
 // GetKnowledgeBaseByID gets a knowledge base by id (no tenant scope; caller must enforce isolation where needed)
-func (r *knowledgeBaseRepository) GetKnowledgeBaseByID(ctx context.Context, id string) (*types.KnowledgeBase, error) {
+func (r *knowledgeBaseRepository) GetKnowledgeBaseByID(
+	ctx context.Context,
+	id string,
+) (*types.KnowledgeBase, error) {
 	var kb types.KnowledgeBase
 	if err := r.db.WithContext(ctx).Where("id = ?", id).First(&kb).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -40,7 +55,11 @@ func (r *knowledgeBaseRepository) GetKnowledgeBaseByID(ctx context.Context, id s
 }
 
 // GetKnowledgeBaseByIDAndTenant gets a knowledge base by id only if it belongs to the given tenant (enforces tenant isolation)
-func (r *knowledgeBaseRepository) GetKnowledgeBaseByIDAndTenant(ctx context.Context, id string, tenantID uint64) (*types.KnowledgeBase, error) {
+func (r *knowledgeBaseRepository) GetKnowledgeBaseByIDAndTenant(
+	ctx context.Context,
+	id string,
+	tenantID uint64,
+) (*types.KnowledgeBase, error) {
 	var kb types.KnowledgeBase
 	if err := r.db.WithContext(ctx).Where("id = ? AND tenant_id = ?", id, tenantID).First(&kb).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -52,7 +71,10 @@ func (r *knowledgeBaseRepository) GetKnowledgeBaseByIDAndTenant(ctx context.Cont
 }
 
 // GetKnowledgeBaseByIDs gets knowledge bases by multiple ids
-func (r *knowledgeBaseRepository) GetKnowledgeBaseByIDs(ctx context.Context, ids []string) ([]*types.KnowledgeBase, error) {
+func (r *knowledgeBaseRepository) GetKnowledgeBaseByIDs(
+	ctx context.Context,
+	ids []string,
+) ([]*types.KnowledgeBase, error) {
 	if len(ids) == 0 {
 		return []*types.KnowledgeBase{}, nil
 	}
@@ -66,7 +88,13 @@ func (r *knowledgeBaseRepository) GetKnowledgeBaseByIDs(ctx context.Context, ids
 // ListKnowledgeBases lists all knowledge bases
 func (r *knowledgeBaseRepository) ListKnowledgeBases(ctx context.Context) ([]*types.KnowledgeBase, error) {
 	var ids []string
-	if err := r.db.WithContext(ctx).Table("knowledge_bases").Where("deleted_at IS NULL").Order("id").Pluck("id", &ids).Error; err != nil {
+	if err := r.db.
+		WithContext(ctx).
+		Table("knowledge_bases").
+		Where("deleted_at IS NULL").
+		Order("id").
+		Pluck("id",
+			&ids).Error; err != nil {
 		return nil, err
 	}
 	return r.GetReadKnowledgeBasesByIDs(ctx, ids)
@@ -80,9 +108,19 @@ func (r *knowledgeBaseRepository) ListKnowledgeBases(ctx context.Context) ([]*ty
 // now per (user, kb) and applied by the service layer after enrichment.
 // We keep `created_at DESC` here so callers that don't enrich (chat
 // pipeline, agent editor, IM commands) still get a stable ordering.
-func (r *knowledgeBaseRepository) ListKnowledgeBasesByTenantID(ctx context.Context, tenantID uint64) ([]*types.KnowledgeBase, error) {
+func (r *knowledgeBaseRepository) ListKnowledgeBasesByTenantID(
+	ctx context.Context,
+	tenantID uint64,
+) ([]*types.KnowledgeBase, error) {
 	var ids []string
-	if err := r.db.WithContext(ctx).Table("knowledge_bases").Where("tenant_id=? AND is_temporary=false AND deleted_at IS NULL", tenantID).Order("created_at DESC,id").Pluck("id", &ids).Error; err != nil {
+	if err := r.db.
+		WithContext(ctx).
+		Table("knowledge_bases").
+		Where("tenant_id=? AND is_temporary=false AND deleted_at IS NULL",
+			tenantID).
+		Order("created_at DESC,id").
+		Pluck("id",
+			&ids).Error; err != nil {
 		return nil, err
 	}
 	return r.GetReadKnowledgeBasesByIDs(ctx, ids)

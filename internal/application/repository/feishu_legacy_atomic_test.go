@@ -226,6 +226,83 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 	require.Zero(t, visible("rc3baselinecanary"), "old committed version must not mix with the new version")
 	_, err = store.Receipt(ctx, r, a)
 	require.NoError(t, err, "lost-ACK reconciliation must use durable receipt")
+	for _, window := range []string{"prepare", "publish"} {
+		t.Run("process-config-edit-before-"+window, func(t *testing.T) {
+			metadata, e := json.Marshal(map[string]string{"datasource_id": ds.ID, "external_id": "config-" + window})
+			require.NoError(t, e)
+			old := types.Knowledge{
+				ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID,
+				Type: "file", Channel: "feishu", Metadata: types.JSON(metadata),
+				FileHash: "config-before", ParseStatus: types.ParseStatusCompleted, EnableStatus: "enabled",
+			}
+			no, yes := false, true
+			require.NoError(t, old.SetProcessOverrides(&types.KnowledgeProcessOverrides{SummaryEnabled: &no}))
+			require.NoError(t, db.Create(&old).Error)
+			chunk := &types.Chunk{
+				ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID,
+				KnowledgeID: old.ID, ChunkType: types.ChunkTypeText, Content: "configbeforecanary", IsEnabled: true,
+			}
+			require.NoError(t, db.Create(chunk).Error)
+			require.NoError(t, db.Exec(`INSERT INTO embeddings(source_id,source_type,chunk_id,knowledge_id,
+				knowledge_base_id,content,dimension,embedding,is_enabled)
+				VALUES(?,0,?,?,?,'configbeforecanary',3,'[1,0,0]'::halfvec,true)`,
+				chunk.ID, chunk.ID, old.ID, kb.ID).Error)
+			candidateHash := sha256.Sum256([]byte("config-next"))
+			_, attempt, e := store.Begin(ctx, ds, &types.FetchedItem{
+				ExternalID: "config-" + window, UpdatedAt: time.Date(2026, 10, 21, 1, 1, 0, 0, time.UTC),
+			}, hex.EncodeToString(candidateHash[:]))
+			require.NoError(t, e)
+			candidate := old
+			candidate.FileHash = "config-next"
+			metadata, e = json.Marshal(old.GetMetadata()) // Reproduce the staging adapter's string projection.
+			require.NoError(t, e)
+			candidate.Metadata = types.JSON(metadata)
+			manifest := types.FeishuLegacyManifest{
+				Knowledge: candidate, Chunks: []*types.Chunk{{
+					ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID,
+					KnowledgeID: old.ID, ChunkType: types.ChunkTypeText, Content: "confignextcanary", IsEnabled: true,
+				}},
+				EmbeddingModelID: kb.EmbeddingModelID,
+				KBConfigSHA256:   LegacyKBConfigHash(kb),
+				ModelStamp:       stamp,
+				Dimension:        3,
+			}
+			if window == "publish" {
+				require.NoError(t, store.Prepare(ctx, ds, attempt, manifest, [][]float32{{1, 0, 0}}))
+			}
+			require.NoError(t, old.SetProcessOverrides(&types.KnowledgeProcessOverrides{SummaryEnabled: &yes}))
+			// An ordinary editor is already denied by the database's source
+			// ownership fence. Inject a competing write with this live owner's
+			// nonce to exercise the additional configuration comparison without
+			// disabling any trigger or changing the source generation.
+			require.Error(t, db.Model(&types.Knowledge{}).Where("id=?", old.ID).Update("metadata", old.Metadata).Error)
+			require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
+				if e := tx.Exec(`SELECT set_config('knowhub.feishu_attempt',?,true),
+					set_config('knowhub.feishu_nonce',?,true)`, attempt.ID, attempt.OwnerNonce).Error; e != nil {
+					return e
+				}
+				return tx.Model(&types.Knowledge{}).Where("id=?", old.ID).Update("metadata", old.Metadata).Error
+			}))
+			snapshot := func() string {
+				var state string
+				require.NoError(t, db.Raw(`SELECT jsonb_build_object('knowledge',
+					(SELECT to_jsonb(k) FROM knowledges k WHERE id=?),'chunks',
+					(SELECT jsonb_agg(to_jsonb(c) ORDER BY c.id) FROM chunks c WHERE knowledge_id=?),'embeddings',
+					(SELECT jsonb_agg(to_jsonb(v) ORDER BY to_jsonb(v)::text)
+					 FROM embeddings v WHERE knowledge_id=?))::text`,
+					old.ID, old.ID, old.ID).Scan(&state).Error)
+				return state
+			}
+			before := snapshot()
+			if window == "prepare" {
+				e = store.Prepare(ctx, ds, attempt, manifest, [][]float32{{1, 0, 0}})
+			} else {
+				_, e = store.Publish(ctx, ds, attempt)
+			}
+			require.ErrorContains(t, e, "knowledge_process_config_changed")
+			require.JSONEq(t, before, snapshot(), "rejected configuration race preserves the current published version")
+		})
+	}
 	t.Run("P1-same-high-water-timestamp-change-rejected", func(t *testing.T) {
 		// Reproduction: same bytes at a later source time reuse the published
 		// attempt, leaving its original Revision behind the resource high-water.

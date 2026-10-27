@@ -181,7 +181,8 @@ func (s *DataSourceService) checkSyncExecution(ctx context.Context) error {
 }
 
 func syncTaskCanRetry(ctx context.Context, err error) bool {
-	if err == nil || errors.Is(err, asynq.SkipRetry) || errors.Is(err, types.ErrStaleSyncExecution) {
+	if err == nil || errors.Is(err, asynq.SkipRetry) || errors.Is(err, types.ErrStaleSyncExecution) ||
+		errors.Is(err, ErrFeishuSharingApproval) {
 		return false
 	}
 	attempt, maxRetry, ok := types.TaskRetryMetadataFromContext(ctx)

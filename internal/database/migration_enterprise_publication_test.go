@@ -32,18 +32,35 @@ func TestSQLiteEnterprisePublicationRealRunnerUpgradeDownUp(t *testing.T) {
 	_, err = db.Exec(`INSERT INTO tenants(id,name,business) VALUES(99,'synthetic','m2')`)
 	require.NoError(t, err)
 	for _, query := range []string{
-		`INSERT INTO users(id,username,email,password_hash,tenant_id) VALUES('b4-user','synthetic','b4@example.invalid','synthetic-not-password',99)`,
+		`INSERT INTO users(id,username,email,password_hash,tenant_id) VALUES('b4-user` +
+			`','synthetic','b4@example.invalid','synthetic-not-password',99)`,
 		`INSERT INTO tenant_members(user_id,tenant_id,role,status) VALUES('b4-user',99,'viewer','active')`,
-		`INSERT INTO tenant_portal_configs(tenant_id,status,display_name,created_by,updated_by) VALUES(99,'published','synthetic','b4-user','b4-user')`,
-		`INSERT INTO knowledge_bases(id,name,tenant_id,embedding_model_id,summary_model_id) VALUES('b4-kb','synthetic',99,'synthetic','synthetic')`,
-		`INSERT INTO knowledges(id,tenant_id,knowledge_base_id,type,title,source) VALUES('b4-doc',99,'b4-kb','file','synthetic historical','synthetic local source')`,
+		`INSERT INTO tenant_portal_configs(tenant_id,status,display_name,created_by,u` +
+			`pdated_by) VALUES(99,'published','synthetic','b4-user','b4-user')`,
+		`INSERT INTO knowledge_bases(id,name,tenant_id,embedding_model_id,summary_mod` +
+			`el_id) VALUES('b4-kb','synthetic',99,'synthetic','synthetic')`,
+		`INSERT INTO knowledges(id,tenant_id,knowledge_base_id,type,title,source) VAL` +
+			`UES('b4-doc',99,'b4-kb','file','synthetic historical','synthetic local sourc` +
+			`e')`,
 	} {
 		_, err = db.Exec(query)
 		require.NoError(t, err)
 	}
-	_, err = db.Exec(`INSERT INTO tenant_api_keys(tenant_id,scope_type,name,key_hash,api_key,full_access,capabilities) VALUES(99,'tenant','m2-old-key','synthetic-m2-hash','synthetic-never-a-key',0,'["retrieve"]')`)
+	_, err = db.Exec(
+		`INSERT INTO tenant_api_keys(tenant_id,scope_type,name,key_hash,api_key,full_` +
+			`access,capabilities) VALUES(99,'tenant','m2-old-key','synthetic-m2-hash','sy` +
+			`nthetic-never-a-key',0,'["retrieve"]')`,
+	)
 	require.NoError(t, err)
-	tables := []string{"tenants", "users", "tenant_members", "tenant_api_keys", "tenant_portal_configs", "knowledge_bases", "knowledges"}
+	tables := []string{
+		"tenants",
+		"users",
+		"tenant_members",
+		"tenant_api_keys",
+		"tenant_portal_configs",
+		"knowledge_bases",
+		"knowledges",
+	}
 	snapshots := map[string][32]byte{}
 	for _, table := range tables {
 		snapshots[table] = sqliteEnterpriseRowsDigest(t, db, table)
@@ -51,15 +68,24 @@ func TestSQLiteEnterprisePublicationRealRunnerUpgradeDownUp(t *testing.T) {
 	chdirAndRestore(t, root)
 	require.NoError(t, RunMigrationsWithOptions("sqlite3://unused", MigrationOptions{SQLiteDBPath: path}))
 	version, dirty = sqliteMigrationState(t, db)
-	require.Equal(t, 3038, version)
+	require.Equal(t, 3042, version)
 	require.False(t, dirty)
-	for _, table := range []string{"enterprise_space_policies", "kb_publication_policies", "knowledge_access_policies", "document_subject_grants"} {
+	for _, table := range []string{
+		"enterprise_space_policies",
+		"kb_publication_policies",
+		"knowledge_access_policies",
+		"document_subject_grants",
+	} {
 		var count int
 		require.NoError(t, db.QueryRow("SELECT count(*) FROM "+table).Scan(&count))
 		require.Zero(t, count, "historical resources cannot be backfilled as approved")
 	}
 	var caps, secret string
-	require.NoError(t, db.QueryRow(`SELECT capabilities,api_key FROM tenant_api_keys WHERE name='m2-old-key'`).Scan(&caps, &secret))
+	require.NoError(
+		t,
+		db.QueryRow(`SELECT capabilities,api_key FROM tenant_api_keys WHERE name='m2-old-key'`).
+			Scan(&caps, &secret),
+	)
 	require.Equal(t, `["retrieve"]`, caps)
 	require.Equal(t, "synthetic-never-a-key", secret)
 	for _, table := range tables {
@@ -69,14 +95,24 @@ func TestSQLiteEnterprisePublicationRealRunnerUpgradeDownUp(t *testing.T) {
 	version, dirty = sqliteMigrationState(t, db)
 	require.Equal(t, 3033, version)
 	require.False(t, dirty)
-	for _, table := range []string{"enterprise_space_policies", "kb_publication_policies", "knowledge_access_policies", "document_subject_grants", "document_access_epochs"} {
+	for _, table := range []string{
+		"enterprise_space_policies",
+		"kb_publication_policies",
+		"knowledge_access_policies",
+		"document_subject_grants",
+		"document_access_epochs",
+	} {
 		require.False(t, sqliteTableExists(t, db, table))
 	}
 	require.NoError(t, m.Up())
 	version, dirty = sqliteMigrationState(t, db)
-	require.Equal(t, 3038, version)
+	require.Equal(t, 3042, version)
 	require.False(t, dirty)
-	require.NoError(t, db.QueryRow(`SELECT capabilities,api_key FROM tenant_api_keys WHERE name='m2-old-key'`).Scan(&caps, &secret))
+	require.NoError(
+		t,
+		db.QueryRow(`SELECT capabilities,api_key FROM tenant_api_keys WHERE name='m2-old-key'`).
+			Scan(&caps, &secret),
+	)
 	require.Equal(t, `["retrieve"]`, caps)
 	require.Equal(t, "synthetic-never-a-key", secret)
 	for _, table := range tables {
@@ -150,11 +186,14 @@ func TestSQLiteEnterpriseMigrationFailureAndSnapshotRecovery(t *testing.T) {
 	body, err := os.ReadFile(backup)
 	require.NoError(t, err)
 	recovered := filepath.Join(t.TempDir(), "restored.db")
-	require.NoError(t, os.WriteFile(recovered, body, 0600))
-	require.NoError(t, RunMigrationsWithOptions("sqlite3://unused", MigrationOptions{SQLiteDBPath: recovered}))
+	require.NoError(t, os.WriteFile(recovered, body, 0o600))
+	require.NoError(
+		t,
+		RunMigrationsWithOptions("sqlite3://unused", MigrationOptions{SQLiteDBPath: recovered}),
+	)
 	version, dirty, ok = CachedMigrationVersion()
 	require.True(t, ok)
-	require.Equal(t, uint(3038), version)
+	require.Equal(t, uint(3042), version)
 	require.False(t, dirty)
 	require.Empty(t, CachedMigrationError())
 }

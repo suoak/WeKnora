@@ -1,0 +1,22 @@
+{
+  "source_sha": "b9e163df0c64de76b9ee61cc758448d31da3ce17",
+  "platform": "windows",
+  "counts": {
+    "pass": 324,
+    "skip": 2
+  },
+  "new_fallback_cases": [
+    "TestPersonalBlocksFallbackRequiresSourcePermissionAndCompleteBody/allowed",
+    "TestPersonalBlocksFallbackRequiresSourcePermissionAndCompleteBody/export_denied",
+    "TestPersonalBlocksFallbackRequiresSourcePermissionAndCompleteBody/policy_scope_missing",
+    "TestPersonalBlocksFallbackRequiresSourcePermissionAndCompleteBody/policy_field_missing",
+    "TestPersonalBlocksFallbackRequiresSourcePermissionAndCompleteBody/permission_revoked",
+    "TestPersonalBlocksFallbackRequiresSourcePermissionAndCompleteBody/changed_revision",
+    "TestPersonalBlocksFallbackRequiresSourcePermissionAndCompleteBody/image",
+    "TestPersonalBlocksFallbackRequiresSourcePermissionAndCompleteBody/unknown_inline",
+    "TestPersonalBlocksFallbackRequiresSourcePermissionAndCompleteBody/incomplete_page",
+    "TestPersonalBlocksFallbackRequiresSourcePermissionAndCompleteBody/cycle",
+    "TestPersonalBlocksFallbackRequiresSourcePermissionAndCompleteBody/transient_export",
+    "TestPersonalBlocksFallbackRequiresSourcePermissionAndCompleteBody"
+  ]
+}

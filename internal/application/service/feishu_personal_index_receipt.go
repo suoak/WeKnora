@@ -319,6 +319,11 @@ func (p *PersonalRecovery) reconcileFirstCreatePublic(
 	m *types.FeishuPersonalImport,
 	a *types.FeishuPersonalAttempt,
 ) error {
+	var err error
+	ctx, err = p.privateWorkerContext(ctx, m, a)
+	if err != nil {
+		return err
+	}
 	ks := p.service.knowledge.(*knowledgeService)
 	dispatch := ks.repo.(interfaces.KnowledgeDispatchRepository)
 	return dispatch.WithKnowledgeDispatchLock(ctx, a.LogicalKnowledgeID, func(ctx context.Context) error {

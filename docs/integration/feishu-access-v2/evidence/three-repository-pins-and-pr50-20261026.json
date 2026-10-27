@@ -1,0 +1,79 @@
+{
+  "larksuite/cli": {
+    "status": "PINNED",
+    "branch": "main",
+    "sha": "017b19a793ad71794a02887ede04757f3d82e10d",
+    "committed_at": "2026-10-14T03:04:42Z"
+  },
+  "Tencent/WeKnora": {
+    "status": "PINNED",
+    "branch": "main",
+    "sha": "97d7f0ad7b2b9fbd8bd717d737b9e79be6ace4c9",
+    "committed_at": "2026-10-26T07:21:09Z"
+  },
+  "suoak/WeKnora": {
+    "status": "PINNED",
+    "branch": "main",
+    "sha": "080f7bb6a01fb6293344b438f1dd74ecb7a681ae",
+    "committed_at": "2026-10-26T11:29:35Z"
+  },
+  "knowhub_pr50": {
+    "baseRefName": "main",
+    "headRefName": "fix/feishu-p2-parser-asset-refusal-20261025",
+    "mergeCommit": {
+      "oid": "080f7bb6a01fb6293344b438f1dd74ecb7a681ae"
+    },
+    "mergedAt": "2026-10-26T11:29:36Z",
+    "number": 50,
+    "state": "MERGED",
+    "url": "https://github.com/suoak/WeKnora/pull/50"
+  },
+  "v2_start_sha": "744dbc47c8c31a77a3d5dce8a8ef9d8badaa3737",
+  "candidate_sha": "b7fd8ea6cc9f42232e580fa16f25b49b3430f7f8",
+  "merge_base": "ce699bb5065ebaaaa5e180c589e80e5f2aa9f334",
+  "origin_main_changes_outside_v2_overlap": [],
+  "overlap_files": [
+    "docs/FEISHU_P2_ASSET_DESIGN_20261025.md",
+    "internal/application/service/feishu_legacy_staging.go",
+    "internal/infrastructure/docparser/anydoc_candidate_test.go",
+    "internal/infrastructure/docparser/anydoc_reader.go",
+    "internal/models/vlm/remote_api.go"
+  ],
+  "nonoverlap_main_files": [
+    ".github/workflows/production-incident-regressions.yml",
+    ".github/workflows/wiki-recovery-regressions.yml",
+    "cmd/wiki-regenerate/main.go",
+    "docs/qa/production-wiki-recovery-regressions-20261026.md",
+    "docs/qa/wiki-history-regeneration-20261026.md",
+    "internal/application/repository/wiki_backlinks.go",
+    "internal/application/repository/wiki_page_dependencies.go",
+    "internal/application/repository/wiki_regeneration.go",
+    "internal/application/service/sourceid_jit.go",
+    "internal/application/service/sourceid_jit_username_postgres_test.go",
+    "internal/application/service/sourceid_jit_username_test.go",
+    "internal/application/service/wiki_generation_lease.go",
+    "internal/application/service/wiki_history_snapshot_test.go",
+    "internal/application/service/wiki_ingest.go",
+    "internal/application/service/wiki_ingest_batch.go",
+    "internal/application/service/wiki_page.go",
+    "internal/application/service/wiki_recovery_regression_test.go",
+    "internal/application/service/wiki_snapshot.go",
+    "internal/common/wikilock/lock.go",
+    "internal/common/wikilock/lock_test.go",
+    "internal/types/wiki_page.go"
+  ],
+  "main_merged_into_v2": false,
+  "pr50_preservation_commit": "8a8fbe522",
+  "pr50_parser_files_match_main": true,
+  "delivery_recheck": {
+    "at_beijing": "2026-10-26T22:27:00+08:00",
+    "cli_main": "017b19a793ad71794a02887ede04757f3d82e10d",
+    "knowhub_main": "080f7bb6a01fb6293344b438f1dd74ecb7a681ae",
+    "tencent_main": "22a331a2eac6d9ca367cd2fd2cf295cf42c4526e",
+    "tencent_added_commits": [
+      "18e22de6b",
+      "22a331a2e"
+    ],
+    "feishu_connector_changed_since_initial_pin": false
+  }
+}

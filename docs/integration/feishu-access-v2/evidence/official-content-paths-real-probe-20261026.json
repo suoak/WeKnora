@@ -1,0 +1,343 @@
+{
+  "at": "2026-10-26T12:26:19.421254804Z",
+  "status": "DIAGNOSTIC_ONLY",
+  "diagnostic_source_sha": "b7fd8ea6cc9f42232e580fa16f25b49b3430f7f8",
+  "knowledge_writes": false,
+  "sync_control_writes": false,
+  "application_token_fallback": false,
+  "documents": [
+    {
+      "import_hash": "fdb0268083e0",
+      "knowledge_hash": "070925df4104",
+      "same_personal_identity": true,
+      "metadata_readable": true,
+      "effective_personal_permissions": {
+        "copy": {
+          "allowed": true,
+          "verified": true
+        },
+        "export": {
+          "allowed": true,
+          "verified": true
+        },
+        "view": {
+          "allowed": true,
+          "verified": true
+        }
+      },
+      "content_path_comparison": {
+        "block_count": 24,
+        "block_types": {
+          "1": 1,
+          "14": 4,
+          "2": 16,
+          "34": 1,
+          "5": 2
+        },
+        "blocks_listing_terminal": true,
+        "complete_import_proven": false,
+        "docs_ai_fetch": [
+          {
+            "content_bytes": 5009,
+            "content_digest": "041ec8c2d730",
+            "duration_ms": 558,
+            "format": "xml",
+            "has_attachment_markup": false,
+            "has_image_markup": false,
+            "has_table_markup": false,
+            "nonempty": true,
+            "revision_present": true
+          },
+          {
+            "content_bytes": 3621,
+            "content_digest": "f5f2d6527094",
+            "duration_ms": 495,
+            "format": "markdown",
+            "has_attachment_markup": false,
+            "has_image_markup": false,
+            "has_table_markup": false,
+            "nonempty": true,
+            "revision_present": true
+          }
+        ],
+        "effective_permissions": {
+          "view": true,
+          "export": true,
+          "copy": true
+        },
+        "knowledge_writes": false,
+        "permissions_still_allowed": true,
+        "source_revision_stable": true,
+        "status": "CAPABILITY_PROBED_NOT_PUBLISHED"
+      },
+      "export_bytes": 36946,
+      "export_sha256_prefix": "0c32b997d2a7",
+      "export_succeeded": true,
+      "blocks_fallback_used": false,
+      "duration_ms": 10935,
+      "requests": [
+        {
+          "operation": "get_wiki_node",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "df371a4cb4cb"
+        },
+        {
+          "operation": "resolve_personal_resource",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "91f5860949de"
+        },
+        {
+          "operation": "check_personal_view_permission",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "084356258c1f"
+        },
+        {
+          "operation": "check_personal_export_permission",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "6a88755cfe3b"
+        },
+        {
+          "operation": "check_personal_copy_permission",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "0d5274af4077"
+        },
+        {
+          "operation": "check_personal_view_permission",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "c7c909bf34f4"
+        },
+        {
+          "operation": "check_personal_export_permission",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "15a2e7bdcd4d"
+        },
+        {
+          "operation": "check_personal_copy_permission",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "2cb93a0425c8"
+        },
+        {
+          "operation": "fetch_personal_docx_content",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "e256c910ac8e"
+        },
+        {
+          "operation": "fetch_personal_docx_content",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "c160cd441978"
+        },
+        {
+          "operation": "inspect_personal_docx_blocks",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "e00ab03b4ff8"
+        },
+        {
+          "operation": "resolve_personal_resource",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "00f0120f70e5"
+        },
+        {
+          "operation": "check_personal_view_permission",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "c29239130a84"
+        },
+        {
+          "operation": "check_personal_export_permission",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "3f8820f58c87"
+        },
+        {
+          "operation": "check_personal_copy_permission",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "f0ff7e2f12c6"
+        },
+        {
+          "operation": "get_export_policy",
+          "category": "user_scope_missing",
+          "http_status": 400,
+          "code": 99991679,
+          "request_id_hash": "dd1a88e9bf4f",
+          "required_scopes": [
+            "drive:drive",
+            "drive:drive:readonly",
+            "drive:file",
+            "docs:doc",
+            "sheets:spreadsheet",
+            "wiki:wiki",
+            "bitable:bitable",
+            "docs:permission.setting:read"
+          ]
+        },
+        {
+          "operation": "create_export_task",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "96b70af21263"
+        },
+        {
+          "operation": "get_export_task_status",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "7dd6c23a80ca"
+        },
+        {
+          "operation": "get_export_task_status",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "9abe8a9ddec9"
+        },
+        {
+          "operation": "download_export_file",
+          "category": "",
+          "http_status": 206,
+          "code": 0,
+          "request_id_hash": "e6bdd179f167"
+        }
+      ]
+    },
+    {
+      "import_hash": "675195cf454e",
+      "knowledge_hash": "",
+      "same_personal_identity": true,
+      "metadata_readable": true,
+      "effective_personal_permissions": {
+        "copy": {
+          "allowed": false,
+          "verified": true
+        },
+        "export": {
+          "allowed": false,
+          "verified": true
+        },
+        "view": {
+          "allowed": true,
+          "verified": true
+        }
+      },
+      "export_succeeded": false,
+      "blocks_fallback_used": false,
+      "duration_ms": 4769,
+      "error": {
+        "operation": "create_export_task",
+        "category": "permission",
+        "http_status": 403,
+        "code": 1069902
+      },
+      "requests": [
+        {
+          "operation": "get_wiki_node",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "358ac11e804d"
+        },
+        {
+          "operation": "resolve_personal_resource",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "854f8e2d2483"
+        },
+        {
+          "operation": "check_personal_view_permission",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "ff2b22dc16f2"
+        },
+        {
+          "operation": "check_personal_export_permission",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "6796b232e496"
+        },
+        {
+          "operation": "check_personal_copy_permission",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "fc0851917a1a"
+        },
+        {
+          "operation": "get_export_policy",
+          "category": "user_scope_missing",
+          "http_status": 400,
+          "code": 99991679,
+          "request_id_hash": "7b3779eafb58",
+          "required_scopes": [
+            "drive:drive",
+            "drive:drive:readonly",
+            "drive:file",
+            "docs:doc",
+            "sheets:spreadsheet",
+            "wiki:wiki",
+            "bitable:bitable",
+            "docs:permission.setting:read"
+          ]
+        },
+        {
+          "operation": "create_export_task",
+          "category": "permission",
+          "http_status": 403,
+          "code": 1069902,
+          "request_id_hash": "d4985b167d73"
+        },
+        {
+          "operation": "check_personal_view_permission",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "e051dac89a13"
+        },
+        {
+          "operation": "check_personal_export_permission",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "4a941d03e725"
+        },
+        {
+          "operation": "check_personal_copy_permission",
+          "category": "",
+          "http_status": 200,
+          "code": 0,
+          "request_id_hash": "a7a385394ab6"
+        }
+      ]
+    }
+  ]
+}

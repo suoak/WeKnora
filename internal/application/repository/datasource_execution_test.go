@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -56,6 +57,34 @@ func syncExecutionSuite(t *testing.T, dialect string) {
 			require.False(t, ok)
 		}
 	}
+	t.Run("full_reconciliation_rechecks_publication_before_releasing_hold", func(t *testing.T) {
+		require.NoError(t, db.AutoMigrate(&types.FeishuLegacyResource{}))
+		ds := makeDS()
+		require.NoError(t, db.Model(ds).Update("legacy_access_state", "hold").Error)
+		log := admit(ds)
+		e := claim(ds, log)
+		denied := errors.New("reconciliation authority expired")
+		full := types.WithLegacyFullReconciliation(types.WithFeishuSourceCommitGuard(ctx,
+			func(*gorm.DB) error { return denied }))
+		log.Status = types.SyncLogStatusSuccess
+		written, err := r.WriteExecution(full, e, ds, log, true)
+		require.ErrorIs(t, err, denied)
+		require.False(t, written)
+		var stored types.DataSource
+		require.NoError(t, db.First(&stored, "id = ?", ds.ID).Error)
+		require.Equal(t, "hold", stored.LegacyAccessState)
+		var run types.SyncLog
+		require.NoError(t, db.First(&run, "id = ?", log.ID).Error)
+		require.Equal(t, types.SyncLogStatusRunning, run.Status)
+		require.True(t, run.ExecutionClaimed)
+		full = types.WithLegacyFullReconciliation(types.WithFeishuSourceCommitGuard(ctx,
+			func(*gorm.DB) error { return nil }))
+		written, err = r.WriteExecution(full, e, ds, log, true)
+		require.NoError(t, err)
+		require.True(t, written)
+		require.NoError(t, db.First(&stored, "id = ?", ds.ID).Error)
+		require.Equal(t, "active", stored.LegacyAccessState)
+	})
 	t.Run("admission_20", func(t *testing.T) {
 		ds := makeDS()
 		results := make(chan error, 20)

@@ -12,7 +12,11 @@ func configurePersonalRecovery(
 	personal *service.FeishuPersonalService,
 	knowledge interfaces.KnowledgeService,
 	shares interfaces.KBShareService,
+	dataSources interfaces.DataSourceService,
 ) error {
+	if ds, ok := dataSources.(*service.DataSourceService); ok {
+		ds.SetFeishuIdentityService(personal)
+	}
 	if (os.Getenv(
 		"FEISHU_APPLICATION_GRANT_TEST_ONLY",
 	) == "1" ||

@@ -67,6 +67,9 @@ func LegacyReadGuardsEnabled(db *gorm.DB) bool {
 // Until derived provenance and mixed document ACLs are reliable, an uncertain
 // legacy source closes the whole affected KB. No body is released then filtered.
 func CheckLegacySourceRead(db *gorm.DB, knowledgeID, kbID string) error {
+	if err := CheckPrivateKBRead(db, knowledgeID, kbID); err != nil {
+		return err
+	}
 	if !LegacyReadGuardsEnabled(db) {
 		return nil
 	}
@@ -134,6 +137,14 @@ func WithLegacyKBAdminMetadata(ctx context.Context, kb string) context.Context {
 	return context.WithValue(ctx, legacyKBAdminMetadataKey{}, kb)
 }
 func (k *KnowledgeBase) AfterFind(tx *gorm.DB) error {
+	owner, err := PrivateKBOwner(tx, k.ID)
+	if err != nil {
+		return err
+	}
+	k.PrivateOwnerID = owner
+	if err := CheckPrivateKBRead(tx, "", k.ID); err != nil {
+		return err
+	}
 	if kb, ok := tx.Statement.Context.Value(legacyKBAdminMetadataKey{}).(string); ok && kb == k.ID {
 		return nil
 	}

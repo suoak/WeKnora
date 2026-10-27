@@ -37,7 +37,9 @@ type feishuSettingRepo struct {
 func (r *feishuSettingRepo) Get(_ context.Context, key string) (*types.SystemSetting, error) {
 	return r.rows[key], nil
 }
+
 func (r *feishuSettingRepo) List(context.Context) ([]*types.SystemSetting, error) { return nil, nil }
+
 func (r *feishuSettingRepo) Upsert(_ context.Context, row *types.SystemSetting) error {
 	r.rows[row.Key] = row
 	return nil
@@ -315,14 +317,14 @@ func TestFeishuImportPermissionIdentityDedupeAndFailedResyncPreservesKnowledge(t
 		requests.Add(1)
 		if r.Header.Get("Authorization") != "Bearer access-A" {
 			w.WriteHeader(403)
-			_, _ = io.WriteString(w, `{"code":99991672}`)
+			_, _ = io.WriteString(w, `{"code":1069902}`)
 			return
 		}
 		switch r.URL.Path {
 		case "/open-apis/wiki/v2/spaces/get_node":
 			if denyWiki {
 				w.WriteHeader(403)
-				_, _ = io.WriteString(w, `{"code":99991672}`)
+				_, _ = io.WriteString(w, `{"code":1069902}`)
 				return
 			}
 			_, _ = io.WriteString(
@@ -340,7 +342,7 @@ func TestFeishuImportPermissionIdentityDedupeAndFailedResyncPreservesKnowledge(t
 		case "/open-apis/drive/v1/files/real/download":
 			if denyDownload {
 				w.WriteHeader(403)
-				_, _ = io.WriteString(w, `{"code":99991672}`)
+				_, _ = io.WriteString(w, `{"code":1069902}`)
 			} else {
 				_, _ = io.WriteString(w, "%PDF-1.7 test")
 			}

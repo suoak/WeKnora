@@ -1,0 +1,38 @@
+{
+  "status": "RUNNING",
+  "frontend_source_sha": "6c6da3a7149f39d116325b37c690f6df870136fd",
+  "frontend_image": "sha256:0233a312597f6896aa25122ad03055f747159e02b1b05eecac75c22a48d1874a",
+  "qualification": "source_pinned_local_frontend_bundle_ci_verified",
+  "backend_source_sha": "56fc87ee576098cd326ce4331189edbf0c0e2f63",
+  "backend_containers_preserved": true,
+  "backend_environment_preserved": true,
+  "checks": [
+    {
+      "host": "127.0.0.1",
+      "port": 28481,
+      "path": "/",
+      "status": 200
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 28580,
+      "path": "/",
+      "status": 200
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 28581,
+      "path": "/health",
+      "status": 200
+    },
+    {
+      "host": "172.30.232.42",
+      "port": 80,
+      "path": "/",
+      "status": 200
+    }
+  ],
+  "project": "knowhub-feishu-v2-d6e99d894d3a",
+  "database_writes": false,
+  "sync_locks_modified": false
+}

@@ -7,12 +7,14 @@ import (
 	"gorm.io/gorm"
 )
 
-type legacyReadScopeKey struct{}
-type legacyReadScope struct {
-	mu       sync.Mutex
-	kb       map[string]bool
-	excluded bool
-}
+type (
+	legacyReadScopeKey struct{}
+	legacyReadScope    struct {
+		mu       sync.Mutex
+		kb       map[string]bool
+		excluded bool
+	}
+)
 
 func RecordLegacyReadExclusion(ctx context.Context) {
 	if scope, ok := ctx.Value(legacyReadScopeKey{}).(*legacyReadScope); ok {
@@ -21,6 +23,7 @@ func RecordLegacyReadExclusion(ctx context.Context) {
 		scope.mu.Unlock()
 	}
 }
+
 func LegacyReadPartial(ctx context.Context) bool {
 	if scope, ok := ctx.Value(legacyReadScopeKey{}).(*legacyReadScope); ok {
 		scope.mu.Lock()
@@ -48,6 +51,7 @@ func DiscardLegacyReadAttempt(ctx context.Context) {
 func WithLegacyReadScope(ctx context.Context) context.Context {
 	return context.WithValue(ctx, legacyReadScopeKey{}, &legacyReadScope{kb: map[string]bool{}})
 }
+
 func recordLegacyRead(ctx context.Context, kb string) {
 	if scope, ok := ctx.Value(legacyReadScopeKey{}).(*legacyReadScope); ok && kb != "" {
 		scope.mu.Lock()
@@ -59,6 +63,7 @@ func recordLegacyRead(ctx context.Context, kb string) {
 // RecordLegacyCandidateRead records provenance of an already-authorized real
 // candidate. It confers no permission and accepts no client identity fields.
 func RecordLegacyCandidateRead(ctx context.Context, kb string) { recordLegacyRead(ctx, kb) }
+
 func legacyReadKBs(ctx context.Context) []string {
 	scope, ok := ctx.Value(legacyReadScopeKey{}).(*legacyReadScope)
 	if !ok {
@@ -76,10 +81,18 @@ func legacyReadKBs(ctx context.Context) []string {
 // Recheck every source KB actually used by this request, including public KBs
 // owned by another tenant. This never widens the original read authorization.
 func CheckLegacyReadScope(db *gorm.DB) error {
-	if !LegacyReadGuardsEnabled(db) {
+	if !LegacyReadGuardsEnabled(db) && !PrivateKBGuardsEnabled(db) {
 		return nil
 	}
 	ids := legacyReadKBs(db.Statement.Context)
+	for _, kb := range ids {
+		if err := CheckPrivateKBRead(db, "", kb); err != nil {
+			return err
+		}
+	}
+	if !LegacyReadGuardsEnabled(db) {
+		return nil
+	}
 	if len(ids) == 0 {
 		return nil
 	}

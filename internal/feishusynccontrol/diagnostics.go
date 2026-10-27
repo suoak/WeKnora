@@ -41,7 +41,8 @@ func failureClass(err error) string {
 	}
 	for _, code := range []string{
 		"POLICY_MISMATCH", "WORKER_LOST", "CONSUMER_LOST", "UNREGISTERED_CONSUMER",
-		"CONSUMERS_NOT_READY", "WORKER_ID_CONFLICT", "TRIPPED", "INCARNATION_CONFLICT",
+		"CONSUMERS_NOT_READY", "WORKER_ID_CONFLICT", "TRIPPED", "ADMITTED_INCARNATION_CONFLICT",
+		"INCARNATION_CONFLICT", "CONSUMER_START_TIMEOUT",
 	} {
 		if err != nil && strings.Contains(err.Error(), code) {
 			return strings.ToLower(code)

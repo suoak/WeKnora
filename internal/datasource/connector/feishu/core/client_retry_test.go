@@ -192,7 +192,7 @@ func TestNoRetryOnPermissionError(t *testing.T) {
 	var attempts int
 	ts, cfg := retryTestServer("/target", func(w http.ResponseWriter, _ *http.Request) {
 		attempts++
-		writeJSON(w, ApiResponse{Code: 99991672, Msg: "permission denied"})
+		writeJSON(w, ApiResponse{Code: 1069902, Msg: "permission denied"})
 	})
 	defer ts.Close()
 

@@ -50,11 +50,25 @@ var ErrNotReady = errors.New("feishu controller not ready")
 // Event is content-free evidence; Audit must deliver it to the configured alert
 // sink or return an error. Log-only wiring is not production alert verification.
 type Event struct {
+	StepID      string `json:",omitempty"`
+	Incarnation string `json:",omitempty"`
 	Kind        string
 	Reason      string
 	WorkerID    string
 	Fenced      bool
 	QueuePaused bool
+	ProbeStage  string `json:",omitempty"`
+	ElapsedMS   int64  `json:",omitempty"`
+	ctx         context.Context
+}
+
+// Context carries the bounded control operation to its audit sink. Standalone
+// diagnostic events retain the sink's existing fallback timeout.
+func (e Event) Context() context.Context {
+	if e.ctx != nil {
+		return e.ctx
+	}
+	return context.Background()
 }
 
 // Controller validates inventory/telemetry and executes an idempotent stop loop.
@@ -76,6 +90,22 @@ type Controller struct {
 	admitted     bool
 	lastEvent    string
 	lastAlertAck time.Time
+	stepStarted  time.Time
+	probeStage   string
+	Transport    *ControlTransport
+	Observe      func(StepTiming)
+	timings      StepTiming
+}
+
+func (c *Controller) audit(ctx context.Context, event Event) error {
+	event.StepID, event.Incarnation = c.timings.ID, c.incarnation
+	event.ctx = ctx
+	if err := c.Audit(event); err != nil {
+		return err
+	}
+	// A custom sink may ignore cancellation. Never proceed to a new probe or
+	// grant a permit after its acknowledged audit has exhausted this step.
+	return ctx.Err()
 }
 
 // New preserves strict explicit-inventory mode. Automatic mode permits all or
@@ -142,6 +172,11 @@ var register = redis.NewScript(`
 local t=redis.call('TIME');local now=t[1]*1000+math.floor(t[2]/1000)
 local old=redis.call('HGET',KEYS[1],ARGV[1]);local alive=redis.call('ZSCORE',KEYS[2],ARGV[1])
 if old and old~=ARGV[2] and alive and tonumber(alive)>now then return redis.error_reply('WORKER_ID_CONFLICT') end
+local admitted=redis.call('HGET',KEYS[4],ARGV[1])
+if admitted and admitted~=ARGV[2] then return redis.error_reply('ADMITTED_INCARNATION_CONFLICT') end
+if old~=ARGV[2] then
+ redis.call('ZADD',KEYS[3],now+30000,ARGV[1]);redis.call('INCR',KEYS[5])
+end
 redis.call('HSET',KEYS[1],ARGV[1],ARGV[2]);redis.call('ZADD',KEYS[2],now+2000,ARGV[1]);return now`)
 
 var permit = redis.NewScript(`
@@ -166,13 +201,23 @@ redis.call('SET',KEYS[4],ARGV[2],'PX',750);return 1`)
 // Step registers this process, validates fresh metrics and atomically grants a
 // 750ms permit. A 10s closed bootstrap window allows expected workers to join;
 // it never resumes sync or bypasses outbound gating during startup.
-func (c *Controller) Step(ctx context.Context) error {
+func (c *Controller) Step(ctx context.Context) (result error) {
+	requested := time.Now().UTC()
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.stepStarted = time.Now()
+	c.beginTiming(ctx)
+	c.timings.Requested = requested
+	c.timings.LockWaitNS = c.timings.Started.Sub(requested).Nanoseconds()
+	defer func() { c.finishTiming(result) }()
+	defer func() { c.probeStage = "" }()
 	if c.departed {
 		return ErrNotReady
 	}
-	now, err := register.Run(ctx, c.Client, []string{c.prefix + "workers", c.prefix + "leases"},
+	now, err := register.Run(ctx, c.Client, []string{
+		c.prefix + "workers", c.prefix + "leases", c.prefix + "joining",
+		c.prefix + "admitted", c.prefix + "membership_revision",
+	},
 		c.Config.WorkerID, c.fingerprint+":"+c.incarnation).Int64()
 	if err != nil {
 		return c.freeze(ctx, "registry_"+failureClass(err), true)
@@ -183,6 +228,7 @@ func (c *Controller) Step(ctx context.Context) error {
 	if c.Config.Automatic {
 		return c.automaticStep(ctx)
 	}
+	c.stage(ctx, "metrics")
 	raw, err := c.Client.Get(ctx, c.MetricsKey()).Result()
 	if err != nil {
 		return c.freeze(ctx, "metrics_missing", c.admitted || time.Since(c.started) > 10*time.Second)
@@ -198,8 +244,13 @@ func (c *Controller) Step(ctx context.Context) error {
 		return c.freeze(ctx, "metrics_unhealthy_or_unknown", true)
 	}
 	if time.Since(c.lastAlertAck) > time.Second {
-		heartbeat := Event{Kind: "feishu_safety_heartbeat", Reason: "controller_alive", WorkerID: c.Config.WorkerID}
-		if err := c.Audit(heartbeat); err != nil {
+		heartbeat := Event{
+			Kind:     "feishu_safety_heartbeat",
+			Reason:   "controller_alive",
+			WorkerID: c.Config.WorkerID,
+		}
+		c.stage(ctx, "audit")
+		if err := c.audit(ctx, heartbeat); err != nil {
 			return c.freeze(ctx, "alert_receiver_unavailable", true)
 		}
 		c.lastAlertAck = time.Now()
@@ -208,6 +259,7 @@ func (c *Controller) Step(ctx context.Context) error {
 	for _, id := range c.Config.ExpectedWorkers {
 		args = append(args, id)
 	}
+	c.stage(ctx, "permit")
 	err = permit.Run(ctx, c.Client, []string{
 		c.prefix + "workers", c.prefix + "leases", c.MetricsKey(),
 		c.Guard.PermitKey(), c.prefix + "trip",
@@ -222,14 +274,20 @@ func (c *Controller) Step(ctx context.Context) error {
 }
 
 func (c *Controller) freeze(ctx context.Context, reason string, latch bool) error {
+	failedStage := c.probeStage
+	elapsedMS := int64(0)
+	if !c.stepStarted.IsZero() && c.probeStage != "" {
+		elapsedMS = time.Since(c.stepStarted).Milliseconds()
+	}
 	// Monitoring timeouts must not cancel the independent stop/fencing work.
 	// Outbound permit expires while a slower dependency stop is in progress.
 	stopCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
+	c.stage(stopCtx, "stop")
 	ctx = stopCtx
 	var failures []error
 	if latch {
-		failures = append(failures, c.Guard.Trip(ctx, reason))
+		failures = append(failures, c.Guard.TripUsing(ctx, c.Client, reason))
 	} else {
 		failures = append(failures, c.Client.Del(ctx, c.Guard.PermitKey()).Err())
 	}
@@ -239,8 +297,10 @@ func (c *Controller) freeze(ctx context.Context, reason string, latch bool) erro
 	fenced := c.Stop(ctx)
 	failures = append(failures, fenced)
 	event := Event{
+		StepID: c.timings.ID, Incarnation: c.incarnation,
 		Kind: "feishu_safety_stop", Reason: reason, WorkerID: c.Config.WorkerID,
 		Fenced: fenced == nil, QueuePaused: paused == nil,
+		ProbeStage: failedStage, ElapsedMS: elapsedMS,
 	}
 	// Repeated unsuccessful actions are reported, never misrepresented as done.
 	if c.lastEvent != reason || paused != nil || fenced != nil {
@@ -249,9 +309,11 @@ func (c *Controller) freeze(ctx context.Context, reason string, latch bool) erro
 			Approx: true, Values: map[string]any{
 				"event": event.Kind, "reason": event.Reason,
 				"worker_id": event.WorkerID, "fenced": event.Fenced, "queue_paused": event.QueuePaused,
+				"probe_stage": event.ProbeStage, "step_elapsed_ms": event.ElapsedMS,
+				"step_id": event.StepID, "incarnation": event.Incarnation,
 			},
 		}).Err()
-		alert := c.Audit(event)
+		alert := c.audit(ctx, event)
 		failures = append(failures, record, alert)
 		if record == nil && alert == nil {
 			c.lastEvent = reason

@@ -1,0 +1,46 @@
+{
+  "knowledge_writes": false,
+  "operation": "prepare_reconciliation",
+  "policies": [
+    {
+      "audience_hash": "a5303ede2f9dcfb151345f46132776c573670cf3c320fd0b15af89c1fcd5fc26",
+      "authorization_ref": "user:report25:approved-membership-and-held-source-reconciliation",
+      "created_at": "2026-10-26T22:56:58.521048573+08:00",
+      "expires_at": "2026-10-27T22:56:58.514049321+08:00",
+      "initial_approval_hash": "1060c509b717",
+      "operator": "isolated-deployment-operator",
+      "policy_hash": "2263e0ef2729",
+      "reconciliation_expires_at": "2026-10-26T23:11:58.521760147+08:00",
+      "reconciliation_log_hash": "3436921b3690",
+      "source_config_hash": "1ccf0d580ac7983a6559ad115b192aba3badde1926bf88ee8e401850bc2db7d3",
+      "source_hash": "1dcf458346ba",
+      "state": "approved"
+    },
+    {
+      "audience_hash": "a5303ede2f9dcfb151345f46132776c573670cf3c320fd0b15af89c1fcd5fc26",
+      "authorization_ref": "user:report25:approved-membership-and-held-source-reconciliation",
+      "created_at": "2026-10-26T22:56:58.568333202+08:00",
+      "expires_at": "2026-10-27T22:56:58.565455635+08:00",
+      "initial_approval_hash": "c5dcf5fa9020",
+      "operator": "isolated-deployment-operator",
+      "policy_hash": "6915e86dca4a",
+      "reconciliation_expires_at": "0001-01-01T00:00:00Z",
+      "reconciliation_log_hash": "",
+      "source_config_hash": "0b0dfbbb6124a0bee8050041ed04296553e39c009b4aa8c3b23901b09346903e",
+      "source_hash": "6d1698a6e0d9",
+      "state": "approved"
+    }
+  ],
+  "reconciliation_enqueue_requested": false,
+  "revision_approvals_rewritten": false,
+  "status": "POLICY_CHECKED",
+  "sync_control_writes": false,
+  "diagnostic_source_sha": "2607fbec7b7ee63ee66d83fb0e199f02945074fb",
+  "binary_sha256": "994182eee3fc67bdde57630dcc287cf15d74d50b449582bee39aef6a1de38cb8",
+  "first_consent_scope_regression": {
+    "status": "PASS",
+    "test_count": 1,
+    "test": "TestFeishuV2OAuthRequestsCompleteReadOnlyImportScopes",
+    "elapsed_seconds": 0.05
+  }
+}

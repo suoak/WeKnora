@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -54,14 +55,20 @@ func tripRequestFailure(caller context.Context, g *Guard, err error, embedding b
 		(errors.As(err, &networkError) && networkError.Timeout()) ||
 		((errors.Is(caller.Err(), context.DeadlineExceeded) || deadlineExpired) &&
 			!errors.Is(err, io.ErrUnexpectedEOF))
-	if !embedding && timedOut {
+	retryableHeaderFailure := phase == "headers" &&
+		(errors.Is(err, io.EOF) || errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.EPIPE))
+	if !embedding && (timedOut || retryableHeaderFailure) {
 		// Source HTTP timeouts belong to the existing connector's bounded
 		// retry/backoff. No response is accepted and no candidate is published.
 		// A healthy shared gate is required even for this local classification.
 		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer cancel()
 		if g.Check(ctx) != nil {
-			trip(g, "feishu_"+phase+"_timeout_state_unconfirmed")
+			reason := "timeout"
+			if !timedOut {
+				reason = "transient"
+			}
+			trip(g, "feishu_"+phase+"_"+reason+"_state_unconfirmed")
 		}
 		return
 	}
@@ -243,7 +250,8 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 		}
 	}
 	caller := req.Context()
-	ctx, cancel := context.WithCancel(caller)
+	ctx, cancelCause := context.WithCancelCause(caller)
+	cancel := func() { cancelCause(context.Canceled) }
 	req = req.Clone(ctx)
 	done := make(chan struct{})
 	var once sync.Once
@@ -270,7 +278,7 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 				}
 				checkCancel()
 				if err != nil {
-					cancel()
+					cancelCause(ErrClosed)
 					return
 				}
 			}
@@ -278,7 +286,14 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 	}()
 	resp, err := base.RoundTrip(req)
 	if err != nil {
+		gateCanceled := errors.Is(context.Cause(ctx), ErrClosed)
 		finish()
+		if gateCanceled {
+			if !g.localClosed.Load() {
+				trip(g, "feishu_request_permit_unconfirmed")
+			}
+			return nil, fmt.Errorf("%w: request_permit_check_failed", ErrClosed)
+		}
 		tripRequestFailure(caller, g, err, t.Embedding, "headers")
 		return nil, err
 	}

@@ -337,6 +337,10 @@ func (p *PersonalRecovery) firstCreateDispatchable(
 		intent.Revision != a.Revision {
 		return false, repository.ErrPersonalIdentity
 	}
+	ctx, err = p.privateWorkerContext(ctx, m, a)
+	if err != nil {
+		return false, err
+	}
 	var k types.Knowledge
 	if err = p.service.db.WithContext(
 		ctx,

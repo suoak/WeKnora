@@ -34,6 +34,10 @@ func WithKBTransfer(
 	taskID string,
 	create bool,
 ) (context.Context, error) {
+	if source != nil && source.PrivateOwnerID != "" &&
+		(target == nil || target.PrivateOwnerID != source.PrivateOwnerID) {
+		return ctx, ErrForbidden
+	}
 	caller := types.CallerFromContext(ctx)
 	if taskID == "" {
 		return ctx, ErrForbidden
@@ -66,6 +70,10 @@ func WithKBTransferTask(
 	taskID string,
 	create bool,
 ) (context.Context, error) {
+	if source != nil && source.PrivateOwnerID != "" &&
+		(target == nil || target.PrivateOwnerID != source.PrivateOwnerID) {
+		return ctx, ErrForbidden
+	}
 	if taskID == "" {
 		return ctx, ErrForbidden
 	}
@@ -100,13 +108,23 @@ func withTransferGrant(
 	}
 	ctx = context.WithValue(ctx, types.KBGrantsContextKey, []kbGrant{
 		{caller: caller, kbID: source.ID, tenantID: source.TenantID, permission: required, task: task},
-		{caller: caller, kbID: target.ID, tenantID: target.TenantID, permission: types.OrgRoleEditor, task: task},
+		{
+			caller:     caller,
+			kbID:       target.ID,
+			tenantID:   target.TenantID,
+			permission: types.OrgRoleEditor,
+			task:       task,
+		},
 	})
 	return context.WithValue(ctx, types.KBTransferContextKey, grant)
 }
 
 // RequireKBTransfer consumes the exact caller, operation and resource-pair grant.
-func RequireKBTransfer(ctx context.Context, source, target *types.KnowledgeBase, operation KBTransferOperation) error {
+func RequireKBTransfer(
+	ctx context.Context,
+	source, target *types.KnowledgeBase,
+	operation KBTransferOperation,
+) error {
 	grant, ok := ctx.Value(types.KBTransferContextKey).(kbTransferGrant)
 	if !ok || grant.caller != types.CallerFromContext(ctx) || grant.operation != operation {
 		return ErrForbidden
@@ -122,9 +140,13 @@ func RequireKBTransfer(ctx context.Context, source, target *types.KnowledgeBase,
 
 // CloneDestination exposes only the destination already admitted by the
 // request/worker; CopyKnowledgeBase cannot turn an empty ID into ambient write.
-func CloneDestination(ctx context.Context, sourceID string) (id string, create bool, creatorID string, err error) {
+func CloneDestination(
+	ctx context.Context,
+	sourceID string,
+) (id string, create bool, creatorID string, err error) {
 	g, ok := ctx.Value(types.KBTransferContextKey).(kbTransferGrant)
-	if !ok || g.caller != types.CallerFromContext(ctx) || g.operation != KBTransferClone || g.source != sourceID {
+	if !ok || g.caller != types.CallerFromContext(ctx) || g.operation != KBTransferClone ||
+		g.source != sourceID {
 		return "", false, "", ErrForbidden
 	}
 	return g.target, g.create, g.creatorID, nil
@@ -207,7 +229,9 @@ func ValidateKBTransferCompatibility(
 		return fmt.Errorf("unknown move mode: %s", mode)
 	}
 	if (operation == KBTransferClone || mode == "reuse_vectors") && !source.SharesStoreWith(target) {
-		return fmt.Errorf("source and target knowledge bases use different vector stores; use reparse mode for moves")
+		return fmt.Errorf(
+			"source and target knowledge bases use different vector stores; use reparse mode for moves",
+		)
 	}
 	// A move retains file paths too, so resolving them through another storage
 	// instance would make the document unreadable, even when vectors are reparsed.

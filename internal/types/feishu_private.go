@@ -1,0 +1,153 @@
+package types
+
+import (
+	"context"
+	"errors"
+	"regexp"
+
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+)
+
+// ErrPrivateKnowledgeBase denies access outside a private KB's persisted owner.
+var ErrPrivateKnowledgeBase = errors.New("private_knowledge_base_forbidden")
+
+type privateKBCreationKey struct{}
+
+// WithPrivateKBCreation requests an atomic owner marker for a newly created KB.
+func WithPrivateKBCreation(ctx context.Context, owner string) context.Context {
+	return context.WithValue(ctx, privateKBCreationKey{}, owner)
+}
+
+// PrivateKBCreationOwner reads the internal atomic-creation request.
+func PrivateKBCreationOwner(ctx context.Context) string {
+	owner, _ := ctx.Value(privateKBCreationKey{}).(string)
+	return owner
+}
+
+// PrivateKBReadUser returns a consistent authenticated human identity. Other
+// principal types and contradictory caller contexts cannot inherit its access.
+func PrivateKBReadUser(ctx context.Context) string {
+	user, ok := UserIDFromContext(ctx)
+	if !ok || IsSyntheticUserID(user) || CallerFromContext(ctx).UserID != user {
+		return ""
+	}
+	principal, ok := PrincipalFromContext(ctx)
+	if !ok || principal.Type != PrincipalWebUser || principal.ID != user {
+		return ""
+	}
+	return user
+}
+
+const privateKBGuard = "knowhub.private_kb_guard"
+
+type privateKBPlugin struct{}
+
+var privateKBTableExpression = regexp.MustCompile(
+	"(?i)^[\"`]?([a-z][a-z0-9_]*)[\"`]?(?:\\s+(?:AS\\s+)?[\"`]?([a-z][a-z0-9_]*)[\"`]?)?$",
+)
+
+func (privateKBPlugin) Name() string { return privateKBGuard }
+func (privateKBPlugin) Initialize(db *gorm.DB) error {
+	filter := func(tx *gorm.DB) {
+		if tx.Statement == nil {
+			return
+		}
+		table := tx.Statement.Table
+		base := table
+		if expression := tx.Statement.TableExpr; expression != nil {
+			if parts := privateKBTableExpression.FindStringSubmatch(expression.SQL); parts != nil {
+				base, table = parts[1], parts[1]
+				if parts[2] != "" {
+					table = parts[2]
+				}
+			}
+		}
+		column := "knowledge_base_id"
+		switch base {
+		case "knowledge_bases":
+			column = "id"
+		case "knowledges",
+			"chunks",
+			"embeddings",
+			"wiki_pages",
+			"wiki_page_revisions",
+			"wiki_folders",
+			"wiki_page_issues":
+		default:
+			return
+		}
+		user := PrivateKBReadUser(tx.Statement.Context)
+		tx.Statement.AddClause(
+			clause.Where{
+				Exprs: []clause.Expression{
+					clause.Expr{
+						SQL: "NOT EXISTS (SELECT 1 FROM feishu_private_kbs fp " +
+							"WHERE fp.kb_id = ? AND fp.owner_id <> ?)",
+						Vars: []any{clause.Column{Table: table, Name: column}, user},
+					},
+				},
+			},
+		)
+	}
+	if err := db.Callback().Query().Before("gorm:query").Register(privateKBGuard, filter); err != nil {
+		return err
+	}
+	return db.Callback().Row().Before("gorm:row").Register(privateKBGuard, filter)
+}
+
+// EnablePrivateKBGuards installs privacy checks that remain active with V2 disabled.
+func EnablePrivateKBGuards(db *gorm.DB) *gorm.DB {
+	if _, ok := db.Plugins[privateKBGuard]; !ok {
+		if err := db.Use(privateKBPlugin{}); err != nil {
+			panic("cannot install private KB guards")
+		}
+	}
+	return db.Session(&gorm.Session{NewDB: true})
+}
+
+// PrivateKBGuardsEnabled reports whether persisted privacy state is protected.
+func PrivateKBGuardsEnabled(db *gorm.DB) bool {
+	if db == nil || db.Config == nil {
+		return false
+	}
+	_, ok := db.Plugins[privateKBGuard]
+	return ok
+}
+
+// PrivateKBOwner loads the persisted owner; an ordinary KB has no private owner.
+func PrivateKBOwner(db *gorm.DB, kb string) (string, error) {
+	if !PrivateKBGuardsEnabled(db) {
+		return "", nil
+	}
+	var owner string
+	err := db.Raw("SELECT owner_id FROM feishu_private_kbs WHERE kb_id=?", kb).Scan(&owner).Error
+	return owner, err
+}
+
+// CheckPrivateKBRead rejects callers other than the persisted human owner.
+func CheckPrivateKBRead(db *gorm.DB, knowledge, kb string) error {
+	if _, ok := db.Plugins[privateKBGuard]; !ok {
+		return nil
+	}
+	if kb == "" && knowledge != "" {
+		if err := db.Raw("SELECT knowledge_base_id FROM knowledges WHERE id=?", knowledge).Scan(&kb).Error; err != nil {
+			return err
+		}
+	}
+	if kb == "" {
+		return nil
+	}
+	owner, err := PrivateKBOwner(db, kb)
+	if err != nil {
+		return err
+	}
+	if owner == "" {
+		return nil
+	}
+	if PrivateKBReadUser(db.Statement.Context) != owner {
+		return ErrPrivateKnowledgeBase
+	}
+	recordLegacyRead(db.Statement.Context, kb)
+	return nil
+}

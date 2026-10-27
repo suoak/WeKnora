@@ -40,12 +40,14 @@ func (m *portalV1Models) GetModelByID(ctx context.Context, id string) (*types.Mo
 	require.Equal(m.t, "synthetic", id)
 	return m.model, m.err
 }
+
 func (m *portalV1Models) GetEmbeddingModelForTenant(_ context.Context, id string, tenant uint64) (embedding.Embedder, error) {
 	require.Equal(m.t, "synthetic", id)
 	require.Equal(m.t, uint64(99), tenant)
 	m.called++
 	return portalV1Embedder{vector: m.vector}, nil
 }
+
 func TestPortalV1ModelsNoFallback(t *testing.T) {
 	f := fixture.New(t)
 	f.PreparePublished(t)
@@ -70,6 +72,22 @@ func TestPortalV1ModelsNoFallback(t *testing.T) {
 			_, err = s.Embed(context.Background(), d, "query")
 			require.Error(t, err)
 			require.Equal(t, before, m.called)
+			m.model.TenantID = 99
+			// The exact KB-bound builtin is globally visible in the existing
+			// model repository. Keep the owner tenant for lookup and input guards.
+			m.model.TenantID = types.DefaultBuiltinModelTenantID
+			m.model.IsBuiltin = true
+			m.vector = make([]float32, dimension)
+			v, err = s.Embed(context.Background(), d, "query")
+			require.NoError(t, err)
+			require.Len(t, v, dimension)
+			before = m.called
+			m.model.ID = "different-builtin"
+			_, err = s.Embed(context.Background(), d, "query")
+			require.Error(t, err)
+			require.Equal(t, before, m.called)
+			m.model.ID = "synthetic"
+			m.model.IsBuiltin = false
 			m.model.TenantID = 99
 			m.model.Status = "inactive"
 			_, err = s.Embed(context.Background(), d, "query")

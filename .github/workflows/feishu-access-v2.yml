@@ -1,0 +1,146 @@
+name: Feishu Access V2 Isolated Gate
+on:
+  push:
+    branches: [feature/knowhub-feishu-access-v2]
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+concurrency:
+  group: feishu-access-v2-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          cache: true
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.2
+          only-new-issues: false
+          args: --new-from-rev=ce699bb5065ebaaaa5e180c589e80e5f2aa9f334
+  linux-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: paradedb/paradedb:v0.22.2-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: isolated-test-only
+          POSTGRES_DB: feishu_atomic_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d feishu_atomic_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      SYNC_EXECUTION_POSTGRES_DSN: postgres://postgres:isolated-test-only@localhost:5432/feishu_atomic_test?sslmode=disable
+      REQUIRE_SYNC_EXECUTION_POSTGRES: "1"
+      FEISHU_LEGACY_TEST_DSN: postgres://postgres:isolated-test-only@localhost:5432/feishu_atomic_test?sslmode=disable
+      FEISHU_P0_REDIS_ADDR: 127.0.0.1:6379
+      FEISHU_CONTROL_REAL_REDIS: "1"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          cache: true
+      - run: sudo apt-get update && sudo apt-get install -y build-essential libsqlite3-dev
+      - name: Record exact source
+        run: git rev-parse HEAD | tee tested-sha.txt
+      - name: P0 identity migration and production-budget fault injection
+        run: |
+          go test -json -tags sqlite_fts5 ./internal/application/service -run '^TestFeishuV2PostgresControlledSourceRebind$' -count=1 -timeout=3m | tee p0-rebind-tests.jsonl
+          go test -race -json ./internal/feishusynccontrol -run '^Test(ControlTransport|AutomaticRealRedisTwoProcessBudgetFaults)' -count=1 -timeout=2m | tee p0-control-tests.jsonl
+          go test -race -json ./internal/feishusafety -run '^TestControlTrip' -count=1 -timeout=1m | tee p0-stop-tests.jsonl
+      - name: Identity, resource and privacy boundaries
+        run: go test -json ./internal/types ./internal/application/access ./internal/datasource/connector/feishu/... -count=1 -timeout=10m | tee core-tests.jsonl
+      - name: Real PostgreSQL batch and approval tests
+        run: go test -json -tags sqlite_fts5 ./internal/application/service -run '^TestFeishuV2' -count=1 -timeout=10m | tee service-tests.jsonl
+      - name: Automatic control startup race and real two-process Asynq loss
+        run: go test -race -json ./internal/feishusynccontrol -count=1 -timeout=3m | tee control-tests.jsonl
+      - name: Bound OAuth refresh and precise upstream error evidence
+        run: go test -json -tags sqlite_fts5 ./internal/application/service -run '^TestFeishu(Refresh|OAuth|RemoteFailure|FailureDetails|V2API)' -count=1 -timeout=5m | tee oauth-tests.jsonl
+      - name: Sharing denial ends sync without retry or checkpoint advance
+        run: go test -json -tags sqlite_fts5 ./internal/application/service -run '^(TestSyncTaskRetryMetadata|TestSyncServiceSQLite|TestSyncServicePostgres)$' -count=1 -timeout=5m | tee sharing-denial-tests.jsonl
+      - name: Private files with legacy protection disabled
+        run: go test -json -tags sqlite_fts5 ./internal/application/repository ./internal/application/repository/retriever/postgres -run '^TestFeishuV2Private' -count=1 -timeout=5m | tee private-files-tests.jsonl
+      - name: Migration governance and V2 rollback state preservation
+        run: go test -json ./internal/database -run 'TestFeishuV2SQLite|TestMigrationNumbers|TestSQLiteMigrations' -count=1 -timeout=5m | tee migration-tests.jsonl
+      - name: Race real PostgreSQL claims
+        run: go test -race -json -tags sqlite_fts5 ./internal/application/service -run '^TestFeishuV2Postgres' -count=1 -timeout=10m | tee race-tests.jsonl
+      - name: Reject missing or skipped required integration tests
+        run: python3 scripts/ci/feishu_v2_results.py service-tests.jsonl race-tests.jsonl
+      - name: Probe tooling
+        run: python3 -m unittest discover -s docs/integration/feishu-access-v2/poc -v
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: feishu-v2-linux-evidence
+          path: |
+            tested-sha.txt
+            *-tests.jsonl
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+        working-directory: frontend
+      - run: npm test && npm run type-check && npm run build
+        working-directory: frontend
+      - name: One-click import dialog in desktop and narrow Chromium
+        working-directory: frontend
+        run: |
+          chrome_bin=$(command -v google-chrome || command -v chromium)
+          "$chrome_bin" --version
+          FEISHU_UI_BROWSER_PATH="$chrome_bin" FEISHU_UI_EVIDENCE_DIR="$RUNNER_TEMP/feishu-quick-ui" node tests/feishu-quick/run-browser-gate.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: feishu-v2-quick-import-ui-${{ github.sha }}
+          path: ${{ runner.temp }}/feishu-quick-ui/
+      - name: Build pinned frontend candidate image
+        run: |
+          image="knowhub-feishu-v2/frontend:${GITHUB_SHA}"
+          docker build --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --build-arg "VITE_FRONTEND_COMMIT=${GITHUB_SHA}" -f frontend/Dockerfile -t "$image" frontend/
+          mkdir -p "$RUNNER_TEMP/frontend-image"
+          docker save "$image" | gzip -1 > "$RUNNER_TEMP/frontend-image/frontend-image.tar.gz"
+          python3 - "$RUNNER_TEMP/frontend-image" "$image" <<'PY'
+          import hashlib,json,os,pathlib,subprocess,sys
+          root=pathlib.Path(sys.argv[1])
+          archive=root/'frontend-image.tar.gz'
+          image=json.loads(subprocess.check_output(['docker','image','inspect',sys.argv[2]],text=True))[0]
+          assert image['Config']['Labels']['org.opencontainers.image.revision']==os.environ['GITHUB_SHA']
+          manifest={'source_sha':os.environ['GITHUB_SHA'],'image_id':image['Id'],'image_tag':sys.argv[2],
+                    'archive_sha256':hashlib.sha256(archive.read_bytes()).hexdigest(),
+                    'dockerfile_sha256':hashlib.sha256(pathlib.Path('frontend/Dockerfile').read_bytes()).hexdigest(),
+                    'qualification':'frontend_tests_typecheck_build_and_pinned_dockerfile'}
+          (root/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: feishu-v2-frontend-image-${{ github.sha }}
+          path: ${{ runner.temp }}/frontend-image/
+          retention-days: 14

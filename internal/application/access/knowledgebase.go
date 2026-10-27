@@ -101,6 +101,9 @@ func ResolveKB(ctx context.Context, request KBRequest, kb *types.KnowledgeBase, 
 	if kb == nil || kb.ID == "" {
 		return nil, ErrNotFound
 	}
+	if kb.PrivateOwnerID != "" && kb.PrivateOwnerID != request.Caller.UserID {
+		return nil, ErrForbidden
+	}
 	if err := types.AuthorizeTenantAPIKeyKnowledgeBases(ctx, kb.ID); err != nil {
 		return nil, err
 	}

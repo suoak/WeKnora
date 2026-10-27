@@ -43,6 +43,16 @@ func newPersonalManifestStore(root string) (*personalManifestStore, error) {
 	if err != nil {
 		return nil, err
 	}
+	// The running application user must be able to persist a candidate, not
+	// merely stat a root-owned Docker mount. Fail before accepting any tasks.
+	probe, err := os.CreateTemp(resolved, ".write-check-")
+	if err != nil {
+		return nil, fmt.Errorf("feishu_staging_unavailable: %w", err)
+	}
+	probeName := probe.Name()
+	if err = errors.Join(probe.Close(), os.Remove(probeName)); err != nil {
+		return nil, fmt.Errorf("feishu_staging_unavailable: %w", err)
+	}
 	return &personalManifestStore{root: resolved}, nil
 }
 

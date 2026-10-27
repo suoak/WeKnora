@@ -1,0 +1,79 @@
+test_detect_xls_magic (docreader.tests.test_excel_parser.ExcelFormatDetectionTest) ... ok
+test_detect_xlsx_and_engine (docreader.tests.test_excel_parser.ExcelFormatDetectionTest) ... ok
+test_open_legacy_xls_bytes_with_xlsx_extension (docreader.tests.test_excel_parser.ExcelFormatDetectionTest) ... ok
+test_dispimg_text_values_are_excluded (docreader.tests.test_excel_parser.ExcelImageFilterTest)
+Image function strings stored as text must not appear in output. ... ok
+test_dispimg_with_equals_prefix (docreader.tests.test_excel_parser.ExcelImageFilterTest)
+=_xlfn.DISPIMG(...) as text (not formula) should also be filtered. ... ok
+test_image_function_variations (docreader.tests.test_excel_parser.ExcelImageFilterTest)
+Various image function patterns should all be filtered. ... ok
+test_real_world_wps_dispimg (docreader.tests.test_excel_parser.ExcelImageFilterTest)
+Exact pattern from issue #1779 screenshot: =DISPIMG("ID_...",1). ... ok
+test_asset_rows_are_independent_semantic_chunks (docreader.tests.test_excel_parser.ExcelParserTest) ... ok
+test_auto_allows_small_number_of_missing_active_headers (docreader.tests.test_excel_parser.ExcelParserTest) ... ok
+test_auto_rejects_merged_multi_row_header (docreader.tests.test_excel_parser.ExcelParserTest) ... ok
+test_auto_rejects_missing_header_coverage_below_eighty_percent (docreader.tests.test_excel_parser.ExcelParserTest) ... ok
+test_auto_rejects_repeated_header_inside_data (docreader.tests.test_excel_parser.ExcelParserTest) ... ok
+test_auto_rejects_single_column_text_sheet (docreader.tests.test_excel_parser.ExcelParserTest) ... ok
+test_blank_rows_are_skipped_without_merging_neighbor_records (docreader.tests.test_excel_parser.ExcelParserTest) ... ok
+test_empty_header_fallback_avoids_real_header_collision (docreader.tests.test_excel_parser.ExcelParserTest) ... ok
+test_formula_cells_follow_existing_data_only_behavior (docreader.tests.test_excel_parser.ExcelParserTest) ... ok
+test_header_mode_generates_stable_labels_for_duplicate_and_empty_cells (docreader.tests.test_excel_parser.ExcelParserTest) ... ok
+test_legacy_mode_never_declares_parser_chunks (docreader.tests.test_excel_parser.ExcelParserTest) ... ok
+test_mixed_workbook_produces_one_policy_segment_per_nonempty_sheet (docreader.tests.test_excel_parser.ExcelParserTest) ... ok
+test_multi_sheet_rows_keep_provenance_and_never_mix (docreader.tests.test_excel_parser.ExcelParserTest) ... ok
+test_oversized_row_splits_at_cells_and_repeats_explicit_context (docreader.tests.test_excel_parser.ExcelParserTest) ... ok
+test_oversized_semantic_row_requires_explicit_context_columns (docreader.tests.test_excel_parser.ExcelParserTest) ... ok
+test_parse_en_calcchain_shared_strings_case (docreader.tests.test_excel_parser.ExcelParserTest) ... skipped 'en_calcchain.xlsx fixture not available'
+test_parse_phantom_shared_strings_workbook (docreader.tests.test_excel_parser.ExcelParserTest) ... ok
+test_row_aware_mode_implies_first_row_header (docreader.tests.test_excel_parser.ExcelParserTest) ... ok
+test_semantic_row_larger_than_normal_chunk_size_is_preserved (docreader.tests.test_excel_parser.ExcelParserTest) ... ok
+test_single_cell_over_hard_limit_fails_closed (docreader.tests.test_excel_parser.ExcelParserTest) ... ok
+test_single_row_xlsx_is_not_consumed_in_header_mode (docreader.tests.test_excel_parser.ExcelParserTest) ... ok
+test_xlsm_uses_builtin_excel_semantics (docreader.tests.test_excel_parser.ExcelParserTest) ... ok
+test_xlsx_explicit_false_override_keeps_first_row_as_data (docreader.tests.test_excel_parser.ExcelParserTest) ... ok
+test_xlsx_first_row_header_mode_repeats_column_context (docreader.tests.test_excel_parser.ExcelParserTest) ... ok
+test_xlsx_uses_first_row_as_header_by_default (docreader.tests.test_excel_parser.ExcelParserTest) ... ok
+test_rows_carry_sheet_and_row_number (docreader.tests.test_excel_parser.ExcelSourceBlocksTest) ... ok
+test_chart_workbook_without_merges_passes_through_unchanged (docreader.tests.test_excel_parser.XlsxMergeFillTest) ... ok
+test_excel_parser_reads_merged_workbook_with_chart (docreader.tests.test_excel_parser.XlsxMergeFillTest) ... ok
+test_fill_does_not_serialize_dedicated_chart_sheets (docreader.tests.test_excel_parser.XlsxMergeFillTest) ... ok
+test_fill_keeps_active_worksheet_after_removing_earlier_chart_sheet (docreader.tests.test_excel_parser.XlsxMergeFillTest) ... ok
+test_fill_merged_cells_does_not_serialize_charts (docreader.tests.test_excel_parser.XlsxMergeFillTest) ... ok
+test_fill_merged_cells_propagates_master_value (docreader.tests.test_excel_parser.XlsxMergeFillTest) ... ok
+test_parse_en_mergecell_workbook (docreader.tests.test_excel_parser.XlsxMergeFillTest) ... skipped 'en_mergecell.xlsx fixture not available'
+test_repair_removes_phantom_shared_strings_reference (docreader.tests.test_excel_parser.XlsxRepairTest) ... ok
+test_repair_skips_when_shared_string_cells_need_table (docreader.tests.test_excel_parser.XlsxRepairTest) ... ok
+test_drops_a_scenario_list_with_an_unreadable_range (docreader.tests.test_excel_parser.XlsxUnreadableRangesTest) ... Dropping 1 data validation/scenario range(s) openpyxl cannot parse: xl/worksheets/sheet1.xml (1)
+ok
+test_drops_each_range_spelling_openpyxl_rejects (docreader.tests.test_excel_parser.XlsxUnreadableRangesTest) ... Dropping 1 data validation/scenario range(s) openpyxl cannot parse: xl/worksheets/sheet1.xml (1)
+Dropping 1 data validation/scenario range(s) openpyxl cannot parse: xl/worksheets/sheet1.xml (1)
+Dropping 1 data validation/scenario range(s) openpyxl cannot parse: xl/worksheets/sheet1.xml (1)
+Dropping 1 data validation/scenario range(s) openpyxl cannot parse: xl/worksheets/sheet1.xml (1)
+Dropping 1 data validation/scenario range(s) openpyxl cannot parse: xl/worksheets/sheet1.xml (1)
+ok
+test_excel_parser_reads_a_workbook_with_a_whole_column_validation (docreader.tests.test_excel_parser.XlsxUnreadableRangesTest) ... Dropping 1 data validation/scenario range(s) openpyxl cannot parse: xl/worksheets/sheet1.xml (1)
+ok
+test_keeps_a_readable_validation_next_to_an_unreadable_one (docreader.tests.test_excel_parser.XlsxUnreadableRangesTest) ... Dropping 1 data validation/scenario range(s) openpyxl cannot parse: xl/worksheets/sheet1.xml (1)
+ok
+test_leaves_a_readable_workbook_untouched (docreader.tests.test_excel_parser.XlsxUnreadableRangesTest) ... ok
+test_markitdown_parser_reads_a_workbook_with_a_whole_column_validation (docreader.tests.test_excel_parser.XlsxUnreadableRangesTest) ... Dropping 1 data validation/scenario range(s) openpyxl cannot parse: xl/worksheets/sheet1.xml (1)
+ok
+test_whole_column_validation_aborts_openpyxl_without_the_fix (docreader.tests.test_excel_parser.XlsxUnreadableRangesTest) ... ok
+test_ambiguous_sheet_remains_unknown (docreader.tests.test_spreadsheet_schema.SpreadsheetSchemaTest) ... ok
+test_detects_complete_wide_entity_axis (docreader.tests.test_spreadsheet_schema.SpreadsheetSchemaTest) ... ok
+test_prepare_xlsx_bytes_recovers_and_keeps_merge_fill (docreader.tests.test_xlsx_styles_repair.TestBuiltinChain) ... ok
+test_markitdown_engine_parses_sanitized_workbook (docreader.tests.test_xlsx_styles_repair.TestMarkitdownChain) ... ok
+test_clean_workbook_is_returned_unchanged (docreader.tests.test_xlsx_styles_repair.TestSanitizeXlsxStyles) ... ok
+test_crashing_forms_raise_without_the_fix (docreader.tests.test_xlsx_styles_repair.TestSanitizeXlsxStyles) ... ok
+test_each_malformed_form_is_repaired_in_place (docreader.tests.test_xlsx_styles_repair.TestSanitizeXlsxStyles) ... ok
+test_internal_failure_returns_none_instead_of_raising (docreader.tests.test_xlsx_styles_repair.TestSanitizeXlsxStyles) ... ok
+test_non_zip_input_is_ignored (docreader.tests.test_xlsx_styles_repair.TestSanitizeXlsxStyles) ... ok
+test_repair_is_logged_with_count (docreader.tests.test_xlsx_styles_repair.TestSanitizeXlsxStyles) ... ok
+test_stylesheet_choice_does_not_depend_on_hash_seed (docreader.tests.test_xlsx_styles_repair.TestSanitizeXlsxStyles) ... ok
+test_workbook_stylesheet_is_picked_over_rich_styles_part (docreader.tests.test_xlsx_styles_repair.TestSanitizeXlsxStyles) ... ok
+
+----------------------------------------------------------------------
+Ran 61 tests in 8.149s
+
+OK (skipped=2)

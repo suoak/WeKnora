@@ -1,0 +1,29 @@
+{
+  "source_sha": "ddd804192d2ede693e21f6aa103db66017d9bb7b",
+  "tests": {
+    "native-source": {
+      "pass": 67,
+      "fail": 0,
+      "skip": 0,
+      "failed_packages": []
+    },
+    "native-atomic-metadata": {
+      "pass": 18,
+      "fail": 0,
+      "skip": 0,
+      "failed_packages": []
+    },
+    "legacy-identity-recovery": {
+      "pass": 166,
+      "fail": 0,
+      "skip": 1,
+      "failed_packages": []
+    },
+    "full-application": {
+      "pass": 14477,
+      "fail": 0,
+      "skip": 260,
+      "failed_packages": []
+    }
+  }
+}

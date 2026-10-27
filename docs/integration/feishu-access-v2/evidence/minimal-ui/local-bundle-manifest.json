@@ -1,0 +1,14 @@
+{
+  "source_sha": "989d979705455cedd0ea091425733f909972f386",
+  "qualification": "source_pinned_local_frontend_bundle_ci_verified",
+  "frontend_tree_sha256": "9ff9d5ee86a6014f3e3e7b571ca8bdecee7b13943def4eab256541f10fcd428a",
+  "source_file_count": 1035,
+  "archive_sha256": "b0a39ebb8a75cf3bbda31e881a8ff8643a1259c9dea3013d93cbf244366951e9",
+  "archive_bytes": 7083807,
+  "dockerfile_sha256": "b97ef5f568f2f19cd676050cb237153f770d29de31d421d6576eee46679e88c9",
+  "runtime_base_image": "sha256:377d475249b36398d2ee0ccf02ada0e53d110fa66ee8d3eb4fe4a7189be7dece",
+  "node_version": "v22.22.1",
+  "vite_is_docker": true,
+  "ci_run": 40267739139,
+  "local_build": "PASS"
+}

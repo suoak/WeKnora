@@ -1,0 +1,197 @@
+{
+  "at": "2026-10-26T14:38:30.991000+00:00",
+  "status": "READ_ONLY",
+  "trip": {
+    "present": true,
+    "value": "automatic_membership_probe_context_deadline",
+    "ttl_ms": -1
+  },
+  "permit": {
+    "present": false,
+    "value": null,
+    "ttl_ms": -2
+  },
+  "sync_queue_pause": {
+    "present": true,
+    "value": "feishu_safety_stop",
+    "ttl_ms": -1
+  },
+  "redis_mutations": false,
+  "two_source_readonly_forensics": {
+    "sources": [
+      {
+        "status": "error",
+        "legacy_access_state": "hold",
+        "updated_at": "2026-10-26T09:01:10.987937",
+        "last_sync_at": "2026-10-26T08:15:12.986545",
+        "config_digest": "4cd258fe90d889c84c1f4b571a918c01",
+        "cursor_digest": "3e3d26e2874a8abf283252e8e1336fe1",
+        "resource_type": "bitable",
+        "source_hash": "1dcf458346ba",
+        "knowledge_hash": "f48df03f6510"
+      },
+      {
+        "status": "error",
+        "legacy_access_state": "unmanaged",
+        "updated_at": "2026-10-26T09:00:44.742518",
+        "last_sync_at": "2026-10-26T08:15:08.432915",
+        "config_digest": "82b3cb65b7a6ec50fd2cd56c5f7fa45e",
+        "cursor_digest": "4432c02be06179a9cb98afd64a1f50bc",
+        "resource_type": "sheet",
+        "source_hash": "6d1698a6e0d9",
+        "knowledge_hash": "d0c4602a75ca"
+      }
+    ],
+    "audit_events": [
+      {
+        "action": "datasource.sync_failed",
+        "outcome": "failed",
+        "created_at": "2026-10-26T08:41:16.982525+00:00",
+        "changed_fields": null,
+        "source_hash": "6d1698a6e0d9",
+        "actor_hash": "15dd7f4fae5d"
+      },
+      {
+        "action": "datasource.sync_failed",
+        "outcome": "failed",
+        "created_at": "2026-10-26T08:40:48.73548+00:00",
+        "changed_fields": null,
+        "source_hash": "1dcf458346ba",
+        "actor_hash": "15dd7f4fae5d"
+      },
+      {
+        "action": "datasource.sync_completed",
+        "outcome": "success",
+        "created_at": "2026-10-26T08:15:12.988692+00:00",
+        "changed_fields": null,
+        "source_hash": "1dcf458346ba",
+        "actor_hash": "15dd7f4fae5d"
+      },
+      {
+        "action": "datasource.sync_completed",
+        "outcome": "success",
+        "created_at": "2026-10-26T08:15:08.43524+00:00",
+        "changed_fields": null,
+        "source_hash": "6d1698a6e0d9",
+        "actor_hash": "15dd7f4fae5d"
+      },
+      {
+        "action": "datasource.resumed",
+        "outcome": "success",
+        "created_at": "2026-10-26T03:27:21.877289+00:00",
+        "changed_fields": null,
+        "source_hash": "1dcf458346ba",
+        "actor_hash": "15dd7f4fae5d"
+      },
+      {
+        "action": "datasource.created",
+        "outcome": "success",
+        "created_at": "2026-10-26T03:27:21.369685+00:00",
+        "changed_fields": null,
+        "source_hash": "1dcf458346ba",
+        "actor_hash": "15dd7f4fae5d"
+      },
+      {
+        "action": "datasource.resumed",
+        "outcome": "success",
+        "created_at": "2026-10-26T03:27:15.632804+00:00",
+        "changed_fields": null,
+        "source_hash": "6d1698a6e0d9",
+        "actor_hash": "15dd7f4fae5d"
+      },
+      {
+        "action": "datasource.created",
+        "outcome": "success",
+        "created_at": "2026-10-26T03:27:15.0274+00:00",
+        "changed_fields": null,
+        "source_hash": "6d1698a6e0d9",
+        "actor_hash": "15dd7f4fae5d"
+      }
+    ],
+    "sync_failure_categories": [
+      {
+        "status": "canceled",
+        "created_at": "2026-10-26T09:00:00.033789",
+        "finished_at": "2026-10-26T09:01:42.21809",
+        "sync_hash": "39cc459aa078",
+        "source_hash": "1dcf458346ba",
+        "fixed_error_matches": [
+          "Feishu safety"
+        ],
+        "provider_codes": [
+          "9499"
+        ],
+        "error_codes": [
+          "feishu_permanent_error"
+        ]
+      },
+      {
+        "status": "canceled",
+        "created_at": "2026-10-26T09:00:00.027792",
+        "finished_at": "2026-10-26T09:01:42.219845",
+        "sync_hash": "6c32694183a9",
+        "source_hash": "6d1698a6e0d9",
+        "fixed_error_matches": [
+          "Feishu safety"
+        ],
+        "provider_codes": [],
+        "error_codes": [
+          "ingest_failed"
+        ]
+      },
+      {
+        "status": "failed",
+        "created_at": "2026-10-26T08:30:00.027357",
+        "finished_at": "2026-10-26T08:40:48.733668",
+        "sync_hash": "29842fb91de8",
+        "source_hash": "1dcf458346ba",
+        "fixed_error_matches": [],
+        "provider_codes": [],
+        "error_codes": [
+          "ingest_failed"
+        ]
+      },
+      {
+        "status": "failed",
+        "created_at": "2026-10-26T08:30:00.015022",
+        "finished_at": "2026-10-26T08:41:16.980829",
+        "sync_hash": "19d30539cb0d",
+        "source_hash": "6d1698a6e0d9",
+        "fixed_error_matches": [],
+        "provider_codes": [],
+        "error_codes": [
+          "ingest_failed"
+        ]
+      },
+      {
+        "status": "success",
+        "created_at": "2026-10-26T08:15:00.028508",
+        "finished_at": "2026-10-26T08:15:08.432916",
+        "sync_hash": "a5ce4281c7a7",
+        "source_hash": "6d1698a6e0d9",
+        "fixed_error_matches": [],
+        "provider_codes": [],
+        "error_codes": []
+      },
+      {
+        "status": "success",
+        "created_at": "2026-10-26T08:15:00.027873",
+        "finished_at": "2026-10-26T08:15:12.986546",
+        "sync_hash": "16397dbdc3f0",
+        "source_hash": "1dcf458346ba",
+        "fixed_error_matches": [],
+        "provider_codes": [],
+        "error_codes": []
+      }
+    ]
+  },
+  "membership_get_latency_sample": {
+    "count": 80,
+    "p50_ms": 0.127,
+    "p95_ms": 0.255,
+    "max_ms": 0.347,
+    "scope": "current_sample_only_not_historical_root_cause"
+  },
+  "compared_to_preupgrade": true,
+  "sources_config_cursors_knowledge_and_holds_preserved": true
+}

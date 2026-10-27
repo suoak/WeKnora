@@ -1,0 +1,37 @@
+Validation date: 2026-10-25 Asia/Shanghai
+Base: ce699bb5065ebaaaa5e180c589e80e5f2aa9f334
+Branch: feature/knowhub-feishu-access-v2
+
+PASS: Go targeted identity tests in the real internal/types package (2 tests).
+Command: go test ./internal/types -run 'TestFeishu(Access|Credential)' -count=1 -v
+Evidence: go-identity-tests.txt
+Environment workaround, process scope only: GOSUMDB=sum.golang.org, CGO_LDFLAGS=-lssp.
+Initial attempt was blocked by GOSUMDB=off toolchain verification; next attempt
+exposed existing MinGW __stack_chk_fail linking errors. The final run passed
+with libssp linked. No global Go/CGO settings or go.mod were changed.
+
+PASS: Python offline probe tests (9 tests), including application credential
+exchange/report redaction, GET-only API requests, owner mismatch, expected
+permission denial, malformed/oversized replies and redirect rejection.
+Command: python -m unittest discover -s docs/integration/feishu-access-v2/poc -v
+Evidence: python-probe-tests.txt
+
+BLOCKED (expected): offline manifest preflight, executed=false, exit=2.
+Evidence: ../poc/preflight-result.json
+PASS (limited real API evidence): application credential exchange and GET root
+metadata / first wiki spaces page. Wiki has_more=true; no pagination continued.
+Evidence: live-application-probe.json
+
+BLOCKED: real employee OAuth, A/B/C source permission matrix, document content,
+exports, advanced Bitable permissions, application/user permission loss races.
+Missing: independent user grants, expected identities and approved fixtures.
+BLOCKED: fresh production runtime version check; no approved read-only endpoint
+identified. User-provided historical version ce699bb5 is not a live observation.
+BLOCKED: dedicated Linux/PostgreSQL/ParadeDB/Redis/Asynq integration environment.
+NOT IMPLEMENTED: runtime dual-mode configuration/routing/worker/UI, DB migration,
+resource browsing and batch APIs, sharing approval, incremental sync, PR-G parsing.
+
+No production DB/config/queue/knowledge mutations. No PR #50 edits or merge.
+No protected source, cursor, generation, claim, lease or formal index changed.
+New files only, in an isolated worktree. Credential references are not connected
+to product execution; V2 remains unavailable/default off.

@@ -1,0 +1,172 @@
+{
+  "checked_at_utc": "2026-10-26T01:55:59.549194+00:00",
+  "deployed_source_sha": "ddd804192d2ede693e21f6aa103db66017d9bb7b",
+  "acceptance": "NOT_PASSED",
+  "batches": [
+    {
+      "batch_id_hash": "5d28aa8bfea9",
+      "created_at": "2026-10-26T01:34:50.317641+00:00",
+      "has_publication_intent": false,
+      "items": [
+        {
+          "item_id_hash": "6131abf7752b",
+          "resource_type": "sheet",
+          "status": "blocked",
+          "error_category": "sharing_approval_required",
+          "submit_to_blocked_seconds": 14.075,
+          "retry_count": 0,
+          "has_import": false,
+          "has_bound_approval": false,
+          "body_export_parse": "NOT_STARTED",
+          "knowledge_chunks_vectors_bm25_created": 0,
+          "structure_integrity": "NOT_VERIFIED",
+          "portal_go_python_search": "NOT_EXECUTED_NO_INDEX",
+          "retrieval_accuracy": null,
+          "incremental_source_enrolled": false
+        },
+        {
+          "item_id_hash": "4d9481109612",
+          "resource_type": "bitable",
+          "status": "blocked",
+          "error_category": "sharing_approval_required",
+          "submit_to_blocked_seconds": 13.504,
+          "retry_count": 0,
+          "has_import": false,
+          "has_bound_approval": false,
+          "body_export_parse": "NOT_STARTED",
+          "knowledge_chunks_vectors_bm25_created": 0,
+          "structure_integrity": "NOT_VERIFIED",
+          "portal_go_python_search": "NOT_EXECUTED_NO_INDEX",
+          "retrieval_accuracy": null,
+          "incremental_source_enrolled": false
+        }
+      ]
+    },
+    {
+      "batch_id_hash": "1245917bd5d8",
+      "created_at": "2026-10-25T23:49:52.775817+00:00",
+      "has_publication_intent": false,
+      "items": [
+        {
+          "item_id_hash": "a4adbb06bd6d",
+          "resource_type": "sheet",
+          "status": "blocked",
+          "error_category": "sharing_approval_required",
+          "submit_to_blocked_seconds": 13.122,
+          "retry_count": 0,
+          "has_import": false,
+          "has_bound_approval": false,
+          "body_export_parse": "NOT_STARTED",
+          "knowledge_chunks_vectors_bm25_created": 0,
+          "structure_integrity": "NOT_VERIFIED",
+          "portal_go_python_search": "NOT_EXECUTED_NO_INDEX",
+          "retrieval_accuracy": null,
+          "incremental_source_enrolled": false
+        },
+        {
+          "item_id_hash": "46a8d8bfc274",
+          "resource_type": "bitable",
+          "status": "blocked",
+          "error_category": "sharing_approval_required",
+          "submit_to_blocked_seconds": 12.475,
+          "retry_count": 0,
+          "has_import": false,
+          "has_bound_approval": false,
+          "body_export_parse": "NOT_STARTED",
+          "knowledge_chunks_vectors_bm25_created": 0,
+          "structure_integrity": "NOT_VERIFIED",
+          "portal_go_python_search": "NOT_EXECUTED_NO_INDEX",
+          "retrieval_accuracy": null,
+          "incremental_source_enrolled": false
+        }
+      ]
+    }
+  ],
+  "latest_admission": [
+    {
+      "service": "app",
+      "route_counts": {
+        "quick_import": 1,
+        "advanced_batch": 0,
+        "continue_batch": 0
+      },
+      "events": [
+        {
+          "route": "quick_import",
+          "http_status": 202
+        }
+      ],
+      "scanned_lines": 151
+    },
+    {
+      "service": "worker2",
+      "route_counts": {
+        "quick_import": 0,
+        "advanced_batch": 0,
+        "continue_batch": 0
+      },
+      "events": [],
+      "scanned_lines": 28
+    }
+  ],
+  "source_metadata_checks": [
+    {
+      "ordinal": 0,
+      "http_status": 200,
+      "feishu_code": 0,
+      "resource_type": "sheet",
+      "status": "PASS"
+    },
+    {
+      "ordinal": 1,
+      "http_status": 200,
+      "feishu_code": 0,
+      "resource_type": "bitable",
+      "status": "PASS"
+    }
+  ],
+  "target_database_scope": [
+    {
+      "id": "9beada7ab2b3",
+      "tenant_id": "56acd2f85500",
+      "creator_id": "15dd7f4fae5d",
+      "proven_private_owner": false,
+      "active_member": true
+    }
+  ],
+  "synthetic_http_flag_check": [
+    {
+      "check": "live_target_publication_flags",
+      "public_requires_sharing": true,
+      "private_requires_sharing": false
+    }
+  ],
+  "app_worker_staging": {
+    "app": {
+      "process_users": [
+        "Name:\tWeKnora",
+        "Uid:\t1000\t1000\t1000\t1000",
+        "Gid:\t1000\t1000\t1000\t1000",
+        "Name:\tsh",
+        "Uid:\t0\t0\t0\t0",
+        "Gid:\t0\t0\t0\t0"
+      ],
+      "staging_owner_mode": "1000:1000:700"
+    },
+    "worker2": {
+      "process_users": [
+        "Name:\tWeKnora",
+        "Uid:\t1000\t1000\t1000\t1000",
+        "Gid:\t1000\t1000\t1000\t1000",
+        "Name:\tsh",
+        "Uid:\t0\t0\t0\t0",
+        "Gid:\t0\t0\t0\t0"
+      ],
+      "staging_owner_mode": "1000:1000:700"
+    }
+  },
+  "confirmed_blocker": "publication intent and per-item revision approvals absent; worker stops before body ingestion",
+  "client_cause": "not proven; old in-memory frontend is a hypothesis, HTTP request bodies are intentionally not logged",
+  "required_next_step": "existing owner web session: refresh current UI and continue original batch once; do not recreate KB or bypass gates",
+  "production_release": "NOT_RECOMMENDED"
+}

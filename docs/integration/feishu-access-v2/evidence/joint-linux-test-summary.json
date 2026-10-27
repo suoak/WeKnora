@@ -1,0 +1,38 @@
+{
+  "control-tests.jsonl": {
+    "pass": 37,
+    "fail": 0,
+    "skip": 0
+  },
+  "core-tests.jsonl": {
+    "pass": 1143,
+    "fail": 0,
+    "skip": 2
+  },
+  "migration-tests.jsonl": {
+    "pass": 16,
+    "fail": 0,
+    "skip": 0
+  },
+  "oauth-tests.jsonl": {
+    "pass": 6,
+    "fail": 0,
+    "skip": 0
+  },
+  "private-files-tests.jsonl": {
+    "pass": 8,
+    "fail": 0,
+    "skip": 0
+  },
+  "race-tests.jsonl": {
+    "pass": 41,
+    "fail": 0,
+    "skip": 0
+  },
+  "service-tests.jsonl": {
+    "pass": 66,
+    "fail": 0,
+    "skip": 0
+  },
+  "source_sha": "2a7f651e6ed078fcf5113905a9358a82084d7d17"
+}

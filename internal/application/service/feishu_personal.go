@@ -40,29 +40,40 @@ const (
 // ErrFeishuReconnect reports feishu reconnect.
 var ErrFeishuReconnect = errors.New("feishu_reconnect_required")
 
+// Refresh failures do not imply that an otherwise readable document forbids export.
+var (
+	ErrFeishuRefreshExpired     = fmt.Errorf("%w: refresh_token_expired", ErrFeishuReconnect)
+	ErrFeishuRefreshRejected    = fmt.Errorf("%w: refresh_rejected", ErrFeishuReconnect)
+	ErrFeishuOAuthConfiguration = errors.New("feishu_oauth_application_configuration")
+)
+
 // FeishuAppConfig defines feishu app config state.
 // A compound encrypted setting avoids partially applied application credentials.
 // It deliberately bypasses the general tunable registry: only this dedicated
 // admin API can write it, and every read hits the DB (no stale credential cache).
 type FeishuAppConfig struct {
-	AuthMode    string `json:"auth_mode"`
-	AppID       string `json:"app_id"`
-	Secret      string `json:"client_secret"`
-	RedirectURI string `json:"redirect_uri"`
-	Enabled     bool   `json:"enabled"`
-	Version     string `json:"version"`
+	Capabilities       *types.FeishuAccessCapabilities `json:"capabilities,omitempty"`
+	ApplicationVersion string                          `json:"application_version,omitempty"`
+	PersonalVersion    string                          `json:"personal_version,omitempty"`
+	AuthMode           string                          `json:"auth_mode"`
+	AppID              string                          `json:"app_id"`
+	Secret             string                          `json:"client_secret"`
+	RedirectURI        string                          `json:"redirect_uri"`
+	Enabled            bool                            `json:"enabled"`
+	Version            string                          `json:"version"`
 }
 
 // FeishuPersonalService defines feishu personal service state.
 type FeishuPersonalService struct {
-	recovery  *PersonalRecovery
-	db        *gorm.DB
-	settings  interfaces.SystemSettingRepository
-	knowledge interfaces.KnowledgeService
-	kbs       interfaces.KnowledgeBaseService
-	audit     interfaces.AuditLogService
-	api       *http.Client
-	newClient func(*core.Config) *core.Client
+	dataSources interfaces.DataSourceService
+	recovery    *PersonalRecovery
+	db          *gorm.DB
+	settings    interfaces.SystemSettingRepository
+	knowledge   interfaces.KnowledgeService
+	kbs         interfaces.KnowledgeBaseService
+	audit       interfaces.AuditLogService
+	api         *http.Client
+	newClient   func(*core.Config) *core.Client
 }
 
 func (s *FeishuPersonalService) client(cfg *core.Config) *core.Client {
@@ -144,7 +155,11 @@ func validateFeishuApp(cfg *FeishuAppConfig) error {
 	}
 	if u.Scheme != "https" &&
 		(u.Scheme != "http" || u.Hostname() != "localhost" && u.Hostname() != "127.0.0.1") {
-		return errors.New("callback requires HTTPS (HTTP allowed only on loopback)")
+		if !feishuTestHTTPCallbackAllowed(cfg) && !feishuInternalHTTPCallbackAllowed(cfg) {
+			return errors.New(
+				"callback requires HTTPS or an explicitly approved exact HTTP callback policy",
+			)
+		}
 	}
 	if !strings.HasPrefix(cfg.AppID, "cli_") || len(cfg.AppID) > 128 || cfg.Secret == "" ||
 		len(cfg.Secret) > 1024 {
@@ -158,6 +173,10 @@ func (s *FeishuPersonalService) SaveApp(ctx context.Context, cfg *FeishuAppConfi
 	if !types.IsSystemAdminFromContext(ctx) {
 		return errors.New("system_admin_required")
 	}
+	old, oldErr := s.app(ctx)
+	if oldErr == nil && old.Capabilities != nil && cfg.Capabilities == nil {
+		return errors.New("feishu_v2_configuration_required")
+	}
 	if cfg.Secret == "" {
 		old, err := s.app(ctx)
 		if err != nil || old.AppID != cfg.AppID {
@@ -169,7 +188,45 @@ func (s *FeishuPersonalService) SaveApp(ctx context.Context, cfg *FeishuAppConfi
 	if err := validateFeishuModeConfig(cfg); err != nil {
 		return err
 	}
+	if err := verifyFeishuInternalHTTPCallback(ctx, cfg); err != nil {
+		return err
+	}
+	if feishuInternalHTTPCallbackAllowed(cfg) {
+		if s.audit == nil {
+			return errors.New("feishu_internal_callback_audit_required")
+		}
+		actor, _ := types.UserIDFromContext(ctx)
+		details, err := json.Marshal(map[string]any{
+			"approval_ref":    os.Getenv("FEISHU_INTERNAL_HTTP_CALLBACK_APPROVAL_REF"),
+			"callback_digest": stateHash(cfg.RedirectURI), "app_digest": stateHash(cfg.AppID),
+			"private_address_digest": stateHash(os.Getenv("FEISHU_INTERNAL_HTTP_CALLBACK_IPV4")),
+		})
+		if err != nil {
+			return err
+		}
+		if err := s.audit.Log(ctx, &types.AuditLog{
+			ActorUserID: actor, ActorRole: "system_admin",
+			Action:     types.AuditAction("feishu.http_callback_policy_verified"),
+			TargetType: "system_setting", TargetID: feishuAppSetting,
+			Outcome: types.AuditOutcomeSuccess, Details: types.JSON(details),
+		}); err != nil {
+			return errors.New("feishu_internal_callback_audit_unavailable")
+		}
+	}
 	cfg.Version = uuid.NewString()
+	if cfg.Capabilities != nil {
+		cfg.ApplicationVersion, cfg.PersonalVersion = uuid.NewString(), uuid.NewString()
+		if oldErr == nil && old.AppID == cfg.AppID && old.Secret == cfg.Secret && old.Enabled == cfg.Enabled {
+			oldApp := old.modeConfigured(types.FeishuApplicationGrant)
+			oldUser := old.modeConfigured(types.FeishuUserOAuth)
+			if oldApp == cfg.Capabilities.ApplicationEnabled {
+				cfg.ApplicationVersion = old.identityVersion(types.FeishuApplicationGrant)
+			}
+			if oldUser == cfg.Capabilities.PersonalEnabled && old.RedirectURI == cfg.RedirectURI {
+				cfg.PersonalVersion = old.identityVersion(types.FeishuUserOAuth)
+			}
+		}
+	}
 	encrypted, err := sealFeishu(cfg)
 	if err != nil {
 		return err
@@ -217,10 +274,15 @@ func (s *FeishuPersonalService) AdminConfig(ctx context.Context) (map[string]any
 	}
 	cfg, err := s.app(ctx)
 	if err != nil {
-		return map[string]any{"configured": false}, nil
+		return map[string]any{
+			"configured":   false,
+			"v2_available": os.Getenv("FEISHU_ACCESS_V2_ENABLED") == "1",
+		}, nil
 	}
 	return map[string]any{
 		"auth_mode":    types.FeishuAuthMode(cfg.AuthMode),
+		"capabilities": cfg.Capabilities,
+		"v2_available": os.Getenv("FEISHU_ACCESS_V2_ENABLED") == "1",
 		"configured":   true,
 		"app_id":       cfg.AppID,
 		"redirect_uri": cfg.RedirectURI,
@@ -275,12 +337,38 @@ func (s *FeishuPersonalService) Status(ctx context.Context) map[string]any {
 		"available":  available,
 		"connected":  connected,
 	}
+	if count, inventoryErr := s.SourceBindingAttention(ctx); inventoryErr == nil {
+		result["sources_requiring_rebind"] = count
+	} else {
+		result["source_binding_status"] = "unavailable"
+	}
 	if mode == types.FeishuApplicationGrant {
 		supported := []string{"docx"}
 		if os.Getenv("FEISHU_APPLICATION_TABLES_ENABLED") == "1" {
 			supported = append(supported, "sheet", "bitable")
 		}
 		result["supported_resource_types"] = supported
+	}
+	if configured && cfg.Capabilities != nil {
+		personal := cfg.modeEnabled(types.FeishuUserOAuth) && len(utils.GetAESKey()) == 32
+		application := cfg.modeEnabled(types.FeishuApplicationGrant) && s.recovery != nil &&
+			s.recovery.firstCreateOnly && applicationGrantEnabled() && applicationGrantEngineAvailable() &&
+			applicationUserAllowed(types.IsSystemAdminFromContext(ctx))
+		result["capabilities"] = map[string]bool{
+			"personal_enabled":    personal,
+			"application_enabled": application,
+		}
+		result["available"] = personal || application
+		result["v2"] = true
+		result["test_http_callback"] = feishuTestHTTPCallbackAllowed(cfg)
+		if feishuTestHTTPCallbackAllowed(cfg) {
+			result["test_http_callback_expires_at"] = os.Getenv("FEISHU_TEST_HTTP_CALLBACK_EXPIRES_AT")
+		}
+		if user, ok := types.UserIDFromContext(ctx); ok && personal {
+			var c types.FeishuConnection
+			result["connected"] = s.db.WithContext(ctx).Where("user_id = ? AND app_id = ?", user, cfg.AppID).
+				First(&c).Error == nil && c.RefreshExpiresAt.After(time.Now())
+		}
 	}
 	return result
 }
@@ -300,11 +388,14 @@ func (s *FeishuPersonalService) Authorize(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if types.FeishuAuthMode(cfg.AuthMode) != types.FeishuUserOAuth {
+	if !cfg.modeEnabled(types.FeishuUserOAuth) {
 		return "", ErrFeishuApplicationRestricted
 	}
 	if !cfg.Enabled || len(utils.GetAESKey()) != 32 {
 		return "", errors.New("feishu_app_unavailable")
+	}
+	if err := verifyFeishuInternalHTTPCallback(ctx, cfg); err != nil {
+		return "", err
 	}
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
@@ -321,7 +412,7 @@ func (s *FeishuPersonalService) Authorize(ctx context.Context) (string, error) {
 					state,
 				),
 				UserID:        user,
-				ConfigVersion: cfg.Version,
+				ConfigVersion: cfg.identityVersion(types.FeishuUserOAuth),
 				ExpiresAt: time.Now().
 					Add(
 						10 * time.Minute,
@@ -331,11 +422,18 @@ func (s *FeishuPersonalService) Authorize(ctx context.Context) (string, error) {
 		Error; err != nil {
 		return "", err
 	}
+	scopes := feishuScopes
+	if cfg.Capabilities != nil {
+		// V2 requests its complete read/import scope set at the first consent.
+		// This permission inspects the user's effective source rights; it grants
+		// neither document editing nor permission to bypass an export denial.
+		scopes += " space:document:retrieve docs:permission.member:auth"
+	}
 	q := url.Values{
 		"client_id":     {cfg.AppID},
 		"redirect_uri":  {cfg.RedirectURI},
 		"response_type": {"code"},
-		"scope":         {feishuScopes},
+		"scope":         {scopes},
 		"state":         {state},
 	}
 	return "https://accounts.feishu.cn/open-apis/authen/v1/authorize?" + q.Encode(), nil
@@ -356,12 +454,23 @@ type feishuTokens struct {
 func (s *FeishuPersonalService) oauthRequest(
 	ctx context.Context,
 	payload map[string]string,
+	v2 ...bool,
 ) (*feishuTokens, error) {
+	operation := "exchange_user_code"
+	if payload["grant_type"] == "refresh_token" {
+		operation = "refresh_user_token"
+	}
+	observation := core.APIObservation{Operation: operation}
+	defer func() { core.RecordAPIObservation(ctx, observation) }()
 	b, _ := json.Marshal(payload)
+	endpoint := "https://open.feishu.cn/open-apis/authen/v2/oauth/token"
+	if len(v2) > 0 && v2[0] {
+		endpoint = "https://accounts.feishu.cn/oauth/v3/token"
+	}
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
-		"https://open.feishu.cn/open-apis/authen/v2/oauth/token",
+		endpoint,
 		bytes.NewReader(b),
 	)
 	if err != nil {
@@ -370,28 +479,81 @@ func (s *FeishuPersonalService) oauthRequest(
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := s.api.Do(req)
 	if err != nil {
-		return nil, errors.New("feishu_oauth_temporarily_unavailable")
+		observation.Category = core.ErrorCategoryTransient
+		return nil, &core.APIError{Category: core.ErrorCategoryTransient, Operation: operation, Cause: err}
 	}
 	defer func(cleanup func() error) { _ = cleanup() }(resp.Body.Close)
+	observation.HTTPStatus = resp.StatusCode
+	observation.RequestID = core.ResponseRequestID(resp.Header)
+	observation.Category = core.ErrorCategoryPermanent
+	if resp.StatusCode == 429 {
+		observation.Category = core.ErrorCategoryRateLimit
+	} else if resp.StatusCode >= 500 {
+		observation.Category = core.ErrorCategoryTransient
+	}
 	var token feishuTokens
 	body, readErr := io.ReadAll(io.LimitReader(resp.Body, 1024*1024+1))
 	if readErr != nil {
-		return nil, errors.New("feishu_oauth_invalid_response")
+		observation.Category = core.ErrorCategoryTransient
+		return nil, &core.APIError{
+			Category: core.ErrorCategoryTransient, Operation: operation,
+			HTTPStatus: resp.StatusCode, RequestID: observation.RequestID, Cause: readErr,
+		}
 	}
 	if len(body) > 1024*1024 {
 		return nil, core.ErrResponseTooLarge
 	}
 	if err := json.Unmarshal(body, &token); err != nil {
+		if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+			return nil, &core.APIError{
+				Category: observation.Category, Operation: operation,
+				HTTPStatus: resp.StatusCode, RequestID: observation.RequestID,
+			}
+		}
 		return nil, errors.New("feishu_oauth_invalid_response")
 	}
+	category := core.ErrorCategory("")
+	if resp.StatusCode != 200 || token.Code != 0 || token.Error != "" {
+		category = core.ErrorCategoryAuth
+	}
+	oauthError := ""
+	for _, known := range []string{
+		"invalid_grant", "invalid_client", "invalid_scope", "invalid_request",
+		"temporarily_unavailable", "access_denied",
+	} {
+		if token.Error == known {
+			oauthError = known
+		}
+	}
+	observation.Category, observation.Code, observation.OAuthError = category, token.Code, oauthError
 	if resp.StatusCode == 429 || resp.StatusCode >= 500 {
-		return nil, errors.New("feishu_oauth_temporarily_unavailable")
+		kind := core.ErrorCategoryTransient
+		if resp.StatusCode == 429 {
+			kind = core.ErrorCategoryRateLimit
+		}
+		observation.Category = kind
+		return nil, &core.APIError{
+			Category: kind, Operation: operation, HTTPStatus: resp.StatusCode,
+			Code: token.Code, RequestID: core.ResponseRequestID(resp.Header),
+		}
 	}
 	if resp.StatusCode != 200 || token.Code != 0 || token.Error != "" || token.Access == "" ||
 		token.Refresh == "" ||
 		token.Expires <= 0 ||
 		token.RefreshExpires <= 0 {
-		return nil, ErrFeishuReconnect
+		observation.Category = core.ErrorCategoryAuth
+		cause := error(ErrFeishuReconnect)
+		if operation == "refresh_user_token" {
+			cause = ErrFeishuRefreshRejected
+		}
+		if oauthError == "invalid_client" {
+			cause = ErrFeishuOAuthConfiguration
+		}
+		return nil, errors.Join(cause, &core.APIError{
+			Category:  core.ErrorCategoryAuth,
+			Operation: operation, HTTPStatus: resp.StatusCode, Code: token.Code,
+			RequestID: core.ResponseRequestID(resp.Header),
+		})
 	}
 	return &token, nil
 }
@@ -403,11 +565,14 @@ func (s *FeishuPersonalService) Complete(ctx context.Context, state, code string
 		return errors.New("invalid_oauth_callback")
 	}
 	cfg, err := s.app(ctx)
-	if err != nil || !cfg.Enabled {
+	if err != nil || !cfg.modeEnabled(types.FeishuUserOAuth) {
 		return errors.New("feishu_app_unavailable")
 	}
-	if types.FeishuAuthMode(cfg.AuthMode) != types.FeishuUserOAuth {
+	if !cfg.modeEnabled(types.FeishuUserOAuth) {
 		return ErrFeishuApplicationRestricted
+	}
+	if err := verifyFeishuInternalHTTPCallback(ctx, cfg); err != nil {
+		return err
 	}
 
 	// Atomic consume is supported by both PostgreSQL and SQLite. Only the owner
@@ -415,7 +580,7 @@ func (s *FeishuPersonalService) Complete(ctx context.Context, state, code string
 	consumed := s.db.WithContext(ctx).
 		Model(&types.FeishuOAuthState{}).
 		Where("hash = ? AND user_id = ? AND config_version = ? AND expires_at > ? "+
-			"AND claimed = ?", stateHash(state), user, cfg.Version, time.Now(), false).
+			"AND claimed = ?", stateHash(state), user, cfg.identityVersion(types.FeishuUserOAuth), time.Now(), false).
 		Update("claimed", true)
 	if consumed.Error != nil {
 		return consumed.Error
@@ -432,6 +597,7 @@ func (s *FeishuPersonalService) Complete(ctx context.Context, state, code string
 			"code":          code,
 			"redirect_uri":  cfg.RedirectURI,
 		},
+		cfg.Capabilities != nil,
 	)
 	if err != nil {
 		return err
@@ -441,7 +607,7 @@ func (s *FeishuPersonalService) Complete(ctx context.Context, state, code string
 		ctx,
 		func(context.Context) (string, error) { return t.Access, nil },
 	)
-	if types.FeishuAuthMode(cfg.AuthMode) != types.FeishuUserOAuth {
+	if !cfg.modeEnabled(types.FeishuUserOAuth) {
 		return ErrFeishuApplicationRestricted
 	}
 	var info struct {
@@ -467,7 +633,9 @@ func (s *FeishuPersonalService) Complete(ctx context.Context, state, code string
 		RefreshExpiresAt: time.Now().Add(time.Duration(t.RefreshExpires) * time.Second),
 	}
 	latest, err := s.app(ctx)
-	if err != nil || latest.Version != cfg.Version || !latest.Enabled {
+	if err != nil ||
+		latest.identityVersion(types.FeishuUserOAuth) != cfg.identityVersion(types.FeishuUserOAuth) ||
+		!latest.modeEnabled(types.FeishuUserOAuth) {
 		return errors.New("feishu_application_changed")
 	}
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -532,9 +700,6 @@ func (s *FeishuPersonalService) Disconnect(ctx context.Context) error {
 	if !ok {
 		return errors.New("user_session_required")
 	}
-	if cfg, err := s.app(ctx); err == nil && types.FeishuAuthMode(cfg.AuthMode) != types.FeishuUserOAuth {
-		return ErrFeishuApplicationRestricted
-	}
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("user_id = ?", user).Delete(&types.FeishuConnection{}).Error; err != nil {
 			return err
@@ -543,7 +708,7 @@ func (s *FeishuPersonalService) Disconnect(ctx context.Context) error {
 			return err
 		}
 		return tx.Model(&types.FeishuPersonalImport{}).
-			Where("user_id = ? AND auth_mode = ?", user, types.FeishuUserOAuth).
+			Where("user_id = ? AND auth_mode = ? AND status <> ?", user, types.FeishuUserOAuth, "source_managed").
 			Update("status", "needs_attention").
 			Error
 	})
@@ -558,8 +723,7 @@ func (s *FeishuPersonalService) UserToken(ctx context.Context, user, appID, open
 	}
 	var result string
 	cfg, err := s.app(ctx)
-	if err != nil || !cfg.Enabled || cfg.AppID != appID ||
-		types.FeishuAuthMode(cfg.AuthMode) != types.FeishuUserOAuth {
+	if err != nil || !cfg.modeEnabled(types.FeishuUserOAuth) || cfg.AppID != appID {
 		return "", ErrFeishuReconnect
 	}
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -598,12 +762,14 @@ func (s *FeishuPersonalService) UserToken(ctx context.Context, user, appID, open
 		if err := openFeishu(c.Tokens, &t); err != nil || t.UserID != user {
 			return ErrFeishuReconnect
 		}
-		if c.ExpiresAt.After(time.Now().Add(time.Minute)) {
+		accessHash := sha256.Sum256([]byte(t.Access))
+		forceRefresh := core.UserTokenRefreshFingerprint(ctx) == hex.EncodeToString(accessHash[:])
+		if c.ExpiresAt.After(time.Now().Add(time.Minute)) && !forceRefresh {
 			result = t.Access
 			return nil
 		}
 		if !c.RefreshExpiresAt.After(time.Now()) {
-			return ErrFeishuReconnect
+			return ErrFeishuRefreshExpired
 		}
 		next, err := s.oauthRequest(
 			ctx,
@@ -613,11 +779,17 @@ func (s *FeishuPersonalService) UserToken(ctx context.Context, user, appID, open
 				"client_secret": cfg.Secret,
 				"refresh_token": t.Refresh,
 			},
+			cfg.Capabilities != nil,
 		)
 		if err != nil {
 			return err
 		}
 		next.UserID = user
+		// OAuth refresh may omit an unchanged scope inventory. This preserves
+		// evidence from the original grant; a nonempty reduced scope replaces it.
+		if next.Scope == "" {
+			next.Scope = t.Scope
+		}
 		c.Tokens, err = sealFeishu(next)
 		if err != nil {
 			return err
@@ -649,6 +821,14 @@ func (s *FeishuPersonalService) ListImports(
 		Limit(100).
 		Find(&rows).
 		Error
+	return s.decorateFeishuImports(ctx, rows, err)
+}
+
+func (s *FeishuPersonalService) decorateFeishuImports(
+	ctx context.Context,
+	rows []types.FeishuPersonalImport,
+	err error,
+) ([]types.FeishuPersonalImport, error) {
 	if err == nil && s.knowledge != nil {
 		for i := range rows {
 			if rows[i].Status == "queued" && rows[i].KnowledgeID != "" {
@@ -716,8 +896,53 @@ func (s *FeishuPersonalService) ListImports(
 		}
 	}
 	if err == nil && s.recovery != nil && s.recovery.firstCreateOnly {
-		err = s.recovery.firstCreateStatuses(ctx, rows)
+		positions := []int{}
+		pending := []types.FeishuPersonalImport{}
+		for i, row := range rows {
+			if row.Status != "source_managed" {
+				positions = append(positions, i)
+				pending = append(pending, row)
+			} else {
+				rows[i].IndexStatus = "managed_by_source"
+				rows[i].WikiStatus = "managed_by_source"
+			}
+		}
+		err = s.recovery.firstCreateStatuses(ctx, pending)
+		for i, pos := range positions {
+			rows[pos] = pending[i]
+		}
 	}
+	if err == nil && s.dataSources != nil && len(rows) > 0 {
+		sources, loadErr := s.dataSources.ListDataSources(ctx, rows[0].KBID)
+		if loadErr != nil {
+			return nil, loadErr
+		}
+		byID := map[string]*types.DataSource{}
+		for _, ds := range sources {
+			byID[ds.ID] = ds
+		}
+		for i := range rows {
+			if ds := byID[rows[i].ID]; ds != nil {
+				if config, parseErr := ds.ParseConfig(); parseErr == nil {
+					if ref, refErr := types.ParseFeishuSourceReference(config); refErr == nil && ref != nil &&
+						ref.OwnerUserID == rows[i].UserID {
+						if bindingErr := validatePersonalSourceBinding(s.db.WithContext(ctx), ref); errors.Is(
+							bindingErr,
+							ErrFeishuSourceRebindRequired,
+						) {
+							rows[i].ErrorCategory = "source_identity_rebind_required"
+						}
+					}
+				}
+				rows[i].DataSourceID = ds.ID
+				rows[i].SourceStatus = ds.Status
+				if ds.LegacyAccessState == "hold" || ds.LegacyAccessState == "revoked" {
+					rows[i].SourceStatus = ds.LegacyAccessState
+				}
+			}
+		}
+	}
+
 	return rows, err
 }
 
@@ -763,9 +988,10 @@ func (s *FeishuPersonalService) Import(
 	kbID, rawURL string,
 ) (*types.FeishuPersonalImport, error) {
 	if s.recovery != nil {
-		return s.recovery.prepare(ctx, kbID, rawURL)
+		return s.ImportWithIdentity(ctx, kbID, rawURL, "")
 	}
-	if cfg, err := s.app(ctx); err == nil && types.FeishuAuthMode(cfg.AuthMode) != types.FeishuUserOAuth {
+	if cfg, err := s.app(ctx); err == nil &&
+		(cfg.Capabilities != nil || !cfg.modeEnabled(types.FeishuUserOAuth)) {
 		return nil, ErrFeishuApplicationRestricted
 	}
 	user, ok := types.UserIDFromContext(ctx)
@@ -785,7 +1011,7 @@ func (s *FeishuPersonalService) Import(
 		return nil, err
 	}
 	cfg, err := s.app(ctx)
-	if err != nil || !cfg.Enabled {
+	if err != nil || !cfg.modeEnabled(types.FeishuUserOAuth) {
 		return nil, errors.New("feishu_app_unavailable")
 	}
 	var c types.FeishuConnection

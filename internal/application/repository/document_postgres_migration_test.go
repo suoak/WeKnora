@@ -42,7 +42,7 @@ func TestDocumentM3PostgresEmptyStartupMigrationRunner(t *testing.T) {
 	require.NoError(t, migrationErr)
 	version, dirty, ok := projectdb.CachedMigrationVersion()
 	require.True(t, ok)
-	require.Equal(t, uint(3038), version)
+	require.Equal(t, uint(3042), version)
 	require.False(t, dirty)
 	require.Empty(t, projectdb.CachedMigrationError())
 }
@@ -92,7 +92,7 @@ func TestDocumentM3PostgresFailureRecoveryMigrationRunner(t *testing.T) {
 	require.NoError(t, projectdb.RunMigrationsWithOptions(databaseURL("knowhub_m3_restored"), projectdb.MigrationOptions{}))
 	version, dirty, ok := projectdb.CachedMigrationVersion()
 	require.True(t, ok)
-	require.Equal(t, uint(3038), version)
+	require.Equal(t, uint(3042), version)
 	require.False(t, dirty)
 	require.Empty(t, projectdb.CachedMigrationError())
 	require.NoError(t, os.Chdir(cwd))
@@ -161,7 +161,7 @@ func runDocumentPostgresMigration(t *testing.T, databaseName, source string) {
 		require.NoError(t, migrationErr)
 		version, dirty, err := m.Version()
 		require.NoError(t, err)
-		require.Equal(t, uint(3038), version)
+		require.Equal(t, uint(3042), version)
 		require.False(t, dirty)
 		var after string
 		require.NoError(t, db.Raw(signature).Scan(&after).Error)

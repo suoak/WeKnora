@@ -139,7 +139,11 @@ func (c *Client) DownloadPersonalResource(ctx context.Context, r PersonalResourc
 	if _, ok := ctx.Value(userIdentityKey{}).(userIdentity); !ok {
 		return nil, "", ErrAuth
 	}
-	return c.downloadResource(ctx, r)
+	data, name, err := c.downloadResource(ctx, r)
+	if err != nil {
+		return c.personalBlocksFallback(ctx, r, err)
+	}
+	return data, name, nil
 }
 
 func (c *Client) downloadResource(ctx context.Context, r PersonalResource) ([]byte, string, error) {
