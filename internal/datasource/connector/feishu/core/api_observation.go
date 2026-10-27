@@ -26,6 +26,7 @@ type APIObservation struct {
 	RequiredScopes []string      `json:"required_scopes,omitempty"`
 	OAuthError     string        `json:"oauth_error,omitempty"`
 	ProviderReason string        `json:"provider_reason,omitempty"`
+	TransportCause string        `json:"transport_cause,omitempty"`
 }
 
 // WithAPIObserver adds request diagnostics without modifying identity or policy.

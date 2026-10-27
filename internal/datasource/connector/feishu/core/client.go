@@ -464,6 +464,7 @@ func (c *Client) doRequestBytesWithOptions(
 			HTTPStatus: apiErr.HTTPStatus, Code: apiErr.Code,
 			RequestID: apiErr.RequestID, RequiredScopes: apiErr.Scopes,
 			ProviderReason: apiErr.ProviderReason,
+			TransportCause: TransportErrorCategory(apiErr.Cause),
 		})
 		if authenticated && personal && !application && refreshHint == "" &&
 			apiErr.Category == ErrorCategoryAuth && attempt < c.retry.maxRetries &&
@@ -507,7 +508,7 @@ func (c *Client) doRequestBytesWithOptions(
 		logger.Warnf(
 			ctx,
 			"[Feishu] API request retry operation=%s category=%s code=%d "+
-				"status=%d attempt=%d max_attempts=%d backoff=%s",
+				"status=%d attempt=%d max_attempts=%d backoff=%s transport=%s",
 			operation,
 			apiErr.Category,
 			apiErr.Code,
@@ -515,6 +516,7 @@ func (c *Client) doRequestBytesWithOptions(
 			attempt+1,
 			c.retry.maxRetries+1,
 			delay,
+			TransportErrorCategory(apiErr.Cause),
 		)
 		if !errors.Is(err, ErrRateLimited) {
 			if sleepErr := c.retry.sleep(ctx, delay); sleepErr != nil {

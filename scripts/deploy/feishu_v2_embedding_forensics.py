@@ -32,10 +32,19 @@ rows=json.loads(run(compose+['exec','-T','postgres','psql','-qXAt','-v','ON_ERRO
 for row in rows:
  row['source_hash_id']=mask(row.pop('source_id'));row['attempt_hash']=mask(row.pop('id'));row['content_hash_prefix']=row.pop('source_hash')[:12]
 result['source_attempt_observations']=rows
-query="SELECT coalesce(json_agg(t),'[]') FROM (SELECT ds.id,ds.status,ds.legacy_access_state,ds.sync_mode,ds.sync_schedule FROM data_sources ds JOIN feishu_personal_imports m ON m.id=ds.id JOIN users u ON u.id=m.user_id JOIN knowledge_bases kb ON kb.id=m.kb_id WHERE u.username='test' AND kb.name='test001' AND m.resource_type IN ('sheet','bitable')) t;"
+query="SELECT coalesce(json_agg(t),'[]') FROM (SELECT ds.id,m.resource_type,ds.status,ds.legacy_access_state,ds.sync_mode,ds.sync_schedule,strpos(coalesce(m.url,'')||ds.config::text,'BvNrwnQkuiRULpkRzA8c2nfTnoc')>0 AS matches_user_modified_link FROM data_sources ds JOIN feishu_personal_imports m ON m.id=ds.id JOIN users u ON u.id=m.user_id JOIN knowledge_bases kb ON kb.id=m.kb_id WHERE u.username='test' AND kb.name='test001' AND m.resource_type IN ('sheet','bitable')) t;"
 rows=json.loads(run(compose+['exec','-T','postgres','psql','-qXAt','-v','ON_ERROR_STOP=1','-U','postgres','-d','knowhub_feishu_v2_test'],query))
 for row in rows:row['source_hash']=mask(row.pop('id'))
 result['source_schedules']=rows
+network_failures=[]
+for service in ['app','worker2']:
+ logs=run(compose+['logs','--timestamps','--no-color','--since','2026-10-27T02:44:45Z','--tail','500',service])
+ for line in logs.splitlines():
+  categories=[v for v in ['unexpected EOF','EOF','connection reset','connection refused','broken pipe','TLS handshake','certificate','x509','no such host','server misbehaving','context canceled','context deadline','request canceled','headers_io_failure','GOAWAY','INTERNAL_ERROR','stream error','http2','i/o timeout','transient','retry'] if v in line]
+  if not categories:continue
+  at=re.search(r'\d{4}-\d{2}-\d{2}T[0-9:.]+Z',line)
+  network_failures.append({'service':service,'at':at[0] if at else None,'categories':categories,'line_digest':hashlib.sha256(line.encode()).hexdigest()[:12]})
+result['network_failure_categories']=network_failures[-60:]
 '''
 
 CONFIGURE = r'''

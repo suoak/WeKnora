@@ -68,6 +68,8 @@ func recoverExistingPair(
 	svc := service.NewFeishuPersonalService(db, settings, nil, nil, nil)
 	result := map[string]any{"operation": action, "source_count": len(ids), "sync_control_writes": false}
 	switch action {
+	case "metadata-probe":
+		return inspectPairMetadata(ctx, db, svc, ids)
 	case "sheet-package-probe":
 		return inspectSheetPackages(ctx, db, svc, ids)
 	case "rebind":

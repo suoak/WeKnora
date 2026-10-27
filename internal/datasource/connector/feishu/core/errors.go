@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -90,7 +92,57 @@ func (e *APIError) Error() string {
 		(errors.As(e.Cause, &timeout) && timeout.Timeout()) {
 		parts = append(parts, "cause=timeout")
 	}
+	if e.Cause != nil {
+		parts = append(parts, "transport="+TransportErrorCategory(e.Cause))
+	}
 	return strings.Join(parts, " ")
+}
+
+// TransportErrorCategory returns a finite diagnostic label, never a URL, token,
+// response or underlying error message. It does not grant retries or admission.
+func TransportErrorCategory(err error) string {
+	if err == nil {
+		return ""
+	}
+	var network net.Error
+	var dns *net.DNSError
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return "timeout"
+	case errors.Is(err, context.Canceled):
+		return "canceled"
+	case errors.Is(err, io.ErrUnexpectedEOF):
+		return "truncated"
+	case errors.Is(err, io.EOF):
+		return "eof"
+	case errors.Is(err, syscall.ECONNRESET):
+		return "connection_reset"
+	case errors.Is(err, syscall.ECONNREFUSED):
+		return "connection_refused"
+	case errors.Is(err, syscall.EPIPE):
+		return "broken_pipe"
+	case errors.As(err, &dns):
+		return "dns"
+	case errors.As(err, &network) && network.Timeout():
+		return "timeout"
+	}
+	// net/http's bundled HTTP/2 error types are internal; these fixed markers
+	// are diagnostic only, and never enable an alternate content path.
+	message := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(message, "goaway"):
+		return "http2_goaway"
+	case strings.Contains(message, "stream error"):
+		return "http2_stream"
+	case strings.Contains(message, "client connection lost"):
+		return "http2_connection_lost"
+	case strings.Contains(message, "certificate") || strings.Contains(message, "x509"):
+		return "tls_certificate"
+	case strings.Contains(message, "ssrf") || strings.Contains(message, "blocked"):
+		return "security_rejected"
+	default:
+		return "unclassified"
+	}
 }
 
 func (e *APIError) Unwrap() error { return e.Cause }
