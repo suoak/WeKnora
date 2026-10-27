@@ -153,7 +153,7 @@ func TestFeishuV2PostgresSharedAdmissionUsesDestinationWriteACL(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(
 		t,
-		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "A").Update("role", "viewer").Error,
+		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "A").UpdateColumn("role", "viewer").Error,
 	)
 	_, err = f.p.authorize(f.ctx, m, attempt)
 	require.Error(t, err, "live write revocation still blocks publication")

@@ -15,7 +15,7 @@ func TestFeishuV2PostgresInlinePublicationUsesOrdinaryKBWriter(t *testing.T) {
 	f := v2PostgresFixture(t)
 	require.NoError(
 		t,
-		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "B").Update("role", "contributor").Error,
+		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "B").UpdateColumn("role", "contributor").Error,
 	)
 	ctx := f.userContext("B") // Deliberately stale admin claim: live membership is authoritative.
 	view, err := f.s.QuickImport(ctx, "kb", "writer-direct", []string{"https://test.feishu.cn/file/real"})
@@ -50,13 +50,13 @@ func TestFeishuV2PostgresInlinePublicationUsesOrdinaryKBWriter(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(
 		t,
-		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "B").Update("role", "viewer").Error,
+		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "B").UpdateColumn("role", "viewer").Error,
 	)
 	_, _, err = f.p.authorizeLocal(ctx, &imported, attempt)
 	require.ErrorIs(t, err, access.ErrForbidden)
 	require.NoError(
 		t,
-		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "B").Update("role", "contributor").Error,
+		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "B").UpdateColumn("role", "contributor").Error,
 	)
 	require.NoError(t, f.s.Disconnect(ctx))
 	_, err = f.p.authorize(ctx, &imported, attempt)
@@ -78,12 +78,12 @@ func TestFeishuV2PostgresInlinePublicationFencesLeaseAndLiveAuthority(t *testing
 	require.NoError(t, f.db.Save(&item).Error)
 	require.NoError(
 		t,
-		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "A").Update("role", "viewer").Error,
+		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "A").UpdateColumn("role", "viewer").Error,
 	)
 	require.ErrorIs(t, f.s.bindBatchPublication(f.ctx, &view.Batch, &item), access.ErrForbidden)
 	require.NoError(
 		t,
-		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "A").Update("role", "contributor").Error,
+		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "A").UpdateColumn("role", "contributor").Error,
 	)
 	old := time.Now().Add(-25 * time.Hour)
 	view.Batch.PublicationConsentAt = &old
@@ -141,7 +141,7 @@ func TestFeishuV2PostgresInlinePublicationKeepsPrivateIsolation(t *testing.T) {
 	require.NoError(t, f.s.requireImportWriter(f.db.WithContext(f.ctx), "A", "kb", 1))
 	require.NoError(
 		t,
-		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "A").Update("status", "suspended").Error,
+		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "A").UpdateColumn("status", "suspended").Error,
 	)
 	require.ErrorIs(t, f.s.requireImportWriter(f.db.WithContext(f.ctx), "A", "kb", 1), access.ErrForbidden)
 }
