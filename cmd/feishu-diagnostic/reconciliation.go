@@ -62,7 +62,11 @@ func enqueueApprovedReconciliation(
 		return errors.New("reconciliation_live_permit_required")
 	}
 	paused, err := probe.Get(ctx, "asynq:{sync}:paused").Result()
-	if err != nil || paused != "feishu_safety_stop" {
+	// The current isolated pair authorization also permits a selected held
+	// source's fresh, DB-bound run while the healthy queue continues serving
+	// its already recovered peer. A persistent stop still rejects above.
+	liveIsolated := policy.AuthorizationRef == acceleratedAuthorization && errors.Is(err, redis.Nil)
+	if !liveIsolated && (err != nil || paused != "feishu_safety_stop") {
 		return errors.New("reconciliation_controlled_queue_pause_required")
 	}
 	payload, err := json.Marshal(types.DataSourceSyncPayload{

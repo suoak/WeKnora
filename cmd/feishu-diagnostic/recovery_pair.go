@@ -51,9 +51,22 @@ func recoverExistingPair(
 	if len(ids) != 2 {
 		return errors.New("exact_existing_pair_required")
 	}
+	if action == "renew-sheet" || action == "enqueue-sheet" {
+		for _, id := range ids {
+			if mask(id) == "6d1698a6e0d9" {
+				ids = []string{id}
+				break
+			}
+		}
+		if action == "renew-sheet" {
+			action = "renew-reconciliation"
+		} else {
+			action = "enqueue"
+		}
+	}
 	sort.Strings(ids)
 	svc := service.NewFeishuPersonalService(db, settings, nil, nil, nil)
-	result := map[string]any{"operation": action, "source_count": 2, "sync_control_writes": false}
+	result := map[string]any{"operation": action, "source_count": len(ids), "sync_control_writes": false}
 	switch action {
 	case "sheet-package-probe":
 		return inspectSheetPackages(ctx, db, svc, ids)

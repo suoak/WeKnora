@@ -84,7 +84,7 @@ def program(action):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument('--operation', choices=['rebind', 'reconcile', 'renew-reconciliation', 'enqueue', 'sheet-package-probe'], required=True)
+    parser.add_argument('--operation', choices=['rebind', 'reconcile', 'renew-reconciliation', 'enqueue', 'renew-sheet', 'enqueue-sheet', 'sheet-package-probe'], required=True)
     options, remaining = parser.parse_known_args()
     probe.transport.REMOTE = program(options.operation)
     sys.argv = [sys.argv[0], *remaining, '--mode', 'status']
