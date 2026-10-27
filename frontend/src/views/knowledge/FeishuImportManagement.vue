@@ -6,31 +6,22 @@
     <p v-if="message" role="status">{{ message }}</p>
     <template v-if="status">
       <div v-for="row in history" :key="row.id" class="history-row">
-        <span>{{ new Date(row.created_at).toLocaleString() }}</span>
-        <t-button variant="text" @click="showBatch(row.id)">查看任务</t-button>
+        <div class="history-summary"><strong>{{ row.document_names?.length ? row.document_names.join('、') : '飞书文档导入' }}</strong><span>{{ row.target_name || '知识库' }} · {{ new Date(row.created_at).toLocaleString() }}</span><t-tag :theme="row.status === 'succeeded' ? 'success' : row.status === 'failed' ? 'danger' : 'primary'" variant="light">{{ row.status === 'succeeded' ? '导入成功' : row.status === 'failed' ? '失败' : '处理中' }}</t-tag></div>
+        <t-button variant="text" @click="showBatch(row.id)">查看进度</t-button>
       </div>
       <p v-if="!history.length">暂无导入记录。</p>
       <t-button v-if="more" variant="text" @click="loadHistory(true)">加载更多</t-button>
       <section v-if="batch" aria-label="导入进度">
-        <h3>{{ simpleStatus(batch.status) }}</h3>
-        <section v-if="batch.can_continue_publication" class="continue" aria-label="处理共享审批">
-          <t-button variant="text" @click="advancedOpen = true">处理共享审批</t-button>
-        </section>
+        <h3>{{ batch.target_name || '导入进度' }} · {{ simpleStatus(batch.status) }}</h3>
         <article v-for="item in batch.items" :key="item.id" class="item">
-          <p>第 {{ item.ordinal + 1 }} 篇：{{ itemStatus(item) }}</p>
-          <p v-if="item.last_progress_at">最后推进：{{ formatTime(item.last_progress_at) }}</p>
-          <p v-if="item.last_activity_at">后台状态更新：{{ formatTime(item.last_activity_at) }}</p>
-          <p v-if="item.stalled" class="warning" role="status">处理异常，请查看详情。后台正在检查任务状态，不会擅自取消任务。</p>
+          <p><strong>{{ item.document_name || `第 ${item.ordinal + 1} 篇文档` }}</strong><t-tag size="small" variant="light">{{ item.resource_type || '文档' }}</t-tag><span>{{ itemStatus(item) }}</span></p>
+          <p v-if="item.stalled" class="warning" role="status">处理时间较长，请稍后查看或联系管理员。</p>
           <p v-if="item.error_category" class="warning">{{ failure(item.error_category) }}</p>
           <t-button v-if="['user_scope_missing','reconnect_required','authorization_expired'].includes(item.error_category || '')" variant="text" :loading="authorizationBusy" @click="connect('')">补充飞书授权</t-button>
-          <p v-if="item.retry_after && item.status === 'dispatched'">自动重试时间：{{ formatTime(item.retry_after) }}</p>
-          <p v-if="item.chunk_count || item.vector_count">已解析 {{ item.chunk_count || 0 }} 个片段，已建立 {{ item.vector_count || 0 }} 条向量索引。</p>
           <router-link v-if="item.status === 'succeeded' && item.index_verified && item.knowledge_id" :to="{path:'/platform/knowledge-bases/'+batch.batch.kb_id,query:{knowledge_id:item.knowledge_id}}">在知识库中查看</router-link>
-          <details v-if="item.error_category"><summary>高级详情</summary><p>原因码：{{ item.error_category }}；自动重试：{{ item.attempt_retry_count || 0 }} 次</p><p v-if="item.provider_code">接口错误码：{{ item.provider_code }}；处理阶段：{{ item.operation }}</p><p v-if="item.request_id_hash">请求指纹：{{ item.request_id_hash }}</p></details>
         </article>
-        <t-button variant="text" @click="showBatch(batch.batch.id)">刷新状态</t-button>
+        <t-button v-if="batch.items.some(item => ['failed','blocked'].includes(item.status))" variant="outline" :loading="retryBusy" @click="retry">重新尝试</t-button>
       </section>
-      <details v-if="approvalKB" :open="advancedOpen" @toggle="advancedOpen = ($event.target as HTMLDetailsElement).open"><summary>高级设置与安全详情</summary><FeishuAccessManagement v-if="advancedOpen" :kb-id="approvalKB" :status="status" @connect="connect" /></details>
     </template>
     <p v-else>正在读取导入记录。</p>
   </main>
@@ -38,12 +29,11 @@
 <script setup lang="ts">
 import {computed,ref,onMounted,onUnmounted} from 'vue'
 import {useRoute} from 'vue-router'
-import {feishuStatus,authorizeFeishu,listFeishuBatches,listMyFeishuBatches,getFeishuBatch,type FeishuStatus,type FeishuBatch,type FeishuBatchHistory,type FeishuBatchItem} from '@/api/feishuPersonal'
-import {FEISHU_PENDING} from '@/i18n/feishuPersonal'
-import FeishuAccessManagement from './components/FeishuAccessManagement.vue'
+import {feishuStatus,authorizeFeishu,listFeishuBatches,listMyFeishuBatches,getFeishuBatch,retryFeishuBatch,type FeishuStatus,type FeishuBatch,type FeishuBatchHistory,type FeishuBatchItem} from '@/api/feishuPersonal'
+import {saveFeishuDraft,takeFeishuDraft} from '@/utils/feishuOAuthFlow'
 const route=useRoute(), kb=typeof route.query.kb === 'string' ? route.query.kb : '', status=ref<FeishuStatus>()
 const history=ref<FeishuBatchHistory[]>([]), batch=ref<FeishuBatch>(), more=ref(false), message=ref('')
-const advancedOpen=ref(false), approvalKB=computed(()=>kb || batch.value?.batch.kb_id || '')
+const approvalKB=computed(()=>kb || batch.value?.batch.kb_id || ''), retryBusy=ref(false)
 const authorizationBusy=ref(false)
 let mounted=true, selectedID='', timer:ReturnType<typeof setTimeout>|undefined, loading=false
 onUnmounted(()=>{mounted=false;clearTimeout(timer)})
@@ -78,24 +68,25 @@ function failure(code:string) {
   if(code==='refresh_token_expired') return '飞书授权已到期，请重新连接。'
   if(code==='refresh_rejected') return '飞书授权无法续期，请重新连接。'
   if(code==='authorization_invalid') return '飞书连接无法验证，请重新连接。'
-  if(code==='sharing_approval_required') return '需要共享发布授权，请联系知识库管理员。'
-  if(code==='publication_confirmation_expired') return '本次导入确认已过期，请重新发起导入。'
+  if(code==='sharing_approval_required') return '请点击重新尝试，系统将重新检查文档和知识库权限。'
+  if(code==='publication_confirmation_expired') return '请点击重新尝试。'
   if(code==='kb_permission_required') return '目标知识库不可写，请申请访问权限。'
   if(code==='api_scope_missing') return '飞书应用缺少所需权限，请联系管理员。'
-  if(code==='parse_failed') return '文档解析失败，请查看详情。'
-  if(code==='index_failed') return '文档索引失败，请查看详情。'
-  const labels:Record<string,string>={storage_permission_denied:'文件暂存目录不可写，请联系管理员。',storage_unavailable:'文件暂存服务不可用，请联系管理员。',authorization_revalidation_failed:'授权检查未通过，请重新连接飞书并检查文档权限。',candidate_content_incomplete:'文档读取不完整，请检查导出权限。',source_version_changed:'文档版本已变化，需要重新检查。',temporary_failure:'服务暂时不可用，系统将有限重试。',retry_exhausted:'自动重试次数已用完，请查看详情。',parse_or_index_failed:'解析或索引失败，请查看详情。',candidate_requires_review:'文档处理未完成，请联系管理员查看详情。'}
-  return labels[code] || '文档需要处理，请在高级详情中查看原因。'
+  if(code==='parse_failed') return '文档解析失败，请重新尝试或联系管理员。'
+  if(code==='index_failed') return '文档索引失败，请重新尝试或联系管理员。'
+  const labels:Record<string,string>={storage_permission_denied:'文件暂存目录不可写，请联系管理员。',storage_unavailable:'文件暂存服务不可用，请联系管理员。',authorization_revalidation_failed:'授权检查未通过，请重新连接飞书并检查文档权限。',candidate_content_incomplete:'文档读取不完整，请检查导出权限。',source_version_changed:'文档版本已变化，需要重新检查。',temporary_failure:'服务暂时不可用，系统将有限重试。',retry_exhausted:'自动重试次数已用完，请重新尝试或联系管理员。',parse_or_index_failed:'解析或索引失败，请重新尝试或联系管理员。',candidate_requires_review:'文档处理未完成，请联系管理员查看详情。'}
+  return labels[code] || '导入未完成，请重新尝试或联系管理员。'
 }
 function simpleStatus(state:string) {
-  if (state==='succeeded') return '已验证成功入库'
+  if (state==='succeeded') return '导入成功'
   if (['existing','duplicate'].includes(state)) return '已去重，等待验证'
-  if (['failed','blocked','partial_failed','needs_attention'].includes(state)) return '需要处理'
+  if (['failed','blocked','partial_failed','needs_attention'].includes(state)) return '失败'
   if (state==='processing') return '正在检查和准备'
-  if (['dispatched','running'].includes(state)) return '后台处理中，详情见各文档阶段'
+  if (['dispatched','running'].includes(state)) return '处理中'
   return '排队中'
 }
 onMounted(async()=>{
+  takeFeishuDraft(location.pathname+location.search)
   try {
     status.value=await feishuStatus()
     await loadHistory(false)
@@ -118,11 +109,19 @@ async function showBatch(id:string) {
     if(mounted && selectedID && (!batch.value || batch.value.batch.id!==selectedID || batch.value.items.some(item=>['pending','processing','dispatched'].includes(item.status))))timer=setTimeout(()=>showBatch(selectedID),4000)
   }
 }
+async function retry() {
+  if(!batch.value || retryBusy.value)return
+  retryBusy.value=true
+  try {await retryFeishuBatch(batch.value.batch.id);await showBatch(batch.value.batch.id)}
+  catch {message.value='暂时无法重试，请检查账号和知识库权限。'}
+  finally {retryBusy.value=false}
+}
 async function connect(links:string) {
   if(authorizationBusy.value)return
   authorizationBusy.value=true
-  sessionStorage.setItem(FEISHU_PENDING,JSON.stringify({kbId:approvalKB.value,url:links,path:location.pathname+location.search}))
   try {
+    const before=await feishuStatus()
+    saveFeishuDraft(approvalKB.value,links,location.pathname+location.search,before.authorization_revision || '')
     const result=await authorizeFeishu(), target=new URL(result.authorization_url)
     if(target.origin!=='https://accounts.feishu.cn')throw new Error('invalid_authorization_origin')
     location.assign(target.href)
@@ -131,8 +130,13 @@ async function connect(links:string) {
 }
 </script>
 <style scoped>
-.management {max-width:960px;margin:24px auto;padding:0 20px;overflow-wrap:anywhere;}
-.history-row {display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--td-component-border);}
+.management {max-width:960px;margin:32px auto;padding:0 24px 40px;overflow-wrap:anywhere;}
+.history-summary {display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0;}
+.history-summary span {font-size:13px;color:var(--td-text-color-secondary);}
+.history-row,.item {padding:20px;border:1px solid var(--td-component-border);border-radius:10px;background:var(--td-bg-color-container);margin:12px 0;}
+.item > p:first-child {display:flex;flex-wrap:wrap;align-items:center;gap:12px;}
+@media(max-width:600px){.management{padding:0 16px}.history-row{align-items:flex-start}.item{padding:16px}}
+.history-row {display:flex;justify-content:space-between;align-items:center;gap:16px;}
 details {margin-top:24px;}
 summary {cursor:pointer;}
 .item {padding:12px 0;border-bottom:1px solid var(--td-component-border);}

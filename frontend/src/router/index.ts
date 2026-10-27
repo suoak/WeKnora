@@ -49,7 +49,9 @@ function hasPendingOIDCCallback() {
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    { path: '/feishu/callback', component: () => import('../views/auth/FeishuCallback.vue'), meta: { requiresAuth: true, requiresInit: false, requiresTenant: false } },
+    // The status page must render even with an expired session. Its APIs remain
+    // authenticated; never put OAuth parameters into a login return URL.
+    { path: '/feishu/callback', component: () => import('../views/auth/FeishuCallback.vue'), meta: { requiresAuth: false, requiresInit: false, requiresTenant: false } },
     {
       path: "/",
       redirect: () => resolveRootLanding(

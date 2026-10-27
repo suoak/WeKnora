@@ -62,7 +62,7 @@ func (s *FeishuPersonalService) ImportTargets(ctx context.Context) ([]FeishuImpo
 			FeishuImportTarget{
 				ID:                      kb.ID,
 				Name:                    kb.Name,
-				RequiresSharingApproval: kb.PrivateOwnerID != caller.UserID,
+				RequiresSharingApproval: false,
 			},
 		)
 	}

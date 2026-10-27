@@ -50,7 +50,10 @@ func (s *FeishuPersonalService) ListBatches(
 			Limit(20).
 			Find(&rows).
 			Error
-		return rows, err
+		if err != nil {
+			return nil, err
+		}
+		return s.batchHistorySummaries(ctx, rows)
 	}
 	kb, err := s.kbs.GetKnowledgeBaseByID(ctx, kbID)
 	if err != nil {
@@ -67,7 +70,55 @@ func (s *FeishuPersonalService) ListBatches(
 		Limit(20).
 		Find(&rows).
 		Error
-	return rows, err
+	if err != nil {
+		return nil, err
+	}
+	return s.batchHistorySummaries(ctx, rows)
+}
+
+// Bounded metadata only: no vector counts or parser polling for every history
+// row. Titles are returned only after resolving this user's live destination ACL.
+func (s *FeishuPersonalService) batchHistorySummaries(ctx context.Context, rows []types.FeishuBatch) ([]types.FeishuBatch, error) {
+	result := make([]types.FeishuBatch, 0, len(rows))
+	for _, batch := range rows {
+		kb, err := s.kbs.GetKnowledgeBaseByID(ctx, batch.KBID)
+		if err != nil || s.recovery == nil {
+			continue
+		}
+		grant, err := access.ResolveKB(ctx, access.KBRequest{Caller: types.CallerFromContext(ctx)}, kb, types.OrgRoleEditor, s.recovery.shares, nil)
+		if err != nil || access.RequireKBWrite(grant.Context(ctx), kb) != nil {
+			continue
+		}
+		var items []struct {
+			Title       string
+			Status      string
+			IndexStatus string
+		}
+		if err := s.db.WithContext(ctx).Table("feishu_import_batch_items AS bi").
+			Select("k.title, bi.status, pi.index_status").
+			Joins("LEFT JOIN feishu_personal_imports AS pi ON pi.id = bi.import_id AND pi.user_id = ? AND pi.kb_id = ?", batch.OwnerID, batch.KBID).
+			Joins("LEFT JOIN knowledges AS k ON k.id = pi.knowledge_id AND k.knowledge_base_id = ? AND k.deleted_at IS NULL", batch.KBID).
+			Where("bi.batch_id = ?", batch.ID).Order("bi.ordinal").Limit(100).Scan(&items).Error; err != nil {
+			return nil, err
+		}
+		batch.TargetName, batch.Status = kb.Name, "succeeded"
+		for _, item := range items {
+			if item.Title != "" {
+				batch.DocumentNames = append(batch.DocumentNames, item.Title)
+			}
+			if item.Status == "failed" || item.Status == "blocked" {
+				batch.Status = "failed"
+			}
+			if batch.Status != "failed" && (item.Status != "succeeded" || item.IndexStatus != "verified") {
+				batch.Status = "processing"
+			}
+		}
+		if len(items) == 0 {
+			batch.Status = "processing"
+		}
+		result = append(result, batch)
+	}
+	return result, nil
 }
 
 // CreateBatch admits a bounded, owned batch using a caller-supplied idempotency key.
@@ -91,15 +142,7 @@ func (s *FeishuPersonalService) CreateBatch(
 	if err = access.RequireKBWrite(ctx, base); err != nil {
 		return nil, err
 	}
-	consent := len(publication) > 0 && publication[0]
-	if consent {
-		if mode != types.FeishuUserOAuth {
-			return nil, access.ErrForbidden
-		}
-		if err = s.requireSharingAuthority(ctx, kb); err != nil {
-			return nil, err
-		}
-	}
+	// Legacy publication arguments are ignored; destination authorization is KB write access.
 	if s.recovery == nil || !s.recovery.firstCreateOnly || s.db.Name() != "postgres" {
 		return nil, errors.New("feishu_safe_pipeline_required")
 	}
@@ -136,9 +179,6 @@ func (s *FeishuPersonalService) CreateBatch(
 		return nil, errors.New("invalid_batch_limits")
 	}
 	identity := []any{kb, mode, ref.ConnectionID, unique}
-	if consent {
-		identity = append(identity, "explicit-kb-readers-v1")
-	}
 	payload, _ := json.Marshal(identity)
 	b := types.FeishuBatch{
 		ID:             uuid.NewString(),
@@ -152,16 +192,7 @@ func (s *FeishuPersonalService) CreateBatch(
 		PayloadHash:    connectionID(string(payload)),
 		CreatedAt:      time.Now(),
 	}
-	if consent {
-		now := time.Now()
-		b.PublicationConsentAt = &now
-	}
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if consent {
-			if e := lockBatchPublicationAuthority(tx, &b); e != nil {
-				return e
-			}
-		}
 		insert := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&b)
 		if insert.Error != nil {
 			return insert.Error
@@ -299,8 +330,7 @@ func (s *FeishuPersonalService) Batch(ctx context.Context, id string) (*FeishuBa
 		view.Counts[item.Status]++
 		if item.Status == "blocked" && item.ErrorCategory == "sharing_approval_required" &&
 			item.ImportID == "" && item.SharingApprovalID == nil && item.RetryCount < 3 &&
-			view.Batch.AuthMode == types.FeishuUserOAuth && (view.Batch.PublicationConsentAt == nil ||
-			view.Batch.PublicationConsentAt.Add(24*time.Hour).After(time.Now())) {
+			view.Batch.AuthMode == types.FeishuUserOAuth {
 			view.CanContinuePublication = true
 		}
 	}
@@ -318,6 +348,9 @@ func (s *FeishuPersonalService) Batch(ctx context.Context, id string) (*FeishuBa
 func (s *FeishuPersonalService) RetryBatch(ctx context.Context, id string) error {
 	view, err := s.Batch(ctx, id)
 	if err != nil {
+		return err
+	}
+	if err := s.requireImportWriter(s.db.WithContext(ctx), view.Batch.OwnerID, view.Batch.KBID, view.Batch.TenantID); err != nil {
 		return err
 	}
 	_, _, _, err = s.ResolveCredentialReference(ctx, view.Batch.AuthMode, view.Batch.ConnectionID)

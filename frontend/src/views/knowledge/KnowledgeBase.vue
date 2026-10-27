@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import FeishuImportDialog from './components/FeishuImportDialog.vue';
-import { FEISHU_PENDING } from '@/i18n/feishuPersonal';
+import { takeFeishuDraft } from '@/utils/feishuOAuthFlow';
 import { isFeishuDocumentURL } from '@/api/feishuPersonal';
 import { ref, onMounted, onUnmounted, watch, reactive, computed, nextTick } from "vue";
 import { MessagePlugin } from "tdesign-vue-next";
@@ -1791,9 +1791,9 @@ const feishuInitialURL = ref('');
 const openFeishuImport = (url = '') => { feishuInitialURL.value = url; feishuVisible.value = true; };
 onMounted(() => {
   try {
-    const pending = JSON.parse(sessionStorage.getItem(FEISHU_PENDING) || '{}');
-    if (pending.kbId === kbId.value) { sessionStorage.removeItem(FEISHU_PENDING); openFeishuImport(pending.url || ''); }
-  } catch { sessionStorage.removeItem(FEISHU_PENDING); }
+    const pending = takeFeishuDraft(location.pathname + location.search, kbId.value);
+    if (pending) openFeishuImport(pending.url || '');
+  } catch { /* Optional draft only. */ }
 });
 
 const handleManualCreate = () => {

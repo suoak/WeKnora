@@ -130,56 +130,24 @@ func TestFeishuV2PostgresStallRequiresAbsentLeaseHeartbeatAndQueue(t *testing.T)
 	}
 }
 
-func TestFeishuV2PostgresSharedAdmissionRequiresRevisionApproval(t *testing.T) {
+func TestFeishuV2PostgresSharedAdmissionUsesDestinationWriteACL(t *testing.T) {
 	f := v2PostgresFixture(t)
 	_, _, ref, err := f.s.ResolveCredentialReference(f.ctx, types.FeishuUserOAuth, "")
 	require.NoError(t, err)
-	links := []string{"https://test.feishu.cn/file/real"}
-	preview, err := f.s.Preview(f.ctx, "kb", types.FeishuUserOAuth, ref.ConnectionID, links)
+	preview, err := f.s.Preview(f.ctx, "kb", types.FeishuUserOAuth, ref.ConnectionID, []string{"https://test.feishu.cn/file/real"})
 	require.NoError(t, err)
-	require.Equal(t, "sharing_approval_required", preview[0].ErrorCategory)
-	_, err = f.s.ImportWithIdentity(f.ctx, "kb", links[0], types.FeishuUserOAuth)
-	require.ErrorIs(t, err, ErrFeishuSharingApproval)
-	_, err = f.s.ApproveSharing(
-		f.ctx,
-		"kb",
-		ref.ConnectionID,
-		links[0],
-		"controlled shared publication",
-		false,
-	)
-	require.Error(t, err)
-	approval, err := f.s.ApproveSharing(
-		f.ctx,
-		"kb",
-		ref.ConnectionID,
-		links[0],
-		"controlled shared publication",
-		true,
-	)
-	require.NoError(t, err)
-	m, err := f.s.ImportWithIdentity(f.ctx, "kb", links[0], types.FeishuUserOAuth)
+	require.Empty(t, preview[0].ErrorCategory)
+	m, err := f.s.ImportWithIdentity(f.ctx, "kb", "https://test.feishu.cn/file/real", types.FeishuUserOAuth)
 	require.NoError(t, err)
 	require.NotEmpty(t, m.AttemptID)
-	history, err := f.s.ListSharingApprovals(f.ctx, "kb", 0)
-	require.NoError(t, err)
-	require.Len(t, history, 1)
-	require.Equal(t, approval.ID, history[0].ID)
-	other, err := f.s.ListSharingApprovals(f.userContext("B"), "kb", 0)
-	require.NoError(t, err)
-	require.Empty(t, other)
-	require.Error(t, f.s.RevokeSharingApproval(f.userContext("B"), "kb", approval.ID))
-	// Revocation closes the existing attempt's next authorization, preserving
-	// the original records instead of resetting any lease or cursor.
-	require.NoError(t, f.s.RevokeSharingApproval(f.ctx, "kb", approval.ID))
-	require.NoError(t, f.s.RevokeSharingApproval(f.ctx, "kb", approval.ID), "revocation is idempotent")
+	var count int64
+	require.NoError(t, f.db.Model(&types.FeishuSharingApproval{}).Count(&count).Error)
+	require.Zero(t, count)
 	_, _, attempt, err := f.p.repo.Load(f.ctx, m.AttemptID)
 	require.NoError(t, err)
+	require.NoError(t, f.db.Model(&types.TenantMember{}).Where("user_id = ?", "A").Update("role", "viewer").Error)
 	_, err = f.p.authorize(f.ctx, m, attempt)
-	require.ErrorIs(t, err, ErrFeishuSharingApproval)
-	var count int64
-	require.NoError(t, f.db.Model(&types.Knowledge{}).Count(&count).Error)
-	require.Zero(t, count)
+	require.Error(t, err, "live write revocation still blocks publication")
 }
 
 func TestFeishuV2PostgresCollaborationNeverGrantsOrRetries(t *testing.T) {
@@ -195,7 +163,7 @@ func TestFeishuV2PostgresCollaborationNeverGrantsOrRetries(t *testing.T) {
 		[]string{"https://test.feishu.cn/file/real"},
 	)
 	require.NoError(t, err)
-	require.NoError(t, f.s.ReconcileBatches(context.Background()))
+	require.NoError(t, f.db.Model(&types.FeishuBatchItem{}).Where("id = ?", view.Items[0].ID).Updates(map[string]any{"status": "blocked", "error_category": "sharing_approval_required"}).Error)
 	view, err = f.s.Batch(f.ctx, view.Batch.ID)
 	require.NoError(t, err)
 	require.Equal(t, "blocked", view.Items[0].Status)
@@ -212,7 +180,7 @@ func TestFeishuV2PostgresCollaborationNeverGrantsOrRetries(t *testing.T) {
 	require.Equal(t, "reported_unverified", row.Result)
 	row, err = f.s.Collaborate(f.ctx, view.Batch.ID, item.ID, "recheck", "Document owner", "")
 	require.NoError(t, err)
-	require.Equal(t, "sharing_approval_required", row.Result)
+	require.Equal(t, "metadata_readable_export_pending", row.Result)
 	_, err = f.s.Collaboration(f.userContext("B"), view.Batch.ID)
 	require.Error(t, err)
 	_, err = f.s.Collaborate(f.userContext("B"), view.Batch.ID, item.ID, "reported", "", "must deny")

@@ -115,6 +115,7 @@ jobs:
           chrome_bin=$(command -v google-chrome || command -v chromium)
           "$chrome_bin" --version
           FEISHU_UI_BROWSER_PATH="$chrome_bin" FEISHU_UI_EVIDENCE_DIR="$RUNNER_TEMP/feishu-quick-ui" node tests/feishu-quick/run-browser-gate.mjs
+          FEISHU_UI_BROWSER_PATH="$chrome_bin" FEISHU_UI_EVIDENCE_DIR="$RUNNER_TEMP/feishu-quick-ui" node tests/feishu-quick/run-callback-gate.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

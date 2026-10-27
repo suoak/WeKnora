@@ -1,5 +1,5 @@
 <template>
-  <t-dialog :visible="visible" :header="t('title')" :footer="false" width="min(560px, calc(100vw - 32px))" @close="emit('update:visible', false)">
+  <t-dialog :visible="visible" :header="t('title')" :footer="false" width="min(940px, calc(100vw - 32px))" @close="emit('update:visible', false)">
     <p v-if="!status.available">{{ t('unavailable') }}</p>
     <FeishuAccessV2 v-else-if="status.v2" :kb-id="kbId" :status="status" :initial-url="initialUrl" @connect="connect" @imported="emit('imported')" />
     <template v-else>
@@ -28,7 +28,8 @@ import { ref, computed, watch, onUnmounted } from 'vue'
 import FeishuAccessV2 from './FeishuAccessV2.vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { useI18n } from 'vue-i18n'
-import { feishuMessages, FEISHU_PENDING } from '@/i18n/feishuPersonal'
+import { feishuMessages } from '@/i18n/feishuPersonal'
+import { saveFeishuDraft } from '@/utils/feishuOAuthFlow'
 import { feishuStatus, authorizeFeishu, disconnectFeishu, importFeishu, listFeishuImports, type FeishuStatus, type FeishuImport } from '@/api/feishuPersonal'
 const props = defineProps<{ visible: boolean; kbId: string; initialUrl?: string }>()
 const emit = defineEmits<{ 'update:visible': [value: boolean]; imported: [] }>()
@@ -93,7 +94,8 @@ watch(() => props.visible, async value => {
 async function connect(pendingLinks?: string | MouseEvent) {
   busy.value = true
   try {
-    sessionStorage.setItem(FEISHU_PENDING, JSON.stringify({ kbId: props.kbId, url: typeof pendingLinks === 'string' ? pendingLinks : url.value, path: location.pathname + location.search }))
+    const before = await feishuStatus()
+    saveFeishuDraft(props.kbId, typeof pendingLinks === 'string' ? pendingLinks : url.value, location.pathname + location.search, before.authorization_revision || '')
     const result = await authorizeFeishu(), target = new URL(result.authorization_url)
     if (target.origin !== 'https://accounts.feishu.cn') throw new Error('invalid_authorization_origin')
     location.assign(target.href)

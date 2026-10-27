@@ -715,7 +715,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { MessagePlugin, Icon as TIcon } from 'tdesign-vue-next'
 import EmptyState from '@/components/EmptyState.vue'
 import FeishuImportDialog from './components/FeishuImportDialog.vue'
-import { FEISHU_PENDING } from '@/i18n/feishuPersonal'
+import { takeFeishuDraft } from '@/utils/feishuOAuthFlow'
 import ResourceIcon from '@/components/icons/ResourceIcon.vue'
 import { useConfirmDelete } from '@/components/settings/useConfirmDelete'
 import { deleteKnowledgeBase, duplicateKnowledgeBase, togglePinKnowledgeBase } from '@/api/knowledge-base'
@@ -748,13 +748,12 @@ const router = useRouter()
 const feishuImportVisible = ref(false), feishuDraft = ref('')
 onMounted(() => {
   try {
-    const pending = JSON.parse(sessionStorage.getItem(FEISHU_PENDING) || '{}')
-    if (pending.kbId === '' && pending.path === location.pathname) {
-      sessionStorage.removeItem(FEISHU_PENDING)
+    const pending = takeFeishuDraft(location.pathname + location.search, '')
+    if (pending) {
       feishuDraft.value = typeof pending.url === 'string' ? pending.url : ''
       void nextTick(() => { feishuImportVisible.value = true })
     }
-  } catch { sessionStorage.removeItem(FEISHU_PENDING) }
+  } catch { /* Optional draft only. */ }
 })
 const route = useRoute()
 const uiStore = useUIStore()

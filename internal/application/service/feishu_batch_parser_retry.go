@@ -30,8 +30,7 @@ func (s *FeishuPersonalService) requeueUnavailableParserBatches(ctx context.Cont
 		if err := s.db.WithContext(ctx).First(&batch, "id = ?", item.BatchID).Error; err != nil {
 			return err
 		}
-		if batch.AuthMode != types.FeishuUserOAuth || batch.PublicationConsentAt == nil ||
-			!batch.PublicationConsentAt.Add(24*time.Hour).After(time.Now()) || item.SharingApprovalID == nil {
+		if batch.AuthMode != types.FeishuUserOAuth {
 			continue
 		}
 		fresh, err := s.batchContext(ctx, &batch)

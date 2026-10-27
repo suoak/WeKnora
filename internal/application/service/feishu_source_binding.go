@@ -130,6 +130,11 @@ func (s *DataSourceService) bindFeishuSource(
 		}
 	}
 	guard := func(tx *gorm.DB) error {
+		if ref.Kind == types.FeishuUserOAuth {
+			if err := s.feishuIdentity.assertConnectionHealth(tx, ref.OwnerUserID); err != nil {
+				return err
+			}
+		}
 		if e := checkRebindPublication(tx, ds.ID, ref.ConnectionID); e != nil {
 			return e
 		}

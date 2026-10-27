@@ -201,7 +201,7 @@ func Logger() gin.HandlerFunc {
 		// Keep access metadata, but never read or buffer these request/response bodies.
 		browserTraffic := strings.HasPrefix(path, "/api/v1/local-browser/") ||
 			path == "/api/v1/me/browser" || strings.HasSuffix(path, "/local-browser")
-		authTraffic := secutils.IsAuthenticationPath(path)
+		authTraffic := secutils.IsAuthenticationPath(path) || path == "/api/v1/feishu/events"
 		privateTraffic := browserTraffic || authTraffic
 		// 读取请求体（在Next之前读取，因为Next会消费body）
 		var requestBody string

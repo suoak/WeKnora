@@ -13,34 +13,10 @@ import (
 
 var errBatchPublicationExpired = errors.New("publication_confirmation_expired")
 
-type batchPublicationApprovalKey struct{}
-
-func batchPublicationContext(ctx context.Context, item *types.FeishuBatchItem) context.Context {
-	if item.SharingApprovalID == nil {
-		return ctx
-	}
-	return context.WithValue(ctx, batchPublicationApprovalKey{}, *item.SharingApprovalID)
-}
-
-// Write access alone never constitutes source publication authority.
-func (s *FeishuPersonalService) requireSharingAuthority(ctx context.Context, kbID string) error {
-	user, ok := types.UserIDFromContext(ctx)
-	if !ok || types.IsSyntheticUserID(user) {
-		return access.ErrUnauthorized
-	}
-	kb, err := s.kbs.GetKnowledgeBaseByID(ctx, kbID)
-	if err != nil {
-		return err
-	}
-	if err = access.RequireKBWrite(ctx, kb); err != nil {
-		return err
-	}
-	caller := types.CallerFromContext(ctx)
-	if caller.TenantID != kb.TenantID ||
-		kb.CreatorID != user && !caller.Role.HasPermission(types.TenantRoleAdmin) {
-		return access.ErrForbidden
-	}
-	return nil
+// Compatibility for old batch callers: historic approval IDs confer no write
+// authority and are not propagated into the current authorization context.
+func batchPublicationContext(ctx context.Context, _ *types.FeishuBatchItem) context.Context {
+	return ctx
 }
 
 // Lock live authority until the intent/grant is committed. Ingestion still
@@ -79,107 +55,24 @@ func lockBatchPublicationAuthority(tx *gorm.DB, b *types.FeishuBatch) error {
 func (s *FeishuPersonalService) bindBatchPublication(
 	ctx context.Context, b *types.FeishuBatch, item *types.FeishuBatchItem,
 ) error {
-	if b.PublicationConsentAt == nil || item.SharingApprovalID != nil {
-		return nil
-	}
-	if b.AuthMode != types.FeishuUserOAuth {
-		return access.ErrForbidden
-	}
-	expires := b.PublicationConsentAt.Add(24 * time.Hour)
-	if !expires.After(time.Now()) {
-		return errBatchPublicationExpired
-	}
-	approval, err := s.sharingApprovalCandidate(ctx, b.KBID, b.ConnectionID, item.URL,
-		"一键导入：明确发布本批所选文档的当前版本给目标知识库读者", true)
-	if err != nil {
-		return err
-	}
-	if approval.ConfigVersion != b.ConfigVersion || approval.OwnerID != b.OwnerID {
-		return ErrFeishuReconnect
-	}
-	approval.ExpiresAt = expires
-	bound := ""
-	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	// Do not manufacture a sharing approval from an import click. Destination
+	// authority is checked live; source permission/revision checks follow normally.
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var current types.FeishuBatchItem
-		if e := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			Where("id = ? AND batch_id = ? AND status = ? AND lease_owner = ? AND lease_until > ?",
-				item.ID, b.ID, "processing", item.LeaseOwner, time.Now()).First(&current).Error; e != nil {
-			return e
+				item.ID, b.ID, "processing", item.LeaseOwner, time.Now()).First(&current).Error; err != nil {
+			return err
 		}
-		if current.SharingApprovalID != nil {
-			bound = *current.SharingApprovalID
-			return nil
-		}
-		if !expires.After(time.Now()) {
-			return errBatchPublicationExpired
-		}
-		if e := lockBatchPublicationAuthority(tx, b); e != nil {
-			return e
-		}
-		if e := tx.Create(approval).Error; e != nil {
-			return e
-		}
-		if e := tx.Model(&current).Update("sharing_approval_id", approval.ID).Error; e != nil {
-			return e
-		}
-		bound = approval.ID
-		return nil
+		return s.requireImportWriter(tx, b.OwnerID, b.KBID, b.TenantID)
 	})
-	if err == nil && bound != "" {
-		item.SharingApprovalID = &bound
-	}
-	return err
 }
 
 // ContinueBatch combines explicit publication intent and requeue for an old
 // blocked batch. It never changes a bound revision, existing attempt, source,
 // cursor or retry budget, and performs no remote work before returning.
 func (s *FeishuPersonalService) ContinueBatch(ctx context.Context, id string, confirmed bool) error {
-	if !confirmed {
-		return ErrFeishuSharingApproval
-	}
-	view, err := s.Batch(ctx, id)
-	if err != nil {
-		return err
-	}
-	b := &view.Batch
-	if b.AuthMode != types.FeishuUserOAuth {
-		return access.ErrForbidden
-	}
-	fresh, err := s.batchContext(ctx, b)
-	if err != nil {
-		return err
-	}
-	if err = s.requireSharingAuthority(fresh, b.KBID); err != nil {
-		return err
-	}
-	_, _, ref, err := s.ResolveCredentialReference(fresh, b.AuthMode, b.ConnectionID)
-	if err != nil {
-		return err
-	}
-	if ref.ConfigVersion != b.ConfigVersion {
-		return ErrFeishuReconnect
-	}
-	return s.db.WithContext(fresh).Transaction(func(tx *gorm.DB) error {
-		if e := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", b.ID).First(b).Error; e != nil {
-			return e
-		}
-		if e := lockBatchPublicationAuthority(tx, b); e != nil {
-			return e
-		}
-		now := time.Now()
-		if b.PublicationConsentAt != nil && !b.PublicationConsentAt.Add(24*time.Hour).After(now) {
-			return errBatchPublicationExpired
-		}
-		if b.PublicationConsentAt == nil {
-			if e := tx.Model(b).Update("publication_consent_at", now).Error; e != nil {
-				return e
-			}
-		}
-		return tx.Model(&types.FeishuBatchItem{}).
-			Where("batch_id = ? AND status = ? AND error_category = ? AND import_id = ?"+
-				" AND sharing_approval_id IS NULL AND retry_count < 3",
-				b.ID, "blocked", "sharing_approval_required", "").
-			Updates(map[string]any{"status": "pending", "error_category": "", "updated_at": now}).Error
-	})
+	// Compatibility endpoint: confirmation is no longer a product requirement.
+	// RetryBatch reloads owner/KB/connection authority and preserves all IDs.
+	return s.RetryBatch(ctx, id)
 }

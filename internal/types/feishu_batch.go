@@ -15,6 +15,9 @@ type FeishuBatch struct {
 	PayloadHash          string     `                  json:"-"`
 	CreatedAt            time.Time  `                  json:"created_at"`
 	PublicationConsentAt *time.Time `                  json:"publication_consent_at,omitempty"`
+	TargetName           string     `gorm:"-"          json:"target_name,omitempty"`
+	DocumentNames        []string   `gorm:"-"          json:"document_names,omitempty"`
+	Status               string     `gorm:"-"          json:"status,omitempty"`
 }
 
 // TableName returns the durable batch control table.
@@ -45,6 +48,8 @@ type FeishuBatchItem struct {
 	RetryAfter        *time.Time `gorm:"-"          json:"retry_after,omitempty"`
 	AttemptRetryCount int        `gorm:"-"          json:"attempt_retry_count"`
 	KnowledgeID       string     `gorm:"-"          json:"knowledge_id,omitempty"`
+	DocumentName      string     `gorm:"-"          json:"document_name,omitempty"`
+	ResourceType      string     `gorm:"-"          json:"resource_type,omitempty"`
 	ParseStatus       string     `gorm:"-"          json:"parse_status,omitempty"`
 	ChunkCount        int64      `gorm:"-"          json:"chunk_count"`
 	VectorCount       int64      `gorm:"-"          json:"vector_count"`
@@ -59,8 +64,8 @@ type FeishuBatchItem struct {
 // TableName returns the batch item control table.
 func (FeishuBatchItem) TableName() string { return "feishu_import_batch_items" }
 
-// FeishuSharingApproval records intentional publication of a personal resource to one
-// KB and one source revision. It is never inferred from write access alone.
+// FeishuSharingApproval preserves historic grants for audit and controlled hold
+// reconciliation. Ordinary imports use the destination KB's existing write ACL.
 type FeishuSharingApproval struct {
 	ID            string    `gorm:"primaryKey" json:"id"`
 	OwnerID       string    `                  json:"owner_id"`

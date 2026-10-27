@@ -118,7 +118,7 @@ func TestFeishuV2PostgresParserOutageNeverResumesPartialOrRevoked(t *testing.T) 
 				}).Error)
 			}
 			if reason == "revoked" {
-				require.NoError(t, f.s.RevokeSharingApproval(f.ctx, "kb", *view.Items[0].SharingApprovalID))
+				require.NoError(t, f.s.Disconnect(f.ctx))
 			}
 			if reason == "source_managed" {
 				require.NoError(t, f.db.Model(&types.FeishuPersonalImport{}).Where("id = ?", m.ID).
