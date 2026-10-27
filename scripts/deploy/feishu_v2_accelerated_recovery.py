@@ -29,7 +29,10 @@ def program():
     backup = old[old.index("elif OPERATION=='backup':"):old.index("elif OPERATION=='reset':")]
     # Snapshot and restore are fresh for this run, never reuse an old approval.
     backup = backup.replace('feishu_report25_restore_', 'feishu_accelerated_control_restore_')
-    remote = previous.replace_once(remote, "elif OPERATION=='reset':", backup + "elif OPERATION=='reset':\n if not state.get('backup_verified'):raise ValueError('verified_backup_required')")
+    remote = previous.replace_once(remote, "elif OPERATION=='reset':", backup +
+        "elif OPERATION=='reset':\n if not state.get('backup_verified'):raise ValueError('verified_backup_required')\n"
+        " backup=directory/('before-'+state['plan_id']+'.dump')\n"
+        " if backup.is_symlink() or hashlib.sha256(backup.read_bytes()).hexdigest()!=state['backup_sha256']:raise ValueError('recovery_backup_changed')")
     remote = previous.replace_once(remote,
         "or payload.get('force_full'):\n   raise ValueError('pending_task_outside_approved_scope')",
         ":\n   raise ValueError('pending_task_outside_approved_scope')\n"

@@ -151,6 +151,9 @@ func TestFeishuV2PostgresControlledSourceRebind(t *testing.T) {
 					Error,
 			)
 			admin := context.WithValue(f.ctx, types.SystemAdminContextKey, true)
+			// A stopped operator has no ingestion dispatcher or KB service. Live
+			// owner/tenant/KB authority must still be checked without a panic.
+			f.s.kbs, f.s.recovery = nil, nil
 			_, err = f.s.PrepareSourceRebind(admin, ids, "not-the-session-actor")
 			require.Error(t, err)
 			count, err := f.s.SourceBindingAttention(f.ctx)
