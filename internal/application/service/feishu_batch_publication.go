@@ -71,7 +71,7 @@ func (s *FeishuPersonalService) bindBatchPublication(
 // ContinueBatch combines explicit publication intent and requeue for an old
 // blocked batch. It never changes a bound revision, existing attempt, source,
 // cursor or retry budget, and performs no remote work before returning.
-func (s *FeishuPersonalService) ContinueBatch(ctx context.Context, id string, confirmed bool) error {
+func (s *FeishuPersonalService) ContinueBatch(ctx context.Context, id string, _ bool) error {
 	// Compatibility endpoint: confirmation is no longer a product requirement.
 	// RetryBatch reloads owner/KB/connection authority and preserves all IDs.
 	return s.RetryBatch(ctx, id)

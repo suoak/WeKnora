@@ -130,7 +130,7 @@ async function connect(links:string) {
 }
 </script>
 <style scoped>
-.management {max-width:960px;margin:32px auto;padding:0 24px 40px;overflow-wrap:anywhere;}
+.management {width:100%;max-width:960px;box-sizing:border-box;margin:32px auto;padding:0 24px 40px;overflow-wrap:anywhere;}
 .history-summary {display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0;}
 .history-summary span {font-size:13px;color:var(--td-text-color-secondary);}
 .history-row,.item {padding:20px;border:1px solid var(--td-component-border);border-radius:10px;background:var(--td-bg-color-container);margin:12px 0;}
@@ -139,7 +139,5 @@ async function connect(links:string) {
 .history-row {display:flex;justify-content:space-between;align-items:center;gap:16px;}
 details {margin-top:24px;}
 summary {cursor:pointer;}
-.item {padding:12px 0;border-bottom:1px solid var(--td-component-border);}
 .warning {color:var(--td-warning-color);}
-.continue {padding:12px;border:1px solid var(--td-component-border);border-radius:8px;line-height:1.6;}
 </style>

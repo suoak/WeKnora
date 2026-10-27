@@ -2,6 +2,9 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +15,7 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/hibiken/asynq"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
@@ -62,7 +66,7 @@ func connectionHealthFixture(
 	}))
 	t.Cleanup(server.Close)
 	s.newClient = func(cfg *core.Config) *core.Client { cfg.BaseURL = server.URL; return core.NewClient(cfg) }
-	s.api = &http.Client{Transport: feishuTestTransport(func(r *http.Request) (*http.Response, error) {
+	s.api = &http.Client{Transport: feishuTestTransport(func(_ *http.Request) (*http.Response, error) {
 		refresh.Add(1)
 		if mode.Load() == 2 {
 			return &http.Response{
@@ -120,7 +124,7 @@ func TestFeishuOAuthConnectionHealthConfirmedRevocationAndDisconnect(t *testing.
 func TestFeishuOAuthRevocationHintNeverDeletesRenewableGrant(t *testing.T) {
 	s, _, calls, _ := connectionHealthFixture(t)
 	ctx := personalUser("A")
-	h, err := s.inspectConnection(ctx, "A")
+	_, err := s.inspectConnection(ctx, "A")
 	require.NoError(t, err)
 	require.NoError(
 		t,
@@ -147,7 +151,7 @@ func TestFeishuOAuthRevocationHintNeverDeletesRenewableGrant(t *testing.T) {
 		),
 	)
 	before := calls.Load()
-	h, err = s.inspectConnection(ctx, "A")
+	h, err := s.inspectConnection(ctx, "A")
 	require.NoError(t, err)
 	require.Equal(t, "connected", h.State)
 	require.Greater(t, calls.Load(), before)
@@ -210,7 +214,7 @@ func TestFeishuV2PostgresConnectionHealthLeaseAndReauthorizationFence(t *testing
 	t.Setenv("FEISHU_PERSONAL_CONNECTION_CHECKS_ENABLED", "1")
 	entered, release := make(chan struct{}), make(chan struct{})
 	var calls atomic.Int32
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		if calls.Add(1) == 1 {
 			close(entered)
 		}
@@ -264,4 +268,36 @@ func TestFeishuV2PostgresConnectionHealthLeaseAndReauthorizationFence(t *testing
 	require.NoError(t, err)
 	require.Equal(t, "new-consent", h.Epoch)
 	require.Equal(t, "connected", h.State)
+}
+
+func TestFeishuOAuthConnectionCheckTaskFencesObsoleteGrant(t *testing.T) {
+	s, _, calls, _ := connectionHealthFixture(t)
+	var grant types.FeishuPersonalGrantEpoch
+	require.NoError(t, s.db.Where("user_id = ?", "A").First(&grant).Error)
+	hash := sha256.Sum256([]byte(grant.Epoch))
+	payload, err := json.Marshal(
+		feishuConnectionCheckPayload{UserID: "A", AppID: "cli_test", EpochHash: hex.EncodeToString(hash[:])},
+	)
+	require.NoError(t, err)
+	task := asynq.NewTask(types.TypeFeishuConnectionCheck, payload)
+	require.NoError(t, s.db.Model(&grant).Where("user_id = ?", "A").Update("epoch", "new-consent").Error)
+	require.NoError(t, s.ProcessConnectionCheck(context.Background(), task))
+	require.Zero(t, calls.Load(), "obsolete queued checks cannot probe a later authorization")
+	hash = sha256.Sum256([]byte("new-consent"))
+	payload, err = json.Marshal(
+		feishuConnectionCheckPayload{UserID: "A", AppID: "cli_test", EpochHash: hex.EncodeToString(hash[:])},
+	)
+	require.NoError(t, err)
+	require.NoError(
+		t,
+		s.ProcessConnectionCheck(context.Background(), asynq.NewTask(types.TypeFeishuConnectionCheck, payload)),
+	)
+	require.Positive(t, calls.Load())
+	before := calls.Load()
+	require.NoError(t, s.Disconnect(personalUser("A")))
+	require.NoError(
+		t,
+		s.ProcessConnectionCheck(context.Background(), asynq.NewTask(types.TypeFeishuConnectionCheck, payload)),
+	)
+	require.Equal(t, before, calls.Load(), "disconnect prevents queued tasks from reusing credentials")
 }

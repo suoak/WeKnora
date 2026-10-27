@@ -150,7 +150,7 @@ func (s *FeishuPersonalService) checkSharingApproval(
 	tx *gorm.DB,
 	cfg *FeishuAppConfig,
 	m *types.FeishuPersonalImport,
-	revision string,
+	_ string,
 ) error {
 	// Historical name retained for stored attempts and callers. Independent
 	// revision-sharing grants no longer authorize ordinary imports or updates.

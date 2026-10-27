@@ -143,7 +143,7 @@ func (s *FeishuPersonalService) CreateBatch(
 	ctx context.Context,
 	kb, mode, id, key string,
 	links []string,
-	publication ...bool,
+	_ ...bool,
 ) (*FeishuBatchView, error) {
 	user, ok := types.UserIDFromContext(ctx)
 	if !ok {

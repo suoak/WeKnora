@@ -1,6 +1,8 @@
 <template>
   <t-dialog :visible="visible" :header="t('title')" :footer="false" width="min(940px, calc(100vw - 32px))" @close="emit('update:visible', false)">
-    <p v-if="!status.available">{{ t('unavailable') }}</p>
+    <t-loading v-if="statusLoading" text="正在读取连接状态" />
+    <p v-else-if="statusError">暂时无法检查连接状态。<t-button variant="text" @click="loadVisible">重试</t-button></p>
+    <p v-else-if="!status.available">{{ t('unavailable') }}</p>
     <FeishuAccessV2 v-else-if="status.v2" :kb-id="kbId" :status="status" :initial-url="initialUrl" @connect="connect" @imported="emit('imported')" />
     <template v-else>
       <p v-if="status.auth_mode === 'application_grant'">{{ t(tablesEnabled ? 'applicationTablesInstructions' : 'applicationInstructions') }}</p>
@@ -35,6 +37,7 @@ const props = defineProps<{ visible: boolean; kbId: string; initialUrl?: string 
 const emit = defineEmits<{ 'update:visible': [value: boolean]; imported: [] }>()
 const { t } = useI18n({ useScope: 'local', messages: feishuMessages })
 const status = ref<FeishuStatus>({ configured: false, available: false, connected: false })
+const statusLoading = ref(false), statusError = ref(false)
 const canImport = computed(() => status.value.available && (status.value.auth_mode === 'application_grant' || status.value.connected))
 const tablesEnabled = computed(() => ['sheet', 'bitable'].every(type => status.value.supported_resource_types?.includes(type)))
 const rows = ref<FeishuImport[]>([])
@@ -77,9 +80,11 @@ async function pollAccepted(kb: string, version: number) {
   } catch { /* Background work is durable; a polling failure must not resubmit it. */ }
   if (version === generation && props.kbId === kb && awaitingKnowledge.size) timer = setTimeout(() => pollAccepted(kb, version), 3000)
 }
-watch(() => props.visible, async value => {
+watch(() => props.visible, loadVisible, { immediate: true })
+async function loadVisible() {
   stopHistory()
-  if (!value) return
+  if (!props.visible) return
+  statusLoading.value = true; statusError.value = false
   const kb = props.kbId
   url.value = props.initialUrl || ''; resultMessage.value = ''
   try {
@@ -89,8 +94,9 @@ watch(() => props.visible, async value => {
     const imports = await listFeishuImports(kb)
     if (props.visible && props.kbId === kb) rows.value = imports
     if (mounted && props.visible && props.kbId === kb) historyTimer = setTimeout(() => refreshHistory(kb), 5000)
-  } catch { if (props.visible && props.kbId === kb) resultMessage.value = t('failed') }
-})
+  } catch { if (props.visible && props.kbId === kb) statusError.value = true }
+  finally { if (props.kbId === kb) statusLoading.value = false }
+}
 async function connect(pendingLinks?: string | MouseEvent) {
   busy.value = true
   try {
