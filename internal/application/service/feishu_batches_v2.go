@@ -125,7 +125,8 @@ func (s *FeishuPersonalService) batchHistorySummaries(
 			if item.Status == "failed" || item.Status == "blocked" {
 				batch.Status = "failed"
 			}
-			pending := item.Status != "succeeded" && item.Status != "dispatched" && item.Status != "duplicate"
+			pending := item.Status != "succeeded" && item.Status != "dispatched" &&
+				item.Status != "duplicate" && item.Status != "existing"
 			if batch.Status != "failed" && (pending || item.IndexStatus != "verified") {
 				batch.Status = "processing"
 			}

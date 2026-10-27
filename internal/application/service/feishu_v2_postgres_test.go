@@ -495,3 +495,45 @@ func TestFeishuV2PostgresBatchReportsActualFailureWithoutPollingProgress(t *test
 	require.Equal(t, "needs_attention", view.Items[0].Stage)
 	require.Equal(t, "storage_permission_denied", view.Items[0].ErrorCategory)
 }
+
+func TestFeishuV2PostgresExistingHistoryRequiresVerifiedReceipt(t *testing.T) {
+	f := v2PostgresFixture(t)
+	view, err := f.s.QuickImport(f.ctx, "kb", "existing-history-receipt", []string{"https://test.feishu.cn/file/real"})
+	require.NoError(t, err)
+	require.NoError(t, f.s.ReconcileBatches(context.Background()))
+	var item types.FeishuBatchItem
+	require.NoError(t, f.db.Where("id = ?", view.Items[0].ID).First(&item).Error)
+	require.NotEmpty(t, item.ImportID)
+	require.NoError(t, f.db.Model(&item).UpdateColumn("status", "existing").Error)
+	knowledge := types.Knowledge{
+		ID:              "verified-history-knowledge",
+		TenantID:        1,
+		KnowledgeBaseID: "kb",
+		Title:           "Existing document",
+		ParseStatus:     types.ParseStatusCompleted,
+	}
+	require.NoError(t, f.db.Create(&knowledge).Error)
+	require.NoError(t, f.db.Model(&types.FeishuPersonalImport{}).Where("id = ?", item.ImportID).
+		Updates(map[string]any{"knowledge_id": knowledge.ID, "status": "source_managed"}).Error)
+	history, err := f.s.ListBatches(f.ctx, "kb", 0)
+	require.NoError(t, err)
+	require.Len(t, history, 1)
+	require.Equal(t, "processing", history[0].Status, "completed parse without index receipt is not success")
+	receipt := types.TaskPendingOp{
+		TenantID:   1,
+		TaskType:   "personal:index",
+		Scope:      personalIndexReceiptScope,
+		ScopeID:    knowledge.ID,
+		Op:         "verified",
+		EnqueuedAt: time.Now(),
+	}
+	require.NoError(t, f.db.Create(&receipt).Error)
+	history, err = f.s.ListBatches(f.ctx, "kb", 0)
+	require.NoError(t, err)
+	require.Equal(t, "succeeded", history[0].Status)
+	require.Equal(t, []string{knowledge.Title}, history[0].DocumentNames)
+	require.NoError(t, f.db.Delete(&receipt).Error)
+	history, err = f.s.ListBatches(f.ctx, "kb", 0)
+	require.NoError(t, err)
+	require.Equal(t, "processing", history[0].Status, "receipt removal cannot leave a stale success summary")
+}
