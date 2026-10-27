@@ -189,7 +189,7 @@ func (s *FeishuPersonalService) inspectSourceRebind(
 		return nil, access.ErrForbidden
 	}
 	metadataCtx := types.WithLegacyKBAdminMetadata(ctx, ds.KnowledgeBaseID)
-	fresh, err := s.batchContext(
+	fresh, err := s.sourceRebindOwnerContext(
 		metadataCtx,
 		&types.FeishuBatch{
 			OwnerID:  ref.OwnerUserID,
@@ -273,6 +273,45 @@ func (s *FeishuPersonalService) inspectSourceRebind(
 		return e
 	})
 	return item, err
+}
+
+// Rebinding checks live owner authority directly, independently of the ingestion
+// dispatcher. A stopped-worker operator must not need a running parser pipeline
+// merely to verify source identity. This does not grant access to KB contents.
+func (s *FeishuPersonalService) sourceRebindOwnerContext(
+	ctx context.Context, batch *types.FeishuBatch,
+) (context.Context, error) {
+	var user types.User
+	var member types.TenantMember
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockBatchPublicationAuthority(tx, batch); err != nil {
+			return err
+		}
+		owner, err := types.PrivateKBOwner(tx, batch.KBID)
+		if err != nil || owner != "" && owner != batch.OwnerID {
+			return access.ErrForbidden
+		}
+		if err := tx.First(&user, "id = ?", batch.OwnerID).Error; err != nil {
+			return err
+		}
+		return tx.Where("user_id = ? AND tenant_id = ?", batch.OwnerID, batch.TenantID).
+			First(&member).
+			Error
+	})
+	if err != nil {
+		return ctx, err
+	}
+	fresh := context.WithValue(ctx, types.KBGrantsContextKey, nil)
+	fresh = types.WithCaller(
+		fresh,
+		types.Caller{TenantID: batch.TenantID, UserID: batch.OwnerID, Role: member.Role},
+	)
+	fresh = context.WithValue(fresh, types.UserIDContextKey, batch.OwnerID)
+	fresh = types.WithPrincipal(
+		fresh,
+		types.Principal{Type: types.PrincipalWebUser, ID: batch.OwnerID},
+	)
+	return context.WithValue(fresh, types.SystemAdminContextKey, user.IsSystemAdmin), nil
 }
 
 func rebindScopesValid(scope, kind string) bool {

@@ -1,7 +1,7 @@
 ﻿param(
     [Parameter(Mandatory=$true)][string]$CredentialPath,
     [Parameter(Mandatory=$true)][ValidateSet('feishu_v2_inventory.py','feishu_v2_prepare_build.py',
-        'feishu_v2_build_candidate.py','feishu_v2_runtime_image.py','feishu_v2_remote_gateway_probe.py','feishu_v2_pair_operator.py',
+        'feishu_v2_build_candidate.py','feishu_v2_runtime_image.py','feishu_v2_remote_gateway_probe.py','feishu_v2_pair_operator.py','feishu_v2_accelerated_recovery.py',
         'feishu_v2_prepare_test_site.py','feishu_v2_test_site_preflight.py','feishu_v2_network_plan.py',
         'feishu_v2_configure_gateway.py','feishu_v2_bootstrap_site.py','feishu_v2_entry.py',
         'feishu_v2_site_smoke.py','feishu_v2_private_http_probe.py','feishu_v2_upgrade_site.py','feishu_v2_real_diagnostic.py','feishu_v2_fix_staging.py','feishu_v2_real_mcp_probe.py','feishu_v2_docreader_service.py','feishu_v2_frontend_upgrade.py','feishu_v2_control_audit.py','feishu_v2_personal_export_probe.py','feishu_v2_diagnostic_build.py','feishu_v2_approved_control_recovery.py','feishu_v2_membership_recovery.py','feishu_v2_sync_publication_policy.py','feishu_v2_personal_scope_configuration.py')][string]$Script,

@@ -22,9 +22,15 @@ import (
 func enqueueApprovedReconciliation(
 	ctx context.Context, db *gorm.DB, policy *service.FeishuSyncPublicationPolicy,
 ) error {
-	if policy.AuthorizationRef != reconciliationAuthorization || policy.State != "approved" ||
-		!policy.ReconciliationExpiresAt.After(time.Now().Add(time.Minute)) || policy.ReconciliationLogID == "" ||
-		mask(policy.SourceID) != "1dcf458346ba" {
+	allowed := policy.AuthorizationRef == reconciliationAuthorization &&
+		mask(policy.SourceID) == "1dcf458346ba" ||
+		policy.AuthorizationRef == acceleratedAuthorization &&
+			(mask(policy.SourceID) == "1dcf458346ba" || mask(policy.SourceID) == "6d1698a6e0d9")
+	if !allowed || policy.State != "approved" ||
+		!policy.ReconciliationExpiresAt.After(
+			time.Now().Add(time.Minute),
+		) || policy.ReconciliationLogID == "" ||
+		policy.SourceID == "" {
 		return errors.New("approved_held_source_reconciliation_required")
 	}
 	var run types.SyncLog

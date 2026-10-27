@@ -1,4 +1,4 @@
-"""Current explicitly authorized isolated two-source operator; no production mode."""
+﻿"""Current explicitly authorized isolated two-source operator; no production mode."""
 import argparse
 import sys
 
@@ -16,18 +16,22 @@ if ACTION=='rebind':
  run(compose+['stop','--timeout','45','app','worker2'],120)
  if not backup_receipt.exists():
   backup=folder/'before-rebind.dump'
-  with backup.open('xb') as output:
-   os.chmod(backup,0o600)
-   p=subprocess.run(compose+['exec','-T','postgres','pg_dump','-U','postgres','-Fc','--no-owner','--no-acl','knowhub_feishu_v2_test'],stdout=output,stderr=subprocess.PIPE,timeout=180)
-  if p.returncode:raise ValueError('backup_failed')
+  if not backup.exists():
+   with backup.open('xb') as output:
+    os.chmod(backup,0o600)
+    p=subprocess.run(compose+['exec','-T','postgres','pg_dump','-U','postgres','-Fc','--no-owner','--no-acl','knowhub_feishu_v2_test'],stdout=output,stderr=subprocess.PIPE,timeout=180)
+   if p.returncode:raise ValueError('backup_failed')
   restored='feishu_accelerated_restore_20261027'
-  run(compose+['exec','-T','postgres','createdb','-U','postgres','--template=template0',restored])
-  with backup.open('rb') as incoming:
-   p=subprocess.run(compose+['exec','-T','postgres','pg_restore','--exit-on-error','--no-owner','--no-acl','-U','postgres','-d',restored],stdin=incoming,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,timeout=180)
-  if p.returncode:raise ValueError('restore_failed')
+  existing=run(compose+['exec','-T','postgres','psql','-XAt','-U','postgres','-d','postgres'],input="SELECT count(*) FROM pg_database WHERE datname='"+restored+"';").strip()
+  if existing=='0':
+   run(compose+['exec','-T','postgres','createdb','-U','postgres','--template=template0',restored])
+   with backup.open('rb') as incoming:
+    p=subprocess.run(compose+['exec','-T','postgres','pg_restore','--exit-on-error','--no-owner','--no-acl','-U','postgres','-d',restored],stdin=incoming,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,timeout=180)
+   if p.returncode:raise ValueError('restore_failed')
   checks={}
   for table in ['users','feishu_connections','feishu_personal_imports','data_sources','sync_logs','knowledges','chunks','embeddings']:
-   query="SELECT count(*)::text||':'||md5(coalesce(string_agg(md5(row_to_json(t)::text),'' ORDER BY id::text),'')) FROM "+table+" t;"
+   key='user_id' if table=='feishu_connections' else 'id'
+   query="SELECT count(*)::text||':'||md5(coalesce(string_agg(md5(row_to_json(t)::text),'' ORDER BY "+key+"::text),'')) FROM "+table+" t;"
    original=run(compose+['exec','-T','postgres','psql','-XAt','-v','ON_ERROR_STOP=1','-U','postgres','-d','knowhub_feishu_v2_test'],input=query)
    recovered=run(compose+['exec','-T','postgres','psql','-XAt','-v','ON_ERROR_STOP=1','-U','postgres','-d',restored],input=query)
    if original!=recovered:raise ValueError('restore_rows_mismatch')
@@ -50,16 +54,19 @@ def program(action):
     marker = "environment['FEISHU_DIAGNOSTIC_ISOLATED']='1'"
     assert remote.count(marker) == 1
     remote = remote.replace(marker, marker + '\n' + BACKUP)
+    remote = remote.replace("if p.returncode and len(lines)!=1:raise ValueError('personal_export_diagnostic_failed')",
+        "if p.returncode and len(lines)!=1:\n  print(json.dumps({'status':'BLOCKED','exit_code':p.returncode,'json_lines':len(lines),'stack_functions':[v.rsplit('(',1)[0] for v in p.stderr.splitlines() if v.startswith(('github.com/Tencent/WeKnora/','main.'))],'stderr_categories':[v for v in ['no such file','not found','Permission denied','panic:','GLIBC','exec format'] if v.lower() in p.stderr.lower()]}));raise SystemExit(2)")
     # Source permission preflight may refresh the real personal token. Failure
     # leaves workers stopped and the safety latch intact for explicit diagnosis.
-    remote = remote.replace("result=json.loads(lines[0]);", "result=json.loads(lines[0]);")
+    remote = remote.replace("print(json.dumps(result))", "if ACTION=='rebind' and result.get('status')=='APPLIED':run(compose+['start','app','worker2'],120)\n print(json.dumps(result))")
     return 'COMPARE_CONTENT_PATHS=False\nACTION=' + repr(action) + '\nAUTHORIZATION=' + repr(AUTHORIZATION) + '\n' + remote
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument('--operation', choices=['rebind', 'reconcile'], required=True)
+    parser.add_argument('--operation', choices=['rebind', 'reconcile', 'enqueue'], required=True)
     options, remaining = parser.parse_known_args()
     probe.transport.REMOTE = program(options.operation)
     sys.argv = [sys.argv[0], *remaining, '--mode', 'status']
     raise SystemExit(probe.transport.main())
+

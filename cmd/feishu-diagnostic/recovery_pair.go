@@ -11,6 +11,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/application/service"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Tencent/WeKnora/internal/utils"
 	"gorm.io/gorm"
 )
 
@@ -83,6 +84,29 @@ func recoverExistingPair(
 		})
 		if err != nil {
 			return err
+		}
+	case "enqueue":
+		for _, id := range ids {
+			var row types.SystemSetting
+			if err := db.Where("key = ?", "integration.feishu.sync_publication."+id).First(&row).Error; err != nil {
+				return err
+			}
+			cipher, err := row.AsString()
+			if err != nil {
+				return err
+			}
+			plain, err := utils.DecryptStoredSecret(cipher)
+			if err != nil {
+				return err
+			}
+			var policy service.FeishuSyncPublicationPolicy
+			if json.Unmarshal([]byte(plain), &policy) != nil || policy.SourceID != id ||
+				policy.AuthorizationRef != acceleratedAuthorization {
+				return errors.New("current_pair_policy_required")
+			}
+			if err := enqueueApprovedReconciliation(ctx, db, &policy); err != nil {
+				return err
+			}
 		}
 	default:
 		return errors.New("unsupported_pair_operation")
