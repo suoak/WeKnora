@@ -199,7 +199,13 @@ def main():
         code = prefix + 'try:\n' + textwrap.indent(REMOTE, ' ') + "\nexcept Exception as e:\n print(json.dumps({'status':'BLOCKED','error_type':type(e).__name__,'reason':str(e) if isinstance(e,ValueError) else 'isolated_docreader_failed'}))\n"
         encoded = base64.b64encode(code.encode()).decode()
         _, out, _ = client.exec_command("python3 -c \"import base64;exec(base64.b64decode('" + encoded + "'))\"", timeout=900)
-        result = json.loads(out.read(65536))
+        # Detailed, content-free control timing spans can exceed 64KiB.
+        # Keep a hard bound and reject overflow instead of parsing a prefix.
+        report_limit = 1024 * 1024
+        report = out.read(report_limit + 1)
+        if len(report) > report_limit:
+            raise ValueError('isolated_diagnostic_report_limit')
+        result = json.loads(report)
         print(json.dumps(result, indent=2))
         return 2 if result['status'] in ['BLOCKED', 'BUILD_FAILED'] else 0
     finally:
