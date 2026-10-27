@@ -130,11 +130,11 @@ func (s *wikiPageService) UpdatePage(ctx context.Context, page *types.WikiPage) 
 	if err != nil {
 		return nil, fmt.Errorf("get existing page: %w", err)
 	}
-	if page.ReadETag == "" || page.ReadETag != existing.DependencyETag() {
+	if !wikiWriteSnapshotMatches(ctx, page, existing) {
 		return nil, repository.ErrWikiPageConflict
 	}
 	// Carry the producer's dependency snapshot through to the atomic DB check.
-	existing.ReadETag = page.ReadETag
+	existing.ReadETag = existing.DependencyETag()
 	stripWikiPageInlineChunkCitations(page)
 
 	oldOutLinks := existing.OutLinks
@@ -225,10 +225,10 @@ func (s *wikiPageService) UpdateAutoLinkedContent(ctx context.Context, page *typ
 	if err != nil {
 		return fmt.Errorf("get existing page: %w", err)
 	}
-	if page.ReadETag == "" || page.ReadETag != existing.DependencyETag() {
+	if !wikiWriteSnapshotMatches(ctx, page, existing) {
 		return repository.ErrWikiPageConflict
 	}
-	existing.ReadETag = page.ReadETag
+	existing.ReadETag = existing.DependencyETag()
 
 	oldOutLinks := existing.OutLinks
 
@@ -486,8 +486,13 @@ func (s *wikiPageService) GetIndexView(
 	limit int,
 	cursor string,
 ) (*types.WikiIndexResponse, error) {
-	indexPage, err := s.GetIndex(ctx, kbID)
-	if err != nil {
+	// Reading the directory must not initialize a persistent index. A new
+	// unproved row would change the Wiki epoch underneath an active generation
+	// and block its next retry. Only the generation worker creates the index.
+	indexPage, err := s.repo.GetBySlug(ctx, kbID, "index")
+	if errors.Is(err, repository.ErrWikiPageNotFound) {
+		indexPage = &types.WikiPage{}
+	} else if err != nil {
 		return nil, fmt.Errorf("load index page: %w", err)
 	}
 
@@ -1321,6 +1326,12 @@ func (s *wikiPageService) RepairContentLinks(
 // updateInLinks adds the source slug to the in_links of target pages
 func (s *wikiPageService) updateInLinks(ctx context.Context, kbID string, sourceSlug string, targets types.StringArray) {
 	for _, targetSlug := range targets {
+		if store, ok := s.repo.(wikiBacklinkStore); ok {
+			if err := store.UpdateBacklink(ctx, kbID, targetSlug, sourceSlug, true); err != nil {
+				logger.Warnf(ctx, "wiki: add backlink for %s: %v", targetSlug, err)
+			}
+			continue
+		}
 		targetPage, err := s.repo.GetBySlug(ctx, kbID, targetSlug)
 		if err != nil {
 			continue // target page may not exist yet
@@ -1338,6 +1349,12 @@ func (s *wikiPageService) updateInLinks(ctx context.Context, kbID string, source
 // removeInLinks removes the source slug from the in_links of target pages
 func (s *wikiPageService) removeInLinks(ctx context.Context, kbID string, sourceSlug string, targets types.StringArray) {
 	for _, targetSlug := range targets {
+		if store, ok := s.repo.(wikiBacklinkStore); ok {
+			if err := store.UpdateBacklink(ctx, kbID, targetSlug, sourceSlug, false); err != nil {
+				logger.Warnf(ctx, "wiki: remove backlink for %s: %v", targetSlug, err)
+			}
+			continue
+		}
 		targetPage, err := s.repo.GetBySlug(ctx, kbID, targetSlug)
 		if err != nil {
 			continue

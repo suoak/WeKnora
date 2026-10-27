@@ -94,7 +94,8 @@ Use `feishu_v2_prepare_test_site.py --images-only` when upgrading an existing
 project. This verifies and loads the exact candidate images and retains the
 frontend manifest without requiring the old site's preview ports to be free or
 creating a second Compose stack.
-# Explicit production intranet HTTP callback
+
+## Explicit production intranet HTTP callback
 
 The default callback policy remains HTTPS. An operator-approved intranet
 deployment can separately configure `FEISHU_INTERNAL_HTTP_CALLBACK_ENABLED=1`
@@ -113,4 +114,3 @@ document access or relax sharing/version checks. HTTP transports authorization
 codes and browser sessions without encryption; the operator must approve that
 deployment constraint. No HTTPS security claim is made. Configure the exact
 callback in the Feishu application's redirect allowlist before enabling users.
-

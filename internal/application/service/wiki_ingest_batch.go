@@ -257,7 +257,7 @@ func (s *wikiIngestService) newWikiBatchContext(
 	}
 }
 
-func (s *wikiIngestService) ProcessWikiIngest(ctx context.Context, t *asynq.Task) (retErr error) {
+func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task) (retErr error) {
 	taskStartedAt := time.Now()
 	retryCount, _ := asynq.GetRetryCount(ctx)
 	maxRetry, _ := asynq.GetMaxRetry(ctx)
@@ -285,6 +285,9 @@ func (s *wikiIngestService) ProcessWikiIngest(ctx context.Context, t *asynq.Task
 	loggedMaxInflight := 0
 
 	defer func() {
+		if retErr != nil && exitStatus == "success" {
+			exitStatus = "failed"
+		}
 		logger.Infof(
 			ctx,
 			"wiki ingest stats: kb=%s tenant=%d retry=%d/%d status=%s elapsed=%s mode=%s pending_ops=%d ops(ingest=%d,retract=%d) ingest(success=%d,failed=%d) retract_handled=%d pages(total=%d) followup=%v tunables(batch=%d,map_par=%d,reduce_par=%d,max_inflight=%d) preview=%s",
@@ -816,7 +819,7 @@ func (s *wikiIngestService) ProcessWikiIngest(ctx context.Context, t *asynq.Task
 	}
 	_ = egReduce.Wait()
 
-	tailCtx, tailCancel := wikiIngestCleanupContext(ctx)
+	tailCtx, tailCancel := wikiIngestPostProcessContext(ctx, len(allPagesAffected))
 	defer tailCancel()
 	tailCtx, firstAddPostErrors := withWikiPostErrors(tailCtx)
 
@@ -1054,7 +1057,7 @@ func (s *wikiIngestService) ProcessWikiIngest(ctx context.Context, t *asynq.Task
 // the finalize lane of task_pending_ops (written by ProcessWikiIngest via
 // enqueueFinalize) so a burst of documents rebuilds the index ONCE instead of
 // once per 5-doc batch.
-func (s *wikiIngestService) ProcessWikiFinalize(ctx context.Context, t *asynq.Task) error {
+func (s *wikiIngestService) processWikiFinalize(ctx context.Context, t *asynq.Task) error {
 	startedAt := time.Now()
 	var payload WikiIngestPayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
