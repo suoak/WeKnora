@@ -1,6 +1,5 @@
 """Check the actual remote deployment's bounded environment rewrite offline."""
 import ast
-import importlib.util
 from pathlib import Path
 import unittest
 
@@ -8,11 +7,13 @@ import unittest
 class UpgradeEnvironmentTests(unittest.TestCase):
     def test_diagnostics_cannot_enable_migration_or_extend_authorization(self):
         root = Path(__file__).resolve().parents[4]
-        spec = importlib.util.spec_from_file_location(
-            "upgrade", root / "scripts/deploy/feishu_v2_upgrade_site.py")
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        tree = ast.parse(module.REMOTE)
+        source = (root / "scripts/deploy/feishu_v2_upgrade_site.py").read_text(
+            encoding="utf-8")
+        module = ast.parse(source)
+        remote = next(n.value for n in module.body if isinstance(n, ast.Assign)
+                      and any(isinstance(t, ast.Name) and t.id == "REMOTE"
+                              for t in n.targets))
+        tree = ast.parse(ast.literal_eval(remote))
         function = next(n for n in tree.body if isinstance(n, ast.FunctionDef)
                         and n.name == "upgraded_environment")
         namespace = {}
