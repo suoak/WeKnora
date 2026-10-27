@@ -1,6 +1,8 @@
 """Read-only classified embedding failure evidence, never bodies or secrets."""
 import sys
 import argparse
+import re
+from pathlib import Path
 import feishu_v2_control_audit as audit
 
 EXTRA = r'''
@@ -16,6 +18,24 @@ for service in ['app','worker2']:
   codes=re.findall(r'\b(?:code[=: ]+|status code: ?)([a-zA-Z0-9_]{3,80})',line)
   failures.append({'service':service,'at':at[0] if at else None,'categories':categories,'numeric_limits':limits,'provider_codes':codes})
 result['embedding_failure_categories']=failures[-30:]
+source_failures=[]
+for service in ['app','worker2']:
+ logs=run(compose+['logs','--timestamps','--no-color','--since','2026-10-27T02:11:00Z','--tail','2000',service])
+ for line in logs.splitlines():
+  if 'failed to ingest item' not in line:continue
+  reason=line.split('): ',1)[-1]
+  source_failures.append({'service':service,'reason_digest':hashlib.sha256(reason.encode()).hexdigest()[:12],
+   'source_defined_reasons':[v for v in KNOWN_REASONS if v.lower() in reason.lower()]})
+result['source_failure_categories']=source_failures
+query="SELECT coalesce(json_agg(t),'[]') FROM (SELECT ds.id AS source_id,r.state,r.source_revision,a.id,a.status,a.revision,a.source_hash,a.created_at,(a.manifest->'source_identity') IS NOT NULL AS has_package_identity,coalesce(a.manifest->'knowledge'->>'file_path','')<>'' AS has_archived_file FROM feishu_legacy_resources r JOIN data_sources ds ON ds.id=r.data_source_id JOIN feishu_legacy_attempts a ON a.resource_id=r.id JOIN feishu_personal_imports m ON m.id=ds.id JOIN users u ON u.id=m.user_id JOIN knowledge_bases kb ON kb.id=m.kb_id WHERE u.username='test' AND kb.name='test001' AND m.resource_type IN ('sheet','bitable') ORDER BY a.created_at DESC LIMIT 12) t;"
+rows=json.loads(run(compose+['exec','-T','postgres','psql','-qXAt','-v','ON_ERROR_STOP=1','-U','postgres','-d','knowhub_feishu_v2_test'],query))
+for row in rows:
+ row['source_hash_id']=mask(row.pop('source_id'));row['attempt_hash']=mask(row.pop('id'));row['content_hash_prefix']=row.pop('source_hash')[:12]
+result['source_attempt_observations']=rows
+query="SELECT coalesce(json_agg(t),'[]') FROM (SELECT ds.id,ds.status,ds.legacy_access_state,ds.sync_mode,ds.sync_schedule FROM data_sources ds JOIN feishu_personal_imports m ON m.id=ds.id JOIN users u ON u.id=m.user_id JOIN knowledge_bases kb ON kb.id=m.kb_id WHERE u.username='test' AND kb.name='test001' AND m.resource_type IN ('sheet','bitable')) t;"
+rows=json.loads(run(compose+['exec','-T','postgres','psql','-qXAt','-v','ON_ERROR_STOP=1','-U','postgres','-d','knowhub_feishu_v2_test'],query))
+for row in rows:row['source_hash']=mask(row.pop('id'))
+result['source_schedules']=rows
 '''
 
 CONFIGURE = r'''
@@ -52,6 +72,16 @@ if __name__ == '__main__':
     parser=argparse.ArgumentParser(add_help=False)
     parser.add_argument('--configure-batch-limit',action='store_true')
     options,remaining=parser.parse_known_args()
-    audit.transport.REMOTE=audit.REMOTE.replace('connection.close();print(json.dumps(result))',EXTRA+('\n'+CONFIGURE if options.configure_batch_limit else '')+'\nconnection.close();print(json.dumps(result))')
+    literals=set()
+    root=Path(__file__).resolve().parents[2]
+    for folder in ['internal/application/service','internal/application/repository']:
+        for file in (root/folder).glob('*feishu*.go'):
+            if file.name.endswith('_test.go'):continue
+            text=file.read_text(encoding='utf-8-sig')
+            literals.update(re.findall(r'errors.New\("([^"\n]{12,180})"\)',text))
+            literals.update(re.findall(r'reason: "([a-z_]{6,100})"',text))
+            literals.update(re.findall(r'legacyFence\("([a-z_]{6,100})"\)',text))
+    known=sorted(v for v in literals if 'http' not in v and '%' not in v)
+    audit.transport.REMOTE='KNOWN_REASONS='+repr(known)+'\n'+audit.REMOTE.replace('connection.close();print(json.dumps(result))',EXTRA+('\n'+CONFIGURE if options.configure_batch_limit else '')+'\nconnection.close();print(json.dumps(result))')
     sys.argv=[sys.argv[0],*remaining]
     raise SystemExit(audit.transport.main())

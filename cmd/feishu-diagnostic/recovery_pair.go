@@ -55,6 +55,8 @@ func recoverExistingPair(
 	svc := service.NewFeishuPersonalService(db, settings, nil, nil, nil)
 	result := map[string]any{"operation": action, "source_count": 2, "sync_control_writes": false}
 	switch action {
+	case "sheet-package-probe":
+		return inspectSheetPackages(ctx, db, svc, ids)
 	case "rebind":
 		proposal, err := svc.PrepareSourceRebind(ctx, ids, actor.ID)
 		if err != nil {
