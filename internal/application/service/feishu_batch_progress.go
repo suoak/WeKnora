@@ -31,7 +31,8 @@ func (s *FeishuPersonalService) batchItemProgress(ctx context.Context, item *typ
 	item.LastProgressAt = &accepted
 	// A dispatched item's short reconciliation claim is bookkeeping, not a
 	// document worker heartbeat and must not conceal an abandoned downstream job.
-	item.LeaseActive = item.Status == "processing" && item.LeaseUntil != nil && item.LeaseUntil.After(time.Now())
+	item.LeaseActive = item.Status == "processing" && item.LeaseUntil != nil &&
+		item.LeaseUntil.After(time.Now())
 	if item.Status == "processing" {
 		item.Stage = "checking"
 	}

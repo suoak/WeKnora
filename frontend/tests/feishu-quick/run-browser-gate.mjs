@@ -56,15 +56,16 @@ try {
   page.setDefaultNavigationTimeout(60000)
   const errors = [], submissions = [], requests = []
   let targets = [{id:'existing-team-kb',name:'Existing target',requires_sharing_approval:true}], progressReads=0
-  let authorizationDraft
+  let authorizationDraft, healthState = ''
   await page.route('https://accounts.feishu.cn/**', route => route.fulfill({contentType:'text/html',body:'<p>Mock authorization</p>'}))
   page.on('pageerror', error => { errors.push(error.message); console.error('Browser:',error.message) })
   await page.route('**/api/v1/**', async route => {
     const request = route.request(), path = new URL(request.url()).pathname
     requests.push(path)
     let body = []
-    if (path === '/api/v1/me/feishu') body = { v2:true,available:true,configured:true,connected:!page.url().includes('unconnected'),test_http_callback:true }
+    if (path === '/api/v1/me/feishu') body = { v2:true,available:true,configured:true,connected:healthState ? healthState === 'connected' : !page.url().includes('unconnected'),connection_state:healthState || undefined,test_http_callback:true }
     if (path === '/api/v1/me/feishu/connections') body = [{kind:'user_oauth',connected:!page.url().includes('unconnected'),id:'synthetic-connection'}]
+    if (path === '/api/v1/me/feishu' && request.method() === 'DELETE') { healthState='disconnected'; body={connected:false} }
     if (path === '/api/v1/me/feishu/authorize') {
       authorizationDraft=await page.evaluate(()=>JSON.parse(sessionStorage.getItem('knowhub_feishu_pending') || '{}'))
       body={authorization_url:'https://accounts.feishu.cn/authorize?state=synthetic'}
@@ -146,6 +147,29 @@ try {
   await page.goto(origin + '/__feishu-gate?history&failure&export-denied')
   await page.getByText('缺少导出权限，请联系文档所有者。',{exact:true}).waitFor()
   assert.equal(await page.getByRole('button',{name:'一键继续导入',exact:true}).count(),0)
+  targets=[{id:'existing-team-kb',name:'Existing target',requires_sharing_approval:false}]
+  await page.goto(origin + '/__feishu-gate')
+  await page.getByText('飞书已连接',{exact:true}).waitFor()
+  await page.clock.install()
+  healthState='reauthorize'
+  await page.clock.fastForward(11000)
+  await page.evaluate(()=>window.dispatchEvent(new Event('focus')))
+  await page.getByText('飞书授权已失效',{exact:true}).waitFor()
+  assert.equal(await page.getByRole('button',{name:/一键导入/}).isDisabled(),true)
+  healthState='unknown'
+  await page.clock.fastForward(11000)
+  await page.evaluate(()=>window.dispatchEvent(new Event('focus')))
+  await page.getByText('暂时无法检查连接状态',{exact:true}).waitFor()
+  healthState='connected'
+  await page.getByRole('button',{name:'重试',exact:true}).click()
+  await page.getByText('飞书已连接',{exact:true}).waitFor()
+  await page.getByRole('button',{name:'飞书账号管理'}).click()
+  await page.getByText('解除连接',{exact:true}).click()
+  await page.getByText('解除后将停止后续导入和自动更新，已导入的文档不会自动删除。',{exact:true}).waitFor()
+  await page.getByRole('button',{name:'解除连接',exact:true}).click()
+  await page.getByRole('button',{name:'连接飞书',exact:true}).waitFor()
+  healthState=''
+  await page.clock.resume()
   targets=[{id:'existing-team-kb',name:'Existing target',requires_sharing_approval:true}]
   await page.goto(origin + '/__feishu-gate?unconnected&return=original')
   await page.getByRole('button',{name:'连接飞书',exact:true}).waitFor()

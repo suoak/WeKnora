@@ -78,14 +78,24 @@ func (s *FeishuPersonalService) ListBatches(
 
 // Bounded metadata only: no vector counts or parser polling for every history
 // row. Titles are returned only after resolving this user's live destination ACL.
-func (s *FeishuPersonalService) batchHistorySummaries(ctx context.Context, rows []types.FeishuBatch) ([]types.FeishuBatch, error) {
+func (s *FeishuPersonalService) batchHistorySummaries(
+	ctx context.Context,
+	rows []types.FeishuBatch,
+) ([]types.FeishuBatch, error) {
 	result := make([]types.FeishuBatch, 0, len(rows))
 	for _, batch := range rows {
 		kb, err := s.kbs.GetKnowledgeBaseByID(ctx, batch.KBID)
 		if err != nil || s.recovery == nil {
 			continue
 		}
-		grant, err := access.ResolveKB(ctx, access.KBRequest{Caller: types.CallerFromContext(ctx)}, kb, types.OrgRoleEditor, s.recovery.shares, nil)
+		grant, err := access.ResolveKB(
+			ctx,
+			access.KBRequest{Caller: types.CallerFromContext(ctx)},
+			kb,
+			types.OrgRoleEditor,
+			s.recovery.shares,
+			nil,
+		)
 		if err != nil || access.RequireKBWrite(grant.Context(ctx), kb) != nil {
 			continue
 		}
@@ -100,8 +110,10 @@ func (s *FeishuPersonalService) batchHistorySummaries(ctx context.Context, rows 
 				" AND EXISTS (SELECT 1 FROM task_pending_ops AS receipt WHERE receipt.scope = 'personal_index_receipt'"+
 				" AND receipt.scope_id = pi.knowledge_id AND receipt.op = 'verified')"+
 				" THEN 'verified' ELSE '' END AS index_status").
-			Joins("LEFT JOIN feishu_personal_imports AS pi ON pi.id = bi.import_id AND pi.user_id = ? AND pi.kb_id = ?", batch.OwnerID, batch.KBID).
-			Joins("LEFT JOIN knowledges AS k ON k.id = pi.knowledge_id AND k.knowledge_base_id = ? AND k.deleted_at IS NULL", batch.KBID).
+			Joins("LEFT JOIN feishu_personal_imports AS pi ON pi.id = bi.import_id "+
+				"AND pi.user_id = ? AND pi.kb_id = ?", batch.OwnerID, batch.KBID).
+			Joins("LEFT JOIN knowledges AS k ON k.id = pi.knowledge_id AND "+
+				"k.knowledge_base_id = ? AND k.deleted_at IS NULL", batch.KBID).
 			Where("bi.batch_id = ?", batch.ID).Order("bi.ordinal").Limit(100).Scan(&items).Error; err != nil {
 			return nil, err
 		}
@@ -113,7 +125,8 @@ func (s *FeishuPersonalService) batchHistorySummaries(ctx context.Context, rows 
 			if item.Status == "failed" || item.Status == "blocked" {
 				batch.Status = "failed"
 			}
-			if batch.Status != "failed" && (item.Status != "succeeded" && item.Status != "dispatched" && item.Status != "duplicate" || item.IndexStatus != "verified") {
+			pending := item.Status != "succeeded" && item.Status != "dispatched" && item.Status != "duplicate"
+			if batch.Status != "failed" && (pending || item.IndexStatus != "verified") {
 				batch.Status = "processing"
 			}
 		}
@@ -354,7 +367,8 @@ func (s *FeishuPersonalService) RetryBatch(ctx context.Context, id string) error
 	if err != nil {
 		return err
 	}
-	if err := s.requireImportWriter(s.db.WithContext(ctx), view.Batch.OwnerID, view.Batch.KBID, view.Batch.TenantID); err != nil {
+	if err := s.requireImportWriter(s.db.
+		WithContext(ctx), view.Batch.OwnerID, view.Batch.KBID, view.Batch.TenantID); err != nil {
 		return err
 	}
 	_, _, _, err = s.ResolveCredentialReference(ctx, view.Batch.AuthMode, view.Batch.ConnectionID)
@@ -363,21 +377,29 @@ func (s *FeishuPersonalService) RetryBatch(ctx context.Context, id string) error
 	}
 	// Explicit retry re-enters live preflight; it never resets a source cursor,
 	// attempts, fences, or a partially published document requiring review.
-	return s.db.WithContext(ctx).
+	retry := s.db.WithContext(ctx).
 		Model(&types.FeishuBatchItem{}).
-		Where("batch_id = ? AND status IN ? AND retry_count < 3 AND import_id = ?",
+		Where("batch_id = ? AND status IN ? AND retry_count < 3 AND (import_id = ? OR error_category IN ?)",
 			id,
 			[]string{
 				"failed",
 				"blocked",
 			},
-			"").
-		Updates(map[string]any{
-			"status":         "pending",
-			"error_category": "",
-			"retry_count":    gorm.Expr("retry_count + 1"),
-			"updated_at":     time.Now(),
-		}).
+			"", []string{"sharing_approval_required", "publication_confirmation_expired"})
+	if s.db.Migrator().HasTable(&types.DataSource{}) {
+		// Retrying an old admission is never a source-resume operation, even if
+		// the UI's old error category was stale. Preserve paused/hold/revoked rows.
+		retry = retry.Where(
+			"NOT EXISTS (SELECT 1 FROM data_sources AS protected_source WHERE " +
+				"protected_source.id = feishu_import_batch_items.import_id)",
+		)
+	}
+	return retry.Updates(map[string]any{
+		"status":         "pending",
+		"error_category": "",
+		"retry_count":    gorm.Expr("retry_count + 1"),
+		"updated_at":     time.Now(),
+	}).
 		Error
 }
 
@@ -499,7 +521,7 @@ func (s *FeishuPersonalService) ReconcileBatches(ctx context.Context) error {
 				imported, err = s.ImportWithIdentity(fresh, b.KBID, item.URL, b.AuthMode, ref)
 			}
 		}
-		status, category, importID := "dispatched", "", ""
+		status, category, importID := "dispatched", "", item.ImportID
 		if err != nil {
 			status, category = "blocked", feishuV2Error(err)
 			if category == "temporary_failure" {

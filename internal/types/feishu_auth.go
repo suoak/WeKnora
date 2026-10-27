@@ -9,6 +9,8 @@ const (
 	// Unknown to legacy consumers. Do not publish application attempts as the
 	// old document:process task, whose JSON decoder ignores new identity fields.
 	TypeFeishuApplicationProcess = "feishu:application:process:v1"
+	// TypeFeishuConnectionCheck verifies only a personal identity, never content.
+	TypeFeishuConnectionCheck = "feishu:connection:check:v1"
 )
 
 // FeishuAuthMode provides the feishu auth mode operation.

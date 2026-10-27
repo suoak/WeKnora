@@ -39,8 +39,12 @@ func feishuFailureResponse(c *gin.Context, err error) {
 			})
 			return
 		}
-		if errors.Is(err, types.ErrFeishuIdentityRequired) || errors.Is(err, types.ErrFeishuIdentityDisabled) {
-			c.JSON(http.StatusConflict, gin.H{"error": "feishu_identity_unavailable", "message": "请选择明确且已启用的飞书身份"})
+		if errors.Is(err, types.ErrFeishuIdentityRequired) ||
+			errors.Is(err, types.ErrFeishuIdentityDisabled) {
+			c.JSON(
+				http.StatusConflict,
+				gin.H{"error": "feishu_identity_unavailable", "message": "请选择明确且已启用的飞书身份"},
+			)
 			return
 		}
 		// Preserve the service's live authorization decision. In particular, a

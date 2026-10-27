@@ -374,10 +374,17 @@ func (s *FeishuPersonalService) Status(ctx context.Context) map[string]any {
 	// a newly committed grant without exchanging its one-use code again. Token
 	// refresh does not change GrantEpoch and cannot masquerade as reauthorization.
 	if result["connected"] == true {
-		if user, ok := types.UserIDFromContext(ctx); ok && s.db.Migrator().HasTable(&types.FeishuPersonalGrantEpoch{}) {
+		if user, ok := types.UserIDFromContext(ctx); ok &&
+			s.db.Migrator().HasTable(&types.FeishuPersonalGrantEpoch{}) {
 			var grant types.FeishuPersonalGrantEpoch
 			if s.db.WithContext(ctx).Where("user_id = ?", user).First(&grant).Error == nil {
-				digest := sha256.Sum256([]byte(user + "\x00" + cfg.AppID + "\x00" + cfg.identityVersion(types.FeishuUserOAuth) + "\x00" + grant.Epoch))
+				digest := sha256.Sum256(
+					[]byte(
+						user + "\x00" + cfg.AppID + "\x00" + cfg.identityVersion(
+							types.FeishuUserOAuth,
+						) + "\x00" + grant.Epoch,
+					),
+				)
 				result["authorization_revision"] = hex.EncodeToString(digest[:])
 			}
 		}
@@ -571,7 +578,8 @@ func (s *FeishuPersonalService) oauthRequest(
 		if operation == "refresh_user_token" && (oauthError == "invalid_grant" || token.Code == 99991669) {
 			cause = ErrFeishuRefreshRejected
 		}
-		if oauthError == "invalid_client" || oauthError == "invalid_scope" || oauthError == "invalid_request" {
+		if oauthError == "invalid_client" || oauthError == "invalid_scope" ||
+			oauthError == "invalid_request" {
 			cause = ErrFeishuOAuthConfiguration
 		}
 		return nil, errors.Join(cause, &core.APIError{
@@ -720,7 +728,8 @@ func (s *FeishuPersonalService) Complete(ctx context.Context, state, code string
 			if feishuHealthEnabled() {
 				return storeFeishuHealth(tx, user, &feishuConnectionHealth{
 					AppID: c.AppID, OpenID: c.OpenID, Epoch: newEpoch, TenantKey: info.Data.TenantKey,
-					State: "connected", CheckedAt: time.Now(), ConsentAt: time.Now(), CheckAfter: time.Now().Add(5 * time.Minute),
+					State: "connected", CheckedAt: time.Now(), ConsentAt: time.Now(),
+					CheckAfter: time.Now().Add(5 * time.Minute),
 				})
 			}
 		}
@@ -738,8 +747,10 @@ func (s *FeishuPersonalService) Disconnect(ctx context.Context) error {
 		if err := tx.Where("user_id = ?", user).Delete(&types.FeishuConnection{}).Error; err != nil {
 			return err
 		}
-		if err := tx.Where("key = ?", feishuHealthKey(user)).Delete(&types.SystemSetting{}).Error; err != nil {
-			return err
+		if feishuHealthEnabled() {
+			if err := tx.Where("key = ?", feishuHealthKey(user)).Delete(&types.SystemSetting{}).Error; err != nil {
+				return err
+			}
 		}
 		if err := tx.Where("user_id = ?", user).Delete(&types.FeishuOAuthState{}).Error; err != nil {
 			return err

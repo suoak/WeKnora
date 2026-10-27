@@ -12,6 +12,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/google/uuid"
+	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -34,6 +35,7 @@ func feishuHealthKey(user string) string {
 	h := sha256.Sum256([]byte(user))
 	return feishuHealthPrefix + hex.EncodeToString(h[:])
 }
+
 func loadFeishuHealth(tx *gorm.DB, user string) (*types.SystemSetting, *feishuConnectionHealth, error) {
 	var row types.SystemSetting
 	if err := tx.Where("key = ?", feishuHealthKey(user)).First(&row).Error; err != nil {
@@ -49,6 +51,7 @@ func loadFeishuHealth(tx *gorm.DB, user string) (*types.SystemSetting, *feishuCo
 	}
 	return &row, &health, nil
 }
+
 func storeFeishuHealth(tx *gorm.DB, user string, h *feishuConnectionHealth) error {
 	cipher, err := sealFeishu(h)
 	if err != nil {
@@ -58,14 +61,32 @@ func storeFeishuHealth(tx *gorm.DB, user string, h *feishuConnectionHealth) erro
 	if err != nil {
 		return err
 	}
-	row := types.SystemSetting{Key: feishuHealthKey(user), Value: value, ValueType: "string", Category: "integration", IsSecret: true, Description: "Personal Feishu connection health and epoch fence", LastModifiedBy: user}
-	return tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "key"}}, DoUpdates: clause.AssignmentColumns([]string{"value", "is_secret", "updated_at"})}).Create(&row).Error
+	row := types.SystemSetting{
+		Key:            feishuHealthKey(user),
+		Value:          value,
+		ValueType:      "string",
+		Category:       "integration",
+		IsSecret:       true,
+		Description:    "Personal Feishu connection health and epoch fence",
+		LastModifiedBy: user,
+	}
+	return tx.
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "key"}},
+			DoUpdates: clause.AssignmentColumns([]string{"value", "is_secret", "updated_at"}),
+		}).
+		Create(&row).
+		Error
 }
 
 // Must be called after user/connection authentication, including at commit.
 func (s *FeishuPersonalService) assertConnectionHealth(tx *gorm.DB, user string) error {
 	if !feishuHealthEnabled() {
 		return nil
+	}
+	var active types.User
+	if err := tx.Where("id = ? AND is_active = ?", user, true).First(&active).Error; err != nil {
+		return ErrFeishuReconnect
 	}
 	_, h, err := loadFeishuHealth(tx, user)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -92,7 +113,14 @@ func (s *FeishuPersonalService) assertConnectionHealth(tx *gorm.DB, user string)
 
 // Network calls never occur under a DB lock. The lease coordinates APP/workers;
 // the result transaction locks the current connection and checks the epoch/nonce.
-func (s *FeishuPersonalService) inspectConnection(ctx context.Context, user string) (*feishuConnectionHealth, error) {
+func (s *FeishuPersonalService) inspectConnection(
+	ctx context.Context,
+	user string,
+) (*feishuConnectionHealth, error) {
+	var active types.User
+	if err := s.db.WithContext(ctx).Where("id = ? AND is_active = ?", user, true).First(&active).Error; err != nil {
+		return nil, ErrFeishuReconnect
+	}
 	cfg, err := s.app(ctx)
 	if err != nil || !cfg.modeEnabled(types.FeishuUserOAuth) {
 		return nil, ErrFeishuReconnect
@@ -111,7 +139,10 @@ func (s *FeishuPersonalService) inspectConnection(ctx context.Context, user stri
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Same lock order as OAuth completion and Disconnect.
 		var current types.FeishuConnection
-		if e := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_id = ? AND app_id = ? AND open_id = ?", user, conn.AppID, conn.OpenID).First(&current).Error; e != nil {
+		if e := tx.
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("user_id = ? AND app_id = ? AND open_id = ?", user, conn.AppID, conn.OpenID).
+			First(&current).Error; e != nil {
 			return ErrFeishuReconnect
 		}
 		var grant types.FeishuPersonalGrantEpoch
@@ -123,7 +154,13 @@ func (s *FeishuPersonalService) inspectConnection(ctx context.Context, user stri
 			return e
 		}
 		if h == nil || h.Epoch != epoch.Epoch || h.AppID != conn.AppID || h.OpenID != conn.OpenID {
-			h = &feishuConnectionHealth{AppID: conn.AppID, OpenID: conn.OpenID, Epoch: epoch.Epoch, State: "unknown", ConsentAt: time.Now()}
+			h = &feishuConnectionHealth{
+				AppID:     conn.AppID,
+				OpenID:    conn.OpenID,
+				Epoch:     epoch.Epoch,
+				State:     "unknown",
+				ConsentAt: time.Now(),
+			}
 		}
 		snapshot = h
 		if h.CheckAfter.After(time.Now()) || h.LeaseUntil.After(time.Now()) {
@@ -143,14 +180,18 @@ func (s *FeishuPersonalService) inspectConnection(ctx context.Context, user stri
 	defer cancel()
 	probe = context.WithValue(probe, feishuHealthProbeKey{}, true)
 	probe = context.WithValue(probe, types.UserIDContextKey, user)
-	remote := core.WithUserIdentity(probe, func(call context.Context) (string, error) { return s.UserToken(call, user, conn.AppID, conn.OpenID) })
+	remote := core.WithUserIdentity(
+		probe,
+		func(call context.Context) (string, error) { return s.UserToken(call, user, conn.AppID, conn.OpenID) },
+	)
 	var info struct {
 		Data struct {
 			OpenID    string `json:"open_id"`
 			TenantKey string `json:"tenant_key"`
 		} `json:"data"`
 	}
-	err = s.client(&core.Config{AppID: conn.AppID}).DoRequest(remote, "GET", "/open-apis/authen/v1/user_info", nil, &info)
+	err = s.client(&core.Config{AppID: conn.AppID}).
+		DoRequest(remote, "GET", "/open-apis/authen/v1/user_info", nil, &info)
 	state, category := "connected", ""
 	if err != nil {
 		state, category = "unknown", feishuRemoteFailureCategory(err)
@@ -164,7 +205,10 @@ func (s *FeishuPersonalService) inspectConnection(ctx context.Context, user stri
 	}
 	persistErr := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var current types.FeishuConnection
-		if e := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_id = ? AND app_id = ? AND open_id = ?", user, conn.AppID, conn.OpenID).First(&current).Error; e != nil {
+		if e := tx.
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("user_id = ? AND app_id = ? AND open_id = ?", user, conn.AppID, conn.OpenID).
+			First(&current).Error; e != nil {
 			return ErrFeishuReconnect
 		}
 		var grant types.FeishuPersonalGrantEpoch
@@ -194,8 +238,10 @@ func (s *FeishuPersonalService) inspectConnection(ctx context.Context, user stri
 	return snapshot, persistErr
 }
 
-// Refresh bounded pages; DB leases prevent duplicate requests across workers.
-// The dispatch reconciler invokes this regularly even when browser pages close.
+type feishuConnectionCheckPayload struct{ UserID, AppID, EpochHash string }
+
+// Enqueue identity checks on the existing maintenance workers. The dispatch
+// reconciler never waits for remote Feishu network calls.
 func (s *FeishuPersonalService) reconcileConnectionHealth(ctx context.Context) error {
 	if !feishuHealthEnabled() {
 		return nil
@@ -204,31 +250,127 @@ func (s *FeishuPersonalService) reconcileConnectionHealth(ctx context.Context) e
 	if err != nil || !cfg.modeEnabled(types.FeishuUserOAuth) {
 		return nil
 	}
-	var users []string
-	if err = s.db.WithContext(ctx).Model(&types.FeishuConnection{}).Where("app_id = ?", cfg.AppID).Order("user_id").Limit(100).Pluck("user_id", &users).Error; err != nil {
-		return err
-	}
-	for _, user := range users {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		// A remote failure is a connection state, not a reason to stop unrelated work.
-		if _, err = s.inspectConnection(ctx, user); err != nil && !errors.Is(err, ErrFeishuReconnect) {
+	after := ""
+	for {
+		var grants []types.FeishuPersonalGrantEpoch
+		if err = s.db.
+			WithContext(ctx).
+			Table("feishu_personal_grant_epochs AS g").
+			Select("g.*").
+			Joins("JOIN feishu_connections AS c ON c.user_id = g.user_id AND c.app_id = ?", cfg.AppID).
+			Joins("JOIN users AS u ON u.id = g.user_id AND u.is_active = ? AND u.deleted_at IS NULL", true).
+			Where("g.user_id > ?", after).
+			Order("g.user_id").
+			Limit(1000).
+			Scan(&grants).Error; err != nil {
 			return err
 		}
+		for _, grant := range grants {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			if _, h, e := loadFeishuHealth(s.db.WithContext(ctx), grant.UserID); e == nil &&
+				h.Epoch == grant.Epoch &&
+				(h.CheckAfter.After(time.Now()) || h.LeaseUntil.After(time.Now())) {
+				continue
+			}
+			if err = s.enqueueConnectionCheck(ctx, grant.UserID, cfg.AppID, grant.Epoch); err != nil {
+				return err
+			}
+		}
+		if len(grants) < 1000 {
+			break
+		}
+		after = grants[len(grants)-1].UserID
 	}
+
 	return nil
+}
+
+func (s *FeishuPersonalService) enqueueConnectionCheck(ctx context.Context, user, app, epoch string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	ks, ok := s.knowledge.(*knowledgeService)
+	if !ok || ks.task == nil {
+		return errors.New("feishu_connection_check_worker_unavailable")
+	}
+	hash := sha256.Sum256([]byte(epoch))
+	data, err := json.Marshal(
+		feishuConnectionCheckPayload{UserID: user, AppID: app, EpochHash: hex.EncodeToString(hash[:])},
+	)
+	if err != nil {
+		return err
+	}
+	_, err = ks.task.Enqueue(
+		asynq.NewTask(
+			types.TypeFeishuConnectionCheck,
+			data,
+			asynq.Queue(types.QueueMaintenance),
+			asynq.Unique(time.Minute),
+			asynq.Timeout(20*time.Second),
+			asynq.MaxRetry(2),
+		),
+	)
+	if errors.Is(err, asynq.ErrDuplicateTask) {
+		return nil
+	}
+	return err
+}
+
+// ProcessConnectionCheck is an existing-worker task with no document or KB
+// payload. Obsolete authorization generations are acknowledged without probing.
+func (s *FeishuPersonalService) ProcessConnectionCheck(ctx context.Context, task *asynq.Task) error {
+	if !feishuHealthEnabled() {
+		return nil
+	}
+	var payload feishuConnectionCheckPayload
+	if task.Type() != types.TypeFeishuConnectionCheck || json.Unmarshal(task.Payload(), &payload) != nil ||
+		payload.UserID == "" {
+		return asynq.SkipRetry
+	}
+	cfg, err := s.app(ctx)
+	if err != nil {
+		return err
+	}
+	if cfg.AppID != payload.AppID {
+		return nil
+	}
+	var grant types.FeishuPersonalGrantEpoch
+	if err = s.db.WithContext(ctx).Where("user_id = ?", payload.UserID).First(&grant).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		return err
+	}
+	hash := sha256.Sum256([]byte(grant.Epoch))
+	if hex.EncodeToString(hash[:]) != payload.EpochHash {
+		return nil
+	}
+	_, err = s.inspectConnection(ctx, payload.UserID)
+	if errors.Is(err, ErrFeishuReconnect) {
+		return nil
+	}
+	return err
 }
 
 // A failed refresh is fenced by the exact encrypted credential snapshot. A
 // concurrent successful refresh/reconnection cannot be marked invalid by it.
-func (s *FeishuPersonalService) noteConnectionFailure(ctx context.Context, old *types.FeishuConnection, cause error) {
-	if !feishuHealthEnabled() || old == nil || (!errors.Is(cause, ErrFeishuRefreshExpired) && !errors.Is(cause, ErrFeishuRefreshRejected)) {
+func (s *FeishuPersonalService) noteConnectionFailure(
+	ctx context.Context,
+	old *types.FeishuConnection,
+	cause error,
+) {
+	if !feishuHealthEnabled() || old == nil ||
+		(!errors.Is(cause, ErrFeishuRefreshExpired) && !errors.Is(cause, ErrFeishuRefreshRejected)) {
 		return
 	}
 	_ = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var current types.FeishuConnection
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_id = ? AND app_id = ? AND open_id = ?", old.UserID, old.AppID, old.OpenID).First(&current).Error; err != nil {
+		if err := tx.
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("user_id = ? AND app_id = ? AND open_id = ?", old.UserID, old.AppID, old.OpenID).
+			First(&current).Error; err != nil {
 			return err
 		}
 		if current.Tokens != old.Tokens {
@@ -243,7 +385,12 @@ func (s *FeishuPersonalService) noteConnectionFailure(ctx context.Context, old *
 			return err
 		}
 		if h == nil || h.Epoch != epoch.Epoch {
-			h = &feishuConnectionHealth{AppID: old.AppID, OpenID: old.OpenID, Epoch: epoch.Epoch, ConsentAt: time.Now()}
+			h = &feishuConnectionHealth{
+				AppID:     old.AppID,
+				OpenID:    old.OpenID,
+				Epoch:     epoch.Epoch,
+				ConsentAt: time.Now(),
+			}
 		}
 		h.State, h.ErrorCategory = "reauthorize", feishuRemoteFailureCategory(cause)
 		h.CheckedAt, h.CheckAfter = time.Now(), time.Now().Add(5*time.Minute)
@@ -255,7 +402,12 @@ func (s *FeishuPersonalService) noteConnectionFailure(ctx context.Context, old *
 
 // HandleRevocationHint treats events without token fingerprints as authenticated hints,
 // never permission to delete the connection. Verify its current grant remotely.
-func (s *FeishuPersonalService) HandleRevocationHint(ctx context.Context, eventID, appID, tenantKey, openID string, created time.Time, tokenType string) error {
+func (s *FeishuPersonalService) HandleRevocationHint(
+	ctx context.Context,
+	eventID, appID, tenantKey, openID string,
+	created time.Time,
+	tokenType string,
+) error {
 	if !feishuHealthEnabled() {
 		return errors.New("feishu_connection_monitor_disabled")
 	}
@@ -263,20 +415,30 @@ func (s *FeishuPersonalService) HandleRevocationHint(ctx context.Context, eventI
 	if err != nil || cfg.AppID != appID || !cfg.modeEnabled(types.FeishuUserOAuth) {
 		return errors.New("feishu_event_identity_mismatch")
 	}
-	if eventID == "" || len(eventID) > 256 || tenantKey == "" || openID == "" || created.After(time.Now().Add(time.Minute)) || created.Before(time.Now().Add(-48*time.Hour)) {
+	if eventID == "" || len(eventID) > 256 || tenantKey == "" || openID == "" ||
+		created.After(time.Now().Add(time.Minute)) ||
+		created.Before(time.Now().Add(-48*time.Hour)) {
 		return errors.New("feishu_event_invalid")
 	}
-	if tokenType != "user_access_token" && tokenType != "refresh_token" && tokenType != "user_access_token refresh_token" {
+	if tokenType != "user_access_token" && tokenType != "refresh_token" &&
+		tokenType != "user_access_token refresh_token" {
 		return errors.New("feishu_event_invalid")
 	}
 	var rows []types.FeishuConnection
-	if err = s.db.WithContext(ctx).Where("app_id = ? AND open_id = ?", appID, openID).Limit(100).Find(&rows).Error; err != nil {
+	if err = s.db.
+		WithContext(ctx).
+		Where("app_id = ? AND open_id = ?", appID, openID).
+		Limit(100).Find(&rows).Error; err != nil {
 		return err
 	}
 	for _, conn := range rows {
+		queuedEpoch := ""
 		err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			var current types.FeishuConnection
-			if e := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_id = ? AND app_id = ? AND open_id = ?", conn.UserID, appID, openID).First(&current).Error; e != nil {
+			if e := tx.
+				Clauses(clause.Locking{Strength: "UPDATE"}).
+				Where("user_id = ? AND app_id = ? AND open_id = ?", conn.UserID, appID, openID).
+				First(&current).Error; e != nil {
 				return e
 			}
 			var epoch types.FeishuPersonalGrantEpoch
@@ -287,17 +449,35 @@ func (s *FeishuPersonalService) HandleRevocationHint(ctx context.Context, eventI
 			if e != nil {
 				return e
 			}
-			if h.Epoch != epoch.Epoch || h.AppID != appID || h.OpenID != openID || h.TenantKey != tenantKey || created.Before(h.ConsentAt) {
+			if h.Epoch != epoch.Epoch || h.AppID != appID || h.OpenID != openID || h.TenantKey != tenantKey ||
+				created.Before(h.ConsentAt) {
 				return nil
 			}
-			hash := sha256.Sum256([]byte(appID + "\x00" + tenantKey + "\x00" + eventID + "\x00" + conn.UserID))
+			hash := sha256.Sum256(
+				[]byte(appID + "\x00" + tenantKey + "\x00" + eventID + "\x00" + conn.UserID),
+			)
 			key := "integration.feishu.revoke_event." + hex.EncodeToString(hash[:])
-			receipt, sealErr := sealFeishu(map[string]string{"event_digest": hex.EncodeToString(hash[:]), "kind": tokenType, "user_digest": feishuHealthKey(conn.UserID), "received_at": time.Now().UTC().Format(time.RFC3339Nano)})
+			receipt, sealErr := sealFeishu(
+				map[string]string{
+					"event_digest": hex.EncodeToString(hash[:]),
+					"kind":         tokenType,
+					"user_digest":  feishuHealthKey(conn.UserID),
+					"received_at":  time.Now().UTC().Format(time.RFC3339Nano),
+				},
+			)
 			if sealErr != nil {
 				return sealErr
 			}
 			value, _ := json.Marshal(receipt)
-			record := types.SystemSetting{Key: key, Value: value, ValueType: "string", Category: "integration", IsSecret: true, Description: "Verified revocation hint receipt; no credentials or source data", LastModifiedBy: conn.UserID}
+			record := types.SystemSetting{
+				Key:            key,
+				Value:          value,
+				ValueType:      "string",
+				Category:       "integration",
+				IsSecret:       true,
+				Description:    "Verified revocation hint receipt; no credentials or source data",
+				LastModifiedBy: conn.UserID,
+			}
 			saved := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&record)
 			if saved.Error != nil {
 				return saved.Error
@@ -306,10 +486,16 @@ func (s *FeishuPersonalService) HandleRevocationHint(ctx context.Context, eventI
 				return nil
 			}
 			h.CheckAfter = time.Time{}
+			queuedEpoch = epoch.Epoch
 			return storeFeishuHealth(tx, conn.UserID, h)
 		})
 		if err != nil {
 			return err
+		}
+		if queuedEpoch != "" {
+			// The durable hint remains due if Redis is unavailable. The existing
+			// reconciler retries enqueue; the webhook never blocks on remote APIs.
+			_ = s.enqueueConnectionCheck(ctx, conn.UserID, appID, queuedEpoch)
 		}
 	}
 	return nil

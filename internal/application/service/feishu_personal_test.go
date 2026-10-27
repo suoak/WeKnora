@@ -137,8 +137,19 @@ func TestFeishuOAuthAuthorizationRevisionChangesOnlyOnConsent(t *testing.T) {
 	require.NotContains(t, before, "consent-one")
 	require.NoError(t, s.db.Model(&types.FeishuConnection{}).Where("user_id = ?", "A").
 		Updates(map[string]any{"tokens": "refreshed-sealed", "updated_at": time.Now()}).Error)
-	require.Equal(t, before, s.Status(personalUser("A"))["authorization_revision"], "token refresh cannot confirm a new consent")
-	require.NoError(t, s.db.Model(&types.FeishuPersonalGrantEpoch{}).Where("user_id = ?", "A").Update("epoch", "consent-two").Error)
+	require.Equal(
+		t,
+		before,
+		s.Status(personalUser("A"))["authorization_revision"],
+		"token refresh cannot confirm a new consent",
+	)
+	require.NoError(
+		t,
+		s.db.Model(&types.FeishuPersonalGrantEpoch{}).
+			Where("user_id = ?", "A").
+			Update("epoch", "consent-two").
+			Error,
+	)
 	require.NotEqual(t, before, s.Status(personalUser("A"))["authorization_revision"])
 	require.Nil(t, s.Status(personalUser("B"))["authorization_revision"])
 	require.NoError(t, s.Disconnect(personalUser("A")))

@@ -134,7 +134,13 @@ func TestFeishuV2PostgresSharedAdmissionUsesDestinationWriteACL(t *testing.T) {
 	f := v2PostgresFixture(t)
 	_, _, ref, err := f.s.ResolveCredentialReference(f.ctx, types.FeishuUserOAuth, "")
 	require.NoError(t, err)
-	preview, err := f.s.Preview(f.ctx, "kb", types.FeishuUserOAuth, ref.ConnectionID, []string{"https://test.feishu.cn/file/real"})
+	preview, err := f.s.Preview(
+		f.ctx,
+		"kb",
+		types.FeishuUserOAuth,
+		ref.ConnectionID,
+		[]string{"https://test.feishu.cn/file/real"},
+	)
 	require.NoError(t, err)
 	require.Empty(t, preview[0].ErrorCategory)
 	m, err := f.s.ImportWithIdentity(f.ctx, "kb", "https://test.feishu.cn/file/real", types.FeishuUserOAuth)
@@ -145,7 +151,10 @@ func TestFeishuV2PostgresSharedAdmissionUsesDestinationWriteACL(t *testing.T) {
 	require.Zero(t, count)
 	_, _, attempt, err := f.p.repo.Load(f.ctx, m.AttemptID)
 	require.NoError(t, err)
-	require.NoError(t, f.db.Model(&types.TenantMember{}).Where("user_id = ?", "A").Update("role", "viewer").Error)
+	require.NoError(
+		t,
+		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "A").Update("role", "viewer").Error,
+	)
 	_, err = f.p.authorize(f.ctx, m, attempt)
 	require.Error(t, err, "live write revocation still blocks publication")
 }
@@ -163,7 +172,13 @@ func TestFeishuV2PostgresCollaborationNeverGrantsOrRetries(t *testing.T) {
 		[]string{"https://test.feishu.cn/file/real"},
 	)
 	require.NoError(t, err)
-	require.NoError(t, f.db.Model(&types.FeishuBatchItem{}).Where("id = ?", view.Items[0].ID).Updates(map[string]any{"status": "blocked", "error_category": "sharing_approval_required"}).Error)
+	require.NoError(
+		t,
+		f.db.Model(&types.FeishuBatchItem{}).
+			Where("id = ?", view.Items[0].ID).
+			Updates(map[string]any{"status": "blocked", "error_category": "sharing_approval_required"}).
+			Error,
+	)
 	view, err = f.s.Batch(f.ctx, view.Batch.ID)
 	require.NoError(t, err)
 	require.Equal(t, "blocked", view.Items[0].Status)

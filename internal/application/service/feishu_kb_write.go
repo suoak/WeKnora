@@ -27,7 +27,10 @@ func (s *FeishuPersonalService) requireImportWriter(tx *gorm.DB, userID, kbID st
 	if err := tx.Clauses(lock).Where("id = ? AND status = ?", tenantID, "active").First(&tenant).Error; err != nil {
 		return access.ErrForbidden
 	}
-	if err := tx.Clauses(lock).Where("user_id = ? AND tenant_id = ? AND status = ?", userID, tenantID, types.TenantMemberStatusActive).First(&member).Error; err != nil {
+	if err := tx.
+		Clauses(lock).
+		Where("user_id = ? AND tenant_id = ? AND status = ?", userID, tenantID, types.TenantMemberStatusActive).
+		First(&member).Error; err != nil {
 		return access.ErrForbidden
 	}
 	if !member.Role.HasPermission(types.TenantRoleContributor) {
@@ -52,7 +55,14 @@ func (s *FeishuPersonalService) requireImportWriter(tx *gorm.DB, userID, kbID st
 	if s.recovery != nil {
 		shares = s.recovery.shares
 	}
-	grant, err := access.ResolveKB(fresh, access.KBRequest{Caller: caller}, &kb, types.OrgRoleEditor, shares, nil)
+	grant, err := access.ResolveKB(
+		fresh,
+		access.KBRequest{Caller: caller},
+		&kb,
+		types.OrgRoleEditor,
+		shares,
+		nil,
+	)
 	if err != nil {
 		return err
 	}

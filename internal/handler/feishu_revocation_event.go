@@ -19,8 +19,12 @@ import (
 // event authenticity and the application/tenant/current grant are checked here.
 // Disabled until a real encrypted event channel has been configured.
 func (h *FeishuPersonalHandler) RevocationEvent(c *gin.Context) {
-	secret, verification := os.Getenv("FEISHU_PERSONAL_EVENT_ENCRYPT_KEY"), os.Getenv("FEISHU_PERSONAL_EVENT_VERIFICATION_TOKEN")
-	if os.Getenv("FEISHU_PERSONAL_EVENTS_ENABLED") != "1" || secret == "" || verification == "" {
+	secret, verification := os.Getenv(
+		"FEISHU_PERSONAL_EVENT_ENCRYPT_KEY",
+	), os.Getenv(
+		"FEISHU_PERSONAL_EVENT_VERIFICATION_TOKEN",
+	)
+	if os.Getenv("FEISHU_PERSONAL_EVENTS_ENABLED") != "1" || len(secret) < 16 || len(verification) < 16 {
 		c.Status(http.StatusNotFound)
 		return
 	}
@@ -59,15 +63,32 @@ func (h *FeishuPersonalHandler) RevocationEvent(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"challenge": request.Challenge})
 		return
 	}
-	timestamp, nonce, signature := c.GetHeader("X-Lark-Request-Timestamp"), c.GetHeader("X-Lark-Request-Nonce"), c.GetHeader("X-Lark-Signature")
+	timestamp, nonce, signature := c.GetHeader(
+		"X-Lark-Request-Timestamp",
+	), c.GetHeader(
+		"X-Lark-Request-Nonce",
+	), c.GetHeader(
+		"X-Lark-Signature",
+	)
 	seconds, err := strconv.ParseInt(timestamp, 10, 64)
 	age := time.Since(time.Unix(seconds, 0))
-	if err != nil || nonce == "" || len(nonce) > 256 || age > 10*time.Minute || age < -time.Minute || subtle.ConstantTimeCompare([]byte(signature), []byte(larkevent.Signature(timestamp, nonce, secret, string(body)))) != 1 {
+	if err != nil || nonce == "" || len(nonce) > 256 || age > 10*time.Minute || age < -time.Minute ||
+		subtle.ConstantTimeCompare(
+			[]byte(signature),
+			[]byte(larkevent.Signature(timestamp, nonce, secret, string(body))),
+		) != 1 {
 		c.Status(http.StatusUnauthorized)
 		return
 	}
-	var event larkauth.P2UserAccessTokenRevokedV4
-	if json.Unmarshal(plain, &event) != nil || event.EventV2Base == nil || event.Header == nil || event.Event == nil || event.Schema != "2.0" || event.Header.EventType != "auth.user_access_token.revoked_v4" || subtle.ConstantTimeCompare([]byte(event.Header.Token), []byte(verification)) != 1 {
+	var event struct {
+		Schema string                                   `json:"schema"`
+		Header *larkevent.EventHeader                   `json:"header"`
+		Event  *larkauth.P2UserAccessTokenRevokedV4Data `json:"event"`
+	}
+	if json.Unmarshal(plain, &event) != nil || event.Header == nil || event.Event == nil ||
+		event.Schema != "2.0" ||
+		event.Header.EventType != "auth.user_access_token.revoked_v4" ||
+		subtle.ConstantTimeCompare([]byte(event.Header.Token), []byte(verification)) != 1 {
 		c.Status(http.StatusBadRequest)
 		return
 	}
@@ -76,7 +97,15 @@ func (h *FeishuPersonalHandler) RevocationEvent(c *gin.Context) {
 		c.Status(http.StatusBadRequest)
 		return
 	}
-	if err = h.svc.HandleRevocationHint(c.Request.Context(), event.Header.EventID, event.Header.AppID, event.Header.TenantKey, *event.Event.OpenId, time.UnixMilli(milliseconds), *event.Event.RevokeTokenType); err != nil {
+	if h.svc == nil {
+		c.Status(http.StatusServiceUnavailable)
+		return
+	}
+	err = h.svc.HandleRevocationHint(
+		c.Request.Context(), event.Header.EventID, event.Header.AppID, event.Header.TenantKey,
+		*event.Event.OpenId, time.UnixMilli(milliseconds), *event.Event.RevokeTokenType,
+	)
+	if err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "event_not_confirmed"})
 		return
 	}

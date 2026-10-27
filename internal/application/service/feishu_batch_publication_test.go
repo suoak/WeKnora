@@ -13,12 +13,21 @@ import (
 
 func TestFeishuV2PostgresInlinePublicationUsesOrdinaryKBWriter(t *testing.T) {
 	f := v2PostgresFixture(t)
-	require.NoError(t, f.db.Model(&types.TenantMember{}).Where("user_id = ?", "B").Update("role", "contributor").Error)
+	require.NoError(
+		t,
+		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "B").Update("role", "contributor").Error,
+	)
 	ctx := f.userContext("B") // Deliberately stale admin claim: live membership is authoritative.
 	view, err := f.s.QuickImport(ctx, "kb", "writer-direct", []string{"https://test.feishu.cn/file/real"})
 	require.NoError(t, err)
 	require.Nil(t, view.Batch.PublicationConsentAt)
-	replay, err := f.s.QuickImport(ctx, "kb", "writer-direct", []string{"https://test.feishu.cn/file/real"}, true)
+	replay, err := f.s.QuickImport(
+		ctx,
+		"kb",
+		"writer-direct",
+		[]string{"https://test.feishu.cn/file/real"},
+		true,
+	)
 	require.NoError(t, err)
 	require.Equal(t, view.Batch.ID, replay.Batch.ID, "legacy confirmation flags are not separate admissions")
 	require.NoError(t, f.s.ReconcileBatches(context.Background()))
@@ -39,10 +48,16 @@ func TestFeishuV2PostgresInlinePublicationUsesOrdinaryKBWriter(t *testing.T) {
 	// non-creator contributor. Viewer demotion and OAuth revocation still fence it.
 	_, _, err = f.p.authorizeLocal(ctx, &imported, attempt)
 	require.NoError(t, err)
-	require.NoError(t, f.db.Model(&types.TenantMember{}).Where("user_id = ?", "B").Update("role", "viewer").Error)
+	require.NoError(
+		t,
+		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "B").Update("role", "viewer").Error,
+	)
 	_, _, err = f.p.authorizeLocal(ctx, &imported, attempt)
 	require.ErrorIs(t, err, access.ErrForbidden)
-	require.NoError(t, f.db.Model(&types.TenantMember{}).Where("user_id = ?", "B").Update("role", "contributor").Error)
+	require.NoError(
+		t,
+		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "B").Update("role", "contributor").Error,
+	)
 	require.NoError(t, f.s.Disconnect(ctx))
 	_, err = f.p.authorize(ctx, &imported, attempt)
 	require.Error(t, err)
@@ -61,21 +76,42 @@ func TestFeishuV2PostgresInlinePublicationFencesLeaseAndLiveAuthority(t *testing
 	future := time.Now().Add(time.Minute)
 	item.LeaseUntil = &future
 	require.NoError(t, f.db.Save(&item).Error)
-	require.NoError(t, f.db.Model(&types.TenantMember{}).Where("user_id = ?", "A").Update("role", "viewer").Error)
+	require.NoError(
+		t,
+		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "A").Update("role", "viewer").Error,
+	)
 	require.ErrorIs(t, f.s.bindBatchPublication(f.ctx, &view.Batch, &item), access.ErrForbidden)
-	require.NoError(t, f.db.Model(&types.TenantMember{}).Where("user_id = ?", "A").Update("role", "contributor").Error)
+	require.NoError(
+		t,
+		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "A").Update("role", "contributor").Error,
+	)
 	old := time.Now().Add(-25 * time.Hour)
 	view.Batch.PublicationConsentAt = &old
-	require.NoError(t, f.s.bindBatchPublication(f.ctx, &view.Batch, &item), "obsolete sharing confirmation expiry does not block a lawful KB write")
+	require.NoError(
+		t,
+		f.s.bindBatchPublication(f.ctx, &view.Batch, &item),
+		"obsolete sharing confirmation expiry does not block a lawful KB write",
+	)
 }
 
 func TestFeishuV2PostgresInlineContinuePreservesOriginalBatch(t *testing.T) {
 	f := v2PostgresFixture(t)
-	view, err := f.s.QuickImport(f.ctx, "kb", "historical-blocked", []string{"https://test.feishu.cn/file/real"})
+	view, err := f.s.QuickImport(
+		f.ctx,
+		"kb",
+		"historical-blocked",
+		[]string{"https://test.feishu.cn/file/real"},
+	)
 	require.NoError(t, err)
 	old := time.Now().Add(-48 * time.Hour)
 	require.NoError(t, f.db.Model(&view.Batch).Update("publication_consent_at", old).Error)
-	require.NoError(t, f.db.Model(&types.FeishuBatchItem{}).Where("id = ?", view.Items[0].ID).Updates(map[string]any{"status": "blocked", "error_category": "sharing_approval_required"}).Error)
+	require.NoError(
+		t,
+		f.db.Model(&types.FeishuBatchItem{}).
+			Where("id = ?", view.Items[0].ID).
+			Updates(map[string]any{"status": "blocked", "error_category": "sharing_approval_required"}).
+			Error,
+	)
 	require.Error(t, f.s.ContinueBatch(f.userContext("B"), view.Batch.ID, false))
 	require.NoError(t, f.s.ContinueBatch(f.ctx, view.Batch.ID, false))
 	require.NoError(t, f.s.ReconcileBatches(context.Background()))
@@ -97,11 +133,19 @@ func TestFeishuV2PostgresInlineContinuePreservesOriginalBatch(t *testing.T) {
 func TestFeishuV2PostgresInlinePublicationKeepsPrivateIsolation(t *testing.T) {
 	f := v2PostgresFixture(t)
 	require.NoError(t, f.db.Exec("INSERT INTO feishu_private_kbs(kb_id,owner_id) VALUES('kb','A')").Error)
-	require.ErrorIs(t, f.s.requireImportWriter(f.db.WithContext(f.userContext("B")), "B", "kb", 1), access.ErrForbidden)
+	require.ErrorIs(
+		t,
+		f.s.requireImportWriter(f.db.WithContext(f.userContext("B")), "B", "kb", 1),
+		access.ErrForbidden,
+	)
 	require.NoError(t, f.s.requireImportWriter(f.db.WithContext(f.ctx), "A", "kb", 1))
-	require.NoError(t, f.db.Model(&types.TenantMember{}).Where("user_id = ?", "A").Update("status", "suspended").Error)
+	require.NoError(
+		t,
+		f.db.Model(&types.TenantMember{}).Where("user_id = ?", "A").Update("status", "suspended").Error,
+	)
 	require.ErrorIs(t, f.s.requireImportWriter(f.db.WithContext(f.ctx), "A", "kb", 1), access.ErrForbidden)
 }
+
 func TestFeishuV2PostgresInlinePublicationPinsConnectionThroughPrepare(t *testing.T) {
 	f := v2PostgresFixture(t)
 	_, _, ref, err := f.s.ResolveCredentialReference(f.ctx, types.FeishuUserOAuth, "")

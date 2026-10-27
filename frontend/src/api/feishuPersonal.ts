@@ -16,6 +16,8 @@ export async function callbackRequest<T>(path: string, params?: { state: string;
     const token = localStorage.getItem('weknora_token')
     if (!token) throw { status: 401 }
     headers.Authorization = `Bearer ${token}`
+    const tenant = localStorage.getItem('weknora_selected_tenant_id')
+    if (tenant && /^[1-9]\d*$/.test(tenant)) headers['X-Tenant-ID'] = tenant
     const query = params ? `?${new URLSearchParams(params)}` : ''
     const response = await fetch(`${getApiBaseUrl()}${path}${query}`, { method: params ? 'POST' : 'GET', headers, signal: controller.signal, redirect: 'error', cache: 'no-store' })
     const body = await response.json()

@@ -22,6 +22,7 @@ import { useRouter } from 'vue-router'
 import { CheckCircleFilledIcon, ErrorCircleFilledIcon } from 'tdesign-icons-vue-next'
 import { authorizeFeishu, completeFeishu, callbackFeishuStatus } from '@/api/feishuPersonal'
 import { FEISHU_PENDING } from '@/i18n/feishuPersonal'
+import { clearAuthStorage } from '@/utils/authRefresh'
 import { FEISHU_CALLBACK, safeImportPath, readFlow, saveFeishuDraft, callbackFailure, currentOwner, type CallbackAttempt, type FeishuDraft } from '@/utils/feishuOAuthFlow'
 
 const router = useRouter(), phase = ref<'connecting' | 'success' | 'failed'>('connecting')
@@ -58,7 +59,13 @@ async function back() {
     if (result || router.currentRoute.value.path === '/feishu/callback') detail.value = '自动返回未完成，请点击“继续导入文档”。'
   } catch { detail.value = '自动返回未完成，请点击“继续导入文档”。' }
 }
-function login() { void router.replace({ path: '/login', query: { returnUrl: path } }) }
+function login() {
+  // A stale Pinia session must not bounce /login back to the failed callback.
+  // The one-use parameters were already stripped; only a trusted import path
+  // crosses the login boundary. The owner-bound session draft is retained.
+  clearAuthStorage()
+  window.location.assign(`/login?returnUrl=${encodeURIComponent(path)}`)
+}
 async function reconnect() {
   busy.value = true
   try {
@@ -74,6 +81,7 @@ onMounted(async () => {
   const code = query.get('code') || '', state = query.get('state') || '', cancelled = query.has('error')
   try {
     window.history.replaceState(window.history.state, '', '/feishu/callback')
+    if (Object.keys(router.currentRoute.value.query).length) await router.replace('/feishu/callback')
     const draft = readFlow<FeishuDraft>(FEISHU_PENDING)
     path = safeImportPath(draft?.path)
     attempt = readFlow<CallbackAttempt>(FEISHU_CALLBACK)
