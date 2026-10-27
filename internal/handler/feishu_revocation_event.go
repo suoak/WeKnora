@@ -3,6 +3,7 @@ package handler
 import (
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -40,7 +41,7 @@ func (h *FeishuPersonalHandler) RevocationEvent(c *gin.Context) {
 		c.Status(http.StatusUnauthorized)
 		return
 	}
-	plain, err := larkevent.EventDecrypt(envelope.Encrypt, secret)
+	plain, err := decryptFeishuEvent(envelope.Encrypt, secret)
 	if err != nil {
 		c.Status(http.StatusUnauthorized)
 		return
@@ -112,4 +113,15 @@ func (h *FeishuPersonalHandler) RevocationEvent(c *gin.Context) {
 	// The durable, deduplicated hint schedules a current-grant probe. Never repeat
 	// secrets/provider payloads in the response, audit log or error handler.
 	c.JSON(http.StatusOK, gin.H{"received": true})
+}
+
+// The pinned SDK extracts JSON boundaries after decryption. Malformed input
+// can invert those boundaries; reject it without a panic or payload logging.
+func decryptFeishuEvent(ciphertext, key string) (plain []byte, err error) {
+	defer func() {
+		if recover() != nil {
+			plain, err = nil, errors.New("invalid_encrypted_event")
+		}
+	}()
+	return larkevent.EventDecrypt(ciphertext, key)
 }
