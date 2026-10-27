@@ -2,6 +2,7 @@
 import argparse
 import json
 import math
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -15,6 +16,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--execute", action="store_true")
+    parser.add_argument("--batch-size", type=int, choices=range(1, 21), default=1)
     args = parser.parse_args()
     if not args.execute:
         print(json.dumps({"status": "NOT_EXECUTED", "requests": 0}))
@@ -26,7 +28,7 @@ def main():
         key = credential["api_key"]
         if not isinstance(key, str) or not key or "\n" in key or "\r" in key:
             raise ValueError("invalid_credential")
-        body = json.dumps({"model": "text-embedding-v4", "input": ["KnowHub Feishu V2 isolated connectivity check"]}).encode()
+        body = json.dumps({"model": "text-embedding-v4", "input": ["KnowHub Feishu V2 isolated connectivity check"] * args.batch_size}).encode()
         request = urllib.request.Request(credential["base_url"] + "/embeddings", data=body,
                                          headers={"Content-Type": "application/json", "Authorization": "Bearer " + key})
         credential.clear()
@@ -38,15 +40,20 @@ def main():
             result = json.loads(raw)
             rows = result["data"]
             vector = rows[0]["embedding"]
-            if len(rows) != 1 or not vector or not all(isinstance(v, (int, float)) and math.isfinite(v) for v in vector):
+            if len(rows) != args.batch_size or not vector or not all(isinstance(v, (int, float)) and math.isfinite(v) for v in vector):
                 raise ValueError("invalid_embedding")
             print(json.dumps({"status": "PASS", "requests": 1, "http_status": response.status,
                               "requested_model": "text-embedding-v4", "returned_model": result.get("model"),
-                              "dimensions": len(vector), "scope": "synthetic_gateway_connectivity_only"}))
+                              "dimensions": len(vector), "batch_size": args.batch_size, "scope": "synthetic_gateway_connectivity_only"}))
             return 0
     except urllib.error.HTTPError as error:
+        raw = error.read(8192).decode(errors='replace')
+        categories = [v for v in ['batch size', 'batch_size', 'invalid parameter', 'dimension', 'quota',
+                                  'input length', 'input must', 'token limit', 'maximum', 'encoding_format'] if v in raw.lower()]
+        limits = re.findall(r'(?:batch size|less than|larger than|at most|maximum|dimension)[^0-9\n]{0,40}([0-9]{1,8})', raw, re.I)
         print(json.dumps({"status": "FAILED", "requests": 1, "http_status": error.code,
-                          "reason": "gateway_request_rejected"}))
+                          "reason": "gateway_request_rejected", "batch_size": args.batch_size,
+                          "categories": categories, "numeric_limits": limits}))
     except (OSError, ValueError, KeyError, TypeError, IndexError):
         print(json.dumps({"status": "FAILED", "reason": "gateway_or_response_unavailable"}))
     return 1

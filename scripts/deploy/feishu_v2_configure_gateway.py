@@ -32,6 +32,7 @@ if compose['name']!=project: raise ValueError('compose_identity_mismatch')
 model={'id':'builtin-feishu-v2-embedding','type':'Embedding','source':'remote','name':'text-embedding-v4',
  'description':'Isolated Feishu V2 test gateway',
  'parameters':{'base_url':credential['base_url'],'api_key':key,'provider':'generic','max_concurrency':1,
+ 'extra_config':{'embedding_max_batch_size':'10'},
  'embedding_parameters':{'dimension':1024,'truncate_prompt_tokens':0}}}
 content=json.dumps({'builtin_models':[model]},indent=2)+'\n'
 target=release/'builtin_models.yaml'

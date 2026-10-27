@@ -71,11 +71,15 @@ func recoverExistingPair(
 			return err
 		}
 		result["receipt_hash"] = mask(receipt)
-	case "reconcile":
+	case "reconcile", "renew-reconciliation":
 		err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			bound := service.NewFeishuPersonalService(tx, settings, nil, nil, nil)
 			for _, id := range ids {
-				if _, err := bound.ApproveSourceReconciliation(ctx, id, actor.ID,
+				approve := bound.ApproveSourceReconciliation
+				if action == "renew-reconciliation" {
+					approve = bound.RenewSourceReconciliation
+				}
+				if _, err := approve(ctx, id, actor.ID,
 					acceleratedAuthorization, time.Now().Add(24*time.Hour)); err != nil {
 					return err
 				}

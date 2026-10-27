@@ -54,7 +54,10 @@ func syncPolicyAudience(tx *gorm.DB, kbID string) (string, error) {
 	}
 	value := []any{kb.ID, kb.TenantID, owner}
 	for _, share := range shares {
-		value = append(value, []any{share.ID, share.OrganizationID, share.SourceTenantID, share.Permission})
+		value = append(
+			value,
+			[]any{share.ID, share.OrganizationID, share.SourceTenantID, share.Permission},
+		)
 	}
 	encoded, err := json.Marshal(value)
 	return syncPolicyHash(encoded), err
@@ -78,11 +81,77 @@ func (s *FeishuPersonalService) ApproveSourceUpdates(
 func (s *FeishuPersonalService) ApproveSourceReconciliation(
 	ctx context.Context, sourceID, operator, authorizationRef string, expires time.Time,
 ) (*FeishuSyncPublicationPolicy, error) {
-	return s.approveSourceUpdates(ctx, sourceID, operator, authorizationRef, expires, uuid.NewString())
+	return s.approveSourceUpdates(
+		ctx,
+		sourceID,
+		operator,
+		authorizationRef,
+		expires,
+		uuid.NewString(),
+	)
+}
+
+// RenewSourceReconciliation archives an exhausted single-run grant and creates
+// a fresh run atomically. It never revives a terminal execution or releases hold.
+func (s *FeishuPersonalService) RenewSourceReconciliation(
+	ctx context.Context, sourceID, operator, authorizationRef string, expires time.Time,
+) (*FeishuSyncPublicationPolicy, error) {
+	var next *FeishuSyncPublicationPolicy
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := requireRebindOperator(ctx, tx, operator); err != nil {
+			return err
+		}
+		var old types.SystemSetting
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("key = ?", feishuSyncPolicyPrefix+sourceID).First(&old).Error; err != nil {
+			return err
+		}
+		cipher, err := old.AsString()
+		if err != nil {
+			return err
+		}
+		var previous FeishuSyncPublicationPolicy
+		if openFeishu(cipher, &previous) != nil || previous.SourceID != sourceID ||
+			previous.State != "approved" || previous.ReconciliationLogID == "" || authorizationRef == "" {
+			return access.ErrForbidden
+		}
+		var run types.SyncLog
+		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).
+			Where("id = ? AND data_source_id = ?", previous.ReconciliationLogID, sourceID).First(&run).Error; err != nil {
+			return err
+		}
+		if run.ExecutionClaimed ||
+			run.Status != types.SyncLogStatusFailed && run.Status != types.SyncLogStatusCanceled {
+			return access.ErrForbidden
+		}
+		archived := old
+		archived.ID = 0
+		archived.Key = feishuSyncPolicyPrefix + "archive." + uuid.NewString()
+		if err := tx.Create(&archived).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&old).Error; err != nil {
+			return err
+		}
+		bound := *s
+		bound.db = tx
+		next, err = bound.ApproveSourceReconciliation(
+			ctx,
+			sourceID,
+			operator,
+			authorizationRef,
+			expires,
+		)
+		return err
+	})
+	return next, err
 }
 
 func (s *FeishuPersonalService) approveSourceUpdates(
-	ctx context.Context, sourceID, operator, authorizationRef string, expires time.Time, reconciliationLog string,
+	ctx context.Context,
+	sourceID, operator, authorizationRef string,
+	expires time.Time,
+	reconciliationLog string,
 ) (*FeishuSyncPublicationPolicy, error) {
 	admin, _ := ctx.Value(types.SystemAdminContextKey).(bool)
 	if !admin || operator == "" || authorizationRef == "" || !expires.After(time.Now()) ||
@@ -151,7 +220,9 @@ func (s *FeishuPersonalService) approveSourceUpdates(
 			ID: uuid.NewString(), SourceID: ds.ID, OwnerID: ref.OwnerUserID, KBID: ds.KnowledgeBaseID,
 			TenantID: ds.TenantID, ConnectionID: ref.ConnectionID, AppID: ref.AppID, ConfigVersion: ref.IdentityVersion,
 			ResourceType: imported.ResourceType, ResourceToken: imported.DocumentToken,
-			SourceConfigHash: syncPolicyHash(ds.Config), AudienceHash: audience, InitialApprovalID: initial.ID,
+			SourceConfigHash: syncPolicyHash(
+				ds.Config,
+			), AudienceHash: audience, InitialApprovalID: initial.ID,
 			GrantEpoch:       epoch.Epoch,
 			AuthorizationRef: authorizationRef, Operator: operator, State: "approved",
 			CreatedAt: time.Now(), ExpiresAt: expires,
@@ -194,12 +265,16 @@ func (s *FeishuPersonalService) approveSourceUpdates(
 }
 
 func checkSourcePublicationPolicy(
-	tx *gorm.DB, ds *types.DataSource, ref *types.FeishuSourceReference, resource core.PersonalResource,
+	tx *gorm.DB,
+	ds *types.DataSource,
+	ref *types.FeishuSourceReference,
+	resource core.PersonalResource,
 ) error {
 	// This exception belongs only to the server-owned sync execution. It cannot
 	// approve a new quick-import batch, another resource or a manual identity.
 	execution, ok := types.SyncExecutionFromContext(tx.Statement.Context)
-	if !ok || execution.DataSourceID != ds.ID || execution.TenantID != ds.TenantID || resource.Modified == "" {
+	if !ok || execution.DataSourceID != ds.ID || execution.TenantID != ds.TenantID ||
+		resource.Modified == "" {
 		return ErrFeishuSharingApproval
 	}
 	if err := validatePersonalSourceBinding(tx, ref); err != nil {
@@ -234,7 +309,8 @@ func checkSourcePublicationPolicy(
 	if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ?", ds.ID).First(&current).Error; err != nil {
 		return err
 	}
-	if current.Status != types.DataSourceStatusActive && current.Status != types.DataSourceStatusError ||
+	if current.Status != types.DataSourceStatusActive &&
+		current.Status != types.DataSourceStatusError ||
 		current.LegacyAccessState == "revoked" ||
 		policy.SourceConfigHash != syncPolicyHash(current.Config) {
 		return ErrFeishuSharingApproval

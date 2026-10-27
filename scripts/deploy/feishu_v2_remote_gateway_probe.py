@@ -41,7 +41,7 @@ credential=json.loads(sys.stdin.read(16384))
 image='sha256:33b84179859a3a275976e22ecf184643e4835de0a230d635f6ad88e299634ef0'
 command=['docker','run','--rm','-i','--pull=never','--network','bridge','--read-only',
  '--cap-drop','ALL','--pids-limit','64','--entrypoint','python3',image,'-c',
- "import base64;exec(base64.b64decode('"+PROBE+"'))",'--execute']
+ "import base64;exec(base64.b64decode('"+PROBE+"'))",'--execute','--batch-size',str(BATCH_SIZE)]
 result=subprocess.run(command,input=json.dumps(credential),stdout=subprocess.PIPE,
  stderr=subprocess.PIPE,text=True,timeout=45)
 credential.clear()
@@ -57,6 +57,7 @@ else:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--network-only', action='store_true')
+    parser.add_argument('--batch-size', type=int, choices=range(1, 21), default=1)
     args = parser.parse_args()
     client = paramiko.SSHClient()
     try:
@@ -73,7 +74,7 @@ def main():
                        timeout=15, auth_timeout=15, banner_timeout=15, allow_agent=False, look_for_keys=False)
         credential.clear()
         probe = NETWORK_PROBE.encode() if args.network_only else Path(__file__).with_name("feishu_v2_gateway_probe.py").read_bytes()
-        prefix = "PROBE=" + repr(base64.b64encode(probe).decode()) + "\n"
+        prefix = "BATCH_SIZE=" + repr(args.batch_size) + "\nPROBE=" + repr(base64.b64encode(probe).decode()) + "\n"
         program = base64.b64encode((prefix + REMOTE).encode()).decode()
         incoming, out, _ = client.exec_command(
             "python3 -c \"import base64;exec(base64.b64decode('" + program + "'))\"", timeout=60)
