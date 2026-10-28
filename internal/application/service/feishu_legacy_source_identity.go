@@ -14,10 +14,15 @@ func (s *knowledgeService) beginLegacySourceIdentity(
 	ds *types.DataSource, item *types.FetchedItem,
 ) (*types.FeishuLegacyResource, *types.FeishuLegacyAttempt, error) {
 	raw := repository.LegacySourceHash(item.Content, item.FileName, item.Title)
-	if !legacyDOCXExport(item) {
+	xlsx := legacyXLSXExport(item)
+	if !legacyDOCXExport(item) && !xlsx {
 		return store.Begin(ctx, ds, item, raw)
 	}
-	identity, err := repository.LegacyDOCXSourceIdentity(item.Content, item.FileName, item.Title)
+	identify := repository.LegacyDOCXSourceIdentity
+	if xlsx {
+		identify = repository.LegacyXLSXSourceIdentity
+	}
+	identity, err := identify(item.Content, item.FileName, item.Title)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -51,7 +56,11 @@ func (s *knowledgeService) beginLegacySourceIdentity(
 	if len(content) > maxArchiveBytes {
 		return nil, nil, ErrFeishuStagingRequired
 	}
-	proof, err := baseline.ProveDOCX(content)
+	prove := baseline.ProveDOCX
+	if xlsx {
+		prove = baseline.ProveXLSX
+	}
+	proof, err := prove(content)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -61,4 +70,10 @@ func (s *knowledgeService) beginLegacySourceIdentity(
 func legacyDOCXExport(item *types.FetchedItem) bool {
 	return item != nil && getFileType(item.FileName) == "docx" &&
 		item.Metadata["obj_type"] == "docx" && item.Metadata["attachment"] != "true"
+}
+
+func legacyXLSXExport(item *types.FetchedItem) bool {
+	return item != nil && getFileType(item.FileName) == "xlsx" &&
+		(item.Metadata["obj_type"] == "sheet" || item.Metadata["obj_type"] == "bitable") &&
+		item.Metadata["attachment"] != "true"
 }

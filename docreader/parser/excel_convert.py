@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import io
 import logging
 import os
+import struct
 import subprocess
 import tempfile
 import time
@@ -16,10 +18,32 @@ _XLS_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 _ZIP_MAGIC = b"PK\x03\x04"
 
 
+def reject_protected_excel_container(content: bytes) -> None:
+    """Inspect OLE directory metadata, without reading or decrypting its payload."""
+    if not content.startswith(_XLS_MAGIC) or len(content) > 64 << 20:
+        return
+
+    from xlrd.biffh import XLRDError
+    from xlrd.compdoc import CompDoc, CompDocError
+
+    try:
+        container = CompDoc(content, logfile=io.StringIO())
+    except (CompDocError, XLRDError, ValueError, struct.error, IndexError):
+        # Preserve the normal parser's corruption diagnosis for malformed files.
+        return
+    streams = {entry.name for entry in container.dirlist if entry.etype == 2}
+    if "EncryptedPackage" in streams:
+        raise ValueError("文件已加密或受保护，请提供获准导出的未加密版本。")
+    if not streams.intersection({"Workbook", "Book"}):
+        raise ValueError("文件内容不是可识别的 Excel 工作簿，请检查文件格式。")
+
+
 def detect_excel_format(content: bytes) -> str | None:
     """Return pandas/excel format id: xlsx, xls, xlsb, ods, or None."""
     if not content:
         return None
+
+    reject_protected_excel_container(content)
 
     from pandas.io.excel._base import inspect_excel_format
 
