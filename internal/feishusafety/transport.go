@@ -322,11 +322,7 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		_ = resp.Body.Close()
 		finish()
-		family := "feishu"
-		if t.Embedding {
-			family = "embedding"
-		}
-		trip(g, fmt.Sprintf("%s_http_%d", family, resp.StatusCode))
+		t.tripHTTP(g, req, resp)
 		return nil, ErrClosed
 	}
 	if resp.Body == nil {

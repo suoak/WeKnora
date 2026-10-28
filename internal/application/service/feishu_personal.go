@@ -695,6 +695,9 @@ func (s *FeishuPersonalService) Complete(ctx context.Context, state, code string
 		if err := tx.Where("user_id = ?", user).Delete(&types.FeishuOAuthState{}).Error; err != nil {
 			return err
 		}
+		if err := s.recordSourceConsent(tx, &c, cfg, newEpoch); err != nil {
+			return err
+		}
 		if err := tx.Clauses(
 			clause.OnConflict{
 				Columns: []clause.Column{

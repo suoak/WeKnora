@@ -234,9 +234,15 @@ func (s *FeishuLegacyStore) BeginWithSourceIdentity(
 	if !legacyIdentityValid(identity) {
 		return nil, nil, legacyFence("source_identity_algorithm_unconfirmed")
 	}
-	if identity != nil && (item.Metadata["obj_type"] != "docx" || item.Metadata["attachment"] == "true" ||
-		!strings.EqualFold(path.Ext(item.FileName), ".docx")) {
-		return nil, nil, legacyFence("source_identity_path_unconfirmed")
+	if identity != nil {
+		docx := identity.Algorithm == legacyDOCXIdentityAlgorithm && item.Metadata["obj_type"] == "docx" &&
+			strings.EqualFold(path.Ext(item.FileName), ".docx")
+		xlsx := identity.Algorithm == legacyXLSXIdentityAlgorithm &&
+			(item.Metadata["obj_type"] == "sheet" || item.Metadata["obj_type"] == "bitable") &&
+			strings.EqualFold(path.Ext(item.FileName), ".xlsx")
+		if (!docx && !xlsx) || item.Metadata["attachment"] == "true" {
+			return nil, nil, legacyFence("source_identity_path_unconfirmed")
+		}
 	}
 	if identity != nil {
 		copyIdentity := *identity

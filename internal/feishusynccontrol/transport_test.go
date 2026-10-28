@@ -2,6 +2,7 @@ package feishusynccontrol
 
 import (
 	"context"
+	"encoding/json"
 	"net"
 	"sync/atomic"
 	"testing"
@@ -153,6 +154,20 @@ func TestControlTransportIndependentPoolAndAuditFailureStayClosed(t *testing.T) 
 	}
 	if timing.ID == "" || timing.Incarnation == "" || !timing.Failed {
 		t.Fatal("missing instance/correlation/error evidence")
+	}
+	records, err := client.XRevRangeN(context.Background(), c.prefix+"control_audit", "+", "-", 1).Result()
+	if err != nil || len(records) != 1 {
+		t.Fatal("failed probe evidence was not durably acknowledged", err)
+	}
+	var persisted StepTiming
+	raw, ok := records[0].Values["probe_timing"].(string)
+	if !ok || json.Unmarshal([]byte(raw), &persisted) != nil || persisted.ID != timing.ID ||
+		len(persisted.Stages) != 2 || persisted.Stages[1].Stage != "audit" || !persisted.Failed {
+		t.Fatal("retained audit lost the exact failed probe or included later stop work")
+	}
+	if len(persisted.Commands) == 0 || !persisted.Commands[len(persisted.Commands)-1].Failed ||
+		persisted.Commands[len(persisted.Commands)-1].Operation != "xadd" {
+		t.Fatal("retained audit lost the failed command")
 	}
 	for _, s := range timing.Stages {
 		if s.Stage == "permit" {

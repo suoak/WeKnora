@@ -9,6 +9,7 @@ from docreader.parser.base_parser import BaseParser
 from docreader.parser.chain_parser import PipelineParser
 from docreader.parser.concurrency import parser_worker_limit
 from docreader.parser.docx_merge import fill_vertical_merged_cells_docx
+from docreader.parser.excel_convert import reject_protected_excel_container
 from docreader.parser.markdown_parser import MarkdownParser
 from docreader.parser.ppt_convert import normalize_ppt_bytes
 from docreader.parser.pptx_media import (
@@ -43,6 +44,8 @@ class StdMarkitdownParser(BaseParser):
         """
         ext = self.file_type
         ft = (ext or "").lstrip(".").lower()
+        if ft in ("xls", "xlsx", "xlsm", "xlsb", "et"):
+            reject_protected_excel_container(content)
         pptx_bytes: bytes | None = None
         if ft in ("ppt", "pptx"):
             content, ext = normalize_ppt_bytes(content, ft)

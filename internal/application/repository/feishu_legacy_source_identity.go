@@ -5,13 +5,34 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"path/filepath"
+	"strings"
 
 	"github.com/Tencent/WeKnora/internal/feishudocx"
 	"github.com/Tencent/WeKnora/internal/types"
 	"gorm.io/gorm"
 )
 
-const legacyDOCXIdentityAlgorithm = "feishu-docx-package-v1+name-title-v1"
+const (
+	legacyDOCXIdentityAlgorithm = "feishu-docx-package-v1+name-title-v1"
+	legacyXLSXIdentityAlgorithm = "feishu-xlsx-package-v1+name-title-v1"
+)
+
+// LegacyXLSXSourceIdentity binds a complete package identity to its source name.
+func LegacyXLSXSourceIdentity(content []byte, name, title string) (*types.FeishuLegacySourceIdentity, error) {
+	digest, algorithm, err := feishudocx.CanonicalXLSXDigest(content)
+	if err != nil {
+		return nil, err
+	}
+	if algorithm != "feishu-xlsx-package-v1" {
+		return nil, legacyFence("source_identity_algorithm_unconfirmed")
+	}
+	b, _ := json.Marshal([]any{digest, name, title})
+	h := sha256.Sum256(b)
+	return &types.FeishuLegacySourceIdentity{
+		Algorithm: legacyXLSXIdentityAlgorithm, Digest: hex.EncodeToString(h[:]),
+	}, nil
+}
 
 // LegacySourceHash preserves the historical raw bytes, filename and title contract.
 func LegacySourceHash(content []byte, name, title string) string {
@@ -71,6 +92,25 @@ func (b *LegacySourceIdentityBaseline) ProveDOCX(content []byte) (*LegacySourceI
 	return &LegacySourceIdentityProof{baseline: b, identity: identity}, nil
 }
 
+// ProveXLSX binds equivalence to the actual retained published archive. A new
+// export's readable rows alone cannot establish the previous source identity.
+func (b *LegacySourceIdentityBaseline) ProveXLSX(content []byte) (*LegacySourceIdentityProof, error) {
+	k := b.manifest.Knowledge
+	metadata := k.GetMetadata()
+	if (metadata["obj_type"] != "sheet" && metadata["obj_type"] != "bitable") ||
+		metadata["attachment"] == "true" || !strings.EqualFold(filepath.Ext(k.FileName), ".xlsx") {
+		return nil, legacyFence("source_identity_legacy_path_unconfirmed")
+	}
+	if LegacySourceHash(content, k.FileName, k.Title) != b.attempt.SourceHash {
+		return nil, legacyFence("source_identity_legacy_archive_hash_mismatch")
+	}
+	identity, err := LegacyXLSXSourceIdentity(content, k.FileName, k.Title)
+	if err != nil {
+		return nil, err
+	}
+	return &LegacySourceIdentityProof{baseline: b, identity: identity}, nil
+}
+
 // SourceIdentityBaseline only exposes the proven published version for a controlled file read.
 func (s *FeishuLegacyStore) SourceIdentityBaseline(
 	ctx context.Context, ds *types.DataSource, externalID string,
@@ -83,8 +123,19 @@ func (s *FeishuLegacyStore) SourceIdentityBaseline(
 		if err := tx.First(&b.resource, "id=?", legacyResourceID(ds, externalID)).Error; err != nil {
 			return err
 		}
-		if b.resource.State != "active" || b.resource.ActiveAttempt == "" {
+		readable := b.resource.State == "active" || b.resource.State == "hold" &&
+			ds.LegacyAccessState == "hold" && types.LegacyFullReconciliation(ctx)
+		if !readable || b.resource.ActiveAttempt == "" {
 			return legacyFence("source_identity_legacy_archive_unavailable")
+		}
+		if b.resource.State == "hold" {
+			guard, ok := types.FeishuSourceGuardFromContext(ctx)
+			if !ok {
+				return legacyFence("credential_reference_unvalidated")
+			}
+			if err := guard(tx); err != nil {
+				return err
+			}
 		}
 		if b.resource.DataSourceID != ds.ID || b.resource.TenantID != ds.TenantID ||
 			b.resource.KnowledgeBaseID != ds.KnowledgeBaseID || b.resource.ExternalID != externalID {
@@ -116,7 +167,8 @@ func legacyIdentityValid(identity *types.FeishuLegacySourceIdentity) bool {
 		return true
 	}
 	_, err := hex.DecodeString(identity.Digest)
-	return identity.Algorithm == legacyDOCXIdentityAlgorithm && len(identity.Digest) == 64 && err == nil
+	return (identity.Algorithm == legacyDOCXIdentityAlgorithm || identity.Algorithm == legacyXLSXIdentityAlgorithm) &&
+		len(identity.Digest) == 64 && err == nil
 }
 
 func legacyIdentityEqual(a, b *types.FeishuLegacySourceIdentity) bool {
@@ -149,8 +201,17 @@ func legacyAttemptSourceMatches(
 		a.SourceHash != b.attempt.SourceHash || string(a.Manifest) != string(b.attempt.Manifest) ||
 		r.ID != b.resource.ID || r.Generation != b.resource.Generation ||
 		r.SourceRevision != b.resource.SourceRevision ||
-		r.ActiveAttempt != a.ID || r.State != "active" || a.Status != "published" {
+		r.ActiveAttempt != a.ID || r.State != b.resource.State || a.Status != "published" {
 		return false, legacyFence("source_identity_legacy_proof_stale")
+	}
+	if r.State != "active" {
+		guard, ok := types.FeishuSourceGuardFromContext(tx.Statement.Context)
+		if r.State != "hold" || !types.LegacyFullReconciliation(tx.Statement.Context) || !ok {
+			return false, legacyFence("source_identity_legacy_proof_stale")
+		}
+		if err := guard(tx); err != nil {
+			return false, err
+		}
 	}
 	var current types.Knowledge
 	if err := tx.First(&current, "id=? AND tenant_id=?", r.KnowledgeID, r.TenantID).Error; err != nil {

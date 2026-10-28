@@ -24,6 +24,9 @@ func (s *DataSourceService) recordUnacceptedSync(
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	if errors.Is(cause, errSourceConsentPending) {
+		return s.failSyncAttempt(ctx, ds, log, cause, "Feishu authorization update pending")
+	}
 	message := "Item admission failed; checkpoint retained"
 	if errors.Is(cause, ErrFeishuSharingApproval) {
 		// Keep the checkpoint before the rejected version. Approval must be

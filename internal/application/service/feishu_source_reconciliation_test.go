@@ -47,6 +47,7 @@ func TestFeishuV2PostgresApprovedHeldSourceReconciliation(t *testing.T) {
 	require.NoError(t, f.db.First(ds, "id = ?", ds.ID).Error)
 	beforeCursor, beforeConfig := string(ds.LastSyncCursor), string(ds.Config)
 	admin := context.WithValue(f.ctx, types.SystemAdminContextKey, true)
+	require.NoError(t, f.db.Model(&types.User{}).Where("id = ?", "A").UpdateColumn("is_system_admin", true).Error)
 	var originalEpoch types.FeishuPersonalGrantEpoch
 	require.NoError(t, f.db.Where("user_id = ?", "A").First(&originalEpoch).Error)
 	require.NoError(t, f.db.Model(&types.FeishuPersonalGrantEpoch{}).Where("user_id = ?", "A").
@@ -54,7 +55,7 @@ func TestFeishuV2PostgresApprovedHeldSourceReconciliation(t *testing.T) {
 	_, err = f.s.ApproveSourceReconciliation(
 		admin,
 		ds.ID,
-		"operator",
+		"A",
 		"new-explicit-approval",
 		time.Now().Add(time.Hour),
 	)
@@ -70,14 +71,14 @@ func TestFeishuV2PostgresApprovedHeldSourceReconciliation(t *testing.T) {
 	_, err = f.s.ApproveSourceReconciliation(
 		f.ctx,
 		ds.ID,
-		"operator",
+		"A",
 		"new-explicit-approval",
 		time.Now().Add(time.Hour),
 	)
 	require.Error(t, err, "ordinary import cannot approve hold recovery")
 	_, err = f.s.ApproveSourceUpdates(admin, ds.ID, "operator", "ordinary-policy", time.Now().Add(time.Hour))
 	require.Error(t, err, "continuing publication does not restore hold")
-	policy, err := f.s.ApproveSourceReconciliation(admin, ds.ID, "operator", "new-explicit-approval",
+	policy, err := f.s.ApproveSourceReconciliation(admin, ds.ID, "A", "new-explicit-approval",
 		time.Now().Add(time.Hour))
 	require.NoError(t, err)
 	require.NotEmpty(t, policy.ReconciliationLogID)

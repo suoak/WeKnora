@@ -15,7 +15,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const acceleratedAuthorization = "user:2026-10-27:accelerated-two-source-validation"
+const acceleratedAuthorization = "user:2026-10-28:pr56-two-source-validation"
 
 // This local operator entry uses the same service and real administrator checks
 // as HTTP. It never constructs an employee session or changes a safety latch.

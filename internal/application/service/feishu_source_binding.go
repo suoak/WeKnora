@@ -43,7 +43,20 @@ func (s *DataSourceService) bindFeishuSource(
 	if err := s.feishuIdentity.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		return validatePersonalSourceBinding(tx, ref)
 	}); err != nil {
-		return ctx, err
+		if !errors.Is(err, ErrFeishuSourceRebindRequired) {
+			return ctx, err
+		}
+		if err := s.feishuIdentity.renewSourceConsent(ctx, ds); err != nil {
+			return ctx, err
+		}
+		config, err = ds.ParseConfig()
+		if err != nil {
+			return ctx, err
+		}
+		ref, err = types.ParseFeishuSourceReference(config)
+		if err != nil || ref == nil {
+			return ctx, ErrFeishuSourceRebindRequired
+		}
 	}
 	reconciling := ds.LegacyAccessState == "hold"
 	if reconciling {
@@ -134,8 +147,18 @@ func (s *DataSourceService) bindFeishuSource(
 			if err := s.feishuIdentity.assertConnectionHealth(tx, ref.OwnerUserID); err != nil {
 				return err
 			}
+			if err := validatePersonalSourceBinding(tx, ref); err != nil {
+				return sourceConsentFenceError(tx, ds, ref, err)
+			}
 		}
-		if e := checkRebindPublication(tx, ds.ID, ref.ConnectionID); e != nil {
+		// The held path has already checked the exact execution/log/expiry
+		// grant above; recheck it at commit as well before using its exception.
+		if reconciling {
+			if e := checkHeldSourceReconciliationBound(tx, ds, ref); e != nil {
+				return e
+			}
+		}
+		if e := checkSourceRebindAuthorityBound(tx, ds.ID, ref.ConnectionID, "", time.Now(), reconciling); e != nil {
 			return e
 		}
 		var setting types.SystemSetting
@@ -225,7 +248,7 @@ func (s *DataSourceService) bindFeishuSource(
 				ref.OwnerUserID,
 				credential.GrantEpoch).
 			First(&epoch).Error; e != nil {
-			return ErrFeishuReconnect
+			return sourceConsentFenceError(tx, ds, ref, ErrFeishuReconnect)
 		}
 		if !conn.ExpiresAt.After(time.Now()) && !conn.RefreshExpiresAt.After(time.Now()) {
 			return ErrFeishuReconnect

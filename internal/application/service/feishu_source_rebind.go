@@ -281,10 +281,26 @@ func (s *FeishuPersonalService) inspectSourceRebind(
 func (s *FeishuPersonalService) sourceRebindOwnerContext(
 	ctx context.Context, batch *types.FeishuBatch,
 ) (context.Context, error) {
+	return s.sourceOwnerContext(ctx, batch, func(tx *gorm.DB) error {
+		return lockBatchPublicationAuthority(tx, batch)
+	})
+}
+
+func (s *FeishuPersonalService) sourceConsentOwnerContext(
+	ctx context.Context, batch *types.FeishuBatch,
+) (context.Context, error) {
+	return s.sourceOwnerContext(ctx, batch, func(tx *gorm.DB) error {
+		return s.requireImportWriter(tx, batch.OwnerID, batch.KBID, batch.TenantID)
+	})
+}
+
+func (s *FeishuPersonalService) sourceOwnerContext(
+	ctx context.Context, batch *types.FeishuBatch, authority func(*gorm.DB) error,
+) (context.Context, error) {
 	var user types.User
 	var member types.TenantMember
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := lockBatchPublicationAuthority(tx, batch); err != nil {
+		if err := authority(tx); err != nil {
 			return err
 		}
 		owner, err := types.PrivateKBOwner(tx, batch.KBID)
@@ -685,6 +701,22 @@ func writeRebindMarker(tx *gorm.DB, id, operator string, value any) error {
 }
 
 func checkRebindPublication(tx *gorm.DB, sourceID, connectionID string) error {
+	return checkSourceRebindAuthority(tx, sourceID, connectionID, "", time.Now())
+}
+
+// priorEpoch is only used by a server-recorded, same-account consent transition.
+// It checks the source's previous authority while the caller separately locks
+// and verifies the new live grant. Ordinary reads always use the live epoch.
+func checkSourceRebindAuthority(tx *gorm.DB, sourceID, connectionID, priorEpoch string, now time.Time) error {
+	return checkSourceRebindAuthorityBound(tx, sourceID, connectionID, priorEpoch, now, false)
+}
+
+// Recovery is called only while registering a new administrator-authorized
+// single run, or after validating that exact DB-issued run. It does not renew
+// the old migration grant and cannot authorize an ordinary held-source read.
+func checkSourceRebindAuthorityBound(
+	tx *gorm.DB, sourceID, connectionID, priorEpoch string, now time.Time, recovery bool,
+) error {
 	var row types.SystemSetting
 	err := tx.Clauses(clause.Locking{Strength: "SHARE"}).
 		Where("key = ?", sourceRebindPrefix+"current."+sourceID).
@@ -700,9 +732,12 @@ func checkRebindPublication(tx *gorm.DB, sourceID, connectionID string) error {
 	if err != nil {
 		return err
 	}
-	var marker struct{ GrantID, ConnectionID string }
+	var marker sourceBindingMarker
 	if openFeishu(cipher, &marker) != nil || marker.ConnectionID != connectionID {
 		return ErrFeishuSharingApproval
+	}
+	if marker.ConsentReceipt != "" {
+		return checkConsentBindingReceipt(tx, sourceID, marker, priorEpoch)
 	}
 	var grantRow types.SystemSetting
 	if err = tx.Clauses(clause.Locking{Strength: "SHARE"}).
@@ -716,7 +751,7 @@ func checkRebindPublication(tx *gorm.DB, sourceID, connectionID string) error {
 		return err
 	}
 	var grant sourceRebindGrant
-	if openFeishu(cipher, &grant) != nil || !grant.ExpiresAt.After(time.Now()) {
+	if openFeishu(cipher, &grant) != nil || grant.ID != marker.GrantID {
 		return ErrFeishuSharingApproval
 	}
 	var plan sourceRebindPlan
@@ -724,6 +759,27 @@ func checkRebindPublication(tx *gorm.DB, sourceID, connectionID string) error {
 		return ErrFeishuSharingApproval
 	}
 	restoreRebindIdentity(&plan)
+	// Expiration limits the administrative migration/recovery operation. Once
+	// that operation and a verified sync completed, normal updates use current
+	// OAuth/source permissions and KB write ACLs, rather than renewing a daily
+	// sharing approval. Revoked/rolled-back authority and held sources still deny.
+	var applied types.SystemSetting
+	if err = tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("key = ?",
+		sourceRebindPrefix+"receipt."+plan.ID).First(&applied).Error; err != nil {
+		return ErrFeishuSharingApproval
+	}
+	appliedCipher, err := applied.AsString()
+	if err != nil {
+		return err
+	}
+	var receipt sourceRebindReceipt
+	if openFeishu(appliedCipher, &receipt) != nil || receipt.RolledBack || receipt.ID != plan.ID ||
+		receipt.Plan != grant.Plan || receipt.PublicationGrant != grant.ID ||
+		receipt.Operator != grant.Operator || receipt.MigrationApproval == "" ||
+		receipt.MigrationApproval == grant.AuthorizationRef || len(receipt.BackupSHA) != 64 ||
+		applied.CreatedAt.IsZero() || applied.CreatedAt.After(grant.ExpiresAt) {
+		return ErrFeishuSharingApproval
+	}
 	matched := false
 	for _, item := range plan.Items {
 		if item.Source.ID != sourceID {
@@ -739,11 +795,17 @@ func checkRebindPublication(tx *gorm.DB, sourceID, connectionID string) error {
 		if audience != item.Audience {
 			return ErrFeishuSharingApproval
 		}
-		var epoch types.FeishuPersonalGrantEpoch
-		if e = tx.Clauses(clause.Locking{Strength: "SHARE"}).
-			Where("user_id = ? AND epoch = ?", item.Import.UserID, item.GrantEpoch).
-			First(&epoch).Error; e != nil {
-			return ErrFeishuSharingApproval
+		if priorEpoch != "" {
+			if priorEpoch != item.GrantEpoch {
+				return ErrFeishuSharingApproval
+			}
+		} else {
+			var epoch types.FeishuPersonalGrantEpoch
+			if e = tx.Clauses(clause.Locking{Strength: "SHARE"}).
+				Where("user_id = ? AND epoch = ?", item.Import.UserID, item.GrantEpoch).
+				First(&epoch).Error; e != nil {
+				return ErrFeishuSharingApproval
+			}
 		}
 		matched = true
 	}
@@ -752,9 +814,30 @@ func checkRebindPublication(tx *gorm.DB, sourceID, connectionID string) error {
 	}
 	var approval types.FeishuSharingApproval
 	if err = tx.Clauses(clause.Locking{Strength: "SHARE"}).
-		Where("id = ? AND state = ? AND expires_at > ?", grant.Approvals[sourceID], "approved", time.Now()).
+		Where("id = ? AND state = ?", grant.Approvals[sourceID], "approved").
 		First(&approval).
 		Error; err != nil {
+		return ErrFeishuSharingApproval
+	}
+	if !grant.ExpiresAt.After(now) || !approval.ExpiresAt.After(now) {
+		if recovery && priorEpoch == "" {
+			var held types.DataSource
+			if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).
+				Where("id = ? AND legacy_access_state = ?", sourceID, "hold").First(&held).Error; err != nil {
+				return ErrFeishuSharingApproval
+			}
+			// Reuse only the eligibility predicate; never persist a state change.
+			held.LegacyAccessState = "active"
+			if !sourceMayRenewConsent(&held) {
+				return ErrFeishuSharingApproval
+			}
+			return nil
+		}
+		for _, item := range plan.Items {
+			if item.Source.ID == sourceID {
+				return requireCompletedSourceRebind(tx, item)
+			}
+		}
 		return ErrFeishuSharingApproval
 	}
 	return nil

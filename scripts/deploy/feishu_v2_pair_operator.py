@@ -4,7 +4,7 @@ import sys
 
 import feishu_v2_personal_export_probe as probe
 
-AUTHORIZATION = 'user:2026-10-27:accelerated-two-source-validation'
+AUTHORIZATION = 'user:2026-10-28:pr56-two-source-validation'
 
 BACKUP = r'''
 if project!='knowhub-feishu-v2-d6e99d894d3a':raise ValueError('exact_isolated_project_required')

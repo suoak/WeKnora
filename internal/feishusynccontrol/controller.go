@@ -275,6 +275,7 @@ func (c *Controller) Step(ctx context.Context) (result error) {
 
 func (c *Controller) freeze(ctx context.Context, reason string, latch bool) error {
 	failedStage := c.probeStage
+	probeTiming := c.failureTiming()
 	elapsedMS := int64(0)
 	if !c.stepStarted.IsZero() && c.probeStage != "" {
 		elapsedMS = time.Since(c.stepStarted).Milliseconds()
@@ -311,6 +312,7 @@ func (c *Controller) freeze(ctx context.Context, reason string, latch bool) erro
 				"worker_id": event.WorkerID, "fenced": event.Fenced, "queue_paused": event.QueuePaused,
 				"probe_stage": event.ProbeStage, "step_elapsed_ms": event.ElapsedMS,
 				"step_id": event.StepID, "incarnation": event.Incarnation,
+				"probe_timing": probeTiming,
 			},
 		}).Err()
 		alert := c.audit(ctx, event)
