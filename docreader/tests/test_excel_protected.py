@@ -9,7 +9,7 @@ from docreader.parser.excel_parser import _open_excel_file
 from docreader.parser.markitdown_parser import StdMarkitdownParser
 
 
-def ole_container(stream_name: str) -> bytes:
+def ole_container(stream_name: str, nested: bool = False) -> bytes:
     """A valid CFB v3 directory with one regular 4096-byte stream."""
     free, end, fat = 0xFFFFFFFF, 0xFFFFFFFE, 0xFFFFFFFD
     header = bytearray(512)
@@ -17,20 +17,27 @@ def ole_container(stream_name: str) -> bytes:
     struct.pack_into("<HHHHH", header, 24, 0x3E, 3, 0xFFFE, 9, 6)
     struct.pack_into("<IIIIIIIII", header, 40, 0, 1, 1, 0, 4096, end, 0, end, 0)
     struct.pack_into("<109I", header, 76, 0, *([free] * 108))
-    allocation = [fat, end, *range(3, 10), end] + [free] * 118
+    allocation = [fat, end, *range(3, 10), end]
+    if nested:
+        allocation += [*range(11, 18), end]
+    allocation += [free] * (128 - len(allocation))
 
-    def entry(name: str, kind: int, child: int, first: int, size: int) -> bytes:
+    def entry(name: str, kind: int, child: int, first: int, size: int, left: int = free) -> bytes:
         data = bytearray(128)
         encoded = (name + "\0").encode("utf-16le")
         data[: len(encoded)] = encoded
-        struct.pack_into("<HBBIII", data, 64, len(encoded), kind, 1, free, free, child)
+        struct.pack_into("<HBBIII", data, 64, len(encoded), kind, 1, left, free, child)
         struct.pack_into("<IQ", data, 116, first, size)
         return bytes(data)
 
     directory = entry("Root Entry", 5, 1, end, 0)
-    directory += entry(stream_name, 2, free, 2, 4096)
-    directory += bytes(256)
-    return bytes(header) + struct.pack("<128I", *allocation) + directory + bytes(4096)
+    directory += entry(stream_name, 2, free, 2, 4096, 2 if nested else free)
+    if nested:
+        directory += entry("ObjectPool", 1, 3, end, 0)
+        directory += entry("EncryptedPackage", 2, free, 10, 4096)
+    else:
+        directory += bytes(256)
+    return bytes(header) + struct.pack("<128I", *allocation) + directory + bytes(8192 if nested else 4096)
 
 
 class ProtectedExcelTest(unittest.TestCase):
@@ -54,6 +61,9 @@ class ProtectedExcelTest(unittest.TestCase):
         for stream in ("Workbook", "Book"):
             with self.subTest(stream=stream):
                 self.assertEqual(detect_excel_format(ole_container(stream)), "xls")
+
+    def test_embedded_protected_object_is_not_whole_workbook_encryption(self):
+        self.assertEqual(detect_excel_format(ole_container("Workbook", nested=True)), "xls")
 
     def test_markitdown_cannot_bypass_protected_container(self):
         with patch("docreader.parser.markitdown_parser.MarkItDown") as converter:

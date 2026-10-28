@@ -31,10 +31,14 @@ def reject_protected_excel_container(content: bytes) -> None:
     except (CompDocError, XLRDError, ValueError, struct.error, IndexError):
         # Preserve the normal parser's corruption diagnosis for malformed files.
         return
-    streams = {entry.name for entry in container.dirlist if entry.etype == 2}
-    if "EncryptedPackage" in streams:
+    streams = {
+        entry.name.casefold()
+        for entry in container.dirlist
+        if entry.etype == 2 and entry.parent == 0
+    }
+    if "encryptedpackage" in streams:
         raise ValueError("文件已加密或受保护，请提供获准导出的未加密版本。")
-    if not streams.intersection({"Workbook", "Book"}):
+    if not streams.intersection({"workbook", "book"}):
         raise ValueError("文件内容不是可识别的 Excel 工作簿，请检查文件格式。")
 
 

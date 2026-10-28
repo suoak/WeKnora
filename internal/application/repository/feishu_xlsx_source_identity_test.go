@@ -150,6 +150,10 @@ func TestFeishuXLSXSourceIdentityPostgres(t *testing.T) {
 	require.NoError(t, err)
 	proof, err = baseline.ProveXLSX(old)
 	require.NoError(t, err)
+	// The real worker compares database-loaded JSONB, not the pre-insert JSON
+	// serialization used to construct this fixture.
+	require.NoError(t, db.First(&a, "id=?", a.ID).Error)
+	require.NoError(t, db.First(&r, "id=?", r.ID).Error)
 	require.NoError(t, db.WithContext(recovering).Transaction(func(tx *gorm.DB) error {
 		match, e := legacyAttemptSourceMatches(tx, &r, &a,
 			LegacySourceHash(current, k.FileName, k.Title), identity, proof)

@@ -123,9 +123,9 @@ func (s *FeishuLegacyStore) SourceIdentityBaseline(
 		if err := tx.First(&b.resource, "id=?", legacyResourceID(ds, externalID)).Error; err != nil {
 			return err
 		}
-		if b.resource.State != "active" &&
-			!(b.resource.State == "hold" && ds.LegacyAccessState == "hold" &&
-				types.LegacyFullReconciliation(ctx)) || b.resource.ActiveAttempt == "" {
+		readable := b.resource.State == "active" || b.resource.State == "hold" &&
+			ds.LegacyAccessState == "hold" && types.LegacyFullReconciliation(ctx)
+		if !readable || b.resource.ActiveAttempt == "" {
 			return legacyFence("source_identity_legacy_archive_unavailable")
 		}
 		if b.resource.State == "hold" {
