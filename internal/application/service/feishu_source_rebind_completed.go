@@ -43,6 +43,11 @@ func requireCompletedSourceRebind(tx *gorm.DB, item sourceRebindItem, applied ti
 		receipt.Generation != attempt.Generation || receipt.PublishedAt.IsZero() || receipt.Dimension <= 0 {
 		return ErrFeishuSharingApproval
 	}
+	// The atomic published receipt remains valid after recovery logs expire.
+	// An unchanged sync can instead confirm already-published, identical bytes.
+	if !receipt.PublishedAt.Before(applied) {
+		return nil
+	}
 	var completed int64
 	if err := tx.Model(&types.SyncLog{}).Where(
 		"data_source_id = ? AND tenant_id = ? AND status = ? AND execution_claimed = "+

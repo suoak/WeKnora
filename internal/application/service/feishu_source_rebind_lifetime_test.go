@@ -14,7 +14,7 @@ import (
 
 func TestFeishuV2PostgresSourceRebindOperationWindow(t *testing.T) {
 	for _, scenario := range []string{
-		"completed", "unchanged_sync", "no_sync", "failed_sync", "held", "paused",
+		"completed", "completed_logs_pruned", "unchanged_sync", "no_sync", "failed_sync", "held", "paused",
 		"bad_receipt", "revoked_approval", "changed_epoch", "changed_audience", "rolled_back",
 	} {
 		t.Run(scenario, func(t *testing.T) {
@@ -39,7 +39,7 @@ func TestFeishuV2PostgresSourceRebindOperationWindow(t *testing.T) {
 			require.NoError(t, f.db.First(&imported, "id = ?", v.ds.ID).Error)
 			resourceID, attemptID := uuid.NewString(), uuid.NewString()
 			published := time.Now().UTC()
-			if scenario == "unchanged_sync" {
+			if scenario == "unchanged_sync" || scenario == "no_sync" || scenario == "failed_sync" {
 				published = published.Add(-2 * time.Hour)
 			}
 			proof := types.FeishuLegacyReceipt{
@@ -63,7 +63,7 @@ func TestFeishuV2PostgresSourceRebindOperationWindow(t *testing.T) {
 				ID: attemptID, ResourceID: resourceID,
 				Generation: 1, Status: "published", Receipt: payload,
 			}).Error)
-			if scenario != "no_sync" {
+			if scenario != "no_sync" && scenario != "completed_logs_pruned" {
 				finished := time.Now().UTC()
 				status := types.SyncLogStatusSuccess
 				if scenario == "failed_sync" {
@@ -110,7 +110,7 @@ func TestFeishuV2PostgresSourceRebindOperationWindow(t *testing.T) {
 			ref, err := types.ParseFeishuSourceReference(config)
 			require.NoError(t, err)
 			err = checkSourceRebindAuthority(f.db, ds.ID, ref.ConnectionID, "", grant.ExpiresAt.Add(24*time.Hour))
-			if scenario == "completed" || scenario == "unchanged_sync" {
+			if scenario == "completed" || scenario == "completed_logs_pruned" || scenario == "unchanged_sync" {
 				require.NoError(t, err)
 			} else {
 				require.Error(t, err)
