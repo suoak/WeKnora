@@ -24,7 +24,8 @@ func (r *knowledgeRepository) GetKnowledgeDeletionMetadata(
 	}
 	var rows []*types.Knowledge
 	columns := "id, tenant_id, knowledge_base_id, type, title, file_name, file_type, file_path, " +
-		"file_hash, storage_size, embedding_model_id, parse_status, updated_at, " + deletionMoveFenceSQL(r.db.Dialector.Name())
+		"file_hash, storage_size, embedding_model_id, parse_status, updated_at, "
+	columns += deletionMoveFenceSQL(r.db.Dialector.Name())
 	err := r.db.WithContext(ctx).Model(&types.Knowledge{}).
 		Select(columns).
 		Where("tenant_id = ? AND id IN ?", tenantID, ids).Scan(&rows).Error
