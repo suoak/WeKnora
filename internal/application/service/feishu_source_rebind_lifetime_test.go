@@ -16,7 +16,7 @@ func TestFeishuV2PostgresSourceRebindOperationWindow(t *testing.T) {
 	for _, scenario := range []string{
 		"completed", "completed_logs_pruned", "unchanged_sync", "no_sync", "failed_sync", "held", "paused",
 		"bad_receipt", "revoked_approval", "changed_epoch", "changed_audience", "rolled_back",
-		"first_create_only", "first_create_bad_receipt", "unpublished",
+		"first_create_only", "first_create_bad_receipt", "unpublished", "held_deferral", "revoked",
 	} {
 		t.Run(scenario, func(t *testing.T) {
 			t.Setenv("FEISHU_SOURCE_REBIND_OPERATIONS_ENABLED", "1")
@@ -94,9 +94,17 @@ func TestFeishuV2PostgresSourceRebindOperationWindow(t *testing.T) {
 				}).Error)
 			}
 			switch scenario {
-			case "held":
+			case "held", "held_deferral", "revoked":
 				require.NoError(t, f.db.Model(&types.DataSource{}).Where("id = ?",
 					v.ds.ID).UpdateColumn("legacy_access_state", "hold").Error)
+				if scenario == "held_deferral" {
+					require.NoError(t, f.db.Model(&types.DataSource{}).Where("id = ?", v.ds.ID).
+						UpdateColumn("document_deferrals", types.JSON(`[{"reason":"owner_authorization"}]`)).Error)
+				}
+				if scenario == "revoked" {
+					require.NoError(t, f.db.Model(&types.DataSource{}).Where("id = ?", v.ds.ID).
+						UpdateColumn("legacy_access_state", "revoked").Error)
+				}
 			case "paused":
 				require.NoError(t, f.db.Model(&types.DataSource{}).Where("id = ?",
 					v.ds.ID).UpdateColumn("status", types.DataSourceStatusPaused).Error)
@@ -136,6 +144,17 @@ func TestFeishuV2PostgresSourceRebindOperationWindow(t *testing.T) {
 			} else {
 				require.Error(t, err)
 			}
+			if scenario == "held" || scenario == "held_deferral" || scenario == "revoked" ||
+				scenario == "revoked_approval" || scenario == "changed_epoch" || scenario == "rolled_back" {
+				recoveryErr := checkSourceRebindAuthorityBound(
+					f.db, ds.ID, ref.ConnectionID, "", grant.ExpiresAt.Add(24*time.Hour), true,
+				)
+				if scenario == "held" {
+					require.NoError(t, recoveryErr, "a fresh bounded recovery may reuse a completed identity binding")
+				} else {
+					require.Error(t, recoveryErr, "new recovery cannot erase revocation, rollback or manual protection")
+				}
+			}
 			var after types.DataSource
 			require.NoError(t, f.db.First(&after, "id = ?", ds.ID).Error)
 			require.Equal(t, string(ds.Config), string(after.Config))
@@ -161,4 +180,46 @@ func TestFeishuV2PostgresConsentFencesOnlyKnownOldExecutions(t *testing.T) {
 	err = sourceConsentFenceError(f.db, &v.ds, ref, ErrFeishuReconnect)
 	require.ErrorIs(t, err, ErrFeishuReconnect)
 	require.True(t, legacyFetchNeedsHold(err), "unknown grant changes retain fail-closed behavior")
+}
+
+func TestFeishuV2PostgresExpiredMigrationCanReceiveNewSingleRunRecovery(t *testing.T) {
+	t.Setenv("FEISHU_SOURCE_REBIND_OPERATIONS_ENABLED", "1")
+	v := newSourceConsentFixture(t)
+	f := v.f
+	v.consent(t, "renewed", v.old.OpenID, feishuScopes+" docs:permission.member:auth")
+	require.NoError(t, f.db.Model(&types.User{}).Where("id = ?", "A").UpdateColumn("is_system_admin", true).Error)
+	admin := context.WithValue(f.ctx, types.SystemAdminContextKey, true)
+	proposal, err := f.s.PrepareSourceRebind(admin, []string{v.ds.ID}, "A")
+	require.NoError(t, err)
+	expires := time.Now().Add(10 * time.Second)
+	grant, err := f.s.AuthorizeSourceRebindPublication(admin, proposal, "A", "old-publication-window", expires)
+	require.NoError(t, err)
+	_, err = f.s.ApplySourceRebind(admin, proposal, grant, "A", "old-migration-window", strings.Repeat("b", 64))
+	require.NoError(t, err)
+	require.NoError(t, f.db.Model(&types.DataSource{}).Where("id = ?", v.ds.ID).
+		UpdateColumn("legacy_access_state", "hold").Error)
+	first, err := f.s.ApproveSourceReconciliation(admin, v.ds.ID, "A", "first-full-run", expires)
+	require.NoError(t, err)
+	require.NoError(t, f.db.Model(&types.SyncLog{}).Where("id = ?", first.ReconciliationLogID).
+		UpdateColumn("status", types.SyncLogStatusFailed).Error)
+	var before types.DataSource
+	require.NoError(t, f.db.First(&before, "id = ?", v.ds.ID).Error)
+	time.Sleep(max(time.Until(expires.Add(20*time.Millisecond)), 0))
+	config, err := before.ParseConfig()
+	require.NoError(t, err)
+	ref, err := types.ParseFeishuSourceReference(config)
+	require.NoError(t, err)
+	require.Error(t, checkRebindPublication(f.db, before.ID, ref.ConnectionID), "ordinary held reads stay closed")
+	_, err = f.s.RenewSourceReconciliation(f.ctx, before.ID, "A", "ordinary-user", time.Now().Add(time.Hour))
+	require.Error(t, err)
+	next, err := f.s.RenewSourceReconciliation(admin, before.ID, "A", "new-single-run", time.Now().Add(time.Hour))
+	require.NoError(t, err)
+	require.NotEqual(t, first.ReconciliationLogID, next.ReconciliationLogID)
+	var after types.DataSource
+	require.NoError(t, f.db.First(&after, "id = ?", before.ID).Error)
+	require.Equal(t, "hold", after.LegacyAccessState)
+	require.Equal(t, string(before.Config), string(after.Config))
+	require.Equal(t, string(before.LastSyncCursor), string(after.LastSyncCursor))
+	// No claim/lease: the new authorization alone still cannot read or publish.
+	require.Error(t, f.s.checkHeldSourceReconciliation(admin, &after, ref))
 }

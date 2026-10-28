@@ -183,7 +183,14 @@ func (s *FeishuPersonalService) approveSourceUpdates(
 		if err := validatePersonalSourceBinding(tx, ref); err != nil {
 			return err
 		}
-		if err := checkRebindPublication(tx, ds.ID, ref.ConnectionID); err != nil {
+		if reconciliationLog != "" {
+			if err := requireRebindOperator(ctx, tx, operator); err != nil {
+				return err
+			}
+		}
+		if err := checkSourceRebindAuthorityBound(
+			tx, ds.ID, ref.ConnectionID, "", time.Now(), reconciliationLog != "",
+		); err != nil {
 			return err
 		}
 		var epoch types.FeishuPersonalGrantEpoch
@@ -207,11 +214,15 @@ func (s *FeishuPersonalService) approveSourceUpdates(
 			return err
 		}
 		var initial types.FeishuSharingApproval
-		if err = tx.Clauses(clause.Locking{Strength: "SHARE"}).Where(
+		initialQuery := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where(
 			"owner_id = ? AND kb_id = ? AND app_id = ? AND resource_type = ? AND resource_token = ?"+
-				" AND config_version = ? AND state = ? AND expires_at > ?",
+				" AND config_version = ? AND state = ?",
 			ref.OwnerUserID, ds.KnowledgeBaseID, ref.AppID, imported.ResourceType, imported.DocumentToken,
-			ref.IdentityVersion, "approved", time.Now()).Order("created_at DESC").First(&initial).Error; err != nil {
+			ref.IdentityVersion, "approved")
+		if reconciliationLog == "" {
+			initialQuery = initialQuery.Where("expires_at > ?", time.Now())
+		}
+		if err = initialQuery.Order("created_at DESC").First(&initial).Error; err != nil {
 			return ErrFeishuSharingApproval
 		}
 		audience, err := syncPolicyAudience(tx, ds.KnowledgeBaseID)
@@ -367,14 +378,18 @@ func (s *FeishuPersonalService) checkHeldSourceReconciliation(
 	ctx context.Context, ds *types.DataSource, ref *types.FeishuSourceReference,
 ) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var imported types.FeishuPersonalImport
-		if err := tx.Where("id = ? AND user_id = ? AND kb_id = ? AND app_id = ? AND auth_mode = ?",
-			ds.ID, ref.OwnerUserID, ds.KnowledgeBaseID, ref.AppID, types.FeishuUserOAuth).
-			First(&imported).Error; err != nil {
-			return ErrFeishuSharingApproval
-		}
-		return checkSourcePublicationPolicy(tx, ds, ref, core.PersonalResource{
-			Type: imported.ResourceType, Token: imported.DocumentToken, Modified: "reconciliation-preflight",
-		})
+		return checkHeldSourceReconciliationBound(tx, ds, ref)
+	})
+}
+
+func checkHeldSourceReconciliationBound(tx *gorm.DB, ds *types.DataSource, ref *types.FeishuSourceReference) error {
+	var imported types.FeishuPersonalImport
+	if err := tx.Where("id = ? AND user_id = ? AND kb_id = ? AND app_id = ? AND auth_mode = ?",
+		ds.ID, ref.OwnerUserID, ds.KnowledgeBaseID, ref.AppID, types.FeishuUserOAuth).
+		First(&imported).Error; err != nil {
+		return ErrFeishuSharingApproval
+	}
+	return checkSourcePublicationPolicy(tx, ds, ref, core.PersonalResource{
+		Type: imported.ResourceType, Token: imported.DocumentToken, Modified: "reconciliation-preflight",
 	})
 }

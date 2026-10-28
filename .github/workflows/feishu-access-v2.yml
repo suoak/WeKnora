@@ -100,6 +100,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
@@ -121,12 +123,36 @@ jobs:
         with:
           name: feishu-v2-quick-import-ui-${{ github.sha }}
           path: ${{ runner.temp }}/feishu-quick-ui/
+      - name: Verify whether frontend image needs rebuilding
+        id: frontend-change
+        run: |
+          git fetch --no-tags origin main
+          mkdir -p "$RUNNER_TEMP/frontend-reuse"
+          if git diff --quiet origin/main HEAD -- frontend; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            python3 - "$RUNNER_TEMP/frontend-reuse" <<'PY'
+          import json,os,pathlib,subprocess,sys
+          def git(*args): return subprocess.check_output(['git',*args],text=True).strip()
+          tree=git('rev-parse','HEAD:frontend')
+          assert tree==git('rev-parse','origin/main:frontend')
+          proof={'source_sha':os.environ['GITHUB_SHA'],'main_sha':git('rev-parse','origin/main'),
+                 'frontend_tree':tree,'qualification':'unchanged_frontend_source_only',
+                 'runtime_reuse_requires_separate_deployment_image_proof':True}
+          (pathlib.Path(sys.argv[1])/'source-proof.json').write_text(json.dumps(proof,indent=2)+'\n')
+          PY
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: steps.frontend-change.outputs.changed == 'false'
+        with:
+          name: feishu-v2-unchanged-frontend-${{ github.sha }}
+          path: ${{ runner.temp }}/frontend-reuse/
       - name: Build pinned frontend candidate image
+        if: steps.frontend-change.outputs.changed == 'true'
         run: |
           image="knowhub-feishu-v2/frontend:${GITHUB_SHA}"
-          # Use the same runner network as the verified npm install above.
-          # Dependencies remain lockfile/integrity-pinned inside the builder.
-          docker build --network=host --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+          docker build --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
             --build-arg "VITE_FRONTEND_COMMIT=${GITHUB_SHA}" -f frontend/Dockerfile -t "$image" frontend/
           mkdir -p "$RUNNER_TEMP/frontend-image"
           docker save "$image" | gzip -1 > "$RUNNER_TEMP/frontend-image/frontend-image.tar.gz"
@@ -143,6 +169,7 @@ jobs:
           (root/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
           PY
       - uses: actions/upload-artifact@v4
+        if: steps.frontend-change.outputs.changed == 'true'
         with:
           name: feishu-v2-frontend-image-${{ github.sha }}
           path: ${{ runner.temp }}/frontend-image/

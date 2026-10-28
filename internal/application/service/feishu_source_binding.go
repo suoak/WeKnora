@@ -151,7 +151,14 @@ func (s *DataSourceService) bindFeishuSource(
 				return sourceConsentFenceError(tx, ds, ref, err)
 			}
 		}
-		if e := checkRebindPublication(tx, ds.ID, ref.ConnectionID); e != nil {
+		// The held path has already checked the exact execution/log/expiry
+		// grant above; recheck it at commit as well before using its exception.
+		if reconciling {
+			if e := checkHeldSourceReconciliationBound(tx, ds, ref); e != nil {
+				return e
+			}
+		}
+		if e := checkSourceRebindAuthorityBound(tx, ds.ID, ref.ConnectionID, "", time.Now(), reconciling); e != nil {
 			return e
 		}
 		var setting types.SystemSetting

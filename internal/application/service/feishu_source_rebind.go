@@ -708,6 +708,15 @@ func checkRebindPublication(tx *gorm.DB, sourceID, connectionID string) error {
 // It checks the source's previous authority while the caller separately locks
 // and verifies the new live grant. Ordinary reads always use the live epoch.
 func checkSourceRebindAuthority(tx *gorm.DB, sourceID, connectionID, priorEpoch string, now time.Time) error {
+	return checkSourceRebindAuthorityBound(tx, sourceID, connectionID, priorEpoch, now, false)
+}
+
+// Recovery is called only while registering a new administrator-authorized
+// single run, or after validating that exact DB-issued run. It does not renew
+// the old migration grant and cannot authorize an ordinary held-source read.
+func checkSourceRebindAuthorityBound(
+	tx *gorm.DB, sourceID, connectionID, priorEpoch string, now time.Time, recovery bool,
+) error {
 	var row types.SystemSetting
 	err := tx.Clauses(clause.Locking{Strength: "SHARE"}).
 		Where("key = ?", sourceRebindPrefix+"current."+sourceID).
@@ -811,6 +820,19 @@ func checkSourceRebindAuthority(tx *gorm.DB, sourceID, connectionID, priorEpoch 
 		return ErrFeishuSharingApproval
 	}
 	if !grant.ExpiresAt.After(now) || !approval.ExpiresAt.After(now) {
+		if recovery && priorEpoch == "" {
+			var held types.DataSource
+			if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).
+				Where("id = ? AND legacy_access_state = ?", sourceID, "hold").First(&held).Error; err != nil {
+				return ErrFeishuSharingApproval
+			}
+			// Reuse only the eligibility predicate; never persist a state change.
+			held.LegacyAccessState = "active"
+			if !sourceMayRenewConsent(&held) {
+				return ErrFeishuSharingApproval
+			}
+			return nil
+		}
 		for _, item := range plan.Items {
 			if item.Source.ID == sourceID {
 				return requireCompletedSourceRebind(tx, item)
