@@ -57,7 +57,8 @@ func readSourceSetting(tx *gorm.DB, key string, value any) error {
 
 func sourceMayRenewConsent(ds *types.DataSource) bool {
 	var deferrals []json.RawMessage
-	return ds != nil && ds.LegacyAccessState == "active" && (ds.Status == types.DataSourceStatusActive ||
+	return ds != nil && (ds.Type == types.ConnectorTypeFeishu || ds.Type == types.ConnectorTypeFeishuDrive) &&
+		ds.LegacyAccessState == "active" && (ds.Status == types.DataSourceStatusActive ||
 		ds.Status == types.DataSourceStatusError) &&
 		json.Unmarshal(ds.DocumentDeferrals, &deferrals) == nil && len(deferrals) == 0
 }
@@ -216,7 +217,7 @@ func (s *FeishuPersonalService) renewSourceConsent(ctx context.Context, ds *type
 	if err != nil {
 		return err
 	}
-	fresh, err := s.sourceRebindOwnerContext(types.WithLegacyKBAdminMetadata(ctx, ds.KnowledgeBaseID),
+	fresh, err := s.sourceConsentOwnerContext(types.WithLegacyKBAdminMetadata(ctx, ds.KnowledgeBaseID),
 		&types.FeishuBatch{OwnerID: ref.OwnerUserID, TenantID: ds.TenantID, KBID: ds.KnowledgeBaseID})
 	if err != nil {
 		return err
@@ -300,10 +301,7 @@ func (s *FeishuPersonalService) renewSourceConsent(ctx context.Context, ds *type
 		if current.Epoch != record.Epoch {
 			return errSourceConsentPending
 		}
-		if err := lockBatchPublicationAuthority(tx, &types.FeishuBatch{
-			OwnerID:  record.UserID,
-			TenantID: ds.TenantID, KBID: ds.KnowledgeBaseID,
-		}); err != nil {
+		if err := s.requireImportWriter(tx, record.UserID, ds.KnowledgeBaseID, ds.TenantID); err != nil {
 			return err
 		}
 		if err := validatePersonalSourceBinding(tx, &types.FeishuSourceReference{

@@ -129,8 +129,9 @@ func (v *sourceConsentFixture) execution(t *testing.T) context.Context {
 
 func TestFeishuV2PostgresAutomaticSourceConsent(t *testing.T) {
 	for _, scenario := range []string{
-		"success", "coalesced", "worker_restart", "deferred_retry", "held", "revoked", "paused",
+		"success", "non_creator_writer", "coalesced", "worker_restart", "deferred_retry", "held", "revoked", "paused",
 		"protected", "changed_account", "missing_scope", "permission_denied", "lost_write",
+		"unsupported_connector",
 		"pause_during_probe", "protection_during_probe", "lease_lost_during_probe", "consent_during_probe",
 		"concurrent_workers",
 	} {
@@ -156,10 +157,19 @@ func TestFeishuV2PostgresAutomaticSourceConsent(t *testing.T) {
 				openID = "different-account"
 			case "missing_scope":
 				scope = "drive:drive.metadata:readonly docs:permission.member:auth"
+			case "unsupported_connector":
+				require.NoError(t, f.db.Model(&types.DataSource{}).Where("id = ?", v.ds.ID).
+					UpdateColumn("type", types.ConnectorTypeNotion).Error)
 			}
 			v.consent(t, "supplemented", openID, scope)
 			if scenario == "coalesced" {
 				v.consent(t, "supplemented-again", openID, scope)
+			}
+			if scenario == "non_creator_writer" {
+				require.NoError(t, f.db.Model(&types.TenantMember{}).Where("user_id = ?", "A").
+					UpdateColumn("role", types.TenantRoleContributor).Error)
+				require.NoError(t, f.db.Model(&types.KnowledgeBase{}).Where("id = ?", "kb").
+					UpdateColumn("creator_id", "B").Error)
 			}
 			if scenario == "deferred_retry" {
 				require.NoError(t, f.db.Model(&types.DataSource{}).Where("id = ?", v.ds.ID).
@@ -232,7 +242,8 @@ func TestFeishuV2PostgresAutomaticSourceConsent(t *testing.T) {
 			require.Equal(t, string(before.LastSyncCursor), string(after.LastSyncCursor))
 			var imported types.FeishuPersonalImport
 			require.NoError(t, f.db.First(&imported, "id = ?", v.ds.ID).Error)
-			if scenario == "success" || scenario == "coalesced" || scenario == "worker_restart" ||
+			if scenario == "success" || scenario == "non_creator_writer" || scenario == "coalesced" ||
+				scenario == "worker_restart" ||
 				scenario == "deferred_retry" || scenario == "concurrent_workers" {
 				require.NoError(t, err)
 				require.NotEqual(t, string(before.Config), string(after.Config))

@@ -281,10 +281,26 @@ func (s *FeishuPersonalService) inspectSourceRebind(
 func (s *FeishuPersonalService) sourceRebindOwnerContext(
 	ctx context.Context, batch *types.FeishuBatch,
 ) (context.Context, error) {
+	return s.sourceOwnerContext(ctx, batch, func(tx *gorm.DB) error {
+		return lockBatchPublicationAuthority(tx, batch)
+	})
+}
+
+func (s *FeishuPersonalService) sourceConsentOwnerContext(
+	ctx context.Context, batch *types.FeishuBatch,
+) (context.Context, error) {
+	return s.sourceOwnerContext(ctx, batch, func(tx *gorm.DB) error {
+		return s.requireImportWriter(tx, batch.OwnerID, batch.KBID, batch.TenantID)
+	})
+}
+
+func (s *FeishuPersonalService) sourceOwnerContext(
+	ctx context.Context, batch *types.FeishuBatch, authority func(*gorm.DB) error,
+) (context.Context, error) {
 	var user types.User
 	var member types.TenantMember
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := lockBatchPublicationAuthority(tx, batch); err != nil {
+		if err := authority(tx); err != nil {
 			return err
 		}
 		owner, err := types.PrivateKBOwner(tx, batch.KBID)
