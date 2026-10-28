@@ -72,6 +72,7 @@ func deleteReferencedKnowledge(
 }
 
 type knowledgeDeletePlan struct {
+	cleanup   bool
 	ctx       context.Context
 	ids       []string
 	knowledge []*types.Knowledge
@@ -108,7 +109,13 @@ func (s *knowledgeService) planKnowledgeDelete(ctx context.Context, ids []string
 			}
 		}
 	}
-	rows, err := s.repo.GetKnowledgeBatch(ctx, tenant, ids)
+	var rows []*types.Knowledge
+	if isCleanup {
+		rows, err = s.repo.GetKnowledgeDeletionMetadata(ctx, tenant, ids)
+	} else {
+		rows, err = s.repo.GetKnowledgeBatch(ctx, tenant, ids)
+	}
+	plan.cleanup = isCleanup
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +141,11 @@ func (s *knowledgeService) planKnowledgeDelete(ctx context.Context, ids []string
 			return nil, err
 		}
 		if _, ok := plan.kbs[row.KnowledgeBaseID]; !ok {
-			kb, err := knowledgeWriteKB(ctx, s.kbService, row)
+			lookupCtx := ctx
+			if isCleanup {
+				lookupCtx = types.WithLegacyKBAdminMetadata(ctx, row.KnowledgeBaseID)
+			}
+			kb, err := knowledgeWriteKB(lookupCtx, s.kbService, row)
 			if err != nil {
 				return nil, err
 			}

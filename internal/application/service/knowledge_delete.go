@@ -438,8 +438,14 @@ func (s *knowledgeService) executeKnowledgeDelete(plan *knowledgeDeletePlan, sin
 	for _, knowledge := range knowledgeList {
 		prev := knowledge.ParseStatus
 		before := *knowledge
-		knowledge.ParseStatus = types.ParseStatusDeleting
-		if err := s.repo.UpdateKnowledgeForTransfer(ctx, &before, knowledge); err != nil {
+		var err error
+		if plan.cleanup {
+			err = s.repo.MarkKnowledgeDeleting(ctx, knowledge)
+		} else {
+			knowledge.ParseStatus = types.ParseStatusDeleting
+			err = s.repo.UpdateKnowledgeForTransfer(ctx, &before, knowledge)
+		}
+		if err != nil {
 			logger.GetLogger(ctx).WithField("error", err).WithField("knowledge_id", knowledge.ID).
 				Errorf("DeleteKnowledgeList failed to mark as deleting")
 			return err
@@ -730,7 +736,7 @@ func (s *knowledgeService) ProcessKnowledgeListDelete(ctx context.Context, t *as
 	if kbID == "" {
 		// Pre-upgrade tasks were admitted by single-KB endpoints but omitted
 		// the KB ID. Reconstruct only an unambiguous, same-tenant scope.
-		rows, err := s.repo.GetKnowledgeBatch(ctx, payload.TenantID, ids)
+		rows, err := s.repo.GetKnowledgeDeletionMetadata(ctx, payload.TenantID, ids)
 		if err != nil {
 			return err
 		}
