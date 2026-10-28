@@ -220,6 +220,13 @@ func (s *DataSourceService) writeSyncExecution(
 func (s *DataSourceService) failSyncAttempt(
 	ctx context.Context, ds *types.DataSource, log *types.SyncLog, cause error, message string,
 ) error {
+	if errors.Is(cause, errSourceConsentPending) {
+		// Discard the obsolete execution; the next existing scheduled run binds
+		// the recorded new consent. Never publish its candidate or quarantine a
+		// known same-account authorization transition as document revocation.
+		return s.updateSyncRunResult(ctx, ds, log, &types.SyncResult{}, nil,
+			types.SyncLogStatusDeferred, "Feishu authorization update pending", ds.Status == types.DataSourceStatusPaused)
+	}
 	terminalErr := errors.Join(asynq.SkipRetry, cause)
 	if errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded) {
 		// The batch connector may return a resumable cursor with its error.
