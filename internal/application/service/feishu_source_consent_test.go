@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type sourceConsentFixture struct {
@@ -26,6 +27,72 @@ type sourceConsentFixture struct {
 	config       *FeishuAppConfig
 	deny         atomic.Bool
 	onPermission func()
+}
+
+func TestFeishuV2PostgresSourceConsentCallbackLockOrder(t *testing.T) {
+	v := newSourceConsentFixture(t)
+	v.consent(t, "first-consent", v.old.OpenID, feishuScopes+" docs:permission.member:auth")
+	ctx, cancel := context.WithTimeout(v.f.ctx, 5*time.Second)
+	defer cancel()
+	locked, release := make(chan struct{}), make(chan struct{})
+	callbackDone, workerDone := make(chan error, 1), make(chan error, 1)
+	go func() {
+		callbackDone <- v.f.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			var connection types.FeishuConnection
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_id = ?", "A").
+				First(&connection).Error; err != nil {
+				return err
+			}
+			close(locked)
+			select {
+			case <-release:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+			if err := v.f.s.recordSourceConsent(tx, &connection, v.config, "second-consent"); err != nil {
+				return err
+			}
+			return tx.Model(&types.FeishuPersonalGrantEpoch{}).Where("user_id = ?", "A").
+				Update("epoch", "second-consent").Error
+		})
+	}()
+	select {
+	case <-locked:
+	case <-ctx.Done():
+		t.Fatal("callback did not acquire connection lock")
+	}
+	workerPID := make(chan int, 1)
+	go func() {
+		workerDone <- v.f.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			var pid int
+			if err := tx.Raw("SELECT pg_backend_pid()").Scan(&pid).Error; err != nil {
+				return err
+			}
+			workerPID <- pid
+			_, _, err := loadSourceConsent(tx, &v.ds, &types.FeishuSourceReference{
+				Kind: types.FeishuUserOAuth, OwnerUserID: "A", AppID: v.old.AppID,
+				IdentityVersion: v.old.ConfigVersion, ConnectionID: v.old.ConnectionID,
+			})
+			return err
+		})
+	}()
+	pid := <-workerPID
+	waiting := false
+	for deadline := time.Now().Add(time.Second); time.Now().Before(deadline); {
+		if err := v.f.db.Raw("SELECT wait_event_type = 'Lock' FROM pg_stat_activity WHERE pid = ?", pid).
+			Scan(&waiting).Error; err != nil || waiting {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	close(release)
+	require.True(t, waiting, "worker must contend with the callback's real connection lock")
+	require.NoError(t, <-callbackDone, "callback must not deadlock with the source worker")
+	require.NoError(t, <-workerDone, "worker must read the newly committed consent")
+	var after types.DataSource
+	require.NoError(t, v.f.db.First(&after, "id = ?", v.ds.ID).Error)
+	require.JSONEq(t, string(v.ds.Config), string(after.Config))
+	require.JSONEq(t, string(v.ds.LastSyncCursor), string(after.LastSyncCursor))
 }
 
 func newSourceConsentFixture(t *testing.T) *sourceConsentFixture {

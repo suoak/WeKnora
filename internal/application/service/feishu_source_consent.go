@@ -165,6 +165,14 @@ func loadSourceConsent(tx *gorm.DB, ds *types.DataSource,
 	if !sourceMayRenewConsent(ds) || ref == nil || ref.Kind != types.FeishuUserOAuth {
 		return nil, nil, ErrFeishuSourceRebindRequired
 	}
+	// Match the OAuth callback's connection -> grant lock order. Taking the
+	// grant first can deadlock with a concurrent consent transaction.
+	var connection types.FeishuConnection
+	if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where(
+		"user_id = ? AND app_id = ?", ref.OwnerUserID, ref.AppID,
+	).First(&connection).Error; err != nil {
+		return nil, nil, err
+	}
 	var epoch types.FeishuPersonalGrantEpoch
 	if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("user_id = ?",
 		ref.OwnerUserID).First(&epoch).Error; err != nil {
@@ -180,6 +188,7 @@ func loadSourceConsent(tx *gorm.DB, ds *types.DataSource,
 	item, ok := record.Items[ds.ID]
 	if !ok || record.Epoch != epoch.Epoch || record.UserID != ref.OwnerUserID ||
 		record.AppID != ref.AppID || record.ConfigVersion != ref.IdentityVersion || record.OpenID == "" ||
+		record.OpenID != connection.OpenID ||
 		record.ConnectionID != connectionID(types.FeishuUserOAuth, record.UserID, record.AppID, record.OpenID,
 			record.Epoch) ||
 		item.OldConnectionID != ref.ConnectionID || item.ConfigHash != syncPolicyHash(ds.Config) ||
