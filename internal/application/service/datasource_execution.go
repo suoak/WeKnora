@@ -225,7 +225,8 @@ func (s *DataSourceService) failSyncAttempt(
 		// the recorded new consent. Never publish its candidate or quarantine a
 		// known same-account authorization transition as document revocation.
 		return s.updateSyncRunResult(ctx, ds, log, &types.SyncResult{}, nil,
-			types.SyncLogStatusDeferred, "Feishu authorization update pending", ds.Status == types.DataSourceStatusPaused)
+			types.SyncLogStatusDeferred, "Feishu authorization update pending",
+			ds.Status == types.DataSourceStatusPaused)
 	}
 	terminalErr := errors.Join(asynq.SkipRetry, cause)
 	if errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded) {

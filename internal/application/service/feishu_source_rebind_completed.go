@@ -48,7 +48,8 @@ func requireCompletedSourceRebind(tx *gorm.DB, item sourceRebindItem) error {
 		}
 		if err := tx.Model(&types.TaskPendingOp{}).Where(
 			"tenant_id = ? AND scope = ? AND scope_id = ? AND dedup_key = ? AND op = ?",
-			ds.TenantID, personalIndexReceiptScope, item.Import.KnowledgeID, "index-"+first.CurrentAttemptID, "verified",
+			ds.TenantID, personalIndexReceiptScope, item.Import.KnowledgeID,
+			"index-"+first.CurrentAttemptID, "verified",
 		).
 			Count(&completed).Error; err != nil {
 			return err
