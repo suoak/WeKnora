@@ -267,6 +267,12 @@ type KnowledgeRepository interface {
 	// GetKnowledgeBatchByIDOnly returns knowledge by IDs without tenant filter
 	// (for shared-KB resolution; callers check permissions on every row).
 	GetKnowledgeBatchByIDOnly(ctx context.Context, ids []string) ([]*types.Knowledge, error)
+	// GetKnowledgeDeletionMetadata loads only cleanup metadata for an admitted
+	// deletion. It does not authorize content reads or general writes.
+	GetKnowledgeDeletionMetadata(ctx context.Context, tenantID uint64, ids []string) ([]*types.Knowledge, error)
+	// MarkKnowledgeDeleting changes only the state using the admitted binding
+	// and timestamp as a CAS; omitted content fields must never be saved back.
+	MarkKnowledgeDeleting(ctx context.Context, knowledge *types.Knowledge) error
 	// CheckKnowledgeExists checks if knowledge already exists.
 	// For file types, check by fileHash or (fileName+fileSize).
 	// For URL types, check by URL.
