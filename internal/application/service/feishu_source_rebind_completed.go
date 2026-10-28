@@ -19,7 +19,7 @@ func requireCompletedSourceRebind(tx *gorm.DB, item sourceRebindItem, applied ti
 		item.Source.ID, item.Source.TenantID, item.Source.KnowledgeBaseID).First(&ds).Error; err != nil {
 		return err
 	}
-	if ds.LegacyAccessState != "active" || ds.Status != types.DataSourceStatusActive && ds.Status != types.DataSourceStatusError {
+	if !sourceMayRenewConsent(&ds) {
 		return ErrFeishuSharingApproval
 	}
 	var resources []types.FeishuLegacyResource
@@ -45,7 +45,8 @@ func requireCompletedSourceRebind(tx *gorm.DB, item sourceRebindItem, applied ti
 	}
 	var completed int64
 	if err := tx.Model(&types.SyncLog{}).Where(
-		"data_source_id = ? AND tenant_id = ? AND status = ? AND execution_claimed = ? AND execution_generation > 0 AND finished_at >= ?",
+		"data_source_id = ? AND tenant_id = ? AND status = ? AND execution_claimed = "+
+			"? AND execution_generation > 0 AND finished_at >= ?",
 		ds.ID, ds.TenantID, types.SyncLogStatusSuccess, false, applied).Count(&completed).Error; err != nil {
 		return err
 	}
