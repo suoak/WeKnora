@@ -24,7 +24,8 @@ func (r *knowledgeRepository) GetKnowledgeDeletionMetadata(
 	}
 	var rows []*types.Knowledge
 	err := r.db.WithContext(ctx).Model(&types.Knowledge{}).
-		Select("id, tenant_id, knowledge_base_id, type, title, file_name, file_type, file_path, file_hash, storage_size, embedding_model_id, parse_status, updated_at, metadata").
+		Select("id, tenant_id, knowledge_base_id, type, title, file_name, file_type, file_path, "+
+			"file_hash, storage_size, embedding_model_id, parse_status, updated_at, metadata").
 		Where("tenant_id = ? AND id IN ?", tenantID, ids).Scan(&rows).Error
 	if err != nil {
 		return nil, err
@@ -42,6 +43,9 @@ func (r *knowledgeRepository) GetKnowledgeDeletionMetadata(
 func (r *knowledgeRepository) MarkKnowledgeDeleting(ctx context.Context, knowledge *types.Knowledge) error {
 	if knowledge == nil || knowledge.ID == "" || knowledge.TenantID == 0 || knowledge.KnowledgeBaseID == "" {
 		return fmt.Errorf("cleanup binding required")
+	}
+	if err := types.CheckPrivateKBRead(r.db.WithContext(ctx), knowledge.ID, knowledge.KnowledgeBaseID); err != nil {
+		return err
 	}
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	result := r.db.WithContext(ctx).Model(&types.Knowledge{}).

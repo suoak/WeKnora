@@ -37,7 +37,8 @@ func TestDeletionMetadataPostgresPreservesSourceFenceAndContent(t *testing.T) {
 	k := &types.Knowledge{
 		ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID,
 		Title: "metadata", Description: "body-derived summary must not be read or overwritten",
-		ParseStatus: types.ParseStatusCompleted, EnableStatus: "enabled", StorageSize: 123, Metadata: types.JSON(`{"keep":"original"}`),
+		ParseStatus: types.ParseStatusCompleted, EnableStatus: "enabled", StorageSize: 123,
+		Metadata: types.JSON(`{"keep":"original"}`),
 	}
 	require.NoError(t, db.Create(k).Error)
 	db = types.EnableLegacyReadGuards(db)
@@ -71,6 +72,7 @@ func TestDeletionMetadataPostgresPreservesSourceFenceAndContent(t *testing.T) {
 	_, err = repo.GetKnowledgeBatch(ctx, tenant.ID, []string{k.ID})
 	require.ErrorIs(t, err, types.ErrLegacySourceRestricted)
 	var sourceState string
-	require.NoError(t, db.Raw("SELECT legacy_access_state FROM data_sources WHERE id=?", ds.ID).Scan(&sourceState).Error)
+	require.NoError(t,
+		db.Raw("SELECT legacy_access_state FROM data_sources WHERE id=?", ds.ID).Scan(&sourceState).Error)
 	require.Equal(t, "hold", sourceState)
 }
