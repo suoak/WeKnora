@@ -124,7 +124,9 @@ jobs:
       - name: Build pinned frontend candidate image
         run: |
           image="knowhub-feishu-v2/frontend:${GITHUB_SHA}"
-          docker build --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+          # Use the same runner network as the verified npm install above.
+          # Dependencies remain lockfile/integrity-pinned inside the builder.
+          docker build --network=host --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
             --build-arg "VITE_FRONTEND_COMMIT=${GITHUB_SHA}" -f frontend/Dockerfile -t "$image" frontend/
           mkdir -p "$RUNNER_TEMP/frontend-image"
           docker save "$image" | gzip -1 > "$RUNNER_TEMP/frontend-image/frontend-image.tar.gz"

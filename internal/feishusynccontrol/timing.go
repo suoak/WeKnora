@@ -2,10 +2,33 @@ package feishusynccontrol
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+// Keep the first stop's bounded, argument-free probe evidence in Redis audit.
+// Container replacement must not erase the only evidence for a retained trip.
+func (c *Controller) failureTiming() string {
+	t := c.timings
+	t.Finished, t.Failed = time.Now().UTC(), true
+	t.Stages = append([]StageTiming(nil), t.Stages...)
+	if n := len(t.Stages); n > 0 {
+		t.Stages[n-1].Finished = t.Finished
+	}
+	if c.Transport != nil {
+		t.Commands, t.IO = c.Transport.snapshot()
+	}
+	if len(t.Commands) > 8 {
+		t.Commands = t.Commands[len(t.Commands)-8:]
+	}
+	if len(t.IO) > 16 {
+		t.IO = t.IO[len(t.IO)-16:]
+	}
+	encoded, _ := json.Marshal(t)
+	return string(encoded)
+}
 
 // StepTiming contains no source IDs, command arguments, credentials or bodies.
 // Observer must be nonblocking; deployment wiring uses a bounded channel.

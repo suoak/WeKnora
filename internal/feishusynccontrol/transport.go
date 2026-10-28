@@ -74,6 +74,14 @@ func (t *ControlTransport) finish() ([]CommandTiming, []IOTiming) {
 	return result, io
 }
 
+// snapshot preserves the failed probe before independent stop commands start.
+// It neither resets the active deadline nor consumes the final log sample.
+func (t *ControlTransport) snapshot() ([]CommandTiming, []IOTiming) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return append([]CommandTiming(nil), t.commands...), append([]IOTiming(nil), t.io...)
+}
+
 func (t *ControlTransport) recordIO(operation string, start time.Time, n int, err error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()

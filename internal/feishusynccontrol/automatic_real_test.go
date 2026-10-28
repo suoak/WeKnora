@@ -97,8 +97,9 @@ func runAutomaticRealRedisTwoProcess(t *testing.T, faultStage string) {
 	if os.Getenv("FEISHU_CONTROL_REAL_REDIS") != "1" {
 		t.Skip("explicit disposable Redis gate required")
 	}
-	if faultStage != "consumer_loss" && os.Getenv("GITHUB_ACTIONS") != "true" {
-		t.Fatal("server pause requires the disposable GitHub Actions Redis service")
+	if faultStage != "consumer_loss" && os.Getenv("GITHUB_ACTIONS") != "true" &&
+		os.Getenv("FEISHU_CONTROL_DISPOSABLE_REDIS") != "1" {
+		t.Fatal("server pause requires an explicitly disposable loopback Redis service")
 	}
 	address := os.Getenv("FEISHU_P0_REDIS_ADDR")
 	if address != "127.0.0.1:6379" {
