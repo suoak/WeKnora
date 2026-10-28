@@ -45,7 +45,9 @@ func TestAdmittedDeleteDoesNotRequireFeishuBodyRead(t *testing.T) {
 				f.db.Raw("SELECT legacy_access_state FROM data_sources WHERE id='held-source'").Scan(&state).Error)
 			require.Equal(t, "hold", state)
 			require.ErrorIs(t,
-				types.CheckLegacySourceRead(f.db.WithContext(context.Background()), "", "kb"), types.ErrLegacySourceRestricted)
+				types.CheckLegacySourceRead(f.db.WithContext(context.Background()), "", "kb"),
+				types.ErrLegacySourceRestricted,
+			)
 		})
 	}
 }
