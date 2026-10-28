@@ -89,13 +89,13 @@ func TestFeishuXLSXSourceIdentityPostgres(t *testing.T) {
 	require.NoError(t, err)
 	a := types.FeishuLegacyAttempt{
 		ID: uuid.NewString(), Generation: 1, Status: "published",
-		SourceHash: LegacySourceHash(old, k.FileName, k.Title), Manifest: rawManifest,
+		SourceHash: LegacySourceHash(old, k.FileName, k.Title), Manifest: rawManifest, Receipt: json.RawMessage(`{}`),
 	}
 	r := types.FeishuLegacyResource{
 		ID: legacyResourceID(&ds, "sheet:synthetic"), TenantID: tenant.ID,
 		KnowledgeBaseID: kb.ID, DataSourceID: ds.ID, ExternalID: "sheet:synthetic", KnowledgeID: k.ID,
 		State: "active", Generation: 1, ActiveAttempt: a.ID, CurrentAttempt: a.ID,
-		SourceRevision: time.Now().UTC().Format(time.RFC3339Nano),
+		SourceRevision: time.Now().UTC().Format(time.RFC3339Nano), QuarantineSnapshot: json.RawMessage(`{}`),
 	}
 	a.ResourceID = r.ID
 	a.Revision = r.SourceRevision

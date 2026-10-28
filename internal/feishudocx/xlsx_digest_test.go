@@ -48,6 +48,11 @@ func TestFeishuXLSXIdentityProtectsContents(t *testing.T) {
 	equal, _, err := CanonicalXLSXDigest(xlsxIdentityFixture(t, split, `<v>1</v>`, "asset", "", true))
 	require.NoError(t, err)
 	require.Equal(t, digest, equal, "only ZIP packing and exporter column widths may differ")
+	unsorted := `<col min="2" max="2" width="20" customWidth="1"/>` +
+		`<col min="1" max="1" width="9" customWidth="1"/>`
+	equal, _, err = CanonicalXLSXDigest(xlsxIdentityFixture(t, unsorted, `<v>1</v>`, "asset", "", false))
+	require.NoError(t, err)
+	require.Equal(t, digest, equal, "non-overlapping column serialization order is not table row order")
 	for _, change := range []struct{ name, cols, cell, asset, rel string }{
 		{"cell", base, `<v>2</v>`, "asset", ""},
 		{"formula", base, `<f>SUM(B1:B2)</f><v>1</v>`, "asset", ""},

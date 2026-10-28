@@ -18,6 +18,7 @@ const (
 	legacyXLSXIdentityAlgorithm = "feishu-xlsx-package-v1+name-title-v1"
 )
 
+// LegacyXLSXSourceIdentity binds a complete package identity to its source name.
 func LegacyXLSXSourceIdentity(content []byte, name, title string) (*types.FeishuLegacySourceIdentity, error) {
 	digest, algorithm, err := feishudocx.CanonicalXLSXDigest(content)
 	if err != nil {

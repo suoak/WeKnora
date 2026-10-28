@@ -18,6 +18,7 @@ import (
 
 const spreadsheetNS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 
+// ErrInvalidXLSXPackage rejects unsupported structures without exposing content.
 var ErrInvalidXLSXPackage = errors.New("invalid or unsupported Feishu XLSX package")
 
 // CanonicalXLSXDigest reuses the bounded OOXML decoder without changing DOCX's
@@ -123,8 +124,11 @@ func normalizeExportColumnWidths(worksheet *node) error {
 		if blocks > 1 {
 			return ErrInvalidXLSXPackage
 		}
-		var result []piece
-		last := 0
+		type columnRange struct {
+			minimum, maximum int
+			attrs            []xml.Attr
+		}
+		var ranges []columnRange
 		for _, p := range cols.Parts {
 			if p.Kind == "text" && strings.TrimSpace(p.Value) == "" {
 				continue
@@ -160,11 +164,25 @@ func normalizeExportColumnWidths(worksheet *node) error {
 					attrs = append(attrs, attr)
 				}
 			}
-			if minimum <= last || maximum < minimum {
+			if minimum < 1 || maximum < minimum {
 				return ErrInvalidXLSXPackage
 			}
-			for column := minimum; column <= maximum; column++ {
-				n := &node{Name: col.Name, Attrs: append([]xml.Attr(nil), attrs...)}
+			ranges = append(ranges, columnRange{minimum, maximum, attrs})
+		}
+		// Non-overlapping column definitions may be serialized in any order.
+		// Overlaps remain ambiguous and are never resolved by dropping metadata.
+		sort.Slice(ranges, func(i, j int) bool { return ranges[i].minimum < ranges[j].minimum })
+		last := 0
+		var result []piece
+		for _, definition := range ranges {
+			if definition.minimum <= last {
+				return ErrInvalidXLSXPackage
+			}
+			for column := definition.minimum; column <= definition.maximum; column++ {
+				n := &node{
+					Name:  xml.Name{Space: spreadsheetNS, Local: "col"},
+					Attrs: append([]xml.Attr(nil), definition.attrs...),
+				}
 				n.Attrs = append(n.Attrs, xml.Attr{Name: xml.Name{Local: "min"}, Value: strconv.Itoa(column)},
 					xml.Attr{Name: xml.Name{Local: "max"}, Value: strconv.Itoa(column)})
 				sort.Slice(n.Attrs, func(i, j int) bool {
@@ -173,7 +191,7 @@ func normalizeExportColumnWidths(worksheet *node) error {
 				})
 				result = append(result, piece{Kind: "element", Node: n})
 			}
-			last = maximum
+			last = definition.maximum
 		}
 		cols.Parts = result
 	}
