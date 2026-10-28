@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
 )
@@ -70,5 +71,24 @@ func TestDeletionMetadataKeepsPrivateOwnerRestriction(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
 	require.Equal(t, types.ManualKnowledgeStatusDraft, rows[0].ParseStatus)
+	f.requireNoWrites(t)
+}
+
+func TestDeletionMetadataReadsOnlyMoveFence(t *testing.T) {
+	f := newDocumentWriteFixture(t)
+	for _, marker := range []string{
+		`{"content":"private body",
+ "_knowledge_transfer":{"operation":"move","phase":"moving","wiki_summary":"secret"}}`,
+		`{"content":"private body","_knowledge_transfer":[]}`,
+		`"invalid metadata"`,
+	} {
+		require.NoError(t, f.db.Model(&types.Knowledge{}).Where("id='doc'").Update("metadata", marker).Error)
+		rows, err := f.repo.GetKnowledgeDeletionMetadata(f.ctx, 7, []string{"doc"})
+		require.NoError(t, err)
+		require.Len(t, rows, 1)
+		require.NotContains(t, string(rows[0].Metadata), "private body")
+		require.NotContains(t, string(rows[0].Metadata), "secret")
+		require.Error(t, access.RejectMovingKnowledge(rows[0]))
+	}
 	f.requireNoWrites(t)
 }

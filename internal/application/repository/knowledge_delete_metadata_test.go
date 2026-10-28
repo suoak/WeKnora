@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/database"
 	"github.com/Tencent/WeKnora/internal/testutil/feishulegacy"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -38,7 +39,8 @@ func TestDeletionMetadataPostgresPreservesSourceFenceAndContent(t *testing.T) {
 		ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID,
 		Title: "metadata", Description: "body-derived summary must not be read or overwritten",
 		ParseStatus: types.ParseStatusCompleted, EnableStatus: "enabled", StorageSize: 123,
-		Metadata: types.JSON(`{"keep":"original"}`),
+		Metadata: types.JSON(`{"content":"private manual body","keep":"original",
+ "_knowledge_transfer":{"operation":"copy","phase":"complete","wiki_summary":"private summary"}}`),
 	}
 	require.NoError(t, db.Create(k).Error)
 	db = types.EnableLegacyReadGuards(db)
@@ -52,6 +54,8 @@ func TestDeletionMetadataPostgresPreservesSourceFenceAndContent(t *testing.T) {
 	require.Empty(t, rows[0].Description)
 	require.Nil(t, rows[0].Profile)
 	require.Empty(t, rows[0].CustomMetadata)
+	require.JSONEq(t, `{"_knowledge_transfer":{"operation":"copy","phase":"complete"}}`, string(rows[0].Metadata))
+	require.NoError(t, access.RejectMovingKnowledge(rows[0]))
 	wrongTenant, err := repo.GetKnowledgeDeletionMetadata(ctx, tenant.ID+1, []string{k.ID})
 	require.NoError(t, err)
 	require.Empty(t, wrongTenant)

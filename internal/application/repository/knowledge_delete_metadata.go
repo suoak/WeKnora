@@ -23,9 +23,10 @@ func (r *knowledgeRepository) GetKnowledgeDeletionMetadata(
 		return nil, nil
 	}
 	var rows []*types.Knowledge
+	columns := "id, tenant_id, knowledge_base_id, type, title, file_name, file_type, file_path, " +
+		"file_hash, storage_size, embedding_model_id, parse_status, updated_at, " + deletionMoveFenceSQL(r.db.Dialector.Name())
 	err := r.db.WithContext(ctx).Model(&types.Knowledge{}).
-		Select("id, tenant_id, knowledge_base_id, type, title, file_name, file_type, file_path, "+
-			"file_hash, storage_size, embedding_model_id, parse_status, updated_at, metadata").
+		Select(columns).
 		Where("tenant_id = ? AND id IN ?", tenantID, ids).Scan(&rows).Error
 	if err != nil {
 		return nil, err
@@ -36,6 +37,32 @@ func (r *knowledgeRepository) GetKnowledgeDeletionMetadata(
 		}
 	}
 	return rows, nil
+}
+
+// Manual documents and move recovery can carry body text in metadata. Extract
+// only the move fence in SQL; malformed markers must still reject deletion.
+func deletionMoveFenceSQL(dialect string) string {
+	if dialect == "postgres" {
+		return `CASE
+ WHEN metadata IS NULL OR jsonb_typeof(metadata::jsonb)='null' THEN '{}'::jsonb
+ WHEN jsonb_typeof(metadata::jsonb)<>'object' THEN '{"_knowledge_transfer":"invalid"}'::jsonb
+ WHEN jsonb_typeof(metadata::jsonb->'_knowledge_transfer') IS NULL
+   OR jsonb_typeof(metadata::jsonb->'_knowledge_transfer')='null' THEN '{}'::jsonb
+ WHEN jsonb_typeof(metadata::jsonb->'_knowledge_transfer')<>'object'
+   THEN '{"_knowledge_transfer":"invalid"}'::jsonb
+ ELSE jsonb_build_object('_knowledge_transfer',jsonb_build_object(
+ 'operation',metadata::jsonb#>'{_knowledge_transfer,operation}',
+ 'phase',metadata::jsonb#>'{_knowledge_transfer,phase}')) END AS metadata`
+	}
+	return `CASE
+ WHEN metadata IS NULL OR json_type(metadata)='null' THEN '{}'
+ WHEN json_type(metadata)<>'object' THEN '{"_knowledge_transfer":"invalid"}'
+ WHEN json_type(metadata,'$._knowledge_transfer') IS NULL
+   OR json_type(metadata,'$._knowledge_transfer')='null' THEN '{}'
+ WHEN json_type(metadata,'$._knowledge_transfer')<>'object' THEN '{"_knowledge_transfer":"invalid"}'
+ ELSE json_object('_knowledge_transfer',json_object(
+ 'operation',json_extract(metadata,'$._knowledge_transfer.operation'),
+ 'phase',json_extract(metadata,'$._knowledge_transfer.phase'))) END AS metadata`
 }
 
 // MarkKnowledgeDeleting preserves all content and accounting columns. A moved,
