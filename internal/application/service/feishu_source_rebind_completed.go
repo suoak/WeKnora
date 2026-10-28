@@ -2,18 +2,18 @@ package service
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/Tencent/WeKnora/internal/types"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
-// This is evidence of completed recovery, never permission to release a hold.
-// Counts alone, a ready candidate, or a successful first-import attempt cannot
-// waive an expired migration window. The active atomic receipt must be valid,
-// and a fenced sync must have finished after the binding transaction committed.
-func requireCompletedSourceRebind(tx *gorm.DB, item sourceRebindItem, applied time.Time) error {
+// The binding transaction already proves a completed, authorized migration.
+// An active source with its verified published version can continue under live
+// OAuth/source permissions and KB write ACLs. Neither temporary migration
+// approval nor expiring sync logs are ongoing publication authority. This check
+// cannot release hold/paused/revoked or accept an incomplete candidate.
+func requireCompletedSourceRebind(tx *gorm.DB, item sourceRebindItem) error {
 	var ds types.DataSource
 	if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ? AND tenant_id = ? AND knowledge_base_id = ?",
 		item.Source.ID, item.Source.TenantID, item.Source.KnowledgeBaseID).First(&ds).Error; err != nil {
@@ -28,6 +28,36 @@ func requireCompletedSourceRebind(tx *gorm.DB, item sourceRebindItem, applied ti
 		ds.ID, ds.TenantID, ds.KnowledgeBaseID, item.Import.KnowledgeID).Limit(2).Find(&resources).Error; err != nil {
 		return err
 	}
+	if len(resources) == 0 {
+		// First-create handoff may not have needed a versioned update yet. Use
+		// its exact current index receipt, never an arbitrary historic receipt.
+		var first types.FeishuPersonalResource
+		if err := tx.Where("import_id = ? AND logical_knowledge_id = ?", ds.ID, item.Import.KnowledgeID).
+			First(&first).Error; err != nil || first.CurrentAttemptID == "" {
+			return ErrFeishuSharingApproval
+		}
+		var completed int64
+		if err := tx.Model(&types.Knowledge{}).Where(
+			"id = ? AND tenant_id = ? AND knowledge_base_id = ? AND parse_status = ?",
+			item.Import.KnowledgeID, ds.TenantID, ds.KnowledgeBaseID, types.ParseStatusCompleted,
+		).Count(&completed).Error; err != nil {
+			return err
+		}
+		if completed != 1 {
+			return ErrFeishuSharingApproval
+		}
+		if err := tx.Model(&types.TaskPendingOp{}).Where(
+			"tenant_id = ? AND scope = ? AND scope_id = ? AND dedup_key = ? AND op = ?",
+			ds.TenantID, personalIndexReceiptScope, item.Import.KnowledgeID, "index-"+first.CurrentAttemptID, "verified",
+		).
+			Count(&completed).Error; err != nil {
+			return err
+		}
+		if completed != 1 {
+			return ErrFeishuSharingApproval
+		}
+		return nil
+	}
 	if len(resources) != 1 || resources[0].State != "active" || resources[0].ActiveAttempt == "" {
 		return ErrFeishuSharingApproval
 	}
@@ -41,21 +71,6 @@ func requireCompletedSourceRebind(tx *gorm.DB, item sourceRebindItem, applied ti
 	if json.Unmarshal(attempt.Receipt, &receipt) != nil || !legacyReceiptConfirmed(&receipt) ||
 		receipt.ResourceID != r.ID || receipt.AttemptID != attempt.ID || receipt.KnowledgeID != r.KnowledgeID ||
 		receipt.Generation != attempt.Generation || receipt.PublishedAt.IsZero() || receipt.Dimension <= 0 {
-		return ErrFeishuSharingApproval
-	}
-	// The atomic published receipt remains valid after recovery logs expire.
-	// An unchanged sync can instead confirm already-published, identical bytes.
-	if !receipt.PublishedAt.Before(applied) {
-		return nil
-	}
-	var completed int64
-	if err := tx.Model(&types.SyncLog{}).Where(
-		"data_source_id = ? AND tenant_id = ? AND status = ? AND execution_claimed = "+
-			"? AND execution_generation > 0 AND finished_at >= ?",
-		ds.ID, ds.TenantID, types.SyncLogStatusSuccess, false, applied).Count(&completed).Error; err != nil {
-		return err
-	}
-	if completed == 0 {
 		return ErrFeishuSharingApproval
 	}
 	return nil

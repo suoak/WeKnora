@@ -133,7 +133,7 @@ func TestFeishuV2PostgresAutomaticSourceConsent(t *testing.T) {
 		"protected", "changed_account", "missing_scope", "permission_denied", "lost_write",
 		"unsupported_connector",
 		"pause_during_probe", "protection_during_probe", "lease_lost_during_probe", "consent_during_probe",
-		"concurrent_workers",
+		"concurrent_workers", "delayed_worker",
 	} {
 		t.Run(scenario, func(t *testing.T) {
 			v := newSourceConsentFixture(t)
@@ -162,6 +162,18 @@ func TestFeishuV2PostgresAutomaticSourceConsent(t *testing.T) {
 					UpdateColumn("type", types.ConnectorTypeNotion).Error)
 			}
 			v.consent(t, "supplemented", openID, scope)
+			if scenario == "delayed_worker" {
+				var record sourceConsentTransition
+				require.NoError(t, readSourceSetting(f.db, sourceConsentPrefix+"supplemented", &record))
+				record.CreatedAt = time.Now().Add(-48 * time.Hour)
+				cipher, e := sealFeishu(record)
+				require.NoError(t, e)
+				value, e := json.Marshal(cipher)
+				require.NoError(t, e)
+				require.NoError(t, f.db.Model(&types.SystemSetting{}).
+					Where("key = ?", sourceConsentPrefix+"supplemented").
+					UpdateColumn("value", types.JSON(value)).Error)
+			}
 			if scenario == "coalesced" {
 				v.consent(t, "supplemented-again", openID, scope)
 			}
@@ -244,7 +256,7 @@ func TestFeishuV2PostgresAutomaticSourceConsent(t *testing.T) {
 			require.NoError(t, f.db.First(&imported, "id = ?", v.ds.ID).Error)
 			if scenario == "success" || scenario == "non_creator_writer" || scenario == "coalesced" ||
 				scenario == "worker_restart" ||
-				scenario == "deferred_retry" || scenario == "concurrent_workers" {
+				scenario == "deferred_retry" || scenario == "concurrent_workers" || scenario == "delayed_worker" {
 				require.NoError(t, err)
 				require.NotEqual(t, string(before.Config), string(after.Config))
 				require.Equal(t, "active", after.LegacyAccessState)

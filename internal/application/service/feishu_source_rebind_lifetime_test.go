@@ -16,6 +16,7 @@ func TestFeishuV2PostgresSourceRebindOperationWindow(t *testing.T) {
 	for _, scenario := range []string{
 		"completed", "completed_logs_pruned", "unchanged_sync", "no_sync", "failed_sync", "held", "paused",
 		"bad_receipt", "revoked_approval", "changed_epoch", "changed_audience", "rolled_back",
+		"first_create_only", "first_create_bad_receipt", "unpublished",
 	} {
 		t.Run(scenario, func(t *testing.T) {
 			t.Setenv("FEISHU_SOURCE_REBIND_OPERATIONS_ENABLED", "1")
@@ -39,7 +40,8 @@ func TestFeishuV2PostgresSourceRebindOperationWindow(t *testing.T) {
 			require.NoError(t, f.db.First(&imported, "id = ?", v.ds.ID).Error)
 			resourceID, attemptID := uuid.NewString(), uuid.NewString()
 			published := time.Now().UTC()
-			if scenario == "unchanged_sync" || scenario == "no_sync" || scenario == "failed_sync" {
+			if scenario == "unchanged_sync" || scenario == "completed_logs_pruned" ||
+				scenario == "no_sync" || scenario == "failed_sync" {
 				published = published.Add(-2 * time.Hour)
 			}
 			proof := types.FeishuLegacyReceipt{
@@ -53,16 +55,32 @@ func TestFeishuV2PostgresSourceRebindOperationWindow(t *testing.T) {
 			}
 			payload, err := json.Marshal(proof)
 			require.NoError(t, err)
-			require.NoError(t, f.db.Create(&types.FeishuLegacyResource{
-				ID: resourceID, TenantID: 1,
-				KnowledgeBaseID: "kb", DataSourceID: v.ds.ID,
-				KnowledgeID: imported.KnowledgeID, ExternalID: "file:one", State: "active",
-				ActiveAttempt: attemptID,
-			}).Error)
-			require.NoError(t, f.db.Create(&types.FeishuLegacyAttempt{
-				ID: attemptID, ResourceID: resourceID,
-				Generation: 1, Status: "published", Receipt: payload,
-			}).Error)
+			if scenario == "first_create_only" || scenario == "first_create_bad_receipt" {
+				first := uuid.NewString()
+				require.NoError(t, f.db.Create(&types.FeishuPersonalResource{
+					ImportID: v.ds.ID, LogicalKnowledgeID: imported.KnowledgeID, CurrentAttemptID: first,
+				}).Error)
+				if scenario == "first_create_bad_receipt" {
+					first = uuid.NewString()
+				}
+				require.NoError(t, f.db.Create(&types.TaskPendingOp{
+					TenantID: 1, TaskType: "knowledge:index_receipt", Scope: personalIndexReceiptScope,
+					ScopeID: imported.KnowledgeID, DedupKey: "index-" + first, Op: "verified",
+				}).Error)
+			} else {
+				require.NoError(t, f.db.Create(&types.FeishuLegacyResource{
+					ID: resourceID, TenantID: 1, KnowledgeBaseID: "kb", DataSourceID: v.ds.ID,
+					KnowledgeID: imported.KnowledgeID, ExternalID: "file:one",
+					State: "active", ActiveAttempt: attemptID,
+				}).Error)
+				status := "published"
+				if scenario == "unpublished" {
+					status = "ready"
+				}
+				require.NoError(t, f.db.Create(&types.FeishuLegacyAttempt{
+					ID: attemptID, ResourceID: resourceID, Generation: 1, Status: status, Receipt: payload,
+				}).Error)
+			}
 			if scenario != "no_sync" && scenario != "completed_logs_pruned" {
 				finished := time.Now().UTC()
 				status := types.SyncLogStatusSuccess
@@ -110,7 +128,10 @@ func TestFeishuV2PostgresSourceRebindOperationWindow(t *testing.T) {
 			ref, err := types.ParseFeishuSourceReference(config)
 			require.NoError(t, err)
 			err = checkSourceRebindAuthority(f.db, ds.ID, ref.ConnectionID, "", grant.ExpiresAt.Add(24*time.Hour))
-			if scenario == "completed" || scenario == "completed_logs_pruned" || scenario == "unchanged_sync" {
+			// A failed later fetch does not revoke an already published active
+			// source. Hold/paused/unpublished and explicit revocation still deny.
+			if scenario == "completed" || scenario == "completed_logs_pruned" || scenario == "unchanged_sync" ||
+				scenario == "no_sync" || scenario == "failed_sync" || scenario == "first_create_only" {
 				require.NoError(t, err)
 			} else {
 				require.Error(t, err)

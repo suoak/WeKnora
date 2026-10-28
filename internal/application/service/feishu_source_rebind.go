@@ -813,7 +813,7 @@ func checkSourceRebindAuthority(tx *gorm.DB, sourceID, connectionID, priorEpoch 
 	if !grant.ExpiresAt.After(now) || !approval.ExpiresAt.After(now) {
 		for _, item := range plan.Items {
 			if item.Source.ID == sourceID {
-				return requireCompletedSourceRebind(tx, item, applied.CreatedAt)
+				return requireCompletedSourceRebind(tx, item)
 			}
 		}
 		return ErrFeishuSharingApproval

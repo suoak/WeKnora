@@ -32,7 +32,7 @@ type sourceConsentItem struct {
 
 type sourceConsentTransition struct {
 	Epoch, UserID, AppID, OpenID, ConfigVersion, ConnectionID string
-	CreatedAt, ExpiresAt                                      time.Time
+	CreatedAt                                                 time.Time
 	Items                                                     map[string]sourceConsentItem
 }
 
@@ -100,8 +100,8 @@ func (s *FeishuPersonalService) recordSourceConsent(tx *gorm.DB, next *types.Fei
 		Epoch: epoch, UserID: next.UserID, AppID: next.AppID, OpenID: next.OpenID,
 		ConfigVersion: cfg.identityVersion(types.FeishuUserOAuth),
 		ConnectionID:  connectionID(types.FeishuUserOAuth, next.UserID, next.AppID, next.OpenID, epoch),
-		CreatedAt:     time.Now().UTC(), ExpiresAt: time.Now().UTC().Add(24 * time.Hour),
-		Items: map[string]sourceConsentItem{},
+		CreatedAt:     time.Now().UTC(),
+		Items:         map[string]sourceConsentItem{},
 	}
 	var sources []types.DataSource
 	// MVCC reads deliberately take no source locks while the connection is locked.
@@ -178,7 +178,7 @@ func loadSourceConsent(tx *gorm.DB, ds *types.DataSource,
 		return nil, nil, err
 	}
 	item, ok := record.Items[ds.ID]
-	if !ok || !record.ExpiresAt.After(time.Now()) || record.Epoch != epoch.Epoch || record.UserID != ref.OwnerUserID ||
+	if !ok || record.Epoch != epoch.Epoch || record.UserID != ref.OwnerUserID ||
 		record.AppID != ref.AppID || record.ConfigVersion != ref.IdentityVersion || record.OpenID == "" ||
 		record.ConnectionID != connectionID(types.FeishuUserOAuth, record.UserID, record.AppID, record.OpenID,
 			record.Epoch) ||
