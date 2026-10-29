@@ -51,8 +51,17 @@ durable-intent preservation, and recovery generation preservation. The browser g
 mounts the actual Vue notice and action menu with synthetic state and no external
 network access. Hook tests cover request races, space switches and failed refreshes.
 
+The new admission tests use default safety activation. A separate legacy parser
+fixture subprocess follows the existing `feishu-sync-integrated` workflow's
+`FEISHU_SYNC_SAFETY_ENABLED=false` test configuration: those older synthetic
+services do not initialize the global wire-budget controller. Their database source
+read guards and atomic write protection remain enabled. This subprocess is not
+evidence of a live authorized synchronization lifecycle; that remains PR #61's
+independent acceptance requirement. No application configuration is changed.
+
 ```sh
-go test -p 1 -tags sqlite_fts5 ./internal/application/repository ./internal/application/service ./internal/handler ./internal/router ./internal/middleware/asynqdl -run 'TestSourceRestriction|TestSourceAdmission|TestFeishuLegacy|TestSyncTaskExecutor|TestMiddleware' -count=1
+go test -p 1 -tags sqlite_fts5 ./internal/application/repository ./internal/application/service ./internal/handler ./internal/router ./internal/middleware/asynqdl -run 'TestSourceRestriction|TestSourceAdmission|TestSyncTaskExecutor|TestMiddleware' -count=1
+FEISHU_SYNC_SAFETY_ENABLED=false go test -p 1 -tags sqlite_fts5 ./internal/application/repository ./internal/application/service -run '^TestFeishuLegacy' -count=1
 cd frontend
 npm test
 npm run type-check

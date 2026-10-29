@@ -57,23 +57,37 @@ jobs:
         run: |
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           git diff --check
-      - name: Source admission, privacy, real Redis/Lite, and atomic protection
+      - name: Source admission, privacy, and real Redis/Lite with safety defaults
         shell: bash
         run: |
           set -euo pipefail
           go test -json -p 1 -tags sqlite_fts5 ./internal/application/repository ./internal/application/service ./internal/handler ./internal/router ./internal/middleware/asynqdl \
-            -run 'TestSourceRestriction|TestSourceAdmission|TestFeishuLegacy|TestSyncTaskExecutor|TestMiddleware' -count=1 -timeout=15m | tee source-status.jsonl
+            -run 'TestSourceRestriction|TestSourceAdmission|TestSyncTaskExecutor|TestMiddleware' -count=1 -timeout=15m | tee source-status.jsonl
           python3 - <<'PY'
           import json
           events=[json.loads(x) for x in open('source-status.jsonl') if x.startswith('{')]
           skipped=[e['Test'] for e in events if e.get('Action')=='skip' and e.get('Test','').startswith(('TestSourceRestriction','TestSourceAdmission'))]
           assert not skipped, skipped
           PY
+      # Match the existing feishu-sync-integrated parser-fixture step. These
+      # old fixtures directly construct a service without a global controller.
+      # DB source read/write guards remain enabled by the tests; this setting
+      # does not apply to the new admission tests above or any application.
+      - name: Existing legacy parser and atomic database guard fixtures
+        env:
+          FEISHU_SYNC_SAFETY_ENABLED: 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -json -p 1 -tags sqlite_fts5 ./internal/application/repository ./internal/application/service \
+            -run '^TestFeishuLegacy' -count=1 -timeout=15m | tee legacy-source-guards.jsonl
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: source-status-backend-${{ env.SOURCE_SHA }}
-          path: source-status.jsonl
+          path: |
+            source-status.jsonl
+            legacy-source-guards.jsonl
   browser:
     runs-on: ubuntu-latest
     timeout-minutes: 20
