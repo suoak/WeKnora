@@ -8,6 +8,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // DataSourceRepository provides data access for data sources
@@ -147,12 +148,24 @@ func (r *DataSourceRepository) Delete(ctx context.Context, id string) error {
 	}
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if types.LegacyReadGuardsEnabled(tx) {
+			// Use the same datasource-first lock order as sync admission and
+			// publication. SQLite needs its writer lock before the first read.
+			query := tx.Model(&types.DataSource{}).Where("id=?", id)
+			if tx.Name() == "sqlite" {
+				if err := query.UpdateColumn("id", gorm.Expr("id")).Error; err != nil {
+					return err
+				}
+			}
 			var source types.DataSource
-			if err := tx.First(&source, "id=?", id).Error; err != nil {
+			if err := query.Clauses(clause.Locking{Strength: "UPDATE"}).First(&source).Error; err != nil {
 				return err
 			}
 			if legacySourceKind(source.Type) {
-				if err := tx.Model(&types.DataSource{}).Where("id=?", id).Update("legacy_access_state", "revoked").Error; err != nil {
+				state, err := deletedLegacySourceState(tx, &source)
+				if err != nil {
+					return err
+				}
+				if err := tx.Model(&types.DataSource{}).Where("id=?", id).Update("legacy_access_state", state).Error; err != nil {
 					return err
 				}
 			}
