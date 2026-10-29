@@ -2,6 +2,8 @@
 import FeishuImportDialog from './components/FeishuImportDialog.vue';
 import { takeFeishuDraft } from '@/utils/feishuOAuthFlow';
 import { isFeishuDocumentURL } from '@/api/feishuPersonal';
+import { useSourceRestriction } from '@/hooks/useSourceRestriction';
+import SourceRestrictionNotice from './components/SourceRestrictionNotice.vue';
 import { ref, onMounted, onUnmounted, watch, reactive, computed, nextTick } from "vue";
 import { MessagePlugin } from "tdesign-vue-next";
 import DocContent from "@/components/doc-content.vue";
@@ -90,6 +92,8 @@ import type { ParserEngineInfo } from '@/api/system';
 const route = useRoute();
 const { t } = useI18n();
 const kbId = computed(() => (route.params as any).kbId as string || '');
+const sourceAdmission = useSourceRestriction(kbId, computed(() => authStore.currentTenantId));
+const sourceRestricted = sourceAdmission.restricted;
 const kbInfo = ref<any>(null);
 const uploadSourceRef = ref<InstanceType<typeof KbUploadSourceDropdown> | null>(null);
 const kbLoading = ref(false);
@@ -593,6 +597,10 @@ const awaitBatchReparseReflection = async (ids: string[]) => {
 };
 
 const confirmBatchReparse = async () => {
+  if (sourceRestricted.value) {
+    MessagePlugin.warning(t("sourceProcessing.blocked"));
+    return;
+  }
   if (batchReparsing.value || batchDeleting.value || batchDownloading.value || selectedIds.value.size === 0) return;
   const allIds = Array.from(selectedIds.value);
   const ids = allIds.filter((id) => {
@@ -1914,6 +1922,10 @@ const confirmRebuildKnowledge = async (index: number, item: KnowledgeCard) => {
 };
 
 const submitReparse = async (id: string, processConfig?: KnowledgeProcessOverrides) => {
+  if (sourceRestricted.value) {
+    MessagePlugin.warning(t('sourceProcessing.nextAction'));
+    return;
+  }
   try {
     await reparseKnowledge(id, processConfig ? { process_config: processConfig } : undefined);
     delete traceAvailableById[id];
@@ -2388,6 +2400,8 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
             @select="handleFolderSelect" @update:collapsed="handleFolderTreeCollapsedChange"
             @rename="handleFolderRename" />
           <div class="tag-content">
+            <SourceRestrictionNotice :status="sourceAdmission.status.value" :unavailable="sourceAdmission.unavailable.value"
+              :has-pending="cardList.some((item: any) => isParseInFlight(item.parse_status))" />
             <div class="doc-card-area">
               <div class="doc-filter-bar">
                 <nav class="doc-folder-path" :aria-label="$t('knowledgeBase.folderTree.title')">
@@ -2570,6 +2584,7 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
                 </div>
                 <template v-else-if="cardList.length && viewMode === 'grid'">
                   <DocumentCardView :kb-id="kbId"
+                    :source-restricted="sourceRestricted"
                     :items="cardList"
                     :folder-options="folderOptions"
                     :selected-ids="selectedIds"
@@ -2600,6 +2615,7 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
                 </template>
                 <template v-else-if="cardList.length && viewMode === 'list'">
                   <DocumentListView :kb-id="kbId" :items="cardList" :folder-options="folderOptions"
+                    :source-restricted="sourceRestricted"
                     :selected-ids="selectedIds"
                     :can-edit="canEdit" :can-download="canDownloadKnowledge" :can-mutate-knowledge="canMutateKnowledge"
                     :trace-visible-ids="traceAvailableById"

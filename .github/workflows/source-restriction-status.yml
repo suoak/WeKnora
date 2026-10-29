@@ -1,0 +1,109 @@
+name: Source Restriction Status Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'internal/**'
+      - 'frontend/**'
+      - '.github/workflows/source-restriction-status.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: source-restriction-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: paradedb/paradedb:v0.22.2-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: isolated-test-only
+          POSTGRES_DB: feishu_atomic_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d feishu_atomic_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      FEISHU_LEGACY_TEST_DSN: postgres://postgres:isolated-test-only@localhost:5432/feishu_atomic_test?sslmode=disable
+      SYNC_EXECUTION_POSTGRES_DSN: postgres://postgres:isolated-test-only@localhost:5432/feishu_atomic_test?sslmode=disable
+      SOURCE_RESTRICTION_TEST_REDIS_ADDR: 127.0.0.1:6379
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          cache: true
+      - run: sudo apt-get update && sudo apt-get install -y build-essential libsqlite3-dev
+      - name: Verify exact source
+        run: |
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          git diff --check
+      - name: Source admission, privacy, and real Redis/Lite with safety defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -json -p 1 -tags sqlite_fts5 ./internal/application/repository ./internal/application/service ./internal/handler ./internal/router ./internal/middleware/asynqdl \
+            -run 'TestSourceRestriction|TestSourceAdmission|TestSyncTaskExecutor|TestMiddleware' -count=1 -timeout=15m | tee source-status.jsonl
+          python3 - <<'PY'
+          import json
+          events=[json.loads(x) for x in open('source-status.jsonl') if x.startswith('{')]
+          skipped=[e['Test'] for e in events if e.get('Action')=='skip' and e.get('Test','').startswith(('TestSourceRestriction','TestSourceAdmission'))]
+          assert not skipped, skipped
+          PY
+      # Match the existing feishu-sync-integrated parser-fixture step. These
+      # old fixtures directly construct a service without a global controller.
+      # DB source read/write guards remain enabled by the tests; this setting
+      # does not apply to the new admission tests above or any application.
+      - name: Existing legacy parser and atomic database guard fixtures
+        env:
+          FEISHU_SYNC_SAFETY_ENABLED: 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -json -p 1 -tags sqlite_fts5 ./internal/application/repository ./internal/application/service \
+            -run '^TestFeishuLegacy' -count=1 -timeout=15m | tee legacy-source-guards.jsonl
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: source-status-backend-${{ env.SOURCE_SHA }}
+          path: |
+            source-status.jsonl
+            legacy-source-guards.jsonl
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: node --import tsx --test src/hooks/useSourceRestriction.test.ts
+      - run: node --test tests/source-restriction/ui-gate.mjs

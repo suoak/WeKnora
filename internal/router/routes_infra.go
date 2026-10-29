@@ -304,6 +304,9 @@ func RegisterDataSourceRoutes(
 	credHandler *handler.DataSourceCredentialsHandler,
 	g *rbacGuards,
 ) {
+	// Human-only owner-tenant metadata. Do not declare this as an API-Key/MCP
+	// retrieve route, or put its metadata exception on a document read route.
+	r.GET("/knowledge-bases/:id/source-restriction", g.Viewer(), handler.GetKnowledgeBaseSourceRestriction)
 	// Data source routes
 	ds := g.apiKeyGroup(r.Group("/datasource"), apiKeyManageDataSources(apiKeyFullAccess()))
 	{

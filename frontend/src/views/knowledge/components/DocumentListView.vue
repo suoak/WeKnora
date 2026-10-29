@@ -7,6 +7,7 @@ import DocumentFileIcon from './DocumentFileIcon.vue';
 import DocumentActionMenu from './DocumentActionMenu.vue';
 import FolderPickerMenu, { type FolderOption } from './FolderPickerMenu.vue';
 import { shownStall } from '@/utils/knowledgeProcessingStall';
+import { isSourceBlockedProcessing } from '@/utils/sourceRestriction';
 
 interface Tag {
   id: string;
@@ -41,6 +42,7 @@ const props = defineProps<{
   canEdit: boolean;
   canDownload: boolean;
   canMutateKnowledge: boolean;
+  sourceRestricted?: boolean;
   traceVisibleIds: Record<string, boolean>;
   loading?: boolean;
   /** Every folder of the knowledge base, for the "move to folder" picker. */
@@ -122,6 +124,9 @@ interface StatusInfo {
   hint?: string;
 }
 const computeStatus = (item: KnowledgeItem): StatusInfo => {
+  if (isSourceBlockedProcessing(item.parse_status, props.sourceRestricted === true)) {
+    return { label: t('sourceProcessing.blocked'), theme: 'warning', icon: 'info-circle', hint: t('sourceProcessing.historyUnverified') };
+  }
   if (item.parse_status === 'pending') {
     return { label: t('knowledgeBase.statusPending'), theme: 'primary', icon: 'time' };
   }
@@ -360,6 +365,7 @@ const handleAction = (action: 'download' | 'edit' | 'reparse' | 'cancel-parse' |
                   :item="item"
                   :can-download="canDownload"
                   :can-mutate-knowledge="canMutateKnowledge"
+                  :source-restricted="sourceRestricted"
                   :trace-visible="!!traceVisibleIds[item.id] || (item.parse_status === 'pending' || item.parse_status === 'processing' || item.parse_status === 'finalizing')"
                   @download="handleAction('download', item)"
                   @edit="handleAction('edit', item)"

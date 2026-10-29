@@ -791,6 +791,23 @@ func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 				continue
 			}
 			if err == nil {
+				// Admission is not an authorization-loss verdict. Retain the
+				// current generation/intent while a source is held, without
+				// repeatedly fetching cloud content or invalidating the attempt.
+				reader := repository.NewDataSourceRepository(p.service.db).(knowledgeSourceRestrictionReader)
+				status, admissionErr := reader.KnowledgeSourceRestriction(
+					ctx, current.CallerTenantID, m.KBID, m.KnowledgeID,
+				)
+				if admissionErr != nil {
+					// Preserve the existing missing-resource invalidation below;
+					// uncertainty remains retryable rather than a source denial.
+					err = admissionErr
+				}
+				if admissionErr == nil && status.Restricted {
+					continue
+				}
+			}
+			if err == nil {
 				_, err = p.authorize(ctx, m, current)
 			}
 

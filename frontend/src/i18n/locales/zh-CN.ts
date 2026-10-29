@@ -1,6 +1,14 @@
 import { branding } from '../../config/branding'
 
 export default {
+  sourceProcessing: {
+    held: '知识库中存在待核验来源，当前处理受知识库保护规则阻断',
+    revoked: '知识库中存在已撤销授权的来源，当前处理受知识库保护规则阻断',
+    blocked: '受知识库来源保护影响',
+    historyUnverified: '历史处理状态待核验；此提示不代表文档已执行失败。',
+    nextAction: '请联系知识库负责人核验受限来源及受影响文档。此提示不代表该文档来自受限来源；核验完成前不会自动重试受限处理。',
+    unavailable: '暂时无法确认来源状态，请刷新或联系知识库负责人。',
+  },
   localBrowser: {
     settingsTitle: '浏览器连接', settingsDescription: '通过 BrowserSkill 连接本机 Chrome 或 Edge，配对后即可在对话中操作真实网页。',
     openSettings: '前往浏览器连接', settingsHint: '在工具箱中连接 BrowserSkill，即可在对话里使用本机浏览器。', unavailable: '服务端尚未启用本机浏览器，请联系管理员。',

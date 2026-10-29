@@ -1,6 +1,14 @@
 import { branding } from '../../config/branding'
 
 export default {
+  sourceProcessing: {
+    held: 'A source in this knowledge base requires verification; knowledge base protection blocks processing',
+    revoked: 'A source in this knowledge base has revoked authorization; knowledge base protection blocks processing',
+    blocked: 'Blocked by knowledge base source protection',
+    historyUnverified: 'Historical processing status is unverified. This notice does not assert that document execution failed.',
+    nextAction: 'Contact the knowledge base owner to verify the restricted source and affected documents. This notice does not identify the document as coming from that source. Blocked processing will not be retried automatically before verification.',
+    unavailable: 'Source status could not be confirmed. Refresh or contact the knowledge base owner.',
+  },
   localBrowser: {
     settingsTitle: 'Browser connection', settingsDescription: 'Pair BrowserSkill with your local Chrome or Edge to operate real web pages from conversations.',
     openSettings: 'Open browser settings', settingsHint: 'Connect BrowserSkill in Toolbox to use your local browser here.', unavailable: 'Local browsing is not enabled on this server. Contact your administrator.',
