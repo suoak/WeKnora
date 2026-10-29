@@ -4,26 +4,31 @@
       <div><h1>MCP 接入</h1><p>将 KnowHub 企业知识连接到常用 AI 工具。</p></div>
       <t-button theme="primary" :disabled="loading || !!loadError" @click="openPersonalCreate"><template #icon><t-icon name="add" /></template>创建个人 Key</t-button>
     </header>
-    <section class="credential-surface client-surface" aria-labelledby="clients-title">
-      <div class="section-heading"><h2 id="clients-title">连接 AI 工具</h2><span>选择客户端，复用已有个人 Key</span></div>
-      <div class="client-grid"><button v-for="client in mcpClients" :key="client.value" :aria-label="client.label" type="button" :disabled="loading || !!loadError" @click="openClient(client.value)"><img v-if="clientIcons[client.value]" :src="clientIcons[client.value]" class="client-product-icon" :class="{ 'monochrome-icon': client.value === 'copilot' }" alt="" /><t-icon v-else :name="client.icon" /><strong>{{ client.label }}</strong><span>{{ client.description }}</span><t-icon name="chevron-right" class="client-arrow" /></button></div>
-    </section>
     <t-alert v-if="!publicUrl && !loading" theme="warning" class="url-warning">服务地址尚未配置，请联系管理员。你仍可管理已有凭证。</t-alert>
     <section class="credential-surface personal-surface" aria-labelledby="personal-title">
       <div class="section-heading"><h2 id="personal-title">我的个人 MCP Key</h2><t-button variant="text" :loading="loading" @click="load"><t-icon name="refresh" /> 刷新</t-button></div>
       <div v-if="loading" class="state-panel"><t-loading />正在加载个人 Key…</div>
       <t-alert v-else-if="loadError" theme="error">{{ loadError }} <t-button variant="text" @click="load">重试</t-button></t-alert>
-      <template v-else-if="personalKey">
-        <div class="field personal-select"><label>当前使用的个人 Key</label><t-select :value="personalKey.id" :options="availablePersonalKeys.map(key => ({ value: key.id, label: key.name }))" @change="personalKeyID = Number($event)" /></div>
-        <div class="personal-summary"><div><strong>{{ personalKey.name }}</strong><t-tag theme="success" variant="light">凭证有效</t-tag><t-button variant="outline" size="small" @click="openDetails(personalKey)">管理 Key</t-button></div><p>授权范围：{{ personalRangeLabel(personalKey) }} · {{ scopeSummary(personalKey) }}</p><p>有效期：{{ personalKey.expires_at ? formatTime(personalKey.expires_at) : '永不过期' }} · 最近使用：{{ relativeTime(personalKey.last_used_at) }}</p></div>
-        <p class="secondary-copy scope-explanation">{{ personalKey.personal_scope_mode === 'dynamic_all' ? '默认范围随本人当前授权更新。' : '固定范围仅限原凭证中保存的授权，不会自动扩展。' }}当前空间不等于个人 MCP 的完整授权范围。选择上方客户端获取配置；凭证有效不代表客户端已连接。</p>
+      <template v-else-if="personalKeys.length">
+        <div class="list-filters"><t-radio-group v-model="personalStatusFilter" variant="default-filled" aria-label="个人 Key 状态筛选"><t-radio-button v-for="filter in personalStatusFilters" :key="filter.value" :value="filter.value">{{ filter.label }} {{ filter.count }}</t-radio-button></t-radio-group><t-input v-model="personalSearch" clearable placeholder="搜索 Key 名称" aria-label="搜索个人 Key"><template #prefix-icon><t-icon name="search" /></template></t-input></div>
+        <div v-if="!filteredPersonalKeys.length" class="state-panel">当前筛选下没有个人 Key</div>
+        <div class="credential-list personal-list">
+          <article v-for="key in pagedPersonalKeys" :key="key.id" class="credential-card personal-key-card" :data-key-id="key.id">
+            <div class="identity"><span class="client-mark"><t-icon name="key" /></span><div><h3>{{ key.name }}</h3><t-tag :theme="lifecycleState(key) === 'active' ? 'success' : lifecycleState(key) === 'expired' ? 'warning' : 'default'" variant="light">{{ statusLabel(lifecycleState(key)) }}</t-tag></div></div>
+            <div class="scope"><strong>{{ personalRangeLabel(key) }}</strong><span>{{ scopeSummary(key) }}</span></div>
+            <dl class="meta"><div><dt>有效期</dt><dd>{{ key.expires_at ? formatTime(key.expires_at) : '永不过期' }}</dd></div><div><dt>最近使用</dt><dd>{{ relativeTime(key.last_used_at) }}</dd></div></dl>
+            <div class="actions"><t-button variant="outline" @click="openDetails(key)">管理</t-button><t-button theme="primary" :disabled="lifecycleState(key) !== 'active' || !publicUrl" @click="openConnect(key)">连接 AI 工具</t-button></div>
+          </article>
+        </div>
+        <t-pagination v-if="filteredPersonalKeys.length" v-model="personalPage" :page-size="5" :total="filteredPersonalKeys.length" :show-page-size="false" :show-jumper="false" />
       </template>
-      <div v-else class="state-panel column"><t-icon name="key" /><strong>暂无可用的个人 Key</strong><p>创建一次，即可用于多个 AI 客户端。</p><t-button theme="primary" @click="openPersonalCreate">创建个人 Key</t-button></div>
+      <div v-else class="state-panel column"><t-icon name="key" /><strong>暂无个人 Key</strong><p>创建一次，即可用于多个 AI 客户端。</p><t-button theme="primary" @click="openPersonalCreate">创建个人 Key</t-button></div>
+      <p class="secondary-copy scope-explanation">默认范围随本人当前授权更新；历史固定范围仅限原凭证中的授权，不会自动扩展。当前空间不等于个人 MCP 的完整授权范围。凭证有效不代表客户端已连接。</p>
     </section>
     <section class="credential-surface history-surface">
-      <t-button variant="text" :aria-expanded="historyExpanded" aria-controls="mcp-history" @click="historyExpanded = !historyExpanded"><template #icon><t-icon :name="historyExpanded ? 'chevron-down' : 'chevron-right'" /></template>历史接入 · {{ keys.length }} 个凭证</t-button>
+      <t-button variant="text" :aria-expanded="historyExpanded" aria-controls="mcp-history" @click="historyExpanded = !historyExpanded"><template #icon><t-icon :name="historyExpanded ? 'chevron-down' : 'chevron-right'" /></template>历史接入 · {{ historyKeys.length }} 个凭证</t-button>
       <div v-if="historyExpanded" id="mcp-history">
-        <p class="secondary-copy">保留全部个人与历史凭证，可继续查看、修改范围、轮换及停用。</p>
+        <p class="secondary-copy">仅展示旧版客户端凭证，可继续查看、修改范围、轮换及停用。个人 Key 已在上方独立展示。</p>
         <t-radio-group v-model="statusFilter" variant="default-filled" aria-label="凭证状态筛选"><t-radio-button v-for="filter in statusFilters" :key="filter.value" :value="filter.value">{{ filter.label }} {{ filter.count }}</t-radio-button></t-radio-group>
         <div v-if="loadError" class="state-panel column"><strong>加载失败</strong><p>{{ loadError }}</p><t-button variant="outline" @click="load">重试</t-button></div>
         <div v-else-if="!filteredKeys.length" class="state-panel">当前筛选下没有接入凭证</div>
@@ -32,7 +37,7 @@
             <div class="identity"><span class="client-mark"><t-icon :name="isUnifiedPersonalKey(key) ? 'key' : clientMeta(key.client_type).icon" /></span><div><h3>{{ key.name }}</h3><p>{{ isUnifiedPersonalKey(key) ? '个人 Key' : clientMeta(key.client_type).label }} · {{ statusLabel(lifecycleState(key)) }}</p></div></div>
             <div class="scope"><strong>{{ personalRangeLabel(key) }}</strong><span>{{ scopeSummary(key) }}</span></div>
             <dl class="meta"><div><dt>最近使用</dt><dd>{{ relativeTime(key.last_used_at) }}</dd></div><div><dt>有效期</dt><dd>{{ key.expires_at ? formatDate(key.expires_at) : '永不过期' }}</dd></div><div><dt>凭证</dt><dd class="token-hint">{{ key.token_hint || '未记录' }}</dd></div></dl>
-            <div class="actions"><t-button v-if="lifecycleState(key) !== 'revoked'" variant="outline" :disabled="!publicUrl" @click="openHistoryConfig(key)">{{ isUnifiedPersonalKey(key) ? '连接配置' : '兼容配置' }}</t-button><t-button variant="text" @click="openDetails(key)">管理</t-button></div>
+            <div class="actions"><t-button v-if="lifecycleState(key) !== 'revoked'" variant="outline" :disabled="!publicUrl || lifecycleState(key) !== 'active'" @click="openHistoryConfig(key)">兼容配置</t-button><t-button variant="text" @click="openDetails(key)">管理</t-button></div>
           </article>
         </div>
         <t-pagination v-if="filteredKeys.length" v-model="historyPage" :page-size="5" :total="filteredKeys.length" :show-page-size="false" :show-jumper="false" />
@@ -41,7 +46,7 @@
 
     <t-dialog dialog-class-name="mcp-access-dialog" :dialog-style="dialogBounds" top="16px" v-model:visible="personalCreateVisible" :header="personalEditingID ? '修改指定范围' : '创建个人 Key'" width="min(640px, 94vw)" :footer="false">
       <p>填写名称、有效期和知识范围，保存后即可复制连接配置。</p>
-      <div class="field"><label>接入名称</label><t-input v-model="name" maxlength="128" placeholder="例如：我的 Codex" :disabled="saving" /></div>
+      <div class="field"><label>接入名称</label><t-input v-model="name" maxlength="128" placeholder="例如：个人知识检索" :disabled="saving" /></div>
       <div class="field"><label>有效期</label><t-radio-group v-model="expiryMode" :disabled="saving"><t-radio value="90">90 天</t-radio><t-radio value="custom">指定日期</t-radio><t-radio value="never">永不过期</t-radio></t-radio-group><input v-if="expiryMode === 'custom'" v-model="customExpiry" class="native-datetime" type="datetime-local" :disabled="saving" /></div>
       <div class="field"><label>知识范围</label><t-radio-group v-model="personalRange" :disabled="saving || !!personalEditingID"><t-radio value="default">默认范围</t-radio><t-radio value="selected">指定范围</t-radio></t-radio-group></div>
       <p v-if="personalRange === 'default'">自动使用当前可用的知识范围。</p>
@@ -81,27 +86,31 @@
       <div class="rotate-options"><strong>有效期策略</strong><t-radio-group v-model="rotateExpiryMode"><t-radio v-if="rotateKey && lifecycleState(rotateKey) !== 'expired'" value="preserve">保持当前有效期</t-radio><t-radio value="custom">设置新的有效期</t-radio><t-radio value="never">永不过期</t-radio></t-radio-group><input v-if="rotateExpiryMode === 'custom'" v-model="rotateCustomExpiry" class="native-datetime" type="datetime-local" /><p v-if="rotateKey && lifecycleState(rotateKey) === 'expired'">该凭证已经过期，必须明确选择未来有效期或永不过期。</p></div>
     </t-dialog>
 
-    <t-dialog dialog-class-name="mcp-access-dialog" :dialog-style="dialogBounds" top="16px" v-model:visible="configVisible" :header="personalConfig ? `${currentClient.label} 接入配置` : '历史客户端兼容配置'" width="min(820px, 94vw)" :footer="false" @close="clearPlaintextToken">
+    <t-dialog dialog-class-name="mcp-access-dialog" :dialog-style="dialogBounds" top="16px" v-model:visible="configVisible" :header="personalConfig ? (configStage === 'clients' ? '连接 AI 工具' : `${currentClient.label} 接入配置`) : '历史客户端兼容配置'" width="min(820px, 94vw)" :footer="false" @close="clearPlaintextToken">
       <div class="config-body">
-        <template v-if="personalConfig">
-          <div class="field"><label>AI 客户端</label><t-select v-model="configPreset" :options="mcpClients.map(client => ({ value: client.value, label: client.label }))" /></div>
-          <div class="field"><label>使用的个人 MCP Key</label><t-select :value="selectedKey?.id" :options="availablePersonalKeys.map(key => ({ value: key.id, label: key.name }))" :disabled="revealingSecret || testingPersonal" @change="selectConfigKey(Number($event))" /></div>
-        </template>
-        <t-alert v-if="!selectedKey" theme="info">暂无可用个人 Key。<t-button variant="text" @click="createFromConfig">创建个人 Key</t-button></t-alert>
-        <template v-else>
-          <p class="secondary-copy">授权范围：{{ scopeSummary(selectedKey) }}</p>
+        <template v-if="connectionKey">
+          <div class="connection-identity" :data-key-id="connectionKey.id"><strong>{{ connectionKey.name }}</strong><t-tag :theme="lifecycleState(connectionKey) === 'active' ? 'success' : 'warning'" variant="light">{{ statusLabel(lifecycleState(connectionKey)) }}</t-tag><span>Key #{{ connectionKey.id }}</span></div>
+          <p class="secondary-copy">授权范围：{{ personalRangeLabel(connectionKey) }} · {{ scopeSummary(connectionKey) }}</p>
+          <template v-if="personalConfig && configStage === 'clients'">
+            <p class="secondary-copy">选择客户端，使用此 Key 获取配置。同一个 Key 可连接多个 AI 工具，无需重复创建。</p>
+            <div class="client-grid client-picker"><button v-for="client in mcpClients" :key="client.value" :aria-label="client.label" type="button" :disabled="!canConnect" @click="openClient(client.value)"><img v-if="clientIcons[client.value]" :src="clientIcons[client.value]" class="client-product-icon" :class="{ 'monochrome-icon': client.value === 'copilot' }" alt="" /><t-icon v-else :name="client.icon" /><strong>{{ client.label }}</strong><span>{{ client.description }}</span><t-icon name="chevron-right" class="client-arrow" /></button></div>
+          </template>
+          <template v-else>
+          <t-button v-if="personalConfig" variant="text" class="change-client" :disabled="revealingSecret || testingPersonal" @click="configStage = 'clients'; secretVisible = false; clearProtocolState()"><t-icon name="chevron-left" />更换客户端</t-button>
           <t-loading v-if="revealingSecret" text="正在读取个人 Secret" />
-          <t-alert v-else :theme="token === TOKEN_PLACEHOLDER ? 'info' : 'warning'">{{ token === TOKEN_PLACEHOLDER ? '历史凭证未保存可恢复的 Secret。可以填入已保存的 Secret，或复制模板后替换占位符；遗失时请在管理中轮换。' : 'Secret 可长期查看和复制，直至过期、撤销或轮换。服务端加密保存，仅当前凭证本人可在此查看。' }}</t-alert>
-          <t-input v-if="token === TOKEN_PLACEHOLDER && !revealingSecret" v-model="suppliedSecret" type="password" autocomplete="off" placeholder="填入已保存的 Secret（仅本次使用）" aria-label="已保存的 Secret" />
-          <div v-if="token && token !== TOKEN_PLACEHOLDER" class="token-row"><code>{{ token }}</code><t-button size="small" variant="outline" @click="copySensitive(token)">复制 Secret</t-button></div>
+          <t-alert v-else theme="info">{{ connectionKey.secret_available || hasConfigSecret ? 'Secret 默认遮蔽，主动显示或复制时才读取。服务端加密保存，仅当前凭证本人可在此查看。' : '历史凭证未保存可恢复的 Secret。可复制占位模板；遗失时请在管理中轮换。' }}</t-alert>
+          <t-input v-if="!personalConfig && !connectionKey.secret_available && !revealingSecret && token === TOKEN_PLACEHOLDER" v-model="suppliedSecret" type="password" autocomplete="off" placeholder="填入已保存的 Secret（仅本次使用）" aria-label="已保存的 Secret" />
+          <div v-if="connectionKey.secret_available || hasConfigSecret" class="token-row"><code>{{ secretVisible ? configToken : '••••••••••••••••' }}</code><t-button size="small" variant="outline" :disabled="!canConnect || revealingSecret" @click="toggleSecret">{{ secretVisible ? '隐藏 Secret' : '显示 Secret' }}</t-button><t-button size="small" variant="outline" :disabled="!canConnect || revealingSecret" @click="copySecret">复制 Secret</t-button></div>
           <div class="config-heading"><strong>{{ personalConfig ? currentClient.location : configPresetTitle }}</strong><t-tag theme="warning" variant="light">参考配置 · 客户端待验证</t-tag></div>
-          <pre>{{ jsonConfig }}</pre>
-          <div class="detail-actions"><t-button variant="outline" :disabled="!publicUrl || revealingSecret" @click="copySensitive(jsonConfig)">{{ hasConfigSecret ? '复制全部配置' : '复制配置模板' }}</t-button><t-button v-if="personalConfig" variant="outline" :disabled="!publicUrl || !hasConfigSecret || revealingSecret" :loading="testingPersonal" @click="testPersonalConnection">验证 MCP 协议</t-button><t-button variant="text" @click="configVisible = false; openDetails(selectedKey)">管理 Key</t-button></div>
+          <pre v-if="publicUrl">{{ displayedConfig }}</pre>
+          <div class="detail-actions"><t-button theme="primary" :disabled="!canConnect || revealingSecret" @click="copyConfiguration">{{ connectionKey.secret_available || hasConfigSecret ? '复制连接配置' : '复制配置模板' }}</t-button><t-button v-if="personalConfig" variant="outline" :disabled="!canConnect || (!hasConfigSecret && !connectionKey.secret_available) || revealingSecret" :loading="testingPersonal" @click="testPersonalConnection">验证 MCP 协议</t-button><t-button variant="text" @click="configVisible = false; openDetails(connectionKey)">管理 Key</t-button></div>
           <ol v-if="personalConfig" class="config-steps"><li v-for="instruction in currentClient.steps" :key="instruction">{{ instruction }}</li><li v-if="configPreset === 'copilot' || configPreset === 'vscode'">启动时在密码输入框中粘贴个人 Secret。</li><li v-else-if="configPreset !== 'codex' && !hasConfigSecret">将 &lt;YOUR_MCP_KEY&gt; 替换为保存的完整 Secret。</li><li>请求 AI 检索一条你有权读取的知识，核对返回来源。实际检索成功后，才算完成客户端验收。</li></ol>
           <p v-else class="secondary-copy">保留历史配置格式、地址与空间请求头。请按原客户端方式导入并验证检索。</p>
           <t-alert v-if="personalConnection" :theme="personalProtocolPassed ? 'success' : 'warning'">{{ personalConnection }}</t-alert>
           <t-alert theme="info">凭证有效、MCP 协议通过和客户端实际调用是不同状态。本页协议验证只检查鉴权与工具发现。401 请检查 Secret 和有效期；403 请检查个人授权；连接失败请检查网络和服务地址。</t-alert>
+          </template>
           <t-alert v-if="!publicUrl" theme="warning">服务地址尚未配置，当前配置不可运行。</t-alert>
+          <t-alert v-if="lifecycleState(connectionKey) !== 'active'" theme="warning">此凭证已过期或停用，请在管理中处理后重新连接。</t-alert>
         </template>
       </div>
     </t-dialog>
@@ -149,6 +158,7 @@ const clients: Array<{ value: MCPClientType; label: string; icon: string; descri
 ]
 import { personalMcpURL, testPersonalMcpConnection } from './personalMcpConfig'
 const personalConfig = ref(false), testingPersonal = ref(false), personalConnection = ref('')
+const connectionKey = ref<MCPAccessKey | null>(null), configStage = ref<'clients' | 'config'>('clients'), secretVisible = ref(false)
 const personalCreateVisible = ref(false)
 const personalRange = ref<PersonalKnowledgeRange>('default'), personalEditingID = ref<number | null>(null)
 const privateSelections = ref<Record<number, string[]>>({})
@@ -161,10 +171,13 @@ const hasConfigSecret = computed(() => Boolean(configToken.value && configToken.
 const personalProtocolPassed = ref(false)
 let protocolRequest = 0
 async function testPersonalConnection() {
+  if (!canConnect.value) return
   const request = ++protocolRequest
   testingPersonal.value = true; personalConnection.value = ''; personalProtocolPassed.value = false
   try {
-    await testPersonalMcpConnection(personalMcpURL(publicUrl.value), configToken.value)
+    const secret = await ensureConnectionSecret()
+    if (request !== protocolRequest || secret === TOKEN_PLACEHOLDER) return
+    await testPersonalMcpConnection(personalMcpURL(publicUrl.value), secret)
     if (request === protocolRequest && configVisible.value) { personalProtocolPassed.value = true; personalConnection.value = 'MCP 协议通过：服务鉴权与只读工具发现成功；尚未验证客户端会话及知识检索。' }
   } catch (error) { if (request === protocolRequest && configVisible.value) personalConnection.value = error instanceof Error ? error.message : '连接失败' }
   finally { if (request === protocolRequest) testingPersonal.value = false }
@@ -191,29 +204,39 @@ const configSpaces = ref<MCPConfigSpace[]>([]), configClientType = ref<MCPClient
 const selectedOptions = computed(() => options.value.filter(option => selectedTenantIds.value.includes(option.tenant_id)))
 const statusFilter = ref<CredentialStatusFilter>('all')
 const lifecycleState = (key: MCPAccessKey) => getCredentialLifecycleState(key)
-const filteredKeys = computed(() => keys.value.filter(key => credentialMatchesStatusFilter(key, statusFilter.value)))
-const personalKeyID = ref<number>(), historyExpanded = ref(false), historyPage = ref(1)
-const availablePersonalKeys = computed(() => keys.value.filter(key => isUnifiedPersonalKey(key) && lifecycleState(key) === 'active'))
-const personalKey = computed(() => availablePersonalKeys.value.find(key => key.id === personalKeyID.value) || availablePersonalKeys.value[0])
+const personalKeys = computed(() => keys.value.filter(isUnifiedPersonalKey))
+const historyKeys = computed(() => keys.value.filter(key => !isUnifiedPersonalKey(key)))
+const personalStatusFilter = ref<CredentialStatusFilter>('all'), personalSearch = ref(''), personalPage = ref(1)
+const filteredPersonalKeys = computed(() => personalKeys.value.filter(key => credentialMatchesStatusFilter(key, personalStatusFilter.value) && key.name.toLocaleLowerCase().includes(personalSearch.value.trim().toLocaleLowerCase())).sort((a, b) => Number(lifecycleState(b) === 'active') - Number(lifecycleState(a) === 'active')))
+const pagedPersonalKeys = computed(() => filteredPersonalKeys.value.slice((personalPage.value - 1) * 5, personalPage.value * 5))
+const filteredKeys = computed(() => historyKeys.value.filter(key => credentialMatchesStatusFilter(key, statusFilter.value)))
+const historyExpanded = ref(false), historyPage = ref(1)
 const pagedKeys = computed(() => filteredKeys.value.slice((historyPage.value - 1) * 5, historyPage.value * 5))
 watch([statusFilter, () => keys.value], () => { historyPage.value = 1 })
-const statusFilters = computed(() => ([
-  { value: 'all' as const, label: '全部', count: keys.value.length },
-  { value: 'active' as const, label: '已启用', count: keys.value.filter(key => lifecycleState(key) === 'active').length },
-  { value: 'expired' as const, label: '已过期', count: keys.value.filter(key => lifecycleState(key) === 'expired').length },
-  { value: 'revoked' as const, label: '已停用', count: keys.value.filter(key => lifecycleState(key) === 'revoked').length },
-]))
+watch([personalStatusFilter, personalSearch, () => keys.value], () => { personalPage.value = 1 })
+function filtersFor(rows: MCPAccessKey[]) { return [
+  { value: 'all' as const, label: '全部', count: rows.length },
+  { value: 'active' as const, label: '已启用', count: rows.filter(key => lifecycleState(key) === 'active').length },
+  { value: 'expired' as const, label: '已过期', count: rows.filter(key => lifecycleState(key) === 'expired').length },
+  { value: 'revoked' as const, label: '已停用', count: rows.filter(key => lifecycleState(key) === 'revoked').length },
+] }
+const statusFilters = computed(() => filtersFor(historyKeys.value))
+const personalStatusFilters = computed(() => filtersFor(personalKeys.value))
 const invalidTenantIds = computed(() => selectedTenantIds.value.filter(id => !options.value.some(option => option.tenant_id === id)))
 const configPresetTitle = computed(() => `${clientMeta(configClientType.value).label} · 历史兼容模板`)
-const jsonConfig = computed(() => personalConfig.value ? personalClientConfiguration(configPreset.value, publicUrl.value, configToken.value) : stringifyMCPConfig(publicUrl.value, configToken.value, configSpaces.value, configClientType.value))
-function openClient(client: MCPClientPreset) {
-  configPreset.value = client
-  if (personalKey.value) void showTemplate(personalKey.value)
-  else { clearPlaintextToken(); selectedKey.value = null; personalConfig.value = true; configVisible.value = true }
+const canConnect = computed(() => Boolean(publicUrl.value && connectionKey.value && lifecycleState(connectionKey.value) === 'active'))
+function configuration(secret: string) { return !publicUrl.value ? '' : personalConfig.value ? personalClientConfiguration(configPreset.value, publicUrl.value, secret) : stringifyMCPConfig(publicUrl.value, secret, configSpaces.value, configClientType.value) }
+const jsonConfig = computed(() => configuration(configToken.value))
+const displayedConfig = computed(() => configuration(secretVisible.value ? configToken.value : TOKEN_PLACEHOLDER))
+function openConnect(key: MCPAccessKey) {
+  if (lifecycleState(key) !== 'active' || !publicUrl.value || !isUnifiedPersonalKey(key)) return
+  clearPlaintextToken(); connectionKey.value = key; personalConfig.value = true; configStage.value = 'clients'; token.value = TOKEN_PLACEHOLDER; configVisible.value = true
 }
-function selectConfigKey(id: number) { const key = availablePersonalKeys.value.find(key => key.id === id); if (key) { personalKeyID.value = id; void showTemplate(key) } }
+function openClient(client: MCPClientPreset) {
+  if (!canConnect.value) return
+  configPreset.value = client; configStage.value = 'config'; secretVisible.value = false; clearProtocolState()
+}
 function openHistoryConfig(key: MCPAccessKey) { configPreset.value = 'generic'; void showTemplate(key) }
-function createFromConfig() { configVisible.value = false; openPersonalCreate() }
 const clientMeta = (value: MCPClientType) => clients.find(client => client.value === value) || clients[4]
 const capabilityLabel = (value: string) => capabilityOptions.find(item => item.value === value)?.label || value
 const statusLabel = (value: ReturnType<typeof getCredentialLifecycleState>) => ({ active: '已启用', expired: '已过期', revoked: '已停用' }[value])
@@ -300,26 +323,34 @@ function nextStep() { const error = validation(step.value); if (error) MessagePl
 function goToStep(index: number) { if (index <= step.value) step.value = index }
 function expiryPayload() { if (expiryMode.value === 'never') return { never_expires: true as const }; if (expiryMode.value === 'custom') return { expires_at_unix: Math.floor(new Date(customExpiry.value).getTime() / 1000) }; return { expires_at_unix: Math.floor(Date.now() / 1000) + 90 * 86400 } }
 async function save() { const error = validation(4); if (error) return void MessagePlugin.warning(error); if (!editingID.value) return; saving.value = true; try { const payload = { name: name.value.trim(), client_type: clientType.value, capabilities: capabilities.value, tenant_scopes: payloadScopes(), ...expiryPayload() }; await updateMCPAccessKey(editingID.value, payload); editorVisible.value = false; await load(); MessagePlugin.success('接入配置已更新') } catch (error) { MessagePlugin.error(error instanceof Error ? error.message : '保存失败') } finally { saving.value = false } }
-function showSecret(data: MCPAccessKey & { token: string; mcp_public_url?: string }) { clearProtocolState(); suppliedSecret.value = ''; personalKeyID.value = data.id; connectionRequest++; revealingSecret.value = false; personalConfig.value = isUnifiedPersonalKey(data); selectedKey.value = data; personalConnection.value = ''; token.value = data.token; publicUrl.value = data.mcp_public_url || publicUrl.value; configSpaces.value = spacesForScopes(data.tenant_scopes); configClientType.value = data.client_type; configVisible.value = true }
+function showSecret(data: MCPAccessKey & { token: string; mcp_public_url?: string }) { clearPlaintextToken(); personalConfig.value = isUnifiedPersonalKey(data); configStage.value = personalConfig.value ? 'clients' : 'config'; connectionKey.value = data; token.value = data.token; publicUrl.value = data.mcp_public_url || publicUrl.value; configSpaces.value = spacesForScopes(data.tenant_scopes); configClientType.value = data.client_type; configVisible.value = true }
 function openDetails(key: MCPAccessKey) { selectedKey.value = key; detailsVisible.value = true }
 async function showTemplate(key: MCPAccessKey) {
-  clearProtocolState(); suppliedSecret.value = '';
+  clearPlaintextToken(); personalConfig.value = isUnifiedPersonalKey(key); connectionKey.value = key; token.value = TOKEN_PLACEHOLDER; configSpaces.value = spacesForScopes(key.tenant_scopes); configClientType.value = key.client_type; configStage.value = 'config'; configVisible.value = true
+}
+async function ensureConnectionSecret(): Promise<string> {
+  const key = connectionKey.value
+  if (!key || !configVisible.value || !publicUrl.value || lifecycleState(key) !== 'active') throw new Error('凭证或服务地址当前不可用，请刷新后重试')
+  if (hasConfigSecret.value) return configToken.value
+  if (!key.secret_available) return TOKEN_PLACEHOLDER
   const request = ++connectionRequest
-  personalConfig.value = isUnifiedPersonalKey(key); personalConnection.value = ''; selectedKey.value = key; token.value = TOKEN_PLACEHOLDER; configSpaces.value = spacesForScopes(key.tenant_scopes); configClientType.value = key.client_type; configVisible.value = true
-  if (!key.secret_available) return
   revealingSecret.value = true
   try {
     const response = await revealMCPAccessKey(key.id)
-    if (request === connectionRequest && configVisible.value) {
-      if (!response.data?.token) throw new Error('未能读取 Secret')
-      token.value = response.data.token
-    }
-  } catch (error) { if (request === connectionRequest) MessagePlugin.error(error instanceof Error ? error.message : '密钥当前不可查看，请刷新凭证状态后重试') }
+    if (request !== connectionRequest || !configVisible.value || connectionKey.value?.id !== key.id) throw new Error('凭证选择已改变，请重新操作')
+    if (!response.data?.token) throw new Error('未能读取 Secret')
+    token.value = response.data.token
+    return token.value
+  }
   finally { if (request === connectionRequest) revealingSecret.value = false }
 }
+async function secretAction(action: () => Promise<void>) { const id = connectionKey.value?.id; try { await ensureConnectionSecret(); if (configVisible.value && connectionKey.value?.id === id) await action() } catch (error) { if (configVisible.value && connectionKey.value?.id === id) MessagePlugin.error(error instanceof Error ? error.message : '读取 Secret 失败') } }
+async function toggleSecret() { if (secretVisible.value) { secretVisible.value = false; return }; await secretAction(async () => { secretVisible.value = true }) }
+async function copySecret() { await secretAction(async () => { if (hasConfigSecret.value) await copySensitive(configToken.value) }) }
+async function copyConfiguration() { await secretAction(async () => { await copySensitive(jsonConfig.value) }) }
 function clearProtocolState() { protocolRequest++; testingPersonal.value = false; personalConnection.value = ''; personalProtocolPassed.value = false }
 watch([configPreset, suppliedSecret], clearProtocolState)
-function clearPlaintextToken() { clearProtocolState(); suppliedSecret.value = ''; connectionRequest++; revealingSecret.value = false; token.value = ''; configSpaces.value = [] }
+function clearPlaintextToken() { clearProtocolState(); suppliedSecret.value = ''; connectionRequest++; revealingSecret.value = false; secretVisible.value = false; token.value = ''; configSpaces.value = []; connectionKey.value = null }
 function requestRotate(key: MCPAccessKey) { rotateKey.value = key; rotateExpiryMode.value = lifecycleState(key) === 'expired' ? 'custom' : 'preserve'; rotateCustomExpiry.value = ''; rotateVisible.value = true }
 async function confirmRotate() { if (!rotateKey.value) return; if (rotateExpiryMode.value === 'custom' && (!rotateCustomExpiry.value || new Date(rotateCustomExpiry.value).getTime() <= Date.now())) return void MessagePlugin.warning('请选择未来的有效期'); const payload = rotateExpiryMode.value === 'never' ? { never_expires: true as const } : rotateExpiryMode.value === 'custom' ? { expires_at_unix: Math.floor(new Date(rotateCustomExpiry.value).getTime() / 1000) } : {}; rotating.value = true; try { const response = await rotateMCPAccessKey(rotateKey.value.id, payload); if (!response.data?.token) throw new Error('服务端未返回一次性 Secret'); showSecret(response.data); rotateVisible.value = false; detailsVisible.value = false; await load(); MessagePlugin.success('Secret 已重新生成，旧 Secret 已立即失效') } catch (error) { MessagePlugin.error(error instanceof Error ? error.message : '重新生成 Secret 失败') } finally { rotating.value = false } }
 async function revoke(id: number) { try { await revokeMCPAccessKey(id); detailsVisible.value = false; await load(); MessagePlugin.success('接入已停用，旧 Secret 已永久失效') } catch { MessagePlugin.error('停用失败') } }

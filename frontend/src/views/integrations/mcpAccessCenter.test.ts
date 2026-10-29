@@ -35,15 +35,15 @@ test('frontend adapter uses M1 PATCH, rotate, revoke and scope-options contracts
 })
 
 test('owner can reopen encrypted Secret; legacy hash-only keys require explicit rotation', () => {
-  assert.match(view, /Secret 可长期查看和复制/)
+  assert.match(view, /Secret 默认遮蔽，主动显示或复制时才读取/)
   assert.match(view, /服务端加密保存，仅当前凭证本人可在此查看/)
   assert.match(view, /历史凭证未保存可恢复的 Secret/)
   assert.match(view, /重新生成 Secret/)
   assert.match(view, /旧 Secret 将立即失效/)
   assert.match(view, /rotateMCPAccessKey/)
   assert.match(api, /revealMCPAccessKey/)
-  assert.match(view, /if \(!key.secret_available\) return/)
-  assert.match(view, /request === connectionRequest && configVisible.value/)
+  assert.match(view, /if \(!key.secret_available\) return TOKEN_PLACEHOLDER/)
+  assert.match(view, /request !== connectionRequest.*connectionKey.value\?\.id !== key.id/)
   assert.doesNotMatch(view, /localStorage|sessionStorage|indexedDB|console\./)
   assert.match(view, /clearPlaintextToken/)
   assert.match(view, /onBeforeUnmount\(clearPlaintextToken\)/)

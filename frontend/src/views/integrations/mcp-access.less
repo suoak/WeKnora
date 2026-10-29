@@ -23,7 +23,7 @@
 .client-grid button { position: relative; display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 4px 10px; align-items: center; padding: 16px; min-height: 84px; border: 1px solid var(--td-component-stroke); border-radius: var(--app-radius-md); background: var(--td-bg-color-container); color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .client-grid button>.t-icon:first-child { grid-row: span 2; font-size: 24px; color: var(--td-brand-color); }
 .client-product-icon { grid-row: span 2; width: 28px; height: 28px; object-fit: contain; }
-:global(html[theme-mode='dark'] .mcp-access-center .monochrome-icon) { filter: invert(1); }
+:global(html[theme-mode='dark'] .mcp-access-dialog .monochrome-icon) { filter: invert(1); }
 .client-grid button>span { grid-column: 2; color: var(--td-text-color-secondary); font-size: var(--app-text-sm); }
 .client-grid .client-arrow { position: absolute; right: 10px; top: 16px; color: var(--td-text-color-placeholder); }
 .client-grid button:hover, .client-grid button:focus-visible { border-color: var(--td-brand-color); background: var(--td-brand-color-light); }
@@ -31,9 +31,16 @@
 .field { display: grid; gap: 8px; margin-bottom: 16px; min-width: 0; }
 .field>label { font-weight: 500; }
 .personal-surface .section-heading { margin-bottom: 12px; }
-.personal-select { max-width: 480px; grid-template-columns: auto minmax(0, 1fr); align-items: center; margin-bottom: 12px; }
-.personal-summary { display: grid; gap: 4px; margin: 0 0 8px; overflow-wrap: anywhere; }
-.personal-summary .t-button { margin-left: auto; }
+.list-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.list-filters>.t-input__wrap { width: min(280px, 100%); margin-left: auto; }
+.personal-key-card .meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.personal-key-card .identity>div { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.personal-key-card h3 { margin: 0; }
+.personal-surface .scope-explanation { margin-top: 12px; }
+.connection-identity { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.connection-identity>span:last-child { color: var(--td-text-color-secondary); font-size: var(--app-text-sm); }
+.change-client { justify-self: start; }
+.client-picker { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .scope-explanation { font-size: var(--app-text-sm); }
 .personal-summary>div { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .detail-actions, .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }

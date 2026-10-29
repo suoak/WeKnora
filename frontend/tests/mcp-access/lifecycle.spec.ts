@@ -1,51 +1,74 @@
 import { test, expect } from '@playwright/test'
-import { fixtureApi } from '../agent-editor/fixtures'
+import { keyFixture, openKey, chooseClient } from './fixtures'
 
-test('reopen encrypted personal Secret, verify protocol, clear state and create with existing scope contract', async ({ page }) => {
-  const api = await fixtureApi(page)
-  const mutations: { path: string; body: any }[] = []
-  const key = { id: 1, name: '可复用个人 Key', scope_type: 'user_mcp', client_type: 'generic', status: 'active',
-    secret_available: true, personal_scope_mode: 'dynamic_all', token_hint: '…fixture', capabilities: ['retrieve', 'enterprise_retrieve'],
-    tenant_scopes: [{ tenant_id: 1, kb_scope_mode: 'all', knowledge_bases: [] }], created_at: '', updated_at: '' }
-  const options = [{ tenant_id: 1, tenant_name: '研发空间', role: 'owner', owned_knowledge_bases: [{ id: 'kb1', name: '私人知识' }], shared_knowledge_bases: [] }]
-  await page.route('**/api/v1/mcp-api-keys**', async route => {
-    const request = route.request(), path = new URL(request.url()).pathname
-    if (request.method() !== 'GET') mutations.push({ path, body: request.postDataJSON() })
-    const data = path.endsWith('/reveal') ? { token: 'synthetic-reopened-secret' }
-      : path.endsWith('/scope-options') ? options : request.method() === 'POST' ? { ...key, id: 2, token: 'synthetic-created-secret' } : [key]
-    await route.fulfill({ json: { success: true, data, mcp_public_url: 'http://127.0.0.1:4219/api/v1/mcp/personal' } })
-  })
+test('bound Key scope, delayed reveal isolation, masked Secret, protocol state and creation', async ({ page }) => {
+  const api = await keyFixture(page)
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+  await page.goto('/platform/mcp-access')
+  const dialog = page.locator('.t-dialog:visible')
+  api.hold(3)
+  await openKey(page, 3)
+  await chooseClient(page, 'Pi')
+  expect(api.reveals).toEqual([])
+  await dialog.getByRole('button', { name: '显示 Secret', exact: true }).click()
+  await expect.poll(() => api.reveals).toEqual([3])
+  await dialog.locator('.t-dialog__close').click()
+  await openKey(page, 4)
+  await chooseClient(page, 'Pi')
+  await expect(dialog).toContainText('指定范围')
+  await expect(dialog).toContainText('1 个知识库')
+  api.release()
+  await dialog.getByRole('button', { name: '复制连接配置', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain('Bearer synthetic-key-4')
+  await expect(dialog).not.toContainText('synthetic-key-3')
+  await expect(dialog).not.toContainText('synthetic-key-4')
+  await dialog.getByRole('button', { name: '显示 Secret', exact: true }).click()
+  await expect(dialog).toContainText('synthetic-key-4')
+  await dialog.getByRole('button', { name: '隐藏 Secret', exact: true }).click()
+  await expect(dialog).not.toContainText('synthetic-key-4')
   const rpcMethods: string[] = []
   await page.route('**/api/v1/mcp/personal', async route => {
-    const rpc = route.request().postDataJSON()
-    rpcMethods.push(rpc.method)
-    expect(route.request().headers().authorization).toBe('Bearer synthetic-reopened-secret')
+    const rpc = route.request().postDataJSON(); rpcMethods.push(rpc.method)
+    expect(route.request().headers().authorization).toBe('Bearer synthetic-key-4')
     const result = rpc.method === 'initialize' ? { protocolVersion: '2025-03-26', capabilities: { tools: {} }, serverInfo: { name: 'synthetic', version: '1' } }
       : { tools: ['grep_chunks', 'list_documents', 'list_knowledge_bases', 'read_document', 'search_knowledge', 'wiki_index', 'wiki_read_page', 'wiki_search'].map(name => ({ name })) }
     await route.fulfill({ json: { jsonrpc: '2.0', id: rpc.id, result } })
   })
-  await page.goto('/platform/mcp-access')
-  await page.getByRole('button', { name: 'Pi', exact: true }).click()
-  const dialog = page.locator('.t-dialog:visible')
-  await expect(dialog.locator('pre')).toContainText('Bearer synthetic-reopened-secret')
   await dialog.getByRole('button', { name: '验证 MCP 协议', exact: true }).click()
   await expect(dialog).toContainText('MCP 协议通过：')
   await expect(dialog).toContainText('尚未验证客户端会话及知识检索')
   expect(rpcMethods).toEqual(['initialize', 'tools/list'])
-  expect(mutations.map(item => item.path)).toEqual(['/api/v1/mcp-api-keys/1/reveal'])
+  await dialog.getByRole('button', { name: '更换客户端', exact: true }).click()
+  await chooseClient(page, 'Claude Code')
+  await expect(dialog.locator('.connection-identity')).toHaveAttribute('data-key-id', '4')
+  await expect(dialog).not.toContainText('MCP 协议通过：')
   await dialog.locator('.t-dialog__close').click()
-  expect(await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }))).not.toContain('synthetic-reopened-secret')
-  await page.getByRole('button', { name: 'Pi', exact: true }).click()
-  await expect(dialog.locator('pre')).toContainText('Bearer synthetic-reopened-secret')
-  await expect(dialog.getByText('MCP 协议通过：', { exact: false })).toHaveCount(0)
+  expect(await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }))).not.toContain('synthetic-key-')
+  await openKey(page, 5)
+  await expect(dialog).toContainText('历史固定范围')
   await dialog.locator('.t-dialog__close').click()
   await page.getByRole('button', { name: '创建个人 Key', exact: true }).click()
-  const create = page.locator('.t-dialog:visible')
-  await create.locator('input').first().fill('新的个人 Key')
-  await create.getByRole('button', { name: '创建个人 Key', exact: true }).click()
-  const payload = mutations.find(item => item.path === '/api/v1/mcp-api-keys')!.body
-  expect(payload).toMatchObject({ name: '新的个人 Key', client_type: 'generic', personal_scope_mode: 'dynamic_all', capabilities: ['retrieve', 'enterprise_retrieve'], never_expires: true })
-  expect(payload.tenant_scopes).toEqual([{ tenant_id: 1, kb_scope_mode: 'all', knowledge_bases: [] }])
-  await expect(page.locator('.t-dialog:visible pre')).toContainText('synthetic-created-secret')
+  await expect(dialog.getByPlaceholder('例如：个人知识检索')).toBeVisible()
+  await dialog.locator('input').first().fill('新建知识检索 Key')
+  await dialog.getByRole('button', { name: '创建个人 Key', exact: true }).click()
+  await expect(dialog.locator('.client-picker')).toBeVisible()
+  await expect(page.locator('.t-dialog:visible')).toHaveCount(1)
+  await expect(dialog.locator('.connection-identity')).toHaveAttribute('data-key-id', '100')
+  await expect(dialog).not.toContainText('synthetic-key-100')
+  const payload = api.mutations[0].body
+  expect(payload).toMatchObject({ name: '新建知识检索 Key', client_type: 'generic', personal_scope_mode: 'dynamic_all', capabilities: ['retrieve', 'enterprise_retrieve'], never_expires: true })
+  await chooseClient(page, 'Pi')
+  await dialog.getByRole('button', { name: '复制连接配置', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain('Bearer synthetic-key-100')
+  await expect(dialog).not.toContainText('synthetic-key-100')
+  await page.screenshot({ path: 'test-results/mcp-access/created-key-config.png', animations: 'disabled' })
   expect(api.pageErrors).toEqual([])
+})
+
+test('missing service address prevents connection and configuration copy', async ({ page }) => {
+  await keyFixture(page, true)
+  await page.goto('/platform/mcp-access')
+  await expect(page.locator('.url-warning')).toBeVisible()
+  await expect(page.locator('.personal-key-card').getByRole('button', { name: '连接 AI 工具' }).first()).toBeDisabled()
+  await expect(page.locator('.t-dialog:visible')).toHaveCount(0)
 })
