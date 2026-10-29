@@ -69,6 +69,11 @@ func MiddlewareWithCallback(repo interfaces.TaskDeadLetterRepository, cb OnDeadL
 			if err == nil {
 				return nil
 			}
+			if RecordSourceRestriction(repo, ctx, t, err) {
+				// This task was stopped at admission. Do not call the legacy
+				// Knowledge-failure callback or assert its body executed.
+				return err
+			}
 			if !isFinalAttempt(ctx) {
 				return err
 			}

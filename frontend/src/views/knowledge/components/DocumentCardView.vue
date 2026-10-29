@@ -51,6 +51,7 @@ const props = defineProps<{
   canEdit: boolean;
   canDownload: boolean;
   canMutateKnowledge: boolean;
+  sourceRestricted?: boolean;
   traceAvailableById: Record<string, boolean>;
   /** Every folder of the knowledge base, for the "move to folder" picker. */
   folderOptions?: FolderOption[];
@@ -400,6 +401,7 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
                   :item="item"
                   :can-download="canDownload"
                   :can-mutate-knowledge="canMutateKnowledge"
+                  :source-restricted="sourceRestricted"
                   :trace-visible="isTraceMenuVisible(item)"
                   :folders-available="Boolean(folderOptions?.length)"
                   @download="handleAction('download', item)"
@@ -489,7 +491,12 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
 
         <div class="card-preview" @mouseenter="onCardMouseEnter($event, item)" @mouseleave="onCardMouseLeave">
         <!-- Parse status display -->
-        <div v-if="isParseInFlight(item.parse_status)" class="card-analyze card-analyze-trace"
+        <div v-if="sourceRestricted && isParseInFlight(item.parse_status)" class="card-analyze stalled"
+          :title="$t('sourceProcessing.historyUnverified')">
+          <t-icon name="info-circle" />
+          <span>{{ $t('sourceProcessing.blocked') }}</span>
+        </div>
+        <div v-else-if="isParseInFlight(item.parse_status)" class="card-analyze card-analyze-trace"
           :class="shownStall(item.stall_state, item.stalled_minutes)">
           <t-icon :name="shownStall(item.stall_state, item.stalled_minutes) ? 'time' : 'loading'"
             class="card-analyze-loading"></t-icon>
@@ -600,7 +607,10 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
     >
       <template v-if="hoveredCardItem">
         <div class="card-popover-title">{{ hoveredCardItem.file_name }}</div>
-        <div v-if="isParseInFlight(hoveredCardItem.parse_status)" class="card-popover-status parsing">
+        <div v-if="sourceRestricted && isParseInFlight(hoveredCardItem.parse_status)" class="card-popover-status">
+          {{ $t('sourceProcessing.blocked') }} · {{ $t('sourceProcessing.historyUnverified') }}
+        </div>
+        <div v-else-if="isParseInFlight(hoveredCardItem.parse_status)" class="card-popover-status parsing">
           <KnowledgeProcessingTimeline
             :knowledge-id="hoveredCardItem.id"
             :parse-status="hoveredCardItem.parse_status"

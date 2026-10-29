@@ -227,13 +227,14 @@ type SyncTaskParams struct {
 	TagService            interfaces.KnowledgeTagService
 	DataSourceService     interfaces.DataSourceService
 	SpanTracker           service.SpanTracker
-	ChunkExtractor        interfaces.TaskHandler `name:"chunkExtractor"`
-	DataTableSummary      interfaces.TaskHandler `name:"dataTableSummary"`
-	ImageMultimodal       interfaces.TaskHandler `name:"imageMultimodal"`
-	KnowledgePostProcess  interfaces.TaskHandler `name:"knowledgePostProcess"`
-	KnowledgeAutoTag      interfaces.TaskHandler `name:"knowledgeAutoTag"`
-	KnowledgeBaseProfile  interfaces.TaskHandler `name:"knowledgeBaseProfile"`
-	WikiIngest            interfaces.TaskHandler `name:"wikiIngest"`
+	DeadLetterRepo        interfaces.TaskDeadLetterRepository `optional:"true"`
+	ChunkExtractor        interfaces.TaskHandler              `name:"chunkExtractor"`
+	DataTableSummary      interfaces.TaskHandler              `name:"dataTableSummary"`
+	ImageMultimodal       interfaces.TaskHandler              `name:"imageMultimodal"`
+	KnowledgePostProcess  interfaces.TaskHandler              `name:"knowledgePostProcess"`
+	KnowledgeAutoTag      interfaces.TaskHandler              `name:"knowledgeAutoTag"`
+	KnowledgeBaseProfile  interfaces.TaskHandler              `name:"knowledgeBaseProfile"`
+	WikiIngest            interfaces.TaskHandler              `name:"wikiIngest"`
 	TemporaryDocument     interfaces.TemporaryDocumentService
 	MemoryService         interfaces.MemoryService
 }
@@ -245,15 +246,23 @@ func RegisterSyncHandlers(params SyncTaskParams) {
 		if params.FeishuPersonalService != nil {
 			handler = params.FeishuPersonalService.WrapPrivateTaskHandler(handler)
 		}
+		handler = service.WrapKnowledgeSourceAdmission(params.KnowledgeService.GetRepository(), handler)
 		params.Executor.RegisterHandler(pattern, handler)
 	}
 	// Same callback the asynq dead-letter middleware runs in standard mode.
-	if failer := newDeadLetterKnowledgeFailer(params.KnowledgeService, params.SpanTracker); failer != nil {
-		params.Executor.SetFinalFailureHook(failer)
-	}
+	failer := newDeadLetterKnowledgeFailer(params.KnowledgeService, params.SpanTracker)
+	params.Executor.SetFinalFailureHook(func(ctx context.Context, task *asynq.Task, err error) {
+		if asynqdl.RecordSourceRestriction(params.DeadLetterRepo, ctx, task, err) {
+			return
+		}
+		if failer != nil {
+			failer(ctx, task, err)
+		}
+	})
 	register(types.TypeChunkExtract, params.ChunkExtractor.Handle)
 	register(types.TypeDataTableSummary, params.DataTableSummary.Handle)
 	register(types.TypeDocumentProcess, params.KnowledgeService.ProcessDocument)
+	register(types.TypeFeishuApplicationProcess, params.KnowledgeService.ProcessDocument)
 	if params.FeishuPersonalService != nil {
 		register(types.TypeFeishuConnectionCheck, params.FeishuPersonalService.ProcessConnectionCheck)
 	}

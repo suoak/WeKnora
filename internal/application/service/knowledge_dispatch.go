@@ -164,6 +164,13 @@ func (s *knowledgeService) publishKnowledgeDispatch(ctx context.Context, op *typ
 	if intent.PayloadVersion < 4 && op.TaskType == types.TypeFeishuApplicationProcess {
 		return errors.New("application envelope required")
 	}
+	// Leave the durable intent pending, not failed: no body-processing claim
+	// has happened. Polling current admission is not replaying the old task.
+	// All existing generation/revision/grant checks below still apply when
+	// the source becomes legitimately eligible again.
+	if err := checkKnowledgeSourceAdmission(ctx, s.repo, intent.Task.TenantID, intent.Task.KnowledgeBaseID, intent.Task.KnowledgeID); err != nil {
+		return err
+	}
 	if intent.PayloadVersion == 3 || intent.PayloadVersion == 5 {
 		p, ok := s.personalRecovery.(*PersonalRecovery)
 		if !ok {
@@ -397,7 +404,7 @@ func (s *knowledgeService) RecoverKnowledgeDispatches(ctx context.Context) error
 	if personalErr != nil {
 		failures = append(failures, personalErr)
 	}
-	scanned, recovered, pending, maxRetries := 0, 0, 0, 0
+	scanned, recovered, pending, blocked, maxRetries := 0, 0, 0, 0, 0
 	var oldest time.Time
 	defer func() {
 		if scanned > 0 {
@@ -407,11 +414,12 @@ func (s *knowledgeService) RecoverKnowledgeDispatches(ctx context.Context) error
 			}
 			logger.Infof(
 				ctx,
-				"Knowledge dispatch scan: scanned=%d pending=%d recovered=%d failed=%d "+
+				"Knowledge dispatch scan: scanned=%d pending=%d recovered=%d blocked=%d failed=%d "+
 					"max_retries=%d oldest_wait_seconds=%.0f",
 				scanned,
 				pending,
 				recovered,
+				blocked,
 				len(failures),
 				maxRetries,
 				wait.Seconds(),
@@ -439,6 +447,11 @@ func (s *knowledgeService) RecoverKnowledgeDispatches(ctx context.Context) error
 				maxRetries = op.FailCount
 			}
 			if err := s.publishKnowledgeDispatch(ctx, op); err != nil {
+				var restriction *types.SourceProcessingRestrictedError
+				if errors.As(err, &restriction) {
+					blocked++
+					continue
+				}
 				failures = append(failures, err)
 			} else {
 				recovered++

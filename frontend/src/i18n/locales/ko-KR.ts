@@ -2,6 +2,14 @@ import { branding } from '../../config/branding'
 import enUS from './en-US'
 
 const messages = {
+  sourceProcessing: {
+    held: '이 지식 베이스에 확인이 필요한 출처가 있어 보호 규칙에 따라 처리가 중단되었습니다',
+    revoked: '이 지식 베이스에 권한이 취소된 출처가 있어 보호 규칙에 따라 처리가 중단되었습니다',
+    blocked: '지식 베이스 출처 보호로 처리 중단',
+    historyUnverified: '과거 처리 상태는 확인되지 않았습니다. 이 알림은 문서 처리가 실패했음을 의미하지 않습니다.',
+    nextAction: '관리자에게 제한된 출처와 영향받는 문서의 확인을 요청하세요. 이 알림은 해당 문서의 출처를 나타내지 않습니다. 확인 전에는 자동으로 재시도하지 않습니다.',
+    unavailable: '출처 상태를 확인할 수 없습니다. 새로 고침하거나 지식 베이스 관리자에게 문의하세요.',
+  },
   localBrowser: { ...enUS.localBrowser ,
   sourceHint: '페어링된 로컬 브라우저 사용',
   reconnectHint: '브라우저 확장을 다시 연결하세요',
