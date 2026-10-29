@@ -1312,6 +1312,23 @@ func (s *knowledgeService) ProcessSummaryGeneration(ctx context.Context, t *asyn
 		ctx = context.WithValue(ctx, types.LanguageContextKey, payload.Language)
 	}
 
+	// Managed-source tasks must carry their enqueue-time version. Old payloads
+	// are terminal, never upgraded to a newer publication on retry.
+	version, managed, versionErr := knowledgeDerivedVersion(ctx, s.repo, payload.KnowledgeID)
+	if versionErr != nil {
+		return versionErr
+	}
+	if (managed && (payload.SourceVersion == "" || payload.SourceVersion != version)) || (!managed && payload.SourceVersion != "") {
+		logger.Warnf(ctx, "[FeishuDerivedWrite] knowledge_id=%s outcome=discarded reason=stale_task_version", payload.KnowledgeID)
+		return nil
+	}
+	ctx = context.WithValue(ctx, derivedTaskVersionKey{}, payload.SourceVersion)
+	defer func() {
+		if discardDerivedTask(ctx, payload.KnowledgeID, retErr) {
+			retErr = errors.Join(asynq.SkipRetry, retErr)
+		}
+	}()
+
 	// A newer attempt (re-upload / edit / reparse) has superseded this one:
 	// skip before opening the span or registering the FinalizeSubtask defer
 	// so we neither read stale chunks nor decrement the new attempt's counter.
@@ -1355,6 +1372,9 @@ func (s *knowledgeService) ProcessSummaryGeneration(ctx context.Context, t *asyn
 	// it to schedule the knowledge-base description refresh on terminal exit.
 	var profileKB *types.KnowledgeBase
 	defer func() {
+		if summaryErr == nil {
+			summaryErr = retErr
+		}
 		// Decrement the parent's enrichment counter on terminal exit.
 		// "Terminal" is keyed on the value RETURNED to asynq, not on
 		// summaryErr: several branches record a failure on the span
@@ -1364,8 +1384,10 @@ func (s *knowledgeService) ProcessSummaryGeneration(ctx context.Context, t *asyn
 		// summaryErr would skip them and leave the row stuck in
 		// "finalizing". When we DO return an error asynq will retry, so
 		// we only drain on the final attempt.
-		finalizeSubtaskDetached(ctx, s.repo, payload.KnowledgeID, "summary",
-			retErr, false, isFinalAsynqAttempt(ctx))
+		if !managed {
+			finalizeSubtaskDetached(ctx, s.repo, payload.KnowledgeID, "summary",
+				retErr, false, isFinalAsynqAttempt(ctx))
+		}
 		// Every terminal exit changes what the knowledge-base aggregation
 		// sees (a new profile, a cleared one, or a document that will never
 		// get one), so the debounced refresh is requested regardless of
@@ -1397,18 +1419,6 @@ func (s *knowledgeService) ProcessSummaryGeneration(ctx context.Context, t *asyn
 	summaryOut["model_id"] = kb.SummaryModelID
 	profileKB = kb
 
-	if kb.SummaryModelID == "" {
-		logger.Warn(ctx, "Knowledge base summary model ID is empty, skipping summary generation")
-		_ = s.repo.UpdateKnowledgeColumn(
-			ctx,
-			payload.KnowledgeID,
-			"summary_status",
-			types.SummaryStatusFailed,
-		)
-		summaryOut["skipped"] = "no_summary_model"
-		return nil
-	}
-
 	// Get knowledge
 	knowledge, err := s.repo.GetKnowledgeByID(ctx, payload.TenantID, payload.KnowledgeID)
 	if err != nil {
@@ -1427,11 +1437,24 @@ func (s *knowledgeService) ProcessSummaryGeneration(ctx context.Context, t *asyn
 		}
 	}
 
+	ctx, protectedSource, err := s.beginDerivedSummary(ctx, knowledge.ID, knowledge.TenantID)
+	if err != nil {
+		return err
+	}
+	if kb.SummaryModelID == "" {
+		logger.Warn(ctx, "Knowledge base summary model ID is empty, skipping summary generation")
+		knowledge.SummaryStatus = types.SummaryStatusFailed
+		knowledge.UpdatedAt = time.Now()
+		summaryOut["skipped"] = "no_summary_model"
+		return s.saveSummaryState(ctx, knowledge)
+	}
+
 	// Update summary status to processing
 	knowledge.SummaryStatus = types.SummaryStatusProcessing
 	knowledge.UpdatedAt = time.Now()
 	if err := s.saveSummaryState(ctx, knowledge); err != nil {
 		logger.Warnf(ctx, "Failed to update summary status to processing: %v", err)
+		return err
 	}
 
 	// Helper function to mark summary as failed
@@ -1606,6 +1629,11 @@ func (s *knowledgeService) ProcessSummaryGeneration(ctx context.Context, t *asyn
 		logger.Errorf(ctx, "Failed to update knowledge description: %v", err)
 		summaryErr = err
 		return fmt.Errorf("failed to update knowledge: %w", err)
+	}
+
+	if protectedSource {
+		// Derived metadata grants never authorize index content changes.
+		return nil
 	}
 
 	// Create summary chunk and index it — only when RAG indexing is enabled.
@@ -2679,6 +2707,16 @@ func (s *knowledgeService) RegenerateChunkQuestions(
 func (s *knowledgeService) RegenerateKnowledgeSummary(
 	ctx context.Context, knowledgeID string,
 ) (*types.Knowledge, error) {
+	version, managed, versionErr := knowledgeDerivedVersion(ctx, s.repo, knowledgeID)
+	if versionErr != nil {
+		return nil, versionErr
+	}
+	if managed {
+		if queued, _ := ctx.Value(derivedTaskVersionKey{}).(string); queued != "" && queued != version {
+			return nil, repository.ErrDerivedWriteRejected
+		}
+		ctx = context.WithValue(ctx, derivedTaskVersionKey{}, version)
+	}
 	tenantID := types.MustTenantIDFromContext(ctx)
 	knowledge, err := s.repo.GetKnowledgeByID(ctx, tenantID, knowledgeID)
 	if err != nil {
@@ -2690,6 +2728,10 @@ func (s *knowledgeService) RegenerateKnowledgeSummary(
 	}
 	if kb.SummaryModelID == "" {
 		return nil, fmt.Errorf("summary model is not configured")
+	}
+	ctx, protectedSource, err := s.beginDerivedSummary(ctx, knowledge.ID, knowledge.TenantID)
+	if err != nil {
+		return nil, err
 	}
 	allChunks, err := s.chunkRepo.ListChunksByKnowledgeID(ctx, tenantID, knowledgeID)
 	if err != nil {
@@ -2783,6 +2825,10 @@ func (s *knowledgeService) RegenerateKnowledgeSummary(
 	knowledge.UpdatedAt = time.Now()
 	if err := s.saveSummaryState(ctx, knowledge); err != nil {
 		return nil, err
+	}
+	if protectedSource {
+		_ = requestKnowledgeBaseProfileRefresh(ctx, s.task, kb, false)
+		return knowledge, nil
 	}
 	summaryChunkContent := buildSummaryChunkContent(summary, summaryResult.Profile)
 	defer func() { _ = requestKnowledgeBaseProfileRefresh(ctx, s.task, kb, false) }()

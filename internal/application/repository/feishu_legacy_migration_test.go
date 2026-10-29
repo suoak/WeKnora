@@ -100,7 +100,7 @@ func TestFeishuLegacyFormalMigrationChain(t *testing.T) {
 			require.NoError(t, e)
 			version, dirty, e := m.Version()
 			require.NoError(t, e)
-			require.EqualValues(t, 3042, version)
+			require.EqualValues(t, 3043, version)
 			require.False(t, dirty)
 			var saved types.TenantAPIKey
 			var persistedMode string
@@ -112,6 +112,13 @@ func TestFeishuLegacyFormalMigrationChain(t *testing.T) {
 			var public int64
 			require.NoError(t, db.Table("feishu_legacy_resources").Count(&public).Error)
 			require.Zero(t, public, "migration must not enroll or expose history")
+			if dialect == "postgres" {
+				var grants int64
+				require.NoError(t, db.Table("feishu_derived_write_grants").Count(&grants).Error)
+				require.Zero(t, grants, "migration must not manufacture derived write authority")
+			} else {
+				require.False(t, db.Migrator().HasTable("feishu_derived_write_grants"), "SQLite keeps its original enrolled-source denial")
+			}
 			var savedPortal types.TenantPortalConfig
 			require.NoError(t, db.First(&savedPortal, "tenant_id=?", tenant.ID).Error)
 			require.Equal(t, portal.Status, savedPortal.Status)
@@ -148,7 +155,7 @@ func TestFeishuLegacyFormalMigrationChain(t *testing.T) {
 			require.NoError(t, database.RunMigrations(dsn))
 			version, dirty, e = m.Version()
 			require.NoError(t, e)
-			require.EqualValues(t, 3042, version)
+			require.EqualValues(t, 3043, version)
 			require.False(t, dirty)
 		})
 	}

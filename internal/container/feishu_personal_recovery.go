@@ -16,6 +16,7 @@ func configurePersonalRecovery(
 ) error {
 	if ds, ok := dataSources.(*service.DataSourceService); ok {
 		ds.SetFeishuIdentityService(personal)
+		service.ConfigureFeishuDerivedWrites(knowledge, ds)
 	}
 	if (os.Getenv(
 		"FEISHU_APPLICATION_GRANT_TEST_ONLY",

@@ -49,31 +49,32 @@ var (
 // knowledgeService implements the knowledge service interface
 // service 实现知识服务接口
 type knowledgeService struct {
-	documentACL      *DocumentReadPolicy
-	personalRecovery personalDispatchRunner
-	config           *config.Config
-	retrieveEngine   interfaces.RetrieveEngineRegistry
-	ownership        retriever.TenantStoreOwnership
-	repo             interfaces.KnowledgeRepository
-	kbService        interfaces.KnowledgeBaseService
-	tenantRepo       interfaces.TenantRepository
-	tenantService    interfaces.TenantService
-	documentReader   interfaces.DocumentReader
-	chunkService     interfaces.ChunkService
-	chunkRepo        interfaces.ChunkRepository
-	tagRepo          interfaces.KnowledgeTagRepository
-	tagService       interfaces.KnowledgeTagService
-	fileSvc          interfaces.FileService
-	storageResolver  interfaces.StorageBackendResolver
-	resourceCatalog  interfaces.ResourceCatalog
-	modelService     interfaces.ModelService
-	task             interfaces.TaskEnqueuer
-	taskInspector    interfaces.TaskInspector
-	graphEngine      interfaces.RetrieveGraphRepository
-	redisClient      *redis.Client
-	kbShareService   interfaces.KBShareService
-	imageResolver    *docparser.ImageResolver
-	taskPendingRepo  interfaces.TaskPendingOpsRepository
+	derivedSourceBinder func(context.Context, *types.DataSource) (context.Context, error)
+	documentACL         *DocumentReadPolicy
+	personalRecovery    personalDispatchRunner
+	config              *config.Config
+	retrieveEngine      interfaces.RetrieveEngineRegistry
+	ownership           retriever.TenantStoreOwnership
+	repo                interfaces.KnowledgeRepository
+	kbService           interfaces.KnowledgeBaseService
+	tenantRepo          interfaces.TenantRepository
+	tenantService       interfaces.TenantService
+	documentReader      interfaces.DocumentReader
+	chunkService        interfaces.ChunkService
+	chunkRepo           interfaces.ChunkRepository
+	tagRepo             interfaces.KnowledgeTagRepository
+	tagService          interfaces.KnowledgeTagService
+	fileSvc             interfaces.FileService
+	storageResolver     interfaces.StorageBackendResolver
+	resourceCatalog     interfaces.ResourceCatalog
+	modelService        interfaces.ModelService
+	task                interfaces.TaskEnqueuer
+	taskInspector       interfaces.TaskInspector
+	graphEngine         interfaces.RetrieveGraphRepository
+	redisClient         *redis.Client
+	kbShareService      interfaces.KBShareService
+	imageResolver       *docparser.ImageResolver
+	taskPendingRepo     interfaces.TaskPendingOpsRepository
 
 	// In-memory fallbacks for Lite mode (no Redis)
 	memFAQProgress      sync.Map // taskID -> *types.FAQImportProgress

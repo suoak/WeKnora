@@ -760,6 +760,13 @@ func (s *DataSourceService) GetSyncLog(ctx context.Context, syncLogID string) (*
 
 // ProcessSync handles the actual sync operation (called by asynq task)
 func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.Task) (runErr error) {
+	defer func() {
+		if errors.Is(runErr, apprepo.ErrDerivedWriteRejected) {
+			logger.Warnf(ctx, "[FeishuDerivedWrite] outcome=discarded reason=atomic_publication_required")
+			runErr = errors.Join(asynq.SkipRetry, runErr)
+		}
+	}()
+
 	var payload types.DataSourceSyncPayload
 	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
 		logger.Errorf(ctx, "failed to unmarshal sync payload: %v", err)
