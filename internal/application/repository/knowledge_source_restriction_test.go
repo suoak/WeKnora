@@ -46,13 +46,43 @@ func testSourceRestrictionDB(t *testing.T, db *gorm.DB) {
 	require.NoError(t, db.Create(tenant).Error)
 	model := &types.Model{ID: uuid.NewString(), TenantID: tenant.ID, Name: "synthetic", Type: types.ModelTypeEmbedding}
 	require.NoError(t, db.Create(model).Error)
-	kb := &types.KnowledgeBase{ID: uuid.NewString(), TenantID: tenant.ID, Name: "held", Type: "document", EmbeddingModelID: model.ID}
-	other := &types.KnowledgeBase{ID: uuid.NewString(), TenantID: tenant.ID, Name: "normal", Type: "document", EmbeddingModelID: model.ID}
+	kb := &types.KnowledgeBase{
+		ID:               uuid.NewString(),
+		TenantID:         tenant.ID,
+		Name:             "held",
+		Type:             "document",
+		EmbeddingModelID: model.ID,
+	}
+	other := &types.KnowledgeBase{
+		ID:               uuid.NewString(),
+		TenantID:         tenant.ID,
+		Name:             "normal",
+		Type:             "document",
+		EmbeddingModelID: model.ID,
+	}
 	require.NoError(t, db.Create(kb).Error)
 	require.NoError(t, db.Create(other).Error)
-	k := &types.Knowledge{ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID, Title: "pending", Type: "file", Channel: "web", ParseStatus: types.ParseStatusPending, Metadata: types.JSON(`{}`)}
+	k := &types.Knowledge{
+		ID:              uuid.NewString(),
+		TenantID:        tenant.ID,
+		KnowledgeBaseID: kb.ID,
+		Title:           "pending",
+		Type:            "file",
+		Channel:         "web",
+		ParseStatus:     types.ParseStatusPending,
+		Metadata:        types.JSON(`{}`),
+	}
 	require.NoError(t, db.Create(k).Error)
-	ds := &types.DataSource{ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID, Name: "restricted", Type: "feishu_drive", Status: "error", LegacyAccessState: "hold", Config: types.JSON(`{}`)}
+	ds := &types.DataSource{
+		ID:                uuid.NewString(),
+		TenantID:          tenant.ID,
+		KnowledgeBaseID:   kb.ID,
+		Name:              "restricted",
+		Type:              "feishu_drive",
+		Status:            "error",
+		LegacyAccessState: "hold",
+		Config:            types.JSON(`{}`),
+	}
 	require.NoError(t, db.Create(ds).Error)
 	db = types.EnableLegacyReadGuards(db)
 	ctx := context.Background()
@@ -69,7 +99,14 @@ func testSourceRestrictionDB(t *testing.T, db *gorm.DB) {
 	normal, err := knowledgeSourceRestriction(ctx, db, tenant.ID, other.ID, "")
 	require.NoError(t, err)
 	require.False(t, normal.Restricted)
-	require.NoError(t, db.Exec("UPDATE data_sources SET legacy_access_state='revoked',deleted_at=? WHERE id=?", time.Now().UTC(), ds.ID).Error)
+	require.NoError(
+		t,
+		db.Exec(
+			"UPDATE data_sources SET legacy_access_state='revoked',deleted_at=? WHERE id=?",
+			time.Now().UTC(),
+			ds.ID,
+		).Error,
+	)
 	got, err = knowledgeSourceRestriction(ctx, db, tenant.ID, kb.ID, k.ID)
 	require.NoError(t, err)
 	require.True(t, got.Restricted)
@@ -77,5 +114,10 @@ func testSourceRestrictionDB(t *testing.T, db *gorm.DB) {
 	require.ErrorIs(t, types.CheckLegacySourceRead(db, k.ID, kb.ID), types.ErrLegacySourceRestricted)
 	var status string
 	require.NoError(t, db.Raw("SELECT parse_status FROM knowledges WHERE id=?", k.ID).Scan(&status).Error)
-	require.Equal(t, string(types.ParseStatusPending), status, "operational status query never changes document lifecycle")
+	require.Equal(
+		t,
+		string(types.ParseStatusPending),
+		status,
+		"operational status query never changes document lifecycle",
+	)
 }

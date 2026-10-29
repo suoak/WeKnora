@@ -254,7 +254,9 @@ func RunAsynqServer(params AsynqTaskParams) *asynq.ServeMux {
 	// downstream handlers (and their model calls) inherit the flag.
 	mux.Use(backgroundTaskMiddleware())
 	mux.Use(func(next asynq.Handler) asynq.Handler {
-		return asynq.HandlerFunc(service.WrapKnowledgeSourceAdmission(params.KnowledgeService.GetRepository(), next.ProcessTask))
+		return asynq.HandlerFunc(service.WrapKnowledgeSourceAdmission(
+			params.KnowledgeService.GetRepository(), next.ProcessTask,
+		))
 	})
 	if params.FeishuPersonalService != nil {
 		mux.Use(params.FeishuPersonalService.PrivateTaskMiddleware)

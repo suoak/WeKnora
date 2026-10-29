@@ -18,7 +18,8 @@ func (h *DataSourceHandler) GetKnowledgeBaseSourceRestriction(c *gin.Context) {
 	caller := types.CallerFromContext(ctx)
 	tenant := h.getTenantID(c)
 	if !principalOK || principal.Type != types.PrincipalWebUser || !userOK || principal.ID != user ||
-		tenant == 0 || caller.TenantID != tenant || caller.UserID != user || !caller.Role.HasPermission(types.TenantRoleViewer) {
+		tenant == 0 || caller.TenantID != tenant || caller.UserID != user ||
+		!caller.Role.HasPermission(types.TenantRoleViewer) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "source_status_forbidden"})
 		return
 	}

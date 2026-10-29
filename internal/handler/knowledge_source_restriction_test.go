@@ -19,9 +19,17 @@ type sourceRestrictionService struct {
 	err   error
 }
 
-func (s *sourceRestrictionService) KnowledgeBaseSourceRestriction(_ context.Context, tenant uint64, kb string) (types.KnowledgeSourceRestriction, error) {
+func (s *sourceRestrictionService) KnowledgeBaseSourceRestriction(
+	_ context.Context,
+	tenant uint64,
+	kb string,
+) (types.KnowledgeSourceRestriction, error) {
 	s.calls++
-	return types.KnowledgeSourceRestriction{Restricted: true, SourceState: "hold", HistoricalProcessingState: "unverified"}, s.err
+	return types.KnowledgeSourceRestriction{
+		Restricted:                true,
+		SourceState:               "hold",
+		HistoricalProcessingState: "unverified",
+	}, s.err
 }
 
 func TestSourceRestrictionHTTP(t *testing.T) {
@@ -49,7 +57,10 @@ func TestSourceRestrictionHTTP(t *testing.T) {
 			r.GET("/knowledge-bases/:id/source-restriction", h.GetKnowledgeBaseSourceRestriction)
 			ctx := context.WithValue(context.Background(), types.TenantIDContextKey, uint64(12))
 			ctx = context.WithValue(ctx, types.UserIDContextKey, "ordinary-user")
-			ctx = types.WithCaller(ctx, types.Caller{TenantID: 12, UserID: "ordinary-user", Role: types.TenantRoleViewer})
+			ctx = types.WithCaller(
+				ctx,
+				types.Caller{TenantID: 12, UserID: "ordinary-user", Role: types.TenantRoleViewer},
+			)
 			ctx = types.WithPrincipal(ctx, types.Principal{Type: tc.principal, ID: "ordinary-user"})
 			req := httptest.NewRequest(http.MethodGet, "/knowledge-bases/kb/source-restriction", nil).WithContext(ctx)
 			w := httptest.NewRecorder()

@@ -10,7 +10,12 @@ import (
 // Only identifiers/existence and source policy are queried. No Knowledge,
 // source config, file, Chunk, or embedding content is loaded, and no read or
 // publication capability is created by this operational admission check.
-func knowledgeSourceRestriction(ctx context.Context, db *gorm.DB, tenant uint64, kb, kid string) (types.KnowledgeSourceRestriction, error) {
+func knowledgeSourceRestriction(
+	ctx context.Context,
+	db *gorm.DB,
+	tenant uint64,
+	kb, kid string,
+) (types.KnowledgeSourceRestriction, error) {
 	status := types.UnknownKnowledgeSourceRestriction()
 	if !types.LegacyReadGuardsEnabled(db) {
 		return status, nil
@@ -28,8 +33,9 @@ WHERE k.id=? AND k.tenant_id=? AND k.deleted_at IS NULL AND t.deleted_at IS NULL
 		return status, gorm.ErrRecordNotFound
 	}
 	if kid != "" {
-		if err := db.WithContext(ctx).Raw(`SELECT EXISTS(SELECT 1 FROM knowledges
-WHERE id=? AND tenant_id=? AND knowledge_base_id=? AND deleted_at IS NULL)`, kid, tenant, kb).Scan(&valid).Error; err != nil {
+		query = `SELECT EXISTS(SELECT 1 FROM knowledges
+WHERE id=? AND tenant_id=? AND knowledge_base_id=? AND deleted_at IS NULL)`
+		if err := db.WithContext(ctx).Raw(query, kid, tenant, kb).Scan(&valid).Error; err != nil {
 			return status, err
 		}
 		if !valid {
@@ -37,11 +43,12 @@ WHERE id=? AND tenant_id=? AND knowledge_base_id=? AND deleted_at IS NULL)`, kid
 		}
 	}
 	var policy struct{ Held, Revoked bool }
-	err := db.WithContext(ctx).Raw(`SELECT
+	query = `SELECT
  EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE knowledge_base_id=? AND state='hold')
  OR EXISTS(SELECT 1 FROM data_sources WHERE knowledge_base_id=? AND legacy_access_state='hold') AS held,
  EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE knowledge_base_id=? AND state='revoked')
- OR EXISTS(SELECT 1 FROM data_sources WHERE knowledge_base_id=? AND legacy_access_state='revoked') AS revoked`, kb, kb, kb, kb).Scan(&policy).Error
+ OR EXISTS(SELECT 1 FROM data_sources WHERE knowledge_base_id=? AND legacy_access_state='revoked') AS revoked`
+	err := db.WithContext(ctx).Raw(query, kb, kb, kb, kb).Scan(&policy).Error
 	if err != nil {
 		return status, err
 	}
@@ -57,10 +64,18 @@ WHERE id=? AND tenant_id=? AND knowledge_base_id=? AND deleted_at IS NULL)`, kid
 	return status, nil
 }
 
-func (r *knowledgeRepository) KnowledgeSourceRestriction(ctx context.Context, tenant uint64, kb, kid string) (types.KnowledgeSourceRestriction, error) {
+func (r *knowledgeRepository) KnowledgeSourceRestriction(
+	ctx context.Context,
+	tenant uint64,
+	kb, kid string,
+) (types.KnowledgeSourceRestriction, error) {
 	return knowledgeSourceRestriction(ctx, r.db, tenant, kb, kid)
 }
 
-func (r *DataSourceRepository) KnowledgeSourceRestriction(ctx context.Context, tenant uint64, kb, kid string) (types.KnowledgeSourceRestriction, error) {
+func (r *DataSourceRepository) KnowledgeSourceRestriction(
+	ctx context.Context,
+	tenant uint64,
+	kb, kid string,
+) (types.KnowledgeSourceRestriction, error) {
 	return knowledgeSourceRestriction(ctx, r.db, tenant, kb, kid)
 }

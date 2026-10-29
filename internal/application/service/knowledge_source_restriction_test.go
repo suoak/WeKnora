@@ -18,19 +18,33 @@ type sourceAdmissionRepo struct {
 	scopes [][3]any
 }
 
-func (r *sourceAdmissionRepo) KnowledgeSourceRestriction(_ context.Context, tenant uint64, kb, kid string) (types.KnowledgeSourceRestriction, error) {
+func (r *sourceAdmissionRepo) KnowledgeSourceRestriction(
+	_ context.Context,
+	tenant uint64,
+	kb, kid string,
+) (types.KnowledgeSourceRestriction, error) {
 	r.scopes = append(r.scopes, [3]any{tenant, kb, kid})
 	return r.status, r.err
 }
 
 func TestSourceAdmission(t *testing.T) {
 	payload := []byte(`{"tenant_id":12,"knowledge_base_id":"kb","knowledge_id":"doc","secret":"never-archive"}`)
-	for _, taskType := range []string{types.TypeDocumentProcess, types.TypeFeishuApplicationProcess, types.TypeManualProcess, types.TypeKnowledgePostProcess, types.TypeSummaryGeneration, types.TypeQuestionGeneration, types.TypeImageMultimodal, types.TypeKnowledgeAutoTag} {
+	taskTypes := []string{
+		types.TypeDocumentProcess, types.TypeFeishuApplicationProcess, types.TypeManualProcess,
+		types.TypeKnowledgePostProcess, types.TypeSummaryGeneration, types.TypeQuestionGeneration,
+		types.TypeImageMultimodal, types.TypeKnowledgeAutoTag,
+	}
+	for _, taskType := range taskTypes {
 		for _, state := range []string{"hold", "revoked"} {
 			t.Run(taskType+state, func(t *testing.T) {
-				repo := &sourceAdmissionRepo{status: types.KnowledgeSourceRestriction{Restricted: true, SourceState: state}}
+				repo := &sourceAdmissionRepo{
+					status: types.KnowledgeSourceRestriction{Restricted: true, SourceState: state},
+				}
 				ran := false
-				handler := WrapKnowledgeSourceAdmission(repo, func(context.Context, *asynq.Task) error { ran = true; return nil })
+				handler := WrapKnowledgeSourceAdmission(
+					repo,
+					func(context.Context, *asynq.Task) error { ran = true; return nil },
+				)
 				err := handler(context.Background(), asynq.NewTask(taskType, payload))
 				require.ErrorIs(t, err, asynq.SkipRetry)
 				require.ErrorIs(t, err, types.ErrLegacySourceRestricted)
@@ -40,17 +54,32 @@ func TestSourceAdmission(t *testing.T) {
 		}
 	}
 	t.Run("available and generic errors retain semantics", func(t *testing.T) {
-		for _, want := range []error{nil, errors.New("ordinary transient error"), asynq.SkipRetry, types.ErrLegacySourceRestricted} {
+		outcomes := []error{
+			nil, errors.New("ordinary transient error"), asynq.SkipRetry, types.ErrLegacySourceRestricted,
+		}
+		for _, want := range outcomes {
 			repo := &sourceAdmissionRepo{}
 			calls := 0
-			got := WrapKnowledgeSourceAdmission(repo, func(context.Context, *asynq.Task) error { calls++; return want })(context.Background(), asynq.NewTask(types.TypeDocumentProcess, payload))
+			got := WrapKnowledgeSourceAdmission(
+				repo,
+				func(context.Context, *asynq.Task) error { calls++; return want },
+			)(
+				context.Background(),
+				asynq.NewTask(types.TypeDocumentProcess, payload),
+			)
 			require.Equal(t, want, got)
 			require.Equal(t, 1, calls)
 		}
 	})
 	t.Run("database uncertainty never runs body or permanently stops task", func(t *testing.T) {
 		repo := &sourceAdmissionRepo{err: errors.New("database unavailable")}
-		got := WrapKnowledgeSourceAdmission(repo, func(context.Context, *asynq.Task) error { t.Fatal("body called"); return nil })(context.Background(), asynq.NewTask(types.TypeDocumentProcess, payload))
+		got := WrapKnowledgeSourceAdmission(
+			repo,
+			func(context.Context, *asynq.Task) error { t.Fatal("body called"); return nil },
+		)(
+			context.Background(),
+			asynq.NewTask(types.TypeDocumentProcess, payload),
+		)
 		require.ErrorIs(t, got, repo.err)
 		require.NotErrorIs(t, got, asynq.SkipRetry)
 	})
@@ -80,11 +109,20 @@ type sourceHeldDispatchRepo struct {
 	op *types.TaskPendingOp
 }
 
-func (r *sourceHeldDispatchRepo) KnowledgeSourceRestriction(context.Context, uint64, string, string) (types.KnowledgeSourceRestriction, error) {
+func (r *sourceHeldDispatchRepo) KnowledgeSourceRestriction(
+	context.Context,
+	uint64,
+	string,
+	string,
+) (types.KnowledgeSourceRestriction, error) {
 	return types.KnowledgeSourceRestriction{Restricted: true, SourceState: "hold"}, nil
 }
 
-func (r *sourceHeldDispatchRepo) ListKnowledgeDispatches(_ context.Context, after int64, _ int) ([]*types.TaskPendingOp, error) {
+func (r *sourceHeldDispatchRepo) ListKnowledgeDispatches(
+	_ context.Context,
+	after int64,
+	_ int,
+) ([]*types.TaskPendingOp, error) {
 	if after == 0 {
 		return []*types.TaskPendingOp{r.op}, nil
 	}
@@ -92,8 +130,14 @@ func (r *sourceHeldDispatchRepo) ListKnowledgeDispatches(_ context.Context, afte
 }
 
 func TestSourceRestrictionDurableIntentIsNotClaimedOrEnqueued(t *testing.T) {
-	op := &types.TaskPendingOp{ID: 7, TenantID: 12, TaskType: types.TypeDocumentProcess, ScopeID: "doc", DedupKey: "document-doc", Op: "pending",
-		Payload: []byte(`{"payload_version":1,"task":{"tenant_id":12,"knowledge_base_id":"kb","knowledge_id":"doc","dispatch_id":"document-doc","attempt":1}}`)}
+	op := &types.TaskPendingOp{
+		ID: 7, TenantID: 12, TaskType: types.TypeDocumentProcess,
+		ScopeID: "doc", DedupKey: "document-doc", Op: "pending",
+		Payload: []byte(
+			`{"payload_version":1,"task":{"tenant_id":12,"knowledge_base_id":"kb",
+"knowledge_id":"doc","dispatch_id":"document-doc","attempt":1}}`,
+		),
+	}
 	repo := &sourceHeldDispatchRepo{op: op}
 	queue := &dispatchQueue{}
 	s := &knowledgeService{repo: repo, task: queue}

@@ -168,7 +168,9 @@ func (s *knowledgeService) publishKnowledgeDispatch(ctx context.Context, op *typ
 	// has happened. Polling current admission is not replaying the old task.
 	// All existing generation/revision/grant checks below still apply when
 	// the source becomes legitimately eligible again.
-	if err := checkKnowledgeSourceAdmission(ctx, s.repo, intent.Task.TenantID, intent.Task.KnowledgeBaseID, intent.Task.KnowledgeID); err != nil {
+	if err := checkKnowledgeSourceAdmission(
+		ctx, s.repo, intent.Task.TenantID, intent.Task.KnowledgeBaseID, intent.Task.KnowledgeID,
+	); err != nil {
 		return err
 	}
 	if intent.PayloadVersion == 3 || intent.PayloadVersion == 5 {

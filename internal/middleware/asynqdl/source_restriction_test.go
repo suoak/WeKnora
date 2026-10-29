@@ -13,11 +13,19 @@ import (
 
 func TestSourceRestrictionArchive(t *testing.T) {
 	repo := &fakeRepo{}
-	payload := []byte(`{"tenant_id":12,"knowledge_base_id":"kb","knowledge_id":"doc","attempt":3,"file_path":"private-resource","token":"sensitive"}`)
+	payload := []byte(
+		`{"tenant_id":12,"knowledge_base_id":"kb","knowledge_id":"doc","attempt":3,
+"file_path":"private-resource","token":"sensitive"}`,
+	)
 	task := asynq.NewTask(types.TypeDocumentProcess, payload)
 	err := errors.Join(asynq.SkipRetry, &types.SourceProcessingRestrictedError{State: "hold"})
 	callback := false
-	handler := MiddlewareWithCallback(repo, func(context.Context, *asynq.Task, error) { callback = true })(asynq.HandlerFunc(func(context.Context, *asynq.Task) error { return err }))
+	handler := MiddlewareWithCallback(
+		repo,
+		func(context.Context, *asynq.Task, error) { callback = true },
+	)(
+		asynq.HandlerFunc(func(context.Context, *asynq.Task) error { return err }),
+	)
 	require.ErrorIs(t, handler.ProcessTask(context.Background(), task), asynq.SkipRetry)
 	require.False(t, callback, "admission stop must not mutate protected Knowledge")
 	require.Equal(t, 1, repo.rowCount())

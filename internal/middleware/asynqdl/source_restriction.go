@@ -15,7 +15,12 @@ import (
 // RecordSourceRestriction archives an admission stop, not an exhausted body
 // execution. Redis and Lite use the same minimal record and never read or
 // change Knowledge to do so. Generic SkipRetry is intentionally excluded.
-func RecordSourceRestriction(repo interfaces.TaskDeadLetterRepository, ctx context.Context, task *asynq.Task, err error) bool {
+func RecordSourceRestriction(
+	repo interfaces.TaskDeadLetterRepository,
+	ctx context.Context,
+	task *asynq.Task,
+	err error,
+) bool {
 	var restricted *types.SourceProcessingRestrictedError
 	if task == nil || !errors.Is(err, asynq.SkipRetry) || !errors.As(err, &restricted) ||
 		(restricted.State != "hold" && restricted.State != "revoked") {
@@ -50,7 +55,12 @@ func RecordSourceRestriction(repo interfaces.TaskDeadLetterRepository, ctx conte
 		FailCount: attempts, FailedAt: time.Now(),
 	}
 	if repo.Insert(cleanup, row) != nil {
-		logger.Warnf(ctx, "source admission audit persistence failed task=%s knowledge_id=%s", task.Type(), scope.KnowledgeID)
+		logger.Warnf(
+			ctx,
+			"source admission audit persistence failed task=%s knowledge_id=%s",
+			task.Type(),
+			scope.KnowledgeID,
+		)
 	}
 	return true
 }

@@ -19,7 +19,11 @@ import (
 
 type sourceRedisRepo struct{ interfaces.KnowledgeRepository }
 
-func (sourceRedisRepo) KnowledgeSourceRestriction(_ context.Context, _ uint64, _, kid string) (types.KnowledgeSourceRestriction, error) {
+func (sourceRedisRepo) KnowledgeSourceRestriction(
+	_ context.Context,
+	_ uint64,
+	_, kid string,
+) (types.KnowledgeSourceRestriction, error) {
 	return types.KnowledgeSourceRestriction{Restricted: kid == "held", SourceState: "hold"}, nil
 }
 
@@ -38,7 +42,12 @@ func TestSourceRestrictionRedisStopsWithoutRetryAndNormalTaskRuns(t *testing.T) 
 	if addr == "" {
 		t.Skip("requires explicitly configured isolated Redis")
 	}
-	require.Contains(t, []string{"redis:6379", "127.0.0.1:6379", "localhost:6379"}, addr, "test runner must point at the explicit isolated Redis service")
+	require.Contains(
+		t,
+		[]string{"redis:6379", "127.0.0.1:6379", "localhost:6379"},
+		addr,
+		"test runner must point at the explicit isolated Redis service",
+	)
 	queue := "source-restriction-test-" + uuid.NewString()
 	opt := asynq.RedisClientOpt{Addr: addr, Password: os.Getenv("SOURCE_RESTRICTION_TEST_REDIS_PASSWORD")}
 	inspector := asynq.NewInspector(opt)
@@ -53,16 +62,35 @@ func TestSourceRestrictionRedisStopsWithoutRetryAndNormalTaskRuns(t *testing.T) 
 	normal := make(chan bool, 1)
 	var bodyCalls, callbacks atomic.Int32
 	mux := asynq.NewServeMux()
-	mux.Use(asynqdl.MiddlewareWithCallback(sourceRedisAudit{rows: rows}, func(context.Context, *asynq.Task, error) { callbacks.Add(1) }))
+	mux.Use(
+		asynqdl.MiddlewareWithCallback(
+			sourceRedisAudit{rows: rows},
+			func(context.Context, *asynq.Task, error) { callbacks.Add(1) },
+		),
+	)
 	mux.Use(func(next asynq.Handler) asynq.Handler {
 		return asynq.HandlerFunc(service.WrapKnowledgeSourceAdmission(sourceRedisRepo{}, next.ProcessTask))
 	})
-	mux.HandleFunc(types.TypeDocumentProcess, func(context.Context, *asynq.Task) error { bodyCalls.Add(1); normal <- true; return nil })
-	server := asynq.NewServer(opt, asynq.Config{Concurrency: 1, Queues: map[string]int{queue: 1}, ShutdownTimeout: time.Second})
+	mux.HandleFunc(
+		types.TypeDocumentProcess,
+		func(context.Context, *asynq.Task) error { bodyCalls.Add(1); normal <- true; return nil },
+	)
+	server := asynq.NewServer(
+		opt,
+		asynq.Config{Concurrency: 1, Queues: map[string]int{queue: 1}, ShutdownTimeout: time.Second},
+	)
 	require.NoError(t, server.Start(mux))
 	t.Cleanup(server.Shutdown)
 	heldID := "held-" + uuid.NewString()
-	_, err := client.Enqueue(asynq.NewTask(types.TypeDocumentProcess, []byte(`{"tenant_id":12,"knowledge_base_id":"kb","knowledge_id":"held","token":"sensitive-canary"}`)), asynq.Queue(queue), asynq.TaskID(heldID), asynq.MaxRetry(25))
+	_, err := client.Enqueue(
+		asynq.NewTask(
+			types.TypeDocumentProcess,
+			[]byte(`{"tenant_id":12,"knowledge_base_id":"kb","knowledge_id":"held","token":"sensitive-canary"}`),
+		),
+		asynq.Queue(queue),
+		asynq.TaskID(heldID),
+		asynq.MaxRetry(25),
+	)
 	require.NoError(t, err)
 	select {
 	case row := <-rows:
@@ -77,7 +105,14 @@ func TestSourceRestrictionRedisStopsWithoutRetryAndNormalTaskRuns(t *testing.T) 
 	}, 5*time.Second, 50*time.Millisecond)
 	require.Zero(t, bodyCalls.Load())
 	require.Zero(t, callbacks.Load())
-	_, err = client.Enqueue(asynq.NewTask(types.TypeDocumentProcess, []byte(`{"tenant_id":12,"knowledge_base_id":"kb","knowledge_id":"normal"}`)), asynq.Queue(queue), asynq.MaxRetry(0))
+	_, err = client.Enqueue(
+		asynq.NewTask(
+			types.TypeDocumentProcess,
+			[]byte(`{"tenant_id":12,"knowledge_base_id":"kb","knowledge_id":"normal"}`),
+		),
+		asynq.Queue(queue),
+		asynq.MaxRetry(0),
+	)
 	require.NoError(t, err)
 	select {
 	case <-normal:
