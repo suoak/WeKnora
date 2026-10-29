@@ -12,7 +12,7 @@ const { t } = useI18n();
     <p>{{ t('sourceProcessing.historyUnverified') }}</p>
     <p>{{ t('sourceProcessing.nextAction') }}</p>
   </div>
-  <div v-else-if="unavailable && hasPending" class="source-restriction-notice" role="status">
+  <div v-else-if="(unavailable || status?.source_state === 'unverified') && hasPending" class="source-restriction-notice" role="status">
     {{ t('sourceProcessing.unavailable') }}
   </div>
 </template>

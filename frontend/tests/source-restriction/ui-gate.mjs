@@ -17,15 +17,18 @@ test('real source notice and action menu distinguish held/revoked/unknown/availa
     });
     for (const [state, text] of [
       ['hold', '知识库中存在待核验来源'], ['revoked', '知识库中存在已撤销授权的来源'], ['unknown', '暂时无法确认来源状态'],
+      ['unverified', '暂时无法确认来源状态'],
     ]) {
       await page.goto(`http://127.0.0.1:${port}/tests/source-restriction/index.html?state=${state}`);
       await page.getByRole('status').waitFor();
       assert.ok((await page.getByRole('status').innerText()).includes(text));
-      if (state !== 'unknown') {
+      if (state === 'hold' || state === 'revoked') {
         assert.ok((await page.getByRole('status').innerText()).includes('历史处理状态待核验'));
         assert.equal(await page.locator('.doc-action-menu-item').count(), 1, 'only the existing delete action remains');
         const rebuild = await page.evaluate(() => document.body.dataset.rebuildLabel);
         assert.equal(await page.getByText(rebuild, { exact: true }).count(), 0);
+      } else {
+        assert.equal(await page.locator('.doc-action-menu-item').count(), 3, 'an unknown verdict does not invent a restriction');
       }
     }
     await page.goto(`http://127.0.0.1:${port}/tests/source-restriction/index.html?state=available`);
