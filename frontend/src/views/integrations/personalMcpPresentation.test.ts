@@ -33,7 +33,7 @@ test('one existing navigation route and clear default/selected range without pub
   assert.match(view, /<h1>MCP 接入<\/h1>/)
   assert.match(view, /将 KnowHub 企业知识连接到常用 AI 工具/)
   assert.doesNotMatch(view, /@click="openCreate"|v-model="personalConfig"/)
-  const create = view.slice(view.indexOf('<t-dialog v-model:visible="personalCreateVisible"'), view.indexOf('<t-dialog v-model:visible="privateScopeVisible"'))
+  const create = view.slice(view.indexOf('v-model:visible="personalCreateVisible"'), view.indexOf('v-model:visible="privateScopeVisible"'))
   assert.match(create, /有效期/)
   assert.doesNotMatch(create, /<label>.*(?:能力|模型|Agent|客户端)/)
   assert.match(create, /默认范围/)

@@ -92,8 +92,9 @@ test('status filters and all UI state decisions use the lifecycle helper', () =>
 test('standalone access center has responsive desktop and compact layouts without embedded mode', () => {
   assert.match(view, /<main class="mcp-access-center">/)
   assert.doesNotMatch(view, /embedded/)
-  assert.match(view, /@media\(max-width:1480px\)/)
-  assert.match(view, /grid-template-areas:"identity scope capabilities" "meta meta actions"/)
-  assert.match(view, /@media\(max-width:980px\)/)
-  assert.match(view, /@media\(max-width:760px\)/)
+  const styles = readFileSync(new URL('./mcp-access.less', import.meta.url), 'utf8')
+  assert.match(styles, /min-height: 0/)
+  assert.match(styles, /overflow-y: auto/)
+  assert.match(styles, /@media\(max-width:980px\)/)
+  assert.match(styles, /@media\(max-width:760px\)/)
 })
