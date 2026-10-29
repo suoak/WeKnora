@@ -98,14 +98,13 @@
           <template v-else>
           <t-button v-if="personalConfig" variant="text" class="change-client" :disabled="revealingSecret || testingPersonal" @click="configStage = 'clients'; secretVisible = false; clearProtocolState()"><t-icon name="chevron-left" />更换客户端</t-button>
           <t-loading v-if="revealingSecret" text="正在读取个人 Secret" />
-          <t-alert v-else theme="info">{{ connectionKey.secret_available || hasConfigSecret ? 'Secret 默认遮蔽，主动显示或复制时才读取。服务端加密保存，仅当前凭证本人可在此查看。' : '此 Key 未保存可恢复的 Secret。请使用已保存的 Secret 设置客户端，或在管理中重新生成；占位模板不是完整配置。' }}</t-alert>
-          <t-alert v-if="safeConfiguration" theme="info">安全模板不含密钥，无需替换模板中的变量引用。{{ connectionKey.secret_available || hasConfigSecret ? '请用“复制 Secret”获取此 Key，按下方步骤设置环境变量或在客户端安全输入框中粘贴。' : '请使用已有 Secret 设置环境变量或客户端安全输入；若已遗失，请在管理中重新生成。' }}</t-alert>
+          <t-alert v-else theme="info">{{ connectionKey.secret_available || hasConfigSecret ? '预览中的 Secret 已遮蔽。“复制完整配置（含密钥）”会自动填入此 Key 的真实 Secret，无需手动替换。仅保存到可信个人配置，禁止提交代码仓库。' : '此 Key 未保存可恢复的 Secret。请使用已保存的 Secret 设置客户端，或在管理中重新生成；占位模板不是完整配置。' }}</t-alert>
           <t-input v-if="!personalConfig && !connectionKey.secret_available && !revealingSecret && token === TOKEN_PLACEHOLDER" v-model="suppliedSecret" type="password" autocomplete="off" placeholder="填入已保存的 Secret（仅本次使用）" aria-label="已保存的 Secret" />
           <div v-if="connectionKey.secret_available || hasConfigSecret" class="token-row"><code>{{ secretVisible ? configToken : '••••••••••••••••' }}</code><t-button size="small" variant="outline" :disabled="!canConnect || revealingSecret" @click="toggleSecret">{{ secretVisible ? '隐藏 Secret' : '显示 Secret' }}</t-button><t-button size="small" variant="outline" :disabled="!canConnect || revealingSecret" @click="copySecret">复制 Secret</t-button></div>
           <div class="config-heading"><strong>{{ personalConfig ? currentClient.location : configPresetTitle }}</strong><t-tag theme="warning" variant="light">参考配置 · 客户端待验证</t-tag></div>
           <pre v-if="publicUrl">{{ displayedConfig }}</pre>
           <div class="detail-actions"><t-button theme="primary" :disabled="!canConnect || revealingSecret" @click="copyConfiguration">{{ configurationCopyLabel }}</t-button><t-button v-if="personalConfig" variant="outline" :disabled="!canConnect || (!hasConfigSecret && !connectionKey.secret_available) || revealingSecret" :loading="testingPersonal" @click="testPersonalConnection">验证 MCP 协议</t-button><t-button variant="text" @click="configVisible = false; openDetails(connectionKey)">管理 Key</t-button></div>
-          <ol v-if="personalConfig" class="config-steps"><li v-for="instruction in currentClient.steps" :key="instruction">{{ instruction }}</li><li v-if="configPreset === 'copilot' || configPreset === 'vscode'">启动时在密码输入框中粘贴个人 Secret。</li><li v-else-if="!safeConfiguration && !connectionKey.secret_available && !hasConfigSecret">此占位模板需要你已有的 Secret 才能使用；若已遗失，请在管理中重新生成。</li><li>请求 AI 检索一条你有权读取的知识，核对返回来源。实际检索成功后，才算完成客户端验收。</li></ol>
+          <ol v-if="personalConfig" class="config-steps"><li v-for="instruction in currentClient.steps" :key="instruction">{{ instruction }}</li><li v-if="!connectionKey.secret_available && !hasConfigSecret">此占位模板需要你已有的 Secret 才能使用；若已遗失，请在管理中重新生成。</li><li>请求 AI 检索一条你有权读取的知识，核对返回来源。实际检索成功后，才算完成客户端验收。</li></ol>
           <p v-else class="secondary-copy">保留历史配置格式、地址与空间请求头。请按原客户端方式导入并验证检索。</p>
           <t-alert v-if="personalConnection" :theme="personalProtocolPassed ? 'success' : 'warning'">{{ personalConnection }}</t-alert>
           <t-alert theme="info">凭证有效、MCP 协议通过和客户端实际调用是不同状态。本页协议验证只检查鉴权与工具发现。401 请检查 Secret 和有效期；403 请检查个人授权；连接失败请检查网络和服务地址。</t-alert>
@@ -132,7 +131,7 @@ import { credentialListState, credentialPageSize, clampCredentialPage } from './
 import { isUnifiedPersonalKey, personalKnowledgeRangePayload, personalPrivateScopeUpdate, type PersonalKnowledgeRange } from './personalMcpPresentation'
 import { createReconnectAndReveal, credentialLifecycleActions, credentialMatchesStatusFilter, credentialToReconnectPayload, getCredentialLifecycleState, type CredentialStatusFilter } from './mcpAccessLifecycle'
 
-import { mcpClients, personalClientConfiguration, usesSafeCredentialInput, type MCPClientPreset } from './mcpClientPresets'
+import { mcpClients, personalClientConfiguration, type MCPClientPreset } from './mcpClientPresets'
 import claudeIcon from '@/assets/mcp-clients/claude.svg'
 import copilotIcon from '@/assets/mcp-clients/copilot.svg'
 import piIcon from '@/assets/mcp-clients/pi.svg'
@@ -225,8 +224,7 @@ watch([historyPage, () => filteredKeys.value.length], () => { historyPage.value 
 const invalidTenantIds = computed(() => selectedTenantIds.value.filter(id => !options.value.some(option => option.tenant_id === id)))
 const configPresetTitle = computed(() => `${clientMeta(configClientType.value).label} · 历史兼容模板`)
 const canConnect = computed(() => Boolean(publicUrl.value && connectionKey.value && lifecycleState(connectionKey.value) === 'active'))
-const safeConfiguration = computed(() => personalConfig.value && usesSafeCredentialInput(configPreset.value))
-const configurationCopyLabel = computed(() => safeConfiguration.value ? '复制安全模板' : connectionKey.value?.secret_available || hasConfigSecret.value ? '复制完整配置（含密钥）' : '复制占位模板（需已有密钥）')
+const configurationCopyLabel = computed(() => connectionKey.value?.secret_available || hasConfigSecret.value ? '复制完整配置（含密钥）' : '复制占位模板（需已有密钥）')
 function configuration(secret: string) { return !publicUrl.value ? '' : personalConfig.value ? personalClientConfiguration(configPreset.value, publicUrl.value, secret) : stringifyMCPConfig(publicUrl.value, secret, configSpaces.value, configClientType.value) }
 const jsonConfig = computed(() => configuration(configToken.value))
 const displayedConfig = computed(() => configuration(secretVisible.value ? configToken.value : TOKEN_PLACEHOLDER))
@@ -349,7 +347,7 @@ async function ensureConnectionSecret(): Promise<string> {
 async function secretAction(action: () => Promise<void>) { const id = connectionKey.value?.id; try { await ensureConnectionSecret(); if (configVisible.value && connectionKey.value?.id === id) await action() } catch (error) { if (configVisible.value && connectionKey.value?.id === id) MessagePlugin.error(error instanceof Error ? error.message : '读取 Secret 失败') } }
 async function toggleSecret() { if (secretVisible.value) { secretVisible.value = false; return }; await secretAction(async () => { secretVisible.value = true }) }
 async function copySecret() { await secretAction(async () => { if (hasConfigSecret.value) await copySensitive(configToken.value) }) }
-async function copyConfiguration() { if (!canConnect.value) return; if (safeConfiguration.value || (!connectionKey.value?.secret_available && !hasConfigSecret.value)) { await copySensitive(displayedConfig.value); return }; await secretAction(async () => { await copySensitive(jsonConfig.value) }) }
+async function copyConfiguration() { if (!canConnect.value) return; if (!connectionKey.value?.secret_available && !hasConfigSecret.value) { await copySensitive(displayedConfig.value); return }; await secretAction(async () => { await copySensitive(jsonConfig.value) }) }
 function clearProtocolState() { protocolRequest++; testingPersonal.value = false; personalConnection.value = ''; personalProtocolPassed.value = false }
 watch([configPreset, suppliedSecret], clearProtocolState)
 function clearPlaintextToken() { clearProtocolState(); suppliedSecret.value = ''; connectionRequest++; revealingSecret.value = false; secretVisible.value = false; token.value = ''; configSpaces.value = []; connectionKey.value = null }

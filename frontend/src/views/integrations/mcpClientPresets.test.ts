@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { personalClientConfiguration, mcpClients, usesSafeCredentialInput } from './mcpClientPresets.ts'
+import { personalClientConfiguration, mcpClients } from './mcpClientPresets.ts'
 
 const url = 'https://knowhub.example/mcp/old?tenant=99'
 test('personal clients use the unified URL and never manufacture tenant authorization', () => {
@@ -11,28 +11,37 @@ test('personal clients use the unified URL and never manufacture tenant authoriz
     assert.equal(server.headers['X-Tenant-ID'], undefined)
     assert.equal(server.headers['X-API-Key'], undefined)
     if (client.value === 'copilot' || client.value === 'vscode') {
-      assert.equal(config.inputs[0].password, true)
-      assert.equal(server.headers.Authorization, 'Bearer ${input:knowhub-key}')
-      assert.equal(JSON.stringify(config).includes('secret-'), false)
-    } else if (client.value === 'claude') {
-      assert.equal(server.headers.Authorization, 'Bearer ${KNOWHUB_MCP_KEY}')
-      assert.equal(JSON.stringify(config).includes('secret-'), false)
+      assert.equal(config.inputs, undefined)
+      assert.equal(server.headers.Authorization, 'Bearer secret-"value')
+      assert.equal(JSON.stringify(config).includes('${input:'), false)
     } else assert.equal(server.headers.Authorization, 'Bearer secret-"value')
     assert.equal(server.type, client.value === 'pi' ? undefined : client.value === 'workbuddy' ? 'streamableHttp' : 'http')
   }
 })
 
-test('safe input clients never embed the supplied Secret; complete clients do', () => {
+test('all personal client copies embed the supplied Secret in the appropriate user configuration', () => {
   for (const client of mcpClients) {
     const config = personalClientConfiguration(client.value, url, 'do-not-commit-this-secret')
-    assert.equal(config.includes('do-not-commit-this-secret'), !usesSafeCredentialInput(client.value))
+    assert.equal(config.includes('do-not-commit-this-secret'), true)
+    assert.doesNotMatch(config, /\$\{input:|\$\{KNOWHUB_MCP_KEY\}|bearer_token_env_var/)
   }
   assert.match(mcpClients[0].location, /用户级/)
 })
-test('Codex reuses the existing environment credential contract', () => {
+test('Codex complete user configuration uses supported static HTTP headers', () => {
   const config = personalClientConfiguration('codex', url, 'must-not-be-stored')
-  assert.match(config, /bearer_token_env_var = "KNOWHUB_MCP_KEY"/)
-  assert.doesNotMatch(config, /must-not-be-stored|X-Tenant-ID/)
+  assert.match(config, /http_headers = \{ Authorization = "Bearer must-not-be-stored" \}/)
+  assert.doesNotMatch(config, /bearer_token_env_var|X-Tenant-ID/)
+})
+
+test('VS Code and Copilot complete user configurations contain the supplied Key directly', () => {
+  for (const client of ['vscode', 'copilot'] as const) {
+    for (const secret of ['key-A', 'key-B']) {
+      const config = JSON.parse(personalClientConfiguration(client, url, secret))
+      assert.equal(config.servers.knowhub.headers.Authorization, `Bearer ${secret}`)
+      assert.equal(config.inputs, undefined)
+    }
+    assert.match(mcpClients.find(item => item.value === client)!.location, /用户级/)
+  }
 })
 test('only the seven approved clients are recommended and Pi is pinned', () => {
   assert.deepEqual(mcpClients.map(client => client.value), ['claude', 'codex', 'copilot', 'vscode', 'workbuddy', 'pi', 'generic'])
