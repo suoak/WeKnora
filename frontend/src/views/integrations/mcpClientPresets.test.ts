@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { personalClientConfiguration, mcpClients } from './mcpClientPresets.ts'
+import { personalClientConfiguration, mcpClients, usesSafeCredentialInput } from './mcpClientPresets.ts'
 
 const url = 'https://knowhub.example/mcp/old?tenant=99'
 test('personal clients use the unified URL and never manufacture tenant authorization', () => {
@@ -14,9 +14,20 @@ test('personal clients use the unified URL and never manufacture tenant authoriz
       assert.equal(config.inputs[0].password, true)
       assert.equal(server.headers.Authorization, 'Bearer ${input:knowhub-key}')
       assert.equal(JSON.stringify(config).includes('secret-'), false)
+    } else if (client.value === 'claude') {
+      assert.equal(server.headers.Authorization, 'Bearer ${KNOWHUB_MCP_KEY}')
+      assert.equal(JSON.stringify(config).includes('secret-'), false)
     } else assert.equal(server.headers.Authorization, 'Bearer secret-"value')
     assert.equal(server.type, client.value === 'pi' ? undefined : client.value === 'workbuddy' ? 'streamableHttp' : 'http')
   }
+})
+
+test('safe input clients never embed the supplied Secret; complete clients do', () => {
+  for (const client of mcpClients) {
+    const config = personalClientConfiguration(client.value, url, 'do-not-commit-this-secret')
+    assert.equal(config.includes('do-not-commit-this-secret'), !usesSafeCredentialInput(client.value))
+  }
+  assert.match(mcpClients[0].location, /用户级/)
 })
 test('Codex reuses the existing environment credential contract', () => {
   const config = personalClientConfiguration('codex', url, 'must-not-be-stored')

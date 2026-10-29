@@ -37,7 +37,7 @@ test('frontend adapter uses M1 PATCH, rotate, revoke and scope-options contracts
 test('owner can reopen encrypted Secret; legacy hash-only keys require explicit rotation', () => {
   assert.match(view, /Secret 默认遮蔽，主动显示或复制时才读取/)
   assert.match(view, /服务端加密保存，仅当前凭证本人可在此查看/)
-  assert.match(view, /历史凭证未保存可恢复的 Secret/)
+  assert.match(view, /此 Key 未保存可恢复的 Secret/)
   assert.match(view, /重新生成 Secret/)
   assert.match(view, /旧 Secret 将立即失效/)
   assert.match(view, /rotateMCPAccessKey/)

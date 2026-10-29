@@ -18,7 +18,7 @@ test('bound Key scope, delayed reveal isolation, masked Secret, protocol state a
   await expect(dialog).toContainText('指定范围')
   await expect(dialog).toContainText('1 个知识库')
   api.release()
-  await dialog.getByRole('button', { name: '复制连接配置', exact: true }).click()
+  await dialog.getByRole('button', { name: '复制完整配置（含密钥）', exact: true }).click()
   await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain('Bearer synthetic-key-4')
   await expect(dialog).not.toContainText('synthetic-key-3')
   await expect(dialog).not.toContainText('synthetic-key-4')
@@ -58,7 +58,7 @@ test('bound Key scope, delayed reveal isolation, masked Secret, protocol state a
   const payload = api.mutations[0].body
   expect(payload).toMatchObject({ name: '新建知识检索 Key', client_type: 'generic', personal_scope_mode: 'dynamic_all', capabilities: ['retrieve', 'enterprise_retrieve'], never_expires: true })
   await chooseClient(page, 'Pi')
-  await dialog.getByRole('button', { name: '复制连接配置', exact: true }).click()
+  await dialog.getByRole('button', { name: '复制完整配置（含密钥）', exact: true }).click()
   await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain('Bearer synthetic-key-100')
   await expect(dialog).not.toContainText('synthetic-key-100')
   await page.screenshot({ path: 'test-results/mcp-access/created-key-config.png', animations: 'disabled' })

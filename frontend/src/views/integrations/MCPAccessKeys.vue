@@ -6,11 +6,11 @@
     </header>
     <t-alert v-if="!publicUrl && !loading" theme="warning" class="url-warning">服务地址尚未配置，请联系管理员。你仍可管理已有凭证。</t-alert>
     <section class="credential-surface personal-surface" aria-labelledby="personal-title">
-      <div class="section-heading"><h2 id="personal-title">我的个人 MCP Key</h2><t-button variant="text" :loading="loading" @click="load"><t-icon name="refresh" /> 刷新</t-button></div>
+      <div class="section-heading"><div class="list-heading"><h2 id="personal-title">我的个人 MCP Key</h2><span v-if="!loading && !loadError" class="secondary-copy">{{ personalListState.summary }}</span></div><t-button variant="text" :loading="loading" @click="load"><t-icon name="refresh" /> 刷新</t-button></div>
       <div v-if="loading" class="state-panel"><t-loading />正在加载个人 Key…</div>
       <t-alert v-else-if="loadError" theme="error">{{ loadError }} <t-button variant="text" @click="load">重试</t-button></t-alert>
       <template v-else-if="personalKeys.length">
-        <div class="list-filters"><t-radio-group v-model="personalStatusFilter" variant="default-filled" aria-label="个人 Key 状态筛选"><t-radio-button v-for="filter in personalStatusFilters" :key="filter.value" :value="filter.value">{{ filter.label }} {{ filter.count }}</t-radio-button></t-radio-group><t-input v-model="personalSearch" clearable placeholder="搜索 Key 名称" aria-label="搜索个人 Key"><template #prefix-icon><t-icon name="search" /></template></t-input></div>
+        <div v-if="personalListState.hasMany" class="list-filters"><t-tabs v-if="personalListState.multipleStates" v-model="personalStatusFilter" class="status-tabs" size="medium" aria-label="个人 Key 状态筛选"><t-tab-panel v-for="filter in personalListState.filters" :key="filter.value" :value="filter.value" :label="`${filter.label} ${filter.count}`" /></t-tabs><t-input v-model="personalSearch" clearable placeholder="搜索 Key 名称" aria-label="搜索个人 Key"><template #prefix-icon><t-icon name="search" /></template></t-input></div>
         <div v-if="!filteredPersonalKeys.length" class="state-panel">当前筛选下没有个人 Key</div>
         <div class="credential-list personal-list">
           <article v-for="key in pagedPersonalKeys" :key="key.id" class="credential-card personal-key-card" :data-key-id="key.id">
@@ -20,16 +20,16 @@
             <div class="actions"><t-button variant="outline" @click="openDetails(key)">管理</t-button><t-button theme="primary" :disabled="lifecycleState(key) !== 'active' || !publicUrl" @click="openConnect(key)">连接 AI 工具</t-button></div>
           </article>
         </div>
-        <t-pagination v-if="filteredPersonalKeys.length" v-model="personalPage" :page-size="5" :total="filteredPersonalKeys.length" :show-page-size="false" :show-jumper="false" />
+        <t-pagination v-if="filteredPersonalKeys.length > credentialPageSize" v-model="personalPage" :page-size="credentialPageSize" :total="filteredPersonalKeys.length" :show-page-size="false" :show-jumper="false" />
       </template>
       <div v-else class="state-panel column"><t-icon name="key" /><strong>暂无个人 Key</strong><p>创建一次，即可用于多个 AI 客户端。</p><t-button theme="primary" @click="openPersonalCreate">创建个人 Key</t-button></div>
       <p class="secondary-copy scope-explanation">默认范围随本人当前授权更新；历史固定范围仅限原凭证中的授权，不会自动扩展。当前空间不等于个人 MCP 的完整授权范围。凭证有效不代表客户端已连接。</p>
     </section>
-    <section class="credential-surface history-surface">
+    <section v-if="historyKeys.length" class="credential-surface history-surface">
       <t-button variant="text" :aria-expanded="historyExpanded" aria-controls="mcp-history" @click="historyExpanded = !historyExpanded"><template #icon><t-icon :name="historyExpanded ? 'chevron-down' : 'chevron-right'" /></template>历史接入 · {{ historyKeys.length }} 个凭证</t-button>
       <div v-if="historyExpanded" id="mcp-history">
         <p class="secondary-copy">仅展示旧版客户端凭证，可继续查看、修改范围、轮换及停用。个人 Key 已在上方独立展示。</p>
-        <t-radio-group v-model="statusFilter" variant="default-filled" aria-label="凭证状态筛选"><t-radio-button v-for="filter in statusFilters" :key="filter.value" :value="filter.value">{{ filter.label }} {{ filter.count }}</t-radio-button></t-radio-group>
+        <t-tabs v-if="historyListState.multipleStates" v-model="statusFilter" class="status-tabs" size="medium" aria-label="凭证状态筛选"><t-tab-panel v-for="filter in historyListState.filters" :key="filter.value" :value="filter.value" :label="`${filter.label} ${filter.count}`" /></t-tabs>
         <div v-if="loadError" class="state-panel column"><strong>加载失败</strong><p>{{ loadError }}</p><t-button variant="outline" @click="load">重试</t-button></div>
         <div v-else-if="!filteredKeys.length" class="state-panel">当前筛选下没有接入凭证</div>
         <div v-else class="credential-list">
@@ -40,7 +40,7 @@
             <div class="actions"><t-button v-if="lifecycleState(key) !== 'revoked'" variant="outline" :disabled="!publicUrl || lifecycleState(key) !== 'active'" @click="openHistoryConfig(key)">兼容配置</t-button><t-button variant="text" @click="openDetails(key)">管理</t-button></div>
           </article>
         </div>
-        <t-pagination v-if="filteredKeys.length" v-model="historyPage" :page-size="5" :total="filteredKeys.length" :show-page-size="false" :show-jumper="false" />
+        <t-pagination v-if="filteredKeys.length > credentialPageSize" v-model="historyPage" :page-size="credentialPageSize" :total="filteredKeys.length" :show-page-size="false" :show-jumper="false" />
       </div>
     </section>
 
@@ -98,13 +98,14 @@
           <template v-else>
           <t-button v-if="personalConfig" variant="text" class="change-client" :disabled="revealingSecret || testingPersonal" @click="configStage = 'clients'; secretVisible = false; clearProtocolState()"><t-icon name="chevron-left" />更换客户端</t-button>
           <t-loading v-if="revealingSecret" text="正在读取个人 Secret" />
-          <t-alert v-else theme="info">{{ connectionKey.secret_available || hasConfigSecret ? 'Secret 默认遮蔽，主动显示或复制时才读取。服务端加密保存，仅当前凭证本人可在此查看。' : '历史凭证未保存可恢复的 Secret。可复制占位模板；遗失时请在管理中轮换。' }}</t-alert>
+          <t-alert v-else theme="info">{{ connectionKey.secret_available || hasConfigSecret ? 'Secret 默认遮蔽，主动显示或复制时才读取。服务端加密保存，仅当前凭证本人可在此查看。' : '此 Key 未保存可恢复的 Secret。请使用已保存的 Secret 设置客户端，或在管理中重新生成；占位模板不是完整配置。' }}</t-alert>
+          <t-alert v-if="safeConfiguration" theme="info">安全模板不含密钥，无需替换模板中的变量引用。{{ connectionKey.secret_available || hasConfigSecret ? '请用“复制 Secret”获取此 Key，按下方步骤设置环境变量或在客户端安全输入框中粘贴。' : '请使用已有 Secret 设置环境变量或客户端安全输入；若已遗失，请在管理中重新生成。' }}</t-alert>
           <t-input v-if="!personalConfig && !connectionKey.secret_available && !revealingSecret && token === TOKEN_PLACEHOLDER" v-model="suppliedSecret" type="password" autocomplete="off" placeholder="填入已保存的 Secret（仅本次使用）" aria-label="已保存的 Secret" />
           <div v-if="connectionKey.secret_available || hasConfigSecret" class="token-row"><code>{{ secretVisible ? configToken : '••••••••••••••••' }}</code><t-button size="small" variant="outline" :disabled="!canConnect || revealingSecret" @click="toggleSecret">{{ secretVisible ? '隐藏 Secret' : '显示 Secret' }}</t-button><t-button size="small" variant="outline" :disabled="!canConnect || revealingSecret" @click="copySecret">复制 Secret</t-button></div>
           <div class="config-heading"><strong>{{ personalConfig ? currentClient.location : configPresetTitle }}</strong><t-tag theme="warning" variant="light">参考配置 · 客户端待验证</t-tag></div>
           <pre v-if="publicUrl">{{ displayedConfig }}</pre>
-          <div class="detail-actions"><t-button theme="primary" :disabled="!canConnect || revealingSecret" @click="copyConfiguration">{{ connectionKey.secret_available || hasConfigSecret ? '复制连接配置' : '复制配置模板' }}</t-button><t-button v-if="personalConfig" variant="outline" :disabled="!canConnect || (!hasConfigSecret && !connectionKey.secret_available) || revealingSecret" :loading="testingPersonal" @click="testPersonalConnection">验证 MCP 协议</t-button><t-button variant="text" @click="configVisible = false; openDetails(connectionKey)">管理 Key</t-button></div>
-          <ol v-if="personalConfig" class="config-steps"><li v-for="instruction in currentClient.steps" :key="instruction">{{ instruction }}</li><li v-if="configPreset === 'copilot' || configPreset === 'vscode'">启动时在密码输入框中粘贴个人 Secret。</li><li v-else-if="configPreset !== 'codex' && !hasConfigSecret">将 &lt;YOUR_MCP_KEY&gt; 替换为保存的完整 Secret。</li><li>请求 AI 检索一条你有权读取的知识，核对返回来源。实际检索成功后，才算完成客户端验收。</li></ol>
+          <div class="detail-actions"><t-button theme="primary" :disabled="!canConnect || revealingSecret" @click="copyConfiguration">{{ configurationCopyLabel }}</t-button><t-button v-if="personalConfig" variant="outline" :disabled="!canConnect || (!hasConfigSecret && !connectionKey.secret_available) || revealingSecret" :loading="testingPersonal" @click="testPersonalConnection">验证 MCP 协议</t-button><t-button variant="text" @click="configVisible = false; openDetails(connectionKey)">管理 Key</t-button></div>
+          <ol v-if="personalConfig" class="config-steps"><li v-for="instruction in currentClient.steps" :key="instruction">{{ instruction }}</li><li v-if="configPreset === 'copilot' || configPreset === 'vscode'">启动时在密码输入框中粘贴个人 Secret。</li><li v-else-if="!safeConfiguration && !connectionKey.secret_available && !hasConfigSecret">此占位模板需要你已有的 Secret 才能使用；若已遗失，请在管理中重新生成。</li><li>请求 AI 检索一条你有权读取的知识，核对返回来源。实际检索成功后，才算完成客户端验收。</li></ol>
           <p v-else class="secondary-copy">保留历史配置格式、地址与空间请求头。请按原客户端方式导入并验证检索。</p>
           <t-alert v-if="personalConnection" :theme="personalProtocolPassed ? 'success' : 'warning'">{{ personalConnection }}</t-alert>
           <t-alert theme="info">凭证有效、MCP 协议通过和客户端实际调用是不同状态。本页协议验证只检查鉴权与工具发现。401 请检查 Secret 和有效期；403 请检查个人授权；连接失败请检查网络和服务地址。</t-alert>
@@ -127,10 +128,11 @@ import { cssViewportSize } from '@/utils/zoom'
 import { stringifyMCPConfig, type MCPConfigSpace } from './mcpConfig'
 import { availableKBRefs, invalidCredentialScopes } from './mcpAccessScope'
 import { credentialToEditDraft } from './mcpAccessEditor'
+import { credentialListState, credentialPageSize, clampCredentialPage } from './mcpCredentialList'
 import { isUnifiedPersonalKey, personalKnowledgeRangePayload, personalPrivateScopeUpdate, type PersonalKnowledgeRange } from './personalMcpPresentation'
 import { createReconnectAndReveal, credentialLifecycleActions, credentialMatchesStatusFilter, credentialToReconnectPayload, getCredentialLifecycleState, type CredentialStatusFilter } from './mcpAccessLifecycle'
 
-import { mcpClients, personalClientConfiguration, type MCPClientPreset } from './mcpClientPresets'
+import { mcpClients, personalClientConfiguration, usesSafeCredentialInput, type MCPClientPreset } from './mcpClientPresets'
 import claudeIcon from '@/assets/mcp-clients/claude.svg'
 import copilotIcon from '@/assets/mcp-clients/copilot.svg'
 import piIcon from '@/assets/mcp-clients/pi.svg'
@@ -207,24 +209,24 @@ const lifecycleState = (key: MCPAccessKey) => getCredentialLifecycleState(key)
 const personalKeys = computed(() => keys.value.filter(isUnifiedPersonalKey))
 const historyKeys = computed(() => keys.value.filter(key => !isUnifiedPersonalKey(key)))
 const personalStatusFilter = ref<CredentialStatusFilter>('all'), personalSearch = ref(''), personalPage = ref(1)
-const filteredPersonalKeys = computed(() => personalKeys.value.filter(key => credentialMatchesStatusFilter(key, personalStatusFilter.value) && key.name.toLocaleLowerCase().includes(personalSearch.value.trim().toLocaleLowerCase())).sort((a, b) => Number(lifecycleState(b) === 'active') - Number(lifecycleState(a) === 'active')))
-const pagedPersonalKeys = computed(() => filteredPersonalKeys.value.slice((personalPage.value - 1) * 5, personalPage.value * 5))
+const personalListState = computed(() => credentialListState(personalKeys.value))
+const historyListState = computed(() => credentialListState(historyKeys.value))
+const filteredPersonalKeys = computed(() => personalKeys.value.filter(key => !personalListState.value.hasMany || (credentialMatchesStatusFilter(key, personalStatusFilter.value) && key.name.toLocaleLowerCase().includes(personalSearch.value.trim().toLocaleLowerCase()))).sort((a, b) => Number(lifecycleState(b) === 'active') - Number(lifecycleState(a) === 'active')))
+const pagedPersonalKeys = computed(() => filteredPersonalKeys.value.slice((personalPage.value - 1) * credentialPageSize, personalPage.value * credentialPageSize))
 const filteredKeys = computed(() => historyKeys.value.filter(key => credentialMatchesStatusFilter(key, statusFilter.value)))
 const historyExpanded = ref(false), historyPage = ref(1)
-const pagedKeys = computed(() => filteredKeys.value.slice((historyPage.value - 1) * 5, historyPage.value * 5))
+const pagedKeys = computed(() => filteredKeys.value.slice((historyPage.value - 1) * credentialPageSize, historyPage.value * credentialPageSize))
 watch([statusFilter, () => keys.value], () => { historyPage.value = 1 })
 watch([personalStatusFilter, personalSearch, () => keys.value], () => { personalPage.value = 1 })
-function filtersFor(rows: MCPAccessKey[]) { return [
-  { value: 'all' as const, label: '全部', count: rows.length },
-  { value: 'active' as const, label: '已启用', count: rows.filter(key => lifecycleState(key) === 'active').length },
-  { value: 'expired' as const, label: '已过期', count: rows.filter(key => lifecycleState(key) === 'expired').length },
-  { value: 'revoked' as const, label: '已停用', count: rows.filter(key => lifecycleState(key) === 'revoked').length },
-] }
-const statusFilters = computed(() => filtersFor(historyKeys.value))
-const personalStatusFilters = computed(() => filtersFor(personalKeys.value))
+watch(personalListState, state => { if (!state.hasMany) personalSearch.value = ''; if (!state.hasMany || !state.multipleStates || !state.filters.some(filter => filter.value === personalStatusFilter.value)) personalStatusFilter.value = 'all' })
+watch(historyListState, state => { if (!state.multipleStates || !state.filters.some(filter => filter.value === statusFilter.value)) statusFilter.value = 'all'; if (!historyKeys.value.length) historyExpanded.value = false })
+watch([personalPage, () => filteredPersonalKeys.value.length], () => { personalPage.value = clampCredentialPage(personalPage.value, filteredPersonalKeys.value.length) })
+watch([historyPage, () => filteredKeys.value.length], () => { historyPage.value = clampCredentialPage(historyPage.value, filteredKeys.value.length) })
 const invalidTenantIds = computed(() => selectedTenantIds.value.filter(id => !options.value.some(option => option.tenant_id === id)))
 const configPresetTitle = computed(() => `${clientMeta(configClientType.value).label} · 历史兼容模板`)
 const canConnect = computed(() => Boolean(publicUrl.value && connectionKey.value && lifecycleState(connectionKey.value) === 'active'))
+const safeConfiguration = computed(() => personalConfig.value && usesSafeCredentialInput(configPreset.value))
+const configurationCopyLabel = computed(() => safeConfiguration.value ? '复制安全模板' : connectionKey.value?.secret_available || hasConfigSecret.value ? '复制完整配置（含密钥）' : '复制占位模板（需已有密钥）')
 function configuration(secret: string) { return !publicUrl.value ? '' : personalConfig.value ? personalClientConfiguration(configPreset.value, publicUrl.value, secret) : stringifyMCPConfig(publicUrl.value, secret, configSpaces.value, configClientType.value) }
 const jsonConfig = computed(() => configuration(configToken.value))
 const displayedConfig = computed(() => configuration(secretVisible.value ? configToken.value : TOKEN_PLACEHOLDER))
@@ -341,13 +343,13 @@ async function ensureConnectionSecret(): Promise<string> {
     if (!response.data?.token) throw new Error('未能读取 Secret')
     token.value = response.data.token
     return token.value
-  }
+  } catch (error) { if (request === connectionRequest && connectionKey.value?.id === key.id) { token.value = TOKEN_PLACEHOLDER; suppliedSecret.value = ''; secretVisible.value = false }; throw error }
   finally { if (request === connectionRequest) revealingSecret.value = false }
 }
 async function secretAction(action: () => Promise<void>) { const id = connectionKey.value?.id; try { await ensureConnectionSecret(); if (configVisible.value && connectionKey.value?.id === id) await action() } catch (error) { if (configVisible.value && connectionKey.value?.id === id) MessagePlugin.error(error instanceof Error ? error.message : '读取 Secret 失败') } }
 async function toggleSecret() { if (secretVisible.value) { secretVisible.value = false; return }; await secretAction(async () => { secretVisible.value = true }) }
 async function copySecret() { await secretAction(async () => { if (hasConfigSecret.value) await copySensitive(configToken.value) }) }
-async function copyConfiguration() { await secretAction(async () => { await copySensitive(jsonConfig.value) }) }
+async function copyConfiguration() { if (!canConnect.value) return; if (safeConfiguration.value || (!connectionKey.value?.secret_available && !hasConfigSecret.value)) { await copySensitive(displayedConfig.value); return }; await secretAction(async () => { await copySensitive(jsonConfig.value) }) }
 function clearProtocolState() { protocolRequest++; testingPersonal.value = false; personalConnection.value = ''; personalProtocolPassed.value = false }
 watch([configPreset, suppliedSecret], clearProtocolState)
 function clearPlaintextToken() { clearProtocolState(); suppliedSecret.value = ''; connectionRequest++; revealingSecret.value = false; secretVisible.value = false; token.value = ''; configSpaces.value = []; connectionKey.value = null }
@@ -365,7 +367,7 @@ function scopeSummary(key: MCPAccessKey) { if (key.personal_scope_mode === 'dyna
 function formatTime(value: string) { return new Date(value).toLocaleString() } function formatDate(value: string) { return new Date(value).toLocaleDateString() }
 function relativeTime(value?: string) { if (!value) return '尚未使用'; const delta = Date.now() - new Date(value).getTime(); if (delta < 60_000) return '刚刚'; if (delta < 86400_000) return `${Math.max(1, Math.floor(delta / 3600_000))} 小时前`; return formatDate(value) }
 function toDatetimeLocal(value: string) { const date = new Date(value); return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16) }
-async function copySensitive(value: string) { await copyWithToast(value, 'common.copied'); if (hasConfigSecret.value && value.includes(configToken.value)) MessagePlugin.warning('配置包含敏感凭证，请仅粘贴到可信 AI 工具中') }
+async function copySensitive(value: string) { const copied = await copyWithToast(value, 'common.copied'); if (copied && hasConfigSecret.value && value.includes(configToken.value)) MessagePlugin.warning('复制内容包含密钥：仅保存到可信的个人配置位置，禁止提交代码仓库') }
 
 watch(configVisible, visible => { if (!visible) clearPlaintextToken() }); onBeforeUnmount(clearPlaintextToken); onMounted(load)
 </script>

@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
   testDir: '.', testMatch: '*.spec.ts', workers: 1, timeout: 180000,
-  outputDir: '../../test-results/mcp-access', reporter: 'list',
+  outputDir: '../../test-results/mcp-access-runs', reporter: 'list',
   use: {
     baseURL: process.env.MCP_BASE_URL || 'http://127.0.0.1:4219', viewport: { width: 1440, height: 1000 },
     launchOptions: { executablePath: process.env.MCP_BROWSER_PATH || (process.platform === 'win32' ? 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe' : undefined) },
