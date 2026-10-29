@@ -116,7 +116,9 @@ jobs:
           echo "VALIDATION_HEAD_SHA=$SOURCE_SHA ImageOS=$ImageOS ImageVersion=$ImageVersion"
           go version
           test "$(go env CGO_ENABLED)" = 1
-          test "$ImageVersion" = 20260927.320.1
+          # Exact image observed in manual acceptance run 40885450446.
+          # Preserve runner attribution instead of skipping this check.
+          test "$ImageVersion" = 20261026.354.1
           sha256sum go.mod go.sum
       - name: SQLite concurrency x50
         run: |

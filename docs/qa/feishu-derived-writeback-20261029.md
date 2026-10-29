@@ -27,7 +27,7 @@
 
 ## 受控协议
 
-1. 任务入队记录资源/generation/current attempt/epoch incarnation/generation。它是版本标识，不是凭据。
+1. 任务入队记录资源/generation/current attempt/epoch incarnation。它是版本标识，不是凭据；每次回写另检查行摘要和 epoch generation。
 2. 开始摘要前核对入队版本；通过现有 `bindFeishuSource`、`batchContext` 验证持久来源 owner 的当前成员、连接、配置、批准和来源权限。缺少可验证来源引用时拒绝。
 3. 捕获文档行摘要和访问 epoch。网络读保护在事务外执行；本地授权提交保护在持锁事务内重查。
 4. 按 source → 来源 identity advisory lock → KID advisory lock → resource → knowledge 顺序锁定，要求来源 active、未删除、可运行，资源 active，current/active attempt 为当前 generation 的 published 记录。无需且禁止续租旧 attempt。
@@ -55,6 +55,10 @@
 复查修订将队列版本限定为已发布内容身份，避免任务自身的摘要状态更新使合法重试失效；行/epoch 乐观快照仍保护每次回写。迁移治理映射和全链路夹具的 latest 断言同步至 3043，历史升级及内容/权限断言不删减。缺失 epoch、资源与来源 KB 不一致继续拒绝。
 
 外部测试账号的真实 HTTP 操作、真实飞书授权生命周期验收以及发布评审仍应作为独立门槛记录，不以仓储测试代替。此分支不包含 MCP 授权范围重构，不自动合并或上线。
+
+后续候选快照 `6e60f8aa9badcf96231d310193a9ee8a7798a8362dc898ea75bba10463cc4c41` 对应 Go 代码提交 `755d68691`：选定的 repository、service、container、router、asynqdl、database 回归全部通过（exit=0），同快照的派生写并发/任务测试通过 Go race。App、Portal Final Gate、Go Lint CI 通过。
+
+Datasource Sync Execution Gate 的 PR Job 只允许 `fix/feishu-sync-resilience` 分支，故 #61 原运行被整组跳过，不能计作通过。已手动对精确 SHA `755d68691b8100cdb3b4838ecd4eb3821c1ff08e` 触发 workflow_dispatch，运行 `40885450446`。三个 race Job 在执行测试前被旧 runner 版本断言拦住：实际 ubuntu24 `20261026.354.1`，工作流要求 `20260927.320.1`。依据该采证更新精确镜像断言，不删除环境归因或任何测试；更新后必须再次完整手动触发并记录精确 SHA、PostgreSQL x50/x100/race、SQLite x50、三轮完整 race 和 verify 结果。此补验仍不等于真实飞书授权生命周期验收。
 
 ## 新发现：d14eb0c0… 文档停留 pending
 
