@@ -1419,18 +1419,6 @@ func (s *knowledgeService) ProcessSummaryGeneration(ctx context.Context, t *asyn
 	summaryOut["model_id"] = kb.SummaryModelID
 	profileKB = kb
 
-	if kb.SummaryModelID == "" {
-		logger.Warn(ctx, "Knowledge base summary model ID is empty, skipping summary generation")
-		_ = s.repo.UpdateKnowledgeColumn(
-			ctx,
-			payload.KnowledgeID,
-			"summary_status",
-			types.SummaryStatusFailed,
-		)
-		summaryOut["skipped"] = "no_summary_model"
-		return nil
-	}
-
 	// Get knowledge
 	knowledge, err := s.repo.GetKnowledgeByID(ctx, payload.TenantID, payload.KnowledgeID)
 	if err != nil {
@@ -1452,6 +1440,13 @@ func (s *knowledgeService) ProcessSummaryGeneration(ctx context.Context, t *asyn
 	ctx, protectedSource, err := s.beginDerivedSummary(ctx, knowledge.ID, knowledge.TenantID)
 	if err != nil {
 		return err
+	}
+	if kb.SummaryModelID == "" {
+		logger.Warn(ctx, "Knowledge base summary model ID is empty, skipping summary generation")
+		knowledge.SummaryStatus = types.SummaryStatusFailed
+		knowledge.UpdatedAt = time.Now()
+		summaryOut["skipped"] = "no_summary_model"
+		return s.saveSummaryState(ctx, knowledge)
 	}
 
 	// Update summary status to processing

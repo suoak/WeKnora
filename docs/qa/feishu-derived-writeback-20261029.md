@@ -60,6 +60,20 @@
 
 Datasource Sync Execution Gate 的 PR Job 只允许 `fix/feishu-sync-resilience` 分支，故 #61 原运行被整组跳过，不能计作通过。已手动对精确 SHA `755d68691b8100cdb3b4838ecd4eb3821c1ff08e` 触发 workflow_dispatch，运行 `40885450446`。三个 race Job 在执行测试前被旧 runner 版本断言拦住：实际 ubuntu24 `20261026.354.1`，工作流要求 `20260927.320.1`。依据该采证更新精确镜像断言，不删除环境归因或任何测试；更新后必须再次完整手动触发并记录精确 SHA、PostgreSQL x50/x100/race、SQLite x50、三轮完整 race 和 verify 结果。此补验仍不等于真实飞书授权生命周期验收。
 
+更新后的精确 SHA `ba78f4edbf25d0c5dc9758b54cbc7e3ae0cca310` 已手动补跑 Gate，run `40887360793` 全部成功：verify、PostgreSQL x50/x100/race、三轮 SQLite x50 与完整 race。最终 PR head 再次变化后仍须对新 SHA 补跑，不能借旧结果宣称新提交已验收。
+
+### 真实连接与副本生命周期
+
+`knowledge_derived_write_live_test.go` 以 `feishu_live_acceptance` build tag 及显式开关运行，限制到指定隔离测试站；校验实际 test 用户非平台管理员、无跨租户管理员权限。正式来源 binder、成员/连接/共享/来源提交保护、真实飞书远端读取与数据库触发器均保留。仅测试 KB adapter 转发到真实 repository，不伪造读取 grant。
+
+原测试站精确 HTTP 回调策略于北京时间 14:07:37 到期，正常 Token 前置检查按设计拒绝。用户随后批准同一应用、精确回调、仅验收进程的一小时新策略，固定窗口 22:19:25—23:19:25；不修改原 APP 或生产配置、不随重跑续期。Token 仅经原测试站的正式串行 UserToken 流程刷新，副本禁止刷新复制的 refresh token。每一案例在无 APP/Worker 挂载的新数据库副本中运行并清理。
+
+真实连接快照 `761c11c452cc50016612396e4f42ca49385060c2f73093b2de2e135e7bde66f6` 九组全部通过（exit=0）：合法摘要/profile/metadata.derived 落库及凭证消费；无凭证 Knowledge/Chunk/Embedding 写拒绝；来源、连接、成员撤销；generation 变化；竞争快照；历史任务终止；缺少摘要模型时的受控失败状态；3043 down/up。对应 Go 业务代码的扩展定向回归快照 `63ec9b2d1ee063bd57ed979e689e272d4169ee08484da6d417617b26c8fd796e` 六包通过。缺少摘要模型的任务原先忽略状态写入失败，现先绑定受控 context 再落失败状态并传播写错误。
+
+另行启用 `FEISHU_DERIVED_LIVE_MODEL_CALL=1`，将一次真实模型请求限制为输入 2048 字、输出 256 tokens。快照 `693458cf3161a24e978946c4d85cb7a813b13e555f2572f579777cf5c4aa1952` 的该正向用例**未通过**：正式模型输入保护返回 `Feishu source access requires verification`，并非 40001。只读核对发现目标 KB 没有受限来源，但 tenant=10002 有一条已软删除的受限来源；现有 `repository/feishu_legacy_read.go:legacyTenantModelGate` 按整个租户且不排除软删除来源进行保守拒绝。没有清除这条历史记录、解除 revoked/hold、关闭模型保护或修改该查询来让测试通过。
+
+因此真实 HTTP/模型正向流程与完整同步验收尚未全部完成，PR 继续 Draft。应在保留来源保护、通过正常用户/来源流程建立的独立专用验收空间补验；上述全租户模型限制如需调整应另行审查，不能混入本 PR 偷换权限语义。测试日志存于受限测试主机，只在报告中保留状态、ID 和分类，不导出 Token、原始模型请求或文档摘要内容。
+
 ## 新发现：d14eb0c0… 文档停留 pending
 
 2026-10-29 只读核查：该库 30 份未删除文档中 28 份 pending、2 份 completed；pending 均为 feishu_personal，Chunk=0。已有来源处于 hold。document:process 的死信明确为 `Feishu source access requires verification`，部分失败 4 次。失败回调重新读取文档也被同一读保护拒绝，因此没有收尾为 failed。另有 24 条 pending 操作记录。

@@ -51,3 +51,24 @@ func TestFeishuDerivedSummaryDiscardsHistoricalAndSupersededPayloads(t *testing.
 		})
 	}
 }
+
+type failedSummaryStateRepository struct {
+	*summaryColumnsRepo
+	failure error
+}
+
+func (r *failedSummaryStateRepository) UpdateKnowledgeColumns(_ context.Context, _ string, values map[string]interface{}) error {
+	r.writes = append(r.writes, values)
+	return r.failure
+}
+
+func TestFeishuDerivedSummaryMissingModelPropagatesWriteFailure(t *testing.T) {
+	writeErr := errors.New("summary state persistence unavailable")
+	repo := &failedSummaryStateRepository{summaryColumnsRepo: &summaryColumnsRepo{t: t, knowledge: summaryKnowledge()}, failure: writeErr}
+	kb := summaryKB()
+	kb.SummaryModelID = ""
+	svc := &knowledgeService{repo: repo, kbService: &reparseFailureKBService{kb: kb}}
+	require.ErrorIs(t, svc.ProcessSummaryGeneration(context.Background(), summaryGenerationTask(t)), writeErr)
+	require.Len(t, repo.writes, 1)
+	require.Equal(t, types.SummaryStatusFailed, repo.writes[0]["summary_status"])
+}
