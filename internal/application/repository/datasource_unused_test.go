@@ -19,7 +19,8 @@ func TestDeleteUnusedFeishuSourcePreservesKnowledgeBaseAccess(t *testing.T) {
 		{"unrelated-document", `INSERT INTO knowledges VALUES('doc','kb','{"datasource_id":"other"}',NULL)`, false},
 		{"pending-sync", `INSERT INTO sync_logs(id,data_source_id,status) VALUES('run','source','running')`, true},
 		{"stored-document", `INSERT INTO knowledges VALUES('doc','kb','{"datasource_id":"source"}',NULL)`, true},
-		{"deleted-document", `INSERT INTO knowledges VALUES('doc','kb','{"datasource_id":"source"}',CURRENT_TIMESTAMP)`, true},
+		{"deleted-document", `INSERT INTO knowledges VALUES('doc','kb',` +
+			`'{"datasource_id":"source"}',CURRENT_TIMESTAMP)`, true},
 		{"attempted-publication", `INSERT INTO feishu_legacy_resources VALUES('kb','source','hold','candidate')`, true},
 		{"historical-wiki", `INSERT INTO wiki_pages VALUES('kb',CURRENT_TIMESTAMP)`, true},
 	} {
@@ -34,8 +35,10 @@ INSERT INTO tenants VALUES(1,'active',NULL);`).Error)
 			kb := makeKB(nil)
 			kb.ID = "kb"
 			require.NoError(t, db.Create(kb).Error)
-			source := &types.DataSource{ID: "source", TenantID: 1, KnowledgeBaseID: kb.ID,
-				Type: types.ConnectorTypeFeishu, LegacyAccessState: "hold", Status: "paused"}
+			source := &types.DataSource{
+				ID: "source", TenantID: 1, KnowledgeBaseID: kb.ID,
+				Type: types.ConnectorTypeFeishu, LegacyAccessState: "hold", Status: "paused",
+			}
 			require.NoError(t, db.Create(source).Error)
 			if tc.history != "" {
 				require.NoError(t, db.Exec(tc.history).Error)
@@ -74,8 +77,10 @@ CREATE TABLE wiki_pages(knowledge_base_id TEXT);`).Error)
 		if used {
 			id = "pending"
 		}
-		source := &types.DataSource{ID: id, TenantID: 1, KnowledgeBaseID: "kb",
-			Type: types.ConnectorTypeFeishuDrive, LegacyAccessState: "hold"}
+		source := &types.DataSource{
+			ID: id, TenantID: 1, KnowledgeBaseID: "kb",
+			Type: types.ConnectorTypeFeishuDrive, LegacyAccessState: "hold",
+		}
 		require.NoError(t, db.Create(source).Error)
 		log := &types.SyncLog{ID: id, DataSourceID: id, TenantID: 1, Status: types.SyncLogStatusRunning}
 		if used {
@@ -103,8 +108,10 @@ CREATE TABLE feishu_legacy_resources(data_source_id TEXT);
 CREATE TABLE wiki_pages(knowledge_base_id TEXT);
 CREATE TRIGGER prevent_delete BEFORE UPDATE OF deleted_at ON data_sources
 BEGIN SELECT RAISE(FAIL,'delete refused'); END;`).Error)
-	source := &types.DataSource{ID: "source", TenantID: 1, KnowledgeBaseID: "kb",
-		Type: types.ConnectorTypeFeishu, LegacyAccessState: "hold"}
+	source := &types.DataSource{
+		ID: "source", TenantID: 1, KnowledgeBaseID: "kb",
+		Type: types.ConnectorTypeFeishu, LegacyAccessState: "hold",
+	}
 	require.NoError(t, db.Create(source).Error)
 	db = types.EnableLegacyReadGuards(db)
 	require.ErrorContains(t, NewDataSourceRepository(db).Delete(context.Background(), source.ID), "delete refused")

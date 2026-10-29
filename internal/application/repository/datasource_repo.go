@@ -165,7 +165,8 @@ func (r *DataSourceRepository) Delete(ctx context.Context, id string) error {
 				if err != nil {
 					return err
 				}
-				if err := tx.Model(&types.DataSource{}).Where("id=?", id).Update("legacy_access_state", state).Error; err != nil {
+				if err := tx.Model(&types.DataSource{}).Where("id=?", id).
+					Update("legacy_access_state", state).Error; err != nil {
 					return err
 				}
 			}
