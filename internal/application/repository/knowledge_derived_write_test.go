@@ -81,8 +81,10 @@ func TestKnowledgeDerivedWritePostgres(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, repo.UpdateKnowledgeColumn(first, k.ID, "description", "newer"))
 		require.ErrorIs(t, repo.UpdateKnowledgeColumn(second, k.ID, "description", "older"), ErrDerivedWriteRejected)
+		// A fresh retry for unchanged published content is legal; only the
+		// old in-flight optimistic snapshot is stale after derived updates.
 		_, _, err = repo.BeginKnowledgeDerivedWrite(ctx, k.ID, tenant.ID, v, binder)
-		require.ErrorIs(t, err, ErrDerivedWriteRejected)
+		require.NoError(t, err)
 	})
 	t.Run("revocation-and-authority-change-are-terminal", func(t *testing.T) {
 		k, ds, v := fixture(t)
@@ -103,6 +105,13 @@ func TestKnowledgeDerivedWritePostgres(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, db.Model(&types.FeishuLegacyResource{}).Where("knowledge_id=?", k.ID).Update("generation", 2).Error)
 		require.ErrorIs(t, repo.UpdateKnowledgeColumn(bound, k.ID, "description", "old generation"), ErrDerivedWriteRejected)
+	})
+	t.Run("missing-epoch-cannot-be-treated-as-unmanaged", func(t *testing.T) {
+		k, _, _ := fixture(t)
+		require.NoError(t, db.Exec("DELETE FROM document_access_epochs WHERE knowledge_id=?", k.ID).Error)
+		_, managed, err := repo.KnowledgeDerivedVersion(ctx, k.ID)
+		require.True(t, managed)
+		require.ErrorIs(t, err, ErrDerivedWriteRejected)
 	})
 	t.Run("concurrent-results-have-one-winner", func(t *testing.T) {
 		k, _, v := fixture(t)

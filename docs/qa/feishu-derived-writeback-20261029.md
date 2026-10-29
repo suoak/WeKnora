@@ -50,7 +50,9 @@
 
 同时运行既有 FeishuLegacyAtomicPostgres 原子发布与旧 worker 变更拒绝回归、摘要状态与取消回归、Redis/Lite 任务终止判定。测试使用独立新数据库，未连接生产库运行测试。
 
-2026-10-29 最新候选快照 `8bd5c524d68dd5a8fb3e2e2c44e6226e5bcd885df5e7bc81fb68f34ab42dd6e9`：选取的仓储、Service、container、router、dead-letter 回归全部通过，测试进程 exit=0，61 个通过事件（包括子测试和 package 结果）。该计数不等于完整项目测试数。包含 profile、并发快照、撤销、旧 generation、任务终止及迁移 down/up 测试。
+2026-10-29 第一轮候选快照 `8bd5c524d68dd5a8fb3e2e2c44e6226e5bcd885df5e7bc81fb68f34ab42dd6e9`：选取的仓储、Service、container、router、dead-letter 回归全部通过，测试进程 exit=0，61 个通过事件（包括子测试和 package 结果）。该计数不等于完整项目测试数。包含 profile、并发快照、撤销、旧 generation、任务终止及迁移 down/up 测试；该快照的选定并发/任务测试另通过 Go race 检测。
+
+复查修订将队列版本限定为已发布内容身份，避免任务自身的摘要状态更新使合法重试失效；行/epoch 乐观快照仍保护每次回写。迁移治理映射和全链路夹具的 latest 断言同步至 3043，历史升级及内容/权限断言不删减。缺失 epoch、资源与来源 KB 不一致继续拒绝。
 
 外部测试账号的真实 HTTP 操作、真实飞书授权生命周期验收以及发布评审仍应作为独立门槛记录，不以仓储测试代替。此分支不包含 MCP 授权范围重构，不自动合并或上线。
 

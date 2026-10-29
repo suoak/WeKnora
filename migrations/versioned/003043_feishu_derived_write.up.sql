@@ -63,6 +63,7 @@ BEGIN
       JOIN knowledge_bases k ON k.id=d.knowledge_base_id AND k.tenant_id=d.tenant_id
       WHERE d.id=r.data_source_id AND d.tenant_id=r.tenant_id AND d.knowledge_base_id=r.knowledge_base_id
       AND d.deleted_at IS NULL AND d.legacy_access_state='active' AND d.status IN ('active','error')
+      AND d.type IN ('feishu','feishu_drive','lark','lark_drive')
       AND t.status='active' AND t.deleted_at IS NULL AND k.deleted_at IS NULL)
     OR OLD.deleted_at IS NOT NULL OR OLD.parse_status<>'completed'
     OR NOT EXISTS(SELECT 1 FROM document_access_epochs e WHERE e.knowledge_id=OLD.id

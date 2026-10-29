@@ -68,7 +68,7 @@ func TestSQLiteEnterprisePublicationRealRunnerUpgradeDownUp(t *testing.T) {
 	chdirAndRestore(t, root)
 	require.NoError(t, RunMigrationsWithOptions("sqlite3://unused", MigrationOptions{SQLiteDBPath: path}))
 	version, dirty = sqliteMigrationState(t, db)
-	require.Equal(t, 3042, version)
+	require.Equal(t, 3043, version)
 	require.False(t, dirty)
 	for _, table := range []string{
 		"enterprise_space_policies",
@@ -106,7 +106,7 @@ func TestSQLiteEnterprisePublicationRealRunnerUpgradeDownUp(t *testing.T) {
 	}
 	require.NoError(t, m.Up())
 	version, dirty = sqliteMigrationState(t, db)
-	require.Equal(t, 3042, version)
+	require.Equal(t, 3043, version)
 	require.False(t, dirty)
 	require.NoError(
 		t,
@@ -193,7 +193,7 @@ func TestSQLiteEnterpriseMigrationFailureAndSnapshotRecovery(t *testing.T) {
 	)
 	version, dirty, ok = CachedMigrationVersion()
 	require.True(t, ok)
-	require.Equal(t, uint(3042), version)
+	require.Equal(t, uint(3043), version)
 	require.False(t, dirty)
 	require.Empty(t, CachedMigrationError())
 }

@@ -30,6 +30,8 @@ type derivedWriteSnapshot struct {
 
 // KnowledgeDerivedVersion is an identity, not a grant. Queued work binds to it
 // before model work, and the final write independently rechecks live authority.
+// Derived state changes do not supersede the source publication: retries may
+// acquire a fresh row/epoch snapshot for the same published content.
 func (r *knowledgeRepository) KnowledgeDerivedVersion(ctx context.Context, id string) (string, bool, error) {
 	if !types.LegacyReadGuardsEnabled(r.db) {
 		return "", false, nil
@@ -39,12 +41,15 @@ func (r *knowledgeRepository) KnowledgeDerivedVersion(ctx context.Context, id st
 		Generation, Epoch        int64
 	}
 	err := r.db.WithContext(ctx).Raw(`SELECT r.id,r.current_attempt AS attempt,r.generation,
-e.incarnation,e.generation AS epoch FROM feishu_legacy_resources r
-JOIN document_access_epochs e ON e.knowledge_id=r.knowledge_id WHERE r.knowledge_id=?`, id).Scan(&row).Error
+COALESCE(e.incarnation,'') AS incarnation,COALESCE(e.generation,0) AS epoch FROM feishu_legacy_resources r
+LEFT JOIN document_access_epochs e ON e.knowledge_id=r.knowledge_id WHERE r.knowledge_id=?`, id).Scan(&row).Error
 	if err != nil || row.ID == "" {
 		return "", false, err
 	}
-	return fmt.Sprintf("%s/%d/%s/%s/%d", row.ID, row.Generation, row.Attempt, row.Incarnation, row.Epoch), true, nil
+	if row.Incarnation == "" || row.Epoch < 1 {
+		return "", true, ErrDerivedWriteRejected
+	}
+	return fmt.Sprintf("%s/%d/%s/%s", row.ID, row.Generation, row.Attempt, row.Incarnation), true, nil
 }
 
 // BeginKnowledgeDerivedWrite captures an opaque optimistic snapshot. The
@@ -109,7 +114,7 @@ func (r *knowledgeRepository) BeginKnowledgeDerivedWrite(ctx context.Context, id
 		if err := snapshot.readVersion(tx); err != nil {
 			return err
 		}
-		captured := fmt.Sprintf("%s/%d/%s/%s/%d", snapshot.resource, snapshot.generation, snapshot.attempt, snapshot.incarnation, snapshot.epoch)
+		captured := fmt.Sprintf("%s/%d/%s/%s", snapshot.resource, snapshot.generation, snapshot.attempt, snapshot.incarnation)
 		if captured != expectedVersion {
 			return ErrDerivedWriteRejected
 		}
@@ -128,6 +133,9 @@ func (s *derivedWriteSnapshot) lock(tx *gorm.DB) error {
 	}
 	var identity types.FeishuLegacyResource
 	if err := tx.Where("id=? AND knowledge_id=? AND data_source_id=? AND tenant_id=?", s.resource, s.kid, s.source, s.tenant).Take(&identity).Error; err != nil {
+		return ErrDerivedWriteRejected
+	}
+	if source.KnowledgeBaseID != identity.KnowledgeBaseID || !legacySourceKind(source.Type) {
 		return ErrDerivedWriteRejected
 	}
 	key := fmt.Sprintf("%d:%s:%s:%s", identity.TenantID, identity.KnowledgeBaseID, identity.DataSourceID, identity.ExternalID)

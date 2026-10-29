@@ -1372,6 +1372,9 @@ func (s *knowledgeService) ProcessSummaryGeneration(ctx context.Context, t *asyn
 	// it to schedule the knowledge-base description refresh on terminal exit.
 	var profileKB *types.KnowledgeBase
 	defer func() {
+		if summaryErr == nil {
+			summaryErr = retErr
+		}
 		// Decrement the parent's enrichment counter on terminal exit.
 		// "Terminal" is keyed on the value RETURNED to asynq, not on
 		// summaryErr: several branches record a failure on the span
