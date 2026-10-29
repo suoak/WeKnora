@@ -84,9 +84,8 @@ test('keeps MCP ingress and REST API authentication contracts separate', () => {
 test('copies configuration and supports owner-authenticated encrypted Secret retrieval', () => {
   assert.match(accessKeysSource, /复制占位模板/)
   assert.match(accessKeysSource, /复制完整配置（含密钥）/)
-  assert.match(accessKeysSource, /复制安全模板/)
   assert.match(accessKeysSource, /YOUR_MCP_KEY/)
-  assert.match(accessKeysSource, /Secret 默认遮蔽/)
+  assert.match(accessKeysSource, /预览中的 Secret 已遮蔽/)
   assert.match(accessKeysSource, /revealMCPAccessKey\(key.id\)/)
   assert.doesNotMatch(accessKeysSource, /localStorage|sessionStorage|indexedDB/)
 })

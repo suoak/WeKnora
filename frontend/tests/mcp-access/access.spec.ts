@@ -23,16 +23,15 @@ test('Key list, seven bound client formats, clipboard, history and responsive th
     await expect(dialog).toContainText('客户端待验证')
     await expect(dialog).not.toContainText('synthetic-key-3')
     expect(api.reveals).toHaveLength(0)
-    const safe = ['Claude Code', 'Codex', 'GitHub Copilot', 'VS Code'].includes(name)
-    await dialog.getByRole('button', { name: safe ? '复制安全模板' : '复制完整配置（含密钥）', exact: true }).click()
-    await expect.poll(() => api.reveals.length).toBe(safe ? 0 : 1)
+    await dialog.getByRole('button', { name: '复制完整配置（含密钥）', exact: true }).click()
+    await expect.poll(() => api.reveals.length).toBe(1)
     const copied = (await page.evaluate(() => navigator.clipboard.readText())).replaceAll('\r\n', '\n')
     expect(copied).toContain('/api/v1/mcp/personal')
-    if (name === 'Codex') expect(copied).toContain('[mcp_servers.')
+    if (name === 'Codex') { expect(copied).toContain('[mcp_servers.'); expect(copied).toContain('Authorization = "Bearer synthetic-key-3"') }
     else {
       const config = JSON.parse(copied)
       expect(Boolean(config.servers)).toBe(name === 'VS Code' || name === 'GitHub Copilot')
-      if (!config.servers) expect(config.mcpServers.knowhub.headers.Authorization).toBe(name === 'Claude Code' ? 'Bearer ${KNOWHUB_MCP_KEY}' : 'Bearer synthetic-key-3')
+      expect((config.servers?.knowhub || config.mcpServers.knowhub).headers.Authorization).toBe('Bearer synthetic-key-3')
     }
     await expect(dialog).not.toContainText('synthetic-key-3')
     await dialog.getByRole('button', { name: '复制 Secret', exact: true }).click()

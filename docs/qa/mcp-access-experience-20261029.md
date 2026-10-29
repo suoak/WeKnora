@@ -11,7 +11,7 @@
 变更方案：
 
 1. 首屏“我的个人 MCP Key”：每页最多 5 条紧凑卡片，有效凭证优先。5 把及以内直接展示全部，仅保留标题数量/状态摘要，隐藏搜索、筛选、分页；超过 5 把时可搜索，多种真实状态时使用原生轻量 TDesign Tabs，隐藏零数量状态。每条独立展示名称、状态、范围、有效期、最近使用、管理和连接按钮。移除独立客户端区、全局和弹窗中的 Key 下拉框。
-2. 有效 Key 的“连接 AI 工具”打开绑定该 Key 的客户端选择弹窗：Claude Code、Codex、GitHub Copilot（VS Code）、VS Code、WorkBuddy、Pi、其他。选择后直接生成配置，不再选 Key。独立 connectionKey 与管理详情分离；延迟 reveal 响应受请求版本和 Key ID 双重校验。默认遮蔽 Secret 与配置中的 token，只在主动显示、完整复制或协议验证时读取；关闭及读取失败清理明文。Claude Code 使用用户级 ~/.claude.json 和环境变量；与 Codex、VS Code、Copilot 显示“复制安全模板”，不自动读取 Secret、不嵌入密钥。其他支持直接凭证配置的客户端显示“复制完整配置（含密钥）”，点击后读取当前 Key 的真实 Secret。无可恢复 Secret 的占位模板明确标注，复制成功且内容含真实密钥时提示仅保存可信个人配置、禁止提交仓库。服务地址缺失、过期、停用时禁止直接连接或复制。
+2. 有效 Key 的“连接 AI 工具”打开绑定该 Key 的客户端选择弹窗：Claude Code、Codex、GitHub Copilot（VS Code）、VS Code、WorkBuddy、Pi、其他。选择后直接生成配置，不再选 Key。独立 connectionKey 与管理详情分离；延迟 reveal 响应受请求版本和 Key ID 双重校验。所有客户端统一“复制完整配置（含密钥）”，点击后自动读取当前 Key 的真实 Secret。预览默认遮蔽；关闭及读取失败清理明文。Claude Code 使用用户级 ~/.claude.json；Codex 使用用户级 ~/.codex/config.toml 的 http_headers；Copilot/VS Code 指引 MCP: Open User Configuration，使用用户级 servers / Authorization，均无需环境变量、安全输入占位或另贴密钥。无可恢复 Secret 的 Key 明确标为占位模板而非完整配置。复制成功且内容含真实密钥时提示仅保存可信个人配置、禁止提交仓库。服务地址缺失、过期、停用时禁止直接连接或复制。
 3. 创建沿用名称、有效期、默认/指定范围表单，名称示例“个人知识检索”；成功后直接进入新 Key 的客户端选择。同一把 Key 可切换多个客户端。默认范围随本人授权更新，历史固定范围不自动扩展；当前空间不等于完整授权范围。
 4. “历史接入”仅在原始历史集合非空时渲染，默认折叠，与个人列表互斥，不重复计数。多状态时使用轻量 Tabs；个人/历史分页分别按当前结果超过 5 条才显示，搜索/筛选/数据变化时重置或修正页码。详情、范围修改、轮换、停用、重新接入与兼容模板保留。hash-only 历史凭证仍支持填入原值；个人 hash-only Key 可复制占位模板或在管理中轮换，不将未验证的手工 Secret 自动绑定到个人 Key。
 5. 不在普通员工入口推荐 Cursor、WorkMate；保留其历史标签、配置生成函数、后端枚举和凭证。历史编辑页显示原客户端，保留原 client_type。
@@ -21,9 +21,9 @@
 
 | 客户端 | 配置与说明 | 本次真实客户端检索 |
 | --- | --- | --- |
-| Claude Code | 项目 `.mcp.json`、`mcpServers`、HTTP Bearer；[官方文档](https://code.claude.com/docs/en/mcp) | 待员工登录验收 |
-| Codex | 复用已存在的 `personalCodexConfig()`，`~/.codex/config.toml`、`bearer_token_env_var=KNOWHUB_MCP_KEY`；[OpenAI 官方文档](https://developers.openai.com/codex/mcp) | 待员工登录验收 |
-| Copilot / VS Code | `.vscode/mcp.json`、`servers`、密码输入变量；支持范围明确为 VS Code；[官方文档](https://code.visualstudio.com/docs/agents/reference/mcp-configuration) | 待员工登录验收 |
+| Claude Code | 用户级 `~/.claude.json`、`mcpServers`、HTTP Bearer；[官方文档](https://code.claude.com/docs/en/mcp) | 原生 CLI 协议通过；完整检索待用户客户端验收 |
+| Codex | 用户级 `~/.codex/config.toml`、`http_headers.Authorization` 完整配置；其他页面原有环境变量 helper 保留；[OpenAI 官方文档](https://developers.openai.com/codex/mcp) | 原生 CLI 配置解析通过 |
+| Copilot / VS Code | `MCP: Open User Configuration`，用户级 `servers`、直接 Bearer；支持范围明确为 VS Code；[官方文档](https://code.visualstudio.com/docs/agents/reference/mcp-configuration) | 浏览器绑定 Key 的完整剪贴板内容通过 |
 | WorkBuddy | `mcpServers`、`streamableHttp`；[官方文档](https://open.workbuddy.cn/docs/connector) | 待员工登录验收 |
 | Pi | 官方 `earendil-works/pi` v1.4.0，包 `@earendil-works/pi-coding-agent@1.4.0`，Node ≥22.19.0；用户级 `~/.pi/agent/mcp.json`、URL / headers / description；`pi mcp list` 与 `/mcp`；[固定版本官方文档](https://github.com/earendil-works/pi/blob/v1.4.0/packages/coding-agent/docs/mcp.md) | 待员工登录验收 |
 | 其他客户端 | 通用 HTTP MCP JSON，要求按目标客户端文档调整 | 参考 |
@@ -36,9 +36,9 @@ Pi 官方 v1.4.0 原生支持 stdio 与 Streamable HTTP，不需要安装第三�
 
 ## 验证与发布门禁
 
-本轮补充：列表规则覆盖 0、1、2、5、6 把 Key、混合状态、零历史、19 条历史、搜索空结果及筛选/刷新导致页数减少。相关单元测试 51 项通过。真实 Claude Code CLI 与 Pi v1.4.0 使用隔离配置连接本地合成 MCP 服务，均完成 initialize / tools/list，服务端核对 Bearer 正确；Codex CLI 验证安全环境变量配置可解析且不含真实密钥。这些是实际客户端的配置/协议测试，不替代真实 KnowHub 员工权限与知识检索验收。复制测试补充不可恢复 Secret、读取失败、HTTP 兼容、安全模板无需 Secret 与完整配置含当前 Key 的真实 Secret。
+本轮补充：列表规则覆盖 0、1、2、5、6 把 Key、混合状态、零历史、19 条历史、搜索空结果及筛选/刷新导致页数减少。相关单元测试 52 项通过。真实 Claude Code CLI 与 Pi v1.4.0 使用隔离配置连接本地合成 MCP 服务，均完成 initialize / tools/list，服务端核对 Bearer 正确；Codex CLI 验证静态 http_headers 完整配置可解析且不需要环境变量。这些是实际客户端的配置/协议测试，不替代员工客户端端到端验收。复制测试覆盖不可恢复 Secret、读取失败、HTTP 兼容、所有客户端完整配置含当前 Key 的真实 Secret。
 
-地址检查：测试站 MCP_PUBLIC_URL 已持久化配置，用户刷新后确认“服务地址尚未配置”告警消失。测试入口为 HTTP；生产容器未配置 MCP_PUBLIC_URL，本机未见 443 监听。用户明确要求“只有 HTTP 就行，先不用管 HTTPS”，本轮据此继续现有 HTTP，不引入 HTTPS 门禁或更改生产配置。生产实际公开地址应在既有发布流程中确认，不能复制测试地址替代。
+地址检查：测试站 MCP_PUBLIC_URL 已持久化配置，用户刷新后确认告警消失。通过专用生产 SSH 连接核对，线上地址已正确配置为 http://10.51.134.114/api/v1/mcp/personal，后端健康；测试机上停用的旧容器不作为生产依据。用户明确要求“只有 HTTP 就行，先不用管 HTTPS”，本轮据此继续现有 HTTP，不引入 HTTPS 门禁，也不把测试地址硬编码到生产。
 
 最终 Key 中心交互的补充验证：相关单元测试 47/47 通过；Edge 三项用例全部通过。夹具包含 8 把个人 Key（动态默认、指定、历史固定、有效、过期、停用）和独立的 19 条旧版客户端凭证。覆盖个人搜索/筛选/分页、有效优先、历史去重/分页/过期筛选、七客户端只绑定发起的 Key、真实剪贴板、Secret 默认不显示且不自动读取、延迟 A Key reveal 不覆盖 B Key、新建 Key 直接进入该 Key 的客户端选择、关闭后无持久化明文、缺失服务地址禁用连接、协议状态与客户端检索状态区分，以及响应式/明暗主题/应用缩放。真实员工权限隔离和客户端端到端检索仍按用户要求由其登录测试站验收，未据合成协议用例标记任何客户端已连接。
 
