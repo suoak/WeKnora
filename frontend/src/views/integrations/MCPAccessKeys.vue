@@ -6,7 +6,7 @@
     </header>
     <section class="credential-surface client-surface" aria-labelledby="clients-title">
       <div class="section-heading"><h2 id="clients-title">连接 AI 工具</h2><span>选择客户端，复用已有个人 Key</span></div>
-      <div class="client-grid"><button v-for="client in mcpClients" :key="client.value" :aria-label="client.label" type="button" :disabled="loading || !!loadError" @click="openClient(client.value)"><img v-if="clientIcons[client.value]" :src="clientIcons[client.value]" class="client-product-icon" alt="" /><t-icon v-else :name="client.icon" /><strong>{{ client.label }}</strong><span>{{ client.description }}</span><t-icon name="chevron-right" class="client-arrow" /></button></div>
+      <div class="client-grid"><button v-for="client in mcpClients" :key="client.value" :aria-label="client.label" type="button" :disabled="loading || !!loadError" @click="openClient(client.value)"><img v-if="clientIcons[client.value]" :src="clientIcons[client.value]" class="client-product-icon" :class="{ 'monochrome-icon': client.value === 'copilot' }" alt="" /><t-icon v-else :name="client.icon" /><strong>{{ client.label }}</strong><span>{{ client.description }}</span><t-icon name="chevron-right" class="client-arrow" /></button></div>
     </section>
     <t-alert v-if="!publicUrl && !loading" theme="warning" class="url-warning">服务地址尚未配置，请联系管理员。你仍可管理已有凭证。</t-alert>
     <section class="credential-surface personal-surface" aria-labelledby="personal-title">

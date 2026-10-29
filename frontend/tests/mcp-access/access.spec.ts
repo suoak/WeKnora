@@ -53,6 +53,7 @@ test('personal Key reuse, client formats, legacy history, pagination and respons
   await page.getByRole('button', { name: /历史接入 ·/ }).click()
   await expect(page.locator('.credential-card')).toHaveCount(5)
   await expect(page.locator('.credential-list')).toContainText('WorkMate')
+  await page.screenshot({ path: 'test-results/mcp-access/history-expanded.png', fullPage: true })
   await page.locator('.t-pagination__number').filter({ hasText: /^2$/ }).click()
   await expect(page.locator('.credential-list')).toContainText('历史凭证 6')
   await page.locator('.history-surface .t-radio-button').filter({ hasText: '已停用' }).click()
