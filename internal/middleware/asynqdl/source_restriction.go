@@ -16,8 +16,8 @@ import (
 // execution. Redis and Lite use the same minimal record and never read or
 // change Knowledge to do so. Generic SkipRetry is intentionally excluded.
 func RecordSourceRestriction(
-	repo interfaces.TaskDeadLetterRepository,
 	ctx context.Context,
+	repo interfaces.TaskDeadLetterRepository,
 	task *asynq.Task,
 	err error,
 ) bool {

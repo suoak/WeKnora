@@ -9,6 +9,7 @@ type KnowledgeSourceRestriction struct {
 	HistoricalProcessingState string `json:"historical_processing_state"`
 }
 
+// UnknownKnowledgeSourceRestriction reports no verified admission or execution result.
 func UnknownKnowledgeSourceRestriction() KnowledgeSourceRestriction {
 	return KnowledgeSourceRestriction{SourceState: "unverified", HistoricalProcessingState: "unverified"}
 }

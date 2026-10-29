@@ -21,8 +21,8 @@ type sourceRestrictionService struct {
 
 func (s *sourceRestrictionService) KnowledgeBaseSourceRestriction(
 	_ context.Context,
-	tenant uint64,
-	kb string,
+	_ uint64,
+	_ string,
 ) (types.KnowledgeSourceRestriction, error) {
 	s.calls++
 	return types.KnowledgeSourceRestriction{

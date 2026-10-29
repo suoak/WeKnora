@@ -21,6 +21,7 @@ type sourceAdmissionTask struct {
 	KnowledgeID     string `json:"knowledge_id"`
 }
 
+// KnowledgeBaseSourceRestriction returns operational metadata without granting content access.
 func (s *DataSourceService) KnowledgeBaseSourceRestriction(
 	ctx context.Context,
 	tenant uint64,

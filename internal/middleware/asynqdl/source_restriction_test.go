@@ -34,7 +34,7 @@ func TestSourceRestrictionArchive(t *testing.T) {
 	require.Equal(t, "doc", row.RelatedID)
 	require.False(t, strings.Contains(string(row.Payload), "private-resource"))
 	require.False(t, strings.Contains(string(row.Payload), "sensitive"))
-	require.False(t, RecordSourceRestriction(repo, context.Background(), task, asynq.SkipRetry))
-	require.False(t, RecordSourceRestriction(repo, context.Background(), task, types.ErrLegacySourceRestricted))
+	require.False(t, RecordSourceRestriction(context.Background(), repo, task, asynq.SkipRetry))
+	require.False(t, RecordSourceRestriction(context.Background(), repo, task, types.ErrLegacySourceRestricted))
 	require.Equal(t, 1, repo.rowCount())
 }

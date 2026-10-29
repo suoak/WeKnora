@@ -252,7 +252,7 @@ func RegisterSyncHandlers(params SyncTaskParams) {
 	// Same callback the asynq dead-letter middleware runs in standard mode.
 	failer := newDeadLetterKnowledgeFailer(params.KnowledgeService, params.SpanTracker)
 	params.Executor.SetFinalFailureHook(func(ctx context.Context, task *asynq.Task, err error) {
-		if asynqdl.RecordSourceRestriction(params.DeadLetterRepo, ctx, task, err) {
+		if asynqdl.RecordSourceRestriction(ctx, params.DeadLetterRepo, task, err) {
 			return
 		}
 		if failer != nil {

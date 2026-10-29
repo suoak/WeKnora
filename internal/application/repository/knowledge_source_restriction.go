@@ -64,6 +64,7 @@ WHERE id=? AND tenant_id=? AND knowledge_base_id=? AND deleted_at IS NULL)`
 	return status, nil
 }
 
+// KnowledgeSourceRestriction checks exact-scope operational admission without loading content.
 func (r *knowledgeRepository) KnowledgeSourceRestriction(
 	ctx context.Context,
 	tenant uint64,
@@ -72,6 +73,7 @@ func (r *knowledgeRepository) KnowledgeSourceRestriction(
 	return knowledgeSourceRestriction(ctx, r.db, tenant, kb, kid)
 }
 
+// KnowledgeSourceRestriction checks exact-scope operational admission without loading content.
 func (r *DataSourceRepository) KnowledgeSourceRestriction(
 	ctx context.Context,
 	tenant uint64,
