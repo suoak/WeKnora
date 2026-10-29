@@ -25,7 +25,9 @@ type selectedMCPStore struct {
 	held           bool
 }
 
-func (s *selectedMCPStore) LoadDocumentReadSnapshot(_ context.Context, user string, key uint64, kb string) (*types.EnterpriseReadSnapshot, error) {
+func (s *selectedMCPStore) LoadDocumentReadSnapshot(
+	_ context.Context, user string, key uint64, kb string,
+) (*types.EnterpriseReadSnapshot, error) {
 	if kb != "selected" {
 		s.unrelatedReads++
 		return nil, errors.New("unrelated source unavailable")
@@ -37,8 +39,14 @@ func (s *selectedMCPStore) LoadDocumentReadSnapshot(_ context.Context, user stri
 	v := &types.EnterpriseReadSnapshot{
 		UserID: user, UserActive: true, TenantID: 99, TenantActive: true,
 		KBID: kb, KBType: "document",
-		Credential: types.EnterpriseCredential{ID: key, OwnerUserID: &owner, ScopeType: types.APIKeyScopeUserMCP, Capabilities: types.StringArray{"retrieve"}},
-		Documents:  []types.EnterpriseDocumentState{{ID: "doc", TenantID: 99, KnowledgeBaseID: kb, Type: "file", ParseStatus: types.ParseStatusCompleted, EnableStatus: "enabled", CurrentVersion: s.version}},
+		Credential: types.EnterpriseCredential{
+			ID: key, OwnerUserID: &owner, ScopeType: types.APIKeyScopeUserMCP,
+			Capabilities: types.StringArray{"retrieve"},
+		},
+		Documents: []types.EnterpriseDocumentState{{
+			ID: "doc", TenantID: 99, KnowledgeBaseID: kb, Type: "file",
+			ParseStatus: types.ParseStatusCompleted, EnableStatus: "enabled", CurrentVersion: s.version,
+		}},
 	}
 	if s.revoked {
 		now := time.Now().UTC()
@@ -61,7 +69,9 @@ func (selectedMCPEmployee) IsEnterpriseEmployee(_ context.Context, user string) 
 
 type selectedMCPBase struct{}
 
-func (selectedMCPBase) CheckDocumentReadBase(ctx context.Context, tenant uint64, kb string, _ types.DocumentOperation, _ bool) error {
+func (selectedMCPBase) CheckDocumentReadBase(
+	ctx context.Context, tenant uint64, kb string, _ types.DocumentOperation, _ bool,
+) error {
 	key, ok := types.TenantAPIKeyScopeFromContext(ctx)
 	if !ok || !key.AllowsKnowledgeBase(kb) || tenant != 99 || types.CallerFromContext(ctx).UserID != "A" {
 		return access.ErrForbidden
@@ -74,12 +84,17 @@ func selectedMCPFixture() (*PersonalServer, *selectedMCPStore, context.Context) 
 	employee := selectedMCPEmployee{}
 	resolver := &access.PortalMCPResolver{
 		Enabled: true, PublishedDefaults: true, Directory: selectedMCPDirectory{}, Store: store, Employees: employee,
-		Public:    access.NewEnterprisePublicReader(access.EnterprisePublicOptions{Enabled: true, PortalPublishedDefault: true}, store, employee, nil),
+		Public: access.NewEnterprisePublicReader(
+			access.EnterprisePublicOptions{Enabled: true, PortalPublishedDefault: true}, store, employee, nil,
+		),
 		Documents: access.NewDocumentReader(true, store, selectedMCPBase{}, employee),
 	}
 	ctx := types.WithPrincipal(context.Background(), types.Principal{Type: types.PrincipalWebUser, ID: "A"})
 	ctx = types.WithCaller(ctx, types.Caller{UserID: "A", TenantID: 99, Role: types.TenantRoleAdmin})
-	ctx = types.WithTenantAPIKeyScope(ctx, types.TenantAPIKeyScope{KeyID: 1, ScopeType: types.APIKeyScopeUserMCP, Capabilities: types.StringArray{"retrieve"}, KnowledgeBaseRestricted: true, KnowledgeBaseIDs: types.StringArray{"selected"}})
+	ctx = types.WithTenantAPIKeyScope(ctx, types.TenantAPIKeyScope{
+		KeyID: 1, ScopeType: types.APIKeyScopeUserMCP, Capabilities: types.StringArray{"retrieve"},
+		KnowledgeBaseRestricted: true, KnowledgeBaseIDs: types.StringArray{"selected"},
+	})
 	return NewPersonalServer(true, &service.PortalMCPKnowledge{Resolver: resolver}), store, ctx
 }
 
@@ -121,7 +136,8 @@ func TestPersonalMCPSelectedReadStillDiscardsStaleOrRevokedOutput(t *testing.T) 
 				}
 				return mcp.NewToolResultText("MUST_NOT_ESCAPE"), nil
 			})
-			result, err := handler(ctx, selectedMCPRequest(t, map[string]any{"knowledge_base_ids": []string{"selected"}}))
+			request := selectedMCPRequest(t, map[string]any{"knowledge_base_ids": []string{"selected"}})
+			result, err := handler(ctx, request)
 			require.NoError(t, err)
 			require.True(t, result.IsError)
 			raw, err := json.Marshal(result)
@@ -150,7 +166,8 @@ func TestPersonalMCPBadSelectionNeverFallsBackToAll(t *testing.T) {
 
 func TestPersonalMCPHTTPAdmissionUsesToolSelection(t *testing.T) {
 	s, store, ctx := selectedMCPFixture()
-	body := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_knowledge","arguments":{"query":"q","knowledge_base_ids":["selected"]}}}`
+	body := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_knowledge",` +
+		`"arguments":{"query":"q","knowledge_base_ids":["selected"]}}}`
 	req := httptest.NewRequest("POST", "/api/v1/mcp/personal", bytes.NewBufferString(body)).WithContext(ctx)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json, text/event-stream")
@@ -165,9 +182,11 @@ func TestPersonalMCPHTTPAdmissionUsesToolSelection(t *testing.T) {
 
 func TestPersonalMCPHTTPAdmissionRejectsInvalidSelection(t *testing.T) {
 	s, store, ctx := selectedMCPFixture()
-	body := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_knowledge","arguments":{"knowledge_base_ids":[42]}}}`
+	body := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_knowledge",` +
+		`"arguments":{"knowledge_base_ids":[42]}}}`
 	w := httptest.NewRecorder()
-	s.Handler().ServeHTTP(w, httptest.NewRequest("POST", "/api/v1/mcp/personal", bytes.NewBufferString(body)).WithContext(ctx))
+	request := httptest.NewRequest("POST", "/api/v1/mcp/personal", bytes.NewBufferString(body)).WithContext(ctx)
+	s.Handler().ServeHTTP(w, request)
 	require.Equal(t, 400, w.Code)
 	require.Zero(t, store.unrelatedReads)
 }
