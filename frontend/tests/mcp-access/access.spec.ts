@@ -62,6 +62,8 @@ test('personal Key reuse, client formats, legacy history, pagination and respons
   for (const [width, theme] of [[1440, 'dark'], [1024, 'light'], [768, 'dark'], [390, 'light']] as const) {
     await page.setViewportSize({ width, height: 900 })
     await page.evaluate(value => document.documentElement.setAttribute('theme-mode', value), theme)
+    expect(await page.locator('html').evaluate(el => getComputedStyle(el).filter)).toBe('none')
+    expect(await page.locator('.monochrome-icon').evaluate(el => getComputedStyle(el).filter)).toBe(theme === 'dark' ? 'invert(1)' : 'none')
     await expect(page.locator('.personal-summary')).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await page.screenshot({ path: `test-results/mcp-access/${width}-${theme}.png`, fullPage: true })
