@@ -26,3 +26,16 @@ func TestSourceRestrictionPersonalReconcilePreservesIntent(t *testing.T) {
 	require.Equal(t, before.Fence, after.Fence)
 	require.Equal(t, downloads, f.downloads.Load(), "held admission must not fetch more cloud bytes")
 }
+
+func TestSourceRestrictionMissingKBRetainsRecoveryCleanup(t *testing.T) {
+	f := newPersonalRecoveryFixture(t)
+	imported := f.prepare("https://team.feishu.cn/file/real")
+	require.NoError(t, f.db.Exec("CREATE TABLE feishu_legacy_resources(knowledge_base_id text,state text)").Error)
+	require.NoError(t, f.db.Exec("UPDATE knowledge_bases SET deleted_at=now() WHERE id='kb'").Error)
+	types.EnableLegacyReadGuards(f.db)
+	require.NoError(t, f.p.Reconcile(f.ctx))
+	_, _, after, err := f.p.repo.Load(f.ctx, imported.AttemptID)
+	require.NoError(t, err)
+	require.Equal(t, "needs_attention", after.Status, "missing resources retain existing invalidation instead of indefinitely pending admission")
+	require.Equal(t, "authorization_or_resource_missing", after.LastErrorCategory)
+}

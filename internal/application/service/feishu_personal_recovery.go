@@ -797,10 +797,11 @@ func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 				reader := repository.NewDataSourceRepository(p.service.db).(knowledgeSourceRestrictionReader)
 				status, admissionErr := reader.KnowledgeSourceRestriction(ctx, current.CallerTenantID, m.KBID, m.KnowledgeID)
 				if admissionErr != nil {
-					failures = append(failures, admissionErr)
-					continue
+					// Preserve the existing missing-resource invalidation below;
+					// uncertainty remains retryable rather than a source denial.
+					err = admissionErr
 				}
-				if status.Restricted {
+				if admissionErr == nil && status.Restricted {
 					continue
 				}
 			}
