@@ -31,6 +31,10 @@
 .field { display: grid; gap: 8px; margin-bottom: 16px; min-width: 0; }
 .field>label { font-weight: 500; }
 .personal-surface .section-heading { margin-bottom: 12px; }
+.list-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 16px; }
+.list-heading .secondary-copy { font-size: var(--app-text-sm); }
+.status-tabs { min-width: 0; flex: 1; }
+.status-tabs :deep(.t-tabs__content) { display: none; }
 .list-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .list-filters>.t-input__wrap { width: min(280px, 100%); margin-left: auto; }
 .personal-key-card .meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }

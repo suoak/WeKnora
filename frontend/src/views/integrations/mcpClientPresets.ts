@@ -3,7 +3,7 @@ import { personalCodexConfig, personalMcpURL } from './personalMcpConfig'
 // These are UI choices, independent of the persisted historical client_type.
 // References were checked on 2026-10-29. No preset claims a live client session.
 export const mcpClients = [
-  { value: 'claude', label: 'Claude Code', icon: 'terminal', description: '连接项目知识', location: '项目根目录 .mcp.json', steps: ['将配置合并到项目 .mcp.json，保留已有服务器。个人 Secret 不应提交到代码仓库。', '启动 Claude Code，在 /mcp 中启用 KnowHub 并检查工具。'] },
+  { value: 'claude', label: 'Claude Code', icon: 'terminal', description: '连接项目知识', location: '用户级 ~/.claude.json · 环境变量认证', steps: ['将安全模板中的 mcpServers 合并到用户级 ~/.claude.json，保留原有设置。配置只引用 KNOWHUB_MCP_KEY，不写入真实密钥。', '使用“复制 Secret”获取当前 Key，在启动 Claude Code 的进程环境中设置 KNOWHUB_MCP_KEY；无需替换模板内容。不要将密钥写入或提交到项目 .mcp.json。', '启动 Claude Code，在 /mcp 中启用 KnowHub 并验证知识检索。'] },
   { value: 'codex', label: 'Codex', icon: 'code', description: '连接编程助手', location: '~/.codex/config.toml', steps: ['将配置合并到 ~/.codex/config.toml。', '在启动 Codex 的进程环境中设置 KNOWHUB_MCP_KEY 为上方 Secret；运行 codex mcp list 检查配置，在 Codex 的 /mcp 中检查连接。'] },
   { value: 'copilot', label: 'GitHub Copilot', icon: 'code', description: '通过 VS Code 接入', location: 'VS Code 工作区 .vscode/mcp.json', steps: ['本入口适用于 VS Code 中的 GitHub Copilot。将配置合并到 .vscode/mcp.json。', '打开命令面板，运行 MCP: List Servers，启动 KnowHub，在 Copilot Agent 中启用工具。'] },
   { value: 'vscode', label: 'VS Code', icon: 'code', description: '连接工作区', location: '工作区 .vscode/mcp.json', steps: ['将配置合并到 .vscode/mcp.json，保留已有服务器。', '运行 MCP: List Servers，启动 KnowHub，再在聊天工具选择器中启用工具。'] },
@@ -13,11 +13,12 @@ export const mcpClients = [
 ] as const
 
 export type MCPClientPreset = typeof mcpClients[number]['value']
+export const usesSafeCredentialInput = (client: MCPClientPreset) => ['claude', 'codex', 'vscode', 'copilot'].includes(client)
 
 export function personalClientConfiguration(client: MCPClientPreset, publicURL: string, token: string): string {
   const url = personalMcpURL(publicURL)
   if (client === 'codex') return personalCodexConfig(publicURL)
-  const headers = { Authorization: `Bearer ${token}` }
+  const headers = { Authorization: client === 'claude' ? 'Bearer ${KNOWHUB_MCP_KEY}' : `Bearer ${token}` }
   if (client === 'vscode' || client === 'copilot') {
     // VS Code resolves the input via secret storage instead of writing it to JSON.
     return JSON.stringify({ inputs: [{ id: 'knowhub-key', type: 'promptString', description: 'KnowHub 个人 MCP Key', password: true }], servers: {
