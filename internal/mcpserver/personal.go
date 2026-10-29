@@ -1,9 +1,11 @@
 package mcpserver
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -68,7 +70,21 @@ func (s *PersonalServer) Handler() http.Handler {
 		ctx, _ := access.WithPortalDiagnostics(bounded)
 		r = r.WithContext(ctx)
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-		if _, err := s.knowledge.Resolve(r.Context(), nil); err != nil {
+		var targets []string
+		if r.Method == http.MethodPost {
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, "invalid personal MCP request", http.StatusBadRequest)
+				return
+			}
+			r.Body = io.NopCloser(bytes.NewReader(body))
+			targets, err = personalHTTPRequestTargets(body)
+			if err != nil {
+				http.Error(w, "invalid personal MCP targets", http.StatusBadRequest)
+				return
+			}
+		}
+		if _, err := s.knowledge.Resolve(r.Context(), targets); err != nil {
 			http.Error(w, "personal MCP denied", http.StatusForbidden)
 			return
 		}
@@ -87,11 +103,15 @@ func (s *PersonalServer) guard(next server.ToolHandlerFunc) server.ToolHandlerFu
 		default:
 			return mcp.NewToolResultError("tool not allowed"), nil
 		}
+		ids, err := personalOperationTargets(r.Params.Name, r.GetArguments())
+		if err != nil {
+			return mcp.NewToolResultError("invalid knowledge base selection"), nil
+		}
 		// Only these eight read-only operations may be retried. A source revoked
 		// during execution discards the entire first response, then resolves a
 		// fresh scope once. Identity/DB/unknown errors never enter this retry.
 		for attempt := 0; attempt < 2; attempt++ {
-			targets, err := s.knowledge.Resolve(ctx, nil)
+			targets, err := s.knowledge.Resolve(ctx, ids)
 			if err != nil {
 				return mcp.NewToolResultError("authorization denied"), nil
 			}
