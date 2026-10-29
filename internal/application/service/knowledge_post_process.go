@@ -572,12 +572,17 @@ func (s *KnowledgePostProcessService) enqueueSummaryGenerationTask(ctx context.C
 		return false
 	}
 
+	version, _, versionErr := knowledgeDerivedVersion(ctx, s.knowledgeRepo, payload.KnowledgeID)
+	if versionErr != nil {
+		return false
+	}
 	taskPayload := types.SummaryGenerationPayload{
 		TenantID:        payload.TenantID,
 		KnowledgeBaseID: payload.KnowledgeBaseID,
 		KnowledgeID:     payload.KnowledgeID,
 		Language:        payload.Language,
 		Attempt:         attempt,
+		SourceVersion:   version,
 	}
 	langfuse.InjectTracing(ctx, &taskPayload)
 	payloadBytes, err := json.Marshal(taskPayload)

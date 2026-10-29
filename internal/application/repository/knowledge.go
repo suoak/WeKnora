@@ -615,8 +615,7 @@ func (r *knowledgeRepository) UpdateKnowledgeColumn(
 			value = common.CleanInvalidUTF8(string(v))
 		}
 	}
-	err := r.db.WithContext(ctx).Model(&types.Knowledge{}).Where("id = ?", id).Update(column, value).Error
-	return err
+	return r.UpdateKnowledgeColumns(ctx, id, map[string]interface{}{column: value})
 }
 
 // UpdateKnowledgeColumns writes multiple columns in a single UPDATE so callers
@@ -637,6 +636,18 @@ func (r *knowledgeRepository) UpdateKnowledgeColumns(
 			values["error_message"] = common.CleanInvalidUTF8(v)
 		case []byte:
 			values["error_message"] = common.CleanInvalidUTF8(string(v))
+		}
+	}
+	if handled, err := r.writeKnowledgeDerived(ctx, id, values); handled {
+		return err
+	}
+	if types.LegacyReadGuardsEnabled(r.db) {
+		var enrolled int64
+		if err := r.db.WithContext(ctx).Table("feishu_legacy_resources").Where("knowledge_id=?", id).Count(&enrolled).Error; err != nil {
+			return err
+		}
+		if enrolled != 0 {
+			return ErrDerivedWriteRejected
 		}
 	}
 	return r.db.WithContext(ctx).Model(&types.Knowledge{}).Where("id = ?", id).Updates(values).Error

@@ -153,7 +153,7 @@ func newAsynqServer(concurrency int, queues map[string]int) *asynq.Server {
 func backgroundTaskMiddleware() asynq.MiddlewareFunc {
 	return func(next asynq.Handler) asynq.Handler {
 		return asynq.HandlerFunc(func(ctx context.Context, t *asynq.Task) error {
-			return next.ProcessTask(types.WithBackgroundTask(ctx), t)
+			return service.FeishuTaskResult(next.ProcessTask(types.WithBackgroundTask(ctx), t))
 		})
 	}
 }

@@ -183,7 +183,7 @@ func (e *SyncTaskExecutor) Enqueue(task *asynq.Task, opts ...asynq.Option) (*asy
 			var cancel context.CancelFunc
 			attemptCtx, cancel = options.attemptContext(types.WithTaskRetryMetadata(ctx, attempt, maxRetry))
 			// An unrecovered panic here would take down the whole process.
-			lastErr = asynqdl.CallRecovered(attemptCtx, task, handler)
+			lastErr = service.FeishuTaskResult(asynqdl.CallRecovered(attemptCtx, task, handler))
 			cancel()
 			if lastErr == nil {
 				logger.Infof(ctx, "[SyncTask] Task completed type=%s id=%s elapsed=%v",
