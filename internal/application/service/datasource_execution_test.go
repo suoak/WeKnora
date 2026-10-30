@@ -87,6 +87,31 @@ func syncServiceSuite(t *testing.T, dialect string) {
 		}
 		return svc, ds, queue, connector
 	}
+	t.Run("recovery_delivery_preserves_normal_claim_without_enqueue", func(t *testing.T) {
+		svc, ds, q, connector := makeSvc()
+		close(connector.proceed)
+		var bound string
+		err := svc.RunRecoveryCanary(context.Background(), ds.ID, func(id string, generation int64) error {
+			require.EqualValues(t, 1, generation)
+			require.NotEmpty(t, id)
+			require.Empty(t, bound)
+			bound = id
+			return nil
+		})
+		require.NoError(t, err)
+		require.Zero(t, q.calls.Load())
+		require.EqualValues(t, 1, connector.calls.Load())
+		result, err := logs.FindByID(context.Background(), bound)
+		require.NoError(t, err)
+		require.Equal(t, types.SyncLogStatusSuccess, result.Status)
+		require.False(t, result.ExecutionClaimed)
+	})
+	t.Run("recovery_binding_rejection_never_enters_connector", func(t *testing.T) {
+		svc, ds, q, connector := makeSvc()
+		require.Error(t, svc.RunRecoveryCanary(context.Background(), ds.ID, func(string, int64) error { return errors.New("not approved") }))
+		require.Zero(t, q.calls.Load())
+		require.Zero(t, connector.calls.Load())
+	})
 	t.Run("sharing_denial_terminates_without_checkpoint_or_retry", func(t *testing.T) {
 		svc, ds, _, _ := makeSvc()
 		ds.LastSyncCursor = types.JSON(`{"connector_cursor":{"approved":"old-version"}}`)

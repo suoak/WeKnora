@@ -81,20 +81,22 @@ type Controller struct {
 	Audit  func(Event) error
 	// Consumers returns actual healthy Asynq sync consumers as host:pid IDs.
 	// Automatic mode validates their registry leases, never synthesizes metrics.
-	Consumers    func(context.Context) ([]string, error)
-	prefix       string
-	fingerprint  string
-	incarnation  string
-	departed     bool
-	started      time.Time
-	admitted     bool
-	lastEvent    string
-	lastAlertAck time.Time
-	stepStarted  time.Time
-	probeStage   string
-	Transport    *ControlTransport
-	Observe      func(StepTiming)
-	timings      StepTiming
+	Consumers        func(context.Context) ([]string, error)
+	prefix           string
+	fingerprint      string
+	incarnation      string
+	departed         bool
+	recoveryEnabled  bool
+	recoveryRequired bool
+	started          time.Time
+	admitted         bool
+	lastEvent        string
+	lastAlertAck     time.Time
+	stepStarted      time.Time
+	probeStage       string
+	Transport        *ControlTransport
+	Observe          func(StepTiming)
+	timings          StepTiming
 }
 
 func (c *Controller) audit(ctx context.Context, event Event) error {
@@ -224,6 +226,11 @@ func (c *Controller) Step(ctx context.Context) (result error) {
 	}
 	if c.Config.Scope == "none" {
 		return c.freeze(ctx, "scope_none", false)
+	}
+	if c.recoveryEnabled {
+		if err := c.checkRecoveryPolicy(ctx); err != nil {
+			return c.freeze(ctx, "recovery_policy_expired_or_invalid", true)
+		}
 	}
 	if c.Config.Automatic {
 		return c.automaticStep(ctx)

@@ -61,7 +61,7 @@ func tripRequestFailure(caller context.Context, g *Guard, err error, embedding b
 		// Source HTTP timeouts belong to the existing connector's bounded
 		// retry/backoff. No response is accepted and no candidate is published.
 		// A healthy shared gate is required even for this local classification.
-		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(caller), 200*time.Millisecond)
 		defer cancel()
 		if g.Check(ctx) != nil {
 			reason := "timeout"
