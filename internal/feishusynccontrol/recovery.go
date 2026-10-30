@@ -33,6 +33,7 @@ type RecoveryFacts struct {
 	ConfigSHA256          string `json:"config_sha256"`
 	FactsSHA256           string `json:"facts_sha256"`
 	Eligible              bool   `json:"eligible"`
+	RetryEligible         bool   `json:"retry_eligible,omitempty"`
 	SelectedResourceCount int    `json:"selected_resource_count"`
 	LiveExecutions        int64  `json:"live_executions"`
 	LivePublications      int64  `json:"live_publications"`
@@ -78,20 +79,22 @@ type RecoveryApproval struct {
 }
 
 type recoveryMode struct {
-	RuntimeSHA            string `json:"runtime_sha"`
-	WorkerID              string `json:"worker_id"`
-	Incarnation           string `json:"incarnation"`
-	ControllerFingerprint string `json:"controller_fingerprint"`
-	MembershipRevision    string `json:"membership_revision"`
-	Version               int    `json:"version"`
-	PlanID                string `json:"plan_id"`
-	PlanSHA256            string `json:"plan_sha256"`
-	SourceID              string `json:"source_id"`
-	ConfigSHA256          string `json:"config_sha256"`
-	Phase                 string `json:"phase"`
-	RunID                 string `json:"run_id"`
-	Generation            int64  `json:"generation"`
-	ExpiresMS             int64  `json:"expires_ms"`
+	ContinuityID          string                    `json:"continuity_id,omitempty"`
+	ApprovedSources       map[string]ApprovedSource `json:"approved_sources,omitempty"`
+	RuntimeSHA            string                    `json:"runtime_sha"`
+	WorkerID              string                    `json:"worker_id"`
+	Incarnation           string                    `json:"incarnation"`
+	ControllerFingerprint string                    `json:"controller_fingerprint"`
+	MembershipRevision    string                    `json:"membership_revision"`
+	Version               int                       `json:"version"`
+	PlanID                string                    `json:"plan_id"`
+	PlanSHA256            string                    `json:"plan_sha256"`
+	SourceID              string                    `json:"source_id"`
+	ConfigSHA256          string                    `json:"config_sha256"`
+	Phase                 string                    `json:"phase"`
+	RunID                 string                    `json:"run_id"`
+	Generation            int64                     `json:"generation"`
+	ExpiresMS             int64                     `json:"expires_ms"`
 }
 
 // RecoveryManager coordinates one approved replacement Guard lifecycle.
@@ -121,12 +124,15 @@ func NewRecoveryManager(
 		return nil, ErrRecoveryRejected
 	}
 	c.recoveryEnabled = true
-	return &RecoveryManager{
+	c.approvedFacts = facts
+	m := &RecoveryManager{
 		controller: c,
 		key:        append(ed25519.PublicKey(nil), key...),
 		keyID:      RecoveryVerificationKeyID(key),
 		facts:      facts,
-	}, nil
+	}
+	c.Guard.SetApprovedSourceValidator(m.checkApprovedSource)
+	return m, nil
 }
 
 func (c *Controller) checkRecoveryPolicy(ctx context.Context) error {
@@ -160,6 +166,29 @@ func (c *Controller) checkRecoveryPolicy(ctx context.Context) error {
 	}
 	if state.ExpiresMS <= now.UnixMilli() {
 		return ErrRecoveryRejected
+	}
+	if state.Phase == "approved_sources" {
+		if c.approvedFacts == nil || state.ContinuityID == "" || len(state.ApprovedSources) < 1 ||
+			len(state.ApprovedSources) > 4 {
+			return ErrRecoveryRejected
+		}
+		if c.ApprovedConsumers == nil {
+			return ErrRecoveryRejected
+		}
+		consumers, err := c.ApprovedConsumers(ctx)
+		if err != nil || len(consumers) != 1 || consumers[0] != c.Config.WorkerID {
+			return ErrRecoveryRejected
+		}
+		if n, err := c.Client.Exists(ctx, "asynq:{approved_sync}:paused").Result(); err != nil ||
+			n != 0 {
+			return ErrRecoveryRejected
+		}
+		for id, approved := range state.ApprovedSources {
+			facts, err := c.approvedFacts(ctx, id)
+			if err != nil || !approved.matches(facts) {
+				return ErrRecoveryRejected
+			}
+		}
 	}
 	return nil
 }
@@ -802,6 +831,15 @@ func (m *RecoveryManager) Status(ctx context.Context, source string) (map[string
 	var state recoveryMode
 	if json.Unmarshal([]byte(raw), &state) != nil || state.SourceID != source {
 		return nil, ErrRecoveryRejected
+	}
+	// Do not expose other sources from a multi-source policy through a route
+	// that has authorized only this source. Copy before redacting the map.
+	if state.ApprovedSources != nil {
+		entry, ok := state.ApprovedSources[source]
+		state.ApprovedSources = nil
+		if ok {
+			state.ApprovedSources = map[string]ApprovedSource{source: entry}
+		}
 	}
 	trip, e := c.Client.Exists(ctx, c.prefix+"trip").Result()
 	if e != nil {

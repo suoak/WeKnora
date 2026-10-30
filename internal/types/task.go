@@ -1,5 +1,13 @@
 package types
 
+import "os"
+
+// ApprovedSyncLaneEnabled is an explicit deployment opt-in. No worker may
+// consume the private recovery lane before startup has sealed it in Redis.
+func ApprovedSyncLaneEnabled() bool {
+	return os.Getenv("FEISHU_APPROVED_SYNC_LANE_ENABLED") == "1"
+}
+
 // Worker-pool names are part of the runtime observability API. Each pool is
 // backed by an independent asynq.Server, so concurrency is hard-isolated
 // between pools instead of being only a weighted dequeue preference.
@@ -40,6 +48,7 @@ const (
 	QueueGraph          = "graph"
 	QueueQuestion       = "question"
 	QueueSync           = "sync"
+	QueueApprovedSync   = "approved_sync"
 	QueueMaintenance    = "low"
 	QueueWiki           = "wiki"
 	// QueueMemory carries debounced long-term memory distillation. It sits in
@@ -80,6 +89,9 @@ var queueDefinitions = []QueueDefinition{
 	{Name: QueueQuestion, Pool: WorkerPoolEnrichment, Weight: 1, SharedWeight: 1, TaskTypes: []string{TypeQuestionGeneration}},
 	{Name: QueueMemory, Pool: WorkerPoolEnrichment, Weight: 1, SharedWeight: 1, TaskTypes: []string{TypeMemoryExtract}},
 	{Name: QueueSync, Pool: WorkerPoolMaintenance, Weight: 2, TaskTypes: []string{TypeDataSourceSync}},
+	// The shared lane stays paused during incident recovery. Only signed
+	// source admission may route new sync tasks to this maintenance lane.
+	{Name: QueueApprovedSync, Pool: WorkerPoolMaintenance, Weight: 1},
 	{Name: QueueMaintenance, Pool: WorkerPoolMaintenance, Weight: 1, TaskTypes: []string{
 		TypeFeishuConnectionCheck,
 		TypeFAQImport, TypeKBClone, TypeIndexDelete, TypeKBDelete,
@@ -117,6 +129,9 @@ func QueueForTaskType(taskType string) (string, bool) {
 func QueueWeightsForPool(pool string) map[string]int {
 	weights := make(map[string]int)
 	for _, definition := range queueDefinitions {
+		if definition.Name == QueueApprovedSync && !ApprovedSyncLaneEnabled() {
+			continue
+		}
 		if definition.Pool == pool {
 			weights[definition.Name] = definition.Weight
 		}

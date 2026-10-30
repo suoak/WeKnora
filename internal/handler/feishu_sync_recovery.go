@@ -109,3 +109,72 @@ func (h *DataSourceHandler) FeishuRecoveryExecute(c *gin.Context) {
 	}
 	c.JSON(200, gin.H{"operation": request.Approval.Operation, "sync_queue_kept_paused": true})
 }
+
+// FeishuContinuity handles a separately signed, finite source admission policy.
+// Every source must be authorized in the operator's current tenant; neither
+// platform-admin status nor an offline signature replaces source ownership.
+func (h *DataSourceHandler) FeishuContinuity(c *gin.Context) {
+	m, actor, ok := h.recoveryActor(c)
+	if !ok {
+		return
+	}
+	var request struct {
+		Sources  []string                           `json:"sources"`
+		Plan     feishusynccontrol.ContinuityPlan   `json:"plan"`
+		Approval feishusynccontrol.RecoveryApproval `json:"approval"`
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 64<<10)
+	if c.ShouldBindJSON(&request) != nil {
+		c.JSON(400, gin.H{"error": "invalid_continuity_request"})
+		return
+	}
+	execute := c.Param("operation") == "activate"
+	ids := request.Sources
+	if execute {
+		ids = nil
+		for _, source := range request.Plan.Sources {
+			ids = append(ids, source.SourceID)
+		}
+	}
+	if len(ids) < 1 || len(ids) > 4 {
+		c.JSON(400, gin.H{"error": "bounded_source_selection_required"})
+		return
+	}
+	anchor := false
+	for _, id := range ids {
+		if id == c.Param("id") {
+			anchor = true
+		}
+		if _, status, _ := h.getOwnedDataSource(c.Request.Context(), h.getTenantID(c), id); status != http.StatusOK {
+			c.JSON(403, gin.H{"error": "continuity_source_forbidden"})
+			return
+		}
+	}
+	if !anchor {
+		c.JSON(400, gin.H{"error": "continuity_source_mismatch"})
+		return
+	}
+	if execute {
+		if err := m.ApproveSources(c.Request.Context(), request.Plan, request.Approval, actor); err != nil {
+			c.JSON(409, gin.H{"error": "continuity_activation_rejected"})
+			return
+		}
+		c.JSON(200, gin.H{"sync_queue_kept_paused": true, "approved_sources": len(ids)})
+		return
+	}
+	if c.Param("operation") != "plan" {
+		c.JSON(400, gin.H{"error": "unsupported_continuity_operation"})
+		return
+	}
+	p, err := m.PlanContinuity(c.Request.Context(), actor, ids)
+	if err != nil {
+		c.JSON(409, gin.H{"error": "continuity_precondition_rejected"})
+		return
+	}
+	hash, err := feishusynccontrol.RecoveryDigest(p)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "continuity_plan_failed"})
+		return
+	}
+	c.JSON(200, gin.H{"plan": p, "plan_sha256": hash})
+}

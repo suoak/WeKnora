@@ -189,6 +189,7 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 	if !Scoped(req.Context()) {
 		return base.RoundTrip(req)
 	}
+	req = req.WithContext(context.WithValue(req.Context(), recoveryOutboundKey{}, true))
 	g := Default()
 	if err := g.Check(req.Context()); err != nil {
 		return nil, err

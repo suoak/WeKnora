@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/feishusafety"
+	"github.com/Tencent/WeKnora/internal/feishusynccontrol"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/runtime"
 	"github.com/Tencent/WeKnora/internal/tracing/langfuse"
@@ -190,6 +191,28 @@ func (s *Scheduler) triggerSync(dataSourceID string, tenantID uint64) {
 	if LegacyFeishuSyncSuspended(ds.Type) || !LegacyFeishuSourceAllowed(ds.Type, ds.ID) {
 		return
 	}
+	queueName := types.QueueSync
+	if feishusafety.Scoped(feishusafety.LegacyContext(ctx, ds.Type, ds.ID)) {
+		fingerprint, fpErr := feishusafety.SourceConfigFingerprint(
+			ds.ID,
+			ds.KnowledgeBaseID,
+			ds.Type,
+			ds.LegacyAccessState,
+			ds.TenantID,
+			ds.Config,
+		)
+		if fpErr != nil {
+			return
+		}
+		var approved bool
+		ctx, approved, err = feishusynccontrol.BindApprovedSource(ctx, ds.ID, fingerprint)
+		if err != nil {
+			return
+		}
+		if approved {
+			queueName = types.QueueApprovedSync
+		}
+	}
 	if err := feishusafety.CheckLegacy(ctx, ds.Type, ds.ID); err != nil {
 		logger.Warnf(ctx, "[Scheduler] sync safety gate closed ds=%s", ds.ID)
 		return
@@ -237,7 +260,7 @@ func (s *Scheduler) triggerSync(dataSourceID string, tenantID uint64) {
 	taskID := fmt.Sprintf("dssync:%s:%s", dataSourceID, time.Now().UTC().Truncate(time.Minute).Format("200601021504"))
 
 	_, err = s.taskEnqueuer.Enqueue(task,
-		asynq.Queue(types.QueueSync),
+		asynq.Queue(queueName),
 		asynq.MaxRetry(5),
 		asynq.Timeout(2*time.Hour),
 		asynq.TaskID(taskID),

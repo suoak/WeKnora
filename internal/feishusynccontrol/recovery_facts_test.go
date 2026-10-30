@@ -62,6 +62,24 @@ func TestRecoveryFactsPostgresAuthorityAndExecutionChanges(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, initial.Eligible)
 	require.Equal(t, 1, initial.SelectedResourceCount)
+	claim := types.SyncLog{
+		ID: uuid.NewString(), DataSourceID: source.ID, TenantID: tenant.ID,
+		Status: types.SyncLogStatusRunning, ExecutionGeneration: 7, ExecutionClaimed: true,
+	}
+	require.NoError(t, db.Create(&claim).Error)
+	identity := types.SyncExecution{DataSourceID: source.ID, SyncLogID: claim.ID, TenantID: tenant.ID, Generation: 7}
+	valid, err := RecoveryFactsFromDatabase(types.WithSyncExecution(ctx, identity), db, source.ID)
+	require.NoError(t, err)
+	require.True(t, valid.Eligible)
+	identity.Generation = 6
+	stale, err := RecoveryFactsFromDatabase(types.WithSyncExecution(ctx, identity), db, source.ID)
+	require.NoError(t, err)
+	require.False(t, stale.Eligible, "old generation must not pass live outbound checks")
+	identity.Generation = 7
+	require.NoError(t, db.Model(&claim).Update("execution_claimed", false).Error)
+	released, err := RecoveryFactsFromDatabase(types.WithSyncExecution(ctx, identity), db, source.ID)
+	require.NoError(t, err)
+	require.False(t, released.Eligible, "released execution must not keep outbound authority")
 	require.NoError(t, db.Model(&user).Update("is_active", false).Error)
 	changed, err := RecoveryFactsFromDatabase(ctx, db, source.ID)
 	require.NoError(t, err)

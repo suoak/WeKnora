@@ -42,12 +42,13 @@ type Config struct {
 
 // Guard coordinates a deployment-scoped, fail-closed Redis safety allocation.
 type Guard struct {
-	client           redis.UniversalClient
-	config           Config
-	fingerprint      string
-	prefix           string
-	localClosed      atomic.Bool
-	recoveryRequired atomic.Bool
+	client                  redis.UniversalClient
+	config                  Config
+	fingerprint             string
+	prefix                  string
+	localClosed             atomic.Bool
+	recoveryRequired        atomic.Bool
+	approvedSourceValidator atomic.Pointer[approvedSourceValidator]
 }
 
 // New validates explicit budgets and constructs a closed-by-default guard.
@@ -106,9 +107,15 @@ if raw then
  if not required or required~=s.plan_sha256 then return redis.error_reply('RECOVERY_BINDING_MISSING') end
  local now=redis.call('TIME'); local ms=now[1]*1000+math.floor(now[2]/1000)
  if s.version~=1 or not s.expires_ms or s.expires_ms<=ms then return redis.error_reply('RECOVERY_EXPIRED') end
- if s.source_id~=ARGV[2] or s.config_sha256~=ARGV[4] then return
+ if s.phase=='approved_sources' then
+  local entry=s.approved_sources and s.approved_sources[ARGV[2]]
+  if not entry or entry.config_sha256~=ARGV[4] or s.continuity_id~=ARGV[3] or
+   (ARGV[8]~='true' and ARGV[8]~='1') then return redis.error_reply('APPROVED_SOURCE_DENIED') end
+ elseif s.source_id~=ARGV[2] or s.config_sha256~=ARGV[4] then return
 redis.error_reply('RECOVERY_SOURCE_DENIED') end
- if s.phase=='admit' then
+ if s.phase=='approved_sources' then
+  -- Live authority was checked by the server validator before this atomic gate.
+ elseif s.phase=='admit' then
   if s.plan_id~=ARGV[3] or ARGV[5]~='' then return redis.error_reply('RECOVERY_ADMISSION_DENIED') end
  elseif s.phase=='running' then
   if s.plan_id~=ARGV[3] or s.run_id~=ARGV[5] or tostring(s.generation)~=ARGV[6] then
@@ -125,6 +132,10 @@ func (g *Guard) Check(ctx context.Context) error {
 	}
 	scope, _ := ctx.Value(scopeKey{}).(Scope)
 	i := recoveryIdentity(ctx)
+	validated, liveErr := g.checkApprovedSource(ctx, scope.SourceID, i)
+	if liveErr != nil {
+		return liveErr
+	}
 	if err := checkScript.Run(ctx,
 		g.client,
 		[]string{
@@ -135,7 +146,7 @@ func (g *Guard) Check(ctx context.Context) error {
 		},
 
 		g.fingerprint, scope.SourceID, i.Plan, i.Config, i.Run, i.Generation,
-		g.recoveryRequired.Load()).Err(); err != nil {
+		g.recoveryRequired.Load(), validated).Err(); err != nil {
 		return fmt.Errorf("%w: %v", ErrClosed, err)
 	}
 	return nil
@@ -231,9 +242,15 @@ if raw then
  if not required or required~=s.plan_sha256 then return redis.error_reply('RECOVERY_BINDING_MISSING') end
  local now=redis.call('TIME'); local ms=now[1]*1000+math.floor(now[2]/1000)
  if s.version~=1 or not s.expires_ms or s.expires_ms<=ms then return redis.error_reply('RECOVERY_EXPIRED') end
- if s.source_id~=ARGV[8] or s.config_sha256~=ARGV[10] then return
+ if s.phase=='approved_sources' then
+  local entry=s.approved_sources and s.approved_sources[ARGV[8]]
+  if not entry or entry.config_sha256~=ARGV[10] or s.continuity_id~=ARGV[9] or
+   (ARGV[14]~='true' and ARGV[14]~='1') then return redis.error_reply('APPROVED_SOURCE_DENIED') end
+ elseif s.source_id~=ARGV[8] or s.config_sha256~=ARGV[10] then return
 redis.error_reply('RECOVERY_SOURCE_DENIED') end
- if s.phase=='admit' then
+ if s.phase=='approved_sources' then
+  -- Shared RPM/RPS/TPM limits below still apply to every approved source.
+ elseif s.phase=='admit' then
   if s.plan_id~=ARGV[9] or ARGV[11]~='' then return redis.error_reply('RECOVERY_ADMISSION_DENIED') end
  elseif s.phase=='running' then
   if s.plan_id~=ARGV[9] or s.run_id~=ARGV[11] or tostring(s.generation)~=ARGV[12] then
@@ -256,12 +273,17 @@ redis.call('HSET',KEYS[3],ARGV[6],now)
 redis.call('ZADD',KEYS[4],now,ARGV[6]..':'..ARGV[4]); return 1`)
 
 func (g *Guard) tryBegin(ctx context.Context, tokens int) (func(), error) {
+	ctx = context.WithValue(ctx, recoveryOutboundKey{}, true)
 	if err := g.Check(ctx); err != nil {
 		return nil, err
 	}
 	id := uuid.NewString()
 	scope, _ := ctx.Value(scopeKey{}).(Scope)
 	identity := recoveryIdentity(ctx)
+	validated, liveErr := g.checkApprovedSource(ctx, scope.SourceID, identity)
+	if liveErr != nil {
+		return nil, liveErr
+	}
 	err := acquireScript.Run(
 		ctx,
 		g.client,
@@ -285,7 +307,7 @@ func (g *Guard) tryBegin(ctx context.Context, tokens int) (func(), error) {
 		identity.Config,
 		identity.Run,
 		identity.Generation,
-		g.recoveryRequired.Load(),
+		g.recoveryRequired.Load(), validated,
 	).
 		Err()
 	if err != nil {

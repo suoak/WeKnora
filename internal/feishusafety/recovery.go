@@ -15,7 +15,17 @@ type RecoveryContext struct {
 	Plan, Config, Run string
 	Generation        int64
 }
-type recoveryContextKey struct{}
+type (
+	recoveryContextKey  struct{}
+	recoveryOutboundKey struct{}
+)
+
+// RecoveryOutboundExecution distinguishes actual HTTP/budget use from the
+// producer's pre-enqueue check. Only this package marks an outbound operation.
+func RecoveryOutboundExecution(ctx context.Context) (RecoveryContext, bool) {
+	required, _ := ctx.Value(recoveryOutboundKey{}).(bool)
+	return recoveryIdentity(ctx), required
+}
 
 // WithRecoveryContext attaches server-owned identity; it does not grant authority.
 func WithRecoveryContext(ctx context.Context, identity RecoveryContext) context.Context {
@@ -61,7 +71,42 @@ func SourceConfigFingerprint(source, kb, kind, state string, tenant uint64, conf
 
 // Fresh creates another closed-by-permit lifecycle. It does not reopen this
 // object's local latch or install the replacement in any running process.
-func (g *Guard) Fresh() (*Guard, error) { return New(g.client, g.config) }
+func (g *Guard) Fresh() (*Guard, error) {
+	fresh, err := New(g.client, g.config)
+	if err == nil {
+		fresh.approvedSourceValidator.Store(g.approvedSourceValidator.Load())
+	}
+	return fresh, err
+}
+
+type approvedSourceValidator struct {
+	check func(context.Context, string, string) error
+}
+
+// SetApprovedSourceValidator installs a server-owned live authority check.
+// Neither a task payload nor a request header can supply this validator.
+func (g *Guard) SetApprovedSourceValidator(check func(context.Context, string, string) error) {
+	if check == nil {
+		g.approvedSourceValidator.Store(nil)
+		return
+	}
+	g.approvedSourceValidator.Store(&approvedSourceValidator{check: check})
+}
+
+func (g *Guard) checkApprovedSource(
+	ctx context.Context,
+	source string,
+	identity RecoveryContext,
+) (bool, error) {
+	v := g.approvedSourceValidator.Load()
+	if v == nil {
+		return false, nil
+	}
+	if err := v.check(ctx, source, identity.Config); err != nil {
+		return true, ErrClosed
+	}
+	return true, nil
+}
 
 // RequireRecovery pins the replacement lifecycle closed if distributed recovery state is lost.
 func (g *Guard) RequireRecovery() { g.recoveryRequired.Store(true) }

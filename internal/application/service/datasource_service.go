@@ -598,6 +598,7 @@ func (s *DataSourceService) manualSyncUsing(
 	if !datasource.LegacyFeishuSourceAllowed(ds.Type, ds.ID) {
 		return nil, datasource.ErrLegacyFeishuSourceNotAllowed
 	}
+	approvedDelivery := false
 	if feishusafety.Scoped(feishusafety.LegacyContext(ctx, ds.Type, ds.ID)) {
 		fingerprint, fpErr := feishusafety.SourceConfigFingerprint(
 			ds.ID,
@@ -611,6 +612,11 @@ func (s *DataSourceService) manualSyncUsing(
 			return nil, fpErr
 		}
 		ctx = feishusafety.WithRecoveryExecution(ctx, fingerprint, "", 0)
+		ctx, approvedDelivery, err = feishusynccontrol.BindApprovedSource(ctx, ds.ID, fingerprint)
+		if err != nil {
+			return nil, err
+		}
+
 	}
 	if err := feishusafety.CheckLegacy(ctx, ds.Type, ds.ID); err != nil {
 		return nil, err
@@ -651,8 +657,12 @@ func (s *DataSourceService) manualSyncUsing(
 	langfuse.InjectTracing(ctx, payload)
 
 	payloadJSON, _ := json.Marshal(payload)
+	queueName := types.QueueSync
+	if approvedDelivery {
+		queueName = types.QueueApprovedSync
+	}
 	task := asynq.NewTask(types.TypeDataSourceSync, payloadJSON,
-		asynq.Queue(types.QueueSync), asynq.MaxRetry(5), asynq.Timeout(2*time.Hour))
+		asynq.Queue(queueName), asynq.MaxRetry(5), asynq.Timeout(2*time.Hour))
 
 	info, err := enqueue(task)
 	if err != nil {
@@ -845,6 +855,10 @@ func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.
 		execution, ok := types.SyncExecutionFromContext(ctx)
 		if !ok {
 			return types.ErrStaleSyncExecution
+		}
+		marked, _, err = feishusynccontrol.BindApprovedSource(marked, ds.ID, fingerprint)
+		if err != nil {
+			return errors.Join(asynq.SkipRetry, err)
 		}
 		marked = feishusafety.WithRecoveryExecution(
 			marked,

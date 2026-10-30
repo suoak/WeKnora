@@ -81,22 +81,24 @@ type Controller struct {
 	Audit  func(Event) error
 	// Consumers returns actual healthy Asynq sync consumers as host:pid IDs.
 	// Automatic mode validates their registry leases, never synthesizes metrics.
-	Consumers        func(context.Context) ([]string, error)
-	prefix           string
-	fingerprint      string
-	incarnation      string
-	departed         bool
-	recoveryEnabled  bool
-	recoveryRequired bool
-	started          time.Time
-	admitted         bool
-	lastEvent        string
-	lastAlertAck     time.Time
-	stepStarted      time.Time
-	probeStage       string
-	Transport        *ControlTransport
-	Observe          func(StepTiming)
-	timings          StepTiming
+	Consumers         func(context.Context) ([]string, error)
+	ApprovedConsumers func(context.Context) ([]string, error)
+	prefix            string
+	fingerprint       string
+	incarnation       string
+	departed          bool
+	recoveryEnabled   bool
+	recoveryRequired  bool
+	approvedFacts     func(context.Context, string) (RecoveryFacts, error)
+	started           time.Time
+	admitted          bool
+	lastEvent         string
+	lastAlertAck      time.Time
+	stepStarted       time.Time
+	probeStage        string
+	Transport         *ControlTransport
+	Observe           func(StepTiming)
+	timings           StepTiming
 }
 
 func (c *Controller) audit(ctx context.Context, event Event) error {
@@ -301,23 +303,26 @@ func (c *Controller) freeze(ctx context.Context, reason string, latch bool) erro
 	}
 	paused := c.Client.Set(ctx, "asynq:{sync}:paused", "feishu_safety_stop", 0).Err()
 	failures = append(failures, paused)
+	approvedPaused := c.Client.Set(ctx, "asynq:{approved_sync}:paused", "feishu_safety_stop", 0).Err()
+	failures = append(failures, approvedPaused)
 	CancelLocal()
 	fenced := c.Stop(ctx)
 	failures = append(failures, fenced)
 	event := Event{
 		StepID: c.timings.ID, Incarnation: c.incarnation,
 		Kind: "feishu_safety_stop", Reason: reason, WorkerID: c.Config.WorkerID,
-		Fenced: fenced == nil, QueuePaused: paused == nil,
+		Fenced: fenced == nil, QueuePaused: paused == nil && approvedPaused == nil,
 		ProbeStage: failedStage, ElapsedMS: elapsedMS,
 	}
 	// Repeated unsuccessful actions are reported, never misrepresented as done.
-	if c.lastEvent != reason || paused != nil || fenced != nil {
+	if c.lastEvent != reason || paused != nil || approvedPaused != nil || fenced != nil {
 		record := c.Client.XAdd(ctx, &redis.XAddArgs{
 			Stream: c.prefix + "control_audit", MaxLen: 1000,
 			Approx: true, Values: map[string]any{
 				"event": event.Kind, "reason": event.Reason,
 				"worker_id": event.WorkerID, "fenced": event.Fenced, "queue_paused": event.QueuePaused,
-				"probe_stage": event.ProbeStage, "step_elapsed_ms": event.ElapsedMS,
+				"approved_queue_paused": approvedPaused == nil,
+				"probe_stage":           event.ProbeStage, "step_elapsed_ms": event.ElapsedMS,
 				"step_id": event.StepID, "incarnation": event.Incarnation,
 				"probe_timing": probeTiming,
 			},
