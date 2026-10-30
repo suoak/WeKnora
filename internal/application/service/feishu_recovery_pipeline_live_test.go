@@ -4,8 +4,7 @@ package service
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
+	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -74,7 +73,10 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 	// sync/model work below runs with the real recovery guard enabled.
 	t.Setenv("FEISHU_SYNC_SAFETY_ENABLED", "false")
 	var original types.DataSource
-	require.NoError(t, db.Where("id=?", "847ec22f-ceb3-4f73-b268-ba54c7c3ff67").Take(&original).Error)
+	require.NoError(
+		t,
+		db.Where("id=?", "847ec22f-ceb3-4f73-b268-ba54c7c3ff67").Take(&original).Error,
+	)
 	cfg, err := original.ParseConfig()
 	require.NoError(t, err)
 	ref, err := types.ParseFeishuSourceReference(cfg)
@@ -86,7 +88,10 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 		ownerCtx,
 		types.Principal{Type: types.PrincipalWebUser, ID: ref.OwnerUserID},
 	)
-	require.NoError(t, db.WithContext(ownerCtx).Where("id=?", original.KnowledgeBaseID).Take(&oldKB).Error)
+	require.NoError(
+		t,
+		db.WithContext(ownerCtx).Where("id=?", original.KnowledgeBaseID).Take(&oldKB).Error,
+	)
 	var model types.Model
 	require.NoError(t, db.Where("id=?", oldKB.EmbeddingModelID).Take(&model).Error)
 	tenants := repository.NewTenantRepository(db)
@@ -157,7 +162,13 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 			types.PostgresRetrieverEngineType,
 		),
 	}
-	personal := NewFeishuPersonalService(db, repository.NewSystemSettingRepository(db), ks, ks.kbService, nil)
+	personal := NewFeishuPersonalService(
+		db,
+		repository.NewSystemSettingRepository(db),
+		ks,
+		ks.kbService,
+		nil,
+	)
 	personal.api.Transport = recoveryNoRefresh{}
 	require.NoError(t, EnablePersonalRecovery(personal, ks, nil, t.TempDir()))
 	registry := datasource.NewConnectorRegistry()
@@ -193,7 +204,11 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 	require.NoError(t, err)
 	t.Setenv("FEISHU_LEGACY_SYNC_ALLOWED_SOURCE_IDS", source.ID)
 	address := os.Getenv("FEISHU_RECOVERY_LIVE_REDIS_ADDR")
-	require.Regexp(t, regexp.MustCompile(`^knowhub-recovery-live-redis-[a-f0-9]{12}:6379$`), address)
+	require.Regexp(
+		t,
+		regexp.MustCompile(`^knowhub-recovery-live-redis-[a-f0-9]{12}:6379$`),
+		address,
+	)
 	controlRedis := redis.NewClient(&redis.Options{Addr: address, MaxRetries: -1})
 	defer controlRedis.Close()
 	policy := feishusafety.DefaultConfig()
@@ -244,7 +259,7 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 	}
 	manager, err := feishusynccontrol.NewRecoveryManager(
 		controller,
-		[]byte(strings.Repeat("q", 32)),
+		ed25519.NewKeyFromSeed([]byte(strings.Repeat("q", 32))).Public().(ed25519.PublicKey),
 		func(call context.Context, id string) (feishusynccontrol.RecoveryFacts, error) {
 			return feishusynccontrol.RecoveryFactsFromDatabase(call, db, id)
 		},
@@ -255,8 +270,19 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 	approval := func(operation string) feishusynccontrol.RecoveryApproval {
 		digest, e := feishusynccontrol.RecoveryDigest(plan)
 		require.NoError(t, e)
+		incarnation := plan.Incarnation
+		if operation == "canary" {
+			status, e := manager.Status(ctx, source.ID)
+			require.NoError(t, e)
+			b, e := json.Marshal(status["state"])
+			require.NoError(t, e)
+			var state map[string]any
+			require.NoError(t, json.Unmarshal(b, &state))
+			incarnation = state["incarnation"].(string)
+		}
 		a := feishusynccontrol.RecoveryApproval{
-			Version:        1,
+			Version:   2,
+			Algorithm: "Ed25519", KeyID: plan.ApprovalKeyID, Incarnation: incarnation,
 			Operation:      operation,
 			PlanSHA256:     digest,
 			ActorID:        ref.OwnerUserID,
@@ -270,9 +296,9 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 		require.NoError(t, json.Unmarshal(b, &fields))
 		b, e = json.Marshal(fields)
 		require.NoError(t, e)
-		mac := hmac.New(sha256.New, []byte(strings.Repeat("q", 32)))
-		_, _ = mac.Write(b)
-		a.Signature = hex.EncodeToString(mac.Sum(nil))
+		a.Signature = hex.EncodeToString(
+			ed25519.Sign(ed25519.NewKeyFromSeed([]byte(strings.Repeat("q", 32))), b),
+		)
 		return a
 	}
 	require.NoError(t, manager.Reset(ctx, plan, approval("reset"), ref.OwnerUserID))
@@ -318,7 +344,10 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 	_, e = svc.ManualSync(ctx, source.ID)
 	require.Error(t, e, "ordinary sync cannot borrow the completed canary lifecycle")
 	var resources []types.FeishuLegacyResource
-	require.NoError(t, db.Where("data_source_id=? AND state='active'", source.ID).Find(&resources).Error)
+	require.NoError(
+		t,
+		db.Where("data_source_id=? AND state='active'", source.ID).Find(&resources).Error,
+	)
 	require.NotEmpty(t, resources)
 	for _, resource := range resources {
 		k, err := ks.repo.GetKnowledgeByID(ctx, tenant.ID, resource.KnowledgeID)
@@ -335,7 +364,11 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 		)
 		require.NoError(
 			t,
-			db.WithContext(ctx).Table("embeddings").Where("knowledge_id=?", k.ID).Count(&vectors).Error,
+			db.WithContext(ctx).
+				Table("embeddings").
+				Where("knowledge_id=?", k.ID).
+				Count(&vectors).
+				Error,
 		)
 		require.Positive(t, chunks)
 		require.Positive(t, vectors)
@@ -362,7 +395,11 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 			require.NoError(t, row.Error)
 			found += len(row.Results)
 		}
-		require.Positive(t, found, "authorized real keyword retrieval must return the published content")
+		require.Positive(
+			t,
+			found,
+			"authorized real keyword retrieval must return the published content",
+		)
 		embedder, e := ks.modelService.GetEmbeddingModelForTenant(ctx, model.ID, tenant.ID)
 		require.NoError(t, e)
 		vector, e := embedder.Embed(ctx, query)
@@ -412,13 +449,19 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 		)
 		if e == nil {
 			for _, row := range denied {
-				require.Empty(t, row.Results, "SQL candidates must exclude a different private principal")
+				require.Empty(
+					t,
+					row.Results,
+					"SQL candidates must exclude a different private principal",
+				)
 			}
 		}
 		var publication types.FeishuLegacyAttempt
 		require.NoError(
 			t,
-			db.Where("id=? AND resource_id=?", resource.ActiveAttempt, resource.ID).Take(&publication).Error,
+			db.Where("id=? AND resource_id=?", resource.ActiveAttempt, resource.ID).
+				Take(&publication).
+				Error,
 		)
 		require.Equal(t, "published", publication.Status)
 		require.Equal(t, resource.Generation, publication.Generation)
@@ -437,18 +480,27 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 	// explicit isolated DB fault injections, never on the test-site/production DB.
 	require.NoError(
 		t,
-		db.Model(&types.DataSource{}).Where("id=?", source.ID).Update("legacy_access_state", "hold").Error,
+		db.Model(&types.DataSource{}).
+			Where("id=?", source.ID).
+			Update("legacy_access_state", "hold").
+			Error,
 	)
 	for _, resource := range resources {
 		strict := types.WithCaller(
 			ctx,
 			types.Caller{UserID: ref.OwnerUserID, TenantID: 0, Role: types.TenantRoleViewer},
 		)
-		require.Error(t, types.CheckLegacySourceRead(db.WithContext(strict), resource.KnowledgeID, kb.ID))
+		require.Error(
+			t,
+			types.CheckLegacySourceRead(db.WithContext(strict), resource.KnowledgeID, kb.ID),
+		)
 	}
 	require.NoError(
 		t,
-		db.Model(&types.DataSource{}).Where("id=?", source.ID).Update("legacy_access_state", "revoked").Error,
+		db.Model(&types.DataSource{}).
+			Where("id=?", source.ID).
+			Update("legacy_access_state", "revoked").
+			Error,
 	)
 	for _, resource := range resources {
 		_, err = ks.repo.GetKnowledgeByID(ctx, tenant.ID, resource.KnowledgeID)

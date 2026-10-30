@@ -7,7 +7,6 @@ There is deliberately no global resume, namespace switch or automatic retry.
 """
 import argparse
 import hashlib
-import hmac
 import json
 import os
 from pathlib import Path
@@ -108,10 +107,31 @@ def approve(envelope, args):
     if not re.fullmatch(r"[A-Za-z0-9:._/-]{1,180}", args.reference) or "://" in args.reference:
         raise ValueError("use a bounded approval reference, not a URL or credential")
     key = restricted_read(args.approval_key_file)
-    if len(key) < 32:
-        raise ValueError("independent approval key is too short")
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    signer=serialization.load_pem_private_key(key,password=None)
+    if not isinstance(signer,Ed25519PrivateKey):
+        raise ValueError("an offline Ed25519 private key is required")
+    public=signer.public_key().public_bytes(serialization.Encoding.Raw,serialization.PublicFormat.Raw)
+    key_id=hashlib.sha256(public).hexdigest()
+    if plan.get("approval_key_id")!=key_id:
+        raise ValueError("offline signer does not match the reviewed runtime public key")
+    incarnation=plan["incarnation"]
+    if args.operation=="canary":
+        if not getattr(args,"recovery_status_file",None):
+            raise ValueError("canary needs the post-reset runtime status, not a pre-signed approval")
+        status=json.loads(Path(args.recovery_status_file).read_text(encoding="utf-8"))
+        state=status.get("state",{})
+        if (status.get("trip_latched") is not False or status.get("sync_paused") is not True or
+            status.get("permit_ready") is not True or state.get("phase")!="frozen" or
+            state.get("plan_sha256")!=digest(plan) or state.get("source_id")!=args.source or
+            state.get("runtime_sha")!=args.runtime_sha or state.get("worker_id")!=plan["worker_id"]):
+            raise ValueError("review the exact frozen post-reset process before canary approval")
+        incarnation=state["incarnation"]
+    if str(uuid.UUID(incarnation))!=incarnation:
+        raise ValueError("canonical reviewed process incarnation required")
     record = {
-        "version": 1, "operation": args.operation,
+        "version": 2, "algorithm":"Ed25519", "key_id":key_id,"incarnation":incarnation, "operation": args.operation,
         "plan_sha256": digest(plan), "actor_id": plan["actor_id"],
         "reference": args.reference, "evidence_sha256": reviewed_evidence(args.evidence_manifest),
         "expires_ms": min(plan["expires_ms"], int(time.time() * 1000) + args.valid_seconds * 1000),
@@ -119,7 +139,7 @@ def approve(envelope, args):
     }
     if not 1 <= args.valid_seconds <= 900:
         raise ValueError("approval must be valid for 1..900 seconds")
-    record["signature"] = hmac.new(key, canonical(record), hashlib.sha256).hexdigest()
+    record["signature"] = signer.sign(canonical(record)).hex()
     return record
 
 
@@ -161,6 +181,7 @@ def main(argv=None):
     parser.add_argument("--plan-file")
     parser.add_argument("--approval-file")
     parser.add_argument("--approval-key-file")
+    parser.add_argument("--recovery-status-file")
     parser.add_argument("--evidence-manifest")
     parser.add_argument("--reference")
     parser.add_argument("--operation", choices=["reset", "canary"])
@@ -182,7 +203,9 @@ def main(argv=None):
         write_new(args.output, result)
         print(json.dumps({"plan_sha256": result["plan_sha256"], "production_writes": False}))
     elif args.action == "status":
-        print(json.dumps(request(args, "status")))
+        result=request(args,"status")
+        if args.output:write_new(args.output,result)
+        print(json.dumps(result))
     else:
         envelope = json.loads(Path(args.plan_file).read_text(encoding="utf-8"))
         plan = validate_plan(envelope, args)

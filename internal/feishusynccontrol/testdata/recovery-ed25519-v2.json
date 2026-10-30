@@ -1,0 +1,17 @@
+{
+  "synthetic_fixture_only": true,
+  "public_key_hex": "28b6b26f621e35ced334f094708d19a7199dc99905db156abd769eab2b939b80",
+  "approval": {
+    "version": 2,
+    "algorithm": "Ed25519",
+    "key_id": "8828e3df7a0a563c31bb30ea615df1d1d26777a695a2eee70204ebbb25ed306a",
+    "incarnation": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "operation": "reset",
+    "plan_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "actor_id": "synthetic-operator",
+    "reference": "isolated-review",
+    "evidence_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "expires_ms": 1793347200000,
+    "signature": "356e5af0ee7839fc1ba651a6efe73e8b091d42f46d6e242be1bb51a7d962a88c2921b589f304a0f03456f1acb31c0de7028a16e1e4703a4fa59fdc1e7b9b5d0c"
+  }
+}

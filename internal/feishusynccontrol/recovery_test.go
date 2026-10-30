@@ -2,9 +2,9 @@ package feishusynccontrol
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
+	"crypto/ed25519"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
@@ -85,7 +85,8 @@ func newRecoveryFixture(t *testing.T) *recoveryFixture {
 		require.NoError(t, r.RPush(ctx, "asynq:{sync}:pending", id).Err())
 		require.NoError(
 			t,
-			r.HSet(ctx, "asynq:{sync}:t:"+id, "msg", []byte{byte(i), 0xff, 0, 1}, "state", "pending").Err(),
+			r.HSet(ctx, "asynq:{sync}:t:"+id, "msg", []byte{byte(i), 0xff, 0, 1}, "state", "pending").
+				Err(),
 		)
 	}
 	f := &recoveryFixture{
@@ -103,7 +104,7 @@ func newRecoveryFixture(t *testing.T) *recoveryFixture {
 	}
 	f.m, e = NewRecoveryManager(
 		c,
-		f.key,
+		ed25519.NewKeyFromSeed(f.key).Public().(ed25519.PublicKey),
 		func(_ context.Context, _ string) (RecoveryFacts, error) { return f.facts, nil },
 	)
 	require.NoError(t, e)
@@ -117,7 +118,8 @@ func (f *recoveryFixture) approve(t *testing.T, op string) RecoveryApproval {
 	h, e := RecoveryDigest(f.p)
 	require.NoError(t, e)
 	a := RecoveryApproval{
-		Version:        1,
+		Version:   2,
+		Algorithm: "Ed25519", KeyID: f.m.keyID, Incarnation: f.c.incarnation,
 		Operation:      op,
 		PlanSHA256:     h,
 		ActorID:        "operator",
@@ -127,9 +129,7 @@ func (f *recoveryFixture) approve(t *testing.T, op string) RecoveryApproval {
 	}
 	b, e := recoveryCanonical(a)
 	require.NoError(t, e)
-	mac := hmac.New(sha256.New, f.key)
-	_, _ = mac.Write(b)
-	a.Signature = hex.EncodeToString(mac.Sum(nil))
+	a.Signature = hex.EncodeToString(ed25519.Sign(ed25519.NewKeyFromSeed(f.key), b))
 	return a
 }
 
@@ -142,7 +142,12 @@ func TestRecoveryResetAndOneSourceCanaryPreserveSharedQueue(t *testing.T) {
 	require.NoError(t, f.m.Reset(ctx, f.p, f.approve(t, "reset"), "operator"))
 	require.NotSame(t, f.old, f.c.Guard)
 	require.NotEqual(t, oldInc, f.c.incarnation)
-	require.ErrorIs(t, f.old.Check(ctx), feishusafety.ErrClosed, "the old object must remain closed")
+	require.ErrorIs(
+		t,
+		f.old.Check(ctx),
+		feishusafety.ErrClosed,
+		"the old object must remain closed",
+	)
 	require.NoError(t, f.c.Step(ctx))
 	require.ErrorIs(
 		t,
@@ -194,11 +199,33 @@ func TestRecoveryResetAndOneSourceCanaryPreserveSharedQueue(t *testing.T) {
 	require.NoError(t, e)
 	require.Equal(t, before.digest, after.digest)
 	require.Len(t, after.ids, 6)
-	require.ErrorIs(t, f.c.Guard.Check(feishusafety.WithScope(ctx, f.facts.SourceID)), feishusafety.ErrClosed)
+	require.ErrorIs(
+		t,
+		f.c.Guard.Check(feishusafety.WithScope(ctx, f.facts.SourceID)),
+		feishusafety.ErrClosed,
+	)
 	require.EqualValues(t, 1, f.r.Exists(ctx, "asynq:{sync}:paused").Val())
 	logs, e := f.r.XRange(ctx, f.c.prefix+"control_audit", "-", "+").Result()
 	require.NoError(t, e)
 	require.GreaterOrEqual(t, len(logs), 4)
+	for _, event := range logs {
+		if !strings.HasPrefix(fmt.Sprint(event.Values["event"]), "recovery_") {
+			continue
+		}
+		var signed RecoveryApproval
+		require.NoError(
+			t,
+			json.Unmarshal([]byte(fmt.Sprint(event.Values["signed_approval"])), &signed),
+		)
+		require.Equal(t, "Ed25519", event.Values["approval_algorithm"])
+		require.Equal(t, f.m.keyID, event.Values["approval_key_id"])
+		signature, err := hex.DecodeString(signed.Signature)
+		require.NoError(t, err)
+		signed.Signature = ""
+		body, err := recoveryCanonical(signed)
+		require.NoError(t, err)
+		require.True(t, ed25519.Verify(f.m.key, body, signature))
+	}
 }
 
 func TestRecoveryRejectsChangedEvidenceWithoutClearingTrip(t *testing.T) {
@@ -236,14 +263,24 @@ func TestRecoveryRejectsChangedEvidenceWithoutClearingTrip(t *testing.T) {
 			case "task_bytes":
 				require.NoError(
 					t,
-					f.r.HSet(ctx, "asynq:{sync}:t:historical-0", "msg", []byte{0, 0xfe, 0, 1}).Err(),
+					f.r.HSet(ctx, "asynq:{sync}:t:historical-0", "msg", []byte{0, 0xfe, 0, 1}).
+						Err(),
 				)
 			case "pause":
-				require.NoError(t, f.r.Set(ctx, "asynq:{sync}:paused", "another_operator_stop", 0).Err())
+				require.NoError(
+					t,
+					f.r.Set(ctx, "asynq:{sync}:paused", "another_operator_stop", 0).Err(),
+				)
 			case "peer":
-				require.NoError(t, f.r.HSet(ctx, f.c.prefix+"workers", "unexpected:2", "unregistered").Err())
+				require.NoError(
+					t,
+					f.r.HSet(ctx, f.c.prefix+"workers", "unexpected:2", "unregistered").Err(),
+				)
 			case "inflight":
-				require.NoError(t, f.r.HSet(ctx, f.c.prefix+"inflight", "old-live-request", "1").Err())
+				require.NoError(
+					t,
+					f.r.HSet(ctx, f.c.prefix+"inflight", "old-live-request", "1").Err(),
+				)
 			case "facts":
 				f.facts.ConfigSHA256 = strings.Repeat("e", 64)
 			case "audit_unavailable":
@@ -334,7 +371,8 @@ func TestRecoveryCanaryFaultsStopAndKeepHistoricalQueue(t *testing.T) {
 						case "queue_changed":
 							require.NoError(
 								t,
-								f.r.HSet(ctx, "asynq:{sync}:t:historical-0", "state", "changed").Err(),
+								f.r.HSet(ctx, "asynq:{sync}:t:historical-0", "state", "changed").
+									Err(),
 							)
 						case "authorization_changed":
 							// Revoke the authority without racing the watcher callback.
@@ -376,4 +414,108 @@ func TestRecoveryCanaryFaultsStopAndKeepHistoricalQueue(t *testing.T) {
 			require.EqualValues(t, 6, f.r.LLen(ctx, "asynq:{sync}:pending").Val())
 		})
 	}
+}
+
+func TestRecoveryApprovalCannotUseRuntimePublicKeyAsSigningSeed(t *testing.T) {
+	f := newRecoveryFixture(t)
+	a := f.approve(t, "reset")
+	a.Signature = ""
+	body, err := recoveryCanonical(a)
+	require.NoError(t, err)
+	forged := ed25519.NewKeyFromSeed(f.m.key)
+	a.Signature = hex.EncodeToString(ed25519.Sign(forged, body))
+	require.Error(t, f.m.Reset(context.Background(), f.p, a, "operator"))
+	require.EqualValues(t, 1, f.r.Exists(context.Background(), f.c.prefix+"trip").Val())
+}
+
+func TestRecoveryRejectsLegacyAlgorithmAndApprovalVersion(t *testing.T) {
+	for _, kind := range []string{"legacy_version", "wrong_algorithm", "wrong_key_id"} {
+		t.Run(kind, func(t *testing.T) {
+			f := newRecoveryFixture(t)
+			a := f.approve(t, "reset")
+			switch kind {
+			case "legacy_version":
+				a.Version = 1
+			case "wrong_algorithm":
+				a.Algorithm = "HMAC-SHA256"
+			case "wrong_key_id":
+				a.KeyID = strings.Repeat("0", 64)
+			}
+			require.Error(t, f.m.Reset(context.Background(), f.p, a, "operator"))
+			require.EqualValues(t, 1, f.r.Exists(context.Background(), f.c.prefix+"trip").Val())
+		})
+	}
+}
+
+func TestRecoveryCanaryBindsReplacementProcessAndBuild(t *testing.T) {
+	for _, change := range []string{"runtime", "incarnation", "registry", "revision", "pre_reset_incarnation"} {
+		t.Run(change, func(t *testing.T) {
+			f := newRecoveryFixture(t)
+			ctx := context.Background()
+			require.NoError(t, f.m.Reset(ctx, f.p, f.approve(t, "reset"), "operator"))
+			require.NoError(t, f.c.Step(ctx))
+			a := f.approve(t, "canary")
+			switch change {
+			case "runtime":
+				f.c.Config.SourceSHA = strings.Repeat("e", 40)
+			case "incarnation":
+				f.c.incarnation = uuid.NewString()
+			case "registry":
+				require.NoError(
+					t,
+					f.r.HSet(ctx, f.c.prefix+"workers", f.p.WorkerID, "other-incarnation").Err(),
+				)
+			case "revision":
+				require.NoError(t, f.r.Incr(ctx, f.c.prefix+"membership_revision").Err())
+			case "pre_reset_incarnation":
+				a.Incarnation = f.p.Incarnation
+				a.Signature = ""
+				body, e := recoveryCanonical(a)
+				require.NoError(t, e)
+				a.Signature = hex.EncodeToString(ed25519.Sign(ed25519.NewKeyFromSeed(f.key), body))
+			}
+			require.Error(
+				t,
+				f.m.Canary(
+					ctx,
+					f.p,
+					a,
+					"operator",
+					func(context.Context, func(string, int64) error) error {
+						t.Fatal("changed execution must not run")
+						return nil
+					},
+				),
+			)
+			require.EqualValues(t, 6, f.r.LLen(ctx, "asynq:{sync}:pending").Val())
+			require.EqualValues(t, 1, f.r.Exists(ctx, "asynq:{sync}:paused").Val())
+		})
+	}
+}
+
+func TestRecoveryPythonSignedApprovalFixture(t *testing.T) {
+	raw, err := os.ReadFile("testdata/recovery-ed25519-v2.json")
+	require.NoError(t, err)
+	var fixture struct {
+		PublicKey string           `json:"public_key_hex"`
+		Approval  RecoveryApproval `json:"approval"`
+	}
+	require.NoError(t, json.Unmarshal(raw, &fixture))
+	public, err := hex.DecodeString(fixture.PublicKey)
+	require.NoError(t, err)
+	signature, err := hex.DecodeString(fixture.Approval.Signature)
+	require.NoError(t, err)
+	fixture.Approval.Signature = ""
+	body, err := recoveryCanonical(fixture.Approval)
+	require.NoError(t, err)
+	require.True(
+		t,
+		ed25519.Verify(public, body, signature),
+		"Python signer and Go verifier must use identical canonical bytes",
+	)
+	require.Equal(t, RecoveryVerificationKeyID(public), fixture.Approval.KeyID)
+	fixture.Approval.Operation = "canary"
+	body, err = recoveryCanonical(fixture.Approval)
+	require.NoError(t, err)
+	require.False(t, ed25519.Verify(public, body, signature))
 }
