@@ -168,6 +168,9 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 	if automatic {
 		controller.Consumers = feishusynccontrol.SyncConsumers(controlRedis)
 	}
+	if err := configureFeishuRecovery(db, controller); err != nil {
+		logger.Errorf(ctx, "[FeishuSafety] recovery approval configuration invalid; recovery disabled")
+	}
 	diagnosticCtx, diagnosticCancel := context.WithCancel(ctx)
 	controller.Transport = transport
 	if os.Getenv("FEISHU_SYNC_CONTROL_DIAGNOSTICS") == "1" {
@@ -214,6 +217,7 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 		case <-time.After(7 * time.Second):
 		}
 		diagnosticCancel()
+		feishusynccontrol.InstallRecovery(nil)
 		feishusafety.InstallDefault(nil)
 		return controlRedis.Close()
 	})

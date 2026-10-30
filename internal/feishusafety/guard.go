@@ -42,11 +42,12 @@ type Config struct {
 
 // Guard coordinates a deployment-scoped, fail-closed Redis safety allocation.
 type Guard struct {
-	client      redis.UniversalClient
-	config      Config
-	fingerprint string
-	prefix      string
-	localClosed atomic.Bool
+	client           redis.UniversalClient
+	config           Config
+	fingerprint      string
+	prefix           string
+	localClosed      atomic.Bool
+	recoveryRequired atomic.Bool
 }
 
 // New validates explicit budgets and constructs a closed-by-default guard.
@@ -96,6 +97,25 @@ if redis.call('EXISTS',KEYS[2]) == 1 then return redis.error_reply('SAFETY_TRIPP
 if redis.call('GET',KEYS[1]) ~= ARGV[1] or redis.call('PTTL',KEYS[1]) <= 0 then
  return redis.error_reply('SAFETY_NO_PERMIT')
 end
+local raw=redis.call('GET',KEYS[3])
+local required=redis.call('GET',KEYS[4])
+if (required or (ARGV[7]=='true' or ARGV[7]=='1')) and not raw then return
+redis.error_reply('RECOVERY_MISSING') end
+if raw then
+ local s=cjson.decode(raw)
+ if not required or required~=s.plan_sha256 then return redis.error_reply('RECOVERY_BINDING_MISSING') end
+ local now=redis.call('TIME'); local ms=now[1]*1000+math.floor(now[2]/1000)
+ if s.version~=1 or not s.expires_ms or s.expires_ms<=ms then return redis.error_reply('RECOVERY_EXPIRED') end
+ if s.source_id~=ARGV[2] or s.config_sha256~=ARGV[4] then return
+redis.error_reply('RECOVERY_SOURCE_DENIED') end
+ if s.phase=='admit' then
+  if s.plan_id~=ARGV[3] or ARGV[5]~='' then return redis.error_reply('RECOVERY_ADMISSION_DENIED') end
+ elseif s.phase=='running' then
+  if s.plan_id~=ARGV[3] or s.run_id~=ARGV[5] or tostring(s.generation)~=ARGV[6] then
+   return redis.error_reply('RECOVERY_RUN_DENIED')
+  end
+ else return redis.error_reply('RECOVERY_FROZEN') end
+end
 return 1`)
 
 // Check requires a live matching controller permit and an absent stop latch.
@@ -103,7 +123,19 @@ func (g *Guard) Check(ctx context.Context) error {
 	if g == nil || g.localClosed.Load() {
 		return ErrClosed
 	}
-	if err := checkScript.Run(ctx, g.client, []string{g.PermitKey(), g.key("trip")}, g.fingerprint).Err(); err != nil {
+	scope, _ := ctx.Value(scopeKey{}).(Scope)
+	i := recoveryIdentity(ctx)
+	if err := checkScript.Run(ctx,
+		g.client,
+		[]string{
+			g.PermitKey(),
+			g.key("trip"),
+			g.key("recovery"),
+			g.key("recovery_required"),
+		},
+
+		g.fingerprint, scope.SourceID, i.Plan, i.Config, i.Run, i.Generation,
+		g.recoveryRequired.Load()).Err(); err != nil {
 		return fmt.Errorf("%w: %v", ErrClosed, err)
 	}
 	return nil
@@ -123,7 +155,11 @@ func (g *Guard) TripUsing(ctx context.Context, client redis.UniversalClient, rea
 	return g.tripUsingEvidence(ctx, client, reason, "")
 }
 
-func (g *Guard) tripUsingEvidence(ctx context.Context, client redis.UniversalClient, reason, evidence string) error {
+func (g *Guard) tripUsingEvidence(
+	ctx context.Context,
+	client redis.UniversalClient,
+	reason, evidence string,
+) error {
 	g.localClosed.Store(true)
 	if client == nil {
 		return ErrClosed
@@ -186,6 +222,25 @@ if redis.call('EXISTS',KEYS[2]) == 1 then return redis.error_reply('SAFETY_TRIPP
 if redis.call('GET',KEYS[1]) ~= ARGV[1] or redis.call('PTTL',KEYS[1]) <= 0 then
  return redis.error_reply('SAFETY_NO_PERMIT')
 end
+local raw=redis.call('GET',KEYS[5])
+local required=redis.call('GET',KEYS[6])
+if (required or (ARGV[13]=='true' or ARGV[13]=='1')) and not raw then return
+redis.error_reply('RECOVERY_MISSING') end
+if raw then
+ local s=cjson.decode(raw)
+ if not required or required~=s.plan_sha256 then return redis.error_reply('RECOVERY_BINDING_MISSING') end
+ local now=redis.call('TIME'); local ms=now[1]*1000+math.floor(now[2]/1000)
+ if s.version~=1 or not s.expires_ms or s.expires_ms<=ms then return redis.error_reply('RECOVERY_EXPIRED') end
+ if s.source_id~=ARGV[8] or s.config_sha256~=ARGV[10] then return
+redis.error_reply('RECOVERY_SOURCE_DENIED') end
+ if s.phase=='admit' then
+  if s.plan_id~=ARGV[9] or ARGV[11]~='' then return redis.error_reply('RECOVERY_ADMISSION_DENIED') end
+ elseif s.phase=='running' then
+  if s.plan_id~=ARGV[9] or s.run_id~=ARGV[11] or tostring(s.generation)~=ARGV[12] then
+   return redis.error_reply('RECOVERY_RUN_DENIED')
+  end
+ else return redis.error_reply('RECOVERY_FROZEN') end
+end
 local t=redis.call('TIME'); local now=t[1]*1000+math.floor(t[2]/1000)
 redis.call('ZREMRANGEBYSCORE',KEYS[4],'-inf',now-60000)
 local entries=redis.call('ZRANGE',KEYS[4],0,-1); local tokens=0
@@ -205,9 +260,33 @@ func (g *Guard) tryBegin(ctx context.Context, tokens int) (func(), error) {
 		return nil, err
 	}
 	id := uuid.NewString()
-	err := acquireScript.Run(ctx, g.client,
-		[]string{g.PermitKey(), g.key("trip"), g.key("inflight"), g.key("window")},
-		g.fingerprint, g.config.InFlight, g.config.RPM, tokens, g.config.TPM, id, g.config.RPS).
+	scope, _ := ctx.Value(scopeKey{}).(Scope)
+	identity := recoveryIdentity(ctx)
+	err := acquireScript.Run(
+		ctx,
+		g.client,
+		[]string{
+			g.PermitKey(),
+			g.key("trip"),
+			g.key("inflight"),
+			g.key("window"),
+			g.key("recovery"),
+			g.key("recovery_required"),
+		},
+		g.fingerprint,
+		g.config.InFlight,
+		g.config.RPM,
+		tokens,
+		g.config.TPM,
+		id,
+		g.config.RPS,
+		scope.SourceID,
+		identity.Plan,
+		identity.Config,
+		identity.Run,
+		identity.Generation,
+		g.recoveryRequired.Load(),
+	).
 		Err()
 	if err != nil {
 		if strings.Contains(err.Error(), "_BUDGET") {

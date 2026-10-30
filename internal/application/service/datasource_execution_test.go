@@ -82,11 +82,45 @@ func syncServiceSuite(t *testing.T, dialect string) {
 		require.NoError(t, registry.Register(connector))
 		svc := &DataSourceService{
 			dsRepo: dsRepo, syncLogRepo: logs, taskEnqueuer: queue, connectorRegistry: registry,
-			kbService:  &processSyncKBService{kb: &types.KnowledgeBase{ID: "kb", TenantID: 1}},
-			tenantRepo: &processSyncTenantRepo{tenant: &types.Tenant{ID: 1}}, tagService: &processSyncTagService{},
+			kbService: &processSyncKBService{kb: &types.KnowledgeBase{ID: "kb", TenantID: 1}},
+			tenantRepo: &processSyncTenantRepo{
+				tenant: &types.Tenant{ID: 1},
+			}, tagService: &processSyncTagService{},
 		}
 		return svc, ds, queue, connector
 	}
+	t.Run("recovery_delivery_preserves_normal_claim_without_enqueue", func(t *testing.T) {
+		svc, ds, q, connector := makeSvc()
+		close(connector.proceed)
+		var bound string
+		err := svc.RunRecoveryCanary(context.Background(), ds.ID, func(id string, generation int64) error {
+			require.EqualValues(t, 1, generation)
+			require.NotEmpty(t, id)
+			require.Empty(t, bound)
+			bound = id
+			return nil
+		})
+		require.NoError(t, err)
+		require.Zero(t, q.calls.Load())
+		require.EqualValues(t, 1, connector.calls.Load())
+		result, err := logs.FindByID(context.Background(), bound)
+		require.NoError(t, err)
+		require.Equal(t, types.SyncLogStatusSuccess, result.Status)
+		require.False(t, result.ExecutionClaimed)
+	})
+	t.Run("recovery_binding_rejection_never_enters_connector", func(t *testing.T) {
+		svc, ds, q, connector := makeSvc()
+		require.Error(
+			t,
+			svc.RunRecoveryCanary(
+				context.Background(),
+				ds.ID,
+				func(string, int64) error { return errors.New("not approved") },
+			),
+		)
+		require.Zero(t, q.calls.Load())
+		require.Zero(t, connector.calls.Load())
+	})
 	t.Run("sharing_denial_terminates_without_checkpoint_or_retry", func(t *testing.T) {
 		svc, ds, _, _ := makeSvc()
 		ds.LastSyncCursor = types.JSON(`{"connector_cursor":{"approved":"old-version"}}`)
@@ -99,7 +133,11 @@ func syncServiceSuite(t *testing.T, dialect string) {
 		require.NoError(t, err)
 		require.True(t, claimed)
 		ctx := types.WithSyncExecution(types.WithTaskRetryMetadata(context.Background(), 0, 5), execution)
-		result := &types.SyncResult{Total: 1, Failed: 1, Errors: []types.SyncItemError{{Code: "ingest_failed"}}}
+		result := &types.SyncResult{
+			Total:  1,
+			Failed: 1,
+			Errors: []types.SyncItemError{{Code: "ingest_failed"}},
+		}
 		err = svc.recordUnacceptedSync(ctx, ds, log, result,
 			&dataSourceIngestError{cause: ErrFeishuSharingApproval}, false)
 		require.ErrorIs(t, err, ErrFeishuSharingApproval)
@@ -132,7 +170,9 @@ func syncServiceSuite(t *testing.T, dialect string) {
 		connector.fetchErr = errors.New("source HTTP 403: existing identity cannot read document")
 		log, err := svc.ManualSync(ctx, ds.ID)
 		require.NoError(t, err)
-		body, err := json.Marshal(types.DataSourceSyncPayload{DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: 1})
+		body, err := json.Marshal(
+			types.DataSourceSyncPayload{DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: 1},
+		)
 		require.NoError(t, err)
 		require.Error(t, svc.ProcessSync(ctx, asynq.NewTask(types.TypeDataSourceSync, body)))
 		require.NoError(t, guard.Check(ctx), "ordinary source failure must not trip shared egress")
@@ -155,9 +195,17 @@ func syncServiceSuite(t *testing.T, dialect string) {
 		connector.panicOnFetch = true
 		log, err := svc.ManualSync(context.Background(), ds.ID)
 		require.NoError(t, err)
-		payload, _ := json.Marshal(types.DataSourceSyncPayload{DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: 1})
-		require.ErrorContains(t,
-			svc.ProcessSync(context.Background(), asynq.NewTask(types.TypeDataSourceSync, payload)), "panicked")
+		payload, _ := json.Marshal(
+			types.DataSourceSyncPayload{DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: 1},
+		)
+		require.ErrorContains(
+			t,
+			svc.ProcessSync(
+				context.Background(),
+				asynq.NewTask(types.TypeDataSourceSync, payload),
+			),
+			"panicked",
+		)
 		stored, err := logs.FindByID(context.Background(), log.ID)
 		require.NoError(t, err)
 		require.Equal(t, types.SyncLogStatusFailed, stored.Status)
@@ -176,7 +224,10 @@ func syncServiceSuite(t *testing.T, dialect string) {
 		payload, _ := json.Marshal(types.DataSourceSyncPayload{
 			DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: 1, Trigger: "schedule",
 		})
-		require.NoError(t, svc.ProcessSync(context.Background(), asynq.NewTask(types.TypeDataSourceSync, payload)))
+		require.NoError(
+			t,
+			svc.ProcessSync(context.Background(), asynq.NewTask(types.TypeDataSourceSync, payload)),
+		)
 		require.Zero(t, connector.calls.Load())
 		stored, err := logs.FindByID(context.Background(), log.ID)
 		require.NoError(t, err)
@@ -188,7 +239,9 @@ func syncServiceSuite(t *testing.T, dialect string) {
 			connector.fetchErr = context.DeadlineExceeded
 			log, err := svc.ManualSync(context.Background(), ds.ID)
 			require.NoError(t, err)
-			payload, _ := json.Marshal(types.DataSourceSyncPayload{DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: 1})
+			payload, _ := json.Marshal(
+				types.DataSourceSyncPayload{DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: 1},
+			)
 			task := asynq.NewTask(types.TypeDataSourceSync, payload)
 			require.Error(t, svc.ProcessSync(types.WithTaskRetryMetadata(context.Background(), 0, 1), task))
 			waiting, err := logs.FindByID(context.Background(), log.ID)
