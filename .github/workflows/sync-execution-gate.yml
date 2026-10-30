@@ -1,4 +1,4 @@
-name: Datasource Sync Execution Gate
+﻿name: Datasource Sync Execution Gate
 
 on:
   push:
@@ -20,7 +20,7 @@ env:
   GOPROXY: https://proxy.golang.org,direct
   LOG_FORMAT: ""
   # Observed ubuntu-24.04 image in the reviewed PR CI; keep cohort attribution strict.
-  EXPECTED_RACE_IMAGE_VERSION: "20261025.353.1"
+  EXPECTED_RACE_IMAGE_VERSION: "20261026.354.1"
 
 jobs:
   verify:
@@ -137,3 +137,4 @@ jobs:
         run: |
           go test -race ./internal/application/repository ./internal/application/service ./internal/datasource \
             ./internal/datasource/connector/feishu/... ./internal/utils ./internal/container -count=1 -timeout=25m
+
