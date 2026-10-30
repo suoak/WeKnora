@@ -2,7 +2,7 @@ name: Datasource Sync Execution Gate
 
 on:
   push:
-    branches: [fix/feishu-sync-resilience]
+    branches: [fix/feishu-sync-resilience, ops/feishu-incident-recovery-20261030]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -19,10 +19,15 @@ env:
   SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   GOPROXY: https://proxy.golang.org,direct
   LOG_FORMAT: ""
+  # Observed ubuntu-24.04 image in the reviewed PR CI; keep cohort attribution strict.
+  EXPECTED_RACE_IMAGE_VERSION: "20261025.353.1"
 
 jobs:
   verify:
-    if: github.event_name != 'pull_request' || github.head_ref == 'fix/feishu-sync-resilience'
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.head_ref == 'fix/feishu-sync-resilience' ||
+      github.head_ref == 'ops/feishu-incident-recovery-20261030'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -50,7 +55,10 @@ jobs:
           go test "${packages[@]}"
 
   postgres:
-    if: github.event_name != 'pull_request' || github.head_ref == 'fix/feishu-sync-resilience'
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.head_ref == 'fix/feishu-sync-resilience' ||
+      github.head_ref == 'ops/feishu-incident-recovery-20261030'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     services:
@@ -93,7 +101,10 @@ jobs:
             -run 'TestSync(Execution|Service|Scheduler|Recovery)Postgres$' -count=1 -timeout=20m
 
   race:
-    if: github.event_name != 'pull_request' || github.head_ref == 'fix/feishu-sync-resilience'
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.head_ref == 'fix/feishu-sync-resilience' ||
+      github.head_ref == 'ops/feishu-incident-recovery-20261030'
     name: Complete resilience race (${{ matrix.repetition }})
     runs-on: ubuntu-24.04
     timeout-minutes: 40
@@ -116,7 +127,7 @@ jobs:
           echo "VALIDATION_HEAD_SHA=$SOURCE_SHA ImageOS=$ImageOS ImageVersion=$ImageVersion"
           go version
           test "$(go env CGO_ENABLED)" = 1
-          test "$ImageVersion" = 20260927.320.1
+          test "$ImageVersion" = "$EXPECTED_RACE_IMAGE_VERSION"
           sha256sum go.mod go.sum
       - name: SQLite concurrency x50
         run: |
