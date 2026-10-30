@@ -20,7 +20,6 @@ func (s *FeishuPersonalService) requireImportWriter(tx *gorm.DB, userID, kbID st
 	var user types.User
 	var tenant types.Tenant
 	var member types.TenantMember
-	var kb types.KnowledgeBase
 	if err := tx.Clauses(lock).Where("id = ? AND is_active = ?", userID, true).First(&user).Error; err != nil {
 		return access.ErrForbidden
 	}
@@ -36,7 +35,8 @@ func (s *FeishuPersonalService) requireImportWriter(tx *gorm.DB, userID, kbID st
 	if !member.Role.HasPermission(types.TenantRoleContributor) {
 		return access.ErrForbidden
 	}
-	if err := tx.Clauses(lock).Where("id = ?", kbID).First(&kb).Error; err != nil {
+	kb, err := personalAuthorizationKB(tx, kbID, true)
+	if err != nil {
 		return access.ErrForbidden
 	}
 	if types.PrivateKBGuardsEnabled(tx) {
@@ -58,7 +58,7 @@ func (s *FeishuPersonalService) requireImportWriter(tx *gorm.DB, userID, kbID st
 	grant, err := access.ResolveKB(
 		fresh,
 		access.KBRequest{Caller: caller},
-		&kb,
+		kb,
 		types.OrgRoleEditor,
 		shares,
 		nil,
@@ -66,5 +66,5 @@ func (s *FeishuPersonalService) requireImportWriter(tx *gorm.DB, userID, kbID st
 	if err != nil {
 		return err
 	}
-	return access.RequireKBWrite(grant.Context(fresh), &kb)
+	return access.RequireKBWrite(grant.Context(fresh), kb)
 }

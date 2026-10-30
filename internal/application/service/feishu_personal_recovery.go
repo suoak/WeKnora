@@ -125,8 +125,8 @@ func (p *PersonalRecovery) authorizeLocal(
 		types.Principal{Type: types.PrincipalWebUser, ID: user.ID},
 	)
 	db = db.WithContext(ownerContext)
-	var kb types.KnowledgeBase
-	if err := db.Where("id = ?", m.KBID).First(&kb).Error; err != nil {
+	kb, err := p.loadAuthorizationKB(ownerContext, m.KBID)
+	if err != nil {
 		return nil, nil, personalAccessError(err)
 	}
 	// The canonical KB resolver below is the write authority, just as at the
@@ -141,7 +141,7 @@ func (p *PersonalRecovery) authorizeLocal(
 	grant, err := access.ResolveKB(
 		fresh,
 		access.KBRequest{Caller: caller},
-		&kb,
+		kb,
 		types.OrgRoleEditor,
 		p.shares,
 		nil,
@@ -150,7 +150,7 @@ func (p *PersonalRecovery) authorizeLocal(
 		return nil, nil, err
 	}
 	fresh = grant.Context(fresh)
-	if err = access.RequireKBWrite(fresh, &kb); err != nil {
+	if err = access.RequireKBWrite(fresh, kb); err != nil {
 		return nil, nil, err
 	}
 	cfg, err := p.service.app(fresh)
@@ -938,8 +938,7 @@ func (p *PersonalRecovery) mutate(
 			types.Principal{Type: types.PrincipalWebUser, ID: user.ID},
 		)
 		tx = tx.WithContext(ownerContext)
-		var kb types.KnowledgeBase
-		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ?", m.KBID).First(&kb).Error; err != nil {
+		if _, err := personalAuthorizationKB(tx, m.KBID, true); err != nil {
 			return personalAccessError(err)
 		}
 		if err := p.service.requireImportWriter(tx, m.UserID, m.KBID, a.CallerTenantID); err != nil {

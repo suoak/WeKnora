@@ -353,22 +353,12 @@ func (p *PersonalRecovery) reconcileFirstCreatePublic(
 		if n > 0 {
 			return nil
 		}
-		var k types.Knowledge
-		if err := p.service.db.WithContext(
-			ctx,
-		).
-			Where(
-				"id = ? AND knowledge_base_id = ?",
-
-				m.KnowledgeID,
-
-				m.KBID,
-			).
-			First(
-				&k,
-			).
-			Error; err != nil {
+		k, err := p.loadDispatchMetadata(ctx, a.CallerTenantID, m.KBID, m.KnowledgeID)
+		if err != nil {
 			return err
+		}
+		if k.AttemptID != a.ID || k.ManifestSHA256 != a.ManifestHash {
+			return repository.ErrPersonalIdentity
 		}
 		op, err := dispatch.GetKnowledgeDispatch(ctx, k.TenantID, a.LogicalKnowledgeID)
 		if err != nil {

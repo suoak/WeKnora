@@ -341,29 +341,16 @@ func (p *PersonalRecovery) firstCreateDispatchable(
 	if err != nil {
 		return false, err
 	}
-	var k types.Knowledge
-	if err = p.service.db.WithContext(
-		ctx,
-	).
-		Where(
-			"id = ? AND knowledge_base_id = ? AND tenant_id = ?",
-			t.KnowledgeID,
-			t.KnowledgeBaseID,
-			t.TenantID,
-		).
-		First(
-			&k,
-		).
-		Error; err != nil {
+	k, err := p.loadDispatchMetadata(ctx, t.TenantID, t.KnowledgeBaseID, t.KnowledgeID)
+	if err != nil {
 		return false, err
 	}
-	var meta map[string]any
-	if json.Unmarshal(k.Metadata, &meta) != nil || meta["feishu_mvp_attempt"] != a.ID ||
-		meta["feishu_manifest_sha256"] != a.ManifestHash ||
-		k.FilePath != t.FilePath ||
-		k.FileName != t.FileName ||
-		a.Status == "obsolete" ||
-		a.Status == "needs_attention" {
+	if k.AttemptID != a.ID || k.ManifestSHA256 != a.ManifestHash ||
+		k.FilePath != t.FilePath || k.FileName != t.FileName ||
+		r.CurrentAttemptID != a.ID || r.Generation != a.Fence ||
+		r.CandidateVersionID != a.CandidateVersionID ||
+		r.ActiveVersionID != a.ExpectedActiveVersion ||
+		a.Status == "obsolete" || a.Status == "needs_attention" {
 		return false, repository.ErrPersonalIdentity
 	}
 	_, err = p.authorize(ctx, m, a)
