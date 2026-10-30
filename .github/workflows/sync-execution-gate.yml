@@ -1,4 +1,4 @@
-﻿name: Datasource Sync Execution Gate
+name: Datasource Sync Execution Gate
 
 on:
   push:
@@ -137,4 +137,3 @@ jobs:
         run: |
           go test -race ./internal/application/repository ./internal/application/service ./internal/datasource \
             ./internal/datasource/connector/feishu/... ./internal/utils ./internal/container -count=1 -timeout=25m
-
