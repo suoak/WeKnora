@@ -367,6 +367,13 @@ func (p *PersonalRecovery) reconcileFirstCreatePublic(
 		if op.Op != "processed" && op.Op != "completed" {
 			return nil
 		}
+		// Inspecting a durable handoff is metadata-only. It is not permission
+		// to claim and invalidate an already-processed document whose derived
+		// rows still require exact serving provenance. Keep this denial before
+		// Claim until that separate proof is available.
+		if err = types.CheckLegacySourceRead(p.service.db.WithContext(ctx), k.ID, m.KBID); err != nil {
+			return err
+		}
 		owner, err := p.repo.Claim(ctx, a.ID, p.lease)
 		if errors.Is(err, repository.ErrPersonalBusy) {
 			return nil
