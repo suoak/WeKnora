@@ -33,8 +33,8 @@ must support the standalone multi-key scripts; Redis Cluster is not supported.
 
 Facts additionally verify a live tenant/KB, no claimed Feishu executions, no
 current live publication leases, installed knowledge/chunk/embedding fences,
-membership/user status, private owner, application configuration and OAuth grant
-epoch. Local facts are not evidence of a real remote ACL: normal source binding,
+membership/user status, private owner, application configuration, OAuth grant
+epoch and connection identity/presence (not rotating token bytes). Local facts are not evidence of a real remote ACL: normal source binding,
 cloud authorization and revision checks still apply in the normal service.
 
 Both reset and canary need their own HMAC approval. Approvals reference reviewed
@@ -117,3 +117,15 @@ Do not resume the shared queue while relying on this one-run recovery policy
 or remove that policy to enable all sources. A later reviewed transition must
 atomically install the restricted ongoing policy and audit it. This CLI does
 not offer that transition or imply that global service has already recovered.
+
+## Existing Disconnect/read distinction
+
+Live acceptance found that the existing normal Disconnect deletes the OAuth
+connection but does not automatically mark every already-published source as
+revoked. Existing workspace-browser local-read semantics can therefore retain
+published content. The recovery watcher now fingerprints connection identity
+and presence, so disconnect invalidates the running approval; normal source
+binding/publication also reject a missing grant. This change does not redefine
+historical content retention. Explicit hold/revoked read fences are tested
+separately. Do not claim that OAuth Disconnect alone revokes every historical
+local read, or expand this recovery PR into that business-policy change.

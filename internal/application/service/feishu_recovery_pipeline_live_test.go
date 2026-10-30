@@ -282,6 +282,19 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 	require.NoError(t, personal.Disconnect(ctx))
 	_, err = svc.bindFeishuSource(ctx, source)
 	require.Error(t, err)
+	afterDisconnect, e := feishusynccontrol.RecoveryFactsFromDatabase(ctx, db, source.ID)
+	require.NoError(t, e)
+	require.False(t, afterDisconnect.Eligible)
+	// Disconnect is not itself a persistent source-state revocation in the
+	// existing product. Assert its real binding/approval semantics above rather
+	// than invent a read-denial result. Exercise retained source-state fences as
+	// explicit isolated DB fault injections, never on the test-site/production DB.
+	require.NoError(t, db.Model(&types.DataSource{}).Where("id=?", source.ID).Update("legacy_access_state", "hold").Error)
+	for _, resource := range resources {
+		strict := types.WithCaller(ctx, types.Caller{UserID: ref.OwnerUserID, TenantID: 0, Role: types.TenantRoleViewer})
+		require.Error(t, types.CheckLegacySourceRead(db.WithContext(strict), resource.KnowledgeID, kb.ID))
+	}
+	require.NoError(t, db.Model(&types.DataSource{}).Where("id=?", source.ID).Update("legacy_access_state", "revoked").Error)
 	for _, resource := range resources {
 		_, err = ks.repo.GetKnowledgeByID(ctx, tenant.ID, resource.KnowledgeID)
 		require.Error(t, err)

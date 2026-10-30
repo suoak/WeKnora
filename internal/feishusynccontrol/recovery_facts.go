@@ -58,6 +58,7 @@ func RecoveryFactsFromDatabase(ctx context.Context, db *gorm.DB, id string) (Rec
 		return f, err
 	}
 	var epochs []map[string]any
+	var connections []map[string]any
 	cfg, err := ds.ParseConfig()
 	if err != nil {
 		return f, err
@@ -79,7 +80,14 @@ func RecoveryFactsFromDatabase(ctx context.Context, db *gorm.DB, id string) (Rec
 		if err := db.WithContext(ctx).Table("feishu_personal_grant_epochs").Select("user_id,epoch").Where("user_id=?", ref.OwnerUserID).Find(&epochs).Error; err != nil {
 			return f, err
 		}
+		if ref.Kind == types.FeishuUserOAuth {
+			if err := db.WithContext(ctx).Table("feishu_connections").Select("user_id,app_id,open_id").Where("user_id=? AND app_id=?", ref.OwnerUserID, ref.AppID).Find(&connections).Error; err != nil {
+				return f, err
+			}
+			f.Eligible = f.Eligible && len(connections) == 1 && len(epochs) == 1
+		}
+
 	}
-	f.FactsSHA256, err = RecoveryDigest([]any{fp, membership, owners, identity, epochs})
+	f.FactsSHA256, err = RecoveryDigest([]any{fp, membership, owners, identity, epochs, connections})
 	return f, err
 }
