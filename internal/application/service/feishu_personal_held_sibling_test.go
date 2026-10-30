@@ -22,7 +22,10 @@ func TestPersonalRecoveryHeldSiblingMetadataDispatchDoesNotGrantContent(t *testi
 			k, op, _ := mvpPublicTask(t, f, m)
 			var intent types.KnowledgeDispatch
 			require.NoError(t, json.Unmarshal(op.Payload, &intent))
-			currentImport, before, attempt, err := f.p.repo.Load(context.Background(), intent.AttemptID)
+			currentImport, before, attempt, err := f.p.repo.Load(
+				context.Background(),
+				intent.AttemptID,
+			)
 			require.NoError(t, err)
 			require.EqualValues(t, 3, before.Generation)
 			require.Equal(t, "index_pending", attempt.Status)
@@ -30,14 +33,26 @@ func TestPersonalRecoveryHeldSiblingMetadataDispatchDoesNotGrantContent(t *testi
 			require.NoError(t, err)
 			require.Equal(t, attempt.ManifestHash, manifest.Hash)
 			// Test fixture setup mirrors the observed public-document outbox.
-			require.NoError(t, f.db.Exec(`UPDATE task_pending_ops SET op='pending',claimed_at=NULL,fail_count=0 WHERE id=?`, op.ID).Error)
+			require.NoError(
+				t,
+				f.db.Exec(
+					`UPDATE task_pending_ops SET op='pending',claimed_at=NULL,fail_count=0 WHERE id=?`,
+					op.ID,
+				).Error,
+			)
 			require.NoError(t, f.db.Exec(`CREATE TABLE feishu_legacy_resources
  (id text PRIMARY KEY, tenant_id bigint,knowledge_base_id text,knowledge_id text,state text)`).Error)
 			require.NoError(t, f.db.Create(&types.DataSource{
 				ID: "old-drive", TenantID: 1, KnowledgeBaseID: "kb", Name: "old-drive",
 				Type: "feishu_drive", Status: "error",
 			}).Error)
-			require.NoError(t, f.db.Exec(`UPDATE data_sources SET legacy_access_state=? WHERE id='old-drive'`, state).Error)
+			require.NoError(
+				t,
+				f.db.Exec(
+					`UPDATE data_sources SET legacy_access_state=? WHERE id='old-drive'`,
+					state,
+				).Error,
+			)
 			types.EnableLegacyReadGuards(f.db)
 
 			// A metadata projection can inspect the durable intent without reading
@@ -45,7 +60,12 @@ func TestPersonalRecoveryHeldSiblingMetadataDispatchDoesNotGrantContent(t *testi
 			ctx, err := f.p.privateWorkerContext(context.Background(), m, attempt)
 			require.NoError(t, err)
 			require.Zero(t, types.WorkspaceWebReadTenant(ctx))
-			projection, projectionErr := f.p.loadDispatchMetadata(ctx, k.TenantID, k.KnowledgeBaseID, k.ID)
+			projection, projectionErr := f.p.loadDispatchMetadata(
+				ctx,
+				k.TenantID,
+				k.KnowledgeBaseID,
+				k.ID,
+			)
 			require.NoError(t, projectionErr)
 			require.Equal(t, attempt.ID, projection.AttemptID)
 			require.Equal(t, attempt.ManifestHash, projection.ManifestSHA256)
@@ -73,8 +93,28 @@ func TestPersonalRecoveryHeldSiblingMetadataDispatchDoesNotGrantContent(t *testi
 			require.Zero(t, stored.FailCount)
 			require.Nil(t, stored.ClaimedAt)
 			var count int64
-			require.NoError(t, f.db.Model(&types.Chunk{}).Where("knowledge_id=?", k.ID).Count(&count).Error)
+			require.NoError(
+				t,
+				f.db.Model(&types.Chunk{}).Where("knowledge_id=?", k.ID).Count(&count).Error,
+			)
 			require.Zero(t, count)
+			// A processed handoff without serving proof must not be newly
+			// claimed or relabeled as an index failure by reconciliation.
+			require.NoError(
+				t,
+				f.db.Exec("UPDATE task_pending_ops SET op='processed' WHERE id=?", op.ID).Error,
+			)
+			require.ErrorIs(
+				t,
+				f.p.reconcileFirstCreatePublic(ctx, currentImport, attempt),
+				types.ErrLegacySourceRestricted,
+			)
+			_, after, current, err = f.p.repo.Load(ctx, attempt.ID)
+			require.NoError(t, err)
+			require.Equal(t, before.Generation, after.Generation)
+			require.Equal(t, "index_pending", current.Status)
+			require.Empty(t, current.OwnerNonce)
+			require.Nil(t, current.LeaseUntil)
 		})
 	}
 }
