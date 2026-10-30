@@ -455,6 +455,8 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 		require.Error(t, err)
 	}
 	t.Log(
-		"real Feishu fetch, native parsing, configured embedding, atomic publication and clone-only normal disconnect verified; real Redis recovery state and queue preservation verified; inventory is an isolated fixture",
+		"real Feishu fetch, native parsing, configured embedding, atomic publication " +
+			"and clone-only normal disconnect verified; " +
+			"real Redis recovery state and queue preservation verified; inventory is an isolated fixture",
 	)
 }

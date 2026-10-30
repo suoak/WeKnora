@@ -13,7 +13,9 @@ import (
 )
 
 func TestRecoveryHTTPAuthorizationBeforePlanOrExecution(t *testing.T) {
-	for _, scenario := range []string{"ordinary_user", "machine_key", "cross_tenant", "private_owner_denied", "disabled"} {
+	for _, scenario := range []string{
+		"ordinary_user", "machine_key", "cross_tenant", "private_owner_denied", "disabled",
+	} {
 		t.Run(scenario, func(t *testing.T) {
 			feishusynccontrol.InstallRecovery(nil)
 			ctx := context.WithValue(context.Background(), types.TenantIDContextKey, uint64(1))

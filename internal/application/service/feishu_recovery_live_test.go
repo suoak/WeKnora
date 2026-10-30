@@ -86,6 +86,7 @@ func TestRecoveryLiveAuthorizationPreflight(t *testing.T) {
 		t.Fatal("live gate blocked: required real document permissions not proven")
 	}
 	t.Log(
-		"real test identity, bounded resource revision, view/copy/export permission preflight passed; full recovery lifecycle not implied",
+		"real test identity, bounded resource revision, view/copy/export permission preflight passed; " +
+			"full recovery lifecycle not implied",
 	)
 }

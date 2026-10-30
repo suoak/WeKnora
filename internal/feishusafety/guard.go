@@ -134,7 +134,8 @@ func (g *Guard) Check(ctx context.Context) error {
 			g.key("recovery_required"),
 		},
 
-		g.fingerprint, scope.SourceID, i.Plan, i.Config, i.Run, i.Generation, g.recoveryRequired.Load()).Err(); err != nil {
+		g.fingerprint, scope.SourceID, i.Plan, i.Config, i.Run, i.Generation,
+		g.recoveryRequired.Load()).Err(); err != nil {
 		return fmt.Errorf("%w: %v", ErrClosed, err)
 	}
 	return nil
