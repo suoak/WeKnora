@@ -31,7 +31,7 @@ func RecoveryFactsFromDatabase(ctx context.Context, db *gorm.DB, id string) (Rec
 	}
 	f.ConfigSHA256 = fp
 	legacy := ds.Type == "feishu" || ds.Type == "feishu_drive" || ds.Type == "lark" || ds.Type == "lark_drive"
-	f.Eligible = legacy && ds.Status == "active" &&
+	f.Eligible = legacy && (ds.Status == "active" || ds.Status == "error") &&
 		(ds.LegacyAccessState == "active" || ds.LegacyAccessState == "unmanaged")
 	var liveKB int64
 	if err := db.WithContext(ctx).Raw(`SELECT count(*) FROM knowledge_bases k JOIN tenants t ON t.id=k.tenant_id
@@ -43,6 +43,20 @@ func RecoveryFactsFromDatabase(ctx context.Context, db *gorm.DB, id string) (Rec
 		return f, err
 	}
 	f.Eligible = f.Eligible && liveKB == 1
+	if execution, claimed := types.SyncExecutionFromContext(ctx); claimed {
+		if execution.DataSourceID != id || execution.TenantID != ds.TenantID || execution.Generation < 1 {
+			f.Eligible = false
+		} else {
+			var current int64
+			if err := db.WithContext(ctx).Raw(`SELECT count(*) FROM sync_logs
+ WHERE id=? AND data_source_id=? AND tenant_id=? AND execution_generation=?
+ AND execution_claimed=true AND status='running'`, execution.SyncLogID, id, ds.TenantID, execution.Generation).
+				Scan(&current).Error; err != nil {
+				return f, err
+			}
+			f.Eligible = f.Eligible && current == 1
+		}
+	}
 	if err := db.WithContext(ctx).Raw(`SELECT count(*) FROM sync_logs s JOIN data_sources d ON d.id=s.data_source_id
  WHERE d.type IN ('feishu',
 'feishu_drive',
@@ -151,6 +165,14 @@ a.lease_until>now()`).Scan(&f.LivePublications).Error; err != nil {
 		}
 
 	}
-	f.FactsSHA256, err = RecoveryDigest([]any{fp, membership, owners, identity, epochs, connections})
+	f.FactsSHA256, err = RecoveryDigest([]any{
+		fp, ds.SyncMode, ds.SyncDeletions, membership, owners, identity, epochs, connections,
+	})
+	// Preserve the ordinary source retry policy after approval. A transient
+	// execution error is not a permission revocation; pause/hold/revoked and
+	// every other authority condition above remain closed. New recovery plans
+	// still require the source to be active.
+	f.RetryEligible = f.Eligible && ds.Status == "error"
+	f.Eligible = f.Eligible && ds.Status == "active"
 	return f, err
 }

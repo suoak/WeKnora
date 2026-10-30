@@ -13,6 +13,19 @@ import (
 // Asynq's own heartbeat/expiry interval bounds detection of consumer-only loss;
 // independent controller lease loss is detected after two seconds.
 func SyncConsumers(client redis.UniversalClient) func(context.Context) ([]string, error) {
+	return syncConsumersForQueues(client, false)
+}
+
+// ApprovedConsumers attests the actual additional consumer lane, rather than
+// assuming a healthy shared sync consumer also subscribes to continuation.
+func ApprovedConsumers(client redis.UniversalClient) func(context.Context) ([]string, error) {
+	return syncConsumersForQueues(client, true)
+}
+
+func syncConsumersForQueues(
+	client redis.UniversalClient,
+	approved bool,
+) func(context.Context) ([]string, error) {
 	inspector := asynq.NewInspectorFromRedisClient(client)
 	return func(ctx context.Context) ([]string, error) {
 		if err := client.Ping(ctx).Err(); err != nil {
@@ -24,7 +37,13 @@ func SyncConsumers(client redis.UniversalClient) func(context.Context) ([]string
 		}
 		var ids []string
 		for _, server := range servers {
+			if approved && server.Queues[ApprovedSyncQueue] > 0 && server.Queues["sync"] < 1 {
+				return nil, &probeFailure{stage: "asynq_consumer", cause: errConsumerInactive}
+			}
 			if server.Queues["sync"] > 0 {
+				if approved && server.Queues[ApprovedSyncQueue] < 1 {
+					return nil, ErrNotReady
+				}
 				if server.Status != "active" || server.Concurrency < 1 {
 					return nil, &probeFailure{stage: "asynq_consumer", cause: errConsumerInactive}
 				}

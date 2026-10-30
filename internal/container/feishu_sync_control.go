@@ -26,6 +26,9 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 	settings interfaces.SystemSettingService, cleaner interfaces.ResourceCleaner,
 ) {
 	if !feishusafety.Enabled() {
+		if types.ApprovedSyncLaneEnabled() {
+			panic("approved sync lane requires enabled Feishu safety")
+		}
 		return
 	}
 	ctx := context.Background()
@@ -44,6 +47,9 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 		if _, err := repository.FenceLegacySyncExecutions(stopCtx, db); err != nil {
 			logger.Errorf(ctx, "[FeishuSafety] invalid configuration stop fencing incomplete")
 		}
+		if types.ApprovedSyncLaneEnabled() {
+			panic("approved sync lane startup safety sealing failed")
+		}
 	}()
 	mode := os.Getenv("FEISHU_SYNC_SAFETY_MODE")
 	if mode != "" && mode != "automatic" && mode != "strict" {
@@ -51,6 +57,9 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 		return
 	}
 	automatic := mode != "strict"
+	if types.ApprovedSyncLaneEnabled() && !automatic {
+		return
+	}
 	policy := feishusafety.DefaultConfig()
 	if !automatic {
 		policy = feishusafety.Config{}
@@ -169,7 +178,13 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 		controller.Consumers = feishusynccontrol.SyncConsumers(controlRedis)
 	}
 	if err := configureFeishuRecovery(db, controller); err != nil {
-		logger.Errorf(ctx, "[FeishuSafety] recovery approval configuration invalid; recovery disabled")
+		logger.Errorf(
+			ctx,
+			"[FeishuSafety] recovery approval configuration invalid; recovery disabled",
+		)
+		if types.ApprovedSyncLaneEnabled() {
+			return
+		}
 	}
 	diagnosticCtx, diagnosticCancel := context.WithCancel(ctx)
 	controller.Transport = transport

@@ -1,0 +1,79 @@
+name: Approved Feishu Source Continuity Gate
+
+on:
+  push:
+    branches: [ops/feishu-approved-continuity-20261030]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: feishu-continuity-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  continuity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: paradedb/paradedb:v0.22.2-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: feishu_atomic_test
+        ports: ["5432:5432"]
+        options: >-
+          --shm-size=1g
+          --health-cmd "pg_isready -U postgres -d feishu_atomic_test"
+          --health-interval 10s --health-timeout 5s --health-retries 12
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+    env:
+      FEISHU_LEGACY_TEST_DSN: postgres://postgres:postgres@localhost:5432/feishu_atomic_test?sslmode=disable
+      FEISHU_SYNC_SAFETY_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.8"
+          cache: true
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Bind exact source and owned disposable Redis
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+          echo "VALIDATION_HEAD_SHA=${{ github.sha }}"
+          alias="knowhub-recovery-redis-${GITHUB_SHA:0:12}"
+          echo "127.0.0.1 $alias" | sudo tee -a /etc/hosts >/dev/null
+          echo "FEISHU_RECOVERY_REAL_REDIS_ADDR=$alias:6379" >> "$GITHUB_ENV"
+          git diff --check
+      - name: New policy, actual queue routing, authority, claim and race cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -json -race -p 1 ./internal/feishusafety ./internal/feishusynccontrol \
+            ./internal/application/service ./internal/datasource ./internal/handler \
+            ./internal/types ./internal/container ./internal/router \
+            -run 'TestApprovedSources|TestApprovedSyncLane|TestRecoveryFactsPostgresAuthorityAndExecutionChanges' \
+            -count=1 -timeout=8m | tee continuity-results.jsonl
+      - name: Offline continuation approval checks
+        run: |
+          python -m pip install 'cryptography>=46'
+          python -m unittest discover -s scripts/ops -p test_feishu_continuity.py -v
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: feishu-continuity-${{ github.sha }}
+          path: continuity-results.jsonl
+          retention-days: 90

@@ -15,6 +15,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Tencent/WeKnora/internal/feishusafety"
 	"github.com/google/uuid"
@@ -33,6 +34,7 @@ type RecoveryFacts struct {
 	ConfigSHA256          string `json:"config_sha256"`
 	FactsSHA256           string `json:"facts_sha256"`
 	Eligible              bool   `json:"eligible"`
+	RetryEligible         bool   `json:"retry_eligible,omitempty"`
 	SelectedResourceCount int    `json:"selected_resource_count"`
 	LiveExecutions        int64  `json:"live_executions"`
 	LivePublications      int64  `json:"live_publications"`
@@ -78,20 +80,25 @@ type RecoveryApproval struct {
 }
 
 type recoveryMode struct {
-	RuntimeSHA            string `json:"runtime_sha"`
-	WorkerID              string `json:"worker_id"`
-	Incarnation           string `json:"incarnation"`
-	ControllerFingerprint string `json:"controller_fingerprint"`
-	MembershipRevision    string `json:"membership_revision"`
-	Version               int    `json:"version"`
-	PlanID                string `json:"plan_id"`
-	PlanSHA256            string `json:"plan_sha256"`
-	SourceID              string `json:"source_id"`
-	ConfigSHA256          string `json:"config_sha256"`
-	Phase                 string `json:"phase"`
-	RunID                 string `json:"run_id"`
-	Generation            int64  `json:"generation"`
-	ExpiresMS             int64  `json:"expires_ms"`
+	HistoricalQueueSHA256 string                    `json:"historical_queue_sha256,omitempty"`
+	HistoricalPending     int                       `json:"historical_pending,omitempty"`
+	ContinuityID          string                    `json:"continuity_id,omitempty"`
+	ApprovedSources       map[string]ApprovedSource `json:"approved_sources,omitempty"`
+	RuntimeSHA            string                    `json:"runtime_sha"`
+	WorkerID              string                    `json:"worker_id"`
+	Incarnation           string                    `json:"incarnation"`
+	ControllerFingerprint string                    `json:"controller_fingerprint"`
+	MembershipRevision    string                    `json:"membership_revision"`
+	Version               int                       `json:"version"`
+	PlanID                string                    `json:"plan_id"`
+	PlanSHA256            string                    `json:"plan_sha256"`
+	SourceID              string                    `json:"source_id"`
+	ConfigSHA256          string                    `json:"config_sha256"`
+	FactsSHA256           string                    `json:"facts_sha256,omitempty"`
+	Phase                 string                    `json:"phase"`
+	RunID                 string                    `json:"run_id"`
+	Generation            int64                     `json:"generation"`
+	ExpiresMS             int64                     `json:"expires_ms"`
 }
 
 // RecoveryManager coordinates one approved replacement Guard lifecycle.
@@ -121,12 +128,21 @@ func NewRecoveryManager(
 		return nil, ErrRecoveryRejected
 	}
 	c.recoveryEnabled = true
-	return &RecoveryManager{
+	// A recovery-configured replacement process must not interpret complete
+	// Redis state loss as a clean first installation and reopen normal traffic.
+	// The requirement survives in the local Guard even when all Redis markers
+	// are absent; a newly observed incident needs its own matching approval.
+	c.recoveryRequired = true
+	c.Guard.RequireRecovery()
+	c.approvedFacts = facts
+	m := &RecoveryManager{
 		controller: c,
 		key:        append(ed25519.PublicKey(nil), key...),
 		keyID:      RecoveryVerificationKeyID(key),
 		facts:      facts,
-	}, nil
+	}
+	c.Guard.SetApprovedSourceValidator(m.checkApprovedSource)
+	return m, nil
 }
 
 func (c *Controller) checkRecoveryPolicy(ctx context.Context) error {
@@ -160,6 +176,36 @@ func (c *Controller) checkRecoveryPolicy(ctx context.Context) error {
 	}
 	if state.ExpiresMS <= now.UnixMilli() {
 		return ErrRecoveryRejected
+	}
+	if state.Phase == "approved_sources" {
+		if state.HistoricalQueueSHA256 == "" {
+			return ErrRecoveryRejected
+		}
+		queue, err := (&RecoveryManager{controller: c}).queue(ctx)
+		if err != nil || queue.digest != state.HistoricalQueueSHA256 || len(queue.ids) != state.HistoricalPending {
+			return ErrRecoveryRejected
+		}
+		if c.approvedFacts == nil || state.ContinuityID == "" || len(state.ApprovedSources) < 1 ||
+			len(state.ApprovedSources) > 4 {
+			return ErrRecoveryRejected
+		}
+		if c.ApprovedConsumers == nil {
+			return ErrRecoveryRejected
+		}
+		consumers, err := c.ApprovedConsumers(ctx)
+		if err != nil || len(consumers) != 1 || consumers[0] != c.Config.WorkerID {
+			return ErrRecoveryRejected
+		}
+		if n, err := c.Client.Exists(ctx, "asynq:{approved_sync}:paused").Result(); err != nil ||
+			n != 0 {
+			return ErrRecoveryRejected
+		}
+		for id, approved := range state.ApprovedSources {
+			facts, err := c.approvedFacts(ctx, id)
+			if err != nil || !approved.matches(facts) {
+				return ErrRecoveryRejected
+			}
+		}
 	}
 	return nil
 }
@@ -267,6 +313,9 @@ func (m *RecoveryManager) queue(ctx context.Context) (recoveryQueueSnapshot, err
 	}
 	var hashes []map[string]string
 	for _, id := range q.ids {
+		if id == "" || !utf8.ValidString(id) {
+			return q, ErrRecoveryRejected
+		}
 		f, e := c.HGetAll(ctx, "asynq:{sync}:t:"+id).Result()
 		if e != nil || len(f) == 0 {
 			return q, ErrRecoveryRejected
@@ -274,11 +323,13 @@ func (m *RecoveryManager) queue(ctx context.Context) (recoveryQueueSnapshot, err
 		q.fields = append(q.fields, f)
 		h := map[string]string{}
 		for k, v := range f {
-			h[k] = digestBytes(v)
+			// Redis hash fields are binary. JSON must never normalize an invalid
+			// UTF-8 field name into a replacement rune in the signed digest.
+			h[hex.EncodeToString([]byte(k))] = digestBytes(v)
 		}
 		hashes = append(hashes, h)
 	}
-	q.digest, e = RecoveryDigest([]any{q.pause, q.ids, hashes})
+	q.digest, e = RecoveryDigest([]any{digestBytes(q.pause), q.ids, hashes})
 	return q, e
 }
 
@@ -451,6 +502,7 @@ func (m *RecoveryManager) Reset(
 			PlanSHA256:   planHash,
 			SourceID:     f.SourceID,
 			ConfigSHA256: f.ConfigSHA256,
+			FactsSHA256:  f.FactsSHA256,
 			Phase:        "frozen",
 			ExpiresMS:    p.ExpiresMS,
 		},
@@ -802,6 +854,15 @@ func (m *RecoveryManager) Status(ctx context.Context, source string) (map[string
 	var state recoveryMode
 	if json.Unmarshal([]byte(raw), &state) != nil || state.SourceID != source {
 		return nil, ErrRecoveryRejected
+	}
+	// Do not expose other sources from a multi-source policy through a route
+	// that has authorized only this source. Copy before redacting the map.
+	if state.ApprovedSources != nil {
+		entry, ok := state.ApprovedSources[source]
+		state.ApprovedSources = nil
+		if ok {
+			state.ApprovedSources = map[string]ApprovedSource{source: entry}
+		}
 	}
 	trip, e := c.Client.Exists(ctx, c.prefix+"trip").Result()
 	if e != nil {
