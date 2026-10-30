@@ -165,7 +165,9 @@ a.lease_until>now()`).Scan(&f.LivePublications).Error; err != nil {
 		}
 
 	}
-	f.FactsSHA256, err = RecoveryDigest([]any{fp, membership, owners, identity, epochs, connections})
+	f.FactsSHA256, err = RecoveryDigest([]any{
+		fp, ds.SyncMode, ds.SyncDeletions, membership, owners, identity, epochs, connections,
+	})
 	// Preserve the ordinary source retry policy after approval. A transient
 	// execution error is not a permission revocation; pause/hold/revoked and
 	// every other authority condition above remain closed. New recovery plans

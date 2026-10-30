@@ -62,6 +62,17 @@ func TestRecoveryFactsPostgresAuthorityAndExecutionChanges(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, initial.Eligible)
 	require.Equal(t, 1, initial.SelectedResourceCount)
+	oldMode, oldDeletions := source.SyncMode, source.SyncDeletions
+	require.NoError(t, db.Model(&source).Updates(map[string]any{
+		"sync_mode": "incremental", "sync_deletions": !oldDeletions,
+	}).Error)
+	policyChanged, err := RecoveryFactsFromDatabase(ctx, db, source.ID)
+	require.NoError(t, err)
+	require.NotEqual(t, initial.FactsSHA256, policyChanged.FactsSHA256,
+		"mode and deletion policy must be included in source approval")
+	require.NoError(t, db.Model(&source).Updates(map[string]any{
+		"sync_mode": oldMode, "sync_deletions": oldDeletions,
+	}).Error)
 	claim := types.SyncLog{
 		ID: uuid.NewString(), DataSourceID: source.ID, TenantID: tenant.ID,
 		Status: types.SyncLogStatusRunning, ExecutionGeneration: 7, ExecutionClaimed: true,
