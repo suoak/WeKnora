@@ -46,9 +46,33 @@ func newRecoveryFixture(t *testing.T) *recoveryFixture {
 	if os.Getenv("FEISHU_RECOVERY_REAL_REDIS_ADDR") != "" {
 		require.NoError(t, r.FlushDB(ctx).Err())
 	}
-	g, e := feishusafety.New(r, feishusafety.Config{Namespace: "recovery-" + uuid.NewString(), EndpointHost: "gateway.invalid", InFlight: 1, RPM: 30, RPS: 1, TPM: 30000, WaitBudgetDuration: time.Second, TokenBoundVerified: true})
+	g, e := feishusafety.New(
+		r,
+		feishusafety.Config{
+			Namespace:          "recovery-" + uuid.NewString(),
+			EndpointHost:       "gateway.invalid",
+			InFlight:           1,
+			RPM:                30,
+			RPS:                1,
+			TPM:                30000,
+			WaitBudgetDuration: time.Second,
+			TokenBoundVerified: true,
+		},
+	)
 	require.NoError(t, e)
-	c, e := New(r, g, Config{Automatic: true, WorkerID: "worker:1", SourceSHA: strings.Repeat("a", 40), Scope: "all", Maintenance: 4}, func(context.Context) error { return nil }, func(Event) error { return nil })
+	c, e := New(
+		r,
+		g,
+		Config{
+			Automatic:   true,
+			WorkerID:    "worker:1",
+			SourceSHA:   strings.Repeat("a", 40),
+			Scope:       "all",
+			Maintenance: 4,
+		},
+		func(context.Context) error { return nil },
+		func(Event) error { return nil },
+	)
 	require.NoError(t, e)
 	c.Consumers = func(context.Context) ([]string, error) { return []string{"worker:1"}, nil }
 	require.NoError(t, c.Step(ctx))
@@ -59,10 +83,29 @@ func newRecoveryFixture(t *testing.T) *recoveryFixture {
 	for i := 0; i < 6; i++ {
 		id := fmt.Sprintf("historical-%d", i)
 		require.NoError(t, r.RPush(ctx, "asynq:{sync}:pending", id).Err())
-		require.NoError(t, r.HSet(ctx, "asynq:{sync}:t:"+id, "msg", []byte{byte(i), 0xff, 0, 1}, "state", "pending").Err())
+		require.NoError(
+			t,
+			r.HSet(ctx, "asynq:{sync}:t:"+id, "msg", []byte{byte(i), 0xff, 0, 1}, "state", "pending").Err(),
+		)
 	}
-	f := &recoveryFixture{c: c, r: r, old: g, key: []byte(strings.Repeat("k", 32)), facts: RecoveryFacts{SourceID: uuid.NewString(), ConfigSHA256: strings.Repeat("b", 64), FactsSHA256: strings.Repeat("c", 64), Eligible: true, SelectedResourceCount: 1}}
-	f.m, e = NewRecoveryManager(c, f.key, func(_ context.Context, _ string) (RecoveryFacts, error) { return f.facts, nil })
+	f := &recoveryFixture{
+		c:   c,
+		r:   r,
+		old: g,
+		key: []byte(strings.Repeat("k", 32)),
+		facts: RecoveryFacts{
+			SourceID:              uuid.NewString(),
+			ConfigSHA256:          strings.Repeat("b", 64),
+			FactsSHA256:           strings.Repeat("c", 64),
+			Eligible:              true,
+			SelectedResourceCount: 1,
+		},
+	}
+	f.m, e = NewRecoveryManager(
+		c,
+		f.key,
+		func(_ context.Context, _ string) (RecoveryFacts, error) { return f.facts, nil },
+	)
 	require.NoError(t, e)
 	f.p, e = f.m.Plan(ctx, f.facts.SourceID, "operator")
 	require.NoError(t, e)
@@ -73,7 +116,15 @@ func (f *recoveryFixture) approve(t *testing.T, op string) RecoveryApproval {
 	t.Helper()
 	h, e := RecoveryDigest(f.p)
 	require.NoError(t, e)
-	a := RecoveryApproval{Version: 1, Operation: op, PlanSHA256: h, ActorID: "operator", Reference: "synthetic-isolation-approval", EvidenceSHA256: strings.Repeat("d", 64), ExpiresMS: f.p.ExpiresMS}
+	a := RecoveryApproval{
+		Version:        1,
+		Operation:      op,
+		PlanSHA256:     h,
+		ActorID:        "operator",
+		Reference:      "synthetic-isolation-approval",
+		EvidenceSHA256: strings.Repeat("d", 64),
+		ExpiresMS:      f.p.ExpiresMS,
+	}
 	b, e := recoveryCanonical(a)
 	require.NoError(t, e)
 	mac := hmac.New(sha256.New, f.key)
@@ -93,20 +144,52 @@ func TestRecoveryResetAndOneSourceCanaryPreserveSharedQueue(t *testing.T) {
 	require.NotEqual(t, oldInc, f.c.incarnation)
 	require.ErrorIs(t, f.old.Check(ctx), feishusafety.ErrClosed, "the old object must remain closed")
 	require.NoError(t, f.c.Step(ctx))
-	require.ErrorIs(t, f.c.Guard.Check(feishusafety.WithScope(ctx, f.facts.SourceID)), feishusafety.ErrClosed, "reset cannot open normal traffic")
+	require.ErrorIs(
+		t,
+		f.c.Guard.Check(feishusafety.WithScope(ctx, f.facts.SourceID)),
+		feishusafety.ErrClosed,
+		"reset cannot open normal traffic",
+	)
 	run := uuid.NewString()
-	require.NoError(t, f.m.Canary(ctx, f.p, f.approve(t, "canary"), "operator", func(work context.Context, bind func(string, int64) error) error {
-		require.NoError(t, f.c.Guard.Check(feishusafety.WithScope(work, f.facts.SourceID)))
-		require.ErrorIs(t, f.c.Guard.Check(feishusafety.WithScope(work, uuid.NewString())), feishusafety.ErrClosed)
-		require.ErrorIs(t, f.c.Guard.Check(feishusafety.WithScope(ctx, f.facts.SourceID)), feishusafety.ErrClosed, "ordinary producer cannot borrow the plan")
-		require.NoError(t, bind(run, 1))
-		require.ErrorIs(t, f.c.Guard.Check(feishusafety.WithScope(work, f.facts.SourceID)), feishusafety.ErrClosed, "admission identity cannot execute")
-		valid := feishusafety.WithRecoveryExecution(work, f.facts.ConfigSHA256, run, 1)
-		require.NoError(t, f.c.Guard.Check(feishusafety.WithScope(valid, f.facts.SourceID)))
-		stale := feishusafety.WithRecoveryExecution(work, f.facts.ConfigSHA256, run, 2)
-		require.ErrorIs(t, f.c.Guard.Check(feishusafety.WithScope(stale, f.facts.SourceID)), feishusafety.ErrClosed)
-		return nil
-	}))
+	require.NoError(
+		t,
+		f.m.Canary(
+			ctx,
+			f.p,
+			f.approve(t, "canary"),
+			"operator",
+			func(work context.Context, bind func(string, int64) error) error {
+				require.NoError(t, f.c.Guard.Check(feishusafety.WithScope(work, f.facts.SourceID)))
+				require.ErrorIs(
+					t,
+					f.c.Guard.Check(feishusafety.WithScope(work, uuid.NewString())),
+					feishusafety.ErrClosed,
+				)
+				require.ErrorIs(
+					t,
+					f.c.Guard.Check(feishusafety.WithScope(ctx, f.facts.SourceID)),
+					feishusafety.ErrClosed,
+					"ordinary producer cannot borrow the plan",
+				)
+				require.NoError(t, bind(run, 1))
+				require.ErrorIs(
+					t,
+					f.c.Guard.Check(feishusafety.WithScope(work, f.facts.SourceID)),
+					feishusafety.ErrClosed,
+					"admission identity cannot execute",
+				)
+				valid := feishusafety.WithRecoveryExecution(work, f.facts.ConfigSHA256, run, 1)
+				require.NoError(t, f.c.Guard.Check(feishusafety.WithScope(valid, f.facts.SourceID)))
+				stale := feishusafety.WithRecoveryExecution(work, f.facts.ConfigSHA256, run, 2)
+				require.ErrorIs(
+					t,
+					f.c.Guard.Check(feishusafety.WithScope(stale, f.facts.SourceID)),
+					feishusafety.ErrClosed,
+				)
+				return nil
+			},
+		),
+	)
 	after, e := f.m.queue(ctx)
 	require.NoError(t, e)
 	require.Equal(t, before.digest, after.digest)
@@ -119,7 +202,20 @@ func TestRecoveryResetAndOneSourceCanaryPreserveSharedQueue(t *testing.T) {
 }
 
 func TestRecoveryRejectsChangedEvidenceWithoutClearingTrip(t *testing.T) {
-	for _, change := range []string{"signature", "actor", "namespace", "incident", "queue", "task_bytes", "pause", "peer", "inflight", "facts", "audit_unavailable", "expired"} {
+	for _, change := range []string{
+		"signature",
+		"actor",
+		"namespace",
+		"incident",
+		"queue",
+		"task_bytes",
+		"pause",
+		"peer",
+		"inflight",
+		"facts",
+		"audit_unavailable",
+		"expired",
+	} {
 		t.Run(change, func(t *testing.T) {
 			f := newRecoveryFixture(t)
 			ctx := context.Background()
@@ -138,7 +234,10 @@ func TestRecoveryRejectsChangedEvidenceWithoutClearingTrip(t *testing.T) {
 			case "queue":
 				require.NoError(t, f.r.RPush(ctx, "asynq:{sync}:pending", "new-task").Err())
 			case "task_bytes":
-				require.NoError(t, f.r.HSet(ctx, "asynq:{sync}:t:historical-0", "msg", []byte{0, 0xfe, 0, 1}).Err())
+				require.NoError(
+					t,
+					f.r.HSet(ctx, "asynq:{sync}:t:historical-0", "msg", []byte{0, 0xfe, 0, 1}).Err(),
+				)
 			case "pause":
 				require.NoError(t, f.r.Set(ctx, "asynq:{sync}:paused", "another_operator_stop", 0).Err())
 			case "peer":
@@ -169,7 +268,16 @@ func TestRecoveryNewTripCannotBeClearedByPriorApproval(t *testing.T) {
 	require.NoError(t, f.m.Reset(ctx, f.p, f.approve(t, "reset"), "operator"))
 	require.NoError(t, f.c.Step(ctx))
 	require.NoError(t, f.c.Guard.Trip(ctx, "audit_unavailable"))
-	require.Error(t, f.m.Canary(ctx, f.p, f.approve(t, "canary"), "operator", func(context.Context, func(string, int64) error) error { t.Fatal("must not execute"); return nil }))
+	require.Error(
+		t,
+		f.m.Canary(
+			ctx,
+			f.p,
+			f.approve(t, "canary"),
+			"operator",
+			func(context.Context, func(string, int64) error) error { t.Fatal("must not execute"); return nil },
+		),
+	)
 	require.Error(t, f.m.Reset(ctx, f.p, f.approve(t, "reset"), "operator"))
 	require.Equal(t, "audit_unavailable", f.r.Get(ctx, f.c.prefix+"trip").Val())
 }
@@ -183,13 +291,24 @@ func TestRecoveryMissingPersistentStateFailsClosed(t *testing.T) {
 			require.NoError(t, f.c.Step(ctx))
 			require.NoError(t, f.r.Del(ctx, f.c.prefix+key).Err())
 			require.Error(t, f.c.checkRecoveryPolicy(ctx))
-			require.ErrorIs(t, f.c.Guard.Check(feishusafety.WithScope(ctx, f.facts.SourceID)), feishusafety.ErrClosed)
+			require.ErrorIs(
+				t,
+				f.c.Guard.Check(feishusafety.WithScope(ctx, f.facts.SourceID)),
+				feishusafety.ErrClosed,
+			)
 		})
 	}
 }
 
 func TestRecoveryCanaryFaultsStopAndKeepHistoricalQueue(t *testing.T) {
-	for _, fault := range []string{"execution_error", "unbound", "panic", "queue_changed", "authorization_changed", "audit_failed"} {
+	for _, fault := range []string{
+		"execution_error",
+		"unbound",
+		"panic",
+		"queue_changed",
+		"authorization_changed",
+		"audit_failed",
+	} {
 		t.Run(fault, func(t *testing.T) {
 			f := newRecoveryFixture(t)
 			ctx := context.Background()
@@ -197,33 +316,45 @@ func TestRecoveryCanaryFaultsStopAndKeepHistoricalQueue(t *testing.T) {
 			require.NoError(t, f.c.Step(ctx))
 			var revoked atomic.Bool
 			run := func() {
-				err := f.m.Canary(ctx, f.p, f.approve(t, "canary"), "operator", func(work context.Context, bind func(string, int64) error) error {
-					if fault == "unbound" {
-						return nil
-					}
-					require.NoError(t, bind(uuid.NewString(), 1))
-					switch fault {
-					case "execution_error":
-						return fmt.Errorf("synthetic failure")
-					case "panic":
-						panic("synthetic panic")
-					case "queue_changed":
-						require.NoError(t, f.r.HSet(ctx, "asynq:{sync}:t:historical-0", "state", "changed").Err())
-					case "authorization_changed":
-						// Revoke the authority without racing the watcher callback.
-						revoked.Store(true)
-					case "audit_failed":
-						require.NoError(t, f.r.Del(ctx, f.c.prefix+"control_audit").Err())
-						require.NoError(t, f.r.Set(ctx, f.c.prefix+"control_audit", "wrong-type", 0).Err())
-						return nil
-					}
-					select {
-					case <-work.Done():
-						return work.Err()
-					case <-time.After(2 * time.Second):
-						return fmt.Errorf("watchdog did not stop")
-					}
-				})
+				err := f.m.Canary(
+					ctx,
+					f.p,
+					f.approve(t, "canary"),
+					"operator",
+					func(work context.Context, bind func(string, int64) error) error {
+						if fault == "unbound" {
+							return nil
+						}
+						require.NoError(t, bind(uuid.NewString(), 1))
+						switch fault {
+						case "execution_error":
+							return fmt.Errorf("synthetic failure")
+						case "panic":
+							panic("synthetic panic")
+						case "queue_changed":
+							require.NoError(
+								t,
+								f.r.HSet(ctx, "asynq:{sync}:t:historical-0", "state", "changed").Err(),
+							)
+						case "authorization_changed":
+							// Revoke the authority without racing the watcher callback.
+							revoked.Store(true)
+						case "audit_failed":
+							require.NoError(t, f.r.Del(ctx, f.c.prefix+"control_audit").Err())
+							require.NoError(
+								t,
+								f.r.Set(ctx, f.c.prefix+"control_audit", "wrong-type", 0).Err(),
+							)
+							return nil
+						}
+						select {
+						case <-work.Done():
+							return work.Err()
+						case <-time.After(2 * time.Second):
+							return fmt.Errorf("watchdog did not stop")
+						}
+					},
+				)
 				require.Error(t, err)
 			}
 			revoked.Store(false)

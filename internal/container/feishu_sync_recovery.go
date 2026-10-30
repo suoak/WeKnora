@@ -27,9 +27,13 @@ func configureFeishuRecovery(db *gorm.DB, c *feishusynccontrol.Controller) error
 	if err != nil {
 		return err
 	}
-	m, err := feishusynccontrol.NewRecoveryManager(c, key, func(ctx context.Context, id string) (feishusynccontrol.RecoveryFacts, error) {
-		return feishusynccontrol.RecoveryFactsFromDatabase(ctx, db, id)
-	})
+	m, err := feishusynccontrol.NewRecoveryManager(
+		c,
+		key,
+		func(ctx context.Context, id string) (feishusynccontrol.RecoveryFacts, error) {
+			return feishusynccontrol.RecoveryFactsFromDatabase(ctx, db, id)
+		},
+	)
 	if err != nil {
 		return err
 	}

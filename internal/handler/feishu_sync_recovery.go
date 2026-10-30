@@ -30,6 +30,7 @@ func (h *DataSourceHandler) recoveryActor(c *gin.Context) (*feishusynccontrol.Re
 	return m, actor, true
 }
 
+// FeishuRecoveryPlan creates a read-only incident plan for an authorized operator.
 func (h *DataSourceHandler) FeishuRecoveryPlan(c *gin.Context) {
 	m, actor, ok := h.recoveryActor(c)
 	if !ok {
@@ -48,6 +49,7 @@ func (h *DataSourceHandler) FeishuRecoveryPlan(c *gin.Context) {
 	c.JSON(200, gin.H{"plan": p, "plan_sha256": hash})
 }
 
+// FeishuRecoveryStatus reports the requested source operational state.
 func (h *DataSourceHandler) FeishuRecoveryStatus(c *gin.Context) {
 	m, _, ok := h.recoveryActor(c)
 	if !ok {
@@ -61,6 +63,7 @@ func (h *DataSourceHandler) FeishuRecoveryStatus(c *gin.Context) {
 	c.JSON(200, state)
 }
 
+// FeishuRecoveryExecute verifies independent consent before reset or one canary.
 func (h *DataSourceHandler) FeishuRecoveryExecute(c *gin.Context) {
 	m, actor, ok := h.recoveryActor(c)
 	if !ok {
@@ -87,9 +90,15 @@ func (h *DataSourceHandler) FeishuRecoveryExecute(c *gin.Context) {
 			c.JSON(503, gin.H{"error": "canary_runner_unavailable"})
 			return
 		}
-		err = m.Canary(c.Request.Context(), request.Plan, request.Approval, actor, func(ctx context.Context, bind func(string, int64) error) error {
-			return runner.RunRecoveryCanary(ctx, c.Param("id"), bind)
-		})
+		err = m.Canary(
+			c.Request.Context(),
+			request.Plan,
+			request.Approval,
+			actor,
+			func(ctx context.Context, bind func(string, int64) error) error {
+				return runner.RunRecoveryCanary(ctx, c.Param("id"), bind)
+			},
+		)
 	default:
 		c.JSON(400, gin.H{"error": "unsupported_recovery_operation"})
 		return

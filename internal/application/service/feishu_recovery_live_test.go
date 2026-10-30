@@ -25,7 +25,8 @@ func TestRecoveryLiveAuthorizationPreflight(t *testing.T) {
 		t.Skip("explicit isolated live acceptance required")
 	}
 	u, err := url.Parse(os.Getenv("FEISHU_RECOVERY_TEST_SITE_DSN"))
-	if err != nil || u.Hostname() != "knowhub-feishu-v2-d6e99d894d3a-postgres-1" || (u.Scheme != "postgres" && u.Scheme != "postgresql") {
+	if err != nil || u.Hostname() != "knowhub-feishu-v2-d6e99d894d3a-postgres-1" ||
+		(u.Scheme != "postgres" && u.Scheme != "postgresql") {
 		t.Fatal("isolated test-site DSN required")
 	}
 	db, err := gorm.Open(postgres.Open(u.String()), &gorm.Config{Logger: gormlog.Discard})
@@ -38,7 +39,9 @@ func TestRecoveryLiveAuthorizationPreflight(t *testing.T) {
 	}
 	defer pool.Close()
 	var source types.DataSource
-	if db.Where("id=? AND legacy_access_state='active'", "847ec22f-ceb3-4f73-b268-ba54c7c3ff67").Take(&source).Error != nil {
+	if db.Where("id=? AND legacy_access_state='active'", "847ec22f-ceb3-4f73-b268-ba54c7c3ff67").
+		Take(&source).
+		Error != nil {
 		t.Fatal("dedicated test source unavailable")
 	}
 	cfg, err := source.ParseConfig()
@@ -49,7 +52,10 @@ func TestRecoveryLiveAuthorizationPreflight(t *testing.T) {
 	if err != nil || ref == nil || ref.Kind != types.FeishuUserOAuth {
 		t.Fatal("test OAuth reference unavailable")
 	}
-	ctx, cancel := context.WithTimeout(context.WithValue(context.Background(), types.UserIDContextKey, ref.OwnerUserID), 60*time.Second)
+	ctx, cancel := context.WithTimeout(
+		context.WithValue(context.Background(), types.UserIDContextKey, ref.OwnerUserID),
+		60*time.Second,
+	)
 	defer cancel()
 	personal := NewFeishuPersonalService(db, repository.NewSystemSettingRepository(db), nil, nil, nil)
 	app, err := personal.app(ctx)
@@ -79,5 +85,7 @@ func TestRecoveryLiveAuthorizationPreflight(t *testing.T) {
 	if err != nil || !permissions.View || !permissions.Copy || !permissions.Export {
 		t.Fatal("live gate blocked: required real document permissions not proven")
 	}
-	t.Log("real test identity, bounded resource revision, view/copy/export permission preflight passed; full recovery lifecycle not implied")
+	t.Log(
+		"real test identity, bounded resource revision, view/copy/export permission preflight passed; full recovery lifecycle not implied",
+	)
 }

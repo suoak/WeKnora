@@ -17,6 +17,7 @@ type RecoveryContext struct {
 }
 type recoveryContextKey struct{}
 
+// WithRecoveryContext attaches server-owned identity; it does not grant authority.
 func WithRecoveryContext(ctx context.Context, identity RecoveryContext) context.Context {
 	return context.WithValue(ctx, recoveryContextKey{}, identity)
 }
@@ -26,6 +27,7 @@ func recoveryIdentity(ctx context.Context) RecoveryContext {
 	return i
 }
 
+// WithRecoveryExecution binds identity to the actual source execution.
 func WithRecoveryExecution(ctx context.Context, config, run string, generation int64) context.Context {
 	i := recoveryIdentity(ctx)
 	i.Config = config

@@ -82,17 +82,26 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 	require.NotNil(t, ref)
 	var oldKB types.KnowledgeBase
 	ownerCtx := context.WithValue(context.Background(), types.UserIDContextKey, ref.OwnerUserID)
-	ownerCtx = types.WithPrincipal(ownerCtx, types.Principal{Type: types.PrincipalWebUser, ID: ref.OwnerUserID})
+	ownerCtx = types.WithPrincipal(
+		ownerCtx,
+		types.Principal{Type: types.PrincipalWebUser, ID: ref.OwnerUserID},
+	)
 	require.NoError(t, db.WithContext(ownerCtx).Where("id=?", original.KnowledgeBaseID).Take(&oldKB).Error)
 	var model types.Model
 	require.NoError(t, db.Where("id=?", oldKB.EmbeddingModelID).Take(&model).Error)
 	tenants := repository.NewTenantRepository(db)
-	tenant, err := NewTenantService(tenants, nil).CreateTenant(ownerCtx, &types.Tenant{Name: "isolated-recovery-" + uuid.NewString()})
+	tenant, err := NewTenantService(
+		tenants,
+		nil,
+	).CreateTenant(ownerCtx, &types.Tenant{Name: "isolated-recovery-" + uuid.NewString()})
 	require.NoError(t, err)
 	members := NewTenantMemberService(repository.NewTenantMemberRepository(db), nil, nil, nil)
 	_, err = members.EnsureOwner(ownerCtx, ref.OwnerUserID, tenant.ID)
 	require.NoError(t, err)
-	ctx := types.WithCaller(ownerCtx, types.Caller{UserID: ref.OwnerUserID, TenantID: tenant.ID, Role: types.TenantRoleOwner})
+	ctx := types.WithCaller(
+		ownerCtx,
+		types.Caller{UserID: ref.OwnerUserID, TenantID: tenant.ID, Role: types.TenantRoleOwner},
+	)
 	ctx = context.WithValue(ctx, types.TenantIDContextKey, tenant.ID)
 	ctx = context.WithValue(ctx, types.TenantInfoContextKey, tenant)
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
@@ -104,21 +113,50 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 	require.NoError(t, db.Create(&model).Error)
 	kbRepo := repository.NewKnowledgeBaseRepository(db)
 	kbs := &knowledgeBaseService{repo: kbRepo}
-	kb, err := kbs.CreateKnowledgeBase(types.WithPrivateKBCreation(ctx, ref.OwnerUserID), &types.KnowledgeBase{
-		ChunkingConfig: types.ChunkingConfig{ChunkSize: 512, ChunkOverlap: 50, ParserEngineRules: []types.ParserEngineRule{{FileTypes: []string{"xlsx", "docx", "pptx"}, Engine: "anydoc"}}},
-		Name:           "recovery-cloud-canary", Type: types.KnowledgeBaseTypeDocument, EmbeddingModelID: model.ID,
-		IndexingStrategy: types.IndexingStrategy{VectorEnabled: true, KeywordEnabled: true},
-	})
+	kb, err := kbs.CreateKnowledgeBase(
+		types.WithPrivateKBCreation(ctx, ref.OwnerUserID),
+		&types.KnowledgeBase{
+			ChunkingConfig: types.ChunkingConfig{
+				ChunkSize:    512,
+				ChunkOverlap: 50,
+				ParserEngineRules: []types.ParserEngineRule{
+					{FileTypes: []string{"xlsx", "docx", "pptx"}, Engine: "anydoc"},
+				},
+			},
+			Name: "recovery-cloud-canary", Type: types.KnowledgeBaseTypeDocument, EmbeddingModelID: model.ID,
+			IndexingStrategy: types.IndexingStrategy{VectorEnabled: true, KeywordEnabled: true},
+		},
+	)
 	require.NoError(t, err)
 	localRoot := t.TempDir()
 	t.Setenv("LOCAL_STORAGE_BASE_DIR", localRoot)
 	workers, err := ants.NewPool(1)
 	require.NoError(t, err)
 	defer workers.Release()
-	ks := &knowledgeService{config: &config.Config{}, repo: repository.NewKnowledgeRepository(db),
-		kbService: &v2PipelineKB{legacyLiveKB{db: db}}, modelService: &v2PipelineModel{legacyLiveModel: legacyLiveModel{db: db}, pool: embedding.NewBatchEmbedder(workers)},
-		tenantService: &legacyNoCloud{}, tenantRepo: tenants, chunkRepo: repository.NewChunkRepository(db), task: &dispatchQueue{}, graphEngine: parentChildGraphRepo{}, fileSvc: files.NewLocalFileService(localRoot, "")}
-	ks.retrieveEngine = parentChildRetrieveRegistry{engine: retriever.NewKVHybridRetrieveEngine(pgretrieve.NewPostgresRetrieveEngineRepository(db), types.PostgresRetrieverEngineType)}
+	ks := &knowledgeService{
+		config: &config.Config{}, repo: repository.NewKnowledgeRepository(db),
+		kbService: &v2PipelineKB{
+			legacyLiveKB{db: db},
+		},
+		modelService: &v2PipelineModel{
+			legacyLiveModel: legacyLiveModel{db: db},
+			pool:            embedding.NewBatchEmbedder(workers),
+		},
+
+		tenantService: &legacyNoCloud{},
+		tenantRepo:    tenants,
+		chunkRepo:     repository.NewChunkRepository(db),
+		task:          &dispatchQueue{},
+		graphEngine:   parentChildGraphRepo{},
+		fileSvc: files.NewLocalFileService(localRoot,
+			""),
+	}
+	ks.retrieveEngine = parentChildRetrieveRegistry{
+		engine: retriever.NewKVHybridRetrieveEngine(
+			pgretrieve.NewPostgresRetrieveEngineRepository(db),
+			types.PostgresRetrieverEngineType,
+		),
+	}
 	personal := NewFeishuPersonalService(db, repository.NewSystemSettingRepository(db), ks, ks.kbService, nil)
 	personal.api.Transport = recoveryNoRefresh{}
 	require.NoError(t, EnablePersonalRecovery(personal, ks, nil, t.TempDir()))
@@ -127,11 +165,31 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 	require.NoError(t, registry.Register(wiki.NewConnector(core.RegionFeishu)))
 	logs := repository.NewSyncLogRepository(db)
 	queue := &syncExecutionQueue{}
-	svc := &DataSourceService{dsRepo: repository.NewDataSourceRepository(db), syncLogRepo: logs, knowledgeService: ks, kbService: ks.kbService, taskEnqueuer: queue, connectorRegistry: registry, tenantRepo: tenants, tagService: &processSyncTagService{}}
+	svc := &DataSourceService{
+		dsRepo:            repository.NewDataSourceRepository(db),
+		syncLogRepo:       logs,
+		knowledgeService:  ks,
+		kbService:         ks.kbService,
+		taskEnqueuer:      queue,
+		connectorRegistry: registry,
+		tenantRepo:        tenants,
+		tagService:        &processSyncTagService{},
+	}
 	svc.SetFeishuIdentityService(personal)
 	blob, err := cfg.ToJSON()
 	require.NoError(t, err)
-	source, err := svc.CreateDataSource(ctx, &types.DataSource{TenantID: tenant.ID, KnowledgeBaseID: kb.ID, Name: "isolated-real-feishu", Type: original.Type, Status: types.DataSourceStatusActive, Config: blob, SyncMode: types.SyncModeFull})
+	source, err := svc.CreateDataSource(
+		ctx,
+		&types.DataSource{
+			TenantID:        tenant.ID,
+			KnowledgeBaseID: kb.ID,
+			Name:            "isolated-real-feishu",
+			Type:            original.Type,
+			Status:          types.DataSourceStatusActive,
+			Config:          blob,
+			SyncMode:        types.SyncModeFull,
+		},
+	)
 	require.NoError(t, err)
 	t.Setenv("FEISHU_LEGACY_SYNC_ALLOWED_SOURCE_IDS", source.ID)
 	address := os.Getenv("FEISHU_RECOVERY_LIVE_REDIS_ADDR")
@@ -152,7 +210,19 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 	policy.WaitBudgetDuration = 65 * time.Second
 	guard, err := feishusafety.New(controlRedis, policy)
 	require.NoError(t, err)
-	controller, err := feishusynccontrol.New(controlRedis, guard, feishusynccontrol.Config{Automatic: true, WorkerID: "isolated-live:1", SourceSHA: strings.Repeat("e", 40), Scope: "all", Maintenance: 4}, func(stop context.Context) error { _, e := repository.FenceLegacySyncExecutions(stop, db); return e }, func(feishusynccontrol.Event) error { return nil })
+	controller, err := feishusynccontrol.New(
+		controlRedis,
+		guard,
+		feishusynccontrol.Config{
+			Automatic:   true,
+			WorkerID:    "isolated-live:1",
+			SourceSHA:   strings.Repeat("e", 40),
+			Scope:       "all",
+			Maintenance: 4,
+		},
+		func(stop context.Context) error { _, e := repository.FenceLegacySyncExecutions(stop, db); return e },
+		func(feishusynccontrol.Event) error { return nil },
+	)
 	require.NoError(t, err)
 	// Inventory is a controlled single-process fixture, not an attestation of
 	// production Asynq health. Real two-process consumer tests run separately.
@@ -166,18 +236,34 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 	for i := 0; i < 6; i++ {
 		id := uuid.NewString()
 		require.NoError(t, controlRedis.RPush(ctx, "asynq:{sync}:pending", id).Err())
-		require.NoError(t, controlRedis.HSet(ctx, "asynq:{sync}:t:"+id, "msg", []byte{byte(i), 255}, "state", "pending").Err())
+		require.NoError(
+			t,
+			controlRedis.HSet(ctx, "asynq:{sync}:t:"+id, "msg", []byte{byte(i), 255}, "state", "pending").
+				Err(),
+		)
 	}
-	manager, err := feishusynccontrol.NewRecoveryManager(controller, []byte(strings.Repeat("q", 32)), func(call context.Context, id string) (feishusynccontrol.RecoveryFacts, error) {
-		return feishusynccontrol.RecoveryFactsFromDatabase(call, db, id)
-	})
+	manager, err := feishusynccontrol.NewRecoveryManager(
+		controller,
+		[]byte(strings.Repeat("q", 32)),
+		func(call context.Context, id string) (feishusynccontrol.RecoveryFacts, error) {
+			return feishusynccontrol.RecoveryFactsFromDatabase(call, db, id)
+		},
+	)
 	require.NoError(t, err)
 	plan, err := manager.Plan(ctx, source.ID, ref.OwnerUserID)
 	require.NoError(t, err)
 	approval := func(operation string) feishusynccontrol.RecoveryApproval {
 		digest, e := feishusynccontrol.RecoveryDigest(plan)
 		require.NoError(t, e)
-		a := feishusynccontrol.RecoveryApproval{Version: 1, Operation: operation, PlanSHA256: digest, ActorID: ref.OwnerUserID, Reference: "isolated-live-acceptance-only", EvidenceSHA256: strings.Repeat("d", 64), ExpiresMS: plan.ExpiresMS}
+		a := feishusynccontrol.RecoveryApproval{
+			Version:        1,
+			Operation:      operation,
+			PlanSHA256:     digest,
+			ActorID:        ref.OwnerUserID,
+			Reference:      "isolated-live-acceptance-only",
+			EvidenceSHA256: strings.Repeat("d", 64),
+			ExpiresMS:      plan.ExpiresMS,
+		}
 		b, e := json.Marshal(a)
 		require.NoError(t, e)
 		var fields map[string]any
@@ -197,16 +283,26 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 	go func() { defer close(controllerDone); controller.Run(controlContext) }()
 	defer func() { stopController(); <-controllerDone }()
 	boundRun := ""
-	err = manager.Canary(ctx, plan, approval("canary"), ref.OwnerUserID, func(work context.Context, bind func(string, int64) error) error {
-		return svc.RunRecoveryCanary(work, source.ID, func(run string, generation int64) error {
-			require.EqualValues(t, 1, generation)
-			require.Empty(t, boundRun)
-			boundRun = run
-			return bind(run, generation)
-		})
-	})
+	err = manager.Canary(
+		ctx,
+		plan,
+		approval("canary"),
+		ref.OwnerUserID,
+		func(work context.Context, bind func(string, int64) error) error {
+			return svc.RunRecoveryCanary(work, source.ID, func(run string, generation int64) error {
+				require.EqualValues(t, 1, generation)
+				require.Empty(t, boundRun)
+				boundRun = run
+				return bind(run, generation)
+			})
+		},
+	)
 	if err != nil {
-		t.Fatalf("real normal sync/publication failed: category=%s error_type=%T; no authorization or safety bypass applied", feishuRemoteFailureCategory(err), err)
+		t.Fatalf(
+			"real normal sync/publication failed: category=%s error_type=%T; no authorization or safety bypass applied",
+			feishuRemoteFailureCategory(err),
+			err,
+		)
 	}
 	require.Zero(t, queue.calls.Load())
 	require.EqualValues(t, 6, controlRedis.LLen(ctx, "asynq:{sync}:pending").Val())
@@ -229,8 +325,18 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, types.ParseStatusCompleted, k.ParseStatus)
 		var chunks, vectors int64
-		require.NoError(t, db.WithContext(ctx).Table("chunks").Where("knowledge_id=? AND deleted_at IS NULL", k.ID).Count(&chunks).Error)
-		require.NoError(t, db.WithContext(ctx).Table("embeddings").Where("knowledge_id=?", k.ID).Count(&vectors).Error)
+		require.NoError(
+			t,
+			db.WithContext(ctx).
+				Table("chunks").
+				Where("knowledge_id=? AND deleted_at IS NULL", k.ID).
+				Count(&chunks).
+				Error,
+		)
+		require.NoError(
+			t,
+			db.WithContext(ctx).Table("embeddings").Where("knowledge_id=?", k.ID).Count(&vectors).Error,
+		)
 		require.Positive(t, chunks)
 		require.Positive(t, vectors)
 		chunkRows, e := ks.chunkRepo.ListChunksByKnowledgeID(ctx, tenant.ID, k.ID)
@@ -239,7 +345,17 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 		query := regexp.MustCompile(`[\p{L}\p{N}]{2,}`).FindString(chunkRows[0].Content)
 		require.NotEmpty(t, query)
 		engine := pgretrieve.NewPostgresRetrieveEngineRepository(db)
-		rows, e := engine.Retrieve(types.WithLegacyReadScope(ctx), types.RetrieveParams{Query: query, KnowledgeBaseIDs: []string{kb.ID}, KnowledgeIDs: []string{k.ID}, RetrieverType: types.KeywordsRetrieverType, TopK: 5, Threshold: 0})
+		rows, e := engine.Retrieve(
+			types.WithLegacyReadScope(ctx),
+			types.RetrieveParams{
+				Query:            query,
+				KnowledgeBaseIDs: []string{kb.ID},
+				KnowledgeIDs:     []string{k.ID},
+				RetrieverType:    types.KeywordsRetrieverType,
+				TopK:             5,
+				Threshold:        0,
+			},
+		)
 		require.NoError(t, e)
 		found := 0
 		for _, row := range rows {
@@ -253,7 +369,18 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 		if e != nil {
 			t.Fatal("real authorized retrieval query embedding failed")
 		}
-		vectorRows, e := engine.Retrieve(types.WithLegacyReadScope(ctx), types.RetrieveParams{Query: query, Embedding: vector, KnowledgeBaseIDs: []string{kb.ID}, KnowledgeIDs: []string{k.ID}, RetrieverType: types.VectorRetrieverType, TopK: 5, Threshold: 0})
+		vectorRows, e := engine.Retrieve(
+			types.WithLegacyReadScope(ctx),
+			types.RetrieveParams{
+				Query:            query,
+				Embedding:        vector,
+				KnowledgeBaseIDs: []string{kb.ID},
+				KnowledgeIDs:     []string{k.ID},
+				RetrieverType:    types.VectorRetrieverType,
+				TopK:             5,
+				Threshold:        0,
+			},
+		)
 		require.NoError(t, e)
 		vectorFound := 0
 		for _, row := range vectorRows {
@@ -262,18 +389,37 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 		}
 		require.Positive(t, vectorFound)
 		stranger := context.WithValue(ctx, types.UserIDContextKey, "unrelated-test-user")
-		stranger = types.WithCaller(stranger, types.Caller{UserID: "unrelated-test-user", TenantID: tenant.ID})
-		stranger = types.WithPrincipal(stranger, types.Principal{Type: types.PrincipalWebUser, ID: "unrelated-test-user"})
+		stranger = types.WithCaller(
+			stranger,
+			types.Caller{UserID: "unrelated-test-user", TenantID: tenant.ID},
+		)
+		stranger = types.WithPrincipal(
+			stranger,
+			types.Principal{Type: types.PrincipalWebUser, ID: "unrelated-test-user"},
+		)
 		_, err = ks.repo.GetKnowledgeByID(stranger, tenant.ID, k.ID)
 		require.Error(t, err)
-		denied, e := engine.Retrieve(types.WithLegacyReadScope(stranger), types.RetrieveParams{Query: query, KnowledgeBaseIDs: []string{kb.ID}, KnowledgeIDs: []string{k.ID}, RetrieverType: types.KeywordsRetrieverType, TopK: 5, Threshold: 0})
+		denied, e := engine.Retrieve(
+			types.WithLegacyReadScope(stranger),
+			types.RetrieveParams{
+				Query:            query,
+				KnowledgeBaseIDs: []string{kb.ID},
+				KnowledgeIDs:     []string{k.ID},
+				RetrieverType:    types.KeywordsRetrieverType,
+				TopK:             5,
+				Threshold:        0,
+			},
+		)
 		if e == nil {
 			for _, row := range denied {
 				require.Empty(t, row.Results, "SQL candidates must exclude a different private principal")
 			}
 		}
 		var publication types.FeishuLegacyAttempt
-		require.NoError(t, db.Where("id=? AND resource_id=?", resource.ActiveAttempt, resource.ID).Take(&publication).Error)
+		require.NoError(
+			t,
+			db.Where("id=? AND resource_id=?", resource.ActiveAttempt, resource.ID).Take(&publication).Error,
+		)
 		require.Equal(t, "published", publication.Status)
 		require.Equal(t, resource.Generation, publication.Generation)
 	}
@@ -289,15 +435,26 @@ func TestRecoveryLiveNormalSyncPublicationAndRevocation(t *testing.T) {
 	// existing product. Assert its real binding/approval semantics above rather
 	// than invent a read-denial result. Exercise retained source-state fences as
 	// explicit isolated DB fault injections, never on the test-site/production DB.
-	require.NoError(t, db.Model(&types.DataSource{}).Where("id=?", source.ID).Update("legacy_access_state", "hold").Error)
+	require.NoError(
+		t,
+		db.Model(&types.DataSource{}).Where("id=?", source.ID).Update("legacy_access_state", "hold").Error,
+	)
 	for _, resource := range resources {
-		strict := types.WithCaller(ctx, types.Caller{UserID: ref.OwnerUserID, TenantID: 0, Role: types.TenantRoleViewer})
+		strict := types.WithCaller(
+			ctx,
+			types.Caller{UserID: ref.OwnerUserID, TenantID: 0, Role: types.TenantRoleViewer},
+		)
 		require.Error(t, types.CheckLegacySourceRead(db.WithContext(strict), resource.KnowledgeID, kb.ID))
 	}
-	require.NoError(t, db.Model(&types.DataSource{}).Where("id=?", source.ID).Update("legacy_access_state", "revoked").Error)
+	require.NoError(
+		t,
+		db.Model(&types.DataSource{}).Where("id=?", source.ID).Update("legacy_access_state", "revoked").Error,
+	)
 	for _, resource := range resources {
 		_, err = ks.repo.GetKnowledgeByID(ctx, tenant.ID, resource.KnowledgeID)
 		require.Error(t, err)
 	}
-	t.Log("real Feishu fetch, native parsing, configured embedding, atomic publication and clone-only normal disconnect verified; real Redis recovery state and queue preservation verified; inventory is an isolated fixture")
+	t.Log(
+		"real Feishu fetch, native parsing, configured embedding, atomic publication and clone-only normal disconnect verified; real Redis recovery state and queue preservation verified; inventory is an isolated fixture",
+	)
 }

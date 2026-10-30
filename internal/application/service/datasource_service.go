@@ -568,15 +568,23 @@ func (s *DataSourceService) ResolveResourceAncestors(
 
 // ManualSync triggers an immediate sync for a data source
 func (s *DataSourceService) ManualSync(ctx context.Context, dsID string) (*types.SyncLog, error) {
-	return s.manualSyncUsing(ctx, dsID, func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
-		if s.taskEnqueuer == nil {
-			return nil, errors.New("sync queue unavailable")
-		}
-		return s.taskEnqueuer.Enqueue(task, opts...)
-	})
+	return s.manualSyncUsing(
+		ctx,
+		dsID,
+		func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
+			if s.taskEnqueuer == nil {
+				return nil, errors.New("sync queue unavailable")
+			}
+			return s.taskEnqueuer.Enqueue(task, opts...)
+		},
+	)
 }
 
-func (s *DataSourceService) manualSyncUsing(ctx context.Context, dsID string, enqueue func(*asynq.Task, ...asynq.Option) (*asynq.TaskInfo, error)) (*types.SyncLog, error) {
+func (s *DataSourceService) manualSyncUsing(
+	ctx context.Context,
+	dsID string,
+	enqueue func(*asynq.Task, ...asynq.Option) (*asynq.TaskInfo, error),
+) (*types.SyncLog, error) {
 	ds, err := s.GetDataSource(ctx, dsID)
 	if err != nil {
 		return nil, err
@@ -591,7 +599,14 @@ func (s *DataSourceService) manualSyncUsing(ctx context.Context, dsID string, en
 		return nil, datasource.ErrLegacyFeishuSourceNotAllowed
 	}
 	if feishusafety.Scoped(feishusafety.LegacyContext(ctx, ds.Type, ds.ID)) {
-		fingerprint, fpErr := feishusafety.SourceConfigFingerprint(ds.ID, ds.KnowledgeBaseID, ds.Type, ds.LegacyAccessState, ds.TenantID, ds.Config)
+		fingerprint, fpErr := feishusafety.SourceConfigFingerprint(
+			ds.ID,
+			ds.KnowledgeBaseID,
+			ds.Type,
+			ds.LegacyAccessState,
+			ds.TenantID,
+			ds.Config,
+		)
 		if fpErr != nil {
 			return nil, fpErr
 		}
@@ -816,7 +831,14 @@ func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.
 	// in the wrapper's optional early read must never create an unguarded path.
 	marked := feishusafety.LegacyContext(ctx, ds.Type, ds.ID)
 	if feishusafety.Scoped(marked) {
-		fingerprint, err := feishusafety.SourceConfigFingerprint(ds.ID, ds.KnowledgeBaseID, ds.Type, ds.LegacyAccessState, ds.TenantID, ds.Config)
+		fingerprint, err := feishusafety.SourceConfigFingerprint(
+			ds.ID,
+			ds.KnowledgeBaseID,
+			ds.Type,
+			ds.LegacyAccessState,
+			ds.TenantID,
+			ds.Config,
+		)
 		if err != nil {
 			return err
 		}
@@ -824,7 +846,12 @@ func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.
 		if !ok {
 			return types.ErrStaleSyncExecution
 		}
-		marked = feishusafety.WithRecoveryExecution(marked, fingerprint, execution.SyncLogID, execution.Generation)
+		marked = feishusafety.WithRecoveryExecution(
+			marked,
+			fingerprint,
+			execution.SyncLogID,
+			execution.Generation,
+		)
 	}
 	if feishusafety.Scoped(marked) && !feishusafety.Scoped(ctx) {
 		localCtx, cancel := context.WithCancel(marked)
@@ -1560,7 +1587,8 @@ func (s *DataSourceService) updateSyncRunResult(
 	if err := s.writeSyncExecution(ctx, ds, syncLog, true); err != nil {
 		return err
 	}
-	if status == types.SyncLogStatusSuccess && ds.LegacyAccessState == "hold" && types.LegacyFullReconciliation(ctx) {
+	if status == types.SyncLogStatusSuccess && ds.LegacyAccessState == "hold" &&
+		types.LegacyFullReconciliation(ctx) {
 		if err := s.refreshSourceSchedule(ctx, ds.ID); err != nil {
 			logger.Warnf(ctx, "[Scheduler] reconciled source schedule registration failed: %v", err)
 		}

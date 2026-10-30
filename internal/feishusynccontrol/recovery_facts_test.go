@@ -25,17 +25,38 @@ func TestRecoveryFactsPostgresAuthorityAndExecutionChanges(t *testing.T) {
 	require.NoError(t, err)
 	pool, err := db.DB()
 	require.NoError(t, err)
-	defer pool.Close()
+	defer func() { require.NoError(t, pool.Close()) }()
 	ctx := context.Background()
 	tenant := types.Tenant{Name: "isolated-recovery-facts", Status: "active"}
 	require.NoError(t, db.Create(&tenant).Error)
-	user := types.User{ID: uuid.NewString(), Username: "isolated-recovery", Email: uuid.NewString() + "@example.invalid", PasswordHash: "synthetic", TenantID: tenant.ID, IsActive: true}
+	user := types.User{
+		ID:           uuid.NewString(),
+		Username:     "isolated-recovery",
+		Email:        uuid.NewString() + "@example.invalid",
+		PasswordHash: "synthetic",
+		TenantID:     tenant.ID,
+		IsActive:     true,
+	}
 	require.NoError(t, db.Create(&user).Error)
-	member := types.TenantMember{UserID: user.ID, TenantID: tenant.ID, Role: types.TenantRoleOwner, Status: types.TenantMemberStatusActive}
+	member := types.TenantMember{
+		UserID:   user.ID,
+		TenantID: tenant.ID,
+		Role:     types.TenantRoleOwner,
+		Status:   types.TenantMemberStatusActive,
+	}
 	require.NoError(t, db.Create(&member).Error)
 	kb := types.KnowledgeBase{ID: uuid.NewString(), TenantID: tenant.ID, Name: "facts", Type: "document"}
 	require.NoError(t, db.Create(&kb).Error)
-	source := types.DataSource{ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID, Type: "feishu_drive", Name: "facts", Status: "active", LegacyAccessState: "unmanaged", Config: types.JSON(`{"resource_ids":["bounded-root"],"settings":{}}`)}
+	source := types.DataSource{
+		ID:                uuid.NewString(),
+		TenantID:          tenant.ID,
+		KnowledgeBaseID:   kb.ID,
+		Type:              "feishu_drive",
+		Name:              "facts",
+		Status:            "active",
+		LegacyAccessState: "unmanaged",
+		Config:            types.JSON(`{"resource_ids":["bounded-root"],"settings":{}}`),
+	}
 	require.NoError(t, db.Create(&source).Error)
 	initial, err := RecoveryFactsFromDatabase(ctx, db, source.ID)
 	require.NoError(t, err)
@@ -50,7 +71,14 @@ func TestRecoveryFactsPostgresAuthorityAndExecutionChanges(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, changed.Eligible)
 	require.NotEqual(t, initial.ConfigSHA256, changed.ConfigSHA256)
-	execution := types.SyncLog{ID: uuid.NewString(), DataSourceID: source.ID, TenantID: tenant.ID, Status: types.SyncLogStatusRunning, ExecutionGeneration: 1, ExecutionClaimed: true}
+	execution := types.SyncLog{
+		ID:                  uuid.NewString(),
+		DataSourceID:        source.ID,
+		TenantID:            tenant.ID,
+		Status:              types.SyncLogStatusRunning,
+		ExecutionGeneration: 1,
+		ExecutionClaimed:    true,
+	}
 	require.NoError(t, db.Create(&execution).Error)
 	changed, err = RecoveryFactsFromDatabase(ctx, db, source.ID)
 	require.NoError(t, err)

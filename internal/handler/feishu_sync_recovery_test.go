@@ -24,10 +24,12 @@ func TestRecoveryHTTPAuthorizationBeforePlanOrExecution(t *testing.T) {
 				ctx = types.WithTenantAPIKeyScope(ctx, types.TenantAPIKeyScope{KeyID: 9})
 			}
 			sourceCalls := 0
-			service := &stubDataSourceService{getDataSource: func(context.Context, string) (*types.DataSource, error) {
-				sourceCalls++
-				return &types.DataSource{ID: "source", KnowledgeBaseID: "kb"}, nil
-			}}
+			service := &stubDataSourceService{
+				getDataSource: func(context.Context, string) (*types.DataSource, error) {
+					sourceCalls++
+					return &types.DataSource{ID: "source", KnowledgeBaseID: "kb"}, nil
+				},
+			}
 			kbs := &stubKBServiceForDS{getByID: func(context.Context, string) (*types.KnowledgeBase, error) {
 				if scenario == "private_owner_denied" {
 					return nil, types.ErrPrivateKnowledgeBase

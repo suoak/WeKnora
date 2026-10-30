@@ -21,9 +21,13 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-var ErrRecoveryRejected = errors.New("feishu_recovery_precondition_rejected")
-var recoveryReference = regexp.MustCompile(`^[A-Za-z0-9:._/-]{1,180}$`)
+// ErrRecoveryRejected denotes a closed recovery precondition or approval.
+var (
+	ErrRecoveryRejected = errors.New("feishu_recovery_precondition_rejected")
+	recoveryReference   = regexp.MustCompile(`^[A-Za-z0-9:._/-]{1,180}$`)
+)
 
+// RecoveryFacts is a content-free authoritative source snapshot.
 type RecoveryFacts struct {
 	SourceID              string `json:"source_id"`
 	ConfigSHA256          string `json:"config_sha256"`
@@ -34,6 +38,7 @@ type RecoveryFacts struct {
 	LivePublications      int64  `json:"live_publications"`
 }
 
+// RecoveryPlan binds a short approval window to one incident and source.
 type RecoveryPlan struct {
 	Version               int           `json:"version"`
 	PlanID                string        `json:"plan_id"`
@@ -54,7 +59,7 @@ type RecoveryPlan struct {
 	ExpiresMS             int64         `json:"expires_ms"`
 }
 
-// Approval is independent from the plan. The offline approver attests that
+// RecoveryApproval is independent from the plan. The offline approver attests that
 // the referenced backup/restore and isolation evidence has been reviewed.
 // The server does not pretend a 64-character digest proves those tests ran.
 type RecoveryApproval struct {
@@ -80,6 +85,7 @@ type recoveryMode struct {
 	ExpiresMS    int64  `json:"expires_ms"`
 }
 
+// RecoveryManager coordinates one approved replacement Guard lifecycle.
 type RecoveryManager struct {
 	controller *Controller
 	operation  sync.Mutex
@@ -89,10 +95,18 @@ type RecoveryManager struct {
 
 var recoveryManager atomic.Pointer[RecoveryManager]
 
-func Recovery() *RecoveryManager         { return recoveryManager.Load() }
+// Recovery returns the configured operational recovery manager.
+func Recovery() *RecoveryManager { return recoveryManager.Load() }
+
+// InstallRecovery installs or clears operational recovery at startup/shutdown.
 func InstallRecovery(m *RecoveryManager) { recoveryManager.Store(m) }
 
-func NewRecoveryManager(c *Controller, key []byte, facts func(context.Context, string) (RecoveryFacts, error)) (*RecoveryManager, error) {
+// NewRecoveryManager requires automatic control, independent approval key and authority loader.
+func NewRecoveryManager(
+	c *Controller,
+	key []byte,
+	facts func(context.Context, string) (RecoveryFacts, error),
+) (*RecoveryManager, error) {
 	if c == nil || !c.Config.Automatic || len(key) < 32 || facts == nil {
 		return nil, ErrRecoveryRejected
 	}
@@ -143,6 +157,8 @@ func recoveryCanonical(v any) ([]byte, error) {
 	}
 	return json.Marshal(object)
 }
+
+// RecoveryDigest hashes canonical JSON for reviewable plan and evidence binding.
 func RecoveryDigest(v any) (string, error) {
 	b, e := recoveryCanonical(v)
 	if e != nil {
@@ -154,9 +170,21 @@ func RecoveryDigest(v any) (string, error) {
 func digestBytes(v string) string { h := sha256.Sum256([]byte(v)); return hex.EncodeToString(h[:]) }
 func (m *RecoveryManager) verify(p RecoveryPlan, a RecoveryApproval, actor, op string) error {
 	now := time.Now().UnixMilli()
-	if m == nil || p.CreatedMS > now+5000 || p.ExpiresMS-now > int64((15*time.Minute)/time.Millisecond) || a.ExpiresMS-now > int64((15*time.Minute)/time.Millisecond) || p.ExpiresMS <= p.CreatedMS || p.Version != 1 || a.Version != 1 || a.Operation != op || a.ActorID != actor || p.ActorID != actor ||
-		actor == "" || !recoveryReference.MatchString(a.Reference) || strings.Contains(a.Reference, "://") || len(a.EvidenceSHA256) != 64 ||
-		a.ExpiresMS > p.ExpiresMS || a.ExpiresMS <= time.Now().UnixMilli() || p.ExpiresMS <= time.Now().UnixMilli() ||
+	if m == nil ||
+		p.CreatedMS > now+5000 ||
+		p.ExpiresMS-now > int64((15*time.Minute)/time.Millisecond) ||
+		a.ExpiresMS-now > int64((15*time.Minute)/time.Millisecond) ||
+		p.ExpiresMS <= p.CreatedMS ||
+		p.Version != 1 ||
+		a.Version != 1 ||
+		a.Operation != op ||
+		a.ActorID != actor ||
+		p.ActorID != actor ||
+		actor == "" || !recoveryReference.MatchString(a.Reference) || strings.Contains(a.Reference, "://") ||
+		len(a.EvidenceSHA256) != 64 ||
+		a.ExpiresMS > p.ExpiresMS ||
+		a.ExpiresMS <= time.Now().UnixMilli() ||
+		p.ExpiresMS <= time.Now().UnixMilli() ||
 		p.ExpiresMS-p.CreatedMS > int64((15*time.Minute)/time.Millisecond) {
 		return ErrRecoveryRejected
 	}
@@ -234,13 +262,17 @@ func (m *RecoveryManager) queue(ctx context.Context) (recoveryQueueSnapshot, err
 	return q, e
 }
 
+// Plan reads and binds the current stopped incident without changing it.
 func (m *RecoveryManager) Plan(ctx context.Context, source, actor string) (RecoveryPlan, error) {
 	var p RecoveryPlan
 	c := m.controller
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	f, e := m.facts(ctx, source)
-	if e != nil || !f.Eligible || f.SelectedResourceCount < 1 || f.SelectedResourceCount > 64 || f.SourceID != source || f.LiveExecutions != 0 || f.LivePublications != 0 {
+	if e != nil || !f.Eligible || f.SelectedResourceCount < 1 || f.SelectedResourceCount > 64 ||
+		f.SourceID != source ||
+		f.LiveExecutions != 0 ||
+		f.LivePublications != 0 {
 		return p, ErrRecoveryRejected
 	}
 	q, e := m.queue(ctx)
@@ -272,9 +304,25 @@ func (m *RecoveryManager) Plan(ctx context.Context, source, actor string) (Recov
 		return p, e
 	}
 	now := time.Now().UnixMilli()
-	p = RecoveryPlan{Version: 1, PlanID: uuid.NewString(), ActorID: actor, Namespace: strings.TrimSuffix(strings.TrimPrefix(c.prefix, "feishu:safety:{"), "}:"),
-		AppSHA: c.Config.SourceSHA, Trip: trip, IncidentID: rows[0].ID, WorkerID: c.Config.WorkerID, Incarnation: c.incarnation,
-		ControllerFingerprint: c.fingerprint, MembershipRevision: revision, QueueSHA256: q.digest, QueuePendingCount: len(q.ids), PreviousModeSHA256: digestBytes(mode), Facts: f, CreatedMS: now, ExpiresMS: now + int64((15*time.Minute)/time.Millisecond)}
+	p = RecoveryPlan{
+		Version:               1,
+		PlanID:                uuid.NewString(),
+		ActorID:               actor,
+		Namespace:             strings.TrimSuffix(strings.TrimPrefix(c.prefix, "feishu:safety:{"), "}:"),
+		AppSHA:                c.Config.SourceSHA,
+		Trip:                  trip,
+		IncidentID:            rows[0].ID,
+		WorkerID:              c.Config.WorkerID,
+		Incarnation:           c.incarnation,
+		ControllerFingerprint: c.fingerprint,
+		MembershipRevision:    revision,
+		QueueSHA256:           q.digest,
+		QueuePendingCount:     len(q.ids),
+		PreviousModeSHA256:    digestBytes(mode),
+		Facts:                 f,
+		CreatedMS:             now,
+		ExpiresMS:             now + int64((15*time.Minute)/time.Millisecond),
+	}
 	return p, nil
 }
 
@@ -310,7 +358,10 @@ func (m *RecoveryManager) Reset(ctx context.Context, p RecoveryPlan, a RecoveryA
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if p.AppSHA != c.Config.SourceSHA || p.WorkerID != c.Config.WorkerID || p.Incarnation != c.incarnation ||
-		p.ControllerFingerprint != c.fingerprint || "feishu:safety:{"+p.Namespace+"}:" != c.prefix || c.departed || feishusafety.Default() != c.Guard {
+		p.ControllerFingerprint != c.fingerprint ||
+		"feishu:safety:{"+p.Namespace+"}:" != c.prefix ||
+		c.departed ||
+		feishusafety.Default() != c.Guard {
 		return ErrRecoveryRejected
 	}
 	f, e := m.facts(ctx, p.Facts.SourceID)
@@ -349,10 +400,31 @@ func (m *RecoveryManager) Reset(ctx context.Context, p RecoveryPlan, a RecoveryA
 	}
 	inc := uuid.NewString()
 	planHash, _ := RecoveryDigest(p)
-	state, _ := json.Marshal(recoveryMode{Version: 1, PlanID: p.PlanID, PlanSHA256: planHash, SourceID: f.SourceID, ConfigSHA256: f.ConfigSHA256, Phase: "frozen", ExpiresMS: p.ExpiresMS})
+	state, _ := json.Marshal(
+		recoveryMode{
+			Version:      1,
+			PlanID:       p.PlanID,
+			PlanSHA256:   planHash,
+			SourceID:     f.SourceID,
+			ConfigSHA256: f.ConfigSHA256,
+			Phase:        "frozen",
+			ExpiresMS:    p.ExpiresMS,
+		},
+	)
 	ids, _ := json.Marshal(q.ids)
-	approvalAudit, _ := json.Marshal(map[string]string{"actor_id": actor, "reference": a.Reference, "evidence_sha256": a.EvidenceSHA256})
-	args := []any{p.Trip, p.IncidentID, p.MembershipRevision, c.fingerprint + ":" + c.incarnation, c.fingerprint + ":" + inc, string(state), previous, string(ids)}
+	approvalAudit, _ := json.Marshal(
+		map[string]string{"actor_id": actor, "reference": a.Reference, "evidence_sha256": a.EvidenceSHA256},
+	)
+	args := []any{
+		p.Trip,
+		p.IncidentID,
+		p.MembershipRevision,
+		c.fingerprint + ":" + c.incarnation,
+		c.fingerprint + ":" + inc,
+		string(state),
+		previous,
+		string(ids),
+	}
 	for _, fields := range q.fields {
 		keys := make([]string, 0, len(fields))
 		for k := range fields {
@@ -368,19 +440,23 @@ func (m *RecoveryManager) Reset(ctx context.Context, p RecoveryPlan, a RecoveryA
 if redis.call('GET',KEYS[1])~=ARGV[1] or redis.call('EXISTS',KEYS[10])~=0 or
  redis.call('GET','asynq:{sync}:paused')~=ARGV[#ARGV-3] or redis.call('GET',KEYS[5])~=ARGV[3] or
  redis.call('HLEN',KEYS[3])~=1 or redis.call('HGET',KEYS[3],ARGV[#ARGV-1])~=ARGV[4] or
- redis.call('HLEN',KEYS[6])~=0 or (redis.call('GET',KEYS[8]) or '')~=ARGV[7] then return redis.error_reply('RECOVERY_INCIDENT_CHANGED') end
+ redis.call('HLEN',KEYS[6])~=0 or (redis.call('GET',KEYS[8]) or '')~=ARGV[7] then return
+redis.error_reply('RECOVERY_INCIDENT_CHANGED') end
 local event=redis.call('XREVRANGE',KEYS[2],'+','-','COUNT',1)
 if #event~=1 or event[1][1]~=ARGV[2] then return redis.error_reply('RECOVERY_INCIDENT_CHANGED') end
 local leases=redis.call('ZRANGE',KEYS[4],0,-1)
 if #leases~=1 or leases[1]~=ARGV[#ARGV-1] then return redis.error_reply('RECOVERY_TOPOLOGY_CHANGED') end
 local now=redis.call('TIME');local ms=now[1]*1000+math.floor(now[2]/1000)
-local state=cjson.decode(ARGV[6]);if state.expires_ms<=ms or not tonumber(ARGV[3]) then return redis.error_reply('RECOVERY_EXPIRED') end
-if tonumber(redis.call('ZSCORE',KEYS[4],leases[1]) or '0')<=ms then return redis.error_reply('RECOVERY_LEASE_LOST') end
+local state=cjson.decode(ARGV[6]);if state.expires_ms<=ms or not tonumber(ARGV[3]) then return
+redis.error_reply('RECOVERY_EXPIRED') end
+if tonumber(redis.call('ZSCORE',KEYS[4],leases[1]) or '0')<=ms then return
+redis.error_reply('RECOVERY_LEASE_LOST') end
 local admitted=redis.call('HGETALL',KEYS[9])
-if #admitted>2 or (#admitted==2 and (admitted[1]~=ARGV[#ARGV-1] or admitted[2]~=ARGV[4])) then return redis.error_reply('RECOVERY_TOPOLOGY_CHANGED') end
+if #admitted>2 or (#admitted==2 and (admitted[1]~=ARGV[#ARGV-1] or admitted[2]~=ARGV[4])) then return
+redis.error_reply('RECOVERY_TOPOLOGY_CHANGED') end
 local approval=cjson.decode(ARGV[#ARGV-2])
 redis.call('XADD',KEYS[7],'*','event','recovery_reset','plan_sha256',ARGV[#ARGV],'incident_id',ARGV[2],
- 'actor_id',approval.actor_id,'approval_reference',approval.reference,'evidence_sha256',approval.evidence_sha256)
+'actor_id',approval.actor_id,'approval_reference',approval.reference,'evidence_sha256',approval.evidence_sha256)
 redis.call('SET',KEYS[11],ARGV[#ARGV])
 redis.call('SET',KEYS[8],ARGV[6])
 redis.call('HSET',KEYS[3],ARGV[#ARGV-1],ARGV[5])
@@ -388,7 +464,23 @@ if #admitted==2 then redis.call('HSET',KEYS[9],ARGV[#ARGV-1],ARGV[5]) end
 redis.call('ZADD',KEYS[4],ms+2000,ARGV[#ARGV-1]);redis.call('INCR',KEYS[5])
 redis.call('DEL',KEYS[1]);return 1`)
 	args = append(args, q.pause, string(approvalAudit), p.WorkerID, planHash)
-	e = script.Eval(ctx, c.Client, []string{c.prefix + "trip", c.prefix + "audit", c.prefix + "workers", c.prefix + "leases", c.prefix + "membership_revision", c.prefix + "inflight", c.prefix + "control_audit", c.prefix + "recovery", c.prefix + "admitted", c.Guard.PermitKey(), c.prefix + "recovery_required"}, args...).Err()
+	e = script.Eval(ctx,
+		c.Client,
+		[]string{
+			c.prefix + "trip",
+			c.prefix + "audit",
+			c.prefix + "workers",
+			c.prefix + "leases",
+			c.prefix + "membership_revision",
+			c.prefix + "inflight",
+			c.prefix + "control_audit",
+			c.prefix + "recovery",
+			c.prefix + "admitted",
+			c.Guard.PermitKey(),
+			c.prefix + "recovery_required",
+		},
+		args...).
+		Err()
 	if e != nil {
 		return fmt.Errorf("%w: reset unconfirmed", ErrRecoveryRejected)
 	}
@@ -403,12 +495,19 @@ redis.call('DEL',KEYS[1]);return 1`)
 	return nil
 }
 
-func (m *RecoveryManager) transition(ctx context.Context, p RecoveryPlan, a RecoveryApproval, actor, operation, from, to, run string, generation int64) error {
+func (m *RecoveryManager) transition(
+	ctx context.Context,
+	p RecoveryPlan,
+	a RecoveryApproval,
+	actor, operation, from, to, run string,
+	generation int64,
+) error {
 	if e := m.verify(p, a, actor, operation); e != nil {
 		return e
 	}
 	f, e := m.facts(ctx, p.Facts.SourceID)
-	if e != nil || !f.Eligible || f.ConfigSHA256 != p.Facts.ConfigSHA256 || f.FactsSHA256 != p.Facts.FactsSHA256 {
+	if e != nil || !f.Eligible || f.ConfigSHA256 != p.Facts.ConfigSHA256 ||
+		f.FactsSHA256 != p.Facts.FactsSHA256 {
 		return ErrRecoveryRejected
 	}
 
@@ -430,26 +529,51 @@ func (m *RecoveryManager) transition(ctx context.Context, p RecoveryPlan, a Reco
 			args = append(args, k, []byte(fields[k]))
 		}
 	}
-	approvalAudit, _ := json.Marshal(map[string]string{"actor_id": actor, "evidence_sha256": a.EvidenceSHA256})
+	approvalAudit, _ := json.Marshal(
+		map[string]string{"actor_id": actor, "evidence_sha256": a.EvidenceSHA256},
+	)
 	args = append(args, string(approvalAudit), m.controller.Guard.Fingerprint(), q.pause)
 	return redis.NewScript(recoveryQueueCAS+`
 if redis.call('EXISTS',KEYS[1])==1 or redis.call('GET','asynq:{sync}:paused')~=ARGV[#ARGV] or
- redis.call('GET',KEYS[5])~=ARGV[#ARGV-1] or redis.call('PTTL',KEYS[5])<=0 then return redis.error_reply('RECOVERY_CLOSED') end
+ redis.call('GET',KEYS[5])~=ARGV[#ARGV-1] or redis.call('PTTL',KEYS[5])<=0 then return
+redis.error_reply('RECOVERY_CLOSED') end
 local raw=redis.call('GET',KEYS[2]);if not raw then return redis.error_reply('RECOVERY_MISSING') end
 local s=cjson.decode(raw);local t=redis.call('TIME');local ms=t[1]*1000+math.floor(t[2]/1000)
-if redis.call('GET',KEYS[4])~=ARGV[1] or s.version~=1 or s.plan_sha256~=ARGV[1] or s.phase~=ARGV[2] or s.expires_ms<=ms then return redis.error_reply('RECOVERY_STATE_CHANGED') end
+if redis.call('GET',KEYS[4])~=ARGV[1] or s.version~=1 or s.plan_sha256~=ARGV[1] or s.phase~=ARGV[2] or
+s.expires_ms<=ms then return redis.error_reply('RECOVERY_STATE_CHANGED') end
 local approval=cjson.decode(ARGV[#ARGV-2])
 redis.call('XADD',KEYS[3],'*','event','recovery_'..ARGV[3],'plan_sha256',ARGV[1],'approval_reference',ARGV[6],
- 'actor_id',approval.actor_id,'evidence_sha256',approval.evidence_sha256,'source_id',s.source_id,'run_id',ARGV[4],'generation',ARGV[5])
+'actor_id',
+approval.actor_id,
+'evidence_sha256',
+approval.evidence_sha256,
+'source_id',
+s.source_id,
+'run_id',
+ARGV[4],
+'generation',
+ARGV[5])
 s.phase=ARGV[3];s.run_id=ARGV[4];s.generation=tonumber(ARGV[5]);s.expires_ms=math.min(s.expires_ms,tonumber(ARGV[7]));
 redis.call('SET',KEYS[2],cjson.encode(s));return 1`).Eval(ctx, m.controller.Client,
-		[]string{m.controller.prefix + "trip", m.controller.prefix + "recovery", m.controller.prefix + "control_audit", m.controller.prefix + "recovery_required", m.controller.Guard.PermitKey()}, args...).Err()
-
+		[]string{
+			m.controller.prefix + "trip",
+			m.controller.prefix + "recovery",
+			m.controller.prefix + "control_audit",
+			m.controller.prefix + "recovery_required",
+			m.controller.Guard.PermitKey(),
+		}, args...).
+		Err()
 }
 
 // Canary executes exactly one normal service callback. It never touches the
 // original queue. Bind is called at durable admission, before ProcessSync Claim.
-func (m *RecoveryManager) Canary(ctx context.Context, p RecoveryPlan, a RecoveryApproval, actor string, execute func(context.Context, func(string, int64) error) error) (err error) {
+func (m *RecoveryManager) Canary(
+	ctx context.Context,
+	p RecoveryPlan,
+	a RecoveryApproval,
+	actor string,
+	execute func(context.Context, func(string, int64) error) error,
+) (err error) {
 	if !m.operation.TryLock() {
 		return ErrRecoveryRejected
 	}
@@ -470,7 +594,10 @@ func (m *RecoveryManager) Canary(ctx context.Context, p RecoveryPlan, a Recovery
 	}
 	work, cancel := context.WithDeadline(ctx, time.UnixMilli(a.ExpiresMS))
 	defer cancel()
-	work = feishusafety.WithRecoveryContext(work, feishusafety.RecoveryContext{Plan: p.PlanID, Config: p.Facts.ConfigSHA256})
+	work = feishusafety.WithRecoveryContext(
+		work,
+		feishusafety.RecoveryContext{Plan: p.PlanID, Config: p.Facts.ConfigSHA256},
+	)
 	var bound atomic.Bool
 	watchDone := make(chan struct{})
 	watchStopped := make(chan struct{})
@@ -488,7 +615,12 @@ func (m *RecoveryManager) Canary(ctx context.Context, p RecoveryPlan, a Recovery
 			case <-ticker.C:
 				probe, stop := context.WithTimeout(work, time.Second)
 				facts, probeErr := m.facts(probe, p.Facts.SourceID)
-				if probeErr == nil && (!facts.Eligible || facts.LiveExecutions > 1 || facts.LivePublications > 1 || facts.ConfigSHA256 != p.Facts.ConfigSHA256 || facts.FactsSHA256 != p.Facts.FactsSHA256) {
+				if probeErr == nil &&
+					(!facts.Eligible ||
+						facts.LiveExecutions > 1 ||
+						facts.LivePublications > 1 ||
+						facts.ConfigSHA256 != p.Facts.ConfigSHA256 ||
+						facts.FactsSHA256 != p.Facts.FactsSHA256) {
 					probeErr = ErrRecoveryRejected
 				}
 				if probeErr == nil {
@@ -554,6 +686,7 @@ func (m *RecoveryManager) Canary(ctx context.Context, p RecoveryPlan, a Recovery
 	})
 }
 
+// Status reports only the requested source recovery state without mutating it.
 func (m *RecoveryManager) Status(ctx context.Context, source string) (map[string]any, error) {
 	c := m.controller
 	c.mu.Lock()
@@ -582,6 +715,9 @@ func (m *RecoveryManager) Status(ctx context.Context, source string) (map[string
 	if e != nil {
 		return nil, e
 	}
-	return map[string]any{"state": state, "trip_latched": trip != 0, "sync_paused": paused == 1,
-		"permit_ready": trip == 0 && paused == 1 && ttl > 0 && permit == c.Guard.Fingerprint(), "permit_ttl_ms": ttl.Milliseconds()}, nil
+	return map[string]any{
+		"state": state, "trip_latched": trip != 0, "sync_paused": paused == 1,
+		"permit_ready": trip == 0 && paused == 1 && ttl > 0 &&
+			permit == c.Guard.Fingerprint(), "permit_ttl_ms": ttl.Milliseconds(),
+	}, nil
 }
