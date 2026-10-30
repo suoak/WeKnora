@@ -55,9 +55,16 @@ func TestPersonalOriginalV3ClaimAndExactParse(t *testing.T) {
 		case "/open-apis/drive/v1/metas/batch_query":
 			_, _ = fmt.Fprint(
 				w,
-				`{"code":0,"data":{"metas":[{"doc_type":"file","doc_token":"real","title":"original.docx","latest_modify_time":"1"}]}}`,
+				`{"code":0,"data":{"metas":[{"doc_type":"docx","doc_token":"real","title":"original","latest_modify_time":"1"}]}}`,
 			)
-		case "/open-apis/drive/v1/files/real/download":
+		case "/open-apis/drive/v1/export_tasks":
+			_, _ = fmt.Fprint(w, `{"code":0,"data":{"ticket":"ticket"}}`)
+		case "/open-apis/drive/v1/export_tasks/ticket":
+			_, _ = fmt.Fprint(
+				w,
+				`{"code":0,"data":{"result":{"job_status":0,"file_token":"download-token","file_name":"original.docx"}}}`,
+			)
+		case "/open-apis/drive/v1/export_tasks/file/download-token/download":
 			_, _ = w.Write(data)
 		case "/open-apis/drive/v1/permissions/real/members/auth":
 			_, _ = fmt.Fprint(w, `{"code":0,"data":{"auth_result":true}}`)
@@ -67,7 +74,7 @@ func TestPersonalOriginalV3ClaimAndExactParse(t *testing.T) {
 	}))
 	defer server.Close()
 	f.s.newClient = func(cfg *core.Config) *core.Client { cfg.BaseURL = server.URL; return core.NewClient(cfg) }
-	m, err := f.s.Import(f.ctx, kbID, "https://tenant.feishu.cn/file/real")
+	m, err := f.s.Import(f.ctx, kbID, "https://tenant.feishu.cn/docx/real")
 	require.NoError(t, err)
 	// Only isolated fixture construction uses SQL to retain the original IDs.
 	require.NoError(
