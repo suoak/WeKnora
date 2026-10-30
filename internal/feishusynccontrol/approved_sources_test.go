@@ -15,10 +15,38 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/feishusafety"
 	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/alicebob/miniredis/v2"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )
+
+func TestApprovedSourcesEmptyRedisReplacementCannotOpenTraffic(t *testing.T) {
+	f := newRecoveryFixture(t)
+	ctx := context.Background()
+	// A separate, empty, owned Redis simulates lost/restored control state.
+	// Keep the first fixture's six historical tasks and audit entirely intact.
+	lost := redis.NewClient(&redis.Options{Addr: miniredis.RunT(t).Addr()})
+	t.Cleanup(func() { _ = lost.Close() })
+	policy := feishusafety.DefaultConfig()
+	policy.Namespace = "lost-control-" + uuid.NewString()
+	fresh, err := feishusafety.New(lost, policy)
+	require.NoError(t, err)
+	c, err := New(lost, fresh, f.c.Config, func(context.Context) error { return nil }, func(Event) error { return nil })
+	require.NoError(t, err)
+	c.Consumers = f.c.Consumers
+	_, err = NewRecoveryManager(c, ed25519.NewKeyFromSeed(f.key).Public().(ed25519.PublicKey),
+		func(context.Context, string) (RecoveryFacts, error) { return f.facts, nil })
+	require.NoError(t, err)
+	require.Error(t, c.Step(ctx), "empty state must freeze a replacement process")
+	require.Error(t, fresh.Check(feishusafety.WithScope(ctx, f.facts.SourceID)))
+	require.Zero(t, lost.Exists(ctx, fresh.PermitKey()).Val())
+	require.EqualValues(t, 1, lost.Exists(ctx, c.prefix+"trip").Val())
+	require.EqualValues(t, 1, lost.Exists(ctx, "asynq:{sync}:paused").Val())
+	require.EqualValues(t, 1, lost.Exists(ctx, "asynq:{approved_sync}:paused").Val())
+	require.EqualValues(t, 6, f.r.LLen(ctx, "asynq:{sync}:pending").Val())
+}
 
 func TestApprovedSourcesActualConsumerInventory(t *testing.T) {
 	for _, privateOnly := range []bool{false, true} {

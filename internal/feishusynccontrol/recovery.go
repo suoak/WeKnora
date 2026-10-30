@@ -124,6 +124,12 @@ func NewRecoveryManager(
 		return nil, ErrRecoveryRejected
 	}
 	c.recoveryEnabled = true
+	// A recovery-configured replacement process must not interpret complete
+	// Redis state loss as a clean first installation and reopen normal traffic.
+	// The requirement survives in the local Guard even when all Redis markers
+	// are absent; a newly observed incident needs its own matching approval.
+	c.recoveryRequired = true
+	c.Guard.RequireRecovery()
 	c.approvedFacts = facts
 	m := &RecoveryManager{
 		controller: c,
