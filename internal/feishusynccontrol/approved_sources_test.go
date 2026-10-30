@@ -259,7 +259,10 @@ func TestApprovedSourcesRetainHistoricalQueueAndCheckLiveAuthority(t *testing.T)
 }
 
 func TestApprovedSourcesRejectChangedPreconditionsWithoutResuming(t *testing.T) {
-	for _, change := range []string{"signature", "incident", "task_bytes", "worker", "membership", "hold", "private_pending", "audit_failure", "duplicate", "consumer_lost"} {
+	for _, change := range []string{
+		"signature", "incident", "task_bytes", "worker", "membership", "hold", "private_pending",
+		"audit_failure", "duplicate", "consumer_lost",
+	} {
 		t.Run(change, func(t *testing.T) {
 			f := reviewedCanaryFixture(t)
 			ctx := context.Background()

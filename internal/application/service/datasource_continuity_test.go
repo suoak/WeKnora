@@ -22,11 +22,14 @@ func TestApprovedSourcesManualAdmissionAndRevocation(t *testing.T) {
 	db := syncdb.Open(t, "sqlite")
 	repo := repository.NewDataSourceRepository(db)
 	logs := repository.NewSyncLogRepository(db)
-	config, err := (&types.DataSourceConfig{Type: types.ConnectorTypeFeishuDrive, ResourceIDs: []string{"synthetic-folder"}}).ToJSON()
+	config, err := (&types.DataSourceConfig{
+		Type: types.ConnectorTypeFeishuDrive, ResourceIDs: []string{"synthetic-folder"},
+	}).ToJSON()
 	require.NoError(t, err)
 	ds := &types.DataSource{
 		ID: uuid.NewString(), TenantID: 1, KnowledgeBaseID: "kb", Name: "synthetic-drive",
-		Type: types.ConnectorTypeFeishuDrive, Status: types.DataSourceStatusActive, LegacyAccessState: "unmanaged", Config: config,
+		Type: types.ConnectorTypeFeishuDrive, Status: types.DataSourceStatusActive,
+		LegacyAccessState: "unmanaged", Config: config,
 	}
 	require.NoError(t, repo.Create(ctx, ds))
 	revoked := false

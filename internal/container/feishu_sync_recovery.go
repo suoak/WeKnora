@@ -20,10 +20,12 @@ func configureFeishuRecovery(db *gorm.DB, c *feishusynccontrol.Controller) error
 	// Startup/restart never inherits an open continuation lane from a previous
 	// process incarnation. A fresh signed approval must reopen only this lane.
 	if types.ApprovedSyncLaneEnabled() {
-		if err := c.Client.SetNX(context.Background(), "asynq:{sync}:paused", "approved_sync_frozen", 0).Err(); err != nil {
+		if err := c.Client.SetNX(context.Background(), "asynq:{sync}:paused", "approved_sync_frozen", 0).
+			Err(); err != nil {
 			return err
 		}
-		if err := c.Client.Set(context.Background(), "asynq:{approved_sync}:paused", "approved_sync_frozen", 0).Err(); err != nil {
+		if err := c.Client.Set(context.Background(), "asynq:{approved_sync}:paused", "approved_sync_frozen", 0).
+			Err(); err != nil {
 			return err
 		}
 	}

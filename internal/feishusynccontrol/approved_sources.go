@@ -233,7 +233,8 @@ func (m *RecoveryManager) verifyContinuity(
 	now := time.Now().UnixMilli()
 	hash, err := RecoveryDigest(p)
 	if err != nil || p.Version != 1 || p.ApprovalKeyID != m.keyID || p.ActorID != actor || actor == "" ||
-		p.CreatedMS > now+5000 || p.ExpiresMS <= now || p.ExpiresMS <= p.CreatedMS || p.ExpiresMS-p.CreatedMS > int64(time.Hour/time.Millisecond) ||
+		p.CreatedMS > now+5000 || p.ExpiresMS <= now || p.ExpiresMS <= p.CreatedMS ||
+		p.ExpiresMS-p.CreatedMS > int64(time.Hour/time.Millisecond) ||
 		len(p.Sources) < 1 || len(p.Sources) > 4 || a.Version != 2 || a.Algorithm != "Ed25519" || a.KeyID != m.keyID ||
 		a.Operation != "approved_sources" || a.Incarnation != p.Incarnation || a.ActorID != actor ||
 		a.PlanSHA256 != hash ||

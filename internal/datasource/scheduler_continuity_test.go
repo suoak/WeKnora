@@ -16,7 +16,9 @@ import (
 func TestApprovedSourcesSchedulerUsesSameAdmission(t *testing.T) {
 	ctx := context.Background()
 	repo := newFakeDataSourceRepo()
-	config, err := (&types.DataSourceConfig{Type: types.ConnectorTypeFeishuDrive, ResourceIDs: []string{"synthetic-folder"}}).ToJSON()
+	config, err := (&types.DataSourceConfig{
+		Type: types.ConnectorTypeFeishuDrive, ResourceIDs: []string{"synthetic-folder"},
+	}).ToJSON()
 	require.NoError(t, err)
 	ds := &types.DataSource{
 		ID: uuid.NewString(), TenantID: 1, KnowledgeBaseID: "kb",
