@@ -336,3 +336,17 @@ func TestApprovedSourcesExpiryClosesRequests(t *testing.T) {
 	require.Error(t, f.c.Guard.Check(feishusafety.WithScope(work, f.facts.SourceID)))
 	require.Error(t, f.c.checkRecoveryPolicy(ctx))
 }
+
+func TestApprovedSourcesHistoricalQueueMutationClosesPolicy(t *testing.T) {
+	f := reviewedCanaryFixture(t)
+	ctx := context.Background()
+	p, err := f.m.PlanContinuity(ctx, "operator", []string{f.facts.SourceID})
+	require.NoError(t, err)
+	require.NoError(t, f.m.ApproveSources(ctx, p, f.approveContinuity(t, p), "operator"))
+	require.NoError(t, f.c.checkRecoveryPolicy(ctx))
+	require.NoError(t, f.r.HSet(ctx, "asynq:{sync}:t:historical-0", "msg", "isolated-fault-injection").Err())
+	require.Error(t, f.c.checkRecoveryPolicy(ctx), "historical task bytes remain bound after activation")
+	require.ErrorIs(t, f.c.EmergencyStop(ctx), ErrNotReady)
+	require.Zero(t, f.r.Exists(ctx, f.c.Guard.PermitKey()).Val())
+	require.EqualValues(t, 1, f.r.Exists(ctx, "asynq:{sync}:paused").Val())
+}

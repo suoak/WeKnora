@@ -79,6 +79,8 @@ type RecoveryApproval struct {
 }
 
 type recoveryMode struct {
+	HistoricalQueueSHA256 string                    `json:"historical_queue_sha256,omitempty"`
+	HistoricalPending     int                       `json:"historical_pending,omitempty"`
 	ContinuityID          string                    `json:"continuity_id,omitempty"`
 	ApprovedSources       map[string]ApprovedSource `json:"approved_sources,omitempty"`
 	RuntimeSHA            string                    `json:"runtime_sha"`
@@ -174,6 +176,13 @@ func (c *Controller) checkRecoveryPolicy(ctx context.Context) error {
 		return ErrRecoveryRejected
 	}
 	if state.Phase == "approved_sources" {
+		if state.HistoricalQueueSHA256 == "" {
+			return ErrRecoveryRejected
+		}
+		queue, err := (&RecoveryManager{controller: c}).queue(ctx)
+		if err != nil || queue.digest != state.HistoricalQueueSHA256 || len(queue.ids) != state.HistoricalPending {
+			return ErrRecoveryRejected
+		}
 		if c.approvedFacts == nil || state.ContinuityID == "" || len(state.ApprovedSources) < 1 ||
 			len(state.ApprovedSources) > 4 {
 			return ErrRecoveryRejected

@@ -368,6 +368,8 @@ func (m *RecoveryManager) ApproveSources(
 		state.Phase = "approved_sources"
 		state.ContinuityID = p.ID
 		state.ApprovedSources = entries
+		state.HistoricalQueueSHA256 = p.HistoricalQueueSHA256
+		state.HistoricalPending = p.HistoricalPending
 		state.ExpiresMS = a.ExpiresMS
 		state.RunID = ""
 		state.Generation = 0
