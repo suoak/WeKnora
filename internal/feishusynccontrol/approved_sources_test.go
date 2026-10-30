@@ -350,3 +350,17 @@ func TestApprovedSourcesHistoricalQueueMutationClosesPolicy(t *testing.T) {
 	require.Zero(t, f.r.Exists(ctx, f.c.Guard.PermitKey()).Val())
 	require.EqualValues(t, 1, f.r.Exists(ctx, "asynq:{sync}:paused").Val())
 }
+
+func TestApprovedSourcesDigestPreservesBinaryHashFieldIdentity(t *testing.T) {
+	f := reviewedCanaryFixture(t)
+	ctx := context.Background()
+	key := "asynq:{sync}:t:historical-0"
+	require.NoError(t, f.r.HSet(ctx, key, string([]byte{0xff}), "unchanged-value").Err())
+	p, err := f.m.PlanContinuity(ctx, "operator", []string{f.facts.SourceID})
+	require.NoError(t, err)
+	a := f.approveContinuity(t, p)
+	require.NoError(t, f.r.HDel(ctx, key, string([]byte{0xff})).Err())
+	require.NoError(t, f.r.HSet(ctx, key, string([]byte{0xfe}), "unchanged-value").Err())
+	require.Error(t, f.m.ApproveSources(ctx, p, a, "operator"), "distinct binary field names must not share a digest")
+	require.EqualValues(t, 1, f.r.Exists(ctx, "asynq:{sync}:paused").Val())
+}

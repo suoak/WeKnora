@@ -15,6 +15,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Tencent/WeKnora/internal/feishusafety"
 	"github.com/google/uuid"
@@ -311,6 +312,9 @@ func (m *RecoveryManager) queue(ctx context.Context) (recoveryQueueSnapshot, err
 	}
 	var hashes []map[string]string
 	for _, id := range q.ids {
+		if id == "" || !utf8.ValidString(id) {
+			return q, ErrRecoveryRejected
+		}
 		f, e := c.HGetAll(ctx, "asynq:{sync}:t:"+id).Result()
 		if e != nil || len(f) == 0 {
 			return q, ErrRecoveryRejected
@@ -318,11 +322,13 @@ func (m *RecoveryManager) queue(ctx context.Context) (recoveryQueueSnapshot, err
 		q.fields = append(q.fields, f)
 		h := map[string]string{}
 		for k, v := range f {
-			h[k] = digestBytes(v)
+			// Redis hash fields are binary. JSON must never normalize an invalid
+			// UTF-8 field name into a replacement rune in the signed digest.
+			h[hex.EncodeToString([]byte(k))] = digestBytes(v)
 		}
 		hashes = append(hashes, h)
 	}
-	q.digest, e = RecoveryDigest([]any{q.pause, q.ids, hashes})
+	q.digest, e = RecoveryDigest([]any{digestBytes(q.pause), q.ids, hashes})
 	return q, e
 }
 
