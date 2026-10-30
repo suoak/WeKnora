@@ -20,7 +20,7 @@ func configureFeishuRecovery(db *gorm.DB, c *feishusynccontrol.Controller) error
 	if err != nil {
 		return err
 	}
-	if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
+	if !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 {
 		return feishusynccontrol.ErrRecoveryRejected
 	}
 	key, err := os.ReadFile(path)
