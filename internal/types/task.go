@@ -67,6 +67,8 @@ type QueueDefinition struct {
 	Weight       int
 	SharedWeight int
 	TaskTypes    []string
+	// DeliveryOf identifies a secondary lane using the canonical queue's handlers.
+	DeliveryOf string
 }
 
 var queueDefinitions = []QueueDefinition{
@@ -91,7 +93,7 @@ var queueDefinitions = []QueueDefinition{
 	{Name: QueueSync, Pool: WorkerPoolMaintenance, Weight: 2, TaskTypes: []string{TypeDataSourceSync}},
 	// The shared lane stays paused during incident recovery. Only signed
 	// source admission may route new sync tasks to this maintenance lane.
-	{Name: QueueApprovedSync, Pool: WorkerPoolMaintenance, Weight: 1},
+	{Name: QueueApprovedSync, Pool: WorkerPoolMaintenance, Weight: 1, DeliveryOf: QueueSync},
 	{Name: QueueMaintenance, Pool: WorkerPoolMaintenance, Weight: 1, TaskTypes: []string{
 		TypeFeishuConnectionCheck,
 		TypeFAQImport, TypeKBClone, TypeIndexDelete, TypeKBDelete,
@@ -102,10 +104,13 @@ var queueDefinitions = []QueueDefinition{
 
 // QueueDefinitions returns a copy so callers cannot mutate global topology.
 func QueueDefinitions() []QueueDefinition {
-	definitions := make([]QueueDefinition, len(queueDefinitions))
-	for i, definition := range queueDefinitions {
-		definitions[i] = definition
-		definitions[i].TaskTypes = append([]string(nil), definition.TaskTypes...)
+	definitions := make([]QueueDefinition, 0, len(queueDefinitions))
+	for _, definition := range queueDefinitions {
+		if definition.Name == QueueApprovedSync && !ApprovedSyncLaneEnabled() {
+			continue
+		}
+		definition.TaskTypes = append([]string(nil), definition.TaskTypes...)
+		definitions = append(definitions, definition)
 	}
 	return definitions
 }

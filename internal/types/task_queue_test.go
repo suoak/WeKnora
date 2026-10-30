@@ -3,6 +3,16 @@ package types
 import "testing"
 
 func TestQueueDefinitionsAreUniqueAndConsumable(t *testing.T) {
+	for _, enabled := range []string{"", "1"} {
+		t.Run("approved_lane="+enabled, func(t *testing.T) {
+			t.Setenv("FEISHU_APPROVED_SYNC_LANE_ENABLED", enabled)
+			assertQueueDefinitionsAreUniqueAndConsumable(t)
+		})
+	}
+}
+
+func assertQueueDefinitionsAreUniqueAndConsumable(t *testing.T) {
+	t.Helper()
 	definitions := QueueDefinitions()
 	if len(definitions) == 0 {
 		t.Fatal("queue registry must not be empty")
@@ -17,6 +27,10 @@ func TestQueueDefinitionsAreUniqueAndConsumable(t *testing.T) {
 	}
 	seen := make(map[string]bool, len(definitions))
 	seenTaskTypes := make(map[string]string)
+	byName := make(map[string]QueueDefinition, len(definitions))
+	for _, definition := range definitions {
+		byName[definition.Name] = definition
+	}
 	for _, definition := range definitions {
 		if seen[definition.Name] {
 			t.Fatalf("duplicate queue definition %q", definition.Name)
@@ -29,6 +43,11 @@ func TestQueueDefinitionsAreUniqueAndConsumable(t *testing.T) {
 			t.Fatalf("queue %q has non-positive weight %d", definition.Name, definition.Weight)
 		}
 		if len(definition.TaskTypes) == 0 {
+			canonical, ok := byName[definition.DeliveryOf]
+			if ok && len(canonical.TaskTypes) > 0 && canonical.DeliveryOf == "" &&
+				canonical.Pool == definition.Pool {
+				continue
+			}
 			t.Fatalf("queue %q declares no task types", definition.Name)
 		}
 		for _, taskType := range definition.TaskTypes {
