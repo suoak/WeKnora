@@ -94,6 +94,7 @@ type recoveryMode struct {
 	PlanSHA256            string                    `json:"plan_sha256"`
 	SourceID              string                    `json:"source_id"`
 	ConfigSHA256          string                    `json:"config_sha256"`
+	FactsSHA256           string                    `json:"facts_sha256,omitempty"`
 	Phase                 string                    `json:"phase"`
 	RunID                 string                    `json:"run_id"`
 	Generation            int64                     `json:"generation"`
@@ -501,6 +502,7 @@ func (m *RecoveryManager) Reset(
 			PlanSHA256:   planHash,
 			SourceID:     f.SourceID,
 			ConfigSHA256: f.ConfigSHA256,
+			FactsSHA256:  f.FactsSHA256,
 			Phase:        "frozen",
 			ExpiresMS:    p.ExpiresMS,
 		},

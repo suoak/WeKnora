@@ -24,11 +24,12 @@ class ContinuityApprovalTests(unittest.TestCase):
                                     approval_key_file="offline-private", evidence_manifest="synthetic-evidence")
         old = dict(namespace="synthetic", trip=self.args.trip, incident_id="1-0", app_sha="a" * 40,
                    worker_id="worker:1", membership_revision="7", approval_key_id=key_id,
-                   actor_id="operator", queue_sha256="b" * 64)
+                   actor_id="operator", queue_sha256="b" * 64,
+                   incarnation="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")
         self.original = dict(plan=old, plan_sha256=c.recovery.digest(old))
         now = int(time.time() * 1000)
         p = dict(version=1, namespace="synthetic", runtime_sha="a" * 40, worker_id="worker:1",
-                 membership_revision="7", approval_key_id=key_id, actor_id="operator",
+                 membership_revision="8", approval_key_id=key_id, actor_id="operator",
                  historical_pending=6, historical_queue_sha256="b" * 64,
                  recovery_plan_sha256=self.original["plan_sha256"],
                  incarnation="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", created_ms=now, expires_ms=now + 3600000,
@@ -51,7 +52,8 @@ class ContinuityApprovalTests(unittest.TestCase):
     def test_recomputed_digest_does_not_allow_changed_incident_or_queue(self):
         for key, value in [("runtime_sha", "f" * 40), ("historical_queue_sha256", "f" * 64),
                            ("historical_pending", 5), ("recovery_plan_sha256", "f" * 64),
-                           ("membership_revision", "8"), ("expires_ms", 1)]:
+                           ("membership_revision", "7"), ("membership_revision", "9"),
+                           ("incarnation", self.original["plan"]["incarnation"]), ("expires_ms", 1)]:
             with self.subTest(key=key):
                 e = copy.deepcopy(self.envelope)
                 e["plan"][key] = value

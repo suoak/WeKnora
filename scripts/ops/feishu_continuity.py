@@ -29,14 +29,15 @@ def validate(envelope, original, args, now_ms=None):
             p.get("historical_pending") != args.expected_pending or
             p.get("historical_queue_sha256") != old.get("queue_sha256") or
             p.get("worker_id") != old.get("worker_id") or
-            p.get("membership_revision") != old.get("membership_revision") or
+            p.get("membership_revision") != str(int(old["membership_revision"]) + 1) or
             p.get("approval_key_id") != old.get("approval_key_id") or
             p.get("actor_id") != old.get("actor_id")):
         raise ValueError("continuation incident/runtime/queue identity mismatch")
     if (p["created_ms"] > now + 5000 or p["expires_ms"] <= now or
             not 0 < p["expires_ms"] - p["created_ms"] <= 3600000):
         raise ValueError("continuation approval window invalid")
-    if str(uuid.UUID(p["incarnation"])) != p["incarnation"]:
+    if (str(uuid.UUID(p["incarnation"])) != p["incarnation"] or
+            p["incarnation"] == old.get("incarnation")):
         raise ValueError("current canonical process identity required")
     sources = p.get("sources", [])
     ids = [s["source_id"] for s in sources]

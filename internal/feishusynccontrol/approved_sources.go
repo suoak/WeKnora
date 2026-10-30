@@ -66,10 +66,18 @@ func (m *RecoveryManager) checkApprovedSource(ctx context.Context, source, confi
 	if json.Unmarshal([]byte(raw), &state) != nil {
 		return ErrRecoveryRejected
 	}
-	if state.Phase != "approved_sources" {
+	if state.Phase != "approved_sources" && state.Phase != "running" {
 		return nil
 	}
 	entry, ok := state.ApprovedSources[source]
+	if state.Phase == "running" {
+		entry = ApprovedSource{
+			SourceID:     state.SourceID,
+			ConfigSHA256: state.ConfigSHA256,
+			FactsSHA256:  state.FactsSHA256,
+		}
+		ok = source == state.SourceID && state.FactsSHA256 != ""
+	}
 	if !ok || entry.ConfigSHA256 != config {
 		return ErrRecoveryRejected
 	}
@@ -79,9 +87,15 @@ func (m *RecoveryManager) checkApprovedSource(ctx context.Context, source, confi
 			execution.Generation != identity.Generation || execution.Generation < 1 || execution.TenantID == 0 {
 			return ErrRecoveryRejected
 		}
+		if state.Phase == "running" && (identity.Run != state.RunID || identity.Generation != state.Generation) {
+			return ErrRecoveryRejected
+		}
 	}
 	f, err := m.facts(ctx, source)
 	if err != nil || !entry.matches(f) {
+		return ErrRecoveryRejected
+	}
+	if state.Phase == "running" && (!f.Eligible || f.LiveExecutions > 1 || f.LivePublications > 1) {
 		return ErrRecoveryRejected
 	}
 	return nil
