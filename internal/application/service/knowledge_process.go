@@ -2744,9 +2744,9 @@ func (s *knowledgeService) RegenerateKnowledgeSummary(
 	textChunks := make([]*types.Chunk, 0)
 	for _, chunk := range allChunks {
 		if chunk.ChunkType == types.ChunkTypeText && (chunk.IsEnabled || exact) {
-			copy := *chunk
-			copy.IsEnabled = true
-			textChunks = append(textChunks, &copy)
+			summaryInput := *chunk
+			summaryInput.IsEnabled = true
+			textChunks = append(textChunks, &summaryInput)
 		}
 	}
 	if len(textChunks) == 0 {
