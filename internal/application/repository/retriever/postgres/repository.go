@@ -30,12 +30,12 @@ func NewPostgresRetrieveEngineRepository(db *gorm.DB) interfaces.RetrieveEngineR
 }
 
 // EngineType returns the retriever engine type (PostgreSQL)
-func (r *pgRepository) EngineType() types.RetrieverEngineType {
+func (g *pgRepository) EngineType() types.RetrieverEngineType {
 	return types.PostgresRetrieverEngineType
 }
 
 // Support returns supported retriever types (keywords and vector)
-func (r *pgRepository) Support() []types.RetrieverType {
+func (g *pgRepository) Support() []types.RetrieverType {
 	return []types.RetrieverType{types.KeywordsRetrieverType, types.VectorRetrieverType}
 }
 

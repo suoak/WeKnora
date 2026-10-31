@@ -30,11 +30,13 @@ func WithExactPublishedDocumentRead(
 	return context.WithValue(guarded, exactPublishedScopeKey{}, exactPublishedScope{receipt, scope}), nil
 }
 
+// ExactPublishedDocumentIdentity returns the bound receipt and document identity.
 func ExactPublishedDocumentIdentity(ctx context.Context) (int64, uint64, string, string, bool) {
 	proof, ok := ctx.Value(exactPublishedScopeKey{}).(exactPublishedScope)
 	return proof.receipt, proof.scope.TenantID, proof.scope.KnowledgeID, proof.scope.KBID, ok
 }
 
+// CheckExactPublishedDocumentRead revalidates the current read-only capability.
 func CheckExactPublishedDocumentRead(ctx context.Context) (bool, error) {
 	proof, ok := ctx.Value(exactPublishedScopeKey{}).(exactPublishedScope)
 	if !ok {

@@ -10,8 +10,10 @@ import (
 	"gorm.io/gorm"
 )
 
+type forgedExactContextKey string
+
 func TestExactDocumentScopeDoesNotTrustContextOrWholeKB(t *testing.T) {
-	ctx := context.WithValue(context.Background(), "exact_document_proof", "forged")
+	ctx := context.WithValue(context.Background(), forgedExactContextKey("exact_document_proof"), "forged")
 	ok, err := CheckExactDocumentRead(ctx, "doc", "kb")
 	require.NoError(t, err)
 	require.False(t, ok)
@@ -117,7 +119,7 @@ func TestExactDocumentScopePublishedReadCannotBecomeWorkerOrWholeKB(t *testing.T
 	_, err = CheckExactPublishedDocumentRead(ctx)
 	require.ErrorIs(t, err, ErrExactDocumentScope)
 	_, _, _, _, forged := ExactPublishedDocumentIdentity(
-		context.WithValue(context.Background(), "published_receipt", 17),
+		context.WithValue(context.Background(), forgedExactContextKey("published_receipt"), 17),
 	)
 	require.False(t, forged)
 }

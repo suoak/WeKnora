@@ -80,9 +80,9 @@ func (r *chunkRepository) CreateChunks(ctx context.Context, chunks []*types.Chun
 				}
 			}
 			for i, chunk := range chunks {
-				copy := *chunk
-				copy.IsEnabled = false
-				stored[i] = &copy
+				stagedChunk := *chunk
+				stagedChunk.IsEnabled = false
+				stored[i] = &stagedChunk
 			}
 		}
 		// SQLite doesn't support autoIncrement on non-PK columns, so SeqIDs are
@@ -460,9 +460,9 @@ func (r *chunkRepository) UpdateChunk(ctx context.Context, chunk *types.Chunk) e
 				if err := checkExactChunkRows(tx, []string{chunk.ID}); err != nil {
 					return err
 				}
-				copy := *chunk
-				copy.IsEnabled = false
-				stored = &copy
+				stagedChunk := *chunk
+				stagedChunk.IsEnabled = false
+				stored = &stagedChunk
 			}
 			return tx.Omit("SeqID").Save(stored).Error
 		})
@@ -605,9 +605,9 @@ func (r *chunkRepository) UpdateChunks(ctx context.Context, chunks []*types.Chun
 					return err
 				}
 				ids = append(ids, chunk.ID)
-				copy := *chunk
-				copy.IsEnabled = false
-				staged[i] = &copy
+				stagedChunk := *chunk
+				stagedChunk.IsEnabled = false
+				staged[i] = &stagedChunk
 			}
 			if err := checkExactChunkRows(tx, ids); err != nil {
 				return err

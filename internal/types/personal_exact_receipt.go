@@ -1,9 +1,10 @@
 package types
 
-// Dedicated durable scope in the existing receipt store, never a runnable
+// PersonalExactReceiptScope is a dedicated durable receipt scope, never a runnable
 // queue operation. It must survive queue drains, task retries and rollback.
 const PersonalExactReceiptScope = "personal_exact_receipt_v1"
 
+// PersonalExactReceipt binds source identity and verified published output manifests.
 type PersonalExactReceipt struct {
 	Version            int    `json:"version"`
 	TenantID           uint64 `json:"tenant_id"`

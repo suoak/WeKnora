@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// ErrExactDocumentScope rejects absent, stale or mismatched document authority.
 var ErrExactDocumentScope = errors.New("exact_document_scope_unverified")
 
 type exactDocumentScopeKey struct{}
