@@ -797,6 +797,14 @@ func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 				continue
 			}
 			if err == nil {
+				deferred, deferErr := p.exactRecoveryDeferred(ctx, m, current)
+				if deferErr != nil {
+					failures = append(failures, deferErr)
+					continue
+				}
+				if deferred {
+					continue // The bounded pilot cannot mutate another held protocol.
+				}
 				_, err = p.authorize(ctx, m, current)
 			}
 

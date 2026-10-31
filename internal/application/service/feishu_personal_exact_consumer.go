@@ -219,3 +219,26 @@ func (p *PersonalRecovery) closeExactReconcileExecution(
 	}
 	return p.repo.AbortExactExecution(ctx, owner, op.ID)
 }
+
+// A single-file recovery window must not turn an unrelated held first-create
+// protocol into an authorization failure or a new execution. This is metadata
+// admission only; healthy ordinary imports keep their existing lifecycle.
+func (p *PersonalRecovery) exactRecoveryDeferred(ctx context.Context,
+	imported *types.FeishuPersonalImport, attempt *types.FeishuPersonalAttempt,
+) (bool, error) {
+	if !p.firstCreateOnly || !exactPersonalRecoveryEnabled() || imported == nil || attempt == nil ||
+		imported.AuthMode != types.FeishuUserOAuth || imported.KnowledgeID == "" ||
+		imported.KnowledgeID != attempt.LogicalKnowledgeID || exactPersonalRecoveryAllows(imported.KnowledgeID) {
+		return false, nil
+	}
+	var held bool
+	err := p.service.db.WithContext(ctx).Raw(`SELECT EXISTS(
+SELECT 1 FROM task_pending_ops op WHERE op.tenant_id=? AND op.scope=? AND op.scope_id=?
+AND op.payload->>'payload_version'='3') AND (EXISTS(
+SELECT 1 FROM data_sources d WHERE d.knowledge_base_id=? AND d.legacy_access_state IN ('hold','revoked'))
+OR EXISTS(SELECT 1 FROM feishu_legacy_resources r
+WHERE r.knowledge_base_id=? AND r.state IN ('hold','revoked')))`,
+		attempt.CallerTenantID, types.KnowledgeDispatchScope, imported.KnowledgeID,
+		imported.KBID, imported.KBID).Scan(&held).Error
+	return held, err
+}

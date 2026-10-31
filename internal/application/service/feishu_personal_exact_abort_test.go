@@ -102,3 +102,23 @@ func TestPersonalRecoveryExactExecutionAbortRejectsUnclaimedOperation(t *testing
 	require.NotEqual(t, "needs_attention", current.Status)
 	require.Empty(t, current.OwnerNonce)
 }
+
+func TestPersonalRecoveryExactExecutionDefersUnapprovedHeldProtocol(t *testing.T) {
+	f, proof, _ := exactExecutionFixture(t)
+	imported, before, attempt, err := f.p.repo.Load(context.Background(), proof.attempt)
+	require.NoError(t, err)
+	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY", "1")
+	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY_KNOWLEDGE_IDS", "different-approved-document")
+	deferred, err := f.p.exactRecoveryDeferred(context.Background(), imported, attempt)
+	require.NoError(t, err)
+	require.True(t, deferred)
+	_, after, current, err := f.p.repo.Load(context.Background(), proof.attempt)
+	require.NoError(t, err)
+	require.Equal(t, before.Generation, after.Generation)
+	require.Equal(t, attempt.OwnerNonce, current.OwnerNonce)
+	require.Equal(t, attempt.Status, current.Status)
+	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY_KNOWLEDGE_IDS", proof.knowledge)
+	deferred, err = f.p.exactRecoveryDeferred(context.Background(), imported, attempt)
+	require.NoError(t, err)
+	require.False(t, deferred, "the approved file still requires full live authorization")
+}
