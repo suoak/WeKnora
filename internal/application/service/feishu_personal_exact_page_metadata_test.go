@@ -62,6 +62,23 @@ id text PRIMARY KEY,tenant_id bigint,knowledge_base_id text,knowledge_id text,st
 		}
 	}
 	require.Len(t, seen, 24, "a staging receipt must not hide the remaining catalog")
+	for _, batch := range []func() ([]*types.Knowledge, error){
+		func() ([]*types.Knowledge, error) {
+			return f.ks.GetKnowledgeBatch(ctx, 1, []string{"doc-00", "doc-01"})
+		},
+		func() ([]*types.Knowledge, error) {
+			return f.ks.GetKnowledgeBatchWithSharedAccess(ctx, 1, []string{"doc-00", "doc-01"})
+		},
+	} {
+		rows, err := batch()
+		require.NoError(t, err, "status polling must not require a staging-content grant")
+		require.Len(t, rows, 2)
+		for _, row := range rows {
+			require.True(t, row.MetadataOnly)
+			require.Empty(t, row.Description)
+			require.Empty(t, row.Source)
+		}
+	}
 	filter.Keyword = "needle"
 	result, err := f.ks.ListPagedKnowledgeByKnowledgeBaseID(ctx, "kb",
 		&types.Pagination{Page: 1, PageSize: 10}, filter)
@@ -74,8 +91,12 @@ id text PRIMARY KEY,tenant_id bigint,knowledge_base_id text,knowledge_id text,st
 	_, err = f.ks.ListPagedKnowledgeByKnowledgeBaseID(stranger, "kb",
 		&types.Pagination{Page: 1, PageSize: 10}, types.KnowledgeListFilter{})
 	require.Error(t, err, "a claimed admin role is not live membership")
+	_, err = f.p.exactPageMetadata(types.WithExecutionTenant(ctx, 2), 1, "kb", []string{"doc-00"})
+	require.Error(t, err, "metadata cannot cross the execution tenant")
 	require.NoError(t, f.db.Exec("UPDATE tenant_members SET status='inactive' WHERE user_id='B'").Error)
 	_, err = f.ks.ListPagedKnowledgeByKnowledgeBaseID(ctx, "kb",
 		&types.Pagination{Page: 1, PageSize: 10}, types.KnowledgeListFilter{})
 	require.Error(t, err, "revoked membership closes metadata access too")
+	_, err = f.ks.GetKnowledgeBatchWithSharedAccess(ctx, 1, []string{"doc-00", "doc-01"})
+	require.Error(t, err, "status polling must honor live membership revocation")
 }

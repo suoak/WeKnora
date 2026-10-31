@@ -958,6 +958,9 @@ func (s *knowledgeService) UpdateKnowledge(ctx context.Context, knowledge *types
 func (s *knowledgeService) GetKnowledgeBatch(ctx context.Context,
 	tenantID uint64, ids []string,
 ) ([]*types.Knowledge, error) {
+	if rows, handled, err := s.exactPublicMetadataBatch(ctx, tenantID, ids); handled {
+		return rows, err
+	}
 	if s.DocumentACLReadEnabled() {
 		return s.readAuthorizedBatch(ctx, ids)
 	}
@@ -973,6 +976,9 @@ func (s *knowledgeService) GetKnowledgeBatch(ctx context.Context,
 func (s *knowledgeService) GetKnowledgeBatchWithSharedAccess(ctx context.Context,
 	tenantID uint64, ids []string,
 ) ([]*types.Knowledge, error) {
+	if rows, handled, err := s.exactPublicMetadataBatch(ctx, tenantID, ids); handled {
+		return rows, err
+	}
 	if s.DocumentACLReadEnabled() {
 		return s.readAuthorizedBatch(ctx, ids)
 	}

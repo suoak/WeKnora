@@ -670,9 +670,14 @@ VALUES ('isolated-held-resource', ?, ?, ?, 'held-sibling', 'hold', 'local://held
 	require.Error(t, err, "a previously issued serving scope must honor live grant revocation")
 	_, err = f.ks.GetKnowledgeByID(viewer, consumer.source.knowledge)
 	require.Error(t, err, "normal document detail must honor live grant revocation")
-	_, err = f.ks.ListPagedKnowledgeByKnowledgeBaseID(viewer, consumer.source.kb,
+	metadataPage, err := f.ks.ListPagedKnowledgeByKnowledgeBaseID(viewer, consumer.source.kb,
 		&types.Pagination{Page: 1, PageSize: 10}, types.KnowledgeListFilter{Keyword: "original"})
-	require.Error(t, err, "normal document page must honor live grant revocation")
+	require.NoError(t, err, "source revocation does not erase an authorized workspace catalog")
+	for _, row := range metadataPage.Data.([]*types.Knowledge) {
+		require.True(t, row.MetadataOnly)
+		require.Empty(t, row.Description)
+		require.Empty(t, row.FilePath)
+	}
 
 	require.NoError(t, f.db.Table("feishu_personal_grant_epochs").Where("epoch='isolated-serving-revoked'").
 		Update("epoch", consumer.source.grantEpoch).Error)

@@ -16,8 +16,9 @@ func (p *PersonalRecovery) exactPageMetadata(
 ) ([]*types.Knowledge, error) {
 	caller := types.CallerFromContext(ctx)
 	principal, ok := ctx.Value(types.PrincipalContextKey).(types.Principal)
+	effective, valid := types.TenantIDFromContext(ctx)
 	if !ok || principal.Type != types.PrincipalWebUser || principal.ID != caller.UserID ||
-		caller.UserID == "" || caller.TenantID != tenant {
+		caller.UserID == "" || caller.TenantID != tenant || !valid || effective != tenant {
 		return nil, access.ErrForbidden
 	}
 	owner, err := p.loadAuthorizationKB(ctx, kb)
@@ -44,6 +45,21 @@ AND m.deleted_at IS NULL AND u.is_active AND u.deleted_at IS NULL)`,
 	}
 	if err := memberCheck(); err != nil {
 		return nil, err
+	}
+	allowed, protected, err := access.GuardDocumentReadQuery(ctx, tenant, kb)
+	if err != nil {
+		return nil, err
+	}
+	if protected {
+		set := make(map[string]bool, len(allowed))
+		for _, id := range allowed {
+			set[id] = true
+		}
+		for _, id := range ids {
+			if !set[id] {
+				return nil, access.ErrForbidden
+			}
+		}
 	}
 	type entry struct {
 		ID, KnowledgeBaseID, FileName, FileType, Type, FolderPath string
@@ -109,4 +125,71 @@ CASE WHEN a.status='needs_attention' AND a.owner_nonce='' AND a.lease_until IS N
 		return nil, err
 	}
 	return rows, nil
+}
+
+// Batch selectors and status polling need catalog metadata, not a body grant.
+func (s *knowledgeService) exactPublicMetadataBatch(
+	ctx context.Context, tenant uint64, ids []string,
+) ([]*types.Knowledge, bool, error) {
+	if !exactPersonalRecoveryEnabled() || s.DocumentACLReadEnabled() || len(ids) == 0 {
+		return nil, false, nil
+	}
+	p, ok := s.personalRecovery.(*PersonalRecovery)
+	principal, web := ctx.Value(types.PrincipalContextKey).(types.Principal)
+	caller := types.CallerFromContext(ctx)
+	if !ok || !web || principal.Type != types.PrincipalWebUser || principal.ID != caller.UserID ||
+		caller.UserID == "" || caller.TenantID != tenant {
+		return nil, false, nil
+	}
+	unique := make([]string, 0, len(ids))
+	seen := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		if !seen[id] {
+			unique = append(unique, id)
+			seen[id] = true
+		}
+	}
+	var headers []struct{ ID, KnowledgeBaseID string }
+	if err := p.service.db.WithContext(ctx).Table("knowledges").Select("id,knowledge_base_id").
+		Where("id IN ? AND tenant_id=? AND deleted_at IS NULL", unique, tenant).Scan(&headers).Error; err != nil {
+		return nil, true, err
+	}
+	if len(headers) != len(unique) {
+		return nil, false, nil // Missing/foreign IDs retain the existing strict path.
+	}
+	groups := make(map[string][]string)
+	var kbs []string
+	for _, header := range headers {
+		if _, exists := groups[header.KnowledgeBaseID]; !exists {
+			kbs = append(kbs, header.KnowledgeBaseID)
+		}
+		groups[header.KnowledgeBaseID] = append(groups[header.KnowledgeBaseID], header.ID)
+	}
+	var count int64
+	if err := p.service.db.WithContext(ctx).Table("task_pending_ops").Where(
+		"scope=? AND tenant_id=? AND payload->>'knowledge_base_id' IN ?",
+		types.PersonalExactReceiptScope, tenant, kbs).Count(&count).Error; err != nil {
+		return nil, true, err
+	}
+	if count == 0 {
+		return nil, false, nil
+	}
+	if len(unique) > 256 {
+		return nil, true, errPersonalExactDocument
+	}
+	byID := make(map[string]*types.Knowledge, len(unique))
+	for kb, group := range groups {
+		rows, err := p.exactPageMetadata(ctx, tenant, kb, group)
+		if err != nil {
+			return nil, true, err
+		}
+		for _, row := range rows {
+			byID[row.ID] = row
+		}
+	}
+	rows := make([]*types.Knowledge, 0, len(unique))
+	for _, id := range unique {
+		rows = append(rows, byID[id])
+	}
+	return rows, true, nil
 }
