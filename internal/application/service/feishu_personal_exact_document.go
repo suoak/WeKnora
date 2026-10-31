@@ -72,8 +72,15 @@ func (p *PersonalRecovery) preflightExactPersonalDocument(
 
 func (p *PersonalRecovery) checkExactPersonalSource(
 	ctx context.Context, owner *types.FeishuPersonalAttempt, published bool, check *personalExactPreflight,
-) (*personalExactDocument, error) {
+) (proof *personalExactDocument, refusal error) {
 	preflight := check != nil
+	stage := "preconditions"
+	var permissionBits *[3]bool
+	defer func() {
+		if preflight && refusal != nil && owner != nil && exactPersonalRecoveryAllows(owner.LogicalKnowledgeID) {
+			logExactPersonalPreflightRefusal(ctx, owner, stage, permissionBits, refusal)
+		}
+	}()
 	if owner == nil || !p.firstCreateOnly || p.service.db.Name() != "postgres" {
 		return nil, errPersonalExactDocument
 	}
@@ -87,6 +94,7 @@ func (p *PersonalRecovery) checkExactPersonalSource(
 	if published && (owner.Status != "indexed" || owner.OwnerNonce != "" || owner.LeaseUntil != nil) {
 		return nil, errPersonalExactDocument
 	}
+	stage = "protocol_identity"
 	m, r, a, err := p.repo.Load(ctx, owner.ID)
 	if err != nil {
 		return nil, err
@@ -110,27 +118,36 @@ func (p *PersonalRecovery) checkExactPersonalSource(
 		r.ActiveVersionID != a.CandidateVersionID || a.CandidateVersionID != owner.CandidateVersionID) {
 		return nil, errPersonalExactDocument
 	}
+	stage = "local_authority"
 	remote, err := p.authorize(ctx, m, a)
 	if err != nil {
 		return nil, err
 	}
 	expected := core.PersonalResource{Type: m.ResourceType, Token: m.DocumentToken}
+	stage = "remote_resource"
 	current, err := p.resolveResource(remote, m, expected)
 	if err != nil {
 		return nil, err
 	}
-	if current.Token != expected.Token || current.Type != expected.Type ||
-		current.Modified != a.Revision {
+	stage = "remote_identity"
+	if current.Token != expected.Token || current.Type != expected.Type {
+		return nil, errPersonalExactDocument
+	}
+	stage = "remote_revision"
+	if current.Modified != a.Revision {
 		return nil, errPersonalExactDocument
 	}
 	client := p.service.client(&core.Config{AppID: m.AppID})
+	stage = "remote_permissions"
 	permission, err := client.InspectPersonalPermissions(remote, expected)
 	if err != nil {
 		return nil, err
 	}
+	permissionBits = &[3]bool{permission.View, permission.Export, permission.Copy}
 	if !permission.View || !permission.Export || !permission.Copy {
 		return nil, errPersonalExactDocument
 	}
+	stage = "manifest"
 	manifest, err := p.store.read(a)
 	if err != nil {
 		return nil, err
@@ -140,6 +157,7 @@ func (p *PersonalRecovery) checkExactPersonalSource(
 		manifest.Size <= 0 || manifest.Size > 64*1024*1024 {
 		return nil, errPersonalExactDocument
 	}
+	stage = "knowledge_metadata"
 	k, err := p.loadDispatchMetadata(ctx, a.CallerTenantID, m.KBID, m.KnowledgeID)
 	if err != nil {
 		return nil, err
@@ -149,6 +167,7 @@ func (p *PersonalRecovery) checkExactPersonalSource(
 		k.FileSize != manifest.Size || k.FileName != manifest.Name {
 		return nil, errPersonalExactDocument
 	}
+	stage = "file_registration"
 	var file types.StoredResource
 	if err = p.service.db.WithContext(ctx).Where(
 		"handle=? AND tenant_id=? AND provider='local' AND state='active' AND deleted_at IS NULL",
@@ -160,6 +179,7 @@ func (p *PersonalRecovery) checkExactPersonalSource(
 		file.ExpiresAt != nil {
 		return nil, errPersonalExactDocument
 	}
+	stage = "file_binding"
 	var bindings []types.ResourceBinding
 	if err = p.service.db.WithContext(ctx).Where("resource_id=?", file.ID).Limit(2).Find(&bindings).Error; err != nil {
 		return nil, err
@@ -171,6 +191,7 @@ func (p *PersonalRecovery) checkExactPersonalSource(
 	}
 	// Include historical/soft-deleted ownership: deletion does not release old
 	// cloud data from protection. Unknown or mixed dependencies remain closed.
+	stage = "legacy_overlap"
 	var overlaps bool
 	err = p.service.db.WithContext(ctx).Raw(`SELECT
 EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE tenant_id=? AND
@@ -190,6 +211,7 @@ EXISTS(SELECT 1 FROM data_sources WHERE tenant_id=? AND type IN ('feishu','feish
 	// Hold the actual checked bytes, rather than authorizing a path which may
 	// later refer to different content. Parser integration must consume these
 	// bytes and prove media/embedded dependencies separately.
+	stage = "file_read"
 	reader, err := p.service.knowledge.(*knowledgeService).fileSvc.GetFile(
 		remote,
 		file.PhysicalPath,
@@ -201,6 +223,7 @@ EXISTS(SELECT 1 FROM data_sources WHERE tenant_id=? AND type IN ('feishu','feish
 	if err = errors.Join(readErr, reader.Close()); err != nil {
 		return nil, err
 	}
+	stage = "file_digest"
 	sum := sha256.Sum256(data)
 	fileHash := hex.EncodeToString(sum[:])
 	if int64(len(data)) != file.Size || (file.ContentHash != "" && fileHash != file.ContentHash) ||
@@ -286,6 +309,7 @@ AND (SELECT count(*) FROM resource_bindings all_b WHERE all_b.resource_id=f.id)=
 		}
 		return nil
 	}
+	stage = "locked_local_snapshot"
 	if !published && !preflight {
 		err = p.mutate(ctx, owner, 0, verify)
 	} else {
@@ -322,6 +346,7 @@ AND (SELECT count(*) FROM resource_bindings all_b WHERE all_b.resource_id=f.id)=
 	if err == nil && preflight {
 		// Detect local revocation during remote/file inspection as a preflight
 		// refusal. Claim repeats the locked authority checks transactionally.
+		stage = "authority_recheck"
 		if _, err = p.authorize(ctx, m, a); err != nil {
 			return nil, err
 		}
