@@ -48,7 +48,7 @@ func resolveHandlerKBAccessFor(c *gin.Context, kbID string, kbService middleware
 	if grant, ok := resolvedKBAccess(c, kbID, required); ok {
 		return grant, nil
 	}
-	kb, err := kbService.GetKnowledgeBaseByID(ctx, kbID)
+	kb, err := middleware.LookupKBAccessMetadata(ctx, kbService, kbID, required)
 	if err != nil {
 		if stderrors.Is(err, repository.ErrKnowledgeBaseNotFound) {
 			return nil, apperrors.NewNotFoundError("knowledge base not found")

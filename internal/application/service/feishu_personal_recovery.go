@@ -81,6 +81,12 @@ func EnablePersonalRecovery(
 	p.repo.ApplicationGrantValidator = p.validateApplicationIdentityTx
 	s.recovery = p
 	ks.personalRecovery = p
+	if models, ok := ks.modelService.(*modelService); ok {
+		models.personalRecovery = p
+	}
+	if kbs, ok := ks.kbService.(*knowledgeBaseService); ok {
+		kbs.personalRecovery = p
+	}
 	return nil
 }
 
@@ -125,8 +131,8 @@ func (p *PersonalRecovery) authorizeLocal(
 		types.Principal{Type: types.PrincipalWebUser, ID: user.ID},
 	)
 	db = db.WithContext(ownerContext)
-	var kb types.KnowledgeBase
-	if err := db.Where("id = ?", m.KBID).First(&kb).Error; err != nil {
+	kb, err := p.loadAuthorizationKB(ownerContext, m.KBID)
+	if err != nil {
 		return nil, nil, personalAccessError(err)
 	}
 	// The canonical KB resolver below is the write authority, just as at the
@@ -141,7 +147,7 @@ func (p *PersonalRecovery) authorizeLocal(
 	grant, err := access.ResolveKB(
 		fresh,
 		access.KBRequest{Caller: caller},
-		&kb,
+		kb,
 		types.OrgRoleEditor,
 		p.shares,
 		nil,
@@ -150,7 +156,7 @@ func (p *PersonalRecovery) authorizeLocal(
 		return nil, nil, err
 	}
 	fresh = grant.Context(fresh)
-	if err = access.RequireKBWrite(fresh, &kb); err != nil {
+	if err = access.RequireKBWrite(fresh, kb); err != nil {
 		return nil, nil, err
 	}
 	cfg, err := p.service.app(fresh)
@@ -791,10 +797,32 @@ func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 				continue
 			}
 			if err == nil {
+				deferred, deferErr := p.exactRecoveryDeferred(ctx, m, current)
+				if deferErr != nil {
+					failures = append(failures, deferErr)
+					continue
+				}
+				if deferred {
+					continue // The bounded pilot cannot mutate another held protocol.
+				}
+				if exactPersonalRecoveryAllows(current.LogicalKnowledgeID) &&
+					current.AuthMode == types.FeishuUserOAuth && current.Status == "index_pending" {
+					if _, preflightErr := p.preflightExactPersonalDocument(ctx, current); preflightErr != nil {
+						failures = append(failures, preflightErr)
+						continue // A refused pre-Claim observation cannot close the pending operation.
+					}
+				}
 				_, err = p.authorize(ctx, m, current)
 			}
 
 			if err != nil {
+				if current != nil && exactPersonalRecoveryAllows(current.LogicalKnowledgeID) &&
+					current.AuthMode == types.FeishuUserOAuth {
+					// Revocation is not permission to cancel a concurrently
+					// renewed generation or rewrite a published execution.
+					failures = append(failures, err, p.closeExactReconcileExecution(ctx, current))
+					continue
+				}
 				if personalAuthorizationLost(err) || errors.Is(err, gorm.ErrRecordNotFound) {
 					failures = append(
 						failures,
@@ -808,6 +836,11 @@ func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 
 			if a.ManifestHash != "" {
 				if _, err = p.store.read(&a); err != nil {
+					if exactPersonalRecoveryAllows(current.LogicalKnowledgeID) &&
+						current.AuthMode == types.FeishuUserOAuth {
+						failures = append(failures, err, p.closeExactReconcileExecution(ctx, current))
+						continue
+					}
 					failures = append(failures, p.repo.Invalidate(ctx, a.ID, "manifest_missing_or_invalid"))
 					continue
 				}
@@ -938,8 +971,7 @@ func (p *PersonalRecovery) mutate(
 			types.Principal{Type: types.PrincipalWebUser, ID: user.ID},
 		)
 		tx = tx.WithContext(ownerContext)
-		var kb types.KnowledgeBase
-		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ?", m.KBID).First(&kb).Error; err != nil {
+		if _, err := personalAuthorizationKB(tx, m.KBID, true); err != nil {
 			return personalAccessError(err)
 		}
 		if err := p.service.requireImportWriter(tx, m.UserID, m.KBID, a.CallerTenantID); err != nil {

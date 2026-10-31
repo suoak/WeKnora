@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"hash/fnv"
+	"reflect"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/types"
@@ -28,6 +29,15 @@ type PersonalRecoveryRepository struct {
 	db                        *gorm.DB
 	FirstCreateOnly           bool
 	ApplicationGrantValidator func(*gorm.DB, *types.FeishuPersonalImport, *types.FeishuPersonalAttempt) error
+}
+
+// InTransaction reuses the same protocol checks in a caller-owned write
+// transaction. Mutate uses a nested savepoint; its locks survive until the
+// outer transaction commits. It does not mint ownership or extend a lease.
+func (r *PersonalRecoveryRepository) InTransaction(tx *gorm.DB) *PersonalRecoveryRepository {
+	transactionRepo := *r
+	transactionRepo.db = tx
+	return &transactionRepo
 }
 
 var (
@@ -525,9 +535,49 @@ func (r *PersonalRecoveryRepository) Load(
 		(resource.LogicalKnowledgeID != a.LogicalKnowledgeID ||
 			resource.CandidateVersionID != a.CandidateVersionID ||
 			resource.ActiveVersionID != a.ExpectedActiveVersion) {
-		err = ErrPersonalIdentity
+		published, receiptErr := r.exactPublishedIdentity(ctx, &m, &resource, &a)
+		if receiptErr != nil {
+			err = receiptErr
+		} else if !published {
+			err = ErrPersonalIdentity
+		}
 	}
 	return &m, &resource, &a, err
+}
+
+// Recognize a consumed first-create claim without changing its immutable
+// expected-active version. This is identity reconciliation only, never a read
+// grant or permission to claim again. Claim/Mutate retain their original CAS.
+func (r *PersonalRecoveryRepository) exactPublishedIdentity(
+	ctx context.Context, m *types.FeishuPersonalImport, resource *types.FeishuPersonalResource,
+	a *types.FeishuPersonalAttempt,
+) (bool, error) {
+	if a.Status != "indexed" || a.OwnerNonce != "" || a.LeaseUntil != nil || a.ExpectedActiveVersion != "" ||
+		a.CandidateVersionID == "" || a.CandidateVersionID == a.LogicalKnowledgeID ||
+		resource.ActiveVersionID != a.CandidateVersionID || resource.CandidateVersionID != a.CandidateVersionID ||
+		resource.LogicalKnowledgeID != a.LogicalKnowledgeID || resource.Generation != a.Fence ||
+		m.KnowledgeID != a.LogicalKnowledgeID {
+		return false, nil
+	}
+	var rows []types.TaskPendingOp
+	if err := r.db.WithContext(ctx).Where("scope=? AND scope_id=? AND tenant_id=?",
+		types.PersonalExactReceiptScope, a.LogicalKnowledgeID, a.CallerTenantID).
+		Limit(2).Find(&rows).Error; err != nil {
+		return false, err
+	}
+	var receipt types.PersonalExactReceipt
+	if len(rows) != 1 || rows[0].Op != "published" || json.Unmarshal(rows[0].Payload, &receipt) != nil {
+		return false, nil
+	}
+	return receipt.Version == 1 && receipt.ImportID == m.ID && receipt.AttemptID == a.ID &&
+		receipt.KnowledgeID == a.LogicalKnowledgeID && receipt.KnowledgeBaseID == m.KBID &&
+		receipt.TenantID == a.CallerTenantID && receipt.CandidateVersionID == a.CandidateVersionID &&
+		receipt.ExpectedActive == a.ExpectedActiveVersion && receipt.Generation == a.Fence &&
+		receipt.ManifestSHA256 == a.ManifestHash && receipt.GrantEpoch == a.GrantEpoch &&
+		receipt.AppConfigVersion == a.AppConfigVersion && receipt.Revision == a.Revision &&
+		len(receipt.FileSHA256) == 64 && len(receipt.ParserOutputSHA256) == 64 &&
+		len(receipt.ChunksSHA256) == 64 && len(receipt.EmbeddingsSHA256) == 64 &&
+		len(receipt.DerivedSHA256) == 64 && receipt.TextChunks > 0 && receipt.VectorRows > 0, nil
 }
 
 // Lock ordering is always resource then attempt, including renew and commit.
@@ -575,11 +625,44 @@ func (r *PersonalRecoveryRepository) Claim(
 	id string,
 	lease time.Duration,
 ) (*types.FeishuPersonalAttempt, error) {
+	return r.claim(ctx, id, lease, nil, nil)
+}
+
+// ClaimObserved binds a first-create claim to the complete preflight observation.
+// A changed protocol or generation is rejected before ownership is minted.
+func (r *PersonalRecoveryRepository) ClaimObserved(
+	ctx context.Context, observed *types.FeishuPersonalAttempt, lease time.Duration,
+	validate func(*gorm.DB, *types.FeishuPersonalAttempt) error,
+) (*types.FeishuPersonalAttempt, error) {
+	if observed == nil || validate == nil {
+		return nil, ErrPersonalFence
+	}
+	return r.claim(ctx, observed.ID, lease, observed, validate)
+}
+
+func (r *PersonalRecoveryRepository) claim(
+	ctx context.Context, id string, lease time.Duration, observed *types.FeishuPersonalAttempt,
+	validate func(*gorm.DB, *types.FeishuPersonalAttempt) error,
+) (*types.FeishuPersonalAttempt, error) {
 	var claimed types.FeishuPersonalAttempt
 	err := r.locked(
 		ctx,
 		id,
 		func(tx *gorm.DB, resource *types.FeishuPersonalResource, a *types.FeishuPersonalAttempt, now time.Time) error {
+			if observed != nil {
+				if !reflect.DeepEqual(a, observed) || resource.Generation != observed.Fence ||
+					resource.CandidateVersionID != observed.CandidateVersionID ||
+					observed.Status != "index_pending" || observed.OwnerNonce != "" || observed.LeaseUntil != nil {
+					return ErrPersonalFence
+				}
+				var m types.FeishuPersonalImport
+				if err := tx.Where("id=?", a.ImportID).First(&m).Error; err != nil {
+					return err
+				}
+				if err := r.lockPrincipal(tx, &m, a); err != nil {
+					return err
+				}
+			}
 			if resource.CurrentAttemptID != a.ID || resource.ActiveVersionID != a.ExpectedActiveVersion {
 				return ErrPersonalFence
 			}
@@ -604,6 +687,11 @@ func (r *PersonalRecoveryRepository) Claim(
 			}
 			if err := tx.Save(a).Error; err != nil {
 				return err
+			}
+			if validate != nil {
+				if err := validate(tx, a); err != nil {
+					return err
+				}
 			}
 			claimed = *a
 			return nil

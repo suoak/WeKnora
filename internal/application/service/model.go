@@ -27,13 +27,14 @@ var ErrModelNotFound = errors.New("model not found")
 
 // modelService implements the model service interface
 type modelService struct {
-	repo           interfaces.ModelRepository
-	kbRepo         interfaces.KnowledgeBaseRepository
-	agentRepo      interfaces.CustomAgentRepository
-	ollamaService  *ollama.OllamaService
-	pooler         embedding.EmbedderPooler
-	tenantService  interfaces.TenantService
-	usageAnalytics interfaces.UsageAnalyticsService
+	personalRecovery *PersonalRecovery
+	repo             interfaces.ModelRepository
+	kbRepo           interfaces.KnowledgeBaseRepository
+	agentRepo        interfaces.CustomAgentRepository
+	ollamaService    *ollama.OllamaService
+	pooler           embedding.EmbedderPooler
+	tenantService    interfaces.TenantService
+	usageAnalytics   interfaces.UsageAnalyticsService
 }
 
 // NewModelService creates a new model service instance

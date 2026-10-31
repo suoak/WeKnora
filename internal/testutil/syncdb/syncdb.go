@@ -48,6 +48,14 @@ func Open(t *testing.T, dialect string) *gorm.DB {
 		require.Contains(t, parsed.Scheme, "postgres")
 		query := parsed.Query()
 		query.Set("search_path", schema)
+		if os.Getenv("SYNC_EXECUTION_POSTGRES_PUBLIC_EXTENSIONS") == "1" {
+			// Native indexing acceptance uses public extension types/operators
+			// while all application rows remain in this disposable schema.
+			query.Set("search_path", schema+",public")
+			// Extended protocol without cached descriptions tolerates the fixture
+			// schema upgrades and preserves binary/JSON parameter typing.
+			query.Set("default_query_exec_mode", "describe_exec")
+		}
 		parsed.RawQuery = query.Encode()
 		db, err = gorm.Open(postgres.Open(parsed.String()), config)
 		t.Cleanup(func() {

@@ -341,30 +341,33 @@ func (p *PersonalRecovery) firstCreateDispatchable(
 	if err != nil {
 		return false, err
 	}
-	var k types.Knowledge
-	if err = p.service.db.WithContext(
-		ctx,
-	).
-		Where(
-			"id = ? AND knowledge_base_id = ? AND tenant_id = ?",
-			t.KnowledgeID,
-			t.KnowledgeBaseID,
-			t.TenantID,
-		).
-		First(
-			&k,
-		).
-		Error; err != nil {
+	k, err := p.loadDispatchMetadata(ctx, t.TenantID, t.KnowledgeBaseID, t.KnowledgeID)
+	if err != nil {
 		return false, err
 	}
-	var meta map[string]any
-	if json.Unmarshal(k.Metadata, &meta) != nil || meta["feishu_mvp_attempt"] != a.ID ||
-		meta["feishu_manifest_sha256"] != a.ManifestHash ||
-		k.FilePath != t.FilePath ||
-		k.FileName != t.FileName ||
-		a.Status == "obsolete" ||
-		a.Status == "needs_attention" {
+	if k.AttemptID != a.ID || k.ManifestSHA256 != a.ManifestHash ||
+		k.FilePath != t.FilePath || k.FileName != t.FileName ||
+		r.CurrentAttemptID != a.ID || r.Generation != a.Fence ||
+		r.CandidateVersionID != a.CandidateVersionID ||
+		r.ActiveVersionID != a.ExpectedActiveVersion ||
+		a.Status == "obsolete" || a.Status == "needs_attention" {
 		return false, repository.ErrPersonalIdentity
+	}
+	if exactPersonalRecoveryEnabled() && !exactPersonalRecoveryAllows(k.ID) &&
+		types.FeishuAuthMode(m.AuthMode) == types.FeishuUserOAuth {
+		// Keep non-approved held files in their original pending outbox. A
+		// single-file pilot must not enqueue the remaining files as retries.
+		if err := types.CheckLegacySourceRead(p.service.db.WithContext(ctx), k.ID, k.KnowledgeBaseID); err != nil {
+			if errors.Is(err, types.ErrLegacySourceRestricted) {
+				return false, nil
+			}
+			return false, err
+		}
+	}
+	if exactPersonalRecoveryAllows(k.ID) && types.FeishuAuthMode(m.AuthMode) == types.FeishuUserOAuth &&
+		a.Status == "index_pending" {
+		_, err := p.preflightExactPersonalDocument(ctx, a)
+		return err == nil, err
 	}
 	_, err = p.authorize(ctx, m, a)
 	return err == nil, err
@@ -407,48 +410,48 @@ func (p *PersonalRecovery) processFirstCreateDocument(
 		if err != nil {
 			return err
 		}
-		k, err := ks.repo.GetKnowledgeByID(ctx, payload.TenantID, payload.KnowledgeID)
+		k, err := p.loadDispatchMetadata(ctx, payload.TenantID, payload.KnowledgeBaseID, payload.KnowledgeID)
 		if err != nil {
 			return err
 		}
-		chunks, err := ks.chunkRepo.ListAllChunksByKnowledgeID(ctx, k.TenantID, k.ID)
+		chunkCount, indexRows, err := p.firstCreateOutputCounts(ctx, k)
 		if err != nil {
 			return err
 		}
-		if len(chunks) > 0 || k.ParseStatus == types.ParseStatusCompleted ||
+		if chunkCount > 0 || k.ParseStatus == types.ParseStatusCompleted ||
 			k.ParseStatus == types.ParseStatusFinalizing {
 			// Unknown partial/final results are not permission to run the
 			// ordinary destructive cleanup again. Reconciler must read receipts.
 			_ = dispatch.SetKnowledgeDispatchState(ctx, op.ID, "attention")
 			return p.repo.Invalidate(ctx, a.ID, "partial_or_unknown_index_requires_review")
 		}
-		var indexRows int64
-		if err = p.service.db.WithContext(
-			ctx,
-		).
-			Table(
-				"embeddings",
-			).
-			Where(
-				"knowledge_id = ?",
-
-				k.ID,
-			).
-			Count(
-				&indexRows,
-			).
-			Error; err != nil {
-			return err
-		}
 		if indexRows > 0 {
 			_ = dispatch.SetKnowledgeDispatchState(ctx, op.ID, "attention")
 			return p.repo.Invalidate(ctx, a.ID, "orphan_or_unknown_index_requires_review")
+		}
+		exactRecovery := exactPersonalRecoveryAllows(payload.KnowledgeID) &&
+			types.FeishuAuthMode(m.AuthMode) == types.FeishuUserOAuth
+		if !exactRecovery {
+			// Ordinary paths retain the existing source gate. The opt-in exact
+			// path below must prove the claimed file before any content read.
+			if err = types.CheckLegacySourceRead(p.service.db.WithContext(ctx), k.ID, k.KnowledgeBaseID); err != nil {
+				return err
+			}
 		}
 		work, err := p.authorize(ctx, m, a)
 		if err != nil {
 			return err
 		}
-		owner, err := p.repo.Claim(ctx, a.ID, p.lease)
+		var owner *types.FeishuPersonalAttempt
+		if exactRecovery {
+			preflight, preflightErr := p.preflightExactPersonalDocument(ctx, a)
+			if preflightErr != nil {
+				return preflightErr
+			}
+			owner, err = p.claimExactPreflight(ctx, preflight)
+		} else {
+			owner, err = p.repo.Claim(ctx, a.ID, p.lease)
+		}
 		if err != nil {
 			return err
 		}
@@ -483,6 +486,9 @@ func (p *PersonalRecovery) processFirstCreateDocument(
 		b, _ := json.Marshal(payload)
 		processingContext := context.WithValue(work, knowledgeDispatchContextKey{}, op)
 		processingContext = context.WithValue(processingContext, personalFirstCreateContextKey{}, true)
+		if exactRecovery {
+			return p.processExactFirstCreateConsumer(processingContext, payload, owner, op.ID)
+		}
 		err = ks.processDocument(processingContext, asynq.NewTask(types.TypeDocumentProcess, b))
 		read, stop := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer stop()

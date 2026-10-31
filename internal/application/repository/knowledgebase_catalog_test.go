@@ -14,6 +14,7 @@ func TestKnowledgeBaseCatalogKeepsRestrictedSourcesVisible(t *testing.T) {
 CREATE TABLE data_sources(id TEXT,knowledge_base_id TEXT,type TEXT,legacy_access_state TEXT);
 CREATE TABLE feishu_legacy_resources(knowledge_base_id TEXT,state TEXT,knowledge_id TEXT);
 CREATE TABLE knowledges(id TEXT,knowledge_base_id TEXT,deleted_at DATETIME);
+CREATE TABLE task_pending_ops(scope TEXT,scope_id TEXT);
 INSERT INTO tenants(id,status) VALUES(1,'active'),(2,'active');`).Error)
 	for _, row := range []struct {
 		id, state string

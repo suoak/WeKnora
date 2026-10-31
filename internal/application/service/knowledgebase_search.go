@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+
 	"github.com/Tencent/WeKnora/internal/application/access"
 
 	"github.com/Tencent/WeKnora/internal/application/service/retriever"
@@ -29,7 +30,7 @@ func (s *knowledgeBaseService) GetQueryEmbedding(ctx context.Context, kbID strin
 		return nil, access.ErrForbidden
 	} // HOLD until candidate filtering/provenance is certified.
 
-	kb, err := s.repo.GetKnowledgeBaseByID(ctx, kbID)
+	kb, err := s.exactSearchKnowledgeBase(ctx, kbID)
 	if err != nil {
 		return nil, err
 	}
@@ -135,6 +136,16 @@ func (s *knowledgeBaseService) HybridSearch(ctx context.Context,
 		return nil, access.ErrForbidden
 	} // HOLD until candidate filtering/provenance is certified.
 
+	if handled, results, err := s.exactRecoveryHybridSearch(ctx, id, params); handled {
+		return results, err
+	}
+
+	var err error
+	ctx, err = s.exactSearchContext(ctx, id, params)
+	if err != nil {
+		return nil, err
+	}
+
 	// Normalize once, before anything reads MatchCount. params is a value
 	// copy, so this stays local to the call.
 	params.MatchCount = normalizedMatchCount(params.MatchCount)
@@ -151,7 +162,14 @@ func (s *knowledgeBaseService) HybridSearch(ctx context.Context,
 		chunks = chunks[:params.MatchCount]
 	}
 
-	return s.processSearchResults(ctx, chunks, params.SkipContextEnrichment)
+	results, err := s.processSearchResults(ctx, chunks, params.SkipContextEnrichment)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := types.CheckExactPublishedDocumentRead(ctx); err != nil {
+		return nil, err
+	}
+	return results, nil
 }
 
 // hybridSearchCandidates runs retrieval, fusion and FAQ post-processing for
@@ -183,7 +201,15 @@ func (s *knowledgeBaseService) hybridSearchCandidates(ctx context.Context,
 	// returned row is enforced explicitly below.
 	var kbs []*types.KnowledgeBase
 	var err error
-	if isolated, ok := s.repo.(interface {
+	if _, _, _, _, exact := types.ExactPublishedDocumentIdentity(ctx); exact {
+		for _, kbID := range searchKBIDs {
+			kb, loadErr := s.exactSearchKnowledgeBase(ctx, kbID)
+			if loadErr != nil {
+				return nil, loadErr
+			}
+			kbs = append(kbs, kb)
+		}
+	} else if isolated, ok := s.repo.(interface {
 		GetReadKnowledgeBasesByIDs(context.Context, []string) ([]*types.KnowledgeBase, error)
 	}); ok {
 		kbs, err = isolated.GetReadKnowledgeBasesByIDs(ctx, searchKBIDs)

@@ -170,20 +170,22 @@ func (p *PersonalRecovery) firstCreateStatuses(
 		if r.KnowledgeID == "" {
 			continue
 		}
-		var k types.Knowledge
-		if err := p.service.db.WithContext(
-			ctx,
-		).
-			Where(
-				"id = ? AND knowledge_base_id = ?",
-				r.KnowledgeID,
-				r.KBID,
-			).
-			First(
-				&k,
-			).
-			Error; err != nil {
+		// Status is protocol metadata. Loading the document entity here would
+		// invoke the legacy KB body guard even before a task has been claimed.
+		owner, err := p.loadAuthorizationKB(ctx, r.KBID)
+		if err != nil {
 			return err
+		}
+		k, err := p.loadDispatchMetadata(ctx, owner.TenantID, r.KBID, r.KnowledgeID)
+		if err != nil {
+			return err
+		}
+		exact, err := p.decorateExactIndexStatus(ctx, owner.TenantID, r)
+		if err != nil {
+			return err
+		}
+		if exact {
+			continue
 		}
 		var receipts []types.TaskPendingOp
 		if err := p.service.db.WithContext(
@@ -353,29 +355,57 @@ func (p *PersonalRecovery) reconcileFirstCreatePublic(
 		if n > 0 {
 			return nil
 		}
-		var k types.Knowledge
-		if err := p.service.db.WithContext(
-			ctx,
-		).
-			Where(
-				"id = ? AND knowledge_base_id = ?",
-
-				m.KnowledgeID,
-
-				m.KBID,
-			).
-			First(
-				&k,
-			).
-			Error; err != nil {
+		k, err := p.loadDispatchMetadata(ctx, a.CallerTenantID, m.KBID, m.KnowledgeID)
+		if err != nil {
 			return err
+		}
+		if k.AttemptID != a.ID || k.ManifestSHA256 != a.ManifestHash {
+			return repository.ErrPersonalIdentity
 		}
 		op, err := dispatch.GetKnowledgeDispatch(ctx, k.TenantID, a.LogicalKnowledgeID)
 		if err != nil {
 			return err
 		}
+		var exactRows []types.TaskPendingOp
+		if err := p.service.db.WithContext(ctx).Where("scope=? AND scope_id=?",
+			types.PersonalExactReceiptScope, a.LogicalKnowledgeID).Limit(2).Find(&exactRows).Error; err != nil {
+			return err
+		}
+		if len(exactRows) != 0 {
+			if len(exactRows) == 1 && exactRows[0].Op == "staging" && op.Op == "processing" &&
+				a.Status == "processing" && a.OwnerNonce != "" && a.LeaseUntil != nil {
+				if a.LeaseUntil.After(time.Now()) {
+					return nil // A live owner is still producing private staging output.
+				}
+				// Close only the matching expired execution. No content/state
+				// rewrite, retry, or adoption of its partial output is permitted.
+				return p.repo.AbortExactExecution(ctx, a, op.ID)
+			}
+			// A completed exact publication is reconciled from its own receipt;
+			// never re-Claim it or reinterpret it as the older PG index receipt.
+			var receipt types.PersonalExactReceipt
+			if len(exactRows) != 1 || op.Op != "completed" || exactRows[0].Op != "published" ||
+				json.Unmarshal(exactRows[0].Payload, &receipt) != nil || a.Status != "indexed" {
+				return errPersonalExactDocument
+			}
+			source, err := p.prepareExactPersonalSource(ctx, a, true)
+			if err != nil {
+				return err
+			}
+			if exactReceiptSourceIdentity(receipt) != exactSourceReceipt(source) {
+				return errPersonalExactDocument
+			}
+			return p.verifyExactPublishedDatabase(ctx, receipt)
+		}
 		if op.Op != "processed" && op.Op != "completed" {
 			return nil
+		}
+		// Inspecting a durable handoff is metadata-only. It is not permission
+		// to claim and invalidate an already-processed document whose derived
+		// rows still require exact serving provenance. Keep this denial before
+		// Claim until that separate proof is available.
+		if err = types.CheckLegacySourceRead(p.service.db.WithContext(ctx), k.ID, m.KBID); err != nil {
+			return err
 		}
 		owner, err := p.repo.Claim(ctx, a.ID, p.lease)
 		if errors.Is(err, repository.ErrPersonalBusy) {

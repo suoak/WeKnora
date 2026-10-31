@@ -7353,6 +7353,7 @@ export default {
     partialUploadSuccess: '部分文件上传成功（成功：{success}，失败：{fail}）',
     allUploadFailed: '所有文件上传失败（{count}个）',
     deleteSuccess: '知识删除成功！',
+    documentReadForbidden: '???????',
     chunkLoadFailed: '分块加载失败',
     infoCard: {
       tooltip: '查看知识库信息',

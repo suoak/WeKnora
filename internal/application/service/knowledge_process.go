@@ -676,6 +676,11 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 			werrors.ErrCodeChunkingFailed, "create chunks failed", err)
 		return nil
 	}
+	if consumer, exact := exactPersonalConsumerFrom(ctx); exact {
+		if err := consumer.captureParserChunks(ctx, insertChunks); err != nil {
+			return err
+		}
+	}
 	totalChunkChars := 0
 	for _, c := range insertChunks {
 		totalChunkChars += len(c.Content)
@@ -717,6 +722,12 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 				KnowledgeBaseID: knowledge.KnowledgeBaseID,
 				IsEnabled:       true,
 			})
+		}
+		if consumer, exact := exactPersonalConsumerFrom(ctx); exact {
+			if err := consumer.registerIndexInputs(ctx, knowledge, textChunks, indexInfoList); err != nil {
+				return err
+			}
+			embeddingModel = &exactPersonalEmbedder{Embedder: embeddingModel, consumer: consumer}
 		}
 
 		// Calculate storage size required for embeddings
@@ -854,6 +865,13 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 		pendingMultimodal || pendingPDFMultimodal,
 		now,
 	)
+	if consumer, exact := exactPersonalConsumerFrom(ctx); exact {
+		// Public rows remain staging until receipts, derived output and the
+		// protocol generation are atomically published by the owning caller.
+		knowledge.EnableStatus = "disabled"
+		knowledge.ParseStatus = types.ParseStatusProcessing
+		consumer.indexed = true
+	}
 
 	if err := s.updateKnowledgeUnlessSourceReplaced(ctx, knowledge); err != nil {
 		logger.GetLogger(ctx).WithField("error", err).Errorf("processChunks update knowledge failed")
@@ -1156,7 +1174,10 @@ func (s *knowledgeService) getSummary(ctx context.Context,
 	for i, c := range sortedChunks {
 		chunkIDs[i] = c.ID
 	}
-	imageInfoMap := searchutil.CollectImageInfoByChunkIDs(ctx, s.chunkRepo, knowledge.TenantID, chunkIDs)
+	imageInfoMap := map[string]string{}
+	if _, exact := exactPersonalConsumerFrom(ctx); !exact {
+		imageInfoMap = searchutil.CollectImageInfoByChunkIDs(ctx, s.chunkRepo, knowledge.TenantID, chunkIDs)
+	}
 	mergedImageInfo := searchutil.MergeImageInfoJSON(imageInfoMap)
 	if mergedImageInfo != "" {
 		// For image-dominated documents (e.g. a docx whose only payload is a
@@ -1223,7 +1244,7 @@ func (s *knowledgeService) getSummary(ctx context.Context,
 	modelCtx = types.WithBackgroundModelUsage(modelCtx, types.ModelUsageOperationDocumentSummary,
 		summaryIdentity,
 		[]string{knowledge.KnowledgeBaseID}, []string{knowledge.ID})
-	summary, err := summaryModel.Chat(modelCtx, []chat.Message{
+	messages := []chat.Message{
 		{
 			Role:    "system",
 			Content: summaryPrompt,
@@ -1232,11 +1253,20 @@ func (s *knowledgeService) getSummary(ctx context.Context,
 			Role:    "user",
 			Content: contentWithMetadata,
 		},
-	}, &chat.ChatOptions{
+	}
+	options := &chat.ChatOptions{
 		Temperature: 0.3,
 		MaxTokens:   maxTokens,
 		Thinking:    &thinking,
-	})
+	}
+	if consumer, exact := exactPersonalConsumerFrom(ctx); exact {
+		var proofErr error
+		modelCtx, proofErr = consumer.summaryMessages(modelCtx, knowledge, sortedChunks, messages, options)
+		if proofErr != nil {
+			return nil, proofErr
+		}
+	}
+	summary, err := summaryModel.Chat(modelCtx, messages, options)
 	if err != nil {
 		logger.GetLogger(ctx).WithField("error", err).Errorf("GetSummary failed")
 		return nil, err
@@ -1247,8 +1277,18 @@ func (s *knowledgeService) getSummary(ctx context.Context,
 		return nil, err
 	}
 	result := parseDocumentSummaryOutput(content)
-	logger.GetLogger(ctx).WithField("summary", result.Summary).
-		WithField("has_profile", result.Profile != nil).Infof("GetSummary success")
+	if consumer, exact := exactPersonalConsumerFrom(ctx); exact {
+		var digestErr error
+		consumer.derived, digestErr = exactDerivedDigest(result.Summary, result.Profile)
+		if digestErr != nil {
+			return nil, digestErr
+		}
+		consumer.derivedReady = true
+		logger.GetLogger(ctx).WithField("has_profile", result.Profile != nil).Infof("GetSummary success")
+	} else {
+		logger.GetLogger(ctx).WithField("summary", result.Summary).
+			WithField("has_profile", result.Profile != nil).Infof("GetSummary success")
+	}
 	return result, nil
 }
 
@@ -2684,7 +2724,7 @@ func (s *knowledgeService) RegenerateKnowledgeSummary(
 	if err != nil {
 		return nil, err
 	}
-	kb, err := s.kbService.GetKnowledgeBaseByID(ctx, knowledge.KnowledgeBaseID)
+	kb, err := s.processingKnowledgeBase(ctx, knowledge.KnowledgeBaseID)
 	if err != nil {
 		return nil, err
 	}
@@ -2695,10 +2735,18 @@ func (s *knowledgeService) RegenerateKnowledgeSummary(
 	if err != nil {
 		return nil, err
 	}
+	_, exact := exactPersonalConsumerFrom(ctx)
+	if consumer, ok := exactPersonalConsumerFrom(ctx); ok {
+		if err := consumer.verifyParserChunks(allChunks); err != nil {
+			return nil, err
+		}
+	}
 	textChunks := make([]*types.Chunk, 0)
 	for _, chunk := range allChunks {
-		if chunk.ChunkType == types.ChunkTypeText && chunk.IsEnabled {
-			textChunks = append(textChunks, chunk)
+		if chunk.ChunkType == types.ChunkTypeText && (chunk.IsEnabled || exact) {
+			summaryInput := *chunk
+			summaryInput.IsEnabled = true
+			textChunks = append(textChunks, &summaryInput)
 		}
 	}
 	if len(textChunks) == 0 {
@@ -2709,7 +2757,9 @@ func (s *knowledgeService) RegenerateKnowledgeSummary(
 		if updateErr := s.saveSummaryState(ctx, knowledge); updateErr != nil {
 			return knowledge, updateErr
 		}
-		_ = requestKnowledgeBaseProfileRefresh(ctx, s.task, kb, false)
+		if !exact {
+			_ = requestKnowledgeBaseProfileRefresh(ctx, s.task, kb, false)
+		}
 		return knowledge, errInsufficientSummaryContent
 	}
 	sort.Slice(textChunks, func(i, j int) bool {
@@ -2785,7 +2835,11 @@ func (s *knowledgeService) RegenerateKnowledgeSummary(
 		return nil, err
 	}
 	summaryChunkContent := buildSummaryChunkContent(summary, summaryResult.Profile)
-	defer func() { _ = requestKnowledgeBaseProfileRefresh(ctx, s.task, kb, false) }()
+	defer func() {
+		if !exact {
+			_ = requestKnowledgeBaseProfileRefresh(ctx, s.task, kb, false)
+		}
+	}()
 	if kb.NeedsEmbeddingModel() {
 		maxIndex := 0
 		for _, chunk := range allChunks {
@@ -2826,6 +2880,11 @@ func (s *knowledgeService) RegenerateKnowledgeSummary(
 				return nil, err
 			}
 			summaryChunks = append(summaryChunks, summaryChunk)
+		}
+		if consumer, ok := exactPersonalConsumerFrom(ctx); ok {
+			if err := consumer.acceptSummaryChunks(knowledge, summaryChunks); err != nil {
+				return nil, err
+			}
 		}
 		if err := s.updateChunkVector(ctx, knowledge.KnowledgeBaseID, summaryChunks); err != nil {
 			return nil, err
@@ -3352,7 +3411,7 @@ func (s *knowledgeService) updateChunkVector(
 	chunks []*types.Chunk,
 ) error {
 	// Get embedding model from knowledge base
-	sourceKB, err := s.kbService.GetKnowledgeBaseByID(ctx, kbID)
+	sourceKB, err := s.processingKnowledgeBase(ctx, kbID)
 	if err != nil {
 		return err
 	}
@@ -3422,10 +3481,22 @@ func (s *knowledgeService) updateChunkVector(
 		return err
 	}
 
-	// Delete old vector representation of the chunk
-	err = retrieveEngine.DeleteByChunkIDList(ctx, ids, embeddingModel.GetDimensions(), sourceKB.Type)
-	if err != nil {
-		return err
+	if consumer, exact := exactPersonalConsumerFrom(ctx); exact {
+		if len(knowledgeCache) != 1 {
+			return errPersonalExactDocument
+		}
+		if err := consumer.registerIndexInputs(
+			ctx, knowledgeCache[consumer.source.knowledge], chunks, indexInfo,
+		); err != nil {
+			return err
+		}
+		embeddingModel = &exactPersonalEmbedder{Embedder: embeddingModel, consumer: consumer}
+	} else {
+		// Delete old vector representation of the chunk.
+		err = retrieveEngine.DeleteByChunkIDList(ctx, ids, embeddingModel.GetDimensions(), sourceKB.Type)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Index updated chunk content with new vector representation
@@ -3896,7 +3967,7 @@ func (s *knowledgeService) processDocument(ctx context.Context, t *asynq.Task) e
 	}
 
 	// 获取知识库信息
-	kb, err := s.kbService.GetKnowledgeBaseByID(ctx, payload.KnowledgeBaseID)
+	kb, err := s.processingKnowledgeBase(ctx, payload.KnowledgeBaseID)
 	if err != nil {
 		logger.Errorf(ctx, "failed to get knowledge base: %v", err)
 		knowledge.ParseStatus = "failed"
@@ -4432,6 +4503,20 @@ func (s *knowledgeService) convert(
 	eff types.EffectiveProcessConfig,
 	isLastRetry bool,
 ) (*types.ReadResult, error) {
+	if consumer, exact := exactPersonalConsumerFrom(ctx); exact {
+		s.beginStage(ctx, knowledge.ID, types.StageDocReader, types.JSONMap{"parser": "anydoc"})
+		result, err := consumer.convert(ctx, payload)
+		if err != nil {
+			s.failStage(ctx, knowledge.ID, types.StageDocReader,
+				werrors.ErrCodeDocReaderParseFailed, "exact document parsing could not be verified", err)
+			return nil, err
+		}
+		sanitizeReadResult(result)
+		s.endStage(ctx, knowledge.ID, types.StageDocReader, types.JSONMap{
+			"text_length": len(result.MarkdownContent), "images_found": len(result.ImageRefs),
+		})
+		return result, nil
+	}
 	// Stage tracking: docreader. Mark the stage as running here so the
 	// timeline reflects "DocReader" the moment a worker picks the task
 	// up — before that, the stage stays "pending" from the initial
@@ -4937,6 +5022,15 @@ func (s *knowledgeService) decrMultimodalSlots(
 func (s *knowledgeService) enqueueKnowledgePostProcessTask(
 	ctx context.Context, knowledge *types.Knowledge,
 ) error {
+	if consumer, exact := exactPersonalConsumerFrom(ctx); exact {
+		if !consumer.indexed {
+			return errPersonalExactDocument
+		}
+		// Do not lose the live Claim by handing a staging document to an
+		// ordinary asynchronous task. The owner completes derived work and
+		// publication before issuing any later public task.
+		return nil
+	}
 	if op, ok := ctx.Value(knowledgeDispatchContextKey{}).(*types.TaskPendingOp); ok {
 		repo, ok := s.repo.(interfaces.KnowledgeDispatchRepository)
 		if !ok {

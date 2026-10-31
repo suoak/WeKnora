@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Tencent/WeKnora/internal/application/access"
 	"strings"
 	"time"
+
+	"github.com/Tencent/WeKnora/internal/application/access"
 
 	"github.com/Tencent/WeKnora/internal/common"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -375,12 +376,16 @@ func (r *knowledgeRepository) UpdateKnowledge(ctx context.Context, knowledge *ty
 	if knowledge.CustomMetadata == nil {
 		omit = append(append([]string{}, omitFieldsOnUpdate...), "custom_metadata")
 	}
-	err := r.db.WithContext(ctx).Omit(omit...).Save(knowledge).Error
+	err := types.WithExactDocumentWrite(ctx, r.db, knowledge.TenantID, knowledge.ID, knowledge.KnowledgeBaseID,
+		func(tx *gorm.DB) error { return tx.Omit(omit...).Save(knowledge).Error })
 	return err
 }
 
 // UpdateKnowledgeBatch updates knowledge items in batch
 func (r *knowledgeRepository) UpdateKnowledgeBatch(ctx context.Context, knowledgeList []*types.Knowledge) error {
+	if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
+		return types.ErrExactDocumentScope
+	}
 	if len(knowledgeList) == 0 {
 		return nil
 	}
@@ -394,6 +399,9 @@ func (r *knowledgeRepository) UpdateKnowledgeBatch(ctx context.Context, knowledg
 
 // DeleteKnowledge deletes knowledge
 func (r *knowledgeRepository) DeleteKnowledge(ctx context.Context, tenantID uint64, id string) error {
+	if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
+		return types.ErrExactDocumentScope
+	}
 	return r.db.WithContext(ctx).Where("tenant_id = ? AND id = ?", tenantID, id).Delete(&types.Knowledge{}).Error
 }
 
@@ -615,8 +623,10 @@ func (r *knowledgeRepository) UpdateKnowledgeColumn(
 			value = common.CleanInvalidUTF8(string(v))
 		}
 	}
-	err := r.db.WithContext(ctx).Model(&types.Knowledge{}).Where("id = ?", id).Update(column, value).Error
-	return err
+	if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
+		return r.UpdateKnowledgeColumns(ctx, id, map[string]interface{}{column: value})
+	}
+	return r.db.WithContext(ctx).Model(&types.Knowledge{}).Where("id = ?", id).Update(column, value).Error
 }
 
 // UpdateKnowledgeColumns writes multiple columns in a single UPDATE so callers
@@ -638,6 +648,20 @@ func (r *knowledgeRepository) UpdateKnowledgeColumns(
 		case []byte:
 			values["error_message"] = common.CleanInvalidUTF8(string(v))
 		}
+	}
+	if tenant, target, kb, scoped := types.ExactDocumentIdentity(ctx); scoped {
+		if target != id {
+			return types.ErrExactDocumentScope
+		}
+		for _, identity := range []string{"id", "tenant_id", "knowledge_base_id"} {
+			if _, supplied := values[identity]; supplied {
+				return types.ErrExactDocumentScope
+			}
+		}
+		return types.WithExactDocumentWrite(ctx, r.db, tenant, id, kb, func(tx *gorm.DB) error {
+			return tx.Model(&types.Knowledge{}).
+				Where("id = ? AND tenant_id = ? AND knowledge_base_id = ?", id, tenant, kb).Updates(values).Error
+		})
 	}
 	return r.db.WithContext(ctx).Model(&types.Knowledge{}).Where("id = ?", id).Updates(values).Error
 }

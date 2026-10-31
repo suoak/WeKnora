@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+
 	"github.com/Tencent/WeKnora/internal/application/access"
 
 	apperrors "github.com/Tencent/WeKnora/internal/errors"
@@ -68,9 +69,33 @@ func (s *knowledgeBaseService) HybridSearchWithRerank(ctx context.Context,
 	id string,
 	params types.SearchParams,
 ) (*types.RetrievalResult, error) {
+	var err error
+	ctx, err = s.exactSearchContext(ctx, id, params)
+	if err != nil {
+		return nil, err
+	}
+	result, err := s.hybridSearchWithRerank(ctx, id, params)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := types.CheckExactPublishedDocumentRead(ctx); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (s *knowledgeBaseService) hybridSearchWithRerank(ctx context.Context,
+	id string, params types.SearchParams,
+) (*types.RetrievalResult, error) {
 	if s.documentACL != nil && s.documentACL.enabled {
 		return nil, access.ErrForbidden
 	} // HOLD until candidate filtering/provenance is certified.
+
+	var sourceErr error
+	ctx, sourceErr = s.exactSearchContext(ctx, id, params)
+	if sourceErr != nil {
+		return nil, sourceErr
+	}
 
 	if !params.Rerank.IsEnabled() {
 		results, err := s.HybridSearch(ctx, id, params)
@@ -183,6 +208,13 @@ func (s *knowledgeBaseService) rerankCandidates(
 		diag.Outcome = types.RerankOutcomeModelUnavailable
 		diag.Error = err.Error()
 		return retrievalOrder
+	}
+
+	model, err = s.exactRerankModel(ctx, model, query, candidates)
+	if err != nil {
+		diag.Outcome = types.RerankOutcomeModelError
+		diag.Error = "exact_document_rerank_input_unverified"
+		return nil
 	}
 
 	res := reranking.Rerank(ctx, model, query, candidates, reranking.Options{

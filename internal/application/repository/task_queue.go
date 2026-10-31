@@ -382,6 +382,7 @@ func (r *taskPendingOpsRepository) DeleteByIDs(ctx context.Context, ids []int64)
 	}
 	return r.db.WithContext(ctx).
 		Where("id IN ?", ids).
+		Where("scope <> ?", types.PersonalExactReceiptScope).
 		Delete(&types.TaskPendingOp{}).Error
 }
 
@@ -391,6 +392,9 @@ func (r *taskPendingOpsRepository) DeleteByIDs(ctx context.Context, ids []int64)
 func (r *taskPendingOpsRepository) DeleteByScope(ctx context.Context, scope, scopeID string) error {
 	if scope == "" || scopeID == "" {
 		return errors.New("task pending ops: scope and scope_id are required")
+	}
+	if scope == types.PersonalExactReceiptScope {
+		return types.ErrExactDocumentScope
 	}
 	return r.db.WithContext(ctx).
 		Where("scope = ? AND scope_id = ?", scope, scopeID).
@@ -408,6 +412,9 @@ func (r *taskPendingOpsRepository) DrainUnclaimedAndRelease(
 ) ([]string, error) {
 	if taskType == "" || scope == "" || scopeID == "" || op == "" {
 		return nil, errors.New("task pending ops: task_type, scope, scope_id and op are required")
+	}
+	if scope == types.PersonalExactReceiptScope {
+		return nil, types.ErrExactDocumentScope
 	}
 	var keys []string
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -516,6 +523,9 @@ func (r *taskPendingOpsRepository) DeleteByDedupKey(
 ) error {
 	if dedupKey == "" {
 		return fmt.Errorf("task pending ops: empty dedup_key in DeleteByDedupKey")
+	}
+	if scope == types.PersonalExactReceiptScope {
+		return types.ErrExactDocumentScope
 	}
 	q := r.db.WithContext(ctx).
 		Where("task_type = ? AND scope = ? AND scope_id = ? AND dedup_key = ?",

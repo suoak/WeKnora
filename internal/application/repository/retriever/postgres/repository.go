@@ -30,12 +30,12 @@ func NewPostgresRetrieveEngineRepository(db *gorm.DB) interfaces.RetrieveEngineR
 }
 
 // EngineType returns the retriever engine type (PostgreSQL)
-func (r *pgRepository) EngineType() types.RetrieverEngineType {
+func (g *pgRepository) EngineType() types.RetrieverEngineType {
 	return types.PostgresRetrieverEngineType
 }
 
 // Support returns supported retriever types (keywords and vector)
-func (r *pgRepository) Support() []types.RetrieverType {
+func (g *pgRepository) Support() []types.RetrieverType {
 	return []types.RetrieverType{types.KeywordsRetrieverType, types.VectorRetrieverType}
 }
 
@@ -96,11 +96,43 @@ var upsertBySource = clause.OnConflict{
 	}),
 }
 
+// A scoped worker must never claim a pre-existing source ID owned by another
+// document. Check the conflicting row in PostgreSQL itself, under the upsert's
+// row lock, rather than trusting IndexInfo or an earlier ownership query.
+func exactDocumentUpsert(ctx context.Context) clause.OnConflict {
+	conflict := upsertBySource
+	if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
+		conflict.Where = clause.Where{Exprs: []clause.Expression{clause.Expr{
+			SQL: "embeddings.knowledge_id=EXCLUDED.knowledge_id AND " +
+				"embeddings.knowledge_base_id=EXCLUDED.knowledge_base_id",
+		}}}
+	}
+	return conflict
+}
+
+func saveExactDocumentVectors(ctx context.Context, tx *gorm.DB, rows []*pgVector) error {
+	if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
+		for _, row := range rows {
+			row.IsEnabled = false
+		}
+	}
+	result := tx.Clauses(exactDocumentUpsert(ctx)).Create(rows)
+	if result.Error != nil {
+		return result.Error
+	}
+	if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped && result.RowsAffected != int64(len(rows)) {
+		return types.ErrExactDocumentScope
+	}
+	return nil
+}
+
 // Save stores a single index entry
 func (g *pgRepository) Save(ctx context.Context, indexInfo *types.IndexInfo, additionalParams map[string]any) error {
 	logger.GetLogger(ctx).Debugf("[Postgres] Saving index for source ID: %s", indexInfo.SourceID)
 	embeddingDB := toDBVectorEmbedding(indexInfo, additionalParams)
-	err := g.db.WithContext(ctx).Clauses(upsertBySource).Create(embeddingDB).Error
+	tenant, _, _, _ := types.ExactDocumentIdentity(ctx)
+	err := types.WithExactDocumentWrite(ctx, g.db, tenant, indexInfo.KnowledgeID, indexInfo.KnowledgeBaseID,
+		func(tx *gorm.DB) error { return saveExactDocumentVectors(ctx, tx, []*pgVector{embeddingDB}) })
 	if err != nil {
 		logger.GetLogger(ctx).Errorf("[Postgres] Failed to save index: %v", err)
 		return err
@@ -132,7 +164,32 @@ func (g *pgRepository) BatchSave(
 		positions[key] = len(indexInfoDBList)
 		indexInfoDBList = append(indexInfoDBList, row)
 	}
-	err := g.db.WithContext(ctx).Clauses(upsertBySource).Create(indexInfoDBList).Error
+	write := func(tx *gorm.DB) error { return saveExactDocumentVectors(ctx, tx, indexInfoDBList) }
+	var err error
+	if tenant, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
+		err = g.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			for _, info := range indexInfoList {
+				if _, err := types.CheckExactDocumentCommit(
+					tx, tenant, info.KnowledgeID, info.KnowledgeBaseID,
+				); err != nil {
+					return err
+				}
+			}
+			if err := write(tx); err != nil {
+				return err
+			}
+			for _, info := range indexInfoList {
+				if _, err := types.CheckExactDocumentCommit(
+					tx, tenant, info.KnowledgeID, info.KnowledgeBaseID,
+				); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	} else {
+		err = write(g.db.WithContext(ctx))
+	}
 	if err != nil {
 		logger.GetLogger(ctx).Errorf("[Postgres] Batch save failed: %v", err)
 		return err
@@ -143,6 +200,9 @@ func (g *pgRepository) BatchSave(
 
 // DeleteByChunkIDList deletes indices by chunk IDs
 func (g *pgRepository) DeleteByChunkIDList(ctx context.Context, chunkIDList []string, dimension int, knowledgeType string) error {
+	if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
+		return types.ErrExactDocumentScope
+	}
 	logger.GetLogger(ctx).Infof("[Postgres] Deleting indices by chunk IDs, count: %d", len(chunkIDList))
 	result := g.db.WithContext(ctx).Where("chunk_id IN ?", chunkIDList).Delete(&pgVector{})
 	if result.Error != nil {
@@ -155,6 +215,9 @@ func (g *pgRepository) DeleteByChunkIDList(ctx context.Context, chunkIDList []st
 
 // DeleteBySourceIDList deletes indices by source IDs
 func (g *pgRepository) DeleteBySourceIDList(ctx context.Context, sourceIDList []string, dimension int, knowledgeType string) error {
+	if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
+		return types.ErrExactDocumentScope
+	}
 	if len(sourceIDList) == 0 {
 		return nil
 	}
@@ -170,6 +233,9 @@ func (g *pgRepository) DeleteBySourceIDList(ctx context.Context, sourceIDList []
 
 // DeleteByKnowledgeIDList deletes indices by knowledge IDs
 func (g *pgRepository) DeleteByKnowledgeIDList(ctx context.Context, knowledgeIDList []string, dimension int, knowledgeType string) error {
+	if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
+		return types.ErrExactDocumentScope
+	}
 	logger.GetLogger(ctx).Infof("[Postgres] Deleting indices by knowledge IDs, count: %d", len(knowledgeIDList))
 	result := g.db.WithContext(ctx).Where("knowledge_id IN ?", knowledgeIDList).Delete(&pgVector{})
 	if result.Error != nil {
@@ -197,6 +263,22 @@ func (g *pgRepository) Retrieve(ctx context.Context, params types.RetrieveParams
 // KeywordsRetrieve performs keyword-based search using PostgreSQL full-text search
 func (g *pgRepository) KeywordsRetrieve(ctx context.Context,
 	params types.RetrieveParams,
+) ([]*types.RetrieveResult, error) {
+	if _, err := types.CheckExactPublishedDocumentRead(ctx); err != nil {
+		return nil, err
+	}
+	results, err := g.keywordsRetrieve(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = types.CheckExactPublishedDocumentRead(ctx); err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+func (g *pgRepository) keywordsRetrieve(
+	ctx context.Context, params types.RetrieveParams,
 ) ([]*types.RetrieveResult, error) {
 	var guardErr error
 	params, guardErr = access.GuardDocumentRetrieval(ctx, types.PostgresRetrieverEngineType, params)
@@ -335,6 +417,22 @@ func (g *pgRepository) KeywordsRetrieve(ctx context.Context,
 // Optimized to use HNSW index efficiently and avoid recalculating vector distance
 func (g *pgRepository) VectorRetrieve(ctx context.Context,
 	params types.RetrieveParams,
+) ([]*types.RetrieveResult, error) {
+	if _, err := types.CheckExactPublishedDocumentRead(ctx); err != nil {
+		return nil, err
+	}
+	results, err := g.vectorRetrieve(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = types.CheckExactPublishedDocumentRead(ctx); err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+func (g *pgRepository) vectorRetrieve(
+	ctx context.Context, params types.RetrieveParams,
 ) ([]*types.RetrieveResult, error) {
 	var guardErr error
 	params, guardErr = access.GuardDocumentRetrieval(ctx, types.PostgresRetrieverEngineType, params)
@@ -770,6 +868,9 @@ func (g *pgRepository) CopyIndices(ctx context.Context,
 
 // BatchUpdateChunkEnabledStatus updates the enabled status of chunks in batch
 func (g *pgRepository) BatchUpdateChunkEnabledStatus(ctx context.Context, chunkStatusMap map[string]bool) error {
+	if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
+		return types.ErrExactDocumentScope
+	}
 	if len(chunkStatusMap) == 0 {
 		logger.GetLogger(ctx).Warnf("[Postgres] Chunk status map is empty, skipping update")
 		return nil
@@ -821,6 +922,9 @@ func (g *pgRepository) BatchUpdateChunkEnabledStatus(ctx context.Context, chunkS
 
 // BatchUpdateChunkTagID updates the tag ID of chunks in batch
 func (g *pgRepository) BatchUpdateChunkTagID(ctx context.Context, chunkTagMap map[string]string) error {
+	if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
+		return types.ErrExactDocumentScope
+	}
 	if len(chunkTagMap) == 0 {
 		logger.GetLogger(ctx).Warnf("[Postgres] Chunk tag map is empty, skipping update")
 		return nil

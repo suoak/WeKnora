@@ -15,6 +15,7 @@ func TestAdmittedDeleteDoesNotRequireFeishuBodyRead(t *testing.T) {
 			f := newDocumentWriteFixture(t)
 			for _, sql := range []string{
 				`CREATE TABLE tenants (id integer PRIMARY KEY, status text, deleted_at datetime)`,
+				`CREATE TABLE task_pending_ops(scope text,scope_id text)`,
 				`INSERT INTO tenants(id,status) VALUES (7,'active')`,
 				`CREATE TABLE knowledge_bases (id text PRIMARY KEY, tenant_id integer, deleted_at datetime)`,
 				`INSERT INTO knowledge_bases(id,tenant_id) VALUES ('kb',7),('other',7)`,

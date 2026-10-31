@@ -31,29 +31,30 @@ const kbTaskCleanupTimeout = 5 * time.Second
 
 // knowledgeBaseService implements the knowledge base service interface
 type knowledgeBaseService struct {
-	documentACL     *DocumentReadPolicy
-	repo            interfaces.KnowledgeBaseRepository
-	kgRepo          interfaces.KnowledgeRepository
-	chunkRepo       interfaces.ChunkRepository
-	shareRepo       interfaces.KBShareRepository
-	kbShareService  interfaces.KBShareService
-	modelService    interfaces.ModelService
-	modelPolicy     interfaces.ModelPolicyService
-	retrieveEngine  interfaces.RetrieveEngineRegistry
-	ownership       retriever.TenantStoreOwnership
-	tenantRepo      interfaces.TenantRepository
-	fileSvc         interfaces.FileService
-	storageResolver interfaces.StorageBackendResolver
-	graphEngine     interfaces.RetrieveGraphRepository
-	asynqClient     interfaces.TaskEnqueuer
-	taskInspector   interfaces.TaskInspector
-	taskPendingRepo interfaces.TaskPendingOpsRepository
-	dsRepo          interfaces.DataSourceRepository
-	syncLogRepo     interfaces.SyncLogRepository
-	dsScheduler     *datasource.Scheduler
-	audit           interfaces.AuditLogService
-	resourceCatalog interfaces.ResourceCatalog
-	wikiRepo        interfaces.WikiPageRepository
+	personalRecovery *PersonalRecovery
+	documentACL      *DocumentReadPolicy
+	repo             interfaces.KnowledgeBaseRepository
+	kgRepo           interfaces.KnowledgeRepository
+	chunkRepo        interfaces.ChunkRepository
+	shareRepo        interfaces.KBShareRepository
+	kbShareService   interfaces.KBShareService
+	modelService     interfaces.ModelService
+	modelPolicy      interfaces.ModelPolicyService
+	retrieveEngine   interfaces.RetrieveEngineRegistry
+	ownership        retriever.TenantStoreOwnership
+	tenantRepo       interfaces.TenantRepository
+	fileSvc          interfaces.FileService
+	storageResolver  interfaces.StorageBackendResolver
+	graphEngine      interfaces.RetrieveGraphRepository
+	asynqClient      interfaces.TaskEnqueuer
+	taskInspector    interfaces.TaskInspector
+	taskPendingRepo  interfaces.TaskPendingOpsRepository
+	dsRepo           interfaces.DataSourceRepository
+	syncLogRepo      interfaces.SyncLogRepository
+	dsScheduler      *datasource.Scheduler
+	audit            interfaces.AuditLogService
+	resourceCatalog  interfaces.ResourceCatalog
+	wikiRepo         interfaces.WikiPageRepository
 }
 
 // NewKnowledgeBaseService creates a new knowledge base service

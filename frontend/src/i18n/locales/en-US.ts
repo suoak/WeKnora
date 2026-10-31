@@ -865,6 +865,7 @@ export default {
     partialUploadSuccess: 'Partial upload success (success: {success}, failed: {fail})',
     allUploadFailed: 'All files failed to upload ({count} files)',
     deleteSuccess: 'Knowledge deleted successfully!',
+    documentReadForbidden: 'You do not have permission to view this document',
     chunkLoadFailed: 'Failed to load chunks'
   ,
   selectKnowledgeBase: 'Select a knowledge base',

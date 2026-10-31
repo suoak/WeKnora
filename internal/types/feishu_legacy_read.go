@@ -3,6 +3,7 @@ package types
 import (
 	"context"
 	"errors"
+
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -56,6 +57,7 @@ func EnableLegacyReadGuards(db *gorm.DB) *gorm.DB {
 	}
 	return db.Session(&gorm.Session{NewDB: true})
 }
+
 func LegacyReadGuardsEnabled(db *gorm.DB) bool {
 	if db == nil || db.Config == nil {
 		return false
@@ -83,6 +85,21 @@ func CheckLegacySourceRead(db *gorm.DB, knowledgeID, kbID string) error {
 	}
 	if kbID == "" {
 		return nil
+	}
+	if scoped, err := CheckExactDocumentRead(db.Statement.Context, knowledgeID, kbID); scoped {
+		return err
+	}
+	if knowledgeID != "" {
+		var exactReceipt bool
+		if err := db.Raw(`SELECT EXISTS(SELECT 1 FROM task_pending_ops
+WHERE scope=? AND scope_id=?)`, PersonalExactReceiptScope, knowledgeID).Scan(&exactReceipt).Error; err != nil {
+			return err
+		}
+		// A work receipt is not serving permission. Until a current exact
+		// serving proof is issued, even a workspace Web read stays closed.
+		if exactReceipt {
+			return ErrLegacySourceRestricted
+		}
 	}
 	var managed bool
 	if err := db.Raw("SELECT EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE knowledge_base_id=?) OR EXISTS(SELECT 1 FROM data_sources WHERE knowledge_base_id=? AND (type IN ('feishu','feishu_drive','lark','lark_drive') OR legacy_access_state<>'unmanaged'))", kbID, kbID).Scan(&managed).Error; err != nil {
@@ -124,6 +141,7 @@ WHERE knowledge_base_id=? AND state IN ('hold','revoked')
 func (k *Knowledge) AfterFind(tx *gorm.DB) error {
 	return CheckLegacySourceRead(tx, k.ID, k.KnowledgeBaseID)
 }
+
 func (c *Chunk) AfterFind(tx *gorm.DB) error {
 	return CheckLegacySourceRead(tx, c.KnowledgeID, c.KnowledgeBaseID)
 }
@@ -136,6 +154,7 @@ type legacyKBAdminMetadataKey struct{}
 func WithLegacyKBAdminMetadata(ctx context.Context, kb string) context.Context {
 	return context.WithValue(ctx, legacyKBAdminMetadataKey{}, kb)
 }
+
 func (k *KnowledgeBase) AfterFind(tx *gorm.DB) error {
 	owner, err := PrivateKBOwner(tx, k.ID)
 	if err != nil {
@@ -150,9 +169,11 @@ func (k *KnowledgeBase) AfterFind(tx *gorm.DB) error {
 	}
 	return CheckLegacySourceRead(tx, "", k.ID)
 }
+
 func (p *WikiPageRevision) AfterFind(tx *gorm.DB) error {
 	return CheckLegacySourceRead(tx, "", p.KnowledgeBaseID)
 }
+
 func (m *Message) AfterFind(tx *gorm.DB) error {
 	if !LegacyReadGuardsEnabled(tx) {
 		return nil
