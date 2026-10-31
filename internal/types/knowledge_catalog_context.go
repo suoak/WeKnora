@@ -11,6 +11,7 @@ func WithKnowledgeCatalogRead(ctx context.Context) context.Context {
 	return context.WithValue(ctx, knowledgeCatalogContextKey{}, true)
 }
 
+// IsKnowledgeCatalogRead reports a server-selected metadata-only catalog read.
 func IsKnowledgeCatalogRead(ctx context.Context) bool {
 	value, _ := ctx.Value(knowledgeCatalogContextKey{}).(bool)
 	return value

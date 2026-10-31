@@ -79,8 +79,10 @@ k.file_size,k.parse_status,k.summary_status,k.enable_status,k.channel,k.created_
 CASE WHEN a.status='needs_attention' AND a.owner_nonce='' AND a.lease_until IS NULL
  THEN a.last_error_category ELSE '' END AS execution_error`).
 			Joins("LEFT JOIN feishu_personal_resources r ON r.logical_knowledge_id=k.id").
-			Joins("LEFT JOIN feishu_personal_attempts a ON a.id=r.current_attempt_id AND a.caller_tenant_id=k.tenant_id").
-			Where("k.id IN ? AND k.tenant_id=? AND k.knowledge_base_id=? AND k.deleted_at IS NULL", ids, tenant, kb).
+			Joins("LEFT JOIN feishu_personal_attempts a ON a.id=r.current_attempt_id " +
+				"AND a.caller_tenant_id=k.tenant_id").
+			Where("k.id IN ? AND k.tenant_id=? AND k.knowledge_base_id=? AND k.deleted_at IS NULL",
+				ids, tenant, kb).
 			Scan(&entries).Error
 		if err != nil {
 			return nil, err
@@ -98,14 +100,16 @@ CASE WHEN a.status='needs_attention' AND a.owner_nonce='' AND a.lease_until IS N
 			ID: e.ID, TenantID: e.TenantID, KnowledgeBaseID: e.KnowledgeBaseID,
 			FileName: e.FileName, FileType: e.FileType, Type: e.Type, FolderPath: e.FolderPath,
 			FileSize: e.FileSize, ParseStatus: e.ParseStatus, SummaryStatus: e.SummaryStatus,
-			EnableStatus: e.EnableStatus, Channel: e.Channel, CreatedAt: e.CreatedAt, UpdatedAt: e.UpdatedAt,
+			EnableStatus: e.EnableStatus, Channel: e.Channel,
+			CreatedAt: e.CreatedAt, UpdatedAt: e.UpdatedAt,
 			MetadataOnly: true,
 		}
 		if e.ExecutionError == "exact_document_execution_requires_review" {
 			// This category is written only by the fenced termination of an
 			// actual Claim. Never label an unclaimed pending operation failed.
 			row.ParseStatus = types.ParseStatusFailed
-			row.ErrorMessage = "Processing stopped; original file and unpublished output are retained for review."
+			row.ErrorMessage = "Processing stopped; " +
+				"original file and unpublished output are retained for review."
 		}
 		byID[e.ID] = row
 	}
@@ -152,7 +156,8 @@ func (s *knowledgeService) exactPublicMetadataBatch(
 	}
 	var headers []struct{ ID, KnowledgeBaseID string }
 	if err := p.service.db.WithContext(ctx).Table("knowledges").Select("id,knowledge_base_id").
-		Where("id IN ? AND tenant_id=? AND deleted_at IS NULL", unique, tenant).Scan(&headers).Error; err != nil {
+		Where("id IN ? AND tenant_id=? AND deleted_at IS NULL", unique, tenant).
+		Scan(&headers).Error; err != nil {
 		return nil, true, err
 	}
 	if len(headers) != len(unique) {

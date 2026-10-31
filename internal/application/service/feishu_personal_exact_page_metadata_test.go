@@ -56,7 +56,10 @@ id text PRIMARY KEY,tenant_id bigint,knowledge_base_id text,knowledge_id text,st
 			require.NotEmpty(t, row.FileName)
 			data, err := json.Marshal(row)
 			require.NoError(t, err)
-			for _, marker := range []string{"private-title", "private-description", "private.invalid", "private-path", "private-metadata"} {
+			for _, marker := range []string{
+				"private-title", "private-description", "private.invalid",
+				"private-path", "private-metadata",
+			} {
 				require.NotContains(t, string(data), marker)
 			}
 		}
@@ -89,7 +92,9 @@ id text PRIMARY KEY,tenant_id bigint,knowledge_base_id text,knowledge_id text,st
 	require.Zero(t, result.Total, "metadata keyword queries cannot probe hidden titles")
 	_, err = f.ks.GetKnowledgeByID(ctx, "doc-01")
 	require.Error(t, err, "catalog metadata is not a staging-content grant")
-	stranger := types.WithCaller(ctx, types.Caller{TenantID: 1, UserID: "not-a-member", Role: types.TenantRoleAdmin})
+	stranger := types.WithCaller(ctx, types.Caller{
+		TenantID: 1, UserID: "not-a-member", Role: types.TenantRoleAdmin,
+	})
 	stranger = types.WithPrincipal(stranger, types.Principal{Type: types.PrincipalWebUser, ID: "not-a-member"})
 	_, err = f.ks.ListPagedKnowledgeByKnowledgeBaseID(stranger, "kb",
 		&types.Pagination{Page: 1, PageSize: 10}, types.KnowledgeListFilter{})
