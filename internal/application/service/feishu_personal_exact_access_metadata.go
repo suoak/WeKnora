@@ -38,6 +38,9 @@ func (s *knowledgeBaseService) GetKnowledgeBaseAccessMetadata(
 	result := &types.KnowledgeBase{}
 	err = s.personalRecovery.service.db.WithContext(ctx).Table("knowledge_bases").Select(`
 id,tenant_id,creator_id,name,type,embedding_model_id,summary_model_id,vector_store_id,
+storage_backend_id,
+CASE WHEN storage_provider_config IS NULL THEN NULL ELSE
+ jsonb_build_object('provider',storage_provider_config->>'provider') END AS storage_provider_config,
 indexing_strategy,chunking_config,faq_config,created_at,updated_at`).
 		Where("id=? AND tenant_id=? AND deleted_at IS NULL", kb, owner.TenantID).Scan(result).Error
 	if err != nil {

@@ -246,6 +246,9 @@ type Knowledge struct {
 	// still queued, i.e. backlogged) or StallStateStalled (nothing left to
 	// run it). Empty while it is progressing or the probe failed. Not stored.
 	StallState string `json:"stall_state,omitempty" gorm:"-"`
+	// MetadataOnly entries disclose no body, profile, source URL or file locator.
+	// Detail/download/model access must obtain its own current content authority.
+	MetadataOnly bool `json:"metadata_only,omitempty" gorm:"-"`
 }
 
 // Stall verdicts for Knowledge.StallState.

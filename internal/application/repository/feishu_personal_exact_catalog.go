@@ -34,7 +34,14 @@ func (r *knowledgeRepository) ListKnowledgePageIdentities(ctx context.Context,
 				q = q.Where("id IN ?", allowed)
 			}
 		}
-		return applyKnowledgeListFilter(q, filter)
+		// A metadata catalog must not become an oracle for protected title text.
+		metadataFilter := filter
+		metadataFilter.Keyword = ""
+		q = applyKnowledgeListFilter(q, metadataFilter)
+		if filter.Keyword != "" {
+			q = q.Where("LOWER(file_name) LIKE LOWER(?)", "%"+filter.Keyword+"%")
+		}
+		return q
 	}
 	var total int64
 	if err := scope().Count(&total).Error; err != nil {

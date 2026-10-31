@@ -78,6 +78,13 @@ func (s *knowledgeService) exactPublicKnowledgePage(ctx context.Context, kb stri
 	if err != nil {
 		return nil, true, err
 	}
+	if types.CallerFromContext(ctx).TenantID == tenant {
+		rows, err := p.exactPageMetadata(ctx, tenant, kb, ids)
+		if err != nil {
+			return nil, true, err
+		}
+		return types.NewPageResult(total, page, rows), true, nil
+	}
 	rows := make([]*types.Knowledge, 0, len(ids))
 	reads := make([]context.Context, 0, len(ids))
 	for _, id := range ids {
