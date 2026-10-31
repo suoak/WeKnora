@@ -805,6 +805,13 @@ func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 				if deferred {
 					continue // The bounded pilot cannot mutate another held protocol.
 				}
+				if exactPersonalRecoveryAllows(current.LogicalKnowledgeID) &&
+					current.AuthMode == types.FeishuUserOAuth && current.Status == "index_pending" {
+					if _, preflightErr := p.preflightExactPersonalDocument(ctx, current); preflightErr != nil {
+						failures = append(failures, preflightErr)
+						continue // A refused pre-Claim observation cannot close the pending operation.
+					}
+				}
 				_, err = p.authorize(ctx, m, current)
 			}
 

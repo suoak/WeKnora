@@ -364,6 +364,11 @@ func (p *PersonalRecovery) firstCreateDispatchable(
 			return false, err
 		}
 	}
+	if exactPersonalRecoveryAllows(k.ID) && types.FeishuAuthMode(m.AuthMode) == types.FeishuUserOAuth &&
+		a.Status == "index_pending" {
+		_, err := p.preflightExactPersonalDocument(ctx, a)
+		return err == nil, err
+	}
 	_, err = p.authorize(ctx, m, a)
 	return err == nil, err
 }
@@ -437,7 +442,16 @@ func (p *PersonalRecovery) processFirstCreateDocument(
 		if err != nil {
 			return err
 		}
-		owner, err := p.repo.Claim(ctx, a.ID, p.lease)
+		var owner *types.FeishuPersonalAttempt
+		if exactRecovery {
+			preflight, preflightErr := p.preflightExactPersonalDocument(ctx, a)
+			if preflightErr != nil {
+				return preflightErr
+			}
+			owner, err = p.claimExactPreflight(ctx, preflight)
+		} else {
+			owner, err = p.repo.Claim(ctx, a.ID, p.lease)
+		}
 		if err != nil {
 			return err
 		}

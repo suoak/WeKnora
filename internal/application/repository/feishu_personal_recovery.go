@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"hash/fnv"
+	"reflect"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/types"
@@ -624,11 +625,44 @@ func (r *PersonalRecoveryRepository) Claim(
 	id string,
 	lease time.Duration,
 ) (*types.FeishuPersonalAttempt, error) {
+	return r.claim(ctx, id, lease, nil, nil)
+}
+
+// ClaimObserved binds a first-create claim to the complete preflight observation.
+// A changed protocol or generation is rejected before ownership is minted.
+func (r *PersonalRecoveryRepository) ClaimObserved(
+	ctx context.Context, observed *types.FeishuPersonalAttempt, lease time.Duration,
+	validate func(*gorm.DB, *types.FeishuPersonalAttempt) error,
+) (*types.FeishuPersonalAttempt, error) {
+	if observed == nil || validate == nil {
+		return nil, ErrPersonalFence
+	}
+	return r.claim(ctx, observed.ID, lease, observed, validate)
+}
+
+func (r *PersonalRecoveryRepository) claim(
+	ctx context.Context, id string, lease time.Duration, observed *types.FeishuPersonalAttempt,
+	validate func(*gorm.DB, *types.FeishuPersonalAttempt) error,
+) (*types.FeishuPersonalAttempt, error) {
 	var claimed types.FeishuPersonalAttempt
 	err := r.locked(
 		ctx,
 		id,
 		func(tx *gorm.DB, resource *types.FeishuPersonalResource, a *types.FeishuPersonalAttempt, now time.Time) error {
+			if observed != nil {
+				if !reflect.DeepEqual(a, observed) || resource.Generation != observed.Fence ||
+					resource.CandidateVersionID != observed.CandidateVersionID ||
+					observed.Status != "index_pending" || observed.OwnerNonce != "" || observed.LeaseUntil != nil {
+					return ErrPersonalFence
+				}
+				var m types.FeishuPersonalImport
+				if err := tx.Where("id=?", a.ImportID).First(&m).Error; err != nil {
+					return err
+				}
+				if err := r.lockPrincipal(tx, &m, a); err != nil {
+					return err
+				}
+			}
 			if resource.CurrentAttemptID != a.ID || resource.ActiveVersionID != a.ExpectedActiveVersion {
 				return ErrPersonalFence
 			}
@@ -653,6 +687,11 @@ func (r *PersonalRecoveryRepository) Claim(
 			}
 			if err := tx.Save(a).Error; err != nil {
 				return err
+			}
+			if validate != nil {
+				if err := validate(tx, a); err != nil {
+					return err
+				}
 			}
 			claimed = *a
 			return nil

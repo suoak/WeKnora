@@ -49,10 +49,39 @@ func (p *PersonalRecovery) prepareExactPersonalDocument(
 func (p *PersonalRecovery) prepareExactPersonalSource(
 	ctx context.Context, owner *types.FeishuPersonalAttempt, published bool,
 ) (*personalExactDocument, error) {
+	return p.checkExactPersonalSource(ctx, owner, published, nil)
+}
+
+type personalExactPreflight struct {
+	observed *types.FeishuPersonalAttempt
+	validate func(*gorm.DB, *types.FeishuPersonalAttempt) error
+}
+
+// Preflight reuses every source check without creating an execution/serving
+// capability, receipt, lease or nonce. Refusal leaves the pending protocol intact.
+func (p *PersonalRecovery) preflightExactPersonalDocument(
+	ctx context.Context, observed *types.FeishuPersonalAttempt,
+) (*personalExactPreflight, error) {
+	preflight := &personalExactPreflight{observed: observed}
+	_, err := p.checkExactPersonalSource(ctx, observed, false, preflight)
+	if err != nil {
+		return nil, err
+	}
+	return preflight, nil
+}
+
+func (p *PersonalRecovery) checkExactPersonalSource(
+	ctx context.Context, owner *types.FeishuPersonalAttempt, published bool, check *personalExactPreflight,
+) (*personalExactDocument, error) {
+	preflight := check != nil
 	if owner == nil || !p.firstCreateOnly || p.service.db.Name() != "postgres" {
 		return nil, errPersonalExactDocument
 	}
-	if !published && (owner.OwnerNonce == "" || owner.LeaseUntil == nil || !owner.LeaseUntil.After(time.Now())) {
+	if preflight && (owner.Status != "index_pending" || owner.OwnerNonce != "" || owner.LeaseUntil != nil) {
+		return nil, errPersonalExactDocument
+	}
+	if !published && !preflight &&
+		(owner.OwnerNonce == "" || owner.LeaseUntil == nil || !owner.LeaseUntil.After(time.Now())) {
 		return nil, errPersonalExactDocument
 	}
 	if published && (owner.Status != "indexed" || owner.OwnerNonce != "" || owner.LeaseUntil != nil) {
@@ -69,7 +98,11 @@ func (p *PersonalRecovery) prepareExactPersonalSource(
 		a.CandidateVersionID == a.LogicalKnowledgeID || a.ExpectedActiveVersion != "" {
 		return nil, errPersonalExactDocument
 	}
-	if !published && (a.Status != "processing" || a.OwnerNonce != owner.OwnerNonce ||
+	if preflight && (a.Status != "index_pending" || a.OwnerNonce != "" || a.LeaseUntil != nil ||
+		r.ActiveVersionID != owner.ExpectedActiveVersion || a.CandidateVersionID != owner.CandidateVersionID) {
+		return nil, errPersonalExactDocument
+	}
+	if !published && !preflight && (a.Status != "processing" || a.OwnerNonce != owner.OwnerNonce ||
 		a.LeaseUntil == nil || !a.LeaseUntil.After(time.Now()) || r.ActiveVersionID != owner.ExpectedActiveVersion) {
 		return nil, errPersonalExactDocument
 	}
@@ -234,6 +267,9 @@ AND (SELECT count(*) FROM resource_bindings all_b WHERE all_b.resource_id=f.id)=
 		if n != 1 {
 			return errPersonalExactDocument
 		}
+		if preflight {
+			return nil
+		}
 		var leaseUntil time.Time
 		if locked.LeaseUntil != nil {
 			leaseUntil = *locked.LeaseUntil
@@ -250,7 +286,7 @@ AND (SELECT count(*) FROM resource_bindings all_b WHERE all_b.resource_id=f.id)=
 		}
 		return nil
 	}
-	if !published {
+	if !published && !preflight {
 		err = p.mutate(ctx, owner, 0, verify)
 	} else {
 		// Read-only identity locking, never Claim/Mutate and never a new lease.
@@ -268,14 +304,44 @@ AND (SELECT count(*) FROM resource_bindings all_b WHERE all_b.resource_id=f.id)=
 			if resource.CurrentAttemptID != a.ID || resource.Generation != a.Fence ||
 				resource.LogicalKnowledgeID != a.LogicalKnowledgeID ||
 				resource.CandidateVersionID != a.CandidateVersionID ||
-				resource.ActiveVersionID != a.CandidateVersionID ||
 				current.CandidateVersionID != a.CandidateVersionID ||
-				current.ExpectedActiveVersion != a.ExpectedActiveVersion || current.Status != "indexed" ||
+				current.ExpectedActiveVersion != a.ExpectedActiveVersion ||
 				current.OwnerNonce != "" || current.LeaseUntil != nil || current.Fence != a.Fence {
+				return repository.ErrPersonalFence
+			}
+			if preflight {
+				if resource.ActiveVersionID != a.ExpectedActiveVersion || current.Status != "index_pending" {
+					return repository.ErrPersonalFence
+				}
+			} else if resource.ActiveVersionID != a.CandidateVersionID || current.Status != "indexed" {
 				return repository.ErrPersonalFence
 			}
 			return verify(tx, &current)
 		})
 	}
+	if err == nil && preflight {
+		// Detect local revocation during remote/file inspection as a preflight
+		// refusal. Claim repeats the locked authority checks transactionally.
+		if _, err = p.authorize(ctx, m, a); err != nil {
+			return nil, err
+		}
+		check.validate = verify
+	}
 	return issued, err
+}
+
+// Claim and the existing local authority/binding checks commit together. Any
+// stale preflight rolls back ownership as well as generation and lease changes.
+func (p *PersonalRecovery) claimExactPreflight(
+	ctx context.Context, preflight *personalExactPreflight,
+) (*types.FeishuPersonalAttempt, error) {
+	if preflight == nil || preflight.observed == nil || preflight.validate == nil {
+		return nil, errPersonalExactDocument
+	}
+	return p.repo.ClaimObserved(ctx, preflight.observed, p.lease,
+		func(tx *gorm.DB, owner *types.FeishuPersonalAttempt) error {
+			transactionRecovery := *p
+			transactionRecovery.repo = p.repo.InTransaction(tx)
+			return transactionRecovery.mutate(ctx, owner, 0, preflight.validate)
+		})
 }

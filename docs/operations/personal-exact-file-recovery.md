@@ -19,8 +19,16 @@ Do not enable other IDs before their live authorization and protocol checks.
 
 The normal durable dispatcher and public `ProcessDocument` consumer retain the
 original outbox, Knowledge ID, resource and protocol. No manual enqueue or SQL
-state rewrite is part of this procedure. A fresh Claim precedes source-file
-read; proof is revalidated at parser/model/write boundaries. Output stays
+state rewrite is part of this procedure. Before dispatch and Claim, a read-only
+preflight verifies live ACL/revision, grant, manifest, source binding and file
+hashes against the unclaimed generation. Refusal leaves the original pending
+operation, protocol, generation and nonce/lease unchanged. This observation
+grants no content/model/write capability. Claim compares the complete observed
+attempt and generation, then rechecks local authority and binding in the same
+transaction; any mismatch rolls back ownership. Remote/file inspection remains
+outside SQL locks, and full source proof is reacquired after Claim and at the
+parser/model/write boundaries. Failures of a claimed execution retain their
+existing fenced terminal handling. Output stays
 private until the generation/CAS transaction publishes the exact receipt,
 original Knowledge and original outbox together. The nonce is consumed.
 

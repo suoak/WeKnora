@@ -16,6 +16,16 @@ import (
 
 func exactExecutionFixture(t *testing.T) (*personalRecoveryFixture, *personalExactDocument, context.Context) {
 	t.Helper()
+	f, owner := exactSourceFixture(t, true)
+	proof, err := f.p.prepareExactPersonalDocument(context.Background(), owner)
+	require.NoError(t, err)
+	ctx, err := f.p.exactDocumentExecutionContext(context.Background(), proof)
+	require.NoError(t, err)
+	return f, proof, ctx
+}
+
+func exactSourceFixture(t *testing.T, claim bool) (*personalRecoveryFixture, *types.FeishuPersonalAttempt) {
+	t.Helper()
 	f := newMVPFixture(t)
 	m := f.prepare("https://tenant.feishu.cn/file/real")
 	require.NoError(t, f.p.Process(f.ctx, f.payload(m.AttemptID)))
@@ -68,13 +78,12 @@ original_file_path text,external_id text)`).Error)
 	}
 	types.EnableLegacyReadGuards(f.db)
 	require.NoError(t, f.db.Exec("CREATE TABLE embeddings (knowledge_id text)").Error)
-	owner, err := f.p.repo.Claim(context.Background(), a.ID, f.p.lease)
-	require.NoError(t, err)
-	proof, err := f.p.prepareExactPersonalDocument(context.Background(), owner)
-	require.NoError(t, err)
-	ctx, err := f.p.exactDocumentExecutionContext(context.Background(), proof)
-	require.NoError(t, err)
-	return f, proof, ctx
+	if claim {
+		owner, claimErr := f.p.repo.Claim(context.Background(), a.ID, f.p.lease)
+		require.NoError(t, claimErr)
+		return f, owner
+	}
+	return f, a
 }
 
 func TestPersonalRecoveryExactExecutionWriteFence(t *testing.T) {
