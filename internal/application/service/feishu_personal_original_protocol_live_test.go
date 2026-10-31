@@ -18,6 +18,8 @@ import (
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/hibiken/asynq"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,6 +27,22 @@ import (
 // v3 protocol and synthetic isolated OAuth authority. No production credentials
 // or remote authorization are copied. This is not an index/retrieval acceptance.
 func TestPersonalOriginalV3ClaimAndExactParse(t *testing.T) {
+	runOriginalExactAcceptance(t, nil)
+}
+
+// RunOriginalExactQueueAcceptance exposes only the isolated test fixture to an
+// external test package, so the real Lite router adapter needs no production refactor.
+func RunOriginalExactQueueAcceptance(t *testing.T,
+	factory func(asynq.HandlerFunc) interfaces.TaskEnqueuer,
+) {
+	t.Helper()
+	require.NotNil(t, factory)
+	runOriginalExactAcceptance(t, factory)
+}
+
+func runOriginalExactAcceptance(t *testing.T,
+	factory func(asynq.HandlerFunc) interfaces.TaskEnqueuer,
+) {
 	if os.Getenv("PERSONAL_EXACT_CONSUMER_ACCEPTANCE") == "1" {
 		t.Setenv("SYNC_EXECUTION_POSTGRES_PUBLIC_EXTENSIONS", "1")
 	}
@@ -172,7 +190,7 @@ func TestPersonalOriginalV3ClaimAndExactParse(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, 3, before.Generation)
 	if os.Getenv("PERSONAL_EXACT_PUBLIC_DISPATCH_ACCEPTANCE") == "1" {
-		exerciseOriginalPublicDispatch(t, f, intent.Task)
+		exerciseOriginalPublicDispatch(t, f, intent.Task, factory)
 		return
 	}
 	owner, err := f.p.repo.Claim(context.Background(), m.AttemptID, f.p.lease)

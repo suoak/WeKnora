@@ -225,7 +225,9 @@ func configureOriginalExactConsumer(
 	return provider, tenant, calls
 }
 
-func exerciseOriginalPublicDispatch(t *testing.T, f *personalRecoveryFixture, payload types.DocumentProcessPayload) {
+func exerciseOriginalPublicDispatch(t *testing.T, f *personalRecoveryFixture,
+	payload types.DocumentProcessPayload, factory func(asynq.HandlerFunc) interfaces.TaskEnqueuer,
+) {
 	t.Helper()
 	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY", "1")
 	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY_KNOWLEDGE_IDS", payload.KnowledgeID)
@@ -281,6 +283,23 @@ func exerciseOriginalPublicDispatch(t *testing.T, f *personalRecoveryFixture, pa
 		case <-time.After(3 * time.Minute):
 			t.Fatal("isolated Redis public consumer did not complete")
 		}
+	} else if factory != nil {
+		completed := make(chan error, 1)
+		f.ks.task = factory(func(ctx context.Context, task *asynq.Task) error {
+			err := f.ks.ProcessDocument(ctx, task)
+			completed <- err
+			return err
+		})
+		var op types.TaskPendingOp
+		require.NoError(t, f.db.Where("scope=? AND scope_id=?",
+			types.KnowledgeDispatchScope, payload.KnowledgeID).Take(&op).Error)
+		require.NoError(t, f.ks.publishKnowledgeDispatch(context.Background(), &op))
+		select {
+		case err := <-completed:
+			require.NoError(t, err)
+		case <-time.After(3 * time.Minute):
+			t.Fatal("Lite public consumer did not complete")
+		}
 	} else {
 		require.NoError(t, f.ks.ProcessDocument(context.Background(), task))
 	}
@@ -327,6 +346,7 @@ func exerciseOriginalPublicDispatch(t *testing.T, f *personalRecoveryFixture, pa
 		"authorization_provider": "synthetic isolated OAuth", "model_provider": originalAcceptanceModelMode(),
 		"production_writes":     false,
 		"actual_redis_dispatch": os.Getenv("PERSONAL_EXACT_QUEUE_REDIS_ADDR") != "",
+		"actual_lite_dispatch":  factory != nil,
 	})
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(os.Getenv("PERSONAL_EXACT_EVIDENCE_OUT")+".public-dispatch.json", evidence, 0o600))
