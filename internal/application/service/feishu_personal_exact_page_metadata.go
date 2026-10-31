@@ -79,7 +79,7 @@ k.file_size,k.parse_status,k.summary_status,k.enable_status,k.channel,k.created_
 CASE WHEN a.status='needs_attention' AND a.owner_nonce='' AND a.lease_until IS NULL
  THEN a.last_error_category ELSE '' END AS execution_error`).
 			Joins("LEFT JOIN feishu_personal_resources r ON r.logical_knowledge_id=k.id").
-			Joins("LEFT JOIN feishu_personal_attempts a ON a.id=r.current_attempt_id " +
+			Joins("LEFT JOIN feishu_personal_attempts a ON a.id=r.current_attempt_id "+
 				"AND a.caller_tenant_id=k.tenant_id").
 			Where("k.id IN ? AND k.tenant_id=? AND k.knowledge_base_id=? AND k.deleted_at IS NULL",
 				ids, tenant, kb).
