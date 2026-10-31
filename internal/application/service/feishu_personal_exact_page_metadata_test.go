@@ -62,12 +62,15 @@ id text PRIMARY KEY,tenant_id bigint,knowledge_base_id text,knowledge_id text,st
 		}
 	}
 	require.Len(t, seen, 24, "a staging receipt must not hide the remaining catalog")
+	_, err := f.ks.GetKnowledgeBatch(ctx, 1, []string{"doc-00", "doc-01"})
+	require.Error(t, err, "mutation and download callers must retain the strict entity read path")
+	catalog := types.WithKnowledgeCatalogRead(ctx)
 	for _, batch := range []func() ([]*types.Knowledge, error){
 		func() ([]*types.Knowledge, error) {
-			return f.ks.GetKnowledgeBatch(ctx, 1, []string{"doc-00", "doc-01"})
+			return f.ks.GetKnowledgeBatch(catalog, 1, []string{"doc-00", "doc-01"})
 		},
 		func() ([]*types.Knowledge, error) {
-			return f.ks.GetKnowledgeBatchWithSharedAccess(ctx, 1, []string{"doc-00", "doc-01"})
+			return f.ks.GetKnowledgeBatchWithSharedAccess(catalog, 1, []string{"doc-00", "doc-01"})
 		},
 	} {
 		rows, err := batch()
@@ -97,6 +100,6 @@ id text PRIMARY KEY,tenant_id bigint,knowledge_base_id text,knowledge_id text,st
 	_, err = f.ks.ListPagedKnowledgeByKnowledgeBaseID(ctx, "kb",
 		&types.Pagination{Page: 1, PageSize: 10}, types.KnowledgeListFilter{})
 	require.Error(t, err, "revoked membership closes metadata access too")
-	_, err = f.ks.GetKnowledgeBatchWithSharedAccess(ctx, 1, []string{"doc-00", "doc-01"})
+	_, err = f.ks.GetKnowledgeBatchWithSharedAccess(catalog, 1, []string{"doc-00", "doc-01"})
 	require.Error(t, err, "status polling must honor live membership revocation")
 }

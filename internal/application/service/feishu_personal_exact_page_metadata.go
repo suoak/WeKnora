@@ -131,7 +131,8 @@ CASE WHEN a.status='needs_attention' AND a.owner_nonce='' AND a.lease_until IS N
 func (s *knowledgeService) exactPublicMetadataBatch(
 	ctx context.Context, tenant uint64, ids []string,
 ) ([]*types.Knowledge, bool, error) {
-	if !exactPersonalRecoveryEnabled() || s.DocumentACLReadEnabled() || len(ids) == 0 {
+	if !types.IsKnowledgeCatalogRead(ctx) || !exactPersonalRecoveryEnabled() || s.DocumentACLReadEnabled() ||
+		len(ids) == 0 {
 		return nil, false, nil
 	}
 	p, ok := s.personalRecovery.(*PersonalRecovery)

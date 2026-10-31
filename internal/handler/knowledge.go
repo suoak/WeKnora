@@ -1982,7 +1982,7 @@ type GetKnowledgeBatchRequest struct {
 // @Security     ApiKeyAuth
 // @Router       /knowledge/batch [get]
 func (h *KnowledgeHandler) GetKnowledgeBatch(c *gin.Context) {
-	ctx := c.Request.Context()
+	ctx := types.WithKnowledgeCatalogRead(c.Request.Context())
 
 	effectiveTenantID := middleware.KBAccessRequest(c).Caller.TenantID
 	if effectiveTenantID == 0 {
