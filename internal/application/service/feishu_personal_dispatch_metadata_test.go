@@ -39,7 +39,8 @@ func TestPersonalRecoveryDispatchMetadataRejectsChangedIdentity(t *testing.T) {
 				require.NoError(
 					t,
 					f.db.Exec(
-						"UPDATE knowledges SET metadata=jsonb_set(metadata::jsonb,'{feishu_manifest_sha256}','\"changed\"') WHERE id=?",
+						"UPDATE knowledges SET metadata="+
+							"jsonb_set(metadata::jsonb,'{feishu_manifest_sha256}','\"changed\"') WHERE id=?",
 						k.ID,
 					).Error,
 				)

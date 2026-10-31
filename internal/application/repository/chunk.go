@@ -12,6 +12,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var ErrChunkRevisionConflict = errors.New("chunk revision conflict")
@@ -68,6 +69,22 @@ func (r *chunkRepository) CreateChunks(ctx context.Context, chunks []*types.Chun
 	}
 
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		stored := chunks
+		if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
+			stored = make([]*types.Chunk, len(chunks))
+			for _, chunk := range chunks {
+				if _, err := types.CheckExactDocumentCommit(
+					tx, chunk.TenantID, chunk.KnowledgeID, chunk.KnowledgeBaseID,
+				); err != nil {
+					return err
+				}
+			}
+			for i, chunk := range chunks {
+				copy := *chunk
+				copy.IsEnabled = false
+				stored[i] = &copy
+			}
+		}
 		// SQLite doesn't support autoIncrement on non-PK columns, so SeqIDs are
 		// pre-assigned from MAX(seq_id). Doing it inside the write transaction
 		// keeps the read and the insert on the same connection.
@@ -78,10 +95,45 @@ func (r *chunkRepository) CreateChunks(ctx context.Context, chunks []*types.Chun
 			}
 		}
 
-		// Select("*") ensures zero-value fields (IsEnabled=false, Flags=0) are
-		// explicitly inserted, bypassing GORM's default value behavior.
+		// Select("*") retains all writable columns. GORM still applies model
+		// defaults; scoped staging visibility is enforced below before commit.
 		// SeqID=0 is skipped by GORM automatically (autoIncrement tag).
-		return tx.Select("*").CreateInBatches(chunks, createChunksBatchSize).Error
+		if err := tx.Select("*").CreateInBatches(stored, createChunksBatchSize).Error; err != nil {
+			return err
+		}
+		if tenant, knowledge, kb, scoped := types.ExactDocumentIdentity(ctx); scoped {
+			// GORM's bool default:true is applied even with Select("*").
+			// Set staging visibility in the SAME transaction, before any row
+			// can become visible. Keep the normal model/defaults unchanged.
+			ids := make([]string, 0, len(stored))
+			for _, chunk := range stored {
+				ids = append(ids, chunk.ID)
+				chunk.IsEnabled = false
+			}
+			result := tx.Table("chunks").Where("id IN ? AND tenant_id=? AND knowledge_id=? AND knowledge_base_id=?",
+				ids, tenant, knowledge, kb).Update("is_enabled", false)
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected != int64(len(stored)) {
+				return types.ErrExactDocumentScope
+			}
+		}
+		for i, chunk := range stored {
+			enabled := chunks[i].IsEnabled
+			*chunks[i] = *chunk
+			chunks[i].IsEnabled = enabled
+		}
+		if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
+			for _, chunk := range chunks {
+				if _, err := types.CheckExactDocumentCommit(
+					tx, chunk.TenantID, chunk.KnowledgeID, chunk.KnowledgeBaseID,
+				); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
 	})
 }
 
@@ -401,7 +453,48 @@ func (r *chunkRepository) ListChunksByParentIDsOnly(
 // except SeqID (auto-increment, must not be overwritten).
 // Make sure the chunk object is complete (e.g., fetched from DB) before calling this method.
 func (r *chunkRepository) UpdateChunk(ctx context.Context, chunk *types.Chunk) error {
-	return r.db.WithContext(ctx).Omit("SeqID").Save(chunk).Error
+	return types.WithExactDocumentWrite(ctx, r.db, chunk.TenantID, chunk.KnowledgeID, chunk.KnowledgeBaseID,
+		func(tx *gorm.DB) error {
+			stored := chunk
+			if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
+				if err := checkExactChunkRows(tx, []string{chunk.ID}); err != nil {
+					return err
+				}
+				copy := *chunk
+				copy.IsEnabled = false
+				stored = &copy
+			}
+			return tx.Omit("SeqID").Save(stored).Error
+		})
+}
+
+// Lock persisted identity, not just caller-supplied fields. A forged Chunk with
+// a foreign ID and the approved KnowledgeID must not overwrite that foreign row.
+func checkExactChunkRows(tx *gorm.DB, ids []string) error {
+	tenant, knowledge, kb, scoped := types.ExactDocumentIdentity(tx.Statement.Context)
+	if !scoped {
+		return nil
+	}
+	unique := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		if id == "" {
+			return types.ErrExactDocumentScope
+		}
+		unique[id] = true
+	}
+	var rows []struct{ ID string }
+	err := tx.Table("chunks").Clauses(clause.Locking{Strength: "UPDATE"}).Select("id").Where(
+		"id IN ? AND tenant_id=? AND knowledge_id=? AND knowledge_base_id=?",
+		ids, tenant, knowledge, kb,
+	).Find(&rows).Error
+	if err != nil {
+		return err
+	}
+	if len(rows) != len(unique) {
+		return types.ErrExactDocumentScope
+	}
+	_, err = types.CheckExactDocumentCommit(tx, tenant, knowledge, kb)
+	return err
 }
 
 func (r *chunkRepository) CreateChunkRevision(ctx context.Context, revision *types.ChunkRevision) error {
@@ -499,6 +592,28 @@ func (r *chunkRepository) UpdateChunks(ctx context.Context, chunks []*types.Chun
 	}
 
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
+			staged := make([]*types.Chunk, len(chunks))
+			ids := make([]string, 0, len(chunks))
+			for i, chunk := range chunks {
+				if chunk == nil {
+					return types.ErrExactDocumentScope
+				}
+				if _, err := types.CheckExactDocumentCommit(
+					tx, chunk.TenantID, chunk.KnowledgeID, chunk.KnowledgeBaseID,
+				); err != nil {
+					return err
+				}
+				ids = append(ids, chunk.ID)
+				copy := *chunk
+				copy.IsEnabled = false
+				staged[i] = &copy
+			}
+			if err := checkExactChunkRows(tx, ids); err != nil {
+				return err
+			}
+			chunks = staged
+		}
 		for start := 0; start < len(chunks); start += updateChunksBatchSize {
 			end := start + updateChunksBatchSize
 			if end > len(chunks) {
@@ -514,6 +629,15 @@ func (r *chunkRepository) UpdateChunks(ctx context.Context, chunks []*types.Chun
 			}
 			if err != nil {
 				return err
+			}
+		}
+		if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
+			for _, chunk := range chunks {
+				if _, err := types.CheckExactDocumentCommit(
+					tx, chunk.TenantID, chunk.KnowledgeID, chunk.KnowledgeBaseID,
+				); err != nil {
+					return err
+				}
 			}
 		}
 		return nil
@@ -583,6 +707,9 @@ func updateChunksRowByRow(tx *gorm.DB, chunks []*types.Chunk) error {
 func (r *chunkRepository) UpdateChunkFieldsByIDs(
 	ctx context.Context, tenantID uint64, ids []string, fields map[string]interface{},
 ) error {
+	if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
+		return types.ErrExactDocumentScope
+	}
 	if len(ids) == 0 || len(fields) == 0 {
 		return nil
 	}
@@ -613,12 +740,18 @@ func (r *chunkRepository) UpdateChunkFieldsByIDs(
 
 // DeleteChunk deletes a chunk by its ID
 func (r *chunkRepository) DeleteChunk(ctx context.Context, tenantID uint64, id string) error {
+	if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
+		return types.ErrExactDocumentScope
+	}
 	return r.db.WithContext(ctx).Where("tenant_id = ? AND id = ?", tenantID, id).Delete(&types.Chunk{}).Error
 }
 
 // DeleteChunks deletes chunks by IDs in batch.
 // To avoid MySQL Error 1390 (too many placeholders), IDs are split into batches.
 func (r *chunkRepository) DeleteChunks(ctx context.Context, tenantID uint64, ids []string) error {
+	if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
+		return types.ErrExactDocumentScope
+	}
 	if len(ids) == 0 {
 		return nil
 	}
@@ -637,6 +770,9 @@ func (r *chunkRepository) DeleteChunks(ctx context.Context, tenantID uint64, ids
 
 // DeleteChunksByKnowledgeID deletes all chunks for a knowledge ID
 func (r *chunkRepository) DeleteChunksByKnowledgeID(ctx context.Context, tenantID uint64, knowledgeID string) error {
+	if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
+		return types.ErrExactDocumentScope
+	}
 	return r.db.WithContext(ctx).Where(
 		"tenant_id = ? AND knowledge_id = ?", tenantID, knowledgeID,
 	).Delete(&types.Chunk{}).Error
@@ -658,6 +794,9 @@ func (r *chunkRepository) ListImageInfoByKnowledgeIDs(
 
 // DeleteByKnowledgeList deletes all chunks for a knowledge list
 func (r *chunkRepository) DeleteByKnowledgeList(ctx context.Context, tenantID uint64, knowledgeIDs []string) error {
+	if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
+		return types.ErrExactDocumentScope
+	}
 	return r.db.WithContext(ctx).Where(
 		"tenant_id = ? AND knowledge_id in ?", tenantID, knowledgeIDs,
 	).Delete(&types.Chunk{}).Error
@@ -957,6 +1096,12 @@ func (r *chunkRepository) UpdateChunkFlagsBatch(
 	setFlags map[string]types.ChunkFlags,
 	clearFlags map[string]types.ChunkFlags,
 ) error {
+	if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
+		return types.ErrExactDocumentScope
+	}
+	if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
+		return types.ErrExactDocumentScope
+	}
 	if len(setFlags) == 0 && len(clearFlags) == 0 {
 		return nil
 	}

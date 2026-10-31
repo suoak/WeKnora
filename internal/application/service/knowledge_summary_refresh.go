@@ -47,6 +47,15 @@ func summarySourceChanged(
 		if getErr != nil {
 			return false, getErr
 		}
+		if consumer, exact := exactPersonalConsumerFrom(ctx); exact {
+			if latestChunk.IsEnabled {
+				return true, nil
+			}
+			if err := consumer.verifyParserChunks([]*types.Chunk{sourceChunk, latestChunk}); err != nil {
+				return true, err
+			}
+			continue
+		}
 		if latestChunk.ContentRevision != sourceChunk.ContentRevision ||
 			latestChunk.IsEnabled != sourceChunk.IsEnabled {
 			return true, nil

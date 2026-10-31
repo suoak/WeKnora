@@ -80,6 +80,13 @@ func (p *PluginRerank) OnEvent(ctx context.Context,
 		return next()
 	}
 
+	ctx, rerankModel, err = prepareExactPersonalRerank(
+		ctx, p.modelService, rerankModel, chatManage.RewriteQuery, chatManage.SearchResult,
+	)
+	if err != nil {
+		return ErrRerank.WithError(err)
+	}
+
 	rerankCtx, rerankSpan := langfuse.GetManager().StartSpan(ctx, langfuse.SpanOptions{
 		Name: "rerank",
 		Input: map[string]interface{}{
@@ -109,6 +116,9 @@ func (p *PluginRerank) OnEvent(ctx context.Context,
 		opts.FAQScoreBoost = chatManage.FAQScoreBoost
 	}
 	res := reranking.Rerank(ctx, rerankModel, chatManage.RewriteQuery, chatManage.SearchResult, opts)
+	if _, err := types.CheckExactPublishedDocumentRead(ctx); err != nil {
+		return ErrRerank.WithError(err)
+	}
 	*diag = res.Diagnostics
 	diag.ModelID = chatManage.RerankModelID
 

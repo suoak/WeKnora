@@ -2,6 +2,8 @@ package retriever
 
 import (
 	"context"
+	"crypto/sha256"
+	"errors"
 	"fmt"
 	"regexp"
 	"slices"
@@ -146,6 +148,9 @@ func batchEmbedWithBackoff(ctx context.Context, embedder embedding.Embedder, con
 		if err == nil {
 			return embeddings, nil
 		}
+		if errors.Is(err, types.ErrExactDocumentScope) {
+			return nil, err
+		}
 		logger.Errorf(ctx, "BatchEmbedWithPool attempt %d/%d failed: %v", attempt+1, embedRetryAttempts, err)
 		if attempt+1 < embedRetryAttempts {
 			select {
@@ -179,6 +184,13 @@ func sanitizeForEmbedding(ctx context.Context, content string) string {
 	runes := []rune(sanitized)
 	logger.Warnf(ctx, "embedding input truncated: %d runes -> %d", len(runes), safetyMaxChars)
 	return string(runes[:safetyMaxChars])
+}
+
+// EmbeddingInputDigest uses the exact provider-input normalization used by
+// Index/BatchIndex. Source proofs bind the bytes the model will actually see,
+// including the existing payload scrub and length limit.
+func EmbeddingInputDigest(ctx context.Context, content string) [32]byte {
+	return sha256.Sum256([]byte(sanitizeForEmbedding(ctx, content)))
 }
 
 // concurrentBatchSave saves all batches concurrently without concurrency limit

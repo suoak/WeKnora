@@ -14,7 +14,10 @@ import (
 )
 
 func TestPersonalRecoveryExactSourceAttestation(t *testing.T) {
-	for _, change := range []string{"valid", "empty_registry_hash", "nonce", "generation", "grant", "grant_during_remote", "expired_lease", "revision", "acl", "binding", "legacy_overlap"} {
+	for _, change := range []string{
+		"valid", "empty_registry_hash", "nonce", "generation", "grant", "grant_during_remote",
+		"expired_lease", "revision", "acl", "binding", "legacy_overlap",
+	} {
 		t.Run(change, func(t *testing.T) {
 			f := newMVPFixture(t)
 			m := f.prepare("https://tenant.feishu.cn/file/real")
@@ -40,7 +43,8 @@ original_file_path text,external_id text)`).Error)
 			// An unrelated held source remains present in exactly the same KB.
 			require.NoError(t, f.db.Create(&types.DataSource{
 				ID: "held-sibling", TenantID: 1,
-				KnowledgeBaseID: "kb", Type: "feishu_drive", Status: "error", LegacyAccessState: "hold", Config: types.JSON(`{}`),
+				KnowledgeBaseID: "kb", Type: "feishu_drive", Status: "error",
+				LegacyAccessState: "hold", Config: types.JSON(`{}`),
 			}).Error)
 			manifest, err := f.p.store.read(mustPersonalAttempt(t, f, m.AttemptID))
 			require.NoError(t, err)
@@ -92,7 +96,8 @@ original_file_path text,external_id text)`).Error)
 						}
 						_, _ = fmt.Fprintf(
 							w,
-							`{"code":0,"data":{"metas":[{"doc_type":"file","doc_token":"real","latest_modify_time":%q}]}}`,
+							`{"code":0,"data":{"metas":[{"doc_type":"file","doc_token":"real",`+
+								`"latest_modify_time":%q}]}}`,
 							revision,
 						)
 					case "/open-apis/drive/v1/permissions/real/members/auth":

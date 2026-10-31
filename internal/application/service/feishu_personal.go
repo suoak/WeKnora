@@ -1018,7 +1018,8 @@ func personalImportPublicError(category string) string {
 		"authorization_or_resource_missing",
 		"partial_or_unknown_index_requires_review",
 		"parse_or_index_result_unconfirmed",
-		"pg_index_receipt_unconfirmed":
+		"pg_index_receipt_unconfirmed",
+		"exact_document_execution_requires_review":
 		return category
 	default:
 		return "operation_failed"

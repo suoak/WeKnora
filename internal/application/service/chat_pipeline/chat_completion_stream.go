@@ -73,6 +73,10 @@ func (p *PluginChatCompletionStream) OnEvent(ctx context.Context,
 	chatMessages, modelContext := prepareMessagesWithModelContext(ctx, chatManage)
 	chatMessages = modelContext.EncodeMessages(chatMessages)
 	reportModelContextLeaks(ctx, "Stream", modelContext, chatMessages)
+	ctx, opt, err = prepareExactPersonalChat(ctx, p.modelService, chatManage, chatMessages, opt)
+	if err != nil {
+		return ErrModelCall.WithError(err)
+	}
 	ctx = withPromptCacheMetadata(ctx, chatModel, chatMessages, opt, "knowledge_qa")
 	pipelineInfo(ctx, "Stream", "messages_ready", map[string]interface{}{
 		"message_count": len(chatMessages),

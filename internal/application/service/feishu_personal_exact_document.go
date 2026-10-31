@@ -25,6 +25,7 @@ type personalExactDocument struct {
 	knowledge, kb, importID, attempt, candidate, expectedActive string
 	resource, resourceHandle, manifestSHA256, fileSHA256        string
 	grantEpoch, appVersion, connectionIdentity, revision        string
+	fileMD5, physicalPath, bindingID                            string
 	tenant                                                      uint64
 	generation                                                  int64
 	nonce                                                       string
@@ -39,9 +40,22 @@ type personalExactDocument struct {
 func (p *PersonalRecovery) prepareExactPersonalDocument(
 	ctx context.Context, owner *types.FeishuPersonalAttempt,
 ) (*personalExactDocument, error) {
-	if owner == nil || owner.OwnerNonce == "" || owner.LeaseUntil == nil || !owner.LeaseUntil.After(time.Now()) ||
-		!p.firstCreateOnly ||
-		p.service.db.Name() != "postgres" {
+	return p.prepareExactPersonalSource(ctx, owner, false)
+}
+
+// A published source is re-proved from the authoritative protocol; a consumed
+// claim is never converted back into an execution owner. Serving requires a
+// separate viewer grant and output receipt in addition to this source proof.
+func (p *PersonalRecovery) prepareExactPersonalSource(
+	ctx context.Context, owner *types.FeishuPersonalAttempt, published bool,
+) (*personalExactDocument, error) {
+	if owner == nil || !p.firstCreateOnly || p.service.db.Name() != "postgres" {
+		return nil, errPersonalExactDocument
+	}
+	if !published && (owner.OwnerNonce == "" || owner.LeaseUntil == nil || !owner.LeaseUntil.After(time.Now())) {
+		return nil, errPersonalExactDocument
+	}
+	if published && (owner.Status != "indexed" || owner.OwnerNonce != "" || owner.LeaseUntil != nil) {
 		return nil, errPersonalExactDocument
 	}
 	m, r, a, err := p.repo.Load(ctx, owner.ID)
@@ -49,12 +63,18 @@ func (p *PersonalRecovery) prepareExactPersonalDocument(
 		return nil, err
 	}
 	if types.FeishuAuthMode(m.AuthMode) != types.FeishuUserOAuth ||
-		a.Status != "processing" || a.OwnerNonce != owner.OwnerNonce ||
-		a.LeaseUntil == nil || !a.LeaseUntil.After(time.Now()) ||
 		a.Fence != owner.Fence || r.Generation != owner.Fence ||
-		r.CurrentAttemptID != owner.ID || r.ActiveVersionID != owner.ExpectedActiveVersion ||
+		r.CurrentAttemptID != owner.ID ||
 		m.KnowledgeID != a.LogicalKnowledgeID || r.LogicalKnowledgeID != m.KnowledgeID ||
 		a.CandidateVersionID == a.LogicalKnowledgeID || a.ExpectedActiveVersion != "" {
+		return nil, errPersonalExactDocument
+	}
+	if !published && (a.Status != "processing" || a.OwnerNonce != owner.OwnerNonce ||
+		a.LeaseUntil == nil || !a.LeaseUntil.After(time.Now()) || r.ActiveVersionID != owner.ExpectedActiveVersion) {
+		return nil, errPersonalExactDocument
+	}
+	if published && (a.Status != "indexed" || a.OwnerNonce != "" || a.LeaseUntil != nil ||
+		r.ActiveVersionID != a.CandidateVersionID || a.CandidateVersionID != owner.CandidateVersionID) {
 		return nil, errPersonalExactDocument
 	}
 	remote, err := p.authorize(ctx, m, a)
@@ -92,7 +112,7 @@ func (p *PersonalRecovery) prepareExactPersonalDocument(
 		return nil, err
 	}
 	handle, ok := types.ParseResourcePath(k.FilePath)
-	if !ok || k.AttemptID != a.ID || k.ManifestSHA256 != a.ManifestHash ||
+	if !ok || k.Channel != "feishu_personal" || k.AttemptID != a.ID || k.ManifestSHA256 != a.ManifestHash ||
 		k.FileSize != manifest.Size || k.FileName != manifest.Name {
 		return nil, errPersonalExactDocument
 	}
@@ -159,7 +179,7 @@ EXISTS(SELECT 1 FROM data_sources WHERE tenant_id=? AND type IN ('feishu','feish
 		return nil, errPersonalExactDocument
 	}
 	var issued *personalExactDocument
-	err = p.mutate(ctx, owner, 0, func(tx *gorm.DB, locked *types.FeishuPersonalAttempt) error {
+	verify := func(tx *gorm.DB, locked *types.FeishuPersonalAttempt) error {
 		if locked.ManifestHash != manifest.Hash ||
 			locked.CandidateVersionID != a.CandidateVersionID ||
 			locked.Revision != a.Revision ||
@@ -180,7 +200,8 @@ EXISTS(SELECT 1 FROM data_sources WHERE tenant_id=? AND type IN ('feishu','feish
 			return repository.ErrPersonalIdentity
 		}
 		var lockedFile types.StoredResource
-		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id=?", file.ID).First(&lockedFile).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id=?", file.ID).
+			First(&lockedFile).Error; err != nil {
 			return err
 		}
 		if lockedFile.Handle != file.Handle || lockedFile.Provider != file.Provider ||
@@ -213,6 +234,10 @@ AND (SELECT count(*) FROM resource_bindings all_b WHERE all_b.resource_id=f.id)=
 		if n != 1 {
 			return errPersonalExactDocument
 		}
+		var leaseUntil time.Time
+		if locked.LeaseUntil != nil {
+			leaseUntil = *locked.LeaseUntil
+		}
 		issued = &personalExactDocument{
 			knowledge: m.KnowledgeID, kb: m.KBID, tenant: a.CallerTenantID,
 			importID: m.ID, attempt: a.ID, candidate: a.CandidateVersionID,
@@ -220,9 +245,37 @@ AND (SELECT count(*) FROM resource_bindings all_b WHERE all_b.resource_id=f.id)=
 			manifestSHA256: manifest.Hash, fileSHA256: fileHash, grantEpoch: a.GrantEpoch,
 			appVersion: a.AppConfigVersion, connectionIdentity: m.AppID + ":" + m.OpenID,
 			revision: a.Revision, generation: owner.Fence, nonce: owner.OwnerNonce,
-			leaseUntil: *locked.LeaseUntil, file: data,
+			leaseUntil: leaseUntil, file: data,
+			fileMD5: k.FileHash, physicalPath: file.PhysicalPath, bindingID: bindings[0].ID,
 		}
 		return nil
-	})
+	}
+	if !published {
+		err = p.mutate(ctx, owner, 0, verify)
+	} else {
+		// Read-only identity locking, never Claim/Mutate and never a new lease.
+		err = p.service.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			var resource types.FeishuPersonalResource
+			if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("import_id=?", a.ImportID).
+				Take(&resource).Error; err != nil {
+				return err
+			}
+			var current types.FeishuPersonalAttempt
+			if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id=?", a.ID).
+				Take(&current).Error; err != nil {
+				return err
+			}
+			if resource.CurrentAttemptID != a.ID || resource.Generation != a.Fence ||
+				resource.LogicalKnowledgeID != a.LogicalKnowledgeID ||
+				resource.CandidateVersionID != a.CandidateVersionID ||
+				resource.ActiveVersionID != a.CandidateVersionID ||
+				current.CandidateVersionID != a.CandidateVersionID ||
+				current.ExpectedActiveVersion != a.ExpectedActiveVersion || current.Status != "indexed" ||
+				current.OwnerNonce != "" || current.LeaseUntil != nil || current.Fence != a.Fence {
+				return repository.ErrPersonalFence
+			}
+			return verify(tx, &current)
+		})
+	}
 	return issued, err
 }

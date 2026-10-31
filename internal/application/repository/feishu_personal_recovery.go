@@ -30,6 +30,15 @@ type PersonalRecoveryRepository struct {
 	ApplicationGrantValidator func(*gorm.DB, *types.FeishuPersonalImport, *types.FeishuPersonalAttempt) error
 }
 
+// InTransaction reuses the same protocol checks in a caller-owned write
+// transaction. Mutate uses a nested savepoint; its locks survive until the
+// outer transaction commits. It does not mint ownership or extend a lease.
+func (r *PersonalRecoveryRepository) InTransaction(tx *gorm.DB) *PersonalRecoveryRepository {
+	copy := *r
+	copy.db = tx
+	return &copy
+}
+
 var (
 	// ErrPersonalUpdateDisabled reports personal update disabled.
 	ErrPersonalUpdateDisabled = errors.New("personal_document_update_not_open")
@@ -525,9 +534,49 @@ func (r *PersonalRecoveryRepository) Load(
 		(resource.LogicalKnowledgeID != a.LogicalKnowledgeID ||
 			resource.CandidateVersionID != a.CandidateVersionID ||
 			resource.ActiveVersionID != a.ExpectedActiveVersion) {
-		err = ErrPersonalIdentity
+		published, receiptErr := r.exactPublishedIdentity(ctx, &m, &resource, &a)
+		if receiptErr != nil {
+			err = receiptErr
+		} else if !published {
+			err = ErrPersonalIdentity
+		}
 	}
 	return &m, &resource, &a, err
+}
+
+// Recognize a consumed first-create claim without changing its immutable
+// expected-active version. This is identity reconciliation only, never a read
+// grant or permission to claim again. Claim/Mutate retain their original CAS.
+func (r *PersonalRecoveryRepository) exactPublishedIdentity(
+	ctx context.Context, m *types.FeishuPersonalImport, resource *types.FeishuPersonalResource,
+	a *types.FeishuPersonalAttempt,
+) (bool, error) {
+	if a.Status != "indexed" || a.OwnerNonce != "" || a.LeaseUntil != nil || a.ExpectedActiveVersion != "" ||
+		a.CandidateVersionID == "" || a.CandidateVersionID == a.LogicalKnowledgeID ||
+		resource.ActiveVersionID != a.CandidateVersionID || resource.CandidateVersionID != a.CandidateVersionID ||
+		resource.LogicalKnowledgeID != a.LogicalKnowledgeID || resource.Generation != a.Fence ||
+		m.KnowledgeID != a.LogicalKnowledgeID {
+		return false, nil
+	}
+	var rows []types.TaskPendingOp
+	if err := r.db.WithContext(ctx).Where("scope=? AND scope_id=? AND tenant_id=?",
+		types.PersonalExactReceiptScope, a.LogicalKnowledgeID, a.CallerTenantID).
+		Limit(2).Find(&rows).Error; err != nil {
+		return false, err
+	}
+	var receipt types.PersonalExactReceipt
+	if len(rows) != 1 || rows[0].Op != "published" || json.Unmarshal(rows[0].Payload, &receipt) != nil {
+		return false, nil
+	}
+	return receipt.Version == 1 && receipt.ImportID == m.ID && receipt.AttemptID == a.ID &&
+		receipt.KnowledgeID == a.LogicalKnowledgeID && receipt.KnowledgeBaseID == m.KBID &&
+		receipt.TenantID == a.CallerTenantID && receipt.CandidateVersionID == a.CandidateVersionID &&
+		receipt.ExpectedActive == a.ExpectedActiveVersion && receipt.Generation == a.Fence &&
+		receipt.ManifestSHA256 == a.ManifestHash && receipt.GrantEpoch == a.GrantEpoch &&
+		receipt.AppConfigVersion == a.AppConfigVersion && receipt.Revision == a.Revision &&
+		len(receipt.FileSHA256) == 64 && len(receipt.ParserOutputSHA256) == 64 &&
+		len(receipt.ChunksSHA256) == 64 && len(receipt.EmbeddingsSHA256) == 64 &&
+		len(receipt.DerivedSHA256) == 64 && receipt.TextChunks > 0 && receipt.VectorRows > 0, nil
 }
 
 // Lock ordering is always resource then attempt, including renew and commit.

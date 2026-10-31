@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+
 	"github.com/Tencent/WeKnora/internal/models/chat"
 	"github.com/Tencent/WeKnora/internal/models/rerank"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -18,23 +19,45 @@ type legacyGuardedChat struct {
 
 func (m *legacyGuardedChat) GetModelName() string { return m.inner.GetModelName() }
 func (m *legacyGuardedChat) GetModelID() string   { return m.inner.GetModelID() }
+
+func (m *legacyGuardedChat) checkInputs(ctx context.Context, msgs []chat.Message, opts *chat.ChatOptions) error {
+	if exact, err := checkExactPersonalMessages(ctx, m.tenant, msgs, opts); exact {
+		return err
+	}
+	return m.gate.CheckLegacyModelInputs(ctx, m.tenant)
+}
+
 func (m *legacyGuardedChat) Chat(ctx context.Context, msgs []chat.Message, opts *chat.ChatOptions) (*types.ChatResponse, error) {
-	if e := m.gate.CheckLegacyModelInputs(ctx, m.tenant); e != nil {
+	if e := m.checkInputs(ctx, msgs, opts); e != nil {
 		return nil, e
 	}
 	clean, err := sanitizeWikiGenerationMessages(ctx, msgs)
 	if err != nil {
 		return nil, err
 	}
-	return m.inner.Chat(ctx, clean, opts)
+	if exact, checkErr := checkExactPersonalMessages(ctx, m.tenant, clean, opts); exact && checkErr != nil {
+		return nil, checkErr
+	}
+	response, err := m.inner.Chat(ctx, clean, opts)
+	if err != nil {
+		return nil, err
+	}
+	if exact, checkErr := checkExactPersonalMessages(ctx, m.tenant, clean, opts); exact && checkErr != nil {
+		return nil, checkErr
+	}
+	return response, nil
 }
+
 func (m *legacyGuardedChat) ChatStream(ctx context.Context, msgs []chat.Message, opts *chat.ChatOptions) (<-chan types.StreamResponse, error) {
-	if e := m.gate.CheckLegacyModelInputs(ctx, m.tenant); e != nil {
+	if e := m.checkInputs(ctx, msgs, opts); e != nil {
 		return nil, e
 	}
 	clean, cleanErr := sanitizeWikiGenerationMessages(ctx, msgs)
 	if cleanErr != nil {
 		return nil, cleanErr
+	}
+	if exact, checkErr := checkExactPersonalMessages(ctx, m.tenant, clean, opts); exact && checkErr != nil {
+		return nil, checkErr
 	}
 	request, cancel := context.WithCancel(ctx)
 	in, err := m.inner.ChatStream(request, clean, opts)
@@ -54,7 +77,7 @@ func (m *legacyGuardedChat) ChatStream(ctx context.Context, msgs []chat.Message,
 				if !ok {
 					return
 				}
-				if e := m.gate.CheckLegacyModelInputs(request, m.tenant); e != nil {
+				if e := m.checkInputs(request, clean, opts); e != nil {
 					return
 				}
 				select {
@@ -79,8 +102,22 @@ func (m *legacyGuardedRerank) MaxPassageRunes(q string) int {
 }
 
 func (m *legacyGuardedRerank) Rerank(ctx context.Context, q string, docs []string) ([]rerank.RankResult, error) {
-	if e := m.gate.CheckLegacyModelInputs(ctx, m.tenant); e != nil {
-		return nil, e
+	exact, err := checkExactPersonalPassages(ctx, m.tenant, q, docs)
+	if exact {
+		if err != nil {
+			return nil, err
+		}
+	} else if err = m.gate.CheckLegacyModelInputs(ctx, m.tenant); err != nil {
+		return nil, err
 	}
-	return m.Reranker.Rerank(ctx, q, docs)
+	results, err := m.Reranker.Rerank(ctx, q, docs)
+	if err != nil {
+		return nil, err
+	}
+	if exact {
+		if _, err = checkExactPersonalPassages(ctx, m.tenant, q, docs); err != nil {
+			return nil, err
+		}
+	}
+	return results, nil
 }

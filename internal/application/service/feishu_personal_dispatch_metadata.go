@@ -15,6 +15,7 @@ import (
 type personalDispatchMetadata struct {
 	ID, KnowledgeBaseID, FilePath, FileName, FileHash, ParseStatus string
 	AttemptID                                                      string
+	Channel                                                        string
 	ManifestSHA256                                                 string `gorm:"column:manifest_sha256"`
 	TenantID                                                       uint64
 	FileSize                                                       int64
@@ -24,6 +25,23 @@ func (p *PersonalRecovery) loadDispatchMetadata(
 	ctx context.Context, tenant uint64, kb, knowledge string,
 ) (*personalDispatchMetadata, error) {
 	return loadPersonalDispatchMetadata(p.service.db.WithContext(ctx), tenant, kb, knowledge, false)
+}
+
+// Inspect cardinality without materializing historical body, chunk content or
+// vector content. Unknown existing output still requires receipt reconciliation;
+// a count is never evidence that an earlier task completed successfully.
+func (p *PersonalRecovery) firstCreateOutputCounts(
+	ctx context.Context, k *personalDispatchMetadata,
+) (int64, int64, error) {
+	if k == nil || k.ID == "" || k.KnowledgeBaseID == "" || k.TenantID == 0 {
+		return 0, 0, repository.ErrPersonalIdentity
+	}
+	var counts struct{ Chunks, Embeddings int64 }
+	err := p.service.db.WithContext(ctx).Raw(`SELECT
+(SELECT count(*) FROM chunks WHERE knowledge_id=?) AS chunks,
+(SELECT count(*) FROM embeddings WHERE knowledge_id=?) AS embeddings`, k.ID, k.ID).
+		Scan(&counts).Error
+	return counts.Chunks, counts.Embeddings, err
 }
 
 func loadPersonalDispatchMetadata(
@@ -41,7 +59,7 @@ func loadPersonalDispatchMetadata(
 		query = query.Clauses(clause.Locking{Strength: "SHARE"})
 	}
 	result := query.
-		Select(`id, tenant_id, knowledge_base_id, file_path, file_name, file_hash, file_size,
+		Select(`id, tenant_id, knowledge_base_id, channel, file_path, file_name, file_hash, file_size,
 parse_status, metadata->>'feishu_mvp_attempt' AS attempt_id,
 metadata->>'feishu_manifest_sha256' AS manifest_sha256`).
 		Where("id=? AND tenant_id=? AND knowledge_base_id=? AND deleted_at IS NULL", knowledge, tenant, kb).

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -41,8 +42,11 @@ func (p *PersonalRecovery) revalidateExactPersonalDocument(
 		return nil, err
 	}
 	if fresh.knowledge != proof.knowledge || fresh.kb != proof.kb || fresh.tenant != proof.tenant ||
-		fresh.importID != proof.importID || fresh.resource != proof.resource || fresh.resourceHandle != proof.resourceHandle ||
+		fresh.importID != proof.importID || fresh.resource != proof.resource ||
+		fresh.resourceHandle != proof.resourceHandle ||
 		fresh.fileSHA256 != proof.fileSHA256 || fresh.manifestSHA256 != proof.manifestSHA256 ||
+		fresh.fileMD5 != proof.fileMD5 || fresh.physicalPath != proof.physicalPath ||
+		fresh.bindingID != proof.bindingID ||
 		fresh.connectionIdentity != proof.connectionIdentity || fresh.revision != proof.revision {
 		return nil, errPersonalExactDocument
 	}
@@ -66,12 +70,15 @@ func (p *PersonalRecovery) parseExactPersonalDocument(
 	if strings.ToLower(filepath.Ext(a.ManifestName)) != ".docx" {
 		return nil, errPersonalExactDocument
 	}
+	if err = checkExactDOCXDependencies(fresh.file); err != nil {
+		return nil, fmt.Errorf("exact_document_dependencies_unverified: %w", err)
+	}
 	parsed, err := anydoc.Convert(fresh.file, anydoc.Options{Format: "docx", WithAssets: true})
 	if err != nil {
 		return nil, err
 	}
 	if parsed == nil || parsed.AssetsError != nil {
-		return nil, errPersonalExactDocument
+		return nil, fmt.Errorf("exact_document_parser_assets_unverified: %w", errPersonalExactDocument)
 	}
 	if _, err = p.revalidateExactPersonalDocument(ctx, fresh); err != nil {
 		return nil, err

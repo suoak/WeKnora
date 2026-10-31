@@ -81,6 +81,12 @@ func EnablePersonalRecovery(
 	p.repo.ApplicationGrantValidator = p.validateApplicationIdentityTx
 	s.recovery = p
 	ks.personalRecovery = p
+	if models, ok := ks.modelService.(*modelService); ok {
+		models.personalRecovery = p
+	}
+	if kbs, ok := ks.kbService.(*knowledgeBaseService); ok {
+		kbs.personalRecovery = p
+	}
 	return nil
 }
 
@@ -795,6 +801,13 @@ func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 			}
 
 			if err != nil {
+				if current != nil && exactPersonalRecoveryAllows(current.LogicalKnowledgeID) &&
+					current.AuthMode == types.FeishuUserOAuth {
+					// Revocation is not permission to cancel a concurrently
+					// renewed generation or rewrite a published execution.
+					failures = append(failures, err, p.closeExactReconcileExecution(ctx, current))
+					continue
+				}
 				if personalAuthorizationLost(err) || errors.Is(err, gorm.ErrRecordNotFound) {
 					failures = append(
 						failures,
@@ -808,6 +821,11 @@ func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 
 			if a.ManifestHash != "" {
 				if _, err = p.store.read(&a); err != nil {
+					if exactPersonalRecoveryAllows(current.LogicalKnowledgeID) &&
+						current.AuthMode == types.FeishuUserOAuth {
+						failures = append(failures, err, p.closeExactReconcileExecution(ctx, current))
+						continue
+					}
 					failures = append(failures, p.repo.Invalidate(ctx, a.ID, "manifest_missing_or_invalid"))
 					continue
 				}

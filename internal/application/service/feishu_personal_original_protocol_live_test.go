@@ -10,7 +10,9 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
@@ -23,6 +25,9 @@ import (
 // v3 protocol and synthetic isolated OAuth authority. No production credentials
 // or remote authorization are copied. This is not an index/retrieval acceptance.
 func TestPersonalOriginalV3ClaimAndExactParse(t *testing.T) {
+	if os.Getenv("PERSONAL_EXACT_CONSUMER_ACCEPTANCE") == "1" {
+		t.Setenv("SYNC_EXECUTION_POSTGRES_PUBLIC_EXTENSIONS", "1")
+	}
 	const kbID = "d14eb0c0-1ade-46f9-890e-84fa823b335d"
 	const knowledgeID = "62b4dfac-8e5c-46c9-be87-86493aca4d40"
 	data, err := os.ReadFile(os.Getenv("PERSONAL_EXACT_DOCX_FIXTURE"))
@@ -33,6 +38,9 @@ func TestPersonalOriginalV3ClaimAndExactParse(t *testing.T) {
 		personalManifestDigest(data, nil),
 	)
 	f := newMVPFixture(t)
+	if os.Getenv("PERSONAL_EXACT_CONSUMER_ACCEPTANCE") == "1" {
+		f.p.lease = 2 * time.Minute
+	}
 	require.NoError(t, f.db.Exec("UPDATE knowledge_bases SET id=? WHERE id='kb'", kbID).Error)
 	kb := &types.KnowledgeBase{ID: kbID, TenantID: 1, CreatorID: "A"}
 	f.ks.kbService, f.s.kbs = dispatchActualKB{kb: kb}, dispatchActualKB{kb: kb}
@@ -55,14 +63,16 @@ func TestPersonalOriginalV3ClaimAndExactParse(t *testing.T) {
 		case "/open-apis/drive/v1/metas/batch_query":
 			_, _ = fmt.Fprint(
 				w,
-				`{"code":0,"data":{"metas":[{"doc_type":"docx","doc_token":"real","title":"original","latest_modify_time":"1"}]}}`,
+				`{"code":0,"data":{"metas":[{"doc_type":"docx","doc_token":"real","title":"original",`+
+					`"latest_modify_time":"1"}]}}`,
 			)
 		case "/open-apis/drive/v1/export_tasks":
 			_, _ = fmt.Fprint(w, `{"code":0,"data":{"ticket":"ticket"}}`)
 		case "/open-apis/drive/v1/export_tasks/ticket":
 			_, _ = fmt.Fprint(
 				w,
-				`{"code":0,"data":{"result":{"job_status":0,"file_token":"download-token","file_name":"original.docx"}}}`,
+				`{"code":0,"data":{"result":{"job_status":0,"file_token":"download-token",`+
+					`"file_name":"original.docx"}}}`,
 			)
 		case "/open-apis/drive/v1/export_tasks/file/download-token/download":
 			_, _ = w.Write(data)
@@ -101,14 +111,17 @@ func TestPersonalOriginalV3ClaimAndExactParse(t *testing.T) {
 		t,
 		f.db.AutoMigrate(&types.StoredResource{}, &types.ResourceBinding{}, &types.DataSource{}),
 	)
-	require.NoError(t, f.db.Exec(`CREATE TABLE feishu_legacy_resources (
-id text PRIMARY KEY,tenant_id bigint,knowledge_base_id text,knowledge_id text,state text,original_file_path text,external_id text)`).Error)
-	require.NoError(
-		t,
-		f.db.Exec(
-			`CREATE TABLE feishu_legacy_attempts (id text,resource_id text,manifest jsonb)`,
-		).Error,
+	// Install the production write-fence function and full resource schema.
+	// AutoMigrate already created the source state column in this fresh fixture.
+	legacyDDL, err := os.ReadFile("../../../migrations/versioned/003036_feishu_legacy_atomic.up.sql")
+	require.NoError(t, err)
+	legacySQL := strings.Replace(
+		string(legacyDDL),
+		"ADD COLUMN legacy_access_state",
+		"ADD COLUMN IF NOT EXISTS legacy_access_state",
+		1,
 	)
+	require.NoError(t, f.db.Exec(legacySQL).Error)
 	require.NoError(
 		t,
 		f.db.Create(&types.DataSource{
@@ -158,13 +171,22 @@ id text PRIMARY KEY,tenant_id bigint,knowledge_base_id text,knowledge_id text,st
 	_, before, _, err := f.p.repo.Load(context.Background(), m.AttemptID)
 	require.NoError(t, err)
 	require.EqualValues(t, 3, before.Generation)
+	if os.Getenv("PERSONAL_EXACT_PUBLIC_DISPATCH_ACCEPTANCE") == "1" {
+		exerciseOriginalPublicDispatch(t, f, intent.Task)
+		return
+	}
 	owner, err := f.p.repo.Claim(context.Background(), m.AttemptID, f.p.lease)
 	require.NoError(t, err)
 	require.EqualValues(t, 4, owner.Fence)
 	proof, err := f.p.prepareExactPersonalDocument(context.Background(), owner)
 	require.NoError(t, err)
-	parsed, err := f.p.parseExactPersonalDocument(context.Background(), proof)
-	require.NoError(t, err)
+	var parsed *personalExactParsedDocument
+	if os.Getenv("PERSONAL_EXACT_CONSUMER_ACCEPTANCE") == "1" {
+		parsed = exerciseOriginalExactConsumer(t, f, intent.Task, proof)
+	} else {
+		parsed, err = f.p.parseExactPersonalDocument(context.Background(), proof)
+		require.NoError(t, err)
+	}
 	require.NotEmpty(t, parsed.outputSHA256)
 	require.NotEmpty(t, parsed.markdown)
 	// Exact parsing cannot authorize unrelated or whole-KB content reads.

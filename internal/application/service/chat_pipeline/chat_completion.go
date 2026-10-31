@@ -53,6 +53,10 @@ func (p *PluginChatCompletion) OnEvent(
 	chatMessages, modelContext := prepareMessagesWithModelContext(ctx, chatManage)
 	chatMessages = modelContext.EncodeMessages(chatMessages)
 	reportModelContextLeaks(ctx, "Completion", modelContext, chatMessages)
+	ctx, opt, err = prepareExactPersonalChat(ctx, p.modelService, chatManage, chatMessages, opt)
+	if err != nil {
+		return ErrModelCall.WithError(err)
+	}
 	ctx = withPromptCacheMetadata(ctx, chatModel, chatMessages, opt, "knowledge_qa")
 
 	// Call the chat model to generate response

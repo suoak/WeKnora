@@ -11,13 +11,18 @@ import (
 
 // PluginMerge handles merging of search result chunks
 type PluginMerge struct {
+	modelService interfaces.ModelService
 	chunkRepo    interfaces.ChunkRepository
 	chunkService interfaces.ChunkService // for parent chunk resolution
 }
 
 // NewPluginMerge creates and registers a new PluginMerge instance
-func NewPluginMerge(eventManager *EventManager, chunkRepo interfaces.ChunkRepository, chunkService interfaces.ChunkService) *PluginMerge {
+func NewPluginMerge(
+	eventManager *EventManager, chunkRepo interfaces.ChunkRepository,
+	chunkService interfaces.ChunkService, models interfaces.ModelService,
+) *PluginMerge {
 	res := &PluginMerge{
+		modelService: models,
 		chunkRepo:    chunkRepo,
 		chunkService: chunkService,
 	}
@@ -54,6 +59,12 @@ func (p *PluginMerge) OnEvent(ctx context.Context,
 
 	// Step 1: Select input
 	searchResult := p.selectInputResults(ctx, chatManage)
+
+	var sourceErr error
+	ctx, sourceErr = prepareExactPersonalRead(ctx, p.modelService, searchResult)
+	if sourceErr != nil {
+		return ErrSearch.WithError(sourceErr)
+	}
 
 	// Step 2: Initial dedup
 	searchResult = p.dedup(ctx, "dedup_summary", searchResult)
