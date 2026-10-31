@@ -30,12 +30,13 @@ func legacyCandidateAccessSuite(t *testing.T, db *gorm.DB) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = conn.Close() })
 	for _, query := range []string{
-		`CREATE TABLE embeddings(knowledge_base_id text)`,
+		`CREATE TABLE embeddings(knowledge_id text,knowledge_base_id text)`,
+		`CREATE TABLE task_pending_ops(scope text,scope_id text)`,
 		`CREATE TABLE knowledge_bases(id text,tenant_id bigint)`,
 		`CREATE TABLE knowledges(id text,deleted_at timestamp)`,
 		`CREATE TABLE data_sources(knowledge_base_id text,legacy_access_state text)`,
 		`CREATE TABLE feishu_legacy_resources(knowledge_base_id text,knowledge_id text,state text)`,
-		`INSERT INTO embeddings VALUES('kb')`,
+		`INSERT INTO embeddings VALUES('doc','kb')`,
 		`INSERT INTO knowledge_bases VALUES('kb',1)`,
 		`INSERT INTO knowledges VALUES('doc',NULL)`,
 		`INSERT INTO data_sources VALUES('kb','hold')`,
