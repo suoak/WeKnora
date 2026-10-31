@@ -34,9 +34,9 @@ type PersonalRecoveryRepository struct {
 // transaction. Mutate uses a nested savepoint; its locks survive until the
 // outer transaction commits. It does not mint ownership or extend a lease.
 func (r *PersonalRecoveryRepository) InTransaction(tx *gorm.DB) *PersonalRecoveryRepository {
-	copy := *r
-	copy.db = tx
-	return &copy
+	transactionRepo := *r
+	transactionRepo.db = tx
+	return &transactionRepo
 }
 
 var (

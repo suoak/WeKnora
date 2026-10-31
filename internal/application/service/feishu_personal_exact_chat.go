@@ -103,9 +103,9 @@ func (s *modelService) AuthorizeExactPersonalChat(
 	}
 	var actualOptions *chat.ChatOptions
 	if options != nil {
-		copy := *options
-		copy.PromptCacheKey = "" // Fresh proof cannot authorize historical cache input.
-		actualOptions = &copy
+		verifiedOptions := *options
+		verifiedOptions.PromptCacheKey = "" // Fresh proof cannot authorize historical cache input.
+		actualOptions = &verifiedOptions
 	}
 	expectedDigest, err := exactMessagesDigest(expected, actualOptions)
 	if err != nil {

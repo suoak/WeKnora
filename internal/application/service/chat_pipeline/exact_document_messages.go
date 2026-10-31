@@ -25,9 +25,9 @@ func RenderVerifiedDocumentMessages(
 			if row == nil {
 				continue
 			}
-			copy := *row
-			copy.SubChunkID = append([]string(nil), row.SubChunkID...)
-			out = append(out, &copy)
+			clonedResult := *row
+			clonedResult.SubChunkID = append([]string(nil), row.SubChunkID...)
+			out = append(out, &clonedResult)
 		}
 		return out
 	}

@@ -42,7 +42,10 @@ func TestExactPersonalModelChecksActualMessagesAndLiveAuthority(t *testing.T) {
 	_, err = model.Chat(ctx, messages, options)
 	require.ErrorIs(t, err, errPersonalExactDocument)
 	require.EqualValues(t, 1, spy.calls.Load(), "no altered or revoked input may reach the provider")
-	_, err = model.Chat(context.WithValue(context.Background(), forgedPersonalModelContextKey("exact_document_proof"), true), messages, options)
+	_, err = model.Chat(
+		context.WithValue(context.Background(), forgedPersonalModelContextKey("exact_document_proof"), true),
+		messages, options,
+	)
 	require.ErrorIs(t, err, types.ErrLegacySourceRestricted)
 }
 
@@ -89,7 +92,10 @@ func TestExactPersonalModelRerankBindsActualQueryPassagesAndAuthority(t *testing
 	_, err = model.Rerank(ctx, "query", passages)
 	require.ErrorIs(t, err, errPersonalExactDocument)
 	require.EqualValues(t, 1, spy.calls.Load())
-	_, err = model.Rerank(context.WithValue(context.Background(), "exact_passages", true), "query", passages)
+	_, err = model.Rerank(
+		context.WithValue(context.Background(), forgedPersonalModelContextKey("exact_passages"), true),
+		"query", passages,
+	)
 	require.ErrorIs(t, err, types.ErrLegacySourceRestricted)
 }
 

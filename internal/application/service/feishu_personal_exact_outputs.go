@@ -13,17 +13,17 @@ func exactChunkDigest(chunk *types.Chunk) ([32]byte, error) {
 	if chunk == nil {
 		return [32]byte{}, errPersonalExactDocument
 	}
-	copy := *chunk
+	canonicalChunk := *chunk
 	// Database precision/sequence allocation and staging visibility do not
 	// change parser content. Every content, relation, locator, metadata and
 	// editing-revision field remains part of the canonical digest.
-	copy.CreatedAt, copy.UpdatedAt = time.Time{}, time.Time{}
-	copy.SeqID = 0
-	copy.IsEnabled = false
+	canonicalChunk.CreatedAt, canonicalChunk.UpdatedAt = time.Time{}, time.Time{}
+	canonicalChunk.SeqID = 0
+	canonicalChunk.IsEnabled = false
 	data, err := json.Marshal(struct {
 		Chunk         types.Chunk
 		SourceContent string
-	}{copy, copy.SourceContent})
+	}{canonicalChunk, canonicalChunk.SourceContent})
 	if err != nil {
 		return [32]byte{}, err
 	}
