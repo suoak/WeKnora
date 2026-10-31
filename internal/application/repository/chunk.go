@@ -262,6 +262,36 @@ func (r *chunkRepository) ListPagedChunksByKnowledgeID(
 	knowledgeType string,
 	isEnabled *bool,
 ) ([]*types.Chunk, int64, error) {
+	if _, boundTenant, _, _, exact := types.ExactPublishedDocumentIdentity(ctx); exact {
+		if tenantID != boundTenant || page == nil || page.Limit() < 1 || page.Limit() > 100 {
+			return nil, 0, types.ErrExactDocumentScope
+		}
+		var rows []*types.Chunk
+		var count int64
+		err := types.ReadExactPublishedPage(ctx, knowledgeID, func(pageCtx context.Context) error {
+			var err error
+			rows, count, err = r.listPagedChunksByKnowledgeID(pageCtx, tenantID, knowledgeID, page,
+				chunkType, tagIDs, keyword, searchField, sortOrder, knowledgeType, isEnabled)
+			return err
+		})
+		if err != nil {
+			return nil, 0, err
+		}
+		return rows, count, nil
+	}
+	return r.listPagedChunksByKnowledgeID(ctx, tenantID, knowledgeID, page,
+		chunkType, tagIDs, keyword, searchField, sortOrder, knowledgeType, isEnabled)
+}
+
+func (r *chunkRepository) listPagedChunksByKnowledgeID(
+	ctx context.Context, tenantID uint64, knowledgeID string, page *types.Pagination,
+	chunkType []types.ChunkType, tagIDs []string, keyword, searchField, sortOrder, knowledgeType string,
+	isEnabled *bool,
+) ([]*types.Chunk, int64, error) {
+	// Source and private-KB checks precede SQL body selection, including empty pages.
+	if err := types.CheckLegacySourceRead(r.db.WithContext(ctx), knowledgeID, ""); err != nil {
+		return nil, 0, err
+	}
 	var chunks []*types.Chunk
 	var total int64
 	keyword = strings.TrimSpace(keyword)
@@ -803,7 +833,12 @@ func (r *chunkRepository) DeleteByKnowledgeList(ctx context.Context, tenantID ui
 }
 
 // MoveChunksByKnowledgeID updates knowledge_base_id for all chunks of a knowledge item
-func (r *chunkRepository) MoveChunksByKnowledgeID(ctx context.Context, tenantID uint64, knowledgeID string, targetKBID string) error {
+func (r *chunkRepository) MoveChunksByKnowledgeID(
+	ctx context.Context,
+	tenantID uint64,
+	knowledgeID string,
+	targetKBID string,
+) error {
 	return r.db.WithContext(ctx).Model(&types.Chunk{}).
 		Where("tenant_id = ? AND knowledge_id = ?", tenantID, knowledgeID).
 		Updates(map[string]any{"knowledge_base_id": targetKBID, "tag_id": ""}).Error
@@ -811,7 +846,13 @@ func (r *chunkRepository) MoveChunksByKnowledgeID(ctx context.Context, tenantID 
 
 // DeleteChunksByTagID deletes all chunks with the specified tag ID
 // Returns the IDs of deleted chunks for index cleanup
-func (r *chunkRepository) DeleteChunksByTagID(ctx context.Context, tenantID uint64, kbID string, tagID string, excludeIDs []string) ([]string, error) {
+func (r *chunkRepository) DeleteChunksByTagID(
+	ctx context.Context,
+	tenantID uint64,
+	kbID string,
+	tagID string,
+	excludeIDs []string,
+) ([]string, error) {
 	// Build exclude set for O(1) lookup
 	excludeSet := make(map[string]struct{}, len(excludeIDs))
 	for _, id := range excludeIDs {

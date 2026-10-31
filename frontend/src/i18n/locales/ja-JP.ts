@@ -770,6 +770,7 @@ const messages = {
     partialUploadSuccess: '一部のファイルをアップロードしました（成功: {success}件、失敗: {fail}件）',
     allUploadFailed: 'すべてのファイルのアップロードに失敗しました（{count}件）',
     deleteSuccess: 'ナレッジを削除しました。',
+    documentReadForbidden: '?????????????????',
     chunkLoadFailed: 'チャンクの読み込みに失敗しました'
   ,
   selectKnowledgeBase: 'ナレッジベースを選択',

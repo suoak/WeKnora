@@ -529,7 +529,7 @@ const chunkPage = ref(1);
 const loadedChunkPage = ref(1);
 let pendingChunkPage: number | null = null;
 const isChunkPageTransition = computed(
-  () => Boolean(props.details?.chunkLoading) && chunkPage.value !== loadedChunkPage.value,
+  () => Boolean(props.details?.chunkLoading || props.details?.detailLoading),
 );
 let mdContentWrap = ref()
 // Drawer uses attach="body", so markdown nodes live outside mdContentWrap in the DOM.
@@ -1851,7 +1851,10 @@ const handleChunkPageChange = (pageInfo: { current: number }) => {
               <t-loading size="small" />
               <span>{{ $t('common.loading') }}</span>
             </div>
-            <template v-else>
+            <div v-else-if="details.detailLoadError || details.chunkLoadError" class="no_content" role="alert">
+              {{ details.detailLoadError || details.chunkLoadError }}
+            </div>
+            <template v-else-if="details.chunkLoaded">
               <div v-if="!mergedContent" class="no_content">{{ $t('common.noData') }}</div>
               <div v-else class="md-content" v-html="processMarkdown(mergedContent)"></div>
             </template>
@@ -1863,7 +1866,10 @@ const handleChunkPageChange = (pageInfo: { current: number }) => {
               <t-loading size="small" />
               <span>{{ $t('common.loading') }}</span>
             </div>
-            <template v-else>
+            <div v-else-if="details.detailLoadError || details.chunkLoadError" class="no_content" role="alert">
+              {{ details.detailLoadError || details.chunkLoadError }}
+            </div>
+            <template v-else-if="details.chunkLoaded">
               <div v-if="!processedChunks.length" class="no_content">{{ $t('common.noData') }}</div>
               <div v-else class="chunk-list">
               <div class="chunk-item" :class="{ 'chunk-item--disabled': !chunk.original.is_enabled }"

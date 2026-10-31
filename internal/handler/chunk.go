@@ -149,7 +149,12 @@ func (h *ChunkHandler) ListKnowledgeChunks(c *gin.Context) {
 	result, err := h.service.ListPagedChunksByKnowledgeID(ctx, knowledgeID, &pagination, chunkType)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		if stderrors.Is(err, access.ErrForbidden) || stderrors.Is(err, access.ErrUnauthorized) ||
+			stderrors.Is(err, types.ErrExactDocumentScope) || stderrors.Is(err, types.ErrLegacySourceRestricted) {
+			c.Error(errors.NewForbiddenError("Document read denied"))
+		} else {
+			c.Error(errors.NewInternalServerError("Failed to load document chunks"))
+		}
 		return
 	}
 

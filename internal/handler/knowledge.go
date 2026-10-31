@@ -201,10 +201,21 @@ func (h *KnowledgeHandler) resolveKnowledgeAndValidateKBAccess(
 	}
 	knowledge, err := h.kgService.GetKnowledgeByIDOnly(ctx, knowledgeID)
 	if err != nil || knowledge == nil {
+		if _, _, _, _, exact := types.ExactPublishedDocumentIdentity(ctx); exact {
+			return nil, ctx, errors.NewInternalServerError("Document source verification failed")
+		}
 		return nil, ctx, errors.NewNotFoundError("Knowledge not found")
 	}
 	if err := requireTenantAPIKeyKnowledgeBase(ctx, knowledge.KnowledgeBaseID); err != nil {
 		return nil, ctx, err
+	}
+	if _, tenant, id, kb, exact := types.ExactPublishedDocumentIdentity(ctx); exact &&
+		requiredPermission == types.OrgRoleViewer {
+		if id != knowledge.ID || kb != knowledge.KnowledgeBaseID || tenant != knowledge.TenantID ||
+			!access.HasKBGrant(ctx, kb, tenant, requiredPermission) {
+			return nil, ctx, errors.NewForbiddenError("Document read denied")
+		}
+		return knowledge, ctx, nil
 	}
 	if grant, ok := resolvedKBAccess(c, knowledge.KnowledgeBaseID, requiredPermission); ok {
 		if grant.EffectiveTenantID != knowledge.TenantID {
@@ -651,10 +662,16 @@ func (h *KnowledgeHandler) GetKnowledge(c *gin.Context) {
 		return
 	}
 
-	// Re-fetch with tenant-scoped service so tags and other joined fields are populated.
-	if knowledge, err = h.kgService.GetKnowledgeByID(effCtx, id); err != nil {
+	// An exact published read was already validated by the resolver. Its
+	// receipt does not certify historical tag rows, and re-fetching performs
+	// the same remote source proof again within the HTTP deadline.
+	_, _, exactID, _, exact := types.ExactPublishedDocumentIdentity(effCtx)
+	if !exact || exactID != id {
+		knowledge, err = h.kgService.GetKnowledgeByID(effCtx, id)
+	}
+	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewNotFoundError("Knowledge not found"))
+		c.Error(errors.NewInternalServerError("Failed to load document"))
 		return
 	}
 

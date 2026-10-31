@@ -7,11 +7,20 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
+// ExactPublishedReadContext issues source authority only for this document and
+// the authenticated viewer. Route guards must retain it for downstream reads.
+func (s *knowledgeService) ExactPublishedReadContext(ctx context.Context, id string) (context.Context, bool, error) {
+	return s.exactPublicReadContext(ctx, id)
+}
+
 func (s *knowledgeService) exactPublicReadContext(ctx context.Context, id string) (context.Context, bool, error) {
 	if !exactPersonalRecoveryEnabled() || s.DocumentACLReadEnabled() {
 		return ctx, false, nil
 	}
-	if _, _, _, _, ok := types.ExactPublishedDocumentIdentity(ctx); ok {
+	if _, _, knowledge, _, ok := types.ExactPublishedDocumentIdentity(ctx); ok {
+		if knowledge != id {
+			return ctx, true, types.ErrExactDocumentScope
+		}
 		_, err := types.CheckExactPublishedDocumentRead(ctx)
 		return ctx, true, err
 	}
