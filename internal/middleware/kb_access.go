@@ -279,7 +279,7 @@ func resolveKBAccess(
 	if request.Caller.TenantID == 0 {
 		return nil, access.ErrUnauthorized
 	}
-	kb, err := kbService.GetKnowledgeBaseByID(ctx, kbID)
+	kb, err := LookupKBAccessMetadata(ctx, kbService, kbID, requiredPermission)
 	if err != nil {
 		if stderrors.Is(err, apprepo.ErrKnowledgeBaseNotFound) {
 			return nil, access.ErrNotFound
@@ -287,4 +287,20 @@ func resolveKBAccess(
 		return nil, err
 	}
 	return access.ResolveKB(ctx, request, kb, requiredPermission, kbShareService, agentShareService)
+}
+
+// LookupKBAccessMetadata uses an optional ownership projection for Viewer
+// authorization. It never grants content authority; Editor/configuration paths
+// keep their existing complete-entity lookup and source policy.
+func LookupKBAccessMetadata(ctx context.Context, lookup KBLookup, id string,
+	required types.OrgMemberRole,
+) (*types.KnowledgeBase, error) {
+	if required == types.OrgRoleViewer {
+		if metadata, ok := lookup.(interface {
+			GetKnowledgeBaseAccessMetadata(context.Context, string) (*types.KnowledgeBase, error)
+		}); ok {
+			return metadata.GetKnowledgeBaseAccessMetadata(ctx, id)
+		}
+	}
+	return lookup.GetKnowledgeBaseByID(ctx, id)
 }

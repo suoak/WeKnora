@@ -30,18 +30,22 @@ func TestPersonalOriginalV3ClaimAndExactParse(t *testing.T) {
 	runOriginalExactAcceptance(t, nil)
 }
 
+// OriginalExactWebProbe validates real handler paths using authenticated isolated fixtures.
+type OriginalExactWebProbe func(interfaces.KnowledgeService, interfaces.KnowledgeBaseService,
+	context.Context, context.Context, string, string)
+
 // RunOriginalExactQueueAcceptance exposes only the isolated test fixture to an
 // external test package, so the real Lite router adapter needs no production refactor.
 func RunOriginalExactQueueAcceptance(t *testing.T,
-	factory func(asynq.HandlerFunc) interfaces.TaskEnqueuer,
+	factory func(asynq.HandlerFunc) interfaces.TaskEnqueuer, probes ...OriginalExactWebProbe,
 ) {
 	t.Helper()
 	require.NotNil(t, factory)
-	runOriginalExactAcceptance(t, factory)
+	runOriginalExactAcceptance(t, factory, probes...)
 }
 
 func runOriginalExactAcceptance(t *testing.T,
-	factory func(asynq.HandlerFunc) interfaces.TaskEnqueuer,
+	factory func(asynq.HandlerFunc) interfaces.TaskEnqueuer, probes ...OriginalExactWebProbe,
 ) {
 	if os.Getenv("PERSONAL_EXACT_CONSUMER_ACCEPTANCE") == "1" {
 		t.Setenv("SYNC_EXECUTION_POSTGRES_PUBLIC_EXTENSIONS", "1")
@@ -190,7 +194,7 @@ func runOriginalExactAcceptance(t *testing.T,
 	require.NoError(t, err)
 	require.EqualValues(t, 3, before.Generation)
 	if os.Getenv("PERSONAL_EXACT_PUBLIC_DISPATCH_ACCEPTANCE") == "1" {
-		exerciseOriginalPublicDispatch(t, f, intent.Task, factory)
+		exerciseOriginalPublicDispatch(t, f, intent.Task, factory, probes...)
 		return
 	}
 	owner, err := f.p.repo.Claim(context.Background(), m.AttemptID, f.p.lease)

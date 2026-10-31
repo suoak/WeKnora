@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Tencent/WeKnora/internal/application/access"
 	"io"
 	"reflect"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Tencent/WeKnora/internal/application/access"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/application/service/retriever"
@@ -585,6 +586,20 @@ func defaultChannel(ch string) string {
 
 // GetKnowledgeByID retrieves a knowledge entry by its ID
 func (s *knowledgeService) GetKnowledgeByID(ctx context.Context, id string) (*types.Knowledge, error) {
+	read, exact, proofErr := s.exactPublicReadContext(ctx, id)
+	if proofErr != nil {
+		return nil, proofErr
+	}
+	if exact {
+		row, err := s.repo.GetKnowledgeByID(read, types.MustTenantIDFromContext(read), id)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := types.CheckExactPublishedDocumentRead(read); err != nil {
+			return nil, err
+		}
+		return row, nil
+	}
 	if s.DocumentACLReadEnabled() {
 		return s.readAuthorizedKnowledge(ctx, id)
 	}
@@ -614,6 +629,20 @@ func (s *knowledgeService) GetKnowledgeByID(ctx context.Context, id string) (*ty
 
 // GetKnowledgeByIDOnly retrieves knowledge by ID without tenant filter (for permission resolution).
 func (s *knowledgeService) GetKnowledgeByIDOnly(ctx context.Context, id string) (*types.Knowledge, error) {
+	read, exact, err := s.exactPublicReadContext(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if exact {
+		row, err := s.repo.GetKnowledgeByID(read, types.MustTenantIDFromContext(read), id)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := types.CheckExactPublishedDocumentRead(read); err != nil {
+			return nil, err
+		}
+		return row, nil
+	}
 	if s.DocumentACLReadEnabled() {
 		return s.readAuthorizedKnowledge(ctx, id)
 	}
@@ -673,6 +702,9 @@ func (s *knowledgeService) ListPagedKnowledgeByKnowledgeBaseID(ctx context.Conte
 ) (*types.PageResult, error) {
 	if s.DocumentACLReadEnabled() {
 		return s.readAuthorizedPage(ctx, kbID, page, filter)
+	}
+	if result, handled, err := s.exactPublicKnowledgePage(ctx, kbID, page, filter); handled {
+		return result, err
 	}
 
 	knowledges, total, err := s.repo.ListPagedKnowledgeByKnowledgeBaseID(ctx,

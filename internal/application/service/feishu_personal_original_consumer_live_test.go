@@ -130,7 +130,18 @@ func configureOriginalExactConsumer(
 	require.NoError(t, f.db.AutoMigrate(&types.KnowledgeBase{}, &types.Tenant{}, &types.Model{}))
 	ddl, err := os.ReadFile("../../../migrations/versioned/000002_embeddings.up.sql")
 	require.NoError(t, err)
-	require.NoError(t, f.db.Exec(string(ddl)).Error)
+	// Production migrations run in one schema. Acceptance owns a disposable
+	// schema; another concurrent fixture's index must not satisfy its checks.
+	schemaDDL := string(ddl)
+	for _, condition := range []string{
+		"indexname = 'embeddings_search_idx'",
+		"indexname = 'embeddings_embedding_idx' OR indexname LIKE 'embeddings_embedding%3584%'",
+		"indexname = 'embeddings_embedding_idx_798' OR indexname LIKE 'embeddings_embedding%798%'",
+	} {
+		schemaDDL = strings.ReplaceAll(schemaDDL, "FROM pg_indexes WHERE "+condition,
+			"FROM pg_indexes WHERE schemaname=current_schema() AND ("+condition+")")
+	}
+	require.NoError(t, f.db.Exec(schemaDDL).Error)
 	require.NoError(t, f.db.Exec("ALTER TABLE embeddings ADD COLUMN IF NOT EXISTS tag_id varchar(36)").Error)
 	// The production migration only attaches this trigger when public.embeddings
 	// exists. This isolated schema owns its table, so attach the same function here.
@@ -227,6 +238,7 @@ func configureOriginalExactConsumer(
 
 func exerciseOriginalPublicDispatch(t *testing.T, f *personalRecoveryFixture,
 	payload types.DocumentProcessPayload, factory func(asynq.HandlerFunc) interfaces.TaskEnqueuer,
+	probes ...OriginalExactWebProbe,
 ) {
 	t.Helper()
 	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY", "1")
@@ -334,7 +346,7 @@ func exerciseOriginalPublicDispatch(t *testing.T, f *personalRecoveryFixture,
 	)
 	require.Positive(t, chunks)
 	require.Positive(t, vectors)
-	exerciseOriginalExactRetrieval(t, f, &exactPersonalConsumer{recovery: f.p, source: proof})
+	exerciseOriginalExactRetrieval(t, f, &exactPersonalConsumer{recovery: f.p, source: proof}, probes...)
 	evidence, err := json.Marshal(map[string]any{
 		"knowledge_id": payload.KnowledgeID, "generation": resource.Generation,
 		"chunk_rows": chunks, "vector_rows": vectors, "public_dispatch_verified": true,
@@ -344,9 +356,11 @@ func exerciseOriginalPublicDispatch(t *testing.T, f *personalRecoveryFixture,
 		"actual_rerank_passages_verified": true,
 		"normal_chat_completion_verified": true, "unproved_history_and_cache_rejected": true,
 		"authorization_provider": "synthetic isolated OAuth", "model_provider": originalAcceptanceModelMode(),
-		"production_writes":     false,
-		"actual_redis_dispatch": os.Getenv("PERSONAL_EXACT_QUEUE_REDIS_ADDR") != "",
-		"actual_lite_dispatch":  factory != nil,
+		"production_writes":                        false,
+		"actual_redis_dispatch":                    os.Getenv("PERSONAL_EXACT_QUEUE_REDIS_ADDR") != "",
+		"actual_lite_dispatch":                     factory != nil,
+		"public_detail_and_page_services_verified": true,
+		"real_HTTP_handler_probes":                 len(probes) > 0,
 	})
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(os.Getenv("PERSONAL_EXACT_EVIDENCE_OUT")+".public-dispatch.json", evidence, 0o600))
@@ -447,7 +461,9 @@ func exerciseOriginalExactPublication(
 	)
 }
 
-func exerciseOriginalExactRetrieval(t *testing.T, f *personalRecoveryFixture, consumer *exactPersonalConsumer) {
+func exerciseOriginalExactRetrieval(t *testing.T, f *personalRecoveryFixture,
+	consumer *exactPersonalConsumer, probes ...OriginalExactWebProbe,
+) {
 	t.Helper()
 	const heldDocument = "isolated-held-document"
 	require.NoError(t, f.db.Exec(`INSERT INTO knowledges
@@ -599,6 +615,19 @@ VALUES ('isolated-held-resource', ?, ?, ?, 'held-sibling', 'hold', 'local://held
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, viewerResults)
+	// Exercise the same public service methods used by document HTTP handlers.
+	detail, err := f.ks.GetKnowledgeByID(viewer, consumer.source.knowledge)
+	require.NoError(t, err)
+	require.Equal(t, consumer.source.knowledge, detail.ID)
+	page, err := f.ks.ListPagedKnowledgeByKnowledgeBaseID(viewer, consumer.source.kb,
+		&types.Pagination{Page: 1, PageSize: 10}, types.KnowledgeListFilter{Keyword: "original"})
+	require.NoError(t, err)
+	listed, ok := page.Data.([]*types.Knowledge)
+	require.True(t, ok)
+	require.NotEmpty(t, listed)
+	for _, row := range listed {
+		require.Equal(t, consumer.source.knowledge, row.ID)
+	}
 	for _, hit := range viewerResults {
 		require.Equal(t, consumer.source.knowledge, hit.KnowledgeID)
 	}
@@ -610,6 +639,16 @@ VALUES ('isolated-held-resource', ?, ?, ?, 'held-sibling', 'hold', 'local://held
 	stranger = types.WithExecutionTenant(stranger, consumer.source.tenant)
 	_, err = f.p.exactPublishedReadContext(stranger, consumer.source.knowledge)
 	require.Error(t, err, "claimed administrator role is not live membership")
+	for _, probe := range probes {
+		probe(f.ks, search, viewer, stranger, consumer.source.kb, consumer.source.knowledge)
+	}
+
+	_, err = f.ks.GetKnowledgeByID(stranger, consumer.source.knowledge)
+	require.Error(t, err)
+	_, err = f.ks.ListPagedKnowledgeByKnowledgeBaseID(stranger, consumer.source.kb,
+		&types.Pagination{Page: 1, PageSize: 10}, types.KnowledgeListFilter{Keyword: "original"})
+	require.Error(t, err)
+
 	_, err = search.HybridSearch(stranger, consumer.source.kb, types.SearchParams{
 		KnowledgeIDs: []string{consumer.source.knowledge}, QueryText: "original", QueryEmbedding: query, MatchCount: 10,
 	})
@@ -629,6 +668,12 @@ VALUES ('isolated-held-resource', ?, ?, ?, 'held-sibling', 'hold', 'local://held
 		Update("epoch", "isolated-serving-revoked").Error)
 	_, err = pg.Retrieve(read, params)
 	require.Error(t, err, "a previously issued serving scope must honor live grant revocation")
+	_, err = f.ks.GetKnowledgeByID(viewer, consumer.source.knowledge)
+	require.Error(t, err, "normal document detail must honor live grant revocation")
+	_, err = f.ks.ListPagedKnowledgeByKnowledgeBaseID(viewer, consumer.source.kb,
+		&types.Pagination{Page: 1, PageSize: 10}, types.KnowledgeListFilter{Keyword: "original"})
+	require.Error(t, err, "normal document page must honor live grant revocation")
+
 	require.NoError(t, f.db.Table("feishu_personal_grant_epochs").Where("epoch='isolated-serving-revoked'").
 		Update("epoch", consumer.source.grantEpoch).Error)
 }
