@@ -218,10 +218,12 @@ VALUES (?,?,?,?,?,?,'hold')`, uuid.NewString(), tenant.ID, kb.ID, heldSource, "i
 	require.Equal(t, "indexed", attempt.Status)
 	require.Equal(t, attempt.CandidateVersionID, resource.ActiveVersionID)
 	var chunks, vectors int64
-	require.NoError(t, db.Table("chunks").Where("knowledge_id=? AND is_enabled", m.KnowledgeID).Count(&chunks).Error)
+	require.NoError(t, db.WithContext(ctx).Raw("SELECT count(*) FROM chunks WHERE knowledge_id=? AND is_enabled",
+		m.KnowledgeID).Scan(&chunks).Error)
 	require.NoError(
 		t,
-		db.Table("embeddings").Where("knowledge_id=? AND is_enabled", m.KnowledgeID).Count(&vectors).Error,
+		db.WithContext(ctx).Raw("SELECT count(*) FROM embeddings WHERE knowledge_id=? AND is_enabled",
+			m.KnowledgeID).Scan(&vectors).Error,
 	)
 	require.Positive(t, chunks)
 	require.Positive(t, vectors)
@@ -254,7 +256,8 @@ VALUES (?,?,?,?,?,?,'hold')`, uuid.NewString(), tenant.ID, kb.ID, heldSource, "i
 		ks.ProcessDocument(context.Background(), asynq.NewTask(op.TaskType, mustMarshalPersonalTask(t, intent.Task))),
 	)
 	var afterChunks int64
-	require.NoError(t, db.Table("chunks").Where("knowledge_id=?", m.KnowledgeID).Count(&afterChunks).Error)
+	require.NoError(t, db.WithContext(ctx).Raw("SELECT count(*) FROM chunks WHERE knowledge_id=?",
+		m.KnowledgeID).Scan(&afterChunks).Error)
 	require.Equal(t, chunks, afterChunks)
 	evidence, err := json.Marshal(map[string]any{
 		"real_oauth_acl_revision_export": true, "real_models": true, "chunk_rows": chunks, "vector_rows": vectors,
