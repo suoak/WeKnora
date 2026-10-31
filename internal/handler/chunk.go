@@ -151,9 +151,9 @@ func (h *ChunkHandler) ListKnowledgeChunks(c *gin.Context) {
 		logger.ErrorWithFields(ctx, err, nil)
 		if stderrors.Is(err, access.ErrForbidden) || stderrors.Is(err, access.ErrUnauthorized) ||
 			stderrors.Is(err, types.ErrExactDocumentScope) || stderrors.Is(err, types.ErrLegacySourceRestricted) {
-			c.Error(errors.NewForbiddenError("Document read denied"))
+			_ = c.Error(errors.NewForbiddenError("Document read denied"))
 		} else {
-			c.Error(errors.NewInternalServerError("Failed to load document chunks"))
+			_ = c.Error(errors.NewInternalServerError("Failed to load document chunks"))
 		}
 		return
 	}

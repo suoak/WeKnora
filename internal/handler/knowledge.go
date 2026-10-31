@@ -671,7 +671,7 @@ func (h *KnowledgeHandler) GetKnowledge(c *gin.Context) {
 	}
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError("Failed to load document"))
+		_ = c.Error(errors.NewInternalServerError("Failed to load document"))
 		return
 	}
 
