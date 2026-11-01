@@ -106,7 +106,10 @@ if raw then
  local s=cjson.decode(raw)
  if not required or required~=s.plan_sha256 then return redis.error_reply('RECOVERY_BINDING_MISSING') end
  local now=redis.call('TIME'); local ms=now[1]*1000+math.floor(now[2]/1000)
- if s.version~=1 or not s.expires_ms or s.expires_ms<=ms then return redis.error_reply('RECOVERY_EXPIRED') end
+ if (s.version~=1 and not(s.version==2 and s.steady_policy)) or
+  not s.expires_ms or s.expires_ms<=ms then return redis.error_reply('RECOVERY_EXPIRED') end
+ if s.steady_policy and (redis.call('GET',KEYS[5])~=s.continuity_id or
+  redis.call('PTTL',KEYS[5])<=0) then return redis.error_reply('STEADY_HEALTH_EXPIRED') end
  if s.phase=='approved_sources' then
   local entry=s.approved_sources and s.approved_sources[ARGV[2]]
   if not entry or entry.config_sha256~=ARGV[4] or s.continuity_id~=ARGV[3] or
@@ -143,6 +146,7 @@ func (g *Guard) Check(ctx context.Context) error {
 			g.key("trip"),
 			g.key("recovery"),
 			g.key("recovery_required"),
+			g.key("steady_health"),
 		},
 
 		g.fingerprint, scope.SourceID, i.Plan, i.Config, i.Run, i.Generation,
@@ -241,7 +245,10 @@ if raw then
  local s=cjson.decode(raw)
  if not required or required~=s.plan_sha256 then return redis.error_reply('RECOVERY_BINDING_MISSING') end
  local now=redis.call('TIME'); local ms=now[1]*1000+math.floor(now[2]/1000)
- if s.version~=1 or not s.expires_ms or s.expires_ms<=ms then return redis.error_reply('RECOVERY_EXPIRED') end
+ if (s.version~=1 and not(s.version==2 and s.steady_policy)) or
+  not s.expires_ms or s.expires_ms<=ms then return redis.error_reply('RECOVERY_EXPIRED') end
+ if s.steady_policy and (redis.call('GET',KEYS[7])~=s.continuity_id or
+  redis.call('PTTL',KEYS[7])<=0) then return redis.error_reply('STEADY_HEALTH_EXPIRED') end
  if s.phase=='approved_sources' then
   local entry=s.approved_sources and s.approved_sources[ARGV[8]]
   if not entry or entry.config_sha256~=ARGV[10] or s.continuity_id~=ARGV[9] or
@@ -294,6 +301,7 @@ func (g *Guard) tryBegin(ctx context.Context, tokens int) (func(), error) {
 			g.key("window"),
 			g.key("recovery"),
 			g.key("recovery_required"),
+			g.key("steady_health"),
 		},
 		g.fingerprint,
 		g.config.InFlight,

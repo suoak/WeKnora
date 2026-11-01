@@ -81,6 +81,33 @@ func (m *RecoveryManager) checkApprovedSource(ctx context.Context, source, confi
 	if !ok || entry.ConfigSHA256 != config {
 		return ErrRecoveryRejected
 	}
+	if state.Steady != nil {
+		now, err := m.controller.Client.Time(ctx).Result()
+		if err != nil || m.checkSteadyState(ctx, state, now.UnixMilli()) != nil {
+			return ErrRecoveryRejected
+		}
+		var approved *SteadySource
+		for i := range state.Steady.Plan.ManagedSources {
+			candidate := &state.Steady.Plan.ManagedSources[i]
+			if candidate.SourceID == source {
+				approved = candidate
+				break
+			}
+		}
+		if approved == nil {
+			return ErrRecoveryRejected
+		}
+		if _, outbound := feishusafety.RecoveryOutboundExecution(ctx); outbound {
+			execution, claimed := types.SyncExecutionFromContext(ctx)
+			if !claimed || execution.TenantID != approved.Authority.TenantID {
+				return ErrRecoveryRejected
+			}
+		}
+		current, facts, err := m.steadySource(ctx, source, approved.Authority.ActorID)
+		if err != nil || !sameSteadySource(current, *approved, facts) {
+			return ErrRecoveryRejected
+		}
+	}
 	if identity, outbound := feishusafety.RecoveryOutboundExecution(ctx); outbound {
 		execution, claimed := types.SyncExecutionFromContext(ctx)
 		if !claimed || execution.DataSourceID != source || execution.SyncLogID != identity.Run ||
@@ -181,7 +208,7 @@ func (m *RecoveryManager) PlanContinuity(
 	raw, err := c.Client.Get(ctx, c.prefix+"recovery").Result()
 	var s recoveryMode
 	if err != nil || json.Unmarshal([]byte(raw), &s) != nil ||
-		(s.Phase != "awaiting_review" && s.Phase != "approved_sources") {
+		(s.Phase != "awaiting_review" && s.Phase != "approved_sources") || s.Steady != nil {
 		return p, ErrRecoveryRejected
 	}
 	if n, err := c.Client.Exists(ctx, c.prefix+"trip").Result(); err != nil || n != 0 {

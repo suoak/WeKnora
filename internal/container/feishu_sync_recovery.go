@@ -73,6 +73,11 @@ func configureFeishuRecovery(db *gorm.DB, c *feishusynccontrol.Controller) error
 	if err != nil {
 		return err
 	}
+	m.ConfigureSteadyAuthority(
+		func(ctx context.Context, source, actor string) (feishusynccontrol.SourceManagementAuthority, error) {
+			return feishusynccontrol.SourceManagementFromDatabase(ctx, db, source, actor)
+		},
+	)
 	feishusynccontrol.InstallRecovery(m)
 	return nil
 }

@@ -80,6 +80,7 @@ type RecoveryApproval struct {
 }
 
 type recoveryMode struct {
+	Steady                *SteadyCertificate        `json:"steady_policy,omitempty"`
 	HistoricalQueueSHA256 string                    `json:"historical_queue_sha256,omitempty"`
 	HistoricalPending     int                       `json:"historical_pending,omitempty"`
 	ContinuityID          string                    `json:"continuity_id,omitempty"`
@@ -103,11 +104,12 @@ type recoveryMode struct {
 
 // RecoveryManager coordinates one approved replacement Guard lifecycle.
 type RecoveryManager struct {
-	controller *Controller
-	operation  sync.Mutex
-	key        ed25519.PublicKey
-	keyID      string
-	facts      func(context.Context, string) (RecoveryFacts, error)
+	controller      *Controller
+	operation       sync.Mutex
+	key             ed25519.PublicKey
+	keyID           string
+	facts           func(context.Context, string) (RecoveryFacts, error)
+	steadyAuthority func(context.Context, string, string) (SourceManagementAuthority, error)
 }
 
 var recoveryManager atomic.Pointer[RecoveryManager]
@@ -162,7 +164,8 @@ func (c *Controller) checkRecoveryPolicy(ctx context.Context) error {
 	if requiredErr != nil {
 		return ErrRecoveryRejected
 	}
-	if json.Unmarshal([]byte(raw), &state) != nil || state.Version != 1 ||
+	if json.Unmarshal([]byte(raw), &state) != nil ||
+		(state.Version != 1 && (state.Version != 2 || state.Steady == nil)) ||
 		state.PlanSHA256 != required ||
 		state.RuntimeSHA != c.Config.SourceSHA ||
 		state.WorkerID != c.Config.WorkerID ||
@@ -185,8 +188,12 @@ func (c *Controller) checkRecoveryPolicy(ctx context.Context) error {
 		if err != nil || queue.digest != state.HistoricalQueueSHA256 || len(queue.ids) != state.HistoricalPending {
 			return ErrRecoveryRejected
 		}
-		if c.approvedFacts == nil || state.ContinuityID == "" || len(state.ApprovedSources) < 1 ||
-			len(state.ApprovedSources) > 4 {
+		limit := 4
+		if state.Steady != nil {
+			limit = maxSteadySources
+		}
+		if c.approvedFacts == nil || state.ContinuityID == "" ||
+			(state.Steady == nil && len(state.ApprovedSources) < 1) || len(state.ApprovedSources) > limit {
 			return ErrRecoveryRejected
 		}
 		if c.ApprovedConsumers == nil {
@@ -200,10 +207,17 @@ func (c *Controller) checkRecoveryPolicy(ctx context.Context) error {
 			n != 0 {
 			return ErrRecoveryRejected
 		}
-		for id, approved := range state.ApprovedSources {
-			facts, err := c.approvedFacts(ctx, id)
-			if err != nil || !approved.matches(facts) {
+		if state.Steady != nil {
+			if c.steadyManager == nil {
 				return ErrRecoveryRejected
+			}
+			return c.steadyManager.checkSteadyState(ctx, state, now.UnixMilli())
+		} else {
+			for id, approved := range state.ApprovedSources {
+				facts, err := c.approvedFacts(ctx, id)
+				if err != nil || !approved.matches(facts) {
+					return ErrRecoveryRejected
+				}
 			}
 		}
 	}
@@ -855,6 +869,13 @@ func (m *RecoveryManager) Status(ctx context.Context, source string) (map[string
 	if json.Unmarshal([]byte(raw), &state) != nil || state.SourceID != source {
 		return nil, ErrRecoveryRejected
 	}
+	steadyRevision := int64(0)
+	if state.Steady != nil {
+		steadyRevision = state.Steady.Plan.PolicyRevision
+		// This route authorized only its anchor. Never return the certificate's
+		// other tenants, private KB identities or management grants here.
+		state.Steady = nil
+	}
 	// Do not expose other sources from a multi-source policy through a route
 	// that has authorized only this source. Copy before redacting the map.
 	if state.ApprovedSources != nil {
@@ -882,6 +903,7 @@ func (m *RecoveryManager) Status(ctx context.Context, source string) (map[string
 	}
 	return map[string]any{
 		"state": state, "trip_latched": trip != 0, "sync_paused": paused == 1,
+		"steady_policy_revision": steadyRevision,
 		"permit_ready": trip == 0 && paused == 1 && ttl > 0 &&
 			permit == c.Guard.Fingerprint(), "permit_ttl_ms": ttl.Milliseconds(),
 	}, nil

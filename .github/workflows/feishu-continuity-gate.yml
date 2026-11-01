@@ -2,7 +2,7 @@ name: Approved Feishu Source Continuity Gate
 
 on:
   push:
-    branches: [ops/feishu-approved-continuity-20261030]
+    branches: [ops/feishu-approved-continuity-20261030, fix/feishu-multispace-steady-sync-20261101]
   workflow_dispatch:
 
 permissions:
@@ -65,12 +65,13 @@ jobs:
           go test -json -race -p 1 ./internal/feishusafety ./internal/feishusynccontrol \
             ./internal/application/service ./internal/datasource ./internal/handler \
             ./internal/types ./internal/container ./internal/router \
-            -run 'TestApprovedSources|TestApprovedSyncLane|TestRecoveryFactsPostgresAuthorityAndExecutionChanges' \
+            -run 'TestSteady|TestApprovedSources|TestApprovedSyncLane|TestRecoveryFactsPostgresAuthorityAndExecutionChanges' \
             -count=1 -timeout=8m | tee continuity-results.jsonl
       - name: Offline continuation approval checks
         run: |
           python -m pip install 'cryptography>=46'
           python -m unittest discover -s scripts/ops -p test_feishu_continuity.py -v
+          python -m unittest discover -s scripts/ops -p test_feishu_steady.py -v
       - uses: actions/upload-artifact@v4
         if: always()
         with:

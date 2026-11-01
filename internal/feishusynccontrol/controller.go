@@ -90,6 +90,7 @@ type Controller struct {
 	recoveryEnabled   bool
 	recoveryRequired  bool
 	approvedFacts     func(context.Context, string) (RecoveryFacts, error)
+	steadyManager     *RecoveryManager
 	started           time.Time
 	admitted          bool
 	lastEvent         string
@@ -235,7 +236,15 @@ func (c *Controller) Step(ctx context.Context) (result error) {
 		}
 	}
 	if c.Config.Automatic {
-		return c.automaticStep(ctx)
+		if err := c.automaticStep(ctx); err != nil {
+			return err
+		}
+		if c.recoveryEnabled {
+			if err := c.renewSteadyHealth(ctx); err != nil {
+				return c.freeze(ctx, "steady_health_lost", true)
+			}
+		}
+		return nil
 	}
 	c.stage(ctx, "metrics")
 	raw, err := c.Client.Get(ctx, c.MetricsKey()).Result()
