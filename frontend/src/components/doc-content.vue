@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { marked } from "marked";
+import { personalDocumentSourceLabel } from '@/i18n/personalDocumentPresentation';
 import markedKatex from 'marked-katex-extension';
 import 'katex/dist/katex.min.css';
 
@@ -27,7 +28,7 @@ import KnowledgeProcessingTimeline from '@/components/knowledge-processing-timel
 import { resolveKnowledgeDownloadFileName } from '@/views/knowledge/knowledgeDownloadFileName';
 import { isKnownPreviewableExt, resolveFilePreviewExt } from '@/utils/filePreview';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const authStore = useAuthStore();
 
 // canDeleteGeneratedQuestion 对应后端 DELETE /chunks/by-id/:id/questions
@@ -976,6 +977,7 @@ const channelLabelMap: Record<string, string> = {
 };
 
 const getChannelLabel = (channel: string) => {
+  if (channel === 'feishu_personal') return personalDocumentSourceLabel(locale.value);
   const key = channelLabelMap[channel];
   return key ? t(key) : t('knowledgeBase.channelUnknown');
 };

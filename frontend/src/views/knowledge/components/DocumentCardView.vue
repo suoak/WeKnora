@@ -10,6 +10,8 @@ import FolderPickerMenu, { type FolderOption } from './FolderPickerMenu.vue';
 import KnowledgeProcessingTimeline from '@/components/knowledge-processing-timeline.vue';
 import { conciseProcessingError } from '@/utils/knowledgeProcessingPresentation';
 import { shownStall } from '@/utils/knowledgeProcessingStall';
+import AuthorizedDocumentSummary from './AuthorizedDocumentSummary.vue';
+import { personalDocumentSourceLabel } from '@/i18n/personalDocumentPresentation';
 
 interface Tag {
   id: string;
@@ -41,6 +43,7 @@ interface KnowledgeCard {
   created_at?: string;
   file_size?: number | string;
   channel?: string;
+  metadata_only?: boolean;
 }
 
 const props = defineProps<{
@@ -59,6 +62,7 @@ const props = defineProps<{
    * the grid spans several folders, i.e. while filtering.
    */
   showFolderPath?: boolean;
+  summaryPaused?: boolean;
   // Move sub-flow state
   moveMenuMode: 'normal' | 'targets' | 'confirm';
   moveTargetKbs: any[];
@@ -83,9 +87,11 @@ const emit = defineEmits<{
   (e: 'update:moveMode', mode: 'reuse_vectors' | 'reparse'): void;
 }>();
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const tagEditorId = ref<string | null>(null);
-const cardSummaries = computed(() => new Map(props.items.map(item => [item.id, formatReferenceSnippet(item.description)])));
+const cardSummaries = computed(() => new Map(props.items.map(item => [item.id,
+  formatReferenceSnippet(item.channel === 'feishu_personal' && item.metadata_only ? '' : item.description),
+])));
 
 // Which row's action popup is currently showing the folder picker. Kept local so
 // picking a folder stays inside the menu the user already opened, exactly like
@@ -168,6 +174,7 @@ const channelLabelMap: Record<string, string> = {
 };
 
 const getChannelLabel = (channel: string) => {
+  if (channel === 'feishu_personal') return personalDocumentSourceLabel(locale.value);
   const key = channelLabelMap[channel];
   return key ? t(key) : t('knowledgeBase.channelUnknown');
 };
@@ -554,6 +561,10 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
         <div v-else-if="item.parse_status === 'cancelled'" class="card-analyze card-cancelled">
           <t-icon name="stop-circle" />
           <span>{{ t('knowledgeBase.statusCancelled') }}</span>
+        </div>
+        <div v-else-if="item.channel === 'feishu_personal' && item.metadata_only && item.parse_status === 'completed'"
+          class="card-content-txt">
+          <AuthorizedDocumentSummary :item="item" :kb-id="kbId" :paused="summaryPaused" />
         </div>
         <div v-else class="card-content-txt" :class="{ 'is-empty': !cardSummaries.get(item.id) }">
           {{ cardSummaries.get(item.id) || t('knowledgeBase.noDocumentSummary') }}
