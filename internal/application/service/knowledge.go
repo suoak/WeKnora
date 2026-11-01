@@ -586,19 +586,8 @@ func defaultChannel(ch string) string {
 
 // GetKnowledgeByID retrieves a knowledge entry by its ID
 func (s *knowledgeService) GetKnowledgeByID(ctx context.Context, id string) (*types.Knowledge, error) {
-	read, exact, proofErr := s.exactPublicReadContext(ctx, id)
-	if proofErr != nil {
-		return nil, proofErr
-	}
-	if exact {
-		row, err := s.repo.GetKnowledgeByID(read, types.MustTenantIDFromContext(read), id)
-		if err != nil {
-			return nil, err
-		}
-		if _, err := types.CheckExactPublishedDocumentRead(read); err != nil {
-			return nil, err
-		}
-		return row, nil
+	if row, exact, err := s.readExactPublicKnowledge(ctx, id); exact || err != nil {
+		return row, err
 	}
 	if s.DocumentACLReadEnabled() {
 		return s.readAuthorizedKnowledge(ctx, id)
@@ -629,19 +618,8 @@ func (s *knowledgeService) GetKnowledgeByID(ctx context.Context, id string) (*ty
 
 // GetKnowledgeByIDOnly retrieves knowledge by ID without tenant filter (for permission resolution).
 func (s *knowledgeService) GetKnowledgeByIDOnly(ctx context.Context, id string) (*types.Knowledge, error) {
-	read, exact, err := s.exactPublicReadContext(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	if exact {
-		row, err := s.repo.GetKnowledgeByID(read, types.MustTenantIDFromContext(read), id)
-		if err != nil {
-			return nil, err
-		}
-		if _, err := types.CheckExactPublishedDocumentRead(read); err != nil {
-			return nil, err
-		}
-		return row, nil
+	if row, exact, err := s.readExactPublicKnowledge(ctx, id); exact || err != nil {
+		return row, err
 	}
 	if s.DocumentACLReadEnabled() {
 		return s.readAuthorizedKnowledge(ctx, id)
@@ -852,6 +830,9 @@ func normalizeTargetFolderPath(ctx context.Context, folderPath string) (string, 
 
 // GetKnowledgeFile retrieves the physical file associated with a knowledge entry
 func (s *knowledgeService) GetKnowledgeFile(ctx context.Context, id string) (io.ReadCloser, string, error) {
+	if file, filename, exact, err := s.exactPublicKnowledgeFile(ctx, id); exact || err != nil {
+		return file, filename, err
+	}
 	if s.DocumentACLReadEnabled() {
 		return nil, "", access.ErrForbidden
 	}

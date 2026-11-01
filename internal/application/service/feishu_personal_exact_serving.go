@@ -4,10 +4,24 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"sync"
+	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
+	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
 )
+
+type exactPublishedFileKey struct{}
+
+// Request-local checked bytes, never an authorization cache. Only a successful
+// full live read may replace this snapshot; every file consumer revalidates.
+type exactPublishedFileSnapshot struct {
+	mu        sync.Mutex
+	knowledge string
+	filename  string
+	data      []byte
+}
 
 // This initially serves one exact document for an authenticated Web principal.
 // It grants neither a KB body read nor access to unrelated historical content.
@@ -29,7 +43,9 @@ func (p *PersonalRecovery) exactPublishedReadContext(ctx context.Context, knowle
 		return ctx, errPersonalExactDocument
 	}
 	receiptID := rows[0].ID
+	file := &exactPublishedFileSnapshot{knowledge: knowledgeID}
 	live := func(current context.Context) error {
+		localStarted := time.Now()
 		if tenant, ok := types.TenantIDFromContext(current); !ok || tenant != receipt.TenantID {
 			return access.ErrForbidden
 		}
@@ -58,6 +74,8 @@ func (p *PersonalRecovery) exactPublishedReadContext(ctx context.Context, knowle
 		); err != nil {
 			return err
 		}
+		logger.Infof(current, "Personal exact viewer timing: knowledge_id=%s elapsed_ms=%d",
+			knowledgeID, time.Since(localStarted).Milliseconds())
 		m, _, attempt, err := p.repo.Load(current, receipt.AttemptID)
 		if err != nil {
 			return err
@@ -81,7 +99,17 @@ func (p *PersonalRecovery) exactPublishedReadContext(ctx context.Context, knowle
 			stored != receipt {
 			return errPersonalExactDocument
 		}
-		return p.verifyExactPublishedDatabase(current, receipt)
+		receiptStarted := time.Now()
+		receiptErr := p.verifyExactPublishedDatabase(current, receipt)
+		logger.Infof(current, "Personal exact receipt timing: knowledge_id=%s elapsed_ms=%d verified=%t",
+			knowledgeID, time.Since(receiptStarted).Milliseconds(), receiptErr == nil)
+		if receiptErr != nil {
+			return receiptErr
+		}
+		file.mu.Lock()
+		file.filename, file.data = attempt.ManifestName, source.file
+		file.mu.Unlock()
+		return nil
 	}
 	// Issue the ordinary canonical KB grant for downstream repository checks;
 	// it remains separate from source proof and does not release the KB profile.
@@ -94,9 +122,13 @@ func (p *PersonalRecovery) exactPublishedReadContext(ctx context.Context, knowle
 		return ctx, err
 	}
 	ctx = types.WithExecutionTenant(grant.Context(ctx), receipt.TenantID)
-	return types.WithExactPublishedDocumentRead(ctx, receiptID, types.ExactDocumentScope{
+	guarded, err := types.WithExactPublishedDocumentRead(ctx, receiptID, types.ExactDocumentScope{
 		TenantID: receipt.TenantID, KnowledgeID: knowledgeID, KBID: kb.ID, Read: live,
 	})
+	if err != nil {
+		return ctx, err
+	}
+	return context.WithValue(guarded, exactPublishedFileKey{}, file), nil
 }
 
 // No document/chunk/vector body is selected by this verification. A changed

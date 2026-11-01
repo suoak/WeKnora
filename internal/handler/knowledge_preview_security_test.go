@@ -8,15 +8,89 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/middleware"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/require"
 )
 
 type previewKnowledgeServiceStub struct {
 	interfaces.KnowledgeService
 	filename string
+}
+
+type exactPreviewKnowledgeService struct {
+	interfaces.KnowledgeService
+	called int
+}
+
+func (s *exactPreviewKnowledgeService) GetKnowledgeFile(ctx context.Context, id string) (io.ReadCloser, string, error) {
+	s.called++
+	if _, err := types.CheckExactPublishedDocumentRead(ctx); err != nil {
+		return nil, "", err
+	}
+	return io.NopCloser(strings.NewReader("checked-docx-bytes")), "original.docx", nil
+}
+
+func TestPreviewExactPublishedFileRetainsViewerAndSourceChecks(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, mode := range []string{"viewer", "missing-grant", "revoked", "foreign-id"} {
+		t.Run(mode, func(t *testing.T) {
+			svc := &exactPreviewKnowledgeService{}
+			r := gin.New()
+			r.Use(middleware.ErrorHandler())
+			r.Use(func(c *gin.Context) {
+				caller := types.Caller{TenantID: 42, UserID: "viewer", Role: types.TenantRoleViewer}
+				ctx := types.WithExecutionTenant(types.WithCaller(c.Request.Context(), caller), 42)
+				ctx = context.WithValue(
+					ctx,
+					types.PrincipalContextKey,
+					types.Principal{Type: types.PrincipalWebUser, ID: "viewer"},
+				)
+				if mode != "missing-grant" {
+					grant := access.KBAccess{
+						Caller: caller, EffectiveTenantID: 42, Permission: types.OrgRoleViewer,
+						KnowledgeBase: &types.KnowledgeBase{ID: "kb1", TenantID: 42},
+					}
+					ctx = grant.Context(ctx)
+				}
+				revoked := false
+				ctx, err := types.WithExactPublishedDocumentRead(ctx, 1, types.ExactDocumentScope{
+					TenantID: 42, KnowledgeID: "k1", KBID: "kb1", Read: func(context.Context) error {
+						if revoked {
+							return types.ErrExactDocumentScope
+						}
+						return nil
+					},
+				})
+				require.NoError(t, err)
+				revoked = mode == "revoked"
+				c.Request = c.Request.WithContext(ctx)
+				c.Next()
+			})
+			h := &KnowledgeHandler{kgService: svc}
+			r.GET("/knowledge/:id/preview", h.PreviewKnowledgeFile)
+			id := "k1"
+			if mode == "foreign-id" {
+				id = "other"
+			}
+			w := &closeNotifyRecorder{ResponseRecorder: httptest.NewRecorder()}
+			r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/knowledge/"+id+"/preview", nil))
+			if mode == "viewer" {
+				require.Equal(t, http.StatusOK, w.Code)
+				require.Equal(t, "checked-docx-bytes", w.Body.String())
+				require.Equal(t, "private, no-store", w.Header().Get("Cache-Control"))
+			} else {
+				require.Equal(t, http.StatusForbidden, w.Code)
+				require.NotContains(t, w.Body.String(), "checked-docx-bytes")
+			}
+			if mode == "missing-grant" || mode == "foreign-id" {
+				require.Zero(t, svc.called)
+			}
+		})
+	}
 }
 
 type closeNotifyRecorder struct {

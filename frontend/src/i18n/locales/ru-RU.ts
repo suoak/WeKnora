@@ -7268,7 +7268,7 @@ const messages = {
     partialUploadSuccess: 'Частичная загрузка (успешно: {success}, ошибки: {fail})',
     allUploadFailed: 'Все файлы не удалось загрузить ({count})',
     deleteSuccess: 'Знание удалено!',
-    documentReadForbidden: '??? ??????? ? ????? ?????????',
+    documentReadForbidden: 'Нет доступа к этому документу',
     chunkLoadFailed: 'Не удалось загрузить фрагменты',
     infoCard: {
       tooltip: 'Просмотр информации о базе знаний',

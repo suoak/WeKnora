@@ -1957,16 +1957,30 @@ func (h *KnowledgeHandler) PreviewKnowledgeFile(c *gin.Context) {
 		return
 	}
 
-	_, effCtx, err := h.resolveKnowledgeAndValidateKBAccess(c, id, types.OrgRoleViewer)
-	if err != nil {
-		c.Error(err)
-		return
+	effCtx := ctx
+	if _, tenant, exactID, kb, exact := types.ExactPublishedDocumentIdentity(ctx); exact {
+		if exactID != id || !access.HasKBGrant(ctx, kb, tenant, types.OrgRoleViewer) {
+			_ = c.Error(errors.NewForbiddenError("Document preview denied"))
+			return
+		}
+	} else {
+		var err error
+		_, effCtx, err = h.resolveKnowledgeAndValidateKBAccess(c, id, types.OrgRoleViewer)
+		if err != nil {
+			_ = c.Error(err)
+			return
+		}
 	}
 
 	file, filename, err := h.kgService.GetKnowledgeFile(effCtx, id)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError("Failed to retrieve file").WithDetails(err.Error()))
+		failure := errors.NewInternalServerError("Failed to retrieve preview")
+		if goerrors.Is(err, access.ErrForbidden) || goerrors.Is(err, access.ErrUnauthorized) ||
+			goerrors.Is(err, types.ErrExactDocumentScope) || goerrors.Is(err, types.ErrLegacySourceRestricted) {
+			failure = errors.NewForbiddenError("Document preview denied")
+		}
+		_ = c.Error(failure)
 		return
 	}
 	if err := filetransport.Serve(c.Writer, c.Request, file, filetransport.Options{

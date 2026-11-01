@@ -33,7 +33,7 @@ func (s exactPublishedRouteService) ExactPublishedReadContext(
 
 func TestExactPublishedReadRouteRetainsDocumentAuthority(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	for _, route := range []string{"/knowledge/:id", "/chunks/:id"} {
+	for _, route := range []string{"/knowledge/:id", "/chunks/:id", "/knowledge/:id/preview"} {
 		for _, allowed := range []bool{true, false} {
 			t.Run(route+map[bool]string{true: "/viewer", false: "/denied"}[allowed], func(t *testing.T) {
 				g := &rbacGuards{knowledgeService: exactPublishedRouteService{allowed: allowed}}
@@ -57,6 +57,8 @@ func TestExactPublishedReadRouteRetainsDocumentAuthority(t *testing.T) {
 				path := "/knowledge/published"
 				if route == "/chunks/:id" {
 					path = "/chunks/published?page=1&page_size=25"
+				} else if route == "/knowledge/:id/preview" {
+					path = "/knowledge/published/preview"
 				}
 				r.ServeHTTP(w, httptest.NewRequest("GET", path, nil))
 				require.Equal(t, allowed, called)

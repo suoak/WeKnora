@@ -3,6 +3,7 @@
 import { indexEmbeddedSourceImages } from '@/utils/sourceImage';
 import { ref, shallowRef, watch, onMounted, onUnmounted, nextTick, defineAsyncComponent } from 'vue';
 import { previewKnowledgeFile } from '@/api/knowledge-base/index';
+import { documentPreviewErrorKey } from '@/utils/documentPreviewError';
 import { previewTemporaryAttachment } from '@/api/chat/temporary-attachments';
 import { downloadArtifact } from '@/api/chat';
 import hljs from 'highlight.js';
@@ -67,6 +68,7 @@ const props = defineProps<{
    * citation can be scrolled to and highlighted.
    */
   sourceMode?: boolean;
+  showChunkFallback?: boolean;
   /** Where to scroll and what to highlight once the file is rendered. */
   locate?: SourceLocateRequest | null;
 }>();
@@ -75,6 +77,7 @@ export type SourceLocateResult = { found: boolean; precise: boolean; granularity
 
 const emit = defineEmits<{
   located: [result: SourceLocateResult];
+  'show-chunks': [];
 }>();
 
 const loading = ref(false);
@@ -502,9 +505,8 @@ async function loadPreview() {
     }
     // PPTX renders asynchronously and locates from its rendered event.
     if (kind !== 'pptx') scheduleLocate();
-  } catch (err: any) {
-    console.error('Document preview failed:', err);
-    error.value = err?.message || t('preview.loadFailed');
+  } catch (err: unknown) {
+    error.value = t(documentPreviewErrorKey(err));
   } finally {
     loading.value = false;
   }
@@ -895,6 +897,9 @@ onUnmounted(() => {
       <p>{{ error }}</p>
       <t-button theme="primary" size="small" @click="loadedForId = ''; loadPreview()">
         {{ $t('preview.retry') }}
+      </t-button>
+      <t-button v-if="showChunkFallback" theme="default" variant="outline" size="small" @click="emit('show-chunks')">
+        {{ $t('knowledgeBase.viewChunks') }}
       </t-button>
     </div>
 
