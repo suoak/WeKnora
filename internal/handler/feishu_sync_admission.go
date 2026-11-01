@@ -34,7 +34,7 @@ func writeSyncAdmissionFailure(c *gin.Context, err error) bool {
 		case "sync_recovery_review_pending":
 			message = "飞书同步服务正在恢复，请联系管理员"
 		case "sync_platform_stopped", "sync_safety_unavailable":
-			message = "??????????????????"
+			message = "飞书同步服务暂时停止，管理员正在恢复"
 			status = http.StatusServiceUnavailable
 		default:
 			code = "sync_safety_unavailable"
