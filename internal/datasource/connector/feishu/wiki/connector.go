@@ -29,6 +29,7 @@ func NewConnector(region core.Region) *Connector {
 // Feishu supports resumable streaming sync; the service prefers FetchStream over
 // FetchAll/FetchIncremental when a connector implements StreamingConnector.
 var _ datasource.StreamingConnector = (*Connector)(nil)
+var _ datasource.FullStreamingConnector = (*Connector)(nil)
 
 // Type returns the connector type identifier.
 func (c *Connector) Type() string {
@@ -263,6 +264,21 @@ func (c *Connector) FetchStream(
 	ctx context.Context, config *types.DataSourceConfig,
 	cursor *types.SyncCursor, h datasource.StreamHandler,
 ) (*types.SyncCursor, error) {
+	return c.fetchStream(ctx, config, cursor, h, false)
+}
+
+// FetchFullStream keeps historical identities while re-fetching unchanged nodes.
+func (c *Connector) FetchFullStream(
+	ctx context.Context, config *types.DataSourceConfig,
+	cursor *types.SyncCursor, h datasource.StreamHandler,
+) (*types.SyncCursor, error) {
+	return c.fetchStream(ctx, config, cursor, h, true)
+}
+
+func (c *Connector) fetchStream(
+	ctx context.Context, config *types.DataSourceConfig,
+	cursor *types.SyncCursor, h datasource.StreamHandler, full bool,
+) (*types.SyncCursor, error) {
 	feishuConfig, err := core.ParseFeishuConfig(config, c.region)
 	if err != nil {
 		return nil, err
@@ -272,11 +288,17 @@ func (c *Connector) FetchStream(
 		if e != nil {
 			return nil, e
 		}
+		if full {
+			return core.FetchFullStreamEngine(ctx, client, config, cursor, h, core.ReferenceLinkOps{Links: links})
+		}
 		return core.FetchStreamEngine(ctx, client, config, cursor, h, core.ReferenceLinkOps{Links: links})
 	}
 	ops := wikiOps{region: c.region}
 	if len(config.ResourceIDs) == 0 {
 		return nil, errors.New(ops.EmptyResourceIDsError())
+	}
+	if full {
+		return core.FetchFullStreamEngine(ctx, client, config, cursor, h, ops)
 	}
 	return core.FetchStreamEngine(ctx, client, config, cursor, h, ops)
 }

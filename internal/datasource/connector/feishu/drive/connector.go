@@ -32,6 +32,7 @@ func NewDriveConnector(region core.Region) *DriveConnector {
 // Drive supports resumable streaming sync; the service prefers FetchStream over
 // FetchAll/FetchIncremental when a connector implements StreamingConnector.
 var _ datasource.StreamingConnector = (*DriveConnector)(nil)
+var _ datasource.FullStreamingConnector = (*DriveConnector)(nil)
 
 // Type returns the connector type identifier.
 func (c *DriveConnector) Type() string {
@@ -286,6 +287,21 @@ func (c *DriveConnector) FetchStream(
 	ctx context.Context, config *types.DataSourceConfig,
 	cursor *types.SyncCursor, h datasource.StreamHandler,
 ) (*types.SyncCursor, error) {
+	return c.fetchStream(ctx, config, cursor, h, false)
+}
+
+// FetchFullStream preserves the prior deletion baseline and reads every file.
+func (c *DriveConnector) FetchFullStream(
+	ctx context.Context, config *types.DataSourceConfig,
+	cursor *types.SyncCursor, h datasource.StreamHandler,
+) (*types.SyncCursor, error) {
+	return c.fetchStream(ctx, config, cursor, h, true)
+}
+
+func (c *DriveConnector) fetchStream(
+	ctx context.Context, config *types.DataSourceConfig,
+	cursor *types.SyncCursor, h datasource.StreamHandler, full bool,
+) (*types.SyncCursor, error) {
 	feishuConfig, err := core.ParseFeishuConfig(config, c.region)
 	if err != nil {
 		return nil, err
@@ -294,6 +310,9 @@ func (c *DriveConnector) FetchStream(
 	ops := driveOps{region: c.region}
 	if len(config.ResourceIDs) == 0 {
 		return nil, errors.New(ops.EmptyResourceIDsError())
+	}
+	if full {
+		return core.FetchFullStreamEngine(ctx, client, config, cursor, h, ops)
 	}
 	return core.FetchStreamEngine(ctx, client, config, cursor, h, ops)
 }

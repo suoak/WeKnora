@@ -93,6 +93,14 @@ func runSync[N any](
 	resourceIDs []string, cursor *types.SyncCursor, h datasource.StreamHandler,
 	ops NodeOps[N],
 ) (*types.SyncCursor, error) {
+	return runSyncMode(ctx, client, config, resourceIDs, cursor, h, ops, false)
+}
+
+func runSyncMode[N any](
+	ctx context.Context, client *Client, config *types.DataSourceConfig,
+	resourceIDs []string, cursor *types.SyncCursor, h datasource.StreamHandler,
+	ops NodeOps[N], forceFull bool,
+) (*types.SyncCursor, error) {
 	client.ensureRuntime()
 	releaseWorkflow, err := client.policy.acquireWorkflow(ctx)
 	if err != nil {
@@ -192,7 +200,7 @@ func runSync[N any](
 			// Resume/incremental fast-path: a node recorded at its current edit
 			// time is unchanged (or already synced this run) - keep the record
 			// and Skip re-fetching.
-			if hadPrev && prevEdit == editTimeStr && !plan.retry(resourceID, tok) {
+			if !forceFull && hadPrev && prevEdit == editTimeStr && !plan.retry(resourceID, tok) {
 				newTimes[resourceID][tok] = editTimeStr
 				if IsSupportedDocType(ops.ObjType(node)) {
 					observeDocument(h, resourceID, tok, "unchanged")
@@ -341,6 +349,16 @@ func FetchStreamEngine[N any](
 	cursor *types.SyncCursor, h datasource.StreamHandler, ops NodeOps[N],
 ) (*types.SyncCursor, error) {
 	return runSync(ctx, client, config, config.ResourceIDs, cursor, h, ops)
+}
+
+// FetchFullStreamEngine revalidates every currently listed resource, including
+// unchanged revisions. The old cursor remains the deletion/failure baseline;
+// clearing it would lose historical identities and cannot prove reconciliation.
+func FetchFullStreamEngine[N any](
+	ctx context.Context, client *Client, config *types.DataSourceConfig,
+	cursor *types.SyncCursor, h datasource.StreamHandler, ops NodeOps[N],
+) (*types.SyncCursor, error) {
+	return runSyncMode(ctx, client, config, config.ResourceIDs, cursor, h, ops, true)
 }
 
 // FetchAllEngine runs a full sync, collecting every item into a slice. It
