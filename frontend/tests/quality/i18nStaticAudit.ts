@@ -6,9 +6,11 @@ import { parse as parseSfc } from '@vue/compiler-sfc'
 import { parse as parseDom, NodeTypes } from '@vue/compiler-dom'
 import { LOCALE_BUNDLES, getLocaleValueAtPath } from '../../src/i18n/localeKeyAudit'
 import { feishuMessages } from '../../src/i18n/feishuPersonal'
+import { personalDocumentMessages } from '../../src/i18n/personalDocumentPresentation'
 
-const LOCAL_BUNDLES: Record<string, typeof feishuMessages> = {
+const LOCAL_BUNDLES: Record<string, Record<string, unknown>> = {
   '@/i18n/feishuPersonal:feishuMessages': feishuMessages,
+  '@/i18n/personalDocumentPresentation:personalDocumentMessages': personalDocumentMessages,
 }
 export type Usage = { key: string; file: string; line: number; params: string[]; bundle?: string }
 
