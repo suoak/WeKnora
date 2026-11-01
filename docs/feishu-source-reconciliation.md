@@ -17,7 +17,10 @@ a new inspected and signed policy; the operation is not blindly retried.
 
 After SQL Claim, the worker restores purpose only for the bound source, tenant,
 run and actual generation. Guard, permit, source authority and publication
-fences remain active. The archived identity read proof is distinct from full
+fences remain active. Purpose, authority and deadline are rechecked before
+candidate lease/write operations, checkpoints and the final source transition;
+terminal failure cleanup still closes its SQL Claim after approval expires.
+The archived identity read proof is distinct from full
 reconciliation completion: intermediate checkpoints cannot release hold.
 Only the existing complete-scan, reconciled-publication transaction may perform
 the formal source transition. Missing dependencies or any incomplete item leave

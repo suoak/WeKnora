@@ -10,6 +10,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func reconciliationOperator() context.Context {
@@ -107,6 +108,10 @@ func TestSourceReconciliationRevocationExpiryAndTripStopOnlyAuthorizedWork(t *te
 			require.NoError(t, err)
 			run := uuid.NewString()
 			require.NoError(t, f.m.BindSourceReconciliationRun(work, id, run))
+			e := types.SyncExecution{DataSourceID: id, SyncLogID: run, TenantID: 1, Generation: 1}
+			claimed, err := RestoreSourceReconciliation(types.WithSyncExecution(context.Background(), e), id, p.ID)
+			require.NoError(t, err)
+			require.NoError(t, types.CheckReconciliationPublication(&gorm.DB{Statement: &gorm.Statement{Context: claimed}}))
 			switch scenario {
 			case "revoked":
 				v := f.facts[id]
@@ -137,9 +142,12 @@ func TestSourceReconciliationRevocationExpiryAndTripStopOnlyAuthorizedWork(t *te
 			case "ticket_invention":
 				run = uuid.NewString()
 			}
-			e := types.SyncExecution{DataSourceID: id, SyncLogID: run, TenantID: 1, Generation: 1}
+			e.SyncLogID = run
 			_, err = RestoreSourceReconciliation(types.WithSyncExecution(context.Background(), e), id, p.ID)
 			require.Error(t, err)
+			commit := types.WithSyncExecution(claimed, e)
+			require.Error(t, types.CheckReconciliationPublication(&gorm.DB{Statement: &gorm.Statement{Context: commit}}),
+				"authority must still hold at publication, not only at Restore")
 			var state recoveryMode
 			rawState := f.r.Get(context.Background(), f.c.prefix+"recovery").Val()
 			require.NoError(t, json.Unmarshal([]byte(rawState), &state))

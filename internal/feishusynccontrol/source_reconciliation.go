@@ -7,6 +7,7 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type (
@@ -171,6 +172,10 @@ func RestoreSourceReconciliation(ctx context.Context, source, policy string) (co
 	work, _, err := m.reconciliationContext(ctx, source, policy, true)
 	if err == nil {
 		work = types.WithLegacyReconciliationRead(work)
+		work = types.WithReconciliationCommitGuard(work, func(tx *gorm.DB) error {
+			_, _, e := m.reconciliationContext(tx.Statement.Context, source, policy, true)
+			return e
+		})
 	}
 	return work, err
 }

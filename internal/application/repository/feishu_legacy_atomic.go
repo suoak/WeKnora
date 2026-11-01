@@ -156,6 +156,9 @@ func (s *FeishuLegacyStore) execution(tx *gorm.DB, ctx context.Context, ds *type
 	if err := s.executionFence(ctx, tx, ds); err != nil {
 		return err
 	}
+	if err := types.CheckReconciliationPublication(tx); err != nil {
+		return err
+	}
 	var config types.DataSourceConfig
 	if len(ds.Config) > 0 && json.Unmarshal(ds.Config, &config) != nil {
 		return legacyFence("source_configuration_invalid")

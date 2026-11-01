@@ -117,6 +117,11 @@ func (r *SyncLogRepository) WriteExecution(
 		if err != nil {
 			return err
 		}
+		if types.LegacyFullReconciliation(ctx) || (!release && types.LegacyReconciliationRead(ctx, e.DataSourceID)) {
+			if err := types.CheckReconciliationPublication(tx); err != nil {
+				return err
+			}
+		}
 		if types.LegacyFullReconciliation(ctx) {
 			if guard, ok := types.FeishuSourceGuardFromContext(ctx); ok {
 				var owned int64

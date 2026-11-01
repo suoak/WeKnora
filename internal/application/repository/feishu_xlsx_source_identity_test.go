@@ -166,6 +166,13 @@ func TestFeishuXLSXSourceIdentityPostgres(t *testing.T) {
 	require.Equal(t, "hold", after.LegacyAccessState, "equivalence proof never releases a hold")
 	readOnly := types.WithFeishuSourceCommitGuard(types.WithLegacyReconciliationRead(ctx),
 		func(*gorm.DB) error { return nil })
+	var purposeExpired bool
+	readOnly = types.WithReconciliationCommitGuard(readOnly, func(*gorm.DB) error {
+		if purposeExpired {
+			return denied
+		}
+		return nil
+	})
 	baseline, err = store.SourceIdentityBaseline(readOnly, &ds, r.ExternalID)
 	require.NoError(t, err)
 	proof, err = baseline.ProveXLSX(old)
@@ -189,4 +196,24 @@ func TestFeishuXLSXSourceIdentityPostgres(t *testing.T) {
 	require.Equal(t, a.Generation+1, candidate.Generation)
 	require.NoError(t, db.First(&after, "id=?", ds.ID).Error)
 	require.Equal(t, "hold", after.LegacyAccessState, "private candidate allocation cannot complete reconciliation")
+	purposeExpired = true
+	require.ErrorIs(t, store.Renew(readOnly, &ds, candidate), denied)
+	var unchanged types.FeishuLegacyAttempt
+	require.NoError(t, db.First(&unchanged, "id=?", candidate.ID).Error)
+	require.True(t, candidate.LeaseUntil.Equal(unchanged.LeaseUntil), "expired approval cannot renew candidate lease")
+	log.Status = types.SyncLogStatusSuccess
+	written, err := NewSyncLogRepository(db).(*SyncLogRepository).WriteExecution(
+		types.WithLegacyFullReconciliation(readOnly), types.SyncExecution{
+			DataSourceID: ds.ID, TenantID: tenant.ID, SyncLogID: log.ID, Generation: 1,
+		}, &ds, &log, true)
+	require.ErrorIs(t, err, denied)
+	require.False(t, written, "expired purpose must not release source hold")
+	log.Status = types.SyncLogStatusFailed
+	written, err = NewSyncLogRepository(db).(*SyncLogRepository).WriteExecution(readOnly, types.SyncExecution{
+		DataSourceID: ds.ID, TenantID: tenant.ID, SyncLogID: log.ID, Generation: 1,
+	}, &ds, &log, true)
+	require.NoError(t, err, "terminal failure cleanup must not need publication approval")
+	require.True(t, written)
+	require.NoError(t, db.First(&log, "id=?", log.ID).Error)
+	require.False(t, log.ExecutionClaimed)
 }
