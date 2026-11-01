@@ -31,18 +31,24 @@ func TestSteadyAuthorityPostgresCrossTenantAndPrivateOwner(t *testing.T) {
 	b := types.Tenant{Name: "steady-b", Status: "active"}
 	require.NoError(t, db.Create(&a).Error)
 	require.NoError(t, db.Create(&b).Error)
-	actor := types.User{ID: uuid.NewString(), Username: "steady-actor", Email: uuid.NewString() + "@example.invalid",
-		PasswordHash: "synthetic", TenantID: a.ID, IsActive: true, IsSystemAdmin: true}
+	actor := types.User{
+		ID: uuid.NewString(), Username: "steady-actor", Email: uuid.NewString() + "@example.invalid",
+		PasswordHash: "synthetic", TenantID: a.ID, IsActive: true, IsSystemAdmin: true,
+	}
 	require.NoError(t, db.Create(&actor).Error)
-	member := types.TenantMember{UserID: actor.ID, TenantID: a.ID,
-		Role: types.TenantRoleAdmin, Status: types.TenantMemberStatusActive}
+	member := types.TenantMember{
+		UserID: actor.ID, TenantID: a.ID,
+		Role: types.TenantRoleAdmin, Status: types.TenantMemberStatusActive,
+	}
 	require.NoError(t, db.Create(&member).Error)
 	makeSource := func(tenant uint64) types.DataSource {
 		kb := types.KnowledgeBase{ID: uuid.NewString(), TenantID: tenant, Name: "steady", Type: "document"}
 		require.NoError(t, db.Create(&kb).Error)
-		ds := types.DataSource{ID: uuid.NewString(), TenantID: tenant, KnowledgeBaseID: kb.ID, Type: "feishu_drive",
+		ds := types.DataSource{
+			ID: uuid.NewString(), TenantID: tenant, KnowledgeBaseID: kb.ID, Type: "feishu_drive",
 			Name: "steady", Status: "active", LegacyAccessState: "unmanaged",
-			Config: types.JSON(`{"resource_ids":["synthetic-root"],"settings":{}}`)}
+			Config: types.JSON(`{"resource_ids":["synthetic-root"],"settings":{}}`),
+		}
 		require.NoError(t, db.Create(&ds).Error)
 		return ds
 	}
@@ -52,8 +58,10 @@ func TestSteadyAuthorityPostgresCrossTenantAndPrivateOwner(t *testing.T) {
 	require.Equal(t, a.ID, auth.TenantID)
 	_, err = SourceManagementFromDatabase(ctx, db, two.ID, actor.ID)
 	require.Error(t, err, "system admin is not a cross-space grant")
-	second := types.TenantMember{UserID: actor.ID, TenantID: b.ID,
-		Role: types.TenantRoleViewer, Status: types.TenantMemberStatusActive}
+	second := types.TenantMember{
+		UserID: actor.ID, TenantID: b.ID,
+		Role: types.TenantRoleViewer, Status: types.TenantMemberStatusActive,
+	}
 	require.NoError(t, db.Create(&second).Error)
 	_, err = SourceManagementFromDatabase(ctx, db, two.ID, actor.ID)
 	require.Error(t, err, "viewer is not a source manager")
@@ -61,9 +69,11 @@ func TestSteadyAuthorityPostgresCrossTenantAndPrivateOwner(t *testing.T) {
 	auth, err = SourceManagementFromDatabase(ctx, db, two.ID, actor.ID)
 	require.NoError(t, err)
 	require.Equal(t, b.ID, auth.TenantID)
-	other := types.User{ID: uuid.NewString(), Username: "steady-private-owner",
+	other := types.User{
+		ID: uuid.NewString(), Username: "steady-private-owner",
 		Email:        uuid.NewString() + "@example.invalid",
-		PasswordHash: "synthetic", TenantID: b.ID, IsActive: true}
+		PasswordHash: "synthetic", TenantID: b.ID, IsActive: true,
+	}
 	require.NoError(t, db.Create(&other).Error)
 	require.NoError(t, db.Exec(`INSERT INTO feishu_private_kbs (kb_id,owner_id) VALUES (?,?)`,
 		two.KnowledgeBaseID, other.ID).Error)

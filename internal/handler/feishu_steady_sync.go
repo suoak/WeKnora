@@ -47,9 +47,11 @@ func (h *DataSourceHandler) FeishuSteadySync(c *gin.Context) {
 			c.JSON(409, gin.H{"error": "steady_activation_rejected"})
 			return
 		}
-		c.JSON(200, gin.H{"sync_queue_kept_paused": true, "approved_sources": len(request.Plan.ManagedSources),
+		c.JSON(200, gin.H{
+			"sync_queue_kept_paused": true, "approved_sources": len(request.Plan.ManagedSources),
 			"policy_revision":        request.Plan.PolicyRevision,
-			"authorization_until_ms": request.Plan.AuthorizationUntilMS})
+			"authorization_until_ms": request.Plan.AuthorizationUntilMS,
+		})
 	default:
 		c.JSON(400, gin.H{"error": "unsupported_steady_sync_operation"})
 	}

@@ -15,8 +15,10 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-const steadyHealthTTL = 15 * time.Second
-const maxSteadySources = 64
+const (
+	steadyHealthTTL  = 15 * time.Second
+	maxSteadySources = 64
+)
 
 var recoverySHA = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
@@ -62,9 +64,11 @@ func (m *RecoveryManager) steadySource(ctx context.Context, source, actor string
 		return s, RecoveryFacts{}, ErrRecoveryRejected
 	}
 	f, err := m.facts(ctx, source)
-	s = SteadySource{ApprovedSource: ApprovedSource{SourceID: source, ConfigSHA256: f.ConfigSHA256,
-		FactsSHA256: f.FactsSHA256}, Authority: authority}
-	if err != nil || !s.ApprovedSource.matches(f) {
+	s = SteadySource{ApprovedSource: ApprovedSource{
+		SourceID: source, ConfigSHA256: f.ConfigSHA256,
+		FactsSHA256: f.FactsSHA256,
+	}, Authority: authority}
+	if err != nil || !s.matches(f) {
 		return s, f, ErrRecoveryRejected
 	}
 	return s, f, nil
@@ -421,8 +425,10 @@ func (m *RecoveryManager) ActivateSteady(ctx context.Context, p SteadyPlan, a Re
 	}
 	signed, _ := json.Marshal(cert)
 	// WATCH the same queue fields as incident recovery, without rewriting them.
-	keys := []string{c.prefix + "recovery", c.prefix + "trip", c.prefix + "membership_revision",
-		c.prefix + "workers", c.prefix + "leases", c.prefix + "admitted", c.Guard.PermitKey()}
+	keys := []string{
+		c.prefix + "recovery", c.prefix + "trip", c.prefix + "membership_revision",
+		c.prefix + "workers", c.prefix + "leases", c.prefix + "admitted", c.Guard.PermitKey(),
+	}
 	for _, queue := range []string{"sync", ApprovedSyncQueue} {
 		for _, key := range []string{"pending", "active", "retry", "scheduled", "archived", "paused"} {
 			keys = append(keys, "asynq:{"+queue+"}:"+key)
@@ -459,9 +465,11 @@ redis.call('XADD',KEYS[4],'*','event','steady_sources_activated','actor_id',ARGV
  'certificate',ARGV[8],'historical_queue_sha256',ARGV[9])
 redis.call('SET',KEYS[1],ARGV[10]);redis.call('SET',KEYS[5],ARGV[11],'PX',ARGV[12])
 redis.call('DEL',KEYS[10]);return 1`,
-				[]string{c.prefix + "recovery", c.prefix + "trip", c.Guard.PermitKey(), c.prefix + "control_audit",
+				[]string{
+					c.prefix + "recovery", c.prefix + "trip", c.Guard.PermitKey(), c.prefix + "control_audit",
 					c.prefix + "steady_health", c.prefix + "membership_revision", c.prefix + "workers",
-					c.prefix + "admitted", c.prefix + "leases", "asynq:{approved_sync}:paused"},
+					c.prefix + "admitted", c.prefix + "leases", "asynq:{approved_sync}:paused",
+				},
 				raw, c.Guard.Fingerprint(), p.MembershipRevision, c.Config.WorkerID, c.fingerprint+":"+c.incarnation,
 				a.ExpiresMS, actor, string(signed), q.digest, string(body), p.ID, steadyHealthTTL.Milliseconds())
 			return nil

@@ -589,8 +589,11 @@ func (s *DataSourceService) manualSyncUsing(
 	if err != nil {
 		return nil, err
 	}
+	if err := feishuSourceAdmissionState(ds); err != nil {
+		return nil, err
+	}
 	if e := checkFeishuSourceOwner(ctx, ds); e != nil {
-		return nil, e
+		return nil, &datasource.SyncAdmissionError{Reason: "sync_source_permission_denied", Cause: e}
 	}
 	if datasource.LegacyFeishuSyncSuspended(ds.Type) {
 		return nil, datasource.ErrLegacyFeishuSyncSuspended
@@ -599,6 +602,7 @@ func (s *DataSourceService) manualSyncUsing(
 		return nil, datasource.ErrLegacyFeishuSourceNotAllowed
 	}
 	approvedDelivery := false
+	admissionFingerprint := ""
 	if feishusafety.Scoped(feishusafety.LegacyContext(ctx, ds.Type, ds.ID)) {
 		fingerprint, fpErr := feishusafety.SourceConfigFingerprint(
 			ds.ID,
@@ -611,15 +615,20 @@ func (s *DataSourceService) manualSyncUsing(
 		if fpErr != nil {
 			return nil, fpErr
 		}
+		admissionFingerprint = fingerprint
 		ctx = feishusafety.WithRecoveryExecution(ctx, fingerprint, "", 0)
 		ctx, approvedDelivery, err = feishusynccontrol.BindApprovedSource(ctx, ds.ID, fingerprint)
 		if err != nil {
-			return nil, err
+			return nil, &datasource.SyncAdmissionError{
+				Reason: feishusynccontrol.AdmissionFailureReason(ctx, ds.ID, fingerprint), Cause: err,
+			}
 		}
 
 	}
 	if err := feishusafety.CheckLegacy(ctx, ds.Type, ds.ID); err != nil {
-		return nil, err
+		return nil, &datasource.SyncAdmissionError{
+			Reason: feishusynccontrol.AdmissionFailureReason(ctx, ds.ID, admissionFingerprint), Cause: err,
+		}
 	}
 
 	if ds.Status != types.DataSourceStatusActive &&

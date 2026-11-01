@@ -27,18 +27,22 @@ type steadyFixture struct {
 
 func newSteadyFixture(t *testing.T) *steadyFixture {
 	t.Helper()
-	f := &steadyFixture{recoveryFixture: reviewedCanaryFixture(t), facts: map[string]RecoveryFacts{},
-		authority: map[string]SourceManagementAuthority{}}
+	f := &steadyFixture{
+		recoveryFixture: reviewedCanaryFixture(t), facts: map[string]RecoveryFacts{},
+		authority: map[string]SourceManagementAuthority{},
+	}
 	for i := 0; i < 4; i++ {
 		id := uuid.NewString()
 		facts := f.recoveryFixture.facts
 		facts.SourceID = id
 		f.ids = append(f.ids, id)
 		f.facts[id] = facts
-		f.authority[id] = SourceManagementAuthority{TenantID: uint64(i%3 + 1), KBID: uuid.NewString(),
+		f.authority[id] = SourceManagementAuthority{
+			TenantID: uint64(i%3 + 1), KBID: uuid.NewString(),
 			SourceID: id, SourceType: []string{"feishu", "feishu_drive"}[i%2], ActorID: "operator",
 			SourceStatus: "active", AccessState: "unmanaged",
-			AuthorityHash: strings.Repeat("f", 64)}
+			AuthorityHash: strings.Repeat("f", 64),
+		}
 	}
 	f.m.facts = func(_ context.Context, id string) (RecoveryFacts, error) { return f.facts[id], nil }
 	f.c.approvedFacts = f.m.facts
@@ -56,9 +60,11 @@ func (f *steadyFixture) sign(t *testing.T, p SteadyPlan) RecoveryApproval {
 	t.Helper()
 	hash, err := RecoveryDigest(p)
 	require.NoError(t, err)
-	a := RecoveryApproval{Version: 2, Algorithm: "Ed25519", KeyID: f.m.keyID, Incarnation: p.Incarnation,
+	a := RecoveryApproval{
+		Version: 2, Algorithm: "Ed25519", KeyID: f.m.keyID, Incarnation: p.Incarnation,
 		Operation: "steady_sources", PlanSHA256: hash, ActorID: "operator", Reference: "isolated-steady-review",
-		EvidenceSHA256: strings.Repeat("d", 64), ExpiresMS: p.ExpiresMS}
+		EvidenceSHA256: strings.Repeat("d", 64), ExpiresMS: p.ExpiresMS,
+	}
 	body, err := recoveryCanonical(a)
 	require.NoError(t, err)
 	a.Signature = hex.EncodeToString(ed25519.Sign(ed25519.NewKeyFromSeed(f.key), body))
@@ -308,12 +314,16 @@ func TestSteadySourcesOutboundRequiresExactTenantAndCurrentClaim(t *testing.T) {
 	bound = feishusafety.WithScope(bound, id)
 	bound = feishusafety.WithRecoveryExecution(bound, f.facts[id].ConfigSHA256, run, 7)
 	calls := 0
-	transport := feishusafety.Transport{Embedding: true,
+	transport := feishusafety.Transport{
+		Embedding: true,
 		Base: continuityRoundTripper(func(*http.Request) (*http.Response, error) {
 			calls++
-			return &http.Response{StatusCode: 200, Header: http.Header{},
-				Body: io.NopCloser(strings.NewReader(`{"ok":true}`))}, nil
-		})}
+			return &http.Response{
+				StatusCode: 200, Header: http.Header{},
+				Body: io.NopCloser(strings.NewReader(`{"ok":true}`)),
+			}, nil
+		}),
+	}
 	call := func(work context.Context) error {
 		r, err := http.NewRequestWithContext(work, http.MethodPost, "https://gateway.invalid/v1/embeddings",
 			strings.NewReader(`{"input":["approved synthetic input"]}`))
@@ -328,11 +338,13 @@ func TestSteadySourcesOutboundRequiresExactTenantAndCurrentClaim(t *testing.T) {
 	require.Error(t, call(bound))
 	require.Zero(t, calls)
 	wrong := types.WithSyncExecution(bound, types.SyncExecution{
-		DataSourceID: id, SyncLogID: run, TenantID: 999, Generation: 7})
+		DataSourceID: id, SyncLogID: run, TenantID: 999, Generation: 7,
+	})
 	require.Error(t, call(wrong))
 	require.Zero(t, calls)
 	valid := types.WithSyncExecution(bound, types.SyncExecution{
-		DataSourceID: id, SyncLogID: run, TenantID: f.authority[id].TenantID, Generation: 7})
+		DataSourceID: id, SyncLogID: run, TenantID: f.authority[id].TenantID, Generation: 7,
+	})
 	require.NoError(t, call(valid))
 	require.Equal(t, 1, calls)
 	claimLive = false

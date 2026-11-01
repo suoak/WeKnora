@@ -18,8 +18,10 @@ import (
 func TestSteadyHTTPChecksIndependentTargetAuthority(t *testing.T) {
 	anchor, target := uuid.NewString(), uuid.NewString()
 	feishucontinuity.Activate(t, anchor, func(_ context.Context, id string) (feishusynccontrol.RecoveryFacts, error) {
-		return feishusynccontrol.RecoveryFacts{SourceID: id, Eligible: true, SelectedResourceCount: 1,
-			ConfigSHA256: strings.Repeat("b", 64), FactsSHA256: strings.Repeat("c", 64)}, nil
+		return feishusynccontrol.RecoveryFacts{
+			SourceID: id, Eligible: true, SelectedResourceCount: 1,
+			ConfigSHA256: strings.Repeat("b", 64), FactsSHA256: strings.Repeat("c", 64),
+		}, nil
 	})
 	allowed := false
 	calls := 0
@@ -28,9 +30,11 @@ func TestSteadyHTTPChecksIndependentTargetAuthority(t *testing.T) {
 		_ context.Context, id, actor string,
 	) (feishusynccontrol.SourceManagementAuthority, error) {
 		calls++
-		a := feishusynccontrol.SourceManagementAuthority{SourceID: id, TenantID: 2, KBID: uuid.NewString(),
+		a := feishusynccontrol.SourceManagementAuthority{
+			SourceID: id, TenantID: 2, KBID: uuid.NewString(),
 			SourceStatus: "active", AccessState: "unmanaged",
-			SourceType: "feishu", ActorID: actor, AuthorityHash: strings.Repeat("e", 64)}
+			SourceType: "feishu", ActorID: actor, AuthorityHash: strings.Repeat("e", 64),
+		}
 		if !allowed {
 			return a, feishusynccontrol.ErrRecoveryRejected
 		}

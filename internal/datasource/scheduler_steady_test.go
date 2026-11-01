@@ -22,9 +22,11 @@ func TestSteadySchedulerNaturalCronAcrossThreeSpaces(t *testing.T) {
 		kind := []string{types.ConnectorTypeFeishu, types.ConnectorTypeFeishuDrive}[i%2]
 		config, err := (&types.DataSourceConfig{Type: kind, ResourceIDs: []string{"synthetic-root"}}).ToJSON()
 		require.NoError(t, err)
-		ds := &types.DataSource{ID: uuid.NewString(), TenantID: uint64(i%3 + 1), KnowledgeBaseID: uuid.NewString(),
+		ds := &types.DataSource{
+			ID: uuid.NewString(), TenantID: uint64(i%3 + 1), KnowledgeBaseID: uuid.NewString(),
 			Type: kind, Status: types.DataSourceStatusActive, LegacyAccessState: "unmanaged",
-			Config: config, SyncSchedule: "* * * * * *"}
+			Config: config, SyncSchedule: "* * * * * *",
+		}
 		require.NoError(t, repo.Create(ctx, ds))
 		ids = append(ids, ds.ID)
 	}
@@ -35,17 +37,21 @@ func TestSteadySchedulerNaturalCronAcrossThreeSpaces(t *testing.T) {
 		}
 		fp, err := feishusafety.SourceConfigFingerprint(ds.ID, ds.KnowledgeBaseID, ds.Type,
 			ds.LegacyAccessState, ds.TenantID, ds.Config)
-		return feishusynccontrol.RecoveryFacts{SourceID: id, Eligible: true, SelectedResourceCount: 1,
-			ConfigSHA256: fp, FactsSHA256: strings.Repeat("c", 64)}, err
+		return feishusynccontrol.RecoveryFacts{
+			SourceID: id, Eligible: true, SelectedResourceCount: 1,
+			ConfigSHA256: fp, FactsSHA256: strings.Repeat("c", 64),
+		}, err
 	}
 	authority := func(ctx context.Context, id, actor string) (feishusynccontrol.SourceManagementAuthority, error) {
 		ds, err := repo.FindByID(ctx, id)
 		if err != nil {
 			return feishusynccontrol.SourceManagementAuthority{}, err
 		}
-		return feishusynccontrol.SourceManagementAuthority{SourceID: id, TenantID: ds.TenantID,
+		return feishusynccontrol.SourceManagementAuthority{
+			SourceID: id, TenantID: ds.TenantID,
 			KBID: ds.KnowledgeBaseID, SourceType: ds.Type, SourceStatus: "active", AccessState: "unmanaged",
-			ActorID: actor, AuthorityHash: strings.Repeat("e", 64)}, nil
+			ActorID: actor, AuthorityHash: strings.Repeat("e", 64),
+		}, nil
 	}
 	feishucontinuity.ActivateSteady(t, ids, facts, authority)
 	queue := &fakeTaskEnqueuer{}

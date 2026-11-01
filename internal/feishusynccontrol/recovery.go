@@ -212,12 +212,11 @@ func (c *Controller) checkRecoveryPolicy(ctx context.Context) error {
 				return ErrRecoveryRejected
 			}
 			return c.steadyManager.checkSteadyState(ctx, state, now.UnixMilli())
-		} else {
-			for id, approved := range state.ApprovedSources {
-				facts, err := c.approvedFacts(ctx, id)
-				if err != nil || !approved.matches(facts) {
-					return ErrRecoveryRejected
-				}
+		}
+		for id, approved := range state.ApprovedSources {
+			facts, err := c.approvedFacts(ctx, id)
+			if err != nil || !approved.matches(facts) {
+				return ErrRecoveryRejected
 			}
 		}
 	}

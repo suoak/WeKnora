@@ -458,6 +458,9 @@ func (h *DataSourceHandler) ManualSync(c *gin.Context) {
 
 	syncLog, err := h.service.ManualSync(ctx, id)
 	if err != nil {
+		if writeSyncAdmissionFailure(c, err) {
+			return
+		}
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

@@ -27,9 +27,11 @@ func ActivateSteady(t *testing.T, ids []string,
 	require.NoError(t, err)
 	hash, err := feishusynccontrol.RecoveryDigest(plan)
 	require.NoError(t, err)
-	a := feishusynccontrol.RecoveryApproval{Version: 2, Algorithm: "Ed25519", KeyID: plan.ApprovalKeyID,
+	a := feishusynccontrol.RecoveryApproval{
+		Version: 2, Algorithm: "Ed25519", KeyID: plan.ApprovalKeyID,
 		Incarnation: plan.Incarnation, Operation: "steady_sources", PlanSHA256: hash, ActorID: plan.ActorID,
-		Reference: "synthetic-steady-test", EvidenceSHA256: strings.Repeat("e", 64), ExpiresMS: plan.ExpiresMS}
+		Reference: "synthetic-steady-test", EvidenceSHA256: strings.Repeat("e", 64), ExpiresMS: plan.ExpiresMS,
+	}
 	raw, err := json.Marshal(a)
 	require.NoError(t, err)
 	var value any
