@@ -10,6 +10,12 @@ import (
 )
 
 func writeSyncAdmissionFailure(c *gin.Context, err error) bool {
+	// Preserve service-level sentinel identity and text for existing callers.
+	if errors.Is(err, datasource.ErrLegacyFeishuSyncSuspended) {
+		err = &datasource.SyncAdmissionError{Reason: "sync_platform_stopped", Cause: err}
+	} else if errors.Is(err, datasource.ErrLegacyFeishuSourceNotAllowed) {
+		err = &datasource.SyncAdmissionError{Reason: "sync_source_not_approved", Cause: err}
+	}
 	var rejected *datasource.SyncAdmissionError
 	code, message, status := "", "", http.StatusConflict
 	if errors.As(err, &rejected) {
