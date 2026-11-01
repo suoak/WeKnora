@@ -46,11 +46,17 @@ func (r documentKBRepo) GetKnowledgeBaseByID(ctx context.Context, id string) (*t
 type documentKnowledgeSpy struct {
 	interfaces.KnowledgeRepository
 	writes int
+	db     *gorm.DB
 }
 
 func (r *documentKnowledgeSpy) LoadPersonalReparseMetadata(
 	ctx context.Context, id string,
 ) (*repository.PersonalReparseMetadata, error) {
+	// This ordinary-upload fixture has no personal protocol store unless a
+	// particular test explicitly installs it.
+	if !r.db.Migrator().HasTable(&types.TaskPendingOp{}) {
+		return &repository.PersonalReparseMetadata{}, nil
+	}
 	return r.KnowledgeRepository.(interface {
 		LoadPersonalReparseMetadata(context.Context, string) (*repository.PersonalReparseMetadata, error)
 	}).LoadPersonalReparseMetadata(ctx, id)
@@ -201,10 +207,9 @@ func newDocumentWriteFixture(t *testing.T) *documentWriteFixture {
 			&types.KnowledgeTag{},
 			&types.KnowledgeTagRelation{},
 			&types.ChunkRevision{},
-			&types.TaskPendingOp{},
 		),
 	)
-	repo := &documentKnowledgeSpy{KnowledgeRepository: repository.NewKnowledgeRepository(db)}
+	repo := &documentKnowledgeSpy{KnowledgeRepository: repository.NewKnowledgeRepository(db), db: db}
 	chunkRepo := &documentChunkSpy{ChunkRepository: repository.NewChunkRepository(db)}
 	kbs := &documentKBLookup{values: map[string]*types.KnowledgeBase{
 		"kb": {ID: "kb", TenantID: 7}, "other": {ID: "other", TenantID: 7},

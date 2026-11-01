@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
+	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/hibiken/asynq"
@@ -26,6 +27,12 @@ type replaceFileRepo struct {
 	columnsCalls    int
 	failColumnsCall int
 	commitThenFail  bool
+}
+
+func (r *replaceFileRepo) LoadPersonalReparseMetadata(
+	context.Context, string,
+) (*repository.PersonalReparseMetadata, error) {
+	return &repository.PersonalReparseMetadata{}, nil
 }
 
 func (r *replaceFileRepo) GetKnowledgeByID(context.Context, uint64, string) (*types.Knowledge, error) {
