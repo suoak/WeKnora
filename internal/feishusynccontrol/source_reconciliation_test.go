@@ -111,7 +111,8 @@ func TestSourceReconciliationRevocationExpiryAndTripStopOnlyAuthorizedWork(t *te
 			e := types.SyncExecution{DataSourceID: id, SyncLogID: run, TenantID: 1, Generation: 1}
 			claimed, err := RestoreSourceReconciliation(types.WithSyncExecution(context.Background(), e), id, p.ID)
 			require.NoError(t, err)
-			require.NoError(t, types.CheckReconciliationPublication(&gorm.DB{Statement: &gorm.Statement{Context: claimed}}))
+			transaction := &gorm.DB{Statement: &gorm.Statement{Context: claimed}}
+			require.NoError(t, types.CheckReconciliationPublication(transaction))
 			switch scenario {
 			case "revoked":
 				v := f.facts[id]
@@ -146,7 +147,8 @@ func TestSourceReconciliationRevocationExpiryAndTripStopOnlyAuthorizedWork(t *te
 			_, err = RestoreSourceReconciliation(types.WithSyncExecution(context.Background(), e), id, p.ID)
 			require.Error(t, err)
 			commit := types.WithSyncExecution(claimed, e)
-			require.Error(t, types.CheckReconciliationPublication(&gorm.DB{Statement: &gorm.Statement{Context: commit}}),
+			transaction.Statement.Context = commit
+			require.Error(t, types.CheckReconciliationPublication(transaction),
 				"authority must still hold at publication, not only at Restore")
 			var state recoveryMode
 			rawState := f.r.Get(context.Background(), f.c.prefix+"recovery").Val()
