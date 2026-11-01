@@ -26,7 +26,7 @@ type exactPreviewKnowledgeService struct {
 	called int
 }
 
-func (s *exactPreviewKnowledgeService) GetKnowledgeFile(ctx context.Context, id string) (io.ReadCloser, string, error) {
+func (s *exactPreviewKnowledgeService) GetKnowledgeFile(ctx context.Context, _ string) (io.ReadCloser, string, error) {
 	s.called++
 	if _, err := types.CheckExactPublishedDocumentRead(ctx); err != nil {
 		return nil, "", err

@@ -55,9 +55,10 @@ func TestExactPublishedReadRouteRetainsDocumentAuthority(t *testing.T) {
 				})
 				w := httptest.NewRecorder()
 				path := "/knowledge/published"
-				if route == "/chunks/:id" {
+				switch route {
+				case "/chunks/:id":
 					path = "/chunks/published?page=1&page_size=25"
-				} else if route == "/knowledge/:id/preview" {
+				case "/knowledge/:id/preview":
 					path = "/knowledge/published/preview"
 				}
 				r.ServeHTTP(w, httptest.NewRequest("GET", path, nil))
