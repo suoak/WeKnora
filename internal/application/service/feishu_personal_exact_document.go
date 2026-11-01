@@ -57,6 +57,11 @@ func (p *PersonalRecovery) prepareExactPersonalSource(
 type personalExactPreflight struct {
 	observed *types.FeishuPersonalAttempt
 	validate func(*gorm.DB, *types.FeishuPersonalAttempt) error
+	// A sealed review can inspect the original source but grants no content
+	// capability, claim or permission to reuse a terminated execution.
+	sealedGeneration int64
+	identity         types.PersonalExactReceipt
+	checkedSource    *personalExactDocument
 }
 
 // Preflight reuses every source check without creating an execution/serving
@@ -76,6 +81,18 @@ func (p *PersonalRecovery) checkExactPersonalSource(
 	ctx context.Context, owner *types.FeishuPersonalAttempt, published bool, check *personalExactPreflight,
 ) (proof *personalExactDocument, refusal error) {
 	preflight := check != nil
+	expectedStatus := "index_pending"
+	expectedGeneration := int64(0)
+	if owner != nil {
+		expectedGeneration = owner.Fence
+	}
+	if preflight && check.sealedGeneration > 0 {
+		expectedStatus = "needs_attention"
+		expectedGeneration = check.sealedGeneration
+		if owner == nil || expectedGeneration != owner.Fence+1 {
+			return nil, errPersonalExactDocument
+		}
+	}
 	stage := "preconditions"
 	started, phaseStart := time.Now(), time.Now()
 	phases := map[string]int64{}
@@ -111,7 +128,7 @@ func (p *PersonalRecovery) checkExactPersonalSource(
 	if owner == nil || !p.firstCreateOnly || p.service.db.Name() != "postgres" {
 		return nil, errPersonalExactDocument
 	}
-	if preflight && (owner.Status != "index_pending" || owner.OwnerNonce != "" || owner.LeaseUntil != nil) {
+	if preflight && (owner.Status != expectedStatus || owner.OwnerNonce != "" || owner.LeaseUntil != nil) {
 		return nil, errPersonalExactDocument
 	}
 	if !published && !preflight &&
@@ -127,13 +144,13 @@ func (p *PersonalRecovery) checkExactPersonalSource(
 		return nil, err
 	}
 	if types.FeishuAuthMode(m.AuthMode) != types.FeishuUserOAuth ||
-		a.Fence != owner.Fence || r.Generation != owner.Fence ||
+		a.Fence != owner.Fence || r.Generation != expectedGeneration ||
 		r.CurrentAttemptID != owner.ID ||
 		m.KnowledgeID != a.LogicalKnowledgeID || r.LogicalKnowledgeID != m.KnowledgeID ||
 		a.CandidateVersionID == a.LogicalKnowledgeID || a.ExpectedActiveVersion != "" {
 		return nil, errPersonalExactDocument
 	}
-	if preflight && (a.Status != "index_pending" || a.OwnerNonce != "" || a.LeaseUntil != nil ||
+	if preflight && (a.Status != expectedStatus || a.OwnerNonce != "" || a.LeaseUntil != nil ||
 		r.ActiveVersionID != owner.ExpectedActiveVersion || a.CandidateVersionID != owner.CandidateVersionID) {
 		return nil, errPersonalExactDocument
 	}
@@ -172,7 +189,7 @@ func (p *PersonalRecovery) checkExactPersonalSource(
 	}
 	permissionBits = &[3]bool{permission.View, permission.Export, permission.Copy}
 	if !permission.View || !permission.Export || !permission.Copy {
-		return nil, errPersonalExactDocument
+		return nil, errors.Join(errPersonalExactDocument, core.ErrPermission)
 	}
 	mark("manifest")
 	manifest, err := p.store.read(a)
@@ -323,14 +340,11 @@ AND (SELECT count(*) FROM resource_bindings all_b WHERE all_b.resource_id=f.id)=
 		if n != 1 {
 			return errPersonalExactDocument
 		}
-		if preflight {
-			return nil
-		}
 		var leaseUntil time.Time
 		if locked.LeaseUntil != nil {
 			leaseUntil = *locked.LeaseUntil
 		}
-		issued = &personalExactDocument{
+		candidateProof := &personalExactDocument{
 			knowledge: m.KnowledgeID, kb: m.KBID, tenant: a.CallerTenantID,
 			importID: m.ID, attempt: a.ID, candidate: a.CandidateVersionID,
 			expectedActive: a.ExpectedActiveVersion, resource: file.ID, resourceHandle: handle,
@@ -340,6 +354,12 @@ AND (SELECT count(*) FROM resource_bindings all_b WHERE all_b.resource_id=f.id)=
 			leaseUntil: leaseUntil, file: data,
 			fileMD5: k.FileHash, physicalPath: file.PhysicalPath, bindingID: bindings[0].ID,
 		}
+		if preflight {
+			check.identity = exactSourceReceipt(candidateProof)
+			check.checkedSource = candidateProof
+			return nil
+		}
+		issued = candidateProof
 		return nil
 	}
 	mark("locked_local_snapshot")
@@ -358,7 +378,7 @@ AND (SELECT count(*) FROM resource_bindings all_b WHERE all_b.resource_id=f.id)=
 				Take(&current).Error; err != nil {
 				return err
 			}
-			if resource.CurrentAttemptID != a.ID || resource.Generation != a.Fence ||
+			if resource.CurrentAttemptID != a.ID || resource.Generation != expectedGeneration ||
 				resource.LogicalKnowledgeID != a.LogicalKnowledgeID ||
 				resource.CandidateVersionID != a.CandidateVersionID ||
 				current.CandidateVersionID != a.CandidateVersionID ||
@@ -367,7 +387,7 @@ AND (SELECT count(*) FROM resource_bindings all_b WHERE all_b.resource_id=f.id)=
 				return repository.ErrPersonalFence
 			}
 			if preflight {
-				if resource.ActiveVersionID != a.ExpectedActiveVersion || current.Status != "index_pending" {
+				if resource.ActiveVersionID != a.ExpectedActiveVersion || current.Status != expectedStatus {
 					return repository.ErrPersonalFence
 				}
 			} else if resource.ActiveVersionID != a.CandidateVersionID || current.Status != "indexed" {

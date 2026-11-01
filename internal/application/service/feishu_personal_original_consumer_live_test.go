@@ -270,9 +270,25 @@ func exerciseOriginalPublicDispatch(t *testing.T, f *personalRecoveryFixture,
 			Update("summary_model_id", "isolated-summary").
 			Error,
 	)
+	retryAcceptance := os.Getenv("PERSONAL_EXACT_SEALED_RETRY_ACCEPTANCE") == "1"
+	if retryAcceptance {
+		payload = prepareOriginalSealedRetryAcceptance(t, f, payload)
+	}
 	body, err := json.Marshal(payload)
 	require.NoError(t, err)
 	task := asynq.NewTask(types.TypeDocumentProcess, body)
+	dispatchOriginal := func() {
+		if retryAcceptance {
+			row, _, err := f.p.loadExactRetry(context.Background(), payload.ExactRetryTicketID)
+			require.NoError(t, err)
+			require.NoError(t, f.p.reconcileExactRetryTicket(context.Background(), row))
+			return
+		}
+		var op types.TaskPendingOp
+		require.NoError(t, f.db.Where("scope=? AND scope_id=?",
+			types.KnowledgeDispatchScope, payload.KnowledgeID).Take(&op).Error)
+		require.NoError(t, f.ks.publishKnowledgeDispatch(context.Background(), &op))
+	}
 	if addr := os.Getenv("PERSONAL_EXACT_QUEUE_REDIS_ADDR"); addr != "" {
 		require.True(t, strings.HasPrefix(addr, "knowhub-personal-exact-queue-"))
 		redisOption := asynq.RedisClientOpt{Addr: addr}
@@ -292,10 +308,7 @@ func exerciseOriginalPublicDispatch(t *testing.T, f *personalRecoveryFixture,
 		require.NoError(t, server.Start(mux))
 		defer server.Shutdown()
 		f.ks.task = client
-		var op types.TaskPendingOp
-		require.NoError(t, f.db.Where("scope=? AND scope_id=?",
-			types.KnowledgeDispatchScope, payload.KnowledgeID).Take(&op).Error)
-		require.NoError(t, f.ks.publishKnowledgeDispatch(context.Background(), &op))
+		dispatchOriginal()
 		select {
 		case err := <-completed:
 			require.NoError(t, err)
@@ -309,10 +322,7 @@ func exerciseOriginalPublicDispatch(t *testing.T, f *personalRecoveryFixture,
 			completed <- err
 			return err
 		})
-		var op types.TaskPendingOp
-		require.NoError(t, f.db.Where("scope=? AND scope_id=?",
-			types.KnowledgeDispatchScope, payload.KnowledgeID).Take(&op).Error)
-		require.NoError(t, f.ks.publishKnowledgeDispatch(context.Background(), &op))
+		dispatchOriginal()
 		select {
 		case err := <-completed:
 			require.NoError(t, err)
@@ -324,7 +334,11 @@ func exerciseOriginalPublicDispatch(t *testing.T, f *personalRecoveryFixture,
 	}
 	imported, resource, attempt, err := f.p.repo.Load(context.Background(), payload.PersonalAttemptID)
 	require.NoError(t, err)
-	require.EqualValues(t, 4, resource.Generation)
+	expectedGeneration := int64(4)
+	if retryAcceptance {
+		expectedGeneration = 6
+	}
+	require.EqualValues(t, expectedGeneration, resource.Generation)
 	require.Equal(t, "indexed", attempt.Status)
 	require.Equal(t, payload.CandidateVersionID, resource.ActiveVersionID)
 	require.Empty(t, attempt.OwnerNonce)
@@ -364,6 +378,7 @@ func exerciseOriginalPublicDispatch(t *testing.T, f *personalRecoveryFixture,
 		"normal_chat_completion_verified": true, "unproved_history_and_cache_rejected": true,
 		"authorization_provider": "synthetic isolated OAuth", "model_provider": originalAcceptanceModelMode(),
 		"production_writes":                        false,
+		"sealed_stage_retry_verified":              retryAcceptance,
 		"actual_redis_dispatch":                    os.Getenv("PERSONAL_EXACT_QUEUE_REDIS_ADDR") != "",
 		"actual_lite_dispatch":                     factory != nil,
 		"public_detail_and_page_services_verified": true,

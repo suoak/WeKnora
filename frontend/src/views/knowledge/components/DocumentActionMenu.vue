@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { personalDocumentMessages } from '@/i18n/personalDocumentPresentation';
+import { personalDocumentAction } from '@/utils/personalDocumentActions';
 
 interface KnowledgeItem {
   id: string;
@@ -7,6 +10,7 @@ interface KnowledgeItem {
   title?: string;
   type?: string;
   parse_status?: string;
+  channel?: string;
 }
 
 const props = defineProps<{
@@ -38,6 +42,10 @@ const isParseInFlight = computed(() =>
 );
 
 const fileName = computed(() => props.item.file_name || props.item.title || props.item.id);
+const { t: personalText } = useI18n({ useScope: 'local', messages: personalDocumentMessages });
+const isPersonal = computed(() => props.item.channel === 'feishu_personal');
+const failedPersonal = computed(() => isPersonal.value && props.item.parse_status === 'failed');
+const personalAction = computed(() => personalText(personalDocumentAction(props.item.channel, props.item.parse_status) || 'syncSource'));
 </script>
 
 <template>
@@ -64,13 +72,21 @@ const fileName = computed(() => props.item.file_name || props.item.title || prop
   </div>
 
   <!-- 重建知识 (in-flight: no popconfirm, just emits) -->
-  <div v-if="isParseInFlight" class="doc-action-menu-item" @click.stop="emit('reparse')">
+  <t-popconfirm v-if="isPersonal && !isParseInFlight && canMutateKnowledge" theme="warning"
+    :content="personalText(failedPersonal ? 'retryConfirm' : 'syncConfirm')"
+    :confirm-btn="{ content: personalAction, theme: 'primary' }"
+    :cancel-btn="{ content: $t('common.cancel') }" placement="left" @confirm="emit('reparse')">
+    <div class="doc-action-menu-item" @click.stop>
+      <t-icon class="icon" name="refresh" /><span>{{ personalAction }}</span>
+    </div>
+  </t-popconfirm>
+  <div v-else-if="isParseInFlight && !isPersonal" class="doc-action-menu-item" @click.stop="emit('reparse')">
     <t-icon class="icon" name="refresh" />
     <span>{{ $t('knowledgeBase.rebuildDocument') }}</span>
   </div>
 
   <!-- 重建知识 (normal: with popconfirm) -->
-  <t-popconfirm v-else theme="warning"
+  <t-popconfirm v-else-if="!isPersonal" theme="warning"
     :content="$t('knowledgeBase.rebuildConfirm', { fileName })"
     :confirm-btn="{ content: $t('common.confirm'), theme: 'primary' }"
     :cancel-btn="{ content: $t('common.cancel') }" placement="left"

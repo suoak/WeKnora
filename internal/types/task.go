@@ -319,6 +319,7 @@ type ExtractChunkPayload struct {
 
 // DocumentProcessPayload represents the document process task payload
 type DocumentProcessPayload struct {
+	ExactRetryTicketID  int64  `json:"exact_retry_ticket_id,omitempty"`
 	FirstCreate         bool   `json:"first_create,omitempty"`
 	FeishuAuthMode      string `json:"feishu_auth_mode,omitempty"`
 	FeishuApplicationID string `json:"feishu_application_id,omitempty"`
