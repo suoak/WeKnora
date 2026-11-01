@@ -87,6 +87,9 @@ func TestExactEmbeddedOriginalSixCompleteCoverage(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, workbooks, 1)
 			workbook := workbooks[0]
+			require.NoError(t, replaceExactWorkbookPlaceholders(parent, workbooks))
+			require.NotContains(t, parent.Markdown, "![")
+			require.Empty(t, parent.Assets)
 			require.Len(t, workbook.Sections, 1)
 			require.Len(t, workbook.Assets, 1, "worksheet background image must not disappear")
 			section := workbook.Sections[0]

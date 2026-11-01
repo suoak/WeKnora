@@ -17,6 +17,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/Tencent/WeKnora/internal/infrastructure/docparser"
 	"github.com/Tencent/WeKnora/internal/infrastructure/docparser/anydoc"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/xuri/excelize/v2"
@@ -33,6 +34,48 @@ type exactEmbeddedWorkbook struct {
 	Name, SHA256, NativeMarkdownSHA256 string
 	Sections                           []exactWorkbookSection
 	Assets                             []anydoc.Asset
+}
+
+func replaceExactWorkbookPlaceholders(parsed *anydoc.Result, workbooks []exactEmbeddedWorkbook) error {
+	if len(workbooks) == 0 {
+		return nil
+	}
+	covered := map[string]bool{}
+	kept := make([]anydoc.Asset, 0, len(parsed.Assets))
+	for _, asset := range parsed.Assets {
+		if asset.MediaType != "application/vnd.ms-ole-object" {
+			kept = append(kept, asset)
+			continue
+		}
+		sum := sha256.Sum256(asset.Data)
+		digest := hex.EncodeToString(sum[:])
+		matched := false
+		for _, workbook := range workbooks {
+			if digest != workbook.SHA256 {
+				continue
+			}
+			if covered[workbook.Name] {
+				return errExactWorkbookUnsupported
+			}
+			markdown, count := docparser.ReplacePackageImageReference(
+				parsed.Markdown, anydoc.ImageDir+asset.Name,
+			)
+			if count != 1 {
+				return errExactWorkbookUnsupported
+			}
+			parsed.Markdown = markdown
+			covered[workbook.Name], matched = true, true
+			break
+		}
+		if !matched {
+			return errExactWorkbookUnsupported
+		}
+	}
+	if len(covered) != len(workbooks) {
+		return errExactWorkbookUnsupported
+	}
+	parsed.Assets = kept
+	return nil
 }
 
 func prepareExactEmbeddedWorkbooks(data []byte) ([]exactEmbeddedWorkbook, error) {

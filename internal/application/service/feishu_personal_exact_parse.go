@@ -84,6 +84,9 @@ func (p *PersonalRecovery) parseExactPersonalDocument(
 	if parsed == nil || parsed.AssetsError != nil {
 		return nil, fmt.Errorf("exact_document_parser_assets_unverified: %w", errPersonalExactDocument)
 	}
+	if err = replaceExactWorkbookPlaceholders(parsed, workbooks); err != nil {
+		return nil, err
+	}
 	var segments []types.ParserDefinedSegment
 	var workbookDigests []string
 	if len(workbooks) > 0 {
