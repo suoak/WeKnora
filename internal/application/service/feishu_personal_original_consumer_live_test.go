@@ -128,6 +128,13 @@ func configureOriginalExactConsumer(
 ) (*httptest.Server, *types.Tenant, *atomic.Int64) {
 	t.Helper()
 	require.NoError(t, f.db.AutoMigrate(&types.KnowledgeBase{}, &types.Tenant{}, &types.Model{}))
+	if exactEmbeddedWorkbooksEnabled() {
+		// Match the deployed upgraded schema: JSONB is free to reorder object
+		// keys, unlike the initial AutoMigrate JSON fixture.
+		require.NoError(t, f.db.Exec(
+			"ALTER TABLE chunks ALTER COLUMN metadata TYPE jsonb USING metadata::jsonb",
+		).Error)
+	}
 	ddl, err := os.ReadFile("../../../migrations/versioned/000002_embeddings.up.sql")
 	require.NoError(t, err)
 	// Production migrations run in one schema. Acceptance owns a disposable
