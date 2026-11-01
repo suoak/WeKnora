@@ -24,7 +24,10 @@ The archived identity read proof is distinct from full
 reconciliation completion: intermediate checkpoints cannot release hold.
 Only the existing complete-scan, reconciled-publication transaction may perform
 the formal source transition. Missing dependencies or any incomplete item leave
-the source protected. Revoked and paused sources are never eligible.
+the source protected. Historical live rows attributed to the source must have
+current-run receipts; untracked legacy Feishu rows in the KB block hold release.
+Completed traversal alone is never used to erase unknown provenance. Revoked
+and paused sources are never eligible.
 
 After a successful source transition, obtain a fresh normal-service policy.
 The old configuration/authority binding cannot silently promote reconciliation

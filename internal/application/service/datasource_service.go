@@ -1577,6 +1577,10 @@ func (s *DataSourceService) processSyncStreaming(
 		ds.LastSyncAt = timePtr(time.Now().UTC())
 	}
 	if err := s.updateSyncRunResult(ctx, ds, syncLog, result, resultJSON, status, errMsg, wasPaused); err != nil {
+		var fence *apprepo.LegacyFenceError
+		if errors.As(err, &fence) && fence.Reason == "source_reconciliation_inventory_incomplete" {
+			return errors.Join(asynq.SkipRetry, err)
+		}
 		return err
 	}
 	logger.Infof(ctx, "streaming sync completed: ds=%s created=%d updated=%d deleted=%d "+

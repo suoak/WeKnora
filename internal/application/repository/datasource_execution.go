@@ -153,6 +153,11 @@ func (r *SyncLogRepository) WriteExecution(
 			return err
 		}
 		if types.LegacyFullReconciliation(ctx) {
+			if types.LegacyReconciliationRead(ctx, e.DataSourceID) {
+				if err := validateSourceReconciliationInventory(tx, ctx, e); err != nil {
+					return err
+				}
+			}
 			var unresolved int64
 			if err := tx.Model(&types.FeishuLegacyResource{}).Where("data_source_id=? AND state IN ('hold','revoked')", e.DataSourceID).Count(&unresolved).Error; err != nil {
 				return err
