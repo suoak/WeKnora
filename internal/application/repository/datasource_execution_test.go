@@ -65,6 +65,10 @@ func syncExecutionSuite(t *testing.T, dialect string) {
 		read := types.WithLegacyReconciliationRead(types.WithSyncExecution(ctx, e))
 		require.True(t, types.LegacyReconciliationRead(read, ds.ID))
 		written, err := r.WriteExecution(read, e, ds, log, false)
+		require.ErrorIs(t, err, types.ErrLegacySourceRestricted, "read purpose alone cannot authorize a checkpoint")
+		require.False(t, written)
+		read = types.WithReconciliationCommitGuard(read, func(*gorm.DB) error { return nil })
+		written, err = r.WriteExecution(read, e, ds, log, false)
 		require.NoError(t, err)
 		require.True(t, written)
 		var stored types.DataSource
