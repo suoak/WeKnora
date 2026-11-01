@@ -29,11 +29,13 @@ func TestExactChunkDigestPostgresJSONBRoundTrip(t *testing.T) {
 }
 
 func TestExactChunkDigestJSONBSemantics(t *testing.T) {
-	parser := &types.Chunk{ID: "exact", TenantID: 1, KnowledgeID: "document", KnowledgeBaseID: "kb",
+	parser := &types.Chunk{
+		ID: "exact", TenantID: 1, KnowledgeID: "document", KnowledgeBaseID: "kb",
 		Content: "proved worksheet", SourceContent: "proved worksheet",
 		Metadata: types.JSON(
 			`{"parser.source_format":"embedded_xlsx","parser.worksheet":"Sheet1","parser.worksheet_rows":"2"}`,
-		)}
+		),
+	}
 	database := *parser
 	database.Metadata = types.JSON(
 		`{"parser.worksheet": "Sheet1", "parser.source_format": "embedded_xlsx", "parser.worksheet_rows": "2"}`,
