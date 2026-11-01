@@ -340,6 +340,8 @@ func RegisterDataSourceRoutes(
 		ds.POST("/:id/safety-recovery/execute", g.Admin(), handler.FeishuRecoveryExecute)
 		ds.POST("/:id/safety-recovery/continuity/:operation", g.Admin(), handler.FeishuContinuity)
 		ds.POST("/:id/safety-recovery/steady/:operation", g.Admin(), handler.FeishuSteadySync)
+		ds.POST("/:id/safety-recovery/reconcile", g.Admin(), handler.FeishuSourceReconciliation)
+		ds.GET("/:id/safety-recovery/eligibility", g.Admin(), handler.FeishuSourceEligibility)
 		ds.POST("/:id/pause", g.Admin(), handler.PauseDataSource)
 		ds.POST("/:id/resume", g.Admin(), handler.ResumeDataSource)
 

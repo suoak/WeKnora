@@ -22,13 +22,18 @@ const ApprovedSyncQueue = "approved_sync"
 // ApprovedSource pins both the configured resource selection and live local
 // authority. Normal connector ACL/revision and publication fences still apply.
 type ApprovedSource struct {
-	SourceID     string `json:"source_id"`
-	ConfigSHA256 string `json:"config_sha256"`
-	FactsSHA256  string `json:"facts_sha256"`
+	SourceID       string `json:"source_id"`
+	ConfigSHA256   string `json:"config_sha256"`
+	FactsSHA256    string `json:"facts_sha256"`
+	Reconciliation bool   `json:"reconciliation,omitempty"`
 }
 
 func (s ApprovedSource) matches(f RecoveryFacts) bool {
-	return (f.Eligible || f.RetryEligible) && f.SourceID == s.SourceID && s.ConfigSHA256 == f.ConfigSHA256 &&
+	eligible := f.Eligible || f.RetryEligible
+	if s.Reconciliation {
+		eligible = f.ReconciliationEligible
+	}
+	return eligible && f.SourceID == s.SourceID && s.ConfigSHA256 == f.ConfigSHA256 &&
 		s.FactsSHA256 == f.FactsSHA256 && f.SelectedResourceCount > 0 && f.SelectedResourceCount <= 64
 }
 
@@ -103,7 +108,12 @@ func (m *RecoveryManager) checkApprovedSource(ctx context.Context, source, confi
 				return ErrRecoveryRejected
 			}
 		}
-		current, facts, err := m.steadySource(ctx, source, approved.Authority.ActorID)
+		if approved.Reconciliation && (approved.ReconcileUntilMS <= now.UnixMilli() ||
+			!reconciliationContextMatches(ctx, state.ContinuityID, source)) {
+			return ErrRecoveryRejected
+		}
+		current, facts, err := m.steadySourceForPurpose(
+			ctx, source, approved.Authority.ActorID, approved.Reconciliation)
 		if err != nil || !sameSteadySource(current, *approved, facts) {
 			return ErrRecoveryRejected
 		}

@@ -535,6 +535,9 @@ type DataSourceSyncPayload struct {
 
 	// Force full sync even if incremental mode is configured
 	ForceFull bool `json:"force_full"`
+	// A delivery hint only; the controller must prove its signed one-shot
+	// policy, bound SyncLog and current SQL Claim before it confers authority.
+	ReconciliationPolicyID string `json:"reconciliation_policy_id,omitempty"`
 
 	// Maximum number of items to fetch (0 = unlimited)
 	MaxItems int `json:"max_items,omitempty"`

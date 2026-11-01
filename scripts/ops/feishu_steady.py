@@ -37,16 +37,38 @@ def validate(envelope, original, args, now_ms=None):
             p.get("policy_revision", 0) < 1 or bool(p.get("revocation_only")) != args.revoke_only):
         raise ValueError("policy window, revision or operation invalid")
     entries = p.get("managed_sources", [])
+    terminal_count = p.get("terminal_archived_count", 0)
+    terminal_hash = p.get("terminal_archive_sha256", "")
+    if (not isinstance(terminal_count, int) or not 0 <= terminal_count <= 1000 or
+            (terminal_count == 0 and terminal_hash) or
+            (terminal_count > 0 and not re.fullmatch(r"[a-f0-9]{64}", terminal_hash))):
+        raise ValueError("terminal archive proof invalid")
     ids = [s["source_id"] for s in entries]
+    reconcile = getattr(args, "reconcile_source", [])
     if (len(ids) > 64 or (not ids and not args.revoke_only) or ids != sorted(set(ids)) or
-            ids != sorted(args.approved_source) or len(entries) != len(p.get("sources", []))):
+            ids != sorted(args.approved_source + reconcile) or len(entries) != len(p.get("sources", []))):
         raise ValueError("exact source approval required")
     for entry, base in zip(entries, p["sources"]):
         authority = entry["authority"]
+        expected_base = {k: entry[k] for k in ("source_id", "config_sha256", "facts_sha256")}
+        purpose_valid = (authority.get("source_status") == "active" and
+                         authority.get("access_state") in ("active", "unmanaged") and
+                         not entry.get("reconcile_until_ms"))
+        if entry.get("reconciliation"):
+            expected_base["reconciliation"] = True
+            purpose_valid = (entry["source_id"] in reconcile and
+                             p["created_ms"] < entry.get("reconcile_until_ms", 0) <= p["created_ms"] + 3600000 and
+                             entry["reconcile_until_ms"] <= p["authorization_until_ms"] and
+                             entry["reconcile_until_ms"] > now and
+                             authority.get("source_status") in ("active", "error") and
+                             authority.get("access_state") in ("hold", "active", "unmanaged") and
+                             (authority.get("access_state") == "hold" or authority.get("source_status") == "error"))
+        elif entry["source_id"] in reconcile:
+            purpose_valid = False
         if (str(uuid.UUID(entry["source_id"])) != entry["source_id"] or
-                {k: entry[k] for k in ("source_id", "config_sha256", "facts_sha256")} != base or
+                expected_base != base or
                 authority.get("source_id") != entry["source_id"] or authority.get("actor_id") != p["actor_id"] or
-                authority.get("source_status") != "active" or authority.get("access_state") not in ("active", "unmanaged") or
+                not purpose_valid or
                 authority.get("tenant_id", 0) <= 0 or
                 str(uuid.UUID(authority["knowledge_base_id"])) != authority["knowledge_base_id"] or
                 authority.get("source_type") not in ("feishu", "feishu_drive", "lark", "lark_drive") or
@@ -83,6 +105,7 @@ def main():
     for name in ("source", "original-plan-file", "output"):
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--approved-source", action="append", default=[])
+    parser.add_argument("--reconcile-source", action="append", default=[])
     parser.add_argument("--authorization-days", type=int, default=7)
     parser.add_argument("--revoke-only", action="store_true")
     for name in ("plan-file", "approval-file", "approval-key-file", "reference", "evidence-manifest",
@@ -92,7 +115,8 @@ def main():
     old = json.loads(Path(args.original_plan_file).read_text())
     if args.action == "plan":
         result = recovery.request(args, "steady/plan", {
-            "sources": args.approved_source, "authorization_days": args.authorization_days})
+            "sources": args.approved_source, "reconcile_sources": args.reconcile_source,
+            "authorization_days": args.authorization_days})
         validate(result, old, args)
     else:
         envelope = json.loads(Path(args.plan_file).read_text())

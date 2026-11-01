@@ -598,7 +598,7 @@ func (s *DataSourceService) manualSyncUsing(
 	if !datasource.LegacyFeishuSourceAllowed(ds.Type, ds.ID) {
 		return nil, datasource.ErrLegacyFeishuSourceNotAllowed
 	}
-	if err := feishuSourceAdmissionState(ds); err != nil {
+	if err := feishuSourceAdmissionState(ctx, ds); err != nil {
 		return nil, err
 	}
 	approvedDelivery := false
@@ -662,6 +662,11 @@ func (s *DataSourceService) manualSyncUsing(
 		ForceFull:    false,
 		Initiator:    types.TaskInitiatorFromContext(ctx),
 		Trigger:      "manual",
+	}
+	if policy := feishusynccontrol.ReconciliationPolicy(ctx, ds.ID); policy != "" {
+		payload.ReconciliationPolicyID = policy
+		payload.ForceFull = true
+		payload.Trigger = "source_reconciliation"
 	}
 	langfuse.InjectTracing(ctx, payload)
 
@@ -1465,6 +1470,11 @@ func (s *DataSourceService) processSyncStreaming(
 	ds *types.DataSource, syncLog *types.SyncLog,
 	config *types.DataSourceConfig, payload types.DataSourceSyncPayload, wasPaused bool,
 ) error {
+	if payload.ReconciliationPolicyID != "" {
+		if _, ok := sc.(datasource.FullStreamingConnector); !ok {
+			return errors.Join(asynq.SkipRetry, feishusynccontrol.ErrRecoveryRejected)
+		}
+	}
 	// Tenant + auto-tag setup must precede fetching because the stream ingests
 	// each item on the fly.
 	ctx = context.WithValue(ctx, types.TenantIDContextKey, ds.TenantID)

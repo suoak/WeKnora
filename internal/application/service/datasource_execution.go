@@ -44,6 +44,15 @@ func (s *DataSourceService) ProcessSync(ctx context.Context, task *asynq.Task) (
 		return nil
 	}
 	ctx = types.WithLegacyReceiptSet(types.WithSyncExecution(ctx, e))
+	var reconciliationErr error
+	if payload.ReconciliationPolicyID != "" {
+		if !payload.ForceFull || payload.Trigger != "source_reconciliation" {
+			reconciliationErr = feishusynccontrol.ErrRecoveryRejected
+		} else {
+			ctx, reconciliationErr = feishusynccontrol.RestoreSourceReconciliation(
+				ctx, payload.DataSourceID, payload.ReconciliationPolicyID)
+		}
+	}
 	workerCtx, cancel := context.WithCancel(ctx)
 	if feishusafety.Enabled() {
 		if source, readErr := s.dsRepo.FindByID(ctx, payload.DataSourceID); readErr == nil {
@@ -153,6 +162,9 @@ func (s *DataSourceService) ProcessSync(ctx context.Context, task *asynq.Task) (
 			runErr = nil
 		}
 	}()
+	if reconciliationErr != nil {
+		return errors.Join(asynq.SkipRetry, reconciliationErr)
+	}
 	return s.processSyncAttempt(workerCtx, task)
 }
 

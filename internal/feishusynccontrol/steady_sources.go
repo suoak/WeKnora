@@ -25,17 +25,20 @@ var recoverySHA = regexp.MustCompile(`^[a-f0-9]{64}$`)
 // SteadySource binds a specific resource selection to its live managing actor.
 type SteadySource struct {
 	ApprovedSource
-	Authority SourceManagementAuthority `json:"authority"`
+	Authority        SourceManagementAuthority `json:"authority"`
+	ReconcileUntilMS int64                     `json:"reconcile_until_ms,omitempty"`
 }
 
 // SteadyPlan separates a short signature-consumption window from an explicitly
 // approved normal-service authorization period. Health leases never extend it.
 type SteadyPlan struct {
 	ContinuityPlan
-	AuthorizationUntilMS int64          `json:"authorization_until_ms"`
-	PolicyRevision       int64          `json:"policy_revision"`
-	RevocationOnly       bool           `json:"revocation_only"`
-	ManagedSources       []SteadySource `json:"managed_sources"`
+	AuthorizationUntilMS  int64          `json:"authorization_until_ms"`
+	PolicyRevision        int64          `json:"policy_revision"`
+	RevocationOnly        bool           `json:"revocation_only"`
+	ManagedSources        []SteadySource `json:"managed_sources"`
+	TerminalArchivedCount int            `json:"terminal_archived_count,omitempty"`
+	TerminalArchiveSHA256 string         `json:"terminal_archive_sha256,omitempty"`
 }
 
 // SteadyCertificate retains the exact signed policy for every subsequent check.
@@ -54,6 +57,12 @@ func (m *RecoveryManager) ConfigureSteadyAuthority(
 }
 
 func (m *RecoveryManager) steadySource(ctx context.Context, source, actor string) (SteadySource, RecoveryFacts, error) {
+	return m.steadySourceForPurpose(ctx, source, actor, false)
+}
+
+func (m *RecoveryManager) steadySourceForPurpose(
+	ctx context.Context, source, actor string, reconcile bool,
+) (SteadySource, RecoveryFacts, error) {
 	var s SteadySource
 	if m.steadyAuthority == nil {
 		return s, RecoveryFacts{}, ErrRecoveryRejected
@@ -66,7 +75,8 @@ func (m *RecoveryManager) steadySource(ctx context.Context, source, actor string
 	f, err := m.facts(ctx, source)
 	s = SteadySource{ApprovedSource: ApprovedSource{
 		SourceID: source, ConfigSHA256: f.ConfigSHA256,
-		FactsSHA256: f.FactsSHA256,
+		FactsSHA256:    f.FactsSHA256,
+		Reconciliation: reconcile,
 	}, Authority: authority}
 	if err != nil || !s.matches(f) {
 		return s, f, ErrRecoveryRejected
@@ -75,6 +85,16 @@ func (m *RecoveryManager) steadySource(ctx context.Context, source, actor string
 }
 
 func sameSteadySource(current, approved SteadySource, facts RecoveryFacts) bool {
+	if approved.Reconciliation {
+		if !facts.ReconciliationEligible || !current.Reconciliation ||
+			(approved.Authority.SourceStatus != "active" && approved.Authority.SourceStatus != "error") ||
+			(current.Authority.SourceStatus != "active" && current.Authority.SourceStatus != "error") {
+			return false
+		}
+		current.Authority.SourceStatus = approved.Authority.SourceStatus
+		current.ReconcileUntilMS = approved.ReconcileUntilMS
+		return current == approved
+	}
 	if approved.Authority.SourceStatus != "active" {
 		return false
 	}
@@ -111,6 +131,29 @@ func (m *RecoveryManager) steadyReady(ctx context.Context) error {
 // PlanSteady authorizes every selected space independently; an anchor-source
 // administrator cannot inherit other spaces or another user's private KB.
 func (m *RecoveryManager) PlanSteady(ctx context.Context, actor string, ids []string, days int) (SteadyPlan, error) {
+	return m.planSteady(ctx, actor, ids, nil, days)
+}
+
+// PlanSteadyWithReconciliation adds a separate, signed one-shot admission. It never grants
+// ordinary manual/scheduled execution to a held or initially failed source.
+func (m *RecoveryManager) PlanSteadyWithReconciliation(
+	ctx context.Context, actor string, sources, reconcile []string, days int,
+) (SteadyPlan, error) {
+	modes := make(map[string]bool, len(reconcile))
+	ids := append([]string(nil), sources...)
+	for _, id := range reconcile {
+		if modes[id] {
+			return SteadyPlan{}, ErrRecoveryRejected
+		}
+		modes[id] = true
+		ids = append(ids, id)
+	}
+	return m.planSteady(ctx, actor, ids, modes, days)
+}
+
+func (m *RecoveryManager) planSteady(
+	ctx context.Context, actor string, ids []string, reconcile map[string]bool, days int,
+) (SteadyPlan, error) {
 	var p SteadyPlan
 	if m == nil || actor == "" || len(ids) > maxSteadySources || days < 1 || days > 30 {
 		return p, ErrRecoveryRejected
@@ -133,12 +176,13 @@ func (m *RecoveryManager) PlanSteady(ctx context.Context, actor string, ids []st
 		if _, duplicate := checked[id]; duplicate {
 			return p, ErrRecoveryRejected
 		}
-		entry, facts, err := m.steadySource(ctx, id, actor)
+		entry, facts, err := m.steadySourceForPurpose(ctx, id, actor, reconcile[id])
 		if err != nil {
 			return p, ErrRecoveryRejected
 		}
 		checked[id] = checkedSource{entry: entry, facts: facts}
 	}
+	archive, archiveErr := m.prepareApprovedArchive(ctx)
 	c := m.controller
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -171,7 +215,10 @@ func (m *RecoveryManager) PlanSteady(ctx context.Context, actor string, ids []st
 		}
 	}
 	if !revokeOnly {
-		if err := m.approvedQueueEmpty(ctx); err != nil {
+		if archiveErr != nil {
+			return p, archiveErr
+		}
+		if err := m.approvedQueueQuiescent(ctx, archive); err != nil {
 			return p, err
 		}
 	}
@@ -195,6 +242,10 @@ func (m *RecoveryManager) PlanSteady(ctx context.Context, actor string, ids []st
 	}
 	p.AuthorizationUntilMS = now.Add(time.Duration(days) * 24 * time.Hour).UnixMilli()
 	p.RevocationOnly = revokeOnly
+	if !revokeOnly && archive != nil {
+		p.TerminalArchivedCount = len(archive.ids)
+		p.TerminalArchiveSHA256 = archive.digest()
+	}
 	if revokeOnly {
 		p.AuthorizationUntilMS = s.Steady.Plan.AuthorizationUntilMS
 		if p.ExpiresMS >= p.AuthorizationUntilMS {
@@ -209,6 +260,9 @@ func (m *RecoveryManager) PlanSteady(ctx context.Context, actor string, ids []st
 			return SteadyPlan{}, ErrRecoveryRejected
 		}
 		entry, facts := checked[id].entry, checked[id].facts
+		if entry.Reconciliation {
+			entry.ReconcileUntilMS = now.Add(sourceReconciliationWindow).UnixMilli()
+		}
 		if revokeOnly {
 			var previous *SteadySource
 			for i := range s.Steady.Plan.ManagedSources {
@@ -221,7 +275,8 @@ func (m *RecoveryManager) PlanSteady(ctx context.Context, actor string, ids []st
 				return SteadyPlan{}, ErrRecoveryRejected
 			}
 			entry = *previous
-		} else if !facts.Eligible || entry.Authority.SourceStatus != "active" ||
+		} else if (!entry.Reconciliation && (!facts.Eligible || entry.Authority.SourceStatus != "active")) ||
+			(entry.Reconciliation && !facts.ReconciliationEligible) ||
 			facts.LiveExecutions != 0 || facts.LivePublications != 0 {
 			return SteadyPlan{}, ErrRecoveryRejected
 		}
@@ -235,6 +290,9 @@ func (m *RecoveryManager) verifySteady(cert SteadyCertificate, now int64, consum
 	p, a := cert.Plan, cert.Approval
 	hash, err := RecoveryDigest(p)
 	if err != nil || p.Version != 1 || p.PolicyRevision < 1 || p.ApprovalKeyID != m.keyID ||
+		p.TerminalArchivedCount < 0 || p.TerminalArchivedCount > 1000 ||
+		(p.TerminalArchivedCount == 0 && p.TerminalArchiveSHA256 != "") ||
+		(p.TerminalArchivedCount > 0 && !recoverySHA.MatchString(p.TerminalArchiveSHA256)) ||
 		len(p.ManagedSources) > maxSteadySources || len(p.ManagedSources) != len(p.Sources) ||
 		p.ActorID == "" || p.CreatedMS > now+5000 || p.ExpiresMS <= p.CreatedMS ||
 		p.ExpiresMS-p.CreatedMS > int64(15*time.Minute/time.Millisecond) ||
@@ -253,9 +311,19 @@ func (m *RecoveryManager) verifySteady(cert SteadyCertificate, now int64, consum
 		return ErrRecoveryRejected
 	}
 	for i, s := range p.ManagedSources {
+		purposeValid := !s.Reconciliation && s.ReconcileUntilMS == 0 &&
+			s.Authority.SourceStatus == "active" &&
+			(s.Authority.AccessState == "active" || s.Authority.AccessState == "unmanaged")
+		if s.Reconciliation {
+			purposeValid = s.ReconcileUntilMS > p.CreatedMS && s.ReconcileUntilMS <= p.AuthorizationUntilMS &&
+				s.ReconcileUntilMS-p.CreatedMS <= int64(sourceReconciliationWindow/time.Millisecond) &&
+				(s.Authority.SourceStatus == "active" || s.Authority.SourceStatus == "error") &&
+				(s.Authority.AccessState == "hold" || s.Authority.AccessState == "active" ||
+					s.Authority.AccessState == "unmanaged") &&
+				(s.Authority.AccessState == "hold" || s.Authority.SourceStatus == "error")
+		}
 		if s.ApprovedSource != p.Sources[i] || s.Authority.ActorID != p.ActorID ||
-			s.Authority.SourceStatus != "active" ||
-			(s.Authority.AccessState != "active" && s.Authority.AccessState != "unmanaged") ||
+			!purposeValid ||
 			s.Authority.SourceID != s.SourceID || s.Authority.TenantID == 0 || s.Authority.KBID == "" ||
 			!recoverySHA.MatchString(s.Authority.AuthorityHash) ||
 			!recoverySHA.MatchString(s.ConfigSHA256) || !recoverySHA.MatchString(s.FactsSHA256) ||
@@ -347,12 +415,23 @@ func (m *RecoveryManager) ActivateSteady(ctx context.Context, p SteadyPlan, a Re
 	}
 	entries := map[string]ApprovedSource{}
 	for _, entry := range p.ManagedSources {
-		current, facts, err := m.steadySource(ctx, entry.SourceID, actor)
+		current, facts, err := m.steadySourceForPurpose(ctx, entry.SourceID, actor, entry.Reconciliation)
 		if err != nil || !sameSteadySource(current, entry, facts) || (!p.RevocationOnly &&
-			(!facts.Eligible || facts.LiveExecutions != 0 || facts.LivePublications != 0)) {
+			((!entry.Reconciliation && !facts.Eligible) ||
+				(entry.Reconciliation && (!facts.ReconciliationEligible ||
+					entry.ReconcileUntilMS <= preflightNow.UnixMilli())) ||
+				facts.LiveExecutions != 0 || facts.LivePublications != 0)) {
 			return ErrRecoveryRejected
 		}
 		entries[entry.SourceID] = entry.ApprovedSource
+	}
+	var archive *approvedArchiveProof
+	if !p.RevocationOnly {
+		archive, err = m.prepareApprovedArchive(ctx)
+		if err != nil || archive == nil || len(archive.ids) != p.TerminalArchivedCount ||
+			archive.digest() != p.TerminalArchiveSHA256 {
+			return ErrRecoveryRejected
+		}
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -403,7 +482,7 @@ func (m *RecoveryManager) ActivateSteady(ctx context.Context, p SteadyPlan, a Re
 		return ErrRecoveryRejected
 	}
 	if !p.RevocationOnly {
-		if err := m.approvedQueueEmpty(ctx); err != nil {
+		if err := m.approvedQueueQuiescent(ctx, archive); err != nil {
 			return err
 		}
 	}
@@ -437,6 +516,11 @@ func (m *RecoveryManager) ActivateSteady(ctx context.Context, p SteadyPlan, a Re
 	for _, id := range q.ids {
 		keys = append(keys, "asynq:{sync}:t:"+id)
 	}
+	if archive != nil {
+		for _, id := range archive.ids {
+			keys = append(keys, "asynq:{"+ApprovedSyncQueue+"}:t:"+id)
+		}
+	}
 	return c.Client.Watch(ctx, func(tx *redis.Tx) error {
 		current, err := tx.Get(ctx, c.prefix+"recovery").Result()
 		if err != nil || current != raw {
@@ -447,7 +531,7 @@ func (m *RecoveryManager) ActivateSteady(ctx context.Context, p SteadyPlan, a Re
 			return ErrRecoveryRejected
 		}
 		if !p.RevocationOnly {
-			if err := m.approvedQueueEmpty(ctx); err != nil {
+			if err := m.approvedQueueQuiescent(ctx, archive); err != nil {
 				return err
 			}
 		}

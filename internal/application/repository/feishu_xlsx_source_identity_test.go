@@ -164,4 +164,29 @@ func TestFeishuXLSXSourceIdentityPostgres(t *testing.T) {
 	var after types.DataSource
 	require.NoError(t, db.First(&after, "id=?", ds.ID).Error)
 	require.Equal(t, "hold", after.LegacyAccessState, "equivalence proof never releases a hold")
+	readOnly := types.WithFeishuSourceCommitGuard(types.WithLegacyReconciliationRead(ctx),
+		func(*gorm.DB) error { return nil })
+	baseline, err = store.SourceIdentityBaseline(readOnly, &ds, r.ExternalID)
+	require.NoError(t, err)
+	proof, err = baseline.ProveXLSX(old)
+	require.NoError(t, err)
+	require.False(t, types.LegacyFullReconciliation(readOnly))
+	require.NoError(t, db.WithContext(readOnly).Transaction(func(tx *gorm.DB) error {
+		match, e := legacyAttemptSourceMatches(tx, &r, &a,
+			LegacySourceHash(current, k.FileName, k.Title), identity, proof)
+		require.NoError(t, e)
+		require.True(t, match)
+		return nil
+	}))
+	require.NoError(t, db.First(&after, "id=?", ds.ID).Error)
+	require.Equal(t, "hold", after.LegacyAccessState, "binding comparison does not release source protection")
+	resource, candidate, err := store.BeginWithSourceIdentity(readOnly, &ds, item,
+		LegacySourceHash(current, k.FileName, k.Title), identity, proof)
+	require.NoError(t, err)
+	require.Equal(t, "hold", resource.State)
+	require.Equal(t, "staging", candidate.Status)
+	require.NotEqual(t, a.ID, candidate.ID)
+	require.Equal(t, a.Generation+1, candidate.Generation)
+	require.NoError(t, db.First(&after, "id=?", ds.ID).Error)
+	require.Equal(t, "hold", after.LegacyAccessState, "private candidate allocation cannot complete reconciliation")
 }

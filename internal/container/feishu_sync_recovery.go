@@ -78,6 +78,30 @@ func configureFeishuRecovery(db *gorm.DB, c *feishusynccontrol.Controller) error
 			return feishusynccontrol.SourceManagementFromDatabase(ctx, db, source, actor)
 		},
 	)
+	m.ConfigureArchivedTerminal(func(ctx context.Context, payloads []types.DataSourceSyncPayload) (bool, error) {
+		seen := map[string]types.DataSourceSyncPayload{}
+		var keys [][]any
+		for _, p := range payloads {
+			if old, ok := seen[p.SyncLogID]; ok {
+				if old.DataSourceID != p.DataSourceID || old.TenantID != p.TenantID {
+					return false, nil
+				}
+				continue
+			}
+			seen[p.SyncLogID] = p
+			keys = append(keys, []any{p.SyncLogID, p.DataSourceID, p.TenantID})
+		}
+		if len(keys) == 0 {
+			return true, nil
+		}
+		var count int64
+		err := db.WithContext(ctx).Model(&types.SyncLog{}).
+			Where("(id,data_source_id,tenant_id) IN ?", keys).
+			Where("execution_claimed=false AND status IN ?",
+				[]string{"success", "partial", "failed", "canceled", "deferred"}).
+			Count(&count).Error
+		return count == int64(len(keys)), err
+	})
 	feishusynccontrol.InstallRecovery(m)
 	return nil
 }

@@ -17,6 +17,7 @@ func (h *DataSourceHandler) FeishuSteadySync(c *gin.Context) {
 	}
 	var request struct {
 		Sources           []string                           `json:"sources"`
+		ReconcileSources  []string                           `json:"reconcile_sources"`
 		AuthorizationDays int                                `json:"authorization_days"`
 		Plan              feishusynccontrol.SteadyPlan       `json:"plan"`
 		Approval          feishusynccontrol.RecoveryApproval `json:"approval"`
@@ -31,7 +32,8 @@ func (h *DataSourceHandler) FeishuSteadySync(c *gin.Context) {
 		if request.AuthorizationDays == 0 {
 			request.AuthorizationDays = 7
 		}
-		p, err := m.PlanSteady(c.Request.Context(), actor, request.Sources, request.AuthorizationDays)
+		p, err := m.PlanSteadyWithReconciliation(c.Request.Context(), actor,
+			request.Sources, request.ReconcileSources, request.AuthorizationDays)
 		if err != nil {
 			c.JSON(409, gin.H{"error": "steady_source_authorization_or_state_rejected"})
 			return

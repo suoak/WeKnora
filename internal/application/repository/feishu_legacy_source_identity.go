@@ -124,7 +124,8 @@ func (s *FeishuLegacyStore) SourceIdentityBaseline(
 			return err
 		}
 		readable := b.resource.State == "active" || b.resource.State == "hold" &&
-			ds.LegacyAccessState == "hold" && types.LegacyFullReconciliation(ctx)
+			ds.LegacyAccessState == "hold" &&
+			(types.LegacyFullReconciliation(ctx) || types.LegacyReconciliationRead(ctx, ds.ID))
 		if !readable || b.resource.ActiveAttempt == "" {
 			return legacyFence("source_identity_legacy_archive_unavailable")
 		}
@@ -205,16 +206,24 @@ func legacyAttemptSourceMatches(
 		return false, legacyFence("source_identity_legacy_proof_stale")
 	}
 	if r.State != "active" {
-		guard, ok := types.FeishuSourceGuardFromContext(tx.Statement.Context)
-		if r.State != "hold" || !types.LegacyFullReconciliation(tx.Statement.Context) || !ok {
+		ctx := tx.Statement.Context
+		guard, ok := types.FeishuSourceGuardFromContext(ctx)
+		if r.State != "hold" || (!types.LegacyFullReconciliation(ctx) &&
+			!types.LegacyReconciliationRead(ctx, r.DataSourceID)) || !ok {
 			return false, legacyFence("source_identity_legacy_proof_stale")
 		}
 		if err := guard(tx); err != nil {
 			return false, err
 		}
 	}
-	var current types.Knowledge
-	if err := tx.First(&current, "id=? AND tenant_id=?", r.KnowledgeID, r.TenantID).Error; err != nil {
+	// Compare only the exact archived file binding. Loading the full Knowledge
+	// would unnecessarily read protected body/profile during source reconciliation.
+	var current struct {
+		FilePath, FileHash, KnowledgeBaseID string
+	}
+	if err := tx.Table("knowledges").Select("file_path,file_hash,knowledge_base_id").
+		Where("id=? AND tenant_id=? AND deleted_at IS NULL", r.KnowledgeID, r.TenantID).
+		Take(&current).Error; err != nil {
 		return false, err
 	}
 	if current.FilePath != b.manifest.Knowledge.FilePath || current.FileHash != b.manifest.Knowledge.FileHash ||

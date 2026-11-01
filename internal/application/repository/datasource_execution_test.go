@@ -57,6 +57,20 @@ func syncExecutionSuite(t *testing.T, dialect string) {
 			require.False(t, ok)
 		}
 	}
+	t.Run("reconciliation_read_checkpoint_cannot_release_hold", func(t *testing.T) {
+		ds := makeDS()
+		require.NoError(t, db.Model(ds).Update("legacy_access_state", "hold").Error)
+		log := admit(ds)
+		e := claim(ds, log)
+		read := types.WithLegacyReconciliationRead(types.WithSyncExecution(ctx, e))
+		require.True(t, types.LegacyReconciliationRead(read, ds.ID))
+		written, err := r.WriteExecution(read, e, ds, log, false)
+		require.NoError(t, err)
+		require.True(t, written)
+		var stored types.DataSource
+		require.NoError(t, db.First(&stored, "id=?", ds.ID).Error)
+		require.Equal(t, "hold", stored.LegacyAccessState)
+	})
 	t.Run("full_reconciliation_rechecks_publication_before_releasing_hold", func(t *testing.T) {
 		require.NoError(t, db.AutoMigrate(&types.FeishuLegacyResource{}))
 		ds := makeDS()

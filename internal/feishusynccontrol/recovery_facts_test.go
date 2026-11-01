@@ -62,6 +62,13 @@ func TestRecoveryFactsPostgresAuthorityAndExecutionChanges(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, initial.Eligible)
 	require.Equal(t, 1, initial.SelectedResourceCount)
+	require.NoError(t, db.Model(&source).Update("legacy_access_state", "hold").Error)
+	held, err := RecoveryFactsFromDatabase(ctx, db, source.ID)
+	require.NoError(t, err)
+	require.False(t, held.Eligible)
+	require.False(t, held.RetryEligible)
+	require.True(t, held.ReconciliationEligible, "hold needs a distinct signed full reconciliation")
+	require.NoError(t, db.Model(&source).Update("legacy_access_state", "unmanaged").Error)
 	oldMode, oldDeletions := source.SyncMode, source.SyncDeletions
 	require.NoError(t, db.Model(&source).Updates(map[string]any{
 		"sync_mode": "incremental", "sync_deletions": !oldDeletions,
@@ -99,6 +106,7 @@ func TestRecoveryFactsPostgresAuthorityAndExecutionChanges(t *testing.T) {
 	changed, err = RecoveryFactsFromDatabase(ctx, db, source.ID)
 	require.NoError(t, err)
 	require.False(t, changed.Eligible)
+	require.False(t, changed.ReconciliationEligible, "revocation is never a reconciliation grant")
 	require.NotEqual(t, initial.ConfigSHA256, changed.ConfigSHA256)
 	execution := types.SyncLog{
 		ID:                  uuid.NewString(),

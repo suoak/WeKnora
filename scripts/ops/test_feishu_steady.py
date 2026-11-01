@@ -57,6 +57,25 @@ class SteadyPlanTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             tool.validate(self.envelope, self.original, self.args)
 
+    def test_hold_reconciliation_requires_an_explicit_distinct_source_purpose(self):
+        item = copy.deepcopy(self.envelope)
+        p = item["plan"]
+        entry = p["managed_sources"][0]
+        entry["reconciliation"] = True
+        entry["reconcile_until_ms"] = p["created_ms"] + 3600000
+        entry["authority"].update(source_status="error", access_state="hold")
+        p["sources"][0]["reconciliation"] = True
+        item["plan_sha256"] = tool.recovery.digest(p)
+        with self.assertRaises(ValueError):
+            tool.validate(item, self.original, self.args)
+        self.args.reconcile_source = self.args.approved_source
+        self.args.approved_source = []
+        self.assertEqual(tool.validate(item, self.original, self.args)["sources"][0]["reconciliation"], True)
+        entry["authority"]["access_state"] = "revoked"
+        item["plan_sha256"] = tool.recovery.digest(p)
+        with self.assertRaises(ValueError):
+            tool.validate(item, self.original, self.args)
+
 
 if __name__ == "__main__":
     unittest.main()

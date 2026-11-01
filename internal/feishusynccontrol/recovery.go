@@ -18,6 +18,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/Tencent/WeKnora/internal/feishusafety"
+	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
@@ -30,14 +31,15 @@ var (
 
 // RecoveryFacts is a content-free authoritative source snapshot.
 type RecoveryFacts struct {
-	SourceID              string `json:"source_id"`
-	ConfigSHA256          string `json:"config_sha256"`
-	FactsSHA256           string `json:"facts_sha256"`
-	Eligible              bool   `json:"eligible"`
-	RetryEligible         bool   `json:"retry_eligible,omitempty"`
-	SelectedResourceCount int    `json:"selected_resource_count"`
-	LiveExecutions        int64  `json:"live_executions"`
-	LivePublications      int64  `json:"live_publications"`
+	SourceID               string `json:"source_id"`
+	ConfigSHA256           string `json:"config_sha256"`
+	FactsSHA256            string `json:"facts_sha256"`
+	Eligible               bool   `json:"eligible"`
+	RetryEligible          bool   `json:"retry_eligible,omitempty"`
+	ReconciliationEligible bool   `json:"reconciliation_eligible,omitempty"`
+	SelectedResourceCount  int    `json:"selected_resource_count"`
+	LiveExecutions         int64  `json:"live_executions"`
+	LivePublications       int64  `json:"live_publications"`
 }
 
 // RecoveryPlan binds a short approval window to one incident and source.
@@ -104,12 +106,13 @@ type recoveryMode struct {
 
 // RecoveryManager coordinates one approved replacement Guard lifecycle.
 type RecoveryManager struct {
-	controller      *Controller
-	operation       sync.Mutex
-	key             ed25519.PublicKey
-	keyID           string
-	facts           func(context.Context, string) (RecoveryFacts, error)
-	steadyAuthority func(context.Context, string, string) (SourceManagementAuthority, error)
+	controller       *Controller
+	operation        sync.Mutex
+	key              ed25519.PublicKey
+	keyID            string
+	facts            func(context.Context, string) (RecoveryFacts, error)
+	steadyAuthority  func(context.Context, string, string) (SourceManagementAuthority, error)
+	archivedTerminal func(context.Context, []types.DataSourceSyncPayload) (bool, error)
 }
 
 var recoveryManager atomic.Pointer[RecoveryManager]

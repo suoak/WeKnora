@@ -32,7 +32,7 @@ func RecoveryFactsFromDatabase(ctx context.Context, db *gorm.DB, id string) (Rec
 	f.ConfigSHA256 = fp
 	legacy := ds.Type == "feishu" || ds.Type == "feishu_drive" || ds.Type == "lark" || ds.Type == "lark_drive"
 	f.Eligible = legacy && (ds.Status == "active" || ds.Status == "error") &&
-		(ds.LegacyAccessState == "active" || ds.LegacyAccessState == "unmanaged")
+		(ds.LegacyAccessState == "active" || ds.LegacyAccessState == "unmanaged" || ds.LegacyAccessState == "hold")
 	var liveKB int64
 	if err := db.WithContext(ctx).Raw(`SELECT count(*) FROM knowledge_bases k JOIN tenants t ON t.id=k.tenant_id
  WHERE k.id=? AND k.tenant_id=? AND k.deleted_at IS NULL AND t.deleted_at IS NULL AND t.status='active'`,
@@ -172,7 +172,9 @@ a.lease_until>now()`).Scan(&f.LivePublications).Error; err != nil {
 	// execution error is not a permission revocation; pause/hold/revoked and
 	// every other authority condition above remain closed. New recovery plans
 	// still require the source to be active.
-	f.RetryEligible = f.Eligible && ds.Status == "error"
-	f.Eligible = f.Eligible && ds.Status == "active"
+	f.ReconciliationEligible = f.Eligible &&
+		(ds.LegacyAccessState == "hold" || ds.Status == "error")
+	f.RetryEligible = f.Eligible && ds.Status == "error" && ds.LegacyAccessState != "hold"
+	f.Eligible = f.Eligible && ds.Status == "active" && ds.LegacyAccessState != "hold"
 	return f, err
 }

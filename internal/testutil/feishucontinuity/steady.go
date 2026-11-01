@@ -18,12 +18,27 @@ func ActivateSteady(t *testing.T, ids []string,
 	facts func(context.Context, string) (feishusynccontrol.RecoveryFacts, error),
 	authority func(context.Context, string, string) (feishusynccontrol.SourceManagementAuthority, error),
 ) {
+	activateSteadyPurpose(t, ids, nil, facts, authority)
+}
+
+// ActivateSteadyReconciliation signs distinct synthetic normal/reconcile scopes.
+func ActivateSteadyReconciliation(t *testing.T, ids, reconciliation []string,
+	facts func(context.Context, string) (feishusynccontrol.RecoveryFacts, error),
+	authority func(context.Context, string, string) (feishusynccontrol.SourceManagementAuthority, error),
+) feishusynccontrol.SteadyPlan {
+	return activateSteadyPurpose(t, ids, reconciliation, facts, authority)
+}
+
+func activateSteadyPurpose(t *testing.T, ids, reconciliation []string,
+	facts func(context.Context, string) (feishusynccontrol.RecoveryFacts, error),
+	authority func(context.Context, string, string) (feishusynccontrol.SourceManagementAuthority, error),
+) feishusynccontrol.SteadyPlan {
 	t.Helper()
 	require.NotEmpty(t, ids)
 	Activate(t, ids[0], facts)
 	m := feishusynccontrol.Recovery()
 	m.ConfigureSteadyAuthority(authority)
-	plan, err := m.PlanSteady(context.Background(), "fixture-operator", ids, 7)
+	plan, err := m.PlanSteadyWithReconciliation(context.Background(), "fixture-operator", ids, reconciliation, 7)
 	require.NoError(t, err)
 	hash, err := feishusynccontrol.RecoveryDigest(plan)
 	require.NoError(t, err)
@@ -40,4 +55,5 @@ func ActivateSteady(t *testing.T, ids []string,
 	require.NoError(t, err)
 	a.Signature = hex.EncodeToString(ed25519.Sign(ed25519.NewKeyFromSeed([]byte(strings.Repeat("k", 32))), raw))
 	require.NoError(t, m.ActivateSteady(context.Background(), plan, a, plan.ActorID))
+	return plan
 }
