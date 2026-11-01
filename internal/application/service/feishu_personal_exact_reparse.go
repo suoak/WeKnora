@@ -39,9 +39,12 @@ func (s *knowledgeService) ValidateKnowledgeReparse(ctx context.Context, id stri
 	if err != nil || kb.TenantID != row.TenantID {
 		return apperrors.NewForbiddenError("Document operation denied")
 	}
-	if _, err = access.ResolveKB(ctx, access.KBRequest{Caller: caller}, kb, types.OrgRoleEditor, p.shares, nil); err != nil {
+	if _, err = access.ResolveKB(
+		ctx, access.KBRequest{Caller: caller}, kb, types.OrgRoleEditor, p.shares, nil,
+	); err != nil {
 		return apperrors.NewForbiddenError("Document operation denied")
 	}
-	return apperrors.NewConflictError("个人飞书导入文档不能使用普通重建；已发布内容保留，请使用受控来源恢复操作。").
+	return apperrors.NewConflictError("个人飞书导入文档不能使用普通重建；" +
+		"已发布内容保留，请使用受控来源恢复操作。").
 		WithDetails(map[string]any{"reason": "personal_exact_recovery_required", "destructive_reparse_allowed": false})
 }

@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -75,6 +76,13 @@ func TestExactEmbeddedOriginalSixCompleteCoverage(t *testing.T) {
 			data, err := os.ReadFile(name)
 			require.NoError(t, err)
 			require.Error(t, checkExactDOCXDependencies(data), "the default guard must remain closed")
+			parent, err := anydoc.Convert(data, anydoc.Options{Format: "docx", WithAssets: true})
+			require.NoError(t, err)
+			require.NoError(t, parent.AssetsError)
+			for _, asset := range parent.Assets {
+				t.Logf("parent image: declared_type=%s detected_type=%s bytes=%d",
+					asset.MediaType, http.DetectContentType(asset.Data), len(asset.Data))
+			}
 			workbooks, err := prepareExactEmbeddedWorkbooks(data)
 			require.NoError(t, err)
 			require.Len(t, workbooks, 1)
@@ -91,10 +99,10 @@ func TestExactEmbeddedOriginalSixCompleteCoverage(t *testing.T) {
 			// Independently enumerate stored shared-string cell coordinates.
 			// Rebuild each row from actual values and require it in the
 			// authoritative grid, including duplicate and empty cells.
-			parent, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+			archive, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 			require.NoError(t, err)
 			var child []byte
-			for _, entry := range parent.File {
+			for _, entry := range archive.File {
 				if entry.Name == "word/embeddings/Microsoft_Excel_Worksheet1.xlsx" {
 					reader, openErr := entry.Open()
 					require.NoError(t, openErr)
