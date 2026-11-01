@@ -51,12 +51,26 @@ func runOriginalExactAcceptance(t *testing.T,
 		t.Setenv("SYNC_EXECUTION_POSTGRES_PUBLIC_EXTENSIONS", "1")
 	}
 	const kbID = "d14eb0c0-1ade-46f9-890e-84fa823b335d"
-	const knowledgeID = "62b4dfac-8e5c-46c9-be87-86493aca4d40"
+	knowledgeID := "62b4dfac-8e5c-46c9-be87-86493aca4d40"
+	expectedSHA256 := "58bc916ae4f29f6c1d39fd76913a150a2b312ab3d4e9a9680f83a74e48ae0ff9"
+	if id := os.Getenv("PERSONAL_EXACT_EMBEDDED_KNOWLEDGE_ID"); id != "" {
+		require.True(t, exactEmbeddedWorkbooksEnabled())
+		expectedSHA256 = map[string]string{
+			"11fe7a16-5f17-474e-aef0-3bba52ffd5e8": "7f8d30717e7bba9975ef824f2444d12135f24d6744c73d54863f8c43d7d1a196",
+			"16d0bc18-29d9-4a68-9f93-19800ac20da2": "bb96c098b35f2b7ad6a44240c7346650ba6d373eec25b5773e3f8fcfaedb0b7f",
+			"1d89c1e1-812d-4ba0-aa52-7575b4f5d43e": "28fb8c8509e4cb91226a437217a0116539b81e24f208000285af8224bd7dc23c",
+			"640464e8-ccff-4365-8687-28ba5a08c8db": "52c390b896f8ca3745ea764fb80ee65e53fb70bcf980ee0c30354d4629ff4982",
+			"7b032e14-987f-4ab1-9fc3-61be82b2b71d": "042b9c773513a26ba0a28b67229d9a8b85d1597e71d2b1edf5efaaf5bc0b004c",
+			"d6ff36c5-57c1-4535-9d6c-3027ccee2ed7": "f0a7319f20b7774ff47825234dfc8c143da105425c2c82451d68265a2dd53c60",
+		}[id]
+		require.NotEmpty(t, expectedSHA256)
+		knowledgeID = id
+	}
 	data, err := os.ReadFile(os.Getenv("PERSONAL_EXACT_DOCX_FIXTURE"))
 	require.NoError(t, err)
 	require.Equal(
 		t,
-		"58bc916ae4f29f6c1d39fd76913a150a2b312ab3d4e9a9680f83a74e48ae0ff9",
+		expectedSHA256,
 		personalManifestDigest(data, nil),
 	)
 	f := newMVPFixture(t)

@@ -2914,6 +2914,9 @@ func (s *knowledgeService) reparseKnowledge(
 	tasksDequeued bool,
 ) (*types.Knowledge, error) {
 	logger.Info(ctx, "Start re-parsing knowledge")
+	if err := s.ValidateKnowledgeReparse(ctx, knowledgeID); err != nil {
+		return nil, err
+	}
 
 	existing, kb, err := loadKnowledgeWrite(ctx, s.repo, s.kbService, knowledgeID)
 	if err != nil {

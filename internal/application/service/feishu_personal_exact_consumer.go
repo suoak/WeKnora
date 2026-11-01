@@ -148,6 +148,7 @@ func (c *exactPersonalConsumer) convert(
 	// task-supplied file is reopened between verification and parsing.
 	result := &types.ReadResult{
 		MarkdownContent: parsed.markdown,
+		ParsedSegments:  parsed.segments,
 		Metadata: map[string]string{
 			"parser": "anydoc", "anydoc_version": parsed.parserVersion, "source_format": "docx",
 		},
@@ -156,6 +157,7 @@ func (c *exactPersonalConsumer) convert(
 		result.ImageRefs = append(result.ImageRefs, types.ImageRef{
 			Filename: asset.Name, OriginalRef: anydoc.ImageDir + asset.Name,
 			MimeType: asset.MediaType, ImageData: append([]byte(nil), asset.Data...),
+			IsOriginal: strings.HasPrefix(asset.Name, "embedded-workbook-"),
 		})
 	}
 	return result, nil

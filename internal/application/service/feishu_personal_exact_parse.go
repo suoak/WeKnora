@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/Tencent/WeKnora/internal/infrastructure/docparser/anydoc"
+	"github.com/Tencent/WeKnora/internal/types"
 )
 
 // Parsed bytes have their own provenance. This does not bless an existing
@@ -20,6 +22,7 @@ type personalExactParsedDocument struct {
 	assets        []anydoc.Asset
 	parserVersion string
 	outputSHA256  string
+	segments      []types.ParserDefinedSegment
 }
 
 func (p *PersonalRecovery) revalidateExactPersonalDocument(
@@ -70,7 +73,8 @@ func (p *PersonalRecovery) parseExactPersonalDocument(
 	if strings.ToLower(filepath.Ext(a.ManifestName)) != ".docx" {
 		return nil, errPersonalExactDocument
 	}
-	if err = checkExactDOCXDependencies(fresh.file); err != nil {
+	workbooks, err := prepareExactEmbeddedWorkbooks(fresh.file)
+	if err != nil {
 		return nil, fmt.Errorf("exact_document_dependencies_unverified: %w", err)
 	}
 	parsed, err := anydoc.Convert(fresh.file, anydoc.Options{Format: "docx", WithAssets: true})
@@ -79,6 +83,50 @@ func (p *PersonalRecovery) parseExactPersonalDocument(
 	}
 	if parsed == nil || parsed.AssetsError != nil {
 		return nil, fmt.Errorf("exact_document_parser_assets_unverified: %w", errPersonalExactDocument)
+	}
+	var segments []types.ParserDefinedSegment
+	var workbookDigests []string
+	if len(workbooks) > 0 {
+		end := utf8.RuneCountInString(parsed.Markdown)
+		if end == 0 {
+			return nil, errPersonalExactDocument
+		}
+		segments = append(segments, types.ParserDefinedSegment{
+			Seq: 0, Start: 0, End: end, ChunkingPolicy: types.ChunkingPolicyDefault,
+		})
+		var nextAssetID uint64
+		for _, asset := range parsed.Assets {
+			nextAssetID = max(nextAssetID, asset.ID+1)
+		}
+		for _, workbook := range workbooks {
+			workbookDigests = append(workbookDigests,
+				workbook.Name+":"+workbook.SHA256+":"+workbook.NativeMarkdownSHA256)
+			for _, asset := range workbook.Assets {
+				asset.ID = nextAssetID
+				nextAssetID++
+				parsed.Assets = append(parsed.Assets, asset)
+			}
+			for _, section := range workbook.Sections {
+				length := utf8.RuneCountInString(section.markdown)
+				metadata := map[string]string{
+					"parser.source_format": "embedded_xlsx", "parser.source_part": workbook.Name,
+					"parser.source_sha256": workbook.SHA256, "parser.worksheet": section.sheet,
+					"parser.worksheet_rows": fmt.Sprint(
+						section.rows,
+					), "parser.worksheet_columns": fmt.Sprint(section.columns),
+					"parser.worksheet_cells": fmt.Sprint(section.cells),
+				}
+				segments = append(segments, types.ParserDefinedSegment{
+					Seq: len(segments), Start: end, End: end + length,
+					ChunkingPolicy: types.ChunkingPolicyPreserveParserChunks,
+					Metadata:       metadata, ParsedChunks: []types.ParserChunkSpan{{
+						Seq: 0, Start: 0, End: length, Metadata: metadata,
+					}},
+				})
+				parsed.Markdown += section.markdown
+				end += length
+			}
+		}
 	}
 	if _, err = p.revalidateExactPersonalDocument(ctx, fresh); err != nil {
 		return nil, err
@@ -112,9 +160,20 @@ func (p *PersonalRecovery) parseExactPersonalDocument(
 	if err != nil {
 		return nil, err
 	}
+	if len(workbooks) > 0 {
+		canonical, err = json.Marshal(struct {
+			Parent    json.RawMessage
+			Workbooks []string
+			Segments  []types.ParserDefinedSegment
+		}{canonical, workbookDigests, segments})
+		if err != nil {
+			return nil, err
+		}
+	}
 	digest := sha256.Sum256(canonical)
 	return &personalExactParsedDocument{
 		source: fresh, markdown: parsed.Markdown, assets: assets,
 		parserVersion: anydoc.Version(), outputSHA256: hex.EncodeToString(digest[:]),
+		segments: segments,
 	}, nil
 }

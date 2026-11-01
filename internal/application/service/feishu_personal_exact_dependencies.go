@@ -14,6 +14,10 @@ import (
 // authorize an external relationship, an embedded package, or a parser that
 // follows one. Check before invoking the native parser or any image resolver.
 func checkExactDOCXDependencies(data []byte) error {
+	return checkExactDOCXGraph(data, nil)
+}
+
+func checkExactDOCXGraph(data []byte, packages map[string][]byte) error {
 	archive, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil || len(archive.File) == 0 || len(archive.File) > 4096 {
 		return errPersonalExactDocument
@@ -24,12 +28,13 @@ func checkExactDOCXDependencies(data []byte) error {
 		available[strings.ToLower(entry.Name)] = true
 	}
 	var expanded uint64
+	packageReferences := map[string]int{}
 	for _, entry := range archive.File {
 		name := strings.ToLower(entry.Name)
 		if name == "" || name == "." || name == ".." || strings.HasPrefix(name, "../") ||
 			strings.Contains(name, "\\") || strings.HasPrefix(name, "/") ||
 			path.Clean(name) != strings.TrimSuffix(name, "/") || seen[name] ||
-			strings.HasPrefix(name, "word/embeddings/") || strings.HasSuffix(name, "vbaproject.bin") {
+			strings.HasSuffix(name, "vbaproject.bin") {
 			return errPersonalExactDocument
 		}
 		seen[name] = true
@@ -37,6 +42,21 @@ func checkExactDOCXDependencies(data []byte) error {
 			return errPersonalExactDocument
 		}
 		expanded += entry.UncompressedSize64
+		if strings.HasPrefix(name, "word/embeddings/") {
+			if packages == nil || !strings.HasSuffix(name, ".xlsx") || len(packages) >= 4 || entry.UncompressedSize64 > 8<<20 {
+				return errPersonalExactDocument
+			}
+			reader, err := entry.Open()
+			if err != nil {
+				return errPersonalExactDocument
+			}
+			body, err := io.ReadAll(io.LimitReader(reader, (8<<20)+1))
+			_ = reader.Close()
+			if err != nil || len(body) > 8<<20 || uint64(len(body)) != entry.UncompressedSize64 {
+				return errPersonalExactDocument
+			}
+			packages[name] = body
+		}
 		if !strings.HasSuffix(name, ".rels") {
 			continue
 		}
@@ -63,7 +83,7 @@ func checkExactDOCXDependencies(data []byte) error {
 		for _, relationship := range relationships.Rows {
 			if relationship.Mode != "" && relationship.Mode != "Internal" ||
 				strings.Contains(relationship.Target, ":") || strings.HasPrefix(relationship.Target, "//") ||
-				strings.HasSuffix(relationship.Type, "/oleObject") || strings.HasSuffix(relationship.Type, "/package") {
+				strings.HasSuffix(relationship.Type, "/oleObject") {
 				return errPersonalExactDocument
 			}
 			target, decodeErr := url.PathUnescape(relationship.Target)
@@ -78,6 +98,22 @@ func checkExactDOCXDependencies(data []byte) error {
 			if resolved == ".." || strings.HasPrefix(resolved, "../") || !available[resolved] {
 				return errPersonalExactDocument
 			}
+			if strings.HasSuffix(relationship.Type, "/package") {
+				if packages == nil || name != "word/_rels/document.xml.rels" ||
+					relationship.Type != "http://schemas.openxmlformats.org/officeDocument/2006/relationships/package" ||
+					!strings.HasPrefix(resolved, "word/embeddings/") || !strings.HasSuffix(resolved, ".xlsx") {
+					return errPersonalExactDocument
+				}
+				packageReferences[resolved]++
+			}
+		}
+	}
+	if len(packageReferences) != len(packages) {
+		return errPersonalExactDocument
+	}
+	for name := range packages {
+		if packageReferences[name] != 1 {
+			return errPersonalExactDocument
 		}
 	}
 	return nil

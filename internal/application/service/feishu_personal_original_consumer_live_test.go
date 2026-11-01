@@ -504,6 +504,27 @@ VALUES ('isolated-held-resource', ?, ?, ?, 'held-sibling', 'hold', 'local://held
 	web = types.WithExecutionTenant(web, consumer.source.tenant)
 	read, err := f.p.exactPublishedReadContext(web, consumer.source.knowledge)
 	require.NoError(t, err)
+	if exactEmbeddedWorkbooksEnabled() {
+		workbooks, parseErr := prepareExactEmbeddedWorkbooks(consumer.source.file)
+		require.NoError(t, parseErr)
+		require.Len(t, workbooks, 1)
+		var tables []*types.Chunk
+		require.NoError(
+			t,
+			types.ReadExactPublishedPage(read, consumer.source.knowledge, func(page context.Context) error {
+				return f.db.WithContext(page).Where(
+					"knowledge_id=? AND metadata->>'parser.source_format'='embedded_xlsx' AND is_enabled",
+					consumer.source.knowledge).Find(&tables).Error
+			}),
+		)
+		require.Len(t, tables, 1, "the complete worksheet must remain one published chunk")
+		section := workbooks[0].Sections[0]
+		grid := strings.SplitN(section.markdown, "\n\n![Embedded workbook image]", 2)[0]
+		require.True(t, strings.Contains(tables[0].Content, strings.TrimSpace(grid)),
+			"published worksheet rows/columns/context must match the proved original bytes")
+		t.Logf("published embedded worksheet verified: rows=%d columns=%d cells=%d",
+			section.rows, section.columns, section.cells)
+	}
 	pg := pgretrieve.NewPostgresRetrieveEngineRepository(f.db)
 	query := make([]float32, 1024)
 	query[0] = 1

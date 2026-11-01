@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"time"
 
@@ -259,6 +260,12 @@ EXISTS(SELECT 1 FROM data_sources WHERE tenant_id=? AND type IN ('feishu','feish
 	md5sum := md5.Sum(data)
 	if hex.EncodeToString(md5sum[:]) != k.FileHash {
 		return nil, errPersonalExactDocument
+	}
+	if preflight && exactEmbeddedWorkbooksEnabled() {
+		mark("embedded_dependency_preflight")
+		if _, dependencyErr := prepareExactEmbeddedWorkbooks(data); dependencyErr != nil {
+			return nil, fmt.Errorf("exact_document_dependencies_unverified: %w", dependencyErr)
+		}
 	}
 	var issued *personalExactDocument
 	verify := func(tx *gorm.DB, locked *types.FeishuPersonalAttempt) error {
