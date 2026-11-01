@@ -589,17 +589,21 @@ func (s *DataSourceService) manualSyncUsing(
 	if err != nil {
 		return nil, err
 	}
-	if err := feishuSourceAdmissionState(ds); err != nil {
-		return nil, err
-	}
 	if e := checkFeishuSourceOwner(ctx, ds); e != nil {
 		return nil, &datasource.SyncAdmissionError{Reason: "sync_source_permission_denied", Cause: e}
 	}
 	if datasource.LegacyFeishuSyncSuspended(ds.Type) {
-		return nil, datasource.ErrLegacyFeishuSyncSuspended
+		return nil, &datasource.SyncAdmissionError{
+			Reason: "sync_platform_stopped", Cause: datasource.ErrLegacyFeishuSyncSuspended,
+		}
 	}
 	if !datasource.LegacyFeishuSourceAllowed(ds.Type, ds.ID) {
-		return nil, datasource.ErrLegacyFeishuSourceNotAllowed
+		return nil, &datasource.SyncAdmissionError{
+			Reason: "sync_source_not_approved", Cause: datasource.ErrLegacyFeishuSourceNotAllowed,
+		}
+	}
+	if err := feishuSourceAdmissionState(ds); err != nil {
+		return nil, err
 	}
 	approvedDelivery := false
 	admissionFingerprint := ""
