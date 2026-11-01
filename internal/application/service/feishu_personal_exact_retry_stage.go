@@ -127,8 +127,13 @@ func loadExactRetryStagingReceipt(
 // or guarded data is rejected. Existing database write triggers remain active.
 func (p *PersonalRecovery) quarantineExactRetryStage(
 	tx *gorm.DB, proof *personalExactDocument, intent types.PersonalExactRetry, ticketID int64,
+	prior *types.FeishuPersonalAttempt,
 ) error {
 	if proof == nil || proof.generation != intent.SealedGeneration+1 || proof.nonce == "" || ticketID <= 0 {
+		return repository.ErrPersonalFence
+	}
+	if prior == nil || prior.ID != intent.Source.AttemptID || prior.Fence+1 != intent.SealedGeneration ||
+		prior.Status != "needs_attention" || prior.OwnerNonce != "" || prior.LeaseUntil != nil {
 		return repository.ErrPersonalFence
 	}
 	if err := p.commitExactPersonalDocument(tx, proof); err != nil {
@@ -157,7 +162,7 @@ func (p *PersonalRecovery) quarantineExactRetryStage(
 	}
 	// Only the encryption routine receives the private old rows; no caller,
 	// logger, content response, prompt builder or model sees this plaintext.
-	ciphertext, digest, err := sealExactRetryStage(tx, intent, ticketID, receipt)
+	ciphertext, digest, err := sealExactRetryStage(tx, intent, ticketID, receipt, prior)
 	if err != nil {
 		return err
 	}
@@ -211,9 +216,14 @@ func (p *PersonalRecovery) quarantineExactRetryStage(
 
 func sealExactRetryStage(
 	tx *gorm.DB, intent types.PersonalExactRetry, ticketID int64, receipt *types.TaskPendingOp,
+	prior *types.FeishuPersonalAttempt,
 ) (string, string, error) {
 	var raw string
 	receiptBytes, err := json.Marshal(receipt)
+	if err != nil {
+		return "", "", err
+	}
+	priorBytes, err := json.Marshal(prior)
 	if err != nil {
 		return "", "", err
 	}
@@ -221,10 +231,13 @@ func sealExactRetryStage(
  'purpose','personal_exact_unverified_stage_v1','ticket_id',?::bigint,
  'tenant_id',?::bigint,'knowledge_id',?::text,'sealed_generation',?::bigint,
  'original_receipt',?::jsonb,
+ 'original_attempt',?::jsonb,
+ 'original_outbox',(SELECT to_jsonb(o) FROM task_pending_ops o WHERE o.id=?),
  'chunks',(SELECT COALESCE(jsonb_agg(to_jsonb(c) ORDER BY c.id),'[]'::jsonb) FROM chunks c WHERE c.knowledge_id=?),
  'vectors',(SELECT COALESCE(jsonb_agg(to_jsonb(e) ORDER BY e.id),'[]'::jsonb) FROM embeddings e WHERE e.knowledge_id=?)
 )::text`, ticketID, intent.Source.TenantID, intent.Source.KnowledgeID, intent.SealedGeneration,
-		string(receiptBytes), intent.Source.KnowledgeID, intent.Source.KnowledgeID).Scan(&raw).Error
+		string(receiptBytes), string(priorBytes), intent.OriginalOperationID,
+		intent.Source.KnowledgeID, intent.Source.KnowledgeID).Scan(&raw).Error
 	if err != nil || len(raw) > 32<<20 {
 		return "", "", repository.ErrPersonalFence
 	}

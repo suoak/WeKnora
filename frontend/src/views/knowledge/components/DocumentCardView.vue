@@ -11,7 +11,8 @@ import KnowledgeProcessingTimeline from '@/components/knowledge-processing-timel
 import { conciseProcessingError } from '@/utils/knowledgeProcessingPresentation';
 import { shownStall } from '@/utils/knowledgeProcessingStall';
 import AuthorizedDocumentSummary from './AuthorizedDocumentSummary.vue';
-import { personalDocumentSourceLabel } from '@/i18n/personalDocumentPresentation';
+import { personalDocumentSourceLabel, personalDocumentMessage } from '@/i18n/personalDocumentPresentation';
+import { personalFailureReason } from '@/utils/personalDocumentActions';
 
 interface Tag {
   id: string;
@@ -88,6 +89,9 @@ const emit = defineEmits<{
 }>();
 
 const { t, locale } = useI18n();
+const processingReason = (item: KnowledgeCard) => item.channel === 'feishu_personal'
+  ? personalDocumentMessage(locale.value, personalFailureReason(item.error_message))
+  : conciseProcessingError(item.error_message);
 const tagEditorId = ref<string | null>(null);
 const cardSummaries = computed(() => new Map(props.items.map(item => [item.id,
   formatReferenceSnippet(item.channel === 'feishu_personal' && item.metadata_only ? '' : item.description),
@@ -533,9 +537,9 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
             @keydown.enter.stop="handleAction('view-trace', item)"
             @keydown.space.prevent.stop="handleAction('view-trace', item)"
           >{{ $t('knowledgeBase.parsingFailed') }}</span>
-          <span v-if="conciseProcessingError(item.error_message)" class="card-analyze-reason"
-            :title="conciseProcessingError(item.error_message)">
-            {{ conciseProcessingError(item.error_message) }}
+          <span v-if="processingReason(item)" class="card-analyze-reason"
+            :title="processingReason(item)">
+            {{ processingReason(item) }}
           </span>
           <button
             type="button"

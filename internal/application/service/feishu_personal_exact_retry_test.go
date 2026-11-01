@@ -118,17 +118,22 @@ INSERT INTO embeddings VALUES(1,'doc','kb',false,0,'chunk','chunk','[0.1,0.2]');
 			require.NotEqual(t, stage.SHA256, changed.SHA256,
 				"body changes invalidate admission without reading bodies into the worker")
 			t.Setenv("SYSTEM_AES_KEY", "01234567890123456789012345678901")
+			require.NoError(t, db.AutoMigrate(&types.TaskPendingOp{}))
 			ciphertext, digest, err := sealExactRetryStage(db,
 				types.PersonalExactRetry{Source: source, SealedGeneration: 5}, 12,
 				&types.TaskPendingOp{
 					ID: 7, Scope: types.PersonalExactReceiptScope,
 					Op: "staging", Payload: json.RawMessage(`{}`),
+				}, &types.FeishuPersonalAttempt{
+					ID: "terminated", Fence: 4, Status: "needs_attention",
+					LastErrorCategory: "transport_security_rejected",
 				})
 			require.NoError(t, err)
 			require.NotContains(t, ciphertext, "changed stage")
 			plaintext, err := utils.DecryptStoredSecret(ciphertext)
 			require.NoError(t, err)
 			require.Equal(t, digest, exactRetrySHA([]byte(plaintext)))
+			require.Contains(t, plaintext, "transport_security_rejected")
 			var archived struct {
 				KnowledgeID string            `json:"knowledge_id"`
 				TicketID    int64             `json:"ticket_id"`

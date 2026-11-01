@@ -122,7 +122,7 @@ func (p *PersonalRecovery) processExactRetryDocument(ctx context.Context, payloa
 					fresh := *check.checkedSource
 					fresh.generation, fresh.nonce = current.Fence, current.OwnerNonce
 					fresh.leaseUntil = *current.LeaseUntil
-					if err := p.quarantineExactRetryStage(tx, &fresh, *intent, row.ID); err != nil {
+					if err := p.quarantineExactRetryStage(tx, &fresh, *intent, row.ID, observed); err != nil {
 						return err
 					}
 					changed := tx.Model(&types.TaskPendingOp{}).Where("id=? AND op='attention'", original.ID).

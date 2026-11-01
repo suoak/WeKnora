@@ -65,7 +65,7 @@ ADD COLUMN source_id text,ADD COLUMN chunk_id text,ADD COLUMN embedding text`).E
 					fresh.generation = current.Fence
 					fresh.nonce = current.OwnerNonce
 					fresh.leaseUntil = *current.LeaseUntil
-					if err := f.p.quarantineExactRetryStage(tx, &fresh, intent, row.ID); err != nil {
+					if err := f.p.quarantineExactRetryStage(tx, &fresh, intent, row.ID, owner); err != nil {
 						return err
 					}
 					if rollback {

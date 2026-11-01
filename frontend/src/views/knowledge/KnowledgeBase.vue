@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import FeishuImportDialog from './components/FeishuImportDialog.vue';
-import { takeFeishuDraft } from '@/utils/feishuOAuthFlow';
-import { isFeishuDocumentURL } from '@/api/feishuPersonal';
+import { takeFeishuDraft, saveFeishuDraft } from '@/utils/feishuOAuthFlow';
+import { isFeishuDocumentURL, authorizeFeishu, feishuStatus } from '@/api/feishuPersonal';
+import { personalDocumentMessages } from '@/i18n/personalDocumentPresentation';
+import { personalReauthorizationAllowed, personalAuthorizationTarget } from '@/utils/personalDocumentActions';
 import { ref, onMounted, onUnmounted, watch, reactive, computed, nextTick } from "vue";
-import { MessagePlugin } from "tdesign-vue-next";
+import { MessagePlugin, DialogPlugin } from "tdesign-vue-next";
 import DocContent from "@/components/doc-content.vue";
 import useKnowledgeBase from '@/hooks/useKnowledgeBase';
 import { useRoute, useRouter } from 'vue-router';
@@ -89,6 +91,7 @@ import { useMarqueeSelect } from '@/hooks/useMarqueeSelect';
 import type { ParserEngineInfo } from '@/api/system';
 const route = useRoute();
 const { t } = useI18n();
+const { t: personalText } = useI18n({ useScope: 'local', messages: personalDocumentMessages });
 const kbId = computed(() => (route.params as any).kbId as string || '');
 const kbInfo = ref<any>(null);
 const uploadSourceRef = ref<InstanceType<typeof KbUploadSourceDropdown> | null>(null);
@@ -1371,6 +1374,7 @@ watch(() => cardList.value, (newValue) => {
 }, { deep: true })
 type KnowledgeCard = {
   id: string;
+  channel?: string;
   knowledge_base_id?: string;
   parse_status: string;
   summary_status?: string;
@@ -1877,6 +1881,13 @@ const confirmRebuildKnowledge = async (index: number, item: KnowledgeCard) => {
   }
   closeCardMoreMenu(index);
 
+  // Personal source operations never enter the ordinary destructive reparse
+  // configuration dialog or load a failed document's protected body first.
+  if (item.channel === 'feishu_personal') {
+    await submitReparse(item.id);
+    return;
+  }
+
   // No KB context to seed the dialog defaults — fall back to a direct reparse
   // that reuses the overrides stored at upload time.
   if (!kbInfo.value) {
@@ -1914,16 +1925,41 @@ const confirmRebuildKnowledge = async (index: number, item: KnowledgeCard) => {
 };
 
 const submitReparse = async (id: string, processConfig?: KnowledgeProcessOverrides) => {
+  const item = cardList.value.find(card => card.id === id);
   try {
     await reparseKnowledge(id, processConfig ? { process_config: processConfig } : undefined);
     delete traceAvailableById[id];
     traceAvailableById[id] = true;
-    MessagePlugin.success(t('knowledgeBase.rebuildSubmitted'));
+    MessagePlugin.success(item?.channel === 'feishu_personal'
+      ? personalText(item.parse_status === 'failed' ? 'retrySubmitted' : 'syncSubmitted')
+      : t('knowledgeBase.rebuildSubmitted'));
     resetPage();
     loadKnowledgeFiles(kbId.value);
     scheduleWikiStatusProbes();
   } catch (error: any) {
     MessagePlugin.error(error?.message || t('knowledgeBase.rebuildFailed'));
+    if (item?.channel === 'feishu_personal' && personalReauthorizationAllowed(error)) {
+      const capturedKb = kbId.value;
+      const capturedUser = authStore.currentUserId;
+      let authorizing = false;
+      const dialog = DialogPlugin.confirm({ header: personalText('reauthorizeTitle'),
+        body: error.message, confirmBtn: personalText('reauthorize'), cancelBtn: t('common.cancel'),
+        onConfirm: async () => {
+          if (authorizing) return;
+          if (kbId.value !== capturedKb || authStore.currentUserId !== capturedUser) { dialog.hide(); return; }
+          authorizing = true;
+          try {
+            const before = await feishuStatus();
+            if (kbId.value !== capturedKb || authStore.currentUserId !== capturedUser) return;
+            saveFeishuDraft(capturedKb, '', location.pathname + location.search, before.authorization_revision || '');
+            const result = await authorizeFeishu();
+            if (kbId.value !== capturedKb || authStore.currentUserId !== capturedUser) return;
+            location.assign(personalAuthorizationTarget(result.authorization_url));
+          } catch (failure: any) { MessagePlugin.error(failure?.message || t('knowledgeBase.rebuildFailed')); }
+          finally { authorizing = false; dialog.hide(); }
+        }, onClose: () => dialog.hide(),
+      });
+    }
   }
 };
 

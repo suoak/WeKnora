@@ -101,7 +101,7 @@ func (p *PersonalRecovery) requestExactRetry(
 ) (*types.TaskPendingOp, error) {
 	sealed, until, enabled := exactRetryWindow(knowledge)
 	if !enabled {
-		return nil, apperrors.NewConflictError("该文档的安全重试尚未启用；原文件和已有内容保持不变").
+		return nil, apperrors.NewConflictError("此文档暂不能重试，请联系管理员；原文件和已有内容保持不变").
 			WithDetails(map[string]any{"reason": "personal_exact_retry_not_enabled"})
 	}
 	ks := p.service.knowledge.(*knowledgeService)
@@ -148,7 +148,7 @@ func (p *PersonalRecovery) requestExactRetry(
 					}
 				}
 				if len(previous) > 0 && (!explicit || len(previous) >= 3) {
-					return apperrors.NewConflictError("该执行已有终态记录，不会自动重放；请核查上次重试结果")
+					return apperrors.NewConflictError("上次重试已结束，请先查看处理结果；本次未再次提交")
 				}
 				stage, err := inspectExactRetryStage(tx, check.identity, true)
 				if err != nil {
