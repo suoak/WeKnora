@@ -100,6 +100,24 @@ func TestSourceReconciliationConcurrentReservationHasOneWinner(t *testing.T) {
 	require.Equal(t, 1, winners)
 }
 
+func TestSourceReconciliationPromotionIsFreshAdmissionEvenWithSmallerScope(t *testing.T) {
+	f, _, id := reconciliationFixture(t)
+	authority := f.authority[id]
+	authority.AccessState = "active"
+	authority.SourceStatus = "active"
+	f.authority[id] = authority
+	facts := f.facts[id]
+	facts.Eligible = true
+	facts.ReconciliationEligible = false
+	f.facts[id] = facts
+	p, err := f.m.PlanSteady(context.Background(), "operator", []string{id}, 7)
+	require.NoError(t, err)
+	require.False(t, p.RevocationOnly, "conversion to ongoing service is a fresh authorization")
+	require.False(t, p.ManagedSources[0].Reconciliation)
+	require.Zero(t, p.ManagedSources[0].ReconcileUntilMS)
+	require.NoError(t, f.m.ActivateSteady(context.Background(), p, f.sign(t, p), "operator"))
+}
+
 func TestSourceReconciliationRevocationExpiryAndTripStopOnlyAuthorizedWork(t *testing.T) {
 	for _, scenario := range []string{"revoked", "authority", "expiry", "trip", "ticket_invention"} {
 		t.Run(scenario, func(t *testing.T) {

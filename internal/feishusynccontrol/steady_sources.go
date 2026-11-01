@@ -210,7 +210,7 @@ func (m *RecoveryManager) planSteady(
 	// No historical shared-queue task is removed, recreated or acknowledged.
 	revokeOnly := s.Steady != nil && len(ids) < len(s.ApprovedSources)
 	for _, id := range ids {
-		if _, ok := s.ApprovedSources[id]; !ok {
+		if previous, ok := s.ApprovedSources[id]; !ok || previous != checked[id].entry.ApprovedSource {
 			revokeOnly = false
 		}
 	}
