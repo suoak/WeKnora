@@ -33,6 +33,7 @@ type PersonalRecovery struct {
 	shares          interfaces.KBShareService
 	lease           time.Duration
 	firstCreateOnly bool
+	exactRetries    *exactRetryController
 }
 
 // EnablePersonalRecovery provides the enable personal recovery operation.
@@ -67,11 +68,12 @@ func EnablePersonalRecovery(
 		return errors.New("personal recovery requires durable knowledge dispatcher")
 	}
 	p := &PersonalRecovery{
-		service: s,
-		repo:    repository.NewPersonalRecoveryRepository(s.db),
-		store:   store,
-		shares:  shares,
-		lease:   30 * time.Second,
+		service:      s,
+		repo:         repository.NewPersonalRecoveryRepository(s.db),
+		store:        store,
+		shares:       shares,
+		lease:        30 * time.Second,
+		exactRetries: newExactRetryController(),
 	}
 	p.firstCreateOnly = os.Getenv("FEISHU_PERSONAL_MVP_FIRST_CREATE") == "1"
 	if applicationGrantEnabled() && (!p.firstCreateOnly || !applicationGrantEngineAvailable()) {
@@ -472,6 +474,9 @@ func (p *PersonalRecovery) Process(ctx context.Context, payload types.DocumentPr
 	if !applicationPayloadMatches(m, payload) {
 		return repository.ErrPersonalIdentity
 	}
+	if p.firstCreateOnly && payload.FirstCreate && payload.ExactRetryTicketID > 0 {
+		return p.processExactRetryDocument(ctx, payload)
+	}
 	if m.Status == "source_managed" {
 		return nil
 	}
@@ -770,6 +775,9 @@ func (p *PersonalRecovery) fetchCandidate(
 func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 	var after string
 	var failures []error
+	if err := p.reconcileExactRetries(ctx); err != nil {
+		failures = append(failures, err)
+	}
 	if err := p.service.reconcileConnectionHealth(ctx); err != nil {
 		failures = append(failures, err)
 	}
@@ -789,6 +797,12 @@ func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 		}
 		for _, a := range rows {
 			after = a.ID
+			if owned, err := p.exactRetryOwnsExecution(ctx, &a); err != nil {
+				failures = append(failures, err)
+				continue
+			} else if owned {
+				continue
+			}
 			if a.Status == "needs_attention" {
 				continue
 			}
@@ -896,133 +910,142 @@ func (p *PersonalRecovery) mutate(
 	fn func(*gorm.DB, *types.FeishuPersonalAttempt) error,
 ) error {
 	return p.repo.Mutate(ctx, owner, lease, func(tx *gorm.DB, a *types.FeishuPersonalAttempt) error {
-		var m types.FeishuPersonalImport
-		if err := tx.Where("id = ?", a.ImportID).First(&m).Error; err != nil {
-			return personalAccessError(err)
-		}
-		var user types.User
-		if err := tx.Clauses(
-			clause.Locking{
-				Strength: "SHARE",
-			},
-		).
-			Where(
-				"id = ? AND is_active = ?",
-
-				m.UserID,
-
-				true,
-			).
-			First(
-				&user,
-			).
-			Error; err != nil {
-			return personalAccessError(err)
-		}
-		var member types.TenantMember
-		if err := tx.Clauses(
-			clause.Locking{
-				Strength: "SHARE",
-			},
-		).
-			Where(
-				"user_id = ? AND tenant_id = ? AND status = ?",
-
-				m.UserID,
-
-				a.CallerTenantID,
-
-				types.TenantMemberStatusActive,
-			).
-			First(
-				&member,
-			).
-			Error; err != nil {
-			return personalAccessError(err)
-		}
-		if !member.Role.HasPermission(types.TenantRoleContributor) {
-			return access.ErrForbidden
-		}
-		var tenant types.Tenant
-		if err := tx.Clauses(
-			clause.Locking{
-				Strength: "SHARE",
-			},
-		).
-			Where(
-				"id = ? AND status = ?",
-
-				a.CallerTenantID,
-
-				"active",
-			).
-			First(
-				&tenant,
-			).
-			Error; err != nil {
-			return personalAccessError(err)
-		}
-		ownerContext := context.WithValue(tx.Statement.Context, types.UserIDContextKey, user.ID)
-		ownerContext = types.WithCaller(ownerContext, types.Caller{
-			TenantID: member.TenantID, UserID: user.ID, Role: member.Role,
-		})
-		ownerContext = types.WithPrincipal(
-			ownerContext,
-			types.Principal{Type: types.PrincipalWebUser, ID: user.ID},
-		)
-		tx = tx.WithContext(ownerContext)
-		if _, err := personalAuthorizationKB(tx, m.KBID, true); err != nil {
-			return personalAccessError(err)
-		}
-		if err := p.service.requireImportWriter(tx, m.UserID, m.KBID, a.CallerTenantID); err != nil {
-			return err
-		}
-		var setting types.SystemSetting
-		if err := tx.Clauses(
-			clause.Locking{
-				Strength: "SHARE",
-			},
-		).
-			Where(
-				"key = ?",
-
-				feishuAppSetting,
-			).
-			First(
-				&setting,
-			).
-			Error; err != nil {
-			return personalAccessError(err)
-		}
-		cipher, err := setting.AsString()
-		if err != nil {
-			return err
-		}
-		var cfg FeishuAppConfig
-		if err = openFeishu(cipher, &cfg); err != nil {
-			return err
-		}
-		if !cfg.Enabled || cfg.identityVersion(types.FeishuAuthMode(m.AuthMode)) != a.AppConfigVersion ||
-			cfg.AppID != m.AppID ||
-			!cfg.modeEnabled(types.FeishuAuthMode(m.AuthMode)) ||
-			types.FeishuAuthMode(a.AuthMode) != types.FeishuAuthMode(m.AuthMode) {
-			return repository.ErrPersonalIdentity
-		}
-		if types.FeishuAuthMode(m.AuthMode) == types.FeishuApplicationGrant &&
-			(!applicationUserAllowed(user.IsSystemAdmin) || !applicationKBAllowed(m.KBID)) {
-			return ErrFeishuApplicationRestricted
-		}
-		if err := p.service.checkSharingApproval(tx, &cfg, &m, a.Revision); err != nil {
-			return err
-		}
-		if types.FeishuAuthMode(m.AuthMode) == types.FeishuUserOAuth {
-			if err := p.service.assertConnectionHealth(tx, m.UserID); err != nil {
-				return err
-			}
-		}
-		if fn != nil {
-			return fn(tx, a)
-		}
-		return nil
+		return p.validateMutationAuthority(tx, a, fn)
 	})
+}
+
+// Shared live principal, configuration, grant and KB locks for normal commits
+// and reviewed retry admission. This helper does not issue a claim or read grant.
+func (p *PersonalRecovery) validateMutationAuthority(
+	tx *gorm.DB, a *types.FeishuPersonalAttempt,
+	fn func(*gorm.DB, *types.FeishuPersonalAttempt) error,
+) error {
+	var m types.FeishuPersonalImport
+	if err := tx.Where("id = ?", a.ImportID).First(&m).Error; err != nil {
+		return personalAccessError(err)
+	}
+	var user types.User
+	if err := tx.Clauses(
+		clause.Locking{
+			Strength: "SHARE",
+		},
+	).
+		Where(
+			"id = ? AND is_active = ?",
+
+			m.UserID,
+
+			true,
+		).
+		First(
+			&user,
+		).
+		Error; err != nil {
+		return personalAccessError(err)
+	}
+	var member types.TenantMember
+	if err := tx.Clauses(
+		clause.Locking{
+			Strength: "SHARE",
+		},
+	).
+		Where(
+			"user_id = ? AND tenant_id = ? AND status = ?",
+
+			m.UserID,
+
+			a.CallerTenantID,
+
+			types.TenantMemberStatusActive,
+		).
+		First(
+			&member,
+		).
+		Error; err != nil {
+		return personalAccessError(err)
+	}
+	if !member.Role.HasPermission(types.TenantRoleContributor) {
+		return access.ErrForbidden
+	}
+	var tenant types.Tenant
+	if err := tx.Clauses(
+		clause.Locking{
+			Strength: "SHARE",
+		},
+	).
+		Where(
+			"id = ? AND status = ?",
+
+			a.CallerTenantID,
+
+			"active",
+		).
+		First(
+			&tenant,
+		).
+		Error; err != nil {
+		return personalAccessError(err)
+	}
+	ownerContext := context.WithValue(tx.Statement.Context, types.UserIDContextKey, user.ID)
+	ownerContext = types.WithCaller(ownerContext, types.Caller{
+		TenantID: member.TenantID, UserID: user.ID, Role: member.Role,
+	})
+	ownerContext = types.WithPrincipal(
+		ownerContext,
+		types.Principal{Type: types.PrincipalWebUser, ID: user.ID},
+	)
+	tx = tx.WithContext(ownerContext)
+	if _, err := personalAuthorizationKB(tx, m.KBID, true); err != nil {
+		return personalAccessError(err)
+	}
+	if err := p.service.requireImportWriter(tx, m.UserID, m.KBID, a.CallerTenantID); err != nil {
+		return err
+	}
+	var setting types.SystemSetting
+	if err := tx.Clauses(
+		clause.Locking{
+			Strength: "SHARE",
+		},
+	).
+		Where(
+			"key = ?",
+
+			feishuAppSetting,
+		).
+		First(
+			&setting,
+		).
+		Error; err != nil {
+		return personalAccessError(err)
+	}
+	cipher, err := setting.AsString()
+	if err != nil {
+		return err
+	}
+	var cfg FeishuAppConfig
+	if err = openFeishu(cipher, &cfg); err != nil {
+		return err
+	}
+	if !cfg.Enabled || cfg.identityVersion(types.FeishuAuthMode(m.AuthMode)) != a.AppConfigVersion ||
+		cfg.AppID != m.AppID ||
+		!cfg.modeEnabled(types.FeishuAuthMode(m.AuthMode)) ||
+		types.FeishuAuthMode(a.AuthMode) != types.FeishuAuthMode(m.AuthMode) {
+		return repository.ErrPersonalIdentity
+	}
+	if types.FeishuAuthMode(m.AuthMode) == types.FeishuApplicationGrant &&
+		(!applicationUserAllowed(user.IsSystemAdmin) || !applicationKBAllowed(m.KBID)) {
+		return ErrFeishuApplicationRestricted
+	}
+	if err := p.service.checkSharingApproval(tx, &cfg, &m, a.Revision); err != nil {
+		return err
+	}
+	if types.FeishuAuthMode(m.AuthMode) == types.FeishuUserOAuth {
+		if err := p.service.assertConnectionHealth(tx, m.UserID); err != nil {
+			return err
+		}
+	}
+	if fn != nil {
+		return fn(tx, a)
+	}
+	return nil
 }

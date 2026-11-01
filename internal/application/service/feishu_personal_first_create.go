@@ -324,6 +324,9 @@ func (p *PersonalRecovery) firstCreateDispatchable(
 	if err != nil {
 		return false, err
 	}
+	if owned, err := p.exactRetryOwnsExecution(ctx, a); err != nil || owned {
+		return false, err
+	}
 	t := intent.Task
 	if !p.firstCreateOnly || intent.PayloadVersion != publicPayloadVersion(m) ||
 		!applicationPayloadMatches(m, t) ||
@@ -458,6 +461,9 @@ func (p *PersonalRecovery) processFirstCreateDocument(
 		if err = dispatch.SetKnowledgeDispatchState(ctx, op.ID, "processing"); err != nil {
 			return err
 		}
+		if exactRecovery {
+			return p.runExactClaimedFirstCreate(work, payload, m, owner, op)
+		}
 		work, cancel := context.WithCancel(work)
 		done, stopped := make(chan struct{}), make(chan struct{})
 		go func() {
@@ -486,9 +492,6 @@ func (p *PersonalRecovery) processFirstCreateDocument(
 		b, _ := json.Marshal(payload)
 		processingContext := context.WithValue(work, knowledgeDispatchContextKey{}, op)
 		processingContext = context.WithValue(processingContext, personalFirstCreateContextKey{}, true)
-		if exactRecovery {
-			return p.processExactFirstCreateConsumer(processingContext, payload, owner, op.ID)
-		}
 		err = ks.processDocument(processingContext, asynq.NewTask(types.TypeDocumentProcess, b))
 		read, stop := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer stop()
