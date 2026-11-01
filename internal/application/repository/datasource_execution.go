@@ -154,7 +154,7 @@ func (r *SyncLogRepository) WriteExecution(
 		}
 		if types.LegacyFullReconciliation(ctx) {
 			if types.LegacyReconciliationRead(ctx, e.DataSourceID) {
-				if err := validateSourceReconciliationInventory(tx, ctx, e); err != nil {
+				if err := validateSourceReconciliationInventory(ctx, tx, e); err != nil {
 					return err
 				}
 			}

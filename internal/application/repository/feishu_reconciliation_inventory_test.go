@@ -21,7 +21,7 @@ func TestSourceReconciliationInventoryCoverage(t *testing.T) {
 				TenantID        uint64
 				KnowledgeBaseID string
 				Channel         string
-				Metadata        types.JSON
+				Metadata        types.JSON `gorm:"type:jsonb"`
 				DeletedAt       gorm.DeletedAt
 			}
 			require.NoError(t, db.Table("knowledges").AutoMigrate(&inventoryRow{}))
@@ -30,7 +30,7 @@ func TestSourceReconciliationInventoryCoverage(t *testing.T) {
 			require.NoError(t, db.Create(&ds).Error)
 			ctx := types.WithLegacyReceiptSet(context.Background())
 			e := types.SyncExecution{DataSourceID: ds.ID, TenantID: 1}
-			check := func() error { return validateSourceReconciliationInventory(db, ctx, e) }
+			check := func() error { return validateSourceReconciliationInventory(ctx, db, e) }
 			require.NoError(t, check(), "a verified empty source has no historical public rows")
 			row := inventoryRow{
 				ID: uuid.NewString(), TenantID: 1, KnowledgeBaseID: "kb", Channel: "feishu",

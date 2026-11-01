@@ -10,7 +10,7 @@ import (
 // A completed remote traversal is insufficient when historical public rows have
 // no current-run receipt. Never clear a KB-wide hold while silently abandoning
 // old, untracked Feishu documents or documents with unprovable source ownership.
-func validateSourceReconciliationInventory(tx *gorm.DB, ctx context.Context, e types.SyncExecution) error {
+func validateSourceReconciliationInventory(ctx context.Context, tx *gorm.DB, e types.SyncExecution) error {
 	var resourceIDs []string
 	for _, receipt := range types.LegacyReceipts(ctx) {
 		resourceIDs = append(resourceIDs, receipt.ResourceID)
