@@ -2,6 +2,7 @@ package types
 
 import "time"
 
+// Durable scopes separate recovery intents, retained evidence and audit events.
 const (
 	PersonalExactRetryScope      = "personal_exact_retry_v1"
 	PersonalExactArchiveScope    = "personal_exact_archive_v1"

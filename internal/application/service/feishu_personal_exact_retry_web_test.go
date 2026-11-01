@@ -49,7 +49,8 @@ func TestPersonalExactRetryWebReauthorizationIsBoundToOriginalOwner(t *testing.T
 				require.NotContains(t, fmt.Sprint(app.Details), "reauthorize_allowed")
 			} else {
 				require.Equal(t, map[string]any{
-					"reason": "personal_exact_source_owner_reauthorization_required", "reauthorize_allowed": user == "A",
+					"reason":              "personal_exact_source_owner_reauthorization_required",
+					"reauthorize_allowed": user == "A",
 				}, app.Details)
 			}
 			require.JSONEq(t, string(before), string(exactPendingSnapshot(t, f, owner.ID)))

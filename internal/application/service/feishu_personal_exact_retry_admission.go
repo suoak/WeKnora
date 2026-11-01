@@ -33,7 +33,7 @@ func exactRetryWindow(id string) (int64, time.Time, bool) {
 		return 0, time.Time{}, false
 	}
 	until, err := time.Parse(time.RFC3339, os.Getenv("FEISHU_PERSONAL_EXACT_RETRY_UNTIL"))
-	if err != nil || !until.After(time.Now()) || until.Sub(time.Now()) > time.Hour {
+	if err != nil || !until.After(time.Now()) || time.Until(until) > time.Hour {
 		return 0, time.Time{}, false
 	}
 	return generations[id], until, true

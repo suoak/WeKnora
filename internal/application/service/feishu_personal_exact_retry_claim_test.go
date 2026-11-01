@@ -99,7 +99,7 @@ func TestPersonalExactRetryClaimCASAndStageRollback(t *testing.T) {
 				func(tx *gorm.DB, current *types.FeishuPersonalAttempt) error {
 					return f.p.validateMutationAuthority(tx, current, check.validate)
 				},
-				func(tx *gorm.DB, current *types.FeishuPersonalAttempt) error {
+				func(_ *gorm.DB, current *types.FeishuPersonalAttempt) error {
 					activated = true
 					require.Equal(t, sealed+1, current.Fence)
 					require.NotEmpty(t, current.OwnerNonce)
