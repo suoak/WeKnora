@@ -48,6 +48,14 @@ type documentKnowledgeSpy struct {
 	writes int
 }
 
+func (r *documentKnowledgeSpy) LoadPersonalReparseMetadata(
+	ctx context.Context, id string,
+) (*repository.PersonalReparseMetadata, error) {
+	return r.KnowledgeRepository.(interface {
+		LoadPersonalReparseMetadata(context.Context, string) (*repository.PersonalReparseMetadata, error)
+	}).LoadPersonalReparseMetadata(ctx, id)
+}
+
 func (r *documentKnowledgeSpy) UpdateKnowledge(ctx context.Context, k *types.Knowledge) error {
 	r.writes++
 	return r.KnowledgeRepository.UpdateKnowledge(ctx, k)
@@ -193,6 +201,7 @@ func newDocumentWriteFixture(t *testing.T) *documentWriteFixture {
 			&types.KnowledgeTag{},
 			&types.KnowledgeTagRelation{},
 			&types.ChunkRevision{},
+			&types.TaskPendingOp{},
 		),
 	)
 	repo := &documentKnowledgeSpy{KnowledgeRepository: repository.NewKnowledgeRepository(db)}

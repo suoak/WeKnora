@@ -43,6 +43,11 @@ func prepareExactEmbeddedWorkbooks(data []byte) ([]exactEmbeddedWorkbook, error)
 	if err := checkExactDOCXGraph(data, packages); err != nil {
 		return nil, err
 	}
+	if len(packages) > 0 {
+		if err := verifyExactWorkbookObjects(data, packages); err != nil {
+			return nil, err
+		}
+	}
 	names := make([]string, 0, len(packages))
 	for name := range packages {
 		names = append(names, name)
@@ -57,6 +62,105 @@ func prepareExactEmbeddedWorkbooks(data []byte) ([]exactEmbeddedWorkbook, error)
 		workbooks = append(workbooks, *workbook)
 	}
 	return workbooks, nil
+}
+
+func verifyExactWorkbookObjects(data []byte, packages map[string][]byte) error {
+	archive, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return errExactWorkbookUnsupported
+	}
+	parts := map[string][]byte{}
+	for _, entry := range archive.File {
+		if entry.Name != "word/document.xml" && entry.Name != "word/_rels/document.xml.rels" {
+			continue
+		}
+		reader, openErr := entry.Open()
+		if openErr != nil {
+			return errExactWorkbookUnsupported
+		}
+		body, readErr := io.ReadAll(io.LimitReader(reader, (8<<20)+1))
+		_ = reader.Close()
+		if readErr != nil || len(body) > 8<<20 {
+			return errExactWorkbookUnsupported
+		}
+		parts[entry.Name] = body
+	}
+	type relationship struct {
+		ID, Target, Type string
+	}
+	references := map[string]string{}
+	for name, body := range parts {
+		decoder := xml.NewDecoder(bytes.NewReader(body))
+		for {
+			token, tokenErr := decoder.Token()
+			if tokenErr == io.EOF {
+				break
+			}
+			if tokenErr != nil {
+				return errExactWorkbookUnsupported
+			}
+			start, ok := token.(xml.StartElement)
+			if !ok || name != "word/_rels/document.xml.rels" || start.Name.Local != "Relationship" {
+				continue
+			}
+			var ref relationship
+			for _, attr := range start.Attr {
+				switch attr.Name.Local {
+				case "Id":
+					ref.ID = attr.Value
+				case "Target":
+					ref.Target = attr.Value
+				case "Type":
+					ref.Type = attr.Value
+				}
+			}
+			if strings.HasSuffix(ref.Type, "/package") {
+				target := strings.ToLower(path.Clean(path.Join("word", ref.Target)))
+				if ref.ID == "" || references[ref.ID] != "" || packages[target] == nil {
+					return errExactWorkbookUnsupported
+				}
+				references[ref.ID] = target
+			}
+		}
+	}
+	decoder := xml.NewDecoder(bytes.NewReader(parts["word/document.xml"]))
+	objects := map[string]int{}
+	for {
+		token, err := decoder.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return errExactWorkbookUnsupported
+		}
+		start, ok := token.(xml.StartElement)
+		if !ok || start.Name.Local != "OLEObject" {
+			continue
+		}
+		progID, kind, id := "", "", ""
+		for _, attr := range start.Attr {
+			switch attr.Name.Local {
+			case "ProgID":
+				progID = attr.Value
+			case "Type":
+				kind = attr.Value
+			case "id":
+				if attr.Name.Space == "http://schemas.openxmlformats.org/officeDocument/2006/relationships" {
+					id = attr.Value
+				}
+			}
+		}
+		if progID != "Excel.Sheet.12" || kind != "Embed" || references[id] == "" {
+			return errExactWorkbookUnsupported
+		}
+		objects[references[id]]++
+	}
+	for name := range packages {
+		if objects[name] != 1 {
+			return errExactWorkbookUnsupported
+		}
+	}
+	return nil
 }
 
 func exactEmbeddedWorkbooksEnabled() bool {
@@ -240,7 +344,7 @@ func parseExactEmbeddedWorkbook(name string, data []byte, ordinal int) (*exactEm
 	if err != nil {
 		return nil, errExactWorkbookUnsupported
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	// The six approved fixtures have one worksheet. Reject other layouts
 	// until worksheet relationship mapping and complete coverage are proved.
 	sheets := file.GetSheetList()

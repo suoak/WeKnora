@@ -31,7 +31,8 @@ func (s *knowledgeService) ValidateKnowledgeReparse(ctx context.Context, id stri
 	}
 	caller := types.CallerFromContext(ctx)
 	principal, valid := ctx.Value(types.PrincipalContextKey).(types.Principal)
-	if !valid || principal.Type != types.PrincipalWebUser || principal.ID == "" || principal.ID != caller.UserID {
+	if !valid || principal.Type != types.PrincipalWebUser ||
+		principal.ID == "" || principal.ID != caller.UserID {
 		return apperrors.NewForbiddenError("Document operation denied")
 	}
 	kb, err := p.loadAuthorizationKB(ctx, row.KnowledgeBaseID)

@@ -6,6 +6,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
+// PersonalReparseMetadata contains identity fields, never document content.
 type PersonalReparseMetadata struct {
 	ID, KnowledgeBaseID string
 	TenantID            uint64

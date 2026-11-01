@@ -477,8 +477,11 @@ async function onRetry() {
     selectedSpanId.value = null
     autoSelectPending.value = true
     await fetchSpans()
-  } catch {
-    // ignore
+  } catch (error: unknown) {
+    const message = error && typeof error === 'object' && 'message' in error
+      ? String(error.message)
+      : t('knowledgeBase.rebuildFailed')
+    MessagePlugin.error(message)
   }
 }
 

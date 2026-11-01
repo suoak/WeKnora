@@ -15,7 +15,7 @@ import (
 
 func TestExactWorkbookCellGridPreservesCoordinatesAndRows(t *testing.T) {
 	file := excelize.NewFile()
-	defer file.Close()
+	defer func() { require.NoError(t, file.Close()) }()
 	for cell, value := range map[string]string{
 		"A1": "Name", "C1": "Value", "A2": "first", "C2": "1|2\n3", "A4": "last",
 	} {
@@ -39,7 +39,7 @@ func TestExactWorkbookCellGridPreservesCoordinatesAndRows(t *testing.T) {
 
 func TestExactWorkbookRejectsUnprovedDependencies(t *testing.T) {
 	file := excelize.NewFile()
-	defer file.Close()
+	defer func() { require.NoError(t, file.Close()) }()
 	require.NoError(t, file.SetCellFormula("Sheet1", "A1", "1+1"))
 	buffer, err := file.WriteToBuffer()
 	require.NoError(t, err)

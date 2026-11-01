@@ -4311,8 +4311,39 @@ func (s *knowledgeService) processDocument(ctx context.Context, t *asynq.Task) e
 
 	// Step 2: Store images and update markdown references
 	var storedImages []docparser.StoredImage
+	consumer, exactConsumer := exactPersonalConsumerFrom(ctx)
+	exactSegments := exactConsumer && consumer.parsed != nil && len(consumer.parsed.segments) > 0
+	if exactSegments {
+		// The closed-package resolver permits only checked embedded bytes and
+		// translates all semantic spans together with image substitutions.
+		// No HTML/table rewrite or remote fetch may alter the proved grid.
+		if err := validateParserDefinedContentUnchanged(true,
+			preservedCanonicalContent, convertResult.MarkdownContent); err != nil {
+			return err
+		}
+		if _, err := consumer.recovery.revalidateExactPersonalDocument(ctx, consumer.source); err != nil {
+			return err
+		}
+		var imageErr error
+		storedImages, imageErr = docparser.ResolveCandidateImages(
+			ctx, convertResult, s.resolveFileService(ctx, kb), consumer.source.tenant,
+		)
+		if imageErr != nil {
+			return imageErr
+		}
+		if _, err := consumer.recovery.revalidateExactPersonalDocument(ctx, consumer.source); err != nil {
+			return err
+		}
+		parserSegments, segmented, parserChunkErr = materializeParserDefinedSegments(
+			convertResult, eff.ChunkingConfig.ParserSemanticChunkMaxChars,
+		)
+		if parserChunkErr != nil || !segmented {
+			return errors.Join(errPersonalExactDocument, parserChunkErr)
+		}
+		preservedCanonicalContent = convertResult.MarkdownContent
+	}
 
-	if s.imageResolver != nil && convertResult != nil {
+	if s.imageResolver != nil && convertResult != nil && !exactSegments {
 		fileSvc := s.resolveFileService(ctx, kb)
 		tenantID, _ := ctx.Value(types.TenantIDContextKey).(uint64)
 		updatedMarkdown, images, resolveErr := s.imageResolver.ResolveAndStore(
@@ -4352,7 +4383,13 @@ func (s *knowledgeService) processDocument(ctx context.Context, t *asynq.Task) e
 	// Claim the stored images for this document before chunking proceeds:
 	// the file proxies authorize images through resource bindings, and an
 	// unbound extracted image renders broken for org-shared KB viewers.
-	s.bindStoredImages(ctx, knowledge, storedImages)
+	if exactSegments {
+		if err := s.bindExactStoredImages(ctx, consumer, storedImages); err != nil {
+			return err
+		}
+	} else {
+		s.bindStoredImages(ctx, knowledge, storedImages)
+	}
 
 	var sourceIndex *sourceloc.Index
 	if convertResult != nil {

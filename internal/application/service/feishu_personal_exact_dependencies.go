@@ -43,7 +43,8 @@ func checkExactDOCXGraph(data []byte, packages map[string][]byte) error {
 		}
 		expanded += entry.UncompressedSize64
 		if strings.HasPrefix(name, "word/embeddings/") {
-			if packages == nil || !strings.HasSuffix(name, ".xlsx") || len(packages) >= 4 || entry.UncompressedSize64 > 8<<20 {
+			if packages == nil || !strings.HasSuffix(name, ".xlsx") ||
+				len(packages) >= 4 || entry.UncompressedSize64 > 8<<20 {
 				return errPersonalExactDocument
 			}
 			reader, err := entry.Open()
@@ -100,7 +101,8 @@ func checkExactDOCXGraph(data []byte, packages map[string][]byte) error {
 			}
 			if strings.HasSuffix(relationship.Type, "/package") {
 				if packages == nil || name != "word/_rels/document.xml.rels" ||
-					relationship.Type != "http://schemas.openxmlformats.org/officeDocument/2006/relationships/package" ||
+					relationship.Type !=
+						"http://schemas.openxmlformats.org/officeDocument/2006/relationships/package" ||
 					!strings.HasPrefix(resolved, "word/embeddings/") || !strings.HasSuffix(resolved, ".xlsx") {
 					return errPersonalExactDocument
 				}
