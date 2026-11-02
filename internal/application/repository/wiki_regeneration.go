@@ -28,6 +28,7 @@ type WikiRegenerationPlan struct {
 
 const wikiRegenerationArchiveScope = "wiki_regeneration_archive"
 
+// WikiRegenerationRequiredMessage identifies a retained, indexed document whose Wiki inputs need regeneration.
 const WikiRegenerationRequiredMessage = "Wiki post-processing requires verified source regeneration; " +
 	"parsed indexes are retained"
 
