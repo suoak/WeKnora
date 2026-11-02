@@ -28,7 +28,8 @@ type WikiRegenerationPlan struct {
 
 const wikiRegenerationArchiveScope = "wiki_regeneration_archive"
 
-const WikiRegenerationRequiredMessage = "Wiki post-processing requires verified source regeneration; parsed indexes are retained"
+const WikiRegenerationRequiredMessage = "Wiki post-processing requires verified source regeneration; " +
+	"parsed indexes are retained"
 
 // PrepareWikiRegeneration previews or atomically isolates historical pages and
 // queues regeneration from current verified inputs. Callers must hold wikilock
