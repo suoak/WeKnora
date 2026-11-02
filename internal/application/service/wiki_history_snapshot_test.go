@@ -127,7 +127,8 @@ func TestWikiHistoryRegenerationResumesOnlyUnclaimedWikiSlots(t *testing.T) {
 			case "claim":
 				require.NoError(t, db.Model(&types.TaskPendingOp{}).Where("id=?", old.ID).Update("claimed_at", time.Now()).Error)
 			case "other_subtask":
-				require.NoError(t, db.Model(&types.Knowledge{}).Where("id='public-two-doc'").Update("pending_subtasks_count", 2).Error)
+				require.NoError(t, db.Model(&types.Knowledge{}).Where("id='public-two-doc'").
+					Update("pending_subtasks_count", 2).Error)
 			case "changed_input":
 				require.NoError(t, db.Exec("UPDATE chunks SET content='changed' WHERE knowledge_id='public-two-doc'").Error)
 			case "disabled_source":
