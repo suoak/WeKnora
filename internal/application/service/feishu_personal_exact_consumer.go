@@ -260,7 +260,8 @@ func (p *PersonalRecovery) exactRecoveryDeferred(ctx context.Context,
 ) (bool, error) {
 	if !p.firstCreateOnly || !exactPersonalRecoveryEnabled() || imported == nil || attempt == nil ||
 		imported.AuthMode != types.FeishuUserOAuth || imported.KnowledgeID == "" ||
-		imported.KnowledgeID != attempt.LogicalKnowledgeID || p.exactPersonalRecoveryAllowed(ctx, imported.KnowledgeID) {
+		imported.KnowledgeID != attempt.LogicalKnowledgeID ||
+		p.exactPersonalRecoveryAllowed(ctx, imported.KnowledgeID) {
 		return false, nil
 	}
 	var held bool

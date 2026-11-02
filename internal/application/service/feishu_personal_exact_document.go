@@ -104,7 +104,8 @@ func (p *PersonalRecovery) checkExactPersonalSource(
 				"elapsed_ms": time.Since(started).Milliseconds(), "outcome": outcome,
 			}), "Personal exact published source timing")
 		}
-		if preflight && refusal != nil && owner != nil && p.exactPersonalRecoveryAllowed(ctx, owner.LogicalKnowledgeID) {
+		if preflight && refusal != nil && owner != nil &&
+			p.exactPersonalRecoveryAllowed(ctx, owner.LogicalKnowledgeID) {
 			logExactPersonalPreflightRefusal(ctx, owner, stage, permissionBits, refusal)
 		}
 	}()

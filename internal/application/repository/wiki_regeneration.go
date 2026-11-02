@@ -81,7 +81,7 @@ func PrepareWikiRegeneration(
 			err := tx.Table("knowledges").Select("deleted_at").
 				Where("id=? AND tenant_id=? AND knowledge_base_id=?", op.DedupKey, tenant, kb).Take(&target).Error
 			if err != nil || (target.DeletedAt == nil && pendingByDocument[op.DedupKey] != 1) {
-				return errors.New("Wiki retraction has no verified deleted or replacement document")
+				return errors.New("wiki retraction has no verified deleted or replacement document")
 			}
 		}
 		var docs []types.Knowledge
@@ -166,7 +166,8 @@ func PrepareWikiRegeneration(
 				return err
 			}
 			if err := tx.Create(&types.TaskDeadLetter{
-				TenantID: tenant, TaskType: "wiki:regeneration_archive", Scope: wikiRegenerationArchiveScope, ScopeID: kb,
+				TenantID: tenant, TaskType: "wiki:regeneration_archive",
+				Scope: wikiRegenerationArchiveScope, ScopeID: kb,
 				RelatedID: op.DedupKey, Payload: payload, FailCount: op.FailCount,
 				LastError: "superseded by verified Wiki regeneration " + batch, FailedAt: now,
 			}).Error; err != nil {

@@ -110,15 +110,18 @@ func TestWikiHistoryRegenerationResumesOnlyUnclaimedWikiSlots(t *testing.T) {
 			f := wikiPendingRegenerationFixture(t)
 			f.PreparePublished(t)
 			db, ctx := f.DB, context.Background()
-			require.NoError(t, db.AutoMigrate(&types.TaskPendingOp{}, &types.TaskDeadLetter{}, &types.KnowledgeProcessingSpan{}))
+			require.NoError(t, db.AutoMigrate(
+				&types.TaskPendingOp{}, &types.TaskDeadLetter{}, &types.KnowledgeProcessingSpan{}))
 			require.NoError(t, db.Model(&types.KnowledgeBase{}).Where("id='public-two'").
 				Update("indexing_strategy", types.IndexingStrategy{WikiEnabled: true}).Error)
 			require.NoError(t, db.Model(&types.Knowledge{}).Where("id='public-two-doc'").Updates(map[string]any{
 				"parse_status": "finalizing", "summary_status": "completed", "pending_subtasks_count": 1,
 			}).Error)
-			old := types.TaskPendingOp{TenantID: 1, TaskType: "wiki:ingest", Scope: "knowledge_base",
+			old := types.TaskPendingOp{
+				TenantID: 1, TaskType: "wiki:ingest", Scope: "knowledge_base",
 				ScopeID: "public-two", DedupKey: "public-two-doc", Op: "ingest",
-				Payload: json.RawMessage(`{"doc_summary":"UNVERIFIED_QUEUED_TEXT"}`)}
+				Payload: json.RawMessage(`{"doc_summary":"UNVERIFIED_QUEUED_TEXT"}`),
+			}
 			require.NoError(t, db.Create(&old).Error)
 			if change == "deleted_retract" || change == "foreign_retract" {
 				id := "public-one-doc"
@@ -149,14 +152,17 @@ func TestWikiHistoryRegenerationResumesOnlyUnclaimedWikiSlots(t *testing.T) {
 			require.Equal(t, 1, plan.ResumedPending)
 			switch change {
 			case "claim":
-				require.NoError(t, db.Model(&types.TaskPendingOp{}).Where("id=?", old.ID).Update("claimed_at", time.Now()).Error)
+				require.NoError(t, db.Model(&types.TaskPendingOp{}).Where("id=?", old.ID).
+					Update("claimed_at", time.Now()).Error)
 			case "other_subtask":
 				require.NoError(t, db.Model(&types.Knowledge{}).Where("id='public-two-doc'").
 					Update("pending_subtasks_count", 2).Error)
 			case "changed_input":
-				require.NoError(t, db.Exec("UPDATE chunks SET content='changed' WHERE knowledge_id='public-two-doc'").Error)
+				require.NoError(t, db.Exec(
+					"UPDATE chunks SET content='changed' WHERE knowledge_id='public-two-doc'").Error)
 			case "disabled_source":
-				require.NoError(t, db.Exec("UPDATE knowledges SET enable_status='disabled' WHERE id='public-two-doc'").Error)
+				require.NoError(t, db.Exec(
+					"UPDATE knowledges SET enable_status='disabled' WHERE id='public-two-doc'").Error)
 			}
 			applied, err := repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", plan.Snapshot, true, true)
 			var count int64
