@@ -315,6 +315,29 @@ func syncServiceSuite(t *testing.T, dialect string) {
 		require.Equal(t, types.SyncLogStatusSuccess, stored.Status)
 		require.False(t, stored.ExecutionClaimed)
 	})
+	t.Run("canceled_approved_delivery_never_reclaims_or_reenters_connector", func(t *testing.T) {
+		svc, ds, _, connector := makeSvc()
+		log, err := svc.ManualSync(context.Background(), ds.ID)
+		require.NoError(t, err)
+		require.NoError(t, logs.CancelPendingByDataSource(context.Background(), ds.ID))
+		before, err := logs.FindByID(context.Background(), log.ID)
+		require.NoError(t, err)
+		require.Equal(t, types.SyncLogStatusCanceled, before.Status)
+		payload, err := json.Marshal(types.DataSourceSyncPayload{
+			DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: 1,
+			ReconciliationPolicyID: "expired-policy-must-not-be-restored", ForceFull: true,
+		})
+		require.NoError(t, err)
+		task := asynq.NewTask(types.TypeDataSourceSync, payload)
+		require.NoError(t, svc.ProcessSync(context.Background(), task))
+		require.NoError(t, svc.ProcessSync(context.Background(), task))
+		require.Zero(t, connector.calls.Load())
+		after, err := logs.FindByID(context.Background(), log.ID)
+		require.NoError(t, err)
+		require.Equal(t, before.Status, after.Status)
+		require.Equal(t, before.ExecutionGeneration, after.ExecutionGeneration)
+		require.False(t, after.ExecutionClaimed)
+	})
 	t.Run("manual_and_live_scheduler", func(t *testing.T) {
 		svc, ds, queue, _ := makeSvc()
 		ds.SyncSchedule = "* * * * * *"

@@ -43,6 +43,12 @@ def validate(envelope, original, args, now_ms=None):
             (terminal_count == 0 and terminal_hash) or
             (terminal_count > 0 and not re.fullmatch(r"[a-f0-9]{64}", terminal_hash))):
         raise ValueError("terminal archive proof invalid")
+    pending_count = p.get("terminal_pending_count", 0)
+    pending_hash = p.get("terminal_pending_sha256", "")
+    if (not isinstance(pending_count, int) or not 0 <= pending_count <= 64 or
+            (pending_count == 0 and pending_hash) or
+            (pending_count > 0 and not re.fullmatch(r"[a-f0-9]{64}", pending_hash))):
+        raise ValueError("terminal pending delivery proof invalid")
     ids = [s["source_id"] for s in entries]
     reconcile = getattr(args, "reconcile_source", [])
     if (len(ids) > 64 or (not ids and not args.revoke_only) or ids != sorted(set(ids)) or

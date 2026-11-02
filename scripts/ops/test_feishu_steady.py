@@ -33,6 +33,17 @@ class SteadyPlanTests(unittest.TestCase):
         self.assertEqual(tool.validate(self.envelope, self.original, self.args)["managed_sources"][0]
                          ["authority"]["tenant_id"], 2)
 
+    def test_pending_terminal_proof_is_bounded_and_digest_bound(self):
+        item = copy.deepcopy(self.envelope)
+        item["plan"].update(terminal_pending_count=2, terminal_pending_sha256="a" * 64)
+        item["plan_sha256"] = tool.recovery.digest(item["plan"])
+        self.assertEqual(tool.validate(item, self.original, self.args)["terminal_pending_count"], 2)
+        for count, digest in [(65, "a" * 64), (1, ""), (0, "a" * 64), (1, "not-a-digest")]:
+            item["plan"].update(terminal_pending_count=count, terminal_pending_sha256=digest)
+            item["plan_sha256"] = tool.recovery.digest(item["plan"])
+            with self.assertRaises(ValueError):
+                tool.validate(item, self.original, self.args)
+
     def test_actor_private_scope_and_windows_cannot_silently_change(self):
         mutations = [lambda p: p.update(actor_id="other"),
                      lambda p: p.update(incarnation=self.original["plan"]["incarnation"]),

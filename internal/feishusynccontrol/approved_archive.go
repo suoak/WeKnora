@@ -11,6 +11,7 @@ import (
 
 type approvedArchiveProof struct {
 	ids      []string
+	pending  []string
 	messages map[string]string
 }
 
@@ -20,6 +21,18 @@ func (p *approvedArchiveProof) digest() string {
 	}
 	var rows [][2]string
 	for _, id := range p.ids {
+		rows = append(rows, [2]string{id, digestBytes(p.messages[id])})
+	}
+	hash, _ := RecoveryDigest(rows)
+	return hash
+}
+
+func (p *approvedArchiveProof) pendingDigest() string {
+	if p == nil || len(p.pending) == 0 {
+		return ""
+	}
+	var rows [][2]string
+	for _, id := range p.pending {
 		rows = append(rows, [2]string{id, digestBytes(p.messages[id])})
 	}
 	hash, _ := RecoveryDigest(rows)
@@ -37,30 +50,40 @@ func (m *RecoveryManager) ConfigureArchivedTerminal(
 // All SQL work occurs outside the controller mutex so database latency cannot
 // prevent permit renewal. The immutable terminal decisions are bound to exact
 // Redis messages, rechecked and WATCHed at policy activation; nothing is deleted
-// or replayed. Live retries/scheduled/active tasks still prevent replacement.
+// or replayed. Separately signed pending-terminal proof permits only normal
+// acknowledgment of immutable SQL terminal deliveries, without Claim or fetch.
+// Live retries/scheduled/active tasks still prevent replacement.
 func (m *RecoveryManager) prepareApprovedArchive(ctx context.Context) (*approvedArchiveProof, error) {
 	base := "asynq:{" + ApprovedSyncQueue + "}:"
 	ids, err := m.controller.Client.ZRange(ctx, base+"archived", 0, -1).Result()
 	if err != nil || len(ids) > 1000 {
 		return nil, ErrRecoveryRejected
 	}
-	proof := &approvedArchiveProof{ids: ids, messages: map[string]string{}}
-	if len(ids) == 0 {
+	pending, err := m.controller.Client.LRange(ctx, base+"pending", 0, -1).Result()
+	if err != nil || len(pending) > 64 {
+		return nil, ErrRecoveryRejected
+	}
+	proof := &approvedArchiveProof{ids: ids, pending: pending, messages: map[string]string{}}
+	if len(ids)+len(pending) == 0 {
 		return proof, nil
 	}
 	if m.archivedTerminal == nil {
 		return nil, ErrRecoveryRejected
 	}
 	inspector := asynq.NewInspectorFromRedisClient(m.controller.Client)
-	payloads := make([]types.DataSourceSyncPayload, 0, len(ids))
-	for _, id := range ids {
+	payloads := make([]types.DataSourceSyncPayload, 0, len(ids)+len(pending))
+	for i, id := range append(append([]string(nil), ids...), pending...) {
 		key := base + "t:" + id
 		before, err := m.controller.Client.HGet(ctx, key, "msg").Result()
-		if err != nil {
+		if err != nil || proof.messages[id] != "" {
 			return nil, ErrRecoveryRejected
 		}
 		info, err := inspector.GetTaskInfo(ApprovedSyncQueue, id)
-		if err != nil || info.Type != types.TypeDataSourceSync || info.State != asynq.TaskStateArchived {
+		expectedState := asynq.TaskStateArchived
+		if i >= len(ids) {
+			expectedState = asynq.TaskStatePending
+		}
+		if err != nil || info.Type != types.TypeDataSourceSync || info.State != expectedState {
 			return nil, ErrRecoveryRejected
 		}
 		after, err := m.controller.Client.HGet(ctx, key, "msg").Result()
@@ -87,11 +110,12 @@ func (m *RecoveryManager) approvedQueueQuiescent(ctx context.Context, proof *app
 		return ErrRecoveryRejected
 	}
 	base := "asynq:{" + ApprovedSyncQueue + "}:"
-	for _, name := range []string{"pending", "active"} {
-		n, err := m.controller.Client.LLen(ctx, base+name).Result()
-		if err != nil || n != 0 {
-			return ErrRecoveryRejected
-		}
+	if n, err := m.controller.Client.LLen(ctx, base+"active").Result(); err != nil || n != 0 {
+		return ErrRecoveryRejected
+	}
+	pending, err := m.controller.Client.LRange(ctx, base+"pending", 0, -1).Result()
+	if err != nil || !slices.Equal(pending, proof.pending) {
+		return ErrRecoveryRejected
 	}
 	for _, name := range []string{"retry", "scheduled"} {
 		n, err := m.controller.Client.ZCard(ctx, base+name).Result()
@@ -103,7 +127,7 @@ func (m *RecoveryManager) approvedQueueQuiescent(ctx context.Context, proof *app
 	if err != nil || !slices.Equal(ids, proof.ids) {
 		return ErrRecoveryRejected
 	}
-	for _, id := range ids {
+	for _, id := range append(append([]string(nil), ids...), pending...) {
 		msg, err := m.controller.Client.HGet(ctx, base+"t:"+id, "msg").Result()
 		if err != nil || msg != proof.messages[id] {
 			return ErrRecoveryRejected

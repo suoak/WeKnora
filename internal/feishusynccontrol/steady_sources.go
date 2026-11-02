@@ -40,6 +40,8 @@ type SteadyPlan struct {
 	ManagedSources        []SteadySource `json:"managed_sources"`
 	TerminalArchivedCount int            `json:"terminal_archived_count,omitempty"`
 	TerminalArchiveSHA256 string         `json:"terminal_archive_sha256,omitempty"`
+	TerminalPendingCount  int            `json:"terminal_pending_count,omitempty"`
+	TerminalPendingSHA256 string         `json:"terminal_pending_sha256,omitempty"`
 }
 
 // SteadyCertificate retains the exact signed policy for every subsequent check.
@@ -264,6 +266,8 @@ func (m *RecoveryManager) planSteady(
 	if !revokeOnly && archive != nil {
 		p.TerminalArchivedCount = len(archive.ids)
 		p.TerminalArchiveSHA256 = archive.digest()
+		p.TerminalPendingCount = len(archive.pending)
+		p.TerminalPendingSHA256 = archive.pendingDigest()
 	}
 	if revokeOnly {
 		p.AuthorizationUntilMS = s.Steady.Plan.AuthorizationUntilMS
@@ -312,6 +316,9 @@ func (m *RecoveryManager) verifySteady(cert SteadyCertificate, now int64, consum
 		p.TerminalArchivedCount < 0 || p.TerminalArchivedCount > 1000 ||
 		(p.TerminalArchivedCount == 0 && p.TerminalArchiveSHA256 != "") ||
 		(p.TerminalArchivedCount > 0 && !recoverySHA.MatchString(p.TerminalArchiveSHA256)) ||
+		p.TerminalPendingCount < 0 || p.TerminalPendingCount > 64 ||
+		(p.TerminalPendingCount == 0 && p.TerminalPendingSHA256 != "") ||
+		(p.TerminalPendingCount > 0 && !recoverySHA.MatchString(p.TerminalPendingSHA256)) ||
 		len(p.ManagedSources) > maxSteadySources || len(p.ManagedSources) != len(p.Sources) ||
 		p.ActorID == "" || p.CreatedMS > now+5000 || p.ExpiresMS <= p.CreatedMS ||
 		p.ExpiresMS-p.CreatedMS > int64(15*time.Minute/time.Millisecond) ||
@@ -448,7 +455,8 @@ func (m *RecoveryManager) ActivateSteady(ctx context.Context, p SteadyPlan, a Re
 	if !p.RevocationOnly {
 		archive, err = m.prepareApprovedArchive(ctx)
 		if err != nil || archive == nil || len(archive.ids) != p.TerminalArchivedCount ||
-			archive.digest() != p.TerminalArchiveSHA256 {
+			archive.digest() != p.TerminalArchiveSHA256 || len(archive.pending) != p.TerminalPendingCount ||
+			archive.pendingDigest() != p.TerminalPendingSHA256 {
 			return ErrRecoveryRejected
 		}
 	}
@@ -536,7 +544,7 @@ func (m *RecoveryManager) ActivateSteady(ctx context.Context, p SteadyPlan, a Re
 		keys = append(keys, "asynq:{sync}:t:"+id)
 	}
 	if archive != nil {
-		for _, id := range archive.ids {
+		for _, id := range append(append([]string(nil), archive.ids...), archive.pending...) {
 			keys = append(keys, "asynq:{"+ApprovedSyncQueue+"}:t:"+id)
 		}
 	}
