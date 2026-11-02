@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
@@ -72,7 +74,9 @@ func exactPreflightRemote(t *testing.T, f *personalRecoveryFixture, revision str
 }
 
 func TestPersonalRecoveryExactPreflightPreservesPending(t *testing.T) {
-	for _, change := range []string{"valid", "acl", "revision", "manifest", "hash", "binding", "grant", "generation"} {
+	for _, change := range []string{
+		"valid", "acl", "revision", "manifest", "hash", "binding", "grant", "generation", "unsupported_format",
+	} {
 		t.Run(change, func(t *testing.T) {
 			f, a, intent := pendingExactFixture(t)
 			switch change {
@@ -90,6 +94,19 @@ func TestPersonalRecoveryExactPreflightPreservesPending(t *testing.T) {
 				require.NoError(t, f.db.Exec("UPDATE feishu_personal_grant_epochs SET epoch='revoked'").Error)
 			case "generation":
 				require.NoError(t, f.db.Exec("UPDATE feishu_personal_resources SET generation=generation+1").Error)
+			case "unsupported_format":
+				manifest, err := f.p.store.read(a)
+				require.NoError(t, err)
+				manifest.Name = "unsupported.xlsx"
+				data, err := json.Marshal(manifest)
+				require.NoError(t, err)
+				directory, err := f.p.store.path(a.ManifestKey)
+				require.NoError(t, err)
+				require.NoError(t, os.WriteFile(filepath.Join(directory, "manifest.json"), data, 0o600))
+				require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET manifest_name=?", manifest.Name).Error)
+				require.NoError(t, f.db.Exec("UPDATE knowledges SET file_name=?", manifest.Name).Error)
+				intent.Task.FileName = manifest.Name
+				intent.Task.FileType = "xlsx"
 			}
 			before := exactPendingSnapshot(t, f, a.ID)
 			ready, err := f.p.firstCreateDispatchable(context.Background(), intent)
