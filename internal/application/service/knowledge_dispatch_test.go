@@ -90,6 +90,15 @@ func (q *dispatchQueue) snapshot() []*asynq.Task {
 	return append([]*asynq.Task(nil), q.tasks...)
 }
 
+type deadlinePersonalReconciler struct {
+	personalDispatchRunner
+	reconcile func(context.Context) error
+}
+
+func (r *deadlinePersonalReconciler) Reconcile(ctx context.Context) error {
+	return r.reconcile(ctx)
+}
+
 func TestFeishuDispatchSQLite(t *testing.T)   { feishuDispatchSuite(t, "sqlite") }
 func TestFeishuDispatchPostgres(t *testing.T) { feishuDispatchSuite(t, "postgres") }
 
@@ -172,6 +181,31 @@ func feishuDispatchSuite(t *testing.T, dialect string) {
 		op, err = r.GetKnowledgeDispatch(ctx, 1, k.ID)
 		require.NoError(t, err)
 		require.Equal(t, "completed", op.Op)
+	})
+
+	t.Run("unrelated_personal_maintenance_cannot_starve_committed_dispatch", func(t *testing.T) {
+		s, repo, q, fs, k := fixture()
+		q.setDown(true)
+		_, err := s.acceptFeishuKnowledgeDispatch(ctx, k, fs, nil)
+		require.Error(t, err)
+		q.setDown(false)
+		work, cancel := context.WithCancel(ctx)
+		defer cancel()
+		called := false
+		s.personalRecovery = &deadlinePersonalReconciler{reconcile: func(context.Context) error {
+			called = true
+			assertQueued(q, k.ID)
+			op, loadErr := repo.GetKnowledgeDispatch(ctx, k.TenantID, k.ID)
+			require.NoError(t, loadErr)
+			require.Equal(t, "dispatched", op.Op)
+			cancel()
+			return context.DeadlineExceeded
+		}}
+		require.ErrorIs(t, s.RecoverKnowledgeDispatches(work), context.DeadlineExceeded)
+		require.True(t, called)
+		require.Equal(t, 1, len(q.snapshot()))
+		require.Zero(t, fs.deleteCalls)
+		count(k.ID)
 	})
 	t.Run("enqueue_success_ack_failure_replay", func(t *testing.T) {
 		s, r, q, fs, k := fixture()

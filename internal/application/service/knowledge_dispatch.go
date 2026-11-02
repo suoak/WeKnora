@@ -383,20 +383,21 @@ func (s *knowledgeService) ResumeKnowledgeDispatch(ctx context.Context, k *types
 	return s.publishKnowledgeDispatch(ctx, op)
 }
 
-func (s *knowledgeService) RecoverKnowledgeDispatches(ctx context.Context) error {
-	var personalErr error
-	if s.personalRecovery != nil {
-		personalErr = s.personalRecovery.Reconcile(ctx)
-	}
+func (s *knowledgeService) RecoverKnowledgeDispatches(ctx context.Context) (result error) {
+	// Publish already committed intents before maintenance of unrelated imports
+	// can consume the scan deadline. Each personal intent still performs its own
+	// live source preflight; delivery and publication retain their Claim fences.
+	defer func() {
+		if s.personalRecovery != nil && ctx.Err() == nil {
+			result = errors.Join(result, s.personalRecovery.Reconcile(ctx))
+		}
+	}()
 	repo, ok := s.repo.(interfaces.KnowledgeDispatchRepository)
 	if !ok {
 		return ErrFeishuDispatchUnconfirmed
 	}
 	var after int64
 	var failures []error
-	if personalErr != nil {
-		failures = append(failures, personalErr)
-	}
 	scanned, recovered, pending, maxRetries := 0, 0, 0, 0
 	var oldest time.Time
 	defer func() {
