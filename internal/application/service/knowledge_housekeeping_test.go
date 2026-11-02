@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/config"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
@@ -220,6 +221,26 @@ func TestHousekeeping_RecoversAbandoned(t *testing.T) {
 	).Row().Scan(&status, &errMsg))
 	assert.Equal(t, types.ParseStatusFailed, status)
 	assert.Contains(t, errMsg, "stuck in processing")
+}
+
+func TestHousekeeping_ProvenanceRefusalRetainsParsedDocumentAndWikiOperation(t *testing.T) {
+	db := setupHousekeepingDB(t)
+	svc := newHousekeepingSvcForTest(db)
+	svc.cfg.PersonalMCP = &config.PersonalMCPConfig{Enabled: true}
+	stale := time.Now().Add(-72 * time.Hour)
+	insertKnowledge(t, db, "indexed-document", types.ParseStatusFinalizing, stale)
+	require.NoError(t, db.Exec(`UPDATE knowledges SET knowledge_base_id='kb',
+pending_subtasks_count=1 WHERE id='indexed-document'`).Error)
+	insertWikiPendingOp(t, db, "kb", "indexed-document")
+	// No provenance epoch fixture is installed: generation must fail closed,
+	// but that refusal must not erase an unrelated successful parser result.
+	svc.runSweep(context.Background())
+	status, message := readKnowledgeStatus(t, db, "indexed-document")
+	require.Equal(t, types.ParseStatusFinalizing, status)
+	require.Equal(t, repository.WikiRegenerationRequiredMessage, message)
+	var count int64
+	require.NoError(t, db.Model(&types.TaskPendingOp{}).Count(&count).Error)
+	require.EqualValues(t, 1, count)
 }
 
 func TestHousekeeping_RestrictedDocumentCannotAbortOtherKnowledgeBases(t *testing.T) {

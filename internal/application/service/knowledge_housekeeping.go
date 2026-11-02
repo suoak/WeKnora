@@ -221,6 +221,38 @@ WHERE scope=? AND scope_id=?)`, types.KnowledgeDispatchScope, row.ID).Scan(&pers
 	// trigger, but a consumer that fails before claiming anything never
 	// consumes the op, and the row would sit in "finalizing" forever.
 	wikiHeld, wikiExpired := splitExpiredWikiHolds(wikiHeld, heartbeat, time.Now().Add(-wikiHoldLimit))
+	if h.cfg != nil && h.cfg.PersonalMCP != nil && h.cfg.PersonalMCP.Enabled {
+		// Expiring a generation-proof refusal is not evidence of a failed
+		// parser. Keep indexed source documents and durable Wiki operations
+		// intact for reviewed regeneration, rather than deleting their lane.
+		proofErrors := map[string]error{}
+		var genuinelyExpired []types.Knowledge
+		for _, k := range wikiExpired {
+			err, checked := proofErrors[k.KnowledgeBaseID]
+			if !checked {
+				_, err = apprepo.BeginWikiMCPGeneration(ctx, apprepo.NewWikiPageRepository(h.db), k.KnowledgeBaseID)
+				proofErrors[k.KnowledgeBaseID] = err
+			}
+			if err != nil {
+				logger.Warnf(ctx,
+					"[Housekeeping] Wiki provenance recovery required for %s; durable operation retained", k.ID)
+				// Error text is an operational status only, never source content
+				// or an execution grant. CAS protects an already-finished row.
+				res := h.db.WithContext(ctx).Model(&types.Knowledge{}).
+					Where("id=? AND parse_status=? AND updated_at=? AND pending_subtasks_count=1",
+						k.ID, types.ParseStatusFinalizing, k.UpdatedAt).
+					Where("error_message='' OR error_message IS NULL").
+					UpdateColumn("error_message", apprepo.WikiRegenerationRequiredMessage)
+				if res.Error != nil {
+					logger.Warnf(ctx, "[Housekeeping] failed to record Wiki block for %s: %v", k.ID, res.Error)
+				}
+				continue
+			}
+			genuinelyExpired = append(genuinelyExpired, k)
+		}
+		queueSkipped -= len(wikiExpired) - len(genuinelyExpired)
+		wikiExpired = genuinelyExpired
+	}
 	queueSkipped -= len(wikiExpired)
 	stuck = append(stuck, wikiExpired...)
 	h.rearmWikiTriggers(ctx, wikiHeld, threshold)

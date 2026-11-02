@@ -28,6 +28,8 @@ type WikiRegenerationPlan struct {
 
 const wikiRegenerationArchiveScope = "wiki_regeneration_archive"
 
+const WikiRegenerationRequiredMessage = "Wiki post-processing requires verified source regeneration; parsed indexes are retained"
+
 // PrepareWikiRegeneration previews or atomically isolates historical pages and
 // queues regeneration from current verified inputs. Callers must hold wikilock
 // with the same Redis configuration as the worker (or stop Lite workers).
@@ -95,7 +97,8 @@ func PrepareWikiRegeneration(
 				pendingByDocument[doc.ID] == 0
 			waitingOnlyForWiki := resume && doc.ParseStatus == types.ParseStatusFinalizing &&
 				doc.PendingSubtasksCount == 1 && doc.SummaryStatus == types.SummaryStatusCompleted &&
-				doc.ErrorMessage == "" && pendingByDocument[doc.ID] == 1
+				(doc.ErrorMessage == "" || doc.ErrorMessage == WikiRegenerationRequiredMessage) &&
+				pendingByDocument[doc.ID] == 1
 			if !completed && !waitingOnlyForWiki {
 				return errors.New("all documents must be completed without pending subtasks")
 			}
