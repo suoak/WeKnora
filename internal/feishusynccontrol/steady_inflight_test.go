@@ -39,7 +39,9 @@ func TestSteadyInflightSourceRevocationDoesNotTripOtherSources(t *testing.T) {
 					var revoked atomic.Bool
 					authority := f.m.steadyAuthority
 					facts := f.m.facts
-					f.m.steadyAuthority = func(c context.Context, source, actor string) (SourceManagementAuthority, error) {
+					f.m.steadyAuthority = func(
+						c context.Context, source, actor string,
+					) (SourceManagementAuthority, error) {
 						if source == id && deny == "authority" && revoked.Load() {
 							return SourceManagementAuthority{}, ErrRecoveryRejected
 						}
@@ -64,7 +66,7 @@ func TestSteadyInflightSourceRevocationDoesNotTripOtherSources(t *testing.T) {
 					work, cancel := context.WithTimeout(feishusafety.WithScope(work, id), 3*time.Second)
 					defer cancel()
 					started := make(chan struct{})
-					transport := feishusafety.Transport{Base: continuityRoundTripper(func(req *http.Request) (*http.Response, error) {
+					base := continuityRoundTripper(func(req *http.Request) (*http.Response, error) {
 						close(started)
 						if !headers {
 							<-req.Context().Done()
@@ -73,7 +75,8 @@ func TestSteadyInflightSourceRevocationDoesNotTripOtherSources(t *testing.T) {
 						return &http.Response{
 							StatusCode: http.StatusOK, Header: http.Header{}, Body: steadyCanceledBody{req.Context()},
 						}, nil
-					})}
+					})
+					transport := feishusafety.Transport{Base: base}
 					transport.Embedding = kind == "embedding"
 					transport.BackgroundModel = kind == "background_model"
 					req, err := http.NewRequestWithContext(work, http.MethodPost,
@@ -96,11 +99,13 @@ func TestSteadyInflightSourceRevocationDoesNotTripOtherSources(t *testing.T) {
 					revoked.Store(true)
 					select {
 					case err := <-done:
-						require.ErrorIs(t, err, feishusafety.ErrClosed, "withdrawn source response must not be accepted")
+						require.ErrorIs(t, err, feishusafety.ErrClosed,
+							"withdrawn source response must not be accepted")
 					case <-time.After(2 * time.Second):
 						t.Fatal("withdrawn source request did not drain")
 					}
-					require.Zero(t, f.r.Exists(ctx, f.c.prefix+"trip").Val(), "one withdrawn source must not latch a shared stop")
+					require.Zero(t, f.r.Exists(ctx, f.c.prefix+"trip").Val(),
+						"one withdrawn source must not latch a shared stop")
 					_, approved, err := BindApprovedSource(ctx, f.ids[1], f.facts[f.ids[1]].ConfigSHA256)
 					require.NoError(t, err)
 					require.True(t, approved)
@@ -144,7 +149,7 @@ func TestSteadyInflightUnknownAuthorityFailureStillTripsSharedGate(t *testing.T)
 				work, cancel := context.WithTimeout(feishusafety.WithScope(work, id), 3*time.Second)
 				defer cancel()
 				started := make(chan struct{})
-				transport := feishusafety.Transport{Base: continuityRoundTripper(func(req *http.Request) (*http.Response, error) {
+				base := continuityRoundTripper(func(req *http.Request) (*http.Response, error) {
 					close(started)
 					if !headers {
 						<-req.Context().Done()
@@ -153,7 +158,8 @@ func TestSteadyInflightUnknownAuthorityFailureStillTripsSharedGate(t *testing.T)
 					return &http.Response{
 						StatusCode: http.StatusOK, Header: http.Header{}, Body: steadyCanceledBody{req.Context()},
 					}, nil
-				})}
+				})
+				transport := feishusafety.Transport{Base: base}
 				req, err := http.NewRequestWithContext(work, http.MethodGet, "https://source.invalid/document", nil)
 				require.NoError(t, err)
 				done := make(chan error, 1)
