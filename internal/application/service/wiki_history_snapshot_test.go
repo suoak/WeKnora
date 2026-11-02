@@ -103,7 +103,9 @@ func TestWikiHistoryRegenerationRejectsChangedAndDeniedSources(t *testing.T) {
 }
 
 func TestWikiHistoryRegenerationResumesOnlyUnclaimedWikiSlots(t *testing.T) {
-	for _, change := range []string{"valid", "claim", "other_subtask", "changed_input", "disabled_source"} {
+	for _, change := range []string{
+		"valid", "claim", "other_subtask", "changed_input", "disabled_source", "deleted_retract", "foreign_retract",
+	} {
 		t.Run(change, func(t *testing.T) {
 			f := wikiPendingRegenerationFixture(t)
 			f.PreparePublished(t)
@@ -118,9 +120,31 @@ func TestWikiHistoryRegenerationResumesOnlyUnclaimedWikiSlots(t *testing.T) {
 				ScopeID: "public-two", DedupKey: "public-two-doc", Op: "ingest",
 				Payload: json.RawMessage(`{"doc_summary":"UNVERIFIED_QUEUED_TEXT"}`)}
 			require.NoError(t, db.Create(&old).Error)
+			if change == "deleted_retract" || change == "foreign_retract" {
+				id := "public-one-doc"
+				if change == "deleted_retract" {
+					id = "removed-document"
+					require.NoError(t, db.Create(&types.Knowledge{
+						ID: id, TenantID: 1, KnowledgeBaseID: "public-two", Channel: "web",
+						Type: "document", ParseStatus: "completed", EnableStatus: "enabled",
+						DeletedAt: gorm.DeletedAt{Time: time.Now(), Valid: true},
+					}).Error)
+				}
+				require.NoError(t, db.Create(&types.TaskPendingOp{
+					TenantID: 1, TaskType: "wiki:ingest", Scope: "knowledge_base", ScopeID: "public-two",
+					DedupKey: id, Op: "retract", Payload: json.RawMessage(`{"doc_summary":"OLD_DELETED_BODY"}`),
+				}).Error)
+			}
 			_, err := repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", "", false)
 			require.Error(t, err, "ordinary regeneration cannot consume pending operations")
 			plan, err := repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", "", false, true)
+			if change == "foreign_retract" {
+				require.Error(t, err)
+				var count int64
+				require.NoError(t, db.Model(&types.TaskDeadLetter{}).Count(&count).Error)
+				require.Zero(t, count)
+				return
+			}
 			require.NoError(t, err)
 			require.Equal(t, 1, plan.ResumedPending)
 			switch change {
@@ -136,7 +160,7 @@ func TestWikiHistoryRegenerationResumesOnlyUnclaimedWikiSlots(t *testing.T) {
 			}
 			applied, err := repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", plan.Snapshot, true, true)
 			var count int64
-			if change != "valid" {
+			if change != "valid" && change != "deleted_retract" {
 				require.Error(t, err)
 				require.NoError(t, db.Model(&types.TaskDeadLetter{}).Count(&count).Error)
 				require.Zero(t, count, "rejection must not retire any operation")
@@ -145,12 +169,20 @@ func TestWikiHistoryRegenerationResumesOnlyUnclaimedWikiSlots(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, applied.Applied)
 			var pending types.TaskPendingOp
-			require.NoError(t, db.First(&pending).Error)
+			require.NoError(t, db.Where("scope='knowledge_base'").First(&pending).Error)
 			require.NotEqual(t, old.ID, pending.ID)
 			require.NotContains(t, string(pending.Payload), "UNVERIFIED_QUEUED_TEXT")
 			var archived types.TaskDeadLetter
 			require.NoError(t, db.First(&archived).Error)
-			require.Equal(t, string(old.Payload), string(archived.Payload))
+			require.NotContains(t, string(archived.Payload), "UNVERIFIED_QUEUED_TEXT")
+			require.Equal(t, "wiki:regeneration_archive", archived.TaskType)
+			var original types.TaskPendingOp
+			require.NoError(t, db.Where("id=?", old.ID).First(&original).Error)
+			require.Equal(t, "wiki_regeneration_archive", original.Scope)
+			require.Equal(t, string(old.Payload), string(original.Payload))
+			if change == "deleted_retract" {
+				require.Equal(t, 1, applied.RetiredRetracts)
+			}
 			var doc types.Knowledge
 			require.NoError(t, db.Where("id='public-two-doc'").First(&doc).Error)
 			require.Equal(t, "finalizing", doc.ParseStatus)

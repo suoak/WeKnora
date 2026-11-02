@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,7 +23,10 @@ type WikiRegenerationPlan struct {
 	Snapshot        string `json:"snapshot"`
 	Applied         bool   `json:"applied"`
 	ResumedPending  int    `json:"resumed_pending"`
+	RetiredRetracts int    `json:"retired_retracts"`
 }
+
+const wikiRegenerationArchiveScope = "wiki_regeneration_archive"
 
 // PrepareWikiRegeneration previews or atomically isolates historical pages and
 // queues regeneration from current verified inputs. Callers must hold wikilock
@@ -58,13 +62,27 @@ func PrepareWikiRegeneration(
 			return errors.New("knowledge base has pending operations; finish or cancel them before regeneration")
 		}
 		pendingByDocument := make(map[string]int, len(pending))
+		var retracts []types.TaskPendingOp
 		for _, op := range pending {
-			// Never replace a live claim, retract, finalize or unrelated lane.
-			if op.TenantID != tenant || op.TaskType != "wiki:ingest" || op.Op != "ingest" ||
+			// Never replace a live claim, finalize or unrelated lane.
+			if op.TenantID != tenant || op.TaskType != "wiki:ingest" ||
+				(op.Op != "ingest" && op.Op != "retract") ||
 				op.ClaimedAt != nil || op.DedupKey == "" {
 				return errors.New("pending Wiki operations are not safely resumable")
 			}
-			pendingByDocument[op.DedupKey]++
+			if op.Op == "ingest" {
+				pendingByDocument[op.DedupKey]++
+			} else {
+				retracts = append(retracts, op)
+			}
+		}
+		for _, op := range retracts {
+			var target struct{ DeletedAt *time.Time }
+			err := tx.Table("knowledges").Select("deleted_at").
+				Where("id=? AND tenant_id=? AND knowledge_base_id=?", op.DedupKey, tenant, kb).Take(&target).Error
+			if err != nil || (target.DeletedAt == nil && pendingByDocument[op.DedupKey] != 1) {
+				return errors.New("Wiki retraction has no verified deleted or replacement document")
+			}
 		}
 		var docs []types.Knowledge
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
@@ -111,8 +129,8 @@ func PrepareWikiRegeneration(
 		plan = &WikiRegenerationPlan{
 			TenantID: tenant, KnowledgeBaseID: kb,
 			Documents: len(docs), HistoricalPages: len(pages),
-			ResumedPending: len(pending),
-			Snapshot:       wikiDigest([]any{anchor, proof.Sources, proof.Epochs, docs, pages, epoch, resume, pending}),
+			ResumedPending: len(pending) - len(retracts), RetiredRetracts: len(retracts),
+			Snapshot: wikiDigest([]any{anchor, proof.Sources, proof.Epochs, docs, pages, epoch, resume, pending}),
 		}
 		if !apply {
 			return nil
@@ -137,16 +155,26 @@ func PrepareWikiRegeneration(
 		batch := uuid.NewString()
 		now := time.Now()
 		for _, op := range pending {
-			// Preserve the exact old operation as evidence. Its queued text is
-			// never reused as a generation input or retrospectively certified.
+			// Keep the original row and payload in a non-consumable SQL scope.
+			// The public failure ledger receives only identity/hash evidence,
+			// never unknown historical queue text.
+			payload, err := json.Marshal(map[string]any{
+				"original_pending_id": op.ID, "original_scope": op.Scope,
+				"original_op": op.Op, "payload_sha256": fmt.Sprintf("%x", sha256.Sum256(op.Payload)), "batch": batch,
+			})
+			if err != nil {
+				return err
+			}
 			if err := tx.Create(&types.TaskDeadLetter{
-				TenantID: tenant, TaskType: op.TaskType, Scope: op.Scope, ScopeID: kb,
-				RelatedID: op.DedupKey, Payload: op.Payload, FailCount: op.FailCount,
+				TenantID: tenant, TaskType: "wiki:regeneration_archive", Scope: wikiRegenerationArchiveScope, ScopeID: kb,
+				RelatedID: op.DedupKey, Payload: payload, FailCount: op.FailCount,
 				LastError: "superseded by verified Wiki regeneration " + batch, FailedAt: now,
 			}).Error; err != nil {
 				return err
 			}
-			res := tx.Where("id=? AND claimed_at IS NULL", op.ID).Delete(&types.TaskPendingOp{})
+			res := tx.Model(&types.TaskPendingOp{}).
+				Where("id=? AND scope='knowledge_base' AND claimed_at IS NULL", op.ID).
+				Update("scope", wikiRegenerationArchiveScope)
 			if res.Error != nil {
 				return res.Error
 			}

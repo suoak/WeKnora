@@ -171,7 +171,9 @@ func TestExactPersonalAutomaticInterlockRequiresExplicitServerEnablement(t *test
 	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY_AUTOMATIC", "true")
 	require.False(t, exactPersonalRecoveryAllows("new-import"))
 	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY_AUTOMATIC", "1")
-	require.True(t, exactPersonalRecoveryAllows("new-import"))
+	require.False(t, exactPersonalRecoveryAllows("new-import"), "automatic mode is not a global ID grant")
+	var recovery *PersonalRecovery
+	require.False(t, recovery.exactPersonalRecoveryAllowed(context.Background(), "new-import"))
 	require.False(t, exactPersonalRecoveryAllows(""))
 	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY", "0")
 	require.False(t, exactPersonalRecoveryAllows("new-import"))

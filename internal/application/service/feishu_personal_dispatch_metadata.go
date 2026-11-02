@@ -14,6 +14,7 @@ import (
 // This DTO cannot be passed to a parser, a model or a content response.
 type personalDispatchMetadata struct {
 	ID, KnowledgeBaseID, FilePath, FileName, FileHash, ParseStatus string
+	FileType                                                       string
 	AttemptID                                                      string
 	Channel                                                        string
 	ManifestSHA256                                                 string `gorm:"column:manifest_sha256"`
@@ -59,7 +60,7 @@ func loadPersonalDispatchMetadata(
 		query = query.Clauses(clause.Locking{Strength: "SHARE"})
 	}
 	result := query.
-		Select(`id, tenant_id, knowledge_base_id, channel, file_path, file_name, file_hash, file_size,
+		Select(`id, tenant_id, knowledge_base_id, channel, file_path, file_name, file_type, file_hash, file_size,
 parse_status, metadata->>'feishu_mvp_attempt' AS attempt_id,
 metadata->>'feishu_manifest_sha256' AS manifest_sha256`).
 		Where("id=? AND tenant_id=? AND knowledge_base_id=? AND deleted_at IS NULL", knowledge, tenant, kb).

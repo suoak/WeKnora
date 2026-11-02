@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
@@ -353,7 +354,21 @@ func (p *PersonalRecovery) firstCreateDispatchable(
 		a.Status == "obsolete" || a.Status == "needs_attention" {
 		return false, repository.ErrPersonalIdentity
 	}
-	if exactPersonalRecoveryEnabled() && !exactPersonalRecoveryAllows(k.ID) &&
+	if os.Getenv("FEISHU_PERSONAL_EXACT_RECOVERY_AUTOMATIC") == "1" &&
+		types.FeishuAuthMode(m.AuthMode) == types.FeishuUserOAuth && a.Status == "index_pending" &&
+		(!strings.EqualFold(filepath.Ext(a.ManifestName), ".docx") ||
+			!strings.EqualFold(strings.TrimPrefix(t.FileType, "."), "docx")) {
+		// Unsupported exact consumers never Claim a held file. Non-held
+		// formats retain the existing ordinary parsing path.
+		err := types.CheckLegacySourceRead(p.service.db.WithContext(ctx), k.ID, k.KnowledgeBaseID)
+		if errors.Is(err, types.ErrLegacySourceRestricted) {
+			return false, errors.New("exact_document_source_format_unsupported")
+		}
+		if err != nil {
+			return false, err
+		}
+	}
+	if exactPersonalRecoveryEnabled() && !p.exactPersonalRecoveryAllowed(ctx, k.ID) &&
 		types.FeishuAuthMode(m.AuthMode) == types.FeishuUserOAuth {
 		// Keep non-approved held files in their original pending outbox. A
 		// single-file pilot must not enqueue the remaining files as retries.
@@ -364,7 +379,7 @@ func (p *PersonalRecovery) firstCreateDispatchable(
 			return false, err
 		}
 	}
-	if exactPersonalRecoveryAllows(k.ID) && types.FeishuAuthMode(m.AuthMode) == types.FeishuUserOAuth &&
+	if p.exactPersonalRecoveryAllowed(ctx, k.ID) && types.FeishuAuthMode(m.AuthMode) == types.FeishuUserOAuth &&
 		a.Status == "index_pending" {
 		_, err := p.preflightExactPersonalDocument(ctx, a)
 		return err == nil, err
@@ -429,7 +444,7 @@ func (p *PersonalRecovery) processFirstCreateDocument(
 			_ = dispatch.SetKnowledgeDispatchState(ctx, op.ID, "attention")
 			return p.repo.Invalidate(ctx, a.ID, "orphan_or_unknown_index_requires_review")
 		}
-		exactRecovery := exactPersonalRecoveryAllows(payload.KnowledgeID) &&
+		exactRecovery := p.exactPersonalRecoveryAllowed(ctx, payload.KnowledgeID) &&
 			types.FeishuAuthMode(m.AuthMode) == types.FeishuUserOAuth
 		if !exactRecovery {
 			// Ordinary paths retain the existing source gate. The opt-in exact

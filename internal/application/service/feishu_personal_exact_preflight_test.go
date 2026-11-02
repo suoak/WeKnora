@@ -95,18 +95,8 @@ func TestPersonalRecoveryExactPreflightPreservesPending(t *testing.T) {
 			case "generation":
 				require.NoError(t, f.db.Exec("UPDATE feishu_personal_resources SET generation=generation+1").Error)
 			case "unsupported_format":
-				manifest, err := f.p.store.read(a)
-				require.NoError(t, err)
-				manifest.Name = "unsupported.xlsx"
-				data, err := json.Marshal(manifest)
-				require.NoError(t, err)
-				directory, err := f.p.store.path(a.ManifestKey)
-				require.NoError(t, err)
-				require.NoError(t, os.WriteFile(filepath.Join(directory, "manifest.json"), data, 0o600))
-				require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET manifest_name=?", manifest.Name).Error)
-				require.NoError(t, f.db.Exec("UPDATE knowledges SET file_name=?", manifest.Name).Error)
-				intent.Task.FileName = manifest.Name
-				intent.Task.FileType = "xlsx"
+				t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY_AUTOMATIC", "1")
+				renameExactProtocolFixture(t, f, a, &intent, "unsupported.xlsx", "xlsx")
 			}
 			before := exactPendingSnapshot(t, f, a.ID)
 			ready, err := f.p.firstCreateDispatchable(context.Background(), intent)
@@ -119,7 +109,13 @@ func TestPersonalRecoveryExactPreflightPreservesPending(t *testing.T) {
 				require.Error(t, f.p.processFirstCreateDocument(context.Background(), intent.Task))
 				// The reconciler must not turn the same rejected preflight into a
 				// terminal attempt or close the durable pending operation.
-				require.Error(t, f.p.Reconcile(context.Background()))
+				if change == "unsupported_format" {
+					// Source authorization can still be valid for an unsupported
+					// consumer format. Metadata reconciliation leaves it deferred.
+					require.NoError(t, f.p.Reconcile(context.Background()))
+				} else {
+					require.Error(t, f.p.Reconcile(context.Background()))
+				}
 			}
 			require.JSONEq(t, string(before), string(exactPendingSnapshot(t, f, a.ID)))
 			var body types.Knowledge
@@ -130,7 +126,9 @@ func TestPersonalRecoveryExactPreflightPreservesPending(t *testing.T) {
 }
 
 func TestPersonalRecoveryExactPreflightClaimCAS(t *testing.T) {
-	for _, change := range []string{"valid", "generation", "revision", "grant", "binding", "member", "concurrent"} {
+	for _, change := range []string{
+		"valid", "generation", "revision", "grant", "binding", "member", "concurrent", "file_type",
+	} {
 		t.Run(change, func(t *testing.T) {
 			f, a, _ := pendingExactFixture(t)
 			preflight, err := f.p.preflightExactPersonalDocument(context.Background(), a)
@@ -146,6 +144,8 @@ func TestPersonalRecoveryExactPreflightClaimCAS(t *testing.T) {
 				require.NoError(t, f.db.Exec("UPDATE resource_bindings SET owner_id='other'").Error)
 			case "member":
 				require.NoError(t, f.db.Exec("UPDATE tenant_members SET status='inactive'").Error)
+			case "file_type":
+				require.NoError(t, f.db.Exec("UPDATE knowledges SET file_type='changed'").Error)
 			case "concurrent":
 				_, err = f.p.claimExactPreflight(context.Background(), preflight)
 				require.NoError(t, err)
@@ -200,6 +200,7 @@ func TestPersonalRecoveryExactPreflightConcurrentClaims(t *testing.T) {
 
 func TestPersonalRecoveryAutomaticDispatchStillRequiresCurrentPreflight(t *testing.T) {
 	f, a, intent := pendingExactFixture(t)
+	renameExactProtocolFixture(t, f, a, &intent, "source.docx", "docx")
 	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY_KNOWLEDGE_IDS", "")
 	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY_AUTOMATIC", "1")
 	before := exactPendingSnapshot(t, f, a.ID)
@@ -212,4 +213,28 @@ func TestPersonalRecoveryAutomaticDispatchStillRequiresCurrentPreflight(t *testi
 	require.Error(t, err)
 	require.False(t, ready)
 	require.JSONEq(t, string(before), string(exactPendingSnapshot(t, f, a.ID)))
+}
+
+// The provider buffer is opaque in these protocol tests. It never enters a
+// parser, model or publication; native parsing is validated separately.
+func renameExactProtocolFixture(t *testing.T, f *personalRecoveryFixture,
+	a *types.FeishuPersonalAttempt, intent *types.KnowledgeDispatch, name, format string,
+) {
+	t.Helper()
+	manifest, err := f.p.store.read(a)
+	require.NoError(t, err)
+	manifest.Name = name
+	data, err := json.Marshal(manifest)
+	require.NoError(t, err)
+	directory, err := f.p.store.path(a.ManifestKey)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(directory, "manifest.json"), data, 0o600))
+	require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET manifest_name=? WHERE id=?", name, a.ID).Error)
+	require.NoError(t, f.db.Exec("UPDATE knowledges SET file_name=?,file_type=? WHERE id=?",
+		name, format, a.LogicalKnowledgeID).Error)
+	intent.Task.FileName, intent.Task.FileType = name, format
+	payload, err := json.Marshal(intent)
+	require.NoError(t, err)
+	require.NoError(t, f.db.Exec("UPDATE task_pending_ops SET payload=? WHERE scope=? AND scope_id=?",
+		string(payload), types.KnowledgeDispatchScope, a.LogicalKnowledgeID).Error)
 }

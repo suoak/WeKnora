@@ -51,12 +51,6 @@ func exactPersonalRecoveryAllows(knowledgeID string) bool {
 	if !exactPersonalRecoveryEnabled() || knowledgeID == "" {
 		return false
 	}
-	// Normal first-create imports must not depend on a stale incident pilot
-	// list. This is only an execution interlock: authoritative protocol,
-	// source preflight, Claim CAS and every publication proof remain required.
-	if os.Getenv("FEISHU_PERSONAL_EXACT_RECOVERY_AUTOMATIC") == "1" {
-		return true
-	}
 	for _, approved := range strings.Split(os.Getenv("FEISHU_PERSONAL_EXACT_RECOVERY_KNOWLEDGE_IDS"), ",") {
 		if strings.TrimSpace(approved) == knowledgeID {
 			return true
@@ -65,10 +59,40 @@ func exactPersonalRecoveryAllows(knowledgeID string) bool {
 	return false
 }
 
+// Automatic admission is a metadata decision for the supported first-create
+// protocol, never a global ID grant. Other formats retain their ordinary path.
+// Current authorization, source/file proof and Claim/publication CAS still run.
+func (p *PersonalRecovery) exactPersonalRecoveryAllowed(ctx context.Context, knowledgeID string) bool {
+	if exactPersonalRecoveryAllows(knowledgeID) {
+		return true
+	}
+	if !exactPersonalRecoveryEnabled() || os.Getenv("FEISHU_PERSONAL_EXACT_RECOVERY_AUTOMATIC") != "1" ||
+		knowledgeID == "" || p == nil || p.service == nil || p.service.db == nil {
+		return false
+	}
+	var eligible bool
+	err := p.service.db.WithContext(ctx).Raw(`SELECT EXISTS(
+SELECT 1 FROM knowledges k
+JOIN feishu_personal_resources r ON r.logical_knowledge_id=k.id
+JOIN feishu_personal_attempts a ON a.id=r.current_attempt_id AND a.import_id=r.import_id
+JOIN feishu_personal_imports m ON m.id=r.import_id AND m.knowledge_id=k.id
+WHERE k.id=? AND k.deleted_at IS NULL AND lower(k.file_type)='docx'
+AND lower(k.file_name) LIKE '%.docx' AND a.logical_knowledge_id=k.id
+AND a.caller_tenant_id=k.tenant_id AND m.kb_id=k.knowledge_base_id
+AND m.auth_mode='user_oauth' AND a.auth_mode='user_oauth'
+AND a.fence=r.generation AND a.expected_active_version=''
+AND (a.candidate_version_id=r.candidate_version_id OR
+ (a.status='indexed' AND a.candidate_version_id=r.active_version_id))
+AND EXISTS(SELECT 1 FROM task_pending_ops o WHERE o.scope=? AND o.scope_id=k.id
+AND o.tenant_id=k.tenant_id AND CAST(o.payload->>'payload_version' AS TEXT)='3'))`,
+		knowledgeID, types.KnowledgeDispatchScope).Scan(&eligible).Error
+	return err == nil && eligible
+}
+
 func (p *PersonalRecovery) processExactFirstCreateConsumer(
 	ctx context.Context, payload types.DocumentProcessPayload, owner *types.FeishuPersonalAttempt, operationID int64,
 ) error {
-	if !exactPersonalRecoveryAllows(payload.KnowledgeID) {
+	if !p.exactPersonalRecoveryAllowed(ctx, payload.KnowledgeID) {
 		return errPersonalExactDocument
 	}
 	ks := p.service.knowledge.(*knowledgeService)
@@ -236,7 +260,7 @@ func (p *PersonalRecovery) exactRecoveryDeferred(ctx context.Context,
 ) (bool, error) {
 	if !p.firstCreateOnly || !exactPersonalRecoveryEnabled() || imported == nil || attempt == nil ||
 		imported.AuthMode != types.FeishuUserOAuth || imported.KnowledgeID == "" ||
-		imported.KnowledgeID != attempt.LogicalKnowledgeID || exactPersonalRecoveryAllows(imported.KnowledgeID) {
+		imported.KnowledgeID != attempt.LogicalKnowledgeID || p.exactPersonalRecoveryAllowed(ctx, imported.KnowledgeID) {
 		return false, nil
 	}
 	var held bool

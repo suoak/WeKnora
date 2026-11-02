@@ -805,7 +805,7 @@ func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 				if deferred {
 					continue // The bounded pilot cannot mutate another held protocol.
 				}
-				if exactPersonalRecoveryAllows(current.LogicalKnowledgeID) &&
+				if p.exactPersonalRecoveryAllowed(ctx, current.LogicalKnowledgeID) &&
 					current.AuthMode == types.FeishuUserOAuth && current.Status == "index_pending" {
 					if _, preflightErr := p.preflightExactPersonalDocument(ctx, current); preflightErr != nil {
 						failures = append(failures, preflightErr)
@@ -816,7 +816,7 @@ func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 			}
 
 			if err != nil {
-				if current != nil && exactPersonalRecoveryAllows(current.LogicalKnowledgeID) &&
+				if current != nil && p.exactPersonalRecoveryAllowed(ctx, current.LogicalKnowledgeID) &&
 					current.AuthMode == types.FeishuUserOAuth {
 					// Revocation is not permission to cancel a concurrently
 					// renewed generation or rewrite a published execution.
@@ -836,7 +836,7 @@ func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 
 			if a.ManifestHash != "" {
 				if _, err = p.store.read(&a); err != nil {
-					if exactPersonalRecoveryAllows(current.LogicalKnowledgeID) &&
+					if p.exactPersonalRecoveryAllowed(ctx, current.LogicalKnowledgeID) &&
 						current.AuthMode == types.FeishuUserOAuth {
 						failures = append(failures, err, p.closeExactReconcileExecution(ctx, current))
 						continue
