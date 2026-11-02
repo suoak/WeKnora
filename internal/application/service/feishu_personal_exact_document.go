@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
@@ -183,6 +185,10 @@ func (p *PersonalRecovery) checkExactPersonalSource(
 		manifest.Name != a.ManifestName || len(manifest.Assets) != 0 ||
 		manifest.Size <= 0 || manifest.Size > 64*1024*1024 {
 		return nil, errPersonalExactDocument
+	}
+	if preflight && strings.ToLower(filepath.Ext(manifest.Name)) != ".docx" {
+		mark("unsupported_source_format")
+		return nil, fmt.Errorf("exact_document_source_format_unsupported: %w", errPersonalExactDocument)
 	}
 	mark("knowledge_metadata")
 	k, err := p.loadDispatchMetadata(ctx, a.CallerTenantID, m.KBID, m.KnowledgeID)
