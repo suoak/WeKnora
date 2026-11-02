@@ -222,6 +222,38 @@ func TestHousekeeping_RecoversAbandoned(t *testing.T) {
 	assert.Contains(t, errMsg, "stuck in processing")
 }
 
+func TestHousekeeping_RestrictedDocumentCannotAbortOtherKnowledgeBases(t *testing.T) {
+	db := setupHousekeepingDB(t)
+	for _, ddl := range []string{
+		`CREATE TABLE data_sources (id TEXT, knowledge_base_id TEXT, type TEXT, legacy_access_state TEXT)`,
+		`CREATE TABLE feishu_legacy_resources (knowledge_base_id TEXT, knowledge_id TEXT, state TEXT)`,
+		`CREATE TABLE knowledge_bases (id TEXT, tenant_id INTEGER, deleted_at DATETIME)`,
+		`CREATE TABLE tenants (id INTEGER, status TEXT, deleted_at DATETIME)`,
+		`INSERT INTO tenants VALUES (1,'active',NULL)`,
+		`INSERT INTO knowledge_bases VALUES ('held-kb',1,NULL)`,
+		`INSERT INTO data_sources VALUES ('held-source','held-kb','feishu','hold')`,
+	} {
+		require.NoError(t, db.Exec(ddl).Error)
+	}
+	stale := time.Now().Add(-3 * time.Hour)
+	insertKnowledge(t, db, "held-document", types.ParseStatusProcessing, stale)
+	insertKnowledge(t, db, "ordinary-orphan", types.ParseStatusProcessing, stale)
+	require.NoError(t, db.Exec(`UPDATE knowledges SET tenant_id=1,knowledge_base_id='ordinary-kb'
+WHERE id='ordinary-orphan'`).Error)
+	require.NoError(t, db.Exec(`UPDATE knowledges SET tenant_id=1,knowledge_base_id='held-kb'
+WHERE id='held-document'`).Error)
+	types.EnableLegacyReadGuards(db)
+	var protected types.Knowledge
+	require.ErrorIs(t, db.Where("id=?", "held-document").First(&protected).Error, types.ErrLegacySourceRestricted)
+	newHousekeepingSvcForTest(db).runSweep(context.Background())
+	var held, ordinary string
+	require.NoError(t, db.Raw("SELECT parse_status FROM knowledges WHERE id='held-document'").Scan(&held).Error)
+	require.NoError(t, db.Raw("SELECT parse_status FROM knowledges WHERE id='ordinary-orphan'").Scan(&ordinary).Error)
+	require.Equal(t, types.ParseStatusProcessing, held)
+	require.Equal(t, types.ParseStatusFailed, ordinary)
+	require.ErrorIs(t, db.Where("id=?", "held-document").First(&protected).Error, types.ErrLegacySourceRestricted)
+}
+
 func TestHousekeeping_RecoversPendingTaskMissingFromQueue(t *testing.T) {
 	db := setupHousekeepingDB(t)
 	svc := newHousekeepingSvcForTest(db)

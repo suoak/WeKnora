@@ -51,6 +51,12 @@ func exactPersonalRecoveryAllows(knowledgeID string) bool {
 	if !exactPersonalRecoveryEnabled() || knowledgeID == "" {
 		return false
 	}
+	// Normal first-create imports must not depend on a stale incident pilot
+	// list. This is only an execution interlock: authoritative protocol,
+	// source preflight, Claim CAS and every publication proof remain required.
+	if os.Getenv("FEISHU_PERSONAL_EXACT_RECOVERY_AUTOMATIC") == "1" {
+		return true
+	}
 	for _, approved := range strings.Split(os.Getenv("FEISHU_PERSONAL_EXACT_RECOVERY_KNOWLEDGE_IDS"), ",") {
 		if strings.TrimSpace(approved) == knowledgeID {
 			return true

@@ -152,6 +152,7 @@ func TestExactPersonalModelPublishedRerankAdapterBindsActualCall(t *testing.T) {
 }
 
 func TestExactPersonalModelRecoveryInterlockIsNotPayloadAuthority(t *testing.T) {
+	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY_AUTOMATIC", "0")
 	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY", "1")
 	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY_KNOWLEDGE_IDS", "")
 	require.False(t, exactPersonalRecoveryAllows("original"))
@@ -162,4 +163,16 @@ func TestExactPersonalModelRecoveryInterlockIsNotPayloadAuthority(t *testing.T) 
 	require.False(t, exactPersonalRecoveryAllows(""))
 	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY", "0")
 	require.False(t, exactPersonalRecoveryAllows("original"))
+}
+
+func TestExactPersonalAutomaticInterlockRequiresExplicitServerEnablement(t *testing.T) {
+	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY", "1")
+	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY_KNOWLEDGE_IDS", "")
+	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY_AUTOMATIC", "true")
+	require.False(t, exactPersonalRecoveryAllows("new-import"))
+	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY_AUTOMATIC", "1")
+	require.True(t, exactPersonalRecoveryAllows("new-import"))
+	require.False(t, exactPersonalRecoveryAllows(""))
+	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY", "0")
+	require.False(t, exactPersonalRecoveryAllows("new-import"))
 }

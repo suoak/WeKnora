@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/database"
@@ -99,6 +100,64 @@ func TestWikiHistoryRegenerationRejectsChangedAndDeniedSources(t *testing.T) {
 	var n int64
 	require.NoError(t, db.Model(&types.TaskPendingOp{}).Count(&n).Error)
 	require.Zero(t, n)
+}
+
+func TestWikiHistoryRegenerationResumesOnlyUnclaimedWikiSlots(t *testing.T) {
+	for _, change := range []string{"valid", "claim", "other_subtask", "changed_input", "disabled_source"} {
+		t.Run(change, func(t *testing.T) {
+			f := fixture.New(t)
+			f.PreparePublished(t)
+			db, ctx := f.DB, context.Background()
+			require.NoError(t, db.AutoMigrate(&types.TaskPendingOp{}, &types.TaskDeadLetter{}, &types.KnowledgeProcessingSpan{}))
+			require.NoError(t, db.Model(&types.KnowledgeBase{}).Where("id='public-two'").
+				Update("indexing_strategy", types.IndexingStrategy{WikiEnabled: true}).Error)
+			require.NoError(t, db.Model(&types.Knowledge{}).Where("id='public-two-doc'").Updates(map[string]any{
+				"parse_status": "finalizing", "summary_status": "completed", "pending_subtasks_count": 1,
+			}).Error)
+			old := types.TaskPendingOp{TenantID: 1, TaskType: "wiki:ingest", Scope: "knowledge_base",
+				ScopeID: "public-two", DedupKey: "public-two-doc", Op: "ingest",
+				Payload: json.RawMessage(`{"doc_summary":"UNVERIFIED_QUEUED_TEXT"}`)}
+			require.NoError(t, db.Create(&old).Error)
+			_, err := repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", "", false)
+			require.Error(t, err, "ordinary regeneration cannot consume pending operations")
+			plan, err := repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", "", false, true)
+			require.NoError(t, err)
+			require.Equal(t, 1, plan.ResumedPending)
+			switch change {
+			case "claim":
+				require.NoError(t, db.Model(&types.TaskPendingOp{}).Where("id=?", old.ID).Update("claimed_at", time.Now()).Error)
+			case "other_subtask":
+				require.NoError(t, db.Model(&types.Knowledge{}).Where("id='public-two-doc'").Update("pending_subtasks_count", 2).Error)
+			case "changed_input":
+				require.NoError(t, db.Exec("UPDATE chunks SET content='changed' WHERE knowledge_id='public-two-doc'").Error)
+			case "disabled_source":
+				require.NoError(t, db.Exec("UPDATE knowledges SET enable_status='disabled' WHERE id='public-two-doc'").Error)
+			}
+			applied, err := repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", plan.Snapshot, true, true)
+			var count int64
+			if change != "valid" {
+				require.Error(t, err)
+				require.NoError(t, db.Model(&types.TaskDeadLetter{}).Count(&count).Error)
+				require.Zero(t, count, "rejection must not retire any operation")
+				return
+			}
+			require.NoError(t, err)
+			require.True(t, applied.Applied)
+			var pending types.TaskPendingOp
+			require.NoError(t, db.First(&pending).Error)
+			require.NotEqual(t, old.ID, pending.ID)
+			require.NotContains(t, string(pending.Payload), "UNVERIFIED_QUEUED_TEXT")
+			var archived types.TaskDeadLetter
+			require.NoError(t, db.First(&archived).Error)
+			require.Equal(t, string(old.Payload), string(archived.Payload))
+			var doc types.Knowledge
+			require.NoError(t, db.Where("id='public-two-doc'").First(&doc).Error)
+			require.Equal(t, "finalizing", doc.ParseStatus)
+			require.Equal(t, 1, doc.PendingSubtasksCount, "reuse the one Wiki slot, never increment it twice")
+			_, err = repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", plan.Snapshot, true, true)
+			require.Error(t, err, "the same snapshot cannot be applied twice")
+		})
+	}
 }
 
 func TestWikiSnapshotGenerationMergesOnlyBacklinks(t *testing.T) {

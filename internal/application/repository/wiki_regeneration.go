@@ -21,6 +21,7 @@ type WikiRegenerationPlan struct {
 	HistoricalPages int    `json:"historical_pages"`
 	Snapshot        string `json:"snapshot"`
 	Applied         bool   `json:"applied"`
+	ResumedPending  int    `json:"resumed_pending"`
 }
 
 // PrepareWikiRegeneration previews or atomically isolates historical pages and
@@ -29,7 +30,9 @@ type WikiRegenerationPlan struct {
 // The expected snapshot is mandatory for apply; changed inputs reject the reset.
 func PrepareWikiRegeneration(
 	ctx context.Context, db *gorm.DB, tenant uint64, kb, expected string, apply bool,
+	resumePending ...bool,
 ) (*WikiRegenerationPlan, error) {
+	resume := len(resumePending) == 1 && resumePending[0]
 	if tenant == 0 || kb == "" || apply && expected == "" {
 		return nil, errors.New("tenant, knowledge base and apply snapshot are required")
 	}
@@ -46,13 +49,22 @@ func PrepareWikiRegeneration(
 		if err := checkWikiMCPEpochCoverage(tx); err != nil {
 			return err
 		}
-		var pending int64
-		if err := tx.Table("task_pending_ops").Where("scope='knowledge_base' AND scope_id=?", kb).
-			Count(&pending).Error; err != nil {
+		var pending []types.TaskPendingOp
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("scope='knowledge_base' AND scope_id=?", kb).Order("id").Find(&pending).Error; err != nil {
 			return err
 		}
-		if pending != 0 {
+		if len(pending) != 0 && !resume {
 			return errors.New("knowledge base has pending operations; finish or cancel them before regeneration")
+		}
+		pendingByDocument := make(map[string]int, len(pending))
+		for _, op := range pending {
+			// Never replace a live claim, retract, finalize or unrelated lane.
+			if op.TenantID != tenant || op.TaskType != "wiki:ingest" || op.Op != "ingest" ||
+				op.ClaimedAt != nil || op.DedupKey == "" {
+				return errors.New("pending Wiki operations are not safely resumable")
+			}
+			pendingByDocument[op.DedupKey]++
 		}
 		var docs []types.Knowledge
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
@@ -61,9 +73,18 @@ func PrepareWikiRegeneration(
 			return err
 		}
 		for _, doc := range docs {
-			if doc.ParseStatus != types.ParseStatusCompleted || doc.PendingSubtasksCount != 0 {
+			completed := doc.ParseStatus == types.ParseStatusCompleted && doc.PendingSubtasksCount == 0 &&
+				pendingByDocument[doc.ID] == 0
+			waitingOnlyForWiki := resume && doc.ParseStatus == types.ParseStatusFinalizing &&
+				doc.PendingSubtasksCount == 1 && doc.SummaryStatus == types.SummaryStatusCompleted &&
+				doc.ErrorMessage == "" && pendingByDocument[doc.ID] == 1
+			if !completed && !waitingOnlyForWiki {
 				return errors.New("all documents must be completed without pending subtasks")
 			}
+			delete(pendingByDocument, doc.ID)
+		}
+		if len(pendingByDocument) != 0 {
+			return errors.New("pending Wiki operation has no current document")
 		}
 		// This validates source authority, input chunks, source epochs, active
 		// tenants and supported bounds without reading ANY historical Wiki text.
@@ -90,7 +111,8 @@ func PrepareWikiRegeneration(
 		plan = &WikiRegenerationPlan{
 			TenantID: tenant, KnowledgeBaseID: kb,
 			Documents: len(docs), HistoricalPages: len(pages),
-			Snapshot: wikiDigest([]any{anchor, proof.Sources, proof.Epochs, docs, pages, epoch}),
+			ResumedPending: len(pending),
+			Snapshot:       wikiDigest([]any{anchor, proof.Sources, proof.Epochs, docs, pages, epoch, resume, pending}),
 		}
 		if !apply {
 			return nil
@@ -114,6 +136,24 @@ func PrepareWikiRegeneration(
 		}
 		batch := uuid.NewString()
 		now := time.Now()
+		for _, op := range pending {
+			// Preserve the exact old operation as evidence. Its queued text is
+			// never reused as a generation input or retrospectively certified.
+			if err := tx.Create(&types.TaskDeadLetter{
+				TenantID: tenant, TaskType: op.TaskType, Scope: op.Scope, ScopeID: kb,
+				RelatedID: op.DedupKey, Payload: op.Payload, FailCount: op.FailCount,
+				LastError: "superseded by verified Wiki regeneration " + batch, FailedAt: now,
+			}).Error; err != nil {
+				return err
+			}
+			res := tx.Where("id=? AND claimed_at IS NULL", op.ID).Delete(&types.TaskPendingOp{})
+			if res.Error != nil {
+				return res.Error
+			}
+			if res.RowsAffected != 1 {
+				return errors.New("pending Wiki claim changed during regeneration")
+			}
+		}
 		for _, page := range pages {
 			// Preserve old bodies and revision history, while releasing unique
 			// slugs. Deleted pages cannot enter generation prompts or MCP reads.
@@ -137,7 +177,8 @@ func PrepareWikiRegeneration(
 				return err
 			}
 			res := tx.Model(&types.Knowledge{}).
-				Where("id=? AND parse_status='completed' AND pending_subtasks_count=0", doc.ID).
+				Where("id=? AND parse_status=? AND pending_subtasks_count=?",
+					doc.ID, doc.ParseStatus, doc.PendingSubtasksCount).
 				Updates(map[string]any{
 					"parse_status": "finalizing", "pending_subtasks_count": 1,
 					"error_message": "", "updated_at": now,

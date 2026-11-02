@@ -26,6 +26,7 @@ func run() error {
 	kb := flag.String("kb", "", "knowledge base UUID")
 	apply := flag.Bool("apply", false, "apply the reviewed snapshot and queue generation")
 	snapshot := flag.String("snapshot", "", "snapshot from the preview; required with -apply")
+	resume := flag.Bool("resume-pending-ingest", false, "replace only unclaimed Wiki-only finalizing operations from verified inputs")
 	flag.Parse()
 	if *tenant == 0 || *kb == "" {
 		return errors.New("-tenant and -kb required")
@@ -58,7 +59,7 @@ func run() error {
 	var plan *repository.WikiRegenerationPlan
 	err = wikilock.With(ctx, rc, *kb, func(locked context.Context) error {
 		var e error
-		plan, e = repository.PrepareWikiRegeneration(locked, db, *tenant, *kb, *snapshot, *apply)
+		plan, e = repository.PrepareWikiRegeneration(locked, db, *tenant, *kb, *snapshot, *apply, *resume)
 		return e
 	})
 	if err != nil {

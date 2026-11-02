@@ -180,3 +180,19 @@ func TestPersonalRecoveryExactPreflightConcurrentClaims(t *testing.T) {
 	require.Equal(t, a.Fence+1, resource.Generation)
 	require.Equal(t, resource.Generation, current.Fence)
 }
+
+func TestPersonalRecoveryAutomaticDispatchStillRequiresCurrentPreflight(t *testing.T) {
+	f, a, intent := pendingExactFixture(t)
+	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY_KNOWLEDGE_IDS", "")
+	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY_AUTOMATIC", "1")
+	before := exactPendingSnapshot(t, f, a.ID)
+	ready, err := f.p.firstCreateDispatchable(context.Background(), intent)
+	require.NoError(t, err)
+	require.True(t, ready)
+	require.JSONEq(t, string(before), string(exactPendingSnapshot(t, f, a.ID)))
+	exactPreflightRemote(t, f, "1", false)
+	ready, err = f.p.firstCreateDispatchable(context.Background(), intent)
+	require.Error(t, err)
+	require.False(t, ready)
+	require.JSONEq(t, string(before), string(exactPendingSnapshot(t, f, a.ID)))
+}

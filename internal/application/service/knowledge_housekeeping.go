@@ -166,13 +166,43 @@ func (h *HousekeepingService) runSweep(ctx context.Context) {
 	// without decrementing the counter) leave the row hanging just as
 	// visibly. Housekeeping promotes both states to 'failed' once the
 	// span heartbeat is older than the threshold.
-	var candidates []types.Knowledge
-	if err := h.db.WithContext(ctx).
+	// Scan scheduling metadata only. Materializing Knowledge invokes the body
+	// read hook and one protected document would abort recovery for every KB.
+	var metadata []struct {
+		ID, KnowledgeBaseID, ParseStatus string
+		TenantID                         uint64
+		UpdatedAt                        time.Time
+	}
+	if err := h.db.WithContext(ctx).Table("knowledges").
+		Select("id, tenant_id, knowledge_base_id, parse_status, updated_at").
+		Where("deleted_at IS NULL").
 		Where("parse_status IN ? AND updated_at < ?",
 			[]string{types.ParseStatusPending, types.ParseStatusProcessing, types.ParseStatusFinalizing}, cutoff).
-		Find(&candidates).Error; err != nil {
+		Find(&metadata).Error; err != nil {
 		logger.Warnf(ctx, "[Housekeeping] knowledge candidate query failed: %v", err)
 		return
+	}
+	var candidates []types.Knowledge
+	for _, row := range metadata {
+		// A metadata scan never grants permission to read or mutate protected
+		// content. Personal protocols belong to their own fenced reconciler.
+		if err := types.CheckLegacySourceRead(h.db.WithContext(ctx), row.ID, row.KnowledgeBaseID); err != nil {
+			logger.Warnf(ctx, "[Housekeeping] source verification required for %s; generic recovery deferred", row.ID)
+			continue
+		}
+		var personal bool
+		if err := h.db.WithContext(ctx).Raw(`SELECT EXISTS(SELECT 1 FROM task_pending_ops
+WHERE scope=? AND scope_id=?)`, types.KnowledgeDispatchScope, row.ID).Scan(&personal).Error; err != nil {
+			logger.Warnf(ctx, "[Housekeeping] protocol probe failed for %s; recovery deferred", row.ID)
+			continue
+		}
+		if personal {
+			continue
+		}
+		candidates = append(candidates, types.Knowledge{
+			ID: row.ID, TenantID: row.TenantID, KnowledgeBaseID: row.KnowledgeBaseID,
+			ParseStatus: row.ParseStatus, UpdatedAt: row.UpdatedAt,
+		})
 	}
 
 	stuck, heartbeat := h.filterByLastSpanActivity(ctx, candidates, cutoff)
