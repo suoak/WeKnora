@@ -105,7 +105,7 @@ func TestWikiHistoryRegenerationRejectsChangedAndDeniedSources(t *testing.T) {
 func TestWikiHistoryRegenerationResumesOnlyUnclaimedWikiSlots(t *testing.T) {
 	for _, change := range []string{"valid", "claim", "other_subtask", "changed_input", "disabled_source"} {
 		t.Run(change, func(t *testing.T) {
-			f := fixture.New(t)
+			f := wikiPendingRegenerationFixture(t)
 			f.PreparePublished(t)
 			db, ctx := f.DB, context.Background()
 			require.NoError(t, db.AutoMigrate(&types.TaskPendingOp{}, &types.TaskDeadLetter{}, &types.KnowledgeProcessingSpan{}))
@@ -159,6 +159,37 @@ func TestWikiHistoryRegenerationResumesOnlyUnclaimedWikiSlots(t *testing.T) {
 			require.Error(t, err, "the same snapshot cannot be applied twice")
 		})
 	}
+}
+
+func wikiPendingRegenerationFixture(t *testing.T) *fixture.Fixture {
+	t.Helper()
+	dsn := os.Getenv("WIKI_HISTORY_POSTGRES_DSN")
+	if dsn == "" {
+		return fixture.New(t)
+	}
+	admin, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Discard})
+	require.NoError(t, err)
+	pool, err := admin.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = pool.Close() })
+	name := "wiki_pending_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	require.NoError(t, admin.Exec("CREATE DATABASE "+name).Error)
+	t.Cleanup(func() { require.NoError(t, admin.Exec("DROP DATABASE "+name+" WITH (FORCE)").Error) })
+	parsed, err := url.Parse(dsn)
+	require.NoError(t, err)
+	parsed.Path = "/" + name
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(filepath.Join(cwd, "../../..")))
+	err = database.RunMigrations(parsed.String())
+	require.NoError(t, os.Chdir(cwd))
+	require.NoError(t, err)
+	db, err := gorm.Open(postgres.Open(parsed.String()), &gorm.Config{Logger: logger.Discard})
+	require.NoError(t, err)
+	conn, err := db.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = conn.Close() })
+	return fixture.Seed(t, db)
 }
 
 func TestWikiSnapshotGenerationMergesOnlyBacklinks(t *testing.T) {
