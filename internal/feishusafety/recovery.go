@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 )
 
 // RecoveryContext is server-owned execution identity, never an HTTP parameter.
@@ -103,6 +104,9 @@ func (g *Guard) checkApprovedSource(
 		return false, nil
 	}
 	if err := v.check(ctx, source, identity.Config); err != nil {
+		if errors.Is(err, ErrSourceAdmissionChanged) {
+			return true, ErrSourceAdmissionChanged
+		}
 		return true, ErrClosed
 	}
 	return true, nil

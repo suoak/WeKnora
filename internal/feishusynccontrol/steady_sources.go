@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"regexp"
 	"sort"
 	"strings"
@@ -68,9 +69,17 @@ func (m *RecoveryManager) steadySourceForPurpose(
 		return s, RecoveryFacts{}, ErrRecoveryRejected
 	}
 	authority, err := m.steadyAuthority(ctx, source, actor)
-	if err != nil || authority.SourceID != source || authority.ActorID != actor || authority.TenantID == 0 ||
-		authority.KBID == "" || !recoverySHA.MatchString(authority.AuthorityHash) {
+	if err != nil {
+		// The authoritative loader returns this exact sentinel for a proved
+		// denial. Database, deadline and other unknown errors remain fatal.
+		if err == ErrRecoveryRejected {
+			return s, RecoveryFacts{}, steadySourceChanged()
+		}
 		return s, RecoveryFacts{}, ErrRecoveryRejected
+	}
+	if authority.SourceID != source || authority.ActorID != actor || authority.TenantID == 0 ||
+		authority.KBID == "" || !recoverySHA.MatchString(authority.AuthorityHash) {
+		return s, RecoveryFacts{}, steadySourceChanged()
 	}
 	f, err := m.facts(ctx, source)
 	s = SteadySource{ApprovedSource: ApprovedSource{
@@ -78,10 +87,20 @@ func (m *RecoveryManager) steadySourceForPurpose(
 		FactsSHA256:    f.FactsSHA256,
 		Reconciliation: reconcile,
 	}, Authority: authority}
-	if err != nil || !s.matches(f) {
+	if err != nil {
 		return s, f, ErrRecoveryRejected
 	}
+	if !s.matches(f) {
+		if !f.sourceStateKnown {
+			return s, f, ErrRecoveryRejected
+		}
+		return s, f, steadySourceChanged()
+	}
 	return s, f, nil
+}
+
+func steadySourceChanged() error {
+	return errors.Join(ErrRecoveryRejected, feishusafety.ErrSourceAdmissionChanged)
 }
 
 func sameSteadySource(current, approved SteadySource, facts RecoveryFacts) bool {

@@ -84,8 +84,12 @@ func (m *RecoveryManager) checkApprovedSource(ctx context.Context, source, confi
 		ok = source == state.SourceID && state.FactsSHA256 != ""
 	}
 	if !ok || entry.ConfigSHA256 != config {
+		if state.Steady != nil {
+			return steadySourceChanged()
+		}
 		return ErrRecoveryRejected
 	}
+	var liveFacts *RecoveryFacts
 	if state.Steady != nil {
 		now, err := m.controller.Client.Time(ctx).Result()
 		if err != nil || m.checkSteadyState(ctx, state, now.UnixMilli()) != nil {
@@ -105,31 +109,45 @@ func (m *RecoveryManager) checkApprovedSource(ctx context.Context, source, confi
 		if _, outbound := feishusafety.RecoveryOutboundExecution(ctx); outbound {
 			execution, claimed := types.SyncExecutionFromContext(ctx)
 			if !claimed || execution.TenantID != approved.Authority.TenantID {
-				return ErrRecoveryRejected
+				return steadySourceChanged()
 			}
 		}
 		if approved.Reconciliation && (approved.ReconcileUntilMS <= now.UnixMilli() ||
 			!reconciliationContextMatches(ctx, state.ContinuityID, source)) {
-			return ErrRecoveryRejected
+			return steadySourceChanged()
 		}
 		current, facts, err := m.steadySourceForPurpose(
 			ctx, source, approved.Authority.ActorID, approved.Reconciliation)
-		if err != nil || !sameSteadySource(current, *approved, facts) {
-			return ErrRecoveryRejected
+		if err != nil {
+			return err
 		}
+		if !sameSteadySource(current, *approved, facts) {
+			return steadySourceChanged()
+		}
+		liveFacts = &facts
 	}
 	if identity, outbound := feishusafety.RecoveryOutboundExecution(ctx); outbound {
 		execution, claimed := types.SyncExecutionFromContext(ctx)
 		if !claimed || execution.DataSourceID != source || execution.SyncLogID != identity.Run ||
 			execution.Generation != identity.Generation || execution.Generation < 1 || execution.TenantID == 0 {
+			if state.Steady != nil {
+				return steadySourceChanged()
+			}
 			return ErrRecoveryRejected
 		}
 		if state.Phase == "running" && (identity.Run != state.RunID || identity.Generation != state.Generation) {
 			return ErrRecoveryRejected
 		}
 	}
-	f, err := m.facts(ctx, source)
-	if err != nil || !entry.matches(f) {
+	if liveFacts == nil {
+		facts, err := m.facts(ctx, source)
+		if err != nil {
+			return ErrRecoveryRejected
+		}
+		liveFacts = &facts
+	}
+	f := *liveFacts
+	if !entry.matches(f) {
 		return ErrRecoveryRejected
 	}
 	if state.Phase == "running" && (!f.Eligible || f.LiveExecutions > 1 || f.LivePublications > 1) {

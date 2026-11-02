@@ -63,7 +63,7 @@ func tripRequestFailure(caller context.Context, g *Guard, err error, embedding b
 		// A healthy shared gate is required even for this local classification.
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(caller), 200*time.Millisecond)
 		defer cancel()
-		if g.Check(ctx) != nil {
+		if err := g.Check(ctx); err != nil && !errors.Is(err, ErrSourceAdmissionChanged) {
 			reason := "timeout"
 			if !timedOut {
 				reason = "transient"
@@ -153,7 +153,7 @@ func (t Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 			err = waitPermit(req.Context(), g, delay)
 		}
 		if err != nil {
-			if req.Context().Err() == nil {
+			if req.Context().Err() == nil && !errors.Is(err, ErrSourceAdmissionChanged) {
 				trip(g, "embedding_retry_state_unavailable")
 			}
 			return nil, err
@@ -244,7 +244,8 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 			release, err = g.begin(req.Context(), tokens)
 		}
 		if err != nil {
-			if req.Context().Err() == nil && !errors.Is(err, ErrBudgetBusy) {
+			if req.Context().Err() == nil && !errors.Is(err, ErrBudgetBusy) &&
+				!errors.Is(err, ErrSourceAdmissionChanged) {
 				trip(g, "embedding_budget_or_state_unavailable")
 			}
 			return nil, err
@@ -279,7 +280,11 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 				}
 				checkCancel()
 				if err != nil {
-					cancelCause(ErrClosed)
+					if errors.Is(err, ErrSourceAdmissionChanged) {
+						cancelCause(ErrSourceAdmissionChanged)
+					} else {
+						cancelCause(ErrClosed)
+					}
 					return
 				}
 			}
@@ -287,13 +292,10 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 	}()
 	resp, err := base.RoundTrip(req)
 	if err != nil {
-		gateCanceled := errors.Is(context.Cause(ctx), ErrClosed)
+		denial := canceledAdmission(ctx)
 		finish()
-		if gateCanceled {
-			if !g.localClosed.Load() {
-				trip(g, "feishu_request_permit_unconfirmed")
-			}
-			return nil, fmt.Errorf("%w: request_permit_check_failed", ErrClosed)
+		if denial != nil {
+			return nil, canceledAdmissionError(g, denial)
 		}
 		tripRequestFailure(caller, g, err, t.Embedding, "headers")
 		return nil, err
@@ -314,7 +316,7 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 			finish()
 		} else {
 			resp.Body = &guardedBody{
-				ReadCloser: resp.Body, finish: finish, guard: g, caller: caller, embedding: t.Embedding,
+				ReadCloser: resp.Body, finish: finish, guard: g, caller: caller, execution: ctx, embedding: t.Embedding,
 			}
 		}
 		return resp, nil
@@ -331,7 +333,7 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 		return resp, nil
 	}
 	resp.Body = &guardedBody{
-		ReadCloser: resp.Body, finish: finish, guard: g, caller: caller, embedding: t.Embedding,
+		ReadCloser: resp.Body, finish: finish, guard: g, caller: caller, execution: ctx, embedding: t.Embedding,
 	}
 	return resp, nil
 }
@@ -341,11 +343,20 @@ type guardedBody struct {
 	finish    func()
 	guard     *Guard
 	caller    context.Context
+	execution context.Context
 	embedding bool
 }
 
 func (b *guardedBody) Read(p []byte) (int, error) {
+	if denial := canceledAdmission(b.execution); denial != nil {
+		b.finish()
+		return 0, canceledAdmissionError(b.guard, denial)
+	}
 	n, err := b.ReadCloser.Read(p)
+	if denial := canceledAdmission(b.execution); denial != nil {
+		b.finish()
+		return 0, canceledAdmissionError(b.guard, denial)
+	}
 	if err != nil {
 		b.finish()
 		if err != io.EOF {
@@ -355,3 +366,24 @@ func (b *guardedBody) Read(p []byte) (int, error) {
 	return n, err
 }
 func (b *guardedBody) Close() error { err := b.ReadCloser.Close(); b.finish(); return err }
+
+func canceledAdmission(ctx context.Context) error {
+	if ctx == nil {
+		return nil
+	}
+	cause := context.Cause(ctx)
+	if errors.Is(cause, ErrSourceAdmissionChanged) {
+		return ErrSourceAdmissionChanged
+	}
+	if errors.Is(cause, ErrClosed) {
+		return ErrClosed
+	}
+	return nil
+}
+
+func canceledAdmissionError(g *Guard, denial error) error {
+	if !errors.Is(denial, ErrSourceAdmissionChanged) && !g.localClosed.Load() {
+		trip(g, "feishu_request_permit_unconfirmed")
+	}
+	return fmt.Errorf("%w: request_permit_check_failed", denial)
+}

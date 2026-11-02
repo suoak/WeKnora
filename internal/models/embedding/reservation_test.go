@@ -26,6 +26,19 @@ type invalidResultEmbedder struct {
 	err     error
 }
 
+func TestScopedEmbeddingSourceWithdrawalIsNotAProviderFailure(t *testing.T) {
+	model, _, client, g, _ := reservationEmbedder(t, 0, time.Second)
+	model.inner = invalidResultEmbedder{err: feishusafety.ErrSourceAdmissionChanged}
+	ctx := feishusafety.WithScope(context.Background(), "source")
+	vectors, err := model.BatchEmbed(ctx, []string{"one"})
+	if !errors.Is(err, feishusafety.ErrSourceAdmissionChanged) || vectors != nil {
+		t.Fatal("withdrawn source result was accepted")
+	}
+	if client.Exists(ctx, g.PermitKey()).Val() != 1 || g.Check(ctx) != nil {
+		t.Fatal("source withdrawal was promoted to a shared embedding outage")
+	}
+}
+
 func (e invalidResultEmbedder) Embed(context.Context, []string, api.EmbedInputType) ([][]float32, error) {
 	return e.vectors, e.err
 }

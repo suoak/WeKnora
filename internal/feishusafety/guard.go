@@ -20,6 +20,9 @@ import (
 var (
 	// ErrClosed indicates that the distributed safety gate cannot allow work.
 	ErrClosed = errors.New("feishu safety gate closed")
+	// ErrSourceAdmissionChanged still denies the request. It identifies a known
+	// source-local withdrawal, never Redis/control loss or an unknown failure.
+	ErrSourceAdmissionChanged = fmt.Errorf("%w: source admission changed", ErrClosed)
 	// ErrBudgetBusy indicates that a known local allocation is temporarily full.
 	ErrBudgetBusy = errors.New("feishu safety budget busy")
 )

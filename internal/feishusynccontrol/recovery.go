@@ -31,6 +31,9 @@ var (
 
 // RecoveryFacts is a content-free authoritative source snapshot.
 type RecoveryFacts struct {
+	// Set only by the authoritative loader after the global write protections
+	// and all metadata reads are verified. Never serialized or caller supplied.
+	sourceStateKnown       bool
 	SourceID               string `json:"source_id"`
 	ConfigSHA256           string `json:"config_sha256"`
 	FactsSHA256            string `json:"facts_sha256"`
@@ -40,6 +43,13 @@ type RecoveryFacts struct {
 	SelectedResourceCount  int    `json:"selected_resource_count"`
 	LiveExecutions         int64  `json:"live_executions"`
 	LivePublications       int64  `json:"live_publications"`
+}
+
+// Wire equality covers every signed fact. Runtime-only classification proof is
+// reconstructed by the loader and must not invalidate a JSON-decoded plan.
+func sameRecoveryFacts(a, b RecoveryFacts) bool {
+	a.sourceStateKnown, b.sourceStateKnown = false, false
+	return a == b
 }
 
 // RecoveryPlan binds a short approval window to one incident and source.
@@ -464,7 +474,7 @@ func (m *RecoveryManager) Reset(
 		return ErrRecoveryRejected
 	}
 	f, e := m.facts(ctx, p.Facts.SourceID)
-	if e != nil || f != p.Facts || !f.Eligible {
+	if e != nil || !sameRecoveryFacts(f, p.Facts) || !f.Eligible {
 		return ErrRecoveryRejected
 	}
 	q, e := m.queue(ctx)
@@ -497,7 +507,7 @@ func (m *RecoveryManager) Reset(
 		return ErrRecoveryRejected
 	}
 	f, e = m.facts(ctx, p.Facts.SourceID)
-	if e != nil || f != p.Facts {
+	if e != nil || !sameRecoveryFacts(f, p.Facts) {
 		return ErrRecoveryRejected
 	}
 	fresh, e := c.Guard.Fresh()

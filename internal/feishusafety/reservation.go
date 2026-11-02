@@ -91,7 +91,7 @@ func ReserveEmbedding(ctx context.Context, inputs []string) (context.Context, fu
 	}
 	release, err := g.begin(ctx, tokens)
 	if err != nil {
-		if ctx.Err() == nil && !errors.Is(err, ErrBudgetBusy) {
+		if ctx.Err() == nil && !errors.Is(err, ErrBudgetBusy) && !errors.Is(err, ErrSourceAdmissionChanged) {
 			trip(g, "embedding_reservation_unavailable")
 		}
 		return ctx, nil, err
@@ -174,7 +174,7 @@ func WaitEmbeddingRetry(ctx context.Context, retryAfter string, attempt int, wai
 	}
 	*waited += delay
 	if err := waitPermit(ctx, g, delay); err != nil {
-		if ctx.Err() == nil {
+		if ctx.Err() == nil && !errors.Is(err, ErrSourceAdmissionChanged) {
 			trip(g, "embedding_retry_state_unavailable")
 		}
 		return err

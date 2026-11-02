@@ -174,7 +174,9 @@ func (e *protocolEmbedder) BatchEmbed(ctx context.Context, texts []string) ([][]
 				}
 			}
 			if err != nil {
-				feishusafety.EmbeddingResultFailed(ctx, "embedding_response_invalid_or_business_error")
+				if !errors.Is(err, feishusafety.ErrSourceAdmissionChanged) {
+					feishusafety.EmbeddingResultFailed(ctx, "embedding_response_invalid_or_business_error")
+				}
 				return nil, err
 			}
 			if len(vectors) != len(part) {

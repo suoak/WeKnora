@@ -176,5 +176,6 @@ a.lease_until>now()`).Scan(&f.LivePublications).Error; err != nil {
 		(ds.LegacyAccessState == "hold" || ds.Status == "error")
 	f.RetryEligible = f.Eligible && ds.Status == "error" && ds.LegacyAccessState != "hold"
 	f.Eligible = f.Eligible && ds.Status == "active" && ds.LegacyAccessState != "hold"
+	f.sourceStateKnown = err == nil && guards == 3
 	return f, err
 }
