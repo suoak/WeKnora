@@ -201,7 +201,7 @@ func wikiDependencies(db *gorm.DB, kb string) (*wikiGenerationProof, error) {
 			}
 			var source map[string]interface{}
 			if e := db.Table("data_sources").
-				Select("id,tenant_id,knowledge_base_id,type,status,legacy_access_state,config,updated_at").
+				Select("id,tenant_id,knowledge_base_id,type,status,legacy_access_state,config").
 				Where(`id=? AND tenant_id=? AND knowledge_base_id=? AND type=? AND status='active'
  AND legacy_access_state IN ('unmanaged','active') AND deleted_at IS NULL`,
 					metadata["datasource_id"], p.Tenant, kb, types.ConnectorTypeGitLab).Take(&source).Error; e != nil {

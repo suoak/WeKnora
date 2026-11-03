@@ -39,6 +39,10 @@ func testWikiProductionGitLab(t *testing.T, f *fixture.Fixture) {
 	)
 	require.NoError(t, err)
 	require.Len(t, verified, 1, "connector proof must not masquerade as a document ID")
+	require.NoError(t, db.Exec(`UPDATE data_sources SET last_sync_at=CURRENT_TIMESTAMP,
+ updated_at=CURRENT_TIMESTAMP WHERE id='gitlab'`).Error)
+	_, err = repository.BeginWikiMCPGeneration(context.Background(), repo, "public-two")
+	require.NoError(t, err, "an unchanged sync must not invalidate current Wiki authority")
 	require.NoError(t, db.Exec(`UPDATE data_sources SET config='{"branch":"changed"}' WHERE id='gitlab'`).Error)
 	page.Content = "must reject stale input"
 	require.Error(t, repo.Update(proof, page))
