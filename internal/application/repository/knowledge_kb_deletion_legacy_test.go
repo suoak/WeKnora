@@ -64,6 +64,14 @@ func protectedDeletionFixture(t *testing.T) (*gorm.DB, *knowledgeRepository) {
 	return db, &knowledgeRepository{db: db}
 }
 
+func TestProtectedKBDeletionLeavesOrdinaryLiteDeletionUnchanged(t *testing.T) {
+	db := syncdb.Open(t, "sqlite")
+	repo := &knowledgeRepository{db: db}
+	handled, err := repo.CleanupLegacyKnowledgeForKBDeletion(context.Background(), 1, "kb", "kid", nil)
+	require.NoError(t, err)
+	require.False(t, handled)
+}
+
 func TestProtectedKBDeletionUsesFreshRestrictedCapability(t *testing.T) {
 	db, repo := protectedDeletionFixture(t)
 	engines := []types.RetrieverEngineParams{{RetrieverEngineType: types.PostgresRetrieverEngineType}}

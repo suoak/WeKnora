@@ -22,6 +22,11 @@ func (r *knowledgeRepository) CleanupLegacyKnowledgeForKBDeletion(
 	if tenant == 0 || kb == "" || kid == "" {
 		return false, errors.New("knowledge base deletion identity not verified")
 	}
+	if r.db.Dialector.Name() != "postgres" && !r.db.Migrator().HasTable(&types.FeishuLegacyResource{}) {
+		// Lite installations without the PostgreSQL source protocol retain
+		// ordinary deletion. An enrolled resource still fails closed below.
+		return false, nil
+	}
 	var enrolled int64
 	if err = r.db.WithContext(ctx).Table("feishu_legacy_resources").
 		Where("knowledge_id=?", kid).Count(&enrolled).Error; err != nil || enrolled == 0 {
