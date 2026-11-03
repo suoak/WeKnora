@@ -1,0 +1,80 @@
+name: Personal Document Deletion Gate
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - internal/application/service/knowledge*.go
+      - internal/application/service/feishu_personal*.go
+      - internal/application/repository/knowledge*.go
+      - internal/application/repository/feishu_personal*.go
+      - internal/application/repository/retriever/postgres/**
+      - internal/middleware/knowledge_deletion_metadata*.go
+      - internal/router/*knowledge*.go
+      - internal/types/knowledge_deletion_metadata.go
+      - .github/workflows/personal-document-deletion.yml
+  push:
+    branches: [main]
+    paths:
+      - internal/application/service/knowledge*.go
+      - internal/application/service/feishu_personal*.go
+      - internal/application/repository/knowledge*.go
+      - internal/application/repository/feishu_personal*.go
+      - internal/application/repository/retriever/postgres/**
+      - internal/middleware/knowledge_deletion_metadata*.go
+      - internal/router/*knowledge*.go
+      - internal/types/knowledge_deletion_metadata.go
+      - .github/workflows/personal-document-deletion.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: personal-document-deletion-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  regression:
+    name: Personal document deletion and lease regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: paradedb/paradedb:v0.22.2-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synthetic-regression-only
+          POSTGRES_DB: feishu_atomic_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d feishu_atomic_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      SYNC_EXECUTION_POSTGRES_DSN: postgres://postgres:synthetic-regression-only@localhost:5432/feishu_atomic_test?sslmode=disable
+      FEISHU_LEGACY_TEST_DSN: postgres://postgres:synthetic-regression-only@localhost:5432/feishu_atomic_test?sslmode=disable
+      REQUIRE_SYNC_EXECUTION_POSTGRES: '1'
+      FEISHU_SYNC_SAFETY_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.8'
+          cache: true
+      - name: Verify candidate identity
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+      - name: Exercise deletion, privacy, transaction rollback and lease renewal
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -race -p 2 -json -tags sqlite_fts5 \
+            ./internal/types ./internal/middleware ./internal/application/repository \
+            ./internal/application/repository/retriever/postgres \
+            ./internal/application/service ./internal/router ./internal/handler \
+            -run 'KnowledgeDeletion|PersonalDocument|ExactDocumentBatchWriteFence|PersonalRecoveryExactExecution|AdmittedDelete|DeletionMetadata|KBDeletionMetadata|LookupKBAccessMetadata|Knowledge.*Delete' \
+            -count=1 -timeout=12m | tee personal-document-deletion.jsonl
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: personal-document-deletion-${{ env.SOURCE_SHA }}-${{ github.event_name }}
+          path: personal-document-deletion.jsonl
+          retention-days: 90
