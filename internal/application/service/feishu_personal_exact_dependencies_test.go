@@ -21,7 +21,7 @@ func TestExactPersonalDOCXDependencies(t *testing.T) {
 		{"implicit URL", `<Relationship Target="https://example.invalid/a" Type="image"/>`, "", false},
 		{
 			"literal HTTPS hyperlink",
-			`<Relationship TargetMode="External" Target="https://example.invalid/a" ` +
+			`<Relationship Id="rIdLink" TargetMode="External" Target="https://example.invalid/a" ` +
 				`Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink"/>`, "", true,
 		},
 		{
@@ -55,6 +55,13 @@ func TestExactPersonalDOCXDependencies(t *testing.T) {
 			require.NoError(t, err)
 			_, err = writer.Create("word/media/image1.png")
 			require.NoError(t, err)
+			entry, err = writer.Create("word/document.xml")
+			require.NoError(t, err)
+			_, err = entry.Write([]byte(`<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ` +
+				`xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
+				`<w:body><w:p><w:hyperlink r:id="rIdLink"><w:r><w:t>source link</w:t></w:r>` +
+				`</w:hyperlink></w:p></w:body></w:document>`))
+			require.NoError(t, err)
 			if test.extra != "" {
 				_, err = writer.Create(test.extra)
 				require.NoError(t, err)
@@ -66,6 +73,50 @@ func TestExactPersonalDOCXDependencies(t *testing.T) {
 			} else {
 				require.ErrorIs(t, err, errPersonalExactDocument)
 			}
+		})
+	}
+}
+
+func TestExactPersonalDOCXDependenciesHyperlinkRoles(t *testing.T) {
+	const relationship = `<Relationship Id="rIdLink" TargetMode="External" Target="https://example.invalid/a" ` +
+		`Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink"/>`
+	const prefix = `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ` +
+		`xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">`
+	for _, test := range []struct {
+		name, body, extraPart, extraBody, extraRelationship string
+	}{
+		{"image reference", `<w:drawing r:embed="rIdLink"/>`, "", "", ""},
+		{"object reference", `<w:object r:id="rIdLink"/>`, "", "", ""},
+		{"wrong namespace", `<hyperlink r:id="rIdLink"/>`, "", "", ""},
+		{"wrong attribute", `<w:hyperlink r:embed="rIdLink"/>`, "", "", ""},
+		{"unused relationship", `<w:p/>`, "", "", ""},
+		{"duplicate ID", `<w:hyperlink r:id="rIdLink"/>`, "", "", relationship},
+		{
+			"another part references ID", `<w:hyperlink r:id="rIdLink"/>`,
+			"word/header1.xml", prefix + `<w:hyperlink r:id="rIdLink"/></w:document>`, "",
+		},
+		{
+			"valid link plus object", `<w:hyperlink r:id="rIdLink"/><w:object r:id="rIdLink"/>`, "", "", "",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var buffer bytes.Buffer
+			writer := zip.NewWriter(&buffer)
+			parts := map[string]string{
+				"word/_rels/document.xml.rels": "<Relationships>" + relationship + test.extraRelationship + "</Relationships>",
+				"word/document.xml":            prefix + test.body + "</w:document>",
+			}
+			if test.extraPart != "" {
+				parts[test.extraPart] = test.extraBody
+			}
+			for name, content := range parts {
+				entry, err := writer.Create(name)
+				require.NoError(t, err)
+				_, err = entry.Write([]byte(content))
+				require.NoError(t, err)
+			}
+			require.NoError(t, writer.Close())
+			require.ErrorIs(t, checkExactDOCXDependencies(buffer.Bytes()), errPersonalExactDocument)
 		})
 	}
 }

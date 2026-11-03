@@ -29,6 +29,7 @@ func checkExactDOCXGraph(data []byte, packages map[string][]byte) error {
 	}
 	var expanded uint64
 	packageReferences := map[string]int{}
+	literalHyperlinks := map[string]bool{}
 	for _, entry := range archive.File {
 		name := strings.ToLower(entry.Name)
 		if name == "" || name == "." || name == ".." || strings.HasPrefix(name, "../") ||
@@ -71,6 +72,7 @@ func checkExactDOCXGraph(data []byte, packages map[string][]byte) error {
 		var relationships struct {
 			XMLName xml.Name `xml:"Relationships"`
 			Rows    []struct {
+				ID     string `xml:"Id,attr"`
 				Mode   string `xml:"TargetMode,attr"`
 				Target string `xml:"Target,attr"`
 				Type   string `xml:"Type,attr"`
@@ -81,17 +83,26 @@ func checkExactDOCXGraph(data []byte, packages map[string][]byte) error {
 		if err != nil {
 			return errPersonalExactDocument
 		}
+		relationshipIDs := map[string]bool{}
 		for _, relationship := range relationships.Rows {
+			if relationship.ID != "" {
+				if relationshipIDs[relationship.ID] {
+					return errPersonalExactDocument
+				}
+				relationshipIDs[relationship.ID] = true
+			}
 			// A hyperlink is source-file text, not authority to fetch its target.
 			// The pinned native conversion is tested to preserve both label and
 			// URL without opening a connection. Media/packages remain fail-closed.
 			if relationship.Mode == "External" && relationship.Type ==
 				"http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" {
 				target, parseErr := url.Parse(relationship.Target)
-				if parseErr != nil || target.User != nil || target.Hostname() == "" ||
+				if name != "word/_rels/document.xml.rels" || relationship.ID == "" ||
+					parseErr != nil || target.User != nil || target.Hostname() == "" ||
 					(target.Scheme != "https" && target.Scheme != "http") {
 					return errPersonalExactDocument
 				}
+				literalHyperlinks[relationship.ID] = true
 				continue
 			}
 			if relationship.Mode != "" && relationship.Mode != "Internal" ||
@@ -122,6 +133,9 @@ func checkExactDOCXGraph(data []byte, packages map[string][]byte) error {
 			}
 		}
 	}
+	if err := checkExactLiteralHyperlinkUses(archive, literalHyperlinks); err != nil {
+		return err
+	}
 	if len(packageReferences) != len(packages) {
 		return errPersonalExactDocument
 	}
@@ -129,6 +143,57 @@ func checkExactDOCXGraph(data []byte, packages map[string][]byte) error {
 		if packageReferences[name] != 1 {
 			return errPersonalExactDocument
 		}
+	}
+	return nil
+}
+
+// Never trust the relationship type alone: an image/object could reference the
+// same ID and cause a converter to treat its target as a fetchable dependency.
+func checkExactLiteralHyperlinkUses(archive *zip.Reader, ids map[string]bool) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	seen := map[string]bool{}
+	for _, entry := range archive.File {
+		if !strings.HasSuffix(strings.ToLower(entry.Name), ".xml") {
+			continue
+		}
+		reader, err := entry.Open()
+		if err != nil {
+			return errPersonalExactDocument
+		}
+		decoder := xml.NewDecoder(io.LimitReader(reader, (64<<20)+1))
+		for {
+			token, readErr := decoder.Token()
+			if readErr == io.EOF {
+				break
+			}
+			if readErr != nil {
+				_ = reader.Close()
+				return errPersonalExactDocument
+			}
+			start, ok := token.(xml.StartElement)
+			if !ok {
+				continue
+			}
+			for _, attribute := range start.Attr {
+				if !ids[attribute.Value] {
+					continue
+				}
+				if strings.ToLower(entry.Name) != "word/document.xml" || start.Name.Local != "hyperlink" ||
+					start.Name.Space != "http://schemas.openxmlformats.org/wordprocessingml/2006/main" ||
+					attribute.Name.Local != "id" ||
+					attribute.Name.Space != "http://schemas.openxmlformats.org/officeDocument/2006/relationships" {
+					_ = reader.Close()
+					return errPersonalExactDocument
+				}
+				seen[attribute.Value] = true
+			}
+		}
+		_ = reader.Close()
+	}
+	if len(seen) != len(ids) {
+		return errPersonalExactDocument
 	}
 	return nil
 }
