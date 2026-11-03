@@ -42,7 +42,7 @@ func TestDocumentM3PostgresEmptyStartupMigrationRunner(t *testing.T) {
 	require.NoError(t, migrationErr)
 	version, dirty, ok := projectdb.CachedMigrationVersion()
 	require.True(t, ok)
-	require.Equal(t, uint(3042), version)
+	require.Equal(t, uint(3045), version)
 	require.False(t, dirty)
 	require.Empty(t, projectdb.CachedMigrationError())
 }
@@ -92,7 +92,7 @@ func TestDocumentM3PostgresFailureRecoveryMigrationRunner(t *testing.T) {
 	require.NoError(t, projectdb.RunMigrationsWithOptions(databaseURL("knowhub_m3_restored"), projectdb.MigrationOptions{}))
 	version, dirty, ok := projectdb.CachedMigrationVersion()
 	require.True(t, ok)
-	require.Equal(t, uint(3042), version)
+	require.Equal(t, uint(3045), version)
 	require.False(t, dirty)
 	require.Empty(t, projectdb.CachedMigrationError())
 	require.NoError(t, os.Chdir(cwd))
@@ -132,7 +132,7 @@ func runDocumentPostgresMigration(t *testing.T, databaseName, source string) {
 		require.NoError(t, db.Exec(q).Error)
 	}
 	var before string
-	signature := `SELECT md5(string_agg(table_name||':'||column_name||':'||data_type,',' ORDER BY table_name,column_name)) FROM information_schema.columns WHERE table_schema='public' AND table_name NOT IN ('enterprise_space_policies','kb_publication_policies','knowledge_access_policies','document_subject_grants','document_access_epochs','feishu_legacy_resources','feishu_legacy_attempts','feishu_legacy_index_candidates','wiki_mcp_provenance','wiki_mcp_kb_epochs') AND NOT (table_name='data_sources' AND column_name='legacy_access_state') AND NOT (table_name='tenant_api_keys' AND column_name='personal_scope_mode')`
+	signature := `SELECT md5(string_agg(table_name||':'||column_name||':'||data_type,',' ORDER BY table_name,column_name)) FROM information_schema.columns WHERE table_schema='public' AND table_name NOT IN ('enterprise_space_policies','kb_publication_policies','knowledge_access_policies','document_subject_grants','document_access_epochs','feishu_legacy_resources','feishu_legacy_attempts','feishu_legacy_index_candidates','wiki_mcp_provenance','wiki_mcp_kb_epochs','feishu_import_principal_history') AND NOT (table_name='data_sources' AND column_name='legacy_access_state') AND NOT (table_name='tenant_api_keys' AND column_name='personal_scope_mode')`
 	require.NoError(t, db.Raw(signature).Scan(&before).Error)
 	tables := []string{"tenants", "users", "tenant_members", "tenant_api_keys", "tenant_portal_configs", "knowledge_bases", "knowledges"}
 	snapshots := map[string]string{}
@@ -161,7 +161,7 @@ func runDocumentPostgresMigration(t *testing.T, databaseName, source string) {
 		require.NoError(t, migrationErr)
 		version, dirty, err := m.Version()
 		require.NoError(t, err)
-		require.Equal(t, uint(3042), version)
+		require.Equal(t, uint(3045), version)
 		require.False(t, dirty)
 		var after string
 		require.NoError(t, db.Raw(signature).Scan(&after).Error)
