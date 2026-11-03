@@ -31,16 +31,21 @@ func sharedQueueFixture(t *testing.T) (*steadyFixture, map[string]SharedQueueTas
 	proofs := map[string]SharedQueueTaskProof{}
 	client := asynq.NewClientFromRedisClient(f.r)
 	for i := 0; i < 6; i++ {
-		p := types.DataSourceSyncPayload{DataSourceID: uuid.NewString(), SyncLogID: uuid.NewString(), TenantID: uint64(i + 1)}
+		p := types.DataSourceSyncPayload{
+			DataSourceID: uuid.NewString(), SyncLogID: uuid.NewString(), TenantID: uint64(i + 1),
+		}
 		body, marshalErr := json.Marshal(p)
 		require.NoError(t, marshalErr)
 		_, enqueueErr := client.Enqueue(asynq.NewTask(types.TypeDataSourceSync, body),
 			asynq.Queue(types.QueueSync), asynq.TaskID(p.SyncLogID))
 		require.NoError(t, enqueueErr)
-		proof := SharedQueueTaskProof{SourceID: p.DataSourceID, RunID: p.SyncLogID, TenantID: p.TenantID,
-			Status: "canceled", Generation: 1, Disposition: "acknowledge_terminal"}
+		proof := SharedQueueTaskProof{
+			SourceID: p.DataSourceID, RunID: p.SyncLogID, TenantID: p.TenantID,
+			Status: "canceled", Generation: 1, Disposition: "acknowledge_terminal",
+		}
 		if i < 2 {
-			proof.Status, proof.Generation, proof.SourceType, proof.Disposition = "running", 0, "gitlab", "execute_original"
+			proof.Status, proof.Generation = "running", 0
+			proof.SourceType, proof.Disposition = "gitlab", "execute_original"
 		}
 		proofs[p.SyncLogID] = proof
 	}
@@ -303,8 +308,10 @@ redis.error_reply('RECOVERY_SOURCE_DENIED') end
  else return redis.error_reply('RECOVERY_FROZEN') end
 end
 return 1`)
-	err = oldReader.Run(ctx, f.r, []string{f.c.Guard.PermitKey(), f.c.prefix + "trip",
-		f.c.prefix + "recovery", f.c.prefix + "recovery_required", f.c.prefix + "steady_health"},
+	err = oldReader.Run(ctx, f.r, []string{
+		f.c.Guard.PermitKey(), f.c.prefix + "trip",
+		f.c.prefix + "recovery", f.c.prefix + "recovery_required", f.c.prefix + "steady_health",
+	},
 		f.c.Guard.Fingerprint(), id, p.ID, f.facts[id].ConfigSHA256, "", 0, true, true).Err()
 	require.ErrorContains(t, err, "RECOVERY_EXPIRED")
 }

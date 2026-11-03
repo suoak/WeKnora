@@ -49,6 +49,7 @@ func checkpointBytes(q recoveryQueueSnapshot) ([]byte, error) {
 	return json.Marshal(x)
 }
 
+// ConfigureSharedQueueProof installs the authoritative SQL task-identity validator.
 func (m *RecoveryManager) ConfigureSharedQueueProof(
 	load func(context.Context, types.DataSourceSyncPayload) (SharedQueueTaskProof, error),
 ) {
@@ -116,7 +117,8 @@ func (m *RecoveryManager) prepareSharedQueue(
 			return nil, nil, ErrRecoveryRejected
 		}
 		proof, err := m.sharedQueueProof(ctx, p)
-		if err != nil || proof.SourceID != p.DataSourceID || proof.RunID != p.SyncLogID || proof.TenantID != p.TenantID {
+		if err != nil || proof.SourceID != p.DataSourceID ||
+			proof.RunID != p.SyncLogID || proof.TenantID != p.TenantID {
 			return nil, nil, ErrRecoveryRejected
 		}
 		terminal := proof.Disposition == "acknowledge_terminal" &&
@@ -216,7 +218,8 @@ func (m *RecoveryManager) releasedQueueSnapshot(ctx context.Context) (recoveryQu
 	if err != nil || paused != 0 {
 		return q, true, ErrRecoveryRejected
 	}
-	body, err := m.controller.Client.Get(ctx, m.controller.prefix+"shared_queue_checkpoint:"+p.SharedCheckpointID).Result()
+	checkpointKey := m.controller.prefix + "shared_queue_checkpoint:" + p.SharedCheckpointID
+	body, err := m.controller.Client.Get(ctx, checkpointKey).Result()
 	var x sharedQueueCheckpoint
 	if err != nil || digestBytes(body) != p.SharedCheckpointSHA || json.Unmarshal([]byte(body), &x) != nil ||
 		len(x.IDs) != len(p.SharedTasks) || len(x.Fields) != len(x.IDs) {

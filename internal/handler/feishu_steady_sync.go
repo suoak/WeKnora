@@ -58,7 +58,8 @@ func (h *DataSourceHandler) FeishuSteadySync(c *gin.Context) {
 			return
 		}
 		c.JSON(200, gin.H{
-			"sync_queue_kept_paused": !request.Plan.ReleaseSharedQueue, "approved_sources": len(request.Plan.ManagedSources),
+			"sync_queue_kept_paused": !request.Plan.ReleaseSharedQueue,
+			"approved_sources":       len(request.Plan.ManagedSources),
 			"policy_revision":        request.Plan.PolicyRevision,
 			"authorization_until_ms": request.Plan.AuthorizationUntilMS,
 		})
