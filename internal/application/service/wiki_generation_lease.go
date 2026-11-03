@@ -21,9 +21,10 @@ func (s *wikiIngestService) withGenerationLease(
 	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
 		return err
 	}
-	return withWorkerWikiGenerationLease(ctx, s.redisClient, payload.KnowledgeBaseID, func(locked context.Context) error {
+	run := func(locked context.Context) error {
 		return fn(locked, task)
-	})
+	}
+	return withWorkerWikiGenerationLease(ctx, s.redisClient, payload.KnowledgeBaseID, run)
 }
 
 // Bound acquisition only. Waiting behind one KB must not occupy every worker
