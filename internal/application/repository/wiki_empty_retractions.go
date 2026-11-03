@@ -109,16 +109,16 @@ func PrepareWikiEmptyRetractions(
 			return err
 		}
 		if len(pages) > wikiMCPMaxPages {
-			return errors.New("Wiki metadata bound exceeded")
+			return errors.New("wiki metadata bound exceeded")
 		}
 		for _, page := range pages {
 			var refs []string
 			if len(page.SourceRefs) > 0 && json.Unmarshal(page.SourceRefs, &refs) != nil {
-				return errors.New("Wiki reference metadata is unknown")
+				return errors.New("wiki reference metadata is unknown")
 			}
 			for _, ref := range refs {
 				if ref == "" || targets[types.WikiSourceKnowledgeID(ref)] {
-					return errors.New("Wiki reference remains or cannot be verified")
+					return errors.New("wiki reference remains or cannot be verified")
 				}
 			}
 		}
