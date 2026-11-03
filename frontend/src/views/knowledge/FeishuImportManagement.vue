@@ -20,7 +20,7 @@
           <t-button v-if="['user_scope_missing','reconnect_required','authorization_expired'].includes(item.error_category || '')" variant="text" :loading="authorizationBusy" @click="connect('')">补充飞书授权</t-button>
           <router-link v-if="item.status === 'succeeded' && item.index_verified && item.knowledge_id" :to="{path:'/platform/knowledge-bases/'+batch.batch.kb_id,query:{knowledge_id:item.knowledge_id}}">在知识库中查看</router-link>
         </article>
-        <t-button v-if="batch.items.some(item => ['failed','blocked'].includes(item.status))" variant="outline" :loading="retryBusy" @click="retry">重新尝试</t-button>
+        <t-button v-if="batch.items.some(item => ['failed','blocked'].includes(item.status) && item.error_category !== 'source_identity_conflict')" variant="outline" :loading="retryBusy" @click="retry">重新尝试</t-button>
       </section>
     </template>
     <p v-else>正在读取导入记录。</p>
@@ -50,6 +50,7 @@ function itemStatus(item:FeishuBatchItem) {
   return labels[item.stage || ''] || '任务已交接，等待后台状态'
 }
 function failure(code:string) {
+  if(code==='source_identity_conflict') return '该文档已有其他授权身份的导入记录，请联系管理员核对并受控处理。重新授权或重复导入不能解决此冲突，已有内容会保留。'
 	if(code==='source_identity_rebind_required') return '飞书授权已更新，请联系管理员更新此来源的授权绑定。'
 	if(code==='source_copy_export_denied') return '当前账号可以阅读该文档，但没有复制或导出权限。请联系文档所有者开放相应权限，无需申请编辑权限。'
 	if(code==='source_read_denied') return '当前账号没有文档阅读权限，请联系文档所有者。'

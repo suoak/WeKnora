@@ -1,4 +1,5 @@
 const en = {
+  source_identity_conflict: 'This document has an import record under a different authorization identity. Ask an administrator to reconcile that record. Reconnecting or retrying will not resolve the conflict; existing content is retained.',
   discovery_review_required: 'The directory changed or reached the discovery limit. Review the retained directory paths and choose a smaller authorized subtree.',
   existing: 'Already imported; content updates are managed by its source',
   directoryDiscovery: 'Folder and Wiki discovery', discoverThisFolder: 'Enable discovery for this folder',
@@ -49,6 +50,7 @@ const en = {
   app: 'Feishu document application', appID: 'App ID', secret: 'App Secret (leave empty to keep)', callback: 'OAuth callback URL', enabled: 'Enable personal imports', save: 'Save', test: 'Test saved application credentials', saved: 'Configuration saved', tested: 'Application credentials valid.',
 }
 const zh = {
+  source_identity_conflict: '该文档已有其他授权身份的导入记录，请联系管理员核对并受控处理。重新授权或重复导入不能解决此冲突，已有内容会保留。',
   discovery_review_required: '目录目标发生变化或已达到发现上限，请复核已保留的目录路径，并选择较小的已授权子目录。',
   existing: '已有知识，内容更新由对应来源管理',
   directoryDiscovery: '文件夹与 Wiki 持续发现', discoverThisFolder: '启用当前目录持续发现',

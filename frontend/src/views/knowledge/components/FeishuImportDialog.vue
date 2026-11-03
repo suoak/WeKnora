@@ -40,7 +40,7 @@ const statusLoading = ref(false), statusError = ref(false)
 const canImport = computed(() => status.value.available && (status.value.auth_mode === 'application_grant' || status.value.connected))
 const tablesEnabled = computed(() => ['sheet', 'bitable'].every(type => status.value.supported_resource_types?.includes(type)))
 const rows = ref<FeishuImport[]>([])
-function importError(category: string) { return t(['candidate_media_not_supported', 'candidate_content_incomplete'].includes(category) ? category : 'recoveryReview') }
+function importError(category: string) { return t(['candidate_media_not_supported', 'candidate_content_incomplete', 'source_identity_conflict'].includes(category) ? category : 'recoveryReview') }
 function importStatus(value: string) { return t(['synced', 'completed', 'attention', 'needs_attention', 'indexed', 'index_pending', 'accepted'].includes(value) ? value : 'pending') }
 const url = ref(''), busy = ref(false), resultMessage = ref('')
 // Admission may precede public Knowledge creation. Keep observing that handoff
