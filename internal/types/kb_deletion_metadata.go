@@ -11,6 +11,7 @@ func WithKBDeletionMetadata(ctx context.Context, id string) context.Context {
 	return context.WithValue(ctx, kbDeletionMetadataKey{}, id)
 }
 
+// IsKBDeletionMetadata identifies an exact, server-established deletion lookup.
 func IsKBDeletionMetadata(ctx context.Context, id string) bool {
 	v, _ := ctx.Value(kbDeletionMetadataKey{}).(string)
 	return id != "" && v == id
