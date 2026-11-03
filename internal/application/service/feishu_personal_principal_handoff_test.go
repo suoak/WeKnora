@@ -35,7 +35,8 @@ func seedUnpublishedApplication(
 	a := types.FeishuPersonalAttempt{
 		ID: uuid.NewString(), ImportID: m.ID, LogicalKnowledgeID: r.LogicalKnowledgeID,
 		CandidateVersionID: uuid.NewString(),
-		Revision:           "1", CallerTenantID: 1, AppConfigVersion: "old-application", AuthMode: types.FeishuApplicationGrant,
+		Revision:           "1", CallerTenantID: 1, AppConfigVersion: "old-application",
+		AuthMode:      types.FeishuApplicationGrant,
 		ApplicationID: "cli_test",
 		Status:        "needs_attention", LastErrorCategory: "authorization_revalidation_failed", Fence: 2,
 	}
