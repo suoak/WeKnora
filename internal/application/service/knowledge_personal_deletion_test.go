@@ -110,8 +110,10 @@ func TestPersonalDocumentDeletionWorkerRemovesUnpublishedArtifacts(t *testing.T)
 		ID: "unpublished", TenantID: 1, KnowledgeID: proof.knowledge, KnowledgeBaseID: proof.kb,
 		Content: "retained partial text", IsEnabled: false,
 	}).Error)
-	payload := types.KnowledgeListDeletePayload{TenantID: 1, KnowledgeBaseID: proof.kb,
-		KnowledgeIDs: []string{proof.knowledge}, Initiator: types.TaskInitiator{UserID: "A"}}
+	payload := types.KnowledgeListDeletePayload{
+		TenantID: 1, KnowledgeBaseID: proof.kb,
+		KnowledgeIDs: []string{proof.knowledge}, Initiator: types.TaskInitiator{UserID: "A"},
+	}
 	require.NoError(t, f.ks.ProcessKnowledgeListDelete(context.Background(), deleteDocumentTask(t, payload)))
 	require.NoError(t, f.ks.ProcessKnowledgeListDelete(context.Background(), deleteDocumentTask(t, payload)))
 	var count int64

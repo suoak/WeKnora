@@ -47,7 +47,7 @@ func TestKBDeletionMetadataScope(t *testing.T) {
 				require.NoError(t, db.Exec(ddl).Error)
 			}
 			require.NoError(t, db.Exec("UPDATE knowledge_bases SET indexing_strategy=?,cos_config=?",
-				types.IndexingStrategy{WikiEnabled: true}, types.StorageConfig{Provider: "cos"}).Error)
+				types.IndexingStrategy{WikiEnabled: true}, []byte(`{"provider":"cos"}`)).Error)
 			db = types.EnablePrivateKBGuards(types.EnableLegacyReadGuards(db))
 			repo := &knowledgeBaseRepository{db: db}
 			ctx := types.WithKBDeletionMetadata(context.Background(), "held")

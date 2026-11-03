@@ -74,8 +74,10 @@ func TestKnowledgeDeletionMetadataRegisteredBeforeOwnershipAndWriteGuards(t *tes
 			cfg := &config.Config{Tenant: &config.TenantConfig{EnableRBAC: &enabled}}
 			kg, kb, queue := &deletionRouteKnowledge{}, &deletionRouteKB{}, &deletionRouteQueue{}
 			h := handler.NewKnowledgeHandler(cfg, kg, kb, nil, nil, nil, nil, nil, queue, nil, nil)
-			g := &rbacGuards{cfg: cfg, knowledgeService: kg, kbService: kb,
-				knowledgeKBCreator: h.KBCreatorLookupFromKnowledgeID}
+			g := &rbacGuards{
+				cfg: cfg, knowledgeService: kg, kbService: kb,
+				knowledgeKBCreator: h.KBCreatorLookupFromKnowledgeID,
+			}
 			r := gin.New()
 			r.Use(middleware.ErrorHandler(), func(c *gin.Context) {
 				ctx := context.WithValue(c.Request.Context(), types.TenantIDContextKey, actor.tenant)

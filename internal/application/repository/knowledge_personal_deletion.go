@@ -68,8 +68,10 @@ func fencePersonalKnowledgeDeletion(tx *gorm.DB, k *types.Knowledge) error {
 		return err
 	}
 	if err := tx.Model(&types.FeishuPersonalAttempt{}).Where("import_id=?", m.ID).
-		Updates(map[string]any{"status": "obsolete", "owner_nonce": "", "lease_until": nil,
-			"last_error_category": "deleted_by_user", "updated_at": time.Now()}).Error; err != nil {
+		Updates(map[string]any{
+			"status": "obsolete", "owner_nonce": "", "lease_until": nil,
+			"last_error_category": "deleted_by_user", "updated_at": time.Now(),
+		}).Error; err != nil {
 		return err
 	}
 	if err := tx.Table("feishu_personal_imports").Where("id=? AND knowledge_id=?", m.ID, k.ID).

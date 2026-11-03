@@ -84,7 +84,8 @@ func (r *knowledgeRepository) MarkKnowledgeDeleting(ctx context.Context, knowled
 		now = time.Now().UTC().Truncate(time.Microsecond)
 		result := tx.Model(&types.Knowledge{}).
 			Where("id = ? AND tenant_id = ? AND knowledge_base_id = ? AND parse_status = ? AND updated_at = ?",
-				knowledge.ID, knowledge.TenantID, knowledge.KnowledgeBaseID, knowledge.ParseStatus, knowledge.UpdatedAt).
+				knowledge.ID, knowledge.TenantID, knowledge.KnowledgeBaseID,
+				knowledge.ParseStatus, knowledge.UpdatedAt).
 			Updates(map[string]any{"parse_status": types.ParseStatusDeleting, "updated_at": now})
 		if result.Error != nil {
 			return result.Error
