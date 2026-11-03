@@ -291,6 +291,8 @@ func TestWikiHistoryPostgres(t *testing.T) {
 		{"regeneration", testWikiHistoryRegeneration},
 		{"snapshot", testWikiSnapshotGeneration},
 		{"gitlab_recovery", testWikiProductionGitLab},
+		{"empty_retraction", testWikiEmptyRetractionRetirement},
+		{"hidden_retraction_reference", testWikiEmptyRetractionHiddenReference},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			name := "wiki_history_" + strings.ReplaceAll(uuid.NewString(), "-", "")

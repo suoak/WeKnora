@@ -28,7 +28,12 @@ func run() error {
 	snapshot := flag.String("snapshot", "", "snapshot from the preview; required with -apply")
 	resume := flag.Bool("resume-pending-ingest", false,
 		"replace only unclaimed Wiki-only finalizing operations from verified inputs")
+	retireEmpty := flag.Bool("retire-empty-retractions", false,
+		"preview/apply archival of deleted-source retractions with no queued or current Wiki targets")
 	flag.Parse()
+	if *retireEmpty && *resume {
+		return errors.New("empty retraction retirement cannot be combined with regeneration")
+	}
 	if *tenant == 0 || *kb == "" {
 		return errors.New("-tenant and -kb required")
 	}
@@ -57,6 +62,18 @@ func run() error {
 	defer func() { _ = rc.Close() }()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
+	if *retireEmpty {
+		var plan *repository.WikiEmptyRetractionPlan
+		err := wikilock.With(ctx, rc, *kb, func(locked context.Context) error {
+			var e error
+			plan, e = repository.PrepareWikiEmptyRetractions(locked, db, *tenant, *kb, *snapshot, *apply)
+			return e
+		})
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(plan)
+	}
 	var plan *repository.WikiRegenerationPlan
 	err = wikilock.With(ctx, rc, *kb, func(locked context.Context) error {
 		var e error
