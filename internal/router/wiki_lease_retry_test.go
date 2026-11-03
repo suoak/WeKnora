@@ -31,7 +31,7 @@ func TestWikiLeaseContentionPreservesOriginalTriggerAndRetryBudget(t *testing.T)
 	var attempts atomic.Int32
 	done := make(chan struct{}, 1)
 	bad := make(chan string, 4)
-	err := worker.Start(asynq.HandlerFunc(func(ctx context.Context, task *asynq.Task) error {
+	err := worker.Start(asynq.HandlerFunc(func(ctx context.Context, _ *asynq.Task) error {
 		id, _ := asynq.GetTaskID(ctx)
 		retried, _ := asynq.GetRetryCount(ctx)
 		if id != "original-finalize" || retried != 0 {
