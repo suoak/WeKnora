@@ -19,6 +19,21 @@ func TestExactPersonalDOCXDependencies(t *testing.T) {
 			`<Relationship TargetMode="External" Target="https://example.invalid/a" Type="image"/>`, "", false,
 		},
 		{"implicit URL", `<Relationship Target="https://example.invalid/a" Type="image"/>`, "", false},
+		{
+			"literal HTTPS hyperlink",
+			`<Relationship TargetMode="External" Target="https://example.invalid/a" ` +
+				`Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink"/>`, "", true,
+		},
+		{
+			"file hyperlink",
+			`<Relationship TargetMode="External" Target="file:///etc/passwd" ` +
+				`Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink"/>`, "", false,
+		},
+		{
+			"credential hyperlink",
+			`<Relationship TargetMode="External" Target="https://user:password@example.invalid/a" ` +
+				`Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink"/>`, "", false,
+		},
 		{"unknown mode", `<Relationship TargetMode="external" Target="media/image1.png"/>`, "", false},
 		{
 			"embedded object",

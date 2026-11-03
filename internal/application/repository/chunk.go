@@ -177,6 +177,12 @@ func (r *chunkRepository) GetChunkBySeqID(ctx context.Context, tenantID uint64, 
 func (r *chunkRepository) ListChunksByID(
 	ctx context.Context, tenantID uint64, ids []string,
 ) ([]*types.Chunk, error) {
+	if _, tenant, _, _, exact := types.ExactPublishedDocumentIdentity(ctx); exact {
+		if tenantID != tenant {
+			return nil, types.ErrExactDocumentScope
+		}
+		return r.listExactPublishedChunks(ctx, ids)
+	}
 	var chunks []*types.Chunk
 	if err := r.db.WithContext(ctx).
 		Where("tenant_id = ? AND id IN ?", tenantID, ids).
@@ -188,11 +194,50 @@ func (r *chunkRepository) ListChunksByID(
 
 // ListChunksByIDOnly retrieves multiple chunks by their IDs without tenant filter (for shared KB resolution).
 func (r *chunkRepository) ListChunksByIDOnly(ctx context.Context, ids []string) ([]*types.Chunk, error) {
+	if _, _, _, _, exact := types.ExactPublishedDocumentIdentity(ctx); exact {
+		return r.listExactPublishedChunks(ctx, ids)
+	}
 	if len(ids) == 0 {
 		return nil, nil
 	}
 	var chunks []*types.Chunk
 	if err := r.db.WithContext(ctx).Where("id IN ?", ids).Find(&chunks).Error; err != nil {
+		return nil, err
+	}
+	return chunks, nil
+}
+
+// Batch source checks bracket this SQL read, as for the paged reader. Row
+// hooks keep the same exact identity without repeating remote ACL requests.
+// Every requested row must belong to this document before any body is selected.
+func (r *chunkRepository) listExactPublishedChunks(ctx context.Context, ids []string) ([]*types.Chunk, error) {
+	_, tenant, knowledge, kb, exact := types.ExactPublishedDocumentIdentity(ctx)
+	if !exact {
+		return nil, types.ErrExactDocumentScope
+	}
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	unique := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		if id == "" {
+			return nil, types.ErrExactDocumentScope
+		}
+		unique[id] = true
+	}
+	var chunks []*types.Chunk
+	err := types.ReadExactPublishedPage(ctx, knowledge, func(page context.Context) error {
+		if err := r.db.WithContext(page).
+			Where("tenant_id=? AND knowledge_id=? AND knowledge_base_id=? AND id IN ?", tenant, knowledge, kb, ids).
+			Find(&chunks).Error; err != nil {
+			return err
+		}
+		if len(chunks) != len(unique) {
+			return types.ErrExactDocumentScope
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
 	return chunks, nil

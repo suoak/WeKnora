@@ -82,6 +82,18 @@ func checkExactDOCXGraph(data []byte, packages map[string][]byte) error {
 			return errPersonalExactDocument
 		}
 		for _, relationship := range relationships.Rows {
+			// A hyperlink is source-file text, not authority to fetch its target.
+			// The pinned native conversion is tested to preserve both label and
+			// URL without opening a connection. Media/packages remain fail-closed.
+			if relationship.Mode == "External" && relationship.Type ==
+				"http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" {
+				target, parseErr := url.Parse(relationship.Target)
+				if parseErr != nil || target.User != nil || target.Hostname() == "" ||
+					(target.Scheme != "https" && target.Scheme != "http") {
+					return errPersonalExactDocument
+				}
+				continue
+			}
 			if relationship.Mode != "" && relationship.Mode != "Internal" ||
 				strings.Contains(relationship.Target, ":") || strings.HasPrefix(relationship.Target, "//") ||
 				strings.HasSuffix(relationship.Type, "/oleObject") {
