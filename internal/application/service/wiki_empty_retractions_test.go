@@ -111,8 +111,9 @@ func TestWikiEmptyRetractionRefusesChangedClaimLiveDocumentAndMalformedMetadata(
 		{"new_reference", `UPDATE wiki_pages SET source_refs='["public-two-doc"]' WHERE id='unrelated-page'`},
 		{"malformed_metadata", `UPDATE wiki_pages SET source_refs='"unknown"' WHERE id='unrelated-page'`},
 		{"epoch_change", `UPDATE wiki_pages SET content='intervening body' WHERE id='unrelated-page'`},
-		{"queued_page_target", `UPDATE task_pending_ops SET payload=
- '{"op":"retract","knowledge_id":"public-two-doc","page_slugs":["index"]}' WHERE scope='knowledge_base'`},
+		{"queued_page_target", `UPDATE task_pending_ops SET payload=CAST(
+ '{"op":"retract","knowledge_id":"public-two-doc","page_slugs":["index"]}' AS BLOB)
+ WHERE scope='knowledge_base'`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := fixture.New(t)
