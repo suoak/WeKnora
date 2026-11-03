@@ -167,7 +167,10 @@ func (p *PersonalRecovery) checkExactPersonalSource(
 	}
 	client := p.service.client(&core.Config{AppID: m.AppID})
 	mark("remote_permissions")
-	permission, err := client.InspectPersonalPermissions(remote, expected)
+	permission, err := inspectExactPersonalPermissions(remote,
+		func(current context.Context, action string) (bool, error) {
+			return client.PersonalResourcePermission(current, expected, action)
+		})
 	if err != nil {
 		return nil, err
 	}
