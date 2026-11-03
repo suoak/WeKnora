@@ -12,7 +12,7 @@ import (
 type protectedKBDeleteRepo struct {
 	populatedKBKnowledgeRepo
 	calls int
-	err error
+	err   error
 }
 
 func (r *protectedKBDeleteRepo) CleanupLegacyKnowledgeForKBDeletion(
