@@ -7,7 +7,7 @@ on:
       - scripts/ops/test_verify_release_provenance.py
       - .github/workflows/production-release-provenance.yml
   push:
-    branches: [main, integration/production-main-closeout-20261103]
+    branches: [main]
     paths:
       - scripts/ops/verify_release_provenance.py
       - scripts/ops/test_verify_release_provenance.py
