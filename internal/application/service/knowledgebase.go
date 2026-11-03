@@ -910,6 +910,38 @@ func (s *knowledgeBaseService) ProcessKBDelete(ctx context.Context, t *asynq.Tas
 	s.cleanupTasksForKnowledgeBase(ctx, kbID, knowledgeIDs, payload.DataSourceIDs)
 
 	// Step 2: Delete all knowledge entries and their resources
+	if cleanup, ok := s.kgRepo.(interface {
+		CleanupLegacyKnowledgeForKBDeletion(context.Context, uint64, string, string,
+			[]types.RetrieverEngineParams) (bool, error)
+	}); ok {
+		ordinary := make([]*types.Knowledge, 0, len(knowledgeList))
+		for _, knowledge := range knowledgeList {
+			// Remove derived graph data before the transactional tombstone. If
+			// this fails the document remains discoverable to the next retry.
+			if s.graphEngine != nil {
+				if graphErr := s.graphEngine.DelGraph(ctx, []types.NameSpace{
+					{KnowledgeBase: kbID, Knowledge: knowledge.ID},
+				}); graphErr != nil {
+					return graphErr
+				}
+			}
+			handled, cleanupErr := cleanup.CleanupLegacyKnowledgeForKBDeletion(
+				ctx, tenantID, kbID, knowledge.ID, payload.EffectiveEngines)
+			if cleanupErr != nil {
+				return cleanupErr
+			}
+			if !handled {
+				ordinary = append(ordinary, knowledge)
+				continue
+			}
+			// The protected SQL commit completed first. Do not send the same
+			// document through ordinary vector/chunk deletion or subtract storage
+			// again. Private historical assets remain retained for audit/retention.
+			logger.Infof(ctx, "Protected KB deletion committed (kb=%s, knowledge=%s); storage reconciliation required",
+				kbID, knowledge.ID)
+		}
+		knowledgeList = ordinary
+	}
 	if len(knowledgeList) > 0 {
 		logger.Infof(ctx, "Deleting all knowledge entries and their resources")
 
@@ -956,10 +988,11 @@ func (s *knowledgeBaseService) ProcessKBDelete(ctx context.Context, t *asynq.Tas
 				embeddingModel, err := s.modelService.GetEmbeddingModel(ctx, key.EmbeddingModelID)
 				if err != nil {
 					logger.Warnf(ctx, "Failed to get embedding model %s: %v", key.EmbeddingModelID, err)
-					continue
+					return err
 				}
 				if err := retrieveEngine.DeleteByKnowledgeIDList(ctx, knowledgeGroup, embeddingModel.GetDimensions(), key.Type); err != nil {
 					logger.Warnf(ctx, "Failed to delete embeddings for model %s: %v", key.EmbeddingModelID, err)
+					return err
 				}
 			}
 		}
@@ -980,6 +1013,7 @@ func (s *knowledgeBaseService) ProcessKBDelete(ctx context.Context, t *asynq.Tas
 		for _, knowledgeID := range knowledgeIDs {
 			if err := s.chunkRepo.DeleteChunksByKnowledgeID(ctx, tenantID, knowledgeID); err != nil {
 				logger.Warnf(ctx, "Failed to delete chunks for knowledge %s: %v", knowledgeID, err)
+				return err
 			}
 		}
 
