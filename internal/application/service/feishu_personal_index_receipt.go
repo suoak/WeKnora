@@ -165,6 +165,10 @@ func (p *PersonalRecovery) firstCreateStatuses(
 ) error {
 	for i := range rows {
 		r := &rows[i]
+		if r.Status == "deleted" {
+			r.IndexStatus, r.WikiStatus = "deleted", "deleted"
+			continue
+		}
 		r.IndexStatus = "pending"
 		r.WikiStatus = "not_started"
 		if r.KnowledgeID == "" {

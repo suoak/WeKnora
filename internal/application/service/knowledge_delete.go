@@ -575,7 +575,8 @@ func (s *knowledgeService) executeKnowledgeDelete(plan *knowledgeDeletePlan, sin
 
 	storageAdjust := int64(0)
 	for _, knowledge := range knowledgeList {
-		if knowledge.FilePath != "" {
+		if knowledge.FilePath != "" && knowledgeResourceOwners(s.resourceCatalog, knowledge.ID).
+			deletable(ctx, knowledge.FilePath) {
 			fSvc := kbFileServices[knowledge.KnowledgeBaseID]
 			if err := fSvc.DeleteFile(ctx, knowledge.FilePath); err != nil {
 				logger.GetLogger(ctx).WithField("error", err).Errorf("DeleteKnowledge delete file failed")
@@ -723,6 +724,10 @@ func (s *knowledgeService) ProcessKnowledgeListDelete(ctx context.Context, t *as
 
 	if payload.TenantID == 0 {
 		return fmt.Errorf("invalid delete task tenant: %w", asynq.SkipRetry)
+	}
+	ctx, err := s.restoreKnowledgeDeletionActor(ctx, payload.TenantID, payload.Initiator)
+	if err != nil {
+		return fmt.Errorf("delete actor verification failed: %v: %w", err, asynq.SkipRetry)
 	}
 	ids, err := writeResourceIDs(payload.KnowledgeIDs)
 	if err != nil {

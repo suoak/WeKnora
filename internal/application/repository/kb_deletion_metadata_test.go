@@ -27,7 +27,8 @@ func TestKBDeletionMetadataScope(t *testing.T) {
 			}
 			for _, ddl := range []string{
 				"CREATE TABLE knowledge_bases(id TEXT PRIMARY KEY,tenant_id BIGINT,creator_id TEXT,name TEXT," +
-					"vector_store_id TEXT,description TEXT,deleted_at TIMESTAMP)",
+					"vector_store_id TEXT,description TEXT,deleted_at TIMESTAMP,type TEXT," +
+					"storage_backend_id TEXT,storage_provider_config TEXT,cos_config JSON,indexing_strategy JSON)",
 				"CREATE TABLE feishu_private_kbs(kb_id TEXT PRIMARY KEY,owner_id TEXT)",
 				"CREATE TABLE feishu_legacy_resources(knowledge_base_id TEXT,knowledge_id TEXT,state TEXT)",
 				"CREATE TABLE IF NOT EXISTS data_sources(knowledge_base_id TEXT,type TEXT,legacy_access_state TEXT)",
@@ -36,7 +37,8 @@ func TestKBDeletionMetadataScope(t *testing.T) {
 					"embedding_model_id TEXT,type TEXT,file_path TEXT,storage_size BIGINT," +
 					"description TEXT,deleted_at TIMESTAMP)",
 				"INSERT INTO tenants VALUES(1,'active',NULL)",
-				"INSERT INTO knowledge_bases VALUES('held',1,'owner','Name','store','SECRET',NULL)," +
+				"INSERT INTO knowledge_bases(id,tenant_id,creator_id,name,vector_store_id,description,deleted_at) " +
+					"VALUES('held',1,'owner','Name','store','SECRET',NULL)," +
 					"('other',1,'owner','Other','store','SECRET',NULL)",
 				"INSERT INTO data_sources(knowledge_base_id,type,legacy_access_state) " +
 					"VALUES('held','feishu','revoked'),('other','feishu','hold')",
@@ -44,12 +46,16 @@ func TestKBDeletionMetadataScope(t *testing.T) {
 			} {
 				require.NoError(t, db.Exec(ddl).Error)
 			}
+			require.NoError(t, db.Exec("UPDATE knowledge_bases SET indexing_strategy=?,cos_config=?",
+				types.IndexingStrategy{WikiEnabled: true}, types.StorageConfig{Provider: "cos"}).Error)
 			db = types.EnablePrivateKBGuards(types.EnableLegacyReadGuards(db))
 			repo := &knowledgeBaseRepository{db: db}
 			ctx := types.WithKBDeletionMetadata(context.Background(), "held")
 			kb, err := repo.GetKnowledgeBaseByID(ctx, "held")
 			require.NoError(t, err)
 			require.Equal(t, "owner", kb.CreatorID)
+			require.True(t, kb.IsWikiEnabled(), "deletion must retain Wiki cleanup routing")
+			require.Equal(t, "cos", kb.GetStorageProvider())
 			require.Empty(t, kb.Description, "administrative read must not load generated content")
 			_, err = repo.GetKnowledgeBaseByID(context.Background(), "held")
 			require.ErrorIs(t, err, types.ErrLegacySourceRestricted)

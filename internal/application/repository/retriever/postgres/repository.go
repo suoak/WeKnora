@@ -145,6 +145,9 @@ func (g *pgRepository) Save(ctx context.Context, indexInfo *types.IndexInfo, add
 func (g *pgRepository) BatchSave(
 	ctx context.Context, indexInfoList []*types.IndexInfo, additionalParams map[string]any,
 ) error {
+	if len(indexInfoList) == 0 {
+		return nil
+	}
 	logger.GetLogger(ctx).Infof("[Postgres] Batch saving %d indices", len(indexInfoList))
 	// ON CONFLICT DO UPDATE rejects a statement that touches the same row
 	// twice, so a source repeated in one batch keeps only its last entry.
@@ -166,27 +169,18 @@ func (g *pgRepository) BatchSave(
 	}
 	write := func(tx *gorm.DB) error { return saveExactDocumentVectors(ctx, tx, indexInfoDBList) }
 	var err error
-	if tenant, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
-		err = g.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			for _, info := range indexInfoList {
-				if _, err := types.CheckExactDocumentCommit(
-					tx, tenant, info.KnowledgeID, info.KnowledgeBaseID,
-				); err != nil {
-					return err
-				}
+	if tenant, knowledge, kb, scoped := types.ExactDocumentIdentity(ctx); scoped {
+		// A document capability covers one identity. Validate every input,
+		// including rows superseded by deduplication, before opening the tx.
+		for _, info := range indexInfoList {
+			if info.KnowledgeID != knowledge || info.KnowledgeBaseID != kb {
+				return types.ErrExactDocumentScope
 			}
-			if err := write(tx); err != nil {
-				return err
-			}
-			for _, info := range indexInfoList {
-				if _, err := types.CheckExactDocumentCommit(
-					tx, tenant, info.KnowledgeID, info.KnowledgeBaseID,
-				); err != nil {
-					return err
-				}
-			}
-			return nil
-		})
+		}
+		// The protocol row locks remain held throughout this transaction. Two
+		// checks cover the whole batch; repeating the same locked authorization
+		// per index needlessly blocks the lease heartbeat for large documents.
+		err = types.WithExactDocumentWrite(ctx, g.db, tenant, knowledge, kb, write)
 	} else {
 		err = write(g.db.WithContext(ctx))
 	}

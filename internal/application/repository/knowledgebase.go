@@ -50,7 +50,8 @@ func (r *knowledgeBaseRepository) GetKnowledgeBaseByID(
 		// Private-owner checks still run in AfterFind. Never select generated
 		// profile, summary or source content for administrative deletion.
 		query = r.db.WithContext(types.WithLegacyKBAdminMetadata(ctx, id)).
-			Select("id, tenant_id, creator_id, name, vector_store_id")
+			Select("id, tenant_id, creator_id, name, type, vector_store_id, " +
+				"storage_backend_id, storage_provider_config, cos_config, indexing_strategy")
 	}
 	if err := query.Where("id = ?", id).First(&kb).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

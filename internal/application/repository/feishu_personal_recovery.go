@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"hash/fnv"
 	"reflect"
 	"time"
@@ -715,11 +716,12 @@ func (r *PersonalRecoveryRepository) Mutate(
 			if resource.CurrentAttemptID != owner.ID || resource.Generation != owner.Fence ||
 				a.Fence != owner.Fence ||
 				a.OwnerNonce != owner.OwnerNonce ||
-				a.LeaseUntil == nil ||
-				!a.LeaseUntil.After(now) ||
 				resource.ActiveVersionID != owner.ExpectedActiveVersion ||
 				a.Status != "processing" {
 				return ErrPersonalFence
+			}
+			if a.LeaseUntil == nil || !a.LeaseUntil.After(now) {
+				return fmt.Errorf("personal_attempt_lease_expired: %w", ErrPersonalFence)
 			}
 			var m types.FeishuPersonalImport
 			if err := tx.Where("id = ?", a.ImportID).First(&m).Error; err != nil {

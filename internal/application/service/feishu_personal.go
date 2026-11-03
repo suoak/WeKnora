@@ -880,7 +880,7 @@ func (s *FeishuPersonalService) ListImports(
 	}
 	rows := []types.FeishuPersonalImport{}
 	err := s.db.WithContext(ctx).
-		Where("user_id = ? AND kb_id = ?", user, kbID).
+		Where("user_id = ? AND kb_id = ? AND status <> 'deleted'", user, kbID).
 		Order("updated_at DESC").
 		Limit(100).
 		Find(&rows).

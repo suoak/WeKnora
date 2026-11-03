@@ -143,11 +143,17 @@ func (s *knowledgeService) planKnowledgeDelete(ctx context.Context, ids []string
 		if _, ok := plan.kbs[row.KnowledgeBaseID]; !ok {
 			lookupCtx := ctx
 			if isCleanup {
-				lookupCtx = types.WithLegacyKBAdminMetadata(ctx, row.KnowledgeBaseID)
+				lookupCtx = types.WithKBDeletionMetadata(ctx, row.KnowledgeBaseID)
 			}
 			kb, err := knowledgeWriteKB(lookupCtx, s.kbService, row)
 			if err != nil {
 				return nil, err
+			}
+			if liveActor, _ := ctx.Value(knowledgeDeleteActorKey{}).(bool); liveActor {
+				caller := types.CallerFromContext(ctx)
+				if !caller.Role.HasPermission(types.TenantRoleAdmin) && kb.CreatorID != caller.UserID {
+					return nil, apperrors.NewForbiddenError("Deletion actor no longer owns this knowledge base")
+				}
 			}
 			if !isCleanup {
 				if _, err := requireKBWrite(ctx, kb); err != nil {

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/types"
+	"gorm.io/gorm"
 )
 
 // GetKnowledgeDeletionMetadata is for cleanup of already-admitted document IDs.
@@ -23,7 +24,7 @@ func (r *knowledgeRepository) GetKnowledgeDeletionMetadata(
 		return nil, nil
 	}
 	var rows []*types.Knowledge
-	columns := "id, tenant_id, knowledge_base_id, type, title, file_name, file_type, file_path, " +
+	columns := "id, tenant_id, knowledge_base_id, channel, type, title, file_name, file_type, file_path, " +
 		"file_hash, storage_size, embedding_model_id, parse_status, updated_at, "
 	columns += deletionMoveFenceSQL(r.db.Name())
 	err := r.db.WithContext(ctx).Model(&types.Knowledge{}).
@@ -76,15 +77,25 @@ func (r *knowledgeRepository) MarkKnowledgeDeleting(ctx context.Context, knowled
 		return err
 	}
 	now := time.Now().UTC().Truncate(time.Microsecond)
-	result := r.db.WithContext(ctx).Model(&types.Knowledge{}).
-		Where("id = ? AND tenant_id = ? AND knowledge_base_id = ? AND parse_status = ? AND updated_at = ?",
-			knowledge.ID, knowledge.TenantID, knowledge.KnowledgeBaseID, knowledge.ParseStatus, knowledge.UpdatedAt).
-		Updates(map[string]any{"parse_status": types.ParseStatusDeleting, "updated_at": now})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected != 1 {
-		return fmt.Errorf("knowledge changed during deletion")
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := fencePersonalKnowledgeDeletion(tx, knowledge); err != nil {
+			return err
+		}
+		now = time.Now().UTC().Truncate(time.Microsecond)
+		result := tx.Model(&types.Knowledge{}).
+			Where("id = ? AND tenant_id = ? AND knowledge_base_id = ? AND parse_status = ? AND updated_at = ?",
+				knowledge.ID, knowledge.TenantID, knowledge.KnowledgeBaseID, knowledge.ParseStatus, knowledge.UpdatedAt).
+			Updates(map[string]any{"parse_status": types.ParseStatusDeleting, "updated_at": now})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return fmt.Errorf("knowledge changed during deletion")
+		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 	knowledge.ParseStatus = types.ParseStatusDeleting
 	knowledge.UpdatedAt = now

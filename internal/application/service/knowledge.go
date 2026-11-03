@@ -618,6 +618,9 @@ func (s *knowledgeService) GetKnowledgeByID(ctx context.Context, id string) (*ty
 
 // GetKnowledgeByIDOnly retrieves knowledge by ID without tenant filter (for permission resolution).
 func (s *knowledgeService) GetKnowledgeByIDOnly(ctx context.Context, id string) (*types.Knowledge, error) {
+	if types.IsKnowledgeDeletionMetadata(ctx, id) {
+		return s.GetKnowledgeDeletionMetadata(ctx, id)
+	}
 	if row, exact, err := s.readExactPublicKnowledge(ctx, id); exact || err != nil {
 		return row, err
 	}
@@ -645,7 +648,7 @@ func (s *knowledgeService) GetOwningKBCreatorID(ctx context.Context, knowledgeID
 	if !ok {
 		return "", werrors.NewUnauthorizedError("Workspace ID not found in context")
 	}
-	knowledge, err := s.repo.GetKnowledgeByID(ctx, tenantID, knowledgeID)
+	knowledge, err := s.knowledgeOwnerMetadata(ctx, tenantID, knowledgeID)
 	if err != nil {
 		return "", err
 	}
