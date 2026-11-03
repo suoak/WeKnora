@@ -16,11 +16,12 @@ func (h *DataSourceHandler) FeishuSteadySync(c *gin.Context) {
 		return
 	}
 	var request struct {
-		Sources           []string                           `json:"sources"`
-		ReconcileSources  []string                           `json:"reconcile_sources"`
-		AuthorizationDays int                                `json:"authorization_days"`
-		Plan              feishusynccontrol.SteadyPlan       `json:"plan"`
-		Approval          feishusynccontrol.RecoveryApproval `json:"approval"`
+		Sources            []string                           `json:"sources"`
+		ReconcileSources   []string                           `json:"reconcile_sources"`
+		AuthorizationDays  int                                `json:"authorization_days"`
+		ReleaseSharedQueue bool                               `json:"release_shared_queue"`
+		Plan               feishusynccontrol.SteadyPlan       `json:"plan"`
+		Approval           feishusynccontrol.RecoveryApproval `json:"approval"`
 	}
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 128<<10)
 	if c.ShouldBindJSON(&request) != nil {
@@ -32,8 +33,15 @@ func (h *DataSourceHandler) FeishuSteadySync(c *gin.Context) {
 		if request.AuthorizationDays == 0 {
 			request.AuthorizationDays = 7
 		}
-		p, err := m.PlanSteadyWithReconciliation(c.Request.Context(), actor,
-			request.Sources, request.ReconcileSources, request.AuthorizationDays)
+		var p feishusynccontrol.SteadyPlan
+		var err error
+		if request.ReleaseSharedQueue {
+			p, err = m.PlanSteadyWithSharedQueueRelease(c.Request.Context(), actor,
+				request.Sources, request.ReconcileSources, request.AuthorizationDays)
+		} else {
+			p, err = m.PlanSteadyWithReconciliation(c.Request.Context(), actor,
+				request.Sources, request.ReconcileSources, request.AuthorizationDays)
+		}
 		if err != nil {
 			c.JSON(409, gin.H{"error": "steady_source_authorization_or_state_rejected"})
 			return
@@ -50,7 +58,7 @@ func (h *DataSourceHandler) FeishuSteadySync(c *gin.Context) {
 			return
 		}
 		c.JSON(200, gin.H{
-			"sync_queue_kept_paused": true, "approved_sources": len(request.Plan.ManagedSources),
+			"sync_queue_kept_paused": !request.Plan.ReleaseSharedQueue, "approved_sources": len(request.Plan.ManagedSources),
 			"policy_revision":        request.Plan.PolicyRevision,
 			"authorization_until_ms": request.Plan.AuthorizationUntilMS,
 		})

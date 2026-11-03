@@ -1,0 +1,188 @@
+package feishusynccontrol
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"testing"
+
+	"github.com/Tencent/WeKnora/internal/feishusafety"
+	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/google/uuid"
+	"github.com/hibiken/asynq"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protowire"
+)
+
+func sharedQueueFixture(t *testing.T) (*steadyFixture, map[string]SharedQueueTaskProof) {
+	t.Helper()
+	f := newSteadyFixture(t)
+	ctx := context.Background()
+	ids, err := f.r.LRange(ctx, "asynq:{sync}:pending", 0, -1).Result()
+	require.NoError(t, err)
+	for _, id := range ids {
+		require.NoError(t, f.r.Del(ctx, "asynq:{sync}:t:"+id).Err())
+	}
+	require.NoError(t, f.r.Del(ctx, "asynq:{sync}:pending").Err())
+	proofs := map[string]SharedQueueTaskProof{}
+	client := asynq.NewClientFromRedisClient(f.r)
+	for i := 0; i < 6; i++ {
+		p := types.DataSourceSyncPayload{DataSourceID: uuid.NewString(), SyncLogID: uuid.NewString(), TenantID: uint64(i + 1)}
+		body, marshalErr := json.Marshal(p)
+		require.NoError(t, marshalErr)
+		_, enqueueErr := client.Enqueue(asynq.NewTask(types.TypeDataSourceSync, body),
+			asynq.Queue(types.QueueSync), asynq.TaskID(p.SyncLogID))
+		require.NoError(t, enqueueErr)
+		proof := SharedQueueTaskProof{SourceID: p.DataSourceID, RunID: p.SyncLogID, TenantID: p.TenantID,
+			Status: "canceled", Generation: 1, Disposition: "acknowledge_terminal"}
+		if i < 2 {
+			proof.Status, proof.Generation, proof.SourceType, proof.Disposition = "running", 0, "gitlab", "execute_original"
+		}
+		proofs[p.SyncLogID] = proof
+	}
+	f.m.ConfigureSharedQueueProof(func(_ context.Context, p types.DataSourceSyncPayload) (SharedQueueTaskProof, error) {
+		proof, ok := proofs[p.SyncLogID]
+		if !ok {
+			return proof, ErrRecoveryRejected
+		}
+		return proof, nil
+	})
+	f.activate(t)
+	return f, proofs
+}
+
+func TestSharedQueueReleaseRetainsBytesAndAllowsNormalProgress(t *testing.T) {
+	f, _ := sharedQueueFixture(t)
+	ctx := context.Background()
+	before, err := f.m.queue(ctx)
+	require.NoError(t, err)
+	p, err := f.m.PlanSteadyWithSharedQueueRelease(ctx, "operator", f.ids, nil, 30)
+	require.NoError(t, err)
+	require.Len(t, p.SharedTasks, 6)
+	require.NoError(t, f.m.ActivateSteady(ctx, p, f.sign(t, p), "operator"))
+	require.Zero(t, f.r.Exists(ctx, "asynq:{sync}:paused").Val())
+	for i, id := range before.ids {
+		fields, readErr := f.r.HGetAll(ctx, "asynq:{sync}:t:"+id).Result()
+		require.NoError(t, readErr)
+		require.Equal(t, before.fields[i], fields, "activation must not rewrite a payload or execution")
+	}
+	checkpointKey := f.c.prefix + "shared_queue_checkpoint:" + p.SharedCheckpointID
+	checkpoint := f.r.Get(ctx, checkpointKey).Val()
+	require.Equal(t, p.SharedCheckpointSHA, digestBytes(checkpoint))
+	// Simulate normal acknowledgment and new enqueue; the immutable incident
+	// checkpoint must not be mistaken for the live queue's changing digest.
+	id, err := f.r.RPop(ctx, "asynq:{sync}:pending").Result()
+	require.NoError(t, err)
+	require.NoError(t, f.r.Del(ctx, "asynq:{sync}:t:"+id).Err())
+	require.NoError(t, f.r.LPush(ctx, "asynq:{sync}:pending", "new-normal-delivery").Err())
+	require.NoError(t, f.c.checkRecoveryPolicy(ctx), "policy after normal queue progress")
+	stepErr := f.c.Step(ctx)
+	require.NoError(t, stepErr, "trip=%s", f.r.Get(ctx, f.c.prefix+"trip").Val())
+	after, err := f.m.queue(ctx)
+	require.NoError(t, err)
+	require.Equal(t, before, after)
+	require.Equal(t, checkpoint, f.r.Get(ctx, checkpointKey).Val())
+	status, err := f.m.Status(ctx, f.p.Facts.SourceID)
+	require.NoError(t, err)
+	require.Equal(t, true, status["permit_ready"])
+	require.Equal(t, true, status["shared_queue_reconciled"])
+	require.Equal(t, false, status["sync_paused"])
+	// An ordinary source-policy revocation retains the separately signed
+	// checkpoint and never replays its historical messages.
+	revoke, err := f.m.PlanSteady(ctx, "operator", f.ids[:2], 30)
+	require.NoError(t, err)
+	require.True(t, sameSharedQueueRelease(revoke, p))
+	require.NoError(t, f.m.ActivateSteady(ctx, revoke, f.sign(t, revoke), "operator"))
+	require.NoError(t, f.c.Step(ctx))
+}
+
+func TestSharedQueueReleaseRejectsChangedEvidence(t *testing.T) {
+	for _, fault := range []string{"unsigned", "payload", "sql", "live_feishu", "claimed", "active", "trip", "actor"} {
+		t.Run(fault, func(t *testing.T) {
+			f, proofs := sharedQueueFixture(t)
+			ctx := context.Background()
+			p, err := f.m.PlanSteadyWithSharedQueueRelease(ctx, "operator", f.ids, nil, 30)
+			require.NoError(t, err)
+			a := f.sign(t, p)
+			switch fault {
+			case "unsigned":
+				a.Signature = "00"
+			case "payload":
+				require.NoError(t, f.r.HSet(ctx, "asynq:{sync}:t:"+p.SharedTasks[0].TaskID, "msg", "changed").Err())
+			case "sql", "live_feishu", "claimed":
+				f.m.ConfigureSharedQueueProof(func(
+					_ context.Context, payload types.DataSourceSyncPayload,
+				) (SharedQueueTaskProof, error) {
+					proof := proofs[payload.SyncLogID]
+					if fault == "claimed" {
+						return proof, errors.New("unavailable or claimed")
+					}
+					proof.Status, proof.Generation, proof.Disposition = "running", 0, "execute_original"
+					if fault == "live_feishu" {
+						proof.SourceType = "feishu_drive"
+					}
+					return proof, nil
+				})
+			case "active":
+				require.NoError(t, f.r.LPush(ctx, "asynq:{sync}:active", "concurrent-worker").Err())
+			case "trip":
+				require.NoError(t, f.c.Guard.Trip(ctx, "new_incident"))
+			case "actor":
+				a.ActorID = "other"
+			}
+			require.Error(t, f.m.ActivateSteady(ctx, p, a, "operator"))
+			require.EqualValues(t, 1, f.r.Exists(ctx, "asynq:{sync}:paused").Val())
+			require.Zero(t, f.r.Exists(ctx, f.c.prefix+"shared_queue_checkpoint:"+p.SharedCheckpointID).Val())
+		})
+	}
+}
+
+func TestSharedQueueReleaseCheckpointAndNewSafetyStopFailClosed(t *testing.T) {
+	for _, fault := range []string{"checkpoint_missing", "checkpoint_tampered", "expired", "pause"} {
+		t.Run(fault, func(t *testing.T) {
+			f, _ := sharedQueueFixture(t)
+			ctx := context.Background()
+			p, err := f.m.PlanSteadyWithSharedQueueRelease(ctx, "operator", f.ids, nil, 30)
+			require.NoError(t, err)
+			require.NoError(t, f.m.ActivateSteady(ctx, p, f.sign(t, p), "operator"))
+			key := f.c.prefix + "shared_queue_checkpoint:" + p.SharedCheckpointID
+			switch fault {
+			case "checkpoint_missing":
+				require.NoError(t, f.r.Del(ctx, key).Err())
+			case "checkpoint_tampered":
+				require.NoError(t, f.r.Set(ctx, key, "changed", 0).Err())
+			case "expired":
+				require.NoError(t, f.r.Del(ctx, f.c.prefix+"steady_health").Err())
+			case "pause":
+				require.NoError(t, f.r.Set(ctx, "asynq:{sync}:paused", "operator_pause", 0).Err())
+			}
+			require.Error(t, f.c.Step(ctx))
+			require.EqualValues(t, 1, f.r.Exists(ctx, f.c.prefix+"trip").Val())
+			require.EqualValues(t, 1, f.r.Exists(ctx, "asynq:{sync}:paused").Val())
+			require.Error(t, f.c.Guard.Check(feishusafety.WithScope(ctx, f.ids[0])))
+		})
+	}
+}
+
+func TestSharedQueueReleaseRejectsSnapshotPayloadMismatch(t *testing.T) {
+	f, _ := sharedQueueFixture(t)
+	ctx := context.Background()
+	q, err := f.m.queue(ctx)
+	require.NoError(t, err)
+	raw := []byte(q.fields[0]["msg"])
+	_, err = sharedTaskPayload(string(raw))
+	require.NoError(t, err)
+	duplicate := protowire.AppendTag(append([]byte(nil), raw...), 2, protowire.BytesType)
+	duplicate = protowire.AppendBytes(duplicate, []byte(`{}`))
+	_, err = sharedTaskPayload(string(duplicate))
+	require.Error(t, err, "ambiguous repeated payload must reject")
+	_, err = sharedTaskPayload(string([]byte{0xff}))
+	require.Error(t, err, "malformed protobuf must reject")
+	changed := protowire.AppendTag(nil, 1, protowire.BytesType)
+	changed = protowire.AppendString(changed, types.TypeDataSourceSync)
+	changed = protowire.AppendTag(changed, 2, protowire.BytesType)
+	changed = protowire.AppendBytes(changed, []byte(`{"data_source_id":"different"}`))
+	q.fields[0]["msg"] = string(changed)
+	_, _, err = f.m.prepareSharedQueue(ctx, q)
+	require.Error(t, err, "SQL proof must bind the signed bytes, not another Inspector read")
+}
