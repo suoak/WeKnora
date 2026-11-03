@@ -9,7 +9,7 @@ import type {
 } from '@/api/mcpAccessKeys'
 
 export type CredentialLifecycleState = 'active' | 'expired' | 'revoked'
-export type CredentialStatusFilter = 'all' | 'active' | 'revoked'
+export type CredentialStatusFilter = 'all' | 'active' | 'expired' | 'revoked'
 export type CredentialAction = 'edit' | 'rotate' | 'revoke' | 'reconnect'
 
 type ReconnectableCredential = Omit<MCPAccessKey, 'capabilities' | 'tenant_scopes' | 'expires_at' | 'status'> & {
