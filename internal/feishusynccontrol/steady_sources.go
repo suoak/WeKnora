@@ -59,10 +59,6 @@ func (m *RecoveryManager) ConfigureSteadyAuthority(
 	m.controller.steadyManager = m
 }
 
-func (m *RecoveryManager) steadySource(ctx context.Context, source, actor string) (SteadySource, RecoveryFacts, error) {
-	return m.steadySourceForPurpose(ctx, source, actor, false)
-}
-
 func (m *RecoveryManager) steadySourceForPurpose(
 	ctx context.Context, source, actor string, reconcile bool,
 ) (SteadySource, RecoveryFacts, error) {
