@@ -121,11 +121,11 @@ func PrepareWikiRegeneration(
 		var pages []types.WikiPage
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			Where("knowledge_base_id=? AND tenant_id=?", kb, tenant).
-			Order("id").Limit(1001).Find(&pages).Error; err != nil {
+			Order("id").Limit(wikiMCPMaxPages + 1).Find(&pages).Error; err != nil {
 			return err
 		}
-		if len(pages) > 1000 {
-			return errors.New("regeneration page limit exceeded (1000)")
+		if len(pages) > wikiMCPMaxPages {
+			return errors.New("regeneration page limit exceeded (20000)")
 		}
 		epoch, err := readWikiMCPEpoch(tx, kb)
 		if err != nil {

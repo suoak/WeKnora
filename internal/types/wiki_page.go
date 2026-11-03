@@ -774,14 +774,16 @@ type WikiGraphEdge struct {
 
 // WikiStats provides aggregate statistics about the wiki
 type WikiStats struct {
-	TotalPages    int64            `json:"total_pages"`
-	PagesByType   map[string]int64 `json:"pages_by_type"`
-	TotalLinks    int64            `json:"total_links"`
-	OrphanCount   int64            `json:"orphan_count"`   // pages with no inbound links
-	RecentUpdates []*WikiPage      `json:"recent_updates"` // last N updated pages
-	PendingTasks  int64            `json:"pending_tasks"`  // number of documents waiting to be ingested
-	PendingIssues int64            `json:"pending_issues"` // number of pending wiki issues
-	IsActive      bool             `json:"is_active"`      // whether wiki ingestion is currently running
+	ProcessingStatus string           `json:"processing_status"`
+	BlockedReason    string           `json:"blocked_reason,omitempty"`
+	TotalPages       int64            `json:"total_pages"`
+	PagesByType      map[string]int64 `json:"pages_by_type"`
+	TotalLinks       int64            `json:"total_links"`
+	OrphanCount      int64            `json:"orphan_count"`   // pages with no inbound links
+	RecentUpdates    []*WikiPage      `json:"recent_updates"` // last N updated pages
+	PendingTasks     int64            `json:"pending_tasks"`  // number of documents waiting to be ingested
+	PendingIssues    int64            `json:"pending_issues"` // number of pending wiki issues
+	IsActive         bool             `json:"is_active"`      // whether wiki ingestion is currently running
 }
 
 // WikiPageIssue represents an issue flagged on a specific wiki page.

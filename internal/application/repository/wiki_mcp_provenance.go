@@ -16,6 +16,10 @@ import (
 
 var ErrWikiMCPUnverified = errors.New("wiki provenance requires verified regeneration")
 
+// Bounded to accommodate existing production KBs and the GitLab Wiki backlog.
+// Every historical page still needs its own verified proof.
+const wikiMCPMaxPages = 20000
+
 type wikiGenerationProofKey struct{}
 type wikiGenerationProof struct {
 	mu               sync.Mutex
@@ -154,7 +158,7 @@ func wikiDependencies(db *gorm.DB, kb string) (*wikiGenerationProof, error) {
 		return nil, e
 	}
 	var denied bool
-	if e := db.Raw(`SELECT EXISTS(SELECT 1 FROM data_sources WHERE knowledge_base_id=? AND legacy_access_state<>'active') OR EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE knowledge_base_id=? AND state<>'active')`, kb, kb).Scan(&denied).Error; e != nil {
+	if e := db.Raw(`SELECT EXISTS(SELECT 1 FROM data_sources WHERE knowledge_base_id=? AND (legacy_access_state IN ('hold','revoked') OR (type IN ('feishu','feishu_drive','lark','lark_drive') AND deleted_at IS NULL AND legacy_access_state<>'active'))) OR EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE knowledge_base_id=? AND state<>'active')`, kb, kb).Scan(&denied).Error; e != nil {
 		return nil, e
 	}
 	if denied {
@@ -165,8 +169,9 @@ func wikiDependencies(db *gorm.DB, kb string) (*wikiGenerationProof, error) {
 		ParseStatus  string
 		EnableStatus string
 		Channel      string
+		Metadata     types.JSON
 	}
-	if e := db.Table("knowledges").Select("id,parse_status,enable_status,channel").Where("knowledge_base_id=? AND tenant_id=? AND deleted_at IS NULL", kb, anchor.TenantID).Order("id").Limit(2049).Find(&docs).Error; e != nil {
+	if e := db.Table("knowledges").Select("id,parse_status,enable_status,channel,metadata").Where("knowledge_base_id=? AND tenant_id=? AND deleted_at IS NULL", kb, anchor.TenantID).Order("id").Limit(2049).Find(&docs).Error; e != nil {
 		return nil, e
 	}
 	if len(docs) == 0 || len(docs) > 2048 {
@@ -174,10 +179,31 @@ func wikiDependencies(db *gorm.DB, kb string) (*wikiGenerationProof, error) {
 	}
 	p := &wikiGenerationProof{Tenant: anchor.TenantID, KB: kb, Sources: map[string]string{}, Epochs: map[string]string{}}
 	for _, d := range docs {
+		var connectorProof string
 		switch d.Channel {
 		case "", types.ChannelWeb, types.ChannelAPI, types.ChannelBrowserExtension:
 			// Local content published under KnowHub's existing KB authority.
-		default:
+		case types.ConnectorTypeGitLab:
+			// GitLab uses KnowHub workspace authority, not a Feishu legacy receipt.
+			// Require the current connector binding in this exact tenant/KB. Its
+			// configuration is part of the proof and is checked again before model I/O.
+			var metadata map[string]string
+			if json.Unmarshal(d.Metadata, &metadata) != nil || metadata["datasource_id"] == "" || metadata["external_id"] == "" {
+				return nil, ErrWikiMCPUnverified
+			}
+			var source map[string]interface{}
+			if e := db.Table("data_sources").Select("id,tenant_id,knowledge_base_id,type,status,legacy_access_state,config,updated_at").Where("id=? AND tenant_id=? AND knowledge_base_id=? AND type=? AND status='active' AND legacy_access_state IN ('unmanaged','active') AND deleted_at IS NULL", metadata["datasource_id"], p.Tenant, kb, types.ConnectorTypeGitLab).Take(&source).Error; e != nil {
+				if errors.Is(e, gorm.ErrRecordNotFound) {
+					return nil, types.ErrLegacySourceRestricted
+				}
+				return nil, e
+			}
+			connectorProof = wikiDigest(source)
+		case "feishu_personal":
+			// A personal import requires the current personal publication protocol.
+			// A legacy active_attempt is never a substitute for that authority.
+			return nil, types.ErrLegacySourceRestricted
+		case types.ChannelFeishu, types.ChannelFeishuDrive, types.ChannelLarkDrive, "lark":
 			var verified int64
 			if e := db.Table("feishu_legacy_resources").Where("knowledge_id=? AND knowledge_base_id=? AND tenant_id=? AND state='active' AND active_attempt<>''", d.ID, kb, p.Tenant).Count(&verified).Error; e != nil {
 				return nil, e
@@ -185,6 +211,8 @@ func wikiDependencies(db *gorm.DB, kb string) (*wikiGenerationProof, error) {
 			if verified != 1 {
 				return nil, types.ErrLegacySourceRestricted
 			}
+		default:
+			return nil, ErrWikiMCPUnverified
 		}
 		if (d.ParseStatus != "completed" && d.ParseStatus != "finalizing") || d.EnableStatus != "enabled" {
 			return nil, ErrWikiMCPUnverified
@@ -200,6 +228,10 @@ func wikiDependencies(db *gorm.DB, kb string) (*wikiGenerationProof, error) {
 		var identity map[string]interface{}
 		if e = db.Table("knowledges").Select("id,tenant_id,knowledge_base_id,type,title,description,source,channel,enable_status,file_name,file_type,file_hash,file_path,embedding_model_id").Where("id=? AND tenant_id=? AND knowledge_base_id=? AND deleted_at IS NULL", d.ID, p.Tenant, kb).Take(&identity).Error; e != nil {
 			return nil, e
+		}
+		if connectorProof != "" {
+			identity["connector_proof"] = connectorProof
+			identity["connector_metadata"] = string(d.Metadata)
 		}
 		var inputs []map[string]interface{}
 		if e = db.Table("chunks").Select("id,tenant_id,knowledge_base_id,knowledge_id,content,chunk_index,chunk_type,context_header,is_enabled,parent_chunk_id,image_info,deleted_at").Where("knowledge_id=? AND chunk_type IN ('','text','parent_text','image_ocr','image_caption')", d.ID).Order("id").Find(&inputs).Error; e != nil {
@@ -236,10 +268,10 @@ func BeginWikiMCPGeneration(ctx context.Context, repo interfaces.WikiPageReposit
 			return e
 		}
 		var old []*types.WikiPage
-		if e = tx.Where("knowledge_base_id=?", kb).Limit(1001).Find(&old).Error; e != nil {
+		if e = tx.Where("knowledge_base_id=?", kb).Limit(wikiMCPMaxPages + 1).Find(&old).Error; e != nil {
 			return e
 		}
-		if len(old) > 1000 {
+		if len(old) > wikiMCPMaxPages {
 			return ErrWikiMCPUnverified
 		}
 		for _, page := range old {

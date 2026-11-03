@@ -879,25 +879,43 @@ func (s *wikiPageService) GetStats(ctx context.Context, kbID string) (*types.Wik
 		pendingTasks, _ = s.taskPendingRepo.PendingCount(ctx, wikiTaskType, wikiTaskScope, kbID)
 	}
 	if s.redisClient != nil {
-		// The "active batch in progress" flag is still a Redis-only
-		// short-lived signal (per-process lock with TTL renew); not
-		// worth migrating since it carries no durable state.
-		activeFlag, _ := s.redisClient.Exists(ctx, "wiki:active:"+kbID).Result()
-		isActive = activeFlag > 0
+		active, _ := s.redisClient.ZCount(ctx, wikiInflightPrefix+kbID, fmt.Sprint(time.Now().UnixMilli()), "+inf").Result()
+		isActive = active > 0
+	}
+	status, blockedReason := "idle", ""
+	if pendingTasks > 0 {
+		status = "waiting"
+	}
+	if isActive {
+		status = "generating"
+	}
+	if s.taskPendingRepo != nil {
+		block, blockErr := repository.ReadWikiProcessingBlock(ctx, s.repo, kbID)
+		if blockErr != nil {
+			return nil, blockErr
+		}
+		if block != nil && block.Reason != "" {
+			status, blockedReason, isActive = "blocked", block.Reason, false
+			if block.Reason == "source_verification_required" {
+				status = "source_verification_required"
+			}
+		}
 	}
 
 	issues, _ := s.ListIssues(ctx, kbID, "", "pending")
 	pendingIssues = int64(len(issues))
 
 	return &types.WikiStats{
-		TotalPages:    total,
-		PagesByType:   counts,
-		TotalLinks:    totalLinks,
-		OrphanCount:   orphans,
-		RecentUpdates: recentPages,
-		PendingTasks:  pendingTasks,
-		PendingIssues: pendingIssues,
-		IsActive:      isActive,
+		ProcessingStatus: status,
+		BlockedReason:    blockedReason,
+		TotalPages:       total,
+		PagesByType:      counts,
+		TotalLinks:       totalLinks,
+		OrphanCount:      orphans,
+		RecentUpdates:    recentPages,
+		PendingTasks:     pendingTasks,
+		PendingIssues:    pendingIssues,
+		IsActive:         isActive,
 	}, nil
 }
 

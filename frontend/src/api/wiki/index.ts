@@ -86,6 +86,8 @@ export interface WikiGraphData {
 }
 
 export interface WikiStats {
+  processing_status?: string;
+  blocked_reason?: string;
   total_pages: number;
   pages_by_type: Record<string, number>;
   total_links: number;

@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/Tencent/WeKnora/internal/agent"
+	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/common/wikilock"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/models/chat"
@@ -3342,69 +3343,54 @@ func isTransientLLMError(ctx context.Context, err error) bool {
 // to the DB. A nil result from GetKnowledgeByIDOnly also counts as gone: the
 // repo layer uses GORM First() which filters soft-deleted rows, so a
 // soft-deleted knowledge surfaces as "not found" here — exactly what we want.
-func (s *wikiIngestService) isKnowledgeGone(ctx context.Context, kbID, knowledgeID string) bool {
+func (s *wikiIngestService) isKnowledgeGone(ctx context.Context, kbID, knowledgeID string) (bool, error) {
 	if knowledgeID == "" {
-		return true
+		return true, nil
 	}
 	if s.redisClient != nil {
-		if exists, err := s.redisClient.Exists(ctx, WikiDeletedTombstoneKey(kbID, knowledgeID)).Result(); err == nil &&
-			exists > 0 {
-			return true
+		if exists, err := s.redisClient.Exists(ctx, WikiDeletedTombstoneKey(kbID, knowledgeID)).Result(); err == nil && exists > 0 {
+			return true, nil
 		}
 	}
 	kn, err := s.knowledgeSvc.GetKnowledgeByIDOnly(ctx, knowledgeID)
-	if err != nil || kn == nil {
-		return true
+	if errors.Is(err, repository.ErrKnowledgeNotFound) || errors.Is(err, gorm.ErrRecordNotFound) {
+		return true, nil
 	}
-	switch kn.ParseStatus {
-	case types.ParseStatusDeleting, types.ParseStatusCancelled:
-		return true
+	if err != nil {
+		return false, fmt.Errorf("wiki source existence unknown: %w", err)
 	}
-	return false
+	if kn == nil {
+		return false, errors.New("wiki source existence unknown: empty lookup")
+	}
+	if kn.KnowledgeBaseID != kbID {
+		return false, errors.New("wiki source knowledge base changed")
+	}
+	return kn.ParseStatus == types.ParseStatusDeleting || kn.ParseStatus == types.ParseStatusCancelled, nil
 }
 
-// filterLiveUpdates drops additions/summaries whose source knowledge has been
-// deleted since the Map phase finished. Retract updates are preserved so
-// pages still get cleaned up. Caches per-knowledge results to avoid DB
-// hammering when a single reduce slug carries many updates for the same doc.
-func (s *wikiIngestService) filterLiveUpdates(
-	ctx context.Context,
-	kbID string,
-	updates []SlugUpdate,
-) []SlugUpdate {
-	if len(updates) == 0 {
-		return updates
-	}
+// Only confirmed deletion drops an update. Unknown authority or storage failures
+// abort the reduce without modifying the existing page or consuming the input.
+func (s *wikiIngestService) filterLiveUpdates(ctx context.Context, kbID string, updates []SlugUpdate) ([]SlugUpdate, error) {
 	goneCache := make(map[string]bool)
-	isGone := func(kid string) bool {
-		if kid == "" {
-			return false
-		}
-		if v, ok := goneCache[kid]; ok {
-			return v
-		}
-		v := s.isKnowledgeGone(ctx, kbID, kid)
-		goneCache[kid] = v
-		return v
-	}
 	filtered := make([]SlugUpdate, 0, len(updates))
-	dropped := 0
 	for _, u := range updates {
-		switch u.Type {
-		case "retract", "retractStale":
-			filtered = append(filtered, u)
-		default:
-			if isGone(u.KnowledgeID) {
-				dropped++
+		if u.Type != "retract" && u.Type != "retractStale" && u.KnowledgeID != "" {
+			gone, cached := goneCache[u.KnowledgeID]
+			if !cached {
+				var err error
+				gone, err = s.isKnowledgeGone(ctx, kbID, u.KnowledgeID)
+				if err != nil {
+					return nil, err
+				}
+				goneCache[u.KnowledgeID] = gone
+			}
+			if gone {
 				continue
 			}
-			filtered = append(filtered, u)
 		}
+		filtered = append(filtered, u)
 	}
-	if dropped > 0 {
-		logger.Infof(ctx, "wiki ingest: reduce dropped %d updates for deleted knowledge(s)", dropped)
-	}
-	return filtered
+	return filtered, nil
 }
 
 // reconstructContent rebuilds document text from chunks.

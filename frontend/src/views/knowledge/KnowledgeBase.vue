@@ -104,7 +104,7 @@ const knowledgeSpaceName = computed(() => authStore.currentTenantName?.trim() ||
 
 // Wiki 状态用于面包屑上的索引中指示。父组件自行拉取，避免依赖 WikiBrowser 挂载状态
 // （用户切到"文档" tab 时 WikiBrowser 会卸载，这里仍需持续反映后台索引进度）。
-const wikiStatus = ref<{ pendingTasks: number; isActive: boolean; pendingIssues: number }>({
+const wikiStatus = ref<{ pendingTasks: number; isActive: boolean; pendingIssues: number; processingStatus?: string }>({
   pendingTasks: 0,
   isActive: false,
   pendingIssues: 0,
@@ -112,7 +112,7 @@ const wikiStatus = ref<{ pendingTasks: number; isActive: boolean; pendingIssues:
 const wikiIsIndexing = computed(() => wikiStatus.value.isActive || wikiStatus.value.pendingTasks > 0)
 const wikiIndexingTip = computed(() => {
   if (!wikiIsIndexing.value) return ''
-  return t('knowledgeEditor.wikiBrowser.queueStatus', { count: wikiStatus.value.pendingTasks || 0 })
+  return t('knowledgeEditor.wikiBrowser.' + (wikiStatus.value.processingStatus === 'source_verification_required' ? 'sourceVerificationStatus' : wikiStatus.value.processingStatus === 'blocked' ? 'blockedStatus' : wikiStatus.value.isActive ? 'generatingStatus' : 'queueStatus'), { count: wikiStatus.value.pendingTasks || 0 })
 })
 // The views of this knowledge base, in header order. Wiki and graph only
 // exist on wiki KBs; a stale wiki/graph tab on another KB renders documents,
@@ -135,7 +135,7 @@ const kbViewTabs = computed(() => {
 const shownKbTab = computed<KbTab>(() =>
   kbViewTabs.value.some((tab) => tab.key === activeKbTab.value) ? activeKbTab.value : 'documents',
 )
-const onWikiStatusChange = (payload: { pendingTasks: number; isActive: boolean; pendingIssues: number }) => {
+const onWikiStatusChange = (payload: { pendingTasks: number; isActive: boolean; pendingIssues: number; processingStatus?: string }) => {
   wikiStatus.value = payload
 }
 const onViewWikiInGraph = async (slug: string) => {
@@ -167,6 +167,7 @@ const fetchWikiStatusOnce = async () => {
       pendingTasks: data.pending_tasks || 0,
       isActive: !!data.is_active,
       pendingIssues: data.pending_issues || 0,
+      processingStatus: data.processing_status,
     }
     // 活跃时轮询，空闲时停掉定时器，避免无谓请求
     if (wikiIsIndexing.value) {

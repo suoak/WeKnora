@@ -324,13 +324,14 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 			// Asynq retries panics too: retain the outstanding reservation.
 			panic(p)
 		}
-		if retErr == nil {
+		if retErr == nil || errors.Is(retErr, asynq.SkipRetry) {
 			s.releaseFollowUpTask(ctx, payload.KnowledgeBaseID)
 		}
 	}()
 
 	// Inject context
 	ctx = context.WithValue(ctx, types.TenantIDContextKey, payload.TenantID)
+	defer s.recordWikiBlock(ctx, payload, &retErr)
 	if payload.Language != "" {
 		ctx = context.WithValue(ctx, types.LanguageContextKey, payload.Language)
 	}
@@ -371,7 +372,10 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 		defer s.liteLocks.Delete(payload.KnowledgeBaseID)
 	}
 
-	kb, err := s.kbService.GetKnowledgeBaseByIDOnly(ctx, payload.KnowledgeBaseID)
+	if err := s.wikiBlocked(ctx, payload.KnowledgeBaseID); err != nil {
+		return err
+	}
+	kb, err := s.kbService.GetKnowledgeBaseByIDOnly(types.WithLegacyKBAdminMetadata(ctx, payload.KnowledgeBaseID), payload.KnowledgeBaseID)
 	if errors.Is(err, apprepo.ErrKnowledgeBaseNotFound) || (err == nil && kb == nil) {
 		exitStatus = "kb_deleted"
 		if cleanupErr := s.clearDeletedKnowledgeBasePendingOps(ctx, payload.KnowledgeBaseID); cleanupErr != nil {
@@ -523,9 +527,7 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 	// to load the KB (unlikely since we're already acting on it) also
 	// degrade gracefully to Standard.
 	var wikiConfig *types.WikiConfig
-	if kb, kbErr := s.kbService.GetKnowledgeBaseByID(ctx, payload.KnowledgeBaseID); kbErr == nil && kb != nil && kb.WikiConfig != nil {
-		wikiConfig = kb.WikiConfig
-	}
+	wikiConfig = kb.WikiConfig
 
 	if proofErr := s.checkPersonalWikiPending(pendingOps); proofErr != nil {
 		return proofErr
@@ -535,6 +537,9 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 		return proofErr
 	}
 	ctx = proofCtx
+	if err := s.clearWikiBlock(ctx, payload); err != nil {
+		return err
+	}
 	batchCtx := s.newWikiBatchContext(payload.KnowledgeBaseID, wikiConfig)
 
 	// 1. MAP PHASE (Parallel extraction and generation of updates)
@@ -1057,13 +1062,14 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 // the finalize lane of task_pending_ops (written by ProcessWikiIngest via
 // enqueueFinalize) so a burst of documents rebuilds the index ONCE instead of
 // once per 5-doc batch.
-func (s *wikiIngestService) processWikiFinalize(ctx context.Context, t *asynq.Task) error {
+func (s *wikiIngestService) processWikiFinalize(ctx context.Context, t *asynq.Task) (retErr error) {
 	startedAt := time.Now()
 	var payload WikiIngestPayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 		return fmt.Errorf("wiki finalize: unmarshal payload: %w", err)
 	}
 	ctx = context.WithValue(ctx, types.TenantIDContextKey, payload.TenantID)
+	defer s.recordWikiBlock(ctx, payload, &retErr)
 	if payload.Language != "" {
 		ctx = context.WithValue(ctx, types.LanguageContextKey, payload.Language)
 	}
@@ -1133,7 +1139,10 @@ func (s *wikiIngestService) processWikiFinalize(ctx context.Context, t *asynq.Ta
 		return nil
 	}
 
-	kb, err := s.kbService.GetKnowledgeBaseByIDOnly(ctx, payload.KnowledgeBaseID)
+	if err := s.wikiBlocked(ctx, payload.KnowledgeBaseID); err != nil {
+		return err
+	}
+	kb, err := s.kbService.GetKnowledgeBaseByIDOnly(types.WithLegacyKBAdminMetadata(ctx, payload.KnowledgeBaseID), payload.KnowledgeBaseID)
 	if errors.Is(err, apprepo.ErrKnowledgeBaseNotFound) || (err == nil && kb == nil) {
 		if cleanupErr := s.clearDeletedKnowledgeBasePendingOps(ctx, payload.KnowledgeBaseID); cleanupErr != nil {
 			return fmt.Errorf("wiki finalize: clear deleted KB queue: %w", cleanupErr)
@@ -1231,6 +1240,9 @@ func (s *wikiIngestService) processWikiFinalize(ctx context.Context, t *asynq.Ta
 		return proofErr
 	}
 	ctx = proofCtx
+	if err := s.clearWikiBlock(ctx, payload); err != nil {
+		return err
+	}
 	batchCtx := s.newWikiBatchContext(payload.KnowledgeBaseID, kb.WikiConfig)
 	lang := types.LanguageNameFromContext(ctx)
 	verifiedDescription, verifiedRefs := s.personalWikiFinalizeInputs(changeDesc.String(), freshRefs)
@@ -1386,7 +1398,11 @@ func (s *wikiIngestService) mapOneDocument(
 	// was in flight, we must NOT proceed to LLM extraction — doing so would
 	// create wiki pages whose source_refs point at a ghost knowledge ID,
 	// permanently unreachable via wiki_read_source_doc.
-	if s.isKnowledgeGone(ctx, payload.KnowledgeBaseID, knowledgeID) {
+	gone, readErr := s.isKnowledgeGone(ctx, payload.KnowledgeBaseID, knowledgeID)
+	if readErr != nil {
+		return nil, nil, readErr
+	}
+	if gone {
 		logger.Infof(ctx, "wiki ingest: knowledge %s has been deleted, skip map", knowledgeID)
 		s.tracker().SkipSpan(ctx, wikiSpan, "knowledge_deleted")
 		return nil, nil, nil
@@ -1931,7 +1947,10 @@ func (s *wikiIngestService) reduceSlugUpdates(
 	// knowledge no longer exists so we don't resurrect a ghost source_ref.
 	// Retract updates are kept — they actively remove refs, which is what we
 	// want when the doc is gone.
-	updates = s.filterLiveUpdates(ctx, kbID, updates)
+	updates, err = s.filterLiveUpdates(ctx, kbID, updates)
+	if err != nil {
+		return false, "", false, err
+	}
 	if len(updates) == 0 {
 		return false, "", false, nil
 	}

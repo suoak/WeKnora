@@ -177,8 +177,9 @@
       <aside class="wiki-sidebar">
         <div class="wiki-sidebar-header">
           <div v-if="stats && (stats.pending_tasks > 0 || stats.is_active)" class="wiki-queue-status">
-            <t-loading size="small" />
-            <span class="queue-text">{{ $t('knowledgeEditor.wikiBrowser.queueStatus', {
+            <t-loading v-if="stats.is_active" size="small" />
+            <t-icon v-else-if="stats.processing_status === 'blocked' || stats.processing_status === 'source_verification_required'" name="error-circle" />
+            <span class="queue-text">{{ $t('knowledgeEditor.wikiBrowser.' + (stats.processing_status === 'source_verification_required' ? 'sourceVerificationStatus' : stats.processing_status === 'blocked' ? 'blockedStatus' : stats.is_active ? 'generatingStatus' : 'queueStatus'), {
               count: stats.pending_tasks || 0
             }) }}</span>
           </div>
@@ -873,7 +874,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'open-source-doc', knowledgeId: string): void
-  (e: 'status-change', payload: { pendingTasks: number; isActive: boolean; pendingIssues: number }): void
+  (e: 'status-change', payload: { pendingTasks: number; isActive: boolean; pendingIssues: number; processingStatus?: string }): void
   (e: 'view-graph', slug: string): void
 }>()
 
@@ -2895,6 +2896,7 @@ async function loadStats() {
         pendingTasks: stats.value.pending_tasks || 0,
         isActive: !!stats.value.is_active,
         pendingIssues: stats.value.pending_issues || 0,
+        processingStatus: stats.value.processing_status,
       })
     }
 
