@@ -109,8 +109,13 @@ if raw then
  local s=cjson.decode(raw)
  if not required or required~=s.plan_sha256 then return redis.error_reply('RECOVERY_BINDING_MISSING') end
  local now=redis.call('TIME'); local ms=now[1]*1000+math.floor(now[2]/1000)
- if (s.version~=1 and not(s.version==2 and s.steady_policy)) or
-  not s.expires_ms or s.expires_ms<=ms then return redis.error_reply('RECOVERY_EXPIRED') end
+ local p=s.steady_policy and s.steady_policy.plan
+ local steady=p and ((s.version==2 and not p.release_shared_queue) or
+  (s.version==3 and p.release_shared_queue==true and
+   type(p.shared_checkpoint_id)=='string' and #p.shared_checkpoint_id==36 and
+   type(p.shared_checkpoint_sha256)=='string' and #p.shared_checkpoint_sha256==64))
+ if (s.version~=1 and not steady) or not s.expires_ms or s.expires_ms<=ms then
+  return redis.error_reply('RECOVERY_EXPIRED') end
  if s.steady_policy and (redis.call('GET',KEYS[5])~=s.continuity_id or
   redis.call('PTTL',KEYS[5])<=0) then return redis.error_reply('STEADY_HEALTH_EXPIRED') end
  if s.phase=='approved_sources' then
@@ -248,8 +253,13 @@ if raw then
  local s=cjson.decode(raw)
  if not required or required~=s.plan_sha256 then return redis.error_reply('RECOVERY_BINDING_MISSING') end
  local now=redis.call('TIME'); local ms=now[1]*1000+math.floor(now[2]/1000)
- if (s.version~=1 and not(s.version==2 and s.steady_policy)) or
-  not s.expires_ms or s.expires_ms<=ms then return redis.error_reply('RECOVERY_EXPIRED') end
+ local p=s.steady_policy and s.steady_policy.plan
+ local steady=p and ((s.version==2 and not p.release_shared_queue) or
+  (s.version==3 and p.release_shared_queue==true and
+   type(p.shared_checkpoint_id)=='string' and #p.shared_checkpoint_id==36 and
+   type(p.shared_checkpoint_sha256)=='string' and #p.shared_checkpoint_sha256==64))
+ if (s.version~=1 and not steady) or not s.expires_ms or s.expires_ms<=ms then
+  return redis.error_reply('RECOVERY_EXPIRED') end
  if s.steady_policy and (redis.call('GET',KEYS[7])~=s.continuity_id or
   redis.call('PTTL',KEYS[7])<=0) then return redis.error_reply('STEADY_HEALTH_EXPIRED') end
  if s.phase=='approved_sources' then

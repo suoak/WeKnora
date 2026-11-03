@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/feishusafety"
@@ -185,4 +188,69 @@ func TestSharedQueueReleaseRejectsSnapshotPayloadMismatch(t *testing.T) {
 	q.fields[0]["msg"] = string(changed)
 	_, _, err = f.m.prepareSharedQueue(ctx, q)
 	require.Error(t, err, "SQL proof must bind the signed bytes, not another Inspector read")
+}
+
+func TestSharedQueueReleaseOutboundRequiresExactTenantAndCurrentClaim(t *testing.T) {
+	f, _ := sharedQueueFixture(t)
+	ctx := context.Background()
+	p, err := f.m.PlanSteadyWithSharedQueueRelease(ctx, "operator", f.ids, nil, 30)
+	require.NoError(t, err)
+	require.NoError(t, f.m.ActivateSteady(ctx, p, f.sign(t, p), "operator"))
+	id := f.ids[1]
+	run := uuid.NewString()
+	claimLive := true
+	f.m.facts = func(ctx context.Context, source string) (RecoveryFacts, error) {
+		facts := f.facts[source]
+		if execution, ok := types.SyncExecutionFromContext(ctx); ok {
+			facts.Eligible = claimLive && execution.SyncLogID == run && execution.Generation == 7
+		}
+		return facts, nil
+	}
+	bound, _, err := BindApprovedSource(ctx, id, f.facts[id].ConfigSHA256)
+	require.NoError(t, err)
+	bound = feishusafety.WithScope(bound, id)
+	bound = feishusafety.WithRecoveryExecution(bound, f.facts[id].ConfigSHA256, run, 7)
+	calls := 0
+	transport := feishusafety.Transport{
+		Embedding: true,
+		Base: continuityRoundTripper(func(*http.Request) (*http.Response, error) {
+			calls++
+			return &http.Response{
+				StatusCode: 200, Header: http.Header{},
+				Body: io.NopCloser(strings.NewReader(`{"ok":true}`)),
+			}, nil
+		}),
+	}
+	call := func(work context.Context) error {
+		r, err := http.NewRequestWithContext(work, http.MethodPost, "https://gateway.invalid/v1/embeddings",
+			strings.NewReader(`{"input":["approved synthetic input"]}`))
+		require.NoError(t, err)
+		response, err := transport.RoundTrip(r)
+		if response != nil {
+			_, _ = io.Copy(io.Discard, response.Body)
+			_ = response.Body.Close()
+		}
+		return err
+	}
+	require.Error(t, call(bound))
+	require.Zero(t, calls)
+	wrong := types.WithSyncExecution(bound, types.SyncExecution{
+		DataSourceID: id, SyncLogID: run, TenantID: 999, Generation: 7,
+	})
+	require.Error(t, call(wrong))
+	require.Zero(t, calls)
+	valid := types.WithSyncExecution(bound, types.SyncExecution{
+		DataSourceID: id, SyncLogID: run, TenantID: f.authority[id].TenantID, Generation: 7,
+	})
+	require.NoError(t, call(valid))
+	require.Equal(t, 1, calls)
+	claimLive = false
+	require.Error(t, call(valid))
+	require.Equal(t, 1, calls, "released claims never reach the transport")
+	status, err := f.m.Status(ctx, f.recoveryFixture.facts.SourceID)
+	require.NoError(t, err)
+	stateJSON, err := json.Marshal(status)
+	require.NoError(t, err)
+	require.NotContains(t, string(stateJSON), "managed_sources", "anchor-only status must not disclose other tenants")
+	require.NotContains(t, string(stateJSON), f.authority[id].KBID)
 }
