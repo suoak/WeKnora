@@ -24,6 +24,15 @@ test('AST skips comments and handles literal conditional branches and template l
   assert.deepEqual(scanExpression(`// t('comment.fake')\n t(ready ? 'a.yes' : 'a.no'); $t(\`a.template\`); t('prefix.' + dynamic);`, 'sample.ts').map(c=>c.key), ['a.yes','a.no','a.template'])
   assert.equal(missingKeys(scanExpression(`t('new.missing');`, 'views/knowledge/New.vue'))[0].key, 'new.missing')
 })
+
+test('personal document summary messages are audited in their own local bundle', () => {
+  const scopes = localTranslationScopes(`
+    import { personalDocumentMessages } from '@/i18n/personalDocumentPresentation'
+    const { t } = useI18n({ useScope: 'local', messages: personalDocumentMessages })
+  `)
+  const calls = scanExpression(`t('empty'); t('loading'); t('retry'); t('unknown.summaryKey');`, 'summary.vue', 0, scopes)
+  assert.deepEqual(missingKeys(calls).map(x => x.key), ['unknown.summaryKey'])
+})
 test('static all-language gaps equal reviewed baseline; core gaps and new gaps fail', () => {
   assert.deepEqual(baseline, []) // All 28 reachable candidates repaired; no historical exceptions.
   const normalize = (entries:any[]) => entries.map(x => ({key:x.key,calls:x.calls.map((c:any)=>`${c.file}:${c.line}`).sort()})).sort((a,b)=>a.key.localeCompare(b.key))

@@ -2570,6 +2570,7 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
                 </div>
                 <template v-else-if="cardList.length && viewMode === 'grid'">
                   <DocumentCardView :kb-id="kbId"
+                    :summary-paused="isCardDetails || feishuVisible"
                     :items="cardList"
                     :folder-options="folderOptions"
                     :selected-ids="selectedIds"

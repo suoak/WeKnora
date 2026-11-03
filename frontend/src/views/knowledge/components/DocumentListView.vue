@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { personalDocumentSourceLabel } from '@/i18n/personalDocumentPresentation';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { formatFileSize } from '@/utils/files';
@@ -77,7 +78,7 @@ const emit = defineEmits<{
   (e: 'reset-move-state'): void;
 }>();
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const tagEditorId = ref<string | null>(null);
 
 const formatTime = (time?: string) => {
@@ -94,6 +95,7 @@ const formatTime = (time?: string) => {
 
 const getSourceInfo = (item: KnowledgeItem): { icon: string; label: string } => {
   const ch = item.channel;
+  if (ch === 'feishu_personal') return { icon: 'cloud-download', label: personalDocumentSourceLabel(locale.value) };
   if (ch === 'feishu') return { icon: 'cloud-download', label: t('knowledgeBase.channelFeishu') };
   // Drive (云盘) connectors use their own channel so Drive docs show
   // "飞书云盘" / "Lark 云盘", distinct from the wiki connector's "飞书".
