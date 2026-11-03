@@ -20,7 +20,8 @@ func TestWikiProductionGitLabUsesCurrentBindingAndRetainsVersionFence(t *testing
 func testWikiProductionGitLab(t *testing.T, f *fixture.Fixture) {
 	f.PreparePublished(t)
 	db := f.DB
-	require.NoError(t, db.Exec(`INSERT INTO data_sources(id,tenant_id,knowledge_base_id,name,type,status,legacy_access_state,config)
+	require.NoError(t, db.Exec(`INSERT INTO data_sources(
+ id,tenant_id,knowledge_base_id,name,type,status,legacy_access_state,config)
  VALUES('gitlab',1,'public-two','synthetic','gitlab','active','unmanaged','{}')`).Error)
 	require.NoError(t, db.Exec(`UPDATE knowledges SET channel='gitlab',
  metadata='{"datasource_id":"gitlab","external_id":"gitlab:synthetic:main:doc.md"}' WHERE id='public-two-doc'`).Error)
@@ -57,7 +58,8 @@ func TestWikiProductionMetadataScopeDoesNotGrantSourceBodies(t *testing.T) {
 	f := fixture.New(t)
 	f.PreparePublished(t)
 	db := types.EnableLegacyReadGuards(f.DB)
-	require.NoError(t, db.Exec(`INSERT INTO data_sources(id,tenant_id,knowledge_base_id,name,type,status,legacy_access_state,config)
+	require.NoError(t, db.Exec(`INSERT INTO data_sources(
+ id,tenant_id,knowledge_base_id,name,type,status,legacy_access_state,config)
  VALUES('held',1,'public-two','synthetic','feishu','active','hold','{}')`).Error)
 	var kb types.KnowledgeBase
 	require.ErrorIs(t, db.First(&kb, "id='public-two'").Error, types.ErrLegacySourceRestricted)
