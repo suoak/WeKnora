@@ -45,7 +45,14 @@ func (r *knowledgeBaseRepository) GetKnowledgeBaseByID(
 	id string,
 ) (*types.KnowledgeBase, error) {
 	var kb types.KnowledgeBase
-	if err := r.db.WithContext(ctx).Where("id = ?", id).First(&kb).Error; err != nil {
+	query := r.db.WithContext(ctx)
+	if types.IsKBDeletionMetadata(ctx, id) {
+		// Private-owner checks still run in AfterFind. Never select generated
+		// profile, summary or source content for administrative deletion.
+		query = r.db.WithContext(types.WithLegacyKBAdminMetadata(ctx, id)).
+			Select("id, tenant_id, creator_id, name, vector_store_id")
+	}
+	if err := query.Where("id = ?", id).First(&kb).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrKnowledgeBaseNotFound
 		}

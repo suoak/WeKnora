@@ -752,6 +752,9 @@ func (s *knowledgeBaseService) DeleteKnowledgeBase(ctx context.Context, id strin
 		return err
 	}
 	var vectorStoreIDSnapshot *string
+	if kb == nil || kb.TenantID != tenantID {
+		return access.ErrForbidden
+	}
 	if kb != nil {
 		vectorStoreIDSnapshot = kb.VectorStoreID
 	}
@@ -881,7 +884,14 @@ func (s *knowledgeBaseService) ProcessKBDelete(ctx context.Context, t *asynq.Tas
 
 	// Step 1: Get all knowledge entries in this knowledge base
 	logger.Infof(ctx, "Fetching all knowledge entries in knowledge base, ID: %s", kbID)
-	knowledgeList, err := s.kgRepo.ListKnowledgeByKnowledgeBaseID(ctx, tenantID, kbID)
+	var knowledgeList []*types.Knowledge
+	if metadata, ok := s.kgRepo.(interface {
+		ListKnowledgeForKBDeletion(context.Context, uint64, string) ([]*types.Knowledge, error)
+	}); ok {
+		knowledgeList, err = metadata.ListKnowledgeForKBDeletion(ctx, tenantID, kbID)
+	} else {
+		knowledgeList, err = s.kgRepo.ListKnowledgeByKnowledgeBaseID(ctx, tenantID, kbID)
+	}
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"knowledge_base_id": kbID,
