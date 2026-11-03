@@ -43,13 +43,13 @@ jobs:
           POSTGRES_DB: closeout_test
         ports: ['5432:5432']
         options: >-
-          --health-cmd 'pg_isready -U postgres -d closeout_test'
+          --health-cmd "pg_isready -U postgres -d closeout_test"
           --health-interval 10s --health-timeout 5s --health-retries 12
       redis:
         image: redis:7-alpine
         ports: ['6379:6379']
         options: >-
-          --health-cmd 'redis-cli ping'
+          --health-cmd "redis-cli ping"
           --health-interval 5s --health-timeout 3s --health-retries 12
     env:
       SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
