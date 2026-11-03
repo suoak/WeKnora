@@ -58,6 +58,9 @@ func testWikiEmptyRetractionRetirement(t *testing.T, f *fixture.Fixture) {
 	require.NoError(t, db.First(&retained, op.ID).Error)
 	require.Equal(t, "wiki_regeneration_archive", retained.Scope)
 	retained.Scope = op.Scope
+	require.True(t, retained.EnqueuedAt.Equal(op.EnqueuedAt))
+	retained.EnqueuedAt = retained.EnqueuedAt.UTC()
+	op.EnqueuedAt = op.EnqueuedAt.UTC()
 	require.Equal(t, op, retained, "only the operation's consumable scope may change")
 	var page struct {
 		Content string
