@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Tencent/WeKnora/internal/feishusynccontrol"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/hibiken/asynq"
 )
@@ -19,7 +20,21 @@ func (a *asynqTaskInspector) LiveSyncTasks(ctx context.Context) (map[string]bool
 	if a.redis == nil {
 		return nil, fmt.Errorf("sync queue Redis client unavailable")
 	}
-	prefix := "asynq:{" + types.QueueSync + "}:"
+	for _, queue := range []string{types.QueueSync, feishusynccontrol.ApprovedSyncQueue} {
+		live, err := a.liveSyncQueueTasks(ctx, queue)
+		if err != nil {
+			return nil, err
+		}
+		for key := range live {
+			out[key] = true
+		}
+	}
+	return out, nil
+}
+
+func (a *asynqTaskInspector) liveSyncQueueTasks(ctx context.Context, queue string) (map[string]bool, error) {
+	out := map[string]bool{}
+	prefix := "asynq:{" + queue + "}:"
 	ids, err := a.redis.Eval(ctx, `
 local n=redis.call('LLEN',KEYS[1])+redis.call('LLEN',KEYS[2])+redis.call('ZCARD',KEYS[3])+redis.call('ZCARD',KEYS[4])
 if n>100000 then return redis.error_reply('sync queue snapshot exceeds safety limit') end
@@ -42,7 +57,7 @@ return out`, []string{prefix + "pending", prefix + "active", prefix + "scheduled
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		task, err := a.inspector.GetTaskInfo(types.QueueSync, id)
+		task, err := a.inspector.GetTaskInfo(queue, id)
 		if errors.Is(err, asynq.ErrTaskNotFound) {
 			continue
 		}

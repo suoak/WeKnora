@@ -102,6 +102,11 @@ func configureFeishuRecovery(db *gorm.DB, c *feishusynccontrol.Controller) error
 			Count(&count).Error
 		return count == int64(len(keys)), err
 	})
+	m.ConfigureSharedQueueProof(
+		func(ctx context.Context, p types.DataSourceSyncPayload) (feishusynccontrol.SharedQueueTaskProof, error) {
+			return feishusynccontrol.SharedQueueProofFromDatabase(ctx, db, p)
+		},
+	)
 	feishusynccontrol.InstallRecovery(m)
 	return nil
 }
