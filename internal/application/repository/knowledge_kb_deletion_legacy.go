@@ -49,7 +49,8 @@ func (r *knowledgeRepository) CleanupLegacyKnowledgeForKBDeletion(
 		}
 		var audit types.AuditLog
 		if e := tx.Table("audit_logs").Where(
-			`tenant_id=? AND target_type='knowledge_base' AND target_id=? AND action=? AND outcome=? AND actor_user_id<>''
+			`tenant_id=? AND target_type='knowledge_base' AND target_id=? AND action=?
+ AND outcome=? AND actor_user_id<>''
  AND created_at >= (SELECT deleted_at FROM knowledge_bases WHERE id=target_id)
  AND created_at <= (SELECT deleted_at+interval '5 minutes' FROM knowledge_bases WHERE id=target_id)`,
 			tenant, kb, types.AuditActionKBDeleted, types.AuditOutcomeSuccess,
@@ -84,7 +85,8 @@ func (r *knowledgeRepository) CleanupLegacyKnowledgeForKBDeletion(
 		// body, summary, snapshot or candidate content is materialized here.
 		var resources []types.FeishuLegacyResource
 		if e := tx.Table("feishu_legacy_resources").Select(
-			"id,tenant_id,knowledge_base_id,data_source_id,external_id,knowledge_id,generation,state,current_attempt,active_attempt,source_revision",
+			"id,tenant_id,knowledge_base_id,data_source_id,external_id,knowledge_id,"+
+				"generation,state,current_attempt,active_attempt,source_revision",
 		).Where("knowledge_id=?", kid).Scan(&resources).Error; e != nil {
 			return e
 		}
@@ -183,8 +185,10 @@ func (r *knowledgeRepository) CleanupLegacyKnowledgeForKBDeletion(
 		}
 		for _, statement := range []string{
 			"DELETE FROM embeddings WHERE knowledge_id=? AND knowledge_base_id=?",
-			"UPDATE chunks SET deleted_at=clock_timestamp(),is_enabled=false WHERE knowledge_id=? AND knowledge_base_id=? AND deleted_at IS NULL",
-			"UPDATE knowledges SET deleted_at=clock_timestamp() WHERE id=? AND knowledge_base_id=? AND deleted_at IS NULL",
+			"UPDATE chunks SET deleted_at=clock_timestamp(),is_enabled=false " +
+				"WHERE knowledge_id=? AND knowledge_base_id=? AND deleted_at IS NULL",
+			"UPDATE knowledges SET deleted_at=clock_timestamp() " +
+				"WHERE id=? AND knowledge_base_id=? AND deleted_at IS NULL",
 		} {
 			if e := tx.Exec(statement, kid, kb).Error; e != nil {
 				return e

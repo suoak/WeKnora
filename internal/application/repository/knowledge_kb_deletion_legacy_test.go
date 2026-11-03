@@ -18,9 +18,12 @@ func protectedDeletionFixture(t *testing.T) (*gorm.DB, *knowledgeRepository) {
 	t.Helper()
 	db := syncdb.Open(t, "postgres")
 	for _, ddl := range []string{
-		"CREATE TABLE knowledge_bases(id TEXT PRIMARY KEY,tenant_id BIGINT,vector_store_id TEXT,deleted_at TIMESTAMPTZ)",
-		"CREATE TABLE knowledges(id TEXT PRIMARY KEY,tenant_id BIGINT,knowledge_base_id TEXT,channel TEXT,metadata JSONB,deleted_at TIMESTAMPTZ)",
-		"CREATE TABLE chunks(id TEXT PRIMARY KEY,tenant_id BIGINT,knowledge_base_id TEXT,knowledge_id TEXT,deleted_at TIMESTAMPTZ,is_enabled BOOLEAN)",
+		"CREATE TABLE knowledge_bases(id TEXT PRIMARY KEY,tenant_id BIGINT," +
+			"vector_store_id TEXT,deleted_at TIMESTAMPTZ)",
+		"CREATE TABLE knowledges(id TEXT PRIMARY KEY,tenant_id BIGINT,knowledge_base_id TEXT," +
+			"channel TEXT,metadata JSONB,deleted_at TIMESTAMPTZ)",
+		"CREATE TABLE chunks(id TEXT PRIMARY KEY,tenant_id BIGINT,knowledge_base_id TEXT," +
+			"knowledge_id TEXT,deleted_at TIMESTAMPTZ,is_enabled BOOLEAN)",
 		"CREATE TABLE embeddings(id TEXT PRIMARY KEY,knowledge_base_id TEXT,knowledge_id TEXT)",
 	} {
 		require.NoError(t, db.Exec(ddl).Error)
@@ -40,10 +43,13 @@ func protectedDeletionFixture(t *testing.T) (*gorm.DB, *knowledgeRepository) {
  ON embeddings FOR EACH ROW EXECUTE FUNCTION knowhub_feishu_legacy_write_fence()`).Error)
 	for _, ddl := range []string{
 		"INSERT INTO knowledge_bases VALUES('kb',1,NULL,clock_timestamp())",
-		"INSERT INTO knowledges VALUES('kid',1,'kb','feishu','{\"datasource_id\":\"ds\",\"external_id\":\"ext\"}',NULL)",
+		"INSERT INTO knowledges VALUES('kid',1,'kb','feishu'," +
+			"'{\"datasource_id\":\"ds\",\"external_id\":\"ext\"}',NULL)",
 		"INSERT INTO chunks VALUES('chunk',1,'kb','kid',NULL,true)",
 		"INSERT INTO embeddings VALUES('vector','kb','kid')",
-		"INSERT INTO feishu_legacy_resources(id,tenant_id,knowledge_base_id,data_source_id,external_id,knowledge_id,state) VALUES('resource',1,'kb','ds','ext','kid','revoked')",
+		"INSERT INTO feishu_legacy_resources(id,tenant_id,knowledge_base_id," +
+			"data_source_id,external_id,knowledge_id,state) " +
+			"VALUES('resource',1,'kb','ds','ext','kid','revoked')",
 	} {
 		require.NoError(t, db.Exec(ddl).Error)
 	}
@@ -97,8 +103,11 @@ func TestProtectedKBDeletionRejectsUnsafeConditions(t *testing.T) {
 		{"missing-audit", "DELETE FROM audit_logs"},
 		{"foreign-tenant", "UPDATE feishu_legacy_resources SET tenant_id=2"},
 		{"live-source", "UPDATE data_sources SET deleted_at=NULL"},
-		{"live-execution", "INSERT INTO sync_logs(id,data_source_id,tenant_id,status,execution_claimed) VALUES('run','ds',1,'running',true)"},
-		{"live-publication", "INSERT INTO feishu_legacy_attempts(id,resource_id,generation,owner_nonce,lease_until,status,revision,source_hash,expected_hash) VALUES('old','resource',0,'old-nonce',clock_timestamp()+interval '1 hour','staging','','','')"},
+		{"live-execution", "INSERT INTO sync_logs(id,data_source_id,tenant_id,status,execution_claimed) " +
+			"VALUES('run','ds',1,'running',true)"},
+		{"live-publication", "INSERT INTO feishu_legacy_attempts(id,resource_id,generation,owner_nonce," +
+			"lease_until,status,revision,source_hash,expected_hash) " +
+			"VALUES('old','resource',0,'old-nonce',clock_timestamp()+interval '1 hour','staging','','','')"},
 		{"stale-audit", "UPDATE audit_logs SET created_at=clock_timestamp()-interval '1 day'"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -110,7 +119,8 @@ func TestProtectedKBDeletionRejectsUnsafeConditions(t *testing.T) {
 			var count int64
 			require.NoError(t, db.Table("knowledges").Where("deleted_at IS NULL").Count(&count).Error)
 			require.EqualValues(t, 1, count)
-			require.NoError(t, db.Table("feishu_legacy_attempts").Where("source_hash='kb-deletion'").Count(&count).Error)
+			require.NoError(t, db.Table("feishu_legacy_attempts").
+				Where("source_hash='kb-deletion'").Count(&count).Error)
 			require.Zero(t, count, "failed cleanup must not leave a deletion capability")
 		})
 	}
