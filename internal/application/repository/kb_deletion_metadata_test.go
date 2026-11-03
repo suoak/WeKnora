@@ -33,7 +33,8 @@ func TestKBDeletionMetadataScope(t *testing.T) {
 				"CREATE TABLE IF NOT EXISTS data_sources(knowledge_base_id TEXT,type TEXT,legacy_access_state TEXT)",
 				"CREATE TABLE tenants(id BIGINT,status TEXT,deleted_at TIMESTAMP)",
 				"CREATE TABLE knowledges(id TEXT PRIMARY KEY,tenant_id BIGINT,knowledge_base_id TEXT," +
-					"embedding_model_id TEXT,type TEXT,file_path TEXT,storage_size BIGINT,description TEXT,deleted_at TIMESTAMP)",
+					"embedding_model_id TEXT,type TEXT,file_path TEXT,storage_size BIGINT," +
+					"description TEXT,deleted_at TIMESTAMP)",
 				"INSERT INTO tenants VALUES(1,'active',NULL)",
 				"INSERT INTO knowledge_bases VALUES('held',1,'owner','Name','store','SECRET',NULL)," +
 					"('other',1,'owner','Other','store','SECRET',NULL)",
@@ -54,7 +55,8 @@ func TestKBDeletionMetadataScope(t *testing.T) {
 			require.ErrorIs(t, err, types.ErrLegacySourceRestricted)
 			_, err = repo.GetKnowledgeBaseByID(ctx, "other")
 			require.ErrorIs(t, err, types.ErrLegacySourceRestricted, "proof is exact KB only")
-			require.ErrorIs(t, types.CheckLegacySourceRead(db.WithContext(ctx), "", "held"), types.ErrLegacySourceRestricted)
+			require.ErrorIs(t, types.CheckLegacySourceRead(db.WithContext(ctx), "", "held"),
+				types.ErrLegacySourceRestricted)
 			kg := &knowledgeRepository{db: db}
 			_, err = kg.ListKnowledgeForKBDeletion(ctx, 1, "held")
 			require.Error(t, err, "active parent cannot be cleaned up")
