@@ -22,6 +22,9 @@ var (
 	ErrPersonalBusy = errors.New("personal_attempt_leased")
 	// ErrPersonalIdentity reports changed resource or authorization identity.
 	ErrPersonalIdentity = errors.New("personal_attempt_identity_changed")
+	// ErrPersonalAuthModeConflict preserves the identity fence while explaining
+	// why reconnecting or retrying cannot admit an existing resource.
+	ErrPersonalAuthModeConflict = fmt.Errorf("%w: personal_document_auth_mode_conflict", ErrPersonalIdentity)
 )
 
 // PersonalRecoveryRepository shares task_pending_ops with knowledge dispatch.
@@ -30,6 +33,8 @@ type PersonalRecoveryRepository struct {
 	db                        *gorm.DB
 	FirstCreateOnly           bool
 	ApplicationGrantValidator func(*gorm.DB, *types.FeishuPersonalImport, *types.FeishuPersonalAttempt) error
+	// Set only by the server's bounded same-owner recovery configuration.
+	UnpublishedHandoffValidator func(*gorm.DB, *types.FeishuPersonalImport, *types.FeishuPersonalImport, *types.FeishuPersonalAttempt) error
 }
 
 // InTransaction reuses the same protocol checks in a caller-owned write
@@ -100,7 +105,10 @@ func (r *PersonalRecoveryRepository) Prepare(
 			}
 			for _, prior := range previous {
 				if types.FeishuAuthMode(prior.AuthMode) != types.FeishuAuthMode(m.AuthMode) {
-					return ErrPersonalIdentity
+					if err := r.handoffUnpublished(tx, &prior, m, a); err != nil {
+						return err
+					}
+					continue
 				}
 				if prior.UserID != m.UserID {
 					return ErrPersonalAlreadyImported

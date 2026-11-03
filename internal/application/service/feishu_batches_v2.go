@@ -380,6 +380,7 @@ func (s *FeishuPersonalService) RetryBatch(ctx context.Context, id string) error
 	// attempts, fences, or a partially published document requiring review.
 	retry := s.db.WithContext(ctx).
 		Model(&types.FeishuBatchItem{}).
+		Where("error_category <> ?", "source_identity_conflict").
 		Where("batch_id = ? AND status IN ? AND retry_count < 3 AND (import_id = ? OR error_category IN ?)",
 			id,
 			[]string{
@@ -525,6 +526,7 @@ func (s *FeishuPersonalService) ReconcileBatches(ctx context.Context) error {
 		status, category, importID := "dispatched", "", item.ImportID
 		if err != nil {
 			status, category = "blocked", feishuV2Error(err)
+			logger.Warnf(ctx, "Feishu batch admission refused: batch_id=%s item_id=%s error_category=%s", b.ID, item.ID, category)
 			if category == "temporary_failure" {
 				status = "failed"
 				if item.RetryCount < 3 {

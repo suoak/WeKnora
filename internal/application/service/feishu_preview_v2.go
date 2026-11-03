@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
+	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/google/uuid"
@@ -46,6 +47,8 @@ func feishuV2Error(err error) string {
 		return "app_scope_missing"
 	}
 	switch {
+	case errors.Is(err, repository.ErrPersonalAuthModeConflict):
+		return "source_identity_conflict"
 	case errors.Is(err, core.ErrAppScope):
 		return "app_scope_missing"
 	case errors.Is(err, core.ErrUserScope):

@@ -78,6 +78,7 @@ func EnablePersonalRecovery(
 		return errors.New("application grant requires first-create and native anydoc engine")
 	}
 	p.repo.FirstCreateOnly = p.firstCreateOnly
+	p.repo.UnpublishedHandoffValidator = p.validatePersonalHandoffTx
 	p.repo.ApplicationGrantValidator = p.validateApplicationIdentityTx
 	s.recovery = p
 	ks.personalRecovery = p
@@ -359,6 +360,9 @@ func (p *PersonalRecovery) prepareWithIdentity(
 	}
 	m.ResourceType, m.DocumentToken, m.URL = resource.Type, resource.Token, resource.URL
 	a.Revision = resource.Modified
+	if err := p.preflightPersonalHandoff(remote, &m, resource); err != nil {
+		return nil, err
+	}
 	if cfg.Capabilities != nil {
 		var protected int64
 		if e := p.service.db.
