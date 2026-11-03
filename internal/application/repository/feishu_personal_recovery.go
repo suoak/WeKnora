@@ -34,7 +34,9 @@ type PersonalRecoveryRepository struct {
 	FirstCreateOnly           bool
 	ApplicationGrantValidator func(*gorm.DB, *types.FeishuPersonalImport, *types.FeishuPersonalAttempt) error
 	// Set only by the server's bounded same-owner recovery configuration.
-	UnpublishedHandoffValidator func(*gorm.DB, *types.FeishuPersonalImport, *types.FeishuPersonalImport, *types.FeishuPersonalAttempt) error
+	UnpublishedHandoffValidator func(
+		*gorm.DB, *types.FeishuPersonalImport, *types.FeishuPersonalImport, *types.FeishuPersonalAttempt,
+	) error
 }
 
 // InTransaction reuses the same protocol checks in a caller-owned write

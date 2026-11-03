@@ -11,6 +11,8 @@ on:
       - internal/middleware/knowledge_deletion_metadata*.go
       - internal/router/*knowledge*.go
       - internal/types/knowledge_deletion_metadata.go
+      - internal/database/**
+      - migrations/**
       - .github/workflows/personal-document-deletion.yml
   push:
     branches: [main]
@@ -23,6 +25,8 @@ on:
       - internal/middleware/knowledge_deletion_metadata*.go
       - internal/router/*knowledge*.go
       - internal/types/knowledge_deletion_metadata.go
+      - internal/database/**
+      - migrations/**
       - .github/workflows/personal-document-deletion.yml
   workflow_dispatch:
 permissions:
@@ -67,10 +71,10 @@ jobs:
         run: |
           set -euo pipefail
           go test -race -p 2 -json -tags sqlite_fts5 \
-            ./internal/types ./internal/middleware ./internal/application/repository \
+            ./internal/database ./internal/types ./internal/middleware ./internal/application/repository \
             ./internal/application/repository/retriever/postgres \
             ./internal/application/service ./internal/router ./internal/handler \
-            -run 'KnowledgeDeletion|PersonalDocument|ExactDocumentBatchWriteFence|PersonalRecoveryExactExecution|AdmittedDelete|DeletionMetadata|KBDeletionMetadata|LookupKBAccessMetadata|Knowledge.*Delete' \
+            -run 'UnpublishedPersonalHandoff|Migration|KnowledgeDeletion|PersonalDocument|ExactDocumentBatchWriteFence|PersonalRecoveryExactExecution|AdmittedDelete|DeletionMetadata|KBDeletionMetadata|LookupKBAccessMetadata|Knowledge.*Delete' \
             -count=1 -timeout=12m | tee personal-document-deletion.jsonl
       - uses: actions/upload-artifact@v7
         if: always()

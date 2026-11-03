@@ -526,7 +526,13 @@ func (s *FeishuPersonalService) ReconcileBatches(ctx context.Context) error {
 		status, category, importID := "dispatched", "", item.ImportID
 		if err != nil {
 			status, category = "blocked", feishuV2Error(err)
-			logger.Warnf(ctx, "Feishu batch admission refused: batch_id=%s item_id=%s error_category=%s", b.ID, item.ID, category)
+			logger.Warnf(
+				ctx,
+				"Feishu batch admission refused: batch_id=%s item_id=%s error_category=%s",
+				b.ID,
+				item.ID,
+				category,
+			)
 			if category == "temporary_failure" {
 				status = "failed"
 				if item.RetryCount < 3 {

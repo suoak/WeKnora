@@ -17,7 +17,7 @@ from the same validated main commit and pass the existing provenance check.
 | #64 | Entire head `539158a1f` is already an ancestor of main. | Close duplicate PR; retain branch and history. |
 | #67 | Three unique commits add a separate sealed-document retry/quarantine protocol and frontend actions. These are absent from main and are not equivalent to administrative deletion. | Retain as draft for independent integration and acceptance; do not discard its unmerged implementation. |
 | #62 | Seven unique commits add source-admission status APIs and frontend presentation. This is broader than the failing DELETE path. | Retain as draft; a complete frontend/backend acceptance is still needed before release. |
-| #61 | Four unique commits add derived-write publication fencing and migration 003043. This changes schema and publication behavior independently of this incident. | Retain as draft; resolve lint/integration and migration acceptance separately. |
+| #61 | Four unique commits add derived-write publication fencing and migration 003043. This changes schema and publication behavior independently of this incident. | Retain as draft; resolve lint/integration and renumber its migration above the already deployed 003045 before separate acceptance. |
 
 The incident fix starts from production APP `b874d5437` and is cherry-picked
 onto current main without replacing the existing mainline fixes. It separates
@@ -36,3 +36,12 @@ Release must preserve database, storage, existing source policies and queued
 task identities. A source-SHA change must use the existing safety pause/drain
 and current signed recovery flow; it does not permit global source activation,
 blind task replay, dropping queued messages, or restoring an old business DB.
+
+A concurrent production release was detected before service cutover. Its
+`789fb3a24c2d2ab6b44aa4a270c7b967b683da5a` identity handoff fix and
+`4c91667d6e1ea40bd061ac12f7f8bb67eed6b06e` frontend explanation are included.
+Migration 003045 retains historical principals while requiring new attempts to
+use the current principal. Final migration expectations are 3045; the deployed
+allowlist and all current source restrictions must be preserved. The runtime
+image includes candidate migration files, and rollback uses the current hotfix
+image without reverting principal history or restoring the older database.

@@ -23,7 +23,11 @@ func personalHandoffApproved(importID string) bool {
 	return false
 }
 
-func (p *PersonalRecovery) validatePersonalHandoffTx(tx *gorm.DB, old, incoming *types.FeishuPersonalImport, a *types.FeishuPersonalAttempt) error {
+func (p *PersonalRecovery) validatePersonalHandoffTx(
+	tx *gorm.DB,
+	old, incoming *types.FeishuPersonalImport,
+	a *types.FeishuPersonalAttempt,
+) error {
 	if !personalHandoffApproved(old.ID) || old.UserID != incoming.UserID {
 		return repository.ErrPersonalAuthModeConflict
 	}
@@ -34,13 +38,19 @@ func (p *PersonalRecovery) validatePersonalHandoffTx(tx *gorm.DB, old, incoming 
 
 // This proof is called by ordinary user admission using only that user's token.
 // No operator token, application fallback or request-supplied authority exists.
-func (p *PersonalRecovery) preflightPersonalHandoff(ctx context.Context, m *types.FeishuPersonalImport, resource core.PersonalResource) error {
+func (p *PersonalRecovery) preflightPersonalHandoff(
+	ctx context.Context,
+	m *types.FeishuPersonalImport,
+	resource core.PersonalResource,
+) error {
 	if m.AuthMode != types.FeishuUserOAuth || os.Getenv("FEISHU_PERSONAL_UNPUBLISHED_HANDOFF_IDS") == "" {
 		return nil
 	}
 	var prior []types.FeishuPersonalImport
-	if err := p.service.db.WithContext(ctx).Where("user_id=? AND app_id=? AND kb_id=? AND resource_type=? AND document_token=? AND auth_mode=?",
-		m.UserID, m.AppID, m.KBID, m.ResourceType, m.DocumentToken, types.FeishuApplicationGrant).Limit(2).Find(&prior).Error; err != nil {
+	if err := p.service.db.WithContext(ctx).Where(
+		"user_id=? AND app_id=? AND kb_id=? AND resource_type=? AND document_token=? AND auth_mode=?",
+		m.UserID, m.AppID, m.KBID, m.ResourceType, m.DocumentToken, types.FeishuApplicationGrant,
+	).Limit(2).Find(&prior).Error; err != nil {
 		return err
 	}
 	if len(prior) == 0 {
