@@ -37,7 +37,8 @@ func TestKBDeletionMetadataScope(t *testing.T) {
 				"INSERT INTO tenants VALUES(1,'active',NULL)",
 				"INSERT INTO knowledge_bases VALUES('held',1,'owner','Name','store','SECRET',NULL)," +
 					"('other',1,'owner','Other','store','SECRET',NULL)",
-				"INSERT INTO data_sources(knowledge_base_id,type,legacy_access_state) VALUES('held','feishu','revoked'),('other','feishu','hold')",
+				"INSERT INTO data_sources(knowledge_base_id,type,legacy_access_state) " +
+					"VALUES('held','feishu','revoked'),('other','feishu','hold')",
 				"INSERT INTO knowledges VALUES('doc',1,'held','model','file','/file',10,'SECRET',NULL)",
 			} {
 				require.NoError(t, db.Exec(ddl).Error)
