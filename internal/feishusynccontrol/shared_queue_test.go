@@ -13,6 +13,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protowire"
 )
@@ -253,4 +254,57 @@ func TestSharedQueueReleaseOutboundRequiresExactTenantAndCurrentClaim(t *testing
 	require.NoError(t, err)
 	require.NotContains(t, string(stateJSON), "managed_sources", "anchor-only status must not disclose other tenants")
 	require.NotContains(t, string(stateJSON), f.authority[id].KBID)
+}
+
+// This is the actual check script from the previously validated 50712d3 reader.
+// Rollback must reject the new receipt rather than silently opening its lane.
+func TestSharedQueueReleaseOldReaderRejectsCurrentReceipt(t *testing.T) {
+	f, _ := sharedQueueFixture(t)
+	ctx := context.Background()
+	p, err := f.m.PlanSteadyWithSharedQueueRelease(ctx, "operator", f.ids, nil, 30)
+	require.NoError(t, err)
+	require.NoError(t, f.m.ActivateSteady(ctx, p, f.sign(t, p), "operator"))
+	id := f.ids[0]
+	work, approved, err := BindApprovedSource(ctx, id, f.facts[id].ConfigSHA256)
+	require.NoError(t, err)
+	require.True(t, approved)
+	require.NoError(t, f.c.Guard.Check(feishusafety.WithScope(work, id)))
+	oldReader := redis.NewScript(`
+if redis.call('EXISTS',KEYS[2]) == 1 then return redis.error_reply('SAFETY_TRIPPED') end
+if redis.call('GET',KEYS[1]) ~= ARGV[1] or redis.call('PTTL',KEYS[1]) <= 0 then
+ return redis.error_reply('SAFETY_NO_PERMIT')
+end
+local raw=redis.call('GET',KEYS[3])
+local required=redis.call('GET',KEYS[4])
+if (required or (ARGV[7]=='true' or ARGV[7]=='1')) and not raw then return
+redis.error_reply('RECOVERY_MISSING') end
+if raw then
+ local s=cjson.decode(raw)
+ if not required or required~=s.plan_sha256 then return redis.error_reply('RECOVERY_BINDING_MISSING') end
+ local now=redis.call('TIME'); local ms=now[1]*1000+math.floor(now[2]/1000)
+ if (s.version~=1 and not(s.version==2 and s.steady_policy)) or
+  not s.expires_ms or s.expires_ms<=ms then return redis.error_reply('RECOVERY_EXPIRED') end
+ if s.steady_policy and (redis.call('GET',KEYS[5])~=s.continuity_id or
+  redis.call('PTTL',KEYS[5])<=0) then return redis.error_reply('STEADY_HEALTH_EXPIRED') end
+ if s.phase=='approved_sources' then
+  local entry=s.approved_sources and s.approved_sources[ARGV[2]]
+  if not entry or entry.config_sha256~=ARGV[4] or s.continuity_id~=ARGV[3] or
+   (ARGV[8]~='true' and ARGV[8]~='1') then return redis.error_reply('APPROVED_SOURCE_DENIED') end
+ elseif s.source_id~=ARGV[2] or s.config_sha256~=ARGV[4] then return
+redis.error_reply('RECOVERY_SOURCE_DENIED') end
+ if s.phase=='approved_sources' then
+  -- Live authority was checked by the server validator before this atomic gate.
+ elseif s.phase=='admit' then
+  if s.plan_id~=ARGV[3] or ARGV[5]~='' then return redis.error_reply('RECOVERY_ADMISSION_DENIED') end
+ elseif s.phase=='running' then
+  if s.plan_id~=ARGV[3] or s.run_id~=ARGV[5] or tostring(s.generation)~=ARGV[6] then
+   return redis.error_reply('RECOVERY_RUN_DENIED')
+  end
+ else return redis.error_reply('RECOVERY_FROZEN') end
+end
+return 1`)
+	err = oldReader.Run(ctx, f.r, []string{f.c.Guard.PermitKey(), f.c.prefix + "trip",
+		f.c.prefix + "recovery", f.c.prefix + "recovery_required", f.c.prefix + "steady_health"},
+		f.c.Guard.Fingerprint(), id, p.ID, f.facts[id].ConfigSHA256, "", 0, true, true).Err()
+	require.ErrorContains(t, err, "RECOVERY_EXPIRED")
 }
