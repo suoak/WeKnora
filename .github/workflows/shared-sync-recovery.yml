@@ -1,0 +1,69 @@
+name: Shared Sync Queue Recovery Gate
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - internal/feishusynccontrol/**
+      - internal/feishusafety/**
+      - internal/handler/feishu_steady_sync*.go
+      - internal/router/sync_task_inspector*.go
+      - .github/workflows/shared-sync-recovery.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  shared-queue-safety:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: paradedb/paradedb:v0.22.2-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: closeout_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d closeout_test"
+          --health-interval 10s --health-timeout 5s --health-retries 12
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+    env:
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      SYNC_EXECUTION_POSTGRES_DSN: postgres://postgres:postgres@localhost:5432/closeout_test?sslmode=disable
+      REQUIRE_SYNC_EXECUTION_POSTGRES: '1'
+      FEISHU_SYNC_SAFETY_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.8'
+          cache: true
+      - name: Bind exact candidate and isolated Redis
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          alias="knowhub-recovery-redis-${SOURCE_SHA:0:12}"
+          echo "127.0.0.1 $alias" | sudo tee -a /etc/hosts >/dev/null
+          echo "FEISHU_RECOVERY_REAL_REDIS_ADDR=$alias:6379" >> "$GITHUB_ENV"
+      - name: Signed release, exact task bytes, SQL terminal fences and independent Web authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -json -race -p 1 -tags sqlite_fts5 \
+            ./internal/feishusafety ./internal/feishusynccontrol ./internal/handler ./internal/router \
+            -run 'TestRecoveryBudgetAdmissionBindsExactRunAndPersistentMode|TestSharedQueueRelease|TestSteadyHTTPChecksIndependentTargetAuthority|TestRecoveryHTTPAuthorizationBeforePlanOrExecution|TestSyncLiveQueueProbeP0' \
+            -count=1 -timeout=12m | tee shared-queue-safety.jsonl
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: shared-queue-safety-${{ env.SOURCE_SHA }}-${{ github.event_name }}
+          path: shared-queue-safety.jsonl
+          retention-days: 90

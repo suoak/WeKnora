@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -34,14 +35,18 @@ type SteadySource struct {
 // approved normal-service authorization period. Health leases never extend it.
 type SteadyPlan struct {
 	ContinuityPlan
-	AuthorizationUntilMS  int64          `json:"authorization_until_ms"`
-	PolicyRevision        int64          `json:"policy_revision"`
-	RevocationOnly        bool           `json:"revocation_only"`
-	ManagedSources        []SteadySource `json:"managed_sources"`
-	TerminalArchivedCount int            `json:"terminal_archived_count,omitempty"`
-	TerminalArchiveSHA256 string         `json:"terminal_archive_sha256,omitempty"`
-	TerminalPendingCount  int            `json:"terminal_pending_count,omitempty"`
-	TerminalPendingSHA256 string         `json:"terminal_pending_sha256,omitempty"`
+	ReleaseSharedQueue    bool                   `json:"release_shared_queue,omitempty"`
+	SharedCheckpointID    string                 `json:"shared_checkpoint_id,omitempty"`
+	SharedCheckpointSHA   string                 `json:"shared_checkpoint_sha256,omitempty"`
+	SharedTasks           []SharedQueueTaskProof `json:"shared_tasks,omitempty"`
+	AuthorizationUntilMS  int64                  `json:"authorization_until_ms"`
+	PolicyRevision        int64                  `json:"policy_revision"`
+	RevocationOnly        bool                   `json:"revocation_only"`
+	ManagedSources        []SteadySource         `json:"managed_sources"`
+	TerminalArchivedCount int                    `json:"terminal_archived_count,omitempty"`
+	TerminalArchiveSHA256 string                 `json:"terminal_archive_sha256,omitempty"`
+	TerminalPendingCount  int                    `json:"terminal_pending_count,omitempty"`
+	TerminalPendingSHA256 string                 `json:"terminal_pending_sha256,omitempty"`
 }
 
 // SteadyCertificate retains the exact signed policy for every subsequent check.
@@ -272,6 +277,12 @@ func (m *RecoveryManager) planSteady(
 		}
 	}
 	p.ManagedSources = []SteadySource{}
+	if s.Steady != nil && s.Steady.Plan.ReleaseSharedQueue {
+		p.ReleaseSharedQueue = true
+		p.SharedCheckpointID = s.Steady.Plan.SharedCheckpointID
+		p.SharedCheckpointSHA = s.Steady.Plan.SharedCheckpointSHA
+		p.SharedTasks = append([]SharedQueueTaskProof(nil), s.Steady.Plan.SharedTasks...)
+	}
 	ordered := append([]string(nil), ids...)
 	sort.Strings(ordered)
 	for i, id := range ordered {
@@ -308,7 +319,7 @@ func (m *RecoveryManager) planSteady(
 func (m *RecoveryManager) verifySteady(cert SteadyCertificate, now int64, consume bool) error {
 	p, a := cert.Plan, cert.Approval
 	hash, err := RecoveryDigest(p)
-	if err != nil || p.Version != 1 || p.PolicyRevision < 1 || p.ApprovalKeyID != m.keyID ||
+	if err != nil || !validSharedQueuePlan(p) || p.Version != 1 || p.PolicyRevision < 1 || p.ApprovalKeyID != m.keyID ||
 		p.TerminalArchivedCount < 0 || p.TerminalArchivedCount > 1000 ||
 		(p.TerminalArchivedCount == 0 && p.TerminalArchiveSHA256 != "") ||
 		(p.TerminalArchivedCount > 0 && !recoverySHA.MatchString(p.TerminalArchiveSHA256)) ||
@@ -366,7 +377,9 @@ func (m *RecoveryManager) verifySteady(cert SteadyCertificate, now int64, consum
 }
 
 func (m *RecoveryManager) checkSteadyState(ctx context.Context, state recoveryMode, now int64) error {
-	if state.Version != 2 || state.Steady == nil || m.steadyAuthority == nil || state.Phase != "approved_sources" ||
+	if (state.Version != 2 && state.Version != 3) || state.Steady == nil ||
+		(state.Version == 3) != state.Steady.Plan.ReleaseSharedQueue ||
+		m.steadyAuthority == nil || state.Phase != "approved_sources" ||
 		m.verifySteady(*state.Steady, now, false) != nil ||
 		state.ContinuityID != state.Steady.Plan.ID || state.ExpiresMS != state.Steady.Plan.AuthorizationUntilMS ||
 		state.Steady.Plan.Incarnation != m.controller.incarnation ||
@@ -456,6 +469,32 @@ func (m *RecoveryManager) ActivateSteady(ctx context.Context, p SteadyPlan, a Re
 			return ErrRecoveryRejected
 		}
 	}
+	// Database checks stay outside the permit-renewal mutex. Claim remains
+	// authoritative if SQL identity changes after this bounded preflight.
+	var sharedCheckpoint []byte
+	if p.ReleaseSharedQueue {
+		raw, readErr := c.Client.Get(ctx, c.prefix+"recovery").Result()
+		var observed recoveryMode
+		if readErr != nil || json.Unmarshal([]byte(raw), &observed) != nil {
+			return ErrRecoveryRejected
+		}
+		if observed.Steady != nil && observed.Steady.Plan.ReleaseSharedQueue {
+			if !sameSharedQueueRelease(observed.Steady.Plan, p) {
+				return ErrRecoveryRejected
+			}
+		} else {
+			q, queueErr := m.queue(ctx)
+			if queueErr != nil || q.digest != p.HistoricalQueueSHA256 {
+				return ErrRecoveryRejected
+			}
+			proofs, body, proofErr := m.prepareSharedQueue(ctx, q)
+			if proofErr != nil || !reflect.DeepEqual(proofs, p.SharedTasks) ||
+				digestBytes(string(body)) != p.SharedCheckpointSHA {
+				return ErrRecoveryRejected
+			}
+			sharedCheckpoint = body
+		}
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if err := m.steadyReady(ctx); err != nil {
@@ -489,6 +528,9 @@ func (m *RecoveryManager) ActivateSteady(ctx context.Context, p SteadyPlan, a Re
 	if state.Steady != nil && state.Steady.Plan.ActorID != actor {
 		return ErrRecoveryRejected
 	}
+	if state.Steady != nil && state.Steady.Plan.ReleaseSharedQueue && !sameSharedQueueRelease(state.Steady.Plan, p) {
+		return ErrRecoveryRejected
+	}
 	if p.RevocationOnly {
 		if state.Steady == nil || p.AuthorizationUntilMS != state.Steady.Plan.AuthorizationUntilMS ||
 			len(p.ManagedSources) >= len(state.ApprovedSources) {
@@ -513,6 +555,9 @@ func (m *RecoveryManager) ActivateSteady(ctx context.Context, p SteadyPlan, a Re
 	// Old readers accept only version 1. A rollback must fail closed instead
 	// of treating the authorization period as a long-lived legacy permit.
 	state.Version = 2
+	if p.ReleaseSharedQueue {
+		state.Version = 3 // Old controllers reject this receipt on rollback.
+	}
 	state.ApprovedSources = entries
 	state.ContinuityID = p.ID
 	state.Phase = "approved_sources"
@@ -531,6 +576,8 @@ func (m *RecoveryManager) ActivateSteady(ctx context.Context, p SteadyPlan, a Re
 		c.prefix + "recovery", c.prefix + "trip", c.prefix + "membership_revision",
 		c.prefix + "workers", c.prefix + "leases", c.prefix + "admitted", c.Guard.PermitKey(),
 	}
+	checkpointKey := c.prefix + "shared_queue_checkpoint:" + p.SharedCheckpointID
+	keys = append(keys, checkpointKey)
 	for _, queue := range []string{"sync", ApprovedSyncQueue} {
 		for _, key := range []string{"pending", "active", "retry", "scheduled", "archived", "paused"} {
 			keys = append(keys, "asynq:{"+queue+"}:"+key)
@@ -568,17 +615,28 @@ if redis.call('GET',KEYS[1])~=ARGV[1] or redis.call('EXISTS',KEYS[2])~=0 or
  redis.call('HGET',KEYS[8],ARGV[4])~=ARGV[5] or
  tonumber(redis.call('ZSCORE',KEYS[9],ARGV[4]) or '0')<=ms or
  tonumber(ARGV[6])<=ms then return redis.error_reply('STEADY_ADMISSION_CHANGED') end
+if ARGV[13]~='' and (redis.call('EXISTS',KEYS[11])~=0 or
+ redis.call('GET',KEYS[12])~=ARGV[14]) then return redis.error_reply('SHARED_CHECKPOINT_CHANGED') end
 redis.call('XADD',KEYS[4],'*','event','steady_sources_activated','actor_id',ARGV[7],
  'certificate',ARGV[8],'historical_queue_sha256',ARGV[9])
+if ARGV[13]~='' then
+ redis.call('SET',KEYS[11],ARGV[13])
+ redis.call('XADD',KEYS[4],'*','event','shared_queue_reconciled','actor_id',ARGV[7],
+  'checkpoint_id',ARGV[15],'historical_queue_sha256',ARGV[9])
+end
 redis.call('SET',KEYS[1],ARGV[10]);redis.call('SET',KEYS[5],ARGV[11],'PX',ARGV[12])
-redis.call('DEL',KEYS[10]);return 1`,
+redis.call('DEL',KEYS[10])
+if ARGV[13]~='' then redis.call('DEL',KEYS[12]) end
+return 1`,
 				[]string{
 					c.prefix + "recovery", c.prefix + "trip", c.Guard.PermitKey(), c.prefix + "control_audit",
 					c.prefix + "steady_health", c.prefix + "membership_revision", c.prefix + "workers",
 					c.prefix + "admitted", c.prefix + "leases", "asynq:{approved_sync}:paused",
+					checkpointKey, "asynq:{sync}:paused",
 				},
 				raw, c.Guard.Fingerprint(), p.MembershipRevision, c.Config.WorkerID, c.fingerprint+":"+c.incarnation,
-				a.ExpiresMS, actor, string(signed), q.digest, string(body), p.ID, steadyHealthTTL.Milliseconds())
+				a.ExpiresMS, actor, string(signed), q.digest, string(body), p.ID, steadyHealthTTL.Milliseconds(),
+				string(sharedCheckpoint), q.pause, p.SharedCheckpointID)
 			return nil
 		})
 		return err

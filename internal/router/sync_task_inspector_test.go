@@ -10,6 +10,7 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/application/service"
+	"github.com/Tencent/WeKnora/internal/feishusynccontrol"
 	"github.com/Tencent/WeKnora/internal/testutil/syncdb"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/alicebob/miniredis/v2"
@@ -31,24 +32,28 @@ func TestSyncLiveQueueProbeP0(t *testing.T) {
 	live, err := inspector.LiveSyncTasks(ctx)
 	require.NoError(t, err)
 	require.Empty(t, live)
-	for _, state := range []string{"pending", "scheduled", "archived"} {
-		p := types.DataSourceSyncPayload{DataSourceID: "source", TenantID: 1, SyncLogID: state}
-		payload, _ := json.Marshal(p)
-		opts := []asynq.Option{asynq.Queue(types.QueueSync), asynq.TaskID(state)}
-		if state == "scheduled" {
-			opts = append(opts, asynq.ProcessIn(time.Hour))
-		}
-		_, err := client.Enqueue(asynq.NewTask(types.TypeDataSourceSync, payload), opts...)
-		require.NoError(t, err)
-		if state == "archived" {
-			require.NoError(t, inspector.inspector.ArchiveTask(types.QueueSync, state))
+	for _, queue := range []string{types.QueueSync, feishusynccontrol.ApprovedSyncQueue} {
+		for _, state := range []string{"pending", "scheduled", "archived"} {
+			p := types.DataSourceSyncPayload{DataSourceID: "source", TenantID: 1, SyncLogID: queue + state}
+			payload, _ := json.Marshal(p)
+			opts := []asynq.Option{asynq.Queue(queue), asynq.TaskID(state)}
+			if state == "scheduled" {
+				opts = append(opts, asynq.ProcessIn(time.Hour))
+			}
+			_, err := client.Enqueue(asynq.NewTask(types.TypeDataSourceSync, payload), opts...)
+			require.NoError(t, err)
+			if state == "archived" {
+				require.NoError(t, inspector.inspector.ArchiveTask(queue, state))
+			}
 		}
 	}
 	live, err = inspector.LiveSyncTasks(ctx)
 	require.NoError(t, err)
-	require.True(t, live[types.SyncTaskKey(1, "source", "pending")])
-	require.True(t, live[types.SyncTaskKey(1, "source", "scheduled")])
-	require.False(t, live[types.SyncTaskKey(1, "source", "archived")])
+	for _, queue := range []string{types.QueueSync, feishusynccontrol.ApprovedSyncQueue} {
+		require.True(t, live[types.SyncTaskKey(1, "source", queue+"pending")])
+		require.True(t, live[types.SyncTaskKey(1, "source", queue+"scheduled")])
+		require.False(t, live[types.SyncTaskKey(1, "source", queue+"archived")])
+	}
 	srv.Close()
 	_, err = inspector.LiveSyncTasks(ctx)
 	require.Error(t, err)

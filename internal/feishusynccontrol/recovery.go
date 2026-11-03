@@ -123,6 +123,7 @@ type RecoveryManager struct {
 	facts            func(context.Context, string) (RecoveryFacts, error)
 	steadyAuthority  func(context.Context, string, string) (SourceManagementAuthority, error)
 	archivedTerminal func(context.Context, []types.DataSourceSyncPayload) (bool, error)
+	sharedQueueProof func(context.Context, types.DataSourceSyncPayload) (SharedQueueTaskProof, error)
 }
 
 var recoveryManager atomic.Pointer[RecoveryManager]
@@ -178,7 +179,7 @@ func (c *Controller) checkRecoveryPolicy(ctx context.Context) error {
 		return ErrRecoveryRejected
 	}
 	if json.Unmarshal([]byte(raw), &state) != nil ||
-		(state.Version != 1 && (state.Version != 2 || state.Steady == nil)) ||
+		(state.Version != 1 && ((state.Version != 2 && state.Version != 3) || state.Steady == nil)) ||
 		state.PlanSHA256 != required ||
 		state.RuntimeSHA != c.Config.SourceSHA ||
 		state.WorkerID != c.Config.WorkerID ||
@@ -197,7 +198,11 @@ func (c *Controller) checkRecoveryPolicy(ctx context.Context) error {
 		if state.HistoricalQueueSHA256 == "" {
 			return ErrRecoveryRejected
 		}
-		queue, err := (&RecoveryManager{controller: c}).queue(ctx)
+		manager := c.steadyManager
+		if manager == nil {
+			manager = &RecoveryManager{controller: c}
+		}
+		queue, err := manager.queue(ctx)
 		if err != nil || queue.digest != state.HistoricalQueueSHA256 || len(queue.ids) != state.HistoricalPending {
 			return ErrRecoveryRejected
 		}
@@ -312,6 +317,9 @@ type recoveryQueueSnapshot struct {
 }
 
 func (m *RecoveryManager) queue(ctx context.Context) (recoveryQueueSnapshot, error) {
+	if snapshot, released, err := m.releasedQueueSnapshot(ctx); released {
+		return snapshot, err
+	}
 	c := m.controller.Client
 	var q recoveryQueueSnapshot
 	paused, e := c.Exists(ctx, "asynq:{sync}:paused").Result()
@@ -882,6 +890,7 @@ func (m *RecoveryManager) Status(ctx context.Context, source string) (map[string
 		return nil, ErrRecoveryRejected
 	}
 	steadyRevision := int64(0)
+	sharedQueueReconciled := state.Version == 3 && state.Steady != nil && state.Steady.Plan.ReleaseSharedQueue
 	if state.Steady != nil {
 		steadyRevision = state.Steady.Plan.PolicyRevision
 		// This route authorized only its anchor. Never return the certificate's
@@ -915,8 +924,11 @@ func (m *RecoveryManager) Status(ctx context.Context, source string) (map[string
 	}
 	return map[string]any{
 		"state": state, "trip_latched": trip != 0, "sync_paused": paused == 1,
-		"steady_policy_revision": steadyRevision,
-		"permit_ready": trip == 0 && paused == 1 && ttl > 0 &&
+		"steady_policy_revision":  steadyRevision,
+		"shared_queue_reconciled": sharedQueueReconciled,
+		"permit_ready": trip == 0 && ttl > 0 &&
+			(paused == 1 || (sharedQueueReconciled &&
+				c.checkRecoveryPolicy(ctx) == nil)) &&
 			permit == c.Guard.Fingerprint(), "permit_ttl_ms": ttl.Milliseconds(),
 	}, nil
 }

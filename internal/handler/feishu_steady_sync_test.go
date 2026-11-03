@@ -67,7 +67,10 @@ func TestSteadyHTTPChecksIndependentTargetAuthority(t *testing.T) {
 	require.Positive(t, calls, "anchor admin still requires independent target authorization")
 	allowed = true
 	require.Equal(t, 200, call(body).Code, "a genuinely authorized different tenant must be selectable")
+	release := `{"sources":["` + target + `"],"authorization_days":7,"release_shared_queue":true}`
+	require.Equal(t, 409, call(release).Code, "shared release additionally requires authoritative task proof")
 	forged := types.WithTenantAPIKeyScope(ctx, types.TenantAPIKeyScope{KeyID: 1})
 	ctx = forged
 	require.Equal(t, 403, call(body).Code, "machine keys never become Web approval actors")
+	require.Equal(t, 403, call(release).Code, "shared release cannot promote a machine credential")
 }
