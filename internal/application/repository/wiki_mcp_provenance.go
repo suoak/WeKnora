@@ -158,9 +158,14 @@ func wikiDependencies(db *gorm.DB, kb string) (*wikiGenerationProof, error) {
 		return nil, e
 	}
 	var denied bool
-	if e := db.Raw(`SELECT EXISTS(SELECT 1 FROM data_sources WHERE knowledge_base_id=? AND (legacy_access_state IN ('hold','revoked') OR (type IN ('feishu','feishu_drive','lark','lark_drive') AND deleted_at IS NULL AND legacy_access_state<>'active'))) OR EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE knowledge_base_id=? AND state<>'active')`, kb, kb).Scan(&denied).Error; e != nil {
+	if e := db.Raw(`SELECT EXISTS(SELECT 1 FROM data_sources WHERE knowledge_base_id=? AND
+ (legacy_access_state IN ('hold','revoked') OR
+ (type IN ('feishu','feishu_drive','lark','lark_drive') AND deleted_at IS NULL AND legacy_access_state<>'active')))
+ OR EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE knowledge_base_id=? AND state<>'active')`,
+		kb, kb).Scan(&denied).Error; e != nil {
 		return nil, e
 	}
+
 	if denied {
 		return nil, types.ErrLegacySourceRestricted
 	}
@@ -171,7 +176,9 @@ func wikiDependencies(db *gorm.DB, kb string) (*wikiGenerationProof, error) {
 		Channel      string
 		Metadata     types.JSON
 	}
-	if e := db.Table("knowledges").Select("id,parse_status,enable_status,channel,metadata").Where("knowledge_base_id=? AND tenant_id=? AND deleted_at IS NULL", kb, anchor.TenantID).Order("id").Limit(2049).Find(&docs).Error; e != nil {
+	if e := db.Table("knowledges").Select("id,parse_status,enable_status,channel,metadata").
+		Where("knowledge_base_id=? AND tenant_id=? AND deleted_at IS NULL", kb, anchor.TenantID).
+		Order("id").Limit(2049).Find(&docs).Error; e != nil {
 		return nil, e
 	}
 	if len(docs) == 0 || len(docs) > 2048 {
@@ -188,11 +195,16 @@ func wikiDependencies(db *gorm.DB, kb string) (*wikiGenerationProof, error) {
 			// Require the current connector binding in this exact tenant/KB. Its
 			// configuration is part of the proof and is checked again before model I/O.
 			var metadata map[string]string
-			if json.Unmarshal(d.Metadata, &metadata) != nil || metadata["datasource_id"] == "" || metadata["external_id"] == "" {
+			if json.Unmarshal(d.Metadata, &metadata) != nil ||
+				metadata["datasource_id"] == "" || metadata["external_id"] == "" {
 				return nil, ErrWikiMCPUnverified
 			}
 			var source map[string]interface{}
-			if e := db.Table("data_sources").Select("id,tenant_id,knowledge_base_id,type,status,legacy_access_state,config,updated_at").Where("id=? AND tenant_id=? AND knowledge_base_id=? AND type=? AND status='active' AND legacy_access_state IN ('unmanaged','active') AND deleted_at IS NULL", metadata["datasource_id"], p.Tenant, kb, types.ConnectorTypeGitLab).Take(&source).Error; e != nil {
+			if e := db.Table("data_sources").
+				Select("id,tenant_id,knowledge_base_id,type,status,legacy_access_state,config,updated_at").
+				Where(`id=? AND tenant_id=? AND knowledge_base_id=? AND type=? AND status='active'
+ AND legacy_access_state IN ('unmanaged','active') AND deleted_at IS NULL`,
+					metadata["datasource_id"], p.Tenant, kb, types.ConnectorTypeGitLab).Take(&source).Error; e != nil {
 				if errors.Is(e, gorm.ErrRecordNotFound) {
 					return nil, types.ErrLegacySourceRestricted
 				}

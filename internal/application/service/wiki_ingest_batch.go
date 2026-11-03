@@ -375,7 +375,9 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 	if err := s.wikiBlocked(ctx, payload.KnowledgeBaseID); err != nil {
 		return err
 	}
-	kb, err := s.kbService.GetKnowledgeBaseByIDOnly(types.WithLegacyKBAdminMetadata(ctx, payload.KnowledgeBaseID), payload.KnowledgeBaseID)
+	kb, err := s.kbService.GetKnowledgeBaseByIDOnly(
+		types.WithLegacyKBAdminMetadata(ctx, payload.KnowledgeBaseID), payload.KnowledgeBaseID,
+	)
 	if errors.Is(err, apprepo.ErrKnowledgeBaseNotFound) || (err == nil && kb == nil) {
 		exitStatus = "kb_deleted"
 		if cleanupErr := s.clearDeletedKnowledgeBasePendingOps(ctx, payload.KnowledgeBaseID); cleanupErr != nil {
@@ -1142,7 +1144,9 @@ func (s *wikiIngestService) processWikiFinalize(ctx context.Context, t *asynq.Ta
 	if err := s.wikiBlocked(ctx, payload.KnowledgeBaseID); err != nil {
 		return err
 	}
-	kb, err := s.kbService.GetKnowledgeBaseByIDOnly(types.WithLegacyKBAdminMetadata(ctx, payload.KnowledgeBaseID), payload.KnowledgeBaseID)
+	kb, err := s.kbService.GetKnowledgeBaseByIDOnly(
+		types.WithLegacyKBAdminMetadata(ctx, payload.KnowledgeBaseID), payload.KnowledgeBaseID,
+	)
 	if errors.Is(err, apprepo.ErrKnowledgeBaseNotFound) || (err == nil && kb == nil) {
 		if cleanupErr := s.clearDeletedKnowledgeBasePendingOps(ctx, payload.KnowledgeBaseID); cleanupErr != nil {
 			return fmt.Errorf("wiki finalize: clear deleted KB queue: %w", cleanupErr)

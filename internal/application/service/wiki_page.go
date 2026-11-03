@@ -879,7 +879,9 @@ func (s *wikiPageService) GetStats(ctx context.Context, kbID string) (*types.Wik
 		pendingTasks, _ = s.taskPendingRepo.PendingCount(ctx, wikiTaskType, wikiTaskScope, kbID)
 	}
 	if s.redisClient != nil {
-		active, _ := s.redisClient.ZCount(ctx, wikiInflightPrefix+kbID, fmt.Sprint(time.Now().UnixMilli()), "+inf").Result()
+		active, _ := s.redisClient.ZCount(
+			ctx, wikiInflightPrefix+kbID, fmt.Sprint(time.Now().UnixMilli()), "+inf",
+		).Result()
 		isActive = active > 0
 	}
 	status, blockedReason := "idle", ""

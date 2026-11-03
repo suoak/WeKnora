@@ -287,7 +287,11 @@ func TestWikiHistoryPostgres(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		run  func(*testing.T, *fixture.Fixture)
-	}{{"regeneration", testWikiHistoryRegeneration}, {"snapshot", testWikiSnapshotGeneration}, {"gitlab_recovery", testWikiProductionGitLab}} {
+	}{
+		{"regeneration", testWikiHistoryRegeneration},
+		{"snapshot", testWikiSnapshotGeneration},
+		{"gitlab_recovery", testWikiProductionGitLab},
+	} {
 		t.Run(tc.name, func(t *testing.T) {
 			name := "wiki_history_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 			require.NoError(t, admin.Exec("CREATE DATABASE "+name).Error)

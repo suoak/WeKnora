@@ -3370,7 +3370,9 @@ func (s *wikiIngestService) isKnowledgeGone(ctx context.Context, kbID, knowledge
 
 // Only confirmed deletion drops an update. Unknown authority or storage failures
 // abort the reduce without modifying the existing page or consuming the input.
-func (s *wikiIngestService) filterLiveUpdates(ctx context.Context, kbID string, updates []SlugUpdate) ([]SlugUpdate, error) {
+func (s *wikiIngestService) filterLiveUpdates(
+	ctx context.Context, kbID string, updates []SlugUpdate,
+) ([]SlugUpdate, error) {
 	goneCache := make(map[string]bool)
 	filtered := make([]SlugUpdate, 0, len(updates))
 	for _, u := range updates {
