@@ -20,8 +20,10 @@ func TestWikiProductionGitLabUsesCurrentBindingAndRetainsVersionFence(t *testing
 func testWikiProductionGitLab(t *testing.T, f *fixture.Fixture) {
 	f.PreparePublished(t)
 	db := f.DB
-	require.NoError(t, db.Exec(`INSERT INTO data_sources(id,tenant_id,knowledge_base_id,name,type,status,legacy_access_state,config) VALUES('gitlab',1,'public-two','synthetic','gitlab','active','unmanaged','{}')`).Error)
-	require.NoError(t, db.Exec(`UPDATE knowledges SET channel='gitlab',metadata='{"datasource_id":"gitlab","external_id":"gitlab:synthetic:main:doc.md"}' WHERE id='public-two-doc'`).Error)
+	require.NoError(t, db.Exec(`INSERT INTO data_sources(id,tenant_id,knowledge_base_id,name,type,status,legacy_access_state,config)
+ VALUES('gitlab',1,'public-two','synthetic','gitlab','active','unmanaged','{}')`).Error)
+	require.NoError(t, db.Exec(`UPDATE knowledges SET channel='gitlab',
+ metadata='{"datasource_id":"gitlab","external_id":"gitlab:synthetic:main:doc.md"}' WHERE id='public-two-doc'`).Error)
 	repo := repository.NewWikiPageRepository(db)
 	proof, err := repository.BeginWikiMCPGeneration(context.Background(), repo, "public-two")
 	require.NoError(t, err)
@@ -55,7 +57,8 @@ func TestWikiProductionMetadataScopeDoesNotGrantSourceBodies(t *testing.T) {
 	f := fixture.New(t)
 	f.PreparePublished(t)
 	db := types.EnableLegacyReadGuards(f.DB)
-	require.NoError(t, db.Exec(`INSERT INTO data_sources(id,tenant_id,knowledge_base_id,name,type,status,legacy_access_state,config) VALUES('held',1,'public-two','synthetic','feishu','active','hold','{}')`).Error)
+	require.NoError(t, db.Exec(`INSERT INTO data_sources(id,tenant_id,knowledge_base_id,name,type,status,legacy_access_state,config)
+ VALUES('held',1,'public-two','synthetic','feishu','active','hold','{}')`).Error)
 	var kb types.KnowledgeBase
 	require.ErrorIs(t, db.First(&kb, "id='public-two'").Error, types.ErrLegacySourceRestricted)
 	ctx := types.WithLegacyKBAdminMetadata(context.Background(), "public-two")
@@ -101,7 +104,10 @@ func TestWikiProductionBlockRetainsOriginalOperationAndStopsRetry(t *testing.T) 
 	f := fixture.New(t)
 	f.PreparePublished(t)
 	require.NoError(t, f.DB.AutoMigrate(&types.TaskPendingOp{}))
-	op := types.TaskPendingOp{TenantID: 1, TaskType: "wiki:ingest", Scope: "knowledge_base", ScopeID: "public-two", Op: "ingest", DedupKey: "public-two-doc", Payload: []byte(`{"knowledge_id":"public-two-doc"}`)}
+	op := types.TaskPendingOp{
+		TenantID: 1, TaskType: "wiki:ingest", Scope: "knowledge_base", ScopeID: "public-two",
+		Op: "ingest", DedupKey: "public-two-doc", Payload: []byte(`{"knowledge_id":"public-two-doc"}`),
+	}
 	require.NoError(t, f.DB.Create(&op).Error)
 	repo := repository.NewWikiPageRepository(f.DB)
 	s := &wikiIngestService{wikiService: &wikiPageService{repo: repo}}

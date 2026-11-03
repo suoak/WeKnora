@@ -22,6 +22,7 @@ type WikiProcessingBlock struct {
 	RetryAfter time.Time `json:"retry_after"`
 }
 
+// ReadWikiProcessingBlock reads retained processing metadata without source bodies.
 func ReadWikiProcessingBlock(
 	ctx context.Context, repo interfaces.WikiPageRepository, kb string,
 ) (*WikiProcessingBlock, error) {
@@ -45,7 +46,7 @@ func ReadWikiProcessingBlock(
 	return &block, nil
 }
 
-// Serialize on KB metadata, not on protected source content. No source read
+// WriteWikiProcessingBlock serializes on KB metadata. No source read
 // authority is issued by this status update. Resolution is retained in the
 // same record for audit; it never marks document work as complete.
 func WriteWikiProcessingBlock(

@@ -3348,7 +3348,8 @@ func (s *wikiIngestService) isKnowledgeGone(ctx context.Context, kbID, knowledge
 		return true, nil
 	}
 	if s.redisClient != nil {
-		if exists, err := s.redisClient.Exists(ctx, WikiDeletedTombstoneKey(kbID, knowledgeID)).Result(); err == nil && exists > 0 {
+		key := WikiDeletedTombstoneKey(kbID, knowledgeID)
+		if exists, err := s.redisClient.Exists(ctx, key).Result(); err == nil && exists > 0 {
 			return true, nil
 		}
 	}
