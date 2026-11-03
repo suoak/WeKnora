@@ -22,13 +22,16 @@ type WikiProcessingBlock struct {
 	RetryAfter time.Time `json:"retry_after"`
 }
 
-func ReadWikiProcessingBlock(ctx context.Context, repo interfaces.WikiPageRepository, kb string) (*WikiProcessingBlock, error) {
+func ReadWikiProcessingBlock(
+	ctx context.Context, repo interfaces.WikiPageRepository, kb string,
+) (*WikiProcessingBlock, error) {
 	r, ok := repo.(*wikiPageRepository)
 	if !ok {
 		return nil, nil
 	}
 	var row types.TaskPendingOp
-	err := r.db.WithContext(ctx).Where("scope=? AND scope_id=? AND task_type=?", wikiStateScope, kb, "wiki:state").Take(&row).Error
+	err := r.db.WithContext(ctx).
+		Where("scope=? AND scope_id=? AND task_type=?", wikiStateScope, kb, "wiki:state").Take(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -45,14 +48,17 @@ func ReadWikiProcessingBlock(ctx context.Context, repo interfaces.WikiPageReposi
 // Serialize on KB metadata, not on protected source content. No source read
 // authority is issued by this status update. Resolution is retained in the
 // same record for audit; it never marks document work as complete.
-func WriteWikiProcessingBlock(ctx context.Context, repo interfaces.WikiPageRepository, tenant uint64, kb, reason string) error {
+func WriteWikiProcessingBlock(
+	ctx context.Context, repo interfaces.WikiPageRepository, tenant uint64, kb, reason string,
+) error {
 	r, ok := repo.(*wikiPageRepository)
 	if !ok {
 		return nil
 	}
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var anchor struct{ ID string }
-		query := tx.Table("knowledge_bases").Select("id").Where("id=? AND tenant_id=? AND deleted_at IS NULL", kb, tenant)
+		query := tx.Table("knowledge_bases").Select("id").
+			Where("id=? AND tenant_id=? AND deleted_at IS NULL", kb, tenant)
 		if tx.Name() == "postgres" {
 			query = query.Clauses(clause.Locking{Strength: "UPDATE"})
 		}
@@ -73,7 +79,10 @@ func WriteWikiProcessingBlock(ctx context.Context, repo interfaces.WikiPageRepos
 			if reason == "" {
 				return nil
 			}
-			return tx.Create(&types.TaskPendingOp{TenantID: tenant, TaskType: "wiki:state", Scope: wikiStateScope, ScopeID: kb, Op: "blocked", DedupKey: kb, Payload: payload, EnqueuedAt: block.CheckedAt}).Error
+			return tx.Create(&types.TaskPendingOp{
+				TenantID: tenant, TaskType: "wiki:state", Scope: wikiStateScope, ScopeID: kb,
+				Op: "blocked", DedupKey: kb, Payload: payload, EnqueuedAt: block.CheckedAt,
+			}).Error
 		}
 		if err != nil {
 			return err
@@ -82,6 +91,7 @@ func WriteWikiProcessingBlock(ctx context.Context, repo interfaces.WikiPageRepos
 		if reason == "" {
 			op = "resolved"
 		}
-		return tx.Model(&types.TaskPendingOp{}).Where("id=?", row.ID).Updates(map[string]any{"op": op, "payload": payload}).Error
+		return tx.Model(&types.TaskPendingOp{}).Where("id=?", row.ID).
+			Updates(map[string]any{"op": op, "payload": payload}).Error
 	})
 }

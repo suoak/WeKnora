@@ -32,7 +32,8 @@ func (s *wikiIngestService) recordWikiBlock(ctx context.Context, payload WikiIng
 	}
 	reason := ""
 	switch {
-	case errors.Is(*result, types.ErrLegacySourceRestricted), errors.Is(*result, types.ErrPrivateKnowledgeBase), errors.Is(*result, types.ErrExactDocumentScope):
+	case errors.Is(*result, types.ErrLegacySourceRestricted),
+		errors.Is(*result, types.ErrPrivateKnowledgeBase), errors.Is(*result, types.ErrExactDocumentScope):
 		reason = "source_verification_required"
 	case errors.Is(*result, repository.ErrWikiMCPUnverified):
 		reason = "verified_regeneration_required"
@@ -45,7 +46,9 @@ func (s *wikiIngestService) recordWikiBlock(ctx context.Context, payload WikiIng
 	}
 	cleanup, cancel := wikiIngestCleanupContext(ctx)
 	defer cancel()
-	if err := repository.WriteWikiProcessingBlock(cleanup, pages.repo, payload.TenantID, payload.KnowledgeBaseID, reason); err != nil {
+	if err := repository.WriteWikiProcessingBlock(
+		cleanup, pages.repo, payload.TenantID, payload.KnowledgeBaseID, reason,
+	); err != nil {
 		*result = errors.Join(*result, fmt.Errorf("persist wiki block: %w", err))
 		return
 	}
