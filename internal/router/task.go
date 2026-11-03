@@ -126,6 +126,13 @@ func asynqRetryDelayFunc(n int, e error, t *asynq.Task) time.Duration {
 	return asynq.DefaultRetryDelayFunc(n, e, t)
 }
 
+// Lease contention is a deferred Wiki trigger, not a failed execution. Keep
+// its retry budget so a coalesced finalize task cannot be archived while an
+// ingest batch holds the shared lease. All other errors retain default policy.
+func asynqIsFailure(err error) bool {
+	return err != nil && !errors.Is(err, service.ErrWikiIngestConcurrent)
+}
+
 // Worker defaults live in types so server construction and runtime reporting
 // cannot drift. The upstream budget is divided without increasing historical
 // total capacity; Wiki remains separate because its model-heavy workload has a
@@ -142,6 +149,7 @@ func newAsynqServer(concurrency int, queues map[string]int) *asynq.Server {
 			Concurrency:    concurrency,
 			Queues:         queues,
 			RetryDelayFunc: asynqRetryDelayFunc,
+			IsFailure:      asynqIsFailure,
 		},
 	)
 }
