@@ -188,8 +188,10 @@ SET lease_until=clock_timestamp()+interval '3 seconds' WHERE id=?`, proof.attemp
 	}()
 	var infos []*types.IndexInfo
 	for i := range 40 {
-		infos = append(infos, &types.IndexInfo{SourceID: fmt.Sprintf("source-%d", i),
-			KnowledgeID: proof.knowledge, KnowledgeBaseID: proof.kb, Content: "synthetic input"})
+		infos = append(infos, &types.IndexInfo{
+			SourceID:    fmt.Sprintf("source-%d", i),
+			KnowledgeID: proof.knowledge, KnowledgeBaseID: proof.kb, Content: "synthetic input",
+		})
 	}
 	err = pgretrieve.NewPostgresRetrieveEngineRepository(f.db).BatchSave(ctx, infos, nil)
 	select {
