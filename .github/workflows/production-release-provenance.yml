@@ -1,0 +1,29 @@
+name: Production Release Provenance Gate
+
+on:
+  pull_request:
+    paths:
+      - scripts/ops/verify_release_provenance.py
+      - scripts/ops/test_verify_release_provenance.py
+      - .github/workflows/production-release-provenance.yml
+  push:
+    branches: [main, integration/production-main-closeout-20261103]
+    paths:
+      - scripts/ops/verify_release_provenance.py
+      - scripts/ops/test_verify_release_provenance.py
+      - .github/workflows/production-release-provenance.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-identity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Reject stale main and mismatched paired images
+        run: python -m unittest discover -s scripts/ops -p test_verify_release_provenance.py -v
