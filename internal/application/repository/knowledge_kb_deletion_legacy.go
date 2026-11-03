@@ -22,7 +22,7 @@ func (r *knowledgeRepository) CleanupLegacyKnowledgeForKBDeletion(
 	if tenant == 0 || kb == "" || kid == "" {
 		return false, errors.New("knowledge base deletion identity not verified")
 	}
-	if r.db.Dialector.Name() != "postgres" && !r.db.Migrator().HasTable(&types.FeishuLegacyResource{}) {
+	if r.db.Name() != "postgres" && !r.db.Migrator().HasTable(&types.FeishuLegacyResource{}) {
 		// Lite installations without the PostgreSQL source protocol retain
 		// ordinary deletion. An enrolled resource still fails closed below.
 		return false, nil
@@ -33,7 +33,7 @@ func (r *knowledgeRepository) CleanupLegacyKnowledgeForKBDeletion(
 		return false, err
 	}
 	handled = true
-	if r.db.Dialector.Name() != "postgres" || len(engines) == 0 {
+	if r.db.Name() != "postgres" || len(engines) == 0 {
 		return true, errors.New("protected deletion requires explicit native PostgreSQL engines")
 	}
 	for _, engine := range engines {
