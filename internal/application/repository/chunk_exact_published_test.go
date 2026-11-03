@@ -117,7 +117,9 @@ func TestExactPublishedChunkBatchKeepsLiveBoundariesAndSQLIsolation(t *testing.T
 				}))
 			repo := NewChunkRepository(db)
 			ctx := types.WithExecutionTenant(context.Background(), 1)
-			ctx = context.WithValue(ctx, types.PrincipalContextKey, types.Principal{Type: types.PrincipalWebUser, ID: "viewer"})
+			ctx = context.WithValue(ctx, types.PrincipalContextKey, types.Principal{
+				Type: types.PrincipalWebUser, ID: "viewer",
+			})
 			calls, refuseAt := 0, 0
 			ctx, err := types.WithExactPublishedDocumentRead(ctx, 1, types.ExactDocumentScope{
 				TenantID: 1, KnowledgeID: "doc", KBID: "kb", Read: func(context.Context) error {
@@ -138,7 +140,8 @@ func TestExactPublishedChunkBatchKeepsLiveBoundariesAndSQLIsolation(t *testing.T
 			rows, err := read(ids)
 			require.NoError(t, err)
 			require.Len(t, rows, len(ids))
-			require.Equal(t, 3, calls, "one issue plus live checks before and after the batch, independent of row count")
+			require.Equal(t, 3, calls,
+				"one issue plus live checks before and after the batch, independent of row count")
 			rows, err = read([]string{foreign.ID})
 			require.ErrorIs(t, err, types.ErrExactDocumentScope)
 			require.Nil(t, rows, "an unrelated document must not be returned under an exact capability")

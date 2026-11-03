@@ -57,7 +57,8 @@ func TestExactPersonalDOCXDependencies(t *testing.T) {
 			require.NoError(t, err)
 			entry, err = writer.Create("word/document.xml")
 			require.NoError(t, err)
-			_, err = entry.Write([]byte(`<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ` +
+			_, err = entry.Write([]byte(`<w:document ` +
+				`xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ` +
 				`xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
 				`<w:body><w:p><w:hyperlink r:id="rIdLink"><w:r><w:t>source link</w:t></w:r>` +
 				`</w:hyperlink></w:p></w:body></w:document>`))
@@ -103,8 +104,9 @@ func TestExactPersonalDOCXDependenciesHyperlinkRoles(t *testing.T) {
 			var buffer bytes.Buffer
 			writer := zip.NewWriter(&buffer)
 			parts := map[string]string{
-				"word/_rels/document.xml.rels": "<Relationships>" + relationship + test.extraRelationship + "</Relationships>",
-				"word/document.xml":            prefix + test.body + "</w:document>",
+				"word/_rels/document.xml.rels": "<Relationships>" +
+					relationship + test.extraRelationship + "</Relationships>",
+				"word/document.xml": prefix + test.body + "</w:document>",
 			}
 			if test.extraPart != "" {
 				parts[test.extraPart] = test.extraBody
