@@ -315,8 +315,8 @@ func sealWikiMCPMutation(db *gorm.DB, ctx context.Context, page *types.WikiPage)
 		return ErrWikiMCPUnverified
 	}
 	if len(page.SourceRefs) == 0 && page.PageType != types.WikiPageTypeIndex {
-		return nil
-	} // an unknown index introduction stays hidden
+		return ErrWikiMCPUnverified
+	}
 	for _, ref := range page.SourceRefs {
 		id := types.WikiSourceKnowledgeID(ref)
 		if id == "" || p.Sources[id] == "" {

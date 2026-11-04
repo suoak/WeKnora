@@ -290,6 +290,7 @@ func TestWikiHistoryPostgres(t *testing.T) {
 	}{
 		{"regeneration", testWikiHistoryRegeneration},
 		{"feishu_completed_slots", testWikiFeishuIndependentRegeneration},
+		{"orphan_retraction", testWikiOrphanRetraction},
 		{"snapshot", testWikiSnapshotGeneration},
 		{"gitlab_recovery", testWikiProductionGitLab},
 		{"empty_retraction", testWikiEmptyRetractionRetirement},

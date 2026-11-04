@@ -2087,6 +2087,12 @@ func (s *wikiIngestService) reduceSlugUpdates(
 			affectedType = "ingest" // Additions override retracts type
 		}
 	}
+	_, provedGeneration := apprepo.WikiMCPGenerationTenant(ctx)
+	if provedGeneration && (summaryUpdate != nil || len(additions) > 0) {
+		if err = restoreWikiRetractionArchive(page); err != nil {
+			return false, "", false, err
+		}
+	}
 
 	if summaryUpdate != nil {
 		page.Title = summaryUpdate.DocTitle + " - Summary"
@@ -2161,6 +2167,17 @@ func (s *wikiIngestService) reduceSlugUpdates(
 			if !retractKIDs[types.WikiSourceKnowledgeID(ref)] {
 				newRefs = append(newRefs, ref)
 			}
+		}
+		if provedGeneration && len(newRefs) == 0 && len(additions) == 0 &&
+			len(page.SourceRefs) > 0 && page.PageType != types.WikiPageTypeIndex &&
+			page.LastEditSource == types.WikiEditSourcePipeline {
+			// Do not generate uncited replacement text. Keep the proved body,
+			// original references and revision history as an archived page.
+			if err = markWikiRetractionArchive(page); err != nil {
+				return false, "", false, err
+			}
+			_, err = s.wikiService.UpdatePage(ctx, page)
+			return err == nil, "retract", false, err
 		}
 		page.SourceRefs = newRefs
 	}
