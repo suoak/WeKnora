@@ -71,7 +71,7 @@ func syncPolicyAudience(tx *gorm.DB, kbID string) (string, error) {
 func (s *FeishuPersonalService) ApproveSourceUpdates(
 	ctx context.Context, sourceID, operator, authorizationRef string, expires time.Time,
 ) (*FeishuSyncPublicationPolicy, error) {
-	return s.approveSourceUpdates(ctx, sourceID, operator, authorizationRef, expires, "")
+	return s.approveSourceUpdates(ctx, sourceID, operator, authorizationRef, expires, "", false)
 }
 
 // ApproveSourceReconciliation prepares a single, explicitly approved full run for
@@ -88,6 +88,7 @@ func (s *FeishuPersonalService) ApproveSourceReconciliation(
 		authorizationRef,
 		expires,
 		uuid.NewString(),
+		false,
 	)
 }
 
@@ -154,6 +155,7 @@ func (s *FeishuPersonalService) approveSourceUpdates(
 	sourceID, operator, authorizationRef string,
 	expires time.Time,
 	reconciliationLog string,
+	queuedRun bool,
 ) (*FeishuSyncPublicationPolicy, error) {
 	admin, _ := ctx.Value(types.SystemAdminContextKey).(bool)
 	if !admin || operator == "" || authorizationRef == "" || !expires.After(time.Now()) ||
@@ -246,14 +248,23 @@ func (s *FeishuPersonalService) approveSourceUpdates(
 				ds.ID, types.SyncLogStatusRunning).Count(&running).Error; err != nil {
 				return err
 			}
-			if running != 0 {
+			if !queuedRun && running != 0 || queuedRun && running != 1 {
 				return access.ErrForbidden
 			}
 			policy.ReconciliationLogID = reconciliationLog
 			policy.ReconciliationExpiresAt = minTime(expires, time.Now().Add(15*time.Minute))
 			// The grant and run are one transaction. The approved operator can
 			// retry enqueue of this same durable run; another log cannot use it.
-			if err := tx.Create(&types.SyncLog{
+			if queuedRun {
+				var run types.SyncLog
+				if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where(
+					"id=? AND data_source_id=? AND tenant_id=? AND status=?"+
+						" AND execution_claimed=false AND execution_generation=0",
+					reconciliationLog, ds.ID, ds.TenantID, types.SyncLogStatusRunning,
+				).First(&run).Error; err != nil {
+					return err
+				}
+			} else if err := tx.Create(&types.SyncLog{
 				ID: reconciliationLog, DataSourceID: ds.ID, TenantID: ds.TenantID,
 				Status: types.SyncLogStatusRunning, StartedAt: time.Now().UTC(),
 			}).Error; err != nil {
