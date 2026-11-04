@@ -37,7 +37,8 @@ func TestWikiHistoryRegenerationDeletedInputEvidence(t *testing.T) {
 func testWikiDeletedInputEvidence(t *testing.T, f *fixture.Fixture) {
 	f.PreparePublished(t)
 	db, ctx := f.DB, context.Background()
-	require.NoError(t, db.AutoMigrate(&types.TaskPendingOp{}, &types.TaskDeadLetter{}, &types.KnowledgeProcessingSpan{}))
+	require.NoError(t, db.AutoMigrate(
+		&types.TaskPendingOp{}, &types.TaskDeadLetter{}, &types.KnowledgeProcessingSpan{}))
 	require.NoError(t, db.Model(&types.KnowledgeBase{}).Where("id='public-two'").
 		Update("indexing_strategy", types.IndexingStrategy{WikiEnabled: true}).Error)
 	id := "removed-connector-document"
@@ -47,7 +48,8 @@ func testWikiDeletedInputEvidence(t *testing.T, f *fixture.Fixture) {
 	}).Error)
 	op := types.TaskPendingOp{TenantID: 1, Scope: "knowledge_base", ScopeID: "public-two",
 		TaskType: "wiki:ingest", Op: "retract", DedupKey: id,
-		Payload: json.RawMessage(`{"doc_summary":"HISTORICAL_QUEUE_BODY"}`)}
+		Payload: json.RawMessage(`{"doc_summary":"HISTORICAL_QUEUE_BODY"}`),
+	}
 	require.NoError(t, db.Create(&op).Error)
 	preview := func() (*repository.WikiRegenerationPlan, error) {
 		return repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", "", false, true)
@@ -74,8 +76,9 @@ func testWikiDeletedInputEvidence(t *testing.T, f *fixture.Fixture) {
 		require.NoError(t, db.Table("chunks").Where("id='removed-input'").Update(column, original).Error)
 	}
 	_, err = repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", plan.Snapshot, true, true)
-	require.ErrorContains(t, err, "snapshot changed", "epoch changes invalidate preview even if timestamps are restored")
-	plan, err = preview()
+	require.ErrorContains(t, err, "snapshot changed",
+		"epoch changes invalidate preview even if timestamps are restored")
+	_, err = preview()
 	require.NoError(t, err)
 	var epoch struct {
 		KnowledgeID string
