@@ -339,6 +339,7 @@ func testWikiFeishuIndependentRegeneration(t *testing.T, f *fixture.Fixture) {
 		ID: resource, TenantID: 1, KnowledgeBaseID: "public-two", DataSourceID: source,
 		ExternalID: "synthetic-doc", KnowledgeID: "public-two-doc", State: "active",
 		Generation: 1, CurrentAttempt: attempt, ActiveAttempt: attempt,
+		QuarantineSnapshot: json.RawMessage(`{}`),
 	}).Error)
 	require.NoError(t, db.Create(&types.FeishuLegacyAttempt{
 		ID: attempt, ResourceID: resource, Generation: 1, Status: "published",

@@ -16,6 +16,8 @@ func validateSourceReconciliationInventory(ctx context.Context, tx *gorm.DB, e t
 		resourceIDs = append(resourceIDs, receipt.ResourceID)
 	}
 	var missing int64
+	// A live matching sibling owns its documents independently. This grants no
+	// read/publication proof for those rows; Wiki still validates their receipts.
 	err := tx.Raw(`SELECT count(*) FROM knowledges k
  WHERE k.tenant_id=? AND k.knowledge_base_id=(SELECT knowledge_base_id FROM data_sources WHERE id=?)
  AND k.deleted_at IS NULL AND (
