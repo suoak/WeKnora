@@ -13,6 +13,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/datasource"
 	feishucore "github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
+	"github.com/Tencent/WeKnora/internal/feishusynccontrol"
 	"github.com/Tencent/WeKnora/internal/infrastructure/chunker"
 	"github.com/Tencent/WeKnora/internal/infrastructure/docparser"
 	"github.com/Tencent/WeKnora/internal/logger"
@@ -28,6 +29,24 @@ func safeLegacyIncrementalEnabled() bool {
 
 func legacyWikiDrive(kind string) bool {
 	return kind == "feishu" || kind == "feishu_drive" || kind == "lark" || kind == "lark_drive"
+}
+
+// A signed full traversal may leave unpublished candidates pending. The final
+// repository transaction still requires current-run receipts for EVERY public
+// document, current authority, and no held/revoked resources before release.
+// Keep partial status and failure counts; never certify a failed document.
+func fullFeishuReconciliationContext(
+	ctx context.Context, ds *types.DataSource, forceFull bool, result *types.SyncResult,
+) context.Context {
+	if ds == nil || result == nil || !forceFull || result.Deferred != 0 || result.Unsupported != 0 ||
+		!safeLegacyIncrementalEnabled() || !legacyWikiDrive(ds.Type) {
+		return ctx
+	}
+	if result.Failed != 0 && (!types.LegacyReconciliationRead(ctx, ds.ID) ||
+		feishusynccontrol.ReconciliationPolicy(ctx, ds.ID) == "") {
+		return ctx
+	}
+	return types.WithLegacyFullReconciliation(ctx)
 }
 
 func legacyFetchNeedsHold(err error) bool {

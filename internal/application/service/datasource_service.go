@@ -1555,11 +1555,7 @@ func (s *DataSourceService) processSyncStreaming(
 	}
 
 	// Persist the final cursor for the next incremental sync.
-	if forceFull && result.Deferred == 0 && result.Unsupported == 0 && result.Failed == 0 {
-		if safeLegacyIncrementalEnabled() && legacyWikiDrive(ds.Type) {
-			ctx = types.WithLegacyFullReconciliation(ctx)
-		}
-	}
+	ctx = fullFeishuReconciliationContext(ctx, ds, forceFull, result)
 	if nextCursor != nil {
 		if cursorJSON, cerr := nextCursor.ToJSON(); cerr == nil {
 			ds.LastSyncCursor = cursorJSON
@@ -1624,7 +1620,8 @@ func (s *DataSourceService) updateSyncRunResult(
 	if err := s.writeSyncExecution(ctx, ds, syncLog, true); err != nil {
 		return err
 	}
-	if status == types.SyncLogStatusSuccess && ds.LegacyAccessState == "hold" &&
+	completedTraversal := status == types.SyncLogStatusSuccess || status == types.SyncLogStatusPartial
+	if completedTraversal && ds.LegacyAccessState == "hold" &&
 		types.LegacyFullReconciliation(ctx) {
 		if err := s.refreshSourceSchedule(ctx, ds.ID); err != nil {
 			logger.Warnf(ctx, "[Scheduler] reconciled source schedule registration failed: %v", err)
