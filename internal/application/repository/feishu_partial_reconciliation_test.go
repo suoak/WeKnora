@@ -17,7 +17,10 @@ import (
 
 func TestSourcePartialReconciliationPreservesFailuresAndPublicProofs(t *testing.T) {
 	for _, dialect := range []string{"sqlite", "postgres"} {
-		for _, scenario := range []string{"unpublished_only", "unproved_public", "held_resource", "authority_changed"} {
+		for _, scenario := range []string{
+			"unpublished_only", "unproved_public", "held_resource", "authority_changed",
+			"other_bound", "other_tenant", "other_kb", "other_type", "unknown_binding",
+		} {
 			t.Run(dialect+"/"+scenario, func(t *testing.T) {
 				db := syncdb.Open(t, dialect)
 				type publicRow struct {
@@ -79,6 +82,28 @@ func TestSourcePartialReconciliationPreservesFailuresAndPublicProofs(t *testing.
 					unknown.ID = uuid.NewString()
 					require.NoError(t, db.Table("knowledges").Create(&unknown).Error)
 				}
+				if strings.HasPrefix(scenario, "other_") || scenario == "unknown_binding" {
+					sibling := &types.DataSource{
+						ID: uuid.NewString(), TenantID: 1, KnowledgeBaseID: ds.KnowledgeBaseID,
+						Type: "feishu_drive", Status: "active", LegacyAccessState: "unmanaged",
+					}
+					if scenario == "other_tenant" {
+						sibling.TenantID = 2
+					}
+					if scenario == "other_kb" {
+						sibling.KnowledgeBaseID = uuid.NewString()
+					}
+					if scenario == "other_type" {
+						sibling.Type = "gitlab"
+					}
+					if scenario != "unknown_binding" {
+						require.NoError(t, db.Create(sibling).Error)
+					}
+					unknown := published
+					unknown.ID, unknown.Channel = uuid.NewString(), "feishu_drive"
+					unknown.Metadata = types.JSON(`{"datasource_id":"` + sibling.ID + `"}`)
+					require.NoError(t, db.Table("knowledges").Create(&unknown).Error)
+				}
 				ctx := types.WithLegacyReceiptSet(types.WithSyncExecution(context.Background(), execution))
 				ctx = types.WithLegacyReconciliationRead(ctx)
 				ctx = types.WithReconciliationCommitGuard(ctx, func(*gorm.DB) error { return nil })
@@ -98,7 +123,7 @@ func TestSourcePartialReconciliationPreservesFailuresAndPublicProofs(t *testing.
 				require.NoError(t, db.First(&stored, "id=?", ds.ID).Error)
 				var storedRun types.SyncLog
 				require.NoError(t, db.First(&storedRun, "id=?", log.ID).Error)
-				if scenario == "unpublished_only" {
+				if scenario == "unpublished_only" || scenario == "other_bound" {
 					require.NoError(t, err)
 					require.True(t, written)
 					require.Equal(t, "active", stored.LegacyAccessState)

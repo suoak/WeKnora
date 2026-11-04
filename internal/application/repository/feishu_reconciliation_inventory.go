@@ -26,8 +26,14 @@ func validateSourceReconciliationInventory(ctx context.Context, tx *gorm.DB, e t
   OR (k.channel IN ('feishu','feishu_drive','lark','lark_drive')
     AND NOT EXISTS (
      SELECT 1 FROM feishu_legacy_resources r WHERE r.knowledge_id=k.id
-     AND r.tenant_id=k.tenant_id AND r.knowledge_base_id=k.knowledge_base_id)))`,
-		e.TenantID, e.DataSourceID, e.DataSourceID, e.DataSourceID, resourceIDs).Scan(&missing).Error
+     AND r.tenant_id=k.tenant_id AND r.knowledge_base_id=k.knowledge_base_id)
+    AND NOT EXISTS (
+     SELECT 1 FROM data_sources sibling WHERE sibling.id=k.metadata->>'datasource_id'
+     AND sibling.id<>? AND sibling.tenant_id=k.tenant_id
+     AND sibling.knowledge_base_id=k.knowledge_base_id AND sibling.type=k.channel
+     AND sibling.deleted_at IS NULL AND sibling.status='active'
+     AND sibling.legacy_access_state IN ('active','unmanaged'))))`,
+		e.TenantID, e.DataSourceID, e.DataSourceID, e.DataSourceID, resourceIDs, e.DataSourceID).Scan(&missing).Error
 	if err != nil {
 		return err
 	}
