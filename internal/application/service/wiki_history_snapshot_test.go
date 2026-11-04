@@ -30,6 +30,92 @@ func TestWikiHistoryRegenerationResolvesOnlyVerifiedBlock(t *testing.T) {
 	testWikiHistoryRegenerationBlock(t, fixture.New(t))
 }
 
+func TestWikiHistoryRegenerationDeletedInputEvidence(t *testing.T) {
+	testWikiDeletedInputEvidence(t, fixture.New(t))
+}
+
+func testWikiDeletedInputEvidence(t *testing.T, f *fixture.Fixture) {
+	f.PreparePublished(t)
+	db, ctx := f.DB, context.Background()
+	require.NoError(t, db.AutoMigrate(
+		&types.TaskPendingOp{}, &types.TaskDeadLetter{}, &types.KnowledgeProcessingSpan{}))
+	require.NoError(t, db.Model(&types.KnowledgeBase{}).Where("id='public-two'").
+		Update("indexing_strategy", types.IndexingStrategy{WikiEnabled: true}).Error)
+	id := "removed-connector-document"
+	require.NoError(t, db.Create(&types.Chunk{
+		ID: "removed-input", TenantID: 1, KnowledgeBaseID: "public-two", KnowledgeID: id,
+		Content: "DELETED_INPUT_NEVER_GENERATE", DeletedAt: gorm.DeletedAt{Time: time.Now(), Valid: true},
+	}).Error)
+	op := types.TaskPendingOp{
+		TenantID: 1, Scope: "knowledge_base", ScopeID: "public-two",
+		TaskType: "wiki:ingest", Op: "retract", DedupKey: id,
+		Payload: json.RawMessage(`{"doc_summary":"HISTORICAL_QUEUE_BODY"}`),
+	}
+	require.NoError(t, db.Create(&op).Error)
+	preview := func() (*repository.WikiRegenerationPlan, error) {
+		return repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", "", false, true)
+	}
+	plan, err := preview()
+	require.NoError(t, err)
+	require.Equal(t, 1, plan.RetiredRetracts)
+	for _, column := range []string{"tenant_id", "knowledge_base_id", "deleted_at"} {
+		var invalid, original any
+		switch column {
+		case "tenant_id":
+			invalid, original = 99, 1
+		case "knowledge_base_id":
+			invalid, original = "private-home", "public-two"
+		case "deleted_at":
+			invalid = nil
+			var chunk types.Chunk
+			require.NoError(t, db.Unscoped().First(&chunk, "id='removed-input'").Error)
+			original = chunk.DeletedAt.Time
+		}
+		require.NoError(t, db.Table("chunks").Where("id='removed-input'").Update(column, invalid).Error)
+		_, err = preview()
+		require.Error(t, err, column)
+		require.NoError(t, db.Table("chunks").Where("id='removed-input'").Update(column, original).Error)
+	}
+	_, err = repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", plan.Snapshot, true, true)
+	require.ErrorContains(t, err, "snapshot changed",
+		"epoch changes invalidate preview even if timestamps are restored")
+	_, err = preview()
+	require.NoError(t, err)
+	var epoch struct {
+		KnowledgeID string
+		Generation  int64
+		Incarnation string
+	}
+	require.NoError(t, db.Table("document_access_epochs").Where("knowledge_id=?", id).Take(&epoch).Error)
+	require.NoError(t, db.Exec("DELETE FROM document_access_epochs WHERE knowledge_id=?", id).Error)
+	_, err = preview()
+	require.Error(t, err, "missing identity fence cannot establish deletion")
+	require.NoError(t, db.Table("document_access_epochs").Create(&epoch).Error)
+	// Mere absence, without retained scoped deletion evidence, stays denied.
+	require.NoError(t, db.Exec("DELETE FROM chunks WHERE id='removed-input'").Error)
+	_, err = preview()
+	require.Error(t, err)
+	require.NoError(t, db.Create(&types.Chunk{
+		ID: "removed-input", TenantID: 1, KnowledgeBaseID: "public-two", KnowledgeID: id,
+		Content: "DELETED_INPUT_NEVER_GENERATE", DeletedAt: gorm.DeletedAt{Time: time.Now(), Valid: true},
+	}).Error)
+	plan, err = preview()
+	require.NoError(t, err)
+	applied, err := repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", plan.Snapshot, true, true)
+	require.NoError(t, err)
+	require.True(t, applied.Applied)
+	var retained types.TaskPendingOp
+	require.NoError(t, db.First(&retained, op.ID).Error)
+	require.Equal(t, "wiki_regeneration_archive", retained.Scope)
+	require.Equal(t, string(op.Payload), string(retained.Payload))
+	var pending []types.TaskPendingOp
+	require.NoError(t, db.Where("scope='knowledge_base'").Find(&pending).Error)
+	require.Len(t, pending, 1)
+	require.Equal(t, "public-two-doc", pending[0].DedupKey)
+	require.NotContains(t, string(pending[0].Payload), "HISTORICAL_QUEUE_BODY")
+	require.NotContains(t, string(pending[0].Payload), "DELETED_INPUT_NEVER_GENERATE")
+}
+
 func testWikiHistoryRegenerationBlock(t *testing.T, f *fixture.Fixture) {
 	f.PreparePublished(t)
 	db := f.DB
@@ -372,6 +458,7 @@ func TestWikiHistoryPostgres(t *testing.T) {
 	}{
 		{"regeneration", testWikiHistoryRegeneration},
 		{"regeneration_block", testWikiHistoryRegenerationBlock},
+		{"deleted_input_evidence", testWikiDeletedInputEvidence},
 		{"unused_source_draft", testFeishuUnusedDraftAdmission},
 		{"feishu_completed_slots", testWikiFeishuIndependentRegeneration},
 		{"orphan_retraction", testWikiOrphanRetraction},
