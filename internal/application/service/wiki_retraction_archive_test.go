@@ -56,6 +56,7 @@ func testWikiOrphanRetraction(t *testing.T, f *fixture.Fixture) {
 	invalid := &types.WikiPage{
 		ID: "uncited-canary", TenantID: 1, KnowledgeBaseID: "public-two",
 		Slug: "concept/uncited", PageType: types.WikiPageTypeConcept, Content: "NO SOURCE",
+		Status: types.WikiPageStatusDraft, SourceRefs: types.StringArray{},
 	}
 	require.ErrorIs(t, repo.Create(ctx, invalid), repository.ErrWikiMCPUnverified)
 	var count int64
