@@ -122,7 +122,7 @@ INSERT INTO feishu_private_kbs VALUES('private','owner'),('foreign','owner');
 INSERT INTO data_sources(id,knowledge_base_id,type,legacy_access_state)
 VALUES('removed','private','feishu','revoked'),('other','foreign','feishu','revoked');
 INSERT INTO knowledges(id,knowledge_base_id) VALUES('private-doc','private');`
-	if db.Dialector.Name() == "postgres" {
+	if db.Name() == "postgres" {
 		ddl = strings.ReplaceAll(ddl, "DATETIME", "TIMESTAMPTZ")
 	}
 	require.NoError(t, db.Exec(ddl).Error)

@@ -136,7 +136,9 @@ func CheckLegacyReadScope(db *gorm.DB) error {
 				return err
 			}
 			var alive bool
-			if err := check.Raw("SELECT EXISTS(SELECT 1 FROM knowledge_bases WHERE id=? AND deleted_at IS NULL)", kb).Scan(&alive).Error; err != nil {
+			err := check.Raw("SELECT EXISTS(SELECT 1 FROM knowledge_bases WHERE id=? AND deleted_at IS NULL)", kb).
+				Scan(&alive).Error
+			if err != nil {
 				return err
 			}
 			if !alive {
