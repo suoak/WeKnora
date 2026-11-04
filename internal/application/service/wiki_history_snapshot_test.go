@@ -360,7 +360,8 @@ func testWikiFeishuIndependentRegeneration(t *testing.T, f *fixture.Fixture) {
 	require.Zero(t, count)
 	require.False(t, promoted)
 	var after string
-	require.NoError(t, db.Raw("SELECT to_jsonb(k)::text FROM knowledges k WHERE id='public-two-doc'").Scan(&after).Error)
+	require.NoError(t, db.Raw("SELECT to_jsonb(k)::text FROM knowledges k WHERE id='public-two-doc'").
+		Scan(&after).Error)
 	require.Equal(t, before, after, "Wiki regeneration must preserve the entire published source row")
 	var queued int64
 	require.NoError(t, db.Model(&types.TaskPendingOp{}).Where("task_type='wiki:ingest'").Count(&queued).Error)
