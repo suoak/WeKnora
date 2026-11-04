@@ -44,6 +44,9 @@ func TestSteadyManualProtectedAndPausedSourcesHaveNoAdmissionSideEffects(t *test
 		var rejected *datasource.SyncAdmissionError
 		require.True(t, errors.As(err, &rejected))
 		require.Equal(t, item.reason, rejected.Reason)
+		if item.reason == "sync_source_protected" {
+			require.Equal(t, item.state, rejected.ProtectionState)
+		}
 		stored, err := logs.FindByDataSource(ctx, ds.ID, 20, 0)
 		require.NoError(t, err)
 		require.Empty(t, stored)

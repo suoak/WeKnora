@@ -324,6 +324,7 @@ async function loadDriveRoot() {
       await updateDataSource(tempDsId.value, {
         ...form.value,
         knowledge_base_id: props.kbId,
+        ...(!isEdit.value ? { status: 'paused' } : {}),
       } as any)
     }
 
@@ -951,6 +952,7 @@ async function loadResources() {
       await updateDataSource(tempDsId.value, {
         ...form.value,
         knowledge_base_id: props.kbId,
+        status: 'paused',
       } as any)
     }
 

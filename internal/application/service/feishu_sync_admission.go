@@ -16,7 +16,9 @@ func feishuSourceAdmissionState(ctx context.Context, ds *types.DataSource) error
 	case "feishu", "feishu_drive", "lark", "lark_drive":
 		if ds.LegacyAccessState == "revoked" ||
 			(ds.LegacyAccessState == "hold" && feishusynccontrol.ReconciliationPolicy(ctx, ds.ID) == "") {
-			return &datasource.SyncAdmissionError{Reason: "sync_source_protected"}
+			return &datasource.SyncAdmissionError{
+				Reason: "sync_source_protected", ProtectionState: ds.LegacyAccessState,
+			}
 		}
 		if ds.Status == types.DataSourceStatusPaused {
 			return &datasource.SyncAdmissionError{Reason: "sync_source_paused"}

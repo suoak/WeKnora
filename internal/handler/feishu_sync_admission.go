@@ -18,6 +18,7 @@ func writeSyncAdmissionFailure(c *gin.Context, err error) bool {
 	}
 	var rejected *datasource.SyncAdmissionError
 	code, message, status := "", "", http.StatusConflict
+	protection, recoveryAction := "", ""
 	if errors.As(err, &rejected) {
 		code = rejected.Reason
 		switch code {
@@ -25,6 +26,15 @@ func writeSyncAdmissionFailure(c *gin.Context, err error) bool {
 			message = "数据源已暂停"
 		case "sync_source_protected":
 			message = "数据源暂不可同步，请联系管理员"
+			protection = rejected.ProtectionState
+			switch protection {
+			case "hold":
+				message = "数据源已保存，来源处于保护状态，请管理员核验恢复后同步"
+				recoveryAction = "reconcile_source"
+			case "revoked":
+				message = "数据源已保留，来源授权已撤销，需要重新授权后同步"
+				recoveryAction = "reauthorize_source"
+			}
 		case "sync_source_permission_denied":
 			message = "当前账号无权同步此来源"
 			status = http.StatusForbidden
@@ -54,6 +64,10 @@ func writeSyncAdmissionFailure(c *gin.Context, err error) bool {
 	} else {
 		return false
 	}
-	c.JSON(status, gin.H{"error": message, "code": code})
+	body := gin.H{"error": message, "code": code}
+	if recoveryAction != "" {
+		body["protection_state"], body["recovery_action"] = protection, recoveryAction
+	}
+	c.JSON(status, body)
 	return true
 }
