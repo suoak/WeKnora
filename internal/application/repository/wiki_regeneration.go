@@ -67,6 +67,7 @@ func PrepareWikiRegeneration(
 			return errors.New("knowledge base has pending operations; finish or cancel them before regeneration")
 		}
 		pendingByDocument := make(map[string]int, len(pending))
+		deletedEvidence := make(map[string]string)
 		var retracts []types.TaskPendingOp
 		finalizes := 0
 		for _, op := range pending {
@@ -96,6 +97,14 @@ func PrepareWikiRegeneration(
 			var target struct{ DeletedAt *time.Time }
 			err := tx.Table("knowledges").Select("deleted_at").
 				Where("id=? AND tenant_id=? AND knowledge_base_id=?", op.DedupKey, tenant, kb).Take(&target).Error
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				evidence, evidenceErr := deletedWikiInputEvidence(tx, tenant, kb, op.DedupKey)
+				if evidenceErr != nil {
+					return evidenceErr
+				}
+				deletedEvidence[op.DedupKey] = evidence
+				continue
+			}
 			if err != nil || (target.DeletedAt == nil && pendingByDocument[op.DedupKey] != 1) {
 				return errors.New("wiki retraction has no verified deleted or replacement document")
 			}
@@ -149,7 +158,7 @@ func PrepareWikiRegeneration(
 			ResumedPending: len(pending) - len(retracts) - finalizes, RetiredRetracts: len(retracts),
 			RetiredFinalizes: finalizes,
 			Snapshot: wikiDigest([]any{
-				anchor, proof.Sources, proof.Epochs, docs, pages, epoch, resume, pending,
+				anchor, proof.Sources, proof.Epochs, docs, pages, epoch, resume, pending, deletedEvidence,
 			}),
 		}
 		if !apply {
@@ -286,4 +295,50 @@ func PrepareWikiRegeneration(
 		return nil
 	})
 	return plan, err
+}
+
+// Connector replacement can physically remove a document after soft-deleting
+// its chunks. Those retained chunk tombstones establish the exact tenant/KB;
+// absence of a document alone does not. Only a complete verified rebuild may
+// supersede this retraction, preserving its identity and historical payload.
+func deletedWikiInputEvidence(tx *gorm.DB, tenant uint64, kb, id string) (string, error) {
+	denied := errors.New("wiki retraction has no verified deleted or replacement document")
+	var epoch struct {
+		KnowledgeID string
+		Generation  int64
+		Incarnation string
+	}
+	// Source/chunk mutation triggers acquire this same epoch row. Hold it until
+	// commit so a tombstone cannot be revived after validation or previewed
+	// evidence silently replaced during apply.
+	if err := tx.Table("document_access_epochs").Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("knowledge_id=?", id).Take(&epoch).Error; err != nil {
+		return "", denied
+	}
+	var count int64
+	if err := tx.Table("knowledges").Where("id=?", id).Count(&count).Error; err != nil {
+		return "", err
+	}
+	if count != 0 {
+		return "", denied
+	}
+	var chunks []struct {
+		ID              string
+		TenantID        uint64
+		KnowledgeBaseID string
+		DeletedAt       *time.Time
+	}
+	if err := tx.Table("chunks").Select("id,tenant_id,knowledge_base_id,deleted_at").
+		Where("knowledge_id=?", id).Order("id").Limit(100001).Find(&chunks).Error; err != nil {
+		return "", err
+	}
+	if len(chunks) == 0 || len(chunks) > 100000 {
+		return "", denied
+	}
+	for _, chunk := range chunks {
+		if chunk.TenantID != tenant || chunk.KnowledgeBaseID != kb || chunk.DeletedAt == nil {
+			return "", denied
+		}
+	}
+	return wikiDigest([]any{epoch, chunks}), nil
 }
