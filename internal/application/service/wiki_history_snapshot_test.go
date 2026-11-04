@@ -46,7 +46,8 @@ func testWikiDeletedInputEvidence(t *testing.T, f *fixture.Fixture) {
 		ID: "removed-input", TenantID: 1, KnowledgeBaseID: "public-two", KnowledgeID: id,
 		Content: "DELETED_INPUT_NEVER_GENERATE", DeletedAt: gorm.DeletedAt{Time: time.Now(), Valid: true},
 	}).Error)
-	op := types.TaskPendingOp{TenantID: 1, Scope: "knowledge_base", ScopeID: "public-two",
+	op := types.TaskPendingOp{
+		TenantID: 1, Scope: "knowledge_base", ScopeID: "public-two",
 		TaskType: "wiki:ingest", Op: "retract", DedupKey: id,
 		Payload: json.RawMessage(`{"doc_summary":"HISTORICAL_QUEUE_BODY"}`),
 	}
