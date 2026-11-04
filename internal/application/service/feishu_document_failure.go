@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
+	"github.com/Tencent/WeKnora/internal/feishudocx"
 	"github.com/Tencent/WeKnora/internal/feishusafety"
 	"github.com/Tencent/WeKnora/internal/types"
 )
@@ -20,6 +21,12 @@ func feishuDocumentFailureCode(ds *types.DataSource, item *types.FetchedItem, er
 	}
 	if errors.Is(err, types.ErrFeishuStagingCapacity) {
 		return "safe_staging_capacity_insufficient"
+	}
+	// Package validation is a deterministic document refusal. Keep the failed
+	// candidate unpublished and allow traversal to verify unrelated documents.
+	// The final transaction still requires a receipt for every public document.
+	if errors.Is(err, feishudocx.ErrInvalidXLSXPackage) {
+		return "safe_staging_invalid_xlsx_package"
 	}
 	var fence *repository.LegacyFenceError
 	if errors.As(err, &fence) && fence.Reason == "source_revision_content_conflict" {

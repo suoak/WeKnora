@@ -26,7 +26,10 @@ func (h *documentFailureHandler) Emit(ctx context.Context, item types.FetchedIte
 }
 
 func TestDocumentFailureContinuesAndRetriesAfterRestart(t *testing.T) {
-	for _, code := range []string{"source_revision_content_conflict", "safe_staging_parser_semantic_row_too_large"} {
+	for _, code := range []string{
+		"source_revision_content_conflict", "safe_staging_parser_semantic_row_too_large",
+		"safe_staging_invalid_xlsx_package",
+	} {
 		t.Run(code, func(t *testing.T) { documentFailureContinuesAndRetries(t, code) })
 	}
 }

@@ -3,9 +3,11 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
+	"github.com/Tencent/WeKnora/internal/feishudocx"
 	"github.com/Tencent/WeKnora/internal/feishusafety"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
@@ -30,6 +32,9 @@ func TestFeishuDocumentFailureClassification(t *testing.T) {
 		{feishusafety.ErrBudgetBusy, "embedding_budget_busy"},
 		{feishusafety.ErrClosed, ""},
 		{types.ErrStaleSyncExecution, ""},
+		{feishudocx.ErrInvalidXLSXPackage, "safe_staging_invalid_xlsx_package"},
+		{fmt.Errorf("source package: %w", feishudocx.ErrInvalidXLSXPackage), "safe_staging_invalid_xlsx_package"},
+		{errors.New(feishudocx.ErrInvalidXLSXPackage.Error()), ""},
 		{ErrFeishuStagingRequired, ""},
 		{context.Canceled, ""},
 		{errors.New("unknown"), ""},

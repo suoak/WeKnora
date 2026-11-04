@@ -46,6 +46,9 @@ func (h *DataSourceHandler) FeishuSourceReconciliation(c *gin.Context) {
 	}
 	log, err := s.RunSourceReconciliation(c.Request.Context(), c.Param("id"), request.PolicyID)
 	if err != nil {
+		if writeSyncAdmissionFailure(c, err) {
+			return
+		}
 		c.JSON(409, gin.H{"error": "source_reconciliation_authority_or_state_rejected"})
 		return
 	}
