@@ -90,14 +90,25 @@ func (s *FeishuPersonalService) batchItemProgress(ctx context.Context, item *typ
 		item.Status, item.Stage = "failed", "needs_attention"
 	}
 	if m.KnowledgeID != "" {
-		var k types.Knowledge
+		// Progress is protocol metadata, not a document read. The owner and KB
+		// writer have already been checked by Batch; a full Knowledge load would
+		// invoke content guards before a serving grant exists for this request.
+		owner, err := s.recovery.loadAuthorizationKB(ctx, m.KBID)
+		if err != nil {
+			return err
+		}
+		var k struct {
+			ID, ParseStatus string
+			CreatedAt       time.Time
+		}
 		if e := s.db.WithContext(ctx).
-			Where("id = ? AND knowledge_base_id = ?", m.KnowledgeID, m.KBID).
-			First(&k).Error; e != nil {
+			Table("knowledges").Select("id, parse_status, created_at").
+			Where("id = ? AND tenant_id = ? AND knowledge_base_id = ? AND deleted_at IS NULL",
+				m.KnowledgeID, owner.TenantID, m.KBID).
+			Take(&k).Error; e != nil {
 			return e
 		}
 		item.ParseStatus = k.ParseStatus
-		item.DocumentName = k.Title
 		failureCategory := "parse_or_index_failed"
 		if k.CreatedAt.After(*item.LastProgressAt) {
 			t := k.CreatedAt
