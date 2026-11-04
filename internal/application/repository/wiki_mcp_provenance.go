@@ -250,7 +250,14 @@ func wikiDependencies(db *gorm.DB, kb string) (*wikiGenerationProof, error) {
 			return nil, e
 		}
 		if len(inputs) == 0 {
-			return nil, ErrWikiMCPUnverified
+			if connectorProof == "" {
+				return nil, ErrWikiMCPUnverified
+			}
+			emptyVersion, err := emptyGitLabWikiInputVersion(db, p.Tenant, kb, d.ID)
+			if err != nil {
+				return nil, err
+			}
+			identity["verified_empty_input"] = emptyVersion
 		}
 		p.Sources[d.ID] = wikiDigest([]any{identity, inputs})
 	}

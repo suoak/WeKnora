@@ -464,6 +464,7 @@ func TestWikiHistoryPostgres(t *testing.T) {
 		{"orphan_retraction", testWikiOrphanRetraction},
 		{"snapshot", testWikiSnapshotGeneration},
 		{"gitlab_recovery", testWikiProductionGitLab},
+		{"verified_empty_gitlab_input", testWikiVerifiedEmptyGitLabInput},
 		{"empty_retraction", testWikiEmptyRetractionRetirement},
 		{"hidden_retraction_reference", testWikiEmptyRetractionHiddenReference},
 	} {
