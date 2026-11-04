@@ -26,6 +26,51 @@ func TestWikiHistoryRegenerationIsolatesWithoutCertifyingOldText(t *testing.T) {
 	testWikiHistoryRegeneration(t, f)
 }
 
+func TestWikiHistoryRegenerationResolvesOnlyVerifiedBlock(t *testing.T) {
+	testWikiHistoryRegenerationBlock(t, fixture.New(t))
+}
+
+func testWikiHistoryRegenerationBlock(t *testing.T, f *fixture.Fixture) {
+	f.PreparePublished(t)
+	db := f.DB
+	require.NoError(t, db.AutoMigrate(&types.TaskPendingOp{}, &types.KnowledgeProcessingSpan{}))
+	require.NoError(t, db.Model(&types.KnowledgeBase{}).Where("id='public-two'").
+		Update("indexing_strategy", types.IndexingStrategy{WikiEnabled: true}).Error)
+	ctx := context.Background()
+	repo := repository.NewWikiPageRepository(db)
+	require.NoError(t, repository.WriteWikiProcessingBlock(
+		ctx, repo, 1, "public-two", "verified_regeneration_required"))
+	require.NoError(t, repository.WriteWikiProcessingBlock(
+		ctx, repo, 1, "private-home", "source_verification_required"))
+	before, err := repository.ReadWikiProcessingBlock(ctx, repo, "public-two")
+	require.NoError(t, err)
+	plan, err := repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", "", false)
+	require.NoError(t, err)
+	checkBlocked := func() {
+		t.Helper()
+		block, readErr := repository.ReadWikiProcessingBlock(ctx, repo, "public-two")
+		require.NoError(t, readErr)
+		require.Equal(t, before, block)
+	}
+	checkBlocked()
+	_, err = repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", "stale-snapshot", true)
+	require.ErrorContains(t, err, "snapshot changed")
+	checkBlocked()
+	_, err = repository.PrepareWikiRegeneration(ctx, db, 99, "public-two", plan.Snapshot, true)
+	require.Error(t, err)
+	checkBlocked()
+	applied, err := repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", plan.Snapshot, true)
+	require.NoError(t, err)
+	require.True(t, applied.Applied)
+	block, err := repository.ReadWikiProcessingBlock(ctx, repo, "public-two")
+	require.NoError(t, err)
+	require.Empty(t, block.Reason)
+	require.True(t, block.RetryAfter.IsZero())
+	other, err := repository.ReadWikiProcessingBlock(ctx, repo, "private-home")
+	require.NoError(t, err)
+	require.Equal(t, "source_verification_required", other.Reason)
+}
+
 func testWikiHistoryRegeneration(t *testing.T, f *fixture.Fixture) {
 	f.PreparePublished(t)
 	db := f.DB
@@ -326,6 +371,7 @@ func TestWikiHistoryPostgres(t *testing.T) {
 		run  func(*testing.T, *fixture.Fixture)
 	}{
 		{"regeneration", testWikiHistoryRegeneration},
+		{"regeneration_block", testWikiHistoryRegenerationBlock},
 		{"feishu_completed_slots", testWikiFeishuIndependentRegeneration},
 		{"orphan_retraction", testWikiOrphanRetraction},
 		{"snapshot", testWikiSnapshotGeneration},
