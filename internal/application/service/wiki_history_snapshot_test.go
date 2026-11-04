@@ -289,6 +289,7 @@ func TestWikiHistoryPostgres(t *testing.T) {
 		run  func(*testing.T, *fixture.Fixture)
 	}{
 		{"regeneration", testWikiHistoryRegeneration},
+		{"feishu_completed_slots", testWikiFeishuIndependentRegeneration},
 		{"snapshot", testWikiSnapshotGeneration},
 		{"gitlab_recovery", testWikiProductionGitLab},
 		{"empty_retraction", testWikiEmptyRetractionRetirement},
@@ -315,4 +316,55 @@ func TestWikiHistoryPostgres(t *testing.T) {
 			tc.run(t, fixture.Seed(t, db))
 		})
 	}
+}
+
+func testWikiFeishuIndependentRegeneration(t *testing.T, f *fixture.Fixture) {
+	f.PreparePublished(t)
+	db := f.DB
+	ctx := context.Background()
+	require.NoError(t, db.AutoMigrate(&types.TaskPendingOp{}, &types.KnowledgeProcessingSpan{}))
+	require.NoError(t, db.Model(&types.KnowledgeBase{}).Where("id='public-two'").
+		Update("indexing_strategy", types.IndexingStrategy{WikiEnabled: true}).Error)
+	source, resource, attempt := uuid.NewString(), uuid.NewString(), uuid.NewString()
+	require.NoError(t, db.Create(&types.DataSource{
+		ID: source, TenantID: 1, KnowledgeBaseID: "public-two", Type: "feishu",
+		Status: "active", LegacyAccessState: "active",
+	}).Error)
+	metadata, err := json.Marshal(map[string]string{"datasource_id": source, "external_id": "synthetic-doc"})
+	require.NoError(t, err)
+	require.NoError(t, db.Model(&types.Knowledge{}).Where("id='public-two-doc'").Updates(map[string]any{
+		"channel": "feishu", "metadata": types.JSON(metadata),
+	}).Error)
+	require.NoError(t, db.Create(&types.FeishuLegacyResource{
+		ID: resource, TenantID: 1, KnowledgeBaseID: "public-two", DataSourceID: source,
+		ExternalID: "synthetic-doc", KnowledgeID: "public-two-doc", State: "active",
+		Generation: 1, CurrentAttempt: attempt, ActiveAttempt: attempt,
+	}).Error)
+	require.NoError(t, db.Create(&types.FeishuLegacyAttempt{
+		ID: attempt, ResourceID: resource, Generation: 1, Status: "published",
+		Manifest: json.RawMessage(`{}`), Receipt: json.RawMessage(`{}`),
+	}).Error)
+	var before string
+	require.NoError(t, db.Raw("SELECT to_jsonb(k)::text FROM knowledges k WHERE id='public-two-doc'").
+		Scan(&before).Error)
+	// The real migrated trigger must reject arbitrary writes to the published row.
+	require.ErrorContains(t, db.Exec("UPDATE knowledges SET title='forbidden' WHERE id='public-two-doc'").Error,
+		"stale or unmanaged Feishu source write")
+	plan, err := repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", "", false)
+	require.NoError(t, err)
+	_, err = repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", plan.Snapshot, true)
+	require.NoError(t, err)
+	count, promoted, err := repository.NewKnowledgeRepository(db).FinalizeSubtask(ctx, "public-two-doc")
+	require.NoError(t, err)
+	require.Zero(t, count)
+	require.False(t, promoted)
+	var after string
+	require.NoError(t, db.Raw("SELECT to_jsonb(k)::text FROM knowledges k WHERE id='public-two-doc'").Scan(&after).Error)
+	require.Equal(t, before, after, "Wiki regeneration must preserve the entire published source row")
+	var queued int64
+	require.NoError(t, db.Model(&types.TaskPendingOp{}).Where("task_type='wiki:ingest'").Count(&queued).Error)
+	require.EqualValues(t, 1, queued)
+	require.NoError(t, db.Model(&types.FeishuLegacyResource{}).Where("id=?", resource).Update("state", "hold").Error)
+	_, err = repository.BeginWikiMCPGeneration(ctx, repository.NewWikiPageRepository(db), "public-two")
+	require.ErrorIs(t, err, types.ErrLegacySourceRestricted)
 }

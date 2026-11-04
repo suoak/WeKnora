@@ -210,18 +210,26 @@ func PrepareWikiRegeneration(
 			if err != nil {
 				return err
 			}
-			res := tx.Model(&types.Knowledge{}).
-				Where("id=? AND parse_status=? AND pending_subtasks_count=?",
-					doc.ID, doc.ParseStatus, doc.PendingSubtasksCount).
-				Updates(map[string]any{
-					"parse_status": "finalizing", "pending_subtasks_count": 1,
-					"error_message": "", "updated_at": now,
-				})
-			if res.Error != nil {
-				return res.Error
-			}
-			if res.RowsAffected != 1 {
-				return fmt.Errorf("document changed during regeneration: %s", doc.ID)
+			// Published Feishu rows belong to the fenced source publication
+			// protocol. A Wiki-only rebuild must not reopen their parse lifecycle.
+			// These completed inputs have no slot to release; durable Wiki ops
+			// provide progress and the normal finalizer is already a no-op at zero.
+			independentWiki := legacySourceKind(doc.Channel) &&
+				doc.ParseStatus == types.ParseStatusCompleted && doc.PendingSubtasksCount == 0
+			if !independentWiki {
+				res := tx.Model(&types.Knowledge{}).
+					Where("id=? AND parse_status=? AND pending_subtasks_count=?",
+						doc.ID, doc.ParseStatus, doc.PendingSubtasksCount).
+					Updates(map[string]any{
+						"parse_status": "finalizing", "pending_subtasks_count": 1,
+						"error_message": "", "updated_at": now,
+					})
+				if res.Error != nil {
+					return res.Error
+				}
+				if res.RowsAffected != 1 {
+					return fmt.Errorf("document changed during regeneration: %s", doc.ID)
+				}
 			}
 			if err := tx.Create(&types.TaskPendingOp{
 				TenantID: tenant, TaskType: "wiki:ingest",
