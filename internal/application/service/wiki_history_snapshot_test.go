@@ -38,8 +38,10 @@ func testWikiHistoryRegenerationBlock(t *testing.T, f *fixture.Fixture) {
 		Update("indexing_strategy", types.IndexingStrategy{WikiEnabled: true}).Error)
 	ctx := context.Background()
 	repo := repository.NewWikiPageRepository(db)
-	require.NoError(t, repository.WriteWikiProcessingBlock(ctx, repo, 1, "public-two", "verified_regeneration_required"))
-	require.NoError(t, repository.WriteWikiProcessingBlock(ctx, repo, 1, "private-home", "source_verification_required"))
+	require.NoError(t, repository.WriteWikiProcessingBlock(
+		ctx, repo, 1, "public-two", "verified_regeneration_required"))
+	require.NoError(t, repository.WriteWikiProcessingBlock(
+		ctx, repo, 1, "private-home", "source_verification_required"))
 	before, err := repository.ReadWikiProcessingBlock(ctx, repo, "public-two")
 	require.NoError(t, err)
 	plan, err := repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", "", false)
