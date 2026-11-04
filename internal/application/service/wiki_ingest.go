@@ -948,6 +948,24 @@ func (s *wikiIngestService) scheduleFinalize(ctx context.Context, payload WikiIn
 	)
 	if _, err := s.task.Enqueue(t); err != nil {
 		if errors.Is(err, asynq.ErrTaskIDConflict) || errors.Is(err, asynq.ErrDuplicateTask) {
+			if errors.Is(err, asynq.ErrTaskIDConflict) && s.redisClient != nil && s.pendingRepo != nil {
+				state, lookupErr := s.redisClient.HGet(ctx,
+					"asynq:{wiki}:t:wiki-finalize-"+payload.KnowledgeBaseID, "state").Result()
+				if lookupErr == nil && state == "archived" {
+					// Preserve the archived task. One replacement per durable head
+					// coalesces concurrent callers and cannot rearm a deterministic
+					// failure until actual operation progress changes that head.
+					rows, peekErr := s.pendingRepo.PeekBatch(ctx,
+						wikiFinalizeTaskType, wikiTaskScope, payload.KnowledgeBaseID, 1)
+					if peekErr == nil && len(rows) == 1 && rows[0].TenantID == payload.TenantID {
+						id := fmt.Sprintf("wiki-finalize-%s-pending-%d", payload.KnowledgeBaseID, rows[0].ID)
+						_, recoveryErr := s.task.Enqueue(t, asynq.TaskID(id))
+						if recoveryErr != nil && !errors.Is(recoveryErr, asynq.ErrTaskIDConflict) {
+							logger.Warnf(ctx, "wiki finalize: archived trigger recovery failed: %v", recoveryErr)
+						}
+					}
+				}
+			}
 			return // a finalize is already scheduled/running for this KB — coalesced
 		}
 		logger.Warnf(ctx, "wiki finalize: schedule trigger failed: %v", err)
