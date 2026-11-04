@@ -198,6 +198,7 @@ func PrepareWikiRegeneration(
 				return err
 			}
 		}
+		slotEpochAdvance := make(map[string]int64, len(docs))
 		for _, doc := range docs {
 			var attempt int
 			if err := tx.Table("knowledge_processing_spans").Select("COALESCE(MAX(attempt),0)").
@@ -230,6 +231,7 @@ func PrepareWikiRegeneration(
 				if res.RowsAffected != 1 {
 					return fmt.Errorf("document changed during regeneration: %s", doc.ID)
 				}
+				slotEpochAdvance[doc.ID] = 2
 			}
 			if err := tx.Create(&types.TaskPendingOp{
 				TenantID: tenant, TaskType: "wiki:ingest",
@@ -248,15 +250,14 @@ func PrepareWikiRegeneration(
 		if wikiDigest(fresh.Sources) != wikiDigest(proof.Sources) {
 			return errors.New("source inputs changed during regeneration")
 		}
-		// Seeding a slot legitimately advances each document epoch twice (OLD
-		// and NEW trigger branches). Require exactly those writes, rather than
-		// comparing versions that intentionally include the new processing state.
+		// A seeded slot advances the epoch twice (OLD and NEW trigger branches).
+		// Independent completed Feishu inputs must have no epoch change at all.
 		for id, before := range epochs {
 			var after documentEpoch
 			if err := tx.Table("document_access_epochs").Where("knowledge_id=?", id).Take(&after).Error; err != nil {
 				return err
 			}
-			if after.Incarnation != before.Incarnation || after.Generation != before.Generation+2 {
+			if after.Incarnation != before.Incarnation || after.Generation != before.Generation+slotEpochAdvance[id] {
 				return errors.New("unexpected document epoch change during regeneration")
 			}
 		}
