@@ -276,6 +276,12 @@ func PrepareWikiRegeneration(
 				return errors.New("unexpected document epoch change during regeneration")
 			}
 		}
+		// The verified rebuild supersedes the old processing failure. Resolve
+		// its cooldown in this transaction so the newly queued trigger can run
+		// immediately; preview and every rejected apply leave the block intact.
+		if err := WriteWikiProcessingBlock(ctx, NewWikiPageRepository(tx), tenant, kb, ""); err != nil {
+			return err
+		}
 		plan.Applied = true
 		return nil
 	})
