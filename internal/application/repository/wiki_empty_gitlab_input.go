@@ -74,12 +74,15 @@ func emptyGitLabWikiInputVersion(db *gorm.DB, tenant uint64, kb, id string) (str
 		return "", err
 	}
 	if len(bindings) != 1 || bindings[0].TenantID != tenant || bindings[0].OwnerID != id ||
-		bindings[0].OwnerType != types.ResourceOwnerKnowledge || bindings[0].Relation != types.ResourceRelationSourceFile {
+		bindings[0].OwnerType != types.ResourceOwnerKnowledge ||
+		bindings[0].Relation != types.ResourceRelationSourceFile {
 		return "", ErrWikiMCPUnverified
 	}
 	// Exclude timestamps from authority; changing the registered location, hash,
 	// ownership or bytes changes the proof. No empty-file body enters a prompt.
-	return wikiDigest([]any{doc, exactSHA, resource.ID, resource.Handle, resource.StorageBackendID,
+	return wikiDigest([]any{
+		doc, exactSHA, resource.ID, resource.Handle, resource.StorageBackendID,
 		resource.Provider, resource.PhysicalPath, resource.LocationHash, resource.Size, resource.ContentHash,
-		bindings[0].ID, bindings[0].TenantID, bindings[0].OwnerType, bindings[0].OwnerID, bindings[0].Relation}), nil
+		bindings[0].ID, bindings[0].TenantID, bindings[0].OwnerType, bindings[0].OwnerID, bindings[0].Relation,
+	}), nil
 }

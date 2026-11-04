@@ -17,7 +17,12 @@ func TestWikiProductionVerifiedEmptyGitLabInput(t *testing.T) {
 func testWikiVerifiedEmptyGitLabInput(t *testing.T, f *fixture.Fixture) {
 	f.PreparePublished(t)
 	db, ctx := f.DB, context.Background()
-	require.NoError(t, db.AutoMigrate(&types.StoredResource{}, &types.ResourceBinding{}))
+	if !db.Migrator().HasTable(&types.StoredResource{}) {
+		require.NoError(t, db.AutoMigrate(&types.StoredResource{}))
+	}
+	if !db.Migrator().HasTable(&types.ResourceBinding{}) {
+		require.NoError(t, db.AutoMigrate(&types.ResourceBinding{}))
+	}
 	require.NoError(t, db.Exec(`INSERT INTO data_sources(
  id,tenant_id,knowledge_base_id,name,type,status,legacy_access_state,config)
  VALUES('empty-gitlab',1,'public-two','synthetic','gitlab','active','unmanaged','{}')`).Error)
