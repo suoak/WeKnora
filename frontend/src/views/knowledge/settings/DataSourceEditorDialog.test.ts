@@ -32,6 +32,14 @@ async function fixture({
   const calls: Array<{ method: string; args: any[] }> = []
   let storedToken = configured ? 'expired-token' : ''
   const api = {
+    async createDataSource(data: any) {
+      calls.push({ method: 'createDataSource', args: [JSON.parse(JSON.stringify(data))] })
+      return { data: { id: 'new-source' } }
+    },
+    async listResources(id: string) {
+      calls.push({ method: 'listResources', args: [id] })
+      return { data: [] }
+    },
     async validateCredentials(type: string, credentials: Record<string, string>) {
       calls.push({ method: 'validateCredentials', args: [type, { ...credentials }] })
       if (credentials.access_token !== 'rotated-token') throw new Error('gitlab API /user: status 401')
@@ -91,6 +99,18 @@ async function fixture({
   }
   return { vm, calls, replace, storedToken: () => storedToken, close: () => app.unmount() }
 }
+
+test('new Feishu resource discovery keeps its unused draft paused until final save', async () => {
+  const f = await fixture({ create: true, type: 'feishu' })
+  try {
+    f.vm.selectType(f.vm.connectorDefs.find((def: any) => def.type === 'feishu'))
+    await f.vm.loadResources()
+    await f.vm.loadResources()
+    assert.equal(f.calls.find(call => call.method === 'createDataSource')?.args[0].status, 'paused')
+    assert.equal(f.calls.find(call => call.method === 'updateDataSource')?.args[1].status, 'paused')
+    assert.equal(f.calls.filter(call => call.method === 'createDataSource').length, 1)
+  } finally { f.close() }
+})
 
 test('rotated GitLab credentials are tested without updating the saved data source', async () => {
   const f = await fixture()

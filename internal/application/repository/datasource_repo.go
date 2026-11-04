@@ -96,10 +96,19 @@ func (r *DataSourceRepository) Update(ctx context.Context, ds *types.DataSource)
 				if old.TenantID != ds.TenantID || old.KnowledgeBaseID != ds.KnowledgeBaseID {
 					return legacyFence("source_tenant_or_kb_rebind_denied")
 				}
-				if err := tx.Model(&types.DataSource{}).Where("id=?", ds.ID).Update("legacy_access_state", "hold").Error; err != nil {
+				unused, err := unusedLegacySourceDraft(tx, old)
+				if err != nil {
 					return err
 				}
+				if !unused && old.LegacyAccessState != "revoked" {
+					if err := tx.Model(&types.DataSource{}).Where("id=?", ds.ID).
+						Update("legacy_access_state", "hold").Error; err != nil {
+						return err
+					}
+					old.LegacyAccessState = "hold"
+				}
 			}
+			ds.LegacyAccessState = old.LegacyAccessState
 		}
 		if err := tx.Model(ds).Omit("LegacyAccessState", "DocumentDeferrals").Updates(ds).Error; err != nil {
 			return err
@@ -113,6 +122,26 @@ func (r *DataSourceRepository) Update(ctx context.Context, ds *types.DataSource)
 				"sync_schedule":  ds.SyncSchedule,
 			}).Error
 	})
+}
+
+// Resource discovery persists a paused draft before the user selects resources.
+// Completing that unused draft does not invalidate any historical publication.
+// The source row is already locked, matching sync admission's lock order; even
+// failed executions and deleted documents permanently disqualify this exception.
+// This grants no sync permit: ordinary signed admission still checks the final
+// source configuration, managing actor, current authority and safety controller.
+func unusedLegacySourceDraft(tx *gorm.DB, source *types.DataSource) (bool, error) {
+	if source.LegacyAccessState != "unmanaged" || source.Status != types.DataSourceStatusPaused ||
+		source.LastSyncAt != nil {
+		return false, nil
+	}
+	var used bool
+	err := tx.Raw(`SELECT
+ EXISTS(SELECT 1 FROM sync_logs WHERE data_source_id=?) OR
+ EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE data_source_id=?) OR
+ EXISTS(SELECT 1 FROM knowledges WHERE metadata->>'datasource_id'=?)`,
+		source.ID, source.ID, source.ID).Scan(&used).Error
+	return !used, err
 }
 
 // UpdateSyncState updates only fields managed by sync execution. GORM's

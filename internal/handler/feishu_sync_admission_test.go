@@ -43,3 +43,24 @@ func TestSteadyManualSyncErrorsAreSpecificAndNeverExposeProviderDetails(t *testi
 	require.Equal(t, 403, w.Code)
 	require.Contains(t, w.Body.String(), "飞书授权失效，请重新授权")
 }
+
+func TestProtectedSourceRecoveryInstructionsPreserveErrorCode(t *testing.T) {
+	for _, tc := range []struct{ state, action, message string }{
+		{"hold", "reconcile_source", "数据源已保存"},
+		{"revoked", "reauthorize_source", "来源授权已撤销"},
+	} {
+		t.Run(tc.state, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			require.True(t, writeSyncAdmissionFailure(c, &datasource.SyncAdmissionError{
+				Reason: "sync_source_protected", ProtectionState: tc.state,
+				Cause: errors.New("private-provider-marker"),
+			}))
+			require.Equal(t, 409, w.Code)
+			require.Contains(t, w.Body.String(), tc.message)
+			require.Contains(t, w.Body.String(), `"code":"sync_source_protected"`)
+			require.Contains(t, w.Body.String(), `"recovery_action":"`+tc.action+`"`)
+			require.NotContains(t, w.Body.String(), "private-provider-marker")
+		})
+	}
+}
