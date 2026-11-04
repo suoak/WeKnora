@@ -34,6 +34,7 @@ type (
 		WikiIncarnation  string
 	}
 )
+
 type wikiMCPEpoch struct {
 	Generation  int64
 	Incarnation string
