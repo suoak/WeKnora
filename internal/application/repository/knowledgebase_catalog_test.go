@@ -2,10 +2,13 @@ package repository
 
 import (
 	"context"
+	"strings"
 	"testing"
 
+	"github.com/Tencent/WeKnora/internal/testutil/syncdb"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestKnowledgeBaseCatalogKeepsRestrictedSourcesVisible(t *testing.T) {
@@ -92,9 +95,21 @@ SET knowledge_id='doc' WHERE knowledge_base_id='held'`).Error)
 }
 
 func TestKnowledgeBaseCatalogRevokedPrivateSourceFinalResponse(t *testing.T) {
-	db := setupKBTestDB(t)
-	require.NoError(t, db.Exec(`CREATE TABLE tenants(id INTEGER PRIMARY KEY,status TEXT,deleted_at DATETIME);
-CREATE TABLE data_sources(id TEXT,knowledge_base_id TEXT,type TEXT,legacy_access_state TEXT);
+	testKnowledgeBaseCatalogRevokedPrivateSource(t, setupKBTestDB(t))
+}
+
+func TestKnowledgeBaseCatalogRevokedPrivateSourcePostgres(t *testing.T) {
+	db := syncdb.Open(t, "postgres")
+	ddl := strings.ReplaceAll(knowledgeBasesTestDDL, "DATETIME", "TIMESTAMPTZ")
+	ddl = strings.ReplaceAll(ddl, "BOOLEAN NOT NULL DEFAULT 0", "BOOLEAN NOT NULL DEFAULT false")
+	require.NoError(t, db.Exec(ddl).Error)
+	testKnowledgeBaseCatalogRevokedPrivateSource(t, db)
+}
+
+func testKnowledgeBaseCatalogRevokedPrivateSource(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	ddl := `CREATE TABLE tenants(id INTEGER PRIMARY KEY,status TEXT,deleted_at DATETIME);
+CREATE TABLE IF NOT EXISTS data_sources(id TEXT,knowledge_base_id TEXT,type TEXT,legacy_access_state TEXT);
 CREATE TABLE feishu_legacy_resources(knowledge_base_id TEXT,state TEXT,knowledge_id TEXT);
 CREATE TABLE knowledges(id TEXT,knowledge_base_id TEXT,deleted_at DATETIME);
 CREATE TABLE task_pending_ops(scope TEXT,scope_id TEXT);
@@ -104,8 +119,13 @@ INSERT INTO knowledge_bases(id,name,tenant_id,embedding_model_id,summary_model_i
 VALUES('private','private',1,'embed','summary','{}'),('healthy','healthy',1,'embed','summary','{}'),
 ('foreign','foreign',2,'embed','summary','{}');
 INSERT INTO feishu_private_kbs VALUES('private','owner'),('foreign','owner');
-INSERT INTO data_sources VALUES('removed','private','feishu','revoked'),('other','foreign','feishu','revoked');
-INSERT INTO knowledges(id,knowledge_base_id) VALUES('private-doc','private');`).Error)
+INSERT INTO data_sources(id,knowledge_base_id,type,legacy_access_state)
+VALUES('removed','private','feishu','revoked'),('other','foreign','feishu','revoked');
+INSERT INTO knowledges(id,knowledge_base_id) VALUES('private-doc','private');`
+	if db.Dialector.Name() == "postgres" {
+		ddl = strings.ReplaceAll(ddl, "DATETIME", "TIMESTAMPTZ")
+	}
+	require.NoError(t, db.Exec(ddl).Error)
 	guarded := types.EnablePrivateKBGuards(types.EnableLegacyReadGuards(db))
 	r := &knowledgeBaseRepository{db: guarded}
 	owner := func() context.Context {
