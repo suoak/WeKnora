@@ -145,9 +145,9 @@ func (m *RecoveryManager) prepareSharedQueue(
 // The original task IDs, payload bytes, SQL run identities and dispositions are
 // reviewed as a bounded batch; the operation never recreates an old delivery.
 func (m *RecoveryManager) PlanSteadyWithSharedQueueRelease(
-	ctx context.Context, actor string, sources, reconcile []string, days int,
+	ctx context.Context, actor string, sources, reconcile []string, days int, windows ...time.Duration,
 ) (SteadyPlan, error) {
-	p, err := m.PlanSteadyWithReconciliation(ctx, actor, sources, reconcile, days)
+	p, err := m.PlanSteadyWithReconciliation(ctx, actor, sources, reconcile, days, windows...)
 	if err != nil || p.ReleaseSharedQueue {
 		return p, err
 	}

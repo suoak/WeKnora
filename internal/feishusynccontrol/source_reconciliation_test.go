@@ -38,6 +38,48 @@ func reconciliationFixture(t *testing.T) (*steadyFixture, SteadyPlan, string) {
 	return f, p, id
 }
 
+func TestSourceReconciliationExplicitBoundedWindow(t *testing.T) {
+	f, previous, id := reconciliationFixture(t)
+	ctx := reconciliationOperator()
+	for _, entry := range previous.ManagedSources {
+		if entry.Reconciliation {
+			require.Equal(t, time.Hour.Milliseconds(), entry.ReconcileUntilMS-previous.CreatedMS)
+		}
+	}
+	for _, window := range []time.Duration{0, 30 * time.Minute, 13 * time.Hour} {
+		_, err := f.m.PlanSteadyWithReconciliation(ctx, "operator", f.ids[1:], []string{id}, 7, window)
+		require.Error(t, err)
+	}
+	_, err := f.m.PlanSteadyWithReconciliation(ctx, "operator", f.ids[1:], []string{id}, 7, time.Hour, time.Hour)
+	require.Error(t, err)
+	p, err := f.m.PlanSteadyWithReconciliation(ctx, "operator", f.ids[1:], []string{id}, 7, 12*time.Hour)
+	require.NoError(t, err)
+	for _, entry := range p.ManagedSources {
+		if entry.Reconciliation {
+			require.Equal(t, (12 * time.Hour).Milliseconds(), entry.ReconcileUntilMS-p.CreatedMS)
+		} else {
+			require.Zero(t, entry.ReconcileUntilMS)
+		}
+	}
+	// A caller cannot extend the signed window, even inside the allowed maximum.
+	approval := f.sign(t, p)
+	tampered := p
+	tampered.ManagedSources = append([]SteadySource(nil), p.ManagedSources...)
+	for i := range tampered.ManagedSources {
+		if tampered.ManagedSources[i].Reconciliation {
+			tampered.ManagedSources[i].ReconcileUntilMS--
+		}
+	}
+	require.Error(t, f.m.ActivateSteady(ctx, tampered, approval, "operator"))
+	require.NoError(t, f.m.ActivateSteady(ctx, p, approval, "operator"))
+	_, _, err = BindApprovedSource(ctx, id, f.facts[id].ConfigSHA256)
+	require.Error(t, err, "longer purpose never grants ordinary sync to a held source")
+	_, err = f.m.BeginSourceReconciliation(ctx, id, p.ID)
+	require.NoError(t, err)
+	_, err = f.m.BeginSourceReconciliation(ctx, id, p.ID)
+	require.Error(t, err, "one shot remains one shot")
+}
+
 func TestSourceReconciliationOneShotRequiresActorTicketAndActualClaim(t *testing.T) {
 	f, p, id := reconciliationFixture(t)
 	ctx := reconciliationOperator()

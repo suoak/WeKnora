@@ -159,7 +159,7 @@ func (m *RecoveryManager) PlanSteady(ctx context.Context, actor string, ids []st
 // PlanSteadyWithReconciliation adds a separate, signed one-shot admission. It never grants
 // ordinary manual/scheduled execution to a held or initially failed source.
 func (m *RecoveryManager) PlanSteadyWithReconciliation(
-	ctx context.Context, actor string, sources, reconcile []string, days int,
+	ctx context.Context, actor string, sources, reconcile []string, days int, windows ...time.Duration,
 ) (SteadyPlan, error) {
 	modes := make(map[string]bool, len(reconcile))
 	ids := append([]string(nil), sources...)
@@ -170,13 +170,23 @@ func (m *RecoveryManager) PlanSteadyWithReconciliation(
 		modes[id] = true
 		ids = append(ids, id)
 	}
-	return m.planSteady(ctx, actor, ids, modes, days)
+	return m.planSteady(ctx, actor, ids, modes, days, windows...)
 }
 
 func (m *RecoveryManager) planSteady(
-	ctx context.Context, actor string, ids []string, reconcile map[string]bool, days int,
+	ctx context.Context, actor string, ids []string, reconcile map[string]bool, days int, windows ...time.Duration,
 ) (SteadyPlan, error) {
 	var p SteadyPlan
+	window := sourceReconciliationWindow
+	if len(windows) > 1 {
+		return p, ErrRecoveryRejected
+	}
+	if len(windows) == 1 {
+		window = windows[0]
+	}
+	if window < time.Hour || window > maxSourceReconciliationWindow || window%time.Hour != 0 {
+		return p, ErrRecoveryRejected
+	}
 	if m == nil || actor == "" || len(ids) > maxSteadySources || days < 1 || days > 30 {
 		return p, ErrRecoveryRejected
 	}
@@ -291,7 +301,7 @@ func (m *RecoveryManager) planSteady(
 		}
 		entry, facts := checked[id].entry, checked[id].facts
 		if entry.Reconciliation {
-			entry.ReconcileUntilMS = now.Add(sourceReconciliationWindow).UnixMilli()
+			entry.ReconcileUntilMS = now.Add(window).UnixMilli()
 		}
 		if revokeOnly {
 			var previous *SteadySource
@@ -349,7 +359,7 @@ func (m *RecoveryManager) verifySteady(cert SteadyCertificate, now int64, consum
 			(s.Authority.AccessState == "active" || s.Authority.AccessState == "unmanaged")
 		if s.Reconciliation {
 			purposeValid = s.ReconcileUntilMS > p.CreatedMS && s.ReconcileUntilMS <= p.AuthorizationUntilMS &&
-				s.ReconcileUntilMS-p.CreatedMS <= int64(sourceReconciliationWindow/time.Millisecond) &&
+				s.ReconcileUntilMS-p.CreatedMS <= int64(maxSourceReconciliationWindow/time.Millisecond) &&
 				(s.Authority.SourceStatus == "active" || s.Authority.SourceStatus == "error") &&
 				(s.Authority.AccessState == "hold" || s.Authority.AccessState == "active" ||
 					s.Authority.AccessState == "unmanaged") &&

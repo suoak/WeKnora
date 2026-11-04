@@ -111,6 +111,16 @@ func TestSourceReconciliationServiceQueuesOneFullRunWithoutReleasingHold(t *test
 			readOnly := types.WithLegacyReconciliationRead(types.WithSyncExecution(ctx, execution))
 			require.False(t, reconciles(readOnly, true))
 			require.False(t, reconciles(work, false))
+			allPrivateFailed := &types.SyncResult{Total: 1, Failed: 1}
+			require.NoError(t, feishuTraversalFailure(work, held, true, allPrivateFailed),
+				"the final transaction must check public inventory even when all private candidates fail")
+			require.Error(t, feishuTraversalFailure(ctx, held, true, allPrivateFailed))
+			require.Error(t, feishuTraversalFailure(readOnly, held, true, allPrivateFailed))
+			require.Error(t, feishuTraversalFailure(work, held, false, allPrivateFailed))
+			allPrivateFailed.Deferred = 1
+			require.Error(t, feishuTraversalFailure(work, held, true, allPrivateFailed))
+			allPrivateFailed.Deferred, allPrivateFailed.Unsupported = 0, 1
+			require.Error(t, feishuTraversalFailure(work, held, true, allPrivateFailed))
 			partial.Deferred = 1
 			require.False(t, reconciles(work, true))
 		})

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/Tencent/WeKnora/internal/feishusynccontrol"
 	"github.com/gin-gonic/gin"
@@ -16,12 +17,13 @@ func (h *DataSourceHandler) FeishuSteadySync(c *gin.Context) {
 		return
 	}
 	var request struct {
-		Sources            []string                           `json:"sources"`
-		ReconcileSources   []string                           `json:"reconcile_sources"`
-		AuthorizationDays  int                                `json:"authorization_days"`
-		ReleaseSharedQueue bool                               `json:"release_shared_queue"`
-		Plan               feishusynccontrol.SteadyPlan       `json:"plan"`
-		Approval           feishusynccontrol.RecoveryApproval `json:"approval"`
+		Sources             []string                           `json:"sources"`
+		ReconcileSources    []string                           `json:"reconcile_sources"`
+		AuthorizationDays   int                                `json:"authorization_days"`
+		ReconciliationHours int                                `json:"reconciliation_hours"`
+		ReleaseSharedQueue  bool                               `json:"release_shared_queue"`
+		Plan                feishusynccontrol.SteadyPlan       `json:"plan"`
+		Approval            feishusynccontrol.RecoveryApproval `json:"approval"`
 	}
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 128<<10)
 	if c.ShouldBindJSON(&request) != nil {
@@ -30,6 +32,14 @@ func (h *DataSourceHandler) FeishuSteadySync(c *gin.Context) {
 	}
 	switch c.Param("operation") {
 	case "plan":
+		if request.ReconciliationHours < 0 || request.ReconciliationHours > 12 {
+			c.JSON(400, gin.H{"error": "invalid_reconciliation_window"})
+			return
+		}
+		if request.ReconciliationHours == 0 {
+			request.ReconciliationHours = 1
+		}
+		window := time.Duration(request.ReconciliationHours) * time.Hour
 		if request.AuthorizationDays == 0 {
 			request.AuthorizationDays = 7
 		}
@@ -37,10 +47,10 @@ func (h *DataSourceHandler) FeishuSteadySync(c *gin.Context) {
 		var err error
 		if request.ReleaseSharedQueue {
 			p, err = m.PlanSteadyWithSharedQueueRelease(c.Request.Context(), actor,
-				request.Sources, request.ReconcileSources, request.AuthorizationDays)
+				request.Sources, request.ReconcileSources, request.AuthorizationDays, window)
 		} else {
 			p, err = m.PlanSteadyWithReconciliation(c.Request.Context(), actor,
-				request.Sources, request.ReconcileSources, request.AuthorizationDays)
+				request.Sources, request.ReconcileSources, request.AuthorizationDays, window)
 		}
 		if err != nil {
 			c.JSON(409, gin.H{"error": "steady_source_authorization_or_state_rejected"})

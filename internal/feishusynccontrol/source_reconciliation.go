@@ -182,3 +182,7 @@ func RestoreSourceReconciliation(ctx context.Context, source, policy string) (co
 
 // Keep the one-shot read window independent from the normal-service grant.
 const sourceReconciliationWindow = time.Hour
+
+// Large selected spaces need an explicitly reviewed longer one-shot window.
+// It remains in the signed plan and never renews itself with worker heartbeats.
+const maxSourceReconciliationWindow = 12 * time.Hour

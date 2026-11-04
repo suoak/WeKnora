@@ -49,6 +49,16 @@ func fullFeishuReconciliationContext(
 	return types.WithLegacyFullReconciliation(ctx)
 }
 
+// A completed signed traversal may contain only isolated private refusals.
+// Let its final publication transaction prove the entire public inventory;
+// that transaction still refuses any missing public receipt or held resource.
+func feishuTraversalFailure(ctx context.Context, ds *types.DataSource, full bool, result *types.SyncResult) error {
+	if types.LegacyFullReconciliation(fullFeishuReconciliationContext(ctx, ds, full, result)) {
+		return nil
+	}
+	return allFetchedItemsFailedError(result)
+}
+
 func legacyFetchNeedsHold(err error) bool {
 	// A known availability fault is not evidence of withdrawn access. An
 	// authentication/permission/not-found or unclassified result is uncertain,
