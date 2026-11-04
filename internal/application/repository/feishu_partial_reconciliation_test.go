@@ -36,7 +36,7 @@ func TestSourcePartialReconciliationPreservesFailuresAndPublicProofs(t *testing.
 					Type: "feishu", Status: "active", LegacyAccessState: "hold",
 				}
 				require.NoError(t, db.Create(ds).Error)
-				logs := NewSyncLogRepository(db)
+				logs := &SyncLogRepository{db: db}
 				log := &types.SyncLog{DataSourceID: ds.ID, TenantID: 1, Status: types.SyncLogStatusRunning}
 				created, err := logs.CreateIfNoRunning(context.Background(), log)
 				require.NoError(t, err)

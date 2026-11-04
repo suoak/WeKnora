@@ -12,6 +12,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/testutil/feishucontinuity"
 	"github.com/Tencent/WeKnora/internal/testutil/syncdb"
 	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
@@ -94,7 +95,8 @@ func TestSourceReconciliationServiceQueuesOneFullRunWithoutReleasingHold(t *test
 			require.Len(t, stored, 1)
 			require.False(t, stored[0].ExecutionClaimed, "admission is not an execution Claim")
 			t.Setenv("FEISHU_SAFE_INCREMENTAL_ENABLED", "true")
-			execution, claimed, err := logs.ClaimExecution(ctx, held.ID, log.ID, held.TenantID)
+			executions := logs.(interfaces.SyncExecutionRepository)
+			execution, claimed, err := executions.ClaimExecution(ctx, held.ID, log.ID, held.TenantID)
 			require.NoError(t, err)
 			require.True(t, claimed)
 			workerContext := types.WithSyncExecution(ctx, execution)
