@@ -13,7 +13,11 @@ import (
 func (r *knowledgeBaseRepository) GetReadKnowledgeBasesByIDs(ctx context.Context, ids []string) ([]*types.KnowledgeBase, error) {
 	out := []*types.KnowledgeBase{}
 	for _, id := range ids {
-		kb, e := r.GetKnowledgeBaseByID(ctx, id)
+		readCtx := ctx
+		if types.KnowledgeBaseCatalogTenant(ctx) != 0 {
+			readCtx = types.WithLegacyReadScope(ctx)
+		}
+		kb, e := r.GetKnowledgeBaseByID(readCtx, id)
 		if errors.Is(e, types.ErrPrivateKnowledgeBase) || errors.Is(e, ErrKnowledgeBaseNotFound) {
 			continue
 		}
@@ -21,7 +25,10 @@ func (r *knowledgeBaseRepository) GetReadKnowledgeBasesByIDs(ctx context.Context
 		// Retry only a source rejection, only in the catalog's tenant, and
 		// strip generated content. All other callers keep strict reads.
 		if errors.Is(e, types.ErrLegacySourceRestricted) && types.KnowledgeBaseCatalogTenant(ctx) != 0 {
-			kb, e = r.GetKnowledgeBaseByID(types.WithLegacyKBAdminMetadata(ctx, id), id)
+			// The failed attempt released no body. Do not let its private-KB
+			// source marker poison the entire catalog's final response check.
+			readCtx = types.WithLegacyReadScope(ctx)
+			kb, e = r.GetKnowledgeBaseByID(types.WithLegacyKBAdminMetadata(readCtx, id), id)
 			if e == nil {
 				if kb.TenantID != types.KnowledgeBaseCatalogTenant(ctx) {
 					continue
@@ -36,6 +43,7 @@ func (r *knowledgeBaseRepository) GetReadKnowledgeBasesByIDs(ctx context.Context
 		if e != nil {
 			return nil, e
 		}
+		types.MergeLegacyReadScope(ctx, readCtx)
 		out = append(out, kb)
 	}
 	return out, nil

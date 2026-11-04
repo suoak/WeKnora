@@ -148,6 +148,10 @@ func CheckPrivateKBRead(db *gorm.DB, knowledge, kb string) error {
 	if PrivateKBReadUser(db.Statement.Context) != owner {
 		return ErrPrivateKnowledgeBase
 	}
-	recordLegacyRead(db.Statement.Context, kb)
+	if metadata, ok := db.Statement.Context.Value(legacyKBAdminMetadataKey{}).(string); ok && knowledge == "" && metadata == kb {
+		recordPrivateMetadataRead(db.Statement.Context, kb)
+	} else {
+		recordLegacyRead(db.Statement.Context, kb)
+	}
 	return nil
 }

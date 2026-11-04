@@ -12,6 +12,7 @@ type (
 	legacyReadScope    struct {
 		mu       sync.Mutex
 		kb       map[string]bool
+		metadata map[string]bool
 		excluded bool
 	}
 )
@@ -41,6 +42,7 @@ func DiscardLegacyReadAttempt(ctx context.Context) {
 	if scope, ok := ctx.Value(legacyReadScopeKey{}).(*legacyReadScope); ok {
 		scope.mu.Lock()
 		scope.kb = map[string]bool{}
+		scope.metadata = map[string]bool{}
 		scope.excluded = true
 		scope.mu.Unlock()
 	}
@@ -58,6 +60,42 @@ func recordLegacyRead(ctx context.Context, kb string) {
 		scope.kb[kb] = true
 		scope.mu.Unlock()
 	}
+}
+
+// Metadata still needs a final private-owner check, but carries no source body.
+func recordPrivateMetadataRead(ctx context.Context, kb string) {
+	if scope, ok := ctx.Value(legacyReadScopeKey{}).(*legacyReadScope); ok && kb != "" {
+		scope.mu.Lock()
+		defer scope.mu.Unlock()
+		if scope.metadata == nil {
+			scope.metadata = map[string]bool{}
+		}
+		scope.metadata[kb] = true
+	}
+}
+
+// MergeLegacyReadScope retains only a successful catalog lookup's provenance.
+// A rejected lookup's contents are discarded before a metadata-only retry.
+func MergeLegacyReadScope(dst, src context.Context) {
+	from, ok := src.Value(legacyReadScopeKey{}).(*legacyReadScope)
+	to, target := dst.Value(legacyReadScopeKey{}).(*legacyReadScope)
+	if !ok || !target || from == to {
+		return
+	}
+	from.mu.Lock()
+	defer from.mu.Unlock()
+	to.mu.Lock()
+	defer to.mu.Unlock()
+	for kb := range from.kb {
+		to.kb[kb] = true
+	}
+	if to.metadata == nil {
+		to.metadata = map[string]bool{}
+	}
+	for kb := range from.metadata {
+		to.metadata[kb] = true
+	}
+	to.excluded = to.excluded || from.excluded
 }
 
 // RecordLegacyCandidateRead records provenance of an already-authorized real
@@ -83,6 +121,28 @@ func legacyReadKBs(ctx context.Context) []string {
 func CheckLegacyReadScope(db *gorm.DB) error {
 	if !LegacyReadGuardsEnabled(db) && !PrivateKBGuardsEnabled(db) {
 		return nil
+	}
+	if scope, ok := db.Statement.Context.Value(legacyReadScopeKey{}).(*legacyReadScope); ok {
+		scope.mu.Lock()
+		metadata := make([]string, 0, len(scope.metadata))
+		for kb := range scope.metadata {
+			metadata = append(metadata, kb)
+		}
+		scope.mu.Unlock()
+		for _, kb := range metadata {
+			// Final checking must not register metadata as a body read.
+			check := db.WithContext(WithLegacyReadScope(db.Statement.Context))
+			if err := CheckPrivateKBRead(check, "", kb); err != nil {
+				return err
+			}
+			var alive bool
+			if err := check.Raw("SELECT EXISTS(SELECT 1 FROM knowledge_bases WHERE id=? AND deleted_at IS NULL)", kb).Scan(&alive).Error; err != nil {
+				return err
+			}
+			if !alive {
+				return ErrPrivateKnowledgeBase
+			}
+		}
 	}
 	ids := legacyReadKBs(db.Statement.Context)
 	for _, kb := range ids {
