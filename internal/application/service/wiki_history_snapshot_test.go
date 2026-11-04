@@ -105,6 +105,8 @@ func TestWikiHistoryRegenerationRejectsChangedAndDeniedSources(t *testing.T) {
 func TestWikiHistoryRegenerationResumesOnlyUnclaimedWikiSlots(t *testing.T) {
 	for _, change := range []string{
 		"valid", "claim", "other_subtask", "changed_input", "disabled_source", "deleted_retract", "foreign_retract",
+		"finalize_slug", "finalize_change", "finalize_folder_prune", "claimed_finalize", "changed_finalize",
+		"foreign_finalize", "unknown_finalize",
 	} {
 		t.Run(change, func(t *testing.T) {
 			f := wikiPendingRegenerationFixture(t)
@@ -123,6 +125,25 @@ func TestWikiHistoryRegenerationResumesOnlyUnclaimedWikiSlots(t *testing.T) {
 				Payload: json.RawMessage(`{"doc_summary":"UNVERIFIED_QUEUED_TEXT"}`),
 			}
 			require.NoError(t, db.Create(&old).Error)
+			var finalOp types.TaskPendingOp
+			if strings.Contains(change, "finalize") {
+				op := "slug"
+				if change == "finalize_change" {
+					op = "change"
+				} else if change == "finalize_folder_prune" {
+					op = "folder_prune"
+				} else if change == "unknown_finalize" {
+					op = "unknown"
+				}
+				finalOp = types.TaskPendingOp{
+					TenantID: 1, TaskType: "wiki:finalize", Scope: "knowledge_base", ScopeID: "public-two",
+					Op: op, DedupKey: "", Payload: json.RawMessage(`{"old":"UNPROVED_FINALIZE_BODY"}`),
+				}
+				if change == "foreign_finalize" {
+					finalOp.TenantID = 99
+				}
+				require.NoError(t, db.Create(&finalOp).Error)
+			}
 			if change == "deleted_retract" || change == "foreign_retract" {
 				id := "public-one-doc"
 				if change == "deleted_retract" {
@@ -141,7 +162,7 @@ func TestWikiHistoryRegenerationResumesOnlyUnclaimedWikiSlots(t *testing.T) {
 			_, err := repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", "", false)
 			require.Error(t, err, "ordinary regeneration cannot consume pending operations")
 			plan, err := repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", "", false, true)
-			if change == "foreign_retract" {
+			if change == "foreign_retract" || change == "foreign_finalize" || change == "unknown_finalize" {
 				require.Error(t, err)
 				var count int64
 				require.NoError(t, db.Model(&types.TaskDeadLetter{}).Count(&count).Error)
@@ -150,7 +171,16 @@ func TestWikiHistoryRegenerationResumesOnlyUnclaimedWikiSlots(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.Equal(t, 1, plan.ResumedPending)
+			if finalOp.ID != 0 {
+				require.Equal(t, 1, plan.RetiredFinalizes)
+			}
 			switch change {
+			case "claimed_finalize":
+				require.NoError(t, db.Model(&types.TaskPendingOp{}).Where("id=?", finalOp.ID).
+					Update("claimed_at", time.Now()).Error)
+			case "changed_finalize":
+				require.NoError(t, db.Model(&types.TaskPendingOp{}).Where("id=?", finalOp.ID).
+					Update("payload", json.RawMessage(`{"changed":true}`)).Error)
 			case "claim":
 				require.NoError(t, db.Model(&types.TaskPendingOp{}).Where("id=?", old.ID).
 					Update("claimed_at", time.Now()).Error)
@@ -166,7 +196,7 @@ func TestWikiHistoryRegenerationResumesOnlyUnclaimedWikiSlots(t *testing.T) {
 			}
 			applied, err := repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", plan.Snapshot, true, true)
 			var count int64
-			if change != "valid" && change != "deleted_retract" {
+			if change != "valid" && change != "deleted_retract" && !strings.HasPrefix(change, "finalize_") {
 				require.Error(t, err)
 				require.NoError(t, db.Model(&types.TaskDeadLetter{}).Count(&count).Error)
 				require.Zero(t, count, "rejection must not retire any operation")
@@ -174,6 +204,12 @@ func TestWikiHistoryRegenerationResumesOnlyUnclaimedWikiSlots(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.True(t, applied.Applied)
+			if finalOp.ID != 0 {
+				var retained types.TaskPendingOp
+				require.NoError(t, db.First(&retained, finalOp.ID).Error)
+				require.Equal(t, "wiki_regeneration_archive", retained.Scope)
+				require.Equal(t, string(finalOp.Payload), string(retained.Payload))
+			}
 			var pending types.TaskPendingOp
 			require.NoError(t, db.Where("scope='knowledge_base'").First(&pending).Error)
 			require.NotEqual(t, old.ID, pending.ID)

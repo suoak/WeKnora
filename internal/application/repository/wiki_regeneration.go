@@ -16,14 +16,15 @@ import (
 
 // WikiRegenerationPlan contains no historical bodies or employee credentials.
 type WikiRegenerationPlan struct {
-	TenantID        uint64 `json:"tenant_id"`
-	KnowledgeBaseID string `json:"knowledge_base_id"`
-	Documents       int    `json:"documents"`
-	HistoricalPages int    `json:"historical_pages"`
-	Snapshot        string `json:"snapshot"`
-	Applied         bool   `json:"applied"`
-	ResumedPending  int    `json:"resumed_pending"`
-	RetiredRetracts int    `json:"retired_retracts"`
+	TenantID         uint64 `json:"tenant_id"`
+	KnowledgeBaseID  string `json:"knowledge_base_id"`
+	Documents        int    `json:"documents"`
+	HistoricalPages  int    `json:"historical_pages"`
+	Snapshot         string `json:"snapshot"`
+	Applied          bool   `json:"applied"`
+	ResumedPending   int    `json:"resumed_pending"`
+	RetiredRetracts  int    `json:"retired_retracts"`
+	RetiredFinalizes int    `json:"retired_finalizes"`
 }
 
 const wikiRegenerationArchiveScope = "wiki_regeneration_archive"
@@ -67,9 +68,20 @@ func PrepareWikiRegeneration(
 		}
 		pendingByDocument := make(map[string]int, len(pending))
 		var retracts []types.TaskPendingOp
+		finalizes := 0
 		for _, op := range pending {
-			// Never replace a live claim, finalize or unrelated lane.
-			if op.TenantID != tenant || op.TaskType != "wiki:ingest" ||
+			// A verified full rebuild supersedes unclaimed convergence intents as
+			// well as ingest work. Archive their original payloads without reading
+			// them into generation; never replace a live claim or unrelated lane.
+			if op.TenantID != tenant || op.ClaimedAt != nil {
+				return errors.New("pending Wiki operations are not safely resumable")
+			}
+			if op.TaskType == "wiki:finalize" &&
+				(op.Op == "slug" || op.Op == "change" || op.Op == "folder_prune") {
+				finalizes++
+				continue
+			}
+			if op.TaskType != "wiki:ingest" ||
 				(op.Op != "ingest" && op.Op != "retract") ||
 				op.ClaimedAt != nil || op.DedupKey == "" {
 				return errors.New("pending Wiki operations are not safely resumable")
@@ -134,8 +146,9 @@ func PrepareWikiRegeneration(
 		plan = &WikiRegenerationPlan{
 			TenantID: tenant, KnowledgeBaseID: kb,
 			Documents: len(docs), HistoricalPages: len(pages),
-			ResumedPending: len(pending) - len(retracts), RetiredRetracts: len(retracts),
-			Snapshot: wikiDigest([]any{anchor, proof.Sources, proof.Epochs, docs, pages, epoch, resume, pending}),
+			ResumedPending: len(pending) - len(retracts) - finalizes, RetiredRetracts: len(retracts),
+			RetiredFinalizes: finalizes,
+			Snapshot:         wikiDigest([]any{anchor, proof.Sources, proof.Epochs, docs, pages, epoch, resume, pending}),
 		}
 		if !apply {
 			return nil
