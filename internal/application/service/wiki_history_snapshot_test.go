@@ -128,11 +128,12 @@ func TestWikiHistoryRegenerationResumesOnlyUnclaimedWikiSlots(t *testing.T) {
 			var finalOp types.TaskPendingOp
 			if strings.Contains(change, "finalize") {
 				op := "slug"
-				if change == "finalize_change" {
+				switch change {
+				case "finalize_change":
 					op = "change"
-				} else if change == "finalize_folder_prune" {
+				case "finalize_folder_prune":
 					op = "folder_prune"
-				} else if change == "unknown_finalize" {
+				case "unknown_finalize":
 					op = "unknown"
 				}
 				finalOp = types.TaskPendingOp{
