@@ -148,7 +148,9 @@ func PrepareWikiRegeneration(
 			Documents: len(docs), HistoricalPages: len(pages),
 			ResumedPending: len(pending) - len(retracts) - finalizes, RetiredRetracts: len(retracts),
 			RetiredFinalizes: finalizes,
-			Snapshot:         wikiDigest([]any{anchor, proof.Sources, proof.Epochs, docs, pages, epoch, resume, pending}),
+			Snapshot: wikiDigest([]any{
+				anchor, proof.Sources, proof.Epochs, docs, pages, epoch, resume, pending,
+			}),
 		}
 		if !apply {
 			return nil
