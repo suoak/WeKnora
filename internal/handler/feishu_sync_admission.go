@@ -27,10 +27,11 @@ func writeSyncAdmissionFailure(c *gin.Context, err error) bool {
 		case "sync_source_protected":
 			message = "数据源暂不可同步，请联系管理员"
 			protection = rejected.ProtectionState
-			if protection == "hold" {
+			switch protection {
+			case "hold":
 				message = "数据源已保存，来源处于保护状态，请管理员核验恢复后同步"
 				recoveryAction = "reconcile_source"
-			} else if protection == "revoked" {
+			case "revoked":
 				message = "数据源已保留，来源授权已撤销，需要重新授权后同步"
 				recoveryAction = "reauthorize_source"
 			}
