@@ -224,6 +224,12 @@ func PrepareWikiRegeneration(
 		}
 		slotEpochAdvance := make(map[string]int64, len(docs))
 		for _, doc := range docs {
+			// Verified empty files remain in the source closure but have no
+			// content to regenerate. Preserve their completed parser lifecycle;
+			// creating a Wiki slot would make their own empty-input proof invalid.
+			if proof.EmptySources[doc.ID] {
+				continue
+			}
 			var attempt int
 			if err := tx.Table("knowledge_processing_spans").Select("COALESCE(MAX(attempt),0)").
 				Where("knowledge_id=?", doc.ID).Scan(&attempt).Error; err != nil {

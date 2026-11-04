@@ -20,17 +20,20 @@ var ErrWikiMCPUnverified = errors.New("wiki provenance requires verified regener
 // Every historical page still needs its own verified proof.
 const wikiMCPMaxPages = 20000
 
-type wikiGenerationProofKey struct{}
-type wikiGenerationProof struct {
-	mu               sync.Mutex
-	Tenant           uint64
-	KB               string
-	Sources          map[string]string
-	Epochs           map[string]string
-	DependencySHA256 string
-	WikiGeneration   int64
-	WikiIncarnation  string
-}
+type (
+	wikiGenerationProofKey struct{}
+	wikiGenerationProof    struct {
+		mu               sync.Mutex
+		Tenant           uint64
+		KB               string
+		Sources          map[string]string
+		EmptySources     map[string]bool
+		Epochs           map[string]string
+		DependencySHA256 string
+		WikiGeneration   int64
+		WikiIncarnation  string
+	}
+)
 type wikiMCPEpoch struct {
 	Generation  int64
 	Incarnation string
@@ -52,6 +55,7 @@ func readWikiMCPEpoch(db *gorm.DB, kb string) (wikiMCPEpoch, error) {
 	}
 	return e, err
 }
+
 func checkWikiMCPEpochCoverage(db *gorm.DB) error {
 	var n int64
 	switch db.Name() {
@@ -72,6 +76,7 @@ func checkWikiMCPEpochCoverage(db *gorm.DB) error {
 	}
 	return ErrWikiMCPUnverified
 }
+
 func withWikiMCPProofWrite(ctx context.Context, write func() error) error {
 	p, ok := ctx.Value(wikiGenerationProofKey{}).(*wikiGenerationProof)
 	if !ok {
@@ -86,6 +91,7 @@ func withWikiMCPProofWrite(ctx context.Context, write func() error) error {
 	}
 	return err
 }
+
 func beforeWikiMCPMutation(db *gorm.DB, ctx context.Context) error {
 	if p, ok := ctx.Value(wikiGenerationProofKey{}).(*wikiGenerationProof); ok {
 		if err := checkWikiMCPEpochCoverage(db); err != nil {
@@ -143,6 +149,7 @@ func wikiDigest(v any) string {
 	h := sha256.Sum256(b)
 	return hex.EncodeToString(h[:])
 }
+
 func wikiPageDigest(p *types.WikiPage) string {
 	return wikiDigest([]any{p.ID, p.TenantID, p.KnowledgeBaseID, p.Slug, p.Title, p.Content, p.Summary, p.Status, p.PageType, p.Aliases, p.SourceRefs, p.ChunkRefs, p.OutLinks, p.PageMetadata})
 }
@@ -258,6 +265,10 @@ func wikiDependencies(db *gorm.DB, kb string) (*wikiGenerationProof, error) {
 				return nil, err
 			}
 			identity["verified_empty_input"] = emptyVersion
+			if p.EmptySources == nil {
+				p.EmptySources = map[string]bool{}
+			}
+			p.EmptySources[d.ID] = true
 		}
 		p.Sources[d.ID] = wikiDigest([]any{identity, inputs})
 	}
@@ -313,6 +324,7 @@ func BeginWikiMCPGeneration(ctx context.Context, repo interfaces.WikiPageReposit
 	}
 	return context.WithValue(ctx, wikiGenerationProofKey{}, proof), nil
 }
+
 func sealWikiMCPMutation(db *gorm.DB, ctx context.Context, page *types.WikiPage) error {
 	p, ok := ctx.Value(wikiGenerationProofKey{}).(*wikiGenerationProof)
 	if !ok {
@@ -355,6 +367,7 @@ func sealWikiMCPMutation(db *gorm.DB, ctx context.Context, page *types.WikiPage)
 	p.WikiGeneration, p.WikiIncarnation = epoch.Generation, epoch.Incarnation
 	return nil
 }
+
 func verifyWikiProof(db *gorm.DB, page *types.WikiPage, p *wikiGenerationProof, published bool, allowed map[string]bool) error {
 	if page == nil || page.DeletedAt.Valid || page.KnowledgeBaseID != p.KB || page.TenantID != p.Tenant || (len(page.SourceRefs) == 0 && page.PageType != types.WikiPageTypeIndex) || published && page.Status != types.WikiPageStatusPublished {
 		return ErrWikiMCPUnverified

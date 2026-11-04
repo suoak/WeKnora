@@ -79,4 +79,24 @@ func testWikiVerifiedEmptyGitLabInput(t *testing.T, f *fixture.Fixture) {
 	}).Error)
 	_, err = repository.BeginWikiMCPGeneration(ctx, repo, "public-two")
 	require.Error(t, err, "a shared or ambiguous file binding cannot certify an empty input")
+	require.NoError(t, db.Delete(&types.ResourceBinding{}, "id='ambiguous-binding'").Error)
+	require.NoError(t, db.AutoMigrate(&types.TaskPendingOp{}, &types.KnowledgeProcessingSpan{}))
+	require.NoError(t, db.Model(&types.KnowledgeBase{}).Where("id='public-two'").
+		Update("indexing_strategy", types.IndexingStrategy{WikiEnabled: true}).Error)
+	plan, err := repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", "", false)
+	require.NoError(t, err)
+	require.Equal(t, 2, plan.Documents, "the empty source still belongs to the verified closure")
+	applied, err := repository.PrepareWikiRegeneration(ctx, db, 1, "public-two", plan.Snapshot, true)
+	require.NoError(t, err)
+	require.True(t, applied.Applied)
+	var empty types.Knowledge
+	require.NoError(t, db.First(&empty, "id='empty-gitlab-doc'").Error)
+	require.Equal(t, "completed", empty.ParseStatus)
+	require.Zero(t, empty.PendingSubtasksCount)
+	var pending []types.TaskPendingOp
+	require.NoError(t, db.Where("scope='knowledge_base' AND scope_id='public-two'").Find(&pending).Error)
+	require.Len(t, pending, 1)
+	require.Equal(t, "public-two-doc", pending[0].DedupKey)
+	_, err = repository.BeginWikiMCPGeneration(ctx, repo, "public-two")
+	require.NoError(t, err, "recovery must keep the empty source valid while its sibling regenerates")
 }
