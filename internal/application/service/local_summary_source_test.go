@@ -72,7 +72,9 @@ func testLocalSummarySourceIsolation(t *testing.T, f *fixture.Fixture) {
 			tx := db.Begin()
 			require.NoError(t, tx.Error)
 			defer tx.Rollback()
-			scoped := &knowledgeService{repo: repository.NewKnowledgeRepository(tx), chunkRepo: repository.NewChunkRepository(tx)}
+			scoped := &knowledgeService{
+				repo: repository.NewKnowledgeRepository(tx), chunkRepo: repository.NewChunkRepository(tx),
+			}
 			p, e := scoped.localSummaryMessages(ctx, &knowledge, chunks, messages, options)
 			require.NoError(t, e)
 			require.NoError(t, tx.Exec(mutation).Error)
@@ -85,7 +87,9 @@ func testLocalSummarySourceIsolation(t *testing.T, f *fixture.Fixture) {
 		tx := db.Begin()
 		require.NoError(t, tx.Error)
 		defer tx.Rollback()
-		scoped := &knowledgeService{repo: repository.NewKnowledgeRepository(tx), chunkRepo: repository.NewChunkRepository(tx)}
+		scoped := &knowledgeService{
+			repo: repository.NewKnowledgeRepository(tx), chunkRepo: repository.NewChunkRepository(tx),
+		}
 		p, e := scoped.localSummaryMessages(ctx, &knowledge, chunks, messages, options)
 		require.NoError(t, e)
 		provider := &localSummaryMutatingModel{legacySpyModel: &legacySpyModel{}, mutate: func() {
