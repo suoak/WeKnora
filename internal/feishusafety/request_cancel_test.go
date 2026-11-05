@@ -82,7 +82,8 @@ func TestSafetySlowSourceValidationCancelsLocallyWithHealthyController(t *testin
 				}
 				if embedding {
 					window := client.ZRange(context.Background(), g.key("window"), 0, -1).Val()
-					if len(window) != 1 || !strings.HasSuffix(window[0], ":"+strconv.Itoa(len("test")+g.config.TokenOverhead)) {
+					charge := ":" + strconv.Itoa(len("test")+g.config.TokenOverhead)
+					if len(window) != 1 || !strings.HasSuffix(window[0], charge) {
 						t.Fatal("canceled embedding must retain its complete conservative token charge")
 					}
 				}
