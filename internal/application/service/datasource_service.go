@@ -1185,7 +1185,16 @@ func (s *DataSourceService) applyFetchedItem(
 		if safeLegacyIncrementalEnabled() && legacyWikiDrive(ds.Type) {
 			result.Failed++
 			result.DeletionFailed++
-			return &dataSourceIngestError{cause: s.legacyMissingItem(ctx, ds, item)}
+			err := s.legacyMissingItem(ctx, ds, item)
+			var local *datasource.DocumentFailureError
+			if errors.As(err, &local) {
+				recordSyncError(result, types.SyncItemError{
+					Title: item.Title, Code: local.Code,
+					Message: "Source document is isolated pending access verification; siblings continue syncing",
+				})
+				return err
+			}
+			return &dataSourceIngestError{cause: err}
 		}
 		if !ds.SyncDeletions {
 			// Sync deletion disabled: neither count nor delete.

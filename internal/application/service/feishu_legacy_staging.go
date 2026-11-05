@@ -95,12 +95,13 @@ func (s *DataSourceService) legacyMissingItem(
 	}
 	// Listing absence is not a trustworthy permanent-delete event, including
 	// when SyncDeletions is false. Preserve the old version privately, deny
-	// reads now, and require reconciliation instead of acknowledging a cursor.
-	_, err = store.RestrictSource(context.WithoutCancel(ctx), ds, item.ExternalID, false)
+	// reads now, but isolate this resource so siblings can continue. Historical
+	// unbound content still uses RestrictDocument's source-wide fallback.
+	err = store.RestrictDocument(context.WithoutCancel(ctx), ds, item.ExternalID)
 	if err != nil {
 		return err
 	}
-	return types.ErrLegacySourceRestricted
+	return &datasource.DocumentFailureError{Code: "feishu_document_access_unavailable"}
 }
 
 func (s *knowledgeService) restrictLegacyUnverifiedChildren(
