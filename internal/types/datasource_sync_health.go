@@ -26,7 +26,8 @@ func (d *DataSource) DescribeSyncHealth() *DataSourceSyncHealth {
 	}
 	errorText := strings.ToLower(d.ErrorMessage)
 	if strings.Contains(errorText, "credential reference unavailable") ||
-		strings.Contains(errorText, "authorization expired") || strings.Contains(errorText, "requires reauthorization") {
+		strings.Contains(errorText, "authorization expired") ||
+		strings.Contains(errorText, "requires reauthorization") {
 		return health("reauthorize", "需要重新连接并验证飞书授权", "reconnect")
 	}
 	if strings.Contains(errorText, "feishu source permission denied") {

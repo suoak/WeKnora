@@ -168,7 +168,8 @@ func (s *FeishuPersonalService) approveSourceUpdates(
 			return nil, fmt.Errorf("personal_publication_signed_limits: %w", err)
 		}
 		if expires.After(authorizedUntil) {
-			return nil, fmt.Errorf("%w: publication_expiry_exceeds_signed_limits", feishusynccontrol.ErrRecoveryRejected)
+			return nil, fmt.Errorf("%w: publication_expiry_exceeds_signed_limits",
+				feishusynccontrol.ErrRecoveryRejected)
 		}
 		reconcileUntil = readUntil
 	}
