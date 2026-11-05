@@ -246,6 +246,11 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 		}
 		_, e = store.RetainVerifiedVersion(context.Background(), ds, item)
 		require.Error(t, e, "an unclaimed retry cannot assert current access")
+		denied := types.WithFeishuSourceReadGuard(ctx, func(context.Context) error {
+			return errors.New("current resource permission withdrawn")
+		})
+		_, e = store.RetainVerifiedVersion(denied, ds, item)
+		require.Error(t, e, "a retained historical receipt never overrides current permission")
 		copy := *item
 		copy.ExternalID = "not-imported"
 		_, e = store.RetainVerifiedVersion(ctx, ds, &copy)

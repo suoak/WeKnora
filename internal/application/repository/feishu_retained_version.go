@@ -21,6 +21,9 @@ func (s *FeishuLegacyStore) RetainVerifiedVersion(
 		item.SourceResourceID == "" || item.UpdatedAt.IsZero() || item.Metadata["error"] != "" {
 		return nil, legacyFence("retained_version_current_fetch_unconfirmed")
 	}
+	if err := types.CheckFeishuSourceRead(ctx); err != nil {
+		return nil, err
+	}
 	var resource types.FeishuLegacyResource
 	var attempt types.FeishuLegacyAttempt
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
