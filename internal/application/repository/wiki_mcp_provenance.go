@@ -16,8 +16,8 @@ import (
 
 var ErrWikiMCPUnverified = errors.New("wiki provenance requires verified regeneration")
 
-// An in-flight snapshot changed. Deny this model/write attempt and retry from
-// fresh inputs; this is distinct from a historical page with no valid proof.
+// ErrWikiMCPInputsChanged rejects an in-flight snapshot that changed. Retry
+// from fresh inputs; this differs from a historical page with no valid proof.
 var ErrWikiMCPInputsChanged = errors.New("wiki generation input snapshot changed")
 
 // Bounded to accommodate existing production KBs and the GitLab Wiki backlog.
