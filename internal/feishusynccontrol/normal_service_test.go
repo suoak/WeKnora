@@ -22,6 +22,24 @@ type normalFixture struct {
 	saved   *NormalServiceRecord
 }
 
+func TestNormalServiceCanaryResumesExistingQueueWithoutResigning(t *testing.T) {
+	f := newNormalFixture(t)
+	ctx := context.Background()
+	authorization := f.activateNormal(t)
+	require.NoError(t, f.r.Set(ctx, f.c.Guard.PermitKey(), f.c.Guard.Fingerprint(), time.Minute).Err())
+	require.NoError(t, f.r.Set(ctx, "asynq:{approved_sync}:paused", "1", 0).Err())
+	before := *f.saved
+	require.NoError(t, f.m.resumeNormalQueueAfterCanary(ctx))
+	require.Zero(t, f.r.Exists(ctx, "asynq:{approved_sync}:paused").Val())
+	require.Equal(t, authorization, f.saved.Authorization)
+	require.Equal(t, before, *f.saved)
+
+	require.NoError(t, f.r.Set(ctx, "asynq:{approved_sync}:paused", "1", 0).Err())
+	require.NoError(t, f.r.Set(ctx, f.c.prefix+"trip", "real_stop", 0).Err())
+	require.Error(t, f.m.resumeNormalQueueAfterCanary(ctx))
+	require.EqualValues(t, 1, f.r.Exists(ctx, "asynq:{approved_sync}:paused").Val())
+}
+
 func newNormalFixture(t *testing.T) *normalFixture {
 	t.Helper()
 	f := &normalFixture{steadyFixture: newSteadyFixture(t), sources: map[string]NormalSourceAuthority{}}

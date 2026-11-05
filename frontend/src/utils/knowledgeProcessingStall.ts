@@ -8,6 +8,20 @@ export const STALLED_POLL_INTERVAL_MS = 15 * 1000
 
 const IN_FLIGHT = new Set(['pending', 'processing', 'finalizing'])
 
+export type ProcessingExecution = {
+  state: 'running' | 'queued' | 'waiting' | 'stalled' | 'blocked' | 'retrying'
+  lease_until?: string
+  reason?: string
+  retry_after?: string
+}
+
+// Polling and a pending placeholder do not prove a worker is executing.
+export function hasLiveExecution(execution?: ProcessingExecution, now: number = Date.now()): boolean {
+  if (execution?.state !== 'running' || !execution.lease_until) return false
+  const until = Date.parse(execution.lease_until)
+  return Number.isFinite(until) && until > now
+}
+
 export type ProcessingActivity = {
   parse_status?: string
   last_activity_at?: string | null

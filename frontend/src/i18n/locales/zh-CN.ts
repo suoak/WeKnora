@@ -6858,6 +6858,16 @@ export default {
     }
   },
   knowledgeStages: {
+    execution: {
+      'queued': '排队等待',
+      'waiting': '等待有效执行',
+      'stalled': '处理停滞，等待自动恢复',
+      'retrying': '正在自动重试',
+      'format': '文档格式需兼容处理，保留原任务并自动复检',
+      'authorization': '来源权限或授权需重新核验',
+      'verification': '来源核验受阻，原任务已保留',
+      'lastChecked': '界面检查于'
+},
     title: '处理流水线',
     root: '知识处理',
     attempt: '第 {n} 次尝试',
@@ -6877,7 +6887,7 @@ export default {
     copied: '已复制到剪贴板',
     close: '关闭',
     live: 'LIVE',
-    liveTooltip: '解析进行中，每 2 秒自动刷新一次',
+    liveTooltip: 'Worker 执行租约有效；自动刷新不代表实际进展',
     autoRefreshOn: '自动刷新中',
     fetchFailedShort: '刷新失败',
     viewTrace: '查看 Trace',

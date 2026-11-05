@@ -840,6 +840,16 @@ const messages = {
     manualCharCount: '{count}文字'
   },
   knowledgeStages: {
+    execution: {
+      'queued': 'Queued for a worker',
+      'waiting': 'Waiting for an execution',
+      'stalled': 'Processing stalled; awaiting recovery',
+      'retrying': 'Retrying automatically',
+      'format': 'Document format requires support; retained for recheck',
+      'authorization': 'Source authorization needs verification',
+      'verification': 'Source verification blocked; task retained',
+      'lastChecked': 'View checked'
+},
     title: '処理パイプライン',
     root: 'ナレッジ処理',
     processConfig: {

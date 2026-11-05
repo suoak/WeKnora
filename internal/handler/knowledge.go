@@ -775,6 +775,14 @@ func (h *KnowledgeHandler) GetKnowledgeSpans(c *gin.Context) {
 		"trace":           tree,
 	}
 	if isParseInFlight(knowledge.ParseStatus) {
+		if probe, ok := h.backlog.(interface {
+			ProcessingExecutions(context.Context, []string) (map[string]types.KnowledgeExecutionState, error)
+		}); ok {
+			states, probeErr := probe.ProcessingExecutions(ctx, []string{knowledge.ID})
+			if probeErr == nil {
+				resp["execution"] = states[knowledge.ID]
+			}
+		}
 		last := spansLastActivity(knowledge.UpdatedAt, rows)
 		resp["last_activity_at"] = last
 		if time.Since(last) >= stallHintAfter {

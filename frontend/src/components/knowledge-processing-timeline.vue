@@ -11,7 +11,9 @@ import {
   type KnowledgeTraceNode,
 } from '@/utils/knowledgeTrace'
 import { resolveTimelineHeaderStatus, shouldShowProcessingError } from '@/utils/knowledgeProcessingStatus'
-import { shownStall, stalledMinutes, STALLED_POLL_INTERVAL_MS } from '@/utils/knowledgeProcessingStall'
+import {
+  shownStall, stalledMinutes, STALLED_POLL_INTERVAL_MS, hasLiveExecution, type ProcessingExecution,
+} from '@/utils/knowledgeProcessingStall'
 import { axisGridStepPct, buildAxisTicks, computeTraceAxis } from '@/utils/traceAxis'
 import type { KnowledgeProcessOverrides } from '@/types/knowledgeProcess'
 
@@ -37,6 +39,7 @@ interface SpansResponse {
   last_activity_at?: string
   // Server verdict once quiet past the stall hint: 'queued' or 'stalled'.
   stall_state?: string
+  execution?: ProcessingExecution
 }
 
 // IMPORTANT: Vue 3 coerces missing Boolean props to `false`, NOT
@@ -260,6 +263,23 @@ const isLive = computed<boolean>(() => {
   }
   if (isHardTerminal(props.parseStatus)) return false
   return isPolling(props.parseStatus)
+})
+
+// isLive keeps observation/polling active. Only a fresh server lease earns LIVE.
+const hasLiveWorker = computed(() => isLive.value && hasLiveExecution(data.value?.execution, nowTick.value))
+const executionLabel = computed(() => {
+  if (!isLive.value || hasLiveWorker.value) return ''
+  const execution = data.value?.execution
+  if (execution?.state === 'blocked') {
+    const reason = execution.reason
+    if (reason === 'document_format_unsupported') return t('knowledgeStages.execution.format')
+    if (reason === 'source_authorization_required') return t('knowledgeStages.execution.authorization')
+    return t('knowledgeStages.execution.verification')
+  }
+  if (execution?.state === 'retrying') return t('knowledgeStages.execution.retrying')
+  if (execution?.state === 'queued') return t('knowledgeStages.execution.queued')
+  if (execution?.state === 'stalled' || stalledMin.value > 0) return t('knowledgeStages.execution.stalled')
+  return t('knowledgeStages.execution.waiting')
 })
 
 // Walk every node in the tree and return the freshest updated_at /
@@ -1366,7 +1386,7 @@ const headStats = computed<HeadStat[]>(() => {
     }
     out.push({
       key: 'updated',
-      label: t('knowledgeStages.head.updated'),
+      label: t('knowledgeStages.execution.lastChecked'),
       value: updated,
       mono: false,
       note: !lastFetchOk.value,
@@ -1577,10 +1597,11 @@ const processConfigLines = computed<string[]>(() => {
                   class="kp-head-status-tag">
                   {{ headerStatusText }}
                 </t-tag>
-                <span v-if="isLive" class="kp-live-badge" :title="t('knowledgeStages.liveTooltip')">
+                <span v-if="hasLiveWorker" class="kp-live-badge" :title="t('knowledgeStages.liveTooltip')">
                   <span class="kp-live-dot" />
                   <span class="kp-live-text">{{ t('knowledgeStages.live') }}</span>
                 </span>
+                <span v-else-if="executionLabel" class="kp-head-status-tag" role="status">{{ executionLabel }}</span>
               </div>
             </div>
             <div class="kp-head-actions">

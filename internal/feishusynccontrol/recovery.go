@@ -863,6 +863,9 @@ func (m *RecoveryManager) Canary(
 		if err == nil {
 			err = m.transition(cleanup, p, a, actor, "canary", "running", "awaiting_review", "", 0)
 		}
+		if err == nil {
+			err = m.resumeNormalQueueAfterCanary(cleanup)
+		}
 		if err != nil {
 			_ = m.controller.EmergencyStop(cleanup)
 		}

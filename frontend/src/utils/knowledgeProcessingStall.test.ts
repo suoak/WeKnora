@@ -1,9 +1,18 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { shownStall, stalledMinutes, PROCESSING_STALL_THRESHOLD_MS } from './knowledgeProcessingStall.ts'
+import { shownStall, stalledMinutes, PROCESSING_STALL_THRESHOLD_MS, hasLiveExecution } from './knowledgeProcessingStall.ts'
 
 const now = Date.parse('2026-09-22T10:00:00Z')
 const ago = (ms: number) => new Date(now - ms).toISOString()
+
+test('LIVE requires a running execution with a current lease', () => {
+  assert.equal(hasLiveExecution({ state: 'running', lease_until: ago(-1000) }, now), true)
+  assert.equal(hasLiveExecution({ state: 'running', lease_until: ago(1) }, now), false)
+  assert.equal(hasLiveExecution({ state: 'running' }, now), false)
+  assert.equal(hasLiveExecution({ state: 'queued', lease_until: ago(-1000) }, now), false)
+  assert.equal(hasLiveExecution({ state: 'blocked' }, now), false)
+  assert.equal(hasLiveExecution(undefined, now), false)
+})
 
 test('in-flight document idle past the threshold reports whole minutes', () => {
   assert.equal(stalledMinutes({ parse_status: 'processing', last_activity_at: ago(47 * 60000 + 30000) }, now), 47)
