@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/feishusafety"
+	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -34,6 +36,11 @@ func TestSignedReconciliationContinuesOnlyAfterVerifiedStateTransition(t *testin
 	work, bound, err := BindApprovedSource(context.Background(), id, facts.ConfigSHA256)
 	require.NoError(t, err)
 	require.True(t, bound, "the same signed exact source automatically continues normal scheduling")
+	run := uuid.NewString()
+	work = types.WithSyncExecution(work, types.SyncExecution{
+		DataSourceID: id, TenantID: authority.TenantID, SyncLogID: run, Generation: 1,
+	})
+	work = feishusafety.WithRecoveryExecution(work, facts.ConfigSHA256, run, 1)
 	work = feishusafety.WithScope(work, id)
 	require.NoError(t, f.c.Guard.Check(work), "the atomic Redis gate must accept the signed normal fingerprint")
 	_, release, err := feishusafety.ReserveEmbedding(work, []string{"verified resumed source"})
