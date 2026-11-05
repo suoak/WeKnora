@@ -24,7 +24,7 @@ func NormalSourceFromDatabase(
 ) (NormalSourceAuthority, error) {
 	var out NormalSourceAuthority
 	safe, err := strconv.ParseBool(os.Getenv("FEISHU_SAFE_INCREMENTAL_ENABLED"))
-	if err != nil || !safe || db.Dialector.Name() != "postgres" {
+	if err != nil || !safe || db.Name() != "postgres" {
 		return out, ErrRecoveryRejected
 	}
 	work := db.WithContext(ctx)

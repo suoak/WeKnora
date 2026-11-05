@@ -17,6 +17,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// NormalServiceSetting stores the durable service authorization and revocation state.
 const NormalServiceSetting = "integration.feishu.normal_service"
 
 // NormalServiceAuthorization approves the service's live authorization policy,
@@ -38,6 +39,7 @@ type NormalServiceAuthorization struct {
 	Signature           string `json:"signature"`
 }
 
+// NormalServiceRecord binds a signed service authorization to its activation state.
 type NormalServiceRecord struct {
 	Authorization NormalServiceAuthorization `json:"authorization"`
 	Active        bool                       `json:"active"`
@@ -110,6 +112,7 @@ func (m *RecoveryManager) verifyNormalAuthorization(a NormalServiceAuthorization
 	return nil
 }
 
+// PlanNormalService prepares a short-lived activation request for the actual administrator.
 func (m *RecoveryManager) PlanNormalService(ctx context.Context, actor string) (NormalServiceAuthorization, error) {
 	if m.normalService.Load() == nil || actor == "" || m.steadyReady(ctx) != nil {
 		return NormalServiceAuthorization{}, ErrRecoveryRejected
@@ -153,6 +156,7 @@ func (m *RecoveryManager) NormalServiceActive(ctx context.Context) (bool, error)
 	return record != nil, err
 }
 
+// ActivateNormalService persists and publishes an independently signed service authorization.
 func (m *RecoveryManager) ActivateNormalService(
 	ctx context.Context, authorization NormalServiceAuthorization, actor string,
 ) error {
@@ -226,6 +230,7 @@ return 1`, []string{
 	return err
 }
 
+// DeactivateNormalService stops execution and durably revokes the current authorization.
 func (m *RecoveryManager) DeactivateNormalService(ctx context.Context) error {
 	if !m.operation.TryLock() {
 		return ErrRecoveryRejected
