@@ -47,13 +47,21 @@ func (s *FeishuLegacyStore) SetSourceUncertain(ctx context.Context, ds *types.Da
 // trusted server-side withdrawal event; never sourced from request headers or
 // connector absence alone. The returned bool reports a durable terminal deny.
 func (s *FeishuLegacyStore) RestrictSource(ctx context.Context, ds *types.DataSource, external string, confirmed bool) (terminal bool, err error) {
+	return s.restrictSourceResource(ctx, ds, external, confirmed, true)
+}
+
+func (s *FeishuLegacyStore) restrictSourceResource(
+	ctx context.Context, ds *types.DataSource, external string, confirmed, sourceWide bool,
+) (terminal bool, err error) {
 	if external == "" {
 		return false, legacyFence("restriction_identity_missing")
 	}
 	// Deny commits before redaction/cleanup. A failed snapshot, trigger or
 	// projection write must not roll the access restriction back to readable.
-	if err = s.SetSourceUncertain(ctx, ds, true); err != nil {
-		return false, err
+	if sourceWide {
+		if err = s.SetSourceUncertain(ctx, ds, true); err != nil {
+			return false, err
+		}
 	}
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if e := s.execution(tx, ctx, ds); e != nil {
@@ -142,19 +150,15 @@ func (s *FeishuLegacyStore) RestrictSource(ctx context.Context, ds *types.DataSo
 	return
 }
 
-// RestrictDocument keeps the existing deny-before-redaction protocol, then
-// restores a previously admissible source only after this exact document is
-// durably quarantined. Its old body and derived Wiki remain unreadable. Any
-// snapshot/redaction/authority failure keeps the source closed for diagnosis.
+// RestrictDocument commits a document deny before snapshot/redaction. The live
+// source identity stays unchanged, so its signed publication guard still checks
+// the same source. A failed cleanup leaves this document and derived Wiki denied.
 func (s *FeishuLegacyStore) RestrictDocument(ctx context.Context, ds *types.DataSource, external string) error {
-	if _, err := s.RestrictSource(ctx, ds, external, false); err != nil {
-		return err
+	if external == "" {
+		return legacyFence("restriction_identity_missing")
 	}
-	if ds.LegacyAccessState != "active" && ds.LegacyAccessState != "unmanaged" {
-		return nil // Historical source uncertainty still requires full reconciliation.
-	}
-	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := s.execution(tx, ctx, ds); err != nil {
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := s.executionFence(ctx, tx, ds); err != nil {
 			return err
 		}
 		var resource types.FeishuLegacyResource
@@ -163,26 +167,20 @@ func (s *FeishuLegacyStore) RestrictDocument(ctx context.Context, ds *types.Data
 			legacyResourceID(ds, external), ds.TenantID, ds.ID, ds.KnowledgeBaseID).Error; err != nil {
 			return err
 		}
-		if (resource.State != "hold" && resource.State != "revoked") || len(resource.QuarantineSnapshot) <= 2 {
-			return legacyFence("document_quarantine_unconfirmed")
+		if resource.State == "revoked" {
+			return nil
 		}
-		var readable int64
-		if err := tx.Table("knowledges").Where("id=? AND tenant_id=? AND enable_status='enabled'",
-			resource.KnowledgeID, ds.TenantID).Count(&readable).Error; err != nil {
-			return err
-		}
-		if readable != 0 {
-			return legacyFence("document_quarantine_projection_unconfirmed")
-		}
-		result := tx.Model(&types.DataSource{}).
-			Where("id=? AND tenant_id=? AND legacy_access_state='hold'", ds.ID, ds.TenantID).
-			Update("legacy_access_state", ds.LegacyAccessState)
-		if result.Error != nil {
-			return result.Error
-		}
-		if result.RowsAffected != 1 {
-			return legacyFence("document_quarantine_source_changed")
-		}
-		return nil
+		return tx.Model(&resource).Update("state", "hold").Error
 	})
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// Historical content with no bound resource still needs source-wide
+		// denial before enrollment; do not infer a safe document identity.
+		_, err = s.RestrictSource(ctx, ds, external, false)
+		return err
+	}
+	if err != nil {
+		return err
+	}
+	_, err = s.restrictSourceResource(ctx, ds, external, false, false)
+	return err
 }

@@ -231,7 +231,17 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 		require.NoError(t, tx.Error)
 		defer tx.Rollback()
 		local := NewFeishuLegacyStore(tx)
-		require.NoError(t, local.RestrictDocument(ctx, ds, "same-cloud-id"))
+		guardedExecution := types.WithReconciliationCommitGuard(ctx, func(check *gorm.DB) error {
+			var current types.DataSource
+			if err := check.First(&current, "id=?", ds.ID).Error; err != nil {
+				return err
+			}
+			if current.LegacyAccessState != ds.LegacyAccessState {
+				return errors.New("signed source identity changed during document quarantine")
+			}
+			return nil
+		})
+		require.NoError(t, local.RestrictDocument(guardedExecution, ds, "same-cloud-id"))
 		var source types.DataSource
 		require.NoError(t, tx.First(&source, "id=?", ds.ID).Error)
 		require.Equal(t, ds.LegacyAccessState, source.LegacyAccessState)
@@ -242,6 +252,25 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 		guarded := types.EnableLegacyReadGuards(tx)
 		require.ErrorIs(t, types.CheckLegacySourceRead(guarded.WithContext(context.Background()), "", kb.ID),
 			types.ErrLegacySourceRestricted, "old derived content stays closed until safe regeneration")
+	})
+	t.Run("document-deny-survives-cleanup-guard-failure", func(t *testing.T) {
+		tx := db.Begin()
+		require.NoError(t, tx.Error)
+		defer tx.Rollback()
+		local := NewFeishuLegacyStore(tx)
+		denied := types.WithReconciliationCommitGuard(ctx, func(*gorm.DB) error {
+			return errors.New("current publication authority unavailable")
+		})
+		require.Error(t, local.RestrictDocument(denied, ds, "same-cloud-id"))
+		var source types.DataSource
+		require.NoError(t, tx.First(&source, "id=?", ds.ID).Error)
+		require.Equal(t, ds.LegacyAccessState, source.LegacyAccessState)
+		var quarantined types.FeishuLegacyResource
+		require.NoError(t, tx.First(&quarantined, "id=?", r.ID).Error)
+		require.Equal(t, "hold", quarantined.State)
+		guarded := types.EnableLegacyReadGuards(tx)
+		require.ErrorIs(t, types.CheckLegacySourceRead(guarded.WithContext(context.Background()), "", kb.ID),
+			types.ErrLegacySourceRestricted)
 	})
 	t.Run("document-failure-retains-only-a-verified-active-version", func(t *testing.T) {
 		item := &types.FetchedItem{

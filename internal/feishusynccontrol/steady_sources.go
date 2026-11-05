@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"regexp"
 	"sort"
@@ -78,7 +79,7 @@ func (m *RecoveryManager) steadySourceForPurpose(
 		if err == ErrRecoveryRejected {
 			return s, RecoveryFacts{}, steadySourceChanged()
 		}
-		return s, RecoveryFacts{}, ErrRecoveryRejected
+		return s, RecoveryFacts{}, fmt.Errorf("%w: source_authority_read: %w", ErrRecoveryRejected, err)
 	}
 	if authority.SourceID != source || authority.ActorID != actor || authority.TenantID == 0 ||
 		authority.KBID == "" || !recoverySHA.MatchString(authority.AuthorityHash) {
@@ -95,7 +96,7 @@ func (m *RecoveryManager) steadySourceForPurpose(
 		s.NormalFactsSHA256 = f.NormalFactsSHA256
 	}
 	if err != nil {
-		return s, f, ErrRecoveryRejected
+		return s, f, fmt.Errorf("%w: source_facts_read: %w", ErrRecoveryRejected, err)
 	}
 	if !s.matches(f) {
 		if !f.sourceStateKnown {
