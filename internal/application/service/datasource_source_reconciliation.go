@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/Tencent/WeKnora/internal/feishusynccontrol"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -21,7 +22,7 @@ func (s *DataSourceService) RunSourceReconciliation(
 	}
 	work, err := m.BeginSourceReconciliation(ctx, source, policy)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("source_reconciliation_reservation: %w", err)
 	}
 	return s.manualSyncUsing(work, source, func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
 		var payload types.DataSourceSyncPayload
@@ -60,7 +61,7 @@ func (s *DataSourceService) prepareSignedReferenceReconciliation(
 	}
 	expires, _, err := manager.ReconciliationAuthorization(ctx, ds.ID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("personal_reconciliation_authorization: %w", err)
 	}
 	operator := types.PrivateKBReadUser(ctx)
 	if operator == "" {
@@ -79,7 +80,7 @@ func (s *DataSourceService) prepareSignedReferenceReconciliation(
 		grant, err = s.feishuIdentity.RenewSourceReconciliation(ctx, ds.ID, operator, reference, expires)
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("personal_reconciliation_preparation: %w", err)
 	}
 	return s.syncLogRepo.FindByID(ctx, grant.ReconciliationLogID)
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
@@ -163,8 +164,11 @@ func (s *FeishuPersonalService) approveSourceUpdates(
 			return nil, feishusynccontrol.ErrRecoveryRejected
 		}
 		authorizedUntil, readUntil, err := manager.ReconciliationAuthorization(ctx, sourceID)
-		if err != nil || expires.After(authorizedUntil) {
-			return nil, feishusynccontrol.ErrRecoveryRejected
+		if err != nil {
+			return nil, fmt.Errorf("personal_publication_signed_limits: %w", err)
+		}
+		if expires.After(authorizedUntil) {
+			return nil, fmt.Errorf("%w: publication_expiry_exceeds_signed_limits", feishusynccontrol.ErrRecoveryRejected)
 		}
 		reconcileUntil = readUntil
 	}
