@@ -166,6 +166,19 @@ func PrepareWikiPageRecovery(
 		if expected != plan.Snapshot {
 			return errors.New("recovery snapshot changed")
 		}
+		// Resolving a source-only block can leave all page/operation inputs
+		// unchanged. The audit is the one-shot fence for that empty delta;
+		// the locked KB anchor serializes concurrent applies of this snapshot.
+		var applied int64
+		if err := tx.Table("task_pending_ops").Where(
+			"tenant_id=? AND scope=? AND scope_id=? AND task_type=? AND dedup_key=? AND op=?",
+			tenant, "wiki_page_recovery_audit", kb, "wiki:page_recovery", plan.Snapshot, "applied",
+		).Count(&applied).Error; err != nil {
+			return err
+		}
+		if applied != 0 {
+			return errors.New("recovery snapshot already applied")
+		}
 		now := time.Now().UTC()
 		for _, id := range plan.IsolatedPages {
 			result := tx.Model(&types.WikiPage{}).Where("id=? AND tenant_id=? AND knowledge_base_id=?", id, tenant, kb).
