@@ -26,13 +26,15 @@ func ResolveWikiProcessingBlockIfIdle(
 	resolved := false
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var anchor struct{ ID string }
-		if err := tx.Table("knowledge_bases").Clauses(clause.Locking{Strength: "UPDATE"}).
-			Select("id").Where("id=? AND tenant_id=? AND deleted_at IS NULL", kb, tenant).Take(&anchor).Error; err != nil {
+		anchorQuery := tx.Table("knowledge_bases").Clauses(clause.Locking{Strength: "UPDATE"}).
+			Select("id").Where("id=? AND tenant_id=? AND deleted_at IS NULL", kb, tenant)
+		if err := anchorQuery.Take(&anchor).Error; err != nil {
 			return err
 		}
 		var pending int64
-		if err := tx.Table("task_pending_ops").Where("scope=? AND scope_id=? AND task_type IN ?",
-			types.TaskScopeKnowledgeBase, kb, []string{"wiki:ingest", "wiki:finalize"}).Count(&pending).Error; err != nil {
+		pendingQuery := tx.Table("task_pending_ops").Where("scope=? AND scope_id=? AND task_type IN ?",
+			types.TaskScopeKnowledgeBase, kb, []string{"wiki:ingest", "wiki:finalize"})
+		if err := pendingQuery.Count(&pending).Error; err != nil {
 			return err
 		}
 		if pending != 0 {
