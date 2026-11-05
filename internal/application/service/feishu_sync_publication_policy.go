@@ -10,6 +10,7 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
+	"github.com/Tencent/WeKnora/internal/feishusynccontrol"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -155,6 +156,18 @@ func (s *FeishuPersonalService) approveSourceUpdates(
 	expires time.Time,
 	reconciliationLog string,
 ) (*FeishuSyncPublicationPolicy, error) {
+	reconcileUntil := time.Now().Add(15 * time.Minute)
+	if feishusynccontrol.ReconciliationPolicy(ctx, sourceID) != "" {
+		manager := feishusynccontrol.Recovery()
+		if manager == nil {
+			return nil, feishusynccontrol.ErrRecoveryRejected
+		}
+		authorizedUntil, readUntil, err := manager.ReconciliationAuthorization(ctx, sourceID)
+		if err != nil || expires.After(authorizedUntil) {
+			return nil, feishusynccontrol.ErrRecoveryRejected
+		}
+		reconcileUntil = readUntil
+	}
 	admin, _ := ctx.Value(types.SystemAdminContextKey).(bool)
 	if !admin || operator == "" || authorizationRef == "" || !expires.After(time.Now()) ||
 		expires.After(time.Now().Add(90*24*time.Hour)) {
@@ -250,7 +263,7 @@ func (s *FeishuPersonalService) approveSourceUpdates(
 				return access.ErrForbidden
 			}
 			policy.ReconciliationLogID = reconciliationLog
-			policy.ReconciliationExpiresAt = minTime(expires, time.Now().Add(15*time.Minute))
+			policy.ReconciliationExpiresAt = minTime(expires, reconcileUntil)
 			// The grant and run are one transaction. The approved operator can
 			// retry enqueue of this same durable run; another log cannot use it.
 			if err := tx.Create(&types.SyncLog{

@@ -591,7 +591,15 @@ func (s *DataSourceService) manualSyncUsing(
 	if err != nil {
 		return nil, err
 	}
-	if e := checkFeishuSourceOwner(ctx, ds); e != nil {
+	if feishusynccontrol.ReconciliationPolicy(ctx, ds.ID) != "" {
+		manager := feishusynccontrol.Recovery()
+		if manager == nil {
+			return nil, feishusynccontrol.ErrRecoveryRejected
+		}
+		if _, _, err := manager.ReconciliationAuthorization(ctx, ds.ID); err != nil {
+			return nil, err
+		}
+	} else if e := checkFeishuSourceOwner(ctx, ds); e != nil {
 		return nil, &datasource.SyncAdmissionError{Reason: "sync_source_permission_denied", Cause: e}
 	}
 	if datasource.LegacyFeishuSyncSuspended(ds.Type) {
@@ -647,13 +655,21 @@ func (s *DataSourceService) manualSyncUsing(
 		StartedAt:    time.Now().UTC(),
 	}
 
-	created, err := s.syncLogRepo.CreateIfNoRunning(ctx, syncLog)
+	prepared, err := s.prepareSignedReferenceReconciliation(ctx, ds)
 	if err != nil {
-		logger.Errorf(ctx, "failed to create sync log: %v", err)
 		return nil, err
 	}
-	if !created {
-		return nil, datasource.ErrSyncAlreadyRunning
+	if prepared != nil {
+		syncLog = prepared
+	} else {
+		created, err := s.syncLogRepo.CreateIfNoRunning(ctx, syncLog)
+		if err != nil {
+			logger.Errorf(ctx, "failed to create sync log: %v", err)
+			return nil, err
+		}
+		if !created {
+			return nil, datasource.ErrSyncAlreadyRunning
+		}
 	}
 
 	// Enqueue sync task

@@ -111,6 +111,33 @@ func (m *RecoveryManager) reconciliationKey(policy, source string) string {
 	return m.controller.prefix + "source_reconciliation:" + policy + ":" + source
 }
 
+// ReconciliationAuthorization exposes only the verified signed time bounds to
+// the existing SQL publication-grant preparation path. It neither consumes a
+// second ticket nor authorizes an unsigned/manual source recovery.
+func (m *RecoveryManager) ReconciliationAuthorization(
+	ctx context.Context, source string,
+) (time.Time, time.Time, error) {
+	policy := ReconciliationPolicy(ctx, source)
+	if policy == "" {
+		return time.Time{}, time.Time{}, ErrRecoveryRejected
+	}
+	_, raw, err := m.reconciliationContext(ctx, source, policy, false)
+	if err != nil {
+		return time.Time{}, time.Time{}, err
+	}
+	var state recoveryMode
+	if json.Unmarshal([]byte(raw), &state) != nil || state.Steady == nil {
+		return time.Time{}, time.Time{}, ErrRecoveryRejected
+	}
+	for _, entry := range state.Steady.Plan.ManagedSources {
+		if entry.SourceID == source && entry.Reconciliation {
+			return time.UnixMilli(state.Steady.Plan.AuthorizationUntilMS),
+				time.UnixMilli(entry.ReconcileUntilMS), nil
+		}
+	}
+	return time.Time{}, time.Time{}, ErrRecoveryRejected
+}
+
 // BeginSourceReconciliation consumes one independently signed source purpose.
 // The ticket and audit are persistent. An uncertain enqueue is not permission
 // to create another execution: a new signed policy is required to try again.
