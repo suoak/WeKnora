@@ -459,6 +459,7 @@ func TestWikiHistoryPostgres(t *testing.T) {
 		{"regeneration", testWikiHistoryRegeneration},
 		{"selective_page_recovery", testWikiSelectiveRecovery},
 		{"source_only_recovery", testWikiSelectiveRecoverySourceOnly},
+		{"local_summary_isolation", testLocalSummarySourceIsolation},
 		{"regeneration_block", testWikiHistoryRegenerationBlock},
 		{"deleted_input_evidence", testWikiDeletedInputEvidence},
 		{"unused_source_draft", testFeishuUnusedDraftAdmission},

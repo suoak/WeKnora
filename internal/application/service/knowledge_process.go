@@ -1265,6 +1265,12 @@ func (s *knowledgeService) getSummary(ctx context.Context,
 		if proofErr != nil {
 			return nil, proofErr
 		}
+	} else if mergedImageInfo == "" {
+		var proofErr error
+		modelCtx, proofErr = s.localSummaryMessages(modelCtx, knowledge, sortedChunks, messages, options)
+		if proofErr != nil {
+			return nil, proofErr
+		}
 	}
 	summary, err := summaryModel.Chat(modelCtx, messages, options)
 	if err != nil {

@@ -16,6 +16,10 @@ import (
 
 var ErrWikiMCPUnverified = errors.New("wiki provenance requires verified regeneration")
 
+// An in-flight snapshot changed. Deny this model/write attempt and retry from
+// fresh inputs; this is distinct from a historical page with no valid proof.
+var ErrWikiMCPInputsChanged = errors.New("wiki generation input snapshot changed")
+
 // Bounded to accommodate existing production KBs and the GitLab Wiki backlog.
 // Every historical page still needs its own verified proof.
 const wikiMCPMaxPages = 20000
@@ -104,7 +108,7 @@ func beforeWikiMCPMutation(db *gorm.DB, ctx context.Context) error {
 			return err
 		}
 		if e.Generation != p.WikiGeneration || e.Incarnation != p.WikiIncarnation {
-			return ErrWikiMCPUnverified
+			return ErrWikiMCPInputsChanged
 		}
 	}
 	return nil
@@ -131,7 +135,7 @@ func checkWikiMCPModelInputs(db *gorm.DB, ctx context.Context, tenant uint64) (b
 		return true, e
 	}
 	if fresh.DependencySHA256 != p.DependencySHA256 || wikiDigest(fresh.Epochs) != wikiDigest(p.Epochs) {
-		return true, ErrWikiMCPUnverified
+		return true, ErrWikiMCPInputsChanged
 	}
 	return true, nil
 }
@@ -388,7 +392,7 @@ func sealWikiMCPMutation(db *gorm.DB, ctx context.Context, page *types.WikiPage)
 		return e
 	}
 	if fresh.DependencySHA256 != p.DependencySHA256 || wikiDigest(fresh.Epochs) != wikiDigest(p.Epochs) {
-		return ErrWikiMCPUnverified
+		return ErrWikiMCPInputsChanged
 	}
 	b, e := json.Marshal(p.Sources)
 	if e != nil {
