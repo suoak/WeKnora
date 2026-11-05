@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -70,7 +71,7 @@ func TestSafetySlowSourceValidationCancelsLocallyWithHealthyController(t *testin
 					t.Fatal("slow authority check failed to cancel the request")
 				}
 				tripped := client.Exists(context.Background(), g.key("trip")).Val() != 0
-				if tripped != (lostPermit || embedding) {
+				if tripped != lostPermit {
 					t.Fatalf("wrong shared stop: headers=%t embedding=%t lostPermit=%t", headers, embedding, lostPermit)
 				}
 				if !tripped && g.Check(WithScope(context.Background(), "healthy-source")) != nil {
@@ -78,6 +79,12 @@ func TestSafetySlowSourceValidationCancelsLocallyWithHealthyController(t *testin
 				}
 				if client.HLen(context.Background(), g.key("inflight")).Val() != 0 {
 					t.Fatal("canceled request leaked its reservation")
+				}
+				if embedding {
+					window := client.ZRange(context.Background(), g.key("window"), 0, -1).Val()
+					if len(window) != 1 || !strings.HasSuffix(window[0], ":"+strconv.Itoa(len("test")+g.config.TokenOverhead)) {
+						t.Fatal("canceled embedding must retain its complete conservative token charge")
+					}
 				}
 				InstallDefault(nil)
 			}
