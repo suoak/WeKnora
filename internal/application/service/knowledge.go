@@ -586,6 +586,9 @@ func defaultChannel(ch string) string {
 
 // GetKnowledgeByID retrieves a knowledge entry by its ID
 func (s *knowledgeService) GetKnowledgeByID(ctx context.Context, id string) (*types.Knowledge, error) {
+	if types.IsKnowledgeProcessingMetadata(ctx, id) {
+		return s.GetKnowledgeProcessingMetadata(ctx, id)
+	}
 	if row, exact, err := s.readExactPublicKnowledge(ctx, id); exact || err != nil {
 		return row, err
 	}
@@ -618,6 +621,9 @@ func (s *knowledgeService) GetKnowledgeByID(ctx context.Context, id string) (*ty
 
 // GetKnowledgeByIDOnly retrieves knowledge by ID without tenant filter (for permission resolution).
 func (s *knowledgeService) GetKnowledgeByIDOnly(ctx context.Context, id string) (*types.Knowledge, error) {
+	if types.IsKnowledgeProcessingMetadata(ctx, id) {
+		return s.GetKnowledgeProcessingMetadata(ctx, id)
+	}
 	if types.IsKnowledgeDeletionMetadata(ctx, id) {
 		return s.GetKnowledgeDeletionMetadata(ctx, id)
 	}

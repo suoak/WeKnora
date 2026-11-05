@@ -699,7 +699,9 @@ func (h *KnowledgeHandler) GetKnowledge(c *gin.Context) {
 // segments. Subspans (multimodal.image[i], generation.*) ride along under
 // each stage as children when present.
 func (h *KnowledgeHandler) GetKnowledgeSpans(c *gin.Context) {
-	if svc, ok := h.kgService.(service.KnowledgeDocumentReadService); ok && svc.DocumentACLReadEnabled() {
+	metadataOnly := types.IsKnowledgeProcessingMetadata(c.Request.Context(), c.Param("id"))
+	if svc, ok := h.kgService.(service.KnowledgeDocumentReadService); ok &&
+		svc.DocumentACLReadEnabled() && !metadataOnly {
 		c.Error(errors.NewForbiddenError("Historical processing content is not certified"))
 		return
 	}
@@ -773,6 +775,7 @@ func (h *KnowledgeHandler) GetKnowledgeSpans(c *gin.Context) {
 		"current_attempt": currentAttempt,
 		"current_stage":   currentStageName,
 		"trace":           tree,
+		"metadata_only":   metadataOnly,
 	}
 	if isParseInFlight(knowledge.ParseStatus) {
 		if probe, ok := h.backlog.(interface {
