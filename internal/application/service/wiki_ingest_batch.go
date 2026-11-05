@@ -459,9 +459,12 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 	// batches); Lite mode peeks under its in-process lock.
 	var pendingOps []WikiPendingOp
 	var peekedIDs []int64
+	var claimOwnership map[int64]time.Time
 	var loadErr error
 	if s.redisClient != nil {
-		pendingOps, peekedIDs, loadErr = s.claimPendingList(ctx, payload.KnowledgeBaseID, batchSize)
+		pendingOps, peekedIDs, claimOwnership, loadErr = s.claimPendingListWithOwnership(
+			ctx, payload.KnowledgeBaseID, batchSize,
+		)
 	} else {
 		pendingOps, peekedIDs, loadErr = s.peekPendingList(ctx, payload.KnowledgeBaseID, batchSize)
 	}
@@ -512,6 +515,22 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 	if s.redisClient != nil && len(peekedIDs) > 0 {
 		defer func() {
 			if claimsSettled {
+				return
+			}
+			if releaser, ok := s.pendingRepo.(wikiOwnedClaimReleaser); ok {
+				if len(claimOwnership) == 0 {
+					logger.Warnf(ctx, "wiki ingest: missing claim ownership; keep durable rows for KB %s",
+						payload.KnowledgeBaseID)
+					return
+				}
+				released, err := releaseAbortedWikiClaims(ctx, releaser, payload, claimOwnership)
+				if err != nil {
+					logger.Warnf(ctx, "wiki ingest: owned claim release failed for KB %s: %v",
+						payload.KnowledgeBaseID, err)
+					return
+				}
+				logger.Infof(ctx, "wiki ingest: released %d owned claims after abort for KB %s",
+					released, payload.KnowledgeBaseID)
 				return
 			}
 			releaseCtx, releaseCancel := wikiIngestCleanupContext(ctx)

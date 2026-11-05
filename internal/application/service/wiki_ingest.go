@@ -1038,8 +1038,15 @@ func (s *wikiIngestService) claimPendingList(
 	kbID string,
 	limit int,
 ) (ops []WikiPendingOp, peekedIDs []int64, err error) {
+	ops, peekedIDs, _, err = s.claimPendingListWithOwnership(ctx, kbID, limit)
+	return ops, peekedIDs, err
+}
+
+func (s *wikiIngestService) claimPendingListWithOwnership(
+	ctx context.Context, kbID string, limit int,
+) (ops []WikiPendingOp, peekedIDs []int64, claims map[int64]time.Time, err error) {
 	if s.pendingRepo == nil {
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 	if limit <= 0 {
 		limit = wikiMaxDocsPerBatch
@@ -1050,10 +1057,16 @@ func (s *wikiIngestService) claimPendingList(
 		// A claim failure is transient (DB blip). Propagate it so the batch
 		// returns an error and asynq retries, instead of acking the trigger
 		// as a false "no pending ops" success and stranding the queue.
-		return nil, nil, err
+		return nil, nil, nil, err
+	}
+	claims = make(map[int64]time.Time, len(rows))
+	for _, row := range rows {
+		if row != nil && row.ClaimedAt != nil {
+			claims[row.ID] = *row.ClaimedAt
+		}
 	}
 	ops, peekedIDs = s.decodePendingRows(ctx, rows)
-	return ops, peekedIDs, nil
+	return ops, peekedIDs, claims, nil
 }
 
 // withSlugLock serializes read-modify-write on one shared wiki page across
