@@ -28,7 +28,7 @@ func TestProcessingMetadataIsIndependentOfStagingReceiptAndNeverGrantsBody(t *te
 	// A staging receipt must still not be mistaken for published content.
 	require.NoError(t, f.db.Create(&types.TaskPendingOp{
 		TenantID: 1, TaskType: "private", Scope: types.PersonalExactReceiptScope,
-		ScopeID: row.ID, DedupKey: "receipt", Op: "staging", Payload: types.JSON(`{"secret":"unpublished"}`),
+		ScopeID: row.ID, DedupKey: "receipt", Op: "staging", Payload: json.RawMessage(`{"secret":"unpublished"}`),
 	}).Error)
 	row, err = f.ks.GetKnowledgeByIDOnly(ctx, attempt.LogicalKnowledgeID)
 	require.NoError(t, err)
