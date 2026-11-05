@@ -15,6 +15,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/Tencent/WeKnora/internal/utils"
 )
 
 // Transport surrounds the existing SSRF-safe transport, preserving its DNS,
@@ -57,7 +59,8 @@ func tripRequestFailure(caller context.Context, g *Guard, err error, embedding b
 			!errors.Is(err, io.ErrUnexpectedEOF))
 	retryableHeaderFailure := phase == "headers" &&
 		(errors.Is(err, io.EOF) || errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.EPIPE))
-	if !embedding && (timedOut || retryableHeaderFailure) {
+	policyRejected := phase == "headers" && errors.Is(err, utils.ErrSSRFRequestRejected)
+	if !embedding && (timedOut || retryableHeaderFailure || policyRejected) {
 		// Source HTTP timeouts belong to the existing connector's bounded
 		// retry/backoff. No response is accepted and no candidate is published.
 		// A healthy shared gate is required even for this local classification.
@@ -67,6 +70,9 @@ func tripRequestFailure(caller context.Context, g *Guard, err error, embedding b
 			reason := "timeout"
 			if !timedOut {
 				reason = "transient"
+			}
+			if policyRejected {
+				reason = "target_rejected"
 			}
 			trip(g, "feishu_"+phase+"_"+reason+"_state_unconfirmed")
 		}

@@ -8,6 +8,7 @@ import (
 
 	feishu "github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Tencent/WeKnora/internal/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,4 +23,8 @@ func TestIncrementalLegacyAvailabilityIsNotConfirmedWithdrawal(t *testing.T) {
 	}
 	require.False(t, legacyFetchNeedsHold(context.DeadlineExceeded))
 	require.True(t, legacyFetchNeedsHold(errors.New("unknown listing failure")))
+	require.False(t, legacyFetchNeedsHold(fmt.Errorf("base URL rejected: %w", utils.ErrSSRFRequestRejected)),
+		"pre-request policy denial is not evidence of withdrawn source authorization")
+	require.True(t, legacyFetchNeedsHold(errors.New(utils.ErrSSRFRequestRejected.Error())),
+		"unclassified errors still retain source protection")
 }

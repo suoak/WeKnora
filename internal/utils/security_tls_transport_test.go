@@ -453,6 +453,9 @@ func TestSSRFSafeDialTLSValidatesAllBeforeAnyDialAndNoReresolve(t *testing.T) {
 	if lookups.Load() != 1 || dials.Load() != 0 {
 		t.Fatalf("lookups=%d dials=%d, want 1/0", lookups.Load(), dials.Load())
 	}
+	if !errors.Is(err, ErrSSRFRequestRejected) {
+		t.Fatalf("mixed-address denial must retain its typed identity: %v", err)
+	}
 }
 
 func TestSSRFSafeDialTLSServerNameAndVerification(t *testing.T) {
