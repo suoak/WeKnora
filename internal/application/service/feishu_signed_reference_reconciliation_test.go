@@ -55,9 +55,10 @@ func TestSourceReconciliationPreparesExistingPersonalGrantForTheSameRun(t *testi
 	require.NoError(t, f.db.Create(anchor).Error)
 	require.NoError(t, f.db.Exec("INSERT INTO users(id,is_active,is_system_admin) VALUES(?,true,true)",
 		"fixture-operator").Error)
-	ctx := context.WithValue(f.ctx, types.UserIDContextKey, "fixture-operator")
+	ctx := f.userContext("fixture-operator")
 	ctx = context.WithValue(ctx, types.SystemAdminContextKey, true)
 	ctx = types.WithPrincipal(ctx, types.Principal{Type: types.PrincipalWebUser, ID: "fixture-operator"})
+	require.Equal(t, "fixture-operator", types.PrivateKBReadUser(ctx))
 	repo, logs := repository.NewDataSourceRepository(f.db), repository.NewSyncLogRepository(f.db)
 	redis := miniredis.RunT(t)
 	queue := asynq.NewClient(asynq.RedisClientOpt{Addr: redis.Addr()})
