@@ -457,6 +457,7 @@ func TestWikiHistoryPostgres(t *testing.T) {
 		run  func(*testing.T, *fixture.Fixture)
 	}{
 		{"regeneration", testWikiHistoryRegeneration},
+		{"selective_page_recovery", testWikiSelectiveRecovery},
 		{"regeneration_block", testWikiHistoryRegenerationBlock},
 		{"deleted_input_evidence", testWikiDeletedInputEvidence},
 		{"unused_source_draft", testFeishuUnusedDraftAdmission},
