@@ -283,8 +283,8 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 				if err != nil {
 					if errors.Is(err, ErrSourceAdmissionChanged) {
 						cancelCause(ErrSourceAdmissionChanged)
-					} else if timedOut && ctx.Err() == nil {
-						// A slow SQL authority probe must still cancel this request,
+					} else if (timedOut || errors.Is(err, errSourceProbeFailed)) && ctx.Err() == nil {
+						// An unavailable source probe must still cancel this request,
 						// but is not proof that every source lost its controller.
 						// This request passed full admission before sending; recheck
 						// its exact distributed policy, stop latch and permit atomically.

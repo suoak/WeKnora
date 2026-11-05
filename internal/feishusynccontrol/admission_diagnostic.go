@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/Tencent/WeKnora/internal/feishusafety"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -35,14 +36,22 @@ func AdmissionFailureReason(ctx context.Context, source, config string) string {
 		}
 		return "sync_platform_stopped"
 	}
-	if normal, normalErr := m.NormalServiceActive(ctx); normalErr != nil {
+	record, normalErr := m.normalRecord(ctx)
+	identity, _ := feishusafety.RecoveryOutboundExecution(ctx)
+	if normalErr != nil {
 		return "sync_safety_unavailable"
-	} else if normal {
+	} else if record != nil && ReconciliationPolicy(ctx, source) == "" &&
+		(identity.Plan == "" || identity.Plan == record.Authorization.ID) {
 		if _, err := m.normalService.Load().source(ctx, nil, source, config); err != nil {
-			return "sync_source_permission_denied"
+			if errors.Is(err, ErrRecoveryRejected) {
+				return "sync_source_permission_denied"
+			}
+			return "sync_safety_unavailable"
 		}
 		return "sync_safety_unavailable"
 	}
+	// Incident holds must be diagnosed against their separate signed policy.
+	// The normal loader's rejection of a hold is not an OAuth failure.
 	if !validState {
 		return "sync_policy_unavailable"
 	}

@@ -631,6 +631,7 @@ func (s *DataSourceService) manualSyncUsing(
 		ctx = feishusafety.WithRecoveryExecution(ctx, fingerprint, "", 0)
 		ctx, approvedDelivery, err = feishusynccontrol.BindApprovedSource(ctx, ds.ID, fingerprint)
 		if err != nil {
+			logger.Warnf(ctx, "Feishu sync admission rejected source=%s stage=bind cause=%v", ds.ID, err)
 			return nil, &datasource.SyncAdmissionError{
 				Reason: feishusynccontrol.AdmissionFailureReason(ctx, ds.ID, fingerprint), Cause: err,
 			}
@@ -638,6 +639,7 @@ func (s *DataSourceService) manualSyncUsing(
 
 	}
 	if err := feishusafety.CheckLegacy(ctx, ds.Type, ds.ID); err != nil {
+		logger.Warnf(ctx, "Feishu sync admission rejected source=%s stage=guard cause=%v", ds.ID, err)
 		return nil, &datasource.SyncAdmissionError{
 			Reason: feishusynccontrol.AdmissionFailureReason(ctx, ds.ID, admissionFingerprint), Cause: err,
 		}

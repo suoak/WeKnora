@@ -115,9 +115,9 @@ func TestSteadyInflightSourceRevocationDoesNotTripOtherSources(t *testing.T) {
 	}
 }
 
-func TestSteadyInflightUnknownAuthorityFailureStillTripsSharedGate(t *testing.T) {
+func TestSteadyInflightSourceProbeFailureRequiresIndependentRuntimeCheck(t *testing.T) {
 	for _, headers := range []bool{false, true} {
-		for _, fault := range []string{"authority_timeout", "control_unconfirmed"} {
+		for _, fault := range []string{"authority_timeout", "source_state_unknown", "lost_permit"} {
 			t.Run(fault+map[bool]string{false: "_headers", true: "_body"}[headers], func(t *testing.T) {
 				f := newSteadyFixture(t)
 				f.activate(t)
@@ -134,7 +134,7 @@ func TestSteadyInflightUnknownAuthorityFailureStillTripsSharedGate(t *testing.T)
 				facts := f.m.facts
 				f.m.facts = func(c context.Context, source string) (RecoveryFacts, error) {
 					v, err := facts(c, source)
-					if fault == "control_unconfirmed" && failed.Load() {
+					if fault == "source_state_unknown" && failed.Load() {
 						v.Eligible, v.sourceStateKnown = false, false
 					}
 					return v, err
@@ -177,14 +177,30 @@ func TestSteadyInflightUnknownAuthorityFailureStillTripsSharedGate(t *testing.T)
 					t.Fatal("request did not start")
 				}
 				failed.Store(true)
+				if fault == "lost_permit" {
+					require.NoError(t, f.r.Del(ctx, f.c.Guard.PermitKey()).Err())
+				}
 				select {
 				case err := <-done:
-					require.ErrorIs(t, err, feishusafety.ErrClosed)
+					if fault == "lost_permit" {
+						require.ErrorIs(t, err, feishusafety.ErrClosed)
+					} else {
+						require.ErrorIs(t, err, feishusafety.ErrSourceValidationUnavailable)
+					}
 				case <-time.After(2 * time.Second):
 					t.Fatal("unknown authority failure did not stop the request")
 				}
-				require.EqualValues(t, 1, f.r.Exists(ctx, f.c.prefix+"trip").Val())
-				require.Zero(t, f.r.Exists(ctx, f.c.Guard.PermitKey()).Val())
+				if fault == "lost_permit" {
+					require.EqualValues(t, 1, f.r.Exists(ctx, f.c.prefix+"trip").Val())
+					require.Zero(t, f.r.Exists(ctx, f.c.Guard.PermitKey()).Val())
+				} else {
+					require.Zero(t, f.r.Exists(ctx, f.c.prefix+"trip").Val())
+					require.Positive(t, f.r.Exists(ctx, f.c.Guard.PermitKey()).Val())
+					failed.Store(false)
+					_, allowed, err := BindApprovedSource(ctx, f.ids[1], f.facts[f.ids[1]].ConfigSHA256)
+					require.NoError(t, err, "independent sources can still acquire fresh verified admission")
+					require.True(t, allowed)
+				}
 			})
 		}
 	}

@@ -3,6 +3,7 @@ package feishusafety
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +18,14 @@ import (
 type cancellationBody struct{ ctx context.Context }
 
 func TestSafetySlowSourceValidationCancelsLocallyWithHealthyController(t *testing.T) {
+	for _, immediate := range []bool{false, true} {
+		t.Run(fmt.Sprintf("immediate=%t", immediate), func(t *testing.T) {
+			testSafetySourceValidationCancelsLocally(t, immediate)
+		})
+	}
+}
+
+func testSafetySourceValidationCancelsLocally(t *testing.T, immediate bool) {
 	for _, headers := range []bool{false, true} {
 		for _, embedding := range []bool{false, true} {
 			for _, lostPermit := range []bool{false, true} {
@@ -25,6 +34,9 @@ func TestSafetySlowSourceValidationCancelsLocallyWithHealthyController(t *testin
 				var slow atomic.Bool
 				g.SetApprovedSourceValidator(func(ctx context.Context, source, _ string) error {
 					if source == "slow-source" && slow.Load() {
+						if immediate {
+							return errors.New("source database probe unavailable before deadline")
+						}
 						<-ctx.Done()
 						return ctx.Err()
 					}

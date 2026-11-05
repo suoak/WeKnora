@@ -32,6 +32,7 @@ type (
 		DependencySHA256 string
 		WikiGeneration   int64
 		WikiIncarnation  string
+		InputStamps      map[string]string
 	}
 )
 
@@ -125,7 +126,7 @@ func checkWikiMCPModelInputs(db *gorm.DB, ctx context.Context, tenant uint64) (b
 	if e := beforeWikiMCPMutation(db.WithContext(ctx), ctx); e != nil {
 		return true, e
 	}
-	fresh, e := wikiDependencies(db.WithContext(ctx), p.KB)
+	fresh, e := wikiDependencies(db.WithContext(ctx), p.KB, p)
 	if e != nil {
 		return true, e
 	}
@@ -160,7 +161,7 @@ func wikiPageDigest(p *types.WikiPage) string {
 // including ABA and writes preserving timestamps. Persisted read stamps bind
 // actual model input fields, so finalizing -> completed alone is not content
 // replacement. Current authorization/source state is always checked separately.
-func wikiDependencies(db *gorm.DB, kb string) (*wikiGenerationProof, error) {
+func wikiDependencies(db *gorm.DB, kb string, previous ...*wikiGenerationProof) (*wikiGenerationProof, error) {
 	var anchor struct{ TenantID uint64 }
 	if e := db.Table("knowledge_bases kb").Select("kb.tenant_id").Joins("JOIN tenants t ON t.id=kb.tenant_id AND t.deleted_at IS NULL AND t.status='active'").Where("kb.id=? AND kb.deleted_at IS NULL AND kb.type='document' AND kb.is_temporary=false", kb).Take(&anchor).Error; e != nil {
 		return nil, e
@@ -168,7 +169,8 @@ func wikiDependencies(db *gorm.DB, kb string) (*wikiGenerationProof, error) {
 	var denied bool
 	if e := db.Raw(`SELECT EXISTS(SELECT 1 FROM data_sources WHERE knowledge_base_id=? AND
  (legacy_access_state IN ('hold','revoked') OR
- (type IN ('feishu','feishu_drive','lark','lark_drive') AND deleted_at IS NULL AND legacy_access_state<>'active')))
+ (type IN ('feishu','feishu_drive','lark','lark_drive') AND deleted_at IS NULL
+ AND legacy_access_state NOT IN ('active','unmanaged'))))
  OR EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE knowledge_base_id=? AND state<>'active')`,
 		kb, kb).Scan(&denied).Error; e != nil {
 		return nil, e
@@ -192,7 +194,14 @@ func wikiDependencies(db *gorm.DB, kb string) (*wikiGenerationProof, error) {
 	if len(docs) == 0 || len(docs) > 2048 {
 		return nil, ErrWikiMCPUnverified
 	}
-	p := &wikiGenerationProof{Tenant: anchor.TenantID, KB: kb, Sources: map[string]string{}, Epochs: map[string]string{}}
+	stamps, err := wikiDocumentInputStamps(db, kb, anchor.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	p := &wikiGenerationProof{
+		Tenant: anchor.TenantID, KB: kb, Sources: map[string]string{}, Epochs: map[string]string{},
+		InputStamps: map[string]string{},
+	}
 	for _, d := range docs {
 		var connectorProof string
 		switch d.Channel {
@@ -237,6 +246,30 @@ func wikiDependencies(db *gorm.DB, kb string) (*wikiGenerationProof, error) {
 		if (d.ParseStatus != "completed" && d.ParseStatus != "finalizing") || d.EnableStatus != "enabled" {
 			return nil, ErrWikiMCPUnverified
 		}
+		stamp, found := stamps[d.ID]
+		if !found {
+			return nil, ErrWikiMCPUnverified
+		}
+		stamp = wikiDigest([]any{stamp, connectorProof, d.Channel, d.Metadata})
+		p.InputStamps[d.ID] = stamp
+		if len(previous) == 1 && previous[0] != nil {
+			old := previous[0]
+			if old.Tenant == p.Tenant && old.KB == kb && old.InputStamps[d.ID] == stamp &&
+				old.Sources[d.ID] != "" && old.Epochs[d.ID] != "" {
+				// Reuse only this generation's exact verified input digest. The
+				// trigger-backed epoch is read live, as are source state,
+				// connector binding and the resource publication proof above.
+				// No TTL or cached authorization is involved.
+				p.Sources[d.ID], p.Epochs[d.ID] = old.Sources[d.ID], old.Epochs[d.ID]
+				if old.EmptySources[d.ID] {
+					if p.EmptySources == nil {
+						p.EmptySources = map[string]bool{}
+					}
+					p.EmptySources[d.ID] = true
+				}
+				continue
+			}
+		}
 		version, tenant, e := resourceVersion(db, types.EnterprisePolicyTarget{Kind: "knowledge", ID: d.ID})
 		if e != nil {
 			return nil, e
@@ -272,6 +305,13 @@ func wikiDependencies(db *gorm.DB, kb string) (*wikiGenerationProof, error) {
 			p.EmptySources[d.ID] = true
 		}
 		p.Sources[d.ID] = wikiDigest([]any{identity, inputs})
+	}
+	after, err := wikiDocumentInputStamps(db, kb, anchor.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	if wikiDigest(after) != wikiDigest(stamps) {
+		return nil, ErrWikiMCPUnverified
 	}
 	p.DependencySHA256 = wikiDigest(p.Sources)
 	return p, nil
@@ -343,7 +383,7 @@ func sealWikiMCPMutation(db *gorm.DB, ctx context.Context, page *types.WikiPage)
 			return ErrWikiMCPUnverified
 		}
 	}
-	fresh, e := wikiDependencies(db, p.KB)
+	fresh, e := wikiDependencies(db, p.KB, p)
 	if e != nil {
 		return e
 	}

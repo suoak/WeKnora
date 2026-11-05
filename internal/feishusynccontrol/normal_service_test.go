@@ -236,6 +236,14 @@ func TestNormalServiceKeepsHoldReconciliationSeparateAndIsolatesItsExpiry(t *tes
 	require.Error(t, err, "the normal grant never opens a historical hold")
 	work, err := f.m.BeginSourceReconciliation(operator, held, plan.ID)
 	require.NoError(t, err)
+	producer := feishusafety.WithRecoveryExecution(work, f.facts[held].ConfigSHA256, "", 0)
+	producer, producerApproved, err := BindApprovedSource(producer, held, f.facts[held].ConfigSHA256)
+	require.NoError(t, err, "the signed producer must coexist with normal automatic admission")
+	require.True(t, producerApproved)
+	require.NoError(t, f.c.Guard.Check(feishusafety.WithScope(producer, held)))
+	require.Equal(t, "sync_source_authority_changed",
+		AdmissionFailureReason(producer, held, f.facts[held].ConfigSHA256),
+		"normal rejection of a hold does not diagnose a Feishu permission failure")
 	run := uuid.NewString()
 	require.NoError(t, f.m.BindSourceReconciliationRun(work, held, run))
 	claimed := types.WithSyncExecution(operator, types.SyncExecution{
