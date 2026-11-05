@@ -141,6 +141,11 @@ func (r *knowledgeSpanRepository) ListByAttempt(ctx context.Context, knowledgeID
 	}
 	var rows []types.KnowledgeProcessingSpan
 	q := r.db.WithContext(ctx).Where("knowledge_id = ?", knowledgeID)
+	metadataOnly := types.IsKnowledgeProcessingMetadata(ctx, knowledgeID)
+	if metadataOnly {
+		q = q.Select(`id,knowledge_id,attempt,span_id,parent_span_id,name,kind,status,error_code,
+started_at,finished_at,duration_ms,created_at,updated_at`)
+	}
 	if attempt > 0 {
 		q = q.Where("attempt = ?", attempt)
 	}
@@ -148,6 +153,9 @@ func (r *knowledgeSpanRepository) ListByAttempt(ctx context.Context, knowledgeID
 	// rendering of fan-out subspans (e.g. multimodal.image[0..N] in
 	// the order they were enqueued).
 	err := q.Order("id ASC").Find(&rows).Error
+	if metadataOnly {
+		projectProcessingSpanMetadata(rows)
+	}
 	return rows, err
 }
 
