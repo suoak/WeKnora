@@ -83,8 +83,10 @@ func (s *DataSourceService) CreateDataSource(
 		return nil, err
 	}
 
-	// Validate knowledge base exists
-	kb, err := s.kbService.GetKnowledgeBaseByID(ctx, ds.KnowledgeBaseID)
+	// Source configuration needs KB metadata, not protected document content.
+	// Another source's hold must not prevent adding a healthy source here.
+	kb, err := s.kbService.GetKnowledgeBaseByID(
+		types.WithLegacyKBAdminMetadata(ctx, ds.KnowledgeBaseID), ds.KnowledgeBaseID)
 	if err != nil || kb == nil {
 		return nil, datasource.ErrKnowledgeBaseNotFound
 	}
@@ -1655,9 +1657,10 @@ func (s *DataSourceService) updateSyncRunResult(
 	if err := s.writeSyncExecution(ctx, ds, syncLog, true); err != nil {
 		return err
 	}
-	completedTraversal := status == types.SyncLogStatusSuccess || status == types.SyncLogStatusPartial
-	if completedTraversal && ds.LegacyAccessState == "hold" &&
-		types.LegacyFullReconciliation(ctx) {
+	// The fenced repository commit may restore a fully inventoried source even
+	// when every new candidate failed and the run remains failed. Reload its
+	// persisted controls so those isolated failures do not leave cron disabled.
+	if ds.LegacyAccessState == "hold" && types.LegacyFullReconciliation(ctx) {
 		if err := s.refreshSourceSchedule(ctx, ds.ID); err != nil {
 			logger.Warnf(ctx, "[Scheduler] reconciled source schedule registration failed: %v", err)
 		}

@@ -25,6 +25,10 @@ var (
 	ErrSourceAdmissionChanged = fmt.Errorf("%w: source admission changed", ErrClosed)
 	// ErrBudgetBusy indicates that a known local allocation is temporarily full.
 	ErrBudgetBusy = errors.New("feishu safety budget busy")
+	// ErrSourceValidationUnavailable cancels a request without consuming its response. A separate atomic
+	// Redis check has confirmed that the shared controller remains healthy.
+	ErrSourceValidationUnavailable = fmt.Errorf(
+		"%w: source verification temporarily unavailable", context.DeadlineExceeded)
 )
 
 // Config budgets belong to ONE shared gateway allocation, not to each worker.
@@ -103,9 +107,20 @@ if redis.call('GET',KEYS[1]) ~= ARGV[1] or redis.call('PTTL',KEYS[1]) <= 0 then
 end
 local raw=redis.call('GET',KEYS[3])
 local required=redis.call('GET',KEYS[4])
-if (required or (ARGV[7]=='true' or ARGV[7]=='1')) and not raw then return
+local normal=false
+local normalraw=redis.call('GET',KEYS[6])
+if normalraw then
+ local n=cjson.decode(normalraw)
+ local registered=redis.call('HGET',KEYS[7],ARGV[2])
+ if n.active==true and n.authorization.id==ARGV[3] and n.authorization.guard_fingerprint==ARGV[1] and
+  registered and (ARGV[8]=='true' or ARGV[8]=='1') then
+  local source=cjson.decode(registered)
+  normal=source.plan==ARGV[3] and source.source_id==ARGV[2] and source.config_sha256==ARGV[4]
+ end
+end
+if not normal and (required or (ARGV[7]=='true' or ARGV[7]=='1')) and not raw then return
 redis.error_reply('RECOVERY_MISSING') end
-if raw then
+if not normal and raw then
  local s=cjson.decode(raw)
  if not required or required~=s.plan_sha256 then return redis.error_reply('RECOVERY_BINDING_MISSING') end
  local now=redis.call('TIME'); local ms=now[1]*1000+math.floor(now[2]/1000)
@@ -150,6 +165,15 @@ func (g *Guard) Check(ctx context.Context) error {
 	if liveErr != nil {
 		return liveErr
 	}
+	return g.checkRuntime(ctx, validated)
+}
+
+func (g *Guard) checkRuntime(ctx context.Context, validated bool) error {
+	if g == nil || g.localClosed.Load() {
+		return ErrClosed
+	}
+	scope, _ := ctx.Value(scopeKey{}).(Scope)
+	i := recoveryIdentity(ctx)
 	if err := checkScript.Run(ctx,
 		g.client,
 		[]string{
@@ -158,6 +182,8 @@ func (g *Guard) Check(ctx context.Context) error {
 			g.key("recovery"),
 			g.key("recovery_required"),
 			g.key("steady_health"),
+			g.key("normal_service"),
+			g.key("normal_sources"),
 		},
 
 		g.fingerprint, scope.SourceID, i.Plan, i.Config, i.Run, i.Generation,
@@ -250,9 +276,20 @@ if redis.call('GET',KEYS[1]) ~= ARGV[1] or redis.call('PTTL',KEYS[1]) <= 0 then
 end
 local raw=redis.call('GET',KEYS[5])
 local required=redis.call('GET',KEYS[6])
-if (required or (ARGV[13]=='true' or ARGV[13]=='1')) and not raw then return
+local normal=false
+local normalraw=redis.call('GET',KEYS[8])
+if normalraw then
+ local n=cjson.decode(normalraw)
+ local registered=redis.call('HGET',KEYS[9],ARGV[8])
+ if n.active==true and n.authorization.id==ARGV[9] and n.authorization.guard_fingerprint==ARGV[1] and
+  registered and (ARGV[14]=='true' or ARGV[14]=='1') then
+  local source=cjson.decode(registered)
+  normal=source.plan==ARGV[9] and source.source_id==ARGV[8] and source.config_sha256==ARGV[10]
+ end
+end
+if not normal and (required or (ARGV[13]=='true' or ARGV[13]=='1')) and not raw then return
 redis.error_reply('RECOVERY_MISSING') end
-if raw then
+if not normal and raw then
  local s=cjson.decode(raw)
  if not required or required~=s.plan_sha256 then return redis.error_reply('RECOVERY_BINDING_MISSING') end
  local now=redis.call('TIME'); local ms=now[1]*1000+math.floor(now[2]/1000)
@@ -321,6 +358,8 @@ func (g *Guard) tryBegin(ctx context.Context, tokens int) (func(), error) {
 			g.key("recovery"),
 			g.key("recovery_required"),
 			g.key("steady_health"),
+			g.key("normal_service"),
+			g.key("normal_sources"),
 		},
 		g.fingerprint,
 		g.config.InFlight,

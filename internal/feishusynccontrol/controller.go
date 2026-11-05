@@ -230,7 +230,15 @@ func (c *Controller) Step(ctx context.Context) (result error) {
 	if c.Config.Scope == "none" {
 		return c.freeze(ctx, "scope_none", false)
 	}
-	if c.recoveryEnabled {
+	normal := false
+	if c.steadyManager != nil {
+		var err error
+		normal, err = c.steadyManager.NormalServiceActive(ctx)
+		if err != nil {
+			return c.freeze(ctx, "normal_service_authorization_unavailable", true)
+		}
+	}
+	if c.recoveryEnabled && !normal {
 		if err := c.checkRecoveryPolicy(ctx); err != nil {
 			return c.freeze(ctx, "recovery_policy_expired_or_invalid", true)
 		}
@@ -240,7 +248,11 @@ func (c *Controller) Step(ctx context.Context) (result error) {
 			return err
 		}
 		if c.recoveryEnabled {
-			if err := c.renewSteadyHealth(ctx); err != nil {
+			renew := c.renewSteadyHealth
+			if normal {
+				renew = c.renewNormalIncidentHealth
+			}
+			if err := renew(ctx); err != nil {
 				return c.freeze(ctx, "steady_health_lost", true)
 			}
 		}

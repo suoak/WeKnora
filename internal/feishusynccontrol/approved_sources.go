@@ -72,6 +72,9 @@ type ContinuityPlan struct {
 }
 
 func (m *RecoveryManager) checkApprovedSource(ctx context.Context, source, config string) error {
+	if _, handled, err := m.checkNormalSource(ctx, nil, source, config); handled || err != nil {
+		return err
+	}
 	raw, err := m.controller.Client.Get(ctx, m.controller.prefix+"recovery").Result()
 	if errors.Is(err, redis.Nil) {
 		return nil
@@ -179,6 +182,9 @@ func BindApprovedSource(ctx context.Context, source, config string) (context.Con
 	m := Recovery()
 	if m == nil {
 		return ctx, false, nil
+	}
+	if work, handled, err := m.bindNormalSource(ctx, source, config); handled || err != nil {
+		return work, handled, err
 	}
 	raw, err := m.controller.Client.Get(ctx, m.controller.prefix+"recovery").Result()
 	if errors.Is(err, redis.Nil) {

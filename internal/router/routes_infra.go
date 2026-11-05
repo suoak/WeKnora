@@ -296,8 +296,8 @@ func RegisterStorageBackendRoutes(r *gin.RouterGroup, h *handler.StorageBackendH
 //
 // Data sources hold external service credentials (Feishu/Notion/Yuque)
 // and trigger sync jobs that mutate KB content tenant-wide. Reads are
-// Viewer+; everything else (CRUD, validation, sync control, credential
-// subresource) is Admin+.
+// Viewer+; Feishu writes require Contributor+ and owning-KB write access.
+// Other connectors and incident recovery controls continue to require Admin+.
 func RegisterDataSourceRoutes(
 	r *gin.RouterGroup,
 	handler *handler.DataSourceHandler,
@@ -311,39 +311,41 @@ func RegisterDataSourceRoutes(
 		ds.GET("/types", g.Viewer(), handler.GetAvailableConnectors)
 
 		// Validate credentials without persistence (for "Test Connection" button) — Admin+
-		ds.POST("/validate-credentials", g.Admin(), handler.ValidateCredentials)
+		ds.POST("/validate-credentials", g.Contributor(), handler.SourceWriteAccess, handler.ValidateCredentials)
 
 		// CRUD operations
-		ds.POST("", g.Admin(), handler.CreateDataSource)
+		ds.POST("", g.Contributor(), handler.SourceWriteAccess, handler.CreateDataSource)
 		ds.GET("", g.Viewer(), handler.ListDataSources)
 		ds.GET("/:id", g.Viewer(), handler.GetDataSource)
-		ds.PUT("/:id", g.Admin(), handler.UpdateDataSource)
+		ds.PUT("/:id", g.Contributor(), handler.SourceWriteAccess, handler.UpdateDataSource)
 		ds.GET("/:id/document-deferrals", g.Admin(), handler.GetDocumentDeferrals)
 		ds.PUT("/:id/document-deferrals", g.Admin(), handler.PutDocumentDeferrals)
-		ds.DELETE("/:id", g.Admin(), handler.DeleteDataSource)
+		ds.DELETE("/:id", g.Contributor(), handler.SourceWriteAccess, handler.DeleteDataSource)
 
 		// Credential subresource. Single logical field "credentials" because
 		// connector credentials are a per-connector atomic map (see
 		// internal/handler/datasource_credentials.go). — Admin+
-		ds.PUT("/:id/credentials", g.Admin(), credHandler.Put)
-		ds.DELETE("/:id/credentials/:field", g.Admin(), credHandler.DeleteField)
+		ds.PUT("/:id/credentials", g.Contributor(), handler.SourceWriteAccess, credHandler.Put)
+		ds.DELETE("/:id/credentials/:field", g.Contributor(), handler.SourceWriteAccess, credHandler.DeleteField)
 
 		// Connection and resource management — Admin+
-		ds.POST("/:id/validate", g.Admin(), handler.ValidateConnection)
-		ds.GET("/:id/resources", g.Admin(), handler.ListAvailableResources)
-		ds.POST("/:id/resource-ancestors", g.Admin(), handler.ResolveResourceAncestors)
+		ds.POST("/:id/validate", g.Contributor(), handler.SourceWriteAccess, handler.ValidateConnection)
+		ds.GET("/:id/resources", g.Contributor(), handler.SourceWriteAccess, handler.ListAvailableResources)
+		ds.POST("/:id/resource-ancestors", g.Contributor(), handler.SourceWriteAccess, handler.ResolveResourceAncestors)
 
 		// Sync management — Admin+
-		ds.POST("/:id/sync", g.Admin(), handler.ManualSync)
+		ds.POST("/:id/sync", g.Contributor(), handler.SourceWriteAccess, handler.ManualSync)
 		ds.GET("/:id/safety-recovery/plan", g.Admin(), handler.FeishuRecoveryPlan)
 		ds.GET("/:id/safety-recovery/status", g.Admin(), handler.FeishuRecoveryStatus)
 		ds.POST("/:id/safety-recovery/execute", g.Admin(), handler.FeishuRecoveryExecute)
 		ds.POST("/:id/safety-recovery/continuity/:operation", g.Admin(), handler.FeishuContinuity)
 		ds.POST("/:id/safety-recovery/steady/:operation", g.Admin(), handler.FeishuSteadySync)
+		ds.GET("/:id/safety-recovery/normal-service/:operation", g.Admin(), handler.FeishuNormalService)
+		ds.POST("/:id/safety-recovery/normal-service/:operation", g.Admin(), handler.FeishuNormalService)
 		ds.POST("/:id/safety-recovery/reconcile", g.Admin(), handler.FeishuSourceReconciliation)
 		ds.GET("/:id/safety-recovery/eligibility", g.Admin(), handler.FeishuSourceEligibility)
-		ds.POST("/:id/pause", g.Admin(), handler.PauseDataSource)
-		ds.POST("/:id/resume", g.Admin(), handler.ResumeDataSource)
+		ds.POST("/:id/pause", g.Contributor(), handler.SourceWriteAccess, handler.PauseDataSource)
+		ds.POST("/:id/resume", g.Contributor(), handler.SourceWriteAccess, handler.ResumeDataSource)
 
 		// Sync logs — Viewer+ (read-only audit trail)
 		ds.GET("/:id/logs", g.Viewer(), handler.GetSyncLogs)

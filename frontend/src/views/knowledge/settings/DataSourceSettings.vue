@@ -21,10 +21,11 @@ const emit = defineEmits<{ (e: 'count', value: number): void }>()
 const { t } = useI18n()
 const authStore = useAuthStore()
 
-// 后端 /datasource 的 list/logs 是 Viewer+，但所有写操作（POST/PUT/DELETE
-// 以及 sync/pause/resume/validate）都是 Admin+。低权限用户保留只读视图，
-// 增删改和触发同步全部隐藏，而不是按下去再撞 403。
-const canManageDataSource = computed(() => authStore.hasRole('admin'))
+// 飞书来源允许空间写入者管理；其他连接器继续使用管理员权限。
+// 后端独立检查知识库、私有所有权和来源授权。
+const canManageDataSource = computed(() => authStore.hasRole('contributor'))
+const canManageSource = (ds: DataSource) => authStore.hasRole('admin') ||
+  (canManageDataSource.value && ['feishu', 'feishu_drive', 'lark', 'lark_drive'].includes(ds.type))
 
 const dataSources = ref<DataSource[]>([])
 const loading = ref(false)
@@ -198,12 +199,12 @@ onBeforeUnmount(stopPolling)
 
       <div v-else-if="!loading" class="ds-grid">
         <component
-          :is="canManageDataSource ? 'button' : 'div'"
+          :is="canManageSource(ds) ? 'button' : 'div'"
           v-for="ds in dataSources"
           :key="ds.id"
-          :type="canManageDataSource ? 'button' : undefined"
-          :class="['ds-card', `ds-card--${ds.type}`, { 'ds-card--clickable': canManageDataSource }]"
-          @click="canManageDataSource ? openEdit(ds) : undefined"
+          :type="canManageSource(ds) ? 'button' : undefined"
+          :class="['ds-card', `ds-card--${ds.type}`, { 'ds-card--clickable': canManageSource(ds) }]"
+          @click="canManageSource(ds) ? openEdit(ds) : undefined"
         >
           <div class="ds-card__badge">
             <DataSourceTypeIcon :type="ds.type" variant="badge" />
@@ -224,11 +225,11 @@ onBeforeUnmount(stopPolling)
                   </t-button>
                   <template #dropdown>
                     <t-dropdown-menu>
-                      <t-dropdown-item v-if="canManageDataSource" @click="openEdit(ds)">
+                      <t-dropdown-item v-if="canManageSource(ds)" @click="openEdit(ds)">
                         <t-icon name="edit" /> {{ t('datasource.edit') }}
                       </t-dropdown-item>
                       <t-dropdown-item
-                        v-if="canManageDataSource"
+                        v-if="canManageSource(ds)"
                         :disabled="isSyncRunning(ds)"
                         @click="handleSync(ds)"
                       >
@@ -239,19 +240,19 @@ onBeforeUnmount(stopPolling)
                         <t-icon name="root-list" /> {{ t('datasource.logs') }}
                       </t-dropdown-item>
                       <t-dropdown-item
-                        v-if="canManageDataSource && ds.status === 'active'"
+                        v-if="canManageSource(ds) && ds.status === 'active'"
                         @click="handlePause(ds)"
                       >
                         <t-icon name="pause-circle" /> {{ t('datasource.pause') }}
                       </t-dropdown-item>
                       <t-dropdown-item
-                        v-else-if="canManageDataSource && ds.status === 'paused'"
+                        v-else-if="canManageSource(ds) && ds.status === 'paused'"
                         @click="handleResume(ds)"
                       >
                         <t-icon name="play-circle" /> {{ t('datasource.resume') }}
                       </t-dropdown-item>
                       <t-dropdown-item
-                        v-if="canManageDataSource"
+                        v-if="canManageSource(ds)"
                         theme="error"
                         class="ds-dropdown-delete-item"
                       >

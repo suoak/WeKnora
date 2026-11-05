@@ -278,10 +278,24 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 				case <-checkCtx.Done():
 					err = checkCtx.Err()
 				}
+				timedOut := errors.Is(checkCtx.Err(), context.DeadlineExceeded)
 				checkCancel()
 				if err != nil {
 					if errors.Is(err, ErrSourceAdmissionChanged) {
 						cancelCause(ErrSourceAdmissionChanged)
+					} else if timedOut && ctx.Err() == nil {
+						// A slow SQL authority probe must still cancel this request,
+						// but is not proof that every source lost its controller.
+						// This request passed full admission before sending; recheck
+						// its exact distributed policy, stop latch and permit atomically.
+						control, cancelControl := context.WithTimeout(ctx, 200*time.Millisecond)
+						controlErr := g.checkRuntime(control, true)
+						cancelControl()
+						if controlErr == nil {
+							cancelCause(ErrSourceValidationUnavailable)
+						} else {
+							cancelCause(ErrClosed)
+						}
 					} else {
 						cancelCause(ErrClosed)
 					}
@@ -295,7 +309,7 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 		denial := canceledAdmission(ctx)
 		finish()
 		if denial != nil {
-			return nil, canceledAdmissionError(g, denial)
+			return nil, canceledAdmissionError(g, denial, t.Embedding)
 		}
 		tripRequestFailure(caller, g, err, t.Embedding, "headers")
 		return nil, err
@@ -353,12 +367,12 @@ type guardedBody struct {
 func (b *guardedBody) Read(p []byte) (int, error) {
 	if denial := canceledAdmission(b.execution); denial != nil {
 		b.finish()
-		return 0, canceledAdmissionError(b.guard, denial)
+		return 0, canceledAdmissionError(b.guard, denial, b.embedding)
 	}
 	n, err := b.ReadCloser.Read(p)
 	if denial := canceledAdmission(b.execution); denial != nil {
 		b.finish()
-		return 0, canceledAdmissionError(b.guard, denial)
+		return 0, canceledAdmissionError(b.guard, denial, b.embedding)
 	}
 	if err != nil {
 		b.finish()
@@ -375,6 +389,9 @@ func canceledAdmission(ctx context.Context) error {
 		return nil
 	}
 	cause := context.Cause(ctx)
+	if errors.Is(cause, ErrSourceValidationUnavailable) {
+		return ErrSourceValidationUnavailable
+	}
 	if errors.Is(cause, ErrSourceAdmissionChanged) {
 		return ErrSourceAdmissionChanged
 	}
@@ -384,8 +401,10 @@ func canceledAdmission(ctx context.Context) error {
 	return nil
 }
 
-func canceledAdmissionError(g *Guard, denial error) error {
-	if !errors.Is(denial, ErrSourceAdmissionChanged) && !g.localClosed.Load() {
+func canceledAdmissionError(g *Guard, denial error, embedding bool) error {
+	local := errors.Is(denial, ErrSourceAdmissionChanged) ||
+		(!embedding && errors.Is(denial, ErrSourceValidationUnavailable))
+	if !local && !g.localClosed.Load() {
 		trip(g, "feishu_request_permit_unconfirmed")
 	}
 	return fmt.Errorf("%w: request_permit_check_failed", denial)
