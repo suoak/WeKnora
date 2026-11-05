@@ -98,7 +98,8 @@ func exactPreflightDeferralCategory(err error) string {
 		return "embedded_dependency_unsupported"
 	case personalAuthorizationLost(err):
 		return "authorization_revalidation_failed"
-	case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled):
+	case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled),
+		errors.Is(err, core.ErrTransient), errors.Is(err, core.ErrRateLimited):
 		return "preflight_transient"
 	default:
 		return "source_verification_required"

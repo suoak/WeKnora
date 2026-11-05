@@ -247,11 +247,8 @@ function spanTreeActive(node?: SpanNode): boolean {
 
 const traceActive = computed<boolean>(() => spanTreeActive(data.value?.trace))
 
-// Drives BOTH the LIVE badge AND polling. Single source of truth:
-//   1. If we have data: still live while parse_status is polling
-//      OR the span tree has any running descendant.
-//   2. If we don't have data yet (initial paint): trust the parent's
-//      parseStatus hint so the UI shows LIVE immediately.
+// Keep observing pending work and late spans. Observation alone does not
+// establish worker liveness; the badge and advancing clock use its lease.
 const isLive = computed<boolean>(() => {
   if (data.value) {
     // Hard-terminal parse_status wins over a stale traceActive: cancel
@@ -713,11 +710,8 @@ const tEnd = computed<number | null>(() => {
     const max = Math.max(...all)
     candidate = candidate === null ? max : Math.max(candidate, max)
   }
-  // Extend the right edge to "now" whenever the trace is still
-  // actively producing spans — this covers both parse_status mid-flight
-  // AND the postprocess-async case where the top-level status closes
-  // but subspans keep ticking. Both conditions are captured by isLive.
-  if (isLive.value) {
+  // An auto-refresh or stale running span must not advance execution time.
+  if (hasLiveWorker.value) {
     const now = nowTick.value
     candidate = candidate === null ? now : Math.max(candidate, now)
   }
@@ -755,7 +749,7 @@ const rulerTicks = computed(() => (showRuler.value ? buildAxisTicks(timeAxis.val
 // while polling so the user can see time advancing even when the running
 // stage's bar grows slowly toward the right edge.
 const nowMarkerPct = computed<number | null>(() => {
-  if (!isLive.value || !t0.value || !axisMaxMs.value) return null
+  if (!hasLiveWorker.value || !t0.value || !axisMaxMs.value) return null
   const pct = ((nowTick.value - t0.value) / axisMaxMs.value) * 100
   return Math.max(0, Math.min(100, pct))
 })
@@ -837,12 +831,7 @@ function barStyle(node: SpanNode): Record<string, string> {
   if (!total || t0.value === null) return { display: 'none' }
   const start = nodeStart(node)
   if (start === null) return { display: 'none' }
-  // For a span with no recorded finished_at, use "now" as the end
-  // whenever it's plausibly still running — either the trace overall
-  // is live, or this individual span's status says it's in flight.
-  // Without the second clause, postprocess subspans that survived past
-  // parse_status='completed' would collapse to zero width.
-  const liveBar = isLive.value || node.status === 'running' || node.status === 'pending'
+  const liveBar = hasLiveWorker.value && node.status === 'running'
   const end = nodeEnd(node) ?? (liveBar ? nowTick.value : start)
   const leftPct = ((start - t0.value) / total) * 100
   const widthPct = Math.max(0.4, ((end - start) / total) * 100)

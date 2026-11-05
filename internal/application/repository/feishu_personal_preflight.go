@@ -34,7 +34,8 @@ func (r *PersonalRecoveryRepository) RecordPreflightDeferral(
 			return ErrPersonalFence
 		}
 		count := min(max(a.RetryCount, 0)+1, 1000)
-		next := now.Add(time.Minute * time.Duration(1<<min(count-1, 4)))
+		delay := min(15*time.Minute, time.Minute*time.Duration(1<<min(count-1, 4)))
+		next := now.Add(delay)
 		return tx.Model(a).Updates(map[string]any{
 			"retry_count": count, "retry_after": next, "last_error_category": category,
 		}).Error
