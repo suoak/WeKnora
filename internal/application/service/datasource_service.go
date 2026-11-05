@@ -135,6 +135,7 @@ func (s *DataSourceService) GetDataSource(ctx context.Context, id string) (*type
 	if err != nil {
 		return nil, err
 	}
+	ds.SyncHealth = ds.DescribeSyncHealth()
 	return ds, nil
 }
 
@@ -152,6 +153,7 @@ func (s *DataSourceService) ListDataSources(ctx context.Context, kbID string) ([
 		if log != nil {
 			ds.LatestSyncLog = log
 		}
+		ds.SyncHealth = ds.DescribeSyncHealth()
 	}
 
 	return dataSources, nil
@@ -496,7 +498,7 @@ func (s *DataSourceService) ValidateConnection(ctx context.Context, dsID string)
 // parentID enables lazy (on-demand) loading of hierarchical resources: pass "" to
 // list the top level, or a resource's ExternalID to list only its direct children.
 func (s *DataSourceService) ListAvailableResources(
-	ctx context.Context, dsID string, parentID string,
+	ctx context.Context, dsID, parentID string,
 ) ([]types.Resource, error) {
 	ds, err := s.GetDataSource(ctx, dsID)
 	if err != nil {
@@ -1262,7 +1264,7 @@ func (s *DataSourceService) applyFetchedItem(
 		// Check if this is an error item from the connector (failed to fetch content)
 		if errMsg, hasErr := item.Metadata["error"]; hasErr {
 			if legacyItemNeedsHold(item) {
-				if err := s.legacySourceUncertain(ctx, ds, true); err != nil {
+				if err := s.restrictFailedFeishuItem(ctx, ds, item); err != nil {
 					return &dataSourceIngestError{cause: err}
 				}
 			}
@@ -1343,6 +1345,9 @@ func (s *DataSourceService) applyFetchedItem(
 				Title: item.Title, Code: code, Message: "Ingest failed; see server logs",
 			})
 			if local != "" {
+				if err := s.retainVerifiedFeishuItem(ctx, ds, item); err != nil {
+					return &dataSourceIngestError{cause: err}
+				}
 				if fenceErr := s.checkSyncExecution(ctx); fenceErr != nil {
 					return fenceErr
 				}
@@ -1536,6 +1541,11 @@ func (s *DataSourceService) processSyncStreaming(
 		resultJSON, _ := result.ToJSON()
 		if errors.Is(fetchErr, context.Canceled) || errors.Is(fetchErr, context.DeadlineExceeded) {
 			return fetchErr
+		}
+		if safeLegacyIncrementalEnabled() && legacyWikiDrive(ds.Type) && !legacyFetchNeedsHold(fetchErr) {
+			syncLog.Result = resultJSON
+			syncLog.ErrorMessage = "Temporary Feishu failure; automatically retrying"
+			return s.failSyncAttempt(ctx, ds, syncLog, fetchErr, syncLog.ErrorMessage)
 		}
 		if err := s.updateSyncRunResult(ctx, ds, syncLog, result, resultJSON,
 			types.SyncLogStatusFailed, fmt.Sprintf("Fetch failed: %v", fetchErr), wasPaused); err != nil {

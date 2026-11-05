@@ -90,6 +90,10 @@ func (m *RecoveryManager) steadySourceForPurpose(
 		FactsSHA256:    f.FactsSHA256,
 		Reconciliation: reconcile,
 	}, Authority: authority}
+	if reconcile {
+		s.NormalConfigSHA256 = f.NormalConfigSHA256
+		s.NormalFactsSHA256 = f.NormalFactsSHA256
+	}
 	if err != nil {
 		return s, f, ErrRecoveryRejected
 	}
@@ -108,6 +112,18 @@ func steadySourceChanged() error {
 
 func sameSteadySource(current, approved SteadySource, facts RecoveryFacts) bool {
 	if approved.Reconciliation {
+		if approved.normalContinuation(facts) && current.Reconciliation &&
+			current.Authority.AccessState == "active" &&
+			(current.Authority.SourceStatus == "active" || current.Authority.SourceStatus == "error") &&
+			recoverySHA.MatchString(approved.Authority.NormalAuthorityHash) &&
+			current.Authority.AuthorityHash == approved.Authority.NormalAuthorityHash {
+			current.ConfigSHA256, current.FactsSHA256 = approved.ConfigSHA256, approved.FactsSHA256
+			current.Authority.SourceStatus = approved.Authority.SourceStatus
+			current.Authority.AccessState = approved.Authority.AccessState
+			current.Authority.AuthorityHash = approved.Authority.AuthorityHash
+			current.ReconcileUntilMS = approved.ReconcileUntilMS
+			return current == approved
+		}
 		if !facts.ReconciliationEligible || !current.Reconciliation ||
 			(approved.Authority.SourceStatus != "active" && approved.Authority.SourceStatus != "error") ||
 			(current.Authority.SourceStatus != "active" && current.Authority.SourceStatus != "error") {

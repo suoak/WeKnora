@@ -96,7 +96,11 @@ func TestFeishuDocumentFetchFailureClassification(t *testing.T) {
 	require.Equal(t, "feishu_document_fetch_transient", feishuDocumentFetchFailureCode(ds, item))
 	item.Metadata["feishu_error_category"] = "rate_limit"
 	require.Equal(t, "feishu_document_fetch_rate_limited", feishuDocumentFetchFailureCode(ds, item))
-	for _, category := range []string{"auth", "permission", "not_found", "unclassified", "permanent"} {
+	for _, category := range []string{"permission", "not_found"} {
+		item.Metadata["feishu_error_category"] = category
+		require.Equal(t, "feishu_document_access_unavailable", feishuDocumentFetchFailureCode(ds, item))
+	}
+	for _, category := range []string{"auth", "unclassified", "permanent"} {
 		item.Metadata["feishu_error_category"] = category
 		require.Empty(t, feishuDocumentFetchFailureCode(ds, item))
 	}

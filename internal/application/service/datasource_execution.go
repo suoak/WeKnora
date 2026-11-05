@@ -241,7 +241,8 @@ func (s *DataSourceService) failSyncAttempt(
 			ds.Status == types.DataSourceStatusPaused)
 	}
 	terminalErr := errors.Join(asynq.SkipRetry, cause)
-	if errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded) {
+	if errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded) ||
+		(safeLegacyIncrementalEnabled() && legacyWikiDrive(ds.Type) && !legacyFetchNeedsHold(cause)) {
 		// The batch connector may return a resumable cursor with its error.
 		// Persist that snapshot through the same fence, even after network cancel.
 		dbCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)

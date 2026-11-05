@@ -226,6 +226,61 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 	require.Zero(t, visible("rc3baselinecanary"), "old committed version must not mix with the new version")
 	_, err = store.Receipt(ctx, r, a)
 	require.NoError(t, err, "lost-ACK reconciliation must use durable receipt")
+	t.Run("permission-refusal-quarantines-one-document-without-stopping-source", func(t *testing.T) {
+		tx := db.Begin()
+		require.NoError(t, tx.Error)
+		defer tx.Rollback()
+		local := NewFeishuLegacyStore(tx)
+		require.NoError(t, local.RestrictDocument(ctx, ds, "same-cloud-id"))
+		var source types.DataSource
+		require.NoError(t, tx.First(&source, "id=?", ds.ID).Error)
+		require.Equal(t, ds.LegacyAccessState, source.LegacyAccessState)
+		var quarantined types.FeishuLegacyResource
+		require.NoError(t, tx.First(&quarantined, "id=?", r.ID).Error)
+		require.Equal(t, "hold", quarantined.State)
+		require.Greater(t, len(quarantined.QuarantineSnapshot), 2)
+		guarded := types.EnableLegacyReadGuards(tx)
+		require.ErrorIs(t, types.CheckLegacySourceRead(guarded.WithContext(context.Background()), "", kb.ID),
+			types.ErrLegacySourceRestricted, "old derived content stays closed until safe regeneration")
+	})
+	t.Run("document-failure-retains-only-a-verified-active-version", func(t *testing.T) {
+		item := &types.FetchedItem{
+			ExternalID: "same-cloud-id", SourceResourceID: "selected-root", Content: []byte("failed-new-candidate"),
+			UpdatedAt: time.Now().UTC(), Metadata: map[string]string{},
+		}
+		retained, e := store.RetainVerifiedVersion(ctx, ds, item)
+		require.NoError(t, e)
+		require.Equal(t, receipt.AttemptID, retained.AttemptID)
+		require.Equal(t, receipt.ManifestSHA256, retained.ManifestSHA256)
+		require.EqualValues(t, 1, visible("oldcanary"))
+		require.Zero(t, visible("failed-new-candidate"))
+		for _, category := range []string{"permission", "auth", "unknown"} {
+			candidate := *item
+			candidate.Content = nil
+			candidate.Metadata = map[string]string{"error": category}
+			_, e := store.RetainVerifiedVersion(ctx, ds, &candidate)
+			require.Error(t, e)
+		}
+		_, e = store.RetainVerifiedVersion(context.Background(), ds, item)
+		require.Error(t, e, "an unclaimed retry cannot assert current access")
+		denied := types.WithFeishuSourceReadGuard(ctx, func(context.Context) error {
+			return errors.New("current resource permission withdrawn")
+		})
+		_, e = store.RetainVerifiedVersion(denied, ds, item)
+		require.Error(t, e, "a retained historical receipt never overrides current permission")
+		candidate := *item
+		candidate.ExternalID = "not-imported"
+		_, e = store.RetainVerifiedVersion(ctx, ds, &candidate)
+		require.Error(t, e, "historical unknown versions must not receive a receipt")
+		empty, e := store.UnpublishedResource(ctx, ds, "not-imported")
+		require.NoError(t, e)
+		require.True(t, empty)
+		empty, e = store.UnpublishedResource(ctx, ds, item.ExternalID)
+		require.NoError(t, e)
+		require.False(t, empty, "previously imported data still needs explicit quarantine")
+		_, e = store.UnpublishedResource(context.Background(), ds, "not-imported")
+		require.Error(t, e)
+	})
 	for _, window := range []string{"prepare", "publish"} {
 		t.Run("process-config-edit-before-"+window, func(t *testing.T) {
 			metadata, e := json.Marshal(map[string]string{"datasource_id": ds.ID, "external_id": "config-" + window})
