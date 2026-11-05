@@ -51,6 +51,10 @@ func testLocalSummarySourceIsolation(t *testing.T, f *fixture.Fixture) {
 	_, err = otherTenant.Chat(proof, messages, options)
 	require.Error(t, err)
 	require.EqualValues(t, 1, spy.calls.Load())
+	stale := knowledge
+	stale.CustomMetadata = types.JSON(`{"stale":"unverified metadata"}`)
+	_, err = svc.localSummaryMessages(ctx, &stale, chunks, messages, options)
+	require.ErrorIs(t, err, types.ErrLegacySourceRestricted)
 
 	for _, mutation := range []string{
 		`UPDATE chunks SET content='changed' WHERE id='public-two-chunk'`,
@@ -77,12 +81,41 @@ func testLocalSummarySourceIsolation(t *testing.T, f *fixture.Fixture) {
 			require.EqualValues(t, 1, spy.calls.Load())
 		})
 	}
+	t.Run("revoked_during_provider_call", func(t *testing.T) {
+		tx := db.Begin()
+		require.NoError(t, tx.Error)
+		defer tx.Rollback()
+		scoped := &knowledgeService{repo: repository.NewKnowledgeRepository(tx), chunkRepo: repository.NewChunkRepository(tx)}
+		p, e := scoped.localSummaryMessages(ctx, &knowledge, chunks, messages, options)
+		require.NoError(t, e)
+		provider := &localSummaryMutatingModel{legacySpyModel: &legacySpyModel{}, mutate: func() {
+			require.NoError(t, tx.Exec(`UPDATE chunks SET is_enabled=false WHERE id='public-two-chunk'`).Error)
+		}}
+		guard := &legacyGuardedChat{inner: provider, gate: gate, tenant: 1}
+		response, e := guard.Chat(p, messages, options)
+		require.Error(t, e)
+		require.Nil(t, response, "withdrawn output must be discarded after the provider returns")
+		require.EqualValues(t, 1, provider.calls.Load())
+	})
 
 	// A connector must never acquire local-document authority by changing its channel.
-	require.NoError(t, db.Exec(`INSERT INTO task_pending_ops(tenant_id,scope,scope_id,task_type,dedup_key,payload)
- VALUES(1,?,'public-two-doc','receipt','synthetic-receipt','{}')`, types.PersonalExactReceiptScope).Error)
+	require.NoError(t, db.Exec(`INSERT INTO task_pending_ops(tenant_id,scope,scope_id,task_type,op,dedup_key,payload)
+ VALUES(1,?,'public-two-doc','receipt','published','synthetic-receipt','{}')`, types.PersonalExactReceiptScope).Error)
 	_, err = svc.localSummaryMessages(ctx, &knowledge, chunks, messages, options)
 	require.ErrorIs(t, err, types.ErrLegacySourceRestricted)
+}
+
+type localSummaryMutatingModel struct {
+	*legacySpyModel
+	mutate func()
+}
+
+func (m *localSummaryMutatingModel) Chat(
+	ctx context.Context, messages []chat.Message, options *chat.ChatOptions,
+) (*types.ChatResponse, error) {
+	response, err := m.legacySpyModel.Chat(ctx, messages, options)
+	m.mutate()
+	return response, err
 }
 
 func TestWikiInputChangesRetryWithoutPermanentBlock(t *testing.T) {

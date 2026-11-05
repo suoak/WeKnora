@@ -10,7 +10,7 @@ import (
 )
 
 type localSummarySourceReader interface {
-	LocalSummarySourceIdentity(context.Context, uint64, string, string) (string, bool, error)
+	LocalSummarySourceIdentity(context.Context, uint64, string, string, string) (string, bool, error)
 }
 
 // Reuse the existing message-digest/live-check model boundary for this exact
@@ -24,8 +24,9 @@ func (s *knowledgeService) localSummaryMessages(
 	if !ok || s.DocumentACLReadEnabled() || knowledge == nil {
 		return ctx, nil
 	}
+	metadata := knowledge.CustomMetadataText()
 	identity, handled, err := reader.LocalSummarySourceIdentity(
-		ctx, knowledge.TenantID, knowledge.KnowledgeBaseID, knowledge.ID,
+		ctx, knowledge.TenantID, knowledge.KnowledgeBaseID, knowledge.ID, metadata,
 	)
 	if err != nil || !handled {
 		return ctx, err
@@ -51,7 +52,7 @@ func (s *knowledgeService) localSummaryMessages(
 	}
 	live := func(current context.Context) error {
 		fresh, handled, err := reader.LocalSummarySourceIdentity(
-			current, knowledge.TenantID, knowledge.KnowledgeBaseID, knowledge.ID,
+			current, knowledge.TenantID, knowledge.KnowledgeBaseID, knowledge.ID, metadata,
 		)
 		if err != nil {
 			return err
@@ -81,7 +82,7 @@ func (s *knowledgeService) localSummaryMessages(
 			seen[row.ID] = true
 		}
 		fresh, handled, err = reader.LocalSummarySourceIdentity(
-			current, knowledge.TenantID, knowledge.KnowledgeBaseID, knowledge.ID,
+			current, knowledge.TenantID, knowledge.KnowledgeBaseID, knowledge.ID, metadata,
 		)
 		if err != nil {
 			return err

@@ -11,7 +11,7 @@ import (
 // ordinary workspace document. It cannot authorize connector or personal
 // imports, override a private-KB check, or grant a whole-tenant model read.
 func (r *knowledgeRepository) LocalSummarySourceIdentity(
-	ctx context.Context, tenant uint64, kb, knowledge string,
+	ctx context.Context, tenant uint64, kb, knowledge, expectedMetadata string,
 ) (string, bool, error) {
 	if !types.LegacyReadGuardsEnabled(r.db) {
 		return "", false, nil
@@ -81,6 +81,10 @@ func (r *knowledgeRepository) LocalSummarySourceIdentity(
 		return "", true, err
 	}
 	if external {
+		return "", true, types.ErrLegacySourceRestricted
+	}
+	currentMetadata := (&types.Knowledge{CustomMetadata: row.CustomMetadata}).CustomMetadataText()
+	if currentMetadata != expectedMetadata {
 		return "", true, types.ErrLegacySourceRestricted
 	}
 	version, owner, err := resourceVersion(db, types.EnterprisePolicyTarget{Kind: "knowledge", ID: knowledge})
