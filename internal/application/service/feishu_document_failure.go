@@ -78,6 +78,8 @@ func feishuDocumentFetchFailureCode(ds *types.DataSource, item *types.FetchedIte
 		return "feishu_document_fetch_transient"
 	case "rate_limit":
 		return "feishu_document_fetch_rate_limited"
+	case "permission", "not_found":
+		return "feishu_document_access_unavailable"
 	default:
 		return ""
 	}

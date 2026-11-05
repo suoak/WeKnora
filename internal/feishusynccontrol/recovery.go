@@ -37,6 +37,8 @@ type RecoveryFacts struct {
 	SourceID               string `json:"source_id"`
 	ConfigSHA256           string `json:"config_sha256"`
 	FactsSHA256            string `json:"facts_sha256"`
+	NormalConfigSHA256     string `json:"normal_config_sha256,omitempty"`
+	NormalFactsSHA256      string `json:"normal_facts_sha256,omitempty"`
 	Eligible               bool   `json:"eligible"`
 	RetryEligible          bool   `json:"retry_eligible,omitempty"`
 	ReconciliationEligible bool   `json:"reconciliation_eligible,omitempty"`

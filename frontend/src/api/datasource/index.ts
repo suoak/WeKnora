@@ -4,6 +4,7 @@ import { VALIDATE_CREDENTIALS_TIMEOUT_MS } from './requestPolicy'
 // --- Types ---
 
 export interface DataSource {
+	sync_health?: { code: string; message: string; action?: string };
   id: string
   tenant_id: number
   knowledge_base_id: string

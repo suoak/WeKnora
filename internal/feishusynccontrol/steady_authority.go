@@ -11,14 +11,15 @@ import (
 // SourceManagementAuthority is content-free, live authority for one source.
 // A platform-admin flag is deliberately not an authorization input.
 type SourceManagementAuthority struct {
-	TenantID      uint64 `json:"tenant_id"`
-	KBID          string `json:"knowledge_base_id"`
-	SourceID      string `json:"source_id"`
-	SourceType    string `json:"source_type"`
-	SourceStatus  string `json:"source_status"`
-	AccessState   string `json:"access_state"`
-	ActorID       string `json:"actor_id"`
-	AuthorityHash string `json:"authority_sha256"`
+	TenantID            uint64 `json:"tenant_id"`
+	KBID                string `json:"knowledge_base_id"`
+	SourceID            string `json:"source_id"`
+	SourceType          string `json:"source_type"`
+	SourceStatus        string `json:"source_status"`
+	AccessState         string `json:"access_state"`
+	ActorID             string `json:"actor_id"`
+	AuthorityHash       string `json:"authority_sha256"`
+	NormalAuthorityHash string `json:"normal_authority_sha256,omitempty"`
 }
 
 // SourceManagementFromDatabase independently checks the actor in the source's
@@ -78,10 +79,17 @@ func SourceManagementFromDatabase(
 		if err != nil {
 			return err
 		}
+		normal := row
+		normal.AccessState = "active"
+		normalHash, err := RecoveryDigest([]any{source, actor, normal})
+		if err != nil {
+			return err
+		}
 		out = SourceManagementAuthority{
 			TenantID: row.TenantID, KBID: row.KBID, SourceID: source,
 			SourceType: row.SourceType, ActorID: actor, AuthorityHash: hash,
 			SourceStatus: status, AccessState: row.AccessState,
+			NormalAuthorityHash: normalHash,
 		}
 		return nil
 	}, &sql.TxOptions{ReadOnly: true, Isolation: sql.LevelRepeatableRead})

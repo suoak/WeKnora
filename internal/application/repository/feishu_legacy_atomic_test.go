@@ -226,6 +226,39 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 	require.Zero(t, visible("rc3baselinecanary"), "old committed version must not mix with the new version")
 	_, err = store.Receipt(ctx, r, a)
 	require.NoError(t, err, "lost-ACK reconciliation must use durable receipt")
+	t.Run("document-failure-retains-only-a-verified-active-version", func(t *testing.T) {
+		item := &types.FetchedItem{
+			ExternalID: "same-cloud-id", SourceResourceID: "selected-root", Content: []byte("failed-new-candidate"),
+			UpdatedAt: time.Now().UTC(), Metadata: map[string]string{},
+		}
+		retained, e := store.RetainVerifiedVersion(ctx, ds, item)
+		require.NoError(t, e)
+		require.Equal(t, receipt.AttemptID, retained.AttemptID)
+		require.Equal(t, receipt.ManifestSHA256, retained.ManifestSHA256)
+		require.EqualValues(t, 1, visible("oldcanary"))
+		require.Zero(t, visible("failed-new-candidate"))
+		for _, category := range []string{"permission", "auth", "unknown"} {
+			copy := *item
+			copy.Content = nil
+			copy.Metadata = map[string]string{"error": category}
+			_, e := store.RetainVerifiedVersion(ctx, ds, &copy)
+			require.Error(t, e)
+		}
+		_, e = store.RetainVerifiedVersion(context.Background(), ds, item)
+		require.Error(t, e, "an unclaimed retry cannot assert current access")
+		copy := *item
+		copy.ExternalID = "not-imported"
+		_, e = store.RetainVerifiedVersion(ctx, ds, &copy)
+		require.Error(t, e, "historical unknown versions must not receive a receipt")
+		empty, e := store.UnpublishedResource(ctx, ds, "not-imported")
+		require.NoError(t, e)
+		require.True(t, empty)
+		empty, e = store.UnpublishedResource(ctx, ds, item.ExternalID)
+		require.NoError(t, e)
+		require.False(t, empty, "previously imported data still needs explicit quarantine")
+		_, e = store.UnpublishedResource(context.Background(), ds, "not-imported")
+		require.Error(t, e)
+	})
 	for _, window := range []string{"prepare", "publish"} {
 		t.Run("process-config-edit-before-"+window, func(t *testing.T) {
 			metadata, e := json.Marshal(map[string]string{"datasource_id": ds.ID, "external_id": "config-" + window})

@@ -279,7 +279,7 @@ onBeforeUnmount(stopPolling)
               <span class="ds-card__sep">·</span>
               <span class="ds-card__status" :class="`ds-card__status--${ds.status}`">
                 <span class="ds-status-dot" aria-hidden="true" />
-                {{ statusLabel(ds.status) }}
+                {{ ds.sync_health?.message || statusLabel(ds.status) }}
               </span>
             </p>
             <p class="ds-card__detail">
@@ -303,9 +303,9 @@ onBeforeUnmount(stopPolling)
                 >{{ pill.text }}</span>
               </template>
             </p>
-            <div v-if="ds.error_message" class="ds-card__error">
+            <div v-if="ds.error_message || ds.sync_health?.action === 'verify_source' || ds.sync_health?.action === 'reconnect'" class="ds-card__error">
               <t-icon name="error-circle-filled" size="14px" />
-              <span>{{ ds.error_message }}</span>
+              <span>{{ ds.sync_health?.message || ds.error_message }}</span>
             </div>
           </div>
         </component>

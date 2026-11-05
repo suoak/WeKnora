@@ -64,6 +64,7 @@ const (
 
 // DataSource represents a configured external data source for synchronization
 type DataSource struct {
+	SyncHealth *DataSourceSyncHealth `json:"sync_health,omitempty" gorm:"-"`
 	// Server-owned document policy. Generic edits must not replace it or change ACLs.
 	DocumentDeferrals JSON `json:"-" gorm:"type:jsonb;not null;default:'[]'"`
 	// Source-local access quarantine, independent from scheduler status.

@@ -22,13 +22,24 @@ const ApprovedSyncQueue = "approved_sync"
 // ApprovedSource pins both the configured resource selection and live local
 // authority. Normal connector ACL/revision and publication fences still apply.
 type ApprovedSource struct {
-	SourceID       string `json:"source_id"`
-	ConfigSHA256   string `json:"config_sha256"`
-	FactsSHA256    string `json:"facts_sha256"`
-	Reconciliation bool   `json:"reconciliation,omitempty"`
+	SourceID           string `json:"source_id"`
+	ConfigSHA256       string `json:"config_sha256"`
+	FactsSHA256        string `json:"facts_sha256"`
+	Reconciliation     bool   `json:"reconciliation,omitempty"`
+	NormalConfigSHA256 string `json:"normal_config_sha256,omitempty"`
+	NormalFactsSHA256  string `json:"normal_facts_sha256,omitempty"`
+}
+
+func (s ApprovedSource) normalContinuation(f RecoveryFacts) bool {
+	return s.Reconciliation && (f.Eligible || f.RetryEligible) &&
+		recoverySHA.MatchString(s.NormalConfigSHA256) && recoverySHA.MatchString(s.NormalFactsSHA256) &&
+		s.SourceID == f.SourceID && s.NormalConfigSHA256 == f.ConfigSHA256 && s.NormalFactsSHA256 == f.FactsSHA256
 }
 
 func (s ApprovedSource) matches(f RecoveryFacts) bool {
+	if s.normalContinuation(f) {
+		return f.SelectedResourceCount > 0 && f.SelectedResourceCount <= 64
+	}
 	eligible := f.Eligible || f.RetryEligible
 	if s.Reconciliation {
 		eligible = f.ReconciliationEligible
@@ -83,7 +94,7 @@ func (m *RecoveryManager) checkApprovedSource(ctx context.Context, source, confi
 		}
 		ok = source == state.SourceID && state.FactsSHA256 != ""
 	}
-	if !ok || entry.ConfigSHA256 != config {
+	if !ok || (entry.ConfigSHA256 != config && (!entry.Reconciliation || entry.NormalConfigSHA256 != config)) {
 		if state.Steady != nil {
 			return steadySourceChanged()
 		}
@@ -112,14 +123,15 @@ func (m *RecoveryManager) checkApprovedSource(ctx context.Context, source, confi
 				return steadySourceChanged()
 			}
 		}
-		if approved.Reconciliation && (approved.ReconcileUntilMS <= now.UnixMilli() ||
-			!reconciliationContextMatches(ctx, state.ContinuityID, source)) {
-			return steadySourceChanged()
-		}
 		current, facts, err := m.steadySourceForPurpose(
 			ctx, source, approved.Authority.ActorID, approved.Reconciliation)
 		if err != nil {
 			return err
+		}
+		if approved.Reconciliation && !approved.normalContinuation(facts) &&
+			(approved.ReconcileUntilMS <= now.UnixMilli() ||
+				!reconciliationContextMatches(ctx, state.ContinuityID, source)) {
+			return steadySourceChanged()
 		}
 		if !sameSteadySource(current, *approved, facts) {
 			return steadySourceChanged()
