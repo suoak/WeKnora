@@ -30,9 +30,11 @@ func run() error {
 		"replace only unclaimed Wiki-only finalizing operations from verified inputs")
 	retireEmpty := flag.Bool("retire-empty-retractions", false,
 		"preview/apply archival of deleted-source retractions with no queued or current Wiki targets")
+	isolatePages := flag.Bool("isolate-unverified-pages", false,
+		"preserve valid pages and original operations; isolate only pages failing current proof")
 	flag.Parse()
-	if *retireEmpty && *resume {
-		return errors.New("empty retraction retirement cannot be combined with regeneration")
+	if *retireEmpty && *resume || *isolatePages && (*resume || *retireEmpty) {
+		return errors.New("choose one recovery mode")
 	}
 	if *tenant == 0 || *kb == "" {
 		return errors.New("-tenant and -kb required")
@@ -74,6 +76,24 @@ func run() error {
 		}
 		return json.NewEncoder(os.Stdout).Encode(plan)
 	}
+	if *isolatePages {
+		var plan *repository.WikiPageRecoveryPlan
+		err := wikilock.With(ctx, rc, *kb, func(locked context.Context) error {
+			var e error
+			plan, e = repository.PrepareWikiPageRecovery(locked, db, *tenant, *kb, *snapshot, *apply)
+			return e
+		})
+		if err != nil {
+			return err
+		}
+		if err := json.NewEncoder(os.Stdout).Encode(plan); err != nil {
+			return err
+		}
+		if !*apply {
+			return nil
+		}
+		return enqueueGeneration(ctx, opts, *tenant, *kb)
+	}
 	var plan *repository.WikiRegenerationPlan
 	err = wikilock.With(ctx, rc, *kb, func(locked context.Context) error {
 		var e error
@@ -89,11 +109,15 @@ func run() error {
 	if !*apply {
 		return nil
 	}
+	return enqueueGeneration(ctx, opts, *tenant, *kb)
+}
+
+func enqueueGeneration(ctx context.Context, opts asynq.RedisClientOpt, tenant uint64, kb string) error {
 	// Durable ops and slots already committed atomically. Housekeeping re-arms
 	// this trigger if Redis is unavailable; rerunning apply cannot duplicate ops.
 	client := asynq.NewClient(opts)
 	defer func() { _ = client.Close() }()
-	payload, err := json.Marshal(map[string]any{"tenant_id": *tenant, "knowledge_base_id": *kb, "language": "zh-CN"})
+	payload, err := json.Marshal(map[string]any{"tenant_id": tenant, "knowledge_base_id": kb, "language": "zh-CN"})
 	if err != nil {
 		return err
 	}
