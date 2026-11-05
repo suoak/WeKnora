@@ -255,10 +255,10 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 		require.EqualValues(t, 1, visible("oldcanary"))
 		require.Zero(t, visible("failed-new-candidate"))
 		for _, category := range []string{"permission", "auth", "unknown"} {
-			copy := *item
-			copy.Content = nil
-			copy.Metadata = map[string]string{"error": category}
-			_, e := store.RetainVerifiedVersion(ctx, ds, &copy)
+			candidate := *item
+			candidate.Content = nil
+			candidate.Metadata = map[string]string{"error": category}
+			_, e := store.RetainVerifiedVersion(ctx, ds, &candidate)
 			require.Error(t, e)
 		}
 		_, e = store.RetainVerifiedVersion(context.Background(), ds, item)
@@ -268,9 +268,9 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 		})
 		_, e = store.RetainVerifiedVersion(denied, ds, item)
 		require.Error(t, e, "a retained historical receipt never overrides current permission")
-		copy := *item
-		copy.ExternalID = "not-imported"
-		_, e = store.RetainVerifiedVersion(ctx, ds, &copy)
+		candidate := *item
+		candidate.ExternalID = "not-imported"
+		_, e = store.RetainVerifiedVersion(ctx, ds, &candidate)
 		require.Error(t, e, "historical unknown versions must not receive a receipt")
 		empty, e := store.UnpublishedResource(ctx, ds, "not-imported")
 		require.NoError(t, e)

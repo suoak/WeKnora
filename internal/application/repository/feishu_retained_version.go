@@ -31,7 +31,8 @@ func (s *FeishuLegacyStore) RetainVerifiedVersion(
 			return err
 		}
 		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).First(&resource,
-			"id=? AND tenant_id=? AND knowledge_base_id=? AND data_source_id=? AND external_id=? AND state='active'",
+			"id=? AND tenant_id=? AND knowledge_base_id=? AND data_source_id=? "+
+				"AND external_id=? AND state='active'",
 			legacyResourceID(ds, item.ExternalID), ds.TenantID, ds.KnowledgeBaseID, ds.ID, item.ExternalID).Error; err != nil {
 			return err
 		}

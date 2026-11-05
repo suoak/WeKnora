@@ -2,6 +2,7 @@ package types
 
 import "strings"
 
+// DataSourceSyncHealth describes the observed synchronization state without granting access.
 type DataSourceSyncHealth struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`

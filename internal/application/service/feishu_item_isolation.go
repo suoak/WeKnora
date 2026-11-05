@@ -46,7 +46,8 @@ func (s *DataSourceService) retainVerifiedFeishuItem(
 	if err != nil {
 		// Unpublished candidates have no public version to retain. Inventory
 		// validation still rejects any public row lacking a verified receipt.
-		logger.Warnf(ctx, "feishu retained version not verified source_id=%s; final inventory remains authoritative", ds.ID)
+		logger.Warnf(ctx,
+			"feishu retained version not verified source_id=%s; final inventory remains authoritative", ds.ID)
 		return nil
 	}
 	types.AddLegacyReceipt(ctx, *receipt)
