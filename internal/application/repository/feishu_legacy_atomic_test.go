@@ -226,6 +226,23 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 	require.Zero(t, visible("rc3baselinecanary"), "old committed version must not mix with the new version")
 	_, err = store.Receipt(ctx, r, a)
 	require.NoError(t, err, "lost-ACK reconciliation must use durable receipt")
+	t.Run("permission-refusal-quarantines-one-document-without-stopping-source", func(t *testing.T) {
+		tx := db.Begin()
+		require.NoError(t, tx.Error)
+		defer tx.Rollback()
+		local := NewFeishuLegacyStore(tx)
+		require.NoError(t, local.RestrictDocument(ctx, ds, "same-cloud-id"))
+		var source types.DataSource
+		require.NoError(t, tx.First(&source, "id=?", ds.ID).Error)
+		require.Equal(t, ds.LegacyAccessState, source.LegacyAccessState)
+		var quarantined types.FeishuLegacyResource
+		require.NoError(t, tx.First(&quarantined, "id=?", r.ID).Error)
+		require.Equal(t, "hold", quarantined.State)
+		require.Greater(t, len(quarantined.QuarantineSnapshot), 2)
+		guarded := types.EnableLegacyReadGuards(tx)
+		require.ErrorIs(t, types.CheckLegacySourceRead(guarded.WithContext(context.Background()), "", kb.ID),
+			types.ErrLegacySourceRestricted, "old derived content stays closed until safe regeneration")
+	})
 	t.Run("document-failure-retains-only-a-verified-active-version", func(t *testing.T) {
 		item := &types.FetchedItem{
 			ExternalID: "same-cloud-id", SourceResourceID: "selected-root", Content: []byte("failed-new-candidate"),

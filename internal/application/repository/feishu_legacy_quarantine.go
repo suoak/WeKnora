@@ -141,3 +141,48 @@ func (s *FeishuLegacyStore) RestrictSource(ctx context.Context, ds *types.DataSo
 	})
 	return
 }
+
+// RestrictDocument keeps the existing deny-before-redaction protocol, then
+// restores a previously admissible source only after this exact document is
+// durably quarantined. Its old body and derived Wiki remain unreadable. Any
+// snapshot/redaction/authority failure keeps the source closed for diagnosis.
+func (s *FeishuLegacyStore) RestrictDocument(ctx context.Context, ds *types.DataSource, external string) error {
+	if _, err := s.RestrictSource(ctx, ds, external, false); err != nil {
+		return err
+	}
+	if ds.LegacyAccessState != "active" && ds.LegacyAccessState != "unmanaged" {
+		return nil // Historical source uncertainty still requires full reconciliation.
+	}
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := s.execution(tx, ctx, ds); err != nil {
+			return err
+		}
+		var resource types.FeishuLegacyResource
+		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).First(&resource,
+			"id=? AND tenant_id=? AND data_source_id=? AND knowledge_base_id=?",
+			legacyResourceID(ds, external), ds.TenantID, ds.ID, ds.KnowledgeBaseID).Error; err != nil {
+			return err
+		}
+		if (resource.State != "hold" && resource.State != "revoked") || len(resource.QuarantineSnapshot) <= 2 {
+			return legacyFence("document_quarantine_unconfirmed")
+		}
+		var readable int64
+		if err := tx.Table("knowledges").Where("id=? AND tenant_id=? AND enable_status='enabled'",
+			resource.KnowledgeID, ds.TenantID).Count(&readable).Error; err != nil {
+			return err
+		}
+		if readable != 0 {
+			return legacyFence("document_quarantine_projection_unconfirmed")
+		}
+		result := tx.Model(&types.DataSource{}).
+			Where("id=? AND tenant_id=? AND legacy_access_state='hold'", ds.ID, ds.TenantID).
+			Update("legacy_access_state", ds.LegacyAccessState)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return legacyFence("document_quarantine_source_changed")
+		}
+		return nil
+	})
+}

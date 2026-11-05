@@ -25,8 +25,7 @@ func (s *DataSourceService) restrictFailedFeishuItem(
 		if err != nil || empty {
 			return err
 		}
-		_, err = store.RestrictSource(context.WithoutCancel(ctx), ds, item.ExternalID, false)
-		return err
+		return store.RestrictDocument(context.WithoutCancel(ctx), ds, item.ExternalID)
 	}
 	return s.legacySourceUncertain(ctx, ds, true)
 }
