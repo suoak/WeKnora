@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Tencent/WeKnora/internal/feishusafety"
 	"github.com/stretchr/testify/require"
 )
 
@@ -30,9 +31,14 @@ func TestSignedReconciliationContinuesOnlyAfterVerifiedStateTransition(t *testin
 	authority.AccessState, authority.SourceStatus = "active", "active"
 	authority.AuthorityHash = authority.NormalAuthorityHash
 	f.authority[id] = authority
-	_, bound, err := BindApprovedSource(context.Background(), id, facts.ConfigSHA256)
+	work, bound, err := BindApprovedSource(context.Background(), id, facts.ConfigSHA256)
 	require.NoError(t, err)
 	require.True(t, bound, "the same signed exact source automatically continues normal scheduling")
+	work = feishusafety.WithScope(work, id)
+	require.NoError(t, f.c.Guard.Check(work), "the atomic Redis gate must accept the signed normal fingerprint")
+	_, release, err := feishusafety.ReserveEmbedding(work, []string{"verified resumed source"})
+	require.NoError(t, err, "the same exact normal identity must pass the atomic model budget gate")
+	release()
 
 	for _, mutation := range []string{"paused", "revoked", "hold", "membership", "config"} {
 		t.Run(mutation, func(t *testing.T) {

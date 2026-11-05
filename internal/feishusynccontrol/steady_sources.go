@@ -101,6 +101,9 @@ func (m *RecoveryManager) steadySourceForPurpose(
 	normalRetry := f.RetryEligible && authority.SourceStatus == "error" &&
 		(authority.AccessState == "active" || authority.AccessState == "unmanaged")
 	if !reconcile && !f.Eligible && !normalRetry {
+		if !f.sourceStateKnown {
+			return s, f, ErrRecoveryRejected
+		}
 		return s, f, steadySourceChanged()
 	}
 	if !reconcile && normalRetry {

@@ -120,7 +120,10 @@ if raw then
   redis.call('PTTL',KEYS[5])<=0) then return redis.error_reply('STEADY_HEALTH_EXPIRED') end
  if s.phase=='approved_sources' then
   local entry=s.approved_sources and s.approved_sources[ARGV[2]]
-  if not entry or entry.config_sha256~=ARGV[4] or s.continuity_id~=ARGV[3] or
+  local config_ok=entry and (entry.config_sha256==ARGV[4] or
+   (entry.reconciliation==true and type(entry.normal_config_sha256)=='string' and
+    #entry.normal_config_sha256==64 and entry.normal_config_sha256==ARGV[4]))
+  if not config_ok or s.continuity_id~=ARGV[3] or
    (ARGV[8]~='true' and ARGV[8]~='1') then return redis.error_reply('APPROVED_SOURCE_DENIED') end
  elseif s.source_id~=ARGV[2] or s.config_sha256~=ARGV[4] then return
 redis.error_reply('RECOVERY_SOURCE_DENIED') end
@@ -264,7 +267,10 @@ if raw then
   redis.call('PTTL',KEYS[7])<=0) then return redis.error_reply('STEADY_HEALTH_EXPIRED') end
  if s.phase=='approved_sources' then
   local entry=s.approved_sources and s.approved_sources[ARGV[8]]
-  if not entry or entry.config_sha256~=ARGV[10] or s.continuity_id~=ARGV[9] or
+  local config_ok=entry and (entry.config_sha256==ARGV[10] or
+   (entry.reconciliation==true and type(entry.normal_config_sha256)=='string' and
+    #entry.normal_config_sha256==64 and entry.normal_config_sha256==ARGV[10]))
+  if not config_ok or s.continuity_id~=ARGV[9] or
    (ARGV[14]~='true' and ARGV[14]~='1') then return redis.error_reply('APPROVED_SOURCE_DENIED') end
  elseif s.source_id~=ARGV[8] or s.config_sha256~=ARGV[10] then return
 redis.error_reply('RECOVERY_SOURCE_DENIED') end
