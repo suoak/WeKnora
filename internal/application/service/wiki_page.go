@@ -876,7 +876,16 @@ func (s *wikiPageService) GetStats(ctx context.Context, kbID string) (*types.Wik
 	if s.taskPendingRepo != nil {
 		// Pending wiki ingest ops live in task_pending_ops keyed by
 		// (task_type="wiki:ingest", scope="knowledge_base", scope_id=kbID).
-		pendingTasks, _ = s.taskPendingRepo.PendingCount(ctx, wikiTaskType, wikiTaskScope, kbID)
+		var countErr error
+		pendingTasks, countErr = s.taskPendingRepo.PendingCount(ctx, wikiTaskType, wikiTaskScope, kbID)
+		if countErr != nil {
+			return nil, countErr
+		}
+		finalizeTasks, countErr := s.taskPendingRepo.PendingCount(ctx, wikiFinalizeTaskType, wikiTaskScope, kbID)
+		if countErr != nil {
+			return nil, countErr
+		}
+		pendingTasks += finalizeTasks
 	}
 	if s.redisClient != nil {
 		active, _ := s.redisClient.ZCount(
@@ -897,9 +906,20 @@ func (s *wikiPageService) GetStats(ctx context.Context, kbID string) (*types.Wik
 			return nil, blockErr
 		}
 		if block != nil && block.Reason != "" {
-			status, blockedReason, isActive = "blocked", block.Reason, false
-			if block.Reason == "source_verification_required" {
-				status = "source_verification_required"
+			resolved := false
+			if pendingTasks == 0 && !isActive {
+				if tenant, valid := types.TenantIDFromContext(ctx); valid {
+					resolved, blockErr = repository.ResolveWikiProcessingBlockIfIdle(ctx, s.repo, tenant, kbID)
+					if blockErr != nil {
+						return nil, blockErr
+					}
+				}
+			}
+			if !resolved {
+				status, blockedReason, isActive = "blocked", block.Reason, false
+				if block.Reason == "source_verification_required" {
+					status = "source_verification_required"
+				}
 			}
 		}
 	}

@@ -23,7 +23,8 @@ func TestWikiNormalFeishuRequiresPublishedResourceAndCurrentSource(t *testing.T)
 	require.ErrorIs(t, err, types.ErrLegacySourceRestricted, "normal admission alone never proves document content")
 	require.NoError(t, db.Exec(`INSERT INTO feishu_legacy_resources
  (id,tenant_id,knowledge_base_id,data_source_id,external_id,knowledge_id,state,active_attempt)
- VALUES('normal-resource',1,'public-two','normal-feishu','synthetic','public-two-doc','active','published-attempt')`).Error)
+ VALUES('normal-resource',1,'public-two','normal-feishu','synthetic',
+ 'public-two-doc','active','published-attempt')`).Error)
 	proof, err := repository.BeginWikiMCPGeneration(context.Background(), repo, "public-two")
 	require.NoError(t, err, "verified normal publications do not require a historical source recovery")
 	page := &types.WikiPage{
@@ -33,12 +34,14 @@ func TestWikiNormalFeishuRequiresPublishedResourceAndCurrentSource(t *testing.T)
 	}
 	require.NoError(t, repo.Create(proof, page))
 	for _, state := range []string{"hold", "revoked"} {
-		require.NoError(t, db.Exec(`UPDATE data_sources SET legacy_access_state=? WHERE id='normal-feishu'`, state).Error)
+		require.NoError(t, db.Exec(`UPDATE data_sources SET legacy_access_state=?
+ WHERE id='normal-feishu'`, state).Error)
 		_, err = repository.BeginWikiMCPGeneration(context.Background(), repo, "public-two")
 		require.ErrorIs(t, err, types.ErrLegacySourceRestricted)
 		require.Error(t, repo.Update(proof, page), "a previous generation cannot publish after source withdrawal")
 	}
-	require.NoError(t, db.Exec(`UPDATE data_sources SET legacy_access_state='unmanaged' WHERE id='normal-feishu'`).Error)
+	require.NoError(t, db.Exec(`UPDATE data_sources SET legacy_access_state='unmanaged'
+ WHERE id='normal-feishu'`).Error)
 	require.NoError(t, db.Exec(`UPDATE feishu_legacy_resources SET active_attempt='' WHERE id='normal-resource'`).Error)
 	_, err = repository.BeginWikiMCPGeneration(context.Background(), repo, "public-two")
 	require.ErrorIs(t, err, types.ErrLegacySourceRestricted)

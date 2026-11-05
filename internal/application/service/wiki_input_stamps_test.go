@@ -28,11 +28,12 @@ func TestWikiInputStampsReuseExactContentHashAndRejectCoveredMutation(t *testing
 			proof, err := repository.BeginWikiMCPGeneration(context.Background(), repo, "public-two")
 			require.NoError(t, err)
 			chunkReads := 0
-			require.NoError(t, db.Callback().Query().After("gorm:query").Register("wiki_input_reads", func(tx *gorm.DB) {
+			countReads := func(tx *gorm.DB) {
 				if tx.Statement.Table == "chunks" && strings.Contains(tx.Statement.SQL.String(), "SELECT") {
 					chunkReads++
 				}
-			}))
+			}
+			require.NoError(t, db.Callback().Query().After("gorm:query").Register("wiki_input_reads", countReads))
 			page := &types.WikiPage{
 				ID: "epoch-page", TenantID: 1, KnowledgeBaseID: "public-two", Slug: "concept/epoch",
 				PageType: "concept", Status: "published", Content: "synthetic page", Version: 1,

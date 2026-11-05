@@ -14,6 +14,39 @@ import (
 
 const wikiStateScope = "wiki_processing_state"
 
+// ResolveWikiProcessingBlockIfIdle retires only stale processing metadata.
+// It never settles business work or grants source/page read authority.
+func ResolveWikiProcessingBlockIfIdle(
+	ctx context.Context, repo interfaces.WikiPageRepository, tenant uint64, kb string,
+) (bool, error) {
+	r, ok := repo.(*wikiPageRepository)
+	if !ok {
+		return false, nil
+	}
+	resolved := false
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var anchor struct{ ID string }
+		if err := tx.Table("knowledge_bases").Clauses(clause.Locking{Strength: "UPDATE"}).
+			Select("id").Where("id=? AND tenant_id=? AND deleted_at IS NULL", kb, tenant).Take(&anchor).Error; err != nil {
+			return err
+		}
+		var pending int64
+		if err := tx.Table("task_pending_ops").Where("scope=? AND scope_id=? AND task_type IN ?",
+			types.TaskScopeKnowledgeBase, kb, []string{"wiki:ingest", "wiki:finalize"}).Count(&pending).Error; err != nil {
+			return err
+		}
+		if pending != 0 {
+			return nil
+		}
+		if err := WriteWikiProcessingBlock(ctx, NewWikiPageRepository(tx), tenant, kb, ""); err != nil {
+			return err
+		}
+		resolved = true
+		return nil
+	})
+	return resolved, err
+}
+
 // WikiProcessingBlock is metadata only. Original work, payloads, claims and
 // attempt identities remain in their original lanes, untouched.
 type WikiProcessingBlock struct {
