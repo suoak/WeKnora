@@ -115,3 +115,40 @@ func TestWikiSelectiveRecoveryRejectsDeniedSourcesBeforeChangingPages(t *testing
 	require.NoError(t, db.Model(&types.TaskPendingOp{}).Count(&n).Error)
 	require.Zero(t, n)
 }
+
+func TestWikiSelectiveRecoverySourceOnlyApplyIsOneShot(t *testing.T) {
+	testWikiSelectiveRecoverySourceOnly(t, fixture.New(t))
+}
+
+func testWikiSelectiveRecoverySourceOnly(t *testing.T, f *fixture.Fixture) {
+	f.PreparePublished(t)
+	db, ctx := f.DB, context.Background()
+	require.NoError(t, db.AutoMigrate(&types.TaskPendingOp{}, &types.KnowledgeProcessingSpan{}))
+	require.NoError(t, db.Model(&types.KnowledgeBase{}).Where("id='public-two'").
+		Update("indexing_strategy", types.IndexingStrategy{WikiEnabled: true}).Error)
+	op := types.TaskPendingOp{
+		TenantID: 1, Scope: "knowledge_base", ScopeID: "public-two", TaskType: "wiki:ingest",
+		Op: "ingest", DedupKey: "public-two-doc", Payload: json.RawMessage(`{"attempt":1}`),
+	}
+	require.NoError(t, db.Create(&op).Error)
+	repo := repository.NewWikiPageRepository(db)
+	require.NoError(t, repository.WriteWikiProcessingBlock(ctx, repo, 1, "public-two", "source_verification_required"))
+	plan, err := repository.PrepareWikiPageRecovery(ctx, db, 1, "public-two", "", false)
+	require.NoError(t, err)
+	require.Empty(t, plan.IsolatedPages)
+	require.Empty(t, plan.QueueDocuments)
+	_, err = repository.PrepareWikiPageRecovery(ctx, db, 1, "public-two", plan.Snapshot, true)
+	require.NoError(t, err)
+	preview, err := repository.PrepareWikiPageRecovery(ctx, db, 1, "public-two", "", false)
+	require.NoError(t, err)
+	require.Equal(t, plan.Snapshot, preview.Snapshot, "metadata-only resolution does not change generation inputs")
+	_, err = repository.PrepareWikiPageRecovery(ctx, db, 1, "public-two", plan.Snapshot, true)
+	require.ErrorContains(t, err, "already applied")
+	var n int64
+	require.NoError(t, db.Table("task_pending_ops").Where("scope='wiki_page_recovery_audit'").Count(&n).Error)
+	require.EqualValues(t, 1, n)
+	var retained types.TaskPendingOp
+	require.NoError(t, db.First(&retained, op.ID).Error)
+	require.Equal(t, "knowledge_base", retained.Scope)
+	require.Equal(t, string(op.Payload), string(retained.Payload))
+}
