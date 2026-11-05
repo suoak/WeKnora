@@ -24,7 +24,8 @@ func (d *DataSource) DescribeSyncHealth() *DataSourceSyncHealth {
 		return health("reauthorize", "来源授权已撤销，停止读取和更新", "reconnect")
 	}
 	errorText := strings.ToLower(d.ErrorMessage)
-	if strings.Contains(errorText, "credential reference unavailable") || strings.Contains(errorText, "authorization expired") {
+	if strings.Contains(errorText, "credential reference unavailable") ||
+		strings.Contains(errorText, "authorization expired") {
 		return health("reauthorize", "需要重新连接并验证飞书授权", "reconnect")
 	}
 	if d.LegacyAccessState == "hold" {
