@@ -83,8 +83,10 @@ func (s *DataSourceService) CreateDataSource(
 		return nil, err
 	}
 
-	// Validate knowledge base exists
-	kb, err := s.kbService.GetKnowledgeBaseByID(ctx, ds.KnowledgeBaseID)
+	// Source configuration needs KB metadata, not protected document content.
+	// Another source's hold must not prevent adding a healthy source here.
+	kb, err := s.kbService.GetKnowledgeBaseByID(
+		types.WithLegacyKBAdminMetadata(ctx, ds.KnowledgeBaseID), ds.KnowledgeBaseID)
 	if err != nil || kb == nil {
 		return nil, datasource.ErrKnowledgeBaseNotFound
 	}

@@ -228,7 +228,7 @@ func TestNormalServiceKeepsHoldReconciliationSeparateAndIsolatesItsExpiry(t *tes
 	work, err := f.m.BeginSourceReconciliation(operator, held, plan.ID)
 	require.NoError(t, err)
 	run := uuid.NewString()
-	require.NoError(t, f.m.BindSourceReconciliationRun(work, held, plan.ID, run))
+	require.NoError(t, f.m.BindSourceReconciliationRun(work, held, run))
 	claimed := types.WithSyncExecution(operator, types.SyncExecution{
 		DataSourceID: held, TenantID: f.authority[held].TenantID, SyncLogID: run, Generation: 1,
 	})
