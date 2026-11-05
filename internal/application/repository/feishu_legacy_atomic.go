@@ -928,9 +928,30 @@ content,dimension,embedding,is_enabled)
 		}).Error; e != nil {
 			return e
 		}
-		return tx.Model(r).
+		if e = tx.Model(r).
 			Updates(map[string]any{"active_attempt": a.ID, "state": "active", "updated_at": receipt.PublishedAt}).
-			Error
+			Error; e != nil {
+			return e
+		}
+		if !kb.IsWikiEnabled() {
+			return nil
+		}
+		// Publication and its existing durable Wiki operation must commit together.
+		// No candidate body is queued: the consumer re-reads the current verified
+		// source and the ordinary dispatcher recreates its Redis trigger. A lost
+		// acknowledgement is reconciled by Receipt, without appending another op.
+		payload, e := json.Marshal(map[string]string{
+			"op": "ingest", "knowledge_id": r.KnowledgeID,
+			"language": types.LanguageFromContextOrDefault(ctx),
+		})
+		if e != nil {
+			return e
+		}
+		return NewTaskPendingOpsRepository(tx).Enqueue(ctx, &types.TaskPendingOp{
+			TenantID: r.TenantID, TaskType: types.TypeWikiIngest,
+			Scope: types.TaskScopeKnowledgeBase, ScopeID: r.KnowledgeBaseID,
+			Op: "ingest", DedupKey: r.KnowledgeID, Payload: payload,
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("Feishu atomic publication unconfirmed: %w", err)
