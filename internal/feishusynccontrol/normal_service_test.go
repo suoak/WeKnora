@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/feishusafety"
+	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -28,10 +29,17 @@ func newNormalFixture(t *testing.T) *normalFixture {
 	return f
 }
 
-func (f *normalFixture) load(_ context.Context, _ *gorm.DB, source, config string) (NormalSourceAuthority, error) {
+func (f *normalFixture) load(ctx context.Context, _ *gorm.DB, source, config string) (NormalSourceAuthority, error) {
 	a, ok := f.sources[source]
 	if !ok || a.ConfigSHA256 != config {
 		return a, ErrRecoveryRejected
+	}
+	if identity, outbound := feishusafety.RecoveryOutboundExecution(ctx); outbound {
+		e, claimed := types.SyncExecutionFromContext(ctx)
+		if !claimed || e.DataSourceID != source || e.TenantID != a.TenantID ||
+			e.SyncLogID != identity.Run || e.Generation != identity.Generation || e.Generation < 1 {
+			return a, ErrRecoveryRejected
+		}
 	}
 	return a, nil
 }
@@ -157,6 +165,16 @@ func TestNormalServiceGracefulDeploymentDoesNotNeedNewSourceApprovals(t *testing
 	identity, _ := feishusafety.RecoveryOutboundExecution(work)
 	require.Equal(t, grant.ID, identity.Plan)
 	require.NoError(t, guard.Check(feishusafety.WithScope(work, source.SourceID)))
+	_, _, err = feishusafety.ReserveEmbedding(feishusafety.WithScope(work, source.SourceID), []string{"synthetic"})
+	require.Error(t, err, "producer admission is not a SQL execution Claim")
+	execution := types.SyncExecution{
+		DataSourceID: source.SourceID, SyncLogID: uuid.NewString(), TenantID: source.TenantID, Generation: 1,
+	}
+	claimed := types.WithSyncExecution(work, execution)
+	claimed = feishusafety.WithRecoveryExecution(claimed, source.ConfigSHA256, execution.SyncLogID, execution.Generation)
+	_, release, err := feishusafety.ReserveEmbedding(feishusafety.WithScope(claimed, source.SourceID), []string{"synthetic"})
+	require.NoError(t, err)
+	release()
 	require.True(t, f.r.Exists(ctx, c.prefix+"recovery").Val() == 1, "old incident evidence remains intact")
 	// The independent budget gate still applies to every automatically
 	// registered source, not only the producer's Check.
