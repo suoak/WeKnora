@@ -923,18 +923,24 @@ func resolveAndValidateSSRFTarget(
 		return ssrfValidatedTarget{}, fmt.Errorf("%w: connection blocked: %w", ErrSSRFRequestRejected, err)
 	}
 	if restrictedPorts[port] {
-		return ssrfValidatedTarget{}, fmt.Errorf("%w: connection blocked: port %s is restricted", ErrSSRFRequestRejected, port)
+		return ssrfValidatedTarget{}, fmt.Errorf(
+			"%w: connection blocked: port %s is restricted", ErrSSRFRequestRejected, port,
+		)
 	}
 
 	hostLower := strings.ToLower(host)
 	for _, restricted := range restrictedHostnames {
 		if hostLower == restricted {
-			return ssrfValidatedTarget{}, fmt.Errorf("%w: connection blocked: hostname %s is restricted", ErrSSRFRequestRejected, host)
+			return ssrfValidatedTarget{}, fmt.Errorf(
+				"%w: connection blocked: hostname %s is restricted", ErrSSRFRequestRejected, host,
+			)
 		}
 	}
 	for _, suffix := range restrictedHostSuffixes {
 		if strings.HasSuffix(hostLower, suffix) {
-			return ssrfValidatedTarget{}, fmt.Errorf("%w: connection blocked: hostname suffix %s is restricted", ErrSSRFRequestRejected, suffix)
+			return ssrfValidatedTarget{}, fmt.Errorf(
+				"%w: connection blocked: hostname suffix %s is restricted", ErrSSRFRequestRejected, suffix,
+			)
 		}
 	}
 
