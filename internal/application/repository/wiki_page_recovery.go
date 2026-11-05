@@ -21,6 +21,7 @@ type WikiPageRecoveryPlan struct {
 	IsolatedPages   []string `json:"isolated_pages"`
 	QueueDocuments  []string `json:"queue_documents"`
 	PendingOps      int      `json:"pending_operations"`
+	RetiredRetracts []int64  `json:"retired_retractions"`
 	Snapshot        string   `json:"snapshot"`
 	Applied         bool     `json:"applied"`
 }
@@ -70,6 +71,44 @@ func PrepareWikiPageRecovery(
 		if proof.Tenant != tenant {
 			return ErrWikiMCPUnverified
 		}
+		// A retraction's old body cannot become a new model input. After the
+		// invalid pages are isolated, all retained pages already prove current
+		// versions. Only confirmed deletion or a current replacement ingest
+		// can supersede the original retraction, which is preserved in audit.
+		deletedEvidence := map[string]string{}
+		var retracts []types.TaskPendingOp
+		for _, op := range pending {
+			if op.TaskType != "wiki:ingest" || op.Op != "retract" {
+				continue
+			}
+			var identity struct {
+				Op          string `json:"op"`
+				KnowledgeID string `json:"knowledge_id"`
+			}
+			if json.Unmarshal(op.Payload, &identity) != nil {
+				return errors.New("retraction identity is unknown")
+			}
+			if identity.Op != "retract" || identity.KnowledgeID != op.DedupKey || op.DedupKey == "" {
+				return errors.New("retraction identity is inconsistent")
+			}
+			var document struct{ DeletedAt *time.Time }
+			err := tx.Table("knowledges").Select("deleted_at").Where(
+				"id=? AND tenant_id=? AND knowledge_base_id=?", op.DedupKey, tenant, kb).Take(&document).Error
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				evidence, err := deletedWikiInputEvidence(tx, tenant, kb, op.DedupKey)
+				if err != nil {
+					return err
+				}
+				deletedEvidence[op.DedupKey] = evidence
+			} else if err != nil {
+				return err
+			} else if document.DeletedAt != nil {
+				deletedEvidence[op.DedupKey] = wikiDigest(document)
+			} else if !existing[op.DedupKey] || proof.Sources[op.DedupKey] == "" {
+				return errors.New("retraction has no confirmed deletion or verified replacement")
+			}
+			retracts = append(retracts, op)
+		}
 		var pages []types.WikiPage
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where(
 			"knowledge_base_id=? AND tenant_id=?", kb, tenant).
@@ -90,7 +129,10 @@ func PrepareWikiPageRecovery(
 		}
 		plan = &WikiPageRecoveryPlan{
 			TenantID: tenant, KnowledgeBaseID: kb, PendingOps: len(pending),
-			IsolatedPages: []string{}, QueueDocuments: []string{},
+			IsolatedPages: []string{}, QueueDocuments: []string{}, RetiredRetracts: []int64{},
+		}
+		for _, op := range retracts {
+			plan.RetiredRetracts = append(plan.RetiredRetracts, op.ID)
 		}
 		queue := map[string]bool{}
 		for i := range pages {
@@ -117,7 +159,7 @@ func PrepareWikiPageRecovery(
 			plan.QueueDocuments = append(plan.QueueDocuments, id)
 		}
 		sort.Strings(plan.QueueDocuments)
-		plan.Snapshot = wikiDigest([]any{anchor, proof.Sources, proof.Epochs, pages, seals, pending, epoch})
+		plan.Snapshot = wikiDigest([]any{anchor, proof.Sources, proof.Epochs, pages, seals, pending, epoch, deletedEvidence})
 		if !apply {
 			return nil
 		}
@@ -154,6 +196,17 @@ func PrepareWikiPageRecovery(
 				Op: "ingest", DedupKey: id, Payload: payload, EnqueuedAt: now,
 			}).Error; err != nil {
 				return err
+			}
+		}
+		for _, op := range retracts {
+			result := tx.Model(&types.TaskPendingOp{}).
+				Where("id=? AND tenant_id=? AND scope='knowledge_base' AND claimed_at IS NULL", op.ID, tenant).
+				Update("scope", wikiRegenerationArchiveScope)
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected != 1 {
+				return errors.New("retraction claim changed during recovery")
 			}
 		}
 		fresh, err := wikiDependencies(tx, kb)

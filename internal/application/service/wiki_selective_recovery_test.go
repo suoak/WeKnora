@@ -42,6 +42,13 @@ func testWikiSelectiveRecovery(t *testing.T, f *fixture.Fixture) {
 		Op: "ingest", DedupKey: "public-two-doc", Payload: json.RawMessage(`{"attempt":7}`), FailCount: 2,
 	}
 	require.NoError(t, db.Create(&original).Error)
+	retract := types.TaskPendingOp{
+		TenantID: 1, Scope: "knowledge_base", ScopeID: "public-two", TaskType: "wiki:ingest",
+		Op: "retract", DedupKey: "public-two-doc",
+		Payload: json.RawMessage(`{"op":"retract","knowledge_id":"public-two-doc",` +
+			`"doc_summary":"OLD_QUEUE_BODY_NEVER_GENERATE"}`),
+	}
+	require.NoError(t, db.Create(&retract).Error)
 	require.NoError(t, repository.WriteWikiProcessingBlock(ctx, repo, 1, "public-two", "verified_regeneration_required"))
 	preview := func() (*repository.WikiPageRecoveryPlan, error) {
 		return repository.PrepareWikiPageRecovery(ctx, db, 1, "public-two", "", false)
@@ -51,6 +58,7 @@ func testWikiSelectiveRecovery(t *testing.T, f *fixture.Fixture) {
 	require.Equal(t, 1, plan.RetainedPages)
 	require.Equal(t, []string{"unverified"}, plan.IsolatedPages)
 	require.Empty(t, plan.QueueDocuments, "existing durable ingest is reused")
+	require.Equal(t, []int64{retract.ID}, plan.RetiredRetracts)
 	_, err = repository.PrepareWikiPageRecovery(ctx, db, 99, "public-two", plan.Snapshot, true)
 	require.Error(t, err)
 	_, err = repository.PrepareWikiPageRecovery(ctx, db, 1, "public-two", "stale", true)
@@ -78,6 +86,11 @@ func testWikiSelectiveRecovery(t *testing.T, f *fixture.Fixture) {
 	require.Equal(t, original.FailCount, retained.FailCount)
 	require.Equal(t, string(original.Payload), string(retained.Payload))
 	require.Equal(t, "knowledge_base", retained.Scope)
+	retained = types.TaskPendingOp{}
+	require.NoError(t, db.First(&retained, retract.ID).Error)
+	require.Equal(t, retract.ID, retained.ID)
+	require.Equal(t, string(retract.Payload), string(retained.Payload))
+	require.Equal(t, "wiki_regeneration_archive", retained.Scope)
 	var seals int64
 	require.NoError(t, db.Table("wiki_mcp_provenance").Where("page_id='unverified'").Count(&seals).Error)
 	require.Zero(t, seals, "no retrospective proof is created")
