@@ -296,8 +296,8 @@ func RegisterStorageBackendRoutes(r *gin.RouterGroup, h *handler.StorageBackendH
 //
 // Data sources hold external service credentials (Feishu/Notion/Yuque)
 // and trigger sync jobs that mutate KB content tenant-wide. Reads are
-// Viewer+; everything else (CRUD, validation, sync control, credential
-// subresource) is Admin+.
+// Viewer+; Feishu writes require Contributor+ and owning-KB write access.
+// Other connectors and incident recovery controls continue to require Admin+.
 func RegisterDataSourceRoutes(
 	r *gin.RouterGroup,
 	handler *handler.DataSourceHandler,

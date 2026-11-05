@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -70,7 +71,8 @@ func (m *RecoveryManager) ConfigureNormalService(
 	store func(context.Context, NormalServiceRecord, *NormalServiceRecord) error,
 	saved *NormalServiceRecord,
 ) error {
-	if source == nil || store == nil || (saved != nil && m.verifyNormalAuthorization(saved.Authorization, false) != nil) {
+	if source == nil || store == nil ||
+		(saved != nil && m.verifyNormalAuthorization(saved.Authorization, false) != nil) {
 		return ErrRecoveryRejected
 	}
 	m.normalService.Store(&normalServiceConfiguration{source: source, store: store, saved: saved})
@@ -85,7 +87,8 @@ func (m *RecoveryManager) verifyNormalAuthorization(a NormalServiceAuthorization
 	if a.Version != 1 || idErr != nil || a.Namespace != namespace || a.ApprovalKeyID != m.keyID ||
 		sourceErr != nil || len(m.controller.Config.SourceSHA) != 40 ||
 		m.controller.Config.Scope != "all" ||
-		a.ActorID == "" || types.IsSyntheticUserID(a.ActorID) || a.GuardFingerprint != m.controller.Guard.Fingerprint() ||
+		a.ActorID == "" || types.IsSyntheticUserID(a.ActorID) ||
+		a.GuardFingerprint != m.controller.Guard.Fingerprint() ||
 		a.Purpose != "normal_feishu_sync" || a.SourcePolicy != "current_authorized_sources_v1" ||
 		a.Validity != "until_revoked" || a.CreatedMS <= 0 || a.ActivationExpiresMS <= a.CreatedMS ||
 		a.ActivationExpiresMS-a.CreatedMS > int64(15*time.Minute/time.Millisecond) {
@@ -177,7 +180,8 @@ func (m *RecoveryManager) ActivateNormalService(
 			if _, err := m.normalRecord(ctx); err == nil {
 				return nil
 			}
-			if _, err := m.controller.Client.Get(ctx, m.controller.prefix+"normal_service").Result(); !errors.Is(err, redis.Nil) {
+			_, readErr := m.controller.Client.Get(ctx, m.controller.prefix+"normal_service").Result()
+			if !errors.Is(readErr, redis.Nil) {
 				return ErrRecoveryRejected
 			}
 		} else {
@@ -261,9 +265,13 @@ func (m *RecoveryManager) checkNormalSource(
 	}
 	authority, err := m.normalService.Load().source(ctx, tx, source, config)
 	if err != nil {
-		return ctx, true, steadySourceChanged()
+		if errors.Is(err, ErrRecoveryRejected) {
+			return ctx, true, steadySourceChanged()
+		}
+		return ctx, true, fmt.Errorf("normal_source_validation: %w", err)
 	}
-	if authority.SourceID != source || authority.ConfigSHA256 != config || authority.TenantID == 0 || authority.KBID == "" {
+	if authority.SourceID != source || authority.ConfigSHA256 != config ||
+		authority.TenantID == 0 || authority.KBID == "" {
 		return ctx, true, steadySourceChanged()
 	}
 	if err := m.steadyReady(ctx); err != nil {

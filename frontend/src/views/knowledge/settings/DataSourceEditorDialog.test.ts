@@ -23,11 +23,13 @@ async function fixture({
   create = false,
   type = 'gitlab',
   settings = { projects: [{ project_id: '123', paths: [] }] },
+  role = 'admin',
 }: {
   configured?: boolean
   create?: boolean
   type?: string
   settings?: Record<string, unknown>
+  role?: 'admin' | 'contributor' | 'viewer'
 } = {}) {
   const calls: Array<{ method: string; args: any[] }> = []
   let storedToken = configured ? 'expired-token' : ''
@@ -75,6 +77,10 @@ async function fixture({
       if (name === 'vue-i18n') return { useI18n: () => ({ t: (key: string) => key }) }
       if (name === 'tdesign-vue-next') return { MessagePlugin: { warning() {}, success() {}, error() {} } }
       if (name === '@/api/datasource') return api
+      if (name === '@/stores/auth') return {
+        useAuthStore: () => ({ hasRole: (minimum: string) => role === 'admin' ||
+          (role === 'contributor' && minimum === 'contributor') }),
+      }
       return { default: {} }
     },
     URL, console,
@@ -99,6 +105,14 @@ async function fixture({
   }
   return { vm, calls, replace, storedToken: () => storedToken, close: () => app.unmount() }
 }
+
+test('space contributors can add Feishu Wiki and Drive without administrator connector privileges', async () => {
+  const f = await fixture({ create: true, type: 'feishu', role: 'contributor' })
+  try {
+    assert.deepEqual(Array.from(f.vm.connectorDefs, (def: any) => def.type).sort(),
+      ['feishu', 'feishu_drive', 'lark', 'lark_drive'])
+  } finally { f.close() }
+})
 
 test('new Feishu resource discovery keeps its unused draft paused until final save', async () => {
   const f = await fixture({ create: true, type: 'feishu' })

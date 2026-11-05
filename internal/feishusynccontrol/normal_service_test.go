@@ -85,10 +85,12 @@ func TestNormalServiceAutomaticallyRegistersFutureSourcesAndKeepsIncidentAudit(t
 	before, err := f.m.queue(ctx)
 	require.NoError(t, err)
 	authorization := f.activateNormal(t)
-	for range 4 {
+	for i := range 4 {
 		// These sources did not exist when the service was authorized and are
 		// absent from every incident facts map and signed source list.
 		source := f.addSource()
+		source.TenantID = uint64(i + 1)
+		f.sources[source.SourceID] = source
 		work, approved, err := BindApprovedSource(ctx, source.SourceID, source.ConfigSHA256)
 		require.NoError(t, err)
 		require.True(t, approved)
@@ -97,7 +99,8 @@ func TestNormalServiceAutomaticallyRegistersFutureSourcesAndKeepsIncidentAudit(t
 		require.NoError(t, f.c.Guard.Check(feishusafety.WithScope(work, source.SourceID)))
 		require.True(t, f.r.HExists(ctx, f.c.prefix+"normal_sources", source.SourceID).Val())
 		delete(f.sources, source.SourceID)
-		require.Error(t, f.c.Guard.Check(feishusafety.WithScope(work, source.SourceID)), "live withdrawal denies old contexts")
+		require.Error(t, f.c.Guard.Check(feishusafety.WithScope(work, source.SourceID)),
+			"live withdrawal denies old contexts")
 		require.Zero(t, f.r.Exists(ctx, f.c.prefix+"trip").Val(), "one source does not stop other spaces")
 	}
 	after, err := f.m.queue(ctx)
@@ -129,7 +132,8 @@ func TestNormalServiceGrantCannotBeInventedOrBroadened(t *testing.T) {
 			case "actor":
 				a.ActorID = "another-operator"
 			case "expiry":
-				a.CreatedMS, a.ActivationExpiresMS = time.Now().Add(-time.Hour).UnixMilli(), time.Now().Add(-time.Minute).UnixMilli()
+				a.CreatedMS = time.Now().Add(-time.Hour).UnixMilli()
+				a.ActivationExpiresMS = time.Now().Add(-time.Minute).UnixMilli()
 				a = f.signNormal(t, a)
 			}
 			require.Error(t, f.m.ActivateNormalService(context.Background(), a, "operator"))
@@ -171,8 +175,10 @@ func TestNormalServiceGracefulDeploymentDoesNotNeedNewSourceApprovals(t *testing
 		DataSourceID: source.SourceID, SyncLogID: uuid.NewString(), TenantID: source.TenantID, Generation: 1,
 	}
 	claimed := types.WithSyncExecution(work, execution)
-	claimed = feishusafety.WithRecoveryExecution(claimed, source.ConfigSHA256, execution.SyncLogID, execution.Generation)
-	_, release, err := feishusafety.ReserveEmbedding(feishusafety.WithScope(claimed, source.SourceID), []string{"synthetic"})
+	claimed = feishusafety.WithRecoveryExecution(
+		claimed, source.ConfigSHA256, execution.SyncLogID, execution.Generation)
+	_, release, err := feishusafety.ReserveEmbedding(
+		feishusafety.WithScope(claimed, source.SourceID), []string{"synthetic"})
 	require.NoError(t, err)
 	release()
 	require.True(t, f.r.Exists(ctx, c.prefix+"recovery").Val() == 1, "old incident evidence remains intact")

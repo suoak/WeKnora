@@ -81,7 +81,9 @@ func TestNormalSourcePostgresCurrentWritersClaimsAndPublicationRevocation(t *tes
 	viewerCtx := context.WithValue(context.Background(), types.UserIDContextKey, viewer.ID)
 	_, err = feishusynccontrol.NormalSourceFromDatabase(viewerCtx, db, nil, source.ID, config)
 	require.Error(t, err)
-	cross := types.WithCaller(ctx, types.Caller{TenantID: tenant.ID + 999, UserID: writer.ID, Role: types.TenantRoleOwner})
+	cross := types.WithCaller(ctx, types.Caller{
+		TenantID: tenant.ID + 999, UserID: writer.ID, Role: types.TenantRoleOwner,
+	})
 	_, err = feishusynccontrol.NormalSourceFromDatabase(cross, db, nil, source.ID, config)
 	require.Error(t, err)
 	_, err = feishusynccontrol.NormalSourceFromDatabase(ctx, db, nil, source.ID, strings.Repeat("f", 64))
@@ -91,7 +93,8 @@ func TestNormalSourcePostgresCurrentWritersClaimsAndPublicationRevocation(t *tes
 	created, err := logs.CreateIfNoRunning(ctx, log)
 	require.NoError(t, err)
 	require.True(t, created)
-	execution, claimed, err := logs.(interfaces.SyncExecutionRepository).ClaimExecution(ctx, source.ID, log.ID, tenant.ID)
+	execution, claimed, err := logs.(interfaces.SyncExecutionRepository).
+		ClaimExecution(ctx, source.ID, log.ID, tenant.ID)
 	require.NoError(t, err)
 	require.True(t, claimed)
 	claimedCtx := types.WithSyncExecution(ctx, execution)

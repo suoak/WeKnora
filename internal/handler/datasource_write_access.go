@@ -22,6 +22,13 @@ func (h *DataSourceHandler) SourceWriteAccess(c *gin.Context) {
 		c.Next()
 		return
 	}
+	if !caller.Role.HasPermission(types.TenantRoleContributor) {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "knowledge_base_write_required"})
+		return
+	}
+	isFeishu := func(kind string) bool {
+		return kind == "feishu" || kind == "feishu_drive" || kind == "lark" || kind == "lark_drive"
+	}
 	kind, kbID := "", ""
 	if id := c.Param("id"); id != "" {
 		ds, status, message := h.getOwnedDataSource(ctx, h.getTenantID(c), id)
@@ -30,6 +37,10 @@ func (h *DataSourceHandler) SourceWriteAccess(c *gin.Context) {
 			return
 		}
 		kind, kbID = ds.Type, ds.KnowledgeBaseID
+		if !caller.Role.HasPermission(types.TenantRoleAdmin) && !isFeishu(kind) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "source_administrator_required"})
+			return
+		}
 		if c.Request.Method == http.MethodPut && c.FullPath() == "/api/v1/datasource/:id" {
 			body, err := io.ReadAll(io.LimitReader(c.Request.Body, (1<<20)+1))
 			if err != nil || len(body) > 1<<20 {
@@ -67,8 +78,7 @@ func (h *DataSourceHandler) SourceWriteAccess(c *gin.Context) {
 		}
 		kind, kbID = request.Type, request.KnowledgeBaseID
 	}
-	feishu := kind == "feishu" || kind == "feishu_drive" || kind == "lark" || kind == "lark_drive"
-	if !caller.Role.HasPermission(types.TenantRoleAdmin) && !feishu {
+	if !caller.Role.HasPermission(types.TenantRoleAdmin) && !isFeishu(kind) {
 		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "source_administrator_required"})
 		return
 	}

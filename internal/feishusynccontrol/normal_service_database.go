@@ -33,6 +33,9 @@ func NormalSourceFromDatabase(
 	}
 	var ds types.DataSource
 	if err := work.First(&ds, "id=?", source).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return out, ErrRecoveryRejected
+		}
 		return out, err
 	}
 	if (ds.Type != "feishu" && ds.Type != "feishu_drive" && ds.Type != "lark" && ds.Type != "lark_drive") ||
@@ -134,7 +137,9 @@ func NormalSourceFromDatabase(
 	if guards != 3 {
 		return out, ErrRecoveryRejected
 	}
-	digest, err := RecoveryDigest([]any{source, ds.TenantID, ds.KnowledgeBaseID, actor, authority.Role, privateOwner, fingerprint})
+	digest, err := RecoveryDigest([]any{
+		source, ds.TenantID, ds.KnowledgeBaseID, actor, authority.Role, privateOwner, fingerprint,
+	})
 	return NormalSourceAuthority{
 		SourceID: source, TenantID: ds.TenantID, KBID: ds.KnowledgeBaseID,
 		ConfigSHA256: fingerprint, AuthoritySHA256: digest,
