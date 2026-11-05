@@ -74,6 +74,7 @@ func (f *normalFixture) addSource() NormalSourceAuthority {
 	a := NormalSourceAuthority{
 		SourceID: uuid.NewString(), TenantID: uint64(len(f.sources) + 1), KBID: uuid.NewString(),
 		ConfigSHA256: strings.Repeat("b", 64), AuthoritySHA256: strings.Repeat("c", 64),
+		ExecutionSHA256: strings.Repeat("e", 64),
 	}
 	f.sources[a.SourceID] = a
 	return a
@@ -98,6 +99,14 @@ func TestNormalServiceAutomaticallyRegistersFutureSourcesAndKeepsIncidentAudit(t
 		require.Equal(t, authorization.ID, identity.Plan)
 		require.NoError(t, f.c.Guard.Check(feishusafety.WithScope(work, source.SourceID)))
 		require.True(t, f.r.HExists(ctx, f.c.prefix+"normal_sources", source.SourceID).Val())
+		changed := source
+		changed.ExecutionSHA256 = strings.Repeat("f", 64)
+		f.sources[source.SourceID] = changed
+		require.Error(t, f.c.Guard.Check(feishusafety.WithScope(work, source.SourceID)),
+			"operational changes cannot publish an old execution snapshot")
+		fresh, _, err := BindApprovedSource(ctx, source.SourceID, source.ConfigSHA256)
+		require.NoError(t, err, "a fresh admission needs no replacement signature")
+		require.NoError(t, f.c.Guard.Check(feishusafety.WithScope(fresh, source.SourceID)))
 		delete(f.sources, source.SourceID)
 		require.Error(t, f.c.Guard.Check(feishusafety.WithScope(work, source.SourceID)),
 			"live withdrawal denies old contexts")

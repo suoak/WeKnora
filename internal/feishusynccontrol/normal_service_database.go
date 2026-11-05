@@ -140,9 +140,15 @@ func NormalSourceFromDatabase(
 	digest, err := RecoveryDigest([]any{
 		source, ds.TenantID, ds.KnowledgeBaseID, actor, authority.Role, privateOwner, fingerprint,
 	})
+	if err != nil {
+		return out, err
+	}
+	// Operational edits need no new service signature, but must invalidate an
+	// in-flight execution's old deletion/mode/document-policy snapshot.
+	executionHash, err := RecoveryDigest([]any{fingerprint, ds.SyncMode, ds.SyncDeletions, ds.DocumentDeferrals})
 	return NormalSourceAuthority{
 		SourceID: source, TenantID: ds.TenantID, KBID: ds.KnowledgeBaseID,
-		ConfigSHA256: fingerprint, AuthoritySHA256: digest,
+		ConfigSHA256: fingerprint, AuthoritySHA256: digest, ExecutionSHA256: executionHash,
 	}, err
 }
 

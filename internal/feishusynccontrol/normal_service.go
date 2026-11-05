@@ -51,6 +51,7 @@ type NormalSourceAuthority struct {
 	KBID            string `json:"knowledge_base_id"`
 	ConfigSHA256    string `json:"config_sha256"`
 	AuthoritySHA256 string `json:"authority_sha256"`
+	ExecutionSHA256 string `json:"execution_sha256"`
 	TenantID        uint64 `json:"tenant_id"`
 }
 
@@ -278,7 +279,11 @@ func (m *RecoveryManager) checkNormalSource(
 		return ctx, true, fmt.Errorf("normal_source_validation: %w", err)
 	}
 	if authority.SourceID != source || authority.ConfigSHA256 != config ||
-		authority.TenantID == 0 || authority.KBID == "" {
+		authority.TenantID == 0 || authority.KBID == "" || !recoverySHA.MatchString(authority.ExecutionSHA256) {
+		return ctx, true, steadySourceChanged()
+	}
+	if previous, ok := ctx.Value(normalSourceAuthorityKey{}).(NormalSourceAuthority); ok &&
+		previous.ExecutionSHA256 != authority.ExecutionSHA256 {
 		return ctx, true, steadySourceChanged()
 	}
 	if err := m.steadyReady(ctx); err != nil {
