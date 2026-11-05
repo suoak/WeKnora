@@ -381,6 +381,9 @@ func (p *PersonalRecovery) firstCreateDispatchable(
 	}
 	if p.exactPersonalRecoveryAllowed(ctx, k.ID) && types.FeishuAuthMode(m.AuthMode) == types.FeishuUserOAuth &&
 		a.Status == "index_pending" {
+		if a.RetryAfter != nil && a.RetryAfter.After(time.Now()) {
+			return false, nil
+		}
 		_, err := p.preflightExactPersonalDocument(ctx, a)
 		return err == nil, err
 	}
