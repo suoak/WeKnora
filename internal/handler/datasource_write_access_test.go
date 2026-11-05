@@ -17,10 +17,10 @@ import (
 func TestFeishuSourceWriteAccessUsesSpaceWriterAndKBPermissions(t *testing.T) {
 	for _, tc := range []struct {
 		name, kind, oldKind, owner string
-		role                      types.TenantRole
-		tenant                    uint64
-		update                    bool
-		status                    int
+		role                       types.TenantRole
+		tenant                     uint64
+		update                     bool
+		status                     int
 	}{
 		{name: "wiki_writer", kind: "feishu", role: "contributor", tenant: 1, status: 204},
 		{name: "drive_writer", kind: "feishu_drive", role: "contributor", tenant: 1, status: 204},
@@ -31,31 +31,31 @@ func TestFeishuSourceWriteAccessUsesSpaceWriterAndKBPermissions(t *testing.T) {
 		{name: "private_owner", kind: "feishu", role: "contributor", tenant: 1, owner: "writer", status: 204},
 		{name: "other_private_owner", kind: "feishu", role: "admin", tenant: 1, owner: "other", status: 403},
 		{
-			name: "update_body_preserved",
-			kind: "feishu",
+			name:    "update_body_preserved",
+			kind:    "feishu",
 			oldKind: "feishu",
-			role: "contributor",
-			tenant: 1,
-			update: true,
-			status: 204
+			role:    "contributor",
+			tenant:  1,
+			update:  true,
+			status:  204,
 		},
 		{
-			name: "convert_to_admin_connector",
-			kind: "gitlab",
+			name:    "convert_to_admin_connector",
+			kind:    "gitlab",
 			oldKind: "feishu",
-			role: "contributor",
-			tenant: 1,
-			update: true,
-			status: 403
+			role:    "contributor",
+			tenant:  1,
+			update:  true,
+			status:  403,
 		},
 		{
-			name: "take_admin_connector",
-			kind: "feishu",
+			name:    "take_admin_connector",
+			kind:    "feishu",
 			oldKind: "gitlab",
-			role: "contributor",
-			tenant: 1,
-			update: true,
-			status: 403
+			role:    "contributor",
+			tenant:  1,
+			update:  true,
+			status:  403,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
