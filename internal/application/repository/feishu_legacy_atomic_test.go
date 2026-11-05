@@ -80,6 +80,7 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 		Name:             "synthetic",
 		Type:             "document",
 		EmbeddingModelID: "synthetic-1024",
+		IndexingStrategy: types.IndexingStrategy{WikiEnabled: true},
 	}
 	require.NoError(t, db.Create(kb).Error)
 	ds := &types.DataSource{
@@ -219,6 +220,18 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 			Error,
 	)
 	require.EqualValues(t, 1, private)
+	// If the durable Wiki write fails, the entire publication rolls back. The
+	// previous verified index remains current and the candidate stays retryable.
+	require.NoError(t, db.Exec(`CREATE FUNCTION feishu_test_wiki_enqueue_fault() RETURNS trigger
+ LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic Wiki enqueue failure'; END $$;
+ CREATE TRIGGER feishu_test_wiki_enqueue_fault BEFORE INSERT ON task_pending_ops
+ FOR EACH ROW EXECUTE FUNCTION feishu_test_wiki_enqueue_fault()`).Error)
+	_, err = store.Publish(ctx, ds, a)
+	require.Error(t, err)
+	require.Zero(t, visible("oldcanary"))
+	require.EqualValues(t, 1, visible("rc3baselinecanary"))
+	require.NoError(t, db.Exec(`DROP TRIGGER feishu_test_wiki_enqueue_fault ON task_pending_ops;
+ DROP FUNCTION feishu_test_wiki_enqueue_fault()`).Error)
 	receipt, err := store.Publish(ctx, ds, a)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, receipt.Chunks)
@@ -226,6 +239,16 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 	require.Zero(t, visible("rc3baselinecanary"), "old committed version must not mix with the new version")
 	_, err = store.Receipt(ctx, r, a)
 	require.NoError(t, err, "lost-ACK reconciliation must use durable receipt")
+	var wikiOps []types.TaskPendingOp
+	require.NoError(t, db.Where("scope=? AND scope_id=? AND dedup_key=?",
+		types.TaskScopeKnowledgeBase, kb.ID, kid).Find(&wikiOps).Error)
+	require.Len(t, wikiOps, 1, "receipt retries must not duplicate the committed Wiki operation")
+	require.Equal(t, types.TypeWikiIngest, wikiOps[0].TaskType)
+	require.Equal(t, "ingest", wikiOps[0].Op)
+	var wikiPayload map[string]string
+	require.NoError(t, json.Unmarshal(wikiOps[0].Payload, &wikiPayload))
+	require.Equal(t, kid, wikiPayload["knowledge_id"])
+	require.NotContains(t, string(wikiOps[0].Payload), "oldcanary", "only an identity enters the Wiki queue")
 	t.Run("permission-refusal-quarantines-one-document-without-stopping-source", func(t *testing.T) {
 		tx := db.Begin()
 		require.NoError(t, tx.Error)

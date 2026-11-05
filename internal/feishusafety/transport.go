@@ -309,7 +309,7 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 		denial := canceledAdmission(ctx)
 		finish()
 		if denial != nil {
-			return nil, canceledAdmissionError(g, denial, t.Embedding)
+			return nil, canceledAdmissionError(g, denial)
 		}
 		tripRequestFailure(caller, g, err, t.Embedding, "headers")
 		return nil, err
@@ -367,12 +367,12 @@ type guardedBody struct {
 func (b *guardedBody) Read(p []byte) (int, error) {
 	if denial := canceledAdmission(b.execution); denial != nil {
 		b.finish()
-		return 0, canceledAdmissionError(b.guard, denial, b.embedding)
+		return 0, canceledAdmissionError(b.guard, denial)
 	}
 	n, err := b.ReadCloser.Read(p)
 	if denial := canceledAdmission(b.execution); denial != nil {
 		b.finish()
-		return 0, canceledAdmissionError(b.guard, denial, b.embedding)
+		return 0, canceledAdmissionError(b.guard, denial)
 	}
 	if err != nil {
 		b.finish()
@@ -401,9 +401,14 @@ func canceledAdmission(ctx context.Context) error {
 	return nil
 }
 
-func canceledAdmissionError(g *Guard, denial error, embedding bool) error {
+func canceledAdmissionError(g *Guard, denial error) error {
+	// A verified slow-source cancellation leaves the request's complete RPM/TPM
+	// charge in the shared window. Releasing its concurrency slot does not refund
+	// tokens, even if the provider processed the canceled embedding. The separate
+	// atomic check already confirmed the permit; unknown transport/accounting
+	// failures still take their ordinary global-stop path.
 	local := errors.Is(denial, ErrSourceAdmissionChanged) ||
-		(!embedding && errors.Is(denial, ErrSourceValidationUnavailable))
+		errors.Is(denial, ErrSourceValidationUnavailable)
 	if !local && !g.localClosed.Load() {
 		trip(g, "feishu_request_permit_unconfirmed")
 	}
