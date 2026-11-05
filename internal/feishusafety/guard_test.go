@@ -532,8 +532,9 @@ func TestSafetySource429DoesNotRetry(t *testing.T) {
 		server.URL,
 		nil,
 	)
-	if _, err := (&http.Client{Transport: Transport{}}).Do(req); err == nil || calls.Load() != 1 ||
-		g.Check(context.Background()) == nil {
-		t.Fatal("source429 did not stop", err, calls.Load())
+	resp, err := (&http.Client{Transport: Transport{}}).Do(req)
+	if err != nil || resp.StatusCode != 429 || calls.Load() != 1 || g.Check(context.Background()) != nil {
+		t.Fatal("source429 lost its typed response or affected siblings", err, calls.Load())
 	}
+	_ = resp.Body.Close()
 }

@@ -5,16 +5,21 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 )
 
-type httpEvidenceWire struct{ calls int }
+type httpEvidenceWire struct{ calls, status int }
 
 func (w *httpEvidenceWire) RoundTrip(*http.Request) (*http.Response, error) {
 	w.calls++
+	status := w.status
+	if status == 0 {
+		status = 500
+	}
 	return &http.Response{
-		StatusCode: 500, Header: http.Header{"X-Request-Id": []string{"private-request-id"}},
+		StatusCode: status, Header: http.Header{"X-Request-Id": []string{"private-request-id"}},
 		Body: io.NopCloser(strings.NewReader("PRIVATE_PROVIDER_BODY")),
 	}, nil
 }
@@ -33,14 +38,19 @@ func TestHTTPStopEvidenceDistinguishesProviderAndPreservesFirstFailure(t *testin
 				t.Fatal(err)
 			}
 			req.Header.Set("Authorization", "Bearer PRIVATE_TOKEN")
-			wire := &httpEvidenceWire{}
+			status := 402
+			if family == "embedding" {
+				status = 500
+			}
+			wire := &httpEvidenceWire{status: status}
+			reason := family + "_http_" + strconv.Itoa(status)
 			transport := Transport{
 				Base: wire, Embedding: family == "embedding", BackgroundModel: family == "background_model",
 			}
 			if _, err = transport.RoundTrip(req); err == nil || g.Check(ctx) == nil {
 				t.Fatal("HTTP failure did not close outbound")
 			}
-			if client.Get(ctx, g.key("trip")).Val() != family+"_http_500" {
+			if client.Get(ctx, g.key("trip")).Val() != reason {
 				t.Fatal("wrong provider family")
 			}
 			records, err := client.XRange(ctx, g.key("audit"), "-", "+").Result()
@@ -50,7 +60,7 @@ func TestHTTPStopEvidenceDistinguishesProviderAndPreservesFirstFailure(t *testin
 			raw, ok := records[0].Values["http_evidence"].(string)
 			var evidence httpStopEvidence
 			if !ok || json.Unmarshal([]byte(raw), &evidence) != nil || evidence.Family != family ||
-				evidence.Status != 500 || evidence.SourceHash != httpAuditDigest("private-source-id") ||
+				evidence.Status != status || evidence.SourceHash != httpAuditDigest("private-source-id") ||
 				evidence.RequestIDHash != httpAuditDigest("private-request-id") {
 				t.Fatal("incomplete failure evidence")
 			}
@@ -68,7 +78,7 @@ func TestHTTPStopEvidenceDistinguishesProviderAndPreservesFirstFailure(t *testin
 			}
 			after, err := client.XRange(ctx, g.key("audit"), "-", "+").Result()
 			if err != nil || len(after) != 1 || after[0].Values["http_evidence"] != raw ||
-				client.Get(ctx, g.key("trip")).Val() != family+"_http_500" {
+				client.Get(ctx, g.key("trip")).Val() != reason {
 				t.Fatal("later failure replaced the original evidence")
 			}
 		})
