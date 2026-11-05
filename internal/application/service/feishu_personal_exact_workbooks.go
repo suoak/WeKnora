@@ -335,7 +335,9 @@ func exactWorkbookCellGrid(file *excelize.File, sheet string, body []byte) (stri
 			}
 		}
 		col, row, err := excelize.CellNameToCoordinates(ref)
+		canonical, canonicalErr := excelize.CoordinatesToCellName(col, row)
 		if err != nil || row > 1024 || col > 64 || cells[ref] || len(cells) >= 10000 ||
+			canonicalErr != nil || canonical != ref ||
 			kind != "" && kind != "s" && kind != "inlineStr" && kind != "n" && kind != "b" {
 			return "", 0, 0, 0, errExactWorkbookUnsupported
 		}
@@ -438,6 +440,11 @@ func exactWorkbookMerges(body []byte) (map[string]bool, string, int, int, error)
 	}
 	for _, row := range worksheet.Rows {
 		for _, cell := range row.Cells {
+			col, row, err := excelize.CellNameToCoordinates(cell.Ref)
+			canonical, canonicalErr := excelize.CoordinatesToCellName(col, row)
+			if err != nil || canonicalErr != nil || canonical != cell.Ref {
+				return nil, "", 0, 0, errExactWorkbookUnsupported
+			}
 			if covered[cell.Ref] && (cell.Value != "" || cell.Inline != nil) {
 				return nil, "", 0, 0, errExactWorkbookUnsupported
 			}

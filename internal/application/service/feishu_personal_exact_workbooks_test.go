@@ -43,7 +43,9 @@ func TestExactWorkbookMergesRejectConflictingOrUnboundedLayouts(t *testing.T) {
 		_, _, _, _, err := exactWorkbookMerges([]byte(body))
 		require.ErrorIs(t, err, errExactWorkbookUnsupported)
 	}
-	for _, cell := range []string{`<c r="B1"><v>0</v></c>`, `<c r="B1"><is><t>hidden</t></is></c>`} {
+	for _, cell := range []string{
+		`<c r="B1"><v>0</v></c>`, `<c r="B1"><is><t>hidden</t></is></c>`, `<c r="b1"><v>1</v></c>`,
+	} {
 		body := `<worksheet><sheetData><row>` + cell + `</row></sheetData>` +
 			`<mergeCells><mergeCell ref="A1:B1"/></mergeCells></worksheet>`
 		_, _, _, _, err := exactWorkbookMerges([]byte(body))
