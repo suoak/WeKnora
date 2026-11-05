@@ -106,7 +106,7 @@ func TestSourceReconciliationPreparesExistingPersonalGrantForTheSameRun(t *testi
 	}))
 	require.Equal(t, run.ID, grant.ReconciliationLogID)
 	require.Equal(t, approval.ID, grant.InitialApprovalID)
-	require.Equal(t, time.UnixMilli(plan.AuthorizationUntilMS), grant.ExpiresAt)
+	require.Equal(t, plan.AuthorizationUntilMS, grant.ExpiresAt.UnixMilli())
 	require.True(t, grant.ReconciliationExpiresAt.After(time.Now().Add(30*time.Minute)),
 		"the explicitly signed read window replaces the legacy fifteen-minute cap")
 	var source types.DataSource
