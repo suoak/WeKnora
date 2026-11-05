@@ -34,6 +34,9 @@ func TestSSRFSafeClientValidatesInitialRequestAtFinalSink(t *testing.T) {
 	if base.called {
 		t.Fatal("unsafe request reached the base transport")
 	}
+	if !errors.Is(err, ErrSSRFRequestRejected) {
+		t.Fatalf("pre-connect refusal lost its typed identity: %v", err)
+	}
 }
 
 func TestSSRFSafeDialContextRejectsRestrictedPortAtFinalSink(t *testing.T) {

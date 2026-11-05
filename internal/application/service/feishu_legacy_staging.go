@@ -19,6 +19,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/models/embedding"
 	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Tencent/WeKnora/internal/utils"
 	"github.com/google/uuid"
 )
 
@@ -65,6 +66,7 @@ func legacyFetchNeedsHold(err error) bool {
 	// authentication/permission/not-found or unclassified result is uncertain,
 	// never a permanent-delete assertion.
 	return !errors.Is(err, feishucore.ErrRateLimited) && !errors.Is(err, feishucore.ErrTransient) &&
+		!errors.Is(err, utils.ErrSSRFRequestRejected) &&
 		!errors.Is(err, context.DeadlineExceeded) && !errors.Is(err, context.Canceled)
 }
 

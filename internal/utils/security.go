@@ -775,6 +775,10 @@ type SSRFValidatingRoundTripper struct {
 	Base http.RoundTripper
 }
 
+// ErrSSRFRequestRejected identifies a request refused before an HTTP connection
+// may reach an unverified target. It grants no exception to the outbound policy.
+var ErrSSRFRequestRejected = errors.New("outbound target requires SSRF verification")
+
 func (t *SSRFValidatingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if req == nil || req.URL == nil {
 		return nil, fmt.Errorf("outbound request blocked: request URL is required")
@@ -916,21 +920,27 @@ func resolveAndValidateSSRFTarget(
 	// Whitelist-only mode refuses a non-whitelisted hostname before DNS. IP
 	// literals continue to the restricted-address checks below.
 	if err := CheckDialWhitelistOnly(host); err != nil {
-		return ssrfValidatedTarget{}, fmt.Errorf("connection blocked: %w", err)
+		return ssrfValidatedTarget{}, fmt.Errorf("%w: connection blocked: %w", ErrSSRFRequestRejected, err)
 	}
 	if restrictedPorts[port] {
-		return ssrfValidatedTarget{}, fmt.Errorf("connection blocked: port %s is restricted", port)
+		return ssrfValidatedTarget{}, fmt.Errorf(
+			"%w: connection blocked: port %s is restricted", ErrSSRFRequestRejected, port,
+		)
 	}
 
 	hostLower := strings.ToLower(host)
 	for _, restricted := range restrictedHostnames {
 		if hostLower == restricted {
-			return ssrfValidatedTarget{}, fmt.Errorf("connection blocked: hostname %s is restricted", host)
+			return ssrfValidatedTarget{}, fmt.Errorf(
+				"%w: connection blocked: hostname %s is restricted", ErrSSRFRequestRejected, host,
+			)
 		}
 	}
 	for _, suffix := range restrictedHostSuffixes {
 		if strings.HasSuffix(hostLower, suffix) {
-			return ssrfValidatedTarget{}, fmt.Errorf("connection blocked: hostname suffix %s is restricted", suffix)
+			return ssrfValidatedTarget{}, fmt.Errorf(
+				"%w: connection blocked: hostname suffix %s is restricted", ErrSSRFRequestRejected, suffix,
+			)
 		}
 	}
 
@@ -944,8 +954,8 @@ func resolveAndValidateSSRFTarget(
 	for _, ipAddr := range ips {
 		if restricted, reason := isRestrictedIP(ipAddr.IP); restricted {
 			return ssrfValidatedTarget{}, fmt.Errorf(
-				"connection blocked: %s resolves to restricted IP %s (%s)",
-				host, ipAddr.IP.String(), reason,
+				"%w: connection blocked: %s resolves to restricted IP %s (%s)",
+				ErrSSRFRequestRejected, host, ipAddr.IP.String(), reason,
 			)
 		}
 	}
@@ -1346,7 +1356,12 @@ func parseHostForHint(rawURL string) (string, error) {
 // prepends "https://" before parsing so that net/url can extract the host.
 //
 // Returns nil when the URL is safe, or an error describing the problem.
-func ValidateURLForSSRF(rawURL string) error {
+func ValidateURLForSSRF(rawURL string) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("%w: %w", ErrSSRFRequestRejected, err)
+		}
+	}()
 	if rawURL == "" {
 		return nil // callers that require non-empty should validate separately
 	}
