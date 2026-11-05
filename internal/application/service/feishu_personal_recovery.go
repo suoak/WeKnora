@@ -811,8 +811,13 @@ func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 				}
 				if p.exactPersonalRecoveryAllowed(ctx, current.LogicalKnowledgeID) &&
 					current.AuthMode == types.FeishuUserOAuth && current.Status == "index_pending" {
+					if current.RetryAfter != nil && current.RetryAfter.After(time.Now()) {
+						continue
+					}
 					if _, preflightErr := p.preflightExactPersonalDocument(ctx, current); preflightErr != nil {
-						failures = append(failures, preflightErr)
+						category := exactPreflightDeferralCategory(preflightErr)
+						failures = append(failures, preflightErr,
+							p.repo.RecordPreflightDeferral(ctx, current, category))
 						continue // A refused pre-Claim observation cannot close the pending operation.
 					}
 				}

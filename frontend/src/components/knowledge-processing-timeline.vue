@@ -11,7 +11,9 @@ import {
   type KnowledgeTraceNode,
 } from '@/utils/knowledgeTrace'
 import { resolveTimelineHeaderStatus, shouldShowProcessingError } from '@/utils/knowledgeProcessingStatus'
-import { shownStall, stalledMinutes, STALLED_POLL_INTERVAL_MS } from '@/utils/knowledgeProcessingStall'
+import {
+  shownStall, stalledMinutes, STALLED_POLL_INTERVAL_MS, hasLiveExecution, type ProcessingExecution,
+} from '@/utils/knowledgeProcessingStall'
 import { axisGridStepPct, buildAxisTicks, computeTraceAxis } from '@/utils/traceAxis'
 import type { KnowledgeProcessOverrides } from '@/types/knowledgeProcess'
 
@@ -37,6 +39,7 @@ interface SpansResponse {
   last_activity_at?: string
   // Server verdict once quiet past the stall hint: 'queued' or 'stalled'.
   stall_state?: string
+  execution?: ProcessingExecution
 }
 
 // IMPORTANT: Vue 3 coerces missing Boolean props to `false`, NOT
@@ -244,11 +247,8 @@ function spanTreeActive(node?: SpanNode): boolean {
 
 const traceActive = computed<boolean>(() => spanTreeActive(data.value?.trace))
 
-// Drives BOTH the LIVE badge AND polling. Single source of truth:
-//   1. If we have data: still live while parse_status is polling
-//      OR the span tree has any running descendant.
-//   2. If we don't have data yet (initial paint): trust the parent's
-//      parseStatus hint so the UI shows LIVE immediately.
+// Keep observing pending work and late spans. Observation alone does not
+// establish worker liveness; the badge and advancing clock use its lease.
 const isLive = computed<boolean>(() => {
   if (data.value) {
     // Hard-terminal parse_status wins over a stale traceActive: cancel
@@ -260,6 +260,23 @@ const isLive = computed<boolean>(() => {
   }
   if (isHardTerminal(props.parseStatus)) return false
   return isPolling(props.parseStatus)
+})
+
+// isLive keeps observation/polling active. Only a fresh server lease earns LIVE.
+const hasLiveWorker = computed(() => isLive.value && hasLiveExecution(data.value?.execution, nowTick.value))
+const executionLabel = computed(() => {
+  if (!isLive.value || hasLiveWorker.value) return ''
+  const execution = data.value?.execution
+  if (execution?.state === 'blocked') {
+    const reason = execution.reason
+    if (reason === 'document_format_unsupported') return t('knowledgeStages.execution.format')
+    if (reason === 'source_authorization_required') return t('knowledgeStages.execution.authorization')
+    return t('knowledgeStages.execution.verification')
+  }
+  if (execution?.state === 'retrying') return t('knowledgeStages.execution.retrying')
+  if (execution?.state === 'queued') return t('knowledgeStages.execution.queued')
+  if (execution?.state === 'stalled' || stalledMin.value > 0) return t('knowledgeStages.execution.stalled')
+  return t('knowledgeStages.execution.waiting')
 })
 
 // Walk every node in the tree and return the freshest updated_at /
@@ -693,11 +710,8 @@ const tEnd = computed<number | null>(() => {
     const max = Math.max(...all)
     candidate = candidate === null ? max : Math.max(candidate, max)
   }
-  // Extend the right edge to "now" whenever the trace is still
-  // actively producing spans — this covers both parse_status mid-flight
-  // AND the postprocess-async case where the top-level status closes
-  // but subspans keep ticking. Both conditions are captured by isLive.
-  if (isLive.value) {
+  // An auto-refresh or stale running span must not advance execution time.
+  if (hasLiveWorker.value) {
     const now = nowTick.value
     candidate = candidate === null ? now : Math.max(candidate, now)
   }
@@ -735,7 +749,7 @@ const rulerTicks = computed(() => (showRuler.value ? buildAxisTicks(timeAxis.val
 // while polling so the user can see time advancing even when the running
 // stage's bar grows slowly toward the right edge.
 const nowMarkerPct = computed<number | null>(() => {
-  if (!isLive.value || !t0.value || !axisMaxMs.value) return null
+  if (!hasLiveWorker.value || !t0.value || !axisMaxMs.value) return null
   const pct = ((nowTick.value - t0.value) / axisMaxMs.value) * 100
   return Math.max(0, Math.min(100, pct))
 })
@@ -817,12 +831,7 @@ function barStyle(node: SpanNode): Record<string, string> {
   if (!total || t0.value === null) return { display: 'none' }
   const start = nodeStart(node)
   if (start === null) return { display: 'none' }
-  // For a span with no recorded finished_at, use "now" as the end
-  // whenever it's plausibly still running — either the trace overall
-  // is live, or this individual span's status says it's in flight.
-  // Without the second clause, postprocess subspans that survived past
-  // parse_status='completed' would collapse to zero width.
-  const liveBar = isLive.value || node.status === 'running' || node.status === 'pending'
+  const liveBar = hasLiveWorker.value && node.status === 'running'
   const end = nodeEnd(node) ?? (liveBar ? nowTick.value : start)
   const leftPct = ((start - t0.value) / total) * 100
   const widthPct = Math.max(0.4, ((end - start) / total) * 100)
@@ -1366,7 +1375,7 @@ const headStats = computed<HeadStat[]>(() => {
     }
     out.push({
       key: 'updated',
-      label: t('knowledgeStages.head.updated'),
+      label: t('knowledgeStages.execution.lastChecked'),
       value: updated,
       mono: false,
       note: !lastFetchOk.value,
@@ -1577,10 +1586,11 @@ const processConfigLines = computed<string[]>(() => {
                   class="kp-head-status-tag">
                   {{ headerStatusText }}
                 </t-tag>
-                <span v-if="isLive" class="kp-live-badge" :title="t('knowledgeStages.liveTooltip')">
+                <span v-if="hasLiveWorker" class="kp-live-badge" :title="t('knowledgeStages.liveTooltip')">
                   <span class="kp-live-dot" />
                   <span class="kp-live-text">{{ t('knowledgeStages.live') }}</span>
                 </span>
+                <span v-else-if="executionLabel" class="kp-head-status-tag" role="status">{{ executionLabel }}</span>
               </div>
             </div>
             <div class="kp-head-actions">

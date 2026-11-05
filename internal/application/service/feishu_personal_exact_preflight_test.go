@@ -42,6 +42,9 @@ func exactPendingSnapshot(t *testing.T, f *personalRecoveryFixture, id string) [
 	t.Helper()
 	m, r, a, err := f.p.repo.Load(context.Background(), id)
 	require.NoError(t, err)
+	// Diagnostic deferral is not a protocol state transition or execution grant.
+	a.RetryCount, a.RetryAfter, a.LastErrorCategory = 0, nil, ""
+	a.UpdatedAt = a.CreatedAt
 	var ops []types.TaskPendingOp
 	require.NoError(t, f.db.Order("id").Find(&ops).Error)
 	data, err := json.Marshal([]any{m, r, a, ops})

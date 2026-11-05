@@ -935,6 +935,16 @@ export default {
     manualCharCount: '{count} characters'
   },
   knowledgeStages: {
+    execution: {
+      'queued': 'Queued for a worker',
+      'waiting': 'Waiting for an execution',
+      'stalled': 'Processing stalled; awaiting recovery',
+      'retrying': 'Retrying automatically',
+      'format': 'Document format requires support; retained for recheck',
+      'authorization': 'Source authorization needs verification',
+      'verification': 'Source verification blocked; task retained',
+      'lastChecked': 'View checked'
+},
     title: 'Processing pipeline',
     root: 'Knowledge processing',
     processConfig: {
@@ -959,7 +969,7 @@ export default {
     copied: 'Copied to clipboard',
     close: 'Close',
     live: 'LIVE',
-    liveTooltip: 'Parsing in progress — auto-refreshes every 2s',
+    liveTooltip: 'Worker execution lease is valid; refreshing is separate from progress',
     autoRefreshOn: 'Auto-refreshing',
     fetchFailedShort: 'fetch failed',
     viewTrace: 'View trace',

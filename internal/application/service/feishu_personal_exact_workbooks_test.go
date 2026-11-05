@@ -7,12 +7,83 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/infrastructure/docparser/anydoc"
 	"github.com/stretchr/testify/require"
 	"github.com/xuri/excelize/v2"
 )
+
+func TestExactWorkbookMergedCellsPreserveLayout(t *testing.T) {
+	file := excelize.NewFile()
+	defer func() { require.NoError(t, file.Close()) }()
+	require.NoError(t, file.SetCellStr("Sheet1", "A1", "merged value"))
+	require.NoError(t, file.SetCellStr("Sheet1", "A2", "next row"))
+	require.NoError(t, file.MergeCell("Sheet1", "A1", "C1"))
+	buffer, err := file.WriteToBuffer()
+	require.NoError(t, err)
+	parts, err := exactWorkbookParts(buffer.Bytes())
+	require.NoError(t, err)
+	grid, rows, cols, _, err := exactWorkbookCellGrid(file, "Sheet1", parts["xl/worksheets/sheet1.xml"])
+	require.NoError(t, err)
+	require.Equal(t, 2, rows)
+	require.Equal(t, 3, cols)
+	require.Equal(t, 1, strings.Count(grid, "merged value"))
+	require.Contains(t, grid, "| 1 | merged value |  |  |")
+	require.Contains(t, grid, "Merged cells: A1:C1 (anchor A1).")
+}
+
+func TestExactWorkbookMergesRejectConflictingOrUnboundedLayouts(t *testing.T) {
+	for _, input := range []string{
+		`<mergeCell ref="A1:XFD1"/>`, `<mergeCell ref="A1:A1048576"/>`,
+		`<mergeCell ref="B2:A1"/>`, `<mergeCell ref="A1:B1"/><mergeCell ref="B1:C1"/>`,
+	} {
+		body := `<worksheet><mergeCells>` + input + `</mergeCells></worksheet>`
+		_, _, _, _, err := exactWorkbookMerges([]byte(body))
+		require.ErrorIs(t, err, errExactWorkbookUnsupported)
+	}
+	for _, cell := range []string{
+		`<c r="B1"><v>0</v></c>`, `<c r="B1"><is><t>hidden</t></is></c>`, `<c r="b1"><v>1</v></c>`,
+	} {
+		body := `<worksheet><sheetData><row>` + cell + `</row></sheetData>` +
+			`<mergeCells><mergeCell ref="A1:B1"/></mergeCells></worksheet>`
+		_, _, _, _, err := exactWorkbookMerges([]byte(body))
+		require.ErrorIs(t, err, errExactWorkbookUnsupported)
+	}
+}
+
+// Operator-only isolated fixtures. Output contains counts, never document text.
+func TestExactEmbeddedStalledDOCXCompleteCoverage(t *testing.T) {
+	root := os.Getenv("EXACT_STALLED_FIXTURE_DIR")
+	if root == "" || !anydoc.Available() {
+		t.Skip("requires the isolated stalled fixtures and native parser")
+	}
+	t.Setenv("FEISHU_PERSONAL_EXACT_EMBEDDED_XLSX", "1")
+	for name, count := range map[string]int{
+		"d97a0ca9-f7c1-4fb3-b7cf-fb30a9724a47.docx": 5,
+		"231db03a-eb23-456c-989c-362eb8c1ed48.docx": 1,
+	} {
+		t.Run(name, func(t *testing.T) {
+			data, err := os.ReadFile(filepath.Join(root, name))
+			require.NoError(t, err)
+			workbooks, err := prepareExactEmbeddedWorkbooks(data)
+			require.NoError(t, err)
+			require.Len(t, workbooks, count)
+			parent, err := anydoc.Convert(data, anydoc.Options{Format: "docx", WithAssets: true})
+			require.NoError(t, err)
+			require.NoError(t, parent.AssetsError)
+			require.NoError(t, replaceExactWorkbookPlaceholders(parent, workbooks))
+			for _, book := range workbooks {
+				require.Len(t, book.Sections, 1)
+				require.Len(t, book.Assets, 1)
+				require.NotEmpty(t, book.NativeMarkdownSHA256)
+				require.NotEmpty(t, book.Sections[0].markdown)
+			}
+			t.Logf("complete parent conversion: workbooks=%d retained_parent_assets=%d", count, len(parent.Assets))
+		})
+	}
+}
 
 func TestExactWorkbookCellGridPreservesCoordinatesAndRows(t *testing.T) {
 	file := excelize.NewFile()

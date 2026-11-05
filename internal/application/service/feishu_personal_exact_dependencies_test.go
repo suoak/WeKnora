@@ -3,10 +3,45 @@ package service
 import (
 	"archive/zip"
 	"bytes"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestExactDOCXEmbeddedWorkbookCountBound(t *testing.T) {
+	for _, count := range []int{5, 16, 17} {
+		var buffer bytes.Buffer
+		writer := zip.NewWriter(&buffer)
+		var relationships strings.Builder
+		for i := 0; i < count; i++ {
+			name := fmt.Sprintf("word/embeddings/workbook%d.xlsx", i)
+			entry, err := writer.Create(name)
+			require.NoError(t, err)
+			_, err = entry.Write([]byte("bounded package bytes"))
+			require.NoError(t, err)
+			_, err = fmt.Fprintf(&relationships,
+				`<Relationship Id="r%d" Target="embeddings/workbook%d.xlsx" Type="%s/package"/>`,
+				i, i, "http://schemas.openxmlformats.org/officeDocument/2006/relationships")
+			require.NoError(t, err)
+		}
+		entry, err := writer.Create("word/_rels/document.xml.rels")
+		require.NoError(t, err)
+		_, err = entry.Write([]byte("<Relationships>" + relationships.String() + "</Relationships>"))
+		require.NoError(t, err)
+		require.NoError(t, writer.Close())
+		packages := map[string][]byte{}
+		err = checkExactDOCXGraph(buffer.Bytes(), packages)
+		if count <= 16 {
+			require.NoError(t, err)
+			require.Len(t, packages, count)
+		} else {
+			require.ErrorIs(t, err, errPersonalExactDocument)
+		}
+		require.Error(t, checkExactDOCXDependencies(buffer.Bytes()), "default path stays closed")
+	}
+}
 
 func TestExactPersonalDOCXDependencies(t *testing.T) {
 	for _, test := range []struct {

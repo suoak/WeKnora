@@ -156,6 +156,40 @@ func (m *RecoveryManager) NormalServiceActive(ctx context.Context) (bool, error)
 	return record != nil, err
 }
 
+// Successful signed recovery must release the existing normal service too.
+// Incident steady-source planning cannot require retiring legitimate normal
+// jobs that arrived while the canary kept their consumer paused.
+func (m *RecoveryManager) resumeNormalQueueAfterCanary(ctx context.Context) error {
+	record, err := m.normalRecord(ctx)
+	if err != nil || record == nil {
+		return err
+	}
+	if err := m.steadyReady(ctx); err != nil {
+		return err
+	}
+	c := m.controller
+	raw, err := c.Client.Get(ctx, c.prefix+"recovery").Result()
+	var state recoveryMode
+	if err != nil || json.Unmarshal([]byte(raw), &state) != nil || state.Phase != "awaiting_review" ||
+		state.Incarnation != c.incarnation || state.WorkerID != c.Config.WorkerID ||
+		state.RuntimeSHA != c.Config.SourceSHA {
+		return ErrRecoveryRejected
+	}
+	normal, _ := json.Marshal(record)
+	return c.Client.Eval(ctx, `
+if redis.call('EXISTS',KEYS[1])~=0 or redis.call('GET',KEYS[2])~=ARGV[1] or
+ redis.call('PTTL',KEYS[2])<=0 or redis.call('GET',KEYS[3])~=ARGV[2] or
+ redis.call('GET',KEYS[4])~=ARGV[3] then return redis.error_reply('NORMAL_SERVICE_NOT_READY') end
+redis.call('DEL',KEYS[5])
+redis.call('XADD',KEYS[6],'*','event','normal_service_queue_resumed','grant_id',ARGV[4],
+ 'reason','signed_canary_passed_existing_normal_grant')
+return 1`, []string{
+		c.prefix + "trip", c.Guard.PermitKey(), c.prefix + "normal_service",
+		c.prefix + "recovery", "asynq:{approved_sync}:paused", c.prefix + "control_audit",
+	},
+		c.Guard.Fingerprint(), string(normal), raw, record.Authorization.ID).Err()
+}
+
 // ActivateNormalService persists and publishes an independently signed service authorization.
 func (m *RecoveryManager) ActivateNormalService(
 	ctx context.Context, authorization NormalServiceAuthorization, actor string,

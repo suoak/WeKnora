@@ -46,6 +46,8 @@ func exactPersonalPreflightFields(
 ) logger.Fields {
 	category := "source_proof_refused"
 	switch {
+	case errors.Is(err, errPersonalExactDependencies):
+		category = "embedded_dependency_unsupported"
 	case errors.Is(err, ErrFeishuReconnect), errors.Is(err, ErrFeishuRefreshExpired):
 		category = "oauth_reauthorization_required"
 	case errors.Is(err, repository.ErrPersonalIdentity):
@@ -88,4 +90,18 @@ func exactPersonalPreflightFields(
 		fields["copy_allowed"] = permissions[2]
 	}
 	return fields
+}
+
+func exactPreflightDeferralCategory(err error) string {
+	switch {
+	case errors.Is(err, errPersonalExactDependencies):
+		return "embedded_dependency_unsupported"
+	case personalAuthorizationLost(err):
+		return "authorization_revalidation_failed"
+	case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled),
+		errors.Is(err, core.ErrTransient), errors.Is(err, core.ErrRateLimited):
+		return "preflight_transient"
+	default:
+		return "source_verification_required"
+	}
 }

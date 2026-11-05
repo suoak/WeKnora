@@ -18,7 +18,10 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-var errPersonalExactDocument = errors.New("personal_exact_document_unverified")
+var (
+	errPersonalExactDocument     = errors.New("personal_exact_document_unverified")
+	errPersonalExactDependencies = errors.New("personal_exact_dependencies_unsupported")
+)
 
 // A source attestation is not a KB grant, a model-input receipt or a serving
 // receipt. Keep it private and non-serializable: task payloads cannot supply it.
@@ -268,7 +271,7 @@ EXISTS(SELECT 1 FROM data_sources WHERE tenant_id=? AND type IN ('feishu','feish
 	if preflight && exactEmbeddedWorkbooksEnabled() {
 		mark("embedded_dependency_preflight")
 		if _, dependencyErr := prepareExactEmbeddedWorkbooks(data); dependencyErr != nil {
-			return nil, fmt.Errorf("exact_document_dependencies_unverified: %w", dependencyErr)
+			return nil, fmt.Errorf("%w: %w", errPersonalExactDependencies, dependencyErr)
 		}
 	}
 	var issued *personalExactDocument

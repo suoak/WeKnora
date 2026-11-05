@@ -6773,6 +6773,16 @@ const messages = {
     }
   },
   knowledgeStages: {
+    execution: {
+      'queued': 'Queued for a worker',
+      'waiting': 'Waiting for an execution',
+      'stalled': 'Processing stalled; awaiting recovery',
+      'retrying': 'Retrying automatically',
+      'format': 'Document format requires support; retained for recheck',
+      'authorization': 'Source authorization needs verification',
+      'verification': 'Source verification blocked; task retained',
+      'lastChecked': 'View checked'
+},
     title: '처리 파이프라인',
     root: '지식 처리',
     attempt: '{n}번째 시도',

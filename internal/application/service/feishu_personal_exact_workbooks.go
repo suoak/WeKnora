@@ -271,7 +271,7 @@ func exactWorkbookParts(data []byte) (map[string][]byte, error) {
 			// These dependencies carry data that this bounded reader cannot
 			// completely represent. Preserve pending instead of omitting it.
 			switch start.Name.Local {
-			case "f", "formula", "mergeCell", "hyperlink", "drawing", "legacyDrawing",
+			case "f", "formula", "hyperlink", "drawing", "legacyDrawing",
 				"oleObject", "control", "externalReference", "AlternateContent":
 				return nil, errExactWorkbookUnsupported
 			}
@@ -303,9 +303,13 @@ func exactWorkbookParts(data []byte) (map[string][]byte, error) {
 }
 
 func exactWorkbookCellGrid(file *excelize.File, sheet string, body []byte) (string, int, int, int, error) {
+	merged, mergeNote, mergeRow, mergeCol, err := exactWorkbookMerges(body)
+	if err != nil {
+		return "", 0, 0, 0, err
+	}
 	decoder := xml.NewDecoder(bytes.NewReader(body))
 	cells := map[string]bool{}
-	maxRow, maxCol := 0, 0
+	maxRow, maxCol := mergeRow, mergeCol
 	for {
 		token, err := decoder.Token()
 		if err == io.EOF {
@@ -331,7 +335,9 @@ func exactWorkbookCellGrid(file *excelize.File, sheet string, body []byte) (stri
 			}
 		}
 		col, row, err := excelize.CellNameToCoordinates(ref)
+		canonical, canonicalErr := excelize.CoordinatesToCellName(col, row)
 		if err != nil || row > 1024 || col > 64 || cells[ref] || len(cells) >= 10000 ||
+			canonicalErr != nil || canonical != ref ||
 			kind != "" && kind != "s" && kind != "inlineStr" && kind != "n" && kind != "b" {
 			return "", 0, 0, 0, errExactWorkbookUnsupported
 		}
@@ -360,7 +366,11 @@ func exactWorkbookCellGrid(file *excelize.File, sheet string, body []byte) (stri
 		grid.WriteString("| " + strconv.Itoa(row) + " |")
 		for column := 1; column <= maxCol; column++ {
 			ref, _ := excelize.CoordinatesToCellName(column, row)
-			value, err := file.GetCellValue(sheet, ref, excelize.Options{RawCellValue: true})
+			value := ""
+			var err error
+			if !merged[ref] {
+				value, err = file.GetCellValue(sheet, ref, excelize.Options{RawCellValue: true})
+			}
 			if err != nil {
 				return "", 0, 0, 0, errExactWorkbookUnsupported
 			}
@@ -373,7 +383,74 @@ func exactWorkbookCellGrid(file *excelize.File, sheet string, body []byte) (stri
 			return "", 0, 0, 0, errExactWorkbookUnsupported
 		}
 	}
-	return grid.String(), maxRow, maxCol, len(cells), nil
+	result := grid.String() + mergeNote
+	if utf8.RuneCountInString(result) > types.DefaultParserSemanticChunkMaxChars-1024 {
+		return "", 0, 0, 0, errExactWorkbookUnsupported
+	}
+	return result, maxRow, maxCol, len(cells), nil
+}
+
+// Merged ranges are layout within the authenticated worksheet, not an external
+// dependency. Preserve their coordinates and anchor value without duplicating
+// that value into covered cells. Reject hidden conflicting values and overlap.
+func exactWorkbookMerges(body []byte) (map[string]bool, string, int, int, error) {
+	var worksheet struct {
+		Rows []struct {
+			Cells []struct {
+				Ref    string    `xml:"r,attr"`
+				Value  string    `xml:"v"`
+				Inline *struct{} `xml:"is"`
+			} `xml:"c"`
+		} `xml:"sheetData>row"`
+		Merges []struct {
+			Ref string `xml:"ref,attr"`
+		} `xml:"mergeCells>mergeCell"`
+	}
+	if xml.Unmarshal(body, &worksheet) != nil || len(worksheet.Merges) > 1024 {
+		return nil, "", 0, 0, errExactWorkbookUnsupported
+	}
+	covered, occupied := map[string]bool{}, map[string]bool{}
+	maxRow, maxCol := 0, 0
+	var note strings.Builder
+	for _, merge := range worksheet.Merges {
+		ends := strings.Split(merge.Ref, ":")
+		if len(ends) != 2 {
+			return nil, "", 0, 0, errExactWorkbookUnsupported
+		}
+		left, top, err := excelize.CellNameToCoordinates(ends[0])
+		right, bottom, endErr := excelize.CellNameToCoordinates(ends[1])
+		if err != nil || endErr != nil || left > right || top > bottom ||
+			right > 64 || bottom > 1024 || (left == right && top == bottom) {
+			return nil, "", 0, 0, errExactWorkbookUnsupported
+		}
+		for row := top; row <= bottom; row++ {
+			for col := left; col <= right; col++ {
+				ref, _ := excelize.CoordinatesToCellName(col, row)
+				if occupied[ref] {
+					return nil, "", 0, 0, errExactWorkbookUnsupported
+				}
+				occupied[ref] = true
+				covered[ref] = col != left || row != top
+			}
+		}
+		maxRow, maxCol = max(maxRow, bottom), max(maxCol, right)
+		anchor, _ := excelize.CoordinatesToCellName(left, top)
+		end, _ := excelize.CoordinatesToCellName(right, bottom)
+		note.WriteString("\nMerged cells: " + anchor + ":" + end + " (anchor " + anchor + ").\n")
+	}
+	for _, row := range worksheet.Rows {
+		for _, cell := range row.Cells {
+			col, row, err := excelize.CellNameToCoordinates(cell.Ref)
+			canonical, canonicalErr := excelize.CoordinatesToCellName(col, row)
+			if err != nil || canonicalErr != nil || canonical != cell.Ref {
+				return nil, "", 0, 0, errExactWorkbookUnsupported
+			}
+			if covered[cell.Ref] && (cell.Value != "" || cell.Inline != nil) {
+				return nil, "", 0, 0, errExactWorkbookUnsupported
+			}
+		}
+	}
+	return covered, note.String(), maxRow, maxCol, nil
 }
 
 func parseExactEmbeddedWorkbook(name string, data []byte, ordinal int) (*exactEmbeddedWorkbook, error) {

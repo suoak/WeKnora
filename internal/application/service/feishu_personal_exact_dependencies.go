@@ -45,7 +45,7 @@ func checkExactDOCXGraph(data []byte, packages map[string][]byte) error {
 		expanded += entry.UncompressedSize64
 		if strings.HasPrefix(name, "word/embeddings/") {
 			if packages == nil || !strings.HasSuffix(name, ".xlsx") ||
-				len(packages) >= 4 || entry.UncompressedSize64 > 8<<20 {
+				len(packages) >= 16 || entry.UncompressedSize64 > 8<<20 {
 				return errPersonalExactDocument
 			}
 			reader, err := entry.Open()
