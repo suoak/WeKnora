@@ -5,7 +5,9 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"os"
 
 	"github.com/Tencent/WeKnora/internal/feishusynccontrol"
@@ -17,18 +19,6 @@ import (
 // administrator source permissions, changes rollout scope or resumes a queue.
 func configureFeishuRecovery(db *gorm.DB, c *feishusynccontrol.Controller) error {
 	feishusynccontrol.InstallRecovery(nil)
-	// Startup/restart never inherits an open continuation lane from a previous
-	// process incarnation. A fresh signed approval must reopen only this lane.
-	if types.ApprovedSyncLaneEnabled() {
-		if err := c.Client.SetNX(context.Background(), "asynq:{sync}:paused", "approved_sync_frozen", 0).
-			Err(); err != nil {
-			return err
-		}
-		if err := c.Client.Set(context.Background(), "asynq:{approved_sync}:paused", "approved_sync_frozen", 0).
-			Err(); err != nil {
-			return err
-		}
-	}
 	c.ApprovedConsumers = feishusynccontrol.ApprovedConsumers(c.Client)
 	if os.Getenv("FEISHU_SYNC_RECOVERY_APPROVAL_KEY_FILE") != "" {
 		return feishusynccontrol.ErrRecoveryRejected
@@ -107,6 +97,46 @@ func configureFeishuRecovery(db *gorm.DB, c *feishusynccontrol.Controller) error
 			return feishusynccontrol.SharedQueueProofFromDatabase(ctx, db, p)
 		},
 	)
+	var saved *feishusynccontrol.NormalServiceRecord
+	var setting types.SystemSetting
+	readErr := db.WithContext(context.Background()).First(&setting, "key=?", feishusynccontrol.NormalServiceSetting).Error
+	if readErr == nil {
+		saved = &feishusynccontrol.NormalServiceRecord{}
+		if err := json.Unmarshal(setting.Value, saved); err != nil {
+			return err
+		}
+	} else if !errors.Is(readErr, gorm.ErrRecordNotFound) {
+		return readErr
+	}
+	if err := m.ConfigureNormalService(
+		func(ctx context.Context, tx *gorm.DB, source, config string) (feishusynccontrol.NormalSourceAuthority, error) {
+			return feishusynccontrol.NormalSourceFromDatabase(ctx, db, tx, source, config)
+		},
+		func(ctx context.Context, record feishusynccontrol.NormalServiceRecord,
+			previous *feishusynccontrol.NormalServiceRecord,
+		) error {
+			return feishusynccontrol.StoreNormalServiceRecord(ctx, db, record, previous)
+		}, saved,
+	); err != nil {
+		return err
+	}
+	normal, err := m.NormalServiceActive(context.Background())
+	if err != nil {
+		return err
+	}
+	// Incident continuation still requires a fresh runtime-bound approval.
+	// A separately activated normal service keeps its durable authorization
+	// across graceful worker replacement; it never resumes an operator pause.
+	if types.ApprovedSyncLaneEnabled() && !normal {
+		if err := c.Client.SetNX(context.Background(), "asynq:{sync}:paused", "approved_sync_frozen", 0).
+			Err(); err != nil {
+			return err
+		}
+		if err := c.Client.Set(context.Background(), "asynq:{approved_sync}:paused", "approved_sync_frozen", 0).
+			Err(); err != nil {
+			return err
+		}
+	}
 	feishusynccontrol.InstallRecovery(m)
 	return nil
 }

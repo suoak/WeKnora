@@ -126,6 +126,7 @@ type RecoveryManager struct {
 	steadyAuthority  func(context.Context, string, string) (SourceManagementAuthority, error)
 	archivedTerminal func(context.Context, []types.DataSourceSyncPayload) (bool, error)
 	sharedQueueProof func(context.Context, types.DataSourceSyncPayload) (SharedQueueTaskProof, error)
+	normalService    atomic.Pointer[normalServiceConfiguration]
 }
 
 var recoveryManager atomic.Pointer[RecoveryManager]

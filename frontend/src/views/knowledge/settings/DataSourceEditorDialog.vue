@@ -19,6 +19,7 @@ import {
 import SettingDrawer from '@/components/settings/SettingDrawer.vue'
 import DataSourceTypeIcon from './DataSourceTypeIcon.vue'
 import { getDatasourceIconUrl } from './datasourceIcons'
+import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps<{
   kbId: string
@@ -28,6 +29,7 @@ const props = defineProps<{
 const visible = defineModel<boolean>('visible', { default: false })
 const emit = defineEmits<{ saved: [] }>()
 const { t } = useI18n()
+const authStore = useAuthStore()
 
 const isEdit = computed(() => !!props.dataSource)
 const step = ref(0)
@@ -561,7 +563,8 @@ interface ConnectorDef {
   }[]
 }
 
-const connectorDefs = computed<ConnectorDef[]>(() => [
+const connectorDefs = computed<ConnectorDef[]>(() => {
+  const definitions: ConnectorDef[] = [
   {
     type: 'feishu',
     available: true,
@@ -729,7 +732,10 @@ const connectorDefs = computed<ConnectorDef[]>(() => [
       { key: 'access_token', labelKey: 'datasource.gitlab.accessToken', placeholder: '', secret: true },
     ],
   },
-])
+  ]
+  return definitions.filter(def => authStore.hasRole('admin') ||
+    ['feishu', 'feishu_drive', 'lark', 'lark_drive'].includes(def.type))
+})
 
 
 const currentDef = computed(() => connectorDefs.value.find(d => d.type === form.value.type))

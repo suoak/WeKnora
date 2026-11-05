@@ -7,12 +7,83 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
 )
 
 type cancellationBody struct{ ctx context.Context }
+
+func TestSafetySlowSourceValidationCancelsLocallyWithHealthyController(t *testing.T) {
+	for _, headers := range []bool{false, true} {
+		for _, embedding := range []bool{false, true} {
+			for _, lostPermit := range []bool{false, true} {
+				g, client := fixture(t, Config{})
+				InstallDefault(g)
+				var slow atomic.Bool
+				g.SetApprovedSourceValidator(func(ctx context.Context, source, _ string) error {
+					if source == "slow-source" && slow.Load() {
+						<-ctx.Done()
+						return ctx.Err()
+					}
+					return nil
+				})
+				ctx := WithScope(context.Background(), "slow-source")
+				req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+					"https://gateway.invalid/embeddings", strings.NewReader(`{"input":["test"]}`))
+				if err != nil {
+					t.Fatal(err)
+				}
+				started, done := make(chan struct{}), make(chan error, 1)
+				go func() {
+					response, runErr := (Transport{
+						Base: cancellationTransport{headers, started}, Embedding: embedding,
+					}).RoundTrip(req)
+					if runErr == nil {
+						data, readErr := io.ReadAll(response.Body)
+						_ = response.Body.Close()
+						if len(data) != 0 {
+							done <- errors.New("unverified response bytes escaped")
+							return
+						}
+						runErr = readErr
+					}
+					done <- runErr
+				}()
+				<-started
+				slow.Store(true)
+				if lostPermit {
+					if err := client.Del(context.Background(), g.PermitKey()).Err(); err != nil {
+						t.Fatal(err)
+					}
+				}
+				select {
+				case err := <-done:
+					if lostPermit && !errors.Is(err, ErrClosed) {
+						t.Fatalf("lost controller must remain closed: %v", err)
+					}
+					if !lostPermit && !errors.Is(err, ErrSourceValidationUnavailable) {
+						t.Fatalf("source probe timeout lost its retryable cause: %v", err)
+					}
+				case <-time.After(2 * time.Second):
+					t.Fatal("slow authority check failed to cancel the request")
+				}
+				tripped := client.Exists(context.Background(), g.key("trip")).Val() != 0
+				if tripped != (lostPermit || embedding) {
+					t.Fatalf("wrong shared stop: headers=%t embedding=%t lostPermit=%t", headers, embedding, lostPermit)
+				}
+				if !tripped && g.Check(WithScope(context.Background(), "healthy-source")) != nil {
+					t.Fatal("an independent healthy source was disabled")
+				}
+				if client.HLen(context.Background(), g.key("inflight")).Val() != 0 {
+					t.Fatal("canceled request leaked its reservation")
+				}
+				InstallDefault(nil)
+			}
+		}
+	}
+}
 
 func TestSafetyPermitWatchdogCancellationRetainsItsCause(t *testing.T) {
 	g, client := fixture(t, Config{})

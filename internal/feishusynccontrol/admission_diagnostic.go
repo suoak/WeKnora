@@ -35,6 +35,14 @@ func AdmissionFailureReason(ctx context.Context, source, config string) string {
 		}
 		return "sync_platform_stopped"
 	}
+	if normal, normalErr := m.NormalServiceActive(ctx); normalErr != nil {
+		return "sync_safety_unavailable"
+	} else if normal {
+		if _, err := m.normalService.Load().source(ctx, nil, source, config); err != nil {
+			return "sync_source_permission_denied"
+		}
+		return "sync_safety_unavailable"
+	}
 	if !validState {
 		return "sync_policy_unavailable"
 	}
