@@ -70,7 +70,7 @@ jobs:
           go test -json -race -p 1 ./internal/feishusafety ./internal/feishusynccontrol \
             ./internal/application/service ./internal/application/repository ./internal/datasource ./internal/handler \
             ./internal/types ./internal/container ./internal/router \
-            -run 'TestSteady|TestSourceReconciliation|TestFeishuXLSXSourceIdentityPostgres|TestApprovedSources|TestApprovedSyncLane|TestRecoveryFactsPostgresAuthorityAndExecutionChanges' \
+            -run 'TestNormal|TestSafetySlowSourceValidation|TestFeishuSourceWriteAccess|TestFailedReconciledSource|TestSteady|TestSourceReconciliation|TestFeishuXLSXSourceIdentityPostgres|TestApprovedSources|TestApprovedSyncLane|TestRecoveryFactsPostgresAuthorityAndExecutionChanges' \
             -count=1 -timeout=8m | tee continuity-results.jsonl
       - name: Offline continuation approval checks
         run: |

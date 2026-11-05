@@ -2,6 +2,7 @@ package feishusynccontrol_test
 
 import (
 	"context"
+	"encoding/json"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -50,6 +51,27 @@ func TestNormalSourcePostgresCurrentWritersClaimsAndPublicationRevocation(t *tes
 	owner, _ := makeUser(types.TenantRoleOwner)
 	writer, membership := makeUser(types.TenantRoleContributor)
 	viewer, _ := makeUser(types.TenantRoleViewer)
+	// Authorization is verified by the manager before this storage boundary.
+	// Verify durable CAS/history independently of the Redis certificate tests.
+	record := feishusynccontrol.NormalServiceRecord{
+		Authorization: feishusynccontrol.NormalServiceAuthorization{ID: uuid.NewString(), ActorID: owner.ID},
+		Active:        true, ActivatedMS: time.Now().UnixMilli(),
+	}
+	require.NoError(t, feishusynccontrol.StoreNormalServiceRecord(context.Background(), db, record, nil))
+	require.Error(t, feishusynccontrol.StoreNormalServiceRecord(context.Background(), db, record, nil))
+	var setting types.SystemSetting
+	require.NoError(t, db.First(&setting, "key=?", feishusynccontrol.NormalServiceSetting).Error)
+	var persisted feishusynccontrol.NormalServiceRecord
+	require.NoError(t, json.Unmarshal(setting.Value, &persisted))
+	require.Equal(t, record, persisted)
+	revocation := record
+	revocation.Active = false
+	require.NoError(t, feishusynccontrol.StoreNormalServiceRecord(context.Background(), db, revocation, &record))
+	require.Error(t, feishusynccontrol.StoreNormalServiceRecord(context.Background(), db, record, &record))
+	var histories int64
+	require.NoError(t, db.Model(&types.SystemSetting{}).
+		Where("key LIKE ?", feishusynccontrol.NormalServiceSetting+".history.%").Count(&histories).Error)
+	require.EqualValues(t, 1, histories)
 	makeSource := func(kind string) (types.DataSource, string) {
 		kb := types.KnowledgeBase{
 			ID: uuid.NewString(), TenantID: tenant.ID, Name: "normal-source", Type: "document", CreatorID: owner.ID,
