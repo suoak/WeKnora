@@ -185,6 +185,17 @@ func (s *knowledgeService) StageFeishuLegacyItem(
 		!kb.NeedsEmbeddingModel() {
 		return nil, ErrFeishuStagingRequired
 	}
+	defer func() {
+		if receipt == nil {
+			return
+		}
+		// The identity-only operation committed with publication. Wake only
+		// that existing lane; a receipt/cursor retry must never append it again.
+		// A failed Redis trigger leaves durable work for the next sync or startup.
+		if wakeErr := s.wakeFeishuPublishedWiki(ctx, kb); wakeErr != nil {
+			logger.Warnf(ctx, "feishu published Wiki trigger pending kb=%s: %v", kb.ID, wakeErr)
+		}
+	}()
 	store, err := repository.FeishuLegacyStoreFor(s.repo)
 	if err != nil {
 		return nil, err
@@ -569,4 +580,15 @@ func (s *knowledgeService) StageFeishuLegacyItem(
 	}
 	// Only a durable, re-read, currently active receipt admits the Sync Cursor.
 	return store.Receipt(ctx, resource, attempt)
+}
+
+func (s *knowledgeService) wakeFeishuPublishedWiki(ctx context.Context, kb *types.KnowledgeBase) error {
+	if !kb.IsWikiEnabled() || s.taskPendingRepo == nil {
+		return nil
+	}
+	pending, err := s.taskPendingRepo.PendingCount(ctx, types.TypeWikiIngest, types.TaskScopeKnowledgeBase, kb.ID)
+	if err != nil || pending == 0 {
+		return err
+	}
+	return enqueueWikiIngestTrigger(ctx, s.task, kb.TenantID, kb.ID)
 }
