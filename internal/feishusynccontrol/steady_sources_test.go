@@ -158,7 +158,7 @@ func TestSteadySourcesRejectStaleSignatureStateAndAuthority(t *testing.T) {
 	require.Zero(t, f.r.Exists(ctx, f.c.prefix+"steady_health").Val())
 }
 
-func TestSteadySourcesNewErrorDeniedButApprovedTransientRetryAllowed(t *testing.T) {
+func TestSteadySourcesInconsistentErrorDeniedButApprovedTransientRetryAllowed(t *testing.T) {
 	f := newSteadyFixture(t)
 	ctx := context.Background()
 	id := f.ids[0]
@@ -184,6 +184,36 @@ func TestSteadySourcesNewErrorDeniedButApprovedTransientRetryAllowed(t *testing.
 	f.facts[id] = facts
 	_, _, err = BindApprovedSource(ctx, id, facts.ConfigSHA256)
 	require.Error(t, err)
+}
+
+func TestSteadySourcesSignsVerifiedRetryWithoutRewritingSourceStatus(t *testing.T) {
+	f := newSteadyFixture(t)
+	ctx := context.Background()
+	id := f.ids[0]
+	facts := f.facts[id]
+	facts.Eligible, facts.RetryEligible = false, true
+	f.facts[id] = facts
+	authority := f.authority[id]
+	authority.SourceStatus = "error"
+	f.authority[id] = authority
+	p, err := f.m.PlanSteady(ctx, "operator", f.ids, 7)
+	require.NoError(t, err)
+	require.NoError(t, f.m.ActivateSteady(ctx, p, f.sign(t, p), "operator"))
+	require.Equal(t, "error", f.authority[id].SourceStatus, "signing never rewrites operational state")
+	_, _, err = BindApprovedSource(ctx, id, facts.ConfigSHA256)
+	require.NoError(t, err)
+	authority.SourceStatus = "active"
+	f.authority[id] = authority
+	facts.Eligible, facts.RetryEligible = true, false
+	f.facts[id] = facts
+	_, _, err = BindApprovedSource(ctx, id, facts.ConfigSHA256)
+	require.NoError(t, err, "successful retry continues under the same signed authority")
+	for _, denied := range []string{"paused", "revoked", "hold"} {
+		authority.SourceStatus = denied
+		f.authority[id] = authority
+		_, _, err = BindApprovedSource(ctx, id, facts.ConfigSHA256)
+		require.Error(t, err)
+	}
 }
 
 func TestSteadySourcesSignedRevocationInvalidatesOldDeliveriesWithoutDeletingQueue(t *testing.T) {
