@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 )
 
 // RecoveryContext is server-owned execution identity, never an HTTP parameter.
@@ -84,6 +85,11 @@ type approvedSourceValidator struct {
 	check func(context.Context, string, string) error
 }
 
+// This error identifies a failed source probe, not a failed distributed gate.
+// All callers still deny admission. Only the in-flight watchdog may classify
+// it locally, after independently confirming the exact atomic runtime fence.
+var errSourceProbeFailed = fmt.Errorf("%w: source validation probe failed", ErrClosed)
+
 // SetApprovedSourceValidator installs a server-owned live authority check.
 // Neither a task payload nor a request header can supply this validator.
 func (g *Guard) SetApprovedSourceValidator(check func(context.Context, string, string) error) {
@@ -107,7 +113,7 @@ func (g *Guard) checkApprovedSource(
 		if errors.Is(err, ErrSourceAdmissionChanged) {
 			return true, ErrSourceAdmissionChanged
 		}
-		return true, ErrClosed
+		return true, fmt.Errorf("%w: %w", errSourceProbeFailed, err)
 	}
 	return true, nil
 }

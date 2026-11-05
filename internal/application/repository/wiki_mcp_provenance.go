@@ -168,7 +168,7 @@ func wikiDependencies(db *gorm.DB, kb string) (*wikiGenerationProof, error) {
 	var denied bool
 	if e := db.Raw(`SELECT EXISTS(SELECT 1 FROM data_sources WHERE knowledge_base_id=? AND
  (legacy_access_state IN ('hold','revoked') OR
- (type IN ('feishu','feishu_drive','lark','lark_drive') AND deleted_at IS NULL AND legacy_access_state<>'active')))
+ (type IN ('feishu','feishu_drive','lark','lark_drive') AND deleted_at IS NULL AND legacy_access_state NOT IN ('active','unmanaged'))))
  OR EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE knowledge_base_id=? AND state<>'active')`,
 		kb, kb).Scan(&denied).Error; e != nil {
 		return nil, e
