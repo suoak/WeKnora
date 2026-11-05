@@ -38,12 +38,13 @@ func legacyWikiDrive(kind string) bool {
 func fullFeishuReconciliationContext(
 	ctx context.Context, ds *types.DataSource, forceFull bool, result *types.SyncResult,
 ) context.Context {
-	if ds == nil || result == nil || !forceFull || result.Deferred != 0 || result.Unsupported != 0 ||
+	if ds == nil || result == nil || !forceFull ||
 		!safeLegacyIncrementalEnabled() || !legacyWikiDrive(ds.Type) {
 		return ctx
 	}
-	if result.Failed != 0 && (!types.LegacyReconciliationRead(ctx, ds.ID) ||
-		feishusynccontrol.ReconciliationPolicy(ctx, ds.ID) == "") {
+	if (result.Failed != 0 || result.Deferred != 0 || result.Unsupported != 0) &&
+		(!types.LegacyReconciliationRead(ctx, ds.ID) ||
+			feishusynccontrol.ReconciliationPolicy(ctx, ds.ID) == "") {
 		return ctx
 	}
 	return types.WithLegacyFullReconciliation(ctx)
