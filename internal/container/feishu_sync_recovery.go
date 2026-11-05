@@ -99,7 +99,8 @@ func configureFeishuRecovery(db *gorm.DB, c *feishusynccontrol.Controller) error
 	)
 	var saved *feishusynccontrol.NormalServiceRecord
 	var setting types.SystemSetting
-	readErr := db.WithContext(context.Background()).First(&setting, "key=?", feishusynccontrol.NormalServiceSetting).Error
+	readErr := db.WithContext(context.Background()).
+		First(&setting, "key=?", feishusynccontrol.NormalServiceSetting).Error
 	if readErr == nil {
 		saved = &feishusynccontrol.NormalServiceRecord{}
 		if err := json.Unmarshal(setting.Value, saved); err != nil {

@@ -260,8 +260,15 @@ func (m *RecoveryManager) checkNormalSource(
 		return ctx, false, err
 	}
 	identity, _ := feishusafety.RecoveryOutboundExecution(ctx)
-	if identity.Plan != "" && identity.Plan != record.Authorization.ID {
-		return ctx, false, nil // Existing signed incident recovery remains separate.
+	incident := ReconciliationPolicy(ctx, source)
+	if (identity.Plan != "" && identity.Plan != record.Authorization.ID) || incident != "" {
+		// Existing signed incident recovery remains separate. Expiry or loss
+		// of that incident's authority cancels its work locally; it cannot
+		// revoke the independently authorized normal enterprise service.
+		if err := m.normalIncidentAdmission(ctx, identity.Plan, incident); err != nil {
+			return ctx, true, err
+		}
+		return ctx, false, nil
 	}
 	authority, err := m.normalService.Load().source(ctx, tx, source, config)
 	if err != nil {
@@ -288,6 +295,44 @@ func (m *RecoveryManager) checkNormalSource(
 		})
 	}
 	return ctx, true, nil
+}
+
+func (m *RecoveryManager) normalIncidentAdmission(ctx context.Context, plan, incident string) error {
+	raw, err := m.controller.Client.Get(ctx, m.controller.prefix+"recovery").Result()
+	if errors.Is(err, redis.Nil) {
+		return steadySourceChanged()
+	}
+	if err != nil {
+		return err
+	}
+	var state recoveryMode
+	if json.Unmarshal([]byte(raw), &state) != nil || state.RuntimeSHA != m.controller.Config.SourceSHA ||
+		state.WorkerID != m.controller.Config.WorkerID || state.Incarnation != m.controller.incarnation ||
+		state.ControllerFingerprint != m.controller.fingerprint ||
+		(plan != "" && plan != state.ContinuityID && plan != state.PlanID) ||
+		(incident != "" && incident != state.ContinuityID) {
+		return steadySourceChanged()
+	}
+	now, err := m.controller.Client.Time(ctx).Result()
+	if err != nil {
+		return err
+	}
+	if state.ExpiresMS <= now.UnixMilli() {
+		return steadySourceChanged()
+	}
+	if state.Steady != nil {
+		lease, err := m.controller.Client.Get(ctx, m.controller.prefix+"steady_health").Result()
+		if errors.Is(err, redis.Nil) || (err == nil && lease != state.ContinuityID) {
+			return steadySourceChanged()
+		}
+		if err != nil {
+			return err
+		}
+		if m.checkSteadyState(ctx, state, now.UnixMilli()) != nil {
+			return steadySourceChanged()
+		}
+	}
+	return nil
 }
 
 func (m *RecoveryManager) bindNormalSource(ctx context.Context, source, config string) (context.Context, bool, error) {

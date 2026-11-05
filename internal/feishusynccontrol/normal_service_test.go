@@ -216,3 +216,44 @@ func TestNormalServiceLostStateAndExplicitRevocationStayClosed(t *testing.T) {
 		})
 	}
 }
+
+func TestNormalServiceKeepsHoldReconciliationSeparateAndIsolatesItsExpiry(t *testing.T) {
+	steady, plan, held := reconciliationFixture(t)
+	f := &normalFixture{steadyFixture: steady, sources: map[string]NormalSourceAuthority{}}
+	require.NoError(t, f.m.ConfigureNormalService(f.load, f.store, nil))
+	f.activateNormal(t)
+	operator := reconciliationOperator()
+	_, _, err := BindApprovedSource(operator, held, f.facts[held].ConfigSHA256)
+	require.Error(t, err, "the normal grant never opens a historical hold")
+	work, err := f.m.BeginSourceReconciliation(operator, held, plan.ID)
+	require.NoError(t, err)
+	run := uuid.NewString()
+	require.NoError(t, f.m.BindSourceReconciliationRun(work, held, plan.ID, run))
+	claimed := types.WithSyncExecution(operator, types.SyncExecution{
+		DataSourceID: held, TenantID: f.authority[held].TenantID, SyncLogID: run, Generation: 1,
+	})
+	work, err = RestoreSourceReconciliation(claimed, held, plan.ID)
+	require.NoError(t, err, "the independently signed historical recovery still works")
+	work, approved, err := BindApprovedSource(work, held, f.facts[held].ConfigSHA256)
+	require.NoError(t, err)
+	require.True(t, approved)
+	work = feishusafety.WithScope(work, held)
+	work = feishusafety.WithRecoveryExecution(work, f.facts[held].ConfigSHA256, run, 1)
+	require.NoError(t, f.c.Guard.Check(work))
+	require.False(t, f.r.HExists(operator, f.c.prefix+"normal_sources", held).Val())
+	raw, err := f.r.Get(operator, f.c.prefix+"recovery").Result()
+	require.NoError(t, err)
+	var state recoveryMode
+	require.NoError(t, json.Unmarshal([]byte(raw), &state))
+	state.ExpiresMS = time.Now().Add(-time.Second).UnixMilli()
+	encoded, err := json.Marshal(state)
+	require.NoError(t, err)
+	require.NoError(t, f.r.Set(operator, f.c.prefix+"recovery", string(encoded), 0).Err())
+	require.ErrorIs(t, f.c.Guard.Check(work), feishusafety.ErrSourceAdmissionChanged)
+	normal := f.addSource()
+	healthy, _, err := BindApprovedSource(operator, normal.SourceID, normal.ConfigSHA256)
+	require.NoError(t, err)
+	require.NoError(t, f.c.Guard.Check(feishusafety.WithScope(healthy, normal.SourceID)))
+	require.NoError(t, f.c.Step(operator))
+	require.Zero(t, f.r.Exists(operator, f.c.prefix+"trip").Val())
+}
