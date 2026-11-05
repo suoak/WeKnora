@@ -306,12 +306,15 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 		resp.Body = http.NoBody
 		return resp, nil
 	}
-	// Invalid source queries/identities and missing/inaccessible resources are
-	// connector-level failures. Preserve status/body for the connector's typed
-	// diagnosis without globally stopping independent sources or identities.
+	// Source refusals and known provider availability faults belong to the
+	// connector's bounded retries or the document failure path. Preserve the
+	// status/body without publishing it or stopping independent sources. Model
+	// image calls have the same per-document isolation; embedding accounting
+	// retains its separate fail-closed contract below.
 	if !t.Embedding && (resp.StatusCode == http.StatusBadRequest ||
 		resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden ||
-		resp.StatusCode == http.StatusNotFound) {
+		resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusRequestTimeout ||
+		resp.StatusCode == http.StatusTooManyRequests || (resp.StatusCode >= 500 && resp.StatusCode <= 599)) {
 		if resp.Body == nil {
 			finish()
 		} else {

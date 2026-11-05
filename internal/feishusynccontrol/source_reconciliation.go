@@ -3,6 +3,7 @@ package feishusynccontrol
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/types"
@@ -87,27 +88,54 @@ func (m *RecoveryManager) reconciliationContext(
 	if worker {
 		e, ok := types.SyncExecutionFromContext(ctx)
 		if !ok || e.DataSourceID != source || e.Generation < 1 || e.TenantID != selected.Authority.TenantID {
-			return ctx, "", ErrRecoveryRejected
+			return ctx, "", fmt.Errorf("%w: reconciliation_execution_identity", ErrRecoveryRejected)
 		}
 		bound, err := m.controller.Client.HGet(ctx, m.reconciliationKey(policy, source), "run_id").Result()
 		if err != nil || bound != e.SyncLogID {
-			return ctx, "", ErrRecoveryRejected
+			return ctx, "", fmt.Errorf("%w: reconciliation_run_binding", ErrRecoveryRejected)
 		}
 	} else if types.PrivateKBReadUser(ctx) != state.Steady.Plan.ActorID {
 		return ctx, "", ErrRecoveryRejected
 	}
 	ctx = context.WithValue(ctx, reconciliationContextKey{}, reconciliationIdentity{Policy: policy, Source: source})
 	if err := m.checkApprovedSource(ctx, source, selected.ConfigSHA256); err != nil {
-		return ctx, "", err
+		return ctx, "", fmt.Errorf("reconciliation_source_check: %w", err)
 	}
 	if err := m.steadyReady(ctx); err != nil {
-		return ctx, "", err
+		return ctx, "", fmt.Errorf("reconciliation_worker_health: %w", err)
 	}
 	return ctx, raw, nil
 }
 
 func (m *RecoveryManager) reconciliationKey(policy, source string) string {
 	return m.controller.prefix + "source_reconciliation:" + policy + ":" + source
+}
+
+// ReconciliationAuthorization exposes only the verified signed time bounds to
+// the existing SQL publication-grant preparation path. It neither consumes a
+// second ticket nor authorizes an unsigned/manual source recovery.
+func (m *RecoveryManager) ReconciliationAuthorization(
+	ctx context.Context, source string,
+) (time.Time, time.Time, error) {
+	policy := ReconciliationPolicy(ctx, source)
+	if policy == "" {
+		return time.Time{}, time.Time{}, ErrRecoveryRejected
+	}
+	_, raw, err := m.reconciliationContext(ctx, source, policy, false)
+	if err != nil {
+		return time.Time{}, time.Time{}, err
+	}
+	var state recoveryMode
+	if json.Unmarshal([]byte(raw), &state) != nil || state.Steady == nil {
+		return time.Time{}, time.Time{}, ErrRecoveryRejected
+	}
+	for _, entry := range state.Steady.Plan.ManagedSources {
+		if entry.SourceID == source && entry.Reconciliation {
+			return time.UnixMilli(state.Steady.Plan.AuthorizationUntilMS),
+				time.UnixMilli(entry.ReconcileUntilMS), nil
+		}
+	}
+	return time.Time{}, time.Time{}, ErrRecoveryRejected
 }
 
 // BeginSourceReconciliation consumes one independently signed source purpose.

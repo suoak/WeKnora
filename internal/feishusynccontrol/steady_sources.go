@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"regexp"
 	"sort"
@@ -78,7 +79,7 @@ func (m *RecoveryManager) steadySourceForPurpose(
 		if err == ErrRecoveryRejected {
 			return s, RecoveryFacts{}, steadySourceChanged()
 		}
-		return s, RecoveryFacts{}, ErrRecoveryRejected
+		return s, RecoveryFacts{}, fmt.Errorf("%w: source_authority_read: %w", ErrRecoveryRejected, err)
 	}
 	if authority.SourceID != source || authority.ActorID != actor || authority.TenantID == 0 ||
 		authority.KBID == "" || !recoverySHA.MatchString(authority.AuthorityHash) {
@@ -95,7 +96,21 @@ func (m *RecoveryManager) steadySourceForPurpose(
 		s.NormalFactsSHA256 = f.NormalFactsSHA256
 	}
 	if err != nil {
-		return s, f, ErrRecoveryRejected
+		return s, f, fmt.Errorf("%w: source_facts_read: %w", ErrRecoveryRejected, err)
+	}
+	normalRetry := f.RetryEligible && authority.SourceStatus == "error" &&
+		(authority.AccessState == "active" || authority.AccessState == "unmanaged")
+	if !reconcile && !f.Eligible && !normalRetry {
+		if !f.sourceStateKnown {
+			return s, f, ErrRecoveryRejected
+		}
+		return s, f, steadySourceChanged()
+	}
+	if !reconcile && normalRetry {
+		// Sign normal service for an admissible source after a failed run.
+		// AuthorityHash already excludes this operational status. Pauses,
+		// revocations, holds and every identity/configuration field stay exact.
+		s.Authority.SourceStatus = "active"
 	}
 	if !s.matches(f) {
 		if !f.sourceStateKnown {
@@ -331,7 +346,8 @@ func (m *RecoveryManager) planSteady(
 				return SteadyPlan{}, ErrRecoveryRejected
 			}
 			entry = *previous
-		} else if (!entry.Reconciliation && (!facts.Eligible || entry.Authority.SourceStatus != "active")) ||
+		} else if (!entry.Reconciliation && ((!facts.Eligible && !facts.RetryEligible) ||
+			entry.Authority.SourceStatus != "active")) ||
 			(entry.Reconciliation && !facts.ReconciliationEligible) ||
 			facts.LiveExecutions != 0 || facts.LivePublications != 0 {
 			return SteadyPlan{}, ErrRecoveryRejected
@@ -478,7 +494,7 @@ func (m *RecoveryManager) ActivateSteady(ctx context.Context, p SteadyPlan, a Re
 	for _, entry := range p.ManagedSources {
 		current, facts, err := m.steadySourceForPurpose(ctx, entry.SourceID, actor, entry.Reconciliation)
 		if err != nil || !sameSteadySource(current, entry, facts) || (!p.RevocationOnly &&
-			((!entry.Reconciliation && !facts.Eligible) ||
+			((!entry.Reconciliation && !facts.Eligible && !facts.RetryEligible) ||
 				(entry.Reconciliation && (!facts.ReconciliationEligible ||
 					entry.ReconcileUntilMS <= preflightNow.UnixMilli())) ||
 				facts.LiveExecutions != 0 || facts.LivePublications != 0)) {

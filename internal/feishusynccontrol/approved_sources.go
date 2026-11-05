@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -103,8 +104,11 @@ func (m *RecoveryManager) checkApprovedSource(ctx context.Context, source, confi
 	var liveFacts *RecoveryFacts
 	if state.Steady != nil {
 		now, err := m.controller.Client.Time(ctx).Result()
-		if err != nil || m.checkSteadyState(ctx, state, now.UnixMilli()) != nil {
-			return ErrRecoveryRejected
+		if err != nil {
+			return fmt.Errorf("%w: steady_clock: %w", ErrRecoveryRejected, err)
+		}
+		if err := m.checkSteadyState(ctx, state, now.UnixMilli()); err != nil {
+			return fmt.Errorf("steady_runtime_health: %w", err)
 		}
 		var approved *SteadySource
 		for i := range state.Steady.Plan.ManagedSources {
@@ -160,7 +164,7 @@ func (m *RecoveryManager) checkApprovedSource(ctx context.Context, source, confi
 	}
 	f := *liveFacts
 	if !entry.matches(f) {
-		return ErrRecoveryRejected
+		return fmt.Errorf("%w: source_facts_mismatch", ErrRecoveryRejected)
 	}
 	if state.Phase == "running" && (!f.Eligible || f.LiveExecutions > 1 || f.LivePublications > 1) {
 		return ErrRecoveryRejected

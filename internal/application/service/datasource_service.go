@@ -591,7 +591,15 @@ func (s *DataSourceService) manualSyncUsing(
 	if err != nil {
 		return nil, err
 	}
-	if e := checkFeishuSourceOwner(ctx, ds); e != nil {
+	if feishusynccontrol.ReconciliationPolicy(ctx, ds.ID) != "" {
+		manager := feishusynccontrol.Recovery()
+		if manager == nil {
+			return nil, feishusynccontrol.ErrRecoveryRejected
+		}
+		if _, _, err := manager.ReconciliationAuthorization(ctx, ds.ID); err != nil {
+			return nil, err
+		}
+	} else if e := checkFeishuSourceOwner(ctx, ds); e != nil {
 		return nil, &datasource.SyncAdmissionError{Reason: "sync_source_permission_denied", Cause: e}
 	}
 	if datasource.LegacyFeishuSyncSuspended(ds.Type) {
@@ -647,13 +655,21 @@ func (s *DataSourceService) manualSyncUsing(
 		StartedAt:    time.Now().UTC(),
 	}
 
-	created, err := s.syncLogRepo.CreateIfNoRunning(ctx, syncLog)
+	prepared, err := s.prepareSignedReferenceReconciliation(ctx, ds)
 	if err != nil {
-		logger.Errorf(ctx, "failed to create sync log: %v", err)
 		return nil, err
 	}
-	if !created {
-		return nil, datasource.ErrSyncAlreadyRunning
+	if prepared != nil {
+		syncLog = prepared
+	} else {
+		created, err := s.syncLogRepo.CreateIfNoRunning(ctx, syncLog)
+		if err != nil {
+			logger.Errorf(ctx, "failed to create sync log: %v", err)
+			return nil, err
+		}
+		if !created {
+			return nil, datasource.ErrSyncAlreadyRunning
+		}
 	}
 
 	// Enqueue sync task
@@ -945,7 +961,7 @@ func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.
 				err = errors.Join(err, restrictionErr)
 			}
 		}
-		return s.failSyncAttempt(ctx, ds, syncLog, err, "Feishu credential reference unavailable")
+		return s.failSyncAttempt(ctx, ds, syncLog, err, feishuSourceBindingFailureMessage(err))
 	}
 	kb, kbErr := s.kbService.GetKnowledgeBaseByID(ctx, ds.KnowledgeBaseID)
 	if kbErr != nil {
@@ -1185,7 +1201,16 @@ func (s *DataSourceService) applyFetchedItem(
 		if safeLegacyIncrementalEnabled() && legacyWikiDrive(ds.Type) {
 			result.Failed++
 			result.DeletionFailed++
-			return &dataSourceIngestError{cause: s.legacyMissingItem(ctx, ds, item)}
+			err := s.legacyMissingItem(ctx, ds, item)
+			var local *datasource.DocumentFailureError
+			if errors.As(err, &local) {
+				recordSyncError(result, types.SyncItemError{
+					Title: item.Title, Code: local.Code,
+					Message: "Source document is isolated pending access verification; siblings continue syncing",
+				})
+				return err
+			}
+			return &dataSourceIngestError{cause: err}
 		}
 		if !ds.SyncDeletions {
 			// Sync deletion disabled: neither count nor delete.

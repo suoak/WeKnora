@@ -179,7 +179,7 @@ func TestGlobalHTTPReasonIdentifiesEndpointFamily(t *testing.T) {
 		embedding bool
 		status    int
 	}{
-		{true, 400}, {true, 401}, {false, 429}, {false, 500}, {false, 503},
+		{true, 400}, {true, 401}, {false, 402}, {false, 409},
 	} {
 		t.Run(fmt.Sprintf("embedding%t/status%d", tc.embedding, tc.status), func(t *testing.T) {
 			g, client := fixture(t, Config{})

@@ -118,11 +118,13 @@ func TestSourceReconciliationServiceQueuesOneFullRunWithoutReleasingHold(t *test
 			require.Error(t, feishuTraversalFailure(readOnly, held, true, allPrivateFailed))
 			require.Error(t, feishuTraversalFailure(work, held, false, allPrivateFailed))
 			allPrivateFailed.Deferred = 1
-			require.Error(t, feishuTraversalFailure(work, held, true, allPrivateFailed))
+			require.NoError(t, feishuTraversalFailure(work, held, true, allPrivateFailed))
+			require.Error(t, feishuTraversalFailure(readOnly, held, true, allPrivateFailed))
 			allPrivateFailed.Deferred, allPrivateFailed.Unsupported = 0, 1
-			require.Error(t, feishuTraversalFailure(work, held, true, allPrivateFailed))
+			require.NoError(t, feishuTraversalFailure(work, held, true, allPrivateFailed))
+			require.Error(t, feishuTraversalFailure(readOnly, held, true, allPrivateFailed))
 			partial.Deferred = 1
-			require.False(t, reconciles(work, true))
+			require.True(t, reconciles(work, true), "public inventory still requires every current receipt")
 		})
 	}
 }

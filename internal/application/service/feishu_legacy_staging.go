@@ -38,12 +38,13 @@ func legacyWikiDrive(kind string) bool {
 func fullFeishuReconciliationContext(
 	ctx context.Context, ds *types.DataSource, forceFull bool, result *types.SyncResult,
 ) context.Context {
-	if ds == nil || result == nil || !forceFull || result.Deferred != 0 || result.Unsupported != 0 ||
+	if ds == nil || result == nil || !forceFull ||
 		!safeLegacyIncrementalEnabled() || !legacyWikiDrive(ds.Type) {
 		return ctx
 	}
-	if result.Failed != 0 && (!types.LegacyReconciliationRead(ctx, ds.ID) ||
-		feishusynccontrol.ReconciliationPolicy(ctx, ds.ID) == "") {
+	if (result.Failed != 0 || result.Deferred != 0 || result.Unsupported != 0) &&
+		(!types.LegacyReconciliationRead(ctx, ds.ID) ||
+			feishusynccontrol.ReconciliationPolicy(ctx, ds.ID) == "") {
 		return ctx
 	}
 	return types.WithLegacyFullReconciliation(ctx)
@@ -95,12 +96,13 @@ func (s *DataSourceService) legacyMissingItem(
 	}
 	// Listing absence is not a trustworthy permanent-delete event, including
 	// when SyncDeletions is false. Preserve the old version privately, deny
-	// reads now, and require reconciliation instead of acknowledging a cursor.
-	_, err = store.RestrictSource(context.WithoutCancel(ctx), ds, item.ExternalID, false)
+	// reads now, but isolate this resource so siblings can continue. Historical
+	// unbound content still uses RestrictDocument's source-wide fallback.
+	err = store.RestrictDocument(context.WithoutCancel(ctx), ds, item.ExternalID)
 	if err != nil {
 		return err
 	}
-	return types.ErrLegacySourceRestricted
+	return &datasource.DocumentFailureError{Code: "feishu_document_access_unavailable"}
 }
 
 func (s *knowledgeService) restrictLegacyUnverifiedChildren(
