@@ -1655,9 +1655,10 @@ func (s *DataSourceService) updateSyncRunResult(
 	if err := s.writeSyncExecution(ctx, ds, syncLog, true); err != nil {
 		return err
 	}
-	completedTraversal := status == types.SyncLogStatusSuccess || status == types.SyncLogStatusPartial
-	if completedTraversal && ds.LegacyAccessState == "hold" &&
-		types.LegacyFullReconciliation(ctx) {
+	// The fenced repository commit may restore a fully inventoried source even
+	// when every new candidate failed and the run remains failed. Reload its
+	// persisted controls so those isolated failures do not leave cron disabled.
+	if ds.LegacyAccessState == "hold" && types.LegacyFullReconciliation(ctx) {
 		if err := s.refreshSourceSchedule(ctx, ds.ID); err != nil {
 			logger.Warnf(ctx, "[Scheduler] reconciled source schedule registration failed: %v", err)
 		}
