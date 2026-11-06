@@ -183,6 +183,12 @@ func (r *chunkRepository) ListChunksByID(
 		}
 		return r.listExactPublishedChunks(ctx, ids)
 	}
+	if tenant, knowledge, kb, worker := types.ExactDocumentIdentity(ctx); worker {
+		if tenantID != tenant {
+			return nil, types.ErrExactDocumentScope
+		}
+		return r.listExactWorkerChunks(ctx, tenant, knowledge, kb, ids)
+	}
 	var chunks []*types.Chunk
 	if err := r.db.WithContext(ctx).
 		Where("tenant_id = ? AND id IN ?", tenantID, ids).
