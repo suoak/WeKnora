@@ -19,6 +19,8 @@ func TestPersonalRecoveryReconcileDeadlineContinuesAfterInterruptedSource(t *tes
 	// not eligible for any recovery grant, and must remain byte-for-byte unchanged.
 	later := original
 	later.ID = "zz-last-unrelated-attempt"
+	later.CandidateVersionID = "unrelated-candidate"
+	later.Revision = "unrelated-revision"
 	later.Status = "needs_attention"
 	require.NoError(t, f.db.Create(&later).Error)
 	ctx, cancel := context.WithCancel(context.Background())
