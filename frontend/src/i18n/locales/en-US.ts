@@ -983,6 +983,7 @@ export default {
     noActivity: 'No parsing activity yet',
     totalDuration: 'Total: {d}',
     stall: {
+      personalHint: 'Personal Feishu documents require source verification and controlled recovery. Keep the existing document; do not stop and rebuild or delete and reimport it. If reauthorization is required, the original importer must reconnect Feishu.',
       title: 'No progress for {minutes} minutes; this may be stuck',
       hint: 'You can keep waiting, or stop parsing and rebuild the document. If it still makes no progress, it will be marked as failed automatically.',
       hintAtStage: 'It stopped at the {stage} stage. You can keep waiting, or stop parsing and rebuild the document. If it still makes no progress, it will be marked as failed automatically.',

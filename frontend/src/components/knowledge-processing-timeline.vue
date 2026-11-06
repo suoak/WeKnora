@@ -96,6 +96,8 @@ const POLL_INTERVAL_MS = 2000
 const data = ref<SpansResponse | null>(null)
 const processOverrides = ref<KnowledgeProcessOverrides | null>(null)
 const currentKnowledgeFileType = ref('')
+const currentKnowledgeChannel = ref('')
+const isPersonalFeishu = computed(() => currentKnowledgeChannel.value === 'feishu_personal')
 const loading = ref(false)
 const refreshing = ref(false)
 const selectedAttempt = ref<number | undefined>(undefined)
@@ -487,6 +489,10 @@ async function copySpan(node: SpanNode) {
 
 async function onRetry() {
   if (!props.knowledgeId) return
+  if (isPersonalFeishu.value) {
+    MessagePlugin.info(t('knowledgeStages.stall.personalHint'))
+    return
+  }
   try {
     await reparseKnowledge(props.knowledgeId)
     selectedAttempt.value = undefined
@@ -567,6 +573,7 @@ watch(
     data.value = null
     processOverrides.value = null
     currentKnowledgeFileType.value = ''
+    currentKnowledgeChannel.value = ''
     expandedRows.value = new Set(['__root__'])
     selectedSpanId.value = null
     autoSelectPending.value = true
@@ -588,6 +595,7 @@ async function fetchProcessOverrides() {
   try {
     const res: any = await getKnowledgeDetails(props.knowledgeId)
     if (res?.success && res.data) {
+      currentKnowledgeChannel.value = res.data.channel || ''
       processOverrides.value = res.data.metadata?.process_overrides ?? null
       currentKnowledgeFileType.value = normalizeFileType(
         res.data.file_type || getFileTypeFromName(res.data.file_name || res.data.title || ''),
@@ -596,6 +604,7 @@ async function fetchProcessOverrides() {
   } catch {
     processOverrides.value = null
     currentKnowledgeFileType.value = ''
+    currentKnowledgeChannel.value = ''
   }
 }
 
@@ -1632,7 +1641,7 @@ const processConfigLines = computed<string[]>(() => {
                   <t-icon :name="cancelling ? 'loading' : 'close-circle'" size="15px" />
                 </button>
               </t-popconfirm>
-              <t-button v-if="showToolbarRetry" size="small" theme="danger" variant="outline" @click="onRetry">
+              <t-button v-if="showToolbarRetry && !isPersonalFeishu" size="small" theme="danger" variant="outline" @click="onRetry">
                 <t-icon name="refresh" size="14px" />
                 <span style="margin-left: 4px">{{ t('knowledgeStages.retry') }}</span>
               </t-button>
@@ -1660,7 +1669,7 @@ const processConfigLines = computed<string[]>(() => {
             </button>
           </div>
 
-          <div v-if="shownStall(data?.stall_state, stalledMin) === 'queued'" class="kp-stall kp-stall-queued"
+          <div v-if="shownStall(data?.stall_state, stalledMin, data?.execution) === 'queued'" class="kp-stall kp-stall-queued"
             role="status">
             <t-icon name="time" size="16px" class="kp-stall-icon" />
             <div class="kp-stall-body">
@@ -1668,12 +1677,12 @@ const processConfigLines = computed<string[]>(() => {
               <div class="kp-stall-hint">{{ t('knowledgeStages.stall.queuedHint') }}</div>
             </div>
           </div>
-          <div v-else-if="shownStall(data?.stall_state, stalledMin) === 'stalled'" class="kp-stall" role="status">
+          <div v-else-if="shownStall(data?.stall_state, stalledMin, data?.execution) === 'stalled'" class="kp-stall" role="status">
             <t-icon name="time" size="16px" class="kp-stall-icon" />
             <div class="kp-stall-body">
               <div class="kp-stall-title">{{ t('knowledgeStages.stall.title', { minutes: stalledMin }) }}</div>
               <div class="kp-stall-hint">
-                {{ stalledStageLabel
+                {{ isPersonalFeishu ? t('knowledgeStages.stall.personalHint') : stalledStageLabel
                   ? t('knowledgeStages.stall.hintAtStage', { stage: stalledStageLabel })
                   : t('knowledgeStages.stall.hint') }}
               </div>
@@ -1706,9 +1715,9 @@ const processConfigLines = computed<string[]>(() => {
             </div>
             <div v-if="data.last_error.error_message" class="kp-err-message">{{ data.last_error.error_message }}</div>
             <div v-if="localizedErrorSuggestion(data.last_error.error_code)" class="kp-err-hint">
-              {{ localizedErrorSuggestion(data.last_error.error_code) }}
+              {{ isPersonalFeishu ? t('knowledgeStages.stall.personalHint') : localizedErrorSuggestion(data.last_error.error_code) }}
             </div>
-            <div v-if="data.parse_status === 'failed'" class="kp-err-actions">
+            <div v-if="data.parse_status === 'failed' && !isPersonalFeishu" class="kp-err-actions">
               <button type="button" class="kp-err-btn" @click="onRetry">
                 <t-icon name="refresh" size="14px" />
                 <span>{{ t('knowledgeStages.retry') }}</span>
