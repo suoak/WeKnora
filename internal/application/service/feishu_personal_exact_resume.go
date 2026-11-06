@@ -44,6 +44,7 @@ func (p *PersonalRecovery) prepareExactPersonalResume(
 		if errors.Is(err, repository.ErrPersonalBusy) {
 			return nil
 		}
+		logExactPersonalPreflightRefusal(ctx, observed, "closed_resume_enqueue", nil, err)
 		return err
 	}
 	ks := p.service.knowledge.(*knowledgeService)
