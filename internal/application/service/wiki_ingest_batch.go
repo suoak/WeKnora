@@ -1240,9 +1240,10 @@ func (s *wikiIngestService) processWikiFinalize(ctx context.Context, t *asynq.Ta
 		return errors.New("wiki finalize dependency lookup failed")
 	}
 	ctx, finalizePostErrors := withWikiPostErrors(ctx)
-	if firstAddFinalize {
-		ctx = context.WithValue(ctx, wikiFirstAddFinalizeKey{}, true)
-	}
+	// Every durable finalize must retain its rows on an actual generation
+	// failure. The existing strict index path also preserves human edits;
+	// using it does not grant source authority or certify historical text.
+	ctx = context.WithValue(ctx, wikiFirstAddFinalizeKey{}, true)
 	if kb.WikiConfig != nil {
 		synthesisModelID = kb.WikiConfig.SynthesisModelID
 	}
@@ -1250,7 +1251,7 @@ func (s *wikiIngestService) processWikiFinalize(ctx context.Context, t *asynq.Ta
 		synthesisModelID = kb.SummaryModelID
 	}
 	if synthesisModelID == "" {
-		if firstAddFinalize {
+		if firstAddFinalize || changeDesc.Len() > 0 || s.personalWikiProofEnabled() {
 			return errors.New("wiki first-add synthesis model unavailable")
 		}
 		// No model to rebuild the index with; still run the pure-text passes,
@@ -1277,16 +1278,10 @@ func (s *wikiIngestService) processWikiFinalize(ctx context.Context, t *asynq.Ta
 	if changeDesc.Len() > 0 && synthesisModelID != "" {
 		chatModel, mErr := s.modelService.GetChatModel(ctx, synthesisModelID)
 		if mErr != nil {
-			if firstAddFinalize {
-				return errors.New("wiki first-add synthesis model unavailable")
-			}
-			logger.Warnf(ctx, "wiki finalize: get chat model failed: %v", mErr)
+			return fmt.Errorf("wiki finalize: synthesis model unavailable: %w", mErr)
 		} else if err := s.rebuildIndexPage(ctx, chatModel, payload, changeDesc.String(), lang,
 			batchCtx.ContentInstructions); err != nil {
-			if firstAddFinalize {
-				return fmt.Errorf("wiki first-add finalize: %w", err)
-			}
-			logger.Warnf(ctx, "wiki finalize: rebuild index failed: %v", err)
+			return fmt.Errorf("wiki finalize: rebuild index: %w", err)
 		} else {
 			indexRebuilt = true
 		}
@@ -1296,8 +1291,8 @@ func (s *wikiIngestService) processWikiFinalize(ctx context.Context, t *asynq.Ta
 		s.cleanDeadLinks(ctx, payload.KnowledgeBaseID, affectedSlugs, batchCtx)
 		s.injectCrossLinks(ctx, payload.KnowledgeBaseID, affectedSlugs, freshRefs, batchCtx)
 	}
-	if firstAddFinalize && finalizePostErrors.hasFailure() {
-		return errors.New("wiki first-add link finalization pending")
+	if finalizePostErrors.hasFailure() {
+		return errors.New("wiki link finalization pending")
 	}
 
 	// A retract may leave one or more generated folders empty. Do not prune
@@ -1326,9 +1321,8 @@ func (s *wikiIngestService) processWikiFinalize(ctx context.Context, t *asynq.Ta
 		}
 	}
 
-	// Drain the processed rows. Best-effort convergence mirrors the legacy
-	// in-batch behaviour: a failed index rebuild is logged (not retried),
-	// so we delete regardless to avoid re-doing the whole pass forever.
+	// Drain only successful convergence. Generation and link failures above
+	// retain the original rows and return their actual failure for retry.
 	idsToTrim := ids
 	if pruneDeferred && len(pruneRowIDs) > 0 {
 		deferred := make(map[int64]struct{}, len(pruneRowIDs))
@@ -1358,7 +1352,9 @@ func (s *wikiIngestService) processWikiFinalize(ctx context.Context, t *asynq.Ta
 	}
 	if n, cErr := s.pendingRepo.PendingCount(ctx, wikiFinalizeTaskType, wikiTaskScope, payload.KnowledgeBaseID); cErr == nil && n > 0 {
 		if !pruneDeferred {
-			s.scheduleFinalize(ctx, payload)
+			// The current canonical task ID is occupied until Asynq ACKs it.
+			// Reusing it here would coalesce away the only successor.
+			s.scheduleFinalizeRetry(ctx, payload)
 		}
 		rescheduled = true
 	}
