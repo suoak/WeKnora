@@ -1,10 +1,40 @@
 package utils
 
 import (
+	"errors"
 	"net/http"
 	"testing"
 	"time"
 )
+
+func TestOutboundSSRFValidationDoesNotCacheDenialAcrossSourceRequests(t *testing.T) {
+	ResetSSRFOutboundValidationCacheForTest()
+	t.Cleanup(ResetSSRFOutboundValidationCacheForTest)
+	calls := 0
+	failure := errors.New("temporary DNS validation unavailable")
+	validate := func(string) error {
+		calls++
+		if calls == 1 {
+			return failure
+		}
+		return nil
+	}
+	if err := validateOutboundSSRFWith("https://same-source.example/a", validate); !errors.Is(err, failure) {
+		t.Fatal("first source request must remain denied")
+	}
+	if err := validateOutboundSSRFWith("https://same-source.example/b", validate); err != nil {
+		t.Fatal("a retry must revalidate instead of reusing a negative origin cache")
+	}
+	if calls != 2 {
+		t.Fatalf("expected two actual validations, got %d", calls)
+	}
+	if err := validateOutboundSSRFWith("https://same-source.example/c", validate); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 {
+		t.Fatal("successful validation should retain the existing bounded cache")
+	}
+}
 
 func TestOutboundSSRFValidationCacheReusesSameOrigin(t *testing.T) {
 	ResetSSRFWhitelistForTest()
