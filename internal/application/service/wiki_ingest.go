@@ -960,6 +960,9 @@ func (s *wikiIngestService) scheduleFinalize(ctx context.Context, payload WikiIn
 					if peekErr == nil && len(rows) == 1 && rows[0].TenantID == payload.TenantID {
 						id := fmt.Sprintf("wiki-finalize-%s-pending-%d", payload.KnowledgeBaseID, rows[0].ID)
 						_, recoveryErr := s.task.Enqueue(t, asynq.TaskID(id))
+						if errors.Is(recoveryErr, asynq.ErrTaskIDConflict) {
+							recoveryErr = s.recoverContendedFinalize(ctx, t, id)
+						}
 						if recoveryErr != nil && !errors.Is(recoveryErr, asynq.ErrTaskIDConflict) {
 							logger.Warnf(ctx, "wiki finalize: archived trigger recovery failed: %v", recoveryErr)
 						}
