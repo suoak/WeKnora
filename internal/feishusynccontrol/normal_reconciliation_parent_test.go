@@ -155,7 +155,9 @@ func TestNormalContinuationRejectsUntrustedParentOrChangedAuthority(t *testing.T
 			require.Error(t, err)
 		})
 	}
-	for _, scenario := range []string{"root_revoked", "root_id_changed", "source_authority_changed", "signature_changed"} {
+	for _, scenario := range []string{
+		"root_revoked", "root_id_changed", "source_authority_changed", "signature_changed",
+	} {
 		t.Run(scenario, func(t *testing.T) {
 			f, held := normalContinuationFixture(t, true)
 			ctx := context.Background()
