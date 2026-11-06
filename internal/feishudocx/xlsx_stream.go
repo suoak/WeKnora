@@ -46,7 +46,8 @@ func xlsxAttrs(t xml.StartElement) ([]xml.Attr, error) {
 		seen[v.Name] = true
 	}
 	sort.Slice(a, func(i, j int) bool {
-		return a[i].Name.Space < a[j].Name.Space || a[i].Name.Space == a[j].Name.Space && a[i].Name.Local < a[j].Name.Local
+		return a[i].Name.Space < a[j].Name.Space ||
+			a[i].Name.Space == a[j].Name.Space && a[i].Name.Local < a[j].Name.Local
 	})
 	return a, nil
 }
@@ -114,7 +115,8 @@ func (s *xlsxXMLStream) element(t xml.StartElement, depth int) error {
 		switch v := v.(type) {
 		case xml.StartElement:
 			begin()
-			if t.Name == (xml.Name{Space: spreadsheetNS, Local: "worksheet"}) && v.Name == (xml.Name{Space: spreadsheetNS, Local: "cols"}) {
+			if t.Name == (xml.Name{Space: spreadsheetNS, Local: "worksheet"}) &&
+				v.Name == (xml.Name{Space: spreadsheetNS, Local: "cols"}) {
 				cols++
 				if cols > 1 {
 					return ErrInvalidXLSXPackage

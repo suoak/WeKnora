@@ -28,7 +28,7 @@ const spreadsheetNS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main
 // ErrInvalidXLSXPackage rejects unsupported structures without exposing content.
 var ErrInvalidXLSXPackage = errors.New("invalid or unsupported Feishu XLSX package")
 
-// CanonicalXLSXDigest reuses the bounded OOXML decoder without changing DOCX's
+// CanonicalXLSXDigest uses a bounded streaming OOXML decoder without changing DOCX's
 // identity contract. Repeated authorized Sheet exports vary column widths and
 // grouping, despite identical cells, formulas, relationships and binary assets.
 // Only width is omitted; column coverage and every other property remain bound.
@@ -77,9 +77,13 @@ func CanonicalXLSXDigest(content []byte) (string, string, error) {
 			var required xml.Name
 			switch name {
 			case "[Content_Types].xml":
-				required = xml.Name{Space: "http://schemas.openxmlformats.org/package/2006/content-types", Local: "Types"}
+				required = xml.Name{
+					Space: "http://schemas.openxmlformats.org/package/2006/content-types", Local: "Types",
+				}
 			case "_rels/.rels":
-				required = xml.Name{Space: "http://schemas.openxmlformats.org/package/2006/relationships", Local: "Relationships"}
+				required = xml.Name{
+					Space: "http://schemas.openxmlformats.org/package/2006/relationships", Local: "Relationships",
+				}
 			case "xl/workbook.xml":
 				required = xml.Name{Space: spreadsheetNS, Local: "workbook"}
 			}
@@ -89,7 +93,8 @@ func CanonicalXLSXDigest(content []byte) (string, string, error) {
 		}
 		closeErr := reader.Close()
 		readBytes := int64(maxXLSXPart+1) - bounded.N
-		if readErr != nil || closeErr != nil || readBytes > maxXLSXPart || uint64(readBytes) != entry.UncompressedSize64 {
+		if readErr != nil || closeErr != nil || readBytes > maxXLSXPart ||
+			uint64(readBytes) != entry.UncompressedSize64 {
 			return "", "", ErrInvalidXLSXPackage
 		}
 		parts = append(parts, partDigest{Name: name, SHA256: hex.EncodeToString(hash.Sum(nil))})

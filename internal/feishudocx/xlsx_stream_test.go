@@ -17,7 +17,8 @@ func TestXLSXStreamPreservesV1JSON(t *testing.T) {
 	for _, body := range []string{
 		`<empty/>`,
 		`<?xml version="1.0"?><root b="2" a="&lt;&amp;&#34;"> mixed <x/><x>汉字</x><!--note--><![CDATA[abc]]></root>`,
-		`<worksheet xmlns="` + spreadsheetNS + `"><cols><col min="1" max="3" width="12" hidden="1"/></cols><sheetData><row><c><f>A1+B1</f><v>9</v></c></row></sheetData></worksheet>`,
+		`<worksheet xmlns="` + spreadsheetNS + `"><cols><col min="1" max="3" width="12" hidden="1"/></cols>` +
+			`<sheetData><row><c><f>A1+B1</f><v>9</v></c></row></sheetData></worksheet>`,
 		`<worksheet xmlns="` + spreadsheetNS + `"><cols> </cols><sheetData/></worksheet>`,
 	} {
 		root, err := parseXML([]byte(body))
@@ -45,7 +46,8 @@ func TestXLSXStreamRejectsUnsafeXML(t *testing.T) {
 		`<!DOCTYPE root><root/>`, `<a/><b/>`, `<a x="1" x="2"/>`, `<a><?hidden x?></a>`,
 		`<!--outside--><a/>`, `<a>broken`, strings.Repeat(`<a>`, 129) + strings.Repeat(`</a>`, 129),
 		`<worksheet xmlns="` + spreadsheetNS + `"><cols/><cols/></worksheet>`,
-		`<worksheet xmlns="` + spreadsheetNS + `"><cols><col min="1" max="2"/><col min="2" max="3"/></cols></worksheet>`,
+		`<worksheet xmlns="` + spreadsheetNS + `"><cols><col min="1" max="2"/>` +
+			`<col min="2" max="3"/></cols></worksheet>`,
 	} {
 		if err := streamXLSXXML(strings.NewReader(body), io.Discard, xml.Name{}); err == nil {
 			t.Fatal("accepted unsafe XML")
