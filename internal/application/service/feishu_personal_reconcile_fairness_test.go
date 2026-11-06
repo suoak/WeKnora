@@ -35,28 +35,28 @@ func TestPersonalRecoveryReconcileDeadlineContinuesAfterInterruptedSource(t *tes
 	require.ErrorIs(t, f.p.Reconcile(ctx), context.Canceled)
 	require.True(t, fired.Load())
 	require.NoError(t, f.db.Callback().Query().Remove(name))
-	require.Equal(t, original.ID, f.p.reconcileAfter)
+	require.Equal(t, original.ID, f.p.reconcile.after)
 	require.NoError(t, f.p.Reconcile(context.Background()))
-	require.Empty(t, f.p.reconcileAfter, "reaching the tail wraps the next sweep")
+	require.Empty(t, f.p.reconcile.after, "reaching the tail wraps the next sweep")
 	var saved types.FeishuPersonalAttempt
 	require.NoError(t, f.db.Where("id=?", later.ID).Take(&saved).Error)
 	require.Equal(t, later, saved, "cursor movement cannot authorize or mutate an unrelated attempt")
 	// A subsequent complete sweep returns to the interrupted row.
 	require.NoError(t, f.p.Reconcile(context.Background()))
-	require.Empty(t, f.p.reconcileAfter)
+	require.Empty(t, f.p.reconcile.after)
 }
 
 func TestPersonalRecoveryReconcileCanceledAndConcurrentScansKeepCursor(t *testing.T) {
 	f := newPersonalRecoveryFixture(t)
-	f.p.reconcileAfter = "retained-position"
+	f.p.reconcile.after = "retained-position"
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	require.ErrorIs(t, f.p.Reconcile(ctx), context.Canceled)
-	require.Equal(t, "retained-position", f.p.reconcileAfter)
-	f.p.reconcileMu.Lock()
+	require.Equal(t, "retained-position", f.p.reconcile.after)
+	f.p.reconcile.mu.Lock()
 	done := make(chan error, 1)
 	go func() { done <- f.p.Reconcile(context.Background()) }()
 	require.NoError(t, <-done)
-	require.Equal(t, "retained-position", f.p.reconcileAfter)
-	f.p.reconcileMu.Unlock()
+	require.Equal(t, "retained-position", f.p.reconcile.after)
+	f.p.reconcile.mu.Unlock()
 }

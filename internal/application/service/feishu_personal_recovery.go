@@ -35,8 +35,12 @@ type PersonalRecovery struct {
 	lease           time.Duration
 	firstCreateOnly bool
 
-	reconcileMu    sync.Mutex
-	reconcileAfter string
+	reconcile *personalReconcileScan
+}
+
+type personalReconcileScan struct {
+	mu    sync.Mutex
+	after string
 }
 
 // EnablePersonalRecovery provides the enable personal recovery operation.
@@ -71,11 +75,12 @@ func EnablePersonalRecovery(
 		return errors.New("personal recovery requires durable knowledge dispatcher")
 	}
 	p := &PersonalRecovery{
-		service: s,
-		repo:    repository.NewPersonalRecoveryRepository(s.db),
-		store:   store,
-		shares:  shares,
-		lease:   30 * time.Second,
+		service:   s,
+		repo:      repository.NewPersonalRecoveryRepository(s.db),
+		store:     store,
+		shares:    shares,
+		lease:     30 * time.Second,
+		reconcile: &personalReconcileScan{},
 	}
 	p.firstCreateOnly = os.Getenv("FEISHU_PERSONAL_MVP_FIRST_CREATE") == "1"
 	if applicationGrantEnabled() && (!p.firstCreateOnly || !applicationGrantEngineAvailable()) {
@@ -779,11 +784,14 @@ func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 	// One scan cursor per worker. A timed-out source must not force every later
 	// source to restart behind it on each bounded maintenance sweep. The cursor
 	// grants no authority; every resumed observation still runs all live checks.
-	if !p.reconcileMu.TryLock() {
+	if p.reconcile == nil {
+		return errors.New("personal recovery scan not initialized")
+	}
+	if !p.reconcile.mu.TryLock() {
 		return nil
 	}
-	defer p.reconcileMu.Unlock()
-	after := p.reconcileAfter
+	defer p.reconcile.mu.Unlock()
+	after := p.reconcile.after
 	var failures []error
 	if err := p.service.reconcileConnectionHealth(ctx); err != nil {
 		failures = append(failures, err)
@@ -803,7 +811,7 @@ func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 			return errors.Join(errors.Join(failures...), err)
 		}
 		if len(rows) == 0 {
-			p.reconcileAfter = ""
+			p.reconcile.after = ""
 			return errors.Join(failures...)
 		}
 		for _, a := range rows {
@@ -813,7 +821,7 @@ func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 			// Advance only when this row gets a live execution budget. If it
 			// exhausts that budget, revisit it after the remaining rows and wrap.
 			after = a.ID
-			p.reconcileAfter = after
+			p.reconcile.after = after
 			if a.Status == "needs_attention" {
 				if err := p.prepareExactPersonalResume(ctx, &a); err != nil {
 					failures = append(failures, err)
