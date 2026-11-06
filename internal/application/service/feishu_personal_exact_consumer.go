@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +14,7 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/infrastructure/docparser/anydoc"
+	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
@@ -94,7 +97,8 @@ AND o.tenant_id=k.tenant_id AND CAST(o.payload->>'payload_version' AS TEXT)='3')
 func (p *PersonalRecovery) processExactFirstCreateConsumer(
 	ctx context.Context, payload types.DocumentProcessPayload, owner *types.FeishuPersonalAttempt, operationID int64,
 ) error {
-	if !p.exactPersonalRecoveryAllowed(ctx, payload.KnowledgeID) {
+	if owner == nil || owner.LogicalKnowledgeID != payload.KnowledgeID ||
+		!p.exactPersonalRecoveryAllowed(ctx, payload.KnowledgeID) {
 		return errPersonalExactDocument
 	}
 	ks := p.service.knowledge.(*knowledgeService)
@@ -140,6 +144,21 @@ func (p *PersonalRecovery) processExactFirstCreateConsumer(
 		}
 		work = withAttempt(work, payload.Attempt)
 		executionAttempt = payload.Attempt
+		identityHash := func(value string) string {
+			digest := sha256.Sum256([]byte(value))
+			return hex.EncodeToString(digest[:])
+		}
+		principal, _ := work.Value(types.PrincipalContextKey).(types.Principal)
+		logger.Info(logger.WithFields(work, logger.Fields{
+			"knowledge_id": proof.knowledge, "attempt_id": proof.attempt,
+			"generation": proof.generation, "operation_id": operationID, "resuming": resuming,
+			"tenant_id": proof.tenant, "knowledge_base_id": proof.kb,
+			"grant_epoch_sha256": identityHash(proof.grantEpoch),
+			"connection_sha256":  identityHash(proof.connectionIdentity),
+			"app_config_version": proof.appVersion, "revision": proof.revision,
+			"file_sha256": proof.fileSHA256, "manifest_sha256": proof.manifestSHA256,
+			"principal_type": principal.Type, "principal_sha256": identityHash(principal.ID),
+		}), "Personal exact execution source verified")
 		body, err := json.Marshal(payload)
 		if err != nil {
 			return err
@@ -178,6 +197,8 @@ func (p *PersonalRecovery) processExactFirstCreateConsumer(
 		return nil
 	}
 	if err := run(); err != nil {
+		logger.WarnWithFields(ctx, exactPersonalPreflightFields(owner, stage, nil, err),
+			"Personal exact execution stopped; original outputs retained")
 		// An interrupted/ambiguous execution is preserved for review. Never
 		// clean up unknown chunks, replay the outbox, or reuse this claim.
 		finish, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)

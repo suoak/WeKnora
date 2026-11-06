@@ -153,3 +153,42 @@ func TestPersonalExactResumeConcurrentPreparationHasOneWinner(t *testing.T) {
 	}
 	require.Equal(t, 1, winners)
 }
+
+func TestPersonalExactResumeWorkerLostBeforeActivationKeepsOriginalIntent(t *testing.T) {
+	f, observed := closedExactResumeFixture(t)
+	queue := func(current *types.FeishuPersonalAttempt) {
+		check := &personalExactPreflight{observed: current, closed: true}
+		_, err := f.p.checkExactPersonalSource(context.Background(), current, false, check)
+		require.NoError(t, err)
+		require.NoError(t, f.p.repo.QueueExactResume(context.Background(), current,
+			exactSourceReceipt(check.source), check.validate))
+	}
+	claim := func() *types.FeishuPersonalAttempt {
+		current := mustPersonalAttempt(t, f, observed.ID)
+		preflight, err := f.p.preflightExactPersonalDocument(context.Background(), current)
+		require.NoError(t, err)
+		owner, err := f.p.claimExactPreflight(context.Background(), preflight)
+		require.NoError(t, err)
+		return owner
+	}
+	var original types.TaskPendingOp
+	require.NoError(t, f.db.Where("scope=? AND scope_id=?", types.KnowledgeDispatchScope,
+		observed.LogicalKnowledgeID).Take(&original).Error)
+	queue(observed)
+	lost := claim()
+	// A stopped worker has not activated its receipt or changed any derived row.
+	require.NoError(t, f.p.repo.AbortExactExecution(context.Background(), lost, original.ID))
+	queue(mustPersonalAttempt(t, f, observed.ID))
+	owner := claim()
+	fresh, err := f.p.prepareExactPersonalDocument(context.Background(), owner)
+	require.NoError(t, err)
+	require.NoError(t, f.p.repo.ActivateExactResume(context.Background(), owner,
+		exactSourceReceipt(fresh)))
+	var current types.TaskPendingOp
+	require.NoError(t, f.db.First(&current, original.ID).Error)
+	require.Equal(t, original.ID, current.ID)
+	require.Equal(t, original.DedupKey, current.DedupKey)
+	require.JSONEq(t, string(original.Payload), string(current.Payload))
+	require.Equal(t, observed.RetryCount+2, owner.RetryCount)
+	require.Equal(t, observed.Fence+4, owner.Fence)
+}

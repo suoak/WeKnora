@@ -144,6 +144,13 @@ func TestPersonalExactResumeNativePublishesRetainedChunksWithoutDuplicates(t *te
 	require.NoError(t, f.db.Table("chunks").Where("knowledge_id=?", knowledge.ID).
 		Order("id").Pluck("id", &originalIDs).Error)
 	require.NotEmpty(t, originalIDs)
+	var originalVectors []struct {
+		ID       int64
+		SourceID string
+	}
+	require.NoError(t, f.db.Table("embeddings").Select("id,source_id").
+		Where("knowledge_id=?", knowledge.ID).Order("source_id").Scan(&originalVectors).Error)
+	require.NotEmpty(t, originalVectors)
 	require.NoError(t, f.p.repo.AbortExactExecution(context.Background(), owner, op.ID))
 	observed := mustPersonalAttempt(t, f, owner.ID)
 	require.NoError(t, f.p.prepareExactPersonalResume(context.Background(), observed))
@@ -159,6 +166,14 @@ func TestPersonalExactResumeNativePublishesRetainedChunksWithoutDuplicates(t *te
 	require.NoError(t, f.db.Table("chunks").Where("knowledge_id=? AND chunk_type<>'summary'", knowledge.ID).
 		Order("id").Pluck("id", &retained).Error)
 	require.Equal(t, originalIDs, retained)
+	var retainedVectors []struct {
+		ID       int64
+		SourceID string
+	}
+	require.NoError(t, f.db.Table("embeddings").Select("id,source_id").
+		Where("knowledge_id=? AND source_id IN ?", knowledge.ID, originalIDs).
+		Order("source_id").Scan(&retainedVectors).Error)
+	require.Equal(t, originalVectors, retainedVectors)
 	var summaryRows int64
 	require.NoError(t, f.db.Table("chunks").Where("knowledge_id=? AND chunk_type='summary'", knowledge.ID).
 		Count(&summaryRows).Error)
@@ -177,4 +192,27 @@ func TestPersonalExactResumeNativePublishesRetainedChunksWithoutDuplicates(t *te
 	require.NoError(t, f.db.Table("chunks").Where("knowledge_id=? AND chunk_type='summary'", knowledge.ID).
 		Count(&after).Error)
 	require.Equal(t, summaryRows, after, "duplicate delivery must not republish")
+	search := &knowledgeBaseService{
+		personalRecovery: f.p, repo: repository.NewKnowledgeBaseRepository(f.db),
+		kgRepo: f.ks.repo, chunkRepo: f.ks.chunkRepo, modelService: f.ks.modelService,
+		kbShareService: f.p.shares, retrieveEngine: f.ks.retrieveEngine,
+	}
+	web := types.WithPrincipal(f.ctx, types.Principal{Type: types.PrincipalWebUser, ID: "A"})
+	web = types.WithExecutionTenant(web, 1)
+	web, err = restoreSummaryRefreshTenantInfo(web, f.ks.tenantRepo, 1)
+	require.NoError(t, err)
+	query := make([]float32, 1024)
+	query[0] = 1
+	results, err := search.HybridSearch(web, proof.kb, types.SearchParams{
+		KnowledgeIDs: []string{knowledge.ID}, QueryText: "recovery", QueryEmbedding: query,
+		MatchCount: 10,
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, results, "normal hybrid search must return the published retained source")
+	for _, hit := range results {
+		require.Equal(t, knowledge.ID, hit.KnowledgeID)
+	}
+	require.NoError(t, f.s.Disconnect(f.ctx))
+	_, err = f.p.exactPublishedReadContext(web, knowledge.ID)
+	require.Error(t, err, "disconnect must close current source reads")
 }
