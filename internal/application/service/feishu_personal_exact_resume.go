@@ -20,7 +20,8 @@ func (p *PersonalRecovery) prepareExactPersonalResume(
 		(os.Getenv("FEISHU_PERSONAL_EXACT_RECOVERY_AUTOMATIC") != "1" &&
 			!exactPersonalRecoveryAllows(observed.LogicalKnowledgeID)) ||
 		observed.AuthMode != types.FeishuUserOAuth ||
-		observed.Status != "needs_attention" || observed.RetryCount >= 3 ||
+		observed.Status != "needs_attention" ||
+		observed.RetryCount >= repository.PersonalExactResumeMaxAttempts ||
 		observed.LastErrorCategory != "exact_document_execution_requires_review" ||
 		!strings.HasSuffix(strings.ToLower(observed.ManifestName), ".docx") {
 		return nil

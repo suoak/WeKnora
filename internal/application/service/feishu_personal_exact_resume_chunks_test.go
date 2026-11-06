@@ -11,11 +11,12 @@ import (
 
 func TestPersonalExactResumeReprovesAllChunkFieldsBeforeAdoption(t *testing.T) {
 	for _, change := range []string{
-		"valid", "body", "header", "enabled", "unknown_chunk", "missing_vector", "extra_vector",
+		"valid", "body", "header", "enabled", "unknown_chunk", "missing_vector", "extra_vector", "legacy_video",
 	} {
 		t.Run(change, func(t *testing.T) {
 			db := syncdb.Open(t, "postgres")
 			require.NoError(t, db.AutoMigrate(&types.Chunk{}))
+			require.NoError(t, db.Exec("ALTER TABLE chunks ADD COLUMN video_info text").Error)
 			require.NoError(t, db.Exec(`CREATE TABLE embeddings (
 knowledge_id text,knowledge_base_id text,source_id text,chunk_id text)`).Error)
 			parent := &types.Chunk{
@@ -37,6 +38,9 @@ knowledge_id text,knowledge_base_id text,source_id text,chunk_id text)`).Error)
 			expectedParent.ID, expectedText.ID = "new-parent", "new-text"
 			expectedText.ParentChunkID = "new-parent"
 			switch change {
+			case "legacy_video":
+				err := db.Exec("UPDATE chunks SET video_info='unverified legacy content'").Error
+				require.NoError(t, err)
 			case "body":
 				err := db.Exec("UPDATE chunks SET content='unknown body' WHERE id='stored-text'").Error
 				require.NoError(t, err)

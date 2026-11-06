@@ -110,7 +110,8 @@ func TestPersonalExactResumeRefusesRevokedOrChangedSource(t *testing.T) {
 			case "revision":
 				exactPreflightRemote(t, f, "2", true)
 			case "limit":
-				require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET retry_count=3").Error)
+				require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET retry_count=?",
+					repository.PersonalExactResumeMaxAttempts).Error)
 				observed = mustPersonalAttempt(t, f, observed.ID)
 			}
 			before := exactPendingSnapshot(t, f, observed.ID)
