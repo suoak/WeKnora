@@ -24,6 +24,8 @@ import (
 type AsynqTaskParams struct {
 	dig.In
 
+	ResourceCleaner interfaces.ResourceCleaner
+
 	// Dedicated servers provide minimum capacity for parse, post-process,
 	// enrichment, maintenance, and Wiki work. SharedServer is the elastic tier:
 	// it also subscribes to core/enrichment queues so either stage can borrow
@@ -338,7 +340,7 @@ func RunAsynqServer(params AsynqTaskParams) *asynq.ServeMux {
 	// Run the same mux on every pool. Shared and dedicated servers intentionally
 	// overlap, but Redis dequeue is atomic, so each task still executes once.
 	runPool := func(name string, srv *asynq.Server) {
-		if err := startAsynqPool(srv, mux); err != nil {
+		if err := startAsynqPool(name, srv, mux, params.ResourceCleaner); err != nil {
 			log.Fatalf("could not start %s asynq server: %v", name, err)
 		}
 	}
@@ -355,8 +357,20 @@ func RunAsynqServer(params AsynqTaskParams) *asynq.ServeMux {
 // owns shutdown and its ordered ResourceCleaner drains/fences Feishu safety
 // before unregistering the consumers. Server.Run would stop consumers during
 // HTTP draining, while the safety controller is still observing them.
-func startAsynqPool(srv *asynq.Server, mux *asynq.ServeMux) error {
-	return srv.Start(mux)
+func startAsynqPool(
+	name string, srv *asynq.Server, mux *asynq.ServeMux, cleaner interfaces.ResourceCleaner,
+) error {
+	if cleaner == nil {
+		return errors.New("asynq pool requires application cleanup owner")
+	}
+	if err := srv.Start(mux); err != nil {
+		return err
+	}
+	cleaner.RegisterWithName("Asynq:"+name, func() error {
+		srv.Shutdown()
+		return nil
+	})
+	return nil
 }
 
 // deadLetterKnowledgePayload extracts only the field we need from any

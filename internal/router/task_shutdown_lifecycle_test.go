@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/stretchr/testify/require"
@@ -101,13 +102,31 @@ func TestAsynqPoolSignalChild(t *testing.T) {
 		fmt.Println("KH_PROCESSED")
 		return nil
 	})
-	require.NoError(t, startAsynqPool(srv, mux))
+	hooks := &asynqShutdownTestHooks{}
+	require.NoError(t, startAsynqPool("signal-proof", srv, mux, hooks))
+	require.NotNil(t, hooks.callback)
 	fmt.Println("KH_READY")
 	<-signals
 	fmt.Println("KH_APP_DRAINING")
 	scanner := bufio.NewScanner(os.Stdin)
 	require.True(t, scanner.Scan())
 	require.Equal(t, "cleanup", scanner.Text())
-	srv.Shutdown()
+	require.NoError(t, hooks.callback())
 	fmt.Println("KH_CLEANED")
+}
+
+// This records the actual production registration; real cleanup priority is
+// independently exercised by the container cleanup-order regression.
+type asynqShutdownTestHooks struct{ callback types.CleanupFunc }
+
+func (h *asynqShutdownTestHooks) Register(fn types.CleanupFunc)                   { h.callback = fn }
+func (h *asynqShutdownTestHooks) RegisterWithName(_ string, fn types.CleanupFunc) { h.callback = fn }
+func (*asynqShutdownTestHooks) Promote(string)                                    {}
+func (h *asynqShutdownTestHooks) Cleanup(context.Context) []error {
+	if h.callback != nil {
+		if err := h.callback(); err != nil {
+			return []error{err}
+		}
+	}
+	return nil
 }
