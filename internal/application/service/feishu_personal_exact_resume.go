@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -23,6 +24,12 @@ func (p *PersonalRecovery) prepareExactPersonalResume(
 		observed.LastErrorCategory != "exact_document_execution_requires_review" ||
 		!strings.HasSuffix(strings.ToLower(observed.ManifestName), ".docx") {
 		return nil
+	}
+	if observed.RetryCount > 0 {
+		delay := time.Minute << uint(observed.RetryCount-1)
+		if observed.UpdatedAt.Add(delay).After(time.Now()) {
+			return nil
+		}
 	}
 	preflight := &personalExactPreflight{observed: observed, closed: true}
 	if _, err := p.checkExactPersonalSource(ctx, observed, false, preflight); err != nil {
