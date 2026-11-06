@@ -120,7 +120,7 @@ func TestHousekeepingSummarySweepDefersUnknownQueueState(t *testing.T) {
 		db := setupHousekeepingDB(t)
 		insertKnowledgeWithSummary(t, db, "unknown", types.ParseStatusCompleted,
 			types.SummaryStatusProcessing, time.Now().Add(-2*time.Hour))
-		svc := newHousekeepingSvcForTest(db)
+		svc := newHousekeepingSvcWithInspector(db, nil)
 		if unavailable {
 			svc.inspector = fakeTaskInspector{err: errors.New("redis unavailable")}
 		}
