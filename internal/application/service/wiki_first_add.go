@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
@@ -152,10 +153,17 @@ func (s *wikiIngestService) isMVPWikiKnowledge(ctx context.Context, id string) (
 func (s *wikiIngestService) hasFirstAddPages(ctx context.Context, kb string, slugs []string) (bool, error) {
 	for _, slug := range slugs {
 		page, err := s.wikiService.GetPageBySlug(ctx, kb, slug)
+		if errors.Is(err, repository.ErrWikiPageNotFound) {
+			// A retired page has no current first-add marker. Do not revive its
+			// body or let its historical slug stop otherwise valid convergence.
+			// This metadata check never substitutes for the generation proof.
+			continue
+		}
 		if err != nil {
 			return false, err
 		}
-		if page != nil && strings.Contains(string(page.PageMetadata), `"feishu_first_add"`) {
+		if page != nil && page.Status != types.WikiPageStatusArchived &&
+			strings.Contains(string(page.PageMetadata), `"feishu_first_add"`) {
 			return true, nil
 		}
 	}
