@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
@@ -33,6 +34,9 @@ type PersonalRecovery struct {
 	shares          interfaces.KBShareService
 	lease           time.Duration
 	firstCreateOnly bool
+
+	reconcileMu    sync.Mutex
+	reconcileAfter string
 }
 
 // EnablePersonalRecovery provides the enable personal recovery operation.
@@ -772,7 +776,14 @@ func (p *PersonalRecovery) fetchCandidate(
 
 // Reconcile provides the reconcile operation.
 func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
-	var after string
+	// One scan cursor per worker. A timed-out source must not force every later
+	// source to restart behind it on each bounded maintenance sweep. The cursor
+	// grants no authority; every resumed observation still runs all live checks.
+	if !p.reconcileMu.TryLock() {
+		return nil
+	}
+	defer p.reconcileMu.Unlock()
+	after := p.reconcileAfter
 	var failures []error
 	if err := p.service.reconcileConnectionHealth(ctx); err != nil {
 		failures = append(failures, err)
@@ -784,15 +795,25 @@ func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 		failures = append(failures, err)
 	}
 	for {
+		if err := ctx.Err(); err != nil {
+			return errors.Join(errors.Join(failures...), err)
+		}
 		rows, err := p.repo.List(ctx, after, 100)
 		if err != nil {
 			return errors.Join(errors.Join(failures...), err)
 		}
 		if len(rows) == 0 {
+			p.reconcileAfter = ""
 			return errors.Join(failures...)
 		}
 		for _, a := range rows {
+			if err := ctx.Err(); err != nil {
+				return errors.Join(errors.Join(failures...), err)
+			}
+			// Advance only when this row gets a live execution budget. If it
+			// exhausts that budget, revisit it after the remaining rows and wrap.
 			after = a.ID
+			p.reconcileAfter = after
 			if a.Status == "needs_attention" {
 				if err := p.prepareExactPersonalResume(ctx, &a); err != nil {
 					failures = append(failures, err)
