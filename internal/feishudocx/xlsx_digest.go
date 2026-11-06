@@ -3,6 +3,8 @@ package feishudocx
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
@@ -14,6 +16,11 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+)
+
+const (
+	maxXLSXPart     = 128 << 20
+	maxXLSXExpanded = 256 << 20
 )
 
 const spreadsheetNS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
@@ -50,55 +57,42 @@ func CanonicalXLSXDigest(content []byte) (string, string, error) {
 		if entry.FileInfo().IsDir() {
 			continue
 		}
-		if !entry.Mode().IsRegular() || entry.UncompressedSize64 > maxPart ||
+		if !entry.Mode().IsRegular() || entry.UncompressedSize64 > maxXLSXPart ||
 			entry.CompressedSize64 > uint64(len(content)) ||
 			entry.UncompressedSize64 > entry.CompressedSize64*200+1024 {
 			return "", "", ErrInvalidXLSXPackage
 		}
 		expanded += entry.UncompressedSize64
-		if expanded > maxExpanded {
+		if expanded > maxXLSXExpanded {
 			return "", "", ErrInvalidXLSXPackage
 		}
 		reader, e := entry.Open()
 		if e != nil {
 			return "", "", ErrInvalidXLSXPackage
 		}
-		body, readErr := io.ReadAll(io.LimitReader(reader, maxPart+1))
-		closeErr := reader.Close()
-		if readErr != nil || closeErr != nil || len(body) > maxPart || uint64(len(body)) != entry.UncompressedSize64 {
-			return "", "", ErrInvalidXLSXPackage
-		}
+		hash := sha256.New()
+		bounded := &io.LimitedReader{R: reader, N: maxXLSXPart + 1}
+		var readErr error
 		if strings.HasSuffix(name, ".xml") || strings.HasSuffix(name, ".rels") {
-			root, e := parseXML(body)
-			if e != nil {
-				return "", "", ErrInvalidXLSXPackage
-			}
+			var required xml.Name
 			switch name {
 			case "[Content_Types].xml":
-				if root.Name != (xml.Name{
-					Space: "http://schemas.openxmlformats.org/package/2006/content-types", Local: "Types",
-				}) {
-					return "", "", ErrInvalidXLSXPackage
-				}
+				required = xml.Name{Space: "http://schemas.openxmlformats.org/package/2006/content-types", Local: "Types"}
 			case "_rels/.rels":
-				if root.Name != (xml.Name{
-					Space: "http://schemas.openxmlformats.org/package/2006/relationships", Local: "Relationships",
-				}) {
-					return "", "", ErrInvalidXLSXPackage
-				}
+				required = xml.Name{Space: "http://schemas.openxmlformats.org/package/2006/relationships", Local: "Relationships"}
 			case "xl/workbook.xml":
-				if root.Name != (xml.Name{Space: spreadsheetNS, Local: "workbook"}) {
-					return "", "", ErrInvalidXLSXPackage
-				}
+				required = xml.Name{Space: spreadsheetNS, Local: "workbook"}
 			}
-			if root.Name == (xml.Name{Space: spreadsheetNS, Local: "worksheet"}) {
-				if e := normalizeExportColumnWidths(root); e != nil {
-					return "", "", e
-				}
-			}
-			body, _ = json.Marshal(root)
+			readErr = streamXLSXXML(bounded, hash, required)
+		} else {
+			_, readErr = io.Copy(hash, bounded)
 		}
-		parts = append(parts, partDigest{Name: name, SHA256: sum(body)})
+		closeErr := reader.Close()
+		readBytes := int64(maxXLSXPart+1) - bounded.N
+		if readErr != nil || closeErr != nil || readBytes > maxXLSXPart || uint64(readBytes) != entry.UncompressedSize64 {
+			return "", "", ErrInvalidXLSXPackage
+		}
+		parts = append(parts, partDigest{Name: name, SHA256: hex.EncodeToString(hash.Sum(nil))})
 	}
 	for _, required := range []string{"[Content_Types].xml", "_rels/.rels", "xl/workbook.xml"} {
 		if !seen[strings.ToLower(required)] {
