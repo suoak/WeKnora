@@ -36,18 +36,19 @@ type SteadySource struct {
 // approved normal-service authorization period. Health leases never extend it.
 type SteadyPlan struct {
 	ContinuityPlan
-	ReleaseSharedQueue    bool                   `json:"release_shared_queue,omitempty"`
-	SharedCheckpointID    string                 `json:"shared_checkpoint_id,omitempty"`
-	SharedCheckpointSHA   string                 `json:"shared_checkpoint_sha256,omitempty"`
-	SharedTasks           []SharedQueueTaskProof `json:"shared_tasks,omitempty"`
-	AuthorizationUntilMS  int64                  `json:"authorization_until_ms"`
-	PolicyRevision        int64                  `json:"policy_revision"`
-	RevocationOnly        bool                   `json:"revocation_only"`
-	ManagedSources        []SteadySource         `json:"managed_sources"`
-	TerminalArchivedCount int                    `json:"terminal_archived_count,omitempty"`
-	TerminalArchiveSHA256 string                 `json:"terminal_archive_sha256,omitempty"`
-	TerminalPendingCount  int                    `json:"terminal_pending_count,omitempty"`
-	TerminalPendingSHA256 string                 `json:"terminal_pending_sha256,omitempty"`
+	NormalServiceAuthorizationID string                 `json:"normal_service_authorization_id,omitempty"`
+	ReleaseSharedQueue           bool                   `json:"release_shared_queue,omitempty"`
+	SharedCheckpointID           string                 `json:"shared_checkpoint_id,omitempty"`
+	SharedCheckpointSHA          string                 `json:"shared_checkpoint_sha256,omitempty"`
+	SharedTasks                  []SharedQueueTaskProof `json:"shared_tasks,omitempty"`
+	AuthorizationUntilMS         int64                  `json:"authorization_until_ms"`
+	PolicyRevision               int64                  `json:"policy_revision"`
+	RevocationOnly               bool                   `json:"revocation_only"`
+	ManagedSources               []SteadySource         `json:"managed_sources"`
+	TerminalArchivedCount        int                    `json:"terminal_archived_count,omitempty"`
+	TerminalArchiveSHA256        string                 `json:"terminal_archive_sha256,omitempty"`
+	TerminalPendingCount         int                    `json:"terminal_pending_count,omitempty"`
+	TerminalPendingSHA256        string                 `json:"terminal_pending_sha256,omitempty"`
 }
 
 // SteadyCertificate retains the exact signed policy for every subsequent check.
@@ -252,8 +253,18 @@ func (m *RecoveryManager) planSteady(
 	if err := m.steadyReady(ctx); err != nil {
 		return p, err
 	}
+	var normalParent *NormalServiceRecord
 	if err := c.checkRecoveryPolicy(ctx); err != nil {
-		return p, err
+		var parentErr error
+		normalParent, _, parentErr = m.normalReconciliationParent(ctx)
+		if parentErr != nil || len(ids) == 0 || len(reconcile) != len(ids) {
+			return p, err
+		}
+		for _, id := range ids {
+			if !reconcile[id] {
+				return p, ErrRecoveryRejected
+			}
+		}
 	}
 	raw, err := c.Client.Get(ctx, c.prefix+"recovery").Result()
 	var s recoveryMode
@@ -272,6 +283,9 @@ func (m *RecoveryManager) planSteady(
 	// First admission and replacements wait for a quiescent dedicated lane.
 	// No historical shared-queue task is removed, recreated or acknowledged.
 	revokeOnly := s.Steady != nil && len(ids) < len(s.ApprovedSources)
+	if normalParent != nil {
+		revokeOnly = false
+	}
 	for _, id := range ids {
 		if previous, ok := s.ApprovedSources[id]; !ok || previous != checked[id].entry.ApprovedSource {
 			revokeOnly = false
@@ -298,6 +312,14 @@ func (m *RecoveryManager) planSteady(
 		HistoricalQueueSHA256: q.digest, HistoricalPending: len(q.ids),
 		CreatedMS: now.UnixMilli(), ExpiresMS: now.Add(15 * time.Minute).UnixMilli(),
 		Sources: []ApprovedSource{},
+	}
+	if normalParent != nil {
+		p.Version = 2
+		p.NormalServiceAuthorizationID = normalParent.Authorization.ID
+		p.MembershipRevision, err = c.Client.Get(ctx, c.prefix+"membership_revision").Result()
+		if err != nil {
+			return SteadyPlan{}, err
+		}
 	}
 	p.PolicyRevision = 1
 	if s.Steady != nil {
@@ -361,7 +383,8 @@ func (m *RecoveryManager) planSteady(
 func (m *RecoveryManager) verifySteady(cert SteadyCertificate, now int64, consume bool) error {
 	p, a := cert.Plan, cert.Approval
 	hash, err := RecoveryDigest(p)
-	if err != nil || !validSharedQueuePlan(p) || p.Version != 1 || p.PolicyRevision < 1 || p.ApprovalKeyID != m.keyID ||
+	if err != nil || !validSharedQueuePlan(p) || !validSteadyParentVersion(p) ||
+		p.PolicyRevision < 1 || p.ApprovalKeyID != m.keyID ||
 		p.TerminalArchivedCount < 0 || p.TerminalArchivedCount > 1000 ||
 		(p.TerminalArchivedCount == 0 && p.TerminalArchiveSHA256 != "") ||
 		(p.TerminalArchivedCount > 0 && !recoverySHA.MatchString(p.TerminalArchiveSHA256)) ||
@@ -434,6 +457,11 @@ func (m *RecoveryManager) checkSteadyState(ctx context.Context, state recoveryMo
 		state.Steady.Plan.HistoricalQueueSHA256 != state.HistoricalQueueSHA256 ||
 		len(state.ApprovedSources) != len(state.Steady.Plan.ManagedSources) {
 		return ErrRecoveryRejected
+	}
+	if state.Steady.Plan.Version == 2 {
+		if _, err := m.checkSteadyParent(ctx, state.Steady.Plan); err != nil {
+			return err
+		}
 	}
 	for _, entry := range state.Steady.Plan.ManagedSources {
 		if state.ApprovedSources[entry.SourceID] != entry.ApprovedSource {
@@ -550,14 +578,16 @@ func (m *RecoveryManager) ActivateSteady(ctx context.Context, p SteadyPlan, a Re
 		c.departed || feishusafety.Default() != c.Guard {
 		return ErrRecoveryRejected
 	}
-	if err := c.checkRecoveryPolicy(ctx); err != nil {
-		return err
+	normalParentRaw, parentErr := m.checkSteadyParent(ctx, p)
+	if parentErr != nil {
+		return parentErr
 	}
 	raw, err := c.Client.Get(ctx, c.prefix+"recovery").Result()
 	var state recoveryMode
 	if err != nil || digestBytes(raw) != p.PreviousModeSHA256 || json.Unmarshal([]byte(raw), &state) != nil ||
 		(state.Phase != "awaiting_review" && state.Phase != "approved_sources") ||
-		state.PlanSHA256 != p.RecoveryPlanSHA256 || state.MembershipRevision != p.MembershipRevision {
+		state.PlanSHA256 != p.RecoveryPlanSHA256 ||
+		(p.Version == 1 && state.MembershipRevision != p.MembershipRevision) {
 		return ErrRecoveryRejected
 	}
 	expectedRevision := int64(1)
@@ -594,6 +624,11 @@ func (m *RecoveryManager) ActivateSteady(ctx context.Context, p SteadyPlan, a Re
 		}
 	}
 	state.Steady = &cert
+	if p.Version == 2 {
+		state.RuntimeSHA, state.WorkerID = p.RuntimeSHA, p.WorkerID
+		state.Incarnation, state.ControllerFingerprint = p.Incarnation, p.ControllerFingerprint
+		state.MembershipRevision = p.MembershipRevision
+	}
 	// Old readers accept only version 1. A rollback must fail closed instead
 	// of treating the authorization period as a long-lived legacy permit.
 	state.Version = 2
@@ -617,6 +652,7 @@ func (m *RecoveryManager) ActivateSteady(ctx context.Context, p SteadyPlan, a Re
 	keys := []string{
 		c.prefix + "recovery", c.prefix + "trip", c.prefix + "membership_revision",
 		c.prefix + "workers", c.prefix + "leases", c.prefix + "admitted", c.Guard.PermitKey(),
+		c.prefix + "normal_service",
 	}
 	checkpointKey := c.prefix + "shared_queue_checkpoint:" + p.SharedCheckpointID
 	keys = append(keys, checkpointKey)
@@ -650,6 +686,8 @@ func (m *RecoveryManager) ActivateSteady(ctx context.Context, p SteadyPlan, a Re
 		_, err = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
 			pipe.Eval(ctx, `
 local t=redis.call('TIME');local ms=t[1]*1000+math.floor(t[2]/1000)
+if ARGV[16]~='' and redis.call('GET',KEYS[13])~=ARGV[16] then
+ return redis.error_reply('NORMAL_PARENT_CHANGED') end
 if redis.call('GET',KEYS[1])~=ARGV[1] or redis.call('EXISTS',KEYS[2])~=0 or
  redis.call('GET',KEYS[3])~=ARGV[2] or redis.call('PTTL',KEYS[3])<=0 or
  redis.call('GET',KEYS[6])~=ARGV[3] or redis.call('HLEN',KEYS[7])~=1 or
@@ -675,10 +713,11 @@ return 1`,
 					c.prefix + "steady_health", c.prefix + "membership_revision", c.prefix + "workers",
 					c.prefix + "admitted", c.prefix + "leases", "asynq:{approved_sync}:paused",
 					checkpointKey, "asynq:{sync}:paused",
+					c.prefix + "normal_service",
 				},
 				raw, c.Guard.Fingerprint(), p.MembershipRevision, c.Config.WorkerID, c.fingerprint+":"+c.incarnation,
 				a.ExpiresMS, actor, string(signed), q.digest, string(body), p.ID, steadyHealthTTL.Milliseconds(),
-				string(sharedCheckpoint), q.pause, p.SharedCheckpointID)
+				string(sharedCheckpoint), q.pause, p.SharedCheckpointID, normalParentRaw)
 			return nil
 		})
 		return err
