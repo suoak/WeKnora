@@ -152,7 +152,7 @@ func TestWikiFinalizeRetainsOrdinarySourceRowsOnGenerationFailure(t *testing.T) 
 				[]byte(`{"tenant_id":1,"knowledge_base_id":"kb"}`)))
 			require.Error(t, err)
 			require.Empty(t, pending.deletedRowIDs, "non-Feishu source failures must retain the same durable rows")
-			require.Equal(t, data, row.Payload)
+			require.Equal(t, data, []byte(row.Payload))
 			require.Zero(t, pages.updates, "a fallback cannot be published as successful generation")
 		})
 	}
