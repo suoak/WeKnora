@@ -31,7 +31,8 @@ func (g *rbacGuards) DocumentReadFromKnowledge(param string) gin.HandlerFunc {
 					failure = apperrors.NewForbiddenError("个人飞书连接已失效，请由原导入者在账户设置中重新连接飞书；原文档与已发布内容已保留。").WithDetails(map[string]any{
 						"reason": "personal_feishu_reauthorization_required", "action": "reconnect_original_importer", "retryable": false,
 					})
-				} else if errors.Is(err, core.ErrTransient) || errors.Is(err, core.ErrRateLimited) || errors.Is(err, context.DeadlineExceeded) {
+				} else if errors.Is(err, core.ErrTransient) || errors.Is(err, core.ErrRateLimited) ||
+					errors.Is(err, context.DeadlineExceeded) {
 					failure = apperrors.NewServiceUnavailableError("飞书来源核验暂时不可用，请稍后重试；原文档与已发布内容已保留。").WithDetails(map[string]any{
 						"reason": "personal_feishu_verification_temporarily_unavailable", "retryable": true,
 					})

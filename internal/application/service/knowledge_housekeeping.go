@@ -448,7 +448,8 @@ WHERE scope=? AND scope_id=?)`, types.KnowledgeDispatchScope, k.ID).Scan(&person
 		}
 		res := h.db.WithContext(ctx).Model(&types.Knowledge{}).
 			Where("id = ? AND tenant_id = ? AND summary_status = ? AND updated_at = ?", k.ID, k.TenantID, status, k.UpdatedAt).
-			Where("NOT EXISTS (SELECT 1 FROM task_pending_ops WHERE scope=? AND scope_id=knowledges.id)", types.KnowledgeDispatchScope).
+			Where("NOT EXISTS (SELECT 1 FROM task_pending_ops WHERE scope=? AND scope_id=knowledges.id)",
+				types.KnowledgeDispatchScope).
 			Update("summary_status", types.SummaryStatusFailed)
 		if res.Error != nil {
 			logger.Warnf(ctx, "[Housekeeping] pending summary update failed for %s: %v", k.ID, res.Error)
