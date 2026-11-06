@@ -140,7 +140,14 @@ func (r *chunkRepository) CreateChunks(ctx context.Context, chunks []*types.Chun
 // GetChunkByID retrieves a chunk by its ID and tenant ID
 func (r *chunkRepository) GetChunkByID(ctx context.Context, tenantID uint64, id string) (*types.Chunk, error) {
 	var chunk types.Chunk
-	if err := r.db.WithContext(ctx).Where("tenant_id = ? AND id = ?", tenantID, id).First(&chunk).Error; err != nil {
+	query := r.db.WithContext(ctx).Where("tenant_id = ? AND id = ?", tenantID, id)
+	if tenant, knowledge, kb, exact := types.ExactDocumentIdentity(ctx); exact {
+		if tenantID != tenant {
+			return nil, types.ErrExactDocumentScope
+		}
+		query = query.Where("knowledge_id=? AND knowledge_base_id=?", knowledge, kb)
+	}
+	if err := query.First(&chunk).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrChunkNotFound
 		}
@@ -182,6 +189,12 @@ func (r *chunkRepository) ListChunksByID(
 			return nil, types.ErrExactDocumentScope
 		}
 		return r.listExactPublishedChunks(ctx, ids)
+	}
+	if tenant, knowledge, kb, worker := types.ExactDocumentIdentity(ctx); worker {
+		if tenantID != tenant {
+			return nil, types.ErrExactDocumentScope
+		}
+		return r.listExactWorkerChunks(ctx, tenant, knowledge, kb, ids)
 	}
 	var chunks []*types.Chunk
 	if err := r.db.WithContext(ctx).
@@ -263,6 +276,30 @@ func (r *chunkRepository) ListChunksBySeqID(
 func (r *chunkRepository) ListChunksByKnowledgeID(
 	ctx context.Context, tenantID uint64, knowledgeID string,
 ) ([]*types.Chunk, error) {
+	if tenant, knowledge, kb, worker := types.ExactDocumentIdentity(ctx); worker {
+		if _, _, _, _, published := types.ExactPublishedDocumentIdentity(ctx); !published {
+			if tenantID != tenant || knowledgeID != knowledge {
+				return nil, types.ErrExactDocumentScope
+			}
+			var rows []*types.Chunk
+			for offset := 0; ; offset += 100 {
+				var page []*types.Chunk
+				err := types.ReadExactWorkerPage(ctx, tenant, knowledge, kb, func(current context.Context) error {
+					return r.db.WithContext(current).
+						Where("tenant_id=? AND knowledge_id=? AND knowledge_base_id=? AND chunk_type=?",
+							tenant, knowledge, kb, types.ChunkTypeText).
+						Order("chunk_index ASC, id ASC").Offset(offset).Limit(100).Find(&page).Error
+				})
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, page...)
+				if len(page) < 100 {
+					return rows, nil
+				}
+			}
+		}
+	}
 	var chunks []*types.Chunk
 	if err := r.db.WithContext(ctx).
 		Where("tenant_id = ? AND knowledge_id = ? and chunk_type = ?", tenantID, knowledgeID, "text").
