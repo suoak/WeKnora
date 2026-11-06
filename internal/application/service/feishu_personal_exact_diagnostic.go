@@ -11,6 +11,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Tencent/WeKnora/internal/utils"
 	"gorm.io/gorm"
 )
 
@@ -83,6 +84,7 @@ func exactPersonalPreflightFields(
 		fields["provider_code"] = api.Code
 		fields["provider_http_status"] = api.HTTPStatus
 		fields["transport_class"] = core.TransportErrorCategory(api.Cause)
+		fields["security_rule"] = utils.SSRFRejectionReason(api.Cause)
 	}
 	if permissions != nil {
 		fields["view_allowed"] = permissions[0]

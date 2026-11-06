@@ -376,7 +376,13 @@ func (p *PersonalRecovery) reconcileFirstCreatePublic(
 			return err
 		}
 		if len(exactRows) != 0 {
-			if len(exactRows) == 1 && exactRows[0].Op == "staging" && op.Op == "processing" &&
+			if len(exactRows) == 1 && exactRows[0].Op == "resuming" && a.Status == "index_pending" &&
+				(op.Op == "pending" || op.Op == "dispatched" || op.Op == "recovery") {
+				return nil // Durable dispatcher owns this reviewed resume intent.
+			}
+			if len(exactRows) == 1 &&
+				(exactRows[0].Op == "staging" || exactRows[0].Op == "resuming") &&
+				op.Op == "processing" &&
 				a.Status == "processing" && a.OwnerNonce != "" && a.LeaseUntil != nil {
 				if a.LeaseUntil.After(time.Now()) {
 					return nil // A live owner is still producing private staging output.

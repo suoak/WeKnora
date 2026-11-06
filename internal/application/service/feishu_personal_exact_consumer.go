@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +14,7 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/infrastructure/docparser/anydoc"
+	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
@@ -31,6 +34,8 @@ type exactPersonalConsumer struct {
 	resultMu        sync.Mutex
 	indexContents   map[string]string
 	modelVectors    map[[32]byte][32]byte
+	resuming        bool
+	resumeStorage   int64
 }
 
 func exactPersonalConsumerFrom(ctx context.Context) (*exactPersonalConsumer, bool) {
@@ -92,25 +97,68 @@ AND o.tenant_id=k.tenant_id AND CAST(o.payload->>'payload_version' AS TEXT)='3')
 func (p *PersonalRecovery) processExactFirstCreateConsumer(
 	ctx context.Context, payload types.DocumentProcessPayload, owner *types.FeishuPersonalAttempt, operationID int64,
 ) error {
-	if !p.exactPersonalRecoveryAllowed(ctx, payload.KnowledgeID) {
+	if owner == nil || owner.LogicalKnowledgeID != payload.KnowledgeID ||
+		!p.exactPersonalRecoveryAllowed(ctx, payload.KnowledgeID) {
 		return errPersonalExactDocument
 	}
 	ks := p.service.knowledge.(*knowledgeService)
 	stage := "source_proof"
+	executionAttempt := 0
 	run := func() error {
 		proof, err := p.prepareExactPersonalDocument(ctx, owner)
 		if err != nil {
 			return err
 		}
 		stage = "execution_context"
+		resuming, err := p.exactResumeQueued(ctx, proof.knowledge)
+		if err != nil {
+			return err
+		}
+		if resuming {
+			if err := p.repo.ActivateExactResume(ctx, owner, exactSourceReceipt(proof)); err != nil {
+				return err
+			}
+		}
 		work, err := p.exactConsumerContext(ctx, proof)
 		if err != nil {
 			return err
 		}
 		stage = "staging_receipt"
-		if err = p.beginExactPersonalReceipt(work, proof); err != nil {
-			return err
+		consumer, _ := exactPersonalConsumerFrom(work)
+		consumer.resuming = resuming
+		if resuming {
+			if err := p.service.db.WithContext(work).Table("knowledges").
+				Select("storage_size").Where("id=?", proof.knowledge).
+				Scan(&consumer.resumeStorage).Error; err != nil {
+				return err
+			}
+			_, attempt, err := ks.tracker().OpenAttempt(work, proof.knowledge, payload.LangfuseTraceID)
+			if err != nil {
+				return err
+			}
+			payload.Attempt = attempt
+		} else {
+			if err = p.beginExactPersonalReceipt(work, proof); err != nil {
+				return err
+			}
 		}
+		work = withAttempt(work, payload.Attempt)
+		executionAttempt = payload.Attempt
+		identityHash := func(value string) string {
+			digest := sha256.Sum256([]byte(value))
+			return hex.EncodeToString(digest[:])
+		}
+		principal, _ := work.Value(types.PrincipalContextKey).(types.Principal)
+		logger.Info(logger.WithFields(work, logger.Fields{
+			"knowledge_id": proof.knowledge, "attempt_id": proof.attempt,
+			"generation": proof.generation, "operation_id": operationID, "resuming": resuming,
+			"tenant_id": proof.tenant, "knowledge_base_id": proof.kb,
+			"grant_epoch_sha256": identityHash(proof.grantEpoch),
+			"connection_sha256":  identityHash(proof.connectionIdentity),
+			"app_config_version": proof.appVersion, "revision": proof.revision,
+			"file_sha256": proof.fileSHA256, "manifest_sha256": proof.manifestSHA256,
+			"principal_type": principal.Type, "principal_sha256": identityHash(principal.ID),
+		}), "Personal exact execution source verified")
 		body, err := json.Marshal(payload)
 		if err != nil {
 			return err
@@ -130,6 +178,8 @@ func (p *PersonalRecovery) processExactFirstCreateConsumer(
 			return err
 		}
 		stage = "derived_summary"
+		ks.beginStage(work, proof.knowledge, types.StagePostProcess,
+			types.JSONMap{"operation": "personal_exact_summary"})
 		if err = retryExactPersonalSummary(work, func() error {
 			_, summaryErr := ks.RegenerateKnowledgeSummary(work, proof.knowledge)
 			return summaryErr
@@ -137,14 +187,29 @@ func (p *PersonalRecovery) processExactFirstCreateConsumer(
 			return err
 		}
 		stage = "atomic_publication"
-		return consumer.publish(work)
+		if err := consumer.publish(work); err != nil {
+			return err
+		}
+		ks.endStage(work, proof.knowledge, types.StagePostProcess,
+			types.JSONMap{"published": true})
+		ks.tracker().FinalizeAttempt(work, proof.knowledge, payload.Attempt,
+			types.SpanStatusDone, types.JSONMap{"receipt_published": true}, "", "")
+		return nil
 	}
 	if err := run(); err != nil {
+		logger.WarnWithFields(ctx, exactPersonalPreflightFields(owner, stage, nil, err),
+			"Personal exact execution stopped; original outputs retained")
 		// An interrupted/ambiguous execution is preserved for review. Never
 		// clean up unknown chunks, replay the outbox, or reuse this claim.
 		finish, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cancel()
 		finishErr := p.repo.AbortExactExecution(finish, owner, operationID)
+		if executionAttempt > 0 {
+			ks.tracker().FinalizeAttempt(finish, owner.LogicalKnowledgeID, executionAttempt,
+				types.SpanStatusFailed, nil, "personal_exact_publication_failed",
+				"Personal document processing stopped; "+
+					"original outputs retained for controlled recovery.")
+		}
 		return errors.Join(fmt.Errorf("personal_exact_stage_%s: %w", stage, err), finishErr, asynq.SkipRetry)
 	}
 	return nil
@@ -174,6 +239,9 @@ func (c *exactPersonalConsumer) convert(
 	parsed, err := c.recovery.parseExactPersonalDocument(ctx, proof)
 	if err != nil {
 		return nil, err
+	}
+	if c.resuming && len(parsed.assets) != 0 {
+		return nil, errPersonalExactDependencies
 	}
 	c.parsed = parsed
 	// This is the same AnyDoc result consumed by the normal image resolver and

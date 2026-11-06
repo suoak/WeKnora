@@ -33,13 +33,17 @@ type ssrfOutboundCacheEntry struct {
 // TTL so high-frequency clients do not repeat DNS lookups on every request.
 // Handler/input boundaries should keep calling ValidateURLForSSRF directly.
 func validateURLForSSRFForOutbound(rawURL string) error {
+	return validateOutboundSSRFWith(rawURL, ValidateURLForSSRF)
+}
+
+func validateOutboundSSRFWith(rawURL string, validate func(string) error) error {
 	if rawURL == "" {
 		return nil
 	}
 
 	cacheKey, ok := outboundSSRFCacheKey(rawURL)
 	if !ok {
-		return ValidateURLForSSRF(rawURL)
+		return validate(rawURL)
 	}
 
 	now := time.Now()
@@ -60,11 +64,15 @@ func validateURLForSSRFForOutbound(rawURL string) error {
 		}
 
 		ssrfOutboundValidateMisses.Add(1)
-		validationErr := ValidateURLForSSRF(rawURL)
-		ssrfOutboundCache.Store(cacheKey, &ssrfOutboundCacheEntry{
-			err:       validationErr,
-			expiresAt: time.Now().Add(outboundSSRFValidationTTL),
-		})
+		validationErr := validate(rawURL)
+		// A denied lookup is never an origin-wide one-minute outage. In
+		// particular a temporary DNS failure must be rechecked on retry.
+		// Success alone may be reused; the final dial still pins safe IPs.
+		if validationErr == nil {
+			ssrfOutboundCache.Store(cacheKey, &ssrfOutboundCacheEntry{
+				expiresAt: time.Now().Add(outboundSSRFValidationTTL),
+			})
+		}
 		return validationErr, validationErr
 	})
 	if err != nil {

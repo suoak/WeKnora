@@ -37,7 +37,9 @@ func (h *HousekeepingService) ProcessingExecutions(
 	}
 	var attempts []types.FeishuPersonalAttempt
 	if err := h.db.WithContext(ctx).Table("feishu_personal_attempts a").Select("a.*").
-		Joins("JOIN feishu_personal_resources r ON r.current_attempt_id=a.id AND r.generation=a.fence").
+		Joins(`JOIN feishu_personal_resources r ON r.current_attempt_id=a.id AND
+(r.generation=a.fence OR (r.generation=a.fence+1 AND a.status='needs_attention'
+AND a.owner_nonce='' AND a.lease_until IS NULL))`).
 		Where("a.logical_knowledge_id IN ?", ids).Find(&attempts).Error; err != nil {
 		return nil, err
 	}
@@ -52,6 +54,8 @@ func (h *HousekeepingService) ProcessingExecutions(
 		} else if a.LastErrorCategory != "" {
 			state.State, state.RetryAfter = "blocked", a.RetryAfter
 			switch a.LastErrorCategory {
+			case "exact_document_resume_prepared":
+				state.State, state.Reason = "retrying", "controlled_resume"
 			case "preflight_transient":
 				state.State, state.Reason = "retrying", "temporary_failure"
 			case "embedded_dependency_unsupported":

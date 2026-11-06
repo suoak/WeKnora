@@ -60,6 +60,8 @@ func (p *PersonalRecovery) prepareExactPersonalSource(
 type personalExactPreflight struct {
 	observed *types.FeishuPersonalAttempt
 	validate func(*gorm.DB, *types.FeishuPersonalAttempt) error
+	closed   bool
+	source   *personalExactDocument
 }
 
 // Preflight reuses every source check without creating an execution/serving
@@ -79,6 +81,7 @@ func (p *PersonalRecovery) checkExactPersonalSource(
 	ctx context.Context, owner *types.FeishuPersonalAttempt, published bool, check *personalExactPreflight,
 ) (proof *personalExactDocument, refusal error) {
 	preflight := check != nil
+	closed := preflight && check.closed
 	stage := "preconditions"
 	started, phaseStart := time.Now(), time.Now()
 	phases := map[string]int64{}
@@ -115,7 +118,13 @@ func (p *PersonalRecovery) checkExactPersonalSource(
 	if owner == nil || !p.firstCreateOnly || p.service.db.Name() != "postgres" {
 		return nil, errPersonalExactDocument
 	}
-	if preflight && (owner.Status != "index_pending" || owner.OwnerNonce != "" || owner.LeaseUntil != nil) {
+	wantedStatus := "index_pending"
+	expectedGeneration := owner.Fence
+	if closed {
+		wantedStatus = "needs_attention"
+		expectedGeneration++
+	}
+	if preflight && (owner.Status != wantedStatus || owner.OwnerNonce != "" || owner.LeaseUntil != nil) {
 		return nil, errPersonalExactDocument
 	}
 	if !published && !preflight &&
@@ -131,13 +140,13 @@ func (p *PersonalRecovery) checkExactPersonalSource(
 		return nil, err
 	}
 	if types.FeishuAuthMode(m.AuthMode) != types.FeishuUserOAuth ||
-		a.Fence != owner.Fence || r.Generation != owner.Fence ||
+		a.Fence != owner.Fence || r.Generation != expectedGeneration ||
 		r.CurrentAttemptID != owner.ID ||
 		m.KnowledgeID != a.LogicalKnowledgeID || r.LogicalKnowledgeID != m.KnowledgeID ||
 		a.CandidateVersionID == a.LogicalKnowledgeID || a.ExpectedActiveVersion != "" {
 		return nil, errPersonalExactDocument
 	}
-	if preflight && (a.Status != "index_pending" || a.OwnerNonce != "" || a.LeaseUntil != nil ||
+	if preflight && (a.Status != wantedStatus || a.OwnerNonce != "" || a.LeaseUntil != nil ||
 		r.ActiveVersionID != owner.ExpectedActiveVersion || a.CandidateVersionID != owner.CandidateVersionID) {
 		return nil, errPersonalExactDocument
 	}
@@ -330,7 +339,7 @@ AND (SELECT count(*) FROM resource_bindings all_b WHERE all_b.resource_id=f.id)=
 		if n != 1 {
 			return errPersonalExactDocument
 		}
-		if preflight {
+		if preflight && !closed {
 			return nil
 		}
 		var leaseUntil time.Time
@@ -346,6 +355,11 @@ AND (SELECT count(*) FROM resource_bindings all_b WHERE all_b.resource_id=f.id)=
 			revision: a.Revision, generation: owner.Fence, nonce: owner.OwnerNonce,
 			leaseUntil: leaseUntil, file: data,
 			fileMD5: k.FileHash, physicalPath: file.PhysicalPath, bindingID: bindings[0].ID,
+		}
+		if closed {
+			// Read-only source observation, never an execution capability.
+			check.source = issued
+			issued = nil
 		}
 		return nil
 	}
@@ -365,7 +379,7 @@ AND (SELECT count(*) FROM resource_bindings all_b WHERE all_b.resource_id=f.id)=
 				Take(&current).Error; err != nil {
 				return err
 			}
-			if resource.CurrentAttemptID != a.ID || resource.Generation != a.Fence ||
+			if resource.CurrentAttemptID != a.ID || resource.Generation != expectedGeneration ||
 				resource.LogicalKnowledgeID != a.LogicalKnowledgeID ||
 				resource.CandidateVersionID != a.CandidateVersionID ||
 				current.CandidateVersionID != a.CandidateVersionID ||
@@ -374,7 +388,8 @@ AND (SELECT count(*) FROM resource_bindings all_b WHERE all_b.resource_id=f.id)=
 				return repository.ErrPersonalFence
 			}
 			if preflight {
-				if resource.ActiveVersionID != a.ExpectedActiveVersion || current.Status != "index_pending" {
+				if resource.ActiveVersionID != a.ExpectedActiveVersion ||
+					current.Status != wantedStatus {
 					return repository.ErrPersonalFence
 				}
 			} else if resource.ActiveVersionID != a.CandidateVersionID || current.Status != "indexed" {
@@ -405,8 +420,28 @@ func (p *PersonalRecovery) claimExactPreflight(
 	}
 	return p.repo.ClaimObserved(ctx, preflight.observed, p.lease,
 		func(tx *gorm.DB, owner *types.FeishuPersonalAttempt) error {
+			if preflight.observed.LastErrorCategory == "exact_document_resume_prepared" {
+				if err := repository.CheckExactResumeCapacity(tx, owner.ID, false); err != nil {
+					return err
+				}
+			}
 			transactionRecovery := *p
 			transactionRecovery.repo = p.repo.InTransaction(tx)
-			return transactionRecovery.mutate(ctx, owner, 0, preflight.validate)
+			if err := transactionRecovery.mutate(ctx, owner, 0, preflight.validate); err != nil {
+				return err
+			}
+			if preflight.observed.LastErrorCategory == "exact_document_resume_prepared" {
+				result := tx.Model(&types.TaskPendingOp{}).Where(
+					"scope=? AND scope_id=? AND tenant_id=? AND op IN ?",
+					types.KnowledgeDispatchScope, owner.LogicalKnowledgeID, owner.CallerTenantID,
+					[]string{"pending", "dispatched", "recovery"}).Update("op", "processing")
+				if result.Error != nil {
+					return result.Error
+				}
+				if result.RowsAffected != 1 {
+					return repository.ErrPersonalFence
+				}
+			}
+			return nil
 		})
 }

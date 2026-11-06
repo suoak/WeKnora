@@ -10,6 +10,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/Tencent/WeKnora/internal/utils"
 )
 
 // ErrorCategory is the stable machine-readable classification assigned to a
@@ -94,6 +96,9 @@ func (e *APIError) Error() string {
 	}
 	if e.Cause != nil {
 		parts = append(parts, "transport="+TransportErrorCategory(e.Cause))
+		if reason := utils.SSRFRejectionReason(e.Cause); reason != "" {
+			parts = append(parts, "security_rule="+reason)
+		}
 	}
 	return strings.Join(parts, " ")
 }
