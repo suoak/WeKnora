@@ -136,7 +136,7 @@ func (m *RecoveryManager) checkApprovedSource(ctx context.Context, source, confi
 		current, facts, err := m.steadySourceForPurpose(
 			ctx, source, approved.Authority.ActorID, approved.Reconciliation)
 		if err != nil {
-			return err
+			return fmt.Errorf("steady_source_authority: %w", err)
 		}
 		if approved.Reconciliation && !approved.normalContinuation(facts) &&
 			(approved.ReconcileUntilMS <= now.UnixMilli() ||

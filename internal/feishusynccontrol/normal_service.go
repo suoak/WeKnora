@@ -336,7 +336,10 @@ func (m *RecoveryManager) checkNormalSource(
 ) (context.Context, bool, error) {
 	record, err := m.normalRecord(ctx)
 	if err != nil || record == nil {
-		return ctx, false, err
+		if err != nil {
+			return ctx, false, fmt.Errorf("normal_service_record: %w", err)
+		}
+		return ctx, false, nil
 	}
 	identity, _ := feishusafety.RecoveryOutboundExecution(ctx)
 	incident := ReconciliationPolicy(ctx, source)
@@ -394,19 +397,19 @@ func (m *RecoveryManager) normalIncidentAdmission(ctx context.Context, plan, inc
 		state.ControllerFingerprint != m.controller.fingerprint ||
 		(plan != "" && plan != state.ContinuityID && plan != state.PlanID) ||
 		(incident != "" && incident != state.ContinuityID) {
-		return steadySourceChanged()
+		return fmt.Errorf("normal_incident_binding: %w", steadySourceChanged())
 	}
 	now, err := m.controller.Client.Time(ctx).Result()
 	if err != nil {
 		return err
 	}
 	if state.ExpiresMS <= now.UnixMilli() {
-		return steadySourceChanged()
+		return fmt.Errorf("normal_incident_expired: %w", steadySourceChanged())
 	}
 	if state.Steady != nil {
 		lease, err := m.controller.Client.Get(ctx, m.controller.prefix+"steady_health").Result()
 		if errors.Is(err, redis.Nil) || (err == nil && lease != state.ContinuityID) {
-			return steadySourceChanged()
+			return fmt.Errorf("normal_incident_health: %w", steadySourceChanged())
 		}
 		if err != nil {
 			return err
