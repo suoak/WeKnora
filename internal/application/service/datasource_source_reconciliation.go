@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/Tencent/WeKnora/internal/feishusynccontrol"
+	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/hibiken/asynq"
 )
@@ -22,6 +23,7 @@ func (s *DataSourceService) RunSourceReconciliation(
 	}
 	work, err := m.BeginSourceReconciliation(ctx, source, policy)
 	if err != nil {
+		logger.Warnf(ctx, "Feishu reconciliation reservation rejected source=%s cause=%v", source, err)
 		return nil, fmt.Errorf("source_reconciliation_reservation: %w", err)
 	}
 	return s.manualSyncUsing(work, source, func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {

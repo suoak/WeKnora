@@ -72,7 +72,7 @@ func (m *RecoveryManager) reconciliationContext(
 	var state recoveryMode
 	if err != nil || json.Unmarshal([]byte(raw), &state) != nil || state.Steady == nil ||
 		state.ContinuityID != policy {
-		return ctx, "", ErrRecoveryRejected
+		return ctx, "", fmt.Errorf("reconciliation_policy_binding: %w", ErrRecoveryRejected)
 	}
 	var selected *SteadySource
 	for i := range state.Steady.Plan.ManagedSources {
@@ -83,7 +83,7 @@ func (m *RecoveryManager) reconciliationContext(
 		}
 	}
 	if selected == nil || !selected.Reconciliation {
-		return ctx, "", ErrRecoveryRejected
+		return ctx, "", fmt.Errorf("reconciliation_source_purpose: %w", ErrRecoveryRejected)
 	}
 	if worker {
 		e, ok := types.SyncExecutionFromContext(ctx)
@@ -95,7 +95,7 @@ func (m *RecoveryManager) reconciliationContext(
 			return ctx, "", fmt.Errorf("%w: reconciliation_run_binding", ErrRecoveryRejected)
 		}
 	} else if types.PrivateKBReadUser(ctx) != state.Steady.Plan.ActorID {
-		return ctx, "", ErrRecoveryRejected
+		return ctx, "", fmt.Errorf("reconciliation_actor_binding: %w", ErrRecoveryRejected)
 	}
 	ctx = context.WithValue(ctx, reconciliationContextKey{}, reconciliationIdentity{Policy: policy, Source: source})
 	if err := m.checkApprovedSource(ctx, source, selected.ConfigSHA256); err != nil {

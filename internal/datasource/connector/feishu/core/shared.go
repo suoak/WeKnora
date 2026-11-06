@@ -109,6 +109,8 @@ func feishuFailure(err error) (code, codeValue, fallback string) {
 			return "feishu_permission", value, "Permission denied; check Feishu app scopes and resource access"
 		case errors.Is(err, ErrNotFound):
 			return "feishu_not_found", value, "The Feishu resource no longer exists or is unavailable"
+		case errors.Is(err, ErrTransient) && apiErr.Operation == "export_poll_budget_exhausted":
+			return "feishu_timeout", value, "Feishu export is still processing; retry on the next sync"
 		case errors.Is(err, ErrTransient):
 			return "feishu_server_unavailable", value, "Feishu service remained unavailable after retries"
 		case errors.Is(err, ErrPermanent):

@@ -14,10 +14,13 @@ import (
 )
 
 const (
-	defaultFeishuRequestsPerMinute  = 80
-	defaultFeishuRateLimitWait      = 10 * time.Second
-	defaultFeishuMaxCooldown        = 5 * time.Minute
-	defaultFeishuExportMaxPolls     = 30
+	defaultFeishuRequestsPerMinute = 80
+	defaultFeishuRateLimitWait     = 10 * time.Second
+	defaultFeishuMaxCooldown       = 5 * time.Minute
+	// Large Bitable exports can legitimately outlast the old one-minute budget.
+	// Keep one ticket for up to ten minutes of polling, excluding shared quota
+	// waits. The caller's context still bounds total execution and cancellation.
+	defaultFeishuExportMaxPolls     = 300
 	defaultFeishuExportPollInterval = 2 * time.Second
 )
 
