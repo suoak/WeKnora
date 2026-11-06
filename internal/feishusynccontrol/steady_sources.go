@@ -442,10 +442,14 @@ func (m *RecoveryManager) verifySteady(cert SteadyCertificate, now int64, consum
 }
 
 func (m *RecoveryManager) checkSteadyState(ctx context.Context, state recoveryMode, now int64) error {
+	if state.Steady != nil {
+		if err := m.verifySteady(*state.Steady, now, false); err != nil {
+			return fmt.Errorf("steady_certificate: %w", err)
+		}
+	}
 	if (state.Version != 2 && state.Version != 3) || state.Steady == nil ||
 		(state.Version == 3) != state.Steady.Plan.ReleaseSharedQueue ||
 		m.steadyAuthority == nil || state.Phase != "approved_sources" ||
-		m.verifySteady(*state.Steady, now, false) != nil ||
 		state.ContinuityID != state.Steady.Plan.ID || state.ExpiresMS != state.Steady.Plan.AuthorizationUntilMS ||
 		state.Steady.Plan.Incarnation != m.controller.incarnation ||
 		state.Steady.Plan.RuntimeSHA != m.controller.Config.SourceSHA ||
@@ -456,11 +460,11 @@ func (m *RecoveryManager) checkSteadyState(ctx context.Context, state recoveryMo
 		state.Steady.Plan.RecoveryPlanSHA256 != state.PlanSHA256 ||
 		state.Steady.Plan.HistoricalQueueSHA256 != state.HistoricalQueueSHA256 ||
 		len(state.ApprovedSources) != len(state.Steady.Plan.ManagedSources) {
-		return ErrRecoveryRejected
+		return fmt.Errorf("steady_runtime_binding: %w", ErrRecoveryRejected)
 	}
 	if state.Steady.Plan.Version == 2 {
 		if _, err := m.checkSteadyParent(ctx, state.Steady.Plan); err != nil {
-			return err
+			return fmt.Errorf("steady_parent: %w", err)
 		}
 	}
 	for _, entry := range state.Steady.Plan.ManagedSources {

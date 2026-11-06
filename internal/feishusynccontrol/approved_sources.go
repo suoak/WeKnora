@@ -73,7 +73,10 @@ type ContinuityPlan struct {
 
 func (m *RecoveryManager) checkApprovedSource(ctx context.Context, source, config string) error {
 	if _, handled, err := m.checkNormalSource(ctx, nil, source, config); handled || err != nil {
-		return err
+		if err != nil {
+			return fmt.Errorf("normal_admission: %w", err)
+		}
+		return nil
 	}
 	raw, err := m.controller.Client.Get(ctx, m.controller.prefix+"recovery").Result()
 	if errors.Is(err, redis.Nil) {
@@ -141,7 +144,7 @@ func (m *RecoveryManager) checkApprovedSource(ctx context.Context, source, confi
 			return steadySourceChanged()
 		}
 		if !sameSteadySource(current, *approved, facts) {
-			return steadySourceChanged()
+			return fmt.Errorf("steady_source_binding: %w", steadySourceChanged())
 		}
 		liveFacts = &facts
 	}

@@ -411,8 +411,8 @@ func (m *RecoveryManager) normalIncidentAdmission(ctx context.Context, plan, inc
 		if err != nil {
 			return err
 		}
-		if m.checkSteadyState(ctx, state, now.UnixMilli()) != nil {
-			return steadySourceChanged()
+		if err := m.checkSteadyState(ctx, state, now.UnixMilli()); err != nil {
+			return fmt.Errorf("normal_incident_steady: %w", err)
 		}
 	}
 	return nil
