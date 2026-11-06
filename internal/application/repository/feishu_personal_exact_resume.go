@@ -127,7 +127,7 @@ func (r *PersonalRecoveryRepository) QueueExactResume(
 	})
 }
 
-// Recovered documents use two slots independently of ordinary import work.
+// CheckExactResumeCapacity reserves two recovery slots independently of ordinary imports.
 // Ignore old queued intents for admission; the same fence is checked at Claim.
 func CheckExactResumeCapacity(tx *gorm.DB, attempt string, includeQueued bool) error {
 	if tx.Name() != "postgres" {
