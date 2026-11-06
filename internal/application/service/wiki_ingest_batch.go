@@ -1237,7 +1237,7 @@ func (s *wikiIngestService) processWikiFinalize(ctx context.Context, t *asynq.Ta
 	synthesisModelID := ""
 	firstAddFinalize, firstAddLookupErr := s.hasFirstAddPages(ctx, payload.KnowledgeBaseID, affectedSlugs)
 	if firstAddLookupErr != nil {
-		return errors.New("wiki finalize dependency lookup failed")
+		return fmt.Errorf("wiki finalize dependency lookup: %w", firstAddLookupErr)
 	}
 	ctx, finalizePostErrors := withWikiPostErrors(ctx)
 	// Every durable finalize must retain its rows on an actual generation
