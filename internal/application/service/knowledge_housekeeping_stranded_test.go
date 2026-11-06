@@ -128,6 +128,39 @@ func TestHousekeepingSummarySweepDefersUnknownQueueState(t *testing.T) {
 	}
 }
 
+type summaryProbeInspector struct {
+	fakeTaskInspector
+	probe func()
+}
+
+func (s summaryProbeInspector) HasQueuedTasksForKnowledge(context.Context, string) (bool, error) {
+	s.probe()
+	return false, nil
+}
+
+func TestHousekeepingSummarySweepDoesNotOverwriteConcurrentProgress(t *testing.T) {
+	for _, change := range []string{"new_progress", "new_protocol"} {
+		t.Run(change, func(t *testing.T) {
+			db := setupHousekeepingDB(t)
+			insertKnowledgeWithSummary(t, db, "racing", types.ParseStatusCompleted,
+				types.SummaryStatusProcessing, time.Now().Add(-2*time.Hour))
+			svc := newHousekeepingSvcForTest(db)
+			svc.inspector = summaryProbeInspector{probe: func() {
+				if change == "new_progress" {
+					require.NoError(t, db.Exec("UPDATE knowledges SET updated_at=? WHERE id=?",
+						time.Now(), "racing").Error)
+				} else {
+					require.NoError(t, db.Exec(`INSERT INTO task_pending_ops
+(task_type,scope,scope_id,op) VALUES (?,?,?,?)`, types.TypeDocumentProcess,
+						types.KnowledgeDispatchScope, "racing", "processing").Error)
+				}
+			}}
+			svc.recoverOrphanedSummaries(context.Background(), time.Now().Add(-time.Hour), types.SummaryStatusProcessing)
+			require.Equal(t, types.SummaryStatusProcessing, readSummaryStatus(t, db, "racing"))
+		})
+	}
+}
+
 // A durable wiki op protects its row only up to wikiHoldLimit: a consumer that
 // fails before claiming never consumes the op, and the row would otherwise sit
 // in "finalizing" forever. Past the limit the row is failed and its op
