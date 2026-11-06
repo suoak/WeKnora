@@ -39,7 +39,8 @@ knowledge_id text,knowledge_base_id text,source_id text,chunk_id text)`).Error)
 			expectedText.ParentChunkID = "new-parent"
 			switch change {
 			case "legacy_video":
-				require.NoError(t, db.Exec("UPDATE chunks SET video_info='unverified legacy content'").Error)
+				err := db.Exec("UPDATE chunks SET video_info='unverified legacy content'").Error
+				require.NoError(t, err)
 			case "body":
 				err := db.Exec("UPDATE chunks SET content='unknown body' WHERE id='stored-text'").Error
 				require.NoError(t, err)

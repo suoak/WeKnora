@@ -676,7 +676,7 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 	if err := writeChunks(); err != nil {
 		if consumer, exact := exactPersonalConsumerFrom(ctx); exact && consumer.resuming {
 			s.failStage(ctx, knowledge.ID, types.StageChunking,
-				werrors.ErrCodeChunkingFailed, "retained chunk comparison failed; original outputs retained", err)
+				werrors.ErrCodeChunkingFailed, "retained chunks differ; originals preserved", err)
 			return err // Retain every old output; never overwrite mismatched staging.
 		}
 		knowledge.ParseStatus = types.ParseStatusFailed
