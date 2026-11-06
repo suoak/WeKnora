@@ -99,6 +99,7 @@ func (p *PersonalRecovery) processExactFirstCreateConsumer(
 	}
 	ks := p.service.knowledge.(*knowledgeService)
 	stage := "source_proof"
+	executionAttempt := 0
 	run := func() error {
 		proof, err := p.prepareExactPersonalDocument(ctx, owner)
 		if err != nil {
@@ -138,6 +139,7 @@ func (p *PersonalRecovery) processExactFirstCreateConsumer(
 			}
 		}
 		work = withAttempt(work, payload.Attempt)
+		executionAttempt = payload.Attempt
 		body, err := json.Marshal(payload)
 		if err != nil {
 			return err
@@ -171,6 +173,8 @@ func (p *PersonalRecovery) processExactFirstCreateConsumer(
 		}
 		ks.endStage(work, proof.knowledge, types.StagePostProcess,
 			types.JSONMap{"published": true})
+		ks.tracker().FinalizeAttempt(work, proof.knowledge, payload.Attempt,
+			types.SpanStatusDone, types.JSONMap{"receipt_published": true}, "", "")
 		return nil
 	}
 	if err := run(); err != nil {
@@ -179,6 +183,12 @@ func (p *PersonalRecovery) processExactFirstCreateConsumer(
 		finish, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cancel()
 		finishErr := p.repo.AbortExactExecution(finish, owner, operationID)
+		if executionAttempt > 0 {
+			ks.tracker().FinalizeAttempt(finish, owner.LogicalKnowledgeID, executionAttempt,
+				types.SpanStatusFailed, nil, "personal_exact_publication_failed",
+				"Personal document processing stopped; "+
+					"original outputs retained for controlled recovery.")
+		}
 		return errors.Join(fmt.Errorf("personal_exact_stage_%s: %w", stage, err), finishErr, asynq.SkipRetry)
 	}
 	return nil

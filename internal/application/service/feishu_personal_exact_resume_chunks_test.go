@@ -20,7 +20,8 @@ func TestPersonalExactResumeReprovesAllChunkFieldsBeforeAdoption(t *testing.T) {
 knowledge_id text,knowledge_base_id text,source_id text,chunk_id text)`).Error)
 			parent := &types.Chunk{
 				ID: "stored-parent", TenantID: 1, KnowledgeID: "doc", KnowledgeBaseID: "kb",
-				Content: "Fresh parser parent text.", ChunkIndex: 0, ChunkType: types.ChunkTypeParentText,
+				Content: "Fresh parser parent text.", ChunkIndex: 0,
+				ChunkType: types.ChunkTypeParentText,
 			}
 			text := &types.Chunk{
 				ID: "stored-text", TenantID: 1, KnowledgeID: "doc", KnowledgeBaseID: "kb",
@@ -30,13 +31,15 @@ knowledge_id text,knowledge_base_id text,source_id text,chunk_id text)`).Error)
 			require.NoError(t, db.Create(parent).Error)
 			require.NoError(t, db.Create(text).Error)
 			require.NoError(t, db.Exec("UPDATE chunks SET is_enabled=false").Error)
-			require.NoError(t, db.Exec("INSERT INTO embeddings VALUES ('doc','kb','stored-text','stored-text')").Error)
+			insertVector := "INSERT INTO embeddings VALUES ('doc','kb','stored-text','stored-text')"
+			require.NoError(t, db.Exec(insertVector).Error)
 			expectedParent, expectedText := *parent, *text
 			expectedParent.ID, expectedText.ID = "new-parent", "new-text"
 			expectedText.ParentChunkID = "new-parent"
 			switch change {
 			case "body":
-				require.NoError(t, db.Exec("UPDATE chunks SET content='unknown body' WHERE id='stored-text'").Error)
+				err := db.Exec("UPDATE chunks SET content='unknown body' WHERE id='stored-text'").Error
+				require.NoError(t, err)
 			case "header":
 				require.NoError(t, db.Exec("UPDATE chunks SET context_header='unknown header'").Error)
 			case "enabled":
@@ -48,7 +51,8 @@ knowledge_id text,knowledge_base_id text,source_id text,chunk_id text)`).Error)
 			case "missing_vector":
 				require.NoError(t, db.Exec("DELETE FROM embeddings").Error)
 			case "extra_vector":
-				require.NoError(t, db.Exec("INSERT INTO embeddings VALUES ('doc','kb','unknown','unknown')").Error)
+				err := db.Exec("INSERT INTO embeddings VALUES ('doc','kb','unknown','unknown')").Error
+				require.NoError(t, err)
 			}
 			consumer := &exactPersonalConsumer{
 				recovery: &PersonalRecovery{service: &FeishuPersonalService{db: db}},

@@ -388,7 +388,8 @@ AND (SELECT count(*) FROM resource_bindings all_b WHERE all_b.resource_id=f.id)=
 				return repository.ErrPersonalFence
 			}
 			if preflight {
-				if resource.ActiveVersionID != a.ExpectedActiveVersion || current.Status != wantedStatus {
+				if resource.ActiveVersionID != a.ExpectedActiveVersion ||
+					current.Status != wantedStatus {
 					return repository.ErrPersonalFence
 				}
 			} else if resource.ActiveVersionID != a.CandidateVersionID || current.Status != "indexed" {

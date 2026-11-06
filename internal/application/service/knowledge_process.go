@@ -752,7 +752,8 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 				return nil
 			}
 			// Check if there's enough storage quota available
-			if tenantInfo.StorageUsed+exactPersonalStorageCharge(ctx, totalStorageSize) > tenantInfo.StorageQuota {
+			charge := exactPersonalStorageCharge(ctx, totalStorageSize)
+			if tenantInfo.StorageUsed+charge > tenantInfo.StorageQuota {
 				knowledge.ParseStatus = types.ParseStatusFailed
 				knowledge.ErrorMessage = "存储空间不足"
 				knowledge.UpdatedAt = time.Now()

@@ -35,6 +35,12 @@ func closedExactResumeFixture(t *testing.T) (*personalRecoveryFixture, *types.Fe
 
 func TestPersonalExactResumeRetainsOriginalIdentityAndConsumesNewClaim(t *testing.T) {
 	f, observed := closedExactResumeFixture(t)
+	housekeeping := &HousekeepingService{db: f.db}
+	states, err := housekeeping.ProcessingExecutions(context.Background(),
+		[]string{observed.LogicalKnowledgeID})
+	require.NoError(t, err)
+	require.Equal(t, "blocked", states[observed.LogicalKnowledgeID].State)
+	require.Nil(t, states[observed.LogicalKnowledgeID].LeaseUntil)
 	check := &personalExactPreflight{observed: observed, closed: true}
 	proof, err := f.p.checkExactPersonalSource(context.Background(), observed, false, check)
 	require.NoError(t, err)
@@ -58,12 +64,20 @@ func TestPersonalExactResumeRetainsOriginalIdentityAndConsumesNewClaim(t *testin
 	require.Equal(t, observed.LogicalKnowledgeID, current.LogicalKnowledgeID)
 	require.Equal(t, observed.Fence+1, current.Fence)
 	require.Equal(t, observed.RetryCount+1, current.RetryCount)
+	states, err = housekeeping.ProcessingExecutions(context.Background(),
+		[]string{observed.LogicalKnowledgeID})
+	require.NoError(t, err)
+	require.Equal(t, "retrying", states[observed.LogicalKnowledgeID].State)
 	preflight, err := f.p.preflightExactPersonalDocument(context.Background(), current)
 	require.NoError(t, err)
 	owner, err := f.p.claimExactPreflight(context.Background(), preflight)
 	require.NoError(t, err)
 	require.Equal(t, observed.Fence+2, owner.Fence)
 	require.NotEmpty(t, owner.OwnerNonce)
+	states, err = housekeeping.ProcessingExecutions(context.Background(),
+		[]string{observed.LogicalKnowledgeID})
+	require.NoError(t, err)
+	require.Equal(t, "running", states[observed.LogicalKnowledgeID].State)
 	fresh, err := f.p.prepareExactPersonalDocument(context.Background(), owner)
 	require.NoError(t, err)
 	require.NoError(t, f.p.repo.ActivateExactResume(context.Background(), owner,
@@ -89,7 +103,8 @@ func TestPersonalExactResumeRefusesRevokedOrChangedSource(t *testing.T) {
 			f, observed := closedExactResumeFixture(t)
 			switch change {
 			case "grant":
-				require.NoError(t, f.db.Exec("UPDATE feishu_personal_grant_epochs SET epoch='revoked'").Error)
+				err := f.db.Exec("UPDATE feishu_personal_grant_epochs SET epoch='revoked'").Error
+				require.NoError(t, err)
 			case "remote_permission":
 				exactPreflightRemote(t, f, "1", false)
 			case "revision":
