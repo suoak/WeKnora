@@ -6,6 +6,7 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/application/service"
+	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	apperrors "github.com/Tencent/WeKnora/internal/errors"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/gin-gonic/gin"
@@ -25,6 +26,25 @@ func (g *rbacGuards) DocumentReadFromKnowledge(param string) gin.HandlerFunc {
 				if errors.Is(err, access.ErrForbidden) || errors.Is(err, access.ErrUnauthorized) ||
 					errors.Is(err, types.ErrExactDocumentScope) || errors.Is(err, types.ErrLegacySourceRestricted) {
 					failure = apperrors.NewForbiddenError("Document read denied")
+				}
+				if errors.Is(err, service.ErrFeishuReconnect) {
+					message := "个人飞书连接已失效，" +
+						"请由原导入者在账户设置中重新连接飞书；" +
+						"原文档与已发布内容已保留。"
+					failure = apperrors.NewForbiddenError(message).WithDetails(map[string]any{
+						"reason":    "personal_feishu_reauthorization_required",
+						"action":    "reconnect_original_importer",
+						"retryable": false,
+					})
+				} else if errors.Is(err, core.ErrTransient) || errors.Is(err, core.ErrRateLimited) ||
+					errors.Is(err, context.DeadlineExceeded) {
+					message := "飞书来源核验暂时不可用，请稍后重试；" +
+						"原文档与已发布内容已保留。"
+					failure = apperrors.NewServiceUnavailableError(message)
+					failure = failure.WithDetails(map[string]any{
+						"reason":    "personal_feishu_verification_temporarily_unavailable",
+						"retryable": true,
+					})
 				}
 				_ = c.Error(failure)
 				c.Abort()

@@ -2,9 +2,12 @@ package router
 
 import (
 	"context"
+	"errors"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Tencent/WeKnora/internal/application/service"
+	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/Tencent/WeKnora/internal/middleware"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
@@ -15,11 +18,15 @@ import (
 type exactPublishedRouteService struct {
 	interfaces.KnowledgeService
 	allowed bool
+	failure error
 }
 
 func (s exactPublishedRouteService) ExactPublishedReadContext(
 	ctx context.Context, id string,
 ) (context.Context, bool, error) {
+	if s.failure != nil {
+		return ctx, true, s.failure
+	}
 	if !s.allowed || id != "published" {
 		return ctx, true, types.ErrExactDocumentScope
 	}
@@ -29,6 +36,35 @@ func (s exactPublishedRouteService) ExactPublishedReadContext(
 		Read: func(context.Context) error { return nil },
 	})
 	return ctx, true, err
+}
+
+func TestExactPublishedReadRouteReportsSourceRecoveryAction(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		err    error
+		status int
+		reason string
+	}{
+		{"reconnect", service.ErrFeishuRefreshRejected, 403, "personal_feishu_reauthorization_required"},
+		{"transient", core.ErrTransient, 503, "personal_feishu_verification_temporarily_unavailable"},
+		{"rate_limit", core.ErrRateLimited, 503, "personal_feishu_verification_temporarily_unavailable"},
+		{"deadline", context.DeadlineExceeded, 503, "personal_feishu_verification_temporarily_unavailable"},
+		{"database", errors.New("private database error"), 500, "Document source verification failed"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := &rbacGuards{knowledgeService: exactPublishedRouteService{failure: tc.err}}
+			r := gin.New()
+			r.Use(middleware.ErrorHandler())
+			r.GET("/knowledge/:id", g.DocumentReadFromKnowledge("id"), func(_ *gin.Context) {
+				t.Fatal("denied source reached content handler")
+			})
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, httptest.NewRequest("GET", "/knowledge/published", nil))
+			require.Equal(t, tc.status, w.Code)
+			require.Contains(t, w.Body.String(), tc.reason)
+			require.NotContains(t, w.Body.String(), "private database error")
+		})
+	}
 }
 
 func TestExactPublishedReadRouteRetainsDocumentAuthority(t *testing.T) {

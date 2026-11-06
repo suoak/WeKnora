@@ -283,19 +283,11 @@ WHERE scope=? AND scope_id=?)`, types.KnowledgeDispatchScope, row.ID).Scan(&pers
 			queueSkipped)
 	}
 
-	// Sweep B: knowledge summary stuck. Summary is post-parse; threshold
-	// is shorter because summary tasks are bounded by a single LLM call.
-	// No span heartbeat exists for the summary stage (it lives in a
-	// downstream asynq task), so we accept the original simple check.
+	// Sweep B: elapsed wall time alone does not prove a summary is orphaned.
+	// Personal exact publication owns its summary inside a fenced execution;
+	// ordinary summaries may still be queued or executing in Asynq.
 	summaryCutoff := time.Now().Add(-1 * time.Hour)
-	resSummary := h.db.WithContext(ctx).Model(&types.Knowledge{}).
-		Where("summary_status = ? AND updated_at < ?", types.SummaryStatusProcessing, summaryCutoff).
-		Update("summary_status", types.SummaryStatusFailed)
-	if resSummary.Error != nil {
-		logger.Warnf(ctx, "[Housekeeping] summary sweep failed: %v", resSummary.Error)
-	} else if resSummary.RowsAffected > 0 {
-		logger.Infof(ctx, "[Housekeeping] recovered %d stuck summary rows", resSummary.RowsAffected)
-	}
+	h.recoverOrphanedSummaries(ctx, summaryCutoff, types.SummaryStatusProcessing)
 	h.recoverStrandedPendingSummaries(ctx, summaryCutoff)
 
 	// Sweep C: rows stuck in "deleting" whose delete task no longer exists
@@ -410,30 +402,55 @@ func (h *HousekeepingService) dropExpiredWikiOps(ctx context.Context, expired []
 // spinner, and the UI polls it, forever. A row whose summary task is still
 // queued is a backlog and is left alone.
 func (h *HousekeepingService) recoverStrandedPendingSummaries(ctx context.Context, cutoff time.Time) {
-	var rows []types.Knowledge
-	if err := h.db.WithContext(ctx).Select("id").
-		Where("summary_status = ? AND parse_status IN ? AND updated_at < ?",
-			types.SummaryStatusPending,
-			[]string{types.ParseStatusCompleted, types.ParseStatusFailed, types.ParseStatusCancelled},
-			cutoff).
+	h.recoverOrphanedSummaries(ctx, cutoff, types.SummaryStatusPending)
+}
+
+func (h *HousekeepingService) recoverOrphanedSummaries(ctx context.Context, cutoff time.Time, status string) {
+	// An unavailable inspector cannot establish that work has disappeared.
+	if h.inspector == nil {
+		return
+	}
+	var rows []struct {
+		ID, KnowledgeBaseID string
+		TenantID            uint64
+		UpdatedAt           time.Time
+	}
+	query := h.db.WithContext(ctx).Table("knowledges").
+		Select("id,tenant_id,knowledge_base_id,updated_at").
+		Where("deleted_at IS NULL AND summary_status = ? AND updated_at < ?", status, cutoff)
+	if status == types.SummaryStatusPending {
+		query = query.Where("parse_status IN ?",
+			[]string{types.ParseStatusCompleted, types.ParseStatusFailed, types.ParseStatusCancelled})
+	}
+	if err := query.
 		Find(&rows).Error; err != nil {
-		logger.Warnf(ctx, "[Housekeeping] pending summary query failed: %v", err)
+		logger.Warnf(ctx, "[Housekeeping] summary candidate query failed: %v", err)
 		return
 	}
 	var recovered int64
 	for _, k := range rows {
-		if h.inspector != nil {
-			queued, err := h.inspector.HasQueuedTasksForKnowledge(ctx, k.ID)
-			if err != nil {
-				logger.Warnf(ctx, "[Housekeeping] summary queue probe failed for %s: %v (deferring)", k.ID, err)
-				continue
-			}
-			if queued {
-				continue
-			}
+		// Metadata projection must not materialize protected document bodies.
+		if err := types.CheckLegacySourceRead(h.db.WithContext(ctx), k.ID, k.KnowledgeBaseID); err != nil {
+			continue
+		}
+		var personal bool
+		if err := h.db.WithContext(ctx).Raw(`SELECT EXISTS(SELECT 1 FROM task_pending_ops
+WHERE scope=? AND scope_id=?)`, types.KnowledgeDispatchScope, k.ID).Scan(&personal).Error; err != nil || personal {
+			continue // Includes stopped protocols: only their reconciler owns recovery.
+		}
+		queued, err := h.inspector.HasQueuedTasksForKnowledge(ctx, k.ID)
+		if err != nil {
+			logger.Warnf(ctx, "[Housekeeping] summary queue probe failed for %s: %v (deferring)", k.ID, err)
+			continue
+		}
+		if queued {
+			continue
 		}
 		res := h.db.WithContext(ctx).Model(&types.Knowledge{}).
-			Where("id = ? AND summary_status = ?", k.ID, types.SummaryStatusPending).
+			Where("id = ? AND tenant_id = ? AND summary_status = ? AND updated_at = ?",
+				k.ID, k.TenantID, status, k.UpdatedAt).
+			Where("NOT EXISTS (SELECT 1 FROM task_pending_ops WHERE scope=? AND scope_id=knowledges.id)",
+				types.KnowledgeDispatchScope).
 			Update("summary_status", types.SummaryStatusFailed)
 		if res.Error != nil {
 			logger.Warnf(ctx, "[Housekeeping] pending summary update failed for %s: %v", k.ID, res.Error)
@@ -442,7 +459,7 @@ func (h *HousekeepingService) recoverStrandedPendingSummaries(ctx context.Contex
 		recovered += res.RowsAffected
 	}
 	if recovered > 0 {
-		logger.Infof(ctx, "[Housekeeping] recovered %d stranded pending summary row(s)", recovered)
+		logger.Infof(ctx, "[Housekeeping] recovered %d orphaned %s summary row(s)", recovered, status)
 	}
 }
 
