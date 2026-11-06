@@ -91,6 +91,17 @@ func ReserveEmbedding(ctx context.Context, inputs []string) (context.Context, fu
 	}
 	release, err := g.begin(ctx, tokens)
 	if err != nil {
+		// Full source admission above succeeded. A subsequent unavailable source
+		// probe still denies this reservation, but does not prove shared control
+		// loss. Match the in-flight watchdog's independently checked runtime fence.
+		if errors.Is(err, errSourceProbeFailed) && ctx.Err() == nil {
+			check, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
+			controlErr := g.checkRuntime(check, true)
+			cancel()
+			if controlErr == nil {
+				return ctx, nil, fmt.Errorf("%w: %w", ErrSourceValidationUnavailable, err)
+			}
+		}
 		if ctx.Err() == nil && !errors.Is(err, ErrBudgetBusy) && !errors.Is(err, ErrSourceAdmissionChanged) {
 			trip(g, "embedding_reservation_unavailable")
 		}

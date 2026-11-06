@@ -161,23 +161,23 @@ func sameSteadySource(current, approved SteadySource, facts RecoveryFacts) bool 
 func (m *RecoveryManager) steadyReady(ctx context.Context) error {
 	c := m.controller
 	if c.departed || feishusafety.Default() != c.Guard || c.ApprovedConsumers == nil {
-		return ErrRecoveryRejected
+		return fmt.Errorf("steady_runtime_identity: %w", ErrRecoveryRejected)
 	}
 	consumers, err := c.ApprovedConsumers(ctx)
 	if err != nil || len(consumers) != 1 || consumers[0] != c.Config.WorkerID {
-		return ErrRecoveryRejected
+		return fmt.Errorf("steady_consumer_identity: %w", errors.Join(ErrRecoveryRejected, err))
 	}
 	trip, err := c.Client.Exists(ctx, c.prefix+"trip").Result()
 	if err != nil || trip != 0 {
-		return ErrRecoveryRejected
+		return fmt.Errorf("steady_stop_latch: %w", errors.Join(ErrRecoveryRejected, err))
 	}
 	permit, err := c.Client.Get(ctx, c.Guard.PermitKey()).Result()
 	if err != nil || permit != c.Guard.Fingerprint() {
-		return ErrRecoveryRejected
+		return fmt.Errorf("steady_permit_identity: %w", errors.Join(ErrRecoveryRejected, err))
 	}
 	ttl, err := c.Client.PTTL(ctx, c.Guard.PermitKey()).Result()
 	if err != nil || ttl <= 0 {
-		return ErrRecoveryRejected
+		return fmt.Errorf("steady_permit_expiry: %w", errors.Join(ErrRecoveryRejected, err))
 	}
 	return nil
 }
