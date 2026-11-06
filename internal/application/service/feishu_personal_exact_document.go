@@ -111,7 +111,8 @@ func (p *PersonalRecovery) checkExactPersonalSource(
 			}), "Personal exact published source timing")
 		}
 		if preflight && refusal != nil && owner != nil &&
-			p.exactPersonalRecoveryAllowed(ctx, owner.LogicalKnowledgeID) {
+			((closed && exactPersonalRecoveryEnabled()) ||
+				p.exactPersonalRecoveryAllowed(ctx, owner.LogicalKnowledgeID)) {
 			logExactPersonalPreflightRefusal(ctx, owner, stage, permissionBits, refusal)
 		}
 	}()

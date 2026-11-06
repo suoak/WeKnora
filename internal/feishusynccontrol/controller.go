@@ -255,6 +255,14 @@ func (c *Controller) Step(ctx context.Context) (result error) {
 			if err := renew(ctx); err != nil {
 				return c.freeze(ctx, "steady_health_lost", true)
 			}
+			if normal {
+				if err := c.steadyManager.resumeNormalQueueAfterHealth(ctx); err != nil {
+					// Leave the queue closed while a replacement consumer joins.
+					// A temporary probe miss must not manufacture a new emergency.
+					return errors.Join(ErrNotReady, err,
+						c.Client.Del(ctx, c.Guard.PermitKey()).Err())
+				}
+			}
 		}
 		return nil
 	}
@@ -324,7 +332,7 @@ func (c *Controller) freeze(ctx context.Context, reason string, latch bool) erro
 	}
 	paused := c.Client.Set(ctx, "asynq:{sync}:paused", "feishu_safety_stop", 0).Err()
 	failures = append(failures, paused)
-	approvedPaused := c.Client.Set(ctx, "asynq:{approved_sync}:paused", "feishu_safety_stop", 0).Err()
+	approvedPaused := c.Client.SetNX(ctx, "asynq:{approved_sync}:paused", "feishu_safety_stop", 0).Err()
 	failures = append(failures, approvedPaused)
 	CancelLocal()
 	fenced := c.Stop(ctx)

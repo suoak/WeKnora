@@ -174,6 +174,7 @@ func TestNormalServiceGracefulDeploymentDoesNotNeedNewSourceApprovals(t *testing
 	f := newNormalFixture(t)
 	ctx := context.Background()
 	grant := f.activateNormal(t)
+	require.NoError(t, f.r.Set(ctx, "asynq:{approved_sync}:paused", "feishu_safety_stop", 0).Err())
 	require.NoError(t, f.c.Drain(ctx))
 	guard, err := f.c.Guard.Fresh()
 	require.NoError(t, err)
@@ -189,6 +190,8 @@ func TestNormalServiceGracefulDeploymentDoesNotNeedNewSourceApprovals(t *testing
 	feishusafety.InstallDefault(guard)
 	InstallRecovery(m)
 	require.NoError(t, c.Step(ctx))
+	require.Zero(t, f.r.Exists(ctx, "asynq:{approved_sync}:paused").Val(),
+		"a healthy replacement must consume normal jobs, not only admit producers")
 	source := f.addSource()
 	work, approved, err := BindApprovedSource(ctx, source.SourceID, source.ConfigSHA256)
 	require.NoError(t, err)
