@@ -86,6 +86,9 @@ func TestPersonalExactResumeNativePublishesRetainedChunksWithoutDuplicates(t *te
 	imported := f.prepare("https://tenant.feishu.cn/file/real")
 	require.NoError(t, f.p.Process(f.ctx, f.payload(imported.AttemptID)))
 	knowledge, op, payload := mvpPublicTask(t, f, imported)
+	retired, err := os.ReadFile("../../../migrations/versioned/000033_add_video_info_to_chunks.up.sql")
+	require.NoError(t, err)
+	require.NoError(t, f.db.Exec(string(retired)).Error)
 	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY_KNOWLEDGE_IDS", knowledge.ID)
 	require.NoError(t, f.db.AutoMigrate(&types.StoredResource{}, &types.ResourceBinding{},
 		&types.DataSource{}, &types.TaskDeadLetter{}))

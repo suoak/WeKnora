@@ -11,6 +11,10 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// PersonalExactResumeMaxAttempts retains a cumulative bounded budget, including
+// one compatibility retry after the original three retained-output attempts.
+const PersonalExactResumeMaxAttempts = 4
+
 // QueueExactResume preserves the original dispatch, file and receipt IDs.
 // It grants no body/model authority. A new owner must rederive and compare all
 // old parser output before reindexing or publishing any candidate content.
@@ -21,7 +25,7 @@ func (r *PersonalRecoveryRepository) QueueExactResume(
 ) error {
 	if !r.FirstCreateOnly || observed == nil || validate == nil ||
 		observed.Status != "needs_attention" || observed.OwnerNonce != "" ||
-		observed.LeaseUntil != nil || observed.RetryCount >= 3 ||
+		observed.LeaseUntil != nil || observed.RetryCount >= PersonalExactResumeMaxAttempts ||
 		observed.LastErrorCategory != "exact_document_execution_requires_review" ||
 		source.AttemptID != observed.ID || source.Generation != observed.Fence {
 		return ErrPersonalFence

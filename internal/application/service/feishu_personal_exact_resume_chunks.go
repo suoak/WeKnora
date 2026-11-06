@@ -108,8 +108,12 @@ func (c *exactPersonalConsumer) reproveResumeChunks(
 			return err
 		}
 		var equal bool
+		// Populate the actual migrated row type: retired nullable columns such
+		// as video_info must be NULL, never silently omitted from comparison.
 		if err := db.Raw(`SELECT EXISTS(SELECT 1 FROM chunks c WHERE c.id=?
-AND (to_jsonb(c)-'created_at'-'updated_at'-'seq_id')=CAST(? AS jsonb))`,
+AND (to_jsonb(c)-'created_at'-'updated_at'-'seq_id')=
+(to_jsonb(jsonb_populate_record(NULL::chunks,CAST(? AS jsonb)))
+-'created_at'-'updated_at'-'seq_id'))`,
 			chunk.ID, string(canonical)).Scan(&equal).Error; err != nil {
 			return err
 		}
