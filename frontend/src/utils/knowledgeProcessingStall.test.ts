@@ -35,3 +35,9 @@ test('only a server verdict on a still-quiet document is shown', () => {
   assert.equal(shownStall('stalled', 0), '', 'progress resumed since the verdict')
   assert.equal(shownStall('bogus', 25), '')
 })
+
+test('a known blocked or retrying protocol is not a generic stalled parse', () => {
+  assert.equal(shownStall('stalled', 215, { state: 'blocked' }), '')
+  assert.equal(shownStall('stalled', 215, { state: 'retrying' }), '')
+  assert.equal(shownStall('stalled', 215, { state: 'stalled' }), 'stalled')
+})

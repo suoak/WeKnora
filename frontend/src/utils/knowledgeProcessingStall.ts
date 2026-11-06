@@ -43,7 +43,10 @@ export type StallVerdict = 'queued' | 'stalled' | ''
 // only while the document is still quiet past the threshold. No verdict
 // (not sent, or the server could not probe the queue) shows as ordinary
 // processing: calling a backlogged document stuck invites stopping it.
-export function shownStall(stallState: string | undefined, minutes: number | undefined): StallVerdict {
+export function shownStall(
+  stallState: string | undefined, minutes: number | undefined, execution?: ProcessingExecution,
+): StallVerdict {
+  if (execution?.state === 'blocked' || execution?.state === 'retrying') return ''
   if (!minutes) return ''
   return stallState === 'queued' || stallState === 'stalled' ? stallState : ''
 }
