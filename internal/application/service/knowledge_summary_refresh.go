@@ -42,23 +42,57 @@ func summarySourceChanged(
 	if string(latestKnowledge.CustomMetadata) != metadataVersion {
 		return true, nil
 	}
+	if consumer, exact := exactPersonalConsumerFrom(ctx); exact {
+		return exactSummarySourceChanged(ctx, consumer, chunkRepo, tenantID, knowledgeID, sourceChunks)
+	}
 	for _, sourceChunk := range sourceChunks {
 		latestChunk, getErr := chunkRepo.GetChunkByID(ctx, tenantID, sourceChunk.ID)
 		if getErr != nil {
 			return false, getErr
 		}
-		if consumer, exact := exactPersonalConsumerFrom(ctx); exact {
-			if latestChunk.IsEnabled {
-				return true, nil
-			}
-			if err := consumer.verifyParserChunks([]*types.Chunk{sourceChunk, latestChunk}); err != nil {
-				return true, err
-			}
-			continue
-		}
 		if latestChunk.ContentRevision != sourceChunk.ContentRevision ||
 			latestChunk.IsEnabled != sourceChunk.IsEnabled {
 			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// Revalidate the live personal source at each bounded read boundary, rather
+// than repeating remote OAuth/file checks for every individual chunk. Parser
+// fingerprints, disabled staging output and missing rows remain mandatory.
+func exactSummarySourceChanged(
+	ctx context.Context, consumer *exactPersonalConsumer, chunks interfaces.ChunkRepository,
+	tenant uint64, knowledge string, source []*types.Chunk,
+) (bool, error) {
+	if tenant != consumer.source.tenant || knowledge != consumer.source.knowledge {
+		return true, errPersonalExactDocument
+	}
+	for start := 0; start < len(source); start += 100 {
+		batch := source[start:min(start+100, len(source))]
+		if err := consumer.verifyParserChunks(batch); err != nil {
+			return true, err
+		}
+		stale := false
+		err := types.ReadExactWorkerPage(ctx, tenant, knowledge, consumer.source.kb,
+			func(current context.Context) error {
+				for _, original := range batch {
+					latest, err := chunks.GetChunkByID(current, tenant, original.ID)
+					if err != nil {
+						return err
+					}
+					if latest == nil || latest.IsEnabled {
+						stale = true
+						return nil
+					}
+					if err := consumer.verifyParserChunks([]*types.Chunk{latest}); err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+		if err != nil || stale {
+			return true, err
 		}
 	}
 	return false, nil

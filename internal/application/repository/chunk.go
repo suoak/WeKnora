@@ -263,6 +263,30 @@ func (r *chunkRepository) ListChunksBySeqID(
 func (r *chunkRepository) ListChunksByKnowledgeID(
 	ctx context.Context, tenantID uint64, knowledgeID string,
 ) ([]*types.Chunk, error) {
+	if tenant, knowledge, kb, worker := types.ExactDocumentIdentity(ctx); worker {
+		if _, _, _, _, published := types.ExactPublishedDocumentIdentity(ctx); !published {
+			if tenantID != tenant || knowledgeID != knowledge {
+				return nil, types.ErrExactDocumentScope
+			}
+			var rows []*types.Chunk
+			for offset := 0; ; offset += 100 {
+				var page []*types.Chunk
+				err := types.ReadExactWorkerPage(ctx, tenant, knowledge, kb, func(current context.Context) error {
+					return r.db.WithContext(current).
+						Where("tenant_id=? AND knowledge_id=? AND knowledge_base_id=? AND chunk_type=?",
+							tenant, knowledge, kb, types.ChunkTypeText).
+						Order("chunk_index ASC, id ASC").Offset(offset).Limit(100).Find(&page).Error
+				})
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, page...)
+				if len(page) < 100 {
+					return rows, nil
+				}
+			}
+		}
+	}
 	var chunks []*types.Chunk
 	if err := r.db.WithContext(ctx).
 		Where("tenant_id = ? AND knowledge_id = ? and chunk_type = ?", tenantID, knowledgeID, "text").
