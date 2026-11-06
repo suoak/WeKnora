@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -87,6 +88,43 @@ func TestHousekeepingRecoversStrandedPendingSummaries(t *testing.T) {
 		"k-recent":                        types.SummaryStatusPending,
 	} {
 		assert.Equal(t, want, readSummaryStatus(t, db, id), id)
+	}
+}
+
+func TestHousekeepingSummarySweepPreservesProtocolAndQueuedWork(t *testing.T) {
+	for _, summary := range []string{types.SummaryStatusPending, types.SummaryStatusProcessing} {
+		t.Run(summary, func(t *testing.T) {
+			db := setupHousekeepingDB(t)
+			svc := newHousekeepingSvcWithInspector(db, fakeTaskInspector{queued: map[string]bool{"queued": true}})
+			stale := time.Now().Add(-2 * time.Hour)
+			for _, id := range []string{"personal-live", "personal-stopped", "queued", "orphan"} {
+				insertKnowledgeWithSummary(t, db, id, types.ParseStatusCompleted, summary, stale)
+			}
+			for _, id := range []string{"personal-live", "personal-stopped"} {
+				require.NoError(t, db.Exec(`INSERT INTO task_pending_ops
+(task_type,scope,scope_id,op) VALUES (?,?,?,?)`, types.TypeDocumentProcess,
+					types.KnowledgeDispatchScope, id, "processing").Error)
+			}
+			svc.recoverOrphanedSummaries(context.Background(), time.Now().Add(-time.Hour), summary)
+			for _, id := range []string{"personal-live", "personal-stopped", "queued"} {
+				require.Equal(t, summary, readSummaryStatus(t, db, id), id)
+			}
+			require.Equal(t, types.SummaryStatusFailed, readSummaryStatus(t, db, "orphan"))
+		})
+	}
+}
+
+func TestHousekeepingSummarySweepDefersUnknownQueueState(t *testing.T) {
+	for _, unavailable := range []bool{false, true} {
+		db := setupHousekeepingDB(t)
+		insertKnowledgeWithSummary(t, db, "unknown", types.ParseStatusCompleted,
+			types.SummaryStatusProcessing, time.Now().Add(-2*time.Hour))
+		svc := newHousekeepingSvcForTest(db)
+		if unavailable {
+			svc.inspector = fakeTaskInspector{err: errors.New("redis unavailable")}
+		}
+		svc.recoverOrphanedSummaries(context.Background(), time.Now().Add(-time.Hour), types.SummaryStatusProcessing)
+		require.Equal(t, types.SummaryStatusProcessing, readSummaryStatus(t, db, "unknown"))
 	}
 }
 
