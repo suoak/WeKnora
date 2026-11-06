@@ -140,9 +140,20 @@ func (m *RecoveryManager) normalRecord(ctx context.Context) (*NormalServiceRecor
 		return nil, nil
 	}
 	var record NormalServiceRecord
-	if err != nil || cfg.saved == nil || json.Unmarshal([]byte(raw), &record) != nil ||
-		record != *cfg.saved || m.verifyNormalAuthorization(record.Authorization, false) != nil {
-		return nil, ErrRecoveryRejected
+	if err != nil {
+		return nil, fmt.Errorf("normal_record_read: %w", errors.Join(ErrRecoveryRejected, err))
+	}
+	if cfg.saved == nil {
+		return nil, fmt.Errorf("normal_record_not_loaded: %w", ErrRecoveryRejected)
+	}
+	if json.Unmarshal([]byte(raw), &record) != nil {
+		return nil, fmt.Errorf("normal_record_invalid: %w", ErrRecoveryRejected)
+	}
+	if record != *cfg.saved {
+		return nil, fmt.Errorf("normal_record_changed: %w", ErrRecoveryRejected)
+	}
+	if m.verifyNormalAuthorization(record.Authorization, false) != nil {
+		return nil, fmt.Errorf("normal_record_signature: %w", ErrRecoveryRejected)
 	}
 	if !record.Active {
 		return nil, nil

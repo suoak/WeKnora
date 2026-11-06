@@ -698,7 +698,7 @@ func (s *DataSourceService) manualSyncUsing(
 		queueName = types.QueueApprovedSync
 	}
 	task := asynq.NewTask(types.TypeDataSourceSync, payloadJSON,
-		asynq.Queue(queueName), asynq.MaxRetry(5), asynq.Timeout(2*time.Hour))
+		asynq.Queue(queueName), asynq.MaxRetry(5), asynq.Timeout(dataSourceSyncTimeout(dsID)))
 
 	info, err := enqueue(task)
 	if err != nil {

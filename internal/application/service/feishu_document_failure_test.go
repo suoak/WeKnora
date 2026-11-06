@@ -30,6 +30,8 @@ func TestFeishuDocumentFailureClassification(t *testing.T) {
 		{&repository.LegacyFenceError{Reason: "cross_version_parent"}, ""},
 		{&feishuStagingRefusal{reason: "parser_result_unavailable"}, ""},
 		{feishusafety.ErrBudgetBusy, "embedding_budget_busy"},
+		{feishusafety.ErrSourceValidationUnavailable, "source_verification_unavailable"},
+		{fmt.Errorf("probe: %w", feishusafety.ErrSourceValidationUnavailable), "source_verification_unavailable"},
 		{feishusafety.ErrClosed, ""},
 		{types.ErrStaleSyncExecution, ""},
 		{feishudocx.ErrInvalidXLSXPackage, "safe_staging_invalid_xlsx_package"},

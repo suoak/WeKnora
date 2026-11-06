@@ -19,6 +19,9 @@ func feishuDocumentFailureCode(ds *types.DataSource, item *types.FetchedItem, er
 	if errors.Is(err, feishusafety.ErrBudgetBusy) {
 		return "embedding_budget_busy"
 	}
+	if errors.Is(err, feishusafety.ErrSourceValidationUnavailable) {
+		return "source_verification_unavailable"
+	}
 	if errors.Is(err, types.ErrFeishuStagingCapacity) {
 		return "safe_staging_capacity_insufficient"
 	}
