@@ -155,7 +155,8 @@ func TestHousekeepingSummarySweepDoesNotOverwriteConcurrentProgress(t *testing.T
 						types.KnowledgeDispatchScope, "racing", "processing").Error)
 				}
 			}}
-			svc.recoverOrphanedSummaries(context.Background(), time.Now().Add(-time.Hour), types.SummaryStatusProcessing)
+			svc.recoverOrphanedSummaries(context.Background(), time.Now().Add(-time.Hour),
+				types.SummaryStatusProcessing)
 			require.Equal(t, types.SummaryStatusProcessing, readSummaryStatus(t, db, "racing"))
 		})
 	}

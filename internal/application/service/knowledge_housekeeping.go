@@ -447,7 +447,8 @@ WHERE scope=? AND scope_id=?)`, types.KnowledgeDispatchScope, k.ID).Scan(&person
 			continue
 		}
 		res := h.db.WithContext(ctx).Model(&types.Knowledge{}).
-			Where("id = ? AND tenant_id = ? AND summary_status = ? AND updated_at = ?", k.ID, k.TenantID, status, k.UpdatedAt).
+			Where("id = ? AND tenant_id = ? AND summary_status = ? AND updated_at = ?",
+				k.ID, k.TenantID, status, k.UpdatedAt).
 			Where("NOT EXISTS (SELECT 1 FROM task_pending_ops WHERE scope=? AND scope_id=knowledges.id)",
 				types.KnowledgeDispatchScope).
 			Update("summary_status", types.SummaryStatusFailed)

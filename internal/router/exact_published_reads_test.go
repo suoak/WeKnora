@@ -55,7 +55,7 @@ func TestExactPublishedReadRouteReportsSourceRecoveryAction(t *testing.T) {
 			g := &rbacGuards{knowledgeService: exactPublishedRouteService{failure: tc.err}}
 			r := gin.New()
 			r.Use(middleware.ErrorHandler())
-			r.GET("/knowledge/:id", g.DocumentReadFromKnowledge("id"), func(c *gin.Context) {
+			r.GET("/knowledge/:id", g.DocumentReadFromKnowledge("id"), func(_ *gin.Context) {
 				t.Fatal("denied source reached content handler")
 			})
 			w := httptest.NewRecorder()
