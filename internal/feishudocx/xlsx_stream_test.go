@@ -20,6 +20,8 @@ func TestXLSXStreamPreservesV1JSON(t *testing.T) {
 		`<worksheet xmlns="` + spreadsheetNS + `"><cols><col min="1" max="3" width="12" hidden="1"/></cols>` +
 			`<sheetData><row><c><f>A1+B1</f><v>9</v></c></row></sheetData></worksheet>`,
 		`<worksheet xmlns="` + spreadsheetNS + `"><cols> </cols><sheetData/></worksheet>`,
+		`<metadata><worksheet xmlns="` + spreadsheetNS + `"><cols>` +
+			`<col min="1" max="3" width="12"/></cols></worksheet></metadata>`,
 	} {
 		root, err := parseXML([]byte(body))
 		if err != nil {

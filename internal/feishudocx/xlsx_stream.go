@@ -115,7 +115,7 @@ func (s *xlsxXMLStream) element(t xml.StartElement, depth int) error {
 		switch v := v.(type) {
 		case xml.StartElement:
 			begin()
-			if t.Name == (xml.Name{Space: spreadsheetNS, Local: "worksheet"}) &&
+			if depth == 0 && t.Name == (xml.Name{Space: spreadsheetNS, Local: "worksheet"}) &&
 				v.Name == (xml.Name{Space: spreadsheetNS, Local: "cols"}) {
 				cols++
 				if cols > 1 {
