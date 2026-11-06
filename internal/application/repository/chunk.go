@@ -140,7 +140,14 @@ func (r *chunkRepository) CreateChunks(ctx context.Context, chunks []*types.Chun
 // GetChunkByID retrieves a chunk by its ID and tenant ID
 func (r *chunkRepository) GetChunkByID(ctx context.Context, tenantID uint64, id string) (*types.Chunk, error) {
 	var chunk types.Chunk
-	if err := r.db.WithContext(ctx).Where("tenant_id = ? AND id = ?", tenantID, id).First(&chunk).Error; err != nil {
+	query := r.db.WithContext(ctx).Where("tenant_id = ? AND id = ?", tenantID, id)
+	if tenant, knowledge, kb, exact := types.ExactDocumentIdentity(ctx); exact {
+		if tenantID != tenant {
+			return nil, types.ErrExactDocumentScope
+		}
+		query = query.Where("knowledge_id=? AND knowledge_base_id=?", knowledge, kb)
+	}
+	if err := query.First(&chunk).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrChunkNotFound
 		}

@@ -77,4 +77,14 @@ func TestExactWorkerTextChunksUseBoundedLivePages(t *testing.T) {
 	rows, err = repo.ListChunksByID(ctx, 1, ids)
 	require.ErrorIs(t, err, types.ErrExactDocumentScope)
 	require.Nil(t, rows)
+	refuseAt = 0
+	row, err := repo.GetChunkByID(ctx, 1, ids[0])
+	require.NoError(t, err)
+	require.Equal(t, "doc", row.KnowledgeID)
+	row, err = repo.GetChunkByID(ctx, 1, foreign.ID)
+	require.ErrorIs(t, err, ErrChunkNotFound, "exclude unrelated bodies in SQL, before any row proof")
+	require.Nil(t, row)
+	row, err = repo.GetChunkByID(ctx, 2, ids[0])
+	require.ErrorIs(t, err, types.ErrExactDocumentScope)
+	require.Nil(t, row)
 }
