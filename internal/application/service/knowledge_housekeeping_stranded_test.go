@@ -95,7 +95,8 @@ func TestHousekeepingSummarySweepPreservesProtocolAndQueuedWork(t *testing.T) {
 	for _, summary := range []string{types.SummaryStatusPending, types.SummaryStatusProcessing} {
 		t.Run(summary, func(t *testing.T) {
 			db := setupHousekeepingDB(t)
-			svc := newHousekeepingSvcWithInspector(db, fakeTaskInspector{queued: map[string]bool{"queued": true}})
+			inspector := fakeTaskInspector{queued: map[string]bool{"queued": true}}
+			svc := newHousekeepingSvcWithInspector(db, inspector)
 			stale := time.Now().Add(-2 * time.Hour)
 			for _, id := range []string{"personal-live", "personal-stopped", "queued", "orphan"} {
 				insertKnowledgeWithSummary(t, db, id, types.ParseStatusCompleted, summary, stale)
@@ -123,7 +124,8 @@ func TestHousekeepingSummarySweepDefersUnknownQueueState(t *testing.T) {
 		if unavailable {
 			svc.inspector = fakeTaskInspector{err: errors.New("redis unavailable")}
 		}
-		svc.recoverOrphanedSummaries(context.Background(), time.Now().Add(-time.Hour), types.SummaryStatusProcessing)
+		svc.recoverOrphanedSummaries(context.Background(), time.Now().Add(-time.Hour),
+			types.SummaryStatusProcessing)
 		require.Equal(t, types.SummaryStatusProcessing, readSummaryStatus(t, db, "unknown"))
 	}
 }

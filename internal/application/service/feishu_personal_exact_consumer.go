@@ -130,7 +130,10 @@ func (p *PersonalRecovery) processExactFirstCreateConsumer(
 			return err
 		}
 		stage = "derived_summary"
-		if _, err = ks.RegenerateKnowledgeSummary(work, proof.knowledge); err != nil {
+		if err = retryExactPersonalSummary(work, func() error {
+			_, summaryErr := ks.RegenerateKnowledgeSummary(work, proof.knowledge)
+			return summaryErr
+		}, waitExactPersonalSummary); err != nil {
 			return err
 		}
 		stage = "atomic_publication"
