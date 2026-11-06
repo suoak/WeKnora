@@ -41,7 +41,7 @@ func (g *rbacGuards) DocumentReadFromKnowledge(param string) gin.HandlerFunc {
 					message := "飞书来源核验暂时不可用，请稍后重试；" +
 						"原文档与已发布内容已保留。"
 					failure = apperrors.NewServiceUnavailableError(message)
-					failure.WithDetails(map[string]any{
+					failure = failure.WithDetails(map[string]any{
 						"reason":    "personal_feishu_verification_temporarily_unavailable",
 						"retryable": true,
 					})
