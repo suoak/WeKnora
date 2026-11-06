@@ -794,6 +794,9 @@ func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 		for _, a := range rows {
 			after = a.ID
 			if a.Status == "needs_attention" {
+				if err := p.prepareExactPersonalResume(ctx, &a); err != nil {
+					failures = append(failures, err)
+				}
 				continue
 			}
 			m, _, current, err := p.repo.Load(ctx, a.ID)

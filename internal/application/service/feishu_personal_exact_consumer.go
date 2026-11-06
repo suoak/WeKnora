@@ -31,6 +31,8 @@ type exactPersonalConsumer struct {
 	resultMu        sync.Mutex
 	indexContents   map[string]string
 	modelVectors    map[[32]byte][32]byte
+	resuming        bool
+	resumeStorage   int64
 }
 
 func exactPersonalConsumerFrom(ctx context.Context) (*exactPersonalConsumer, bool) {
@@ -103,14 +105,39 @@ func (p *PersonalRecovery) processExactFirstCreateConsumer(
 			return err
 		}
 		stage = "execution_context"
+		resuming, err := p.exactResumeQueued(ctx, proof.knowledge)
+		if err != nil {
+			return err
+		}
+		if resuming {
+			if err := p.repo.ActivateExactResume(ctx, owner, exactSourceReceipt(proof)); err != nil {
+				return err
+			}
+		}
 		work, err := p.exactConsumerContext(ctx, proof)
 		if err != nil {
 			return err
 		}
 		stage = "staging_receipt"
-		if err = p.beginExactPersonalReceipt(work, proof); err != nil {
-			return err
+		consumer, _ := exactPersonalConsumerFrom(work)
+		consumer.resuming = resuming
+		if resuming {
+			if err := p.service.db.WithContext(work).Table("knowledges").
+				Select("storage_size").Where("id=?", proof.knowledge).
+				Scan(&consumer.resumeStorage).Error; err != nil {
+				return err
+			}
+			_, attempt, err := ks.tracker().OpenAttempt(work, proof.knowledge, payload.LangfuseTraceID)
+			if err != nil {
+				return err
+			}
+			payload.Attempt = attempt
+		} else {
+			if err = p.beginExactPersonalReceipt(work, proof); err != nil {
+				return err
+			}
 		}
+		work = withAttempt(work, payload.Attempt)
 		body, err := json.Marshal(payload)
 		if err != nil {
 			return err
@@ -130,6 +157,8 @@ func (p *PersonalRecovery) processExactFirstCreateConsumer(
 			return err
 		}
 		stage = "derived_summary"
+		ks.beginStage(work, proof.knowledge, types.StagePostProcess,
+			types.JSONMap{"operation": "personal_exact_summary"})
 		if err = retryExactPersonalSummary(work, func() error {
 			_, summaryErr := ks.RegenerateKnowledgeSummary(work, proof.knowledge)
 			return summaryErr
@@ -137,7 +166,12 @@ func (p *PersonalRecovery) processExactFirstCreateConsumer(
 			return err
 		}
 		stage = "atomic_publication"
-		return consumer.publish(work)
+		if err := consumer.publish(work); err != nil {
+			return err
+		}
+		ks.endStage(work, proof.knowledge, types.StagePostProcess,
+			types.JSONMap{"published": true})
+		return nil
 	}
 	if err := run(); err != nil {
 		// An interrupted/ambiguous execution is preserved for review. Never
@@ -174,6 +208,9 @@ func (c *exactPersonalConsumer) convert(
 	parsed, err := c.recovery.parseExactPersonalDocument(ctx, proof)
 	if err != nil {
 		return nil, err
+	}
+	if c.resuming && len(parsed.assets) != 0 {
+		return nil, errPersonalExactDependencies
 	}
 	c.parsed = parsed
 	// This is the same AnyDoc result consumed by the normal image resolver and

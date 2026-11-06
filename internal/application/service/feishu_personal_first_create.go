@@ -436,14 +436,22 @@ func (p *PersonalRecovery) processFirstCreateDocument(
 		if err != nil {
 			return err
 		}
-		if chunkCount > 0 || k.ParseStatus == types.ParseStatusCompleted ||
+		resuming, err := p.exactResumeQueued(ctx, payload.KnowledgeID)
+		if err != nil {
+			return err
+		}
+		if resuming && (!p.exactPersonalRecoveryAllowed(ctx, payload.KnowledgeID) ||
+			types.FeishuAuthMode(m.AuthMode) != types.FeishuUserOAuth) {
+			return repository.ErrPersonalFence
+		}
+		if (!resuming && chunkCount > 0) || k.ParseStatus == types.ParseStatusCompleted ||
 			k.ParseStatus == types.ParseStatusFinalizing {
 			// Unknown partial/final results are not permission to run the
 			// ordinary destructive cleanup again. Reconciler must read receipts.
 			_ = dispatch.SetKnowledgeDispatchState(ctx, op.ID, "attention")
 			return p.repo.Invalidate(ctx, a.ID, "partial_or_unknown_index_requires_review")
 		}
-		if indexRows > 0 {
+		if indexRows > 0 && !resuming {
 			_ = dispatch.SetKnowledgeDispatchState(ctx, op.ID, "attention")
 			return p.repo.Invalidate(ctx, a.ID, "orphan_or_unknown_index_requires_review")
 		}

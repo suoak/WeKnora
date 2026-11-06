@@ -667,7 +667,16 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 	s.beginStage(ctx, knowledge.ID, types.StageChunking, types.JSONMap{
 		"chunks_planned": len(insertChunks),
 	})
-	if err := s.chunkRepo.CreateChunks(ctx, insertChunks); err != nil {
+	writeChunks := func() error {
+		if consumer, exact := exactPersonalConsumerFrom(ctx); exact && consumer.resuming {
+			return consumer.reproveResumeChunks(ctx, insertChunks)
+		}
+		return s.chunkRepo.CreateChunks(ctx, insertChunks)
+	}
+	if err := writeChunks(); err != nil {
+		if consumer, exact := exactPersonalConsumerFrom(ctx); exact && consumer.resuming {
+			return err // Retain every old output; never overwrite mismatched staging.
+		}
 		knowledge.ParseStatus = types.ParseStatusFailed
 		knowledge.ErrorMessage = err.Error()
 		knowledge.UpdatedAt = time.Now()
@@ -743,7 +752,7 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 				return nil
 			}
 			// Check if there's enough storage quota available
-			if tenantInfo.StorageUsed+totalStorageSize > tenantInfo.StorageQuota {
+			if tenantInfo.StorageUsed+exactPersonalStorageCharge(ctx, totalStorageSize) > tenantInfo.StorageQuota {
 				knowledge.ParseStatus = types.ParseStatusFailed
 				knowledge.ErrorMessage = "存储空间不足"
 				knowledge.UpdatedAt = time.Now()
@@ -902,8 +911,9 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 	}
 
 	// Update tenant's storage usage
-	tenantInfo.StorageUsed += totalStorageSize
-	if err := s.tenantRepo.AdjustStorageUsed(ctx, tenantInfo.ID, totalStorageSize); err != nil {
+	storageCharge := exactPersonalStorageCharge(ctx, totalStorageSize)
+	tenantInfo.StorageUsed += storageCharge
+	if err := s.tenantRepo.AdjustStorageUsed(ctx, tenantInfo.ID, storageCharge); err != nil {
 		logger.GetLogger(ctx).
 			WithField("error", err).
 			Errorf("processChunks update tenant storage used failed")
