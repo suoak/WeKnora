@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/application/service"
@@ -10,6 +11,7 @@ import (
 	apperrors "github.com/Tencent/WeKnora/internal/errors"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // These guards are registered only for document read routes. They never mint a
@@ -23,6 +25,19 @@ func (g *rbacGuards) DocumentReadFromKnowledge(param string) gin.HandlerFunc {
 			ctx, handled, err := exact.ExactPublishedReadContext(c.Request.Context(), c.Param(param))
 			if err != nil {
 				failure := apperrors.NewInternalServerError("Document publication verification failed")
+				var typed *apperrors.AppError
+				if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, access.ErrNotFound) {
+					failure = apperrors.NewNotFoundError("Document unavailable")
+				} else if errors.As(err, &typed) {
+					switch typed.HTTPCode {
+					case http.StatusForbidden:
+						failure = apperrors.NewForbiddenError("Document read denied")
+					case http.StatusUnauthorized:
+						failure = apperrors.NewUnauthorizedError("Authentication required")
+					case http.StatusNotFound:
+						failure = apperrors.NewNotFoundError("Document unavailable")
+					}
+				}
 				if errors.Is(err, access.ErrForbidden) || errors.Is(err, access.ErrUnauthorized) ||
 					errors.Is(err, types.ErrExactDocumentScope) || errors.Is(err, types.ErrLegacySourceRestricted) {
 					failure = apperrors.NewForbiddenError("Document read denied")

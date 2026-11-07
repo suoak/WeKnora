@@ -156,6 +156,16 @@ func (t *ReadDocumentTool) Execute(ctx context.Context, args json.RawMessage) (*
 	if err != nil {
 		return &types.ToolResult{Success: false, Error: err.Error()}, err
 	}
+	// Chunk repository calls need the same single-document receipt context as
+	// Web/MCP reads; successfully reading metadata alone is not that authority.
+	if source, ok := t.knowledgeService.(interface {
+		ExactPublishedReadContext(context.Context, string) (context.Context, bool, error)
+	}); ok {
+		ctx, _, err = source.ExactPublishedReadContext(ctx, knowledge.ID)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	var matchers []*regexp.Regexp
 	switch {
