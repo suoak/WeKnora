@@ -24,7 +24,10 @@ type publishedReadBundle struct {
 	documents map[string]publishedReadDocument
 }
 
-func (p *PersonalRecovery) preparePublishedReadBundle(ctx context.Context, results []*types.SearchResult) (*publishedReadBundle, error) {
+func (p *PersonalRecovery) preparePublishedReadBundle(
+	ctx context.Context,
+	results []*types.SearchResult,
+) (*publishedReadBundle, error) {
 	ids := make([]string, 0, len(results))
 	seen := make(map[string]string)
 	for _, result := range results {
@@ -47,7 +50,9 @@ func (p *PersonalRecovery) preparePublishedReadBundle(ctx context.Context, resul
 		return nil, errPersonalExactDocument
 	}
 	var count int64
-	if err := p.service.db.WithContext(ctx).Table("task_pending_ops").Where("scope=? AND scope_id IN ?", types.PersonalExactReceiptScope, ids).Count(&count).Error; err != nil {
+	if err := p.service.db.WithContext(ctx).Table("task_pending_ops").
+		Where("scope=? AND scope_id IN ?", types.PersonalExactReceiptScope, ids).
+		Count(&count).Error; err != nil {
 		return nil, err
 	}
 	if count == 0 {
@@ -58,7 +63,8 @@ func (p *PersonalRecovery) preparePublishedReadBundle(ctx context.Context, resul
 		TenantID                     uint64
 		HasReceipt                   bool
 	}
-	if err := p.service.db.WithContext(ctx).Table("knowledges k").Select(`k.id,k.tenant_id,k.knowledge_base_id,k.channel,
+	if err := p.service.db.WithContext(ctx).Table("knowledges k").
+		Select(`k.id,k.tenant_id,k.knowledge_base_id,k.channel,
 EXISTS(SELECT 1 FROM task_pending_ops o WHERE o.scope=? AND o.scope_id=k.id) AS has_receipt`, types.PersonalExactReceiptScope).
 		Where("k.id IN ? AND k.deleted_at IS NULL", ids).Scan(&metadata).Error; err != nil {
 		return nil, err
@@ -90,7 +96,8 @@ EXISTS(SELECT 1 FROM task_pending_ops o WHERE o.scope=? AND o.scope_id=k.id) AS 
 			if err != nil {
 				return nil, err
 			}
-			grant, err := access.ResolveKB(ctx, access.KBRequest{Caller: types.CallerFromContext(ctx)}, kb, types.OrgRoleViewer, p.shares, nil)
+			grant, err := access.ResolveKB(ctx, access.KBRequest{Caller: types.CallerFromContext(ctx)},
+				kb, types.OrgRoleViewer, p.shares, nil)
 			if err != nil {
 				return nil, err
 			}
@@ -120,7 +127,9 @@ func (b *publishedReadBundle) validate(ctx context.Context) error {
 	original, valid := types.PrincipalFromContext(b.original)
 	k, keyed := types.TenantAPIKeyScopeFromContext(ctx)
 	okey, okeyed := types.TenantAPIKeyScopeFromContext(b.original)
-	if !ok || !valid || p != original || types.CallerFromContext(ctx) != types.CallerFromContext(b.original) || keyed != okeyed || !reflect.DeepEqual(k, okey) {
+	if !ok || !valid || p != original || types.CallerFromContext(ctx) != types.CallerFromContext(b.original) ||
+		keyed != okeyed ||
+		!reflect.DeepEqual(k, okey) {
 		return access.ErrUnauthorized
 	}
 	for _, doc := range b.documents {
@@ -157,7 +166,9 @@ func (r *publishedBundleChunks) ListChunksByIDOnly(ctx context.Context, ids []st
 		ID, KnowledgeID, KnowledgeBaseID string
 		TenantID                         uint64
 	}
-	if err := r.bundle.recovery.service.db.WithContext(ctx).Table("chunks").Select("id,knowledge_id,knowledge_base_id,tenant_id").Where("id IN ? AND deleted_at IS NULL", ids).Scan(&metadata).Error; err != nil {
+	if err := r.bundle.recovery.service.db.WithContext(ctx).Table("chunks").
+		Select("id,knowledge_id,knowledge_base_id,tenant_id").
+		Where("id IN ? AND deleted_at IS NULL", ids).Scan(&metadata).Error; err != nil {
 		return nil, err
 	}
 	if len(metadata) != len(unique) {
@@ -179,7 +190,9 @@ func (r *publishedBundleChunks) ListChunksByIDOnly(ctx context.Context, ids []st
 			return nil, err
 		}
 		for _, row := range rows {
-			if row.KnowledgeID != knowledge || row.TenantID != doc.tenant || row.KnowledgeBaseID != doc.kb || !row.IsEnabled || row.DeletedAt.Valid {
+			if row.KnowledgeID != knowledge || row.TenantID != doc.tenant || row.KnowledgeBaseID != doc.kb ||
+				!row.IsEnabled ||
+				row.DeletedAt.Valid {
 				return nil, errPersonalExactDocument
 			}
 		}
@@ -191,7 +204,11 @@ func (r *publishedBundleChunks) ListChunksByIDOnly(ctx context.Context, ids []st
 	return out, nil
 }
 
-func (s *modelService) AuthorizeExactPersonalReadRepository(ctx context.Context, results []*types.SearchResult, chunks interfaces.ChunkRepository) (context.Context, interfaces.ChunkRepository, error) {
+func (s *modelService) AuthorizeExactPersonalReadRepository(
+	ctx context.Context,
+	results []*types.SearchResult,
+	chunks interfaces.ChunkRepository,
+) (context.Context, interfaces.ChunkRepository, error) {
 	if s.personalRecovery == nil || len(results) == 0 {
 		return ctx, chunks, nil
 	}
@@ -202,7 +219,10 @@ func (s *modelService) AuthorizeExactPersonalReadRepository(ctx context.Context,
 	return ctx, &publishedBundleChunks{ChunkRepository: chunks, bundle: bundle}, nil
 }
 
-func (b *publishedReadBundle) canonicalResults(ctx context.Context, inputs []*types.SearchResult) ([]*types.SearchResult, error) {
+func (b *publishedReadBundle) canonicalResults(
+	ctx context.Context,
+	inputs []*types.SearchResult,
+) ([]*types.SearchResult, error) {
 	ks := b.recovery.service.knowledge.(*knowledgeService)
 	groups := make(map[string][]string)
 	for _, input := range inputs {
@@ -228,7 +248,9 @@ func (b *publishedReadBundle) canonicalResults(ctx context.Context, inputs []*ty
 			return nil, err
 		}
 		for _, row := range rows {
-			if row.KnowledgeID != knowledge || row.KnowledgeBaseID != doc.kb || row.TenantID != doc.tenant || !row.IsEnabled || row.DeletedAt.Valid {
+			if row.KnowledgeID != knowledge || row.KnowledgeBaseID != doc.kb || row.TenantID != doc.tenant ||
+				!row.IsEnabled ||
+				row.DeletedAt.Valid {
 				return nil, errPersonalExactDocument
 			}
 			byID[row.ID] = row
@@ -241,7 +263,10 @@ func (b *publishedReadBundle) canonicalResults(ctx context.Context, inputs []*ty
 		if row == nil || row.KnowledgeID != input.KnowledgeID || row.KnowledgeBaseID != input.KnowledgeBaseID {
 			return nil, errPersonalExactDocument
 		}
-		canonical = append(canonical, builder.buildSearchResult(row, owners[input.KnowledgeID], input.Score, input.MatchType, ""))
+		canonical = append(
+			canonical,
+			builder.buildSearchResult(row, owners[input.KnowledgeID], input.Score, input.MatchType, ""),
+		)
 	}
 	if err := b.validate(ctx); err != nil {
 		return nil, err

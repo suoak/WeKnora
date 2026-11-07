@@ -102,7 +102,9 @@ func (s *knowledgeService) exactPublicReadContext(ctx context.Context, id string
 	}
 	if count == 0 {
 		var personal bool
-		if err := p.service.db.WithContext(ctx).Raw("SELECT EXISTS(SELECT 1 FROM knowledges WHERE id=? AND channel='feishu_personal')", id).Scan(&personal).Error; err != nil {
+		if err := p.service.db.WithContext(ctx).
+			Raw("SELECT EXISTS(SELECT 1 FROM knowledges WHERE id=? AND channel='feishu_personal')", id).
+			Scan(&personal).Error; err != nil {
 			return ctx, true, err
 		}
 		if personal {
@@ -137,7 +139,9 @@ func (s *knowledgeService) exactPublicKnowledgePage(ctx context.Context, kb stri
 	if err != nil {
 		return nil, true, err
 	}
-	if _, err := p.checkExactPublishedViewer(ctx, types.PersonalExactReceipt{TenantID: owner.TenantID, KnowledgeBaseID: owner.ID}); err != nil {
+	if _, err := p.checkExactPublishedViewer(ctx, types.PersonalExactReceipt{
+		TenantID: owner.TenantID, KnowledgeBaseID: owner.ID,
+	}); err != nil {
 		return nil, true, err
 	}
 	tenant, valid := types.TenantIDFromContext(ctx)

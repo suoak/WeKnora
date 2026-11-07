@@ -44,7 +44,8 @@ func (s *PortalMCPKnowledge) retrievePublishedPortalDocuments(ctx context.Contex
 	}
 	var metadata []struct{ ID, Channel string }
 	if err := s.personalRecovery.service.db.WithContext(ctx).Table("knowledges").Select("id,channel").
-		Where("id IN ? AND tenant_id=? AND knowledge_base_id=? AND deleted_at IS NULL", ids, target.Descriptor().TenantID, target.Descriptor().ID).
+		Where("id IN ? AND tenant_id=? AND knowledge_base_id=? AND deleted_at IS NULL",
+			ids, target.Descriptor().TenantID, target.Descriptor().ID).
 		Scan(&metadata).Error; err != nil {
 		return nil, false, err
 	}

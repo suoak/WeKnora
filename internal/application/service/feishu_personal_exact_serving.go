@@ -81,7 +81,8 @@ func (p *PersonalRecovery) exactPublishedReadContext(ctx context.Context, knowle
 			return err
 		}
 		var stored types.PersonalExactReceipt
-		if currentReceipt.TenantID != receipt.TenantID || currentReceipt.Op != "published" || json.Unmarshal(currentReceipt.Payload, &stored) != nil ||
+		if currentReceipt.TenantID != receipt.TenantID || currentReceipt.Op != "published" ||
+			json.Unmarshal(currentReceipt.Payload, &stored) != nil ||
 			stored != receipt {
 			return errPersonalExactDocument
 		}

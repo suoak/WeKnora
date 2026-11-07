@@ -12,8 +12,10 @@ func (s *knowledgeBaseService) exactSearchContext(
 	ctx context.Context, kbID string, params types.SearchParams,
 ) (context.Context, error) {
 	if _, _, knowledge, boundKB, exact := types.ExactPublishedDocumentIdentity(ctx); exact {
-		if kbID != boundKB || (len(params.KnowledgeIDs) > 0 && (len(params.KnowledgeIDs) != 1 || params.KnowledgeIDs[0] != knowledge)) ||
-			(len(params.KnowledgeBaseIDs) > 0 && (len(params.KnowledgeBaseIDs) != 1 || params.KnowledgeBaseIDs[0] != boundKB)) {
+		if kbID != boundKB ||
+			(len(params.KnowledgeIDs) > 0 && (len(params.KnowledgeIDs) != 1 || params.KnowledgeIDs[0] != knowledge)) ||
+			(len(params.KnowledgeBaseIDs) > 0 &&
+				(len(params.KnowledgeBaseIDs) != 1 || params.KnowledgeBaseIDs[0] != boundKB)) {
 			return ctx, types.ErrExactDocumentScope
 		}
 		_, err := types.CheckExactPublishedDocumentRead(ctx)

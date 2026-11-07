@@ -556,15 +556,19 @@ func (s *chunkService) ListChunkByParentID(
 	parentID string,
 ) ([]*types.Chunk, error) {
 	if read, knowledge, exact, err := s.exactPublishedChunkContext(ctx, "", parentID); exact || err != nil {
-		if err != nil { return nil, err }
-		if tenantID != types.MustTenantIDFromContext(read) { return nil, types.ErrExactDocumentScope }
+		if err != nil {
+			return nil, err
+		}
+		if tenantID != types.MustTenantIDFromContext(read) {
+			return nil, types.ErrExactDocumentScope
+		}
 		var rows []*types.Chunk
 		err = types.ReadExactPublishedPage(read, knowledge, func(selection context.Context) error {
 			var e error
-			rows,e = s.chunkRepository.ListChunkByParentID(selection,tenantID,parentID)
+			rows, e = s.chunkRepository.ListChunkByParentID(selection, tenantID, parentID)
 			return e
 		})
-		return rows,err
+		return rows, err
 	}
 	if s.DocumentACLReadEnabled() {
 		return s.readAuthorizedChildren(ctx, tenantID, parentID)
@@ -853,7 +857,9 @@ func (s *chunkService) rebuildParentContent(ctx context.Context, edited *types.C
 	replacements = selected
 	sort.Slice(replacements, func(i, j int) bool { return replacements[i].start > replacements[j].start })
 	for _, repl := range replacements {
-		baseRunes = append(append(append([]rune{}, baseRunes[:repl.start]...), []rune(repl.content)...), baseRunes[repl.end:]...)
+		baseRunes = append(
+			append(append([]rune{}, baseRunes[:repl.start]...), []rune(repl.content)...),
+			baseRunes[repl.end:]...)
 	}
 	parent.SourceLocators = nil // Child edits invalidate the original parent evidence.
 	parent.Content = string(baseRunes)
@@ -876,7 +882,13 @@ func (s *chunkService) syncChunkIndex(ctx context.Context, chunk *types.Chunk) e
 	if err != nil {
 		return err
 	}
-	engine, err := retriever.CreateRetrieveEngineForKB(ctx, s.retrieveEngine, s.ownership, chunk.TenantID, kb.VectorStoreID)
+	engine, err := retriever.CreateRetrieveEngineForKB(
+		ctx,
+		s.retrieveEngine,
+		s.ownership,
+		chunk.TenantID,
+		kb.VectorStoreID,
+	)
 	if err != nil {
 		return err
 	}
@@ -906,7 +918,10 @@ func (s *chunkService) syncChunkIndex(ctx context.Context, chunk *types.Chunk) e
 				continue
 			}
 			items = append(items, &types.IndexInfo{
-				Content: buildKnowledgeIndexContent(knowledge, question.Question), SourceID: types.GeneratedQuestionSourceID(chunk.ID, question.ID),
+				Content: buildKnowledgeIndexContent(
+					knowledge,
+					question.Question,
+				), SourceID: types.GeneratedQuestionSourceID(chunk.ID, question.ID),
 				SourceType: types.ChunkSourceType, ChunkID: chunk.ID,
 				KnowledgeID: chunk.KnowledgeID, KnowledgeBaseID: chunk.KnowledgeBaseID,
 				KnowledgeType: kb.Type, IsEnabled: true,

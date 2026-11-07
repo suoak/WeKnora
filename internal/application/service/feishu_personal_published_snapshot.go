@@ -22,7 +22,8 @@ func (p *PersonalRecovery) prepareExactPublishedSnapshot(
 	ctx context.Context, receipt types.PersonalExactReceipt,
 ) (snapshot *personalExactDocument, refusal error) {
 	defer func() {
-		if errors.Is(refusal, gorm.ErrRecordNotFound) || errors.Is(refusal, repository.ErrPersonalIdentity) || errors.Is(refusal, repository.ErrPersonalFence) {
+		if errors.Is(refusal, gorm.ErrRecordNotFound) || errors.Is(refusal, repository.ErrPersonalIdentity) ||
+			errors.Is(refusal, repository.ErrPersonalFence) {
 			refusal = errors.Join(errPersonalExactDocument, refusal)
 		}
 	}()
@@ -70,7 +71,8 @@ func (p *PersonalRecovery) prepareExactPublishedSnapshot(
 		return nil, err
 	}
 	if file.Size != manifest.Size || file.Lifecycle != types.ResourceLifecyclePersistent ||
-		file.ExpiresAt != nil || (strings.Contains(file.PhysicalPath, "://") && !strings.HasPrefix(file.PhysicalPath, "local://")) ||
+		file.ExpiresAt != nil ||
+		(strings.Contains(file.PhysicalPath, "://") && !strings.HasPrefix(file.PhysicalPath, "local://")) ||
 		(file.ContentHash != "" && len(file.ContentHash) != 64) {
 		return nil, errPersonalExactDocument
 	}
@@ -80,7 +82,8 @@ func (p *PersonalRecovery) prepareExactPublishedSnapshot(
 	}
 	if len(bindings) != 1 || bindings[0].ID != receipt.BindingID ||
 		bindings[0].TenantID != receipt.TenantID || bindings[0].OwnerID != m.KnowledgeID ||
-		bindings[0].OwnerType != types.ResourceOwnerKnowledge || bindings[0].Relation != types.ResourceRelationSourceFile {
+		bindings[0].OwnerType != types.ResourceOwnerKnowledge ||
+		bindings[0].Relation != types.ResourceRelationSourceFile {
 		return nil, errPersonalExactDocument
 	}
 	ks, ok := p.service.knowledge.(*knowledgeService)
@@ -128,7 +131,8 @@ func (p *PersonalRecovery) prepareExactPublishedSnapshot(
 	if err = p.service.db.WithContext(ctx).Where("id=?", file.ID).Take(&currentFile).Error; err != nil {
 		return nil, err
 	}
-	if err = p.service.db.WithContext(ctx).Where("resource_id=?", file.ID).Limit(2).Find(&currentBindings).Error; err != nil {
+	if err = p.service.db.WithContext(ctx).Where("resource_id=?", file.ID).
+		Limit(2).Find(&currentBindings).Error; err != nil {
 		return nil, err
 	}
 	if !reflect.DeepEqual(file, currentFile) || !reflect.DeepEqual(bindings, currentBindings) {

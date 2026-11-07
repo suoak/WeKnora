@@ -91,7 +91,8 @@ func CheckLegacySourceRead(db *gorm.DB, knowledgeID, kbID string) error {
 	}
 	if knowledgeID != "" {
 		var personal bool
-		if err := db.Raw("SELECT EXISTS(SELECT 1 FROM knowledges WHERE id=? AND channel='feishu_personal')", knowledgeID).Scan(&personal).Error; err != nil {
+		if err := db.Raw("SELECT EXISTS(SELECT 1 FROM knowledges WHERE id=? AND channel='feishu_personal')", knowledgeID).
+			Scan(&personal).Error; err != nil {
 			return err
 		}
 		if personal {

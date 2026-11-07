@@ -64,7 +64,11 @@ func (s *modelService) AuthorizeExactPersonalChat(
 	}
 	// No unproved model-generated completeness/axis annotation enters a prompt.
 	trusted.RetrievalCompleteness = types.RetrievalCompleteness{}
-	expected, err := chatpipeline.RenderVerifiedDocumentMessages(read, trusted, &publishedBundleChunks{ChunkRepository: ks.chunkRepo, bundle: bundle})
+	expected, err := chatpipeline.RenderVerifiedDocumentMessages(
+		read,
+		trusted,
+		&publishedBundleChunks{ChunkRepository: ks.chunkRepo, bundle: bundle},
+	)
 	if err != nil {
 		return ctx, options, err
 	}

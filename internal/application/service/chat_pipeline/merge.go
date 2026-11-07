@@ -181,7 +181,10 @@ func (p *PluginMerge) injectHistoryResults(
 
 // groupAndMergeCurrentContent groups chunks by KnowledgeID + ChunkType, then joins
 // sequential current bodies without consulting source character offsets.
-func (p *PluginMerge) groupAndMergeCurrentContent(ctx context.Context, results []*types.SearchResult) []*types.SearchResult {
+func (p *PluginMerge) groupAndMergeCurrentContent(
+	ctx context.Context,
+	results []*types.SearchResult,
+) []*types.SearchResult {
 	// Group by KnowledgeID → ChunkType
 	knowledgeGroup := make(map[string]map[string][]*types.SearchResult)
 	for _, chunk := range results {

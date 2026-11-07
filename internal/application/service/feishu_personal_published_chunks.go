@@ -7,7 +7,10 @@ import (
 )
 
 // Only the owning Knowledge ID is selected before authorization, never content.
-func (s *chunkService) exactPublishedChunkContext(ctx context.Context, knowledge, chunk string) (context.Context, string, bool, error) {
+func (s *chunkService) exactPublishedChunkContext(
+	ctx context.Context,
+	knowledge, chunk string,
+) (context.Context, string, bool, error) {
 	if s.personalRecovery == nil {
 		_, _, target, _, exact := types.ExactPublishedDocumentIdentity(ctx)
 		if exact && (knowledge == "" || knowledge == target) {

@@ -29,7 +29,12 @@ import (
 // Real native parsing, PostgreSQL indexing and atomic publication of three
 // independent sources. Feishu and model HTTP are synthetic in this regression;
 // this must not be reported as the separate live-OAuth browser acceptance.
-func exerciseAdditionalPublishedSnapshots(t *testing.T, f *personalRecoveryFixture, first string, files map[string][]byte) {
+func exerciseAdditionalPublishedSnapshots(
+	t *testing.T,
+	f *personalRecoveryFixture,
+	first string,
+	files map[string][]byte,
+) {
 	t.Helper()
 	ids := []string{first}
 	for _, token := range []string{"real2", "real3"} {
@@ -56,7 +61,10 @@ func exerciseAdditionalPublishedSnapshots(t *testing.T, f *personalRecoveryFixtu
 		var intent types.KnowledgeDispatch
 		require.NoError(t, json.Unmarshal(op.Payload, &intent))
 		intent.Task.FilePath = types.BuildResourcePath(file.Handle)
-		require.NoError(t, f.db.Exec("UPDATE knowledges SET file_path=? WHERE id=?", intent.Task.FilePath, metadata.ID).Error)
+		require.NoError(
+			t,
+			f.db.Exec("UPDATE knowledges SET file_path=? WHERE id=?", intent.Task.FilePath, metadata.ID).Error,
+		)
 		payload, err := json.Marshal(intent)
 		require.NoError(t, err)
 		require.NoError(t, f.db.Exec("UPDATE task_pending_ops SET payload=? WHERE id=?", string(payload), op.ID).Error)
@@ -64,7 +72,10 @@ func exerciseAdditionalPublishedSnapshots(t *testing.T, f *personalRecoveryFixtu
 		require.NoError(t, err)
 		require.NoError(t, f.ks.ProcessDocument(context.Background(), asynq.NewTask(op.TaskType, body)))
 		var receipt types.TaskPendingOp
-		require.NoError(t, f.db.Where("scope=? AND scope_id=?", types.PersonalExactReceiptScope, metadata.ID).Take(&receipt).Error)
+		require.NoError(
+			t,
+			f.db.Where("scope=? AND scope_id=?", types.PersonalExactReceiptScope, metadata.ID).Take(&receipt).Error,
+		)
 		require.Equal(t, "published", receipt.Op)
 	}
 	t.Run("three_published_assets_survive_disconnect", func(t *testing.T) {
@@ -72,7 +83,10 @@ func exerciseAdditionalPublishedSnapshots(t *testing.T, f *personalRecoveryFixtu
 		// so both its SQL predicates and the service proof observe the same facts.
 		require.NoError(t, f.db.Exec("UPDATE tenant_members SET role='viewer' WHERE user_id='B'").Error)
 		defer func() {
-			require.NoError(t, f.db.Exec("UPDATE tenant_members SET role='admin',status='active' WHERE user_id='B'").Error)
+			require.NoError(
+				t,
+				f.db.Exec("UPDATE tenant_members SET role='admin',status='active' WHERE user_id='B'").Error,
+			)
 		}()
 		require.NoError(t, f.s.Disconnect(f.ctx))
 		db := f.db
@@ -85,7 +99,9 @@ func exerciseAdditionalPublishedSnapshots(t *testing.T, f *personalRecoveryFixtu
 		models.recovery = &recovery
 		knowledge.modelService = &models
 		var calls atomic.Int32
-		denied := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { calls.Add(1); w.WriteHeader(403) }))
+		denied := httptest.NewServer(
+			http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { calls.Add(1); w.WriteHeader(403) }),
+		)
 		defer denied.Close()
 		personal.newClient = func(cfg *core.Config) *core.Client { cfg.BaseURL = denied.URL; return core.NewClient(cfg) }
 		var connections int64
@@ -97,7 +113,11 @@ func exerciseAdditionalPublishedSnapshots(t *testing.T, f *personalRecoveryFixtu
 		viewer, err := restoreSummaryRefreshTenantInfo(viewer, knowledge.tenantRepo, 1)
 		require.NoError(t, err)
 		chunks := &chunkService{personalRecovery: &recovery, chunkRepository: knowledge.chunkRepo}
-		portal := &PortalMCPKnowledge{personalRecovery: &recovery, Knowledge: knowledge.repo, Chunks: knowledge.chunkRepo}
+		portal := &PortalMCPKnowledge{
+			personalRecovery: &recovery,
+			Knowledge:        knowledge.repo,
+			Chunks:           knowledge.chunkRepo,
+		}
 		for _, id := range ids {
 			read, err := recovery.exactPublishedReadContext(viewer, id)
 			require.NoError(t, err)
@@ -121,7 +141,10 @@ func exerciseAdditionalPublishedSnapshots(t *testing.T, f *personalRecoveryFixtu
 			require.NoError(t, err)
 			require.NotEmpty(t, rows)
 			var receipt types.TaskPendingOp
-			require.NoError(t, db.Where("scope=? AND scope_id=?", types.PersonalExactReceiptScope, id).Take(&receipt).Error)
+			require.NoError(
+				t,
+				db.Where("scope=? AND scope_id=?", types.PersonalExactReceiptScope, id).Take(&receipt).Error,
+			)
 			var published types.PersonalExactReceipt
 			require.NoError(t, json.Unmarshal(receipt.Payload, &published))
 			require.NoError(t, recovery.verifyExactPublishedDatabase(viewer, published))
@@ -140,7 +163,11 @@ func exerciseAdditionalPublishedSnapshots(t *testing.T, f *personalRecoveryFixtu
 			require.NoError(t, err, "configuration-only KB projection must not require importer OAuth")
 			require.NoError(t, search.authorizeKBAccess(read, []*types.KnowledgeBase{kb}))
 		}
-		results, err := search.HybridSearch(viewer, "kb", types.SearchParams{KnowledgeIDs: ids, QueryText: "recovery", QueryEmbedding: vector, MatchCount: 100})
+		results, err := search.HybridSearch(
+			viewer,
+			"kb",
+			types.SearchParams{KnowledgeIDs: ids, QueryText: "recovery", QueryEmbedding: vector, MatchCount: 100},
+		)
 		require.NoError(t, err)
 		found := make(map[string]bool)
 		for _, result := range results {
@@ -167,13 +194,21 @@ func exerciseAdditionalPublishedSnapshots(t *testing.T, f *personalRecoveryFixtu
 		configuration := *knowledge.config
 		conversation := *configuration.Conversation
 		configuration.Conversation = &conversation
-		conversation.Summary = &config.SummaryConfig{Prompt: "Answer using verified context only. {{contexts}}", ContextTemplate: "{{contexts}}\nQuestion: {{query}}"}
+		conversation.Summary = &config.SummaryConfig{
+			Prompt:          "Answer using verified context only. {{contexts}}",
+			ContextTemplate: "{{contexts}}\nQuestion: {{query}}",
+		}
 		knowledge.config = &configuration
 		thinking := false
 		request := &types.ChatManage{PipelineRequest: types.PipelineRequest{
 			SessionID: "published-three-reader-b", UserID: "B", TenantID: 1, Query: "recovery", Language: "English",
 			ChatModelID: "isolated-summary", RerankTopK: 100, EmbeddingTopK: 100,
-			SummaryConfig: types.SummaryConfig{Prompt: conversation.Summary.Prompt, ContextTemplate: conversation.Summary.ContextTemplate, MaxTokens: 256, Thinking: &thinking},
+			SummaryConfig: types.SummaryConfig{
+				Prompt:          conversation.Summary.Prompt,
+				ContextTemplate: conversation.Summary.ContextTemplate,
+				MaxTokens:       256,
+				Thinking:        &thinking,
+			},
 		}}
 		request.SearchResult = results
 		request.RewriteQuery = "recovery"
@@ -188,8 +223,17 @@ func exerciseAdditionalPublishedSnapshots(t *testing.T, f *personalRecoveryFixtu
 		require.NotNil(t, request.ChatResponse)
 		require.NotEmpty(t, request.ChatResponse.Content)
 		spy := &legacySpyModel{}
-		guarded := &legacyGuardedRerank{Reranker: spy, gate: repository.NewModelRepository(db).(legacyModelInputGate), tenant: 1}
-		model, err := (&modelService{personalRecovery: &recovery}).publishedBundleReranker(viewer, guarded, "recovery", canonical)
+		guarded := &legacyGuardedRerank{
+			Reranker: spy,
+			gate:     repository.NewModelRepository(db).(legacyModelInputGate),
+			tenant:   1,
+		}
+		model, err := (&modelService{personalRecovery: &recovery}).publishedBundleReranker(
+			viewer,
+			guarded,
+			"recovery",
+			canonical,
+		)
 		require.NoError(t, err)
 		_ = reranking.Rerank(viewer, model, "recovery", canonical, reranking.Options{TopK: 100})
 		require.EqualValues(t, 1, spy.calls.Load())

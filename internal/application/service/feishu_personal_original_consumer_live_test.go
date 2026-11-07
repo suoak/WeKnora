@@ -771,8 +771,12 @@ func (m *exactAcceptanceModels) AuthorizeExactPersonalRead(
 	return (&modelService{personalRecovery: m.recovery}).AuthorizeExactPersonalRead(ctx, results)
 }
 
-func (m *exactAcceptanceModels) AuthorizeExactPersonalReadRepository(ctx context.Context, results []*types.SearchResult, chunks interfaces.ChunkRepository) (context.Context,interfaces.ChunkRepository,error) {
-	return (&modelService{personalRecovery:m.recovery}).AuthorizeExactPersonalReadRepository(ctx,results,chunks)
+func (m *exactAcceptanceModels) AuthorizeExactPersonalReadRepository(
+	ctx context.Context,
+	results []*types.SearchResult,
+	chunks interfaces.ChunkRepository,
+) (context.Context, interfaces.ChunkRepository, error) {
+	return (&modelService{personalRecovery: m.recovery}).AuthorizeExactPersonalReadRepository(ctx, results, chunks)
 }
 
 func (m *exactAcceptanceModels) AuthorizeExactPersonalRerank(

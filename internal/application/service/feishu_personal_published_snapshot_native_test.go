@@ -41,7 +41,11 @@ func exercisePublishedSnapshotReaderMatrix(t *testing.T, f *personalRecoveryFixt
 	}{
 		{"normal", "", true},
 		{"token_expired", "UPDATE feishu_connections SET expires_at=now()-interval '1 day' WHERE user_id='A'", true},
-		{"refresh_expired", "UPDATE feishu_connections SET refresh_expires_at=now()-interval '1 day' WHERE user_id='A'", true},
+		{
+			"refresh_expired",
+			"UPDATE feishu_connections SET refresh_expires_at=now()-interval '1 day' WHERE user_id='A'",
+			true,
+		},
 		{"disconnected", "DELETE FROM feishu_connections WHERE user_id='A'", true},
 		{"grant_rotated", "UPDATE feishu_personal_grant_epochs SET epoch='new-source-grant' WHERE user_id='A'", true},
 		{"grant_deleted", "DELETE FROM feishu_personal_grant_epochs WHERE user_id='A'", true},
@@ -52,13 +56,21 @@ func exercisePublishedSnapshotReaderMatrix(t *testing.T, f *personalRecoveryFixt
 		{"space_disabled", "UPDATE tenants SET status='disabled' WHERE id=1", false},
 		{"receipt_staging", "UPDATE task_pending_ops SET op='staging' WHERE scope='personal_exact_receipt_v1'", false},
 		{"receipt_missing", "DELETE FROM task_pending_ops WHERE scope='personal_exact_receipt_v1'", false},
-		{"receipt_tampered", "UPDATE task_pending_ops SET payload=jsonb_set(payload::jsonb,'{grant_epoch}','\"forged\"'::jsonb) WHERE scope='personal_exact_receipt_v1'", false},
+		{
+			"receipt_tampered",
+			"UPDATE task_pending_ops SET payload=jsonb_set(payload::jsonb,'{grant_epoch}','\"forged\"'::jsonb) WHERE scope='personal_exact_receipt_v1'",
+			false,
+		},
 		{"chunk_tampered", "UPDATE chunks SET content='changed'", false},
 		{"vector_tampered", "UPDATE embeddings SET is_enabled=false", false},
 		{"file_missing", "UPDATE resources SET physical_path='local://1/missing-published-snapshot.docx'", false},
 		{"binding_missing", "DELETE FROM resource_bindings", false},
 		{"knowledge_withdrawn", "UPDATE knowledges SET enable_status='disabled'", false},
-		{"active_attempt", "UPDATE feishu_personal_attempts SET owner_nonce='active',lease_until=now()+interval '1 minute'", false},
+		{
+			"active_attempt",
+			"UPDATE feishu_personal_attempts SET owner_nonce='active',lease_until=now()+interval '1 minute'",
+			false,
+		},
 	}
 	for _, condition := range conditions {
 		t.Run(condition.name, func(t *testing.T) {
@@ -125,9 +137,15 @@ func exercisePublishedSnapshotReaderMatrix(t *testing.T, f *personalRecoveryFixt
 		case <-time.After(10 * time.Second):
 			t.Fatal("read selection timed out")
 		}
-		require.NoError(t, f.db.Exec("UPDATE tenant_members SET status='disabled' WHERE user_id='B' AND tenant_id=1").Error)
+		require.NoError(
+			t,
+			f.db.Exec("UPDATE tenant_members SET status='disabled' WHERE user_id='B' AND tenant_id=1").Error,
+		)
 		defer func() {
-			require.NoError(t, f.db.Exec("UPDATE tenant_members SET status='active' WHERE user_id='B' AND tenant_id=1").Error)
+			require.NoError(
+				t,
+				f.db.Exec("UPDATE tenant_members SET status='active' WHERE user_id='B' AND tenant_id=1").Error,
+			)
 		}()
 		releaseOnce.Do(func() { close(release) })
 		require.Error(t, <-done, "content selected before revocation must not pass the final output check")
@@ -139,7 +157,10 @@ func exercisePublishedSnapshotReaderMatrix(t *testing.T, f *personalRecoveryFixt
 		personal.db = tx
 		recovery.service, recovery.repo = &personal, repository.NewPersonalRecoveryRepository(tx)
 		var receipt types.TaskPendingOp
-		require.NoError(t, tx.Where("scope=? AND scope_id=?", types.PersonalExactReceiptScope, knowledge).Take(&receipt).Error)
+		require.NoError(
+			t,
+			tx.Where("scope=? AND scope_id=?", types.PersonalExactReceiptScope, knowledge).Take(&receipt).Error,
+		)
 		var published types.PersonalExactReceipt
 		require.NoError(t, json.Unmarshal(receipt.Payload, &published))
 		require.NoError(t, personal.Disconnect(f.ctx))
@@ -164,7 +185,12 @@ func exercisePublishedSnapshotReaderMatrix(t *testing.T, f *personalRecoveryFixt
 			row, err := f.ks.GetKnowledgeByID(viewer, knowledge)
 			require.NoError(t, err)
 			require.Equal(t, knowledge, row.ID)
-			page, err := f.ks.ListPagedKnowledgeByKnowledgeBaseID(viewer, "kb", &types.Pagination{Page: 1, PageSize: 10}, types.KnowledgeListFilter{})
+			page, err := f.ks.ListPagedKnowledgeByKnowledgeBaseID(
+				viewer,
+				"kb",
+				&types.Pagination{Page: 1, PageSize: 10},
+				types.KnowledgeListFilter{},
+			)
 			require.NoError(t, err)
 			require.NotEmpty(t, page.Data)
 			listed, err := f.ks.ListKnowledgeByKnowledgeBaseID(viewer, "kb")
@@ -176,20 +202,32 @@ func exercisePublishedSnapshotReaderMatrix(t *testing.T, f *personalRecoveryFixt
 			require.NoError(t, err)
 			require.NoError(t, file.Close())
 			require.NotEmpty(t, data)
-			chunks := &chunkService{personalRecovery: f.p, documentACL: NewDocumentReadPolicy(acl, nil), chunkRepository: f.ks.chunkRepo}
+			chunks := &chunkService{
+				personalRecovery: f.p,
+				documentACL:      NewDocumentReadPolicy(acl, nil),
+				chunkRepository:  f.ks.chunkRepo,
+			}
 			rows, err := chunks.ListChunksByKnowledgeID(viewer, knowledge)
 			require.NoError(t, err)
 			require.NotEmpty(t, rows)
 			_, err = chunks.GetChunkByID(viewer, rows[0].ID)
 			require.NoError(t, err)
-			_, err = chunks.ListPagedChunksByKnowledgeID(viewer, knowledge, &types.Pagination{Page: 1, PageSize: 10}, nil)
+			_, err = chunks.ListPagedChunksByKnowledgeID(
+				viewer,
+				knowledge,
+				&types.Pagination{Page: 1, PageSize: 10},
+				nil,
+			)
 			require.NoError(t, err)
 		})
 	}
 	t.Run("mcp_user_key_live_scope", func(t *testing.T) {
 		tx := f.db.Begin()
 		defer tx.Rollback()
-		require.NoError(t, tx.AutoMigrate(&types.TenantAPIKey{}, &types.APIKeyTenantScope{}, &types.APIKeyKnowledgeBaseScope{}))
+		require.NoError(
+			t,
+			tx.AutoMigrate(&types.TenantAPIKey{}, &types.APIKeyTenantScope{}, &types.APIKeyKnowledgeBaseScope{}),
+		)
 		personal, recovery := *f.s, *f.p
 		personal.db = tx
 		recovery.service, recovery.repo = &personal, repository.NewPersonalRecoveryRepository(tx)
@@ -201,7 +239,9 @@ func exercisePublishedSnapshotReaderMatrix(t *testing.T, f *personalRecoveryFixt
 			Capabilities: types.StringArray{string(types.APIKeyCapabilityRetrieve)},
 			TenantScopes: []types.APIKeyTenantScope{{
 				TenantID: 1, KBScopeMode: types.APIKeyKBScopeSelected,
-				KnowledgeBases: []types.APIKeyKnowledgeBaseScope{{TenantID: 1, KnowledgeBaseID: "kb", SourceType: types.APIKeyKBSourceOwned}},
+				KnowledgeBases: []types.APIKeyKnowledgeBaseScope{
+					{TenantID: 1, KnowledgeBaseID: "kb", SourceType: types.APIKeyKBSourceOwned},
+				},
 			}},
 		}
 		require.NoError(t, repository.NewTenantAPIKeyRepository(tx).CreateAPIKey(viewer, key))
@@ -225,10 +265,19 @@ func exercisePublishedSnapshotReaderMatrix(t *testing.T, f *personalRecoveryFixt
 	require.Zero(t, remoteCalls.Load(), "published reads must never call Feishu, including unavailable/deleted sources")
 	// Receipt and index identity remain unchanged throughout rolled-back faults.
 	var receipt types.TaskPendingOp
-	require.NoError(t, f.db.Where("scope=? AND scope_id=?", types.PersonalExactReceiptScope, knowledge).Take(&receipt).Error)
+	require.NoError(
+		t,
+		f.db.Where("scope=? AND scope_id=?", types.PersonalExactReceiptScope, knowledge).Take(&receipt).Error,
+	)
 	var published types.PersonalExactReceipt
 	require.NoError(t, json.Unmarshal(receipt.Payload, &published))
 	require.Equal(t, knowledge, published.KnowledgeID)
 	require.NoError(t, f.p.verifyExactPublishedDatabase(viewer, published))
-	t.Log(fmt.Sprintf("published snapshot matrix: %d cases; remote Feishu requests=0; original knowledge=%s", len(conditions)+1, knowledge))
+	t.Log(
+		fmt.Sprintf(
+			"published snapshot matrix: %d cases; remote Feishu requests=0; original knowledge=%s",
+			len(conditions)+1,
+			knowledge,
+		),
+	)
 }

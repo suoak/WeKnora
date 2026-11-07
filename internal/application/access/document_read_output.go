@@ -65,7 +65,8 @@ func HasDocumentReadOutput(ctx context.Context) bool {
 
 func (out *documentReadOutput) matches(ctx context.Context) error {
 	p, ok := ctx.Value(types.PrincipalContextKey).(types.Principal)
-	if !ok || !reflect.DeepEqual(p, out.principal) || !reflect.DeepEqual(types.CallerFromContext(ctx), out.caller) || !reflect.DeepEqual(normalizedReadCredential(ctx), out.credential) {
+	if !ok || !reflect.DeepEqual(p, out.principal) || !reflect.DeepEqual(types.CallerFromContext(ctx), out.caller) ||
+		!reflect.DeepEqual(normalizedReadCredential(ctx), out.credential) {
 		return ErrUnauthorized
 	}
 	return nil

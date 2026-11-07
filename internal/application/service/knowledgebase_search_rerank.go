@@ -258,7 +258,8 @@ func (s *knowledgeBaseService) enrichRerankedResults(
 	pool []*types.IndexWithScore,
 	reranked []*types.SearchResult,
 ) ([]*types.SearchResult, error) {
-	if _, _, _, _, exact := types.ExactPublishedDocumentIdentity(ctx); !exact && s.personalRecovery != nil && len(reranked) > 0 {
+	if _, _, _, _, exact := types.ExactPublishedDocumentIdentity(ctx); !exact && s.personalRecovery != nil &&
+		len(reranked) > 0 {
 		bundle, err := s.personalRecovery.preparePublishedReadBundle(ctx, reranked)
 		if err != nil {
 			return nil, err

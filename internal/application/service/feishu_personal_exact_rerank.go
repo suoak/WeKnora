@@ -58,7 +58,12 @@ func (m *exactPublishedReranker) Rerank(
 	return results, nil
 }
 
-func (s *modelService) publishedBundleReranker(ctx context.Context, model rerank.Reranker, query string, results []*types.SearchResult) (rerank.Reranker, error) {
+func (s *modelService) publishedBundleReranker(
+	ctx context.Context,
+	model rerank.Reranker,
+	query string,
+	results []*types.SearchResult,
+) (rerank.Reranker, error) {
 	if s.personalRecovery == nil || len(results) == 0 {
 		return model, nil
 	}
@@ -88,14 +93,25 @@ func (s *modelService) publishedBundleReranker(ctx context.Context, model rerank
 	if len(passages) == 0 {
 		return nil, errPersonalExactDocument
 	}
-	return &exactPublishedReranker{Reranker: model, query: query, passages: passages, tenant: types.MustTenantIDFromContext(ctx), live: bundle.validate}, nil
+	return &exactPublishedReranker{
+		Reranker: model,
+		query:    query,
+		passages: passages,
+		tenant:   types.MustTenantIDFromContext(ctx),
+		live:     bundle.validate,
+	}, nil
 }
 
 func (s *knowledgeBaseService) exactRerankModel(
 	ctx context.Context, model rerank.Reranker, query string, candidates []*types.SearchResult,
 ) (rerank.Reranker, error) {
 	if s.personalRecovery != nil {
-		return (&modelService{personalRecovery: s.personalRecovery}).publishedBundleReranker(ctx, model, query, candidates)
+		return (&modelService{personalRecovery: s.personalRecovery}).publishedBundleReranker(
+			ctx,
+			model,
+			query,
+			candidates,
+		)
 	}
 	_, tenant, knowledge, kb, exact := types.ExactPublishedDocumentIdentity(ctx)
 	if !exact {

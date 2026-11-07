@@ -17,11 +17,15 @@ func publishedViewerDenied(reason string, cause error) error {
 }
 
 // Every read boundary checks the reader, never the original importer's account.
-func (p *PersonalRecovery) checkExactPublishedViewer(ctx context.Context, receipt types.PersonalExactReceipt) (*types.KnowledgeBase, error) {
+func (p *PersonalRecovery) checkExactPublishedViewer(
+	ctx context.Context,
+	receipt types.PersonalExactReceipt,
+) (*types.KnowledgeBase, error) {
 	caller := types.CallerFromContext(ctx)
 	var member types.TenantMember
 	if err := p.service.db.WithContext(ctx).Where(
-		"user_id=? AND tenant_id=? AND status=? AND deleted_at IS NULL", caller.UserID, caller.TenantID, types.TenantMemberStatusActive,
+		"user_id=? AND tenant_id=? AND status=? AND deleted_at IS NULL",
+		caller.UserID, caller.TenantID, types.TenantMemberStatusActive,
 	).Take(&member).Error; err != nil {
 		return nil, publishedViewerDenied("membership_lookup", err)
 	}
@@ -65,7 +69,8 @@ EXISTS(SELECT 1 FROM tenants WHERE id=? AND status='active' AND deleted_at IS NU
 			if entry.APIKeyID != key.ID || entry.TenantID != caller.TenantID ||
 				(entry.SourceType != types.APIKeyKBSourceOwned && entry.SourceType != types.APIKeyKBSourceShared) ||
 				(entry.SourceType == types.APIKeyKBSourceShared && (entry.KBShareID == nil || *entry.KBShareID == "")) ||
-				(entry.KnowledgeBaseID == receipt.KnowledgeBaseID && entry.SourceType == types.APIKeyKBSourceOwned && receipt.TenantID != caller.TenantID) {
+				(entry.KnowledgeBaseID == receipt.KnowledgeBaseID &&
+					entry.SourceType == types.APIKeyKBSourceOwned && receipt.TenantID != caller.TenantID) {
 				return nil, access.ErrForbidden
 			}
 			scope.KnowledgeBaseIDs = append(scope.KnowledgeBaseIDs, entry.KnowledgeBaseID)
@@ -79,7 +84,8 @@ EXISTS(SELECT 1 FROM tenants WHERE id=? AND status='active' AND deleted_at IS NU
 	if kb.TenantID != receipt.TenantID || kb.IsTemporary {
 		return nil, publishedViewerDenied("kb_binding", nil)
 	}
-	if _, err = access.ResolveKB(ctx, access.KBRequest{Caller: caller}, kb, types.OrgRoleViewer, p.shares, nil); err != nil {
+	if _, err = access.ResolveKB(ctx, access.KBRequest{Caller: caller},
+		kb, types.OrgRoleViewer, p.shares, nil); err != nil {
 		return nil, err
 	}
 	return kb, nil

@@ -71,7 +71,8 @@ func ordinaryLegacySourceCandidatePredicate(ctx context.Context) string {
 	// candidate selection, before returning content, snippets or scores.
 	const receiptGate = `NOT EXISTS (SELECT 1 FROM task_pending_ops exact_r
  WHERE exact_r.scope='personal_exact_receipt_v1' AND exact_r.scope_id=embeddings.knowledge_id)
- AND NOT EXISTS (SELECT 1 FROM knowledges personal_k WHERE personal_k.id=embeddings.knowledge_id AND personal_k.channel='feishu_personal') AND `
+ AND NOT EXISTS (SELECT 1 FROM knowledges personal_k ` +
+		`WHERE personal_k.id=embeddings.knowledge_id AND personal_k.channel='feishu_personal') AND `
 	tenant := types.WorkspaceWebReadTenant(ctx)
 	if tenant == 0 {
 		return receiptGate + legacyStrictSourceCandidatePredicate
