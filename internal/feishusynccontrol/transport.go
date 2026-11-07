@@ -136,7 +136,10 @@ func (h *controlHook) DialHook(next redis.DialHook) redis.DialHook {
 }
 
 func (h *controlHook) bound(ctx context.Context) context.Context {
-	if _, ok := ctx.Deadline(); ok {
+	// Only bare Background/TODO calls from legacy clients may borrow Step.
+	// Requests and scoped tasks retain their own cancellation even when they
+	// have no deadline; a concurrent Step must never authorize or cancel them.
+	if _, ok := ctx.Deadline(); ok || (ctx != context.Background() && ctx != context.TODO()) {
 		return ctx
 	}
 	h.transport.mu.Lock()
