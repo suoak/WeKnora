@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/Tencent/WeKnora/internal/feishusafety"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/hibiken/asynq"
 )
@@ -12,6 +13,28 @@ type dataSourceIngestError struct{ cause error }
 
 func (e *dataSourceIngestError) Error() string { return "data source item not durably accepted" }
 func (e *dataSourceIngestError) Unwrap() error { return e.cause }
+
+// Retry a complete all-failed inventory only when every failure is known
+// temporary. A sampled error list cannot establish that an unseen document
+// was not rejected for authorization or integrity reasons.
+func temporarySyncItemFailure(result *types.SyncResult) error {
+	if result == nil || result.Total == 0 || result.Failed != result.Total ||
+		len(result.Errors) != result.Failed {
+		return nil
+	}
+	var causes []error
+	for _, item := range result.Errors {
+		switch item.Code {
+		case "source_verification_unavailable":
+			causes = append(causes, feishusafety.ErrSourceValidationUnavailable)
+		case "embedding_budget_busy":
+			causes = append(causes, feishusafety.ErrBudgetBusy)
+		default:
+			return nil
+		}
+	}
+	return errors.Join(causes...)
+}
 
 func (s *DataSourceService) recordUnacceptedSync(
 	ctx context.Context,
