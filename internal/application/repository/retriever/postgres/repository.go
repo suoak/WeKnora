@@ -362,7 +362,9 @@ func (g *pgRepository) keywordsRetrieve(
 			return nil, err
 		}
 		sql := "WITH lexical AS MATERIALIZED (SELECT embeddings.*,paradedb.score(id) AS score FROM embeddings WHERE " + lexicalWhere + ") " + outer.SQL.String()
-		err = query.Raw(sql, vars...).Scan(&embeddingDBList).Error
+		// Force positional expression handling: Raw otherwise interprets the
+		// native @@@ operator as named-argument syntax and drops dollar bindings.
+		err = query.Raw("?", clause.Expr{SQL: sql, Vars: vars}).Scan(&embeddingDBList).Error
 	} else {
 		err = query.Clauses(conds...).Select(columns).Limit(int(params.TopK)).Find(&embeddingDBList).Error
 	}

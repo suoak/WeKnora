@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func TestExactPublishedLexicalNativeCandidateScope(t *testing.T) {
@@ -50,7 +51,10 @@ USING bm25(id,content,knowledge_base_id,knowledge_id) WITH(key_field='id')`).Err
 	require.Equal(t, 3, checks, "issuance, before metadata selection, and before lexical query")
 	cte := "WITH lexical AS MATERIALIZED (SELECT embeddings.*,paradedb.score(id) AS score FROM embeddings WHERE " + where + ") "
 	var ids []int64
-	require.NoError(t, db.Raw(cte+`SELECT id FROM lexical WHERE allowed
+	raw := func(query string, args ...interface{}) *gorm.DB {
+		return db.Raw("?", clause.Expr{SQL: query, Vars: args})
+	}
+	require.NoError(t, raw(cte+`SELECT id FROM lexical WHERE allowed
 AND knowledge_base_id='kb' AND knowledge_id='doc' ORDER BY score DESC,id LIMIT 1`, vars...).Scan(&ids).Error)
 	require.Equal(t, []int64{1}, ids, "the denied candidate cannot consume the authorized limit")
 	type scoredRow struct {
@@ -58,11 +62,11 @@ AND knowledge_base_id='kb' AND knowledge_id='doc' ORDER BY score DESC,id LIMIT 1
 		Score float64
 	}
 	var scopedScores, textScores []scoredRow
-	require.NoError(t, db.Raw(cte+"SELECT id,score FROM lexical ORDER BY id", vars...).Scan(&scopedScores).Error)
+	require.NoError(t, raw(cte+"SELECT id,score FROM lexical ORDER BY id", vars...).Scan(&scopedScores).Error)
 	require.NoError(t, db.Raw("WITH all_matches AS MATERIALIZED (SELECT id,paradedb.score(id) score FROM embeddings WHERE content ||| ?) SELECT id,score FROM all_matches WHERE id IN (1,2) ORDER BY id", "needle").Scan(&textScores).Error)
 	require.Equal(t, textScores, scopedScores, "numeric metadata must not boost or otherwise change text relevance")
 	var plan []byte
-	require.NoError(t, db.Raw("EXPLAIN(FORMAT JSON) "+cte+"SELECT count(*) FROM lexical", vars...).Row().Scan(&plan))
+	require.NoError(t, raw("EXPLAIN(FORMAT JSON) "+cte+"SELECT count(*) FROM lexical", vars...).Row().Scan(&plan))
 	var decoded []map[string]interface{}
 	require.NoError(t, json.Unmarshal(plan, &decoded))
 	encoded, err := json.Marshal(decoded)
