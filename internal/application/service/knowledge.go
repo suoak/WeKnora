@@ -973,7 +973,12 @@ func (s *knowledgeService) GetKnowledgeBatch(ctx context.Context,
 func (s *knowledgeService) GetKnowledgeBatchWithSharedAccess(ctx context.Context,
 	tenantID uint64, ids []string,
 ) ([]*types.Knowledge, error) {
+	// Catalog polling is metadata-only even for staging or invalid receipts.
+	// It must not be promoted to a published body read by the batch adapter.
 	if rows, handled, err := s.exactPublicMetadataBatch(ctx, tenantID, ids); handled {
+		return rows, err
+	}
+	if rows, handled, err := s.exactPublishedSharedBatch(ctx, tenantID, ids); handled {
 		return rows, err
 	}
 	if s.DocumentACLReadEnabled() {

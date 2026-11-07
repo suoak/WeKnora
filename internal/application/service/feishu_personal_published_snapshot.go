@@ -6,7 +6,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
+	"os"
 	"reflect"
 	"strings"
 
@@ -22,6 +24,13 @@ func (p *PersonalRecovery) prepareExactPublishedSnapshot(
 	ctx context.Context, receipt types.PersonalExactReceipt,
 ) (snapshot *personalExactDocument, refusal error) {
 	defer func() {
+		// A missing asset is an unverified snapshot. An OS/storage access fault
+		// is an infrastructure error, even when an inner proof joined it with
+		// the unverified sentinel. Neither path releases any document content.
+		if infrastructure := publishedSnapshotStorageFailure(refusal); infrastructure != nil {
+			refusal = infrastructure
+			return
+		}
 		if errors.Is(refusal, gorm.ErrRecordNotFound) || errors.Is(refusal, repository.ErrPersonalIdentity) ||
 			errors.Is(refusal, repository.ErrPersonalFence) {
 			refusal = errors.Join(errPersonalExactDocument, refusal)
@@ -139,4 +148,12 @@ func (p *PersonalRecovery) prepareExactPublishedSnapshot(
 		return nil, errPersonalExactDocument
 	}
 	return proof, nil
+}
+
+func publishedSnapshotStorageFailure(err error) error {
+	var pathError *os.PathError
+	if errors.As(err, &pathError) && !errors.Is(pathError, os.ErrNotExist) {
+		return fmt.Errorf("published_snapshot_storage_unavailable: %w", pathError)
+	}
+	return nil
 }

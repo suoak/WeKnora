@@ -1,8 +1,13 @@
 package service
 
 import (
+	"errors"
+	"os"
 	"sync"
 	"testing"
+
+	"github.com/Tencent/WeKnora/internal/application/access"
+	"gorm.io/gorm"
 
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
@@ -67,4 +72,24 @@ func TestPersonalPublishedViewerUsesCurrentKBPermission(t *testing.T) {
 	require.NoError(t, f.db.Exec("UPDATE knowledge_bases SET is_temporary=true WHERE id='kb'").Error)
 	_, err = f.p.checkExactPublishedViewer(viewer, receipt)
 	require.Error(t, err, "publication cannot turn a temporary KB into a durable shared asset")
+}
+
+func TestPersonalPublishedViewerPreservesInfrastructureFailure(t *testing.T) {
+	failure := errors.New("database unavailable")
+	err := publishedViewerDenied("membership_lookup", failure)
+	require.ErrorIs(t, err, failure)
+	require.NotErrorIs(t, err, access.ErrForbidden)
+	require.ErrorIs(t, publishedViewerDenied("membership_lookup", gorm.ErrRecordNotFound), access.ErrForbidden)
+	require.ErrorIs(t, publishedViewerDenied("membership_role", nil), access.ErrForbidden)
+}
+
+func TestPersonalPublishedSnapshotStorageFailureClassification(t *testing.T) {
+	unavailable := &os.PathError{Op: "open", Path: "/private/asset", Err: os.ErrPermission}
+	err := publishedSnapshotStorageFailure(errors.Join(errPersonalExactDocument, unavailable))
+	require.ErrorIs(t, err, os.ErrPermission)
+	require.NotErrorIs(t, err, errPersonalExactDocument)
+	missing := &os.PathError{Op: "open", Path: "/private/asset", Err: os.ErrNotExist}
+	require.NoError(t, publishedSnapshotStorageFailure(errors.Join(errPersonalExactDocument, missing)),
+		"a genuinely missing file remains a snapshot integrity refusal")
+	require.NoError(t, publishedSnapshotStorageFailure(nil))
 }
