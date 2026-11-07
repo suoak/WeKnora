@@ -55,9 +55,11 @@ func (h consumerReadFailureHook) DialHook(next redis.DialHook) redis.DialHook {
 		return next(ctx, network, address)
 	}
 }
+
 func (h consumerReadFailureHook) ProcessPipelineHook(next redis.ProcessPipelineHook) redis.ProcessPipelineHook {
 	return next
 }
+
 func (h consumerReadFailureHook) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
 	return func(ctx context.Context, cmd redis.Cmder) error {
 		if cmd.Name() == "get" && strings.HasPrefix(fmt.Sprint(cmd.Args()[1]), "asynq:servers:") {

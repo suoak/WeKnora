@@ -15,7 +15,8 @@ func TestTemporarySyncItemFailureRequiresCompleteKnownInventory(t *testing.T) {
 		},
 	}), feishusafety.ErrSourceValidationUnavailable)
 	for _, result := range []*types.SyncResult{
-		nil, {},
+		nil,
+		{},
 		{Total: 2, Failed: 1, Errors: []types.SyncItemError{{Code: "source_verification_unavailable"}}},
 		{Total: 2, Failed: 2, Errors: []types.SyncItemError{{Code: "source_verification_unavailable"}}},
 		{Total: 2, Failed: 2, Errors: []types.SyncItemError{

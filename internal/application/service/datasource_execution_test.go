@@ -167,8 +167,10 @@ func syncServiceSuite(t *testing.T, dialect string) {
 			require.NoError(t, err)
 			require.True(t, claimed)
 			ctx := types.WithSyncExecution(types.WithTaskRetryMetadata(context.Background(), retry, 5), owner)
-			result := &types.SyncResult{Total: 1, Failed: 1,
-				Errors: []types.SyncItemError{{Code: "source_verification_unavailable"}}}
+			result := &types.SyncResult{
+				Total: 1, Failed: 1,
+				Errors: []types.SyncItemError{{Code: "source_verification_unavailable"}},
+			}
 			cause := temporarySyncItemFailure(result)
 			require.ErrorIs(t, cause, feishusafety.ErrSourceValidationUnavailable)
 			err = svc.recordUnacceptedSync(ctx, ds, log, result, cause, false)
