@@ -15,9 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func startProbeConsumer(t *testing.T, f *controlFixture) {
+func startProbeConsumer(t *testing.T, client *redis.Client) {
 	t.Helper()
-	server := asynq.NewServer(asynq.RedisClientOpt{Addr: f.server.Addr()}, asynq.Config{
+	server := asynq.NewServer(asynq.RedisClientOpt{Addr: client.Options().Addr, DB: client.Options().DB}, asynq.Config{
 		Concurrency: 1, Queues: map[string]int{"sync": 1, ApprovedSyncQueue: 1},
 		ShutdownTimeout: time.Second,
 	})
@@ -26,12 +26,12 @@ func startProbeConsumer(t *testing.T, f *controlFixture) {
 }
 
 func TestConsumerProbeDoesNotBorrowAnUnrelatedControllerDeadline(t *testing.T) {
-	f := newControlFixture(t)
-	startProbeConsumer(t, f)
+	f := newRecoveryFixture(t)
+	startProbeConsumer(t, f.r)
 	require.Eventually(t, func() bool {
-		return f.client.ZCard(context.Background(), "asynq:servers").Val() == 1
+		return f.r.ZCard(context.Background(), "asynq:servers").Val() == 1
 	}, time.Second, time.Millisecond)
-	client, transport := NewControlClient(f.client)
+	client, transport := NewControlClient(f.r)
 	t.Cleanup(func() { _ = client.Close() })
 	step, cancelStep := context.WithCancel(context.Background())
 	cancelStep()
@@ -68,14 +68,14 @@ func (h consumerReadFailureHook) ProcessHook(next redis.ProcessHook) redis.Proce
 }
 
 func TestConsumerProbePreservesSkippedMetadataReadFailures(t *testing.T) {
-	f := newControlFixture(t)
-	startProbeConsumer(t, f)
+	f := newRecoveryFixture(t)
+	startProbeConsumer(t, f.r)
 	require.Eventually(t, func() bool {
-		return f.client.ZCard(context.Background(), "asynq:servers").Val() == 1
+		return f.r.ZCard(context.Background(), "asynq:servers").Val() == 1
 	}, time.Second, time.Millisecond)
 	failed := errors.New("synthetic metadata transport failure")
-	f.client.AddHook(consumerReadFailureHook{cause: failed})
-	_, err := ApprovedConsumers(f.client)(context.Background())
+	f.r.AddHook(consumerReadFailureHook{cause: failed})
+	_, err := ApprovedConsumers(f.r)(context.Background())
 	require.ErrorIs(t, err, failed)
 	require.NotErrorIs(t, err, errConsumerAbsent)
 }
