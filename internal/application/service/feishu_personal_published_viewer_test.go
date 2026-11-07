@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"os"
 	"sync"
 	"testing"
 
@@ -80,4 +81,15 @@ func TestPersonalPublishedViewerPreservesInfrastructureFailure(t *testing.T) {
 	require.NotErrorIs(t, err, access.ErrForbidden)
 	require.ErrorIs(t, publishedViewerDenied("membership_lookup", gorm.ErrRecordNotFound), access.ErrForbidden)
 	require.ErrorIs(t, publishedViewerDenied("membership_role", nil), access.ErrForbidden)
+}
+
+func TestPersonalPublishedSnapshotStorageFailureClassification(t *testing.T) {
+	unavailable := &os.PathError{Op: "open", Path: "/private/asset", Err: os.ErrPermission}
+	err := publishedSnapshotStorageFailure(errors.Join(errPersonalExactDocument, unavailable))
+	require.ErrorIs(t, err, os.ErrPermission)
+	require.NotErrorIs(t, err, errPersonalExactDocument)
+	missing := &os.PathError{Op: "open", Path: "/private/asset", Err: os.ErrNotExist}
+	require.NoError(t, publishedSnapshotStorageFailure(errors.Join(errPersonalExactDocument, missing)),
+		"a genuinely missing file remains a snapshot integrity refusal")
+	require.NoError(t, publishedSnapshotStorageFailure(nil))
 }
