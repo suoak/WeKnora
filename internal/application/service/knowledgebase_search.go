@@ -27,8 +27,10 @@ const maxRetrievalPoolSize = 500
 // redundant embedding API calls.
 func (s *knowledgeBaseService) GetQueryEmbedding(ctx context.Context, kbID string, queryText string) ([]float32, error) {
 	if s.documentACL != nil && s.documentACL.enabled {
-		return nil, access.ErrForbidden
-	} // HOLD until candidate filtering/provenance is certified.
+		if _, _, _, _, exact := types.ExactPublishedDocumentIdentity(ctx); !exact {
+			return nil, access.ErrForbidden
+		}
+	}
 
 	kb, err := s.exactSearchKnowledgeBase(ctx, kbID)
 	if err != nil {
@@ -132,10 +134,6 @@ func (s *knowledgeBaseService) HybridSearch(ctx context.Context,
 	id string,
 	params types.SearchParams,
 ) ([]*types.SearchResult, error) {
-	if s.documentACL != nil && s.documentACL.enabled {
-		return nil, access.ErrForbidden
-	} // HOLD until candidate filtering/provenance is certified.
-
 	if handled, results, err := s.exactRecoveryHybridSearch(ctx, id, params); handled {
 		return results, err
 	}
@@ -144,6 +142,11 @@ func (s *knowledgeBaseService) HybridSearch(ctx context.Context,
 	ctx, err = s.exactSearchContext(ctx, id, params)
 	if err != nil {
 		return nil, err
+	}
+	if s.documentACL != nil && s.documentACL.enabled {
+		if _, _, _, _, exact := types.ExactPublishedDocumentIdentity(ctx); !exact {
+			return nil, access.ErrForbidden
+		}
 	}
 
 	// Normalize once, before anything reads MatchCount. params is a value

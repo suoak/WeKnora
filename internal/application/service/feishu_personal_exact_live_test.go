@@ -246,11 +246,11 @@ VALUES (?,?,?,?,?,?,'hold')`, uuid.NewString(), tenant.ID, kb.ID, heldSource, "i
 	)
 	require.NoError(t, personal.Disconnect(ctx)) // Clone DB only; no remote revocation endpoint.
 	_, err = personal.recovery.exactPublishedReadContext(ctx, m.KnowledgeID)
-	require.Error(t, err)
+	require.NoError(t, err)
 	_, err = pgretrieve.NewPostgresRetrieveEngineRepository(db).Retrieve(read, types.RetrieveParams{
 		KnowledgeBaseIDs: []string{kb.ID}, Query: "docx", TopK: 10, RetrieverType: types.KeywordsRetrieverType,
 	})
-	require.Error(t, err, "an issued serving proof must reject the normal disconnect")
+	require.NoError(t, err, "disconnect must preserve published KnowHub reads")
 	require.NoError(
 		t,
 		ks.ProcessDocument(context.Background(), asynq.NewTask(op.TaskType, mustMarshalPersonalTask(t, intent.Task))),
@@ -261,7 +261,7 @@ VALUES (?,?,?,?,?,?,'hold')`, uuid.NewString(), tenant.ID, kb.ID, heldSource, "i
 	require.Equal(t, chunks, afterChunks)
 	evidence, err := json.Marshal(map[string]any{
 		"real_oauth_acl_revision_export": true, "real_models": true, "chunk_rows": chunks, "vector_rows": vectors,
-		"publication_verified": true, "authorized_retrieval_verified": true, "disconnect_denied_read": true,
+		"publication_verified": true, "authorized_retrieval_verified": true, "disconnect_preserved_read": true,
 		"old_held_source_denied": true, "duplicate_delivery_unchanged": true, "production_writes": false,
 	})
 	require.NoError(t, err)

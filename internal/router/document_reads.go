@@ -22,27 +22,24 @@ func (g *rbacGuards) DocumentReadFromKnowledge(param string) gin.HandlerFunc {
 		}); ok {
 			ctx, handled, err := exact.ExactPublishedReadContext(c.Request.Context(), c.Param(param))
 			if err != nil {
-				failure := apperrors.NewInternalServerError("Document source verification failed")
+				failure := apperrors.NewInternalServerError("Document publication verification failed")
 				if errors.Is(err, access.ErrForbidden) || errors.Is(err, access.ErrUnauthorized) ||
 					errors.Is(err, types.ErrExactDocumentScope) || errors.Is(err, types.ErrLegacySourceRestricted) {
 					failure = apperrors.NewForbiddenError("Document read denied")
 				}
-				if errors.Is(err, service.ErrFeishuReconnect) {
-					message := "个人飞书连接已失效，" +
-						"请由原导入者在账户设置中重新连接飞书；" +
-						"原文档与已发布内容已保留。"
+				if errors.Is(err, service.ErrPersonalPublishedSnapshotUnverified) {
+					message := "文档尚未发布或本地发布副本未通过完整性核验，请联系管理员核查。"
 					failure = apperrors.NewForbiddenError(message).WithDetails(map[string]any{
-						"reason":    "personal_feishu_reauthorization_required",
-						"action":    "reconnect_original_importer",
+						"reason":    "personal_published_snapshot_unverified",
+						"action":    "inspect_published_snapshot",
 						"retryable": false,
 					})
 				} else if errors.Is(err, core.ErrTransient) || errors.Is(err, core.ErrRateLimited) ||
 					errors.Is(err, context.DeadlineExceeded) {
-					message := "飞书来源核验暂时不可用，请稍后重试；" +
-						"原文档与已发布内容已保留。"
+					message := "本地发布副本核验暂时不可用，请稍后重试；文档内容已保留。"
 					failure = apperrors.NewServiceUnavailableError(message)
 					failure = failure.WithDetails(map[string]any{
-						"reason":    "personal_feishu_verification_temporarily_unavailable",
+						"reason":    "personal_published_verification_temporarily_unavailable",
 						"retryable": true,
 					})
 				}

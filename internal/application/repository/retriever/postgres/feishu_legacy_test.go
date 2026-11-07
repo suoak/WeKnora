@@ -33,12 +33,12 @@ func legacyCandidateAccessSuite(t *testing.T, db *gorm.DB) {
 		`CREATE TABLE embeddings(knowledge_id text,knowledge_base_id text)`,
 		`CREATE TABLE task_pending_ops(scope text,scope_id text)`,
 		`CREATE TABLE knowledge_bases(id text,tenant_id bigint)`,
-		`CREATE TABLE knowledges(id text,deleted_at timestamp)`,
+		`CREATE TABLE knowledges(id text,deleted_at timestamp,channel text NOT NULL DEFAULT 'web')`,
 		`CREATE TABLE data_sources(knowledge_base_id text,legacy_access_state text)`,
 		`CREATE TABLE feishu_legacy_resources(knowledge_base_id text,knowledge_id text,state text)`,
 		`INSERT INTO embeddings VALUES('doc','kb')`,
 		`INSERT INTO knowledge_bases VALUES('kb',1)`,
-		`INSERT INTO knowledges VALUES('doc',NULL)`,
+		`INSERT INTO knowledges(id,deleted_at) VALUES('doc',NULL)`,
 		`INSERT INTO data_sources VALUES('kb','hold')`,
 	} {
 		require.NoError(t, db.Exec(query).Error)
@@ -54,6 +54,9 @@ func legacyCandidateAccessSuite(t *testing.T, db *gorm.DB) {
 	// The candidate query must honor the same browser rights as document reads,
 	// without granting those rights to MCP, API keys or a different workspace.
 	require.True(t, allowed(web), "source sync hold must not hide existing browser search results")
+	require.NoError(t, db.Exec(`UPDATE knowledges SET channel='feishu_personal'`).Error)
+	require.False(t, allowed(web), "unreceipted personal embeddings must not enter ordinary candidates")
+	require.NoError(t, db.Exec(`UPDATE knowledges SET channel='web'`).Error)
 	require.False(t, allowed(context.Background()))
 	key := types.WithTenantAPIKeyScope(web, types.TenantAPIKeyScope{KeyID: 1, ScopeType: types.APIKeyScopeUserMCP})
 	require.False(t, allowed(key))

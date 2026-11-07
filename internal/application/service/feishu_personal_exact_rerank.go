@@ -18,6 +18,7 @@ type exactPublishedReranker struct {
 	query    string
 	passages []string
 	tenant   uint64
+	live     func(context.Context) error
 }
 
 func (m *exactPublishedReranker) MaxPassageRunes(query string) int {
@@ -31,6 +32,9 @@ func (m *exactPublishedReranker) Rerank(
 		return nil, errPersonalExactDocument
 	}
 	live := func(current context.Context) error {
+		if m.live != nil {
+			return m.live(current)
+		}
 		present, err := types.CheckExactPublishedDocumentRead(current)
 		if err != nil {
 			return err
@@ -54,9 +58,61 @@ func (m *exactPublishedReranker) Rerank(
 	return results, nil
 }
 
+func (s *modelService) publishedBundleReranker(
+	ctx context.Context,
+	model rerank.Reranker,
+	query string,
+	results []*types.SearchResult,
+) (rerank.Reranker, error) {
+	if s.personalRecovery == nil || len(results) == 0 {
+		return model, nil
+	}
+	bundle, err := s.personalRecovery.preparePublishedReadBundle(ctx, results)
+	if err != nil || bundle == nil {
+		return model, err
+	}
+	canonical, err := bundle.canonicalResults(ctx, results)
+	if err != nil {
+		return nil, err
+	}
+	var passages []string
+	limit := rerank.MaxPassageRunes(model, query)
+	for i, result := range canonical {
+		passage := reranking.ModelPassage(ctx, result)
+		if passage != reranking.ModelPassage(ctx, results[i]) {
+			return nil, errPersonalExactDocument
+		}
+		if strings.TrimSpace(passage) == "" {
+			continue
+		}
+		if limit > 0 && len([]rune(passage)) > limit {
+			passage = string([]rune(passage)[:limit])
+		}
+		passages = append(passages, passage)
+	}
+	if len(passages) == 0 {
+		return nil, errPersonalExactDocument
+	}
+	return &exactPublishedReranker{
+		Reranker: model,
+		query:    query,
+		passages: passages,
+		tenant:   types.MustTenantIDFromContext(ctx),
+		live:     bundle.validate,
+	}, nil
+}
+
 func (s *knowledgeBaseService) exactRerankModel(
 	ctx context.Context, model rerank.Reranker, query string, candidates []*types.SearchResult,
 ) (rerank.Reranker, error) {
+	if s.personalRecovery != nil {
+		return (&modelService{personalRecovery: s.personalRecovery}).publishedBundleReranker(
+			ctx,
+			model,
+			query,
+			candidates,
+		)
+	}
 	_, tenant, knowledge, kb, exact := types.ExactPublishedDocumentIdentity(ctx)
 	if !exact {
 		return model, nil

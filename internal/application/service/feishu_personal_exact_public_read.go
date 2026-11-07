@@ -17,9 +17,6 @@ func (s *knowledgeService) exactPublicKnowledgeFile(
 	ctx context.Context,
 	id string,
 ) (io.ReadCloser, string, bool, error) {
-	if !exactPersonalRecoveryEnabled() || s.DocumentACLReadEnabled() {
-		return nil, "", false, nil
-	}
 	read := ctx
 	_, _, knowledge, _, exact := types.ExactPublishedDocumentIdentity(ctx)
 	if exact && knowledge != id {
@@ -32,8 +29,8 @@ func (s *knowledgeService) exactPublicKnowledgeFile(
 			return nil, "", exact, err
 		}
 	}
-	// This full live check includes the current viewer, source OAuth ACL and
-	// revision, file/manifest SHA256, unique binding and published DB receipt.
+	// This full live check includes the current KnowHub viewer, local published
+	// version, file/manifest SHA256, unique binding and published DB receipt.
 	// It refreshes the immutable bytes below; no path is reopened afterwards.
 	if _, err := types.CheckExactPublishedDocumentRead(read); err != nil {
 		return nil, "", true, err
@@ -61,9 +58,6 @@ func (s *knowledgeService) ExactPublishedReadContext(ctx context.Context, id str
 // ReadExactPublishedPage still performs full live validation before selection
 // and again before returning any content. Row hooks retain the exact target.
 func (s *knowledgeService) readExactPublicKnowledge(ctx context.Context, id string) (*types.Knowledge, bool, error) {
-	if !exactPersonalRecoveryEnabled() || s.DocumentACLReadEnabled() {
-		return nil, false, nil
-	}
 	read := ctx
 	_, tenant, knowledge, _, exact := types.ExactPublishedDocumentIdentity(ctx)
 	if exact && knowledge != id {
@@ -90,9 +84,6 @@ func (s *knowledgeService) readExactPublicKnowledge(ctx context.Context, id stri
 }
 
 func (s *knowledgeService) exactPublicReadContext(ctx context.Context, id string) (context.Context, bool, error) {
-	if !exactPersonalRecoveryEnabled() || s.DocumentACLReadEnabled() {
-		return ctx, false, nil
-	}
 	if _, _, knowledge, _, ok := types.ExactPublishedDocumentIdentity(ctx); ok {
 		if knowledge != id {
 			return ctx, true, types.ErrExactDocumentScope
@@ -110,6 +101,15 @@ func (s *knowledgeService) exactPublicReadContext(ctx context.Context, id string
 		return ctx, false, err
 	}
 	if count == 0 {
+		var personal bool
+		if err := p.service.db.WithContext(ctx).
+			Raw("SELECT EXISTS(SELECT 1 FROM knowledges WHERE id=? AND channel='feishu_personal')", id).
+			Scan(&personal).Error; err != nil {
+			return ctx, true, err
+		}
+		if personal {
+			return ctx, true, errPersonalExactDocument
+		}
 		return ctx, false, nil
 	}
 	guarded, err := p.exactPublishedReadContext(ctx, id)
@@ -122,9 +122,6 @@ func (s *knowledgeService) exactPublicReadContext(ctx context.Context, id string
 func (s *knowledgeService) exactPublicKnowledgePage(ctx context.Context, kb string,
 	page *types.Pagination, filter types.KnowledgeListFilter,
 ) (*types.PageResult, bool, error) {
-	if !exactPersonalRecoveryEnabled() || s.DocumentACLReadEnabled() {
-		return nil, false, nil
-	}
 	p, ok := s.personalRecovery.(*PersonalRecovery)
 	if !ok {
 		return nil, false, nil
@@ -140,6 +137,11 @@ func (s *knowledgeService) exactPublicKnowledgePage(ctx context.Context, kb stri
 	}
 	owner, err := p.loadAuthorizationKB(ctx, kb)
 	if err != nil {
+		return nil, true, err
+	}
+	if _, err := p.checkExactPublishedViewer(ctx, types.PersonalExactReceipt{
+		TenantID: owner.TenantID, KnowledgeBaseID: owner.ID,
+	}); err != nil {
 		return nil, true, err
 	}
 	tenant, valid := types.TenantIDFromContext(ctx)

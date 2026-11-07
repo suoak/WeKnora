@@ -695,9 +695,9 @@ VALUES ('isolated-held-resource', ?, ?, ?, 'held-sibling', 'hold', 'local://held
 	require.NoError(t, f.db.Table("feishu_personal_grant_epochs").Where("epoch=?", consumer.source.grantEpoch).
 		Update("epoch", "isolated-serving-revoked").Error)
 	_, err = pg.Retrieve(read, params)
-	require.Error(t, err, "a previously issued serving scope must honor live grant revocation")
+	require.NoError(t, err, "source grant rotation must preserve published retrieval")
 	_, err = f.ks.GetKnowledgeByID(viewer, consumer.source.knowledge)
-	require.Error(t, err, "normal document detail must honor live grant revocation")
+	require.NoError(t, err, "source grant rotation must preserve published detail")
 	metadataPage, err := f.ks.ListPagedKnowledgeByKnowledgeBaseID(viewer, consumer.source.kb,
 		&types.Pagination{Page: 1, PageSize: 10}, types.KnowledgeListFilter{Keyword: "original"})
 	require.NoError(t, err, "source revocation does not erase an authorized workspace catalog")
@@ -769,6 +769,14 @@ func (m *exactAcceptanceModels) AuthorizeExactPersonalRead(
 	ctx context.Context, results []*types.SearchResult,
 ) (context.Context, error) {
 	return (&modelService{personalRecovery: m.recovery}).AuthorizeExactPersonalRead(ctx, results)
+}
+
+func (m *exactAcceptanceModels) AuthorizeExactPersonalReadRepository(
+	ctx context.Context,
+	results []*types.SearchResult,
+	chunks interfaces.ChunkRepository,
+) (context.Context, interfaces.ChunkRepository, error) {
+	return (&modelService{personalRecovery: m.recovery}).AuthorizeExactPersonalReadRepository(ctx, results, chunks)
 }
 
 func (m *exactAcceptanceModels) AuthorizeExactPersonalRerank(

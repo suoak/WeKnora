@@ -23,6 +23,10 @@ var (
 	errPersonalExactDependencies = errors.New("personal_exact_dependencies_unsupported")
 )
 
+// ErrPersonalPublishedSnapshotUnverified identifies a missing or invalid local
+// publication proof at public read boundaries. It never requests source OAuth.
+var ErrPersonalPublishedSnapshotUnverified = errPersonalExactDocument
+
 // A source attestation is not a KB grant, a model-input receipt or a serving
 // receipt. Keep it private and non-serializable: task payloads cannot supply it.
 // Consumers must fence publication and prove their actual derived inputs.
@@ -31,6 +35,7 @@ type personalExactDocument struct {
 	resource, resourceHandle, manifestSHA256, fileSHA256        string
 	grantEpoch, appVersion, connectionIdentity, revision        string
 	fileMD5, physicalPath, bindingID                            string
+	filename                                                    string
 	tenant                                                      uint64
 	generation                                                  int64
 	nonce                                                       string

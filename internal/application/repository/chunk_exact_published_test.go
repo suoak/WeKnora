@@ -12,8 +12,8 @@ import (
 
 func TestExactPublishedChunkPageBoundariesAndPagination(t *testing.T) {
 	db := setupChunkTestDB(t)
-	require.NoError(t, db.Exec("CREATE TABLE knowledges(id text, knowledge_base_id text)").Error)
-	require.NoError(t, db.Exec("INSERT INTO knowledges VALUES ('doc','kb')").Error)
+	require.NoError(t, db.Exec("CREATE TABLE knowledges(id text, knowledge_base_id text, channel text)").Error)
+	require.NoError(t, db.Exec("INSERT INTO knowledges VALUES ('doc','kb','web')").Error)
 	require.NoError(t, db.Exec("CREATE TABLE task_pending_ops(scope text,scope_id text)").Error)
 	require.NoError(
 		t,

@@ -28,9 +28,6 @@ AND EXISTS(SELECT 1 FROM task_pending_ops exact_r
 JOIN feishu_personal_resources exact_v ON exact_v.logical_knowledge_id=embeddings.knowledge_id
 JOIN feishu_personal_attempts exact_a ON exact_a.id=exact_v.current_attempt_id
 JOIN feishu_personal_imports exact_i ON exact_i.id=exact_a.import_id
-JOIN feishu_personal_grant_epochs exact_g ON exact_g.user_id=exact_i.user_id AND exact_g.epoch=exact_a.grant_epoch
-JOIN feishu_connections exact_conn ON exact_conn.user_id=exact_i.user_id
- AND exact_conn.app_id=exact_i.app_id AND exact_conn.open_id=exact_i.open_id
 JOIN resources exact_file ON exact_file.id=exact_r.payload->>'resource_id'
  AND exact_file.tenant_id=exact_r.tenant_id AND exact_file.handle=exact_r.payload->>'resource_handle'
 JOIN resource_bindings exact_binding ON exact_binding.id=exact_r.payload->>'binding_id'
@@ -42,8 +39,12 @@ AND exact_r.scope='personal_exact_receipt_v1' AND exact_r.scope_id=embeddings.kn
 AND exact_v.generation=exact_a.fence AND exact_v.active_version_id=exact_a.candidate_version_id
 AND exact_v.candidate_version_id=exact_v.active_version_id AND exact_a.status='indexed'
 AND exact_a.owner_nonce='' AND exact_a.lease_until IS NULL
-AND exact_i.status IN ('indexed','synced') AND exact_conn.expires_at>clock_timestamp()
-AND exact_r.payload->>'connection_identity'=exact_conn.app_id||':'||exact_conn.open_id
+AND exact_r.payload->>'import_id'=exact_i.id
+AND exact_i.knowledge_id=embeddings.knowledge_id AND exact_i.kb_id=embeddings.knowledge_base_id
+AND exact_r.payload->>'connection_identity'=exact_i.app_id||':'||exact_i.open_id
+AND exact_r.payload->>'grant_epoch'=exact_a.grant_epoch
+AND exact_r.payload->>'app_config_version'=exact_a.app_config_version
+AND exact_r.payload->>'revision'=exact_a.revision
 AND exact_file.provider='local' AND exact_file.state='active' AND exact_file.lifecycle='persistent'
 AND exact_file.deleted_at IS NULL AND exact_file.expires_at IS NULL
 AND (COALESCE(exact_file.content_hash,'')='' OR exact_file.content_hash=exact_r.payload->>'file_sha256')
@@ -69,7 +70,9 @@ func ordinaryLegacySourceCandidatePredicate(ctx context.Context) string {
 	// of the older workspace exception for a held datasource. Apply this at
 	// candidate selection, before returning content, snippets or scores.
 	const receiptGate = `NOT EXISTS (SELECT 1 FROM task_pending_ops exact_r
- WHERE exact_r.scope='personal_exact_receipt_v1' AND exact_r.scope_id=embeddings.knowledge_id) AND `
+ WHERE exact_r.scope='personal_exact_receipt_v1' AND exact_r.scope_id=embeddings.knowledge_id)
+ AND NOT EXISTS (SELECT 1 FROM knowledges personal_k ` +
+		`WHERE personal_k.id=embeddings.knowledge_id AND personal_k.channel='feishu_personal') AND `
 	tenant := types.WorkspaceWebReadTenant(ctx)
 	if tenant == 0 {
 		return receiptGate + legacyStrictSourceCandidatePredicate

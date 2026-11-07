@@ -632,6 +632,7 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	logger.Debugf(ctx, "[Container] Registering router and starting task server...")
 	must(container.Provide(router.NewRouter))
 	must(container.Invoke(configurePersonalRecovery))
+	must(container.Invoke(configurePublishedSnapshotPortal))
 
 	if redisAvailable {
 		must(container.Invoke(router.RunAsynqServer))

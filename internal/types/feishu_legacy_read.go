@@ -90,6 +90,18 @@ func CheckLegacySourceRead(db *gorm.DB, knowledgeID, kbID string) error {
 		return err
 	}
 	if knowledgeID != "" {
+		var personal bool
+		if err := db.
+			Raw("SELECT EXISTS(SELECT 1 FROM knowledges WHERE id=? AND channel='feishu_personal')", knowledgeID).
+			Scan(&personal).Error; err != nil {
+			return err
+		}
+		if personal {
+			// Published personal content requires its local receipt capability;
+			// missing receipts and pre-publication files never fall back to a
+			// generic workspace read, even in an otherwise unmanaged KB.
+			return ErrLegacySourceRestricted
+		}
 		var exactReceipt bool
 		if err := db.Raw(`SELECT EXISTS(SELECT 1 FROM task_pending_ops
 WHERE scope=? AND scope_id=?)`, PersonalExactReceiptScope, knowledgeID).Scan(&exactReceipt).Error; err != nil {

@@ -14,6 +14,8 @@
         <summary>{{ t('recent') }}</summary>
         <div v-for="row in rows.slice(0, 5)" :key="row.id" style="margin-top: 12px">
           <span>{{ row.resource_type }} · {{ importStatus(row.status) }}</span>
+          <p v-if="row.publication_status === 'published'">{{ t('publishedSnapshot') }}</p>
+          <p v-if="row.publication_status === 'published' && row.source_sync_status === 'needs_attention'" role="status">{{ t('publishedSourceAttention') }}</p>
           <p v-if="row.index_status">{{ t('indexState') }}: {{ t(row.index_status) }} · {{ t('wikiState') }}: {{ t(row.wiki_status || 'not_started') }}</p>
           <p v-if="row.error_category">{{ importError(row.error_category) }}</p>
           <a :href="row.url" target="_blank" rel="noopener noreferrer">{{ t('source') }}</a>

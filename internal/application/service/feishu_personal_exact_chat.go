@@ -17,7 +17,7 @@ func (s *modelService) AuthorizeExactPersonalChat(
 	ctx context.Context, request *types.ChatManage, messages []chat.Message, options *chat.ChatOptions,
 ) (context.Context, *chat.ChatOptions, error) {
 	p := s.personalRecovery
-	if !exactPersonalRecoveryEnabled() || p == nil || request == nil {
+	if p == nil || request == nil {
 		return ctx, options, nil
 	}
 	inputs := request.SearchResult
@@ -27,15 +27,12 @@ func (s *modelService) AuthorizeExactPersonalChat(
 	if len(inputs) == 0 || inputs[0] == nil {
 		return ctx, options, nil
 	}
-	knowledgeID := inputs[0].KnowledgeID
-	var count int64
-	if err := p.service.db.WithContext(ctx).Model(&types.TaskPendingOp{}).Where(
-		"scope=? AND scope_id=?", types.PersonalExactReceiptScope, knowledgeID,
-	).Count(&count).Error; err != nil {
+	bundle, err := p.preparePublishedReadBundle(ctx, inputs)
+	if err != nil {
 		return ctx, options, err
 	}
-	if count == 0 {
-		return ctx, options, nil // Ordinary model/source policy remains authoritative.
+	if bundle == nil {
+		return ctx, options, nil
 	}
 	if len(request.History) != 0 || request.MemoryPrompt != "" || request.QuotedContext != "" ||
 		request.ImageDescription != "" || len(request.Images) != 0 || len(request.Attachments) != 0 ||
@@ -54,41 +51,11 @@ func (s *modelService) AuthorizeExactPersonalChat(
 		request.SummaryConfig.ContextTemplate != defaults.ContextTemplate {
 		return ctx, options, errPersonalExactDocument
 	}
-	read, err := p.exactPublishedReadContext(ctx, knowledgeID)
+	read := ctx
+	tenant := types.MustTenantIDFromContext(ctx)
+	canonical, err := bundle.canonicalResults(ctx, inputs)
 	if err != nil {
 		return ctx, options, err
-	}
-	_, tenant, _, kbID, _ := types.ExactPublishedDocumentIdentity(read)
-	owner, err := ks.repo.GetKnowledgeByID(read, tenant, knowledgeID)
-	if err != nil {
-		return ctx, options, err
-	}
-	ids := make([]string, 0, len(inputs))
-	for _, result := range inputs {
-		if result == nil || result.KnowledgeID != knowledgeID || result.KnowledgeBaseID != kbID {
-			return ctx, options, errPersonalExactDocument
-		}
-		ids = append(ids, result.ID)
-	}
-	rows, err := ks.chunkRepo.ListChunksByID(read, tenant, ids)
-	if err != nil {
-		return ctx, options, err
-	}
-	byID := make(map[string]*types.Chunk, len(rows))
-	for _, row := range rows {
-		if row.KnowledgeID != knowledgeID || row.KnowledgeBaseID != kbID || !row.IsEnabled {
-			return ctx, options, errPersonalExactDocument
-		}
-		byID[row.ID] = row
-	}
-	canonical := make([]*types.SearchResult, 0, len(inputs))
-	resultBuilder := &knowledgeBaseService{}
-	for _, input := range inputs {
-		row := byID[input.ID]
-		if row == nil {
-			return ctx, options, errPersonalExactDocument
-		}
-		canonical = append(canonical, resultBuilder.buildSearchResult(row, owner, input.Score, input.MatchType, ""))
 	}
 	trusted := request.Clone()
 	trusted.SearchResult, trusted.RerankResult = canonical, nil
@@ -97,7 +64,11 @@ func (s *modelService) AuthorizeExactPersonalChat(
 	}
 	// No unproved model-generated completeness/axis annotation enters a prompt.
 	trusted.RetrievalCompleteness = types.RetrievalCompleteness{}
-	expected, err := chatpipeline.RenderVerifiedDocumentMessages(read, trusted, ks.chunkRepo)
+	expected, err := chatpipeline.RenderVerifiedDocumentMessages(
+		read,
+		trusted,
+		&publishedBundleChunks{ChunkRepository: ks.chunkRepo, bundle: bundle},
+	)
 	if err != nil {
 		return ctx, options, err
 	}
@@ -115,16 +86,7 @@ func (s *modelService) AuthorizeExactPersonalChat(
 	if err != nil || actualDigest != expectedDigest {
 		return ctx, options, errPersonalExactDocument
 	}
-	live := func(current context.Context) error {
-		present, err := types.CheckExactPublishedDocumentRead(current)
-		if err != nil {
-			return err
-		}
-		if !present {
-			return errPersonalExactDocument
-		}
-		return nil
-	}
+	live := func(current context.Context) error { return bundle.validate(current) }
 	work, err := withExactPersonalMessages(read, tenant, messages, actualOptions, live)
 	return work, actualOptions, err
 }
@@ -135,7 +97,7 @@ func (s *modelService) AuthorizeExactPersonalRead(
 	ctx context.Context, results []*types.SearchResult,
 ) (context.Context, error) {
 	p := s.personalRecovery
-	if !exactPersonalRecoveryEnabled() || p == nil || len(results) == 0 || results[0] == nil {
+	if p == nil || len(results) == 0 || results[0] == nil {
 		return ctx, nil
 	}
 	knowledgeID := results[0].KnowledgeID
@@ -164,15 +126,6 @@ func (s *modelService) AuthorizeExactPersonalRead(
 func (s *modelService) AuthorizeExactPersonalRerank(
 	ctx context.Context, model rerank.Reranker, query string, results []*types.SearchResult,
 ) (context.Context, rerank.Reranker, error) {
-	read, err := s.AuthorizeExactPersonalRead(ctx, results)
-	if err != nil {
-		return ctx, nil, err
-	}
-	if _, _, _, _, exact := types.ExactPublishedDocumentIdentity(read); !exact {
-		return ctx, model, nil
-	}
-	ks := s.personalRecovery.service.knowledge.(*knowledgeService)
-	builder := &knowledgeBaseService{kgRepo: ks.repo, chunkRepo: ks.chunkRepo}
-	guarded, err := builder.exactRerankModel(read, model, query, results)
-	return read, guarded, err
+	guarded, err := s.publishedBundleReranker(ctx, model, query, results)
+	return ctx, guarded, err
 }

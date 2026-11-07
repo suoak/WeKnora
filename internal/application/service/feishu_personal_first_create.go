@@ -257,11 +257,13 @@ func (p *PersonalRecovery) bridgeFirstCreate(
 		// permits adopting the original Knowledge; a not-found is not cleanup.
 		read, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cancel()
-		var saved types.Knowledge
+		var saved struct{ ID string }
 		var pending types.TaskPendingOp
-		if p.service.db.WithContext(read).
-			Where("id = ? AND file_path = ? AND file_hash = ?", k.ID, path, hash).
-			First(&saved).
+		if p.service.db.WithContext(read).Table("knowledges").Select("id").
+			Where("id = ? AND tenant_id=? AND knowledge_base_id=? AND file_path = ? AND file_hash = ? "+
+				"AND deleted_at IS NULL",
+				k.ID, a.CallerTenantID, m.KBID, path, hash).
+			Take(&saved).
 			Error != nil ||
 			p.service.db.WithContext(read).
 				Where("scope = ? AND scope_id = ? AND dedup_key = ?", types.KnowledgeDispatchScope, k.ID, op.DedupKey).

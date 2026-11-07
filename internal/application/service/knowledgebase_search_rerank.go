@@ -87,10 +87,6 @@ func (s *knowledgeBaseService) HybridSearchWithRerank(ctx context.Context,
 func (s *knowledgeBaseService) hybridSearchWithRerank(ctx context.Context,
 	id string, params types.SearchParams,
 ) (*types.RetrievalResult, error) {
-	if s.documentACL != nil && s.documentACL.enabled {
-		return nil, access.ErrForbidden
-	} // HOLD until candidate filtering/provenance is certified.
-
 	var sourceErr error
 	ctx, sourceErr = s.exactSearchContext(ctx, id, params)
 	if sourceErr != nil {
@@ -151,18 +147,40 @@ func (s *knowledgeBaseService) hybridSearchWithRerank(ctx context.Context,
 	// Recall at least as deep as the rerank asks for: with match_count=5 and
 	// rerank.top_k=200 the pool used to stop at the 50-hit floor.
 	params.MatchCount = max(params.MatchCount, topK)
-	chunks, err := s.hybridSearchCandidates(ctx, id, params)
+	probe := params
+	probe.SkipContextEnrichment = true
+	handled, candidates, err := s.exactRecoveryHybridSearch(ctx, id, probe)
+	var pool []*types.IndexWithScore
 	if err != nil {
 		return nil, err
 	}
-	if len(chunks) == 0 {
+	if !handled {
+		if s.documentACL != nil && s.documentACL.enabled {
+			if _, _, _, _, exact := types.ExactPublishedDocumentIdentity(ctx); !exact {
+				return nil, access.ErrForbidden
+			}
+		}
+		chunks, err := s.hybridSearchCandidates(ctx, id, params)
+		if err != nil {
+			return nil, err
+		}
+		pool = chunks[:min(len(chunks), max(topK, types.DefaultRetrievalTopK))]
+		candidates, err = s.processSearchResults(ctx, pool, true)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		for _, row := range candidates {
+			pool = append(pool, &types.IndexWithScore{
+				ChunkID: row.ID, SourceID: row.ID,
+				SourceType: types.ChunkSourceType, KnowledgeID: row.KnowledgeID, KnowledgeBaseID: row.KnowledgeBaseID,
+				Score: row.Score, MatchType: row.MatchType, IsEnabled: true,
+			})
+		}
+	}
+	if len(candidates) == 0 {
 		diag.Outcome = types.RerankOutcomeNoCandidates
 		return out, nil
-	}
-	pool := chunks[:min(len(chunks), max(topK, types.DefaultRetrievalTopK))]
-	candidates, err := s.processSearchResults(ctx, pool, true)
-	if err != nil {
-		return nil, err
 	}
 	diag.CandidateCount = len(candidates)
 
@@ -240,6 +258,45 @@ func (s *knowledgeBaseService) enrichRerankedResults(
 	pool []*types.IndexWithScore,
 	reranked []*types.SearchResult,
 ) ([]*types.SearchResult, error) {
+	if _, _, _, _, exact := types.ExactPublishedDocumentIdentity(ctx); !exact && s.personalRecovery != nil &&
+		len(reranked) > 0 {
+		bundle, err := s.personalRecovery.preparePublishedReadBundle(ctx, reranked)
+		if err != nil {
+			return nil, err
+		}
+		if bundle != nil {
+			var out []*types.SearchResult
+			visited := make(map[string]bool)
+			for _, row := range reranked {
+				if visited[row.KnowledgeID] {
+					continue
+				}
+				visited[row.KnowledgeID] = true
+				doc := bundle.documents[row.KnowledgeID]
+				var localPool []*types.IndexWithScore
+				var localResults []*types.SearchResult
+				for _, candidate := range pool {
+					if candidate.KnowledgeID == row.KnowledgeID {
+						localPool = append(localPool, candidate)
+					}
+				}
+				for _, candidate := range reranked {
+					if candidate.KnowledgeID == row.KnowledgeID {
+						localResults = append(localResults, candidate)
+					}
+				}
+				rows, err := s.enrichRerankedResults(doc.ctx, localPool, localResults)
+				if err != nil {
+					return nil, err
+				}
+				out = append(out, rows...)
+			}
+			if err := bundle.validate(ctx); err != nil {
+				return nil, err
+			}
+			return out, nil
+		}
+	}
 	byChunkID := make(map[string]*types.IndexWithScore, len(pool))
 	for _, c := range pool {
 		byChunkID[c.ChunkID] = c

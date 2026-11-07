@@ -27,6 +27,13 @@ import (
 )
 
 func resumeNativeDOCX(t *testing.T) []byte {
+	return resumeNativeDOCXWithText(
+		t,
+		"Verified recovery source: independent research index, document provenance, source permissions and current resource identity.",
+	)
+}
+
+func resumeNativeDOCXWithText(t *testing.T, text string) []byte {
 	t.Helper()
 	parts := map[string]string{
 		"[Content_Types].xml": `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
@@ -41,9 +48,7 @@ func resumeNativeDOCX(t *testing.T) []byte {
 			`Target="word/document.xml"/></Relationships>`,
 		"word/document.xml": `<w:document ` +
 			`xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>` +
-			strings.Repeat(`<w:p><w:r><w:t>Verified recovery source: independent research index, `+
-				`document provenance, source permissions and `+
-				`current resource identity.</w:t></w:r></w:p>`, 20) +
+			strings.Repeat(`<w:p><w:r><w:t>`+text+`</w:t></w:r></w:p>`, 20) +
 			`</w:body></w:document>`,
 	}
 	var buffer bytes.Buffer
@@ -64,15 +69,45 @@ func TestPersonalExactResumeNativePublishesRetainedChunksWithoutDuplicates(t *te
 	f := newMVPFixture(t)
 	f.p.lease = 2 * time.Minute
 	data := resumeNativeDOCX(t)
+	files := map[string][]byte{
+		"real": data,
+		"real2": resumeNativeDOCXWithText(
+			t,
+			"Verified recovery source two: published department knowledge remains readable after source disconnect.",
+		),
+		"real3": resumeNativeDOCXWithText(
+			t,
+			"Verified recovery source three: source synchronization authorization is separate from published knowledge access.",
+		),
+	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "Bearer access-A", r.Header.Get("Authorization"))
-		switch r.URL.Path {
-		case "/open-apis/drive/v1/metas/batch_query":
-			_, _ = fmt.Fprint(w, `{"code":0,"data":{"metas":[{"doc_type":"file",`+
-				`"doc_token":"real","title":"resume.docx","latest_modify_time":"1"}]}}`)
-		case "/open-apis/drive/v1/files/real/download":
-			_, _ = w.Write(data)
-		case "/open-apis/drive/v1/permissions/real/members/auth":
+		switch {
+		case r.URL.Path == "/open-apis/drive/v1/metas/batch_query":
+			var request struct {
+				Documents []struct {
+					Token string `json:"doc_token"`
+				} `json:"request_docs"`
+			}
+			if json.NewDecoder(r.Body).Decode(&request) != nil || len(request.Documents) != 1 {
+				w.WriteHeader(400)
+				return
+			}
+			token := request.Documents[0].Token
+			if files[token] == nil {
+				w.WriteHeader(403)
+				return
+			}
+			_ = json.NewEncoder(w).
+				Encode(map[string]any{"code": 0, "data": map[string]any{"metas": []any{map[string]any{"doc_type": "file", "doc_token": token, "title": "resume-" + token + ".docx", "latest_modify_time": "1"}}}})
+		case strings.HasPrefix(r.URL.Path, "/open-apis/drive/v1/files/") && strings.HasSuffix(r.URL.Path, "/download"):
+			token := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/open-apis/drive/v1/files/"), "/download")
+			if files[token] == nil {
+				w.WriteHeader(403)
+				return
+			}
+			_, _ = w.Write(files[token])
+		case strings.HasPrefix(r.URL.Path, "/open-apis/drive/v1/permissions/") && strings.HasSuffix(r.URL.Path, "/members/auth"):
 			_, _ = fmt.Fprint(w, `{"code":0,"data":{"auth_result":true}}`)
 		default:
 			w.WriteHeader(http.StatusNotFound)
@@ -215,7 +250,9 @@ func TestPersonalExactResumeNativePublishesRetainedChunksWithoutDuplicates(t *te
 	for _, hit := range results {
 		require.Equal(t, knowledge.ID, hit.KnowledgeID)
 	}
+	exerciseAdditionalPublishedSnapshots(t, f, knowledge.ID, files)
+	exercisePublishedSnapshotReaderMatrix(t, f, knowledge.ID)
 	require.NoError(t, f.s.Disconnect(f.ctx))
 	_, err = f.p.exactPublishedReadContext(web, knowledge.ID)
-	require.Error(t, err, "disconnect must close current source reads")
+	require.NoError(t, err, "disconnect must preserve the published local snapshot")
 }

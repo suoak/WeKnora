@@ -8,11 +8,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Tencent/WeKnora/internal/application/access"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Tencent/WeKnora/internal/application/access"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/application/service/retriever"
@@ -29,15 +30,16 @@ var ErrChunkRevisionConflict = repository.ErrChunkRevisionConflict
 // It provides operations for managing document chunks in the knowledge base
 // Chunks are segments of documents that have been processed and prepared for indexing
 type chunkService struct {
-	documentACL     *DocumentReadPolicy
-	chunkRepository interfaces.ChunkRepository // Repository for chunk data persistence
-	knowledgeRepo   interfaces.KnowledgeRepository
-	kbRepository    interfaces.KnowledgeBaseRepository
-	modelService    interfaces.ModelService
-	retrieveEngine  interfaces.RetrieveEngineRegistry
-	ownership       retriever.TenantStoreOwnership
-	task            interfaces.TaskEnqueuer
-	spanTracker     SpanTracker
+	documentACL      *DocumentReadPolicy
+	personalRecovery *PersonalRecovery
+	chunkRepository  interfaces.ChunkRepository // Repository for chunk data persistence
+	knowledgeRepo    interfaces.KnowledgeRepository
+	kbRepository     interfaces.KnowledgeBaseRepository
+	modelService     interfaces.ModelService
+	retrieveEngine   interfaces.RetrieveEngineRegistry
+	ownership        retriever.TenantStoreOwnership
+	task             interfaces.TaskEnqueuer
+	spanTracker      SpanTracker
 }
 
 // NewChunkService creates a new chunk service
@@ -120,6 +122,19 @@ func (s *chunkService) CreateChunks(ctx context.Context, chunks []*types.Chunk) 
 //   - *types.Chunk: Retrieved chunk if found
 //   - error: Any error encountered during retrieval
 func (s *chunkService) GetChunkByID(ctx context.Context, id string) (*types.Chunk, error) {
+	if read, knowledge, exact, err := s.exactPublishedChunkContext(ctx, "", id); exact || err != nil {
+		if err != nil {
+			return nil, err
+		}
+		var row *types.Chunk
+		err = types.ReadExactPublishedPage(read, knowledge, func(page context.Context) error {
+			var e error
+			row, e = s.chunkRepository.GetChunkByID(page, types.MustTenantIDFromContext(page), id)
+			return e
+		})
+		return row, err
+	}
+
 	if s.DocumentACLReadEnabled() {
 		return s.readAuthorizedChunk(ctx, id)
 	}
@@ -140,6 +155,19 @@ func (s *chunkService) GetChunkByID(ctx context.Context, id string) (*types.Chun
 
 // GetChunkByIDOnly retrieves a chunk by ID without tenant filter (for permission resolution).
 func (s *chunkService) GetChunkByIDOnly(ctx context.Context, id string) (*types.Chunk, error) {
+	if read, knowledge, exact, err := s.exactPublishedChunkContext(ctx, "", id); exact || err != nil {
+		if err != nil {
+			return nil, err
+		}
+		var row *types.Chunk
+		err = types.ReadExactPublishedPage(read, knowledge, func(page context.Context) error {
+			var e error
+			row, e = s.chunkRepository.GetChunkByID(page, types.MustTenantIDFromContext(page), id)
+			return e
+		})
+		return row, err
+	}
+
 	if s.DocumentACLReadEnabled() {
 		return s.readAuthorizedChunk(ctx, id)
 	}
@@ -167,6 +195,19 @@ func (s *chunkService) GetChunkByIDOnly(ctx context.Context, id string) (*types.
 //   - []*types.Chunk: List of chunks belonging to the knowledge document
 //   - error: Any error encountered during retrieval
 func (s *chunkService) ListChunksByKnowledgeID(ctx context.Context, knowledgeID string) ([]*types.Chunk, error) {
+	if read, _, exact, err := s.exactPublishedChunkContext(ctx, knowledgeID, ""); exact || err != nil {
+		if err != nil {
+			return nil, err
+		}
+		var rows []*types.Chunk
+		err = types.ReadExactPublishedPage(read, knowledgeID, func(page context.Context) error {
+			var e error
+			rows, e = s.chunkRepository.ListChunksByKnowledgeID(page, types.MustTenantIDFromContext(page), knowledgeID)
+			return e
+		})
+		return rows, err
+	}
+
 	if s.DocumentACLReadEnabled() {
 		return s.readAuthorizedChunks(ctx, knowledgeID)
 	}
@@ -203,6 +244,24 @@ func (s *chunkService) ListChunksByKnowledgeID(ctx context.Context, knowledgeID 
 func (s *chunkService) ListPagedChunksByKnowledgeID(ctx context.Context,
 	knowledgeID string, page *types.Pagination, chunkType []types.ChunkType,
 ) (*types.PageResult, error) {
+	if read, _, exact, err := s.exactPublishedChunkContext(ctx, knowledgeID, ""); exact || err != nil {
+		if err != nil {
+			return nil, err
+		}
+		var rows []*types.Chunk
+		var total int64
+		err = types.ReadExactPublishedPage(read, knowledgeID, func(selection context.Context) error {
+			var e error
+			rows, total, e = s.chunkRepository.ListPagedChunksByKnowledgeID(selection,
+				types.MustTenantIDFromContext(selection), knowledgeID, page, chunkType, nil, "", "", "", "", nil)
+			return e
+		})
+		if err != nil {
+			return nil, err
+		}
+		return types.NewPageResult(total, page, rows), nil
+	}
+
 	if s.DocumentACLReadEnabled() {
 		return s.readAuthorizedChunkPage(ctx, knowledgeID, page, chunkType)
 	}
@@ -496,6 +555,21 @@ func (s *chunkService) ListChunkByParentID(
 	tenantID uint64,
 	parentID string,
 ) ([]*types.Chunk, error) {
+	if read, knowledge, exact, err := s.exactPublishedChunkContext(ctx, "", parentID); exact || err != nil {
+		if err != nil {
+			return nil, err
+		}
+		if tenantID != types.MustTenantIDFromContext(read) {
+			return nil, types.ErrExactDocumentScope
+		}
+		var rows []*types.Chunk
+		err = types.ReadExactPublishedPage(read, knowledge, func(selection context.Context) error {
+			var e error
+			rows, e = s.chunkRepository.ListChunkByParentID(selection, tenantID, parentID)
+			return e
+		})
+		return rows, err
+	}
 	if s.DocumentACLReadEnabled() {
 		return s.readAuthorizedChildren(ctx, tenantID, parentID)
 	}
@@ -783,7 +857,9 @@ func (s *chunkService) rebuildParentContent(ctx context.Context, edited *types.C
 	replacements = selected
 	sort.Slice(replacements, func(i, j int) bool { return replacements[i].start > replacements[j].start })
 	for _, repl := range replacements {
-		baseRunes = append(append(append([]rune{}, baseRunes[:repl.start]...), []rune(repl.content)...), baseRunes[repl.end:]...)
+		baseRunes = append(
+			append(append([]rune{}, baseRunes[:repl.start]...), []rune(repl.content)...),
+			baseRunes[repl.end:]...)
 	}
 	parent.SourceLocators = nil // Child edits invalidate the original parent evidence.
 	parent.Content = string(baseRunes)
@@ -806,7 +882,13 @@ func (s *chunkService) syncChunkIndex(ctx context.Context, chunk *types.Chunk) e
 	if err != nil {
 		return err
 	}
-	engine, err := retriever.CreateRetrieveEngineForKB(ctx, s.retrieveEngine, s.ownership, chunk.TenantID, kb.VectorStoreID)
+	engine, err := retriever.CreateRetrieveEngineForKB(
+		ctx,
+		s.retrieveEngine,
+		s.ownership,
+		chunk.TenantID,
+		kb.VectorStoreID,
+	)
 	if err != nil {
 		return err
 	}
@@ -836,7 +918,10 @@ func (s *chunkService) syncChunkIndex(ctx context.Context, chunk *types.Chunk) e
 				continue
 			}
 			items = append(items, &types.IndexInfo{
-				Content: buildKnowledgeIndexContent(knowledge, question.Question), SourceID: types.GeneratedQuestionSourceID(chunk.ID, question.ID),
+				Content: buildKnowledgeIndexContent(
+					knowledge,
+					question.Question,
+				), SourceID: types.GeneratedQuestionSourceID(chunk.ID, question.ID),
 				SourceType: types.ChunkSourceType, ChunkID: chunk.ID,
 				KnowledgeID: chunk.KnowledgeID, KnowledgeBaseID: chunk.KnowledgeBaseID,
 				KnowledgeType: kb.Type, IsEnabled: true,
