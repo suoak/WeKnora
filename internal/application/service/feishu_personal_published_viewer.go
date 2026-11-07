@@ -68,7 +68,8 @@ EXISTS(SELECT 1 FROM tenants WHERE id=? AND status='active' AND deleted_at IS NU
 		for _, entry := range live.KnowledgeBases {
 			if entry.APIKeyID != key.ID || entry.TenantID != caller.TenantID ||
 				(entry.SourceType != types.APIKeyKBSourceOwned && entry.SourceType != types.APIKeyKBSourceShared) ||
-				(entry.SourceType == types.APIKeyKBSourceShared && (entry.KBShareID == nil || *entry.KBShareID == "")) ||
+				(entry.SourceType == types.APIKeyKBSourceShared &&
+					(entry.KBShareID == nil || *entry.KBShareID == "")) ||
 				(entry.KnowledgeBaseID == receipt.KnowledgeBaseID &&
 					entry.SourceType == types.APIKeyKBSourceOwned && receipt.TenantID != caller.TenantID) {
 				return nil, access.ErrForbidden

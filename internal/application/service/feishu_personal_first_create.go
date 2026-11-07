@@ -260,7 +260,8 @@ func (p *PersonalRecovery) bridgeFirstCreate(
 		var saved struct{ ID string }
 		var pending types.TaskPendingOp
 		if p.service.db.WithContext(read).Table("knowledges").Select("id").
-			Where("id = ? AND tenant_id=? AND knowledge_base_id=? AND file_path = ? AND file_hash = ? AND deleted_at IS NULL",
+			Where("id = ? AND tenant_id=? AND knowledge_base_id=? AND file_path = ? AND file_hash = ? "+
+				"AND deleted_at IS NULL",
 				k.ID, a.CallerTenantID, m.KBID, path, hash).
 			Take(&saved).
 			Error != nil ||

@@ -65,7 +65,8 @@ func (p *PersonalRecovery) preparePublishedReadBundle(
 	}
 	if err := p.service.db.WithContext(ctx).Table("knowledges k").
 		Select(`k.id,k.tenant_id,k.knowledge_base_id,k.channel,
-EXISTS(SELECT 1 FROM task_pending_ops o WHERE o.scope=? AND o.scope_id=k.id) AS has_receipt`, types.PersonalExactReceiptScope).
+EXISTS(SELECT 1 FROM task_pending_ops o WHERE o.scope=? AND o.scope_id=k.id) AS has_receipt`,
+			types.PersonalExactReceiptScope).
 		Where("k.id IN ? AND k.deleted_at IS NULL", ids).Scan(&metadata).Error; err != nil {
 		return nil, err
 	}
@@ -185,7 +186,7 @@ func (r *publishedBundleChunks) ListChunksByIDOnly(ctx context.Context, ids []st
 	var out []*types.Chunk
 	for knowledge, group := range groups {
 		doc := r.bundle.documents[knowledge]
-		rows, err := r.ChunkRepository.ListChunksByID(doc.ctx, doc.tenant, group)
+		rows, err := r.ListChunksByID(doc.ctx, doc.tenant, group)
 		if err != nil {
 			return nil, err
 		}
