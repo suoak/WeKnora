@@ -154,6 +154,52 @@ func syncServiceSuite(t *testing.T, dialect string) {
 		require.NoError(t, err)
 		require.JSONEq(t, string(ds.LastSyncCursor), string(source.LastSyncCursor))
 	})
+	t.Run("temporary_all_failed_inventory_preserves_original_retry_identity", func(t *testing.T) {
+		for _, retry := range []int{0, 5} {
+			svc, ds, queue, connector := makeSvc()
+			ds.LastSyncCursor = types.JSON("{\"connector_cursor\":{\"accepted\":\"previous\"}}")
+			require.NoError(t, dsRepo.Update(context.Background(), ds))
+			log, err := svc.ManualSync(context.Background(), ds.ID)
+			require.NoError(t, err)
+			repo, err := svc.executionRepo()
+			require.NoError(t, err)
+			owner, claimed, err := repo.ClaimExecution(context.Background(), ds.ID, log.ID, ds.TenantID)
+			require.NoError(t, err)
+			require.True(t, claimed)
+			ctx := types.WithSyncExecution(types.WithTaskRetryMetadata(context.Background(), retry, 5), owner)
+			result := &types.SyncResult{Total: 1, Failed: 1,
+				Errors: []types.SyncItemError{{Code: "source_verification_unavailable"}}}
+			cause := temporarySyncItemFailure(result)
+			require.ErrorIs(t, cause, feishusafety.ErrSourceValidationUnavailable)
+			err = svc.recordUnacceptedSync(ctx, ds, log, result, cause, false)
+			require.ErrorIs(t, err, feishusafety.ErrSourceValidationUnavailable)
+			stored, err := logs.FindByID(context.Background(), log.ID)
+			require.NoError(t, err)
+			require.False(t, stored.ExecutionClaimed)
+			source, err := dsRepo.FindByID(context.Background(), ds.ID)
+			require.NoError(t, err)
+			require.JSONEq(t, string(ds.LastSyncCursor), string(source.LastSyncCursor))
+			if retry == 5 {
+				require.Equal(t, types.SyncLogStatusFailed, stored.Status)
+				require.NotNil(t, stored.FinishedAt)
+				continue
+			}
+			require.Equal(t, types.SyncLogStatusRunning, stored.Status)
+			require.Nil(t, stored.FinishedAt)
+			close(connector.proceed)
+			payload, err := json.Marshal(types.DataSourceSyncPayload{
+				DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: ds.TenantID,
+			})
+			require.NoError(t, err)
+			require.NoError(t, svc.ProcessSync(types.WithTaskRetryMetadata(context.Background(), 1, 5),
+				asynq.NewTask(types.TypeDataSourceSync, payload)))
+			completed, err := logs.FindByID(context.Background(), log.ID)
+			require.NoError(t, err)
+			require.Equal(t, types.SyncLogStatusSuccess, completed.Status)
+			require.Greater(t, completed.ExecutionGeneration, stored.ExecutionGeneration)
+			require.EqualValues(t, 1, queue.calls.Load())
+		}
+	})
 	t.Run("source_failure_keeps_other_sources_admitted_P0", func(t *testing.T) {
 		t.Setenv("FEISHU_SYNC_SAFETY_ENABLED", "true")
 		server := miniredis.RunT(t)

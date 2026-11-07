@@ -1094,6 +1094,9 @@ func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.
 	resultJSON, _ := result.ToJSON()
 	if err := allFetchedItemsFailedError(result); err != nil {
 		logger.Errorf(ctx, "data source sync failed while processing fetched items: %v", err)
+		if temporary := temporarySyncItemFailure(result); temporary != nil {
+			return s.recordUnacceptedSync(ctx, ds, syncLog, result, errors.Join(err, temporary), wasPaused)
+		}
 		if writeErr := s.updateSyncRunResult(ctx, ds, syncLog, result, resultJSON,
 			types.SyncLogStatusFailed, err.Error(), wasPaused); writeErr != nil {
 			return writeErr
@@ -1586,6 +1589,9 @@ func (s *DataSourceService) processSyncStreaming(
 	resultJSON, _ := result.ToJSON()
 	if err := feishuTraversalFailure(ctx, ds, forceFull, result); err != nil {
 		logger.Errorf(ctx, "streaming sync failed while processing fetched items: %v", err)
+		if temporary := temporarySyncItemFailure(result); temporary != nil {
+			return s.recordUnacceptedSync(ctx, ds, syncLog, result, errors.Join(err, temporary), wasPaused)
+		}
 		if writeErr := s.updateSyncRunResult(ctx, ds, syncLog, result, resultJSON,
 			types.SyncLogStatusFailed, err.Error(), wasPaused); writeErr != nil {
 			return writeErr
