@@ -356,7 +356,11 @@ func (g *pgRepository) keywordsRetrieve(
 		lexicalWhere := fmt.Sprintf("content ||| $%d", len(vars))
 		// A coarse optimization only: the authoritative KB/ID/tenant/state checks
 		// remain outside the materialization as well. No pre-authorization LIMIT.
-		lexicalWhere, vars = lexicalCandidateScope(lexicalWhere, vars, params)
+		lexicalWhere, vars, err = g.lexicalSearchScope(ctx, lexicalWhere, vars, params)
+		if err != nil {
+			bm25Done()
+			return nil, err
+		}
 		sql := "WITH lexical AS MATERIALIZED (SELECT embeddings.*,paradedb.score(id) AS score FROM embeddings WHERE " + lexicalWhere + ") " + outer.SQL.String()
 		err = query.Raw(sql, vars...).Scan(&embeddingDBList).Error
 	} else {
