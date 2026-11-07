@@ -46,10 +46,12 @@ USING bm25(id,content,knowledge_base_id,knowledge_id) WITH(key_field='id')`).Err
 	params := types.RetrieveParams{KnowledgeBaseIDs: []string{"kb"}, KnowledgeIDs: []string{"doc"}}
 	where, vars, err := repo.lexicalSearchScope(ctx, "content ||| $1", []interface{}{"needle"}, params)
 	require.NoError(t, err)
-	require.Equal(t, "content ||| $1 AND id @@@ paradedb.boost(0::real,paradedb.term_set('id',ARRAY[$2::bigint,$3::bigint]::bigint[]))", where)
+	require.Equal(t, "content ||| $1 AND id @@@ paradedb.boost(0::real,"+
+		"paradedb.term_set('id',ARRAY[$2::bigint,$3::bigint]::bigint[]))", where)
 	require.Equal(t, []interface{}{"needle", int64(1), int64(2)}, vars)
 	require.Equal(t, 3, checks, "issuance, before metadata selection, and before lexical query")
-	cte := "WITH lexical AS MATERIALIZED (SELECT embeddings.*,paradedb.score(id) AS score FROM embeddings WHERE " + where + ") "
+	cte := "WITH lexical AS MATERIALIZED (SELECT embeddings.*,paradedb.score(id) AS score FROM embeddings WHERE " +
+		where + ") "
 	var ids []int64
 	raw := func(query string, args ...interface{}) *gorm.DB {
 		return db.Raw("?", clause.Expr{SQL: query, Vars: args})
@@ -63,7 +65,9 @@ AND knowledge_base_id='kb' AND knowledge_id='doc' ORDER BY score DESC,id LIMIT 1
 	}
 	var scopedScores, textScores []scoredRow
 	require.NoError(t, raw(cte+"SELECT id,score FROM lexical ORDER BY id", vars...).Scan(&scopedScores).Error)
-	require.NoError(t, db.Raw("WITH all_matches AS MATERIALIZED (SELECT id,paradedb.score(id) score FROM embeddings WHERE content ||| ?) SELECT id,score FROM all_matches WHERE id IN (1,2) ORDER BY id", "needle").Scan(&textScores).Error)
+	require.NoError(t, db.Raw("WITH all_matches AS MATERIALIZED "+
+		"(SELECT id,paradedb.score(id) score FROM embeddings WHERE content ||| ?) "+
+		"SELECT id,score FROM all_matches WHERE id IN (1,2) ORDER BY id", "needle").Scan(&textScores).Error)
 	require.Equal(t, textScores, scopedScores, "numeric metadata must not boost or otherwise change text relevance")
 	var plan []byte
 	require.NoError(t, raw("EXPLAIN(FORMAT JSON) "+cte+"SELECT count(*) FROM lexical", vars...).Row().Scan(&plan))
