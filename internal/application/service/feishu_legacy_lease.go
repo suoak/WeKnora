@@ -11,7 +11,9 @@ import (
 // model traffic retains its original model and concurrency implementation.
 type legacyLeaseEmbedder struct {
 	embedding.Embedder
-	renew func(context.Context) error
+	renew     func(context.Context) error
+	progress  func(context.Context, int)
+	completed int
 }
 
 func (m *legacyLeaseEmbedder) renewLease(ctx context.Context) error {
@@ -33,6 +35,10 @@ func (m *legacyLeaseEmbedder) BatchEmbed(ctx context.Context, texts []string) ([
 	}
 	if err = m.renewLease(ctx); err != nil {
 		return nil, err
+	}
+	if len(vectors) == len(texts) && m.progress != nil {
+		m.completed += len(vectors)
+		m.progress(ctx, m.completed)
 	}
 	return vectors, nil
 }

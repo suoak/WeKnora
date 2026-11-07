@@ -32,6 +32,7 @@ func TestFeishuLegacyLeaseBoundedEmbedding(t *testing.T) {
 		t.Run(string(rune('0'+lostAt)), func(t *testing.T) {
 			raw := &leaseTestEmbedder{}
 			renewals := 0
+			var progress []int
 			lost := errors.New("lease/claim no longer owned")
 			model := &legacyLeaseEmbedder{Embedder: raw, renew: func(context.Context) error {
 				renewals++
@@ -39,17 +40,23 @@ func TestFeishuLegacyLeaseBoundedEmbedding(t *testing.T) {
 					return lost
 				}
 				return nil
-			}}
+			}, progress: func(_ context.Context, completed int) { progress = append(progress, completed) }}
 			vectors, err := embedding.BatchEmbedBounded(context.Background(), model, make([]string, 41), 20)
 			if lostAt == 0 {
 				require.NoError(t, err)
 				require.Len(t, vectors, 41)
 				require.Equal(t, 3, raw.calls)
 				require.Equal(t, 6, renewals)
+				require.Equal(t, []int{20, 40, 41}, progress)
 			} else {
 				require.ErrorIs(t, err, lost)
 				require.Nil(t, vectors)
 				require.Equal(t, lostAt/2, raw.calls)
+				if lostAt < 3 {
+					require.Empty(t, progress)
+				} else {
+					require.Equal(t, []int{20}, progress)
+				}
 			}
 		})
 	}

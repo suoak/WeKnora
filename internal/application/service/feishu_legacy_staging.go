@@ -503,6 +503,9 @@ func (s *knowledgeService) StageFeishuLegacyItem(
 	// path as well; a configured model limit can split these batches further.
 	leaseModel := &legacyLeaseEmbedder{Embedder: model, renew: func(check context.Context) error {
 		return store.Renew(check, ds, attempt)
+	}, progress: func(check context.Context, completed int) {
+		logger.Infof(check, "Feishu candidate embedding progress source=%s attempt=%s completed=%d total=%d",
+			ds.ID, attempt.ID, completed, len(texts))
 	}}
 	vectors, err := embedding.BatchEmbedBounded(ctx, leaseModel, texts, 20)
 	if err != nil {
