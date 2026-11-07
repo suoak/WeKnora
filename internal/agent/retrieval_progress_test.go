@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	agenttools "github.com/Tencent/WeKnora/internal/agent/tools"
 	"github.com/Tencent/WeKnora/internal/models/chat"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
@@ -23,6 +24,7 @@ func TestRetrievalLoopSynthesizesWithoutExecutingMoreTools(t *testing.T) {
 		}
 		model.responses = append(model.responses, mockResponse{chunks: []types.StreamResponse{last}})
 		engine := newTestEngine(t, model)
+		engine.toolRegistry = agenttools.NewToolRegistry()
 		tool := newCountingTool("read_document")
 		engine.toolRegistry.RegisterTool(tool)
 		state, err := engine.executeLoop(context.Background(), &types.AgentState{}, "question", emptyMessages(), []chat.Tool{}, "session", "message")
