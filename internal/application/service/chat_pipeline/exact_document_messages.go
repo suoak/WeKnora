@@ -39,6 +39,13 @@ func RenderVerifiedDocumentMessages(
 	if merge.OnEvent(ctx, types.CHUNK_MERGE, work, next) != nil {
 		return nil, errors.New("exact_document_merge_unverified")
 	}
+	// Match the production pipeline's deterministic ordering and truncation.
+	// Rebuilding only merge+render produced a different message whenever TopK
+	// changed the merged candidate order or removed a lower-ranked parent.
+	filter := &PluginFilterTopK{}
+	if filter.OnEvent(ctx, types.FILTER_TOP_K, work, next) != nil {
+		return nil, errors.New("exact_document_topk_unverified")
+	}
 	into := &PluginIntoChatMessage{}
 	if into.OnEvent(ctx, types.INTO_CHAT_MESSAGE, work, next) != nil {
 		return nil, errors.New("exact_document_context_unverified")

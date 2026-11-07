@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	chatpipeline "github.com/Tencent/WeKnora/internal/application/service/chat_pipeline"
+	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/models/chat"
 	"github.com/Tencent/WeKnora/internal/models/rerank"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -34,22 +36,27 @@ func (s *modelService) AuthorizeExactPersonalChat(
 	if bundle == nil {
 		return ctx, options, nil
 	}
+	refuse := func(stage string) (context.Context, *chat.ChatOptions, error) {
+		logger.Warnf(ctx, "Personal published model input refused: stage=%s", stage)
+		return ctx, options, fmt.Errorf("%w: %s", errPersonalExactDocument, stage)
+	}
 	if len(request.History) != 0 || request.MemoryPrompt != "" || request.QuotedContext != "" ||
 		request.ImageDescription != "" || len(request.Images) != 0 || len(request.Attachments) != 0 ||
 		request.SystemPromptOverride != "" || request.WebSearchEnabled || request.DataAnalysisEnabled ||
 		request.GraphResult != nil || len(request.Entity) != 0 || len(request.EntityKnowledge) != 0 ||
-		(request.Intent != "" && request.Intent != types.IntentKBSearch) ||
-		(request.RewriteQuery != "" && request.RewriteQuery != request.Query) {
-		return ctx, options, errPersonalExactDocument
+		(request.Intent != "" && request.Intent != types.IntentKBSearch) {
+		return refuse("unsupported_history_external_or_multimodal_input")
 	}
 	ks := p.service.knowledge.(*knowledgeService)
 	if ks.config == nil || ks.config.Conversation == nil || ks.config.Conversation.Summary == nil {
-		return ctx, options, errPersonalExactDocument
+		return refuse("missing_server_configuration")
 	}
 	defaults := ks.config.Conversation.Summary
-	if request.SummaryConfig.Prompt != defaults.Prompt ||
-		request.SummaryConfig.ContextTemplate != defaults.ContextTemplate {
-		return ctx, options, errPersonalExactDocument
+	verifiedConfiguration := chatpipeline.HasVerifiedRAGConfiguration(ctx, request)
+	if !verifiedConfiguration && (request.SummaryConfig.Prompt != defaults.Prompt ||
+		request.SummaryConfig.ContextTemplate != defaults.ContextTemplate ||
+		(request.RewriteQuery != "" && request.RewriteQuery != request.Query)) {
+		return refuse("unsealed_prompt_or_query_rewrite")
 	}
 	read := ctx
 	tenant := types.MustTenantIDFromContext(ctx)
@@ -84,7 +91,7 @@ func (s *modelService) AuthorizeExactPersonalChat(
 	}
 	actualDigest, err := exactMessagesDigest(messages, actualOptions)
 	if err != nil || actualDigest != expectedDigest {
-		return ctx, options, errPersonalExactDocument
+		return refuse("canonical_model_messages_mismatch")
 	}
 	live := func(current context.Context) error { return bundle.validate(current) }
 	work, err := withExactPersonalMessages(read, tenant, messages, actualOptions, live)

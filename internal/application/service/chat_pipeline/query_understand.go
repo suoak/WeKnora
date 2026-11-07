@@ -61,6 +61,10 @@ func (p *PluginQueryUnderstand) ActivationEvents() []types.EventType {
 func (p *PluginQueryUnderstand) OnEvent(ctx context.Context,
 	eventType types.EventType, chatManage *types.ChatManage, next func() *PluginError,
 ) *PluginError {
+	verifiedNext := func() *PluginError {
+		recordVerifiedQueryRewrite(ctx, chatManage)
+		return next()
+	}
 	chatManage.RewriteQuery = chatManage.Query
 	// Collection semantics are rule-classified for every request. This must not
 	// depend on rewrite being enabled or on an LLM call succeeding.
@@ -74,7 +78,7 @@ func (p *PluginQueryUnderstand) OnEvent(ctx context.Context,
 			"session_id": chatManage.SessionID,
 			"reason":     "rewrite_disabled_no_images",
 		})
-		return next()
+		return verifiedNext()
 	}
 
 	pipelineInfo(ctx, "QueryUnderstand", "input", map[string]interface{}{
@@ -103,7 +107,7 @@ func (p *PluginQueryUnderstand) OnEvent(ctx context.Context,
 		pipelineError(ctx, "QueryUnderstand", "get_model", map[string]interface{}{
 			"session_id": chatManage.SessionID,
 		})
-		return next()
+		return verifiedNext()
 	}
 
 	// --- Build prompts ---
@@ -140,7 +144,7 @@ func (p *PluginQueryUnderstand) OnEvent(ctx context.Context,
 			"session_id": chatManage.SessionID,
 			"error":      err.Error(),
 		})
-		return next()
+		return verifiedNext()
 	}
 
 	// --- Parse structured output ---
@@ -170,7 +174,7 @@ func (p *PluginQueryUnderstand) OnEvent(ctx context.Context,
 		"has_prompt_override": chatManage.SystemPromptOverride != "",
 		"original_output":     response.Content,
 	})
-	return next()
+	return verifiedNext()
 }
 
 // updateUserMessageImageCaption writes the generated ImageDescription back to

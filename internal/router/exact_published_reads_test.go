@@ -3,16 +3,19 @@ package router
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/application/service"
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
+	apperrors "github.com/Tencent/WeKnora/internal/errors"
 	"github.com/Tencent/WeKnora/internal/middleware"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 type exactPublishedRouteService struct {
@@ -51,6 +54,10 @@ func TestExactPublishedReadRouteReportsLocalPublicationFailure(t *testing.T) {
 		{"rate_limit", core.ErrRateLimited, 503, "personal_published_verification_temporarily_unavailable"},
 		{"deadline", context.DeadlineExceeded, 503, "personal_published_verification_temporarily_unavailable"},
 		{"database", errors.New("private database error"), 500, "Document publication verification failed"},
+		{"deleted_kb", gorm.ErrRecordNotFound, 404, "Document unavailable"},
+		{"key_scope", fmt.Errorf("scope: %w", apperrors.NewForbiddenError("private scope")), 403, "Document read denied"},
+		{"revoked_key", apperrors.NewUnauthorizedError("private credential"), 401, "Authentication required"},
+		{"storage", errors.New("private storage connection failure"), 500, "Document publication verification failed"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			g := &rbacGuards{knowledgeService: exactPublishedRouteService{failure: tc.err}}

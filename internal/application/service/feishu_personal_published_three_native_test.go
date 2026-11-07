@@ -149,6 +149,9 @@ func exerciseAdditionalPublishedSnapshots(
 			require.NoError(t, json.Unmarshal(receipt.Payload, &published))
 			require.NoError(t, recovery.verifyExactPublishedDatabase(viewer, published))
 		}
+		selected, err := knowledge.GetKnowledgeBatchWithSharedAccess(viewer, 1, ids)
+		require.NoError(t, err, "Agent selected-document metadata must use exact publications")
+		require.Len(t, selected, 3)
 		search := &knowledgeBaseService{
 			personalRecovery: &recovery, repo: repository.NewKnowledgeBaseRepository(db),
 			kgRepo: knowledge.repo, chunkRepo: knowledge.chunkRepo, modelService: knowledge.modelService,
@@ -214,14 +217,37 @@ func exerciseAdditionalPublishedSnapshots(
 		request.RewriteQuery = "recovery"
 		manager := chatpipeline.NewEventManager()
 		merge := chatpipeline.NewPluginMerge(manager, knowledge.chunkRepo, nil, knowledge.modelService)
+		filter := chatpipeline.NewPluginFilterTopK(manager)
 		into := chatpipeline.NewPluginIntoChatMessage(manager, nil)
 		completion := chatpipeline.NewPluginChatCompletion(manager, knowledge.modelService)
 		next := func() *chatpipeline.PluginError { return nil }
 		require.Nil(t, merge.OnEvent(viewer, types.CHUNK_MERGE, request, next))
+		require.Nil(t, filter.OnEvent(viewer, types.FILTER_TOP_K, request, next))
 		require.Nil(t, into.OnEvent(viewer, types.INTO_CHAT_MESSAGE, request, next))
 		require.Nil(t, completion.OnEvent(viewer, types.CHAT_COMPLETION, request, next))
 		require.NotNil(t, request.ChatResponse)
 		require.NotEmpty(t, request.ChatResponse.Content)
+		// Production resolves server/space/agent templates before the pipeline.
+		// A different template is refused unless that exact request is sealed.
+		request.SummaryConfig.Prompt = "Server-approved workspace prompt. {{contexts}}"
+		require.NotNil(t, completion.OnEvent(viewer, types.CHAT_COMPLETION, request, next))
+		configured := chatpipeline.WithVerifiedRAGConfiguration(viewer, request)
+		understand := chatpipeline.NewPluginQueryUnderstand(manager, knowledge.modelService, nil, nil, knowledge.config)
+		require.Nil(t, understand.OnEvent(configured, types.QUERY_UNDERSTAND, request, func() *chatpipeline.PluginError {
+			if err := merge.OnEvent(configured, types.CHUNK_MERGE, request, next); err != nil {
+				return err
+			}
+			if err := filter.OnEvent(configured, types.FILTER_TOP_K, request, next); err != nil {
+				return err
+			}
+			if err := into.OnEvent(configured, types.INTO_CHAT_MESSAGE, request, next); err != nil {
+				return err
+			}
+			return completion.OnEvent(configured, types.CHAT_COMPLETION, request, next)
+		}))
+		require.NotEmpty(t, request.ChatResponse.Content)
+		request.SummaryConfig.Prompt = "Unsealed replacement prompt"
+		require.NotNil(t, completion.OnEvent(configured, types.CHAT_COMPLETION, request, next))
 		spy := &legacySpyModel{}
 		guarded := &legacyGuardedRerank{
 			Reranker: spy,
@@ -242,5 +268,7 @@ func exerciseAdditionalPublishedSnapshots(
 		_, err = knowledge.GetKnowledgeByID(viewer, ids[0])
 		require.Error(t, err)
 		require.Error(t, bundle.validate(viewer))
+		_, err = knowledge.GetKnowledgeBatchWithSharedAccess(viewer, 1, ids)
+		require.Error(t, err, "batch reads must recheck current membership")
 	})
 }

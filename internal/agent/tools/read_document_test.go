@@ -101,15 +101,22 @@ func (f *readDocKnowledgeService) ListPagedKnowledgeByKnowledgeBaseID(
 
 type readDocChunkRepo struct {
 	interfaces.ChunkRepository
-	ordered  []*types.Chunk // document order
-	listErr  error
-	requests []types.Pagination
+	ordered      []*types.Chunk // document order
+	listErr      error
+	requests     []types.Pagination
+	requireProof bool
 }
 
 func (r *readDocChunkRepo) ListPagedChunksByKnowledgeID(
-	_ context.Context, _ uint64, _ string, page *types.Pagination, _ []types.ChunkType,
+	ctx context.Context, _ uint64, id string, page *types.Pagination, _ []types.ChunkType,
 	_ []string, _ string, _ string, _ string, _ string, _ *bool,
 ) ([]*types.Chunk, int64, error) {
+	if r.requireProof {
+		present, err := types.CheckExactDocumentRead(ctx, id, "kb-1")
+		if !present || err != nil {
+			return nil, 0, errors.New("missing publication proof")
+		}
+	}
 	if r.listErr != nil {
 		return nil, 0, r.listErr
 	}
@@ -198,6 +205,41 @@ func newReadDocumentFixture(chunkCount int) (*ReadDocumentTool, *readDocChunkRep
 		types.SearchTargets{{Type: types.SearchTargetTypeKnowledgeBase, KnowledgeBaseID: "kb-1", TenantID: 7}},
 	)
 	return tool, repo
+}
+
+type publishedReadDocKnowledge struct {
+	*readDocKnowledgeService
+	revoked bool
+}
+
+func (s *publishedReadDocKnowledge) ExactPublishedReadContext(ctx context.Context, id string) (context.Context, bool, error) {
+	work, err := types.WithExactPublishedDocumentRead(ctx, 1, types.ExactDocumentScope{
+		TenantID: 7, KnowledgeID: id, KBID: "kb-1", Read: func(context.Context) error {
+			if s.revoked {
+				return types.ErrExactDocumentScope
+			}
+			return nil
+		},
+	})
+	return work, true, err
+}
+
+func TestReadDocumentCarriesPublishedReceiptToPagedRepository(t *testing.T) {
+	tool, repo := newReadDocumentFixture(3)
+	repo.requireProof = true
+	publication := &publishedReadDocKnowledge{readDocKnowledgeService: tool.knowledgeService.(*readDocKnowledgeService)}
+	tool.knowledgeService = publication
+	result, err := tool.Execute(context.Background(), json.RawMessage(`{"id":"doc-1"}`))
+	if err != nil || result == nil || !result.Success {
+		t.Fatalf("published document read failed: %v", err)
+	}
+	if !strings.Contains(result.Output, "Section 0 body") {
+		t.Fatal("published body missing")
+	}
+	publication.revoked = true
+	if _, err = tool.Execute(context.Background(), json.RawMessage(`{"id":"doc-1"}`)); err == nil {
+		t.Fatal("revoked receipt reached repository")
+	}
 }
 
 func chunkIDsFromData(t *testing.T, data map[string]interface{}) []string {

@@ -492,6 +492,7 @@ func (e *AgentEngine) withinIterationBudget(round int) bool {
 // spinning without ever finishing: empty answers, the same answer repeated,
 // and rounds cut off at the completion-token cap.
 type loopGuards struct {
+	retrieval retrievalProgress
 	// emptyRetries counts nudges sent after a stop with no content.
 	emptyRetries int
 	// consecutiveSameContent counts plain rounds that repeated the previous
@@ -626,6 +627,10 @@ func (e *AgentEngine) executeLoop(
 	guards := &loopGuards{}
 loop:
 	for e.withinIterationBudget(state.CurrentRound) || e.allowSteerOverrun {
+		if guards.retrieval.exhausted(time.Now()) {
+			e.finishStalledTurn(ctx, state, sessionID, &types.ChatResponse{Content: "Knowledge retrieval stopped after reaching its progress/time budget. Please narrow the question or selected documents; no additional source access was granted."}, false)
+			break loop
+		}
 		e.allowSteerOverrun = false
 		// Check for context cancellation (request timeout, user cancel, etc.)
 		select {
@@ -650,13 +655,30 @@ loop:
 			e.toolRegistry.RefreshMCPTools(ctx)
 			tools = e.buildToolsForLLM()
 		}
+		if guards.retrieval.needsSynthesis() {
+			guards.retrieval.synthesis = true
+			messages = append(messages, chat.Message{Role: "user", Content: "The bounded knowledge retrieval phase is finished. Give your final answer now using only the verified passages already returned, with source citations. If evidence is insufficient or access was denied, state that clearly. Do not request more tools."})
+		}
+		if guards.retrieval.synthesis {
+			tools = nil
+		}
 
 		// Each iteration runs inside an "agent.round.<N>" Langfuse span.
 		// We execute the body in a closure so `defer span.Finish()` fires at
 		// every exit path (break/continue/next) without having to sprinkle
 		// manual finish calls throughout the many branches below.
-		outcome, iterErr := e.runReActIteration(ctx, state, &messages, tools,
+		roundCtx := ctx
+		cancelRound := func() {}
+		if !guards.retrieval.disabled && !guards.retrieval.started.IsZero() {
+			roundCtx, cancelRound = context.WithDeadline(ctx, guards.retrieval.started.Add(retrievalTurnBudget))
+		}
+		outcome, iterErr := e.runReActIteration(roundCtx, state, &messages, tools,
 			sessionID, messageID, query, guards)
+		cancelRound()
+		if ctx.Err() == nil && guards.retrieval.exhausted(time.Now()) {
+			e.finishStalledTurn(ctx, state, sessionID, &types.ChatResponse{Content: "Knowledge retrieval stopped after reaching its progress/time budget. Please narrow the question or selected documents."}, false)
+			break loop
+		}
 		if iterErr != nil {
 			return state, iterErr
 		}
@@ -1037,8 +1059,13 @@ func (e *AgentEngine) runReActIteration(
 	// Thought.
 
 	// 3. Act: Execute tool calls
+	if guards.retrieval.synthesis && len(response.ToolCalls) > 0 {
+		e.finishStalledTurn(ctx, state, sessionID, &types.ChatResponse{Content: "The knowledge retrieval budget is exhausted and the model did not produce a final answer. Please narrow the question or selected documents."}, false)
+		return iterOutcomeBreak, nil
+	}
 	e.executeToolCalls(ctx, response, &step, state.CurrentRound, sessionID, assistantMessageID)
 	toolCallCount = len(step.ToolCalls)
+	guards.retrieval.observe(step.ToolCalls, time.Now())
 
 	// 4. Observe: Add tool results to messages and write to context
 	state.RoundSteps = append(state.RoundSteps, step)
