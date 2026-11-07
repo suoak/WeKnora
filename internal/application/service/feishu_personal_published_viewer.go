@@ -10,9 +10,16 @@ import (
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"gorm.io/gorm"
 )
 
 func publishedViewerDenied(reason string, cause error) error {
+	// Infrastructure failures must not become authorization refusals. Only an
+	// absent identity or an actual access refusal is classified as forbidden.
+	if cause != nil && !errors.Is(cause, gorm.ErrRecordNotFound) &&
+		!errors.Is(cause, access.ErrForbidden) && !errors.Is(cause, access.ErrNotFound) {
+		return fmt.Errorf("published_viewer_%s: %w", reason, cause)
+	}
 	return fmt.Errorf("published_viewer_%s: %w", reason, errors.Join(access.ErrForbidden, cause))
 }
 

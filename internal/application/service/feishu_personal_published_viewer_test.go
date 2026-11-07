@@ -1,8 +1,12 @@
 package service
 
 import (
+	"errors"
 	"sync"
 	"testing"
+
+	"github.com/Tencent/WeKnora/internal/application/access"
+	"gorm.io/gorm"
 
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
@@ -67,4 +71,13 @@ func TestPersonalPublishedViewerUsesCurrentKBPermission(t *testing.T) {
 	require.NoError(t, f.db.Exec("UPDATE knowledge_bases SET is_temporary=true WHERE id='kb'").Error)
 	_, err = f.p.checkExactPublishedViewer(viewer, receipt)
 	require.Error(t, err, "publication cannot turn a temporary KB into a durable shared asset")
+}
+
+func TestPersonalPublishedViewerPreservesInfrastructureFailure(t *testing.T) {
+	failure := errors.New("database unavailable")
+	err := publishedViewerDenied("membership_lookup", failure)
+	require.ErrorIs(t, err, failure)
+	require.NotErrorIs(t, err, access.ErrForbidden)
+	require.ErrorIs(t, publishedViewerDenied("membership_lookup", gorm.ErrRecordNotFound), access.ErrForbidden)
+	require.ErrorIs(t, publishedViewerDenied("membership_role", nil), access.ErrForbidden)
 }
