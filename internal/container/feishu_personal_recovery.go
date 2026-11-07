@@ -8,6 +8,10 @@ import (
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 )
 
+func configurePublishedSnapshotPortal(portal *service.PortalMCPKnowledge, personal *service.FeishuPersonalService) {
+	service.BindPersonalPublishedSnapshotReads(portal, personal)
+}
+
 func configurePersonalRecovery(
 	personal *service.FeishuPersonalService,
 	knowledge interfaces.KnowledgeService,

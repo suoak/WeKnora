@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"sort"
@@ -15,12 +16,13 @@ import (
 // PortalMCPKnowledge is a bounded coordinator over existing access, repositories
 // and retrieval drivers. It does not implement an index or issue memberships.
 type PortalMCPKnowledge struct {
-	Wiki      PersonalWikiReader
-	Resolver  *access.PortalMCPResolver
-	Knowledge interfaces.KnowledgeRepository
-	Chunks    interfaces.ChunkRepository
-	Engine    func(context.Context, access.PortalKBDescriptor) (access.DocumentRetriever, error)
-	Embed     func(context.Context, access.PortalKBDescriptor, string) ([]float32, error)
+	personalRecovery *PersonalRecovery
+	Wiki             PersonalWikiReader
+	Resolver         *access.PortalMCPResolver
+	Knowledge        interfaces.KnowledgeRepository
+	Chunks           interfaces.ChunkRepository
+	Engine           func(context.Context, access.PortalKBDescriptor) (access.DocumentRetriever, error)
+	Embed            func(context.Context, access.PortalKBDescriptor, string) ([]float32, error)
 	// Consumers are trusted model adapters (Rerank/LLM), not request parameters.
 	Consumers []func(context.Context, []PortalMCPHit) error
 }
@@ -49,6 +51,7 @@ func (s *PortalMCPKnowledge) Resolve(ctx context.Context, ids []string) ([]*acce
 	}
 	return s.Resolver.Resolve(ctx, ids)
 }
+
 func validatePortalTargets(ctx context.Context, ts []*access.PortalKBTarget) error {
 	for _, t := range ts {
 		if err := t.Revalidate(ctx); err != nil {
@@ -57,6 +60,7 @@ func validatePortalTargets(ctx context.Context, ts []*access.PortalKBTarget) err
 	}
 	return nil
 }
+
 func portalContains(t *access.PortalKBTarget, id string) bool {
 	for _, d := range t.DocumentIDs() {
 		if d == id {
@@ -65,12 +69,17 @@ func portalContains(t *access.PortalKBTarget, id string) bool {
 	}
 	return false
 }
+
 func (s *PortalMCPKnowledge) document(ctx context.Context, t *access.PortalKBTarget, id string) (*types.Knowledge, error) {
 	if s.Knowledge == nil || !portalContains(t, id) {
 		return nil, access.ErrForbidden
 	}
 	d := t.Descriptor()
-	row, err := s.Knowledge.GetKnowledgeByID(ctx, d.TenantID, id)
+	read, err := s.publishedDocumentContext(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	row, err := s.Knowledge.GetKnowledgeByID(read, d.TenantID, id)
 	if err != nil {
 		return nil, err
 	}
@@ -83,6 +92,9 @@ func (s *PortalMCPKnowledge) document(ctx context.Context, t *access.PortalKBTar
 	}
 	copy := *row
 	copy.Title = title
+	if _, err := types.CheckExactPublishedDocumentRead(read); err != nil {
+		return nil, err
+	}
 	return &copy, nil
 }
 
@@ -97,6 +109,9 @@ func (s *PortalMCPKnowledge) ListDocuments(ctx context.Context, kb string) ([]Po
 		for _, id := range t.DocumentIDs() {
 			row, e := s.document(ctx, t, id)
 			if e != nil {
+				if errors.Is(e, errPersonalExactDocument) {
+					continue
+				}
 				return nil, e
 			}
 			out = append(out, portalHit(t, row, nil))
@@ -105,8 +120,12 @@ func (s *PortalMCPKnowledge) ListDocuments(ctx context.Context, kb string) ([]Po
 	if err = validatePortalTargets(ctx, targets); err != nil {
 		return nil, err
 	}
+	if err = s.validatePublishedPortalHits(ctx, out); err != nil {
+		return nil, err
+	}
 	return out, nil
 }
+
 func portalHit(t *access.PortalKBTarget, row *types.Knowledge, c *types.Chunk) PortalMCPHit {
 	d := t.Descriptor()
 	h := PortalMCPHit{TenantID: d.TenantID, Space: d.SpaceName, KBID: d.ID, KBName: d.Name, DocumentID: row.ID, Title: row.Title, Reference: fmt.Sprintf("knowhub:tenant:%d:kb:%s:document:%s", d.TenantID, d.ID, row.ID)}
@@ -116,6 +135,7 @@ func portalHit(t *access.PortalKBTarget, row *types.Knowledge, c *types.Chunk) P
 	}
 	return h
 }
+
 func (s *PortalMCPKnowledge) ReadDocument(ctx context.Context, id string) ([]PortalMCPHit, error) {
 	targets, err := s.Resolve(ctx, nil)
 	if err != nil {
@@ -132,7 +152,11 @@ func (s *PortalMCPKnowledge) ReadDocument(ctx context.Context, id string) ([]Por
 		if s.Chunks == nil {
 			return nil, access.ErrForbidden
 		}
-		chunks, e := s.Chunks.ListChunksByKnowledgeID(ctx, t.Descriptor().TenantID, id)
+		read, e := s.publishedDocumentContext(ctx, id)
+		if e != nil {
+			return nil, e
+		}
+		chunks, e := s.Chunks.ListChunksByKnowledgeID(read, t.Descriptor().TenantID, id)
 		if e != nil {
 			return nil, e
 		}
@@ -159,6 +183,9 @@ func (s *PortalMCPKnowledge) ReadDocument(ctx context.Context, id string) ([]Por
 			out = append(out, portalHit(t, row, &copy))
 		}
 		if err = t.Revalidate(ctx); err != nil {
+			return nil, err
+		}
+		if err = s.validatePublishedPortalHits(ctx, out); err != nil {
 			return nil, err
 		}
 		return out, nil
@@ -238,7 +265,10 @@ func (s *PortalMCPKnowledge) Search(ctx context.Context, ids []string, query, mo
 			if e != nil {
 				return nil, e
 			}
-			groups, e := engine.Retrieve(execution, params)
+			groups, partial, e := s.retrievePublishedPortalDocuments(execution, t, engine, params)
+			if partial {
+				result.Status = "partial"
+			}
 			if e != nil {
 				failed = true
 				break
@@ -263,7 +293,11 @@ func (s *PortalMCPKnowledge) Search(ctx context.Context, ids []string, query, mo
 					if e != nil {
 						return nil, e
 					}
-					chunk, e := s.Chunks.GetChunkByID(ctx, descriptor.TenantID, candidate.ChunkID)
+					read, e := s.publishedDocumentContext(ctx, candidate.KnowledgeID)
+					if e != nil {
+						return nil, e
+					}
+					chunk, e := s.Chunks.GetChunkByID(read, descriptor.TenantID, candidate.ChunkID)
 					if e != nil {
 						return nil, e
 					}
@@ -325,6 +359,9 @@ func (s *PortalMCPKnowledge) Search(ctx context.Context, ids []string, query, mo
 		}
 	}
 	for _, consumer := range s.Consumers {
+		if e := s.validatePublishedPortalHits(ctx, result.Results); e != nil {
+			return nil, e
+		}
 		if e := validatePortalTargets(ctx, targets); e != nil {
 			return nil, e
 		}
@@ -336,6 +373,9 @@ func (s *PortalMCPKnowledge) Search(ctx context.Context, ids []string, query, mo
 		}
 	}
 	if e := validatePortalTargets(ctx, targets); e != nil {
+		return nil, e
+	}
+	if e := s.validatePublishedPortalHits(ctx, result.Results); e != nil {
 		return nil, e
 	}
 	return result, nil

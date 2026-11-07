@@ -68,6 +68,13 @@ func exerciseAdditionalPublishedSnapshots(t *testing.T, f *personalRecoveryFixtu
 		require.Equal(t, "published", receipt.Op)
 	}
 	t.Run("three_published_assets_survive_disconnect", func(t *testing.T) {
+		// Retrieval owns another SQL connection. Commit these identity changes
+		// so both its SQL predicates and the service proof observe the same facts.
+		require.NoError(t, f.db.Exec("UPDATE tenant_members SET role='viewer' WHERE user_id='B'").Error)
+		defer func() {
+			require.NoError(t, f.db.Exec("UPDATE tenant_members SET role='admin' WHERE user_id='B'").Error)
+		}()
+		require.NoError(t, f.s.Disconnect(f.ctx))
 		tx := f.db.Begin()
 		defer tx.Rollback()
 		personal, recovery, knowledge := *f.s, *f.p, *f.ks
@@ -82,8 +89,6 @@ func exerciseAdditionalPublishedSnapshots(t *testing.T, f *personalRecoveryFixtu
 		denied := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { calls.Add(1); w.WriteHeader(403) }))
 		defer denied.Close()
 		personal.newClient = func(cfg *core.Config) *core.Client { cfg.BaseURL = denied.URL; return core.NewClient(cfg) }
-		require.NoError(t, personal.Disconnect(f.ctx))
-		require.NoError(t, tx.Exec("UPDATE tenant_members SET role='viewer' WHERE user_id='B'").Error)
 		var connections int64
 		require.NoError(t, tx.Model(&types.FeishuConnection{}).Where("user_id='A'").Count(&connections).Error)
 		require.Zero(t, connections)
@@ -93,8 +98,13 @@ func exerciseAdditionalPublishedSnapshots(t *testing.T, f *personalRecoveryFixtu
 		viewer, err := restoreSummaryRefreshTenantInfo(viewer, knowledge.tenantRepo, 1)
 		require.NoError(t, err)
 		chunks := &chunkService{personalRecovery: &recovery, chunkRepository: knowledge.chunkRepo}
+		portal := &PortalMCPKnowledge{personalRecovery: &recovery, Knowledge: knowledge.repo, Chunks: knowledge.chunkRepo}
 		for _, id := range ids {
 			read, err := recovery.exactPublishedReadContext(viewer, id)
+			require.NoError(t, err)
+			portalRead, err := portal.publishedDocumentContext(viewer, id)
+			require.NoError(t, err)
+			_, err = knowledge.repo.GetKnowledgeByID(portalRead, 1, id)
 			require.NoError(t, err)
 			scoped, writeErr := types.CheckExactDocumentCommit(tx.WithContext(read), 1, id, "kb")
 			require.True(t, scoped)
@@ -124,6 +134,13 @@ func exerciseAdditionalPublishedSnapshots(t *testing.T, f *personalRecoveryFixtu
 		}
 		vector := make([]float32, 1024)
 		vector[0] = 1
+		for _, id := range ids {
+			read, err := recovery.exactPublishedReadContext(viewer, id)
+			require.NoError(t, err)
+			kb, err := search.exactSearchKnowledgeBase(read, "kb")
+			require.NoError(t, err, "configuration-only KB projection must not require importer OAuth")
+			require.NoError(t, search.authorizeKBAccess(read, []*types.KnowledgeBase{kb}))
+		}
 		results, err := search.HybridSearch(viewer, "kb", types.SearchParams{KnowledgeIDs: ids, QueryText: "recovery", QueryEmbedding: vector, MatchCount: 100})
 		require.NoError(t, err)
 		found := make(map[string]bool)

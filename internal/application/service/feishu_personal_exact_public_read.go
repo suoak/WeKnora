@@ -137,6 +137,9 @@ func (s *knowledgeService) exactPublicKnowledgePage(ctx context.Context, kb stri
 	if err != nil {
 		return nil, true, err
 	}
+	if _, err := p.checkExactPublishedViewer(ctx, types.PersonalExactReceipt{TenantID: owner.TenantID, KnowledgeBaseID: owner.ID}); err != nil {
+		return nil, true, err
+	}
 	tenant, valid := types.TenantIDFromContext(ctx)
 	if !valid || tenant != owner.TenantID {
 		return nil, true, access.ErrForbidden

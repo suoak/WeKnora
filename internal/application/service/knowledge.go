@@ -672,6 +672,13 @@ func (s *knowledgeService) GetOwningKBCreatorID(ctx context.Context, knowledgeID
 func (s *knowledgeService) ListKnowledgeByKnowledgeBaseID(ctx context.Context,
 	kbID string,
 ) ([]*types.Knowledge, error) {
+	if result, handled, err := s.exactPublicKnowledgePage(ctx, kbID,
+		&types.Pagination{Page: 1, PageSize: access.MaxDocumentAllowSet}, types.KnowledgeListFilter{}); handled {
+		if err != nil {
+			return nil, err
+		}
+		return result.Data.([]*types.Knowledge), nil
+	}
 	if s.DocumentACLReadEnabled() {
 		result, err := s.readAuthorizedPage(ctx, kbID, &types.Pagination{Page: 1, PageSize: access.MaxDocumentAllowSet}, types.KnowledgeListFilter{})
 		if err != nil {
@@ -687,11 +694,11 @@ func (s *knowledgeService) ListKnowledgeByKnowledgeBaseID(ctx context.Context,
 func (s *knowledgeService) ListPagedKnowledgeByKnowledgeBaseID(ctx context.Context,
 	kbID string, page *types.Pagination, filter types.KnowledgeListFilter,
 ) (*types.PageResult, error) {
-	if s.DocumentACLReadEnabled() {
-		return s.readAuthorizedPage(ctx, kbID, page, filter)
-	}
 	if result, handled, err := s.exactPublicKnowledgePage(ctx, kbID, page, filter); handled {
 		return result, err
+	}
+	if s.DocumentACLReadEnabled() {
+		return s.readAuthorizedPage(ctx, kbID, page, filter)
 	}
 
 	knowledges, total, err := s.repo.ListPagedKnowledgeByKnowledgeBaseID(ctx,
