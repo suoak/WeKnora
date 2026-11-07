@@ -1,6 +1,7 @@
 package service
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/types"
@@ -15,6 +16,23 @@ func TestPersonalPublishedViewerUsesCurrentKBPermission(t *testing.T) {
 	require.NoError(t, f.db.Exec("UPDATE tenant_members SET role='viewer' WHERE user_id='B'").Error)
 	_, err := f.p.checkExactPublishedViewer(viewer, receipt)
 	require.NoError(t, err)
+	// Independent requests use the application's connection pool. PostgreSQL
+	// cannot multiplex active query results on a single shared transaction.
+	var pending sync.WaitGroup
+	failures := make(chan error, 32)
+	for range 32 {
+		pending.Add(1)
+		go func() {
+			defer pending.Done()
+			_, failure := f.p.checkExactPublishedViewer(viewer, receipt)
+			failures <- failure
+		}()
+	}
+	pending.Wait()
+	close(failures)
+	for failure := range failures {
+		require.NoError(t, failure)
+	}
 
 	require.NoError(t, f.db.Exec("INSERT INTO users(id,is_active) VALUES('C',true)").Error)
 	require.NoError(t, f.db.Exec("INSERT INTO tenants VALUES(2,'active',NULL)").Error)

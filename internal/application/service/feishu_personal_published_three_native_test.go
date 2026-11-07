@@ -72,16 +72,15 @@ func exerciseAdditionalPublishedSnapshots(t *testing.T, f *personalRecoveryFixtu
 		// so both its SQL predicates and the service proof observe the same facts.
 		require.NoError(t, f.db.Exec("UPDATE tenant_members SET role='viewer' WHERE user_id='B'").Error)
 		defer func() {
-			require.NoError(t, f.db.Exec("UPDATE tenant_members SET role='admin' WHERE user_id='B'").Error)
+			require.NoError(t, f.db.Exec("UPDATE tenant_members SET role='admin',status='active' WHERE user_id='B'").Error)
 		}()
 		require.NoError(t, f.s.Disconnect(f.ctx))
-		tx := f.db.Begin()
-		defer tx.Rollback()
+		db := f.db
 		personal, recovery, knowledge := *f.s, *f.p, *f.ks
-		personal.db, personal.knowledge = tx, &knowledge
-		recovery.service, recovery.repo = &personal, repository.NewPersonalRecoveryRepository(tx)
+		personal.db, personal.knowledge = db, &knowledge
+		recovery.service, recovery.repo = &personal, repository.NewPersonalRecoveryRepository(db)
 		knowledge.personalRecovery = &recovery
-		knowledge.repo, knowledge.chunkRepo = repository.NewKnowledgeRepository(tx), repository.NewChunkRepository(tx)
+		knowledge.repo, knowledge.chunkRepo = repository.NewKnowledgeRepository(db), repository.NewChunkRepository(db)
 		models := *knowledge.modelService.(*exactAcceptanceModels)
 		models.recovery = &recovery
 		knowledge.modelService = &models
@@ -90,7 +89,7 @@ func exerciseAdditionalPublishedSnapshots(t *testing.T, f *personalRecoveryFixtu
 		defer denied.Close()
 		personal.newClient = func(cfg *core.Config) *core.Client { cfg.BaseURL = denied.URL; return core.NewClient(cfg) }
 		var connections int64
-		require.NoError(t, tx.Model(&types.FeishuConnection{}).Where("user_id='A'").Count(&connections).Error)
+		require.NoError(t, db.Model(&types.FeishuConnection{}).Where("user_id='A'").Count(&connections).Error)
 		require.Zero(t, connections)
 		viewer := types.WithPrincipal(f.userContext("B"), types.Principal{Type: types.PrincipalWebUser, ID: "B"})
 		viewer = types.WithCaller(viewer, types.Caller{UserID: "B", TenantID: 1, Role: types.TenantRoleViewer})
@@ -106,7 +105,7 @@ func exerciseAdditionalPublishedSnapshots(t *testing.T, f *personalRecoveryFixtu
 			require.NoError(t, err)
 			_, err = knowledge.repo.GetKnowledgeByID(portalRead, 1, id)
 			require.NoError(t, err)
-			scoped, writeErr := types.CheckExactDocumentCommit(tx.WithContext(read), 1, id, "kb")
+			scoped, writeErr := types.CheckExactDocumentCommit(db.WithContext(read), 1, id, "kb")
 			require.True(t, scoped)
 			require.Error(t, writeErr, "published read proof cannot authorize a write")
 			row, err := knowledge.GetKnowledgeByID(viewer, id)
@@ -122,13 +121,13 @@ func exerciseAdditionalPublishedSnapshots(t *testing.T, f *personalRecoveryFixtu
 			require.NoError(t, err)
 			require.NotEmpty(t, rows)
 			var receipt types.TaskPendingOp
-			require.NoError(t, tx.Where("scope=? AND scope_id=?", types.PersonalExactReceiptScope, id).Take(&receipt).Error)
+			require.NoError(t, db.Where("scope=? AND scope_id=?", types.PersonalExactReceiptScope, id).Take(&receipt).Error)
 			var published types.PersonalExactReceipt
 			require.NoError(t, json.Unmarshal(receipt.Payload, &published))
 			require.NoError(t, recovery.verifyExactPublishedDatabase(viewer, published))
 		}
 		search := &knowledgeBaseService{
-			personalRecovery: &recovery, repo: repository.NewKnowledgeBaseRepository(tx),
+			personalRecovery: &recovery, repo: repository.NewKnowledgeBaseRepository(db),
 			kgRepo: knowledge.repo, chunkRepo: knowledge.chunkRepo, modelService: knowledge.modelService,
 			kbShareService: recovery.shares, retrieveEngine: knowledge.retrieveEngine,
 		}
@@ -189,13 +188,13 @@ func exerciseAdditionalPublishedSnapshots(t *testing.T, f *personalRecoveryFixtu
 		require.NotNil(t, request.ChatResponse)
 		require.NotEmpty(t, request.ChatResponse.Content)
 		spy := &legacySpyModel{}
-		guarded := &legacyGuardedRerank{Reranker: spy, gate: repository.NewModelRepository(tx).(legacyModelInputGate), tenant: 1}
+		guarded := &legacyGuardedRerank{Reranker: spy, gate: repository.NewModelRepository(db).(legacyModelInputGate), tenant: 1}
 		model, err := (&modelService{personalRecovery: &recovery}).publishedBundleReranker(viewer, guarded, "recovery", canonical)
 		require.NoError(t, err)
 		_ = reranking.Rerank(viewer, model, "recovery", canonical, reranking.Options{TopK: 100})
 		require.EqualValues(t, 1, spy.calls.Load())
 		require.Zero(t, calls.Load(), "B's three-document read/search must make no Feishu requests")
-		require.NoError(t, tx.Exec("UPDATE tenant_members SET status='disabled' WHERE user_id='B'").Error)
+		require.NoError(t, db.Exec("UPDATE tenant_members SET status='disabled' WHERE user_id='B'").Error)
 		_, err = knowledge.GetKnowledgeByID(viewer, ids[0])
 		require.Error(t, err)
 		require.Error(t, bundle.validate(viewer))

@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
@@ -10,22 +12,32 @@ import (
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 )
 
+func publishedViewerDenied(reason string, cause error) error {
+	return fmt.Errorf("published_viewer_%s: %w", reason, errors.Join(access.ErrForbidden, cause))
+}
+
 // Every read boundary checks the reader, never the original importer's account.
 func (p *PersonalRecovery) checkExactPublishedViewer(ctx context.Context, receipt types.PersonalExactReceipt) (*types.KnowledgeBase, error) {
 	caller := types.CallerFromContext(ctx)
 	var member types.TenantMember
 	if err := p.service.db.WithContext(ctx).Where(
 		"user_id=? AND tenant_id=? AND status=? AND deleted_at IS NULL", caller.UserID, caller.TenantID, types.TenantMemberStatusActive,
-	).Take(&member).Error; err != nil || !member.Role.IsValid() || member.Role != caller.Role {
-		return nil, access.ErrForbidden
+	).Take(&member).Error; err != nil {
+		return nil, publishedViewerDenied("membership_lookup", err)
+	}
+	if !member.Role.IsValid() || member.Role != caller.Role {
+		return nil, publishedViewerDenied("membership_role", nil)
 	}
 	var active bool
 	if err := p.service.db.WithContext(ctx).Raw(`SELECT
 EXISTS(SELECT 1 FROM users WHERE id=? AND is_active AND deleted_at IS NULL) AND
 EXISTS(SELECT 1 FROM tenants WHERE id=? AND status='active' AND deleted_at IS NULL) AND
 EXISTS(SELECT 1 FROM tenants WHERE id=? AND status='active' AND deleted_at IS NULL)`,
-		caller.UserID, caller.TenantID, receipt.TenantID).Scan(&active).Error; err != nil || !active {
-		return nil, access.ErrForbidden
+		caller.UserID, caller.TenantID, receipt.TenantID).Scan(&active).Error; err != nil {
+		return nil, publishedViewerDenied("account_space_lookup", err)
+	}
+	if !active {
+		return nil, publishedViewerDenied("account_or_space_inactive", nil)
 	}
 	if scope, keyed := types.TenantAPIKeyScopeFromContext(ctx); keyed {
 		if scope.KeyID == 0 || scope.ScopeType != types.APIKeyScopeUserMCP || scope.FullAccess ||
@@ -61,8 +73,11 @@ EXISTS(SELECT 1 FROM tenants WHERE id=? AND status='active' AND deleted_at IS NU
 		ctx = types.WithTenantAPIKeyScope(ctx, scope)
 	}
 	kb, err := p.loadAuthorizationKB(ctx, receipt.KnowledgeBaseID)
-	if err != nil || kb.TenantID != receipt.TenantID || kb.IsTemporary {
-		return nil, access.ErrForbidden
+	if err != nil {
+		return nil, publishedViewerDenied("kb_lookup", err)
+	}
+	if kb.TenantID != receipt.TenantID || kb.IsTemporary {
+		return nil, publishedViewerDenied("kb_binding", nil)
 	}
 	if _, err = access.ResolveKB(ctx, access.KBRequest{Caller: caller}, kb, types.OrgRoleViewer, p.shares, nil); err != nil {
 		return nil, err
