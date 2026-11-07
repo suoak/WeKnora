@@ -34,6 +34,8 @@ func (FeishuPersonalImport) TableName() string { return "feishu_personal_imports
 
 // FeishuPersonalImport defines feishu personal import state.
 type FeishuPersonalImport struct {
+	PublicationStatus  string    `gorm:"-" json:"publication_status,omitempty"`
+	SourceSyncStatus   string    `gorm:"-" json:"source_sync_status,omitempty"`
 	DataSourceID       string    `gorm:"-" json:"data_source_id,omitempty"`
 	SourceStatus       string    `gorm:"-" json:"source_status,omitempty"`
 	AuthMode           string    `gorm:"default:user_oauth" json:"auth_mode"`

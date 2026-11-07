@@ -8,14 +8,16 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
-type documentReadOutputKey struct{}
-type documentReadOutput struct {
-	mu         sync.Mutex
-	principal  types.Principal
-	caller     types.Caller
-	credential *types.TenantAPIKeyScope
-	checks     []func() error
-}
+type (
+	documentReadOutputKey struct{}
+	documentReadOutput    struct {
+		mu         sync.Mutex
+		principal  types.Principal
+		caller     types.Caller
+		credential *types.TenantAPIKeyScope
+		checks     []func() error
+	}
+)
 
 func normalizedReadCredential(ctx context.Context) *types.TenantAPIKeyScope {
 	if key, ok := types.TenantAPIKeyScopeFromContext(ctx); ok {
@@ -55,10 +57,12 @@ func WithDocumentReadOutput(ctx context.Context) (context.Context, func() error,
 		return nil
 	}, nil
 }
+
 func HasDocumentReadOutput(ctx context.Context) bool {
 	out, ok := ctx.Value(documentReadOutputKey{}).(*documentReadOutput)
 	return ok && out != nil
 }
+
 func (out *documentReadOutput) matches(ctx context.Context) error {
 	p, ok := ctx.Value(types.PrincipalContextKey).(types.Principal)
 	if !ok || !reflect.DeepEqual(p, out.principal) || !reflect.DeepEqual(types.CallerFromContext(ctx), out.caller) || !reflect.DeepEqual(normalizedReadCredential(ctx), out.credential) {
@@ -66,6 +70,7 @@ func (out *documentReadOutput) matches(ctx context.Context) error {
 	}
 	return nil
 }
+
 func retainDocumentReadOutput(ctx context.Context, check func() error) error {
 	out, ok := ctx.Value(documentReadOutputKey{}).(*documentReadOutput)
 	if !ok {
@@ -82,6 +87,7 @@ func retainDocumentReadOutput(ctx context.Context, check func() error) error {
 	out.mu.Unlock()
 	return nil
 }
+
 func (g *DocumentReadGrant) RetainForOutput(ctx context.Context) error {
 	if g == nil || g.operation != types.DocumentRead {
 		return ErrForbidden
@@ -91,9 +97,25 @@ func (g *DocumentReadGrant) RetainForOutput(ctx context.Context) error {
 	}
 	return retainDocumentReadOutput(ctx, func() error { return g.Revalidate(ctx) })
 }
+
 func (s *DocumentReadScope) RetainForOutput(ctx context.Context) error {
 	if err := s.Validate(ctx); err != nil {
 		return err
 	}
 	return retainDocumentReadOutput(ctx, func() error { return s.Validate(ctx) })
+}
+
+// RetainExactPublishedReadOutput accepts only the existing server-issued,
+// single-document, read-only receipt capability. It cannot authorize ordinary
+// unreceipted documents, a whole KB, an execution scope or any mutation.
+func RetainExactPublishedReadOutput(ctx context.Context) error {
+	if present, err := types.CheckExactPublishedDocumentRead(ctx); err != nil {
+		return err
+	} else if !present {
+		return ErrForbidden
+	}
+	return retainDocumentReadOutput(ctx, func() error {
+		_, err := types.CheckExactPublishedDocumentRead(ctx)
+		return err
+	})
 }

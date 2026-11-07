@@ -87,13 +87,14 @@ func personalAuthorizationKB(db *gorm.DB, id string, locked bool) (*types.Knowle
 	var row struct {
 		ID, CreatorID string
 		TenantID      uint64
+		IsTemporary   bool
 	}
 	query := db.Table("knowledge_bases")
 	if locked {
 		query = query.Clauses(clause.Locking{Strength: "SHARE"})
 	}
 	if err := query.
-		Select("id, tenant_id, creator_id").
+		Select("id, tenant_id, creator_id, COALESCE((to_jsonb(knowledge_bases)->>'is_temporary')::boolean,false) AS is_temporary").
 		Where("id=? AND deleted_at IS NULL", id).Take(&row).Error; err != nil {
 		return nil, err
 	}
@@ -106,5 +107,6 @@ func personalAuthorizationKB(db *gorm.DB, id string, locked bool) (*types.Knowle
 		TenantID:       row.TenantID,
 		CreatorID:      row.CreatorID,
 		PrivateOwnerID: owner,
+		IsTemporary:    row.IsTemporary,
 	}, nil
 }

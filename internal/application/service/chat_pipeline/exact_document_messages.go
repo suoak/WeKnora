@@ -66,6 +66,18 @@ type exactPersonalReadAuthorizer interface {
 	AuthorizeExactPersonalRead(context.Context, []*types.SearchResult) (context.Context, error)
 }
 
+type exactPersonalReadRepositoryAuthorizer interface {
+	AuthorizeExactPersonalReadRepository(context.Context, []*types.SearchResult, interfaces.ChunkRepository) (context.Context, interfaces.ChunkRepository, error)
+}
+
+func prepareExactPersonalReadRepository(ctx context.Context, models interfaces.ModelService, results []*types.SearchResult, chunks interfaces.ChunkRepository) (context.Context, interfaces.ChunkRepository, error) {
+	if issuer, ok := models.(exactPersonalReadRepositoryAuthorizer); ok {
+		return issuer.AuthorizeExactPersonalReadRepository(ctx, results, chunks)
+	}
+	read, err := prepareExactPersonalRead(ctx, models, results)
+	return read, chunks, err
+}
+
 func prepareExactPersonalRead(
 	ctx context.Context, models interfaces.ModelService, results []*types.SearchResult,
 ) (context.Context, error) {

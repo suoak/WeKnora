@@ -9,7 +9,7 @@ import (
 
 // This reports execution metadata to the already-authorized import owner. It
 // never grants document read authority and never loads body/profile/summary.
-// Current source authorization is independently rechecked on every content use.
+// Source synchronization and the persisted publication have independent states.
 func (p *PersonalRecovery) decorateExactIndexStatus(
 	ctx context.Context, tenant uint64, row *types.FeishuPersonalImport,
 ) (bool, error) {
@@ -28,19 +28,24 @@ func (p *PersonalRecovery) decorateExactIndexStatus(
 		receipt.KnowledgeBaseID != row.KBID || receipt.TenantID != tenant {
 		return true, errPersonalExactDocument
 	}
-	if row.Status == "needs_attention" {
-		row.IndexStatus, row.WikiStatus = "attention", "not_started"
-		return true, nil
-	}
 	if ops[0].Op != "published" {
 		// A staging receipt proves ownership, not that parsing or indexing ran.
+		row.PublicationStatus = "unpublished"
 		row.IndexStatus, row.WikiStatus = "pending", "not_started"
+		if row.Status == "needs_attention" {
+			row.IndexStatus = "attention"
+		}
 		return true, nil
 	}
 	if err := p.verifyExactPublishedDatabase(ctx, receipt); err != nil {
 		return true, err
 	}
-	row.IndexStatus = "verified"
+	row.PublicationStatus, row.IndexStatus = "published", "verified"
+	row.SourceSyncStatus = "not_configured"
+	if row.Status == "needs_attention" {
+		row.SourceSyncStatus, row.WikiStatus = "needs_attention", "not_started"
+		return true, nil
+	}
 	// Exact publication currently supports the ordinary document index only.
 	// Do not claim a Wiki pipeline completed without its own receipt.
 	var kb struct{ IndexingStrategy types.IndexingStrategy }

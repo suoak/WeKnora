@@ -17,7 +17,11 @@ type exactSearchFanoutBypassKey struct{}
 func (s *knowledgeBaseService) exactRecoveryHybridSearch(
 	ctx context.Context, kbID string, params types.SearchParams,
 ) (bool, []*types.SearchResult, error) {
-	if !exactPersonalRecoveryEnabled() || s.personalRecovery == nil || len(params.KnowledgeIDs) == 1 ||
+	_, _, _, _, alreadyExact := types.ExactPublishedDocumentIdentity(ctx)
+	if !alreadyExact && s.personalRecovery != nil && len(params.KnowledgeBaseIDs) > 1 && ctx.Value(exactSearchFanoutBypassKey{}) == nil {
+		return s.exactPublishedMultiKBSearch(ctx, params)
+	}
+	if s.personalRecovery == nil || len(params.KnowledgeIDs) == 1 ||
 		ctx.Value(exactSearchFanoutBypassKey{}) != nil {
 		return false, nil, nil
 	}
@@ -32,6 +36,9 @@ func (s *knowledgeBaseService) exactRecoveryHybridSearch(
 	// Do not enumerate another user's private KB or its receipt metadata.
 	kb, err := p.loadAuthorizationKB(ctx, kbID)
 	if err != nil {
+		return true, nil, err
+	}
+	if _, err = p.checkExactPublishedViewer(ctx, types.PersonalExactReceipt{TenantID: kb.TenantID, KnowledgeBaseID: kb.ID}); err != nil {
 		return true, nil, err
 	}
 	grant, err := access.ResolveKB(ctx, access.KBRequest{Caller: types.CallerFromContext(ctx)},
@@ -60,21 +67,33 @@ func (s *knowledgeBaseService) exactRecoveryHybridSearch(
 	params.MatchCount = normalizedMatchCount(params.MatchCount)
 	ordinary := context.WithValue(ctx, exactSearchFanoutBypassKey{}, true)
 	var combined []*types.SearchResult
-	if err := types.CheckLegacySourceRead(p.service.db.WithContext(read), "", kbID); err == nil {
-		results, err := s.HybridSearch(ordinary, kbID, params)
+	// Never submit the receipted documents to an unscoped ordinary search and
+	// hope to filter them afterwards. Only independent local upload IDs enter it.
+	var ordinaryIDs []string
+	ordinaryQuery := p.service.db.WithContext(read).Table("knowledges").Where("knowledge_base_id=? AND tenant_id=? AND deleted_at IS NULL AND id NOT IN ? AND channel IN ?", kbID, kb.TenantID, ids, []string{"web", "api", "manual", ""})
+	if len(params.KnowledgeIDs) > 0 {
+		ordinaryQuery = ordinaryQuery.Where("id IN ?", params.KnowledgeIDs)
+	}
+	if err := ordinaryQuery.Limit(4097).Pluck("id", &ordinaryIDs).Error; err != nil {
+		return true, nil, err
+	}
+	if len(ordinaryIDs) > 4096 {
+		return true, nil, errors.New("exact_document_search_scope_requires_narrowing")
+	}
+	if len(ordinaryIDs) > 0 && (s.documentACL == nil || !s.documentACL.enabled) {
+		target := params
+		target.KnowledgeIDs = ordinaryIDs
+		results, err := s.HybridSearch(ordinary, kbID, target)
 		if err != nil {
 			return true, nil, err
 		}
 		combined = append(combined, results...)
-	} else if !errors.Is(err, types.ErrLegacySourceRestricted) {
-		return true, nil, err
 	}
 	verified := make(map[string]context.Context)
 	for _, id := range ids {
 		scope, err := p.exactPublishedReadContext(ctx, id)
 		if err != nil {
-			if errors.Is(err, errPersonalExactDocument) || personalAuthorizationLost(err) ||
-				errors.Is(err, types.ErrLegacySourceRestricted) {
+			if errors.Is(err, errPersonalExactDocument) {
 				continue // An invalid file must not authorize or block other files.
 			}
 			return true, nil, err
@@ -95,8 +114,13 @@ func (s *knowledgeBaseService) exactRecoveryHybridSearch(
 			return true, nil, err
 		}
 	}
+	return true, mergeExactPublishedSearchResults(combined, params.MatchCount), nil
+}
+
+func mergeExactPublishedSearchResults(combined []*types.SearchResult, limit int) []*types.SearchResult {
+	limit = normalizedMatchCount(limit)
 	sort.SliceStable(combined, func(i, j int) bool { return combined[i].Score > combined[j].Score })
-	out := make([]*types.SearchResult, 0, min(len(combined), params.MatchCount))
+	out := make([]*types.SearchResult, 0, min(len(combined), limit))
 	seen := make(map[string]bool)
 	for _, result := range combined {
 		if seen[result.ID] {
@@ -104,9 +128,85 @@ func (s *knowledgeBaseService) exactRecoveryHybridSearch(
 		}
 		seen[result.ID] = true
 		out = append(out, result)
-		if len(out) == params.MatchCount {
+		if len(out) == limit {
 			break
 		}
 	}
-	return true, out, nil
+	return out
+}
+
+func (s *knowledgeBaseService) exactPublishedMultiKBSearch(ctx context.Context, params types.SearchParams) (bool, []*types.SearchResult, error) {
+	p := s.personalRecovery
+	var count int64
+	if err := p.service.db.WithContext(ctx).Table("task_pending_ops").Where("scope=? AND payload->>'knowledge_base_id' IN ?", types.PersonalExactReceiptScope, params.KnowledgeBaseIDs).Count(&count).Error; err != nil {
+		return true, nil, err
+	}
+	if count == 0 {
+		return false, nil, nil
+	}
+	if len(params.KnowledgeBaseIDs) > 64 {
+		return true, nil, errors.New("exact_document_search_scope_requires_narrowing")
+	}
+	var combined []*types.SearchResult
+	seen := make(map[string]bool)
+	for _, kbID := range params.KnowledgeBaseIDs {
+		if seen[kbID] {
+			continue
+		}
+		seen[kbID] = true
+		kb, err := p.loadAuthorizationKB(ctx, kbID)
+		if err != nil {
+			return true, nil, err
+		}
+		if _, err = p.checkExactPublishedViewer(ctx, types.PersonalExactReceipt{TenantID: kb.TenantID, KnowledgeBaseID: kb.ID}); err != nil {
+			return true, nil, err
+		}
+		target := params
+		target.KnowledgeBaseIDs = []string{kbID}
+		if len(params.KnowledgeIDs) > 0 {
+			var ids []string
+			if err := p.service.db.WithContext(ctx).Table("knowledges").Where("knowledge_base_id=? AND id IN ? AND deleted_at IS NULL", kbID, params.KnowledgeIDs).Pluck("id", &ids).Error; err != nil {
+				return true, nil, err
+			}
+			if len(ids) == 0 {
+				continue
+			}
+			target.KnowledgeIDs = ids
+		}
+		rows, err := s.HybridSearch(ctx, kbID, target)
+		if errors.Is(err, errPersonalExactDocument) {
+			continue
+		}
+		if err != nil {
+			return true, nil, err
+		}
+		combined = append(combined, rows...)
+	}
+	// Every KB and each released publication is checked again after fan-out.
+	for kbID := range seen {
+		kb, err := p.loadAuthorizationKB(ctx, kbID)
+		if err != nil {
+			return true, nil, err
+		}
+		if _, err = p.checkExactPublishedViewer(ctx, types.PersonalExactReceipt{TenantID: kb.TenantID, KnowledgeBaseID: kb.ID}); err != nil {
+			return true, nil, err
+		}
+	}
+	checked := make(map[string]bool)
+	for _, row := range combined {
+		if checked[row.KnowledgeID] {
+			continue
+		}
+		checked[row.KnowledgeID] = true
+		var receipts int64
+		if err := p.service.db.WithContext(ctx).Table("task_pending_ops").Where("scope=? AND scope_id=?", types.PersonalExactReceiptScope, row.KnowledgeID).Count(&receipts).Error; err != nil {
+			return true, nil, err
+		}
+		if receipts > 0 {
+			if _, err := p.exactPublishedReadContext(ctx, row.KnowledgeID); err != nil {
+				return true, nil, err
+			}
+		}
+	}
+	return true, mergeExactPublishedSearchResults(combined, params.MatchCount), nil
 }

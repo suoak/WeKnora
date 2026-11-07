@@ -91,6 +91,9 @@ func EnablePersonalRecovery(
 	p.repo.ApplicationGrantValidator = p.validateApplicationIdentityTx
 	s.recovery = p
 	ks.personalRecovery = p
+	if chunks, ok := ks.chunkService.(*chunkService); ok {
+		chunks.personalRecovery = p
+	}
 	if models, ok := ks.modelService.(*modelService); ok {
 		models.personalRecovery = p
 	}
@@ -831,6 +834,15 @@ func (p *PersonalRecovery) Reconcile(ctx context.Context) error {
 			m, _, current, err := p.repo.Load(ctx, a.ID)
 			if err == nil && m.Status == "source_managed" {
 				continue
+			}
+			if err == nil {
+				published, publishedErr := p.reconcileExactPublishedSnapshot(ctx, m, current)
+				if published {
+					if publishedErr != nil {
+						failures = append(failures, publishedErr)
+					}
+					continue
+				}
 			}
 			if err == nil {
 				deferred, deferErr := p.exactRecoveryDeferred(ctx, m, current)

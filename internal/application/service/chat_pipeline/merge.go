@@ -61,10 +61,16 @@ func (p *PluginMerge) OnEvent(ctx context.Context,
 	searchResult := p.selectInputResults(ctx, chatManage)
 
 	var sourceErr error
-	ctx, sourceErr = prepareExactPersonalRead(ctx, p.modelService, searchResult)
+	var chunks interfaces.ChunkRepository
+	ctx, chunks, sourceErr = prepareExactPersonalReadRepository(ctx, p.modelService, searchResult, p.chunkRepo)
 	if sourceErr != nil {
 		return ErrSearch.WithError(sourceErr)
 	}
+	// A request-scoped repository keeps each parent's document proof separate.
+	// Never replace a shared plugin's repository across concurrent RAG turns.
+	scoped := *p
+	scoped.chunkRepo = chunks
+	p = &scoped
 
 	// Step 2: Initial dedup
 	searchResult = p.dedup(ctx, "dedup_summary", searchResult)

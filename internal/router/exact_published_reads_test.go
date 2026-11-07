@@ -38,18 +38,19 @@ func (s exactPublishedRouteService) ExactPublishedReadContext(
 	return ctx, true, err
 }
 
-func TestExactPublishedReadRouteReportsSourceRecoveryAction(t *testing.T) {
+func TestExactPublishedReadRouteReportsLocalPublicationFailure(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		err    error
 		status int
 		reason string
 	}{
-		{"reconnect", service.ErrFeishuRefreshRejected, 403, "personal_feishu_reauthorization_required"},
-		{"transient", core.ErrTransient, 503, "personal_feishu_verification_temporarily_unavailable"},
-		{"rate_limit", core.ErrRateLimited, 503, "personal_feishu_verification_temporarily_unavailable"},
-		{"deadline", context.DeadlineExceeded, 503, "personal_feishu_verification_temporarily_unavailable"},
-		{"database", errors.New("private database error"), 500, "Document source verification failed"},
+		{"unexpected_source_error", service.ErrFeishuRefreshRejected, 500, "Document publication verification failed"},
+		{"integrity", service.ErrPersonalPublishedSnapshotUnverified, 403, "personal_published_snapshot_unverified"},
+		{"transient", core.ErrTransient, 503, "personal_published_verification_temporarily_unavailable"},
+		{"rate_limit", core.ErrRateLimited, 503, "personal_published_verification_temporarily_unavailable"},
+		{"deadline", context.DeadlineExceeded, 503, "personal_published_verification_temporarily_unavailable"},
+		{"database", errors.New("private database error"), 500, "Document publication verification failed"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			g := &rbacGuards{knowledgeService: exactPublishedRouteService{failure: tc.err}}

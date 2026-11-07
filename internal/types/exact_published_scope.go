@@ -9,7 +9,7 @@ import (
 
 // ReadExactPublishedPage validates a bounded repository read before selecting
 // any body and again before returning it. Row hooks retain the exact identity,
-// without performing remote OAuth requests for every row in the same page.
+// without performing expensive integrity checks for every row in the same page.
 // The temporary capability expires when read returns and never grants writes.
 func ReadExactPublishedPage(ctx context.Context, knowledge string, read func(context.Context) error) error {
 	proof, exact := ctx.Value(exactPublishedScopeKey{}).(exactPublishedScope)
@@ -56,7 +56,7 @@ type exactPublishedScope struct {
 }
 
 // WithExactPublishedDocumentRead is a server-issued, read-only capability.
-// The issuer must independently verify the viewer, live source, published
+// The issuer must independently verify the viewer, local file binding, published
 // version and database output fingerprints. Worker scopes never imply this.
 func WithExactPublishedDocumentRead(
 	ctx context.Context, receipt int64, scope ExactDocumentScope,
