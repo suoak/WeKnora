@@ -31,6 +31,13 @@ var (
 		"%w: source verification temporarily unavailable", context.DeadlineExceeded)
 )
 
+// BudgetBusyError distinguishes known local backpressure without exposing
+// source contents or changing the shared admission limits.
+type BudgetBusyError struct{ Reason string }
+
+func (e *BudgetBusyError) Error() string { return ErrBudgetBusy.Error() + ": " + e.Reason }
+func (e *BudgetBusyError) Unwrap() error { return ErrBudgetBusy }
+
 // Config budgets belong to ONE shared gateway allocation, not to each worker.
 // TokenBoundVerified requires an administrator-verified tokenizer contract:
 // input tokens <= UTF-8 input bytes + TokenOverhead per input. Unknown contracts
@@ -329,9 +336,8 @@ if redis.call('HLEN',KEYS[3]) >= tonumber(ARGV[2]) then return redis.error_reply
 if redis.call('ZCOUNT',KEYS[4],now-1000,'+inf') >= tonumber(ARGV[7]) then
  return redis.error_reply('SAFETY_RPS_BUDGET')
 end
-if #entries >= tonumber(ARGV[3]) or tokens+tonumber(ARGV[4]) > tonumber(ARGV[5]) then
- return redis.error_reply('SAFETY_WINDOW_BUDGET')
-end
+if #entries >= tonumber(ARGV[3]) then return redis.error_reply('SAFETY_RPM_BUDGET') end
+if tokens+tonumber(ARGV[4]) > tonumber(ARGV[5]) then return redis.error_reply('SAFETY_TPM_BUDGET') end
 redis.call('HSET',KEYS[3],ARGV[6],now)
 redis.call('ZADD',KEYS[4],now,ARGV[6]..':'..ARGV[4]); return 1`)
 
@@ -378,7 +384,13 @@ func (g *Guard) tryBegin(ctx context.Context, tokens int) (func(), error) {
 		Err()
 	if err != nil {
 		if strings.Contains(err.Error(), "_BUDGET") {
-			return nil, ErrBudgetBusy
+			reason := "unknown"
+			for _, kind := range []string{"INFLIGHT", "RPS", "RPM", "TPM"} {
+				if strings.Contains(err.Error(), "SAFETY_"+kind+"_BUDGET") {
+					reason = strings.ToLower(kind)
+				}
+			}
+			return nil, &BudgetBusyError{Reason: reason}
 		}
 		return nil, fmt.Errorf("%w: %v", ErrClosed, err)
 	}
@@ -411,7 +423,7 @@ func (g *Guard) begin(ctx context.Context, tokens int) (func(), error) {
 			if err := g.Check(ctx); err != nil {
 				return nil, err
 			}
-			return nil, fmt.Errorf("%w: budget wait expired", ErrBudgetBusy)
+			return nil, fmt.Errorf("%w: budget wait expired", err)
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
