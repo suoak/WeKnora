@@ -497,7 +497,7 @@ func (r *usageAnalyticsRepository) TimeSeries(ctx context.Context, q types.Usage
 		SELECT ` + bucket +
 		` bucket, SUM(input_tokens) input_tokens, SUM(output_tokens) output_tokens,
  SUM(total_tokens) total_tokens, COUNT(*) assistant_turns, 0 mcp_calls FROM
- model_usage_events WHERE` + mw + ` GROUP BY bucket
+ model_usage_events WHERE ` + mw + ` GROUP BY bucket
 		UNION ALL SELECT ` + bucket + ` bucket, 0,0,0,0,COUNT(*) FROM mcp_usage_events WHERE ` + xw +
 		` GROUP BY bucket) s GROUP BY bucket ORDER BY bucket`
 	args := append(append([]any{}, ma...), xa...)
@@ -608,19 +608,19 @@ successful_calls,
 		active_users,
 		COUNT(DISTINCT api_key_id) + COUNT(DISTINCT CASE WHEN endpoint_id<>'' THEN endpoint_id
 		ELSE NULL END) active_keys,
-		MAX(occurred_at) last_active, COUNT(*) OVER() total_count FROM mcp_usage_events WHERE` + w + group +
+		MAX(occurred_at) last_active, COUNT(*) OVER() total_count FROM mcp_usage_events WHERE ` + w + group +
 			` ORDER BY ` + order + ` LIMIT ? OFFSET ?`
 	} else if q.GroupBy == "event" {
 		selectSQL = `SELECT event_key, principal_type, principal_id, api_key_id, endpoint_id, caller_tenant_id,
 tool_name, entry_point, client_name, client_source, success, error_code, latency_ms,
-occurred_at, COUNT(*) OVER() total_count FROM mcp_usage_events WHERE` + w +
+occurred_at, COUNT(*) OVER() total_count FROM mcp_usage_events WHERE ` + w +
 			` ORDER BY occurred_at DESC,id DESC LIMIT ? OFFSET ?`
 	} else if q.GroupBy == "resource" {
 		w = strings.ReplaceAll(w, "occurred_at", "e.occurred_at")
 		w = strings.ReplaceAll(w, "caller_tenant_id", "e.caller_tenant_id")
 		selectSQL = `SELECT l.resource_type, l.resource_id, l.resource_tenant_id, COUNT(*) calls,
 MAX(e.occurred_at) last_active, COUNT(*) OVER() total_count FROM usage_resource_links l
-JOIN mcp_usage_events e ON l.event_kind='mcp' AND l.event_id=e.id WHERE` + w +
+JOIN mcp_usage_events e ON l.event_kind='mcp' AND l.event_id=e.id WHERE ` + w +
 			` GROUP BY l.resource_type, l.resource_id, l.resource_tenant_id ORDER BY calls DESC,
  l.resource_type, l.resource_id LIMIT ? OFFSET ?`
 	} else if q.GroupBy == "client" {
