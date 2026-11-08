@@ -736,7 +736,11 @@ func (s *knowledgeService) ListKnowledgeFolderTree(ctx context.Context,
 	kbID string,
 ) (*types.KnowledgeFolderTree, error) {
 	if s.DocumentACLReadEnabled() {
-		return nil, access.ErrForbidden
+		var err error
+		ctx, err = s.DocumentKBReadContext(ctx, kbID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	counts, err := s.repo.ListKnowledgeFolderCounts(ctx,

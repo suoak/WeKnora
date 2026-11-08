@@ -378,7 +378,7 @@ const canDownloadKnowledge = computed(() => {
 });
 
 const knowledgeList = ref<Array<{ id: string; name: string; type?: string }>>([]);
-let { cardList, total, moreIndex, details, getKnowled, onVisibleChange: _onVisibleChange, getCardDetails, getfDetails } = useKnowledgeBase(kbId.value)
+let { knowledgeListError, cardList, total, moreIndex, details, getKnowled, onVisibleChange: _onVisibleChange, getCardDetails, getfDetails } = useKnowledgeBase(kbId.value)
 
 const showKbDetailContextualGuide = computed(() => {
   return Boolean(kbId.value)
@@ -895,7 +895,7 @@ const loadFolderTree = async (kbIdValue: string) => {
   } catch (error) {
     if (!isCurrentKb(kbIdValue)) return;
     console.error('Failed to load knowledge folders', error);
-    folderTree.value = null;
+    MessagePlugin.error(t('loadState.genericTitle'));
   } finally {
     if (isCurrentKb(kbIdValue)) {
       folderTreeLoading.value = false;
@@ -2407,7 +2407,7 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
                     <span v-if="index === folderBreadcrumbs.length - 1" class="doc-folder-path__crumb is-current" :title="crumb.name" aria-current="page">{{ crumb.name }}</span>
                     <button v-else type="button" class="doc-folder-path__crumb" :title="crumb.name" @click="handleFolderSelect(crumb.path)">{{ crumb.name }}</button>
                   </template>
-                  <span v-if="!docListLoading" class="doc-folder-path__count">{{ $t(isFiltering ? 'knowledgeBase.folderTree.filteredCount' : 'knowledgeBase.documentCount', { count: total }) }}</span>
+                  <span v-if="!docListLoading && !knowledgeListError" class="doc-folder-path__count">{{ $t(isFiltering ? 'knowledgeBase.folderTree.filteredCount' : 'knowledgeBase.documentCount', { count: total }) }}</span>
                   <t-tooltip v-if="showFolderTree && isFiltering" :content="$t('knowledgeBase.folderTree.searchingSubtree')">
                     <t-icon name="info-circle" class="doc-folder-path__sep" />
                   </t-tooltip>
@@ -2538,7 +2538,7 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
                   </div>
                 </div>
               </div>
-              <KnowledgeProcessingSummary v-if="cardList.length" :items="cardList" />
+              <KnowledgeProcessingSummary v-if="cardList.length && !knowledgeListError" :items="cardList" />
               <div class="doc-scroll-container"
                 :class="{
                   'is-empty': !cardList.length && !docListLoading,
@@ -2549,7 +2549,12 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
                   :class="{ 'is-add': docMarqueeMode === 'add', 'is-subtract': docMarqueeMode === 'subtract' }"
                   :style="docMarqueeBoxStyle" aria-hidden="true" />
                 <!-- 文档骨架屏 -->
-                <div v-if="docListLoading && !cardList.length && viewMode === 'list'" class="doc-list-skeleton">
+                <div v-if="knowledgeListError" class="doc-empty-state" role="alert">
+                  <p>{{ $t(`loadState.${knowledgeListError}Title`) }}</p>
+                  <p>{{ $t(`loadState.${knowledgeListError}Description`) }}</p>
+                  <t-button variant="outline" @click="loadKnowledgeFiles(kbId)">{{ $t('loadState.retry') }}</t-button>
+                </div>
+                <div v-else-if="docListLoading && !cardList.length && viewMode === 'list'" class="doc-list-skeleton">
                   <div v-for="n in 8" :key="n" class="doc-list-skeleton-row">
                     <t-skeleton animation="gradient" :row-col="[[{ width: '32px', height: '38px', type: 'rect' }, { width: '55%', height: '16px' }]]" />
                   </div>

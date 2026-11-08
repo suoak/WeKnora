@@ -97,10 +97,18 @@ func CheckLegacySourceRead(db *gorm.DB, knowledgeID, kbID string) error {
 			return err
 		}
 		if personal {
-			// Published personal content requires its local receipt capability;
-			// missing receipts and pre-publication files never fall back to a
-			// generic workspace read, even in an otherwise unmanaged KB.
-			return ErrLegacySourceRestricted
+			handedOff, err := VerifiedSourceHandoff(db, knowledgeID, kbID)
+			if err != nil {
+				return err
+			}
+			if handedOff {
+				recordSourceHandoffRead(db.Statement.Context, knowledgeID, kbID)
+			} else {
+				// Published personal content requires its local receipt capability;
+				// missing receipts and pre-publication files never fall back to a
+				// generic workspace read, even in an otherwise unmanaged KB.
+				return ErrLegacySourceRestricted
+			}
 		}
 		var exactReceipt bool
 		if err := db.Raw(`SELECT EXISTS(SELECT 1 FROM task_pending_ops

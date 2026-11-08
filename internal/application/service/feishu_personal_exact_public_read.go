@@ -108,7 +108,18 @@ func (s *knowledgeService) exactPublicReadContext(ctx context.Context, id string
 			return ctx, true, err
 		}
 		if personal {
-			return ctx, true, errPersonalExactDocument
+			var kb string
+			if err := p.service.db.WithContext(ctx).Table("knowledges").Select("knowledge_base_id").Where("id=?", id).Scan(&kb).Error; err != nil {
+				return ctx, true, err
+			}
+			handedOff, err := types.VerifiedSourceHandoff(p.service.db.WithContext(ctx), id, kb)
+			if err != nil {
+				return ctx, true, err
+			}
+			if !handedOff {
+				return ctx, true, errPersonalExactDocument
+			}
+			// The ordinary repository still enforces private owner, ACL and source revocation.
 		}
 		return ctx, false, nil
 	}
