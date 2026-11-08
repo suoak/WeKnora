@@ -158,6 +158,13 @@ class UsageTrackingTests(unittest.TestCase):
         self.assertEqual(reports[2]["error_code"], "unknown_tool")
         self.assertNotIn("private question", str(reports))
 
+    def test_negotiated_client_uses_sdk_fields_and_rejects_unsafe_metadata(self):
+        from types import SimpleNamespace
+        params = SimpleNamespace(client_info=SimpleNamespace(name="Codex", version="1.0"))
+        self.assertEqual(self.module._negotiated_usage_client(params)["client_name"], "Codex")
+        params.client_info.name = "unsafe\nmetadata"
+        self.assertEqual(self.module._negotiated_usage_client(params)["client_source"], "unknown")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -29,7 +29,8 @@ type PersonalServer struct {
 }
 
 func NewDisabledPersonalServer() *PersonalServer { return NewPersonalServer(false, nil) }
-func (s *PersonalServer) Enabled() bool          { return s != nil && s.enabled && s.knowledge != nil }
+func (s *PersonalServer) Enabled() bool { return s != nil && s.enabled && s.knowledge != nil }
+
 func NewPersonalServer(enabled bool, knowledge *service.PortalMCPKnowledge) *PersonalServer {
 	s := &PersonalServer{enabled: enabled, knowledge: knowledge, slots: make(chan struct{}, 8)}
 	m := server.NewMCPServer("knowhub-personal", "0.1.0", server.WithToolCapabilities(false), server.WithRecovery(), server.WithToolHandlerMiddleware(s.guard))

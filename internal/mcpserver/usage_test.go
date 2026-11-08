@@ -72,7 +72,9 @@ func TestMCPUsageHTTPAdmissionAndSingleFinalEvent(t *testing.T) {
 						types.ObserveMCPKnowledgeBase(ctx, id)
 					}
 					return mcp.NewToolResultText(
-						`{"results":[{"knowledge_base_id":"a","knowledge_id":"doc-a"},{"knowledge_base_id":"b","knowledge_id":"doc-b"}],"fallbacks":[{"knowledge_base_id":"c"}],"content":"private"}`,
+						`{"results":[{"knowledge_base_id":"a","knowledge_id":"doc-a"},
+						{"knowledge_base_id":"b","knowledge_id":"doc-b"}],
+						"fallbacks":[{"knowledge_base_id":"c"}],"content":"private"}`,
 					), nil
 				},
 			)(

@@ -195,4 +195,11 @@ func TestMCPUsagePostgresMigrationAndReplay(t *testing.T) {
 	var count int64
 	require.NoError(t, tx.Model(&types.MCPUsageEvent{}).Count(&count).Error)
 	require.Equal(t, int64(2), count)
+	// A subsequent upgrade restores metadata without recreating ledger events.
+	require.NoError(t, tx.Exec(string(sql)).Error)
+	var restored types.MCPUsageEvent
+	require.NoError(t, tx.Where("event_key = ?", "real-final").First(&restored).Error)
+	require.Equal(t, "go_personal", restored.EntryPoint)
+	require.Equal(t, event.ID, restored.ID)
+	require.Equal(t, key, *restored.APIKeyID)
 }

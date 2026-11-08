@@ -83,7 +83,12 @@ inside the migration transaction, preserving every row and ID and recreating
 its indexes. The migration governance manifest is updated.
 
 Rollback deploys the previous application with the additive schema retained.
-The down migration deliberately retains columns, links, events and epochs.
+Application rollback should retain version 3046 and its migration files.
+An explicit schema downgrade archives the new per-event metadata in
+`mcp_usage_metadata_rollback` before removing the three added columns; a
+subsequent upgrade restores metadata by the existing unique event key.
+Ledger rows, resource links and collection epochs remain intact throughout.
+The archive is a rollback safeguard, not a second statistics ledger.
 Do not force migrations below this version to remove analytics data. Back up
 the database and both spool directories before deployment.
 

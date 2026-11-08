@@ -1046,8 +1046,22 @@ def _usage_error(exc):
     return type(exc).__name__[:64]
 
 
+def _negotiated_usage_client(params):
+    """Read SDK negotiation fields, including MCP 2's snake_case names."""
+    unknown = {"client_name": "unknown", "client_version": "", "client_source": "unknown"}
+    info = getattr(params, "client_info", getattr(params, "clientInfo", None))
+    name = getattr(info, "name", None)
+    version = getattr(info, "version", "") or ""
+    def safe(value, limit):
+        return isinstance(value, str) and len(value.encode("utf-8")) <= limit and not any(ord(c) < 32 for c in value)
+    if not name or not safe(name, 128):
+        return unknown
+    return {"client_name": name, "client_version": version if safe(version, 64) else "",
+            "client_source": "adapter_negotiated"}
+
+
 def tracked_tool(function):
-    """Record one best-effort event around one logical MCP tool call."""
+    """Attach safe execution metadata; the protocol callback finalizes once."""
     signature = inspect.signature(function)
 
     def report(started: float, succeeded: bool, exc: BaseException | None, args, kwargs, result=None):
@@ -1058,12 +1072,10 @@ def tracked_tool(function):
             search = function.__name__ in ("hybrid_search", "search_knowledge", "grep_chunks", "wiki_search")
             targets = sorted(state["targets"]) if search else []
             hits = sorted(state["hits"] | _response_kb_ids(result)) if search and succeeded else []
-            client_name, client_version, client_source = "unknown", "", "unknown"
+            client_info = {"client_name": "unknown", "client_version": "", "client_source": "unknown"}
             try:
                 params = mcp.get_context().session.client_params
-                info = params.clientInfo if params else None
-                if info and info.name:
-                    client_name, client_version, client_source = info.name[:128], info.version[:64], "adapter_negotiated"
+                client_info = _negotiated_usage_client(params)
             except Exception:
                 pass
             event_key = state.get("event_key") or _request_invocation_id.get() or f"mcp:{uuid.uuid4()}"
@@ -1074,7 +1086,7 @@ def tracked_tool(function):
                     "success": succeeded,
                     "error_code": "" if succeeded else _usage_error(exc),
                     "occurred_at": state.get("occurred_at") or datetime.now(timezone.utc).isoformat(),
-                    "client_name": client_name, "client_version": client_version, "client_source": client_source,
+                    **client_info,
                     "latency_ms": max(0, int((time.monotonic() - started) * 1000)),
                     "request_id": event_key,
                     "knowledge_base_ids": kb_ids if succeeded and not search else [],
@@ -1108,7 +1120,7 @@ def tracked_tool(function):
                 report(started, False, exc, args, kwargs)
                 _usage_resources.reset(resource_token)
                 raise
-            succeeded = not (getattr(result, "isError", False) or isinstance(result, dict) and (result.get("isError") is True or result.get("success") is False))
+            succeeded = not (getattr(result, "is_error", getattr(result, "isError", False)) or isinstance(result, dict) and (result.get("isError") is True or result.get("success") is False))
             report(started, succeeded, None, args, kwargs, result)
             _usage_resources.reset(resource_token)
             return result
@@ -1129,7 +1141,7 @@ def tracked_tool(function):
             report(started, False, exc, args, kwargs)
             _usage_resources.reset(resource_token)
             raise
-        succeeded = not (getattr(result, "isError", False) or isinstance(result, dict) and (result.get("isError") is True or result.get("success") is False))
+        succeeded = not (getattr(result, "is_error", getattr(result, "isError", False)) or isinstance(result, dict) and (result.get("isError") is True or result.get("success") is False))
         report(started, succeeded, None, args, kwargs, result)
         _usage_resources.reset(resource_token)
         return result
@@ -1617,6 +1629,11 @@ def _install_protocol_usage():
         finally:
             try:
                 payload = state.get("report_payload", dict(initial))
+                if payload.get("client_source") == "unknown":
+                    try:
+                        payload.update(_negotiated_usage_client(context.session.client_params))
+                    except Exception:
+                        pass
                 sdk_error = bool(getattr(result, "is_error", getattr(result, "isError", False)))
                 succeeded = failure is None and result is not None and not sdk_error and payload.get("success", False)
                 # A dispatched function populates report_payload; absent payload

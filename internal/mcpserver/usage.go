@@ -139,7 +139,9 @@ func usageError(ctx context.Context, result *mcp.CallToolResult, err error) stri
 			if strings.Contains(s, "rate limit") {
 				return "rate_limited"
 			}
-			for _, term := range []string{"denied", "not allowed", "not enabled", "unauthorized", "authorization", "outside this endpoint"} {
+			for _, term := range []string{
+				"denied", "not allowed", "not enabled", "unauthorized", "authorization", "outside this endpoint",
+			} {
 				if strings.Contains(s, term) {
 					return "permission_denied"
 				}
@@ -245,7 +247,7 @@ func resultResources(report *types.MCPUsageReport, req mcp.CallToolRequest, resu
 	seen := map[string]bool{}
 	var walk func(any, int)
 	walk = func(value any, depth int) {
-		if depth > 12 || len(seen) >= 512 {
+		if depth > 12 || len(seen) >= types.MaxMCPUsageResources {
 			return
 		}
 		switch v := value.(type) {
@@ -256,10 +258,13 @@ func resultResources(report *types.MCPUsageReport, req mcp.CallToolRequest, resu
 		case map[string]any:
 			_, hasDocument := v["knowledge_id"]
 			_, hasPage := v["slug"]
-			if id, ok := v["knowledge_base_id"].(string); ok && safeUsageString(id, 64) && id != "" && (!search || hasDocument || hasPage) {
+			if id, ok := v["knowledge_base_id"].(string); ok && safeUsageString(id, 64) && id != "" &&
+				(!search || hasDocument || hasPage) {
 				seen[id] = true
 			}
-			for _, key := range []string{"results", "data", "chunks", "pages", "documents", "document", "knowledge_base"} {
+			for _, key := range []string{
+				"results", "data", "chunks", "pages", "documents", "document", "knowledge_base",
+			} {
 				if item, ok := v[key]; ok {
 					walk(item, depth+1)
 				}

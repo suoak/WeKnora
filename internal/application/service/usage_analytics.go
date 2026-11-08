@@ -248,7 +248,8 @@ func (s *usageAnalyticsService) recordMCPEvent(
 func (s *usageAnalyticsService) RecordOutboundMCP(ctx context.Context, request types.MCPUsageRecordRequest) error {
 	report := types.MCPUsageReport{
 		EventKey: request.EventKey, ToolName: request.ToolName, Transport: request.Transport,
-		Success: request.Success, ErrorCode: request.ErrorCode, LatencyMs: request.LatencyMs, RequestID: request.RequestID,
+		Success: request.Success, ErrorCode: request.ErrorCode,
+		LatencyMs: request.LatencyMs, RequestID: request.RequestID,
 	}
 	if err := validateMCPUsageReport(report); err != nil {
 		return err
@@ -283,8 +284,11 @@ func (s *usageAnalyticsService) RecordOutboundMCP(ctx context.Context, request t
 }
 
 func validateMCPUsageReport(r types.MCPUsageReport) error {
-	for _, ids := range [][]string{r.KnowledgeBaseIDs, r.KnowledgeIDs, r.TargetKnowledgeBaseIDs, r.HitKnowledgeBaseIDs} {
-		if len(ids) > 512 {
+	resourceSets := [][]string{
+		r.KnowledgeBaseIDs, r.KnowledgeIDs, r.TargetKnowledgeBaseIDs, r.HitKnowledgeBaseIDs,
+	}
+	for _, ids := range resourceSets {
+		if len(ids) > types.MaxMCPUsageResources {
 			return errors.New("too many usage resources")
 		}
 		for _, id := range ids {

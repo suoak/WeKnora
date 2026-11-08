@@ -5,6 +5,9 @@ import (
 	"sync"
 )
 
+// MaxMCPUsageResources bounds metadata without truncating supported large Portal scopes.
+const MaxMCPUsageResources = 4096
+
 type mcpUsageScopeKey struct{}
 
 // MCPUsageScope carries only authorized execution IDs; never request arguments.
@@ -23,7 +26,7 @@ func ObserveMCPKnowledgeBase(ctx context.Context, id string) {
 	if s, ok := ctx.Value(mcpUsageScopeKey{}).(*MCPUsageScope); ok && id != "" {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		if len(s.targets) < 512 {
+		if len(s.targets) < MaxMCPUsageResources {
 			s.targets[id] = true
 		}
 	}
@@ -43,7 +46,7 @@ func ObserveMCPHitKnowledgeBase(ctx context.Context, id string) {
 	if s, ok := ctx.Value(mcpUsageScopeKey{}).(*MCPUsageScope); ok && id != "" {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		if len(s.hits) < 512 {
+		if len(s.hits) < MaxMCPUsageResources {
 			s.hits[id] = true
 		}
 	}

@@ -54,7 +54,7 @@ func newMCPUsageRecorder(repo interfaces.UsageAnalyticsRepository, dir string) *
 		stop: make(chan struct{}),
 		done: make(chan struct{}),
 	}
-	if err := os.MkdirAll(dir, 0700); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		logger.Errorf(context.Background(), "[mcp-usage] spool unavailable; collection degraded")
 	}
 	files, _ := os.ReadDir(dir)
@@ -142,7 +142,7 @@ func writeMCPEnvelope(name string, item mcpUsageEnvelope) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.OpenFile(name+".tmp", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+	f, err := os.OpenFile(name+".tmp", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
 	}

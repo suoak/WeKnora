@@ -1,6 +1,17 @@
+CREATE TABLE IF NOT EXISTS mcp_usage_metadata_rollback (
+    event_key VARCHAR(255) PRIMARY KEY,
+    entry_point VARCHAR(32) NOT NULL,
+    endpoint_id VARCHAR(64),
+    client_source VARCHAR(32) NOT NULL
+);
 ALTER TABLE mcp_usage_events ADD COLUMN entry_point VARCHAR(32) NOT NULL DEFAULT 'legacy';
 ALTER TABLE mcp_usage_events ADD COLUMN endpoint_id VARCHAR(64);
 ALTER TABLE mcp_usage_events ADD COLUMN client_source VARCHAR(32) NOT NULL DEFAULT 'unknown';
+UPDATE mcp_usage_events SET
+    entry_point=(SELECT b.entry_point FROM mcp_usage_metadata_rollback b WHERE b.event_key=mcp_usage_events.event_key),
+    endpoint_id=(SELECT b.endpoint_id FROM mcp_usage_metadata_rollback b WHERE b.event_key=mcp_usage_events.event_key),
+    client_source=(SELECT b.client_source FROM mcp_usage_metadata_rollback b WHERE b.event_key=mcp_usage_events.event_key)
+WHERE event_key IN (SELECT event_key FROM mcp_usage_metadata_rollback);
 CREATE TABLE usage_resource_links_next (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     event_kind TEXT NOT NULL CHECK (event_kind IN ('model', 'mcp')),

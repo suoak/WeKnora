@@ -120,8 +120,11 @@ func parseUsageQuery(c *gin.Context) (types.UsageTimeRange, error) {
 	if q.Direction != "" && q.Direction != "inbound" && q.Direction != "outbound" {
 		return q, errors.NewBadRequestError("invalid direction")
 	}
-	if q.GroupBy != "" &&
-		!map[string]bool{"caller": true, "knowledge_base": true, "tool": true, "client": true, "entry_point": true, "error": true, "space": true, "event": true, "resource": true, "summary": true}[q.GroupBy] {
+	groups := map[string]bool{
+		"caller": true, "knowledge_base": true, "tool": true, "client": true, "entry_point": true,
+		"error": true, "space": true, "event": true, "resource": true, "summary": true,
+	}
+	if q.GroupBy != "" && !groups[q.GroupBy] {
 		return q, errors.NewBadRequestError("invalid group_by")
 	}
 	if q.Status != "" && !map[string]bool{
