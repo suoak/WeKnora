@@ -6,10 +6,12 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/middleware"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
@@ -32,6 +34,7 @@ type stubFolderKGService struct {
 	gotFilter types.KnowledgeListFilter
 	tree      *types.KnowledgeFolderTree
 	treeErr   error
+	pageErr   error
 }
 
 func (s *stubFolderKGService) ListPagedKnowledgeByKnowledgeBaseID(
@@ -41,6 +44,9 @@ func (s *stubFolderKGService) ListPagedKnowledgeByKnowledgeBaseID(
 	filter types.KnowledgeListFilter,
 ) (*types.PageResult, error) {
 	s.gotFilter = filter
+	if s.pageErr != nil {
+		return nil, s.pageErr
+	}
 	return types.NewPageResult(0, page, []*types.Knowledge{}), nil
 }
 
@@ -143,5 +149,29 @@ func TestListKnowledgeFolders_ReturnsTree(t *testing.T) {
 	}
 	if len(body.Data.Folders[0].Children) != 1 || body.Data.Folders[0].Children[0].Path != "docs/spec" {
 		t.Fatalf("children = %+v, want \"docs/spec\"", body.Data.Folders[0].Children)
+	}
+}
+
+func TestFolderListFailureIsNotEmptySuccess(t *testing.T) {
+	for _, endpoint := range []string{"", "/folders"} {
+		for _, test := range []struct {
+			err    error
+			status int
+		}{
+			{access.ErrForbidden, http.StatusForbidden},
+			{types.ErrLegacySourceRestricted, http.StatusForbidden},
+			{errors.New("database unavailable"), http.StatusInternalServerError},
+		} {
+			kg := &stubFolderKGService{treeErr: test.err, pageErr: test.err}
+			router := newFolderRouter(kg)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/knowledge-bases/kb-1/knowledge"+endpoint, nil))
+			if w.Code != test.status {
+				t.Fatalf("%s got %d want %d: %s", endpoint, w.Code, test.status, w.Body.String())
+			}
+			if strings.Contains(w.Body.String(), `"success":true`) {
+				t.Fatalf("failure became empty success: %s", w.Body.String())
+			}
+		}
 	}
 }

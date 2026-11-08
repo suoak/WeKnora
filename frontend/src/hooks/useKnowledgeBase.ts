@@ -1,3 +1,4 @@
+import { classifyLoadError, type LoadErrorKind } from "@/utils/loadErrorPresentation";
 import { ref, reactive } from "vue";
 import { storeToRefs } from "pinia";
 import { formatStringDate } from "../utils/index";
@@ -39,6 +40,7 @@ export default function (knowledgeBaseId?: string) {
     chunkLoadError: "",
     tags: [] as Array<{ id: string; name: string; color?: string }>,
   });
+  const knowledgeListError = ref<LoadErrorKind | null>(null);
   let knowledgeListGeneration = 0;
   let detailRequestGeneration = 0;
   let chunkRequestGeneration = 0;
@@ -51,6 +53,7 @@ export default function (knowledgeBaseId?: string) {
     if (!targetKbId) return Promise.resolve();
     const requestGeneration = query.page === 1 ? ++knowledgeListGeneration : knowledgeListGeneration;
 
+    knowledgeListError.value = null;
     return listKnowledgeFiles(targetKbId, query)
       .then((result: any) => {
         if (requestGeneration !== knowledgeListGeneration) return;
@@ -58,6 +61,9 @@ export default function (knowledgeBaseId?: string) {
         const currentRouteKbId = (route.params as any)?.kbId as string | undefined;
         if (currentRouteKbId && currentRouteKbId !== targetKbId) return;
 
+        if (result?.success !== true || !Array.isArray(result.data) || !Number.isSafeInteger(result.total) || result.total < 0) {
+          throw { status: result?.status || 500 };
+        }
         const { data, total: totalResult } = result;
     const cardList_ = data.map((item: any) => {
       const rawName = item.file_name || item.title || item.source || t('knowledgeBase.untitledDocument')
@@ -83,7 +89,12 @@ export default function (knowledgeBaseId?: string) {
         }
         total.value = totalResult;
       })
-      .catch(() => {});
+      .catch((error: unknown) => {
+        if (requestGeneration !== knowledgeListGeneration) return;
+        const currentRouteKbId = (route.params as any)?.kbId;
+        if (currentRouteKbId && currentRouteKbId !== targetKbId) return;
+        knowledgeListError.value = classifyLoadError(error);
+      });
   };
   const openMore = (index: number) => {
     moreIndex.value = index;
@@ -185,6 +196,7 @@ export default function (knowledgeBaseId?: string) {
       });
   };
   return {
+    knowledgeListError,
     cardList,
     moreIndex,
     getKnowled,

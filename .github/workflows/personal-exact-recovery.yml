@@ -57,10 +57,10 @@ jobs:
           go test -tags sqlite_fts5 ./internal/types ./internal/application/repository \
             ./internal/application/repository/retriever/postgres ./internal/application/service \
             ./internal/application/service/chat_pipeline ./internal/router \
-            -run 'TestExactDocument|TestPersonalRecoveryExact|TestExactPersonal|TestSyncTaskExecutor' \
+            -run 'TestExactDocument|TestPersonalRecoveryExact|TestExactPersonal|TestSyncTaskExecutor|TestSourceHandoffChineseFolderCatalogPostgres|TestDocumentM5ActualKnowledgeChunkServices' \
             -count=1 -timeout=15m
       - name: Exact proof concurrency race
         run: |
           go test -race -tags sqlite_fts5 ./internal/types ./internal/application/service \
-            -run 'TestExactDocumentScope|TestPersonalRecoveryExactExecution|TestExactPersonalModel' \
+            -run 'TestExactDocumentScope|TestPersonalRecoveryExactExecution|TestExactPersonalModel|TestSourceHandoffChineseFolderCatalogPostgres' \
             -count=1 -timeout=15m
