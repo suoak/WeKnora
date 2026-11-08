@@ -231,6 +231,7 @@ func (s *PortalMCPKnowledge) Search(ctx context.Context, ids []string, query, mo
 			return nil, e
 		}
 		descriptor := t.Descriptor()
+		types.ObserveMCPKnowledgeBase(ctx, descriptor.ID)
 		engine, e := s.Engine(execution, descriptor)
 		if e != nil || engine == nil || engine.EngineType() != types.PostgresRetrieverEngineType {
 			result.Failed++

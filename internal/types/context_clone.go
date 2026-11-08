@@ -47,6 +47,8 @@ var contextCloneAcrossDetach = map[ContextKey]bool{
 	// Display identity for which API key initiated work. Not a grant; dropping
 	// it would only lose activity attribution on detached goroutines.
 	AuditAPIKeyContextKey: true,
+	// Agent retrieval may detach within an MCP call; retain its resource observations.
+	MCPUsageScopeContextKey: true,
 
 	// Session scope. SessionTenantID re-scopes session/message lookups, while
 	// SandboxTenantID keys the session→sandbox binding to the session owner

@@ -157,8 +157,11 @@ func (ModelUsageEvent) TableName() string { return "model_usage_events" }
 
 // MCPUsageEvent represents exactly one inbound MCP tools/call invocation.
 type MCPUsageEvent struct {
-	ID             uint64    `json:"id" gorm:"primaryKey;autoIncrement"`
-	EventKey       string    `json:"event_key" gorm:"type:varchar(255);not null;uniqueIndex"`
+	EntryPoint     string    `json:"entry_point"                gorm:"type:varchar(32);not null;default:legacy"`
+	EndpointID     string    `json:"endpoint_id,omitempty"      gorm:"type:varchar(64)"`
+	ClientSource   string    `json:"client_source"              gorm:"type:varchar(32);not null;default:unknown"`
+	ID             uint64    `json:"id"                         gorm:"primaryKey;autoIncrement"`
+	EventKey       string    `json:"event_key"                  gorm:"type:varchar(255);not null;uniqueIndex"`
 	CallerTenantID *uint64   `json:"caller_tenant_id,omitempty" gorm:"index"`
 	PrincipalType  string    `json:"principal_type" gorm:"type:varchar(64);not null"`
 	PrincipalID    string    `json:"principal_id,omitempty" gorm:"type:varchar(512)"`
@@ -195,21 +198,31 @@ func (UsageResourceLink) TableName() string { return "usage_resource_links" }
 // adapter. Identity and tenant fields are absent: the Go authentication
 // context is the only authority for them.
 type MCPUsageReport struct {
-	EventKey         string   `json:"event_key"`
-	ToolName         string   `json:"tool_name"`
-	ClientName       string   `json:"client_name,omitempty"`
-	ClientVersion    string   `json:"client_version,omitempty"`
-	Transport        string   `json:"transport,omitempty"`
-	SharedGateway    bool     `json:"-"`
-	Success          bool     `json:"success"`
-	ErrorCode        string   `json:"error_code,omitempty"`
-	LatencyMs        int64    `json:"latency_ms"`
-	RequestID        string   `json:"request_id,omitempty"`
-	KnowledgeBaseIDs []string `json:"knowledge_base_ids,omitempty"`
-	KnowledgeIDs     []string `json:"knowledge_ids,omitempty"`
+	// Only server adapters set these fields. The HTTP report handler overwrites
+	// entry/client provenance; callers cannot submit authenticated identity.
+	EntryPoint             string    `json:"-"`
+	EndpointID             string    `json:"-"`
+	ClientSource           string    `json:"client_source,omitempty"`
+	OccurredAt             time.Time `json:"occurred_at,omitempty"`
+	TargetKnowledgeBaseIDs []string  `json:"target_knowledge_base_ids,omitempty"`
+	HitKnowledgeBaseIDs    []string  `json:"hit_knowledge_base_ids,omitempty"`
+	EventKey               string    `json:"event_key"`
+	ToolName               string    `json:"tool_name"`
+	ClientName             string    `json:"client_name,omitempty"`
+	ClientVersion          string    `json:"client_version,omitempty"`
+	Transport              string    `json:"transport,omitempty"`
+	SharedGateway          bool      `json:"-"`
+	Success                bool      `json:"success"`
+	ErrorCode              string    `json:"error_code,omitempty"`
+	LatencyMs              int64     `json:"latency_ms"`
+	RequestID              string    `json:"request_id,omitempty"`
+	KnowledgeBaseIDs       []string  `json:"knowledge_base_ids,omitempty"`
+	KnowledgeIDs           []string  `json:"knowledge_ids,omitempty"`
 }
 
 type UsageTimeRange struct {
+	ToolName        string
+	EntryPoint      string
 	From            time.Time
 	To              time.Time
 	TenantID        *uint64
@@ -328,6 +341,25 @@ type OperationUsageRow struct {
 }
 
 type MCPUsageRow struct {
+	LastActiveUnix   int64      `json:"-"                            gorm:"column:last_active_unix"`
+	EventKey         string     `json:"event_key,omitempty"`
+	PrincipalType    string     `json:"principal_type,omitempty"`
+	PrincipalID      string     `json:"principal_id,omitempty"`
+	APIKeyID         *uint64    `json:"api_key_id,omitempty"`
+	EndpointID       string     `json:"endpoint_id,omitempty"`
+	CallerTenantID   *uint64    `json:"caller_tenant_id,omitempty"`
+	Success          *bool      `json:"success,omitempty"`
+	LatencyMs        int64      `json:"latency_ms,omitempty"`
+	OccurredAt       *time.Time `json:"occurred_at,omitempty"`
+	ResourceType     string     `json:"resource_type,omitempty"`
+	ResourceID       string     `json:"resource_id,omitempty"`
+	ResourceTenantID uint64     `json:"resource_tenant_id,omitempty"`
+
+	EntryPoint        string     `json:"entry_point,omitempty"`
+	ErrorCode         string     `json:"error_code,omitempty"`
+	ClientSource      string     `json:"client_source,omitempty"`
+	ActiveUsers       int64      `json:"active_users"`
+	ActiveKeys        int64      `json:"active_keys"`
 	ToolName          string     `json:"tool_name"`
 	Calls             int64      `json:"calls"`
 	SuccessfulCalls   int64      `json:"successful_calls"`
@@ -366,9 +398,11 @@ type KnowledgeBaseUsageRow struct {
 }
 
 type UsagePage[T any] struct {
-	Data            []T        `json:"data"`
-	Page            int        `json:"page"`
-	PageSize        int        `json:"page_size"`
-	Total           int64      `json:"total"`
-	CollectingSince *time.Time `json:"collecting_since,omitempty"`
+	MCPServerCollectingSince *time.Time `json:"mcp_server_collecting_since,omitempty"`
+	HistoricalMCPCoverage    string     `json:"historical_mcp_coverage,omitempty"`
+	Data                     []T        `json:"data"`
+	Page                     int        `json:"page"`
+	PageSize                 int        `json:"page_size"`
+	Total                    int64      `json:"total"`
+	CollectingSince          *time.Time `json:"collecting_since,omitempty"`
 }

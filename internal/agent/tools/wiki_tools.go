@@ -949,6 +949,7 @@ func (t *wikiSearchTool) Execute(ctx context.Context, args json.RawMessage) (*ty
 		var sb strings.Builder
 		fmt.Fprintf(&sb, "<search_results count=\"%d\" query=\"%s\">\n", len(allHits), query)
 		for _, h := range allHits {
+			types.ObserveMCPHitKnowledgeBase(ctx, h.kbID)
 			p := h.page
 			key := seenLinkKey(h.kbID, p.Slug)
 			t.mu.Lock()
