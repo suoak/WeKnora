@@ -139,7 +139,8 @@ func embedLegacyCheckpointed(
 			if !errors.Is(callErr, feishusafety.ErrBudgetBusy) || retry >= 2 {
 				return nil, callErr
 			}
-			logger.Warnf(ctx, "Feishu embedding backpressure source=%s attempt=%s retry=%d completed=%d total=%d error=%v",
+			logger.Warnf(ctx,
+				"Feishu embedding backpressure source=%s attempt=%s retry=%d completed=%d total=%d error=%v",
 				ds.ID, owner.ID, retry+1, completed, len(texts), callErr)
 			timer := time.NewTimer(time.Duration(retry+1) * time.Second)
 			select {

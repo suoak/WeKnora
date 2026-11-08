@@ -59,8 +59,12 @@ func TestFeishuLegacyEmbeddingCheckpointPostgres(t *testing.T) {
 	}
 	resource, first, err := store.Begin(ctx, ds, item, LegacySourceHash(item.Content, item.FileName, item.Title))
 	require.NoError(t, err)
-	makeManifest := func(bodies ...string) (types.FeishuLegacyManifest, types.FeishuLegacyEmbeddingCheckpoint, []string) {
-		metadata, _ := json.Marshal(map[string]string{"datasource_id": ds.ID, "external_id": item.ExternalID})
+	makeManifest := func(bodies ...string) (
+		types.FeishuLegacyManifest, types.FeishuLegacyEmbeddingCheckpoint, []string,
+	) {
+		metadata, _ := json.Marshal(map[string]string{
+			"datasource_id": ds.ID, "external_id": item.ExternalID,
+		})
 		m := types.FeishuLegacyManifest{Knowledge: types.Knowledge{
 			ID: resource.KnowledgeID, TenantID: tenant.ID, KnowledgeBaseID: kb.ID, Title: item.Title,
 			Type: "file", Channel: ds.Type, FileHash: LegacySourceHash(item.Content, item.FileName, item.Title),
@@ -109,7 +113,9 @@ func TestFeishuLegacyEmbeddingCheckpointPostgres(t *testing.T) {
 	require.NotContains(t, cache, LegacyEmbeddingInputHash(inputs[1]))
 	require.ErrorIs(t, store.SaveEmbeddingCheckpoint(ctx, ds, first, inputs[:1], [][]float32{{1, 0, 0}}),
 		ErrLegacyVersionFence)
-	revoked := types.WithFeishuSourceReadGuard(ctx, func(context.Context) error { return types.ErrLegacySourceRestricted })
+	revoked := types.WithFeishuSourceReadGuard(ctx, func(context.Context) error {
+		return types.ErrLegacySourceRestricted
+	})
 	_, err = store.ReusableEmbeddingCheckpoint(revoked, ds, next)
 	require.ErrorIs(t, err, types.ErrLegacySourceRestricted)
 	require.ErrorIs(t, store.SaveEmbeddingCheckpoint(revoked, ds, next, inputs[:1], [][]float32{{1, 0, 0}}),

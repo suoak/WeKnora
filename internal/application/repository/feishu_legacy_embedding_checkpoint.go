@@ -19,6 +19,7 @@ type legacyEmbeddingProgress struct {
 	Checkpoint *types.FeishuLegacyEmbeddingCheckpoint `json:"embedding_checkpoint_v1"`
 }
 
+// LegacyEmbeddingInputHash identifies the exact text sent to the model.
 func LegacyEmbeddingInputHash(input string) string {
 	h := sha256.Sum256([]byte(input))
 	return hex.EncodeToString(h[:])
@@ -44,6 +45,7 @@ func embeddingCheckpoint(a *types.FeishuLegacyAttempt) (*types.FeishuLegacyEmbed
 	return c, nil
 }
 
+// StartEmbeddingCheckpoint registers inputs under the current execution fence.
 func (s *FeishuLegacyStore) StartEmbeddingCheckpoint(
 	ctx context.Context, ds *types.DataSource, owner *types.FeishuLegacyAttempt,
 	c types.FeishuLegacyEmbeddingCheckpoint,
@@ -55,7 +57,8 @@ func (s *FeishuLegacyStore) StartEmbeddingCheckpoint(
 	seen := map[string]bool{}
 	for _, input := range c.Inputs {
 		digest, decodeErr := hex.DecodeString(input.SHA256)
-		if input.ChunkID == "" || len(input.ChunkID) > 36 || seen[input.ChunkID] || decodeErr != nil || len(digest) != 32 {
+		if input.ChunkID == "" || len(input.ChunkID) > 36 || seen[input.ChunkID] ||
+			decodeErr != nil || len(digest) != 32 {
 			return legacyFence("embedding_checkpoint_input")
 		}
 		seen[input.ChunkID] = true
@@ -241,7 +244,8 @@ old.generation DESC LIMIT 1)`, r.ID, r.ID, current.ModelStamp, current.ModelID,
 				}
 				for _, chunk := range indexed {
 					chunk.ContextHeader = m.ChunkHeaders[chunk.ID]
-					expected[chunk.ID] = LegacyEmbeddingInputHash(buildLegacyIndexContent(m.Knowledge.Title, chunk.EmbeddingContent()))
+					expected[chunk.ID] = LegacyEmbeddingInputHash(
+						buildLegacyIndexContent(m.Knowledge.Title, chunk.EmbeddingContent()))
 				}
 			} else {
 				c, e := embeddingCheckpoint(&previous)
@@ -249,7 +253,8 @@ old.generation DESC LIMIT 1)`, r.ID, r.ID, current.ModelStamp, current.ModelID,
 					c.KBConfigSHA256 != current.KBConfigSHA256 || c.Dimension != current.Dimension ||
 					previous.Revision != a.Revision || previous.ExpectedHash != a.ExpectedHash ||
 					(previous.SourceHash != a.SourceHash &&
-						(initial.SourceIdentity == nil || !legacyIdentityEqual(initial.SourceIdentity, m.SourceIdentity))) {
+						(initial.SourceIdentity == nil ||
+							!legacyIdentityEqual(initial.SourceIdentity, m.SourceIdentity))) {
 					continue
 				}
 				for _, input := range c.Inputs {

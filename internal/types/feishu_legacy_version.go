@@ -76,6 +76,7 @@ type FeishuLegacyEmbeddingCheckpoint struct {
 	SHA256         string                       `json:"sha256"`
 }
 
+// FeishuLegacyEmbeddingInput binds one original chunk to its exact model input.
 type FeishuLegacyEmbeddingInput struct {
 	ChunkID string `json:"chunk_id"`
 	SHA256  string `json:"sha256"`

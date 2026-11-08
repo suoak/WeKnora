@@ -28,11 +28,11 @@ func (s *checkpointMemoryStore) StartEmbeddingCheckpoint(
 func (s *checkpointMemoryStore) ReusableEmbeddingCheckpoint(
 	context.Context, *types.DataSource, *types.FeishuLegacyAttempt,
 ) (map[string][]float32, error) {
-	copy := map[string][]float32{}
+	cloned := map[string][]float32{}
 	for key, value := range s.cache {
-		copy[key] = value
+		cloned[key] = value
 	}
-	return copy, nil
+	return cloned, nil
 }
 
 func (s *checkpointMemoryStore) SaveEmbeddingCheckpoint(
@@ -90,7 +90,8 @@ func TestLegacyEmbeddingCheckpointRestartReusesCompletedInputs(t *testing.T) {
 	first := &checkpointTestEmbedder{store: store}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err := embedLegacyCheckpointed(ctx, store, &types.DataSource{}, &types.FeishuLegacyAttempt{}, first, header, texts)
+	_, err := embedLegacyCheckpointed(ctx, store, &types.DataSource{},
+		&types.FeishuLegacyAttempt{}, first, header, texts)
 	require.ErrorIs(t, err, context.Canceled)
 	require.Empty(t, first.calls)
 	second := &checkpointTestEmbedder{store: store}
@@ -118,8 +119,8 @@ func TestLegacyEmbeddingCheckpointRetriesAreBoundedAndPermissionAware(t *testing
 		t.Run(test.name, func(t *testing.T) {
 			store := &checkpointMemoryStore{cache: map[string][]float32{}}
 			model := &checkpointTestEmbedder{store: store, err: test.err}
-			_, err := embedLegacyCheckpointed(context.Background(), store, &types.DataSource{}, &types.FeishuLegacyAttempt{},
-				model,
+			_, err := embedLegacyCheckpointed(context.Background(), store,
+				&types.DataSource{}, &types.FeishuLegacyAttempt{}, model,
 				types.FeishuLegacyEmbeddingCheckpoint{Inputs: []types.FeishuLegacyEmbeddingInput{{
 					ChunkID: "c", SHA256: repository.LegacyEmbeddingInputHash("x"),
 				}}}, []string{"x"})
