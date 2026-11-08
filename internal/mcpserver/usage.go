@@ -223,7 +223,8 @@ func observeHTTP(sink usageRecorder, entry string, next http.Handler) http.Handl
 		started := time.Now()
 		defer func() {
 			captureUsageContextError(ctx)
-			terminal := v.report.ErrorCode == "timeout" || v.report.ErrorCode == "canceled" || v.report.ErrorCode == "panic"
+			terminal := v.report.ErrorCode == "timeout" || v.report.ErrorCode == "canceled" ||
+				v.report.ErrorCode == "panic"
 			if !v.called && !terminal {
 				v.report.ErrorCode = "protocol_error"
 				if v.report.ToolName == "unknown" {
