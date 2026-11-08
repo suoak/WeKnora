@@ -361,7 +361,7 @@ func (r *usageAnalyticsRepository) Tenants(ctx context.Context, q types.UsageTim
 		collectingSince = *q.CollectingSince
 	}
 	lastActiveProjection := "all_activity.last_active,0 last_active_unix"
-	if r.db.Dialector.Name() == "sqlite" {
+	if r.db.Name() == "sqlite" {
 		lastActiveProjection = "NULL last_active,COALESCE(CAST(strftime('%s',all_activity.last_active) AS INTEGER),0) last_active_unix"
 		if order == "last_active DESC" {
 			order = "last_active_unix DESC"
@@ -443,7 +443,7 @@ func (r *usageAnalyticsRepository) TimeSeries(ctx context.Context, q types.Usage
 	mw, ma := usageWhere("occurred_at", "tenant_id", q)
 	xw, xa := mcpUsageWhere(q)
 	bucket := "date_trunc('day', occurred_at)"
-	if r.db.Dialector.Name() == "sqlite" {
+	if r.db.Name() == "sqlite" {
 		formats := map[string]string{"hour": "%Y-%m-%d %H:00:00", "day": "%Y-%m-%d 00:00:00", "month": "%Y-%m-01 00:00:00"}
 		f := formats[q.Interval]
 		if q.Interval == "week" {
@@ -505,7 +505,7 @@ func (r *usageAnalyticsRepository) TimeSeries(ctx context.Context, q types.Usage
 }
 
 func (r *usageAnalyticsRepository) scanUsageTimeSeries(ctx context.Context, query string, args []any) ([]types.UsageTimeSeriesPoint, error) {
-	if r.db.Dialector.Name() != "sqlite" {
+	if r.db.Name() != "sqlite" {
 		var rows []types.UsageTimeSeriesPoint
 		err := r.db.WithContext(ctx).Raw(query, args...).Scan(&rows).Error
 		return rows, err
@@ -649,7 +649,7 @@ knowledge_base_name, COUNT(*) calls,
 			WHERE l.resource_type='knowledge_base' AND ` + w + ` GROUP BY l.resource_id,kb.name ORDER BY ` +
 			order + `,l.resource_id LIMIT ? OFFSET ?`
 	}
-	if r.db.Dialector.Name() == "sqlite" {
+	if r.db.Name() == "sqlite" {
 		selectSQL = strings.ReplaceAll(
 			selectSQL,
 			"MAX(occurred_at) last_active",
@@ -665,7 +665,7 @@ knowledge_base_name, COUNT(*) calls,
 	args = append(args, size, (p-1)*size)
 	var rows []types.MCPUsageRow
 	err := r.db.WithContext(ctx).Raw(selectSQL, args...).Scan(&rows).Error
-	if r.db.Dialector.Name() == "sqlite" {
+	if r.db.Name() == "sqlite" {
 		for i := range rows {
 			if rows[i].LastActiveUnix > 0 {
 				stamp := time.Unix(rows[i].LastActiveUnix, 0).UTC()
@@ -701,7 +701,7 @@ func (r *usageAnalyticsRepository) KnowledgeBases(ctx context.Context, q types.U
 		xa = append(xa, q.KnowledgeBaseID)
 	}
 	lastActiveProjection := "agg.last_active,0 last_active_unix"
-	if r.db.Dialector.Name() == "sqlite" {
+	if r.db.Name() == "sqlite" {
 		lastActiveProjection = "NULL last_active,COALESCE(CAST(strftime('%s',agg.last_active) AS INTEGER),0) last_active_unix"
 		if order == "last_active DESC" {
 			order = "last_active_unix DESC"
@@ -745,7 +745,7 @@ func (r *usageAnalyticsRepository) knowledgeBaseGovernance(ctx context.Context, 
 		collectingSince = *q.CollectingSince
 	}
 	lastActiveProjection := "all_activity.last_active,0 last_active_unix"
-	if r.db.Dialector.Name() == "sqlite" {
+	if r.db.Name() == "sqlite" {
 		lastActiveProjection = "NULL last_active,COALESCE(CAST(strftime('%s',all_activity.last_active) AS INTEGER),0) last_active_unix"
 		if order == "last_active DESC" {
 			order = "last_active_unix DESC"

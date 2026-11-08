@@ -117,3 +117,22 @@ statistics-specific tests passed. Full Python testing on Windows encountered
 an existing symlink privilege requirement; Linux validation is required.
 CI and runtime acceptance receipts are recorded separately; this document
 does not claim a deployment has occurred.
+
+
+### Isolated runtime acceptance (2026-11-09)
+
+The dedicated synthetic database retained its original events. Thirteen real
+Go protocol tool calls produced thirteen events (nine successful); initialize
+and tools/list produced none. Personal identity and numeric key IDs matched
+authentication. Endpoint identity remained an endpoint principal. One dynamic
+cross-space search recorded five authorized target KBs and three actual hit
+KBs, including owner spaces 1 and 99; it remained one tool event. The admin
+summary returned 13 calls, 9 successful, 1 employee and 3 active credentials.
+
+Six Python SDK 2.2.0 HTTP tool calls produced six events: three successful,
+one unavailable KB, one schema-validation rejection and one unknown tool.
+Authenticated employee/key IDs matched the ledger. Explicit document reads
+and kb_id search targets were linked; handshake requests were excluded.
+Stateless clients without available negotiation were recorded as unknown.
+The admin summary returned 6 calls and 3 successful, matching raw events.
+Production acceptance and fault-recovery receipts remain separate.
