@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -15,6 +16,37 @@ import (
 )
 
 type captureUsage struct{ reports []types.MCPUsageReport }
+
+func TestMCPUsageAdmissionPreservesExecutionCancellation(t *testing.T) {
+	for _, deadline := range []bool{false, true} {
+		sink := &captureUsage{}
+		h := observeHTTP(sink, "go_personal", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var ctx context.Context
+			var cancel context.CancelFunc
+			if deadline {
+				ctx, cancel = context.WithDeadline(r.Context(), time.Now().Add(-time.Second))
+			} else {
+				ctx, cancel = context.WithCancel(r.Context())
+				cancel()
+			}
+			defer cancel()
+			captureUsageContextError(ctx)
+			http.Error(w, "personal MCP denied", http.StatusForbidden)
+		}))
+		response := httptest.NewRecorder()
+		h.ServeHTTP(response, httptest.NewRequest("POST", "/mcp", strings.NewReader(
+			`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_knowledge"}}`,
+		)))
+		require.Equal(t, http.StatusForbidden, response.Code)
+		require.Len(t, sink.reports, 1)
+		require.False(t, sink.reports[0].Success)
+		code := "canceled"
+		if deadline {
+			code = "timeout"
+		}
+		require.Equal(t, code, sink.reports[0].ErrorCode)
+	}
+}
 
 func TestMCPUsageResourcesFollowDetachedAgentExecution(t *testing.T) {
 	ctx, scope := types.WithMCPUsageScope(context.Background())

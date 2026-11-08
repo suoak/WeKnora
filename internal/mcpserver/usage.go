@@ -167,6 +167,17 @@ type usageReplayBody struct {
 	io.Closer
 }
 
+// Capture the execution cause before a handler releases its bounded context.
+// An admission check may translate cancellation to an existing HTTP denial.
+func captureUsageContextError(ctx context.Context) {
+	v, ok := ctx.Value(invocationKey{}).(*invocation)
+	if !ok || ctx.Err() == nil || v.report.ErrorCode == "panic" {
+		return
+	}
+	v.report.Success = false
+	v.report.ErrorCode = usageError(ctx, nil, ctx.Err())
+}
+
 func (w *usageHTTPWriter) WriteHeader(status int) {
 	w.status = status
 	w.ResponseWriter.WriteHeader(status)
@@ -211,13 +222,15 @@ func observeHTTP(sink usageRecorder, entry string, next http.Handler) http.Handl
 		writer := &usageHTTPWriter{ResponseWriter: w, status: 200}
 		started := time.Now()
 		defer func() {
-			if !v.called {
+			captureUsageContextError(ctx)
+			terminal := v.report.ErrorCode == "timeout" || v.report.ErrorCode == "canceled" || v.report.ErrorCode == "panic"
+			if !v.called && !terminal {
 				v.report.ErrorCode = "protocol_error"
 				if v.report.ToolName == "unknown" {
 					v.report.ErrorCode = "unknown_tool"
 				}
 			}
-			if writer.status >= 400 {
+			if writer.status >= 400 && !terminal {
 				v.report.Success = false
 				switch writer.status {
 				case 400, 422:

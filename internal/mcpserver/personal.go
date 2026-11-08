@@ -73,7 +73,10 @@ func (s *PersonalServer) Handler() http.Handler {
 		}
 		perftrace.Authenticated(r.Context())
 		bounded, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-		defer cancel()
+		defer func() {
+			captureUsageContextError(bounded)
+			cancel()
+		}()
 		ctx, _ := access.WithPortalDiagnostics(bounded)
 		r = r.WithContext(ctx)
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
