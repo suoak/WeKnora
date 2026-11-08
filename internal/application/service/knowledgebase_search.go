@@ -238,6 +238,9 @@ func (s *knowledgeBaseService) hybridSearchCandidates(ctx context.Context,
 	if err := s.authorizeKBAccess(ctx, kbs); err != nil {
 		return nil, err
 	}
+	for _, kb := range kbs {
+		types.ObserveMCPKnowledgeBase(ctx, kb.ID)
+	}
 
 	// Explicit embedding-model consistency check. Multi-KB searches that
 	// span different embedding spaces would otherwise silently produce

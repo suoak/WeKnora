@@ -8,8 +8,6 @@ import (
 // MaxMCPUsageResources bounds metadata without truncating supported large Portal scopes.
 const MaxMCPUsageResources = 4096
 
-type mcpUsageScopeKey struct{}
-
 // MCPUsageScope carries only authorized execution IDs; never request arguments.
 type MCPUsageScope struct {
 	mu      sync.Mutex
@@ -19,11 +17,11 @@ type MCPUsageScope struct {
 
 func WithMCPUsageScope(ctx context.Context) (context.Context, *MCPUsageScope) {
 	s := &MCPUsageScope{targets: map[string]bool{}, hits: map[string]bool{}}
-	return context.WithValue(ctx, mcpUsageScopeKey{}, s), s
+	return context.WithValue(ctx, MCPUsageScopeContextKey, s), s
 }
 
 func ObserveMCPKnowledgeBase(ctx context.Context, id string) {
-	if s, ok := ctx.Value(mcpUsageScopeKey{}).(*MCPUsageScope); ok && id != "" {
+	if s, ok := ctx.Value(MCPUsageScopeContextKey).(*MCPUsageScope); ok && id != "" {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		if len(s.targets) < MaxMCPUsageResources {
@@ -43,7 +41,7 @@ func (s *MCPUsageScope) Targets() []string {
 }
 
 func ObserveMCPHitKnowledgeBase(ctx context.Context, id string) {
-	if s, ok := ctx.Value(mcpUsageScopeKey{}).(*MCPUsageScope); ok && id != "" {
+	if s, ok := ctx.Value(MCPUsageScopeContextKey).(*MCPUsageScope); ok && id != "" {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		if len(s.hits) < MaxMCPUsageResources {

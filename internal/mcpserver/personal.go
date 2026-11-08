@@ -29,7 +29,7 @@ type PersonalServer struct {
 }
 
 func NewDisabledPersonalServer() *PersonalServer { return NewPersonalServer(false, nil) }
-func (s *PersonalServer) Enabled() bool { return s != nil && s.enabled && s.knowledge != nil }
+func (s *PersonalServer) Enabled() bool          { return s != nil && s.enabled && s.knowledge != nil }
 
 func NewPersonalServer(enabled bool, knowledge *service.PortalMCPKnowledge) *PersonalServer {
 	s := &PersonalServer{enabled: enabled, knowledge: knowledge, slots: make(chan struct{}, 8)}
@@ -53,7 +53,11 @@ func NewPersonalServer(enabled bool, knowledge *service.PortalMCPKnowledge) *Per
 }
 
 func (s *PersonalServer) Handler() http.Handler {
-	return observeHTTP(s.usage, "go_personal", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	var sink usageRecorder
+	if s != nil {
+		sink = s.usage
+	}
+	return observeHTTP(sink, "go_personal", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s == nil || !s.enabled || s.knowledge == nil {
 			http.Error(w, "personal MCP disabled", http.StatusForbidden)
 			return

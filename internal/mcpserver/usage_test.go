@@ -8,12 +8,21 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
 )
 
 type captureUsage struct{ reports []types.MCPUsageReport }
+
+func TestMCPUsageResourcesFollowDetachedAgentExecution(t *testing.T) {
+	ctx, scope := types.WithMCPUsageScope(context.Background())
+	types.ObserveMCPKnowledgeBase(logger.CloneContext(ctx), "executed-kb")
+	require.Equal(t, []string{"executed-kb"}, scope.Targets())
+	_, other := types.WithMCPUsageScope(context.Background())
+	require.Empty(t, other.Targets(), "independent calls must never share observations")
+}
 
 func (s *captureUsage) Record(_ context.Context, report types.MCPUsageReport) error {
 	s.reports = append(s.reports, report)

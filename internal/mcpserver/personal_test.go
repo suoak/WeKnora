@@ -8,7 +8,7 @@ import (
 )
 
 func TestPortalM6PersonalDefaultClosed(t *testing.T) {
-	for _, srv := range []*PersonalServer{NewDisabledPersonalServer(), NewPersonalServer(true, nil)} {
+	for _, srv := range []*PersonalServer{nil, NewDisabledPersonalServer(), NewPersonalServer(true, nil)} {
 		request := httptest.NewRequest("POST", "/api/v1/mcp/personal", nil)
 		request.Header.Set("X-Enterprise-Enabled", "true")
 		request.Header.Set("X-User-ID", "A")
