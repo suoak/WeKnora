@@ -29,8 +29,11 @@ type (
 	}
 )
 
+// SetUsageRecorder attaches the shared analytics collector.
 func (s *PersonalServer) SetUsageRecorder(r usageRecorder) { s.usage = r }
-func (s *Server) SetUsageRecorder(r usageRecorder)         { s.usage = r }
+
+// SetUsageRecorder attaches the shared analytics collector.
+func (s *Server) SetUsageRecorder(r usageRecorder) { s.usage = r }
 
 func beginUsage(ctx context.Context, sink usageRecorder, report types.MCPUsageReport) {
 	if recorder, ok := sink.(interface {

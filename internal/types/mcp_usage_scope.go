@@ -15,11 +15,13 @@ type MCPUsageScope struct {
 	hits    map[string]bool
 }
 
+// WithMCPUsageScope attaches a shared observation scope to an authenticated invocation.
 func WithMCPUsageScope(ctx context.Context) (context.Context, *MCPUsageScope) {
 	s := &MCPUsageScope{targets: map[string]bool{}, hits: map[string]bool{}}
 	return context.WithValue(ctx, MCPUsageScopeContextKey, s), s
 }
 
+// ObserveMCPKnowledgeBase records a knowledge base after execution authorization.
 func ObserveMCPKnowledgeBase(ctx context.Context, id string) {
 	if s, ok := ctx.Value(MCPUsageScopeContextKey).(*MCPUsageScope); ok && id != "" {
 		s.mu.Lock()
@@ -30,6 +32,7 @@ func ObserveMCPKnowledgeBase(ctx context.Context, id string) {
 	}
 }
 
+// Targets returns distinct authorized execution targets.
 func (s *MCPUsageScope) Targets() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -40,6 +43,7 @@ func (s *MCPUsageScope) Targets() []string {
 	return ids
 }
 
+// ObserveMCPHitKnowledgeBase records a knowledge base present in actual results.
 func ObserveMCPHitKnowledgeBase(ctx context.Context, id string) {
 	if s, ok := ctx.Value(MCPUsageScopeContextKey).(*MCPUsageScope); ok && id != "" {
 		s.mu.Lock()
@@ -50,6 +54,7 @@ func ObserveMCPHitKnowledgeBase(ctx context.Context, id string) {
 	}
 }
 
+// Hits returns distinct knowledge bases observed in results.
 func (s *MCPUsageScope) Hits() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()

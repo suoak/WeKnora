@@ -36,6 +36,7 @@ type mcpUsageEnvelope struct {
 	Attempts int                  `json:"attempts"`
 }
 
+// NewMCPUsageRecorder opens the durable bounded spool and starts delivery.
 func NewMCPUsageRecorder(repo interfaces.UsageAnalyticsRepository) *MCPUsageRecorder {
 	dir := os.Getenv("MCP_USAGE_SPOOL_DIR")
 	if dir == "" {
@@ -88,6 +89,7 @@ func (r *MCPUsageRecorder) Record(ctx context.Context, report types.MCPUsageRepo
 	return r.spool(ctx, report, false)
 }
 
+// Begin persists an admission marker before execution for interruption recovery.
 func (r *MCPUsageRecorder) Begin(ctx context.Context, report types.MCPUsageReport) error {
 	return r.spool(ctx, report, true)
 }
@@ -235,6 +237,7 @@ func (r *MCPUsageRecorder) run() {
 	}
 }
 
+// Close stops delivery with a bounded wait while preserving pending records.
 func (r *MCPUsageRecorder) Close() error {
 	r.once.Do(func() { close(r.stop) })
 	select {
