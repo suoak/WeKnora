@@ -198,6 +198,9 @@ func (e *protocolEmbedder) BatchEmbed(ctx context.Context, texts []string) ([][]
 					}
 				}
 			}
+			if err := checkpointBatch(ctx, part, vectors); err != nil {
+				return nil, err
+			}
 			copy(out[offset:], vectors)
 			offset += len(part)
 		}

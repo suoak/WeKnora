@@ -17,7 +17,6 @@ import (
 	"github.com/Tencent/WeKnora/internal/infrastructure/chunker"
 	"github.com/Tencent/WeKnora/internal/infrastructure/docparser"
 	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/models/embedding"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/utils"
 	"github.com/google/uuid"
@@ -483,9 +482,14 @@ func (s *knowledgeService) StageFeishuLegacyItem(
 	// The complete graph now includes candidate OCR/caption children. Parent
 	// context remains unindexed; image children follow their ordinary semantics.
 	texts = nil
+	var embeddingInputs []types.FeishuLegacyEmbeddingInput
 	for _, c := range chunks {
 		if c.ChunkType != types.ChunkTypeParentText {
-			texts = append(texts, item.Title+"\n\n"+c.EmbeddingContent())
+			text := item.Title + "\n\n" + c.EmbeddingContent()
+			texts = append(texts, text)
+			embeddingInputs = append(embeddingInputs, types.FeishuLegacyEmbeddingInput{
+				ChunkID: c.ID, SHA256: repository.LegacyEmbeddingInputHash(text),
+			})
 		}
 	}
 	stamp, err := store.ModelStamp(ctx, kb.EmbeddingModelID)
@@ -507,7 +511,12 @@ func (s *knowledgeService) StageFeishuLegacyItem(
 		logger.Infof(check, "Feishu candidate embedding progress source=%s attempt=%s completed=%d total=%d",
 			ds.ID, attempt.ID, completed, len(texts))
 	}}
-	vectors, err := embedding.BatchEmbedBounded(ctx, leaseModel, texts, 20)
+	vectors, err := embedLegacyCheckpointed(ctx, store, ds, attempt, leaseModel,
+		types.FeishuLegacyEmbeddingCheckpoint{
+			ModelID: kb.EmbeddingModelID, ModelStamp: stamp,
+			KBConfigSHA256: repository.LegacyKBConfigHash(kb), Dimension: model.GetDimensions(),
+			Inputs: embeddingInputs,
+		}, texts)
 	if err != nil {
 		return nil, err
 	}

@@ -606,6 +606,17 @@ func (s *FeishuLegacyStore) Prepare(
 			}
 			seen[c.ID] = true
 		}
+		checkpointed, e := validateEmbeddingCheckpointForPrepare(a, &m, indexed)
+		if e != nil {
+			return e
+		}
+		if checkpointed {
+			// Only this exact private candidate is replaced, in this transaction.
+			// A failed Prepare rolls back and retains every completed checkpoint.
+			if e = tx.Exec("DELETE FROM feishu_legacy_index_candidates WHERE attempt_id=?", a.ID).Error; e != nil {
+				return e
+			}
+		}
 		for i, c := range indexed {
 			if len(vectors[i]) != m.Dimension {
 				return legacyFence("vector_dimension_mismatch")

@@ -57,6 +57,10 @@ func TestSafetyKnownBudgetWaitDoesNotTrip(t *testing.T) {
 				if !errors.Is(err, ErrBudgetBusy) {
 					t.Fatalf("known exhausted allocation lost its retryable category: %v", err)
 				}
+				var detail *BudgetBusyError
+				if !errors.As(err, &detail) || detail.Reason != kind {
+					t.Fatalf("lost capacity classification: %s: %v", kind, err)
+				}
 				if g.Check(context.Background()) != nil ||
 					client.Exists(context.Background(), g.key("trip")).Val() != 0 {
 					t.Fatal("known local backpressure globally tripped unrelated sources")

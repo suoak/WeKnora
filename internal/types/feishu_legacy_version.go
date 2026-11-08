@@ -62,6 +62,26 @@ type FeishuLegacyManifest struct {
 	VLMModelStamp    string                      `json:"vlm_model_stamp,omitempty"`
 }
 
+// FeishuLegacyEmbeddingCheckpoint binds private, completed model responses to
+// exact inputs. It is not a publication receipt or a grant to read source data.
+type FeishuLegacyEmbeddingCheckpoint struct {
+	Version        int                          `json:"version"`
+	ResourceID     string                       `json:"resource_id"`
+	SourceHash     string                       `json:"source_hash"`
+	ModelID        string                       `json:"model_id"`
+	ModelStamp     string                       `json:"model_stamp"`
+	KBConfigSHA256 string                       `json:"kb_config_sha256"`
+	Dimension      int                          `json:"dimension"`
+	Inputs         []FeishuLegacyEmbeddingInput `json:"inputs"`
+	SHA256         string                       `json:"sha256"`
+}
+
+// FeishuLegacyEmbeddingInput binds one original chunk to its exact model input.
+type FeishuLegacyEmbeddingInput struct {
+	ChunkID string `json:"chunk_id"`
+	SHA256  string `json:"sha256"`
+}
+
 // FeishuLegacyAsset is an immutable file in its attempt's private directory. The
 // database publication pointer, never the filesystem upload, admits reads.
 type FeishuLegacyAsset struct {
