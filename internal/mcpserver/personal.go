@@ -21,6 +21,7 @@ import (
 // PersonalServer uses the existing Go MCP library/tool schemas, but never the
 // workspace machine principal, endpoint scope, ask or write tool handlers.
 type PersonalServer struct {
+	usage     usageRecorder
 	enabled   bool
 	knowledge *service.PortalMCPKnowledge
 	handler   http.Handler
@@ -50,7 +51,7 @@ func NewPersonalServer(enabled bool, knowledge *service.PortalMCPKnowledge) *Per
 	return s
 }
 func (s *PersonalServer) Handler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return observeHTTP(s.usage, "go_personal", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s == nil || !s.enabled || s.knowledge == nil {
 			http.Error(w, "personal MCP disabled", http.StatusForbidden)
 			return
@@ -90,9 +91,14 @@ func (s *PersonalServer) Handler() http.Handler {
 		}
 		w.Header().Set("Cache-Control", "private, no-store")
 		s.handler.ServeHTTP(w, r)
-	})
+	}))
 }
 func (s *PersonalServer) guard(next server.ToolHandlerFunc) server.ToolHandlerFunc {
+	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return observeTool(s.usage, "go_personal", s.enforceGuard(next))(ctx, req)
+	}
+}
+func (s *PersonalServer) enforceGuard(next server.ToolHandlerFunc) server.ToolHandlerFunc {
 	return func(ctx context.Context, r mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		if s == nil || !s.enabled || s.knowledge == nil {
 			return mcp.NewToolResultError("personal MCP disabled"), nil

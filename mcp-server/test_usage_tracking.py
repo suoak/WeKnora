@@ -79,7 +79,7 @@ class UsageTrackingTests(unittest.TestCase):
         def tool(query):
             return query
 
-        with patch.dict(os.environ, {"MCP_AUTH_MODE": "shared"}), patch.object(
+        with patch.object(self.module, "_active_mcp_transport", "http"), patch.dict(os.environ, {"MCP_AUTH_MODE": "shared"}), patch.object(
             self.module.client, "report_mcp_usage", side_effect=capture
         ):
             tool("secret query")
@@ -88,6 +88,50 @@ class UsageTrackingTests(unittest.TestCase):
         self.assertNotIn("shared_gateway", payload)
         self.assertNotIn("query", payload)
         self.assertNotIn("api_key", payload)
+
+    def test_kb_aliases_and_returned_errors(self):
+        self.assertEqual(self.module._safe_resource_ids({"kb_id": "kb-1"})[0], ["kb-1"])
+        reports = []
+
+        @self.module.tracked_tool
+        def tool():
+            return {"isError": True, "content": "private answer"}
+
+        with patch.object(self.module.client, "report_mcp_usage", side_effect=lambda payload, **kw: reports.append(payload)):
+            self.assertTrue(tool()["isError"])
+        self.assertEqual(len(reports), 1)
+        self.assertFalse(reports[0]["success"])
+        self.assertEqual(reports[0]["error_code"], "tool_error")
+        self.assertNotIn("private answer", str(reports))
+
+    def test_cancellation_reports_once_and_preserves_cancellation(self):
+        reports = []
+
+        @self.module.tracked_tool
+        async def tool():
+            raise asyncio.CancelledError()
+
+        with patch.object(self.module.client, "report_mcp_usage", side_effect=lambda payload, **kw: reports.append(payload)):
+            with self.assertRaises(asyncio.CancelledError):
+                asyncio.run(tool())
+        self.assertEqual(len(reports), 1)
+        self.assertEqual(reports[0]["error_code"], "canceled")
+
+    def test_search_scope_and_hits_are_separate(self):
+        reports = []
+
+        @self.module.tracked_tool
+        def hybrid_search(kb_id):
+            state = self.module._usage_resources.get()
+            state["targets"].update(["a", "b", "c", "d", "e"])
+            return {"results": [{"knowledge_base_id": "a", "knowledge_id": "doc-a"}, {"knowledge_base_id": "b", "knowledge_id": "doc-b"}]}
+
+        with patch.object(self.module.client, "report_mcp_usage", side_effect=lambda payload, **kw: reports.append(payload)):
+            hybrid_search("display-name")
+        self.assertEqual(len(reports), 1)
+        self.assertEqual(len(reports[0]["target_knowledge_base_ids"]), 5)
+        self.assertEqual(set(reports[0]["hit_knowledge_base_ids"]), {"a", "b"})
+        self.assertEqual(reports[0]["knowledge_base_ids"], [])
 
 
 if __name__ == "__main__":

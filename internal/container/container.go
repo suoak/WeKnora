@@ -243,6 +243,7 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	// handlers, MCP recording, IM, and model decorators. Register its single
 	// production implementation before any Invoke can construct those graphs.
 	must(container.Provide(service.NewUsageAnalyticsService))
+	must(container.Provide(service.NewMCPUsageRecorder))
 	must(container.Provide(service.NewKnowledgeBaseService))
 	must(container.Provide(service.NewOrganizationService))
 	must(container.Provide(service.NewKBShareService)) // KBShareService must be registered before KnowledgeService and KnowledgeTagService
@@ -556,6 +557,11 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	must(container.Provide(handler.NewPortalHandler))
 	must(container.Provide(handler.NewAuditLogHandler))
 	must(container.Invoke(service.InitializeUsageAnalytics))
+	must(container.Invoke(func(s *mcpserver.Server, p *mcpserver.PersonalServer, recorder *service.MCPUsageRecorder, cleaner interfaces.ResourceCleaner) {
+		s.SetUsageRecorder(recorder)
+		p.SetUsageRecorder(recorder)
+		cleaner.RegisterWithName("MCPUsageRecorder", recorder.Close)
+	}))
 	must(container.Invoke(service.AttachModelUsageAnalytics))
 	must(container.Provide(handler.NewUsageAnalyticsHandler))
 	must(container.Provide(handler.NewKnowledgeBaseHandler))

@@ -171,6 +171,14 @@ func mcpUsageWhere(q types.UsageTimeRange) (string, []any) {
 		where += " AND direction = ?"
 		args = append(args, q.Direction)
 	}
+	if q.EntryPoint != "" {
+		where += " AND entry_point = ?"
+		args = append(args, q.EntryPoint)
+	}
+	if q.ToolName != "" {
+		where += " AND tool_name = ?"
+		args = append(args, q.ToolName)
+	}
 	return where, args
 }
 
@@ -195,7 +203,7 @@ func (r *usageAnalyticsRepository) Overview(ctx context.Context, q types.UsageTi
 	}
 	if err := r.db.WithContext(ctx).Raw(`SELECT COUNT(*) mcp_calls,
 		COALESCE(100.0 * SUM(CASE WHEN success THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0),0) mcp_success_rate,
-		COALESCE(AVG(latency_ms),0) mcp_average_latency_ms,
+		COALESCE(AVG(CASE WHEN error_code <> 'interrupted' THEN latency_ms ELSE NULL END),0) mcp_average_latency_ms,
 		SUM(CASE WHEN caller_tenant_id IS NULL THEN 1 ELSE 0 END) unattributed_mcp_calls
 		FROM mcp_usage_events WHERE `+mcpw, mcpa...).Scan(&mcp).Error; err != nil {
 		return nil, err
@@ -356,7 +364,7 @@ func (r *usageAnalyticsRepository) Tenants(ctx context.Context, q types.UsageTim
 		SUM(input_tokens) input_tokens, SUM(output_tokens) output_tokens, SUM(total_tokens) total_tokens, MAX(occurred_at) last_active
 		FROM model_usage_events WHERE ` + mw + ` GROUP BY tenant_id),
 	 mcp AS (SELECT caller_tenant_id tenant_id, COUNT(*) mcp_calls, 100.0*SUM(CASE WHEN success THEN 1 ELSE 0 END)/COUNT(*) mcp_success_rate,
-		AVG(latency_ms) mcp_avg_latency_ms, MAX(occurred_at) last_active,
+		AVG(CASE WHEN error_code <> 'interrupted' THEN latency_ms ELSE NULL END) mcp_avg_latency_ms, MAX(occurred_at) last_active,
 		SUM(CASE WHEN direction='inbound' THEN 1 ELSE 0 END) inbound_calls FROM mcp_usage_events WHERE ` + xw + ` AND caller_tenant_id IS NOT NULL GROUP BY caller_tenant_id),
 	 principals AS (SELECT tenant_id, COUNT(*) active_principals FROM (SELECT tenant_id, principal_type, principal_id FROM model_usage_events WHERE ` + mw + ` AND principal_id IS NOT NULL AND principal_id<>'' AND principal_type<>?
 		UNION SELECT caller_tenant_id, principal_type, principal_id FROM mcp_usage_events WHERE ` + xw + ` AND caller_tenant_id IS NOT NULL AND principal_id IS NOT NULL AND principal_id<>'' AND principal_type<>?) u GROUP BY tenant_id),
@@ -553,26 +561,56 @@ func (r *usageAnalyticsRepository) MCP(ctx context.Context, q types.UsageTimeRan
 		order = orders["calls"]
 	}
 	selectSQL := `SELECT tool_name, COUNT(*) calls, SUM(CASE WHEN success THEN 1 ELSE 0 END) successful_calls,
-		COALESCE(100.0*SUM(CASE WHEN success THEN 1 ELSE 0 END)/NULLIF(COUNT(*),0),0) success_rate, AVG(latency_ms) average_latency_ms,
+		COALESCE(100.0*SUM(CASE WHEN success THEN 1 ELSE 0 END)/NULLIF(COUNT(*),0),0) success_rate, AVG(CASE WHEN error_code <> 'interrupted' THEN latency_ms ELSE NULL END) average_latency_ms,
 		SUM(CASE WHEN caller_tenant_id IS NULL THEN 1 ELSE 0 END) unattributed_calls, MAX(occurred_at) last_active, COUNT(*) OVER() total_count
 		FROM mcp_usage_events WHERE ` + w + ` GROUP BY tool_name ORDER BY ` + order + `, tool_name LIMIT ? OFFSET ?`
-	if q.GroupBy == "client" {
-		selectSQL = `SELECT client_name,client_version,COUNT(*) calls,SUM(CASE WHEN success THEN 1 ELSE 0 END) successful_calls,
-			COALESCE(100.0*SUM(CASE WHEN success THEN 1 ELSE 0 END)/NULLIF(COUNT(*),0),0) success_rate,AVG(latency_ms) average_latency_ms,
+	if column := map[string]string{"entry_point": "entry_point", "error": "error_code", "space": "caller_tenant_id"}[q.GroupBy]; column != "" || q.GroupBy == "summary" {
+		group := " GROUP BY " + column
+		if q.GroupBy == "summary" {
+			column = "'all' entry_point"
+			group = ""
+		}
+		selectSQL = `SELECT ` + column + `,COUNT(*) calls,SUM(CASE WHEN success THEN 1 ELSE 0 END) successful_calls,
+		COALESCE(100.0*SUM(CASE WHEN success THEN 1 ELSE 0 END)/NULLIF(COUNT(*),0),0) success_rate,AVG(CASE WHEN error_code <> 'interrupted' THEN latency_ms ELSE NULL END) average_latency_ms,
+		COUNT(DISTINCT CASE WHEN principal_type='web_user' THEN principal_id ELSE NULL END) active_users,
+		COUNT(DISTINCT api_key_id) + COUNT(DISTINCT CASE WHEN endpoint_id<>'' THEN endpoint_id ELSE NULL END) active_keys,
+		MAX(occurred_at) last_active,COUNT(*) OVER() total_count FROM mcp_usage_events WHERE ` + w + group + ` ORDER BY ` + order + ` LIMIT ? OFFSET ?`
+	} else if q.GroupBy == "event" {
+		selectSQL = `SELECT event_key,principal_type,principal_id,api_key_id,endpoint_id,caller_tenant_id,tool_name,entry_point,client_name,client_source,success,error_code,latency_ms,occurred_at,COUNT(*) OVER() total_count FROM mcp_usage_events WHERE ` + w + ` ORDER BY occurred_at DESC,id DESC LIMIT ? OFFSET ?`
+	} else if q.GroupBy == "resource" {
+		w = strings.ReplaceAll(w, "occurred_at", "e.occurred_at")
+		w = strings.ReplaceAll(w, "caller_tenant_id", "e.caller_tenant_id")
+		selectSQL = `SELECT l.resource_type,l.resource_id,l.resource_tenant_id,COUNT(*) calls,MAX(e.occurred_at) last_active,COUNT(*) OVER() total_count FROM usage_resource_links l JOIN mcp_usage_events e ON l.event_kind='mcp' AND l.event_id=e.id WHERE ` + w + ` GROUP BY l.resource_type,l.resource_id,l.resource_tenant_id ORDER BY calls DESC,l.resource_type,l.resource_id LIMIT ? OFFSET ?`
+	} else if q.GroupBy == "client" {
+		selectSQL = `SELECT client_name,client_version,client_source,COUNT(*) calls,SUM(CASE WHEN success THEN 1 ELSE 0 END) successful_calls,
+			COALESCE(100.0*SUM(CASE WHEN success THEN 1 ELSE 0 END)/NULLIF(COUNT(*),0),0) success_rate,AVG(CASE WHEN error_code <> 'interrupted' THEN latency_ms ELSE NULL END) average_latency_ms,
 			SUM(CASE WHEN caller_tenant_id IS NULL THEN 1 ELSE 0 END) unattributed_calls,MAX(occurred_at) last_active,COUNT(*) OVER() total_count
-			FROM mcp_usage_events WHERE ` + w + ` GROUP BY client_name,client_version ORDER BY ` + order + `,client_name,client_version LIMIT ? OFFSET ?`
+			FROM mcp_usage_events WHERE ` + w + ` GROUP BY client_name,client_version,client_source ORDER BY ` + order + `,client_name,client_version LIMIT ? OFFSET ?`
 	} else if q.GroupBy == "knowledge_base" {
 		w = strings.ReplaceAll(w, "occurred_at", "e.occurred_at")
 		w = strings.ReplaceAll(w, "caller_tenant_id", "e.caller_tenant_id")
 		selectSQL = `SELECT l.resource_id knowledge_base_id,COALESCE(kb.name,'[deleted]') knowledge_base_name,COUNT(*) calls,
 			SUM(CASE WHEN e.success THEN 1 ELSE 0 END) successful_calls,COALESCE(100.0*SUM(CASE WHEN e.success THEN 1 ELSE 0 END)/NULLIF(COUNT(*),0),0) success_rate,
-			AVG(e.latency_ms) average_latency_ms,SUM(CASE WHEN e.caller_tenant_id IS NULL THEN 1 ELSE 0 END) unattributed_calls,MAX(e.occurred_at) last_active,COUNT(*) OVER() total_count
+			AVG(CASE WHEN e.error_code <> 'interrupted' THEN e.latency_ms ELSE NULL END) average_latency_ms,SUM(CASE WHEN e.caller_tenant_id IS NULL THEN 1 ELSE 0 END) unattributed_calls,MAX(e.occurred_at) last_active,COUNT(*) OVER() total_count
 			FROM usage_resource_links l JOIN mcp_usage_events e ON l.event_kind='mcp' AND l.event_id=e.id LEFT JOIN knowledge_bases kb ON kb.id=l.resource_id
 			WHERE l.resource_type='knowledge_base' AND ` + w + ` GROUP BY l.resource_id,kb.name ORDER BY ` + order + `,l.resource_id LIMIT ? OFFSET ?`
+	}
+	if r.db.Dialector.Name() == "sqlite" {
+		selectSQL = strings.ReplaceAll(selectSQL, "MAX(occurred_at) last_active", "NULL last_active,COALESCE(CAST(strftime('%s',MAX(occurred_at)) AS INTEGER),0) last_active_unix")
+		selectSQL = strings.ReplaceAll(selectSQL, "MAX(e.occurred_at) last_active", "NULL last_active,COALESCE(CAST(strftime('%s',MAX(e.occurred_at)) AS INTEGER),0) last_active_unix")
+		selectSQL = strings.ReplaceAll(selectSQL, "ORDER BY last_active DESC", "ORDER BY last_active_unix DESC")
 	}
 	args = append(args, size, (p-1)*size)
 	var rows []types.MCPUsageRow
 	err := r.db.WithContext(ctx).Raw(selectSQL, args...).Scan(&rows).Error
+	if r.db.Dialector.Name() == "sqlite" {
+		for i := range rows {
+			if rows[i].LastActiveUnix > 0 {
+				stamp := time.Unix(rows[i].LastActiveUnix, 0).UTC()
+				rows[i].LastActive = &stamp
+			}
+		}
+	}
 	var total int64
 	if len(rows) > 0 {
 		total = rows[0].TotalCount
@@ -750,3 +788,20 @@ func (r *usageAnalyticsRepository) CollectingSince(ctx context.Context) (*time.T
 }
 
 var _ interfaces.UsageAnalyticsRepository = (*usageAnalyticsRepository)(nil)
+
+func (r *usageAnalyticsRepository) MCPServerCollectingSince(ctx context.Context) (*time.Time, error) {
+	var row types.SystemSetting
+	err := r.db.WithContext(ctx).Where("key = ?", "usage.analytics.mcp_server_collecting_since").First(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var value string
+	if err = json.Unmarshal(row.Value, &value); err != nil {
+		return nil, err
+	}
+	stamp, err := time.Parse(time.RFC3339Nano, value)
+	return &stamp, err
+}

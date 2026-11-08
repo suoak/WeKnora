@@ -21,6 +21,8 @@ import threading
 import time
 import uuid
 from typing import Any, Dict
+from datetime import datetime, timezone
+from usage_outbox import UsageOutbox
 from urllib.parse import parse_qs
 
 import urllib3
@@ -65,6 +67,7 @@ _request_tenant_id: contextvars.ContextVar[str] = contextvars.ContextVar(
 _request_invocation_id: contextvars.ContextVar[str] = contextvars.ContextVar(
     "weknora_mcp_request_invocation_id", default=""
 )
+_usage_resources = contextvars.ContextVar("mcp_usage_resources", default=None)
 _active_mcp_transport = "stdio"
 
 
@@ -437,24 +440,41 @@ class WeKnoraClient:
             # Raise exception for HTTP error status codes (4xx, 5xx)
             response.raise_for_status()
             # Parse and return JSON response
-            return response.json()
+            data = response.json()
+            state = _usage_resources.get()
+            if state is not None:
+                match = re.match(r"^/(?:knowledge-bases|knowledgebase)/([^/]+)/(?:hybrid-search|wiki/)", endpoint)
+                if match:
+                    state["targets"].add(match[1])
+                for kb_id in _response_kb_ids(data):
+                    state["hits"].add(kb_id)
+            return data
         except RequestException as e:
             logger.error(f"API request failed: {e}")
             raise
 
+    def _usage_delivery(self):
+        with _usage_outbox_lock:
+            outbox = getattr(self, "_usage_outbox", None)
+            if outbox is None:
+                outbox = self._usage_outbox = UsageOutbox(f"{self.base_url}/usage/mcp-events")
+        return outbox
+
+    def _usage_headers(self, shared_gateway):
+        return {"Content-Type": "application/json", "X-WeKnora-MCP-Shared-Gateway": "true" if shared_gateway else "false", **self._auth_headers()}
+
+    def begin_mcp_usage(self, payload):
+        if not (_request_api_key.get() or self.api_key):
+            return
+        try:
+            shared = _active_mcp_transport != "stdio" and network_auth_mode() == "shared"
+            self._usage_delivery().enqueue(payload, self._usage_headers(shared), active=True)
+        except Exception:
+            logger.error("MCP usage admission spool unavailable; collection degraded")
+
     def report_mcp_usage(self, payload: Dict[str, Any], shared_gateway: bool = False) -> None:
-        """Best-effort reporting for one logical MCP tool invocation."""
-        response = self.session.post(
-            f"{self.base_url}/usage/mcp-events",
-            headers={
-                "Content-Type": "application/json",
-                "X-WeKnora-MCP-Shared-Gateway": "true" if shared_gateway else "false",
-                **self._auth_headers(),
-            },
-            json=payload,
-            timeout=5,
-        )
-        response.raise_for_status()
+        """Persist one final invocation locally; delivery never delays retrieval."""
+        self._usage_delivery().enqueue(payload, self._usage_headers(shared_gateway))
 
     # Tenant Management - Methods for managing multi-tenant configurations
     def create_tenant(
@@ -959,9 +979,18 @@ class WeKnoraClient:
 # Initialize MCP server instance (mcp 2.x high-level API).
 # MCPServer (formerly FastMCP) builds input schemas from function type hints
 # and serializes plain return values automatically.
+_usage_outbox_lock = threading.Lock()
 mcp = MCPServer("weknora-server", version="1.1.1")
 # Initialize WeKnora API client with configuration
 client = WeKnoraClient(WEKNORA_BASE_URL, WEKNORA_API_KEY)
+if WEKNORA_API_KEY:
+    try:
+        outbox = client._usage_delivery()
+        outbox.register(client._usage_headers(False))
+        outbox.register(client._usage_headers(True))
+    except Exception:
+        logger.error("MCP usage replay unavailable; collection degraded")
+
 
 
 def _safe_resource_ids(arguments: Dict[str, Any]) -> tuple[list[str], list[str]]:
@@ -978,33 +1007,83 @@ def _safe_resource_ids(arguments: Dict[str, Any]) -> tuple[list[str], list[str]]
         return list(dict.fromkeys(result))
 
     return (
-        values("knowledge_base_id", "knowledge_base_ids"),
+        values("knowledge_base_id", "knowledge_base_ids", "kb_id", "kb_ids"),
         values("knowledge_id", "knowledge_ids"),
     )
+
+
+def _response_kb_ids(value, depth=0):
+    if depth > 12:
+        return set()
+    ids = set()
+    if isinstance(value, dict):
+        candidate = value.get("knowledge_base_id")
+        if isinstance(candidate, str) and 0 < len(candidate) <= 64 and any(key in value for key in ("knowledge_id", "chunk_id", "slug")):
+            ids.add(candidate)
+        # Only backend result containers; never document content or metadata.
+        for key in ("data", "results", "chunks", "pages", "documents", "references"):
+            if key in value:
+                ids.update(_response_kb_ids(value[key], depth + 1))
+    elif isinstance(value, list):
+        for item in value[:1000]:
+            ids.update(_response_kb_ids(item, depth + 1))
+    return set(sorted(ids)[:512])
+
+
+def _usage_error(exc):
+    if exc is None:
+        return "tool_error"
+    if isinstance(exc, (TimeoutError, requests.exceptions.Timeout)):
+        return "timeout"
+    if isinstance(exc, asyncio.CancelledError):
+        return "canceled"
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    if status in (401, 403):
+        return "permission_denied"
+    if status == 429:
+        return "rate_limited"
+    # Preserve existing safe exception class compatibility, never its message.
+    return type(exc).__name__[:64]
 
 
 def tracked_tool(function):
     """Record one best-effort event around one logical MCP tool call."""
     signature = inspect.signature(function)
 
-    def report(started: float, succeeded: bool, exc: Exception | None, args, kwargs):
+    def report(started: float, succeeded: bool, exc: BaseException | None, args, kwargs, result=None):
         try:
             bound = signature.bind_partial(*args, **kwargs)
             kb_ids, knowledge_ids = _safe_resource_ids(dict(bound.arguments))
-            event_key = _request_invocation_id.get() or f"mcp:{uuid.uuid4()}"
+            state = _usage_resources.get() or {"targets": set(), "hits": set()}
+            search = function.__name__ in ("hybrid_search", "search_knowledge", "grep_chunks", "wiki_search")
+            targets = sorted(state["targets"]) if search else []
+            hits = sorted(state["hits"] | _response_kb_ids(result)) if search and succeeded else []
+            client_name, client_version, client_source = "unknown", "", "unknown"
+            try:
+                params = mcp.get_context().session.client_params
+                info = params.clientInfo if params else None
+                if info and info.name:
+                    client_name, client_version, client_source = info.name[:128], info.version[:64], "adapter_negotiated"
+            except Exception:
+                pass
+            event_key = state.get("event_key") or _request_invocation_id.get() or f"mcp:{uuid.uuid4()}"
             client.report_mcp_usage(
                 {
                     "event_key": event_key,
                     "tool_name": function.__name__,
                     "transport": _active_mcp_transport,
                     "success": succeeded,
-                    "error_code": "" if exc is None else type(exc).__name__[:64],
+                    "error_code": "" if succeeded else _usage_error(exc),
+                    "occurred_at": state.get("occurred_at") or datetime.now(timezone.utc).isoformat(),
+                    "client_name": client_name, "client_version": client_version, "client_source": client_source,
                     "latency_ms": max(0, int((time.monotonic() - started) * 1000)),
                     "request_id": event_key,
-                    "knowledge_base_ids": kb_ids,
-                    "knowledge_ids": knowledge_ids,
+                    "knowledge_base_ids": kb_ids if succeeded and not search else [],
+                    "target_knowledge_base_ids": targets,
+                    "hit_knowledge_base_ids": hits,
+                    "knowledge_ids": knowledge_ids if succeeded and function.__name__ in ("read_document", "get_knowledge", "get_document", "list_chunks") else [],
                 },
-                shared_gateway=network_auth_mode() == "shared",
+                shared_gateway=_active_mcp_transport != "stdio" and network_auth_mode() == "shared",
             )
         except Exception as report_error:
             logger.warning(
@@ -1017,12 +1096,18 @@ def tracked_tool(function):
         @functools.wraps(function)
         async def async_wrapper(*args, **kwargs):
             started = time.monotonic()
+            state = {"targets": set(), "hits": set(), "event_key": _request_invocation_id.get() or f"mcp:{uuid.uuid4()}", "occurred_at": datetime.now(timezone.utc).isoformat()}
+            resource_token = _usage_resources.set(state)
+            client.begin_mcp_usage({"event_key": state["event_key"], "occurred_at": state["occurred_at"], "tool_name": function.__name__, "transport": _active_mcp_transport, "success": False, "error_code": "interrupted", "latency_ms": 0})
             try:
                 result = await function(*args, **kwargs)
-            except Exception as exc:
+            except BaseException as exc:
                 report(started, False, exc, args, kwargs)
+                _usage_resources.reset(resource_token)
                 raise
-            report(started, True, None, args, kwargs)
+            succeeded = not (getattr(result, "isError", False) or isinstance(result, dict) and (result.get("isError") is True or result.get("success") is False))
+            report(started, succeeded, None, args, kwargs, result)
+            _usage_resources.reset(resource_token)
             return result
 
         return async_wrapper
@@ -1030,12 +1115,18 @@ def tracked_tool(function):
     @functools.wraps(function)
     def sync_wrapper(*args, **kwargs):
         started = time.monotonic()
+        state = {"targets": set(), "hits": set(), "event_key": _request_invocation_id.get() or f"mcp:{uuid.uuid4()}", "occurred_at": datetime.now(timezone.utc).isoformat()}
+        resource_token = _usage_resources.set(state)
+        client.begin_mcp_usage({"event_key": state["event_key"], "occurred_at": state["occurred_at"], "tool_name": function.__name__, "transport": _active_mcp_transport, "success": False, "error_code": "interrupted", "latency_ms": 0})
         try:
             result = function(*args, **kwargs)
-        except Exception as exc:
+        except BaseException as exc:
             report(started, False, exc, args, kwargs)
+            _usage_resources.reset(resource_token)
             raise
-        report(started, True, None, args, kwargs)
+        succeeded = not (getattr(result, "isError", False) or isinstance(result, dict) and (result.get("isError") is True or result.get("success") is False))
+        report(started, succeeded, None, args, kwargs, result)
+        _usage_resources.reset(resource_token)
         return result
 
     return sync_wrapper

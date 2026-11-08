@@ -111,6 +111,9 @@ func (s *Server) handleWikiSearch(ctx context.Context, req mcp.CallToolRequest) 
 	if limit > maxWikiSearchLimit {
 		limit = maxWikiSearchLimit
 	}
+	for _, kb := range kbs {
+		types.ObserveMCPKnowledgeBase(ctx, kb.ID)
+	}
 	tool := tools.NewWikiSearchTool(s.wikiService, s.knowledgeService, wikiScopesFor(kbs), tools.NewWikiRouteResolver())
 	callArgs := map[string]any{
 		"query": strings.TrimSpace(query),

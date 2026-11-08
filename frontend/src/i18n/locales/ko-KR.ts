@@ -99,6 +99,7 @@ const messages = {
     }
   },
   usageAnalytics: {
+    entryPoint: 'MCP entry point', allEntries: 'All MCP entries', legacyCoverage: 'Legacy / incomplete coverage',
     governance: {
       description: 'Turn usage data into transparent workspace and knowledge governance signals.',
       coverage: 'Statuses are based only on the recorded collection window; insufficient history is never reported as inactivity.',

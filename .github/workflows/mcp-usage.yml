@@ -1,0 +1,42 @@
+name: MCP usage accounting
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  accounting:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synthetic-mcp-tests
+          POSTGRES_DB: mcp_usage
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d mcp_usage"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      GOTOOLCHAIN: local
+      MCP_USAGE_POSTGRES_DSN: postgres://postgres:synthetic-mcp-tests@127.0.0.1:5432/mcp_usage?sslmode=disable
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.8"
+          cache: true
+      - name: Verify invocation accounting, concurrency, and schema compatibility
+        run: >-
+          go test -race -count=1 -timeout=15m
+          ./internal/mcpserver ./internal/types ./internal/application/service
+          ./internal/application/repository ./internal/handler ./internal/database
+          -run 'TestMCPUsage|Test.*UsageAnalytics|TestMigrationGovernanceManifest|TestSQLite.*Migration'

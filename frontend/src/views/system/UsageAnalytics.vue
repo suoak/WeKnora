@@ -79,6 +79,13 @@
             {{ t('usageAnalytics.filters.outbound') }}
           </option>
         </select>
+        <select v-if="activeTab === 'mcp'" v-model="mcpEntryPoint" :aria-label="t('usageAnalytics.entryPoint')" @change="reload">
+          <option value="">{{ t('usageAnalytics.allEntries') }}</option>
+          <option value="go_personal">Go Personal</option>
+          <option value="go_endpoint">Go Endpoint</option>
+          <option value="python">Python</option>
+          <option value="legacy">{{ t('usageAnalytics.legacyCoverage') }}</option>
+        </select>
         <select
           v-if="activeTab === 'mcp'"
           v-model="mcpGroup"
@@ -106,6 +113,7 @@
           </option>
         </select>
         <select v-model="rangeDays" :aria-label="t('usageAnalytics.range')" @change="reload">
+          <option :value="0">{{ t('time.today') }}</option>
           <option :value="7">7 {{ t('usageAnalytics.days') }}</option>
           <option :value="30">30 {{ t('usageAnalytics.days') }}</option>
           <option :value="90">90 {{ t('usageAnalytics.days') }}</option>
@@ -209,6 +217,7 @@ const mcpAdoption = ref<'' | 'adopted' | 'not_adopted'>('')
 const crossTenant = ref<'' | 'with' | 'without'>('')
 const usageClass = ref<'' | 'foreground' | 'background'>('')
 const direction = ref<'' | 'inbound' | 'outbound'>('')
+const mcpEntryPoint = ref<'' | 'go_personal' | 'go_endpoint' | 'python' | 'legacy'>('')
 const mcpGroup = ref<'tool' | 'client' | 'knowledge_base'>('tool')
 const loading = ref(false)
 const error = ref('')
@@ -232,7 +241,7 @@ watch(activeTab, () => {
   sort.value = activeTab.value === 'knowledgeBases' ? 'unique_tenants' : 'last_active'
 })
 const query = computed<UsageQuery>(() => ({
-  from: new Date(Date.now() - rangeDays.value * 86400000).toISOString(),
+  from: (rangeDays.value === 0 ? new Date(new Date().setHours(0, 0, 0, 0)) : new Date(Date.now() - rangeDays.value * 86400000)).toISOString(),
   to: new Date().toISOString(),
   interval: 'day',
   page: page.value,
@@ -249,6 +258,7 @@ const query = computed<UsageQuery>(() => ({
   group_by:
     activeTab.value === 'knowledgeBases' ? 'knowledge_base' : activeTab.value === 'mcp' ? mcpGroup.value : undefined,
   usage_class: activeTab.value === 'token' && usageClass.value ? usageClass.value : undefined,
+  entry_point: activeTab.value === 'mcp' && mcpEntryPoint.value ? mcpEntryPoint.value : undefined,
   direction: activeTab.value === 'mcp' && direction.value ? direction.value : undefined,
 }))
 async function load() {
@@ -275,7 +285,7 @@ async function load() {
     }
     const result = await loaders[activeTab.value](query.value)
     total.value = result.total || 0
-    collectingSince.value = result.collecting_since
+    collectingSince.value = activeTab.value === 'mcp' ? result.mcp_server_collecting_since : result.collecting_since
     if (activeTab.value === 'spaces') spaces.value = result.data as TenantUsageRow[]
     else if (activeTab.value === 'knowledgeBases') knowledgeBases.value = result.data as KnowledgeBaseUsageRow[]
     else if (activeTab.value === 'token') models.value = result.data as ModelUsageRow[]

@@ -167,6 +167,7 @@ export default {
     }
   },
   usageAnalytics: {
+    entryPoint: 'MCP 入口', allEntries: '全部 MCP 入口', legacyCoverage: '旧版 / 覆盖不完整',
     governance: {
       description: 'Turn usage data into transparent workspace and knowledge governance signals.',
       coverage: 'Statuses are based only on the recorded collection window; insufficient history is never reported as inactivity.',

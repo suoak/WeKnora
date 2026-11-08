@@ -42,6 +42,7 @@ var errNoEndpoint = errors.New("mcp endpoint missing from request context")
 // Server wires the tool catalog onto an mcp-go server and exposes it as an
 // http.Handler.
 type Server struct {
+	usage            usageRecorder
 	kbService        interfaces.KnowledgeBaseService
 	knowledgeService interfaces.KnowledgeService
 	chunkService     interfaces.ChunkService
@@ -125,7 +126,7 @@ func NewServer(
 // Handler returns the http.Handler to mount under /mcp/:endpoint_id. The
 // caller must run MCPEndpointAuth first; the handler trusts the context.
 func (s *Server) Handler() http.Handler {
-	return s.handler
+	return observeHTTP(s.usage, "go_endpoint", s.handler)
 }
 
 const serverInstructions = "WeKnora knowledge workspace. Start with list_knowledge_bases to see what is in scope, " +
@@ -161,6 +162,11 @@ func (s *Server) filterTools(ctx context.Context, all []mcp.Tool) []mcp.Tool {
 // guardTool enforces the allowlist and rate limit on every tools/call, so a
 // client cannot invoke a hidden tool by name.
 func (s *Server) guardTool(next server.ToolHandlerFunc) server.ToolHandlerFunc {
+	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return observeTool(s.usage, "go_endpoint", s.enforceGuardTool(next))(ctx, req)
+	}
+}
+func (s *Server) enforceGuardTool(next server.ToolHandlerFunc) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		ep, err := endpointFromContext(ctx)
 		if err != nil {

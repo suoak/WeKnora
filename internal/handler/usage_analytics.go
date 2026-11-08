@@ -28,10 +28,15 @@ func (h *UsageAnalyticsHandler) ReportInboundMCP(c *gin.Context) {
 		c.Error(errors.NewForbiddenError("MCP usage reports require API key authentication"))
 		return
 	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1<<20)
 	var report types.MCPUsageReport
 	if err := c.ShouldBindJSON(&report); err != nil {
 		c.Error(errors.NewBadRequestError("invalid MCP usage report"))
 		return
+	}
+	report.EntryPoint = "python"
+	if report.ClientSource != "adapter_negotiated" || report.ClientName == "" {
+		report.ClientName, report.ClientVersion, report.ClientSource = "unknown", "", "unknown"
 	}
 	report.SharedGateway = strings.EqualFold(strings.TrimSpace(c.GetHeader("X-WeKnora-MCP-Shared-Gateway")), "true")
 	if err := h.service.RecordInboundMCP(c.Request.Context(), report); err != nil {
@@ -79,6 +84,14 @@ func parseUsageQuery(c *gin.Context) (types.UsageTimeRange, error) {
 	if raw := c.Query("page_size"); raw != "" {
 		q.PageSize, _ = strconv.Atoi(raw)
 	}
+	q.ToolName = strings.TrimSpace(c.Query("tool_name"))
+	if len(q.ToolName) > 255 || strings.ContainsAny(q.ToolName, "\r\n\x00") {
+		return q, errors.NewBadRequestError("invalid tool_name")
+	}
+	q.EntryPoint = strings.TrimSpace(c.Query("entry_point"))
+	if q.EntryPoint != "" && !map[string]bool{"go_personal": true, "go_endpoint": true, "python": true, "legacy": true}[q.EntryPoint] {
+		return q, errors.NewBadRequestError("invalid entry_point")
+	}
 	q.Operation = strings.TrimSpace(c.Query("operation"))
 	q.UsageClass = strings.ToLower(strings.TrimSpace(c.Query("usage_class")))
 	q.Channel = strings.TrimSpace(c.Query("channel"))
@@ -106,7 +119,7 @@ func parseUsageQuery(c *gin.Context) (types.UsageTimeRange, error) {
 	if q.Direction != "" && q.Direction != "inbound" && q.Direction != "outbound" {
 		return q, errors.NewBadRequestError("invalid direction")
 	}
-	if q.GroupBy != "" && !map[string]bool{"caller": true, "knowledge_base": true, "tool": true, "client": true}[q.GroupBy] {
+	if q.GroupBy != "" && !map[string]bool{"caller": true, "knowledge_base": true, "tool": true, "client": true, "entry_point": true, "error": true, "space": true, "event": true, "resource": true, "summary": true}[q.GroupBy] {
 		return q, errors.NewBadRequestError("invalid group_by")
 	}
 	if q.Status != "" && !map[string]bool{

@@ -13,7 +13,9 @@ export interface UsageQuery {
   channel?: string
   model_type?: string
   direction?: 'inbound' | 'outbound'
-  group_by?: 'caller' | 'knowledge_base' | 'tool' | 'client'
+  tool_name?: string
+  entry_point?: 'go_personal' | 'go_endpoint' | 'python' | 'legacy'
+  group_by?: 'caller' | 'knowledge_base' | 'tool' | 'client' | 'entry_point' | 'error' | 'space' | 'event' | 'resource' | 'summary'
   status?: UsageGovernanceStatus
   include_inactive?: boolean
   mcp_adoption?: 'adopted' | 'not_adopted'
@@ -63,6 +65,8 @@ export interface UsageOverview {
 }
 
 export interface UsagePage<T> {
+  mcp_server_collecting_since?: string
+  historical_mcp_coverage?: string
   data: T[]
   page: number
   page_size: number

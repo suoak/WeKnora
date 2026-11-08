@@ -77,6 +77,7 @@ func (s *PortalMCPKnowledge) PersonalWiki(ctx context.Context, operation, query,
 		if e = target.Revalidate(ctx); e != nil {
 			return nil, e
 		}
+		types.ObserveMCPKnowledgeBase(ctx, d.ID)
 		pages, partial, err := s.Wiki.VerifiedPages(ctx, d.TenantID, d.ID, target.DocumentIDs())
 		if err != nil {
 			if errors.Is(err, types.ErrLegacySourceRestricted) || errors.Is(err, repository.ErrWikiMCPUnverified) {

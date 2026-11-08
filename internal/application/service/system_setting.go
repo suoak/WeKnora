@@ -812,6 +812,7 @@ func (s *systemSettingService) List(ctx context.Context) ([]*types.SystemSetting
 	// Usage Analytics owns this write-once internal collection epoch. It is not
 	// a runtime setting and must never be exposed through the editable settings UI.
 	delete(byKey, "usage.analytics.collecting_since")
+	delete(byKey, "usage.analytics.mcp_server_collecting_since")
 
 	keys := make([]string, 0, len(registry))
 	for key := range registry {

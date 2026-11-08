@@ -163,6 +163,9 @@ func (s *Server) runSearchKnowledge(
 func (s *Server) runSearchKnowledgeWithFilter(
 	ctx context.Context, kbs []*types.KnowledgeBase, query, mode string, limit int, pattern *regexp.Regexp,
 ) (*mcp.CallToolResult, error) {
+	for _, kb := range kbs {
+		types.ObserveMCPKnowledgeBase(ctx, kb.ID)
+	}
 	tool := tools.NewSearchKnowledgeTool(
 		s.kbService, s.knowledgeService, s.chunkService, searchTargetsFor(kbs), nil, s.cfg,
 	)
