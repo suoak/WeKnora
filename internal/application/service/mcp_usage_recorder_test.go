@@ -18,7 +18,11 @@ type retryUsageRepo struct {
 	failure bool
 }
 
-func (r *retryUsageRepo) RecordMCPUsage(ctx context.Context, event *types.MCPUsageEvent, links []types.UsageResourceLink) (bool, error) {
+func (r *retryUsageRepo) RecordMCPUsage(
+	ctx context.Context,
+	event *types.MCPUsageEvent,
+	links []types.UsageResourceLink,
+) (bool, error) {
 	if r.failure {
 		return false, errors.New("database unavailable")
 	}
@@ -29,10 +33,27 @@ func TestMCPUsageSpoolSurvivesCanceledRequestAndRestart(t *testing.T) {
 	repo := &retryUsageRepo{usageRepoStub: &usageRepoStub{}}
 	dir := t.TempDir()
 	recorder := newMCPUsageRecorder(repo, dir)
-	ctx, cancel := context.WithCancel(types.WithTenantAPIKeyScope(types.WithCaller(types.WithPrincipal(context.Background(), types.Principal{Type: types.PrincipalWebUser, ID: "employee"}), types.Caller{TenantID: 100}), types.TenantAPIKeyScope{KeyID: 42}))
+	ctx, cancel := context.WithCancel(
+		types.WithTenantAPIKeyScope(
+			types.WithCaller(
+				types.WithPrincipal(
+					context.Background(),
+					types.Principal{Type: types.PrincipalWebUser, ID: "employee"},
+				),
+				types.Caller{TenantID: 100},
+			),
+			types.TenantAPIKeyScope{KeyID: 42},
+		),
+	)
 	cancel()
 	stamp := time.Now().Add(-time.Minute)
-	report := types.MCPUsageReport{EventKey: "stable-invocation", ToolName: "read_document", EntryPoint: "go_personal", Success: true, OccurredAt: stamp}
+	report := types.MCPUsageReport{
+		EventKey:   "stable-invocation",
+		ToolName:   "read_document",
+		EntryPoint: "go_personal",
+		Success:    true,
+		OccurredAt: stamp,
+	}
 	require.NoError(t, recorder.Record(ctx, report))
 	files, err := os.ReadDir(dir)
 	require.NoError(t, err)
@@ -57,7 +78,10 @@ func TestMCPUsageSpoolSurvivesCanceledRequestAndRestart(t *testing.T) {
 func TestMCPUsageSpoolBoundedRetriesAndDeadLetter(t *testing.T) {
 	repo := &retryUsageRepo{usageRepoStub: &usageRepoStub{}, failure: true}
 	r := newMCPUsageRecorder(repo, t.TempDir())
-	require.NoError(t, r.Record(context.Background(), types.MCPUsageReport{EventKey: "retry", ToolName: "search_knowledge"}))
+	require.NoError(
+		t,
+		r.Record(context.Background(), types.MCPUsageReport{EventKey: "retry", ToolName: "search_knowledge"}),
+	)
 	for i := 0; i < 5; i++ {
 		r.drain()
 	}
@@ -66,14 +90,20 @@ func TestMCPUsageSpoolBoundedRetriesAndDeadLetter(t *testing.T) {
 	require.Len(t, files, 1)
 	require.Zero(t, repo.mcpHit)
 	r.count = 10000
-	require.Error(t, r.Record(context.Background(), types.MCPUsageReport{EventKey: "overflow", ToolName: "search_knowledge"}))
+	require.Error(
+		t,
+		r.Record(context.Background(), types.MCPUsageReport{EventKey: "overflow", ToolName: "search_knowledge"}),
+	)
 }
 
 func TestMCPUsageInterruptedAdmissionAndConcurrentFinalization(t *testing.T) {
 	repo := &retryUsageRepo{usageRepoStub: &usageRepoStub{}}
 	dir := t.TempDir()
 	r := newMCPUsageRecorder(repo, dir)
-	require.NoError(t, r.Begin(context.Background(), types.MCPUsageReport{EventKey: "unfinished", ToolName: "search_knowledge"}))
+	require.NoError(
+		t,
+		r.Begin(context.Background(), types.MCPUsageReport{EventKey: "unfinished", ToolName: "search_knowledge"}),
+	)
 	newMCPUsageRecorder(repo, dir).drain()
 	require.Equal(t, "interrupted", repo.mcp.ErrorCode)
 	require.False(t, repo.mcp.Success)
@@ -84,7 +114,11 @@ func TestMCPUsageInterruptedAdmissionAndConcurrentFinalization(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			report := types.MCPUsageReport{EventKey: types.UsageEventKey("concurrent", time.Unix(int64(i), 0).String()), ToolName: "search_knowledge", Success: true}
+			report := types.MCPUsageReport{
+				EventKey: types.UsageEventKey("concurrent", time.Unix(int64(i), 0).String()),
+				ToolName: "search_knowledge",
+				Success:  true,
+			}
 			if err := r.Begin(context.Background(), report); err != nil {
 				t.Error(err)
 			}

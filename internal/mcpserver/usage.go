@@ -20,12 +20,14 @@ import (
 type usageRecorder interface {
 	Record(context.Context, types.MCPUsageReport) error
 }
-type invocationKey struct{}
-type invocation struct {
-	report types.MCPUsageReport
-	called bool
-	scope  *types.MCPUsageScope
-}
+type (
+	invocationKey struct{}
+	invocation    struct {
+		report types.MCPUsageReport
+		called bool
+		scope  *types.MCPUsageScope
+	}
+)
 
 func (s *PersonalServer) SetUsageRecorder(r usageRecorder) { s.usage = r }
 func (s *Server) SetUsageRecorder(r usageRecorder)         { s.usage = r }
@@ -39,6 +41,7 @@ func beginUsage(ctx context.Context, sink usageRecorder, report types.MCPUsageRe
 		}
 	}
 }
+
 func emitUsage(ctx context.Context, sink usageRecorder, report types.MCPUsageReport) {
 	if sink == nil {
 		return
@@ -103,8 +106,10 @@ func newUsageReport(entry, tool string) types.MCPUsageReport {
 	if _, known := types.LookupMCPEndpointTool(tool); !known {
 		tool = "unknown"
 	}
-	return types.MCPUsageReport{EventKey: "mcp:" + uuid.NewString(), EntryPoint: entry, ToolName: tool,
-		Transport: "streamable-http", ClientName: "unknown", ClientSource: "unknown", OccurredAt: time.Now()}
+	return types.MCPUsageReport{
+		EventKey: "mcp:" + uuid.NewString(), EntryPoint: entry, ToolName: tool,
+		Transport: "streamable-http", ClientName: "unknown", ClientSource: "unknown", OccurredAt: time.Now(),
+	}
 }
 
 func safeUsageString(s string, limit int) bool {
@@ -185,7 +190,9 @@ func observeHTTP(sink usageRecorder, entry string, next http.Handler) http.Handl
 				Name string `json:"name"`
 			} `json:"params"`
 		}
-		if err != nil || len(body) > 1<<20 || json.Unmarshal(body, &envelope) != nil || envelope.Method != "tools/call" || envelope.Params.Name == "" {
+		if err != nil || len(body) > 1<<20 || json.Unmarshal(body, &envelope) != nil ||
+			envelope.Method != "tools/call" ||
+			envelope.Params.Name == "" {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -228,9 +235,11 @@ func observeHTTP(sink usageRecorder, entry string, next http.Handler) http.Handl
 }
 
 func resultResources(report *types.MCPUsageReport, req mcp.CallToolRequest, result *mcp.CallToolResult) {
-	search := req.Params.Name == "search_knowledge" || req.Params.Name == "grep_chunks" || req.Params.Name == "wiki_search"
+	search := req.Params.Name == "search_knowledge" || req.Params.Name == "grep_chunks" ||
+		req.Params.Name == "wiki_search"
 	read := req.Params.Name == "read_document"
-	if !search && !read && req.Params.Name != "wiki_read_page" && req.Params.Name != "wiki_index" && req.Params.Name != "list_documents" {
+	if !search && !read && req.Params.Name != "wiki_read_page" && req.Params.Name != "wiki_index" &&
+		req.Params.Name != "list_documents" {
 		return
 	}
 	seen := map[string]bool{}

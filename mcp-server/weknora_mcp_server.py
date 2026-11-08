@@ -1067,8 +1067,7 @@ def tracked_tool(function):
             except Exception:
                 pass
             event_key = state.get("event_key") or _request_invocation_id.get() or f"mcp:{uuid.uuid4()}"
-            client.report_mcp_usage(
-                {
+            payload = {
                     "event_key": event_key,
                     "tool_name": function.__name__,
                     "transport": _active_mcp_transport,
@@ -1082,9 +1081,11 @@ def tracked_tool(function):
                     "target_knowledge_base_ids": targets,
                     "hit_knowledge_base_ids": hits,
                     "knowledge_ids": knowledge_ids if succeeded and function.__name__ in ("read_document", "get_knowledge", "get_document", "list_chunks") else [],
-                },
-                shared_gateway=_active_mcp_transport != "stdio" and network_auth_mode() == "shared",
-            )
+                }
+            if state.get("protocol"):
+                state["report_payload"] = payload
+            else:
+                client.report_mcp_usage(payload, shared_gateway=_active_mcp_transport != "stdio" and network_auth_mode() == "shared")
         except Exception as report_error:
             logger.warning(
                 "MCP usage report failed tool=%s error_type=%s",
@@ -1096,9 +1097,11 @@ def tracked_tool(function):
         @functools.wraps(function)
         async def async_wrapper(*args, **kwargs):
             started = time.monotonic()
-            state = {"targets": set(), "hits": set(), "event_key": _request_invocation_id.get() or f"mcp:{uuid.uuid4()}", "occurred_at": datetime.now(timezone.utc).isoformat()}
+            existing = _usage_resources.get()
+            state = existing if existing and existing.get("protocol") else {"targets": set(), "hits": set(), "event_key": _request_invocation_id.get() or f"mcp:{uuid.uuid4()}", "occurred_at": datetime.now(timezone.utc).isoformat()}
             resource_token = _usage_resources.set(state)
-            client.begin_mcp_usage({"event_key": state["event_key"], "occurred_at": state["occurred_at"], "tool_name": function.__name__, "transport": _active_mcp_transport, "success": False, "error_code": "interrupted", "latency_ms": 0})
+            if not state.get("protocol"):
+                client.begin_mcp_usage({"event_key": state["event_key"], "occurred_at": state["occurred_at"], "tool_name": function.__name__, "transport": _active_mcp_transport, "success": False, "error_code": "interrupted", "latency_ms": 0})
             try:
                 result = await function(*args, **kwargs)
             except BaseException as exc:
@@ -1115,9 +1118,11 @@ def tracked_tool(function):
     @functools.wraps(function)
     def sync_wrapper(*args, **kwargs):
         started = time.monotonic()
-        state = {"targets": set(), "hits": set(), "event_key": _request_invocation_id.get() or f"mcp:{uuid.uuid4()}", "occurred_at": datetime.now(timezone.utc).isoformat()}
+        existing = _usage_resources.get()
+        state = existing if existing and existing.get("protocol") else {"targets": set(), "hits": set(), "event_key": _request_invocation_id.get() or f"mcp:{uuid.uuid4()}", "occurred_at": datetime.now(timezone.utc).isoformat()}
         resource_token = _usage_resources.set(state)
-        client.begin_mcp_usage({"event_key": state["event_key"], "occurred_at": state["occurred_at"], "tool_name": function.__name__, "transport": _active_mcp_transport, "success": False, "error_code": "interrupted", "latency_ms": 0})
+        if not state.get("protocol"):
+            client.begin_mcp_usage({"event_key": state["event_key"], "occurred_at": state["occurred_at"], "tool_name": function.__name__, "transport": _active_mcp_transport, "success": False, "error_code": "interrupted", "latency_ms": 0})
         try:
             result = function(*args, **kwargs)
         except BaseException as exc:
@@ -1582,6 +1587,59 @@ def wiki_index_view(kb_id: str, limit: int = 50) -> dict:
 # ---------------------------------------------------------------------------
 # Transports
 # ---------------------------------------------------------------------------
+
+
+def _install_protocol_usage():
+    """Account for validation/unknown-tool failures before function dispatch."""
+    lowlevel = mcp._lowlevel_server
+    original = lowlevel.get_request_handler("tools/call")
+
+    async def observed(context, params):
+        started = time.monotonic()
+        known = mcp._tool_manager.get_tool(params.name) is not None
+        name = params.name if known else "unknown"
+        state = {"targets": set(), "hits": set(), "protocol": True,
+                 "event_key": _request_invocation_id.get() or f"mcp:{uuid.uuid4()}",
+                 "occurred_at": datetime.now(timezone.utc).isoformat()}
+        token = _usage_resources.set(state)
+        initial = {"event_key": state["event_key"], "occurred_at": state["occurred_at"],
+                   "tool_name": name, "transport": _active_mcp_transport,
+                   "client_name": "unknown", "client_source": "unknown",
+                   "success": False, "error_code": "interrupted", "latency_ms": 0}
+        client.begin_mcp_usage(initial)
+        result, failure = None, None
+        try:
+            result = await original.handler(context, params)
+            return result
+        except BaseException as exc:
+            failure = exc
+            raise
+        finally:
+            try:
+                payload = state.get("report_payload", dict(initial))
+                sdk_error = bool(getattr(result, "is_error", getattr(result, "isError", False)))
+                succeeded = failure is None and result is not None and not sdk_error and payload.get("success", False)
+                # A dispatched function populates report_payload; absent payload
+                # means SDK validation/dispatch failed before the function ran.
+                if "report_payload" not in state:
+                    succeeded = False
+                    payload["error_code"] = "unknown_tool" if not known else "invalid_arguments"
+                elif not succeeded and not payload.get("error_code"):
+                    payload["error_code"] = _usage_error(failure)
+                if failure is not None:
+                    payload["error_code"] = _usage_error(failure)
+                payload["success"] = succeeded
+                payload["latency_ms"] = max(0, int((time.monotonic() - started) * 1000))
+                client.report_mcp_usage(payload, shared_gateway=_active_mcp_transport != "stdio" and network_auth_mode() == "shared")
+            except Exception:
+                logger.error("MCP protocol usage finalization failed; collection degraded")
+            finally:
+                _usage_resources.reset(token)
+
+    lowlevel.add_request_handler("tools/call", original.params_type, observed)
+
+
+_install_protocol_usage()
 
 
 async def run_stdio():

@@ -3,7 +3,7 @@ import importlib.util
 import os
 from pathlib import Path
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 MODULE_PATH = Path(__file__).with_name("weknora_mcp_server.py")
@@ -132,6 +132,31 @@ class UsageTrackingTests(unittest.TestCase):
         self.assertEqual(len(reports[0]["target_knowledge_base_ids"]), 5)
         self.assertEqual(set(reports[0]["hit_knowledge_base_ids"]), {"a", "b"})
         self.assertEqual(reports[0]["knowledge_base_ids"], [])
+
+    def test_protocol_callback_covers_validation_and_deduplicates_function_reports(self):
+        reports = []
+        calls = []
+
+        @self.module.mcp.tool()
+        def usage_protocol_probe(required_value: str) -> dict:
+            calls.append(required_value)
+            return {"success": True}
+
+        entry = self.module.mcp._lowlevel_server.get_request_handler("tools/call")
+        async def invoke(name, arguments):
+            return await entry.handler(Mock(), entry.params_type(name=name, arguments=arguments))
+
+        with patch.object(self.module.client, "report_mcp_usage", side_effect=lambda payload, **kw: reports.append(payload)):
+            asyncio.run(invoke("usage_protocol_probe", {"required_value": "private question"}))
+            asyncio.run(invoke("usage_protocol_probe", {}))
+            asyncio.run(invoke("unregistered-private-question", {}))
+        self.assertEqual(calls, ["private question"])
+        self.assertEqual(len(reports), 3)
+        self.assertTrue(reports[0]["success"])
+        self.assertEqual(reports[1]["error_code"], "invalid_arguments")
+        self.assertEqual(reports[2]["tool_name"], "unknown")
+        self.assertEqual(reports[2]["error_code"], "unknown_tool")
+        self.assertNotIn("private question", str(reports))
 
 
 if __name__ == "__main__":

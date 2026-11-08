@@ -557,11 +557,15 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	must(container.Provide(handler.NewPortalHandler))
 	must(container.Provide(handler.NewAuditLogHandler))
 	must(container.Invoke(service.InitializeUsageAnalytics))
-	must(container.Invoke(func(s *mcpserver.Server, p *mcpserver.PersonalServer, recorder *service.MCPUsageRecorder, cleaner interfaces.ResourceCleaner) {
-		s.SetUsageRecorder(recorder)
-		p.SetUsageRecorder(recorder)
-		cleaner.RegisterWithName("MCPUsageRecorder", recorder.Close)
-	}))
+	must(
+		container.Invoke(
+			func(s *mcpserver.Server, p *mcpserver.PersonalServer, recorder *service.MCPUsageRecorder, cleaner interfaces.ResourceCleaner) {
+				s.SetUsageRecorder(recorder)
+				p.SetUsageRecorder(recorder)
+				cleaner.RegisterWithName("MCPUsageRecorder", recorder.Close)
+			},
+		),
+	)
 	must(container.Invoke(service.AttachModelUsageAnalytics))
 	must(container.Provide(handler.NewUsageAnalyticsHandler))
 	must(container.Provide(handler.NewKnowledgeBaseHandler))

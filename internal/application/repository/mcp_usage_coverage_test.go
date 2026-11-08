@@ -21,16 +21,37 @@ func TestMCPUsageCoverageAggregationMatchesLedger(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Second)
 	tenant, key := uint64(100), uint64(42)
 	for i, entry := range []string{"go_personal", "go_endpoint", "python"} {
-		event := &types.MCPUsageEvent{EventKey: entry, EntryPoint: entry, CallerTenantID: &tenant, PrincipalType: types.PrincipalWebUser, PrincipalID: "employee", APIKeyID: &key, Direction: "inbound", ToolName: "search_knowledge", Success: i != 2, ErrorCode: "", LatencyMs: 10, OccurredAt: now, CreatedAt: now}
+		event := &types.MCPUsageEvent{
+			EventKey:       entry,
+			EntryPoint:     entry,
+			CallerTenantID: &tenant,
+			PrincipalType:  types.PrincipalWebUser,
+			PrincipalID:    "employee",
+			APIKeyID:       &key,
+			Direction:      "inbound",
+			ToolName:       "search_knowledge",
+			Success:        i != 2,
+			ErrorCode:      "",
+			LatencyMs:      10,
+			OccurredAt:     now,
+			CreatedAt:      now,
+		}
 		if i == 2 {
 			event.ErrorCode = "permission_denied"
 		}
 		links := []types.UsageResourceLink{}
 		for _, id := range []string{"a", "b", "c", "d", "e"} {
-			links = append(links, types.UsageResourceLink{ResourceType: "knowledge_base_target", ResourceID: id, ResourceTenantID: 200})
+			links = append(
+				links,
+				types.UsageResourceLink{ResourceType: "knowledge_base_target", ResourceID: id, ResourceTenantID: 200},
+			)
 		}
 		for _, id := range []string{"a", "b"} {
-			links = append(links, types.UsageResourceLink{ResourceType: "knowledge_base_hit", ResourceID: id, ResourceTenantID: 200}, types.UsageResourceLink{ResourceType: "knowledge_base", ResourceID: id, ResourceTenantID: 200})
+			links = append(
+				links,
+				types.UsageResourceLink{ResourceType: "knowledge_base_hit", ResourceID: id, ResourceTenantID: 200},
+				types.UsageResourceLink{ResourceType: "knowledge_base", ResourceID: id, ResourceTenantID: 200},
+			)
 		}
 		inserted, err := repo.RecordMCPUsage(ctx, event, links)
 		require.NoError(t, err)
@@ -41,7 +62,13 @@ func TestMCPUsageCoverageAggregationMatchesLedger(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, inserted)
 	}
-	q := types.UsageTimeRange{From: now.Add(-time.Hour), To: now.Add(time.Hour), Direction: "inbound", Page: 1, PageSize: 100}
+	q := types.UsageTimeRange{
+		From:      now.Add(-time.Hour),
+		To:        now.Add(time.Hour),
+		Direction: "inbound",
+		Page:      1,
+		PageSize:  100,
+	}
 	rows, total, err := repo.MCP(ctx, q)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), total)
@@ -104,15 +131,40 @@ func TestMCPUsagePostgresMigrationAndReplay(t *testing.T) {
 	}
 	now := time.Now().UTC()
 	repo := NewUsageAnalyticsRepository(tx)
-	legacy := &types.MCPUsageEvent{EventKey: "legacy", Direction: "inbound", ToolName: "read_document", PrincipalType: "system/unknown", OccurredAt: now, CreatedAt: now}
+	legacy := &types.MCPUsageEvent{
+		EventKey:      "legacy",
+		Direction:     "inbound",
+		ToolName:      "read_document",
+		PrincipalType: "system/unknown",
+		OccurredAt:    now,
+		CreatedAt:     now,
+	}
 	// The old schema has no new metadata columns. This models a pre-upgrade row.
 	require.NoError(t, tx.Omit("entry_point", "endpoint_id", "client_source").Create(legacy).Error)
-	sql, err := os.ReadFile(filepath.Join("..", "..", "..", "migrations", "versioned", "003046_mcp_usage_coverage.up.sql"))
+	sql, err := os.ReadFile(
+		filepath.Join("..", "..", "..", "migrations", "versioned", "003046_mcp_usage_coverage.up.sql"),
+	)
 	require.NoError(t, err)
 	require.NoError(t, tx.Exec(string(sql)).Error)
 	key, tenant := uint64(42), uint64(100)
-	event := &types.MCPUsageEvent{EventKey: "real-final", EntryPoint: "go_personal", PrincipalType: "web_user", PrincipalID: "employee", APIKeyID: &key, CallerTenantID: &tenant, Direction: "inbound", ToolName: "search_knowledge", Success: true, OccurredAt: now, CreatedAt: now}
-	links := []types.UsageResourceLink{{ResourceType: "knowledge_base_target", ResourceID: "kb-1", ResourceTenantID: 200}, {ResourceType: "knowledge_base_hit", ResourceID: "kb-1", ResourceTenantID: 200}, {ResourceType: "knowledge_base", ResourceID: "kb-1", ResourceTenantID: 200}}
+	event := &types.MCPUsageEvent{
+		EventKey:       "real-final",
+		EntryPoint:     "go_personal",
+		PrincipalType:  "web_user",
+		PrincipalID:    "employee",
+		APIKeyID:       &key,
+		CallerTenantID: &tenant,
+		Direction:      "inbound",
+		ToolName:       "search_knowledge",
+		Success:        true,
+		OccurredAt:     now,
+		CreatedAt:      now,
+	}
+	links := []types.UsageResourceLink{
+		{ResourceType: "knowledge_base_target", ResourceID: "kb-1", ResourceTenantID: 200},
+		{ResourceType: "knowledge_base_hit", ResourceID: "kb-1", ResourceTenantID: 200},
+		{ResourceType: "knowledge_base", ResourceID: "kb-1", ResourceTenantID: 200},
+	}
 	inserted, err := repo.RecordMCPUsage(context.Background(), event, links)
 	require.NoError(t, err)
 	require.True(t, inserted)
@@ -121,14 +173,23 @@ func TestMCPUsagePostgresMigrationAndReplay(t *testing.T) {
 	inserted, err = repo.RecordMCPUsage(context.Background(), &duplicate, links)
 	require.NoError(t, err)
 	require.False(t, inserted)
-	q := types.UsageTimeRange{From: now.Add(-time.Hour), To: now.Add(time.Hour), EntryPoint: "go_personal", GroupBy: "entry_point", Page: 1, PageSize: 100}
+	q := types.UsageTimeRange{
+		From:       now.Add(-time.Hour),
+		To:         now.Add(time.Hour),
+		EntryPoint: "go_personal",
+		GroupBy:    "entry_point",
+		Page:       1,
+		PageSize:   100,
+	}
 	rows, total, err := repo.MCP(context.Background(), q)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), total)
 	require.Equal(t, int64(1), rows[0].Calls)
 	require.Equal(t, int64(1), rows[0].ActiveUsers)
 	// The rollback intentionally retains all ledger rows and new dimensions.
-	down, err := os.ReadFile(filepath.Join("..", "..", "..", "migrations", "versioned", "003046_mcp_usage_coverage.down.sql"))
+	down, err := os.ReadFile(
+		filepath.Join("..", "..", "..", "migrations", "versioned", "003046_mcp_usage_coverage.down.sql"),
+	)
 	require.NoError(t, err)
 	require.NoError(t, tx.Exec(string(down)).Error)
 	var count int64

@@ -38,7 +38,11 @@ func TestMCPUsageFinalResultAndSafeErrors(t *testing.T) {
 			sink := &captureUsage{}
 			request := mcp.CallToolRequest{}
 			request.Params.Name = "search_knowledge"
-			tool := observeTool(sink, "go_personal", func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) { return tc.result, tc.err })
+			tool := observeTool(
+				sink,
+				"go_personal",
+				func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) { return tc.result, tc.err },
+			)
 			result, err := tool(context.Background(), request)
 			require.Same(t, tc.result, result)
 			require.Equal(t, tc.err, err)
@@ -60,14 +64,32 @@ func TestMCPUsageHTTPAdmissionAndSingleFinalEvent(t *testing.T) {
 			}
 			req := mcp.CallToolRequest{}
 			req.Params.Name = "search_knowledge"
-			_, _ = observeTool(sink, "go_personal", func(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-				for _, id := range []string{"a", "b", "c", "d", "e", "a"} {
-					types.ObserveMCPKnowledgeBase(ctx, id)
-				}
-				return mcp.NewToolResultText(`{"results":[{"knowledge_base_id":"a","knowledge_id":"doc-a"},{"knowledge_base_id":"b","knowledge_id":"doc-b"}],"fallbacks":[{"knowledge_base_id":"c"}],"content":"private"}`), nil
-			})(r.Context(), req)
+			_, _ = observeTool(
+				sink,
+				"go_personal",
+				func(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+					for _, id := range []string{"a", "b", "c", "d", "e", "a"} {
+						types.ObserveMCPKnowledgeBase(ctx, id)
+					}
+					return mcp.NewToolResultText(
+						`{"results":[{"knowledge_base_id":"a","knowledge_id":"doc-a"},{"knowledge_base_id":"b","knowledge_id":"doc-b"}],"fallbacks":[{"knowledge_base_id":"c"}],"content":"private"}`,
+					), nil
+				},
+			)(
+				r.Context(),
+				req,
+			)
 		}))
-		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_knowledge"}}`)))
+		h.ServeHTTP(
+			httptest.NewRecorder(),
+			httptest.NewRequest(
+				"POST",
+				"/mcp",
+				strings.NewReader(
+					`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_knowledge"}}`,
+				),
+			),
+		)
 		require.Len(t, sink.reports, 1)
 		if status == 200 {
 			require.Len(t, sink.reports[0].TargetKnowledgeBaseIDs, 5)
@@ -78,7 +100,14 @@ func TestMCPUsageHTTPAdmissionAndSingleFinalEvent(t *testing.T) {
 	for _, method := range []string{"initialize", "tools/list"} {
 		sink := &captureUsage{}
 		h := observeHTTP(sink, "go_endpoint", http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
-		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", "/mcp", strings.NewReader(`{"method":"`+method+`","params":{"name":"secret"}}`)))
+		h.ServeHTTP(
+			httptest.NewRecorder(),
+			httptest.NewRequest(
+				"POST",
+				"/mcp",
+				strings.NewReader(`{"method":"`+method+`","params":{"name":"secret"}}`),
+			),
+		)
 		require.Empty(t, sink.reports)
 	}
 }
@@ -87,7 +116,11 @@ func TestMCPUsagePanicIsRecordedAndRethrown(t *testing.T) {
 	sink := &captureUsage{}
 	req := mcp.CallToolRequest{}
 	req.Params.Name = "read_document"
-	tool := observeTool(sink, "go_endpoint", func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) { panic("private") })
+	tool := observeTool(
+		sink,
+		"go_endpoint",
+		func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) { panic("private") },
+	)
 	require.Panics(t, func() { _, _ = tool(context.Background(), req) })
 	require.Len(t, sink.reports, 1)
 	require.Equal(t, "panic", sink.reports[0].ErrorCode)

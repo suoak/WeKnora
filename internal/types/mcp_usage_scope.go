@@ -48,6 +48,7 @@ func ObserveMCPHitKnowledgeBase(ctx context.Context, id string) {
 		}
 	}
 }
+
 func (s *MCPUsageScope) Hits() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()

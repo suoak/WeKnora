@@ -50,6 +50,7 @@ func NewPersonalServer(enabled bool, knowledge *service.PortalMCPKnowledge) *Per
 	s.handler = server.NewStreamableHTTPServer(m, server.WithStateLess(true))
 	return s
 }
+
 func (s *PersonalServer) Handler() http.Handler {
 	return observeHTTP(s.usage, "go_personal", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s == nil || !s.enabled || s.knowledge == nil {
@@ -93,11 +94,13 @@ func (s *PersonalServer) Handler() http.Handler {
 		s.handler.ServeHTTP(w, r)
 	}))
 }
+
 func (s *PersonalServer) guard(next server.ToolHandlerFunc) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		return observeTool(s.usage, "go_personal", s.enforceGuard(next))(ctx, req)
 	}
 }
+
 func (s *PersonalServer) enforceGuard(next server.ToolHandlerFunc) server.ToolHandlerFunc {
 	return func(ctx context.Context, r mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		if s == nil || !s.enabled || s.knowledge == nil {
@@ -147,6 +150,7 @@ func (s *PersonalServer) enforceGuard(next server.ToolHandlerFunc) server.ToolHa
 		return mcp.NewToolResultError("authorization changed"), nil
 	}
 }
+
 func personalJSON(ctx context.Context, value any) (*mcp.CallToolResult, error) {
 	done := perftrace.Measure(ctx, perftrace.Serialize)
 	defer done()
@@ -156,6 +160,7 @@ func personalJSON(ctx context.Context, value any) (*mcp.CallToolResult, error) {
 	}
 	return mcp.NewToolResultText(string(b)), nil
 }
+
 func (s *PersonalServer) call(ctx context.Context, r mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	fail := func() (*mcp.CallToolResult, error) {
 		return mcp.NewToolResultError("resource denied or unavailable"), nil

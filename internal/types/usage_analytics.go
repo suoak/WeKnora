@@ -157,11 +157,11 @@ func (ModelUsageEvent) TableName() string { return "model_usage_events" }
 
 // MCPUsageEvent represents exactly one inbound MCP tools/call invocation.
 type MCPUsageEvent struct {
-	EntryPoint     string    `json:"entry_point" gorm:"type:varchar(32);not null;default:legacy"`
-	EndpointID     string    `json:"endpoint_id,omitempty" gorm:"type:varchar(64)"`
-	ClientSource   string    `json:"client_source" gorm:"type:varchar(32);not null;default:unknown"`
-	ID             uint64    `json:"id" gorm:"primaryKey;autoIncrement"`
-	EventKey       string    `json:"event_key" gorm:"type:varchar(255);not null;uniqueIndex"`
+	EntryPoint     string    `json:"entry_point"                gorm:"type:varchar(32);not null;default:legacy"`
+	EndpointID     string    `json:"endpoint_id,omitempty"      gorm:"type:varchar(64)"`
+	ClientSource   string    `json:"client_source"              gorm:"type:varchar(32);not null;default:unknown"`
+	ID             uint64    `json:"id"                         gorm:"primaryKey;autoIncrement"`
+	EventKey       string    `json:"event_key"                  gorm:"type:varchar(255);not null;uniqueIndex"`
 	CallerTenantID *uint64   `json:"caller_tenant_id,omitempty" gorm:"index"`
 	PrincipalType  string    `json:"principal_type" gorm:"type:varchar(64);not null"`
 	PrincipalID    string    `json:"principal_id,omitempty" gorm:"type:varchar(512)"`
@@ -341,7 +341,7 @@ type OperationUsageRow struct {
 }
 
 type MCPUsageRow struct {
-	LastActiveUnix   int64      `json:"-" gorm:"column:last_active_unix"`
+	LastActiveUnix   int64      `json:"-"                            gorm:"column:last_active_unix"`
 	EventKey         string     `json:"event_key,omitempty"`
 	PrincipalType    string     `json:"principal_type,omitempty"`
 	PrincipalID      string     `json:"principal_id,omitempty"`

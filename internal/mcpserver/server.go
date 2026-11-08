@@ -166,6 +166,7 @@ func (s *Server) guardTool(next server.ToolHandlerFunc) server.ToolHandlerFunc {
 		return observeTool(s.usage, "go_endpoint", s.enforceGuardTool(next))(ctx, req)
 	}
 }
+
 func (s *Server) enforceGuardTool(next server.ToolHandlerFunc) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		ep, err := endpointFromContext(ctx)

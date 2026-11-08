@@ -47,7 +47,13 @@ func NewMCPUsageRecorder(repo interfaces.UsageAnalyticsRepository) *MCPUsageReco
 }
 
 func newMCPUsageRecorder(repo interfaces.UsageAnalyticsRepository, dir string) *MCPUsageRecorder {
-	r := &MCPUsageRecorder{svc: &usageAnalyticsService{repo: repo}, dir: dir, wake: make(chan struct{}, 1), stop: make(chan struct{}), done: make(chan struct{})}
+	r := &MCPUsageRecorder{
+		svc:  &usageAnalyticsService{repo: repo},
+		dir:  dir,
+		wake: make(chan struct{}, 1),
+		stop: make(chan struct{}),
+		done: make(chan struct{}),
+	}
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		logger.Errorf(context.Background(), "[mcp-usage] spool unavailable; collection degraded")
 	}
@@ -81,9 +87,11 @@ func newMCPUsageRecorder(repo interfaces.UsageAnalyticsRepository, dir string) *
 func (r *MCPUsageRecorder) Record(ctx context.Context, report types.MCPUsageReport) error {
 	return r.spool(ctx, report, false)
 }
+
 func (r *MCPUsageRecorder) Begin(ctx context.Context, report types.MCPUsageReport) error {
 	return r.spool(ctx, report, true)
 }
+
 func (r *MCPUsageRecorder) spool(ctx context.Context, report types.MCPUsageReport, active bool) error {
 	if r == nil {
 		return nil
@@ -93,8 +101,10 @@ func (r *MCPUsageRecorder) spool(ctx context.Context, report types.MCPUsageRepor
 		return err
 	}
 	// The envelope needs only resource IDs; identity is frozen in Event.
-	resources := types.MCPUsageReport{KnowledgeBaseIDs: report.KnowledgeBaseIDs, KnowledgeIDs: report.KnowledgeIDs,
-		TargetKnowledgeBaseIDs: report.TargetKnowledgeBaseIDs, HitKnowledgeBaseIDs: report.HitKnowledgeBaseIDs}
+	resources := types.MCPUsageReport{
+		KnowledgeBaseIDs: report.KnowledgeBaseIDs, KnowledgeIDs: report.KnowledgeIDs,
+		TargetKnowledgeBaseIDs: report.TargetKnowledgeBaseIDs, HitKnowledgeBaseIDs: report.HitKnowledgeBaseIDs,
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	digest := sha256.Sum256([]byte(event.EventKey))
@@ -187,7 +197,12 @@ func (r *MCPUsageRecorder) drain() {
 		}
 		if err != nil {
 			item.Attempts++
-			logger.Errorf(context.Background(), "[mcp-usage] delivery failed; attempt=%d pending_file=%s", item.Attempts, f.Name())
+			logger.Errorf(
+				context.Background(),
+				"[mcp-usage] delivery failed; attempt=%d pending_file=%s",
+				item.Attempts,
+				f.Name(),
+			)
 			if item.Attempts >= 5 || item.Event == nil {
 				_ = os.Rename(name, name+".dead")
 			} else {

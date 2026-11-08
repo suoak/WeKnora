@@ -564,7 +564,8 @@ func (r *usageAnalyticsRepository) MCP(ctx context.Context, q types.UsageTimeRan
 		COALESCE(100.0*SUM(CASE WHEN success THEN 1 ELSE 0 END)/NULLIF(COUNT(*),0),0) success_rate, AVG(CASE WHEN error_code <> 'interrupted' THEN latency_ms ELSE NULL END) average_latency_ms,
 		SUM(CASE WHEN caller_tenant_id IS NULL THEN 1 ELSE 0 END) unattributed_calls, MAX(occurred_at) last_active, COUNT(*) OVER() total_count
 		FROM mcp_usage_events WHERE ` + w + ` GROUP BY tool_name ORDER BY ` + order + `, tool_name LIMIT ? OFFSET ?`
-	if column := map[string]string{"entry_point": "entry_point", "error": "error_code", "space": "caller_tenant_id"}[q.GroupBy]; column != "" || q.GroupBy == "summary" {
+	if column := map[string]string{"entry_point": "entry_point", "error": "error_code", "space": "caller_tenant_id"}[q.GroupBy]; column != "" ||
+		q.GroupBy == "summary" {
 		group := " GROUP BY " + column
 		if q.GroupBy == "summary" {
 			column = "'all' entry_point"
@@ -596,8 +597,16 @@ func (r *usageAnalyticsRepository) MCP(ctx context.Context, q types.UsageTimeRan
 			WHERE l.resource_type='knowledge_base' AND ` + w + ` GROUP BY l.resource_id,kb.name ORDER BY ` + order + `,l.resource_id LIMIT ? OFFSET ?`
 	}
 	if r.db.Dialector.Name() == "sqlite" {
-		selectSQL = strings.ReplaceAll(selectSQL, "MAX(occurred_at) last_active", "NULL last_active,COALESCE(CAST(strftime('%s',MAX(occurred_at)) AS INTEGER),0) last_active_unix")
-		selectSQL = strings.ReplaceAll(selectSQL, "MAX(e.occurred_at) last_active", "NULL last_active,COALESCE(CAST(strftime('%s',MAX(e.occurred_at)) AS INTEGER),0) last_active_unix")
+		selectSQL = strings.ReplaceAll(
+			selectSQL,
+			"MAX(occurred_at) last_active",
+			"NULL last_active,COALESCE(CAST(strftime('%s',MAX(occurred_at)) AS INTEGER),0) last_active_unix",
+		)
+		selectSQL = strings.ReplaceAll(
+			selectSQL,
+			"MAX(e.occurred_at) last_active",
+			"NULL last_active,COALESCE(CAST(strftime('%s',MAX(e.occurred_at)) AS INTEGER),0) last_active_unix",
+		)
 		selectSQL = strings.ReplaceAll(selectSQL, "ORDER BY last_active DESC", "ORDER BY last_active_unix DESC")
 	}
 	args = append(args, size, (p-1)*size)

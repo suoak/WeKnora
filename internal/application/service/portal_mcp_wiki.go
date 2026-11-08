@@ -32,8 +32,10 @@ type PortalWikiResult struct {
 	NextOffset int              `json:"next_offset,omitempty"`
 }
 
-var personalWikiLink = regexp.MustCompile(`\[\[[^\]]*\]\]`)
-var personalWikiSlug = regexp.MustCompile(`^[\p{L}\p{N}_-]+(?:/[\p{L}\p{N}_.-]+)*$`)
+var (
+	personalWikiLink = regexp.MustCompile(`\[\[[^\]]*\]\]`)
+	personalWikiSlug = regexp.MustCompile(`^[\p{L}\p{N}_-]+(?:/[\p{L}\p{N}_.-]+)*$`)
+)
 
 // PersonalWiki shares the five-tool resolver and live grants. It never calls
 // GetIndex/GetIndexView or any create/update/Agent entry point.

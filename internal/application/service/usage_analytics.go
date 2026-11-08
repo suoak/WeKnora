@@ -178,7 +178,14 @@ func prepareInboundMCPEvent(ctx context.Context, report types.MCPUsageReport) (*
 		report.ClientSource = "unknown"
 	}
 	if report.EntryPoint == "python" {
-		report.EventKey = types.UsageEventKey("python", report.EventKey, principalType, principalID, fmt.Sprint(tenantIDValue(tenantID)), fmt.Sprint(tenantIDValue(keyID)))
+		report.EventKey = types.UsageEventKey(
+			"python",
+			report.EventKey,
+			principalType,
+			principalID,
+			fmt.Sprint(tenantIDValue(tenantID)),
+			fmt.Sprint(tenantIDValue(keyID)),
+		)
 	}
 	now := time.Now()
 	occurred := report.OccurredAt
@@ -206,7 +213,11 @@ func tenantIDValue(id *uint64) uint64 {
 	return *id
 }
 
-func (s *usageAnalyticsService) recordMCPEvent(ctx context.Context, event *types.MCPUsageEvent, report types.MCPUsageReport) error {
+func (s *usageAnalyticsService) recordMCPEvent(
+	ctx context.Context,
+	event *types.MCPUsageEvent,
+	report types.MCPUsageReport,
+) error {
 	resources, err := s.repo.ResolveUsageResources(ctx, report.KnowledgeBaseIDs, report.KnowledgeIDs)
 	if err != nil {
 		return err
@@ -235,8 +246,10 @@ func (s *usageAnalyticsService) recordMCPEvent(ctx context.Context, event *types
 }
 
 func (s *usageAnalyticsService) RecordOutboundMCP(ctx context.Context, request types.MCPUsageRecordRequest) error {
-	report := types.MCPUsageReport{EventKey: request.EventKey, ToolName: request.ToolName, Transport: request.Transport,
-		Success: request.Success, ErrorCode: request.ErrorCode, LatencyMs: request.LatencyMs, RequestID: request.RequestID}
+	report := types.MCPUsageReport{
+		EventKey: request.EventKey, ToolName: request.ToolName, Transport: request.Transport,
+		Success: request.Success, ErrorCode: request.ErrorCode, LatencyMs: request.LatencyMs, RequestID: request.RequestID,
+	}
 	if err := validateMCPUsageReport(report); err != nil {
 		return err
 	}
@@ -345,6 +358,7 @@ func (s *usageAnalyticsService) Overview(ctx context.Context, q types.UsageTimeR
 	}
 	return out, err
 }
+
 func (s *usageAnalyticsService) Tenants(ctx context.Context, q types.UsageTimeRange) (*types.UsagePage[types.TenantUsageRow], error) {
 	q, err := s.prepareUsageQuery(ctx, q)
 	if err != nil {
@@ -356,6 +370,7 @@ func (s *usageAnalyticsService) Tenants(ctx context.Context, q types.UsageTimeRa
 	}
 	return &types.UsagePage[types.TenantUsageRow]{Data: rows, Page: q.Page, PageSize: q.PageSize, Total: total, CollectingSince: q.CollectingSince}, nil
 }
+
 func (s *usageAnalyticsService) TimeSeries(ctx context.Context, q types.UsageTimeRange) (*types.UsagePage[types.UsageTimeSeriesPoint], error) {
 	q, err := s.prepareUsageQuery(ctx, q)
 	if err != nil {
@@ -367,6 +382,7 @@ func (s *usageAnalyticsService) TimeSeries(ctx context.Context, q types.UsageTim
 	}
 	return &types.UsagePage[types.UsageTimeSeriesPoint]{Data: rows, Page: 1, PageSize: len(rows), Total: int64(len(rows)), CollectingSince: q.CollectingSince}, nil
 }
+
 func (s *usageAnalyticsService) Models(ctx context.Context, q types.UsageTimeRange) (*types.UsagePage[types.ModelUsageRow], error) {
 	q, err := s.prepareUsageQuery(ctx, q)
 	if err != nil {
@@ -378,6 +394,7 @@ func (s *usageAnalyticsService) Models(ctx context.Context, q types.UsageTimeRan
 	}
 	return &types.UsagePage[types.ModelUsageRow]{Data: rows, Page: q.Page, PageSize: q.PageSize, Total: total, CollectingSince: q.CollectingSince}, nil
 }
+
 func (s *usageAnalyticsService) Operations(ctx context.Context, q types.UsageTimeRange) (*types.UsagePage[types.OperationUsageRow], error) {
 	q, err := s.prepareUsageQuery(ctx, q)
 	if err != nil {
@@ -389,6 +406,7 @@ func (s *usageAnalyticsService) Operations(ctx context.Context, q types.UsageTim
 	}
 	return &types.UsagePage[types.OperationUsageRow]{Data: rows, Page: 1, PageSize: len(rows), Total: int64(len(rows)), CollectingSince: q.CollectingSince}, nil
 }
+
 func (s *usageAnalyticsService) MCP(ctx context.Context, q types.UsageTimeRange) (*types.UsagePage[types.MCPUsageRow], error) {
 	q, err := s.prepareUsageQuery(ctx, q)
 	if err != nil {
@@ -398,7 +416,14 @@ func (s *usageAnalyticsService) MCP(ctx context.Context, q types.UsageTimeRange)
 	if err != nil {
 		return nil, err
 	}
-	out := &types.UsagePage[types.MCPUsageRow]{Data: rows, Page: q.Page, PageSize: q.PageSize, Total: total, CollectingSince: q.CollectingSince, HistoricalMCPCoverage: "partial_before_server_collection"}
+	out := &types.UsagePage[types.MCPUsageRow]{
+		Data:                  rows,
+		Page:                  q.Page,
+		PageSize:              q.PageSize,
+		Total:                 total,
+		CollectingSince:       q.CollectingSince,
+		HistoricalMCPCoverage: "partial_before_server_collection",
+	}
 	if repo, ok := s.repo.(interface {
 		MCPServerCollectingSince(context.Context) (*time.Time, error)
 	}); ok {
@@ -409,7 +434,11 @@ func (s *usageAnalyticsService) MCP(ctx context.Context, q types.UsageTimeRange)
 	}
 	return out, nil
 }
-func (s *usageAnalyticsService) KnowledgeBases(ctx context.Context, q types.UsageTimeRange) (*types.UsagePage[types.KnowledgeBaseUsageRow], error) {
+
+func (s *usageAnalyticsService) KnowledgeBases(
+	ctx context.Context,
+	q types.UsageTimeRange,
+) (*types.UsagePage[types.KnowledgeBaseUsageRow], error) {
 	q, err := s.prepareUsageQuery(ctx, q)
 	if err != nil {
 		return nil, err
