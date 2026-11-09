@@ -37,7 +37,7 @@ func testStartupWikiFinalize(t *testing.T, addr string) {
 			require.NoError(t, db.Exec("INSERT INTO knowledge_bases (id, tenant_id) VALUES (?,7)", kb).Error)
 			op := &types.TaskPendingOp{TenantID: 7, TaskType: types.TypeWikiFinalize,
 				Scope: types.TaskScopeKnowledgeBase, ScopeID: kb, Op: "slug", DedupKey: "concept/test",
-				Payload: types.JSON(`{}`)}
+				Payload: json.RawMessage(`{}`)}
 			require.NoError(t, db.Create(op).Error)
 			address := addr
 			if address == "" {
