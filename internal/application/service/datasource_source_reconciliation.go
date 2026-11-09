@@ -33,6 +33,26 @@ func (s *DataSourceService) RunSourceReconciliation(
 			payload.Trigger != "source_reconciliation" || !payload.ForceFull {
 			return nil, feishusynccontrol.ErrRecoveryRejected
 		}
+		ds, err := s.dsRepo.FindByID(work, source)
+		if err != nil {
+			return nil, err
+		}
+		config, err := ds.ParseConfig()
+		if err != nil {
+			return nil, err
+		}
+		ref, err := types.ParseFeishuSourceReference(config)
+		if err != nil {
+			return nil, err
+		}
+		if ref != nil && ref.Kind == types.FeishuUserOAuth {
+			if s.feishuIdentity == nil {
+				return nil, ErrFeishuStagingRequired
+			}
+			if err := s.feishuIdentity.approveQueuedSourceReconciliation(work, ds, payload.SyncLogID); err != nil {
+				return nil, err
+			}
+		}
 		if err := m.BindSourceReconciliationRun(work, source, payload.SyncLogID); err != nil {
 			return nil, err
 		}
