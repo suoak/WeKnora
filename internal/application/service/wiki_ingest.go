@@ -937,6 +937,12 @@ func uniqueWikiFolderIDs(values []string) []string {
 // ignores TaskID, so finalize simply runs once per batch (acceptable at the
 // small scale Lite mode targets).
 func (s *wikiIngestService) scheduleFinalize(ctx context.Context, payload WikiIngestPayload) {
+	if err := s.rearmFinalize(ctx, payload); err != nil {
+		logger.Warnf(ctx, "wiki finalize: rearm failed: %v", err)
+	}
+}
+
+func (s *wikiIngestService) rearmFinalize(ctx context.Context, payload WikiIngestPayload) error {
 	langfuse.InjectTracing(ctx, &payload)
 	b, _ := json.Marshal(payload)
 	t := asynq.NewTask(types.TypeWikiFinalize, b,
@@ -951,12 +957,21 @@ func (s *wikiIngestService) scheduleFinalize(ctx context.Context, payload WikiIn
 			if errors.Is(err, asynq.ErrTaskIDConflict) && s.redisClient != nil && s.pendingRepo != nil {
 				state, lookupErr := s.redisClient.HGet(ctx,
 					"asynq:{wiki}:t:wiki-finalize-"+payload.KnowledgeBaseID, "state").Result()
+				if lookupErr != nil {
+					return lookupErr
+				}
 				if lookupErr == nil && state == "archived" {
 					// Preserve the archived task. One replacement per durable head
 					// coalesces concurrent callers and cannot rearm a deterministic
 					// failure until actual operation progress changes that head.
 					rows, peekErr := s.pendingRepo.PeekBatch(ctx,
 						wikiFinalizeTaskType, wikiTaskScope, payload.KnowledgeBaseID, 1)
+					if peekErr != nil {
+						return peekErr
+					}
+					if len(rows) == 1 && rows[0].TenantID != payload.TenantID {
+						return errors.New("wiki finalize recovery tenant mismatch")
+					}
 					if peekErr == nil && len(rows) == 1 && rows[0].TenantID == payload.TenantID {
 						id := fmt.Sprintf("wiki-finalize-%s-pending-%d", payload.KnowledgeBaseID, rows[0].ID)
 						_, recoveryErr := s.task.Enqueue(t, asynq.TaskID(id))
@@ -965,14 +980,17 @@ func (s *wikiIngestService) scheduleFinalize(ctx context.Context, payload WikiIn
 						}
 						if recoveryErr != nil && !errors.Is(recoveryErr, asynq.ErrTaskIDConflict) {
 							logger.Warnf(ctx, "wiki finalize: archived trigger recovery failed: %v", recoveryErr)
+							return recoveryErr
 						}
 					}
 				}
 			}
-			return // a finalize is already scheduled/running for this KB — coalesced
+			return nil // coalesced, or bounded recovery already exists
 		}
 		logger.Warnf(ctx, "wiki finalize: schedule trigger failed: %v", err)
+		return err
 	}
+	return nil
 }
 
 // scheduleFinalizeRetry is used when folder pruning is waiting for ingest
