@@ -26,6 +26,7 @@ func run() error {
 	kb := flag.String("kb", "", "knowledge base UUID")
 	apply := flag.Bool("apply", false, "apply the reviewed snapshot and queue generation")
 	snapshot := flag.String("snapshot", "", "snapshot from the preview; required with -apply")
+	deadline := flag.Duration("timeout", 2*time.Minute, "bounded operator deadline between 1m and 10m")
 	resume := flag.Bool("resume-pending-ingest", false,
 		"replace only unclaimed Wiki-only finalizing operations from verified inputs")
 	retireEmpty := flag.Bool("retire-empty-retractions", false,
@@ -41,6 +42,9 @@ func run() error {
 	}
 	if *tenant == 0 || *kb == "" {
 		return errors.New("-tenant and -kb required")
+	}
+	if *deadline < time.Minute || *deadline > 10*time.Minute {
+		return errors.New("operator deadline must be between 1m and 10m")
 	}
 	dsn := os.Getenv("WIKI_REGEN_POSTGRES_DSN")
 	if dsn == "" {
@@ -69,7 +73,7 @@ func run() error {
 	}
 	rc := redis.NewClient(&redis.Options{Addr: opts.Addr, Password: opts.Password, DB: opts.DB})
 	defer func() { _ = rc.Close() }()
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), *deadline)
 	defer cancel()
 	if *restoreParsed {
 		var plan *repository.WikiParsedStallPlan

@@ -85,12 +85,16 @@ func PrepareWikiParsedStallRecovery(ctx context.Context, db *gorm.DB, tenant uin
  EXISTS(SELECT 1 FROM chunks c WHERE c.knowledge_id=k.id AND c.deleted_at IS NULL
   AND (c.tenant_id<>k.tenant_id OR c.knowledge_base_id<>k.knowledge_base_id OR
    (c.is_enabled AND c.index_status<>'ready'))) OR
- EXISTS(SELECT 1 FROM knowledge_processing_spans s WHERE s.knowledge_id=k.id AND s.status IN ('running','pending'))
+ EXISTS(SELECT 1 FROM knowledge_processing_spans s WHERE s.knowledge_id=k.id
+  AND s.attempt=(SELECT coalesce(max(attempt),0) FROM knowledge_processing_spans z WHERE z.knowledge_id=k.id)
+  AND s.status IN ('running','pending'))
  AS unsafe
  FROM knowledges k WHERE k.knowledge_base_id=? AND k.tenant_id=? AND k.deleted_at IS NULL
- AND k.parse_status='failed' AND k.channel='gitlab' AND k.enable_status='enabled'
+ AND k.parse_status='failed' AND k.channel IN ('','web','api','browser_extension','gitlab')
+ AND k.enable_status='enabled'
  AND k.summary_status='completed' AND k.pending_subtasks_count=0
- AND k.error_message LIKE 'task stuck in finalizing:%recovered by housekeeping'
+ AND (k.error_message LIKE 'task stuck in finalizing:%recovered by housekeeping'
+ OR k.error_message LIKE 'task stuck in finalizing at postprocess stage (%recovered by housekeeping')
  ORDER BY k.id`, types.ChunkSourceType, kb, tenant).Scan(&rows).Error
 		if err != nil {
 			return err

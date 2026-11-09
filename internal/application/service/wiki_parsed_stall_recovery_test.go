@@ -51,6 +51,12 @@ func TestWikiParsedStallRecoveryPostgres(t *testing.T) {
 			Attempt:     7, SpanID: "parsed-" + name, Name: name, Kind: types.SpanKindStage, Status: types.SpanStatusDone,
 		}).Error)
 	}
+	// A historical crashed attempt is not the current parser. Its span remains
+	// untouched; the newer attempt must still have every main stage completed.
+	require.NoError(t, db.Create(&types.KnowledgeProcessingSpan{
+		KnowledgeID: "public-two-doc", Attempt: 6, SpanID: "historical-orphan",
+		Name: "embedding", Kind: types.SpanKindStage, Status: types.SpanStatusRunning,
+	}).Error)
 	op := types.TaskPendingOp{
 		TenantID: 1, TaskType: types.TypeWikiIngest, Scope: types.TaskScopeKnowledgeBase,
 		ScopeID: "public-two", Op: "ingest", DedupKey: "public-two-doc", FailCount: 2, Payload: json.RawMessage(`{"attempt":7}`),
@@ -64,11 +70,40 @@ func TestWikiParsedStallRecoveryPostgres(t *testing.T) {
 	require.NoError(t, db.Where("id='public-two-doc'").First(&row).Error)
 	require.Equal(t, "failed", row.ParseStatus, "preview is read only")
 	rollback := errors.New("rollback test mutation")
+	for _, channel := range []string{"", types.ChannelWeb, types.ChannelAPI, types.ChannelBrowserExtension} {
+		require.ErrorIs(t, db.Transaction(func(tx *gorm.DB) error {
+			require.NoError(t, tx.Exec(`UPDATE knowledges SET channel=?,
+ error_message='task stuck in finalizing at postprocess stage (postprocess.wiki.classify): no progress since 2026-11-05T10:16:30Z (> 2h10m0s), recovered by housekeeping'
+ WHERE id='public-two-doc'`, channel).Error)
+			local, failure := repository.PrepareWikiParsedStallRecovery(ctx, tx, 1, "public-two", "", false)
+			require.NoError(t, failure, channel)
+			require.Len(t, local.Documents, 1)
+			appliedLocal, failure := repository.PrepareWikiParsedStallRecovery(
+				ctx,
+				tx,
+				1,
+				"public-two",
+				local.Snapshot,
+				true,
+			)
+			require.NoError(t, failure, channel)
+			require.True(t, appliedLocal.Applied)
+			_, failure = repository.BeginWikiMCPGeneration(
+				ctx,
+				repository.NewWikiPageRepository(tx),
+				"public-two",
+			)
+			require.NoError(t, failure, "ordinary proof after local recovery")
+			return rollback
+		}), rollback)
+	}
 	for _, mutation := range []string{
 		"DELETE FROM embeddings WHERE knowledge_id='public-two-doc'",
 		"UPDATE data_sources SET legacy_access_state='hold' WHERE id='gitlab'",
 		"UPDATE knowledge_processing_spans SET status='running' WHERE name='embedding'",
 		"UPDATE knowledges SET error_message='real parser failure' WHERE id='public-two-doc'",
+		"UPDATE knowledges SET channel='feishu_personal' WHERE id='public-two-doc'",
+		"UPDATE knowledges SET channel='unknown_connector' WHERE id='public-two-doc'",
 		"UPDATE task_pending_ops SET claimed_at=now() WHERE scope='knowledge_base'",
 		"UPDATE chunks SET tenant_id=99 WHERE knowledge_id='public-two-doc'",
 	} {
@@ -96,6 +131,9 @@ func TestWikiParsedStallRecoveryPostgres(t *testing.T) {
 	require.Equal(t, op.FailCount, retained.FailCount)
 	require.Equal(t, string(op.Payload), string(retained.Payload))
 	require.Nil(t, retained.ClaimedAt)
+	var historical types.KnowledgeProcessingSpan
+	require.NoError(t, db.Where("span_id='historical-orphan'").First(&historical).Error)
+	require.Equal(t, types.SpanStatusRunning, historical.Status, "historical evidence stays unchanged")
 	_, err = repository.BeginWikiMCPGeneration(ctx, repository.NewWikiPageRepository(db), "public-two")
 	require.NoError(t, err, "normal generation must succeed without the exceptional recovery preview set")
 	var audit int64
