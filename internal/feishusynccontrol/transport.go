@@ -47,10 +47,12 @@ type ControlClient struct {
 	probe *redis.Client
 }
 
+// Close releases both the source-operation and reserved controller pools.
 func (c *ControlClient) Close() error {
 	return errors.Join(c.Client.Close(), c.probe.Close())
 }
 
+// AddHook installs the same observer on both bounded pools.
 func (c *ControlClient) AddHook(hook redis.Hook) {
 	c.Client.AddHook(hook)
 	c.probe.AddHook(hook)
