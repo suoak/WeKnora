@@ -108,6 +108,9 @@ func (s *knowledgeService) exactPublicReadContext(ctx context.Context, id string
 			return ctx, true, err
 		}
 		if personal {
+			if local, handled, err := p.indexedLocalReadContext(ctx, id); handled || err != nil {
+				return local, handled, err
+			}
 			var kb string
 			if err := p.service.db.WithContext(ctx).Table("knowledges").Select("knowledge_base_id").
 				Where("id=?", id).Scan(&kb).Error; err != nil {

@@ -141,6 +141,11 @@ func QueueWeightsForPool(pool string) map[string]int {
 			weights[definition.Name] = definition.Weight
 		}
 	}
+	// Low-latency cleanup must retain capacity while connector syncs occupy
+	// every maintenance worker. This pool never consumes either sync lane.
+	if pool == WorkerPoolPostProcess {
+		weights[QueueMaintenance] = 1
+	}
 	return weights
 }
 
