@@ -275,7 +275,7 @@ func (r *knowledgeRepository) ListKnowledgeFolderCounts(
 	tenantID uint64,
 	kbID string,
 ) ([]*types.KnowledgeFolderCount, error) {
-	if err := types.CheckLegacySourceRead(r.db.WithContext(ctx), "", kbID); err != nil {
+	if err := types.CheckPrivateKBRead(r.db.WithContext(ctx), "", kbID); err != nil {
 		return nil, err
 	}
 	ids, protected, err := access.GuardDocumentReadQuery(ctx, tenantID, kbID)
