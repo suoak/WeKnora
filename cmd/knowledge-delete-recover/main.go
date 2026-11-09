@@ -24,13 +24,16 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-var previewRollback = errors.New("preview rollback")
+var errPreviewRollback = errors.New("preview rollback")
 
 // The persisted task is an exact identity, not authorization. Recheck the live
 // actor and parent, and use the same repository fence as the ordinary worker.
-func fence(ctx context.Context, db *gorm.DB, p types.KnowledgeListDeletePayload, expected string, apply bool) (string, error) {
+func fence(
+	ctx context.Context, db *gorm.DB, p types.KnowledgeListDeletePayload, expected string, apply bool,
+) (string, error) {
 	if p.TenantID == 0 || p.KnowledgeBaseID == "" || len(p.KnowledgeIDs) != 1 ||
-		p.KnowledgeIDs[0] == "" || p.Initiator.UserID == "" || p.Initiator.APIKeyID != 0 || types.IsSyntheticUserID(p.Initiator.UserID) {
+		p.KnowledgeIDs[0] == "" || p.Initiator.UserID == "" || p.Initiator.APIKeyID != 0 ||
+		types.IsSyntheticUserID(p.Initiator.UserID) {
 		return "", errors.New("one exact web-user deletion task is required")
 	}
 	var snapshot string
@@ -43,11 +46,13 @@ func fence(ctx context.Context, db *gorm.DB, p types.KnowledgeListDeletePayload,
 			CreatorID string
 		}
 		err := tx.Table("tenant_members m").Select("m.role,k.creator_id").
-			Joins("JOIN users u ON u.id=m.user_id JOIN tenants t ON t.id=m.tenant_id JOIN knowledge_bases k ON k.tenant_id=t.id").
+			Joins("JOIN users u ON u.id=m.user_id JOIN tenants t ON t.id=m.tenant_id "+
+				"JOIN knowledge_bases k ON k.tenant_id=t.id").
 			Where(`m.user_id=? AND m.tenant_id=? AND k.id=? AND m.status='active' AND m.deleted_at IS NULL
 AND u.is_active AND u.deleted_at IS NULL AND t.status='active' AND t.deleted_at IS NULL AND k.deleted_at IS NULL`,
 				p.Initiator.UserID, p.TenantID, p.KnowledgeBaseID).Take(&member).Error
-		if err != nil || !member.Role.IsValid() || (!member.Role.HasPermission(types.TenantRoleAdmin) && member.CreatorID != p.Initiator.UserID) {
+		if err != nil || !member.Role.IsValid() ||
+			(!member.Role.HasPermission(types.TenantRoleAdmin) && member.CreatorID != p.Initiator.UserID) {
 			return errors.New("deletion actor is no longer authorized")
 		}
 		ctx = p.Initiator.Apply(ctx)
@@ -79,7 +84,8 @@ d.updated_at AS source_updated,k.updated_at AS knowledge_updated FROM knowledges
 JOIN feishu_personal_imports i ON i.knowledge_id=k.id AND i.kb_id=k.knowledge_base_id AND i.status='source_managed'
 JOIN feishu_personal_resources r ON r.import_id=i.id
 JOIN data_sources d ON d.id=i.id AND d.deleted_at IS NULL
-WHERE k.id=? AND k.tenant_id=? AND k.deleted_at IS NULL FOR UPDATE OF d`, p.KnowledgeIDs[0], p.TenantID).Scan(&identity).Error; err != nil {
+WHERE k.id=? AND k.tenant_id=? AND k.deleted_at IS NULL FOR UPDATE OF d`, p.KnowledgeIDs[0], p.TenantID).
+			Scan(&identity).Error; err != nil {
 			return err
 		}
 		if len(identity) != 1 {
@@ -98,11 +104,11 @@ WHERE k.id=? AND k.tenant_id=? AND k.deleted_at IS NULL FOR UPDATE OF d`, p.Know
 			return err
 		}
 		if !apply {
-			return previewRollback
+			return errPreviewRollback
 		}
 		return nil
 	})
-	if errors.Is(err, previewRollback) {
+	if errors.Is(err, errPreviewRollback) {
 		err = nil
 	}
 	return snapshot, err
@@ -121,7 +127,8 @@ func run() error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	db, err := gorm.Open(postgres.Open(os.Getenv("KNOWLEDGE_RECOVERY_POSTGRES_DSN")), &gorm.Config{Logger: logger.Discard})
+	db, err := gorm.Open(postgres.Open(os.Getenv("KNOWLEDGE_RECOVERY_POSTGRES_DSN")),
+		&gorm.Config{Logger: logger.Discard})
 	if err != nil {
 		return errors.New("cannot open recovery database")
 	}
@@ -129,23 +136,27 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	defer pool.Close()
+	defer func() { _ = pool.Close() }()
 	redisDB, err := strconv.Atoi(os.Getenv("REDIS_DB"))
 	if err != nil && os.Getenv("REDIS_DB") != "" {
 		return errors.New("invalid Redis DB")
 	}
-	rc := redis.NewClient(&redis.Options{Addr: os.Getenv("REDIS_ADDR"), Password: os.Getenv("REDIS_PASSWORD"), DB: redisDB})
-	defer rc.Close()
+	rc := redis.NewClient(&redis.Options{
+		Addr: os.Getenv("REDIS_ADDR"), Password: os.Getenv("REDIS_PASSWORD"), DB: redisDB,
+	})
+	defer func() { _ = rc.Close() }()
 	inspector := asynq.NewInspectorFromRedisClient(rc)
 	info, err := inspector.GetTaskInfo(types.QueueMaintenance, *taskID)
 	if err != nil {
 		return err
 	}
-	if info.Type != types.TypeKnowledgeListDelete || info.State != asynq.TaskStateArchived || info.LastErr != "personal deletion attempt unverified" {
+	if info.Type != types.TypeKnowledgeListDelete || info.State != asynq.TaskStateArchived ||
+		info.LastErr != "personal deletion attempt unverified" {
 		return errors.New("task must be archived with the exact handoff deletion error")
 	}
 	var payload types.KnowledgeListDeletePayload
-	if json.Unmarshal(info.Payload, &payload) != nil || payload.TenantID != *tenant || payload.KnowledgeBaseID != *kb || len(payload.KnowledgeIDs) != 1 || payload.KnowledgeIDs[0] != *kid {
+	if json.Unmarshal(info.Payload, &payload) != nil || payload.TenantID != *tenant || payload.KnowledgeBaseID != *kb ||
+		len(payload.KnowledgeIDs) != 1 || payload.KnowledgeIDs[0] != *kid {
 		return errors.New("archived deletion routing mismatch")
 	}
 	snapshot, err := fence(ctx, db, payload, *expected, *apply)
@@ -157,7 +168,11 @@ func run() error {
 			return fmt.Errorf("fence committed; original task retry failed: %w", err)
 		}
 	}
-	return json.NewEncoder(os.Stdout).Encode(map[string]any{"task_id": *taskID, "tenant_id": *tenant, "knowledge_base_id": *kb, "knowledge_id": *kid, "snapshot": snapshot, "applied": *apply, "original_last_error": info.LastErr, "original_retry_count": info.Retried})
+	return json.NewEncoder(os.Stdout).Encode(map[string]any{
+		"task_id": *taskID, "tenant_id": *tenant, "knowledge_base_id": *kb,
+		"knowledge_id": *kid, "snapshot": snapshot, "applied": *apply,
+		"original_last_error": info.LastErr, "original_retry_count": info.Retried,
+	})
 }
 
 func main() {

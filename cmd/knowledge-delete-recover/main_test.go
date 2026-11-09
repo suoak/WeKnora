@@ -27,15 +27,68 @@ func TestRecoveryPreviewRollbackAndApplyCAS(t *testing.T) {
 	} {
 		require.NoError(t, db.Exec(sql).Error)
 	}
-	k := &types.Knowledge{ID: "doc", TenantID: 1, KnowledgeBaseID: "kb", Channel: "feishu_personal",
-		ParseStatus: types.ParseStatusCompleted, Metadata: types.JSON(`{"datasource_id":"import"}`)}
+	k := &types.Knowledge{
+		ID: "doc", TenantID: 1, KnowledgeBaseID: "kb", Channel: "feishu_personal",
+		ParseStatus: types.ParseStatusCompleted, Metadata: types.JSON(`{"datasource_id":"import"}`),
+	}
 	require.NoError(t, db.Create(k).Error)
-	require.NoError(t, db.Create(&types.FeishuPersonalImport{ID: "import", KBID: "kb", KnowledgeID: "doc", Status: "source_managed", URL: "https://test.invalid/doc"}).Error)
-	require.NoError(t, db.Create(&types.FeishuPersonalResource{ImportID: "import", LogicalKnowledgeID: "doc", Generation: 6, CurrentAttemptID: "attempt"}).Error)
-	require.NoError(t, db.Create(&types.FeishuPersonalAttempt{ID: "attempt", ImportID: "import", LogicalKnowledgeID: "doc", CallerTenantID: 1, Status: "obsolete"}).Error)
-	require.NoError(t, db.Create(&types.DataSource{ID: "import", TenantID: 1, KnowledgeBaseID: "kb", Type: "feishu", Status: "error", LegacyAccessState: "hold",
-		Config: types.JSON(`{"resource_ids":["links"],"settings":{"links":["https://test.invalid/doc"]}}`)}).Error)
-	p := types.KnowledgeListDeletePayload{TenantID: 1, KnowledgeBaseID: "kb", KnowledgeIDs: []string{"doc"}, Initiator: types.TaskInitiator{UserID: "actor"}}
+	require.NoError(
+		t,
+		db.Create(
+			&types.FeishuPersonalImport{
+				ID:          "import",
+				KBID:        "kb",
+				KnowledgeID: "doc",
+				Status:      "source_managed",
+				URL:         "https://test.invalid/doc",
+			},
+		).Error,
+	)
+	require.NoError(
+		t,
+		db.Create(
+			&types.FeishuPersonalResource{
+				ImportID:           "import",
+				LogicalKnowledgeID: "doc",
+				Generation:         6,
+				CurrentAttemptID:   "attempt",
+			},
+		).Error,
+	)
+	require.NoError(
+		t,
+		db.Create(
+			&types.FeishuPersonalAttempt{
+				ID:                 "attempt",
+				ImportID:           "import",
+				LogicalKnowledgeID: "doc",
+				CallerTenantID:     1,
+				Status:             "obsolete",
+			},
+		).Error,
+	)
+	require.NoError(
+		t,
+		db.Create(
+			&types.DataSource{
+				ID:                "import",
+				TenantID:          1,
+				KnowledgeBaseID:   "kb",
+				Type:              "feishu",
+				Status:            "error",
+				LegacyAccessState: "hold",
+				Config: types.JSON(
+					`{"resource_ids":["links"],"settings":{"links":["https://test.invalid/doc"]}}`,
+				),
+			},
+		).Error,
+	)
+	p := types.KnowledgeListDeletePayload{
+		TenantID:        1,
+		KnowledgeBaseID: "kb",
+		KnowledgeIDs:    []string{"doc"},
+		Initiator:       types.TaskInitiator{UserID: "actor"},
+	}
 	snapshot, err := fence(context.Background(), db, p, "", false)
 	require.NoError(t, err)
 	require.NotEmpty(t, snapshot)
