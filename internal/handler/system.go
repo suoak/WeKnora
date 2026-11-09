@@ -1802,6 +1802,7 @@ func (h *SystemHandler) GetRuntimeQueues(c *gin.Context) {
 	for _, definition := range types.QueueDefinitions() {
 		queueCounts[definition.Pool]++
 	}
+	queueCounts[types.WorkerPoolPostProcess] = len(types.QueueWeightsForPool(types.WorkerPoolPostProcess))
 	resp := RuntimeQueuesResponse{
 		UpstreamConcurrency: allocation.UpstreamTotal(),
 		ParseConcurrency:    allocation.UpstreamTotal(),

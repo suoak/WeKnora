@@ -1,0 +1,11 @@
+# Historical local content and deletion capacity
+
+The production Visit Notes delete requests returned HTTP 200 when enqueued, while all four maintenance workers were occupied by connector synchronizations. The existing `low` queue had 151 pending tasks and no active consumer capacity. The NTS request `edab08df-d032-4f8a-8b03-c709f4c6db80` eventually completed normally at 2026-11-09 19:21:24 Asia/Shanghai. Its knowledge row is soft deleted, both live chunks and embeddings are zero, and its dedicated source is paused and soft deleted with its access state preserved. No task status was manually rewritten.
+
+Allow the existing postprocess pool to also consume the existing `low` queue. This preserves already enqueued task IDs, keeps the total concurrency budget unchanged, and excludes both connector sync queues from postprocess workers. A real Redis regression saturates all four maintenance workers with blocked synchronizations, then verifies cleanup completes through postprocess capacity without releasing those synchronizations. This fallback also consumes other task types already assigned to `low`; it does not reserve a separate deletion-only worker.
+
+The Opportunity Signals historical application-grant import has a verified first-create index receipt, a completed and enabled local document, a persistent local file binding, 354 enabled text chunks and their corresponding index rows. It has no newer exact serving receipt. Its later source retry state must not withdraw this published local asset under `PUBLISHED_SNAPSHOT_ACCESS.md`.
+
+The compatibility reader validates the historical receipt, document/attempt/manifest identity, local registry and unique source-file binding, file size, MD5 and SHA256, and complete enabled text index counts. It pins the current knowledge, chunk, embedding and registry/binding snapshots for the request, checks them before and after body selection, and retains the existing live KnowHub viewer and private KB authorization checks. It grants only reads of that exact document. It does not create an exact receipt, change source state, call Feishu, authorize writes, or grant access to pending/unverified imports. Historical index receipts prove initial indexing; they are not immutable exact serving receipts.
+
+Production deployment and final HTTP/browser acceptance remain pending until validation completes.
