@@ -109,7 +109,8 @@ func (s *knowledgeService) exactPublicReadContext(ctx context.Context, id string
 		}
 		if personal {
 			var kb string
-			if err := p.service.db.WithContext(ctx).Table("knowledges").Select("knowledge_base_id").Where("id=?", id).Scan(&kb).Error; err != nil {
+			if err := p.service.db.WithContext(ctx).Table("knowledges").Select("knowledge_base_id").
+				Where("id=?", id).Scan(&kb).Error; err != nil {
 				return ctx, true, err
 			}
 			handedOff, err := types.VerifiedSourceHandoff(p.service.db.WithContext(ctx), id, kb)

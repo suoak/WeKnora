@@ -24,20 +24,87 @@ func TestSourceHandoffChineseFolderCatalogPostgres(t *testing.T) {
 		metadata := types.JSON(`{}`)
 		if i >= 8 {
 			channel = "feishu_personal"
-			raw, err := json.Marshal(map[string]any{"datasource_id": id, "feishu_mvp_attempt": id, "feishu_manifest_sha256": "manifest"})
+			raw, err := json.Marshal(map[string]any{
+				"datasource_id":          id,
+				"feishu_mvp_attempt":     id,
+				"feishu_manifest_sha256": "manifest",
+			})
 			require.NoError(t, err)
 			metadata = raw
-			require.NoError(t, f.db.Create(&types.FeishuPersonalImport{ID: id, UserID: "A", KBID: "kb", KnowledgeID: id, Status: "source_managed", DocumentToken: id, ResourceType: "docx", AppID: "app", OpenID: "open"}).Error)
-			require.NoError(t, f.db.Create(&types.DataSource{ID: id, TenantID: 1, KnowledgeBaseID: "kb", Type: "feishu", Status: types.DataSourceStatusActive, LegacyAccessState: "unmanaged", Config: types.JSON(`{}`)}).Error)
-			require.NoError(t, f.db.Create(&types.FeishuPersonalResource{ImportID: id, LogicalKnowledgeID: id, CurrentAttemptID: id, CandidateVersionID: "candidate-" + id}).Error)
-			require.NoError(t, f.db.Create(&types.FeishuPersonalAttempt{ID: id, ImportID: id, LogicalKnowledgeID: id, CallerTenantID: 1, GrantEpoch: "epoch", Status: "obsolete", ManifestHash: "manifest", CandidateVersionID: "candidate-" + id}).Error)
-			receipt, _ := json.Marshal(map[string]any{"payload_version": 1, "knowledge_id": id, "attempt_id": id, "manifest_sha256": "manifest", "file_hash": "hash", "text_chunks": 1, "pg_vector_rows_verified": true, "bm25_document_readback": true})
-			require.NoError(t, f.db.Create(&types.TaskPendingOp{TenantID: 1, Scope: "personal_index_receipt", ScopeID: id, DedupKey: "index-" + id, Op: "verified", Payload: receipt, EnqueuedAt: time.Now()}).Error)
+			require.NoError(t, f.db.Create(&types.FeishuPersonalImport{
+				ID:            id,
+				UserID:        "A",
+				KBID:          "kb",
+				KnowledgeID:   id,
+				Status:        "source_managed",
+				DocumentToken: id,
+				ResourceType:  "docx",
+				AppID:         "app",
+				OpenID:        "open",
+			}).Error)
+			require.NoError(t, f.db.Create(&types.DataSource{
+				ID:                id,
+				TenantID:          1,
+				KnowledgeBaseID:   "kb",
+				Type:              "feishu",
+				Status:            types.DataSourceStatusActive,
+				LegacyAccessState: "unmanaged",
+				Config:            types.JSON(`{}`),
+			}).Error)
+			require.NoError(t, f.db.Create(&types.FeishuPersonalResource{
+				ImportID:           id,
+				LogicalKnowledgeID: id,
+				CurrentAttemptID:   id,
+				CandidateVersionID: "candidate-" + id,
+			}).Error)
+			require.NoError(t, f.db.Create(&types.FeishuPersonalAttempt{
+				ID:                 id,
+				ImportID:           id,
+				LogicalKnowledgeID: id,
+				CallerTenantID:     1,
+				GrantEpoch:         "epoch",
+				Status:             "obsolete",
+				ManifestHash:       "manifest",
+				CandidateVersionID: "candidate-" + id,
+			}).Error)
+			receipt, _ := json.Marshal(map[string]any{
+				"payload_version":         1,
+				"knowledge_id":            id,
+				"attempt_id":              id,
+				"manifest_sha256":         "manifest",
+				"file_hash":               "hash",
+				"text_chunks":             1,
+				"pg_vector_rows_verified": true,
+				"bm25_document_readback":  true,
+			})
+			require.NoError(t, f.db.Create(&types.TaskPendingOp{
+				TenantID:   1,
+				Scope:      "personal_index_receipt",
+				ScopeID:    id,
+				DedupKey:   "index-" + id,
+				Op:         "verified",
+				Payload:    receipt,
+				EnqueuedAt: time.Now(),
+			}).Error)
 		}
-		require.NoError(t, f.db.Create(&types.Knowledge{ID: id, TenantID: 1, KnowledgeBaseID: "kb", FileName: id + ".docx", FolderPath: "拜访纪要", Channel: channel, FileHash: "hash", Metadata: metadata, ParseStatus: types.ParseStatusCompleted, EnableStatus: "enabled"}).Error)
+		require.NoError(t, f.db.Create(&types.Knowledge{
+			ID:              id,
+			TenantID:        1,
+			KnowledgeBaseID: "kb",
+			FileName:        id + ".docx",
+			FolderPath:      "拜访纪要",
+			Channel:         channel,
+			FileHash:        "hash",
+			Metadata:        metadata,
+			ParseStatus:     types.ParseStatusCompleted,
+			EnableStatus:    "enabled",
+		}).Error)
 	}
 	types.EnableLegacyReadGuards(f.db)
-	ctx := types.WithExecutionTenant(types.WithPrincipal(personalUser("B"), types.Principal{Type: types.PrincipalWebUser, ID: "B"}), 1)
+	ctx := types.WithExecutionTenant(types.WithPrincipal(personalUser("B"), types.Principal{
+		Type: types.PrincipalWebUser,
+		ID:   "B",
+	}), 1)
 	ctx = types.WithCaller(ctx, types.Caller{TenantID: 1, UserID: "B", Role: types.TenantRoleAdmin})
 
 	validHandoff, handoffErr := types.VerifiedSourceHandoff(f.db.WithContext(ctx), "visit-08", "kb")
@@ -47,7 +114,12 @@ func TestSourceHandoffChineseFolderCatalogPostgres(t *testing.T) {
 	var probe types.Knowledge
 	require.NoError(t, f.db.WithContext(ctx).Where("id=?", "visit-08").First(&probe).Error)
 
-	filter := types.KnowledgeListFilter{FolderPath: "拜访纪要", FolderScope: types.FolderScopeExact, SortBy: types.KnowledgeListSortByFileName, SortOrder: types.KnowledgeListSortAscending}
+	filter := types.KnowledgeListFilter{
+		FolderPath:  "拜访纪要",
+		FolderScope: types.FolderScopeExact,
+		SortBy:      types.KnowledgeListSortByFileName,
+		SortOrder:   types.KnowledgeListSortAscending,
+	}
 	check := func(ctx context.Context, path string, scope types.KnowledgeFolderScope, want int64) {
 		t.Helper()
 		query := filter
@@ -55,7 +127,10 @@ func TestSourceHandoffChineseFolderCatalogPostgres(t *testing.T) {
 		query.FolderScope = scope
 		seen := map[string]bool{}
 		for page := 1; page <= 3; page++ {
-			result, err := f.ks.ListPagedKnowledgeByKnowledgeBaseID(ctx, "kb", &types.Pagination{Page: page, PageSize: 10}, query)
+			result, err := f.ks.ListPagedKnowledgeByKnowledgeBaseID(ctx, "kb", &types.Pagination{
+				Page:     page,
+				PageSize: 10,
+			}, query)
 			require.NoError(t, err)
 			require.Equal(t, want, result.Total)
 			for _, k := range result.Data.([]*types.Knowledge) {
@@ -89,7 +164,11 @@ func TestSourceHandoffChineseFolderCatalogPostgres(t *testing.T) {
 	require.Error(t, err)
 	require.NoError(t, f.db.Exec("UPDATE data_sources SET legacy_access_state='unmanaged' WHERE id='visit-08'").Error)
 	// Source handoff is not an API/MCP or cross-workspace content grant.
-	for _, other := range []context.Context{types.WithExecutionTenant(ctx, 2), types.WithCaller(ctx, types.Caller{TenantID: 2, UserID: "B", Role: types.TenantRoleViewer}), types.WithPrincipal(ctx, types.Principal{Type: types.PrincipalAPITenant, ID: "key"})} {
+	for _, other := range []context.Context{
+		types.WithExecutionTenant(ctx, 2),
+		types.WithCaller(ctx, types.Caller{TenantID: 2, UserID: "B", Role: types.TenantRoleViewer}),
+		types.WithPrincipal(ctx, types.Principal{Type: types.PrincipalAPITenant, ID: "key"}),
+	} {
 		_, err = f.ks.GetKnowledgeByID(other, "visit-08")
 		require.Error(t, err)
 	}
@@ -126,7 +205,9 @@ func TestSourceHandoffChineseFolderCatalogPostgres(t *testing.T) {
 	result, err := f.ks.ListPagedKnowledgeByKnowledgeBaseID(ctx, "kb", &types.Pagination{Page: 1, PageSize: 10}, filtered)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, result.Total)
-	require.NoError(t, f.db.Exec("DELETE FROM task_pending_ops WHERE scope_id='visit-08' AND scope='personal_index_receipt'").Error)
+	require.NoError(t, f.db.Exec(
+		"DELETE FROM task_pending_ops WHERE scope_id='visit-08' AND scope='personal_index_receipt'",
+	).Error)
 	_, err = f.ks.GetKnowledgeByID(ctx, "visit-08")
 	require.Error(t, err, "missing historical proof must stay closed")
 }
