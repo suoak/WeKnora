@@ -858,6 +858,7 @@ getPageSize()
 
 const loadKnowledgeFiles = (kbIdValue: string): Promise<void> => {
   if (!kbIdValue) return Promise.resolve();
+  page = 1;
   if (!isFAQ.value) {
     docListLoading.value = true;
   }
