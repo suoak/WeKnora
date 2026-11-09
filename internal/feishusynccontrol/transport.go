@@ -2,6 +2,7 @@ package feishusynccontrol
 
 import (
 	"context"
+	"errors"
 	"net"
 	"sync"
 	"time"
@@ -38,9 +39,69 @@ type CommandTiming struct {
 	Failed     bool      `json:"failed"`
 }
 
+// ControlClient reserves a separate bounded pool for controller cycles. Source
+// admission and publication checks retain their own pool and caller deadlines.
+// Both pools use the same Redis endpoint, DB and safety namespace.
+type ControlClient struct {
+	*redis.Client
+	probe *redis.Client
+}
+
+// Close releases both the source-operation and reserved controller pools.
+func (c *ControlClient) Close() error {
+	return errors.Join(c.Client.Close(), c.probe.Close())
+}
+
+// AddHook installs the same observer on both bounded pools.
+func (c *ControlClient) AddHook(hook redis.Hook) {
+	c.Client.AddHook(hook)
+	c.probe.AddHook(hook)
+}
+
+type controllerProbeKey struct{}
+
+type probeRouteHook struct{ probe *redis.Client }
+
+func (h *probeRouteHook) DialHook(next redis.DialHook) redis.DialHook { return next }
+
+func (h *probeRouteHook) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
+	return func(ctx context.Context, cmd redis.Cmder) error {
+		if ctx.Value(controllerProbeKey{}) == true {
+			// Controller cycles use standalone commands and Lua. WATCH/MULTI
+			// state cannot move safely between pooled connections.
+			switch cmd.Name() {
+			case "watch", "unwatch", "multi", "exec":
+				return ErrNotReady
+			}
+			return h.probe.Process(ctx, cmd)
+		}
+		return next(ctx, cmd)
+	}
+}
+
+func (h *probeRouteHook) ProcessPipelineHook(next redis.ProcessPipelineHook) redis.ProcessPipelineHook {
+	return func(ctx context.Context, cmds []redis.Cmder) error {
+		if ctx.Value(controllerProbeKey{}) != true {
+			return next(ctx, cmds)
+		}
+		if len(cmds) > 0 && cmds[0].Name() == "multi" {
+			return ErrNotReady
+		}
+		_, err := h.probe.Pipelined(ctx, func(pipe redis.Pipeliner) error {
+			for _, cmd := range cmds {
+				if err := pipe.Process(ctx, cmd); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		return err
+	}
+}
+
 // NewControlClient preserves endpoint, credentials, TLS and DB. Deadlines and
 // retries are deliberately stricter than the business pool, never more lenient.
-func NewControlClient(base *redis.Client) (*redis.Client, *ControlTransport) {
+func NewControlClient(base *redis.Client) (*ControlClient, *ControlTransport) {
 	opts := *base.Options()
 	opts.PoolSize, opts.MinIdleConns, opts.MaxIdleConns = 2, 0, 2
 	opts.MaxActiveConns = 2
@@ -53,10 +114,14 @@ func NewControlClient(base *redis.Client) (*redis.Client, *ControlTransport) {
 	// The initialized default dialer closes over the original Options. Rebuild
 	// it with the bounded options, preserving TLS settings.
 	opts.Dialer = redis.NewDialer(&opts)
+	probeOpts := opts
 	client := redis.NewClient(&opts)
+	probe := redis.NewClient(&probeOpts)
 	transport := &ControlTransport{}
+	client.AddHook(&probeRouteHook{probe: probe})
 	client.AddHook(&controlHook{transport: transport, client: client})
-	return client, transport
+	probe.AddHook(&controlHook{transport: transport, client: probe})
+	return &ControlClient{Client: client, probe: probe}, transport
 }
 
 func (t *ControlTransport) begin(ctx context.Context) {

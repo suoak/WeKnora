@@ -207,6 +207,7 @@ redis.call('SET',KEYS[4],ARGV[2],'PX',750);return 1`)
 // 750ms permit. A 10s closed bootstrap window allows expected workers to join;
 // it never resumes sync or bypasses outbound gating during startup.
 func (c *Controller) Step(ctx context.Context) (result error) {
+	ctx = context.WithValue(ctx, controllerProbeKey{}, true)
 	requested := time.Now().UTC()
 	c.mu.Lock()
 	defer c.mu.Unlock()
