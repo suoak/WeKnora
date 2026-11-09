@@ -27,3 +27,16 @@ The full native DOCX/XLSX race suite, including the large-table streaming case, 
 Production checks as `suchen1` returned HTTP 200 for the Opportunity Signals detail, chunks and original-file preview, with the expected file SHA256. The previously queued NTS deletion remains deleted with zero chunks and embeddings. Actual CSBU logs show 3,061 exact current input hashes reused from private embedding checkpoints while new inputs continue processing. EWEB selective recovery preserved the original 448 operations, isolated 121 additional pages whose current proofs had expired, and queued eight documents after a fresh verified backup.
 
 These notes do not certify that all production Wiki queues have drained. Remaining source and Wiki failures require their own execution evidence; no queue, hold, publication receipt or historical failure record may be cleared merely to remove the warning.
+
+## 2026-11-10：下载连接重置导致同步全局暂停
+
+生产 `feishu_response_io_failure` 的原始下载错误由连接器分类为
+`connection_reset`。保护层此前仅将响应头阶段的 `ECONNRESET` / `EPIPE`
+交回连接器重试，响应体阶段的同类故障却会触发全局停止。
+
+现在这两类明确的断连错误在响应体阶段仍以原错误返回，当前下载失败，部分字节不会
+作为成功文件继续解析；当前分布式许可验证成功时，由连接器执行原有的有限重试。
+许可缺失、向量响应错误、`io.ErrUnexpectedEOF` 和无法分类的读取错误仍保持关闭。
+
+部署该修复不等于解除既有停止状态。须保留事故审计、队列、游标与向量检查点，
+通过当前版本的计划、独立签名、Reset 和 Canary 接口恢复；不可直接删除停止键。

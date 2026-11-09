@@ -146,7 +146,7 @@ func TestSafetyKnownPreHeaderDisconnectDoesNotDisableIndependentSources(t *testi
 			if client.Exists(context.Background(), g.key("trip")).Val() != 0 || g.Check(context.Background()) != nil {
 				t.Fatal("known source pre-header disconnect latched the shared gate")
 			}
-			tripRequestFailure(context.Background(), g, cause, false, "response")
+			tripRequestFailure(context.Background(), g, io.ErrUnexpectedEOF, false, "response")
 			if g.Check(context.Background()) == nil {
 				t.Fatal("partial response was admitted")
 			}

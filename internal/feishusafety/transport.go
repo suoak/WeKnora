@@ -57,12 +57,15 @@ func tripRequestFailure(caller context.Context, g *Guard, err error, embedding b
 		(errors.As(err, &networkError) && networkError.Timeout()) ||
 		((errors.Is(caller.Err(), context.DeadlineExceeded) || deadlineExpired) &&
 			!errors.Is(err, io.ErrUnexpectedEOF))
-	retryableHeaderFailure := phase == "headers" &&
-		(errors.Is(err, io.EOF) || errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.EPIPE))
+	retryableDisconnect := errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.EPIPE) ||
+		(phase == "headers" && errors.Is(err, io.EOF))
 	policyRejected := phase == "headers" && errors.Is(err, utils.ErrSSRFRequestRejected)
-	if !embedding && (timedOut || retryableHeaderFailure || policyRejected) {
+	if !embedding && (timedOut || retryableDisconnect || policyRejected) {
 		// Source HTTP timeouts belong to the existing connector's bounded
-		// retry/backoff. No response is accepted and no candidate is published.
+		// retry/backoff, including a reset while downloading the response body.
+		// The original read error reaches the connector: partial bytes are never
+		// promoted to a successful download. Unexpected EOF and unknown read
+		// failures keep their independent global-stop classification below.
 		// A healthy shared gate is required even for this local classification.
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(caller), 200*time.Millisecond)
 		defer cancel()
