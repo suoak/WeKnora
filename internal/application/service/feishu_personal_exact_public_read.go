@@ -145,7 +145,17 @@ func (s *knowledgeService) exactPublicKnowledgePage(ctx context.Context, kb stri
 		return nil, true, err
 	}
 	if count == 0 {
-		return nil, false, nil
+		tenant, valid := types.TenantIDFromContext(ctx)
+		if !valid {
+			return nil, false, nil
+		}
+		catalog, err := p.hasPersonalCatalogImports(ctx, tenant, []string{kb})
+		if err != nil {
+			return nil, true, err
+		}
+		if !catalog {
+			return nil, false, nil
+		}
 	}
 	owner, err := p.loadAuthorizationKB(ctx, kb)
 	if err != nil {

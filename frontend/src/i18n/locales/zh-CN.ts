@@ -82,7 +82,7 @@ export default {
   storeInstall: '从 Chrome 扩展商店安装',
   edgeStoreInstall: '从 Edge 扩展商店安装',
 },
-  loadState: { retry: '重试', networkTitle: '网络连接异常', networkDescription: '请检查网络连接后重试。', forbiddenTitle: '没有访问权限', forbiddenDescription: '当前角色无权访问此资源。', notFoundTitle: '资源不存在', notFoundDescription: '资源可能已被删除，或当前链接已经失效。', genericTitle: '内容加载失败', genericDescription: '请重试；如果问题持续，请联系管理员。' },
+  loadState: { verificationTitle: "文档访问待校验", verificationDescription: "暂时无法验证文档访问条件，请检查文档来源授权或联系空间管理员。", retry: '重试', networkTitle: '网络连接异常', networkDescription: '请检查网络连接后重试。', forbiddenTitle: '没有访问权限', forbiddenDescription: '当前角色无权访问此资源。', notFoundTitle: '资源不存在', notFoundDescription: '资源可能已被删除，或当前链接已经失效。', genericTitle: '内容加载失败', genericDescription: '请重试；如果问题持续，请联系管理员。' },
   portal: {
     brandSubtitle: 'CSBU IPD 知识门户',
     heroEyebrow: '知识发现',

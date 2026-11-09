@@ -70,7 +70,7 @@ const messages = {
   storeInstall: 'Установить из Chrome Web Store',
   edgeStoreInstall: 'Установить из Edge Add-ons',
 },
-  loadState: { retry: 'Повторить', networkTitle: 'Проблема подключения', networkDescription: 'Проверьте сеть и повторите попытку.', forbiddenTitle: 'Доступ запрещён', forbiddenDescription: 'Текущая роль не позволяет открыть этот ресурс.', notFoundTitle: 'Ресурс не найден', notFoundDescription: 'Возможно, ресурс удалён или ссылка устарела.', genericTitle: 'Не удалось загрузить содержимое', genericDescription: 'Повторите попытку. Если проблема сохраняется, обратитесь к администратору.' },
+  loadState: { verificationTitle: "Требуется проверка доступа к документу", verificationDescription: "Не удалось проверить доступ. Проверьте разрешения источника или обратитесь к администратору пространства.", retry: 'Повторить', networkTitle: 'Проблема подключения', networkDescription: 'Проверьте сеть и повторите попытку.', forbiddenTitle: 'Доступ запрещён', forbiddenDescription: 'Текущая роль не позволяет открыть этот ресурс.', notFoundTitle: 'Ресурс не найден', notFoundDescription: 'Возможно, ресурс удалён или ссылка устарела.', genericTitle: 'Не удалось загрузить содержимое', genericDescription: 'Повторите попытку. Если проблема сохраняется, обратитесь к администратору.' },
   portal: {
     brandSubtitle: 'Портал знаний CSBU IPD', heroEyebrow: 'ПОИСК ЗНАНИЙ', heroTitle: 'Поиск управляемых пространств знаний организации',
     heroDescription: 'Изучайте профессиональные знания по процессу IPD и запрашивайте доступ Viewer только для чтения.', viewSwitcherLabel: 'Представления портала знаний',

@@ -11,6 +11,14 @@ import (
 )
 
 func TestPersonalRecoveryExactPageMetadataKeepsAllFilesWithoutContent(t *testing.T) {
+	for _, historical := range []bool{false, true} {
+		t.Run(fmt.Sprintf("historical_without_receipts=%v", historical), func(t *testing.T) {
+			testPersonalCatalogMetadata(t, historical)
+		})
+	}
+}
+
+func testPersonalCatalogMetadata(t *testing.T, historical bool) {
 	f := newMVPFixture(t)
 	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY", "1")
 	require.NoError(t, f.db.AutoMigrate(&types.KnowledgeBase{}, &types.DataSource{}))
@@ -24,18 +32,28 @@ id text PRIMARY KEY,tenant_id bigint,knowledge_base_id text,knowledge_id text,st
 		id := fmt.Sprintf("doc-%02d", i)
 		require.NoError(t, f.db.Create(&types.Knowledge{
 			ID: id, TenantID: 1, KnowledgeBaseID: "kb", FileName: id + ".docx",
+			Channel:  "feishu_personal",
 			FileType: "docx", Type: "file", FolderPath: "visits", ParseStatus: types.ParseStatusPending,
 			Title: "private-title-needle", Description: "private-description-marker",
 			Source: "https://private.invalid/secret", FilePath: "local://private-path-marker",
 			Metadata: types.JSON(`{"private":"private-metadata-marker"}`),
 		}).Error)
 	}
-	for i, op := range []string{"published", "staging"} {
-		require.NoError(t, f.db.Create(&types.TaskPendingOp{
-			Scope: types.PersonalExactReceiptScope, ScopeID: fmt.Sprintf("doc-%02d", i), TenantID: 1,
-			DedupKey: fmt.Sprintf("receipt-%d", i), Op: op, EnqueuedAt: time.Now(),
-			Payload: json.RawMessage(`{"knowledge_base_id":"kb"}`),
+	if historical {
+		require.NoError(t, f.db.Create(&types.FeishuPersonalImport{
+			ID: "historical-app-import", UserID: "A", AppID: "cli_test", ApplicationID: "cli_test", KBID: "kb",
+			KnowledgeID: "doc-00", AuthMode: string(types.FeishuApplicationGrant),
+			Status: "needs_attention", DocumentToken: "historical", ResourceType: "bitable",
+			URL: "https://tenant.feishu.cn/base/historical",
 		}).Error)
+	} else {
+		for i, op := range []string{"published", "staging"} {
+			require.NoError(t, f.db.Create(&types.TaskPendingOp{
+				Scope: types.PersonalExactReceiptScope, ScopeID: fmt.Sprintf("doc-%02d", i), TenantID: 1,
+				DedupKey: fmt.Sprintf("receipt-%d", i), Op: op, EnqueuedAt: time.Now(),
+				Payload: json.RawMessage(`{"knowledge_base_id":"kb"}`),
+			}).Error)
+		}
 	}
 	require.NoError(t, f.db.Exec("UPDATE tenant_members SET role='viewer' WHERE user_id='B'").Error)
 	types.EnableLegacyReadGuards(f.db)

@@ -82,7 +82,7 @@ export default {
   storeInstall: 'Install from Chrome Web Store',
   edgeStoreInstall: 'Install from Edge Add-ons',
 },
-  loadState: { retry: 'Try again', networkTitle: 'Connection problem', networkDescription: 'Check your network connection and try again.', forbiddenTitle: 'Access denied', forbiddenDescription: 'Your current role cannot access this resource.', notFoundTitle: 'Resource not found', notFoundDescription: 'It may have been removed or the link may be outdated.', genericTitle: 'Could not load this content', genericDescription: 'Try again. If the problem continues, contact an administrator.' },
+  loadState: { verificationTitle: "Document access needs verification", verificationDescription: "Document access could not be verified. Check the source authorization or contact a workspace administrator.", retry: 'Try again', networkTitle: 'Connection problem', networkDescription: 'Check your network connection and try again.', forbiddenTitle: 'Access denied', forbiddenDescription: 'Your current role cannot access this resource.', notFoundTitle: 'Resource not found', notFoundDescription: 'It may have been removed or the link may be outdated.', genericTitle: 'Could not load this content', genericDescription: 'Try again. If the problem continues, contact an administrator.' },
   portal: {
     brandSubtitle: 'CSBU IPD Knowledge Portal',
     heroEyebrow: 'KNOWLEDGE DISCOVERY',
