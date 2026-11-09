@@ -65,6 +65,10 @@ id text PRIMARY KEY,tenant_id bigint,knowledge_base_id text,knowledge_id text,st
 		}
 	}
 	require.Len(t, seen, 24, "a staging receipt must not hide the remaining catalog")
+	tree, treeErr := f.ks.ListKnowledgeFolderTree(ctx, "kb")
+	require.NoError(t, treeErr, "folder navigation shares catalog metadata access, not a source-content capability")
+	require.EqualValues(t, 24, tree.TotalDocumentCount)
+
 	_, err := f.ks.GetKnowledgeBatch(ctx, 1, []string{"doc-00", "doc-01"})
 	require.Error(t, err, "mutation and download callers must retain the strict entity read path")
 	catalog := types.WithKnowledgeCatalogRead(ctx)

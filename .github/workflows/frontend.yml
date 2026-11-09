@@ -50,6 +50,11 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Folder catalog browser regression
+        run: |
+          npx playwright install --with-deps chromium
+          node tests/knowledge-folder/regression.mjs
+
       - name: Type-check
         run: npm run type-check
 

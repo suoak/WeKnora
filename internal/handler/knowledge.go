@@ -1066,7 +1066,7 @@ func (h *KnowledgeHandler) ListKnowledge(c *gin.Context) {
 	var err error
 	if svc, ok := h.kgService.(service.KnowledgeDocumentReadService); ok && svc.DocumentACLReadEnabled() {
 		if !access.HasDocumentReadOutput(ctx) {
-			c.Error(errors.NewForbiddenError("Document output boundary required"))
+			_ = c.Error(errors.NewForbiddenError("Document output boundary required"))
 			return
 		}
 		kbID = c.Param("id")
@@ -1166,6 +1166,11 @@ func (h *KnowledgeHandler) ListKnowledge(c *gin.Context) {
 	result, err := h.kgService.ListPagedKnowledgeByKnowledgeBaseID(ctx, kbID, &pagination, filter)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
+		if goerrors.Is(err, access.ErrForbidden) || goerrors.Is(err, types.ErrLegacySourceRestricted) ||
+			goerrors.Is(err, types.ErrPrivateKnowledgeBase) || goerrors.Is(err, types.ErrExactDocumentScope) {
+			_ = c.Error(errors.NewForbiddenError("Document access requires verification"))
+			return
+		}
 		c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
@@ -1430,16 +1435,36 @@ func (h *KnowledgeHandler) ListKnowledgeFolders(c *gin.Context) {
 
 	// Read access mirrors ListKnowledge so the sidebar tree is available to
 	// every viewer of a shared knowledge base.
-	_, kbID, effectiveTenantID, _, err := h.validateKnowledgeBaseAccess(c)
+	var kbID string
+	var effectiveTenantID uint64
+	var err error
+	if svc, ok := h.kgService.(service.KnowledgeDocumentReadService); ok && svc.DocumentACLReadEnabled() {
+		if !access.HasDocumentReadOutput(ctx) {
+			_ = c.Error(errors.NewForbiddenError("Document output boundary required"))
+			return
+		}
+		kbID = c.Param("id")
+		ctx, err = svc.DocumentKBReadContext(ctx, kbID)
+		if err == nil {
+			effectiveTenantID = types.MustTenantIDFromContext(ctx)
+		}
+	} else {
+		_, kbID, effectiveTenantID, _, err = h.validateKnowledgeBaseAccess(c)
+	}
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(errors.NewForbiddenError("Document folders denied"))
 		return
 	}
-	ctx = types.WithExecutionTenant(c.Request.Context(), effectiveTenantID)
+	ctx = types.WithExecutionTenant(ctx, effectiveTenantID)
 
 	tree, err := h.kgService.ListKnowledgeFolderTree(ctx, kbID)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
+		if goerrors.Is(err, access.ErrForbidden) || goerrors.Is(err, types.ErrLegacySourceRestricted) ||
+			goerrors.Is(err, types.ErrPrivateKnowledgeBase) || goerrors.Is(err, types.ErrExactDocumentScope) {
+			_ = c.Error(errors.NewForbiddenError("Document access requires verification"))
+			return
+		}
 		c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
@@ -2040,7 +2065,7 @@ func (h *KnowledgeHandler) GetKnowledgeBatch(c *gin.Context) {
 	}
 	if svc, ok := h.kgService.(service.KnowledgeDocumentReadService); ok && svc.DocumentACLReadEnabled() {
 		if !access.HasDocumentReadOutput(ctx) {
-			c.Error(errors.NewForbiddenError("Document output boundary required"))
+			_ = c.Error(errors.NewForbiddenError("Document output boundary required"))
 			return
 		}
 		if req.AgentID != "" {

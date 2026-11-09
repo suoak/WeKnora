@@ -275,14 +275,31 @@ func (r *knowledgeRepository) ListKnowledgeFolderCounts(
 	tenantID uint64,
 	kbID string,
 ) ([]*types.KnowledgeFolderCount, error) {
+	if err := types.CheckPrivateKBRead(r.db.WithContext(ctx), "", kbID); err != nil {
+		return nil, err
+	}
+	ids, protected, err := access.GuardDocumentReadQuery(ctx, tenantID, kbID)
+	if err != nil {
+		return nil, err
+	}
+	query := r.db.WithContext(ctx).Model(&types.Knowledge{})
+	if protected {
+		if len(ids) == 0 {
+			query = query.Where("1=0")
+		} else {
+			query = query.Where("id IN ?", ids)
+		}
+	}
 	var counts []*types.KnowledgeFolderCount
-	if err := r.db.WithContext(ctx).
-		Model(&types.Knowledge{}).
+	if err := query.
 		Select("folder_path AS folder_path, COUNT(*) AS count").
 		Where("tenant_id = ? AND knowledge_base_id = ? AND parse_status <> ?",
 			tenantID, kbID, types.ParseStatusDeleting).
 		Group("folder_path").
 		Find(&counts).Error; err != nil {
+		return nil, err
+	}
+	if _, _, err := access.GuardDocumentReadQuery(ctx, tenantID, kbID); err != nil {
 		return nil, err
 	}
 	return counts, nil

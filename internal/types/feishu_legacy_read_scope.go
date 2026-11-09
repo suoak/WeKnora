@@ -13,6 +13,7 @@ type (
 		mu       sync.Mutex
 		kb       map[string]bool
 		metadata map[string]bool
+		handoffs map[string]string
 		excluded bool
 	}
 )
@@ -43,6 +44,7 @@ func DiscardLegacyReadAttempt(ctx context.Context) {
 		scope.mu.Lock()
 		scope.kb = map[string]bool{}
 		scope.metadata = map[string]bool{}
+		scope.handoffs = map[string]string{}
 		scope.excluded = true
 		scope.mu.Unlock()
 	}
@@ -59,6 +61,17 @@ func recordLegacyRead(ctx context.Context, kb string) {
 		scope.mu.Lock()
 		scope.kb[kb] = true
 		scope.mu.Unlock()
+	}
+}
+
+func recordSourceHandoffRead(ctx context.Context, id, kb string) {
+	if scope, ok := ctx.Value(legacyReadScopeKey{}).(*legacyReadScope); ok {
+		scope.mu.Lock()
+		defer scope.mu.Unlock()
+		if scope.handoffs == nil {
+			scope.handoffs = map[string]string{}
+		}
+		scope.handoffs[id] = kb
 	}
 }
 
@@ -95,6 +108,12 @@ func MergeLegacyReadScope(dst, src context.Context) {
 	for kb := range from.metadata {
 		to.metadata[kb] = true
 	}
+	if to.handoffs == nil {
+		to.handoffs = map[string]string{}
+	}
+	for id, kb := range from.handoffs {
+		to.handoffs[id] = kb
+	}
 	to.excluded = to.excluded || from.excluded
 }
 
@@ -124,11 +143,27 @@ func CheckLegacyReadScope(db *gorm.DB) error {
 	}
 	if scope, ok := db.Statement.Context.Value(legacyReadScopeKey{}).(*legacyReadScope); ok {
 		scope.mu.Lock()
+		handoffs := make(map[string]string, len(scope.handoffs))
+		for id, kb := range scope.handoffs {
+			handoffs[id] = kb
+		}
 		metadata := make([]string, 0, len(scope.metadata))
 		for kb := range scope.metadata {
 			metadata = append(metadata, kb)
 		}
 		scope.mu.Unlock()
+		for id, kb := range handoffs {
+			valid, err := VerifiedSourceHandoff(db, id, kb)
+			if err != nil {
+				return err
+			}
+			if !valid {
+				return ErrLegacySourceRestricted
+			}
+			if err := CheckLegacySourceRead(db, id, kb); err != nil {
+				return err
+			}
+		}
 		for _, kb := range metadata {
 			// Final checking must not register metadata as a body read.
 			check := db.WithContext(WithLegacyReadScope(db.Statement.Context))
