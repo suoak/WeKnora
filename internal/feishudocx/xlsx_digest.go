@@ -32,7 +32,8 @@ var ErrInvalidXLSXPackage = errors.New("invalid or unsupported Feishu XLSX packa
 // identity contract. Repeated authorized Sheet exports vary column widths and
 // grouping, despite identical cells, formulas, relationships and binary assets.
 // Only width is omitted; column coverage and every other property remain bound.
-// All ZIP members are included. Unsupported column structures fail closed.
+// All ZIP members are included. Overlapping columns retain every attribute
+// layer in source order; ambiguous/unsupported structures fail closed.
 func CanonicalXLSXDigest(content []byte) (string, string, error) {
 	const algorithm = "feishu-xlsx-package-v1"
 	if len(content) > maxArchive {
@@ -168,19 +169,30 @@ func normalizeExportColumnWidths(worksheet *node) error {
 			}
 			ranges = append(ranges, columnRange{minimum, maximum, attrs})
 		}
-		// Non-overlapping column definitions may be serialized in any order.
-		// Overlaps remain ambiguous and are never resolved by dropping metadata.
-		sort.Slice(ranges, func(i, j int) bool { return ranges[i].minimum < ranges[j].minimum })
-		last := 0
-		var result []piece
+		// Expand range packaging without choosing a winning overlapping style.
+		// Every column retains its complete ordered stack, so reordering two
+		// overlapping definitions or changing any non-width attribute changes
+		// identity. Non-overlapping v1 identities remain byte-for-byte stable.
+		columns := map[int][][]xml.Attr{}
+		last, expanded := 0, 0
 		for _, definition := range ranges {
-			if definition.minimum <= last {
+			expanded += definition.maximum - definition.minimum + 1
+			if expanded > 32768 {
 				return ErrInvalidXLSXPackage
 			}
 			for column := definition.minimum; column <= definition.maximum; column++ {
+				columns[column] = append(columns[column], definition.attrs)
+			}
+			if definition.maximum > last {
+				last = definition.maximum
+			}
+		}
+		var result []piece
+		for column := 1; column <= last; column++ {
+			for _, attrs := range columns[column] {
 				n := &node{
 					Name:  xml.Name{Space: spreadsheetNS, Local: "col"},
-					Attrs: append([]xml.Attr(nil), definition.attrs...),
+					Attrs: append([]xml.Attr(nil), attrs...),
 				}
 				n.Attrs = append(n.Attrs, xml.Attr{Name: xml.Name{Local: "min"}, Value: strconv.Itoa(column)},
 					xml.Attr{Name: xml.Name{Local: "max"}, Value: strconv.Itoa(column)})
@@ -190,7 +202,6 @@ func normalizeExportColumnWidths(worksheet *node) error {
 				})
 				result = append(result, piece{Kind: "element", Node: n})
 			}
-			last = definition.maximum
 		}
 		cols.Parts = result
 	}

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -20,6 +21,16 @@ import (
 )
 
 func TestSourceReconciliationPreparesExistingPersonalGrantForTheSameRun(t *testing.T) {
+	for _, legacyApproval := range []bool{false, true} {
+		name := "import_destination_consent"
+		if legacyApproval {
+			name = "obsolete_approval_is_not_required"
+		}
+		t.Run(name, func(t *testing.T) { testSourceReconciliationExistingImport(t, legacyApproval) })
+	}
+}
+
+func testSourceReconciliationExistingImport(t *testing.T, legacyApproval bool) {
 	f := v2PostgresFixture(t)
 	t.Setenv("FEISHU_SAFE_INCREMENTAL_ENABLED", "true")
 	require.NoError(t, f.db.AutoMigrate(&types.DataSource{}))
@@ -27,13 +38,23 @@ func TestSourceReconciliationPreparesExistingPersonalGrantForTheSameRun(t *testi
 		"organization_id text,source_tenant_id bigint,permission text,deleted_at timestamptz)").Error)
 	_, _, credential, err := f.s.ResolveCredentialReference(f.ctx, types.FeishuUserOAuth, "")
 	require.NoError(t, err)
-	approval, err := f.s.ApproveSharing(f.ctx, "kb", credential.ConnectionID,
-		"https://test.feishu.cn/file/real", "explicit owner consent", true)
+	var approval *types.FeishuSharingApproval
+	if legacyApproval {
+		approval, err = f.s.ApproveSharing(f.ctx, "kb", credential.ConnectionID,
+			"https://test.feishu.cn/file/real", "historic optional approval", true)
+		require.NoError(t, err)
+	}
+	imported, err := f.s.ImportWithIdentity(
+		f.ctx,
+		"kb",
+		"https://test.feishu.cn/file/real",
+		types.FeishuUserOAuth,
+	)
 	require.NoError(t, err)
-	imported, err := f.s.ImportWithIdentity(f.ctx, "kb", "https://test.feishu.cn/file/real", types.FeishuUserOAuth)
-	require.NoError(t, err)
-	require.NoError(t, f.db.Model(&types.FeishuSharingApproval{}).Where("id=?", approval.ID).
-		Update("expires_at", time.Now().Add(-time.Hour)).Error)
+	if approval != nil {
+		require.NoError(t, f.db.Model(&types.FeishuSharingApproval{}).Where("id=?", approval.ID).
+			Update("expires_at", time.Now().Add(-time.Hour)).Error)
+	}
 	ref := &types.FeishuSourceReference{
 		Version: 1, OwnerUserID: "A", Kind: credential.Kind, ConnectionID: credential.ConnectionID,
 		AppID: credential.AppID, IdentityVersion: credential.ConfigVersion,
@@ -53,6 +74,10 @@ func TestSourceReconciliationPreparesExistingPersonalGrantForTheSameRun(t *testi
 		Status: "active", LegacyAccessState: "unmanaged", Config: types.JSON(`{"resource_ids":["anchor"]}`),
 	}
 	require.NoError(t, f.db.Create(anchor).Error)
+	require.NoError(
+		t,
+		f.db.Exec("INSERT INTO knowledge_bases(id,tenant_id,creator_id) VALUES('another-kb',1,'A')").Error,
+	)
 	require.NoError(t, f.db.Exec("INSERT INTO users(id,is_active,is_system_admin) VALUES(?,true,true)",
 		"fixture-operator").Error)
 	ctx := f.userContext("fixture-operator")
@@ -93,7 +118,13 @@ func TestSourceReconciliationPreparesExistingPersonalGrantForTheSameRun(t *testi
 			AccessState: row.LegacyAccessState, ActorID: actor, AuthorityHash: strings.Repeat("e", 64),
 		}, nil
 	}
-	plan := feishucontinuity.ActivateSteadyReconciliation(t, []string{anchor.ID}, []string{ds.ID}, facts, authority)
+	plan := feishucontinuity.ActivateSteadyReconciliation(
+		t,
+		[]string{anchor.ID},
+		[]string{ds.ID},
+		facts,
+		authority,
+	)
 	run, err := svc.RunSourceReconciliation(ctx, ds.ID, plan.ID)
 	require.NoError(t, err)
 	stored, err := logs.FindByDataSource(ctx, ds.ID, 20, 0)
@@ -105,7 +136,8 @@ func TestSourceReconciliationPreparesExistingPersonalGrantForTheSameRun(t *testi
 		return readSourceSetting(tx, feishuSyncPolicyPrefix+ds.ID, &grant)
 	}))
 	require.Equal(t, run.ID, grant.ReconciliationLogID)
-	require.Equal(t, approval.ID, grant.InitialApprovalID)
+	require.Empty(t, grant.InitialApprovalID, "importing into the destination is publication consent")
+	require.True(t, grant.ImportDestinationConsent)
 	require.Equal(t, plan.AuthorizationUntilMS, grant.ExpiresAt.UnixMilli())
 	require.True(t, grant.ReconciliationExpiresAt.After(time.Now().Add(30*time.Minute)),
 		"the explicitly signed read window replaces the legacy fifteen-minute cap")
@@ -122,8 +154,25 @@ func TestSourceReconciliationPreparesExistingPersonalGrantForTheSameRun(t *testi
 	stale := execution
 	stale.Generation++
 	require.Error(t, f.s.checkHeldSourceReconciliation(types.WithSyncExecution(ctx, stale), &source, ref))
-	require.NoError(t, f.db.Model(&types.FeishuSharingApproval{}).Where("id=?", approval.ID).
-		Update("state", "revoked").Error)
-	require.Error(t, f.s.checkHeldSourceReconciliation(work, &source, ref),
-		"a signed recovery never overrides withdrawn owner publication consent")
+	if approval != nil {
+		require.NoError(t, f.db.Model(&types.FeishuSharingApproval{}).Where("id=?", approval.ID).
+			Update("state", "revoked").Error)
+		require.NoError(t, f.s.checkHeldSourceReconciliation(work, &source, ref),
+			"obsolete secondary approvals do not replace current import/space authority")
+	}
+	rollback := errors.New("rollback mutation")
+	for _, mutation := range []string{
+		"UPDATE feishu_personal_imports SET resource_type='sheet'",
+		"UPDATE feishu_personal_imports SET kb_id='another-kb'",
+		"UPDATE users SET is_active=false WHERE id='A'",
+		"UPDATE tenant_members SET role='viewer' WHERE user_id='A'",
+		"UPDATE sync_logs SET execution_claimed=false",
+		"UPDATE data_sources SET legacy_access_state='revoked'",
+	} {
+		require.ErrorIs(t, f.db.WithContext(work).Transaction(func(tx *gorm.DB) error {
+			require.NoError(t, tx.Exec(mutation).Error)
+			require.Error(t, checkHeldSourceReconciliationBound(tx, &source, ref), mutation)
+			return rollback
+		}), rollback)
+	}
 }
