@@ -48,7 +48,6 @@ WHERE k.id=? AND k.knowledge_base_id=? AND k.tenant_id=? AND k.deleted_at IS NUL
 LIMIT 2`,
 		knowledge, kb, tenant, ParseStatusCompleted, PersonalExactReceiptScope, caller.UserID, caller.Role,
 	).Scan(&rows).Error
-
 	if err != nil {
 		return false, err
 	}

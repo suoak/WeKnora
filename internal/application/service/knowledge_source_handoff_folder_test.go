@@ -202,7 +202,9 @@ func TestSourceHandoffChineseFolderCatalogPostgres(t *testing.T) {
 	filtered.FolderPath = "客户/纪要"
 	filtered.Keyword = "visit-09"
 	filtered.ParseStatus = types.ParseStatusCompleted
-	result, err := f.ks.ListPagedKnowledgeByKnowledgeBaseID(ctx, "kb", &types.Pagination{Page: 1, PageSize: 10}, filtered)
+	result, err := f.ks.ListPagedKnowledgeByKnowledgeBaseID(
+		ctx, "kb", &types.Pagination{Page: 1, PageSize: 10}, filtered,
+	)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, result.Total)
 	require.NoError(t, f.db.Exec(
