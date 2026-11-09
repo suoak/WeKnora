@@ -56,5 +56,5 @@ func TestRecoveryPreviewRollbackAndApplyCAS(t *testing.T) {
 	var source types.DataSource
 	require.NoError(t, db.Unscoped().Where("id='import'").First(&source).Error)
 	require.True(t, source.DeletedAt.Valid)
-	require.Equal(t, "revoked", source.LegacyAccessState)
+	require.Equal(t, "hold", source.LegacyAccessState)
 }

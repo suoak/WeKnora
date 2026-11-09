@@ -57,7 +57,9 @@ func TestPersonalDocumentDeletionDedicatedSourceHandoff(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.True(t, stored.DeletedAt.Valid)
-			require.Equal(t, "revoked", stored.LegacyAccessState)
+			require.Equal(t, "hold", stored.LegacyAccessState, "retirement must preserve the existing source access boundary")
+			require.NoError(t, types.CheckLegacySourceRead(f.db.WithContext(ctx), "", "kb"),
+				"deleting one source document must not introduce a workspace-wide revoked source gate")
 			require.NoError(t, f.ks.repo.MarkKnowledgeDeleting(ctx, row), "cleanup retry preserves the fence")
 			var mapping types.FeishuPersonalImport
 			require.NoError(t, f.db.Where("id=?", imported.ID).First(&mapping).Error)

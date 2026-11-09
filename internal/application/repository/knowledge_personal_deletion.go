@@ -122,7 +122,7 @@ func fencePersonalKnowledgeDeletion(tx *gorm.DB, k *types.Knowledge) error {
 		// Retain source configuration, cursor and history; prevent scheduler or
 		// delayed messages from re-enrolling and recreating this deleted file.
 		if err := tx.Model(&types.DataSource{}).Where("id=?", source.ID).Updates(map[string]any{
-			"status": types.DataSourceStatusPaused, "legacy_access_state": "revoked", "deleted_at": time.Now().UTC(),
+			"status": types.DataSourceStatusPaused, "deleted_at": time.Now().UTC(),
 		}).Error; err != nil {
 			return err
 		}
