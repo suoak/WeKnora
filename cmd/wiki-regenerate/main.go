@@ -32,8 +32,11 @@ func run() error {
 		"preview/apply archival of deleted-source retractions with no queued or current Wiki targets")
 	isolatePages := flag.Bool("isolate-unverified-pages", false,
 		"preserve valid pages and original operations; isolate only pages failing current proof")
+	restoreParsed := flag.Bool("restore-parsed-stalls", false,
+		"preview/apply verified native parsed documents misclassified by housekeeping; preserve old work")
 	flag.Parse()
-	if *retireEmpty && *resume || *isolatePages && (*resume || *retireEmpty) {
+	if *retireEmpty && *resume || *isolatePages && (*resume || *retireEmpty) ||
+		*restoreParsed && (*resume || *retireEmpty || *isolatePages) {
 		return errors.New("choose one recovery mode")
 	}
 	if *tenant == 0 || *kb == "" {
@@ -59,11 +62,27 @@ func run() error {
 	if err != nil && os.Getenv("REDIS_DB") != "" {
 		return errors.New("invalid REDIS_DB")
 	}
-	opts := asynq.RedisClientOpt{Addr: os.Getenv("REDIS_ADDR"), Password: os.Getenv("REDIS_PASSWORD"), DB: redisDB}
+	opts := asynq.RedisClientOpt{
+		Addr:     os.Getenv("REDIS_ADDR"),
+		Password: os.Getenv("REDIS_PASSWORD"),
+		DB:       redisDB,
+	}
 	rc := redis.NewClient(&redis.Options{Addr: opts.Addr, Password: opts.Password, DB: opts.DB})
 	defer func() { _ = rc.Close() }()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
+	if *restoreParsed {
+		var plan *repository.WikiParsedStallPlan
+		err := wikilock.With(ctx, rc, *kb, func(locked context.Context) error {
+			var e error
+			plan, e = repository.PrepareWikiParsedStallRecovery(locked, db, *tenant, *kb, *snapshot, *apply)
+			return e
+		})
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(plan)
+	}
 	if *retireEmpty {
 		var plan *repository.WikiEmptyRetractionPlan
 		err := wikilock.With(ctx, rc, *kb, func(locked context.Context) error {
@@ -117,7 +136,9 @@ func enqueueGeneration(ctx context.Context, opts asynq.RedisClientOpt, tenant ui
 	// this trigger if Redis is unavailable; rerunning apply cannot duplicate ops.
 	client := asynq.NewClient(opts)
 	defer func() { _ = client.Close() }()
-	payload, err := json.Marshal(map[string]any{"tenant_id": tenant, "knowledge_base_id": kb, "language": "zh-CN"})
+	payload, err := json.Marshal(
+		map[string]any{"tenant_id": tenant, "knowledge_base_id": kb, "language": "zh-CN"},
+	)
 	if err != nil {
 		return err
 	}

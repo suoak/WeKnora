@@ -166,6 +166,14 @@ func wikiPageDigest(p *types.WikiPage) string {
 // actual model input fields, so finalizing -> completed alone is not content
 // replacement. Current authorization/source state is always checked separately.
 func wikiDependencies(db *gorm.DB, kb string, previous ...*wikiGenerationProof) (*wikiGenerationProof, error) {
+	return wikiDependenciesWithParsedRecovery(db, kb, nil, previous...)
+}
+
+// The operator recovery preview can admit only independently validated parsed
+// stalls. Ordinary generation and serving always pass a nil recovery set.
+func wikiDependenciesWithParsedRecovery(db *gorm.DB, kb string, parsed map[string]bool,
+	previous ...*wikiGenerationProof,
+) (*wikiGenerationProof, error) {
 	var anchor struct{ TenantID uint64 }
 	if e := db.Table("knowledge_bases kb").Select("kb.tenant_id").Joins("JOIN tenants t ON t.id=kb.tenant_id AND t.deleted_at IS NULL AND t.status='active'").Where("kb.id=? AND kb.deleted_at IS NULL AND kb.type='document' AND kb.is_temporary=false", kb).Take(&anchor).Error; e != nil {
 		return nil, e
@@ -247,7 +255,8 @@ func wikiDependencies(db *gorm.DB, kb string, previous ...*wikiGenerationProof) 
 		default:
 			return nil, ErrWikiMCPUnverified
 		}
-		if (d.ParseStatus != "completed" && d.ParseStatus != "finalizing") || d.EnableStatus != "enabled" {
+		if (d.ParseStatus != "completed" && d.ParseStatus != "finalizing" &&
+			!(d.ParseStatus == "failed" && parsed[d.ID])) || d.EnableStatus != "enabled" {
 			return nil, ErrWikiMCPUnverified
 		}
 		stamp, found := stamps[d.ID]
