@@ -242,7 +242,16 @@ func TestStalledWikiReportCannotOverwriteProgressOrClaimedWork(t *testing.T) {
 			if mutation != "" {
 				require.NoError(t, db.Exec(mutation).Error)
 			}
-			var before, after types.TaskPendingOp
+			// SQLite stores this fixture's JSON as TEXT. Compare the raw row,
+			// including its exact payload, without a production JSONB scanner.
+			type pendingMetadata struct {
+				ID, TenantID                                    uint64
+				TaskType, Scope, ScopeID, Op, DedupKey, Payload string
+				FailCount                                       int
+				EnqueuedAt                                      time.Time
+				ClaimedAt                                       *time.Time
+			}
+			var before, after pendingMetadata
 			require.NoError(t, db.Table("task_pending_ops").First(&before).Error)
 			svc := newHousekeepingSvcForTest(db)
 			svc.recordStalledWikiHolds(context.Background(), []types.Knowledge{{

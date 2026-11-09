@@ -238,7 +238,7 @@ pending_subtasks_count=1 WHERE id='indexed-document'`).Error)
 	svc.runSweep(context.Background())
 	status, message := readKnowledgeStatus(t, db, "indexed-document")
 	require.Equal(t, types.ParseStatusFinalizing, status)
-	require.Equal(t, repository.WikiRegenerationRequiredMessage, message)
+	require.Contains(t, message, "original operations and parsed indexes retained")
 	var count int64
 	require.NoError(t, db.Model(&types.TaskPendingOp{}).Count(&count).Error)
 	require.EqualValues(t, 1, count)
