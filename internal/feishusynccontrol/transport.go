@@ -65,6 +65,12 @@ func (h *probeRouteHook) DialHook(next redis.DialHook) redis.DialHook { return n
 func (h *probeRouteHook) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
 	return func(ctx context.Context, cmd redis.Cmder) error {
 		if ctx.Value(controllerProbeKey{}) == true {
+			// Controller cycles use standalone commands and Lua. WATCH/MULTI
+			// state cannot move safely between pooled connections.
+			switch cmd.Name() {
+			case "watch", "unwatch", "multi", "exec":
+				return ErrNotReady
+			}
 			return h.probe.Process(ctx, cmd)
 		}
 		return next(ctx, cmd)
@@ -75,6 +81,9 @@ func (h *probeRouteHook) ProcessPipelineHook(next redis.ProcessPipelineHook) red
 	return func(ctx context.Context, cmds []redis.Cmder) error {
 		if ctx.Value(controllerProbeKey{}) != true {
 			return next(ctx, cmds)
+		}
+		if len(cmds) > 0 && cmds[0].Name() == "multi" {
+			return ErrNotReady
 		}
 		_, err := h.probe.Pipelined(ctx, func(pipe redis.Pipeliner) error {
 			for _, cmd := range cmds {

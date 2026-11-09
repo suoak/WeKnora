@@ -68,3 +68,36 @@ func TestControllerProbePipelineKeepsCallerCancellationAndResults(t *testing.T) 
 	cancel()
 	require.ErrorIs(t, client.Ping(canceled).Err(), context.Canceled)
 }
+
+// WATCH and MULTI/EXEC require connection affinity. Controller-only commands
+// reject that unsupported operation instead of silently losing atomicity;
+// ordinary source transactions retain the original client's behavior.
+func TestControllerProbeRejectsTransactionsWithoutChangingSourceTransactions(t *testing.T) {
+	f := newControlFixture(t)
+	client, _ := NewControlClient(f.client)
+	t.Cleanup(func() { _ = client.Close() })
+	probe := context.WithValue(context.Background(), controllerProbeKey{}, true)
+	called := false
+	err := client.Watch(probe, func(tx *redis.Tx) error {
+		called = true
+		return tx.Set(probe, "probe-transaction", "unexpected", 0).Err()
+	}, "probe-transaction")
+	require.ErrorIs(t, err, ErrNotReady)
+	require.False(t, called)
+	_, err = client.TxPipelined(probe, func(pipe redis.Pipeliner) error {
+		pipe.Set(probe, "probe-transaction", "unexpected", 0)
+		return nil
+	})
+	require.ErrorIs(t, err, ErrNotReady)
+	require.Zero(t, f.client.Exists(context.Background(), "probe-transaction").Val())
+	source := context.Background()
+	err = client.Watch(source, func(tx *redis.Tx) error {
+		_, err := tx.TxPipelined(source, func(pipe redis.Pipeliner) error {
+			pipe.Set(source, "source-transaction", "preserved", 0)
+			return nil
+		})
+		return err
+	}, "source-transaction")
+	require.NoError(t, err)
+	require.Equal(t, "preserved", f.client.Get(source, "source-transaction").Val())
+}
