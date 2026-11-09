@@ -36,7 +36,10 @@ func run() error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	db, err := gorm.Open(postgres.Open(os.Getenv("WIKI_REGEN_POSTGRES_DSN")), &gorm.Config{Logger: logger.Discard})
+	db, err := gorm.Open(
+		postgres.Open(os.Getenv("WIKI_REGEN_POSTGRES_DSN")),
+		&gorm.Config{Logger: logger.Discard},
+	)
 	if err != nil {
 		return errors.New("cannot open recovery database")
 	}
@@ -74,7 +77,9 @@ func run() error {
 	if err != nil && os.Getenv("REDIS_DB") != "" {
 		return errors.New("invalid Redis database")
 	}
-	rc := redis.NewClient(&redis.Options{Addr: os.Getenv("REDIS_ADDR"), Password: os.Getenv("REDIS_PASSWORD"), DB: redisDB})
+	rc := redis.NewClient(
+		&redis.Options{Addr: os.Getenv("REDIS_ADDR"), Password: os.Getenv("REDIS_PASSWORD"), DB: redisDB},
+	)
 	defer func() { _ = rc.Close() }()
 	inspector := asynq.NewInspectorFromRedisClient(rc)
 	canonical := "wiki-finalize-" + *kb
@@ -84,7 +89,8 @@ func run() error {
 	}
 	headID := fmt.Sprintf("%s-pending-%d", canonical, rows[0].ID)
 	head, err := inspector.GetTaskInfo(types.QueueWiki, headID)
-	if err != nil || head.State != asynq.TaskStateArchived || head.LastErr != service.ErrWikiIngestConcurrent.Error() {
+	if err != nil || head.State != asynq.TaskStateArchived ||
+		head.LastErr != service.ErrWikiIngestConcurrent.Error() {
 		return errors.New("durable head must be archived with the exact contention error")
 	}
 	for _, info := range []*asynq.TaskInfo{base, head} {

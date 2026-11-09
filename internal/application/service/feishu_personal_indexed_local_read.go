@@ -61,7 +61,14 @@ func (p *PersonalRecovery) indexedLocalReadContext(
 	if err != nil {
 		return ctx, true, err
 	}
-	grant, err := access.ResolveKB(ctx, access.KBRequest{Caller: caller}, kb, types.OrgRoleViewer, p.shares, nil)
+	grant, err := access.ResolveKB(
+		ctx,
+		access.KBRequest{Caller: caller},
+		kb,
+		types.OrgRoleViewer,
+		p.shares,
+		nil,
+	)
 	if err != nil {
 		return ctx, true, err
 	}
@@ -77,7 +84,9 @@ func (p *PersonalRecovery) indexedLocalReadContext(
 		currentPrincipal, present := current.Value(types.PrincipalContextKey).(types.Principal)
 		currentKey, currentKeyed := types.TenantAPIKeyScopeFromContext(current)
 		if !valid || active != view.TenantID || !present || currentPrincipal != principal ||
-			types.CallerFromContext(current) != caller || currentKeyed != keyed || !reflect.DeepEqual(key, currentKey) {
+			types.CallerFromContext(
+				current,
+			) != caller || currentKeyed != keyed || !reflect.DeepEqual(key, currentKey) {
 			return access.ErrUnauthorized
 		}
 		if _, err := p.checkExactPublishedViewer(current, view); err != nil {
@@ -180,7 +189,8 @@ LIMIT 2`, personalIndexReceiptScope, id, view.TenantID, view.KnowledgeBaseID, ty
 	if err != nil {
 		return row, nil, err
 	}
-	if stored.Size <= 0 || stored.Size > 64*1024*1024 || stored.Lifecycle != types.ResourceLifecyclePersistent ||
+	if stored.Size <= 0 || stored.Size > 64*1024*1024 ||
+		stored.Lifecycle != types.ResourceLifecyclePersistent ||
 		stored.ExpiresAt != nil {
 		return row, nil, errPersonalExactDocument
 	}
@@ -210,7 +220,8 @@ LIMIT 2`, personalIndexReceiptScope, id, view.TenantID, view.KnowledgeBaseID, ty
 	}
 	sha, md := sha256.Sum256(data), md5.Sum(data)
 	digest := hex.EncodeToString(sha[:])
-	if int64(len(data)) != stored.Size || hex.EncodeToString(md[:]) != row.FileHash || digest != receipt.Manifest ||
+	if int64(len(data)) != stored.Size || hex.EncodeToString(md[:]) != row.FileHash ||
+		digest != receipt.Manifest ||
 		(stored.ContentHash != "" && stored.ContentHash != digest) {
 		return row, nil, errPersonalExactDocument
 	}
