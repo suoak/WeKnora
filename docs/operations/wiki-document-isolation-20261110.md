@@ -14,6 +14,11 @@ unchanged until the partial-document protocol passes validation.
 `KNOWHUB_WIKI_DOCUMENT_SELECTION_KBS` must also list each reviewed KB ID. An
 empty allowlist leaves every worker on the existing protocol, even if the
 feature switch is on. Expand only after the read-only preview and canary.
+An optional `KNOWHUB_WIKI_DOCUMENT_SELECTION_ACTIVE_FILE` contains a JSON array
+of currently active KB IDs. The environment allowlist remains the upper bound;
+the file cannot activate an unreviewed KB. Missing, oversized or invalid files
+leave the new behavior inactive. Operators replace this file atomically to
+expand a completed canary without restarting the APP or interrupting sync again.
 
 Implemented candidate behavior:
 
@@ -60,7 +65,8 @@ directory paths, nested COUNT/projection reads, and retaining existing authority
 for shared KBs and API keys. Frontend production build and all 16 locale checks
 passed. Validation artifacts: `WIKI_DOCUMENT_SELECTION_V10_VALIDATION*.json`,
 `WIKI_DOCUMENT_SELECTION_V12_VALIDATION*.json` and the hash-linked
-`WIKI_DOCUMENT_SELECTION_V13_VALIDATION*.json` in
+`WIKI_DOCUMENT_SELECTION_V13_VALIDATION*.json` and
+`WIKI_DOCUMENT_SELECTION_V14_VALIDATION*.json` in
 the operator incident directory. This is validation evidence, not deployment
 or a claim that production backlog has drained.
 

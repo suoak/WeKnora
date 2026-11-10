@@ -2,6 +2,7 @@ package repository
 
 import (
 	"encoding/json"
+	"io"
 	"os"
 	"strings"
 
@@ -21,7 +22,29 @@ func WikiDocumentSelectionForKB(kb string) bool {
 	}
 	for _, id := range strings.Split(os.Getenv("KNOWHUB_WIKI_DOCUMENT_SELECTION_KBS"), ",") {
 		if strings.TrimSpace(id) == kb && kb != "" {
-			return true
+			path := os.Getenv("KNOWHUB_WIKI_DOCUMENT_SELECTION_ACTIVE_FILE")
+			if path == "" {
+				return true
+			}
+			file, err := os.Open(path)
+			if err != nil {
+				return false
+			}
+			defer file.Close()
+			raw, err := io.ReadAll(io.LimitReader(file, (16<<10)+1))
+			if err != nil || len(raw) > 16<<10 {
+				return false
+			}
+			var active []string
+			if json.Unmarshal(raw, &active) != nil || len(active) > 64 {
+				return false
+			}
+			for _, enabled := range active {
+				if enabled == kb {
+					return true
+				}
+			}
+			return false
 		}
 	}
 	return false
