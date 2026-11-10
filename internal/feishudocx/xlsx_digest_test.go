@@ -80,6 +80,9 @@ func TestFeishuXLSXIdentityProtectsContents(t *testing.T) {
 func TestFeishuXLSXIdentityRejectsAmbiguousColumns(t *testing.T) {
 	for _, columns := range []string{
 		`<col min="1" max="2" width="NaN"/>`,
+		`<col min="1" max="2" width="Inf"/>`,
+		`<col min="1" max="2" width="-1"/>`,
+		`<col min="1" max="2" width="1e309"/>`,
 		`<col min="1" max="16385" width="1"/>`,
 		`<col min="2" max="1" width="1"/>`,
 		`<col min="1" max="16384"/><col min="1" max="16384"/><col min="1" max="16384"/>`,
@@ -88,6 +91,26 @@ func TestFeishuXLSXIdentityRejectsAmbiguousColumns(t *testing.T) {
 	} {
 		_, _, err := CanonicalXLSXDigest(xlsxIdentityFixture(t, columns, `<v>1</v>`, "asset", "", false))
 		require.ErrorIs(t, err, ErrInvalidXLSXPackage)
+	}
+}
+
+func TestFeishuXLSXWideExportColumnsKeepExistingIdentity(t *testing.T) {
+	want, algorithm, err := CanonicalXLSXDigest(xlsxIdentityFixture(t,
+		`<col min="1" max="2" width="10" customWidth="1" style="3"/>`, `<v>1</v>`, "asset", "", false))
+	require.NoError(t, err)
+	for _, width := range []string{"255", "256", "512.25", "4096", "1e6"} {
+		t.Run(width, func(t *testing.T) {
+			cols := `<col min="1" max="2" width="` + width + `" customWidth="1" style="3"/>`
+			digest, nextAlgorithm, e := CanonicalXLSXDigest(
+				xlsxIdentityFixture(t, cols, `<v>1</v>`, "asset", "", false),
+			)
+			require.NoError(t, e)
+			require.Equal(t, algorithm, nextAlgorithm)
+			require.Equal(t, want, digest, "ignored layout width must not change source identity")
+			changed, _, e := CanonicalXLSXDigest(xlsxIdentityFixture(t, cols, `<v>2</v>`, "asset", "", false))
+			require.NoError(t, e)
+			require.NotEqual(t, want, changed, "wide columns cannot hide a changed cell")
+		})
 	}
 }
 

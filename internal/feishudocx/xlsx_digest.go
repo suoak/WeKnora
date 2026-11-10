@@ -157,7 +157,10 @@ func normalizeExportColumnWidths(worksheet *node) error {
 					}
 				case "width":
 					v, e := strconv.ParseFloat(attr.Value, 64)
-					if e != nil || math.IsNaN(v) || math.IsInf(v, 0) || v < 0 || v > 255 {
+					// Feishu exports can contain layout widths above 255. Width is
+					// already omitted from identity and never controls expansion;
+					// retain numeric validation without the old 255-unit cap.
+					if e != nil || math.IsNaN(v) || math.IsInf(v, 0) || v < 0 {
 						return ErrInvalidXLSXPackage
 					}
 				default:
