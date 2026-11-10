@@ -82,3 +82,43 @@ content writes, and sibling preservation. SQLite migration parity, role and
 private/cross-workspace checks, frontend type checks and connector configuration
 tests are part of the release validation. The `deleted` state requires schema
 3046; downgrade refuses existing deletion tombstones instead of losing them.
+
+The final native Linux build for `66b921d43f03d99fb3796dd46da85a690ce93f06`
+passed repository race tests, handler/router/types/service/database tests,
+normal-source authority tests and vet. Frontend type checks, 19 focused tests
+and the production asset build passed.
+
+An isolated HTTP environment applied the official 3045-to-3046 migration and
+verified a non-creator viewer saving held source configuration (old execution
+canceled), saving/reopening image settings, and single/batch/clear deletion of
+three enrolled documents. Actual live document/chunk counts reached zero with
+three deletion tombstones. Source deletion did not block later settings reads.
+Cross-workspace source editing returned 403. Synthetic fixtures were removed.
+
+## Completed collaboration/deletion deployment
+
+Production APP and frontend now both identify revision
+`66b921d43f03d99fb3796dd46da85a690ce93f06`. Deployment completed at
+2026-11-10 16:15:16 Asia/Shanghai. Native binary SHA256:
+`d7d11bc467738b145877549ad74695116809eea9ec101836155fedc414f67acc`.
+The standalone official migration runner applied 3045 to 3046 while the prior
+APP was stopped; the resulting schema is clean. Schema and source execution
+snapshots and the prior APP/frontend images are retained for recovery.
+
+The new APP is healthy and the frontend index hash matches the built artifact.
+Source configurations and cursors were equal across the stopped-to-started
+checkpoint. Database, Redis, docreader, MCP and Neo4j containers were untouched.
+Only this deployment's queue pause markers were released; existing pauses
+were preserved. No forced application kill was used.
+
+Production HTTP verification returned 200 for ELOG settings, source list and
+document list. The VLM enabled flag is true, the selected model remains
+`f3c2beaa-3c50-432b-b3bd-41c929feb086`, and both VLM and image-processing
+configuration match persisted values. ELOG currently has zero live documents
+and sources following the authorized reset, so complete fresh ingestion is
+not claimed by this deployment verification.
+
+Private build, HTTP, staging, deployment and production receipts are under
+`E:/AIData/Codex/elog-collaboration-20261110/`. An application rollback retains
+schema 3046; its removal-only expansion preserves publication checks and must
+not be downgraded after deletion tombstones exist.
