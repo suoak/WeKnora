@@ -42,6 +42,7 @@ const props = defineProps<{
   canEdit: boolean;
   canDownload: boolean;
   canMutateKnowledge: boolean;
+  canDeleteKnowledge?: boolean;
   traceVisibleIds: Record<string, boolean>;
   loading?: boolean;
   /** Every folder of the knowledge base, for the "move to folder" picker. */
@@ -255,13 +256,13 @@ const handleAction = (action: 'download' | 'edit' | 'reparse' | 'cancel-parse' |
     <div ref="stickySentinel" class="doc-list-sticky-sentinel" aria-hidden="true"></div>
     <div class="doc-list-header" :class="{ 'is-stuck': headerStuck }" role="row">
       <div class="cell cell-check" role="columnheader" @click.stop>
-        <t-checkbox v-if="canEdit || canDownload" class="doc-list-check" size="small" :checked="allSelected" :indeterminate="someSelected"
+        <t-checkbox v-if="canEdit || canDownload || canDeleteKnowledge" class="doc-list-check" size="small" :checked="allSelected" :indeterminate="someSelected"
           :disabled="!items.length" :title="t('knowledgeBase.selectAll')" @change="onHeaderCheckboxChange" />
       </div>
       <div class="cell cell-name" role="columnheader">{{ t('knowledgeBase.columnName') }}</div>
       <div class="cell cell-tags" role="columnheader">{{ t('knowledgeBase.columnTag') }}</div>
       <div class="cell cell-status" role="columnheader">{{ t('knowledgeBase.columnStatus') }}</div>
-      <div class="cell cell-actions" role="columnheader" v-if="canEdit"></div>
+      <div class="cell cell-actions" role="columnheader" v-if="canEdit || canDeleteKnowledge"></div>
     </div>
 
     <div class="doc-list-body" role="rowgroup">
@@ -269,7 +270,7 @@ const handleAction = (action: 'download' | 'edit' | 'reparse' | 'cancel-parse' |
         :class="{ selected: selectedIds.has(item.id), 'menu-open': moreOpen === item.id }" :data-select-id="item.id"
         role="row" @click="emit('open', item)">
         <div class="cell cell-check" role="cell" @click.stop>
-          <t-checkbox v-if="canEdit || canDownload" class="doc-list-check" size="small" :checked="selectedIds.has(item.id)" :title="item.file_name"
+          <t-checkbox v-if="canEdit || canDownload || canDeleteKnowledge" class="doc-list-check" size="small" :checked="selectedIds.has(item.id)" :title="item.file_name"
             @change="(c: boolean, ctx?: { e?: Event }) => onRowCheckboxChange(item, c, ctx)" />
         </div>
 
@@ -310,7 +311,7 @@ const handleAction = (action: 'download' | 'edit' | 'reparse' | 'cancel-parse' |
                 <button v-if="item.tags.length > 5" type="button" class="row-tag row-tag--overflow"
                   :disabled="!canEdit" :title="item.tags.slice(5).map(tag => tag.name).join(', ')">+{{ item.tags.length - 5 }}</button>
               </div>
-              <button v-else-if="canEdit" type="button" class="row-tag-add">
+              <button v-else-if="canEdit || canDeleteKnowledge" type="button" class="row-tag-add">
                 <t-icon name="add" size="12px" />
                 {{ t('knowledgeBase.tagAddAction') }}
               </button>
@@ -333,7 +334,7 @@ const handleAction = (action: 'download' | 'edit' | 'reparse' | 'cancel-parse' |
           </template>
         </div>
 
-        <div class="cell cell-actions" role="cell" v-if="canEdit" @click.stop>
+        <div class="cell cell-actions" role="cell" v-if="canEdit || canDeleteKnowledge" @click.stop>
           <t-popup :visible="moreOpen === item.id" placement="bottom-right" trigger="click" destroy-on-close overlay-class-name="card-more"
             :on-visible-change="(v: boolean) => onMoreVisible(item.id, v)">
             <button class="row-more-btn" :class="{ active: moreOpen === item.id }" type="button"
@@ -361,7 +362,7 @@ const handleAction = (action: 'download' | 'edit' | 'reparse' | 'cancel-parse' |
                 <DocumentActionMenu
                   :item="item"
                   :can-download="canDownload"
-                  :can-mutate-knowledge="canMutateKnowledge"
+                  :can-mutate-knowledge="canMutateKnowledge" :can-delete-knowledge="canDeleteKnowledge"
                   :trace-visible="!!traceVisibleIds[item.id] || (item.parse_status === 'pending' || item.parse_status === 'processing' || item.parse_status === 'finalizing')"
                   @download="handleAction('download', item)"
                   @edit="handleAction('edit', item)"

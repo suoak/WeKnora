@@ -149,6 +149,10 @@ func (s *knowledgeService) DeleteKnowledge(ctx context.Context, id string) error
 //     run time, so even with an empty PageSlugs it will do the right thing —
 //     and at worst it's a cheap no-op.
 func (s *knowledgeService) cleanupWikiOnKnowledgeDelete(ctx context.Context, knowledge *types.Knowledge) {
+	if knowledge == nil {
+		return
+	}
+	ctx = types.WithLegacyWikiCleanup(ctx, knowledge.TenantID, knowledge.KnowledgeBaseID)
 	if err := s.cleanupWikiReferences(ctx, knowledge, s.wikiChunkRefsForKnowledge(ctx, knowledge)); err != nil {
 		logger.Warnf(ctx, "wiki cleanup failed: %v", err)
 	}
@@ -274,6 +278,19 @@ func (s *knowledgeService) cleanupWikiReferences(
 func (s *knowledgeService) wikiChunkRefsForKnowledge(ctx context.Context, knowledge *types.Knowledge) map[string]bool {
 	if knowledge == nil || s.chunkRepo == nil {
 		return nil
+	}
+	if refs, ok := s.chunkRepo.(interface {
+		ListChunkIDsForDeletion(context.Context, uint64, string) ([]string, error)
+	}); ok {
+		ids, err := refs.ListChunkIDsForDeletion(ctx, knowledge.TenantID, knowledge.ID)
+		if err != nil {
+			return nil
+		}
+		out := make(map[string]bool, len(ids))
+		for _, id := range ids {
+			out[id] = true
+		}
+		return out
 	}
 	chunks, err := s.chunkRepo.ListAllChunksByKnowledgeID(ctx, knowledge.TenantID, knowledge.ID)
 	if err != nil {
@@ -439,7 +456,7 @@ func (s *knowledgeService) executeKnowledgeDelete(plan *knowledgeDeletePlan, sin
 		prev := knowledge.ParseStatus
 		before := *knowledge
 		var err error
-		if plan.cleanup {
+		if plan.cleanup || legacyWikiDrive(knowledge.Channel) {
 			err = s.repo.MarkKnowledgeDeleting(ctx, knowledge)
 		} else {
 			knowledge.ParseStatus = types.ParseStatusDeleting

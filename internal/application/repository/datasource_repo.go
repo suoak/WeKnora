@@ -92,20 +92,33 @@ func (r *DataSourceRepository) Update(ctx context.Context, ds *types.DataSource)
 			if err != nil {
 				return err
 			}
-			if legacySourceKind(old.Type) && (!legacyConfigEqual(old.Config, ds.Config) || old.Type != ds.Type || old.KnowledgeBaseID != ds.KnowledgeBaseID) {
+			if legacySourceKind(old.Type) && (old.LegacyAccessState == "hold" || !legacyConfigEqual(old.Config, ds.Config) || old.Type != ds.Type || old.KnowledgeBaseID != ds.KnowledgeBaseID) {
 				if old.TenantID != ds.TenantID || old.KnowledgeBaseID != ds.KnowledgeBaseID {
 					return legacyFence("source_tenant_or_kb_rebind_denied")
 				}
-				unused, err := unusedLegacySourceDraft(tx, old)
-				if err != nil {
+				// Configuration changes replace the execution, not the member's
+				// permission. Fence old messages under the source lock so the next
+				// manual sync can immediately use the newly validated config.
+				now := time.Now().UTC()
+				if err := tx.Model(&types.SyncLog{}).
+					Where("data_source_id=? AND (status IN ? OR execution_claimed=?)",
+						ds.ID, []string{"running", "pending"}, true).
+					Updates(map[string]any{
+						"status": types.SyncLogStatusCanceled, "execution_claimed": false,
+						"execution_generation": gorm.Expr("execution_generation + 1"),
+						"finished_at":          now, "error_message": "Source configuration changed; start a new sync",
+					}).Error; err != nil {
 					return err
 				}
-				if !unused && old.LegacyAccessState != "revoked" {
-					if err := tx.Model(&types.DataSource{}).Where("id=?", ds.ID).
-						Update("legacy_access_state", "hold").Error; err != nil {
-						return err
-					}
-					old.LegacyAccessState = "hold"
+				if err := tx.Model(&types.DataSource{}).Where("id=?", ds.ID).
+					Updates(map[string]any{"legacy_access_state": "active", "last_sync_cursor": nil,
+						"last_sync_result": nil, "last_sync_at": nil, "error_message": ""}).Error; err != nil {
+					return err
+				}
+				old.LegacyAccessState = "active"
+				ds.LastSyncCursor, ds.LastSyncResult, ds.LastSyncAt, ds.ErrorMessage = nil, nil, nil, ""
+				if ds.Status == types.DataSourceStatusError {
+					ds.Status = types.DataSourceStatusActive
 				}
 			}
 			ds.LegacyAccessState = old.LegacyAccessState

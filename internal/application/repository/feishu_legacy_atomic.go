@@ -319,6 +319,12 @@ func (s *FeishuLegacyStore) beginWithSourceIdentity(
 		} else if e != nil {
 			return e
 		}
+		var userDeletion struct {
+			Deleted bool `json:"deleted_by_user"`
+		}
+		if json.Unmarshal(r.QuarantineSnapshot, &userDeletion) == nil && userDeletion.Deleted {
+			return legacyFence("resource_deleted_by_user")
+		}
 		if r.State == "revoked" {
 			return legacyFence("resource_revoked")
 		}

@@ -24,8 +24,8 @@ func TestFeishuSourceWriteAccessUsesSpaceWriterAndKBPermissions(t *testing.T) {
 	}{
 		{name: "wiki_writer", kind: "feishu", role: "contributor", tenant: 1, status: 204},
 		{name: "drive_writer", kind: "feishu_drive", role: "contributor", tenant: 1, status: 204},
-		{name: "viewer", kind: "feishu", role: "viewer", tenant: 1, status: 403},
-		{name: "other_connector", kind: "gitlab", role: "contributor", tenant: 1, status: 403},
+		{name: "viewer", kind: "feishu", role: "viewer", tenant: 1, status: 204},
+		{name: "other_connector", kind: "gitlab", role: "contributor", tenant: 1, status: 204},
 		{name: "other_connector_admin", kind: "gitlab", role: "admin", tenant: 1, status: 204},
 		{name: "other_space", kind: "feishu", role: "contributor", tenant: 2, status: 403},
 		{name: "private_owner", kind: "feishu", role: "contributor", tenant: 1, owner: "writer", status: 204},
@@ -46,7 +46,7 @@ func TestFeishuSourceWriteAccessUsesSpaceWriterAndKBPermissions(t *testing.T) {
 			role:    "contributor",
 			tenant:  1,
 			update:  true,
-			status:  403,
+			status:  204,
 		},
 		{
 			name:    "take_admin_connector",
@@ -55,7 +55,7 @@ func TestFeishuSourceWriteAccessUsesSpaceWriterAndKBPermissions(t *testing.T) {
 			role:    "contributor",
 			tenant:  1,
 			update:  true,
-			status:  403,
+			status:  204,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

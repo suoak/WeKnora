@@ -65,8 +65,8 @@ func TestKnowledgeDeletionMetadataRegisteredBeforeOwnershipAndWriteGuards(t *tes
 		status int
 	}{
 		{"owner", types.TenantRoleContributor, 1, http.StatusOK},
-		{"other", types.TenantRoleContributor, 1, http.StatusForbidden},
-		{"other", types.TenantRoleViewer, 1, http.StatusForbidden},
+		{"other", types.TenantRoleContributor, 1, http.StatusOK},
+		{"other", types.TenantRoleViewer, 1, http.StatusOK},
 		{"owner", types.TenantRoleAdmin, 2, http.StatusNotFound},
 	} {
 		t.Run(actor.user+string(actor.role), func(t *testing.T) {

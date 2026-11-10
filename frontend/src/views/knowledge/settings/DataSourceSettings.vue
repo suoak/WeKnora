@@ -21,11 +21,10 @@ const emit = defineEmits<{ (e: 'count', value: number): void }>()
 const { t } = useI18n()
 const authStore = useAuthStore()
 
-// 飞书来源允许空间写入者管理；其他连接器继续使用管理员权限。
-// 后端独立检查知识库、私有所有权和来源授权。
-const canManageDataSource = computed(() => authStore.hasRole('contributor'))
-const canManageSource = (ds: DataSource) => authStore.hasRole('admin') ||
-  (canManageDataSource.value && ['feishu', 'feishu_drive', 'lark', 'lark_drive'].includes(ds.type))
+// Local workspace members collaborate on every connector. The server verifies
+// the workspace/private-KB boundary and never returns stored secrets.
+const canManageDataSource = computed(() => authStore.hasRole('viewer'))
+const canManageSource = (_ds: DataSource) => canManageDataSource.value
 
 const dataSources = ref<DataSource[]>([])
 const loading = ref(false)
