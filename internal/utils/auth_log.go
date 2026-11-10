@@ -3,12 +3,14 @@ package utils
 
 import "strings"
 
-// Include rejected suffixes: they must not turn a logging path into an upload.
+// IsPersonalMCPPath covers the original and isolated personal MCP paths,
+// including rejected suffixes that must never enter an upload log.
 func IsPersonalMCPPath(path string) bool {
 	return path == "/api/v1/mcp/personal" || strings.HasPrefix(path, "/api/v1/mcp/personal/") ||
 		IsIsolatedPersonalMCPPath(path)
 }
 
+// IsIsolatedPersonalMCPPath identifies only the isolated server-side route.
 func IsIsolatedPersonalMCPPath(path string) bool {
 	return path == "/internal/mcp/isolated/personal" ||
 		strings.HasPrefix(path, "/internal/mcp/isolated/personal/")

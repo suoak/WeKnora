@@ -1,3 +1,4 @@
+// Package logger provides context-aware application logging and SQL diagnostics.
 package logger
 
 import (

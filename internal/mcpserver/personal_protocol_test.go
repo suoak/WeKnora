@@ -72,12 +72,13 @@ func TestPersonalProtocolNormalJSONAndExactLimit(t *testing.T) {
 		for _, size := range []int{len(body), 1 << 20, (1 << 20) + 1} {
 			t.Run(fmt.Sprint(media, size), func(t *testing.T) {
 				called := 0
-				h := personalHTTPBoundary(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				h := personalHTTPBoundary(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 					require.True(t, logger.PrivatePayload(r.Context()))
 					require.True(t, logger.IsolatedPersonalPayload(r.Context()))
 					called++
 				}), isolatedPersonalPath)
-				r := httptest.NewRequest("POST", isolatedPersonalPath, strings.NewReader(body+strings.Repeat(" ", size-len(body))))
+				payload := body + strings.Repeat(" ", size-len(body))
+				r := httptest.NewRequest("POST", isolatedPersonalPath, strings.NewReader(payload))
 				r.ContentLength = -1 // covers an unknown-length/chunked body too
 				r.Header.Set("Content-Type", media)
 				w := httptest.NewRecorder()

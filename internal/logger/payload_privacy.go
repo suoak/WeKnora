@@ -19,6 +19,8 @@ func WithPrivatePayload(ctx context.Context) context.Context {
 	return context.WithValue(ctx, payloadPrivacyKey{}, true)
 }
 
+// PrivatePayload reports whether arbitrary request and response payloads must
+// be excluded from diagnostics.
 func PrivatePayload(ctx context.Context) bool {
 	return ctx != nil && ctx.Value(payloadPrivacyKey{}) == true
 }
@@ -29,6 +31,7 @@ func WithIsolatedPersonalPayload(ctx context.Context) context.Context {
 	return context.WithValue(WithPrivatePayload(ctx), isolatedPersonalKey{}, true)
 }
 
+// IsolatedPersonalPayload reports the server-selected isolated route marker.
 func IsolatedPersonalPayload(ctx context.Context) bool {
 	return ctx != nil && ctx.Value(isolatedPersonalKey{}) == true
 }
