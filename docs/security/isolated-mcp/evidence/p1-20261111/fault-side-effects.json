@@ -1,0 +1,59 @@
+{
+  "before": {
+    "business_tables": {
+      "knowledges": "8:c031bc4a4579751a935c7aedd95943c7",
+      "chunks": "8:9ba1ca437288b849ced6ebb48770699a",
+      "wiki_pages": "2:46364c33895c7c58f4b74fb17ce85f35",
+      "sessions": "0:",
+      "messages": "0:",
+      "resources": "0:",
+      "resource_bindings": "0:",
+      "task_pending_ops": "0:",
+      "task_dead_letters": "0:"
+    },
+    "object_store_files": [],
+    "business_tasks": {
+      "default": 0,
+      "chat_attachment": 0,
+      "postprocess": 0,
+      "summary": 0,
+      "multimodal": 0,
+      "graph": 0,
+      "question": 0,
+      "sync": 0,
+      "approved_sync": 0,
+      "low": 0,
+      "wiki": 0,
+      "memory": 0
+    }
+  },
+  "after": {
+    "business_tables": {
+      "knowledges": "8:c031bc4a4579751a935c7aedd95943c7",
+      "chunks": "8:9ba1ca437288b849ced6ebb48770699a",
+      "wiki_pages": "2:46364c33895c7c58f4b74fb17ce85f35",
+      "sessions": "0:",
+      "messages": "0:",
+      "resources": "0:",
+      "resource_bindings": "0:",
+      "task_pending_ops": "0:",
+      "task_dead_letters": "0:"
+    },
+    "object_store_files": [],
+    "business_tasks": {
+      "default": 0,
+      "chat_attachment": 0,
+      "postprocess": 0,
+      "summary": 0,
+      "multimodal": 0,
+      "graph": 0,
+      "question": 0,
+      "sync": 0,
+      "approved_sync": 0,
+      "low": 0,
+      "wiki": 0,
+      "memory": 0
+    }
+  },
+  "business_unchanged": true
+}

@@ -57,7 +57,7 @@ func (s *PersonalServer) Handler() http.Handler {
 	if s != nil {
 		sink = s.usage
 	}
-	return observeHTTP(sink, "go_personal", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	h := observeHTTP(sink, "go_personal", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s == nil || !s.enabled || s.knowledge == nil {
 			http.Error(w, "personal MCP disabled", http.StatusForbidden)
 			return
@@ -101,11 +101,15 @@ func (s *PersonalServer) Handler() http.Handler {
 		w.Header().Set("Cache-Control", "private, no-store")
 		s.handler.ServeHTTP(w, r)
 	}))
+	if s.Enabled() {
+		return personalHTTPBoundary(h)
+	}
+	return h
 }
 
 func (s *PersonalServer) guard(next server.ToolHandlerFunc) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return observeTool(s.usage, "go_personal", s.enforceGuard(next))(ctx, req)
+		return personalToolBoundary(observeTool(s.usage, "go_personal", s.enforceGuard(next)))(ctx, req)
 	}
 }
 
@@ -163,8 +167,11 @@ func personalJSON(ctx context.Context, value any) (*mcp.CallToolResult, error) {
 	done := perftrace.Measure(ctx, perftrace.Serialize)
 	defer done()
 	b, err := json.Marshal(value)
+	if err == nil {
+		b, err = redactPersonalOutput(b)
+	}
 	if err != nil {
-		return nil, err
+		return mcp.NewToolResultError("resource denied or unavailable"), nil
 	}
 	return mcp.NewToolResultText(string(b)), nil
 }

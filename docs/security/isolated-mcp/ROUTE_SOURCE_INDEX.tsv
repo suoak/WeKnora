@@ -1,0 +1,582 @@
+source	line	receiver	method_or_group	path_fragment_or_expression	kind
+internal/router/files.go	251	r	GET	/files	literal_call
+internal/router/files.go	312	r	GET	/r/:token	literal_call
+internal/router/files.go	313	r	HEAD	/r/:token	literal_call
+internal/router/files.go	336	g	helper:GET	/knowledge-bases/:id/files	apiKeyRoute
+internal/router/files.go	498	g	helper:GET	/sessions/:id/messages/:message_id/files	apiKeyRoute
+internal/router/files.go	536	r	GET	/api/v1/files/presigned	literal_call
+internal/router/files.go	537	r	HEAD	/api/v1/files/presigned	literal_call
+internal/router/files.go	648	r	GET	/api/v1/files/presigned-preview	literal_call
+internal/router/rbac.go	373	grp	Handle:method	rel	dynamic_expression_not_expanded
+internal/router/rbac.go	403	grp	Handle:method	rel	dynamic_expression_not_expanded
+internal/router/router.go	148	r	GET	/health	literal_call
+internal/router/router.go	155	r	GET	/swagger/*any	literal_call
+internal/router/router.go	206	r	GET	/api/v1/local-browser/extension	literal_call
+internal/router/router.go	207	r	POST	/api/v1/local-browser/extension/authorize	literal_call
+internal/router/router.go	208	r	POST	/api/v1/local-browser/internal	literal_call
+internal/router/router.go	234	r	Group	/api/v1	literal_call
+internal/router/router.go	311	v1	GET	/me/browser	literal_call
+internal/router/router.go	312	v1	GET	/me/browser/extension	literal_call
+internal/router/router.go	313	v1	POST	/me/browser	literal_call
+internal/router/routes_agent.go	24	r	Group	/agents	literal_call
+internal/router/routes_agent.go	34	agentsRead	GET	/placeholders	literal_call
+internal/router/routes_agent.go	36	agentsRead	GET	/type-presets	literal_call
+internal/router/routes_agent.go	38	agentsWrite	POST		literal_call
+internal/router/routes_agent.go	40	agentsRead	GET		literal_call
+internal/router/routes_agent.go	42	agentsRead	GET	/:id	literal_call
+internal/router/routes_agent.go	44	agentsWrite	PUT	/:id	literal_call
+internal/router/routes_agent.go	46	agentsWrite	DELETE	/:id	literal_call
+internal/router/routes_agent.go	48	agentsWrite	POST	/:id/copy	literal_call
+internal/router/routes_agent.go	51	g	helper:GET	/agents/:id/suggested-questions	apiKeyRoute
+internal/router/routes_agent.go	64	r	Group	/user/favorites	literal_call
+internal/router/routes_agent.go	66	favs	GET		literal_call
+internal/router/routes_agent.go	67	favs	POST		literal_call
+internal/router/routes_agent.go	68	favs	DELETE	/:type/:id	literal_call
+internal/router/routes_agent.go	78	r	Group	/skills	literal_call
+internal/router/routes_agent.go	81	skills	GET		literal_call
+internal/router/routes_agent.go	83	skills	GET	/catalog	literal_call
+internal/router/routes_agent.go	86	r	Group	/skills/catalog	literal_call
+internal/router/routes_agent.go	88	catalogWrite	POST		literal_call
+internal/router/routes_agent.go	89	catalogWrite	POST	/:id/install	literal_call
+internal/router/routes_agent.go	90	catalogWrite	GET	/:id/files	literal_call
+internal/router/routes_agent.go	91	catalogWrite	GET	/:id/files/content	literal_call
+internal/router/routes_agent.go	92	catalogWrite	DELETE	/:id	literal_call
+internal/router/routes_agent.go	99	r	Group	/organizations	literal_call
+internal/router/routes_agent.go	102	orgs	POST		literal_call
+internal/router/routes_agent.go	105	orgs	GET		literal_call
+internal/router/routes_agent.go	107	orgs	GET	/preview/:code	literal_call
+internal/router/routes_agent.go	109	orgs	POST	/join	literal_call
+internal/router/routes_agent.go	111	orgs	POST	/join-request	literal_call
+internal/router/routes_agent.go	113	orgs	GET	/search	literal_call
+internal/router/routes_agent.go	115	orgs	POST	/join-by-id	literal_call
+internal/router/routes_agent.go	117	orgs	GET	/:id	literal_call
+internal/router/routes_agent.go	122	orgs	PUT	/:id	literal_call
+internal/router/routes_agent.go	126	orgs	DELETE	/:id	literal_call
+internal/router/routes_agent.go	128	orgs	POST	/:id/leave	literal_call
+internal/router/routes_agent.go	132	orgs	POST	/:id/request-upgrade	literal_call
+internal/router/routes_agent.go	136	orgs	POST	/:id/invite-code	literal_call
+internal/router/routes_agent.go	141	orgs	GET	/:id/search-tenants	literal_call
+internal/router/routes_agent.go	145	orgs	GET	/:id/search-users	literal_call
+internal/router/routes_agent.go	147	orgs	POST	/:id/invite	literal_call
+internal/router/routes_agent.go	149	orgs	GET	/:id/members	literal_call
+internal/router/routes_agent.go	154	orgs	PUT	/:id/members/:tenant_id	literal_call
+internal/router/routes_agent.go	159	orgs	DELETE	/:id/members/:tenant_id	literal_call
+internal/router/routes_agent.go	163	orgs	GET	/:id/join-requests	literal_call
+internal/router/routes_agent.go	165	orgs	PUT	/:id/join-requests/:request_id/review	literal_call
+internal/router/routes_agent.go	167	orgs	GET	/:id/shares	literal_call
+internal/router/routes_agent.go	169	orgs	GET	/:id/agent-shares	literal_call
+internal/router/routes_agent.go	171	orgs	GET	/:id/shared-knowledge-bases	literal_call
+internal/router/routes_agent.go	173	orgs	GET	/:id/shared-agents	literal_call
+internal/router/routes_agent.go	182	r	Group	/knowledge-bases/:id/shares	literal_call
+internal/router/routes_agent.go	185	kbShares	POST		literal_call
+internal/router/routes_agent.go	187	kbShares	GET		literal_call
+internal/router/routes_agent.go	189	kbShares	PUT	/:share_id	literal_call
+internal/router/routes_agent.go	191	kbShares	DELETE	/:share_id	literal_call
+internal/router/routes_agent.go	203	r	Group	/agents/:id/shares	literal_call
+internal/router/routes_agent.go	205	agentShares	POST		literal_call
+internal/router/routes_agent.go	206	agentShares	GET		literal_call
+internal/router/routes_agent.go	207	agentShares	DELETE	/:share_id	literal_call
+internal/router/routes_agent.go	211	g	helper:GET	/shared-knowledge-bases	apiKeyRoute
+internal/router/routes_agent.go	213	g	helper:GET	/shared-agents	apiKeyRoute
+internal/router/routes_agent.go	217	g	helper:POST	/shared-agents/disabled	apiKeyRoute
+internal/router/routes_agent.go	236	r	GET	/api/v1/embed-frame-policy	literal_call
+internal/router/routes_agent.go	237	r	Group	/api/v1/embed/:channel_id	literal_call
+internal/router/routes_agent.go	239	embed	POST	/exchange	literal_call
+internal/router/routes_agent.go	240	embed	GET	/config	literal_call
+internal/router/routes_agent.go	241	embed	GET	/suggested-questions	literal_call
+internal/router/routes_agent.go	242	embed	GET	/chunks/:chunk_id	literal_call
+internal/router/routes_agent.go	243	embed	POST	/sessions	literal_call
+internal/router/routes_agent.go	244	embed	POST	/knowledge-chat/:session_id	literal_call
+internal/router/routes_agent.go	245	embed	POST	/agent-chat/:session_id	literal_call
+internal/router/routes_agent.go	246	embed	GET	/messages/:session_id/load	literal_call
+internal/router/routes_agent.go	247	embed	POST	/sessions/:session_id/stop	literal_call
+internal/router/routes_agent.go	248	embed	GET	/sessions/:session_id/messages/:message_id/suggestions	literal_call
+internal/router/routes_agent.go	249	embed	POST	/sessions/:session_id/messages/:message_id/suggestions	literal_call
+internal/router/routes_agent.go	250	embed	POST	/sessions/:session_id/suggestion-events	literal_call
+internal/router/routes_agent.go	251	embed	POST	/sessions/:session_id/events	literal_call
+internal/router/routes_agent.go	252	embed	POST	/sessions/:session_id/mcp-oauth-resolutions/:pending_id	literal_call
+internal/router/routes_agent.go	253	embed	POST	/sessions/:session_id/mcp-oauth-resolutions/:pending_id/cancel	literal_call
+internal/router/routes_agent.go	254	embed	POST	/sessions/:session_id/mcp-services/:id/oauth/authorize-url	literal_call
+internal/router/routes_agent.go	255	embed	GET	/sessions/:session_id/mcp-services/:id/oauth/status	literal_call
+internal/router/routes_agent.go	256	embed	POST	/sessions/:session_id/tool-approvals/:pending_id	literal_call
+internal/router/routes_agent.go	260	embed	GET	/files	literal_call
+internal/router/routes_agent.go	269	r	Group	/agents/:id/embed-channels	literal_call
+internal/router/routes_agent.go	271	agentEmbed	POST		literal_call
+internal/router/routes_agent.go	272	agentEmbed	GET		literal_call
+internal/router/routes_agent.go	274	r	Group	/embed-channels	literal_call
+internal/router/routes_agent.go	276	channels	GET		literal_call
+internal/router/routes_agent.go	277	channels	GET	/:channel_id	literal_call
+internal/router/routes_agent.go	278	channels	PUT	/:channel_id	literal_call
+internal/router/routes_agent.go	279	channels	DELETE	/:channel_id	literal_call
+internal/router/routes_agent.go	280	channels	POST	/:channel_id/rotate-token	literal_call
+internal/router/routes_agent.go	281	channels	POST	/:channel_id/preview-session	literal_call
+internal/router/routes_agent.go	282	channels	GET	/:channel_id/stats	literal_call
+internal/router/routes_agent.go	289	r	Group	/api/v1/im	literal_call
+internal/router/routes_agent.go	291	im	GET	/callback/:channel_id	literal_call
+internal/router/routes_agent.go	292	im	POST	/callback/:channel_id	literal_call
+internal/router/routes_agent.go	303	r	Group	/agents/:id/im-channels	literal_call
+internal/router/routes_agent.go	305	agentChannels	POST		literal_call
+internal/router/routes_agent.go	306	agentChannels	GET		literal_call
+internal/router/routes_agent.go	310	r	Group	/im-channels	literal_call
+internal/router/routes_agent.go	312	channels	GET		literal_call
+internal/router/routes_agent.go	313	channels	PUT	/:id	literal_call
+internal/router/routes_agent.go	314	channels	DELETE	/:id	literal_call
+internal/router/routes_agent.go	315	channels	POST	/:id/toggle	literal_call
+internal/router/routes_agent.go	320	r	Group	/wechat	literal_call
+internal/router/routes_agent.go	322	wechatGroup	POST	/qrcode	literal_call
+internal/router/routes_agent.go	323	wechatGroup	POST	/qrcode/status	literal_call
+internal/router/routes_auth_tenant.go	53	g	helper:GET	/tenants/all	apiKeyRoute
+internal/router/routes_auth_tenant.go	56	g	helper:GET	/tenants/search	apiKeyRoute
+internal/router/routes_auth_tenant.go	61	r	Group	/tenants	literal_call
+internal/router/routes_auth_tenant.go	71	g	helper:POST		apiKeyRoute
+internal/router/routes_auth_tenant.go	73	g	helper:GET		apiKeyRoute
+internal/router/routes_auth_tenant.go	80	g	helper:GET	/kv/:key	apiKeyRoute
+internal/router/routes_auth_tenant.go	81	g	helper:PUT	/kv/:key	apiKeyRoute
+internal/router/routes_auth_tenant.go	88	tenantRoutes	Group	/:id	literal_call
+internal/router/routes_auth_tenant.go	90	g	helper:GET		apiKeyRoute
+internal/router/routes_auth_tenant.go	93	g	helper:PUT		apiKeyRoute
+internal/router/routes_auth_tenant.go	95	g	helper:DELETE		apiKeyRoute
+internal/router/routes_auth_tenant.go	97	tenantByID	GET	/api-keys	literal_call
+internal/router/routes_auth_tenant.go	98	tenantByID	POST	/api-keys	literal_call
+internal/router/routes_auth_tenant.go	99	tenantByID	PUT	/api-keys/:key_id	literal_call
+internal/router/routes_auth_tenant.go	100	tenantByID	DELETE	/api-keys/:key_id	literal_call
+internal/router/routes_auth_tenant.go	101	tenantByID	GET	/api-principal-config	literal_call
+internal/router/routes_auth_tenant.go	102	tenantByID	PUT	/api-principal-config	literal_call
+internal/router/routes_auth_tenant.go	103	tenantByID	POST	/api-principal-test-token	literal_call
+internal/router/routes_auth_tenant.go	112	g	helper:GET	/members	apiKeyRoute
+internal/router/routes_auth_tenant.go	113	g	helper:POST	/members	apiKeyRoute
+internal/router/routes_auth_tenant.go	114	g	helper:PUT	/members/:user_id	apiKeyRoute
+internal/router/routes_auth_tenant.go	115	g	helper:DELETE	/members/:user_id	apiKeyRoute
+internal/router/routes_auth_tenant.go	116	tenantByID	POST	/leave	literal_call
+internal/router/routes_auth_tenant.go	129	g	helper:GET	/invitations	apiKeyRoute
+internal/router/routes_auth_tenant.go	130	g	helper:POST	/invitations	apiKeyRoute
+internal/router/routes_auth_tenant.go	131	g	helper:DELETE	/invitations/:inv_id	apiKeyRoute
+internal/router/routes_auth_tenant.go	136	g	helper:POST	/invite-links	apiKeyRoute
+internal/router/routes_auth_tenant.go	145	tenantByID	GET	/audit-log	literal_call
+internal/router/routes_auth_tenant.go	152	r	Group	/mcp-api-keys	literal_call
+internal/router/routes_auth_tenant.go	153	g	GET		literal_call
+internal/router/routes_auth_tenant.go	154	g	GET	/scope-options	literal_call
+internal/router/routes_auth_tenant.go	155	g	GET	/:id	literal_call
+internal/router/routes_auth_tenant.go	156	g	POST		literal_call
+internal/router/routes_auth_tenant.go	157	g	PUT	/:id	literal_call
+internal/router/routes_auth_tenant.go	158	g	PATCH	/:id	literal_call
+internal/router/routes_auth_tenant.go	159	g	POST	/:id/rotate	literal_call
+internal/router/routes_auth_tenant.go	160	g	DELETE	/:id	literal_call
+internal/router/routes_auth_tenant.go	180	r	Group	/me	literal_call
+internal/router/routes_auth_tenant.go	182	me	GET	/invitations	literal_call
+internal/router/routes_auth_tenant.go	183	me	GET	/invitations/pending-count	literal_call
+internal/router/routes_auth_tenant.go	184	me	POST	/invitations/:inv_id/accept	literal_call
+internal/router/routes_auth_tenant.go	185	me	POST	/invitations/:inv_id/decline	literal_call
+internal/router/routes_auth_tenant.go	187	me	POST	/invitations/accept-by-token	literal_call
+internal/router/routes_auth_tenant.go	207	r	Group	/me/env-vars	literal_call
+internal/router/routes_auth_tenant.go	209	me	GET		literal_call
+internal/router/routes_auth_tenant.go	210	me	PUT	/skill	literal_call
+internal/router/routes_auth_tenant.go	211	me	DELETE	/skill	literal_call
+internal/router/routes_auth_tenant.go	212	me	PUT	/sandbox	literal_call
+internal/router/routes_auth_tenant.go	213	me	DELETE	/sandbox	literal_call
+internal/router/routes_auth_tenant.go	219	r	POST	/auth/register	literal_call
+internal/router/routes_auth_tenant.go	226	r	POST	/auth/register-by-invite	literal_call
+internal/router/routes_auth_tenant.go	227	r	POST	/auth/invitations/lookup	literal_call
+internal/router/routes_auth_tenant.go	228	r	POST	/auth/login	literal_call
+internal/router/routes_auth_tenant.go	229	r	POST	/auth/auto-setup	literal_call
+internal/router/routes_auth_tenant.go	230	r	GET	/auth/config	literal_call
+internal/router/routes_auth_tenant.go	231	r	POST	/auth/switch-tenant	literal_call
+internal/router/routes_auth_tenant.go	232	r	GET	/auth/oidc/config	literal_call
+internal/router/routes_auth_tenant.go	233	r	GET	/auth/oidc/url	literal_call
+internal/router/routes_auth_tenant.go	234	r	GET	/auth/oidc/callback	literal_call
+internal/router/routes_auth_tenant.go	235	r	POST	/auth/oidc/backchannel-logout	literal_call
+internal/router/routes_auth_tenant.go	236	r	POST	/auth/oidc/result	literal_call
+internal/router/routes_auth_tenant.go	238	r	GET	/auth/oidc/start	literal_call
+internal/router/routes_auth_tenant.go	239	r	POST	/auth/refresh	literal_call
+internal/router/routes_auth_tenant.go	240	r	GET	/auth/validate	literal_call
+internal/router/routes_auth_tenant.go	241	r	POST	/auth/logout	literal_call
+internal/router/routes_auth_tenant.go	245	g	helper:GET	/auth/me	apiKeyRoute
+internal/router/routes_auth_tenant.go	246	r	PUT	/auth/me/preferences	literal_call
+internal/router/routes_auth_tenant.go	247	r	POST	/auth/change-password	literal_call
+internal/router/routes_auth_tenant.go	264	r	POST	/system/host-project-dir	literal_call
+internal/router/routes_auth_tenant.go	266	r	Group	/system	literal_call
+internal/router/routes_auth_tenant.go	269	systemRoutes	GET	/info	literal_call
+internal/router/routes_auth_tenant.go	270	systemRoutes	GET	/parser-engines	literal_call
+internal/router/routes_auth_tenant.go	271	systemRoutes	POST	/parser-engines/check	literal_call
+internal/router/routes_auth_tenant.go	272	systemRoutes	POST	/docreader/reconnect	literal_call
+internal/router/routes_auth_tenant.go	273	systemRoutes	GET	/storage-engine-status	literal_call
+internal/router/routes_auth_tenant.go	274	systemRoutes	POST	/storage-engine-check	literal_call
+internal/router/routes_auth_tenant.go	275	systemRoutes	POST	/sandbox-check	literal_call
+internal/router/routes_auth_tenant.go	303	r	Group	/system/admin	literal_call
+internal/router/routes_auth_tenant.go	307	adminRoutes	GET	/model-catalog	literal_call
+internal/router/routes_auth_tenant.go	308	adminRoutes	POST	/model-catalog/preview	literal_call
+internal/router/routes_auth_tenant.go	309	adminRoutes	PUT	/model-catalog	literal_call
+internal/router/routes_auth_tenant.go	312	adminRoutes	POST	/promote	literal_call
+internal/router/routes_auth_tenant.go	313	adminRoutes	POST	/revoke	literal_call
+internal/router/routes_auth_tenant.go	314	adminRoutes	GET	/list	literal_call
+internal/router/routes_auth_tenant.go	315	adminRoutes	POST	/users/reset-password	literal_call
+internal/router/routes_auth_tenant.go	316	adminRoutes	POST	/users/create	literal_call
+internal/router/routes_auth_tenant.go	317	adminRoutes	GET	/api-keys	literal_call
+internal/router/routes_auth_tenant.go	318	adminRoutes	POST	/api-keys	literal_call
+internal/router/routes_auth_tenant.go	319	adminRoutes	DELETE	/api-keys/:key_id	literal_call
+internal/router/routes_auth_tenant.go	325	g	helper:GET	/settings	apiKeyRoute
+internal/router/routes_auth_tenant.go	328	g	helper:GET	/settings/:key	apiKeyRoute
+internal/router/routes_auth_tenant.go	331	g	helper:PUT	/settings/:key	apiKeyRoute
+internal/router/routes_auth_tenant.go	333	g	helper:DELETE	/settings/:key	apiKeyRoute
+internal/router/routes_auth_tenant.go	335	g	helper:GET	/model-policy	apiKeyRoute
+internal/router/routes_auth_tenant.go	338	g	helper:PUT	/model-policy	apiKeyRoute
+internal/router/routes_auth_tenant.go	344	g	helper:GET	/runtime/queues	apiKeyRoute
+internal/router/routes_auth_tenant.go	347	g	helper:GET	/runtime/queues/:queue/tasks	apiKeyRoute
+internal/router/routes_auth_tenant.go	350	g	helper:POST	/runtime/queues/:queue/tasks/:task_id/actions/:action	apiKeyRoute
+internal/router/routes_auth_tenant.go	352	g	helper:DELETE	/runtime/queues/:queue/archived	apiKeyRoute
+internal/router/routes_auth_tenant.go	358	g	helper:POST	/tenants/apply-default-storage-quota	apiKeyRoute
+internal/router/routes_auth_tenant.go	370	g	helper:GET	/audit-log	apiKeyRoute
+internal/router/routes_chat.go	24	r	Group	/messages	literal_call
+internal/router/routes_chat.go	28	historyMessages	POST	/search	literal_call
+internal/router/routes_chat.go	29	historyMessages	GET	/chat-history-stats	literal_call
+internal/router/routes_chat.go	30	chatMessages	GET	/:session_id/load	literal_call
+internal/router/routes_chat.go	31	chatMessages	DELETE	/:session_id/:id	literal_call
+internal/router/routes_chat.go	51	r	Group	/sessions	literal_call
+internal/router/routes_chat.go	53	sessions	POST		literal_call
+internal/router/routes_chat.go	54	sessions	DELETE	/batch	literal_call
+internal/router/routes_chat.go	55	sessions	GET	/:id	literal_call
+internal/router/routes_chat.go	56	sessions	GET		literal_call
+internal/router/routes_chat.go	57	sessions	PUT	/:id	literal_call
+internal/router/routes_chat.go	58	sessions	DELETE	/:id	literal_call
+internal/router/routes_chat.go	59	sessions	DELETE	/:id/messages	literal_call
+internal/router/routes_chat.go	60	sessions	POST	/:session_id/generate_title	literal_call
+internal/router/routes_chat.go	61	sessions	POST	/:session_id/attachments	literal_call
+internal/router/routes_chat.go	62	sessions	GET	/:id/attachments	literal_call
+internal/router/routes_chat.go	63	sessions	GET	/:id/attachments/:attachment_id	literal_call
+internal/router/routes_chat.go	64	sessions	GET	/:id/attachments/:attachment_id/preview	literal_call
+internal/router/routes_chat.go	65	sessions	DELETE	/:id/attachments/:attachment_id	literal_call
+internal/router/routes_chat.go	66	sessions	POST	/:session_id/stop	literal_call
+internal/router/routes_chat.go	67	sessions	POST	/:session_id/fork	literal_call
+internal/router/routes_chat.go	68	sessions	POST	/:session_id/rewind	literal_call
+internal/router/routes_chat.go	69	sessions	POST	/:session_id/sandbox/terminal-ticket	literal_call
+internal/router/routes_chat.go	70	sessions	POST	/:session_id/sandbox/desktop-ticket	literal_call
+internal/router/routes_chat.go	71	sessions	POST	/:session_id/sandbox/desktop/activity	literal_call
+internal/router/routes_chat.go	72	sessions	GET	/:id/local-browser	literal_call
+internal/router/routes_chat.go	73	sessions	POST	/:session_id/local-browser	literal_call
+internal/router/routes_chat.go	78	sessions	POST	/:session_id/steer	literal_call
+internal/router/routes_chat.go	79	sessions	GET	/:id/steer	literal_call
+internal/router/routes_chat.go	80	sessions	DELETE	/:id/steer/:steer_id	literal_call
+internal/router/routes_chat.go	81	sessions	POST	/:session_id/steer/:steer_id/inject	literal_call
+internal/router/routes_chat.go	86	sessions	POST	/:session_id/pin	literal_call
+internal/router/routes_chat.go	87	sessions	DELETE	/:id/pin	literal_call
+internal/router/routes_chat.go	89	sessions	GET	/continue-stream/:session_id	literal_call
+internal/router/routes_chat.go	93	sessions	GET	/:id/messages/:message_id/suggestions	literal_call
+internal/router/routes_chat.go	94	sessions	POST	/:session_id/messages/:message_id/suggestions	literal_call
+internal/router/routes_chat.go	95	sessions	POST	/:session_id/suggestion-events	literal_call
+internal/router/routes_chat.go	109	sessions	GET	/:id/artifacts	literal_call
+internal/router/routes_chat.go	110	sessions	GET	/:id/messages/:message_id/artifacts	literal_call
+internal/router/routes_chat.go	111	sessions	GET	/:id/messages/:message_id/artifacts/:index/download	literal_call
+internal/router/routes_chat.go	114	sessions	DELETE	/:id/messages/:message_id/artifacts/:index	literal_call
+internal/router/routes_chat.go	120	r	Group	/artifacts	literal_call
+internal/router/routes_chat.go	122	artifacts	GET		literal_call
+internal/router/routes_chat.go	126	artifacts	DELETE		literal_call
+internal/router/routes_chat.go	136	r	Group	/knowledge-chat	literal_call
+internal/router/routes_chat.go	138	knowledgeChat	POST	/:session_id	literal_call
+internal/router/routes_chat.go	142	r	Group	/agent-chat	literal_call
+internal/router/routes_chat.go	144	agentChat	POST	/:session_id	literal_call
+internal/router/routes_chat.go	148	r	Group	/knowledge-search	literal_call
+internal/router/routes_chat.go	150	knowledgeSearch	POST		literal_call
+internal/router/routes_chat.go	168	r	GET	/api/v1/sessions/:id/sandbox/terminal	literal_call
+internal/router/routes_chat.go	181	r	GET	/api/v1/sessions/:id/sandbox/desktop	literal_call
+internal/router/routes_feishu_personal.go	14	r	Group	/system/admin/feishu	literal_call
+internal/router/routes_feishu_personal.go	15	admin	GET		literal_call
+internal/router/routes_feishu_personal.go	16	admin	PUT		literal_call
+internal/router/routes_feishu_personal.go	17	admin	POST	/test	literal_call
+internal/router/routes_feishu_personal.go	18	r	Group	/me/feishu	literal_call
+internal/router/routes_feishu_personal.go	19	me	GET		literal_call
+internal/router/routes_feishu_personal.go	20	me	POST	/authorize	literal_call
+internal/router/routes_feishu_personal.go	21	me	POST	/callback	literal_call
+internal/router/routes_feishu_personal.go	22	me	DELETE		literal_call
+internal/router/routes_feishu_personal.go	23	r	Group	/knowledge-bases/:id/feishu	literal_call
+internal/router/routes_feishu_personal.go	24	kb	GET		literal_call
+internal/router/routes_feishu_personal.go	25	kb	POST		literal_call
+internal/router/routes_infra.go	21	r	Group	/models	literal_call
+internal/router/routes_infra.go	24	models	GET	/providers	literal_call
+internal/router/routes_infra.go	26	models	GET	/catalog/resolve	literal_call
+internal/router/routes_infra.go	27	models	POST	/catalog/resolve	literal_call
+internal/router/routes_infra.go	29	models	POST		literal_call
+internal/router/routes_infra.go	31	models	GET		literal_call
+internal/router/routes_infra.go	33	models	GET	/default-policy	literal_call
+internal/router/routes_infra.go	35	models	POST	/:id/debug	literal_call
+internal/router/routes_infra.go	37	models	POST	/:id/debug/embeddings	literal_call
+internal/router/routes_infra.go	39	models	POST	/:id/copy	literal_call
+internal/router/routes_infra.go	41	models	GET	/:id	literal_call
+internal/router/routes_infra.go	43	models	PUT	/:id	literal_call
+internal/router/routes_infra.go	45	models	DELETE	/:id	literal_call
+internal/router/routes_infra.go	47	models	PUT	/:id/credentials	literal_call
+internal/router/routes_infra.go	48	models	DELETE	/:id/credentials/:field	literal_call
+internal/router/routes_infra.go	61	r	Group	/sandbox-configs	literal_call
+internal/router/routes_infra.go	63	configs	GET		literal_call
+internal/router/routes_infra.go	64	configs	PUT	/workspace-policy	literal_call
+internal/router/routes_infra.go	65	configs	POST	/templates/query	literal_call
+internal/router/routes_infra.go	66	configs	POST		literal_call
+internal/router/routes_infra.go	67	configs	GET	/:id	literal_call
+internal/router/routes_infra.go	68	configs	PUT	/:id	literal_call
+internal/router/routes_infra.go	69	configs	DELETE	/:id	literal_call
+internal/router/routes_infra.go	70	configs	GET	/:id/sandboxes	literal_call
+internal/router/routes_infra.go	74	configs	GET	/:id/skills	literal_call
+internal/router/routes_infra.go	75	configs	POST	/:id/skills	literal_call
+internal/router/routes_infra.go	76	configs	GET	/:id/skills/:skillId	literal_call
+internal/router/routes_infra.go	77	configs	GET	/:id/skills/:skillId/files	literal_call
+internal/router/routes_infra.go	78	configs	GET	/:id/skills/:skillId/files/content	literal_call
+internal/router/routes_infra.go	79	configs	POST	/:id/skills/:skillId/reinstall	literal_call
+internal/router/routes_infra.go	80	configs	GET	/:id/skills/:skillId/guidance	literal_call
+internal/router/routes_infra.go	81	configs	POST	/:id/skills/:skillId/guidance	literal_call
+internal/router/routes_infra.go	82	configs	POST	/:id/skills/:skillId/stop	literal_call
+internal/router/routes_infra.go	83	configs	PATCH	/:id/skills/:skillId	literal_call
+internal/router/routes_infra.go	84	configs	DELETE	/:id/skills/:skillId	literal_call
+internal/router/routes_infra.go	85	configs	GET	/:id/skills/:skillId/install-events	literal_call
+internal/router/routes_infra.go	86	configs	GET	/:id/skills/:skillId/transcript	literal_call
+internal/router/routes_infra.go	95	r	Group	/evaluation	literal_call
+internal/router/routes_infra.go	97	evaluationRoutes	POST		literal_call
+internal/router/routes_infra.go	98	evaluationRoutes	GET		literal_call
+internal/router/routes_infra.go	105	g	helper:GET	/initialization/config/:kbId	apiKeyRoute
+internal/router/routes_infra.go	110	g	helper:POST	/initialization/initialize/:kbId	apiKeyRoute
+internal/router/routes_infra.go	112	g	helper:PUT	/initialization/config/:kbId	apiKeyRoute
+internal/router/routes_infra.go	118	g	helper:GET	/initialization/ollama/status	apiKeyRoute
+internal/router/routes_infra.go	119	g	helper:GET	/initialization/ollama/models	apiKeyRoute
+internal/router/routes_infra.go	120	g	helper:POST	/initialization/ollama/models/check	apiKeyRoute
+internal/router/routes_infra.go	121	g	helper:POST	/initialization/ollama/models/download	apiKeyRoute
+internal/router/routes_infra.go	122	g	helper:GET	/initialization/ollama/download/progress/:taskId	apiKeyRoute
+internal/router/routes_infra.go	123	g	helper:GET	/initialization/ollama/download/tasks	apiKeyRoute
+internal/router/routes_infra.go	126	g	helper:POST	/initialization/remote/check	apiKeyRoute
+internal/router/routes_infra.go	127	g	helper:POST	/initialization/embedding/test	apiKeyRoute
+internal/router/routes_infra.go	128	g	helper:POST	/initialization/rerank/check	apiKeyRoute
+internal/router/routes_infra.go	129	g	helper:POST	/initialization/asr/check	apiKeyRoute
+internal/router/routes_infra.go	130	g	helper:POST	/initialization/multimodal/test	apiKeyRoute
+internal/router/routes_infra.go	132	g	helper:POST	/initialization/extract/text-relation	apiKeyRoute
+internal/router/routes_infra.go	133	g	helper:POST	/initialization/extract/fabri-tag	apiKeyRoute
+internal/router/routes_infra.go	134	g	helper:POST	/initialization/extract/fabri-text	apiKeyRoute
+internal/router/routes_infra.go	156	r	GET	/mcp-oauth/callback	literal_call
+internal/router/routes_infra.go	158	r	Group	/mcp-services	literal_call
+internal/router/routes_infra.go	161	mcpServices	POST		literal_call
+internal/router/routes_infra.go	163	mcpServices	GET		literal_call
+internal/router/routes_infra.go	165	mcpServices	GET	/:id	literal_call
+internal/router/routes_infra.go	167	mcpServices	PUT	/:id	literal_call
+internal/router/routes_infra.go	169	mcpServices	DELETE	/:id	literal_call
+internal/router/routes_infra.go	171	mcpServices	POST	/:id/test	literal_call
+internal/router/routes_infra.go	173	mcpServices	GET	/:id/tools	literal_call
+internal/router/routes_infra.go	174	mcpServices	GET	/:id/metadata	literal_call
+internal/router/routes_infra.go	178	mcpServices	POST	/:id/metadata/refresh	literal_call
+internal/router/routes_infra.go	179	mcpServices	POST	/:id/usage-instructions/generate	literal_call
+internal/router/routes_infra.go	181	mcpServices	GET	/:id/resources	literal_call
+internal/router/routes_infra.go	184	mcpServices	PUT	/:id/credentials	literal_call
+internal/router/routes_infra.go	185	mcpServices	DELETE	/:id/credentials/:field	literal_call
+internal/router/routes_infra.go	187	mcpServices	GET	/:id/tool-approvals	literal_call
+internal/router/routes_infra.go	188	mcpServices	PUT	/:id/tool-approvals/:tool_name	literal_call
+internal/router/routes_infra.go	192	mcpServices	POST	/:id/oauth/authorize-url	literal_call
+internal/router/routes_infra.go	193	mcpServices	GET	/:id/oauth/status	literal_call
+internal/router/routes_infra.go	194	mcpServices	DELETE	/:id/oauth/token	literal_call
+internal/router/routes_infra.go	199	r	Group	/agent	literal_call
+internal/router/routes_infra.go	206	agentTool	POST	/tool-approvals/:pending_id	literal_call
+internal/router/routes_infra.go	209	agentTool	POST	/mcp-oauth-resolutions/:pending_id	literal_call
+internal/router/routes_infra.go	210	agentTool	POST	/mcp-oauth-resolutions/:pending_id/cancel	literal_call
+internal/router/routes_infra.go	217	r	Group	/web-search	literal_call
+internal/router/routes_infra.go	219	webSearch	GET	/providers	literal_call
+internal/router/routes_infra.go	236	r	Group	/web-search-providers	literal_call
+internal/router/routes_infra.go	239	providers	GET	/types	literal_call
+internal/router/routes_infra.go	241	providers	POST	/test	literal_call
+internal/router/routes_infra.go	243	providers	POST		literal_call
+internal/router/routes_infra.go	244	providers	GET		literal_call
+internal/router/routes_infra.go	245	providers	GET	/:id	literal_call
+internal/router/routes_infra.go	246	providers	PUT	/:id	literal_call
+internal/router/routes_infra.go	247	providers	DELETE	/:id	literal_call
+internal/router/routes_infra.go	249	providers	PUT	/:id/credentials	literal_call
+internal/router/routes_infra.go	250	providers	DELETE	/:id/credentials/:field	literal_call
+internal/router/routes_infra.go	252	providers	POST	/:id/test	literal_call
+internal/router/routes_infra.go	262	r	Group	/vector-stores	literal_call
+internal/router/routes_infra.go	265	stores	GET	/types	literal_call
+internal/router/routes_infra.go	267	stores	POST	/test	literal_call
+internal/router/routes_infra.go	269	stores	POST		literal_call
+internal/router/routes_infra.go	270	stores	GET		literal_call
+internal/router/routes_infra.go	271	stores	GET	/:id	literal_call
+internal/router/routes_infra.go	272	stores	PUT	/:id	literal_call
+internal/router/routes_infra.go	273	stores	DELETE	/:id	literal_call
+internal/router/routes_infra.go	275	stores	POST	/:id/test	literal_call
+internal/router/routes_infra.go	281	r	Group	/storage-backends	literal_call
+internal/router/routes_infra.go	283	backends	GET	/types	literal_call
+internal/router/routes_infra.go	284	backends	POST	/test	literal_call
+internal/router/routes_infra.go	285	backends	POST		literal_call
+internal/router/routes_infra.go	286	backends	GET		literal_call
+internal/router/routes_infra.go	287	backends	GET	/:id	literal_call
+internal/router/routes_infra.go	288	backends	PUT	/:id	literal_call
+internal/router/routes_infra.go	289	backends	DELETE	/:id	literal_call
+internal/router/routes_infra.go	290	backends	POST	/:id/test	literal_call
+internal/router/routes_infra.go	291	backends	PUT	/:id/default	literal_call
+internal/router/routes_infra.go	308	r	Group	/datasource	literal_call
+internal/router/routes_infra.go	311	ds	GET	/types	literal_call
+internal/router/routes_infra.go	314	ds	POST	/validate-credentials	literal_call
+internal/router/routes_infra.go	317	ds	POST		literal_call
+internal/router/routes_infra.go	318	ds	GET		literal_call
+internal/router/routes_infra.go	319	ds	GET	/:id	literal_call
+internal/router/routes_infra.go	320	ds	PUT	/:id	literal_call
+internal/router/routes_infra.go	321	ds	DELETE	/:id	literal_call
+internal/router/routes_infra.go	326	ds	PUT	/:id/credentials	literal_call
+internal/router/routes_infra.go	327	ds	DELETE	/:id/credentials/:field	literal_call
+internal/router/routes_infra.go	330	ds	POST	/:id/validate	literal_call
+internal/router/routes_infra.go	331	ds	GET	/:id/resources	literal_call
+internal/router/routes_infra.go	332	ds	POST	/:id/resource-ancestors	literal_call
+internal/router/routes_infra.go	335	ds	POST	/:id/sync	literal_call
+internal/router/routes_infra.go	336	ds	POST	/:id/pause	literal_call
+internal/router/routes_infra.go	337	ds	POST	/:id/resume	literal_call
+internal/router/routes_infra.go	340	ds	GET	/:id/logs	literal_call
+internal/router/routes_infra.go	341	ds	GET	/logs/:log_id	literal_call
+internal/router/routes_infra.go	350	g	helper:POST	/weknoracloud/credentials	apiKeyRoute
+internal/router/routes_infra.go	351	g	helper:GET	/models/weknoracloud/status	apiKeyRoute
+internal/router/routes_knowledge.go	19	g	helper:POST	/chunker/preview	apiKeyRoute
+internal/router/routes_knowledge.go	31	r	Group	/chunks	literal_call
+internal/router/routes_knowledge.go	35	chunkRead	GET	/:knowledge_id	literal_call
+internal/router/routes_knowledge.go	37	chunkRead	GET	/by-id/:id	literal_call
+internal/router/routes_knowledge.go	38	chunkRead	GET	/:knowledge_id/:id/revisions	literal_call
+internal/router/routes_knowledge.go	40	chunks	DELETE	/:knowledge_id/:id	literal_call
+internal/router/routes_knowledge.go	42	chunks	DELETE	/:knowledge_id	literal_call
+internal/router/routes_knowledge.go	44	chunks	PUT	/:knowledge_id/:id	literal_call
+internal/router/routes_knowledge.go	45	chunks	POST	/:knowledge_id/:id/revert	literal_call
+internal/router/routes_knowledge.go	51	chunks	DELETE	/by-id/:id/questions	literal_call
+internal/router/routes_knowledge.go	52	chunks	PUT	/by-id/:id/questions	literal_call
+internal/router/routes_knowledge.go	53	chunks	POST	/by-id/:id/questions/regenerate	literal_call
+internal/router/routes_knowledge.go	70	r	Group	/knowledge-bases/:id/knowledge	literal_call
+internal/router/routes_knowledge.go	73	kb	POST	/file	literal_call
+internal/router/routes_knowledge.go	74	kb	POST	/url	literal_call
+internal/router/routes_knowledge.go	75	kb	POST	/manual	literal_call
+internal/router/routes_knowledge.go	76	kbRead	GET		literal_call
+internal/router/routes_knowledge.go	78	kbRead	POST	/batch-download	literal_call
+internal/router/routes_knowledge.go	79	kbRead	GET	/folders	literal_call
+internal/router/routes_knowledge.go	80	kb	PUT	/folders	literal_call
+internal/router/routes_knowledge.go	89	r	Group	/knowledge-bases/:id	literal_call
+internal/router/routes_knowledge.go	92	kbImagesRead	GET	/images	literal_call
+internal/router/routes_knowledge.go	97	kbImagesRead	GET	/gallery-config	literal_call
+internal/router/routes_knowledge.go	101	r	Group	/knowledge	literal_call
+internal/router/routes_knowledge.go	118	kRead	GET	/batch	literal_call
+internal/router/routes_knowledge.go	119	kRead	GET	/:id	literal_call
+internal/router/routes_knowledge.go	120	kRead	GET	/:id/stages	literal_call
+internal/router/routes_knowledge.go	121	kRead	GET	/:id/spans	literal_call
+internal/router/routes_knowledge.go	122	k	DELETE	/:id	literal_call
+internal/router/routes_knowledge.go	123	k	PUT	/:id	literal_call
+internal/router/routes_knowledge.go	124	k	POST	/:id/regenerate-summary	literal_call
+internal/router/routes_knowledge.go	125	k	PUT	/manual/:id	literal_call
+internal/router/routes_knowledge.go	126	k	POST	/:id/reparse	literal_call
+internal/router/routes_knowledge.go	127	k	POST	/:id/cancel-parse	literal_call
+internal/router/routes_knowledge.go	134	kRead	GET	/:id/download	literal_call
+internal/router/routes_knowledge.go	135	kRead	GET	/:id/preview	literal_call
+internal/router/routes_knowledge.go	136	k	PUT	/image/:id/:chunk_id	literal_call
+internal/router/routes_knowledge.go	137	kRead	GET	/search	literal_call
+internal/router/routes_knowledge.go	138	kRead	GET	/move/progress/:task_id	literal_call
+internal/router/routes_knowledge.go	144	k	PUT	/tags	literal_call
+internal/router/routes_knowledge.go	145	k	POST	/batch-reparse	literal_call
+internal/router/routes_knowledge.go	146	k	POST	/batch-delete	literal_call
+internal/router/routes_knowledge.go	147	k	POST	/folder	literal_call
+internal/router/routes_knowledge.go	148	k	POST	/move	literal_call
+internal/router/routes_knowledge.go	165	r	Group	/knowledge-bases/:id/faq	literal_call
+internal/router/routes_knowledge.go	171	faqRead	GET	/entries	literal_call
+internal/router/routes_knowledge.go	172	faqRead	GET	/entries/export	literal_call
+internal/router/routes_knowledge.go	173	faqRead	GET	/entries/:entry_id	literal_call
+internal/router/routes_knowledge.go	174	faq	POST	/entries	literal_call
+internal/router/routes_knowledge.go	175	faq	POST	/entry	literal_call
+internal/router/routes_knowledge.go	176	faq	PUT	/entries/:entry_id	literal_call
+internal/router/routes_knowledge.go	177	faq	POST	/entries/:entry_id/similar-questions	literal_call
+internal/router/routes_knowledge.go	179	faq	PUT	/entries/fields	literal_call
+internal/router/routes_knowledge.go	180	faq	PUT	/entries/tags	literal_call
+internal/router/routes_knowledge.go	181	faq	DELETE	/entries	literal_call
+internal/router/routes_knowledge.go	184	faqRead	POST	/search	literal_call
+internal/router/routes_knowledge.go	186	faq	PUT	/import/last-result/display	literal_call
+internal/router/routes_knowledge.go	194	g	helper:GET	/faq/import/progress/:task_id	apiKeyRoute
+internal/router/routes_knowledge.go	213	r	Group	/knowledge-bases	literal_call
+internal/router/routes_knowledge.go	218	kbManagement	POST		literal_call
+internal/router/routes_knowledge.go	220	kb	GET		literal_call
+internal/router/routes_knowledge.go	222	kb	GET	/:id	literal_call
+internal/router/routes_knowledge.go	231	kbManagement	PUT	/:id	literal_call
+internal/router/routes_knowledge.go	233	kbManagement	POST	/:id/profile/generate	literal_call
+internal/router/routes_knowledge.go	235	kbManagement	DELETE	/:id	literal_call
+internal/router/routes_knowledge.go	243	kb	PUT	/:id/pin	literal_call
+internal/router/routes_knowledge.go	246	kb	POST	/:id/hybrid-search	literal_call
+internal/router/routes_knowledge.go	247	kb	GET	/:id/hybrid-search	literal_call
+internal/router/routes_knowledge.go	253	kbManagement	POST	/copy	literal_call
+internal/router/routes_knowledge.go	256	kbManagement	POST	/:id/duplicate	literal_call
+internal/router/routes_knowledge.go	263	kb	GET	/:id/move-targets	literal_call
+internal/router/routes_knowledge.go	277	g	helper:GET	/image-attrs/schema	apiKeyRoute
+internal/router/routes_knowledge.go	288	r	GET	/knowledge-bases/:id/activity	literal_call
+internal/router/routes_knowledge.go	304	r	Group	/knowledge-bases/:id/tags	literal_call
+internal/router/routes_knowledge.go	311	kbTagsRead	GET		literal_call
+internal/router/routes_knowledge.go	312	kbTags	POST		literal_call
+internal/router/routes_knowledge.go	313	kbTags	PUT	/:tag_id	literal_call
+internal/router/routes_knowledge.go	314	kbTags	DELETE	/:tag_id	literal_call
+internal/router/routes_knowledge.go	328	r	Group	/knowledgebase/:kb_id/wiki	literal_call
+internal/router/routes_knowledge.go	332	wikiRead	GET	/pages	literal_call
+internal/router/routes_knowledge.go	333	wiki	POST	/pages	literal_call
+internal/router/routes_knowledge.go	334	wiki	PUT	/move-page	literal_call
+internal/router/routes_knowledge.go	335	wikiRead	GET	/pages/*slug	literal_call
+internal/router/routes_knowledge.go	336	wiki	PUT	/pages/*slug	literal_call
+internal/router/routes_knowledge.go	337	wiki	DELETE	/pages/*slug	literal_call
+internal/router/routes_knowledge.go	341	wikiRead	GET	/revisions/*slug	literal_call
+internal/router/routes_knowledge.go	342	wiki	POST	/revert	literal_call
+internal/router/routes_knowledge.go	345	wikiRead	GET	/folders	literal_call
+internal/router/routes_knowledge.go	346	wiki	POST	/folders	literal_call
+internal/router/routes_knowledge.go	347	wiki	PUT	/folders/:folder_id	literal_call
+internal/router/routes_knowledge.go	348	wiki	DELETE	/folders/:folder_id	literal_call
+internal/router/routes_knowledge.go	351	wikiRead	GET	/index	literal_call
+internal/router/routes_knowledge.go	354	wikiRead	GET	/graph	literal_call
+internal/router/routes_knowledge.go	355	wikiRead	GET	/stats	literal_call
+internal/router/routes_knowledge.go	358	wikiRead	GET	/search	literal_call
+internal/router/routes_knowledge.go	359	wiki	POST	/rebuild-links	literal_call
+internal/router/routes_knowledge.go	360	wikiRead	GET	/lint	literal_call
+internal/router/routes_knowledge.go	361	wiki	POST	/auto-fix	literal_call
+internal/router/routes_knowledge.go	364	wikiRead	GET	/issues	literal_call
+internal/router/routes_knowledge.go	365	wiki	PUT	/issues/:issue_id/status	literal_call
+internal/router/routes_knowledge.go	368	r	Group	/wiki-search	literal_call
+internal/router/routes_knowledge.go	370	wikiSearch	POST		literal_call
+internal/router/routes_mcp_endpoint.go	21	r	Group	/mcp-endpoints	literal_call
+internal/router/routes_mcp_endpoint.go	22	grp	GET		literal_call
+internal/router/routes_mcp_endpoint.go	23	grp	GET	/tools	literal_call
+internal/router/routes_mcp_endpoint.go	24	grp	POST		literal_call
+internal/router/routes_mcp_endpoint.go	25	grp	GET	/:endpoint_id	literal_call
+internal/router/routes_mcp_endpoint.go	26	grp	PUT	/:endpoint_id	literal_call
+internal/router/routes_mcp_endpoint.go	27	grp	DELETE	/:endpoint_id	literal_call
+internal/router/routes_mcp_endpoint.go	28	grp	POST	/:endpoint_id/rotate-token	literal_call
+internal/router/routes_mcp_endpoint.go	46	r	Handle:method	"handler.MCPEndpointPath+"":endpoint_id"""	dynamic_expression_not_expanded
+internal/router/routes_memory.go	21	r	Group	/memory	literal_call
+internal/router/routes_memory.go	23	memoryGroup	GET	/settings	literal_call
+internal/router/routes_memory.go	24	memoryGroup	PUT	/settings	literal_call
+internal/router/routes_memory.go	25	memoryGroup	GET	/items	literal_call
+internal/router/routes_memory.go	26	memoryGroup	POST	/items	literal_call
+internal/router/routes_memory.go	27	memoryGroup	DELETE	/items	literal_call
+internal/router/routes_memory.go	28	memoryGroup	PUT	/items/:id	literal_call
+internal/router/routes_memory.go	29	memoryGroup	DELETE	/items/:id	literal_call
+internal/router/routes_memory.go	30	memoryGroup	POST	/items/:id/confirm	literal_call
+internal/router/routes_memory.go	31	memoryGroup	POST	/items/:id/reject	literal_call
+internal/router/routes_memory.go	32	memoryGroup	GET	/topics	literal_call
+internal/router/routes_memory.go	33	memoryGroup	DELETE	/topics/:id	literal_call
+internal/router/routes_memory.go	34	memoryGroup	POST	/topics/:id/promote	literal_call
+internal/router/routes_memory.go	35	memoryGroup	GET	/documents	literal_call
+internal/router/routes_memory.go	36	memoryGroup	DELETE	/documents/:id	literal_call
+internal/router/routes_memory.go	37	memoryGroup	GET	/export	literal_call
+internal/router/routes_memory.go	38	memoryGroup	POST	/consolidate	literal_call
+internal/router/routes_portal.go	10	r	Group	/portal	literal_call
+internal/router/routes_portal.go	12	portal	GET	/stages	literal_call
+internal/router/routes_portal.go	13	portal	GET	/spaces	literal_call
+internal/router/routes_portal.go	14	portal	GET	/my-spaces	literal_call
+internal/router/routes_portal.go	15	portal	POST	/spaces/:tenant_id/access-requests	literal_call
+internal/router/routes_portal.go	16	portal	POST	/spaces/:tenant_id/interaction/resolve	literal_call
+internal/router/routes_portal.go	18	r	Group	/me/tenant-access-requests	literal_call
+internal/router/routes_portal.go	20	me	GET		literal_call
+internal/router/routes_portal.go	21	me	POST	/:request_id/cancel	literal_call
+internal/router/routes_portal.go	26	r	Group	/tenants/:id	literal_call
+internal/router/routes_portal.go	28	tenant	GET	/access-requests	literal_call
+internal/router/routes_portal.go	29	tenant	POST	/access-requests/:request_id/approve	literal_call
+internal/router/routes_portal.go	30	tenant	POST	/access-requests/:request_id/reject	literal_call
+internal/router/routes_portal.go	35	r	Group	/system/admin/portal	literal_call
+internal/router/routes_portal.go	37	admin	GET	/organization-options	literal_call
+internal/router/routes_portal.go	38	admin	GET	/spaces	literal_call
+internal/router/routes_portal.go	39	admin	GET	/spaces/:tenant_id	literal_call
+internal/router/routes_portal.go	40	admin	PUT	/spaces/:tenant_id	literal_call
+internal/router/routes_portal.go	41	admin	POST	/spaces/:tenant_id/publish	literal_call
+internal/router/routes_portal.go	42	admin	POST	/spaces/:tenant_id/unpublish	literal_call
+internal/router/routes_portal.go	43	admin	POST	/spaces/:tenant_id/archive	literal_call
+internal/router/routes_usage_analytics.go	16	r	Group	/system/admin/usage	literal_call
+internal/router/routes_usage_analytics.go	17	admin	GET	/overview	literal_call
+internal/router/routes_usage_analytics.go	18	admin	GET	/tenants	literal_call
+internal/router/routes_usage_analytics.go	19	admin	GET	/timeseries	literal_call
+internal/router/routes_usage_analytics.go	20	admin	GET	/models	literal_call
+internal/router/routes_usage_analytics.go	21	admin	GET	/operations	literal_call
+internal/router/routes_usage_analytics.go	22	admin	GET	/mcp	literal_call
+internal/router/routes_usage_analytics.go	23	admin	GET	/knowledge-bases	literal_call

@@ -280,6 +280,9 @@ func ConfigureFromEnv() {
 
 // GetLogger 获取日志实例
 func GetLogger(c context.Context) *logrus.Entry {
+	if PrivatePayload(c) {
+		return logrus.NewEntry(privatePayloadLogger)
+	}
 	if logger := c.Value(types.LoggerContextKey); logger != nil {
 		return logger.(*logrus.Entry)
 	}
@@ -510,6 +513,9 @@ func Fatalf(c context.Context, format string, args ...interface{}) {
 // new key silently defaulted to being dropped.
 func CloneContext(ctx context.Context) context.Context {
 	newCtx := context.Background()
+	if PrivatePayload(ctx) {
+		newCtx = WithPrivatePayload(newCtx)
+	}
 
 	for _, k := range types.ContextKeysClonedAcrossDetach() {
 		if v := ctx.Value(k); v != nil {
@@ -537,6 +543,9 @@ func CloneContext(ctx context.Context) context.Context {
 // a tool has returned) onto the originating chat trace.
 func CloneContextWithoutTrace(ctx context.Context) context.Context {
 	newCtx := context.Background()
+	if PrivatePayload(ctx) {
+		newCtx = WithPrivatePayload(newCtx)
+	}
 	for _, k := range types.ContextKeysClonedAcrossDetach() {
 		if k == types.LangfuseTraceContextKey {
 			continue

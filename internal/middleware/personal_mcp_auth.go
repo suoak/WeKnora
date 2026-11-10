@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/Tencent/WeKnora/internal/config"
+	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/gin-gonic/gin"
@@ -16,6 +17,7 @@ import (
 func PersonalMCPAuth(tenants interfaces.TenantService, users interfaces.UserService, members interfaces.TenantMemberService, keys interfaces.TenantAPIKeyService, cfg *config.Config) gin.HandlerFunc {
 	auth := Auth(tenants, users, members, keys, cfg)
 	return func(c *gin.Context) {
+		c.Request = c.Request.WithContext(logger.WithPrivatePayload(c.Request.Context()))
 		token, ok := bearerToken(c)
 		if !ok || keys == nil || users == nil {
 			c.AbortWithStatus(http.StatusUnauthorized)

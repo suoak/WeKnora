@@ -76,7 +76,7 @@ func observeTool(sink usageRecorder, entry string, next server.ToolHandlerFunc) 
 			if panicked != nil {
 				v.report.ErrorCode = "panic"
 			}
-			if session, ok := server.ClientSessionFromContext(ctx).(server.SessionWithClientInfo); ok {
+			if session, ok := server.ClientSessionFromContext(ctx).(server.SessionWithClientInfo); ok && entry != "go_personal" {
 				info := session.GetClientInfo()
 				if safeUsageString(info.Name, 128) && info.Name != "" {
 					v.report.ClientName, v.report.ClientSource = info.Name, "negotiated"

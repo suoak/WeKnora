@@ -1,0 +1,23 @@
+{
+  "checked_utc": "2026-11-10T18:24:03.808073+00:00",
+  "sources": [
+    "knowhub-isolated-p1-20261111-app stdout/stderr",
+    "knowhub-isolated-p1-20261111-pg stdout/stderr",
+    "knowhub-isolated-p1-20261111-nginx stdout/stderr",
+    "knowhub-isolated-p1-20261111-redis stdout/stderr",
+    "APP protected file logs and LLM debug mount",
+    "app.log",
+    "logs/nginx-access.log",
+    "usage-metadata.jsonl"
+  ],
+  "sensitive_markers_occurrences": {
+    "SYNTHETIC_P1_QUERY_CODE_FILE_CANARY": 0,
+    "SIGNED_LINK_CANARY": 0,
+    "SYNTHETIC_PATH": 0
+  },
+  "test_credentials_absent": true,
+  "apm_canary_exports": 0,
+  "model_calls_positive": true,
+  "passed": true,
+  "scope": "dedicated test resources only; external production WAF/APM/model retention NOT_RUN"
+}

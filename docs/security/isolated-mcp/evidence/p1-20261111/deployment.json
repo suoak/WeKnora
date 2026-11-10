@@ -1,0 +1,12 @@
+{
+  "scope": "knowhub-isolated-p1-20261111",
+  "test_host": "172.30.232.42",
+  "postgres_container": "knowhub-isolated-p1-20261111-pg",
+  "nginx_container": "knowhub-isolated-p1-20261111-nginx",
+  "app_loopback_port": 18644,
+  "nginx_loopback_port": 8443,
+  "nginx_config_test": "PASS",
+  "tls": "synthetic two-day test CA/leaf",
+  "production_certificate_used": false,
+  "existing_80_8080_changed": false
+}

@@ -1,0 +1,81 @@
+{
+  "generated_scope": "P1 final candidate; synthetic data only",
+  "files": [
+    {
+      "path": "build-done.json",
+      "sha256": "6e14a6be061ed0393ff2e10532ea3e759d6614150d15073e3a834c413946cd2d"
+    },
+    {
+      "path": "build-results.json",
+      "sha256": "35c1801bd138e5cfdf9873976df32dc973e108beb17d8331ddd8b1c57df3cc79"
+    },
+    {
+      "path": "codex-result.json",
+      "sha256": "41216ae61b08f01b1fed63ca51fc5c2f1cf71595fa06ef249390e32a753064ef"
+    },
+    {
+      "path": "deployment.json",
+      "sha256": "3af69a07ed311348e5e3e9c30c524b3b92c29b6b04bca27a68e55fe2519b4b13"
+    },
+    {
+      "path": "fault-side-effects.json",
+      "sha256": "63a3882773666eae6d19294eaada0816cb7eed40c745f8230fdf065509895a4c"
+    },
+    {
+      "path": "faults-done.json",
+      "sha256": "b24efdf7a123c8a570d34db07ca220a412603b8b1815413556b7439202ca1f61"
+    },
+    {
+      "path": "faults.json",
+      "sha256": "23afe9d5a9298e28d31c11c6813ebd8fb06952d4aa2c6d48e9b82e29a11ad045"
+    },
+    {
+      "path": "final-faults-exit.json",
+      "sha256": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01"
+    },
+    {
+      "path": "final-log-proof.json",
+      "sha256": "71c1f03105a528ee460c108a9925685afa9379704def54ff927703e970a1717a"
+    },
+    {
+      "path": "final-restart-exit.json",
+      "sha256": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01"
+    },
+    {
+      "path": "final-runtime.json",
+      "sha256": "cd0fdda0300cd4e0433a147cf17eb5fa587c0e42159e579ebb2ea92d160b171f"
+    },
+    {
+      "path": "final-verify-exit.json",
+      "sha256": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01"
+    },
+    {
+      "path": "fullapp-acceptance-done.json",
+      "sha256": "46a8f2574b86aaaeeb56d4d78f0273bbb21b6f5347a4bf76df5985385b91881e"
+    },
+    {
+      "path": "fullapp-acceptance.json",
+      "sha256": "c57f64e55fcb9c3995996fb230f7cf6cc304c55c0ac96eaf578450095d9289d5"
+    },
+    {
+      "path": "fullapp-side-effects.json",
+      "sha256": "79165ff20cf983d7f8c1ecf3b0d28768553fab72f6b4a740973fb51a8f91e648"
+    },
+    {
+      "path": "fullapp-start.json",
+      "sha256": "22609ec989a9ec81ae5fc3dde19a4dd82059b6f8d667b036e9067b99288d71ab"
+    },
+    {
+      "path": "service-security-result.json",
+      "sha256": "7c9bb904bc3d44a41136e94b614cfb074e4b0c83252b8caa92f0a27d41999a61"
+    },
+    {
+      "path": "source-manifest.json",
+      "sha256": "0ad3b9eb641b10f82545927a323af67be53911bef955900839e4cebabe047187"
+    },
+    {
+      "path": "test-runtime-metadata.json",
+      "sha256": "3a992948b7da1b3b114d1b8af53f277f18dd78da6c820ffb9e28896cc321cbfe"
+    }
+  ]
+}

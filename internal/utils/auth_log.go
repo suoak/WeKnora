@@ -3,6 +3,11 @@ package utils
 
 import "strings"
 
+// Include rejected suffixes: they must not turn a logging path into an upload.
+func IsPersonalMCPPath(path string) bool {
+	return path == "/api/v1/mcp/personal" || strings.HasPrefix(path, "/api/v1/mcp/personal/")
+}
+
 // IsAuthenticationPath covers successful, rejected and unknown auth routes.
 // Authentication bodies and query strings are opaque to observability layers.
 func IsAuthenticationPath(path string) bool {
