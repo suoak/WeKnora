@@ -366,12 +366,6 @@ func (h *InitializationHandler) UpdateKBConfig(c *gin.Context) {
 		kb.ChunkingConfig.TableMetadataInstructions = strings.TrimSpace(*req.DocumentSplitting.TableMetadataInstructions)
 	}
 
-	// 更新多模态配置
-	if req.Multimodal.Enabled {
-		// VLM model already set above
-	} else {
-		kb.VLMConfig.ModelID = ""
-	}
 	if req.VLMConfig != nil {
 		kb.VLMConfig.DescriptionLanguage = strings.TrimSpace(req.VLMConfig.DescriptionLanguage)
 		kb.VLMConfig.CustomInstructions = strings.TrimSpace(req.VLMConfig.CustomInstructions)
