@@ -35,7 +35,12 @@ func run() error {
 		"preserve valid pages and original operations; isolate only pages failing current proof")
 	restoreParsed := flag.Bool("restore-parsed-stalls", false,
 		"preview/apply verified native parsed documents misclassified by housekeeping; preserve old work")
+	documentPreview := flag.Bool("preview-document-selection", false,
+		"read-only preview of independently verified documents and affected historical pages")
 	flag.Parse()
+	if *documentPreview && (*apply || *resume || *retireEmpty || *isolatePages || *restoreParsed) {
+		return errors.New("document selection preview is read-only and cannot combine recovery modes")
+	}
 	if *retireEmpty && *resume || *isolatePages && (*resume || *retireEmpty) ||
 		*restoreParsed && (*resume || *retireEmpty || *isolatePages) {
 		return errors.New("choose one recovery mode")
@@ -59,6 +64,15 @@ func run() error {
 		return err
 	}
 	defer func() { _ = pool.Close() }()
+	if *documentPreview {
+		ctx, cancel := context.WithTimeout(context.Background(), *deadline)
+		defer cancel()
+		plan, err := repository.PreviewWikiDocumentSelection(ctx, db, *tenant, *kb)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(plan)
+	}
 	if os.Getenv("REDIS_ADDR") == "" {
 		return errors.New("REDIS_ADDR required; offline Lite maintenance is not supported by this command")
 	}

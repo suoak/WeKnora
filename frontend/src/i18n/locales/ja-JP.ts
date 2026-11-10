@@ -3440,6 +3440,8 @@ const messages = {
       backToOverview: '概要に戻る',
       sourceVerificationStatus: 'ソースのアクセス権を確認待ちです。{count}件のタスクを保持しています',
       blockedStatus: 'Wiki処理が停止しています。{count}件のタスクを保持しています。管理者にお問い合わせください',
+	  skippedStatus: '{count} 件の文書をスキップし、他の文書の処理を継続します',
+	  skipReasons: { document_disabled: '文書が無効です', document_not_parsed: '解析が未完了です', personal_publication_pending: '個人インポートの検証待ち', source_verification_required: 'アクセス権または最新内容の検証待ち' },
       generatingStatus: 'Wikiを生成中です。残り{count}件のタスク',
       queueStatus: 'Wikiキューに{count}件の保留中タスクがあります',
       issueTitle: 'このページには{count}件の未処理のナレッジの競合またはエラーがあります',

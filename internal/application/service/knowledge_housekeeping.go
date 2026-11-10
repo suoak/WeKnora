@@ -140,6 +140,17 @@ func (h *HousekeepingService) StopWithin(timeout time.Duration) {
 // runSweep is exported on the type for testability — tests can drive a
 // single sweep without waiting for the cron tick.
 func (h *HousekeepingService) runSweep(ctx context.Context) {
+	if wikiDocumentSelectionEnabled() && h.task != nil {
+		targets, err := apprepo.RecheckWikiSkippedOperations(ctx, h.db, 32)
+		if err != nil {
+			logger.Warnf(ctx, "[Housekeeping] Wiki skipped-document recheck failed: %v", err)
+		}
+		for _, target := range targets {
+			if err := enqueueWikiIngestTrigger(ctx, h.task, target.TenantID, target.KnowledgeBaseID); err != nil {
+				logger.Warnf(ctx, "[Housekeeping] Wiki skip recovery trigger failed: %v", err)
+			}
+		}
+	}
 	threshold := h.staleThreshold()
 	cutoff := time.Now().Add(-threshold)
 
@@ -184,6 +195,19 @@ func (h *HousekeepingService) runSweep(ctx context.Context) {
 	}
 	var candidates []types.Knowledge
 	for _, row := range metadata {
+		if wikiDocumentSelectionEnabled() {
+			var parked bool
+			if err := h.db.WithContext(ctx).Raw(`SELECT EXISTS(SELECT 1 FROM task_pending_ops
+WHERE tenant_id=? AND scope='wiki_skipped_ops' AND scope_id=? AND task_type='wiki:ingest' AND dedup_key=?)`, row.TenantID, row.KnowledgeBaseID, row.ID).Scan(&parked).Error; err != nil {
+				logger.Warnf(ctx, "[Housekeeping] Wiki skip probe failed for %s; recovery deferred", row.ID)
+				continue
+			}
+			// A deliberate skip is not an orphaned parser. Its original
+			// finalizing slot belongs to the bounded recovery lane above.
+			if parked {
+				continue
+			}
+		}
 		// A metadata scan never grants permission to read or mutate protected
 		// content. Personal protocols belong to their own fenced reconciler.
 		if err := types.CheckLegacySourceRead(h.db.WithContext(ctx), row.ID, row.KnowledgeBaseID); err != nil {

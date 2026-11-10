@@ -4521,6 +4521,8 @@ const messages = {
       backToOverview: '개요로 돌아가기',
       sourceVerificationStatus: '소스 접근 권한 확인 대기 중이며 {count}개 작업이 보존되었습니다',
       blockedStatus: 'Wiki 처리가 중단되었습니다. {count}개 작업이 보존되었습니다. 관리자에게 문의하세요',
+	  skippedStatus: '문서 {count}개를 건너뛰고 다른 문서는 계속 처리합니다',
+	  skipReasons: { document_disabled: '비활성 문서', document_not_parsed: '파싱 미완료', personal_publication_pending: '개인 가져오기 검증 대기', source_verification_required: '접근 권한 또는 최신 내용 검증 대기' },
       generatingStatus: 'Wiki 생성 중, 남은 작업 {count}개',
       queueStatus: 'Wiki 대기열에 {count}개의 보류 중인 작업',
       issueTitle: '이 페이지에는 {count}개의 대기 중인 지식 충돌 또는 오류가 있습니다',

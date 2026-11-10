@@ -55,7 +55,12 @@ func (h *WikiPageHandler) validateWikiKB(c *gin.Context) (string, uint64, error)
 		return "", 0, errors.NewBadRequestError("Knowledge base ID is required")
 	}
 
-	kb, err := h.kbService.GetKnowledgeBaseByID(ctx, kbID)
+	readSelected := c.Request.Method == http.MethodGet && repository.WikiDocumentSelectionForKB(kbID) && types.WorkspaceWebReadTenant(ctx) != 0
+	lookup := ctx
+	if readSelected {
+		lookup = types.WithLegacyKBAdminMetadata(ctx, kbID)
+	}
+	kb, err := h.kbService.GetKnowledgeBaseByID(lookup, kbID)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
 		return "", 0, errors.NewNotFoundError("Knowledge base not found")
@@ -63,6 +68,19 @@ func (h *WikiPageHandler) validateWikiKB(c *gin.Context) (string, uint64, error)
 
 	if !kb.IsWikiEnabled() {
 		return "", 0, errors.NewBadRequestError("Wiki feature is not enabled for this knowledge base")
+	}
+	if readSelected {
+		reader, ok := h.wikiService.(interface {
+			VerifiedWikiBrowserReadContext(context.Context, string) (context.Context, error)
+		})
+		if !ok {
+			return "", 0, repository.ErrWikiMCPUnverified
+		}
+		verified, err := reader.VerifiedWikiBrowserReadContext(ctx, kbID)
+		if err != nil {
+			return "", 0, err
+		}
+		c.Request = c.Request.WithContext(verified)
 	}
 
 	return kbID, tenantID, nil

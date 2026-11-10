@@ -54,6 +54,10 @@ type wikiPageService struct {
 
 const maxWikiSearchKnowledgeBases = 32
 
+func (s *wikiPageService) VerifiedWikiBrowserReadContext(ctx context.Context, kb string) (context.Context, error) {
+	return repository.BeginVerifiedWikiBrowserRead(ctx, s.repo, kb)
+}
+
 // NewWikiPageService creates a new wiki page service
 func NewWikiPageService(
 	repo interfaces.WikiPageRepository,
@@ -926,8 +930,21 @@ func (s *wikiPageService) GetStats(ctx context.Context, kbID string) (*types.Wik
 
 	issues, _ := s.ListIssues(ctx, kbID, "", "pending")
 	pendingIssues = int64(len(issues))
+	var skippedDocuments int64
+	var skippedByReason map[string]int64
+	if wikiDocumentSelectionEnabled() {
+		skippedByReason, err = repository.ReadWikiDocumentSkipSummary(ctx, s.repo, kbID)
+		if err != nil {
+			return nil, err
+		}
+		for _, count := range skippedByReason {
+			skippedDocuments += count
+		}
+	}
 
 	return &types.WikiStats{
+		SkippedDocuments: skippedDocuments,
+		SkippedByReason:  skippedByReason,
 		ProcessingStatus: status,
 		BlockedReason:    blockedReason,
 		TotalPages:       total,

@@ -28,6 +28,25 @@ func (legacyReadGuardPlugin) Initialize(db *gorm.DB) error {
 		table := tx.Statement.Table
 		switch table {
 		case "wiki_pages", "wiki_page_revisions", "wiki_folders", "wiki_page_issues":
+			if scope, ok := tx.Statement.Context.Value(wikiVerifiedReadKey{}).(wikiVerifiedRead); ok && scope.Guard != nil {
+				if table == "wiki_page_revisions" || table == "wiki_page_issues" {
+					tx.AddError(ErrLegacySourceRestricted)
+					return
+				}
+				if err := scope.Guard(tx, "", scope.KB, nil); err != nil {
+					tx.AddError(err)
+					return
+				}
+				tx.Statement.AddClause(clause.Where{Exprs: []clause.Expression{clause.Eq{Column: clause.Column{Table: table, Name: "knowledge_base_id"}, Value: scope.KB}}})
+				if table == "wiki_pages" && scope.PageRestricted {
+					values := make([]interface{}, 0, len(scope.PageIDs))
+					for _, id := range scope.PageIDs {
+						values = append(values, id)
+					}
+					tx.Statement.AddClause(clause.Where{Exprs: []clause.Expression{clause.IN{Column: clause.Column{Table: table, Name: "id"}, Values: values}}})
+				}
+				return
+			}
 			predicate := `NOT EXISTS (SELECT 1 FROM feishu_legacy_resources lr WHERE lr.knowledge_base_id=` + table +
 				`.knowledge_base_id AND lr.state IN ('hold','revoked'))
 AND NOT EXISTS (SELECT 1 FROM data_sources ld WHERE ld.knowledge_base_id=` + table + `.knowledge_base_id
@@ -87,6 +106,9 @@ func CheckLegacySourceRead(db *gorm.DB, knowledgeID, kbID string) error {
 		return nil
 	}
 	if scoped, err := CheckExactDocumentRead(db.Statement.Context, knowledgeID, kbID); scoped {
+		return err
+	}
+	if scoped, err := CheckWikiVerifiedRead(db, knowledgeID, kbID, nil); scoped {
 		return err
 	}
 	if knowledgeID != "" {
@@ -191,6 +213,9 @@ func (k *KnowledgeBase) AfterFind(tx *gorm.DB) error {
 }
 
 func (p *WikiPageRevision) AfterFind(tx *gorm.DB) error {
+	if scoped, _ := CheckWikiVerifiedRead(tx, "", p.KnowledgeBaseID, nil); scoped {
+		return ErrLegacySourceRestricted
+	}
 	return CheckLegacySourceRead(tx, "", p.KnowledgeBaseID)
 }
 
