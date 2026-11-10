@@ -46,6 +46,7 @@ func (FeishuLegacyAttempt) TableName() string { return "feishu_legacy_attempts" 
 
 // Payloads live exclusively in private tables until a single PostgreSQL commit.
 type FeishuLegacyManifest struct {
+	LatestSnapshot   *FeishuLatestSnapshotAudit  `json:"latest_snapshot,omitempty"`
 	SourceIdentity   *FeishuLegacySourceIdentity `json:"source_identity,omitempty"`
 	Knowledge        Knowledge                   `json:"knowledge"`
 	Chunks           []*Chunk                    `json:"chunks"`

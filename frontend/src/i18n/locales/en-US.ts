@@ -3539,6 +3539,8 @@ export default {
       backToOverview: 'Back to overview',
       sourceVerificationStatus: 'Waiting for source access verification; {count} tasks retained',
       blockedStatus: 'Wiki processing blocked; {count} tasks retained. Contact an administrator.',
+	  skippedStatus: '{count} documents skipped; other documents continue processing',
+	  skipReasons: { document_disabled: 'Document disabled', document_not_parsed: 'Parsing incomplete', personal_publication_pending: 'Personal import awaiting verification', source_verification_required: 'Source access or current content awaiting verification' },
       generatingStatus: 'Generating Wiki; {count} tasks remaining',
       queueStatus: '{count} pending tasks in Wiki queue',
       issueTitle: 'This page has {count} pending knowledge conflicts or errors',

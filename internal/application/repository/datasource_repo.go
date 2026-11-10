@@ -124,23 +124,28 @@ func (r *DataSourceRepository) Update(ctx context.Context, ds *types.DataSource)
 	})
 }
 
-// Resource discovery persists a paused draft before the user selects resources.
-// Completing that unused draft does not invalidate any historical publication.
+// Initial setup may persist a paused draft or an enabled source before the user
+// finishes selecting resources or credentials. Scheduler status alone does not
+// prove that the source has run or published content.
 // The source row is already locked, matching sync admission's lock order; even
 // failed executions and deleted documents permanently disqualify this exception.
 // This grants no sync permit: ordinary signed admission still checks the final
 // source configuration, managing actor, current authority and safety controller.
 func unusedLegacySourceDraft(tx *gorm.DB, source *types.DataSource) (bool, error) {
-	if source.LegacyAccessState != "unmanaged" || source.Status != types.DataSourceStatusPaused ||
-		source.LastSyncAt != nil {
+	if (source.LegacyAccessState != "unmanaged" && source.LegacyAccessState != "active") ||
+		(source.Status != types.DataSourceStatusPaused && source.Status != types.DataSourceStatusActive) ||
+		source.LastSyncAt != nil || len(source.LastSyncCursor) != 0 || len(source.LastSyncResult) != 0 {
 		return false, nil
 	}
 	var used bool
+	if err := tx.Raw(`SELECT EXISTS(SELECT 1 FROM sync_logs WHERE data_source_id=?)`,
+		source.ID).Scan(&used).Error; err != nil || used {
+		return false, err
+	}
 	err := tx.Raw(`SELECT
- EXISTS(SELECT 1 FROM sync_logs WHERE data_source_id=?) OR
  EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE data_source_id=?) OR
  EXISTS(SELECT 1 FROM knowledges WHERE metadata->>'datasource_id'=?)`,
-		source.ID, source.ID, source.ID).Scan(&used).Error
+		source.ID, source.ID).Scan(&used).Error
 	return !used, err
 }
 

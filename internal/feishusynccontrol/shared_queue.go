@@ -171,7 +171,8 @@ func validSharedQueuePlan(p SteadyPlan) bool {
 		return p.SharedCheckpointID == "" && p.SharedCheckpointSHA == "" && len(p.SharedTasks) == 0
 	}
 	if _, err := uuid.Parse(p.SharedCheckpointID); err != nil || !recoverySHA.MatchString(p.SharedCheckpointSHA) ||
-		len(p.SharedTasks) != p.HistoricalPending || len(p.SharedTasks) > 64 {
+		len(p.SharedTasks) != p.HistoricalPending ||
+		len(p.SharedTasks) > 64 {
 		return false
 	}
 	seen := map[string]bool{}
@@ -195,7 +196,8 @@ func (m *RecoveryManager) releasedQueueSnapshot(ctx context.Context) (recoveryQu
 		return q, false, nil
 	}
 	var state recoveryMode
-	if json.Unmarshal([]byte(raw), &state) != nil || state.Steady == nil || !state.Steady.Plan.ReleaseSharedQueue {
+	if json.Unmarshal([]byte(raw), &state) != nil || state.Steady == nil ||
+		!state.Steady.Plan.ReleaseSharedQueue {
 		return q, false, nil
 	}
 	p := state.Steady.Plan
@@ -208,10 +210,20 @@ func (m *RecoveryManager) releasedQueueSnapshot(ctx context.Context) (recoveryQu
 	if tripped != 0 {
 		return q, false, nil
 	}
-	if state.Version != 3 || p.RuntimeSHA != m.controller.Config.SourceSHA ||
-		p.WorkerID != m.controller.Config.WorkerID || p.Incarnation != m.controller.incarnation ||
-		p.ControllerFingerprint != m.controller.fingerprint ||
-		m.verifySteady(*state.Steady, time.Now().UnixMilli(), false) != nil {
+	currentRuntime := p.RuntimeSHA == m.controller.Config.SourceSHA &&
+		p.WorkerID == m.controller.Config.WorkerID && p.Incarnation == m.controller.incarnation &&
+		p.ControllerFingerprint == m.controller.fingerprint
+	verified := m.verifySteady(*state.Steady, time.Now().UnixMilli(), false) == nil
+	if !currentRuntime || !verified {
+		// Read the old checkpoint only as immutable migration evidence under a
+		// live normal-service root. Execution still requires a fresh signed plan
+		// bound to the new worker, current authority and an actual SQL claim.
+		_, _, parentErr := m.normalReconciliationParent(ctx)
+		if parentErr != nil {
+			return q, true, ErrRecoveryRejected
+		}
+	}
+	if state.Version != 3 {
 		return q, true, ErrRecoveryRejected
 	}
 	paused, err := m.controller.Client.Exists(ctx, "asynq:{sync}:paused").Result()

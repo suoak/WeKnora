@@ -4521,6 +4521,8 @@ const messages = {
       backToOverview: 'Вернуться к обзору',
       sourceVerificationStatus: 'Ожидание проверки доступа к источнику; сохранено задач: {count}',
       blockedStatus: 'Обработка Wiki заблокирована; сохранено задач: {count}. Обратитесь к администратору.',
+	  skippedStatus: 'Пропущено документов: {count}; остальные продолжают обрабатываться',
+	  skipReasons: { document_disabled: 'Документ отключён', document_not_parsed: 'Разбор не завершён', personal_publication_pending: 'Проверка личного импорта', source_verification_required: 'Проверка доступа или актуального содержимого' },
       generatingStatus: 'Создание Wiki; осталось задач: {count}',
       queueStatus: '{count} ожидающих задач в очереди Wiki',
       issueTitle: 'На этой странице есть {count} неразрешенных конфликтов или ошибок знаний',

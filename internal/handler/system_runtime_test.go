@@ -248,7 +248,7 @@ func TestGetRuntimeQueuesReportsIsolatedPoolCapacity(t *testing.T) {
 		queueCount  int
 	}{
 		types.WorkerPoolCore:        {8, 2},
-		types.WorkerPoolPostProcess: {2, 1},
+		types.WorkerPoolPostProcess: {2, 2}, // postprocess plus existing low-queue fallback
 		types.WorkerPoolEnrichment:  {12, 5},
 		types.WorkerPoolMaintenance: {4, 2},
 		types.WorkerPoolShared:      {6, 7},

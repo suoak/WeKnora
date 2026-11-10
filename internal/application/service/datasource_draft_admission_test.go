@@ -22,7 +22,10 @@ func testFeishuUnusedDraftAdmission(t *testing.T, f *fixture.Fixture) {
 	f.PreparePublished(t)
 	db := f.DB
 	require.NoError(t, db.AutoMigrate(&types.SyncLog{}))
-	for _, mode := range []string{"unused", "active", "held", "revoked", "failed_sync", "resource", "deleted_doc"} {
+	for _, mode := range []string{
+		"unused", "active", "active_access", "held", "revoked", "failed_sync", "resource", "deleted_doc",
+		"last_sync", "seeded_cursor", "seeded_result", "error_status",
+	} {
 		t.Run(mode, func(t *testing.T) {
 			ctx := context.Background()
 			source := &types.DataSource{
@@ -36,6 +39,19 @@ func testFeishuUnusedDraftAdmission(t *testing.T, f *fixture.Fixture) {
 				want = "unmanaged"
 			case "active":
 				source.Status = types.DataSourceStatusActive
+				want = "unmanaged"
+			case "active_access":
+				source.Status = types.DataSourceStatusActive
+				source.LegacyAccessState, want = "active", "active"
+			case "last_sync":
+				now := time.Now()
+				source.LastSyncAt = &now
+			case "seeded_cursor":
+				source.LastSyncCursor = types.JSON(`{"revision":"existing-import"}`)
+			case "seeded_result":
+				source.LastSyncResult = types.JSON(`{"published":1}`)
+			case "error_status":
+				source.Status = types.DataSourceStatusError
 			case "held":
 				source.LegacyAccessState = "hold"
 			case "revoked":
@@ -72,6 +88,16 @@ func testFeishuUnusedDraftAdmission(t *testing.T, f *fixture.Fixture) {
 			require.Equal(t, want, stored.LegacyAccessState)
 			require.Equal(t, want, source.LegacyAccessState, "response must report the persisted protection state")
 			require.JSONEq(t, string(source.Config), string(stored.Config))
+			if mode == "unused" || mode == "active" || mode == "active_access" {
+				// Saving the draft enables it. A second initial configuration edit
+				// must still work until an execution or publication actually exists.
+				source.Config = types.JSON(`{"resource_ids":["synthetic-final-root"]}`)
+				require.NoError(t, repository.NewDataSourceRepository(guarded).Update(ctx, source))
+				stored, err = repository.NewDataSourceRepository(db).FindByID(ctx, source.ID)
+				require.NoError(t, err)
+				require.Equal(t, want, stored.LegacyAccessState)
+				require.JSONEq(t, string(source.Config), string(stored.Config))
+			}
 		})
 	}
 }
