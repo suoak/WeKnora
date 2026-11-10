@@ -21,7 +21,7 @@ func ErrorHandler() gin.HandlerFunc {
 		if len(c.Errors) > 0 {
 			// 获取最后一个错误
 			err := c.Errors.Last().Err
-			if utils.IsPersonalMCPPath(c.Request.URL.Path) {
+			if utils.IsIsolatedPersonalMCPPath(c.Request.URL.Path) {
 				status := http.StatusInternalServerError
 				if appErr, ok := errors.IsAppError(err); ok && appErr.HTTPCode >= 400 && appErr.HTTPCode <= 599 {
 					status = appErr.HTTPCode

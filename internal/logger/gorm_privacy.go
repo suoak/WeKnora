@@ -30,11 +30,13 @@ func (l privateGORMLogger) Info(ctx context.Context, msg string, args ...any) {
 		l.Interface.Info(ctx, msg, args...)
 	}
 }
+
 func (l privateGORMLogger) Warn(ctx context.Context, msg string, args ...any) {
 	if !PrivatePayload(ctx) {
 		l.Interface.Warn(ctx, msg, args...)
 	}
 }
+
 func (l privateGORMLogger) Error(ctx context.Context, msg string, args ...any) {
 	if !PrivatePayload(ctx) {
 		l.Interface.Error(ctx, msg, args...)

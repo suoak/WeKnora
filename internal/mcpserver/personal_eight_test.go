@@ -51,7 +51,8 @@ func TestV1NextPersonalConcurrencyIsBounded(t *testing.T) {
 		s.slots <- struct{}{}
 	}
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("POST", "/api/v1/mcp/personal", bytes.NewBufferString(`{"jsonrpc":"2.0","id":1,"method":"ping"}`))
+	r := httptest.NewRequest("POST", "/api/v1/mcp/personal",
+		bytes.NewBufferString(`{"jsonrpc":"2.0","id":1,"method":"ping"}`))
 	r.Header.Set("Content-Type", "application/json")
 	s.Handler().ServeHTTP(w, r)
 	require.Equal(t, 429, w.Code)

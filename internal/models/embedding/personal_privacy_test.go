@@ -20,13 +20,16 @@ type personalPrivacyEmbedder struct{}
 func (personalPrivacyEmbedder) Embed(context.Context, string) ([]float32, error) {
 	return []float32{1}, nil
 }
+
 func (personalPrivacyEmbedder) BatchEmbed(context.Context, []string) ([][]float32, error) {
 	return [][]float32{{1}}, nil
 }
 func (personalPrivacyEmbedder) GetModelName() string { return "synthetic" }
 func (personalPrivacyEmbedder) GetModelID() string   { return "synthetic" }
 func (personalPrivacyEmbedder) GetDimensions() int   { return 1 }
-func (s personalPrivacyEmbedder) BatchEmbedWithPool(ctx context.Context, model Embedder, inputs []string) ([][]float32, error) {
+func (personalPrivacyEmbedder) BatchEmbedWithPool(
+	ctx context.Context, model Embedder, inputs []string,
+) ([][]float32, error) {
 	return model.BatchEmbed(ctx, inputs)
 }
 
@@ -41,7 +44,10 @@ func TestPersonalPayloadNeverReachesEnabledAPMExporter(t *testing.T) {
 		w.WriteHeader(200)
 	}))
 	defer spy.Close()
-	m, err := langfuse.Init(langfuse.Config{Enabled: true, Host: spy.URL, PublicKey: "synthetic", SecretKey: "synthetic", FlushAt: 1, QueueSize: 16, FlushInterval: time.Millisecond, RequestTimeout: time.Second, SampleRate: 1})
+	m, err := langfuse.Init(langfuse.Config{
+		Enabled: true, Host: spy.URL, PublicKey: "synthetic", SecretKey: "synthetic", FlushAt: 1,
+		QueueSize: 16, FlushInterval: time.Millisecond, RequestTimeout: time.Second, SampleRate: 1,
+	})
 	require.NoError(t, err)
 	defer func() { _, _ = langfuse.Init(langfuse.Config{}) }()
 	wrapper := &langfuseEmbedder{inner: personalPrivacyEmbedder{}}

@@ -16,7 +16,10 @@ import (
 
 func TestPersonalRegistryNeverInheritsWorkspaceOrFutureWriteTools(t *testing.T) {
 	s := NewPersonalServer(true, &service.PortalMCPKnowledge{})
-	for _, name := range []string{"ask", "add_document", "update_document", "delete_document", "upload_file", "future_internal_upload", "http_proxy", "execute_agent", "wiki_create", "chunk_update", "faq_import"} {
+	for _, name := range []string{
+		"ask", "add_document", "update_document", "delete_document", "upload_file", "future_internal_upload",
+		"http_proxy", "execute_agent", "wiki_create", "chunk_update", "faq_import",
+	} {
 		nextCalls := 0
 		h := s.enforceGuard(func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			nextCalls++
@@ -34,18 +37,26 @@ func TestPersonalRegistryNeverInheritsWorkspaceOrFutureWriteTools(t *testing.T) 
 func TestPersonalProtocolRejectsPayloadBeforeDispatch(t *testing.T) {
 	canary := "SYNTHETIC_UPLOAD_MUST_NOT_DISPATCH"
 	for _, body := range []string{
-		`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"ask","arguments":{"question":"` + canary + `"}}}`,
-		`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"add_document","arguments":{"content":"` + canary + `"}}}`,
-		`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_knowledge","arguments":{"query":"ok","content":"` + canary + `"}}}`,
-		`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read_document","arguments":{"knowledge_id":"ok","path":"/etc/passwd"}}}`,
+		`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"ask","arguments":{"question":"` +
+			canary + `"}}}`,
+		`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"add_document","arguments":{"content":"` +
+			canary + `"}}}`,
+		`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_knowledge",` +
+			`"arguments":{"query":"ok","content":"` + canary + `"}}}`,
+		`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read_document",` +
+			`"arguments":{"knowledge_id":"ok","path":"/etc/passwd"}}}`,
 		`{"jsonrpc":"2.0","id":1,"method":"tools/list","method":"tools/call"}`,
 		`[{"jsonrpc":"2.0","id":1,"method":"tools/list"}]`,
 		`{"jsonrpc":"2.0","id":1,"method":"rest/proxy","params":{"url":"http://internal"}}`,
-		`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"wiki_search","arguments":{"query":"ok","regex":true}}}`,
+		`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"wiki_search",` +
+			`"arguments":{"query":"ok","regex":true}}}`,
 	} {
 		called := 0
-		h := personalHTTPBoundary(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { called++; w.WriteHeader(200) }))
-		r := httptest.NewRequest("POST", personalPath, strings.NewReader(body))
+		h := personalHTTPBoundary(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			called++
+			w.WriteHeader(200)
+		}), isolatedPersonalPath)
+		r := httptest.NewRequest("POST", isolatedPersonalPath, strings.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)
@@ -63,9 +74,10 @@ func TestPersonalProtocolNormalJSONAndExactLimit(t *testing.T) {
 				called := 0
 				h := personalHTTPBoundary(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					require.True(t, logger.PrivatePayload(r.Context()))
+					require.True(t, logger.IsolatedPersonalPayload(r.Context()))
 					called++
-				}))
-				r := httptest.NewRequest("POST", personalPath, strings.NewReader(body+strings.Repeat(" ", size-len(body))))
+				}), isolatedPersonalPath)
+				r := httptest.NewRequest("POST", isolatedPersonalPath, strings.NewReader(body+strings.Repeat(" ", size-len(body))))
 				r.ContentLength = -1 // covers an unknown-length/chunked body too
 				r.Header.Set("Content-Type", media)
 				w := httptest.NewRecorder()
@@ -87,16 +99,18 @@ func TestPersonalProtocolPathMediaAndOrigin(t *testing.T) {
 		method, path, media, origin, body string
 		status                            int
 	}{
-		{"POST", personalPath + "?content=secret", "application/json", "", `{}`, 404},
-		{"POST", personalPath + "/", "application/json", "", `{}`, 404},
+		{"POST", isolatedPersonalPath + "?content=secret", "application/json", "", `{}`, 404},
+		{"POST", isolatedPersonalPath + "/", "application/json", "", `{}`, 404},
 		{"POST", "/api/v1/mcp/%70ersonal", "application/json", "", `{}`, 404},
-		{"PUT", personalPath, "application/json", "", `{}`, 405},
-		{"POST", personalPath, "multipart/form-data; boundary=x", "", "--x", 415},
-		{"POST", personalPath, "application/octet-stream", "", "binary", 415},
-		{"POST", personalPath, "application/json", "https://attacker.invalid", `{}`, 403},
-		{"GET", personalPath, "", "", "payload", 400},
+		{"PUT", isolatedPersonalPath, "application/json", "", `{}`, 405},
+		{"POST", isolatedPersonalPath, "multipart/form-data; boundary=x", "", "--x", 415},
+		{"POST", isolatedPersonalPath, "application/octet-stream", "", "binary", 415},
+		{"POST", isolatedPersonalPath, "application/json", "https://attacker.invalid", `{}`, 403},
+		{"GET", isolatedPersonalPath, "", "", "payload", 400},
 	} {
-		h := personalHTTPBoundary(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { t.Fatal("rejected payload dispatched") }))
+		h := personalHTTPBoundary(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+			t.Fatal("rejected payload dispatched")
+		}), isolatedPersonalPath)
 		r := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
 		r.Header.Set("Content-Type", tc.media)
 		r.Header.Set("Origin", tc.origin)

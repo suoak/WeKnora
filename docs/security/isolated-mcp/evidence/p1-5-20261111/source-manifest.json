@@ -1,0 +1,81 @@
+{
+  "remote_source_matches_local": true,
+  "files": [
+    {
+      "path": "internal/logger/gorm_privacy.go",
+      "sha256": "87d2273be97f418df93c55469f1bfac947035cb9b523824ce53119a8b80ce601"
+    },
+    {
+      "path": "internal/logger/logger.go",
+      "sha256": "dc33409b43952eec792b1b5e2388279331525e7f52db56fd176bc5b6243407b5"
+    },
+    {
+      "path": "internal/logger/payload_privacy.go",
+      "sha256": "b53c680fa8c2f8eaf9f92468d2597a98202e2e1720c96016f431cee4ccff04dd"
+    },
+    {
+      "path": "internal/logger/payload_privacy_test.go",
+      "sha256": "94d79a47ed7208170baf91be7956d73edf30f202dff24f3724819dd0e6d195df"
+    },
+    {
+      "path": "internal/mcpserver/personal.go",
+      "sha256": "6f1dc0f928c5c31feade8b171d5a78efdba7fcb5cb2375629e00cf3be6a9d163"
+    },
+    {
+      "path": "internal/mcpserver/personal_eight_test.go",
+      "sha256": "419db0ef42aec75c17ece437cf06bdbb17daa84ad4a23687ee9febb7bc6dd964"
+    },
+    {
+      "path": "internal/mcpserver/personal_output.go",
+      "sha256": "ad6a834604eda22e3196600a553872463004e462a3c5a4a09a828aeab69ab766"
+    },
+    {
+      "path": "internal/mcpserver/personal_output_test.go",
+      "sha256": "613732787909eaff69d5843d95aa4bb98eb7b893277c6d7f39f9267935fd01e1"
+    },
+    {
+      "path": "internal/mcpserver/personal_protocol.go",
+      "sha256": "0cd2eddeec91c6b275f70235f66ced08cff9201c69383b64e26f74de29ababeb"
+    },
+    {
+      "path": "internal/mcpserver/personal_protocol_test.go",
+      "sha256": "fc47519065a98bdb6375164d1ca1dd2fb80a86861be48838bcf62dfc5b7b46ff"
+    },
+    {
+      "path": "internal/mcpserver/usage.go",
+      "sha256": "6f3096412930a98cc0f68025c9f1f2e630d52ab3342a53210e65ed900f091b76"
+    },
+    {
+      "path": "internal/middleware/error_handler.go",
+      "sha256": "7410e884926e2221a1497969c2044c48fa718e597dba0c182d533e904310ae04"
+    },
+    {
+      "path": "internal/middleware/personal_log_privacy_test.go",
+      "sha256": "0e6fa4fd5c5686f5de229fae9d85daf5f57dc283df08f3506c0f496d226a2184"
+    },
+    {
+      "path": "internal/middleware/recovery.go",
+      "sha256": "fb970ef5ee98ca7bf0bc876f1281ad8603b7e34a22381ba55e97a02154da9eab"
+    },
+    {
+      "path": "internal/models/embedding/personal_privacy_test.go",
+      "sha256": "d9360890c2830bbc144851e80cf8906cf4b3d71cf67d4cf44bb0176b7c9d68f3"
+    },
+    {
+      "path": "internal/router/routes_personal_mcp.go",
+      "sha256": "7c2c023807bf80b8bdac4e9fafd135c6671097465d4ded34c918de5726387c38"
+    },
+    {
+      "path": "internal/utils/auth_log.go",
+      "sha256": "51bf7090e33e0a61f4dd8cfae0cab70b8bda84652b371258e122c75d6dbc1978"
+    },
+    {
+      "path": "docs/security/isolated-mcp/p1_accept.py",
+      "sha256": "f0419e8515a0600497367eaa9e451aede51f4d83cbd677894d2d64d248631a7f"
+    },
+    {
+      "path": "docs/security/isolated-mcp/p1_nginx.conf.template",
+      "sha256": "3c76998e8fb02052434724b45bb78c1c020c0d50336de46d48efe1de3261dbd8"
+    }
+  ]
+}

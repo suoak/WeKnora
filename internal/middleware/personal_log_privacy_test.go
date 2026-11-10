@@ -46,9 +46,11 @@ func TestPersonalMCPPanicDoesNotReturnInternalPaths(t *testing.T) {
 	g := gin.New()
 	g.ContextWithFallback = true
 	g.Use(RequestID(), Logger(), Recovery(), ErrorHandler())
-	g.POST("/api/v1/mcp/personal", func(c *gin.Context) { panic("SYNTHETIC_PRIVATE_ERROR /home/private secret") })
+	g.POST("/internal/mcp/isolated/personal", func(c *gin.Context) {
+		panic("SYNTHETIC_PRIVATE_ERROR /home/private secret")
+	})
 	w := httptest.NewRecorder()
-	g.ServeHTTP(w, httptest.NewRequest("POST", "/api/v1/mcp/personal", nil))
+	g.ServeHTTP(w, httptest.NewRequest("POST", "/internal/mcp/isolated/personal", nil))
 	require.Equal(t, 500, w.Code)
 	require.NotContains(t, w.Body.String(), "SYNTHETIC_PRIVATE_ERROR")
 	require.NotContains(t, w.Body.String(), "/home/private")

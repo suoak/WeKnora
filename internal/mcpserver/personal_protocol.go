@@ -14,17 +14,20 @@ import (
 	"github.com/Tencent/WeKnora/internal/logger"
 )
 
-const personalPath = "/api/v1/mcp/personal"
+const (
+	personalPath         = "/api/v1/mcp/personal"
+	isolatedPersonalPath = "/internal/mcp/isolated/personal"
+)
 
 var errPersonalProtocol = errors.New("invalid personal MCP request")
 
 // The boundary belongs to the existing permanently read-only PersonalServer,
 // never to the workspace catalog. It runs before analytics and tool dispatch.
-func personalHTTPBoundary(next http.Handler) http.Handler {
+func personalHTTPBoundary(next http.Handler, path string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "private, no-store")
-		r = r.WithContext(logger.WithPrivatePayload(r.Context()))
-		if r.URL.EscapedPath() != personalPath || r.URL.RawQuery != "" {
+		r = r.WithContext(logger.WithIsolatedPersonalPayload(r.Context()))
+		if r.URL.EscapedPath() != path || r.URL.RawQuery != "" {
 			http.Error(w, "personal MCP path denied", http.StatusNotFound)
 			return
 		}

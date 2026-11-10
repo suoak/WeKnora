@@ -23,7 +23,10 @@ func TestPrivatePayloadCannotEnterDiagnosticsOrDetachedDebug(t *testing.T) {
 	for _, c := range []context.Context{ctx, CloneContext(ctx), CloneContextWithoutTrace(ctx)} {
 		require.True(t, PrivatePayload(c))
 		Infof(c, "SYNTHETIC_QUERY_FILE_KEY_SIGNED_URL_CANARY")
-		LLMDebugLog(c, &LLMCallRecord{CallType: "Embedding", Sections: []RecordSection{{Title: "Input", Content: "SYNTHETIC_QUERY_FILE_KEY_SIGNED_URL_CANARY"}}})
+		LLMDebugLog(c, &LLMCallRecord{
+			CallType: "Embedding",
+			Sections: []RecordSection{{Title: "Input", Content: "SYNTHETIC_QUERY_FILE_KEY_SIGNED_URL_CANARY"}},
+		})
 	}
 	require.Empty(t, out.String())
 	files, err := os.ReadDir(llmDebug.dir)
@@ -31,6 +34,8 @@ func TestPrivatePayloadCannotEnterDiagnosticsOrDetachedDebug(t *testing.T) {
 	require.Empty(t, files)
 	Infof(context.Background(), "safe metadata remains observable")
 	require.Contains(t, out.String(), "safe metadata remains observable")
+	require.True(t, IsolatedPersonalPayload(CloneContext(WithIsolatedPersonalPayload(ctx))))
+	require.True(t, IsolatedPersonalPayload(CloneContextWithoutTrace(WithIsolatedPersonalPayload(ctx))))
 }
 
 func TestPrivatePayloadSQLNeverFormatsBoundArguments(t *testing.T) {

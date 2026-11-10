@@ -12,6 +12,7 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/application/service"
+	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/perftrace"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -101,15 +102,22 @@ func (s *PersonalServer) Handler() http.Handler {
 		w.Header().Set("Cache-Control", "private, no-store")
 		s.handler.ServeHTTP(w, r)
 	}))
-	if s.Enabled() {
-		return personalHTTPBoundary(h)
-	}
 	return h
+}
+
+// IsolatedHandler is the strict read-only route used only by the dedicated
+// TLS proxy. It shares the original server, identity and knowledge service.
+func (s *PersonalServer) IsolatedHandler() http.Handler {
+	return personalHTTPBoundary(s.Handler(), isolatedPersonalPath)
 }
 
 func (s *PersonalServer) guard(next server.ToolHandlerFunc) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return personalToolBoundary(observeTool(s.usage, "go_personal", s.enforceGuard(next)))(ctx, req)
+		h := observeTool(s.usage, "go_personal", s.enforceGuard(next))
+		if logger.IsolatedPersonalPayload(ctx) {
+			return personalToolBoundary(h)(ctx, req)
+		}
+		return h(ctx, req)
 	}
 }
 
@@ -167,7 +175,10 @@ func personalJSON(ctx context.Context, value any) (*mcp.CallToolResult, error) {
 	done := perftrace.Measure(ctx, perftrace.Serialize)
 	defer done()
 	b, err := json.Marshal(value)
-	if err == nil {
+	if err != nil && !logger.IsolatedPersonalPayload(ctx) {
+		return nil, err
+	}
+	if err == nil && logger.IsolatedPersonalPayload(ctx) {
 		b, err = redactPersonalOutput(b)
 	}
 	if err != nil {

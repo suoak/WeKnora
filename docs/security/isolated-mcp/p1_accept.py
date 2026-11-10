@@ -18,6 +18,7 @@ runtime = json.loads((BASE / 'private/clients.json').read_text())
 ca = str(BASE / 'private/test-ca.pem')
 ctx = ssl.create_default_context(cafile=ca)
 PATH = '/api/v1/mcp/personal'
+ISOLATED_PATH = '/internal/mcp/isolated/personal'
 MARK = 'SYNTHETIC_P1_QUERY_CODE_FILE_CANARY'
 EXPECTED = {'list_knowledge_bases', 'search_knowledge', 'grep_chunks', 'list_documents',
             'read_document', 'wiki_search', 'wiki_read_page', 'wiki_index'}
@@ -32,7 +33,7 @@ def record(name, passed, **meta):
     (BASE / 'results' / (RESULT + '.json')).write_text(json.dumps(rows, indent=2))
 
 
-def request(body=None, *, tls=True, path=PATH, method='POST', media='application/json', key=None, extra=None):
+def request(body=None, *, tls=True, path=None, method='POST', media='application/json', key=None, extra=None):
     conn = http.client.HTTPSConnection('localhost', 8443, context=ctx, timeout=40) if tls else http.client.HTTPConnection('127.0.0.1', 18644, timeout=40)
     data = json.dumps(body).encode() if isinstance(body, (dict, list)) else body
     headers = {'Accept': 'application/json, text/event-stream'}
@@ -41,7 +42,7 @@ def request(body=None, *, tls=True, path=PATH, method='POST', media='application
     if key is not False:
         headers['Authorization'] = 'Bearer ' + (key or runtime['key_a'])
     headers.update(extra or {})
-    conn.request(method, path, data, headers)
+    conn.request(method, path if path is not None else (PATH if tls else ISOLATED_PATH), data, headers)
     response = conn.getresponse()
     raw = response.read((4 << 20) + 1)
     status = response.status
@@ -49,11 +50,11 @@ def request(body=None, *, tls=True, path=PATH, method='POST', media='application
     return status, raw
 
 
-def rpc(method, params=None, *, tls=True, key=None):
+def rpc(method, params=None, *, tls=True, key=None, internal=False):
     body = {'jsonrpc': '2.0', 'id': 1, 'method': method}
     if params is not None:
         body['params'] = params
-    status, raw = request(body, tls=tls, key=key)
+    status, raw = request(body, tls=tls, key=key, path=PATH if internal else None)
     try:
         reply = json.loads(raw) if status == 200 else None
     except ValueError:
@@ -127,8 +128,10 @@ try:
     record('normal_query_canary_exercises_model', success(status, reply), http=status)
 
     status, a = tool('list_knowledge_bases', {})
-    status2, b = tool('list_knowledge_bases', {}, tls=False)
-    record('same_key_two_entries_same_scope', success(status, a) and success(status2, b) and decoded(a) == decoded(b))
+    status2, b = tool('list_knowledge_bases', {}, tls=False, internal=True)
+    scope_a = {x['id'] for x in decoded(a)} if success(status, a) else set()
+    scope_b = {x['id'] for x in decoded(b)} if success(status2, b) else set()
+    record('same_key_two_entries_same_scope', success(status, a) and success(status2, b) and scope_a == scope_b)
     status, other = tool('list_knowledge_bases', {}, key=runtime['key_c'])
     record('different_user_scope', success(status, other) and all(x['id'] != 'private-home' for x in decoded(other)))
     status, other = tool('read_document', {'knowledge_id': 'private-home-doc'}, key=runtime['key_c'])

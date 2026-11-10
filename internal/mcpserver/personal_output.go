@@ -13,7 +13,11 @@ import (
 
 // A bare absolute path can occur in an authorized title/chunk/KB name as well
 // as storage metadata. Keep relative Wiki slugs and knowhub: references intact.
-var personalAbsolutePath = regexp.MustCompile(`(^|[\s"'=:\x60(\[{])(?:[A-Za-z]:[\\/]|\\\\|/)[^\s<>"'\x60\[\]{}()]+`)
+var personalAbsolutePath = regexp.MustCompile(
+	`(^|[\s"'=:\x60(\[{])` +
+		`(?:[A-Za-z]:[\\/]|\\\\|/)` +
+		`[^\s<>"'\x60\[\]{}(),;!?，。；！？、]+`,
+)
 
 // Error and panic values are opaque: neither is an authorized document result.
 func personalToolBoundary(next server.ToolHandlerFunc) server.ToolHandlerFunc {

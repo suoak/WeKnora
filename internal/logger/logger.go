@@ -516,6 +516,9 @@ func CloneContext(ctx context.Context) context.Context {
 	if PrivatePayload(ctx) {
 		newCtx = WithPrivatePayload(newCtx)
 	}
+	if IsolatedPersonalPayload(ctx) {
+		newCtx = WithIsolatedPersonalPayload(newCtx)
+	}
 
 	for _, k := range types.ContextKeysClonedAcrossDetach() {
 		if v := ctx.Value(k); v != nil {
@@ -545,6 +548,9 @@ func CloneContextWithoutTrace(ctx context.Context) context.Context {
 	newCtx := context.Background()
 	if PrivatePayload(ctx) {
 		newCtx = WithPrivatePayload(newCtx)
+	}
+	if IsolatedPersonalPayload(ctx) {
+		newCtx = WithIsolatedPersonalPayload(newCtx)
 	}
 	for _, k := range types.ContextKeysClonedAcrossDetach() {
 		if k == types.LangfuseTraceContextKey {

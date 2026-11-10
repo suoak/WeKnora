@@ -15,7 +15,7 @@ func Recovery() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		defer func() {
 			if err := recover(); err != nil {
-				if utils.IsAuthenticationPath(c.Request.URL.Path) || utils.IsPersonalMCPPath(c.Request.URL.Path) {
+				if utils.IsAuthenticationPath(c.Request.URL.Path) || utils.IsIsolatedPersonalMCPPath(c.Request.URL.Path) {
 					// Panic values and stacks can embed credentials supplied by a handler.
 					logger.Error(c.Request.Context(), "authentication handler panic")
 					c.AbortWithStatusJSON(500, gin.H{"error": "Internal Server Error"})

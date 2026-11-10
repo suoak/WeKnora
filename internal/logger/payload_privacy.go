@@ -7,7 +7,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type payloadPrivacyKey struct{}
+type (
+	payloadPrivacyKey   struct{}
+	isolatedPersonalKey struct{}
+)
 
 // WithPrivatePayload prevents arbitrary downstream diagnostics from becoming a
 // second transport for MCP input or retrieved content. Admission/access metrics
@@ -18,6 +21,16 @@ func WithPrivatePayload(ctx context.Context) context.Context {
 
 func PrivatePayload(ctx context.Context) bool {
 	return ctx != nil && ctx.Value(payloadPrivacyKey{}) == true
+}
+
+// WithIsolatedPersonalPayload marks only the independently routed isolation
+// entry. The old personal URL keeps its protocol and result contract.
+func WithIsolatedPersonalPayload(ctx context.Context) context.Context {
+	return context.WithValue(WithPrivatePayload(ctx), isolatedPersonalKey{}, true)
+}
+
+func IsolatedPersonalPayload(ctx context.Context) bool {
+	return ctx != nil && ctx.Value(isolatedPersonalKey{}) == true
 }
 
 var privatePayloadLogger = func() *logrus.Logger {
