@@ -8,7 +8,9 @@ KB supplies publication consent; no second importer authorization is requested.
 ## Implementation and rollout status
 
 This change is in development, not deployed. Production remains on
-`6852ff304d0abbae34fba6596f6b85950e97b427`. The new worker behavior is explicitly
+`4e90abaa5178f670d3ed1a68117fac6937adf4ea` after a concurrent datasource-setup
+release was detected during pre-deployment verification. That production fix
+has been merged into this candidate. The new worker behavior is explicitly
 gated by `KNOWHUB_WIKI_DOCUMENT_SELECTION=true`; strict existing callers remain
 unchanged until the partial-document protocol passes validation.
 `KNOWHUB_WIKI_DOCUMENT_SELECTION_KBS` must also list each reviewed KB ID. An
@@ -66,7 +68,8 @@ for shared KBs and API keys. Frontend production build and all 16 locale checks
 passed. Validation artifacts: `WIKI_DOCUMENT_SELECTION_V10_VALIDATION*.json`,
 `WIKI_DOCUMENT_SELECTION_V12_VALIDATION*.json` and the hash-linked
 `WIKI_DOCUMENT_SELECTION_V13_VALIDATION*.json` and
-`WIKI_DOCUMENT_SELECTION_V14_VALIDATION*.json` in
+`WIKI_DOCUMENT_SELECTION_V14_VALIDATION*.json` and
+`WIKI_DOCUMENT_SELECTION_V15_VALIDATION*.json` in
 the operator incident directory. This is validation evidence, not deployment
 or a claim that production backlog has drained.
 
