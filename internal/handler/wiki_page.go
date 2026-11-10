@@ -69,7 +69,7 @@ func (h *WikiPageHandler) validateWikiKB(c *gin.Context) (string, uint64, error)
 	if !kb.IsWikiEnabled() {
 		return "", 0, errors.NewBadRequestError("Wiki feature is not enabled for this knowledge base")
 	}
-	if readSelected {
+	if readSelected && kb.TenantID == types.WorkspaceWebReadTenant(ctx) {
 		reader, ok := h.wikiService.(interface {
 			VerifiedWikiBrowserReadContext(context.Context, string) (context.Context, error)
 		})

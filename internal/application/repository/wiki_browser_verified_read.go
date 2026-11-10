@@ -69,7 +69,10 @@ func BeginVerifiedWikiBrowserRead(ctx context.Context, repo interfaces.WikiPageR
 		if target != kb || knowledge != "" || types.WorkspaceWebReadTenant(db.Statement.Context) != tenant {
 			return types.ErrLegacySourceRestricted
 		}
-		db = db.Session(&gorm.Session{NewDB: true})
+		// This can run inside an ORM COUNT/projection callback. Force an
+		// empty statement before deriving nested readers; a second Session
+		// alone would retain the parent's SELECT and destination.
+		db = db.Session(&gorm.Session{NewDB: true}).Model(nil).Session(&gorm.Session{NewDB: true})
 		if err := types.CheckPrivateKBRead(db, "", kb); err != nil {
 			return err
 		}

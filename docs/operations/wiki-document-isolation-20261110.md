@@ -37,7 +37,7 @@ Implemented candidate behavior:
   the current remote document. Compare complete package identities and source
   bindings, CAS the captured generation, and re-fetch again before publication.
   Keep the provider revision unchanged; record previous/new content hashes and
-  local generation in the signed attempt manifest. Ordinary strict calls retain
+  local generation in the hashed attempt manifest. Ordinary strict calls retain
   their original collision rejection.
 - The worker receives a server-only, KB-scoped read guard over its selected
   documents. This also covers production query predicates; skipped content is
@@ -55,8 +55,12 @@ including production read guards, stale publication fencing, duplicate live
 operations, non-mutating preview and browser output checks. Existing Wiki
 history/selective recovery regressions, native Feishu atomic publication and
 XLSX identity regressions passed. Race-enabled tests, `go vet`, server and
-operator builds passed. Frontend production build and all 16 locale checks
-passed. Validation artifacts: `WIKI_DOCUMENT_SELECTION_V10_VALIDATION*.json` in
+operator builds passed. Follow-up validation also covers historical JSON-null
+directory paths, nested COUNT/projection reads, and retaining existing authority
+for shared KBs and API keys. Frontend production build and all 16 locale checks
+passed. Validation artifacts: `WIKI_DOCUMENT_SELECTION_V10_VALIDATION*.json`,
+`WIKI_DOCUMENT_SELECTION_V12_VALIDATION*.json` and the hash-linked
+`WIKI_DOCUMENT_SELECTION_V13_VALIDATION*.json` in
 the operator incident directory. This is validation evidence, not deployment
 or a claim that production backlog has drained.
 

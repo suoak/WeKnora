@@ -44,7 +44,7 @@ func (r *wikiPageRepository) wikiCategoryRankOrder() string {
 	if r.db != nil && r.db.Dialector != nil && r.db.Dialector.Name() == "sqlite" {
 		return "CASE WHEN COALESCE(json_array_length(category_path), 0) > 0 THEN 0 ELSE 1 END ASC"
 	}
-	return "CASE WHEN COALESCE(jsonb_array_length(category_path), 0) > 0 THEN 0 ELSE 1 END ASC"
+	return "CASE WHEN CASE WHEN jsonb_typeof(category_path) = 'array' THEN jsonb_array_length(category_path) ELSE 0 END > 0 THEN 0 ELSE 1 END ASC"
 }
 
 // wikiPageListSortColumn maps a caller-supplied sort_by to a quoted identifier.

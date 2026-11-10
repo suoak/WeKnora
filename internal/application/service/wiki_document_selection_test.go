@@ -472,6 +472,13 @@ func TestWikiDocumentSelectionBrowserKeepsGoodPagesReadableAndFencesOutput(t *te
 	require.Len(t, pages, 1)
 	require.Equal(t, p.Content, pages[0].Content)
 	require.True(t, types.LegacyReadPartial(read))
+	entries, total, err := repo.ListByTypeLight(read, "public-two", "concept", 20, 0)
+	require.NoError(t, err, "historical JSON null category paths must not break the index")
+	require.Len(t, entries, 1)
+	require.EqualValues(t, 1, total)
+	stats, err := (&wikiPageService{repo: repo}).GetStats(read, "public-two")
+	require.NoError(t, err, "nested read guards must not inherit the caller's COUNT destination")
+	require.EqualValues(t, 1, stats.TotalPages)
 	require.NoError(t, types.CheckLegacyReadScope(db.WithContext(read)))
 	var raw types.Knowledge
 	require.Error(t, db.WithContext(read).First(&raw, "id='public-two-doc'").Error, "page scope does not authorize a raw document body")
