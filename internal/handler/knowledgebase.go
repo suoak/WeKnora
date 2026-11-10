@@ -506,6 +506,23 @@ func (h *KnowledgeBaseHandler) GetKnowledgeBase(c *gin.Context) {
 		c.Error(err)
 		return
 	}
+	// The authorization grant may contain only access metadata. A local
+	// workspace editor needs the persisted settings, not zero-value configs
+	// from that projection (which would disable VLM on the next save).
+	if types.WorkspaceWebReadTenant(c.Request.Context()) == kb.TenantID {
+		full, loadErr := h.service.GetKnowledgeBaseByID(
+			types.WithLegacyKBAdminMetadata(c.Request.Context(), kb.ID), kb.ID,
+		)
+		if loadErr != nil {
+			c.Error(loadErr)
+			return
+		}
+		if full == nil || full.ID != kb.ID || full.TenantID != kb.TenantID {
+			c.Error(apperrors.NewForbiddenError("Knowledge base binding changed"))
+			return
+		}
+		kb = full
+	}
 	// Fill counts (knowledge_count, chunk_count, is_processing) so hover/detail shows correct numbers
 	if fillErr := h.service.FillKnowledgeBaseCounts(c.Request.Context(), kb); fillErr != nil {
 		logger.Warnf(c.Request.Context(), "Failed to fill KB counts for %s: %v", kb.ID, fillErr)
