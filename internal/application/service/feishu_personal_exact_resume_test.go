@@ -97,8 +97,8 @@ func TestPersonalExactResumeRetainsOriginalIdentityAndConsumesNewClaim(t *testin
 	require.EqualValues(t, 1, count)
 }
 
-func TestPersonalExactResumeRefusesRevokedOrChangedSource(t *testing.T) {
-	for _, change := range []string{"grant", "remote_permission", "revision", "limit"} {
+func TestPersonalExactResumeRefusesRevokedOrCorruptedSource(t *testing.T) {
+	for _, change := range []string{"grant", "remote_permission", "hash", "limit"} {
 		t.Run(change, func(t *testing.T) {
 			f, observed := closedExactResumeFixture(t)
 			switch change {
@@ -107,8 +107,8 @@ func TestPersonalExactResumeRefusesRevokedOrChangedSource(t *testing.T) {
 				require.NoError(t, err)
 			case "remote_permission":
 				exactPreflightRemote(t, f, "1", false)
-			case "revision":
-				exactPreflightRemote(t, f, "2", true)
+			case "hash":
+				require.NoError(t, f.db.Exec("UPDATE resources SET content_hash=repeat('a',64)").Error)
 			case "limit":
 				require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET retry_count=?",
 					repository.PersonalExactResumeMaxAttempts).Error)
@@ -125,6 +125,17 @@ func TestPersonalExactResumeRefusesRevokedOrChangedSource(t *testing.T) {
 			require.JSONEq(t, string(before), string(exactPendingSnapshot(t, f, observed.ID)))
 		})
 	}
+}
+
+func TestPersonalExactResumeUsesImportedSnapshotAfterRemoteEdit(t *testing.T) {
+	f, observed := closedExactResumeFixture(t)
+	exactPreflightRemote(t, f, "2", true)
+	check := &personalExactPreflight{observed: observed, closed: true}
+	_, err := f.p.checkExactPersonalSource(context.Background(), observed, false, check)
+	require.NoError(t, err)
+	require.Equal(t, observed.Revision, check.source.revision)
+	require.NoError(t, f.p.repo.QueueExactResume(context.Background(), observed,
+		exactSourceReceipt(check.source), check.validate))
 }
 
 func TestPersonalExactResumeConcurrentPreparationHasOneWinner(t *testing.T) {

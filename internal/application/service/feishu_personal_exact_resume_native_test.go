@@ -99,7 +99,7 @@ func TestPersonalExactResumeNativePublishesRetainedChunksWithoutDuplicates(t *te
 				return
 			}
 			_ = json.NewEncoder(w).
-				Encode(map[string]any{"code": 0, "data": map[string]any{"metas": []any{map[string]any{"doc_type": "file", "doc_token": token, "title": "resume-" + token + ".docx", "latest_modify_time": "1"}}}})
+				Encode(map[string]any{"code": 0, "data": map[string]any{"metas": []any{map[string]any{"doc_type": "file", "doc_token": token, "title": "resume-" + token + ".docx", "latest_modify_time": fmt.Sprint(f.revision.Load())}}}})
 		case strings.HasPrefix(r.URL.Path, "/open-apis/drive/v1/files/") && strings.HasSuffix(r.URL.Path, "/download"):
 			token := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/open-apis/drive/v1/files/"), "/download")
 			if files[token] == nil {
@@ -191,6 +191,9 @@ func TestPersonalExactResumeNativePublishesRetainedChunksWithoutDuplicates(t *te
 	require.NotEmpty(t, originalVectors)
 	require.NoError(t, f.p.repo.AbortExactExecution(context.Background(), owner, op.ID))
 	observed := mustPersonalAttempt(t, f, owner.ID)
+	// The source can be edited while this imported copy awaits recovery.
+	// Resume must publish the checked original bytes without replacing chunks.
+	f.revision.Store(2)
 	require.NoError(t, f.p.prepareExactPersonalResume(context.Background(), observed))
 	require.NoError(t, f.p.processFirstCreateDocument(context.Background(), payload))
 	var receipt types.TaskPendingOp

@@ -26,7 +26,7 @@ func (p *PersonalRecovery) hasPersonalCatalogImports(ctx context.Context, tenant
 	return count > 0, err
 }
 
-// A canonical KB viewer who is a live member of the owning workspace can see
+// A canonical KB viewer who is a live member or system administrator can see
 // file catalog metadata, even while processing/source-content access is closed.
 // This is not a source proof and never grants detail, file, chunk or model access.
 func (p *PersonalRecovery) exactPageMetadata(
@@ -50,10 +50,13 @@ func (p *PersonalRecovery) exactPageMetadata(
 	memberCheck := func() error {
 		var member bool
 		if err := p.service.db.WithContext(ctx).Raw(`SELECT EXISTS(
-SELECT 1 FROM tenant_members m JOIN users u ON u.id=m.user_id
-WHERE m.user_id=? AND m.tenant_id=? AND m.role=? AND m.status='active'
-AND m.deleted_at IS NULL AND u.is_active AND u.deleted_at IS NULL)`,
-			caller.UserID, tenant, caller.Role).Scan(&member).Error; err != nil {
+SELECT 1 FROM users u JOIN tenants t ON t.id=?
+WHERE u.id=? AND u.is_active AND u.deleted_at IS NULL
+AND t.status='active' AND t.deleted_at IS NULL
+AND (u.is_system_admin OR EXISTS(
+ SELECT 1 FROM tenant_members m WHERE m.user_id=u.id AND m.tenant_id=t.id
+ AND m.role=? AND m.status='active' AND m.deleted_at IS NULL)))`,
+			tenant, caller.UserID, caller.Role).Scan(&member).Error; err != nil {
 			return err
 		}
 		if !member {

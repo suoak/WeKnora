@@ -129,4 +129,23 @@ id text PRIMARY KEY,tenant_id bigint,knowledge_base_id text,knowledge_id text,st
 	require.Error(t, err, "revoked membership closes metadata access too")
 	_, err = f.ks.GetKnowledgeBatchWithSharedAccess(catalog, 1, []string{"doc-00", "doc-01"})
 	require.Error(t, err, "status polling must honor live membership revocation")
+
+	// Platform administration authorizes the catalog through canonical KB
+	// access even without a membership row in the selected workspace.
+	require.NoError(t, f.db.Exec("UPDATE users SET is_system_admin=true WHERE id='B'").Error)
+	admin := types.WithCaller(ctx, types.Caller{TenantID: 1, UserID: "B", Role: types.TenantRoleAdmin})
+	result, err = f.ks.ListPagedKnowledgeByKnowledgeBaseID(admin, "kb",
+		&types.Pagination{Page: 1, PageSize: 10}, types.KnowledgeListFilter{})
+	require.NoError(t, err)
+	require.EqualValues(t, 24, result.Total)
+	for _, row := range result.Data.([]*types.Knowledge) {
+		require.True(t, row.MetadataOnly)
+		require.Empty(t, row.Description)
+	}
+	_, err = f.ks.GetKnowledgeByID(admin, "doc-01")
+	require.Error(t, err, "administrator catalog access does not publish unfinished content")
+	require.NoError(t, f.db.Exec("UPDATE users SET is_system_admin=false WHERE id='B'").Error)
+	_, err = f.ks.ListPagedKnowledgeByKnowledgeBaseID(admin, "kb",
+		&types.Pagination{Page: 1, PageSize: 10}, types.KnowledgeListFilter{})
+	require.Error(t, err, "administrator revocation must close metadata access immediately")
 }

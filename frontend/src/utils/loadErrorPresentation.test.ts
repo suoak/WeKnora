@@ -22,3 +22,10 @@ test('does not mislabel document verification as an insufficient workspace role'
   assert.equal(classifyLoadError({ status: 500, message }), 'generic')
   assert.equal(classifyLoadError({ status: 404, message }), 'notFound')
 })
+
+test('unpublished documents do not ask users to authorize their source again', () => {
+  const error = { message: 'Document access requires verification', details: { reason: 'personal_published_snapshot_unverified' } }
+  assert.equal(classifyLoadError({ status: 403, error }), 'notReady')
+  assert.equal(classifyLoadError({ response: { status: 403, data: { error } } }), 'notReady')
+  assert.equal(classifyLoadError({ status: 404, error }), 'notFound')
+})

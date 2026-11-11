@@ -584,7 +584,6 @@ import SettingsModalShell from '@/components/SettingsModalShell.vue'
 import {
   createKnowledgeBase,
   getKnowledgeBaseById,
-  listKnowledgeFiles,
   updateKnowledgeBase,
   rebuildKBIndex,
   generateKnowledgeBaseProfile,
@@ -1088,10 +1087,9 @@ const loadKBData = async (
   
   loading.value = true
   try {
-    const [kbInfo, filesResult] = await Promise.all([
-      getKnowledgeBaseById(kbId),
-      listKnowledgeFiles(kbId, { page: 1, page_size: 1 })
-    ])
+    // Settings need KB metadata, not access to individual document bodies.
+    // A failed/unpublished import must never prevent opening the editor.
+    const kbInfo = await getKnowledgeBaseById(kbId)
 
     if (!isCurrentKBLoad(generation, kbId)) return
     
@@ -1100,7 +1098,8 @@ const loadKBData = async (
     }
 
     const kb = kbInfo.data
-    hasFiles.value = (filesResult as any)?.total > 0
+    // Retain the storage/indexing lock if an older server omits counts.
+    hasFiles.value = kb.knowledge_count == null || kb.knowledge_count > 0
     generatedProfile.value = (kb as any).generated_profile || null
     kbCreatorId.value = (kb as any).creator_id || ''
     kbTenantId.value = Number((kb as any).tenant_id || 0)

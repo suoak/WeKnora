@@ -164,11 +164,6 @@ func (s *knowledgeService) exactPublicKnowledgePage(ctx context.Context, kb stri
 	if err != nil {
 		return nil, true, err
 	}
-	if _, err := p.checkExactPublishedViewer(ctx, types.PersonalExactReceipt{
-		TenantID: owner.TenantID, KnowledgeBaseID: owner.ID,
-	}); err != nil {
-		return nil, true, err
-	}
 	tenant, valid := types.TenantIDFromContext(ctx)
 	if !valid || tenant != owner.TenantID {
 		return nil, true, access.ErrForbidden
@@ -196,6 +191,11 @@ func (s *knowledgeService) exactPublicKnowledgePage(ctx context.Context, kb stri
 			return nil, true, err
 		}
 		return types.NewPageResult(total, page, rows), true, nil
+	}
+	if _, err := p.checkExactPublishedViewer(ctx, types.PersonalExactReceipt{
+		TenantID: owner.TenantID, KnowledgeBaseID: owner.ID,
+	}); err != nil {
+		return nil, true, err
 	}
 	rows := make([]*types.Knowledge, 0, len(ids))
 	reads := make([]context.Context, 0, len(ids))
