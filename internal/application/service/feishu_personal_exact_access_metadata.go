@@ -44,7 +44,7 @@ CASE WHEN storage_provider_config IS NULL THEN NULL ELSE
  jsonb_build_object('provider',storage_provider_config->>'provider') END AS storage_provider_config,
 indexing_strategy,chunking_config,faq_config,image_processing_config,extract_config,
 question_generation_config,auto_tag_config,profile_config,asr_config,wiki_config,
-CASE WHEN vlm_config IS NULL THEN NULL ELSE vlm_config - 'api_key' END AS vlm_config,
+CASE WHEN vlm_config IS NULL THEN NULL ELSE vlm_config::jsonb - 'api_key' END AS vlm_config,
 created_at,updated_at`
 	if grant.Permission.HasPermission(types.OrgRoleEditor) {
 		// Settings must round-trip the existing configuration rather than
