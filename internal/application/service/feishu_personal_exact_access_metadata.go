@@ -31,17 +31,28 @@ func (s *knowledgeBaseService) GetKnowledgeBaseAccessMetadata(
 	if err != nil {
 		return nil, err
 	}
-	if _, err := access.ResolveKB(ctx, access.KBRequest{Caller: types.CallerFromContext(ctx)},
-		owner, types.OrgRoleViewer, s.personalRecovery.shares, nil); err != nil {
+	grant, err := access.ResolveKB(ctx, access.KBRequest{Caller: types.CallerFromContext(ctx)},
+		owner, types.OrgRoleViewer, s.personalRecovery.shares, nil)
+	if err != nil {
 		return nil, err
 	}
 	result := &types.KnowledgeBase{}
-	err = s.personalRecovery.service.db.WithContext(ctx).Table("knowledge_bases").Select(`
+	fields := `
 id,tenant_id,creator_id,name,type,embedding_model_id,summary_model_id,vector_store_id,
 storage_backend_id,
 CASE WHEN storage_provider_config IS NULL THEN NULL ELSE
  jsonb_build_object('provider',storage_provider_config->>'provider') END AS storage_provider_config,
-indexing_strategy,chunking_config,faq_config,created_at,updated_at`).
+indexing_strategy,chunking_config,faq_config,image_processing_config,extract_config,
+question_generation_config,auto_tag_config,profile_config,asr_config,wiki_config,
+CASE WHEN vlm_config IS NULL THEN NULL ELSE vlm_config - 'api_key' END AS vlm_config,
+created_at,updated_at`
+	if grant.Permission.HasPermission(types.OrgRoleEditor) {
+		// Settings must round-trip the existing configuration rather than
+		// replacing omitted fields with editor defaults. Generated document
+		// profiles and storage credentials remain outside metadata responses.
+		fields += ",description"
+	}
+	err = s.personalRecovery.service.db.WithContext(ctx).Table("knowledge_bases").Select(fields).
 		Where("id=? AND tenant_id=? AND deleted_at IS NULL", kb, owner.TenantID).Scan(result).Error
 	if err != nil {
 		return nil, err
