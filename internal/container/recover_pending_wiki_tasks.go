@@ -6,11 +6,13 @@ import (
 	"errors"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/application/service"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/hibiken/asynq"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
@@ -29,7 +31,15 @@ type pendingWikiScope struct {
 // may also be absent after an interrupted Redis enqueue. Running this after all
 // handlers are registered closes that gap. Duplicate triggers are harmless:
 // ingest claims/peeks disjoint rows and finalize coalesces its pending lane.
-func recoverPendingWikiTasks(db *gorm.DB, task interfaces.TaskEnqueuer) {
+func recoverPendingWikiTasksWithRedis(db *gorm.DB, task interfaces.TaskEnqueuer, rc *redis.Client) {
+	recoverPendingWikiTasks(db, task, func(ctx context.Context, payload service.WikiIngestPayload) error {
+		return service.RearmWikiFinalize(ctx, task, repository.NewTaskPendingOpsRepository(db), rc, payload)
+	})
+}
+
+func recoverPendingWikiTasks(db *gorm.DB, task interfaces.TaskEnqueuer,
+	finalizers ...func(context.Context, service.WikiIngestPayload) error,
+) {
 	if db == nil || task == nil {
 		return
 	}
@@ -99,6 +109,18 @@ func recoverPendingWikiTasks(db *gorm.DB, task interfaces.TaskEnqueuer) {
 			asynq.Timeout(60 * time.Minute),
 		}
 		if scope.TaskType == types.TypeWikiFinalize {
+			if len(finalizers) > 0 {
+				err := finalizers[0](ctx, service.WikiIngestPayload{
+					TenantID: scope.TenantID, KnowledgeBaseID: scope.ScopeID,
+					Language: service.WikiPendingLanguage(ctx, db, scope.TenantID, scope.ScopeID),
+				})
+				if err != nil {
+					logger.Warnf(ctx, "[WikiRecovery] finalize recovery for KB %s failed: %v", scope.ScopeID, err)
+				} else {
+					recovered++
+				}
+				continue
+			}
 			opts[2] = asynq.Timeout(30 * time.Minute)
 			// Match scheduleFinalize so simultaneous replica startups collapse
 			// into the same per-KB finalize trigger.
