@@ -27,7 +27,7 @@ func exactPersonalStorageCharge(ctx context.Context, size int64) int64 {
 func (c *exactPersonalConsumer) reproveResumeChunks(
 	ctx context.Context, generated []*types.Chunk,
 ) error {
-	if !c.resuming || c.parsed == nil || len(c.parsed.assets) != 0 || len(generated) == 0 {
+	if !c.resuming || c.parsed == nil || len(generated) == 0 {
 		return errPersonalExactDocument
 	}
 	db := c.recovery.service.db.WithContext(ctx)
