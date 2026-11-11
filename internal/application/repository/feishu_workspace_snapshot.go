@@ -28,7 +28,7 @@ func CheckWorkspaceImportSnapshot(ctx context.Context, tx *gorm.DB,
 		return false, nil
 	}
 	switch a.Status {
-	case "index_pending", "processing", "needs_attention", "indexed":
+	case "index_pending", "processing", "needs_attention":
 	default:
 		return false, nil
 	}
