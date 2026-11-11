@@ -157,6 +157,10 @@ func RequestID() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get request ID from header or generate a new one
 		requestID := c.GetHeader("X-Request-ID")
+		if secutils.IsPersonalMCPPath(c.Request.URL.Path) {
+			requestID = ""
+			c.Request = c.Request.WithContext(logger.WithPrivatePayload(c.Request.Context()))
+		}
 		if requestID == "" {
 			requestID = uuid.New().String()
 		}
@@ -189,6 +193,17 @@ func Logger() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		path := c.Request.URL.Path
+		if secutils.IsPersonalMCPPath(path) {
+			// Never inspect bodies, queries, headers, error strings or arbitrary
+			// path suffixes, including failed authentication and unknown routes.
+			c.Request = c.Request.WithContext(logger.WithPrivatePayload(c.Request.Context()))
+			c.Next()
+			logger.GetLogger(context.Background()).WithFields(map[string]interface{}{
+				"entry_point": "go_personal", "status": c.Writer.Status(),
+				"duration_ms": time.Since(start).Milliseconds(),
+			}).Info("personal MCP request")
+			return
+		}
 		raw := c.Request.URL.RawQuery
 
 		isWikiStats := strings.HasPrefix(path, "/api/v1/knowledgebase/") &&
