@@ -49,14 +49,15 @@ func (p *PersonalRecovery) exactPageMetadata(
 	}
 	memberCheck := func() error {
 		var member bool
+		_, keyed := types.TenantAPIKeyScopeFromContext(ctx)
 		if err := p.service.db.WithContext(ctx).Raw(`SELECT EXISTS(
 SELECT 1 FROM users u JOIN tenants t ON t.id=?
 WHERE u.id=? AND u.is_active AND u.deleted_at IS NULL
 AND t.status='active' AND t.deleted_at IS NULL
-AND (u.is_system_admin OR EXISTS(
+AND ((u.can_access_all_tenants AND u.tenant_id<>t.id AND ?='admin' AND ?) OR EXISTS(
  SELECT 1 FROM tenant_members m WHERE m.user_id=u.id AND m.tenant_id=t.id
  AND m.role=? AND m.status='active' AND m.deleted_at IS NULL)))`,
-			tenant, caller.UserID, caller.Role).Scan(&member).Error; err != nil {
+			tenant, caller.UserID, caller.Role, !keyed, caller.Role).Scan(&member).Error; err != nil {
 			return err
 		}
 		if !member {

@@ -83,6 +83,26 @@ func TestPersonalPublishedViewerPreservesInfrastructureFailure(t *testing.T) {
 	require.ErrorIs(t, publishedViewerDenied("membership_role", nil), access.ErrForbidden)
 }
 
+func TestPersonalPublishedViewerHonorsLiveCrossWorkspaceAdministrator(t *testing.T) {
+	f := newPersonalRecoveryFixture(t)
+	receipt := types.PersonalExactReceipt{TenantID: 1, KnowledgeBaseID: "kb"}
+	viewer := types.WithPrincipal(f.userContext("B"), types.Principal{Type: types.PrincipalWebUser, ID: "B"})
+	viewer = types.WithCaller(viewer, types.Caller{UserID: "B", TenantID: 1, Role: types.TenantRoleAdmin})
+	require.NoError(t, f.db.Exec("DELETE FROM tenant_members WHERE user_id='B'").Error)
+	require.NoError(t, f.db.Exec("UPDATE users SET tenant_id=2,is_system_admin=true WHERE id='B'").Error)
+	_, err := f.p.checkExactPublishedViewer(viewer, receipt)
+	require.Error(t, err, "system administration alone does not authorize another workspace")
+	require.NoError(t, f.db.Exec("UPDATE users SET can_access_all_tenants=true WHERE id='B'").Error)
+	_, err = f.p.checkExactPublishedViewer(viewer, receipt)
+	require.NoError(t, err)
+	keyed := types.WithTenantAPIKeyScope(viewer, types.TenantAPIKeyScope{})
+	_, err = f.p.checkExactPublishedViewer(keyed, receipt)
+	require.Error(t, err, "MCP keys retain their own membership and scope restrictions")
+	require.NoError(t, f.db.Exec("UPDATE users SET can_access_all_tenants=false WHERE id='B'").Error)
+	_, err = f.p.checkExactPublishedViewer(viewer, receipt)
+	require.Error(t, err, "revocation must take effect without a new login")
+}
+
 func TestPersonalPublishedSnapshotStorageFailureClassification(t *testing.T) {
 	unavailable := &os.PathError{Op: "open", Path: "/private/asset", Err: os.ErrPermission}
 	err := publishedSnapshotStorageFailure(errors.Join(errPersonalExactDocument, unavailable))

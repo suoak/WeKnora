@@ -132,7 +132,7 @@ id text PRIMARY KEY,tenant_id bigint,knowledge_base_id text,knowledge_id text,st
 
 	// Platform administration authorizes the catalog through canonical KB
 	// access even without a membership row in the selected workspace.
-	require.NoError(t, f.db.Exec("UPDATE users SET is_system_admin=true WHERE id='B'").Error)
+	require.NoError(t, f.db.Exec("UPDATE users SET can_access_all_tenants=true,tenant_id=2 WHERE id='B'").Error)
 	admin := types.WithCaller(ctx, types.Caller{TenantID: 1, UserID: "B", Role: types.TenantRoleAdmin})
 	result, err = f.ks.ListPagedKnowledgeByKnowledgeBaseID(admin, "kb",
 		&types.Pagination{Page: 1, PageSize: 10}, types.KnowledgeListFilter{})
@@ -144,7 +144,7 @@ id text PRIMARY KEY,tenant_id bigint,knowledge_base_id text,knowledge_id text,st
 	}
 	_, err = f.ks.GetKnowledgeByID(admin, "doc-01")
 	require.Error(t, err, "administrator catalog access does not publish unfinished content")
-	require.NoError(t, f.db.Exec("UPDATE users SET is_system_admin=false WHERE id='B'").Error)
+	require.NoError(t, f.db.Exec("UPDATE users SET can_access_all_tenants=false WHERE id='B'").Error)
 	_, err = f.ks.ListPagedKnowledgeByKnowledgeBaseID(admin, "kb",
 		&types.Pagination{Page: 1, PageSize: 10}, types.KnowledgeListFilter{})
 	require.Error(t, err, "administrator revocation must close metadata access immediately")

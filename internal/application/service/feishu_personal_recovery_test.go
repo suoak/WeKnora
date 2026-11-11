@@ -53,7 +53,8 @@ func newPersonalRecoveryFixture(t *testing.T) *personalRecoveryFixture {
 	db := syncdb.Open(t, "postgres")
 	for _, ddl := range []string{
 		"CREATE TABLE users(id varchar(36) PRIMARY KEY,is_active boolean," +
-			"deleted_at timestamptz,is_system_admin boolean NOT NULL DEFAULT false)",
+			"deleted_at timestamptz,is_system_admin boolean NOT NULL DEFAULT false," +
+			"tenant_id bigint NOT NULL DEFAULT 1,can_access_all_tenants boolean NOT NULL DEFAULT false)",
 		"CREATE TABLE tenants(id bigint PRIMARY KEY,status text,deleted_at " +
 			"timestamptz)",
 		"CREATE TABLE tenant_members(id bigserial PRIMARY KEY,user_id " +
