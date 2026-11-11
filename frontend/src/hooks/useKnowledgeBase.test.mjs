@@ -40,6 +40,18 @@ function fixture() {
 }
 const settle = () => new Promise((resolve) => setImmediate(resolve))
 
+test('an unfinished import is shown as processing, without an authorization warning', async () => {
+  const { hook, requests } = fixture()
+  hook.getCardDetails({ id: 'unfinished', file_name: 'import.docx' })
+  const error = { status: 403, error: { details: { reason: 'personal_published_snapshot_unverified' } } }
+  requests[0].reject(error)
+  requests[1].reject(error)
+  await settle()
+  assert.equal(hook.details.detailLoadError, 'loadState.notReadyDescription')
+  assert.equal(hook.details.chunkLoadError, 'loadState.notReadyDescription')
+  assert.equal(hook.details.chunkLoaded, false)
+})
+
 test('HTTP errors stay errors, initial load is loading, successful empty data is distinct', async () => {
   const { hook, requests } = fixture()
   hook.getCardDetails({ id: 'a', file_name: 'original.docx' })
