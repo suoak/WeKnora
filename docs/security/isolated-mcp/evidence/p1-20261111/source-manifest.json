@@ -1,0 +1,98 @@
+{
+  "base": "4b385fd11e2f617eee491781067b2f69cb8aa1be",
+  "local_remote_sources_identical": true,
+  "files": [
+    {
+      "path": "internal/logger/gorm_privacy.go",
+      "sha256": "9faed8076c5e8bcf35e1a06868dca3843db70d584e98c22ace984c8faefa5d13"
+    },
+    {
+      "path": "internal/logger/payload_privacy.go",
+      "sha256": "bac02e015320a43385275e642274a13e72c954530c582ed855e5f679803efd10"
+    },
+    {
+      "path": "internal/logger/payload_privacy_test.go",
+      "sha256": "b11a71847d8ab8d4939187dd4c52cbe6e9a1d2780e78414edfcf2edaa097b6ca"
+    },
+    {
+      "path": "internal/mcpserver/personal_output.go",
+      "sha256": "62a7b6ec90212e43169304516176c07027574a11cfab39938d7f6cdb29b9c0e2"
+    },
+    {
+      "path": "internal/mcpserver/personal_output_test.go",
+      "sha256": "913e579bb9b04ea81d33f1350dc0f0e5e5f1deadeb920990b96d717f3f8747e9"
+    },
+    {
+      "path": "internal/mcpserver/personal_protocol.go",
+      "sha256": "764c6c1719031fca5d0fb0a28d3b37d1ffdda39360130b11a8cbe96d3e13a421"
+    },
+    {
+      "path": "internal/mcpserver/personal_protocol_test.go",
+      "sha256": "0fd30a394989e9814c2281967dacf7d912794b5c5a275971f7805c559dc2477e"
+    },
+    {
+      "path": "internal/middleware/personal_log_privacy_test.go",
+      "sha256": "f698d944de7179d3b01b0c8fc0c0924812a90fa2b9227feab4b7bc3bdb584aa1"
+    },
+    {
+      "path": "internal/models/embedding/personal_privacy_test.go",
+      "sha256": "ad76402a42852577ab76e2925149bc321fb9272ac43ce6657fb910f6b2783330"
+    },
+    {
+      "path": "internal/router/isolated_p1_deployed_test.go",
+      "sha256": "6bd2e7574d4aac4eaeef3d674f5b188bff53132c05efc2eedb2b45a5cf32f38c"
+    },
+    {
+      "path": "internal/container/container.go",
+      "sha256": "6d6d2674166be9a1c8436014ec90c87ff2cb74174f163bbd9e230cc137def02a"
+    },
+    {
+      "path": "internal/logger/llm_logger.go",
+      "sha256": "b02b2b902ffd8370967a9a2e40e7bbac6f74d78605a5a93c06b17afaceff401b"
+    },
+    {
+      "path": "internal/logger/logger.go",
+      "sha256": "affae87619e68ee4f53c7a9a8a5fae373dad00e6727cbf04e695a97165180788"
+    },
+    {
+      "path": "internal/mcpserver/personal.go",
+      "sha256": "ae30144be8bbd55158d0a4742931f8f1511cce648908a3d546d1b431475780cf"
+    },
+    {
+      "path": "internal/mcpserver/personal_eight_test.go",
+      "sha256": "6c3c156fe91b6359979192e18400ec52eb8c918f01c8f8aaef5116fba57f847e"
+    },
+    {
+      "path": "internal/mcpserver/personal_targets_test.go",
+      "sha256": "5f45ffd91dd593ce650ce86cd900154dda5c355627ba122749934a4ca01dc973"
+    },
+    {
+      "path": "internal/mcpserver/usage.go",
+      "sha256": "ffbd9b264ecbcde400b130c0dd76232556b308df69acc36939406a5e1a07f755"
+    },
+    {
+      "path": "internal/middleware/error_handler.go",
+      "sha256": "e4d1ef0e76ba0fbec4ac66e256f850f02b03c5f7ad2fddcc68d147cc0257579c"
+    },
+    {
+      "path": "internal/middleware/logger.go",
+      "sha256": "7272db0567b3b6b1b4cf2d3ae1872cade76d8d9a28f516513ada1c26e816bfd2"
+    },
+    {
+      "path": "internal/middleware/personal_mcp_auth.go",
+      "sha256": "75c24a55b309172dffa302bc965a1a415999dcd0d62d46b587bf5dae0d1e43de"
+    },
+    {
+      "path": "internal/middleware/recovery.go",
+      "sha256": "d14ada4aafb1484623fa5089f09ec7020b18de4e7efbf956db053428f138e2d4"
+    },
+    {
+      "path": "internal/models/embedding/langfuse_wrapper.go",
+      "sha256": "85e4b35443a89cfe008d3be67abce7d846b23c22a972f9cc5cd24b76e7c10896"
+    },
+    {
+      "path": "internal/utils/auth_log.go",
+      "sha256": "509f4250db1ea947c606ef725531dbfe4e7afdbb1892b50b066165092269792b"
+    }
+  ]
+}

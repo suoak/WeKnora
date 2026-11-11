@@ -186,6 +186,7 @@ func TestPersonalMCPHTTPAdmissionRejectsInvalidSelection(t *testing.T) {
 		`"arguments":{"knowledge_base_ids":[42]}}}`
 	w := httptest.NewRecorder()
 	request := httptest.NewRequest("POST", "/api/v1/mcp/personal", bytes.NewBufferString(body)).WithContext(ctx)
+	request.Header.Set("Content-Type", "application/json")
 	s.Handler().ServeHTTP(w, request)
 	require.Equal(t, 400, w.Code)
 	require.Zero(t, store.unrelatedReads)

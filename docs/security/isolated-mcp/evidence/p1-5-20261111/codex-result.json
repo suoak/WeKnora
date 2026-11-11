@@ -1,0 +1,55 @@
+{
+  "client": "Codex CLI 0.146.0",
+  "exit_code": 0,
+  "tls_certificate_validation_enabled": true,
+  "transport": "fixed-host SSH TCP tunnel to test Nginx 8443; original TLS preserved",
+  "completed_calls": [
+    {
+      "tool": "list_knowledge_bases",
+      "status": "completed",
+      "has_error": false
+    },
+    {
+      "tool": "search_knowledge",
+      "status": "completed",
+      "has_error": false
+    },
+    {
+      "tool": "grep_chunks",
+      "status": "completed",
+      "has_error": false
+    },
+    {
+      "tool": "list_documents",
+      "status": "completed",
+      "has_error": false
+    },
+    {
+      "tool": "read_document",
+      "status": "completed",
+      "has_error": false
+    },
+    {
+      "tool": "wiki_search",
+      "status": "completed",
+      "has_error": false
+    },
+    {
+      "tool": "wiki_read_page",
+      "status": "completed",
+      "has_error": false
+    },
+    {
+      "tool": "wiki_index",
+      "status": "completed",
+      "has_error": false
+    }
+  ],
+  "unexpected_shell_or_file_operations": 0,
+  "credential_not_in_stdout": true,
+  "passed": true,
+  "source_docs": [
+    "https://learn.chatgpt.com/docs/extend/mcp?surface=cli",
+    "https://learn.chatgpt.com/docs/auth?surface=cli"
+  ]
+}

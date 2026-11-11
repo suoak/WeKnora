@@ -89,7 +89,7 @@ func LLMDebugEnabled() bool {
 // LLMDebugLog writes a complete model call record to a per-request log file.
 // All calls sharing the same request_id are appended to the same file.
 func LLMDebugLog(ctx context.Context, record *LLMCallRecord) {
-	if !llmDebug.enabled || record == nil {
+	if PrivatePayload(ctx) || !llmDebug.enabled || record == nil {
 		return
 	}
 

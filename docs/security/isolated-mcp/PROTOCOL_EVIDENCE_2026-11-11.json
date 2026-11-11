@@ -1,0 +1,62 @@
+{
+  "observed_at_beijing": "2026-11-11T00:36:38.202454+08:00",
+  "target": "http://10.51.134.114/api/v1/mcp/personal",
+  "transport": "direct HTTP; no proxy; redirects disabled",
+  "credential_source": "user-provided for existing production read-only verification; kept in memory",
+  "steps": [
+    {
+      "method": "initialize",
+      "http_status": 200,
+      "content_type": "application/json",
+      "status": "SUCCESS"
+    },
+    {
+      "method": "notifications/initialized",
+      "http_status": 202,
+      "content_type": "other",
+      "status": "ACCEPTED"
+    },
+    {
+      "method": "tools/list",
+      "http_status": 200,
+      "content_type": "application/json",
+      "status": "SUCCESS"
+    },
+    {
+      "method": "tools/call",
+      "tool": "list_knowledge_bases",
+      "http_status": 200,
+      "content_type": "application/json",
+      "status": "SUCCESS"
+    }
+  ],
+  "production_source_revision": "UNKNOWN",
+  "production_image_id": "UNKNOWN",
+  "knowledge_content_saved": false,
+  "negative_or_write_tools_called": false,
+  "negotiated_protocol_version": "2025-06-18",
+  "server_info": {
+    "name": "knowhub-personal",
+    "version": "0.1.0"
+  },
+  "session_header_present": false,
+  "tools_list_complete": true,
+  "recognized_tool_names": [
+    "grep_chunks",
+    "list_documents",
+    "list_knowledge_bases",
+    "read_document",
+    "search_knowledge",
+    "wiki_index",
+    "wiki_read_page",
+    "wiki_search"
+  ],
+  "other_tool_name_count": 0,
+  "tool_count": 8,
+  "matches_main_eight_readonly_tools": true,
+  "list_knowledge_bases_is_error": false,
+  "authorized_kb_count": 62,
+  "kb_result_shape": "json_list",
+  "readonly_call_status": "SUCCESS",
+  "finished_at_beijing": "2026-11-11T00:36:52.662430+08:00"
+}

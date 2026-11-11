@@ -1,0 +1,32 @@
+[
+  {
+    "name": "core",
+    "started_utc": "2026-11-10T18:14:31.086548+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "embedding-privacy",
+    "started_utc": "2026-11-10T18:15:22.131067+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "fixture-build",
+    "started_utc": "2026-11-10T18:15:26.255354+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "app-build",
+    "started_utc": "2026-11-10T18:15:54.631152+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "race",
+    "started_utc": "2026-11-10T18:18:36.157348+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "vet",
+    "started_utc": "2026-11-10T18:20:07.937740+00:00",
+    "exit_code": 0
+  }
+]
