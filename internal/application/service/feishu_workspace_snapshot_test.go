@@ -9,7 +9,7 @@ import (
 )
 
 func TestWorkspaceImportedSnapshotDoesNotDependOnSourceAuthorization(t *testing.T) {
-	for _, change := range []string{"disconnect", "source_configuration_removed", "importer_removed", "binding", "hash", "generation", "kb_deleted"} {
+	for _, change := range []string{"disconnect", "source_configuration_removed", "importer_removed", "cloud_identity_overlap", "binding", "hash", "generation", "kb_deleted"} {
 		t.Run(change, func(t *testing.T) {
 			f, observed, _ := pendingExactFixture(t)
 			t.Setenv("FEISHU_PERSONAL_WORKSPACE_IMPORT_SNAPSHOTS", "1")
@@ -26,6 +26,10 @@ func TestWorkspaceImportedSnapshotDoesNotDependOnSourceAuthorization(t *testing.
 			case "importer_removed":
 				require.NoError(t, f.db.Exec("DELETE FROM tenant_members WHERE user_id='A'").Error)
 				require.NoError(t, f.db.Exec("UPDATE users SET is_active=false WHERE id='A'").Error)
+			case "cloud_identity_overlap":
+				require.NoError(t, f.db.Exec(`INSERT INTO feishu_legacy_resources
+(id,tenant_id,knowledge_base_id,knowledge_id,state,original_file_path,external_id)
+VALUES ('other-source',1,'other-kb','other-document','revoked','local://other-file','file:real')`).Error)
 			case "binding":
 				require.NoError(t, f.db.Exec("UPDATE resource_bindings SET owner_id='other'").Error)
 			case "hash":

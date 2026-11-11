@@ -172,7 +172,9 @@ func (p *PersonalRecovery) checkExactPersonalSource(
 		return nil, err
 	}
 	expected := core.PersonalResource{Type: m.ResourceType, Token: m.DocumentToken}
-	if snapshot, _ := remote.Value(workspaceImportSnapshotKey{}).(string); snapshot != a.ID {
+	snapshot, _ := remote.Value(workspaceImportSnapshotKey{}).(string)
+	workspaceCopy := snapshot == a.ID
+	if !workspaceCopy {
 		mark("remote_resource")
 		current, err := p.resolveResource(remote, m, expected)
 		if err != nil {
@@ -248,15 +250,27 @@ func (p *PersonalRecovery) checkExactPersonalSource(
 	// cloud data from protection. Unknown or mixed dependencies remain closed.
 	mark("legacy_overlap")
 	var overlaps bool
-	err = p.service.db.WithContext(ctx).Raw(`SELECT
+	if workspaceCopy {
+		// A separately exported copy may share a cloud document identity with
+		// another source. It must never adopt that source's local file or rows.
+		err = p.service.db.WithContext(ctx).Raw(`SELECT
+EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE tenant_id=? AND
+ (knowledge_id=? OR original_file_path IN (?,?))) OR
+EXISTS(SELECT 1 FROM feishu_legacy_attempts la JOIN feishu_legacy_resources lr ON lr.id=la.resource_id
+ WHERE lr.tenant_id=? AND la.manifest->'knowledge'->>'file_path' IN (?,?))`,
+			a.CallerTenantID, m.KnowledgeID, k.FilePath, file.PhysicalPath,
+			a.CallerTenantID, k.FilePath, file.PhysicalPath).Scan(&overlaps).Error
+	} else {
+		err = p.service.db.WithContext(ctx).Raw(`SELECT
 EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE tenant_id=? AND
  (knowledge_id=? OR original_file_path IN (?,?) OR external_id=? OR external_id=?)) OR
 EXISTS(SELECT 1 FROM feishu_legacy_attempts la JOIN feishu_legacy_resources lr ON lr.id=la.resource_id
  WHERE lr.tenant_id=? AND la.manifest->'knowledge'->>'file_path' IN (?,?)) OR
 EXISTS(SELECT 1 FROM data_sources WHERE tenant_id=? AND type IN ('feishu','feishu_drive','lark','lark_drive')
  AND position(? in config::text)>0)`, a.CallerTenantID, m.KnowledgeID, k.FilePath, file.PhysicalPath,
-		m.DocumentToken, m.ResourceType+":"+m.DocumentToken, a.CallerTenantID,
-		k.FilePath, file.PhysicalPath, a.CallerTenantID, m.DocumentToken).Scan(&overlaps).Error
+			m.DocumentToken, m.ResourceType+":"+m.DocumentToken, a.CallerTenantID,
+			k.FilePath, file.PhysicalPath, a.CallerTenantID, m.DocumentToken).Scan(&overlaps).Error
+	}
 	if err != nil {
 		return nil, err
 	}
