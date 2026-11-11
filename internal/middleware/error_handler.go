@@ -8,6 +8,7 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/errors"
 	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Tencent/WeKnora/internal/utils"
 )
 
 // ErrorHandler 是一个处理应用错误的中间件
@@ -20,6 +21,14 @@ func ErrorHandler() gin.HandlerFunc {
 		if len(c.Errors) > 0 {
 			// 获取最后一个错误
 			err := c.Errors.Last().Err
+			if utils.IsIsolatedPersonalMCPPath(c.Request.URL.Path) {
+				status := http.StatusInternalServerError
+				if appErr, ok := errors.IsAppError(err); ok && appErr.HTTPCode >= 400 && appErr.HTTPCode <= 599 {
+					status = appErr.HTTPCode
+				}
+				c.AbortWithStatusJSON(status, gin.H{"error": "personal MCP request denied"})
+				return
+			}
 			if stderrors.Is(err, types.ErrLegacySourceRestricted) {
 				c.JSON(http.StatusForbidden, gin.H{"success": false, "error": gin.H{"code": "source_access_restricted", "message": "Source access requires verification"}})
 				return

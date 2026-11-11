@@ -23,6 +23,8 @@ func RegisterPersonalMCPRoutes(r *gin.Engine, srv *mcpserver.PersonalServer, ten
 			continue
 		}
 		r.Handle(method, "/api/v1/mcp/personal", personalPerformanceTrace, auth, gin.WrapH(srv.Handler()))
+		r.Handle(method, "/internal/mcp/isolated/personal", personalPerformanceTrace, auth,
+			gin.WrapH(srv.IsolatedHandler()))
 	}
 }
 

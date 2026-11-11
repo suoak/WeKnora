@@ -12,6 +12,7 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/application/service"
+	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/perftrace"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -92,7 +93,22 @@ func (s *PersonalServer) Handler() http.Handler {
 		s.handler.ServeHTTP(w, r)
 	})
 }
+
+// IsolatedHandler preserves the existing inner route while enforcing a
+// separate, permanently read-only protocol and output boundary.
+func (s *PersonalServer) IsolatedHandler() http.Handler {
+	return personalHTTPBoundary(s.Handler(), isolatedPersonalPath)
+}
 func (s *PersonalServer) guard(next server.ToolHandlerFunc) server.ToolHandlerFunc {
+	return func(ctx context.Context, r mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		handler := s.enforceGuard(next)
+		if logger.IsolatedPersonalPayload(ctx) {
+			handler = personalToolBoundary(handler)
+		}
+		return handler(ctx, r)
+	}
+}
+func (s *PersonalServer) enforceGuard(next server.ToolHandlerFunc) server.ToolHandlerFunc {
 	return func(ctx context.Context, r mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		if s == nil || !s.enabled || s.knowledge == nil {
 			return mcp.NewToolResultError("personal MCP disabled"), nil
@@ -145,7 +161,13 @@ func personalJSON(ctx context.Context, value any) (*mcp.CallToolResult, error) {
 	done := perftrace.Measure(ctx, perftrace.Serialize)
 	defer done()
 	b, err := json.Marshal(value)
+	if err == nil && logger.IsolatedPersonalPayload(ctx) {
+		b, err = redactPersonalOutput(b)
+	}
 	if err != nil {
+		if logger.IsolatedPersonalPayload(ctx) {
+			return mcp.NewToolResultError("resource denied or unavailable"), nil
+		}
 		return nil, err
 	}
 	return mcp.NewToolResultText(string(b)), nil

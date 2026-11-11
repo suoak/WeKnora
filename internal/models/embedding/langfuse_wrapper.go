@@ -3,6 +3,7 @@ package embedding
 import (
 	"context"
 
+	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/tracing/langfuse"
 )
 
@@ -15,6 +16,9 @@ type langfuseEmbedder struct {
 }
 
 func (l *langfuseEmbedder) Embed(ctx context.Context, text string) ([]float32, error) {
+	if logger.PrivatePayload(ctx) {
+		return l.inner.Embed(ctx, text)
+	}
 	mgr := langfuse.GetManager()
 	if !mgr.Enabled() {
 		return l.inner.Embed(ctx, text)
@@ -42,6 +46,9 @@ func (l *langfuseEmbedder) Embed(ctx context.Context, text string) ([]float32, e
 }
 
 func (l *langfuseEmbedder) BatchEmbed(ctx context.Context, texts []string) ([][]float32, error) {
+	if logger.PrivatePayload(ctx) {
+		return l.inner.BatchEmbed(ctx, texts)
+	}
 	mgr := langfuse.GetManager()
 	if !mgr.Enabled() {
 		return l.inner.BatchEmbed(ctx, texts)
