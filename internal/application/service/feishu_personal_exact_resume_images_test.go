@@ -35,7 +35,7 @@ func TestPersonalExactResumeImagesReusesOnlyMatchingOwnedBytes(t *testing.T) {
 			case "missing":
 				require.NoError(t, f.db.Exec("UPDATE resources SET physical_path='local://missing' WHERE id=?", row.ID).Error)
 			case "ambiguous":
-				row.ID, row.Handle, row.LocationHash = "image-two", "imagetwoabcdefghijklmno", "image-two-location"
+				row.ID, row.Handle, row.LocationHash = "image-two", "imagetwoabcdefghijklmn", "image-two-location"
 				require.NoError(t, f.db.Create(&row).Error)
 				binding.ID, binding.ResourceID = "image-two-binding", row.ID
 				require.NoError(t, f.db.Create(&binding).Error)
