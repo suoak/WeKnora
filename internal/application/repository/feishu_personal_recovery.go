@@ -873,6 +873,12 @@ func (r *PersonalRecoveryRepository) lockPrincipal(
 	m *types.FeishuPersonalImport,
 	a *types.FeishuPersonalAttempt,
 ) error {
+	if r.FirstCreateOnly {
+		accepted, err := CheckWorkspaceImportSnapshot(tx.Statement.Context, tx, m, a, true)
+		if err != nil || accepted {
+			return err
+		}
+	}
 	if types.FeishuAuthMode(m.AuthMode) != types.FeishuAuthMode(a.AuthMode) {
 		return ErrPersonalIdentity
 	}

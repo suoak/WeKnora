@@ -27,6 +27,8 @@ var (
 // publication proof at public read boundaries. It never requests source OAuth.
 var ErrPersonalPublishedSnapshotUnverified = errPersonalExactDocument
 
+type workspaceImportSnapshotKey struct{}
+
 // A source attestation is not a KB grant, a model-input receipt or a serving
 // receipt. Keep it private and non-serializable: task payloads cannot supply it.
 // Consumers must fence publication and prove their actual derived inputs.
@@ -170,33 +172,35 @@ func (p *PersonalRecovery) checkExactPersonalSource(
 		return nil, err
 	}
 	expected := core.PersonalResource{Type: m.ResourceType, Token: m.DocumentToken}
-	mark("remote_resource")
-	current, err := p.resolveResource(remote, m, expected)
-	if err != nil {
-		return nil, err
-	}
-	mark("remote_identity")
-	if current.Token != expected.Token || current.Type != expected.Type {
-		return nil, errPersonalExactDocument
-	}
-	// The import owns the exported snapshot, not the current remote revision.
-	// Fetch already checks the revision before/after export. Below, the retained
-	// manifest and actual file bytes are checked again, and publication remains
-	// fenced to that original revision. Later edits must not invalidate a user's
-	// completed export or make a partially processed import impossible to resume.
-	// Resource identity and current source permissions are still verified here.
-	client := p.service.client(&core.Config{AppID: m.AppID})
-	mark("remote_permissions")
-	permission, err := inspectExactPersonalPermissions(remote,
-		func(current context.Context, action string) (bool, error) {
-			return client.PersonalResourcePermission(current, expected, action)
-		})
-	if err != nil {
-		return nil, err
-	}
-	permissionBits = &[3]bool{permission.View, permission.Export, permission.Copy}
-	if !permission.View || !permission.Export || !permission.Copy {
-		return nil, errPersonalExactDocument
+	if snapshot, _ := remote.Value(workspaceImportSnapshotKey{}).(string); snapshot != a.ID {
+		mark("remote_resource")
+		current, err := p.resolveResource(remote, m, expected)
+		if err != nil {
+			return nil, err
+		}
+		mark("remote_identity")
+		if current.Token != expected.Token || current.Type != expected.Type {
+			return nil, errPersonalExactDocument
+		}
+		// The import owns the exported snapshot, not the current remote revision.
+		// Fetch already checks the revision before/after export. Below, the retained
+		// manifest and actual file bytes are checked again, and publication remains
+		// fenced to that original revision. Later edits must not invalidate a user's
+		// completed export or make a partially processed import impossible to resume.
+		// Resource identity and current source permissions are still verified here.
+		client := p.service.client(&core.Config{AppID: m.AppID})
+		mark("remote_permissions")
+		permission, err := inspectExactPersonalPermissions(remote,
+			func(current context.Context, action string) (bool, error) {
+				return client.PersonalResourcePermission(current, expected, action)
+			})
+		if err != nil {
+			return nil, err
+		}
+		permissionBits = &[3]bool{permission.View, permission.Export, permission.Copy}
+		if !permission.View || !permission.Export || !permission.Copy {
+			return nil, errPersonalExactDocument
+		}
 	}
 	mark("manifest")
 	manifest, err := p.store.read(a)

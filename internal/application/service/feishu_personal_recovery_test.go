@@ -46,6 +46,9 @@ type personalRecoveryFixture struct {
 
 func newPersonalRecoveryFixture(t *testing.T) *personalRecoveryFixture {
 	t.Helper()
+	// These source-acquisition/fencing fixtures retain the legacy live-source
+	// policy. Workspace snapshot tests explicitly exercise the product default.
+	t.Setenv("FEISHU_PERSONAL_WORKSPACE_IMPORT_SNAPSHOTS", "0")
 	t.Setenv("SYSTEM_AES_KEY", "01234567890123456789012345678901")
 	t.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost,open.feishu.cn")
 	utils.ResetSSRFWhitelistForTest()

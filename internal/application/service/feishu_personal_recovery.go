@@ -198,6 +198,18 @@ func (p *PersonalRecovery) authorize(
 	m *types.FeishuPersonalImport,
 	a *types.FeishuPersonalAttempt,
 ) (context.Context, error) {
+	if p.firstCreateOnly {
+		accepted, err := repository.CheckWorkspaceImportSnapshot(ctx, p.service.db, m, a, false)
+		if err != nil {
+			return nil, err
+		}
+		if accepted {
+			// Server-owned snapshot processing authority, never an inherited
+			// user/source grant or a value accepted from a request/task payload.
+			local := types.WithExecutionTenant(ctx, a.CallerTenantID)
+			return context.WithValue(local, workspaceImportSnapshotKey{}, a.ID), nil
+		}
+	}
 	fresh, cfg, err := p.authorizeLocal(ctx, m, a)
 	if err != nil {
 		return nil, err
@@ -952,6 +964,18 @@ func (p *PersonalRecovery) mutate(
 		var m types.FeishuPersonalImport
 		if err := tx.Where("id = ?", a.ImportID).First(&m).Error; err != nil {
 			return personalAccessError(err)
+		}
+		if p.firstCreateOnly {
+			accepted, err := repository.CheckWorkspaceImportSnapshot(ctx, tx, &m, a, true)
+			if err != nil {
+				return err
+			}
+			if accepted {
+				if fn != nil {
+					return fn(tx, a)
+				}
+				return nil
+			}
 		}
 		var user types.User
 		if err := tx.Clauses(
