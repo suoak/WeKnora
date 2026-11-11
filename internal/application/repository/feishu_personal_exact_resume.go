@@ -12,8 +12,9 @@ import (
 )
 
 // PersonalExactResumeMaxAttempts retains a cumulative bounded budget, including
-// one compatibility retry after the original three retained-output attempts.
-const PersonalExactResumeMaxAttempts = 4
+// compatibility retries for original retained-output and embedded-image resumes.
+// The cumulative count is retained; no task or attempt counter is reset.
+const PersonalExactResumeMaxAttempts = 5
 
 // QueueExactResume preserves the original dispatch, file and receipt IDs.
 // It grants no body/model authority. A new owner must rederive and compare all
