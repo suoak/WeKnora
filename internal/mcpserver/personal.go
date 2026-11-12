@@ -7,11 +7,13 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/application/service"
+	"github.com/Tencent/WeKnora/internal/config"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/perftrace"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -26,14 +28,27 @@ type PersonalServer struct {
 	enabled   bool
 	knowledge *service.PortalMCPKnowledge
 	handler   http.Handler
-	slots     chan struct{}
+	admission *personalAdmission
+	protocol  *personalAdmission
+	streams   *personalAdmission
 }
 
 func NewDisabledPersonalServer() *PersonalServer { return NewPersonalServer(false, nil) }
 func (s *PersonalServer) Enabled() bool          { return s != nil && s.enabled && s.knowledge != nil }
 
 func NewPersonalServer(enabled bool, knowledge *service.PortalMCPKnowledge) *PersonalServer {
-	s := &PersonalServer{enabled: enabled, knowledge: knowledge, slots: make(chan struct{}, 8)}
+	limits, _ := (config.PersonalMCPConcurrencyConfig{}).Resolve()
+	return newPersonalServer(enabled, knowledge, limits)
+}
+
+func newPersonalServer(
+	enabled bool, knowledge *service.PortalMCPKnowledge, limits config.PersonalMCPConcurrencyConfig,
+) *PersonalServer {
+	s := &PersonalServer{
+		enabled: enabled, knowledge: knowledge,
+		admission: newPersonalAdmission(limits, false), protocol: newPersonalAdmission(limits, true),
+		streams: newPersonalStreamAdmission(limits),
+	}
 	m := server.NewMCPServer("knowhub-personal", "0.1.0", server.WithToolCapabilities(false), server.WithRecovery(), server.WithToolHandlerMiddleware(s.guard))
 	for _, tool := range []mcp.Tool{listKnowledgeBasesTool(), searchKnowledgeTool(), grepChunksTool(), listDocumentsTool(), readDocumentTool(), wikiSearchTool(), wikiReadPageTool(), wikiIndexTool()} {
 		if tool.Name == "wiki_search" {
@@ -63,13 +78,11 @@ func (s *PersonalServer) Handler() http.Handler {
 			http.Error(w, "personal MCP disabled", http.StatusForbidden)
 			return
 		}
-		select {
-		case s.slots <- struct{}{}:
-			defer func() { <-s.slots }()
-		default:
-			w.Header().Set("Retry-After", "1")
-			w.Header().Set("Cache-Control", "private, no-store")
-			http.Error(w, "personal MCP busy; retry later", http.StatusTooManyRequests)
+		// Only the server-authenticated owner participates in scheduling. Keys and
+		// workspace selections belonging to the same person share one quota.
+		principal, ok := r.Context().Value(types.PrincipalContextKey).(types.Principal)
+		if !ok || principal.Type != types.PrincipalWebUser || !principal.Valid() {
+			http.Error(w, "personal MCP authentication required", http.StatusUnauthorized)
 			return
 		}
 		perftrace.Authenticated(r.Context())
@@ -82,6 +95,10 @@ func (s *PersonalServer) Handler() http.Handler {
 		r = r.WithContext(ctx)
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 		var targets []string
+		pool, class := s.protocol, "protocol"
+		if r.Method == http.MethodGet {
+			pool, class = s.streams, "stream"
+		}
 		if r.Method == http.MethodPost {
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
@@ -94,7 +111,46 @@ func (s *PersonalServer) Handler() http.Handler {
 				http.Error(w, "invalid personal MCP targets", http.StatusBadRequest)
 				return
 			}
+			var envelope struct {
+				Method string `json:"method"`
+			}
+			_ = json.Unmarshal(body, &envelope) // Already validated by personalHTTPRequestTargets.
+			if envelope.Method == "tools/call" {
+				pool, class = s.admission, "tool"
+			}
 		}
+		waitStarted := time.Now()
+		release, err := pool.acquire(r.Context(), principal.ID)
+		outcome := "admitted"
+		if err != nil {
+			outcome = "concurrency_limited"
+			if !errors.Is(err, errPersonalCapacity) {
+				outcome = "canceled"
+			}
+		}
+		perftrace.Admission(r.Context(), class, outcome, time.Since(waitStarted), pool.snapshot(principal.ID))
+		if err != nil {
+			if errors.Is(err, errPersonalCapacity) {
+				if v, ok := r.Context().Value(invocationKey{}).(*invocation); ok {
+					v.concurrencyLimited = true
+				}
+				// Queue completion depends on downstream latency; retry no earlier
+				// than the configured waiting interval, rounded up to whole seconds.
+				w.Header().Set("Retry-After", strconv.Itoa(int((pool.wait+time.Second-1)/time.Second)))
+				w.Header().Set("Cache-Control", "private, no-store")
+				w.Header().Set("X-KnowHub-Error-Code", "concurrency_limited")
+				http.Error(w, "personal MCP concurrency capacity exceeded; retry later", http.StatusTooManyRequests)
+			} else if errors.Is(err, context.DeadlineExceeded) {
+				http.Error(w, "personal MCP request timed out", http.StatusGatewayTimeout)
+			} else {
+				http.Error(w, "personal MCP request canceled", http.StatusRequestTimeout)
+			}
+			return
+		}
+		defer func() {
+			release()
+			perftrace.AdmissionReleased(r.Context(), pool.snapshot(principal.ID))
+		}()
 		if _, err := s.knowledge.Resolve(r.Context(), targets); err != nil {
 			http.Error(w, "personal MCP denied", http.StatusForbidden)
 			return

@@ -9,6 +9,20 @@ personal_mcp:
   review_enabled: false
   system_admin_review: false
   exceptions_enabled: false
+  concurrency:
+    # Per APP replica; both cloud routes share these pools. Protocol capacity
+    # is reserved separately from tool execution. All limits stay bounded.
+    global_limit: 16
+    user_limit: 4
+    queue_limit: 64
+    user_queue_limit: 8
+    wait_timeout_ms: 1500
+    protocol_limit: 8
+    protocol_user_limit: 2
+    # SSE GET listeners hold their permit until disconnect/30s timeout and
+    # cannot consume protocol discovery or tool capacity.
+    stream_limit: 8
+    stream_user_limit: 2
 
 server:
   port: 8080

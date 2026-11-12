@@ -28,18 +28,27 @@ const (
 	stageCount
 )
 
+type AdmissionLoad struct {
+	Active     int    `json:"active"`
+	Queued     int    `json:"queued"`
+	UserActive int    `json:"user_active"`
+	UserQueued int    `json:"user_queued"`
+	Rejected   uint64 `json:"rejected_total"`
+}
+
 var names = [stageCount]string{
 	"auth", "resolve", "snapshot", "dimension_sql", "bm25_sql", "vector_sql", "embedding", "merge", "serialize",
 }
 
 // Trace belongs to one HTTP request; no user ID, query, result, or Key is stored.
 type Trace struct {
-	mu       sync.Mutex
-	id       string
-	start    time.Time
-	authDone bool
-	duration [stageCount]time.Duration
-	count    [stageCount]uint64
+	mu        sync.Mutex
+	id        string
+	start     time.Time
+	authDone  bool
+	duration  [stageCount]time.Duration
+	count     [stageCount]uint64
+	admission map[string]any
 }
 
 // ID is an immutable, server-generated correlation ID, never a principal ID.
@@ -48,6 +57,13 @@ func (t *Trace) ID() string {
 		return ""
 	}
 	return t.id
+}
+
+// IDFromContext allows the existing usage ledger to correlate anonymous load
+// records to its authenticated attribution without copying user IDs into logs.
+func IDFromContext(ctx context.Context) string {
+	t, _ := ctx.Value(key{}).(*Trace)
+	return t.ID()
 }
 
 // New creates a server-generated identifier, independent of caller headers.
@@ -90,6 +106,31 @@ func Authenticated(ctx context.Context) {
 	}
 }
 
+// Admission accepts only server-owned class/outcome labels and numeric load.
+// User identities, credentials and RPC inputs never enter this projection.
+func Admission(ctx context.Context, class, outcome string, wait time.Duration, load AdmissionLoad) {
+	t, _ := ctx.Value(key{}).(*Trace)
+	if t == nil {
+		return
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.admission = map[string]any{"class": class, "outcome": outcome, "wait_ms": float64(wait.Microseconds()) / 1000, "load": load}
+}
+
+// AdmissionReleased records the gauge after this request gives its permit back.
+func AdmissionReleased(ctx context.Context, load AdmissionLoad) {
+	t, _ := ctx.Value(key{}).(*Trace)
+	if t == nil {
+		return
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.admission != nil {
+		t.admission["after_release"] = load
+	}
+}
+
 // Summary contains overlapping inclusive stages; durations must not be summed.
 func (t *Trace) Summary() map[string]any {
 	if t == nil {
@@ -104,5 +145,6 @@ func (t *Trace) Summary() map[string]any {
 	return map[string]any{
 		"request": t.id, "total_ms": float64(time.Since(t.start).Microseconds()) / 1000,
 		"authenticated": t.authDone, "inclusive_stages": stages,
+		"admission": t.admission,
 	}
 }
