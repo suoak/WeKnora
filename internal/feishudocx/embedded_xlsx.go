@@ -25,8 +25,10 @@ func embeddedXLSXIdentity(content []byte, expanded *uint64) ([]byte, error) {
 	seen := map[string]bool{}
 	required := map[string]xml.Name{
 		"[Content_Types].xml": {Space: "http://schemas.openxmlformats.org/package/2006/content-types", Local: "Types"},
-		"_rels/.rels":         {Space: "http://schemas.openxmlformats.org/package/2006/relationships", Local: "Relationships"},
-		"xl/workbook.xml":     {Space: spreadsheetNS, Local: "workbook"},
+		"_rels/.rels": {
+			Space: "http://schemas.openxmlformats.org/package/2006/relationships", Local: "Relationships",
+		},
+		"xl/workbook.xml": {Space: spreadsheetNS, Local: "workbook"},
 	}
 	var parts []partDigest
 	for _, entry := range z.File {

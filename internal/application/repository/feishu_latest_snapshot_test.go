@@ -70,8 +70,10 @@ func latestSnapshotEmbeddedPacker(t *testing.T) func(time.Time, bool) []byte {
 func TestFeishuLatestSnapshotEmbeddedWorkbookPacking(t *testing.T) {
 	pack := latestSnapshotEmbeddedPacker(t)
 	stamp := time.Date(2026, 11, 12, 9, 0, 0, 0, time.UTC)
-	item := types.FetchedItem{ExternalID: "same", FileName: "same.docx", Title: "same", UpdatedAt: stamp,
-		Content: pack(stamp, false), Metadata: map[string]string{"obj_type": "docx", "obj_token": "same"}}
+	item := types.FetchedItem{
+		ExternalID: "same", FileName: "same.docx", Title: "same", UpdatedAt: stamp,
+		Content: pack(stamp, false), Metadata: map[string]string{"obj_type": "docx", "obj_token": "same"},
+	}
 	fresh := item
 	fresh.Content = pack(stamp.Add(time.Minute), false)
 	require.NotEqual(t, item.Content, fresh.Content)
@@ -173,9 +175,11 @@ func TestFeishuLatestSnapshotPostgres(t *testing.T) {
 
 	// The v2 identity must also pass the actual transaction's type/path guards.
 	pack := latestSnapshotEmbeddedPacker(t)
-	embedded := &types.FetchedItem{ExternalID: "embedded", Content: pack(stamp, false),
+	embedded := &types.FetchedItem{
+		ExternalID: "embedded", Content: pack(stamp, false),
 		Title: "embedded", FileName: "embedded.docx", UpdatedAt: stamp,
-		Metadata: map[string]string{"obj_type": "docx", "obj_token": "embedded"}}
+		Metadata: map[string]string{"obj_type": "docx", "obj_token": "embedded"},
+	}
 	identity, err := LegacyDOCXSourceIdentity(embedded.Content, embedded.FileName, embedded.Title)
 	require.NoError(t, err)
 	_, firstEmbedded, err := store.BeginWithSourceIdentity(ctx, &ds, embedded,
@@ -199,5 +203,6 @@ func TestFeishuLatestSnapshotPostgres(t *testing.T) {
 	require.NoError(t, err)
 	_, _, err = store.BeginWithSourceIdentity(ctx, &ds, embedded,
 		LegacySourceHash(embedded.Content, embedded.FileName, embedded.Title), changedIdentity, nil)
-	require.ErrorIs(t, err, ErrLegacyVersionFence, "a real cell change at the same source revision still needs fresh proof")
+	require.ErrorIs(t, err, ErrLegacyVersionFence,
+		"a real cell change at the same source revision still needs fresh proof")
 }
