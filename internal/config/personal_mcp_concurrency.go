@@ -29,7 +29,7 @@ func (c PersonalMCPConcurrencyConfig) Resolve() (PersonalMCPConcurrencyConfig, e
 		{&c.WaitTimeoutMs, 1500, 5000},
 		{&c.ProtocolLimit, 8, 64},
 		{&c.ProtocolUserLimit, 4, 16},
-		{&c.StreamLimit, 8, 64},
+		{&c.StreamLimit, 8, 256},
 		{&c.StreamUserLimit, 2, 16},
 	}
 	for _, f := range fields {

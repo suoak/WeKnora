@@ -153,6 +153,26 @@ func TestPersonalAdmissionFourIndependentProtocolRequests(t *testing.T) {
 	require.Equal(t, 4, a.snapshot("owner").Active)
 }
 
+func TestPersonalStreamsBoundInitialScopeResolution(t *testing.T) {
+	c, err := (config.PersonalMCPConcurrencyConfig{StreamLimit: 128}).Resolve()
+	require.NoError(t, err)
+	s := newPersonalServer(true, &service.PortalMCPKnowledge{}, c)
+	s.protocol.wait = time.Millisecond
+	for i := 0; i < s.protocol.perUser; i++ {
+		release, err := s.protocol.acquire(context.Background(), "owner")
+		require.NoError(t, err)
+		defer release()
+	}
+	r := httptest.NewRequest("GET", personalPath, nil)
+	r = r.WithContext(types.WithPrincipal(r.Context(), types.Principal{Type: types.PrincipalWebUser, ID: "owner"}))
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, r)
+	require.Equal(t, 429, w.Code)
+	require.Equal(t, "concurrency_limited", w.Header().Get("X-KnowHub-Error-Code"))
+	require.Equal(t, "1", w.Header().Get("Retry-After"))
+	require.Zero(t, s.streams.snapshot("owner").Active)
+}
+
 func TestPersonalAdmissionHTTPIdentityProtocolIsolationAndUsage(t *testing.T) {
 	s := NewPersonalServer(true, &service.PortalMCPKnowledge{})
 	s.admission.wait = time.Millisecond
