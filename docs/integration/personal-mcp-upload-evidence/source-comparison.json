@@ -1,0 +1,52 @@
+[
+  {
+    "path": "internal/application/service/knowledge_create.go",
+    "sha256": "7a487b44feef020170e9127eafccb635adae7894cb6e895b6bd3a3b27fc1f6e2",
+    "remote_matches": true
+  },
+  {
+    "path": "internal/application/service/personal_content.go",
+    "sha256": "023a59841582662054468da210281f5e456e6176044b0b3943348e120de23427",
+    "remote_matches": true
+  },
+  {
+    "path": "internal/application/service/personal_content_test.go",
+    "sha256": "b16c565aa4494baebffb5a76dc79cfebafa67b0622646b384f8e719b8589f433",
+    "remote_matches": true
+  },
+  {
+    "path": "internal/application/service/personal_upload.go",
+    "sha256": "94630ea4dbf9e6b5a59979e51a0126c4e1bf3ef564abd6a1baf13bc553743e73",
+    "remote_matches": true
+  },
+  {
+    "path": "internal/application/service/personal_upload_test.go",
+    "sha256": "b1a2fdc25910bc15044ff849764abd20a49a57a8a40ac6d89fc15b37e4aebd7a",
+    "remote_matches": true
+  },
+  {
+    "path": "internal/application/service/personal_upload_validation.go",
+    "sha256": "f38ba4fc0b45170a0441ef87e944d676e5448bcf303b31dfe71360abc2bbdb88",
+    "remote_matches": true
+  },
+  {
+    "path": "internal/config/config.go",
+    "sha256": "643750370a641d6a14a5e914ec0200e67a2ef377bbd5fef8a846ad747caa68a4",
+    "remote_matches": true
+  },
+  {
+    "path": "internal/mcpserver/personal_content.go",
+    "sha256": "b80d4371a0517cb73d1c585050f69171fec0c6229c4dd41ee9b7149954ccef0e",
+    "remote_matches": true
+  },
+  {
+    "path": "internal/mcpserver/personal_content_test.go",
+    "sha256": "0b5b34d4a4837cd58870c834766e8936628235a576234287dad4ab1ec0fd9245",
+    "remote_matches": true
+  },
+  {
+    "path": "internal/types/knowledge.go",
+    "sha256": "2c3dc0aa0760f34788e11e4d64ddac344d8b33b526a33d59f5ef734d4c0d1b33",
+    "remote_matches": true
+  }
+]

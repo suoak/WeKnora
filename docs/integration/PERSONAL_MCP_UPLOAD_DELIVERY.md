@@ -43,7 +43,11 @@
 
 首次失败的测试与修正后重跑证据均保留：测试存储目录默认落到 `/data` 导致权限拒绝，已在夹具中显式设为临时目录；Linux 已通过。服务启动遇到主机 glibc、Jieba、空密码 DSN 等环境问题，分别在现有 Bookworm 容器内运行、挂载只读字典、为仅合成实例提供非空测试密码后解决。没有为了通过测试改松权限断言。
 
-完整相关包回归和定向 race 仍需以最终证据中的退出码为准，不能用上述定向测试替代完整 CI。工作流见 `.github/workflows/personal-mcp-content.yml`。
+候选 `921d92250` 的四组 GitHub CI 均成功：[Personal MCP 专项](https://github.com/suoak/WeKnora/actions/runs/43195877191)、[Portal Final Gate](https://github.com/suoak/WeKnora/actions/runs/43195877004)、[App](https://github.com/suoak/WeKnora/actions/runs/43195876968)、[Frontend](https://github.com/suoak/WeKnora/actions/runs/43195876810)。覆盖完整 internal 后端、相关包回归、race、vet、应用/前端镜像与启动检查。工作流见 `.github/workflows/personal-mcp-content.yml`，结构化结果见 `personal-mcp-upload-evidence/ci-candidate-921d92250.json`。
+
+最后补充文件 INSERT 失败后的清理修复：只有明确的 `ErrKnowledgeNotFound` 才删除刚存储的文件；数据库读取结果不确定时保留文件，避免破坏可能已提交的文档。真实 SQLite 触发器强制 INSERT 失败，验证文件清理。该修复的 Linux 定向测试、实际 APP/验收工具编译均 exit 0；源码 SHA256 与远端逐项一致。最终二进制替换的只是本任务带独立 label 的 APP 容器，再次执行文本、五类文件、并发、索引检索和撤权验收全部通过，现有 18 份合成文档均 completed。最终提交的 CI 状态以 PR 检查页为准。
+
+打包机完整包回归未全部成功，原始证据保留：无网络运行受 DNS 限制；恢复网络后 repository、handler、router、middleware、config 成功，service 的 `TestQueryTemplatesEnsureAndReplaceDoNotShareSingleflight` 在等待 provider 的 1 秒断言失败，整个包随后达到默认 10 分钟超时（当时执行到 Wiki 测试）。两次定向 race 均 exit 0。这些记录不计为全量通过，也没有改松沙箱/Wiki 测试；同候选在 GitHub 的全量后端及相关包回归成功。详见 `regression-results.json`、`regression-online-results.json` 与 `final-log-manifest.json`。
 
 ## 使用与回滚
 
@@ -51,4 +55,4 @@
 
 回滚只恢复上个 main 应用/前端镜像，保留 8443 代理和无 Docker socket 配置；本轮无新增数据库迁移。已新增的文档保留，不删除用户内容；旧程序会忽略新 metadata 字段。Key 的 `add_content` 不会转化成 `ingest` 或 FullAccess。
 
-仍待：最终 CI/PR 结果、运维实际 8443 映射回归；员工实时在职及杀毒扫描按用户指令延期。本报告不构成生产部署授权。
+PR：[KnowHub Personal MCP 文件新增](https://github.com/suoak/WeKnora/pull/138)。仍待最终提交 CI、运维实际 8443 映射回归；员工实时在职及杀毒扫描按用户指令延期。本报告不构成生产部署授权。

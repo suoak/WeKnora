@@ -1,0 +1,42 @@
+[
+  {
+    "path": "/home/aqyfzx/ai/knowhub-personal-upload-r1-20261112/cleanup-retry.log",
+    "sha256": "12e33d6fe9edab326bd65835fa1e47bb70abf6013addaac720dbb65c27403248",
+    "bytes": 189
+  },
+  {
+    "path": "/home/aqyfzx/ai/knowhub-personal-upload-r1-20261112/regression-full.log",
+    "sha256": "694a7f6120756a262708f50b8328455df810d43682fb6f0a93495bcb93b2361c",
+    "bytes": 2460508
+  },
+  {
+    "path": "/home/aqyfzx/ai/knowhub-personal-upload-r1-20261112/regression-online-full.log",
+    "sha256": "9034947baa1b6373cb7e207248dd0c1a432028871ffd33aef5feaf0649b0d630",
+    "bytes": 3075753
+  },
+  {
+    "path": "/home/aqyfzx/ai/knowhub-personal-upload-r1-20261112/race-online-full.log",
+    "sha256": "20e6dc031bc41eb05e0d28164fe7f4974c08a98381b21ccd1f645b03f5f05037",
+    "bytes": 247
+  },
+  {
+    "path": "/home/aqyfzx/ai/knowhub-personal-upload-r1-20261112/app-build.log",
+    "sha256": "97f4a20fa3c62f76c8b1d23f5e39c3d2c70d4b4a16c04081fd2916a9e504d7e5",
+    "bytes": 121
+  },
+  {
+    "path": "/home/aqyfzx/ai/knowhub-personal-upload-r1-20261112/final-lab.py.log",
+    "sha256": "79290ef39e1dd26f93954ff536e5715575af44813c9f9d613659a6289d0ef390",
+    "bytes": 800
+  },
+  {
+    "path": "/home/aqyfzx/ai/knowhub-personal-upload-r1-20261112/final-accept.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  {
+    "path": "/home/aqyfzx/ai/knowhub-personal-upload-r1-20261112/final-supplement.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  }
+]

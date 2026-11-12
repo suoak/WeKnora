@@ -113,6 +113,23 @@ func TestPersonalContentRealDatabaseIsolationAndIdempotency(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+	require.NoError(t, db.Exec("CREATE TRIGGER reject_upload BEFORE INSERT ON knowledges WHEN NEW.file_name='reject.txt' BEGIN SELECT RAISE(ABORT,'synthetic insert failure'); END").Error)
+	rejected := upload
+	rejected.Filename = "reject.txt"
+	rejected.IdempotencyKey = "upload-rejected-0001"
+	_, err = svc.Upload(a, rejected)
+	require.Error(t, err)
+	var rejectedFiles []string
+	require.NoError(t, filepath.Walk(storage, func(p string, info os.FileInfo, e error) error {
+		if e != nil {
+			return e
+		}
+		if !info.IsDir() && info.Name() == "reject.txt" {
+			rejectedFiles = append(rejectedFiles, p)
+		}
+		return nil
+	}))
+	require.Empty(t, rejectedFiles, "known failed INSERT cleans the saved file")
 	entries, err := os.ReadDir(quarantine)
 	require.NoError(t, err)
 	require.Empty(t, entries, "quarantine files removed after all replays")

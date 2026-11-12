@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"mime/multipart"
 	"net/url"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
+	"github.com/Tencent/WeKnora/internal/application/repository"
 	werrors "github.com/Tencent/WeKnora/internal/errors"
 	"github.com/Tencent/WeKnora/internal/infrastructure/chunker"
 	"github.com/Tencent/WeKnora/internal/infrastructure/docparser"
@@ -314,7 +316,7 @@ func (s *knowledgeService) CreateKnowledgeFromFile(
 			if readErr == nil && current != nil && current.FilePath == filePath {
 				return current, nil
 			}
-			if readErr != nil {
+			if readErr != nil && !errors.Is(readErr, repository.ErrKnowledgeNotFound) {
 				return nil, err
 			}
 		}
