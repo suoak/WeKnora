@@ -27,11 +27,20 @@ func TestContentCreateDoesNotPromoteWorkspaceReadAccess(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := types.WithCaller(context.Background(), types.Caller{TenantID: 1, UserID: "A", Role: tc.role})
-			kb := &types.KnowledgeBase{ID: "kb", TenantID: tc.tenant, Type: "document", CreatorID: tc.owner, PrivateOwnerID: tc.private}
+			kb := &types.KnowledgeBase{
+				ID:             "kb",
+				TenantID:       tc.tenant,
+				Type:           "document",
+				CreatorID:      tc.owner,
+				PrivateOwnerID: tc.private,
+			}
 			require.Equal(t, tc.allowed, CheckKBContentCreate(ctx, kb, &shareLookup{permission: tc.share}) == nil)
 		})
 	}
-	ctx := types.WithCaller(context.Background(), types.Caller{TenantID: 1, UserID: "A", Role: types.TenantRoleContributor})
+	ctx := types.WithCaller(
+		context.Background(),
+		types.Caller{TenantID: 1, UserID: "A", Role: types.TenantRoleContributor},
+	)
 	kb := &types.KnowledgeBase{ID: "kb", TenantID: 1, Type: "document", CreatorID: "B"}
 	grant, err := ResolveKB(ctx, KBRequest{Caller: types.CallerFromContext(ctx)}, kb, types.OrgRoleEditor, nil, nil)
 	require.NoError(t, err)
@@ -46,7 +55,10 @@ func TestContentCreateDoesNotPromoteWorkspaceReadAccess(t *testing.T) {
 		{types.StringArray{"retrieve", "add_content"}, true},
 		{types.StringArray{"retrieve", "ingest"}, false},
 	} {
-		scoped := types.WithTenantAPIKeyScope(grant.Context(ctx), types.TenantAPIKeyScope{ScopeType: types.APIKeyScopeUserMCP, Capabilities: tc.capabilities})
+		scoped := types.WithTenantAPIKeyScope(
+			grant.Context(ctx),
+			types.TenantAPIKeyScope{ScopeType: types.APIKeyScopeUserMCP, Capabilities: tc.capabilities},
+		)
 		require.Equal(t, tc.allowed, RequireKBContentCreate(scoped, kb) == nil)
 		if !scopedCapabilityIsIngest(tc.capabilities) {
 			require.Error(t, RequireKBWrite(scoped, kb), "Personal add_content never enables generic mutation")

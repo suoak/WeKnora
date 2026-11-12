@@ -3,11 +3,12 @@ package service
 import (
 	"context"
 	"encoding/base64"
-	fileService "github.com/Tencent/WeKnora/internal/application/service/file"
 	"os"
 	"path/filepath"
 	"sync"
 	"testing"
+
+	fileService "github.com/Tencent/WeKnora/internal/application/service/file"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -26,30 +27,100 @@ func TestPersonalContentRealDatabaseIsolationAndIdempotency(t *testing.T) {
 	pool, err := db.DB()
 	require.NoError(t, err)
 	pool.SetMaxOpenConns(1)
-	t.Cleanup(func() { pool.Close() })
-	require.NoError(t, db.AutoMigrate(&types.User{}, &types.Tenant{}, &types.TenantMember{}, &types.KnowledgeBase{}, &types.TenantAPIKey{}, &types.APIKeyTenantScope{}, &types.APIKeyKnowledgeBaseScope{}, &types.Knowledge{}))
+	t.Cleanup(func() { _ = pool.Close() })
+	require.NoError(
+		t,
+		db.AutoMigrate(
+			&types.User{},
+			&types.Tenant{},
+			&types.TenantMember{},
+			&types.KnowledgeBase{},
+			&types.TenantAPIKey{},
+			&types.APIKeyTenantScope{},
+			&types.APIKeyKnowledgeBaseScope{},
+			&types.Knowledge{},
+		),
+	)
 	require.NoError(t, db.Exec("CREATE TABLE feishu_private_kbs(kb_id TEXT PRIMARY KEY,owner_id TEXT)").Error)
-	require.NoError(t, db.Create(&types.Tenant{ID: 1, Name: "space", Status: "active", StorageEngineConfig: &types.StorageEngineConfig{DefaultProvider: "local"}}).Error)
+	require.NoError(
+		t,
+		db.Create(
+			&types.Tenant{
+				ID:                  1,
+				Name:                "space",
+				Status:              "active",
+				StorageEngineConfig: &types.StorageEngineConfig{DefaultProvider: "local"},
+			},
+		).Error,
+	)
 	for _, u := range []string{"A", "B"} {
-		require.NoError(t, db.Create(&types.User{ID: u, Username: u, Email: u + "@synthetic.invalid", IsActive: true}).Error)
-		require.NoError(t, db.Create(&types.TenantMember{UserID: u, TenantID: 1, Role: types.TenantRoleContributor, Status: types.TenantMemberStatusActive}).Error)
+		require.NoError(
+			t,
+			db.Create(&types.User{ID: u, Username: u, Email: u + "@synthetic.invalid", IsActive: true}).Error,
+		)
+		require.NoError(
+			t,
+			db.Create(
+				&types.TenantMember{
+					UserID:   u,
+					TenantID: 1,
+					Role:     types.TenantRoleContributor,
+					Status:   types.TenantMemberStatusActive,
+				},
+			).Error,
+		)
 		owner := u
-		require.NoError(t, db.Create(&types.TenantAPIKey{OwnerUserID: &owner, ScopeType: types.APIKeyScopeUserMCP, Name: u, KeyHash: u, PersonalScopeMode: "dynamic_all", Capabilities: types.StringArray{"retrieve", "add_content"}}).Error)
-		require.NoError(t, db.Create(&types.KnowledgeBase{ID: u + "-kb", TenantID: 1, Name: u, Type: "document", CreatorID: u}).Error)
+		require.NoError(
+			t,
+			db.Create(
+				&types.TenantAPIKey{
+					OwnerUserID:       &owner,
+					ScopeType:         types.APIKeyScopeUserMCP,
+					Name:              u,
+					KeyHash:           u,
+					PersonalScopeMode: "dynamic_all",
+					Capabilities:      types.StringArray{"retrieve", "add_content"},
+				},
+			).Error,
+		)
+		require.NoError(
+			t,
+			db.Create(&types.KnowledgeBase{ID: u + "-kb", TenantID: 1, Name: u, Type: "document", CreatorID: u}).Error,
+		)
 	}
 	types.EnablePrivateKBGuards(db)
 	kbs := repository.NewKnowledgeBaseRepository(db)
 	kr := repository.NewKnowledgeRepository(db)
 	keys := repository.NewTenantAPIKeyRepository(db).(interfaces.UserMCPAPIKeyRepository)
-	svc := &PersonalContent{DB: db, Keys: keys, Members: NewTenantMemberService(repository.NewTenantMemberRepository(db), nil, nil, nil), KBs: kbs, Tenants: NewTenantService(repository.NewTenantRepository(db), nil), Employees: &repository.KnowHubPersonalUserVerifier{DB: db}, Knowledge: &knowledgeService{repo: kr, kbService: &knowledgeBaseService{repo: kbs}}}
+	svc := &PersonalContent{
+		DB:        db,
+		Keys:      keys,
+		Members:   NewTenantMemberService(repository.NewTenantMemberRepository(db), nil, nil, nil),
+		KBs:       kbs,
+		Tenants:   NewTenantService(repository.NewTenantRepository(db), nil),
+		Employees: &repository.KnowHubPersonalUserVerifier{DB: db},
+		Knowledge: &knowledgeService{repo: kr, kbService: &knowledgeBaseService{repo: kbs}},
+	}
 	ctxFor := func(user string, key uint64) context.Context {
 		ctx := context.WithValue(context.Background(), types.UserIDContextKey, user)
 		ctx = types.WithCaller(ctx, types.Caller{TenantID: 1, UserID: user, Role: types.TenantRoleContributor})
 		ctx = types.WithPrincipal(ctx, types.Principal{Type: types.PrincipalWebUser, ID: user})
-		return types.WithTenantAPIKeyScope(ctx, types.TenantAPIKeyScope{KeyID: key, ScopeType: types.APIKeyScopeUserMCP, Capabilities: types.StringArray{"retrieve", "add_content"}})
+		return types.WithTenantAPIKeyScope(
+			ctx,
+			types.TenantAPIKeyScope{
+				KeyID:        key,
+				ScopeType:    types.APIKeyScopeUserMCP,
+				Capabilities: types.StringArray{"retrieve", "add_content"},
+			},
+		)
 	}
 	a, b := ctxFor("A", 1), ctxFor("B", 2)
-	request := PersonalContentRequest{KBID: "A-kb", Title: "new knowledge", Content: "synthetic markdown", IdempotencyKey: "request-0001"}
+	request := PersonalContentRequest{
+		KBID:           "A-kb",
+		Title:          "new knowledge",
+		Content:        "synthetic markdown",
+		IdempotencyKey: "request-0001",
+	}
 	rows, err := svc.ListWritable(a)
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
@@ -89,7 +160,12 @@ func TestPersonalContentRealDatabaseIsolationAndIdempotency(t *testing.T) {
 	files := fileService.NewLocalFileService(storage, "")
 	svc.Knowledge.(*knowledgeService).fileSvc = files
 	svc.Knowledge.(*knowledgeService).task = &createKnowledgeTaskEnqueuerStub{}
-	upload := PersonalUploadRequest{KBID: "A-kb", Filename: "upload.txt", ContentBase64: base64.StdEncoding.EncodeToString([]byte("file knowledge")), IdempotencyKey: "upload-0001"}
+	upload := PersonalUploadRequest{
+		KBID:           "A-kb",
+		Filename:       "upload.txt",
+		ContentBase64:  base64.StdEncoding.EncodeToString([]byte("file knowledge")),
+		IdempotencyKey: "upload-0001",
+	}
 	_, err = svc.Upload(b, upload)
 	require.Error(t, err)
 	svc.Scanner = nil // Explicitly deferred antivirus: type and authorization checks still apply.
@@ -113,7 +189,13 @@ func TestPersonalContentRealDatabaseIsolationAndIdempotency(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	require.NoError(t, db.Exec("CREATE TRIGGER reject_upload BEFORE INSERT ON knowledges WHEN NEW.file_name='reject.txt' BEGIN SELECT RAISE(ABORT,'synthetic insert failure'); END").Error)
+	require.NoError(
+		t,
+		db.Exec(
+			"CREATE TRIGGER reject_upload BEFORE INSERT ON knowledges WHEN NEW.file_nam"+
+				"e='reject.txt' BEGIN SELECT RAISE(ABORT,'synthetic insert failure'); END",
+		).Error,
+	)
 	rejected := upload
 	rejected.Filename = "reject.txt"
 	rejected.IdempotencyKey = "upload-rejected-0001"

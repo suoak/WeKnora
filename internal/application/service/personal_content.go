@@ -18,6 +18,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// ErrPersonalContentConflict reports an idempotency key reused with another payload.
 var ErrPersonalContentConflict = errors.New("idempotency_key already used with different content")
 
 // PersonalContent has no dependency on the public search directory. Every
@@ -35,7 +36,19 @@ type PersonalContent struct {
 	Scanner   FileScanner
 }
 
-func NewPersonalContent(cfg *config.Config, db *gorm.DB, keys interfaces.TenantAPIKeyRepository, members interfaces.TenantMemberService, kbs interfaces.KnowledgeBaseRepository, shares interfaces.KBShareService, tenants interfaces.TenantService, knowledge interfaces.KnowledgeService, portal *PortalMCPKnowledge, audit interfaces.AuditLogService) *PersonalContent {
+// NewPersonalContent wires live personal authorization and existing content services.
+func NewPersonalContent(
+	cfg *config.Config,
+	db *gorm.DB,
+	keys interfaces.TenantAPIKeyRepository,
+	members interfaces.TenantMemberService,
+	kbs interfaces.KnowledgeBaseRepository,
+	shares interfaces.KBShareService,
+	tenants interfaces.TenantService,
+	knowledge interfaces.KnowledgeService,
+	portal *PortalMCPKnowledge,
+	audit interfaces.AuditLogService,
+) *PersonalContent {
 	live, ok := keys.(interfaces.UserMCPAPIKeyRepository)
 	if !ok || portal == nil || portal.Resolver == nil {
 		return nil
@@ -44,9 +57,21 @@ func NewPersonalContent(cfg *config.Config, db *gorm.DB, keys interfaces.TenantA
 	if cfg != nil && cfg.PersonalMCP != nil && cfg.PersonalMCP.UploadScannerAddress != "" {
 		scanner = ClamdScanner{Address: cfg.PersonalMCP.UploadScannerAddress}
 	}
-	return &PersonalContent{DB: db, Keys: live, Members: members, KBs: kbs, Shares: shares, Tenants: tenants, Knowledge: knowledge, Employees: portal.Resolver.Employees, Audit: audit, Scanner: scanner}
+	return &PersonalContent{
+		DB:        db,
+		Keys:      live,
+		Members:   members,
+		KBs:       kbs,
+		Shares:    shares,
+		Tenants:   tenants,
+		Knowledge: knowledge,
+		Employees: portal.Resolver.Employees,
+		Audit:     audit,
+		Scanner:   scanner,
+	}
 }
 
+// WritableKnowledgeBase describes a currently writable target for client selection.
 type WritableKnowledgeBase struct {
 	ID           string   `json:"knowledge_base_id"`
 	Name         string   `json:"knowledge_base_name"`
@@ -59,14 +84,24 @@ func (s *PersonalContent) credential(ctx context.Context) (*types.TenantAPIKey, 
 	scope, ok := types.TenantAPIKeyScopeFromContext(ctx)
 	caller := types.CallerFromContext(ctx)
 	p, human := ctx.Value(types.PrincipalContextKey).(types.Principal)
-	if s == nil || s.DB == nil || s.Keys == nil || s.Members == nil || s.Employees == nil || !ok || scope.ScopeType != types.APIKeyScopeUserMCP || scope.FullAccess || !human || p.Type != types.PrincipalWebUser || p.ID == "" || caller.UserID != p.ID || !scope.HasCapability(types.APIKeyCapabilityAddContent) {
+	if s == nil || s.DB == nil || s.Keys == nil || s.Members == nil || s.Employees == nil || !ok ||
+		scope.ScopeType != types.APIKeyScopeUserMCP ||
+		scope.FullAccess ||
+		!human ||
+		p.Type != types.PrincipalWebUser ||
+		p.ID == "" ||
+		caller.UserID != p.ID ||
+		!scope.HasCapability(types.APIKeyCapabilityAddContent) {
 		return nil, access.ErrForbidden
 	}
 	key, err := s.Keys.GetUserMCPAPIKey(ctx, p.ID, scope.KeyID)
 	if err != nil {
 		return nil, err
 	}
-	if key == nil || !key.IsUserMCP() || key.FullAccess || key.OwnerUserID == nil || *key.OwnerUserID != p.ID || key.RevokedAt != nil || key.ExpiresAt != nil && !key.ExpiresAt.After(time.Now()) || !(types.TenantAPIKeyScope{Capabilities: key.Capabilities}).HasCapability(types.APIKeyCapabilityAddContent) {
+	if key == nil || !key.IsUserMCP() || key.FullAccess || key.OwnerUserID == nil || *key.OwnerUserID != p.ID ||
+		key.RevokedAt != nil ||
+		key.ExpiresAt != nil && !key.ExpiresAt.After(time.Now()) ||
+		!(types.TenantAPIKeyScope{Capabilities: key.Capabilities}).HasCapability(types.APIKeyCapabilityAddContent) {
 		return nil, access.ErrForbidden
 	}
 	eligible, err := s.Employees.IsEnterpriseEmployee(ctx, p.ID)
@@ -99,7 +134,9 @@ func (s *PersonalContent) authorize(ctx context.Context, id string) (context.Con
 	}
 	base := &access.LiveDocumentBaseVerifier{Members: s.Members, Keys: s.Keys}
 	for _, member := range members {
-		if member == nil || member.UserID != *key.OwnerUserID || member.Status != types.TenantMemberStatusActive || member.DeletedAt.Valid || !member.Role.IsValid() {
+		if member == nil || member.UserID != *key.OwnerUserID || member.Status != types.TenantMemberStatusActive ||
+			member.DeletedAt.Valid ||
+			!member.Role.IsValid() {
 			continue
 		}
 		// This existing helper resolves dynamic_all to current membership, or the
@@ -117,7 +154,14 @@ func (s *PersonalContent) authorize(ctx context.Context, id string) (context.Con
 		if access.CheckKBContentCreate(fresh, kb, s.Shares) != nil {
 			continue
 		}
-		grant, e := access.ResolveKB(fresh, access.KBRequest{Caller: types.CallerFromContext(fresh)}, kb, types.OrgRoleEditor, s.Shares, nil)
+		grant, e := access.ResolveKB(
+			fresh,
+			access.KBRequest{Caller: types.CallerFromContext(fresh)},
+			kb,
+			types.OrgRoleEditor,
+			s.Shares,
+			nil,
+		)
 		if e != nil {
 			continue
 		}
@@ -130,13 +174,17 @@ func (s *PersonalContent) authorize(ctx context.Context, id string) (context.Con
 	return ctx, nil, access.ErrForbidden
 }
 
+// ListWritable recomputes write eligibility independently of public search scope.
 func (s *PersonalContent) ListWritable(ctx context.Context) ([]WritableKnowledgeBase, error) {
 	if _, err := s.credential(ctx); err != nil {
 		return nil, err
 	}
 	// Metadata candidates are independent of publication/search eligibility.
 	var ids []string
-	if err := s.DB.WithContext(ctx).Table("knowledge_bases").Where("deleted_at IS NULL AND is_temporary=false AND type=?", types.KnowledgeBaseTypeDocument).Order("id").Pluck("id", &ids).Error; err != nil {
+	if err := s.DB.WithContext(ctx).
+		Table("knowledge_bases").
+		Where("deleted_at IS NULL AND is_temporary=false AND type=?", types.KnowledgeBaseTypeDocument).
+		Order("id").Pluck("id", &ids).Error; err != nil {
 		return nil, err
 	}
 	rows := []WritableKnowledgeBase{}
@@ -146,12 +194,28 @@ func (s *PersonalContent) ListWritable(ctx context.Context) ([]WritableKnowledge
 			continue
 		}
 		tenant, _ := types.TenantInfoFromContext(scoped)
-		contentTypes := []string{"text/markdown", "text/plain", "application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
-		rows = append(rows, WritableKnowledgeBase{ID: kb.ID, Name: kb.Name, Space: tenant.Name, Permission: "editor", ContentTypes: contentTypes})
+		contentTypes := []string{
+			"text/markdown",
+			"text/plain",
+			"application/pdf",
+			"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+			"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+		}
+		rows = append(
+			rows,
+			WritableKnowledgeBase{
+				ID:           kb.ID,
+				Name:         kb.Name,
+				Space:        tenant.Name,
+				Permission:   "editor",
+				ContentTypes: contentTypes,
+			},
+		)
 	}
 	return rows, nil
 }
 
+// PersonalContentRequest carries a bounded text creation and retry identity.
 type PersonalContentRequest struct {
 	KBID           string `json:"knowledge_base_id"`
 	Title          string `json:"title"`
@@ -160,6 +224,7 @@ type PersonalContentRequest struct {
 	IdempotencyKey string `json:"-"`
 }
 
+// Add creates text knowledge after checking the current Key and content permissions.
 func (s *PersonalContent) Add(ctx context.Context, req PersonalContentRequest) (created *types.Knowledge, err error) {
 	caller := types.CallerFromContext(ctx)
 	scope, _ := types.TenantAPIKeyScopeFromContext(ctx)
@@ -182,15 +247,34 @@ func (s *PersonalContent) Add(ctx context.Context, req PersonalContentRequest) (
 			}
 		}
 		details, _ := json.Marshal(map[string]any{"key_id": scope.KeyID})
-		_ = s.Audit.Log(context.WithoutCancel(ctx), &types.AuditLog{TenantID: tenant, ActorUserID: caller.UserID, Action: "mcp.content_added", ScopeType: "knowledge_base", ScopeID: req.KBID, TargetType: "knowledge", TargetID: doc, Outcome: outcome, Details: types.JSON(details)})
+		_ = s.Audit.Log(
+			context.WithoutCancel(ctx),
+			&types.AuditLog{
+				TenantID:    tenant,
+				ActorUserID: caller.UserID,
+				Action:      "mcp.content_added",
+				ScopeType:   "knowledge_base",
+				ScopeID:     req.KBID,
+				TargetType:  "knowledge",
+				TargetID:    doc,
+				Outcome:     outcome,
+				Details:     types.JSON(details),
+			},
+		)
 	}()
-	if len(req.IdempotencyKey) < 8 || len(req.IdempotencyKey) > 128 || strings.TrimSpace(req.Title) == "" || len(req.Title) > 512 || strings.TrimSpace(req.Content) == "" || len(req.Content) > 512<<10 {
+	if len(req.IdempotencyKey) < 8 || len(req.IdempotencyKey) > 128 || strings.TrimSpace(req.Title) == "" ||
+		len(req.Title) > 512 ||
+		strings.TrimSpace(req.Content) == "" ||
+		len(req.Content) > 512<<10 {
 		return nil, errors.New("invalid title, content or idempotency_key (8..128 characters)")
 	}
 	// Embedded file references can cause parser fetches or claim existing stored
 	// resources. Text admission does not establish authorization to those files.
 	lower := strings.ToLower(req.Content)
-	if strings.Contains(lower, "![") || strings.Contains(lower, "<img") || strings.Contains(lower, "<iframe") || strings.Contains(lower, "file://") || strings.Contains(lower, "resource://") || strings.Contains(lower, "/files/") {
+	if strings.Contains(lower, "![") || strings.Contains(lower, "<img") || strings.Contains(lower, "<iframe") ||
+		strings.Contains(lower, "file://") ||
+		strings.Contains(lower, "resource://") ||
+		strings.Contains(lower, "/files/") {
 		return nil, errors.New("embedded resources require the controlled upload workflow")
 	}
 	scoped, kb, err := s.authorize(ctx, req.KBID)
@@ -200,7 +284,9 @@ func (s *PersonalContent) Add(ctx context.Context, req PersonalContentRequest) (
 	raw, _ := json.Marshal(req)
 	sum := sha256.Sum256(raw)
 	hash := hex.EncodeToString(sum[:])
-	id := uuid.NewSHA1(uuid.NameSpaceOID, []byte(fmt.Sprintf("knowhub:personal-content:%d:%s", scope.KeyID, req.IdempotencyKey))).String()
+	id := uuid.NewSHA1(uuid.NameSpaceOID,
+		[]byte(fmt.Sprintf("knowhub:personal-content:%d:%s", scope.KeyID, req.IdempotencyKey))).
+		String()
 	existing := func() (*types.Knowledge, error) {
 		// A receipt is not a document read: never load title/body, sources or
 		// files, and never require a pending document to pass publication ACLs.
@@ -210,17 +296,28 @@ func (s *PersonalContent) Add(ctx context.Context, req PersonalContentRequest) (
 			KnowledgeBaseID, ParseStatus, ErrorMessage, RequestHash string
 		}
 		fingerprint := "metadata->>'creation_request_hash'"
-		if s.DB.Dialector.Name() == "sqlite" {
+		if s.DB.Name() == "sqlite" {
 			fingerprint = "json_extract(metadata, '$.creation_request_hash')"
 		}
-		e := s.DB.WithContext(scoped).Table("knowledges").Select("id, tenant_id, knowledge_base_id, parse_status, error_message, "+fingerprint+" AS request_hash").Where("id=? AND deleted_at IS NULL", id).Take(&receipt).Error
+		e := s.DB.WithContext(scoped).
+			Table("knowledges").
+			Select("id, tenant_id, knowledge_base_id, parse_status, error_message, "+fingerprint+" AS request_hash").
+			Where("id=? AND deleted_at IS NULL", id).
+			Take(&receipt).
+			Error
 		if e != nil {
 			return nil, e
 		}
 		if receipt.RequestHash != hash || receipt.KnowledgeBaseID != kb.ID || receipt.TenantID != kb.TenantID {
 			return nil, ErrPersonalContentConflict
 		}
-		return &types.Knowledge{ID: receipt.ID, TenantID: receipt.TenantID, KnowledgeBaseID: receipt.KnowledgeBaseID, ParseStatus: receipt.ParseStatus, ErrorMessage: receipt.ErrorMessage}, nil
+		return &types.Knowledge{
+			ID:              receipt.ID,
+			TenantID:        receipt.TenantID,
+			KnowledgeBaseID: receipt.KnowledgeBaseID,
+			ParseStatus:     receipt.ParseStatus,
+			ErrorMessage:    receipt.ErrorMessage,
+		}, nil
 	}
 	if row, e := existing(); row != nil || errors.Is(e, ErrPersonalContentConflict) {
 		return row, e
@@ -229,7 +326,19 @@ func (s *PersonalContent) Add(ctx context.Context, req PersonalContentRequest) (
 	if req.Publish {
 		status = types.ManualKnowledgeStatusPublish
 	}
-	created, err = s.Knowledge.CreateKnowledgeFromManual(scoped, kb.ID, &types.ManualKnowledgePayload{Title: req.Title, Content: req.Content, Status: status, Channel: types.ChannelAPI, CreationID: id, CreationRequestHash: hash}, types.ChannelAPI)
+	created, err = s.Knowledge.CreateKnowledgeFromManual(
+		scoped,
+		kb.ID,
+		&types.ManualKnowledgePayload{
+			Title:               req.Title,
+			Content:             req.Content,
+			Status:              status,
+			Channel:             types.ChannelAPI,
+			CreationID:          id,
+			CreationRequestHash: hash,
+		},
+		types.ChannelAPI,
+	)
 	if err != nil {
 		// A primary-key race, timeout or post-insert error must not make another
 		// document. Only the INSERT winner enqueues parsing in the existing service.

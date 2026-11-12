@@ -2,6 +2,7 @@ package access
 
 import (
 	"context"
+
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
@@ -10,7 +11,8 @@ import (
 // a live membership role. Cross-workspace editors use the existing share cap.
 func CheckKBContentCreate(ctx context.Context, kb *types.KnowledgeBase, shares KBShareLookup) error {
 	caller := types.CallerFromContext(ctx).Normalize()
-	if kb == nil || kb.ID == "" || kb.TenantID == 0 || kb.DeletedAt.Valid || kb.IsTemporary || kb.Type != types.KnowledgeBaseTypeDocument {
+	if kb == nil || kb.ID == "" || kb.TenantID == 0 || kb.DeletedAt.Valid || kb.IsTemporary ||
+		kb.Type != types.KnowledgeBaseTypeDocument {
 		return ErrForbidden
 	}
 	if caller.UserID == "" || caller.TenantID == 0 {
@@ -20,7 +22,8 @@ func CheckKBContentCreate(ctx context.Context, kb *types.KnowledgeBase, shares K
 		return ErrForbidden
 	}
 	if kb.TenantID == caller.TenantID {
-		if caller.Role.HasPermission(types.TenantRoleAdmin) || (kb.CreatorID != "" && kb.CreatorID == caller.UserID) || kb.PrivateOwnerID == caller.UserID {
+		if caller.Role.HasPermission(types.TenantRoleAdmin) || (kb.CreatorID != "" && kb.CreatorID == caller.UserID) ||
+			kb.PrivateOwnerID == caller.UserID {
 			return nil
 		}
 		return ErrForbidden
@@ -51,7 +54,8 @@ func RequireKBContentCreate(ctx context.Context, kb *types.KnowledgeBase) error 
 		return nil
 	}
 	if keyed && scope.ScopeType == types.APIKeyScopeUserMCP {
-		if scope.FullAccess || !scope.HasCapability(types.APIKeyCapabilityAddContent) || !HasKBGrant(ctx, kb.ID, kb.TenantID, types.OrgRoleEditor) {
+		if scope.FullAccess || !scope.HasCapability(types.APIKeyCapabilityAddContent) ||
+			!HasKBGrant(ctx, kb.ID, kb.TenantID, types.OrgRoleEditor) {
 			return ErrForbidden
 		}
 	} else if err := RequireKBWrite(ctx, kb); err != nil {

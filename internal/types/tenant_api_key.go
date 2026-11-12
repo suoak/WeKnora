@@ -166,7 +166,7 @@ const (
 	// bases or agents, nor destructive KB clears, and the key's
 	// knowledge_base_ids allow-list still bounds every write.
 	APIKeyCapabilityIngest APIKeyCapability = "ingest"
-	// AddContent permits only Personal MCP creation, never REST ingest.
+	// APIKeyCapabilityAddContent permits only Personal MCP creation, never REST ingest.
 	APIKeyCapabilityAddContent APIKeyCapability = "add_content"
 	// APIKeyCapabilityManageKnowledgeBases lets a scoped key manage the full
 	// knowledge-base lifecycle: create, copy, duplicate, rename/reconfigure,

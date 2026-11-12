@@ -21,26 +21,33 @@ import (
 	"gorm.io/gorm"
 )
 
-type personalFileAdmissionKey struct{}
-type personalFileAdmission struct{ ID, Hash string }
+type (
+	personalFileAdmissionKey struct{}
+	personalFileAdmission    struct{ ID, Hash string }
+)
 
 var personalUploadLocks [64]sync.Mutex
 
+// PersonalUploadRequest contains file bytes and an idempotent creation identity.
 type PersonalUploadRequest struct{ KBID, Filename, ContentBase64, IdempotencyKey string }
 
 // withUploadLock serializes storage + INSERT admission across replicas using
 // PostgreSQL transaction advisory locks. No schema upgrade or business row lock.
-func (s *PersonalContent) withUploadLock(ctx context.Context, id string, fn func() (*types.Knowledge, error)) (*types.Knowledge, error) {
+func (s *PersonalContent) withUploadLock(
+	ctx context.Context,
+	id string,
+	fn func() (*types.Knowledge, error),
+) (*types.Knowledge, error) {
 	sum := sha256.Sum256([]byte(id))
 	var row *types.Knowledge
 	var err error
-	if s.DB.Dialector.Name() == "sqlite" {
+	if s.DB.Name() == "sqlite" {
 		lock := &personalUploadLocks[sum[0]%64]
 		lock.Lock()
 		defer lock.Unlock()
 		return fn()
 	}
-	if s.DB.Dialector.Name() != "postgres" {
+	if s.DB.Name() != "postgres" {
 		return nil, access.ErrForbidden
 	}
 	e := s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -60,9 +67,11 @@ func (s *PersonalContent) withUploadLock(ctx context.Context, id string, fn func
 	return row, err
 }
 
+// Upload validates file bytes and admits them into the existing asynchronous pipeline.
 func (s *PersonalContent) Upload(ctx context.Context, req PersonalUploadRequest) (created *types.Knowledge, err error) {
 	defer func() { s.auditContent(ctx, req.KBID, created, err) }()
-	if len(req.IdempotencyKey) < 8 || len(req.IdempotencyKey) > 128 || len(req.ContentBase64) > base64.StdEncoding.EncodedLen(PersonalUploadMaxBytes) {
+	if len(req.IdempotencyKey) < 8 || len(req.IdempotencyKey) > 128 ||
+		len(req.ContentBase64) > base64.StdEncoding.EncodedLen(PersonalUploadMaxBytes) {
 		return nil, ErrPersonalUpload
 	}
 	if _, _, err = s.authorize(ctx, req.KBID); err != nil {
@@ -85,7 +94,9 @@ func (s *PersonalContent) Upload(ctx context.Context, req PersonalUploadRequest)
 	sum := sha256.Sum256(data)
 	fingerprint := sha256.Sum256([]byte(req.KBID + "\x00" + req.Filename + "\x00" + hex.EncodeToString(sum[:])))
 	hash := hex.EncodeToString(fingerprint[:])
-	id := uuid.NewSHA1(uuid.NameSpaceOID, []byte(fmt.Sprintf("knowhub:personal-content:%d:%s", scope.KeyID, req.IdempotencyKey))).String()
+	id := uuid.NewSHA1(uuid.NameSpaceOID,
+		[]byte(fmt.Sprintf("knowhub:personal-content:%d:%s", scope.KeyID, req.IdempotencyKey))).
+		String()
 	return s.withUploadLock(ctx, id, func() (*types.Knowledge, error) {
 		// Scanning and waiting on another replica cannot preserve old authorization.
 		scoped, kb, e := s.authorize(ctx, req.KBID)
@@ -122,14 +133,24 @@ func (s *PersonalContent) Upload(ctx context.Context, req PersonalUploadRequest)
 		if e != nil {
 			return nil, e
 		}
-		defer form.RemoveAll()
+		defer func() { _ = form.RemoveAll() }()
 		files := form.File["file"]
 		if len(files) != 1 {
 			return nil, ErrPersonalUpload
 		}
 		scoped = context.WithValue(scoped, personalFileAdmissionKey{}, personalFileAdmission{ID: id, Hash: hash})
 		metadata := map[string]string{"creation_request_hash": hash, "mcp_key_id": fmt.Sprint(scope.KeyID)}
-		row, e := s.Knowledge.CreateKnowledgeFromFile(scoped, kb.ID, files[0], metadata, nil, "", nil, types.ChannelAPI, nil)
+		row, e := s.Knowledge.CreateKnowledgeFromFile(
+			scoped,
+			kb.ID,
+			files[0],
+			metadata,
+			nil,
+			"",
+			nil,
+			types.ChannelAPI,
+			nil,
+		)
 		return row, e
 	})
 }
@@ -141,16 +162,28 @@ type contentReceipt struct {
 }
 
 func (r contentReceipt) knowledge() *types.Knowledge {
-	return &types.Knowledge{ID: r.ID, TenantID: r.TenantID, KnowledgeBaseID: r.KBID, ParseStatus: r.ParseStatus, ErrorMessage: r.ErrorMessage}
+	return &types.Knowledge{
+		ID:              r.ID,
+		TenantID:        r.TenantID,
+		KnowledgeBaseID: r.KBID,
+		ParseStatus:     r.ParseStatus,
+		ErrorMessage:    r.ErrorMessage,
+	}
 }
+
 func (s *PersonalContent) contentReceipt(ctx context.Context, id string) (contentReceipt, error) {
 	var row contentReceipt
 	hash, key := "metadata->>'creation_request_hash'", "metadata->>'mcp_key_id'"
-	if s.DB.Dialector.Name() == "sqlite" {
+	if s.DB.Name() == "sqlite" {
 		hash = "json_extract(metadata,'$.creation_request_hash')"
 		key = "json_extract(metadata,'$.mcp_key_id')"
 	}
-	err := s.DB.WithContext(ctx).Table("knowledges").Select("id,tenant_id,knowledge_base_id AS kb_id,parse_status,error_message,"+hash+" AS hash,"+key+" AS key_id").Where("id=? AND deleted_at IS NULL", id).Take(&row).Error
+	err := s.DB.WithContext(ctx).
+		Table("knowledges").
+		Select("id,tenant_id,knowledge_base_id AS kb_id,parse_status,error_message,"+hash+" AS hash,"+key+" AS key_id").
+		Where("id=? AND deleted_at IS NULL", id).
+		Take(&row).
+		Error
 	return row, err
 }
 
@@ -196,9 +229,23 @@ func (s *PersonalContent) auditContent(ctx context.Context, kb string, row *type
 	details, _ := json.Marshal(map[string]any{"key_id": scope.KeyID})
 	audit, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
 	defer cancel()
-	_ = s.Audit.Log(audit, &types.AuditLog{TenantID: tenant, ActorUserID: caller.UserID, Action: "mcp.file_added", ScopeType: "knowledge_base", ScopeID: kb, TargetType: "knowledge", TargetID: id, Outcome: outcome, Details: types.JSON(details)})
+	_ = s.Audit.Log(
+		audit,
+		&types.AuditLog{
+			TenantID:    tenant,
+			ActorUserID: caller.UserID,
+			Action:      "mcp.file_added",
+			ScopeType:   "knowledge_base",
+			ScopeID:     kb,
+			TargetType:  "knowledge",
+			TargetID:    id,
+			Outcome:     outcome,
+			Details:     types.JSON(details),
+		},
+	)
 }
 
+// ResolveContentSelector accepts an exact writable ID or an unambiguous name.
 func (s *PersonalContent) ResolveContentSelector(ctx context.Context, selector string) (string, error) {
 	rows, e := s.ListWritable(ctx)
 	if e != nil {

@@ -56,3 +56,9 @@
 回滚只恢复上个 main 应用/前端镜像，保留 8443 代理和无 Docker socket 配置；本轮无新增数据库迁移。已新增的文档保留，不删除用户内容；旧程序会忽略新 metadata 字段。Key 的 `add_content` 不会转化成 `ingest` 或 FullAccess。
 
 PR：[KnowHub Personal MCP 文件新增](https://github.com/suoak/WeKnora/pull/138)。仍待最终提交 CI、运维实际 8443 映射回归；员工实时在职及杀毒扫描按用户指令延期。本报告不构成生产部署授权。
+
+## 主线兼容性补验
+
+开发期间 main 合入 Personal MCP 调度修复至 `f71b51608`，已在本开发分支通过 `2657df745` 合并，未修改 main。保留主线按真实用户的查询限流、工具发现与 SSE 独立配额；新增操作在身份确认后进入独立写入通道。合并版 Linux access/MCP/config 全套、定向 race 和 APP 编译均成功。两入口的 8 个只读工具现在共用完整定义，新增逐项 schema 对照，包含 Wiki 的范围、offset 和说明，避免云外工具定义遗漏原有参数。
+
+PR 触发的增量 lint 首次发现本次代码的行宽、导出注释和资源关闭返回值问题，已逐项修复，未禁用检查；最终以 PR 最新提交的 CI 为准。打包机重编译及合并版实际 MCP 复验记录会保存在同目录证据中。

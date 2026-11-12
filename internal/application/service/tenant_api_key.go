@@ -141,12 +141,15 @@ func (s *tenantAPIKeyService) CreateAPIKey(
 func (s *tenantAPIKeyService) ListUserMCPAPIKeys(ctx context.Context, userID string) ([]*types.TenantAPIKey, error) {
 	return s.repo.(interfaces.UserMCPAPIKeyRepository).ListUserMCPAPIKeys(ctx, userID)
 }
+
 func (s *tenantAPIKeyService) GetUserMCPAPIKey(ctx context.Context, userID string, id uint64) (*types.TenantAPIKey, error) {
 	return s.repo.(interfaces.UserMCPAPIKeyRepository).GetUserMCPAPIKey(ctx, userID, id)
 }
+
 func (s *tenantAPIKeyService) GetUserMCPTenantScope(ctx context.Context, keyID, tenantID uint64) (*types.APIKeyTenantScope, error) {
 	return s.repo.(interfaces.UserMCPAPIKeyRepository).GetUserMCPTenantScope(ctx, keyID, tenantID)
 }
+
 func (s *tenantAPIKeyService) ReplaceUserMCPAPIKey(ctx context.Context, userID string, key *types.TenantAPIKey) (*types.TenantAPIKey, error) {
 	key.Name = strings.TrimSpace(key.Name)
 	if key.Name == "" {
@@ -168,6 +171,7 @@ func (s *tenantAPIKeyService) ReplaceUserMCPAPIKey(ctx context.Context, userID s
 	}
 	return s.repo.(interfaces.UserMCPAPIKeyRepository).ReplaceUserMCPAPIKey(ctx, userID, key)
 }
+
 func (s *tenantAPIKeyService) RotateUserMCPAPIKey(ctx context.Context, userID string, id uint64, req interfaces.UserMCPAPIKeyRotateRequest) (*interfaces.TenantAPIKeyCreateResult, error) {
 	repo := s.repo.(interfaces.UserMCPAPIKeyRepository)
 	current, err := repo.GetUserMCPAPIKey(ctx, userID, id)
@@ -210,6 +214,7 @@ func recoverableUserMCPSecret(token string) (string, error) {
 	}
 	return utils.EncryptAESGCM(token, key)
 }
+
 func (s *tenantAPIKeyService) RevokeUserMCPAPIKey(ctx context.Context, userID string, id uint64) error {
 	return s.repo.(interfaces.UserMCPAPIKeyRepository).RevokeUserMCPAPIKey(ctx, userID, id)
 }
@@ -382,7 +387,8 @@ func normalizeUserMCPCapabilities(in []string, useDefault bool) (types.StringArr
 	}
 	for _, capability := range normalized {
 		switch types.APIKeyCapability(capability) {
-		case types.APIKeyCapabilityRetrieve, types.APIKeyCapabilityChat, types.APIKeyCapabilityReadAgents, types.APIKeyCapabilityEnterpriseRetrieve, types.APIKeyCapabilityAddContent:
+		case types.APIKeyCapabilityRetrieve, types.APIKeyCapabilityChat, types.APIKeyCapabilityReadAgents,
+			types.APIKeyCapabilityEnterpriseRetrieve, types.APIKeyCapabilityAddContent:
 		default:
 			return nil, errors.New("unsupported user_mcp capability")
 		}

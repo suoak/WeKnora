@@ -16,8 +16,10 @@ import (
 	"unicode/utf8"
 )
 
+// PersonalUploadMaxBytes bounds decoded file content before parser admission.
 const PersonalUploadMaxBytes = 8 << 20
 
+// ErrPersonalUpload reports content rejected during upload admission.
 var ErrPersonalUpload = errors.New("file rejected: unsupported, unsafe, oversized or unscannable content")
 
 // FileScanner must scan the complete bounded byte stream; failures deny upload.
@@ -30,6 +32,7 @@ type FileScanner interface {
 // configuration, never an RPC argument. Only an explicit clean verdict passes.
 type ClamdScanner struct{ Address string }
 
+// Scan streams bounded file bytes to the configured optional scanner.
 func (s ClamdScanner) Scan(ctx context.Context, data []byte) error {
 	if s.Address == "" || len(data) == 0 || len(data) > PersonalUploadMaxBytes {
 		return ErrPersonalUpload
@@ -45,10 +48,10 @@ func (s ClamdScanner) Scan(ctx context.Context, data []byte) error {
 	if err != nil {
 		return ErrPersonalUpload
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	deadline, _ := ctx.Deadline()
 	_ = conn.SetDeadline(deadline)
-	stop := context.AfterFunc(ctx, func() { conn.Close() })
+	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
 	defer stop()
 	if _, err = io.Copy(conn, strings.NewReader("zINSTREAM\x00")); err != nil {
 		return ErrPersonalUpload
@@ -79,7 +82,9 @@ func (s ClamdScanner) Scan(ctx context.Context, data []byte) error {
 }
 
 func validatePersonalFile(name string, data []byte) error {
-	if len(name) == 0 || len(name) > 180 || path.Base(name) != name || strings.ContainsAny(name, "\\:\x00\r\n") || len(data) == 0 || len(data) > PersonalUploadMaxBytes {
+	if len(name) == 0 || len(name) > 180 || path.Base(name) != name || strings.ContainsAny(name, "\\:\x00\r\n") ||
+		len(data) == 0 ||
+		len(data) > PersonalUploadMaxBytes {
 		return ErrPersonalUpload
 	}
 	switch strings.ToLower(path.Ext(name)) {
@@ -100,7 +105,10 @@ func validatePersonalFile(name string, data []byte) error {
 			return ErrPersonalUpload
 		}
 		// Reject encryption and active/embedded content before antivirus/parser.
-		for _, token := range []string{"/Encrypt", "/JavaScript", "/JS", "/Launch", "/EmbeddedFile", "/OpenAction", "/AA", "/XFA", "/URI", "/GoToR"} {
+		for _, token := range []string{
+			"/Encrypt", "/JavaScript", "/JS", "/Launch", "/EmbeddedFile", "/OpenAction",
+			"/AA", "/XFA", "/URI", "/GoToR",
+		} {
 			if bytes.Contains(data, []byte(token)) {
 				return ErrPersonalUpload
 			}
@@ -119,11 +127,15 @@ func validatePersonalFile(name string, data []byte) error {
 		for _, f := range z.File {
 			n := f.Name
 			lower := strings.ToLower(n)
-			if seen[n] || path.Clean(n) != strings.TrimSuffix(n, "/") || strings.HasPrefix(n, "/") || strings.ContainsAny(n, "\\:") || strings.HasPrefix(n, "../") || f.Flags&1 != 0 {
+			if seen[n] || path.Clean(n) != strings.TrimSuffix(n, "/") || strings.HasPrefix(n, "/") ||
+				strings.ContainsAny(n, "\\:") ||
+				strings.HasPrefix(n, "../") ||
+				f.Flags&1 != 0 {
 				return ErrPersonalUpload
 			}
 			seen[n] = true
-			if f.UncompressedSize64 > 16<<20 || total+int64(f.UncompressedSize64) > 32<<20 || f.UncompressedSize64 > max(uint64(1), f.CompressedSize64)*200 {
+			if f.UncompressedSize64 > 16<<20 || total+int64(f.UncompressedSize64) > 32<<20 ||
+				f.UncompressedSize64 > max(uint64(1), f.CompressedSize64)*200 {
 				return ErrPersonalUpload
 			}
 			total += int64(f.UncompressedSize64)
@@ -137,8 +149,8 @@ func validatePersonalFile(name string, data []byte) error {
 				return ErrPersonalUpload
 			}
 			b, e := io.ReadAll(io.LimitReader(r, 16<<20+1))
-			r.Close()
-			if e != nil || len(b) > 16<<20 {
+			closeErr := r.Close()
+			if e != nil || closeErr != nil || len(b) > 16<<20 {
 				return ErrPersonalUpload
 			}
 			if strings.HasSuffix(lower, ".xml") || strings.HasSuffix(lower, ".rels") {
@@ -151,7 +163,8 @@ func validatePersonalFile(name string, data []byte) error {
 					if e != nil {
 						return ErrPersonalUpload
 					}
-					if directive, ok := t.(xml.Directive); ok && strings.Contains(strings.ToUpper(string(directive)), "DOCTYPE") {
+					if directive, ok := t.(xml.Directive); ok &&
+						strings.Contains(strings.ToUpper(string(directive)), "DOCTYPE") {
 						return ErrPersonalUpload
 					}
 					if start, ok := t.(xml.StartElement); ok {
