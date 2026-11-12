@@ -1,0 +1,102 @@
+[
+  {
+    "name": "upload-denies-same-space",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "upload-denies-viewer",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "upload-denies-retrieve-only",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "upload-denies-fixed-scope",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "upload-denies-local-path",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "upload-denies-wrong-type",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "upload-denies-url-import",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "upload-denies-tenant-field",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "external-forged-headers-denied",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "isolated-forged-headers-denied",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "upload-cross-space-editor",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "upload-private-owner",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "upload-second-user-owner",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "status-other-key-denied",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "status-own-key",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "upload-editor-revoked",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "status-editor-revoked",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "upload-capability-revoked",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "revoked-capability-eight-tools",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "schema3046",
+    "pass": true,
+    "detail": null
+  }
+]

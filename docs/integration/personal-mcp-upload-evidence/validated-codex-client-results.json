@@ -1,0 +1,720 @@
+{
+  "client": "actual Codex app-server MCP client",
+  "model_generation": false,
+  "initialize": {
+    "userAgent": "codex_vscode/0.146.0 (Windows 10.0.18363; x86_64) dumb (knowhub_synthetic_acceptance; 1)",
+    "codexHome": "E:\\AIData\\Codex\\tmp\\personal-mcp-upload\\codex-client-home",
+    "platformFamily": "windows",
+    "platformOs": "windows"
+  },
+  "inventory": {
+    "data": [
+      {
+        "name": "knowhub_external",
+        "serverInfo": {
+          "name": "knowhub-personal",
+          "title": null,
+          "version": "0.2.0",
+          "description": null,
+          "icons": null,
+          "websiteUrl": null
+        },
+        "tools": {
+          "list_knowledge_bases": {
+            "name": "list_knowledge_bases",
+            "description": "List the knowledge bases this endpoint can access, with their id, name, description and which retrieval modes (semantic, keyword, wiki) each supports. Call this first to learn what is in scope; other tools accept either the id or the exact name.",
+            "inputSchema": {
+              "properties": {},
+              "required": [],
+              "type": "object"
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": true,
+              "idempotentHint": false,
+              "openWorldHint": true
+            }
+          },
+          "list_documents": {
+            "name": "list_documents",
+            "description": "List the documents inside one knowledge base with pagination and an optional title keyword filter. Returns document ids that read_document accepts.",
+            "inputSchema": {
+              "properties": {
+                "keyword": {
+                  "description": "Optional substring to filter document titles",
+                  "type": "string"
+                },
+                "knowledge_base_id": {
+                  "description": "Knowledge base id or exact name",
+                  "type": "string"
+                },
+                "page": {
+                  "description": "1-based page number, default 1",
+                  "type": "number"
+                },
+                "page_size": {
+                  "description": "Documents per page, default 20, max 100",
+                  "type": "number"
+                }
+              },
+              "required": [
+                "knowledge_base_id"
+              ],
+              "type": "object"
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": true,
+              "idempotentHint": false,
+              "openWorldHint": true
+            }
+          },
+          "grep_chunks": {
+            "name": "grep_chunks",
+            "description": "Case-insensitive regular-expression search over the text chunks of the knowledge bases in scope. Best for exact terms, identifiers, error codes or product names that semantic search may miss. Candidates come from the keyword index (the semantic index for bases without one) using the literal terms in the pattern, and every returned chunk matches the pattern.",
+            "inputSchema": {
+              "properties": {
+                "knowledge_base_ids": {
+                  "description": "Optional knowledge base ids or names to restrict the search",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "limit": {
+                  "description": "Maximum passages to return, default 10, max 30",
+                  "type": "number"
+                },
+                "query": {
+                  "description": "Regular expression (POSIX, case-insensitive) to match against chunk text; text that is not a valid regular expression is matched literally",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "query"
+              ],
+              "type": "object"
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": true,
+              "idempotentHint": false,
+              "openWorldHint": true
+            }
+          },
+          "add_document": {
+            "name": "add_document",
+            "description": "Create Markdown/text knowledge with a required idempotency key. Processing is asynchronous. Reuse the key only for the identical request. URLs and local file paths are unsupported.",
+            "inputSchema": {
+              "properties": {
+                "content": {
+                  "type": "string"
+                },
+                "idempotency_key": {
+                  "type": "string"
+                },
+                "knowledge_base_id": {
+                  "type": "string"
+                },
+                "publish": {
+                  "type": "boolean"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "knowledge_base_id",
+                "title",
+                "content",
+                "idempotency_key"
+              ],
+              "type": "object"
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": true,
+              "idempotentHint": false,
+              "openWorldHint": true
+            }
+          },
+          "get_document_processing_status": {
+            "name": "get_document_processing_status",
+            "description": "Read processing status for a document created by this Key; permission is checked again. No document content or storage paths are returned.",
+            "inputSchema": {
+              "properties": {
+                "document_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "document_id"
+              ],
+              "type": "object"
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": true,
+              "idempotentHint": false,
+              "openWorldHint": true
+            }
+          },
+          "read_document": {
+            "name": "read_document",
+            "description": "Read a document's metadata and its text chunks in order. Page through long documents with offset and limit, or pass query to return only the chunks containing a phrase (with one chunk of context on each side).",
+            "inputSchema": {
+              "properties": {
+                "knowledge_id": {
+                  "description": "Document id from search results or list_documents",
+                  "type": "string"
+                },
+                "limit": {
+                  "description": "Number of chunks to return, default 20, max 100",
+                  "type": "number"
+                },
+                "offset": {
+                  "description": "Chunk offset to start from, default 0",
+                  "type": "number"
+                },
+                "query": {
+                  "description": "Optional case-insensitive phrase to find inside the document",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "knowledge_id"
+              ],
+              "type": "object"
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": true,
+              "idempotentHint": false,
+              "openWorldHint": true
+            }
+          },
+          "list_writable_knowledge_bases": {
+            "name": "list_writable_knowledge_bases",
+            "description": "List current knowledge bases where this Key's owner may add content. Rechecked on every write.",
+            "inputSchema": {
+              "properties": {},
+              "required": [],
+              "type": "object"
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": true,
+              "idempotentHint": false,
+              "openWorldHint": true
+            }
+          },
+          "search_knowledge": {
+            "name": "search_knowledge",
+            "description": "Search the knowledge bases in scope and return the most relevant passages with their document ids and titles. mode hybrid (default) combines semantic and keyword retrieval; semantic ranks by meaning; keyword matches exact terms, identifiers, codes or names.",
+            "inputSchema": {
+              "properties": {
+                "knowledge_base_ids": {
+                  "description": "Optional knowledge base ids or names to restrict the search; defaults to every knowledge base in scope",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "limit": {
+                  "description": "Maximum passages to return, default 10, max 30",
+                  "type": "number"
+                },
+                "mode": {
+                  "description": "hybrid (default), semantic, or keyword",
+                  "enum": [
+                    "hybrid",
+                    "semantic",
+                    "keyword"
+                  ],
+                  "type": "string"
+                },
+                "query": {
+                  "description": "A natural-language question, topic, or the exact terms to match",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "query"
+              ],
+              "type": "object"
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": true,
+              "idempotentHint": false,
+              "openWorldHint": true
+            }
+          },
+          "wiki_index": {
+            "name": "wiki_index",
+            "description": "Read a verified Wiki directory without creating an index page. Results are bounded; truncation and unavailable provenance are explicit.",
+            "inputSchema": {
+              "properties": {
+                "knowledge_base_id": {
+                  "description": "Knowledge base id or exact name",
+                  "type": "string"
+                },
+                "limit": {
+                  "description": "Maximum entries per page type, default 50, max 200",
+                  "type": "number"
+                },
+                "offset": {
+                  "description": "Optional result offset (0..1000); large scopes may be explicitly truncated.",
+                  "type": "number"
+                }
+              },
+              "required": [
+                "knowledge_base_id"
+              ],
+              "type": "object"
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": true,
+              "idempotentHint": false,
+              "openWorldHint": true
+            }
+          },
+          "upload_document": {
+            "name": "upload_document",
+            "description": "Upload complete file bytes as canonical base64, never a local path or URL. Supports PDF, DOCX, XLSX, TXT and Markdown up to 8 MiB. Reuse idempotency_key for retries. Discover a writable KB first; exact names are accepted.",
+            "inputSchema": {
+              "properties": {
+                "content_base64": {
+                  "type": "string"
+                },
+                "filename": {
+                  "type": "string"
+                },
+                "idempotency_key": {
+                  "type": "string"
+                },
+                "knowledge_base_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "knowledge_base_id",
+                "filename",
+                "content_base64",
+                "idempotency_key"
+              ],
+              "type": "object"
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": true,
+              "idempotentHint": false,
+              "openWorldHint": true
+            }
+          },
+          "wiki_read_page": {
+            "name": "wiki_read_page",
+            "description": "Read one wiki page by slug, including its content and outgoing links.",
+            "inputSchema": {
+              "properties": {
+                "knowledge_base_id": {
+                  "description": "Knowledge base id or name, required only when the same slug exists in several wikis",
+                  "type": "string"
+                },
+                "offset": {
+                  "description": "Optional result offset (0..1000); large scopes may be explicitly truncated.",
+                  "type": "number"
+                },
+                "slug": {
+                  "description": "Page slug from wiki_search or wiki_index, e.g. concept/rag",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "slug"
+              ],
+              "type": "object"
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": true,
+              "idempotentHint": false,
+              "openWorldHint": true
+            }
+          },
+          "wiki_search": {
+            "name": "wiki_search",
+            "description": "Search verified published Wiki pages across the current personal knowledge scope using bounded literal text. Unknown or revoked sources are omitted with a partial warning.",
+            "inputSchema": {
+              "properties": {
+                "knowledge_base_ids": {
+                  "description": "Optional exact authorized KB IDs; omit to search all personal wikis.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "limit": {
+                  "description": "Maximum pages to return, default 10, max 50",
+                  "type": "number"
+                },
+                "offset": {
+                  "description": "Optional result offset (0..1000); large scopes may be explicitly truncated.",
+                  "type": "number"
+                },
+                "query": {
+                  "description": "Search terms or a regular expression (case-insensitive POSIX); text that is not a valid regular expression is matched literally",
+                  "type": "string"
+                },
+                "regex": {
+                  "description": "false forces a literal match; true requires a valid regular expression; omit for the default behaviour",
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "query"
+              ],
+              "type": "object"
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": true,
+              "idempotentHint": false,
+              "openWorldHint": true
+            }
+          }
+        },
+        "resources": [],
+        "resourceTemplates": [],
+        "authStatus": "bearerToken"
+      },
+      {
+        "name": "knowhub_isolated",
+        "serverInfo": {
+          "name": "knowhub-personal",
+          "title": null,
+          "version": "0.1.0",
+          "description": null,
+          "icons": null,
+          "websiteUrl": null
+        },
+        "tools": {
+          "wiki_index": {
+            "name": "wiki_index",
+            "description": "Read a verified Wiki directory without creating an index page. Results are bounded; truncation and unavailable provenance are explicit.",
+            "inputSchema": {
+              "properties": {
+                "knowledge_base_id": {
+                  "description": "Knowledge base id or exact name",
+                  "type": "string"
+                },
+                "limit": {
+                  "description": "Maximum entries per page type, default 50, max 200",
+                  "type": "number"
+                },
+                "offset": {
+                  "description": "Optional result offset (0..1000); large scopes may be explicitly truncated.",
+                  "type": "number"
+                }
+              },
+              "required": [
+                "knowledge_base_id"
+              ],
+              "type": "object"
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": true,
+              "idempotentHint": false,
+              "openWorldHint": true
+            }
+          },
+          "list_documents": {
+            "name": "list_documents",
+            "description": "List the documents inside one knowledge base with pagination and an optional title keyword filter. Returns document ids that read_document accepts.",
+            "inputSchema": {
+              "properties": {
+                "keyword": {
+                  "description": "Optional substring to filter document titles",
+                  "type": "string"
+                },
+                "knowledge_base_id": {
+                  "description": "Knowledge base id or exact name",
+                  "type": "string"
+                },
+                "page": {
+                  "description": "1-based page number, default 1",
+                  "type": "number"
+                },
+                "page_size": {
+                  "description": "Documents per page, default 20, max 100",
+                  "type": "number"
+                }
+              },
+              "required": [
+                "knowledge_base_id"
+              ],
+              "type": "object"
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": true,
+              "idempotentHint": false,
+              "openWorldHint": true
+            }
+          },
+          "list_knowledge_bases": {
+            "name": "list_knowledge_bases",
+            "description": "List the knowledge bases this endpoint can access, with their id, name, description and which retrieval modes (semantic, keyword, wiki) each supports. Call this first to learn what is in scope; other tools accept either the id or the exact name.",
+            "inputSchema": {
+              "properties": {},
+              "required": [],
+              "type": "object"
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": true,
+              "idempotentHint": false,
+              "openWorldHint": true
+            }
+          },
+          "wiki_search": {
+            "name": "wiki_search",
+            "description": "Search verified published Wiki pages across the current personal knowledge scope using bounded literal text. Unknown or revoked sources are omitted with a partial warning.",
+            "inputSchema": {
+              "properties": {
+                "knowledge_base_ids": {
+                  "description": "Optional exact authorized KB IDs; omit to search all personal wikis.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "limit": {
+                  "description": "Maximum pages to return, default 10, max 50",
+                  "type": "number"
+                },
+                "offset": {
+                  "description": "Optional result offset (0..1000); large scopes may be explicitly truncated.",
+                  "type": "number"
+                },
+                "query": {
+                  "description": "Search terms or a regular expression (case-insensitive POSIX); text that is not a valid regular expression is matched literally",
+                  "type": "string"
+                },
+                "regex": {
+                  "description": "false forces a literal match; true requires a valid regular expression; omit for the default behaviour",
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "query"
+              ],
+              "type": "object"
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": true,
+              "idempotentHint": false,
+              "openWorldHint": true
+            }
+          },
+          "grep_chunks": {
+            "name": "grep_chunks",
+            "description": "Case-insensitive regular-expression search over the text chunks of the knowledge bases in scope. Best for exact terms, identifiers, error codes or product names that semantic search may miss. Candidates come from the keyword index (the semantic index for bases without one) using the literal terms in the pattern, and every returned chunk matches the pattern.",
+            "inputSchema": {
+              "properties": {
+                "knowledge_base_ids": {
+                  "description": "Optional knowledge base ids or names to restrict the search",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "limit": {
+                  "description": "Maximum passages to return, default 10, max 30",
+                  "type": "number"
+                },
+                "query": {
+                  "description": "Regular expression (POSIX, case-insensitive) to match against chunk text; text that is not a valid regular expression is matched literally",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "query"
+              ],
+              "type": "object"
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": true,
+              "idempotentHint": false,
+              "openWorldHint": true
+            }
+          },
+          "wiki_read_page": {
+            "name": "wiki_read_page",
+            "description": "Read one wiki page by slug, including its content and outgoing links.",
+            "inputSchema": {
+              "properties": {
+                "knowledge_base_id": {
+                  "description": "Knowledge base id or name, required only when the same slug exists in several wikis",
+                  "type": "string"
+                },
+                "offset": {
+                  "description": "Optional result offset (0..1000); large scopes may be explicitly truncated.",
+                  "type": "number"
+                },
+                "slug": {
+                  "description": "Page slug from wiki_search or wiki_index, e.g. concept/rag",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "slug"
+              ],
+              "type": "object"
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": true,
+              "idempotentHint": false,
+              "openWorldHint": true
+            }
+          },
+          "read_document": {
+            "name": "read_document",
+            "description": "Read a document's metadata and its text chunks in order. Page through long documents with offset and limit, or pass query to return only the chunks containing a phrase (with one chunk of context on each side).",
+            "inputSchema": {
+              "properties": {
+                "knowledge_id": {
+                  "description": "Document id from search results or list_documents",
+                  "type": "string"
+                },
+                "limit": {
+                  "description": "Number of chunks to return, default 20, max 100",
+                  "type": "number"
+                },
+                "offset": {
+                  "description": "Chunk offset to start from, default 0",
+                  "type": "number"
+                },
+                "query": {
+                  "description": "Optional case-insensitive phrase to find inside the document",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "knowledge_id"
+              ],
+              "type": "object"
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": true,
+              "idempotentHint": false,
+              "openWorldHint": true
+            }
+          },
+          "search_knowledge": {
+            "name": "search_knowledge",
+            "description": "Search the knowledge bases in scope and return the most relevant passages with their document ids and titles. mode hybrid (default) combines semantic and keyword retrieval; semantic ranks by meaning; keyword matches exact terms, identifiers, codes or names.",
+            "inputSchema": {
+              "properties": {
+                "knowledge_base_ids": {
+                  "description": "Optional knowledge base ids or names to restrict the search; defaults to every knowledge base in scope",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "limit": {
+                  "description": "Maximum passages to return, default 10, max 30",
+                  "type": "number"
+                },
+                "mode": {
+                  "description": "hybrid (default), semantic, or keyword",
+                  "enum": [
+                    "hybrid",
+                    "semantic",
+                    "keyword"
+                  ],
+                  "type": "string"
+                },
+                "query": {
+                  "description": "A natural-language question, topic, or the exact terms to match",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "query"
+              ],
+              "type": "object"
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": true,
+              "idempotentHint": false,
+              "openWorldHint": true
+            }
+          }
+        },
+        "resources": [],
+        "resourceTemplates": [],
+        "authStatus": "bearerToken"
+      }
+    ],
+    "nextCursor": null
+  },
+  "calls": [
+    {
+      "server": "knowhub_external",
+      "tool": "list_writable_knowledge_bases",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[{\"knowledge_base_id\":\"upload-a-kb\",\"knowledge_base_name\":\"upload-a-kb\",\"space_name\":\"Synthetic space 1\",\"permission\":\"editor\",\"supported_content_types\":[\"text/markdown\",\"text/plain\",\"application/pdf\",\"application/vnd.openxmlformats-officedocument.wordprocessingml.document\",\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\"]},{\"knowledge_base_id\":\"upload-editor-kb\",\"knowledge_base_name\":\"upload-editor-kb\",\"space_name\":\"Synthetic space 2\",\"permission\":\"editor\",\"supported_content_types\":[\"text/markdown\",\"text/plain\",\"application/pdf\",\"application/vnd.openxmlformats-officedocument.wordprocessingml.document\",\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\"]},{\"knowledge_base_id\":\"upload-private-kb\",\"knowledge_base_name\":\"upload-private-kb\",\"space_name\":\"Synthetic space 1\",\"permission\":\"editor\",\"supported_content_types\":[\"text/markdown\",\"text/plain\",\"application/pdf\",\"application/vnd.openxmlformats-officedocument.wordprocessingml.document\",\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\"]}]"
+          }
+        ]
+      }
+    },
+    {
+      "server": "knowhub_isolated",
+      "tool": "list_knowledge_bases",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[{\"capabilities\":[\"keyword\",\"semantic\",\"hybrid\"],\"id\":\"upload-a-kb\",\"name\":\"upload-a-kb\",\"public\":false,\"space\":\"Synthetic space 1\",\"tenant_id\":1},{\"capabilities\":[\"keyword\",\"semantic\",\"hybrid\"],\"id\":\"upload-b-kb\",\"name\":\"upload-b-kb\",\"public\":false,\"space\":\"Synthetic space 1\",\"tenant_id\":1},{\"capabilities\":[\"keyword\",\"semantic\",\"hybrid\"],\"id\":\"upload-private-kb\",\"name\":\"upload-private-kb\",\"public\":false,\"space\":\"Synthetic space 1\",\"tenant_id\":1},{\"capabilities\":[\"keyword\",\"semantic\",\"hybrid\"],\"id\":\"upload-editor-kb\",\"name\":\"upload-editor-kb\",\"public\":true,\"space\":\"Synthetic space 2\",\"tenant_id\":2},{\"capabilities\":[\"keyword\",\"semantic\",\"hybrid\"],\"id\":\"upload-viewer-kb\",\"name\":\"upload-viewer-kb\",\"public\":true,\"space\":\"Synthetic space 2\",\"tenant_id\":2}]"
+          }
+        ]
+      }
+    },
+    {
+      "server": "knowhub_external",
+      "tool": "add_document",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"document_id\":\"cb3f9554-bce8-52c0-8a40-a1b26ee8ceaa\",\"failure_reason\":\"\",\"knowledge_base_id\":\"upload-a-kb\",\"next_step\":\"Use get_document_processing_status with document_id. Retry admission with the same idempotency_key; do not create a replacement.\",\"parse_status\":\"completed\",\"status\":\"success\"}"
+          }
+        ]
+      }
+    },
+    {
+      "server": "knowhub_external",
+      "tool": "upload_document",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"document_id\":\"ea59e5f0-f1ee-579a-ad72-016e7830ae3c\",\"failure_reason\":\"\",\"knowledge_base_id\":\"upload-a-kb\",\"next_step\":\"Use get_document_processing_status with document_id. Retry admission with the same idempotency_key; do not create a replacement.\",\"parse_status\":\"completed\",\"status\":\"success\"}"
+          }
+        ]
+      }
+    }
+  ]
+}
